@@ -1,5 +1,3 @@
-/*	$NetBSD: proc_compare.c,v 1.7 1997/10/20 02:49:14 mrg Exp $	*/
-
 /*-
  * Copyright (c) 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,17 +32,14 @@
  */
 
 #include <sys/cdefs.h>
+
 #ifndef lint
-#if 0
-static char sccsid[] = "@(#)proc_compare.c	8.2 (Berkeley) 9/23/93";
-#else
-__RCSID("$NetBSD: proc_compare.c,v 1.7 1997/10/20 02:49:14 mrg Exp $");
+static const char sccsid[] = "@(#)proc_compare.c	8.2 (Berkeley) 9/23/93";
 #endif
-#endif /* not lint */
 
 #include <sys/param.h>
 #include <sys/time.h>
-#include <sys/proc.h>
+#include <sys/user.h>
 
 #include "extern.h"
 
@@ -58,7 +53,7 @@ __RCSID("$NetBSD: proc_compare.c,v 1.7 1997/10/20 02:49:14 mrg Exp $");
  *	   with the highest cpu utilization is picked (p_estcpu).  Ties are
  *	   broken by picking the highest pid.
  *	3) The sleeper with the shortest sleep time is next.  With ties,
- *	   we pick out just "short-term" sleepers (P_SINTR == 0).
+ *	   we pick out just "short-term" sleepers (PS_SINTR == 0).
  *	4) Further ties are broken by picking the highest pid.
  *
  * If you change this, be sure to consider making the change in the kernel
@@ -67,7 +62,10 @@ __RCSID("$NetBSD: proc_compare.c,v 1.7 1997/10/20 02:49:14 mrg Exp $");
  * TODO - consider whether pctcpu should be used.
  */
 
-#define ISRUN(p)	(((p)->p_stat == SRUN) || ((p)->p_stat == SIDL))
+#include <sys/cdefs.h>
+
+
+#define ISRUN(p)        (((p)->p_stat == SRUN) || ((p)->p_stat == SIDL))
 #define TESTAB(a, b)    ((a)<<1 | (b))
 #define ONLYA   2
 #define ONLYB   1
@@ -75,7 +73,7 @@ __RCSID("$NetBSD: proc_compare.c,v 1.7 1997/10/20 02:49:14 mrg Exp $");
 
 int
 proc_compare(p1, p2)
-	struct proc *p1, *p2;
+	struct extern_proc *p1, *p2;
 {
 
 	if (p1 == NULL)
@@ -123,5 +121,5 @@ proc_compare(p1, p2)
 		return (1);
 	if (p2->p_flag & P_SINTR && (p1->p_flag & P_SINTR) == 0)
 		return (0);
-	return (p2->p_pid > p1->p_pid);		/* tie - return highest pid */
+	return (p2->p_pid > p1->p_pid);	/* tie - return highest pid */
 }

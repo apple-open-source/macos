@@ -20,3 +20,31 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
+
+#include <sys/types.h>
+#include <sys/time.h>
+#include <sys/resource.h>
+#include "bfd.h"
+
+void
+_initialize_macosx_nat ()
+{
+  struct rlimit limit;
+  rlim_t reserve;
+
+  getrlimit (RLIMIT_NOFILE, &limit);
+  limit.rlim_cur = limit.rlim_max;
+  setrlimit (RLIMIT_NOFILE, &limit);
+
+  /* Reserve 10% of file descriptors for non-BFD uses, or 5, whichever
+     is greater.  Allocate at least one file descriptor for use by
+     BFD. */
+
+  reserve = (int) limit.rlim_max * 0.1;
+  reserve = (reserve > 5) ? reserve : 5;
+  if (reserve >= limit.rlim_max) {
+    bfd_set_cache_max_open (1);
+  } else {
+    bfd_set_cache_max_open (limit.rlim_max - reserve);
+  }
+}

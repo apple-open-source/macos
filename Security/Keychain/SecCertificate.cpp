@@ -16,16 +16,19 @@
  */
 
 #include <Security/SecCertificate.h>
+#include <Security/SecCertificatePriv.h>
+#include <Security/Certificate.h>
+#include <Security/Item.h>
+#include <Security/KCCursor.h>
 
 #include "SecBridge.h"
-
 
 CFTypeID
 SecCertificateGetTypeID(void)
 {
 	BEGIN_SECAPI
 
-	return gTypes().certificate.typeId;
+	return gTypes().Certificate.typeID;
 
 	END_SECAPI1(_kCFRuntimeNotATypeID)
 }
@@ -36,8 +39,8 @@ SecCertificateCreateFromData(const CSSM_DATA *data, CSSM_CERT_TYPE type, CSSM_CE
 {
 	BEGIN_SECAPI
 
-	RefPointer<Certificate> certificatePtr(new Certificate(Required(data), type, encoding));
-	Required(certificate) = gTypes().certificate.handle(*certificatePtr);
+	SecPointer<Certificate> certificatePtr(new Certificate(Required(data), type, encoding));
+	Required(certificate) = certificatePtr->handle();
 
 	END_SECAPI
 }
@@ -48,7 +51,7 @@ SecCertificateAddToKeychain(SecCertificateRef certificate, SecKeychainRef keycha
 {
 	BEGIN_SECAPI
 
-	Item item(gTypes().certificate.required(certificate));
+	Item item(Certificate::required(certificate));
 	Keychain::optional(keychain)->add(item);
 
 	END_SECAPI
@@ -59,7 +62,7 @@ SecCertificateGetData(SecCertificateRef certificate, CSSM_DATA_PTR data)
 {
 	BEGIN_SECAPI
 
-	Required(data) = gTypes().certificate.required(certificate)->data();
+	Required(data) = Certificate::required(certificate)->data();
 
 	END_SECAPI
 }
@@ -70,7 +73,7 @@ SecCertificateGetType(SecCertificateRef certificate, CSSM_CERT_TYPE *certificate
 {
     BEGIN_SECAPI
 
-	Required(certificateType) = gTypes().certificate.required(certificate)->type();
+	Required(certificateType) = Certificate::required(certificate)->type();
 
     END_SECAPI
 }
@@ -81,7 +84,7 @@ SecCertificateGetSubject(SecCertificateRef certificate, CSSM_X509_NAME* subject)
 {
     BEGIN_SECAPI
 
-	gTypes().certificate.required(certificate)->getSubject(Required(subject));
+	Certificate::required(certificate)->getSubject(Required(subject));
 
     END_SECAPI
 }
@@ -92,7 +95,7 @@ SecCertificateGetIssuer(SecCertificateRef certificate, CSSM_X509_NAME* issuer)
 {
     BEGIN_SECAPI
 
-	gTypes().certificate.required(certificate)->getIssuer(Required(issuer));
+	Certificate::required(certificate)->getIssuer(Required(issuer));
 
     END_SECAPI
 }
@@ -103,7 +106,164 @@ SecCertificateGetCLHandle(SecCertificateRef certificate, CSSM_CL_HANDLE *clHandl
 {
     BEGIN_SECAPI
 
-	Required(clHandle) = gTypes().certificate.required(certificate)->clHandle();
+	Required(clHandle) = Certificate::required(certificate)->clHandle();
 
     END_SECAPI
+}
+
+/*
+ * Private API to infer a display name for a SecCertificateRef which
+ * may or may not be in a keychain.
+ */
+OSStatus
+SecCertificateInferLabel(SecCertificateRef certificate, CFStringRef *label)
+{
+    BEGIN_SECAPI
+
+	Certificate::required(certificate)->inferLabel(false,
+		&Required(label));
+
+    END_SECAPI
+}
+
+OSStatus
+SecCertificateCopyPublicKey(SecCertificateRef certificate, SecKeyRef *key)
+{
+    BEGIN_SECAPI
+
+	Required(key) = Certificate::required(certificate)->publicKey()->handle();
+
+    END_SECAPI
+}
+
+OSStatus
+SecCertificateGetAlgorithmID(SecCertificateRef certificate, const CSSM_X509_ALGORITHM_IDENTIFIER **algid)
+{
+    BEGIN_SECAPI
+
+	Required(algid) = Certificate::required(certificate)->algorithmID();
+
+    END_SECAPI
+}
+
+OSStatus
+SecCertificateGetCommonName(SecCertificateRef certificate, CFStringRef *commonName)
+{
+    BEGIN_SECAPI
+
+	Required(commonName) = Certificate::required(certificate)->commonName();
+
+    END_SECAPI
+}
+
+OSStatus
+SecCertificateGetEmailAddress(SecCertificateRef certificate, CFStringRef *emailAddress)
+{
+    BEGIN_SECAPI
+
+	Required(emailAddress) = Certificate::required(certificate)->copyFirstEmailAddress();
+
+    END_SECAPI
+}
+
+OSStatus
+SecCertificateCopyEmailAddresses(SecCertificateRef certificate, CFArrayRef *emailAddresses)
+{
+    BEGIN_SECAPI
+
+	Required(emailAddresses) = Certificate::required(certificate)->copyEmailAddresses();
+
+    END_SECAPI
+}
+
+OSStatus
+SecCertificateFindByIssuerAndSN(CFTypeRef keychainOrArray,const CSSM_DATA *issuer,
+	const CSSM_DATA *serialNumber, SecCertificateRef *certificate)
+{
+	BEGIN_SECAPI
+
+	StorageManager::KeychainList keychains;
+	globals().storageManager.optionalSearchList(keychainOrArray, keychains);
+	Required(certificate) = Certificate::findByIssuerAndSN(keychains, CssmData::required(issuer), CssmData::required(serialNumber))->handle();
+
+	END_SECAPI
+}
+
+OSStatus
+SecCertificateFindBySubjectKeyID(CFTypeRef keychainOrArray, const CSSM_DATA *subjectKeyID,
+	SecCertificateRef *certificate)
+{
+	BEGIN_SECAPI
+
+	StorageManager::KeychainList keychains;
+	globals().storageManager.optionalSearchList(keychainOrArray, keychains);
+	Required(certificate) = Certificate::findBySubjectKeyID(keychains, CssmData::required(subjectKeyID))->handle();
+
+	END_SECAPI
+}
+
+OSStatus
+SecCertificateFindByEmail(CFTypeRef keychainOrArray, const char *emailAddress, SecCertificateRef *certificate)
+{
+	BEGIN_SECAPI
+
+	StorageManager::KeychainList keychains;
+	globals().storageManager.optionalSearchList(keychainOrArray, keychains);
+	Required(certificate) = Certificate::findByEmail(keychains, emailAddress)->handle();
+
+	END_SECAPI
+}
+
+OSStatus
+SecKeychainSearchCreateForCertificateByIssuerAndSN(CFTypeRef keychainOrArray, const CSSM_DATA *issuer,
+	const CSSM_DATA *serialNumber, SecKeychainSearchRef *searchRef)
+{
+    BEGIN_SECAPI
+
+	secdebug("kcsearch", "SecKeychainSearchCreateForCertificateByIssuerAndSN(%p)",
+		keychainOrArray);
+	Required(searchRef);
+
+	StorageManager::KeychainList keychains;
+	globals().storageManager.optionalSearchList(keychainOrArray, keychains);
+	KCCursor cursor(Certificate::cursorForIssuerAndSN(keychains, CssmData::required(issuer), CssmData::required(serialNumber)));
+	*searchRef = cursor->handle();
+
+	END_SECAPI
+}
+
+OSStatus
+SecKeychainSearchCreateForCertificateBySubjectKeyID(CFTypeRef keychainOrArray, const CSSM_DATA *subjectKeyID,
+	SecKeychainSearchRef *searchRef)
+{
+    BEGIN_SECAPI
+
+	secdebug("kcsearch", "SecKeychainSearchCreateForCertificateBySubjectKeyID(%p)",
+		keychainOrArray);
+	Required(searchRef);
+
+	StorageManager::KeychainList keychains;
+	globals().storageManager.optionalSearchList(keychainOrArray, keychains);
+	KCCursor cursor(Certificate::cursorForSubjectKeyID(keychains, CssmData::required(subjectKeyID)));
+	*searchRef = cursor->handle();
+
+	END_SECAPI
+}
+
+OSStatus
+SecKeychainSearchCreateForCertificateByEmail(CFTypeRef keychainOrArray, const char *emailAddress,
+	SecKeychainSearchRef *searchRef)
+{
+    BEGIN_SECAPI
+
+	secdebug("kcsearch", "SecKeychainSearchCreateForCertificateByEmail(%p, %s)",
+		keychainOrArray, emailAddress);
+	Required(searchRef);
+
+	StorageManager::KeychainList keychains;
+	globals().storageManager.optionalSearchList(keychainOrArray, keychains);
+	KCCursor cursor(Certificate::cursorForEmail(keychains, emailAddress));
+	*searchRef = cursor->handle();
+
+	END_SECAPI
 }

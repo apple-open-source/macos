@@ -1,7 +1,7 @@
 \input texinfo  @c -*-texinfo-*-
 
 @comment OrigId: pcl-cvs.texinfo,v 1.45 1993/05/31 22:38:15 ceder Exp 
-@comment @@(#)cvs/contrib/pcl-cvs:$Name: cvs-29 $:$Id: pcl-cvs.texinfo,v 1.3 2002/03/01 00:33:15 zarzycki Exp $
+@comment @@(#)cvs/contrib/pcl-cvs:$Name: cvs-30 $:$Id: pcl-cvs.texinfo,v 1.3 2002/03/01 00:33:15 zarzycki Exp $
 
 @comment Documentation for the GNU Emacs CVS mode.
 @comment Copyright (C) 1992 Per Cederqvist
@@ -64,7 +64,7 @@ Free Software Foundation instead of in the original English.
 @sp
 @center @titlefont{pcl-cvs - the Emacs Front-End to CVS}
 @sp 2
-@center release 1.05-CVS-$Name: cvs-29 $
+@center release 1.05-CVS-$Name: cvs-30 $
 @comment -release-
 @sp 3
 @center Per Cederqvist
@@ -107,7 +107,7 @@ Free Software Foundation instead of in the original English.
 This info manual describes pcl-cvs which is a GNU Emacs front-end to
 CVS.  It works with CVS versions 1.5 through 1.7 and newer, and possibly
 CVS-1.3 and CVS-1.4A2.  This manual is updated to release
-1.05-CVS-$Name: cvs-29 $ of pcl-cvs.
+1.05-CVS-$Name: cvs-30 $ of pcl-cvs.
 @end ifinfo
 @comment -release-
 
@@ -452,7 +452,7 @@ files that have been checked out from a CVS archive.)  The output from
 @samp{*cvs*}.  It might look something like this:
 
 @example
-PCL-CVS release 1.05-CVS-$Name: cvs-29 $.
+PCL-CVS release 1.05-CVS-$Name: cvs-30 $.
 @comment -release-
 
 In directory /users/ceder/FOO/test:

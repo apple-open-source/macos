@@ -1,9 +1,9 @@
 /*
- * "$Id: dirsvc.c,v 1.5.2.1 2002/12/13 22:54:13 jlovell Exp $"
+ * "$Id: dirsvc.c,v 1.10 2003/08/16 18:48:27 jlovell Exp $"
  *
  *   Directory services routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -117,6 +117,7 @@ ProcessBrowseData(const char   *uri,	/* I - URI of printer/class */
   * the Printers list, and add it if not...
   */
 
+  type   |= CUPS_PRINTER_REMOTE;
   update = 0;
   hptr   = strchr(host, '.');
   sptr   = strchr(ServerName, '.');
@@ -154,7 +155,7 @@ ProcessBrowseData(const char   *uri,	/* I - URI of printer/class */
     {
       if ((p = FindClass(resource + 9)) != NULL)
       {
-        if (strcasecmp(p->hostname, host) != 0 && p->hostname[0])
+        if (p->hostname && strcasecmp(p->hostname, host) != 0)
 	{
 	 /*
 	  * Nope, this isn't the same host; if the hostname isn't the local host,
@@ -164,30 +165,29 @@ ProcessBrowseData(const char   *uri,	/* I - URI of printer/class */
 
 	  if (p->type & CUPS_PRINTER_REMOTE)
 	  {
-            strlcat(p->name, "@", sizeof(p->name));
-	    strlcat(p->name, p->hostname, sizeof(p->name));
+            SetStringf(&p->name, "%s@%s", p->name, p->hostname);
 	    SetPrinterAttrs(p);
 	    SortPrinters();
 	  }
 
           p = NULL;
 	}
-	else if (!p->hostname[0])
+	else if (!p->hostname)
 	{
-          strlcpy(p->hostname, host, sizeof(p->hostname));
-	  strlcpy(p->uri, uri, sizeof(p->uri));
-	  strlcpy(p->device_uri, uri, sizeof(p->device_uri));
+          SetString(&p->hostname, host);
+	  SetString(&p->uri, uri);
+	  SetString(&p->device_uri, uri);
           update = 1;
         }
       }
       else
         strlcpy(name, resource + 9, sizeof(name));
     }
-    else if (p != NULL && !p->hostname[0])
+    else if (p != NULL && !p->hostname)
     {
-      strlcpy(p->hostname, host, sizeof(p->hostname));
-      strlcpy(p->uri, uri, sizeof(p->uri));
-      strlcpy(p->device_uri, uri, sizeof(p->device_uri));
+      SetString(&p->hostname, host);
+      SetString(&p->uri, uri);
+      SetString(&p->device_uri, uri);
       update = 1;
     }
 
@@ -205,10 +205,11 @@ ProcessBrowseData(const char   *uri,	/* I - URI of printer/class */
       * Force the URI to point to the real server...
       */
 
-      p->type = type;
-      strlcpy(p->uri, uri, sizeof(p->uri));
-      strlcpy(p->device_uri, uri, sizeof(p->device_uri));
-      strlcpy(p->hostname, host, sizeof(p->hostname));
+      p->type      = type;
+      p->accepting = 1;
+      SetString(&p->uri, uri);
+      SetString(&p->device_uri, uri);
+      SetString(&p->hostname, host);
 
       update = 1;
     }
@@ -228,7 +229,7 @@ ProcessBrowseData(const char   *uri,	/* I - URI of printer/class */
     {
       if ((p = FindPrinter(resource + 10)) != NULL)
       {
-        if (strcasecmp(p->hostname, host) != 0 && p->hostname[0])
+        if (p->hostname && strcasecmp(p->hostname, host) != 0)
 	{
 	 /*
 	  * Nope, this isn't the same host; if the hostname isn't the local host,
@@ -238,30 +239,29 @@ ProcessBrowseData(const char   *uri,	/* I - URI of printer/class */
 
 	  if (p->type & CUPS_PRINTER_REMOTE)
 	  {
-            strlcat(p->name, "@", sizeof(p->name));
-	    strlcat(p->name, p->hostname, sizeof(p->name));
+	    SetStringf(&p->name, "%s@%s", p->name, p->hostname);
 	    SetPrinterAttrs(p);
 	    SortPrinters();
 	  }
 
           p = NULL;
 	}
-	else if (!p->hostname[0])
+	else if (!p->hostname)
 	{
-          strlcpy(p->hostname, host, sizeof(p->hostname));
-	  strlcpy(p->uri, uri, sizeof(p->uri));
-	  strlcpy(p->device_uri, uri, sizeof(p->device_uri));
+          SetString(&p->hostname, host);
+	  SetString(&p->uri, uri);
+	  SetString(&p->device_uri, uri);
           update = 1;
         }
       }
       else
         strlcpy(name, resource + 10, sizeof(name));
     }
-    else if (p != NULL && !p->hostname[0])
+    else if (p != NULL && !p->hostname)
     {
-      strlcpy(p->hostname, host, sizeof(p->hostname));
-      strlcpy(p->uri, uri, sizeof(p->uri));
-      strlcpy(p->device_uri, uri, sizeof(p->device_uri));
+      SetString(&p->hostname, host);
+      SetString(&p->uri, uri);
+      SetString(&p->device_uri, uri);
       update = 1;
     }
 
@@ -279,10 +279,11 @@ ProcessBrowseData(const char   *uri,	/* I - URI of printer/class */
       * Force the URI to point to the real server...
       */
 
-      p->type = type;
-      strlcpy(p->hostname, host, sizeof(p->hostname));
-      strlcpy(p->uri, uri, sizeof(p->uri));
-      strlcpy(p->device_uri, uri, sizeof(p->device_uri));
+      p->type      = type;
+      p->accepting = 1;
+      SetString(&p->hostname, host);
+      SetString(&p->uri, uri);
+      SetString(&p->device_uri, uri);
 
       update = 1;
     }
@@ -293,7 +294,6 @@ ProcessBrowseData(const char   *uri,	/* I - URI of printer/class */
   */
 
   p->state       = state;
-  p->accepting   = state != IPP_PRINTER_STOPPED;
   p->browse_time = time(NULL);
 
   if (p->type != type)
@@ -302,15 +302,15 @@ ProcessBrowseData(const char   *uri,	/* I - URI of printer/class */
     update  = 1;
   }
 
-  if (strcmp(p->location, location))
+  if (!p->location || strcmp(p->location, location))
   {
-    strlcpy(p->location, location, sizeof(p->location));
+    SetString(&p->location, location);
     update = 1;
   }
 
-  if (strcmp(p->info, info))
+  if (!p->info || strcmp(p->info, info))
   {
-    strlcpy(p->info, info, sizeof(p->info));
+    SetString(&p->info, info);
     update = 1;
   }
 
@@ -324,12 +324,17 @@ ProcessBrowseData(const char   *uri,	/* I - URI of printer/class */
                "Remote Printer on %s", host);
   }
   else
+#ifdef __APPLE__
+    /* Changing make_model makes it difficult to localize so we don't do it */
+    strlcpy(local_make_model, make_model, sizeof(local_make_model));
+#else
     snprintf(local_make_model, sizeof(local_make_model),
              "%s on %s", make_model, host);
+#endif        /* __APPLE__ */
 
-  if (strcmp(p->make_model, local_make_model))
+  if (!p->make_model || strcmp(p->make_model, local_make_model))
   {
-    strlcpy(p->make_model, local_make_model, sizeof(p->make_model));
+    SetString(&p->make_model, local_make_model);
     update = 1;
   }
 
@@ -342,7 +347,11 @@ ProcessBrowseData(const char   *uri,	/* I - URI of printer/class */
   */
 
   if (DefaultPrinter == NULL && Printers != NULL)
+  {
     DefaultPrinter = Printers;
+
+    WritePrintcap();
+  }
 
  /*
   * Do auto-classing if needed...
@@ -365,10 +374,10 @@ ProcessBrowseData(const char   *uri,	/* I - URI of printer/class */
       next = p->next;
 
      /*
-      * Skip classes...
+      * Skip implicit classes...
       */
 
-      if (p->type & (CUPS_PRINTER_IMPLICIT | CUPS_PRINTER_CLASS))
+      if (p->type & CUPS_PRINTER_IMPLICIT)
       {
         len = 0;
         continue;
@@ -388,7 +397,7 @@ ProcessBrowseData(const char   *uri,	/* I - URI of printer/class */
 	* we have a class, and if this printer is a member...
 	*/
 
-        if ((pclass = FindPrinter(name)) == NULL)
+        if ((pclass = FindDest(name)) == NULL)
 	{
 	 /*
 	  * Need to add the class...
@@ -398,6 +407,9 @@ ProcessBrowseData(const char   *uri,	/* I - URI of printer/class */
 	  pclass->type      |= CUPS_PRINTER_IMPLICIT;
 	  pclass->accepting = 1;
 	  pclass->state     = IPP_PRINTER_IDLE;
+
+          SetString(&pclass->location, p->location);
+          SetString(&pclass->info, p->info);
 
           SetPrinterAttrs(pclass);
 
@@ -439,7 +451,7 @@ ProcessBrowseData(const char   *uri,	/* I - URI of printer/class */
 	name[len] = '\0';
 	offset    = 0;
 
-	if ((pclass = FindPrinter(name)) != NULL &&
+	if ((pclass = FindDest(name)) != NULL &&
 	    !(pclass->type & CUPS_PRINTER_IMPLICIT))
 	{
 	 /*
@@ -448,7 +460,7 @@ ProcessBrowseData(const char   *uri,	/* I - URI of printer/class */
 	  * the "ImplicitAnyClasses"...
 	  */
 
-          if (ImplicitAnyClasses)
+          if (ImplicitAnyClasses && len < (sizeof(name) - 4))
 	  {
 	   /*
 	    * Add "Any" to the class name...
@@ -492,7 +504,7 @@ SendBrowseList(void)
 			to;	/* Timeout time */
 
 
-  if (!Browsing || !(BrowseProtocols & BROWSE_CUPS))
+  if (!Browsing || !BrowseProtocols)
     return;
 
  /*
@@ -541,7 +553,7 @@ SendBrowseList(void)
       {
         LogMessage(L_INFO, "Remote destination \"%s\" has timed out; deleting it...",
 	           p->name);
-        DeletePrinter(p);
+        DeletePrinter(p, 1);
       }
     }
     else if (p->browse_time < ut && count > 0 &&
@@ -612,7 +624,9 @@ SendCUPSBrowse(printer_t *p)		/* I - Printer to send */
 	  snprintf(packet, sizeof(packet), "%x %x ipp://%s/%s/%s \"%s\" \"%s\" \"%s\"\n",
         	   p->type | CUPS_PRINTER_REMOTE, p->state, iface->hostname,
 		   (p->type & CUPS_PRINTER_CLASS) ? "classes" : "printers",
-		   p->name, p->location, p->info, p->make_model);
+		   p->name, p->location ? p->location : "",
+		   p->info ? p->info : "",
+		   p->make_model ? p->make_model : "Unknown");
 
 	  bytes = strlen(packet);
 
@@ -635,7 +649,9 @@ SendCUPSBrowse(printer_t *p)		/* I - Printer to send */
 	snprintf(packet, sizeof(packet), "%x %x ipp://%s/%s/%s \"%s\" \"%s\" \"%s\"\n",
         	 p->type | CUPS_PRINTER_REMOTE, p->state, iface->hostname,
 		 (p->type & CUPS_PRINTER_CLASS) ? "classes" : "printers",
-		 p->name, p->location, p->info, p->make_model);
+		 p->name, p->location ? p->location : "",
+		 p->info ? p->info : "",
+		 p->make_model ? p->make_model : "Unknown");
 
 	bytes = strlen(packet);
 
@@ -658,11 +674,13 @@ SendCUPSBrowse(printer_t *p)		/* I - Printer to send */
 
       snprintf(packet, sizeof(packet), "%x %x %s \"%s\" \"%s\" \"%s\"\n",
                p->type | CUPS_PRINTER_REMOTE, p->state, p->uri,
-	       p->location, p->info, p->make_model);
+	       p->location ? p->location : "",
+	       p->info ? p->info : "",
+	       p->make_model ? p->make_model : "Unknown");
 
       bytes = strlen(packet);
       LogMessage(L_DEBUG2, "SendBrowseList: (%d bytes to %x) %s", bytes,
-        	 ntohl(b->to.sin_addr.s_addr), packet);
+        	 (unsigned)ntohl(b->to.sin_addr.s_addr), packet);
 
       if (sendto(BrowseSocket, packet, bytes, 0,
 		 (struct sockaddr *)&(b->to), sizeof(struct sockaddr_in)) <= 0)
@@ -696,7 +714,7 @@ StartBrowsing(void)
   struct sockaddr_in	addr;	/* Broadcast address */
 
 
-  if (!Browsing)
+  if (!Browsing || !BrowseProtocols)
     return;
 
   if (BrowseProtocols & BROWSE_CUPS)
@@ -709,7 +727,7 @@ StartBrowsing(void)
     {
       LogMessage(L_ERROR, "StartBrowsing: Unable to create broadcast socket - %s.",
         	 strerror(errno));
-      Browsing = 0;
+      BrowseProtocols &= ~BROWSE_CUPS;
       return;
     }
 
@@ -729,8 +747,8 @@ StartBrowsing(void)
       close(BrowseSocket);
 #endif /* WIN32 */
 
-      BrowseSocket = -1;
-      Browsing     = 0;
+      BrowseSocket    = -1;
+      BrowseProtocols &= ~BROWSE_CUPS;
       return;
     }
 
@@ -754,8 +772,8 @@ StartBrowsing(void)
       close(BrowseSocket);
 #endif /* WIN32 */
 
-      BrowseSocket = -1;
-      Browsing     = 0;
+      BrowseSocket    = -1;
+      BrowseProtocols &= ~BROWSE_CUPS;
       return;
     }
 
@@ -766,7 +784,7 @@ StartBrowsing(void)
     LogMessage(L_DEBUG2, "StartBrowsing: Adding fd %d to InputSet...",
                BrowseSocket);
 
-    FD_SET(BrowseSocket, &InputSet);
+    FD_SET(BrowseSocket, InputSet);
   }
 
 #ifdef HAVE_LIBSLP
@@ -803,6 +821,9 @@ StartPolling(void)
   char		interval[10];	/* Poll interval */
   int		statusfds[2];	/* Status pipe */
   int		fd;		/* Current file descriptor */
+#if defined(HAVE_SIGACTION) && !defined(HAVE_SIGSET)
+  struct sigaction action;	/* POSIX signal handler */
+#endif /* HAVE_SIGACTION && !HAVE_SIGSET */
 
 
  /*
@@ -849,6 +870,12 @@ StartPolling(void)
   {
     sprintf(sport, "%d", poll->port);
 
+   /*
+    * Block signals before forking...
+    */
+
+    HoldSignals();
+
     if ((pid = fork()) == 0)
     {
      /*
@@ -864,15 +891,20 @@ StartPolling(void)
 	if (setgid(Group))
           exit(errno);
 
+	if (setgroups(1, &Group))
+          exit(errno);
+
 	if (setuid(User))
           exit(errno);
       }
+      else
+      {
+       /*
+	* Reset group membership to just the main one we belong to.
+	*/
 
-     /*
-      * Reset group membership to just the main one we belong to.
-      */
-
-      setgroups(0, NULL);
+	setgroups(1, &Group);
+      }
 
      /*
       * Redirect stdin and stdout to /dev/null, and stderr to the
@@ -890,6 +922,28 @@ StartPolling(void)
 
       for (fd = 3; fd < MaxFDs; fd ++)
 	close(fd);
+
+     /*
+      * Unblock signals before doing the exec...
+      */
+
+#ifdef HAVE_SIGSET
+      sigset(SIGTERM, SIG_DFL);
+      sigset(SIGCHLD, SIG_DFL);
+#elif defined(HAVE_SIGACTION)
+      memset(&action, 0, sizeof(action));
+
+      sigemptyset(&action.sa_mask);
+      action.sa_handler = SIG_DFL;
+
+      sigaction(SIGTERM, &action, NULL);
+      sigaction(SIGCHLD, &action, NULL);
+#else
+      signal(SIGTERM, SIG_DFL);
+      signal(SIGCHLD, SIG_DFL);
+#endif /* HAVE_SIGSET */
+
+      ReleaseSignals();
 
      /*
       * Execute the polling daemon...
@@ -912,6 +966,8 @@ StartPolling(void)
       LogMessage(L_DEBUG, "StartPolling: Started polling daemon for %s:%d, pid = %d",
                  poll->hostname, poll->port, pid);
     }
+
+    ReleaseSignals();
   }
 
   close(statusfds[1]);
@@ -923,7 +979,7 @@ StartPolling(void)
   LogMessage(L_DEBUG2, "StartPolling: Adding fd %d to InputSet...",
              PollPipe);
 
-  FD_SET(PollPipe, &InputSet);
+  FD_SET(PollPipe, InputSet);
 }
 
 
@@ -934,7 +990,7 @@ StartPolling(void)
 void
 StopBrowsing(void)
 {
-  if (!Browsing)
+  if (!Browsing || !BrowseProtocols)
     return;
 
   if (BrowseProtocols & BROWSE_CUPS)
@@ -954,7 +1010,7 @@ StopBrowsing(void)
       LogMessage(L_DEBUG2, "StopBrowsing: Removing fd %d from InputSet...",
         	 BrowseSocket);
 
-      FD_CLR(BrowseSocket, &InputSet);
+      FD_CLR(BrowseSocket, InputSet);
       BrowseSocket = 0;
     }
   }
@@ -989,7 +1045,7 @@ StopPolling(void)
 
     LogMessage(L_DEBUG2, "StopPolling: removing fd %d from InputSet.",
                PollPipe);
-    FD_CLR(PollPipe, &InputSet);
+    FD_CLR(PollPipe, InputSet);
 
     PollPipe = -1;
   }
@@ -1303,13 +1359,20 @@ UpdatePolling(void)
 
     *lineptr++ = '\0';
 
-    LogMessage(L_ERROR, "%s", buffer);
+    if (!strncmp(buffer, "ERROR: ", 7))
+      LogMessage(L_ERROR, "%s", buffer + 7);
+    else if (!strncmp(buffer, "DEBUG: ", 7))
+      LogMessage(L_DEBUG, "%s", buffer + 7);
+    else if (!strncmp(buffer, "DEBUG2: ", 8))
+      LogMessage(L_DEBUG2, "%s", buffer + 8);
+    else
+      LogMessage(L_DEBUG, "%s", buffer);
 
    /*
     * Copy over the buffer data we've used up...
     */
 
-    strcpy(buffer, lineptr);
+    cups_strcpy(buffer, lineptr);
     bufused -= lineptr - buffer;
 
     if (bufused < 0)
@@ -1508,11 +1571,11 @@ SendSLPBrowse(printer_t *p)		/* I - Printer to register */
   snprintf(attrs, sizeof(attrs),
            "(printer-uri-supported=%s),"
            "(uri-authentication-supported=%s>),"
-#ifdef HAVE_LIBSSL
+#ifdef HAVE_SSL
            "(uri-security-supported=tls>),"
 #else
            "(uri-security-supported=none>),"
-#endif /* HAVE_LIBSSL */
+#endif /* HAVE_SSL */
            "(printer-name=%s),"
            "(printer-location=%s),"
            "(printer-info=%s),"
@@ -1613,7 +1676,7 @@ GetSlpAttrVal(const char *attrlist,	/* I - Attribute list string */
 
 	for (ptr1 = valbuf; *ptr1; ptr1 ++)
 	  if (*ptr1 == '\\' && ptr1[1])
-	    strcpy(ptr1, ptr1 + 1);
+	    cups_strcpy(ptr1, ptr1 + 1);
 
         return (0);
       }
@@ -1774,7 +1837,7 @@ UpdateSLPBrowse(void)
   * Reset the refresh time...
   */
 
-  BrowseSLPRefresh = time(NULL) + BrowseTimeout - BrowseInterval;
+  BrowseSLPRefresh = time(NULL) + BrowseInterval;
 
  /* 
   * Poll for remote printers using SLP...
@@ -1791,6 +1854,12 @@ UpdateSLPBrowse(void)
 
   for (; s; s = next)
   {
+   /*
+    * Save the "next" pointer...
+    */
+
+    next = s->next;
+
    /* 
     * Load a printer_t structure with the SLP service attributes...
     */
@@ -1829,10 +1898,9 @@ UpdateSLPBrowse(void)
     }
 
    /*
-    * Save the "next" pointer and free this listing...
+    * Free this listing...
     */
 
-    next = s->next;
     free(s);
   }       
 
@@ -1842,5 +1910,5 @@ UpdateSLPBrowse(void)
 
 
 /*
- * End of "$Id: dirsvc.c,v 1.5.2.1 2002/12/13 22:54:13 jlovell Exp $".
+ * End of "$Id: dirsvc.c,v 1.10 2003/08/16 18:48:27 jlovell Exp $".
  */

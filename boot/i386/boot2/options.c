@@ -3,26 +3,28 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
 #include "boot.h"
+#include "bootstruct.h"
 #include "fdisk.h"
 
 enum {
@@ -84,7 +86,7 @@ static void flushKeyboardBuffer()
 
 static int countdown( const char * msg, int row, int timeout )
 {
-    int time;
+    unsigned long time;
     int ch  = 0;
     int col = strlen(msg) + 1;
 
@@ -392,7 +394,7 @@ void getBootOptions()
     clearBootArgs();
     clearScreenRows( kMenuTopRow, kScreenLastRow );
     changeCursor( 0, kMenuTopRow, kCursorTypeUnderline, 0 );
-    printf("Scanning device %x...", gBIOSDev);
+    verbose("Scanning device %x...", gBIOSDev);
 
     // Get a list of bootable volumes on the device.
 
@@ -527,11 +529,12 @@ extern unsigned char chainbootflag;
 
 int processBootOptions()
 {
-    KERNBOOTSTRUCT * kbp = kernBootStruct;
     const char *     cp  = gBootArgs;
     const char *     val = 0;
     const char *     kernel;
     int              cnt;
+    int		     userCnt;
+    int              cntRemaining;
 
     skipblanks( &cp );
 
@@ -555,17 +558,20 @@ int processBootOptions()
             return 1;
         }
 
-        kbp->kernDev &= ~((B_UNITMASK << B_UNITSHIFT ) |
+        bootArgs->kernDev &= ~((B_UNITMASK << B_UNITSHIFT ) |
                           (B_PARTITIONMASK << B_PARTITIONSHIFT));
 
-        kbp->kernDev |= MAKEKERNDEV(    0,
-                        /* unit */      BIOS_DEV_UNIT(gBootVolume->biosdev),
+        bootArgs->kernDev |= MAKEKERNDEV(    0,
+ 		         /* unit */      BIOS_DEV_UNIT(gBootVolume),
                         /* partition */ gBootVolume->part_no );
     }
 
     // Load config table specified by the user, or use the default.
 
-    getValueForBootKey( cp, "config", &val, &cnt );
+    if (getValueForBootKey( cp, "config", &val, &cnt ) == FALSE) {
+	val = 0;
+	cnt = 0;
+    }
     loadSystemConfig(val, cnt);
     if ( !sysConfigValid ) return -1;
 
@@ -574,27 +580,51 @@ int processBootOptions()
 
     if (( kernel = extractKernelName((char **)&cp) ))
     {
-        strcpy( kbp->bootFile, kernel );
+        strcpy( bootArgs->bootFile, kernel );
     }
     else
     {
         if ( getValueForKey( kKernelNameKey, &val, &cnt ) )
-            strncpy( kbp->bootFile, val, cnt );
+            strlcpy( bootArgs->bootFile, val, cnt+1 );
+    }
+
+    // Check to see if we should ignore saved kernel flags.
+    if (getValueForBootKey(cp, "-F", &val, &cnt) == FALSE) {
+        if (getValueForKey( kKernelFlagsKey, &val, &cnt ) == FALSE) {
+	    val = 0;
+	    cnt = 0;
+        }
     }
 
     // Store the merged kernel flags and boot args.
 
-    getValueForKey( kKernelFlagsKey, &val, &cnt );
-    if ( (strlen(cp) + 1 + cnt) < BOOT_STRING_LEN )
-    {
-        if (cnt) strncpy(kbp->bootString, val, cnt);
-        sprintf(&kbp->bootString[cnt], "%s%s", cnt ? " " : "", cp);
+    cntRemaining = BOOT_STRING_LEN - 2;  // save 1 for NULL, 1 for space
+    if (cnt > cntRemaining) {
+	error("Warning: boot arguments too long, truncated\n");
+	cnt = cntRemaining;
     }
+    if (cnt) {
+      strncpy(bootArgs->bootString, val, cnt);
+      bootArgs->bootString[cnt++] = ' ';
+    }
+    cntRemaining = cntRemaining - cnt;
+    userCnt = strlen(cp);
+    if (userCnt > cntRemaining) {
+	error("Warning: boot arguments too long, truncated\n");
+	userCnt = cntRemaining;
+    }
+    strncpy(&bootArgs->bootString[cnt], cp, userCnt);
+    bootArgs->bootString[cnt+userCnt] = '\0';
 
     gVerboseMode = getValueForKey( "-v", &val, &cnt ) ||
                    getValueForKey( "-s", &val, &cnt );
 
     gBootGraphics = getBoolForKey( kBootGraphicsKey );
+
+    gBootGraphics = YES;
+    if ( getValueForKey(kBootGraphicsKey, &val, &cnt) && cnt &&
+         (val[0] == 'N' || val[0] == 'n') )
+        gBootGraphics = NO;
 
     gBootMode = ( getValueForKey( "-f", &val, &cnt ) ) ?
                 kBootModeSafe : kBootModeNormal;

@@ -41,7 +41,7 @@ The src/.gdbinit file in the Emacs distribution arranges for SIGINT
 (C-g in Emacs) to be passed to Emacs and not give control back to GDB.
 On modern POSIX systems, you can override that with this command:
 
-   handle int stop nopass
+   handle SIGINT stop nopass
 
 After this `handle' command, SIGINT will return control to GDB.  If
 you want the C-g to cause a QUIT within Emacs as well, omit the
@@ -258,6 +258,49 @@ Setting a breakpoint in the function `x_error_quitter' and looking at
 the backtrace when Emacs stops inside that function will show what
 code causes the X protocol errors.
 
+Some bugs related to the X protocol disappear when Emacs runs in a
+synchronous mode.  To track down those bugs, we suggest the following
+procedure:
+
+  - Run Emacs under a debugger and put a breakpoint inside the
+    primitive function which, when called from Lisp, triggers the X
+    protocol errors.  For example, if the errors happen when you
+    delete a frame, put a breakpoint inside `Fdelete_frame'.
+
+  - When the breakpoint breaks, step through the code, looking for
+    calls to X functions (the ones whose names begin with "X" or
+    "Xt" or "Xm").
+
+  - Insert calls to `XSync' before and after each call to the X
+    functions, like this:
+
+       XSync (f->output_data.x->display_info->display, 0);
+
+    where `f' is the pointer to the `struct frame' of the selected
+    frame, normally available via XFRAME (selected_frame).  (Most
+    functions which call X already have some variable that holds the
+    pointer to the frame, perhaps called `f' or `sf', so you shouldn't
+    need to compute it.)
+
+    If your debugger can call functions in the program being debugged,
+    you should be able to issue the calls to `XSync' without recompiling
+    Emacs.  For example, with GDB, just type:
+
+       call XSync (f->output_data.x->display_info->display, 0)
+
+    before and immediately after the suspect X calls.  If your
+    debugger does not support this, you will need to add these pairs
+    of calls in the source and rebuild Emacs.
+
+    Either way, systematically step through the code and issue these
+    calls until you find the first X function called by Emacs after
+    which a call to `XSync' winds up in the function
+    `x_error_quitter'.  The first X function call for which this
+    happens is the one that generated the X protocol error.
+
+  - You should now look around this offending X call and try to figure
+    out what is wrong with it.
+
 ** If the symptom of the bug is that Emacs fails to respond
 
 Don't assume Emacs is `hung'--it may instead be in an infinite loop.
@@ -436,6 +479,31 @@ files, set the variable byte-debug-flag to t.  This causes Emacs to do
 some extra checks, such as look for broken relations between byte and
 character positions in buffers and strings; the resulting diagnostics
 might pinpoint the cause of the problem.
+
+** Debugging the TTY (non-windowed) version
+
+The most convenient method of debugging the character-terminal display
+is to do that on a window system such as X.  Begin by starting an
+xterm window, then type these commands inside that window:
+
+  $ tty
+  $ echo $TERM
+
+Let's say these commands print "/dev/ttyp4" and "xterm", respectively.
+
+Now start Emacs (the normal, windowed-display session, i.e. without
+the `-nw' option), and invoke "M-x gdb RET emacs RET" from there.  Now
+type these commands at GDB's prompt:
+
+  (gdb) set args -nw -t /dev/ttyp4
+  (gdb) set environment TERM xterm
+  (gdb) run
+
+The debugged Emacs should now start in no-window mode with its display
+directed to the xterm window you opened above.
+
+Similar arrangement is possible on a character terminal by using the
+`screen' package.
 
 ** Running Emacs built with malloc debugging packages
 

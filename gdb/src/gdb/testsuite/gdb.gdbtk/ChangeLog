@@ -1,3 +1,19 @@
+2002-09-09  Fred Fish  <fnf@intrinsity.com>
+
+	* simple.c:  Pass addresses to strncpy, not chars.
+
+2002-04-26  Martin M. Hunt  <hunt@redhat.com>
+
+	* defs (gdbtk_test_done): Call gdbtk_force_quit. 
+
+2002-04-26  Martin M. Hunt  <hunt@redhat.com>
+
+	* srcwin.test (click): Take a button number as an arg.
+	Generate a ButtonPress event then a ButtonRelease event
+	for that button number.
+	(4.4): Fix args for click().
+	(5.1): Fix results again.
+
 2002-03-07  Martin M. Hunt  <hunt@redhat.com>
 
 	* srcwin.test (5.1): Adjust line numbers to

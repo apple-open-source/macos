@@ -1,7 +1,7 @@
 /* init.c - initialize bdb backend */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/nextid.c,v 1.16 2002/01/04 20:17:49 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/nextid.c,v 1.16.2.3 2003/03/03 17:10:07 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -57,9 +57,14 @@ int bdb_last_id( BackendDB *be, DB_TXN *tid )
 		break;
 
 	default:
+#ifdef NEW_LOGGING
+		LDAP_LOG ( INDEX, ERR, "bdb_last_id: get failed: %s (%d)\n",
+			db_strerror(rc), rc, 0 );
+#else
 		Debug( LDAP_DEBUG_ANY,
 			"=> bdb_last_id: get failed: %s (%d)\n",
 			db_strerror(rc), rc, 0 );
+#endif
 		goto done;
 	}
 

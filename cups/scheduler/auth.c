@@ -1,9 +1,9 @@
 /*
- * "$Id: auth.c,v 1.3 2002/06/10 23:47:31 jlovell Exp $"
+ * "$Id: auth.c,v 1.1.1.12 2003/04/11 21:07:48 jlovell Exp $"
  *
  *   Authorization routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -39,12 +39,12 @@
  *   FindBest()           - Find the location entry that best matches the
  *                          resource.
  *   FindLocation()       - Find the named location.
+ *   GetMD5Passwd()       - Get an MD5 password.
  *   IsAuthorized()       - Check to see if the user is authorized...
  *   add_allow()          - Add an allow mask to the location.
  *   add_deny()           - Add a deny mask to the location.
  *   cups_crypt()         - Encrypt the password using the DES or MD5
  *                          algorithms, as needed.
- *   get_md5_passwd()     - Get an MD5 password.
  *   pam_func()           - PAM conversation function.
  *   to64()               - Base64-encode an integer value...
  */
@@ -84,8 +84,6 @@ static authmask_t	*add_deny(location_t *loc);
 #if !HAVE_LIBPAM
 static char		*cups_crypt(const char *pw, const char *salt);
 #endif /* !HAVE_LIBPAM */
-static char		*get_md5_passwd(const char *username, const char *group,
-			                char passwd[33]);
 #if HAVE_LIBPAM
 static int		pam_func(int, const struct pam_message **,
 			         struct pam_response **, void *);
@@ -98,9 +96,9 @@ static void		to64(char *s, unsigned long v, int n);
  * Local globals...
  */
 
-#ifdef __hpux
+#if defined(__hpux) && defined(HAVE_LIBPAM)
 static client_t		*auth_client;	/* Current client being authenticated */
-#endif /* __hpux */
+#endif /* __hpux && HAVE_LIBPAM */
 
 
 /*
@@ -660,7 +658,7 @@ FindBest(const char   *path,	/* I - Resource path */
 		*best;		/* Best match for location so far */
   int		bestlen;	/* Length of best match */
   int		limit;		/* Limit field */
-  static int	limits[] =	/* Map http_status_t to AUTH_LIMIT_xyz */
+  static const int limits[] =	/* Map http_status_t to AUTH_LIMIT_xyz */
 		{
 		  AUTH_LIMIT_ALL,
 		  AUTH_LIMIT_OPTIONS,
@@ -759,6 +757,64 @@ FindLocation(const char *location)	/* I - Connection */
 
 
 /*
+ * 'GetMD5Passwd()' - Get an MD5 password.
+ */
+
+char *					/* O - MD5 password string */
+GetMD5Passwd(const char *username,	/* I - Username */
+             const char *group,		/* I - Group */
+             char       passwd[33])	/* O - MD5 password string */
+{
+  cups_file_t	*fp;			/* passwd.md5 file */
+  char		filename[1024],		/* passwd.md5 filename */
+		line[256],		/* Line from file */
+		tempuser[33],		/* User from file */
+		tempgroup[33];		/* Group from file */
+
+
+  LogMessage(L_DEBUG2, "GetMD5Passwd(username=\"%s\", group=\"%s\", passwd=%p)",
+             username, group ? group : "(null)", passwd);
+
+  snprintf(filename, sizeof(filename), "%s/passwd.md5", ServerRoot);
+  if ((fp = cupsFileOpen(filename, "r")) == NULL)
+  {
+    LogMessage(L_ERROR, "Unable to open %s - %s", filename, strerror(errno));
+    return (NULL);
+  }
+
+  while (cupsFileGets(fp, line, sizeof(line)) != NULL)
+  {
+    if (sscanf(line, "%32[^:]:%32[^:]:%32s", tempuser, tempgroup, passwd) != 3)
+    {
+      LogMessage(L_ERROR, "Bad MD5 password line: %s", line);
+      continue;
+    }
+
+    if (strcmp(username, tempuser) == 0 &&
+        (group == NULL || strcmp(group, tempgroup) == 0))
+    {
+     /*
+      * Found the password entry!
+      */
+
+      LogMessage(L_DEBUG2, "Found MD5 user %s, group %s...", username,
+                 tempgroup);
+
+      cupsFileClose(fp);
+      return (passwd);
+    }
+  }
+
+ /*
+  * Didn't find a password entry - return NULL!
+  */
+
+  cupsFileClose(fp);
+  return (NULL);
+}
+
+
+/*
  * 'IsAuthorized()' - Check to see if the user is authorized...
  */
 
@@ -790,7 +846,7 @@ IsAuthorized(client_t *con)	/* I - Connection */
   struct spwd	*spw;		/* Shadow password data */
 #  endif /* HAVE_SHADOW_H */
 #endif /* HAVE_LIBPAM */
-  static const char *states[] =	/* HTTP client states... */
+  static const char * const states[] =	/* HTTP client states... */
 		{
 		  "WAITING",
 		  "OPTIONS",
@@ -886,7 +942,7 @@ IsAuthorized(client_t *con)	/* I - Connection */
   if (auth == AUTH_DENY && best->satisfy == AUTH_SATISFY_ALL)
     return (HTTP_FORBIDDEN);
 
-#ifdef HAVE_LIBSSL
+#ifdef HAVE_SSL
  /*
   * See if encryption is required...
   */
@@ -896,7 +952,7 @@ IsAuthorized(client_t *con)	/* I - Connection */
     LogMessage(L_DEBUG2, "IsAuthorized: Need upgrade to TLS...");
     return (HTTP_UPGRADE_REQUIRED);
   }
-#endif /* HAVE_LIBSSL */
+#endif /* HAVE_SSL */
 
  /*
   * Now see what access level is required...
@@ -906,7 +962,7 @@ IsAuthorized(client_t *con)	/* I - Connection */
     return (HTTP_OK);
 
   LogMessage(L_DEBUG2, "IsAuthorized: username = \"%s\" password = %d chars",
-	     con->username, strlen(con->password));
+	     con->username, (int)strlen(con->password));
   DEBUG_printf(("IsAuthorized: username = \"%s\", password = \"%s\"\n",
 		con->username, con->password));
 
@@ -949,15 +1005,8 @@ IsAuthorized(client_t *con)	/* I - Connection */
 	  * Get the user info...
 	  */
 
-	  pw = getpwnam(con->username);	/* Get the current password */
+	  pw = getpwnam(con->username);		/* Get the current password */
 	  endpwent();				/* Close the password file */
-
-	  if (pw == NULL)			/* No such user... */
-	  {
-	    LogMessage(L_WARN, "IsAuthorized: Unknown username \"%s\"; access denied.",
-        	       con->username);
-	    return (HTTP_UNAUTHORIZED);
-	  }
 
 #if HAVE_LIBPAM
 	 /*
@@ -1023,6 +1072,17 @@ IsAuthorized(client_t *con)	/* I - Connection */
 	    return (HTTP_UNAUTHORIZED);
 	  }
 #else
+         /*
+	  * Use normal UNIX password file-based authentication...
+	  */
+
+	  if (pw == NULL)			/* No such user... */
+	  {
+	    LogMessage(L_WARN, "IsAuthorized: Unknown username \"%s\"; access denied.",
+        	       con->username);
+	    return (HTTP_UNAUTHORIZED);
+	  }
+
 #  ifdef HAVE_SHADOW_H
 	  spw = getspnam(con->username);
 	  endspent();
@@ -1105,14 +1165,16 @@ IsAuthorized(client_t *con)	/* I - Connection */
 
 	  if (best->num_names && best->level == AUTH_GROUP)
 	  {
+	    LogMessage(L_DEBUG2, "IsAuthorized: num_names = %d", best->num_names);
+
             for (i = 0; i < best->num_names; i ++)
-	      if (get_md5_passwd(con->username, best->names[i], md5))
+	      if (GetMD5Passwd(con->username, best->names[i], md5))
 		break;
 
             if (i >= best->num_names)
 	      md5[0] = '\0';
 	  }
-	  else if (!get_md5_passwd(con->username, NULL, md5))
+	  else if (!GetMD5Passwd(con->username, NULL, md5))
 	    md5[0] = '\0';
 
 
@@ -1140,14 +1202,16 @@ IsAuthorized(client_t *con)	/* I - Connection */
 
 	  if (best->num_names && best->level == AUTH_GROUP)
 	  {
+	    LogMessage(L_DEBUG2, "IsAuthorized: num_names = %d", best->num_names);
+
             for (i = 0; i < best->num_names; i ++)
-	      if (get_md5_passwd(con->username, best->names[i], md5))
+	      if (GetMD5Passwd(con->username, best->names[i], md5))
 		break;
 
             if (i >= best->num_names)
 	      md5[0] = '\0';
 	  }
-	  else if (!get_md5_passwd(con->username, NULL, md5))
+	  else if (!GetMD5Passwd(con->username, NULL, md5))
 	    md5[0] = '\0';
 
 	  if (!md5[0])
@@ -1238,7 +1302,7 @@ IsAuthorized(client_t *con)	/* I - Connection */
       * Check to see if the default group ID matches for the user...
       */
 
-      if (grp->gr_gid == pw->pw_gid)
+      if (pw != NULL && grp->gr_gid == pw->pw_gid)
 	return (HTTP_OK);
     }
 
@@ -1388,20 +1452,20 @@ cups_crypt(const char *pw,	/* I - Password string */
     pwlen = strlen(pw);
 
     md5_init(&state);
-    md5_append(&state, pw, pwlen);
-    md5_append(&state, salt, salt_end - salt);
+    md5_append(&state, (md5_byte_t *)pw, pwlen);
+    md5_append(&state, (md5_byte_t *)salt, salt_end - salt);
 
     md5_init(&state2);
-    md5_append(&state2, pw, pwlen);
-    md5_append(&state2, salt + 3, salt_end - salt - 3);
-    md5_append(&state2, pw, pwlen);
+    md5_append(&state2, (md5_byte_t *)pw, pwlen);
+    md5_append(&state2, (md5_byte_t *)salt + 3, salt_end - salt - 3);
+    md5_append(&state2, (md5_byte_t *)pw, pwlen);
     md5_finish(&state2, digest);
 
     for (i = pwlen; i > 0; i -= 16)
       md5_append(&state, digest, i > 16 ? 16 : i);
 
     for (i = pwlen; i > 0; i >>= 1)
-      md5_append(&state, (i & 1) ? "" : pw, 1);
+      md5_append(&state, (md5_byte_t *)((i & 1) ? "" : pw), 1);
 
     md5_finish(&state, digest);
 
@@ -1410,20 +1474,20 @@ cups_crypt(const char *pw,	/* I - Password string */
       md5_init(&state);
 
       if (i & 1)
-        md5_append(&state, pw, pwlen);
+        md5_append(&state, (md5_byte_t *)pw, pwlen);
       else
         md5_append(&state, digest, 16);
 
       if (i % 3)
-        md5_append(&state, salt + 3, salt_end - salt - 3);
+        md5_append(&state, (md5_byte_t *)salt + 3, salt_end - salt - 3);
 
       if (i % 7)
-        md5_append(&state, pw, pwlen);
+        md5_append(&state, (md5_byte_t *)pw, pwlen);
 
       if (i & 1)
         md5_append(&state, digest, 16);
       else
-        md5_append(&state, pw, pwlen);
+        md5_append(&state, (md5_byte_t *)pw, pwlen);
 
       md5_finish(&state, digest);
     }
@@ -1464,52 +1528,6 @@ cups_crypt(const char *pw,	/* I - Password string */
   }
 }
 #endif /* !HAVE_LIBPAM */
-
-
-/*
- * 'get_md5_passwd()' - Get an MD5 password.
- */
-
-static char *				/* O - MD5 password string */
-get_md5_passwd(const char *username,	/* I - Username */
-               const char *group,	/* I - Group */
-               char       passwd[33])	/* O - MD5 password string */
-{
-  FILE	*fp;				/* passwd.md5 file */
-  char	filename[1024],			/* passwd.md5 filename */
-	line[256],			/* Line from file */
-	tempuser[33],			/* User from file */
-	tempgroup[33];			/* Group from file */
-
-
-  snprintf(filename, sizeof(filename), "%s/passwd.md5", ServerRoot);
-  if ((fp = fopen(filename, "r")) == NULL)
-    return (NULL);
-
-  while (fgets(line, sizeof(line), fp) != NULL)
-  {
-    if (sscanf(line, "%32[^:]:%32[^:]:%32s", tempuser, tempgroup, passwd) != 3)
-      continue;
-
-    if (strcmp(username, tempuser) == 0 &&
-        (group == NULL || strcmp(group, tempgroup) == 0))
-    {
-     /*
-      * Found the password entry!
-      */
-
-      fclose(fp);
-      return (passwd);
-    }
-  }
-
- /*
-  * Didn't find a password entry - return NULL!
-  */
-
-  fclose(fp);
-  return (NULL);
-}
 
 
 #if HAVE_LIBPAM
@@ -1625,5 +1643,5 @@ to64(char          *s,	/* O - Output string */
 
 
 /*
- * End of "$Id: auth.c,v 1.3 2002/06/10 23:47:31 jlovell Exp $".
+ * End of "$Id: auth.c,v 1.1.1.12 2003/04/11 21:07:48 jlovell Exp $".
  */

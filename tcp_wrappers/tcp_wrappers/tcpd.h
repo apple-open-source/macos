@@ -8,10 +8,77 @@
 
 #define STRING_LENGTH	128		/* hosts, users, processes */
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+
+typedef struct sockaddr_gen {
+    union {
+	struct sockaddr	_sg_sa;
+	struct sockaddr_in	_sg_sin;
+#ifdef HAVE_IPV6
+	struct sockaddr_in6	_sg_sin6;
+#endif
+    } sg_addr;
+} sockaddr_gen;
+
+typedef union gen_addr {
+    struct in_addr	ga_in;
+#ifdef HAVE_IPV6
+    struct in6_addr	ga_in6;
+#endif
+} gen_addr;
+
+extern void sockgen_simplify();
+
+#define sg_sa		sg_addr._sg_sa
+#define sg_sin		sg_addr._sg_sin
+#define sg_sin6		sg_addr._sg_sin6
+#define sg_family	sg_sa.sa_family
+#ifdef HAVE_IPV6
+#define SGADDRSZ(sag)		((sag)->sg_family == AF_INET6 ? \
+				    sizeof (struct in6_addr) : \
+				    sizeof (struct in_addr))
+#define SGSOCKADDRSZ(sag)	((sag)->sg_family == AF_INET6 ? \
+				    sizeof (struct sockaddr_in6) : \
+				    sizeof (struct sockaddr_in))
+#define SGPORT(sag)		(*((sag)->sg_family == AF_INET6 ? \
+				    &(sag)->sg_sin6.sin6_port : \
+				    &(sag)->sg_sin.sin_port))
+#define SGADDRP(sag)		(((sag)->sg_family == AF_INET6 ? \
+				    (char *) &(sag)->sg_sin6.sin6_addr : \
+				    (char *) &(sag)->sg_sin.sin_addr))
+#define SGFAM(sag)		((sag)->sg_family == AF_INET6 ? \
+				    AF_INET6 : AF_INET)
+
+#define SG_IS_UNSPECIFIED(sag) \
+		((sag)->sg_family == AF_INET6 ? \
+			IN6_IS_ADDR_UNSPECIFIED(&(sag)->sg_sin6.sin6_addr) : \
+			(sag)->sg_sin.sin_addr.s_addr == 0)
+
+#define VALID_ADDRTYPE(t)	((t) == AF_INET || (t) == AF_INET6)
+
+#ifndef IPV6_ABITS
+#define IPV6_ABITS 128			/* Size of IPV6 address in bits */
+#endif
+
+#else /* HAVE_IPV6 */
+
+#define SGADDRSZ(sag)		sizeof(struct in_addr)
+#define SGSOCKADDRSZ(sag)	sizeof(struct sockaddr_in)
+#define SGPORT(sag)		((sag)->sg_sin.sin_port)
+#define SGADDRP(sag)		((char*) &(sag)->sg_sin.sin_addr)
+#define SGFAM(sag)		AF_INET
+#define SG_IS_UNSPECIFIED(sag)  ((sag)->sg_sin.sin_addr.s_addr == 0)
+
+#define VALID_ADDRTYPE(t)	((t) == AF_INET)
+
+#endif /* HAVE_IPV6 */
+
 struct host_info {
     char    name[STRING_LENGTH];	/* access via eval_hostname(host) */
     char    addr[STRING_LENGTH];	/* access via eval_hostaddr(host) */
-    struct sockaddr_in *sin;		/* socket address or 0 */
+    struct sockaddr_gen *sin;		/* socket address or 0 */
     struct t_unitdata *unit;		/* TLI transport address or 0 */
     struct request_info *request;	/* for shared information */
 };
@@ -31,14 +98,6 @@ struct request_info {
     void  (*cleanup) ();		/* cleanup function or 0 */
     struct netconfig *config;		/* netdir handle */
 };
-
-/* Structure to describe an IP address range. */
-
-typedef struct address_range {
-    unsigned long lower_address;
-    unsigned long upper_address;
-    unsigned long netmask;
-} address_range_t, *address_range_ptr_t;
 
 /* Common string operations. Less clutter should be more readable. */
 
@@ -64,7 +123,11 @@ extern char paranoid[];
 
 #define HOSTNAME_KNOWN(s) (STR_NE((s),unknown) && STR_NE((s),paranoid))
 
-#define NOT_INADDR(s) (s[strspn(s,"01234567890./")] != 0)
+#ifdef HAVE_IPV6
+#define NOT_INADDR(s) (strchr(s,':') == 0 && s[strspn(s,"0123456789./")] != 0)
+#else
+#define NOT_INADDR(s) (s[strspn(s,"0123456789./")] != 0)
+#endif
 
 /* Global functions. */
 
@@ -83,8 +146,14 @@ extern void refuse();			/* clean up and exit */
 extern char *xgets();			/* fgets() on steroids */
 extern char *split_at();		/* strchr() and split */
 extern unsigned long dot_quad_addr();	/* restricted inet_addr() */
-extern unsigned int address_range();	/* extended IP address matching */
-extern unsigned int address_range_match();
+extern int numeric_addr();		/* IP4/IP6 inet_addr (restricted) */
+extern struct hostent *tcpd_gethostbyname();
+					/* IP4/IP6 gethostbyname */
+#ifdef HAVE_IPV6
+extern char *skip_ipv6_addrs();		/* skip over colons in IPv6 addrs */
+#else
+#define skip_ipv6_addrs(x)	x
+#endif
 
 /* Global variables. */
 

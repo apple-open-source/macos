@@ -1,21 +1,23 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -50,15 +52,36 @@ __END_DECLS
         return kIOReturnNotOpen;    \
 } while (0)
 
-#define allChecks() do {	    \
-    connectCheck();		    \
-    openCheck();		    \
+#define terminatedCheck() do {		\
+    if ((!fOwningDevice) ||		\
+         (fOwningDevice->fIsTerminated))\
+        return kIOReturnNotAttached;	\
+} while (0)    
+
+#define seizeCheck() do {               \
+    if ((!fOwningDevice) ||		\
+         (fOwningDevice->fIsSeized))    \
+        return kIOReturnExclusiveAccess;\
+} while (0)
+
+#define allChecks() do {		\
+    connectCheck();			\
+    openCheck();			\
+    terminatedCheck();			\
+    seizeCheck();			\
+} while (0)
+
+#define deviceInitiatedChecks() do {	\
+    connectCheck();			\
+    openCheck();			\
+    terminatedCheck();			\
 } while (0)
 
 IOHIDQueueClass::IOHIDQueueClass()
 : IOHIDIUnknown(NULL),
   fAsyncPort(MACH_PORT_NULL),
   fIsCreated(false),
+  fIsStopped(false),
   fEventCallback(NULL),
   fEventTarget(NULL),
   fEventRefcon(NULL)
@@ -328,11 +351,21 @@ Boolean IOHIDQueueClass::hasElement (IOHIDElementCookie elementCookie)
 
 
 /* start/stop data delivery to a queue */
-IOReturn IOHIDQueueClass::start ()
+IOReturn IOHIDQueueClass::start (bool deviceInitiated)
 {
     IOReturn ret = kIOReturnSuccess;
-
-    allChecks();
+    
+    if (deviceInitiated)
+    {
+        if (fIsStopped)
+            return kIOReturnError;
+            
+        deviceInitiatedChecks();
+    }
+    else 
+    {
+        allChecks();
+    }
 
     //  kIOHIDLibUserClientStartQueue, kIOUCScalarIScalarO, 1, 0
     int args[6], i = 0;
@@ -342,15 +375,27 @@ IOReturn IOHIDQueueClass::start ()
             fOwningDevice->fConnection, kIOHIDLibUserClientStartQueue, args, i, NULL, &len);
     if (ret != kIOReturnSuccess)
         return ret;
+    
+    fIsStopped = false;
 
     return kIOReturnSuccess;
 }
 
-IOReturn IOHIDQueueClass::stop ()
+IOReturn IOHIDQueueClass::stop (bool deviceInitiated)
 {
     IOReturn ret = kIOReturnSuccess;
 
-    allChecks();
+    if (deviceInitiated)
+    {
+        if (fIsStopped)
+            return ret;
+            
+        deviceInitiatedChecks();
+    }
+    else 
+    {
+        allChecks();
+    }
 
     //  kIOHIDLibUserClientStopQueue, kIOUCScalarIScalarO, 1, 0
     int args[6], i = 0;
@@ -360,6 +405,9 @@ IOReturn IOHIDQueueClass::stop ()
             fOwningDevice->fConnection, kIOHIDLibUserClientStopQueue, args, i, NULL, &len);
     if (ret != kIOReturnSuccess)
         return ret;
+        
+    if (!deviceInitiated)
+        fIsStopped = true;
     
     // еее TODO after we stop the queue, we should empty the queue here, in user space
     // (to be consistant with setting the head from user space)
@@ -380,10 +428,9 @@ IOReturn IOHIDQueueClass::getNextEvent (
                         UInt32 			timeoutMS)
 {
     IOReturn ret = kIOReturnSuccess;
-
-    if (fOwningDevice->fIsTerminated)
-        return kIOReturnNotAttached;
-
+    
+    allChecks();
+    
 #if 0
     printf ("IOHIDQueueClass::getNextEvent about to peek\n");
 
@@ -464,7 +511,7 @@ IOReturn IOHIDQueueClass::getNextEvent (
             // *** FIX ME ***
             // Since we are getting mapped memory, we should probably
             // hold a shared lock
-            fOwningDevice->convertWordToByte(nextElementValue->value, longValue, longValueSize<<3);
+            fOwningDevice->convertWordToByte(nextElementValue->value, (UInt8 *)longValue, longValueSize<<3);
             
             timestamp = *(UInt64 *)& nextElementValue->timestamp;
 

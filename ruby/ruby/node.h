@@ -2,8 +2,8 @@
 
   node.h -
 
-  $Author: jkh $
-  $Date: 2002/05/27 17:59:44 $
+  $Author: melville $
+  $Date: 2003/05/14 13:58:43 $
   created at: Fri May 28 15:14:02 JST 1993
 
   Copyright (C) 1993-2000 Yukihiro Matsumoto
@@ -152,7 +152,7 @@ typedef struct RNode {
 
 #define RNODE(obj)  (R_CAST(RNode)(obj))
 
-#define nd_type(n) (((RNODE(n))->flags>>FL_USHIFT)&0xff)
+#define nd_type(n) ((int)(((RNODE(n))->flags>>FL_USHIFT)&0xff))
 #define nd_set_type(n,t) \
     RNODE(n)->flags=((RNODE(n)->flags&~FL_UMASK)|(((t)<<FL_USHIFT)&FL_UMASK))
 
@@ -266,8 +266,8 @@ typedef struct RNode {
 #define NEW_MASGN(l,r)   rb_node_newnode(NODE_MASGN,l,0,r)
 #define NEW_GASGN(v,val) rb_node_newnode(NODE_GASGN,v,val,rb_global_entry(v))
 #define NEW_LASGN(v,val) rb_node_newnode(NODE_LASGN,v,val,local_cnt(v))
-#define NEW_DASGN(v,val) rb_node_newnode(NODE_DASGN,v,val,0);
-#define NEW_DASGN_CURR(v,val) rb_node_newnode(NODE_DASGN_CURR,v,val,0);
+#define NEW_DASGN(v,val) rb_node_newnode(NODE_DASGN,v,val,0)
+#define NEW_DASGN_CURR(v,val) rb_node_newnode(NODE_DASGN_CURR,v,val,0)
 #define NEW_IASGN(v,val) rb_node_newnode(NODE_IASGN,v,val,0)
 #define NEW_CDECL(v,val) rb_node_newnode(NODE_CDECL,v,val,0)
 #define NEW_CVASGN(v,val) rb_node_newnode(NODE_CVASGN,v,val,0)

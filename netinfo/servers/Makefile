@@ -13,7 +13,7 @@ PROJECTVERSION = 2.6
 PROJECT_TYPE = Aggregate
 LANGUAGE = English
 
-TOOLS = lookupd netinfod nibindd
+TOOLS = lookupd netinfod nibindd notifyd
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
 

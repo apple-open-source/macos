@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +22,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 #ifndef _IOKIT_IOUSBPIPE_H
 #define _IOKIT_IOUSBPIPE_H
 
@@ -53,6 +54,7 @@ protected:
     struct ExpansionData
     {
         IOReturn	_correctStatus;		
+	IOUSBDevice *	_device;	// Remember containing device for cearing TTs
     };
     ExpansionData * _expansionData;
     
@@ -66,8 +68,14 @@ public:
 
     virtual bool InitToEndpoint(const IOUSBEndpointDescriptor *endpoint, UInt8 speed,
                                 USBDeviceAddress address, IOUSBController * controller);
+
+    // The following method is obsolete
+    //
     static IOUSBPipe *ToEndpoint(const IOUSBEndpointDescriptor *endpoint, UInt8 speed,
                                  USBDeviceAddress address, IOUSBController * controller);
+
+    static IOUSBPipe *ToEndpoint(const IOUSBEndpointDescriptor *endpoint,
+                                 IOUSBDevice * device, IOUSBController * controller);
 
     // Controlling pipe state
     /*!

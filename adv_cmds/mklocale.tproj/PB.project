@@ -2,10 +2,10 @@
     DOCICONFILES = (); 
     FILESTABLE = {
         CLASSES = (); 
-        H_FILES = (ldef.h); 
+        H_FILES = (extern.h, fbsdcompat.h, ldef.h); 
         OTHER_LIBS = (); 
         OTHER_LINKED = (yacc.y, lex.l); 
-        OTHER_SOURCES = (Makefile.preamble, Makefile, Japanese, mklocale.1, POSIX); 
+        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, mklocale.1); 
         SUBPROJECTS = (); 
     }; 
     LANGUAGE = English; 

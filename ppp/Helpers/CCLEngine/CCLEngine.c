@@ -2,21 +2,24 @@
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -129,7 +132,8 @@ char	*Commands[] =
     "SETSPEED",			/* 33 */
     "SETTRIES",			/* 34 */
     "USERHOOK",			/* 35 */
-    "WRITE"			/* 36 */
+    "WRITE",			/* 36 */
+    "MONITORLINE"		/* 37 */
 };
 
 
@@ -212,6 +216,7 @@ void MatchClr();
 void Break();
 void SetSpeed(void);
 void SerReset(void);
+void MonitorLine();
 void HSReset();
 void Flush();
 void DTRCommand(short DTRCode);
@@ -895,6 +900,7 @@ int PrepScript()
             case cSetSpeed:			// check for a integer interface speed value
             case cSetTries:			// check for a integer tries value
             case cUserHook:			// check for a integer opcode value
+            case cMonitorLine:			// check for a integer bits mask value
                 result = NextInt(&labelIndex);
                 break;
 
@@ -1515,6 +1521,10 @@ void RunScript()
                 Break(SHORTBREAK);
                 break;
 
+            case cMonitorLine:
+                MonitorLine();
+                break;
+
             case cSerReset:
                 SerReset();
                 break;
@@ -1868,6 +1878,30 @@ void SerReset(void)
             tios.c_cflag &= ~CSTOPB;     // 1 stop bit
             break;
     }
+
+    // set the same settings for inout and output fd
+    tcsetattr(infd, TCSAFLUSH, &tios);
+    tcsetattr(outfd, TCSAFLUSH, &tios);
+}
+
+/* --------------------------------------------------------------------------
+Set the CLOCAL flag to receive or not SIGHUP when the line drops
+-------------------------------------------------------------------------- */
+void MonitorLine()
+{
+    struct termios 	tios;
+    u_int32_t 		temp;
+
+    if (tcgetattr(infd, &tios) < 0)
+        return;
+
+    // get the value. 
+    // bit mask : 1st flag -> on/off line drop 
+    NextInt(&temp);
+    if (temp)
+        tios.c_cflag &= ~CLOCAL;
+    else 
+        tios.c_cflag |= CLOCAL;
 
     // set the same settings for inout and output fd
     tcsetattr(infd, TCSAFLUSH, &tios);
@@ -2428,7 +2462,7 @@ void terminate(int exitError)
     if (serviceID && (exitError || (mode != 1))) {
         num = CFNumberCreate(NULL, kCFNumberIntType, &exitError);
         if (num) {
-            publish_entry(serviceID, CFSTR("LastCause"), num);
+            publish_entry(serviceID, kSCPropNetPPPLastCause, num);
             CFRelease(num);
         }
     }

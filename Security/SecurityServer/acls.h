@@ -43,22 +43,17 @@ public:
 	AclKind kind() const { return mKind; }
 
     // validation calls restated
-	void validate(AclAuthorization auth, const AccessCredentials *cred) const;
-	void validate(AclAuthorization auth, const Context &context) const;
+	void validate(AclAuthorization auth, const AccessCredentials *cred);
+	void validate(AclAuthorization auth, const Context &context);
 
-	void cssmGetAcl(const char *tag, uint32 &count, AclEntryInfo * &acls);
-    void cssmGetOwner(AclOwnerPrototype &owner);
     void cssmChangeAcl(const AclEdit &edit, const AccessCredentials *cred);
     void cssmChangeOwner(const AclOwnerPrototype &newOwner, const AccessCredentials *cred);
 	
-	virtual void instantiateAcl() = 0;
-	virtual void noticeAclChange() = 0;
 	virtual const Database *relatedDatabase() const;
 	
-public:
-	static bool getBatchPassphrase(const AccessCredentials *cred,
-		CSSM_SAMPLE_TYPE neededSampleType, CssmOwnedData &passphrase);
-
+	// aclSequence is taken to serialize ACL validations to pick up mutual changes
+	Mutex aclSequence;
+	
 private:
 	AclKind mKind;
 };
@@ -83,7 +78,7 @@ public:
     uid_t getuid() const;
     gid_t getgid() const;
 	pid_t getpid() const;
-	bool verifyCodeSignature(const CodeSigning::Signature *signature);
+	bool verifyCodeSignature(const CodeSigning::Signature *signature, const CssmData *comment);
 };
 
 

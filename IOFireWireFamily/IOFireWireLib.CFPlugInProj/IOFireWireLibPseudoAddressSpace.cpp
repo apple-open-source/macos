@@ -31,13 +31,10 @@
  *
  */
 
-#import "IOFireWireLibPriv.h"
 #import "IOFireWireLibPseudoAddressSpace.h"
-#import <CoreFoundation/CoreFoundation.h>
-#import <IOKit/IOKitLib.h>
-#import <IOKit/iokitmig.h>
-#import <exception>
+#import "IOFireWireLibDevice.h"
 
+#import <IOKit/iokitmig.h>
 
 namespace IOFireWireLib {
 	
@@ -59,7 +56,7 @@ namespace IOFireWireLib {
 	} ;
 	
 	IUnknownVTbl** 
-	PseudoAddressSpace::Alloc( Device& userclient, KernAddrSpaceRef inKernAddrSpaceRef, void* inBuffer, UInt32 inBufferSize, 
+	PseudoAddressSpace::Alloc( Device& userclient, UserObjectHandle inKernAddrSpaceRef, void* inBuffer, UInt32 inBufferSize, 
 			void* inBackingStore, void* inRefCon )
 	{
 		PseudoAddressSpace* me = nil ;
@@ -174,9 +171,9 @@ namespace IOFireWireLib {
 	//
 	// ============================================================
 	
-	PseudoAddressSpace::PseudoAddressSpace( Device& userclient, KernAddrSpaceRef inKernAddrSpaceRef,
+	PseudoAddressSpace::PseudoAddressSpace( Device& userclient, UserObjectHandle inKernAddrSpaceRef,
 												void* inBuffer, UInt32 inBufferSize, void* inBackingStore, void* inRefCon) 
-	: IOFireWireIUnknown( reinterpret_cast<IUnknownVTbl*>(& sInterface) ),
+	: IOFireWireIUnknown( reinterpret_cast<const IUnknownVTbl &>( sInterface ) ),
 		mNotifyIsOn(false),
 		mWriter( nil ),
 		mReader( nil ),
@@ -192,28 +189,31 @@ namespace IOFireWireLib {
 
 		mPendingLocks = ::CFDictionaryCreateMutable( kCFAllocatorDefault, 0, NULL, NULL ) ;
 		if (!mPendingLocks)
-			throw std::exception() ;
+			throw kIOReturnNoMemory ;
 	
-		UInt32 nodeID ;
-		UInt32 addressHi ;
-		UInt32 addressLo ;
+		AddressSpaceInfo info ;
 
 		IOReturn error ;
-		error = ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kPseudoAddrSpace_GetFWAddrInfo, 1, 3, mKernAddrSpaceRef,
-				& nodeID, & addressHi, & addressLo ) ;
+		IOByteCount outputSize = sizeof( info ) ;
+		error = ::IOConnectMethodScalarIStructureO( mUserClient.GetUserClientConnection(), kPseudoAddrSpace_GetFWAddrInfo, 1, & outputSize, mKernAddrSpaceRef, &info ) ;
 		if (error)
-			throw std::exception() ;
-
-		mFWAddress = FWAddress( (UInt16)addressHi, addressLo, (UInt16)nodeID ) ;
+		{
+			throw error ;
+		}
+		
+		mFWAddress = info.address ;
 	}
 	
 	PseudoAddressSpace::~PseudoAddressSpace()
 	{
-		#if IOFIREWIREUSERCLIENTDEBUG > 0
-		IOReturn result = 
-		#endif
-		IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kPseudoAddrSpace_Release, 1, 0, mKernAddrSpaceRef ) ;
-		IOFireWireLibLogIfErr_(result, "PseudoAddressSpace::~PseudoAddressSpace: error %x releasing address space!\n", result) ;
+#if IOFIREWIREUSERCLIENTDEBUG > 0
+		IOReturn error = 
+#endif
+		
+		IOConnectMethodScalarIScalarO(  mUserClient.GetUserClientConnection(), 
+										kReleaseUserObject, 1, 0, mKernAddrSpaceRef ) ;
+
+		DebugLogCond( error, "PseudoAddressSpace::~PseudoAddressSpace: error %x releasing address space!\n", error ) ;
 	
 		mUserClient.Release() ;
 	}
@@ -409,7 +409,7 @@ namespace IOFireWireLib {
 		::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kPseudoAddrSpace_ClientCommandIsComplete,
 				3, 0, mKernAddrSpaceRef, commandID, status) ;
 								
-		IOFireWireLibLogIfErr_(err, "PseudoAddressSpace::ClientCommandIsComplete: err=0x%08lX\n", err) ;
+		DebugLogCond( err, "PseudoAddressSpace::ClientCommandIsComplete: err=0x%08lX\n", err ) ;
 	}
 	
 	void
@@ -424,7 +424,8 @@ namespace IOFireWireLib {
 		}
 		else if ( (bool)args[7] )
 		{
-			void** lockValues 	= new (void*)[numArgs+1] ;
+//			void** lockValues 	= new (void*)[numArgs+1] ;
+			void** lockValues 	= (void**) new ( UInt32 * )[numArgs+1] ;
 	
 			bcopy( args, & lockValues[1], sizeof(void*) * numArgs ) ;
 			lockValues[0] = refcon ;

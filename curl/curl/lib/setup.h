@@ -1,29 +1,39 @@
 #ifndef __SETUP_H
 #define __SETUP_H
-/*****************************************************************************
+/***************************************************************************
  *                                  _   _ ____  _     
  *  Project                     ___| | | |  _ \| |    
  *                             / __| | | | |_) | |    
  *                            | (__| |_| |  _ <| |___ 
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 2000, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2002, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
- * In order to be useful for every potential user, curl and libcurl are
- * dual-licensed under the MPL and the MIT/X-derivate licenses.
- *
+ * This software is licensed as described in the file COPYING, which
+ * you should have received as part of this distribution. The terms
+ * are also available at http://curl.haxx.se/docs/copyright.html.
+ * 
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
- * furnished to do so, under the terms of the MPL or the MIT/X-derivate
- * licenses. You may pick one of these licenses.
+ * furnished to do so, under the terms of the COPYING file.
  *
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: setup.h,v 1.1.1.1 2001/02/15 19:52:30 wsanchez Exp $
- *****************************************************************************/
+ * $Id: setup.h,v 1.1.1.2 2002/11/26 19:07:59 zarzycki Exp $
+ ***************************************************************************/
 
-
+/* MN 06/07/02 */
+/* #define HTTP_ONLY
+*/
+#ifdef HTTP_ONLY
+#define CURL_DISABLE_FTP
+#define CURL_DISABLE_LDAP
+#define CURL_DISABLE_TELNET
+#define CURL_DISABLE_DICT
+#define CURL_DISABLE_FILE
+#define CURL_DISABLE_GOPHER
+#endif
 
 #if !defined(WIN32) && defined(_WIN32)
 /* This _might_ be a good Borland fix. Please report whether this works or
@@ -32,17 +42,37 @@
 #endif
 
 #ifdef HAVE_CONFIG_H
+
+#ifdef VMS
+#include "config-vms.h"
+#else
 #include "config.h" /* the configure script results */
+#endif
+
 #else
 #ifdef WIN32
-/* include the hand-modified win32 adjusted config.h! */
-#include "../config-win32.h"
+/* hand-modified win32 config.h! */
+#include "config-win32.h"
 #endif
+#ifdef macintosh
+/* hand-modified MacOS config.h! */
+#include "config-mac.h"
+#endif
+
 #endif
 
 #ifndef __cplusplus        /* (rabe) */
-typedef char bool;
+typedef unsigned char bool;
+#define typedef_bool
 #endif                     /* (rabe) */
+
+#ifdef NEED_REENTRANT
+/* Solaris machines needs _REENTRANT set for a few function prototypes and
+   things to appear in the #include files. We need to #define it before all
+   #include files */
+#define _REENTRANT
+#endif
+
 
 #include <stdio.h>
 #ifndef OS
@@ -71,28 +101,15 @@ defined(HAVE_LIBSSL) && defined(HAVE_LIBCRYPTO)
 #endif
 
 #ifndef STDC_HEADERS /* no standard C headers! */
-#include "curl/stdcheaders.h"
+#ifdef	VMS
+#include "../include/curl/stdcheaders.h"
+#else
+#include <curl/stdcheaders.h>
+#endif
+
 #else
 #ifdef _AIX
-#include "curl/stdcheaders.h"
-#endif
-#endif
-
-#if 0 /* zlib experiments are halted 17th october, 1999 (Daniel) */
-#if defined(HAVE_ZLIB_H) && defined(HAVE_LIBZ)
-     /* Both lib and header file exist, we have libz! */
-#define USE_ZLIB
-#endif
-#endif
-
-#if 0
-#ifdef HAVE_STRCASECMP
-#define strnequal(x,y,z) !(strncasecmp)(x,y,z)
-#define strequal(x,y) !(strcasecmp)(x,y)
-
-#else
-#define strnequal(x,y,z) !strnicmp(x,y,z)
-#define strequal(x,y) !stricmp(x,y)
+#include <curl/stdcheaders.h>
 #endif
 #endif
 
@@ -110,13 +127,13 @@ defined(HAVE_LIBSSL) && defined(HAVE_LIBCRYPTO)
 #define sclose(x) closesocket(x)
 #define sread(x,y,z) recv(x,y,z,0)
 #define swrite(x,y,z) (size_t)send(x,y,z,0)
-#define myalarm(x) /* win32 is a silly system */
+#undef HAVE_ALARM
 #else
      /* gcc-for-win is still good :) */
 #define sclose(x) close(x)
 #define sread(x,y,z) recv(x,y,z,0)
 #define swrite(x,y,z) send(x,y,z,0)
-#define myalarm(x) alarm(x)
+#define HAVE_ALARM
 #endif
 
 #define PATH_CHAR     ";"
@@ -125,9 +142,9 @@ defined(HAVE_LIBSSL) && defined(HAVE_LIBCRYPTO)
 
 #else
 #define sclose(x) close(x)
-#define sread(x,y,z) read(x,y,z)
-#define swrite(x,y,z) write(x,y,z)
-#define myalarm(x) alarm(x)
+#define sread(x,y,z) recv(x,y,z,0)
+#define swrite(x,y,z) send(x,y,z,0)
+#define HAVE_ALARM
 
 #define PATH_CHAR     ":"
 #define DIR_CHAR      "/"
@@ -143,5 +160,20 @@ int fileno( FILE *stream);
 #endif
 
 #endif
+
+/*
+ * Curl_addrinfo MUST be used for name resolving information.
+ * Information regarding a single IP witin a Curl_addrinfo MUST be stored in
+ * a Curl_ipconnect struct.
+ */
+#ifdef ENABLE_IPV6
+typedef struct addrinfo Curl_addrinfo;
+typedef struct addrinfo Curl_ipconnect;
+#else
+typedef struct hostent Curl_addrinfo;
+typedef struct in_addr Curl_ipconnect;
+#endif
+
+
 
 #endif /* __CONFIG_H */

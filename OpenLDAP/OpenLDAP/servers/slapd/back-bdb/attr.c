@@ -1,7 +1,7 @@
 /* attr.c - backend routines for dealing with attributes */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/attr.c,v 1.8 2002/01/04 20:17:49 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/attr.c,v 1.8.2.5 2003/05/07 22:29:11 hyc Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -23,20 +23,23 @@ typedef struct bdb_attrinfo {
 
 static int
 ainfo_type_cmp(
-	AttributeDescription *desc,
-	AttrInfo	*a
+	const void *v_desc,
+	const void *v_a
 )
 {
-	return desc - a->ai_desc;
+	const AttributeDescription *desc = v_desc;
+	const AttrInfo	*a = v_a;
+	return SLAP_PTRCMP(desc, a->ai_desc);
 }
 
 static int
 ainfo_cmp(
-	AttrInfo	*a,
-	AttrInfo	*b
+	const void	*v_a,
+	const void	*v_b
 )
 {
-	return a->ai_desc - b->ai_desc;
+	const AttrInfo *a = v_a, *b = v_b;
+	return SLAP_PTRCMP(a->ai_desc, b->ai_desc);
 }
 
 void
@@ -47,8 +50,7 @@ bdb_attr_mask(
 {
 	AttrInfo	*a;
 
-	a = (AttrInfo *) avl_find( bdb->bi_attrs, desc,
-		(AVL_CMP) ainfo_type_cmp );
+	a = (AttrInfo *) avl_find( bdb->bi_attrs, desc, ainfo_type_cmp );
 	
 	*indexmask = a != NULL ? a->ai_indexmask : 0;
 }
@@ -67,7 +69,7 @@ bdb_attr_index_config(
 	char **attrs;
 	char **indexes = NULL;
 
-	attrs = str2charray( argv[0], "," );
+	attrs = ldap_str2charray( argv[0], "," );
 
 	if( attrs == NULL ) {
 		fprintf( stderr, "%s: line %d: "
@@ -77,7 +79,7 @@ bdb_attr_index_config(
 	}
 
 	if ( argc > 1 ) {
-		indexes = str2charray( argv[1], "," );
+		indexes = ldap_str2charray( argv[1], "," );
 
 		if( indexes == NULL ) {
 			fprintf( stderr, "%s: line %d: "
@@ -181,11 +183,11 @@ bdb_attr_index_config(
 		}
 
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
-			"attr_index_config: index %s 0x%04x\n",
-			ad->ad_cname.bv_val, mask ));
+		LDAP_LOG( BACK_BDB, DETAIL1, 
+			"attr_index_config: index %s 0x%04lx\n",
+			ad->ad_cname.bv_val, mask, 0 );
 #else
-		Debug( LDAP_DEBUG_CONFIG, "index %s 0x%04x\n",
+		Debug( LDAP_DEBUG_CONFIG, "index %s 0x%04lx\n",
 			ad->ad_cname.bv_val, mask, 0 ); 
 #endif
 
@@ -194,7 +196,7 @@ bdb_attr_index_config(
 		a->ai_indexmask = mask;
 
 		rc = avl_insert( &bdb->bi_attrs, (caddr_t) a,
-			(AVL_CMP) ainfo_cmp, (AVL_DUP) avl_dup_error );
+		                 ainfo_cmp, avl_dup_error );
 
 		if( rc ) {
 			fprintf( stderr, "%s: line %d: duplicate index definition "
@@ -205,8 +207,8 @@ bdb_attr_index_config(
 		}
 	}
 
-	charray_free( attrs );
-	if ( indexes != NULL ) charray_free( indexes );
+	ldap_charray_free( attrs );
+	if ( indexes != NULL ) ldap_charray_free( indexes );
 
 	return LDAP_SUCCESS;
 }

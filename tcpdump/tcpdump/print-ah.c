@@ -23,19 +23,14 @@
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-ah.c,v 1.1.1.2 2002/05/29 00:05:33 landonf Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-ah.c,v 1.1.1.3 2003/03/17 18:42:16 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <sys/param.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-
-#include <netinet/in.h>
+#include <tcpdump-stdinc.h>
 
 #include <stdio.h>
 
@@ -43,9 +38,10 @@ static const char rcsid[] =
 
 #include "interface.h"
 #include "addrtoname.h"
+#include "extract.h"
 
 int
-ah_print(register const u_char *bp, register const u_char *bp2)
+ah_print(register const u_char *bp)
 {
 	register const struct ah *ah;
 	register const u_char *ep;
@@ -58,16 +54,16 @@ ah_print(register const u_char *bp, register const u_char *bp2)
 	TCHECK(*ah);
 
 	sumlen = ah->ah_len << 2;
-	spi = (u_int32_t)ntohl(ah->ah_spi);
+	spi = EXTRACT_32BITS(&ah->ah_spi);
 
 	printf("AH(spi=0x%08x", spi);
 	if (vflag)
 		printf(",sumlen=%d", sumlen);
-	printf(",seq=0x%x", (u_int32_t)ntohl(*(const u_int32_t *)(ah + 1)));
+	printf(",seq=0x%x", EXTRACT_32BITS(ah + 1));
 	if (bp + sizeof(struct ah) + sumlen > ep)
 		fputs("[truncated]", stdout);
 	fputs("): ", stdout);
-	
+
 	return sizeof(struct ah) + sumlen;
  trunc:
 	fputs("[|AH]", stdout);

@@ -193,6 +193,7 @@ int t_char_values (char_arg1, char_arg2)
 char char_arg1, char_arg2;
 #endif
 {
+  printf ("x: %d %d %d %d\n", char_arg1, char_arg2, char_val1, char_val2);
   return ((char_arg1 == char_val1) && (char_arg2 == char_val2));
 }
 

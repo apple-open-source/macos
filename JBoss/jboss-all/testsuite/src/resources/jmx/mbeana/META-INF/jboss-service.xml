@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- EXAMPLE META-INF/jboss-service.xml file for a dependency test mbean
+	-->
+
+<server>
+  <mbean code="org.jboss.test.jmx.mbeana.TestDeployerA"
+	 name="test:name=TestDeployerA"/>
+
+</server>

@@ -63,7 +63,7 @@ static char copyright[] =
 
 #ifndef lint
 /*static char sccsid[] = "from: @(#)main.c	8.1 (Berkeley) 6/20/93";*/
-static char rcsid[] = "$Id: main.c,v 1.1.1.2 2000/01/11 02:10:14 wsanchez Exp $";
+static char rcsid[] = "$Id: main.c,v 1.2 2003/05/30 18:10:02 rbraun Exp $";
 #endif /* not lint */
 
 #include <sys/param.h>
@@ -347,7 +347,7 @@ main(argc, argv)
 			limit.rlim_max = RLIM_INFINITY;
 			limit.rlim_cur = RLIM_INFINITY;
 			(void)setrlimit(RLIMIT_CPU, &limit);
-			execle(LO, "login", "-p", name, (char *) 0, env);
+			execle(LO, "login", "-p1", name, (char *) 0, env);
 			syslog(LOG_ERR, "%s: %m", LO);
 			exit(1);
 		}

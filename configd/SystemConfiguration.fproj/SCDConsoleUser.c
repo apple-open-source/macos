@@ -1,27 +1,33 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
 /*
  * Modification History
+ *
+ * May 1, 2003			Allan Nathanson <ajn@apple.com>
+ * - add console [session] information SPIs
  *
  * June 1, 2001			Allan Nathanson <ajn@apple.com>
  * - public API conversion
@@ -33,6 +39,31 @@
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>
+
+
+#ifndef	kSCPropUsersConsoleUserName
+#define	kSCPropUsersConsoleUserName	CFSTR("Name")
+#endif
+
+#ifndef	kSCPropUsersConsoleUserUID
+#define	kSCPropUsersConsoleUserUID	CFSTR("UID")
+#endif
+
+#ifndef	kSCPropUsersConsoleUserGID
+#define	kSCPropUsersConsoleUserGID	CFSTR("GID")
+#endif
+
+#ifndef	kSCPropUsersConsoleSessionInfo
+#define	kSCPropUsersConsoleSessionInfo	CFSTR("SessionInfo")
+#endif
+
+
+const CFStringRef kSCConsoleSessionID		= CFSTR("kCGSSessionIDKey");		/* value is CFNumber */
+const CFStringRef kSCConsoleSessionUserName	= CFSTR("kCGSSessionUserNameKey");	/* value is CFString */
+const CFStringRef kSCConsoleSessionUID		= CFSTR("kCGSSessionUserIDKey");	/* value is CFNumber */
+const CFStringRef kSCConsoleSessionConsoleSet	= CFSTR("kCGSSessionConsoleSetKey");	/* value is CFNumber */
+const CFStringRef kSCConsoleSessionOnConsole	= CFSTR("kCGSSessionOnConsoleKey");	/* value is CFBoolean */
+
 
 CFStringRef
 SCDynamicStoreKeyCreateConsoleUser(CFAllocatorRef allocator)
@@ -113,7 +144,112 @@ SCDynamicStoreCopyConsoleUser(SCDynamicStoreRef	store,
 	if (tempSession)	CFRelease(store);
 	if (dict)		CFRelease(dict);
 	return consoleUser;
+}
 
+
+CFArrayRef
+SCDynamicStoreCopyConsoleInformation(SCDynamicStoreRef store)
+{
+	CFDictionaryRef		dict		= NULL;
+	CFArrayRef		info		= NULL;
+	CFStringRef		key;
+	Boolean			tempSession	= FALSE;
+
+	if (!store) {
+		store = SCDynamicStoreCreate(NULL,
+					     CFSTR("SCDynamicStoreCopyConsoleUser"),
+					     NULL,
+					     NULL);
+		if (!store) {
+			SCLog(_sc_verbose, LOG_INFO, CFSTR("SCDynamicStoreCreate() failed"));
+			return NULL;
+		}
+		tempSession = TRUE;
+	}
+
+	key  = SCDynamicStoreKeyCreateConsoleUser(NULL);
+	dict = SCDynamicStoreCopyValue(store, key);
+	CFRelease(key);
+	if (!isA_CFDictionary(dict)) {
+		_SCErrorSet(kSCStatusNoKey);
+		goto done;
+	}
+
+	info = CFDictionaryGetValue(dict, kSCPropUsersConsoleSessionInfo);
+	info = isA_CFArray(info);
+	if (!info) {
+		_SCErrorSet(kSCStatusNoKey);
+		goto done;
+	}
+
+	CFRetain(info);
+
+    done :
+
+	if (tempSession)	CFRelease(store);
+	if (dict)		CFRelease(dict);
+	return info;
+}
+
+
+Boolean
+SCDynamicStoreSetConsoleInformation(SCDynamicStoreRef	store,
+				    const char		*user,
+				    uid_t		uid,
+				    gid_t		gid,
+				    CFArrayRef		sessions)
+{
+	CFStringRef		consoleUser;
+	CFMutableDictionaryRef	dict		= NULL;
+	CFStringRef		key		= SCDynamicStoreKeyCreateConsoleUser(NULL);
+	CFNumberRef		num;
+	Boolean			ok		= TRUE;
+	Boolean			tempSession	= FALSE;
+
+	if (!store) {
+		store = SCDynamicStoreCreate(NULL,
+					     CFSTR("SCDynamicStoreSetConsoleUser"),
+					     NULL,
+					     NULL);
+		if (!store) {
+			SCLog(_sc_verbose, LOG_INFO, CFSTR("SCDynamicStoreCreate() failed"));
+			return FALSE;
+		}
+		tempSession = TRUE;
+	}
+
+	if (user == NULL) {
+		ok = SCDynamicStoreRemoveValue(store, key);
+		goto done;
+	}
+
+	dict = CFDictionaryCreateMutable(NULL,
+					 0,
+					 &kCFTypeDictionaryKeyCallBacks,
+					 &kCFTypeDictionaryValueCallBacks);
+
+	consoleUser = CFStringCreateWithCString(NULL, user, kCFStringEncodingMacRoman);
+	CFDictionarySetValue(dict, kSCPropUsersConsoleUserName, consoleUser);
+	CFRelease(consoleUser);
+
+	num = CFNumberCreate(NULL, kCFNumberSInt32Type, (SInt32 *)&uid);
+	CFDictionarySetValue(dict, kSCPropUsersConsoleUserUID, num);
+	CFRelease(num);
+
+	num = CFNumberCreate(NULL, kCFNumberSInt32Type, (SInt32 *)&gid);
+	CFDictionarySetValue(dict, kSCPropUsersConsoleUserGID, num);
+	CFRelease(num);
+
+	CFDictionarySetValue(dict, kSCPropUsersConsoleSessionInfo, sessions);
+
+	ok = SCDynamicStoreSetValue(store, key, dict);
+
+    done :
+
+	if (dict)		CFRelease(dict);
+	if (key)		CFRelease(key);
+	if (tempSession)	CFRelease(store);
+	return ok;
 }
 
 

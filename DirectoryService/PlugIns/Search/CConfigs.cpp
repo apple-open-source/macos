@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -26,9 +29,8 @@
  */
 
 #include "CConfigs.h"
-#include "CSharedData.h"
+#include "CLog.h"
 
-#include <CoreFoundation/CFPriv.h>		// used for ::CFCopySearchPathForDirectoriesInDomains
 #include <SystemConfiguration/SystemConfiguration.h>
 
 #include <string.h>				//used for strcpy, etc.
@@ -37,9 +39,6 @@
 
 #include "PrivateTypes.h"
 #include "DSUtils.h"
-
-#define kAllocatorDefault NULL
-
 
 // --------------------------------------------------------------------------------
 //	* CConfigs
@@ -55,6 +54,10 @@ CConfigs::CConfigs ( void )
 	fSearchNodeConfigFileName			= nil;
 	fSearchNodeConfigBackupFileName		= nil;
 	fSearchNodeConfigCorruptedFileName	= nil;
+	fXMLSearchPathVersionKeyString  = CFStringCreateWithCString( NULL, kXMLSearchPathVersionKey, kCFStringEncodingUTF8 );
+	fXMLSearchPolicyKeyString		= CFStringCreateWithCString( NULL, kXMLSearchPolicyKey, kCFStringEncodingUTF8 );
+	fXMLSearchPathArrayKeyString	= CFStringCreateWithCString( NULL, kXMLSearchPathArrayKey, kCFStringEncodingUTF8 );
+	fXMLSearchDHCPLDAPString		= CFStringCreateWithCString( NULL, kXMLSearchDHCPLDAP, kCFStringEncodingUTF8 );
 } // CConfigs
 
 
@@ -97,6 +100,10 @@ CConfigs::~CConfigs ( void )
 		free(fSearchNodeConfigCorruptedFileName);
 		fSearchNodeConfigCorruptedFileName = nil;
 	}
+	CFRelease(fXMLSearchPathVersionKeyString);
+	CFRelease(fXMLSearchPolicyKeyString);
+	CFRelease(fXMLSearchPathArrayKeyString);
+	CFRelease(fXMLSearchDHCPLDAPString);
 
 } // ~CConfigs
 
@@ -107,8 +114,15 @@ CConfigs::~CConfigs ( void )
 
 sInt32 CConfigs::Init ( const char *inSearchNodeConfigFilePrefix, uInt32 &outSearchPolicy )
 {
+	sInt32				siResult		= eDSNullParameter;
+	CFMutableArrayRef   cfArrayRef		= NULL;
+	CFIndex				cfConfigCount   = 0;
+	CFMutableStringRef	cfSearchNode	= NULL;
+	CFRange				cfRangeVal;
+	struct stat			statResult;
+	bool				bUpdateConfig   = false;
+	CFStringRef			cfStringRef		= NULL;
 
-	sInt32	siResult = eDSNullParameter;
 	try
 	{	
 		if (inSearchNodeConfigFilePrefix != nil)
@@ -132,6 +146,77 @@ sInt32 CConfigs::Init ( const char *inSearchNodeConfigFilePrefix, uInt32 &outSea
 			if (siResult == eDSNoErr) //which it should always be
 			{
 				outSearchPolicy = fSearchPolicy;
+			}
+			
+			//let's see if we need to convert any deprecated node names
+			//ie. LDAPv2 to LDAPv3
+			//ie. BSD Configuration Files to BSD
+			//only do this if the deprecated plugins are not present
+			cfArrayRef = nil;
+			if ( CFDictionaryContainsKey( fConfigDict, fXMLSearchPathArrayKeyString ) )
+			{
+				cfArrayRef = (CFMutableArrayRef)CFDictionaryGetValue( fConfigDict, fXMLSearchPathArrayKeyString );
+			}
+			if (cfArrayRef != nil)
+			{
+				CFStringRef cfLDAPv2Prefix = CFStringCreateWithCString( NULL, "/LDAPv2/", kCFStringEncodingUTF8 );
+				CFStringRef cfLDAPv3Prefix = CFStringCreateWithCString( NULL, "/LDAPv3/", kCFStringEncodingUTF8 );
+				CFStringRef cfBSDOldPrefix = CFStringCreateWithCString( NULL, "/BSD Configuration Files/Local", kCFStringEncodingUTF8 );
+				CFStringRef cfBSDNewPrefix = CFStringCreateWithCString( NULL, "/BSD/local", kCFStringEncodingUTF8 );
+				cfConfigCount = ::CFArrayGetCount( cfArrayRef );
+				for (sInt32 iConfigIndex = 0; iConfigIndex < cfConfigCount; iConfigIndex++)
+				{
+					cfSearchNode = (CFMutableStringRef)::CFArrayGetValueAtIndex( cfArrayRef, iConfigIndex );
+					if ( cfSearchNode != nil )
+					{
+						if ( CFGetTypeID( cfSearchNode ) == CFStringGetTypeID() )
+						{
+							cfRangeVal = CFStringFind(cfSearchNode, cfLDAPv2Prefix, NULL);
+							if (cfRangeVal.location == 0)
+							{
+								if (stat( "/System/Library/Frameworks/DirectoryService.framework/Resources/Plugins/LDAPv2.dsplug", &statResult ) != eDSNoErr)
+								{
+									cfSearchNode = CFStringCreateMutableCopy(NULL, 0, cfSearchNode);
+									//replace LDAPv2 with LDAPv3
+									CFStringReplace(cfSearchNode, cfRangeVal, cfLDAPv3Prefix);
+									CFArraySetValueAtIndex( cfArrayRef, iConfigIndex, cfSearchNode );
+									CFRelease(cfSearchNode);
+									bUpdateConfig = true;
+								}
+								continue;
+							}
+							cfRangeVal = CFStringFind(cfSearchNode, cfBSDOldPrefix, NULL);
+							if (cfRangeVal.location == 0)
+							{
+								if (stat( "/System/Library/Frameworks/DirectoryService.framework/Resources/Plugins/BSD Configuration Files.dsplug", &statResult ) != eDSNoErr)
+								{
+									cfSearchNode = CFStringCreateMutableCopy(NULL, 0, cfSearchNode);
+									//replace BSD Configuration Files with BSD
+									CFStringReplace(cfSearchNode, cfRangeVal, cfBSDNewPrefix);
+									CFArraySetValueAtIndex( cfArrayRef, iConfigIndex, cfSearchNode );
+									CFRelease(cfSearchNode);
+									bUpdateConfig = true;
+								}
+								continue;
+							}
+						}
+					}
+				}
+				CFRelease(cfLDAPv2Prefix);
+				cfLDAPv2Prefix = NULL;
+				CFRelease(cfLDAPv3Prefix);
+				cfLDAPv3Prefix = NULL;
+				CFRelease(cfBSDOldPrefix);
+				cfBSDOldPrefix = NULL;
+				CFRelease(cfBSDNewPrefix);
+				cfBSDNewPrefix = NULL;
+			}
+			if (bUpdateConfig)
+			{
+				cfStringRef = CFStringCreateWithCString( NULL, "Search Node PlugIn Version 1.6", kCFStringEncodingUTF8 );
+				CFDictionarySetValue( fConfigDict, fXMLSearchPathVersionKeyString, cfStringRef );
+				CFRelease(cfStringRef);
+				WriteConfig();
 			}
 		}
 			
@@ -190,8 +275,6 @@ sInt32 CConfigs:: ConfigSearchPolicy ( void )
 	bool					bFileOpSuccess			= false;
 	bool					bWroteFile				= false;
 	bool					bCorruptedFile			= false;
-    register CFIndex		iPath					= 0;
-    CFArrayRef				aPaths					= nil;
     char					string[ PATH_MAX ];
     char				   *configVersion			= nil;
 	CFNumberRef				aSearchPolicy;
@@ -203,6 +286,7 @@ sInt32 CConfigs:: ConfigSearchPolicy ( void )
 	CFStringRef				sPath					= nil;
 	CFStringRef				sCorruptedPath			= nil;
 	bool					bUseXMLData				= false;
+	char				   *filenameString			= nil;
 
 	//Config data is read from a XML file OR created as default
 	//KW eventually use Version from XML file to check against the code here?
@@ -214,134 +298,110 @@ sInt32 CConfigs:: ConfigSearchPolicy ( void )
     //make sure file permissions are root only
 	//keep on going with a fConfigDict regardless whether file access works
 
-	// Get the local library search path -- only expect a single one
-	aPaths = ::CFCopySearchPathForDirectoriesInDomains( kCFLibraryDirectory, (CFSearchPathDomainMask)kCFLocalDomainMask, true );
-	if ( aPaths != nil )
+	sPath = ::CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR( "/Library/Preferences/DirectoryService/%s" ), fSearchNodeConfigFileName );
+
+	::memset(string,0,PATH_MAX);
+	::CFStringGetCString( sPath, string, sizeof( string ), kCFStringEncodingUTF8 );
+	DBGLOG( kLogPlugin, "Checking for Search Node XML config file:" );
+	DBGLOG1( kLogPlugin, "%s", string );
+	
+	filenameString = strdup(string);
+
+	// Convert it back into a CFURL.
+	configFileURL = ::CFURLCreateWithFileSystemPath( kCFAllocatorDefault, sPath, kCFURLPOSIXPathStyle, false );
+	CFRelease( sPath ); // build with Create so okay to dealloac here
+	sPath = nil;
+
+	//step 1- see if the file exists
+	//if not then make sure the directories exist or create them
+	//then create a new file if necessary
+	result = ::stat( string, &statResult );
+	//if file does not exist
+	if (result != eDSNoErr)
 	{
-		iPath = ::CFArrayGetCount( aPaths );
-		if ( iPath != 0 )
+		//move down the path from the system defined local directory and check if it exists
+		//if not create it
+		sPath = ::CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR( "%@/%s" ), sBase, "/Preferences" );
+		::memset(string,0,PATH_MAX);
+		::CFStringGetCString( sPath, string, sizeof( string ), kCFStringEncodingUTF8 );
+		result = ::stat( string, &statResult );
+		//if first sub directory does not exist
+		if (result != eDSNoErr)
 		{
-			// count down here if more that the Local directory is specified
-			// ie. in Local ( or user's home directory ).
-			// for now reality is that there is NO countdown
-			while (( iPath-- ) && (!bUseXMLData))
-			{
-				configFileURL = (CFURLRef)::CFArrayGetValueAtIndex( aPaths, iPath );
+			::mkdir( string , 0775 );
+			::chmod( string, 0775 ); //above 0775 doesn't seem to work - looks like umask modifies it
+		}
+		CFRelease( sPath ); // build with Create so okay to dealloac here
+		sPath = nil;
+		//next subdirectory
+		sPath = ::CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR( "%@/%s" ), sBase, "/Preferences/DirectoryService" );
+		::memset(string,0,PATH_MAX);
+		::CFStringGetCString( sPath, string, sizeof( string ),  kCFStringEncodingUTF8 );
+		result = ::stat( string, &statResult );
+		//if second sub directory does not exist
+		if (result != eDSNoErr)
+		{
+			::mkdir( string , 0775 );
+			::chmod( string, 0775 ); //above 0775 doesn't seem to work - looks like umask modifies it
+		}
+		CFRelease( sPath ); // build with Create so okay to dealloac here
+		sPath = nil;
 
-				// Append the subpath and clean up the sBase if the while loop was used
-				// since we can't clean at the bottom of the while since sBase might be used later in this routine
-				if (sBase != nil)
-				{
-					CFRelease(sBase); // built with Copy last time in the while loop so okay to dealloc
-					sBase = nil;
-				}
-				sBase = ::CFURLCopyFileSystemPath( configFileURL, kCFURLPOSIXPathStyle );
-				sPath = ::CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR( "%@/%s/%s" ), sBase, "/Preferences/DirectoryService", fSearchNodeConfigFileName );
+		//create a new dictionary for the file
+		configDict = CFDictionaryCreateMutable( kCFAllocatorDefault,
+												0,
+												&kCFTypeDictionaryKeyCallBacks,
+												&kCFTypeDictionaryValueCallBacks );
 
-				::memset(string,0,PATH_MAX);
-				::CFStringGetCString( sPath, string, sizeof( string ), kCFStringEncodingMacRoman );
-CShared::LogIt( 0x0F, (char *)"Checking for Search Node XML config file:" );
-				CShared::LogIt( 0x0F, string );
+		cfStringRef = CFSTR("Search Node PlugIn Version 1.6");
+		CFDictionarySetValue( configDict, fXMLSearchPathVersionKeyString, cfStringRef );
+		//CFRelease(cfStringRef);
+		// we don't need to release CFSTR() created strings that we didn't retain
+		aSearchPolicy = CFNumberCreate(NULL,kCFNumberIntType,&defaultSearchPolicy);
+		CFDictionarySetValue( configDict, fXMLSearchPolicyKeyString, aSearchPolicy ); // default NetInfo search policy CFNumber
+		if ( aSearchPolicy != nil )
+		{
+			CFRelease( aSearchPolicy );
+			aSearchPolicy = nil;
+		}
 
-				// Convert it back into a CFURL.
-				configFileURL = ::CFURLCreateWithFileSystemPath( kCFAllocatorDefault, sPath, kCFURLPOSIXPathStyle, false );
-				CFRelease( sPath ); // build with Create so okay to dealloac here
-				sPath = nil;
+		//convert the dict into a XML blob
+		xmlData = CFPropertyListCreateXMLData( kCFAllocatorDefault, configDict);
+		bUseXMLData = true;
 
-				//step 1- see if the file exists
-				//if not then make sure the directories exist or create them
-				//then create a new file if necessary
-				result = ::stat( string, &statResult );
-				//if file does not exist
-				if (result != eDSNoErr)
-				{
-					//move down the path from the system defined local directory and check if it exists
-					//if not create it
-					sPath = ::CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR( "%@/%s" ), sBase, "/Preferences" );
-					::memset(string,0,PATH_MAX);
-					::CFStringGetCString( sPath, string, sizeof( string ), kCFStringEncodingMacRoman );
-					result = ::stat( string, &statResult );
-					//if first sub directory does not exist
-					if (result != eDSNoErr)
-					{
-						::mkdir( string , 0775 );
-						::chmod( string, 0775 ); //above 0775 doesn't seem to work - looks like umask modifies it
-					}
-					CFRelease( sPath ); // build with Create so okay to dealloac here
-					sPath = nil;
-					//next subdirectory
-					sPath = ::CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR( "%@/%s" ), sBase, "/Preferences/DirectoryService" );
-					::memset(string,0,PATH_MAX);
-					::CFStringGetCString( sPath, string, sizeof( string ),  kCFStringEncodingMacRoman );
-					result = ::stat( string, &statResult );
-					//if second sub directory does not exist
-					if (result != eDSNoErr)
-					{
-						::mkdir( string , 0775 );
-						::chmod( string, 0775 ); //above 0775 doesn't seem to work - looks like umask modifies it
-					}
-					CFRelease( sPath ); // build with Create so okay to dealloac here
-					sPath = nil;
-
-					//create a new dictionary for the file
-					configDict = CFDictionaryCreateMutable( kCFAllocatorDefault,
-															0,
-															&kCFTypeDictionaryKeyCallBacks,
-															&kCFTypeDictionaryValueCallBacks );
-
-					cfStringRef = CFSTR("Search Node PlugIn Version 1.2");
-					CFDictionarySetValue( configDict, CFSTR( kXMLSearchPathVersionKey ), cfStringRef );
-					//CFRelease(cfStringRef);
-					// we don't need to release CFSTR() created strings that we didn't retain
-					aSearchPolicy = CFNumberCreate(NULL,kCFNumberIntType,&defaultSearchPolicy);
-					CFDictionarySetValue( configDict, CFSTR( kXMLSearchPolicyKey ), aSearchPolicy ); // default NetInfo search policy CFNumber
-					if ( aSearchPolicy != nil )
-					{
-						CFRelease( aSearchPolicy );
-						aSearchPolicy = nil;
-					}
-
-					//convert the dict into a XML blob
-					xmlData = CFPropertyListCreateXMLData( kCFAllocatorDefault, configDict);
-					bUseXMLData = true;
-
-					//write the XML to the config file
-					bFileOpSuccess = CFURLWriteDataAndPropertiesToResource( configFileURL,
-																			xmlData,
-																			NULL,
-																			&errorCode);
-					CFRelease(configDict);
-					configDict = nil;
-					//CFRelease(xmlData); //keeping this data for use below
-				} // file does not exist so creating one
-				else //try to read the existing file
-				{
-					// Read the XML property list file
-					bFileOpSuccess = CFURLCreateDataAndPropertiesFromResource(	kAllocatorDefault,
-																			configFileURL,
-																			&xmlData,          // place to put file data
-																			NULL,
-																			NULL,
-																			&errorCode);
-					if (!bFileOpSuccess) //if fails ensure xmlData ptr is nil
-					{
-						xmlData = nil;
-					}
-					else
-					{
-						bUseXMLData = true;
-					}
-				}
-
-			} // while (( iPath-- ) && (!bUseXMLData))
-		} // if ( iPath != 0 )
-		CFRelease(aPaths); // seems okay since Created above
-	}// if ( aPaths != nil )
+		//write the XML to the config file
+		bFileOpSuccess = CFURLWriteDataAndPropertiesToResource( configFileURL,
+																xmlData,
+																NULL,
+																&errorCode);
+		::chmod( filenameString, 0600 );
+		CFRelease(configDict);
+		configDict = nil;
+		//CFRelease(xmlData); //keeping this data for use below
+	} // file does not exist so creating one
+	else //try to read the existing file
+	{
+		// Read the XML property list file
+		bFileOpSuccess = CFURLCreateDataAndPropertiesFromResource(	kCFAllocatorDefault,
+																configFileURL,
+																&xmlData,          // place to put file data
+																NULL,
+																NULL,
+																&errorCode);
+		if (!bFileOpSuccess) //if fails ensure xmlData ptr is nil
+		{
+			xmlData = nil;
+		}
+		else
+		{
+			bUseXMLData = true;
+		}
+	}
 
 	if (xmlData != nil)
 	{
 		// extract the config dictionary from the XML data.
-		configPropertyList = CFPropertyListCreateFromXMLData(	kAllocatorDefault,
+		configPropertyList = CFPropertyListCreateFromXMLData(	kCFAllocatorDefault,
 																xmlData,
 																kCFPropertyListMutableContainers, //could also use kCFPropertyListImmutable, kCFPropertyListMutableContainers
 																&errorString);
@@ -349,8 +409,8 @@ CShared::LogIt( 0x0F, (char *)"Checking for Search Node XML config file:" );
 		if (configPropertyList != nil )
 		{
 
-			CShared::LogIt( 0x0F, (char *)"Have read Search Node XML config file:" );
-			CShared::LogIt( 0x0F, string );
+			DBGLOG( kLogPlugin, "Have read Search Node XML config file:" );
+			DBGLOG1( kLogPlugin, "%s", string );
 
 			//make the propertylist a dict
 			if ( CFDictionaryGetTypeID() == CFGetTypeID( configPropertyList ) )
@@ -383,8 +443,8 @@ CShared::LogIt( 0x0F, (char *)"Checking for Search Node XML config file:" );
 		}//if (configPropertyList != nil )
 		if ( configPropertyList == nil) //we have a corrupted file
 		{
-			CShared::LogIt( 0x0F, (char *)"Search Node XML config file is corrupted" );
-			CShared::LogIt( 0x0F, (char *)"Using default NetInfo Search Policy" );
+			DBGLOG( kLogPlugin, "Search Node XML config file is corrupted" );
+			DBGLOG( kLogPlugin, "Using default NetInfo Search Policy" );
 			bCorruptedFile = true;
 			//here we need to make a backup of the file - why? - because
 
@@ -393,6 +453,9 @@ CShared::LogIt( 0x0F, (char *)"Checking for Search Node XML config file:" );
 
 			// Convert it into a CFURL.
 			configFileCorruptedURL = ::CFURLCreateWithFileSystemPath( kCFAllocatorDefault, sCorruptedPath, kCFURLPOSIXPathStyle, false );
+			
+			::memset(string,0,PATH_MAX);
+			::CFStringGetCString( sCorruptedPath, string, sizeof( string ),  kCFStringEncodingUTF8 );
 			CFRelease( sCorruptedPath ); // build with Create so okay to dealloac here
 			sCorruptedPath = nil;
 
@@ -401,6 +464,7 @@ CShared::LogIt( 0x0F, (char *)"Checking for Search Node XML config file:" );
 																xmlData,
 																NULL,
 																&errorCode);
+			::chmod( string, 0600 );
 
 		} //couldn't extract the property list out of the file or the version didn't exist
 		CFRelease(xmlData); // probably okay to dealloc since Create used and no longer needed
@@ -408,8 +472,8 @@ CShared::LogIt( 0x0F, (char *)"Checking for Search Node XML config file:" );
 	}
 	else
 	{
-		CShared::LogIt( 0x0F, (char *)"Search Node XML config file is not readable" );
-		CShared::LogIt( 0x0F, (char *)"Using default NetInfo Search Policy" );
+		DBGLOG( kLogPlugin, "Search Node XML config file is not readable" );
+		DBGLOG( kLogPlugin, "Using default NetInfo Search Policy" );
 		bCorruptedFile = true;
 		//here we make no backup since unable to read it at all
 	}
@@ -422,12 +486,12 @@ CShared::LogIt( 0x0F, (char *)"Checking for Search Node XML config file:" );
 												&kCFTypeDictionaryKeyCallBacks,
 												&kCFTypeDictionaryValueCallBacks );
 
-		cfStringRef = CFSTR("Search Node PlugIn Version 1.2");
-		CFDictionarySetValue( configDict, CFSTR( kXMLSearchPathVersionKey ), cfStringRef );
+		cfStringRef = CFSTR("Search Node PlugIn Version 1.6");
+		CFDictionarySetValue( configDict, fXMLSearchPathVersionKeyString, cfStringRef );
 		//CFRelease(cfStringRef);
 		// don't release CFSTR() string if not retained
 		aSearchPolicy = CFNumberCreate(NULL,kCFNumberIntType,&defaultSearchPolicy);
-		CFDictionarySetValue( configDict, CFSTR( kXMLSearchPolicyKey ), aSearchPolicy ); // default NetInfo search policy CFNumber
+		CFDictionarySetValue( configDict, fXMLSearchPolicyKeyString, aSearchPolicy ); // default NetInfo search policy CFNumber
 		if ( aSearchPolicy != nil )
 		{
 			CFRelease( aSearchPolicy );
@@ -443,7 +507,7 @@ CShared::LogIt( 0x0F, (char *)"Checking for Search Node XML config file:" );
 		{
 			CFRelease(sPath);
 		}
-		sPath = ::CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR( "%s/%s" ), sBase, "/Library/Preferences/DirectoryService", fSearchNodeConfigFileName );
+		sPath = ::CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR( "/Library/Preferences/DirectoryService/%s" ), fSearchNodeConfigFileName );
 
 		if (configFileURL != nil)
 		{
@@ -451,23 +515,26 @@ CShared::LogIt( 0x0F, (char *)"Checking for Search Node XML config file:" );
 		}
 		// Convert it back into a CFURL.
 		configFileURL = ::CFURLCreateWithFileSystemPath( kCFAllocatorDefault, sPath, kCFURLPOSIXPathStyle, false );
+		::memset(string,0,PATH_MAX);
+		::CFStringGetCString( sPath, string, sizeof( string ),  kCFStringEncodingUTF8 );
 
 		//write the newly created XML to the config file
 		bWroteFile = CFURLWriteDataAndPropertiesToResource(	configFileURL,
 															xmlData,
 															NULL,
 															&errorCode);
+		::chmod( string, 0600 );
 		if (xmlData != nil)
 		{
-			configPropertyList = CFPropertyListCreateFromXMLData(	kAllocatorDefault,
+			configPropertyList = CFPropertyListCreateFromXMLData(	kCFAllocatorDefault,
 																	xmlData,
 																	kCFPropertyListMutableContainers, //could also use kCFPropertyListImmutable, kCFPropertyListMutableContainers
 																	&errorString);
 
 			if ( configPropertyList != nil )
 			{
-				CShared::LogIt( 0x0F, (char *)"Using Newly Replaced Search Node XML config file:" );
-				CShared::LogIt( 0x0F, string );
+				DBGLOG( kLogPlugin, "Using Newly Replaced Search Node XML config file:" );
+				DBGLOG1( kLogPlugin, "%s", string );
 				//make the propertylist a dict
 				if ( CFDictionaryGetTypeID() == CFGetTypeID( configPropertyList ) )
 				{
@@ -522,6 +589,11 @@ CShared::LogIt( 0x0F, (char *)"Checking for Search Node XML config file:" );
 		CFRelease(sPath);
 		sPath = nil;
 	}
+	if (filenameString != nil)
+	{
+		free(filenameString);
+		filenameString = nil;
+	}
 
     return( siResult );
 
@@ -539,182 +611,160 @@ sInt32 CConfigs:: WriteConfig ( void )
 	CFDataRef				xmlData;
 	bool					bWroteFile			= false;
 	bool					bReadFile			= false;
-	register CFIndex		iPath;
-	CFArrayRef				aPaths				= nil;
 	char					string[ PATH_MAX ];
 	struct stat				statResult;
 	sInt32					errorCode			= 0;
+	char				   *filenameString		= nil;
 
-        //Config data is written to a XML file
-        //Steps in the process:
-        //1- see if the file exists
-        //2- if it exists then overwrite it
-        //KW 3- rename existing file and save it while creating a new file??
-        //4- if file doesn't exist then create a new default file - make sure directories exist/if not create them
+	//Config data is written to a XML file
+	//Steps in the process:
+	//1- see if the file exists
+	//2- if it exists then overwrite it
+	//KW 3- rename existing file and save it while creating a new file??
+	//4- if file doesn't exist then create a new default file - make sure directories exist/if not create them
 
-        //make sure file permissions are root only
+	//make sure file permissions are root only
 
-	try
+	CFStringRef	sPath;
+
+	sPath = ::CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR( "/Library/Preferences/DirectoryService/%s" ), fSearchNodeConfigFileName );
+
+	::memset(string,0,PATH_MAX);
+	::CFStringGetCString( sPath, string, sizeof( string ), kCFStringEncodingUTF8 );
+	DBGLOG( kLogPlugin, "Checking for Search Node XML config file:" );
+	DBGLOG1( kLogPlugin, "%s", string );
+	
+	filenameString = strdup(string);
+
+	// Convert it back into a CFURL.
+	configFileURL = ::CFURLCreateWithFileSystemPath( kCFAllocatorDefault, sPath, kCFURLPOSIXPathStyle, false );
+	CFRelease( sPath ); // build with Create so okay to dealloac here
+	sPath = nil;
+
+	//step 1- see if the file exists
+	//if not then make sure the directories exist or create them
+	//then write the file
+	siResult = ::stat( string, &statResult );
+	
+	//if file exists then we make a backup copy - why? - because
+	if (siResult == eDSNoErr)
 	{
-            // Get the local library search path -- only expect a single one
-            aPaths = ::CFCopySearchPathForDirectoriesInDomains( kCFLibraryDirectory, (CFSearchPathDomainMask)kCFLocalDomainMask, true );
-            if ( aPaths != nil )
-            {
-                iPath = ::CFArrayGetCount( aPaths );
-                if ( iPath != 0 )
-                {
-                    // count down here if more that the Local directory is specified
-                    // ie. in Local ( or user's home directory ).
-                    // for now reality is that there is NO countdown
-                    while (( iPath-- ) && (!bWroteFile))
-                    {
-                        configFileURL = (CFURLRef)::CFArrayGetValueAtIndex( aPaths, iPath );
-                        CFStringRef	sBase, sPath;
+		CFStringRef	sBackupPath;
 
-                        // Append the subpath.
-                        sBase = ::CFURLCopyFileSystemPath( configFileURL, kCFURLPOSIXPathStyle );
-                        sPath = ::CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR( "%@/%s/%s" ), sBase, "/Preferences/DirectoryService", fSearchNodeConfigFileName );
+		sBackupPath = ::CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR( "/Library/Preferences/DirectoryService/%s" ), fSearchNodeConfigBackupFileName );
 
-                        ::memset(string,0,PATH_MAX);
-						::CFStringGetCString( sPath, string, sizeof( string ), kCFStringEncodingMacRoman );
-CShared::LogIt( 0x0F, (char *)"Checking for Search Node XML config file:" );
-                        CShared::LogIt( 0x0F, string );
-
-                        // Convert it back into a CFURL.
-                        configFileURL = ::CFURLCreateWithFileSystemPath( kCFAllocatorDefault, sPath, kCFURLPOSIXPathStyle, false );
-                        CFRelease( sPath ); // build with Create so okay to dealloac here
-                        sPath = nil;
-
-                        //step 1- see if the file exists
-                        //if not then make sure the directories exist or create them
-                        //then write the file
-                        siResult = ::stat( string, &statResult );
-                        
-                        //if file exists then we make a backup copy - why? - because
-                        if (siResult == eDSNoErr)
-                        {
-                            CFStringRef	sBackupPath;
-
-                            // Append the subpath.
-                            sBackupPath = ::CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR( "%@/%s/%s" ), sBase, "/Preferences/DirectoryService", fSearchNodeConfigBackupFileName );
-
-                            // Convert it into a CFURL.
-                            configFileBackupURL = ::CFURLCreateWithFileSystemPath( kCFAllocatorDefault, sBackupPath, kCFURLPOSIXPathStyle, false );
-                            CFRelease( sBackupPath ); // build with Create so okay to dealloac here
-                            sBackupPath = nil;
-                            
-                            // Read the old XML property list file
-                            bReadFile = CFURLCreateDataAndPropertiesFromResource(
-                                                                                    kAllocatorDefault,
-                                                                                    configFileURL,
-                                                                                    &xmlData,          // place to put file data
-                                                                                    NULL,
-                                                                                    NULL,
-                                                                                    &siResult);
-                            //write the XML to the backup config file
-                            if (bReadFile)
-                            {
-
-                                bWroteFile = CFURLWriteDataAndPropertiesToResource( configFileBackupURL,
-                                                                                    xmlData,
-                                                                                    NULL,
-                                                                                    &errorCode);
-                                //KW check the error code and the result?
-
-                                CFRelease(xmlData);
-                            }
-							if (configFileBackupURL != nil)
-							{
-								CFRelease(configFileBackupURL);
-								configFileBackupURL = nil;
-							}
-                        }
-                        //if file does not exist
-                        if (siResult != eDSNoErr)
-                        {
-                            siResult = eDSNoErr;
-                            //move down the path from the system defined local directory and check if it exists
-                            //if not create it
-                            sPath = ::CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR( "%@/%s" ), sBase, "/Preferences" );
-                            ::memset(string,0,PATH_MAX);
-                            ::CFStringGetCString( sPath, string, sizeof( string ), kCFStringEncodingMacRoman );
-                            siResult = ::stat( string, &statResult );
-                            //if first sub directory does not exist
-                            if (siResult != eDSNoErr)
-                            {
-                                siResult = eDSNoErr;
-                                ::mkdir( string , 0775 );
-								::chmod( string, 0775 ); //above 0775 doesn't seem to work - looks like umask modifies it
-                            }
-                            CFRelease( sPath ); // build with Create so okay to dealloac here
-                            sPath = nil;
-                            //next subdirectory
-                            sPath = ::CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR( "%@/%s" ), sBase, "/Preferences/DirectoryService" );
-                            ::memset(string,0,PATH_MAX);
-							::CFStringGetCString( sPath, string, sizeof( string ), kCFStringEncodingMacRoman );
-                            siResult = ::stat( string, &statResult );
-                            //if second sub directory does not exist
-                            if (siResult != eDSNoErr)
-                            {
-                                siResult = eDSNoErr;
-                                ::mkdir( string , 0775 );
-								::chmod( string, 0775 ); //above 0775 doesn't seem to work - looks like umask modifies it
-                            }
-                            CFRelease( sPath ); // build with Create so okay to dealloac here
-                            sPath = nil;
-
-                        } // file does not exist so checking directory path to enable write of a new file
-
-                        //now write the updated file
-                            if (fConfigDict)
-                            {
-                               //convert the dict into a XML blob
-                                xmlData = CFPropertyListCreateXMLData( kCFAllocatorDefault, fConfigDict);
-
-                                //write the XML to the config file
-                                bWroteFile = CFURLWriteDataAndPropertiesToResource( configFileURL,
-                                                                                xmlData,
-                                                                                NULL,
-                                                                                &errorCode);
-                                //KW check the error code and the result?
-
-                                CFRelease(xmlData);
-                            }
-
-                        CFRelease( sBase ); // built with Copy so okay to dealloc
-                        sBase = nil;
-
-						if (configFileURL != nil)
-						{
-                        	CFRelease(configFileURL); // seems okay to dealloc since Create used and done with it now
-							configFileURL = nil;
-						}
-
-                    } // while (( iPath-- ) && (!bWroteFile))
-                } // if ( iPath != 0 )
-
-                CFRelease(aPaths); // seems okay since Created above
-            }// if ( aPaths != nil )
-
-            
-		if (bWroteFile)
-		{
-			CShared::LogIt( 0x0F, (char *)"Have written the Search Node XML config file:" );
-			CShared::LogIt( 0x0F, string );
-                    siResult = eDSNoErr;
-		}
-		else
-		{
-			CShared::LogIt( 0x0F, (char *)"Search Node XML config file has NOT been written" );
-			CShared::LogIt( 0x0F, (char *)"Update to Custom Search Path Node List in Config File Failed" );
-			siResult = eDSPlugInConfigFileError;
-		}
+		// Convert it into a CFURL.
+		configFileBackupURL = ::CFURLCreateWithFileSystemPath( kCFAllocatorDefault, sBackupPath, kCFURLPOSIXPathStyle, false );
+		::memset(string,0,PATH_MAX);
+		::CFStringGetCString( sBackupPath, string, sizeof( string ), kCFStringEncodingUTF8 );
+		CFRelease( sBackupPath ); // build with Create so okay to dealloac here
+		sBackupPath = nil;
 		
-	} // try
-	catch( sInt32 err )
-	{
-		siResult = err;
+		// Read the old XML property list file
+		bReadFile = CFURLCreateDataAndPropertiesFromResource(
+																kCFAllocatorDefault,
+																configFileURL,
+																&xmlData,          // place to put file data
+																NULL,
+																NULL,
+																&siResult);
+		//write the XML to the backup config file
+		if (bReadFile)
+		{
+
+			bWroteFile = CFURLWriteDataAndPropertiesToResource( configFileBackupURL,
+																xmlData,
+																NULL,
+																&errorCode);
+			::chmod( string, 0600 );
+			//KW check the error code and the result?
+
+			CFRelease(xmlData);
+		}
+		if (configFileBackupURL != nil)
+		{
+			CFRelease(configFileBackupURL);
+			configFileBackupURL = nil;
+		}
 	}
+	//if file does not exist
+	if (siResult != eDSNoErr)
+	{
+		siResult = eDSNoErr;
+		//move down the path from the system defined local directory and check if it exists
+		//if not create it
+		sPath = ::CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR( "%s" ), "/Library/Preferences" );
+		::memset(string,0,PATH_MAX);
+		::CFStringGetCString( sPath, string, sizeof( string ), kCFStringEncodingUTF8 );
+		siResult = ::stat( string, &statResult );
+		//if first sub directory does not exist
+		if (siResult != eDSNoErr)
+		{
+			siResult = eDSNoErr;
+			::mkdir( string , 0775 );
+			::chmod( string, 0775 ); //above 0775 doesn't seem to work - looks like umask modifies it
+		}
+		CFRelease( sPath ); // build with Create so okay to dealloac here
+		sPath = nil;
+		//next subdirectory
+		sPath = ::CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR( "%s" ), "/Library/Preferences/DirectoryService" );
+		::memset(string,0,PATH_MAX);
+		::CFStringGetCString( sPath, string, sizeof( string ), kCFStringEncodingUTF8 );
+		siResult = ::stat( string, &statResult );
+		//if second sub directory does not exist
+		if (siResult != eDSNoErr)
+		{
+			siResult = eDSNoErr;
+			::mkdir( string , 0775 );
+			::chmod( string, 0775 ); //above 0775 doesn't seem to work - looks like umask modifies it
+		}
+		CFRelease( sPath ); // build with Create so okay to dealloac here
+		sPath = nil;
+
+	} // file does not exist so checking directory path to enable write of a new file
+
+	//now write the updated file
+	if (fConfigDict)
+	{
+		//convert the dict into a XML blob
+		xmlData = CFPropertyListCreateXMLData( kCFAllocatorDefault, fConfigDict);
+
+		//write the XML to the config file
+		bWroteFile = CFURLWriteDataAndPropertiesToResource( configFileURL,
+														xmlData,
+														NULL,
+														&errorCode);
+		::chmod( filenameString, 0600 );
+		//KW check the error code and the result?
+
+		CFRelease(xmlData);
+	}
+
+	if (configFileURL != nil)
+	{
+		CFRelease(configFileURL); // seems okay to dealloc since Create used and done with it now
+		configFileURL = nil;
+	}
+
+	if (bWroteFile)
+	{
+		DBGLOG( kLogPlugin, "Have written the Search Node XML config file:" );
+		DBGLOG1( kLogPlugin, "%s", string );
+		siResult = eDSNoErr;
+	}
+	else
+	{
+		DBGLOG( kLogPlugin, "Search Node XML config file has NOT been written" );
+		DBGLOG( kLogPlugin, "Update to Custom Search Path Node List in Config File Failed" );
+		siResult = eDSPlugInConfigFileError;
+	}
+	
+	if (filenameString != nil)
+	{
+		free(filenameString);
+		filenameString = nil;
+	}
+		
 	return( siResult );
 
 } // WriteConfig
@@ -814,9 +864,9 @@ char *CConfigs::GetVersion ( CFDictionaryRef configDict )
 	char			   *tmpBuff		= nil;
 	CFIndex				cfBuffSize	= 1024;
 
-	if ( CFDictionaryContainsKey( configDict, CFSTR( kXMLSearchPathVersionKey ) ) )
+	if ( CFDictionaryContainsKey( configDict, fXMLSearchPathVersionKeyString ) )
 	{
-		cfStringRef = (CFStringRef)CFDictionaryGetValue( configDict, CFSTR( kXMLSearchPathVersionKey ) );
+		cfStringRef = (CFStringRef)CFDictionaryGetValue( configDict, fXMLSearchPathVersionKeyString );
 		if ( cfStringRef != nil )
 		{
 			if ( CFGetTypeID( cfStringRef ) == CFStringGetTypeID() )
@@ -850,9 +900,9 @@ uInt32 CConfigs:: GetSearchPolicy ( CFDictionaryRef configDict )
 	CFNumberRef			cfNumber		= 0;
 	unsigned char		cfNumBool		= false;
 
-	if ( CFDictionaryContainsKey( configDict, CFSTR( kXMLSearchPolicyKey ) ) )
+	if ( CFDictionaryContainsKey( configDict, fXMLSearchPolicyKeyString ) )
 	{
-		cfNumber = (CFNumberRef)CFDictionaryGetValue( configDict, CFSTR( kXMLSearchPolicyKey ) );
+		cfNumber = (CFNumberRef)CFDictionaryGetValue( configDict, fXMLSearchPolicyKeyString );
 		if ( cfNumber != nil )
 		{
 			cfNumBool = CFNumberGetValue(cfNumber, kCFNumberIntType, &searchPolicy);
@@ -873,9 +923,9 @@ CFArrayRef CConfigs:: GetListArray ( CFDictionaryRef configDict )
 {
 	CFArrayRef		cfArrayRef	= nil;
 
-	if ( CFDictionaryContainsKey( configDict, CFSTR( kXMLSearchPathArrayKey ) ) )
+	if ( CFDictionaryContainsKey( configDict, fXMLSearchPathArrayKeyString ) )
 	{
-		cfArrayRef = (CFArrayRef)CFDictionaryGetValue( configDict, CFSTR( kXMLSearchPathArrayKey ) );
+		cfArrayRef = (CFArrayRef)CFDictionaryGetValue( configDict, fXMLSearchPathArrayKeyString );
 	}
 
 	// return if nil or not
@@ -894,9 +944,9 @@ CFDictionaryRef CConfigs::GetDHCPLDAPDictionary ( )
 
 	if (fConfigDict)
 	{
-		if ( CFDictionaryContainsKey( fConfigDict, CFSTR( kXMLSearchDHCPLDAP ) ) )
+		if ( CFDictionaryContainsKey( fConfigDict, fXMLSearchDHCPLDAPString ) )
 		{
-			cfDict = (CFDictionaryRef)CFDictionaryGetValue( fConfigDict, CFSTR( kXMLSearchDHCPLDAP ) );
+			cfDict = (CFDictionaryRef)CFDictionaryGetValue( fConfigDict, fXMLSearchDHCPLDAPString );
 		}
 	}
 
@@ -926,9 +976,9 @@ bool CConfigs::IsDHCPLDAPEnabled ( )
 			currentLocation = SCDynamicStoreCopyLocation(sysConfigRef);
 			if (currentLocation != 0)
 			{
-				if ( CFDictionaryContainsKey( fConfigDict, CFSTR( kXMLSearchDHCPLDAP ) ) )
+				if ( CFDictionaryContainsKey( fConfigDict, fXMLSearchDHCPLDAPString ) )
 				{
-					cfDict = (CFDictionaryRef)CFDictionaryGetValue( fConfigDict, CFSTR( kXMLSearchDHCPLDAP ) );
+					cfDict = (CFDictionaryRef)CFDictionaryGetValue( fConfigDict, fXMLSearchDHCPLDAPString );
 					if ( cfDict != 0 && CFGetTypeID(cfDict) == CFDictionaryGetTypeID() )
 					{
 						cfBool = (CFBooleanRef)CFDictionaryGetValue( cfDict, currentLocation );
@@ -957,7 +1007,7 @@ void CConfigs::SetDHCPLDAPDictionary ( CFDictionaryRef dhcpLDAPdict )
 {
 	if (fConfigDict)
 	{
-		CFDictionarySetValue(fConfigDict, CFSTR( kXMLSearchDHCPLDAP ), dhcpLDAPdict);
+		CFDictionarySetValue(fConfigDict, fXMLSearchDHCPLDAPString, dhcpLDAPdict);
 	}
 } // SetDHCPLDAPDictionary
 
@@ -975,13 +1025,13 @@ sInt32 CConfigs:: SetSearchPolicy ( uInt32 inSearchPolicy )
 	if (fConfigDict)
 	{
 		cfNumber = CFNumberCreate(NULL,kCFNumberIntType,&inSearchPolicy);
-		if ( CFDictionaryContainsKey( fConfigDict, CFSTR( kXMLSearchPolicyKey ) ) )
+		if ( CFDictionaryContainsKey( fConfigDict, fXMLSearchPolicyKeyString ) )
 		{
-			CFDictionaryReplaceValue(fConfigDict, CFSTR( kXMLSearchPolicyKey ), cfNumber);
+			CFDictionaryReplaceValue(fConfigDict, fXMLSearchPolicyKeyString, cfNumber);
 		}
 		else
 		{
-			CFDictionarySetValue(fConfigDict, CFSTR( kXMLSearchPolicyKey ), cfNumber);
+			CFDictionarySetValue(fConfigDict, fXMLSearchPolicyKeyString, cfNumber);
 		}
 		if (cfNumber != 0)
 		{
@@ -1006,13 +1056,13 @@ sInt32 CConfigs:: SetListArray ( CFMutableArrayRef inCSPArray )
 
 	if (fConfigDict)
 	{
-		if ( CFDictionaryContainsKey( fConfigDict, CFSTR( kXMLSearchPathArrayKey ) ) )
+		if ( CFDictionaryContainsKey( fConfigDict, fXMLSearchPathArrayKeyString ) )
 		{
-			CFDictionaryReplaceValue(fConfigDict, CFSTR( kXMLSearchPathArrayKey ), (const void *) inCSPArray);
+			CFDictionaryReplaceValue(fConfigDict, fXMLSearchPathArrayKeyString, (const void *) inCSPArray);
 		}
             else
             {
-                CFDictionarySetValue(fConfigDict, CFSTR( kXMLSearchPathArrayKey ), (const void *) inCSPArray);
+                CFDictionarySetValue(fConfigDict, fXMLSearchPathArrayKeyString, (const void *) inCSPArray);
             }
 	}
 
@@ -1055,13 +1105,13 @@ sSearchList *CConfigs::MakeListData ( char *inNodeName )
 			siResult = ::dsOpenDirNode( fDirRef, listOut->fDataList, &listOut->fNodeRef );
 			if ( siResult != eDSNoErr )
 			{
-				CShared::LogIt( 0x0F, "Failed to open node: %s with error: %l", listOut->fNodeName, siResult );
-				CShared::LogIt( 0x0F, "Will attempt to open again later?" );
+				DBGLOG2( kLogPlugin, "Failed to open node: %s with error: %l", listOut->fNodeName, siResult );
+				DBGLOG( kLogPlugin, "Will attempt to open again later?" );
 				siResult = eDSNoErr;
 			}
 			else
 			{
-				CShared::LogIt( 0x0F, "  Node Reference = %l", listOut->fNodeRef );
+				DBGLOG1( kLogPlugin, "  Node Reference = %l", listOut->fNodeRef );
 				listOut->fOpened = true;
 			}
 			*/
@@ -1092,6 +1142,7 @@ sInt32 CConfigs::CleanListData ( sSearchList *inList )
             delete ( inList->fNodeName );
         }
 		inList->fOpened					= false;
+		inList->fPreviousOpenFailed		= false;
 		if (inList->fNodeRef != 0)
 		{
 			::dsCloseDirNode(inList->fNodeRef); // don't check error code

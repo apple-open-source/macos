@@ -1,7 +1,7 @@
 /* modify.c - ldap backend modify function */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/modify.c,v 1.18 2002/01/12 16:35:01 ando Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/modify.c,v 1.18.2.6 2003/03/12 22:27:57 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /* This is an altered version */
@@ -79,8 +79,8 @@ ldap_back_modify(
 			mdn.bv_val = ( char * )dn->bv_val;
 		}
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
-				"[rw] modifyDn: \"%s\" -> \"%s\"\n", dn->bv_val, mdn.bv_val ));
+		LDAP_LOG( BACK_LDAP, DETAIL1, 
+			"[rw] modifyDn: \"%s\" -> \"%s\"\n", dn->bv_val, mdn.bv_val, 0 );
 #else /* !NEW_LOGGING */
 		Debug( LDAP_DEBUG_ARGS, "rw> modifyDn: \"%s\" -> \"%s\"\n%s",
 				dn->bv_val, mdn.bv_val, "" );
@@ -89,12 +89,12 @@ ldap_back_modify(
 		
 	case REWRITE_REGEXEC_UNWILLING:
 		send_ldap_result( conn, op, LDAP_UNWILLING_TO_PERFORM,
-				NULL, "Unwilling to perform", NULL, NULL );
+				NULL, "Operation not allowed", NULL, NULL );
 		return( -1 );
 
 	case REWRITE_REGEXEC_ERR:
-		send_ldap_result( conn, op, LDAP_OPERATIONS_ERROR,
-				NULL, "Operations error", NULL, NULL );
+		send_ldap_result( conn, op, LDAP_OTHER,
+				NULL, "Rewrite error", NULL, NULL );
 		return( -1 );
 	}
 #else /* !ENABLE_REWRITE */
@@ -114,8 +114,13 @@ ldap_back_modify(
 	}
 
 	for (i=0, ml=modlist; ml; ml=ml->sml_next) {
-		ldap_back_map(&li->at_map, &ml->sml_desc->ad_cname, &mapped, 0);
-		if (mapped.bv_val == NULL) {
+		if ( ml->sml_desc->ad_type->sat_no_user_mod  ) {
+			continue;
+		}
+
+		ldap_back_map(&li->at_map, &ml->sml_desc->ad_cname, &mapped,
+				BACKLDAP_MAP);
+		if (mapped.bv_val == NULL || mapped.bv_val[0] == '\0') {
 			continue;
 		}
 
@@ -135,13 +140,18 @@ ldap_back_modify(
 					ml->sml_bvalues, conn );
 		}
 #endif /* ENABLE_REWRITE */
-	
-		for (j = 0; ml->sml_bvalues[j].bv_val; j++);
-		mods[i].mod_bvalues = (struct berval **)ch_malloc((j+1) *
-			sizeof(struct berval *));
-		for (j = 0; ml->sml_bvalues[j].bv_val; j++)
-			mods[i].mod_bvalues[j] = &ml->sml_bvalues[j];
-		mods[i].mod_bvalues[j] = NULL;
+
+		if ( ml->sml_bvalues != NULL ) {	
+			for (j = 0; ml->sml_bvalues[j].bv_val; j++);
+			mods[i].mod_bvalues = (struct berval **)ch_malloc((j+1) *
+				sizeof(struct berval *));
+			for (j = 0; ml->sml_bvalues[j].bv_val; j++)
+				mods[i].mod_bvalues[j] = &ml->sml_bvalues[j];
+			mods[i].mod_bvalues[j] = NULL;
+		} else {
+			mods[i].mod_bvalues = NULL;
+		}
+
 		i++;
 	}
 	modv[i] = 0;
@@ -149,15 +159,12 @@ ldap_back_modify(
 	ldap_modify_s( lc->ld, mdn.bv_val, modv );
 
 cleanup:;
-#ifdef ENABLE_REWRITE
 	if ( mdn.bv_val != dn->bv_val ) {
-#endif /* ENABLE_REWRITE */
 		free( mdn.bv_val );
-#ifdef ENABLE_REWRITE
 	}
-#endif /* ENABLE_REWRITE */
-	for (i=0; modv[i]; i++)
+	for (i=0; modv[i]; i++) {
 		ch_free(modv[i]->mod_bvalues);
+	}
 	ch_free(mods);
 	ch_free(modv);
 	return( ldap_back_op_result( lc, op ));

@@ -106,14 +106,17 @@ int timeStringToTm(
 		 * 2-digit year. 
 		 *   0  <= year <  50 : assume century 21
 		 *   50 <= year <  70 : illegal per PKIX
+		 *   ...though we allow this as of 10/10/02...dmitch
 		 *   70 <  year <= 99 : assume century 20
 		 */
 		if(x < 50) {
 			x += 2000;
 		}
+		/*
 		else if(x < 70) {
 			return 1;
 		}
+		*/
 		else {
 			/* century 20 */
 			x += 1900;			
@@ -246,8 +249,8 @@ int compareTimes(
 /*
  * Create a time string, in either UTC (2-digit) or or Generalized (4-digit)
  * year format. Caller mallocs the output string whose length is at least
- * (UTC_TIME_STRLEN+1) or (GENERALIZED_TIME_STRLEN+1) respectively.
- * Caller must hold tpTimeLock.
+ * (UTC_TIME_STRLEN+1), (GENERALIZED_TIME_STRLEN+1), or (CSSM_TIME_STRLEN+1)
+ * respectively. Caller must hold tpTimeLock.
  */
 void timeAtNowPlus(unsigned secFromNow, 
 	TpTimeSpec timeSpec,
@@ -260,21 +263,90 @@ void timeAtNowPlus(unsigned secFromNow,
 	baseTime += (time_t)secFromNow;
 	utc = *gmtime(&baseTime);
 	
-	if(timeSpec == TIME_UTC) {
-		/* UTC - 2 year digits - code which parses this assumes that
-		 * (2-digit) years between 0 and 49 are in century 21 */
-		if(utc.tm_year >= 100) {
-			utc.tm_year -= 100;
-		}
-		sprintf(outStr, "%02d%02d%02d%02d%02d%02dZ",
-			utc.tm_year /* + 1900 */, utc.tm_mon + 1,
-			utc.tm_mday, utc.tm_hour, utc.tm_min, utc.tm_sec);
-	}
-	else {
-		sprintf(outStr, "%04d%02d%02d%02d%02d%02dZ",
-			/* note year is relative to 1900, hopefully it'll have 
-			 * four valid digits! */
-			utc.tm_year + 1900, utc.tm_mon + 1,
-			utc.tm_mday, utc.tm_hour, utc.tm_min, utc.tm_sec);
+	switch(timeSpec) {
+		case TIME_UTC:
+			/* UTC - 2 year digits - code which parses this assumes that
+			 * (2-digit) years between 0 and 49 are in century 21 */
+			if(utc.tm_year >= 100) {
+				utc.tm_year -= 100;
+			}
+			sprintf(outStr, "%02d%02d%02d%02d%02d%02dZ",
+				utc.tm_year /* + 1900 */, utc.tm_mon + 1,
+				utc.tm_mday, utc.tm_hour, utc.tm_min, utc.tm_sec);
+			break;
+		case TIME_GEN:
+			sprintf(outStr, "%04d%02d%02d%02d%02d%02dZ",
+				/* note year is relative to 1900, hopefully it'll have 
+				* four valid digits! */
+				utc.tm_year + 1900, utc.tm_mon + 1,
+				utc.tm_mday, utc.tm_hour, utc.tm_min, utc.tm_sec);
+			break;
+		case TIME_CSSM:
+			sprintf(outStr, "%04d%02d%02d%02d%02d%02d",
+				/* note year is relative to 1900, hopefully it'll have 
+				* four valid digits! */
+				utc.tm_year + 1900, utc.tm_mon + 1,
+				utc.tm_mday, utc.tm_hour, utc.tm_min, utc.tm_sec);
+			break;
 	}
 }
+
+/*
+ * Convert a time string, which can be in any of three forms (UTC,
+ * generalized, or CSSM_TIMESTRING) into a CSSM_TIMESTRING. Caller
+ * mallocs the result, which must be at least (CSSM_TIME_STRLEN+1) bytes.
+ * Returns nonzero if incoming time string is badly formed. 
+ */
+int tpTimeToCssmTimestring(
+	const char 	*inStr,			// not necessarily NULL terminated
+	unsigned	inStrLen,		// not including possible NULL
+	char 		*outTime)
+{
+	if((inStrLen == 0) || (inStr == NULL)) {
+		return 1;
+	}
+	outTime[0] = '\0';
+	switch(inStrLen) {
+		case UTC_TIME_STRLEN:
+		{
+			/* infer century and prepend to output */
+			char tmp[3];
+			int year;
+			tmp[0] = inStr[0];
+			tmp[1] = inStr[1];
+			tmp[2] = '\0';
+			year = atoi(tmp);
+			
+			/* 
+			 *   0  <= year <  50 : assume century 21
+			 *   50 <= year <  70 : illegal per PKIX
+			 *   70 <  year <= 99 : assume century 20
+			 */
+			if(year < 50) {
+				/* century 21 */
+				strcpy(outTime, "20");
+			}
+			else if(year < 70) {
+				return 1;
+			}
+			else {
+				/* century 20 */
+				strcpy(outTime, "19");
+			}
+			memmove(outTime + 2, inStr, inStrLen - 1);		// don't copy the Z
+			break;
+		}
+		case CSSM_TIME_STRLEN:
+			memmove(outTime, inStr, inStrLen);				// trivial case
+			break;
+		case GENERALIZED_TIME_STRLEN:
+			memmove(outTime, inStr, inStrLen - 1);			// don't copy the Z
+			break;
+		
+		default:
+			return 1;
+	}
+	outTime[CSSM_TIME_STRLEN] = '\0';
+	return 0;
+}
+

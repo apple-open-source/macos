@@ -88,138 +88,189 @@ printheader()
 	(void)putchar('\n');
 }
 
-getproclline(KINFO *k, char ** command_name, int *cmdlen)
+/*
+ * Get command and arguments.
+ *
+ * If the global variable eflg is non-zero and the user has permission to view
+ * the process's environment, the environment is included.
+ */
+static void
+getproclline(KINFO *k, char **command_name, int *cmdlen, int show_args)
 {
-	/*
-	 *	Get command and arguments.
-	 */
-	int		command_length;
-	char * cmdpath;
-	volatile int 	*ip, *savedip;
-	volatile char	*cp;
-	int		nbad;
-	char		c;
-	char		*end_argc;
-	int 		mib[4];
-        char *		arguments;
-	int 		arguments_size = 4096;
-        int len=0;
-        volatile unsigned int *valuep;
-        unsigned int value;
-        extern int eflg;
-        int blahlen=0, skiplen=0;
+	int		mib[3], argmax, nargs, c = 0;
+	size_t		size;
+	char		*procargs, *sp, *np, *cp;
+	extern int	eflg;
 
-	/* A sysctl() is made to find out the full path that the command
-	   was called with.
-	*/
-
+	/* Get the maximum process arguments size. */
 	mib[0] = CTL_KERN;
-	mib[1] = KERN_PROCARGS;
+	mib[1] = KERN_ARGMAX;
+
+	size = sizeof(argmax);
+	if (sysctl(mib, 2, &argmax, &size, NULL, 0) == -1) {
+		goto ERROR_A;
+	}
+
+	/* Allocate space for the arguments. */
+	procargs = (char *)malloc(argmax);
+	if (procargs == NULL) {
+		goto ERROR_A;
+	}
+
+	/*
+	 * Make a sysctl() call to get the raw argument space of the process.
+	 * The layout is documented in start.s, which is part of the Csu
+	 * project.  In summary, it looks like:
+	 *
+	 * /---------------\ 0x00000000
+	 * :               :
+	 * :               :
+	 * |---------------|
+	 * | argc          |
+	 * |---------------|
+	 * | arg[0]        |
+	 * |---------------|
+	 * :               :
+	 * :               :
+	 * |---------------|
+	 * | arg[argc - 1] |
+	 * |---------------|
+	 * | 0             |
+	 * |---------------|
+	 * | env[0]        |
+	 * |---------------|
+	 * :               :
+	 * :               :
+	 * |---------------|
+	 * | env[n]        |
+	 * |---------------|
+	 * | 0             |
+	 * |---------------| <-- Beginning of data returned by sysctl() is here.
+	 * | argc          |
+	 * |---------------|
+	 * | exec_path     |
+	 * |:::::::::::::::|
+	 * |               |
+	 * | String area.  |
+	 * |               |
+	 * |---------------| <-- Top of stack.
+	 * :               :
+	 * :               :
+	 * \---------------/ 0xffffffff
+	 */
+	mib[0] = CTL_KERN;
+	mib[1] = KERN_PROCARGS2;
 	mib[2] = KI_PROC(k)->p_pid;
-	mib[3] = 0;
 
-	arguments = (char *) malloc(arguments_size);
-	if (sysctl(mib, 3, arguments, &arguments_size, NULL, 0) < 0) {
-	  goto retucomm;
+	size = (size_t)argmax;
+	if (sysctl(mib, 3, procargs, &size, NULL, 0) == -1) {
+		goto ERROR_B;
 	}
-    	end_argc = &arguments[arguments_size];
 
+	memcpy(&nargs, procargs, sizeof(nargs));
+	cp = procargs + sizeof(nargs);
 
-	ip = (int *)end_argc;
-	ip -= 2;		/* last arg word and .long 0 */
-	while (*--ip)
-	    if (ip == (int *)arguments)
-		goto retucomm;
-
-        savedip = ip;
-        savedip++;
-        cp = (char *)savedip;
-	while (*--ip)
-	    if (ip == (int *)arguments)
-		goto retucomm;
-        ip++;
-        
-        valuep = (unsigned int *)ip;
-        value = *valuep;
-        if ((value & 0xbfff0000) == 0xbfff0000) {
-                ip++;ip++;
-		valuep = ip;
-               blahlen = strlen(ip);
-                skiplen = (blahlen +3 ) /4 ;
-                valuep += skiplen;
-                cp = (char *)valuep;
-                while (!*cp) {
-                    cp++;
-                }
-                savedip = cp;
-        }
-        
-	nbad = 0;
-
-	for (cp = (char *)savedip; cp < (end_argc-1); cp++) {
-	    c = *cp & 0177;
-	    if (c == 0)
-		*cp = ' ';
-	    else if (c < ' ' || c > 0176) {
-		if (++nbad >= 5*(eflg+1)) {
-		    *cp++ = ' ';
-		    break;
-		}
-		*cp = '?';
-	    }
-	    else if (eflg == 0 && c == '=') {
-		while (*--cp != ' ')
-		    if (cp <= (char *)ip)
+	/* Skip the saved exec_path. */
+	for (; cp < &procargs[size]; cp++) {
+		if (*cp == '\0') {
+			/* End of exec_path reached. */
 			break;
-		break;
-	    }
+		}
 	}
-	*cp = 0;
-#if 0
-	while (*--cp == ' ')
-	    *cp = 0;
-#endif
-	cp = (char *)savedip;
-	command_length = end_argc - cp;	/* <= MAX_COMMAND_SIZE */
-
-	if (cp[0] == '-' || cp[0] == '?' || cp[0] <= ' ') {
-	    /*
-	     *	Not enough information - add short command name
-	     */
-             len = ((unsigned)command_length + MAXCOMLEN + 5);
-	    cmdpath = (char *)malloc(len);
-	    (void) strncpy(cmdpath, cp, command_length);
-	    (void) strcat(cmdpath, " (");
-	    (void) strncat(cmdpath, KI_PROC(k)->p_comm,
-			   MAXCOMLEN+1);
-	    (void) strcat(cmdpath, ")");
-	   *command_name = cmdpath;
-            *cmdlen = len;
-            free(arguments);
-            return(1);
-	}
-	else {
-                
-	    cmdpath = (char *)malloc((unsigned)command_length + 1);
-	    (void) strncpy(cmdpath, cp, command_length);
-	    cmdpath[command_length] = '\0';
-	   *command_name = cmdpath;
-            *cmdlen = command_length;
-            free(arguments);
-            return(1);
+	if (cp == &procargs[size]) {
+		goto ERROR_B;
 	}
 
-    retucomm:
-        len = (MAXCOMLEN + 5);
-	cmdpath = (char *)malloc(len);
-	(void) strcpy(cmdpath, " (");
-	(void) strncat(cmdpath, KI_PROC(k)->p_comm,
-			MAXCOMLEN+1);
-	(void) strcat(cmdpath, ")");
-	*cmdlen = len;
-	   *command_name = cmdpath;
-          free(arguments);
-        return(1);
+	/* Skip trailing '\0' characters. */
+	for (; cp < &procargs[size]; cp++) {
+		if (*cp != '\0') {
+			/* Beginning of first argument reached. */
+			break;
+		}
+	}
+	if (cp == &procargs[size]) {
+		goto ERROR_B;
+	}
+	/* Save where the argv[0] string starts. */
+	sp = cp;
+
+	/*
+	 * Iterate through the '\0'-terminated strings and convert '\0' to ' '
+	 * until a string is found that has a '=' character in it (or there are
+	 * no more strings in procargs).  There is no way to deterministically
+	 * know where the command arguments end and the environment strings
+	 * start, which is why the '=' character is searched for as a heuristic.
+	 */
+	for (np = NULL; c < nargs && cp < &procargs[size]; cp++) {
+		if (*cp == '\0') {
+			c++;
+			if (np != NULL) {
+				/* Convert previous '\0'. */
+				*np = ' ';
+			}
+			/* Note location of current '\0'. */
+			np = cp;
+
+			if (!show_args) {
+				/*
+				 * Don't convert '\0' characters to ' '.
+				 * However, we needed to know that the
+				 * command name was terminated, which we
+				 * now know.
+				 */
+				break;
+			}
+		}
+	}
+
+	/*
+	 * If eflg is non-zero, continue converting '\0' characters to ' '
+	 * characters until no more strings that look like environment settings
+	 * follow.
+	 */
+	if ( (eflg != 0) && ( (getuid() == 0) || (KI_EPROC(k)->e_pcred.p_ruid == getuid()) ) ) {
+		for (; cp < &procargs[size]; cp++) {
+			if (*cp == '\0') {
+				if (np != NULL) {
+					if (&np[1] == cp) {
+						/*
+						 * Two '\0' characters in a row.
+						 * This should normally only
+						 * happen after all the strings
+						 * have been seen, but in any
+						 * case, stop parsing.
+						 */
+						break;
+					}
+					/* Convert previous '\0'. */
+					*np = ' ';
+				}
+				/* Note location of current '\0'. */
+				np = cp;
+			}
+		}
+	}
+
+	/*
+	 * sp points to the beginning of the arguments/environment string, and
+	 * np should point to the '\0' terminator for the string.
+	 */
+	if (np == NULL || np == sp) {
+		/* Empty or unterminated string. */
+		goto ERROR_B;
+	}
+
+	/* Make a copy of the string. */
+	*cmdlen = asprintf(command_name, "%s", sp);
+
+	/* Clean up. */
+	free(procargs);
+	return;
+
+	ERROR_B:
+	free(procargs);
+	ERROR_A:
+	*cmdlen = asprintf(command_name, "(%s)", KI_PROC(k)->p_comm);
 }
     
 void
@@ -229,58 +280,48 @@ command(k, ve)
 {
 	VAR *v;
 	int left;
-	char *cp, *vis_env, *vis_args;
+	char *cp, *vis_args;
 
-	char *command_name;
-        char * newcmd;
+	char *rawcmd, *cmd;
         int cmdlen;
-        
 
 	v = ve->var;
 
 	if(!mflg || (print_all_thread && (print_thread_num== 0))) {
-	if (cflag) {
-		if (ve->next == NULL)	/* last field, don't pad */
-			(void)printf("%s", KI_PROC(k)->p_comm);
-		else
-			(void)printf("%-*s", v->width, KI_PROC(k)->p_comm);
-		return;
-	}
-        
-        getproclline(k, &command_name, &cmdlen);
-	if ((vis_args = malloc(strlen(command_name) * 4 + 1)) == NULL)
-		err(1, NULL);
-	strvis(vis_args, command_name, VIS_TAB | VIS_NL | VIS_NOSLASH);
-        
-        vis_env = NULL;
+		getproclline(k, &rawcmd, &cmdlen, !cflag);
 
-	if (ve->next == NULL) {
-		/* last field */
-		if (termwidth == UNLIMITED) {
-			if (vis_env)
-				(void)printf("%s ", vis_env);
-			(void)printf("%s", vis_args);
-		} else {
-			left = termwidth - (totwidth - v->width);
-			if (left < 1) /* already wrapped, just use std width */
-				left = v->width;
-			if ((cp = vis_env) != NULL) {
-				while (--left >= 0 && *cp)
-					(void)putchar(*cp++);
-				if (--left >= 0)
-					putchar(' ');
+		if (cflag) {
+			/* Ignore the path in cmd, if any. */
+			for (cmd = &rawcmd[cmdlen - 1]; cmd > rawcmd; cmd--) {
+				if (*cmd == '/') {
+					cmd++;
+					break;
+				}
 			}
-			for (cp = vis_args; --left >= 0 && *cp != '\0';)
-				(void)putchar(*cp++);
-		}
-	} else
-		/* XXX env? */
-		(void)printf("%-*.*s", v->width, v->width, vis_args);
-	free(vis_args);
-        free (command_name);
-        
-	if (vis_env != NULL)
-		free(vis_env);
+		} else
+			cmd = rawcmd;
+
+		if ((vis_args = malloc(strlen(cmd) * 4 + 1)) == NULL)
+			err(1, NULL);
+		strvis(vis_args, cmd, VIS_TAB | VIS_NL | VIS_NOSLASH);
+
+		if (ve->next == NULL) {
+			/* last field */
+			if (termwidth == UNLIMITED) {
+				(void)printf("%s", vis_args);
+			} else {
+				left = termwidth - (totwidth - v->width);
+				if (left < 1) /* already wrapped, just use std
+					       * width */
+					left = v->width;
+				for (cp = vis_args; --left >= 0 && *cp != '\0';)
+					(void)putchar(*cp++);
+			}
+		} else
+			/* XXX env? */
+			(void)printf("%-*.*s", v->width, v->width, vis_args);
+		free(vis_args);
+		free (rawcmd);
 	} else {
 		(void)printf("%-*s", v->width, " ");
 	}

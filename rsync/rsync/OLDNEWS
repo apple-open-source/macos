@@ -1,3 +1,150 @@
+rsync 2.5.5 "Snowy River" (2 April 2002)
+
+  ENHANCEMENTS:
+
+    * With --progress, when a transfer is complete show the time taken;
+      otherwise show expected time to complete. (Cameron Simpson)
+
+    * Make "make install-strip" works properly, and "make install"
+      accepts a DESTDIR variable for help in building binary packages.
+      (Peter Breitenlohner, Greg Louis)
+
+    * If configured with --enable-maintainer-mode, then on receipt of
+      a fatal signal rsync will try to open an xterm running gdb,
+      similarly to Samba's "panic action" or GNOME's bug-buddy.
+      (Martin Pool)
+
+
+  BUG FIXES:
+
+    * Fix situation where failure to fork (e.g. because out of process
+      slots) would cause rsync to kill all processes owned by the
+      current user.  Yes, really!  (Paul Haas, Martin Pool)
+
+    * Fix test suite on Solaris.  (Jos Backus, Martin Pool)
+
+    * Fix minor memory leak in socket code.  (Dave Dykstra, Martin
+      Pool.)
+
+    * Fix --whole-file problem that caused it to be the default even
+      for remote connections.  (Martin Pool, Frank Schulz)
+
+    * Work around bug in Mac OS X mkdir(2), which cannot handle
+      trailing slashes.
+      <http://www.opensource.apple.com/bugs/X/BSD%20Kernel/2734739.html>
+      (Martin Pool)
+
+    * Improved network error handling.  (Greg A. Woods)
+
+
+rsync 2.5.4 (13 March 2002)
+
+  "Imitation lizard skin"
+
+  BUG FIXES:
+
+    * Additional fix for zlib double-free bug.  (Martin Pool, Andrew
+      Tridgell) (CVE CAN-2002-0059)
+ 
+  ENHANCEMENTS:
+
+    * Merge in changes from zlib 1.1.3 to zlib 1.1.4.  (Jos Backus)
+      (Note that rsync still uses a custom version of zlib; you can
+      not just link against a system library.  See zlib/README.rsync)
+
+    * Additional test cases for --compress.  (Martin Pool)
+
+
+rsync 2.5.3 (11 March 2002)
+
+  "Happy 26"
+
+  SECURITY FIXES:
+
+    * Make sure that supplementary groups are removed from a server
+      process after changing uid and gid. (Ethan Benson) (Debian bug
+      #132272, CVE CAN-2002-0080)
+
+  BUG FIXES:
+
+    * Fix zlib double-free bug.  (Owen Taylor, Mark J Cox) (CVE
+      CAN-2002-0059)
+
+    * Fixed problem that in many cases caused the error message 
+	unexpected read size of 0 in map_ptr
+      and resulted in the wrong data being copied.
+
+    * Fixed compilation errors on some systems caused by the use of
+      "unsigned int64" in rsync.h.
+
+    * Fixed problem on systems such as Sunos4 that do not support realloc
+      on a NULL pointer; error was "out of memory in flist_expand".
+
+    * Fix for rsync server processes hanging around after the client
+      unexpectedly disconnects.  (Colin Walters) (Debian bug #128632)
+
+    * Cope with BSD systems on which mkdir() will not accept a trailing
+      slash.
+
+  ENHANCEMENTS:
+
+    * Merge in changes from zlib 1.1.2 to zlib 1.1.3.  (Note that
+      rsync still uses a custom version of zlib; you can not just link
+      against a system library.  See zlib/README.rsync)
+ 
+    * Command to initiate connections is only shown with -vv, rather
+      than -v as in 2.5.2.  Output from plain -v is more similar to
+      what was historically used so as not to break scripts that try
+      to parse the output.
+
+    * Added --no-whole-file and --no-blocking-io options (Dave Dykstra)
+
+    * Made the --write-batch and --read-batch options actually work
+      and added documentation in the man page (Jos Backus)
+
+    * If the daemon is unable to fork a child to accept a connection,
+      print an error message.  (Colin Walters)
+
+rsync 2.5.2 (26 Jan 2002)
+
+  SECURITY FIXES:
+
+    * Signedness security patch from Sebastian Krahmer
+      <krahmer@suse.de> -- in some cases we were not sufficiently
+      careful about reading integers from the network.
+
+  BUG FIXES:
+
+    * Fix possible string mangling in log files.
+
+    * Fix for setting local address of outgoing sockets.
+
+    * Better handling of hardlinks and devices on platforms with
+      64-bit dev_t or ino_t.
+
+    * Name resolution on machines supporting IPv6 is improved.
+
+    * Fix for device nodes.  (dann frazier)   (Debian #129135)
+
+  ENHANCEMENTS:
+
+    * With -v, rsync now shows the command used to initiate an ssh/rsh
+      connection.
+
+    * --statistics now shows memory heap usage on platforms that
+        support mallinfo().
+
+    * "The Ted T'so school of program optimization": make progress
+      visible and people will think it's faster.  (With --progress,
+      rsync will show you how many files it has seen as it builds the
+      file_list, giving some indication that it has not hung.)
+
+    * Improvements to batch mode support.  This is still experimental
+      but testing would be welcome.   (Jos Backus)
+ 
+    * New --ignore-existing option, patch previously distributed with
+      Vipul's Razor.  (Debian #124286)
+
 rsync 2.5.1 (2002-01-03)
 
   BUG FIXES: 
@@ -32,6 +179,7 @@ rsync 2.5.1 (2002-01-03)
 
     * Clearer error messages for some conditions.
 
+
 rsync 2.5.0 (2001-11-30)
 
   ANNOUNCEMENTS

@@ -40,8 +40,8 @@ static char sccsid[] = "@(#) miscd.c 1.10 96/02/11 17:01:30";
 #include "patchlevel.h"
 #include "tcpd.h"
 
-int     allow_severity = ALLOW_SEVERITY;	/* run-time adjustable */
-int     deny_severity = DENY_SEVERITY;		/* ditto */
+int     allow_severity = SEVERITY;	/* run-time adjustable */
+int     deny_severity = LOG_WARNING;	/* ditto */
 
 main(argc, argv)
 int     argc;

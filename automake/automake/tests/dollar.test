@@ -1,0 +1,33 @@
+#!/bin/sh
+
+# We should support files with `$' characters in their names.
+# Java people need this.
+# PR/317, reported by Eric Siegerman and Philip Fong.
+
+. $srcdir/defs
+
+# Require GNU make for this test.  SunOS Make does not support
+# `$$' in a target or a dependency (it outputs the empty string instead).
+$needs_gnu_make
+
+set -e
+
+echo AC_OUTPUT >> configure.in
+
+cat > Makefile.am <<'EOF'
+mydir = $(prefix)/my
+dist_my_DATA = hello$$world
+
+check-dist: distdir
+	test -f '$(distdir)/hello$$world'
+EOF
+
+: > 'hello$world'
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE
+./configure --prefix `pwd`/inst
+$MAKE install
+test -f 'inst/my/hello$world'
+$MAKE check-dist

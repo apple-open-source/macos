@@ -31,6 +31,8 @@
 #define _IOCDBCOMMAND_H
 
 #include <IOKit/IOCommand.h>
+#include <IOKit/IOMemoryDescriptor.h>
+#include "CDBCommand.h"
 
 typedef void (*CallbackFn)(void *target, void *refcon );
 

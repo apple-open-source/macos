@@ -13,20 +13,20 @@ PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
 HFILES = configd.h _SCD.h configd_server.h notify_server.h\
-         plugin_support.h session.h notify.h
+         plugin_support.h session.h pattern.h notify.h
 
 MFILES = configd.m
 
 CFILES = _SCD.c configd_server.c notify_server.c plugin_support.c\
-         session.c notify.c _configopen.c _configclose.c _configlock.c\
-         _configunlock.c _configlist.c _configadd.c _configadd_s.c\
-         _configget.c _configset.c _configremove.c _configtouch.c\
-         _confignotify.c _notifyadd.c _notifyremove.c _notifychanges.c\
-         _notifyviaport.c _notifyviafd.c _notifyviasignal.c\
-         _notifycancel.c _snapshot.c
+         session.c pattern.c notify.c _configopen.c _configclose.c\
+         _configlock.c _configunlock.c _configlist.c _configadd.c\
+         _configadd_s.c _configget.c _configset.c _configremove.c\
+         _configtouch.c _confignotify.c _notifyadd.c _notifyremove.c\
+         _notifychanges.c _notifyviaport.c _notifyviafd.c\
+         _notifyviasignal.c _notifycancel.c _snapshot.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble m.template\
-            h.template config.defs
+            h.template config.defs configd.plist
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
@@ -40,6 +40,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
+NEXTSTEP_PB_LDFLAGS = -prebind_all_twolevel_modules
 FRAMEWORKS = -framework CoreFoundation -framework SystemConfiguration
 
 

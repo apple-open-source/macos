@@ -27,5 +27,4 @@
 #define	SYS_quota	149
 
 SYSCALL(quota, 4)
-	blr
 

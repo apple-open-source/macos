@@ -35,19 +35,20 @@ class QLineEdit;
     QLineEdit *widget;
     NSTextField *secureField;
     KWQTextFieldFormatter *formatter;
-    BOOL _hasFocus;
+    BOOL hasFocus;
     BOOL edited;
     BOOL inNextValidKeyView;
     NSRange lastSelectedRange;
+    BOOL inDrawingMachinery;
 }
 
-- initWithQLineEdit:(QLineEdit *)widget;
-
-- (void)setPasswordMode:(BOOL)flag;
-- (BOOL)passwordMode;
-- (void)setMaximumLength:(int)len;
-- (int)maximumLength;
-- (void)setEdited:(BOOL)edited;
-- (BOOL)edited;
+-(id)initWithQLineEdit:(QLineEdit *)widget;
+-(void)invalidate;
+-(void)setPasswordMode:(BOOL)flag;
+-(BOOL)passwordMode;
+-(void)setMaximumLength:(int)len;
+-(int)maximumLength;
+-(void)setEdited:(BOOL)edited;
+-(BOOL)edited;
 
 @end

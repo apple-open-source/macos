@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = md.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.dist
+OTHERSRCS = Makefile.postamble Makefile.preamble Makefile Makefile.dist md.1
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

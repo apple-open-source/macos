@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -271,10 +269,11 @@ dyld_mach_thread_self(void)
 	    my_thread = cached_thread;
 	}
 	else{
+	    if(cached_thread != MACH_PORT_NULL)
 #ifdef __MACH30__
-	    (void)mach_port_deallocate(mach_task_self(), cached_thread);
+	    	(void)mach_port_deallocate(mach_task_self(), cached_thread);
 #else
-	    (void)port_deallocate(mach_task_self(), cached_thread);
+	    	(void)port_deallocate(mach_task_self(), cached_thread);
 #endif
 	    my_thread = mach_thread_self();
 	    cached_thread = my_thread;

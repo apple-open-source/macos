@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- ===================================================================== -->
+<!--                                                                       -->
+<!--  JBoss Server Configuration                                           -->
+<!--                                                                       -->
+<!-- ===================================================================== -->
+
+<!-- $Id: informix-xa-ds.xml,v 1.1.2.1 2003/04/02 15:13:10 d_jencks Exp $ -->
+
+
+<datasources>
+  <xa-datasource>
+    <jndi-name>InformixXADS</jndi-name>
+    <xa-datasource-class>com.informix.jdbcx.IfxXADataSource</xa-datasource-class>
+    <xa-datasource-property name="IfxWAITTIME">10</xa-datasource-property>
+    <xa-datasource-property name="Description">Something Descriptive</xa-datasource-property>
+    <xa-datasource-property name="IfxIFXHOST">myhost.mydomain.com</xa-datasource-property>
+    <xa-datasource-property name="PortNumber">1557</xa-datasource-property>
+    <xa-datasource-property name="DatabaseName">mydb</xa-datasource-property>
+    <xa-datasource-property name="ServerName">myserver</xa-datasource-property>
+<!-- not sure if these should be here-->
+    <user-name>x</user-name>
+    <password>y</password>
+  </xa-datasource>
+
+</datasources>

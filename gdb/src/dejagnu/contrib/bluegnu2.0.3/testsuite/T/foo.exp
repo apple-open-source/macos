@@ -1,0 +1,5 @@
+appendQueue env.iexp
+appendQueue ../tools/env.exp
+appendQueue env.iexp
+appendQueue ../tools/env.exp
+appendQueue ../tools/foo.exp

@@ -1,7 +1,7 @@
 /* decode.c - ber input decoding routines */
-/* $OpenLDAP: pkg/ldap/libraries/liblber/decode.c,v 1.84 2002/01/14 00:43:18 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblber/decode.c,v 1.84.2.8 2003/04/26 14:56:37 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /* Portions
@@ -139,11 +139,6 @@ ber_skip_tag( BerElement *ber, ber_len_t *len )
 
 	} else {
 		*len = lc;
-	}
-
-	/* BER length should be non-negative */
-	if( *len < 0 ) {
-		return LBER_DEFAULT;
 	}
 
 	/* BER element should have enough data left */
@@ -287,7 +282,7 @@ ber_get_stringb(
 	return tag;
 }
 
-/* Definitions for recursive get_string
+/* Definitions for get_string vector
  *
  * ChArray, BvArray, and BvVec are self-explanatory.
  * BvOff is a struct berval embedded in an array of larger structures
@@ -301,9 +296,6 @@ enum bgbvc { ChArray, BvArray, BvVec, BvOff };
 typedef struct bgbvr {
 	enum bgbvc choice;
 	BerElement *ber;
-	ber_tag_t tag;
-	ber_len_t len;
-	char *last;
 	int alloc;
 	ber_len_t siz;
 	ber_len_t off;
@@ -314,74 +306,76 @@ typedef struct bgbvr {
 	} res;
 } bgbvr;
 
-/* Recursive get_string, for decoding a vector of strings. The number
- * of elements in the vector is limited only by available stack space.
- * Each invocation consumes 24 bytes of stack on a 32-bit machine.
- */
 static ber_tag_t
-ber_get_stringbvr( bgbvr *b, int n )
+ber_get_stringbvl( bgbvr *b, ber_len_t *rlen )
 {
+	int i = 0, n;
+	ber_tag_t tag;
+	ber_len_t len;
+	char *last, *orig;
 	struct berval bv, *bvp = NULL;
 
-	if ( n )
-		b->tag = ber_next_element( b->ber, &b->len, b->last );
-	else
-		b->tag = ber_first_element( b->ber, &b->len, &b->last );
+	/* For rewinding, just like ber_peek_tag() */
+	orig = b->ber->ber_ptr;
+	tag = b->ber->ber_tag;
 
-	if ( b->tag == LBER_DEFAULT )
+	if ( ber_first_element( b->ber, &len, &last ) != LBER_DEFAULT ) {
+		for ( ; b->ber->ber_ptr < last; i++ )
+		{
+			if (ber_skip_tag( b->ber, &len ) == LBER_DEFAULT) break;
+			b->ber->ber_ptr += len;
+			b->ber->ber_tag = *(unsigned char *)b->ber->ber_ptr;
+		}
+	}
+
+	if ( rlen ) *rlen = i;
+
+	if ( i == 0 )
 	{
-		b->len = n;
-
-		if ( n == 0 ) {
-			*b->res.c = NULL;
-			return 0;
-		}
-		/* Allocate the result vector */
-		switch (b->choice) {
-		case ChArray:
-			*b->res.c = LBER_MALLOC( (n+1) * sizeof( char * ));
-			if ( *b->res.c == NULL )
-				return LBER_DEFAULT;
-			(*b->res.c)[n] = NULL;
-			break;
-		case BvArray:
-			*b->res.ba = LBER_MALLOC( (n+1) * sizeof( struct berval ));
-			if ( *b->res.ba == NULL )
-				return LBER_DEFAULT;
-			(*b->res.ba)[n].bv_val = NULL;
-			break;
-		case BvVec:
-			*b->res.bv = LBER_MALLOC( (n+1) * sizeof( struct berval *));
-			if ( *b->res.bv == NULL )
-				return LBER_DEFAULT;
-			(*b->res.bv)[n] = NULL;
-			break;
-		case BvOff:
-			*b->res.ba = LBER_MALLOC( (n+1) * b->siz );
-			if ( *b->res.ba == NULL )
-				return LBER_DEFAULT;
-			((struct berval *)((long)(*b->res.ba) + n*b->siz +
-				b->off))->bv_val = NULL;
-			break;
-		}
+		*b->res.c = NULL;
 		return 0;
 	}
 
-	/* Do all local allocs before the recursion. Then there
-	 * cannot possibly be any failures on the return trip.
-	 */
-	if ( b->choice == BvVec )
-		bvp = LBER_MALLOC( sizeof( struct berval ));
+	n = i;
 
-	if ( ber_get_stringbv( b->ber, &bv, b->alloc ) == LBER_DEFAULT ) {
-		if ( bvp ) LBER_FREE( bvp );
-		return LBER_DEFAULT;
+	/* Allocate the result vector */
+	switch (b->choice) {
+	case ChArray:
+		*b->res.c = LBER_MALLOC( (n+1) * sizeof( char * ));
+		if ( *b->res.c == NULL )
+			return LBER_DEFAULT;
+		(*b->res.c)[n] = NULL;
+		break;
+	case BvArray:
+		*b->res.ba = LBER_MALLOC( (n+1) * sizeof( struct berval ));
+		if ( *b->res.ba == NULL )
+			return LBER_DEFAULT;
+		(*b->res.ba)[n].bv_val = NULL;
+		break;
+	case BvVec:
+		*b->res.bv = LBER_MALLOC( (n+1) * sizeof( struct berval *));
+		if ( *b->res.bv == NULL )
+			return LBER_DEFAULT;
+		(*b->res.bv)[n] = NULL;
+		break;
+	case BvOff:
+		*b->res.ba = LBER_MALLOC( (n+1) * b->siz );
+		if ( *b->res.ba == NULL )
+			return LBER_DEFAULT;
+		((struct berval *)((long)(*b->res.ba) + n*b->siz +
+			b->off))->bv_val = NULL;
+		break;
 	}
-
-	b->tag = ber_get_stringbvr( b, n+1 );
+	b->ber->ber_ptr = orig;
+	b->ber->ber_tag = tag;
+	ber_skip_tag( b->ber, &len );
 	
-	if ( b->tag == 0 )
+	for (n=0; n<i; n++)
 	{
+		tag = ber_next_element( b->ber, &len, last );
+		if ( ber_get_stringbv( b->ber, &bv, b->alloc ) == LBER_DEFAULT )
+			goto nomem;
+
 		/* store my result */
 		switch (b->choice) {
 		case ChArray:
@@ -391,20 +385,36 @@ ber_get_stringbvr( bgbvr *b, int n )
 			(*b->res.ba)[n] = bv;
 			break;
 		case BvVec:
+			bvp = LBER_MALLOC( sizeof( struct berval ));
+			if ( !bvp ) {
+				LBER_FREE(bv.bv_val);
+				goto nomem;
+			}
 			(*b->res.bv)[n] = bvp;
 			*bvp = bv;
 			break;
 		case BvOff:
 			*(BerVarray)((long)(*b->res.ba)+n*b->siz+b->off) = bv;
+			break;
 		}
-	} else {
-		/* Failure will propagate up and free in reverse
-		 * order, which is actually ideal.
-		 */
-		if ( b->alloc ) LBER_FREE( bv.bv_val );
-		if ( bvp ) LBER_FREE( bvp );
 	}
-	return b->tag;
+	return tag;
+nomem:
+	if (b->alloc || b->choice == BvVec)
+	{
+		for (--n; n>=0; n--)
+		{
+			switch(b->choice) {
+			case ChArray: LBER_FREE((*b->res.c)[n]); break;
+			case BvArray: LBER_FREE((*b->res.ba)[n].bv_val); break;
+			case BvVec: LBER_FREE((*b->res.bv)[n]->bv_val);
+				LBER_FREE((*b->res.bv)[n]); break;
+			}
+		}
+	}
+	LBER_FREE(*b->res.c);
+	*b->res.c = NULL;
+	return LBER_DEFAULT;
 }
 
 ber_tag_t
@@ -603,7 +613,7 @@ ber_next_element(
 
 	assert( LBER_VALID( ber ) );
 
-	if ( ber->ber_ptr == last ) {
+	if ( ber->ber_ptr >= last ) {
 		return LBER_DEFAULT;
 	}
 
@@ -619,13 +629,6 @@ ber_scanf ( BerElement *ber,
 	va_list		ap;
 	LDAP_CONST char		*fmt_reset;
 	char		*s, **ss;
-#ifdef TMP_SLOTS
-	char		*last;
-	char ***sss;
-	ber_tag_t tag;
-	struct berval ***bv;
-	int j;
-#endif
 	struct berval	**bvp, *bval;
 	ber_int_t	*i;
 	ber_len_t	*l;
@@ -643,8 +646,10 @@ ber_scanf ( BerElement *ber,
 	fmt_reset = fmt;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "liblber", LDAP_LEVEL_ENTRY, "ber_scanf fmt (%s) ber:\n", fmt ));
-	BER_DUMP(( "liblber", LDAP_LEVEL_DETAIL2, ber, 1 ));
+	LDAP_LOG( BER, ENTRY, "ber_scanf fmt (%s) ber:\n", fmt, 0, 0 );
+
+	if ( LDAP_LOGS_TEST(BER, DETAIL2 ))
+			BER_DUMP(( "liblber", LDAP_LEVEL_DETAIL2, ber, 1 ));
 #else
 	ber_log_printf( LDAP_DEBUG_TRACE, ber->ber_debug,
 		"ber_scanf fmt (%s) ber:\n", fmt );
@@ -733,7 +738,7 @@ ber_scanf ( BerElement *ber,
 			cookie.ber = ber;
 			cookie.res.c = va_arg( ap, char *** );
 			cookie.alloc = 1;
-			rc = ber_get_stringbvr( &cookie, 0 );
+			rc = ber_get_stringbvl( &cookie, NULL );
 			break;
 		}
 
@@ -743,7 +748,7 @@ ber_scanf ( BerElement *ber,
 			cookie.ber = ber;
 			cookie.res.bv = va_arg( ap, struct berval *** );
 			cookie.alloc = 1;
-			rc = ber_get_stringbvr( &cookie, 0 );
+			rc = ber_get_stringbvl( &cookie, NULL );
 			break;
 		}
 
@@ -753,7 +758,7 @@ ber_scanf ( BerElement *ber,
 			cookie.ber = ber;
 			cookie.res.ba = va_arg( ap, struct berval ** );
 			cookie.alloc = 1;
-			rc = ber_get_stringbvr( &cookie, 0 );
+			rc = ber_get_stringbvl( &cookie, NULL );
 			break;
 		}
 
@@ -770,8 +775,7 @@ ber_scanf ( BerElement *ber,
 			l = va_arg( ap, ber_len_t * );
 			cookie.siz = *l;
 			cookie.off = va_arg( ap, ber_len_t );
-			rc = ber_get_stringbvr( &cookie, 0 );
-			*l = cookie.len;
+			rc = ber_get_stringbvl( &cookie, l );
 			break;
 		}
 
@@ -796,8 +800,8 @@ ber_scanf ( BerElement *ber,
 		default:
 			if( ber->ber_debug ) {
 #ifdef NEW_LOGGING
-				LDAP_LOG(( "liblber", LDAP_LEVEL_ERR,
-					"ber_scanf: unknown fmt %c\n", *fmt ));
+				LDAP_LOG( BER, ERR, 
+					"ber_scanf: unknown fmt %c\n", *fmt, 0, 0 );
 #else
 				ber_log_printf( LDAP_DEBUG_ANY, ber->ber_debug,
 					"ber_scanf: unknown fmt %c\n", *fmt );

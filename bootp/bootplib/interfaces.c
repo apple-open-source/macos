@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -30,18 +33,18 @@
  * - initial version
  */
 
-#import <unistd.h>
-#import <stdlib.h>
-#import <stdio.h>
-#import <sys/ioctl.h>
-#import <strings.h>
-#import <syslog.h>
-#import <netdb.h>
-#import "interfaces.h"
-#import <arpa/inet.h>
-#import <syslog.h>
-#import <net/if_types.h>
-#import "util.h"
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <sys/ioctl.h>
+#include <strings.h>
+#include <syslog.h>
+#include <netdb.h>
+#include "interfaces.h"
+#include <arpa/inet.h>
+#include <syslog.h>
+#include <net/if_types.h>
+#include "util.h"
 
 extern struct ether_addr *	ether_aton(char *);
 
@@ -232,8 +235,18 @@ S_build_interface_list(interface_list_t * interfaces)
 		      entry->flags = ifr.ifr_flags;
 		  }
 	      }
-	      entry->link = *dl_p;
-	      entry->link_valid = TRUE;
+	      if (dl_p->sdl_alen > sizeof(entry->link.addr)) {
+		  syslog(LOG_DEBUG,
+			 "%s: link type %d address length %d > %d", name,
+			 dl_p->sdl_type, dl_p->sdl_alen, sizeof(entry->link.addr));
+		  entry->link.alen = sizeof(entry->link.addr);
+	      }
+	      else {
+		  entry->link.alen = dl_p->sdl_alen;
+	      }
+	      bcopy(dl_p->sdl_data + dl_p->sdl_nlen, entry->link.addr, entry->link.alen);
+	      entry->link.type = dl_p->sdl_type;
+	      entry->link.index = dl_p->sdl_index;
 	      break;
 	  }
 	}
@@ -357,8 +370,8 @@ ifl_find_link(interface_list_t * list_p, int index)
     int i;
 
     for (i = 0; i < list_p->count; i++) {
-	if (list_p->list[i].link_valid
-	    && list_p->list[i].link.sdl_index == index)
+	if (list_p->list[i].link.type != 0
+	    && list_p->list[i].link.index == index)
 	    return (list_p->list + i);
     }
     return (NULL);
@@ -555,28 +568,46 @@ if_inet_addr_remove(interface_t * if_p, struct in_addr iaddr)
 
 
 int
+if_link_type(interface_t * if_p)
+{
+    return (if_p->link.type);
+}
+
+int
+if_link_dhcptype(interface_t * if_p)
+{
+    if (if_p->link.type == IFT_IEEE1394) {
+	return (ARPHRD_IEEE1394_EUI64);
+    }
+    else {
+	return (dl_to_arp_hwtype(if_p->link.type));
+    }
+}
+
+int
 if_link_arptype(interface_t * if_p)
 {
-    return (dl_to_arp_hwtype(if_p->link.sdl_type));
+    return (dl_to_arp_hwtype(if_p->link.type));
 }
 
 
 void *
 if_link_address(interface_t * if_p)
 {
-    return (if_p->link.sdl_data + if_p->link.sdl_nlen);
+    return (if_p->link.addr);
 }
 
 int
 if_link_length(interface_t * if_p)
 {
-    return (if_p->link.sdl_alen);
+    return (if_p->link.alen);
 }
 
 #ifdef TEST_INTERFACES
 
+#if 0
 void
-link_if_print(struct sockaddr_dl * dl_p)
+sockaddr_dl_print(struct sockaddr_dl * dl_p)
 {
     int i;
 
@@ -587,6 +618,20 @@ link_if_print(struct sockaddr_dl * dl_p)
     for (i = 0; i < dl_p->sdl_alen; i++) 
 	printf("%s%x", i ? ":" : "", 
 	       ((unsigned char *)dl_p->sdl_data + dl_p->sdl_nlen)[i]);
+    printf("\n");
+}
+#endif
+
+void
+link_addr_print(link_addr_t * link)
+{
+    int i;
+
+    printf("link: index %d type 0x%x alen %d%s", link->index, link->type,
+	   link->alen, link->alen > 0 ? " addr" : "");
+    for (i = 0; i < link->alen; i++) {
+	printf("%c%x", i ? ':' : ' ', link->addr[i]);
+    }
     printf("\n");
 }
 
@@ -616,8 +661,8 @@ ifl_print(interface_list_t * list_p)
 	    else
 		printf("\n");
 	}
-	if (if_p->link_valid) {
-	    link_if_print(&if_p->link);
+	if (if_p->link.type != 0) {
+	    link_addr_print(&if_p->link);
 	}
 	count++;
     }

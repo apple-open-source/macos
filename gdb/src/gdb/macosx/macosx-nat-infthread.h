@@ -18,5 +18,6 @@ void print_thread_info PARAMS ((thread_t tid));
 
 void info_task_command PARAMS ((char *args, int from_tty));
 void info_thread_command PARAMS ((char *tidstr, int from_tty));
+thread_t get_application_thread_port (thread_t our_name);
 
 #endif /* __GDB_MACOSX_NAT_INFTHREAD_H__ */

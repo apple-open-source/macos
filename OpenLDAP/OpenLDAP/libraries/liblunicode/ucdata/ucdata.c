@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblunicode/ucdata/ucdata.c,v 1.15.2.2 2002/04/22 15:43:28 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblunicode/ucdata/ucdata.c,v 1.15.2.5 2003/02/08 23:50:39 kurt Exp $ */
 /*
- * Copyright 2000-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 2000-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*
@@ -24,7 +24,7 @@
  * OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-/* $Id: ucdata.c,v 1.2 2002/07/15 23:45:13 majka Exp $" */
+/* $Id: ucdata.c,v 1.4 2003/07/18 01:10:28 jtownsen Exp $" */
 
 #include "portable.h"
 #include "ldap_config.h"
@@ -34,6 +34,7 @@
 #include <ac/string.h>
 #include <ac/unistd.h>
 
+#include <ac/bytes.h>
 
 #include "ucdata.h"
 
@@ -44,11 +45,11 @@
  **************************************************************************/
 
 typedef struct {
-    unsigned short bom;
-    unsigned short cnt;
+    ac_uint2 bom;
+    ac_uint2 cnt;
     union {
-        unsigned long bytes;
-        unsigned short len[2];
+        ac_uint4 bytes;
+        ac_uint2 len[2]; 
     } size;
 } _ucheader_t;
 

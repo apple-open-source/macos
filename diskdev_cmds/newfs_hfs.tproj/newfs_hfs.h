@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -65,7 +65,7 @@ typedef struct DXInfo DXInfo;
 
 
 enum {
-	kMinHFSPlusVolumeSize	= (4*1024*1024),
+	kMinHFSPlusVolumeSize	= (512 * 1024),
 	
 	kBytesPerSector		= 512,
 	kBitsPerSector		= 4096,
@@ -154,11 +154,6 @@ enum {
 #define kSystem_Creator	'MACS'
 
 
-/*
- * The minimum HFS Plus volume is 32 MB
- */
-#define	MINHFSPLUSSIZEMB	4
-
 
 #if !defined(FALSE) && !defined(TRUE)
 enum {
@@ -191,14 +186,16 @@ typedef struct DriveInfo DriveInfo;
 
 
 enum {
-	kMakeHFSWrapper = 1,
-	kMakeMaxHFSBitmap = 2
+	kMakeHFSWrapper    = 0x01,
+	kMakeMaxHFSBitmap  = 0x02,
+	kMakeStandardHFS   = 0x04,
+	kMakeCaseSensitive = 0x08,
+	kUseAccessPerms    = 0x10,
 };
 
 
 struct hfsparams {
-	UInt16 		signature;
-	UInt16 		flags;			/* kMakeHFSWrapper */
+	UInt32 		flags;			/* kMakeHFSWrapper, ... */
 	UInt32 		blockSize;
 	UInt32 		rsrcClumpSize;
 	UInt32 		dataClumpSize;
@@ -212,11 +209,14 @@ struct hfsparams {
 	UInt32 		allocationClumpSize;
 	UInt32          createDate;             /* in UTC */
 	UInt32		hfsAlignment;
-	UInt32		hfsWrapperFreeBlks;
-	UInt8		volumeName[64];		/* in UTF-8 */
+	UInt8		volumeName[kHFSPlusMaxFileNameChars + 1];  /* in UTF-8 */
+	UInt32		encodingHint;
 	UInt32 		journaledHFS;
 	UInt32 		journalSize;
-    	UInt8		*journalDevice;
+	UInt8		*journalDevice;
+	uid_t		owner;
+	gid_t		group;
+	mode_t		mask;
 };
 typedef struct hfsparams hfsparams_t;
 

@@ -1,9 +1,9 @@
 /*
- * "$Id: pstops.c,v 1.14.2.1 2002/10/22 18:02:22 gelphman Exp $"
+ * "$Id: pstops.c,v 1.33 2003/08/27 23:40:23 gelphman Exp $"
  *
  *   PostScript filter for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1993-2002 by Easy Software Products.
+ *   Copyright 1993-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -31,7 +31,9 @@
  *   do_prolog()   - Send the necessary document prolog commands...
  *   do_setup()    - Send the necessary document setup commands...
  *   end_nup()     - End processing for N-up printing...
+ *   psbcp()       - Enable the binary communications protocol on the printer.
  *   psgets()      - Get a line from a file.
+ *   pswrite()     - Write data from a file.
  *   start_nup()   - Start processing for N-up printing...
  */
 
@@ -48,26 +50,27 @@
 
 #define MAX_PAGES	10000
 
-#define BORDER_NONE	0	/* No border or hairline border */
-#define BORDER_THICK	1	/* Think border */
-#define BORDER_SINGLE	2	/* Single-line hairline border */
-#define BORDER_SINGLE2	3	/* Single-line thick border */
-#define BORDER_DOUBLE	4	/* Double-line hairline border */
-#define BORDER_DOUBLE2	5	/* Double-line thick border */
+#define BORDER_NONE	0		/* No border or hairline border */
+#define BORDER_THICK	1		/* Think border */
+#define BORDER_SINGLE	2		/* Single-line hairline border */
+#define BORDER_SINGLE2	3		/* Single-line thick border */
+#define BORDER_DOUBLE	4		/* Double-line hairline border */
+#define BORDER_DOUBLE2	5		/* Double-line thick border */
 
-#define LAYOUT_LRBT	0	/* Left to right, bottom to top */
-#define LAYOUT_LRTB	1	/* Left to right, top to bottom */
-#define LAYOUT_RLBT	2	/* Right to left, bottom to top */
-#define LAYOUT_RLTB	3	/* Right to left, top to bottom */
-#define LAYOUT_BTLR	4	/* Bottom to top, left to right */
-#define LAYOUT_TBLR	5	/* Top to bottom, left to right */
-#define LAYOUT_BTRL	6	/* Bottom to top, right to left */
-#define LAYOUT_TBRL	7	/* Top to bottom, right to left */
+#define LAYOUT_LRBT	0		/* Left to right, bottom to top */
+#define LAYOUT_LRTB	1		/* Left to right, top to bottom */
+#define LAYOUT_RLBT	2		/* Right to left, bottom to top */
+#define LAYOUT_RLTB	3		/* Right to left, top to bottom */
+#define LAYOUT_BTLR	4		/* Bottom to top, left to right */
+#define LAYOUT_TBLR	5		/* Top to bottom, left to right */
+#define LAYOUT_BTRL	6		/* Bottom to top, right to left */
+#define LAYOUT_TBRL	7		/* Top to bottom, right to left */
 
-#define LAYOUT_NEGATEY	1
-#define LAYOUT_NEGATEX	2
+#define LAYOUT_NEGATEY	1		/* The bits for the layout */
+#define LAYOUT_NEGATEX	2		/* definitions above... */
 #define LAYOUT_VERTICAL	4
 
+#if defined(__APPLE__)
 #define setFirstPageOptionsAndEmit(ppd, specialSlotSel, minOutputOrder) \
     setPageOptionsAndEmit((ppd), (minOutputOrder), (specialSlotSel).firstPgInputSlot, \
     (specialSlotSel).firstPgManualFeed, (specialSlotSel).otherPgManualFeed)
@@ -83,6 +86,13 @@ typedef struct SpecialSlotSel{
                 *otherPgInputSlot, 
                 *otherPgManualFeed;
 }SpecialSlotSel;
+#endif	/* __APPLE__ */
+
+#define PROT_STANDARD	0		/* Adobe standard protocol */
+#define PROT_BCP	1		/* Adobe BCP protocol */
+#define PROT_TBCP	2		/* Adobe TBCP protocol */
+
+const char *TBCP_END_PROTOCOL_STRING="\033%-12345X";
 
 /*
  * Globals...
@@ -90,8 +100,6 @@ typedef struct SpecialSlotSel{
 
 int		NumPages = 0;		/* Number of pages in file */
 long		Pages[MAX_PAGES];	/* Offsets to each page */
-char		PageLabels[MAX_PAGES][64];
-					/* Page labels */
 const char	*PageRanges = NULL;	/* Range of pages selected */
 const char	*PageSet = NULL;	/* All, Even, Odd pages */
 int		Order = 0,		/* 0 = normal, 1 = reverse pages */
@@ -102,7 +110,9 @@ int		Order = 0,		/* 0 = normal, 1 = reverse pages */
 		UseESPsp = 0,		/* Use ESPshowpage? */
 		Border = BORDER_NONE,	/* Border around pages */
 		Layout = LAYOUT_LRTB,	/* Layout of N-up pages */
-		NormalLandscape = 0;	/* Normal rotation for landscape? */
+		NormalLandscape = 0,	/* Normal rotation for landscape? */
+		Protocol = PROT_STANDARD;
+					/* Transmission protocol to use */
 
 
 /*
@@ -118,7 +128,9 @@ static void	end_nup(int number);
 #define		is_first_page(p)	(NUp == 1 || (((p)+1) % NUp) == 1)
 #define		is_last_page(p)		(NUp > 1 && (((p)+1) % NUp) == 0)
 #define 	is_not_last_page(p)	(NUp > 1 && ((p) % NUp) != 0)
-static char	*psgets(char *buf, size_t len, FILE *fp);
+static void	psbcp(ppd_file_t *ppd);
+static char	*psgets(char *buf, size_t *bytes, FILE *fp);
+static size_t	pswrite(const char *buf, size_t bytes, FILE *fp);
 static void	start_nup(int number, int show_border);
 static void setPageOptionsAndEmit(ppd_file_t *ppd, float minOrder, const char *inputSlotToSet, 
                 const char *manualFeedToSet, 
@@ -135,6 +147,7 @@ main(int  argc,			/* I - Number of command-line arguments */
 {
   FILE		*fp;		/* Print file */
   ppd_file_t	*ppd;		/* PPD file */
+  ppd_attr_t	*attr;		/* Attribute in PPD file */
   int		num_options;	/* Number of print options */
   cups_option_t	*options;	/* Print options */
   const char	*val;		/* Option value */
@@ -146,6 +159,7 @@ main(int  argc,			/* I - Number of command-line arguments */
   int		sloworder;	/* 1 if we need to order manually */
   int		slowduplex;	/* 1 if we need an even number of pages */
   char		line[8192];	/* Line buffer */
+  size_t	len;		/* Length of line buffer */
   float		g;		/* Gamma correction value */
   float		b;		/* Brightness factor */
   int		level;		/* Nesting level for embedded files */
@@ -162,6 +176,8 @@ main(int  argc,			/* I - Number of command-line arguments */
 		sent_prolog,	/* Did we send the prolog commands? */
 		sent_setup;	/* Did we send the setup commands? */
   int		emit_jcl = 1;	/* Should we emit JCL */
+  int		disallow_binary_quoting = 0;	/* Should we disable TBCP and BCP quoting? 
+                                                        Typically do for save to disk */
   SpecialSlotSel  specialSlotSelection;	/* handling special slot selection */
   char		firstPgOption[255];/* first page option data */
   char		otherPgOption[255];/* other page option data */
@@ -242,47 +258,71 @@ main(int  argc,			/* I - Number of command-line arguments */
   }
 
   if ((val = cupsGetOption("Collate", num_options, options)) != NULL &&
-      strcasecmp(val, "True") == 0)
+      !strcasecmp(val, "True"))
     Collate = 1;
 
-  if ((val = cupsGetOption("OutputOrder", num_options, options)) != NULL &&
-      strcasecmp(val, "Reverse") == 0)
-    Order = 1;
+  if ((val = cupsGetOption("OutputOrder", num_options, options)) != NULL){
+    if(!strcasecmp(val, "Reverse"))
+	Order = 1;
+  }else{
+    if(ppd){
+	/* Output order not explicitly selected. Determine based on printer's defaults */
+	int foundOrder = 0;
+	/* see if output bin tells us what the page stack order is */
+	ppd_choice_t *choice = ppdFindMarkedChoice(ppd, "OutputBin");
+	if(choice != NULL){
+	    ppd_attr_t *attr = ppdFindAttr(ppd, "PageStackOrder", choice->choice);
+	    if(attr != NULL && attr->value != NULL){
+		foundOrder = 1;
+		if(strcasecmp(attr->value, "Reverse") == 0)
+		    Order = 1;
+	    }
+	}
+	if(!foundOrder){
+	    /* We don't know from the OutputBin so let's see what the default OutputOrder is */
+	    ppd_attr_t *attr = ppdFindAttr(ppd, "DefaultOutputOrder", NULL);
+	    if(attr != NULL && attr->value != NULL){
+		if(strcasecmp(attr->value, "Reverse") == 0)
+		    Order = 1;
+	    }
+	}
+    }
+  }
 
   if ((val = cupsGetOption("number-up", num_options, options)) != NULL)
     NUp = atoi(val);
 
   if ((val = cupsGetOption("page-border", num_options, options)) != NULL)
   {
-    if (strcasecmp(val, "none") == 0)
+    if (!strcasecmp(val, "none"))
       Border = BORDER_NONE;
-    else if (strcasecmp(val, "single") == 0)
+    else if (!strcasecmp(val, "single"))
       Border = BORDER_SINGLE;
-    else if (strcasecmp(val, "single-thick") == 0)
+    else if (!strcasecmp(val, "single-thick"))
       Border = BORDER_SINGLE2;
-    else if (strcasecmp(val, "double") == 0)
+    else if (!strcasecmp(val, "double"))
       Border = BORDER_DOUBLE;
-    else if (strcasecmp(val, "double-thick") == 0)
+    else if (!strcasecmp(val, "double-thick"))
       Border = BORDER_DOUBLE2;
   }
 
   if ((val = cupsGetOption("number-up-layout", num_options, options)) != NULL)
   {
-    if (strcasecmp(val, "lrtb") == 0)
+    if (!strcasecmp(val, "lrtb"))
       Layout = LAYOUT_LRTB;
-    else if (strcasecmp(val, "lrbt") == 0)
+    else if (!strcasecmp(val, "lrbt"))
       Layout = LAYOUT_LRBT;
-    else if (strcasecmp(val, "rltb") == 0)
+    else if (!strcasecmp(val, "rltb"))
       Layout = LAYOUT_RLTB;
-    else if (strcasecmp(val, "rlbt") == 0)
+    else if (!strcasecmp(val, "rlbt"))
       Layout = LAYOUT_RLBT;
-    else if (strcasecmp(val, "tblr") == 0)
+    else if (!strcasecmp(val, "tblr"))
       Layout = LAYOUT_TBLR;
-    else if (strcasecmp(val, "tbrl") == 0)
+    else if (!strcasecmp(val, "tbrl"))
       Layout = LAYOUT_TBRL;
-    else if (strcasecmp(val, "btlr") == 0)
+    else if (!strcasecmp(val, "btlr"))
       Layout = LAYOUT_BTLR;
-    else if (strcasecmp(val, "btrl") == 0)
+    else if (!strcasecmp(val, "btrl"))
       Layout = LAYOUT_BTRL;
   }
 
@@ -292,8 +332,15 @@ main(int  argc,			/* I - Number of command-line arguments */
   if ((val = cupsGetOption("brightness", num_options, options)) != NULL)
     b = atoi(val) * 0.01f;
 
+  if ((val = cupsGetOption("mirror", num_options, options)) != NULL &&
+      !strcasecmp(val, "True"))
+    Flip = 1;
+
   if ((val = cupsGetOption("emit-jcl", num_options, options)) != NULL)
     emit_jcl = atoi(val);
+
+  if ((val = cupsGetOption("disallow-binary-quoting", num_options, options)) != NULL)
+    disallow_binary_quoting = atoi(val);
 
   specialSlotSelection.firstPgInputSlot = specialSlotSelection.firstPgManualFeed =
   specialSlotSelection.otherPgInputSlot = specialSlotSelection.otherPgManualFeed = NULL;
@@ -318,12 +365,12 @@ main(int  argc,			/* I - Number of command-line arguments */
                     specialSlotSelection.otherPgManualFeed = otherPgOption;
             }
         }
-        // we can't have both these NULL and still do special page handling
+        /* we can't have both these NULL and still do special page handling */
         if(!specialSlotSelection.otherPgInputSlot && !specialSlotSelection.otherPgManualFeed){	
             specialSlotSelection.firstPgInputSlot = NULL;
             specialSlotSelection.firstPgManualFeed = NULL;
         }
-        // optimize out the case where the selections are the same for first and remaining
+        /* optimize out the case where the selections are the same for first and remaining */
         if( (specialSlotSelection.otherPgInputSlot && specialSlotSelection.firstPgInputSlot &&
             strcasecmp(specialSlotSelection.otherPgInputSlot, specialSlotSelection.firstPgInputSlot) == 0)
                 || (specialSlotSelection.otherPgManualFeed && specialSlotSelection.firstPgManualFeed &&
@@ -333,7 +380,7 @@ main(int  argc,			/* I - Number of command-line arguments */
             specialSlotSelection.otherPgInputSlot = specialSlotSelection.otherPgManualFeed = NULL;
         }
         
-	// compute the minimum output order based on the output order for PageRegion, InputSlot, and ManualFeed
+	/* compute the minimum output order based on the output order for PageRegion, InputSlot, and ManualFeed */
         if(ppd){
             int i;
             const char * const FeatureList[] = {
@@ -369,10 +416,27 @@ main(int  argc,			/* I - Number of command-line arguments */
   else
     slowduplex = 0;
 
-  if (ppdFindOption(ppd, "Collate") == NULL && Collate && Copies > 1)
-    slowcollate = 1;
-  else
-    slowcollate = 0;
+  if(Collate && Copies > 1)
+  {
+  	slowcollate = 1;	/* do manual collation */
+    ppd_choice_t *choice = ppdFindMarkedChoice(ppd, "Collate");
+  	if(choice != NULL){
+  		/* is the printer doing collation? */
+  		if(strcasecmp(choice->choice, "True") == 0){
+  			/* if collation is on then let's see if there are any conflicts 
+  				which mean we can't do collation. Mark collation true again
+  				to discover the number of conflicts 
+  			*/
+  			int conflicts = ppdMarkOption(ppd, "Collate", "True");
+  			if(conflicts == 0)
+  				slowcollate = 0; /* printer is doing collation so we won't on host */
+  			else	/* mark collation off in PPD if there are conflicts */
+  				ppdMarkOption(ppd, "Collate", "False");
+  		}
+  	}
+  }else
+  	  slowcollate = 0;
+
 
   if (ppdFindOption(ppd, "OutputOrder") == NULL && Order)
     sloworder = 1;
@@ -389,13 +453,36 @@ main(int  argc,			/* I - Number of command-line arguments */
   if (sloworder || slowcollate)
   {
     tempfd = cupsTempFd(tempfile, sizeof(tempfile));
-    temp   = fdopen(tempfd, "wb+");
+    if (tempfd < 0)
+    {
+      perror("ERROR: Unable to open temp file");
+      temp = NULL;
+    }
+    else
+      temp = fdopen(tempfd, "wb+");
 
     if (temp == NULL)
       slowcollate = sloworder = 0;
   }
   else
     temp = NULL;
+
+ /*
+  * See if we should use a binary transmission protocol...
+  */
+
+  if (!disallow_binary_quoting && (attr = ppdFindAttr(ppd, "cupsProtocol", NULL)) != NULL && 
+	attr->value != NULL)
+  {
+    if (!strcasecmp(attr->value, "TBCP"))
+      Protocol = PROT_TBCP;
+    else if (!strcasecmp(attr->value, "BCP"))
+    {
+      Protocol = PROT_BCP;
+
+      psbcp(ppd);
+    }
+  }
 
  /*
   * Write any "exit server" options that have been selected...
@@ -414,18 +501,53 @@ main(int  argc,			/* I - Number of command-line arguments */
   * Read the first line to see if we have DSC comments...
   */
 
-  if (psgets(line, sizeof(line), fp) == NULL)
+  len = sizeof(line);
+  if (psgets(line, &len, fp) == NULL)
   {
     fputs("ERROR: Empty print file!\n", stderr);
     ppdClose(ppd);
     return (1);
   }
 
+  fwrite(line, 1, len, stdout);
+
+ /*
+  * Handle leading PJL fun...
+  */
+
+  while (!strncmp(line, "\033%-12345X", 9))
+  {
+   /*
+    * Yup, we have leading PJL fun, so copy it until we hit the line
+    * with "ENTER LANGUAGE"...
+    */
+
+    fputs("DEBUG: Skipping PJL header...\n", stderr);
+
+    while (strstr(line, "ENTER LANGUAGE") == NULL)
+    {
+      len = sizeof(line);
+      if (psgets(line, &len, fp) == NULL)
+        break;
+
+      fwrite(line, 1, len, stdout);
+    }
+
+    len = sizeof(line);
+    if (psgets(line, &len, fp) == NULL)
+      break;
+  }
+
+ /*
+  * Switch to TBCP mode as needed...
+  */
+
+  if (Protocol == PROT_TBCP)
+    fputs("\001M", stdout);
+
  /*
   * Start sending the document with any commands needed...
   */
-
-  fputs(line, stdout);
 
   saweof      = 0;
   sent_espsp  = 0;
@@ -433,20 +555,37 @@ main(int  argc,			/* I - Number of command-line arguments */
   sent_setup  = 0;
 
   if (Copies != 1 && (!Collate || !slowcollate))
+  {
+   /*
+    * Tell the document processor the copy and duplex options
+    * that are required...
+    */
+
     printf("%%%%Requirements: numcopies(%d)%s%s\n", Copies,
            Collate ? " collate" : "",
 	   Duplex ? " duplex" : "");
-  else if (Duplex)
-    puts("%%Requirements: duplex");
 
- /*
-  * Apple uses RBI comments for various non-PPD options...
-  */
+   /*
+    * Apple uses RBI comments for various non-PPD options...
+    */
 
-  if (Copies != 1 && (!Collate || !slowcollate))
     printf("%%RBINumCopies: %d\n", Copies);
+  }
   else
-    printf("%%RBINumCopies: %d\n", 1);
+  {
+   /*
+    * Tell the document processor the duplex option that is required...
+    */
+
+    if (Duplex)
+      puts("%%Requirements: duplex\n");
+
+   /*
+    * Apple uses RBI comments for various non-PPD options...
+    */
+
+    puts("%RBINumCopies: 1");
+  }
 
  /*
   * Figure out if we should use ESPshowpage or not...
@@ -464,19 +603,27 @@ main(int  argc,			/* I - Number of command-line arguments */
     UseESPsp = 1;
   }
 
-  if (strncmp(line, "%!PS-Adobe-", 11) == 0)
+  fprintf(stderr, "DEBUG: slowcollate=%d, slowduplex=%d, sloworder=%d\n",
+          slowcollate, slowduplex, sloworder);
+
+  if (!strncmp(line, "%!PS-Adobe-", 11) && !strstr(line, "EPSF"))
   {
    /*
-    * OK, we have DSC comments; read until we find a %%Page comment...
+    * OK, we have DSC comments and this isn't an EPS file; read until we
+    * find a %%Page comment...
     */
 
     puts("%%Pages: (atend)");
 
     level = 0;
 
-    while (psgets(line, sizeof(line), fp) != NULL)
+    while (!feof(fp))
     {
-      if (strncmp(line, "%%", 2) == 0)
+      len = sizeof(line);
+      if (psgets(line, &len, fp) == NULL)
+        break;
+
+      if (!strncmp(line, "%%", 2))
         fprintf(stderr, "DEBUG: %d %s", level, line);
       else if (line[0] != '%' && line[0] && !sent_espsp && UseESPsp)
       {
@@ -490,24 +637,24 @@ main(int  argc,			/* I - Number of command-line arguments */
 	     "userdict/showpage{}put");
       }
 
-      if (strncmp(line, "%%BeginDocument:", 16) == 0 ||
-          strncmp(line, "%%BeginDocument ", 16) == 0)	/* Adobe Acrobat BUG */
+      if (!strncmp(line, "%%BeginDocument:", 16) ||
+          !strncmp(line, "%%BeginDocument ", 16))	/* Adobe Acrobat BUG */
       {
 	fputs(line, stdout);
         level ++;
       }
-      else if (strncmp(line, "%%EndDocument", 13) == 0 && level > 0)
+      else if (!strncmp(line, "%%EndDocument", 13) && level > 0)
       {
 	fputs(line, stdout);
         level --;
       }
-      else if (strncmp(line, "%ESPRotation:", 13) == 0 && level == 0)
+      else if (!strncmp(line, "%cupsRotation:", 14) && level == 0)
       {
        /*
         * Reset orientation of document?
 	*/
 
-        int orient = (atoi(line + 13) / 90) & 3;
+        int orient = (atoi(line + 14) / 90) & 3;
 
         if (orient != Orientation)
 	{
@@ -516,7 +663,7 @@ main(int  argc,			/* I - Number of command-line arguments */
 	  Orientation = orient;
 	}
       }
-      else if (strncmp(line, "%%BeginProlog", 13) == 0 && level == 0)
+      else if (!strncmp(line, "%%BeginProlog", 13) && level == 0)
       {
        /*
         * Write the existing comment line, and then follow with patches
@@ -531,7 +678,7 @@ main(int  argc,			/* I - Number of command-line arguments */
           do_prolog(ppd);
 	}
       }
-      else if (strncmp(line, "%%BeginSetup", 12) == 0 && level == 0)
+      else if (!strncmp(line, "%%BeginSetup", 12) && level == 0)
       {
        /*
         * Write the existing comment line, and then follow with document
@@ -546,11 +693,11 @@ main(int  argc,			/* I - Number of command-line arguments */
           do_setup(ppd, Copies, Collate, slowcollate, g, b);
 	}
       }
-      else if (strncmp(line, "%%Page:", 7) == 0 && level == 0)
+      else if (!strncmp(line, "%%Page:", 7) && level == 0)
         break;
-      else if (strncmp(line, "%%BeginBinary:", 14) == 0 ||
-               (strncmp(line, "%%BeginData:", 12) == 0 &&
-	        strstr(line, "ASCII") == NULL && strstr(line, "Hex") == NULL))
+      else if (!strncmp(line, "%%BeginBinary:", 14) ||
+               (!strncmp(line, "%%BeginData:", 12) &&
+	        !strstr(line, "ASCII") && !strstr(line, "Hex")))
       {
        /*
         * Copy binary data...
@@ -572,12 +719,12 @@ main(int  argc,			/* I - Number of command-line arguments */
 	    return (1);
 	  }
 
-	  fwrite(line, 1, nbytes, stdout);
+	  pswrite(line, nbytes, stdout);
 	  tbytes -= nbytes;
 	}
       }
       else if (strncmp(line, "%%Pages:", 8) != 0)
-        fputs(line, stdout);
+        pswrite(line, len, stdout);
     }
 
    /*
@@ -642,7 +789,7 @@ main(int  argc,			/* I - Number of command-line arguments */
 
     for (page = 1, real_page = 1;;)
     {
-      if (strncmp(line, "%%", 2) == 0)
+      if (!strncmp(line, "%%", 2))
         fprintf(stderr, "DEBUG: %d %s", level, line);
 
       if (strncmp(line, "%%BeginDocument:", 16) == 0 ||
@@ -662,29 +809,64 @@ main(int  argc,			/* I - Number of command-line arguments */
 
 	if (slowcollate || sloworder)
 	  fputs(line, temp);
-      }else if (strcmp(line, "\004") == 0)
+      }else if (strcmp(line, "\004") == 0 && len == 1)
         break;
-      else if (strncmp(line, "%%EOF", 5) == 0 && level == 0)
+      else if (!strncmp(line, "%%EOF", 5) && level == 0)
       {
         fputs("DEBUG: Saw EOF!\n", stderr);
         saweof = 1;
 	break;
       }
-      else if (strncmp(line, "%%Page:", 7) == 0 && level == 0)
+      else if (!strncmp(line, "%%Page:", 7) && level == 0)
       {
 	if (!check_range(real_page))
 	{
-	  while (psgets(line, sizeof(line), fp) != NULL)
-	    if (strncmp(line, "%%BeginDocument:", 16) == 0 ||
-        	strncmp(line, "%%BeginDocument ", 16) == 0)	/* Adobe Acrobat BUG */
+	  while (!feof(fp))
+	  {
+	    len = sizeof(line);
+	    if (psgets(line, &len, fp) == NULL)
+	      break;
+
+	    if (!strncmp(line, "%%", 2))
+              fprintf(stderr, "DEBUG: %d %s", level, line);
+
+	    if (!strncmp(line, "%%BeginDocument:", 16) ||
+        	!strncmp(line, "%%BeginDocument ", 16))	/* Adobe Acrobat BUG */
               level ++;
-	    else if (strcmp(line, "%%EndDocument") == 0 && level > 0)
+	    else if (!strncmp(line, "%%EndDocument", 13) && level > 0)
               level --;
-	    else if (strncmp(line, "%%Page:", 7) == 0 && level == 0)
+	    else if (!strncmp(line, "%%Page:", 7) && level == 0)
 	    {
 	      real_page ++;
 	      break;
 	    }
+	    else if (!strncmp(line, "%%BeginBinary:", 14) ||
+        	     (!strncmp(line, "%%BeginData:", 12) &&
+	              !strstr(line, "ASCII") && !strstr(line, "Hex")))
+	    {
+	     /*
+              * Skip binary data...
+	      */
+
+              tbytes = atoi(strchr(line, ':') + 1);
+
+	      while (tbytes > 0)
+	      {
+		if (tbytes > sizeof(line))
+		  nbytes = fread(line, 1, sizeof(line), fp);
+		else
+		  nbytes = fread(line, 1, tbytes, fp);
+
+        	if (nbytes < 1)
+		{
+		  perror("ERROR: Early end-of-file while reading binary data");
+		  return (1);
+		}
+
+		tbytes -= nbytes;
+	      }
+	    }
+          }
 
           continue;
         }
@@ -700,15 +882,15 @@ main(int  argc,			/* I - Number of command-line arguments */
 	  if (is_first_page(NumPages))
 	  {
 	    if (ppd == NULL || ppd->num_filters == 0)
-	      fprintf(stderr, "PAGE: %d %d\n", page, Copies);
+	      fprintf(stderr, "PAGE: %d %d\n", page, slowcollate ? 1 : Copies);
 
-            // if we are about to write page 2 then we need to emit any special feature code at the end of page 1
-            if(page == 2){	// need to handle second page special features
+            /* if we are about to write page 2 then we need to emit any special feature code at the end of page 1 */
+            if(page == 2){	/* need to handle second page special features */
                 setOtherPageOptionsAndEmit(ppd, specialSlotSelection, minOutputOrder);
             }
             printf("%%%%Page: %d %d\n", page, page);
-            // if we are about to write page 1 then we need to write any special features for page 1
-            if(page == 1){	// need to handle first page special features
+            /* if we are about to write page 1 then we need to write any special features for page 1 */
+            if(page == 1){	/* need to handle first page special features */
                 setFirstPageOptionsAndEmit(ppd, specialSlotSelection, minOutputOrder);
             }
 	    page ++;
@@ -721,9 +903,9 @@ main(int  argc,			/* I - Number of command-line arguments */
 	NumPages ++;
 	real_page ++;
       }
-      else if (strncmp(line, "%%BeginBinary:", 14) == 0 ||
-               (strncmp(line, "%%BeginData:", 12) == 0 &&
-	        strstr(line, "ASCII") == NULL && strstr(line, "Hex") == NULL))
+      else if (!strncmp(line, "%%BeginBinary:", 14) ||
+               (!strncmp(line, "%%BeginData:", 12) &&
+	        !strstr(line, "ASCII") && !strstr(line, "Hex")))
       {
        /*
         * Copy binary data...
@@ -750,7 +932,7 @@ main(int  argc,			/* I - Number of command-line arguments */
 	  }
 
           if (!sloworder)
-	    fwrite(line, 1, nbytes, stdout);
+	    pswrite(line, nbytes, stdout);
 
           if (slowcollate || sloworder)
 	    fwrite(line, 1, nbytes, temp);
@@ -758,7 +940,7 @@ main(int  argc,			/* I - Number of command-line arguments */
 	  tbytes -= nbytes;
 	}
       }
-      else if (strncmp(line, "%%Trailer", 9) == 0 && level == 0)
+      else if (!strncmp(line, "%%Trailer", 9) && level == 0)
       {
         fputs("DEBUG: Saw Trailer!\n", stderr);
         break;
@@ -766,13 +948,14 @@ main(int  argc,			/* I - Number of command-line arguments */
       else
       {
         if (!sloworder)
-          fputs(line, stdout);
+          pswrite(line, len, stdout);
 
 	if (slowcollate || sloworder)
-	  fputs(line, temp);
+	  fwrite(line, 1, len, temp);
       }
 
-      if (psgets(line, sizeof(line), fp) == NULL)
+      len = sizeof(line);
+      if (psgets(line, &len, fp) == NULL)
         break;
     }
 
@@ -786,14 +969,14 @@ main(int  argc,			/* I - Number of command-line arguments */
         end_nup(NUp - 1);
       }
 
-      if (slowduplex && !(page & 1))
+      if (Duplex && !(page & 1))
       {
        /*
         * Make sure we have an even number of pages...
 	*/
 
 	if (ppd == NULL || ppd->num_filters == 0)
-	  fprintf(stderr, "PAGE: %d %d\n", page, Copies);
+	  fprintf(stderr, "PAGE: %d %d\n", page, slowcollate ? 1 : Copies);
 
         printf("%%%%Page: %d %d\n", page, page);
 	page ++;
@@ -822,12 +1005,12 @@ main(int  argc,			/* I - Number of command-line arguments */
 	      if (ppd == NULL || ppd->num_filters == 0)
 		fprintf(stderr, "PAGE: %d 1\n", page);
 
-                // if we are about to write page 2 then we need to emit any special feature code at the end of page 1
-                if(number == 1){	// need to handle second page special features
+                /* if we are about to write page 2 then we need to emit any special feature code at the end of page 1 */
+                if(number == 1){	/* need to handle second page special features */
                     setOtherPageOptionsAndEmit(ppd, specialSlotSelection, minOutputOrder);
                 }
               printf("%%%%Page: %d %d\n", page, page);
-                if(number == 0){	// need to handle first page special features
+                if(number == 0){	/* need to handle first page special features */
                     setFirstPageOptionsAndEmit(ppd, specialSlotSelection, minOutputOrder);
                 }
 	      page ++;
@@ -871,16 +1054,16 @@ main(int  argc,			/* I - Number of command-line arguments */
         page_count = (NumPages + NUp - 1) / NUp;
 	copy       = 0;
 
+        fprintf(stderr, "DEBUG: page_count=%d\n", page_count);
+
         do
 	{
-	  if (slowduplex && (page_count & 1))
-	  {
-            basepage = page_count - 1;
-	  }
+	  if (Duplex && (page_count & 1))
+            basepage = page_count;
 	  else
-	    basepage = page_count - 1 - slowduplex;
+	    basepage = page_count - 1;
 
-	  for (; basepage >= 0; basepage -= 1 + slowduplex)
+	  for (; basepage >= 0; basepage --)
 	  {
 	    if (ppd == NULL || ppd->num_filters == 0)
 	      fprintf(stderr, "PAGE: %d %d\n", page,
@@ -891,69 +1074,28 @@ main(int  argc,			/* I - Number of command-line arguments */
 
 	    ppdEmit(ppd, stdout, PPD_ORDER_PAGE);
 
-	    for (subpage = 0, number = basepage * NUp;
-	         subpage < NUp && number < NumPages;
-		 subpage ++, number ++)
-	    {
-	      start_nup(number, 1);
-	      fseek(temp, Pages[number], SEEK_SET);
-	      copy_bytes(temp, Pages[number + 1] - Pages[number]);
-	      end_nup(number);
-	    }
-
-            if (is_not_last_page(number))
+            if (basepage >= page_count)
 	    {
 	      start_nup(NUp - 1, 0);
+	      puts("showpage");
               end_nup(NUp - 1);
 	    }
-
-            if (slowduplex)
+	    else
 	    {
-              if (number < NumPages)
+	      for (subpage = 0, number = basepage * NUp;
+	           subpage < NUp && number < NumPages;
+		   subpage ++, number ++)
 	      {
-		if (ppd == NULL || ppd->num_filters == 0)
-		  fprintf(stderr, "PAGE: %d %d\n", page,
-	        	  slowcollate ? 1 : Copies);
+		start_nup(number, 1);
+		fseek(temp, Pages[number], SEEK_SET);
+		copy_bytes(temp, Pages[number + 1] - Pages[number]);
+		end_nup(number);
+	      }
 
-        	printf("%%%%Page: %d %d\n", page, page);
-		page ++;
-
-		ppdEmit(ppd, stdout, PPD_ORDER_PAGE);
-
-		for (subpage = 0, number = (basepage + 1) * NUp;
-	             subpage < NUp && number < NumPages;
-		     subpage ++, number ++)
-		{
-		  start_nup(number, 1);
-		  fseek(temp, Pages[number], SEEK_SET);
-		  copy_bytes(temp, Pages[number + 1] - Pages[number]);
-		  end_nup(number);
-		}
-
-        	if (is_not_last_page(number))
-		{
-		  start_nup(NUp - 1, 0);
-        	  end_nup(NUp - 1);
-		}
-              }
-	      else
+              if (is_not_last_page(number))
 	      {
-	       /*
-        	* Make sure we have an even number of pages...
-		*/
-
-		if (ppd == NULL || ppd->num_filters == 0)
-		  fprintf(stderr, "PAGE: %d %d\n", page, slowcollate ? 1 : Copies);
-
-        	printf("%%%%Page: %d %d\n", page, page);
-		page ++;
-		ppdEmit(ppd, stdout, PPD_ORDER_PAGE);
-
 		start_nup(NUp - 1, 0);
-		puts("showpage");
         	end_nup(NUp - 1);
-
-        	basepage = page_count - 1;
 	      }
 	    }
 	  }
@@ -971,13 +1113,20 @@ main(int  argc,			/* I - Number of command-line arguments */
     puts("%%Trailer");
     printf("%%%%Pages: %d\n", page - 1);
 
-    while (psgets(line, sizeof(line), fp) != NULL)
-    {
-      if (strcmp(line, "\004") != 0 &&
-          strncmp(line, "%%Pages:", 8) != 0)
-        fputs(line, stdout);
+    if (UseESPsp)
+      puts("userdict/showpage/ESPshowpage load put\n");
 
-      if (strncmp(line, "%%EOF", 5) == 0)
+    while (!feof(fp))
+    {
+      len = sizeof(line);
+      if (psgets(line, &len, fp) == NULL)
+        break;
+
+      if ( !((strcmp(line, "\004") == 0) && len == 1) &&
+          strncmp(line, "%%Pages:", 8) != 0)
+        pswrite(line, len, stdout);
+
+      if (!strncmp(line, "%%EOF", 5))
       {
         fputs("DEBUG: Saw EOF!\n", stderr);
         saweof = 1;
@@ -1001,6 +1150,7 @@ main(int  argc,			/* I - Number of command-line arguments */
 	   "userdict/showpage{}put");
 
     puts("%%BeginProlog");
+    WriteLabelProlog(val, PageBottom, PageTop, PageWidth);
     do_prolog(ppd);
     puts("%%EndProlog");
 
@@ -1017,14 +1167,17 @@ main(int  argc,			/* I - Number of command-line arguments */
 
     while ((nbytes = fread(line, 1, sizeof(line), fp)) > 0)
     {
-      fwrite(line, 1, nbytes, stdout);
+      pswrite(line, nbytes, stdout);
 
       if (slowcollate)
 	fwrite(line, 1, nbytes, temp);
     }
 
     if (UseESPsp)
+    {
+      WriteLabels(Orientation);
       puts("ESPshowpage");
+    }
 
     if (slowcollate)
     {
@@ -1039,7 +1192,10 @@ main(int  argc,			/* I - Number of command-line arguments */
 	Copies --;
 
         if (UseESPsp)
+	{
+	  WriteLabels(Orientation);
           puts("ESPshowpage");
+	}
       }
     }
   }
@@ -1059,10 +1215,13 @@ main(int  argc,			/* I - Number of command-line arguments */
   {
     if (emit_jcl && ppd->jcl_end)
       fputs(ppd->jcl_end, stdout);
-#if 0	// we don't generate control-D
-    else if (ppd->num_filters == 0)
-      putchar(0x04);
-#endif
+    else {
+	if (ppd->num_filters == 0)
+	    putchar(0x04);
+	    
+	if(Protocol == PROT_TBCP)
+	    fputs(TBCP_END_PROTOCOL_STRING, stdout);
+    }
   }
 
  /*
@@ -1102,9 +1261,9 @@ check_range(int page)	/* I - Page number */
     * See if we only print even or odd pages...
     */
 
-    if (strcasecmp(PageSet, "even") == 0 && ((page - 1) % (NUp << 1)) <  NUp)
+    if (!strcasecmp(PageSet, "even") && ((page - 1) % (NUp << 1)) <  NUp)
       return (0);
-    if (strcasecmp(PageSet, "odd")  == 0 && ((page - 1) % (NUp << 1)) >= NUp)
+    if (!strcasecmp(PageSet, "odd") && ((page - 1) % (NUp << 1)) >= NUp)
       return (0);
   }
 
@@ -1175,7 +1334,7 @@ copy_bytes(FILE   *fp,		/* I - File to read from */
 
     nleft -= nbytes;
 
-    fwrite(buffer, 1, nbytes, stdout);
+    pswrite(buffer, nbytes, stdout);
   }
 }
 
@@ -1214,6 +1373,10 @@ do_setup(ppd_file_t *ppd,		/* I - PPD file */
 	 float      g,			/* I - Gamma value */
 	 float      b)			/* I - Brightness value */
 {
+
+  /* define control D to a no-op */
+  puts("userdict(\\004)cvn{}put");
+
  /*
   * Send all the printer-specific setup commands...
   */
@@ -1320,6 +1483,61 @@ end_nup(int number)	/* I - Page number */
 
 
 /*
+ * 'psbcp()' - Enable the binary communications protocol on the printer.
+ */
+
+static void
+psbcp(ppd_file_t *ppd)		/* I - PPD file */
+{
+  if (ppd->jcl_begin)
+    fputs(ppd->jcl_begin, stdout);
+  if (ppd->jcl_ps)
+    fputs(ppd->jcl_ps, stdout);
+
+  if (ppd->language_level == 1)
+  {
+   /*
+    * Use setsoftwareiomode for BCP mode...
+    */
+
+    fputs("%!PS-Adobe-3.0 ExitServer\n", stdout);
+    fputs("%%Title: (BCP - Level 1)\n", stdout);
+    fputs("%%EndComments\n", stdout);
+    fputs("%%BeginExitServer: 0\n", stdout);
+    fputs("serverdict begin 0 exitserver\n", stdout);
+    fputs("%%EndExitServer\n", stdout);
+    fputs("statusdict begin\n", stdout);
+    fputs("/setsoftwareiomode known {100 setsoftwareiomode}\n", stdout);
+    fputs("end\n", stdout);
+    fputs("%EOF\n", stdout);
+  }
+  else
+  {
+   /*
+    * Use setdevparams for BCP mode...
+    */
+
+    fputs("%!PS-Adobe-3.0\n", stdout);
+    fputs("%%Title: (BCP - Level 2)\n", stdout);
+    fputs("%%EndComments\n", stdout);
+    fputs("currentsysparams\n", stdout);
+    fputs("/CurInputDevice 2 copy known {\n", stdout);
+    fputs("get\n", stdout);
+    fputs("<</Protocol /Binary>> setdevparams\n", stdout);
+    fputs("}{\n", stdout);
+    fputs("pop pop\n", stdout);
+    fputs("} ifelse\n", stdout);
+    fputs("%EOF\n", stdout);
+  }
+
+  if (ppd->jcl_end)
+    fputs(ppd->jcl_end, stdout);
+  else if (ppd->num_filters == 0)
+	putchar(0x04);
+}
+
+
+/*
  * 'psgets()' - Get a line from a file.
  *
  * Note:
@@ -1329,16 +1547,17 @@ end_nup(int number)	/* I - Page number */
  *   lines.
  */
 
-static char *		/* O - String or NULL if EOF */
-psgets(char   *buf,	/* I - Buffer to read into */
-       size_t len,	/* I - Length of buffer */
-       FILE   *fp)	/* I - File to read from */
+static char *				/* O  - String or NULL if EOF */
+psgets(char   *buf,			/* I  - Buffer to read into */
+       size_t *bytes,			/* IO - Length of buffer */
+       FILE   *fp)			/* I  - File to read from */
 {
-  char	*bufptr;	/* Pointer into buffer */
-  int	ch;		/* Character from file */
+  char		*bufptr;		/* Pointer into buffer */
+  int		ch;			/* Character from file */
+  size_t	len;			/* Max length of string */
 
 
-  len --;
+  len    = *bytes - 1;
   bufptr = buf;
   ch     = EOF;
 
@@ -1347,20 +1566,24 @@ psgets(char   *buf,	/* I - Buffer to read into */
     if ((ch = getc(fp)) == EOF)
       break;
 
-    if (ch == 0x0d)
+    if (ch == '\r')
     {
      /*
       * Got a CR; see if there is a LF as well...
       */
 
       ch = getc(fp);
-      if (ch != EOF && ch != 0x0a)
-        ungetc(ch, fp);	/* Nope, save it for later... */
 
-      ch = 0x0a;
+      if (ch != EOF && ch != '\n')
+      {
+        ungetc(ch, fp);	/* Nope, save it for later... */
+        ch = '\r';
+      }
+      else
+        *bufptr++ = '\r';
       break;
     }
-    else if (ch == 0x0a)
+    else if (ch == '\n')
       break;
     else
       *bufptr++ = ch;
@@ -1370,14 +1593,20 @@ psgets(char   *buf,	/* I - Buffer to read into */
   * Add a trailing newline if it is there...
   */
 
-  if (ch == '\n')
-    *bufptr++ = '\n';
+  if (ch == '\n' || ch == '\r')
+  {
+    if ((bufptr - buf) < len)
+      *bufptr++ = ch;
+    else
+      ungetc(ch, fp);
+  }
 
  /*
   * Nul-terminate the string and return it (or NULL for EOF).
   */
 
   *bufptr = '\0';
+  *bytes  = bufptr - buf;
 
   if (ch == EOF && bufptr == buf)
     return (NULL);
@@ -1387,18 +1616,85 @@ psgets(char   *buf,	/* I - Buffer to read into */
 
 
 /*
+ * 'pswrite()' - Write data from a file.
+ */
+
+static size_t				/* O - Number of bytes written */
+pswrite(const char *buf,		/* I - Buffer to write */
+        size_t     bytes,		/* I - Bytes to write */
+	FILE       *fp)			/* I - File to write to */
+{
+  size_t	count;			/* Remaining bytes */
+
+
+  switch (Protocol)
+  {
+    case PROT_STANDARD :
+        return (fwrite(buf, 1, bytes, fp));
+
+    case PROT_BCP :
+        for (count = bytes; count > 0; count --, buf ++)
+	  switch (*buf)
+	  {
+	    case 0x01 : /* CTRL-A */
+	    case 0x03 : /* CTRL-C */
+	    case 0x04 : /* CTRL-D */
+	    case 0x05 : /* CTRL-E */
+	    case 0x11 : /* CTRL-Q */
+	    case 0x13 : /* CTRL-S */
+	    case 0x14 : /* CTRL-T */
+	    case 0x1c : /* CTRL-\ */
+	        putchar(0x01);
+		putchar(*buf ^ 0x40);
+	        break;
+
+	    default :
+	        putchar(*buf);
+		break;
+	  }
+        return (bytes);
+
+    case PROT_TBCP :
+        for (count = bytes; count > 0; count --, buf ++)
+	  switch (*buf)
+	  {
+	    case 0x01 : /* CTRL-A */
+	    case 0x03 : /* CTRL-C */
+	    case 0x04 : /* CTRL-D */
+	    case 0x05 : /* CTRL-E */
+	    case 0x11 : /* CTRL-Q */
+	    case 0x13 : /* CTRL-S */
+	    case 0x14 : /* CTRL-T */
+	    case 0x1b : /* CTRL-[ (aka ESC) */
+	    case 0x1c : /* CTRL-\ */
+	        putchar(0x01);
+		putchar(*buf ^ 0x40);
+	        break;
+
+	    default :
+	        putchar(*buf);
+		break;
+	  }
+        return (bytes);
+  }
+
+  return (fwrite(buf, 1, bytes, fp));
+}
+
+
+/*
  * 'start_nup()' - Start processing for N-up printing...
  */
 
 static void
-start_nup(int number,		/* I - Page number */
-          int show_border)	/* I - Show the page border? */
+start_nup(int number,			/* I - Page number */
+          int show_border)		/* I - Show the page border? */
 {
-  int	pos;			/* Position on page */
-  int	x, y;			/* Relative position of subpage */
-  float	w, l,			/* Width and length of subpage */
-	tx, ty;			/* Translation values for subpage */
-  float	pw, pl;			/* Printable width and length of full page */
+  int	pos;				/* Position on page */
+  int	x, y;				/* Relative position of subpage */
+  float	w, l,				/* Width and length of subpage */
+	tx, ty;				/* Translation values for subpage */
+  float	pw, pl;				/* Printable width and length of full page */
 
 
   if (Flip || Orientation || NUp > 1)
@@ -1416,14 +1712,14 @@ start_nup(int number,		/* I - Page number */
   fprintf(stderr, "DEBUG: PageTop = %.1f, PageBottom = %.1f\n", PageTop, PageBottom);
   fprintf(stderr, "DEBUG: PageWidth = %.1f, PageLength = %.1f\n", PageWidth, PageLength);
 
-#if 0	// debugging only!
+#if 0	/* debugging only! */
     if(Orientation & 1)
     {
         if(Orientation == 1)
             printf("%.1f %.1f %.1f %.1f ESPrs\n", 
                 PageBottom, PageLeft, 
                 PageTop - PageBottom, PageRight - PageLeft);
-        else//reverse
+        else /* reverse */
             printf("%.1f %.1f %.1f %.1f ESPrs\n", 
                 PageLength - PageTop, PageWidth - PageRight, 
                 PageTop - PageBottom, PageRight - PageLeft);
@@ -1780,13 +2076,13 @@ static void setPageOptionsAndEmit(ppd_file_t *ppd, float minOrder, const char *i
     if(ppd && (inputSlotToSet || manualFeedToSet)){
         int limitOrder = 1;
         if(inputSlotToSet){
-            // need to set input slot correctly and turn off manual feed if on
+            /* need to set input slot correctly and turn off manual feed if on */
             if(manualFeedToUnset && strcasecmp(manualFeedToUnset, "True") == 0){
                 ppdMarkOption(ppd, "ManualFeed", "False");
             }
             ppdMarkOption(ppd, "InputSlot", inputSlotToSet);
         }else{
-            // need to set manual feed
+            /* need to set manual feed */
             ppdMarkOption(ppd, "ManualFeed", manualFeedToSet);
         }
         ppdEmitAfterOrder(ppd, stdout, PPD_ORDER_DOCUMENT, limitOrder, minOrder);
@@ -1795,5 +2091,5 @@ static void setPageOptionsAndEmit(ppd_file_t *ppd, float minOrder, const char *i
 }
 
 /*
- * End of "$Id: pstops.c,v 1.14.2.1 2002/10/22 18:02:22 gelphman Exp $".
+ * End of "$Id: pstops.c,v 1.33 2003/08/27 23:40:23 gelphman Exp $".
  */

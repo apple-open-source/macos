@@ -265,8 +265,6 @@ void dumpIter( void *refCon, io_iterator_t iter )
     }
 }
 
-// This method is a drop in replacement for the one that is currently in the file MainController.m
-
 - (IBAction)usbextensionsGetVersions:(id)sender
 {
     NSString *extensionsString = [[NSString alloc] init];
@@ -300,7 +298,6 @@ void dumpIter( void *refCon, io_iterator_t iter )
     [usbextensionsOutput setString:[NSString stringWithFormat:@"Currently loaded kernel modules:\n\n"]];
     [usbextensionsOutput replaceCharactersInRange:NSMakeRange([[usbextensionsOutput string] length], 0) withString:outputString];
 }
-
 
 - (IBAction)refreshIOReg:(id)sender
 {

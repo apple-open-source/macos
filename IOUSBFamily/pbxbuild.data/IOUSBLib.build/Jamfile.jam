@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = IOUSBFamily ;
-export deferred SRCROOT = /Volumes/Home/Latest/Smeagol/IOUSBFamily-200 ;
+export deferred SRCROOT = /Volumes/Home/Latest/Panther/IOUSBFamily ;
 
 # User-defined project-wide settings for project
 
@@ -19,7 +19,7 @@ export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/IOUSB
 
 # Implicitly computed build settings for target "IOUSBLib"
 export deferred CLONE_HEADERS = NO ;
-export deferred PFE_FILE_C_DIALECTS = "c++" ;
+export deferred PFE_FILE_C_DIALECTS = c++ ;
 export deferred SKIP_INSTALL = YES ;
 export deferred TARGETNAME = $(TARGET_NAME) ;
 export deferred TARGET_NAME = IOUSBLib ;
@@ -28,7 +28,7 @@ export deferred TARGET_NAME = IOUSBLib ;
 export deferred FRAMEWORK_SEARCH_PATHS =  ;
 export deferred HEADER_SEARCH_PATHS =  ;
 export deferred LIBRARY_SEARCH_PATHS =  ;
-export deferred OTHER_CFLAGS =  ;
+export deferred OTHER_CFLAGS = -W -Wall -Wno-unused ;
 export deferred OTHER_LDFLAGS =  ;
 export deferred OTHER_REZFLAGS =  ;
 export deferred PRODUCT_NAME = IOUSBLib ;
@@ -86,6 +86,12 @@ ProcessFrameworksAndLibraries "<IOUSBLib>IOUSBLib.bundle" : "$(FRAMEWORKS_AND_LI
 # Rez Files
 REZ_FILES = ;
 ProcessRezFiles "<IOUSBLib>IOUSBLib.bundle" : "$(REZ_FILES)" : BPTag003 : BPTag004 ;
+
+rule DefineHeaderDependencies
+{
+}
+
+DefineHeaderDependencies "<IOUSBLib>IOUSBLib.bundle" ;
 
 EndBundle "<IOUSBLib>IOUSBLib.bundle" ;
 

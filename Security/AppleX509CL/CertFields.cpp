@@ -17,112 +17,53 @@
 
 
 /*
- * CertFields.cpp - convert between snacc-based Certificate components and CDSA-style
+ * CertFields.cpp - convert between NSS-based Certificate components and CDSA-style
  *                  fields. A major component of DecodedCert.
  *
  * Created 9/1/2000 by Doug Mitchell. 
  * Copyright (c) 2000 by Apple Computer. 
- *
- * The code in this file is dreadfully gross. There is no practical way to do this
- * work (converting between C++ snacc types and C CSDA types) without the kind
- * of brute force code you see here. 
  */
 
 #include "DecodedCert.h"
 #include "cldebugging.h"
-#include "CertBuilder.h"
 #include "CLCertExtensions.h"
-#include "SnaccUtils.h"
+#include "clNssUtils.h"
+#include "clNameUtils.h"
+#include "CLFieldsCommon.h"
 #include <Security/utilities.h>
 #include <Security/oidscert.h>
 #include <Security/cssmerr.h>
 #include <Security/x509defs.h>
-#include <Security/cdsaUtils.h>
-
-/*
- * Routines for common validity checking for certificateToSign fields.
- *
- * Call from setField*: verify field isn't already set, optionally validate
- * input length
- */
-static void tbsSetCheck(
-	void				*fieldToSet,
-	const CssmData		&fieldValue,
-	uint32				expLength,
-	const char			*op)
-{
-	if(fieldToSet != NULL) {						
-		/* can't add another */
-		errorLog1("setField(%s): field already set\n", op);
-		CssmError::throwMe(CSSMERR_CL_INVALID_NUMBER_OF_FIELDS);		
-	}										
-	if((expLength != 0) && (fieldValue.length() != expLength)) {		
-		errorLog3("setField(%s): bad length : exp %d got %d\n", 
-			op, (int)expLength, (int)fieldValue.length());
-		CssmError::throwMe(CSSMERR_CL_INVALID_FIELD_POINTER);			
-	}
-}
-
-/*
- * Call from getField* for unique fields - detect missing field or index out of bounds.
- */
-static bool tbsGetCheck(
-	void		*requiredField,
-	uint32		reqIndex)
-{
-	if((requiredField == NULL) ||  (reqIndex != 0)) {
-		return false;
-	}
-	else {
-		return true;
-	}
-}
 
 /***
  *** Version
  *** Format = DER-encoded int (max of four bytes in this case)
  ***/
 static bool getField_Version (
-	const DecodedCert 	&cert,
+	DecodedItem		 	&item,
 	unsigned			index,			// which occurrence (0 = first)
 	uint32				&numFields,		// RETURNED
 	CssmOwnedData		&fieldValue)	// RETURNED
 {
-	if(!tbsGetCheck(cert.certificateToSign->version, index)) {
+	const DecodedCert &cert = dynamic_cast<const DecodedCert &>(item);
+	const CSSM_DATA &vers = cert.mCert.tbs.version;
+	if(!tbsGetCheck(vers.Data, index)) {
+		/* not present, optional */
 		return false;
 	}
-
-	/* cook up big-endian char array representation */
-	int ivers = *cert.certificateToSign->version;
-	uint32 uvers = static_cast<uint32>(ivers);
-	uint8 chars[sizeof(uint32)];
-	for(uint32 i=0; i<sizeof(uint32); i++) {
-		chars[sizeof(uint32) - 1 -i] = (uint8)uvers;
-		uvers >>= 8; 
-	}
-	fieldValue.copy(chars, sizeof(uint32));
+	fieldValue.copy(vers.Data, vers.Length);
 	numFields = 1;
 	return true;
 }
 
 static void setField_Version (
-	DecodedCert			&cert,
+	DecodedItem			&item,
 	const CssmData		&fieldValue)
 {
-	tbsSetCheck(cert.certificateToSign->version, fieldValue, 0, "version");
-	
-	/* get big-endian int from *fieldValue.Data */
-	if(fieldValue.length() > sizeof(unsigned)) {
-		CssmError::throwMe(CSSMERR_CL_INVALID_FIELD_POINTER);			
-	}
-	uint32 vers = 0;
-	uint8 *cp = fieldValue;
-	for(unsigned i=0; i<fieldValue.length(); i++) {
-		vers <<= 8;
-		vers |= cp[i];
-	}
-	cert.certificateToSign->version = new Version((int)vers);
-	cert.certificateToSign->version->Set((int)vers);
+	DecodedCert &cert = dynamic_cast<DecodedCert &>(item);
+	CSSM_DATA &vers = cert.mCert.tbs.version;
+	tbsSetCheck(vers.Data, fieldValue, 0, "version");
+	cert.coder().allocCopyItem(fieldValue, vers);
 }
 
 
@@ -132,17 +73,19 @@ static void setField_Version (
  *** Format = DER-encoded int (always four bytes in this case)
  ***/
 static bool getField_Version (
-	const DecodedCert 	&cert,
+	DecodedItem		 	&item,
 	unsigned			index,			// which occurrence (0 = first)
 	uint32				&numFields,		// RETURNED
 	CssmOwnedData		&fieldValue)	// RETURNED
 {
+	const DecodedCert &cert = dynamic_cast<const DecodedCert &>(item);
 	tbsGetCheck(cert.certificateToSign->version, index);
 }
 static void setField_Version (
-	DecodedCert			&cert,
+	DecodedItem			&item,
 	const CssmData		&fieldValue)
 {
+	DecodedCert &cert = dynamic_cast<DecodedCert &>(item);
 	tbsSetCheck(cert.certificateToSign->version, fieldValue, sizeof(uint32),
 		"version");
 
@@ -158,247 +101,53 @@ static void freeField_Version (
  *** Format = DER-encoded int, variable length
  ***/
 static bool getField_SerialNumber (
-	const DecodedCert 	&cert,
+	DecodedItem		 	&item,
 	unsigned			index,			// which occurrence (0 = first)
 	uint32				&numFields,		// RETURNED
 	CssmOwnedData		&fieldValue)	// RETURNED
 {
-	if(index > 0) {
+	const DecodedCert &cert = dynamic_cast<const DecodedCert &>(item);
+	const CSSM_DATA &sn = cert.mCert.tbs.serialNumber;
+	if(!tbsGetCheck(sn.Data, index)) {
 		return false;
 	}
-	
-	char *cp = cert.certificateToSign->serialNumber;	
-	uint32 len = cert.certificateToSign->serialNumber.Len();
-	fieldValue.copy(cp, len);
+	fieldValue.copy(sn.Data, sn.Length);
 	numFields = 1;
 	return true;
 }
 
 static void setField_SerialNumber (
-	DecodedCert			&cert,
+	DecodedItem			&item,
 	const CssmData		&fieldValue)
 {
-	cert.certificateToSign->serialNumber.Set(fieldValue, fieldValue.Length);
+	DecodedCert &cert = dynamic_cast<DecodedCert &>(item);
+	CSSM_DATA &sn = cert.mCert.tbs.serialNumber;
+	tbsSetCheck(sn.Data, fieldValue, 0, "SerialNumber");
+	cert.coder().allocCopyItem(fieldValue, sn);
 }
 
-/***
- *** Issuer Name, Subject Name (C struct version)
+/*** issuer/subject
  *** Format = CSSM_X509_NAME
  *** class Name from sm_x501if
  ***/
-
-/* first, the common code */
-static bool getField_RDN (
-	const Name 			&name,
-	uint32				&numFields,		// RETURNED (if successful, 0 or 1)
-	CssmOwnedData		&fieldValue)	// RETURNED
-{
-	RDNSequence *rdns = name.rDNSequence;
-	int numRdns = rdns->Count();
-	if((rdns == NULL) || (numRdns == 0)) {
-		/* not technically an error */
-		return false;
-	}
-	
-	/* alloc top-level CSSM_X509_NAME and its RelativeDistinguishedName array */
-	CssmAllocator &alloc = fieldValue.allocator;
-	fieldValue.malloc(sizeof(CSSM_X509_NAME));
-	CSSM_X509_NAME_PTR x509Name = (CSSM_X509_NAME_PTR)fieldValue.data();
-	memset(x509Name, 0, sizeof(CSSM_X509_NAME));
-	x509Name->numberOfRDNs = numRdns;
-	x509Name->RelativeDistinguishedName = 
-		(CSSM_X509_RDN_PTR)alloc.malloc(sizeof(CSSM_X509_RDN) * numRdns);
-	CSSM_X509_RDN_PTR currRdn = x509Name->RelativeDistinguishedName;
-	memset(currRdn, 0, sizeof(CSSM_X509_RDN) * numRdns);
-	
-	rdns->SetCurrElmt(0);
-	for(int rdnDex=0; rdnDex<numRdns; rdnDex++) {
-		/* from sm_x501if */
-		RelativeDistinguishedName *rdn = rdns->Curr();
-		if(rdn == NULL) {
-			/* not sure how this can happen... */
-			dprintf1("getField_RDN: NULL rdn at index %d\n", rdnDex);
-			
-			/* next snacc RDN but keep CDSA position unchanged */
-			rdns->GoNext();				// snacc format
-			x509Name->numberOfRDNs--;	// since we're skipping one
-			continue;
-		}
-		int numAttrs = rdn->Count();
-		if(numAttrs == 0) {
-			dprintf1("getField_RDN: zero numAttrs at index %d\n", rdnDex);
-			rdns->GoNext();		
-			x509Name->numberOfRDNs--;	// since we're skipping one
-			continue;
-		}
-		
-		/* alloc CSSM_X509_TYPE_VALUE_PAIR array for this rdn */
-		currRdn->numberOfPairs = numAttrs;
-		currRdn->AttributeTypeAndValue = (CSSM_X509_TYPE_VALUE_PAIR_PTR)
-			alloc.malloc(sizeof(CSSM_X509_TYPE_VALUE_PAIR) * numAttrs);
-		CSSM_X509_TYPE_VALUE_PAIR_PTR currAttr = currRdn->AttributeTypeAndValue;
-		memset(currAttr, 0, sizeof(CSSM_X509_TYPE_VALUE_PAIR) * numAttrs);
-		
-		/* descend into array of attribute/values */
-		rdn->SetCurrElmt(0);
-		for(int attrDex=0; attrDex<numAttrs; attrDex++) {
-			/* from sm_x501if */
-			AttributeTypeAndDistinguishedValue *att = rdn->Curr();
-			if(att == NULL) {
-				/* not sure how this can happen... */
-				dprintf1("getField_RDN: NULL att at index %d\n", attrDex);
-				rdn->GoNext();
-				currRdn->numberOfPairs--;
-				continue;
-			}
-
-			/*
-			 * Convert snacc-style AttributeTypeAndDistinguishedValue to
-			 * CSSM-style CSSM_X509_TYPE_VALUE_PAIR
-			 *
-			 * Hopefully 'value' is one of the types defined in DirectoryString,
-			 * defined in sm_x520sa. Some certs use IA5String, which is not
-			 * technically legal and is not handled by DirectoryString, so
-			 * we have to handle that ourself. See e.g. the Thawte serverbasic 
-			 * cert, which has an email address in IA5String format. 
-			 */
-			CSM_Buffer				*cbuf = att->value.value;
-			AsnBuf					buf;
-			AsnLen					len = cbuf->Length();
-			AsnTag 					tag;
-			AsnLen 					elmtLen;
-			ENV_TYPE 				env;
-			char					*valData;
-			int						valLength;
-			DirectoryString			*dirStr = NULL;
-			
-			buf.InstallData(cbuf->Access(), len);
-			try {
-				tag = BDecTag (buf, len, env);
-				elmtLen = BDecLen (buf, len, env);
-			}
-			catch(...) {
-				errorLog0("getField_RDN: malformed DirectoryString (1)\n");
-				/* FIXME - throw? Discard the whole cert? What? */
-				rdn->GoNext();
-				currRdn->numberOfPairs--;
-				continue;
-			}
-
-			/* current buf ptr is at the string value's contents. */
-			if((tag == MAKE_TAG_ID (UNIV, PRIM, IA5STRING_TAG_CODE)) ||
-			   (tag == MAKE_TAG_ID (UNIV, CONS, IA5STRING_TAG_CODE))) {
-					/* any other printable types not handled by DirectoryString here */
-					valData = buf.DataPtr();
-					valLength = buf.DataLen();
-					// workaround
-					delete dirStr;
-					dirStr = NULL;
-			}
-			else {
-				/* from sm_x520sa.h */
-				AsnLen dec;
-				dirStr = new DirectoryString;
-				try {
-					dirStr->BDecContent(buf, tag, elmtLen, dec, env);
-				}
-				catch(...) {
-					errorLog0("getField_RDN: malformed DirectoryString (1)\n");
-					/* FIXME - throw? Discard the whole cert? What? */
-					rdn->GoNext();
-					currRdn->numberOfPairs--;
-					continue;
-				}
-				AsnOcts *octs = NULL;
-				switch(dirStr->choiceId) {
-					case DirectoryString::printableStringCid:
-						octs = dirStr->printableString;
-						break;
-					case DirectoryString::teletexStringCid:
-						octs = dirStr->teletexString;
-						break;
-					case DirectoryString::universalStringCid:
-						octs = dirStr->universalString;
-						break;
-					case DirectoryString::bmpStringCid:
-						octs = dirStr->bmpString;
-						break;
-					case DirectoryString::utf8StringCid:
-						octs = dirStr->utf8String;
-						break;
-					default:
-						/* should never happen unless DirectoryString changes */
-						errorLog1("getField_RDN: Bad DirectoryString::choiceId (%d)\n",
-							(int)dirStr->choiceId);
-						CssmError::throwMe(CSSMERR_CL_INVALID_FIELD_POINTER);
-				}
-				valData = *octs;
-				valLength = octs->Len();
-			}	/* normal DirectoryString */
-			
-			/* OK, set up outgoing CSSM_X509_TYPE_VALUE_PAIR */
-			CssmOid &oid = CssmOid::overlay(currAttr->type);
-			CL_snaccOidToCssm(att->type, oid, alloc);
-			currAttr->valueType = tag >> 24;
-			currAttr->value.Data = (uint8 *)alloc.malloc(valLength);
-			currAttr->value.Length = valLength;
-			memcpy(currAttr->value.Data, valData, valLength);
-			
-			rdn->GoNext();	// snacc format
-			currAttr++;		// CDSA format
-			delete dirStr;
-		}	/* for eact attr in rdn */
-
-		rdns->GoNext();		// snacc format
-		currRdn++;			// CDSA format
-	}	/* for each rdn in rdns */
-	numFields = 1;
-	return true;
-}
-
-/* common for issuer and subject */
-static void freeField_RDN  (
-	CssmOwnedData		&fieldValue)
-{
-	if(fieldValue.data() == NULL) {
-		return;
-	}
-	if(fieldValue.length() != sizeof(CSSM_X509_NAME)) {
-		CssmError::throwMe(CSSMERR_CL_INVALID_FIELD_POINTER);
-	}
-	CssmAllocator &alloc = fieldValue.allocator;
-	CSSM_X509_NAME_PTR x509Name = (CSSM_X509_NAME_PTR)fieldValue.data();
-	for(unsigned rdnDex=0; rdnDex<x509Name->numberOfRDNs; rdnDex++) {
-		CSSM_X509_RDN_PTR rdn = &x509Name->RelativeDistinguishedName[rdnDex];
-		for(unsigned atvDex=0; atvDex<rdn->numberOfPairs; atvDex++) {
-			CSSM_X509_TYPE_VALUE_PAIR_PTR atv = &rdn->AttributeTypeAndValue[atvDex];
-			alloc.free(atv->type.Data);
-			alloc.free(atv->value.Data);
-			memset(atv, 0, sizeof(CSSM_X509_TYPE_VALUE_PAIR));
-		}
-		alloc.free(rdn->AttributeTypeAndValue);
-		memset(rdn, 0, sizeof(CSSM_X509_RDN));
-	}
-	alloc.free(x509Name->RelativeDistinguishedName);
-	memset(x509Name, 0, sizeof(CSSM_X509_NAME));
-	
-	/* top-level x509Name pointer freed by freeCertFieldData() */
-}
-
-/*** issuer ***/
 static bool getField_Issuer (
-	const DecodedCert	&cert,
+	DecodedItem			&item,
 	unsigned			index,			// which occurrence (0 = first)
 	uint32				&numFields,		// RETURNED
 	CssmOwnedData		&fieldValue)	// RETURNED
 {
-	bool brtn;
-	
-	if(!tbsGetCheck(cert.certificateToSign->issuer, index)) {
+	if(index != 0) {
 		return false;
 	}
+
+	bool brtn;
+	
+	const DecodedCert &cert = dynamic_cast<const DecodedCert &>(item);
 	try {
-		brtn = getField_RDN(*cert.certificateToSign->issuer, numFields, fieldValue);
+		brtn = getField_RDN_NSS(cert.mCert.tbs.issuer, fieldValue);
+		if(brtn) {
+			numFields = 1;
+		}
 	}
 	catch (...) {
 		freeField_RDN(fieldValue);
@@ -408,30 +157,36 @@ static bool getField_Issuer (
 }
 
 static void setField_Issuer  (
-	DecodedCert			&cert,
+	DecodedItem			&item,
 	const CssmData		&fieldValue)
 {
-	tbsSetCheck(cert.certificateToSign->issuer, fieldValue, sizeof(CSSM_X509_NAME),
+	DecodedCert &cert = dynamic_cast<DecodedCert &>(item);
+	const CSSM_X509_NAME *cssmName = (const CSSM_X509_NAME *)fieldValue.Data;
+	NSS_Name &nssName = cert.mCert.tbs.issuer;
+	tbsSetCheck(nssName.rdns, fieldValue, sizeof(CSSM_X509_NAME),
 		"IssuerName");
-	NameBuilder *issuer = new NameBuilder;
-	cert.certificateToSign->issuer = issuer;
-	const CSSM_X509_NAME *x509Name = (const CSSM_X509_NAME *)fieldValue.Data;
-	issuer->addX509Name(x509Name);
+	CL_cssmNameToNss(*cssmName, nssName, cert.coder());
 }
 
 /*** subject ***/
 static bool getField_Subject (
-	const DecodedCert 	&cert,
+	DecodedItem		 	&item,
 	unsigned			index,			// which occurrence (0 = first)
 	uint32				&numFields,		// RETURNED
 	CssmOwnedData		&fieldValue)	// RETURNED
 {
-	if(!tbsGetCheck(cert.certificateToSign->subject, index)) {
+	if(index != 0) {
 		return false;
 	}
+
 	bool brtn;
+	
+	const DecodedCert &cert = dynamic_cast<const DecodedCert &>(item);
 	try {
-		brtn = getField_RDN(*cert.certificateToSign->subject, numFields, fieldValue);
+		brtn = getField_RDN_NSS(cert.mCert.tbs.subject, fieldValue);
+		if(brtn) {
+			numFields = 1;
+		}
 	}
 	catch (...) {
 		freeField_RDN(fieldValue);
@@ -441,160 +196,127 @@ static bool getField_Subject (
 }
 
 static void setField_Subject  (
-	DecodedCert			&cert,
+	DecodedItem			&item,
 	const CssmData		&fieldValue)
 {
-	tbsSetCheck(cert.certificateToSign->subject, fieldValue, sizeof(CSSM_X509_NAME),
+	DecodedCert &cert = dynamic_cast<DecodedCert &>(item);
+	const CSSM_X509_NAME *cssmName = (const CSSM_X509_NAME *)fieldValue.Data;
+	NSS_Name &nssName = cert.mCert.tbs.subject;
+	tbsSetCheck(nssName.rdns, fieldValue, sizeof(CSSM_X509_NAME),
 		"SubjectName");
-	NameBuilder *subject = new NameBuilder;
-	cert.certificateToSign->subject = subject;
-	const CSSM_X509_NAME *x509Name = (const CSSM_X509_NAME *)fieldValue.Data;
-	subject->addX509Name(x509Name);
+	CL_cssmNameToNss(*cssmName, nssName, cert.coder());
 }
 
 /***
  *** Issuer Name, Subject Name (normalized and encoded version)
  *** Format = CSSM_DATA containing the DER encoding of the normalized name
- *** class Name from sm_x501if
  ***/
-
-/* first, the common code */
-static bool getField_normRDN (
-	const Name 			&name,
-	uint32				&numFields,		// RETURNED (if successful, 0 or 1)
+static bool getFieldSubjectNorm(
+	DecodedItem		 	&item,
+	unsigned			index,			// which occurrence (0 = first)
+	uint32				&numFields,		// RETURNED
 	CssmOwnedData		&fieldValue)	// RETURNED
 {
-	/*
-	 * First step is to make a copy of the existing name. The easiest way to do 
-	 * this is to encode and decode.	
-	 */
-	CssmAllocator &alloc = fieldValue.allocator;
-	CssmAutoData encodedName1(alloc);
-	/* FIXME - should SC_encodeAsnObj() take a const AsnType & ? */
-	SC_encodeAsnObj(const_cast<Name &>(name), encodedName1, MAX_RDN_SIZE);
-	Name decodedName;
-	SC_decodeAsnObj(encodedName1, decodedName);
-	
-	/* normalize */
-	CL_normalizeX509Name(decodedName, alloc);
-	
-	/* encode result */
-	SC_encodeAsnObj(decodedName, fieldValue, MAX_RDN_SIZE);
+	if(index != 0) {
+		return false;
+	}
+	const DecodedCert &cert = dynamic_cast<const DecodedCert &>(item);
+	return getField_normRDN_NSS(cert.mCert.tbs.derSubject, numFields, 
+		fieldValue);
+}
+
+static bool getFieldIssuerNorm(
+	DecodedItem		 	&item,
+	unsigned			index,			// which occurrence (0 = first)
+	uint32				&numFields,		// RETURNED
+	CssmOwnedData		&fieldValue)	// RETURNED
+{
+	if(index != 0) {
+		return false;
+	}
+	const DecodedCert &cert = dynamic_cast<const DecodedCert &>(item);
+	return getField_normRDN_NSS(cert.mCert.tbs.derIssuer, numFields, fieldValue);
+}
+
+/***
+ *** Issuer Name, Subject Name (encoded, NON-normalized version)
+ *** Format = CSSM_DATA containing the DER encoding of the name
+ ***/
+static bool getFieldSubjectStd(
+	DecodedItem		 	&item,
+	unsigned			index,			// which occurrence (0 = first)
+	uint32				&numFields,		// RETURNED
+	CssmOwnedData		&fieldValue)	// RETURNED
+{
+	if(index != 0) {
+		return false;
+	}
+	const DecodedCert &cert = dynamic_cast<const DecodedCert &>(item);
+	fieldValue.copy(cert.mCert.tbs.derSubject);
 	numFields = 1;
 	return true;
 }
 
-static bool getFieldSubjectNorm(
-	const DecodedCert 	&cert,
+static bool getFieldIssuerStd(
+	DecodedItem		 	&item,
 	unsigned			index,			// which occurrence (0 = first)
 	uint32				&numFields,		// RETURNED
 	CssmOwnedData		&fieldValue)	// RETURNED
 {
-	if(!tbsGetCheck(cert.certificateToSign->subject, index)) {
+	if(index != 0) {
 		return false;
 	}
-	return getField_normRDN(*cert.certificateToSign->subject, numFields, fieldValue);
+	const DecodedCert &cert = dynamic_cast<const DecodedCert &>(item);
+	fieldValue.copy(cert.mCert.tbs.derIssuer);
+	numFields = 1;
+	return true;
 }
-
-static bool getFieldIssuerNorm(
-	const DecodedCert 	&cert,
-	unsigned			index,			// which occurrence (0 = first)
-	uint32				&numFields,		// RETURNED
-	CssmOwnedData		&fieldValue)	// RETURNED
-{
-	if(!tbsGetCheck(cert.certificateToSign->issuer, index)) {
-		return false;
-	}
-	return getField_normRDN(*cert.certificateToSign->issuer, numFields, fieldValue);
-}
-
 
 /***
  *** TBS AlgId, Signature AlgId
  *** Format = CSSM_X509_ALGORITHM_IDENTIFIER
- ***
- *** common code:
  ***/
-static void getField_AlgId (
-	const AlgorithmIdentifier 	*snaccAlgId,
-	CssmOwnedData				&fieldValue)	// RETURNED
-{
-	CssmAllocator &alloc = fieldValue.allocator;
-	fieldValue.malloc(sizeof(CSSM_X509_ALGORITHM_IDENTIFIER));
-	CSSM_X509_ALGORITHM_IDENTIFIER *cssmAlgId = 
-		(CSSM_X509_ALGORITHM_IDENTIFIER *)fieldValue.data();
-	CL_snaccAlgIdToCssm (*snaccAlgId, *cssmAlgId, alloc);
-}
-
-static void setField_AlgId (
-	AlgorithmIdentifier *snaccAlgId,
-	const CssmData		&fieldValue)
-{
-	CSSM_X509_ALGORITHM_IDENTIFIER *cssmAlgId = 
-		(CSSM_X509_ALGORITHM_IDENTIFIER *)fieldValue.data();
-	if(cssmAlgId->algorithm.Data == NULL) {
-		CssmError::throwMe(CSSMERR_CL_INVALID_FIELD_POINTER);
-	}
-	CL_cssmAlgIdToSnacc(*cssmAlgId, *snaccAlgId);
-}
-
-static void freeField_AlgId (
-	CssmOwnedData		&fieldValue)
-{
-	CSSM_X509_ALGORITHM_IDENTIFIER *cssmAlgId = 
-		(CSSM_X509_ALGORITHM_IDENTIFIER *)fieldValue.data();
-	if(cssmAlgId == NULL) {
-		return;
-	}
-	if(fieldValue.length() != sizeof(CSSM_X509_ALGORITHM_IDENTIFIER)) {
-		CssmError::throwMe(CSSMERR_CL_INVALID_FIELD_POINTER);
-	}
-	CssmAllocator &alloc = fieldValue.allocator;
-	alloc.free(cssmAlgId->algorithm.Data);
-	alloc.free(cssmAlgId->parameters.Data);
-	memset(cssmAlgId, 0, sizeof(CSSM_X509_ALGORITHM_IDENTIFIER));
-}
-
-
 /* TBS AlgId */
 static bool getField_TbsAlgId (
-	const DecodedCert 	&cert,
+	DecodedItem		 	&item,
 	unsigned			index,			// which occurrence (0 = first)
 	uint32				&numFields,		// RETURNED
 	CssmOwnedData		&fieldValue)	// RETURNED
 {
-	AlgorithmIdentifier *snaccAlgId = cert.certificateToSign->signature;
-	if(!tbsGetCheck(snaccAlgId, index)) {
+	const DecodedCert &cert = dynamic_cast<const DecodedCert &>(item);
+	const CSSM_X509_ALGORITHM_IDENTIFIER &srcAlgId = cert.mCert.tbs.signature;
+	if(!tbsGetCheck(srcAlgId.algorithm.Data, index)) {
 		return false;
 	}
-	getField_AlgId(snaccAlgId, fieldValue);
+	getField_AlgIdNSS(srcAlgId, fieldValue);
 	numFields = 1;
 	return true;
 }
 
 static void setField_TbsAlgId (
-	DecodedCert			&cert,
+	DecodedItem			&item,
 	const CssmData		&fieldValue)
 {
-	tbsSetCheck(cert.certificateToSign->signature, fieldValue, 
+	DecodedCert &cert = dynamic_cast<DecodedCert &>(item);
+	CSSM_X509_ALGORITHM_IDENTIFIER &dstAlgId = cert.mCert.tbs.signature;
+	tbsSetCheck(dstAlgId.algorithm.Data, fieldValue, 
 		sizeof(CSSM_X509_ALGORITHM_IDENTIFIER), "TBS_AlgId");
-	AlgorithmIdentifier *snaccAlgId = new AlgorithmIdentifier;
-	cert.certificateToSign->signature = snaccAlgId;
-	setField_AlgId(snaccAlgId, fieldValue);
+	setField_AlgIdNSS(fieldValue, dstAlgId, cert.coder());
 }
 
 /* Cert AlgId - read only */
 static bool getField_CertAlgId (
-	const DecodedCert 	&cert,
+	DecodedItem		 	&item,
 	unsigned			index,			// which occurrence (0 = first)
 	uint32				&numFields,		// RETURNED
 	CssmOwnedData		&fieldValue)	// RETURNED
 {
-	AlgorithmIdentifier *snaccAlgId = cert.algorithmIdentifier;
-	if(!tbsGetCheck(snaccAlgId, index)) {
+	const DecodedCert &cert = dynamic_cast<const DecodedCert &>(item);
+	const CSSM_X509_ALGORITHM_IDENTIFIER &srcAlgId = cert.mCert.signatureAlgorithm;
+	if(!tbsGetCheck(srcAlgId.algorithm.Data, index)) {
 		return false;
 	}
-	getField_AlgId(snaccAlgId, fieldValue);
+	getField_AlgIdNSS(srcAlgId, fieldValue);
 	numFields = 1;
 	return true;
 }
@@ -604,143 +326,50 @@ static bool getField_CertAlgId (
  *** Format: CSSM_X509_TIME
  ***/
 
-/*** common code ***/
-static void getField_Time (
-	const Time 		*snaccTime,
-	CssmOwnedData	&fieldValue)	// RETURNED
-{
-	CssmAllocator &alloc = fieldValue.allocator;
-	fieldValue.malloc(sizeof(CSSM_X509_TIME));
-	CSSM_X509_TIME *cssmTime = 
-		(CSSM_X509_TIME *)fieldValue.data();
-	memset(cssmTime, 0, sizeof(CSSM_X509_TIME));
-
-	char *timeStr = NULL;
-	int timeStrLen = 0;
-	switch(snaccTime->choiceId) {
-		case Time::utcTimeCid:
-			cssmTime->timeType = BER_TAG_UTC_TIME;
-			timeStr = *snaccTime->utcTime;		// an AsnOct
-			timeStrLen = snaccTime->utcTime->Len();
-			break;
-		case Time::generalizedTimeCid:
-			timeStr = *snaccTime->generalizedTime;		// an AsnOct
-			timeStrLen = snaccTime->generalizedTime->Len();
-			cssmTime->timeType = BER_TAG_GENERALIZED_TIME;
-			break;
-		default:
-			/* snacc error, should never happen */
-			cssmTime->timeType = BER_TAG_OCTET_STRING;
-			timeStr = *snaccTime->generalizedTime;		// an AsnOct
-			timeStrLen = snaccTime->generalizedTime->Len();
-			break;
-	}
-
-	cssmTime->time.Data = reinterpret_cast<uint8 *>(alloc.malloc(timeStrLen));
-	cssmTime->time.Length = timeStrLen;
-	memcpy(cssmTime->time.Data, timeStr, timeStrLen);
-}
-
-static void setField_Time (
-	Time 			*snaccTime,
-	const CssmData	&fieldValue)
-{
-	CSSM_X509_TIME *cssmTime = 
-		(CSSM_X509_TIME *)fieldValue.data();
-	const char *tStr = reinterpret_cast<const char *>(cssmTime->time.Data);
-	size_t tLen = cssmTime->time.Length;
-	
-	switch(cssmTime->timeType) {
-		case BER_TAG_GENERALIZED_TIME:
-			snaccTime->choiceId = Time::generalizedTimeCid;
-			snaccTime->generalizedTime = new GeneralizedTime(tStr, tLen);
-			break;
-		case BER_TAG_UTC_TIME:
-			snaccTime->choiceId = Time::utcTimeCid;
-			snaccTime->utcTime = new UTCTime(tStr, tLen);
-			break;
-		default:
-			errorLog1("setField_Time: bad time tag (%d)\n", cssmTime->timeType);
-			CssmError::throwMe(CSSMERR_CL_INVALID_FIELD_POINTER);
-	}
-}
-
-static void freeField_Time (
-	CssmOwnedData		&fieldValue)
-{
-	CSSM_X509_TIME *cssmTime = (CSSM_X509_TIME *)fieldValue.data();
-	if(cssmTime == NULL) {
-		return;
-	}
-	if(fieldValue.length() != sizeof(CSSM_X509_TIME)) {
-		CssmError::throwMe(CSSMERR_CL_INVALID_FIELD_POINTER);
-	}
-	fieldValue.allocator.free(cssmTime->time.Data);
-	memset(cssmTime, 0, sizeof(CSSM_X509_TIME));
-}
-
 /*** not before ***/
 static bool getField_NotBefore (
-	const DecodedCert 	&cert,
+	DecodedItem		 	&item,
 	unsigned			index,			// which occurrence (0 = first)
 	uint32				&numFields,		// RETURNED
 	CssmOwnedData		&fieldValue)	// RETURNED
 {
-	if(!tbsGetCheck(cert.certificateToSign->validity, index)) {
-		return false;
-	}
-	if(cert.certificateToSign->validity->notBefore == NULL) {
-		return false;
-	}
-	getField_Time(cert.certificateToSign->validity->notBefore, fieldValue);
-	numFields = 1;
-	return true;
+	const DecodedCert &cert = dynamic_cast<const DecodedCert &>(item);
+	const NSS_Time &srcTime = cert.mCert.tbs.validity.notBefore;
+	return getField_TimeNSS(srcTime, index, numFields, fieldValue);
 }
 
 static void setField_NotBefore (
-	DecodedCert			&cert,
+	DecodedItem			&item,
 	const CssmData		&fieldValue)
 {
-	/* anything could need mallocing except TBS */
-	if(cert.certificateToSign->validity == NULL) {
-		cert.certificateToSign->validity = new Validity;
-	}
-	tbsSetCheck(cert.certificateToSign->validity->notBefore, fieldValue, 
+	DecodedCert &cert = dynamic_cast<DecodedCert &>(item);
+	NSS_Time &dstTime = cert.mCert.tbs.validity.notBefore;
+	tbsSetCheck(dstTime.item.Data, fieldValue, 
 		sizeof(CSSM_X509_TIME), "NotBefore");
-	cert.certificateToSign->validity->notBefore = new Time;
-	setField_Time(cert.certificateToSign->validity->notBefore, fieldValue);
+	setField_TimeNSS(fieldValue, dstTime, cert.coder());
 }
 
 /*** not after ***/
 static bool getField_NotAfter (
-	const DecodedCert 	&cert,
+	DecodedItem		 	&item,
 	unsigned			index,			// which occurrence (0 = first)
 	uint32				&numFields,		// RETURNED
 	CssmOwnedData		&fieldValue)	// RETURNED
 {
-	if(!tbsGetCheck(cert.certificateToSign->validity, index)) {
-		return false;
-	}
-	if(cert.certificateToSign->validity->notAfter == NULL) {
-		return false;
-	}
-	getField_Time(cert.certificateToSign->validity->notAfter, fieldValue);
-	numFields = 1;
-	return true;
+	const DecodedCert &cert = dynamic_cast<const DecodedCert &>(item);
+	const NSS_Time &srcTime = cert.mCert.tbs.validity.notAfter;
+	return getField_TimeNSS(srcTime, index, numFields, fieldValue);
 }
 
 static void setField_NotAfter (
-	DecodedCert			&cert,
+	DecodedItem			&item,
 	const CssmData		&fieldValue)
 {
-	/* anything could need mallocing except TBS */
-	if(cert.certificateToSign->validity == NULL) {
-		cert.certificateToSign->validity = new Validity;
-	}
-	tbsSetCheck(cert.certificateToSign->validity->notAfter, fieldValue, 
+	DecodedCert &cert = dynamic_cast<DecodedCert &>(item);
+	NSS_Time &dstTime = cert.mCert.tbs.validity.notAfter;
+	tbsSetCheck(dstTime.item.Data, fieldValue, 
 		sizeof(CSSM_X509_TIME), "NotAfter");
-	cert.certificateToSign->validity->notAfter = new Time;
-	setField_Time(cert.certificateToSign->validity->notAfter, fieldValue);
+	setField_TimeNSS(fieldValue, dstTime, cert.coder());
 }
 
 /***
@@ -752,53 +381,65 @@ static void setField_NotAfter (
  *** beware.
  ***/
 static bool getField_SubjectUniqueId (
-	const DecodedCert 	&cert,
+	DecodedItem		 	&item,
 	unsigned			index,			// which occurrence (0 = first)
 	uint32				&numFields,		// RETURNED
 	CssmOwnedData		&fieldValue)	// RETURNED
 {
-	UniqueIdentifier *id = cert.certificateToSign->subjectUniqueIdentifier;
-	if(!tbsGetCheck(id, index)) {
+	const DecodedCert &cert = dynamic_cast<const DecodedCert &>(item);
+	const CSSM_DATA &srcBits = cert.mCert.tbs.subjectID;
+	if(!tbsGetCheck(srcBits.Data, index)) {
 		return false;
 	}
-	SC_asnBitsToCssmData(*id, fieldValue);
+
+	/* That CSSM_DATA is a decoded BITSTRING; its length is in bits */
+	CSSM_DATA tmp = srcBits;
+	tmp.Length = (tmp.Length + 7) / 8;
+	fieldValue.copy(tmp.Data, tmp.Length);
 	numFields = 1;
 	return true;
 }
 
 static void setField_SubjectUniqueId (
-	DecodedCert			&cert,
+	DecodedItem			&item,
 	const CssmData		&fieldValue)
 {
-	tbsSetCheck(cert.certificateToSign->subjectUniqueIdentifier, fieldValue, 0,
-		"SubjectUniqueID");
-	cert.certificateToSign->subjectUniqueIdentifier = new UniqueIdentifier(
-		reinterpret_cast<char * const>(fieldValue.Data), fieldValue.Length * 8);
+	DecodedCert &cert = dynamic_cast<DecodedCert &>(item);
+	CSSM_DATA &dstBits = cert.mCert.tbs.subjectID;
+	tbsSetCheck(dstBits.Data, fieldValue, 0, "SubjectUniqueID");
+	cert.coder().allocCopyItem(fieldValue, dstBits);
+	dstBits.Length *= 8;
 }
 
 static bool getField_IssuerUniqueId (
-	const DecodedCert 	&cert,
+	DecodedItem		 	&item,
 	unsigned			index,			// which occurrence (0 = first)
 	uint32				&numFields,		// RETURNED
 	CssmOwnedData		&fieldValue)	// RETURNED
 {
-	UniqueIdentifier *id = cert.certificateToSign->issuerUniqueIdentifier;
-	if(!tbsGetCheck(id, index)) {
+	const DecodedCert &cert = dynamic_cast<const DecodedCert &>(item);
+	const CSSM_DATA &srcBits = cert.mCert.tbs.issuerID;
+	if(!tbsGetCheck(srcBits.Data, index)) {
 		return false;
 	}
-	SC_asnBitsToCssmData(*id, fieldValue);
+
+	/* That CSSM_DATA is a decoded BITSTRING; its length is in bits */
+	CSSM_DATA tmp = srcBits;
+	tmp.Length = (tmp.Length + 7) / 8;
+	fieldValue.copy(tmp.Data, tmp.Length);
 	numFields = 1;
 	return true;
 }
 
 static void setField_IssuerUniqueId (
-	DecodedCert			&cert,
+	DecodedItem			&item,
 	const CssmData		&fieldValue)
 {
-	tbsSetCheck(cert.certificateToSign->issuerUniqueIdentifier, fieldValue, 0,
-		"IssuerniqueID");
-	cert.certificateToSign->issuerUniqueIdentifier = new UniqueIdentifier(
-		reinterpret_cast<char * const>(fieldValue.Data), fieldValue.Length * 8);
+	DecodedCert &cert = dynamic_cast<DecodedCert &>(item);
+	CSSM_DATA &dstBits = cert.mCert.tbs.issuerID;
+	tbsSetCheck(dstBits.Data, fieldValue, 0, "IssuerUniqueID");
+	cert.coder().allocCopyItem(fieldValue, dstBits);
+	dstBits.Length *= 8;
 }
 
 /***
@@ -806,70 +447,54 @@ static void setField_IssuerUniqueId (
  *** Format = CSSM_X509_SUBJECT_PUBLIC_KEY_INFO
  ***/
 static bool getField_PublicKeyInfo (
-	const DecodedCert 	&cert,
+	DecodedItem		 	&item,
 	unsigned			index,			// which occurrence (0 = first)
 	uint32				&numFields,		// RETURNED
 	CssmOwnedData		&fieldValue)	// RETURNED
 {
-	if(!tbsGetCheck(cert.certificateToSign->subjectPublicKeyInfo, index)) {
+	const DecodedCert &cert = dynamic_cast<const DecodedCert &>(item);
+	const CSSM_X509_SUBJECT_PUBLIC_KEY_INFO &srcInfo = 
+		cert.mCert.tbs.subjectPublicKeyInfo;
+	if(!tbsGetCheck(srcInfo.subjectPublicKey.Data, index)) {
 		return false;
 	}
-	SubjectPublicKeyInfo *snaccKeyInfo = cert.certificateToSign->subjectPublicKeyInfo;
-	AlgorithmIdentifier *snaccAlgId = snaccKeyInfo->algorithm;
-	if(snaccAlgId == NULL) {
-		errorLog0("getField_PublicKeyInfo: cert has pubKeyInfo but no algorithm!\n");
-		return false;
-	}
+
 	CssmAllocator &alloc = fieldValue.allocator;
 	fieldValue.malloc(sizeof(CSSM_X509_SUBJECT_PUBLIC_KEY_INFO));
-	CSSM_X509_SUBJECT_PUBLIC_KEY_INFO *cssmKeyInfo = 
+	CSSM_X509_SUBJECT_PUBLIC_KEY_INFO *dstInfo = 
 		(CSSM_X509_SUBJECT_PUBLIC_KEY_INFO *)fieldValue.data();
-	memset(cssmKeyInfo, 0, sizeof(CSSM_X509_SUBJECT_PUBLIC_KEY_INFO));
-	CL_snaccAlgIdToCssm(*snaccAlgId, cssmKeyInfo->algorithm, alloc);
-	
-	/* 
-	 * key info - the actual public key blob - is stored in the cert as a bit string;
-	 * snacc will give us the actual bits which are invariably yet another DER
-	 * encoding (e.g., PKCS1 for RSA public keys). 
-	 */
-	size_t keyLen = (snaccKeyInfo->subjectPublicKey.BitLen() + 7) / 8;
-	cssmKeyInfo->subjectPublicKey.Data = (uint8 *)alloc.malloc(keyLen);
-	cssmKeyInfo->subjectPublicKey.Length = keyLen;
-	memcpy(cssmKeyInfo->subjectPublicKey.Data, 
-		   snaccKeyInfo->subjectPublicKey.BitOcts(),
-		   keyLen);
+		
+	CL_copySubjPubKeyInfo(srcInfo, true,		// length in bits here
+		*dstInfo, false,						// length in bytes
+		alloc);
+
 	numFields = 1;
 	return true;
 }
 
 static void setField_PublicKeyInfo (
-	DecodedCert			&cert,
+	DecodedItem			&item,
 	const CssmData		&fieldValue)
 {
-	/* This fails if setField_PublicKeyStruct has already been called */
-	tbsSetCheck(cert.certificateToSign->subjectPublicKeyInfo, fieldValue, 
+	DecodedCert &cert = dynamic_cast<DecodedCert &>(item);
+	CSSM_X509_SUBJECT_PUBLIC_KEY_INFO &dstKeyInfo = 
+		cert.mCert.tbs.subjectPublicKeyInfo;
+	tbsSetCheck(dstKeyInfo.subjectPublicKey.Data, fieldValue, 
 		sizeof(CSSM_X509_SUBJECT_PUBLIC_KEY_INFO), "PubKeyInfo");
-	CSSM_X509_SUBJECT_PUBLIC_KEY_INFO *cssmKeyInfo = 
+		
+	CSSM_X509_SUBJECT_PUBLIC_KEY_INFO *srcKeyInfo = 
 		(CSSM_X509_SUBJECT_PUBLIC_KEY_INFO *)fieldValue.Data;
-	if((cssmKeyInfo->subjectPublicKey.Data == NULL) ||
-	   (cssmKeyInfo->subjectPublicKey.Length == 0)) {
+	if((srcKeyInfo->subjectPublicKey.Data == NULL) ||
+	   (srcKeyInfo->subjectPublicKey.Length == 0)) {
 		CssmError::throwMe(CSSMERR_CL_INVALID_FIELD_POINTER);
 	}
 
-	SubjectPublicKeyInfo *snaccKeyInfo = new SubjectPublicKeyInfo;
-	cert.certificateToSign->subjectPublicKeyInfo = snaccKeyInfo;
-	snaccKeyInfo->algorithm = new AlgorithmIdentifier;
-
-	/* common code to convert algorithm info (algID and parameters) */
-	const CSSM_X509_ALGORITHM_IDENTIFIER *cssmAlgId = &cssmKeyInfo->algorithm;
-	CL_cssmAlgIdToSnacc(*cssmAlgId, *snaccKeyInfo->algorithm);
-
-	/* actual public key blob - AsnBits */
-	snaccKeyInfo->subjectPublicKey.Set(reinterpret_cast<char *>
-		(cssmKeyInfo->subjectPublicKey.Data), 
-		cssmKeyInfo->subjectPublicKey.Length * 8);
-
+	ArenaAllocator arenaAlloc(cert.coder());
+	CL_copySubjPubKeyInfo(*srcKeyInfo, false,	// length in bytes here
+		dstKeyInfo, true,						// length in bits
+		arenaAlloc);
 }
+
 static void freeField_PublicKeyInfo (
 	CssmOwnedData		&fieldValue)
 {
@@ -879,9 +504,7 @@ static void freeField_PublicKeyInfo (
 		return;
 	}
 	CssmAllocator &alloc = fieldValue.allocator;
-	CSSM_X509_ALGORITHM_IDENTIFIER *algId = &cssmKeyInfo->algorithm;
-	alloc.free(algId->algorithm.Data);
-	alloc.free(algId->parameters.Data);
+	CL_freeCssmAlgId(&cssmKeyInfo->algorithm, alloc);
 	alloc.free(cssmKeyInfo->subjectPublicKey.Data);
 	memset(cssmKeyInfo, 0, sizeof(CSSM_X509_SUBJECT_PUBLIC_KEY_INFO));}
 
@@ -890,12 +513,14 @@ static void freeField_PublicKeyInfo (
  *** Format = CSSM_KEY
  ***/
 static bool getField_PublicKeyStruct (
-	const DecodedCert 	&cert,
+	DecodedItem		 	&item,
 	unsigned			index,			// which occurrence (0 = first)
 	uint32				&numFields,		// RETURNED
 	CssmOwnedData		&fieldValue)	// RETURNED
 {
-	if(!tbsGetCheck(cert.certificateToSign->subjectPublicKeyInfo, index)) {
+	const DecodedCert &cert = dynamic_cast<const DecodedCert &>(item);
+	if(!tbsGetCheck(cert.mCert.tbs.subjectPublicKeyInfo.subjectPublicKey.Data,
+			index)) {
 		return false;
 	}
 	CSSM_KEY_PTR cssmKey = cert.extractCSSMKey(fieldValue.allocator);
@@ -905,40 +530,21 @@ static bool getField_PublicKeyStruct (
 }
 
 static void setField_PublicKeyStruct (
-	DecodedCert			&cert,
+	DecodedItem			&item,
 	const CssmData		&fieldValue)
 {
-	/* This fails if setField_PublicKeyInfo has already been called */
-	tbsSetCheck(cert.certificateToSign->subjectPublicKeyInfo, fieldValue, 
-		sizeof(CSSM_KEY), "PubKey");
+	DecodedCert &cert = dynamic_cast<DecodedCert &>(item);
+	CSSM_X509_SUBJECT_PUBLIC_KEY_INFO &dstKeyInfo = 
+		cert.mCert.tbs.subjectPublicKeyInfo;
+	tbsSetCheck(dstKeyInfo.subjectPublicKey.Data, fieldValue, 
+		sizeof(CSSM_KEY), "PubKeyStruct");
+
 	CSSM_KEY_PTR cssmKey = (CSSM_KEY_PTR)fieldValue.data();
 	if((cssmKey->KeyData.Data == NULL) ||
 	   (cssmKey->KeyData.Data == 0)) {
 		CssmError::throwMe(CSSMERR_CL_INVALID_FIELD_POINTER);
 	}
-
-	SubjectPublicKeyInfo *snaccKeyInfo = new SubjectPublicKeyInfo;
-	cert.certificateToSign->subjectPublicKeyInfo = snaccKeyInfo;
-	snaccKeyInfo->algorithm = new AlgorithmIdentifier;
-	CL_cssmAlgToSnaccOid(cssmKey->KeyHeader.AlgorithmId, 
-		snaccKeyInfo->algorithm->algorithm);
-
-	/* NULL algorithm paramneters, always in this case */
-	CL_nullAlgParams(*snaccKeyInfo->algorithm);
-	
-	/* actual public key blob - AsnBits */
-	/***
-	 *** Note: ideally we'd like to just convert an incoming ref key to a raw
-	 ***       key here if necessary, but this occurs during CertCreateTemplate,
-	 ***       when we don't have a CSP handle. This conversion is the caller's
-	 ***       responsibility. 
-	 ***/
-	if(cssmKey->KeyHeader.BlobType != CSSM_KEYBLOB_RAW) {
-			errorLog0("CL SetField: must specify RAW key blob\n");
-			CssmError::throwMe(CSSM_ERRCODE_INVALID_FIELD_POINTER);
-	}
-	snaccKeyInfo->subjectPublicKey.Set(reinterpret_cast<char *>
-		(cssmKey->KeyData.Data), cssmKey->KeyData.Length * 8);
+	CL_CSSMKeyToSubjPubKeyInfoNSS(*cssmKey, dstKeyInfo, cert.coder());
 }
 
 static void freeField_PublicKeyStruct (
@@ -954,16 +560,17 @@ static void freeField_PublicKeyStruct (
  *** read-only
  ***/
 static bool getField_Signature (
-	const DecodedCert 	&cert,
+	DecodedItem		 	&item,
 	unsigned			index,			// which occurrence (0 = first)
 	uint32				&numFields,		// RETURNED
 	CssmOwnedData		&fieldValue)	// RETURNED
 {
-	if((index > 0) || 							// max of one sig
-	   (cert.signatureValue.BitLen() == 0)) {	// no sig - must be TBS only
+	const DecodedCert &cert = dynamic_cast<const DecodedCert &>(item);
+	const CSSM_DATA &sigBits = cert.mCert.signature;
+	if(!tbsGetCheck(sigBits.Data, index)) {
 		return false;
 	}
-	SC_asnBitsToCssmData(cert.signatureValue, fieldValue);
+	fieldValue.copy(sigBits.Data, (sigBits.Length + 7) / 8);
 	numFields = 1;
 	return true;
 }
@@ -972,22 +579,13 @@ static bool getField_Signature (
  *** end of field-specific triplets
  ***/
  
-/* setField for read-only OIDs (i.e., the ones in cert, not TBS) */
-static void setField_ReadOnly (
-	DecodedCert			&cert,
-	const CssmData		&fieldValue)
-{
-	errorLog0("Attempt to set a read-only field\n");
-	CssmError::throwMe(CSSMERR_CL_UNKNOWN_TAG);
-}
-
 /*
  * Table to map OID to {get,set,free}field
  */
 typedef struct {
 	const CSSM_OID		*fieldId;
-	getFieldFcn			*getFcn;
-	setFieldFcn			*setFcn;
+	getItemFieldFcn		*getFcn;
+	setItemFieldFcn		*setFcn;
 	freeFieldFcn		*freeFcn;		// OPTIONAL - NULL means just free the 
 										// top-level data
 } oidToFieldFuncs;
@@ -1024,11 +622,15 @@ static const oidToFieldFuncs fieldFuncTable[] = {
 		getFieldIssuerNorm, &setField_ReadOnly, NULL },
 	{   &CSSMOID_X509V1SubjectName, 
 		getFieldSubjectNorm, &setField_ReadOnly, NULL },
+	{   &CSSMOID_X509V1IssuerNameStd, 
+		getFieldIssuerStd, &setField_ReadOnly, NULL },
+	{   &CSSMOID_X509V1SubjectNameStd, 
+		getFieldSubjectStd, &setField_ReadOnly, NULL },
 		
 	/* 
 	 * Extensions, implemented in CertExtensions.cpp 
 	 * When adding new ones, also add to:
-	 *   -- oidToSnaccObj() in CertExtensions.cpp
+	 *   -- clOidToNssInfo() in CLFieldsCommon.cpp
 	 *   -- get/set/free functions in CertExtensions.{cpp,h}
 	 */
 	{	&CSSMOID_KeyUsage, &getFieldKeyUsage, &setFieldKeyUsage, 
@@ -1042,30 +644,32 @@ static const oidToFieldFuncs fieldFuncTable[] = {
 	{	&CSSMOID_AuthorityKeyIdentifier, &getFieldAuthorityKeyId,
 		&setFieldAuthorityKeyId, &freeFieldAuthorityKeyId } ,
 	{	&CSSMOID_SubjectAltName, &getFieldSubjAltName,
-		&setFieldSubjAltName, &freeFieldSubjAltName } ,
+		&setFieldSubjIssuerAltName, &freeFieldSubjIssuerAltName } ,
+	{	&CSSMOID_IssuerAltName, &getFieldIssuerAltName,
+		&setFieldSubjIssuerAltName, &freeFieldSubjIssuerAltName } ,
 	{	&CSSMOID_CertificatePolicies, &getFieldCertPolicies,
 		&setFieldCertPolicies, &freeFieldCertPolicies } ,
 	{	&CSSMOID_NetscapeCertType, &getFieldNetscapeCertType,
 		&setFieldNetscapeCertType, &freeFieldSimpleExtension } ,
+	{	&CSSMOID_CrlDistributionPoints, &getFieldCrlDistPoints,
+		&setFieldCrlDistPoints, &freeFieldCrlDistPoints },
 	{   &CSSMOID_X509V3CertificateExtensionCStruct, &getFieldUnknownExt,
-		&setFieldUnknownExt, &freeFieldUnknownExt }
+		&setFieldUnknownExt, &freeFieldUnknownExt },
 };
 
 #define NUM_KNOWN_FIELDS		(sizeof(fieldFuncTable) / sizeof(oidToFieldFuncs))
-#define NUM_STD_CERT_FIELDS		13		/* not including extensions */
-
+#define NUM_STD_CERT_FIELDS		17		/* not including extensions */
 
 /* map an OID to an oidToFieldFuncs */
 static const oidToFieldFuncs *oidToFields(
-	const CssmOid	&fieldId)
+	const CssmOid			&fieldId)
 {
-	const oidToFieldFuncs *funcPtr = fieldFuncTable;
-	
+	const oidToFieldFuncs *fieldTable = fieldFuncTable;
 	for(unsigned i=0; i<NUM_KNOWN_FIELDS; i++) {
-		if(fieldId == CssmData::overlay(*funcPtr->fieldId)) {
-			return funcPtr;
+		if(fieldId == CssmData::overlay(*fieldTable->fieldId)) {
+			return fieldTable;
 		}
-		funcPtr++;
+		fieldTable++;
 	}
 	CssmError::throwMe(CSSMERR_CL_UNKNOWN_TAG);
 }
@@ -1086,16 +690,15 @@ bool DecodedCert::getCertFieldData(
 	const CssmOid		&fieldId,		// which field
 	unsigned			index,			// which occurrence (0 = first)
 	uint32				&numFields,		// RETURNED
-	CssmOwnedData		&fieldValue) const	// RETURNED
+	CssmOwnedData		&fieldValue) 	// RETURNED
 { 
-	CASSERT(certificateToSign != NULL);
 	switch(mState) {
-		case CS_Empty:		
-		case CS_Building:	
-			errorLog0("DecodedCert::getCertField: can't parse undecoded cert!\n");
+		case IS_Empty:		
+		case IS_Building:	
+			clErrorLog("DecodedCert::getCertField: can't parse undecoded cert!");
 			CssmError::throwMe(CSSMERR_CL_INTERNAL_ERROR);
-		case CS_DecodedCert:
-		case CS_DecodedTBS:
+		case IS_DecodedAll:
+		case IS_DecodedTBS:
 			break;
 	}
 	const oidToFieldFuncs *fieldFuncs = oidToFields(fieldId);
@@ -1111,16 +714,15 @@ void DecodedCert::setCertField(
 	const CssmOid		&fieldId,		// which field
 	const CssmData		&fieldValue) 
 {
-	CASSERT(certificateToSign != NULL);
 	switch(mState) {
-		case CS_Empty:			// first time thru
-			mState = CS_Building;
+		case IS_Empty:			// first time thru
+			mState = IS_Building;
 			break;
-		case CS_Building:		// subsequent passes
+		case IS_Building:		// subsequent passes
 			break;
-		case CS_DecodedCert:
-		case CS_DecodedTBS:
-			errorLog0("DecodedCert::setCertField: can't build on a decoded cert!\n");
+		case IS_DecodedAll:
+		case IS_DecodedTBS:
+			clErrorLog("DecodedCert::setCertField: can't build on a decoded cert!");
 			CssmError::throwMe(CSSMERR_CL_INTERNAL_ERROR);
 	}
 	if((fieldValue.data() == NULL) || (fieldValue.length() == 0)) {
@@ -1161,8 +763,8 @@ void DecodedCert::getAllParsedCertFields(
 	CSSM_FIELD_PTR 		&CertFields)			// RETURNED
 {
 	/* this is the max - some might be missing */
-	uint32 maxFields = NUM_STD_CERT_FIELDS + mNumExtensions;
-	CSSM_FIELD_PTR outFields = (CSSM_FIELD_PTR)alloc.malloc(maxFields * sizeof(CSSM_FIELD));
+	uint32 maxFields = NUM_STD_CERT_FIELDS + mDecodedExtensions.numExtensions();
+	CSSM_FIELD_PTR outFields = (CSSM_FIELD_PTR)mAlloc.malloc(maxFields * sizeof(CSSM_FIELD));
 	
 	/*
 	 * We'll be copying oids and values for fields we find into
@@ -1173,7 +775,7 @@ void DecodedCert::getAllParsedCertFields(
 	CSSM_FIELD_PTR 	currOutField;
 	uint32 			currOidDex;
 	const CSSM_OID 	*currOid;
-	CssmAutoData 	aData(alloc);		// for malloc/copy of outgoing data
+	CssmAutoData 	aData(mAlloc);		// for malloc/copy of outgoing data
 	
 	/* query for each OID we know about */
 	for(currOidDex=0; currOidDex<NUM_KNOWN_FIELDS; currOidDex++) {
@@ -1193,7 +795,7 @@ void DecodedCert::getAllParsedCertFields(
 		}
 		
 		/* got some data for this oid - copy it and oid to outgoing CertFields */
-		CASSERT(numOutFields < maxFields);
+		assert(numOutFields < maxFields);
 		currOutField = &outFields[numOutFields];
 		currOutField->FieldValue = aData.release();
 		aData.copy(*currOid);
@@ -1208,10 +810,10 @@ void DecodedCert::getAllParsedCertFields(
 				numFields, 			// shouldn't change
 				aData);
 			if(!brtn) {
-				errorLog0("getAllParsedCertFields: index screwup\n");
+				clErrorLog("getAllParsedCertFields: index screwup");
 				CssmError::throwMe(CSSMERR_CL_INTERNAL_ERROR);
 			}
-			CASSERT(numOutFields < maxFields);
+			assert(numOutFields < maxFields);
 			currOutField = &outFields[numOutFields];
 			currOutField->FieldValue = aData.release();
 			aData.copy(*currOid);

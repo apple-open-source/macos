@@ -27,9 +27,11 @@
 #include <stdio.h>
 #include <CoreFoundation/CoreFoundation.h>
 
-#include "IOFireWireAVCLib.h"
+#include <IOKit/avc/IOFireWireAVCLib.h>
 #include "IOFireWireAVCUserClientCommon.h"
-#include "IOFireWireAVCConsts.h"
+#include <IOKit/avc/IOFireWireAVCConsts.h>
+
+#include <mach/mach_port.h>
 
 __BEGIN_DECLS
 #include <IOKit/iokitmig.h>
@@ -86,8 +88,10 @@ typedef struct _AVCProtocol
     UInt32					fCmdGeneration;
     UInt32					fCmdSource;
     UInt8					fCommand[512];
-    UInt8					fResponse[512];
-	
+	IOFWAVCCommandHandlerCallback userCallBack;
+	void 					*userRefCon;
+	IOFWSpeed 				speed;
+	UInt32 					handlerSearchIndex;
 } AVCProtocol;
 
 	// utility function to get "this" pointer from interface
@@ -96,6 +100,16 @@ typedef struct _AVCProtocol
 
 static IOReturn stop( void * self );
 static void removeIODispatcherFromRunLoop( void * self );
+static IOReturn sendAVCResponse(void *self,
+								UInt32 generation,
+								UInt16 nodeID,
+								const char *response,
+								UInt32 responseLen);
+IOReturn setSubunitPlugSignalFormat(void *self,
+									UInt32 subunitTypeAndID,
+									IOFWAVCPlugTypes plugType,
+									UInt32 plugNum,
+									UInt32 signalFormat);
 
 //////////////////////////////////////////////////////////////////
 // callback static methods
@@ -108,59 +122,122 @@ static void removeIODispatcherFromRunLoop( void * self );
 static void messageCallback(void * refcon, io_service_t service,
                           natural_t messageType, void *messageArgument)
 {
-    AVCProtocol *me = (AVCProtocol *)refcon;
+	//printf("DEBUG: AVCProtocol::messageCallback\n");
+
+	AVCProtocol *me = (AVCProtocol *)refcon;
 
 	if( me->fMessageCallbackRoutine != NULL )
 		(me->fMessageCallbackRoutine)( me->fMessageCallbackRefCon, messageType, messageArgument );
 }
 
-static void avcRequestCallback( void *refcon, IOReturn result, 
-													void **args, int numArgs)
+static void avcCommandHandlerCallback( void *refcon, IOReturn result,
+								void **args, int numArgs)
 {
     AVCProtocol *me = (AVCProtocol *)refcon;
     UInt32 pos;
     UInt32 len;
     const UInt8* src;
-        
+	
+	//printf("DEBUG: AVCProtocol::avcCommandHandlerCallback\n");
+
     pos = (UInt32)args[0];
     len = (UInt32)args[1];
     src = (const UInt8*)(args+2);
-    if(pos == 0) {
+    if(pos == 0)
+	{
         me->fCmdGeneration = (UInt32)args[2];
         me->fCmdSource = (UInt32)args[3];
         me->fCmdLen = (UInt32)args[4];
-        src = (const UInt8*)(args+5);
+		me->userCallBack = (IOFWAVCCommandHandlerCallback) args[5];
+		me->userRefCon = args[6];
+		me->speed = (IOFWSpeed) args[7];
+		me->handlerSearchIndex = (UInt32) args[8];
+		src = (const UInt8*)(args+9);
     }
     bcopy(src, me->fCommand+pos, len);
-    if(pos+len == me->fCmdLen) {
+    if(pos+len == me->fCmdLen)
+	{
         IOReturn status;
-        UInt32 respLen = 512;
-        status = me->fAVCRequestCallbackRoutine(me->fAVCRequestCallbackRefCon,
-            me->fCmdGeneration, me->fCmdSource,
-            me->fCommand, me->fCmdLen, me->fResponse, &respLen);
-        if(status != kIOReturnSuccess) {
-            // send back 'unsupported' response
-            respLen = me->fCmdLen;
-            bcopy(me->fCommand, me->fResponse, respLen);
-            me->fResponse[0] = kAVCNotImplementedStatus;
-        }
-        status = IOConnectMethodScalarIStructureI(me->fConnection, kIOFWAVCProtocolUserClientSendAVCResponse,
-            2, respLen, me->fCmdGeneration, me->fCmdSource, me->fResponse);
+		status = me->userCallBack(me->userRefCon, me->fCmdGeneration, me->fCmdSource, me->speed, me->fCommand , me->fCmdLen);
+
+		// See if application handled command or not
+		if (status != kIOReturnSuccess)
+			// Pass this command back to the kernel to possibly
+			// find another handler, or to respond not implemented
+			IOConnectMethodScalarIStructureI(me->fConnection,
+									kIOFWAVCProtocolUserClientAVCRequestNotHandled,
+									4,
+									me->fCmdLen,
+									me->fCmdGeneration,
+									me->fCmdSource,
+									me->speed,
+									me->handlerSearchIndex,
+									me->fCommand);
     }
 }
+
+static void subunitPlugHandlerCallback( void *refcon, IOReturn result,
+									   void **args, int numArgs)
+{
+	AVCProtocol *me = (AVCProtocol *)refcon;
+	IOFWAVCSubunitPlugHandlerCallback userCallBack;
+	void *userRefCon;
+	IOReturn status;
+	IOFWAVCSubunitPlugMessages plugMessage = (IOFWAVCSubunitPlugMessages)args[3];
+	UInt32 generation = (UInt32) args[7];
+	UInt32 nodeID = (UInt32) args[8];
+	UInt8 response[8];
+	IOFWAVCPlugTypes plugType = (IOFWAVCPlugTypes) args[1];
+	UInt32 plugNum = (UInt32) args[2];
+	UInt32 msgParams = (UInt32) args[4];
+	UInt32 subunitTypeAndID = (UInt32) args[0];
+	
+	//printf("DEBUG: AVCProtocol::subunitPlugHandlerCallback\n");
+
+	userCallBack = (IOFWAVCSubunitPlugHandlerCallback) args[5];
+	userRefCon = args[6];
+
+	// Callback the user
+	status = userCallBack(userRefCon,subunitTypeAndID,plugType,plugNum,plugMessage,msgParams);
+	
+	// For the message kIOFWAVCSubunitPlugMsgSignalFormatModified
+	// send a response to the plug signal format control command
+	if (plugMessage == kIOFWAVCSubunitPlugMsgSignalFormatModified)
+	{
+		response[kAVCCommandResponse] = (status == kIOReturnSuccess) ? kAVCAcceptedStatus : kAVCRejectedStatus;
+		response[kAVCAddress] = kAVCUnitAddress;
+		response[kAVCOpcode] = (plugType == IOFWAVCPlugSubunitSourceType) ? kAVCOutputPlugSignalFormatOpcode : kAVCInputPlugSignalFormatOpcode;
+		response[kAVCOperand0] = plugNum;
+		response[kAVCOperand1] = ((msgParams & 0xFF000000) >> 24);
+		response[kAVCOperand2] = ((msgParams & 0x00FF0000) >> 16);
+		response[kAVCOperand3] = ((msgParams & 0x0000FF00) >> 8);
+		response[kAVCOperand4] = (msgParams & 0x000000FF);
+		sendAVCResponse(me,generation,(UInt16) nodeID,response,8);
+
+		// If we accepted the control command, we need to set this
+		// signal format as the current signal format
+		if (status == kIOReturnSuccess)
+			setSubunitPlugSignalFormat(me,subunitTypeAndID,plugType,plugNum,msgParams);
+	}
+	return;
+}	
 
 static void pcrWriteCallback( void *refcon, IOReturn result, 
 													void **args, int numArgs)
 {
     IOFWAVCPCRCallback func;
-    
-    func = (IOFWAVCPCRCallback)args[0];
-    func(refcon, (UInt32)args[1], (UInt16)args[2], (UInt32)args[3], (UInt32)args[4], (UInt32)args[5]);
+
+	//printf("DEBUG: AVCProtocol::pcrWriteCallback\n");
+
+	func = (IOFWAVCPCRCallback)args[0];
+    func(refcon, (UInt32)args[1], (UInt16)(UInt32)args[2], (UInt32)args[3], (UInt32)args[4], (UInt32)args[5]);
 }
 
 static UInt32 addRef( void * self )
 {
-    AVCProtocol *me = getThis(self);
+	//printf("DEBUG: AVCProtocol::addRef\n");
+
+	AVCProtocol *me = getThis(self);
 	me->fRefCount++;
 	return me->fRefCount;
 }
@@ -169,7 +246,9 @@ static UInt32 release( void * self )
 {
     AVCProtocol *me = getThis(self);
 	UInt32 retVal = me->fRefCount;
-	
+
+	//printf("DEBUG: AVCProtocol::release\n");
+
 	if( 1 == me->fRefCount-- ) 
 	{
         removeIODispatcherFromRunLoop(self);
@@ -192,6 +271,8 @@ static HRESULT queryInterface( void * self, REFIID iid, void **ppv )
     CFUUIDRef uuid = CFUUIDCreateFromUUIDBytes(NULL, iid);
     HRESULT result = S_OK;
     AVCProtocol *me = getThis(self);
+
+	//printf("DEBUG: AVCProtocol::queryInterface\n");
 
 	if( CFEqual(uuid, IUnknownUUID) ||  CFEqual(uuid, kIOCFPlugInInterfaceID) ) 
 	{
@@ -225,6 +306,9 @@ static HRESULT queryInterface( void * self, REFIID iid, void **ppv )
 static IOReturn probe( void * self, CFDictionaryRef propertyTable, 
 											io_service_t service, SInt32 *order )
 {
+
+	//printf("DEBUG: AVCProtocol::probe\n");
+
 	// only load against local FireWire node
     if( !service || !IOObjectConformsTo(service, "IOFireWireLocalNode") )
         return kIOReturnBadArgument;
@@ -247,6 +331,8 @@ static IOReturn start( void * self, CFDictionaryRef propertyTable,
     AVCProtocol *me = getThis(self);
     CFMutableDictionaryRef	dict;
     CFMutableDictionaryRef	dict2;
+
+	//printf("DEBUG: AVCProtocol::start\n");
 	
 	me->fService = service;
     
@@ -331,6 +417,9 @@ static IOReturn start( void * self, CFDictionaryRef propertyTable,
 static IOReturn stop( void * self )
 {
     AVCProtocol *me = getThis(self);
+
+	//printf("DEBUG: AVCProtocol::stop\n");
+
 	if( me->fConnection ) 
 	{
         IOServiceClose( me->fConnection );
@@ -361,6 +450,8 @@ static IOReturn addIODispatcherToRunLoop( void *self, CFRunLoopRef cfRunLoopRef 
     mach_port_t masterDevicePort;
 	IONotificationPortRef notifyPort;
 	CFRunLoopSourceRef cfSource;
+
+	//printf("DEBUG: AVCProtocol::addIODispatcherToRunLoop\n");
 	
 	if( !me->fConnection )		    
 		return kIOReturnNoDevice; 
@@ -420,6 +511,9 @@ static IOReturn addIODispatcherToRunLoop( void *self, CFRunLoopRef cfRunLoopRef 
 static void removeIODispatcherFromRunLoop( void * self )
 {
     AVCProtocol *me = getThis(self);
+
+	//printf("DEBUG: AVCProtocol::removeIODispatcherFromRunLoop\n");
+
     if( me->fNotification )
     {
         IOObjectRelease(me->fNotification);
@@ -455,6 +549,9 @@ static void setMessageCallback( void * self, void * refCon,
 													IOFWAVCMessageCallback callback )
 {
     AVCProtocol *me = getThis(self);
+
+	//printf("DEBUG: AVCProtocol::setMessageCallback\n");
+	
 	me->fMessageCallbackRoutine = callback;
 	me->fMessageCallbackRefCon = refCon;
 }
@@ -466,28 +563,8 @@ static void setMessageCallback( void * self, void * refCon,
 static IOReturn setAVCRequestCallback( void *self, UInt32 subUnitType, UInt32 subUnitID,
                                                 void *refCon, IOFWAVCRequestCallback callback)
 {
-    AVCProtocol *me = getThis(self);
-    io_async_ref_t 			asyncRef;
-    io_scalar_inband_t		params;
-    mach_msg_type_number_t	size = 0;
-    IOReturn status;
-
-    asyncRef[0] = 0x1234;
-    asyncRef[kIOAsyncCalloutFuncIndex] = (UInt32)(IOAsyncCallback)&avcRequestCallback;
-    asyncRef[kIOAsyncCalloutRefconIndex] = (UInt32)me;
-    asyncRef[3] = 0x3456;
-    params[0]	= subUnitType;
-    params[1]	= subUnitID;
-    status = io_async_method_scalarI_scalarO( me->fConnection, me->fAsyncPort, 
-                                                asyncRef, 3, 
-                                                kIOFWAVCProtocolUserClientSetAVCRequestCallback,
-                                                params, 2,
-                                                NULL, &size );
-    if(status == kIOReturnSuccess) {
-        me->fAVCRequestCallbackRoutine = callback;
-        me->fAVCRequestCallbackRefCon = refCon;
-    }
-    return status;
+	// This function has been deprecated!
+    return kIOReturnUnsupported;
 }
 
 static IOReturn allocateInputPlug( void *self, void *refcon, IOFWAVCPCRCallback func, UInt32 *plug)
@@ -498,6 +575,8 @@ static IOReturn allocateInputPlug( void *self, void *refcon, IOFWAVCPCRCallback 
     mach_msg_type_number_t	size = 1;
     IOReturn status;
 
+	//printf("DEBUG: AVCProtocol::allocateInputPlug\n");
+	
     asyncRef[kIOAsyncCalloutFuncIndex] = (UInt32)(IOAsyncCallback)&pcrWriteCallback;
     asyncRef[kIOAsyncCalloutRefconIndex] = (UInt32)refcon;
     params[0] = (int)func;
@@ -512,7 +591,9 @@ static IOReturn allocateInputPlug( void *self, void *refcon, IOFWAVCPCRCallback 
 static void freeInputPlug( void *self, UInt32 plug)
 {
     AVCProtocol *me = getThis(self);
-    
+
+	//printf("DEBUG: AVCProtocol::freeInputPlug\n");
+	
     IOConnectMethodScalarIScalarO(me->fConnection, kIOFWAVCProtocolUserClientFreeInputPlug,
         1, 0, plug);
 }
@@ -520,8 +601,11 @@ static void freeInputPlug( void *self, UInt32 plug)
 static UInt32 readInputPlug( void *self, UInt32 plug)
 {
     AVCProtocol *me = getThis(self);
-    UInt32 val;
-    IOConnectMethodScalarIScalarO(me->fConnection, kIOFWAVCProtocolUserClientReadInputPlug,
+	UInt32 val;
+
+	//printf("DEBUG: AVCProtocol::readInputPlug\n");
+
+	IOConnectMethodScalarIScalarO(me->fConnection, kIOFWAVCProtocolUserClientReadInputPlug,
         1, 1, plug, &val);
     return val;
 }
@@ -529,7 +613,10 @@ static UInt32 readInputPlug( void *self, UInt32 plug)
 static IOReturn updateInputPlug( void *self, UInt32 plug, UInt32 oldVal, UInt32 newVal)
 {
     AVCProtocol *me = getThis(self);
-    return IOConnectMethodScalarIScalarO(me->fConnection, kIOFWAVCProtocolUserClientUpdateInputPlug,
+
+	//printf("DEBUG: AVCProtocol::updateInputPlug\n");
+
+	return IOConnectMethodScalarIScalarO(me->fConnection, kIOFWAVCProtocolUserClientUpdateInputPlug,
         3, 0, plug, oldVal, newVal);
 }
 
@@ -540,6 +627,8 @@ static IOReturn allocateOutputPlug( void *self, void *refcon, IOFWAVCPCRCallback
     io_scalar_inband_t		params;
     mach_msg_type_number_t	size = 1;
     IOReturn status;
+
+	//printf("DEBUG: AVCProtocol::allocateOutputPlug\n");
 
     asyncRef[kIOAsyncCalloutFuncIndex] = (UInt32)(IOAsyncCallback)&pcrWriteCallback;
     asyncRef[kIOAsyncCalloutRefconIndex] = (UInt32)refcon;
@@ -555,7 +644,9 @@ static IOReturn allocateOutputPlug( void *self, void *refcon, IOFWAVCPCRCallback
 static void freeOutputPlug( void *self, UInt32 plug)
 {
     AVCProtocol *me = getThis(self);
-    
+
+	//printf("DEBUG: AVCProtocol::freeOutputPlug\n");
+
     IOConnectMethodScalarIScalarO(me->fConnection, kIOFWAVCProtocolUserClientFreeOutputPlug,
         1, 0, plug);
 }
@@ -564,6 +655,9 @@ static UInt32 readOutputPlug( void *self, UInt32 plug)
 {
     AVCProtocol *me = getThis(self);
     UInt32 val;
+
+	//printf("DEBUG: AVCProtocol::readOutputPlug\n");
+
     IOConnectMethodScalarIScalarO(me->fConnection, kIOFWAVCProtocolUserClientReadOutputPlug,
         1, 1, plug, &val);
     return val;
@@ -572,7 +666,10 @@ static UInt32 readOutputPlug( void *self, UInt32 plug)
 static IOReturn updateOutputPlug( void *self, UInt32 plug, UInt32 oldVal, UInt32 newVal)
 {
     AVCProtocol *me = getThis(self);
-    return IOConnectMethodScalarIScalarO(me->fConnection, kIOFWAVCProtocolUserClientUpdateOutputPlug,
+
+	//printf("DEBUG: AVCProtocol::updateOutputPlug\n");
+
+	return IOConnectMethodScalarIScalarO(me->fConnection, kIOFWAVCProtocolUserClientUpdateOutputPlug,
         3, 0, plug, oldVal, newVal);
 }
 
@@ -580,6 +677,9 @@ static UInt32 readOutputMasterPlug( void *self)
 {
     AVCProtocol *me = getThis(self);
     UInt32 val;
+
+	//printf("DEBUG: AVCProtocol::readOutputMasterPlug\n");
+
     IOConnectMethodScalarIScalarO(me->fConnection, kIOFWAVCProtocolUserClientReadOutputMasterPlug,
         0, 1, &val);
     return val;
@@ -588,7 +688,10 @@ static UInt32 readOutputMasterPlug( void *self)
 static IOReturn updateOutputMasterPlug( void *self, UInt32 oldVal, UInt32 newVal)
 {
     AVCProtocol *me = getThis(self);
-    return IOConnectMethodScalarIScalarO(me->fConnection, kIOFWAVCProtocolUserClientUpdateOutputMasterPlug,
+
+	//printf("DEBUG: AVCProtocol::updateOutputMasterPlug\n");
+
+	return IOConnectMethodScalarIScalarO(me->fConnection, kIOFWAVCProtocolUserClientUpdateOutputMasterPlug,
         2, 0, oldVal, newVal);
 }
 
@@ -596,7 +699,10 @@ static UInt32 readInputMasterPlug( void *self)
 {
     AVCProtocol *me = getThis(self);
     UInt32 val;
-    IOConnectMethodScalarIScalarO(me->fConnection, kIOFWAVCProtocolUserClientReadInputMasterPlug,
+
+	//printf("DEBUG: AVCProtocol::readInputMasterPlug\n");
+
+	IOConnectMethodScalarIScalarO(me->fConnection, kIOFWAVCProtocolUserClientReadInputMasterPlug,
         0, 1, &val);
     return val;
 }
@@ -604,9 +710,232 @@ static UInt32 readInputMasterPlug( void *self)
 static IOReturn updateInputMasterPlug( void *self, UInt32 oldVal, UInt32 newVal)
 {
     AVCProtocol *me = getThis(self);
-    return IOConnectMethodScalarIScalarO(me->fConnection, kIOFWAVCProtocolUserClientUpdateInputMasterPlug,
+
+	//printf("DEBUG: AVCProtocol::updateInputMasterPlug\n");
+
+	return IOConnectMethodScalarIScalarO(me->fConnection, kIOFWAVCProtocolUserClientUpdateInputMasterPlug,
         2, 0, oldVal, newVal);
 }
+
+static IOReturn publishAVCUnitDirectory(void *self)
+{
+    AVCProtocol *me = getThis(self);
+
+	//printf("DEBUG: AVCProtocol::publishAVCUnitDirectory\n");
+
+	IOConnectMethodScalarIScalarO(me->fConnection, kIOFWAVCProtocolUserClientPublishAVCUnitDirectory,
+							   0, 0);
+    return kIOReturnSuccess;
+}
+
+static IOReturn installAVCCommandHandler(void *self,
+											UInt32 subUnitTypeAndID,
+											UInt32 opCode,
+											void *refCon,
+											IOFWAVCCommandHandlerCallback callback)
+{
+    AVCProtocol *me = getThis(self);
+    io_async_ref_t 			asyncRef;
+    io_scalar_inband_t		params;
+    mach_msg_type_number_t	size = 0;
+    IOReturn status = kIOReturnSuccess;
+
+	//printf("DEBUG: AVCProtocol::installAVCCommandHandler\n");
+
+    asyncRef[0] = 0x1234;
+    asyncRef[kIOAsyncCalloutFuncIndex] = (UInt32)(IOAsyncCallback)&avcCommandHandlerCallback;
+    asyncRef[kIOAsyncCalloutRefconIndex] = (UInt32)me;
+    asyncRef[3] = 0x3456;
+    params[0]	= subUnitTypeAndID;
+    params[1]	= opCode;
+	params[2]	= (int) callback;
+    params[3]	= (int) refCon;
+
+    status = io_async_method_scalarI_scalarO( me->fConnection, me->fAsyncPort,
+											  asyncRef, 3,
+											  kIOFWAVCProtocolUserClientInstallAVCCommandHandler,
+											  params, 4,
+											  NULL, &size );
+    return status;
+}
+
+static IOReturn sendAVCResponse(void *self,
+							UInt32 generation,
+							UInt16 nodeID,
+							const char *response,
+							UInt32 responseLen)
+{
+    AVCProtocol *me = getThis(self);
+
+	return IOConnectMethodScalarIStructureI(me->fConnection, kIOFWAVCProtocolUserClientSendAVCResponse,
+										   2, responseLen, generation, nodeID, response);
+}
+
+IOReturn addSubunit(void *self,
+					UInt32 subunitType,
+					UInt32 numSourcePlugs,
+					UInt32 numDestPlugs,
+					void *refCon,
+					IOFWAVCSubunitPlugHandlerCallback callback,
+					UInt32 *pSubunitTypeAndID)
+{
+    AVCProtocol *me = getThis(self);
+    io_async_ref_t 			asyncRef;
+    io_scalar_inband_t		params;
+    mach_msg_type_number_t	size = 1;
+    IOReturn status = kIOReturnSuccess;
+
+	//printf("DEBUG: AVCProtocol::addSubunit\n");
+
+    asyncRef[0] = 0x1234;
+    asyncRef[kIOAsyncCalloutFuncIndex] = (UInt32)(IOAsyncCallback)&subunitPlugHandlerCallback;
+    asyncRef[kIOAsyncCalloutRefconIndex] = (UInt32)me;
+    asyncRef[3] = 0x3456;
+    params[0]	= subunitType;
+    params[1]	= numSourcePlugs;
+    params[2]	= numDestPlugs;
+	params[3]	= (int) callback;
+    params[4]	= (int) refCon;
+
+    status = io_async_method_scalarI_scalarO( me->fConnection, me->fAsyncPort,
+											  asyncRef, 3,
+											  kIOFWAVCProtocolUserClientAddSubunit,
+											  params, 5,
+											  (int *)pSubunitTypeAndID, &size );
+    return status;
+}
+
+IOReturn setSubunitPlugSignalFormat(void *self,
+									   UInt32 subunitTypeAndID,
+									   IOFWAVCPlugTypes plugType,
+									   UInt32 plugNum,
+									   UInt32 signalFormat)
+{
+    AVCProtocol *me = getThis(self);
+
+	//printf("DEBUG: AVCProtocol::setSubunitPlugSignalFormat\n");
+
+	return IOConnectMethodScalarIScalarO(me->fConnection, kIOFWAVCProtocolUserClientSetSubunitPlugSignalFormat,
+										 4, 0, subunitTypeAndID, plugType, plugNum, signalFormat);
+}
+
+
+IOReturn getSubunitPlugSignalFormat(void *self,
+									   UInt32 subunitTypeAndID,
+									   IOFWAVCPlugTypes plugType,
+									   UInt32 plugNum,
+									   UInt32 *pSignalFormat)
+{
+    AVCProtocol *me = getThis(self);
+	UInt32 sigFmt;
+	IOReturn status = kIOReturnSuccess;
+
+	//printf("DEBUG: AVCProtocol::getSubunitPlugSignalFormat\n");
+
+	status = IOConnectMethodScalarIScalarO(me->fConnection, kIOFWAVCProtocolUserClientGetSubunitPlugSignalFormat,
+									  3, 1, subunitTypeAndID, plugType, plugNum, &sigFmt);
+	*pSignalFormat = sigFmt;
+	return status;
+}
+
+IOReturn connectTargetPlugs(void *self,
+							   UInt32 sourceSubunitTypeAndID,
+							   IOFWAVCPlugTypes sourcePlugType,
+							   UInt32 *pSourcePlugNum,
+							   UInt32 destSubunitTypeAndID,
+							   IOFWAVCPlugTypes destPlugType,
+							   UInt32 *pDestPlugNum,
+							   bool lockConnection,
+							   bool permConnection)
+{
+    AVCProtocol *me = getThis(self);
+	IOReturn status = kIOReturnSuccess;
+	AVCConnectTargetPlugsInParams inParams;
+	AVCConnectTargetPlugsOutParams outParams;
+	IOByteCount outputCnt = sizeof(AVCConnectTargetPlugsOutParams);
+
+	//printf("DEBUG: AVCProtocol::connectTargetPlugs\n");
+	
+	inParams.sourceSubunitTypeAndID = sourceSubunitTypeAndID;
+	inParams.sourcePlugType = sourcePlugType;
+	inParams.sourcePlugNum = *pSourcePlugNum;
+	inParams.destSubunitTypeAndID = destSubunitTypeAndID;
+	inParams.destPlugType = destPlugType;
+	inParams.destPlugNum = *pDestPlugNum;
+	inParams.lockConnection = lockConnection;
+	inParams.permConnection = permConnection;
+
+	status = IOConnectMethodStructureIStructureO(me->fConnection,
+											  kIOFWAVCProtocolUserClientConnectTargetPlugs,
+											  sizeof(AVCConnectTargetPlugsInParams),
+											  &outputCnt,
+											  (UInt8 *) &inParams,
+											  (UInt8 *) &outParams);
+											  
+	*pSourcePlugNum = outParams.sourcePlugNum;
+	*pDestPlugNum = outParams.destPlugNum;
+	return status;
+}
+
+IOReturn disconnectTargetPlugs(void *self,
+								  UInt32 sourceSubunitTypeAndID,
+								  IOFWAVCPlugTypes sourcePlugType,
+								  UInt32 sourcePlugNum,
+								  UInt32 destSubunitTypeAndID,
+								  IOFWAVCPlugTypes destPlugType,
+								  UInt32 destPlugNum)
+{
+    AVCProtocol *me = getThis(self);
+
+	//printf("DEBUG: AVCProtocol::disconnectTargetPlugs\n");
+	return IOConnectMethodScalarIScalarO(me->fConnection, kIOFWAVCProtocolUserClientDisconnectTargetPlugs,
+									  6, 0,
+									  sourceSubunitTypeAndID,
+									  sourcePlugType,
+									  sourcePlugNum,
+									  destSubunitTypeAndID,
+									  destPlugType,
+									  destPlugNum);
+}
+
+IOReturn getTargetPlugConnection(void *self,
+									UInt32 subunitTypeAndID,
+									IOFWAVCPlugTypes plugType,
+									UInt32 plugNum,
+									UInt32 *pConnectedSubunitTypeAndID,
+									IOFWAVCPlugTypes *pConnectedPlugType,
+									UInt32 *pConnectedPlugNum,
+									bool *pLockConnection,
+									bool *pPermConnection)
+{
+    AVCProtocol *me = getThis(self);
+	IOReturn status = kIOReturnSuccess;
+	AVCGetTargetPlugConnectionInParams inParams;
+	AVCGetTargetPlugConnectionOutParams outParams;
+	IOByteCount outputCnt = sizeof(AVCGetTargetPlugConnectionInParams);
+
+	//printf("DEBUG: AVCProtocol::getTargetPlugConnection\n");
+
+	inParams.subunitTypeAndID = subunitTypeAndID;
+	inParams.plugType = plugType;
+	inParams.plugNum = plugNum;
+		
+	status = IOConnectMethodStructureIStructureO(me->fConnection,
+											  kIOFWAVCProtocolUserClientGetTargetPlugConnection,
+											  sizeof(AVCConnectTargetPlugsInParams),
+											  &outputCnt,
+											  (UInt8 *) &inParams,
+											  (UInt8 *) &outParams);
+
+	*pConnectedSubunitTypeAndID = outParams.connectedSubunitTypeAndID;
+	*pConnectedPlugType = outParams.connectedPlugType;
+	*pConnectedPlugNum = outParams.connectedPlugNum;
+	*pLockConnection = outParams.lockConnection;
+	*pPermConnection = outParams.permConnection;
+	
+	return status;
+}
+
 
 // static interface table for IOCFPlugInInterface
 //
@@ -633,7 +962,7 @@ static IOFireWireAVCLibProtocolInterface sProtocolInterface =
 	&queryInterface,
 	&addRef,
 	&release,
-	1, 0, // version/revision
+	2, 0, // version/revision
 	&addIODispatcherToRunLoop,
 	&removeIODispatcherFromRunLoop,
 	&setMessageCallback,
@@ -650,6 +979,15 @@ static IOFireWireAVCLibProtocolInterface sProtocolInterface =
     &updateOutputMasterPlug,
     &readInputMasterPlug,
     &updateInputMasterPlug,
+	&publishAVCUnitDirectory,
+	&installAVCCommandHandler,
+	&sendAVCResponse,
+	&addSubunit,
+	&setSubunitPlugSignalFormat,
+	&getSubunitPlugSignalFormat,
+	&connectTargetPlugs,
+	&disconnectTargetPlugs,
+	&getTargetPlugConnection
 };
 
 // IOFireWireAVCLibProtocolFactory
@@ -662,6 +1000,8 @@ static IOCFPlugInInterface ** alloc()
 {
 	IOCFPlugInInterface ** 	interface = NULL;
     AVCProtocol *	me;
+
+	//printf("DEBUG: AVCProtocol::alloc\n");
 	
     me = (AVCProtocol *)malloc(sizeof(AVCProtocol));
     if( me )
@@ -697,7 +1037,10 @@ static IOCFPlugInInterface ** alloc()
 
 void *IOFireWireAVCLibProtocolFactory( CFAllocatorRef allocator, CFUUIDRef typeID )
 {
-    if( CFEqual(typeID, kIOFireWireAVCLibProtocolTypeID) )
+
+	//printf("DEBUG: AVCProtocol::IOFireWireAVCLibProtocolFactory\n");
+
+	if( CFEqual(typeID, kIOFireWireAVCLibProtocolTypeID) )
         return (void *) alloc();
     else
         return NULL;

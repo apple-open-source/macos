@@ -1,5 +1,5 @@
-# $OpenLDAP: pkg/ldap/build/top.mk,v 1.69 2002/02/11 15:55:32 kurt Exp $
-## Copyright 1998-2002 The OpenLDAP Foundation, Redwood City, California, USA
+# $OpenLDAP: pkg/ldap/build/top.mk,v 1.69.2.4 2003/03/29 15:45:42 kurt Exp $
+## Copyright 1998-2003 The OpenLDAP Foundation, Redwood City, California, USA
 ## All rights reserved.
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -10,6 +10,7 @@
 ##
 PACKAGE= @PACKAGE@
 VERSION= @VERSION@
+RELEASEDATE= @OPENLDAP_RELEASE_DATE@
 
 @SET_MAKE@
 SHELL = /bin/sh
@@ -65,7 +66,7 @@ LIBVERSION = @OPENLDAP_LIBVERSION@
 LTVERSION = -version-info $(LIBVERSION)
 
 # libtool --only flag for libraries: platform specific
-NT_LTONLY_LIB = --only-$(BUILD_LIBS_DYNAMIC)
+NT_LTONLY_LIB = # --only-$(BUILD_LIBS_DYNAMIC)
 LTONLY_LIB = $(@PLAT@_LTONLY_LIB)
 
 # libtool --only flag for modules: depends on linkage of module
@@ -90,8 +91,10 @@ LTFLAGS_MOD = $(@PLAT@_LTFLAGS_MOD)
 # LINK_LIBS referenced in library and module link commands.
 LINK_LIBS = $(@PLAT@_LINK_LIBS)
 
+LTSTATIC = @LTSTATIC@
+
 LTLINK   = $(LIBTOOL) --mode=link \
-	$(CC) -static $(LT_CFLAGS) $(LDFLAGS) $(LTFLAGS)
+	$(CC) $(LTSTATIC) $(LT_CFLAGS) $(LDFLAGS) $(LTFLAGS)
 
 LTCOMPILE_LIB = $(LIBTOOL) $(LTONLY_LIB) --mode=compile \
 	$(CC) $(LT_CFLAGS) $(LT_CPPFLAGS) $(LIB_DEFS) -c
@@ -110,7 +113,6 @@ LTFINISH = $(LIBTOOL) --mode=finish
 
 # Misc UNIX commands used in build environment
 AR = @AR@
-AWK = @AWK@
 BASENAME = basename
 CAT = cat
 CHMOD = chmod
@@ -126,11 +128,6 @@ PWD = pwd
 RANLIB = @RANLIB@
 RM = rm -f
 SED = sed
-
-# Misc UNIX commands used in programs
-EDITOR = @EDITOR@
-FINGER = @FINGER@
-SENDMAIL = @SENDMAIL@
 
 # For manual pages
 # MANCOMPRESS=@MANCOMPRESS@

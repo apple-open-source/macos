@@ -1,7 +1,7 @@
 
 Summary:	xinetd -- A better inetd.
 Name:		xinetd
-Version:	2.3.10
+Version:	2.3.12
 Release:	1
 License:	BSD
 Vendor:		xinetd.org (Rob Braun)
@@ -56,7 +56,6 @@ install -m 0755 contrib/xinetd $RPM_BUILD_ROOT/etc/rc.d/init.d/xinetd
   rm -rf $RPM_BUILD_ROOT
 
 %post
-chkconfig --del xinetd
 chkconfig --add xinetd
 /etc/rc.d/init.d/xinetd restart
 

@@ -27,6 +27,7 @@
 # A lot of this script is taken from autoconf-2.10.
 
 # Check that we are running under the correct shell.
+CONFIG_SHELL=${CONFIG_SHELL-/bin/sh}
 SHELL=${CONFIG_SHELL-/bin/sh}
 echo=echo
 if test "X$1" = X--no-reexec; then
@@ -1100,12 +1101,12 @@ cygwin* | mingw* | pw32*)
   lt_cv_dlopen_libs=
   ;;
 
-darwin* | rhapsody*)
+darwin* | rhapsody* | macos10*)
   dynamic_linker="$host_os dyld"
   version_type=darwin
   need_lib_prefix=no
   need_version=no
-  library_names_spec='${libname}${release}${versuffix}.`test .$module = .yes && echo so || echo dylib` ${libname}${release}${major}.$`test .$module = .yes && echo so || echo dylib` ${libname}.`test .$module = .yes && echo so || echo dylib`'
+  library_names_spec='${libname}${release}${versuffix}.`test .$module = .yes && echo so || echo dylib` ${libname}${release}${major}.`test .$module = .yes && echo so || echo dylib` ${libname}.`test .$module = .yes && echo so || echo dylib`'
   soname_spec='${libname}${release}${major}.`test .$module = .yes && echo so || echo dylib`'
   shlibpath_overrides_runpath=yes
   shlibpath_var=DYLD_LIBRARY_PATH

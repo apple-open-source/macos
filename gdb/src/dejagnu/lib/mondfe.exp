@@ -1,0 +1,213 @@
+# Copyright (C) 1992 - 2000, 2001 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  
+
+# Please email any bugs, comments, and/or additions to this file to:
+# bug-dejagnu@gnu.org
+
+# This file was written by Rob Savoye. (rob@welcomehome.org)
+
+#
+# Connect to udi using mondfe
+#
+# HOSTNAME can be `iss' to talk to the simulator.
+# The result is the value of `spawn_id' or -1 for failure.
+#
+proc mondfe_open { hostname } {
+    global spawn_id
+    global board_info
+
+    set retries 0
+    set result  -1
+
+    set shell_prompt [board_info $hostname shell_prompt]
+    if ![board_info $hostname exists mondfe,name] {
+	perror "Must set board_info(${hostname},mondfe,name)"
+	return -1;
+    }
+    if [board_info $hostname exists mondfe] {
+	set mondfe [board_info $hostname mondfe];
+    } else {
+	set mondfe "mondfe"
+    }
+
+    set remote_host [board_info $hostname mondfe,name];
+
+    if [board_info $hostname exists mondfe_host] {
+	set rh [board_info $hostname mondfe_host];
+    } else {
+	verbose "Attempting to connect to $hostname via mondfe."
+	set rh "host";
+    }
+
+    set shell_id [remote_spawn $rh "$mondfe -D -TIP $remote_host"];
+
+    remote_expect $rh 60 {
+	"$shell_prompt"	{ 
+	    verbose "Got prompt"
+	    set result 0
+	}
+	"*server bind*failed: Address already in use*" {
+	    warning "Socket file already exists."
+	    incr retries
+	    if { $retries <= 2 } {
+		exp_continue;
+	    }
+	}
+	-indices -re ".*(UDIERROR\[^\r\n\]*)\[\r\n\]" {
+	    warning "$expect_out(1,string)"
+	    exp_continue;
+	}
+	-indices -re ".*(DFEERROR\[^\r\n\]*)\[\r\n\]" {
+	    warning "$expect_out(1,string)"
+	    exp_continue;
+	}
+	timeout	{ 
+	    warning "Timed out trying to connect."
+	    set result -1
+	    incr retries
+	    if { $retries <= 2 } {
+		remote_send $rh "\n"
+		exp_continue;
+	    }
+	}
+    }
+
+    if { $result < 0 } {
+	perror "Couldn't connect after $retries retries."
+	remote_close $rh;
+	return -1
+    } else {
+	set board_info($hostname,fileid) $shell_id;
+	return $shell_id;
+    }
+}
+
+#
+# Downloads using the y (yank) command in mondfe
+#
+# FILE is a full path name to the file to download.
+# Returns 1 if an error occured, 0 otherwise.
+#
+proc mondfe_ld { dest_machine file } {
+    global decimal		# Regexp to match a decimal number.
+
+    if ![file exists $file] {
+	perror "$file doesn't exist."
+	return ""
+    }
+
+    set shell_prompt [board_info $dest_machine shell_prompt]
+
+    if [board_info $dest_machine exists mondfe_host] {
+	set remote_host [board_info $dest_machine mondfe_host];
+	set file [remote_download $remote_host $file montest]
+    } else {
+	set remote_host "host";
+    }
+
+    verbose "Downloading $file." 2
+    verbose "Shell prompt is $shell_prompt." 3
+    set result 1
+    remote_send $remote_host "y $file\n"
+    remote_expect $remote_host 60 {
+	"y $file" {
+	    exp_continue;
+	}
+	-re "loading $file\[\r\n\]+" {
+	    exp_continue;
+	}
+	-re "Load(ing|ed) *TEXT section from\[^\r\n\]*\[\r\n\]+" {
+	    verbose -n "." 2
+	    exp_continue;
+	}
+	-re "Load(ing|ed) *LIT section from\[^\r\n\]*\[\r\n\]+" {
+	    verbose -n "." 2
+	    exp_continue;
+	}
+	-re "Load(ing|ed) *DATA section from\[^\r\n\]*\[\r\n\]+" {
+	    verbose -n "." 2
+	    exp_continue;
+	}
+	-re "Clear(ing|ed) *BSS section from\[^\r\n\]*\[\r\n\]+" {
+	    verbose -n "." 2
+	    exp_continue;
+	}
+	-re "(^|\[\r\n\]+)$shell_prompt$" {
+	    verbose "Downloaded $file successfully." 2
+	    set result 0
+	}
+	-re "Command failed.*$shell_prompt$" {
+	    set result 1
+	}
+	-re "DFEWARNING: $decimal : EMMAGIC:  Bad COFF file magic number.*Command failed.*$shell_prompt$" {
+	    warning "Bad COFF file magic number"
+	    set result 1
+	}
+        -re "Ignoring COMMENT section \($decimal bytes\)\[^\r\n\]*\[\r\n\]+" {
+            verbose "Ignoring COMMENT section" 2
+	    exp_continue;
+        }
+	timeout {
+	    perror "Timed out trying to download $file."
+	    set result 1
+	}
+    }
+
+    if { $result && [info exists expect_out(buffer)] } {
+	send_log $expect_out(buffer)
+    }
+
+    if [board_info $dest_machine exists mondfe_host] {
+	remote_file $remote_machine delete $file
+    }
+
+    return $result
+}
+
+#
+# Exit the remote shell
+#
+proc mondfe_close { hostname } {
+    global board_info
+
+    if [board_info $hostname exists mondfe_host] {
+	set remote_host [board_info $hostname mondfe_host];
+    } else {
+	set remote_host "host";
+    }
+
+    if ![board_info $hostname exists fileid] {
+	return 0;
+    }
+
+    if [board_info $remote_host exists fileid] {
+	remote_send $remote_host "q\n"
+	remote_expect $remote_host 30 {
+	    "Goodbye." {
+		verbose "Exited mondfe."
+	    }
+	    timeout {
+		warning "mondfe didn't exit cleanly."
+	    }
+	}
+
+	remote_close $remote_host;
+    }
+
+    unset board_info($hostname,fileid);
+
+    return 0;
+}

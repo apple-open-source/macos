@@ -1,21 +1,22 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
- *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -107,6 +108,7 @@ typedef struct _stickyKeys_ModifierInfo
 {
 	UInt8		key;		// Key code of the sticky modifier
         UInt8		state;		// The state of the sticky modifier
+        UInt8		leftModBit;	// System Mod bit of the sticky modifier
 } StickyKeys_ModifierInfo;
 
 class IOHIDKeyboardDevice;
@@ -133,6 +135,11 @@ private:
         kbdBitVector		stickyKeys_Modifier_KeyBits;
         StickyKeys_ModifierInfo stickyKeys_StuckModifiers[kMAX_MODIFIERS];
         IOInterruptEventSource  *stickyKeysMouseClickEventSource;
+        IOInterruptEventSource	*stickyKeysSetFnStateEventSource;
+        // The following should really be statics, but placing here 
+        // to match design by predecesor.
+        OSDictionary		*offFnParamDict;
+        OSDictionary		*onFnParamDict;
 
         // This is for SlowKeys
         UInt16			slowKeys_State;
@@ -143,26 +150,14 @@ private:
         UInt8		slowKeys_Aborted_Key;
         UInt8		slowKeys_Current_Key;        
         kbdBitVector	slowKeys_Current_KeyBits;
-
-        // for posting events to the hid manager
-        IOHIDKeyboardDevice *	hidKeyboardNub;
+        
+        UInt32		swapKeyState;
+        UInt32		specialKeyModifierFlags;
+        
+        bool		supportsF12Eject;
     };
     ExpansionData * _reserved;				    // Reserved for future use.  (Internal use only)
     
-    #define _f12Eject_State 		_reserved->f12Eject_State
-    #define _eject_Delay_MS 		_reserved->eject_Delay_MS
-    #define _ejectTimerEventSource 	_reserved->ejectTimerEventSource
-    #define _stickyKeys_Modifier_KeyBits _reserved->stickyKeys_Modifier_KeyBits
-    #define _stickyKeys_StuckModifiers  _reserved->stickyKeys_StuckModifiers
-    #define _stickyKeysMouseClickEventSource _reserved->stickyKeysMouseClickEventSource
-    #define _slowKeys_State		_reserved->slowKeys_State
-    #define _slowKeys_Delay_MS		_reserved->slowKeys_Delay_MS
-    #define _slowKeysTimerEventSource 	_reserved->slowKeysTimerEventSource
-    #define _slowKeys_Aborted_Key 	_reserved->slowKeys_Aborted_Key
-    #define _slowKeys_Current_Key 	_reserved->slowKeys_Current_Key
-    #define _slowKeys_Current_KeyBits 	_reserved->slowKeys_Current_KeyBits
-    #define _hidKeyboardNub		_reserved->hidKeyboardNub
-
 public:
 	static IOHIKeyboardMapper * keyboardMapper(
 										IOHIKeyboard * delegate,
@@ -193,8 +188,9 @@ public:
 	virtual void 	    keyEventPostProcess (void);
 
 private:
-	static void 		makeParamProperty( OSDictionary * dict, const char * key,
-							const void * bytes, unsigned int length );
+	static void makeNumberParamProperty( OSDictionary * dict, const char * key,
+                            unsigned long long number, unsigned int bits );
+
 
 	virtual bool parseKeyMapping(const UInt8 *        mapping,
 								UInt32               mappingLength,
@@ -208,6 +204,7 @@ private:
 private:
 	// original translateKeyCode
 	void rawTranslateKeyCode (UInt8 key, bool keyDown, kbdBitVector keyBits);
+        void calcModSwap(UInt8 * key);
 
 	// the current state of stickyKeys
 	UInt32            	_stickyKeys_State; 
@@ -254,20 +251,24 @@ private:
 							StickyKeys_ToggleInfo * toggleInfo,
 							UInt8        key,
 							bool         keyDown,
-							kbdBitVector keyBits);
+							kbdBitVector keyBits,
+                                                        bool 	     mouseClick = false);
 
 	// non-modifier key pressed
 	void stickyKeysNonModifierKey (UInt8 key, bool keyDown, kbdBitVector keyBits, bool mouseClick = false);
 
 	// modifier key pressed (shift, command, option, control)
-	void stickyKeysModifierKey (UInt8 key, bool keyDown, kbdBitVector keyBits);
+	bool stickyKeysModifierKey (UInt8 key, bool keyDown, kbdBitVector keyBits);
 
 	// main entry point, called for all keys (returns true if key handled)
-	bool stickyKeysFilterKey (UInt8 key, bool keyDown, kbdBitVector keyBits);
+	bool stickyKeysFilterKey (UInt8 key, bool keyDown, kbdBitVector keyBits, bool mouseClick = false);
 
         // called by interrupt event source to inform sticky keys of mouse down event
         static void stickyKeysMouseDown(IOHIKeyboardMapper *owner, IOEventSource *sender);
-        
+
+        // called by interrupt event source to restore prior fn state
+	static void stickyKeysSetFnState(IOHIKeyboardMapper *owner, IOEventSource *sender);
+
         /* F12 Eject Functionality */ 
 private:
         

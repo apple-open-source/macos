@@ -83,7 +83,6 @@ LIBTOOL = @LIBTOOL@
 LIBTOOL_DEPS = @LIBTOOL_DEPS@
 LIBTOOL_LDFLAGS = @LIBTOOL_LDFLAGS@
 LN_S = @LN_S@
-LTALLOCA = @LTALLOCA@
 LTLIBOBJS = @LTLIBOBJS@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
@@ -123,8 +122,9 @@ EXTRA_DIST = memcmp.c	\
 	alloca.c	\
 	clnt_sperrno.c	\
 	hasmntopt.c	\
-	strdup.c	\
 	strcasecmp.c	\
+	strdup.c	\
+	strerror.c	\
 	strstr.c	\
 	ualarm.c
 
@@ -138,6 +138,7 @@ DISTCLEANFILES = mountutil.c mtabutil.c transputil.c umount_fs.c
 #	memcmp.c (via AC_FUNC_MEMCMP)
 #	strcasecmp.c
 #	strdup.c
+#	strerror.c
 #	strstr.c
 #	ualarm.c
 #

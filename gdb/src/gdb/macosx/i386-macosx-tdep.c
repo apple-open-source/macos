@@ -28,73 +28,90 @@
 #include "target.h"
 #include "floatformat.h"
 #include "symtab.h"
+#include "regcache.h"
+#include "i387-tdep.h"
+#include "i386-tdep.h"
+#include "osabi.h"
 
 #include "i386-macosx-thread-status.h"
 
+#include <mach/thread_status.h>
+
 #include "i386-macosx-tdep.h"
 
-#define FETCH_REG(rdata, rnum, sdata) \
-store_unsigned_integer ((rdata) + (REGISTER_BYTE (rnum)), (REGISTER_RAW_SIZE (rnum)), (sdata))
+#define supply_unsigned_int(regnum, val)\
+store_unsigned_integer (buf, 4, val); \
+supply_register(regnum, buf);
 
-#define STORE_REG(rdata, rnum, sdata) \
-(sdata) = extract_unsigned_integer ((rdata) + (REGISTER_BYTE (rnum)), (REGISTER_RAW_SIZE (rnum)))
+#define collect_unsigned_int(regnum, addr)\
+regcache_collect (regnum, buf); \
+(* (addr)) = extract_unsigned_integer (buf, 4);
 
-void i386_macosx_fetch_gp_registers (unsigned char *rdata, gdb_i386_thread_state_t *gp_regs)
+void i386_macosx_fetch_gp_registers (gdb_i386_thread_state_t *sp_regs)
 {
+  char buf[4];
+  supply_unsigned_int (0, sp_regs->eax);
+  supply_unsigned_int (1, sp_regs->ecx);
+  supply_unsigned_int (2, sp_regs->edx);
+  supply_unsigned_int (3, sp_regs->ebx);
+  supply_unsigned_int (4, sp_regs->esp);
+  supply_unsigned_int (5, sp_regs->ebp);
+  supply_unsigned_int (6, sp_regs->esi);
+  supply_unsigned_int (7, sp_regs->edi);
+  supply_unsigned_int (8, sp_regs->eip);
+  supply_unsigned_int (9, sp_regs->efl);
+  supply_unsigned_int (10, sp_regs->cs);
+  supply_unsigned_int (11, sp_regs->ss);
+  supply_unsigned_int (12, sp_regs->ds);
+  supply_unsigned_int (13, sp_regs->es);
+  supply_unsigned_int (14, sp_regs->fs);
+  supply_unsigned_int (15, sp_regs->gs);
 }
 
-void i386_macosx_store_gp_registers (unsigned char *rdata, gdb_i386_thread_state_t *gp_regs)
+void i386_macosx_store_gp_registers (gdb_i386_thread_state_t *sp_regs)
 {
+  unsigned char buf[4];
+  collect_unsigned_int (0, &sp_regs->eax);
+  collect_unsigned_int (1, &sp_regs->ecx);
+  collect_unsigned_int (2, &sp_regs->edx);
+  collect_unsigned_int (3, &sp_regs->ebx);
+  collect_unsigned_int (4, &sp_regs->esp);
+  collect_unsigned_int (5, &sp_regs->ebp);
+  collect_unsigned_int (6, &sp_regs->esi);
+  collect_unsigned_int (7, &sp_regs->edi);
+  collect_unsigned_int (8, &sp_regs->eip);
+  collect_unsigned_int (9, &sp_regs->efl);
+  collect_unsigned_int (10, &sp_regs->cs);
+  collect_unsigned_int (11, &sp_regs->ss);
+  collect_unsigned_int (12, &sp_regs->ds);
+  collect_unsigned_int (13, &sp_regs->es);
+  collect_unsigned_int (14, &sp_regs->fs);
+  collect_unsigned_int (15, &sp_regs->gs);
 }
 
-void i386_macosx_fetch_sp_registers (unsigned char *rdata, gdb_i386_thread_state_t *sp_regs)
+void i386_macosx_fetch_fp_registers (gdb_i386_thread_fpstate_t *fp_regs)
 {
-  /* these need to match the REGISTER_NAMES table from tm-i386.h */
-  FETCH_REG (rdata, 0, sp_regs->eax);
-  FETCH_REG (rdata, 1, sp_regs->ecx);
-  FETCH_REG (rdata, 2, sp_regs->edx);
-  FETCH_REG (rdata, 3, sp_regs->ebx);
-  FETCH_REG (rdata, 4, sp_regs->esp);
-  FETCH_REG (rdata, 5, sp_regs->ebp);
-  FETCH_REG (rdata, 6, sp_regs->esi);
-  FETCH_REG (rdata, 7, sp_regs->edi);
-  FETCH_REG (rdata, 8, sp_regs->eip);
-  FETCH_REG (rdata, 9, sp_regs->eflags);
-  FETCH_REG (rdata, 10, sp_regs->cs);
-  FETCH_REG (rdata, 11, sp_regs->ss);
-  FETCH_REG (rdata, 12, sp_regs->ds);
-  FETCH_REG (rdata, 13, sp_regs->es);
-  FETCH_REG (rdata, 14, sp_regs->fs);
-  FETCH_REG (rdata, 15, sp_regs->gs);
+  if ((fp_regs->fpkind == GDB_i386_FP_387) && (fp_regs->initialized))
+    i387_supply_fsave ((unsigned char *) &fp_regs->hw_state);
+  else if ((fp_regs->fpkind == GDB_i386_FP_SSE2) && (fp_regs->initialized))
+    i387_supply_fxsave ((unsigned char *) &fp_regs->hw_state);
+  else
+    i387_supply_fxsave (NULL);
 }
 
-void i386_macosx_store_sp_registers (unsigned char *rdata, gdb_i386_thread_state_t *sp_regs)
+void i386_macosx_store_fp_registers (gdb_i386_thread_fpstate_t *fp_regs)
 {
-  /* these need to match the REGISTER_NAMES table from tm-i386.h */
-  STORE_REG (rdata, 0, sp_regs->eax);
-  STORE_REG (rdata, 1, sp_regs->ecx);
-  STORE_REG (rdata, 2, sp_regs->edx);
-  STORE_REG (rdata, 3, sp_regs->ebx);
-  STORE_REG (rdata, 4, sp_regs->esp);
-  STORE_REG (rdata, 5, sp_regs->ebp);
-  STORE_REG (rdata, 6, sp_regs->esi);
-  STORE_REG (rdata, 7, sp_regs->edi);
-  STORE_REG (rdata, 8, sp_regs->eip);
-  STORE_REG (rdata, 9, sp_regs->eflags);
-  STORE_REG (rdata, 10, sp_regs->cs);
-  STORE_REG (rdata, 11, sp_regs->ss);
-  STORE_REG (rdata, 12, sp_regs->ds);
-  STORE_REG (rdata, 13, sp_regs->es);
-  STORE_REG (rdata, 14, sp_regs->fs);
-  STORE_REG (rdata, 15, sp_regs->gs);
-}
-
-void i386_macosx_fetch_fp_registers (unsigned char *rdata, gdb_i386_thread_fpstate_t *fp_regs)
-{
-}
-
-void i386_macosx_store_fp_registers (unsigned char *rdata, gdb_i386_thread_fpstate_t *fp_regs)
-{
+#if 0
+  fp_regs->fpkind = GDB_i386_FP_SSE2;
+  fp_regs->initialized = 1;
+  i387_fill_fxsave ((unsigned char *) &fp_regs->hw_state, -1);
+  fp_regs->exc_status = 0;
+#else
+  fp_regs->fpkind = GDB_i386_FP_387;
+  fp_regs->initialized = 1;
+  i387_fill_fsave ((unsigned char *) &fp_regs->hw_state, -1);
+  fp_regs->exc_status = 0;
+#endif
 }
 
 /* mread -- read memory (unsigned) and apply a bitmask */
@@ -150,9 +167,49 @@ int i386_macosx_in_solib_call_trampoline (CORE_ADDR pc, char *name)
   return 0;
 }
 
-CORE_ADDR
-sigtramp_saved_pc (frame)
-     struct frame_info *frame;
+static CORE_ADDR
+i386_macosx_sigcontext_addr (struct frame_info *frame)
 {
-  return 0;
+  int sigcontext_offset = 24;
+
+  return read_memory_unsigned_integer (frame->frame + sigcontext_offset, 4);
+}
+
+static void
+i386_macosx_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
+{
+  struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
+
+  /* We support the SSE registers.  */
+  tdep->num_xmm_regs = I386_NUM_XREGS - 1;
+  set_gdbarch_num_regs (gdbarch, I386_SSE_NUM_REGS);
+
+  tdep->struct_return = reg_struct_return;
+
+  tdep->sigcontext_addr = i386_macosx_sigcontext_addr;
+  tdep->sc_pc_offset = 12 * 4;
+  tdep->sc_sp_offset = 9 * 4;
+
+  tdep->jb_pc_offset = 20;
+}
+
+static enum gdb_osabi
+i386_mach_o_osabi_sniffer (bfd *abfd)
+{
+  if (strcmp (bfd_get_target (abfd), "mach-o-be") == 0
+      || strcmp (bfd_get_target (abfd), "mach-o-le") == 0
+      || strcmp (bfd_get_target (abfd), "mach-o-fat") == 0)
+    return GDB_OSABI_DARWIN;
+
+  return GDB_OSABI_UNKNOWN;
+}
+
+void
+_initialize_i386_macosx_tdep (void)
+{
+  gdbarch_register_osabi_sniffer (bfd_arch_i386, bfd_target_mach_o_flavour,
+				  i386_mach_o_osabi_sniffer);
+
+  gdbarch_register_osabi (bfd_arch_i386, 0, GDB_OSABI_DARWIN,
+			  i386_macosx_init_abi);
 }

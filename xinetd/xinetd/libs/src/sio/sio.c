@@ -14,6 +14,7 @@
 #undef HAVE_MMAP
 #endif
 
+#include <limits.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -27,16 +28,18 @@
 /*
  * Stream write call: arguments same as those of write(2)
  */
-int Swrite( int fd, const char *addr, int nbytes )
+int Swrite( int fd, const char *addr, unsigned int nbytes )
 {
 	__sio_descriptor_t *dp ;
 	__sio_od_t *odp ;
-	int b_transferred ;
-	int b_avail ;
+	unsigned int b_transferred ;
+	unsigned int b_avail ;
 	int total_b_transferred ;
 	int b_written ;
 	int b_in_buffer ;
 
+	if ( nbytes > INT_MAX )
+		return( SIO_ERR );
 	if( sio_setup( fd, &dp, __SIO_OUTPUT_STREAM ) == SIO_ERR )
 		return( SIO_ERR );
 	odp = ODP( dp ) ;
@@ -59,7 +62,7 @@ int Swrite( int fd, const char *addr, int nbytes )
 	b_in_buffer = odp->buf_end - odp->start ;
 	b_written = __sio_writef( odp, fd ) ;
 	if ( b_written != b_in_buffer )
-		return( (b_written >= nbytes) ? nbytes : b_written ) ;
+		return( (b_written >= (int)nbytes) ? (int)nbytes : b_written ) ;
 	
 	total_b_transferred = b_transferred ;
 	addr += b_transferred ;
@@ -80,7 +83,7 @@ int Swrite( int fd, const char *addr, int nbytes )
 		 * the buffer is full
 		 */
 		b_written = __sio_writef( odp, fd ) ;
-		if ( b_written != odp->buffer_size )
+		if ( b_written != (int)odp->buffer_size )
 		{
 			if ( b_written != SIO_ERR )
 			{
@@ -322,9 +325,12 @@ int Sflush( int fd )
  */
 int Sclose( int fd )
 {
-	if ( __SIO_FD_INITIALIZED( fd ) )
-		if ( Sdone( fd ) == SIO_ERR )
+	if ( __SIO_FD_INITIALIZED( fd ) ) {
+		if ( Sdone( fd ) == SIO_ERR ) {
+			close( fd ); 
 			return( SIO_ERR ) ;
+		}
+	}
 	return( close( fd ) ) ;
 }
 
@@ -379,7 +385,7 @@ void __sio_memcopy( const char *from, char *to, int nbytes )
 
 #endif /* NEED_MEMCOPY */
 
-int sio_setup(int fd, __sio_descriptor_t **dp, int type)
+int sio_setup(int fd, __sio_descriptor_t **dp, unsigned int type)
 {
    if ( fd >= __sio_n_descriptors ) {
       if( Smorefds(fd) != 0 ) {

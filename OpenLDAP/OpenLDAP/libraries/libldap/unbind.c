@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/unbind.c,v 1.37 2002/01/04 20:17:40 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/unbind.c,v 1.37.2.4 2003/02/09 17:02:18 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*  Portions
@@ -58,7 +58,11 @@ ldap_unbind_ext_s(
 int
 ldap_unbind( LDAP *ld )
 {
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_unbind\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_unbind\n", 0, 0, 0 );
+#endif
 
 	return( ldap_unbind_ext( ld, NULL, NULL ) );
 }
@@ -89,12 +93,6 @@ ldap_ld_free(
 		ldap_msgfree( lm );
 	}
 
-#ifndef LDAP_NOCACHE
-	if ( ld->ld_cache != NULL ) {
-		ldap_destroy_cache( ld );
-		ld->ld_cache = NULL;
-	}
-#endif /* !LDAP_NOCACHE */
 
 	if ( ld->ld_error != NULL ) {
 		LDAP_FREE( ld->ld_error );
@@ -106,6 +104,11 @@ ldap_ld_free(
 		ld->ld_matched = NULL;
 	}
 
+	if( ld->ld_referrals != NULL) {
+		LDAP_VFREE(ld->ld_referrals);
+		ld->ld_referrals = NULL;
+	}  
+    
 	if ( ld->ld_abandoned != NULL ) {
 		LDAP_FREE( ld->ld_abandoned );
 		ld->ld_abandoned = NULL;
@@ -176,7 +179,11 @@ ldap_send_unbind(
 {
 	BerElement	*ber;
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_send_unbind\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_send_unbind\n", 0, 0, 0 );
+#endif
 
 #ifdef LDAP_CONNECTIONLESS
 	if (LDAP_IS_UDP(ld))

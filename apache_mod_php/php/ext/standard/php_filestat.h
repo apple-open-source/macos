@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_filestat.h,v 1.1.1.5 2001/12/14 22:13:26 zarzycki Exp $ */
+/* $Id: php_filestat.h,v 1.1.1.8 2003/07/18 18:07:43 zarzycki Exp $ */
 
 #ifndef PHP_FILESTAT_H
 #define PHP_FILESTAT_H
@@ -36,7 +36,9 @@ PHP_FUNCTION(filesize);
 PHP_FUNCTION(filetype);
 PHP_FUNCTION(is_writable);
 PHP_FUNCTION(is_readable);
+#ifndef PHP_WIN32
 PHP_FUNCTION(is_executable);
+#endif
 PHP_FUNCTION(is_file);
 PHP_FUNCTION(is_dir);
 PHP_FUNCTION(is_link);
@@ -48,7 +50,9 @@ PHP_FUNCTION(disk_free_space);
 PHP_FUNCTION(chown);
 PHP_FUNCTION(chgrp);
 PHP_FUNCTION(chmod);
+#if HAVE_UTIME
 PHP_FUNCTION(touch);
+#endif
 PHP_FUNCTION(clearstatcache);
 
 #define MAKE_LONG_ZVAL_INCREF(name, val)\

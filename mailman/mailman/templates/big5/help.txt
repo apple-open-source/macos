@@ -1,0 +1,33 @@
+Help for %(listname)s mailing list:
+
+This is email command help for version %(version)s of the "Mailman"
+list manager.  The following describes commands you can send to get
+information about and control your subscription to Mailman lists at
+this site.  A command can be in the subject line or in the body of the
+message.
+
+Note that much of the following can also be accomplished via the World
+Wide Web, at:
+
+    %(listinfo_url)s
+
+In particular, you can use the Web site to have your password sent to
+your delivery address.
+
+List specific commands (subscribe, who, etc) should be sent to the
+*-request address for the particular list, e.g. for the 'mailman'
+list, use 'mailman-request@...'.
+
+About the descriptions - words in "<>"s signify REQUIRED items and
+words in "[]" denote OPTIONAL items.  Do not include the "<>"s or
+"[]"s when you use the commands.
+
+The following commands are valid:
+
+    %(commands)s
+
+Commands should be sent to %(requestaddr)s
+
+Questions and concerns for the attention of a person should be sent to
+
+    %(adminaddr)s

@@ -17,7 +17,7 @@ HFILES = extern.h timedc.h
 CFILES = cmds.c cmdtab.c timedc.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble m.template\
-            h.template
+            h.template timedc.8
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

@@ -1,8 +1,10 @@
-dnl ## $Id: config.m4,v 1.3 2001/07/19 00:47:53 zarzycki Exp $ -*- sh -*-
+dnl
+dnl $Id: config.m4,v 1.4 2003/03/11 17:04:44 zarzycki Exp $
+dnl
 
 AC_MSG_CHECKING(for NSAPI support)
 AC_ARG_WITH(nsapi,
-[  --with-nsapi=DIR        Specify path to the installed Netscape],[
+[  --with-nsapi=DIR        Build PHP as NSAPI module for use with iPlanet.],[
   PHP_NSAPI=$withval
 ],[
   PHP_NSAPI=no
@@ -17,17 +19,23 @@ if test "$PHP_NSAPI" != "no"; then
   if test -d $PHP_NSAPI/include ; then
     NSAPI_INCLUDE=$PHP_NSAPI/include
     AC_MSG_RESULT(Netscape-Enterprise/3.x style)
-  elif test -d $PHP_NSAPI/plugins/include ; then
-    NSAPI_INCLUDE=$PHP_NSAPI/plugins/include
-    AC_MSG_RESULT(iPlanet/4.x style)
-  else
-    AC_MSG_ERROR(Please check you have nsapi.h in either DIR/include or DIR/plugins/include)
+    AC_CHECK_HEADERS([$NSAPI_INCLUDE/nsapi.h])
   fi
-  PHP_ADD_INCLUDE($NSAPI_INCLUDE)
+  if test -d $PHP_NSAPI/plugins/include ; then
+    test -n "$NSAPI_INCLUDE" && NSAPI_INC_DIR="-I$NSAPI_INCLUDE"
+    NSAPI_INCLUDE="$PHP_NSAPI/plugins/include"
+    AC_MSG_RESULT(iPlanet/4.x style)
+    AC_CHECK_HEADERS([$NSAPI_INCLUDE/nsapi.h])
+    NSAPI_INCLUDE="$NSAPI_INC_DIR -I$NSAPI_INCLUDE"
+  fi
+  if test "$NSAPI_INCLUDE" = ""; then
+    AC_MSG_ERROR(Please check you have nsapi.h in either $PHP_NSAPI/include or $PHP_NSAPI/plugins/include)
+  fi
+
+  PHP_EVAL_INCLINE($NSAPI_INCLUDE)
   PHP_BUILD_THREAD_SAFE
   AC_DEFINE(HAVE_NSAPI,1,[Whether you have a Netscape Server])
-  PHP_SAPI=nsapi
-  PHP_BUILD_SHARED
+  PHP_SELECT_SAPI(nsapi, shared, nsapi.c)
   INSTALL_IT="\$(INSTALL) -m 0755 $SAPI_SHARED \$(INSTALL_ROOT)$PHP_NSAPI/bin/"
 fi
 

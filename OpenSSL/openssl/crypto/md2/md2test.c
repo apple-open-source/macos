@@ -59,17 +59,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <openssl/md2.h>
 
 #include "../e_os.h"
 
-#ifdef NO_MD2
+#ifdef OPENSSL_NO_MD2
 int main(int argc, char *argv[])
 {
     printf("No MD2 support\n");
     return(0);
 }
 #else
-#include <openssl/md2.h>
+#include <openssl/evp.h>
 
 #ifdef CHARSET_EBCDIC
 #include <openssl/ebcdic.h>
@@ -102,13 +103,15 @@ int main(int argc, char *argv[])
 	int i,err=0;
 	char **P,**R;
 	char *p;
+	unsigned char md[MD2_DIGEST_LENGTH];
 
 	P=test;
 	R=ret;
 	i=1;
 	while (*P != NULL)
 		{
-		p=pt(MD2((unsigned char *)*P,(unsigned long)strlen(*P),NULL));
+		EVP_Digest((unsigned char *)*P,(unsigned long)strlen(*P),md,NULL,EVP_md2(), NULL);
+		p=pt(md);
 		if (strcmp(p,*R) != 0)
 			{
 			printf("error calculating MD2 on '%s'\n",*P);
@@ -122,7 +125,6 @@ int main(int argc, char *argv[])
 		P++;
 		}
 	EXIT(err);
-	return(0);
 	}
 
 static char *pt(unsigned char *md)

@@ -1,5 +1,5 @@
 #if	!defined(lint) && !defined(DOS)
-static char rcsid[] = "$Id: osdep.c,v 1.3 2002/02/20 17:51:54 bbraun Exp $";
+static char rcsid[] = "$Id: osdep.c,v 1.4 2003/01/12 01:48:11 bbraun Exp $";
 #endif
 /*
  * Program:	Operating system dependent routines - Ultrix 4.1

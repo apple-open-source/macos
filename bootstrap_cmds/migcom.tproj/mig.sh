@@ -47,10 +47,10 @@
 # the rights to redistribute these changes.
 #
 
-C=${MIGCC-cc}
+C=${MIGCC-/usr/bin/cc}
 M=${MIGCOM-${NEXT_ROOT}/usr/libexec/migcom}
 
-cppflags="-traditional-cpp -D__MACH30__"
+cppflags="-D__MACH30__"
 migflags=
 files=
 arch=`/usr/bin/arch`
@@ -85,14 +85,22 @@ do
     esac
 done
 
+#
+# traditional-cpp is deprecated in gcc 3.3 and later
+#
+gcc_version=`$C --version | /usr/bin/cut -d' ' -f3`
+if [ "$gcc_version" "<" "3.3" ]; then
+	cppflags="-traditional-cpp $cppflags"
+fi
+
 for file in $files
 do
     base="$(basename "$file" .defs)"
-    temp="$base".$$
+    temp=/tmp/"$base".$$
     sourcedir="$(dirname "$file")"
     rm -f "$temp".c "$temp".d
     (echo '#line 1 '\""$file"\"; cat "$file") > "$temp".c
-    $C -E -arch $arch $cppflags -I "$sourcedir" "$temp".c | $M  $migflags || exit
+    $C -E -arch $arch $cppflags -I "$sourcedir" "$temp".c | $M  $migflags || rm -f "$temp".c "$temp".d | exit
 
     if [ "$sawMD" -a -f "$temp".d ]
     then

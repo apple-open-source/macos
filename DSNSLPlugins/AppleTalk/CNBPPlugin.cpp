@@ -1,16 +1,36 @@
 /*
- *  CNBPPlugin.cpp
- *  DSNBPPlugIn
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
- *  Created by imlucid on Wed Aug 27 2001.
- *  Copyright (c) 2001 Apple Computer. All rights reserved.
- *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+ 
+/*!
+ *  @header CNBPPlugin
  */
 
 #include "CNBPPlugin.h"
 #include "CNBPNodeLookupThread.h"
 #include "CNBPServiceLookupThread.h"
-#include "TGetCFBundleResources.h"
+#include "CNSLTimingUtils.h"
 
 const CFStringRef	gBundleIdentifier = CFSTR("com.apple.DirectoryService.AppleTalk");
 const char*		gProtocolPrefixString = "AppleTalk";
@@ -61,28 +81,35 @@ boolean_t AppleTalkChangedNotificationCallback(SCDynamicStoreRef session, void *
 {                       
     CNBPPlugin*		plugin = (CNBPPlugin*)callback_argument;
     
-    // do nothing by default
-	DBGLOG( "*****AppleTalk Network Change Detected******\n" );
-	
-	sleep(1);
-	CFArrayRef	changedKeys;
-	
-	changedKeys = SCDynamicStoreCopyNotifiedKeys(session);
-	
-    for ( CFIndex i = 0; i < ::CFArrayGetCount(changedKeys); i++ )
-    {
-        if ( CFStringHasSuffix( (CFStringRef)::CFArrayGetValueAtIndex( changedKeys, i ), kSCEntNetAppleTalk ) )
+	if ( plugin->IsActive() )
+	{
+		// do nothing by default
+		DBGLOG( "*****AppleTalk Network Change Detected******\n" );
+		
+		SmartSleep(1*USEC_PER_SEC);
+		CFArrayRef	changedKeys;
+		CFIndex		numKeys = 0;
+		
+		changedKeys = SCDynamicStoreCopyNotifiedKeys(session);
+		
+		if ( changedKeys )
 		{
-			plugin->ClearOutAllNodes();			// clear these out
-			plugin->StartNodeLookup();			// and then start all over
+			numKeys = ::CFArrayGetCount(changedKeys);
 			
-			break;								// this is all we care about
+			for ( CFIndex i = 0; i < numKeys; i++ )
+			{
+				if ( CFStringHasSuffix( (CFStringRef)::CFArrayGetValueAtIndex( changedKeys, i ), kSCEntNetAppleTalk ) )
+				{
+					plugin->StartNodeLookup();			// and then start all over
+					
+					break;								// this is all we care about
+				}
+			}
+			
+			::CFRelease( changedKeys );
 		}
-    }
-    
-    if ( changedKeys )
-		::CFRelease( changedKeys );
-
+	}
+	
 	return true;				// return whether everything went ok
 } // AppleTalkChangedNotificationCallback
 
@@ -192,7 +219,10 @@ void CNBPPlugin::NewNodeLookup( void )
         newLookup->Resume();
     }
     else
-        DBGLOG( "CNBPPlugin::NewNodeLookup, ignoring lookup as GetATStackState didn't return noErr\n" );
+	{
+        DBGLOG( "CNBPPlugin::NewNodeLookup, ignoring lookup and clearing out all Zones as GetATStackState didn't return noErr\n" );
+		ClearOutAllNodes();
+	}
 }
 
 void CNBPPlugin::NewServiceLookup( char* serviceType, CNSLDirNodeRep* nodeDirRep )

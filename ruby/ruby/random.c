@@ -2,8 +2,8 @@
 
   random.c -
 
-  $Author: jkh $
-  $Date: 2002/05/27 17:59:44 $
+  $Author: melville $
+  $Date: 2003/05/14 13:58:44 $
   created at: Fri Dec 24 16:39:21 JST 1993
 
   Copyright (C) 1993-2000 Yukihiro Matsumoto
@@ -88,7 +88,7 @@ rand_init(seed)
     int old;
     static unsigned int saved_seed;
 
-#if defined HAVE_RANDOM && !defined __UCLIBC__
+#if defined HAVE_INITSTATE
     if (first == 1) {
 	initstate(1, state, sizeof state);
     }

@@ -12,8 +12,8 @@ NAME = developer_cmds
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Aggregate
 
-TOOLS = asa cpp ctags error fpr fsplit hexdump indent lorder\
-        mkdep mkstr rpcgen unifdef vgrind what xstr
+TOOLS = asa ctags error fpr fsplit hexdump indent lorder\
+        mkdep rpcgen unifdef vgrind what 
 
 OTHERSRCS = PROJECT Makefile.preamble Makefile Makefile.postamble
 
@@ -25,7 +25,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-NEXTSTEP_PB_CFLAGS = -Wmost -Werror -DRHAPSODY
+NEXTSTEP_PB_CFLAGS = -Wall -DRHAPSODY
 
 
 NEXTSTEP_BUILD_OUTPUT_DIR = /tmp/$(NAME)/Build

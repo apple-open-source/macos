@@ -1,4 +1,4 @@
-.TH "ZSHCOMPWID" "1" "October 26, 2001" "zsh 4\&.0\&.4"
+.TH "ZSHCOMPWID" "1" "June 18, 2003" "zsh 4\&.1\&.1"
 .SH "NAME"
 zshcompwid \- zsh completion widgets
 .\" Yodl file: Zsh/compwid.yo
@@ -148,6 +148,9 @@ this case the \fBwords\fP array contains the words inside the parentheses\&.
 \fBbrace_parameter\fP
 when completing the name of a parameter in a parameter expansion beginning
 with \fB${\fP\&.
+.TP
+\fBassign_parameter\fP
+when completing the name of a parameter in a parameter assignment\&.
 .TP
 \fBcommand\fP
 when completing for a normal command (either in command position or for
@@ -431,6 +434,9 @@ edited\&.
 .PD 0
 [ \fB\-D\fP \fIarray\fP ] [ \fB\-O\fP \fIarray\fP ] [ \fB\-A\fP \fIarray\fP ]
 .TP
+.PD 0
+[ \fB\-E\fP \fInumber\fP ]
+.TP
 .PD
 [ \fB\-M\fP \fImatch\-spec\fP ] [ \fB\-\-\fP ] [ \fIwords\fP \&.\&.\&. ]
 .RS
@@ -571,6 +577,12 @@ suffix if the next character typed inserts anything but a digit\&. One extra
 backslash sequence is understood in this string: `\fB\e\-\fP' stands for
 all characters that insert nothing\&. Thus `\fB\-S "=" \-q\fP' is the same
 as `\fB\-S "=" \-r "= \et\en\e\-"\fP'\&.
+.RS
+.PP
+This option may also be used without the \fB\-S\fP option; then any
+automatically added space will be removed when one of the characters in the
+list is typed\&.
+.RE
 .TP
 \fB\-R\fP \fIremove\-func\fP
 This is another form of the \fB\-r\fP option\&. When a suffix 
@@ -663,6 +675,17 @@ specify a string that should be displayed in the list for this special
 match\&.  If no string is given, it will be shown as a string containing 
 the strings that would be inserted for the other matches, truncated to 
 the width of the screen\&.
+.TP
+\fB\-E\fP
+This option adds \fInumber\fP empty matches after the \fIwords\fP have
+been added\&.  An empty match takes up space in completion listings but
+will never be inserted in the line and can't be selected with menu
+completion or menu selection\&.  This makes empty matches only useful to
+format completion lists and to make explanatory string be shown in
+completion lists (since empty matches can be given display strings
+with the \fB\-d\fP option)\&.  And because all but one empty string would
+otherwise be removed, this option implies the \fB\-V\fP and \fB\-2\fP
+options (even if an explicit \fB\-J\fP option is given)\&.
 .TP
 .PD 0
 \fB\-\fP

@@ -1,4 +1,4 @@
-# Copyright 1999, 2000 Free Software Foundation, Inc.
+# Copyright 1999, 2000, 2002 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@
 # Set it if it is not already set.
 global mi_gdb_prompt
 if ![info exists mi_gdb_prompt] then {
-    set mi_gdb_prompt "\[(\]gdb\[)\] \r\n"
+    set mi_gdb_prompt "\[(\]gdb\[)\] \[\r\n\]*"
 }
 
 set MIFLAGS "-i=mi"
@@ -123,7 +123,26 @@ proc mi_gdb_start { } {
 	return 1;
     }
     gdb_expect {
-	-re ".*$mi_gdb_prompt$" {
+	-re "~\"GNU.*\r\n~\".*$mi_gdb_prompt$" {
+	    # We have a new format mi startup prompt.  If we are
+	    # running mi1, then this is an error as we should be
+	    # using the old-style prompt.
+	    if { $MIFLAGS == "-i=mi1" } {
+	        # perror "(mi startup) Got unexpected new mi prompt."
+	        # remote_close host;
+	        # return -1;
+	    }
+	    verbose "GDB initialized."
+	}
+	-re "\[^~\].*$mi_gdb_prompt$" {
+	    # We have an old format mi startup prompt.  If we are
+	    # not running mi1, then this is an error as we should be
+	    # using the new-style prompt.
+	    if { $MIFLAGS != "-i=mi1" } {
+	        # perror "(mi startup) Got unexpected old mi prompt."
+	        # remote_close host;
+	        # return -1;
+	    }
 	    verbose "GDB initialized."
 	}
 	-re ".*$gdb_prompt $" {
@@ -149,6 +168,18 @@ proc mi_gdb_start { } {
     }
     set gdb_spawn_id -1;
 
+    # APPLE LOCAL: Turn off MI timings for the testsuite.
+    send_gdb "99-mi-enable-timings no\n"
+    gdb_expect 10 {
+        -re ".*99\\\^done\r\n$mi_gdb_prompt$" {
+            verbose "Disabling MI timings." 2
+        }
+        timeout {
+            warning "Couldn't disable MI timings."
+        }
+    }
+    # APPLE LOCAL
+    
     # FIXME: mi output does not go through pagers, so these can be removed.
     # force the height to "unlimited", so no pagers get used
     send_gdb "100-gdb-set height 0\n"
@@ -193,7 +224,7 @@ proc mi_delete_breakpoints {} {
 	 -re ".*102-break-delete\r\n102\\\^done\r\n$mi_gdb_prompt$" {
             # This happens if there were no breakpoints
 	 }
-	 timeout { perror "Delete all breakpoints in delete_breakpoints (timeout)" ; return }
+	 timeout { perror "Delete all breakpoints in mi_delete_breakpoints (timeout)" ; return }
     }
 
 # The correct output is not "No breakpoints or watchpoints." but an
@@ -215,6 +246,7 @@ proc mi_delete_breakpoints {} {
 
 proc mi_gdb_reinitialize_dir { subdir } {
     global mi_gdb_prompt
+    global MIFLAGS
 
     global suppress_flag
     if { $suppress_flag } {
@@ -225,8 +257,9 @@ proc mi_gdb_reinitialize_dir { subdir } {
 	return "";
     }
 
-    send_gdb "104-environment-directory\n"
-    gdb_expect 60 {
+    if { $MIFLAGS == "-i=mi1" } {
+      send_gdb "104-environment-directory\n"
+      gdb_expect 60 {
 	-re ".*Reinitialize source path to empty.*y or n. " {
             warning "Got confirmation prompt for dir reinitialization."
 	    send_gdb "y\n"
@@ -237,6 +270,14 @@ proc mi_gdb_reinitialize_dir { subdir } {
 	}
 	-re "$mi_gdb_prompt$" {}
         timeout {error "Dir reinitialization failed (timeout)"}
+      }
+    } else {
+      send_gdb "104-environment-directory -r\n"
+      gdb_expect 60 {
+	-re "104\\\^done,source-path=.*\r\n$mi_gdb_prompt$" {}
+	-re "$mi_gdb_prompt$" {}
+        timeout {error "Dir reinitialization failed (timeout)"}
+      }
     }
 
     send_gdb "105-environment-directory $subdir\n"
@@ -244,7 +285,7 @@ proc mi_gdb_reinitialize_dir { subdir } {
 	-re "Source directories searched.*$mi_gdb_prompt$" {
 	    verbose "Dir set to $subdir"
 	}
-	-re "105\\\^done\r\n$mi_gdb_prompt$" {
+	-re "105\\\^done.*\r\n$mi_gdb_prompt$" {
             # FIXME: We return just the prompt for now.
 	    verbose "Dir set to $subdir"
 	    # perror "Dir \"$subdir\" failed."
@@ -382,7 +423,7 @@ proc mi_gdb_load { arg } {
 proc mi_gdb_test { args } {
     global verbose
     global mi_gdb_prompt
-    global GDB
+    global GDB expect_out
     upvar timeout timeout
 
     if [llength $args]>2 then {
@@ -471,6 +512,12 @@ proc mi_gdb_test { args } {
 	    gdb_start
 	    set result -1
 	}
+	 -re "\[\r\n\]*($pattern)\[\r\n\]+$mi_gdb_prompt\[ \]*$" {
+	    if ![string match "" $message] then {
+		pass "$message"
+	    }
+	    set result 0
+	}
 	 -re "(${question_string})$" {
 	    send_gdb "$response_string\n";
 	    exp_continue;
@@ -484,12 +531,6 @@ proc mi_gdb_test { args } {
 	    perror "\"$command\" is not a unique command name."
             fail "$message"
 	    set result 1
-	}
-	 -re "\[\r\n\]*($pattern)\[\r\n\]+$mi_gdb_prompt\[ \]*$" {
-	    if ![string match "" $message] then {
-		pass "$message"
-	    }
-	    set result 0
 	}
 	 -re "Program exited with code \[0-9\]+.*$mi_gdb_prompt\[ \]*$" {
 	    if ![string match "" $message] then {
@@ -545,6 +586,46 @@ proc mi_gdb_test { args } {
     }
     return $result
 }
+
+# mi_check_current_frame FUNC FILE LINE TESTNAME
+# For MI variants where the FRAME attribute is not displayed at a 
+# "stopped" point, provide an easy way to verify we're where we think we are.
+# Unnecessary calls should have a .* type regexp in them, e.g.
+#    mi_check_current_frame "foo" "until.c" "10" "run_to_main (2) loc-check"
+
+proc mi_check_current_frame { func file line message } {
+  global hex
+
+  mi_gdb_test "-stack-list-frames 0 0" \
+             ".*\\^done,stack=\(\\\[|\{\)frame=\{level=\"0 *\",addr=\"$hex\",fp=\"$hex\",func=\"$func\",file=\".*$file\",line=\"$line\",dir=\".*\"\}\(\\\]|\}\)" \
+               $message
+}
+
+# mi_get_bp_stopped BKPTNO THREAD ARGS FUNC FILE LINE MESSAGE 
+
+proc mi_get_bp_stopped { bkptno thread args func file line message } {
+  set reason "breakpoint-hit\",commands=\"no\",bkptno=\"$bkptno"
+  return [mi_get_stopped $reason $thread $args $func $file $line $message]
+}
+
+# mi_get_stopped REASON THREAD ARGS FUNC FILE LINE MESSAGE
+
+proc mi_get_stopped { reason thread args func file line message } {
+  global hex
+  global mi_gdb_prompt
+
+  gdb_expect {
+    -re "\[\r\n\]*\\*stopped,reason=\"$reason\",thread-id=\"$thread\"\r\n$mi_gdb_prompt$" {
+        pass "$message"
+        mi_check_current_frame "$func" "$file" "$line" "$message loc-check"
+        return 0
+    }
+    -re ".*$mi_gdb_prompt$" {fail "$message"}
+    timeout {fail "$message (timeout)"}
+  }
+  return 1
+}
+
 
 #
 # MI run command.  (A modified version of gdb_run_cmd)
@@ -621,81 +702,80 @@ proc mi_run_to_main { } {
 	return -1
     }
 
-    global mi_gdb_prompt
-    global hex
-    global decimal
     global srcdir
     global subdir
     global binfile
     global srcfile
 
-    set test "mi run-to-main"
     mi_delete_breakpoints
     mi_gdb_reinitialize_dir $srcdir/$subdir
     mi_gdb_load ${binfile}
 
-    mi_gdb_test "200-break-insert main" \
-	    "200\\^done,bkpt=\{number=\"1\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\"main\",file=\".*\",line=\"\[0-9\]*\",times=\"0\"\}" \
-	    "breakpoint at main"
+    mi_runto main
+}
 
-    mi_run_cmd
-    gdb_expect {
-	-re "000\\*stopped,reason=\"breakpoint-hit\",bkptno=\"1\",thread-id=\"$decimal\",frame=\{addr=\"$hex\",func=\"main\",args=\(\\\[\\\]\|\{\}\),file=\".*\",line=\"\[0-9\]*\"\}\r\n$mi_gdb_prompt$" {
-	    pass "$test"
-	    return 0
-	}
-	-re ".*$mi_gdb_prompt$" {
-	    fail "$test (2)"
-	}
-	timeout {
-	    fail "$test (timeout)"
-	    return -1
-	}
+
+# Just like gdb's "runto" proc, it will run the target to a given
+# function.  The big difference here between mi_runto and mi_execute_to
+# is that mi_execute_to must have the inferior running already.  This
+# proc will (like gdb's runto) (re)start the inferior, too.
+#
+# FUNC is the linespec of the place to stop (it inserts a breakpoint here).
+# It returns:
+#   -1  if test suppressed, failed, timedout
+#    0  if test passed
+
+proc mi_runto {func} {
+  global suppress_flag
+  if { $suppress_flag } {
+    return -1
+  }
+
+  global mi_gdb_prompt expect_out
+  global hex decimal
+
+  set test "mi runto $func"
+  mi_gdb_test "200-break-insert $func" \
+    "200\\^done,bkpt=\{number=\"\[0-9\]+\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\"$func\",file=\".*\",line=\"\[0-9\]*\",times=\"0\"\}" \
+    "breakpoint at $func"
+
+  if {![regexp {number="[0-9]+"} $expect_out(buffer) str]
+      || ![scan $str {number="%d"} bkptno]} {
+    set bkptno {[0-9]+}
+  }
+
+  mi_run_cmd
+# APPLE LOCAL: COMMANDS field included in 'stopped' reason
+#              FRAME field not included in 'stopped' reason
+  gdb_expect {
+    -re ".*000\\*stopped,reason=\"breakpoint-hit\",commands=\"no\",bkptno=\"$bkptno\",thread-id=\"$decimal\"\r\n$mi_gdb_prompt$" {
+      pass "$test"
+      return 0
     }
+    -re ".*$mi_gdb_prompt$" {
+      fail "$test (2)"
+    }
+    timeout {
+      fail "$test (timeout)"
+      return -1
+    }
+  }
 }
 
 
 # Next to the next statement
+# For return values, see mi_execute_to_helper
 
 proc mi_next { test } {
-    global suppress_flag
-    if { $suppress_flag } {
-	return -1
-    }
-    global mi_gdb_prompt
-    send_gdb "220-exec-next\n"
-    gdb_expect {
-	-re "220\\^running\r\n${mi_gdb_prompt}220\\*stopped,reason=\"end-stepping-range\",thread-id=\"$decimal\",frame=\{addr=\"$hex\",func=\".*\",args=\[\\\[\{].*[\\\]\}\],file=\".*\",line=\"\[0-9\]*\"\}\r\n$mi_gdb_prompt$" {
-	    pass "$test"
-	    return 0
-	}
-	timeout {
-	    fail "$test"
-	    return -1
-	}
-    }
+  return [mi_next_to {.*} {.*} {.*} {.*} $test]
 }
 
 
 # Step to the next statement
+# For return values, see mi_execute_to_helper
 
 proc mi_step { test } {
-    global suppress_flag
-    if { $suppress_flag } {
-	return -1
-    }
-    global mi_gdb_prompt
-    send_gdb "220-exec-step\n"
-    gdb_expect {
-	-re "220\\^running\r\n${mi_gdb_prompt}220\\*stopped,reason=\"end-stepping-range\",thread-id=\"$decimal\",frame=\{addr=\"$hex\",func=\".*\",args=\[\\\[\{\].*\[\\\]\}\],file=\".*\",line=\"\[0-9\]*\"\}\r\n$mi_gdb_prompt$" {
-	    pass "$test"
-	    return 0
-	}
-	timeout {
-	    fail "$test"
-	    return -1
-	}
-    }
+  return [mi_step_to {.*} {.*} {.*} {.*} $test]
 }
 
 # cmd should not include the number or newline (i.e. "exec-step 3", not
@@ -704,21 +784,28 @@ proc mi_step { test } {
 # Can not match -re ".*\r\n${mi_gdb_prompt}", because of false positives
 # after the first prompt is printed.
 
-proc mi_run_to_helper { cmd reason func args file line extra test } {
+proc mi_execute_to_helper { cmd reason func args file line extra test } {
     global suppress_flag
     if { $suppress_flag } {
 	return -1
     }
+    
     global mi_gdb_prompt
     global hex
     global decimal
     send_gdb "220-$cmd\n"
+
+# APPLE LOCAL: Our 'stopped' result doesn't include the FRAME field, so issue
+# a separate call to mi_check_current_frame.  COMMANDS has already been
+# inserted into the result by the caller of this function.
+
     gdb_expect {
-	-re "220\\^running\r\n${mi_gdb_prompt}220\\*stopped,reason=\"$reason\",thread-id=\"$decimal\",frame=\{addr=\"$hex\",func=\"$func\",args=$args,file=\".*$file\",line=\"$line\"\}$extra\r\n$mi_gdb_prompt$" {
+	-re ".*220\\^running\r\n${mi_gdb_prompt}.*220\\*stopped,reason=\"$reason\",thread-id=\"$decimal\"$extra\r\n$mi_gdb_prompt$" {
 	    pass "$test"
+            mi_check_current_frame "$func" "$file" "$line" "$test loc-check"
 	    return 0
 	}
-	-re "220\\^running\r\n${mi_gdb_prompt}220\\*stopped,reason=\"$reason\",thread-id=\"$decimal\",frame=\{addr=\"$hex\",func=\".*\",args=\[\\\[\{\].*\[\\\]\}\],file=\".*\",line=\"\[0-9\]*\"\}.*\r\n$mi_gdb_prompt$" {
+	-re ".*220\\^running\r\n${mi_gdb_prompt}.*220\\*stopped,reason=\"$reason\",thread-id=\"$decimal\",frame=\{addr=\"$hex\",func=\".*\",args=\[\\\[\{\].*\[\\\]\}\],file=\".*\",line=\"\[0-9\]*\"\}.*\r\n$mi_gdb_prompt$" {
 	    fail "$test (stopped at wrong place)"
 	    return -1
 	}
@@ -733,56 +820,60 @@ proc mi_run_to_helper { cmd reason func args file line extra test } {
     }
 }
 
-proc mi_run_to { cmd reason func args file line extra test } {
-    mi_run_to_helper "$cmd" "$reason" "$func" "\\\[$args\\\]" \
+proc mi_execute_to { cmd reason func args file line extra test } {
+    mi_execute_to_helper "$cmd" "$reason" "$func" "\\\[$args\\\]" \
 	"$file" "$line" "$extra" "$test"
 }
 
 proc mi_next_to { func args file line test } {
-    mi_run_to "exec-next" "end-stepping-range" "$func" "$args" \
+    mi_execute_to "exec-next" "end-stepping-range" "$func" "$args" \
 	"$file" "$line" "" "$test"
 }
 
 proc mi_step_to { func args file line test } {
-    mi_run_to "exec-step" "end-stepping-range" "$func" "$args" \
+    mi_execute_to "exec-step" "end-stepping-range" "$func" "$args" \
 	"$file" "$line" "" "$test"
 }
 
 proc mi_finish_to { func args file line result ret test } {
-    mi_run_to "exec-finish" "function-finished" "$func" "$args" \
+    mi_execute_to "exec-finish" "function-finished" "$func" "$args" \
 	"$file" "$line" \
 	",gdb-result-var=\"$result\",return-value=\"$ret\"" \
 	"$test"
 }
 
+# APPLE LOCAL: When we stop due to a breakpoint, we'll get a COMMANDS field.
+
 proc mi_continue_to { bkptno func args file line test } {
-    mi_run_to "exec-continue" "breakpoint-hit\",bkptno=\"$bkptno" \
+    mi_execute_to "exec-continue" "breakpoint-hit\",commands=\"no\",bkptno=\"$bkptno" \
 	"$func" "$args" "$file" "$line" "" "$test"
 }
 
-proc mi0_run_to { cmd reason func args file line extra test } {
-    mi_run_to_helper "$cmd" "$reason" "$func" "\{$args\}" \
+proc mi0_execute_to { cmd reason func args file line extra test } {
+    mi_execute_to_helper "$cmd" "$reason" "$func" "\{$args\}" \
 	"$file" "$line" "$extra" "$test"
 }
 
 proc mi0_next_to { func args file line test } {
-    mi0_run_to "exec-next" "end-stepping-range" "$func" "$args" \
+    mi0_execute_to "exec-next" "end-stepping-range" "$func" "$args" \
 	"$file" "$line" "" "$test"
 }
 
 proc mi0_step_to { func args file line test } {
-    mi0_run_to "exec-step" "end-stepping-range" "$func" "$args" \
+    mi0_execute_to "exec-step" "end-stepping-range" "$func" "$args" \
 	"$file" "$line" "" "$test"
 }
 
 proc mi0_finish_to { func args file line result ret test } {
-    mi0_run_to "exec-finish" "function-finished" "$func" "$args" \
+    mi0_execute_to "exec-finish" "function-finished" "$func" "$args" \
 	"$file" "$line" \
 	",gdb-result-var=\"$result\",return-value=\"$ret\"" \
 	"$test"
 }
 
+# APPLE LOCAL: When we stop due to a breakpoint, we'll get a COMMANDS field.
+
 proc mi0_continue_to { bkptno func args file line test } {
-    mi0_run_to "exec-continue" "breakpoint-hit\",bkptno=\"$bkptno" \
+    mi0_execute_to "exec-continue" "breakpoint-hit\",commands=\"no\",bkptno=\"$bkptno" \
 	"$func" "$args" "$file" "$line" "" "$test"
 }

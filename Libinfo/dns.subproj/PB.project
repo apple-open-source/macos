@@ -1,7 +1,7 @@
 {
     DYNAMIC_CODE_GEN = YES; 
     FILESTABLE = {
-        H_FILES = (inet.h, nameser.h, options.h, portability.h, resolv.h); 
+        H_FILES = (inet.h, nameser8_compat.h, options.h, portability.h, resolv8_compat.h); 
         OTHER_LINKED = (
             gethnamaddr.c, 
             getnetbyaddr.c, 
@@ -19,7 +19,7 @@
             sethostent.c
         ); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble); 
-        PUBLIC_HEADERS = (resolv.h, nameser.h); 
+        PUBLIC_HEADERS = (resolv8_compat.h, nameser8_compat.h); 
     }; 
     LANGUAGE = English; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 

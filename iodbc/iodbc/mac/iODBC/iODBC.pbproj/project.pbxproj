@@ -1,0 +1,750 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 34;
+	objects = {
+		034768DDFF38A45A11DB9C8B = {
+			children = (
+				034768DEFF38A45A11DB9C8B,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+		034768DEFF38A45A11DB9C8B = {
+			isa = PBXFrameworkReference;
+			path = iODBC.framework;
+			refType = 3;
+		};
+//030
+//031
+//032
+//033
+//034
+//080
+//081
+//082
+//083
+//084
+		0867D690FE84028FC02AAC07 = {
+			buildStyles = (
+				4F0BB7EC011F40E904CA0E50,
+				4F0BB7ED011F40E904CA0E50,
+			);
+			isa = PBXProject;
+			mainGroup = 0867D691FE84028FC02AAC07;
+			productRefGroup = 034768DDFF38A45A11DB9C8B;
+			projectDirPath = "";
+			targets = (
+				0867D69CFE84028FC02AAC07,
+			);
+		};
+		0867D691FE84028FC02AAC07 = {
+			children = (
+				08FB77ACFE841707C02AAC07,
+				089C1665FE841158C02AAC07,
+				0867D69AFE84028FC02AAC07,
+				034768DDFF38A45A11DB9C8B,
+			);
+			isa = PBXGroup;
+			name = iODBC;
+			refType = 4;
+		};
+		0867D69AFE84028FC02AAC07 = {
+			children = (
+			);
+			isa = PBXGroup;
+			name = "External Frameworks and Libraries";
+			refType = 4;
+		};
+		0867D69CFE84028FC02AAC07 = {
+			buildPhases = (
+				0867D69DFE84028FC02AAC07,
+				0867D69EFE84028FC02AAC07,
+				0867D69FFE84028FC02AAC07,
+				0867D6A0FE84028FC02AAC07,
+				0867D6A2FE84028FC02AAC07,
+			);
+			buildSettings = {
+				DEBUGGING_SYMBOLS = NO;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				EXPORTED_SYMBOLS_FILE = ../../mac/iodbc.exp;
+				FRAMEWORK_SEARCH_PATHS = "";
+				FRAMEWORK_VERSION = 3.0.6;
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = /Library/Frameworks;
+				LIBRARY_SEARCH_PATHS = "";
+				OPTIMIZATION_CFLAGS = "-O2";
+				OTHER_CFLAGS = "-D_REENTRANT -DWITH_PTHREADS -D_MACX -DDLDAPI_MACX";
+				PREBINDING = NO;
+				PRODUCT_NAME = iODBC;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = framework;
+			};
+			dependencies = (
+			);
+			isa = PBXFrameworkTarget;
+			name = iODBC;
+			productInstallPath = /Library/Frameworks;
+			productName = iODBC;
+			productReference = 034768DEFF38A45A11DB9C8B;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
+<plist version=\"0.9\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>iODBC</string>
+	<key>CFBundleGetInfoString</key>
+	<string>iODBC Driver Manager Library</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>org.iodbc.core</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>iODBC Core</string>
+	<key>CFBundlePackageType</key>
+	<string>FMWK</string>
+	<key>CFBundleShortVersionString</key>
+	<string>3.0.6</string>
+	<key>CFBundleSignature</key>
+	<string>odbc</string>
+	<key>CFBundleVersion</key>
+	<string>3.0.6</string>
+	<key>CSResourcesFileMapped</key>
+	<true/>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 1;
+		};
+		0867D69DFE84028FC02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				F535B3340277FBC601A801DE,
+				F535B3350277FBC601A801DE,
+				F535B3360277FBC601A801DE,
+				F535B3370277FBC601A801DE,
+				F535B3380277FBC601A801DE,
+				F535B3390277FBC601A801DE,
+				F535B33A0277FBC601A801DE,
+				F535B33B0277FBC601A801DE,
+				F535B33C0277FBC601A801DE,
+				F535B33D0277FBC601A801DE,
+				F535B3550277FC2E01A801DE,
+				F535B3560277FC2E01A801DE,
+				F535B3570277FC2E01A801DE,
+				F535B3580277FC2E01A801DE,
+				F535B3590277FC2E01A801DE,
+				F535B35A0277FC2E01A801DE,
+			);
+			isa = PBXHeadersBuildPhase;
+			name = Headers;
+		};
+		0867D69EFE84028FC02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				089C1668FE841158C02AAC07,
+			);
+			isa = PBXResourcesBuildPhase;
+			name = "Bundle Resources";
+		};
+		0867D69FFE84028FC02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				F535B33E0277FBC601A801DE,
+				F535B33F0277FBC601A801DE,
+				F535B3400277FBC601A801DE,
+				F535B3410277FBC601A801DE,
+				F535B3420277FBC601A801DE,
+				F535B3430277FBC601A801DE,
+				F535B3440277FBC601A801DE,
+				F535B3450277FBC601A801DE,
+				F535B3460277FBC601A801DE,
+				F535B3470277FBC601A801DE,
+				F535B3480277FBC601A801DE,
+				F535B3490277FBC601A801DE,
+				F535B34B0277FBC601A801DE,
+				F535B34C0277FBC601A801DE,
+				F535B34D0277FBC601A801DE,
+				F535B34E0277FBC601A801DE,
+				F54DA8D80279592201A801DE,
+			);
+			isa = PBXSourcesBuildPhase;
+			name = Sources;
+		};
+		0867D6A0FE84028FC02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			name = "Frameworks & Libraries";
+		};
+		0867D6A2FE84028FC02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			name = "ResourceManager Resources";
+		};
+		089C1665FE841158C02AAC07 = {
+			children = (
+				089C1666FE841158C02AAC07,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			refType = 4;
+		};
+		089C1666FE841158C02AAC07 = {
+			children = (
+				089C1667FE841158C02AAC07,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			refType = 4;
+		};
+		089C1667FE841158C02AAC07 = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			name = English;
+			path = English.lproj/InfoPlist.strings;
+			refType = 4;
+		};
+		089C1668FE841158C02AAC07 = {
+			fileRef = 089C1666FE841158C02AAC07;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		08FB77ACFE841707C02AAC07 = {
+			children = (
+				F535B3150277FB3501A801DE,
+			);
+			isa = PBXGroup;
+			name = Source;
+			refType = 4;
+		};
+//080
+//081
+//082
+//083
+//084
+//4F0
+//4F1
+//4F2
+//4F3
+//4F4
+		4F0BB7EC011F40E904CA0E50 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		4F0BB7ED011F40E904CA0E50 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+//4F0
+//4F1
+//4F2
+//4F3
+//4F4
+//F50
+//F51
+//F52
+//F53
+//F54
+		F535B3150277FB3501A801DE = {
+			children = (
+				F535B34F0277FC2E01A801DE,
+				F535B3500277FC2E01A801DE,
+				F535B3510277FC2E01A801DE,
+				F535B3520277FC2E01A801DE,
+				F535B3530277FC2E01A801DE,
+				F535B3540277FC2E01A801DE,
+				F535B3160277FBC601A801DE,
+				F535B3170277FBC601A801DE,
+				F535B3180277FBC601A801DE,
+				F535B3190277FBC601A801DE,
+				F535B31A0277FBC601A801DE,
+				F535B31B0277FBC601A801DE,
+				F535B31C0277FBC601A801DE,
+				F535B31D0277FBC601A801DE,
+				F535B31E0277FBC601A801DE,
+				F535B31F0277FBC601A801DE,
+				F535B3200277FBC601A801DE,
+				F535B3210277FBC601A801DE,
+				F535B3220277FBC601A801DE,
+				F535B3230277FBC601A801DE,
+				F535B3240277FBC601A801DE,
+				F535B3250277FBC601A801DE,
+				F535B3260277FBC601A801DE,
+				F535B3270277FBC601A801DE,
+				F535B3280277FBC601A801DE,
+				F535B3290277FBC601A801DE,
+				F535B32A0277FBC601A801DE,
+				F535B32C0277FBC601A801DE,
+				F535B32D0277FBC601A801DE,
+				F535B32E0277FBC601A801DE,
+				F535B32F0277FBC601A801DE,
+				F535B3300277FBC601A801DE,
+				F535B3310277FBC601A801DE,
+				F535B3320277FBC601A801DE,
+				F535B3330277FBC601A801DE,
+				F54DA8D70279592201A801DE,
+			);
+			isa = PBXGroup;
+			name = iODBC;
+			refType = 4;
+		};
+		F535B3160277FBC601A801DE = {
+			isa = PBXFileReference;
+			name = odbc3.c;
+			path = ../../iodbc/odbc3.c;
+			refType = 2;
+		};
+		F535B3170277FBC601A801DE = {
+			isa = PBXFileReference;
+			name = catalog.c;
+			path = ../../iodbc/catalog.c;
+			refType = 2;
+		};
+		F535B3180277FBC601A801DE = {
+			isa = PBXFileReference;
+			name = connect.c;
+			path = ../../iodbc/connect.c;
+			refType = 2;
+		};
+		F535B3190277FBC601A801DE = {
+			isa = PBXFileReference;
+			name = dlf.c;
+			path = ../../iodbc/dlf.c;
+			refType = 2;
+		};
+		F535B31A0277FBC601A801DE = {
+			isa = PBXFileReference;
+			name = dlf.h;
+			path = ../../iodbc/dlf.h;
+			refType = 2;
+		};
+		F535B31B0277FBC601A801DE = {
+			isa = PBXFileReference;
+			name = dlproc.c;
+			path = ../../iodbc/dlproc.c;
+			refType = 2;
+		};
+		F535B31C0277FBC601A801DE = {
+			isa = PBXFileReference;
+			name = dlproc.h;
+			path = ../../iodbc/dlproc.h;
+			refType = 2;
+		};
+		F535B31D0277FBC601A801DE = {
+			isa = PBXFileReference;
+			name = execute.c;
+			path = ../../iodbc/execute.c;
+			refType = 2;
+		};
+		F535B31E0277FBC601A801DE = {
+			isa = PBXFileReference;
+			name = fetch.c;
+			path = ../../iodbc/fetch.c;
+			refType = 2;
+		};
+		F535B31F0277FBC601A801DE = {
+			isa = PBXFileReference;
+			name = hdbc.c;
+			path = ../../iodbc/hdbc.c;
+			refType = 2;
+		};
+		F535B3200277FBC601A801DE = {
+			isa = PBXFileReference;
+			name = hdbc.h;
+			path = ../../iodbc/hdbc.h;
+			refType = 2;
+		};
+		F535B3210277FBC601A801DE = {
+			isa = PBXFileReference;
+			name = hdesc.h;
+			path = ../../iodbc/hdesc.h;
+			refType = 2;
+		};
+		F535B3220277FBC601A801DE = {
+			isa = PBXFileReference;
+			name = henv.c;
+			path = ../../iodbc/henv.c;
+			refType = 2;
+		};
+		F535B3230277FBC601A801DE = {
+			isa = PBXFileReference;
+			name = henv.ci;
+			path = ../../iodbc/henv.ci;
+			refType = 2;
+		};
+		F535B3240277FBC601A801DE = {
+			isa = PBXFileReference;
+			name = henv.h;
+			path = ../../iodbc/henv.h;
+			refType = 2;
+		};
+		F535B3250277FBC601A801DE = {
+			isa = PBXFileReference;
+			name = herr.c;
+			path = ../../iodbc/herr.c;
+			refType = 2;
+		};
+		F535B3260277FBC601A801DE = {
+			isa = PBXFileReference;
+			name = herr.ci;
+			path = ../../iodbc/herr.ci;
+			refType = 2;
+		};
+		F535B3270277FBC601A801DE = {
+			isa = PBXFileReference;
+			name = herr.h;
+			path = ../../iodbc/herr.h;
+			refType = 2;
+		};
+		F535B3280277FBC601A801DE = {
+			isa = PBXFileReference;
+			name = hstmt.c;
+			path = ../../iodbc/hstmt.c;
+			refType = 2;
+		};
+		F535B3290277FBC601A801DE = {
+			isa = PBXFileReference;
+			name = hstmt.h;
+			path = ../../iodbc/hstmt.h;
+			refType = 2;
+		};
+		F535B32A0277FBC601A801DE = {
+			isa = PBXFileReference;
+			name = info.c;
+			path = ../../iodbc/info.c;
+			refType = 2;
+		};
+		F535B32C0277FBC601A801DE = {
+			isa = PBXFileReference;
+			name = iodbc.h;
+			path = ../../iodbc/iodbc.h;
+			refType = 2;
+		};
+		F535B32D0277FBC601A801DE = {
+			isa = PBXFileReference;
+			name = ithread.h;
+			path = ../../iodbc/ithread.h;
+			refType = 2;
+		};
+		F535B32E0277FBC601A801DE = {
+			isa = PBXFileReference;
+			name = itrace.c;
+			path = ../../iodbc/itrace.c;
+			refType = 2;
+		};
+		F535B32F0277FBC601A801DE = {
+			isa = PBXFileReference;
+			name = itrace.h;
+			path = ../../iodbc/itrace.h;
+			refType = 2;
+		};
+		F535B3300277FBC601A801DE = {
+			isa = PBXFileReference;
+			name = main.c;
+			path = ../../iodbc/main.c;
+			refType = 2;
+		};
+		F535B3310277FBC601A801DE = {
+			isa = PBXFileReference;
+			name = misc.c;
+			path = ../../iodbc/misc.c;
+			refType = 2;
+		};
+		F535B3320277FBC601A801DE = {
+			isa = PBXFileReference;
+			name = prepare.c;
+			path = ../../iodbc/prepare.c;
+			refType = 2;
+		};
+		F535B3330277FBC601A801DE = {
+			isa = PBXFileReference;
+			name = result.c;
+			path = ../../iodbc/result.c;
+			refType = 2;
+		};
+		F535B3340277FBC601A801DE = {
+			fileRef = F535B31A0277FBC601A801DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F535B3350277FBC601A801DE = {
+			fileRef = F535B31C0277FBC601A801DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F535B3360277FBC601A801DE = {
+			fileRef = F535B3200277FBC601A801DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F535B3370277FBC601A801DE = {
+			fileRef = F535B3210277FBC601A801DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F535B3380277FBC601A801DE = {
+			fileRef = F535B3240277FBC601A801DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F535B3390277FBC601A801DE = {
+			fileRef = F535B3270277FBC601A801DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F535B33A0277FBC601A801DE = {
+			fileRef = F535B3290277FBC601A801DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F535B33B0277FBC601A801DE = {
+			fileRef = F535B32C0277FBC601A801DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F535B33C0277FBC601A801DE = {
+			fileRef = F535B32D0277FBC601A801DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F535B33D0277FBC601A801DE = {
+			fileRef = F535B32F0277FBC601A801DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F535B33E0277FBC601A801DE = {
+			fileRef = F535B3160277FBC601A801DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F535B33F0277FBC601A801DE = {
+			fileRef = F535B3170277FBC601A801DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F535B3400277FBC601A801DE = {
+			fileRef = F535B3180277FBC601A801DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F535B3410277FBC601A801DE = {
+			fileRef = F535B3190277FBC601A801DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F535B3420277FBC601A801DE = {
+			fileRef = F535B31B0277FBC601A801DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F535B3430277FBC601A801DE = {
+			fileRef = F535B31D0277FBC601A801DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F535B3440277FBC601A801DE = {
+			fileRef = F535B31E0277FBC601A801DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F535B3450277FBC601A801DE = {
+			fileRef = F535B31F0277FBC601A801DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F535B3460277FBC601A801DE = {
+			fileRef = F535B3220277FBC601A801DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F535B3470277FBC601A801DE = {
+			fileRef = F535B3250277FBC601A801DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F535B3480277FBC601A801DE = {
+			fileRef = F535B3280277FBC601A801DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F535B3490277FBC601A801DE = {
+			fileRef = F535B32A0277FBC601A801DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F535B34B0277FBC601A801DE = {
+			fileRef = F535B32E0277FBC601A801DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F535B34C0277FBC601A801DE = {
+			fileRef = F535B3310277FBC601A801DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F535B34D0277FBC601A801DE = {
+			fileRef = F535B3320277FBC601A801DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F535B34E0277FBC601A801DE = {
+			fileRef = F535B3330277FBC601A801DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F535B34F0277FC2E01A801DE = {
+			isa = PBXFileReference;
+			name = isqltypes.h;
+			path = ../include/isqltypes.h;
+			refType = 2;
+		};
+		F535B3500277FC2E01A801DE = {
+			isa = PBXFileReference;
+			name = isql.h;
+			path = ../include/isql.h;
+			refType = 2;
+		};
+		F535B3510277FC2E01A801DE = {
+			isa = PBXFileReference;
+			name = isqlext.h;
+			path = ../include/isqlext.h;
+			refType = 2;
+		};
+		F535B3520277FC2E01A801DE = {
+			isa = PBXFileReference;
+			name = sql.h;
+			path = ../include/sql.h;
+			refType = 2;
+		};
+		F535B3530277FC2E01A801DE = {
+			isa = PBXFileReference;
+			name = sqlext.h;
+			path = ../include/sqlext.h;
+			refType = 2;
+		};
+		F535B3540277FC2E01A801DE = {
+			isa = PBXFileReference;
+			name = sqltypes.h;
+			path = ../include/sqltypes.h;
+			refType = 2;
+		};
+		F535B3550277FC2E01A801DE = {
+			fileRef = F535B34F0277FC2E01A801DE;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		F535B3560277FC2E01A801DE = {
+			fileRef = F535B3500277FC2E01A801DE;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		F535B3570277FC2E01A801DE = {
+			fileRef = F535B3510277FC2E01A801DE;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		F535B3580277FC2E01A801DE = {
+			fileRef = F535B3520277FC2E01A801DE;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		F535B3590277FC2E01A801DE = {
+			fileRef = F535B3530277FC2E01A801DE;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		F535B35A0277FC2E01A801DE = {
+			fileRef = F535B3540277FC2E01A801DE;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		F54DA8D70279592201A801DE = {
+			isa = PBXFileReference;
+			name = iodbc.exp;
+			path = ../iodbc.exp;
+			refType = 2;
+		};
+		F54DA8D80279592201A801DE = {
+			fileRef = F54DA8D70279592201A801DE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+	};
+	rootObject = 0867D690FE84028FC02AAC07;
+}

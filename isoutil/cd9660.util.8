@@ -17,11 +17,11 @@
 .Os Darwin
 .Sh NAME
 .Nm cd9660.util
-.Nd helps mount, probe, and unmount cd9660 filesystems
+.Nd ISO 9660 file system utility
 .Sh SYNOPSIS
 .Nm
 .Op Fl m Ar mountflag1 mountflag2 mountflag3 mountflag4
-.Ar device mount_point
+.Ar device node
 .Pp
 .Nm
 .Op Fl p Ar mountflag1 mountflag2 mountflag3 mountflag4
@@ -31,10 +31,9 @@
 .Op Fl u 
 .Ar device
 .Sh DESCRIPTION
+The
 .Nm
-helps to coordinate the mounting, probing, and unmounting of cd9660 filesystems.  It essentially wraps
-.Xr mount 8
-and it's ilk in one interface that is generic enough for the disk mounter to work with, so that the underlying mount commands do not have to fit into one mold.  This allows us to more easily port mount commands without forcing us to reorder or redo the command itself or the disk mounter to understand each specific mount command.
+command supports the mounting, probing, and unmounting of ISO 9660 file systems.
 .Pp
 Options:
 .Bl -tag -width -indent
@@ -67,10 +66,6 @@ or
 .Ar nodev
 .El
 .Sh SEE ALSO 
-.Xr autodiskmount 8 , 
-.Xr hfs.util 8 ,
-.Xr msdos.util 8 ,
-.Xr udf.util 8 ,
-.Xr ufs.util 8
+.Xr diskarbitration 8
 .Sh HISTORY
-Derived from the Openstep Workspace Manager filesystem utility programs.
+Derived from the Openstep Workspace Manager file system utility programs.

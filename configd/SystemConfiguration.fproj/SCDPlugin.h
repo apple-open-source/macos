@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -86,7 +89,7 @@ typedef void	(*SCDynamicStoreBundlePrimeFunction)	();
 
 
 /*!
-        @typedef SCDPluginExecCallBack
+	@typedef SCDPluginExecCallBack
 	@discussion Type of the callback function used when a child process
 		started by a plug-in has exited.
 	@param pid The process id of the child which has exited.
@@ -94,39 +97,91 @@ typedef void	(*SCDynamicStoreBundlePrimeFunction)	();
 	@param rusage A summary of the resources used by the child process
 		and all its children.
 	@param context The callback argument specified on the call
- 		to _SCDPluginExecCommand(). 
+		to _SCDPluginExecCommand().
  */
 typedef void (*SCDPluginExecCallBack)	(pid_t		pid,
-                                         int		status,
-                                         struct rusage	*rusage,
-                                         void		*context);
+					 int		status,
+					 struct rusage	*rusage,
+					 void		*context);
+
+
+/*!
+	@typedef SCDPluginExecSetup
+	@discussion Type of the setup function used when a child process
+		is being started.
+	@param pid The process id of the child, zero for the child process.
+	@param setupContext The setup argument specified on the call
+		to _SCDPluginExecCommand2().
+ */
+typedef	void (*SCDPluginExecSetup)	(pid_t		pid,
+					 void		*setupContext);
 
 
 __BEGIN_DECLS
 
 /*!
 	@function _SCDPluginExecCommand
-        @discussion Starts a child process.
-        @param callout The function to be called when the child
+	@discussion Starts a child process.
+	@param callout The function to be called when the child
 		process exits.  A NULL value can be specified if no
- 		callouts are desired.
-        @param context A argument which will be passed
- 		to the callout function.
-        @param uid The desired user id of the child process.
+		callouts are desired.
+	@param context A argument which will be passed
+		to the callout function.
+	@param uid The desired user id of the child process.
 	@param gid The desired group id of the child process.
 	@param path The command to be executed.
 	@param argv The arguments to be passed to the child process.
-        @result The process ID of the child.
+	@result The process ID of the child.
  */
 pid_t
-_SCDPluginExecCommand	(
-                        SCDPluginExecCallBack	callout,
-                        void			*context,
-                        uid_t			uid,
-                        gid_t			gid,
-                        const char		*path,
-                        char * const 		argv[]
-                        );
+_SCDPluginExecCommand		(
+				SCDPluginExecCallBack	callout,
+				void			*context,
+				uid_t			uid,
+				gid_t			gid,
+				const char		*path,
+				char * const 		argv[]
+				);
+
+/*!
+	@function _SCDPluginExecCommand2
+	@discussion Starts a child process.
+	@param callout The function to be called when the child
+		process exits.  A NULL value can be specified if no
+		callouts are desired.
+	@param context An argument which will be passed
+		to the callout function.
+	@param uid The desired user id of the child process.
+	@param gid The desired group id of the child process.
+	@param path The command to be executed.
+	@param argv The arguments to be passed to the child process.
+	@param setup A pointer to a function which, if specified, will
+		be called after the call to fork(2) but before the call
+		to exec(3).
+		The function will be called in both the parent and child
+		processes.
+		The process ID returned by fork(2) will be passed as
+		an argument to this function (i.e. non-zero in the parent,
+		zero in the child).
+
+		Note: the setup function is responsibile for establishing
+		(and closing) all file descriptors that are (not) needed
+		by the child process.
+	@param setupContext An argument which will be passed
+		to the setup function.
+	@result The process ID of the child.
+ */
+pid_t
+_SCDPluginExecCommand2		(
+				SCDPluginExecCallBack	callout,
+				void			*context,
+				uid_t			uid,
+				gid_t			gid,
+				const char		*path,
+				char * const 		argv[],
+				SCDPluginExecSetup	setup,
+				void			*setupContext
+				);
 
 __END_DECLS
 

@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile,v 1.1.1.3 2002/06/06 22:13:22 jlovell Exp $"
+# "$Id: Makefile,v 1.3 2003/02/10 23:53:30 jlovell Exp $"
 #
 #   Template makefile for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 1993-2002 by Easy Software Products.
+#   Copyright 1993-2003 by Easy Software Products.
 #
 #   These coded instructions, statements, and computer programs are the
 #   property of Easy Software Products and are protected by Federal
@@ -56,6 +56,7 @@ FILES	=	add-class.tmpl \
 		modify-class.tmpl \
 		modify-printer.tmpl \
 		option-boolean.tmpl \
+		option-conflict.tmpl \
 		option-header.tmpl \
 		option-pickmany.tmpl \
 		option-pickone.tmpl \
@@ -98,8 +99,10 @@ install:
 	for file in $(FILES); do \
 		$(INSTALL_DATA) $$file $(DATADIR)/templates; \
 	done
+	cd de; $(MAKE) $(MFLAGS) install
+	cd fr; $(MAKE) $(MFLAGS) install
 
 
 #
-# End of "$Id: Makefile,v 1.1.1.3 2002/06/06 22:13:22 jlovell Exp $".
+# End of "$Id: Makefile,v 1.3 2003/02/10 23:53:30 jlovell Exp $".
 #

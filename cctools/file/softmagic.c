@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -156,7 +154,7 @@ int nbytes;
 		if (magic[magindex].desc[0])
 			need_separator = 1;
 		/* and any continuations that match */
-		if (++cont_level >= tmplen)
+		if ((size_t)++cont_level >= tmplen)
 			if ((tmpoff = (int32 *) realloc(tmpoff,
 						       tmplen += 20)) == NULL)
 				error("out of memory\n");
@@ -200,7 +198,7 @@ int nbytes;
 					 * at a higher level,
 					 * process them.
 					 */
-					if (++cont_level >= tmplen)
+					if ((size_t)++cont_level >= tmplen)
 						if ((tmpoff = 
 						    (int32 *) realloc(tmpoff,
 						    tmplen += 20)) == NULL)
@@ -353,7 +351,7 @@ int nbytes;
 {
 	int32 offset = m->offset;
 
-	if (offset + sizeof(union VALUETYPE) <= nbytes)
+	if (offset + (int32)sizeof(union VALUETYPE) <= nbytes)
 		memcpy(p, s + offset, sizeof(union VALUETYPE));
 	else {
 		/*
@@ -389,7 +387,7 @@ int nbytes;
 			break;
 		}
 
-		if (offset + sizeof(union VALUETYPE) > nbytes)
+		if (offset + (int32)sizeof(union VALUETYPE) > nbytes)
 			return 0;
 
 		memcpy(p, s + offset, sizeof(union VALUETYPE));

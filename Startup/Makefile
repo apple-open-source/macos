@@ -14,7 +14,7 @@ PROJECT_TYPE = Aggregate
 
 SUBPROJECTS = StartupItems
 
-TOOLS = SystemStarter init-rc ConsoleMessage
+TOOLS = SystemStarter init-rc ConsoleMessage register_mach_bootstrap_servers StartupItemContext
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble TODO\
             NOTES.rtf

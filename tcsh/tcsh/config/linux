@@ -116,8 +116,28 @@
  * DIRENT	Your system has <dirent.h> instead of <sys/dir.h>
  */
 #define DIRENT
-/****************** local defines *********************/
 
+/*
+ * Get the name space we want.
+ *
+ * The more recent defaults for gcc (e.g. on Red Hat 7.0)
+ * also define _POSIX_C_SOURCE, which throws our code off.
+ */
+
+#define __STRICT_ANSI__
+#define _BSD_SOURCE
+#define _SVID_SOURCE
+#define _POSIX_SOURCE
+
+/*
+ * Large file support from <features.h>
+ */
+
+#define _LARGEFILE_SOURCE
+#define _LARGEFILE64_SOURCE
+#define _FILE_OFFSET_BITS 64
+
+/****************** local defines *********************/
 #undef PW_SHADOW
 #ifndef _PATH_TCSHELL
 #define _PATH_TCSHELL "/bin/tcsh"

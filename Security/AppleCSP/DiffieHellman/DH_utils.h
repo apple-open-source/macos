@@ -44,7 +44,11 @@ void throwDh(
 DH *contextToDhKey(
 	const Context 		&context,
 	AppleCSPSession	 	&session,
-	CSSM_KEYUSE			usage,		  // CSSM_KEYUSE_ENCRYPT, CSSM_KEYUSE_SIGN, etc.
+	CSSM_ATTRIBUTE_TYPE	attr,		  // CSSM_ATTRIBUTE_KEY for normal private key
+									  // CSSM_ATTRIBUTE_PUBLIC_KEY for public key
+	CSSM_KEYCLASS		keyClass,	  // CSSM_KEYCLASS_{PUBLIC,PRIVATE}_KEY	
+	CSSM_KEYUSE			usage,		  // CSSM_KEYUSE_ENCRYPT, 
+									  //    CSSM_KEYUSE_SIGN, etc.
 	bool				&mallocdKey); // RETURNED
 
 /* 

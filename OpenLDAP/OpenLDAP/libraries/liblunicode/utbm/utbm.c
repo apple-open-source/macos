@@ -21,7 +21,7 @@
  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 #ifndef lint
-static char rcsid[] = "$Id: utbm.c,v 1.2 2002/07/15 23:45:17 majka Exp $";
+static char rcsid[] = "$Id: utbm.c,v 1.3 2003/07/18 01:10:38 jtownsen Exp $";
 #endif
 
 /*

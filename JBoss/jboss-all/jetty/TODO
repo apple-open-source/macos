@@ -1,0 +1,196 @@
+greg's 1.4 code
+investigate 'too many open files' and Jasper
+fix CMR and Cluster impls
+partition JGStore ?
+hook up XAManager
+lose stopGracefully stuff from subclass
+FileStore session impl ?
+Figure out why JGStore hangs
+remove debug from JGStore
+move Validation back into EJBs
+EJB inheritance ?
+what about Gregs other jars ?
+use Array instead of ArrayList for interceptor stack ?
+write a Container.class
+give reason for extraTime - explain constraints
+fix contributors page
+try in 3.0.1/3.1
+fix HttpSessionActualMaxInactiveInterval,LocalHttpSessionScavengePeriod etc... names...
+virtual hosts
+multiple Jetty instances
+SystemProps - tmp.dir & jetty.port etc...
+
+
+
+distributable sessions :
+	do not cache containers - should be stateless
+	go to DB on every find
+	do invalid() test in remote object
+	need a method - getAttributeBindingEventListeners ?
+	InvariantInterceptor - we know id, context & creationTime are invariant
+
+Interceptors need to be stateless ?
+Is a ThreadLocal stateless ?
+MigrationInterceptor tricky
+PushPopInterceptor could be a dynamic proxy
+StateInterceptor store Session - not allowed
+SynchronizationInterceptor will be tricky
+ThrottleInterceptor also tricky
+
+Ask Greg how he configures dynamically built objects - through defaults or properties or...
+
+only return Listeners from get/set/rem attribute... - and only then if
+the BindingInterceptor is installed...
+
+
+maintain sessions between bounces
+
+maintain compiled JSP classes between bounces
+
+multiple virtual host support
+
+soft stop
+lots of javadoc
+copyrights...
+copy org.mortbay.j2ee.ejb.jar --> jbossweb-ejbs.jar - but where ?
+check ClusteredStore
+doc
+
+
+Get Jetty to use JBoss' tmpdir instead of /tmp...
+
+
+could I do a better job of logging integration if I actually replaced
+the mortbay log class rather than bridged from it ?
+
+investigate JSR77 & 88 and JBoss support for them.
+
+separation of web & ejb tiers
+
+more than one Jetty instance running in the same JBoss - e.g. serving
+multiple virtual hosts, ports etc...
+
+Client Certificate based authentication
+Digest based authentication
+sort out 'run-as'.
+
+Should javax.servlet.jar go into jboss-j2ee.jar?
+
+
+Greg Wilkins wrote:
+>
+> Doing a bit of reading last night, I noticed that a J2EE container
+> is meant to rollback any UserTransactions begun in a servlet service
+> method, but not committed.
+>
+> I don't think we currently do this?   I don't think it is vital to
+> do, as good servlet code should have a finally block to roll back
+> any transactions.   But it is probably something we should think
+> about doing sometime.....
+>
+
+
+More of Jetty internals need to be exposed as MBeans
+
+Repackage Jetty legacy servlets into webapp (CGI)?
+
+JBoss/Jetty sould have a default app - either Jetty demo - or petstore
+(copyright problems??) (or both, we could hand petstore and jboss
+website off Jetty Demo).
+
+Configuration needs to be available at different levels e.g. global
+(jboss-service.xml), webapp (jetty-web.xml)
+
+If you deploy some webapps and bounce Jetty, they are unloaded. When
+Jetty comes back up we are in an inconsistant state. The deployer
+thinks the apps are deployed - Jetty does not. This should be fixed by
+David Jenks dependency stuff.
+
+roles and threads - problem in 2.* ??? - see forums...
+
+Running from a packed war - JSPs still don't work because only
+WEB-INF/lib/* get's copied out...
+
+Investigate other major J2EE webapps (struts, velocity, cocoon, web
+services etc) and ensure that they run OK on JBoss/Jetty. Testsuite
+should run through them.
+
+Separation of Web/Presentation from Business Logic tier - by RemoteMBeanProxy???
+MultiMBeanProxy & RemoteMBeanProxy
+
+FOE Deployer - may need to switch Jetty into an emulation mode Bill
+says BEA webcontainer non-std - (flush=true, forward/redirect
+anytime/anywhere) and Jetty did not handle relative paths well -
+december?
+
+----------------------------------------
+redeploy/restart
+----------------------------------------
+
+Talk more about 24x7 strategies for safe redeployment of apps and
+jetty itself.
+
+Share Message valve interceptor between Jetty and MBean - so we can
+hold up requests whilst we redeploy apps
+
+JSR 77 & 88 related stuff
+
+----------------------------------------
+Clustering
+----------------------------------------
+
+Free docs
+
+Distributed HttpSessions - order of initialisation...
+
+Clustered HttpSession distribution policies need refactoring so that
+they may be combined - i.e.  every group of requests OR every 10
+seconds In case we get a request storm and groups of requests
+intersect.
+
+In devel target - jetty-ejb.jar should live inside jetty-plugin.sar -
+JG
+
+Distributed HttpSession - We need a ?Cactus-based? session aware
+test-suite - JG?
+
+Why does my CoarseHttpSession stuff not work anymore? - JG
+
+CoarseHttpSession implementation has no GC - it will need it
+
+Share code between StatefulSession & HttpSession
+
+----------------------------------------
+AbstractWebContainer
+----------------------------------------
+
+Is JBoss unpacking wars and then getting Jetty to repeat the effort?
+
+DDs are parsed multiple times, and into DOM, SAX or JAXB might be
+faster - probably ties in with JSR88.
+
+Descriptors are parsed into DOMs - SAX would be faster (do we really
+need DOM) - what about JAXB?
+
+Both Jetty and the integration code parse web.xml - waste of time
+
+Refactor/Lose TimeOutManager
+
+Persistant/Distributed Sessions - various implementations - JG
+
+AbstractWebContainer is already parsing jboss-web.xml, so we should
+not need to parse it as well.
+
+----------------------------------------
+Jetty
+----------------------------------------
+
+CGI servlet needs work
+
+Investigate SSL
+
+----------------------------------------
+JDBS
+-----------------------------------------
+
+Talk more with Bruce Kimpton

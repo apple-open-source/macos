@@ -154,8 +154,17 @@ class MMCDeviceUserClientClass : public SCSITaskIUnknown
 												SCSITaskStatus *	taskStatus,
 												SCSI_Sense_Data *	senseDataBuffer );
 		
+		virtual IOReturn 	SetCDSpeed ( SCSICmdField2Byte		LOGICAL_UNIT_READ_SPEED,
+										 SCSICmdField2Byte		LOGICAL_UNIT_WRITE_SPEED,
+										 SCSITaskStatus *		taskStatus,
+										 SCSI_Sense_Data *		senseDataBuffer );
+		
+		virtual IOReturn	ReadFormatCapacities ( 	void *				buffer,
+													SCSICmdField2Byte	bufferSize,
+													SCSITaskStatus *	taskStatus,
+													SCSI_Sense_Data *	senseDataBuffer );
+		
 		virtual SCSITaskDeviceInterface ** GetSCSITaskDeviceInterface ( void );
-
 		
 		
 		// Static functions (C->C++ glue code)
@@ -266,6 +275,17 @@ class MMCDeviceUserClientClass : public SCSITaskIUnknown
 											SCSITaskStatus *	taskStatus,
 											SCSI_Sense_Data *	senseDataBuffer );
 		
+		static IOReturn 	sSetCDSpeed ( void *				self,
+										  SCSICmdField2Byte		LOGICAL_UNIT_READ_SPEED,
+										  SCSICmdField2Byte		LOGICAL_UNIT_WRITE_SPEED,
+										  SCSITaskStatus *		taskStatus,
+										  SCSI_Sense_Data *		senseDataBuffer );
+		
+		static IOReturn		sReadFormatCapacities ( void *				self,
+													void *				buffer,
+													SCSICmdField2Byte	bufferSize,
+													SCSITaskStatus *	taskStatus,
+													SCSI_Sense_Data *	senseDataBuffer );
 		
 	public:
 		

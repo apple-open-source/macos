@@ -1,29 +1,7 @@
+/*	$OpenBSD: passwd.c,v 1.42 2003/06/26 16:34:42 deraadt Exp $	*/
+
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*-
- * Copyright (c) 1990, 1993, 1994
+ * Copyright (c) 1987, 1993, 1994, 1995
  *	The Regents of the University of California.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -55,39 +29,44 @@
  * SUCH DAMAGE.
  */
 
-#ifndef lint
-static char sccsid[] = "@(#)pw_scan.c	8.3 (Berkeley) 4/2/94";
-#endif /* not lint */
+#if defined(LIBC_SCCS) && !defined(lint)
+static const char rcsid[] = "$OpenBSD: passwd.c,v 1.42 2003/06/26 16:34:42 deraadt Exp $";
+#endif /* LIBC_SCCS and not lint */
 
-/*
- * This module is used to "verify" password entries by chpass(1) and
- * pwd_mkdb(8).
- */
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <sys/wait.h>
 
-#include <sys/param.h>
-
-#include <err.h>
 #include <fcntl.h>
-#include <pwd.h>
-#include <errno.h>
+#include <unistd.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
+#include <ctype.h>
+#include <pwd.h>
+#include <err.h>
+#include <errno.h>
+#include <paths.h>
+#include <signal.h>
+#include <limits.h>
 
-#include "pw_scan.h"
+#include "util.h"
 
 int
-pw_scan(bp, pw)
-	char *bp;
-	struct passwd *pw;
+pw_scan(char *bp, struct passwd *pw, int *flags)
 {
-	long id;
+	u_long id;
 	int root;
-	char *p, *sh;
+	char *p, *sh, *p2;
 
-	if (!(pw->pw_name = strsep(&bp, ":")))		/* login */
+	if (flags != (int *)NULL)
+		*flags = 0;
+
+	if (!(p = strsep(&bp, ":")) || *p == '\0')	/* login */
 		goto fmt;
+	pw->pw_name = p;
 	root = !strcmp(pw->pw_name, "root");
 
 	if (!(pw->pw_passwd = strsep(&bp, ":")))	/* passwd */
@@ -95,52 +74,79 @@ pw_scan(bp, pw)
 
 	if (!(p = strsep(&bp, ":")))			/* uid */
 		goto fmt;
-	id = atol(p);
+	id = strtoul(p, &p2, 10);
 	if (root && id) {
 		warnx("root uid should be 0");
 		return (0);
 	}
-	if (id > USHRT_MAX) {
-		warnx("%s > max uid value (%d)", p, USHRT_MAX);
+	if (*p2 != '\0') {
+		warnx("illegal uid field");
 		return (0);
 	}
-	pw->pw_uid = id;
+#ifndef __APPLE__
+	/* Apple's UID_MAX is too small (sizeof signed) 3091256 */
+	if (id > UID_MAX) {
+		/* errno is set to ERANGE by strtoul(3) */
+		warnx("uid greater than %u", UID_MAX-1);
+		return (0);
+	}
+#endif
+	pw->pw_uid = (uid_t)id;
+	if ((*p == '\0') && (flags != (int *)NULL))
+		*flags |= _PASSWORD_NOUID;
 
 	if (!(p = strsep(&bp, ":")))			/* gid */
 		goto fmt;
-	id = atol(p);
-	if (id > USHRT_MAX) {
-		warnx("%s > max gid value (%d)", p, USHRT_MAX);
+	id = strtoul(p, &p2, 10);
+	if (*p2 != '\0') {
+		warnx("illegal gid field");
 		return (0);
 	}
-	pw->pw_gid = id;
+#ifndef __APPLE__
+	/* Apple's UID_MAX is too small (sizeof signed) 3091256 */
+	if (id > UID_MAX) {
+		/* errno is set to ERANGE by strtoul(3) */
+		warnx("gid greater than %u", UID_MAX-1);
+		return (0);
+	}
+#endif
+	pw->pw_gid = (gid_t)id;
+	if ((*p == '\0') && (flags != (int *)NULL))
+		*flags |= _PASSWORD_NOGID;
 
 	pw->pw_class = strsep(&bp, ":");		/* class */
 	if (!(p = strsep(&bp, ":")))			/* change */
 		goto fmt;
 	pw->pw_change = atol(p);
+	if ((*p == '\0') && (flags != (int *)NULL))
+		*flags |= _PASSWORD_NOCHG;
 	if (!(p = strsep(&bp, ":")))			/* expire */
 		goto fmt;
 	pw->pw_expire = atol(p);
+	if ((*p == '\0') && (flags != (int *)NULL))
+		*flags |= _PASSWORD_NOEXP;
 	pw->pw_gecos = strsep(&bp, ":");		/* gecos */
 	pw->pw_dir = strsep(&bp, ":");			/* directory */
 	if (!(pw->pw_shell = strsep(&bp, ":")))		/* shell */
 		goto fmt;
 
 	p = pw->pw_shell;
-	if (root && *p)					/* empty == /bin/sh */
+	if (root && *p) {				/* empty == /bin/sh */
 		for (setusershell();;) {
 			if (!(sh = getusershell())) {
 				warnx("warning, unknown root shell");
 				break;
 			}
 			if (!strcmp(p, sh))
-				break;	
+				break;
 		}
+		endusershell();
+	}
 
-	if (p = strsep(&bp, ":")) {			/* too many */
+	if ((p = strsep(&bp, ":"))) {			/* too many */
 fmt:		warnx("corrupted entry");
 		return (0);
 	}
+
 	return (1);
 }

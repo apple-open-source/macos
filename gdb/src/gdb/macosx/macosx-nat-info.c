@@ -299,7 +299,7 @@ void info_mach_regions_command (char *exp, int from_tty)
     error ("Inferior not available");
   }
 
-  macosx_debug_regions (macosx_status->task);
+  macosx_debug_regions (macosx_status->task, 0, -1);
 }
 
 void info_mach_region_command (char *exp, int from_tty)

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- Very simple test - one mbean, no dependencies.	-->
+
+<server>
+
+  <mbean code="org.jboss.test.jmx.mbean.TestDeployer"
+	 name="test:name=TestDeployer"/>
+
+</server>

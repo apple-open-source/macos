@@ -1,0 +1,81 @@
+#! iexpect
+#
+# This program is a full compatible Object Oriented version of
+# DejaGnu's runtest program
+#
+#   Copyright (C) 1998 jotOmega dsc, Inc.
+
+#This file is part of BlueGnu.
+
+################################################################
+# Preemble
+################################################################
+# Check Environment variables:
+#
+#       BLUEGNULIBS
+#       TESTSUITEROOT
+#
+
+if [info exists env(BLUEGNULIBS)] {
+    set szToolsLib $env(BLUEGNULIBS)
+} else {
+    set szToolsLib [file dirname $argv0]
+    set PWD [pwd]
+    cd $szToolsLib
+    set szToolsLib [pwd]
+    cd $PWD
+    regsub {/bin$} $szToolsLib {/lib/bluegnu} szToolsLib
+    set env(BLUEGNULIBS) $szToolsLib
+}
+
+if [info exists env(TESTSUITEROOT)] {
+    set szRootDir $env(TESTSUITEROOT)
+} else {
+    set szRootDir [pwd]
+    set env(TESTSUITEROOT) $szRootDir
+}
+if [info exists env(DEBUG)] {
+    set bDebug 1
+} else {
+    set bDebug 0
+}
+
+# Make sure that the testsuite root directory is our working directory
+# all tests name are relative to this directory
+cd $szRootDir
+
+# set the default tool. All test are relative to this directory.
+#
+set szTool $szRootDir
+catch {unset lTool}
+lappend lTool $szTool
+
+#
+# source basic utilities
+#
+source $szToolsLib/testSessionClasses.itcl
+source $szToolsLib/testSessionFramework.itcl
+#source $szToolsLib/testSessionUtils.itcl
+#
+verbose "Library  : >$szToolsLib<"
+verbose "TestSuite: >$szRootDir<"
+verbose "$argv0 $argv" 5
+#
+# from here we should use only defined utilities
+################################################################
+################################################################
+
+set szRootName [file rootname $argv0]
+puts "RootName : >$szRootName<"
+
+::TestSession::Queue Q0
+::TestSession::DejaGnu E0; # will load dejagnu.tcl
+
+while {! [catch {Q0 pop} T]} {
+    clone_output "Q0 element: $T"
+    runtest E0 $T
+}
+
+delete object Q0
+delete object E0
+

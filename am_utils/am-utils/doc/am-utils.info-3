@@ -1,9 +1,52 @@
-This is am-utils.info, produced by makeinfo version 4.0b from
+This is am-utils.info, produced by makeinfo version 4.1 from
 am-utils.texi.
 
+INFO-DIR-SECTION Administration
 START-INFO-DIR-ENTRY
 * Am-utils: (am-utils).          The Amd automounter suite of utilities
 END-INFO-DIR-ENTRY
+
+
+File: am-utils.info,  Node: Network Filesystem,  Next: Network Host Filesystem,  Prev: Filesystem Types,  Up: Filesystem Types
+
+Network Filesystem (`nfs')
+==========================
+
+   The "nfs" (`type:=nfs') filesystem type provides access to Sun's NFS.
+
+The following options must be specified:
+
+`rhost'
+     the remote fileserver.  This must be an entry in the hosts
+     database.  IP addresses are not accepted.  The default value is
+     taken from the local host name (`${host}') if no other value is
+     specified.
+
+`rfs'
+     the remote filesystem.  If no value is specified for this option,
+     an internal default of `${path}' is used.
+
+   NFS mounts require a two stage process.  First, the "file handle" of
+the remote file system must be obtained from the server.  Then a mount
+system call must be done on the local system.  Amd keeps a cache of
+file handles for remote file systems.  The cache entries have a
+lifetime of a few minutes.
+
+   If a required file handle is not in the cache, Amd sends a request
+to the remote server to obtain it.  Amd "does not" wait for a response;
+it notes that one of the locations needs retrying, but continues with
+any remaining locations.  When the file handle becomes available, and
+assuming none of the other locations was successfully mounted, Amd will
+retry the mount.  This mechanism allows several NFS filesystems to be
+mounted in parallel.  The first one which responds with a valid file
+handle will be used.
+
+An NFS entry might be:
+
+     jsp  host!=charm;type:=nfs;rhost:=charm;rfs:=/home/charm;sublink:=jsp
+
+   The mount system call and any unmount attempts are always done in a
+new task to avoid the possibility of blocking Amd.
 
 
 File: am-utils.info,  Node: Network Host Filesystem,  Next: Network Filesystem Group,  Prev: Network Filesystem,  Up: Filesystem Types
@@ -588,7 +631,7 @@ such file or directory".  All other operations trivially succeed.
    The error filesystem is not directly accessible.
 
 
-File: am-utils.info,  Node: Top-level Filesystem,  Next: Autofs Filesystem,  Prev: Error Filesystem,  Up: Filesystem Types
+File: am-utils.info,  Node: Top-level Filesystem,  Next: Root Filesystem,  Prev: Error Filesystem,  Up: Filesystem Types
 
 Top-level Filesystem (`toplvl')
 ===============================
@@ -599,7 +642,7 @@ Requests of this type are automatically generated from the command line
 arguments.
 
 
-File: am-utils.info,  Node: Root Filesystem,  Next: Inheritance Filesystem,  Prev: Autofs Filesystem,  Up: Filesystem Types
+File: am-utils.info,  Node: Root Filesystem,  Next: Inheritance Filesystem,  Prev: Top-level Filesystem,  Up: Filesystem Types
 
 Root Filesystem (`root')
 ========================
@@ -610,22 +653,6 @@ this type need ever exist and one is created automatically during
 startup.  The effect of having more than one root node is undefined.
 
    The root filesystem is not directly accessible.
-
-
-File: am-utils.info,  Node: Autofs Filesystem,  Next: Root Filesystem,  Prev: Top-level Filesystem,  Up: Filesystem Types
-
-Autofs Filesystem (`autofs')
-============================
-
-   The "autofs" (`type:=autofs') filesystem uses Sun's kernel-based
-automounter supporting filesystem for Amd's mount points.  Hence it is
-another type of top level filesystem.
-
-   The autofs filesystem is not directly accessible from Amd maps, but
-only from the `amd.conf' file (*note mount_type Parameter::).
-
-   Note that Autofs support is still very early.  See the distribution
-file `README.autofs' for detail of what works and what does not.
 
 
 File: am-utils.info,  Node: Inheritance Filesystem,  Prev: Root Filesystem,  Up: Filesystem Types
@@ -886,8 +913,9 @@ File: am-utils.info,  Node: arch Parameter,  Next: auto_dir Parameter,  Prev: Gl
 arch Parameter
 --------------
 
-   (type=string, default to compiled in value).  Allows you to override
-the value of the arch Amd variable.
+   (type=string, default to compiled in value).  Same as the `-A'
+option to Amd.  Allows you to override the value of the arch Amd
+variable.
 
 
 File: am-utils.info,  Node: auto_dir Parameter,  Next: cache_duration Parameter,  Prev: arch Parameter,  Up: Global Parameters
@@ -1305,26 +1333,4 @@ print_pid Parameter
 
    (type=boolean, default=`no').  Same as the `-p' option to Amd.  If
 `yes', Amd will print its process ID upon starting.
-
-
-File: am-utils.info,  Node: print_version Parameter,  Next: restart_mounts Parameter,  Prev: print_pid Parameter,  Up: Global Parameters
-
-print_version Parameter
------------------------
-
-   (type=boolean, default=`no').  Same as the `-v' option to Amd, but
-the version prints and Amd continues to run.  If `yes', Amd will print
-its version information string, which includes some configuration and
-compilation values.
-
-
-File: am-utils.info,  Node: restart_mounts Parameter,  Next: selectors_in_defaults Parameter,  Prev: print_version Parameter,  Up: Global Parameters
-
-restart_mounts Parameter
-------------------------
-
-   (type=boolean, default=`no').  Same as the `-r' option to Amd.  If
-`yes' Amd will scan the mount table to determine which file systems are
-currently mounted.  Whenever one of these would have been auto-mounted,
-Amd inherits it.
 

@@ -6,6 +6,7 @@
 	objectVersion = 38;
 	objects = {
 		1291E4B40242448303A87B01 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = msdos.util.8;
 			refType = 4;
@@ -18,6 +19,7 @@
 				1291E4B8024244C503A87B01,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		1291E4B60242448403A87B01 = {
 			fileRef = 1291E4B40242448303A87B01;
@@ -65,6 +67,7 @@
 				7D4699350111B03D02CA2964,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		7D4699350111B03D02CA2964 = {
 			fileRef = 7D8BA34E010E490C02CA2964;
@@ -93,6 +96,7 @@
 				7D8BA3A3010E490C02CA2964,
 				7D8BA3A4010E490C02CA2964,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 7D8BA341010E490C02CA2964;
 			productRefGroup = 7D8BA376010E490C02CA2964;
@@ -128,11 +132,13 @@
 			refType = 4;
 		};
 		7D8BA349010E490C02CA2964 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = mount_msdos.c;
 			refType = 4;
 		};
 		7D8BA34E010E490C02CA2964 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = mount_msdos.8;
 			refType = 4;
@@ -149,6 +155,7 @@
 			refType = 4;
 		};
 		7D8BA351010E490C02CA2964 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = dosutil.c;
 			refType = 4;
@@ -179,31 +186,37 @@
 			refType = 4;
 		};
 		7D8BA363010E490C02CA2964 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = bootsect.h;
 			refType = 4;
 		};
 		7D8BA364010E490C02CA2964 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = bpb.h;
 			refType = 4;
 		};
 		7D8BA365010E490C02CA2964 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = denode.h;
 			refType = 4;
 		};
 		7D8BA366010E490C02CA2964 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = direntry.h;
 			refType = 4;
 		};
 		7D8BA367010E490C02CA2964 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = fat.h;
 			refType = 4;
 		};
 		7D8BA368010E490C02CA2964 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = msdosfsmount.h;
 			refType = 4;
@@ -225,31 +238,37 @@
 			refType = 4;
 		};
 		7D8BA36A010E490C02CA2964 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = msdosfs_conv.c;
 			refType = 4;
 		};
 		7D8BA36B010E490C02CA2964 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = msdosfs_denode.c;
 			refType = 4;
 		};
 		7D8BA36C010E490C02CA2964 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = msdosfs_fat.c;
 			refType = 4;
 		};
 		7D8BA36D010E490C02CA2964 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = msdosfs_lookup.c;
 			refType = 4;
 		};
 		7D8BA36E010E490C02CA2964 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = msdosfs_vfsops.c;
 			refType = 4;
 		};
 		7D8BA36F010E490C02CA2964 = {
+			fileEncoding = 30;
 			indentWidth = 4;
 			isa = PBXFileReference;
 			path = msdosfs_vnops.c;
@@ -305,7 +324,6 @@
 			isa = PBXAggregateTarget;
 			name = "msdosfs (Aggregate)";
 			productName = "msdosfs (Aggregate)";
-			shouldUseHeadermap = 0;
 		};
 		7D8BA37B010E490C02CA2964 = {
 			isa = PBXTargetDependency;
@@ -339,13 +357,13 @@
 			productInstallPath = /sbin;
 			productName = "mount_msdos (Tool)";
 			productReference = 7D8BA377010E490C02CA2964;
-			shouldUseHeadermap = 0;
 		};
 		7D8BA37D010E490C02CA2964 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7D8BA37E010E490C02CA2964 = {
 			buildActionMask = 2147483647;
@@ -353,6 +371,7 @@
 				7D8BA37F010E490C02CA2964,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7D8BA37F010E490C02CA2964 = {
 			fileRef = 7D8BA349010E490C02CA2964;
@@ -368,12 +387,14 @@
 				7D88539C010E5E2C02CA2964,
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7D8BA381010E490C02CA2964 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7D8BA383010E490C02CA2964 = {
 			buildPhases = (
@@ -401,13 +422,13 @@
 			name = msdos.util;
 			productName = "msdos.util (Tool)";
 			productReference = 7D8BA378010E490C02CA2964;
-			shouldUseHeadermap = 0;
 		};
 		7D8BA384010E490C02CA2964 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7D8BA385010E490C02CA2964 = {
 			buildActionMask = 2147483647;
@@ -415,6 +436,7 @@
 				7D8BA386010E490C02CA2964,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7D8BA386010E490C02CA2964 = {
 			fileRef = 7D8BA351010E490C02CA2964;
@@ -430,12 +452,14 @@
 				7DE2786C010E662C02CA2964,
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7D8BA388010E490C02CA2964 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7D8BA389010E490C02CA2964 = {
 			isa = PBXTargetDependency;
@@ -461,7 +485,7 @@
 				MODULE_NAME = com.apple.filesystems.msdosfs;
 				MODULE_START = msdosfs_module_start;
 				MODULE_STOP = "msdosfs_module_stop ";
-				MODULE_VERSION = 1.2;
+				MODULE_VERSION = 1.3;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -496,11 +520,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2</string>
+	<string>1.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2</string>
+	<string>1.3</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
 	<key>OSBundleLibraries</key>
@@ -515,7 +539,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		7D8BA38B010E490C02CA2964 = {
 			buildActionMask = 2147483647;
@@ -526,6 +549,7 @@
 			isa = PBXShellScriptBuildPhase;
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -541,6 +565,7 @@
 				B64F357F0230382C04C9147C,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7D8BA38D010E490C02CA2964 = {
 			fileRef = 7D8BA363010E490C02CA2964;
@@ -583,6 +608,7 @@
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7D8BA394010E490C02CA2964 = {
 			buildActionMask = 2147483647;
@@ -597,6 +623,7 @@
 				B673AAE80250E44704C9147C,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7D8BA395010E490C02CA2964 = {
 			fileRef = 7D8BA36A010E490C02CA2964;
@@ -651,12 +678,14 @@
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7D8BA39C010E490C02CA2964 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7D8BA39D010E490C02CA2964 = {
 			buildActionMask = 2147483647;
@@ -667,6 +696,7 @@
 			isa = PBXShellScriptBuildPhase;
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -680,6 +710,7 @@
 				1291E4B60242448403A87B01,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7D8BA39F010E490C02CA2964 = {
 			fileRef = 7D8BA377010E490C02CA2964;
@@ -695,6 +726,7 @@
 				7D8BA3A2010E490C02CA2964,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7D8BA3A2010E490C02CA2964 = {
 			fileRef = 7D8BA379010E490C02CA2964;
@@ -707,6 +739,7 @@
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
 			};
 			isa = PBXBuildStyle;
 			name = Development;
@@ -776,11 +809,11 @@
 	<key>CFBundlePackageType</key>
 	<string>fs  </string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2</string>
+	<string>1.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2</string>
+	<string>1.3</string>
 	<key>FSMediaTypes</key>
 	<dict>
 		<key>DOS_FAT_12</key>
@@ -927,13 +960,13 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		7DE2785E010E618E02CA2964 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7DE2785F010E618E02CA2964 = {
 			buildActionMask = 2147483647;
@@ -941,24 +974,28 @@
 				7DE27865010E638402CA2964,
 			);
 			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7DE27860010E618E02CA2964 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7DE27861010E618E02CA2964 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7DE27862010E618E02CA2964 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		7DE27863010E638402CA2964 = {
 			children = (
@@ -970,6 +1007,7 @@
 			refType = 4;
 		};
 		7DE27864010E638402CA2964 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = English;
 			path = English.lproj/InfoPlist.strings;
@@ -995,6 +1033,7 @@
 				7D3170230117A1E602CA2964,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 //7D0
 //7D1
@@ -1007,6 +1046,7 @@
 //B63
 //B64
 		B64F357E0230382C04C9147C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = msdosfs_lockf.h;
 			refType = 4;
@@ -1018,6 +1058,7 @@
 			};
 		};
 		B64F35800230385404C9147C = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = msdosfs_lockf.c;
 			refType = 4;
@@ -1029,6 +1070,7 @@
 			};
 		};
 		B673AAE70250E44704C9147C = {
+			fileEncoding = 30;
 			indentWidth = 4;
 			isa = PBXFileReference;
 			path = msdosfs_attrlist.c;

@@ -1,0 +1,6 @@
+<!DOCTYPE para PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
+<para>
+In an <firstterm>Object Oriented</firstterm> programming language,
+data and procedures (called <glossterm>methods</glossterm>) are
+bound together.
+</para>

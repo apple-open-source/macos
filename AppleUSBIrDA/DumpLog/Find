@@ -1,0 +1,2 @@
+fgrep -i -F -f keys < log | deltatime > ,out
+

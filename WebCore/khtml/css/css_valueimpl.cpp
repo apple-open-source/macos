@@ -30,6 +30,7 @@
 #include "css/cssparser.h"
 #include "css/cssproperties.h"
 #include "css/cssvalues.h"
+#include "css/cssstyleselector.h"
 
 #include "xml/dom_stringimpl.h"
 #include "xml/dom_docimpl.h"
@@ -48,6 +49,7 @@
 extern DOM::DOMString getPropertyName(unsigned short id);
 
 using khtml::FontDef;
+using khtml::CSSStyleSelector;
 
 using namespace DOM;
 
@@ -508,10 +510,11 @@ int CSSPrimitiveValueImpl::computeLength( khtml::RenderStyle *style, QPaintDevic
 #else
     int intResult = (int)result;
 #endif
-    return intResult;
+    return intResult;    
 }
 
-int CSSPrimitiveValueImpl::computeLength( khtml::RenderStyle *style, QPaintDeviceMetrics *devMetrics, double multiplier )
+int CSSPrimitiveValueImpl::computeLength( khtml::RenderStyle *style, QPaintDeviceMetrics *devMetrics, 
+                                          double multiplier )
 {
     double result = multiplier * computeLengthFloat( style, devMetrics );
 #if APPLE_CHANGES
@@ -521,10 +524,11 @@ int CSSPrimitiveValueImpl::computeLength( khtml::RenderStyle *style, QPaintDevic
 #else
     int intResult = (int)result;
 #endif
-    return intResult;
+    return intResult;    
 }
 
-double CSSPrimitiveValueImpl::computeLengthFloat( khtml::RenderStyle *style, QPaintDeviceMetrics *devMetrics )
+double CSSPrimitiveValueImpl::computeLengthFloat( khtml::RenderStyle *style, QPaintDeviceMetrics *devMetrics,
+                                                  bool applyZoomFactor )
 {
     unsigned short type = primitiveType();
 
@@ -538,9 +542,14 @@ double CSSPrimitiveValueImpl::computeLengthFloat( khtml::RenderStyle *style, QPa
     switch(type)
     {
     case CSSPrimitiveValue::CSS_EMS:
-        factor = style->htmlFont().getFontDef().floatSize();
+        factor = applyZoomFactor ?
+          style->htmlFont().getFontDef().computedSize :
+          style->htmlFont().getFontDef().specifiedSize;
         break;
     case CSSPrimitiveValue::CSS_EXS:
+        // FIXME: We have a bug right now where the zoom will be applied multiple times to EX units.
+        // We really need to compute EX using fontMetrics for the original specifiedSize and not use
+        // our actual constructed rendering font.
 	{
         QFontMetrics fm = style->fontMetrics();
 #if APPLE_CHANGES
@@ -862,3 +871,18 @@ FontValueImpl::~FontValueImpl()
     delete lineHeight;
     delete family;
 }
+
+// Used for text-shadow and box-shadow
+ShadowValueImpl::ShadowValueImpl(CSSPrimitiveValueImpl* _x, CSSPrimitiveValueImpl* _y,
+                                 CSSPrimitiveValueImpl* _blur, CSSPrimitiveValueImpl* _color)
+:x(_x), y(_y), blur(_blur), color(_color)	
+{}
+
+ShadowValueImpl::~ShadowValueImpl()
+{
+    delete x;
+    delete y;
+    delete blur;
+    delete color;
+}
+

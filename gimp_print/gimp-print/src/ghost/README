@@ -1,0 +1,1623 @@
+INTRODUCTION:
+-------------
+
+  Gimp-Print 4.2 includes an associated Ghostscript driver, which is
+  named `stp'.  That name originally referred to Epson Stylus Photo
+  printers; this is the first Ghostscript driver which supported those
+  printers with high quality.  The same driver now supports many Canon,
+  HP, and Lexmark printers.
+
+  This driver works with GhostScript 5.10, 5.50 and 6.51.  It should
+  work with any later releases on the 6.5x GNU Ghostscript line, such
+  as 6.52.  Due to incompatibilities between the Aladdin Free Public
+  License (AFPL) and the GNU General Public License (GPL), this driver
+  may not be combined and distributed with versions of GhostScript not
+  covered by the GPL.  We will not fix bugs reported against
+  combinations of this driver with AFPL-only versions of GhostScript.
+
+  GNU Ghostscript 6.53 and 7.05 and ESP Ghostscript 7.05 contain a
+  version of the Gimp-Print driver based on the Gimp-Print 4.2.0
+  release with a bug fix.  Building Gimp-Print is much simpler with
+  Ghostscript 6.53 and 7.05 for that reason.
+
+  Gimp-Print includes another driver based on the new IJS protocol.
+  IJS is an initiative to improve the quality and ease of use of
+  printing with Ghostscript.  It permits adding or upgrading drivers
+  without recompiling Ghostscript.  An IJS driver runs in a separate
+  process that communicates with Ghostscript via an IPC channel.  The
+  Gimp-Print IJS driver may be used with AFPL Ghostscript, as it runs
+  in a separate process.
+
+  The original stp driver will not be maintained beyond Gimp-Print
+  4.2; it will be phased out and replaced by the IJS driver
+  (ijsgimpprint).  It currently has all of the capabilities of the stp
+  driver, but it is perhaps not as mature.
+
+  IJS support was incorporated into Ghostscript in GNU Ghostscript
+  6.53 and AFPL Ghostscript 7.04, as IJS 0.32.
+
+  Finally, the distribution also includes a utility named "escputil"
+  that performs many utility functions, such as head cleaning, nozzle
+  alignment, and the like, for Epson Stylus printers.  This is
+  normally compiled by "make" and installed by "make install".
+
+
+AUTHOR:
+-------
+
+  The Ghostscript stp driver was originally written by Henryk Richter
+  (buggs@comlab.uni-rostock.de), and was integrated into Gimp-Print
+  during the 3.1 development series.  Gimp-Print itself was originally
+  written by Michael Sweet <mike@easysw.com>, who released up to
+  version 2.0; Robert Krawitz released version 3.0.  The gimp-print
+  development team (http://gimp-print.sourceforge.net) now maintains
+  the entire package.
+
+  The IJS driver was originally written by Russell Lang, and
+  incorporated into Gimp-Print in early 2002.  This driver corresponds
+  with the IJS protocol 0.32.
+
+
+LICENSE:
+--------
+
+  This program is free software; you can redistribute it and/or modify it
+  under the terms of the GNU General Public License as published by the Free
+  Software Foundation; either version 2 of the License, or (at your option)
+  any later version.
+
+  This program is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+  or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+  for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+
+BUILD AND INSTALLATION OF THE STP DRIVER:
+----- --- ------------ -- --- --- -------
+
+For GNU Ghostscript 6.53 and 7.05, and ESP Ghostscript 7.05
+(recommended):
+
+   Building Gimp-Print for GNU Ghostscript 6.53 and 7.05 and ESP
+   Ghostscript 7.05 is much simpler, as the driver is already in the
+   Ghostscript package.  It is sufficient to build and install the
+   Gimp-Print library and Ghostscript.
+
+1) First build and install the core Gimp-Print library.  Run
+
+   ./configure
+   make
+   make install
+
+   in the top level directory (../.. from here).
+
+   "make install" typically needs to be run as root.  You may also
+   need to run "ldconfig" as root following "make install".
+
+   You may optionally run
+
+   ./configure --without-gimp
+
+   if you do not wish to build the Gimp Print plugin.
+
+2) In the Ghostscript source directory, run
+
+   ./configure --with-gimp-print
+   make
+   make install
+
+For Ghostscript 5.10, 5.50, 6.51, or 6.52:
+
+1) Get a recent Ghostscript (5.10, 5.50, or 6.51 or its successors)
+   and prepare the sources as described in the documentation (don`t
+   forget zlib, libpng and libjpeg when downloading the source) for
+   compiling
+
+2) If you are using Ghostscript 5.50 or 6.51, you have two choices.
+   The recommended (newer) method follows.  This method builds the stp
+   driver by linking against the libgimpprint library that is
+   installed on your system.  If you wish to use the older method (or
+   you're using Ghostscript 5.10), which actually installs all of the
+   Gimp-Print source files into your Ghostscript source tree, please
+   skip to step 7.  We strongly recommend that all Ghostscript users,
+   except for those who cannot upgrade from 5.10, use the new method.
+
+
+3) The recommended (newer) method requires you to build and install
+   Gimp-print, and links against the installed libgimpprint.so or
+   libgimpprint.a.  Run
+
+   ./configure
+   make
+   make install
+
+   in the top level directory (../.. from here).
+
+   "make install" typically needs to be run as root.  You may also
+   need to run "ldconfig" as root following "make install".
+
+   You may optionally run
+
+   ./configure --without-gimp
+
+   if you do not wish to build the Gimp Print plugin.  Note that you
+   do *not* need to run "./configure --with-ghost" as before.
+
+4) Copy the file "gdevstp.c" from this directory into the Ghostscript
+   source directory.  Depending upon the version of Ghostscript you
+   use, this may be either the top level of your Ghostscript source
+   distribution, or the "src/" subdirectory.
+
+5) Edit the file "contrib.mak" (in either the top level or src/
+   subdirectory, depending upon your version of Ghostscript) by adding
+   the contents of "contrib.mak.addon", which should have been created
+   by running configure.  Be careful to add *exactly* the contents of
+   this file; if you cut and paste it, you may find that the tab
+   characters in contrib.mak.addon get transformed into spaces, and as
+   a result when you run 'make' it will fail.
+
+   If you reinstall Gimp-Print in a new location (by using configure
+   --prefix, configure --exec-prefix, or configure --includedir), you
+   must edit the contrib.mak file appropriately.  The contrib.mak.addon
+   file in this directory is automatically updated by running configure.
+
+6) Skip to step 11.
+
+
+7) If you are using Ghostscript 5.10, or prefer to use the old, tried
+   and true method for building the driver, run
+
+   ./configure --with-ghost
+   make
+
+   in the top level directory (../.. from here).
+
+   You may optionally run
+
+   ./configure --without-gimp --with-ghost
+
+   if you do not wish to build the Gimp Print plugin.
+
+8) Copy all "*.c" and "*.h" files from this directory to the
+   Ghostscript source directory.  Depending upon the version of
+   Ghostscript you use, this may be either the top level of your
+   Ghostscript source distribution, or the "src/" subdirectory.
+
+9) If you are using Ghostscript 5.50 or 6.51: edit the file
+   "contrib.mak" (in either the top level or src/ subdirectoy,
+   depending upon your version of Ghostscript) by adding the contents
+   of "contrib.mak.addon.old".  Be careful to add *exactly* the
+   contents of this file; if you cut and paste it, you may find that
+   the tab characters in contrib.mak.addon get transformed into
+   spaces, and as a result when you run 'make' it will fail.
+
+10) If you are using Ghostscript 5.10: edit the file "devs.mak" (in
+   either the top level or src/ subdirectoy, depending upon your
+   version of Ghostscript) by adding the contents of
+   "devs.mak.addon-5.10".  Be careful to add *exactly* the contents of
+   this file; if you cut and paste it, you may find that the tab
+   characters in contrib.mak.addon get transformed into spaces, and as
+   a result when you run 'make' it will fail.
+
+
+11) Add "$(DD)stp.dev" to the line "DEVICE_DEVS6=..." in the makefile
+   used by Ghostscript (this is usually accessible as "makefile" in
+   the top level Ghostscript source, but that is normally just a
+   symbolic link to a system-specific makefile, such as unix-gcc.mak).
+   If there are multiple lines that start with DEVICE_DEVS6=, you may
+   add this to any such line.  If there is no DEVICE_DEVS6= line, you
+   may add it to any other DEVICE_DEVSx line that is present.
+
+12) Compile and install gs as described in the Ghostscript
+   documentation.  After a successful compiler run you get a new
+   driver named "stp".  Check this by calling "gs -h" with the newly
+   compiled Ghostscript.
+
+
+BUILD AND INSTALLATION OF THE IJS GIMPPRINT DRIVER:
+----- --- ------------ -- --- --- --------- -------
+
+   GNU Ghostscript 6.53 and beyond, and AFPL Ghostscript 7.04 and
+   beyond, are required in order to use this driver.  These
+   instructions correspond to GNU Ghostscript 6.53.
+
+   You must first build Ghostscript itself with support for the IJS
+   driver.  This is done as follows, within the Ghostscript source
+   directory:
+
+   cd ghostscript-6.53
+   ./configure --with-ijs
+   make
+   make install
+
+   The Ghostscript installation (as of 6.53, and likely 7.04) does not
+   install certain files that are required to build the IJS driver.
+   This should be fixed in future Ghostscript releases.  To build and
+   install these files, you need to have the "aclocal", "autoconf",
+   and "automake" packages installed.  These are not normally
+   installed by default on most Linux and UNIX systems.  You may
+   install them from your distribution, or download them from
+   ftp.gnu.org.  After these packages are installed, run:
+
+   cd ghostscript-6.53/ijs
+   autoconf
+   ./configure
+   make
+   make install
+
+   You will perhaps get error messages during the autoconf process.
+   The important point is that the configure works correctly.  This
+   will install the necessary header files and libraries.
+
+   After the IJS core files and Ghostscript are installed, you can
+   build and install the IJS driver within the Gimp-Print package.
+   This is done as follows, within the Gimp-Print source directory:
+
+   ./configure --with-ijs
+   make
+   make install
+
+   or
+
+   ./configure --with-ijs --with-foomatic
+   make
+   make install
+
+   if you also want to have the Foomatic data for the IJS driver
+   (see the README file in the main directory of this package).
+
+   If you do not wish to build the Gimp Print plugin, you may run
+
+   ./configure --with-ijs --without-gimp
+
+   ./configure --with-ijs --with-foomatic --without-gimp
+
+
+DEBIAN:
+-------
+
+Debian users can try the following (contributed by Stuart Miles and
+updated by Dan Christensen <jdc@julian.uwo.ca>): versions are current
+as of 5 October 2000.  The Debian installation procedure is being
+extensively redone as of February 2001.
+
+As of version 5.50 and 6.61, the current Debian packages in testing
+(woody) and unstable (sid) are linked with libgimpprint, thus
+saving you the effort of doing any patching yourself!  Because it
+uses a shared object (libgimpprint.so), you may upgrade the
+gimp-print drivers simply by installing a newer version of the
+libgimpprint library.
+
+NOTE: the script 'scripts/make-deb.sh' does the following for you.
+      It is probably better to upgrade to a new 5.50 or 6.51 release;
+      only use this if you are running stable (potato) or earlier.
+
+Download the debianised sources for gs-aladdin and libjpeg to the
+directory containing the print-x.xxx directory:
+
+# apt-get source gs libjpeg62
+
+(Make sure you have a deb-src entry in /etc/apt/sources.list first!
+See the sources.list(5) man page for more info on setting up apt.)
+
+The name of the libjpeg package may vary.
+
+This will download the .dsc, orig.tar.gz and diff.gz files, unpack and
+patch the files for you.
+
+Rename the libjpegxxx (currently libjpeg6b-6b) directory to libjpeg.
+
+To compile gs you will also need the following installed:
+
+# apt-get install sharutils zlib1g-dev svgalibg1-dev libpng2-dev vflib2-dev
+
+The name of the packages may vary. The above corresponds to
+
+sharutils 4.2.1-2 shar, unshar, uuencode, uudecode
+zlib1g-dev 1.1.3-11 compression library - development
+svgalibg1-dev 1.4.1-2 Shared, non-x, graphics library used by Ghos
+libpng2-dev 1.0.8-1 PNG library - development
+vflib2-dev 2.25.1-5 Vector Font Library for Japanese Character C
+
+but current versions (and possibly older versions) will probably
+work as well.
+
+Next do the following:
+
+# mkdir gs-x.xx/contrib/stp
+# cd print-x.xxx/Ghost
+# cp gdevstp* *.mak.addon* ../../gs-x.xx/contrib/stp
+# cp README ../../gs-x.xx/contrib/stp/README.stp
+# cp debian-patch ../../gs-x.xx/debian
+# cp debian-patch-stp ../../gs-x.xx/debian/patches/stp
+# cd ../../gs-x.xx/debian
+# patch < debian-patch [patches control and rules files]
+# chmod u+x addentry [maybe this should be fixed in the tar file?]
+# cd .. [now we are in gs-x.xx]
+# debian/rules binary
+
+The rules script will copy the sourcefiles and README.stp into the
+main gs directory, patch contrib.mak, add the stp entry to
+unix-gcc.mak, compile gs, package it all up as a .deb package
+(gs-stp_5.10-9.1_i386.deb) and put the resulting file in the directory
+above gs.
+
+To install it:
+
+# cd ..
+# dpkg -i gs-stp_5.10-9.1_i386.deb
+
+If you have gs or gs-aladdin installed, it will be removed.
+
+DISCLAIMER:
+
+This is not an official Debian package. This method works for at
+least one person. To be really neat and tidy other files need
+modifying to ensure that this custom package gets marked as such and
+_not_ an official package. The only problem I've found is that I
+the gs-pdfencrypt insists on having gs installed rather than gs-stp.
+If you know how to fix this, please update this README.
+
+
+OPTIONS:
+--------
+
+Overview for the STP Driver:
+-------- --- --- --- -------
+
+Options for the stp driver are given in normal Ghostscript
+manner. The resolution of the image calculated by Ghostscript is not
+bound to the resolution of the printer output. It is for example
+possible to specify "-r360" to gs and print the output in 1440x720
+dpi (see below for driver parameter). The result is a somewhat faster
+operation of the driver.
+
+The device name is "stp" (-sDEVICE=stp)
+
+The driver will not permit use of invalid settings.
+
+The options for this driver are very complex.  We strongly recommend
+use of a printer management system such as Foomatic rather than
+configuring a spooler manually with this driver. The driver name used
+by Foomatic is "gimp-print".
+
+Overview for the IJS Driver:
+-------- --- --- --- -------
+
+Most options for the ijsgimpprint driver are similar to those for the
+stp driver.  The major difference is that most of the Gimp-Print
+specific options are bundled together into a single option that is
+passed in as a special "-sIjsParams" parameter, and the normal
+Ghostscript "-s" and "-d" flags, indicating whether an option is a
+string or a number, are not used in this special parameter.
+
+The device name is "ijs" (-sDEVICE=ijs).  In addition, the location of
+the driver program must be specified.  This will typically be
+/usr/local/bin/ijsgimpprint; the parameter in this case is
+-sIjsServer=/usr/local/bin/ijsgimpprint .
+
+Also, -dIjsUseOutputFD should be specified whenever output from
+Ghostscript will go to stdout or into a pipe.  It may be specified in
+all other cases, with only a slight performance degradation.
+
+The -sIjsParams parameter contains a single string containing a
+comma-separated list of sub-options:
+
+-sIjsParams=Option1=Value1,Option2=Value2
+
+and so forth.
+
+The options for this driver are very complex. We strongly recommend
+use of a printer management system such as Foomatic rather than
+configuring a spooler manually with this driver. The driver name used
+by Foomatic is "gimp-print-ijs".
+
+
+Printer Model Selection:
+------- ----- ----------
+
+STP: -sModel=name
+IJS: -sDeviceManufacturer=vendor -sDeviceModel=name
+
+This option must be supplied.  There is no default.  The IJS driver
+requires the vendor (it's part of the protocol), but the ijsgimpprint
+driver ignores it.  It should be CANON, EPSON, LEXMARK, or
+HEWLETT-PACKARD.  The value of the -sDeviceModel parameter is the same
+as the value of the -sModel parameter in the stp driver.
+
+bjc-30                  CANON BJC 30
+bjc-50                  CANON BJC 50
+bjc-55                  CANON BJC 55
+bjc-80                  CANON BJC 80
+bjc-85                  CANON BJC 85
+bjc-210                 CANON BJC 210
+bjc-240                 CANON BJC 240
+bjc-250                 CANON BJC 250
+bjc-1000                CANON BJC 1000
+bjc-2000                CANON BJC 2000
+bjc-3000                CANON BJC 3000
+bjc-4300                CANON BJC 4300
+bjc-4400                CANON BJC 4400 photo
+bjc-6000                CANON BJC 6000
+bjc-6100                CANON BJC 6100
+bjc-6200                CANON BJC 6200
+bjc-6500                CANON BJC 6500
+bjc-7000                CANON BJC 7000
+bjc-7100                CANON BJC 7100
+bjc-8200                CANON BJC 8200
+bjc-s400                CANON S400
+bjc-s450                CANON S450
+bjc-s800                CANON S800
+bjc-s4500               CANON S4500
+escp2-c20sx             EPSON Stylus C20SX
+escp2-c20ux             EPSON Stylus C20UX
+escp2-c40sx             EPSON Stylus C40SX
+escp2-c40ux             EPSON Stylus C40UX
+escp2-c41sx             EPSON Stylus C41SX
+escp2-c41ux             EPSON Stylus C41UX
+escp2-c42sx             EPSON Stylus C42SX
+escp2-c42ux             EPSON Stylus C42UX
+escp2-c60               EPSON Stylus C60
+escp2-c61               EPSON Stylus C61
+escp2-c62               EPSON Stylus C62
+escp2-c70               EPSON Stylus C70
+escp2-c80               EPSON Stylus C80
+escp2-c82               EPSON Stylus C82
+escp2                   EPSON Stylus Color
+escp2-pro               EPSON Stylus Color Pro
+escp2-pro-xl            EPSON Stylus Color Pro XL
+escp2-400               EPSON Stylus Color 400
+escp2-440               EPSON Stylus Color 440
+escp2-460               EPSON Stylus Color 460
+escp2-480               EPSON Stylus Color 480
+escp2-500               EPSON Stylus Color 500
+escp2-580               EPSON Stylus Color 580
+escp2-600               EPSON Stylus Color 600
+escp2-640               EPSON Stylus Color 640
+escp2-660               EPSON Stylus Color 660
+escp2-670               EPSON Stylus Color 670
+escp2-680               EPSON Stylus Color 680
+escp2-740               EPSON Stylus Color 740
+escp2-760               EPSON Stylus Color 760
+escp2-777               EPSON Stylus Color 777
+escp2-800               EPSON Stylus Color 800
+escp2-850               EPSON Stylus Color 850
+escp2-860               EPSON Stylus Color 860
+escp2-880               EPSON Stylus Color 880
+escp2-83                EPSON Stylus Color 83
+escp2-900               EPSON Stylus Color 900
+escp2-980               EPSON Stylus Color 980
+escp2-1160              EPSON Stylus Color 1160
+escp2-1500              EPSON Stylus Color 1500
+escp2-1520              EPSON Stylus Color 1520
+escp2-3000              EPSON Stylus Color 3000
+escp2-photo             EPSON Stylus Photo
+escp2-700               EPSON Stylus Photo 700
+escp2-ex                EPSON Stylus Photo EX
+escp2-ex3               EPSON Stylus Photo EX3
+escp2-720               EPSON Stylus Photo 720
+escp2-750               EPSON Stylus Photo 750
+escp2-780               EPSON Stylus Photo 780
+escp2-785               EPSON Stylus Photo 785EPX
+escp2-790               EPSON Stylus Photo 790
+escp2-810               EPSON Stylus Photo 810
+escp2-820               EPSON Stylus Photo 820
+escp2-825               EPSON Stylus Photo 825
+escp2-830               EPSON Stylus Photo 830
+escp2-870               EPSON Stylus Photo 870
+escp2-875               EPSON Stylus Photo 875
+escp2-890               EPSON Stylus Photo 890
+escp2-895               EPSON Stylus Photo 895
+escp2-915               EPSON Stylus Photo 915
+escp2-925               EPSON Stylus Photo 925
+escp2-950               EPSON Stylus Photo 950
+escp2-960               EPSON Stylus Photo 960
+escp2-1200              EPSON Stylus Photo 1200
+escp2-1270              EPSON Stylus Photo 1270
+escp2-1280              EPSON Stylus Photo 1280
+escp2-1290              EPSON Stylus Photo 1290
+escp2-2000              EPSON Stylus Photo 2000P
+escp2-2100              EPSON Stylus Photo 2100
+escp2-2200              EPSON Stylus Photo 2200
+escp2-5000              EPSON Stylus Pro 5000
+escp2-5500              EPSON Stylus Pro 5500
+escp2-7000              EPSON Stylus Pro 7000
+escp2-7500              EPSON Stylus Pro 7500
+escp2-7600              EPSON Stylus Pro 7600
+escp2-9000              EPSON Stylus Pro 9000
+escp2-9500              EPSON Stylus Pro 9500
+escp2-9600              EPSON Stylus Pro 9600
+escp2-10000             EPSON Stylus Pro 10000
+escp2-scan2000          EPSON Stylus Scan 2000
+escp2-scan2500          EPSON Stylus Scan 2500
+escp2-cx3200            EPSON Stylus CX-3200
+escp2-cx5200            EPSON Stylus CX-5200
+escp2-cl700             EPSON CL-700
+escp2-cl750             EPSON CL-750
+escp2-em900c            EPSON EM-900C
+escp2-em930c            EPSON EM-930C
+escp2-mc10000           EPSON MC-10000
+escp2-mc2000            EPSON MC-2000
+escp2-mc5000            EPSON MC-5000
+escp2-mc7000            EPSON MC-7000
+escp2-mc9000            EPSON MC-9000
+escp2-mj930c            EPSON MJ-930C
+escp2-mj5100c           EPSON MJ-5100C
+escp2-mj6000c           EPSON MJ-6000C
+escp2-mj8000c           EPSON MJ-8000C
+escp2-pm10000           EPSON PM-10000
+escp2-pm2000c           EPSON PM-2000C
+escp2-pm2200c           EPSON PM-2200C
+escp2-pm3000c           EPSON PM-3000C
+escp2-pm3300c           EPSON PM-3300C
+escp2-pm3500c           EPSON PM-3500C
+escp2-pm4000px          EPSON PM-4000PX
+escp2-pm5000c           EPSON PM-5000C
+escp2-pm7000c           EPSON PM-7000C
+escp2-pm700c            EPSON PM-700C
+escp2-pm730c            EPSON PM-730C
+escp2-pm750c            EPSON PM-750C
+escp2-pm760c            EPSON PM-760C
+escp2-pm770c            EPSON PM-770C
+escp2-pm780c            EPSON PM-780C
+escp2-pm790pt           EPSON PM-790PT
+escp2-pm800c            EPSON PM-800C
+escp2-pm850pt           EPSON PM-850PT
+escp2-pm880c            EPSON PM-880C
+escp2-pm9000c           EPSON PM-9000C
+escp2-pm950c            EPSON PM-950C
+escp2-px7000            EPSON PX-7000
+escp2-px9000            EPSON PX-9000
+pcl-desnj-230           HP DesignJet 230
+pcl-desnj-250           HP DesignJet 250
+pcl-desnj-430           HP DesignJet 430
+pcl-desnj-450           HP DesignJet 450
+pcl-desnj-455           HP DesignJet 455
+pcl-desnj-488           HP DesignJet 488
+pcl-desnj-700           HP DesignJet 700
+pcl-750                 HP DesignJet 750C
+pcl-desnj-2500          HP DesignJet 2500
+pcl-desnj-3500          HP DesignJet 3500
+pcl-340                 HP DeskJet 340
+pcl-400                 HP DeskJet 400
+pcl-500                 HP DeskJet 500
+pcl-501                 HP DeskJet 500C
+pcl-520                 HP DeskJet 520
+pcl-540                 HP DeskJet 540C
+pcl-550                 HP DeskJet 550C
+pcl-560                 HP DeskJet 560C
+pcl-600                 HP DeskJet 600/600C (Single Cartridge)
+pcl-601                 HP DeskJet 600 series (2 Cartridge)
+pcl-690                 HP DeskJet 690 series (Photo-Ink capable)
+pcl-810                 HP DeskJet 810C
+pcl-812                 HP DeskJet 812C
+pcl-840                 HP DeskJet 840C
+pcl-842                 HP DeskJet 842C
+pcl-845                 HP DeskJet 845C
+pcl-850                 HP DeskJet 850C
+pcl-855                 HP DeskJet 855C
+pcl-870                 HP DeskJet 870C
+pcl-890                 HP DeskJet 890C
+pcl-895                 HP DeskJet 895C
+pcl-900                 HP DeskJet 900 series
+pcl-P1000               HP PhotoSmart P1000
+pcl-1100                HP DeskJet 1100C
+pcl-P1100               HP PhotoSmart P1100
+pcl-1120                HP DeskJet 1120C
+pcl-1200                HP DeskJet 1200C
+pcl-1220                HP DeskJet 1220C
+pcl-1600                HP DeskJet 1600C
+pcl-2000                HP DeskJet 2000 series
+pcl-2500                HP DeskJet 2500 series
+pcl-2                   HP LaserJet II series
+pcl-3                   HP LaserJet III series
+pcl-4                   HP LaserJet 4 series
+pcl-4l                  HP LaserJet 4L
+pcl-4v                  HP LaserJet 4V, 4Si
+pcl-5                   HP LaserJet 5 series
+pcl-5si                 HP LaserJet 5Si
+pcl-6                   HP LaserJet 6 series
+lexmark-4076            Lexmark 4076 (PCL printer)
+lexmark-z42             Lexmark Z42
+lexmark-z43             Lexmark Z43
+lexmark-z52             Lexmark Z52
+lexmark-z53             Lexmark Z53
+
+Most or all of the Epson Stylus printers are fully functional.  The
+others vary.  In particular, all of the listed Epson Stylus Photo
+printers print in full 6-color photo mode; most of the others do not.
+The color output has also been better tuned for Epson Stylus printers
+than for others.
+
+
+Print Resolution Selection:
+----- ---------- ----------
+
+STP: -sQuality=quality
+IJS: -sIjsParams=Quality=quality
+
+The meaning of this is model-specific.  Two names are listed for each
+resolution; the first (short) name is the value that must be passed to
+-sQuality, and the second (long) name is descriptive.  Each printer
+has its own default value; for most printers, this is a reasonable 300
+or 360 DPI resolution.
+
+
+For Epson Stylus printers:
+
+Within each specified resolution, the quality is generally listed from
+worst to best (and generally higher quality means lower speed).  For
+example, 360 DPI Unidirectional is usually better than 360 DPI.
+Characteristics of specific models and individual printers may affect
+the orderings to some degree; on many printers, with certain papers,
+unidirectional printing will improve quality substantially more than
+using an otherwise better quality printing mode.
+
+The difference between different quality settings lies in the number
+of passes made over each line.  "High" and "Highest" quality settings
+perform more passes, printing fewer dots with each pass over the same
+line and using different nozzles for each pass.  This reduces banding
+effects, but requires more time.
+
+"Microweave" modes use algorithms within the printer to generate the
+sequence of rows printed.  These algorithms generally only work well
+at low printing resolutions.  Many printers do not support this kind
+of printing at resolutions of 720 DPI and above, and some printers
+that do actually print just one row (using just one nozzle per color)
+at a time.  While this particular use will produce extremely high
+quality (no banding whatsoever, normally), it is extremely slow and
+may eventually damage the print head due to ink pooling.  All printers
+that we are aware of have no such trouble at 360 DPI.
+
+We generally recommend the following resolutions for the following
+purposes:
+
+360x90    Fast economy draft output on plain paper (output will be very
+360x120   banded and not very dark).
+
+180       Economy draft output on plain paper (output will not be very
+          dark).
+
+360x180   Draft output on plain paper (output will not be solidly
+360x240   black); economy draft output on good quality inkjet paper.
+
+360       Standard quality output on plain paper (output will be
+          solidly black); draft output on good quality inkjet paper.
+
+720x360   High quality output on plain paper; standard output on good
+          quality inkjet paper.
+
+720       Maximum quality on plain paper; high quality on good inkjet
+          paper; proofs on photo-quality paper.  On many printers,
+          there will be little difference between this and 720x360 on
+          plain paper.
+
+1440x720  High quality on photo paper; use 1440x720 Highest Quality to
+          reduce microbanding if needed.  While this will work on plain
+          paper, it usually offers little improvement over 720 DPI.
+
+2880x720  Highest quality on photo paper.  While this may yield
+          slightly improved quality, it will generally not be markedly
+          superior to 1440x720 Highest Quality, except on the Stylus
+          Color 980 and Stylus C70 and C80, where it may yield a
+          noticeable improvement.  It takes as long to print as
+          1440x720 highest quality, but twice as long to generate the
+          output.
+
+1440x1440 An unsupported mode that offers higher quality than 2880x720
+          for certain types of images on very high quality paper.  It
+          does not appear to offer any advantage on smooth tones, but
+          fine detail (particularly vertical, and to a lesser extent
+          near-horizontal) it shows noticeable improvement.  It takes
+          as long to print as 2880x720.  1440x1440 highest quality
+          takes twice as long to print.
+
+2880x1440 An unsupported mode that may offer higher quality than
+          2880x720 for certain types of images on very high quality
+          paper.  Experiments conducted thus far demonstrate little if
+          any improvement over 1440x1440.  It takes twice as long to
+          print as 2880x720 or 1440x1440, and as long to print as
+          1440x1440 highest quality.
+
+
+The following resolutions are supported on printers other than the
+Stylus Pro (5000, 5500, 7000, 7500, 9000, 9500, and 10000) printers.
+Resolutions for those printers are listed in a later section.  Please
+see the notes at the end of this section.
+
+360x90dpi        360 x 90 DPI Fast Economy Draft          (1)
+
+180dpi           180 DPI Economy Draft                    (2)
+
+360x180dpi       360 x 180 DPI Draft                      (2)
+360x180sw        360 x 180 DPI Draft                      (3)
+
+360x120dpi       360 x 120 DPI Economy Draft              (4)
+360x120sw        360 x 120 DPI Economy Draft              (5)
+
+360x240dpi       360 x 240 DPI Draft                      (4)
+360x240sw        360 x 240 DPI Draft                      (5)
+
+360dpi           360 DPI                                  (6)
+360uni           360 DPI Unidirectional                   (6)
+360mw            360 DPI Microweave                       (6, *)
+360mwuni         360 DPI Microweave Unidirectional        (6)
+360sw            360 DPI                                  (7, 17, *)
+360swuni         360 DPI Unidirectional                   (7, 17)
+360hq            360 DPI High Quality                     (7, 8, 17)
+360hquni         360 DPI High Quality Unidirectional      (7, 8, 17)
+
+720x360sw        720 x 360 DPI                            (9, 10)
+720x360swuni     720 x 360 DPI Unidirectional             (9, 10)
+
+720mw            720 DPI Microweave                       (11)
+720mwuni         720 DPI Microweave Unidirectional        (11)
+720sw            720 DPI                                  (9)
+720swuni         720 DPI Unidirectional                   (9)
+720hq            720 DPI High Quality                     (9)
+720hquni         720 DPI High Quality Unidirectional      (9)
+720hq2           720 DPI Highest Quality                  (9)
+
+1440x720mw       1440 x 720 DPI Microweave                (12)
+1440x720mwuni    1440 x 720 DPI Microweave Unidirectional (12)
+1440x720sw       1440 x 720 DPI                           (13)
+1440x720swuni    1440 x 720 DPI Unidirectional            (13, 14)
+1440x720hq       1440 x 720 DPI Highest Quality           (13)
+
+2880x720sw       2880 x 720 DPI                           (15)
+2880x720swuni    2880 x 720 DPI Unidirectional            (15)
+
+1440x1440sw      1440 x 1440 DPI                          (16)
+1440x1440hq2     1440 x 1440 DPI Highest Quality          (16)
+
+2880x1440sw      2880 x 1440 DPI                          (16)
+
+(*) This resolution is the default on all printers supporting this
+    setting.
+
+(1) Works on printers that have a basic vertical spacing of 1/90".
+    This includes the Stylus Color, Stylus Color 440, 460, 600, 640,
+    660, 670, and 1500, and Stylus Photo, Stylus Photo 700, 720, and
+    EX.
+
+(2) Works on most printers that have a basic vertical spacing of 1/90,
+    1/180, or 1/360 inch.  This includes Stylus Color, Stylus Color
+    440, 460, 600, 640, 660, 670, 800, 850, 900, 980, 1500, 1520,
+    3000, and Stylus Photo, Stylus Photo 700, 720 and EX.
+
+(3) Works on Stylus C70, C80, and C82; and Stylus Photo 950, 960,
+    2100, and 2200.
+
+(4) Works on older printers with dot spacing of 1/120 inch.  This
+    includes the Stylus Color Pro, Pro XL, 400, and 500.
+
+(5) Works on newer printers with dot spacing of 1/120 inch.  This
+    includes the Stylus C20, C40, C41, C42, C60, C61, and C62; the
+    Stylus Color 480, 580, 680, 740, 760, 777, 860, 880, 83, and 1160,
+    and the Stylus Photo 750, 780, 785, 790, 810, 820, 830, 870, 875,
+    890, 895, 915, 925, 1270, 1280, 1290, and 2000P, and the Stylus
+    Scan 2000 and 2500.
+
+(6) Works on all printers that do not support variable drop sizes.
+    This includes the Stylus Color, Stylus Color 400, 440, 460, 500,
+    600, 640, 660, 800, 850, 1500, 1520, and 3000, Stylus Color Pro,
+    Stylus Color Pro XL, and Stylus Photo, Stylus Photo 700, and EX.
+
+(7) Works on all printers that do support variable drop sizes.  This
+    includes all supported Epson Stylus printers except for those
+    listed in note (6).
+
+(8) Recommended only on processors slower than 200 MHz, the system is
+    heavily loaded with a faster processor, or if problems are
+    experienced at 720x360.
+
+(9) Works on all supported printers except for Stylus Color, Stylus
+    Color Pro, Stylus Color Pro XL, Stylus Color 1500, 1520, and 3000.
+
+(10) On printers that do not support variable drop size (see note (4)),
+    this will print as fast as 360 DPI, and faster than 360 DPI High
+    Quality.  It will take twice as long to generate output, which may
+    be important on a heavily loaded system or a processor slower than
+    200 MHz.
+
+(11) Works on some older printers, including the Stylus Color, Stylus
+    Color 400, 500, 600, 800, 850, 1500, 1520, and 3000, Stylus Color
+    Pro, and Stylus Color Pro XL.  Not recommended except for the
+    Stylus Color, Stylus Color 1500, 1520, and 3000.
+
+(12) Works on Stylus Color 600, 800, 850, 1520, and 3000.  Not
+    recommended unless other 1440x720 modes do not work.
+
+(13) Works on all printers that support 1440x720 DPI.  This includes
+    all supported printers except for the Stylus Color, Stylus Color
+    Pro, Pro XL, 400, 440, 460, 480, 500, and 1500, and Stylus Photo.
+    In addition, this may not work correctly on Stylus Color 1520 and
+    Stylus Color 3000.
+
+(14) This is identical to 1440 x 720 Highest Quality (1440x720hq) on
+    the Stylus Color 900.
+
+(15) Works on all printers that support 2880x720 DPI.  This includes
+    the Stylus C60, C61, C62, C70, C80, and C82, the Stylus Color 680,
+    777, 880, 83, and 980, and Stylus Photo 780, 790, 810, 820, 830,
+    890, 915, 925, 950, 960, 1280, and 1290.  This resolution is
+    offered on the Stylus Photo 2100 and 2200, but may not work
+    correctly.
+
+(16) Works on Epson Stylus Photo 830, 925, 950, 960, 2100, 2200;
+    Stylus C61, C62, C70, C80, C82 ; Stylus Pro 7600 and 9600.  This
+    resolution is not supported by Epson on the C70 and C80, but it
+    works correctly on at least some such printers.
+
+(17) These resolutions print at particularly high speed on the Epson
+    Stylus Photo 950, 960, 2100, and 2200 when printing in Four Color
+    Standard or Three Color Composite modes, or when printing in
+    monochrome or grayscale with any ink type other than Two Level
+    Grayscale, Seven Color Photo, or Quadtone.
+
+
+The Stylus Pro printers (Stylus Pro 5000, 5500, 7000, 7500, 7600,
+9000, 9500, 9600, and 10000) support additional microweave modes known
+as Full Overlap (FOL), Four Pass, and FOL2.  The Stylus Pro 5500,
+7500, 7600, 9500, 9600, and 10000 additionally have a mode called MW2.
+These modes can only be used at certain resolutions.  Stylus Pro
+printers support the following resolutions:
+
+180dpi            180 DPI
+
+360dpi            360 DPI
+360uni            360 DPI Unidirectional
+360mw             360 DPI Microweave
+360mwuni          360 DPI Microweave Unidirectional
+360fol            360 DPI Full Overlap
+360foluni         360 DPI Full Overlap Unidirectional
+360fol2           360 DPI FOL2
+360fol2uni        360 DPI FOL2 Unidirectional
+360mw2            360 DPI MW2
+360mw2uni         360 DPI MW2 Unidirectional
+
+720x360dpi        720 x 360 DPI
+720x360uni        720 x 360 DPI Unidirectional
+720x360fol        720 x 360 DPI FOL
+720x360foluni     720 x 360 DPI FOL Unidirectional
+720x360fol2       720 x 360 DPI FOL2
+720x360fol2uni    720 x 360 DPI FOL2 Unidirectional
+720x360mw2        720 x 360 DPI MW2
+720x360mw2uni     720 x 360 DPI MW2 Unidirectional
+
+720dpi            720 DPI
+720uni            720 DPI Unidirectional
+720mw             720 DPI Microweave
+720mwuni          720 DPI Microweave Unidirectional
+720fol            720 DPI Full Overlap
+720foluni         720 DPI Full Overlap Unidirectional
+720fourp          720 DPI Four Pass
+720fourpuni       720 DPI Four Pass Unidirectional
+
+1440x720dpi       1440 x 720 DPI
+1440x720uni       1440 x 720 DPI Unidirectional
+1440x720mw        1440 x 720 DPI Microweave
+1440x720mwuni     1440 x 720 DPI Microweave Unidirectional
+1440x720fol       1440 x 720 DPI FOL
+1440x720foluni    1440 x 720 DPI FOL Unidirectional
+1440x720fourp     1440 x 720 DPI Four Pass
+1440x720fourpuni  1440 x 720 DPI Four Pass Unidirectional
+
+In addition, the Stylus Pro 7600 and 9600 printers support the
+following resolutions:
+
+2880x720dpi       2880 x 720 DPI
+2880x720uni       2880 x 720 DPI Unidirectional
+2880x720mw        2880 x 720 DPI Microweave
+2880x720mwuni     2880 x 720 DPI Microweave Unidirectional
+2880x720fol       2880 x 720 DPI FOL
+2880x720foluni    2880 x 720 DPI FOL Unidirectional
+2880x720fourp     2880 x 720 DPI Four Pass
+2880x720fourpuni  2880 x 720 DPI Four Pass Unidirectional
+
+1440x1440dpi      1440 x 1440 DPI
+1440x1440uni      1440 x 1440 DPI Unidirectional
+1440x1440mw       1440 x 1440 DPI Microweave
+1440x1440mwuni    1440 x 1440 DPI Microweave Unidirectional
+1440x1440fol      1440 x 1440 DPI FOL
+1440x1440foluni   1440 x 1440 DPI FOL Unidirectional
+1440x1440fourp    1440 x 1440 DPI Four Pass
+1440x1440fourpuni 1440 x 1440 DPI Four Pass Unidirectional
+
+2880x1440dpi      2880 x 1440 DPI
+2880x1440uni      2880 x 1440 DPI Unidirectional
+2880x1440mw       2880 x 1440 DPI Microweave
+2880x1440mwuni    2880 x 1440 DPI Microweave Unidirectional
+2880x1440fol      2880 x 1440 DPI FOL
+2880x1440foluni   2880 x 1440 DPI FOL Unidirectional
+2880x1440fourp    2880 x 1440 DPI Four Pass
+2880x1440fourpuni 2880 x 1440 DPI Four Pass Unidirectional
+
+
+For PCL printers (including Hewlett-Packard and Lexmark 4076):
+
+150dpi           150x150 DPI   (should work on all printers)
+300dpi           300x300 DPI   (should work on all printers, C-RET on
+                                 DJ 850/855/870/890)
+600x300dpi       600x300 DPI   (DJ 6xx/810/812/840/842/895)
+600mono          600x600 DPI monochrome
+                                (DJ 6xx (except 69x) /8xx/1100/1120)
+600dpi           600x600 DPI   (DJ 69x/840/9xx/1220/2000/2500,
+                                 PhotoSmart P1000/P1100, LJ5/5Si/6)
+
+Note: the higher resolutions of newer PCL printers using "Photo-Ret" are
+not yet supported.
+
+
+For Lexmark printers other than the 4076:
+
+300x600dpi       300 DPI x 600 DPI
+600dpi           600 DPI
+600hq            600 DPI high quality
+600uni           600 DPI Unidirectional
+1200dpi          1200 DPI
+1200hq           1200 DPI high quality
+1200hq2          1200 DPI highest quality
+1200uni          1200 DPI  Unidirectional
+2400x1200dpi     2400 DPI x 1200 DPI                   (Z52)
+2400x1200hq      2400 DPI x 1200 DPI high quality      (Z52)
+2400x1200hq2     2400 DPI x 1200 DPI highest quality   (Z52)
+
+
+For Canon printers:
+
+1200 DPI printers (BJC 7000, BJC 7100, BJC 8500):
+
+300x300dpi       300x300 DPI
+300x300dmt       300x300 DPI DMT
+600x600dpi       600x600 DPI
+600x600dmt       600x600 DPI DMT
+1200x600dpi      1200x600 DPI
+1200x1200dpi     1200x1200 DPI
+
+1440 DPI printers (BJC 30, BJC 50, BJC 55, BJC 80, BJC 85, BJC 210,
+    BJC 240, BJC 250, BJC 1000, BJC 2000, BJC 3000, BJC 4300, BJC
+    4400, BJC 6000, BJC 6100, BJC 6200, BJC 6500, BJC 8200, S400,
+    S450, S800, S4500):
+
+360x360dpi       360x360 DPI
+360x360dmt       360x360 DPI DMT
+720x360dpi       720x360 DPI
+720x720dpi       720x720 DPI
+1440x720dpi      1440x720 DPI
+1440x1440dpi     1440x1440 DPI
+
+
+Ink Types
+--- -----
+
+This is printer type specific.  The option names are case sensitive.
+The option names are case sensitive.  Two names are listed for each
+resolution; the first (short) name is the value that must be passed to
+-sInkType, and the second (long) name is descriptive.  Not all ink
+types are supported on all printers.
+
+STP: -sInkType=inktype
+IJS: -sIjsParams=InkType=inktype
+
+
+For Epson and Lexmark (other than the 4076) printers:
+
+Six color printers can print using four color inks or all six colors.
+Six color mode is recommended for photographs.  Four color mode may be
+useful when printing text with embedded graphics to reduce ink
+consumption, or to print higher quality with Ordered, Fast, or Very
+Fast dithering (see below).
+
+The "Composite" modes use only color inks (no black) to produce all
+colors and black.  These ink types are rarely useful, but on certain
+types of paper they may produce a smoother image than that produced by
+mixing black ink in.  The Epson Stylus Color 1500 cannot mix black ink
+with colored inks; on this printer, Three Color Composite must be
+used.
+
+Photo7          Seven Color Photo (CcMmYKk, for the Epson Stylus
+                Photo 2100 and 2200, and Stylus Pro 7600 and 9600)
+PhotoCMYK       Six Color Photo
+PhotoCMY        Five Color Photo Composite
+CMYK            Four Color Standard
+RGB             Three Color Composite
+Quadtone        Quadtone grayscale inks (special third party inksets
+                designed to produce superior results for grayscale
+                images)
+Gray2           Two Level Grayscale (Kk, for the Epson stylus Photo
+                2100 and 2200, and Stylus Pro 7600 and 9600)
+
+
+For Canon printers:
+
+Gray            Black
+RGB             Color
+CMYK            Black/Color
+PhotoCMY        Photo/Color
+PhotoCMYK       Photo
+
+
+For PCL (Hewlett-Packard and Lexmark 4076) color printers:
+
+CMYK            Color + Black Cartridges
+Photo           Color + Photo Cartridges (For Deskjet 69x only)
+
+Black and white PCL printers (laser printers, in particular) do not
+allow any value to be specified for the ink type.
+
+
+Media Types
+----- -----
+
+This is printer type specific.  The option names are case sensitive.
+Two names are listed for each resolution; the first (short) name is
+the value that must be passed to -sMediaType, and the second (long) name
+is descriptive.
+
+STP: -sMediaType=mediatype
+IJS: -sIjsParams=MediaType=mediatype
+
+
+For Epson and Lexmark (other than the 4076) inkjet printers:
+
+Plain           Plain Paper
+PlainFast       Plain Paper Fast Load
+Postcard        Postcard
+GlossyFilm      Glossy Film
+Transparency    Transparencies
+Envelope        Envelopes
+BackFilm        Back Light Film
+Matte           Matte Paper
+Inkjet          Inkjet Paper
+Coated          Photo Quality Inkjet Paper
+GlossyPhoto     Premium Glossy Photo Paper
+Luster          Premium Luster Photo Paper
+Photo           Photo Paper
+Glossy          Photo Quality Glossy Paper
+Ilford          Ilford Heavy Paper
+Other           Other
+
+We have found that glossy photo papers not specifically designed for
+Epson printers generally perform poorly in Epson printers.  The ink
+tends to pool on the paper, causing muddy shadows and possibly leaving
+ink on the printer rollers.  Use of the highest quality printing modes
+(1440x720 highest quality and 2880x720 unidirectional) produces the
+best result on such papers, probably because printing is slower and
+there is more time for the ink to dry.
+
+
+For Canon printers:
+
+Plain           Plain Paper
+Transparency    Transparencies
+BackFilm        Back Print Film
+Fabric          Fabric Sheets
+Envelope        Envelope
+Coated          High Resolution Paper
+TShirt          T-Shirt Transfers
+GlossyFilm      High Gloss Film
+GlossyPaper     Glossy Photo Paper
+GlossyCards     Glossy Photo Cards
+GlossyPro       Photo Paper Pro
+
+
+For PCL (Hewlett-Packard and Lexmark 4076) inkjet printers:
+
+Plain           Plain
+Bond            Bond
+Premium         Premium
+Glossy          Glossy/Photo
+Transparency    Transparency
+GlossyQD        Quick-dry Photo
+TransparencyQD  Quick-dry Transparency
+
+PCL laser printers do not allow specification of any media type.
+
+
+Media Sources
+----- -------
+
+This is printer type specific.  The option names are case sensitive.
+
+STP: -sInputSlot=mediasource
+IJS: -sIjsParams=MediaSource=mediasource
+
+Epson printers without a roll feed mechanism should not have this
+option set.
+
+For Epson printers with a roll feed mechanism without a paper cutter
+(Stylus Photo 785, 825, 870, 875, 890, 895, 915, 1200, 1270, 1280,
+1290):
+
+Standard        Standard
+Roll            Roll Feed
+
+For Epson printers with a roll feed mechanism with a paper cutter
+(Stylus Photo 925, 950, 960, 2100, 2200):
+
+Standard        Standard
+RollCutPage     Roll feed, cut each page
+RollCutNone     Roll feed, do not cut
+
+NOTE: The -sInputSlot=RollCutPage does not work with the STP driver,
+only with the IJS driver.
+
+For Epson Stylus Pro printers without a roll feed mechanism (Stylus
+Pro 5000, 5500):
+
+CutSheet1       Cut sheet bin 1
+CutSheet2       Cut sheet bin 2
+CutSheetAuto    Cut sheet autoselect
+ManualSelect    Manual selection
+
+For Epson Stylus Pro printers with a roll feed mechanism (Stylus Pro
+7000, 7500, 7600, 9000, 9500, 9600, 10000, 10600):
+
+Standard        Standard
+Roll            Roll Feed
+
+
+For Canon printers:
+
+Auto            Auto Sheet Feeder
+Manual          Manual with Pause
+ManualNP        Manual without Pause
+
+
+For PCL (Hewlett-Packard and Lexmark 4076) printers.  Different
+printers allow different choices out of this set.
+
+Standard        Standard      (Feed from printer defined source)
+Manual          Manual
+MultiPurpose    Tray 1
+Upper           Tray 2
+Lower           Tray 3
+LargeCapacity   Tray 4
+Portable        Portable Sheet Feeder
+Desktop         Desktop Sheet Feeder
+Tray            Tray
+Tray2           Tray 2
+Optional        Optional Source
+Auto            Autoselect
+
+
+For Lexmark printers other than the 4076:
+
+Auto            Auto Sheet Feeder
+Manual          Manual with Pause
+ManualNP        Manual without Pause
+
+
+Media Sizes
+----- -----
+
+This is printer-specific; we cannot list the correct values for each
+printer here.  The option names are case-sensitive.  Two names are
+listed for each resolution; the first (short) name is the value that
+must be passed to -sPAPERSIZE, and the second (long) name is
+descriptive.  This option does not set GhostScript up to use a paper
+size other than the default; it only tells the driver to set up the
+printer for a different paper size.  The default paper size is
+'Letter'.
+
+STP: -sPAPERSIZE=papersize
+IJS: -sPAPERSIZE=papersize (for known Ghostscript paper sizes)
+  or
+     -dDEVICEWIDTHPOINTS=x -dDEVICEHEIGHTPOINTS=y
+               where x and y are the width and height of the paper
+               respectively, in points (1/72")
+
+
+
+   * Common English paper sizes
+
+Letter          Letter         8.5in x 11in                     x=612, y=792
+Legal           Legal          8.5in x 14in                     x=612, y=1008
+Tabloid         Tabloid         11in x 17in                     x=792, y=1224
+Executive       Executive     7.25in x 10.5in                   x=522, y=756
+Postcard        Postcard       100mm x 147mm                    x=283, y=416
+w216h360        3x5                                             x=216, y=360
+w288h432        4x6                                             x=288, y=432
+w324h495        Epson 4x6 Photo Paper                           x=324, y=495
+w360h504        5x7                                             x=360, y=504
+w360h576        5x8                                             x=360, y=576
+8x10            8x10                                            x=576, y=720
+Statement       Manual         5.5in x 8.5in                    x=396, y=612
+TabloidExtra    12x18                                           x=864, y=1296
+SuperB          13x19                                           x=936, y=1368
+
+   * Common photographic paper sizes
+
+w576h864        8x12   Sometimes used for 35 mm                 x=576, y=864
+w792h1008       11x14                                           x=792, y=1008
+w1152h1440      16x20                                           x=1152, y=1440
+w1152h1728      16x24  20x24 for 35 mm                          x=1152, y=1728
+w1440h1728      20x24                                           x=1440, y=1728
+w1440h2160      20x30  24x30 for 35 mm                          x=1440, y=2160
+w1584h2160      22x30  Common watercolor size                   x=1440, y=2160
+w1728h2160      24x30                                           x=1728, y=2160
+w1728h2592      24x36  Sometimes used for 35 mm                 x=1728, y=2592
+w2160h2880      30x40                                           x=2160, y=2880
+
+   International Paper Sizes (mostly taken from BS4000:1968)
+
+   * "A" series: Paper and boards, trimmed sizes
+   *
+   * "A" sizes are in the ratio 1 : sqrt(2).  A0 has a total area
+   * of 1 square metre.  Everything is rounded to the nearest
+   * millimetre.  Thus, A0 is 841mm x 1189mm.  Every other A
+   * size is obtained by doubling or halving another A size.
+
+w4768h6749      4A            1682mm x 2378mm                   x=4768, y=6749
+w3370h4768      2A            1189mm x 1682mm                   x=3370, y=4768
+A0              A0             841mm x 1189mm                   x=2384, y=3370
+A1              A1             594mm x  841mm                   x=1684, y=2384
+A2              A2             420mm x  594mm                   x=1191, y=1684
+A3              A3             297mm x  420mm                   x=842, y=1191
+A4              A4             210mm x  297mm                   x=595, y=842
+A5              A5             148mm x  210mm                   x=420, y=595
+A6              A6             105mm x  148mm                   x=297, y=420
+A7              A7              74mm x  105mm                   x=210, y=297
+A8              A8              52mm x   74mm                   x=148, y=210
+A9              A9              37mm x   52mm                   x=105, y=148
+A10             A10             26mm x   37mm                   x=73, y=105
+
+   * Stock sizes for normal trims.
+   * Allowance for trim is 3 millimetres.
+
+w2437h3458      RA0            860mm x 1220mm                   x=2437, y=3458
+w1729h2437      RA1            610mm x  860mm                   x=1729, y=2437
+w1218h1729      RA2            430mm x  610mm                   x=1218, y=1729
+w864h1218       RA3            305mm x  430mm                   x=864, y=1218
+w609h864        RA4            215mm x  305mm                   x=609, y=864
+
+   * Stock sizes for bled work or extra trims.
+
+w2551h3628      SRA0          900mm x 1280mm                    x=2551, y=3628
+w1814h2551      SRA1          640mm x  900mm                    x=1814, y=2551
+w1275h1814      SRA2          450mm x  640mm                    x=1275, y=1814
+w907h1275       SRA3          320mm x  450mm                    x=907, y=1275
+w637h907        SRA4          225mm x  320mm                    x=637, y=907
+
+   * "B" series: Posters, wall charts and similar items.
+
+w5669h8016      4B ISO        2000mm x 2828mm                   x=5669, y=8016
+w4008h5669      2B ISO        1414mm x 2000mm                   x=4008, y=5669
+ISOB0           B0 ISO        1000mm x 1414mm                   x=2834, y=4008
+ISOB1           B1 ISO         707mm x 1000mm                   x=2004, y=2834
+ISOB2           B2 ISO         500mm x  707mm                   x=1417, y=2004
+ISOB3           B3 ISO         353mm x  500mm                   x=1000, y=1417
+ISOB4           B4 ISO         250mm x  353mm                   x=708, y=1000
+ISOB5           B5 ISO         176mm x  250mm                   x=498, y=708
+ISOB6           B6 ISO         125mm x  176mm                   x=354, y=498
+ISOB7           B7 ISO          88mm x  125mm                   x=249, y=354
+ISOB8           B8 ISO          62mm x   88mm                   x=175, y=249
+ISOB9           B9 ISO          44mm x   62mm                   x=124, y=175
+ISOB10          B10 ISO         31mm x   44mm                   x=87, y=124
+
+B0              B0 JIS                                          x=2919, y=4127
+B1              B1 JIS                                          x=2063, y=2919
+B2              B2 JIS                                          x=1459, y=2063
+B3              B3 JIS                                          x=1029, y=1459
+B4              B4 JIS                                          x=727, y=1029
+B5              B5 JIS                                          x=518, y=727
+B6              B6 JIS                                          x=362, y=518
+B7              B7 JIS                                          x=257, y=362
+B8              B8 JIS                                          x=180, y=257
+B9              B9 JIS                                          x=127, y=180
+B10             B10 JIS                                         x=90, y=127
+
+   * "C" series: Envelopes or folders suitable for A size stationery.
+
+C0              C0            917mm x 1297mm                    x=2599, y=3676
+C1              C1            648mm x  917mm                    x=1836, y=2599
+C2              C2            458mm x  648mm                    x=1298, y=1836
+C3              C3            324mm x  458mm                    x=918, y=1298
+C4              C4            229mm x  324mm                    x=649, y=918
+C5              C5            162mm x  229mm                    x=459, y=649
+w354h918        B6-C4         125mm x  324mm                    x=354, y=918
+C6              C6            114mm x  162mm                    x=323, y=459
+DL              DL            110mm x  220mm                    x=311, y=623
+w229h459        C7-6           81mm x  162mm                    x=229, y=459
+C7              C7             81mm x  114mm                    x=229, y=323
+C8              C8             57mm x   81mm                    x=161, y=229
+C9              C9             40mm x   57mm                    x=113, y=161
+C10             C10            28mm x   40mm                    x=79, y=113
+
+   * US CAD standard paper sizes
+
+ARCHA           ArchA              9x12in                       x=648, y=864
+ARCHA_trans     ArchA transverse  12x9 in                       x=864, y=648
+ARCHB           ArchB             12x18in                       x=864, y=1296
+ARCHB_trans     ArchB transverse  18x12in                       x=1296, y=864
+ARCHC           ArchC             18x24in                       x=1296, y=1728
+ARCHC_trans     ArchC transverse  24x18in                       x=1728, y=1296
+ARCHD           ArchD             24x36in                       x=1728, y=2592
+ARCHD_trans     ArchD transverse  36x24in                       x=2592, y=1728
+ARCHE           ArchE             36x48in                       x=2592, y=3456
+ARCHE_trans     ArchE transverse  48x36in                       x=3456, y=2592
+
+   * Foolscap
+
+w612h936        American foolscap                               x=612, y=936
+w648h936        European foolscap                               x=648, y=936
+
+   * Sizes for book production
+   * The BPIF and the Publishers Association jointly recommend ten
+   * standard metric sizes for case-bound titles as follows:
+
+w535h697        Crown Quarto          189mm x 246mm             x=535, y=697
+w569h731        Large Crown Quarto    201mm x 258mm             x=569, y=731
+w620h782        Demy Quarto           219mm x 276mm             x=620, y=782
+w671h884        Royal Quarto          237mm x 312mm             x=671, y=884
+w348h527        Crown Octavo          123mm x 186mm             x=348, y=527
+w365h561        Large Crown Octavo    129mm x 198mm             x=365, y=561
+w391h612        Demy Octavo           138mm x 216mm             x=391, y=612
+w442h663        Royal Octavo          156mm x 234mm             x=442, y=663
+
+   * Paperback sizes in common usage
+
+w314h504        Small paperback       111mm x 178mm             x=314, y=504
+w314h513        Penguin small paperback       111mm x 181mm     x=314, y=513
+w365h561        Penguin large paperback       129mm x 198mm     x=365, y=561
+
+   * Miscellaneous sizes
+
+w283h420        Hagaki Card    100 x 148 mm                     x=283, y=420
+w420h567        Oufuku Card    148 x 200 mm                     x=420, y=567
+w340h666        Long 3         Japanese long envelope #3        x=340, y=666
+w255h581        Long 4         Japanese long envelope #4        x=255, y=581
+w680h941        Kaku           Japanese Kaku envelope #4        x=680, y=941
+COM10           Commercial 10  US Commercial 10 env             x=297, y=684
+w315h414        A2 Invitation  US A2 invitation                 x=315, y=414
+
+
+Color Balancing Values: (min,max,default)
+----- --------- ------- -----------------
+
+All of the values below are interpreted as being relative to norms for
+a particular printer established through testing, not "absolute"
+values of any kind.
+
+The STP parameter is specified.  The IJS parameter is created by
+removing the "-d" and beginning the options list with -sIjsParams.
+Thus
+
+-dCyan=xxx
+
+becomes
+
+-sIjsParams=Cyan=xxx
+
+-dCyan=xxx       xxx: 0.0 ... 4.0  (1.0)
+-dMagenta=xxx    xxx: 0.0 ... 4.0  (1.0)
+-dYellow=xxx     xxx: 0.0 ... 4.0  (1.0)
+
+ These three options allow specification of the cyan, magenta, and
+ yellow levels independently, for rebalancing the levels.  Normally,
+ these should be adjusted to yield neutral gray, but they can be used
+ for other effects.
+
+-dBrightness=xxx xxx: 0.0 ... 2.0  (1.0)
+
+ Adjust the brightness of the image.  0.0 gives a fully black image;
+ 2.0 gives a fully white image.  Values greater than 1 will result in
+ black not being solid and highlights turning white; values less than
+ 1 will result in white not being perfectly clear and shadows turning
+ black.
+
+-dContrast=xxx   xxx: 0.0 ... 4.0  (1.0)
+
+ Adjust the contrast of the image.  0.0 gives a solid gray for the
+ entire image, the exact gray depending upon the brightness chosen.
+
+-dGamma=xxx      xxx: 0.1 ... 4.0  (1.0)
+
+ Adjust the gamma of the image, over and above the printer-specific
+ correction.  Gamma less than 1.0 will result in a darker image; gamma
+ greater than 1.0 will result in a lighter image.  Unlike brightness,
+ gamma adjustment does not change the endpoints; it merely changes the
+ shape of the input->output curve.
+
+-dDensity=xxx    xxx: 0.1 ... 2.0  (1.0)
+
+ Adjust the amount of ink deposited on the paper.  If you've chosen
+ the correct paper type and you're getting ink bleeding through the
+ paper or puddling, try reducing the density to the lowest value you
+ can while still achieving solid black.  If you're not getting solid
+ black, even with the contrast and brightness at 1.0, try increasing
+ the density.
+
+ All of the printers supported here actually need less than 100% ink
+ density in most cases, so the actual density is something other than
+ the nominal density setting.  The effective density setting cannot go
+ above 100%, so if a value specified will result in an excessively
+ high density level, it will be silently limited to 1.0.
+
+-dSaturation=xxx xxx: 0.0 ... 9.0  (1.0)
+
+ Adjust the brilliance of colors.  0.0 results in pure grayscale;
+ using this with -dColor=1 is one way of getting grayscale (see below
+ under -dColor for a full discussion).  Saturation of less than 1.0
+ results in more muted colors; saturation of greater than 1.0 results
+ in more vibrant colors.  Very high saturation often results in very
+ strange effects, including posterization and banding that might not
+ be expected.  For normal purposes, the saturation should generally be
+ less than 1.5.
+
+
+Dithering Algorithms:
+--------- -----------
+
+The option names are case sensitive.  Two names are listed for each
+resolution; the first (short) name is the value that must be passed to
+-sDither, and the second (long) name is descriptive.
+
+STP: -sDither=algorithm
+IJS: -sIjsParams=Dither=algorithm
+
+Adaptive        Adaptive Hybrid
+EvenTone        EvenTone screening (experimental)
+Ordered         Ordered
+Fast            Fast
+VeryFast        Very Fast
+Floyd           Hybrid Floyd-Steinberg
+
+For highest quality, we recommend use of Adaptive Hybrid dithering.
+For continuous tone images, Ordered works just as well and is somewhat
+faster.  Ordered dithering yields noticeably inferior results with
+text and intricate line art, particularly at high resolutions.
+
+EvenTone dithering is a relatively new screening technology developed
+by Raph Levien.  It offers superior smoothness in highlights and
+midtones, and increased accuracy in shadows, resulting in
+significantly improved results overall.  The version of EvenTone
+dithering that we are using is enhanced with some additional
+improvements we have made.  It currently only operates with CMYK (4,
+6, or 7 color output) with RGB input, and should be considered
+experimental.  Note that it is patented (see US patent 5917614), but
+it is licensed for use with GPL software.  See
+http://www.levien.com/patents.html for more information.
+
+Fast dithering, which is a simplified version of ordered dither, is
+significantly faster, but color accuracy is worse, particularly on six
+color printers and printer using variable dot sizes.  On simple four
+color printers, the quality is quite reasonable, although color
+printing will show more speckling in dark tones than Ordered dither.
+For single dot size printers, printing grayscale, this algorithm
+yields almost identical results to Ordered with some performance
+improvement.  On three color printers, the results should be very
+similar to Ordered.
+
+Very Fast is even faster than Fast, with even more loss of quality.
+It shows even more speckling, and the output is heavily patterned.  On
+laser printers, and possibly on certain kinds of text and line art,
+Very Fast dithering may actually yield the best quality.
+
+Error diffusion algorithms (Hybrid Floyd-Steinberg is such an
+algorithm) perform very well at high densities, and are capable of
+rendering very fine detail well, but they tend to exhibit artifacts in
+the form of "waves" or "worms" of dots which results in noticeable
+texturing in pale areas.  Furthermore, pale areas immediately adjacent
+to white take a while to "build up" sufficient error to print at all.
+This is sometimes called "tearing".  Its use is not recommended.
+
+
+Output Type
+------ ----
+
+STP: -dColor=x          x:   0 ...   2  (1 on color printers, 0 otherwise)
+
+0  Grayscale
+1  Color (RGB)
+2  Black and white
+
+IJS:
+
+Black and white: -sProcessColorModel=DeviceGray -dBitsPerSample=1
+Grayscale:       -sProcessColorModel=DeviceGray
+Color (RGB):     -sProcessColorModel=DeviceRGB
+Color (CMYK):    -sProcessColorModel=DeviceCMYK
+
+ Choose color vs. grayscale output.  Color output is the default.
+ Choosing -dColor=0 results in only black ink (no color ink) being
+ used, which is faster and usually results in the most accurate
+ grayscale, but at the expense of smoothness.  If you want composite
+ color (using a mixture of color and black inks to produce gray), use
+ -dColor=1 and -dSaturation=0.0 (see -dSaturation above).
+
+ In addition, using -dColor=0 uses luminance (perceived brightness) of
+ red, green, and blue to choose output levels.  Blue of a given
+ intensity is perceived to be much darker than red, which in turn
+ appears darker than green.  -dColor=1 and -dSaturation=0.0 does not
+ use luminance.
+
+ -dColor=2 prints only black and white (thresholding).  This option
+ always uses Fast dithering unless you specify Very Fast.
+
+ CMYK output may be used with the IJS driver only.  It is useful if
+ you're printing a CMYK graphic and want explicit control over the
+ inks.  Generally it yields inferior quality, as Gimp-Print has good
+ algorithms for converting RGB (screen) into CMYK (inks) that take
+ into account paper type, ink type, and other variables.  In CMYK
+ mode, the brightness, contrast, and saturation controls do not
+ function.
+
+
+Image type (to optimize the dither):
+----- ---- --- -------- --- --------
+
+STP: -dImageType=x x:   0 ...   2  (0)
+
+IJS: -sIjsParams=ImageType=x
+
+Select the image type most representative of what's being printed.
+
+0  Line art (color or gray scale)
+1  Primarily solid colors or smooth gradients (color or gray scale)
+2  Continuous-tone photographs (color or gray scale)
+
+Option 0 is the fastest.  It generates strong, but not particularly
+accurate, colors.  There may be some fairly sharp color transitions in
+this mode.
+
+Option 1 generates more accurate colors, but is slower.
+
+Option 2 generates the most accurate colors, but is considerably
+slower.
+
+Note that any of the modes may be used with either color or black &
+white output.  If black and white output is requested, but a color
+mode used, composite color will be printed.  This generally offers
+smoother tone, but less purity of gray or black, than pure black ink.
+Furthermore, it is possible to tune the color of the gray (to achieve
+warmer or cooler effects) using the color controls in this fashion.
+
+Specifying a lower GhostScript resolution (with -r) results in faster
+color conversion.  For example, if you print at 1440x720 DPI, but
+specify a Ghostscript resolution of 360 DPI (with -r360), output will
+be significantly faster and there will be much less difference in
+performance between the three image type options.
+
+
+EXAMPLES:
+---------
+
+Note that a lot of these options are used for demonstration; generally
+adjusting the density is a bad idea!
+
+Example 1 (print charts to file, using A4 paper, color, 360 dpi):
+gs -sDEVICE=stp -sModel=escp2-ex -dDensity=1.6 -dGamma=1.5 -dSaturation=0.9 \
+   -dBrightness=.4 -dImageType=1 -sPAPERSIZE=a4 \
+   -sOutputFile=itsyourchoice.prn foo.ps
+
+gs -sDEVICE=ijs -sIjsServer=/usr/local/bin/ijsgimpprint \
+   -sDeviceManufacturer=EPSON -sDeviceModel=escp2-ex -sPAPERSIZE=a4 \
+   -sOutputFile=itsyourchoice.prn \
+   -sIjsParams=Density=1.6,Gamma=1.5,Saturation=0.9,Brightness=0.4,ImageType=1 \
+   foo.ps
+
+Example 2 (print color photograph to /dev/lp0 at maximum quality):
+gs -q -dSAFER -dNOPAUSE -sDEVICE=stp -sModel=escp2-870 -dDensity=0.8 \
+   -r1440x720 -sQuality=1440x720hq -sMediaType=GlossyPhoto \
+   -dImageType=2 -sOutputFile=/dev/lp0 foo.ps
+
+gs -sDEVICE=ijs -sIjsServer=/usr/local/bin/ijsgimpprint \
+   -sDeviceManufacturer=EPSON -sDeviceModel=escp2-870 \
+   -sOutputFile=/dev/lp0 \
+   -sIjsParams='Quality=1440x720hq,MediaType=GlossyPhoto,Density=0.8,ImageType=2' \
+   foo.ps
+
+Example 3 (print pure black text to stdout)
+gs -q -dSAFER -dNOPAUSE -sDEVICE=stp -sModel=escp2-660 -dDensity=0.8 -r720 \
+   -sQuality=720sw -dColor=2 -sOutputFile=- foo.ps
+
+gs -sDEVICE=ijs -sIjsServer=/usr/local/bin/ijsgimpprint \
+   -sDeviceManufacturer=EPSON -sDeviceModel=escp2-660 -dIjsUseOutputFD \
+   -sProcessColorModel=DeviceGray -dBitsPerSample=1 -sOutputFile=- \
+   -sIjsParams='Quality=720sw,Density=0.8' foo.ps

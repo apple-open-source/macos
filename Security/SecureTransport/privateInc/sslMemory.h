@@ -58,6 +58,10 @@ UInt8 *sslAllocCopy(const UInt8 *src, UInt32 len);
 OSStatus SSLAllocCopyBuffer(
 	const SSLBuffer &src, 
 	SSLBuffer **dst);		// buffer itself and data mallocd and returned 
+OSStatus SSLCopyBufferFromData(
+	const void *src,
+	UInt32 len,
+	SSLBuffer &dst);		// data mallocd and returned 
 OSStatus SSLCopyBuffer(
 	const SSLBuffer &src, 
 	SSLBuffer &dst);		// data mallocd and returned 

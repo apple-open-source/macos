@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -13,12 +13,18 @@
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Rasmus Lerdorf <rasmus@php.net>                             |
+   |          Marcus Boerger <helly@php.net>                              |
    +----------------------------------------------------------------------+
  */
+
+/* $Id: php_exif.h,v 1.1.1.5 2003/07/18 18:07:31 zarzycki Exp $ */
 
 #if HAVE_EXIF
 extern zend_module_entry exif_module_entry;
 #define phpext_exif_ptr &exif_module_entry
 
-PHP_FUNCTION(read_exif_data);
+PHP_FUNCTION(exif_read_data);
+PHP_FUNCTION(exif_tagname);
+PHP_FUNCTION(exif_thumbnail);
+PHP_FUNCTION(exif_imagetype);
 #endif

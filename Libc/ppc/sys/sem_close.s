@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(sem_close, 1)
-	blr
 

@@ -1,5 +1,3 @@
-.\"	$NetBSD: mv.1,v 1.11 1998/04/20 05:43:30 ross Exp $
-.\"
 .\" Copyright (c) 1989, 1990, 1993
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
@@ -35,8 +33,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)mv.1	8.1 (Berkeley) 5/31/93
+.\" $FreeBSD: src/bin/mv/mv.1,v 1.25 2002/08/26 06:16:51 keramida Exp $
 .\"
-.Dd May 31, 1993
+.Dd July 9, 2002
 .Dt MV 1
 .Os
 .Sh NAME
@@ -44,13 +43,14 @@
 .Nd move files
 .Sh SYNOPSIS
 .Nm
-.Op Fl fi
+.Op Fl f | i | n
+.Op Fl v
 .Ar source target
-.Nm ""
-.Op Fl fi
+.Nm
+.Op Fl f | i | n
+.Op Fl v
 .Ar source ... directory
 .Sh DESCRIPTION
-.Pp
 In its first form, the
 .Nm
 utility renames the file named by the
@@ -73,25 +73,48 @@ concatenation of the last operand, a slash, and the final pathname
 component of the named file.
 .Pp
 The following options are available:
-.Bl -tag -width flag
+.Bl -tag -width indent
 .It Fl f
 Do not prompt for confirmation before overwriting the destination
 path.
+(The
+.Fl f
+option overrides any previous
+.Fl i
+or
+.Fl n
+options.)
 .It Fl i
-Causes
+Cause
 .Nm
 to write a prompt to standard error before moving a file that would
 overwrite an existing file.
-If the response from the standard input begins with the character ``y'',
+If the response from the standard input begins with the character
+.Ql y
+or
+.Ql Y ,
 the move is attempted.
-.El
-The last of any
+(The
+.Fl i
+option overrides any previous
+.Fl f
+or
+.Fl n
+options.)
+.It Fl n
+Do not overwrite an existing file.
+(The
+.Fl n
+option overrides any previous
 .Fl f
 or
 .Fl i
-options is the one which affects
-.Nm Ns 's
-behavior.
+options.)
+.It Fl v
+Cause
+.Nm
+to be verbose, showing files after they are moved.
+.El
 .Pp
 It is an error for either the
 .Ar source
@@ -104,7 +127,7 @@ prompts the user for confirmation as specified for the
 option.
 .Pp
 As the
-.Xr rename  2
+.Xr rename 2
 call does not work across file systems,
 .Nm
 uses
@@ -115,19 +138,29 @@ to accomplish the move.
 The effect is equivalent to:
 .Bd -literal -offset indent
 rm -f destination_path && \e
-\tcp -PRp source_file destination && \e
-\trm -rf source_file
+cp -pRP source_file destination && \e
+rm -rf source_file
 .Ed
-.Pp
-The
-.Nm
-utility exits 0 on success, and >0 if an error occurs.
+.Sh DIAGNOSTICS
+.Ex -std
 .Sh SEE ALSO
 .Xr cp 1 ,
+.Xr rm 1 ,
 .Xr symlink 7
+.Sh COMPATIBILITY
+The
+.Fl n
+and
+.Fl v
+options are non-standard and their use in scripts is not recommended.
 .Sh STANDARDS
 The
 .Nm
 utility is expected to be
 .St -p1003.2
 compatible.
+.Sh HISTORY
+A
+.Nm
+command appeared in
+.At v1 .

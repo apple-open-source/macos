@@ -1,27 +1,27 @@
 {
-    DYNAMIC_CODE_GEN = YES; 
+    "DYNAMIC_CODE_GEN" = YES; 
     FILESTABLE = {
-        H_FILES = (IOHIDLib.h); 
-        OTHER_LINKED = (IOEventStatusAPI.c, IOHIDLib.c); 
-        OTHER_SOURCES = (Makefile.preamble, Makefile, HIDParamTest.c); 
-        PROJECT_HEADERS = (IOHIDLib.h); 
-        PUBLIC_HEADERS = (IOHIDLib.h); 
+        "H_FILES" = ("event_status_driver.h", "IOHIDLib.h"); 
+        "OTHER_LINKED" = ("IOEventStatusAPI.c", "IOHIDLib.c"); 
+        "OTHER_SOURCES" = ("Makefile.preamble", Makefile, "HIDParamTest.c"); 
+        "PROJECT_HEADERS" = ("IOHIDLib.h"); 
+        "PUBLIC_HEADERS" = ("IOHIDLib.h"); 
         SUBPROJECTS = (); 
     }; 
     LANGUAGE = English; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
-    NEXTSTEP_BUILDDIR = "/tmp/$(USER)/($NAME)"; 
-    NEXTSTEP_BUILDTOOL = /usr/bin/gnumake; 
-    NEXTSTEP_INSTALLDIR = "$(SYSTEM_LIBRARY_DIR)/Frameworks"; 
-    NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
-    NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
-    PDO_UNIX_BUILDTOOL = $NEXT_ROOT/Developer/bin/make; 
-    PDO_UNIX_JAVA_COMPILER = "$(JDKBINDIR)/javac"; 
-    PDO_UNIX_OBJCPLUS_COMPILER = "$(NEXTDEV_BIN)/gcc"; 
+    "NEXTSTEP_BUILDDIR" = "/tmp/$(USER)/($NAME)"; 
+    "NEXTSTEP_BUILDTOOL" = "/usr/bin/gnumake"; 
+    "NEXTSTEP_INSTALLDIR" = "$(SYSTEM_LIBRARY_DIR)/Frameworks"; 
+    "NEXTSTEP_JAVA_COMPILER" = "/usr/bin/javac"; 
+    "NEXTSTEP_OBJCPLUS_COMPILER" = "/usr/bin/cc"; 
+    "PDO_UNIX_BUILDTOOL" = "$NEXT_ROOT/Developer/bin/make"; 
+    "PDO_UNIX_JAVA_COMPILER" = "$(JDKBINDIR)/javac"; 
+    "PDO_UNIX_OBJCPLUS_COMPILER" = "$(NEXTDEV_BIN)/gcc"; 
     PROJECTNAME = hidsystem; 
     PROJECTTYPE = Component; 
-    PROJECTVERSION = 2.8; 
-    WINDOWS_BUILDTOOL = $NEXT_ROOT/Developer/Executables/make; 
-    WINDOWS_JAVA_COMPILER = "$(JDKBINDIR)/javac.exe"; 
-    WINDOWS_OBJCPLUS_COMPILER = "$(DEVDIR)/gcc"; 
+    PROJECTVERSION = "2.8"; 
+    "WINDOWS_BUILDTOOL" = "$NEXT_ROOT/Developer/Executables/make"; 
+    "WINDOWS_JAVA_COMPILER" = "$(JDKBINDIR)/javac.exe"; 
+    "WINDOWS_OBJCPLUS_COMPILER" = "$(DEVDIR)/gcc"; 
 }

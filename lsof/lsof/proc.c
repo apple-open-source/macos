@@ -32,11 +32,18 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: proc.c,v 1.31 2001/11/01 20:20:17 abe Exp $";
+static char *rcsid = "$Id: proc.c,v 1.35 2002/12/05 12:23:38 abe Exp $";
 #endif
 
 
 #include "lsof.h"
+
+
+/*
+ * Local function prototypes
+ */
+
+_PROTOTYPE(static int is_file_sel,(struct lproc *lp, struct lfile *lf));
 
 
 /*
@@ -218,6 +225,25 @@ alloc_lfile(nm, num)
 	    while (*cp && *cp == ' ')
 		cp++;
 	}
+/*
+ * Check for an exclusion match.
+ */
+	if (FdlTy == 1) {
+	    for (fp = Fdl; fp; fp = fp->next) {
+		if (cp) {
+		    if (fp->nm && strcmp(fp->nm, cp) == 0)
+			return;
+		    continue;
+		}
+		if (num >= fp->lo && num <= fp->hi)
+		    return;
+	    }
+	    Lf->sf |= SELFD;
+	    return;
+	}
+/*
+ * If Fdl isn't an exclusion list, check an inclusion match.
+ */
 	for (fp = Fdl; fp; fp = fp->next) {
 	    if (cp) {
 		if (fp->nm && strcmp(fp->nm, cp) == 0) {
@@ -315,7 +341,7 @@ comppid(a1, a2)
  */
 
 void
-ent_inaddr(la, lp, fa, fp, af, oaf)
+ent_inaddr(la, lp, fa, fp, af)
 	unsigned char *la;		/* local Internet address */
 	int lp;				/* local port */
 	unsigned char *fa;		/* foreign Internet address -- may
@@ -324,12 +350,6 @@ ent_inaddr(la, lp, fa, fp, af, oaf)
 	int fp;				/* foreign port */
 	int af;				/* address family -- e.g, AF_INET,
 					 * AF_INET */
-	int oaf;			/* original address familiy: AF_INET,
-					 * AF_INET6 or -1 (none).  This only
-					 * applies if IPv6 support is enabled
-					 * (HASIPv6 defined) and only when an
-					 * IPv4 address has been mapped in an
-					 * IPv6 protocol structure. */
 {
 	int m;
 
@@ -363,8 +383,8 @@ ent_inaddr(la, lp, fa, fp, af, oaf)
  * If network address matching has been selected, check both addresses.
  */
 	if ((Selflags & SELNA) && Nwad) {
-	    m = (fa && is_nw_addr(fa, fp, (oaf >= 0) ? oaf : af)) ? 1 : 0;
-	    m |= (la && is_nw_addr(la, lp, (oaf >= 0) ? oaf : af)) ? 1 : 0;
+	    m = (fa && is_nw_addr(fa, fp, af)) ? 1 : 0;
+	    m |= (la && is_nw_addr(la, lp, af)) ? 1 : 0;
 	    if (m)
 		Lf->sf |= SELNA;
 	}
@@ -512,12 +532,21 @@ is_cmd_excl(cmd, pss, sf)
  * is_file_sel() - is file selected?
  */
 
-int
-is_file_sel(lf)
+static int
+is_file_sel(lp, lf)
+	struct lproc *lp;		/* lproc structure pointer */
 	struct lfile *lf;		/* lfile structure pointer */
 {
-	if ( !lf || !lf->sf)
+	if (!lf || !lf->sf)
 	    return(0);
+
+#if	defined(HASSECURITY) && defined(HASNOSOCKSECURITY)
+	if (Myuid && (Myuid != lp->uid)) {
+	    if (!(lf->sf & (SELNA | SELNET)))
+		return(0);
+	}
+#endif	/* defined(HASSECURITY) && defined(HASNOSOCKSECURITY) */
+
 	if (Selall)
 	    return(1);
 	if (Fand && ((lf->sf & Selflags) != Selflags))
@@ -545,10 +574,14 @@ is_proc_excl(pid, pgid, uid, pss, sf)
 #if	defined(HASSECURITY)
 /*
  * The process is excluded by virtue of the security option if it
- * isn't owned by the owner of this lsof process.
+ * isn't owned by the owner of this lsof process, unless the
+ * HASNOSOCKSECURITY option is also specified.  In that case the
+ * selected socket files of any process may be listed.
  */
+# if	!defined(HASNOSOCKSECURITY)
 	if (Myuid && Myuid != (uid_t)uid)
 	    return(1);
+# endif	/* !defined(HASNOSOCKSECURITY) */
 #endif	/* defined(HASSECURITY) */
 
 /*
@@ -565,12 +598,21 @@ is_proc_excl(pid, pgid, uid, pss, sf)
 	    }
 	}
 /*
- * If the listing of all processes is selected, then this one
- * is not excluded.
+ * If the listing of all processes is selected, then this one is not excluded.
+ *
+ * However, if HASSECURITY and HASNOSOCKSECURITY are both specified, exclude
+ * network selections from the file flags, so that the tests in is_file_sel()
+ * work as expected.
  */
 	if (Selall) {
 	    *pss = PS_PRI;
+
+#if	defined(HASSECURITY) && defined(HASNOSOCKSECURITY)
+	    *sf = SELALL & ~(SELNA | SELNET);
+#else	/* !defined(HASSECURITY) || !defined(HASNOSOCKSECURITY) */
 	    *sf = SELALL;
+#endif	/* defined(HASSECURITY) && defined(HASNOSOCKSECURITY) */
+
 	    return(0);
 	}
 /*
@@ -772,9 +814,10 @@ print_fflags(ffg, pof)
 int
 print_proc()
 {
-	char *cp;
-	int lc, st, ty;
+	char buf[128], *cp;
+	int lc, len, st, ty;
 	int rv = 0;
+	unsigned long ul;
 /*
  * If nothing in the process has been selected, skip it.
  */
@@ -783,22 +826,18 @@ print_proc()
 	if (Fterse) {
 
 	/*
-	 * The mode is terse and something in the process has been
-	 * selected.  If options are being OR'd, print the PID;
-	 * if AND'd, see if anything has been selected.
+	 * The mode is terse and something in the process appears to have
+	 * been selected.  Make sure of that by looking for a selected file,
+	 * so that the HASSECURITY and HASNOSOCKSECURITY option combination
+	 * won't produce a false positive result.
 	 */
-	    if (Fand) {
-		for (Lf = Lp->file; Lf; Lf = Lf->next) {
-		    if (is_file_sel(Lf)) {
-			rv = 1;
-			break;
-		    }
+	    for (Lf = Lp->file; Lf; Lf = Lf->next) {
+		if (is_file_sel(Lp, Lf)) {
+		    (void) printf("%d\n", Lp->pid);
+		    return(1);
 		}
-	    } else
-		rv = 1;
-	    if (rv)
-		(void) printf("%d\n", Lp->pid);
-	    return(rv);
+	    }
+	    return(0);
 	}
 /*
  * If fields have been selected, output the process-only ones, provided
@@ -806,7 +845,7 @@ print_proc()
  */
 	if (Ffield) {
 	    for (Lf = Lp->file; Lf; Lf = Lf->next) {
-		if (is_file_sel(Lf))
+		if (is_file_sel(Lp, Lf))
 		    break;
 	    }
 	    if (!Lf)
@@ -840,7 +879,7 @@ print_proc()
  * Print files.
  */
 	for (Lf = Lp->file; Lf; Lf = Lf->next) {
-	    if (!is_file_sel(Lf))
+	    if (!is_file_sel(Lp, Lf))
 		continue;
 	    rv = 1;
 	/*
@@ -916,24 +955,57 @@ print_proc()
 		}
 	    }
 	    if (FieldSel[LSOF_FIX_DEVN].st && Lf->dev_def) {
-		(void) printf("%c0x%lx%c", LSOF_FID_DEVN,
-		    (unsigned long)Lf->dev, Terminator);
+		if (sizeof(unsigned long) > sizeof(dev_t))
+		    ul = (unsigned long)((unsigned int)Lf->dev);
+		else
+		    ul = (unsigned long)Lf->dev;
+		(void) printf("%c0x%lx%c", LSOF_FID_DEVN, ul, Terminator);
 		lc++;
 	    }
 	    if (FieldSel[LSOF_FIX_RDEV].st && Lf->rdev_def) {
-		(void) printf("%c0x%lx%c", LSOF_FID_RDEV,
-		    (unsigned long)Lf->rdev, Terminator);
+		if (sizeof(unsigned long) > sizeof(dev_t))
+		    ul = (unsigned long)((unsigned int)Lf->rdev);
+		else
+		    ul = (unsigned long)Lf->rdev;
+		(void) printf("%c0x%lx%c", LSOF_FID_RDEV, ul, Terminator);
 		lc++;
 	    }
 	    if (FieldSel[LSOF_FIX_SIZE].st && Lf->sz_def) {
 		putchar(LSOF_FID_SIZE);
-		(void) printf(SzOffFmt_d, Lf->sz);
+
+#if	defined(HASPRINTSZ)
+		cp = HASPRINTSZ(Lf);
+#else	/* !defined(HASPRINTSZ) */
+		(void) snpf(buf, sizeof(buf), SzOffFmt_d, Lf->sz);
+		cp = buf;
+#endif	/* defined(HASPRINTSZ) */
+
+		(void) printf("%s", cp);
 		putchar(Terminator);
 		lc++;
 	    }
 	    if (FieldSel[LSOF_FIX_OFFSET].st && Lf->off_def) {
 		putchar(LSOF_FID_OFFSET);
-		(void) printf(SzOffFmt_d, Lf->off);
+
+#if	defined(HASPRINTOFF)
+		cp = HASPRINTOFF(Lf, 0);
+#else	/* !defined(HASPRINTOFF) */
+		(void) snpf(buf, sizeof(buf), SzOffFmt_0t, Lf->off);
+		cp = buf;
+#endif	/* defined(HASPRINTOFF) */
+
+		len = strlen(cp);
+		if (OffDecDig && len > (OffDecDig + 2)) {
+
+#if	defined(HASPRINTOFF)
+		    cp = HASPRINTOFF(Lf, 1);
+#else	/* !defined(HASPRINTOFF) */
+		    (void) snpf(buf, sizeof(buf), SzOffFmt_x, Lf->off);
+		    cp = buf;
+#endif	/* defined(HASPRINTOFF) */
+
+		}
+		(void) printf("%s", cp);
 		putchar(Terminator);
 		lc++;
 	    }

@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/os-local.c,v 1.13 2002/01/04 20:17:39 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/os-local.c,v 1.13.2.5 2003/03/05 23:48:32 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*  Portions
@@ -25,8 +25,12 @@
 #include <ac/time.h>
 #include <ac/unistd.h>
 
-/* XXX non-portable */
+#ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
+#endif
+#ifdef HAVE_SYS_UIO_H
+#include <sys/uio.h>
+#endif
 
 #ifdef HAVE_IO_H
 #include <io.h>
@@ -97,7 +101,7 @@ ldap_pvt_is_socket_ready(LDAP *ld, int s)
 #if defined( notyet ) /* && defined( SO_ERROR ) */
 {
 	int so_errno;
-	int dummy = sizeof(so_errno);
+	socklen_t dummy = sizeof(so_errno);
 	if ( getsockopt( s, SOL_SOCKET, SO_ERROR, &so_errno, &dummy )
 		== AC_SOCKET_ERROR )
 	{
@@ -115,7 +119,7 @@ ldap_pvt_is_socket_ready(LDAP *ld, int s)
 	/* error slippery */
 	struct sockaddr_un sa;
 	char ch;
-	int dummy = sizeof(sa);
+	socklen_t dummy = sizeof(sa);
 	if ( getpeername( s, (struct sockaddr *) &sa, &dummy )
 		== AC_SOCKET_ERROR )
 	{
@@ -131,9 +135,18 @@ ldap_pvt_is_socket_ready(LDAP *ld, int s)
 }
 #undef TRACE
 
+#if !defined(HAVE_GETPEEREID) && \
+	!defined(SO_PEERCRED) && !defined(LOCAL_PEERCRED) && \
+	defined(HAVE_SENDMSG) && defined(HAVE_MSGHDR_MSG_ACCRIGHTS)
+#define DO_SENDMSG
+static const char abandonPDU[] = {LDAP_TAG_MESSAGE, 6,
+	LDAP_TAG_MSGID, 1, 0, LDAP_REQ_ABANDON, 1, 0};
+#endif
+
 static int
 ldap_pvt_connect(LDAP *ld, ber_socket_t s, struct sockaddr_un *sa, int async)
 {
+	int rc;
 	struct timeval	tv, *opt_tv=NULL;
 	fd_set		wfds, *z=NULL;
 
@@ -154,6 +167,27 @@ ldap_pvt_connect(LDAP *ld, ber_socket_t s, struct sockaddr_un *sa, int async)
 		if ( ldap_pvt_ndelay_off(ld, s) == -1 ) {
 			return ( -1 );
 		}
+#ifdef DO_SENDMSG
+	/* Send a dummy message with access rights. Remote side will
+	 * obtain our uid/gid by fstat'ing this descriptor.
+	 */
+sendcred:
+		{
+			int fds[2];
+			if (pipe(fds) == 0) {
+				/* Abandon, noop, has no reply */
+				struct iovec iov = {abandonPDU, sizeof(abandonPDU)};
+				struct msghdr msg = {0};
+				msg.msg_iov = &iov;
+				msg.msg_iovlen = 1;
+				msg.msg_accrights = (char *)fds;
+				msg.msg_accrightslen = sizeof(int);
+				sendmsg( s, &msg, 0 );
+				close(fds[0]);
+				close(fds[1]);
+			}
+		}
+#endif
 		return ( 0 );
 	}
 
@@ -168,18 +202,23 @@ ldap_pvt_connect(LDAP *ld, ber_socket_t s, struct sockaddr_un *sa, int async)
 	FD_ZERO(&wfds);
 	FD_SET(s, &wfds );
 
-	if ( select(ldap_int_tblsize, z, &wfds, z, opt_tv ? &tv : NULL)
-		== AC_SOCKET_ERROR )
-	{
-		return ( -1 );
-	}
+	do { 
+		rc = select(ldap_int_tblsize, z, &wfds, z, opt_tv ? &tv : NULL);
+	} while( rc == AC_SOCKET_ERROR && errno == EINTR &&
+		LDAP_BOOL_GET(&ld->ld_options, LDAP_BOOL_RESTART ));
+
+	if( rc == AC_SOCKET_ERROR ) return rc;
 
 	if ( FD_ISSET(s, &wfds) ) {
 		if ( ldap_pvt_is_socket_ready(ld, s) == -1 )
 			return ( -1 );
 		if ( ldap_pvt_ndelay_off(ld, s) == -1 )
 			return ( -1 );
+#ifdef DO_SENDMSG
+		goto sendcred;
+#else
 		return ( 0 );
+#endif
 	}
 	oslocal_debug(ld, "ldap_connect_timeout: timed out\n",0,0,0);
 	ldap_pvt_set_errno( ETIMEDOUT );

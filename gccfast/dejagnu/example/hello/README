@@ -1,0 +1,358 @@
+
+Understanding the runtest script in DejaGnu
+
+    Philip A. Wilsey
+    Clifton Labs, Inc
+    philip.wilsey@cliftonlabs.com
+
+    September 26, 2001
+
+
+
+DejaGnu is a tcl program to help run test scripts for batch and
+interactive programs.  If you have not yet read the DejaGnu
+documentation don't, read this document first and play with this
+example.  If you have, you have my sympathies.  Hopefully this document
+and example will provide a high level overview of what goes on in
+runtest.  You will still have to read the DejaGnu documentation.  It
+contains many details of the low level functions and operation that I do
+not address in this document.
+
+FIRST: I AM NOT A DEJAGNU OR TCL EXPERT.  I have simply spent the past
+week studying and trying to understand the execution behavior of the
+runtest script.  As part of my studies I built the accompanying example
+that you may (or may not) find helpful in understanding just what is
+going on with the runtest script.  Fortunately tcl is a pretty simply
+language and a quick scan of Ousterhout's text on tcl has been more than
+sufficient for me to conduct these experiments.  Again, this document
+only records my observations.  
+
+SECOND: I am not interested in or concerned with testing
+cross-compilation systems or anything exotic like remote execution.  I
+was/am simply interested in using a test harness in a general purpose
+conformance suite.  Consequently I have not examined all the switches
+and variable related to -host_board, -target, or remote execution.  I
+was simply trying to gain an overall understanding of what and when the
+various tcl/expect files and procedures are executed.
+
+THIRD: There are really two parts to my studies, specifically: (i) the
+study of runtest, and (ii) the use of the auto- tools to realize a 
+"make check" target that will invoke the runtest script for you.  As a
+result, this document is organized into three parts:
+
+    Part I: An overview of runtest
+    Part II: Building a "make check" target with automake
+    Part III: Running the example
+
+For small projects, you may not be interested in the autoconf/automake
+tools and can safely skip Part II of this document.  
+
+FOURTH: This example is setup only for recording the files and
+procedures that runtest uses.  Technically it will compile a simple c++
+hello world program, however the test system does not verify it's
+operation.  If you run make check, it will simply dump out a bunch of
+DEBUG statements and exit.  Please don't expect anything more.
+
+FINALLY: For many years now we have been managing our regression suite
+using hand rolled perl scripts that require continual maintenance.  We
+turned to DejaGnu in hopes to reduce some of our efforts in this
+direction.  Unfortunately, I found understanding DejaGnu to be very
+painful and at several times during my study I was ready to chuck it
+all.  Now that I have a better understanding of the system, I believe
+that in the long run I will be much happier that I stuck with it.
+Hopefully you will think so as well.
+
+NOTE: I have only used/studied runtest on a Debian Linux box.  I do not
+know how well this knowledge will generalize or be useful to you.
+Please use at your own risk.
+
+
+
+PART I: AN OVERVIEW OF RUNTEST
+------------------------------
+
+I.1 The essence of Runtest
+--------------------------
+
+runtest is designed to be run from a test subdirectory where all tests
+are stored in subdirectories with a naming convention of TOOL.TESTNAME.
+Subdirectories not conforming to the TOOL.TESTNAME naming convention are
+not examined.  runtest examines recursively all the subdirectories under
+each TOOL.TESTNAME subdirectories for expect scripts to be executed (it
+assumes that everything with the ".exp" suffix is an expect script).  It
+will then attempt to execute every expect script it finds.  For example,
+let's take a look at the contents of the helloworld.* subdirectories in
+the testsuite subdirectory of this example:
+
+    peabody>ls -R testsuite/helloworld.test*
+    ~/test/dejagnu/helloDemo 
+    testsuite/helloworld.test1:
+    total 8
+       4 helloworld.test1-1/     4 test1.exp
+    
+    testsuite/helloworld.test1/helloworld.test1-1:
+    total 4
+       4 test1-1.exp
+    
+    testsuite/helloworld.test2:
+    total 8
+       4 test2.exp     4 test3.exp
+    
+    testsuite/helloworld.test3:
+    total 12
+       4 config/     4 lib/     4 non_compliant_dir_name/
+    
+    testsuite/helloworld.test3/config:
+    total 4
+       4 config.exp
+    
+    testsuite/helloworld.test3/lib:
+    total 4
+       4 lib.exp
+    
+    testsuite/helloworld.test3/non_compliant_dir_name:
+    total 4
+       4 non_compliant.exp
+    peabody>
+
+Once everything is setup, issuing the command "runtest" from the
+testsuite subdirectory on my machine causes all of the expect scripts to
+be executed in this order:
+
+    Running ./helloworld.test1/helloworld.test1-1/test1-1.exp ...
+    Running ./helloworld.test1/test1.exp ...
+    Running ./helloworld.test2/test2.exp ...
+    Running ./helloworld.test2/test3.exp ...
+    Running ./helloworld.test3/non_compliant_dir_name/non_compliant.exp ...
+
+Looks like a depth first search; however, I can find nothing in the
+documentation that indicates that a specific order will be followed.  So
+you should not count on it.  Also notice that the TOOL.TESTNAME naming
+convention is only enforced at the root directory from where the runtest
+command is issued -- beneath the first level subdirectories all
+subdirectories except those named "lib" and "config" are examined for
+expect scripts.
+
+I.2 The nuts and bolts of Runtest
+---------------------------------
+
+A few more points.  runtest is setup to look for scripts to load for
+configuration information and runtime procedures.  In many cases if
+runtest cannot find a script it will continue.  Four important tcl
+procedures that you should define (in testsuite/lib/TOOL.exp) are:
+
+    TOOL_init
+    TOOL_finish
+    TOOL_exit
+    TOOL_version
+
+TOOL_init is called prior to running each expect script it locates under
+the testsuite subdirectory.  runtest invokes TOOL_finish after executing
+each expect script.  TOOL_exit is invoked after TOOL_finish for the last
+expect script executes.  Finally TOOL_version is invoked to allow the
+testsute to report the version of the tool that was just tested.
+
+If you want to add tool specific arguments on the on the runtest command
+line you can also define:
+
+    TOOL_option_proc
+    TOOL_option_help
+
+TOOL_option_proc is invoked as runtest parses the command line
+arguments.  TOOL_option_help is invoked when runtest is invoked with the
+"-help" command line argument (this is actually pretty cool).
+
+In general runtest will take the following steps (the expect scripts
+named in these steps are named relative to the directory where the
+runtest command is issued):
+
+1. It will look for and load the file ~/.dejagnurc for command line
+   options.  I have not experimented with this and cannot comment on
+   what can and cannot be placed in this file.
+2. It will try to load load the file ./site.exp (if you use automake,
+   this file will be automagically created for you).  Technically this
+   file is organized into two parts, one that is set when the .configure
+   script is executed; the second part can be edited and changed by the
+   user. 
+3. It will try to load the file ./lib/TOOL.exp (this is probably a good
+   place to locate definitions for the TOOL_init/TOOL_exit/TOOL_version
+   procedures. 
+4. It will try to load some configuration files.  Specifically
+4a. It will try to load a base-config.exp file.  On my system it
+    searches, in order, the following subdirectories:
+        ./config
+        ./../config
+        ./../../config
+        ./../../../config
+4b. It will try to load a system specific configuration file.  I believe
+    you can/should use this to setup different configuration information
+    for various operating systems that the test suite is to run in.  On
+    my system it searches, in order, for (the search is terminated after
+    the first success):
+        ./config/unix.exp
+        ./config/gnu.exp
+        ./config/default.exp
+        ./config/unknown.exp
+        ./../config/unix.exp
+        ./../config/gnu.exp
+        ./../config/default.exp
+        ./../config/unknown.exp
+        ./../../config/unix.exp
+        ./../../config/gnu.exp
+        ./../../config/default.exp
+        ./../../config/unknown.exp
+        ./../../../config/unix.exp
+        ./../../../config/gnu.exp
+        ./../../../config/default.exp
+        ./../../../config/unknown.exp
+5. Now it will recursively search the ./TOOL.* subdirectories and for
+   each expect script it locates it will:
+5a. Invoke the procedure TOOL_init giving the relative pathname where
+    the expect script is found as an argument.
+5b. Run the expect script.
+5c. Invoke the proecture TOOL_finish with no arguments.
+6. After running all of the located expect script it will invoke the
+   TOOL_exit procedure.
+7. Next the TOOL_version procedure is invoked.
+8. Finally, runtest exits.
+
+That's it.  Sadly it took me almost a week to learn this....
+
+
+I.3 Some notes I made during my week of study
+---------------------------------------------
+
+1. site.exp is loaded twice.  Why?  I have no clue.
+
+2. As far as I can tell the "testsuite" name is completely artificial.
+   runtest does not appear to depend on it.  The autoconf/automake
+   family also do not seem to depend on it.
+
+3. Searching for files to load: There is a method to this madness.
+   However, it's not very regular: for example why does 4a not look into
+   the testsuite subdirectory and 4b does.
+
+3a. Look into srcdir (where the runtest command was issued) for
+    lib/tool.exp; I guess the principle concept is to put tool specific
+    and platform independent expect scripts here. 
+
+3b. Next look for for platform scripts in --srcdir/config (on my linux
+    system it looks for one of unix.exp, gnu.exp, and default.exp (in
+    this order and stops with the first one it finds).
+
+    My confusion on the search patterns of runtest is magnified by the
+    fact that I am trying to issue the runtest command from outside the
+    testsuite subdirectory....don't do this.
+
+4. Executing expect scripts.
+
+4a. If an expect script is named on the command line it (and only it) is
+    run.  otherwise.... 
+
+4b. runtest looks in the testsuite directory and does a glob on
+    TOOL.*/*.exp (ok, it's a recursive glob TOOL.*/.../*.exp) and
+    executes all expect script it sees (ok, it appears to ignore all
+    subdirectories named "lib" or "config").  Before execution of each
+    script, runtest invokes TOOL_init with the relative path (relative
+    to where the directory where the runtest command was issued) name of
+    that script as it's only argument.  After execution of each script
+    runtest invokes TOOL_finish with no arguments.
+
+5. load_lib: load_lib is a tcl script in the DejaGnu system that you can
+   use to load tcl/expect files.  It has an odd search path.  In
+   particular, on my machine, the search path is:
+
+5a. the dejagnu install directory (/usr/share/dejagnu) and its
+    accompanying library directory (/usr/share/dejagnu/lib) 
+5b. in a dejagnu/lib directory one above the current directory (where
+    runtest was run).  that is in ../dejagnu/lib
+5c. in the --srcdir lib
+5d. in the directory where runtest was issued
+5e  and this is the funny one, in a dejagnu/lib directory two directories
+    above (../../dejagnu/lib).
+
+6. hmmmm how does DEJAGNULIBS alter the library search path??  I did not
+   investigate this.
+
+7. COOL: I can name an expect script in the --ignore command line option
+   to prune it from the set of scripts that are executed.  
+
+
+I.4 Some gotchas
+----------------
+
+1. As far as I can tell the "testsuite" name is completely artificial
+   and you can store your tests in whatever subdirectory name you like. 
+
+2. Don't try to issue the runtest command from outside the testsuite
+   subdirectory using the "--srcdir target" command line argument.
+   Unless you really know what's going on, it will cause you grief.  For
+   some reason the runtest will look for some things in the $target
+   location and for others it will look in the directory where the
+   runtest command was issued.
+
+3. The search paths used to look for things varies all over the places.
+   The system has tremendous configurability for building and
+   controlling the expect scripts.  However the flexibility for
+   controlling what and where things are loaded by runtest is really
+   quite limited.  For example, site.exp must be located in the
+   directory where the runtest command is issued.  I can discover no way
+   to alter its location.
+
+
+
+PART II: BUILDING a "make check" TARGET WITH AUTOMAKE
+-----------------------------------------------------
+
+NOTE: before I began this study I did not know anything about
+autoconf/automake and friends (I still don't).
+
+1. If you understand these tools it's really quite simple.  In the
+   directory containing the testsuite you must have a Makefile.am to
+   build the "make check" target.  You only need to define the dejagnu
+   option for AUTOMAKE_OPTIONS.  If you want you can also add runtest
+   command line arguments to the RUNTESTDEFAULTFLAGS variable.  
+
+   The only problem I had with this was realizing that the Makefile.am
+   to locate these definitions in is the one located *in* the testsuite
+   subdirectory.  DO NOT make these definitions in the root Makefile.am
+   file (unless you intend to place you TOOL.* subdirectories there). 
+
+2. I cannot figure out a good way to add alternate check targets (e.g.,
+   make check-test1) to run alternate tests on the command line.  Since
+   I really don't know automake very well, this could very likely be
+   very easy to do, but my ignorance prevents me from discovering how.
+   Presently I have simply defined the alternate target by hand (see
+   make check-demo in the testsuite/Makefile.am file).
+
+
+PART III: RUNNING THE EXAMPLE
+-----------------------------
+
+The example contains a bunch of expect/tcl files, some of them are
+unused (actually I don't believe I ever used anything outside of
+standard tcl in any of my scripts).  I created this example to explore
+what was going on so you will see, for example, unix.exp in the lib,
+testsuite/lib, and testsuite/config subdirectories.  I did this to learn
+where things were loaded from.  Consequently you should *not* use my
+setup to build a testing framework from.  This system should only be
+used to discover the runtime behaviors of runtest.
+
+To build this example, you will need a system configured with a c++
+compiler and the autoconf and automake tools installed.  With these
+tools in place, the build procedure is simply:
+
+    autoconf
+    aclocal
+    automake
+    ./configure
+    make check
+
+Pretty much that's it (you may or may not need the aclocal step).  After
+the ./configure, the makefile in the testsuite subdirectory has two
+relevant targets, namely:
+
+    make check
+    make check-demo
+
+Good Luck.

@@ -1,33 +1,47 @@
 #
-# $Id: Makefile.am,v 1.1.1.2 2001/04/24 18:49:04 wsanchez Exp $
+# $Id: Makefile.am,v 1.1.1.3 2002/11/26 19:07:42 zarzycki Exp $
 #
 
 AUTOMAKE_OPTIONS = foreign no-dependencies
 
 man_MANS = \
 	curl.1 \
-	curl-config.1 \
-	curl_easy_cleanup.3 \
-	curl_easy_getinfo.3 \
-	curl_easy_init.3 \
-	curl_easy_perform.3 \
-	curl_easy_setopt.3 \
-	curl_formparse.3 \
-	curl_formfree.3 \
-	curl_getdate.3 \
-	curl_getenv.3 \
-	curl_slist_append.3 \
-	curl_slist_free_all.3 \
-	curl_version.3 \
-	curl_escape.3 \
-	curl_unescape.3 \
-	curl_strequal.3 \
-	curl_strnequal.3 \
-	curl_printf.3 \
-	libcurl.5
+	curl-config.1
 
-EXTRA_DIST = $(man_MANS) \
-	MANUAL BUGS CONTRIBUTE FAQ FEATURES INTERNALS \
-	LIBCURL README.win32 RESOURCES TODO TheArtOfHttpScripting
+HTMLPAGES = \
+	curl.html \
+	curl-config.html
 
-SUBDIRS = examples
+PDFPAGES = \
+	curl.pdf \
+	curl-config.pdf
+
+SUBDIRS = examples libcurl
+
+EXTRA_DIST = MANUAL BUGS CONTRIBUTE FAQ FEATURES INTERNALS		\
+	     README.win32 RESOURCES TODO TheArtOfHttpScripting THANKS	\
+	     VERSIONS KNOWN_BUGS BINDINGS $(man_MANS) $(HTMLPAGES) \
+	     HISTORY INSTALL libcurl-the-guide $(PDFPAGES)
+
+MAN2HTML= gnroff -man $< | man2html >$@
+
+SUFFIXES = .1 .3 .html .pdf
+
+html: $(HTMLPAGES)
+	cd libcurl; make html
+
+.3.html:
+	$(MAN2HTML)
+
+.1.html:
+	$(MAN2HTML)
+
+MAN2PDF = groff -Tps -man curl.1 $< >$@
+
+pdf:
+	for file in $(man_MANS); do \
+	  foo=`echo $$file | sed -e 's/\.[0-9]$$//g'`; \
+	  groff -Tps -man $$file >$$foo.ps; \
+	  ps2pdf $$foo.ps $$foo.pdf; \
+	done
+	cd libcurl; make pdf

@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: nfs_start.c,v 1.1.1.1 2002/05/15 01:21:55 jkh Exp $
+ * $Id: nfs_start.c,v 1.1.1.2 2002/07/15 19:42:38 zarzycki Exp $
  *
  */
 
@@ -91,7 +91,9 @@ checkup(void)
 
   }
 }
-#endif /* DEBUG */
+#else  /* not DEBUG */
+#define checkup()
+#endif /* not DEBUG */
 
 
 static int
@@ -231,13 +233,7 @@ run_rpc(void)
 # endif /* not FD_SET */
 #endif /* not HAVE_SVC_GETREQSET */
 
-#ifdef HAVE_FS_AUTOFS
-    autofs_add_fdset(&readfds);
-#endif /* HAVE_FS_AUTOFS */
-
-#ifdef DEBUG
     checkup();
-#endif /* DEBUG */
 
     /*
      * If the full timeout code is not called,
@@ -259,6 +255,11 @@ run_rpc(void)
       amd_state = Quit;
       break;
     }
+
+#ifdef HAVE_FS_AUTOFS
+    autofs_add_fdset(&readfds);
+#endif /* HAVE_FS_AUTOFS */
+
     if (tvv.tv_sec <= 0)
       tvv.tv_sec = SELECT_MAXWAIT;
     if (tvv.tv_sec) {
@@ -275,7 +276,7 @@ run_rpc(void)
 	dlog("select interrupted");
 	continue;
       }
-      perror("select");
+      plog(XLOG_ERROR, "select: %m");
       break;
 
     case 0:
@@ -348,9 +349,7 @@ mount_automounter(int ppid)
   int nmount, ret;
   int soNFS;
   int udp_soAMQ, tcp_soAMQ;
-#ifdef HAVE_TRANSPORT_TYPE_TLI
   struct netconfig *udp_amqncp, *tcp_amqncp;
-#endif /* HAVE_TRANSPORT_TYPE_TLI */
 
   /*
    * Create the nfs service for amd
@@ -358,24 +357,24 @@ mount_automounter(int ppid)
   ret = create_nfs_service(&soNFS, &nfs_port, &nfsxprt, nfs_program_2);
   if (ret != 0)
     return ret;
-#ifdef HAVE_TRANSPORT_TYPE_TLI
-  ret = create_amq_service(&udp_soAMQ, &udp_amqp, &udp_amqncp, &tcp_soAMQ, &tcp_amqp, &tcp_amqncp);
-#else /* not HAVE_TRANSPORT_TYPE_TLI */
-  ret = create_amq_service(&udp_soAMQ, &udp_amqp, &tcp_soAMQ, &tcp_amqp);
-#endif /* not HAVE_TRANSPORT_TYPE_TLI */
-  if (ret != 0)
-    return ret;
+  /* security: if user sets -D noamq, don't even create listening socket */
+  amuDebug(D_AMQ) {
+    ret = create_amq_service(&udp_soAMQ, &udp_amqp, &udp_amqncp, &tcp_soAMQ, &tcp_amqp, &tcp_amqncp);
+    if (ret != 0)
+      return ret;
+  }
 
 #ifdef HAVE_FS_AUTOFS
   if (amd_use_autofs) {
     /*
      * Create the autofs service for amd.
      */
-    plog(XLOG_INFO, "creating autofs service listener");
     ret = create_autofs_service();
     /* if autofs service fails it is OK if using a test amd */
-    if (ret != 0 && gopt.portmap_program == AMQ_PROGRAM)
-      return ret;
+    if (ret != 0) {
+      plog(XLOG_WARNING, "autofs service registration failed, turning off autofs support");
+      amd_use_autofs = 0;
+    }
   }
 #endif /* HAVE_FS_AUTOFS */
 
@@ -416,40 +415,28 @@ mount_automounter(int ppid)
   }
 
 #ifdef DEBUG
-  amuDebug(D_AMQ) {
+  amuDebug(D_AMQ)
 #endif /* DEBUG */
+  {
     /*
      * Complete registration of amq (first TCP service then UDP)
      */
     unregister_amq();
 
-#ifdef HAVE_TRANSPORT_TYPE_TLI
-    ret = svc_reg(tcp_amqp, get_amd_program_number(), AMQ_VERSION,
-		  amq_program_1, tcp_amqncp);
-#else /* not HAVE_TRANSPORT_TYPE_TLI */
-    ret = svc_register(tcp_amqp, get_amd_program_number(), AMQ_VERSION,
-		       amq_program_1, IPPROTO_TCP);
-#endif /* not HAVE_TRANSPORT_TYPE_TLI */
+    ret = amu_svc_register(tcp_amqp, get_amd_program_number(), AMQ_VERSION,
+			   amq_program_1, IPPROTO_TCP, tcp_amqncp);
     if (ret != 1) {
       plog(XLOG_FATAL, "unable to register (AMQ_PROGRAM=%d, AMQ_VERSION, tcp)", get_amd_program_number());
       return 3;
     }
 
-#ifdef HAVE_TRANSPORT_TYPE_TLI
-    ret = svc_reg(udp_amqp, get_amd_program_number(), AMQ_VERSION,
-		  amq_program_1, udp_amqncp);
-#else /* not HAVE_TRANSPORT_TYPE_TLI */
-    ret = svc_register(udp_amqp, get_amd_program_number(), AMQ_VERSION,
-		       amq_program_1, IPPROTO_UDP);
-#endif /* not HAVE_TRANSPORT_TYPE_TLI */
+    ret = amu_svc_register(udp_amqp, get_amd_program_number(), AMQ_VERSION,
+			   amq_program_1, IPPROTO_UDP, udp_amqncp);
     if (ret != 1) {
       plog(XLOG_FATAL, "unable to register (AMQ_PROGRAM=%d, AMQ_VERSION, udp)", get_amd_program_number());
       return 4;
     }
-
-#ifdef DEBUG
   }
-#endif /* DEBUG */
 
   /*
    * Start timeout_mp rolling

@@ -1,5 +1,3 @@
-/*	$NetBSD: cmp.c,v 1.14 1998/10/09 02:00:39 enami Exp $	*/
-
 /*
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -36,14 +34,14 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
-#ifndef lint
 #if 0
+#ifndef lint
 static char sccsid[] = "@(#)cmp.c	8.1 (Berkeley) 5/31/93";
-#else
-__RCSID("$NetBSD: cmp.c,v 1.14 1998/10/09 02:00:39 enami Exp $");
-#endif
 #endif /* not lint */
+#endif
+#include <sys/cdefs.h>
+__RCSID("$FreeBSD: src/bin/ls/cmp.c,v 1.12 2002/06/30 05:13:54 obrien Exp $");
+
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -69,22 +67,19 @@ __RCSID("$NetBSD: cmp.c,v 1.14 1998/10/09 02:00:39 enami Exp $");
 #endif
 
 int
-namecmp(a, b)
-	const FTSENT *a, *b;
+namecmp(const FTSENT *a, const FTSENT *b)
 {
-	return (strcmp(a->fts_name, b->fts_name));
+	return (strcoll(a->fts_name, b->fts_name));
 }
 
 int
-revnamecmp(a, b)
-	const FTSENT *a, *b;
+revnamecmp(const FTSENT *a, const FTSENT *b)
 {
-	return (strcmp(b->fts_name, a->fts_name));
+	return (strcoll(b->fts_name, a->fts_name));
 }
 
 int
-modcmp(a, b)
-	const FTSENT *a, *b;
+modcmp(const FTSENT *a, const FTSENT *b)
 {
 	if (b->fts_statp->st_mtime > a->fts_statp->st_mtime)
 		return (1);
@@ -99,8 +94,7 @@ modcmp(a, b)
 }
 
 int
-revmodcmp(a, b)
-	const FTSENT *a, *b;
+revmodcmp(const FTSENT *a, const FTSENT *b)
 {
 	if (b->fts_statp->st_mtime > a->fts_statp->st_mtime)
 		return (-1);
@@ -115,8 +109,7 @@ revmodcmp(a, b)
 }
 
 int
-acccmp(a, b)
-	const FTSENT *a, *b;
+acccmp(const FTSENT *a, const FTSENT *b)
 {
 	if (b->fts_statp->st_atime > a->fts_statp->st_atime)
 		return (1);
@@ -131,8 +124,7 @@ acccmp(a, b)
 }
 
 int
-revacccmp(a, b)
-	const FTSENT *a, *b;
+revacccmp(const FTSENT *a, const FTSENT *b)
 {
 	if (b->fts_statp->st_atime > a->fts_statp->st_atime)
 		return (-1);
@@ -147,8 +139,7 @@ revacccmp(a, b)
 }
 
 int
-statcmp(a, b)
-	const FTSENT *a, *b;
+statcmp(const FTSENT *a, const FTSENT *b)
 {
 	if (b->fts_statp->st_ctime > a->fts_statp->st_ctime)
 		return (1);
@@ -163,8 +154,7 @@ statcmp(a, b)
 }
 
 int
-revstatcmp(a, b)
-	const FTSENT *a, *b;
+revstatcmp(const FTSENT *a, const FTSENT *b)
 {
 	if (b->fts_statp->st_ctime > a->fts_statp->st_ctime)
 		return (-1);

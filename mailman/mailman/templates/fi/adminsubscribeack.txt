@@ -1,0 +1,3 @@
+%(member)s on onnistuneesti liitetty listalle %(listname)s.
+
+

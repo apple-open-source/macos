@@ -1,4 +1,4 @@
-.ds VN 4.60
+.ds VN 4.68
 .TH LSOF 8 Revision-\*(VN
 .if !\n()P .nr )P 1v
 .SH NAME
@@ -11,6 +11,8 @@ lsof \- list open files
 .BI -A " A"
 ] [
 .BI \-c " c"
+] [
+.BI +c " c"
 ] [
 .BI +|\-d " d"
 ] [
@@ -54,21 +56,22 @@ revision \*(VN lists information about files opened by processes for the
 following UNIX dialects:
 .PP
 .nf
-	AIX 4.3.[23], 5L, and 5.1
-	Apple Darwin 1.[23] and 1.4 for Power Macintosh systems
-	BSDI BSD/OS 4.1 for Intel-based systems
+	AIX 4.3.[23], 5L, and 5.[12]
+	Apple Darwin 1.[2-5], 5.x and 6.x for Power Macintosh systems
+	BSDI BSD/OS 4.3.1 for x86-based systems
 	DEC OSF/1, Digital UNIX, Tru64 UNIX 4.0, and 5.[01]
-	FreeBSD 4.[234] and 5.0 for Intel-based systems
+	FreeBSD 4.[2345678] and 5.[01] for x86-based systems
+	FreeBSD 5.[01] for Alpha and Sparc64 based systems
 	HP-UX 11.00 and 11.11
-	Linux 2.1.72 and above for Intel-based systems
-	NetBSD 1.5 for Alpha, Intel, and SPARC-based systems
+	Linux 2.1.72 and above for x86-based systems
+	NetBSD 1.[456] for Alpha, x86, and SPARC-based systems
 	NEXTSTEP 3.[13] for NEXTSTEP architectures
-	OpenBSD 2.[89] and 3.0 for Intel-based systems
+	OpenBSD 2.[89] and 3.[0123] for x86-based systems
 	OPENSTEP 4.x
 	Caldera OpenUNIX 8
-	SCO OpenServer Release 5.0.[46] for Intel-based systems
-	SCO UnixWare 7.1.1 for Intel-based systems
-	Solaris 2.6, 7, 8, and 9 BETA
+	SCO OpenServer Release 5.0.[46] for x86-based systems
+	SCO|Caldera UnixWare 7.1.[13] for x86-based systems
+	Solaris 2.6, 7, 8, and 9
 .fi
 .PP
 (See the
@@ -289,6 +292,21 @@ when lsof's
 .B \-V
 option is specified.
 .TP
+.BI +c " w"
+This option defines the maximum number of initial characters of the name
+of the UNIX command associated with a process to be printed in the COMMAND
+column.
+(The default is nine.)
+.IP
+If
+.I w
+is zero ('0'), all command characters will be printed.
+.IP
+If
+.I w
+is less than the length of the column title, ``COMMAND'', it will
+be raised to that length.
+.TP
 .B \-C
 This option disables the reporting of any path name
 components from the kernel's name cache.
@@ -317,18 +335,29 @@ files that the user has permission to examine with the system
 function.
 .TP
 .BI \-d " s"
-This option selects the listing of files whose file descriptors
-are in the comma\-separated set
+This option specifies a list of file descriptors (FDs) to exclude from
+or include in the output listing.
+The file descriptors are specified in the comma\-separated set
 .I s
-\&\- e.g., ``1,3'' or ``6,cwd,2''.
+\&\- e.g., ``cwd,1,3'', ``^6,^2''.
 (There should be no spaces in the set.)
 .IP
-A file descriptor number range may be included in the set as long as
+The list is an exclusion list if all entries of the set begin with '^'.
+It is an inclusion list if no entry begins with '^'.
+Mixed lists are not permitted.
+.IP
+A file descriptor number range may be in the set as long as
 neither member is empty, both members are numbers, and the ending
 member is larger than the starting one \- e.g., ``0-7'' or ``3-10''.
+Ranges may be specified for exclusion if they have the '^' prefix \-
+e.g., ``^0-7'' excludes all file descritors 0 through 7.
 .IP
 Multiple file descriptor numbers are joined in a single ORed set before
 participating in AND option selection.
+.IP
+When there are exclusion and inclusion members in the set,
+.I lsof
+reports them as errors and exits with a non\-zero return code.
 .IP
 See the description of File Descriptor (FD) output values in the
 .B OUTPUT
@@ -481,8 +510,6 @@ if possible, and to rebuild it, if necessary.
 This is the default device cache file function when no
 .B \-D
 option has been specified.
-.I lsof
-repetitively from a shell script, for example.
 .TP
 .B +|\-f [cfgGn]
 .B f
@@ -560,7 +587,8 @@ processes and identical files in use by different processes.
 column output can be sorted by output columns holding the values
 and listed to identify identical file use, or
 .I lsof
-field output can be parsed by an AWK or Perl post\-filter script.
+field output can be parsed by an AWK or Perl post\-filter script,
+or by a C program.
 .TP
 .BI \-F " f"
 This option specifies a character list,
@@ -789,7 +817,7 @@ Here are some sample addresses:
 .br
 	UDP:who \- UDP who service port
 .br
-	TCP@vic.cc:513 \- TCP, port 513 and host name vic.cc
+	TCP@lsof.itap:513 \- TCP, port 513 and host name lsof.itap
 .br
 	tcp@foo:1-10,smtp,99 \- TCP, ports 1 through 10,
 		service name \fIsmtp\fP, port 99, host name foo
@@ -834,7 +862,7 @@ A specification of the form ``\fB+aL1\ \fI<file_system>\fR'' will select
 unlinked open files on the specified file system.
 .IP
 For other link count comparisons, use field output (\fB\-F\fP)
-and a post\-processing script.
+and a post\-processing script or program.
 .TP
 .BI \-m " m"
 This option specifies a kernel memory file,
@@ -1073,7 +1101,7 @@ option description) and a supervising
 .I awk
 or
 .I Perl
-script.
+script, or a C program.
 .TP
 .B \-R
 This option directs lsof to list the Parent Process IDentification
@@ -1233,14 +1261,18 @@ to indicate the items it was asked to list and failed to find \- command
 names, file names, Internet addresses or files, login names, NFS files,
 PIDs, PGIDs, and UIDs.
 .IP
-When other options are ANDed to search options,
+When other options are ANDed to search options, or compile\-time
+options restrict the listing of some files,
 .I lsof
 may not report that it failed to find a search item when an ANDed
-option prevents the listing of the open file containing the located
-search item.
+option or compile\-time option prevents the listing of the open file
+containing the located search item.
+.IP
 For example, ``lsof -V -iTCP@foobar -a -d 999'' may not report a
 failure to locate open files at ``TCP@foobar'' and may not list
 any, if none have a file descriptor number of 999.
+A similar situtation arises when HASSECURITY and HASNOSOCKSECURITY are
+defined at compile time and they prevent the listing of open files.
 .TP
 .B +|\-w
 Enables (\fB+\fP) or disables (\fB-\fP) the suppression of warning messages.
@@ -1518,7 +1550,7 @@ and
 options name alternate kernel name list or memory files.
 .PP
 Restricting the listing of all open files is controlled by the
-compile\-time HASSECURITY option.
+compile\-time HASSECURITY and HASNOSOCKSECURITY options.
 When HASSECURITY is defined,
 .I lsof
 will allow only the root user to list all open files.
@@ -1526,13 +1558,20 @@ The non\-root user may list only open files of processes with the same user
 IDentification number as the real user ID number of the
 .I lsof
 process (the one that its user logged on with).
+.PP
+However, if HASSECURITY and HASNOSOCKSECURITY are both defined,
+anyone may list open socket files, provided they are selected
+with the
+.B \-i
+option.
+.PP
 When HASSECURITY is not defined, anyone may list all open files.
 .PP
 Help output, presented in response to the
 .B \-h
 or
 .B \-?
-option, gives the HASSECURITY definition status.
+option, gives the status of the HASSECURITY and HASNOSOCKSECURITY definitions.
 .PP
 See the
 .B Security
@@ -1542,7 +1581,7 @@ file of the
 .I lsof
 distribution for information on building
 .I lsof
-with the HASSECURITY option enabled.
+with the HASSECURITY and HASNOSOCKSECURITY options enabled.
 .PP
 Creation and use of a user\-readable and user\-writable device
 cache file is controlled by the compile\-time HASDCACHE option.
@@ -1642,6 +1681,25 @@ by at least one space.
 COMMAND
 contains the first nine characters of the name of the UNIX command
 associated with the process.
+If a non\-zero
+.I w
+value is specified to the
+.BI +c " w"
+option, the column contains the first
+.I w
+characters of the name of the UNIX command associated with the process.
+.IP
+If
+.I w
+is less than the length of the column title, ``COMMAND'', it will
+be raised to that length.
+.IP
+If a zero
+.I w
+value is specified to the
+.BI +c " w"
+option, the column contains all the characters of the name of the UNIX command
+associated with the process.
 .IP
 All command name characters maintained by the kernel in its structures
 are displayed in field output when the command name descriptor (`c')
@@ -1706,6 +1764,8 @@ is the File Descriptor number of the file or:
 	\fBpd\fP	parent directory;
 .br
 	\fBrtd\fP	root directory;
+.br
+	\fBtr\fR	kernel trace file (OpenBSD);
 .br
 	\fBtxt\fP	program text (code and data);
 .br
@@ -1795,6 +1855,8 @@ or ``DIR'' for a directory;
 or ``DOOR'' for a VDOOR file;
 .IP
 or ``FIFO'' for a FIFO special file;
+.IP
+or ``KQUEUE'' for a BSD style kernel event queue file;
 .IP
 or ``LINK'' for a symbolic link file;
 .IP
@@ -2305,7 +2367,7 @@ device, where
 .I n
 is the minor device number of the file;
 .IP
-or ``(socketpair: n)'' for a Solaris 2.6, 7, 8 BETA, or 8 BETA-Refresh
+or ``(socketpair: n)'' for a Solaris 2.6, 7, 8, or 9
 UNIX domain socket, created by the
 .IR socketpair (3N)
 network function;
@@ -2321,7 +2383,7 @@ or the local and remote addresses of a Linux IPX socket file
 in the form <net>:[<node>:]<port>, followed in parentheses
 by the transmit and receive queue sizes, and the connection state;
 .IP
-or ``dgram'' or ``stream'' for the type  UnixWare 7.1.1 and above in\-kernel
+or ``dgram'' or ``stream'' for the type UnixWare 7.1.1 and above in\-kernel
 UNIX domain sockets, followed by a colon (':') and the local path name
 when available, followed by ``->'' and the remote path name or kernel
 socket address in hexadecimal when available.
@@ -2378,7 +2440,7 @@ produces output that is suitable for processing by another program \- e.g, an
 .I awk
 or
 .I Perl
-script.
+script, or a C program.
 .PP
 Each unit of information is output in a field that is identified
 with a leading character and terminated by a NL (012) (or a NUL
@@ -2525,7 +2587,7 @@ When the NUL field terminator is in use,
 .I lsof
 ends each process and file set with a NL (012).
 .PP
-Two aids to producing programs that can process
+Three aids to producing programs that can process
 .I lsof
 field output are included in the
 .I lsof
@@ -2550,6 +2612,21 @@ They're located in the
 subdirectory of the
 .I lsof
 distribution.
+.PP
+The third aid is the C library used for the
+.I lsof
+test suite.
+The test suite is written in C and uses field output to validate
+the correct operation of
+.IR lsof .
+The library can be found in the
+.I tests/LTlib.c
+file of the
+.I lsof
+distribution.
+The library uses the first aid, the
+.I lsof_fields.h
+header file.
 .SH "BLOCKS AND TIMEOUTS"
 .I Lsof
 can be blocked by some kernel functions that it uses \-
@@ -2821,7 +2898,7 @@ can report path name components for these dialects:
 	Reliant UNIX
 	Caldera OpenUNIX
 	SCO OpenServer
-	SCO UnixWare
+	SCO|Caldera UnixWare
 	Solaris
 .fi
 .PP
@@ -2975,19 +3052,21 @@ distribution recommends that versions for these dialects run setgid
 and be allowed to surrender setgid permission.
 .PP
 .nf
-	AIX 4.3.[23], 5L, and 5.1
-	Apple Darwin 1.[23] and 1.4 for Power Macintosh systems
-	BSDI BSD/OS 4.1 for Intel-based systems
+	AIX 4.3.[23], 5L, and 5.[12]
+	Apple Darwin 1.[2-5], 5.x and 6.x for Power Macintosh systems
+	BSDI BSD/OS 4.3.1 for x86-based systems
 	DEC OSF/1, Digital UNIX, Tru64 UNIX 4.0, and 5.[01]
-	FreeBSD 4.[234] and 5.0 for Intel-based systems
+	FreeBSD 4.[2345678] and 5.[01] for x86-based systems
+	FreeBSD 5.[01] for Alpha and Sparc64 based systems
 	HP\-UX 11.00 
-	NetBSD 1.5 for Alpha, Intel, and SPARC-based systems
+	NetBSD 1.[456] for Alpha, x86, and SPARC-based systems
 	NEXTSTEP 3.[13] for NEXTSTEP architectures
-	OpenBSD 2.[89] and 3.0 for Intel-based systems
-	Caldera OpenUNIX
-	SCO OpenServer Release 5.0.[46] for Intel-based systems
-	SCO UnixWare 7.1.1 for Intel-based systems
-	Solaris 2.6, 7, 8, and 9 BETA
+	OpenBSD 2.[89] and 3.[0123] for x86-based systems
+	OpenStep 4.x
+	Caldera OpenUNIX 8
+	SCO OpenServer Release 5.0.[46] for x86-based systems
+	SCO|Caldera UnixWare 7.1.[13] for x86-based systems
+	Solaris 2.6, 7, 8, and 9
 .fi
 .PP
 (Note:
@@ -3241,7 +3320,7 @@ header file.
 distribution.)
 .PP
 Thus, for example, if LSOFPERSDCPATH contains ``LSOF'', the home
-directory is ``/Homes/abe'', the host name is ``vic.cc.purdue.edu'',
+directory is ``/Homes/abe'', the host name is ``lsof.itap.purdue.edu'',
 and the HASPERSDC format is the default (``%h/%p.lsof_%L''), the
 modified personal device cache file path is:
 .PP
@@ -3561,12 +3640,12 @@ file of the
 distribution.
 .PP
 That file is also available via anonymous ftp from
-.I vic.cc.purdue.edu
+.I lsof.itap.purdue.edu
 at
 .IR pub/tools/unix/lsof FAQ .
 The URL is:
 .IP
-ftp://vic.cc.purdue.edu/pub/tools/unix/lsof/FAQ
+ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof/FAQ
 .SH FILES
 .TP \w'.lsof_hostname'u+4
 .I /dev/kmem
@@ -3599,7 +3678,7 @@ distribution.
 The latest distribution of
 .I lsof
 is available via anonymous ftp from the host
-.IR vic.cc.purdue.edu .
+.IR lsof.itap.purdue.edu .
 You'll find the
 .I lsof
 distribution in the
@@ -3608,12 +3687,12 @@ directory.
 .PP
 You can also use this URL:
 .IP
-ftp://vic.cc.purdue.edu/pub/tools/unix/lsof
+ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof
 .PP
 .I Lsof
 is also mirrored elsewhere.
 When you access
-.I vic.cc.purdue.edu
+.I lsof.itap.purdue.edu
 and change to its
 .I pub/tools/unix/lsof
 directory, you'll be given a list of some mirror sites.
@@ -3629,7 +3708,7 @@ revision.
 Some pre\-compiled
 .I Lsof
 executables are available on
-.IR vic.cc.purdue.edu ,
+.IR lsof.itap.purdue.edu ,
 but their use is discouraged \- it's better that you build
 your own from the sources.
 If you feel you must use a pre\-compiled executable, please
@@ -3653,7 +3732,7 @@ to the author.
 .I Lsof
 versions 2 and 3 have been tested under older UNIX dialects.
 They are available via anonymous ftp from
-.IR vic.cc.purdue.edu
+.IR lsof.itap.purdue.edu
 in the
 .I pub/tools/unix/lsof/OLD
 directory.

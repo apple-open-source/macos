@@ -1,5 +1,3 @@
-/*	$NetBSD: defs.h,v 1.7 1997/01/09 20:21:28 tls Exp $	*/
-
 /*-
  * Copyright (c) 1992 Diomidis Spinellis.
  * Copyright (c) 1992, 1993
@@ -36,8 +34,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	from: @(#)defs.h	8.1 (Berkeley) 6/6/93
- *	$NetBSD: defs.h,v 1.7 1997/01/09 20:21:28 tls Exp $
+ *	@(#)defs.h	8.1 (Berkeley) 6/6/93
  */
 
 /*
@@ -137,12 +134,3 @@ typedef struct {
 	char *back;		/* Backing memory. */
 	size_t blen;		/* Backing memory length. */
 } SPACE;
-
-/*
- * Error severity codes:
- */
-#define	FATAL		0	/* Exit immediately with 1 */
-#define	ERROR		1	/* Continue, but change exit value */
-#define	WARNING		2	/* Just print the warning */
-#define	COMPILE		3	/* Print error, count and finish script */
-#define	COMPILE2	3	/* Print error, count and finish script */

@@ -10,6 +10,7 @@ StartService ()
 {
     CheckForNetwork 
     if [ "${NETWORKUP}" = "-NO-" ]; then exit; fi
+    lockfile -r 0 /var/run/NFS.StartupItem || exit 0
 
     ##
     # Set up NFS client.
@@ -21,6 +22,45 @@ StartService ()
     nfsiod -n 4 
 
     ##
+    # The rpc.lockd/rpc.statd daemons are needed on both the client and
+    # the server in order to support file locking over NFS.
+    #
+    # If NFSLOCKS = -AUTOMATIC-, we start the daemons if we are a server
+    # but if we are only a client, we start the daemons once we know we
+    # need them.
+    ##
+
+    ##
+    # gather list of NFS exports
+    ##
+    exports_ni=$(niutil -list . /exports 2> /dev/null | wc -w)
+    # Look for exports in /etc/exports, ignoring comments and blank lines.
+    exports_etc=$(grep -v '^[[:space:]]*\(#\|$\)' /etc/exports 2> /dev/null | wc -l)
+    exports=$(($exports_ni + $exports_etc))
+
+    # if we are an NFS server, turn on NFS locking by default:
+    if [ "${exports}" -gt 0 ]; then
+	if [ "${NFSLOCKS:=-AUTOMATIC-}" = "-AUTOMATIC-" ]; then
+	    NFSLOCKS=-YES-;
+	fi
+    fi
+
+    if [ "${NFSLOCKS:=-AUTOMATIC-}" = "-YES-" ]; then
+	# we definitely want locks on, so turn them on now
+	rpc.statd
+	rpc.lockd
+    fi
+    if [ "${NFSLOCKS:=-AUTOMATIC-}" = "-AUTOMATIC-" ]; then
+	# delay starting daemons until we know we need them
+
+	# invoke rpc.statd to send any SM_NOTIFY messages and quit.
+	rpc.statd -n
+
+	# -w says to wait for signal from kernel, then start daemons
+	rpc.lockd -w
+    fi
+
+    ##
     # Set up NFS server.
     ##
 
@@ -30,11 +70,6 @@ StartService ()
 
     # Clear the table of exported filesystems.
     rm -f /var/db/mountdtab
-
-    exports_ni=$(niutil -list . /exports 2> /dev/null | wc -w)
-    # Look for exports in /etc/exports, ignoring comments and blank lines.
-    exports_etc=$(grep -v '^[[:space:]]*\(#\|$\)' /etc/exports 2> /dev/null | wc -l)
-    exports=$((exports_ni+exports_etc))
 
     if [ "${exports}" -gt 0 ]; then
 	ConsoleMessage "Starting Network File System server"
@@ -53,7 +88,15 @@ StartService ()
     ##
 
     if [ "${AUTOMOUNT:=-YES-}" = "-YES-" ]; then
-	automount -m /Network/Servers -fstab -m /automount -static
+	automount -m /Network -nsl
+	automount -m /automount/Servers -fstab -mnt /private/var/automount/Network/Servers \
+              -m /automount/static -static -mnt /private/var/automount
+	ln -s /automount/Servers /Network/Servers
+	
+	#
+	# Hint that the name /Network should be localized:
+	#
+	ln -s . /Network/.localized
     fi
 }
 

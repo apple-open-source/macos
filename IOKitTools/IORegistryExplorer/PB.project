@@ -42,7 +42,7 @@
     NEXTSTEP_APPICON = IORE.tiff; 
     NEXTSTEP_BUILDTOOL = /usr/bin/gnumake; 
     NEXTSTEP_DOCUMENTEXTENSIONS = (); 
-    NEXTSTEP_INSTALLDIR = "$(SYSTEM_DEVELOPER_APPS_DIR)"; 
+    NEXTSTEP_INSTALLDIR = "$(SYSTEM_DEVELOPER_APPS_DIR)/Utilities"; 
     NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
     NEXTSTEP_LINKEROPTIONS = "-twolevel_namespace"; 
     NEXTSTEP_MAINNIB = IORegistryExplorer.nib; 

@@ -39,9 +39,12 @@ class Keychain;
 class ItemImpl : public SecCFObject
 {
 public:
+	SECCFFUNCTIONS(ItemImpl, SecKeychainItemRef, errSecInvalidItemRef)
+
     friend class Item;
 	friend class KeychainImpl;
 protected:
+
 	// new item constructors
     ItemImpl(SecItemClass itemClass, OSType itemCreator, UInt32 length, const void* data);
 	
@@ -68,7 +71,7 @@ protected:
 	static const CSSM_DATA &defaultAttributeValue(const CSSM_DB_ATTRIBUTE_INFO &info);
 
 public:
-    virtual ~ItemImpl();
+    virtual ~ItemImpl() throw();
     bool isPersistant() const;
     bool isModified() const;
 
@@ -116,7 +119,7 @@ protected:
 	// new item members
     auto_ptr<CssmDataContainer> mData;
     auto_ptr<CssmClient::DbAttributes> mDbAttributes;
-	RefPointer<Access> mAccess;
+	SecPointer<Access> mAccess;
 
 	// db item members
     CssmClient::DbUniqueRecord mUniqueId;
@@ -125,7 +128,7 @@ protected:
 };
 
 
-class Item : public RefPointer<ItemImpl>
+class Item : public SecPointer<ItemImpl>
 {
 public:
     Item();

@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
  */
 
 
-/* $Id: incomplete_class.c,v 1.1.1.4 2001/12/14 22:13:23 zarzycki Exp $ */
+/* $Id: incomplete_class.c,v 1.1.1.7 2003/07/18 18:07:43 zarzycki Exp $ */
 
 #include "php.h"
 #include "basic_functions.h"
@@ -30,26 +30,25 @@
 		"you are trying to operate on was loaded _before_ " \
 		"the session was started"
 
-#define INCOMPLETE_CLASS "__PHP_Incomplete_Class"
-#define MAGIC_MEMBER "__PHP_Incomplete_Class_Name"
 
 /* {{{ incomplete_class_message
  */
-static void incomplete_class_message(zend_property_reference *ref)
+static void incomplete_class_message(zend_property_reference *ref, int error_type)
 {
 	char buf[1024];
 	char *class_name;
+	TSRMLS_FETCH();
 
-	class_name = php_lookup_class_name(ref->object, NULL, 0);
+	class_name = php_lookup_class_name(ref->object, NULL, 0 TSRMLS_CC);
 	
 	if (!class_name)
 		class_name = estrdup("unknown");
 	
-	snprintf(buf, 1023, INCOMPLETE_CLASS_MSG, class_name);
+	snprintf(buf, sizeof(buf)-1, INCOMPLETE_CLASS_MSG, class_name);
 	
 	efree(class_name);
 
-	php_error(E_ERROR, "%s", buf);
+	php_error_docref(NULL TSRMLS_CC, error_type, "%s", buf);
 }
 /* }}} */
 
@@ -57,7 +56,7 @@ static void incomplete_class_message(zend_property_reference *ref)
  */
 static void incomplete_class_call_func(INTERNAL_FUNCTION_PARAMETERS, zend_property_reference *property_reference)
 {
-	incomplete_class_message(property_reference);
+	incomplete_class_message(property_reference, E_ERROR);
 }
 /* }}} */
 
@@ -65,7 +64,7 @@ static void incomplete_class_call_func(INTERNAL_FUNCTION_PARAMETERS, zend_proper
  */
 static int incomplete_class_set_property(zend_property_reference *property_reference, zval *value)
 {
-	incomplete_class_message(property_reference);
+	incomplete_class_message(property_reference, E_NOTICE);
 	
 	/* does not reach this point */
 	return (0);
@@ -78,7 +77,7 @@ static zval incomplete_class_get_property(zend_property_reference *property_refe
 {
 	zval foo;
 	
-	incomplete_class_message(property_reference);
+	incomplete_class_message(property_reference, E_NOTICE);
 
 	/* does not reach this point */
 	memset(&foo, 0, sizeof(zval)); /* shut warnings up */
@@ -103,7 +102,7 @@ zend_class_entry *php_create_incomplete_class(TSRMLS_D)
 
 /* {{{ php_lookup_class_name
  */
-char *php_lookup_class_name(zval *object, size_t *nlen, zend_bool del)
+char *php_lookup_class_name(zval *object, size_t *nlen, zend_bool del TSRMLS_DC)
 {
 	zval **val;
 	char *retval = NULL;
@@ -127,7 +126,7 @@ char *php_lookup_class_name(zval *object, size_t *nlen, zend_bool del)
 
 /* {{{ php_store_class_name
  */
-void php_store_class_name(zval *object, const char *name, size_t len)
+void php_store_class_name(zval *object, const char *name, size_t len TSRMLS_DC)
 {
 	zval *val;
 
@@ -146,6 +145,6 @@ void php_store_class_name(zval *object, const char *name, size_t len)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

@@ -1,14 +1,30 @@
 /*
- *  IOFireWireAVCLibConsumer.cpp
- *  IOFireWireAVC
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
- *  Created by cpieper on Tue Feb 05 2002.
- *  Copyright (c) 2001 __MyCompanyName__. All rights reserved.
- *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
  */
-
+ 
 #include "IOFireWireAVCLibUnit.h"
-#include "IOFireWireAVCConsts.h"
+#include <IOKit/avc/IOFireWireAVCConsts.h>
 #include "IOFireWireAVCLibConsumer.h"
 
 #include <IOKit/IOMessage.h>
@@ -1788,10 +1804,11 @@ void IOFireWireAVCLibConsumer::skippedPacketHandler(
 //
 //
 
-void IOFireWireAVCLibConsumer::sendDisconnectResponse( IOFireWireAVCLibConsumer ** info )
+void IOFireWireAVCLibConsumer::sendDisconnectResponse( void * info )
 {
 	IOReturn status = kIOReturnSuccess;
-	IOFireWireAVCLibConsumer * me = *info;
+	IOFireWireAVCLibConsumer ** meRef = (IOFireWireAVCLibConsumer **)info;
+	IOFireWireAVCLibConsumer * me = *meRef;
 	UInt32 newVal = 0;
 	
 	me->fDisconnectResponseScheduled = false;
@@ -1823,10 +1840,11 @@ void IOFireWireAVCLibConsumer::sendDisconnectResponse( IOFireWireAVCLibConsumer 
 //
 //
 
-void IOFireWireAVCLibConsumer::sendHeartbeatResponse( IOFireWireAVCLibConsumer ** info )
+void IOFireWireAVCLibConsumer::sendHeartbeatResponse( void * info )
 {
 	IOReturn status = kIOReturnSuccess;
-	IOFireWireAVCLibConsumer * me = *info;
+	IOFireWireAVCLibConsumer ** meRef = (IOFireWireAVCLibConsumer **)info;
+	IOFireWireAVCLibConsumer * me = *meRef;
 	UInt32 newVal = 0;
 	
 	me->fHeartbeatResponseScheduled = false;
@@ -1932,9 +1950,10 @@ void IOFireWireAVCLibConsumer::stopConsumerHeartbeatTimer( void )
 //
 //
 
-void IOFireWireAVCLibConsumer::sendFrameStatusNotification( IOFireWireAVCLibConsumer ** info )
+void IOFireWireAVCLibConsumer::sendFrameStatusNotification( void * info )
 {
-	IOFireWireAVCLibConsumer * me = *info;
+	IOFireWireAVCLibConsumer ** meRef = (IOFireWireAVCLibConsumer **)info;
+	IOFireWireAVCLibConsumer * me = *meRef;
 	me->fFrameStatusSourceScheduled = false;
 
 	FWLOG(( "IOFireWireLibAVCConsumer::sendFrameStatusNotification frame status handler called\n" ));

@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -36,6 +37,10 @@
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
+#include <notify.h>
+
+extern uint32_t notify_set_state(int token, int state);
+extern uint32_t notify_register_plain(const char *name, int *out_token);
 
 #define NI_SEPARATOR '/'
 #define DEFAULT_MAX_READALL_PROXIES 0	/* Feature's off by default */
@@ -67,6 +72,10 @@
 #define NAME_PORT_UDP "udp_port"
 
 #define NAME_PROMOTE_ADMINS "promote_admins"
+
+#define NETINFO_NOTIFY_PREFIX "com.apple.system.netinfo"
+#define NETINFO_NOTIFY_SUFFIX "binding_change"
+static char *notification_name = NULL;
 
 static ni_status binding_status = NI_FAILED;
 
@@ -655,8 +664,48 @@ get_binding_status(void)
 	return binding_status;
 }
 
+/*
+ * Binding status can be:
+ * NI_FAILED - initial (unbound)
+ * NI_NORESPONSE - rebinding (unbound)
+ * NI_NETROOT - root domain (bound)
+ * NI_OK - bound to a parent
+ * 
+ * Binding state is:
+ * 0 - not bound
+ * 1 - bound to a parent
+ * 2 - netroot
+ */
+ 
+#define BINDING_STATE_UNBOUND 0
+#define BINDING_STATE_BOUND 1
+#define BINDING_STATE_NETROOT 2
+
 void
 set_binding_status(ni_status stat)
 {
+	static int token = -1;
+	int old_state, new_state;
+
+	if ((notification_name == NULL) && (db_tag != NULL))
+	{
+		asprintf(&notification_name, "%s.%s.%s", NETINFO_NOTIFY_PREFIX, db_tag, NETINFO_NOTIFY_SUFFIX);
+		notify_register_plain(notification_name, &token);
+	}
+
+	old_state = BINDING_STATE_UNBOUND;
+	if (binding_status == NI_OK) old_state = BINDING_STATE_BOUND;
+	else if (binding_status == NI_NETROOT) old_state = BINDING_STATE_NETROOT;
+
+	new_state = BINDING_STATE_UNBOUND;
+	if (stat == NI_OK) new_state = BINDING_STATE_BOUND;
+	else if (stat == NI_NETROOT) new_state = BINDING_STATE_NETROOT;
+
+	if ((old_state != new_state) && (notification_name != NULL))
+	{
+		notify_set_state(token, new_state);
+		notify_post(notification_name);
+	}
+
 	binding_status = stat;
 }

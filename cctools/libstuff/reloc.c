@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -54,6 +52,7 @@ cpu_type_t cputype)
 	    return(I860_RELOC_PAIR);
 	    break;
 	case CPU_TYPE_POWERPC:
+	case CPU_TYPE_VEO:
 	    return(PPC_RELOC_PAIR);
 	    break;
 	case CPU_TYPE_HPPA:
@@ -98,6 +97,7 @@ unsigned long r_type)
 		return(TRUE);
 	    break;
 	case CPU_TYPE_POWERPC:
+	case CPU_TYPE_VEO:
 	    if(r_type == PPC_RELOC_HI16 ||
 	       r_type == PPC_RELOC_LO16 ||
 	       r_type == PPC_RELOC_HA16 ||
@@ -105,6 +105,7 @@ unsigned long r_type)
 	       r_type == PPC_RELOC_SECTDIFF ||
 	       r_type == PPC_RELOC_HI16_SECTDIFF ||
 	       r_type == PPC_RELOC_LO16_SECTDIFF ||
+	       r_type == PPC_RELOC_LO14_SECTDIFF ||
 	       r_type == PPC_RELOC_HA16_SECTDIFF ||
 	       r_type == PPC_RELOC_JBSR)
 		return(TRUE);
@@ -159,9 +160,11 @@ unsigned long r_type)
 		return(TRUE);
 	    break;
 	case CPU_TYPE_POWERPC:
+	case CPU_TYPE_VEO:
 	    if(r_type == PPC_RELOC_SECTDIFF ||
 	       r_type == PPC_RELOC_HI16_SECTDIFF ||
 	       r_type == PPC_RELOC_LO16_SECTDIFF ||
+	       r_type == PPC_RELOC_LO14_SECTDIFF ||
 	       r_type == PPC_RELOC_HA16_SECTDIFF)
 		return(TRUE);
 	    break;

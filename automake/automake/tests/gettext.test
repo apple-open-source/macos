@@ -1,0 +1,40 @@
+#! /bin/sh
+
+# Check gettext support.
+
+required='gettext'
+. $srcdir/defs || exit 1
+
+set -e
+
+cat >>configure.in <<END
+AM_GNU_GETTEXT
+AC_OUTPUT
+END
+
+: >Makefile.am
+mkdir po intl
+
+$ACLOCAL
+
+
+# po/ and intl/ are required
+
+$AUTOMAKE --add-missing 2>stderr && exit 1
+cat stderr
+grep 'AM_GNU_GETTEXT.*SUBDIRS' stderr
+
+echo 'SUBDIRS = po' >Makefile.am
+$AUTOMAKE --add-missing 2>stderr && exit 1
+cat stderr
+grep 'AM_GNU_GETTEXT.*intl' stderr
+
+echo 'SUBDIRS = intl' >Makefile.am
+$AUTOMAKE --add-missing 2>stderr && exit 1
+cat stderr
+grep 'AM_GNU_GETTEXT.*po' stderr
+
+# Ok.
+
+echo 'SUBDIRS = po intl' >Makefile.am
+$AUTOMAKE --add-missing

@@ -1,12 +1,15 @@
 dnl Process this file with autoconf to produce a configure script.
 dnl
 AC_INIT(agent/mibgroup/ucd-snmp/extensible.c)
-AC_CONFIG_HEADER(config.h)
+AC_CONFIG_HEADER(include/net-snmp/net-snmp-config.h)
+AC_MSG_CACHE_INIT()
 
 dnl
 dnl save the configure arguments
 dnl
-AC_DEFINE_UNQUOTED(CONFIGURE_OPTIONS,"$ac_configure_args")
+AC_DEFINE_UNQUOTED(CONFIGURE_OPTIONS,"\"$ac_configure_args\"")
+CONFIGURE_OPTIONS="\"$ac_configure_args\""
+AC_SUBST(CONFIGURE_OPTIONS)
 
 dnl
 dnl Compilation setup
@@ -76,7 +79,6 @@ fi
 AC_ARG_WITH(dmalloc,
 [  --with-dmalloc=PATH             Use dmalloc library (www.dmalloc.com)],
     if test "x$withval" = "xyes"; then
-      AC_ADD_SEARCH_PATH(/usr/local)
       LIBS="$LIBS -ldmalloc"
       AC_DEFINE(HAVE_DMALLOC_H)
     elif test -d "$withval"; then
@@ -141,7 +143,7 @@ AC_ARG_WITH(opaque-special-types,
                                   SNMP normally cannot handle
                                   floating numbers, nor large 64 bit
                                   integers well.  By default, the
-                                  ucd-snmp package compiles in
+                                  net-snmp package compiles in
                                   support for these extra datatypes
                                   (in a legal way)])
 
@@ -188,6 +190,13 @@ Configuring the agent:
                                   run it.  The information it returns in the
                                   mib-II tree may not be correct, however.])
 
+AC_ARG_WITH(kmem-usage,
+[
+Configuring the agent:
+  --without-kmem-usage            Do not include any code related to the use
+                                  of kmem. This option can only be used with
+                                  the option --enable-mini-agent.])
+
 AC_ARG_WITH(dummy-values,
 [  --with-dummy-values             Provide 'placeholder' dummy values where
                                   the necessary information is not available.
@@ -198,6 +207,26 @@ AC_ARG_WITH(dummy-values,
 AC_ARG_WITH(persistent-directory,
 [  --with-persistent-directory=\"directory\"
                                   Default directory for persistent data storage.],ac_cv_user_prompt_PERSISTENT_DIRECTORY="$with_persistent_directory")
+
+AC_ARG_WITH(copy_persistent_files,
+[  --with-copy-persistent-files=\"no\" Don't copy persistent files
+                                       (or use \"yes\" to copy them).
+                                       (Default: yes)],
+    ac_cv_user_prompt_COPY_PERSISTENT_FILES="$with_copy_persistent_files")
+
+AC_ARG_WITH(default-snmp-version,
+[  --with-default-snmp-version=\"3\" Default version of SNMP to use.
+                                  (Default: 3)
+                                  Legal values: 1, 2 (for SNMPv2c) or 3.],
+    ac_cv_user_prompt_DEFAULT_SNMP_VERSION="$with_default_snmp_version")
+
+dnl we test this now and later as well.  we test it now so configure can die
+dnl early on with an error rather than waiting till the end of the script.
+if test "x$ac_cv_user_prompt_DEFAULT_SNMP_VERSION" != "x"; then
+  if test "$ac_cv_user_prompt_DEFAULT_SNMP_VERSION" != "1" -a "$ac_cv_user_prompt_DEFAULT_SNMP_VERSION" != "2" -a "$ac_cv_user_prompt_DEFAULT_SNMP_VERSION" != "3"; then
+    AC_MSG_ERROR(Illegal version number passed to --with-default-snmp-version)
+  fi
+fi
 
 AC_ARG_WITH(sys_contact,
 [  --with-sys-contact=\"who@where\"  Default system contact.
@@ -217,6 +246,65 @@ dnl This can't be within AC_ARG_WITH.  I don't want to read autoconf m4
 dnl to find out why.
 AC_SUBST(WRAPLIBS)
 
+AC_ARG_WITH(transports,
+[  --with-transports=\"t1 t2 ...\"   Compile in the given SNMP transport
+                                    modules (space separated list).])
+AC_ARG_WITH(out_transports,
+[  --with-out-transports=\"t1 ...\"  Exclude listed SNMP transports
+                                    (space separated list).
+
+  Available SNMP transport modules are:
+
+    UDP         support for SNMP over UDP/IP.
+                This transport is always compiled in.
+    UDPIPv6     support for SNMP over UDP/IPv6.
+                This transport is available for Linux, Solaris and
+                FreeBSD.
+                It is never compiled in by default.
+    TCPIPv6     support for SNMP over UDP/IPv6.
+                This transport is available for Linux, Solaris and
+                FreeBSD.
+                It is never compiled in by default.
+    TCP         support for SNMP over TCP/IP.
+                This transport is compiled in by default, but may be ommitted.
+    Unix        support for SNMP over Unix domain protocols.
+                This transport is compiled in by default except on Win32
+                platforms, and may be omitted.
+    Callback    support for SNMP over an internal locally connected pair
+                of snmp_sessions.
+    AAL5PVC     support for SNMP over AAL5 PVCs.
+                This transport is presently only available for Linux,
+                is never compiled in by default and may be omitted.
+    IPX         support for SNMP over IPX per RFC 1420.
+                This transport is presently only available for Linux,
+                is never compiled in by default and may be omitted.
+])
+
+dnl
+dnl Catch common mistakes in transport options
+dnl
+AC_ARG_WITH(transport,,    AC_MSG_ERROR([ Invalid option. Use --with-transports instead ])     )
+AC_ARG_WITH(out_transport,,AC_MSG_ERROR([ Invalid option. Use --with-out-transports instead ]) )
+
+dnl
+dnl security modules
+dnl
+
+AC_ARG_WITH(security-modules,
+[  --with-security-modules=\"s1 s2 ...\"   Compile in the given SNMP security
+                                    module services (space separated list).
+
+  Available SNMP security services:
+
+        usm                support for user based SNMP security
+                           (required and always compiled in)
+        ksm                support for kerberos based SNMP security
+])
+
+dnl
+dnl mib modules
+dnl
+
 AC_ARG_WITH(mib_modules,
 [  --with-mib-modules=\"item1 ...\"  Compile with additional mib modules
                                     (Space separated list).])
@@ -226,43 +314,125 @@ AC_ARG_WITH(out_mib_modules,
 
   Default mib modules compiled into the agent (which can be removed):
   
-    mibII:                 support for the mib-II tree.
-    snmpv3:                support for the snmpv3 mib modules.
-    ucd_snmp:              ucd-snmp specific extensions.
-    agentx:                (see below)
-    notification:          mibs supporting specification of trap destinations.
+    mibII                  support for the mib-II tree.
+    snmpv3mibs             support for the snmpv3 mib modules.
+    ucd_snmp               UCD-SNMP-MIB specific extensions.
+    agent_mibs             NET-SNMP-AGENT-MIB extensions
+    agentx                 (see below)
+    notification           mibs supporting specification of trap destinations.
+    target                 Support for the SNMP WGs TARGET-MIB.
+    utilities              general agent configuration utilities.
 
   Optional mib modules that can be built into the agent include:
-    host:                  host resources mib support.
+    host                   host resources mib support.
                              (beta level code for linux, hpux, solaris, bsdi)
-    smux:                  smux support to allow subagents to attach to snmpd.
-    misc/ipfwacc:          accounting rules IP firewall information (linux).
-    ipfwchains/ipfwchains: firewall chains under ipfw for linux.
+    disman/event-mib       support for the DISMAN-EVENT-MIB (beta)
+                             (supports self monitoring and notification 
+                              delivery when error conditions are found)
+    smux                   smux support to allow subagents to attach to snmpd.
+    mibII/mta_sendmail     Sendmail statistics monitoring (MTA-MIB)
+    misc/ipfwacc           accounting rules IP firewall information (linux).
+    ipfwchains/ipfwchains  firewall chains under ipfw for linux.
                            (Download separately from the ucd-snmp ftp site.)
-    ucd-snmp/diskio:       Table of io-devices and how much data they have
+    ucd-snmp/diskio        Table of io-devices and how much data they have
                            read/written.  (only tested on Solaris)
-    target:                Support for the SNMP WGs TARGET-MIB.
-                           (note: this is required for the notification mib 
-			   above, and hence is usually included).
-    tunnel:                Linux TUNNEL-MIB support (ifTable extension)
+    tunnel                 Linux TUNNEL-MIB support (ifTable extension)
 
   AgentX support:  (warning: beta code)
-    agentx/subagent:       allows the agent to run as either a snmp agent
+    agentx/subagent        allows the agent to run as either a snmp agent
                            or as an agentX sub-agent.
-    agentx/master:         makes the agent run as an agentX master agent
+    agentx/master          makes the agent run as an agentX master agent
                            as well as a normal snmp agent.
-    agentx:                includes both agentx/master and agentx/client.
+    agentx                 includes both agentx/master and agentx/client.
 
   Optional modules for C coders to look at and/or include as extension examples:
   
-    examples/ucdDemoPublic: SNMPv3 interoperability testing mib.
-    examples/example:       example C code extension.])
+    examples/ucdDemoPublic  SNMPv3 interoperability testing mib.
+    examples/example        example C code extension.])
 
+
+dnl
+AC_ARG_WITH(enterprise-oid,
+[Enterprise OIDs:  (warning: this should be used with caution.)
+
+  --with-enterprise-oid              The enterprise number assigned to the
+                                     vendor by IANA.  See
+                                     http://www.iana.org/cgi-bin/enterprise.pl
+                                     to get one, though using the default is
+                                     probably the right choice is most cases.
+                                     (default 8072 = "enterprise.net-snmp")],[
+  if test "$withval" = yes; then
+    AC_MSG_ERROR([ Please provide a value for the enterprise number ]);
+  fi
+  AC_DEFINE_UNQUOTED(ENTERPRISE_OID, $withval)
+  ent_oid="1,3,6,1,4,1,$withval"
+  AC_DEFINE_UNQUOTED(ENTERPRISE_MIB, $ent_oid)
+  ent_dot_oid="1.3.6.1.4.1.$withval"
+  AC_DEFINE_UNQUOTED(ENTERPRISE_DOT_MIB, $ent_dot_oid)
+  AC_MSG_RESULT(using enterprise number $withval)
+],[
+  AC_MSG_RESULT(using default "enterprise.net-snmp")
+])
+
+AC_ARG_WITH(enterprise-sysoid,
+[
+  --with-enterprise-sysoid           The base OID for the sysObjectID
+                                     of the system group
+                                     (default .1.3.6.1.4.1.8072.3.2... = 
+                                      "netSnmpAgentOIDs...")],[
+  if test "$withval" = yes; then
+    AC_MSG_ERROR([ Please provide a base OID value ]);
+  fi
+  sys_oid=`echo "$withval" | sed 's/^\.//' | sed 's/\./\,/g'`
+  AC_DEFINE_UNQUOTED(SYSTEM_MIB, $sys_oid)
+  sys_dot_oid=`echo "$withval" | sed 's/^\.//'`
+  AC_DEFINE_UNQUOTED(SYSTEM_DOT_MIB, $sys_dot_oid)
+  sysoid_len=`echo "$withval" | sed 's/[^\.]//g' | awk -F\. '{ print NF }'`
+  AC_DEFINE_UNQUOTED(SYSTEM_DOT_MIB_LENGTH, $sysoid_len)
+  AC_MSG_RESULT(using enterprise sysOID $withval ....)
+],[
+  AC_MSG_RESULT(using default enterprise sysOID "NET-SNMP-MIB::netSnmpAgentOIDs...")
+])
+
+AC_ARG_WITH(enterprise-notification-oid,
+[
+  --with-enterprise-notification-oid The OID used for the root of
+				     enterprise specific notifications.
+                                     (default .1.3.6.1.4.1.2021 = "enterprise.ucdavis")],[
+  if test "$withval" = yes; then
+    AC_MSG_ERROR([ Please provide a base OID value ]);
+  fi
+  notification_oid=`echo "$withval" | sed 's/^\.//' | sed 's/\./\,/g'`
+  AC_DEFINE_UNQUOTED(NOTIFICATION_MIB, $notification_oid)
+  notification_dot_oid=`echo "$withval" | sed 's/^\.//'`
+  AC_DEFINE_UNQUOTED(NOTIFICATION_DOT_MIB, $notification_dot_oid)
+  notificationoid_len=`echo "$withval" | sed 's/[^\.]//g' | awk -F\. '{ print NF }'`
+  AC_DEFINE_UNQUOTED(NOTIFICATION_DOT_MIB_LENGTH, $notificationoid_len)
+  AC_MSG_RESULT(using enterprise notifications $withval)
+],[
+  AC_MSG_RESULT(using default notifications "NET-SNMP-MIB::netSnmpNotifications")
+])
 dnl
 dnl Catch common mistakes in configure options
 dnl
 AC_ARG_WITH(mib_module,,    AC_MSG_ERROR([ Invalid option. Use --with-mib-modules instead ])     )
 AC_ARG_WITH(out_mib_module,,AC_MSG_ERROR([ Invalid option. Use --with-out-mib-modules instead ]) )
+
+dnl
+dnl Perl specific
+dnl
+AC_ARG_WITH(perl-modules,
+[
+Perl:
+  --with-perl-modules             Install the perl modules along with the rest
+                                  of the net-snmp toolkit.],
+    install_perl=yes)
+
+AC_ARG_ENABLE(embedded-perl,
+[
+  --enable-embedded-perl          Embed perl in the SNMP agent.
+                                  [forces --with-perl-modules as well.]],
+    embed_perl="yes", embed_perl="no")
 
 dnl
 dnl otherwise prompted information
@@ -273,9 +443,27 @@ Miscellaneous:
   --with-defaults          Use defaults for prompted values.],
     defaults="yes",defaults="no")
 
+AC_ARG_ENABLE(ucd-snmp-compatibility,
+[--enable-ucd-snmp-compatibility  Install ucd-snmp look-alike headers and libs.], ucd_compat=yes, ucd_compat=no)
+dnl
+dnl setup install targets
+dnl
+if test "x$ucd_compat" != "xno" ; then	
+  installucdheaders=installucdheaders
+  installucdlibs=installucdlibs
+  AC_MSG_CACHE_ADD(UCD-SNMP compatability:     enabled)
+fi
+AC_SUBST(installucdheaders)
+AC_SUBST(installucdlibs)
+
 dnl Only define if specifically chosen as --without (i.e., default to true). 
 if test "x$with_root_access" = "xno"; then
   AC_DEFINE(NO_ROOT_ACCESS)
+fi
+
+dnl Only define if specifically chosen as --without (i.e., default to true).
+if test "x$with_kmem_usage" = "xno"; then
+  AC_DEFINE(NO_KMEM_USAGE)
 fi
 
 dnl Define unless specifically suppressed (i.e., option defaults to false). 
@@ -287,6 +475,7 @@ dnl Only define if specifically chosen as --without (i.e., default to true).
 if test "x$with_opaque_special_types" != "xno"; then
   AC_DEFINE(OPAQUE_SPECIAL_TYPES)
 fi
+
 
 dnl overflow problems with hpux's sh
 dnl taken from Perl's Configure script 
@@ -314,7 +503,17 @@ fi
 
 dnl disable --enable-shared by default in cvs/developer cases.
 if test "x$developer" = "xyes"; then
-  AC_DISABLE_SHARED
+  dnl don't do anything if option set via cmdline
+  if test "${enable_shared+set}" != set; then
+    enable_shared=no
+  fi
+fi
+
+dnl perl requires shared libs
+if test "x$embed_perl" = "xyes"; then
+    if test "x$enable_shared" != "xyes"; then
+      AC_MSG_ERROR(--enable-embedded-perl requires --enable-shared)
+    fi
 fi
 
 AC_PROG_CC
@@ -337,11 +536,11 @@ AC_CHECK_PROGS(WHOAMI, whoami logname, whoami)
 AC_CHECK_PROGS(SED,sed gsed)
 AC_CHECK_PROG(AUTOCONF, autoconf)
 AC_CHECK_PROG(AUTOHEADER, autoheader)
-if test "x$test ac_cv_prog_AUTOCONF" = "x"; then
+if test "x$ac_cv_prog_AUTOCONF" = "x"; then
 	AUTOCONF=":"
 	AC_SUBST(AUTOCONF)
 fi
-if test "x$test ac_cv_prog_AUTOHEADER" = "x"; then
+if test "x$ac_cv_prog_AUTOHEADER" = "x"; then
 	AUTOHEADER=":"
 	AC_SUBST(AUTOHEADER)
 fi
@@ -350,22 +549,28 @@ AC_PATH_PROG(UNAMEPROG,uname)
 AC_DEFINE_UNQUOTED(UNAMEPROG,"$UNAMEPROG")
 
 AC_C_CONST
+AC_C_INLINE
 
 dnl get version number.
-AC_MSG_CHECKING(for ucd-snmp version number)
-VERSION=`cat $srcdir/version.h | sed 's/";//;s/.*"//;s/pre/0./;'`
+AC_MSG_CHECKING(for net-snmp version number)
+VERSION=`grep NetSnmpVersionInfo.*= $srcdir/snmplib/snmp_version.c | sed 's/";.*//;s/.*"//;s/pre/0./;'`
+changequote(, )
+RELEASEVERSION=`echo $VERSION | sed 's/^\([0-9]\)\.\([0-9]\)/\1:\2:0/'`
+changequote([, ])
 AC_SUBST(VERSION)
+AC_SUBST(RELEASEVERSION)
 AC_MSG_RESULT($VERSION)
+AC_MSG_CACHE_ADD(Net-SNMP Version:           $VERSION)
 
 dnl super type checking
 AC_MSG_CHECKING(for developer gcc flags)
 if test "x$developer" = "xyes" -a "x$ac_cv_prog_gcc" = "xyes"; then
-  devflags="-Wall -Wstrict-prototypes -Wwrite-strings -Wcast-qual -Wno-char-subscripts"
-  CFLAGS="$CFLAGS $devflags"
+  DEVFLAGS="-Wall -Wstrict-prototypes -Wwrite-strings -Wcast-qual -Wno-char-subscripts"
 else
-  devflags="none"
+  DEVFLAGS=""
 fi
-AC_MSG_RESULT($devflags)
+AC_MSG_RESULT($DEVFLAGS)
+AC_SUBST(DEVFLAGS)
 
 dnl system check
 AC_CANONICAL_SYSTEM
@@ -373,6 +578,7 @@ changequote(, )
 PARTIALTARGETOS=`echo $target_os | sed 's/[-._].*//'`
 CFLAGS="$CFLAGS -D$PARTIALTARGETOS"
 changequote([, ])
+AC_MSG_CACHE_ADD(Building for:               $PARTIALTARGETOS)
 
 dnl
 dnl check for special includes and pick one
@@ -386,7 +592,7 @@ filebase=`echo $filebase | sed 's/elf//'`
 filebase=`echo $filebase | sed 's/aout//'`
 filebase=`echo $filebase | sed 's/ecoff//'`
 filebase=`echo $filebase | sed 's/coff//'`
-while test "x$filebase" != "x$last" -a ! -f $srcdir/s/$filebase.h
+while test "x$filebase" != "x$last" -a ! -f $srcdir/include/net-snmp/system/$filebase.h
 do
     last=$filebase
     filebase=`echo $filebase | sed 's/[-._][^-._]*$//'`
@@ -398,7 +604,7 @@ done
 if test "x$filebase" = "x$last"; then
     filebase="generic"
 fi
-ac_cv_SYSTEM_INCLUDE_FILE="s/$filebase.h"
+ac_cv_SYSTEM_INCLUDE_FILE="net-snmp/system/$filebase.h"
 
 changequote([, ])
 AC_MSG_RESULT($ac_cv_SYSTEM_INCLUDE_FILE)
@@ -409,7 +615,7 @@ dnl second part, the CPU type.
 AC_MSG_CHECKING(for machine-type include file)
 changequote(, )
 filebase=$target_cpu
-while test "x$filebase" != "x$last" -a ! -f $srcdir/m/$filebase.h
+while test "x$filebase" != "x$last" -a ! -f $srcdir/include/net-snmp/machine/$filebase.h
 do
     last=$filebase
     filebase=`echo $filebase | sed 's/[-._][^-._]*$//'`
@@ -418,10 +624,10 @@ done
 if test "x$filebase" = "x$last"; then
     filebase="generic"
 fi
-ac_cv_MACHINE_INCLUDE_FILE="m/$filebase.h"
-AC_MSG_RESULT($ac_cv_MACHINE_INCLUDE_FILE)
+ac_cv_MACHINE_INCLUDE_FILE="net-snmp/machine/$filebase.h"
 
 changequote([, ])
+AC_MSG_RESULT($ac_cv_MACHINE_INCLUDE_FILE)
 AC_DEFINE_UNQUOTED(MACHINE_INCLUDE_FILE, "$ac_cv_MACHINE_INCLUDE_FILE")
 
 AC_PATH_PROG(CCPATH,$CC)
@@ -660,22 +866,202 @@ else
 fi
 
 dnl
+dnl Do transport module processing.
+dnl
+AC_MSG_CHECKING(for and configuring transport modules to use)
+transport_src_list=""
+transport_hdr_list=""
+transport_def_list=""
+transport_result_list=""
+transport_add_list=""
+new_with_transport_list=`echo $with_transports | sed 's/,/ /g;'`
+new_with_out_transport_list=`echo $with_out_transports | sed 's/,/ /g;'`
+
+dnl
+dnl Add the default transports to the list
+dnl
+if test "x$PARTIALTARGETOS" = "xcygwin"; then
+  transport_default_list="UDP TCP Callback"
+else
+  transport_default_list="UDP TCP Unix Callback"
+fi
+if test "x$enable_ipv6" = "xyes"; then
+  transport_default_list="UDPIPv6 TCPIPv6 $transport_default_list"
+fi
+for i in $transport_default_list; do
+  if echo " $new_with_transport_list " | grep " $i " >/dev/null; then
+    :
+  else
+    transport_add_list="$i $transport_add_list"
+  fi
+done
+new_transport_list="$transport_add_list $new_with_transport_list"
+
+for i in $new_transport_list; do
+  if echo " $new_with_out_transport_list " | grep " $i " >/dev/null; then
+    if test "x$i" = "xUDP"; then
+      echo
+      AC_MSG_ERROR(It is not possible to compile without UDP/IP support.)
+    fi
+  else
+    if test "x$i" = "xAAL5PVC"; then
+      if test "x$PARTIALTARGETOS" != "xlinux"; then
+        echo
+        AC_MSG_ERROR(AAL5 PVC support unavailable for this platform (Linux only))
+      fi
+    fi
+    if test "x$i" = "xIPX"; then
+      if test "x$PARTIALTARGETOS" != "xlinux"; then
+        echo
+        AC_MSG_ERROR(IPX support unavailable for this platform (Linux only))
+      fi
+    fi
+    if test "x$i" = "xUnix"; then
+      if test "x$PARTIALTARGETOS" = "xcygwin"; then
+        echo
+        AC_MSG_ERROR(Unix domain protocol support unavailable for this platform)
+      fi
+    fi
+    transport_src="snmp"$i"Domain.c"
+    transport_hdr="snmp"$i"Domain.h"
+    rel_transport_src="snmplib/"$transport_src
+    rel_transport_hdr="include/net-snmp/library/"$transport_hdr
+    if test -f "$srcdir/$rel_transport_src"; then
+      transport_result_list="$transport_result_list $i"
+      transport_src_list="$transport_src $transport_src_list"
+      if test -f "$srcdir/$rel_transport_hdr"; then
+        transport_hdr_list="$transport_hdr $transport_hdr_list"
+      fi
+      transport_def=`echo $i | sed 'y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/'`
+      transport_def_list="SNMP_TRANSPORT_"$transport_def"_DOMAIN $transport_def_list"
+    else
+      echo
+      AC_MSG_ERROR(Cannot find file $transport_src to support SNMP transport domain $i.)
+    fi
+  fi
+done
+transport_obj_list=`echo " $transport_src_list " | sed 's/\.c/\.o/g'`
+transport_lobj_list=`echo " $transport_src_list " | sed 's/\.c/\.lo/g'`
+AC_SUBST(transport_hdr_list)
+AC_SUBST(transport_src_list)
+AC_SUBST(transport_obj_list)
+AC_SUBST(transport_lobj_list)
+for i in $transport_def_list; do
+  AC_DEFINE_UNQUOTED($i)
+done
+AC_MSG_RESULT($transport_result_list.)
+AC_MSG_CACHE_ADD(Network transport support: $transport_result_list)
+
+dnl
+dnl Security modules to use
+dnl 
+
+AC_MSG_CHECKING(for security modules to use)
+security_def_list="usm"
+security_src_list=""
+security_obj_list=""
+security_lobj_list=""
+security_init_file="snmplib/snmpsm_init.h"
+security_incl_file="include/net-snmp/library/snmpv3-security-includes.h"
+new_with_security=`echo $with_security_modules | sed 's/,/ /g;'`
+new_with_out_security=`echo $with_out_security_modules | sed 's/,/ /g;'`
+
+if test ! -d include; then
+  mkdir include
+fi
+if test ! -d include/net-snmp; then
+  mkdir include/net-snmp
+fi
+if test ! -d include/net-snmp/agent; then
+  mkdir include/net-snmp/agent
+fi
+if test ! -d include/net-snmp/library; then
+  mkdir include/net-snmp/library
+fi
+if test ! -d include/ucd-snmp; then
+  mkdir include/ucd-snmp
+fi
+
+if test ! -d snmplib; then
+  mkdir snmplib
+fi
+echo "/* This file is automatically generated by configure.  Do not modify by hand. */" > $security_init_file
+echo "/* This file is automatically generated by configure.  Do not modify by hand. */" > $security_incl_file
+
+for i in $security_def_list; do
+  if echo " $new_with_out_security " | grep " $i " > /dev/null; then
+    if test "x$i" = "xusm"; then
+	echo
+        AC_MSG_ERROR(The USM security module is mandatory)
+    fi
+  else
+    new_with_security="$new_with_security $i"
+  fi
+done
+
+for i in $new_with_security; do
+  cfile="snmp"$i".c"
+  hfile="snmp"$i".h"
+
+  # make sure support exists for it
+  if test -f $srcdir"/snmplib/"$cfile -a -f $srcdir"/include/net-snmp/library/"$hfile; then
+    :
+  else
+    echo
+    AC_MSG_ERROR(No such security module: $i / $cfile / $hfile)
+  fi
+
+  # define a bunch of stuff to enable it
+  security_src_list="$security_src_list $cfile"
+  security_hdr_list="$security_hdr_list $hfile"
+  security_obj_list="$security_obj_list snmp"$i".o"
+  security_lobj_list="$security_lobj_list snmp"$i".lo"
+  def_name="SNMP_SECMOD_"`echo $i | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
+  echo "init_"$i"();" >> $security_init_file
+  echo "#include <net-snmp/library/$hfile>" >> $security_incl_file
+  AC_DEFINE_UNQUOTED($def_name)
+done
+
+AC_SUBST(security_src_list)
+AC_SUBST(security_obj_list)
+AC_SUBST(security_lobj_list)
+AC_SUBST(security_hdr_list)
+AC_MSG_RESULT($new_with_security)
+AC_MSG_CACHE_ADD(SNMPv3 Security Modules:   $new_with_security)
+
+dnl
+dnl Handle the special case of KSM to see which crypto API we support
+dnl
+
+for sec in $new_with_security
+do
+  if test x$sec = xksm; then
+    AC_MSG_CHECKING(to see which crypto API we need to use)
+
+    AC_CHECK_FUNC(krb5_c_encrypt,[
+      AC_MSG_RESULT(new MIT crypto API)
+      AC_DEFINE(MIT_NEW_CRYPTO)],[
+      AC_MSG_RESULT(old MIT crypto API)])
+  fi
+done
+
+dnl
 dnl Do hairy agent module processing.
 dnl
-changequote(, )
 AC_MSG_CHECKING(for and configuring mib modules to use)
+changequote(, )
 
 mibdir="agent/mibgroup"
 module_list=""
 module_list_code=""
 new_with_mib_modules=`echo $with_mib_modules | sed 's/,/ /g;'`
 new_with_out_mib_modules=`echo $with_out_mib_modules | sed 's/,/ /g;'`
-new_module_list="mibII ucd_snmp snmpv3mibs notification agentx $new_with_mib_modules"
-default_mibs=IP-MIB:IF-MIB:TCP-MIB:UDP-MIB:SNMPv2-MIB:RFC1213-MIB
+new_module_list="mibII ucd_snmp snmpv3mibs notification target agent_mibs agentx agent_mibs utilities $new_with_mib_modules"
+default_mibs=IP-MIB:IF-MIB:TCP-MIB:UDP-MIB:SNMPv2-MIB:RFC1213-MIB:NOTIFICATION-LOG-MIB
 
 if test "x$mini_agent" = "xyes"; then
 new_with_out_mib_modules="mibII $new_with_out_mib_modules"
-new_module_list="snmpv3mibs mibII/snmp_mib mibII/system_mib mibII/sysORTable examples/ucdDemoPublic mibII/vacm_vars $new_with_mib_modules"
+new_module_list="snmpv3mibs mibII/snmp_mib mibII/system_mib mibII/sysORTable mibII/vacm_vars $new_with_mib_modules"
 default_mibs=SNMPv2-MIB:RFC1213-MIB
 default_mibs_install=" "
 fi
@@ -692,7 +1078,7 @@ fi
 if test ! -d agent/mibgroup; then
   mkdir agent/mibgroup
 fi
-for i in $mibdir/mib_module_includes.h $mibdir/mib_module_inits.h $mibdir/mib_module_shutdown.h mib_module_config.h $mibdir/mib_module_dot_conf.h; do
+for i in $mibdir/mib_module_includes.h $mibdir/mib_module_inits.h $mibdir/mib_module_shutdown.h include/net-snmp/agent/mib_module_config.h $mibdir/mib_module_dot_conf.h; do
   rm -f $i
   echo "/* This file is automatically generated by configure.  Do not modify by hand. */" > $i
 done
@@ -710,9 +1096,14 @@ for i in $test_modules
   fi
 done
 
+changequote([, ])
 AC_MSG_RESULT($new_module_list.)
+AC_MSG_CACHE_ADD(Agent MIB code:            $new_module_list)
 
 AC_MSG_CHECKING(for and configuring mib modules pieces to use)
+FD=AC_FD_MSG
+changequote(, )
+
 while test "x$new_module_list" != "x"; do
   for i in $new_module_list
     do
@@ -736,9 +1127,13 @@ while test "x$new_module_list" != "x"; do
 	  for j in $new_list
 	    do
 	    if test ! -f $srcdir/$mibdir/$j.h; then
+              changequote([, ])
 	      AC_MSG_ERROR(mib module "$i" requires module "$j" but $j.h or $j.c could not be found in $srcdir/$mibdir)
+              changequote(, )
 	    elif echo " $new_with_out_mib_modules " | grep " $j " > /dev/null; then
+              changequote([, ])
 	      AC_MSG_WARN(mib module "$i" requires module "$j" but you told me to compile without it)
+              changequote(, )
 	    elif echo " $module_list $new_list_two $new_module_list " | grep " $j " > /dev/null; then
 	      :
 	    else
@@ -763,7 +1158,9 @@ while test "x$new_module_list" != "x"; do
 	    done
 	fi
       else
+        changequote([, ])
 	AC_MSG_ERROR(module files $i.h or $i.c could not be found in $srcdir/$mibdir)
+        changequote(, )
       fi
       module_list="$module_list $i"
       echo '#include "'"mibgroup/$i.h"'"' >> $mibdir/mib_module_includes.h
@@ -786,14 +1183,16 @@ while test "x$new_module_list" != "x"; do
 	fi
       fi
       if grep config_load_mib $srcdir/$mibdir/$i.h > /dev/null 2>&1; then
+        changequote([, ])
       	AC_MSG_WARN(mib module "$i" uses the "config_load_mib" directive, which is no longer supported.  It probably won't work.)
+        changequote(, )
       fi
       grep config_parse_dot_conf $srcdir/$mibdir/$i.h | sed 's@.*config_parse_dot_conf(\([^)]*\), *\([^),]*\), *\([^),]*\), *\([^),]*\)).*@register_config_handler("snmpd",\1, \2, \3, \4);@' >> $mibdir/mib_module_dot_conf.h
       sym="`echo ${i} | sed 's/[^a-zA-Z0-9_]/_/g' | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`"
-      echo "/* Define if compiling with the ${i} module files.  */" >> mib_module_config.h
-      echo "#define USING_${sym}_MODULE 1" >> mib_module_config.h
-      echo " " >> mib_module_config.h
-      echo $ac_n " $i$ac_c" >&AC_FD_MSG
+      echo "/* Define if compiling with the ${i} module files.  */" >> include/net-snmp/agent/mib_module_config.h
+      echo "#define USING_${sym}_MODULE 1" >> include/net-snmp/agent/mib_module_config.h
+      echo " " >> include/net-snmp/agent/mib_module_config.h
+      echo $ac_n " $i$ac_c" >&$FD
     fi
   done
   new_module_list="$new_list_two"
@@ -805,12 +1204,15 @@ module_list_c=`echo "$module_list_code " | sed 's/\([^ ]\) /\1.c /g'`
 mibgroup_list_o=`echo " $module_list_o " | sed 's@ \([^ ]*\)\.o@ mibgroup/\1.o @g'`
 mibgroup_list_lo=`echo " $module_list_lo " | sed 's@ \([^ ]*\)\.lo@ mibgroup/\1.lo @g'`
 changequote([, ])
+MODULE_LIST=$module_list_code
+AC_SUBST(MODULE_LIST)
 AC_SUBST(module_list_c)
 AC_SUBST(module_list_h)
 AC_SUBST(module_list_o)
 AC_SUBST(module_list_lo)
 AC_SUBST(mibgroup_list_o)
 AC_SUBST(mibgroup_list_lo)
+AC_SUBST(module_list)
 AC_SUBST(default_mibs_install)
 
 AC_MSG_RESULT(.)
@@ -865,7 +1267,7 @@ dnl
 
 AC_CACHE_CHECK(for mount table location,ac_cv_ETC_MNTTAB,
 [ac_cv_ETC_MNTTAB="unknown"
-for i in /etc/mnttab /etc/mtab
+for i in /etc/mnttab /etc/mtab /etc/filesystems
   do
   if test -f $i; then
     ac_cv_ETC_MNTTAB="$i"
@@ -903,10 +1305,10 @@ if test "x$ac_cv_DMEM_LOC" != "xnone"; then
   AC_DEFINE_UNQUOTED(DMEM_LOC,"$ac_cv_DMEM_LOC")
 fi
 
-dnl efence
-if test "x$developer" = "xyes" -a "x$use_efence" != "xno"; then
-    use_efence="yes"
-fi
+dnl forced efence turned off.
+dnl if test "x$developer" = "xyes" -a "x$use_efence" != "xno"; then
+dnl    use_efence="yes"
+dnl fi
 
 if test "x$use_efence" = "xyes"; then
     AC_CHECK_LIB(efence, EF_Exit)
@@ -914,8 +1316,9 @@ fi
 
 dnl Checks for libraries.
 dnl AC_CHECK_LIB(des, main)
-AC_CHECK_LIB(elf, nlist)
 AC_CHECK_LIB(m, asin)
+dnl nlist is needed for uptime on some sytems in the generic library
+AC_CHECK_LIB(elf, nlist)
 
 dnl On some platforms (Irix) libnsl and libsocket should not be used.
 AC_CHECK_FUNC(gethostbyname, AC_DEFINE(HAVE_GETHOSTBYNAME),
@@ -925,7 +1328,25 @@ AC_CHECK_FUNC(getservbyname, AC_DEFINE(HAVE_GETSERVBYNAME),
 	AC_CHECK_LIB(socket, getservbyname, AC_DEFINE(HAVE_GETSERVBYNAME)
 	LIBS="${LIBS} -lsocket"))
 
-dnl AC_CHECK_LIB(ucb, bzero)
+dnl Replace `main' with a function in -lkstat:
+AC_CHECK_LIB(kstat, kstat_lookup)
+dnl Check for nlist in mld (irix)
+AC_CHECK_LIB(mld, nlist)
+
+dnl Check for security related functions
+if test "x$tryopenssl" != "xno"; then
+    if test "x$tryrsaref" != "xno"; then
+         AC_CHECK_LIB(rsaref, RSAPrivateDecrypt)
+         AC_CHECK_LIB(RSAglue, RSA_PKCS1_RSAref)
+    fi
+
+    AC_CHECK_LIB(crypto, EVP_md5)
+    AC_CHECK_FUNCS(AES_cfb128_encrypt)
+fi
+
+dnl Check for libraries that the agent needs
+dnl saving old libraries
+NONAGENTLIBS=$LIBS
 
 dnl check for tcp wrapper support
 _cppflags="${CPPFLAGS}"
@@ -940,125 +1361,166 @@ AC_ARG_WITH(libwrap,
     fi
 
     _libs=${LIBS}
-    AC_CHECK_HEADER(tcpd.h,
-	LIBS="$LIBS -lwrap"
+    AC_CHECK_HEADER(tcpd.h, ,
+	    AC_MSG_ERROR(Asked to use libwrap but I couldn't find tcpd.h.))
+
+    LIBS="$LIBS -lwrap"
 	AC_MSG_CHECKING(for TCP wrappers library -lwrap)
 	AC_TRY_LINK([#include <tcpd.h>
-  int allow_severity = 0;
-  int deny_severity  = 0;
-  ],[hosts_access((void *)0)],
+		     int allow_severity = 0;
+		     int deny_severity  = 0;
+		    ],[hosts_access((void *)0)],
+        [
 	    AC_MSG_RESULT(yes)
 	    AC_DEFINE(USE_LIBWRAP)
 	    test "$with_libwrap" != no -a "$with_libwrap" != yes && WRAPLIBS="-L$with_libwrap/lib"
-	    WRAPLIBS="$WRAPLIBS -lwrap",
+	    WRAPLIBS="$WRAPLIBS -lwrap"],
+        [
 	    AC_MSG_RESULT(no)
 	    dnl Linux RedHat 6.1 won't link libwrap without libnsl
 	    AC_CHECK_FUNC(yp_get_default_domain, ,
 		AC_CHECK_LIB(nsl, yp_get_default_domain))
 	    AC_MSG_CHECKING(for TCP wrappers library -lwrap linked with -lnsl)
 	    AC_TRY_LINK([#include <tcpd.h>
-  int allow_severity = 0;
-  int deny_severity  = 0;
-  ],[hosts_access((void *)0)],
-		AC_MSG_RESULT(yes)
-		test "$with_libwrap" != no -a "$with_libwrap" != yes && WRAPLIBS="-L$with_libwrap/lib"
-		WRAPLIBS="$WRAPLIBS -lwrap", AC_MSG_RESULT(no)),
-	    CPPFLAGS=${_cppflags}),
-	CPPFLAGS=${_cppflags})
+		         int allow_severity = 0;
+	                 int deny_severity  = 0;
+	 		],[hosts_access((void *)0)],
+
+			AC_MSG_RESULT(yes)
+			AC_DEFINE(USE_LIBWRAP)
+			test "$with_libwrap" != no -a "$with_libwrap" != yes && WRAPLIBS="-L$with_libwrap/lib"
+			WRAPLIBS="$WRAPLIBS -lwrap -lnsl",
+
+			AC_MSG_RESULT(no)
+			AC_MSG_ERROR(Asked to use libwrap but I couldn't find it.))
+        ])
+    CPPFLAGS=${_cppflags}
     LDFLAGS=${_ldflags}
     LIBS=${_libs}
   fi
 ])
 
-dnl ARG.  RPM is a real pain.
-AC_CHECK_LIB(popt, poptParseArgvString)
-
-dnl zlib is required for newer versions of rpm
-_cppflags="${CPPFLAGS}"
-_ldflags="${LDFLAGS}"
-
-AC_ARG_WITH(zlib,
-[  --with-zlib[=DIR]        use libz in DIR],[
-  if test -d "$withval"; then
-    CPPFLAGS="${CPPFLAGS} -I$withval/include"
-    LDFLAGS="${LDFLAGS} -L$withval/lib"
-  fi
-])
-
-AC_CHECK_HEADER(zlib.h,
-    AC_CHECK_LIB(z, gzread, , CPPFLAGS=${_cppflags} LDFLAGS=${_ldflags}),
-    CPPFLAGS=${_cppflags} LDFLAGS=${_ldflags})
-
 dnl
-dnl with rpm3 or higher, we need db1 to exist
+dnl rpm libraries only needed for the host resources mib software
+dnl installed tables (on linux in particular)
 dnl
+if echo " $module_list " | grep " host/hr_swinst " > /dev/null; then
+  dnl ARG.  RPM is a real pain.
+  dnl FWIW librpm.la, librpmio.la, and libpopt.la have correct dependencies.
+  _rpmlibs=""
 
-AC_CHECK_LIB(db1, dbopen,[
-  AC_DEFINE(HAVE_LIBDB)
-  LIBS="-ldb1 $LIBS"
-],,-lz)
+  dnl zlib is required for newer versions of rpm
+  _cppflags="${CPPFLAGS}"
+  _ldflags="${LDFLAGS}"
 
-dnl Ok, -ldb1 may not exist, try -ldb
-_cppflags="${CPPFLAGS}"
-_ldflags="${LDFLAGS}"
+  AC_ARG_WITH(zlib,
+  [  --with-zlib[=DIR]        use libz in DIR],[
+    if test -d "$withval"; then
+      CPPFLAGS="${CPPFLAGS} -I$withval/include"
+      LDFLAGS="${LDFLAGS} -L$withval/lib"
+    fi
+  ])
 
-AC_ARG_WITH(db,
-[  --with-db[=DIR]          use db in DIR],[
-  if test -d "$withval"; then
-    CPPFLAGS="${CPPFLAGS} -I$withval/include"
-    LDFLAGS="${LDFLAGS} -L$withval/lib"
-  fi
-])
+  dnl dunno if this is needed for rpm-4.0.x, earlier probably needs.
+  AC_CHECK_HEADER(zlib.h,
+      AC_CHECK_LIB(z, gzread, , CPPFLAGS=${_cppflags} LDFLAGS=${_ldflags}),
+      CPPFLAGS=${_cppflags} LDFLAGS=${_ldflags})
 
-if test "x$ac_cv_lib_db1_dbopen" = "xno"; then
-  AC_CHECK_HEADER(db.h,
-    AC_CHECK_LIB(db, dbopen,[
-    AC_DEFINE(HAVE_LIBDB)
-    LIBS="-ldb $LIBS"
-  ], CPPFLAGS=${_cppflags} LDFLAGS=${_ldflags}),
-  CPPFLAGS=${_cppflags} LDFLAGS=${_ldflags})
-fi
+  dnl two variants of bzip2 need checking.
+  AC_CHECK_LIB(bz2, bzread, [_rpmlibs="$_rpmlibs -lbz2"],
+     AC_CHECK_LIB(bz2, BZ2_bzread, [_rpmlibs="$_rpmlibs -lbz2"],))
 
-dnl
-dnl now check for rpm using the appropriate db library
-dnl
-AC_CHECK_LIB(rpm, rpmdbOpen,[
-  AC_DEFINE(HAVE_LIBRPM)
-  LIBS="-lrpm $LIBS"
-  CFLAGS="$CFLAGS -I/usr/include/rpm"
-],,-lz)
+  dnl two variants of db1 need checking.
+  AC_CHECK_LIB(db1, dbopen, [_rpmlibs="-ldb1 $_rpmlibs"],
+     AC_CHECK_LIB(db, dbopen, [_rpmlibs="-ldb $_rpmlibs"]))
 
-dnl
-dnl now check for rpm using the appropriate db library
-dnl
-if test x$ac_cv_lib_rpm_rpmdbOpen = xno; then
-  unset ac_cv_lib_rpm_rpmdbOpen
-  AC_CHECK_LIB(rpm, rpmdbOpen,[
+  dnl two variants of db3 need checking.
+  AC_CHECK_LIB(db-3.1, db_create, [_rpmlibs="-ldb-3.1 $_rpmlibs"],
+    AC_CHECK_LIB(db-3.0, db_create, [_rpmlibs="-ldb-3.0 $_rpmlibs"]))
+  
+  dnl rpm-3.0.5 and later needs popt.
+  AC_CHECK_LIB(popt, poptParseArgvString, [_rpmlibs="-lpopt $_rpmlibs"])
+  
+  dnl rpm-4.0.x needs rpmio.
+  AC_CHECK_LIB(rpmio, Fopen, [_rpmlibs="-lrpmio $_rpmlibs"],,$_rpmlibs)
+  
+  dnl now check for rpm using the appropriate libraries.
+  AC_CHECK_LIB(rpm, rpmGetFilesystemList,[
     AC_DEFINE(HAVE_LIBRPM)
-    LIBS="-lrpm -lpopt $LIBS"
+    LIBS="-lrpm $_rpmlibs $LIBS"
     CFLAGS="$CFLAGS -I/usr/include/rpm"
-  ],,-lpopt -lz)
+  ],[
+    dnl rpm-4.0.3 librpmdb actually contains what we need.
+    AC_CHECK_LIB(rpmdb, rpmdbOpen,[
+      AC_DEFINE(HAVE_LIBRPM)
+      LIBS="-lrpmdb -lrpm $_rpmlibs $LIBS"
+      CFLAGS="$CFLAGS -I/usr/include/rpm"
+    ],,-lrpm $_rpmlibs)
+  ])
 fi
-
-
-dnl Replace `main' with a function in -lkstat:
-AC_CHECK_LIB(kstat, kstat_lookup)
+  
 dnl Replace `main' with a function in -lkvm:
 AC_CHECK_LIB(kvm, kvm_read)
-dnl Check for nlist in mld (irix)
-AC_CHECK_LIB(mld, nlist)
 dnl DYNAMIC MODULE SUPPORT
 AC_CHECK_LIB(dl, dlopen)
+AC_CHECK_FUNCS(dlopen)
 
-dnl Check for security related functions
-if test "x$tryopenssl" != "xno"; then
-    if test "x$tryrsaref" != "xno"; then
-         AC_CHECK_LIB(rsaref, RSAPrivateDecrypt)
-         AC_CHECK_LIB(RSAglue, RSA_PKCS1_RSAref)
+AC_CHECK_FUNCS(kvm_openfiles nlist knlist kvm_getprocs)
+echo "$with_mib_modules" | grep "ucd-snmp/diskio" >/dev/null
+dnl whether we need -ldevstat for diskio MIB
+if test $? -eq 0 ; then
+	AC_CHECK_FUNC(getdevs, AC_DEFINE(HAVE_GETDEVS),
+		AC_CHECK_LIB(devstat, getdevs, AC_DEFINE(HAVE_GETDEVS)
+		LIBS="${LIBS} -ldevstat"))
+fi
+
+
+dnl
+dnl Install the various perl modules
+dnl
+
+if test "x$install_perl" = "xyes" -o "x$embed_perl" = "xyes"; then
+    PERLTARGS="perlmodules"
+    PERLINSTALLTARGS="perlinstall"
+    AC_SUBST(PERLTARGS)
+    AC_SUBST(PERLINSTALLTARGS)
+    AC_MSG_CACHE_ADD(SNMP Perl modules:          enabled)
+fi
+
+dnl
+dnl Embedded Perl specific stuff
+dnl
+if test "x$embed_perl" = "xyes"; then
+    myperl=$ac_cv_path_PERLPROG
+    if test $myperl = "no"; then
+      AC_MSG_ERROR(--enable-embedded-perl requested but no perl executable found)
     fi
 
-    AC_CHECK_LIB(crypto, EVP_md5)
+    AC_MSG_CHECKING(for perl CFLAGS)
+    perlcflags=`$myperl -MExtUtils::Embed -e ccopts`
+    AC_MSG_RESULT($perlcflags)
+    CPPFLAGS="$CPPFLAGS $perlcflags"
+
+    AC_MSG_CHECKING(for perl LDFLAGS)
+    perlldopts=`$myperl -MExtUtils::Embed -e ldopts`
+    AC_MSG_RESULT($perlldopts)
+    LIBS="$LIBS $perlldopts"
+
+    dnl newer perl vs older perl call functions
+    AC_CHECK_FUNCS(eval_pv perl_eval_pv)
+
+    AC_DEFINE(NETSNMP_EMBEDDED_PERL)
+    OTHERAGENTLIBOBJS="snmp_perl.o"
+    OTHERAGENTLIBLOBJS="snmp_perl.lo"
+
+    EMBEDPERLINSTALL="embedperlinstall"
+    AC_SUBST(EMBEDPERLINSTALL)
+    AC_MSG_CACHE_ADD(Embedded perl support:      enabled)
 fi
+
+dnl reset libs
+AGENTLIBS=$LIBS
+LIBS=$NONAGENTLIBS
 
 dnl Checks for header files.
 AC_HEADER_STDC
@@ -1066,11 +1528,11 @@ AC_HEADER_DIRENT
 AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS(stdarg.h string.h fcntl.h limits.h sys/file.h sys/ioctl.h syslog.h unistd.h netinet/tcpip.h netinet/in.h netinet/ip.h netinet/ip_icmp.h net/if.h netdb.h sys/dmap.h machine/pte.h xti.h sys/sockio.h sys/socket.h sys/un.h fstab.h sys/fs.h mtab.h ufs/fs.h ufs/ffs/fs.h sys/fixpoint.h machine/param.h sys/vm.h vm/vm.h sys/vmmeter.h sys/vmparam.h sys/vmmac.h sys/vmsystm.h sys/mbuf.h sys/time.h sys/swap.h inet/mib2.h sys/statvfs.h sys/vfs.h sys/mnttab.h sys/user.h sys/proc.h sys/select.h mntent.h sys/mntent.h kstat.h utsname.h sys/utsname.h sys/cdefs.h getopt.h locale.h pthread.h sys/loadavg.h regex.h linux/tasks.h pwd.h grp.h utmpx.h)
 dnl FreeBSD required headers
-AC_CHECK_HEADERS(malloc.h sys/param.h net/if_dl.h sys/sysctl.h stdlib.h net/if_mib.h net/if_types.h net/if_var.h sys/queue.h osreldate.h sys/disklabel.h machine/types.h sys/socketvar.h)
+AC_CHECK_HEADERS(malloc.h sys/param.h net/if_dl.h sys/sysctl.h stdlib.h net/if_mib.h net/if_types.h net/if_var.h sys/queue.h osreldate.h machine/types.h sys/socketvar.h)
 dnl Linux
-AC_CHECK_HEADERS(sys/conf.h netinet/in_systm.h netinet/tcp.h netinet/udp.h netinet/in_var.h netinet/if_ether.h netinet/ip_var.h netinet/tcp_timer.h netinet/tcp_var.h netinet/tcp_fsm.h netinet/udp_var.h netinet/icmp_var.h sys/protosw.h nlist.h ioctls.h asm/page.h)
+AC_CHECK_HEADERS(sys/conf.h netinet/in_systm.h netinet/tcp.h netinet/udp.h netinet/in_var.h netinet/if_ether.h netinet/ip_var.h netinet/tcp_timer.h netinet/tcp_var.h netinet/tcp_fsm.h netinet/udp_var.h netinet/icmp_var.h sys/protosw.h nlist.h ioctls.h asm/page.h netipx/ipx.h)
 dnl NetBSD required headers
-AC_CHECK_HEADERS(arpa/inet.h kvm.h sys/pool.h)
+AC_CHECK_HEADERS(arpa/inet.h kvm.h sys/pool.h uvm/uvm_param.h uvm/uvm_extern.h vm/vm_param.h vm/vm_extern.h)
 dnl BSDi2 headers
 AC_CHECK_HEADERS(sys/mount.h vm/swap_pager.h ufs/ufs/dinode.h)
 dnl BSDi3 headers
@@ -1088,15 +1550,26 @@ AC_CHECK_HEADERS(sys/dkio.h sys/diskio.h sys/pstat.h linux/hdreg.h pkglocs.h)
 dnl for HostRes (Solaris 2.x at least)
 AC_CHECK_HEADERS(pkginfo.h,
     AC_CHECK_LIB(adm, pkginfo, AC_DEFINE(HAVE_PKGINFO)
-    LIBS="${LIBS} -ladm"))
+    LIBS="${LIBS} -ladm"
+    AGENTLIBS="${AGENTLIBS} -ladm"))
 dnl WIN32
-AC_CHECK_HEADERS(winsock.h io.h)
+AC_CHECK_HEADERS(winsock.h, AGENTLIBS="${AGENTLIBS} -liphlpapi")
+AC_CHECK_HEADERS(io.h)
 dnl SCO
 AC_CHECK_HEADERS(sys/stream.h)
 dnl KAME
 AC_CHECK_HEADERS(netinet/ip6.h netinet6/in6_var.h netinet6/in6_pcb.h netinet6/ip6_var.h netinet6/tcp6.h netinet6/tcp6_fsm.h netinet6/nd6.h netinet6/tcp6_timer.h netinet6/tcp6_var.h)
 dnl DYNAMIC MODULE SUPPORT
 AC_CHECK_HEADERS(dlfcn.h)
+dnl table_array helper support
+AC_CHECK_HEADERS(search.h)
+
+dnl RPM subdirectory path (sigh)
+if echo " $module_list " | grep " host/hr_swinst " > /dev/null; then
+  AC_CHECK_HEADERS(rpmio.h,, [
+     AC_CHECK_HEADERS(rpm/rpmio.h, CFLAGS="-I/usr/include/rpm $CFLAGS")
+  ])
+fi
 
 dnl OpenBSD 2.6 needs netinet/in.h before netinet/in_pcb.h
 AC_MSG_CHECKING([for netinet/in_pcb.h])
@@ -1110,8 +1583,20 @@ if test $cv_have_netinet_in_pcb_h = yes; then
   AC_DEFINE(HAVE_NETINET_IN_PCB_H)
 fi
 
+dnl NetBSD needs machine/types.h before sys/disklabel.h
+AC_MSG_CHECKING([for sys/disklabel.h])
+AC_CACHE_VAL(cv_have_sys_disklabel_h,
+[ AC_TRY_CPP( [
+#include <machine/types.h>
+#include <sys/disklabel.h>
+], cv_have_sys_disklabel_h=yes, cv_have_sys_disklabel_h=no)])
+AC_MSG_RESULT($cv_have_sys_disklabel_h)
+if test $cv_have_sys_disklabel_h = yes; then
+  AC_DEFINE(HAVE_SYS_DISKLABEL_H)
+fi
+
 dnl OpenSSL
-AC_CHECK_HEADERS(openssl/hmac.h openssl/evp.h)
+AC_CHECK_HEADERS(openssl/hmac.h openssl/evp.h openssl/aes.h openssl/des.h)
 
 dnl Printing
 AC_PATH_PROG(LPSTAT_PATH,lpstat)
@@ -1128,24 +1613,58 @@ AC_MSG_CHECKING(for authentication support)
 if test "x$ac_cv_lib_crypto_EVP_md5" != "xyes" -o "x$ac_cv_header_openssl_hmac_h" != "xyes" -o "x$ac_cv_header_openssl_hmac_h" != "xyes"; then
 dnl if OpenSSL is not found, default to using internal md5 support.
     AC_DEFINE(USE_INTERNAL_MD5)
+    authmodes="MD5"
+    encrmodes=""
     AC_MSG_RESULT(Internal MD5 Support)
     if test "x$askedopenssl" = "xyes"; then
 	AC_MSG_ERROR(Asked to use OpenSSL but I couldn't find it.)
     fi
 else
     if test "x$tryopenssl" = "xno"; then
+        authmodes="MD5"
+        encrmodes=""
 	AC_DEFINE(USE_INTERNAL_MD5)
 	AC_MSG_RESULT(Internal MD5 Support)
     else
+        authmodes="MD5 SHA1"
+	if test $ac_cv_header_openssl_aes_h = "yes" ; then
+	    encrmodes="DES AES128 AES192 AES256"
+	else
+	    encrmodes="DES"
+	fi
 	AC_DEFINE(USE_OPENSSL)
 	AC_MSG_RESULT(OpenSSL Support)
     fi
 fi
 
+AC_MSG_CACHE_ADD(Authentication support:     $authmodes)
+AC_MSG_CACHE_ADD(Encryption support:         $encrmodes)
+
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_OFF_T
 AC_TYPE_PID_T
 AC_HEADER_TIME
+
+dnl this should use AC_CHECK_TYPE, but it's broken at least in 2.13-14
+dnl so we do it by hand.
+AC_MSG_CHECKING(for socklen_t)
+AC_CACHE_VAL(ac_cv_type_$1,
+[AC_EGREP_CPP(dnl
+changequote(<<,>>)dnl
+<<socklen_t[^a-zA-Z_0-9]>>dnl
+changequote([,]), [#include <sys/types.h>
+#if STDC_HEADERS
+#include <stdlib.h>
+#include <stddef.h>
+#endif
+#ifdef HAVE_SYS_SOCKET_H
+#include <sys/socket.h>
+#endif], ac_cv_type_socklen_t=yes, ac_cv_type_socklen_t=no)])dnl
+
+AC_MSG_RESULT($ac_cv_type_socklen_t)
+if test $ac_cv_type_socklen_t = yes; then
+  AC_DEFINE(HAVE_SOCKLEN_T)
+fi
 
 dnl AIX keeps in_addr_t in /usr/include/netinet/in.h
 AC_MSG_CHECKING(for in_addr_t)
@@ -1163,8 +1682,8 @@ changequote([,]), [#include <sys/types.h>
 #endif], ac_cv_type_in_addr_t=yes, ac_cv_type_in_addr_t=no)])dnl
 
 AC_MSG_RESULT($ac_cv_type_in_addr_t)
-if test $ac_cv_type_in_addr_t = no; then
-  AC_DEFINE(in_addr_t, u_int)
+if test $ac_cv_type_in_addr_t = yes; then
+  AC_DEFINE(HAVE_IN_ADDR_T)
 fi
 
 dnl Check ps args
@@ -1187,6 +1706,8 @@ else
 fi
 ])
 
+PSCMD="$PSPROG $ac_cv_ps_flags"
+AC_SUBST(PSCMD)
 AC_DEFINE_UNQUOTED(PSCMD, "$PSPROG $ac_cv_ps_flags")
 
 dnl Checks for byte order
@@ -1211,30 +1732,35 @@ AC_TYPE_SIGNAL
 AC_FUNC_GETMNTENT
 AC_CHECK_FUNCS(setmntent gethostname uname gettimeofday select socket strtol strtoul)
 AC_CHECK_FUNCS(strchr strdup memcpy memmove index bcopy strcasestr regcomp)
-AC_CHECK_FUNCS(signal sigset sigblock sighold strerror setenv vsnprintf snprintf)
+AC_CHECK_FUNCS(signal setsid sigset sigblock sighold strerror setenv vsnprintf snprintf)
 AC_CHECK_FUNCS(sigaction)
 AC_CHECK_FUNCS(snprintf strtoul)
 AC_CHECK_FUNCS(random lrand48 rand)
 AC_CHECK_FUNCS(execv system fork getpid strncasecmp sigalrm)
-AC_CHECK_FUNCS(rpmGetPath)
+if echo " $module_list " | grep " host/hr_swinst " > /dev/null; then
+  OLDLIBS=$LIBS
+  LIBS=$AGENTLIBS
+  AC_CHECK_FUNCS(rpmGetPath)
+  LIBS=$OLDLIBS
+fi
 
 AC_CHECK_FUNCS(getloadavg)
-AC_CHECK_FUNCS(kvm_openfiles nlist knlist)
+AC_CHECK_FUNCS(getaddrinfo getipnodebyname)
 dnl BSDi2 functions differ
 AC_CHECK_FUNCS(statvfs statfs)
 AC_CHECK_FUNCS(getdtablesize)
 dnl freebsd2 checks
-AC_CHECK_FUNCS(getfsstat kvm_getprocs)
+AC_CHECK_FUNCS(getfsstat)
 AC_CHECK_FUNCS(usleep)
 AC_CHECK_FUNCS(setlocale)
 AC_CHECK_FUNCS(tcgetattr)
 AC_CHECK_FUNCS(if_nameindex if_freenameindex)
 dnl solaris checks
 AC_CHECK_FUNCS(getpagesize)
-dnl DYNAMIC MODULE SUPPORT
-AC_CHECK_FUNCS(dlopen)
 AC_CHECK_FUNCS(mkstemp)
 AC_CHECK_FUNCS(getpwnam getgrnam setgid setuid setgroups)
+dnl High resolution alarm support
+AC_CHECK_FUNCS(setitimer)
 
 AC_MSG_CHECKING([for SIOCGIFADDR in sys/ioctl.h])
 AC_CACHE_VAL(cv_sys_ioctl_h_has_SIOCGIFADDR,
@@ -1599,9 +2125,7 @@ AC_CHECK_IFNET_FOR(if_addrlist)
 AC_CHECK_IFNET_FOR(if_addrhead.tqh_first)
 
 AC_CHECK_STRUCT_FOR([
-#if HAVE_SYS_TYPES_H
 #include <sys/types.h>
-#endif
 #if HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
@@ -1617,9 +2141,7 @@ AC_CHECK_STRUCT_FOR([
 ],udpstat,udps_discard)
 
 AC_CHECK_STRUCT_FOR([
-#if HAVE_SYS_TYPES_H
 #include <sys/types.h>
-#endif
 #if HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
@@ -1635,9 +2157,7 @@ AC_CHECK_STRUCT_FOR([
 ],udpstat,udps_noport)
 
 AC_CHECK_STRUCT_FOR([
-#if HAVE_SYS_TYPES_H
 #include <sys/types.h>
-#endif
 #if HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
@@ -1653,9 +2173,7 @@ AC_CHECK_STRUCT_FOR([
 ],udpstat,udps_noportbcast)
 
 AC_CHECK_STRUCT_FOR([
-#if HAVE_SYS_TYPES_H
 #include <sys/types.h>
-#endif
 #if HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
@@ -1719,10 +2237,177 @@ AC_CHECK_STRUCT_FOR([
 ],statvfs,f_files)
 
 AC_CHECK_STRUCT_FOR([
+#ifdef HAVE_SYS_STAT_H
+#include <sys/stat.h>
+#endif
+#if HAVE_SYS_STATFS_H
+#include <sys/statfs.h>
+#endif
+#ifdef HAVE_SYS_PARAM_H
+#include <sys/param.h>
+#include <sys/types.h>
+#endif
+#ifdef HAVE_SYS_MOUNT_H
+#include <sys/mount.h>
+#endif
+],statfs,f_files)
+
+AC_CHECK_STRUCT_FOR([
+#ifdef HAVE_SYS_STAT_H
+#include <sys/stat.h>
+#endif
+#if HAVE_SYS_STATFS_H
+#include <sys/statfs.h>
+#endif
+#ifdef HAVE_SYS_PARAM_H
+#include <sys/param.h>
+#include <sys/types.h>
+#endif
+#ifdef HAVE_SYS_MOUNT_H
+#include <sys/mount.h>
+#endif
+],statfs,f_ffree)
+
+AC_CHECK_STRUCT_FOR([
+#ifdef HAVE_SYS_STAT_H
+#include <sys/stat.h>
+#endif
+#if HAVE_SYS_STATFS_H
+#include <sys/statfs.h>
+#endif
+#ifdef HAVE_SYS_PARAM_H
+#include <sys/param.h>
+#include <sys/types.h>
+#endif
+#ifdef HAVE_SYS_MOUNT_H
+#include <sys/mount.h>
+#endif
+],statfs,f_favail)
+
+AC_CHECK_STRUCT_FOR([
 #if HAVE_NLIST_H
 #include <nlist.h>
 #endif
 ],nlist,n_value)
+
+dnl check struct ipstat for various things
+AC_CHECK_STRUCT_FOR([
+#include <sys/types.h>
+#if HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
+#if HAVE_NETINET_IP_VAR_H
+#include <netinet/ip_var.h>
+#endif
+], ipstat, ips_cantforward)
+
+AC_CHECK_STRUCT_FOR([
+#include <sys/types.h>
+#if HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
+#if HAVE_NETINET_IP_VAR_H
+#include <netinet/ip_var.h>
+#endif
+], ipstat, ips_cantfrag)
+
+AC_CHECK_STRUCT_FOR([
+#include <sys/types.h>
+#if HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
+#if HAVE_NETINET_IP_VAR_H
+#include <netinet/ip_var.h>
+#endif
+], ipstat, ips_delivered)
+
+AC_CHECK_STRUCT_FOR([
+#include <sys/types.h>
+#if HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
+#if HAVE_NETINET_IP_VAR_H
+#include <netinet/ip_var.h>
+#endif
+], ipstat, ips_fragdropped)
+
+AC_CHECK_STRUCT_FOR([
+#include <sys/types.h>
+#if HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
+#if HAVE_NETINET_IP_VAR_H
+#include <netinet/ip_var.h>
+#endif
+], ipstat, ips_fragtimeout)
+
+AC_CHECK_STRUCT_FOR([
+#include <sys/types.h>
+#if HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
+#if HAVE_NETINET_IP_VAR_H
+#include <netinet/ip_var.h>
+#endif
+], ipstat, ips_localout)
+
+AC_CHECK_STRUCT_FOR([
+#include <sys/types.h>
+#if HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
+#if HAVE_NETINET_IP_VAR_H
+#include <netinet/ip_var.h>
+#endif
+], ipstat, ips_noproto)
+
+AC_CHECK_STRUCT_FOR([
+#include <sys/types.h>
+#if HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
+#if HAVE_NETINET_IP_VAR_H
+#include <netinet/ip_var.h>
+#endif
+], ipstat, ips_noroute)
+
+AC_CHECK_STRUCT_FOR([
+#include <sys/types.h>
+#if HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
+#if HAVE_NETINET_IP_VAR_H
+#include <netinet/ip_var.h>
+#endif
+], ipstat, ips_odropped)
+
+AC_CHECK_STRUCT_FOR([
+#include <sys/types.h>
+#if HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
+#if HAVE_NETINET_IP_VAR_H
+#include <netinet/ip_var.h>
+#endif
+], ipstat, ips_ofragments)
+
+AC_CHECK_STRUCT_FOR([
+#include <sys/types.h>
+#if HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
+#if HAVE_NETINET_IP_VAR_H
+#include <netinet/ip_var.h>
+#endif
+], ipstat, ips_reassembled)
+
+dnl check for the des_ks_struct.weak_key attribute, which indicates the 
+dnl older opensll version is being used.
+if test "x$ac_cv_header_openssl_des_h" = "xyes" ; then
+AC_CHECK_STRUCT_FOR([
+#include <openssl/des.h>
+], des_ks_struct, weak_key)
+fi
 
 dnl attempt to figure out if sysctl is usable
 
@@ -1788,10 +2473,17 @@ if test "x$ac_cv_TCPTV_NEEDS_HZ" = "xyes"; then
 fi
 
 dnl
+dnl define the agent libraries variable
+dnl
+AC_SUBST(AGENTLIBS)
+AC_SUBST(OTHERAGENTLIBOBJS)
+AC_SUBST(OTHERAGENTLIBLOBJS)
+
+dnl
 dnl Prompt for various bits of user information
 dnl
 
-if test "x$ac_cv_user_prompt_LOGFILE" = "x" -o "x$ac_cv_user_prompt_SYS_LOC" = "x" -o "x$ac_cv_user_prompt_SYS_CONTACT" = "x"; then
+if test "x$ac_cv_user_prompt_LOGFILE" = "x" -o "x$ac_cv_user_prompt_SYS_LOC" = "x" -o "x$ac_cv_user_prompt_SYS_CONTACT" = "x" -o "x$ac_cv_user_prompt_DEFAULT_SNMP_VERSION" = "x"; then
 AC_CACHE_CHECK(if you have run configure before, ac_cv_have_warned,
 [
 if test "x$defaults" = "xno"; then
@@ -1800,7 +2492,7 @@ cat << EOF
 	 ************** Configuration Section **************
 
 	You are about to be prompted with a series of questions.  Answer
-them carefully, as they determine how the snmp agent and related
+them carefully, as they determine how the SNMP agent and related
 applications are to function.
 
 	After the configure script finishes, you can browse the newly
@@ -1829,6 +2521,31 @@ else
   LOC="@no.where"
 fi
 
+AC_PROMPT_USER(DEFAULT_SNMP_VERSION,[
+
+*** Default SNMP Version:
+
+	Starting with Net-SNMP 5.0, you can choose the default version of
+the SNMP protocol to use when no version is given explicitly on the
+command line, or via an 'snmp.conf' file.  In the past this was set to
+SNMPv1, but you can use this to switch to SNMPv3 if desired.  SNMPv3
+will provide a more secure management environment (and thus you're
+encouraged to switch to SNMPv3), but may break existing scripts that
+rely on the old behaviour.  (Though such scripts will probably need to
+be changed to use the '-c' community flag anyway, as the SNMPv1
+command line usage has changed as well.).
+   At this prompt you can select \"1\", \"2\" (for SNMPv2c), or \"3\" as
+the default version for the command tools (snmpget, ...) to use.  This
+can always be overridden at runtime using the -v flag to the tools, or
+by using the \"defVersion\" token in your snmp.conf file.
+
+Default version of SNMP to use],3,unquoted)
+
+dnl we tested this above before the prompt, but the prompt may give a new value.
+if test "$ac_cv_user_prompt_DEFAULT_SNMP_VERSION" != "1" -a "$ac_cv_user_prompt_DEFAULT_SNMP_VERSION" != "2" -a "$ac_cv_user_prompt_DEFAULT_SNMP_VERSION" != "3"; then
+  AC_MSG_ERROR([Illegal version number.  Only 1, 2 (for SNMPv2c) and 3 are supported.])
+fi
+
 AC_PROMPT_USER(SYS_CONTACT,[
 
 *** System Contact Information:
@@ -1838,7 +2555,7 @@ running on.  This information is available in the MIB-II tree.  This
 can also be over-ridden using the \"syscontact\" syntax in the agent's
 configuration files.
 
-System Contact Information],$ME@$LOC,1)
+System Contact Information],$ME@$LOC,quoted)
 
 AC_PROMPT_USER(SYS_LOC,[
 
@@ -1848,7 +2565,7 @@ AC_PROMPT_USER(SYS_LOC,[
 available in the MIB-II tree.  this can also be over-ridden using the
 \"syslocation\" syntax in the agent's configuration files.
 
-System Location],Unknown,1)
+System Location],Unknown,quoted)
 
 if test -d /var/log; then
   defaultlog="/var/log/snmpd.log"
@@ -1865,41 +2582,75 @@ information & errors to.  If not defined (enter the keyword \"none\"
 at the prompt below) the agent will use stdout and stderr instead.
 (Note: This value can be over-ridden using command line options.)
 
-Location to write logfile],$defaultlog,1)
+Location to write logfile],$defaultlog,quoted)
 
 if test -d /var; then
-  defaultstore="/var/ucd-snmp"
+  defaultstore="/var/net-snmp"
+  ucddefaultstore="/var/ucd-snmp"
 else
-  defaultstore="/etc/ucd-snmp"
+  defaultstore="/etc/net-snmp"
+  ucddefaultstore="/etc/ucd-snmp"
 fi
   
 AC_PROMPT_USER(PERSISTENT_DIRECTORY,[
 
 *** snmpd persistent storage location:
 
-	Enter a directory for the snmp library to store persistent
-data in the form of a configuration file.
+	Enter a directory for the SNMP library to store persistent
+data in the form of a configuration file.  This default location is
+different than the old default location (which was for ucd-snmp).  If
+you stay with the new path, I'll ask you in a second if you wish to
+copy your files over to the new location (once only).  If you pick
+some other path than the default, you'll have to copy them yourself.
+There is nothing wrong with picking the old path ($ucddefaultstore) if
+you'd rather.
 
-Location to write persistent information],$defaultstore,1)
+Location to write persistent information],$defaultstore,quoted)
 
 PERSISTENT_DIRECTORY=$ac_cv_user_prompt_PERSISTENT_DIRECTORY
 AC_SUBST(PERSISTENT_DIRECTORY)
+UCDPERSISTENT_DIRECTORY=$ucddefaultstore
+AC_SUBST(UCDPERSISTENT_DIRECTORY)
+
+if test $PERSISTENT_DIRECTORY = "$defaultstore" -a -d "$ucddefaultstore" -a ! -d "$defaultstore" ; then
+AC_CACHE_CHECK(If we should copy the old persistent directory, ac_cv_user_prompt_COPY_PERSISTENT_FILES,
+[
+AC_PROMPT_USER_NO_DEFINE(ac_cv_user_prompt_COPY_PERSISTENT_FILES,[
+
+*** Copying old ucd-snmp persistent files to net-snmp persistent directory:
+
+	Would you like to copy the older ucd-snmp persistent files
+into your new net-snmp persistent file path?  This will functionally
+save all your ucd-snmp data and let it be used within the net-snmp
+tools.  This will only be done once when you run make install.  If you
+wish to do this, enter "yes" at the prompt.
+
+Copy ucd-snmp data into the net-snmp data directory],"yes")
+])
+else
+ac_cv_user_prompt_COPY_PERSISTENT_FILES="no"
+fi
+COPY_PERSISTENT_FILES="$ac_cv_user_prompt_COPY_PERSISTENT_FILES"
+AC_SUBST(COPY_PERSISTENT_FILES)
 
 AC_SUBST(DLLIBS)
 
 AC_OUTPUT([
- Makefile:Makefile.top:Makefile.in
- snmplib/Makefile:Makefile.top:snmplib/Makefile.in 
- agent/Makefile:Makefile.top:agent/Makefile.in
- apps/Makefile:Makefile.top:apps/Makefile.in
- apps/snmpnetstat/Makefile:Makefile.top:apps/snmpnetstat/Makefile.in
- agent/mibgroup/Makefile:Makefile.top:agent/mibgroup/Makefile.in
- local/Makefile:Makefile.top:local/Makefile.in
+ Makefile:Makefile.top:Makefile.in:Makefile.rules
+ snmplib/Makefile:Makefile.top:snmplib/Makefile.in:Makefile.rules:snmplib/Makefile.depend
+ apps/Makefile:Makefile.top:apps/Makefile.in:Makefile.rules:apps/Makefile.depend
+ apps/snmpnetstat/Makefile:Makefile.top:apps/snmpnetstat/Makefile.in:Makefile.rules:apps/snmpnetstat/Makefile.depend
+ agent/Makefile:Makefile.top:agent/Makefile.in:Makefile.rules:agent/Makefile.depend
+ agent/helpers/Makefile:Makefile.top:agent/helpers/Makefile.in:Makefile.rules:agent/helpers/Makefile.depend
+ agent/mibgroup/Makefile:Makefile.top:agent/mibgroup/Makefile.in:Makefile.rules:agent/mibgroup/Makefile.depend
+ local/Makefile:Makefile.top:local/Makefile.in:Makefile.rules
  testing/Makefile:Makefile.top:testing/Makefile.in
- man/Makefile:Makefile.top:man/Makefile.in
- ov/Makefile:Makefile.top:ov/Makefile.in
- mibs/Makefile:Makefile.top:mibs/Makefile.in
+ man/Makefile:Makefile.top:man/Makefile.in:Makefile.rules
+ mibs/Makefile:Makefile.top:mibs/Makefile.in:Makefile.rules
+ net-snmp-config:net-snmp-config.in
 ], echo timestamp > stamp-h)
+
+AC_MSG_CACHE_DISPLAY()
 
 dnl Local Variables:
 dnl mode: Autoconf

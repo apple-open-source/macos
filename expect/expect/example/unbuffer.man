@@ -1,0 +1,48 @@
+.TH UNBUFFER 1 "1 June 1994"
+.SH NAME
+unbuffer \- unbuffer output
+.SH SYNOPSIS
+.B unbuffer
+.I program
+[
+.I args
+]
+.SH INTRODUCTION
+.B unbuffer
+disables the output buffering that occurs when program output
+is redirected.
+For example, suppose you are watching the output from a fifo by running it
+through od and then more.  
+.nf
+
+	od -c /tmp/fifo | more
+
+.fi
+You will not see anything until a full page
+of output has been produced.
+
+You can disable this automatic buffering as follows:
+
+.nf
+
+	unbuffer od -c /tmp/fifo | more
+
+.fi
+When you have a pipeline, unbuffer must be applied to each element
+except the last (since that doesn't have its output redirected).
+Example:
+.nf
+
+        unbuffer p1 | unbuffer p2 | unbuffer p3 | p4
+.fi
+.SH BUGS
+
+The man page is longer than the program.
+
+.SH SEE ALSO
+.I
+"Exploring Expect: A Tcl-Based Toolkit for Automating Interactive Programs"
+\fRby Don Libes,
+O'Reilly and Associates, January 1995.
+.SH AUTHOR
+Don Libes, National Institute of Standards and Technology

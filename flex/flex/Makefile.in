@@ -1,4 +1,4 @@
-# @(#) $Header: /cvs/Darwin/flex/flex/Makefile.in,v 1.1.1.3 1999/09/02 06:10:28 wsanchez Exp $ (LBL)
+# @(#) $Header: /cvs/root/flex/flex/Makefile.in,v 1.1.1.3 1999/09/02 06:10:28 wsanchez Exp $ (LBL)
 
 @SET_MAKE@
 

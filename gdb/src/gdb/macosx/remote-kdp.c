@@ -21,19 +21,6 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-#include "ppc-macosx-regs.h"
-
-#include "defs.h"
-#include "inferior.h"
-#include "gdbcmd.h"
-#include "event-loop.h"
-#include "event-top.h"
-#include "inf-loop.h"
-#include "regcache.h"
-
-#include "kdp-udp.h"
-#include "kdp-transactions.h"
-
 #if TARGET_I386
 #define KDP_TARGET_I386 1
 #else
@@ -55,6 +42,17 @@
 #include "i386-macosx-thread-status.h"
 #include "i386-macosx-tdep.h"
 #endif
+
+#include "defs.h"
+#include "inferior.h"
+#include "gdbcmd.h"
+#include "event-loop.h"
+#include "event-top.h"
+#include "inf-loop.h"
+#include "regcache.h"
+
+#include "kdp-udp.h"
+#include "kdp-transactions.h"
 
 #ifndef CPU_TYPE_I386
 #define CPU_TYPE_I386 (7)
@@ -609,7 +607,7 @@ kdp_wait (ptid_t pid, struct target_waitstatus *status, gdb_client_data client_d
   kdp_set_trace_bit (0);
 
   kdp_stopped = 1;
-  select_frame (get_current_frame (), 0);
+  select_frame (get_current_frame ());
   
   status->kind = TARGET_WAITKIND_STOPPED;
   status->value.sig = TARGET_SIGNAL_TRAP;
@@ -646,17 +644,11 @@ kdp_fetch_registers_ppc (int regno)
     }
 
     memcpy (&gp_regs, c.response->readregs_reply.data, (GDB_PPC_THREAD_STATE_COUNT * 4));
-    ppc_macosx_fetch_gp_registers (registers, &gp_regs);
-    ppc_macosx_fetch_sp_registers (registers, &gp_regs);
-    for (i = FIRST_GP_REGNUM; i <= LAST_GP_REGNUM; i++) {
-      register_valid[i] = 1;
-    }
-    for (i = FIRST_GSP_REGNUM; i <= LAST_GSP_REGNUM; i++) {
-      register_valid[i] = 1;
-    }
+    ppc_macosx_fetch_gp_registers (&gp_regs);
   }
 
-  if ((regno == -1) || IS_FP_REGNUM (regno)) {
+#if 0
+  if ((regno == -1) || IS_FP_REGNUM (regno) || IS_FSP_REGNUM (regno)) {
     kdp_return_t kdpret;
     gdb_ppc_thread_fpstate_t fp_regs;
 
@@ -675,22 +667,27 @@ kdp_fetch_registers_ppc (int regno)
     }
 
     memcpy (&fp_regs, c.response->readregs_reply.data, (GDB_PPC_THREAD_FPSTATE_COUNT * 4));
-    ppc_macosx_fetch_fp_registers (registers, &fp_regs);
-    for (i = FIRST_FP_REGNUM; i <= LAST_FP_REGNUM; i++) {
-      register_valid[i] = 1;
-    }
+    ppc_macosx_fetch_fp_registers (&fp_regs);
   }
+#else
+  if ((regno == -1) || IS_FP_REGNUM (regno) || IS_FSP_REGNUM (regno)) {
+      /* Accesses to the fp registers aren't currently supported in
+	 the kernel. */
+      for (i = FIRST_FP_REGNUM; i <= LAST_FP_REGNUM; i++)
+	deprecated_register_valid[i] = 1;
+      for (i = FIRST_FSP_REGNUM; i <= LAST_FSP_REGNUM; i++)
+	deprecated_register_valid[i] = 1;
+  }
+#endif
 
-  if ((regno == -1) || (regno >= FIRST_VP_REGNUM))
+  if ((regno == -1) || (regno >= FIRST_VP_REGNUM) || IS_VSP_REGNUM (regno))
     {
       /* Accesses to the vector, fpscr and vrsave registers aren't currently 
-	 supported in the kernel */
+	 supported in the kernel. */
       for (i = FIRST_VP_REGNUM; i <= LAST_VP_REGNUM; i++)
-	register_valid[i] = 1;
-      for (i = FIRST_FSP_REGNUM; i <= LAST_FSP_REGNUM; i++)
-	register_valid[i] = 1;
+	deprecated_register_valid[i] = 1;
       for (i = FIRST_VSP_REGNUM; i <= LAST_VSP_REGNUM; i++)
-	register_valid[i] = 1;
+	deprecated_register_valid[i] = 1;
     }
 }
 #endif /* KDP_TARGET_POWERPC */
@@ -708,8 +705,7 @@ kdp_store_registers_ppc (int regno)
     gdb_ppc_thread_state_t gp_regs; 
     kdp_return_t kdpret;
 
-    ppc_macosx_store_gp_registers (registers, &gp_regs);
-    ppc_macosx_store_sp_registers (registers, &gp_regs);
+    ppc_macosx_store_gp_registers (&gp_regs);
 
     memcpy (c.request->writeregs_req.data, &gp_regs, (GDB_PPC_THREAD_STATE_COUNT * 4));
 
@@ -725,12 +721,12 @@ kdp_store_registers_ppc (int regno)
     }
   }
 
-  if ((regno == -1) || IS_FP_REGNUM (regno)) {
+  if ((regno == -1) || IS_FP_REGNUM (regno) || IS_FSP_REGNUM (regno)) {
 
     gdb_ppc_thread_fpstate_t fp_regs;
     kdp_return_t kdpret;
 
-    ppc_macosx_store_fp_registers (registers, &fp_regs);
+    ppc_macosx_store_fp_registers (&fp_regs);
 
     memcpy (c.response->readregs_reply.data, &fp_regs, (GDB_PPC_THREAD_FPSTATE_COUNT * 4));
     
@@ -756,10 +752,9 @@ kdp_fetch_registers_i386 (int regno)
     error ("kdp: unable to fetch registers (not connected)");
   }
 
-  if ((regno == -1) || IS_GP_REGNUM (regno) || IS_GSP_REGNUM (regno)) {
+  if ((regno == -1) || IS_GP_REGNUM (regno)) {
     kdp_return_t kdpret;
     gdb_i386_thread_state_t gp_regs; 
-    unsigned int i;
 
     c.request->readregs_req.hdr.request = KDP_READREGS;
     c.request->readregs_req.cpu = 0;
@@ -771,25 +766,17 @@ kdp_fetch_registers_i386 (int regno)
 	     kdp_return_string (kdpret));
     }
     if (c.response->readregs_reply.nbytes != (GDB_i386_THREAD_STATE_COUNT * 4)) {
-      error ("kdp_fetch_registers_i386: kdp returned %d bytes of register data (expected %d)", 
+      error ("kdp_fetch_registers_i386: kdp returned %lu bytes of register data (expected %lu)", 
 	     c.response->readregs_reply.nbytes, (GDB_i386_THREAD_STATE_COUNT * 4));
     }
 
     memcpy (&gp_regs, c.response->readregs_reply.data, (GDB_i386_THREAD_STATE_COUNT * 4));
-    i386_macosx_fetch_gp_registers (registers, &gp_regs);
-    i386_macosx_fetch_sp_registers (registers, &gp_regs);
-    for (i = FIRST_GP_REGNUM; i <= LAST_GP_REGNUM; i++) {
-      register_valid[i] = 1;
-    }
-    for (i = FIRST_GSP_REGNUM; i <= LAST_GSP_REGNUM; i++) {
-      register_valid[i] = 1;
-    }
+    i386_macosx_fetch_gp_registers (&gp_regs);
   }
 
   if ((regno == -1) || IS_FP_REGNUM (regno)) {
     kdp_return_t kdpret;
     gdb_i386_thread_fpstate_t fp_regs;
-    unsigned int i;
 
     c.request->readregs_req.hdr.request = KDP_READREGS;
     c.request->readregs_req.cpu = 0;
@@ -801,15 +788,12 @@ kdp_fetch_registers_i386 (int regno)
 	     kdp_return_string (kdpret));
     }
     if (c.response->readregs_reply.nbytes != (GDB_i386_THREAD_FPSTATE_COUNT * 4)) {
-      error ("kdp_fetch_registers_i386: kdp returned %d bytes of register data (expected %d)", 
+      error ("kdp_fetch_registers_i386: kdp returned %lu bytes of register data (expected %lu)", 
 	     c.response->readregs_reply.nbytes, (GDB_i386_THREAD_FPSTATE_COUNT * 4));
     }
 
-    memcpy (&fp_regs, c.response->readregs_reply.data, (GDB_i386_THREAD_FPSTATE_COUNT * 4));
-    i386_macosx_fetch_fp_registers (registers, &fp_regs);
-    for (i = FIRST_FP_REGNUM; i <= LAST_FP_REGNUM; i++) {
-      register_valid[i] = 1;
-    }
+    memcpy (&fp_regs.hw_state, c.response->readregs_reply.data, (GDB_i386_THREAD_FPSTATE_COUNT * 4));
+    i386_macosx_fetch_fp_registers (&fp_regs);
   }
 }
 #endif /* KDP_TARGET_I386 */
@@ -822,13 +806,12 @@ kdp_store_registers_i386 (int regno)
     error ("kdp: unable to store registers (not connected)");
   }
 
-  if ((regno == -1) || IS_GP_REGNUM (regno) || IS_GSP_REGNUM (regno)) {
+  if ((regno == -1) || IS_GP_REGNUM (regno)) {
 
     gdb_i386_thread_state_t gp_regs; 
     kdp_return_t kdpret;
 
-    i386_macosx_store_gp_registers (registers, &gp_regs);
-    i386_macosx_store_sp_registers (registers, &gp_regs);
+    i386_macosx_store_gp_registers (&gp_regs);
 
     memcpy (c.request->writeregs_req.data, &gp_regs, (GDB_i386_THREAD_STATE_COUNT * 4));
 
@@ -849,9 +832,9 @@ kdp_store_registers_i386 (int regno)
     gdb_i386_thread_fpstate_t fp_regs;
     kdp_return_t kdpret;
 
-    i386_macosx_store_fp_registers (registers, &fp_regs);
+    i386_macosx_store_fp_registers (&fp_regs);
 
-    memcpy (c.response->readregs_reply.data, &fp_regs, (GDB_i386_THREAD_FPSTATE_COUNT * 4));
+    memcpy (c.response->readregs_reply.data, &fp_regs.hw_state, (GDB_i386_THREAD_FPSTATE_COUNT * 4));
     
     c.request->writeregs_req.hdr.request = KDP_WRITEREGS;
     c.request->writeregs_req.cpu = 0;

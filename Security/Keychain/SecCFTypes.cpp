@@ -20,25 +20,96 @@
 //
 
 #include <Security/SecCFTypes.h>
+#include <Security/SecRuntime.h>
+
+namespace Security
+{
+
+namespace KeychainCore
+{
+
+SecCFTypes &
+gTypes()
+{
+	static ModuleNexus<SecCFTypes> nexus;
+
+	return nexus();
+}
+
+} // end namespace KeychainCore
+
+} // end namespace Security
 
 using namespace KeychainCore;
 
-ModuleNexus<SecCFTypes> Security::KeychainCore::gTypes;
-
 SecCFTypes::SecCFTypes() :
-	access("SecAccess"),
-	acl("SecACL"),
-	certificate("SecCertificate"),
-	certificateRequest("SecCertificateRequest"),
-	identity("SecIdentity"),
-	identityCursor("SecIdentitySearch"),
-	item("SecKeychainItem"),
-	cursor("SecKeychainSearch"),
-	keychain("SecKeychain"),
-	keyItem("SecKey"),
-	policy("SecPolicy"),
-	policyCursor("SecPolicySearch"),
-	trust("SecTrust"),
-	trustedApplication("SecTrustedApplication")
+	Access("SecAccess"),
+	ACL("SecACL"),
+	Certificate("SecCertificate"),
+	CertificateRequest("SecCertificateRequest"),
+	Identity("SecIdentity"),
+	IdentityCursor("SecIdentitySearch"),
+	ItemImpl("SecKeychainItem"),
+	KCCursorImpl("SecKeychainSearch"),
+	KeychainImpl("SecKeychain"),
+	KeyItem("SecKey"),
+	Policy("SecPolicy"),
+	PolicyCursor("SecPolicySearch"),
+	Trust("SecTrust"),
+	TrustedApplication("SecTrustedApplication")
 {
+}
+
+//
+// CFClass
+//
+CFClass::CFClass(const char *name)
+{
+	// initialize the CFRuntimeClass structure
+	version = 0;
+	className = name;
+	init = NULL;
+	copy = NULL;
+	finalize = finalizeType;
+	equal = equalType;
+	hash = hashType;
+	copyFormattingDesc = copyFormattingDescType;
+	copyDebugDesc = copyDebugDescType;
+	
+	// register
+	typeID = _CFRuntimeRegisterClass(this);
+	assert(typeID != _kCFRuntimeNotATypeID);
+}
+    
+void
+CFClass::finalizeType(CFTypeRef cf)
+{
+	SecCFObject *obj = SecCFObject::optional(cf);
+	if (!obj->isNew())
+		obj->~SecCFObject();
+}
+
+Boolean
+CFClass::equalType(CFTypeRef cf1, CFTypeRef cf2)
+{
+	// CF checks for pointer equality and ensures type equality already
+	return SecCFObject::optional(cf1)->equal(*SecCFObject::optional(cf2));
+}
+
+CFHashCode
+CFClass::hashType(CFTypeRef cf)
+{
+	return SecCFObject::optional(cf)->hash();
+}
+
+CFStringRef
+CFClass::copyFormattingDescType(CFTypeRef cf, CFDictionaryRef dict)
+{
+	return SecCFObject::optional(cf)->copyFormattingDesc(dict);
+}
+
+CFStringRef
+CFClass::copyDebugDescType(CFTypeRef cf)
+{
+	return SecCFObject::optional(cf)->copyDebugDesc();
 }

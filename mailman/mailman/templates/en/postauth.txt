@@ -1,0 +1,13 @@
+As list administrator, your authorization is requested for the
+following mailing list posting:
+
+    List:    %(listname)s@%(hostname)s
+    From:    %(sender)s
+    Subject: %(subject)s
+    Reason:  %(reason)s
+
+At your convenience, visit:
+
+    %(admindb_url)s
+        
+to approve or deny the request.

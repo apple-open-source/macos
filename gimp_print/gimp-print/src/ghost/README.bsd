@@ -1,0 +1,57 @@
+stp printing with FreeBSD
+=========================
+
+by Philipp Huber <uebs@gmx.at> (C) 2000
+
+The Ghostcsript6 Port of FreeBSD does not include the stp driver,
+therefore it's necesseray to do some changes by hand :)
+
+First of all, the Ghostscript6 Ports has to be downloaded, extracted and
+patching must be done.
+
+	cd /usr/ports/print/ghostscript6
+	make patch
+
+After this, download print-4.0b2 (or another version, i did it with this
+one) from
+
+	http://download.sourceforge.net/gimp-print/print-4.0b2.tar.gz
+
+Place the file into the workdir of the ghostscript6 port and unzip it:
+
+	cp print-4.0b2.tar.gz /usr/ports/print/ghostscript6/work/gs6.01
+	cd /usr/ports/print/ghostscript6/work/gs6.01
+	tar xzf print-4.0b2.tar.gz
+
+Follow the directions as described in "Ghost/README":
+First, copy all *.c and *.h files into the ghostscript src directory.
+
+	cd print-4.0b2/Ghost
+	cp *.c ../../src/
+	cp *.h ../../src/
+
+Edit "contrib.mak" in the src directory of ghosts
+cript (where the *.c and
+*.h files where copied to in the previous step). Add the contents of the
+file "contrib.mak.addon" in the "print-4.0b2/Ghost" directory at the end of the
+"contrib.mak" file.
+The next step is to add "$(DD)stp.dev to the line "DEVICE_DEVS6=" in
+"unix-gcc.mak".
+
+After all these changes have been made, do a
+
+	cd /usr/ports/print/ghostscript6 ; make install
+
+All should compile fine, and after that you have ghostscript6 with the
+stp driver compiled in. Run "gs -h" to be absolutely sure :)
+
+Don't forget to update or adjust your filters!
+See print-4.0b2/Ghost/README for further details and examples.
+
+All this should work with NetBSD and OpenBSD as well, but i didn't
+test it anyway.  Good luck and have fun :)
+
+Please note that the current Ghostscript 6 license (Aladdin Free
+Public License) is not compatible with the GPL, and thus you cannot
+distribute the result.  However, you may apply this procedure for your
+own use.

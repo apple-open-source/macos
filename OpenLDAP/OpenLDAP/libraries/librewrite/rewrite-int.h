@@ -243,7 +243,9 @@ struct rewrite_session {
 	Avlnode                        *ls_vars;
 #ifdef USE_REWRITE_LDAP_PVT_THREADS
 	ldap_pvt_thread_rdwr_t          ls_vars_mutex;
+	ldap_pvt_thread_mutex_t		ls_mutex;
 #endif /* USE_REWRITE_LDAP_PVT_THREADS */
+	int				ls_count;
 };
 
 /*
@@ -313,7 +315,7 @@ struct rewrite_info {
  * PRIVATE *
  ***********/
 
-LDAP_V (struct rewrite_context*) __curr_context;
+LDAP_REWRITE_V (struct rewrite_context*) __curr_context;
 
 /*
  * Maps

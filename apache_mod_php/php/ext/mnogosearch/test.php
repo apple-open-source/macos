@@ -1,5 +1,5 @@
 <!-- 
-    $Source: /cvs/Darwin/apache_mod_php/php/ext/mnogosearch/test.php,v $
+    $Source: /cvs/root/apache_mod_php/php/ext/mnogosearch/test.php,v $
     $Id: test.php,v 1.1.1.2 2001/12/14 22:12:39 zarzycki Exp $ 
 -->
 

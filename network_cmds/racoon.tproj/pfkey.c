@@ -1,4 +1,4 @@
-/*	$KAME: pfkey.c,v 1.132 2001/10/19 05:31:22 sakane Exp $	*/
+/*	$KAME: pfkey.c,v 1.134 2002/06/04 05:20:27 itojun Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -72,6 +72,7 @@
 #include "isakmp_var.h"
 #include "isakmp.h"
 #include "isakmp_inf.h"
+#include "isakmp_natd.h"
 #include "ipsec_doi.h"
 #include "oakley.h"
 #include "pfkey.h"
@@ -84,6 +85,9 @@
 #include "strnames.h"
 #include "backupsa.h"
 #include "gcmalloc.h"
+#ifndef HAVE_ARC4RANDOM
+#include "arc4random.h"
+#endif
 
 /* prototype */
 static u_int ipsecdoi2pfkey_aalg __P((u_int));
@@ -576,8 +580,10 @@ ipsecdoi2pfkey_mode(mode)
 {
 	switch (mode) {
 	case IPSECDOI_ATTR_ENC_MODE_TUNNEL:
+	case IPSECDOI_ATTR_ENC_MODE_UDP_TUNNEL:
 		return IPSEC_MODE_TUNNEL;
 	case IPSECDOI_ATTR_ENC_MODE_TRNS:
+	case IPSECDOI_ATTR_ENC_MODE_UDP_TRNS:
 		return IPSEC_MODE_TRANSPORT;
 	default:
 		plog(LLV_ERROR, LOCATION, NULL, "Invalid mode type: %u\n", mode);
@@ -588,14 +594,15 @@ ipsecdoi2pfkey_mode(mode)
 
 /* IPSECDOI_ATTR_ENC_MODE -> IPSEC_MODE */
 u_int
-pfkey2ipsecdoi_mode(mode)
+pfkey2ipsecdoi_mode(mode, hasnat)
 	u_int mode;
+	int	hasnat;
 {
 	switch (mode) {
 	case IPSEC_MODE_TUNNEL:
-		return IPSECDOI_ATTR_ENC_MODE_TUNNEL;
+		return hasnat == 0 ? IPSECDOI_ATTR_ENC_MODE_TUNNEL : IPSECDOI_ATTR_ENC_MODE_UDP_TUNNEL;
 	case IPSEC_MODE_TRANSPORT:
-		return IPSECDOI_ATTR_ENC_MODE_TRNS;
+		return hasnat == 0 ? IPSECDOI_ATTR_ENC_MODE_TRNS : IPSECDOI_ATTR_ENC_MODE_UDP_TRNS;
 	case IPSEC_MODE_ANY:
 		return IPSECDOI_ATTR_ENC_MODE_ANY;
 	default:
@@ -917,6 +924,7 @@ pk_sendupdate(iph2)
 	int e_type, e_keylen, a_type, a_keylen, flags;
 	u_int satype, mode;
 	u_int64_t lifebyte = 0;
+	u_short port = 0;
 
 	/* sanity check */
 	if (iph2->approval == NULL) {
@@ -962,6 +970,16 @@ pk_sendupdate(iph2)
 				&a_type, &a_keylen, &flags) < 0)
 			return -1;
 
+#ifdef IKE_NAT_T
+		if ((pr->encmode == IPSECDOI_ATTR_ENC_MODE_UDP_TUNNEL ||
+			 pr->encmode == IPSECDOI_ATTR_ENC_MODE_UDP_TRNS) &&
+			iph2->ph1->remote->sa_family == AF_INET)
+		{
+			flags |= SADB_X_EXT_NATT;
+			port = ((struct sockaddr_in*)iph2->ph1->remote)->sin_port;
+		}
+#endif
+
 #if 0
 		lifebyte = iph2->approval->lifebyte * 1024,
 #else
@@ -982,7 +1000,7 @@ pk_sendupdate(iph2)
 				pr->keymat->v,
 				e_type, e_keylen, a_type, a_keylen, flags,
 				0, lifebyte, iph2->approval->lifetime, 0,
-				iph2->seq) < 0) {
+				iph2->seq, port) < 0) {
 			plog(LLV_ERROR, LOCATION, NULL,
 				"libipsec failed send update (%s)\n",
 				ipsec_strerror());
@@ -1087,7 +1105,7 @@ pk_recvupdate(mhp)
 				"invalid proto_id %d\n", msg->sadb_msg_satype);
 			return -1;
 		}
-		encmode = pfkey2ipsecdoi_mode(sa_mode);
+		encmode = pfkey2ipsecdoi_mode(sa_mode, iph2->ph1 && natd_hasnat(iph2->ph1));
 		if (encmode == ~0) {
 			plog(LLV_ERROR, LOCATION, NULL,
 				"invalid encmode %d\n", sa_mode);
@@ -1158,6 +1176,7 @@ pk_sendadd(iph2)
 	int e_type, e_keylen, a_type, a_keylen, flags;
 	u_int satype, mode;
 	u_int64_t lifebyte = 0;
+	u_short port = 0;
 
 	/* sanity check */
 	if (iph2->approval == NULL) {
@@ -1203,6 +1222,20 @@ pk_sendadd(iph2)
 				&a_type, &a_keylen, &flags) < 0)
 			return -1;
 
+#ifdef IKE_NAT_T
+		if ((pr->encmode == IPSECDOI_ATTR_ENC_MODE_UDP_TUNNEL ||
+			 pr->encmode == IPSECDOI_ATTR_ENC_MODE_UDP_TRNS) &&
+			iph2->ph1->remote->sa_family == AF_INET)
+		{
+			flags |= SADB_X_EXT_NATT;
+			port = ((struct sockaddr_in*)iph2->ph1->remote)->sin_port;
+			
+			/* If we're the side behind the NAT, send keepalives */
+			if ((iph2->ph1->natt_flags & natt_no_local_nat) == 0)
+				flags |= SADB_X_EXT_NATT_KEEPALIVE;
+		}
+#endif
+
 #if 0
 		lifebyte = iph2->approval->lifebyte * 1024,
 #else
@@ -1223,7 +1256,7 @@ pk_sendadd(iph2)
 				pr->keymat_p->v,
 				e_type, e_keylen, a_type, a_keylen, flags,
 				0, lifebyte, iph2->approval->lifetime, 0,
-				iph2->seq) < 0) {
+				iph2->seq, port) < 0) {
 			plog(LLV_ERROR, LOCATION, NULL,
 				"libipsec failed send add (%s)\n",
 				ipsec_strerror());
@@ -1749,7 +1782,8 @@ getsadbpolicy(policy0, policylen0, type, iph2)
 	if (type != SADB_X_SPDDELETE) {
 		for (pr = iph2->approval->head; pr; pr = pr->next) {
 			xisrlen = sizeof(*xisr);
-			if (pr->encmode == IPSECDOI_ATTR_ENC_MODE_TUNNEL) {
+			if (pr->encmode == IPSECDOI_ATTR_ENC_MODE_TUNNEL ||
+				pr->encmode == IPSECDOI_ATTR_ENC_MODE_UDP_TUNNEL) {
 				xisrlen += (iph2->src->sa_len
 				          + iph2->dst->sa_len);
 			}
@@ -1806,7 +1840,8 @@ getsadbpolicy(policy0, policylen0, type, iph2)
 
 		xisrlen = sizeof(*xisr);
 
-		if (pr->encmode == IPSECDOI_ATTR_ENC_MODE_TUNNEL) {
+		if (pr->encmode == IPSECDOI_ATTR_ENC_MODE_TUNNEL ||
+			pr->encmode == IPSECDOI_ATTR_ENC_MODE_UDP_TUNNEL) {
 			xisrlen += (iph2->src->sa_len + iph2->dst->sa_len);
 
 			memcpy(p, iph2->src, iph2->src->sa_len);
@@ -2317,7 +2352,7 @@ pk_recv(so, lenp)
 u_int32_t
 pk_getseq()
 {
-	return (u_int32_t)random();
+	return arc4random();
 }
 
 static int
@@ -2508,7 +2543,7 @@ sadbsecas2str(src, dst, proto, spi, mode)
 	if (doi_proto == ~0)
 		return NULL;
 	if (mode) {
-		doi_mode = pfkey2ipsecdoi_mode(mode);
+		doi_mode = pfkey2ipsecdoi_mode(mode, 0);
 		if (doi_mode == ~0)
 			return NULL;
 	}

@@ -1,7 +1,8 @@
-This is ../info/emacs, produced by makeinfo version 4.0 from emacs.texi.
+This is ../info/emacs, produced by makeinfo version 4.0f from
+emacs.texi.
 
    This is the Fourteenth edition of the `GNU Emacs Manual', updated
-for Emacs version 21.1.
+for Emacs version 21.2.
 
 INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
@@ -11,9 +12,9 @@ END-INFO-DIR-ENTRY
    Published by the Free Software Foundation 59 Temple Place, Suite 330
 Boston, MA  02111-1307 USA
 
-   Copyright (C) 1985,
-1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001    Free Software
-Foundation, Inc.
+   Copyright (C)
+1985,1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001,2002
+Free Software Foundation, Inc.
 
    Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.1 or
@@ -27,52 +28,6 @@ License."
    (a) The FSF's Back-Cover Text is: "You have freedom to copy and
 modify this GNU Manual, like GNU software.  Copies published by the Free
 Software Foundation raise funds for GNU development."
-
-
-File: emacs,  Node: Scroll Calendar,  Next: Counting Days,  Prev: Calendar Motion,  Up: Calendar/Diary
-
-Scrolling in the Calendar
-=========================
-
-   The calendar display scrolls automatically through time when you
-move out of the visible portion.  You can also scroll it manually.
-Imagine that the calendar window contains a long strip of paper with
-the months on it.  Scrolling the calendar means moving the strip
-horizontally, so that new months become visible in the window.
-
-`C-x <'
-     Scroll calendar one month forward (`scroll-calendar-left').
-
-`C-x >'
-     Scroll calendar one month backward (`scroll-calendar-right').
-
-`C-v'
-`<NEXT>'
-     Scroll calendar three months forward
-     (`scroll-calendar-left-three-months').
-
-`M-v'
-`<PRIOR>'
-     Scroll calendar three months backward
-     (`scroll-calendar-right-three-months').
-
-   The most basic calendar scroll commands scroll by one month at a
-time.  This means that there are two months of overlap between the
-display before the command and the display after.  `C-x <' scrolls the
-calendar contents one month to the left; that is, it moves the display
-forward in time.  `C-x >' scrolls the contents to the right, which
-moves backwards in time.
-
-   The commands `C-v' and `M-v' scroll the calendar by an entire
-"screenful"--three months--in analogy with the usual meaning of these
-commands.  `C-v' makes later dates visible and `M-v' makes earlier
-dates visible.  These commands take a numeric argument as a repeat
-count; in particular, since `C-u' multiplies the next command by four,
-typing `C-u C-v' scrolls the calendar forward by a year and typing `C-u
-M-v' scrolls the calendar backward by a year.
-
-   The function keys <NEXT> and <PRIOR> are equivalent to `C-v' and
-`M-v', just as they are in other modes.
 
 
 File: emacs,  Node: Counting Days,  Next: General Calendar,  Prev: Scroll Calendar,  Up: Calendar/Diary
@@ -1254,4 +1209,32 @@ buffer to select an article.
 you don't select this buffer--all useful article-oriented commands work
 in the summary buffer.  But you can select the article buffer, and
 execute all Gnus commands from that buffer, if you want to.
+
+
+File: emacs,  Node: Gnus Startup,  Next: Summary of Gnus,  Prev: Buffers of Gnus,  Up: Gnus
+
+When Gnus Starts Up
+-------------------
+
+   At startup, Gnus reads your `.newsrc' news initialization file and
+attempts to communicate with the local news server, which is a
+repository of news articles.  The news server need not be the same
+computer you are logged in on.
+
+   If you start Gnus and connect to the server, but do not see any
+newsgroups listed in the group buffer, type `L' or `A k' to get a
+listing of all the groups.  Then type `u' to toggle subscription to
+groups.
+
+   The first time you start Gnus, Gnus subscribes you to a few selected
+groups.  All other groups start out as "killed groups" for you; you can
+list them with `A k'.  All new groups that subsequently come to exist
+at the news server become "zombie groups" for you; type `A z' to list
+them.  You can subscribe to a group shown in these lists using the `u'
+command.
+
+   When you quit Gnus with `q', it automatically records in your
+`.newsrc' and `.newsrc.eld' initialization files the subscribed or
+unsubscribed status of all groups.  You should normally not edit these
+files manually, but you may if you know how.
 

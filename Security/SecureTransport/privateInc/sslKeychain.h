@@ -54,48 +54,8 @@ parseIncomingCerts(
 	SSLCertificate	**destCert,		/* &ctx->{localCert,encryptCert} */
 	CSSM_KEY_PTR	*pubKey,		/* &ctx->signingPubKey, etc. */
 	CSSM_KEY_PTR	*privKey,		/* &ctx->signingPrivKey, etc. */
-	CSSM_CSP_HANDLE	*cspHand		/* &ctx->signingKeyCsp, etc. */
-	#if				ST_KC_KEYS_NEED_REF
-	,
-	SecKeychainRef	*privKeyRef);	/* &ctx->signingKeyRef, etc. */
-	#else
-	);
-	#endif			ST_KC_KEYS_NEED_REF
+	CSSM_CSP_HANDLE	*cspHand);		/* &ctx->signingKeyCsp, etc. */
 	
-/*
- * Add Apple built-in root certs to ctx->trustedCerts.
- */
-OSStatus 
-addBuiltInCerts	(
-	SSLContextRef	ctx);
-
-#if		ST_MANAGES_TRUSTED_ROOTS
-
-/*
- * Given an open Keychain:
- * -- Get raw cert data, add to array of CSSM_DATAs in 
- *    ctx->trustedCerts 
- * -- verify that each of these is a valid (self-verifying)
- *    root cert
- * -- add each subject name to acceptableDNList
- */
-OSStatus
-parseTrustedKeychain(
-	SSLContextRef		ctx,
-	SecKeychainRef		keyChainRef);
-
-/*
- * Given a newly encountered root cert (obtained from a peer's cert chain),
- * add it to newRootCertKc if the user so allows, and if so, add it to 
- * trustedCerts.
- */
-OSStatus
-sslAddNewRoot(
-	SSLContext			*ctx, 
-	const CSSM_DATA_PTR	rootCert);
-
-#endif	/* ST_MANAGES_TRUSTED_ROOTS */
-
 #ifdef __cplusplus
 }
 #endif

@@ -1,0 +1,22 @@
+Questo è un promemoria, inviato una volta al mese, riguardo la tua
+iscrizione alla lista %(hostname)s.  Include le tue informazioni di 
+sottoscrizione e come usarle per cambiarle o per cancellarti da una 
+lista.
+
+Puoi visitare gli URL per cambiare il tuo stato d'iscrizione o la
+configurazione, inclusa la cancellazione, il settaggio della 
+modalità di spedizione digest, o disabilitare completamente la 
+spedizione (es., per una vacanza), e così via.
+
+In aggiunta all'interfaccia web, puoi usare anche l'email per 
+fare alcuni cambiamenti.  Per altre informazioni, invia un 
+messaggio all'indirizzo '-request' della lista (per esempio, 
+%(exreq)s) contenente solamente la parola 'help' nel corpo del 
+messaggio.  Ti sarà inviato un messaggio con le istruzioni.
+
+Se hai domande, problemi, commenti, ecc., inviali a %(owner)s. 
+Grazie!
+
+Password per %(useraddr)s: 
+
+

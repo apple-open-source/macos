@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE project [
+   <!ENTITY buildmagic SYSTEM "../tools/etc/buildmagic/buildmagic.ent">
+]>
+
+<!-- ====================================================================== -->
+<!--                                                                        -->
+<!--  JBoss, the OpenSource J2EE webOS                                      -->
+<!--                                                                        -->
+<!--  Distributable under LGPL license.                                     -->
+<!--  See terms of license at http://www.gnu.org.                           -->
+<!--                                                                        -->
+<!-- ====================================================================== -->
+
+<!-- $Id: build.xml,v 1.3.4.1 2003/05/18 06:28:18 starksm Exp $ -->
+
+<project default="main" name="JBoss/EJB">
+
+  <!-- ================================================================== -->
+  <!-- Setup                                                              -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Include the common Buildmagic elements.
+     |
+     | This defines several different targets, properties and paths.
+     | It also sets up the basic extention tasks amoung other things.
+   -->
+
+  &buildmagic;
+
+
+  <!-- ================================================================== -->
+  <!-- Initialization                                                     -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Initialize the build system.  Must depend on '_buildmagic:init'.  
+     | Other targets should depend on 'init' or things will mysteriously fail.
+   -->
+
+  <target name="init" unless="init.disable" depends="_buildmagic:init">
+  </target>
+
+
+  <!-- ================================================================== -->
+  <!-- Configuration                                                      -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Configure the build system.  
+     |
+     | This target is invoked by the Buildmagic initialization logic and 
+     | should contain module specific configuration elements.
+   -->
+
+  <target name="configure" unless="configure.disable">
+
+    <!-- =================== -->
+    <!-- Basic Configuration -->
+    <!-- =================== -->
+
+    <!-- Module name(s) & version -->
+    <property name="module.name" value="ejb"/>
+    <property name="module.Name" value="JBoss EJB"/>
+    <property name="module.version" value="DEV"/>
+
+    <!-- ========= -->
+    <!-- Libraries -->
+    <!-- ========= -->
+
+    <!-- JUnit -->
+    <property name="junit.junit.root" value="${project.thirdparty}/junit/junit"/>
+    <property name="junit.junit.lib" value="${junit.junit.root}/lib"/>
+    <path id="junit.junit.classpath">
+      <pathelement path="${junit.junit.lib}/junit.jar"/>
+    </path>
+
+    <!-- The combined library classpath -->
+    <path id="library.classpath">
+    </path>
+
+    <!-- ======= -->
+    <!-- Modules -->
+    <!-- ======= -->
+
+    <!-- JMX -->
+    <property name="jboss.jmx.root" value="${project.root}/jmx/output"/>
+    <property name="jboss.jmx.lib" value="${jboss.jmx.root}/lib"/>
+    <path id="jboss.jmx.classpath">
+      <pathelement path="${jboss.jmx.lib}/jboss-jmx.jar"/>
+    </path>
+
+    <!-- The combined dependent module classpath -->
+    <path id="dependentmodule.classpath">
+      <path refid="jboss.jmx.classpath"/>
+    </path>
+
+    <!-- ===== -->
+    <!-- Tasks -->
+    <!-- ===== -->
+
+    <!-- Where source files live -->
+    <property name="source.java" value="${module.source}/main"/>
+
+    <!-- Where build generated files will go -->
+    <property name="build.reports" value="${module.output}/reports"/>
+    <property name="build.classes" value="${module.output}/classes"/>
+    <property name="build.lib" value="${module.output}/lib"/>
+    <property name="build.api" value="${module.output}/api"/>
+    <property name="build.etc" value="${module.output}/etc"/>
+
+    <!-- Install/Release structure -->
+    <property name="install.id" value="${module.name}-${module.version}"/>
+    <property name="release.id" value="${install.id}"/>
+    <property name="install.root" value="${module.output}/${install.id}"/>
+
+    <!-- The combined thirdparty classpath -->
+    <path id="thirdparty.classpath">
+      <path refid="library.classpath"/>
+      <path refid="dependentmodule.classpath"/>
+    </path>
+
+    <!-- This module is based on Java 1.2 -->
+    <property name="javac.target" value="1.2"/>
+
+    <!-- classpath and local.classpath must have a value using with a path -->
+    <property name="classpath" value=""/>
+    <property name="local.classpath" value=""/>
+
+    <!-- The classpath required to build classes. -->
+    <path id="javac.classpath">
+      <pathelement path="${classpath}"/>
+      <pathelement path="${local.classpath}"/>
+      <path refid="thirdparty.classpath"/>
+    </path>
+
+    <!-- The classpath required to build javadocs. -->
+    <path id="javadoc.classpath">
+      <path refid="javac.classpath"/>
+    </path>
+
+    <!-- Packages to include when generating api documentation -->
+    <property name="javadoc.packages" value="org.jboss.*"/>
+
+    <!-- Override JUnit defaults -->
+    <property name="junit.timeout" value="240000"/> <!-- 4 minutes -->
+    <property name="junit.batchtest.todir" value="${build.reports}"/>
+    <property name="junit.jvm.options" value="-Ddummy"/>
+  </target>
+
+
+  <!-- ================================================================== -->
+  <!-- Compile                                                            -->
+  <!-- ================================================================== -->
+
+  <!-- 
+     | Compile everything.
+     |
+     | This target should depend on other compile-* targets for each 
+     | different type of compile that needs to be performed, short of
+     | documentation compiles.
+   -->
+
+  <target name="compile" 
+	  description="Compile all source files."
+	  depends="compile-classes"/>
+
+  <!-- Compile all class files -->
+  <target name="compile-classes" depends="init">
+    <mkdir dir="${build.classes}"/>
+    <javac destdir="${build.classes}"
+           optimize="${javac.optimize}"
+	   target="${javac.target}"
+           debug="${javac.debug}"
+	   depend="${javac.depend}"
+	   verbose="${javac.verbose}"
+	   deprecation="${javac.deprecation}"
+	   includeAntRuntime="${javac.include.ant.runtime}"
+	   includeJavaRuntime="${javac.include.java.runtime}"
+	   failonerror="${javac.fail.onerror}">
+       <src path="${source.java}"/>
+       <classpath refid="javac.classpath"/>
+       <include name="${javac.includes}"/>
+       <exclude name="${javac.excludes}"/>
+    </javac>
+  </target>
+
+
+  <!-- ================================================================== -->
+  <!-- Archives                                                           -->
+  <!-- ================================================================== -->
+
+  <!-- 
+     | Build all jar files.
+   -->
+  <target name="jars" 
+	  description="Builds all jar files."
+	  depends="compile">
+
+    <mkdir dir="${build.lib}"/>
+
+    <!-- Build the jboss-ejb.jar -->
+    <jar jarfile="${build.lib}/jboss-ejb.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/ejb/**"/>
+      </fileset>
+    </jar>
+    
+    <!-- Build the jboss-ejb-client.jar -->
+    <jar jarfile="${build.lib}/jboss-ejb-client.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/ejb/**"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- ================================================================== -->
+  <!-- Install & Release                                                  -->
+  <!-- ================================================================== -->
+
+  <target name="install" 
+	  description="Install the structure for a release."
+	  depends="all, _buildmagic:install:default"/>
+
+  <target name="release" depends="install"/>
+
+  <target name="release-zip" 
+	  description="Builds a ZIP distribution."
+	  depends="release, _buildmagic:release:zip"/>
+
+  <target name="release-tar" 
+	  description="Builds a TAR distribution."
+	  depends="release, _buildmagic:release:tar"/>
+
+  <target name="release-tgz" 
+	  description="Builds a TAR-GZ distribution."
+	  depends="release, _buildmagic:release:tgz"/>
+
+  <target name="release-all"
+	  description="Builds a distribution for each archive type."
+	  depends="release-zip, release-tgz"/>
+
+
+  <!-- ================================================================== -->
+  <!-- Cleaning                                                           -->
+  <!-- ================================================================== -->
+
+  <!-- Clean up all build output -->
+  <target name="clean" 
+	  description="Cleans up most generated files."
+	  depends="_buildmagic:clean">
+  </target>
+
+  <!-- Clean up all generated files -->
+  <target name="clobber" 
+	  description="Cleans up all generated files."
+	  depends="_buildmagic:clobber, clean">
+  </target>
+
+
+  <!-- ================================================================== -->
+  <!-- Misc.                                                              -->
+  <!-- ================================================================== -->
+
+  <target name="main"
+	  description="Executes the default target (most)."
+	  depends="most"/>
+    
+  <target name="all"
+	  description="Builds everything."
+	  depends="jars, docs"/>
+
+  <target name="most" 
+	  description="Builds almost everything."
+	  depends="jars"/>
+
+  <target name="help" 
+          description="Show this help message."
+	  depends="_buildmagic:help:standard"/>
+
+</project>

@@ -1,0 +1,166 @@
+#!/usr/bin/perl
+
+# Generate a ChangeLog file from a CVS log.
+# Written by Robert Krawitz <rlk@alum.mit.edu>
+# This code is in the public domain and may be used
+# for any purpose.
+
+%logmsgs = ();			# Index by date, time, and author
+%fileversions = ();
+$skipme = 0;
+
+@cvsdirs=`find . -type d -name CVS -print`;
+map { chomp; s,^\./,, } @cvsdirs;
+foreach $d (@cvsdirs) {
+    if (open ENTRIES, "$d/Entries") {
+	local ($rootdir) = $d;
+	$rootdir =~ s/CVS$//;
+	while (<ENTRIES>) {
+	    local ($type, $file, $version, @junk) = split /\//;
+	    if ($type eq "") {
+		$file = "$rootdir$file";
+		$fileversions{$file} = $version;
+	    }
+	}
+	close ENTRIES;
+    }
+}
+
+sub compare_versions
+{
+    # vw: version of the working file
+    # vl: version from the log
+    # The idea is that we want versions on the current branch, on branches
+    # leading to the current branch, and on the root prior to the current
+    # branch.
+    #
+    # Example: the current file is 1.5.12.2.4.3
+    #
+    # We want versions:
+    # 1.1
+    # 1.2
+    # 1.3
+    # 1.4
+    # 1.5
+    # 1.5.12.1
+    # 1.5.12.2
+    # 1.5.12.2.4.1
+    # 1.5.12.2.4.2
+    # 1.5.12.2.4.3
+    #
+    # We look at the numbers in pairs.  The first number in each pair is
+    # the branch number; the second number is the version on the branch.
+    # The pairs are of the form (B, V).
+    #
+    # If the number of components in the log version is greater than the
+    # number of components in the working version, we aren't interested.
+    # This file cannot be a predecessor of the working version; it is
+    # either a branch off the working version, or it is an entirely different
+    # branch.
+    #
+    # We next iterate over all pairs in the log version.  The following must
+    # be true for all pairs:
+    #
+    # Bw = Bl
+    # Vw >= Vl
+    #
+    # Note that there's no problem if the number of components in the
+    # working version exceeds the number of components in the log version.
+    #
+    # There is a special case: If the working version doesn't exist at all,
+    # we return true if the log version is on the mainline.  This lets us
+    # see log messages from files that have been deleted.
+
+    my ($vw, $vl) = @_;
+    if ($vw eq "") {
+	return 2;
+    }
+    my (@vvw) = split /\./, $vw;
+    my (@vvl) = split /\./, $vl;
+    if ($#vvl > $#vvw) {
+	return 0;
+    }
+    my ($i);
+    for ($i = 0; $i < $#vvl; $i += 2) {
+	my ($bl) = $vvl[$i];
+	my ($vl) = $vvl[$i + 1];
+	my ($bw) = $vvw[$i];
+	my ($vw) = $vvw[$i + 1];
+	if ($bw != $bl || $vw < $vl) {
+	    return 0;
+	}
+    }
+    return 1;
+}
+
+while (<>) {
+    if (/^Working file: /) {
+	chomp;
+	($ignore, $ignore, $currentfile) = split;
+	while (<>) {
+	    if (/^----------------------------$/) {
+		last;
+	    }
+	}
+	next;
+    } elsif (/^----------------------------$/) {
+	next;
+    } elsif (/^revision /) {
+	($ignore, $revision) = split;
+	my ($check) =&compare_versions($fileversions{$currentfile}, $revision);
+	#
+	# Special case -- if a file is not in the current sandbox, but is
+	# at top level, log it; otherwise if it is not in the current
+	# sandbox, don't log it.
+	# 
+	if (($check == 2 && !($currentfile =~ /\//)  &&
+	     ($currentfile =~ /\.[chly]$/)) ||
+	    $check == 1) {
+	    $skipme = 0;
+	} else {
+	    $skipme = 1;
+	}
+    } elsif (/^date: /) {
+	($ignore, $date, $time, $ignore, $author, $ignore, $ignore,
+	 $ignore, $plus, $minus, $ignore) = split;
+	$time =~ s/:[0-9][0-9];$//;
+	$author =~ s/;$//;
+	$datetimeauthor = "$date $time $author";
+	$body = "";
+	$firstline = 1;
+	while (<>) {
+	    if (/^----------------------------$/) {
+		last;
+	    } elsif (/^=============================================================================$/) {
+		last;
+	    } elsif ($firstline && /^branches:[ \t]+[0-9]+(\.[0-9]+)+;$/) {
+		next;
+	    } else {
+		$body .= $_;
+		$firstline = 0;
+	    }
+	}
+	if ($skipme == 0) {
+	    if ($logmsgs{$datetimeauthor}) {
+		$stuff = $logmsgs{$datetimeauthor};
+		$stuff =~ s/\n\n/\n\t$currentfile ($revision) ($plus $minus)\n\n/;
+		$logmsgs{$datetimeauthor} = $stuff;
+	    } else {
+		$logmsgs{$datetimeauthor} = "Files:\t$currentfile ($revision) ($plus $minus)\n\n$body"
+		}
+	}
+    }				# Other junk we ignore
+}
+
+@chlog = reverse sort keys %logmsgs;
+foreach $_ (@chlog) {
+    ($date, $time, $author) = split;
+    $date =~ s,/,-,g;
+    $msg = $logmsgs{$_};
+    print "$date\t<$author\@sourceforge.net>\n\n";
+    $msg =~ s/^/\t/g;
+    $msg =~ s/\n/\n\t/g;
+    $msg =~ s/[ \t]+\n/\n/g;
+    $msg =~ s/[ \t]+$//g;
+    print "$msg\n";
+}

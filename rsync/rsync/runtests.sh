@@ -125,6 +125,9 @@ set -e
 
 RUNSHFLAGS='-e'
 
+# for Solaris
+PATH="/usr/xpg4/bin/:$PATH"
+
 if [ -n "$loglevel" ] && [ "$loglevel" -gt 8 ]
 then
     if set -x
@@ -138,6 +141,20 @@ echo "============================================================"
 echo "$0 running in `pwd`"
 echo "    rsync_bin=$rsync_bin"
 echo "    srcdir=$srcdir"
+
+testuser=`whoami || echo UNKNOWN`
+
+echo "    testuser=$testuser"
+echo "    os=`uname -a`"
+
+# It must be "yes", not just nonnull
+if test "x$preserve_scratch" = xyes
+then
+    echo "    preserve_scratch=yes"
+else
+    echo "    preserve_scratch=no"
+fi    
+
 
 if test ! -f $rsync_bin
 then
@@ -176,8 +193,8 @@ prep_scratch() {
     return 0
 }
 
-discard_scratch() {
-    [ -d "$scratchdir" ] && rm -rf "$scratchdir"
+maybe_discard_scratch() {
+    [ x"$preserve_scratch" != xyes ] && [ -d "$scratchdir" ] && rm -rf "$scratchdir"
     return 0
 }
 
@@ -198,16 +215,25 @@ do
     result=$?
     set -e
 
+    if [ "x$always_log" = xyes -o \( $result != 0 -a $result != 77 -a $result != 78 \) ]
+    then
+	echo "----- $testbase log follows"
+	cat "$scratchdir/test.log"
+	echo "----- $testbase log ends"
+    fi
+
     case $result in
     0)
 	echo "PASS    $testbase"
 	passed=`expr $passed + 1`
-	discard_scratch
+	maybe_discard_scratch
 	;;
     77)
-	echo "SKIP    $testbase"
+	# backticks will fill the whole file onto one line, which is a feature
+	whyskipped=`cat "$scratchdir/whyskipped"`
+	echo "SKIP    $testbase ($whyskipped)"
 	skipped=`expr $skipped + 1`
-	discard_scratch
+	maybe_discard_scratch
 	;;
     78)
         # It failed, but we expected that.  don't dump out error logs, 
@@ -218,9 +244,6 @@ do
 	;;
     *)
 	echo "FAIL    $testbase"
-	echo "----- $testbase failed: log follows"
-	cat "$scratchdir/test.log"
-	echo "----- $testbase log ends"
 	failed=`expr $failed + 1`
 	if [ "x$nopersist" = "xyes" ]
 	then

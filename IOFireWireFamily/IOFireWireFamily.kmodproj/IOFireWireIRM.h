@@ -23,7 +23,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1999-2002 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All rights reserved.
  *
  * IOFWIsochPort is an abstract object that represents hardware on the bus
  * (locally or remotely) that sends or receives isochronous packets.
@@ -31,6 +31,16 @@
  * Remote ports are implemented by the driver for the remote device.
  *
  * HISTORY
+ * $Log: IOFireWireIRM.h,v $
+ * Revision 1.3  2003/07/21 06:52:59  niels
+ * merge isoch to TOT
+ *
+ * Revision 1.1.14.2  2003/07/21 06:44:45  niels
+ * *** empty log message ***
+ *
+ * Revision 1.1.14.1  2003/07/01 20:54:07  niels
+ * isoch merge
+ *
  *
  */
 
@@ -56,8 +66,8 @@ protected:
 	UInt32			fGeneration;
 		
 	// channel allocation	
-	UInt32			fNewChannels;
-	UInt32			fOldChannels;
+	UInt32			fNewChannelsAvailable31_0;
+	UInt32			fOldChannelsAvailable31_0;
 
 	IOFWCompareAndSwapCommand * fLockCmd;
 	bool						fLockCmdInUse;

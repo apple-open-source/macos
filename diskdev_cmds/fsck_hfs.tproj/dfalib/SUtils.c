@@ -653,7 +653,7 @@ UpdateVolumeEncodings(SVCB *volume, TextEncoding encoding)
 	
 	index = MapEncodingToIndex(encoding);
 
-	volume->vcbEncodingsBitmap |= (1 << index);
+	volume->vcbEncodingsBitmap |= (u_int64_t)(1ULL << index);
 		
 	// vcb should already be marked dirty
 }
@@ -1104,7 +1104,7 @@ void	InitializeVolumeObject( SGlobPtr GPtr )
 	err = GetVolumeObjectBlock( myVOPtr, MDB_BlkN, &myBlockDescriptor );
 	if ( err == noErr ) {
 		myMDBPtr = (HFSMasterDirectoryBlock	*) myBlockDescriptor.buffer;
-		if ( myMDBPtr->drSigWord == kHFSPlusSigWord) {
+		if ( myMDBPtr->drSigWord == kHFSPlusSigWord || myMDBPtr->drSigWord == kHFSXSigWord) {
 			myVHPtr	= (HFSPlusVolumeHeader *) myMDBPtr;
 			
 			myVOPtr->primaryVHB = MDB_BlkN;								// save location
@@ -1144,7 +1144,7 @@ void	InitializeVolumeObject( SGlobPtr GPtr )
 	err = GetVolumeObjectBlock( myVOPtr, myVOPtr->totalDeviceSectors - 2, &myBlockDescriptor );
 	if ( err == noErr ) {
 		myMDBPtr = (HFSMasterDirectoryBlock	*) myBlockDescriptor.buffer;
-		if ( myMDBPtr->drSigWord == kHFSPlusSigWord ) {
+		if ( myMDBPtr->drSigWord == kHFSPlusSigWord || myMDBPtr->drSigWord == kHFSXSigWord ) {
 			myVHPtr	= (HFSPlusVolumeHeader *) myMDBPtr;
 			
 			myVOPtr->primaryVHB = MDB_BlkN;								// save location
@@ -1716,7 +1716,8 @@ OSErr	ValidVolumeHeader( HFSPlusVolumeHeader *volumeHeader )
 {
 	OSErr	err;
 	
-	if ( volumeHeader->signature == kHFSPlusSigWord && volumeHeader->version == kHFSPlusVersion )
+	if ((volumeHeader->signature == kHFSPlusSigWord && volumeHeader->version == kHFSPlusVersion) ||
+	    (volumeHeader->signature == kHFSXSigWord && volumeHeader->version == kHFSXVersion))
 	{
 		if ( (volumeHeader->blockSize != 0) && ((volumeHeader->blockSize & 0x01FF) == 0) )			//	non zero multiple of 512
 			err = noErr;
@@ -2198,3 +2199,16 @@ OSErr	CacheWriteInPlace( SVCB *vcb, UInt32 fileRefNum,  HIOParam *iopb, UInt64 c
 	
 	return( err );
 }
+
+
+void PrintName( int theCount, const UInt8 *theNamePtr, Boolean isUnicodeString )
+{
+    int			myCount;
+ 	int			i;
+    
+    myCount = (isUnicodeString) ? (theCount * 2) : theCount;
+    for ( i = 0; i < myCount; i++ ) 
+        printf( "%02X ", *(theNamePtr + i) );
+    printf( "\n" );
+
+} /* PrintName */

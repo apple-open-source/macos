@@ -1,0 +1,318 @@
+Index: src/clinet.c
+===================================================================
+RCS file: /cvsroot/distcc/src/clinet.c,v
+retrieving revision 1.25
+diff -u -r1.25 clinet.c
+--- src/clinet.c	16 Sep 2002 08:14:53 -0000	1.25
++++ src/clinet.c	20 Sep 2002 08:49:12 -0000
+@@ -44,8 +44,7 @@
+ 
+ #include <netinet/in.h>
+ #include <netinet/tcp.h>
+-
+-#include <netdb.h>
++#include <arpa/inet.h>
+ 
+ #include "distcc.h"
+ #include "trace.h"
+@@ -77,12 +76,11 @@
+  *
+  * @todo Don't try for too long to connect. 
+  **/
+-int dcc_open_socket_out(const char *host, int port, int *p_fd)
++int dcc_open_socket_out(const struct in_addr *in, int port, int *p_fd)
+ {
+     int type = SOCK_STREAM;
+     struct sockaddr_in sock_out;
+     int fd;
+-    struct hostent *hp;
+ 
+     /* Ignore SIGPIPE; we consistently check error codes and will
+      * see the EPIPE. */
+@@ -94,25 +92,18 @@
+ 	return EXIT_CONNECT_FAILED;
+     }
+ 
+-    hp = gethostbyname(host);
+-    if (!hp) {
+-	rs_log_error("unknown host: \"%s\"", host);
+-	(void) close(fd);
+-	return EXIT_CONNECT_FAILED;
+-    }
+-
+-    memcpy(&sock_out.sin_addr, hp->h_addr, (size_t) hp->h_length);
++    sock_out.sin_addr.s_addr = in->s_addr;
+     sock_out.sin_port = htons((in_port_t) port);
+     sock_out.sin_family = PF_INET;
+ 
+     if (connect(fd, (struct sockaddr *) &sock_out, (int) sizeof(sock_out))) {
+-        rs_log_error("failed to connect to %s port %d: %s", host, port, 
++        rs_log_error("failed to connect to %s port %d: %s", inet_ntoa(*in), port, 
+                      strerror(errno));
+ 	(void) close(fd);
+ 	return EXIT_CONNECT_FAILED;
+     }
+ 
+-    rs_trace("client got connection to %s port %d on fd%d", host, port, fd);
++    rs_trace("client got connection to %s port %d on fd%d", inet_ntoa(*in), port, fd);
+ 
+     *p_fd = fd;
+     return 0;
+Index: src/clinet.h
+===================================================================
+RCS file: /cvsroot/distcc/src/clinet.h,v
+retrieving revision 1.1
+diff -u -r1.1 clinet.h
+--- src/clinet.h	6 Jul 2002 06:49:16 -0000	1.1
++++ src/clinet.h	20 Sep 2002 08:49:12 -0000
+@@ -21,4 +21,5 @@
+  * USA
+  */
+ 
+-int dcc_open_socket_out(const char *host, int port, int *fd);
++int dcc_open_socket_out(const struct in_addr *in,
++                        int port, int *fd);
+Index: src/distcc.c
+===================================================================
+RCS file: /cvsroot/distcc/src/distcc.c,v
+retrieving revision 1.123
+diff -u -r1.123 distcc.c
+--- src/distcc.c	18 Sep 2002 06:57:45 -0000	1.123
++++ src/distcc.c	20 Sep 2002 08:49:12 -0000
+@@ -45,6 +45,11 @@
+ #include <sys/types.h>
+ #include <sys/wait.h>
+ 
++#include <netdb.h>
++#include <netinet/in.h>
++#include <netinet/tcp.h>
++#include <arpa/inet.h>
++
+ #include "distcc.h"
+ #include "trace.h"
+ #include "io.h"
+@@ -282,8 +287,8 @@
+     int net_fd;
+     int ret;
+ 
+-    dcc_note_execution(host->hostname, argv);
+-    if ((ret = dcc_open_socket_out(host->hostname, host->port, &net_fd)) != 0)
++    dcc_note_execution(host->hostname, inet_ntoa(host->in), argv);
++    if ((ret = dcc_open_socket_out(&host->in, host->port, &net_fd)) != 0)
+         return ret;
+ 
+     ret = dcc_send_job_corked(net_fd, argv, cpp_pid, status, cpp_fname);
+@@ -355,7 +360,9 @@
+     long u_us, s_us;
+     
+     char *buildhost = "localhost";
+-    dcc_note_execution(buildhost, argv);
++    char *ip = "127.0.0.1";
++    
++    dcc_note_execution(buildhost, ip, argv);
+ 
+     /* We don't do any redirection of file descriptors when running locally,
+      * so if for example cpp is being used in a pipeline we should be fine. */
+Index: src/exec.c
+===================================================================
+RCS file: /cvsroot/distcc/src/exec.c,v
+retrieving revision 1.54
+diff -u -r1.54 exec.c
+--- src/exec.c	14 Sep 2002 00:11:19 -0000	1.54
++++ src/exec.c	20 Sep 2002 08:49:12 -0000
+@@ -87,12 +87,12 @@
+ #  define WCOREDUMP(status) 0
+ #endif
+ 
+-void dcc_note_execution(const char *hostname, char **argv)
++void dcc_note_execution(const char *hostname, const char *ip, char **argv)
+ {
+     char *astr;
+ 
+     astr = dcc_argv_tostr(argv);
+-    rs_log(RS_LOG_INFO|RS_LOG_NONAME, "exec on %s: %s", hostname, astr);
++    rs_log(RS_LOG_INFO|RS_LOG_NONAME, "exec on %s (%s): %s", hostname, ip, astr);
+     free(astr);
+ }
+ 
+Index: src/exec.h
+===================================================================
+RCS file: /cvsroot/distcc/src/exec.h,v
+retrieving revision 1.1
+diff -u -r1.1 exec.h
+--- src/exec.h	13 Sep 2002 02:22:25 -0000	1.1
++++ src/exec.h	20 Sep 2002 08:49:12 -0000
+@@ -32,7 +32,7 @@
+ 
+ int dcc_collect_child(pid_t pid, int *wait_status, long *, long *);
+ int dcc_critique_status(int s, const char *, const char *hostname);
+-void dcc_note_execution(const char *hostname, char **argv);
++void dcc_note_execution(const char *hostname, const char *ip, char **argv);
+ int dcc_report_rusage(const char *command,
+                       long utime_usec,
+                       long stime_usec);
+Index: src/hosts.c
+===================================================================
+RCS file: /cvsroot/distcc/src/hosts.c,v
+retrieving revision 1.16
+diff -u -r1.16 hosts.c
+--- src/hosts.c	13 Sep 2002 23:47:10 -0000	1.16
++++ src/hosts.c	20 Sep 2002 08:49:12 -0000
+@@ -73,6 +73,9 @@
+ #include <time.h>
+ #include <ctype.h>
+ 
++#include <netinet/in.h>
++#include <arpa/inet.h>
++
+ #include "distcc.h"
+ #include "trace.h"
+ #include "util.h"
+@@ -174,7 +177,7 @@
+     char *port_str;
+     int ret;
+     const char *token = token_start;
+-    
++
+     if ((ret = dcc_dup_part(&token, &hostdef->hostname, ": \t\n\f")) != 0)
+         return ret;
+ 
+Index: src/hosts.h
+===================================================================
+RCS file: /cvsroot/distcc/src/hosts.h,v
+retrieving revision 1.3
+diff -u -r1.3 hosts.h
+--- src/hosts.h	2 Aug 2002 04:23:42 -0000	1.3
++++ src/hosts.h	20 Sep 2002 08:49:12 -0000
+@@ -38,6 +38,7 @@
+     } mode;
+     char * user;
+     char * hostname;
++    struct in_addr in;
+     int port;
+     char * ssh_command;
+ 
+Index: src/lock.c
+===================================================================
+RCS file: /cvsroot/distcc/src/lock.c,v
+retrieving revision 1.2
+diff -u -r1.2 lock.c
+--- src/lock.c	13 Sep 2002 23:52:25 -0000	1.2
++++ src/lock.c	20 Sep 2002 08:49:12 -0000
+@@ -37,6 +37,8 @@
+ 
+ #include <sys/stat.h>
+ #include <sys/file.h>
++#include <arpa/inet.h>
++#include <netinet/in.h>
+ 
+ #include "distcc.h"
+ #include "trace.h"
+@@ -51,6 +53,7 @@
+     DCC_MODE_LOCAL,
+     NULL,
+     "localhost",
++    {0},
+     0,
+     NULL,
+     NULL    
+@@ -64,16 +67,20 @@
+ /* TODO: Lock files ought to also incorporate IP address, so that we
+  * can use multi-A records for round-robin assignment. */
+ 
+-static char * dcc_make_lock_filename(const char *host, int iter)
++static char * dcc_make_lock_filename(const char *host, const struct in_addr *in,
++                                     int iter)
+ {
+     int need_len;
+     char * buf;
+     const char *tempdir;
+ 
+     tempdir = dcc_get_tempdir();
+-    need_len = strlen(tempdir) + 6 + strlen(host) + 1 + 7 + 1;
++    need_len = strlen(tempdir) + 6 + strlen(host) + 1
++        + strlen(inet_ntoa(*in)) + 1 + 7 + 1;
+     buf = malloc(need_len);
+-    if (snprintf(buf, need_len, "%s/lock_%s_%07d", tempdir, host, iter)
++
++    if (snprintf(buf, need_len, "%s/lock_%s_%s_%07d",
++                 tempdir, host, inet_ntoa(*in), iter)
+         != need_len - 1) {
+         rs_fatal("wrong length??");
+     }
+@@ -117,7 +124,7 @@
+     int ret;
+ 
+     tempdir = dcc_get_tempdir();
+-    fname = dcc_make_lock_filename(host->hostname, iter);
++    fname = dcc_make_lock_filename(host->hostname, &(host->in), iter);
+ 
+     /* Create if it doesn't exist.  We don't actually do anything with
+      * the file except lock it.*/
+@@ -163,7 +170,7 @@
+ int dcc_lock_local(void)
+ {
+     int i_try;
+-    
++
+     /* FIXME: Should use a function that blocks until a lock can be
+      * taken. */
+ 
+Index: src/where.c
+===================================================================
+RCS file: /cvsroot/distcc/src/where.c,v
+retrieving revision 1.31
+diff -u -r1.31 where.c
+--- src/where.c	13 Sep 2002 23:47:10 -0000	1.31
++++ src/where.c	20 Sep 2002 08:49:12 -0000
+@@ -81,6 +81,10 @@
+ #include <sys/stat.h>
+ #include <sys/file.h>
+ 
++#include <netinet/in.h>
++#include <arpa/inet.h>
++#include <netdb.h>
++
+ #include "distcc.h"
+ #include "trace.h"
+ #include "util.h"
+@@ -95,10 +99,13 @@
+ 
+ int dcc_pick_buildhost(const struct dcc_hostdef **buildhost)
+ {
+-    int i_try;
++    int i_try, j;
++    
+     int n_hosts;
+     struct dcc_hostdef *hostlist, *h;
++    struct hostent *hp;
+     int ret;
++    
+ 
+     if ((ret = dcc_parse_hosts_env(&hostlist, &n_hosts)) != 0) {
+         /* an error occured; but let's be helpful and build locally
+@@ -109,10 +116,20 @@
+ 
+     for (i_try = 0; i_try < 50; i_try++) {
+         for (h = hostlist; h; h = h->next) {
+-            if (dcc_try_lock_host(h, i_try) == 0) {
+-                rs_trace("building on %s", h->hostname);
+-                *buildhost = h;
+-                return 0;
++            /* resolve hostname and fetch all proper IPs. */
++            hp = gethostbyname(h->hostname);
++            if(!hp)
++                continue;
++
++            /* resolving successful. */
++            for(j = 0; hp->h_addr_list[j]; j++) {
++                /* try each of the fetched IPs till we get a capable one. */
++                memcpy(&h->in.s_addr, hp->h_addr_list[j], (size_t)hp->h_length);
++                if (dcc_try_lock_host(h, i_try) == 0) {
++                    rs_trace("building on %s (%s)", h->hostname, inet_ntoa(h->in));
++                    *buildhost = h;
++                    return 0;
++                }
+             }
+         }
+     }

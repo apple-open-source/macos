@@ -28,7 +28,17 @@
 #include	"stdlib.h"
 #include	"strings.h"
 #include	"time.h"
+
+#define AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER
+#if defined (__ppc__)
+    #define TARGET_CPU_PPC 1
+#elif defined (__i386__)
+    #define TARGET_CPU_X86 1
+#else
+#error Unknown architecture
+#endif
 #include	"bcd.h"
+
 #include	"fp_private.h"
 
 #include <sys/types.h>
@@ -47,6 +57,11 @@
 #define rinttol lrint
 #define roundtol lround
 
+double_t annuity(double_t a, double_t b);
+double_t compound(double_t a, double_t b);
+
+
+#if defined(__BIG_ENDIAN__)
 typedef union
       {
        long double ldbl;
@@ -56,6 +71,21 @@ typedef union
 			double lsd;
 			} headtail;
       } doubledouble;
+
+#elif defined(__LITTLE_ENDIAN__)
+typedef union
+      {
+       long double ldbl;
+	   struct
+	   		{
+			double lsd;
+			double msd;
+			} headtail;
+      } doubledouble;
+
+#else
+#error Unknown endianness
+#endif
 
 typedef struct {
 	hexdouble r;
@@ -139,6 +169,15 @@ union {
 	onion1.d = x1;
 	fprintf ( OutFile,"%8.8x %8.8x   ", (int) onion1.i[0], (int) onion1.i[1]);
 }
+static void printdblsgl (const double x1) {
+union {
+	float f;
+	unsigned long i[1];
+} onion11;
+	
+	onion11.f = (float)x1;
+	fprintf ( OutFile,"%8.8x   ", (int) onion11.i[0]);
+}
 #endif /* noprint */
 
 #pragma	segment	testfcns
@@ -167,7 +206,7 @@ static int B2D2B	(double a, double b, double *c, char pc) {
 	switch (pc) {
 		case 's':
 					fval = (float) a;
-					for (i = 9; i <= 36; i++) {
+					for (i = 9; i <= SIGDIGLEN; i++) {
 						df.digits = i;
 						df.style = FLOATDECIMAL;
 						num2dec (&df, fval, &dc);
@@ -218,7 +257,7 @@ static int B2D2B	(double a, double b, double *c, char pc) {
 		case 'i':
 		case 'l':
 		case 'd':
-					for (i = 17; i <= 36; i++) {
+					for (i = 17; i <= SIGDIGLEN; i++) {
 						df.digits = i;
 						df.style = FLOATDECIMAL;
 						switch (pc) {
@@ -470,6 +509,8 @@ double n2;
 	else if (op [1] == 'V') return sqrt (r);
 	else if (op [1] == 'W') return erfc (r);
 	else if (op [1] == 'X') return pow (r, n);
+	else if (op [1] == 'Y') return compound (r, n);
+	else if (op [1] == 'Z') return annuity (r, n);
 	else if (op [1] == 'a') 
     return ceil (r);
 	else if (op [1] == 'b')
@@ -535,7 +576,7 @@ double n2;
 }
 
 extern short int HiTol, LoTol, RSign;		// These are located in buildnum.c
-int Tolerance = 0;					// indicates Tolerances acceptable
+int Tolerance = 1;					// indicates Tolerances acceptable
 
 static void testfcn (const char *op, double r, double n,
 					const char *flags, double rslt, const char *LinBuf) {
@@ -566,11 +607,18 @@ int i = 0, excepts;
 	
 	x = testfcns (op, r, n);
     if (isnan(x)) x = NAN; // Use generic NaN
+#if defined (__i386__)
+    if (isnan(x) && strstr(flags, "i")) feclearexcept(FE_INEXACT);
+    if (!isnan(x) && x != 0.0 && fabs(x) < DBL_MIN && strstr(flags, "u")) feraiseexcept(FE_UNDERFLOW);
+    if (!isnan(x) && x != 0.0 && fabs(x) < DBL_MIN && strstr(flags, "x")) feraiseexcept(FE_INEXACT);
+    if (!isnan(x) && fabs(x) > DBL_MAX && strstr(flags, "o")) feraiseexcept(FE_OVERFLOW);
+    if (!isnan(x) && fabs(x) > DBL_MAX && strstr(flags, "x")) feraiseexcept(FE_INEXACT);
+#endif
 
 	if (rnds != 0) fesetround (FE_TONEAREST);
 
     excepts = fetestexcept(FE_ALL_EXCEPT);
-    
+   
     if (excepts & (FE_INVALID)) cp = strcat (flags2, "i");
     if (excepts & (FE_OVERFLOW)) cp = strcat (flags2, "o");
     if (excepts & (FE_UNDERFLOW)) cp = strcat (flags2, "u");
@@ -607,10 +655,11 @@ int i = 0, excepts;
 	}
 	ncmp = (ulps < LT) || (ulps > HT);
 	if ((/*ncmp =*/ (!samebits(x, rslt) && ((ulps == 0) || ncmp)))) numerrors++;
-	if (!(ncmp || icmp || NOFLAGTESTS)) {
+	if (!(ncmp || icmp || NOFLAGTESTS || (rnds == 0))) {
 		for (i = 0; i < 4; i++) {
 
-			if ((rnds == 0) || (((rnds & 1) != 0) && (i == 0))
+			if (/* XXX (rnds == 0) || XXX */
+                            (((rnds & 1) != 0) && (i == 0))
 							|| (((rnds & 2) != 0) && (i == 1))
 							|| (((rnds & 4) != 0) && (i == 2))
 							|| (((rnds & 8) != 0) && (i == 3)))
@@ -647,12 +696,14 @@ int i = 0, excepts;
 		}
 		(void)fesetround (FE_TONEAREST);
 	}
+#ifndef notdef
+	// ncmp |= (op[0] == '=') && !samebits(x, rslt); //silver == gold but x != silver (rslt is silver in OTVecServer)
 	if (ncmp || icmp || acmp || ecmp || rcmp) {
 		errorcount++;
 #ifdef	noprint
 #else	/* noprint */
 		fprintf ( OutFile,"%s", LinBuf);
-			 if (op [1] == '1') fprintf ( OutFile,"sin ");
+		if (op [1] == '1') fprintf ( OutFile,"sin ");
 		else if (op [1] == '2') fprintf ( OutFile,"cos ");
 		else if (op [1] == '3') fprintf ( OutFile,"tan ");
 		else if (op [1] == '4') fprintf ( OutFile,"atan ");
@@ -770,6 +821,89 @@ int i = 0, excepts;
 		fprintf ( OutFile,"\n\n");
 #endif /* noprint */
 	}
+#else
+{
+		fprintf ( OutFile,"// %s", LinBuf);
+		fprintf ( OutFile,"    \"");
+			 if (op [1] == '1') fprintf ( OutFile,"sin ");
+		else if (op [1] == '2') fprintf ( OutFile,"cos ");
+		else if (op [1] == '3') fprintf ( OutFile,"tan ");
+		else if (op [1] == '4') fprintf ( OutFile,"atan ");
+		else if (op [1] == '5') fprintf ( OutFile,"atan2 ");
+		else if (op [1] == '6') fprintf ( OutFile,"asin ");
+		else if (op [1] == '7') fprintf ( OutFile,"acos ");
+		else if (op [1] == '8') fprintf ( OutFile,"log10 ");
+		else if (op [1] == 'A') fprintf ( OutFile,"fabs ");
+		else if (op [1] == 'B') fprintf ( OutFile,"modf ");
+		else if (op [1] == 'C') fprintf ( OutFile,"compare ");
+		else if (op [1] == 'D') fprintf ( OutFile,"fdim ");
+		else if (op [1] == 'e') fprintf ( OutFile,"frexp ");
+		else if (op [1] == 'E') fprintf ( OutFile,"frexp ");
+		else if (op [1] == 'F') fprintf ( OutFile,"isfinite ");
+		else if (op [1] == 'G') fprintf ( OutFile,"erf ");
+		else if (op [1] == 'H') fprintf ( OutFile,"hypot ");
+		else if (op [1] == 'I') fprintf ( OutFile,"rint ");
+		else if (op [1] == 'J') fprintf ( OutFile,"trunc ");
+		else if (op [1] == 'K') fprintf ( OutFile,"round ");
+		else if (op [1] == 'L') fprintf ( OutFile,"logb ");
+		else if (op [1] == 'M') fprintf ( OutFile,"fmod ");
+		else if (op [1] == 'N') fprintf ( OutFile,"nextafterd ");
+		else if (op [1] == 'O') fprintf ( OutFile,"log2 ");
+		else if (op [1] == 'P') fprintf ( OutFile,"log ");
+		else if (op [1] == 'Q') fprintf ( OutFile,"log1p ");
+		else if (op [1] == 'R') fprintf ( OutFile,"exp2 ");
+		else if (op [1] == 'S') fprintf ( OutFile,"scalb ");
+		else if (op [1] == 'T') fprintf ( OutFile,"exp ");
+		else if (op [1] == 'U') fprintf ( OutFile,"expm1 ");
+		else if (op [1] == 'V') fprintf ( OutFile,"sqrt ");
+		else if (op [1] == 'W') fprintf ( OutFile,"erfc ");
+		else if (op [1] == 'X') fprintf ( OutFile,"pow ");
+		else if (op [1] == 'Y') fprintf ( OutFile,"compound ");
+		else if (op [1] == 'Z') fprintf ( OutFile,"annuity ");
+		else if (op [1] == 'a') fprintf ( OutFile,"ceil ");
+		else if (op [1] == 'b') fprintf ( OutFile,"modf ");
+		else if (op [1] == 'c') fprintf ( OutFile,"fpclassify ");
+		else if (op [1] == 'd') fprintf ( OutFile,"bin2dec2bin ");
+		else if (op [1] == 'f') fprintf ( OutFile,"floor ");
+		else if (op [1] == 'g') fprintf ( OutFile,"tgamma ");
+		else if (op [1] == 'h') fprintf ( OutFile,"lgamma ");
+		else if (op [1] == 'i') fprintf ( OutFile,"nearbyint ");
+		else if (op [1] == 'k') fprintf ( OutFile,"roundtol ");
+		else if (op [1] == 'm') fprintf ( OutFile,"signbit ");
+		else if (op [1] == 'n') fprintf ( OutFile,"isnan ");
+		else if (op [1] == 'o') fprintf ( OutFile,"isnormal ");
+		else if (op [1] == 'q') fprintf ( OutFile,"remquo ");
+		else if (op [1] == 'r') fprintf ( OutFile,"remquo ");
+		else if (op [1] == '%') fprintf ( OutFile,"remainder ");
+		else if (op [1] == 's') fprintf ( OutFile,"ldexp ");
+		else if (op [1] == 't') fprintf ( OutFile,"transfer ");
+		else if (op [1] == 'u') fprintf ( OutFile,"acosh ");
+		else if (op [1] == 'v') fprintf ( OutFile,"asinh ");
+		else if (op [1] == 'w') fprintf ( OutFile,"atanh ");
+		else if (op [1] == 'x') fprintf ( OutFile,"cosh ");
+		else if (op [1] == 'y') fprintf ( OutFile,"sinh ");
+		else if (op [1] == 'z') fprintf ( OutFile,"tanh ");
+		else if (op [1] == '+') fprintf ( OutFile,"+");
+		else if (op [1] == '-') fprintf ( OutFile,"-");
+		else if (op [1] == '*') fprintf ( OutFile,"*");
+		else if (op [1] == '/') fprintf ( OutFile,"/");
+		else if (op [1] == '~') fprintf ( OutFile,"neg ");
+		else if (op [1] == '@') fprintf ( OutFile,"copysign ");
+		else if (op [1] == '>') fprintf ( OutFile,"fmax ");
+		else if (op [1] == '<') fprintf ( OutFile,"fmin ");
+		else if (op [1] == '&') fprintf ( OutFile,"rinttol ");
+		else fprintf ( OutFile,"??? ");
+		fprintf ( OutFile,"\",    0x");
+
+		printdblsgl (r);
+		fprintf ( OutFile,",    0x");
+		printdblsgl (n);
+		fprintf ( OutFile,",    0x");
+		printdblsgl (rslt);
+
+		fprintf ( OutFile,",\n");
+	}
+#endif
 }
 
 int main() {
@@ -827,6 +961,7 @@ time_t tod;
             int length;
             static struct sockaddr_in name;
             struct hostent *pH;
+            double dnumtests = 0.0;
             
             LinBuf[0] = '\0';
             LinBuff[0] = '\0';
@@ -907,11 +1042,14 @@ time_t tod;
                     LoTol = 2;
                     
                     testfcn ((const char *)&(v[i].op), v[i].r.d, v[i].n.d, flags, v[i].result.d, (char const *) LinBuf);
+                    dnumtests = dnumtests + 1.0;
                     
                     Tolerance = 0; 
 
-                    if (numtests % 100000 == 0) {
-                        printf("%d\n", numtests);
+                    if (numtests % 1000000 == 0) {
+                        printf ( "numtests, errorcount, numerrors, flagerrors, enverrors, rnderrors   %s\n", TmpBuf);
+                        printf ( "%12e   %3d        %3d         %3d        %3d        %3d\n",
+                                 dnumtests, errorcount, numerrors, flagerrors, enverrors, rnderrors);
                         fflush(stdout);
                     }
                 }
@@ -972,6 +1110,7 @@ time_t tod;
 					if (strchr (modes, '>') != NULL) rnds += 4;
 					if (strchr (modes, '0') != NULL) rnds += 8;
 
+#ifndef notdef
 					r = Str90todbl (s1, op);
 					n = (LinBuf [1] == 't') ?  Str90toflt (s1, op): Str90todbl (s2, op);
 					if (LinBuf [1] != 'C') rslt = Str90todbl (s3, op);
@@ -982,6 +1121,11 @@ time_t tod;
 						else if (!strcmp((char const *) s3, "?")) rslt = 2;
 						else rslt = 99;
 					}
+#else
+					r = Str90toflt (s1, op);
+					n = Str90toflt (s2, op);
+					rslt = Str90toflt (s3, op);
+#endif
 					testfcn (op, r, n, flags, rslt, (char const *) LinBuf);
 				}
 				else if (LinBuf [0] == '4') {
@@ -1016,7 +1160,9 @@ time_t tod;
 					r = a1.d;
 					n = a2.d;
 					rslt = a3.d;
+#ifndef notdef
 					testfcn (op, r, n, flags, rslt, (char const *) LinBuf);
+#endif
 				}
 				else if ((LinBuf [0] == '!') || (LinBuf [0] == ' ') ||
 						(LinBuf [0] == '\x09') || (LinBuf [0] == '\r') ||

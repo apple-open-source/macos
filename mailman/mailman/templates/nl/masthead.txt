@@ -1,0 +1,13 @@
+Stuur %(real_name)s mailinglijst inschrijving naar
+	%(got_list_email)s
+
+Om lid te worden of uit te schrijven via internet, bezoek
+	%(got_listinfo_url)s
+of, via e-mail, stuur een bericht met als onderwerp of tekst het woord 'help' naar
+	%(got_request_email)s
+
+U kunt de persoon die de lijst bijhoudt bereiken op
+	%(got_owner_email)s
+
+Als u een bericht beantwoord (reply) bewerk dan uw onderwerp regel zo dat het meer
+specifiek is dan "Re: Contents of %(real_name)s digest..."

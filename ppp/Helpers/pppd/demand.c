@@ -1,4 +1,28 @@
 /*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * demand.c - Support routines for demand-dialling.
  *
  * Copyright (c) 1993 The Australian National University.
@@ -17,7 +41,7 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#define RCSID	"$Id: demand.c,v 1.3 2002/06/27 23:59:55 callie Exp $"
+#define RCSID	"$Id: demand.c,v 1.5 2003/08/14 00:00:29 callie Exp $"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -85,6 +109,7 @@ demand_conf()
     flush_flag = 0;
     fcs = PPP_INITFCS;
 
+    netif_set_mtu(0, MIN(lcp_allowoptions[0].mru, PPP_MRU));
     ppp_send_config(0, PPP_MRU, (u_int32_t) 0, 0, 0);
     ppp_recv_config(0, PPP_MRU, (u_int32_t) 0, 0, 0);
 
@@ -330,8 +355,11 @@ active_packet(p, len)
 	return 0;
     proto = PPP_PROTOCOL(p);
 #ifdef PPP_FILTER
+    if (pass_filter.bf_len != 0
+	&& bpf_filter(pass_filter.bf_insns, p, len, len) == 0)
+	return 0;
     if (active_filter.bf_len != 0
-	&& bpf_filter(active_filter.bf_insns, frame, len, len) == 0)
+	&& bpf_filter(active_filter.bf_insns, p, len, len) == 0)
 	return 0;
 #endif
     for (i = 0; (protp = protocols[i]) != NULL; ++i) {

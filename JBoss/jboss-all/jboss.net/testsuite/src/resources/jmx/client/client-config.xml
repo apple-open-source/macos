@@ -1,0 +1,18 @@
+<!-- Use this file to deploy some handlers/chains and services   -->
+<!-- Two ways to do this:                                        -->
+<!--   java org.apache.axis.utils.Admin deploy.wsdd              -->
+<!--      from the same directory that the Axis engine runs      -->
+<!-- or                                                          -->
+<!--   java org.apache.axis.client.AdminClient deploy.wsdd       -->
+<!--      after the axis server is running                       -->
+
+<deployment
+    xmlns="http://xml.apache.org/axis/wsdd/"
+    xmlns:java="http://xml.apache.org/axis/wsdd/providers/java">
+
+  <transport name="http" pivot="java:org.apache.axis.transport.http.HTTPSender">
+  </transport>
+
+  <!-- Services from AddressBookService WSDL service -->
+
+</deployment>

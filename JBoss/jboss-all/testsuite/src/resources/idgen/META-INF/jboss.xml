@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+
+<jboss>
+  <secure>false</secure>
+  <enterprise-beans>
+    <session>
+      <ejb-name>IdGen</ejb-name>
+      <jndi-name>idgen/IdGenerator</jndi-name>
+    </session>
+  </enterprise-beans>
+</jboss>

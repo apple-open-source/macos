@@ -26,6 +26,11 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+ 
+ /*
+ * Portions Copyright (c) 2002 Apple Computer, Inc.
+ */
+
 #ifndef KEX_H
 #define KEX_H
 

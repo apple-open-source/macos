@@ -1,27 +1,11 @@
 /*
- * Copyright (c) 1984,1985,1989,1994,1995,1996,1999  Mark Nudelman
- * All rights reserved.
+ * Copyright (C) 1984-2002  Mark Nudelman
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice in the documentation and/or other materials provided with 
- *    the distribution.
+ * You may distribute under the terms of either the GNU General Public
+ * License or the Less License, as specified in the README file.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT 
- * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR 
- * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE 
- * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN 
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * For more information about less, or for information on how to 
+ * contact the author, see the README file.
  */
 
 
@@ -101,6 +85,7 @@ static unsigned char cmdtable[] =
 	CONTROL('L'),0,			A_REPAINT,
 	ESC,'u',0,			A_UNDO_SEARCH,
 	'g',0,				A_GOLINE,
+	SK(SK_HOME),0,			A_GOLINE,
 	'<',0,				A_GOLINE,
 	ESC,'<',0,			A_GOLINE,
 	'p',0,				A_PERCENT,
@@ -122,6 +107,7 @@ static unsigned char cmdtable[] =
 	'G',0,				A_GOEND,
 	ESC,'>',0,			A_GOEND,
 	'>',0,				A_GOEND,
+	SK(SK_END),0,			A_GOEND,
 	'P',0,				A_GOPOS,
 
 	'0',0,				A_DIGIT,
@@ -154,6 +140,8 @@ static unsigned char cmdtable[] =
 	CONTROL('X'),CONTROL('V'),0,	A_EXAMINE,
 	':','n',0,			A_NEXT_FILE,
 	':','p',0,			A_PREV_FILE,
+	't',0,				A_NEXT_TAG,
+	'T',0,				A_PREV_TAG,
 	':','x',0,			A_INDEX_FILE,
 	':','d',0,			A_REMOVE_FILE,
 	'-',0,				A_OPT_TOGGLE,
@@ -167,6 +155,7 @@ static unsigned char cmdtable[] =
 
 	'H',0,				A_HELP,
 	'h',0,				A_HELP,
+	SK(SK_F1),0,			A_HELP,
 	'V',0,				A_VERSION,
 	'q',0,				A_QUIT,
 	'Q',0,				A_QUIT,
@@ -179,6 +168,7 @@ static unsigned char edittable[] =
 {
 	'\t',0,	    			EC_F_COMPLETE,	/* TAB */
 	'\17',0,			EC_B_COMPLETE,	/* BACKTAB */
+	SK(SK_BACKTAB),0,		EC_B_COMPLETE,	/* BACKTAB */
 	ESC,'\t',0,			EC_B_COMPLETE,	/* ESC TAB */
 	CONTROL('L'),0,			EC_EXPAND,	/* CTRL-L */
 	CONTROL('V'),0,			EC_LITERAL,	/* BACKSLASH */
@@ -200,6 +190,7 @@ static unsigned char edittable[] =
 	ESC,'X',0,			EC_W_DELETE,	/* ESC X */
 	ESC,SK(SK_DELETE),0,		EC_W_DELETE,	/* ESC DELETE */
 	SK(SK_CTL_DELETE),0,		EC_W_DELETE,	/* CTRL-DELETE */
+	SK(SK_CTL_BACKSPACE),0,		EC_W_BACKSPACE, /* CTRL-BACKSPACE */
 	ESC,'\b',0,			EC_W_BACKSPACE,	/* ESC BACKSPACE */
 	ESC,'0',0,			EC_HOME,	/* ESC 0 */
 	SK(SK_HOME),0,			EC_HOME,	/* HOME */
@@ -227,6 +218,7 @@ struct tablelist
 static struct tablelist *list_fcmd_tables = NULL;
 static struct tablelist *list_ecmd_tables = NULL;
 static struct tablelist *list_var_tables = NULL;
+static struct tablelist *list_sysvar_tables = NULL;
 
 
 /*
@@ -268,7 +260,7 @@ expand_special_keys(table, len)
 			repl = special_key_str(fm[1]);
 			klen = fm[2] & 0377;
 			fm += klen;
-			if (repl == NULL || strlen(repl) > klen)
+			if (repl == NULL || (int) strlen(repl) > klen)
 				repl = "\377";
 			while (*repl != '\0')
 				*to++ = *repl++;
@@ -303,9 +295,20 @@ init_cmds()
 	add_ecmd_table((char*)edittable, sizeof(edittable));
 #if USERFILE
 	/*
+	 * For backwards compatibility,
+	 * try to add tables in the OLD system lesskey file.
+	 */
+#ifdef BINDIR
+	add_hometable(NULL, BINDIR "/.sysless", 1);
+#endif
+	/*
+	 * Try to add the tables in the system lesskey file.
+	 */
+	add_hometable("LESSKEY_SYSTEM", LESSKEYFILE_SYS, 1);
+	/*
 	 * Try to add the tables in the standard lesskey file "$HOME/.less".
 	 */
-	add_hometable();
+	add_hometable("LESSKEY", LESSKEYFILE, 0);
 #endif
 }
 
@@ -366,19 +369,20 @@ add_ecmd_table(buf, len)
 /*
  * Add an environment variable table.
  */
-	public void
-add_var_table(buf, len)
+	static void
+add_var_table(tlist, buf, len)
+	struct tablelist **tlist;
 	char *buf;
 	int len;
 {
-	if (add_cmd_table(&list_var_tables, buf, len) < 0)
+	if (add_cmd_table(tlist, buf, len) < 0)
 		error("Warning: environment variables from lesskey file unavailable", NULL_PARG);
 }
 
 /*
  * Search a single command table for the command string in cmd.
  */
-	public int
+	static int
 cmd_search(cmd, table, endtable, sp)
 	char *cmd;
 	char *table;
@@ -389,6 +393,7 @@ cmd_search(cmd, table, endtable, sp)
 	register char *q;
 	register int a;
 
+	*sp = NULL;
 	for (p = table, q = cmd;  p < endtable;  p++, q++)
 	{
 		if (*p == *q)
@@ -422,8 +427,7 @@ cmd_search(cmd, table, endtable, sp)
 				{
 					*sp = ++p;
 					a &= ~A_EXTRA;
-				} else
-					*sp = NULL;
+				}
 				return (a);
 			}
 		} else if (*q == '\0')
@@ -489,6 +493,8 @@ cmd_decode(tlist, cmd, sp)
 		if (action != A_INVALID)
 			break;
 	}
+	if (action == A_UINVALID)
+		action = A_INVALID;
 	return (action);
 }
 
@@ -528,7 +534,13 @@ lgetenv(var)
 	a = cmd_decode(list_var_tables, var, &s);
 	if (a == EV_OK)
 		return (s);
-	return (getenv(var));
+	s = getenv(var);
+	if (s != NULL && *s != '\0')
+		return (s);
+	a = cmd_decode(list_sysvar_tables, var, &s);
+	if (a == EV_OK)
+		return (s);
+	return (NULL);
 }
 
 #if USERFILE
@@ -573,9 +585,10 @@ old_lesskey(buf, len)
  * Process a new (post-v241) lesskey file.
  */
 	static int
-new_lesskey(buf, len)
+new_lesskey(buf, len, sysvar)
 	char *buf;
 	int len;
+	int sysvar;
 {
 	char *p;
 	register int c;
@@ -607,7 +620,8 @@ new_lesskey(buf, len)
 			break;
 		case VAR_SECTION:
 			n = gint(&p);
-			add_var_table(p, n);
+			add_var_table((sysvar) ? 
+				&list_sysvar_tables : &list_var_tables, p, n);
 			p += n;
 			break;
 		case END_SECTION:
@@ -625,8 +639,9 @@ new_lesskey(buf, len)
  * Set up a user command table, based on a "lesskey" file.
  */
 	public int
-lesskey(filename)
+lesskey(filename, sysvar)
 	char *filename;
+	int sysvar;
 {
 	register char *buf;
 	register POSITION len;
@@ -638,7 +653,7 @@ lesskey(filename)
 	/*
 	 * Try to open the lesskey file.
 	 */
-	filename = unquote_file(filename);
+	filename = shell_unquote(filename);
 	f = open(filename, OPEN_READ);
 	free(filename);
 	if (f < 0)
@@ -687,25 +702,30 @@ lesskey(filename)
 	if (buf[0] != C0_LESSKEY_MAGIC || buf[1] != C1_LESSKEY_MAGIC ||
 	    buf[2] != C2_LESSKEY_MAGIC || buf[3] != C3_LESSKEY_MAGIC)
 		return (old_lesskey(buf, (int)len));
-	return (new_lesskey(buf, (int)len));
+	return (new_lesskey(buf, (int)len, sysvar));
 }
 
 /*
  * Add the standard lesskey file "$HOME/.less"
  */
 	public void
-add_hometable()
+add_hometable(envname, def_filename, sysvar)
+	char *envname;
+	char *def_filename;
+	int sysvar;
 {
 	char *filename;
 	PARG parg;
 
-	if ((filename = lgetenv("LESSKEY")) != NULL)
+	if (envname != NULL && (filename = lgetenv(envname)) != NULL)
 		filename = save(filename);
+	else if (sysvar)
+		filename = save(def_filename);
 	else
-		filename = homefile(LESSKEYFILE);
+		filename = homefile(def_filename);
 	if (filename == NULL)
 		return;
-	if (lesskey(filename) < 0)
+	if (lesskey(filename, sysvar) < 0)
 	{
 		parg.p_string = filename;
 		error("Cannot use lesskey file \"%s\"", &parg);
@@ -753,6 +773,16 @@ editchar(c, flags)
 		action = ecmd_decode(usercmd, &s);
 	} while (action == A_PREFIX);
 	
+	if (flags & EC_NORIGHTLEFT)
+	{
+		switch (action)
+		{
+		case EC_RIGHT:
+		case EC_LEFT:
+			action = A_INVALID;
+			break;
+		}
+	}
 #if CMD_HISTORY
 	if (flags & EC_NOHISTORY) 
 	{

@@ -1,11 +1,30 @@
 /*
- *  CNSLServiceLookupThread.cpp
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
- *	This is a wrapper class for service lookups of plugins of NSL
- *
- *  Created by imlucid on Tue Aug 14 2001.
- *  Copyright (c) 2001 Apple Computer. All rights reserved.
- *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+ 
+/*!
+ *  @header CNSLServiceLookupThread
  */
 
 #include "CNSLHeaders.h"
@@ -19,6 +38,8 @@ CNSLServiceLookupThread::CNSLServiceLookupThread( CNSLPlugin* parentPlugin, char
     mCanceled = false;
     mNodeName = mNodeToSearch->GetNodeName();
     CFRetain( mNodeName );
+	
+	mNodeToSearch->Retain();
     
     if ( serviceType )
         mServiceType = ::CFStringCreateWithCString( NULL, serviceType, kCFStringEncodingUTF8 );
@@ -32,7 +53,6 @@ CNSLServiceLookupThread::CNSLServiceLookupThread( CNSLPlugin* parentPlugin, char
 CNSLServiceLookupThread::~CNSLServiceLookupThread()
 {
 	DBGLOG( "CNSLServiceLookupThread::~CNSLServiceLookupThread\n" );
-//    mParentPlugin->LockPlugin();
 
 	if ( mNeedToNotifyNodeToSearchWhenComplete )
 	{
@@ -40,9 +60,10 @@ CNSLServiceLookupThread::~CNSLServiceLookupThread()
 		mNodeToSearch->ServiceLookupComplete( this );
 	}
 	
+	mNodeToSearch->Release();
+
     if ( !AreWeCanceled() )
     {
-//        mParentPlugin->ServiceLookupComplete( this, mNodeToSearch );		// only call this if we haven't been canceled
         mCanceled = true;
     }
     
@@ -51,42 +72,34 @@ CNSLServiceLookupThread::~CNSLServiceLookupThread()
 
     if ( mNodeName )
         CFRelease( mNodeName );
-//    mParentPlugin->UnlockPlugin();
 }
 
 void CNSLServiceLookupThread::Resume( void )
 {
-//    mParentPlugin->LockPlugin();
-
-    if ( !AreWeCanceled() )
+	try
 	{
-        mNodeToSearch->StartingNewLookup( this );
-		mNeedToNotifyNodeToSearchWhenComplete = true;
-		
-//    mParentPlugin->UnlockPlugin();
-    
 		if ( !AreWeCanceled() )
-			DSLThread::Resume();
+		{
+			mNodeToSearch->StartingNewLookup( this );
+			mNeedToNotifyNodeToSearchWhenComplete = true;
+			
+			if ( !AreWeCanceled() )
+				DSLThread::Resume();
+		}
+	}
+
+	catch (...)
+	{
 	}
 }
 
 void CNSLServiceLookupThread::AddResult( CNSLResult* newResult )
 {
 	DBGLOG( "CNSLServiceLookupThread::AddResult\n" );
-//    mParentPlugin->LockPlugin();
-	if ( !newResult->GetAttributeRef( CFSTR(kDSNAttrLocation) ) )
-		newResult->AddAttribute( CFSTR(kDSNAttrLocation), mNodeToSearch->GetNodeName() );
+
+	if ( !newResult->GetAttributeRef( kDSNAttrLocationSAFE_CFSTR ) )
+		newResult->AddAttribute( kDSNAttrLocationSAFE_CFSTR, mNodeToSearch->GetNodeName() );
     
     if ( !AreWeCanceled() )
         mNodeToSearch->AddService( newResult );
-    
-//    mParentPlugin->UnlockPlugin();
 }
-
-
-
-
-
-
-
-

@@ -156,6 +156,7 @@ load_entry(file, error_func, pw, envp)
 			bit_set(e->dom, 0);
 			bit_set(e->month, 0);
 			bit_nset(e->dow, 0, (LAST_DOW-FIRST_DOW+1));
+			e->flags |= DOW_STAR;
 		} else if (!strcmp("monthly", cmd)) {
 			Debug(DPARS, ("load_entry()...monthly shortcut\n"))
 			bit_set(e->minute, 0);
@@ -163,6 +164,7 @@ load_entry(file, error_func, pw, envp)
 			bit_set(e->dom, 0);
 			bit_nset(e->month, 0, (LAST_MONTH-FIRST_MONTH+1));
 			bit_nset(e->dow, 0, (LAST_DOW-FIRST_DOW+1));
+			e->flags |= DOW_STAR;
 		} else if (!strcmp("weekly", cmd)) {
 			Debug(DPARS, ("load_entry()...weekly shortcut\n"))
 			bit_set(e->minute, 0);

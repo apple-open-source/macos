@@ -314,6 +314,11 @@ int MRepair( SGlobPtr GPtr )
 	}
 
  	err = CheckForStop( GPtr ); ReturnIfError( err );				//	Permit the user to interrupt
+ 
+ 	// if we had minor repairs that failed we still want to fix as much as possible
+ 	// so we wait until now to indicate the volume still has problems
+ 	if ( GPtr->minorRepairErrors )
+ 		err = R_RFail;
 	
 	return( err );													//	all done
 }
@@ -528,7 +533,13 @@ static	OSErr	FixBTreeHeaderReservedFields( SGlobPtr GPtr, short refNum )
 		
 	header.reserved1	= 0;
 	header.btreeType	= kHFSBTreeType;  //	control file
-	header.reserved2	= 0;
+/*
+ * TBD - we'll need to repair an invlid keyCompareType field.
+ */
+#if 0
+	if (-->TBD<--)
+		header.keyCompareType = kHFSBinaryCompare;
+#endif
 	ClearMemory( header.reserved3, sizeof(header.reserved3) );
 
 	return( err );
@@ -1176,6 +1187,18 @@ FixIllegalNames( SGlobPtr GPtr, RepairOrderPtr roPtr )
         myPtr += (1 + myLength);  // bump past length of old name and old name
         newNamePtr = (CatalogName *) myPtr;
     }
+
+	// make sure new name isn't already there
+	BuildCatalogKey( roPtr->parid, newNamePtr, isHFSPlus, &newKey );
+	result = SearchBTreeRecord( fcbPtr, &newKey, kNoHint, NULL, &record, &recSize, NULL );
+	if ( result == noErr ) {
+		if ( GPtr->logLevel >= kDebugLog ) {
+        	printf( "\treplacement name already exists \n" );
+			printf( "\tduplicate name is 0x" );
+			PrintName( newNamePtr->ustr.length, (UInt8 *) &newNamePtr->ustr.unicode, true );
+		}
+        goto ErrorExit;
+    }
     
     // get catalog record for object with the illegal name.  We will restore this
     // info with our new (valid) name. 
@@ -1191,7 +1214,6 @@ FixIllegalNames( SGlobPtr GPtr, RepairOrderPtr roPtr )
     }
  
     // insert record back into the catalog using the new name
-	BuildCatalogKey( roPtr->parid, newNamePtr, isHFSPlus, &newKey );
     result	= InsertBTreeRecord( fcbPtr, &newKey, &record, recSize, &hint );
 	if ( result != noErr ) {
         goto ErrorExit;
@@ -1221,12 +1243,14 @@ FixIllegalNames( SGlobPtr GPtr, RepairOrderPtr roPtr )
     // insert thread record with new name as thread data
 	recSize = BuildThreadRec( &newKey, &record, isHFSPlus, isDirectory );
  	result = InsertBTreeRecord( fcbPtr, &key, &record, recSize, &hint );
-	if ( result != noErr )
+	if ( result != noErr ) {
         goto ErrorExit;
+	}
 
     return( noErr );
  
 ErrorExit:
+	GPtr->minorRepairErrors = true;
     if ( GPtr->logLevel >= kDebugLog )
         printf( "\t%s - repair failed for type 0x%02X %d \n", __FUNCTION__, roPtr->type, roPtr->type );
     return( noErr );  // errors in this routine should not be fatal

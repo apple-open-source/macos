@@ -99,16 +99,37 @@ static char sccsid[] = "@(#)portmap.c 1.32 87/08/06 Copyr 1984 Sun Micro";
 #include <sys/wait.h>
 #include <sys/signal.h>
 #include <sys/resource.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#ifdef USE_RENDEZVOUS
+#include <DNSServiceDiscovery/DNSServiceDiscovery.h>
+#endif
 
 #include "pmap_check.h"
+
+extern void get_myaddress(struct sockaddr_in *);
 
 static void reg_service __P((struct svc_req *, SVCXPRT *));
 static void reap __P((int));
 static void callit __P((struct svc_req *, SVCXPRT *));
 static void usage __P((void));
 
-struct pmaplist *pmaplist;
+struct pmaprlist {
+	struct pmaplist pl;
+#ifdef USE_RENDEZVOUS
+	dns_service_discovery_ref mdnsref;
+#endif
+};
+
+struct pmaprlist *pmaplist;
 int debugging = 0;
+
+#ifdef USE_RENDEZVOUS
+static void mdns_callback(DNSServiceRegistrationReplyErrorType err, void *d)
+{
+        return;
+}
+#endif
 
 int
 main(argc, argv)
@@ -191,14 +212,15 @@ main(argc, argv)
 		    exit(1);
 	    }
 	}
+	free(hosts);
 	/* make an entry for ourself */
-	pml = (struct pmaplist *)malloc((u_int)sizeof(struct pmaplist));
+	pml = (struct pmaplist *)malloc((u_int)sizeof(struct pmaprlist));
 	pml->pml_next = 0;
 	pml->pml_map.pm_prog = PMAPPROG;
 	pml->pml_map.pm_vers = PMAPVERS;
 	pml->pml_map.pm_prot = IPPROTO_UDP;
 	pml->pml_map.pm_port = PMAPPORT;
-	pmaplist = pml;
+	(struct pmaplist *)pmaplist = pml;
 
 	/*
 	 * Add TCP socket
@@ -218,13 +240,16 @@ main(argc, argv)
 		exit(1);
 	}
 	/* make an entry for ourself */
-	pml = (struct pmaplist *)malloc((u_int)sizeof(struct pmaplist));
+	pml = (struct pmaplist *)malloc((u_int)sizeof(struct pmaprlist));
 	pml->pml_map.pm_prog = PMAPPROG;
 	pml->pml_map.pm_vers = PMAPVERS;
 	pml->pml_map.pm_prot = IPPROTO_TCP;
 	pml->pml_map.pm_port = PMAPPORT;
-	pml->pml_next = pmaplist;
-	pmaplist = pml;
+	pml->pml_next = (struct pmaplist *)pmaplist;
+#ifdef USE_RENDEZVOUS
+	((struct pmaprlist *)pml)->mdnsref = DNSServiceRegistrationCreate("", "_portmapper._tcp", "", PMAPPORT, "", mdns_callback, NULL);
+#endif
+	(struct pmaplist *)pmaplist = pml;
 
 	(void)svc_register(xprt, PMAPPROG, PMAPVERS, reg_service, FALSE);
 
@@ -257,15 +282,15 @@ static struct pmaplist *
 find_service(prog, vers, prot)
 	u_long prog, vers, prot;
 {
-	register struct pmaplist *hit = NULL;
-	register struct pmaplist *pml;
+	struct pmaplist *hit = NULL;
+	struct pmaprlist *pml;
 
-	for (pml = pmaplist; pml != NULL; pml = pml->pml_next) {
-		if ((pml->pml_map.pm_prog != prog) ||
-			(pml->pml_map.pm_prot != prot))
+	for (pml = pmaplist; pml != NULL; (struct pmaplist *)pml = pml->pl.pml_next) {
+		if ((pml->pl.pml_map.pm_prog != prog) ||
+			(pml->pl.pml_map.pm_prot != prot))
 			continue;
-		hit = pml;
-		if (pml->pml_map.pm_vers == vers)
+		hit = (struct pmaplist *)pml;
+		if (pml->pl.pml_map.pm_vers == vers)
 		    break;
 	}
 	return (hit);
@@ -335,17 +360,28 @@ reg_service(rqstp, xprt)
 					goto done;
 				}
 			} else {
+				struct rpcent *rent;
+				struct protoent *pent;
 				/*
 				 * add to END of list
 				 */
 				pml = (struct pmaplist *)
-				    malloc((u_int)sizeof(struct pmaplist));
+				    malloc((u_int)sizeof(struct pmaprlist));
 				pml->pml_map = reg;
 				pml->pml_next = 0;
+				rent = getrpcbynumber(reg.pm_prog);
+				pent = getprotobynumber(reg.pm_prot);
+#ifdef USE_RENDEZVOUS
+				if( rent != NULL && pent != NULL ) {
+					char *snam;
+					asprintf(&snam, "_%s._%s", rent->r_name, pent->p_name);
+					((struct pmaprlist *)pml)->mdnsref = DNSServiceRegistrationCreate("", snam, "", reg.pm_port, "", mdns_callback, NULL);
+				}
+#endif
 				if (pmaplist == 0) {
-					pmaplist = pml;
+					(struct pmaplist *)pmaplist = pml;
 				} else {
-					for (fnd= pmaplist; fnd->pml_next != 0;
+					for (fnd= (struct pmaplist *)pmaplist; fnd->pml_next != 0;
 					    fnd = fnd->pml_next);
 					fnd->pml_next = pml;
 				}
@@ -372,7 +408,7 @@ reg_service(rqstp, xprt)
 			if (!check_setunset(svc_getcaller(xprt),
 			    rqstp->rq_proc, reg.pm_prog, (u_long) 0))
 				goto done;
-			for (prevpml = NULL, pml = pmaplist; pml != NULL; ) {
+			for (prevpml = NULL, pml = (struct pmaplist *)pmaplist; pml != NULL; ) {
 				if ((pml->pml_map.pm_prog != reg.pm_prog) ||
 					(pml->pml_map.pm_vers != reg.pm_vers)) {
 					/* both pml & prevpml move forwards */
@@ -391,9 +427,15 @@ reg_service(rqstp, xprt)
 				}
 				ans = 1;
 				t = (caddr_t)pml;
+#ifdef USE_RENDEZVOUS
+				if (((struct pmaprlist *)pml)->mdnsref) {
+					DNSServiceDiscoveryDeallocate(((struct pmaprlist *)pml)->mdnsref);
+					((struct pmaprlist *)pml)->mdnsref = 0;
+				}
+#endif
 				pml = pml->pml_next;
 				if (prevpml == NULL)
-					pmaplist = pml;
+					(struct pmaplist *)pmaplist = pml;
 				else
 					prevpml->pml_next = pml;
 				free(t);
@@ -446,7 +488,7 @@ reg_service(rqstp, xprt)
 			    rqstp->rq_proc, (u_long) 0)) {
 				p = 0;	/* send empty list */
 			} else {
-				p = pmaplist;
+				p = (struct pmaplist *)pmaplist;
 			}
 			if ((!svc_sendreply(xprt, xdr_pmaplist,
 			    (caddr_t)&p)) && debugging) {

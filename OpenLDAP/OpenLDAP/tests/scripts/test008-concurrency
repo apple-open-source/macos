@@ -1,5 +1,5 @@
 #! /bin/sh
-# $OpenLDAP: pkg/ldap/tests/scripts/test008-concurrency,v 1.24 2002/01/21 05:35:04 kurt Exp $
+# $OpenLDAP: pkg/ldap/tests/scripts/test008-concurrency,v 1.24.2.2 2002/09/01 22:02:30 kurt Exp $
 
 SRCDIR="."
 if test $# -ge 1 ; then
@@ -8,6 +8,10 @@ fi
 BACKEND=bdb
 if test $# -ge 1 ; then
 	BACKEND=$1; shift
+fi
+MONITORDB=no
+if test $# -ge 1 ; then
+	MONITORDB=$1; shift
 fi
 WAIT=0
 if test $# -ge 1 ; then
@@ -24,7 +28,7 @@ echo "Cleaning up in $DBDIR..."
 rm -f $DBDIR/[!C]*
 
 echo "Running slapadd to build slapd database..."
-. $CONFFILTER $BACKEND < $CONF > $DBCONF
+. $CONFFILTER $BACKEND $MONITORDB < $CONF > $DBCONF
 $SLAPADD -f $DBCONF -l $LDIFORDERED
 RC=$?
 if test $RC != 0 ; then
@@ -48,10 +52,11 @@ for i in 0 1 2 3 4 5; do
 	$LDAPSEARCH -s base -b "$MONITOR" -h $LOCALHOST -p $PORT \
 		'objectclass=*' > /dev/null 2>&1
 	RC=$?
-	if test $RC = 1 ; then
-		echo "Waiting 5 seconds for slapd to start..."
-		sleep 5
+	if test $RC = 0 ; then
+		break
 	fi
+	echo "Waiting 5 seconds for slapd to start..."
+	sleep 5
 done
 
 echo "Using tester for concurrent server access..."

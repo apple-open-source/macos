@@ -5,7 +5,7 @@
         H_FILES = (); 
         OTHER_LINKED = (); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble); 
-        SUBPROJECTS = (lookupd, netinfod, nibindd); 
+        SUBPROJECTS = (lookupd, netinfod, nibindd, notifyd); 
     }; 
     LANGUAGE = English; 
     LOCALIZABLE_FILES = {}; 

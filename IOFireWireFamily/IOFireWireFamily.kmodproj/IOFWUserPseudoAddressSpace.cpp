@@ -32,8 +32,29 @@
  */
 /*
 	$Log: IOFWUserPseudoAddressSpace.cpp,v $
-	Revision 1.4.2.1  2003/07/11 03:43:53  collin
+	Revision 1.11  2003/09/20 00:54:17  collin
 	*** empty log message ***
+	
+	Revision 1.10  2003/08/30 00:16:44  collin
+	*** empty log message ***
+	
+	Revision 1.9  2003/08/20 23:33:37  niels
+	*** empty log message ***
+	
+	Revision 1.8  2003/08/19 01:48:54  niels
+	*** empty log message ***
+	
+	Revision 1.7  2003/07/24 06:30:58  collin
+	*** empty log message ***
+	
+	Revision 1.6  2003/07/21 06:52:59  niels
+	merge isoch to TOT
+	
+	Revision 1.4.4.2  2003/07/21 06:44:44  niels
+	*** empty log message ***
+	
+	Revision 1.4.4.1  2003/07/01 20:54:07  niels
+	isoch merge
 	
 	Revision 1.4  2003/04/18 20:32:06  collin
 	*** empty log message ***
@@ -211,8 +232,8 @@ inline Boolean IsFreePacketHeader(
 
 OSDefineMetaClassAndStructors( IOFWUserPseudoAddressSpace, IOFWPseudoAddressSpace ) ;
 
-//#if IOFIREWIREUSERCLIENTDEBUG > 0
-#if 0
+#if IOFIREWIREUSERCLIENTDEBUG > 0
+
 bool
 IOFWUserPseudoAddressSpace::serialize(OSSerialize *s) const
 {
@@ -241,23 +262,25 @@ IOFWUserPseudoAddressSpace::serialize(OSSerialize *s) const
 			sprintf(temp+strlen(temp), " shared") ;
 	}
 	else
-		sprintf(temp+strlen(temp), ", no flags") ;
-
 	{
-		OSString*	string = OSString::withCString(temp) ;
-		if (!string)
-			return false ;
-			
-		return string->serialize(s) ;
+		sprintf(temp+strlen(temp), ", no flags") ;
 	}
+	
+	OSString*	string = OSString::withCString(temp) ;
+	if (!string)
+		return false ;
+		
+	bool result =  string->serialize(s) ;
+	string->release() ;
+	
+	return result ;
 }
+
 #endif
 
 void
 IOFWUserPseudoAddressSpace::free()
 {
-	IOFWPseudoAddressSpace::free() ;
-
 	if ( fPacketQueuePrepared )
 		fPacketQueueBuffer->complete() ;
 
@@ -267,15 +290,36 @@ IOFWUserPseudoAddressSpace::free()
 	if ( fBackingStorePrepared )
 		fDesc->complete() ;
 
-	if ( fLastWrittenHeader )
-		delete fLastWrittenHeader ;
+	delete fLastWrittenHeader ;
+
+	if( fLock )
+	{
+		IOLockFree( fLock );
+		fLock = NULL;
+	}
+	
+	IOFWPseudoAddressSpace::free() ;
+}
+
+// exporterCleanup
+//
+//
+
+void
+IOFWUserPseudoAddressSpace::exporterCleanup ()
+{
+	DebugLog("IOFWUserPseudoAddressSpace::exporterCleanup\n");
+	
+	deactivate();
 }
 
 void
 IOFWUserPseudoAddressSpace::deactivate()
 {
 	IOFWPseudoAddressSpace::deactivate() ;
-
+	
+	IOLockLock(fLock) ;
+	
 	fBufferAvailable = 0 ;	// zzz do we need locking here to protect our data?
 	fLastReadHeader = NULL ;	
 	
@@ -298,6 +342,10 @@ IOFWUserPseudoAddressSpace::deactivate()
 		fDesc->complete() ;
 		fBackingStorePrepared = false ;
 	}
+	
+	fWaitingForUserCompletion = false ;
+	
+	IOLockUnlock(fLock) ;
 }
 
 bool
@@ -315,7 +363,7 @@ IOFWUserPseudoAddressSpace::completeInit( IOFireWireUserClient* userclient, Addr
 	// see if user specified a packet queue and queue size
 	if ( !params->queueBuffer && ( !(fFlags & kFWAddressSpaceAutoWriteReply) || !(fFlags & kFWAddressSpaceAutoReadReply) ) )
 	{
-		IOFireWireUserClientLog_("IOFWUserPseudoAddressSpace::initAll: address space without queue buffer must have both auto-write and auto-read set\n") ;
+		DebugLog("IOFWUserPseudoAddressSpace::initAll: address space without queue buffer must have both auto-write and auto-read set\n") ;
 		status = false ;
 	}
 
@@ -330,7 +378,7 @@ IOFWUserPseudoAddressSpace::completeInit( IOFireWireUserClient* userclient, Addr
 																	fUserClient->getOwningTask() ) ;
 			if ( !fPacketQueueBuffer )
 			{
-				IOFireWireUserClientLog_("%s %u: couldn't make fPacketQueueBuffer memory descriptor\n", __FILE__, __LINE__) ;
+				DebugLog("%s %u: couldn't make fPacketQueueBuffer memory descriptor\n", __FILE__, __LINE__) ;
 				status = false ;
 			}
 			
@@ -357,7 +405,7 @@ IOFWUserPseudoAddressSpace::completeInit( IOFireWireUserClient* userclient, Addr
 		
 		if ( !fLock )
 		{
-			IOFireWireUserClientLog_("%s %u: couldn't allocate lock\n", __FILE__, __LINE__) ;
+			DebugLog("%s %u: couldn't allocate lock\n", __FILE__, __LINE__) ;
 			status = false ;
 		}
 	}
@@ -372,7 +420,7 @@ IOFWUserPseudoAddressSpace::completeInit( IOFireWireUserClient* userclient, Addr
 															userclient->getOwningTask() ) ;
 			if (!fDesc)
 			{
-				IOFireWireUserClientLog_("%s %u: failed to make backing store memory descriptor\n", __FILE__, __LINE__) ;
+				DebugLog("%s %u: failed to make backing store memory descriptor\n", __FILE__, __LINE__) ;
 				status = false ;
 			}
 			
@@ -393,7 +441,7 @@ IOFWUserPseudoAddressSpace::completeInit( IOFireWireUserClient* userclient, Addr
 					fWriter = & IOFWUserPseudoAddressSpace::simpleWriter ;
 				else
 				{	// this macro needs braces
-					IOFireWireUserClientLog_("IOFireWireUserClient::allocateAddressSpace(): can't create auto-write address space w/o backing store!\n") ;
+					DebugLog("IOFireWireUserClient::allocateAddressSpace(): can't create auto-write address space w/o backing store!\n") ;
 				}
 			}
 			else
@@ -411,7 +459,7 @@ IOFWUserPseudoAddressSpace::completeInit( IOFireWireUserClient* userclient, Addr
 					fReader = & IOFWUserPseudoAddressSpace::simpleReader ;
 				else
 				{	// this macro needs braces
-					IOFireWireUserClientLog_("IOFireWireUserClient::allocateAddressSpace(): can't create auto-read address space w/o backing store!\n") ;
+					DebugLog("IOFireWireUserClient::allocateAddressSpace(): can't create auto-read address space w/o backing store!\n") ;
 				}
 			}
 			else
@@ -433,7 +481,7 @@ IOFWUserPseudoAddressSpace::initPseudo(
 {
 	if ( !IOFWPseudoAddressSpace::initAll( userclient->getOwner()->getController(), & fAddress, params->size, NULL, NULL, this ))
 	{
-		IOFireWireUserClientLog_("IOFWUserPseudoAddressSpace::initPseudo: IOFWPseudoAddressSpace::initAll failed\n") ;
+		DebugLog("IOFWUserPseudoAddressSpace::initPseudo: IOFWPseudoAddressSpace::initAll failed\n") ;
 		return false ;
 	}
 	
@@ -495,10 +543,11 @@ IOFWUserPseudoAddressSpace::doPacket(
 	IOByteCount		destOffset	= 0 ;
 	bool			wontFit		= false ;
 	UInt32			response	= kFWResponseComplete ;
-	IOFWPacketHeader*	currentHeader = fLastWrittenHeader ;
 
 	IOLockLock(fLock) ;
 	
+	IOFWPacketHeader*	currentHeader = fLastWrittenHeader ;
+
 	if ( tag == IOFWPacketHeader::kIncomingPacket || tag == IOFWPacketHeader::kLockPacket )
 	{
 		IOByteCount		spaceAtEnd	= fPacketQueueBuffer->getLength() ;

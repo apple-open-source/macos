@@ -38,13 +38,22 @@
 #include <Security/osxsigning.h>
 #include <Security/Authorization.h>
 #include <Security/AuthSession.h>
-
+#include <Security/notifications.h>
+#include <Security/context.h>
 
 namespace Security {
 namespace SecurityServer {
 
 using MachPlusPlus::Port;
 using MachPlusPlus::ReceivePort;
+
+
+//
+// The default Mach bootstrap registration name for SecurityServer,
+// and the environment variable to override it
+//
+#define SECURITYSERVER_BOOTSTRAP_NAME	"com.apple.SecurityServer"
+#define SECURITYSERVER_BOOTSTRAP_ENV	"SECURITYSERVER"
 
 
 //
@@ -74,6 +83,11 @@ struct AuthorizationBlob {
     }
 };
 
+struct ClientSetupInfo {
+	uint32 version;
+};
+#define SSPROTOVERSION 4
+
 enum AclKind { dbAcl, keyAcl, loginAcl };
 
 
@@ -101,21 +115,16 @@ public:
 	
 public:
 	typedef CSSM_DB_ACCESS_TYPE DBAccessType;
+	typedef Security::Context Context;
 
-    typedef uint32 NotifyEvent;
-    typedef uint32 NotifyEvents;
-    enum {
-        allEvents = uint32(-1)
-    };
-    
-    typedef uint32 NotifyDomain;
-    enum {
-        databaseNotifications = 1
-    };
-	
 public:
 	void activate();
 	void terminate();
+	
+public:
+	// use this only if you know what you're doing...
+	void contactName(const char *name);
+	const char *contactName() const;
 
 public:
 	// database sessions
@@ -130,8 +139,12 @@ public:
 	void authenticateDb(DbHandle db, DBAccessType type, const AccessCredentials *cred);
 	void setDbParameters(DbHandle db, const DBParameters &params);
 	void getDbParameters(DbHandle db, DBParameters &params);
+	void getDbSuggestedIndex(DbHandle db, CssmData &index, CssmAllocator &alloc);
+	void getDbSuggestedIndex(DbHandle db, CssmData &index)
+	{ return getDbSuggestedIndex(db, index, returnAllocator); }
     void changePassphrase(DbHandle db, const AccessCredentials *cred);
     void lock(DbHandle db);
+    void lockAll(bool forSleep);
     void unlock(DbHandle db);
     void unlock(DbHandle db, const CssmData &passPhrase);
     bool isLocked(DbHandle db);
@@ -144,25 +157,30 @@ public:
 	void releaseKey(KeyHandle key);
 
 	CssmKeySize queryKeySizeInBits(KeyHandle key);
-    uint32 getOutputSize(const Context &context, KeyHandle key,
+    uint32 getOutputSize(const Security::Context &context, KeyHandle key,
         uint32 inputSize, bool encrypt = true);
+		
+	void getKeyDigest(KeyHandle key, CssmData &digest, CssmAllocator &alloc);
+	void getKeyDigest(KeyHandle key, CssmData &digest)
+	{ return getKeyDigest(key, digest, returnAllocator); }
+
 
 public:
     // key wrapping and unwrapping
-	void wrapKey(const Context &context, KeyHandle key, KeyHandle keyToBeWrapped,
+	void wrapKey(const Security::Context &context, KeyHandle key, KeyHandle keyToBeWrapped,
 		const AccessCredentials *cred,
 		const CssmData *descriptiveData, CssmWrappedKey &wrappedKey, CssmAllocator &alloc);
-	void wrapKey(const Context &context, KeyHandle key, KeyHandle keyToBeWrapped,
+	void wrapKey(const Security::Context &context, KeyHandle key, KeyHandle keyToBeWrapped,
 		const AccessCredentials *cred,
 		const CssmData *descriptiveData, CssmWrappedKey &wrappedKey)
     { return wrapKey(context, key, keyToBeWrapped, cred,
         descriptiveData, wrappedKey, returnAllocator); }
     
-	void unwrapKey(DbHandle db, const Context &context, KeyHandle key, KeyHandle publicKey,
+	void unwrapKey(DbHandle db, const Security::Context &context, KeyHandle key, KeyHandle publicKey,
 		const CssmWrappedKey &wrappedKey, uint32 keyUsage, uint32 keyAttr,
 		const AccessCredentials *cred, const AclEntryInput *owner,
 		CssmData &data, KeyHandle &newKey, CssmKey::Header &newKeyHeader, CssmAllocator &alloc);
-	void unwrapKey(DbHandle db, const Context &context, KeyHandle key, KeyHandle publicKey,
+	void unwrapKey(DbHandle db, const Security::Context &context, KeyHandle key, KeyHandle publicKey,
 		const CssmWrappedKey &wrappedKey, uint32 keyUsage, uint32 keyAttr,
 		const AccessCredentials *cred, const AclEntryInput *owner, CssmData &data,
         KeyHandle &newKey, CssmKey::Header &newKeyHeader)
@@ -170,20 +188,20 @@ public:
       cred, owner, data, newKey, newKeyHeader, returnAllocator); }
 
     // key generation and derivation
-	void generateKey(DbHandle db, const Context &context, uint32 keyUsage, uint32 keyAttr,
+	void generateKey(DbHandle db, const Security::Context &context, uint32 keyUsage, uint32 keyAttr,
 		const AccessCredentials *cred, const AclEntryInput *owner,
         KeyHandle &newKey, CssmKey::Header &newHeader);
-	void generateKey(DbHandle db, const Context &context,
+	void generateKey(DbHandle db, const Security::Context &context,
 		uint32 pubKeyUsage, uint32 pubKeyAttr,
 		uint32 privKeyUsage, uint32 privKeyAttr,
 		const AccessCredentials *cred, const AclEntryInput *owner,
 		KeyHandle &pubKey, CssmKey::Header &pubHeader,
         KeyHandle &privKey, CssmKey::Header &privHeader);
-	void deriveKey(DbHandle db, const Context &context, KeyHandle baseKey,
+	void deriveKey(DbHandle db, const Security::Context &context, KeyHandle baseKey,
         uint32 keyUsage, uint32 keyAttr, CssmData &param,
 		const AccessCredentials *cred, const AclEntryInput *owner,
         KeyHandle &newKey, CssmKey::Header &newHeader, CssmAllocator &alloc);
-	void deriveKey(DbHandle db, const Context &context, KeyHandle baseKey,
+	void deriveKey(DbHandle db, const Security::Context &context, KeyHandle baseKey,
         uint32 keyUsage, uint32 keyAttr, CssmData &param,
 		const AccessCredentials *cred, const AclEntryInput *owner,
         KeyHandle &newKey, CssmKey::Header &newHeader)
@@ -193,33 +211,33 @@ public:
 	void generateRandom(CssmData &data);
 	
     // encrypt/decrypt
-	void encrypt(const Context &context, KeyHandle key,
+	void encrypt(const Security::Context &context, KeyHandle key,
         const CssmData &in, CssmData &out, CssmAllocator &alloc);
-	void encrypt(const Context &context, KeyHandle key, const CssmData &in, CssmData &out)
+	void encrypt(const Security::Context &context, KeyHandle key, const CssmData &in, CssmData &out)
     { return encrypt(context, key, in, out, returnAllocator); }
-	void decrypt(const Context &context, KeyHandle key,
+	void decrypt(const Security::Context &context, KeyHandle key,
         const CssmData &in, CssmData &out, CssmAllocator &alloc);
-	void decrypt(const Context &context, KeyHandle key, const CssmData &in, CssmData &out)
+	void decrypt(const Security::Context &context, KeyHandle key, const CssmData &in, CssmData &out)
     { return decrypt(context, key, in, out, returnAllocator); }
 
     // signatures
-	void generateSignature(const Context &context, KeyHandle key,
+	void generateSignature(const Security::Context &context, KeyHandle key,
         const CssmData &data, CssmData &signature, CssmAllocator &alloc,
         CSSM_ALGORITHMS signOnlyAlgorithm = CSSM_ALGID_NONE);
-	void generateSignature(const Context &context, KeyHandle key,
+	void generateSignature(const Security::Context &context, KeyHandle key,
 		const CssmData &data, CssmData &signature, CSSM_ALGORITHMS signOnlyAlgorithm = CSSM_ALGID_NONE)
     { return generateSignature(context, key, data, signature, returnAllocator, signOnlyAlgorithm); }
-	void verifySignature(const Context &context, KeyHandle key,
+	void verifySignature(const Security::Context &context, KeyHandle key,
 		const CssmData &data, const CssmData &signature,
         CSSM_ALGORITHMS verifyOnlyAlgorithm = CSSM_ALGID_NONE);
 		
     // MACs
-	void generateMac(const Context &context, KeyHandle key,
+	void generateMac(const Security::Context &context, KeyHandle key,
 		const CssmData &data, CssmData &mac, CssmAllocator &alloc);
-	void generateMac(const Context &context, KeyHandle key,
+	void generateMac(const Security::Context &context, KeyHandle key,
 		const CssmData &data, CssmData &mac)
     { return generateMac(context, key, data, mac, returnAllocator); }
-	void verifyMac(const Context &context, KeyHandle key,
+	void verifyMac(const Security::Context &context, KeyHandle key,
 		const CssmData &data, const CssmData &mac);
 	
     // key ACL management
@@ -247,6 +265,18 @@ public:
     { return getDbOwner(db, owner, returnAllocator); }
     void changeDbOwner(DbHandle db, const AccessCredentials &cred,
 		const AclOwnerPrototype &edit);
+	
+	// database key manipulations
+	void extractMasterKey(DbHandle db, const Context &context, DbHandle sourceDb,
+        uint32 keyUsage, uint32 keyAttr,
+		const AccessCredentials *cred, const AclEntryInput *owner,
+        KeyHandle &newKey, CssmKey::Header &newHeader, CssmAllocator &alloc);
+	void extractMasterKey(DbHandle db, const Context &context, DbHandle sourceDb,
+        uint32 keyUsage, uint32 keyAttr,
+		const AccessCredentials *cred, const AclEntryInput *owner,
+        KeyHandle &newKey, CssmKey::Header &newHeader)
+	{ return extractMasterKey(db, context, sourceDb, keyUsage, keyAttr, cred, owner,
+		newKey, newHeader, returnAllocator); }
 		
 public:
 	// Authorization API support
@@ -267,14 +297,27 @@ public:
     
 public:
     // Notification core support
-    void requestNotification(Port receiver, NotifyDomain domain, NotifyEvents events);
+    void requestNotification(Port receiver, Listener::Domain domain, Listener::EventMask events);
     void stopNotification(Port receiver);
-    void postNotification(NotifyDomain domain, NotifyEvent event, const CssmData &data);
+    void postNotification(Listener::Domain domain, Listener::Event event, const CssmData &data);
     
-    typedef OSStatus ConsumeNotification(NotifyDomain domain, NotifyEvent event,
+    typedef OSStatus ConsumeNotification(Listener::Domain domain, Listener::Event event,
         const void *data, size_t dataLength, void *context);
     OSStatus dispatchNotification(const mach_msg_header_t *message,
-        ConsumeNotification *consumer, void *context);
+        ConsumeNotification *consumer, void *context) throw();
+
+public:
+	// AuthorizationDB API
+	void authorizationdbGet(const AuthorizationString rightname, CssmData &rightDefinition, CssmAllocator &alloc);
+	void authorizationdbSet(const AuthorizationBlob &auth, const AuthorizationString rightname, uint32_t rightdefinitionLength, const void *rightdefinition);
+	void authorizationdbRemove(const AuthorizationBlob &auth, const AuthorizationString rightname);
+	
+public:
+	// miscellaneous administrative calls
+	void addCodeEquivalence(const CssmData &oldCode, const CssmData &newCode,
+		const char *name, bool forSystem = false);
+	void removeCodeEquivalence(const CssmData &code, const char *name, bool forSystem = false);
+	void setAlternateSystemRoot(const char *path);
 
 private:
 	void getAcl(AclKind kind, KeyHandle key, const char *tag,
@@ -305,6 +348,7 @@ private:
 
 	static ModuleNexus<Global> mGlobal;
 	static bool mSetupSession;
+	static const char *mContactName;
 };
 
 

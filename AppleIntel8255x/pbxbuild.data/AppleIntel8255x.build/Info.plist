@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleIntel8255x</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.3.2, Copyright Apple Computer, Inc. 2001-2002</string>
+	<string>1.3.2, Copyright Apple Computer, Inc. 2001-2003</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.driver.AppleIntel8255x</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -29,7 +29,7 @@
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.driver.AppleIntel8255x</string>
 			<key>Flow Control</key>
-			<true/>
+			<false/>
 			<key>IOClass</key>
 			<string>Intel82557</string>
 			<key>IODefaultMedium</key>
@@ -37,7 +37,7 @@
 			<key>IOPCIClassMatch</key>
 			<string>0x02000000&amp;0xffff0000</string>
 			<key>IOPCIMatch</key>
-			<string>0x10298086 0x10308086&amp;0xfff0ffff 0x12098086 0x12278086 0x12288086 0x12298086 0x24498086 0x24598086 0x245d8086</string>
+			<string>0x10508086 0x10298086 0x10308086&amp;0xfff0ffff 0x12098086 0x12278086 0x12288086 0x12298086 0x24498086 0x24598086 0x245d8086</string>
 			<key>IOProviderClass</key>
 			<string>IOPCIDevice</string>
 			<key>Transmit Threshold</key>

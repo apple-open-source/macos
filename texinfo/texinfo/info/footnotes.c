@@ -1,7 +1,7 @@
 /* footnotes.c -- Some functions for manipulating footnotes.
-   $Id: footnotes.c,v 1.1.1.1 2002/04/19 01:00:24 jkh Exp $
+   $Id: footnotes.c,v 1.2 2003/07/25 18:37:06 jkh Exp $
 
-   Copyright (C) 1993, 97, 98, 99 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1997, 1998, 1999, 2002 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -21,8 +21,8 @@
 
 #include "info.h"
 
-/* Non-zero means attempt to show footnotes when displaying a new window. */
-int auto_footnotes_p = 1;
+/* Nonzero means attempt to show footnotes when displaying a new window. */
+int auto_footnotes_p = 0;
 
 static char *footnote_nodename = "*Footnotes*";
 

@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/sh.char.c,v 1.1.1.2 2001/06/28 23:10:50 bbraun Exp $ */
+/* $Header: /cvs/root/tcsh/tcsh/sh.char.c,v 1.1.1.3 2003/01/17 03:41:11 nicolai Exp $ */
 /*
  * sh.char.c: Character classification tables
  */
@@ -14,11 +14,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -36,7 +32,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: sh.char.c,v 1.1.1.2 2001/06/28 23:10:50 bbraun Exp $")
+RCSID("$Id: sh.char.c,v 1.1.1.3 2003/01/17 03:41:11 nicolai Exp $")
 
 #include "sh.char.h"
 
@@ -811,6 +807,97 @@ unsigned short _mbmap_sjis[256] = {
     _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,
 /*  fc		fd		fe		ff */
     _MB1|_MB2,	0,		0,		0,
+};
+
+unsigned short _mbmap_big5[256] = {
+/* This is latest big5 charmap, so called "Big5+" */
+/* first byte   0x81 - 0xfe */
+/* second byte  0x40 - 0x7e, 0x80 - 0xfe */
+/* 0x00 - 0x3f = 0 */
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+/* 0x40 - 0x7e = 2 */
+    _MB2,	_MB2,		_MB2,		_MB2,
+    _MB2,	_MB2,		_MB2,		_MB2,
+    _MB2,	_MB2,		_MB2,		_MB2,
+    _MB2,	_MB2,		_MB2,		_MB2,
+    _MB2,	_MB2,		_MB2,		_MB2,
+    _MB2,	_MB2,		_MB2,		_MB2,
+    _MB2,	_MB2,		_MB2,		_MB2,
+    _MB2,	_MB2,		_MB2,		_MB2,
+    _MB2,	_MB2,		_MB2,		_MB2,
+    _MB2,	_MB2,		_MB2,		_MB2,
+    _MB2,	_MB2,		_MB2,		_MB2,
+    _MB2,	_MB2,		_MB2,		_MB2,
+    _MB2,	_MB2,		_MB2,		_MB2,
+    _MB2,	_MB2,		_MB2,		_MB2,
+    _MB2,	_MB2,		_MB2,		_MB2,
+						/* 0x7f = 0 */
+    _MB2,	_MB2,		_MB2,		0,
+/* 0x80 = 2, 0x81 - 0xfe = 3 */
+    _MB2,      _MB1|_MB2,      _MB1|_MB2,      _MB1|_MB2,
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,    
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,    
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,
+						/* 0xff = 0 */
+    _MB1|_MB2,	_MB1|_MB2,	_MB1|_MB2,	0,
+};
+
+unsigned short _mbmap_utf8[256] = {
+/* utf8 uses up to 6 bytes */
+/* first byte        0xc0 - 0xfd */
+/* any further bytes 0x80 - 0xbf */
+/* 0 - 7f all 0 */
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+/*  80 - bf : all _MB2 */
+    _MB2, _MB2, _MB2, _MB2, _MB2, _MB2, _MB2, _MB2,
+    _MB2, _MB2, _MB2, _MB2, _MB2, _MB2, _MB2, _MB2,
+    _MB2, _MB2, _MB2, _MB2, _MB2, _MB2, _MB2, _MB2,
+    _MB2, _MB2, _MB2, _MB2, _MB2, _MB2, _MB2, _MB2,
+    _MB2, _MB2, _MB2, _MB2, _MB2, _MB2, _MB2, _MB2,
+    _MB2, _MB2, _MB2, _MB2, _MB2, _MB2, _MB2, _MB2,
+    _MB2, _MB2, _MB2, _MB2, _MB2, _MB2, _MB2, _MB2,
+    _MB2, _MB2, _MB2, _MB2, _MB2, _MB2, _MB2, _MB2,
+/* c0 - fc : all _MB1 */
+    _MB1, _MB1, _MB1, _MB1, _MB1, _MB1, _MB1, _MB1,
+    _MB1, _MB1, _MB1, _MB1, _MB1, _MB1, _MB1, _MB1,
+    _MB1, _MB1, _MB1, _MB1, _MB1, _MB1, _MB1, _MB1,
+    _MB1, _MB1, _MB1, _MB1, _MB1, _MB1, _MB1, _MB1,
+    _MB1, _MB1, _MB1, _MB1, _MB1, _MB1, _MB1, _MB1,
+    _MB1, _MB1, _MB1, _MB1, _MB1, _MB1, _MB1, _MB1,
+    _MB1, _MB1, _MB1, _MB1, _MB1, _MB1, _MB1, _MB1,
+/*  f8    f9    fa    fb    fc    fd    fe    ff*/
+    _MB1, _MB1, _MB1, _MB1, _MB1, _MB1, 0,    0
 };
 
 #else /* !(defined(KANJI) && defined(SHORT_STRINGS) && defined(DSPMBYTE)) */

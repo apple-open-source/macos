@@ -1,0 +1,71 @@
+2003-01-10  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in: Add AC_SUBST_FILE marker for libobj_frag.
+
+2002-08-29  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in: Revert $(S)=>/ change, for Windows support.
+
+2002-08-23  Ken Raeburn  <raeburn@mit.edu>
+
+	* Makefile.in: Change $(S)=>/ and $(U)=>.. globally.
+
+2002-04-10  Danilo Almeida  <dalmeida@mit.edu>
+
+	* yarrow.c: Use the canonical _WIN32 instead of WIN32 to test for
+	Win32.  Include port-sockets.h on Win32 (now that using
+	WIN32_LEAN_AND_MEAN).
+
+2002-01-14  Sam Hartman  <hartmans@mit.edu>
+
+	* yarrow.c (krb5int_yarrow_reseed): The MS word of  the integer
+	counter going into v_i will always be zero; don't try
+	right-shifting by 32. 
+
+2001-12-05  Ezra Peisach  <epeisach@mit.edu>
+
+	* yarrow.c (krb5int_yarrow_stretch): Delare local variable unsigned. 
+	(krb5int_yarrow_init): Zero cipher context on init.
+
+	* yhash.h (HASH_Final): Use a variable other than out (shadow in
+	yarrow.c)
+
+2001-11-21  Sam Hartman  <hartmans@mit.edu>
+
+	* yarrow.c (Yarrow_detect_fork): Reseed the number generator including the fork rather than throwing away state.
+
+2001-11-19  Sam Hartman  <hartmans@mit.edu>
+
+	* yhash.h: Work around sha1 implementation using host byte order
+
+2001-11-19  Danilo Almeida  <dalmeida@mit.edu>
+
+	* Makefile.in: Fix typo OUTP -> OUTPRE.
+
+2001-11-14  Sam Hartman  <hartmans@mit.edu>
+
+	* ycipher.c (krb5int_yarrow_cipher_init):  Use free not free_keyblock_contents
+
+2001-11-09  Sam Hartman  <hartmans@mit.edu>
+
+	* Makefile.in: New file
+
+	* yhash.h :  Use krb5 shaa1
+
+	* yarrow.c (Yarrow_Reseed):  For all calls to cipher_init, use TRY
+	block and  use function rather than macros 
+	(Yarrow_Reseed):  call encrypt block function not macro
+
+	* ycipher.h: Make the the interface use functions not macros; convert for krb5 ciphers
+
+2001-11-08  Sam Hartman  <hartmans@mit.edu>
+
+	* ylock.h (lock UNLOCK):  Turn into no-ops
+
+	* yarrow.h: Don't use #error
+	(YARROW_DLL): Don't actually ever export or import from win32 dlls as Yarrow is not a public part of krb5 API
+	(yarrow_poll): Drop from the API
+	Remove MAc-specific memset and  memcpy
+
+	* ytypes.h yarrow.c: Align with krb5 int types
+

@@ -188,15 +188,30 @@ IOFireWireNubAux * IOFireWireNub::createAuxiliary( void )
 
 void IOFireWireNub::free()
 {
-    if(fDirectory)
+    if( fDirectory != NULL )
+	{
         fDirectory->release();
+		fDirectory = NULL;
+	}
 	
-	if( fConfigDirectorySet )
+	if( fConfigDirectorySet != NULL )
+	{
 		fConfigDirectorySet->release();
+		fConfigDirectorySet = NULL;
+	}
 		
-    if(fControl)
-        fControl->release();
+	if( fAuxiliary != NULL )
+	{
+		fAuxiliary->release();
+		fAuxiliary = NULL;
+	}
 
+    if( fControl != NULL )
+	{
+        fControl->release();
+		fControl = NULL;
+	}
+		
     IOService::free();
 }
 
@@ -525,6 +540,11 @@ IOReturn IOFireWireNub::newUserClient(task_t		owningTask,
     if( type != 11 )
         return( kIOReturnBadArgument);
 
+	if( isInactive() )
+	{
+		return kIOReturnNoMemory;
+	}
+	
     client = IOFireWireUserClient::withTask(owningTask);
 
     if( !client || (false == client->attach( this )) ||

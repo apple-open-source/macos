@@ -1,7 +1,8 @@
-This is ../info/emacs, produced by makeinfo version 4.0 from emacs.texi.
+This is ../info/emacs, produced by makeinfo version 4.0f from
+emacs.texi.
 
    This is the Fourteenth edition of the `GNU Emacs Manual', updated
-for Emacs version 21.1.
+for Emacs version 21.2.
 
 INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
@@ -11,9 +12,9 @@ END-INFO-DIR-ENTRY
    Published by the Free Software Foundation 59 Temple Place, Suite 330
 Boston, MA  02111-1307 USA
 
-   Copyright (C) 1985,
-1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001    Free Software
-Foundation, Inc.
+   Copyright (C)
+1985,1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001,2002
+Free Software Foundation, Inc.
 
    Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.1 or
@@ -55,6 +56,7 @@ Command and Function Index
 * append-next-kill:                      Appending Kills.
 * append-to-buffer:                      Accumulating Text.
 * append-to-file:                        Accumulating Text.
+* append-to-register:                    RegText.
 * apply-macro-to-region-lines:           Basic Kbd Macro.
 * appt-add:                              Appointments.
 * appt-delete:                           Appointments.
@@ -65,7 +67,6 @@ Command and Function Index
 * apropos-value:                         Apropos.
 * apropos-variable:                      Apropos.
 * ask-user-about-lock:                   Interlocking.
-* authors:                               Authors.
 * auto-compression-mode:                 Compressed Files.
 * auto-fill-mode:                        Auto Fill.
 * auto-image-file-mode:                  File Conveniences.
@@ -430,7 +431,7 @@ Command and Function Index
 * expand-region-abbrevs:                 Expanding Abbrevs.
 * f90-mode:                              Fortran.
 * facemenu-remove-all:                   Editing Format Info.
-* facemenu-remove-props:                 Editing Format Info.
+* facemenu-remove-face-props:            Editing Format Info.
 * facemenu-set-background:               Format Colors.
 * facemenu-set-bold:                     Format Faces.
 * facemenu-set-bold-italic:              Format Faces.
@@ -749,8 +750,8 @@ Command and Function Index
 * next-history-element:                  Minibuffer History.
 * next-line:                             Moving Point.
 * next-matching-history-element:         Minibuffer History.
-* normal-erase-is-backspace-mode <1>:    Deletion.
-* normal-erase-is-backspace-mode:        DEL Does Not Delete.
+* normal-erase-is-backspace-mode <1>:    DEL Does Not Delete.
+* normal-erase-is-backspace-mode:        Deletion.
 * normal-mode:                           Choosing Modes.
 * not-modified:                          Saving.
 * nroff-mode:                            Nroff Mode.
@@ -812,6 +813,7 @@ Command and Function Index
 * posix-file-name-to-mac:                Mac Functions.
 * prefer-coding-system:                  Recognize Coding.
 * prepend-to-buffer:                     Accumulating Text.
+* prepend-to-register:                   RegText.
 * previous-completion:                   Completion Commands.
 * previous-history-element:              Minibuffer History.
 * previous-line:                         Moving Point.

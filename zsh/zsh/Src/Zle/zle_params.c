@@ -69,6 +69,8 @@ static struct zleparam {
         zleunsetfn, NULL },
     { "LASTWIDGET", PM_SCALAR | PM_READONLY, NULL, FN(get_lwidget),
         zleunsetfn, NULL },
+    { "KEYMAP", PM_SCALAR | PM_READONLY, NULL, FN(get_keymap),
+        zleunsetfn, NULL },
     { "KEYS", PM_SCALAR | PM_READONLY, NULL, FN(get_keys),
         zleunsetfn, NULL },
     { "NUMERIC", PM_INTEGER | PM_UNSET, FN(set_numeric), FN(get_numeric),
@@ -78,6 +80,16 @@ static struct zleparam {
     { "BUFFERLINES", PM_INTEGER | PM_READONLY, NULL, FN(get_bufferlines),
         zleunsetfn, NULL },
     { "PENDING", PM_INTEGER | PM_READONLY, NULL, FN(get_pending),
+        zleunsetfn, NULL },
+    { "CUTBUFFER", PM_SCALAR, FN(set_cutbuffer), FN(get_cutbuffer),
+	unset_cutbuffer, NULL },
+    { "killring", PM_ARRAY, FN(set_killring), FN(get_killring),
+	unset_killring, NULL },
+    { "PREDISPLAY", PM_SCALAR, FN(set_predisplay), FN(get_predisplay),
+	zleunsetfn, NULL },
+    { "POSTDISPLAY", PM_SCALAR, FN(set_postdisplay), FN(get_postdisplay),
+	zleunsetfn, NULL },
+    { "LASTSEARCH", PM_SCALAR | PM_READONLY, NULL, FN(get_lsearch),
         zleunsetfn, NULL },
     { NULL, 0, NULL, NULL, NULL, NULL }
 };
@@ -273,6 +285,13 @@ get_lwidget(Param pm)
 
 /**/
 static char *
+get_keymap(Param pm)
+{
+    return dupstring(curkeymapname);
+}
+
+/**/
+static char *
 get_keys(Param pm)
 {
     return keybuf;
@@ -323,4 +342,209 @@ static zlong
 get_pending(Param pm)
 {
     return noquery(0);
+}
+
+/**/
+static char *
+get_cutbuffer(Param pm)
+{
+    if (cutbuf.buf)
+	return metafy(cutbuf.buf, cutbuf.len, META_HEAPDUP);
+    else
+	return "";
+}
+
+
+/**/
+static void
+set_cutbuffer(Param pm, char *x)
+{
+    if (cutbuf.buf)
+	free(cutbuf.buf);
+    cutbuf.flags = 0;
+    if (x) {
+	unmetafy(x, &cutbuf.len);
+	cutbuf.buf = zalloc(cutbuf.len);
+	memcpy((char *)cutbuf.buf, x, cutbuf.len);
+	free(x);
+    } else {
+	cutbuf.buf = NULL;
+	cutbuf.len = 0;
+    }
+}
+
+/**/
+static void
+unset_cutbuffer(Param pm, int exp)
+{
+    if (exp) {
+	stdunsetfn(pm, exp);
+	if (cutbuf.buf) {
+	    free(cutbuf.buf);
+	    cutbuf.buf = NULL;
+	    cutbuf.len = 0;
+	}
+    }
+}
+
+/**/
+static void
+set_killring(Param pm, char **x)
+{
+    int kcnt;
+    Cutbuffer kptr;
+    char **p;
+
+    if (kring) {
+	for (kptr = kring, kcnt = 0; kcnt < kringsize; kcnt++, kptr++)
+	    if (kptr->buf)
+		zfree(kptr->buf, kptr->len);
+	zfree(kring, kringsize * sizeof(struct cutbuffer));
+	kring = NULL;
+	kringsize = kringnum = 0;
+    }
+    if (x) {
+	/*
+	 * Insert the elements into the kill ring.
+	 * Regardless of the old order, we number it with the current
+	 * entry first.
+	 *
+	 * Be careful to add elements by looping backwards; this
+	 * fits in with how we cycle the ring.
+	 */
+	int kpos = 0;
+	kringsize = arrlen(x);
+	kring = (Cutbuffer)zcalloc(kringsize * sizeof(struct cutbuffer));
+	for (p = x; *p; p++) {
+	    int len = strlen(*p);
+	    kptr = kring + kpos;
+	    unmetafy(*p, &kptr->len);
+	    kptr->buf = (char *)zalloc(kptr->len);
+	    memcpy(kptr->buf, *p, kptr->len);
+	    zfree(*p, len+1);
+	    kpos = (kpos + kringsize -1 ) % kringsize;
+	}
+	free(x);
+    }
+}
+
+/**/
+static char **
+get_killring(Param pm)
+{
+    /*
+     * Return the kill ring with the most recently killed first.
+     * Since the kill ring is no longer a fixed length, we return
+     * all entries even if empty.
+     */
+    int kpos, kcnt;
+    char **ret, **p;
+
+    /* Supposed to work even if kring is NULL */
+    if (!kring) {
+	kringsize = KRINGCTDEF;
+	kring = (Cutbuffer)zcalloc(kringsize * sizeof(struct cutbuffer));
+    }
+
+    p = ret = (char **)zhalloc((kringsize+1) * sizeof(char *));
+
+    for (kpos = kringnum, kcnt = 0; kcnt < kringsize; kcnt++) {
+	Cutbuffer kptr = kring + kpos;
+	if (kptr->buf)
+	{
+	    /*
+	     * Need to use HEAPDUP to make sure there's room for the
+	     * terminating NULL.
+	     */
+	    *p++ = metafy((char *)kptr->buf, kptr->len, META_HEAPDUP);
+	}
+	else
+	    *p++ = dupstring("");
+	kpos = (kpos + kringsize - 1) % kringsize;
+    }
+    *p = NULL;
+
+    return ret;
+}
+
+/**/
+static void
+unset_killring(Param pm, int exp)
+{
+    if (exp) {
+	set_killring(pm, NULL);
+	stdunsetfn(pm, exp);
+    }
+}
+
+static void
+set_prepost(unsigned char **textvar, int *lenvar, char *x)
+{
+    if (*lenvar) {
+	zfree(*textvar, *lenvar);
+	*textvar = NULL;
+	*lenvar = 0;
+    }
+    if (x) {
+	unmetafy(x, lenvar);
+	if (*lenvar) {
+	    *textvar = (unsigned char *)zalloc(*lenvar);
+	    memcpy((char *)*textvar, x, *lenvar);
+	}
+	free(x);
+    }
+}
+
+static char *
+get_prepost(unsigned char *text, int len)
+{
+    return metafy((char *)text, len, META_HEAPDUP);
+}
+
+/**/
+static void
+set_predisplay(Param pm, char *x)
+{
+    set_prepost(&predisplay, &predisplaylen, x);
+}
+
+/**/
+static char *
+get_predisplay(Param pm)
+{
+    return get_prepost(predisplay, predisplaylen);
+}
+
+/**/
+static void
+set_postdisplay(Param pm, char *x)
+{
+    set_prepost(&postdisplay, &postdisplaylen, x);
+}
+
+/**/
+static char *
+get_postdisplay(Param pm)
+{
+    return get_prepost(postdisplay, postdisplaylen);
+}
+
+/**/
+void
+free_prepostdisplay(void)
+{
+    if (predisplaylen)
+	set_prepost(&predisplay, &predisplaylen, NULL);
+    if (postdisplaylen)
+	set_prepost(&postdisplay, &postdisplaylen, NULL);
+}
+
+/**/
+static char *
+get_lsearch(Param pm)
+{
+    if (previous_search_len)
+	return metafy(previous_search, previous_search_len, META_HEAPDUP);
+    else
+	return "";
 }

@@ -27,7 +27,7 @@
 .\" (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 .\" THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .\"
-.\"	$Id: at.1,v 1.1.1.1 1999/05/02 04:21:18 wsanchez Exp $
+.\"	$Id: at.1,v 1.3 2003/06/05 17:13:32 eseidel Exp $
 .\"
 .Dd December 5, 1993
 .Dt "AT" 1
@@ -55,6 +55,25 @@
 .Op Fl f Ar file
 .Op Fl m
 .Ar time
+.Sh NOTE
+.Nm at ,
+.Nm batch ,
+.Nm atq ,
+.Nm atrm
+are all disabled by default on Mac OS X.
+Each of these commands depend on the execution of 
+.Xr atrun 8
+which has been disabled due to power management concerns.
+Those who would like to use these commands, must first re-enable
+.Nm /usr/libexec/atrun
+by removing the leading '#' from the line
+.Bd -literal
+#*/5    *       *       *       *       root    /usr/libexec/atrun
+.Ed
+in the file
+.Pa /etc/crontab .
+.Pa /etc/crontab
+must be edited by root.
 .Sh DESCRIPTION
 The
 .Nm at
@@ -75,9 +94,10 @@ listed.
 .It Nm atrm
 Deletes jobs.
 .It Nm batch
-executes commands when system load levels  permit.
-In other words, it executes the commands when the load
-average drops below a specified level.
+Executes commands when system load levels drop below a user-specifed threshold.
+The load threshold for batch jobs is specifed
+as an argument when executing
+.Xr atrun 8 .
 .El
 .Pp
 For both
@@ -124,6 +144,7 @@ Reads the job from
 rather than the standard input.
 .It Fl v
 Shows completed but not yet deleted jobs in the queue.
+.El
 .Sh TIME SPECIFICATION
 .Nm At
 allows some moderately complex time specifications.

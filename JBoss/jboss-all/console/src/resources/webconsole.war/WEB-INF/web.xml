@@ -1,0 +1,197 @@
+<?xml version="1.0"?>
+<!DOCTYPE web-app PUBLIC
+   "-//Sun Microsystems, Inc.//DTD Web Application 2.3//EN"
+   "http://java.sun.com/dtd/web-app_2_3.dtd">
+
+<web-app>
+  <description>Web Admin Console</description>
+  <servlet>
+    <servlet-name>J2EEFolder</servlet-name>
+    <servlet-class>org.jboss.console.plugins.helpers.ServletPluginHelper</servlet-class>
+    <init-param>
+      <param-name>ScriptName</param-name>
+      <param-value>J2EEFolder.bsh</param-value>
+    </init-param>
+    <init-param>
+      <param-name>IsRootNode</param-name>
+      <param-value>true</param-value>
+    </init-param>
+    <init-param>
+      <param-name>ContextName</param-name>
+      <param-value>/web-console</param-value>
+    </init-param>
+    <load-on-startup>1</load-on-startup>
+  </servlet>
+
+  <servlet>
+    <servlet-name>SystemFolder</servlet-name>
+    <servlet-class>org.jboss.console.plugins.helpers.ServletPluginHelper</servlet-class>
+    <init-param>
+      <param-name>ScriptName</param-name>
+      <param-value>SystemFolder.bsh</param-value>
+    </init-param>
+    <init-param>
+      <param-name>IsRootNode</param-name>
+      <param-value>true</param-value>
+    </init-param>
+    <init-param>
+      <param-name>ContextName</param-name>
+      <param-value>/web-console</param-value>
+    </init-param>
+    <load-on-startup>1</load-on-startup>
+  </servlet>
+
+  <!--servlet>
+    <servlet-name>UCLs</servlet-name>
+    <servlet-class>org.jboss.console.plugins.helpers.ServletPluginHelper</servlet-class>
+    <init-param>
+      <param-name>ScriptName</param-name>
+      <param-value>Classloaders.bsh</param-value>
+    </init-param>
+    <init-param>
+      <param-name>FolderName</param-name>
+      <param-value>ROOT/System</param-value>
+    </init-param>
+    <init-param>
+      <param-name>ContextName</param-name>
+      <param-value>/web-console</param-value>
+    </init-param>
+    <load-on-startup>1</load-on-startup>
+  </servlet-->
+
+  <servlet>
+    <servlet-name>UCLs</servlet-name>
+    <servlet-class>org.jboss.console.plugins.helpers.ServletPluginHelper</servlet-class>
+    <init-param>
+      <param-name>WrapperClass</param-name>
+      <param-value>org.jboss.console.plugins.UCLLister</param-value>
+    </init-param>
+    <init-param>
+      <param-name>FolderName</param-name>
+      <param-value>ROOT/System</param-value>
+    </init-param>
+    <init-param>
+      <param-name>ContextName</param-name>
+      <param-value>/web-console</param-value>
+    </init-param>
+    <load-on-startup>1</load-on-startup>
+  </servlet>
+
+  <servlet>
+    <servlet-name>MBeans</servlet-name>
+    <servlet-class>org.jboss.console.plugins.helpers.ServletPluginHelper</servlet-class>
+    <init-param>
+      <param-name>WrapperClass</param-name>
+      <param-value>org.jboss.console.plugins.MBeansLister</param-value>
+    </init-param>
+    <init-param>
+      <param-name>FolderName</param-name>
+      <param-value>ROOT/System</param-value>
+    </init-param>
+    <init-param>
+      <param-name>ContextName</param-name>
+      <param-value>/web-console</param-value>
+    </init-param>
+    <load-on-startup>1</load-on-startup>
+  </servlet>
+
+  <servlet>
+    <servlet-name>JSR77 Domains and Servers</servlet-name>
+    <servlet-class>org.jboss.console.plugins.helpers.ServletPluginHelper</servlet-class>
+    <init-param>
+      <param-name>WrapperClass</param-name>
+      <param-value>org.jboss.console.plugins.JSR77Lister</param-value>
+    </init-param>
+    <init-param>
+      <param-name>FolderName</param-name>
+      <param-value>ROOT/J2EE</param-value>
+    </init-param>
+    <init-param>
+      <param-name>ContextName</param-name>
+      <param-value>/web-console</param-value>
+    </init-param>
+    <load-on-startup>1</load-on-startup>
+  </servlet>
+
+   <servlet>
+      <servlet-name>JSR77 EJBModules and EJBs</servlet-name>
+      <servlet-class>org.jboss.console.plugins.helpers.ServletPluginHelper</servlet-class>
+      <init-param>
+         <param-name>WrapperClass</param-name>
+         <param-value>org.jboss.console.plugins.EJBModuleLister</param-value>
+      </init-param>
+      <init-param>
+         <param-name>MBeanClass</param-name>
+         <param-value>org.jboss.management.j2ee.EJBModule</param-value>
+      </init-param>
+      <init-param>
+         <param-name>ContextName</param-name>
+         <param-value>/web-console</param-value>
+      </init-param>
+      <load-on-startup>1</load-on-startup>
+   </servlet>
+
+   <servlet>
+      <servlet-name>JSR77 J2EE Apps</servlet-name>
+      <servlet-class>org.jboss.console.plugins.helpers.ServletPluginHelper</servlet-class>
+      <init-param>
+         <param-name>WrapperClass</param-name>
+         <param-value>org.jboss.console.plugins.J2EEAppLister</param-value>
+      </init-param>
+      <init-param>
+         <param-name>MBeanClass</param-name>
+         <param-value>org.jboss.management.j2ee.J2EEApplication</param-value>
+      </init-param>
+      <init-param>
+         <param-name>ContextName</param-name>
+         <param-value>/web-console</param-value>
+      </init-param>
+      <load-on-startup>1</load-on-startup>
+   </servlet>
+
+  <servlet>
+    <servlet-name>HTTP Invocation</servlet-name>
+    <servlet-class>org.jboss.console.remote.InvokerServlet</servlet-class>
+    <load-on-startup>1</load-on-startup>
+  </servlet>
+
+   <servlet-mapping>
+      <servlet-name>HTTP Invocation</servlet-name>
+      <url-pattern>/Invoker/*</url-pattern>
+   </servlet-mapping>
+
+   <taglib>
+      <taglib-uri>/webconsole</taglib-uri>
+      <taglib-location>/WEB-INF/tlds/webconsole.tld</taglib-location>
+   </taglib>
+
+   <!-- A security constraint that restricts access to the HTML JMX console
+   to users with the role JBossAdmin. Edit the roles to what you want and
+   uncomment the WEB-INF/jboss-web.xml/security-domain element to enable
+   secured access to the HTML JMX console.
+
+   <security-constraint>
+     <web-resource-collection>
+       <web-resource-name>HtmlAdaptor</web-resource-name>
+       <description>An example security config that only allows users with the
+         role JBossAdmin to access the HTML JMX console web application
+       </description>
+       <url-pattern>/*</url-pattern>
+       <http-method>GET</http-method>
+       <http-method>POST</http-method>
+     </web-resource-collection>
+     <auth-constraint>
+       <role-name>JBossAdmin</role-name>
+     </auth-constraint>
+   </security-constraint>
+   -->
+
+  <login-config>
+    <auth-method>BASIC</auth-method>
+    <realm-name>JBoss WEB Console</realm-name>
+  </login-config>
+
+  <security-role>
+    <role-name>JBossAdmin</role-name>
+  </security-role>
+</web-app>

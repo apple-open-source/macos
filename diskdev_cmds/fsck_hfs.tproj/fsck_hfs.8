@@ -25,29 +25,26 @@
 .Nm fsck_hfs
 .Fl q
 .Op Fl df
-.Ar special-device ...
+.Ar special ...
 .Nm fsck_hfs
 .Fl p
 .Op Fl df
-.Ar special-device ...
+.Ar special ...
 .Nm fsck_hfs
 .Op Fl n | y | r
 .Op Fl dfg
 .Op Fl m Ar mode
-.Ar special-device ...
+.Ar special ...
 .Sh DESCRIPTION
 .Pp
 The
 .Nm
-utility verifies and repairs standard HFS and HFS Plus file systems.
+utility verifies and repairs standard HFS and HFS+ file systems.
 .Pp
 The first form of
 .Nm
 quickly checks the specified file systems to determine whether
-they were cleanly unmounted.  This option is used by
-.Xr autodiskmount 8
-to determine whether to perform a full check before mounting
-a volume.
+they were cleanly unmounted.
 .Pp
 The second form of
 .Nm
@@ -88,7 +85,7 @@ option, force
 .Nm
 to check `clean' file systems, otherwise it means force
 .Nm
-to check and repair journaled HFS Plus file systems.
+to check and repair journaled HFS+ file systems.
 .It Fl g
 Causes
 .Nm
@@ -130,12 +127,7 @@ to the leaf nodes in the existing catalog file.
 Because of inconsistencies between the block device and the buffer cache,
 the raw device should always be used.
 .Sh SEE ALSO
-.Xr autodiskmount 8 ,
-.Xr fsck 8 ,
-.Xr hfs.util 8 ,
-.Xr mount_hfs 8 ,
-.Xr newfs_hfs 8 ,
-.Xr pdisk 8
+.Xr fsck 8
 .Sh BUGS
 .Nm
 is not able to fix some inconsistencies that it detects.

@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: dproc.c,v 1.2 2001/02/13 13:51:13 abe Exp $";
+static char *rcsid = "$Id: dproc.c,v 1.3 2002/06/17 01:41:42 abe Exp $";
 #endif
 
 #include "lsof.h"
@@ -99,6 +99,121 @@ enter_vn_text(va, n)
 }
 
 
+#if	DARWINV>=700
+/*
+ * realcmdname() -- get the "real" command name
+ *
+ * Note: this function returns either a pointer to an allocated copy
+ *       of the command associated with the process or NULL if not
+ *       available. 
+ */
+
+
+static char *
+realcmdname(pid_t pid)
+{
+	static int	argmax	= -1;
+	char		args[ARG_MAX];
+	char		*args_p	= args;
+	char		*argv0	= NULL;
+	int		mib[3];
+	size_t		size;
+	char		*cp;
+	char		*ep;
+	char		*sp;
+
+	if (argmax < 0) {
+		mib[0] = CTL_KERN;
+		mib[1] = KERN_ARGMAX;
+
+		size = sizeof(argmax);
+
+		if (sysctl(mib, 2, &argmax, &size, NULL, 0) == -1) {
+			goto done;
+		}
+	}
+
+	if (argmax > (int)sizeof(args)) {
+		args_p = malloc(argmax);
+		if (args_p == NULL) {
+			goto done;
+		}
+	}
+
+	mib[0] = CTL_KERN;
+	mib[1] = KERN_PROCARGS;
+	mib[2] = pid;
+
+	size = (size_t)argmax;
+	if (sysctl(mib, 3, args_p, &size, NULL, 0) == -1) {
+		goto done;
+	}
+
+	/* Skip the saved exec path */
+	for (cp = args_p; cp < &args_p[size]; cp++) {
+		if( *cp == '\0' ) {
+			/* if end of exec_path reached */
+			break;
+		}
+	}
+	if (cp == &args_p[size]) {
+		goto done;
+	}
+
+	/* skip trailing '\0' characters */
+	for (; cp < &args_p[size]; cp++) {
+		if (*cp != '\0') {
+			/* if at the beginning of the first argument */
+			break;
+		}
+	}
+	if (cp == &args_p[size]) {
+		goto done;
+	}
+	sp = cp;
+
+	/*
+	 * Make sure that the command is '\0'-terminated.  This protects
+	 * against malicious programs; under normal operation this never
+	 * ends up being a problem..
+	 */
+	for (; cp < &args_p[size]; cp++) {
+		if (*cp == '\0') {
+			/* if the end of first argument reached */
+			break;
+		}
+	}
+	if (cp == &args_p[size]) {
+		goto done;
+	}
+	ep = cp;
+
+	/* Get the basename of command. */
+	for (cp--; cp >= sp; cp--) {
+		if (*cp == '/') {
+			/* if slash found in command */
+			cp++;
+			break;
+		}
+	}
+
+	size = ep - cp + 1;
+	argv0 = (char *)malloc(size);
+	if (argv0) {
+		memcpy(argv0, cp, size);
+	}
+
+    done :
+
+	if (args_p != args) {
+		free(args_p);
+	}
+
+	return argv0;
+}
+#endif	/* DARWINV>=700
+
+
 /*
  * gather_proc_info() -- gather process information
  */
@@ -145,6 +260,7 @@ gather_proc_info()
 	for (p = P, px = 0; px < Np; p++, px++)
 
 	{
+	    char *cmd;
 
 	    if (p->P_STAT == 0 || p->P_STAT == SZOMB)
 		continue;
@@ -168,14 +284,40 @@ gather_proc_info()
 		    continue;
 	    if (!fd.fd_refcnt || fd.fd_lastfile > fd.fd_nfiles)
 		    continue;
+
+	/*
+	 * Identfy the command name for the process.  For CFM applications,
+	 * this requires some extra work since the basename of the first
+	 * program argument is the actual command name.
+	 */
+#if	DARWINV<700
+	    cmd = p->P_COMM;
+#else	/* DARWINV>=700 */
+	    if (strcmp(p->P_COMM, "LaunchCFMApp") != 0) {
+		/* if a "normal" program" */
+		cmd = p->P_COMM;
+	    } else {
+		/* if "LaunchCFM" */
+		cmd = realcmdname(p->P_PID);
+		if (!cmd)
+		    cmd = p->P_COMM;
+	    }
+#endif	/* DARWINV<700 */
+
 	/*
 	 * Allocate a local process structure.
 	 */
-	    if (is_cmd_excl(p->P_COMM, &pss, &sf))
+	    if (is_cmd_excl(cmd, &pss, &sf)) {
+		if (cmd != p->P_COMM)
+		    free(cmd);
 		continue;
-	    alloc_lproc(p->P_PID, pgid, ppid, (UID_ARG)uid, p->P_COMM,
+	    }
+	    alloc_lproc(p->P_PID, pgid, ppid, (UID_ARG)uid, cmd,
 		(int)pss, (int)sf);
 	    Plf = (struct lfile *)NULL;
+
+	    if (cmd != p->P_COMM)
+		free(cmd);
 
 	/*
 	 * Save current working directory information.
@@ -322,7 +464,7 @@ get_kernel_access()
 	    Exit(1);
 	}
 	(void) build_Nl(Drive_Nl);
-	if (nlist(Nmlst, Nl) < 0) {
+	if (kvm_nlist(Kd, Nl) < 0) {
 	    (void) fprintf(stderr, "%s: can't read namelist from %s\n",
 		Pn, Nmlst);
 	    Exit(1);

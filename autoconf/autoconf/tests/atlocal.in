@@ -1,0 +1,7 @@
+# -*- shell-script -*-
+# @configure_input@
+# Configurable variable values for Autoconf test suite.
+# Copyright 2000, 2001 Free Software Foundation, Inc.
+
+# We need Perl.
+PERL='@PERL@'

@@ -1,0 +1,17 @@
+2001/06/25 marcf.
+
+I am chasing down the cache bugs as some people report problems with the cache still?
+
+I will put some solid threading code to bang on it.  The way it works is that we instanciate a MBean 
+to ping on the instances.  The reason is that we want to do away with the network layers, we are
+not interested in a benchmark, we really want to get the caches to break. 
+
+The test is not a usual JUnit test as at the moment of this writing there is no "hot-deploy" of services
+in JBOSS.  So you need to manually start the server with the threadsMBean jar in the lib/ext directory
+and the threadsBean.jar file in teh deploy directory.
+You also need to deploy the MBean by putting the right entry in jboss.jcml (pre 3.0)
+here is the snippet
+<mbean code="org.jboss.test.threading.mbean.Threads" name="DefaultDomain:service=ThreadsTest" />
+
+It will start with zero threads to actually start it you must go and set the number of threads to 
+something else that 0 the setter will stop and start the MBean automatically

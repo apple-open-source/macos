@@ -1,5 +1,5 @@
-# $OpenLDAP: pkg/ldap/libraries/liblber/Makefile.in,v 1.25 2002/02/10 21:42:53 kurt Exp $
-## Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+# $OpenLDAP: pkg/ldap/libraries/liblber/Makefile.in,v 1.25.2.7 2003/03/03 17:10:04 kurt Exp $
+## Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
 ## COPYING RESTRICTIONS APPLY, see COPYRIGHT file
 ##
 ## LIBLBER
@@ -10,20 +10,23 @@ LIBRARY = liblber.la
 NT_SRCS = nt_err.c
 NT_OBJS = nt_err.lo
 
+UNIX_SRCS = stdio.c
+UNIX_OBJS = stdio.lo
+
 LIB_DEFS = -DLBER_LIBRARY
 
-SRCS= assert.c decode.c encode.c io.c bprint.c \
+SRCS= assert.c decode.c encode.c io.c bprint.c debug.c \
 	memory.c options.c sockbuf.c $(@PLAT@_SRCS)
-OBJS= assert.lo decode.lo encode.lo io.lo bprint.lo \
+OBJS= assert.lo decode.lo encode.lo io.lo bprint.lo debug.lo \
 	memory.lo options.lo sockbuf.lo $(@PLAT@_OBJS)
 XSRCS= version.c
 
 PROGRAMS= dtest etest idtest
 
-LDAP_INCDIR= ../../include       
-LDAP_LIBDIR= ../../libraries       
+LDAP_INCDIR= ../../include
+LDAP_LIBDIR= ../../libraries
 
-XLIBS = $(LIBRARY)
+XLIBS = $(LIBRARY) $(LDAP_LIBLUTIL_A)
 XXLIBS = 
 NT_LINK_LIBS = $(AC_LIBS)
 
@@ -35,3 +38,4 @@ idtest:  $(XLIBS) idtest.o
 	$(LTLINK) -o $@ idtest.o $(LIBS)
 
 install-local: FORCE
+

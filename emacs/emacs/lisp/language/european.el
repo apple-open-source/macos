@@ -306,7 +306,7 @@ and select's the Spanish tutorial."))
 	   (sample-text . "Er is een aantal manieren waarop je dit kan doen")
 	   (documentation . "\
 This language environment is almost the same as Latin-1,
-but select's the Dutch tutorial."))
+but it selects the Dutch tutorial."))
  '("European"))
 
 ;; For Turkish, the character set ISO-8859-9 (Latin-5) is used.  But,
@@ -522,8 +522,8 @@ but select's the Dutch tutorial."))
 (make-coding-system
  'mac-roman 4 ?M "Mac Roman Encoding"
  '(decode-mac-roman . encode-mac-roman)
- '((safe-chars . mac-roman-encoder)
-   (valid-codes (0 . 255))))
+ (list (cons 'safe-chars (get 'mac-roman-encoder 'translation-table))
+       '(valid-codes (0 . 255))))
 
 (provide 'european)
 

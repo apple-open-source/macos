@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -24,7 +22,7 @@
  */
 #ifdef SHLIB
 #include "shlib.h"
-#endif SHLIB
+#endif /* SHLIB */
 #ifndef RLD
 /*
  * This file contains the routines to manage the fixed VM shared libraries
@@ -80,7 +78,7 @@ merge_fvmlibs(void)
 	/* in this function" can safely be ignored */
 	fl = NULL;;
 	mfl = NULL;;
-#endif DEBUG
+#endif /* DEBUG */
 
 	/*
 	 * First process all the load commands for the fixed VM libraries
@@ -325,5 +323,5 @@ print_fvmlib_segments(void)
 	    p = &(msg->next);
 	}
 }
-#endif DEBUG
-#endif !defined(RLD)
+#endif /* DEBUG */
+#endif /* !defined(RLD) */

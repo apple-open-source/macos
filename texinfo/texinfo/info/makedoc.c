@@ -1,7 +1,8 @@
 /* makedoc.c -- make doc.c and funs.h from input files.
-   $Id: makedoc.c,v 1.1.1.1 2002/04/19 01:00:28 jkh Exp $
+   $Id: makedoc.c,v 1.2 2003/07/25 18:37:06 jkh Exp $
 
-   Copyright (C) 1993, 97, 98, 99, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1997, 1998, 1999, 2001, 2002, 2003 Free Software
+   Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -142,7 +143,7 @@ main (argc, argv)
       doc_filename = NULL_DEVICE;
       key_filename = NULL_DEVICE;
     }
-  
+
   funs_stream = must_fopen (funs_filename, "w");
   doc_stream = must_fopen (doc_filename, "w");
   key_stream = must_fopen (key_filename, "w");
@@ -229,7 +230,7 @@ main (argc, argv)
 
   if (tags_only)
     maybe_dump_tags (stdout);
-  xexit (0);
+  return 0;
 }
 
 /* Dumping out the contents of an Emacs tags table. */

@@ -1,0 +1,39 @@
+<html>
+<head>
+  <title>%(listname)s %(who)s 認証</title>
+</head>
+<body bgcolor="#ffffff">
+<FORM METHOD=POST ACTION="%(path)s">
+%(message)s
+  <TABLE WIDTH="100%%" BORDER="0" CELLSPACING="4" CELLPADDING="5">
+    <TR>
+      <TD COLSPAN="2" WIDTH="100%%" BGCOLOR="#99CCFF" ALIGN="CENTER">
+	<B><FONT COLOR="#000000" SIZE="+1">%(listname)s %(who)s
+	    認証</FONT></B>
+      </TD>
+    </TR>
+    <tr>
+      <TD><div ALIGN="Right">リスト %(who)s パスワード:</div></TD>
+      <TD><INPUT TYPE="password" NAME="adminpw" SIZE="30"></TD>
+    </tr>
+    <tr>
+      <td colspan=2 align=middle><INPUT type="SUBMIT"
+                                        name="admlogin"
+					value="ログイン...">
+      </td>
+    </tr>
+  </TABLE>
+      <p><strong><em>重要:</em></strong> 
+      ここから先はブラウザのクッキーを有効にする必要があります. 
+      でないと管理設定の変更は有効になりません. 
+
+      <p>セッションクッキーは Mailman の管理インターフェースで 使用されます．
+      従って管理操作をするたびに再認証をおこなう 必要がなくなります．
+      このクッキーはブラウザを終了した時， あるいは，明示的に<em>ログアウト</em>
+      をクリックした 時に自動的に無効になります．
+      (ログアウトリンクは認証が 完了していれば<em>他の管理項目</em>
+      の下のほうに出てきます).
+
+</FORM>
+</body>
+</html>

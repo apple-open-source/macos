@@ -1,0 +1,8 @@
+--- qsort_r.c.orig	Mon Apr 28 16:37:26 2003
++++ qsort_r.c	Sat May  3 14:29:49 2003
+@@ -5,4 +5,4 @@
+  * $FreeBSD: src/lib/libc/stdlib/qsort_r.c,v 1.1 2002/09/10 02:04:49 wollman Exp $
+  */
+ #define I_AM_QSORT_R
+-#include "qsort.c"
++#include "qsort-fbsd.c"

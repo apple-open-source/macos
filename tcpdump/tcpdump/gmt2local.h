@@ -18,7 +18,7 @@
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * @(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/gmt2local.h,v 1.1.1.1 2001/07/07 00:50:53 bbraun Exp $ (LBL)
+ * @(#) $Header: /cvs/root/tcpdump/tcpdump/gmt2local.h,v 1.1.1.1 2001/07/07 00:50:53 bbraun Exp $ (LBL)
  */
 #ifndef gmt2local_h
 #define gmt2local_h

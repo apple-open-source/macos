@@ -1,6 +1,7 @@
 /* Scheme/Guile language support routines for GDB, the GNU debugger.
-   Copyright 1995, 1996, 1998, 2000, 2001, 2002
-   Free Software Foundation, Inc.
+
+   Copyright 1995, 1996, 1998, 2000, 2001, 2002, 2003 Free Software
+   Foundation, Inc.
 
    This file is part of GDB.
 
@@ -29,6 +30,7 @@
 #include "c-lang.h"
 #include "scm-lang.h"
 #include "scm-tags.h"
+#include "source.h"
 #include "gdb_string.h"
 #include "gdbcore.h"
 
@@ -86,7 +88,7 @@ scm_get_field (LONGEST svalue, int index)
    or Boolean (CONTEXT == TYPE_CODE_BOOL).  */
 
 LONGEST
-scm_unpack (struct type *type, char *valaddr, enum type_code context)
+scm_unpack (struct type *type, const char *valaddr, enum type_code context)
 {
   if (is_scmvalue_type (type))
     {
@@ -133,9 +135,11 @@ scm_unpack (struct type *type, char *valaddr, enum type_code context)
 static int
 in_eval_c (void)
 {
-  if (current_source_symtab && current_source_symtab->filename)
+  struct symtab_and_line cursal = get_current_source_symtab_and_line ();
+  
+  if (cursal.symtab && cursal.symtab->filename)
     {
-      char *filename = current_source_symtab->filename;
+      char *filename = cursal.symtab->filename;
       int len = strlen (filename);
       if (len >= 6 && strcmp (filename + len - 6, "eval.c") == 0)
 	return 1;

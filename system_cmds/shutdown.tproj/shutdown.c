@@ -1,30 +1,6 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
  * Copyright (c) 1988, 1990, 1993
- *      The Regents of the University of California.  All rights reserved.
+ *	The Regents of the University of California.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,8 +12,8 @@
  *    documentation and/or other materials provided with the distribution.
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- *      This product includes software developed by the University of
- *      California, Berkeley and its contributors.
+ *	This product includes software developed by the University of
+ *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -55,12 +31,27 @@
  * SUCH DAMAGE.
  */
 
+#ifndef lint
+static const char copyright[] =
+"@(#) Copyright (c) 1988, 1990, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
+#endif /* not lint */
+
+#ifndef lint
+#if 0
+static char sccsid[] = "@(#)shutdown.c	8.4 (Berkeley) 4/28/95";
+#endif
+static const char rcsid[] =
+  "$FreeBSD: src/sbin/shutdown/shutdown.c,v 1.23 2002/03/21 13:20:48 imp Exp $";
+#endif /* not lint */
+
 #include <sys/param.h>
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/syslog.h>
 
 #include <ctype.h>
+#include <err.h>
 #include <fcntl.h>
 #include <pwd.h>
 #include <setjmp.h>
@@ -68,16 +59,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <tzfile.h>
 #include <unistd.h>
 
 #include "pathnames.h"
 
+#ifdef __APPLE__
+#define __unused
+#endif
+
 #ifdef DEBUG
 #undef _PATH_NOLOGIN
 #define	_PATH_NOLOGIN	"./nologin"
-#undef _PATH_FASTBOOT
-#define	_PATH_FASTBOOT	"./fastboot"
 #endif
 
 #define	H		*60*60
@@ -87,55 +79,61 @@
 struct interval {
 	int timeleft, timetowait;
 } tlist[] = {
-	10 H,  5 H,	 5 H,  3 H,	 2 H,  1 H,	1 H, 30 M,
-	30 M, 10 M,	20 M, 10 M,	10 M,  5 M,	5 M,  3 M,
-	 2 M,  1 M,	 1 M, 30 S,	30 S, 30 S,
-	 0, 0,
+	{ 10 H,  5 H },
+	{  5 H,  3 H },
+	{  2 H,  1 H },
+	{  1 H, 30 M },
+	{ 30 M, 10 M },
+	{ 20 M, 10 M },
+	{ 10 M,  5 M },
+	{  5 M,  3 M },
+	{  2 M,  1 M },
+	{  1 M, 30 S },
+	{ 30 S, 30 S },
+	{  0  ,  0   }
 };
 #undef H
 #undef M
 #undef S
 
 static time_t offset, shuttime;
-static int dofast, dohalt, doreboot, killflg, mbuflen;
-static char *nosync, *whom, mbuf[BUFSIZ];
+static int dohalt, dopower, doreboot, killflg, mbuflen, oflag = 1;
+static char mbuf[BUFSIZ];
+static const char *nosync, *whom;
 
-void badtime __P((void));
-void die_you_gravy_sucking_pig_dog __P((void));
-void doitfast __P((void));
-void finish __P((int));
-void getoffset __P((char *));
-void loop __P((void));
-void nolog __P((void));
-void timeout __P((int));
-void timewarn __P((int));
-void usage __P((void));
+void badtime(void);
+void die_you_gravy_sucking_pig_dog(void);
+void finish(int);
+void getoffset(char *);
+void loop(void);
+void nolog(void);
+void timeout(int);
+void timewarn(int);
+void usage(const char *);
 
 int
 main(argc, argv)
 	int argc;
 	char *argv[];
 {
-	extern int optind;
-	register char *p, *endp;
+	char *p, *endp;
 	struct passwd *pw;
 	int arglen, ch, len, readstdin;
 
 #ifndef DEBUG
-	if (geteuid()) {
-		(void)fprintf(stderr, "shutdown: NOT super-user\n");
-		exit(1);
-	}
+	if (geteuid())
+		errx(1, "NOT super-user");
 #endif
 	nosync = NULL;
 	readstdin = 0;
-	while ((ch = getopt(argc, argv, "-fhknr")) != EOF)
+#ifndef __APPLE__
+	while ((ch = getopt(argc, argv, "-hknopr")) != -1)
+#else
+	while ((ch = getopt(argc, argv, "-hknor")) != -1)
+#endif
 		switch (ch) {
 		case '-':
 			readstdin = 1;
-			break;
-		case 'f':
-			dofast = 1;
 			break;
 		case 'h':
 			dohalt = 1;
@@ -146,29 +144,44 @@ main(argc, argv)
 		case 'n':
 			nosync = "-n";
 			break;
+		case 'o':
+			oflag = 1;
+			break;
+#ifndef __APPLE__
+		case 'p':
+			dopower = 1;
+			break;
+#endif
 		case 'r':
 			doreboot = 1;
 			break;
 		case '?':
 		default:
-			usage();
+			usage((char *)NULL);
 		}
 	argc -= optind;
 	argv += optind;
 
 	if (argc < 1)
-		usage();
+		usage((char *)NULL);
 
-	if (dofast && nosync) {
-		(void)fprintf(stderr,
-		    "shutdown: incompatible switches -f and -n.\n");
-		usage();
-	}
-	if (doreboot && dohalt) {
-		(void)fprintf(stderr,
-		    "shutdown: incompatible switches -h and -r.\n");
-		usage();
-	}
+#ifndef __APPLE__
+	if (killflg + doreboot + dohalt + dopower > 1)
+		usage("incompatible switches -h, -k, -p and -r");
+
+	if (oflag && !(dohalt || dopower || doreboot))
+		usage("-o requires -h, -p or -r");
+#else
+	if (killflg + doreboot + dohalt > 1)
+		usage("incompatible switches -h, -k, and -r");
+
+	if (oflag && !(dohalt || doreboot))
+		usage("-o requires -h or -r");
+#endif
+
+	if (nosync != NULL && !oflag)
+		usage("-n requires -o");
+
 	getoffset(*argv++);
 
 	if (*argv) {
@@ -217,19 +230,16 @@ main(argc, argv)
 		int forkpid;
 
 		forkpid = fork();
-		if (forkpid == -1) {
-			perror("shutdown: fork");
-			exit(1);
-		}
-		if (forkpid) {
-			(void)printf("shutdown: [pid %d]\n", forkpid);
-			exit(0);
-		}
+		if (forkpid == -1)
+			err(1, "fork");
+		if (forkpid)
+			errx(0, "[pid %d]", forkpid);
 	}
+	setsid();
 #endif
 	openlog("shutdown", LOG_CONS, LOG_AUTH);
 	loop();
-	/* NOTREACHED */
+	return(0);
 }
 
 void
@@ -249,14 +259,14 @@ loop()
 	if (tp->timeleft < offset)
 		(void)sleep((u_int)(offset - tp->timeleft));
 	else {
-		while (offset < tp->timeleft)
+		while (tp->timeleft && offset < tp->timeleft)
 			++tp;
 		/*
 		 * Warn now, if going to sleep more than a fifth of
 		 * the next wait time.
 		 */
-		if (sltime = offset - tp->timeleft) {
-			if (sltime > tp->timetowait / 5)
+		if ((sltime = offset - tp->timeleft)) {
+			if (sltime > (u_int)(tp->timetowait / 5))
 				timewarn(offset);
 			(void)sleep(sltime);
 		}
@@ -276,6 +286,11 @@ loop()
 
 static jmp_buf alarmbuf;
 
+static const char *restricted_environ[] = {
+	"PATH=" _PATH_STDPATH,
+	NULL
+};
+
 void
 timewarn(timeleft)
 	int timeleft;
@@ -284,12 +299,14 @@ timewarn(timeleft)
 	static char hostname[MAXHOSTNAMELEN + 1];
 	FILE *pf;
 	char wcmd[MAXPATHLEN + 4];
+	extern const char **environ;
 
 	if (!first++)
 		(void)gethostname(hostname, sizeof(hostname));
 
 	/* undoc -n option to wall suppresses normal wall banner */
 	(void)snprintf(wcmd, sizeof(wcmd), "%s -n", _PATH_WALL);
+	environ = restricted_environ;
 	if (!(pf = popen(wcmd, "w"))) {
 		syslog(LOG_ERR, "shutdown: can't find %s: %m", _PATH_WALL);
 		return;
@@ -315,7 +332,7 @@ timewarn(timeleft)
 
 	/*
 	 * play some games, just in case wall doesn't come back
-	 * probably unecessary, given that wall is careful.
+	 * probably unnecessary, given that wall is careful.
 	 */
 	if (!setjmp(alarmbuf)) {
 		(void)signal(SIGALRM, timeout);
@@ -328,7 +345,7 @@ timewarn(timeleft)
 
 void
 timeout(signo)
-	int signo;
+	int signo __unused;
 {
 	longjmp(alarmbuf, 1);
 }
@@ -336,40 +353,68 @@ timeout(signo)
 void
 die_you_gravy_sucking_pig_dog()
 {
+	char *empty_environ[] = { NULL };
 
 	syslog(LOG_NOTICE, "%s by %s: %s",
-	    doreboot ? "reboot" : dohalt ? "halt" : "shutdown", whom, mbuf);
+#ifndef __APPLE__
+	    doreboot ? "reboot" : dohalt ? "halt" : dopower ? "power-down" : 
+#else
+	    doreboot ? "reboot" : dohalt ? "halt" : 
+#endif
+	    "shutdown", whom, mbuf);
 	(void)sleep(2);
 
 	(void)printf("\r\nSystem shutdown time has arrived\007\007\r\n");
 	if (killflg) {
 		(void)printf("\rbut you'll have to do it yourself\r\n");
-		finish(0);
+		exit(0);
 	}
-	if (dofast)
-		doitfast();
 #ifdef DEBUG
 	if (doreboot)
 		(void)printf("reboot");
 	else if (dohalt)
 		(void)printf("halt");
-	if (nosync)
+#ifndef __APPLE__
+	else if (dopower)
+		(void)printf("power-down");
+#endif
+	if (nosync != NULL)
 		(void)printf(" no sync");
-	if (dofast)
-		(void)printf(" no fsck");
 	(void)printf("\nkill -HUP 1\n");
 #else
-	if (doreboot) {
-		execle(_PATH_REBOOT, "reboot", "-l", nosync, 0);
-		syslog(LOG_ERR, "shutdown: can't exec %s: %m.", _PATH_REBOOT);
-		perror("shutdown");
+	if (!oflag) {
+		(void)kill(1, doreboot ? SIGINT :	/* reboot */
+			      dohalt ? SIGUSR1 :	/* halt */
+#ifndef __APPLE__
+			      dopower ? SIGUSR2 :	/* power-down */
+#endif
+			      SIGTERM);			/* single-user */
+	} else {
+		if (doreboot) {
+			execle(_PATH_REBOOT, "reboot", "-l", nosync, 
+				(char *)NULL, empty_environ);
+			syslog(LOG_ERR, "shutdown: can't exec %s: %m.",
+				_PATH_REBOOT);
+			warn(_PATH_REBOOT);
+		}
+		else if (dohalt) {
+			execle(_PATH_HALT, "halt", "-l", nosync,
+				(char *)NULL, empty_environ);
+			syslog(LOG_ERR, "shutdown: can't exec %s: %m.",
+				_PATH_HALT);
+			warn(_PATH_HALT);
+		}
+#ifndef __APPLE__
+		else if (dopower) {
+			execle(_PATH_HALT, "halt", "-l", "-p", nosync,
+				(char *)NULL, empty_environ);
+			syslog(LOG_ERR, "shutdown: can't exec %s: %m.",
+				_PATH_HALT);
+			warn(_PATH_HALT);
+		}
+#endif
+		(void)kill(1, SIGTERM);		/* to single-user */
 	}
-	else if (dohalt) {
-		execle(_PATH_HALT, "halt", "-l", nosync, 0);
-		syslog(LOG_ERR, "shutdown: can't exec %s: %m.", _PATH_HALT);
-		perror("shutdown");
-	}
-	(void)kill(1, SIGTERM);		/* to single user */
 #endif
 	finish(0);
 }
@@ -378,29 +423,33 @@ die_you_gravy_sucking_pig_dog()
 
 void
 getoffset(timearg)
-	register char *timearg;
+	char *timearg;
 {
-	register struct tm *lt;
-	register char *p;
+	struct tm *lt;
+	char *p;
 	time_t now;
+	int this_year;
+
+	(void)time(&now);
 
 	if (!strcasecmp(timearg, "now")) {		/* now */
 		offset = 0;
+		shuttime = now;
 		return;
 	}
 
-	(void)time(&now);
 	if (*timearg == '+') {				/* +minutes */
 		if (!isdigit(*++timearg))
 			badtime();
-		offset = atoi(timearg) * 60;
+		if ((offset = atoi(timearg) * 60) < 0)
+			badtime();
 		shuttime = now + offset;
 		return;
 	}
 
 	/* handle hh:mm by getting rid of the colon */
 	for (p = timearg; *p; ++p)
-		if (!isascii(*p) || !isdigit(*p))
+		if (!isascii(*p) || !isdigit(*p)) {
 			if (*p == ':' && strlen(p) == 3) {
 				p[0] = p[1];
 				p[1] = p[2];
@@ -408,13 +457,24 @@ getoffset(timearg)
 			}
 			else
 				badtime();
+		}
 
 	unsetenv("TZ");					/* OUR timezone */
 	lt = localtime(&now);				/* current time val */
 
 	switch(strlen(timearg)) {
 	case 10:
+		this_year = lt->tm_year;
 		lt->tm_year = ATOI2(timearg);
+		/*
+		 * check if the specified year is in the next century.
+		 * allow for one year of user error as many people will
+		 * enter n - 1 at the start of year n.
+		 */
+		if (lt->tm_year < (this_year % 100) - 1)
+			lt->tm_year += 100;
+		/* adjust for the year 2000 and beyond */
+		lt->tm_year += (this_year - (this_year % 100));
 		/* FALLTHROUGH */
 	case 8:
 		lt->tm_mon = ATOI2(timearg);
@@ -436,27 +496,11 @@ getoffset(timearg)
 		lt->tm_sec = 0;
 		if ((shuttime = mktime(lt)) == -1)
 			badtime();
-		if ((offset = shuttime - now) < 0) {
-			(void)fprintf(stderr,
-			    "shutdown: that time is already past.\n");
-			exit(1);
-		}
+		if ((offset = shuttime - now) < 0)
+			errx(1, "that time is already past.");
 		break;
 	default:
 		badtime();
-	}
-}
-
-#define	FSMSG	"fastboot file for fsck\n"
-void
-doitfast()
-{
-	int fastfd;
-
-	if ((fastfd = open(_PATH_FASTBOOT, O_WRONLY|O_CREAT|O_TRUNC,
-	    0664)) >= 0) {
-		(void)write(fastfd, FSMSG, sizeof(FSMSG) - 1);
-		(void)close(fastfd);
 	}
 }
 
@@ -464,6 +508,7 @@ doitfast()
 void
 nolog()
 {
+#ifndef __APPLE__
 	int logfd;
 	char *ct;
 
@@ -481,27 +526,34 @@ nolog()
 		(void)write(logfd, mbuf, strlen(mbuf));
 		(void)close(logfd);
 	}
+#endif
 }
 
 void
 finish(signo)
-	int signo;
+	int signo __unused;
 {
+#ifndef __APPLE__
 	if (!killflg)
 		(void)unlink(_PATH_NOLOGIN);
+#endif
 	exit(0);
 }
 
 void
 badtime()
 {
-	(void)fprintf(stderr, "shutdown: bad time format.\n");
-	exit(1);
+	errx(1, "bad time format");
 }
 
 void
-usage()
+usage(cp)
+	const char *cp;
 {
-	fprintf(stderr, "usage: shutdown [-fhknr] shutdowntime [ message ]\n");
+	if (cp != NULL)
+		warnx("%s", cp);
+	(void)fprintf(stderr,
+	    "usage: shutdown [-] [-h | -p | -r | -k] [-o [-n]]"
+	    " time [warning-message ...]\n");
 	exit(1);
 }

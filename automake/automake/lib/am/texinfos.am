@@ -225,7 +225,7 @@ maintainer-clean-am: maintainer-clean-aminfo
 maintainer-clean-aminfo:
 ## Eww.  But how else can we find all the output files from makeinfo?
 ?!CYGNUS?	cd $(srcdir) && \
-	for i in $(INFO_DEPS); do \
+	list='$(INFO_DEPS)'; for i in $$list; do \
 	  rm -f $$i; \
 	  if test "`echo $$i-[0-9]*`" != "$$i-[0-9]*"; then \
 	    rm -f $$i-[0-9]*; \

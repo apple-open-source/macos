@@ -34,169 +34,95 @@
 #ifndef _IOKIT_IOFWUserIsochPortProxy_H
 #define _IOKIT_IOFWUserIsochPortProxy_H
 
+#import "IOFireWireLibPriv.h"
+
 // public
-#import <IOKit/firewire/IOFireWireBus.h>
-#import <IOKit/firewire/IOFWIsochPort.h>
-
-// private
-#import "IOFWUserIsochPort.h"
-#import "IOFireWireUserClient.h"
-
-class IOFWUserIsochPort: public IOFWIsochPort
-{
-	OSDeclareDefaultStructors(IOFWUserIsochPort)
-
- public:	
-	virtual bool	init() ;
-
-	// Return maximum speed and channels supported
-	// (bit n set = chan n supported)
-    virtual IOReturn getSupported(IOFWSpeed &maxSpeed, UInt64 &chanSupported) ;
-
-	// Allocate hardware resources for port
-    virtual IOReturn allocatePort(IOFWSpeed speed, UInt32 chan) ;
-    virtual IOReturn releasePort() ;	// Free hardware resources
-    virtual IOReturn start() ;			// Start port processing packets
-    virtual IOReturn stop() ;			// Stop processing packets
-
- protected:
-	IOFWSpeed	fMaxSpeed ;
-	UInt32		fChanSupported ;
-} ;
-
-class IOFWUserIsochPortProxy: public OSObject
-{
-	OSDeclareDefaultStructors(IOFWUserIsochPortProxy)
-	
-	protected:
-	
-		IOFireWireUserClient*			fUserClient ;
-		IOFWIsochPort*					fPort ;
-		Boolean							fPortStarted ;
-		Boolean							fPortAllocated ;
-		IOFireWireBus::DCLTaskInfo 		fTaskInfo;
-		IORecursiveLock*				fLock ;
-		
-	public:
-	
-		virtual Boolean				init( IOFireWireUserClient*  userclient ) ;
-		virtual IOReturn 			getSupported( IOFWSpeed & maxSpeed, UInt64 & chanSupported ) ;
-		virtual IOReturn 			allocatePort(IOFWSpeed speed, UInt32 chan) ;
-		virtual IOReturn 			releasePort() ;	// Free hardware resources
-		virtual IOReturn 			start() ;			// Start port processing packets
-		virtual IOReturn 			stop() ;			// Stop processing packets
-		const IOFWIsochPort* 		getPort() const { return fPort; }
-		virtual IOReturn			createPort() ;	
-		virtual void				free() ;
-
-		inline void					lock() ;
-		inline void					unlock() ;
-} ;
-
-inline void IOFWUserIsochPortProxy::lock()
-{
-	IORecursiveLockLock( fLock ) ;
-}
-
-inline void IOFWUserIsochPortProxy::unlock()
-{
-	IORecursiveLockUnlock( fLock ) ;
-}
+#import <IOKit/firewire/IOFWLocalIsochPort.h>
+#import <IOKit/IOLocks.h>
+#import <IOKit/OSMessageNotification.h>
 
 #pragma mark -
-class IOFWUserLocalIsochPortProxy: public IOFWUserIsochPortProxy
+
+class IODCLProgram ;
+class IOBufferMemoryDescriptor ;
+class IOFireWireUserClient ;
+class IOFWDCLPool ;
+
+class IOFWUserLocalIsochPort : public IOFWLocalIsochPort
 {
-	OSDeclareDefaultStructors(IOFWUserLocalIsochPortProxy)
+	OSDeclareDefaultStructors( IOFWUserLocalIsochPort )
+	
+	typedef ::IOFireWireLib::LocalIsochPortAllocateParams AllocateParams ;
 	
 	protected:
-	
-		IOMemoryDescriptor*		fUserDCLProgramMem ;
-		IOByteCount				fDCLProgramBytes ;
-		IOMemoryDescriptor*		fUserBufferMem ;
-		Boolean					fUserBufferMemPrepared ;
-		IOMemoryMap*			fUserBufferMemMap ;
-		Boolean					fUserDCLProgramMemPrepared ;
 		
-		UInt8*					fKernDCLProgramBuffer ;
-		DCLCommand*				fKernDCLProgramStart ;
-		
-		Boolean					fTalking ;
-		UInt32					fStartState ;
-		UInt32					fStartMask ;
-		UInt32					fStartEvent ;
-	
-		// lookup table
-		UInt32					fUserToKernelDCLLookupTableLength ;
-		DCLCommand**			fUserToKernelDCLLookupTable ;
-		OSAsyncReference		fStopTokenAsyncRef ;
-		void*					fUserObj ;
+		IORecursiveLock*			fLock ;
+		void*						fUserObj ;
+		IOFireWireUserClient *		fUserClient ;
+
+		unsigned					fProgramCount ;
+		DCLCommand **				fDCLTable ;		// lookup table
+		OSAsyncReference			fStopTokenAsyncRef ;
+
+		UInt8*						fProgramBuffer ; // for old style programs
+		IOFWDCLPool *				fDCLPool ;		// for new style programs
+		bool						fStarted ;
 		
 	public:
 
-		virtual Boolean				initWithUserDCLProgram(
-											LocalIsochPortAllocateParams*	inParams,
-											IOFireWireUserClient*		inUserClient) ;
-	
-		virtual IOReturn 			getSupported(
-											IOFWSpeed&					maxSpeed, 
-											UInt64&						chanSupported) ;
-		virtual IOReturn 			allocatePort(
-											IOFWSpeed 					speed, 
-											UInt32 						chan) ;
-		virtual	IOReturn			releasePort() ;
-		virtual IOReturn			stop() ;
-	
-		// --- utility functions ----------
-		static Boolean				getDCLDataBuffer(
-											const DCLCommand*			dcl,
-											IOVirtualAddress*			outDataBuffer,
-											IOByteCount*				outDataLength) ;
-		static void					setDCLDataBuffer(
-											DCLCommand*					dcl,
-											IOVirtualAddress			inDataBuffer,
-											IOByteCount					inDataLength) ;
-		static IOByteCount			getDCLSize(
-											DCLCommand*					dcl) ;
-		static void					printDCLProgram(
-											const DCLCommand*			dcl,
-											UInt32						inDCLCount) ;
-		virtual IOReturn			convertToKernelDCL(
-											DCLUpdateDCLListStruct*		inDCLCommand,
-											DCLCommand*					inUserDCLTable[],
-											DCLCommand*					inUserToKernelDCLLookupTable[],
-											UInt32						inLookupTableLength,
-											UInt32&						inOutHint ) ;
-		virtual IOReturn			convertToKernelDCL(
-											DCLJumpStruct*				inDCLCommand,
-											DCLCommand*					inUserDCLTable[],
-											DCLCommand*					inUserToKernelDCLLookupTable[],
-											UInt32						inLookupTableLength,
-											UInt32&						inOutHint ) ;
-		virtual IOReturn			convertToKernelDCL(
-											DCLCallProcStruct*			inDCLCommand,
-											DCLCommand*					inUserDCL ) ;
-		static	Boolean				findOffsetInRanges(
-											IOVirtualAddress			inAddress,
-											IOVirtualRange				inRanges[],
-											UInt32						inRangeCount,
-											IOByteCount*				outOffset) ;
-		static Boolean				userToKernLookup( 
-											DCLCommand*					inDCLCommand,
-											DCLCommand*					inUserDCLList[],
-											DCLCommand*					inKernDCLList[],
-											UInt32						inTableLength,
-											UInt32&						inOutHint,
-											DCLCommand**				outDCLCommand ) ;
-		static	void				dclCallProcHandler(
-											DCLCommand*					pDCLCommand) ;
-		virtual IOReturn			setAsyncRef_DCLCallProc( OSAsyncReference asyncRef, DCLCallCommandProc* proc) ;
-		virtual IOReturn			modifyJumpDCL(
-											UInt32						inJumpDCLCompilerData,
-											UInt32						inLabelDCLCompilerData) ;
-		virtual IOReturn			modifyJumpDCLSize( UInt32 inDCLCompilerData, IOByteCount newSize ) ;
-	
-		virtual void				free() ;
-		virtual IOReturn			createPort() ;
+		// OSObject
+		virtual void				free () ;
+#if IOFIREWIREDEBUG > 0
+		virtual bool				serialize( OSSerialize * s ) const ;
+#endif
+
+		// IOFWLocalIsochPort
+		virtual IOReturn 			getSupported (	IOFWSpeed & 					maxSpeed, 
+													UInt64 & 						chanSupported ) ;
+//		virtual	IOReturn			releasePort () ;
+		virtual IOReturn			start () ;
+		virtual IOReturn			stop () ;
+
+		// me
+		bool						initWithUserDCLProgram (	
+											AllocateParams * 		params,
+											IOFireWireUserClient &	userclient,
+											IOFireWireController &	controller ) ;
+		IOReturn					importUserProgram (
+											IOMemoryDescriptor *	userExportDesc,
+											unsigned 				bufferRangeCount, 
+											IOVirtualRange			userBufferRanges [],
+											IOMemoryMap *			bufferMap ) ;
+		static	void				s_dclCallProcHandler (
+											DCLCallProc * 			dcl ) ;
+		IOReturn					setAsyncRef_DCLCallProc ( 
+											OSAsyncReference 		asyncRef ) ;
+		IOReturn					modifyJumpDCL ( 
+											UInt32 					jumpCompilerData, 
+											UInt32 					labelCompilerData ) ;
+		IOReturn					modifyDCLSize ( 
+											UInt32 					compilerData, 
+											IOByteCount 			newSize ) ;	
+
+		inline void					lock ()				{ IORecursiveLockLock ( fLock ) ; }
+		inline void					unlock ()			{ IORecursiveLockUnlock ( fLock ) ; }
+
+		IOReturn					convertToKernelDCL ( DCLUpdateDCLList * dcl ) ;
+		IOReturn					convertToKernelDCL ( DCLJump * dcl ) ;
+		IOReturn					convertToKernelDCL ( DCLCallProc * dcl ) ;
+
+		void						exporterCleanup () ;
+		static void					s_nuDCLCallout( void * refcon ) ;
+		IOReturn 					userNotify (
+											UInt32			notificationType,
+											UInt32			numDCLs,
+											void *			data,
+											IOByteCount		dataSize ) ;
+
+#if 0
+		IOReturn					runNuDCLUpdateList( UInt32 dclProgramIndex ) ;
+		IOReturn					runDCLUpdateList( UInt32 dclCompilerData ) ;
+#endif
 } ;
 
 #endif //_IOKIT_IOFWUserIsochPortProxy_H

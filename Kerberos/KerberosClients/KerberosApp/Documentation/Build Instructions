@@ -1,0 +1,99 @@
+==============================================================================
+Kerberos Manager Build Instructions
+==============================================================================
+
+In order to build Kerberos Manager you will need:
+
+ - CodeWarrior Pro 4
+ 		Full MacOS Install
+ - CodeWarrior updates
+ 		Interfaces&Libraries 3.2
+ 			<http://developer.apple.com/sdk/index.html>
+ 		CW Pro 4.1 IDE 3.3 patch
+ 			<ftp://ftp.metrowerks.com/pub/updates/CWPRO4/CW_Pro_4.1_IDE_3.3_Patch.sit>
+ 		CW Pro 4.1 Mac Compiler Patch MSL
+ 			<ftp://ftp.metrowerks.com/pub/updates/CWPRO4/CW_Pro_4.1_Mac_Compiler_MSL.sit>
+ 		PowerPlant 1.9.3
+ 			<ftp://ftp.metrowerks.com/pub/updates/CWPRO4/PowerPlant_1.9.3.hqx>
+ 		PowerPlant 1.9.3 errata
+ 			<http://www.metrowerks.com/tools/documentation/errata/powerplant193.html>
+ - Finder Flags Post-linker CodeWarrior Plug-in
+		Included with this distribution in KerberosManager:Tools:Finder Flags CW Plugin,
+		must be installed in CW folder (see below)
+ - MIT Support Library
+ 	<http://mit.edu/macdev/Development/MITSupportLib/Common/Documentation/release.html>
+ - MIT Kerberos Library
+ 	<http://mit.edu/macdev/Development/MITKerberos/Common/Documentation/download.html>
+ 	
+Install all CodeWarrior updates (you'll have to enter the PowerPlant errata by
+hand) and follow the instructions for rebuilding MSL and MacHeaders.
+
+Copy the "Finder Flags PostLinker" and "Finder Flags Panel" from the
+KerberosManager:Tools:Finder Flags CW Plugin: directory to the CodeWarrior
+Plug-ins directory.
+
+Kerberos Manager can be built against both sources and SDKs for MIT Support Library
+and MIT Kerberos Library.
+
+If you want to build Kerberos Manager against the SDKs, you should just put
+Kerberos Manager and SDKs in the layout below, and follow the build
+instructions.
+
+If you want to replace an SDK with a source distribution, you need to build
+the source distribution before building Kerberos Manager. The layout below
+still applies.
+
+==============================================================================
+Building Kerberos Manager
+==============================================================================
+
+1. Get MIT Support Library and MIT Kerberos Library and put them in the
+following layout:
+	root
+		- MITKerberos
+			- MITKerberosLib
+			- KerberosManager
+		- MITSupportLib
+		- ThirdParty (only if building against MIT Support Library source distribution)
+
+2. If you are building against source distributions, build them following their
+respective build instructions.
+		
+3. Launch CodeWarrior IDE 3.3 .
+
+4. Open MITKerberos:KerberosManager:Projects:Kerberos Manager.prj .
+
+3. Build all targets.
+
+The build takes approximately 10 minutes on a 9600/300 .
+
+==============================================================================
+Why the Finder Flags Post-Linker is Needed
+==============================================================================
+
+Version 1.0.2 of Kerberos Manager (included with MIT Kerberos for the Macintosh 2.5
+release) is now an 'APPL' with a 'rout' resource that tells the Finder to put
+it in the Control Panels folder (under MacOS 8.0 or later), instead of an 'APPC'.
+
+However, in addition to the 'rout' resource, a special Finder flag must be set
+on the Kerberos Manager file to tell the Finder to use the 'rout' resource. 
+There is no standard way to set this bit in CodeWarrior.
+
+The included "Finder Flags" plug-in is a Post-linker plug-in that allows you
+to set this Finder flag and others.
+
+The targets of Kerberos Manager are set up to use the FinderFlags Post-linker
+already.
+
+See "Technote 1142:Mac OS 8.5" for more information about the 'rout' resource.
+<http://developer.apple.com/technotes/tn/tn1142/index.html>
+
+You can find the source for the Finder Flags Plug-in at:
+
+<http://web.meeroh.org/meeroh/software/index.html>
+
+==============================================================================
+Documentation
+==============================================================================
+
+Documentation is inside the MITKerberosLib:KerberosManager:Documentation folder.

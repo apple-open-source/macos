@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +21,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 
 
 #include <libkern/OSByteOrder.h>
@@ -855,6 +855,11 @@ Ping State/Err == 1
     if( (flags & kEHCITDStatus_XactErr) != 0)
     {
 
+	if(  ((USBToHostLong(pEndpoint->GetSharedLogical()->flags) & kEHCIEDFlags_S) >> kEHCIEDFlags_SPhase) != 2)
+       {       // A split transaction
+           return(kIOUSBHighSpeedSplitError);
+       }
+
 	return kOHCIITDConditionDeviceNotResponding;	// Can't tell this from any other transaction err
     }	
     
@@ -895,6 +900,10 @@ TranslateStatusToUSBError(UInt32 status)
 
     if (status > 15)
     {
+	if(status == (UInt32) kIOUSBHighSpeedSplitError)
+	{
+	    return(kIOUSBHighSpeedSplitError);
+	}
 	return kIOReturnInternalError;
     }
     
@@ -3463,8 +3472,8 @@ AppleUSBEHCI::CheckEDListForTimeouts(AppleEHCIQueueHead *head)
 
     for (; pED != 0; pED = (AppleEHCIQueueHead *)pED->_logicalNext)
     {
-	USBLog(6, "%s[%p]::CheckEDListForTimeouts - checking ED [%p]", getName(), this, pED);
-	pED->print(6);
+	USBLog(7, "%s[%p]::CheckEDListForTimeouts - checking ED [%p]", getName(), this, pED);
+	pED->print(7);
 	// Need to keep a note of the previous ED for back links. Usually I'd
 	// put a pEDBack = pED at the end of the loop, but there are lots of 
 	// continues in this loop so it was getting skipped (and unlinking the
@@ -3664,6 +3673,5 @@ void AppleUSBEHCI::printED(AppleEHCIQueueHead * pED)
     USBLog(5, "%s[%p]::printED: -----------------------------", getName(), this);
 }
 #endif
-
 
 

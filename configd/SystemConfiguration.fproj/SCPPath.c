@@ -1,22 +1,25 @@
 /*
- * Copyright(c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright(c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1(the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -56,7 +59,7 @@ normalizePath(CFStringRef path)
 
 	/* remove empty path components */
 	nElements = CFArrayGetCount(elements);
-	for (i=nElements; i>0; i--) {
+	for (i = nElements; i > 0; i--) {
 		CFStringRef	pathElement;
 
 		pathElement = CFArrayGetValueAtIndex(elements, i-1);
@@ -97,7 +100,7 @@ getPath(SCPreferencesRef session, CFStringRef path, CFDictionaryRef *entity)
     restart :
 
 	nElements = CFArrayGetCount(elements);
-	for (i=0; i<nElements; i++) {
+	for (i = 0; i < nElements; i++) {
 		element = CFArrayGetValueAtIndex(elements, i);
 		if (i == 0) {
 			sessionPrivate->accessed = TRUE;
@@ -186,7 +189,7 @@ setPath(SCPreferencesRef session, CFStringRef path, CFDictionaryRef entity)
 
 	nElements = CFArrayGetCount(elements);
 	nodes     = CFArrayCreateMutable(NULL, nElements-1, &kCFTypeArrayCallBacks);
-	for (i=0; i<nElements-1; i++) {
+	for (i = 0; i < nElements - 1; i++) {
 		element = CFArrayGetValueAtIndex(elements, i);
 		if (i == 0) {
 			sessionPrivate->accessed = TRUE;
@@ -253,7 +256,7 @@ setPath(SCPreferencesRef session, CFStringRef path, CFDictionaryRef entity)
 	if (entity) {
 		newEntity = CFRetain(entity);
 	}
-	for (i=nElements-1; i>=0; i--) {
+	for (i = nElements - 1; i >= 0; i--) {
 		element = CFArrayGetValueAtIndex(elements, i);
 		if (i == 0) {
 			if (newEntity) {
@@ -299,8 +302,10 @@ SCPreferencesPathCreateUniqueChild(SCPreferencesRef	session,
 	CFUUIDRef               uuid;
 	CFDictionaryRef		entity;
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCPreferencesPathCreateUniqueChild:"));
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  prefix = %@"), prefix);
+	if (_sc_verbose) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCPreferencesPathCreateUniqueChild:"));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  prefix = %@"), prefix);
+	}
 
 	if (getPath(session, prefix, &entity)) {
 		// if prefix path exists
@@ -344,8 +349,10 @@ SCPreferencesPathGetValue(SCPreferencesRef	session,
 	CFDictionaryRef	entity;
 	CFStringRef	entityLink;
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCPreferencesPathGetValue:"));
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  path  = %@"), path);
+	if (_sc_verbose) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCPreferencesPathGetValue:"));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  path  = %@"), path);
+	}
 
 	if (!getPath(session, path, &entity)) {
 		return NULL;
@@ -372,8 +379,10 @@ SCPreferencesPathGetLink(SCPreferencesRef	session,
 	CFDictionaryRef	entity;
 	CFStringRef	entityLink;
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCPreferencesPathGetLink:"));
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  path = %@"), path);
+	if (_sc_verbose) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCPreferencesPathGetLink:"));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  path = %@"), path);
+	}
 
 	if (!getPath(session, path, &entity)) {
 		return NULL;
@@ -397,9 +406,11 @@ SCPreferencesPathSetValue(SCPreferencesRef	session,
 {
 	Boolean			ok;
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCPreferencesPathSetValue:"));
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  path  = %@"), path);
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  value = %@"), value);
+	if (_sc_verbose) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCPreferencesPathSetValue:"));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  path  = %@"), path);
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  value = %@"), value);
+	}
 
 	if (!value) {
 		_SCErrorSet(kSCStatusInvalidArgument);
@@ -420,9 +431,11 @@ SCPreferencesPathSetLink(SCPreferencesRef	session,
 	CFDictionaryRef		entity;
 	Boolean			ok;
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCPreferencesPathSetLink:"));
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  path = %@"), path);
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  link = %@"), link);
+	if (_sc_verbose) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCPreferencesPathSetLink:"));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  path = %@"), path);
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  link = %@"), link);
+	}
 
 	if (!link) {
 		_SCErrorSet(kSCStatusInvalidArgument);
@@ -454,8 +467,10 @@ SCPreferencesPathRemoveValue(SCPreferencesRef	session,
 	Boolean			ok		= FALSE;
 	CFDictionaryRef		value;
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCPreferencesPathRemoveValue:"));
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  path = %@"), path);
+	if (_sc_verbose) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCPreferencesPathRemoveValue:"));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  path = %@"), path);
+	}
 
 	if (!getPath(session, path, &value)) {
 		// if no such path

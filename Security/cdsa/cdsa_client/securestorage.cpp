@@ -18,7 +18,6 @@
 
 #include "securestorage.h"
 #include "genkey.h"
-//#include "aclsupport.h"
 #include <Security/Access.h>
 #include <Security/osxsigning.h>
 #include <memory>
@@ -208,7 +207,7 @@ SSGroupImpl::SSGroupImpl(const SSDb &ssDb,
 	random.generate(mLabel, mLabel.Length);
 
 	// Overwrite the first 4 bytes with the magic cookie for a group.
-	reinterpret_cast<uint32 *>(mLabel.Data)[0] = kGroupMagic;
+	reinterpret_cast<uint32 *>(mLabel.Data)[0] = h2n(uint32(kGroupMagic));
 
 	// @@@ Ensure that the label is unique (Chance of collision is 2^80 --
 	// birthday paradox).
@@ -238,7 +237,7 @@ SSGroupImpl::SSGroupImpl(const SSDb &ssDb, const CSSM_DATA &dataBlob)
 		CssmError::throwMe(CSSMERR_DL_RECORD_NOT_FOUND); // Not a SS record
 
 	mLabel = CssmData(dataBlob.Data, kLabelSize);
-	if (*reinterpret_cast<const uint32 *>(mLabel.Data) != kGroupMagic)
+	if (*reinterpret_cast<const uint32 *>(mLabel.Data) != h2n (uint32(kGroupMagic)))
 		CssmError::throwMe(CSSMERR_DL_RECORD_NOT_FOUND); // Not a SS record
 
 	// Look up the symmetric key with that label.
@@ -264,7 +263,7 @@ bool
 SSGroupImpl::isGroup(const CSSM_DATA &dataBlob)
 {
 	return dataBlob.Length >= kLabelSize + kIVSize
-		&& *reinterpret_cast<const uint32 *>(dataBlob.Data) == kGroupMagic;
+		&& *reinterpret_cast<const uint32 *>(dataBlob.Data) == h2n(uint32(kGroupMagic));
 }
 
 const CssmData
@@ -306,25 +305,11 @@ SSGroupImpl::decodeDataBlob(const CSSM_DATA &dataBlob,
 			throw;
 
 		// The user checked to don't ask again checkbox in the rogue app alert.  Let's edit the ACL for this key and add the calling application to it.
-#if 1
 		Key key(this);		// the underlying key
-		RefPointer<Access> access = new Access(*key);	// extract access rights
-		RefPointer<TrustedApplication> thisApp = new TrustedApplication;
+		SecPointer<Access> access = new Access(*key);	// extract access rights
+		SecPointer<TrustedApplication> thisApp = new TrustedApplication;
 		access->addApplicationToRight(CSSM_ACL_AUTHORIZATION_DECRYPT, thisApp.get());	// add this app
 		access->setAccess(*key, true);	// commit
-#else
-		KeychainACL acl(Key(this));
-		acl.anyAllow(false);
-		acl.alwaysAskUser(true);
-
-		RefPointer<CodeSigning::OSXCode> code(CodeSigning::OSXCode::main());
-		const char *path = code->canonicalPath().c_str();
-		CssmData comment(const_cast<char *>(path), strlen(path) + 1);
-		acl.push_back(TrustedApplication(path, comment));
-
-		// Change the acl.
-		acl.commit();
-#endif
 
 		// Retry the decrypt operation.
 		Decrypt decrypt(csp(), algorithm());

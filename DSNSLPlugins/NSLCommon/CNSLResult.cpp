@@ -1,15 +1,37 @@
 /*
- *  CNSLResult.cpp
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+ 
+/*!
+ *  @header CNSLResult
  *
  *	This class represents a result of a single service.  This is composed of at least
  *	a url, as well as an optional list of attribute value pairs.
  *
  *	All values are assumed to be UTF8 encoded
- *
- *  Created by imlucid on Mon Aug 20 2001.
- *  Copyright (c) 2001 Apple Computer. All rights reserved.
- *
  */
+ 
 #include <CoreFoundation/CoreFoundation.h>
 
 #include "CNSLHeaders.h"
@@ -32,6 +54,15 @@ Boolean SLPRAdminNotifierEqualCallback ( const void *item1, const void *item2 )
         return false;
 }
 
+CFStringRef CNSLResult::GetURLRef( void )
+{
+	return GetAttributeRef( kDSNAttrURLSAFE_CFSTR );
+}
+
+CFStringRef CNSLResult::GetServiceTypeRef( void )
+{
+	return GetAttributeRef( kDS1AttrServiceTypeSAFE_CFSTR );
+}
 
 CNSLResult::CNSLResult()
 {
@@ -77,7 +108,7 @@ void CNSLResult::SetURL( const char* urlPtr )
         
     if ( urlForService )
     {
-        AddAttribute( CFSTR(kDSNAttrURL), urlForService );
+        AddAttribute( kDSNAttrURLSAFE_CFSTR, urlForService );
         ::CFRelease( urlForService );
     }
 }
@@ -86,7 +117,7 @@ void CNSLResult::SetURL( CFStringRef urlForService )
 {
     if ( urlForService )
     {
-        AddAttribute( CFSTR(kDSNAttrURL), urlForService );
+        AddAttribute( kDSNAttrURLSAFE_CFSTR, urlForService );
     }
 }
 
@@ -99,8 +130,8 @@ void CNSLResult::SetServiceType( const char* serviceType )
         
     if ( serviceTypeRef )
     {
-        AddAttribute( CFSTR(kDS1AttrServiceType), serviceTypeRef );
-        AddAttribute( CFSTR(kNSLAttrRecordType), serviceTypeRef );		// these are the same
+        AddAttribute( kDS1AttrServiceTypeSAFE_CFSTR, serviceTypeRef );
+        AddAttribute( kDSNAttrRecordTypeSAFE_CFSTR, serviceTypeRef );		// these are the same
         ::CFRelease( serviceTypeRef );
     }
 }
@@ -109,8 +140,8 @@ void CNSLResult::SetServiceType( CFStringRef serviceTypeRef )
 {
     if ( serviceTypeRef )
     {
-        AddAttribute( CFSTR(kDS1AttrServiceType), serviceTypeRef );
-        AddAttribute( CFSTR(kNSLAttrRecordType), serviceTypeRef );		// these are the same
+        AddAttribute( kDS1AttrServiceTypeSAFE_CFSTR, serviceTypeRef );
+        AddAttribute( kDSNAttrRecordTypeSAFE_CFSTR, serviceTypeRef );		// these are the same
     }
 }
 
@@ -131,7 +162,7 @@ void CNSLResult::AddAttribute( const char* key, const char* value )
         valueRef = ::CFStringCreateWithCString( kCFAllocatorDefault, value, kCFStringEncodingUTF8 );
         
         if ( !valueRef )
-            valueRef = ::CFStringCreateWithCString( kCFAllocatorDefault, value, ::CFStringGetSystemEncoding() );
+            valueRef = ::CFStringCreateWithCString( kCFAllocatorDefault, value, ::NSLGetSystemEncoding() );
             
         if ( !valueRef )
             DBGLOG( "CNSLResult::AddAttribute, couldn't create valueRef! (%s)\n", value );
@@ -186,11 +217,3 @@ CFStringRef CNSLResult::GetAttributeRef( CFStringRef keyRef ) const
         
     return result;
 }
-
-
-
-
-
-
-
-

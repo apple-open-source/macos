@@ -53,7 +53,7 @@ class IOFireWireDeviceAux : public IOFireWireNubAux
 	friend class IOFireWireDevice;
 	
 protected:
-
+	
 	bool fTerminated;
 	
 	/*! 
@@ -72,7 +72,7 @@ protected:
 
     virtual bool init( IOFireWireDevice * primary );
 	virtual	void free();
-
+	
 	virtual bool isTerminated( void );
 	virtual void setTerminated( bool terminated );
 	
@@ -198,7 +198,7 @@ public:
 protected:	
 	inline void setTerminated( bool terminated )
 		{ ((IOFireWireDeviceAux*)fAuxiliary)->setTerminated( terminated ); }
-		
+	
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireDevice, 0);
     OSMetaClassDeclareReservedUnused(IOFireWireDevice, 1);

@@ -1,4 +1,4 @@
-/*	$KAME: handler.h,v 1.42 2001/12/12 15:29:13 sakane Exp $	*/
+/*	$KAME: handler.h,v 1.44 2002/07/10 23:22:03 itojun Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -83,6 +83,13 @@
 #define PHASE1ST_EXPIRED		10
 #define PHASE1ST_MAX			11
 
+typedef enum {
+	natt_remote_support	= 0x0001,
+	natt_natd_received	= 0x0002,
+	natt_no_remote_nat	= 0x0010,
+	natt_no_local_nat	= 0x0020
+} natt_flags_t;
+
 /* About address semantics in each case.
  *			initiator(addr=I)	responder(addr=R)
  *			src	dst		src	dst
@@ -90,7 +97,7 @@
  * phase 1 handler	I	R		R	I
  * phase 2 handler	I	R		R	I
  * getspi msg		R	I		I	R
- * aquire msg		I	R
+ * acquire msg		I	R
  * ID payload		I	R		I	R
  */
 struct ph1handle {
@@ -165,6 +172,12 @@ struct ph1handle {
 #ifdef ENABLE_STATS
 	struct timeval start;
 	struct timeval end;
+#endif
+
+#ifdef IKE_NAT_T
+	natt_flags_t	natt_flags;
+	vchar_t			*local_natd;
+	vchar_t			*remote_natd;
 #endif
 
 	u_int32_t msgid2;		/* msgid counter for Phase 2 */

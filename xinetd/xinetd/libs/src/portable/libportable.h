@@ -15,14 +15,6 @@
 #define NI_MAXHOST 1025
 #endif
 
-#ifndef HAVE_RLIM_T
-#if defined(bsdi)
-#define rlim_t u_quad_t
-#else
-#define rlim_t long
-#endif
-#endif
-
 #ifndef HAVE_DIFFTIME
 double difftime( time_t, time_t );
 #endif

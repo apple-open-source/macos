@@ -27,31 +27,22 @@
 #define SYSLOG_NAMES	// compile syslog name tables
 #include <syslog.h>
 
-#if !defined(USE_CXXABI)
-#define USE_CXXABI 0	// only available in gcc3 >v1100
-#endif
+#include <cxxabi.h>	// for name demangling
 
-#if USE_CXXABI
-# include <cxxabi.h>	// for name demangling
-#endif //USE_CXXABI
+// enable kernel tracing
+#define ENABLE_SECTRACE 1
 
 
 namespace Security {
 namespace Debug {
 
 
-#if defined(NDEBUG)
-
-void Scope::operator () (const char *, ...)	{ }
-
-#else // NDEBUG
-
 //
 // Main debug functions (global and in-scope)
 //
 void debug(const char *scope, const char *format, ...)
 {
-#if !defined(NDEBUG_STUBS)
+#if !defined(NDEBUG_CODE)
 	va_list args;
 	va_start(args, format);
 	Target::get().message(scope, format, args);
@@ -61,27 +52,39 @@ void debug(const char *scope, const char *format, ...)
 
 void vdebug(const char *scope, const char *format, va_list args)
 {
-#if !defined(NDEBUG_STUBS)
+#if !defined(NDEBUG_CODE)
     Target::get().message(scope, format, args);
-#endif
-}
-
-void Scope::operator () (const char *format, ...)
-{
-#if !defined(NDEBUG_STUBS)
-	va_list args;
-	va_start(args, format);
-	Target::get().message(mScope, format, args);
-	va_end(args);
 #endif
 }
 
 bool debugging(const char *scope)
 {
-#if !defined(NDEBUG_STUBS)
+#if !defined(NDEBUG_CODE)
 	return Target::get().debugging(scope);
 #else
     return false;
+#endif
+}
+
+
+//
+// C equivalents for some basic uses
+//
+extern "C" {
+	int __security_debugging(const char *scope);
+	void __security_debug(const char *scope, const char *format, ...);
+};
+
+int __security_debugging(const char *scope)
+{ return debugging(scope); }
+
+void __security_debug(const char *scope, const char *format, ...)
+{
+#if !defined(NDEBUG_CODE)
+	va_list args;
+	va_start(args, format);
+	vdebug(scope, format, args);
+	va_end(args);
 #endif
 }
 
@@ -100,7 +103,7 @@ bool dumping(const char *scope)
 
 void dump(const char *format, ...)
 {
-#if !defined(NDEBUG_STUBS)
+#if !defined(NDEBUG_CODE)
 	va_list args;
 	va_start(args, format);
 	Target::get().dump(format, args);
@@ -110,7 +113,7 @@ void dump(const char *format, ...)
 
 void dumpData(const void *ptr, size_t size)
 {
-#if !defined(NDEBUG_STUBS)
+#if !defined(NDEBUG_CODE)
 	const char *addr = reinterpret_cast<const char *>(ptr);
 	const char *end = addr + size;
 	bool isText = true;
@@ -132,7 +135,7 @@ void dumpData(const void *ptr, size_t size)
 
 void dumpData(const char *title, const void *ptr, size_t size)
 {
-#if !defined(NDEBUG_STUBS)
+#if !defined(NDEBUG_CODE)
 	dump("%s: ", title);
 	dumpData(ptr, size);
 	dump("\n");
@@ -143,28 +146,27 @@ void dumpData(const char *title, const void *ptr, size_t size)
 //
 // Turn a C++ typeid into a nice type name.
 // This uses the C++ ABI where available.
+// We're stripping out a few C++ prefixes; they're pretty redundant (and obvious).
 //
 string makeTypeName(const type_info &type)
 {
-#if USE_CXXABI
 	int status;
 	char *cname = abi::__cxa_demangle(type.name(), NULL, NULL, &status);
-	string name = cname; // save the value
-	::free(cname);	// yes, really (ABI rule)
+	string name = !strncmp(cname, "Security::", 10) ? (cname + 10) :
+		!strncmp(cname, "std::", 5) ? (cname + 5) :
+		cname;
+	::free(cname);	// yes, really (ABI rules)
 	return name;
-#else
-	return type.name();		// can't demangle; just return internal name
-#endif
 }
 
 
 //
 // Target initialization
 //
-#if !defined(NDEBUG_STUBS)
+#if !defined(NDEBUG_CODE)
 
 Target::Target() 
-	: showScope(false), showThread(false),	showPid(false),
+	: showScope(false), showThread(false), showPid(false),
 	  sink(NULL)
 {
 	// put into singleton slot if first
@@ -455,8 +457,11 @@ void FileSink::dump(const char *text)
 
 void FileSink::configure(const char *options)
 {
-	if (options == NULL || !strstr(options, "noflush"))
+	if (options == NULL || !strstr(options, "noflush")) {
+		// we mean "if the file isn't unbuffered", but what's the portable way to say that?
+		if (file != stderr)
 		setlinebuf(file);
+	}
 	if (options) {
 		addDate = strstr(options, "date");
 		lockIO = !strstr(options, "nolock");
@@ -502,11 +507,21 @@ void SyslogSink::configure(const char *options)
 {
 }
 
-#endif //NDEBUG_STUBS
+#endif //NDEBUG_CODE
 
-#endif // NDEBUG
+
+//
+// kernel tracing support (C version)
+//
+extern "C" void security_ktrace(int);
+
+void security_ktrace(int code)
+{
+#if defined(ENABLE_SECTRACE)
+	syscall(180, code, 0, 0, 0, 0);
+#endif
+}
 
 
 } // end namespace Debug
-
 } // end namespace Security

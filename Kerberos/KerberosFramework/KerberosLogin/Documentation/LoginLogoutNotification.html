@@ -1,0 +1,283 @@
+<!-- #include "header.html"   #PAGETITLE#="Kerberos Login and Logout Plugin API"   #BASEHREF#=""  -->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML> 
+<HEAD>  
+	<TITLE> Kerberos Login and Logout Plugin API </TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#0000FF" VLINK="#663399">
+<CENTER>
+	<TABLE BORDER=0 CELLSPACING=8>
+		<TR> 
+			<TD><IMG SRC="http://web.mit.edu/macdev/www/is-logo.gif" ALT="MIT Information Systems"></TD>
+			<TD><BR><H1>Macintosh Development</H1></TD> 
+		</TR>
+	</TABLE> <P>
+	[<A HREF="http://web.mit.edu/macdev/www/macdev.html">Home</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/about.html">About Us</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/people.html">People</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/support.html">MIT Support Library</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/kerberos.html">MIT Kerberos for Macintosh</A>] <BR>
+	[<A HREF="http://web.mit.edu/macdev/www/applications.html">Applications</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/macosx.html">Mac OS X</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/documentation.html">Miscellaneous Documentation</A>]
+	[<A HREF="http://web.mit.edu/is/">Information Systems</A>] </P> 
+</CENTER> <HR>
+<!-- end include --><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD>
+         <P><IMG
+         SRC="../../../Common/Documentation/graphics/ThreeHeadsAndKey.gif"
+         WIDTH=32 HEIGHT=32 X-SAS-UseImageWidth X-SAS-UseImageHeight
+         ALIGN=bottom>
+      </TD><TD>
+         <P><B><FONT SIZE="+3">Kerberos Login and Logout Plugin API</FONT></B>
+      </TD></TR>
+</TABLE></P>
+
+<P>
+<B>This documentation applies to Mac OS X 10.2 and later.</B>
+</P>
+
+<H2><A NAME="Purpose"></A>Purpose of login and logout plugins</H2>
+
+<P>Login and logout plugins are called whenever a user logs in or logs out. They can be used, for example, to communicate with other authentication systems which require
+Kerberos tickets, or to automatically mount network volumes which require Kerberos authentication.</P>
+
+<P>Login and logout plugins are invoked by the Kerberos Login API whenever any of the login and logout functions in the Kerberos Login API is called.</P>
+
+<P>
+<HR>
+</P>
+
+<H2><A NAME="Configuration"></A>Configuration of login and logout plugins</H2>
+
+<P>In order to activate a login and logout plugin, the <CODE>libdefaults</CODE> section in the <code>edu.mit.Kerberos</code> file has to include a <CODE>login_logout_notification</CODE> line:</P>
+
+<PRE><CODE>
+[libdefaults]
+    ...
+    login_logout_notification = "PluginName"
+</CODE></PRE>
+
+<P>On that line, <CODE>PluginName,</CODE> should be a unique string describing the plugin. The string must not be longer than 127 characters, and must end in "<code>.loginLogout</code>".</P>
+
+<P>The plugin file itself has to be located in the directory <CODE>/Library/Kerberos Plug-Ins/</CODE> (note space and hyphen) - you may have to create this directory if it doesn't already exist.  
+
+<P>
+<HR>
+</P>
+
+<H2><A NAME="Format"></A>Format of login and logout plugins</H2>
+
+<P>A login and logout plugin imust be a Mach-O bundle with a name ending in "<CODE>.loginLogout</CODE>".</P>
+
+<P>The plugin must export three functions, which are detailed in the next section.</P>
+
+<P>The plugin can contain any other code, data, or resources, but be mindful that it can be executed by arbitrary applications, and therefore should be careful not to affect the application's resources or resource handling.</P>
+
+<P>
+<HR>
+</P>
+
+<H2><A NAME="Functions"></A>Functions exported by a login/logout plugin</H2>
+
+<P>All three of these functions must be exported by every login/logout plugin. All functions use C linkage and standard Mach-O calling conventions.</P>
+
+<P>The functions and related type declarations are specified in the <CODE>/System/Library/Frameworks/Kerberos.framework/Headers/KLLoginLogoutNotification.h</CODE> header file.</P>
+
+<H3>KerberosLoginNotification_InitializePlugin</H3>
+
+<PRE><CODE>
+OSErr KerberosLoginNotification_InitializePlugin (
+    KLN_APIVersion          inAPIVersion);
+</CODE></PRE>
+
+<P>This function is called by the Kerberos Login API when the plugin is loaded. The function must return <CODE>noErr</CODE> only if the plugin understands the API version passed in <CODE>inAPIVersion</CODE>; otherwise, it should return <CODE>paramErr</CODE>.</P>
+
+<P>If this function returns anything but <CODE>noErr</CODE>, the other functions will not be called.</P>
+
+<P>For example, a plugin which only understands the version 1 of the API (which is the current version), would do this:<P>
+
+<PRE><CODE>
+KLStatus KerberosLoginNotification_InitializePlugin (
+    KLPT_APIVersion      inAPIVersion)
+{
+    if (inAPIVersion == kKLN_APIVersion1) {
+        return noErr;
+    } else {
+        return paramErr;
+    }
+}
+</CODE></PRE>
+
+<H3>KerberosLoginNotification_Login</H3>
+<PRE><CODE>
+KLStatus KerberosLoginNotification_Login (
+	KLN_LoginType	inLoginType,
+	const char*     inCredentialsCache);
+</CODE></PRE>
+
+<P>This function is called when a user is logging in. When the plugin is called, the ticket-granting tickets for the user have already been acquired and stored in a credentials cache.</P>
+
+<P>On input, <CODE>inLoginType</CODE> is either <CODE>kKLN_DialogLogin</CODE> or <CODE>kKLN_PasswordLogin</CODE>. If it is <CODE>kKLN_DialogLogin</CODE>, the plugin is running in a context where it is safe to display user interface. If it is <CODE>kKLN_PasswordLogin</CODE>, then the plugin is running in a context where it is impossible to display user interface (for example, a faceless background application), and must not attempt to do so.</P>
+
+<P>On input, <CODE>inCredentialsCache</CODE> points to a C string which is the name of the credentials cache in which the ticket granting tickets for the user being logged in have been stored. The plugin can open this credentials cache with the <A HREF="../../CredentialsCache/Documentation/index.html">Credentials Cache API</A> function <CODE>cc_context_open_ccache()</CODE> and use the tickets to acquire additional Kerberos tickets.</P>
+
+<P>If the plugin wants to abort the login process, it must return an error other than <CODE>noErr</CODE>. The Kerberos Login library will then abort the login process, destroy any tickets that may have been acquired, and display an error dialog to the user, using the plugin's errors to convert the error returned to a string.</P>
+
+<P>If the plugin returns <CODE>noErr</CODE>, the Kerberos Login library will proceed with login.</P>
+
+<P>For example, the following code displays a confirmation dialog to the user when the plugin can display a dialog, and posts a notification if it can't display a dialog. This plugin demonstrates the use of the CredentialsCache API to get information about the user being logged in:
+
+<PRE><CODE>
+KLStatus KerberosLoginNotification_Login (
+  KLN_LoginType   inLoginType,
+  const char*     inCredentialsCache)
+{
+  switch (inLoginType) {
+    case kKLN_DialogLogin:
+      AlertStdAlertParamRec alertParam;
+      alertParam.movable = false;
+      alertParam.helpButton = false;
+      alertParam.filterProc = nil;
+      alertParam.defaultText = "\pLogin";
+      alertParam.cancelText = "\pCancel";
+      alertParam.otherText = nil;
+      alertParam.defaultButton = kAlertStdAlertOKButton;
+      alertParam.cancelButton = kAlertStdAlertCancelButton;
+      alertParam.position = kWindowAlertPositionParentWindow;
+
+      SInt16  item;
+      OSErr err = StandardAlert (kAlertNoteAlert,
+        "\pAre you sure you want to login?", "\pMake sure noone is looking over your shoulder.",
+        &alertParam, &item);
+      if ((err == noErr) && (item == kAlertStdAlertOKButton)) {
+        return noErr;
+      } else {
+        return 22221;
+      }
+      
+    case kKLN_PasswordLogin:
+      static NMRec  notification;
+      static Str255 principal;
+      notification.qType = nmType;
+      notification.nmStr = principal;
+      notification.nmResp = (NMUPP) -1;
+      
+      cc_context_t  ccContext = nil;
+      cc_ccache_t   ccache = nil;
+      cc_string_t   ccPrincipal = nil;
+      
+      cc_int32 ccErr = cc_initialize (&ccContext, ccapi_version_3, nil, nil);
+      if (ccErr == ccNoError) {
+        ccErr = cc_context_open_ccache (ccContext, inCredentialsCache, &ccache);
+      }
+      
+      if (ccErr == ccNoError) {
+        ccErr = cc_ccache_get_principal (ccache, cc_credentials_v4, &ccPrincipal);
+      }
+      
+      if (ccErr == ccNoError) {
+        CopyCStringToPascal (ccPrincipal -> data, principal);
+        NMInstall (&notification);
+      }
+      
+      if (ccPrincipal != nil) {
+        cc_string_release (ccPrincipal);
+      }
+      
+      if (ccache != nil) {
+        cc_ccache_release (ccache);
+      }
+      
+      if (ccContext != nil) {
+        cc_context_release (ccContext);
+      }
+  }
+
+  return noErr;
+}
+</CODE></PRE>
+
+<H3>KerberosLoginNotification_Logout</H3>
+
+<PRE><CODE>
+void KerberosLoginNotification_Logout (
+	const char*			inCredentialsCache);
+</CODE></PRE>
+
+<P>This function is called by the Kerberos Login API whenever a user is logging out. The plugin can perform and logout-time cleanup necessary, such as unmounting server volumes. This function must not attempt to display user interface, because it can be called from contexts in which that is not permitted, such as faceless background applications.</P>
+
+<P>On input, <CODE>inCredentialsCache</CODE> points to a C string which is the name of the credentials cache in which the tickets for the userlogging out have been stored. The plugin can open this credentials cache with the <A HREF="../../CredentialsCache/Documentation/index.html">Credentials Cache API</A> function <CODE>cc_context_open_ccache()</CODE> and use the tickets; the plugin doesn't need to destroy any tickets, as they will be destroyed soon after the plugin returns.</P>
+
+<P>If the plugin performs some cleanup on logout, it should be prepared to handle the case where no cleanup is necessary. For example, if the plugin cancels login, as in the above example, then the Kerberos Login library destroys the cache containing the new ticket granting ticket. In the process of destroying that cache, plugin's logout procedure is called, but since the login procedure aborted, the cleanup might not be necessary.</P>
+
+<P>The following code demonstrates posting a notification from the logout procedure, and using the CredentialsCache API to determine the principal of the user being logged out.</P>
+
+<PRE><CODE>
+void KerberosLoginNotification_Logout (
+  const char*     inCredentialsCache)
+{
+  static NMRec  notification;
+  static Str255 principal;
+  notification.qType = nmType;
+  notification.nmStr = principal;
+  notification.nmResp = (NMUPP) -1;
+  
+  cc_context_t  ccContext = nil;
+  cc_ccache_t   ccache = nil;
+  cc_string_t   ccPrincipal = nil;
+  
+  cc_int32 ccErr = cc_initialize (&ccContext, ccapi_version_4, nil, nil);
+  if (ccErr == ccNoError) {
+    ccErr = cc_context_open_ccache (ccContext, inCredentialsCache, &ccache);
+  }
+  
+  if (ccErr == ccNoError) {
+    ccErr = cc_ccache_get_principal (ccache, cc_credentials_v4, &ccPrincipal);
+  }
+  
+  if (ccErr == ccNoError) {
+    CopyCStringToPascal (ccPrincipal -> data, principal);
+    NMInstall (&notification);
+  }
+  
+  if (ccPrincipal != nil) {
+    cc_string_release (ccPrincipal);
+  }
+  
+  if (ccache != nil) {
+    cc_ccache_release (ccache);
+  }
+  
+  if (ccContext != nil) {
+    cc_context_release (ccContext);
+  }
+}
+</CODE></PRE>
+
+<P>
+<HR>
+</P>
+
+<H2><A NAME="Errors"></A>Error handling in login and logout plugins</H2>
+
+<P><CODE>KerberosLoginNotification_Login()</CODE> is allowed to return private error codes. This error code will be propagated into the Kerberos Login API, which in turn calls <CODE>KLGetErrorString()</CODE> to translate the error into a message for the user. The private error codes must not conflict with any existing Mac OS error codes.<P>
+
+<P>In order to allow the Kerberos Login API to translate the plugin's error codes into user messages, the plugin should register its errors with the <A HREF="../../KerberosErrors/Documentation/index.html">KerberosErrors API</A>.  After that, errors returned by the plugin will be mapped to the strings in the plugin's error table.</P>
+
+<P><!-- #include "footer.html" -->
+<HR> 
+<P> 
+	<FONT SIZE="+1"> <B> 
+		Questions or comments? Send mail to <A HREF="mailto:macdev@mit.edu">macdev@mit.edu</A> 
+	</B> </FONT> <BR>
+	Last updated on $Date: 2003/10/02 19:57:53 $ <BR> 
+	Last modified by $Author: smcguire $<BR>
+
+</P>
+<!-- Begin MIT-use only web reporting counter -->
+	<IMG SRC="//counter.mit.edu/tally" WIDTH=1 HEIGHT=1 ALT="">
+<!-- End MIT-use only web reporting counter -->
+</BODY> </HTML>
+<!-- end include -->

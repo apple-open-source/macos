@@ -2,21 +2,24 @@
  * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -99,7 +102,8 @@ ATASMARTClient::sATASMARTInterface =
 	&ATASMARTClient::sSMARTReadDataThresholds,
 	&ATASMARTClient::sSMARTReadLogDirectory,
 	&ATASMARTClient::sSMARTReadLogAtAddress,
-	&ATASMARTClient::sSMARTWriteLogAtAddress
+	&ATASMARTClient::sSMARTWriteLogAtAddress,
+	&ATASMARTClient::sGetATAIdentifyData
 };
 
 
@@ -832,6 +836,64 @@ Exit:
 
 #if 0
 #pragma mark -
+#pragma mark Additional Methods
+#pragma mark -
+#endif
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ GetATAIdentifyData - Gets ATA Identify Data.					[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+ATASMARTClient::GetATAIdentifyData ( void * buffer, UInt32 inSize, UInt32 * outSize )
+{
+	
+	IOReturn					status				= kIOReturnBadArgument;
+	IOByteCount					byteCount			= 0;
+	ATAGetIdentifyDataStruct	params				= { 0 };
+	UInt32						bytesTransferred 	= 0;
+	
+	if ( ( buffer == NULL ) || ( inSize > 512 ) || ( inSize == 0 ) )
+	{
+		
+		status = kIOReturnBadArgument;
+		goto Exit;
+		
+	}
+	
+	byteCount = sizeof ( UInt32 );
+	
+	params.buffer		= buffer;
+	params.bufferSize	= inSize;
+	
+	PRINT ( ( "ATASMARTClient::GetATAIdentifyData\n" ) );		
+	
+	status = IOConnectMethodStructureIStructureO ( fConnection,
+												   kIOATASMARTGetIdentifyData,
+												   sizeof ( ATAGetIdentifyDataStruct ),
+												   &byteCount,
+												   ( void * ) &params,
+												   ( void * ) &bytesTransferred );
+	
+	if ( outSize != NULL )
+	{
+		*outSize = bytesTransferred;
+	}
+	
+	
+Exit:
+	
+	
+	PRINT ( ( "ATASMARTClient::GetATAIdentifyData status = %d\n", status ) );		
+	
+	return status;
+	
+}
+
+
+#if 0
+#pragma mark -
 #pragma mark Static C->C++ Glue Functions
 #pragma mark -
 #endif
@@ -1076,4 +1138,16 @@ ATASMARTClient::sSMARTWriteLogAtAddress ( void *		self,
 										  UInt32		size )
 {
 	return getThis ( self )->SMARTWriteLogAtAddress ( address, buffer, size );
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ sGetATAIdentifyData - Static function for C->C++ glue
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+ATASMARTClient::sGetATAIdentifyData ( void * self, void * buffer, UInt32 inSize, UInt32 * outSize )
+{
+	return getThis ( self )->GetATAIdentifyData ( buffer, inSize, outSize );
 }

@@ -25,16 +25,11 @@
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-vjc.c,v 1.1.1.1 2001/07/07 00:50:54 bbraun Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-vjc.c,v 1.1.1.2 2003/03/17 18:42:20 rbraun Exp $ (LBL)";
 #endif
 
-#include <sys/param.h>
-#include <sys/time.h>
+#include <tcpdump-stdinc.h>
 
-#include <netinet/in.h>
-
-#include <ctype.h>
-#include <netdb.h>
 #include <pcap.h>
 #include <stdio.h>
 
@@ -45,7 +40,7 @@ static const char rcsid[] =
 #include "ppp.h"
 
 int
-vjc_print(register const char *bp, register u_int length, u_short proto)
+vjc_print(register const char *bp, u_short proto)
 {
 	int i;
 

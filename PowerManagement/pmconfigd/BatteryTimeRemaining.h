@@ -38,6 +38,6 @@ __private_extern__ void BatteryTimeRemaining_prime(void);
 
 __private_extern__ void BatteryTimeRemainingSleepWakeNotification(natural_t messageType);
 
-__private_extern__ void BatteryTimeRemainingBatteryPollingTimer(CFArrayRef battery_info);
+__private_extern__ void BatteryTimeRemainingBatteriesHaveChanged(CFArrayRef battery_info);
 
 #endif _BatteryTimeRemaining_h_

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- ===================================================================== -->
+<!--                                                                       -->
+<!--  JBoss Server Configuration                                           -->
+<!--                                                                       -->
+<!-- ===================================================================== -->
+
+<!-- $Id: solid-ds.xml,v 1.1 2002/07/22 22:57:24 d_jencks Exp $ -->
+<!-- ==================================================================== -->
+<!-- DataSource configuration for solid using 3.0 driver                  -->
+<!-- Thanks to Casey Haakenson                                            -->
+<!-- ==================================================================== -->
+
+
+<datasources>
+  <local-tx-datasource>
+    <jndi-name>SolidDS</jndi-name>
+    <!--NOTE: Solid wants the username/password in the URL, it will 
+            ignore the specific arguments.-->
+    <connection-url>jdbc:solid://yourdbhost:1964/yourdbusername/yourdbpassword</connection-url>
+    <driver-class>solid.jdbc.SolidDriver</driver-class>
+  </local-tx-datasource>
+
+</datasources>

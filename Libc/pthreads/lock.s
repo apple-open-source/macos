@@ -1,4 +1,28 @@
 /*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * Copyright 1996 1995 by Open Software Foundation, Inc. 1997 1996 1995 1994 1993 1992 1991  
  *              All Rights Reserved 
  *  
@@ -19,9 +43,10 @@
  * WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. 
  * 
  */
-/*
- * MkLinux
- */
+
+#define	__APPLE_API_PRIVATE
+#include <machine/cpu_capabilities.h>
+#undef	__APPLE_API_PRIVATE
 
 #if defined(__ppc__)
 
@@ -32,40 +57,19 @@
  *
  * Lock the lock pointed to by `p'.  Spin (possibly forever) until
  * the lock is available.  Test and test and set logic used.
+ * These routines have moved to the comm page.
  */
 
 .text
-
+.align 2
 LEAF(__spin_lock_try)
-1:
-	lwarx   r5,0,r3		// Read the lock
-	addi    r4,0,0x1	// Lock value
-	cmpwi   r5,0x0		// Is it busy?
-	bne-    2f		// Yes, return 0
-	stwcx.  r4,0,r3		// Try to lock the lock
-	bne-    1b		// Lost reservation, try again
-        addi	r3,0,1		// Got the lock
-	isync			// Sync instruction stream 
-	blr			// Return 1
-2:	addi	r3,0,0		// Could not get the lock
-	blr			// Return 0
+    ba		_COMM_PAGE_SPINLOCK_TRY
 END(__spin_lock_try)
 
 .globl _spin_lock
 LEAF(__spin_lock)
 _spin_lock:
-1:
-	lwarx   r5,0,r3		// Read the lock
-	addi    r4,0,0x1	// Lock value
-	cmpwi   r5,0x0		// Is it busy?
-	bne-    2f		// Yes, goto retry logic
-	stwcx.  r4,0,r3		// Try to lock the lock
-	bne-    1b		// Lost reservation, try again
-	isync			// Sync instruction stream 
-	blr			// Return
-2:
-	CALL_EXTERN(__spin_lock_retry)
-	blr			// Return
+    ba		_COMM_PAGE_SPINLOCK_LOCK
 END(__spin_lock)
 
 /* void spin_unlock(int *p);
@@ -75,10 +79,7 @@ END(__spin_lock)
 .globl _spin_unlock
 LEAF(__spin_unlock)
 _spin_unlock:
-	sync
-	li32	r4,0
-	stw	r4,0(r3)
-	blr
+    ba		_COMM_PAGE_SPINLOCK_UNLOCK
 END(__spin_unlock)
 
 #elif defined(__i386__)
@@ -94,33 +95,21 @@ END(__spin_unlock)
  * lock is available.
  */
         TEXT
+	ALIGN
 
 .globl _spin_lock_try
 LEAF(__spin_lock_try, 0)
 _spin_lock_try:
-        movl    4(%esp),%ecx
-        movl    $1,%eax
-        xchgl   (%ecx),%eax
-        xorl    $1,%eax
-END(__spin_lock_try)
+	movl    $(_COMM_PAGE_SPINLOCK_TRY), %eax
+	jmpl	%eax
+
+	ALIGN
 
 .globl _spin_lock
 LEAF(__spin_lock, 0)
 _spin_lock:
-        movl    4(%esp), %ecx
-        movl    (%ecx), %eax
-        orl     %eax, %eax
-        jnz     1f
-        movl    $0xFFFFFFFF, %eax
-        xchgl   %eax, (%ecx)
-        orl     %eax, %eax
-        jz      2f
-1:	pushl	%ecx
-	CALL_EXTERN(__spin_lock_retry)
-	addl	$4, %esp
-2:		
-END(__spin_lock)
-
+	movl    $(_COMM_PAGE_SPINLOCK_LOCK), %eax
+	jmpl	%eax
 
 /*
  * void
@@ -129,13 +118,13 @@ END(__spin_lock)
  *
  * Unlock the lock pointed to by p.
  */
+	ALIGN
+
 .globl _spin_unlock
 LEAF(__spin_unlock, 0)
 _spin_unlock:
-        movl    $0, %eax
-        movl    4(%esp), %ecx
-        xchgl   %eax, (%ecx)
-END(__spin_unlock)
+	movl    $(_COMM_PAGE_SPINLOCK_UNLOCK), %eax
+	jmpl	%eax
 
 #else
 #error spin_locks not defined for this architecture

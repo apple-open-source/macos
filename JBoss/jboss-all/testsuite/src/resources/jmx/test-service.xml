@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- 
+   | Test *service.xml file, deploying a ConnectionFactoryLoader.
+ -->
+
+<server>
+
+  <mbean code="org.jboss.resource.connectionmanager.LocalTxConnectionManager" name="jboss.test:service=LocalTxCM,name=XmlDeployTestDS">
+
+    <attribute name="JndiName">XmlDeployTestDS</attribute>
+    <depends optional-attribute-name="ManagedConnectionPool">
+      <!--embedded mbean-->
+      <mbean code="org.jboss.resource.connectionmanager.JBossManagedConnectionPool" name="jboss.test:service=LocalTxPool,name=XmlDeployTestDS">
+
+    <depends optional-attribute-name="ManagedConnectionFactoryName">
+      <!--embedded mbean-->
+      <mbean code="org.jboss.resource.connectionmanager.RARDeployment" name="jboss.test:service=LocalTxDS,name=XmlDeployTestDS">
+        <!--hack-->
+        <depends optional-attribute-name="OldRarDeployment">jboss.jca:service=RARDeployment,name=JBoss LocalTransaction JDBC Wrapper</depends>
+        <!--depends>jboss:service=Hypersonic</depends-->
+
+        <!--real attributes-->
+        <attribute name="ManagedConnectionFactoryProperties">
+          <properties>
+            <config-property>
+              <config-property-name>ConnectionURL</config-property-name>
+              <config-property-type>java.lang.String</config-property-type>
+              <config-property-value>jdbc:hsqldb:.</config-property-value>
+            </config-property>
+            <config-property>
+              <config-property-name>DriverClass</config-property-name>
+              <config-property-type>java.lang.String</config-property-type>
+              <config-property-value>org.hsqldb.jdbcDriver</config-property-value>
+            </config-property>
+            <config-property>
+              <config-property-name>UserName</config-property-name>
+              <config-property-type>java.lang.String</config-property-type>
+              <config-property-value>sa</config-property-value>
+            </config-property>
+            <config-property>
+              <config-property-name>Password</config-property-name>
+              <config-property-type>java.lang.String</config-property-type>
+              <config-property-value></config-property-value>
+            </config-property>
+          </properties>
+        </attribute>
+      </mbean>
+    </depends>
+        <attribute name="MinSize">0</attribute>
+        <attribute name="MaxSize">50</attribute>
+        <attribute name="BlockingTimeoutMillis">5000</attribute>
+        <attribute name="IdleTimeoutMinutes">15</attribute>
+        <!--criteria indicates if Subject (from security domain) or app supplied
+            parameters (such as from getConnection(user, pw)) are used to distinguish
+            connections in the pool. Choices are 
+            ByContainerAndApplication (use both), 
+            ByContainer (use Subject),
+            ByApplication (use app supplied params only),
+            ByNothing (all connections are equivalent, usually if adapter supports
+              reauthentication)-->
+        <attribute name="Criteria">ByContainer</attribute>
+      </mbean>
+    </depends>
+    <depends optional-attribute-name="CachedConnectionManager">jboss.jca:service=CachedConnectionManager</depends>
+    <!--attribute name="SecurityDomainJndiName">java:/jaas/DefaultDbRealm</attribute-->
+    <!--make the rar deploy! hack till better deployment-->
+    <depends>jboss.jca:service=RARDeployer</depends>
+
+
+    <depends optional-attribute-name="JaasSecurityManagerService">jboss.security:service=JaasSecurityManager</depends>
+
+    <attribute name="TransactionManager">java:/TransactionManager</attribute>
+  </mbean>
+
+
+</server>

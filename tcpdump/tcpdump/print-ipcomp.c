@@ -21,7 +21,7 @@
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-ipcomp.c,v 1.1.1.1 2001/07/07 00:50:54 bbraun Exp $";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-ipcomp.c,v 1.1.1.2 2003/03/17 18:42:17 rbraun Exp $";
 #endif
 
 #ifdef HAVE_CONFIG_H
@@ -29,12 +29,7 @@ static const char rcsid[] =
 #endif
 
 #include <string.h>
-#include <sys/param.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-
-#include <netinet/in.h>
+#include <tcpdump-stdinc.h>
 
 #include <stdio.h>
 
@@ -50,9 +45,10 @@ struct ipcomp {
 
 #include "interface.h"
 #include "addrtoname.h"
+#include "extract.h"
 
 int
-ipcomp_print(register const u_char *bp, register const u_char *bp2, int *nhdr)
+ipcomp_print(register const u_char *bp, int *nhdr)
 {
 	register const struct ipcomp *ipcomp;
 	register const u_char *ep;
@@ -62,7 +58,7 @@ ipcomp_print(register const u_char *bp, register const u_char *bp2, int *nhdr)
 #endif
 
 	ipcomp = (struct ipcomp *)bp;
-	cpi = (u_int16_t)ntohs(ipcomp->comp_cpi);
+	cpi = EXTRACT_16BITS(&ipcomp->comp_cpi);
 
 	/* 'ep' points to the end of available data. */
 	ep = snapend;

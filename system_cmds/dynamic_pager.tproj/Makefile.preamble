@@ -127,3 +127,4 @@ OTHER_OFILES = default_pager_alerts_server.o backing_store_alerts.o backing_stor
 -include ../Makefile.include
 OTHER_CFLAGS =
 BEFORE_BUILD = default_pager_alerts_server.o 
+AFTER_INSTALL += install-man-page

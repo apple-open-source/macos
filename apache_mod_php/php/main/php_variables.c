@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    |          Zeev Suraski <zeev@zend.com>                                |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_variables.c,v 1.1.1.5 2001/12/14 22:13:51 zarzycki Exp $ */
+/* $Id: php_variables.c,v 1.1.1.8 2003/07/18 18:07:49 zarzycki Exp $ */
 
 #include <stdio.h>
 #include "php.h"
@@ -28,25 +28,30 @@
 
 #include "zend_globals.h"
 
+/* for systems that need to override reading of environment variables */
+void _php_import_environment_variables(zval *array_ptr TSRMLS_DC);
+PHPAPI void (*php_import_environment_variables)(zval *array_ptr TSRMLS_DC) = _php_import_environment_variables;
 
 PHPAPI void php_register_variable(char *var, char *strval, zval *track_vars_array TSRMLS_DC)
 {
 	php_register_variable_safe(var, strval, strlen(strval), track_vars_array TSRMLS_CC);
 }
 
+
 /* binary-safe version */
 PHPAPI void php_register_variable_safe(char *var, char *strval, int str_len, zval *track_vars_array TSRMLS_DC)
 {
 	zval new_entry;
-
+	assert(strval != NULL);
+	
 	/* Prepare value */
-	new_entry.value.str.len = str_len;
+	Z_STRLEN(new_entry) = str_len;
 	if (PG(magic_quotes_gpc)) {
-		new_entry.value.str.val = php_addslashes(strval, new_entry.value.str.len, &new_entry.value.str.len, 0 TSRMLS_CC);
+		Z_STRVAL(new_entry) = php_addslashes(strval, Z_STRLEN(new_entry), &Z_STRLEN(new_entry), 0 TSRMLS_CC);
 	} else {
-		new_entry.value.str.val = estrndup(strval, new_entry.value.str.len);
+		Z_STRVAL(new_entry) = estrndup(strval, Z_STRLEN(new_entry));
 	}
-	new_entry.type = IS_STRING;
+	Z_TYPE(new_entry) = IS_STRING;
 
 	php_register_variable_ex(var, &new_entry, track_vars_array TSRMLS_CC);
 }
@@ -60,19 +65,20 @@ PHPAPI void php_register_variable_ex(char *var, zval *val, pval *track_vars_arra
 	int var_len, index_len;
 	zval *gpc_element, **gpc_element_p, **top_gpc_p=NULL;
 	zend_bool is_array;
-	zend_bool free_index;
 	HashTable *symtable1=NULL;
 	HashTable *symtable2=NULL;
 
-	if (PG(register_globals)) {
-		symtable1 = EG(active_symbol_table);
-	}
+	assert(var != NULL);
+	
 	if (track_vars_array) {
+		symtable1 = Z_ARRVAL_P(track_vars_array);
+	}
+	if (PG(register_globals)) {
 		if (symtable1) {
-			symtable2 = track_vars_array->value.ht;
+			symtable2 = EG(active_symbol_table);
 		} else {
-			symtable1 = track_vars_array->value.ht;
-		}
+			symtable1 = EG(active_symbol_table);
+		}	
 	}
 	if (!symtable1) {
 		/* Nothing to do */
@@ -111,11 +117,31 @@ PHPAPI void php_register_variable_ex(char *var, zval *val, pval *track_vars_arra
 
 	index = var;
 	index_len = var_len;
-	free_index = 0;
 
 	while (1) {
 		if (is_array) {
-			char *escaped_index;
+			char *escaped_index = NULL, *index_s;
+			int new_idx_len = 0;
+
+			ip++;
+			index_s = ip;
+			if (isspace(*ip)) {
+				ip++;
+			}
+			if (*ip==']') {
+				index_s = NULL;
+			} else {
+				ip = strchr(ip, ']');
+				if (!ip) {
+					/* PHP variables cannot contain '[' in their names, so we replace the character with a '_' */
+					*(index_s - 1) = '_';
+					index_len = var_len = strlen(var);
+					goto plain_var;
+					return;
+				}
+				*ip = 0;
+				new_idx_len = strlen(index_s);	
+			}
 
 			if (!index) {
 				MAKE_STD_ZVAL(gpc_element);
@@ -129,7 +155,7 @@ PHPAPI void php_register_variable_ex(char *var, zval *val, pval *track_vars_arra
 					escaped_index = index;
 				}
 				if (zend_hash_find(symtable1, escaped_index, index_len+1, (void **) &gpc_element_p)==FAILURE
-					|| (*gpc_element_p)->type != IS_ARRAY) {
+					|| Z_TYPE_PP(gpc_element_p) != IS_ARRAY) {
 					MAKE_STD_ZVAL(gpc_element);
 					array_init(gpc_element);
 					zend_hash_update(symtable1, escaped_index, index_len+1, &gpc_element, sizeof(zval *), (void **) &gpc_element_p);
@@ -141,24 +167,11 @@ PHPAPI void php_register_variable_ex(char *var, zval *val, pval *track_vars_arra
 			if (!top_gpc_p) {
 				top_gpc_p = gpc_element_p;
 			}
-			symtable1 = (*gpc_element_p)->value.ht;
+			symtable1 = Z_ARRVAL_PP(gpc_element_p);
 			/* ip pointed to the '[' character, now obtain the key */
-			index = ++ip;
-			index_len = 0;
-			if (*ip=='\n' || *ip=='\r' || *ip=='\t' || *ip==' ') {
-				ip++;
-			}
-			if (*ip==']') {
-				index = NULL;
-			} else {
-				ip = strchr(ip, ']');
-				if (!ip) {
-					php_error(E_WARNING, "Missing ] in %s variable", var);
-					return;
-				}
-				*ip = 0;
-				index_len = strlen(index);
-			}
+			index = index_s;
+			index_len = new_idx_len;
+
 			ip++;
 			if (*ip=='[') {
 				is_array = 1;
@@ -167,9 +180,10 @@ PHPAPI void php_register_variable_ex(char *var, zval *val, pval *track_vars_arra
 				is_array = 0;
 			}
 		} else {
+plain_var:
 			MAKE_STD_ZVAL(gpc_element);
 			gpc_element->value = val->value;
-			gpc_element->type = val->type;
+			Z_TYPE_P(gpc_element) = Z_TYPE_P(val);
 			if (!index) {
 				zend_hash_next_index_insert(symtable1, &gpc_element, sizeof(zval *), (void **) &gpc_element_p);
 			} else {
@@ -191,11 +205,15 @@ PHPAPI void php_register_variable_ex(char *var, zval *val, pval *track_vars_arra
 }
 
 
-SAPI_POST_HANDLER_FUNC(php_std_post_handler)
+SAPI_API SAPI_POST_HANDLER_FUNC(php_std_post_handler)
 {
 	char *var, *val;
 	char *strtok_buf = NULL;
 	zval *array_ptr = (zval *) arg;
+
+	if (SG(request_info).post_data==NULL) {
+		return;
+	}	
 
 	var = php_strtok_r(SG(request_info).post_data, "&", &strtok_buf);
 
@@ -213,8 +231,7 @@ SAPI_POST_HANDLER_FUNC(php_std_post_handler)
 	}
 }
 
-
-void php_treat_data(int arg, char *str, zval* destArray TSRMLS_DC)
+SAPI_API SAPI_TREAT_DATA_FUNC(php_default_treat_data)
 {
 	char *res = NULL, *var, *val, *separator=NULL;
 	const char *c_var;
@@ -297,6 +314,9 @@ void php_treat_data(int arg, char *str, zval* destArray TSRMLS_DC)
 			php_url_decode(var, strlen(var));
 			val_len = php_url_decode(val, strlen(val));
 			php_register_variable_safe(var, val, val_len, array_ptr TSRMLS_CC);
+		} else {
+			php_url_decode(var, strlen(var));
+			php_register_variable_safe(var, "", 0, array_ptr TSRMLS_CC);
 		}
 		var = php_strtok_r(NULL, separator, &strtok_buf);
 	}
@@ -310,8 +330,7 @@ void php_treat_data(int arg, char *str, zval* destArray TSRMLS_DC)
 	}
 }
 
-
-void php_import_environment_variables(zval *array_ptr TSRMLS_DC)
+void _php_import_environment_variables(zval *array_ptr TSRMLS_DC)
 {
 	char **env, *p, *t;
 
@@ -332,6 +351,6 @@ void php_import_environment_variables(zval *array_ptr TSRMLS_DC)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

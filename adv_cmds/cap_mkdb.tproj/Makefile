@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = cap_mkdb.c
 
-OTHERSRCS = Makefile.preamble Makefile cap_mkdb.1
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble cap_mkdb.1
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

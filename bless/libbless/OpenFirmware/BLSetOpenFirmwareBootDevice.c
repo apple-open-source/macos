@@ -1,21 +1,24 @@
 /*
- * Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -24,11 +27,27 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Tue Apr 17 2001.
- *  Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLSetOpenFirmwareBootDevice.c,v 1.4 2002/04/27 17:55:00 ssen Exp $
+ *  $Id: BLSetOpenFirmwareBootDevice.c,v 1.9 2003/07/22 15:58:36 ssen Exp $
  *
  *  $Log: BLSetOpenFirmwareBootDevice.c,v $
+ *  Revision 1.9  2003/07/22 15:58:36  ssen
+ *  APSL 2.0
+ *
+ *  Revision 1.8  2003/04/19 00:11:14  ssen
+ *  Update to APSL 1.2
+ *
+ *  Revision 1.7  2003/04/16 23:57:35  ssen
+ *  Update Copyrights
+ *
+ *  Revision 1.6  2002/08/22 04:29:03  ssen
+ *  zero out boot-args for Jim...
+ *
+ *  Revision 1.5  2002/06/11 00:50:51  ssen
+ *  All function prototypes need to use BLContextPtr. This is really
+ *  a minor change in all of the files.
+ *
  *  Revision 1.4  2002/04/27 17:55:00  ssen
  *  Rewrite output logic to format the string before sending of to logger
  *
@@ -58,27 +77,28 @@
 #include <sys/wait.h>
 
 #include "bless.h"
+#include "bless_private.h"
 
 #define NVRAM "/usr/sbin/nvram"
 
 
-int BLSetOpenFirmwareBootDevice(BLContext context, unsigned char mntfrm[]) {
+int BLSetOpenFirmwareBootDevice(BLContextPtr context, unsigned char mntfrm[]) {
   char ofString[1024];
   int err;
   
-  char * OFSettings[5];
+  char * OFSettings[6];
   
   char bootdevice[1024];
   char bootfile[1024];
   char bootcommand[1024];
+  char bootargs[1024]; // always zero out bootargs
   
   int isNewWorld = BLIsNewWorld(context);
-    pid_t p;
-    int status;
-
+  pid_t p;
+  int status;
   
   OFSettings[0] = NVRAM;
-	err = BLGetOpenFirmwareBootDevice(context, mntfrm, ofString);
+  err = BLGetOpenFirmwareBootDevice(context, mntfrm, ofString);
   if(err) {
     contextprintf(context, kBLLogLevelError,  "Can't get Open Firmware information\n" );
     return 1;
@@ -92,26 +112,27 @@ int BLSetOpenFirmwareBootDevice(BLContext context, unsigned char mntfrm[]) {
     sprintf(bootdevice, "boot-device=%s", ofString);
     sprintf(bootfile, "boot-file=");
     sprintf(bootcommand, "boot-command=mac-boot");
-    
+    sprintf(bootargs, "boot-args=");    
   } else {
     // set them up
     sprintf(bootdevice, "boot-device=%s", ofString);
     sprintf(bootfile, "boot-file=");
     sprintf(bootcommand, "boot-command=0 bootr");
-    
+    sprintf(bootargs, "boot-args=");    
   }
 	    
     OFSettings[1] = bootdevice;
     OFSettings[2] = bootfile;
     OFSettings[3] = bootcommand;
-    OFSettings[4] = NULL;
+    OFSettings[4] = bootargs;
+    OFSettings[5] = NULL;
         
     contextprintf(context, kBLLogLevelVerbose,  "OF Setings:\n" );    
-    contextprintf(context, kBLLogLevelVerbose,  "\t\tprogram: %s\n", OFSettings[0] );    
-    contextprintf(context, kBLLogLevelVerbose,  "\t\t%s\n", OFSettings[1] );    
-    contextprintf(context, kBLLogLevelVerbose,  "\t\t%s\n", OFSettings[2] );    
-    contextprintf(context, kBLLogLevelVerbose,  "\t\t%s\n", OFSettings[3] );    
-
+    contextprintf(context, kBLLogLevelVerbose,  "\t\tprogram: %s\n", OFSettings[0] );
+    contextprintf(context, kBLLogLevelVerbose,  "\t\t%s\n", OFSettings[1] );
+    contextprintf(context, kBLLogLevelVerbose,  "\t\t%s\n", OFSettings[2] );
+    contextprintf(context, kBLLogLevelVerbose,  "\t\t%s\n", OFSettings[3] );
+    contextprintf(context, kBLLogLevelVerbose,  "\t\t%s\n", OFSettings[4] );
 
     p = fork();
     if (p == 0) {

@@ -1,0 +1,3 @@
+OTHER_GENERATED_OFILES = $(VERS_OFILE)
+-include ../Makefile.include
+AFTER_INSTALL += install-man-page

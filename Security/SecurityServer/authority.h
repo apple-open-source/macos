@@ -27,8 +27,6 @@
 
 using Authorization::Credential;
 using Authorization::CredentialSet;
-using Authorization::RightSet;
-using Authorization::MutableRightSet;
 using Authorization::AuthItemSet;
 
 class Process;
@@ -37,7 +35,7 @@ class Session;
 
 class AuthorizationToken {
 public:
-	AuthorizationToken(Session &ssn, const CredentialSet &base);
+	AuthorizationToken(Session &ssn, const CredentialSet &base, const security_token_t &securityToken);
 	~AuthorizationToken();
 
     Session &session;
@@ -63,9 +61,10 @@ public:
 
 	uid_t creatorUid() const	{ return mCreatorUid; }
     CodeSigning::OSXCode *creatorCode() const { return mCreatorCode; }
-
-    AuthorizationItemSet &infoSet();   
-    void setInfoSet(AuthorizationItemSet &newInfoSet);
+	pid_t creatorPid() const	{ return mCreatorPid; }
+	
+	AuthItemSet infoSet(AuthorizationString tag = NULL);
+    void setInfoSet(AuthItemSet &newInfoSet);
     void setCredentialInfo(const Credential &inCred);
 
 public:
@@ -95,8 +94,9 @@ private:
 
 	uid_t mCreatorUid;				// Uid of proccess that created this authorization
     RefPointer<OSXCode> mCreatorCode; // code id of creator
+	pid_t mCreatorPid;				// Pid of processs that created this authorization
 
-    AuthorizationItemSet *mInfoSet;          // Side band info gathered from evaluations in this session
+    AuthItemSet mInfoSet;			// Side band info gathered from evaluations in this session
 
 private:
 	typedef map<AuthorizationBlob, AuthorizationToken *> AuthMap;

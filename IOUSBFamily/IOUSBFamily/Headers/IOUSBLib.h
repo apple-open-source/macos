@@ -22,6 +22,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 #ifndef _IOUSBLIB_H
 #define _IOUSBLIB_H
 

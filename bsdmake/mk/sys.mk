@@ -1,7 +1,7 @@
 #	from: @(#)sys.mk	8.2 (Berkeley) 3/21/94
 # $FreeBSD: src/share/mk/sys.mk,v 1.46 2000/04/21 23:51:58 kris Exp $
 
-unix		?=	We run FreeBSD, not UNIX.
+unix		?=	We run Darwin, not UNIX.
 
 # If the special target .POSIX appears (without prerequisites or
 # commands) before the first noncomment line in the makefile, make shall

@@ -1,0 +1,2 @@
+debian/install/usr/bin/escputil               usr/bin
+debian/install/usr/share/man/man1/escputil.1  usr/share/man/man1

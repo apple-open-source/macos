@@ -1,21 +1,23 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -58,28 +60,46 @@ class IOHIDConsumer : public IOHIKeyboard
     bool				_capsLockOn;
     
     // Generic Deskop Element Value Ptrs
-    UInt32 *				_systemPowerValuePtr;
-    UInt32 *				_systemSleepValuePtr;
-    UInt32 *				_systemWakeUpValuePtr;
+    UInt32 **				_systemPowerValuePtrs;
+    UInt32				_systemPowerValuePtrsCount;
+    UInt32 **				_systemSleepValuePtrs;
+    UInt32				_systemSleepValuePtrsCount;
+    UInt32 **				_systemWakeUpValuePtrs;
+    UInt32				_systemWakeUpValuePtrsCount;
     
     // Consumer Element Value Ptrs    
-    UInt32 *				_powerValuePtr;
-    UInt32 *				_resetValuePtr;
-    UInt32 *				_sleepValuePtr;
+    UInt32 **				_powerValuePtrs;
+    UInt32				_powerValuePtrsCount;
+    UInt32 **				_resetValuePtrs;
+    UInt32				_resetValuePtrsCount;
+    UInt32 **				_sleepValuePtrs;
+    UInt32				_sleepValuePtrsCount;
     
-    UInt32 *				_playValuePtr;
-    UInt32 *				_playOrPauseValuePtr;
-    UInt32 *				_playOrSkipPtr;
-    UInt32 *				_nextTrackValuePtr;
-    UInt32 *				_prevTrackValuePtr;
-    UInt32 *				_fastFowardValuePtr;
-    UInt32 *				_rewindValuePtr;
-    UInt32 *				_stopOrEjectPtr;
-    UInt32 *				_ejectValuePtr;
+    UInt32 **				_playValuePtrs;
+    UInt32				_playValuePtrsCount;
+    UInt32 **				_playOrPauseValuePtrs;
+    UInt32				_playOrPauseValuePtrsCount;
+    UInt32 **				_playOrSkipPtrs;
+    UInt32				_playOrSkipPtrsCount;
+    UInt32 **				_nextTrackValuePtrs;
+    UInt32				_nextTrackValuePtrsCount;
+    UInt32 **				_prevTrackValuePtrs;
+    UInt32				_prevTrackValuePtrsCount;
+    UInt32 **				_fastFowardValuePtrs;
+    UInt32				_fastFowardValuePtrsCount;
+    UInt32 **				_rewindValuePtrs;
+    UInt32				_rewindValuePtrsCount;
+    UInt32 **				_stopOrEjectPtrs;
+    UInt32				_stopOrEjectPtrsCount;
+    UInt32 **				_ejectValuePtrs;
+    UInt32				_ejectValuePtrsCount;
 
-    UInt32 *				_volumeIncValuePtr;
-    UInt32 *				_volumeDecValuePtr;
-    UInt32 *				_volumeMuteValuePtr;
+    UInt32 **				_volumeIncValuePtrs;
+    UInt32				_volumeIncValuePtrsCount;
+    UInt32 **				_volumeDecValuePtrs;
+    UInt32				_volumeDecValuePtrsCount;
+    UInt32 **				_volumeMuteValuePtrs;
+    UInt32				_volumeMuteValuePtrsCount;
     
     // Our implementation specific stuff.
     bool				findDesiredElements(OSArray *elements);
@@ -91,6 +111,7 @@ public:
     
     // IOService methods
     virtual bool			init(OSDictionary *properties=0);
+    virtual void			free();
     
     virtual void			handleReport();
 

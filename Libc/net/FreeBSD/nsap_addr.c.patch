@@ -1,0 +1,26 @@
+--- nsap_addr.c.orig	Fri Mar 22 13:52:29 2002
++++ nsap_addr.c	Sat May  3 14:17:44 2003
+@@ -26,6 +26,7 @@
+ #include <arpa/nameser.h>
+ #include <ctype.h>
+ #include <resolv.h>
++#include <stdlib.h>
+ 
+ static char
+ xtob(c)
+@@ -78,9 +79,14 @@
+ {
+ 	int nib;
+ 	int i;
+-	static char tmpbuf[255*3];
++	static char *tmpbuf = NULL;
+ 	char *start;
+ 
++	if (tmpbuf == NULL) {
++		tmpbuf = malloc(255*3);
++		if (tmpbuf == NULL)
++			return NULL;
++	}
+ 	if (ascii)
+ 		start = ascii;
+ 	else {

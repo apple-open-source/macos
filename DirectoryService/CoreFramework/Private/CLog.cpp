@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -578,12 +581,19 @@ CLog::CLog ( const char *inFile,
 
 	::memset( fHooks, 0, sizeof( fHooks ) );
 
-	fFile = new CFile( inFile, true, (inFlags & CLog::kRollLog) );
-	if (fFile != nil)
-	{
-		// Get the length of the file and set the write pointer to EOF.
-		fFile->seekp( 0, ios::end );
-		fLength = fFile->tellp();
+	// CFile throws.  We need to catch so we don't throw out of our constructor
+	try {
+		fFile = new CFile( inFile, true, (inFlags & CLog::kRollLog) );
+
+		if (fFile != nil)
+		{
+			// Get the length of the file and set the write pointer to EOF.
+			fFile->seekp( 0, ios::end );
+			fLength = fFile->tellp();
+		}
+	} catch ( ... ) {
+		fFile = nil;
+		fLength = 0;
 	}
 
 	fLock = new DSMutexSemaphore( true );
@@ -653,11 +663,13 @@ void CLog::GetInfo (	CFileSpec	&fileSpec,
 OSErr CLog::ClearLog ( void )
 {
 	try {
+		if( fFile == nil ) throw ((OSErr) ds_fnfErr);
+		
 		fFile->seteof( 0 );
 		fOffset = 0;
 		fLength = 0;
 	}
-
+	
 	catch ( OSErr nErr )
 	{
 		return( nErr );
@@ -719,6 +731,8 @@ OSErr CLog::Append ( const CString &line )
 	}
 
 	try {
+		if( fFile == nil ) throw ((OSErr) ds_fnfErr);
+
 		// wrap up later
 		fFile->write( csTemp.GetData(), csTemp.GetLength() );
 

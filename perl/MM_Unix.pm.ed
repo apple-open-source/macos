@@ -1,0 +1,5 @@
+/print STDERR "    from $sprefix to $rprefix/a
+
+    $rprefix .= '/' if $sprefix =~ m|/$|;
+.
+w

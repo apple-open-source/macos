@@ -21,23 +21,18 @@
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-dvmrp.c,v 1.1.1.2 2002/05/29 00:05:35 landonf Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-dvmrp.c,v 1.1.1.3 2003/03/17 18:42:16 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <sys/param.h>
-#include <sys/time.h>
-#include <sys/socket.h>
-
-#include <netinet/in.h>
+#include <tcpdump-stdinc.h>
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <unistd.h>
 
 #include "interface.h"
 #include "extract.h"
@@ -71,9 +66,9 @@ static void print_probe(const u_char *, const u_char *, u_int);
 static void print_report(const u_char *, const u_char *, u_int);
 static void print_neighbors(const u_char *, const u_char *, u_int);
 static void print_neighbors2(const u_char *, const u_char *, u_int);
-static void print_prune(const u_char *, const u_char *, u_int);
-static void print_graft(const u_char *, const u_char *, u_int);
-static void print_graft_ack(const u_char *, const u_char *, u_int);
+static void print_prune(const u_char *);
+static void print_graft(const u_char *);
+static void print_graft_ack(const u_char *);
 
 static u_int32_t target_level;
 
@@ -135,17 +130,17 @@ dvmrp_print(register const u_char *bp, register u_int len)
 
 	case DVMRP_PRUNE:
 		printf(" Prune");
-		print_prune(bp, ep, len);
+		print_prune(bp);
 		break;
 
 	case DVMRP_GRAFT:
 		printf(" Graft");
-		print_graft(bp, ep, len);
+		print_graft(bp);
 		break;
 
 	case DVMRP_GRAFT_ACK:
 		printf(" Graft-ACK");
-		print_graft_ack(bp, ep, len);
+		print_graft_ack(bp);
 		break;
 
 	default:
@@ -159,7 +154,8 @@ print_report(register const u_char *bp, register const u_char *ep,
     register u_int len)
 {
 	register u_int32_t mask, origin;
-	register int metric, i, width, done;
+	register int metric, done;
+	register u_int i, width;
 
 	while (len > 0) {
 		if (len < 3) {
@@ -317,8 +313,7 @@ trunc:
 }
 
 static void
-print_prune(register const u_char *bp, register const u_char *ep,
-    register u_int len)
+print_prune(register const u_char *bp)
 {
 	TCHECK2(bp[0], 12);
 	printf(" src %s grp %s", ipaddr_string(bp), ipaddr_string(bp + 4));
@@ -331,8 +326,7 @@ trunc:
 }
 
 static void
-print_graft(register const u_char *bp, register const u_char *ep,
-    register u_int len)
+print_graft(register const u_char *bp)
 {
 	TCHECK2(bp[0], 8);
 	printf(" src %s grp %s", ipaddr_string(bp), ipaddr_string(bp + 4));
@@ -342,8 +336,7 @@ trunc:
 }
 
 static void
-print_graft_ack(register const u_char *bp, register const u_char *ep,
-    register u_int len)
+print_graft_ack(register const u_char *bp)
 {
 	TCHECK2(bp[0], 8);
 	printf(" src %s grp %s", ipaddr_string(bp), ipaddr_string(bp + 4));

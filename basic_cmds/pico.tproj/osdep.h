@@ -1,5 +1,5 @@
 /*
- * $Id: osdep.h,v 1.2 2002/01/03 22:16:42 jevans Exp $
+ * $Id: osdep.h,v 1.3 2003/01/12 01:48:11 bbraun Exp $
  *
  * Program:	Operating system dependent routines - Ultrix 4.1
  *

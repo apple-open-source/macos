@@ -1,5 +1,3 @@
-.\"	$NetBSD: msgs.1,v 1.6 1997/10/14 01:28:50 lukem Exp $
-.\"
 .\" Copyright (c) 1980, 1990, 1993
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
@@ -32,33 +30,36 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)msgs.1	8.2 (Berkeley) 4/28/95
+.\" $FreeBSD: src/usr.bin/msgs/msgs.1,v 1.18 2002/07/15 07:16:54 keramida Exp $
 .\"
 .Dd April 28, 1995
 .Dt MSGS 1
-.Os BSD 4
+.Os
 .Sh NAME
 .Nm msgs
 .Nd system messages and junk mail program
 .Sh SYNOPSIS
 .Nm
-.Op Fl fhlpqr
+.Op Fl fhlpq
 .Op Ar number
 .Op Ar \-number
-.Nm ""
+.Nm
 .Op Fl s
-.Nm ""
+.Nm
 .Op Fl c
 .Op \-days
 .Sh DESCRIPTION
+The
 .Nm
-is used to read system messages.
+utility is used to read system messages.
 These messages are
 sent by mailing to the login `msgs' and should be short
 pieces of information which are suitable to be read once by most users
 of the system.
 .Pp
+The
 .Nm
-is normally invoked each time you login, by placing it in the file
+utility is normally invoked each time you login, by placing it in the file
 .Pa .login
 (or
 .Pa .profile
@@ -82,13 +83,14 @@ and go on to the next message.
 Redisplay the last message.
 .It Fl q
 Drop out of
-.Nm "" ;
+.Nm ;
 the next time
 .Nm
 will pick up where it last left off.
 .It Fl s
 Append the current message to the file ``Messages'' in the current directory;
-`s\-' will save the previously displayed message. A `s' or `s\-' may
+`s\-' will save the previously displayed message.
+A `s' or `s\-' may
 be followed by a space and a file name to receive the message replacing
 the default ``Messages''.
 .It Fl m
@@ -96,14 +98,12 @@ A copy of the specified message is placed in a temporary
 mailbox and
 .Xr mail  1
 is invoked on that mailbox.
-.It Fl p
-The specified message is piped through $PAGER, or, if $PAGER is not defined,
-.Xr more 1  .
-The commands `m', `p', and `s' all accept a numeric argument in place of the `\-'.
+Both `m' and `s' accept a numeric argument in place of the `\-'.
 .El
 .Pp
+The
 .Nm
-keeps track of the next message you will see by a number in the file
+utility keeps track of the next message you will see by a number in the file
 .Pa \&.msgsrc
 in your home directory.
 In the directory
@@ -122,16 +122,26 @@ is incorrect it can be fixed by removing it;
 .Nm
 will make a new
 .Pa bounds
-file the next time it is run.
+file the next time it is run with the
+.Fl s
+option.
+If
+.Nm
+is run with any option other than
+.Fl s ,
+an error will be displayed if
+.Pa /var/msgs/bounds
+does not exist.
 .Pp
 The
 .Fl s
-option is used for setting up the posting of messages.  The line
+option is used for setting up the posting of messages.
+The line
 .Pp
 .Dl msgs: \&"\&| /usr/bin/msgs \-s\&"
 .Pp
 should be included in
-.Pa /etc/aliases
+.Pa /etc/mail/aliases
 (see
 .Xr newaliases 1 )
 to enable posting of messages.
@@ -139,19 +149,25 @@ to enable posting of messages.
 The
 .Fl c
 option is used for performing cleanup on
-.Pa /var/msgs.
-An entry with the
+.Pa /var/msgs .
+A shell script entry to run
+.Nm
+with the
 .Fl c
 option should be placed in
-.Pa /etc/crontab
-to run every night.  This will remove all messages over 21 days old.
+.Pa /etc/periodic/daily
+(see
+.Xr periodic 8 )
+to run every night.
+This will remove all messages over 21 days old.
 A different expiration may be specified on the command line to override
 the default.
+You must be the superuser to use this option.
 .Pp
 Options when reading messages include:
 .Bl -tag -width Fl
 .It Fl f
-Do not to say ``No new messages.''.
+Do not say ``No new messages.''.
 This is useful in a
 .Pa .login
 file since this is often the case here.
@@ -161,11 +177,8 @@ Queries whether there are messages, printing
 The command ``msgs \-q'' is often used in login scripts.
 .It Fl h
 Print the first part of messages only.
-.It Fl r
-Disables the ability to save messages or enter the mailer.  It is
-assumed that $PAGER is set to something secure.
 .It Fl l
-Option causes only locally originated messages to be reported.
+Cause only locally originated messages to be reported.
 .It Ar num
 A message number can be given
 on the command line, causing
@@ -186,7 +199,7 @@ messages back from the one indicated in the
 .Pa \&.msgsrc
 file, useful for reviews of recent messages.
 .It Fl p
-Pipe long messages through $PAGER, or, if $PAGER is not defined,
+Pipe long messages through
 .Xr more  1  .
 .El
 .Pp
@@ -196,25 +209,26 @@ you can also go to any specific message by typing its number when
 .Nm
 requests input as to what to do.
 .Sh ENVIRONMENT
+The
 .Nm
-uses the
+utility uses the
 .Ev HOME
 and
 .Ev TERM
 environment variables for the default home directory and
 terminal type.
 .Sh FILES
-.Bl -tag -width /usr/msgs/* -compact
-.It Pa /usr/msgs/*
+.Bl -tag -width /var/msgs/* -compact
+.It Pa /var/msgs/*
 database
-.It ~/.msgsrc
+.It Pa ~/.msgsrc
 number of next message to be presented
 .El
 .Sh SEE ALSO
-.Xr aliases 5 ,
-.\".Xr crontab 5 ,
 .Xr mail 1 ,
-.Xr more 1
+.Xr more 1 ,
+.Xr aliases 5 ,
+.Xr periodic 8
 .Sh HISTORY
 The
 .Nm

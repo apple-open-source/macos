@@ -1,0 +1,455 @@
+========================================================================
+KerberosDebug Version History
+========================================================================
+Current version: 1.5fc2
+Date:            August 22, 2003
+Author:          meeroh@mit.edu, lxs@mit.edu
+========================================================================
+
+	KerberosDebug 1.5fc2
+	August 22, 2003
+
+	[RT 1764] Framework should use CFStringGetMaximumSizeForEncoding()
+
+	========================================================================
+	KerberosDebug 1.5fc1
+	July 16, 2003
+
+	Moved to final candidate.
+
+	========================================================================
+	KerberosDebug 1.5a1
+	May 21, 2003
+
+	[RT 1506] Kerberos.log should have sane permissions
+
+	========================================================================
+
+KerberosDebug 1.4
+June 19, 2002
+
+========================================================================
+
+	KerberosDebug 1.4
+	June 19, 2002
+
+	Moved to GM.
+
+	========================================================================
+
+	KerberosDebug 1.4fc1
+	June 17, 2002
+
+	Moved to final candidate.
+
+	========================================================================
+
+	KerberosDebug 1.4a1
+	June 10, 2002
+
+	[BZ 735]	dprintfs do not include timestamps
+
+	========================================================================
+
+DebuggingLib 1.3
+Feb 19, 2002
+
+Bug fixes for 1.2
+
+========================================================================
+
+	DebuggingLib 1.3fc1
+	February 7, 2002
+
+	Moved to final candidate
+
+	========================================================================
+
+	DebuggingLib 1.3b3
+	December 13, 2001
+
+	Eliminated lots of warnings
+
+	========================================================================
+
+	DebuggingLib 1.3b2
+	November 15, 2001
+
+	Compile under CWP7
+
+	========================================================================
+
+	DebuggingLib 1.3b1
+	November 7, 2001
+
+	Tweaked leak output
+	Documentation update
+
+	========================================================================
+
+	DebuggingLib 1.3a2
+	Sep 27, 2001
+
+	Added dprintmem on X
+
+	========================================================================
+
+	DebuggingLib 1.3a1
+	Aug 7, 2001
+
+	Bugs fixed in this revision:
+		- [BZ 625] Kerberos.debug crashes on quit
+
+	========================================================================
+
+DebuggingLib 1.2
+June 25, 2001
+
+Carbon, CWP 6
+
+Bugs fixed in this revision:
+	- [BZ 618] Stray DebugStrs in non-debug version
+
+========================================================================
+
+	DebuggingLib 1.2fc1
+	June 13, 2000
+
+	Final candidate for 3.5
+
+	========================================================================
+
+	DebuggingLib 1.2b2
+	April 30, 2000
+
+	Added some Mach-O bridges and removed some unused symbols
+
+	========================================================================
+
+	DebuggingLib 1.2b1
+	April 2, 2000
+
+	Moved to beta
+
+	========================================================================
+
+	DebuggingLib 1.2a4
+	March 16, 2000
+
+	Fixed header access paths
+	Updated documentation
+
+	========================================================================
+
+	DebuggingLib 1.2a3
+	February 1, 2000
+
+	Fixed a number of warnings
+
+	========================================================================
+
+	DebuggingLib 1.2a2
+	December 28, 2000
+
+	Make strings read only
+
+	========================================================================
+
+	DebuggingLib 1.2a1
+	December 9, 2000
+
+	Alpha
+
+	========================================================================
+
+	DebuggingLib 1.2d7
+	November 30, 2000
+
+	Use precompiled headers
+
+	========================================================================
+
+	DebuggingLib 1.2d6
+	October 30, 2000
+
+	[BZ 454]	Fixed Carbon fragment names
+
+	========================================================================
+
+	DebuggingLib 1.2d5
+	October 24, 2000
+
+	[BZ 443]	Fixed Assert_ crash on Mac OS X
+
+	========================================================================
+
+	DebuggingLib 1.2d4
+	October 16, 2000
+
+	[BZ 442]	Fixed leak in leak checker
+
+	========================================================================
+
+	DebuggingLib 1.2d3
+	October 4, 2000
+
+	9-only leak checking, 9-only DCon
+
+	========================================================================
+
+	DebuggingLib 1.2d2
+	September 28, 2000
+
+	Rebuilt with fixed CWP 6 fcntl.h
+
+	========================================================================
+
+	DebuggingLib 1.2d1
+	September 26, 2000
+
+	Carbonized and moved to CWP6
+
+	========================================================================
+
+DebuggingLib 1.1.1
+June 30, 2000
+
+Changes since 1.1:
+	- Added throw utility macros
+	- Detect whether Window Manager is initialized before using the
+	dialog
+	- Changed to use MIT Runtime.Lib
+	- Removed 68K support
+
+========================================================================
+
+	DebuggingLib 1.1.1fc2
+	June 28, 2000
+
+	Bugs fixed in this release:
+		[BZ 367]	Moved strings into code section
+
+	========================================================================
+
+	DebuggingLib 1.1.1fc1
+	June 15, 2000
+
+	Bugs fixed in this release:
+		[BZ 347]	DebugStr, ValidAddress, Crawl, and dprintf in
+		non-debugging target
+
+	========================================================================
+
+	DebuggingLib 1.1.1b1
+	June 10, 2000
+
+	Bugs fixed in this release:
+		[BZ 304]	No error checking on Shlib_ResFileBegin_ ()
+
+	========================================================================
+
+	DebuggingLib 1.1.1a9
+	May 6, 2000
+
+	Documentation update
+
+	========================================================================
+
+	DebuggingLib 1.1.1a8
+	April 28, 2000
+
+	Put in a temporary workaround for [BZ 157]
+
+	========================================================================
+
+	DebuggingLib 1.1.1a7
+	April 20, 2000
+
+	Added d[f]printae
+
+	Bugs fixed in this release:
+		[BZ  45]	Fixed crawl in multithreaded apps (again)
+		[BZ 125]	DebugThrow_ defaults to off in non-debug targets
+
+	========================================================================
+
+	DebuggingLib 1.1.1a6
+	April 9, 2000
+
+	ValidAddress should use const void* [BZ  98]
+
+	========================================================================
+
+	DebuggingLib 1.1.1a5
+	March 24, 2000
+
+	Added pointer validation function (see PointerValidation.h) [BZ  65]
+
+	========================================================================
+
+	DebuggingLib 1.1.1a4
+	March 13, 2000
+
+	Bugs fixed in this release:
+		[BZ  45]	Put in a workaround for crawl for multithreaded apps
+
+	========================================================================
+
+	DebuggingLib 1.1.1a3
+	March 11, 2000
+
+	Added stack crawl code
+	Exported all DCon functions (not just dprintf)
+
+	========================================================================
+
+	DebuggingLib 1.1.1a2
+	February 27, 2000
+
+	Changed to use MIT Runtime.Lib
+	Removed 68K support
+
+	========================================================================
+
+	DebuggingLib 1.1.1a1
+	February 8, 2000
+
+	New features in this revision:
+		- Added throw utility macros
+		- Detects being called before Window Manager is initialized, so
+		CFM initializers no longer need to set assertion actions.
+
+	========================================================================
+
+DebuggingLib 1.1
+September 14, 1999
+
+Changes since 1.0:
+	Rebuilt from the new tree
+	Fixed incompatibilities with CWP4 PowerPlant
+	Exported MW Debug interface
+	Removed calls to Process Manager at INIT time
+	Removed C++ comments from C headers
+	Updated tools
+
+========================================================================
+
+	DebuggingLib 1.1fc1
+	September 1, 1999
+	
+	Updated tools
+
+	========================================================================
+
+	DebuggingLib 1.1b1
+	August 20, 1999
+	
+	No changes, moved to beta
+
+	========================================================================
+
+	DebuggingLib 1.1a2
+	August 6, 1999
+
+	Bugs fixed in this revision:
+	 - [     3] Headers now compile with ANSI strict
+	========================================================================
+
+	DebuggingLib 1.1a1
+	July 20, 1999
+
+	Moved to alpha in preparation for MIT Support Library 1.5a1
+		
+	Bugs fixed in this revision:
+	 - [     2] Fixed calling Process Manager at INIT time
+	========================================================================
+
+	DebuggingLib 1.1d3
+	July 8, 1999
+
+	New features in this revision:
+		Exported MWDebug interface (IsMetroNubInstalled, IsMWDebuggerRunning,
+		AmIBeingMWDebugged)
+		
+	========================================================================
+
+	DebuggingLib 1.0.1d2
+	June 9, 1999
+	
+	Bugs fixed in this revision:
+	 - [     1] Now builds under plain CWP4 (no updates)
+		
+	========================================================================
+
+	DebuggingLib 1.0.1d1
+	May 28, 1999
+	
+	Rebuilt from the new tree
+		
+	========================================================================
+
+
+DebuggingLib 1.0
+April 29, 1999
+
+Initial public release
+
+	DebuggingLib 1.0fc3
+	April 21, 1999
+	
+	Renamed all fragments for even newer MIT Support Library convention.
+	
+	New features in this revision: none
+	
+	Bugs fixed in this revision: none
+		
+	========================================================================
+
+
+	DebuggingLib 1.0fc2
+	April 7, 1999
+	
+	Renamed all fragments for new MITAthenaLib convention.
+	
+	New features in this revision: none
+	
+	Bugs fixed in this revision: none
+		
+	========================================================================
+	
+	
+	DebuggingLib 1.0fc1
+	March 25, 1999
+	
+	New features in this revision:
+		- verified compatibility with PowerPlant 2.0 beta, but not enabled it
+	
+	Bugs fixed in this revision: none
+		
+	========================================================================
+	
+	
+	DebuggingLib 1.0b2
+	Unknown release date (MITAthena 1.0b2)
+	
+	Internal project dependency and target fixes
+	
+	New features in this revision: none
+	
+	Bugs fixed in this revision: none
+		
+	========================================================================
+	
+	
+	DebuggingLib 1.0b1
+	February 26, 1999 (MITAthena 1.0b1)
+	
+	Initial testing release
+		
+	New features in this revision: none
+	
+	Bugs fixed in this revision: none
+	
+	========================================================================
+	
+	

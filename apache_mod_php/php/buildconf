@@ -1,36 +1,47 @@
 #!/bin/sh
-# $Id: buildconf,v 1.1.1.3 2001/01/25 04:58:48 wsanchez Exp $
+# $Id: buildconf,v 1.1.1.5 2003/07/18 18:06:28 zarzycki Exp $
 
-supplied_flag=$1
-
-if test "$supplied_flag" = "--copy"; then
-    automake_flags=--copy
-fi
-
-## build.mk does not check aclocal exit status yet
-##
-#mv aclocal.m4 aclocal.m4.old 2>/dev/null
-#aclocal
-#if test "$?" != "0" -a "$am_prefix" != "$lt_prefix"; then
-#    echo "buildconf: ERROR: aclocal failed, probably because automake and"
-#    echo "           libtool are installed with different prefixes;"
-#    echo "           automake is installed in $am_prefix, but libtool in $lt_prefix."
-#    echo "           Please re-install automake and/or libtool with a common prefix"
-#    echo "           and try again."
-#    exit 1
-#fi
-
-if test "$supplied_flag" = "--local"; then
-  subdirs='SUBDIRS='
-else
-  subdirs=''
-fi
-
-rm -f generated_lists
-
-case "`uname`" in
-*BSD/OS*)
-    ./build/bsd_makefile;;
+eval `grep '^EXTRA_VERSION=' configure.in`
+case "$EXTRA_VERSION" in
+	*-dev)
+		dev=1
+		;;
+	*)
+		dev=0
+		;;
 esac
 
-${MAKE:-make} -s -f build/build.mk AMFLAGS="$automake_flags"
+devok=0
+
+while test $# -gt 0; do
+    if test "$1" = "--copy"; then
+        automake_flags=--copy
+    fi
+
+    if test "$1" = "--ZendEngine2"; then
+        ZENDDIR=ZendEngine2
+        echo "Using Zend Engine 2 code"
+    fi
+
+	if test "$1" = "--force"; then
+		devok=1
+		echo "Forcing buildconf"
+	fi
+
+    shift
+done
+
+if test "$dev" = "0" -a "$devok" = "0"; then
+	echo "You should not run buildconf in a release package."
+	echo "use buildconf --force to override this check."
+	exit 1
+fi
+
+if test -z "$ZENDDIR"; then
+    ZENDDIR=Zend
+    echo "using default Zend directory"
+fi
+ 
+rm -f generated_lists
+
+${MAKE:-make} -s -f build/build.mk AMFLAGS="$automake_flags" ZENDDIR="$ZENDDIR"

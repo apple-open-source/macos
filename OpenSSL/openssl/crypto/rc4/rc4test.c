@@ -62,7 +62,7 @@
 
 #include "../e_os.h"
 
-#ifdef NO_RC4
+#ifdef OPENSSL_NO_RC4
 int main(int argc, char *argv[])
 {
     printf("No RC4 support\n");

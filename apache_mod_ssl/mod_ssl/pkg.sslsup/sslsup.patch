@@ -8,7 +8,7 @@
 ##
 ## Annotated patch file: sslsup.patch
 ## Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
-## Created on: 18-Mar-2003
+## Created on: 18-Jul-2003
 ##
 ## This file assembles changes to existing Apache source files
 ## between the original Apache and the patched variant. It can be
@@ -29,8 +29,8 @@
 | already done by APACI for the HTTP port (80).
 +---------------------------------------------------------------------------
 Index: configure
---- configure	19 Jun 2002 07:20:10 -0000	1.1.1.14
-+++ configure	19 Jun 2002 07:29:07 -0000	1.26
+--- configure	18 Jul 2003 15:44:09 -0000	1.1.1.15
++++ configure	18 Jul 2003 15:56:57 -0000	1.27
 @@ -258,6 +258,9 @@
  iflags_script="-m 755"
  iflags_data="-m 644"
@@ -127,8 +127,8 @@ Index: configure
 | additionally installed.
 +---------------------------------------------------------------------------
 Index: Makefile.tmpl
---- Makefile.tmpl	27 Mar 2002 15:22:49 -0000	1.1.1.12
-+++ Makefile.tmpl	27 Mar 2002 15:30:01 -0000	1.44
+--- Makefile.tmpl	18 Jul 2003 15:44:09 -0000	1.1.1.13
++++ Makefile.tmpl	18 Jul 2003 15:56:57 -0000	1.45
 @@ -141,10 +141,14 @@
  suexec_safepath = @suexec_safepath@
  suexec_umask    = @suexec_umask@
@@ -256,7 +256,7 @@ Index: Makefile.tmpl
 -		sed	-e 's:SharedModule:AddModule:' \
 -			-e 's:modules/[^/]*/::' \
 -			-e 's:[ 	]lib: mod_:' \
--			-e 's:\.[soam].*$$:.c:' >>$(SRC)/.apaci.install.conf; \
+-			-e 's:\.[dsoam].*$$:.c:' >>$(SRC)/.apaci.install.conf; \
 +		for mod in `egrep "^[ 	]*(Add|Shared)Module" $(SRC)/Configuration.apaci |\
 +		            sed	-e 's:[ 	]*SharedModule::' \
 +		                -e 's:[ 	]*AddModule::' \
@@ -290,9 +290,9 @@ Index: Makefile.tmpl
  			-e 's;@@ServerRoot@@/htdocs/manual;$(manualdir);' \
  			-e 's;@@ServerRoot@@/htdocs;$(htdocsdir);' \
  			-e 's;@@ServerRoot@@/icons;$(iconsdir);' \
-@@ -534,9 +617,12 @@
+@@ -536,9 +619,12 @@
  			-e 's;Group #-1;Group $(conf_group);' \
- 			-e 's;Group "#-1";Group $(conf_group);' \
+ 			-e 's;^Group "#-1";Group $(conf_group);' \
  			-e 's;Port 80;Port $(conf_port);' \
 +			-e 's;Listen 80;Listen $(conf_port);' \
 +			-e 's;Listen 443;Listen $(conf_port_ssl);' \
@@ -304,7 +304,7 @@ Index: Makefile.tmpl
  		echo "$(INSTALL_DATA) $(TOP)/conf/$${conf}-dist[*] $(root)$(sysconfdir)/$${target_conf}.default"; \
  		$(INSTALL_DATA) $(TOP)/$(SRC)/.apaci.install.tmp $(root)$(sysconfdir)/$${target_conf}.default; \
  		if [ ! -f "$(root)$(sysconfdir)/$${target_conf}" ]; then \
-@@ -556,6 +642,91 @@
+@@ -558,6 +644,91 @@
  			echo "[PRESERVING EXISTING CONFIG FILE: $(root)$(sysconfdir)/$${conf}]"; \
  		fi; \
  	done
@@ -403,8 +403,8 @@ Index: Makefile.tmpl
 | script.
 +---------------------------------------------------------------------------
 Index: src/Makefile.tmpl
---- src/Makefile.tmpl	19 Jun 2002 07:20:22 -0000	1.1.1.11
-+++ src/Makefile.tmpl	19 Jun 2002 07:29:08 -0000	1.20
+--- src/Makefile.tmpl	18 Jul 2003 15:44:29 -0000	1.1.1.12
++++ src/Makefile.tmpl	18 Jul 2003 15:56:58 -0000	1.21
 @@ -11,6 +11,12 @@
    $(OSDIR)/libos.a \
    ap/libap.a
@@ -439,8 +439,8 @@ Index: src/Makefile.tmpl
 | `startssl' adds a -DSSL define when starting httpd.
 +---------------------------------------------------------------------------
 Index: src/support/apachectl
---- src/support/apachectl	27 Mar 2002 15:23:11 -0000	1.1.1.7
-+++ src/support/apachectl	27 Mar 2002 15:30:03 -0000	1.9
+--- src/support/apachectl	18 Jul 2003 15:44:46 -0000	1.1.1.8
++++ src/support/apachectl	18 Jul 2003 15:56:59 -0000	1.10
 @@ -75,6 +75,18 @@
  	    ERROR=3
  	fi
@@ -474,19 +474,16 @@ Index: src/support/apachectl
 | environment variables mod_ssl provides to CGI scripts.
 +---------------------------------------------------------------------------
 Index: src/support/suexec.c
---- src/support/suexec.c	27 Mar 2002 15:23:12 -0000	1.1.1.10
-+++ src/support/suexec.c	27 Mar 2002 15:30:03 -0000	1.10
-@@ -228,7 +228,13 @@
-     cidx++;
- 
-     for (ep = environ; *ep && cidx < AP_ENVBUF-1; ep++) {
+--- src/support/suexec.c	18 Jul 2003 15:44:47 -0000	1.1.1.11
++++ src/support/suexec.c	18 Jul 2003 15:56:59 -0000	1.11
+@@ -133,6 +133,10 @@
+ {
+     /* variable name starts with */
+     "HTTP_",
 +#ifdef MOD_SSL
-+	if (!strncmp(*ep, "HTTP_", 5) || 
-+	    !strncmp(*ep, "HTTPS", 5) ||
-+	    !strncmp(*ep, "SSL_", 4)) {
-+#else
- 	if (!strncmp(*ep, "HTTP_", 5)) {
++    "HTTPS_",
++    "SSL_",
 +#endif
- 	    cleanenv[cidx] = *ep;
- 	    cidx++;
- 	}
+ 
+     /* variable name is */
+     "AUTH_TYPE=",

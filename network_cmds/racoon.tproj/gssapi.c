@@ -1,4 +1,4 @@
-/*	$KAME: gssapi.c,v 1.18 2001/03/05 23:36:31 thorpej Exp $	*/
+/*	$KAME: gssapi.c,v 1.19 2001/04/03 15:51:55 thorpej Exp $	*/
 
 /*
  * Copyright 2000 Wasabi Systems, Inc.

@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -133,9 +131,11 @@ struct object *object)
 	    }
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
 	}
-	if(object->mh->filetype == MH_DYLIB && dl_id == NULL)
+	if((object->mh->filetype == MH_DYLIB ||
+	    object->mh->filetype == MH_DYLIB_STUB) && dl_id == NULL)
 	    fatal_arch(arch, member, "malformed file (no LC_ID_DYLIB load "
-		"command in MH_DYLIB file): ");
+		"command in %s file): ", object->mh->filetype == MH_DYLIB ?
+		"MH_DYLIB" : "MH_DYLIB_STUB");
 	if(object->hints_cmd != NULL){
 	    if(object->dyst == NULL && object->hints_cmd->nhints != 0)
 		fatal_arch(arch, member, "malformed file (LC_TWOLEVEL_HINTS "
@@ -162,7 +162,8 @@ struct object *object)
 	     * and a relocatable object file.  Since it has a dynamic symbol
 	     * table command it could have an indirect symbol table.
 	     */
-	    if(object->mh->filetype == MH_DYLIB){
+	    if(object->mh->filetype == MH_DYLIB /* ||
+	       object->mh->filetype == MH_DYLIB_STUB */ ){
 		/*
 		 * This is a dynamic shared library.
 		 * The order of the symbolic info is:
@@ -173,10 +174,10 @@ struct object *object)
 		 *		undefined symbols
 		 *	two-level namespace hints
 		 * 	external relocation entries
+		 *	indirect symbol table
 		 *	table of contents
 		 * 	module table
 		 *	reference table
-		 *	indirect symbol table
 		 *	string table
 		 *		strings for external symbols
 		 *		strings for local symbols

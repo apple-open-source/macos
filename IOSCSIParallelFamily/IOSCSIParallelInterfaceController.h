@@ -47,9 +47,10 @@
 #include <IOKit/IOWorkLoop.h>
 #include <IOKit/IOCommandGate.h>
 #include <IOKit/IOInterruptEventSource.h>
+#include <IOKit/IOFilterInterruptEventSource.h>
 #include <IOKit/IOTimerEventSource.h>
 
-#include <IOKit/scsi-commands/SCSITask.h>
+#include <IOKit/scsi/SCSITask.h>
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -268,7 +269,7 @@ public:
 		@param parallelRequest is a reference to the SCSIParallelTaskIdentifier
 		to be executed.
 		@result is an appropiate SCSIServiceResponse which are defined in the
-		file <IOKit/scsi-commands/SCSITask.h>.
+		file <IOKit/scsi/SCSITask.h>.
 	*/
 	
 	SCSIServiceResponse ExecuteParallelTask ( 
@@ -603,7 +604,7 @@ protected:
 		the command on the bus). The HBA specific sublcass must implement this 
 		method.
 		@param parallelRequest A valid SCSIParallelTaskIdentifier.
-		@result serviceResponse (see <IOKit/scsi-commands/SCSITask.h>)
+		@result serviceResponse (see <IOKit/scsi/SCSITask.h>)
 	*/
 	
 	virtual SCSIServiceResponse ProcessParallelTask (
@@ -617,7 +618,7 @@ protected:
 		of a parallel task.
 		@param parallelTask A valid SCSIParallelTaskIdentifier.
 		@param completionStatus The status of the SCSI bus.
-		@param serviceResponse (see <IOKit/scsi-commands/SCSITask.h>)
+		@param serviceResponse (see <IOKit/scsi/SCSITask.h>)
 	*/
 
 	void	CompleteParallelTask (
@@ -806,7 +807,7 @@ protected:
 		with the request.
 		@param parallelTask A valid SCSIParallelTaskIdentifier.
 		@result One of the valid data transfer directions described in 
-		<IOKit/scsi-commands/SCSITask.h>
+		<IOKit/scsi/SCSITask.h>
 	*/
 	
 	UInt8	GetDataTransferDirection ( SCSIParallelTaskIdentifier parallelTask );
@@ -1128,14 +1129,31 @@ protected:
 		specific structures after a timeout has occurred.
 		@param parallelRequest A valid SCSIParallelTaskIdentifier.
 	*/
-
-	OSMetaClassDeclareReservedUsed ( IOSCSIParallelInterfaceController,  9 );
+	
+	OSMetaClassDeclareReservedUsed ( IOSCSIParallelInterfaceController, 9 );
 	
 	virtual void		HandleTimeout (
 							SCSIParallelTaskIdentifier parallelRequest );
+
+
+	// ---- Filter Interrupt methods ----
+	
+	/*!
+		@function FilterInterruptRequest
+		@abstract Filter method called at primary interrupt time.
+		@discussion Filter method called at primary interrupt time.
+		This should only be overridden by the child class in order
+		to determine if an interrupt occurred for this controller.
+		Since all work occurs at primary interrupt time, this routine
+		should be quick and efficient and defer as much processing as
+		possible to the HandleInterruptRequest() method.
+	*/
+	
+	OSMetaClassDeclareReservedUsed ( IOSCSIParallelInterfaceController, 10 );
+	
+	virtual bool		FilterInterruptRequest ( void );
 	
 	// Padding for the Child Class API
-	OSMetaClassDeclareReservedUnused ( IOSCSIParallelInterfaceController, 10 );
 	OSMetaClassDeclareReservedUnused ( IOSCSIParallelInterfaceController, 11 );
 	OSMetaClassDeclareReservedUnused ( IOSCSIParallelInterfaceController, 12 );
 	OSMetaClassDeclareReservedUnused ( IOSCSIParallelInterfaceController, 13 );
@@ -1236,6 +1254,10 @@ private:
 							int							count );
 	
 	static void		TimeoutOccurred ( OSObject * owner, IOTimerEventSource * sender );
+	
+	static bool		FilterInterrupt (
+							OSObject *						theObject,
+							IOFilterInterruptEventSource *	theSource );
 	
 	// IOService support methods
 	// These shall not be overridden by the HBA child classes.

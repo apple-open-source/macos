@@ -1,0 +1,42 @@
+--- mskanji.c.orig	Tue May 20 15:21:44 2003
++++ mskanji.c	Wed Jun 18 12:02:06 2003
+@@ -43,6 +43,7 @@
+ #include <stddef.h>
+ #include <stdio.h>
+ #include <stdlib.h>
++#include <ctype.h>
+ 
+ rune_t	_MSKanji_sgetrune(const char *, size_t, char const **);
+ int	_MSKanji_sputrune(rune_t, char *, size_t, char **);
+@@ -67,20 +68,23 @@
+ {
+ 	rune_t rune = 0;
+ 
+-	if (n < 1) {
+-		if (result != NULL)
+-			*result = string;
++	if (result != NULL)
++		*result = string;
++	if (n < 1)
+ 		return (_INVALID_RUNE);
+-	}
+ 
+ 	rune = *string++ & 0xff;
+ 	if ((rune > 0x80 && rune < 0xa0) ||
+ 	    (rune >= 0xe0 && rune < 0xfd)) {
+-		if (n < 2) {
+-			rune = _INVALID_RUNE;
+-			--string;
+-		} else
++		if (n < 2)
++			return (_INVALID_RUNE);
++		else
+ 			rune = (rune << 8) | (*string++ & 0xff);
++	}
++	if (!isrune(rune)) {
++		if (result != NULL)
++			(*result)++;
++		return (_INVALID_RUNE);
+ 	}
+ 	if (result != NULL)
+ 		*result = string;

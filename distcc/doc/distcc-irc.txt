@@ -1,0 +1,244 @@
+May 01 11:57:28 <mbp> oh, incidentally, i thought you might be interested in this:
+May 01 11:57:29 <mbp> http://samba.org/ftp/unpacked/distcc/README
+May 01 11:58:54 <daniel> yes I do
+May 01 11:58:55 <daniel> much
+May 01 11:59:11 <mbp> it seems to be going really well
+May 01 11:59:18 <mbp> i think it's quite promising
+May 01 11:59:22 <daniel> in fact, I fully expect to have 3 machines or so underfoot to try that on
+May 01 11:59:33 <mbp> cool
+May 01 11:59:40 <daniel> it's what I want: more machines = faster compile
+May 01 11:59:44 <mbp> exactly!
+May 01 11:59:45 <daniel> it's not *that* hard
+May 01 12:00:03 <daniel> you have to get the required files to the machine, get the compiled files back
+May 01 12:00:07 <mbp> right
+May 01 12:00:21 <daniel> the net traffic is not much overhead, anyway, it's pipelined
+May 01 12:00:27 <mbp> the neat thing about shipping the preprocessed source is that there is only one file going in each direction
+May 01 12:00:45 <mbp> http://samba.org/ftp/unpacked/distcc/src/HACKING
+May 01 12:01:19 <daniel> and, because it's not secure, it will fun inserting compiler-viruses
+May 01 12:01:21 <daniel> new sport
+May 01 12:01:41 <mbp> the other situation where it works nicely is when you're working on a laptop but happen to have  a faster machine around
+May 01 12:01:44 <mbp> um
+May 01 12:01:48 <mbp> i did think about that
+May 01 12:01:59 <mbp> you can imagine running it over ssh
+May 01 12:02:19 <mbp> but there will be a fair cpu hit from that, possibly enough to make it impractical
+May 01 12:02:39 <daniel> where did you see the part about the preprocessor?
+May 01 12:02:55 <mbp> which part about the preprocessor?
+May 01 12:03:08 <daniel> <mbp> the neat thing about shipping the preprocessed source
+May 01 12:03:12 <mbp> oh, right
+May 01 12:03:21 <mbp> so, i always run cpp on the local machine
+May 01 12:03:33 <mbp> and then ship that to the remote one, which runs cc1, cc2, as, etc
+May 01 12:03:49 <mbp> that avoids the need to have header files etc on the remote machine
+May 01 12:03:49 <daniel> ok
+May 01 12:03:50 <daniel> right
+May 01 12:03:52 <daniel> headers
+May 01 12:03:55 <daniel> yesss
+May 01 12:03:57 <mbp> running cpp is really cheap compared to the other stages
+May 01 12:04:08 <daniel> yup
+May 01 12:04:16 <-- digdude has quit (Ping timeout: 272 seconds)
+May 01 12:04:27 <mbp> in fact, i think that insight is the really novel part that makes it work
+May 01 12:04:31 <daniel> I need this
+May 01 12:04:34 <mbp> without that it's possible, but just too hard to set up
+May 01 12:04:40 <daniel> yes
+May 01 12:05:05 <mbp> e.g. sun have a distributed build system, but you need all the machines to (a) share an NFS directory mounted at the exact same location, and (b) have the exact same system headers
+May 01 12:05:11 <daniel> nice hack, now lemessee - I should be able to get a sub-minute compile with that
+May 01 12:05:28 <mbp> it's a bit rough at the moment, but it works
+May 01 12:05:48 <mbp> i booted a kernel built using it, and it seemed to work
+May 01 12:05:53 <mbp> (how' that for confidence :-)
+May 01 12:06:24 <mbp> one thing i might do is gently gzip -2 the cpp output; it tends to be v large and v compressible;
+May 01 12:06:36 <mbp> at the moment the network seems to be the limiting factor
+May 01 12:06:40 <mbp> so, please try it out
+May 01 12:06:43 <mbp> it's in anoncvs
+May 01 12:06:52 <mbp> grab me if you have any issues
+May 01 12:06:57 <mbp> basically, you just need to do 
+May 01 12:07:10 <mbp> make; ./distccd&; CC=`pwd`/distcc
+May 01 12:07:17 <mbp> make; ./distccd&; CC="`pwd`/distcc gcc"
+May 01 12:07:19 <mbp> and off you go
+May 01 12:09:26 --> sfr (~sfr@CPE-203-51-25-76.nsw.bigpond.net.au) has joined #ozlabs
+May 01 12:09:50 <daniel> that would be a most interesting number
+May 01 12:09:59 <mbp> ?
+May 01 12:10:14 <daniel> i.e., does the compression cost more than the transmit time it saves
+May 01 12:10:14 <daniel> very interesting
+May 01 12:10:18 <mbp> oh, right
+May 01 12:10:26 <mbp> in fact, compression increases scalability
+May 01 12:11:01 <mbp> it consumes more cpu on the master machine, in return for being able to squeeze more stuff across the network and therefore do more work remotely
+May 01 12:11:53 <daniel> it might really come down to how fast the network is.  Another thing, the network transmit really just turns into latency, not loss of throughput
+May 01 12:11:58 <mbp> with e.g. a really slow laptop, 100mbps network, and fast remote machine, you probably wouldn't want it because the laptop might be flat out running cpp and sending the files
+May 01 12:12:10 <daniel> so by that measure, it's better to leave all the cpu for compiling
+May 01 12:12:38 <mbp> well, at hp we have 3 x 1700Mhz P4s, and a 100Mbps non-switched hub
+May 01 12:12:51 <mbp> on that situation, the network saturates and the remote machines are ~50% idle
+May 01 12:13:06 <mbp> so, possibly spending a *little* time on compression would get more work done
+May 01 12:13:40 <mbp> back-of-envelope tests with "time gzip -2" vs "time cpp" show it uses relatively little cpu
+May 01 12:13:59 <mbp> oh, however, we can do more pipelining here than we do at the moment, which might help the situation
+May 01 12:14:06 <mbp> the network is only intermittently flooded
+May 01 12:14:26 <mbp> it may be better to run cpp into a pipe, and gcc from a pipe, so that their work can be overlapped
+May 01 12:14:31 <mbp> at the moment i just use tmpfiles
+May 01 12:18:12 --> digdude (~digdude@dsl-g1-42.surfcity.net) has joined #ozlabs
+May 01 12:18:13 --> dave0 (^dave@cabal.evilplot.org) has joined #ozlabs
+May 01 12:19:50 <daniel> mbp, I didn't realize right away that this is your project
+May 01 12:19:56 <mbp> oh right :-)
+May 01 12:20:01 <mbp> that's why i like it so much :-)
+May 01 12:20:12 <daniel> hey, I like it more now :-)
+May 01 12:21:57 <daniel> well I wasn't quite precise about the pipeline thing
+May 01 12:22:21 <daniel> *so long as the compile is faster than the network* you're better off using the cpu for the compiler
+May 01 12:22:27 <daniel> I thinkg ;)
+May 01 12:22:46 <mbp> hm
+May 01 12:23:06 <daniel> erk
+May 01 12:23:08 <mbp> like many parallelization things, even though it gets less efficient as you increase parallelism, you still get more work done
+May 01 12:23:11 <daniel> I meant the opposite
+May 01 12:23:16 <mbp> well
+May 01 12:23:43 <daniel> *so long as the compile throughput is less than the network throughput* you're better off using the cpu for the compiler
+May 01 12:23:55 <mbp> do you mean using the master's cpu?
+May 01 12:24:22 <mbp> i think it's a qn of opportunity cost
+May 01 12:24:23 <daniel> if the master has time left over, should it not be compiling too?
+May 01 12:24:34 <mbp> by default (without distcc), the master's cpu does all the compilations
+May 01 12:24:39 <mbp> oh, right
+May 01 12:24:42 <mbp> absolutely
+May 01 12:24:58 <mbp> so typically you set DISTCC_HOSTS='localhost jonquille nevada'
+May 01 12:25:07 <mbp> and it distributes jobs amongst the three
+May 01 12:25:22 <mbp> "localhost"  is a special case, of course, where it just execs() the compiler directly 
+May 01 12:25:31 <daniel> so... what are your numbers?  How far off linear?
+May 01 12:26:24 <mbp> it's early days, but i got a 40% reduction in wall clock time from adding a second machine
+May 01 12:26:53 <mbp> oh, sorry, 
+May 01 12:26:58 <mbp> from adding a second *faster* machine
+May 01 12:27:38 <mbp> you can see some numbers in the readme
+May 01 12:27:58 <mbp> running at hp threw up a few small bugs; i haven't rerun benchmarks yet
+May 01 12:28:26 <daniel> it's the coolest hack I've heard about for some time
+May 01 12:28:38 <mbp> wow, thanks (-:
+May 01 12:28:42 <mbp> i thought that too
+May 01 12:28:50 <mbp> i just woke up one morning and the idea was in my mind
+May 01 12:29:17 <mbp> of course, you need to run it with make -j<something>, so that it runs local and remote jobs in parallel
+May 01 12:29:54 <mbp> the thing is that while sending across the network takes a lot of time, it takes barely any CPU, and so it basically does not interfere with compiling something else locally at the same time
+May 01 12:30:08 <daniel> right
+May 01 12:30:45 <mbp> so, even if you get just a few jobs done remotely, you've still won
+May 01 12:31:17 <mbp> (local compiles become very slightly slower, because we need to decide where to run them, but not by much)
+May 01 12:31:35 <mbp> of course, if there was only a small improvement, people might not be bothered to install it
+May 01 12:31:46 <daniel> I was thinking something related: when I'm on my road, rsync my source files back to my server, compile there, and send the binary back to me
+May 01 12:31:51 <daniel> faster than compiling on the laptop
+May 01 12:31:51 <mbp> but i reckon installation can be quite simple, and the improvement is actually quite large
+May 01 12:31:54 <mbp> yep
+May 01 12:31:56 <mbp> i've tried that
+May 01 12:31:59 <mbp> but it's too much hassle!
+May 01 12:32:09 <mbp> this way, you can compile from within emacs (or whatever)
+May 01 12:32:10 <daniel> not if somebody makes it easy :)
+May 01 12:32:22 <mbp> and remote error messages come up looking exactly as if they were local
+May 01 12:32:35 <daniel> and I did waste a lot of time waiting for my laptop
+May 01 12:32:40 <mbp> line numbers and filenames in errors exactly correspond to ones on your local disk
+May 01 12:33:05 <daniel> it takes 3 minutes to do a diff of two trees on the laptop, 1.5 seconds on the server
+May 01 12:33:10 <mbp> oh, the other problem with rsyncing is that it becomes bloody confusing if the remote machine's libraries are out of sync
+May 01 12:33:13 <daniel> some obvious
+May 01 12:33:18 <daniel> some obvious advantage there
+May 01 12:33:38 <mbp> i guess rsync is a better solution if there's a really slow link between you and the fast machine
+May 01 12:33:46 <daniel> I can see a lot of potetential for confusion
+May 01 12:34:09 <mbp> 33k6, not 100m
+May 01 12:34:47 <mbp> oh
+May 01 12:34:57 <mbp> tim just pointed out that our hub says on the front "10Mbps"
+May 01 12:35:02 <mbp> so it's probably not 100Mbps :-/
+May 01 12:35:34 <mbp> i'm sure we asked for a 100mbps one
+May 01 12:35:36 <mbp> fooey
+May 01 12:38:15 <mbp> "i've always wanted to use sendfile(), but never had a reason until now"
+May 01 12:38:15 <mbp> :-)
+May 01 12:39:23 <dgibson> mbp: interesting
+May 01 12:39:30 <dgibson> mbp: I played with distributed compiles a few years back
+May 01 12:39:47 <dgibson> mbp: nothing as clever as this - just gcc invoked over ssh on an NFS share
+May 01 12:39:52 <mbp> mm
+May 01 12:39:53 <mbp> yep
+May 01 12:40:00 <mbp> that's the standard solution
+May 01 12:40:28 <dgibson> I suspect the CPU load per se of ssh would be acceptable, but the start up cost is very high so you'd need to do as much as possible over one ssh connection
+May 01 12:40:33 <mbp> right
+May 01 12:40:41 <mbp> that was my original idea; i wanted to hoard ssh connections
+May 01 12:40:52 <mbp> tridge persuaded me to not use it by default
+May 01 12:41:10 <dgibson> What are you using as the transport now?
+May 01 12:41:30 <mbp> it also reminded me of ANU's bunyip, where they just use rsh and so on inside the secured network
+May 01 12:41:41 <mbp> dgibson: plain TCP, with an easily parseable format:
+May 01 12:41:48 <dgibson> right
+May 01 12:41:56 <mbp> 4-character command, 8-character hex length, data
+May 01 12:41:58 <dgibson> So you run a server which listens on the farm machines?
+May 01 12:42:05 <mbp> right
+May 01 12:42:12 <mbp> either from inetd, or standalone
+May 01 12:42:32 <mbp> standalone is a bit better, because then it can control the number of jobs running at once
+May 01 12:42:34 <tpot> distcc over jabber!
+May 01 12:42:48 <dgibson> Hmmm.. you could do that anyway
+May 01 12:42:53 <mbp> from inetd, yep
+May 01 12:42:57 <dgibson> The other big problem you will encounter is that most Makefiles are complete crap
+May 01 12:43:03 <mbp> and can't handle -j?
+May 01 12:43:13 <mbp> or have gcc hardcoded?
+May 01 12:43:24 <dgibson> mbp: If running from inetd running over ssh should be pretty easy, since it's already using stdin
+May 01 12:43:35 <dgibson> Can't handle -j properly
+May 01 12:43:56 <mbp> well, y'know, people have to make *some* effort if they want parallel compiles
+May 01 12:44:02 <dgibson> The for $$i in $(SUBDIRS); do $(MAKE) -C $$i; done construct is the most common problem
+May 01 12:44:37 <mbp> mind you, even if you can't parallelize, transparently shifting compilation to a faster machine (e.g. laptop -> regatta) might be worthwhile
+May 01 12:44:50 <dgibson> That's true
+May 01 12:45:45 <dgibson> Presumably you could plug this into the backed of ccache quite easily too
+May 01 12:45:51 <dgibson> s/backed/backend/
+May 01 12:46:00 <mbp> oh, right
+May 01 12:46:23 <mbp> in fact it works quite nicely, because ccache runs cpp itself to work out whether the files have really changed
+May 01 12:46:41 <dgibson> That's exactly what I was thinking
+May 01 12:46:42 <mbp> and so the marginal cost to the master machine of runing distcc becomes v small
+May 01 12:46:53 <mbp> CC='ccache distcc gcc' works well
+May 01 12:49:04 <dgibson> Can you control what preference is given to each machine
+May 01 12:49:16 <dgibson> e.g. for each compile on my laptop run 24 on the regatta?
+May 01 12:49:23 <mbp> that part of it is v crude at the moment, but yes
+May 01 12:49:37 <mbp> DISTCC_HOSTS='localhost ego ego ego ego ego ego ego ego ego ego'
+May 01 12:49:44 <mbp> they're uniformly distributed
+May 01 12:49:49 <mbp> it's kind of stochastic at the moment
+May 01 12:49:54 --> vmarshall (~vmarshall@user-vcaur38.dsl.mindspring.com) has joined #ozlabs
+May 01 12:49:54 <dgibson> right
+May 01 12:50:04 <tpot> mbp has a big ego?
+May 01 12:50:07 <mbp> really the client ought to keep track of how busy it thinks each slave is, but i haven't done that yet
+May 01 12:50:12 <mbp> tpot: no, paulus does
+May 01 12:50:15 <dgibson> tpot: No, lots of them, but they're each quite small ;-)
+May 01 12:50:55 <dgibson> At least make -jn now works meaningfully in recursive makefiles
+May 01 12:51:04 <dgibson> It didn't when I was playing with this which was a big problem
+May 01 12:51:22 <mbp> dgibson: i've tried building rsync, samba, and 2.4 with it, with apparent success
+May 01 12:51:33 <mbp> i guess the next biggest projects would be all of GNOME, or mozilla
+May 01 12:51:47 <dgibson> heh. now try X, and do battle with the monstrosity that is imake
+May 01 12:52:19 <mbp> is imake used instead of make, or does it generate a makefile?
+May 01 12:52:34 <dgibson> It generates a makefile
+May 01 12:53:33 <mbp> hm
+May 01 12:53:34 <mbp> oh well
+May 01 12:53:38 <mbp> i'll try it sometime
+May 01 12:53:45 <dgibson> well, many makefiles actually
+May 01 12:54:14 <dgibson> I'd recommend not eating right beforehand
+May 01 12:54:17 <mbp> ha ha
+May 01 12:54:44 <mbp> well, it's not necessary that distcc help every single project
+May 01 12:54:53 <mbp> anyhow, let me know if you get a chance to try it
+May 01 12:59:55 <dgibson> do you pick a target machine in the farm randomly or deterministically?
+May 01 13:06:52 --> Rasmus (~rasmus@07-034.006.popsite.net) has joined #ozlabs
+May 01 13:07:19 <Rasmus> Server has been working ok I take it?
+May 01 13:08:34 <tpot> yup
+May 01 13:09:33 <Rasmus> it's in Sifry's basement now
+May 01 13:17:11 <tpot> i notice you had a major isp change
+May 01 13:19:19 <-- shawnm has quit (Client Exit: Client Exiting)
+May 01 13:21:37 <daniel> night everybody
+May 01 13:21:48 <daniel> birds are singing out there, time for zzz's
+May 01 13:24:03 <tpot> cheep!
+May 01 13:25:57 --> anton (~anton@CPE-203-51-24-59.nsw.bigpond.net.au) has joined #ozlabs
+May 01 13:29:20 <mbp> dgibson: at the moment it's randomly distributed across the specified hosts, 
+May 01 13:29:27 <mbp> because i don't know how busy they are
+May 01 13:29:48 <dgibson> mbp: ok.  round robin might be better than random and easier than keeping track of how busy they are
+May 01 13:30:29 <mbp> yep
+May 01 13:30:35 <mbp> that's what i thought i'd do next
+May 01 13:30:59 <mbp> it just requires a reliable, simple mechanism of sharing a global counter between all processes
+May 01 13:31:10 <mbp> i thought perhaps just truncating a lock file to length n
+May 01 13:31:20 <mbp> since races are not too harmful
+May 01 13:31:23 <mbp> other suggestions welcome
+May 01 13:37:07 <tpot> use a tdb!
+May 01 13:40:50 <dgibson> Hmm... if you're not so worried about races surely it would be easier just to write the counter to a file
+May 01 13:41:16 <mbp> well
+May 01 13:41:33 <mbp> you might have somebody running two compilations in different windows, with different _HOSTS settings
+May 01 13:41:42 <mbp> in that case a simple counter would get confusing
+May 01 13:41:58 <mbp> it might not be any worse than random, but it's not much better
+May 01 13:42:12 <dgibson> True, but that's probably not a terribly common case
+May 01 13:42:33 <-- daniel has quit (Ping timeout: 272 seconds)
+May 01 13:42:47 <dgibson> the race can be avoided just by doing a fcntl() lock, read value, write value, fcntl() unlock
+May 01 13:43:12 <dgibson> Use value % length as the index into _HOSTS
+May 01 13:43:16 <mbp> yep
+May 01 13:43:25 <mbp> that's what i had in mind
+May 01 13:43:50 <mbp> randomness actually turns out to be somewhat more reasonable if each host only accept()s one or two jobs at a time
+May 01 13:44:02 <mbp> because everybody else will just block waiting
+May 01 13:44:29 <dgibson> ?
+May 01 13:46:32 --> enigma (~eriddle@adsl-63-195-7-203.dsl.chic01.pacbell.net) has joined #ozlabs
+May 01 13:47:32 <mbp> hm, nevermind
+May 01 13:47:33 <enigma> good job Rasmus.  Did you set your DNS to update more frequently in anticipation or do you just keep it that way?
+May 01 13:47:40 <mbp> i think my reasoning there is a bit dodgy
+May 01 13:47:44 <enigma> hi mbp

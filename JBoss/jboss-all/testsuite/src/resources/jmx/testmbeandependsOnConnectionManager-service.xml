@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- random mbean using anonymous depends on LocalTxConnectionManager -->
+
+<server>
+
+  <mbean code="org.jboss.test.jmx.mbean.TestDeployer"
+   name="test:name=TestMBeanDependsOnConnectionManager">
+    <depends>jboss.jca:service=LocalTxCM,name=SingleConnectionDS</depends>
+  </mbean>
+
+
+</server>

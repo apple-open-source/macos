@@ -1,0 +1,11 @@
+--- nl_langinfo.c.orig	Fri Mar 22 13:52:18 2002
++++ nl_langinfo.c	Sat May  3 14:14:55 2003
+@@ -33,7 +33,7 @@
+ #include <stdlib.h>
+ #include <string.h>
+ 
+-#include "../stdtime/timelocal.h"
++#include "timelocal.h"
+ #include "lnumeric.h"
+ #include "lmonetary.h"
+ #include "lmessages.h"

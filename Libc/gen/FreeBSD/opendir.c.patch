@@ -1,0 +1,19 @@
+--- opendir.c.orig	Fri Jan  3 16:18:50 2003
++++ opendir.c	Sat May  3 15:00:52 2003
+@@ -48,6 +48,7 @@
+ #include <stdlib.h>
+ #include <string.h>
+ #include <unistd.h>
++#include <pthread.h>
+ #include "un-namespace.h"
+ 
+ #include "telldir.h"
+@@ -268,7 +269,7 @@
+ 	dirp->dd_loc = 0;
+ 	dirp->dd_fd = fd;
+ 	dirp->dd_flags = flags;
+-	dirp->dd_lock = NULL;
++	dirp->dd_lock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
+ 
+ 	/*
+ 	 * Set up seek point for rewinddir.

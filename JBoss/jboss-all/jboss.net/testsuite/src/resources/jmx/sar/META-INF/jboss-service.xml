@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE server>
+<!-- $Id: jboss-service.xml,v 1.2 2002/04/10 02:38:59 peterbraswell Exp $ -->
+
+<server>
+
+  <!-- ==================================================================== -->
+  <!-- Starts the Test MBean                                             -->
+  <!-- ==================================================================== -->
+
+  <mbean code="org.jboss.test.net.jmx.JMXTest"
+	 name="jboss.net:service=JMXTestMBean">
+  </mbean>
+
+</server>

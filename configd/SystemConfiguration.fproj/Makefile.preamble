@@ -141,23 +141,13 @@ OTHER_PRIVATE_HEADERS += config.defs config.h
 
 OTHER_PRIVATE_HEADERS += SCPrivate.h
 OTHER_PRIVATE_HEADERS += SCDynamicStorePrivate.h
+OTHER_PRIVATE_HEADERS += SCDynamicStoreCopySpecificPrivate.h
 OTHER_PRIVATE_HEADERS += SCDynamicStoreSetSpecificPrivate.h
 OTHER_PRIVATE_HEADERS += SCPreferencesPrivate.h
 OTHER_PRIVATE_HEADERS += SCValidation.h
 OTHER_PRIVATE_HEADERS += SCDPlugin.h
 OTHER_PRIVATE_HEADERS += DeviceOnHold.h
 OTHER_PRIVATE_HEADERS += LinkConfiguration.h
-
-#  
-# XXX INSTALL V1 COMPATIBILITY HEADERS XXX
-#
-OTHER_PRIVATE_HEADERS += v1Compatibility.h
-OTHER_PRIVATE_HEADERS += SCD.h
-OTHER_PRIVATE_HEADERS += SCDKeys.h
-OTHER_PRIVATE_HEADERS += SCP.h
-OTHER_PRIVATE_HEADERS += SCPPath.h
-OTHER_PRIVATE_HEADERS += SCDConsoleUser.h
-OTHER_PRIVATE_HEADERS += SCDHostName.h
 
 #
 # MiG generated files
@@ -167,7 +157,10 @@ OTHER_OFILES          += configUser.o
 # Additional options to create generated headers, source
 BEFORE_INSTALLHDRS       =  before_installhdrs
 OTHER_SOURCEFILES        += genSCPreferences.c
-OTHER_GENERATED_SRCFILES += SCSchemaDefinitions.h SCSchemaDefinitions.c
+OTHER_GENERATED_SRCFILES += SCSchemaDefinitions_10_1.h
+OTHER_GENERATED_SRCFILES += SCSchemaDefinitions.h
+OTHER_GENERATED_SRCFILES += SCSchemaDefinitions.c
+OTHER_PUBLIC_HEADERS     += SCSchemaDefinitions_10_1.h
 OTHER_PUBLIC_HEADERS     += SCSchemaDefinitions.h
 OTHER_OFILES             += SCSchemaDefinitions.o
 

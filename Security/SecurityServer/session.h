@@ -40,6 +40,8 @@ using __gnu_cxx::hash_map;
 
 class Key;
 class Connection;
+class Database;
+class Database::CommonMap;
 
 
 //
@@ -84,16 +86,20 @@ protected:
 public:
 	const CredentialSet &authCredentials() const	{ return mSessionCreds; }
 
-	OSStatus authCreate(const RightSet &rights, const AuthorizationEnvironment *environment,
-		AuthorizationFlags flags, AuthorizationBlob &newHandle);
+	OSStatus authCreate(const AuthItemSet &rights, const AuthItemSet &environment,
+		AuthorizationFlags flags, AuthorizationBlob &newHandle, const security_token_t &securityToken);
 	void authFree(const AuthorizationBlob &auth, AuthorizationFlags flags);
 	OSStatus authGetRights(const AuthorizationBlob &auth,
-		const RightSet &requestedRights, const AuthorizationEnvironment *environment,
-		AuthorizationFlags flags, MutableRightSet &grantedRights);
-	OSStatus authGetInfo(const AuthorizationBlob &auth, const char *tag, AuthorizationItemSet *&contextInfo);
+		const AuthItemSet &requestedRights, const AuthItemSet &environment,
+		AuthorizationFlags flags, AuthItemSet &grantedRights);
+	OSStatus authGetInfo(const AuthorizationBlob &auth, const char *tag, AuthItemSet &contextInfo);
     
 	OSStatus authExternalize(const AuthorizationBlob &auth, AuthorizationExternalForm &extForm);
 	OSStatus authInternalize(const AuthorizationExternalForm &extForm, AuthorizationBlob &auth);
+
+	OSStatus authorizationdbGet(AuthorizationString inRightName, CFDictionaryRef *rightDict);
+	OSStatus authorizationdbSet(const AuthorizationBlob &authBlob, AuthorizationString inRightName, CFDictionaryRef rightDict);
+	OSStatus authorizationdbRemove(const AuthorizationBlob &authBlob, AuthorizationString inRightName);
 
 private:
     struct AuthorizationExternalBlob {
@@ -111,6 +117,8 @@ public:
     static Session &find(Port servPort);
     static Session &find(SecuritySessionId id);
     static void eliminate(Port servPort);
+	
+	static void lockAllDatabases(bool forSleep = false);
     
 protected:
 	mutable Mutex mLock;			// object lock
@@ -129,11 +137,18 @@ private:
     typedef map<mach_port_t, Session *> SessionMap;
     static SessionMap sessionMap;
     static Mutex sessionMapLock;
-    
+	
 public:
     typedef SessionMap::iterator Iterator;
     static Iterator begin()		{ return sessionMap.begin(); }
     static Iterator end() 		{ return sessionMap.end(); }
+
+private:
+	Database::CommonMap mCommons;	// all database commons open in this session
+
+public:
+	Database::CommonMap &databases()
+		{ return mCommons; }
 };
 
 

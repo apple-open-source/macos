@@ -1,0 +1,43 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+
+<!-- The service binding configuration file DTD read by the
+org.jboss.services.binding.XMLServicesStore class.
+-->
+<!-- The service-bindings element is the root of the configuration document. It
+contains one or more server elements.
+-->
+<!ELEMENT service-bindings (server+)>
+
+<!-- The server element specifies a collection of service configurations for a
+given server instance.
+-->
+<!ELEMENT server (service-config+)>
+
+<!-- The name attribute gives the unique server name.
+-->
+<!ATTLIST server name CDATA #REQUIRED>
+
+<!-- The service-config element specifies one or more mbean service
+host,port bindings.
+-->
+<!ELEMENT service-config (delegate-config? , binding+)>
+
+<!ATTLIST service-config name CDATA #REQUIRED
+   delegateClass CDATA "org.jboss.services.binding.AttributeMappingDelegate" >
+
+<!-- A binding element defines a hostname and port to use for a service
+-->
+<!ELEMENT binding EMPTY>
+
+<!ATTLIST binding name CDATA #IMPLIED
+   host CDATA #IMPLIED
+   port CDATA "0" >
+
+<!-- A delegate-config element contains an arbitrary XML fragment that is
+used by the class specified via the delegateClass attribute of the
+service-config element.
+-->
+<!ELEMENT delegate-config ANY>
+
+<!ATTLIST delegate-config  hostName CDATA #IMPLIED
+   portName CDATA #IMPLIED >

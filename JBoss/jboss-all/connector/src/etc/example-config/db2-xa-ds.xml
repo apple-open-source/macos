@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- ===================================================================== -->
+<!--    -->
+<!--  JBoss Server Configuration    -->
+<!-- Thanks to Horia Muntean <horia@bvb.ro>   -->
+<!-- ===================================================================== -->
+
+<!-- $Id: db2-xa-ds.xml,v 1.1.2.1 2003/05/30 18:25:57 d_jencks Exp $ -->
+
+
+<datasources>
+   <!--
+       XADatasource for DB2 V8.1 (app driver)
+       copy $db2_install_dir/java/db2java.zip into $jboss_install_dir/server/default/lib
+   -->
+
+   <xa-datasource>
+     <jndi-name>DB2XADS</jndi-name>
+
+     <xa-datasource-class>COM.ibm.db2.jdbc.DB2XADataSource</xa-datasource-class>
+     <xa-datasource-property name="DatabaseName">yout_database_name</xa-datasource-property>
+     <xa-datasource-property name="User">your_user</xa-datasource-property>
+     <xa-datasource-property name="Password">your_password</xa-datasource-property>
+   </xa-datasource>
+
+</datasources>

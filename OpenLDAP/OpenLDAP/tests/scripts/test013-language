@@ -1,5 +1,5 @@
 #! /bin/sh
-# $OpenLDAP: pkg/ldap/tests/scripts/test013-language,v 1.3 2002/02/11 20:25:12 kurt Exp $
+# $OpenLDAP: pkg/ldap/tests/scripts/test013-language,v 1.3.2.3 2002/09/01 22:02:30 kurt Exp $
 
 SRCDIR="."
 if test $# -ge 1 ; then
@@ -8,6 +8,10 @@ fi
 BACKEND=bdb
 if test $# -ge 1 ; then
 	BACKEND=$1; shift
+fi
+MONITORDB=no
+if test $# -ge 1 ; then
+	MONITORDB=$1; shift
 fi
 WAIT=0
 if test $# -ge 1 ; then
@@ -22,7 +26,7 @@ echo "Cleaning up in $DBDIR..."
 rm -f $DBDIR/[!C]*
 
 echo "Starting slapd on TCP/IP port $PORT..."
-. $CONFFILTER $BACKEND < $CONF > $DBCONF
+. $CONFFILTER $BACKEND $MONITORDB < $CONF > $DBCONF
 $SLAPD -f $DBCONF -h $MASTERURI -d $LVL $TIMING > $MASTERLOG 2>&1 &
 PID=$!
 if test $WAIT != 0 ; then
@@ -35,10 +39,11 @@ for i in 0 1 2 3 4 5; do
 	$LDAPSEARCH -s base -b "$MONITOR" -h $LOCALHOST -p $PORT \
 		'objectclass=*' > /dev/null 2>&1
 	RC=$?
-	if test $RC = 1 ; then
-		echo "Waiting 5 seconds for slapd to start..."
-		sleep 5
+	if test $RC = 0 ; then
+		break
 	fi
+	echo "Waiting 5 seconds for slapd to start..."
+	sleep 5
 done
 
 echo "Using ldapadd to populate the database..."
@@ -54,6 +59,7 @@ fi
 echo "Using ldapsearch to read all the entries..."
 $LDAPSEARCH -S "" -b "$BASEDN" -h $LOCALHOST -p $PORT -s base \
 	'(&)' > $SEARCHOUT 2>&1
+RC=$?
 
 if test $RC != 0 ; then
 	echo "ldapsearch failed ($RC)!"
@@ -64,6 +70,7 @@ fi
 echo "Using ldapsearch to read name ..."
 $LDAPSEARCH -S "" -b "$BASEDN" -h $LOCALHOST -p $PORT -s base \
 	'(&)' 'name' >> $SEARCHOUT 2>&1
+RC=$?
 
 if test $RC != 0 ; then
 	echo "ldapsearch failed ($RC)!"
@@ -74,6 +81,7 @@ fi
 echo "Using ldapsearch to read name language tag ..."
 $LDAPSEARCH -S "" -b "$BASEDN" -h $LOCALHOST -p $PORT -s base \
 	'(&)' 'name;lang-en-US' >> $SEARCHOUT 2>&1
+RC=$?
 
 if test $RC != 0 ; then
 	echo "ldapsearch failed ($RC)!"
@@ -84,6 +92,7 @@ fi
 echo "Using ldapsearch to read name language range ..."
 $LDAPSEARCH -S "" -b "$BASEDN" -h $LOCALHOST -p $PORT -s base \
 	'(&)' 'name;lang-en-' >> $SEARCHOUT 2>&1
+RC=$?
 
 if test $RC != 0 ; then
 	echo "ldapsearch failed ($RC)!"

@@ -1,5 +1,5 @@
-#!/usr/bin/perl
-# $Id: runtests.pl,v 1.1.1.2 2001/04/24 18:49:17 wsanchez Exp $
+#!/usr/bin/env perl
+# $Id: runtests.pl,v 1.1.1.3 2002/11/26 19:08:09 zarzycki Exp $
 #
 # Main curl test script, in perl to run on more platforms
 #
@@ -7,16 +7,24 @@
 # These should be the only variables that might be needed to get edited:
 
 use strict;
+#use warnings;
+
+@INC=(@INC, $ENV{'srcdir'}, ".");
+
+require "stunnel.pm"; # stunnel functions
+require "getpart.pm"; # array functions
 
 my $srcdir = $ENV{'srcdir'} || '.';
 my $HOSTIP="127.0.0.1";
 my $HOSTPORT=8999; # bad name, but this is the HTTP server port
+my $HTTPSPORT=8433; # this is the HTTPS server port
 my $FTPPORT=8921;  # this is the FTP server port
+my $FTPSPORT=8821;  # this is the FTPS server port
 my $CURL="../src/curl"; # what curl executable to run on the tests
+my $DBGCURL=$CURL; #"../src/.libs/curl";  # alternative for debugging
 my $LOGDIR="log";
 my $TESTDIR="data";
 my $SERVERIN="$LOGDIR/server.input"; # what curl sent the server
-my $CURLOUT="$LOGDIR/curl.out"; # curl output if not stdout
 my $CURLLOG="$LOGDIR/curl.log"; # all command lines run
 my $FTPDCMD="$LOGDIR/ftpserver.cmd"; # copy ftp server instructions here
 
@@ -31,17 +39,33 @@ my $TESTCASES="all";
 # No variables below this point should need to be modified
 #
 
-my $PIDFILE=".server.pid";
-my $FTPPIDFILE=".ftpserver.pid";
+my $HTTPPIDFILE=".http.pid";
+my $HTTPSPIDFILE=".https.pid";
+my $FTPPIDFILE=".ftp.pid";
+my $FTPSPIDFILE=".ftps.pid";
+
+# invoke perl like this:
+my $perl="perl -I$srcdir";
 
 # this gets set if curl is compiled with memory debugging:
 my $memory_debug=0;
+
+# this gets set if curl is compiled with netrc debugging:
+# It has to be in the global symbol table because of the way 'requires' works
+$main::netrc_debug=0;
+my $netrc_debug = \$main::netrc_debug;
 
 # name of the file that the memory debugging creates:
 my $memdump="memdump";
 
 # the path to the script that analyzes the memory debug output file:
-my $memanalyze="../memanalyze.pl";
+my $memanalyze="./memanalyze.pl";
+
+my $checkstunnel = &checkstunnel;
+
+my $ssl_version; # set if libcurl is built with SSL support
+
+my $skipped=0; # number of tests skipped; reported in main loop
 
 #######################################################################
 # variables the command line options may set
@@ -51,7 +75,17 @@ my $short;
 my $verbose;
 my $debugprotocol;
 my $anyway;
-my $gdbthis; # run test case with gdb debugger
+my $gdbthis;      # run test case with gdb debugger
+my $keepoutfiles; # keep stdout and stderr files after tests
+my $listonly;     # only list the tests
+
+my $pwd;          # current working directory
+
+chomp($pwd = `pwd`);
+
+# enable memory debugging if curl is compiled with it
+$ENV{'CURL_MEMDEBUG'} = 1;
+$ENV{'HOME'}=$pwd;
 
 #######################################################################
 # Return the pid of the server as found in the given pid file
@@ -86,86 +120,149 @@ sub stopserver {
 }
 
 #######################################################################
+# check the given test server if it is still alive
+#
+sub checkserver {
+    my ($pidfile)=@_;
+    my $RUNNING=0;
+    my $PID=0;
+
+    # check for pidfile
+    if ( -f $pidfile ) {
+        $PID=serverpid($pidfile);
+        if ($PID ne "" && kill(0, $PID)) {
+            $RUNNING=1;
+        }
+        else {
+            $RUNNING=0;
+            $PID = -$PID; # negative means dead process
+        }
+    }
+    else {
+        $RUNNING=0;
+    }
+    return $PID
+}
+
+#######################################################################
 # start the http server, or if it already runs, verify that it is our
 # test server on the test-port!
 #
 sub runhttpserver {
     my $verbose = $_[0];
-    my $STATUS;
     my $RUNNING;
-    # check for pidfile
-    if ( -f $PIDFILE ) {
-        my $PID=serverpid($PIDFILE);
-        if ($PID ne "" && kill(0, $PID)) {
-            $STATUS="httpd (pid $PID) running";
-            $RUNNING=1;
+    my $pid;
+
+    $pid = checkserver ($HTTPPIDFILE);
+
+    # verify if our/any server is running on this port
+    my $data=`$CURL --silent -i $HOSTIP:$HOSTPORT/verifiedserver 2>/dev/null`;
+
+    if ( $data =~ /WE ROOLZ(: |)(\d*)/ ) {
+        if($2) {
+            $pid = 0+$2;
         }
-        else {
-            $STATUS="httpd (pid $PID?) not running";
-            $RUNNING=0;
+
+        if(!$pid) {
+            print "Test server already running with unknown pid! Use it...\n";
+            return;
         }
+
+        if($verbose) {
+            print "Test server already running with pid $pid, killing it...\n";
+        }
+    }
+    elsif($data ne "") {
+        print "GOT: $data\n";
+        print "An alien HTTP server is running on port $HOSTPORT\n",
+        "Edit runtests.pl to use another port and rerun the test script\n";
+        exit;
     }
     else {
-        $STATUS="httpd (no pid file) not running";
-        $RUNNING=0;
+        if($verbose) {
+            print "No server running, start it\n";
+        }
     }
 
-    if ($RUNNING != 1) {
-        my $flag=$debugprotocol?"-v ":"";
-        system("perl $srcdir/httpserver.pl $flag $HOSTPORT &");
-        sleep 1; # give it a little time to start
-    }
-    else {
-        print "$STATUS\n";
-
-        # verify that our server is one one running on this port:
-        my $data=`$CURL --silent -i $HOSTIP:$HOSTPORT/verifiedserver`;
-
-        if ( $data !~ /WE ROOLZ/ ) {
-            print "Another HTTP server is running on port $HOSTPORT\n",
-            "Edit runtests.pl to use another port and rerun the test script\n";
+    if($pid > 0) {
+        my $res = kill (9, $pid); # die!
+        if(!$res) {
+            print "Failed to kill our HTTP test server, do it manually and",
+            " restart the tests.\n";
             exit;
         }
+        sleep(2);
+    }
 
-        print "The running HTTP server has been verified to be our server\n";
+    my $flag=$debugprotocol?"-v ":"";
+    my $cmd="$perl $srcdir/httpserver.pl $flag $HOSTPORT &";
+    system($cmd);
+    if($verbose) {
+        print "CMD: $cmd\n";
+    }
+
+}
+
+#######################################################################
+# start the https server (or rather, tunnel) if needed
+#
+sub runhttpsserver {
+    my $verbose = $_[0];
+    my $STATUS;
+    my $RUNNING;
+    my $PID=checkserver($HTTPSPIDFILE );
+
+    if($PID > 0) {
+        # kill previous stunnel!
+        if($verbose) {
+            print "kills off running stunnel at $PID\n";
+        }
+        stopserver($HTTPSPIDFILE);
+    }
+
+    my $flag=$debugprotocol?"-v ":"";
+    my $cmd="$perl $srcdir/httpsserver.pl $flag -r $HOSTPORT $HTTPSPORT &";
+    system($cmd);
+    if($verbose) {
+        print "CMD: $cmd\n";
     }
 }
 
+#######################################################################
+# start the ftp server if needed
+#
 sub runftpserver {
     my $verbose = $_[0];
     my $STATUS;
     my $RUNNING;
     # check for pidfile
-    if ( -f $FTPPIDFILE ) {
-        my $PID=serverpid($FTPPIDFILE);
-        if ($PID ne "" && kill(0, $PID)) {
-            $STATUS="ftpd (pid $PID) running";
-            $RUNNING=1;
-        }
-        else {
-            $STATUS="ftpd (pid $PID?) not running";
-            $RUNNING=0;
-        }
-    }
-    else {
-        $STATUS="ftpd (no pid file) not running";
-        $RUNNING=0;
-    }
+    my $pid = checkserver ($FTPPIDFILE );
 
-    if ($RUNNING != 1) {
+    if ($pid <= 0) {
         my $flag=$debugprotocol?"-v ":"";
-        if($debugprotocol) {
-            print "* Starts ftp server verbose:\n";
-            print "perl $srcdir/ftpserver.pl $flag $FTPPORT &\n";
+
+        # verify that our server is NOT running on this port:
+        my $data=`$CURL --silent -i ftp://$HOSTIP:$FTPPORT/verifiedserver 2>/dev/null`;
+
+        if ( $data =~ /WE ROOLZ/ ) {
+            print "A previous FTP server session is already running and we ",
+            "can't kill it!\n";
+            exit;
         }
-        system("perl $srcdir/ftpserver.pl $flag $FTPPORT &");
-        sleep 1; # give it a little time to start
+
+        my $cmd="$perl $srcdir/ftpserver.pl $flag $FTPPORT &";
+        if($verbose) {
+            print "CMD: $cmd\n";
+        }
+        system($cmd);
     }
     else {
-        print "$STATUS\n";
+        if($verbose) {
+            print "ftpd ($pid) is already running\n";
+        }
 
         # verify that our server is one one running on this port:
-        my $data=`$CURL --silent -i ftp://$HOSTIP:$FTPPORT/verifiedserver`;
+        my $data=`$CURL --silent -i ftp://$HOSTIP:$FTPPORT/verifiedserver 2>/dev/null`;
 
         if ( $data !~ /WE ROOLZ/ ) {
             print "Another FTP server is running on port $FTPPORT\n",
@@ -174,44 +271,35 @@ sub runftpserver {
             exit;
         }
 
-        print "The running FTP server has been verified to be our server\n";
+        if($verbose) {
+            print "The running FTP server has been verified to be our server\n";
+        }
     }
 }
 
-
 #######################################################################
-# This function compares two binary files and return non-zero if they
-# differ
+# start the ftps server (or rather, tunnel) if needed
 #
-sub comparefiles {
-    my $source=$_[0];
-    my $dest=$_[1];
-    my $res=0;
+sub runftpsserver {
+    my $verbose = $_[0];
+    my $STATUS;
+    my $RUNNING;
+    my $PID=checkserver($FTPSPIDFILE );
 
-    open(S, "<$source") ||
-        return 1;
-    open(D, "<$dest") ||
-        return 1;
-
-    # silly win-crap
-    binmode S;
-    binmode D;
-
-    my $m = 20;
-    my ($snum, $dnum, $s, $d);
-    do {
-        $snum = read(S, $s, $m);
-        $dnum = read(D, $d, $m);
-        if(($snum != $dnum) ||
-           ($s ne $d)) {
-            print "$source and $dest differ\n";
-            $res=1;
-            $snum=0;
+    if($PID > 0) {
+        # kill previous stunnel!
+        if($verbose) {
+            print "kills off running stunnel at $PID\n";
         }
-    } while($snum);
-    close(S);
-    close(D);
-    return $res;
+        stopserver($FTPSPIDFILE);
+    }
+
+    my $flag=$debugprotocol?"-v ":"";
+    my $cmd="$perl $srcdir/ftpsserver.pl $flag -r $FTPPORT $FTPSPORT &";
+    system($cmd);
+    if($verbose) {
+        print "CMD: $cmd\n";
+    }
 }
 
 #######################################################################
@@ -267,32 +355,15 @@ sub filteroff {
 #
 
 sub compare {
-    # filter off the 4 pattern before compare!
+    # filter off patterns _before_ this comparison!
+    my ($firstref, $secondref)=@_;
 
-    my $first=$_[0];
-    my $sec=$_[1];
-    my $text=$_[2];
-    my $strip=$_[3];
-    my $res;
+    my $result = compareparts($firstref, $secondref);
 
-    if ($strip ne "") {
-        filteroff($first, $strip, "$LOGDIR/generated.tmp");
-        filteroff($sec, $strip, "$LOGDIR/stored.tmp");
-                
-        $first="$LOGDIR/generated.tmp";
-        $sec="$LOGDIR/stored.tmp";
+    if(!$short && $result) {
+        print showdiff($firstref, $secondref);
     }
-
-    $res = comparefiles($first, $sec);
-    if ($res != 0) {
-        print " $text FAILED";
-        return 1;
-    }
-
-    if(!$short) {
-        print " $text OK";
-    }
-    return 0;
+    return $result;
 }
 
 #######################################################################
@@ -303,22 +374,58 @@ sub displaydata {
     unlink($memdump); # remove this if there was one left
 
     my $version=`$CURL -V`;
+    chomp $version;
+
+    my $curl = $version;
+
+    $curl =~ s/^(.*)(libcurl.*)/$1/g;
+    my $libcurl = $2;
+
     my $hostname=`hostname`;
     my $hosttype=`uname -a`;
 
-    print "Running tests on:\n",
-    "* $version",
+    print "********* System characteristics ******** \n",
+    "* $curl\n",
+    "* $libcurl\n",
     "* Host: $hostname",
     "* System: $hosttype";
+
+    if($libcurl =~ /SSL/i) {
+        $ssl_version=1;
+    }
 
     if( -r $memdump) {
         # if this exists, curl was compiled with memory debugging
         # enabled and we shall verify that no memory leaks exist
         # after each and every test!
         $memory_debug=1;
+
+        # there's only one debug control in the configure script
+        # so hope netrc debugging is enabled and set it up
+        $$netrc_debug = 1;
+        $ENV{'CURL_DEBUG_NETRC'} = 'log/netrc';
     }
     printf("* Memory debugging: %s\n", $memory_debug?"ON":"OFF");
+    printf("* Netrc debugging:  %s\n", $$netrc_debug?"ON":"OFF");
+    printf("* HTTPS server:     %s\n", $checkstunnel?"ON":"OFF");
+    printf("* FTPS server:      %s\n", $checkstunnel?"ON":"OFF");
+    printf("* libcurl SSL:      %s\n", $ssl_version?"ON":"OFF");
+    print "***************************************** \n";
+}
 
+#######################################################################
+# substitute the variable stuff into either a joined up file or 
+# a command, in either case passed by reference
+#
+sub subVariables {
+  my ($thing) = @_;
+  $$thing =~ s/%HOSTIP/$HOSTIP/g;
+  $$thing =~ s/%HOSTPORT/$HOSTPORT/g;
+  $$thing =~ s/%HTTPSPORT/$HTTPSPORT/g;
+  $$thing =~ s/%FTPPORT/$FTPPORT/g;
+  $$thing =~ s/%FTPSPORT/$FTPSPORT/g;
+  $$thing =~ s/%SRCDIR/$srcdir/g;
+  $$thing =~ s/%PWD/$pwd/g;
 }
 
 #######################################################################
@@ -326,87 +433,162 @@ sub displaydata {
 #
 
 sub singletest {
-    my $NUMBER=$_[0];
-    my $REPLY="${TESTDIR}/reply${NUMBER}.txt";
+    my $testnum=$_[0];
 
-    if ( -f "$TESTDIR/reply${NUMBER}0001.txt" ) {
+    # load the test case file definition
+    if(loadtest("${TESTDIR}/test${testnum}")) {
+        if($verbose) {
+            # this is not a test
+            print "$testnum doesn't look like a test case!\n";
+        }
+        return -1;
+    }
+
+    {
+        my %hash = getpartattr("client");
+        my $requires = $hash{'requires'};
+
+        if (defined($requires)) {
+            no strict "refs";
+            my $value=${$requires};
+#            print "This test requires '$requires' with value '$value' \n";
+
+            if (${$requires}) {
+                # this test is OK
+                ;
+            }else {
+                print "$testnum requires $requires, which is not set; skipping\n";
+                $skipped++;
+                return 0;  # look successful
+            }
+        }
+    }
+
+
+    # extract the reply data
+    my @reply = getpart("reply", "data");
+    my @replycheck = getpart("reply", "datacheck");
+
+    if (@replycheck) {
         # we use this file instead to check the final output against
-        $REPLY="$TESTDIR/reply${NUMBER}0001.txt";
+
+        my %hash = getpartattr("reply", "datacheck");
+        if($hash{'nonewline'}) {
+            # Yes, we must cut off the final newline from the final line
+            # of the datacheck
+            chomp($replycheck[$#replycheck]);
+        }
+    
+        @reply=@replycheck;
     }
 
     # curl command to run
-    my $CURLCMD="$TESTDIR/command$NUMBER.txt";
+    my @curlcmd= getpart("client", "command");
 
-    # this is the valid protocol file we should generate
-    my $PROT="$TESTDIR/prot$NUMBER.txt";
+    # this is the valid protocol blurb curl should generate
+    my @protocol= getpart("verify", "protocol");
 
-    # redirected stdout/stderr here
-    $STDOUT="$LOGDIR/stdout$NUMBER";
-    $STDERR="$LOGDIR/stderr$NUMBER";
+    # redirected stdout/stderr to these files
+    $STDOUT="$LOGDIR/stdout$testnum";
+    $STDERR="$LOGDIR/stderr$testnum";
 
-    # if this file exists, we verify that the stdout contained this:
-    my $VALIDOUT="$TESTDIR/stdout$NUMBER.txt";
+    # if this section exists, we verify that the stdout contained this:
+    my @validstdout = getpart("verify", "stdout");
 
-    # if this file exists, we verify upload
-    my $UPLOAD="$TESTDIR/upload$NUMBER.txt";
+    # if this section exists, we verify upload
+    my @upload = getpart("verify", "upload");
 
-    # if this file exists, it is FTP server instructions:
-    my $ftpservercmd="$TESTDIR/ftpd$NUMBER.txt";
+    # if this section exists, it is FTP server instructions:
+    my @ftpservercmd = getpart("server", "instruction");
 
-    if(! -r $CURLCMD) {
-        # this is not a test
-        print "$NUMBER doesn't look like a test case!\n";
-        return -1;
+    my $CURLOUT="$LOGDIR/curl$testnum.out"; # curl output if not stdout
+
+    # name of the test
+    my @testname= getpart("client", "name");
+
+    printf("test %03d...", $testnum);
+    if(!$short) {
+        my $name = $testname[0];
+        $name =~ s/\n//g;
+        print "[$name]\n";
+    }
+
+    if($listonly) {
+        return 0; # look successful
     }
 
     # remove previous server output logfile
     unlink($SERVERIN);
 
-    if(-r $ftpservercmd) {
-        # copy the instruction file
-        system("cp $ftpservercmd $FTPDCMD");
-    }
-
-    # name of the test
-    open(N, "<$TESTDIR/name$NUMBER.txt") ||
-        print "** Couldn't read name on test $NUMBER\n";
-    my $DESC=<N>;
-    close(N);
-    $DESC =~ s/[\r\n]//g;
-
-    print "test $NUMBER...";
-    if(!$short) {
-        print "[$DESC]\n";
+    if(@ftpservercmd) {
+        # write the instructions to file
+        writearray($FTPDCMD, \@ftpservercmd);
     }
 
     # get the command line options to use
-
-    open(COMMAND, "<$CURLCMD");
-    my $cmd=<COMMAND>;
-    chomp $cmd;
-    close(COMMAND);
+    my ($cmd, @blaha)= getpart("client", "command");
 
     # make some nice replace operations
-    $cmd =~ s/%HOSTIP/$HOSTIP/g;
-    $cmd =~ s/%HOSTPORT/$HOSTPORT/g;
-    $cmd =~ s/%FTPPORT/$FTPPORT/g;
+    $cmd =~ s/\n//g; # no newlines please
+
+    subVariables \$cmd;
+
+#    $cmd =~ s/%HOSTIP/$HOSTIP/g;
+#    $cmd =~ s/%HOSTPORT/$HOSTPORT/g;
+#    $cmd =~ s/%HTTPSPORT/$HTTPSPORT/g;
+#    $cmd =~ s/%FTPPORT/$FTPPORT/g;
+#    $cmd =~ s/%FTPSPORT/$FTPSPORT/g;
+#    $cmd =~ s/%SRCDIR/$srcdir/g;
+#    $cmd =~ s/%PWD/$pwd/g;
+
     #$cmd =~ s/%HOSTNAME/$HOSTNAME/g;
 
     if($memory_debug) {
         unlink($memdump);
     }
 
+    my @inputfile=getpart("client", "file");
+    if(@inputfile) {
+        # we need to generate a file before this test is invoked
+        my %hash = getpartattr("client", "file");
+
+        my $filename=$hash{'name'};
+
+        if(!$filename) {
+            print "ERROR: section client=>file has no name attribute!\n";
+            exit;
+        }
+        my $fileContent = join('', @inputfile);
+        subVariables \$fileContent;
+#        print "DEBUG: writing file " . $filename . "\n";
+        open OUTFILE, ">$filename";
+        print OUTFILE   $fileContent;
+        close OUTFILE;
+    }
+
+    my %cmdhash = getpartattr("client", "command");
+
     my $out="";
-    if ( ! -r "$VALIDOUT" ) {
-        $out="--output $CURLOUT ";
+
+    if($cmdhash{'option'} eq "no-output") {
+        #print "*** We don't slap on --output\n";
+    }
+    else {
+        if (!@validstdout) {
+            $out="--output $CURLOUT ";
+        }
     }
 
     # run curl, add -v for debug information output
-    my $cmdargs="$out--include -v --silent $cmd";
+    my $cmdargs="$out--include -v $cmd";
 
-    my $STDINFILE="$TESTDIR/stdin$NUMBER.txt";
-    if(-f $STDINFILE) {
-        $cmdargs .= " < $STDINFILE";
+    my @stdintest = getpart("client", "stdin");
+
+    if(@stdintest) {
+        my $stdinfile="$LOGDIR/stdin-for-$testnum";
+        writearray($stdinfile, \@stdintest);
+
+        $cmdargs .= " <$stdinfile";
     }
     my $CMDLINE="$CURL $cmdargs >$STDOUT 2>$STDERR";
 
@@ -423,7 +605,7 @@ sub singletest {
         print GDBCMD "set args $cmdargs\n";
         print GDBCMD "show args\n";
         close(GDBCMD);
-        system("gdb $CURL -x log/gdbcmd");
+        system("gdb $DBGCURL -x log/gdbcmd");
         $res =0; # makes it always continue after a debugged run
     }
     else {
@@ -431,101 +613,138 @@ sub singletest {
         $res /= 256;
     }
 
-    my $ERRORCODE = "$TESTDIR/error$NUMBER.txt";
+    # remove the special FTP command file after each test!
+    unlink($FTPDCMD);
 
-    if ($res != 0) {
-        # the invoked command return an error code
+    my @err = getpart("verify", "errorcode");
+    my $errorcode = $err[0];
 
-        my $expectederror=0;
-
-        if(-f $ERRORCODE) {
-            open(ERRO, "<$ERRORCODE");
-            $expectederror = <ERRO>;
-            close(ERRO);
-            # strip non-digits
-            $expectederror =~ s/[^0-9]//g;
-        }
-
-        if($expectederror != $res) {
-
-            print "*** Failed to invoke curl for test $NUMBER ***\n",
-            "*** [$DESC] ***\n",
-            "*** The command returned $res for: ***\n $CMDLINE\n";
-            return 1;
-        }
-        elsif(!$short) {
-            print " error OK";
-        }
-    }
-    else {
-        if(-f $ERRORCODE) {
-            # this command was meant to fail, it didn't and thats WRONG
-            if(!$short) {
-                print " error FAILED";
+    if($errorcode || $res) {
+        if($errorcode == $res) {
+            $errorcode =~ s/\n//;
+            if($verbose) {
+                print " received errorcode $errorcode OK";
             }
-            return 1;
-        }
-
-        if ( -r "$VALIDOUT" ) {
-            # verify redirected stdout
-            $res = compare($STDOUT, $VALIDOUT, "data");
-            if($res) {
-                return 1;
+            elsif(!$short) {
+                print " error OK";
             }
         }
         else {
-            if (! -r $REPLY && -r $CURLOUT) {
-                print "** Missing reply data file for test $NUMBER",
-                ", should be similar to $CURLOUT\n";
-                return 1;            
+            if(!$short) {
+                print "curl returned $res, ".(0+$errorcode)." was expected\n";
             }
-
-            if( -r $CURLOUT ) {
-                # verify the received data
-                $res = compare($CURLOUT, $REPLY, "data");
-                if ($res) {
-                    return 1;
-                }
-            }
+            print " error FAILED\n";
+            return 1;
         }
-
-        if(-r $UPLOAD) {
-             # verify uploaded data
-            $res = compare("$LOGDIR/upload.$NUMBER", $UPLOAD, "upload");
-            if ($res) {
-                return 1;
-            }
-        }
-
-
-        if(-r $SERVERIN) {
-            if(! -r $PROT) {
-                print "** Missing protocol file for test $NUMBER",
-                ", should be similar to $SERVERIN\n";
-                return 1;
-            }
-
-            # The strip pattern below is for stripping off User-Agent: since
-            # that'll be different in all versions, and the lines in a
-            # RFC1876-post that are randomly generated and therefore are
-            # doomed to always differ!
-            
-            # verify the sent request
-            $res = compare($SERVERIN, $PROT, "protocol",
-                           "^(User-Agent:|--curl|Content-Type: multipart/form-data; boundary=|PORT ).*\r\n");
-            if($res) {
-                return 1;
-            }
-        }
-
     }
 
-    # remove the stdout and stderr files
-    unlink($STDOUT);
-    unlink($STDERR);
+    if (@validstdout) {
+        # verify redirected stdout
+        my @actual = loadarray($STDOUT);
 
-    unlink("$LOGDIR/upload.$NUMBER");  # remove upload leftovers
-    unlink($CURLOUT); # remove the downloaded results
+        $res = compare(\@actual, \@validstdout);
+        if($res) {
+            print " stdout FAILED\n";
+            return 1;
+        }
+        if(!$short) {
+            print " stdout OK";
+        }
+    }
+
+    my %replyattr = getpartattr("reply", "data");
+    if(!$replyattr{'nocheck'} &&
+       @reply) {
+        # verify the received data
+        my @out = loadarray($CURLOUT);
+        $res = compare(\@out, \@reply);
+        if ($res) {
+            print " data FAILED\n";
+            return 1;
+        }
+        if(!$short) {
+            print " data OK";
+        }
+    }
+
+    if(@upload) {
+        # verify uploaded data
+        my @out = loadarray("$LOGDIR/upload.$testnum");
+        $res = compare(\@out, \@upload);
+        if ($res) {
+            print " upload FAILED\n";
+            return 1;
+        }
+        if(!$short) {
+            print " upload OK";
+        }
+    }
+
+    if(@protocol) {
+        # verify the sent request
+        my @out = loadarray($SERVERIN);
+
+        # what to cut off from the live protocol sent by curl
+        my @strip = getpart("verify", "strip");
+
+        my @protstrip=@protocol;
+
+        # check if there's any attributes on the verify/protocol section
+        my %hash = getpartattr("verify", "protocol");
+
+        if($hash{'nonewline'}) {
+            # Yes, we must cut off the final newline from the final line
+            # of the protocol data
+            chomp($protstrip[$#protstrip]);
+        }
+
+        for(@strip) {
+            # strip all patterns from both arrays
+            @out = striparray( $_, \@out);
+            @protstrip= striparray( $_, \@protstrip);
+        }
+
+        $res = compare(\@out, \@protstrip);
+        if($res) {
+            print " protocol FAILED\n";
+            return 1;
+        }
+        if(!$short) {
+            print " protocol OK";
+        }
+    }
+
+    my @outfile=getpart("verify", "file");
+    if(@outfile) {
+        # we're supposed to verify a dynamicly generated file!
+        my %hash = getpartattr("verify", "file");
+
+        my $filename=$hash{'name'};
+        if(!$filename) {
+            print "ERROR: section verify=>file has no name attribute!\n";
+            exit;
+        }
+        my @generated=loadarray($filename);
+
+        $res = compare(\@generated, \@outfile);
+        if($res) {
+            print " output FAILED\n";
+            return 1;
+        }
+        if(!$short) {
+            print " output OK";
+        }        
+    }
+
+    if(!$keepoutfiles) {
+        # remove the stdout and stderr files
+        unlink($STDOUT);
+        unlink($STDERR);
+        unlink($CURLOUT); # remove the downloaded results
+
+        unlink("$LOGDIR/upload.$testnum");  # remove upload leftovers
+    }
+
     unlink($FTPDCMD); # remove the instructions for this test
 
     if($memory_debug) {
@@ -562,6 +781,76 @@ sub singletest {
     return 0;
 }
 
+my %run;
+
+##############################################################################
+# This function makes sure the right set of server is running for the
+# specified test case. This is a useful design when we run single tests as not
+# all servers need to run then!
+
+sub serverfortest {
+    my ($testnum)=@_;
+
+    if($testnum< 100) {
+        # 0 - 99 is for HTTP
+        if(!$run{'http'}) {
+            runhttpserver($verbose);
+            $run{'http'}=$HTTPPIDFILE;
+        }
+    }
+    elsif($testnum< 200) {
+        # 100 - 199 is for FTP
+        if(!$run{'ftp'}) {
+            runftpserver($verbose);
+            $run{'ftp'}=$FTPPIDFILE;
+        }
+    }
+    elsif($testnum< 300) {
+        # 200 - 299 is for FILE, no server!
+        $run{'file'}="moo";
+    }
+    elsif($testnum< 400) {
+        # 300 - 399 is for HTTPS, two servers!
+
+        if(!$checkstunnel || !$ssl_version) {
+            # we can't run https tests without stunnel
+            # or if libcurl is SSL-less
+            return 1;
+        }
+
+        if(!$run{'http'}) {
+            runhttpserver($verbose);
+            $run{'http'}=$HTTPPIDFILE;
+        }
+        if(!$run{'https'}) {
+            runhttpsserver($verbose);
+            $run{'https'}=$HTTPSPIDFILE;
+        }
+    }
+    elsif($testnum< 500) {
+        # 400 - 499 is for FTPS, also two servers
+
+        if(!$checkstunnel || !$ssl_version) {
+            # we can't run https tests without stunnel
+            # or if libcurl is SSL-less
+            return 1;
+        }
+        if(!$run{'ftp'}) {
+            runftpserver($verbose);
+            $run{'ftp'}=$FTPPIDFILE;
+        }
+        if(!$run{'ftps'}) {
+            runftpsserver($verbose);
+            $run{'ftps'}=$FTPSPIDFILE;
+        }
+    }
+    else {
+        print "Bad test number, no server available\n";
+        return 100;
+    }
+    sleep 1; # give a second for the server(s) to startup
+    return 0; # ok
+}
 
 #######################################################################
 # Check options to this test program
@@ -574,6 +863,11 @@ do {
     if ($ARGV[0] eq "-v") {
         # verbose output
         $verbose=1;
+    }
+    elsif ($ARGV[0] eq "-c") {
+        # use this path to curl instead of default        
+        $CURL=$ARGV[1];
+        shift @ARGV;
     }
     elsif ($ARGV[0] eq "-d") {
         # have the servers display protocol output 
@@ -591,17 +885,27 @@ do {
         # continue anyway, even if a test fail
         $anyway=1;
     }
+    elsif($ARGV[0] eq "-l") {
+        # lists the test case names only
+        $listonly=1;
+    }
+    elsif($ARGV[0] eq "-k") {
+        # keep stdout and stderr files after tests
+        $keepoutfiles=1;
+    }
     elsif($ARGV[0] eq "-h") {
         # show help text
         print <<EOHELP
-Usage: runtests.pl [-h][-s][-v][numbers]
+Usage: runtests.pl [options]
   -a       continue even if a test fails
   -d       display server debug info
   -g       run the test case with gdb
   -h       this help text
+  -k       keep stdout and stderr files present after tests
+  -l       list all test case names/descriptions
   -s       short output
   -v       verbose output
-  [num]    as string like "5 6 9" to run those tests only
+  [num]    like "5 6 9" or " 5 to 22 " to run those tests only
 EOHELP
     ;
         exit;
@@ -627,12 +931,13 @@ if($testthis[0] ne "") {
     $TESTCASES=join(" ", @testthis);
 }
 
-
 #######################################################################
 # Output curl version and host info being tested
 #
 
-displaydata();
+if(!$listonly) {
+    displaydata();
+}
 
 #######################################################################
 # clear and create logging directory:
@@ -641,20 +946,13 @@ cleardir($LOGDIR);
 mkdir($LOGDIR, 0777);
 
 #######################################################################
-# First, start our test servers
-#
-
-runhttpserver($verbose);
-runftpserver($verbose);
-
-#######################################################################
 # If 'all' tests are requested, find out all test numbers
 #
 
 if ( $TESTCASES eq "all") {
     # Get all commands and find out their test numbers
     opendir(DIR, $TESTDIR) || die "can't opendir $TESTDIR: $!";
-    my @cmds = grep { /^command([0-9]+).txt/ && -f "$TESTDIR/$_" } readdir(DIR);
+    my @cmds = grep { /^test([0-9]+)$/ && -f "$TESTDIR/$_" } readdir(DIR);
     closedir DIR;
 
     $TESTCASES=""; # start with no test cases
@@ -683,7 +981,17 @@ my $failed;
 my $testnum;
 my $ok=0;
 my $total=0;
+
 foreach $testnum (split(" ", $TESTCASES)) {
+
+    my $serverproblem = serverfortest($testnum);
+
+    if($serverproblem) {
+        # there's a problem with the server, don't run
+        # this particular server, but count it as "skipped"
+        $skipped++;
+        next;
+    }
 
     my $error = singletest($testnum);
     if(-1 != $error) {
@@ -691,12 +999,12 @@ foreach $testnum (split(" ", $TESTCASES)) {
         $total++;
     }
     if($error>0) {
+        $failed.= "$testnum ";
         if(!$anyway) {
             # a test failed, abort
             print "\n - abort tests\n";
             last;
         }
-        $failed.= "$testnum ";
     }
     elsif(!$error) {
         $ok++;
@@ -714,11 +1022,13 @@ close(CMDLOG);
 # Tests done, stop the servers
 #
 
-stopserver($FTPPIDFILE);
-stopserver($PIDFILE);
+for(keys %run) {
+    stopserver($run{$_}); # the pid file is in the hash table
+}
 
 if($total) {
-    print "$ok tests out of $total reported OK\n";
+    printf("$ok tests out of $total reported OK: %d%%\n",
+           $ok/$total*100);
 
     if($ok != $total) {
         print "These test cases failed: $failed\n";
@@ -726,4 +1036,10 @@ if($total) {
 }
 else {
     print "No tests were performed!\n";
+}
+if($skipped) {
+    print "$skipped tests were skipped due to restraints\n";
+}
+if($total && ($ok != $total)) {
+    exit 1;
 }

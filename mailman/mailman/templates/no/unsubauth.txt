@@ -1,0 +1,10 @@
+Følgende søknad om å bli meldt ut av en liste må vurderes av deg:
+
+    Fra:   %(username)s
+    Liste: %(listname)s@%(hostname)s
+
+Når du får tid, gå inn på:
+
+    %(admindb_url)s
+
+for å godkjenne eller avslå søknaden.

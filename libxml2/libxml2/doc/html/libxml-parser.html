@@ -1,0 +1,12449 @@
+<HTML
+><HEAD
+><TITLE
+>parser</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.76b+
+"><LINK
+REL="HOME"
+TITLE="Gnome XML Library Reference Manual"
+HREF="book1.html"><LINK
+REL="UP"
+TITLE="Libxml Library Reference"
+HREF="libxml-lib.html"><LINK
+REL="PREVIOUS"
+TITLE="Libxml Library Reference"
+HREF="libxml-lib.html"><LINK
+REL="NEXT"
+TITLE="SAX"
+HREF="libxml-sax.html"></HEAD
+><BODY
+CLASS="REFENTRY"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+WIDTH="100%"
+BORDER="0"
+BGCOLOR="#000000"
+CELLPADDING="1"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="4"
+ALIGN="center"
+><FONT
+COLOR="#FFFFFF"
+SIZE="5"
+>Gnome XML Library Reference Manual</FONT
+></TH
+></TR
+><TR
+><TD
+WIDTH="25%"
+BGCOLOR="#C00000"
+ALIGN="left"
+><A
+HREF="libxml-lib.html"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+>&#60;&#60;&#60; Previous Page</B
+></FONT
+></A
+></TD
+><TD
+WIDTH="25%"
+BGCOLOR="#0000C0"
+ALIGN="center"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+><A
+HREF="book1.html"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+>Home</B
+></FONT
+></A
+></B
+></FONT
+></TD
+><TD
+WIDTH="25%"
+BGCOLOR="#00C000"
+ALIGN="center"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+><A
+HREF="libxml-lib.html"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+>Up</B
+></FONT
+></A
+></B
+></FONT
+></TD
+><TD
+WIDTH="25%"
+BGCOLOR="#C00000"
+ALIGN="right"
+><A
+HREF="libxml-sax.html"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+>Next Page &#62;&#62;&#62;</B
+></FONT
+></A
+></TD
+></TR
+></TABLE
+></DIV
+><H1
+><A
+NAME="LIBXML-PARSER">parser</H1
+><DIV
+CLASS="REFNAMEDIV"
+><A
+NAME="AEN31"
+></A
+><H2
+>Name</H2
+>parser&nbsp;--&nbsp;</DIV
+><DIV
+CLASS="REFSYNOPSISDIV"
+><A
+NAME="AEN34"><H2
+>Synopsis</H2
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="SYNOPSIS"
+>&#13;
+
+#define     <A
+HREF="libxml-parser.html#XML-DEFAULT-VERSION-CAPS"
+>XML_DEFAULT_VERSION</A
+>
+void        (<A
+HREF="libxml-parser.html#XMLPARSERINPUTDEALLOCATE"
+>*xmlParserInputDeallocate</A
+>)     (<A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str);
+struct      <A
+HREF="libxml-parser.html#XMLPARSERINPUT"
+>xmlParserInput</A
+>;
+struct      <A
+HREF="libxml-parser.html#XMLPARSERNODEINFO"
+>xmlParserNodeInfo</A
+>;
+typedef     <A
+HREF="libxml-parser.html#XMLPARSERNODEINFOPTR"
+>xmlParserNodeInfoPtr</A
+>;
+struct      <A
+HREF="libxml-parser.html#XMLPARSERNODEINFOSEQ"
+>xmlParserNodeInfoSeq</A
+>;
+typedef     <A
+HREF="libxml-parser.html#XMLPARSERNODEINFOSEQPTR"
+>xmlParserNodeInfoSeqPtr</A
+>;
+enum        <A
+HREF="libxml-parser.html#XMLPARSERINPUTSTATE"
+>xmlParserInputState</A
+>;
+#define     <A
+HREF="libxml-parser.html#XML-DETECT-IDS-CAPS"
+>XML_DETECT_IDS</A
+>
+#define     <A
+HREF="libxml-parser.html#XML-COMPLETE-ATTRS-CAPS"
+>XML_COMPLETE_ATTRS</A
+>
+struct      <A
+HREF="libxml-parser.html#XMLPARSERCTXT"
+>xmlParserCtxt</A
+>;
+struct      <A
+HREF="libxml-parser.html#XMLSAXLOCATOR"
+>xmlSAXLocator</A
+>;
+<A
+HREF="libxml-tree.html#XMLPARSERINPUTPTR"
+>xmlParserInputPtr</A
+> (<A
+HREF="libxml-parser.html#RESOLVEENTITYSAXFUNC"
+>*resolveEntitySAXFunc</A
+>)   (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *publicId,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *systemId);
+void        (<A
+HREF="libxml-parser.html#INTERNALSUBSETSAXFUNC"
+>*internalSubsetSAXFunc</A
+>)        (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *name,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *ExternalID,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *SystemID);
+void        (<A
+HREF="libxml-parser.html#EXTERNALSUBSETSAXFUNC"
+>*externalSubsetSAXFunc</A
+>)        (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *name,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *ExternalID,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *SystemID);
+<A
+HREF="libxml-tree.html#XMLENTITYPTR"
+>xmlEntityPtr</A
+> (<A
+HREF="libxml-parser.html#GETENTITYSAXFUNC"
+>*getEntitySAXFunc</A
+>)            (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *name);
+<A
+HREF="libxml-tree.html#XMLENTITYPTR"
+>xmlEntityPtr</A
+> (<A
+HREF="libxml-parser.html#GETPARAMETERENTITYSAXFUNC"
+>*getParameterEntitySAXFunc</A
+>)   (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *name);
+void        (<A
+HREF="libxml-parser.html#ENTITYDECLSAXFUNC"
+>*entityDeclSAXFunc</A
+>)            (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *name,
+                                             int type,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *publicId,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *systemId,
+                                             <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *content);
+void        (<A
+HREF="libxml-parser.html#NOTATIONDECLSAXFUNC"
+>*notationDeclSAXFunc</A
+>)          (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *name,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *publicId,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *systemId);
+void        (<A
+HREF="libxml-parser.html#ATTRIBUTEDECLSAXFUNC"
+>*attributeDeclSAXFunc</A
+>)         (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *elem,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *fullname,
+                                             int type,
+                                             int def,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *defaultValue,
+                                             <A
+HREF="libxml-tree.html#XMLENUMERATIONPTR"
+>xmlEnumerationPtr</A
+> tree);
+void        (<A
+HREF="libxml-parser.html#ELEMENTDECLSAXFUNC"
+>*elementDeclSAXFunc</A
+>)           (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *name,
+                                             int type,
+                                             <A
+HREF="libxml-tree.html#XMLELEMENTCONTENTPTR"
+>xmlElementContentPtr</A
+> content);
+void        (<A
+HREF="libxml-parser.html#UNPARSEDENTITYDECLSAXFUNC"
+>*unparsedEntityDeclSAXFunc</A
+>)    (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *name,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *publicId,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *systemId,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *notationName);
+void        (<A
+HREF="libxml-parser.html#SETDOCUMENTLOCATORSAXFUNC"
+>*setDocumentLocatorSAXFunc</A
+>)    (void *ctx,
+                                             <A
+HREF="libxml-tree.html#XMLSAXLOCATORPTR"
+>xmlSAXLocatorPtr</A
+> loc);
+void        (<A
+HREF="libxml-parser.html#STARTDOCUMENTSAXFUNC"
+>*startDocumentSAXFunc</A
+>)         (void *ctx);
+void        (<A
+HREF="libxml-parser.html#ENDDOCUMENTSAXFUNC"
+>*endDocumentSAXFunc</A
+>)           (void *ctx);
+void        (<A
+HREF="libxml-parser.html#STARTELEMENTSAXFUNC"
+>*startElementSAXFunc</A
+>)          (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *name,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> **atts);
+void        (<A
+HREF="libxml-parser.html#ENDELEMENTSAXFUNC"
+>*endElementSAXFunc</A
+>)            (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *name);
+void        (<A
+HREF="libxml-parser.html#ATTRIBUTESAXFUNC"
+>*attributeSAXFunc</A
+>)             (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *name,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *value);
+void        (<A
+HREF="libxml-parser.html#REFERENCESAXFUNC"
+>*referenceSAXFunc</A
+>)             (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *name);
+void        (<A
+HREF="libxml-parser.html#CHARACTERSSAXFUNC"
+>*charactersSAXFunc</A
+>)            (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *ch,
+                                             int len);
+void        (<A
+HREF="libxml-parser.html#IGNORABLEWHITESPACESAXFUNC"
+>*ignorableWhitespaceSAXFunc</A
+>)   (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *ch,
+                                             int len);
+void        (<A
+HREF="libxml-parser.html#PROCESSINGINSTRUCTIONSAXFUNC"
+>*processingInstructionSAXFunc</A
+>) (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *target,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *data);
+void        (<A
+HREF="libxml-parser.html#COMMENTSAXFUNC"
+>*commentSAXFunc</A
+>)               (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *value);
+void        (<A
+HREF="libxml-parser.html#CDATABLOCKSAXFUNC"
+>*cdataBlockSAXFunc</A
+>)            (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *value,
+                                             int len);
+void        (<A
+HREF="libxml-parser.html#WARNINGSAXFUNC"
+>*warningSAXFunc</A
+>)               (void *ctx,
+                                             const char *msg,
+                                             ...);
+void        (<A
+HREF="libxml-parser.html#ERRORSAXFUNC"
+>*errorSAXFunc</A
+>)                 (void *ctx,
+                                             const char *msg,
+                                             ...);
+void        (<A
+HREF="libxml-parser.html#FATALERRORSAXFUNC"
+>*fatalErrorSAXFunc</A
+>)            (void *ctx,
+                                             const char *msg,
+                                             ...);
+int         (<A
+HREF="libxml-parser.html#ISSTANDALONESAXFUNC"
+>*isStandaloneSAXFunc</A
+>)          (void *ctx);
+int         (<A
+HREF="libxml-parser.html#HASINTERNALSUBSETSAXFUNC"
+>*hasInternalSubsetSAXFunc</A
+>)     (void *ctx);
+int         (<A
+HREF="libxml-parser.html#HASEXTERNALSUBSETSAXFUNC"
+>*hasExternalSubsetSAXFunc</A
+>)     (void *ctx);
+struct      <A
+HREF="libxml-parser.html#XMLSAXHANDLER"
+>xmlSAXHandler</A
+>;
+<A
+HREF="libxml-tree.html#XMLPARSERINPUTPTR"
+>xmlParserInputPtr</A
+> (<A
+HREF="libxml-parser.html#XMLEXTERNALENTITYLOADER"
+>*xmlExternalEntityLoader</A
+>)
+                                            (const char *URL,
+                                             const char *ID,
+                                             <A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> context);
+#define     <A
+HREF="libxml-parser.html#XMLSUBSTITUTEENTITIESDEFAULTVALUE"
+>xmlSubstituteEntitiesDefaultValue</A
+>
+void        <A
+HREF="libxml-parser.html#XMLINITPARSER"
+>xmlInitParser</A
+>                   (void);
+void        <A
+HREF="libxml-parser.html#XMLCLEANUPPARSER"
+>xmlCleanupParser</A
+>                (void);
+int         <A
+HREF="libxml-parser.html#XMLPARSERINPUTREAD"
+>xmlParserInputRead</A
+>              (<A
+HREF="libxml-tree.html#XMLPARSERINPUTPTR"
+>xmlParserInputPtr</A
+> in,
+                                             int len);
+int         <A
+HREF="libxml-parser.html#XMLPARSERINPUTGROW"
+>xmlParserInputGrow</A
+>              (<A
+HREF="libxml-tree.html#XMLPARSERINPUTPTR"
+>xmlParserInputPtr</A
+> in,
+                                             int len);
+<A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+>*    <A
+HREF="libxml-parser.html#XMLSTRDUP"
+>xmlStrdup</A
+>                       (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *cur);
+<A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+>*    <A
+HREF="libxml-parser.html#XMLSTRNDUP"
+>xmlStrndup</A
+>                      (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *cur,
+                                             int len);
+<A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+>*    <A
+HREF="libxml-parser.html#XMLCHARSTRNDUP"
+>xmlCharStrndup</A
+>                  (const char *cur,
+                                             int len);
+<A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+>*    <A
+HREF="libxml-parser.html#XMLCHARSTRDUP"
+>xmlCharStrdup</A
+>                   (const char *cur);
+<A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+>*    <A
+HREF="libxml-parser.html#XMLSTRSUB"
+>xmlStrsub</A
+>                       (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str,
+                                             int start,
+                                             int len);
+const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+>* <A
+HREF="libxml-parser.html#XMLSTRCHR"
+>xmlStrchr</A
+>                    (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str,
+                                             <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> val);
+const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+>* <A
+HREF="libxml-parser.html#XMLSTRSTR"
+>xmlStrstr</A
+>                    (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *val);
+const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+>* <A
+HREF="libxml-parser.html#XMLSTRCASESTR"
+>xmlStrcasestr</A
+>                (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str,
+                                             <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *val);
+int         <A
+HREF="libxml-parser.html#XMLSTRCMP"
+>xmlStrcmp</A
+>                       (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str1,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str2);
+int         <A
+HREF="libxml-parser.html#XMLSTRNCMP"
+>xmlStrncmp</A
+>                      (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str1,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str2,
+                                             int len);
+int         <A
+HREF="libxml-parser.html#XMLSTRCASECMP"
+>xmlStrcasecmp</A
+>                   (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str1,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str2);
+int         <A
+HREF="libxml-parser.html#XMLSTRNCASECMP"
+>xmlStrncasecmp</A
+>                  (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str1,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str2,
+                                             int len);
+int         <A
+HREF="libxml-parser.html#XMLSTREQUAL"
+>xmlStrEqual</A
+>                     (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str1,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str2);
+int         <A
+HREF="libxml-parser.html#XMLSTRLEN"
+>xmlStrlen</A
+>                       (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str);
+<A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+>*    <A
+HREF="libxml-parser.html#XMLSTRCAT"
+>xmlStrcat</A
+>                       (<A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *cur,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *add);
+<A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+>*    <A
+HREF="libxml-parser.html#XMLSTRNCAT"
+>xmlStrncat</A
+>                      (<A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *cur,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *add,
+                                             int len);
+<A
+HREF="libxml-tree.html#XMLDOCPTR"
+>xmlDocPtr</A
+>   <A
+HREF="libxml-parser.html#XMLPARSEDOC"
+>xmlParseDoc</A
+>                     (<A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *cur);
+<A
+HREF="libxml-tree.html#XMLDOCPTR"
+>xmlDocPtr</A
+>   <A
+HREF="libxml-parser.html#XMLPARSEMEMORY"
+>xmlParseMemory</A
+>                  (const char *buffer,
+                                             int size);
+<A
+HREF="libxml-tree.html#XMLDOCPTR"
+>xmlDocPtr</A
+>   <A
+HREF="libxml-parser.html#XMLPARSEFILE"
+>xmlParseFile</A
+>                    (const char *filename);
+int         <A
+HREF="libxml-parser.html#XMLSUBSTITUTEENTITIESDEFAULT"
+>xmlSubstituteEntitiesDefault</A
+>    (int val);
+int         <A
+HREF="libxml-parser.html#XMLKEEPBLANKSDEFAULT"
+>xmlKeepBlanksDefault</A
+>            (int val);
+void        <A
+HREF="libxml-parser.html#XMLSTOPPARSER"
+>xmlStopParser</A
+>                   (<A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> ctxt);
+int         <A
+HREF="libxml-parser.html#XMLPEDANTICPARSERDEFAULT"
+>xmlPedanticParserDefault</A
+>        (int val);
+int         <A
+HREF="libxml-parser.html#XMLLINENUMBERSDEFAULT"
+>xmlLineNumbersDefault</A
+>           (int val);
+<A
+HREF="libxml-tree.html#XMLDOCPTR"
+>xmlDocPtr</A
+>   <A
+HREF="libxml-parser.html#XMLRECOVERDOC"
+>xmlRecoverDoc</A
+>                   (<A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *cur);
+<A
+HREF="libxml-tree.html#XMLDOCPTR"
+>xmlDocPtr</A
+>   <A
+HREF="libxml-parser.html#XMLRECOVERMEMORY"
+>xmlRecoverMemory</A
+>                (const char *buffer,
+                                             int size);
+<A
+HREF="libxml-tree.html#XMLDOCPTR"
+>xmlDocPtr</A
+>   <A
+HREF="libxml-parser.html#XMLRECOVERFILE"
+>xmlRecoverFile</A
+>                  (const char *filename);
+int         <A
+HREF="libxml-parser.html#XMLPARSEDOCUMENT"
+>xmlParseDocument</A
+>                (<A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> ctxt);
+int         <A
+HREF="libxml-parser.html#XMLPARSEEXTPARSEDENT"
+>xmlParseExtParsedEnt</A
+>            (<A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> ctxt);
+<A
+HREF="libxml-tree.html#XMLDOCPTR"
+>xmlDocPtr</A
+>   <A
+HREF="libxml-parser.html#XMLSAXPARSEDOC"
+>xmlSAXParseDoc</A
+>                  (<A
+HREF="libxml-tree.html#XMLSAXHANDLERPTR"
+>xmlSAXHandlerPtr</A
+> sax,
+                                             <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *cur,
+                                             int recovery);
+int         <A
+HREF="libxml-parser.html#XMLSAXUSERPARSEFILE"
+>xmlSAXUserParseFile</A
+>             (<A
+HREF="libxml-tree.html#XMLSAXHANDLERPTR"
+>xmlSAXHandlerPtr</A
+> sax,
+                                             void *user_data,
+                                             const char *filename);
+int         <A
+HREF="libxml-parser.html#XMLSAXUSERPARSEMEMORY"
+>xmlSAXUserParseMemory</A
+>           (<A
+HREF="libxml-tree.html#XMLSAXHANDLERPTR"
+>xmlSAXHandlerPtr</A
+> sax,
+                                             void *user_data,
+                                             const char *buffer,
+                                             int size);
+<A
+HREF="libxml-tree.html#XMLDOCPTR"
+>xmlDocPtr</A
+>   <A
+HREF="libxml-parser.html#XMLSAXPARSEMEMORY"
+>xmlSAXParseMemory</A
+>               (<A
+HREF="libxml-tree.html#XMLSAXHANDLERPTR"
+>xmlSAXHandlerPtr</A
+> sax,
+                                             const char *buffer,
+                                             int size,
+                                             int recovery);
+<A
+HREF="libxml-tree.html#XMLDOCPTR"
+>xmlDocPtr</A
+>   <A
+HREF="libxml-parser.html#XMLSAXPARSEFILE"
+>xmlSAXParseFile</A
+>                 (<A
+HREF="libxml-tree.html#XMLSAXHANDLERPTR"
+>xmlSAXHandlerPtr</A
+> sax,
+                                             const char *filename,
+                                             int recovery);
+<A
+HREF="libxml-tree.html#XMLDOCPTR"
+>xmlDocPtr</A
+>   <A
+HREF="libxml-parser.html#XMLSAXPARSEFILEWITHDATA"
+>xmlSAXParseFileWithData</A
+>         (<A
+HREF="libxml-tree.html#XMLSAXHANDLERPTR"
+>xmlSAXHandlerPtr</A
+> sax,
+                                             const char *filename,
+                                             int recovery,
+                                             void *data);
+<A
+HREF="libxml-tree.html#XMLDOCPTR"
+>xmlDocPtr</A
+>   <A
+HREF="libxml-parser.html#XMLSAXPARSEENTITY"
+>xmlSAXParseEntity</A
+>               (<A
+HREF="libxml-tree.html#XMLSAXHANDLERPTR"
+>xmlSAXHandlerPtr</A
+> sax,
+                                             const char *filename);
+<A
+HREF="libxml-tree.html#XMLDOCPTR"
+>xmlDocPtr</A
+>   <A
+HREF="libxml-parser.html#XMLPARSEENTITY"
+>xmlParseEntity</A
+>                  (const char *filename);
+<A
+HREF="libxml-tree.html#XMLDTDPTR"
+>xmlDtdPtr</A
+>   <A
+HREF="libxml-parser.html#XMLPARSEDTD"
+>xmlParseDTD</A
+>                     (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *ExternalID,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *SystemID);
+<A
+HREF="libxml-tree.html#XMLDTDPTR"
+>xmlDtdPtr</A
+>   <A
+HREF="libxml-parser.html#XMLSAXPARSEDTD"
+>xmlSAXParseDTD</A
+>                  (<A
+HREF="libxml-tree.html#XMLSAXHANDLERPTR"
+>xmlSAXHandlerPtr</A
+> sax,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *ExternalID,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *SystemID);
+<A
+HREF="libxml-tree.html#XMLDTDPTR"
+>xmlDtdPtr</A
+>   <A
+HREF="libxml-parser.html#XMLIOPARSEDTD"
+>xmlIOParseDTD</A
+>                   (<A
+HREF="libxml-tree.html#XMLSAXHANDLERPTR"
+>xmlSAXHandlerPtr</A
+> sax,
+                                             <A
+HREF="libxml-tree.html#XMLPARSERINPUTBUFFERPTR"
+>xmlParserInputBufferPtr</A
+> input,
+                                             <A
+HREF="libxml-encoding.html#XMLCHARENCODING"
+>xmlCharEncoding</A
+> enc);
+int         <A
+HREF="libxml-parser.html#XMLPARSEBALANCEDCHUNKMEMORY"
+>xmlParseBalancedChunkMemory</A
+>     (<A
+HREF="libxml-tree.html#XMLDOCPTR"
+>xmlDocPtr</A
+> doc,
+                                             <A
+HREF="libxml-tree.html#XMLSAXHANDLERPTR"
+>xmlSAXHandlerPtr</A
+> sax,
+                                             void *user_data,
+                                             int depth,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *string,
+                                             <A
+HREF="libxml-tree.html#XMLNODEPTR"
+>xmlNodePtr</A
+> *lst);
+int         <A
+HREF="libxml-parser.html#XMLPARSEBALANCEDCHUNKMEMORYRECOVER"
+>xmlParseBalancedChunkMemoryRecover</A
+>
+                                            (<A
+HREF="libxml-tree.html#XMLDOCPTR"
+>xmlDocPtr</A
+> doc,
+                                             <A
+HREF="libxml-tree.html#XMLSAXHANDLERPTR"
+>xmlSAXHandlerPtr</A
+> sax,
+                                             void *user_data,
+                                             int depth,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *string,
+                                             <A
+HREF="libxml-tree.html#XMLNODEPTR"
+>xmlNodePtr</A
+> *lst,
+                                             int recover);
+int         <A
+HREF="libxml-parser.html#XMLPARSEEXTERNALENTITY"
+>xmlParseExternalEntity</A
+>          (<A
+HREF="libxml-tree.html#XMLDOCPTR"
+>xmlDocPtr</A
+> doc,
+                                             <A
+HREF="libxml-tree.html#XMLSAXHANDLERPTR"
+>xmlSAXHandlerPtr</A
+> sax,
+                                             void *user_data,
+                                             int depth,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *URL,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *ID,
+                                             <A
+HREF="libxml-tree.html#XMLNODEPTR"
+>xmlNodePtr</A
+> *lst);
+int         <A
+HREF="libxml-parser.html#XMLPARSECTXTEXTERNALENTITY"
+>xmlParseCtxtExternalEntity</A
+>      (<A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *URL,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *ID,
+                                             <A
+HREF="libxml-tree.html#XMLNODEPTR"
+>xmlNodePtr</A
+> *lst);
+void        <A
+HREF="libxml-parser.html#XMLINITPARSERCTXT"
+>xmlInitParserCtxt</A
+>               (<A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> ctxt);
+void        <A
+HREF="libxml-parser.html#XMLCLEARPARSERCTXT"
+>xmlClearParserCtxt</A
+>              (<A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> ctxt);
+void        <A
+HREF="libxml-parser.html#XMLFREEPARSERCTXT"
+>xmlFreeParserCtxt</A
+>               (<A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> ctxt);
+void        <A
+HREF="libxml-parser.html#XMLSETUPPARSERFORBUFFER"
+>xmlSetupParserForBuffer</A
+>         (<A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> ctxt,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *buffer,
+                                             const char *filename);
+<A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> <A
+HREF="libxml-parser.html#XMLCREATEDOCPARSERCTXT"
+>xmlCreateDocParserCtxt</A
+>     (<A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *cur);
+int         <A
+HREF="libxml-parser.html#XMLGETFEATURESLIST"
+>xmlGetFeaturesList</A
+>              (int *len,
+                                             const char **result);
+int         <A
+HREF="libxml-parser.html#XMLGETFEATURE"
+>xmlGetFeature</A
+>                   (<A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> ctxt,
+                                             const char *name,
+                                             void *result);
+int         <A
+HREF="libxml-parser.html#XMLSETFEATURE"
+>xmlSetFeature</A
+>                   (<A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> ctxt,
+                                             const char *name,
+                                             void *value);
+<A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> <A
+HREF="libxml-parser.html#XMLCREATEPUSHPARSERCTXT"
+>xmlCreatePushParserCtxt</A
+>    (<A
+HREF="libxml-tree.html#XMLSAXHANDLERPTR"
+>xmlSAXHandlerPtr</A
+> sax,
+                                             void *user_data,
+                                             const char *chunk,
+                                             int size,
+                                             const char *filename);
+int         <A
+HREF="libxml-parser.html#XMLPARSECHUNK"
+>xmlParseChunk</A
+>                   (<A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> ctxt,
+                                             const char *chunk,
+                                             int size,
+                                             int terminate);
+<A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> <A
+HREF="libxml-parser.html#XMLCREATEIOPARSERCTXT"
+>xmlCreateIOParserCtxt</A
+>      (<A
+HREF="libxml-tree.html#XMLSAXHANDLERPTR"
+>xmlSAXHandlerPtr</A
+> sax,
+                                             void *user_data,
+                                             <A
+HREF="libxml-xmlio.html#XMLINPUTREADCALLBACK"
+>xmlInputReadCallback</A
+> ioread,
+                                             <A
+HREF="libxml-xmlio.html#XMLINPUTCLOSECALLBACK"
+>xmlInputCloseCallback</A
+> ioclose,
+                                             void *ioctx,
+                                             <A
+HREF="libxml-encoding.html#XMLCHARENCODING"
+>xmlCharEncoding</A
+> enc);
+<A
+HREF="libxml-tree.html#XMLPARSERINPUTPTR"
+>xmlParserInputPtr</A
+> <A
+HREF="libxml-parser.html#XMLNEWIOINPUTSTREAM"
+>xmlNewIOInputStream</A
+>       (<A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> ctxt,
+                                             <A
+HREF="libxml-tree.html#XMLPARSERINPUTBUFFERPTR"
+>xmlParserInputBufferPtr</A
+> input,
+                                             <A
+HREF="libxml-encoding.html#XMLCHARENCODING"
+>xmlCharEncoding</A
+> enc);
+const <A
+HREF="libxml-parser.html#XMLPARSERNODEINFO"
+>xmlParserNodeInfo</A
+>* <A
+HREF="libxml-parser.html#XMLPARSERFINDNODEINFO"
+>xmlParserFindNodeInfo</A
+>
+                                            (const <A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> ctxt,
+                                             const <A
+HREF="libxml-tree.html#XMLNODEPTR"
+>xmlNodePtr</A
+> node);
+void        <A
+HREF="libxml-parser.html#XMLINITNODEINFOSEQ"
+>xmlInitNodeInfoSeq</A
+>              (<A
+HREF="libxml-parser.html#XMLPARSERNODEINFOSEQPTR"
+>xmlParserNodeInfoSeqPtr</A
+> seq);
+void        <A
+HREF="libxml-parser.html#XMLCLEARNODEINFOSEQ"
+>xmlClearNodeInfoSeq</A
+>             (<A
+HREF="libxml-parser.html#XMLPARSERNODEINFOSEQPTR"
+>xmlParserNodeInfoSeqPtr</A
+> seq);
+unsigned <GTKDOCLINK
+HREF="LONG"
+>long</GTKDOCLINK
+> <A
+HREF="libxml-parser.html#XMLPARSERFINDNODEINFOINDEX"
+>xmlParserFindNodeInfoIndex</A
+>    (const <A
+HREF="libxml-parser.html#XMLPARSERNODEINFOSEQPTR"
+>xmlParserNodeInfoSeqPtr</A
+> seq,
+                                             const <A
+HREF="libxml-tree.html#XMLNODEPTR"
+>xmlNodePtr</A
+> node);
+void        <A
+HREF="libxml-parser.html#XMLPARSERADDNODEINFO"
+>xmlParserAddNodeInfo</A
+>            (<A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> ctxt,
+                                             const <A
+HREF="libxml-parser.html#XMLPARSERNODEINFOPTR"
+>xmlParserNodeInfoPtr</A
+> info);
+void        <A
+HREF="libxml-parser.html#XMLSETEXTERNALENTITYLOADER"
+>xmlSetExternalEntityLoader</A
+>      (<A
+HREF="libxml-parser.html#XMLEXTERNALENTITYLOADER"
+>xmlExternalEntityLoader</A
+> f);
+<A
+HREF="libxml-parser.html#XMLEXTERNALENTITYLOADER"
+>xmlExternalEntityLoader</A
+> <A
+HREF="libxml-parser.html#XMLGETEXTERNALENTITYLOADER"
+>xmlGetExternalEntityLoader</A
+>
+                                            (void);
+<A
+HREF="libxml-tree.html#XMLPARSERINPUTPTR"
+>xmlParserInputPtr</A
+> <A
+HREF="libxml-parser.html#XMLLOADEXTERNALENTITY"
+>xmlLoadExternalEntity</A
+>     (const char *URL,
+                                             const char *ID,
+                                             <A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> ctxt);</PRE
+></TD
+></TR
+></TABLE
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN318"
+></A
+><H2
+>Description</H2
+><P
+></P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN321"
+></A
+><H2
+>Details</H2
+><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN323"
+></A
+><H3
+><A
+NAME="XML-DEFAULT-VERSION-CAPS"
+></A
+>XML_DEFAULT_VERSION</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>#define XML_DEFAULT_VERSION	"1.0"</PRE
+></TD
+></TR
+></TABLE
+><P
+>The default version of XML used: 1.0</P
+><P
+></P
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN329"
+></A
+><H3
+><A
+NAME="XMLPARSERINPUTDEALLOCATE"
+></A
+>xmlParserInputDeallocate ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        (*xmlParserInputDeallocate)     (<A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Callback for freeing some parser input allocations.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN336"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>str</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the string to deallocate</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN345"
+></A
+><H3
+><A
+NAME="XMLPARSERINPUT"
+></A
+>struct xmlParserInput</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>struct xmlParserInput {
+    /* Input buffer */
+    xmlParserInputBufferPtr buf;      /* UTF-8 encoded buffer */
+
+    const char *filename;             /* The file analyzed, if any */
+    const char *directory;            /* the directory/base of the file */
+    const xmlChar *base;              /* Base of the array to parse */
+    const xmlChar *cur;               /* Current char being parsed */
+    const xmlChar *end;               /* end of the array to parse */
+    int length;                       /* length if known */
+    int line;                         /* Current line */
+    int col;                          /* Current column */
+    int consumed;                     /* How many xmlChars already consumed */
+    xmlParserInputDeallocate free;    /* function to deallocate the base */
+    const xmlChar *encoding;          /* the encoding string for entity */
+    const xmlChar *version;           /* the version string for entity */
+    int standalone;                   /* Was that entity marked standalone */
+};</PRE
+></TD
+></TR
+></TABLE
+><P
+>An xmlParserInput is an input flow for the XML processor.
+Each entity parsed is associated an xmlParserInput (except the
+few predefined ones). This is the case both for internal entities
+- in which case the flow is already completely in memory - or
+external entities - in which case we use the buf structure for
+progressive reading and I18N conversions to the internal UTF-8 format.</P
+><P
+></P
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN351"
+></A
+><H3
+><A
+NAME="XMLPARSERNODEINFO"
+></A
+>struct xmlParserNodeInfo</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>struct xmlParserNodeInfo {
+  const struct _xmlNode* node;
+  /* Position &amp; line # that text that created the node begins &amp; ends on */
+  unsigned long begin_pos;
+  unsigned long begin_line;
+  unsigned long end_pos;
+  unsigned long end_line;
+};</PRE
+></TD
+></TR
+></TABLE
+><P
+>The parser can be asked to collect Node informations, i.e. at what
+place in the file they were detected. 
+NOTE: This is off by default and not very well tested.</P
+><P
+></P
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN357"
+></A
+><H3
+><A
+NAME="XMLPARSERNODEINFOPTR"
+></A
+>xmlParserNodeInfoPtr</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>typedef xmlParserNodeInfo *xmlParserNodeInfoPtr;</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN362"
+></A
+><H3
+><A
+NAME="XMLPARSERNODEINFOSEQ"
+></A
+>struct xmlParserNodeInfoSeq</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>struct xmlParserNodeInfoSeq {
+  unsigned long maximum;
+  unsigned long length;
+  xmlParserNodeInfo* buffer;
+};</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN367"
+></A
+><H3
+><A
+NAME="XMLPARSERNODEINFOSEQPTR"
+></A
+>xmlParserNodeInfoSeqPtr</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>typedef xmlParserNodeInfoSeq *xmlParserNodeInfoSeqPtr;</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN372"
+></A
+><H3
+><A
+NAME="XMLPARSERINPUTSTATE"
+></A
+>enum xmlParserInputState</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>typedef enum {
+    XML_PARSER_EOF = -1,	/* nothing is to be parsed */
+    XML_PARSER_START = 0,	/* nothing has been parsed */
+    XML_PARSER_MISC,		/* Misc* before int subset */
+    XML_PARSER_PI,		/* Within a processing instruction */
+    XML_PARSER_DTD,		/* within some DTD content */
+    XML_PARSER_PROLOG,		/* Misc* after internal subset */
+    XML_PARSER_COMMENT,		/* within a comment */
+    XML_PARSER_START_TAG,	/* within a start tag */
+    XML_PARSER_CONTENT,		/* within the content */
+    XML_PARSER_CDATA_SECTION,	/* within a CDATA section */
+    XML_PARSER_END_TAG,		/* within a closing tag */
+    XML_PARSER_ENTITY_DECL,	/* within an entity declaration */
+    XML_PARSER_ENTITY_VALUE,	/* within an entity value in a decl */
+    XML_PARSER_ATTRIBUTE_VALUE,	/* within an attribute value */
+    XML_PARSER_SYSTEM_LITERAL,	/* within a SYSTEM value */
+    XML_PARSER_EPILOG, 		/* the Misc* after the last end tag */
+    XML_PARSER_IGNORE,		/* within an IGNORED section */
+    XML_PARSER_PUBLIC_LITERAL 	/* within a PUBLIC value */
+} xmlParserInputState;</PRE
+></TD
+></TR
+></TABLE
+><P
+>The parser is now working also as a state based parser.
+The recursive one use the state info for entities processing.</P
+><P
+></P
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN378"
+></A
+><H3
+><A
+NAME="XML-DETECT-IDS-CAPS"
+></A
+>XML_DETECT_IDS</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>#define XML_DETECT_IDS		2</PRE
+></TD
+></TR
+></TABLE
+><P
+>Bit in the loadsubset context field to tell to do ID/REFs lookups.
+Use it to initialize xmlLoadExtDtdDefaultValue.</P
+><P
+></P
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN384"
+></A
+><H3
+><A
+NAME="XML-COMPLETE-ATTRS-CAPS"
+></A
+>XML_COMPLETE_ATTRS</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>#define XML_COMPLETE_ATTRS	4</PRE
+></TD
+></TR
+></TABLE
+><P
+>Bit in the loadsubset context field to tell to do complete the
+elements attributes lists with the ones defaulted from the DTDs.
+Use it to initialize xmlLoadExtDtdDefaultValue.</P
+><P
+></P
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN390"
+></A
+><H3
+><A
+NAME="XMLPARSERCTXT"
+></A
+>struct xmlParserCtxt</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>struct xmlParserCtxt {
+    struct _xmlSAXHandler *sax;       /* The SAX handler */
+    void            *userData;        /* For SAX interface only, used by DOM build */
+    xmlDocPtr           myDoc;        /* the document being built */
+    int            wellFormed;        /* is the document well formed */
+    int       replaceEntities;        /* shall we replace entities ? */
+    const xmlChar    *version;        /* the XML version string */
+    const xmlChar   *encoding;        /* the declared encoding, if any */
+    int            standalone;        /* standalone document */
+    int                  html;        /* an HTML(1)/Docbook(2) document */
+
+    /* Input stream stack */
+    xmlParserInputPtr  input;         /* Current input stream */
+    int                inputNr;       /* Number of current input streams */
+    int                inputMax;      /* Max number of input streams */
+    xmlParserInputPtr *inputTab;      /* stack of inputs */
+
+    /* Node analysis stack only used for DOM building */
+    xmlNodePtr         node;          /* Current parsed Node */
+    int                nodeNr;        /* Depth of the parsing stack */
+    int                nodeMax;       /* Max depth of the parsing stack */
+    xmlNodePtr        *nodeTab;       /* array of nodes */
+
+    int record_info;                  /* Whether node info should be kept */
+    xmlParserNodeInfoSeq node_seq;    /* info about each node parsed */
+
+    int errNo;                        /* error code */
+
+    int     hasExternalSubset;        /* reference and external subset */
+    int             hasPErefs;        /* the internal subset has PE refs */
+    int              external;        /* are we parsing an external entity */
+
+    int                 valid;        /* is the document valid */
+    int              validate;        /* shall we try to validate ? */
+    xmlValidCtxt        vctxt;        /* The validity context */
+
+    xmlParserInputState instate;      /* current type of input */
+    int                 token;        /* next char look-ahead */    
+
+    char           *directory;        /* the data directory */
+
+    /* Node name stack */
+    xmlChar           *name;          /* Current parsed Node */
+    int                nameNr;        /* Depth of the parsing stack */
+    int                nameMax;       /* Max depth of the parsing stack */
+    xmlChar *         *nameTab;       /* array of nodes */
+
+    long               nbChars;       /* number of xmlChar processed */
+    long            checkIndex;       /* used by progressive parsing lookup */
+    int             keepBlanks;       /* ugly but ... */
+    int             disableSAX;       /* SAX callbacks are disabled */
+    int               inSubset;       /* Parsing is in int 1/ext 2 subset */
+    xmlChar *          intSubName;    /* name of subset */
+    xmlChar *          extSubURI;     /* URI of external subset */
+    xmlChar *          extSubSystem;  /* SYSTEM ID of external subset */
+
+    /* xml:space values */
+    int *              space;         /* Should the parser preserve spaces */
+    int                spaceNr;       /* Depth of the parsing stack */
+    int                spaceMax;      /* Max depth of the parsing stack */
+    int *              spaceTab;      /* array of space infos */
+
+    int                depth;         /* to prevent entity substitution loops */
+    xmlParserInputPtr  entity;        /* used to check entities boundaries */
+    int                charset;       /* encoding of the in-memory content
+				         actually an xmlCharEncoding */
+    int                nodelen;       /* Those two fields are there to */
+    int                nodemem;       /* Speed up large node parsing */
+    int                pedantic;      /* signal pedantic warnings */
+    void              *_private;      /* For user data, libxml won't touch it */
+
+    int                loadsubset;    /* should the external subset be loaded */
+    int                linenumbers;   /* set line number in element content */
+    void              *catalogs;       /* document's own catalog */
+};</PRE
+></TD
+></TR
+></TABLE
+><P
+>The parser context.
+NOTE This doesn't completely define the parser state, the (current ?)
+design of the parser uses recursive function calls since this allow
+and easy mapping from the production rules of the specification
+to the actual code. The drawback is that the actual function call
+also reflect the parser state. However most of the parsing routines
+takes as the only argument the parser context pointer, so migrating
+to a state based parser for progressive parsing shouldn't be too hard.</P
+><P
+></P
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN396"
+></A
+><H3
+><A
+NAME="XMLSAXLOCATOR"
+></A
+>struct xmlSAXLocator</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>struct xmlSAXLocator {
+    const xmlChar *(*getPublicId)(void *ctx);
+    const xmlChar *(*getSystemId)(void *ctx);
+    int (*getLineNumber)(void *ctx);
+    int (*getColumnNumber)(void *ctx);
+};</PRE
+></TD
+></TR
+></TABLE
+><P
+>A SAX Locator.</P
+><P
+></P
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN402"
+></A
+><H3
+><A
+NAME="RESOLVEENTITYSAXFUNC"
+></A
+>resolveEntitySAXFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLPARSERINPUTPTR"
+>xmlParserInputPtr</A
+> (*resolveEntitySAXFunc)   (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *publicId,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *systemId);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Callback:
+The entity loader, to control the loading of external entities,
+the application can either:
+- override this <A
+HREF="libxml-sax.html#RESOLVEENTITY"
+>resolveEntity</A
+>() callback in the SAX block
+- or better use the <A
+HREF="libxml-parser.html#XMLSETEXTERNALENTITYLOADER"
+>xmlSetExternalEntityLoader</A
+>() function to
+set up it's own entity resolution routine</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN413"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctx</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the user data (XML parser context)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>publicId</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> The public ID of the entity</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>systemId</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> The system ID of the entity</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the xmlParserInputPtr if inlined or NULL for DOM behaviour.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN434"
+></A
+><H3
+><A
+NAME="INTERNALSUBSETSAXFUNC"
+></A
+>internalSubsetSAXFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        (*internalSubsetSAXFunc)        (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *name,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *ExternalID,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *SystemID);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Callback on internal subset declaration.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN443"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctx</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the user data (XML parser context)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>name</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the root element name</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ExternalID</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the external ID</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>SystemID</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the SYSTEM ID (e.g. filename or URL)</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN464"
+></A
+><H3
+><A
+NAME="EXTERNALSUBSETSAXFUNC"
+></A
+>externalSubsetSAXFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        (*externalSubsetSAXFunc)        (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *name,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *ExternalID,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *SystemID);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Callback on external subset declaration.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN473"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctx</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the user data (XML parser context)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>name</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the root element name</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ExternalID</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the external ID</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>SystemID</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the SYSTEM ID (e.g. filename or URL)</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN494"
+></A
+><H3
+><A
+NAME="GETENTITYSAXFUNC"
+></A
+>getEntitySAXFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLENTITYPTR"
+>xmlEntityPtr</A
+> (*getEntitySAXFunc)            (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *name);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Get an entity by name.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN502"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctx</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the user data (XML parser context)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>name</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> The entity name</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the xmlEntityPtr if found.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN519"
+></A
+><H3
+><A
+NAME="GETPARAMETERENTITYSAXFUNC"
+></A
+>getParameterEntitySAXFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLENTITYPTR"
+>xmlEntityPtr</A
+> (*getParameterEntitySAXFunc)   (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *name);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Get a parameter entity by name.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN527"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctx</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the user data (XML parser context)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>name</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> The entity name</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the xmlEntityPtr if found.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN544"
+></A
+><H3
+><A
+NAME="ENTITYDECLSAXFUNC"
+></A
+>entityDeclSAXFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        (*entityDeclSAXFunc)            (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *name,
+                                             int type,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *publicId,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *systemId,
+                                             <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *content);</PRE
+></TD
+></TR
+></TABLE
+><P
+>An entity definition has been parsed.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN554"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctx</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the user data (XML parser context)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>name</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the entity name </TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>type</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the entity type </TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>publicId</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> The public ID of the entity</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>systemId</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> The system ID of the entity</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>content</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> the entity value (without processing).</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN583"
+></A
+><H3
+><A
+NAME="NOTATIONDECLSAXFUNC"
+></A
+>notationDeclSAXFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        (*notationDeclSAXFunc)          (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *name,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *publicId,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *systemId);</PRE
+></TD
+></TR
+></TABLE
+><P
+>What to do when a notation declaration has been parsed.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN592"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctx</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the user data (XML parser context)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>name</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> The name of the notation</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>publicId</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> The public ID of the entity</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>systemId</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> The system ID of the entity</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN613"
+></A
+><H3
+><A
+NAME="ATTRIBUTEDECLSAXFUNC"
+></A
+>attributeDeclSAXFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        (*attributeDeclSAXFunc)         (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *elem,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *fullname,
+                                             int type,
+                                             int def,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *defaultValue,
+                                             <A
+HREF="libxml-tree.html#XMLENUMERATIONPTR"
+>xmlEnumerationPtr</A
+> tree);</PRE
+></TD
+></TR
+></TABLE
+><P
+>An attribute definition has been parsed.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN623"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctx</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the user data (XML parser context)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>elem</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the name of the element</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>fullname</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the attribute name </TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>type</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the attribute type </TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>def</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the type of default value</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>defaultValue</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> the attribute default value</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>tree</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the tree of enumerated value set</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN656"
+></A
+><H3
+><A
+NAME="ELEMENTDECLSAXFUNC"
+></A
+>elementDeclSAXFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        (*elementDeclSAXFunc)           (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *name,
+                                             int type,
+                                             <A
+HREF="libxml-tree.html#XMLELEMENTCONTENTPTR"
+>xmlElementContentPtr</A
+> content);</PRE
+></TD
+></TR
+></TABLE
+><P
+>An element definition has been parsed.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN664"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctx</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the user data (XML parser context)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>name</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the element name </TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>type</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the element type </TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>content</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> the element value tree</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN685"
+></A
+><H3
+><A
+NAME="UNPARSEDENTITYDECLSAXFUNC"
+></A
+>unparsedEntityDeclSAXFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        (*unparsedEntityDeclSAXFunc)    (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *name,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *publicId,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *systemId,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *notationName);</PRE
+></TD
+></TR
+></TABLE
+><P
+>What to do when an unparsed entity declaration is parsed.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN695"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctx</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the user data (XML parser context)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>name</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> The name of the entity</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>publicId</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> The public ID of the entity</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>systemId</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> The system ID of the entity</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>notationName</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> the name of the notation</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN720"
+></A
+><H3
+><A
+NAME="SETDOCUMENTLOCATORSAXFUNC"
+></A
+>setDocumentLocatorSAXFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        (*setDocumentLocatorSAXFunc)    (void *ctx,
+                                             <A
+HREF="libxml-tree.html#XMLSAXLOCATORPTR"
+>xmlSAXLocatorPtr</A
+> loc);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Receive the document locator at startup, actually xmlDefaultSAXLocator.
+Everything is available on the context, so this is useless in our case.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN727"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctx</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the user data (XML parser context)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>loc</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> A SAX Locator</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN740"
+></A
+><H3
+><A
+NAME="STARTDOCUMENTSAXFUNC"
+></A
+>startDocumentSAXFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        (*startDocumentSAXFunc)         (void *ctx);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Called when the document start being processed.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN746"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctx</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the user data (XML parser context)</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN755"
+></A
+><H3
+><A
+NAME="ENDDOCUMENTSAXFUNC"
+></A
+>endDocumentSAXFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        (*endDocumentSAXFunc)           (void *ctx);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Called when the document end has been detected.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN761"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctx</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the user data (XML parser context)</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN770"
+></A
+><H3
+><A
+NAME="STARTELEMENTSAXFUNC"
+></A
+>startElementSAXFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        (*startElementSAXFunc)          (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *name,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> **atts);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Called when an opening tag has been processed.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN778"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctx</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the user data (XML parser context)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>name</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  The element name, including namespace prefix</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>atts</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  An array of name/value attributes pairs, NULL terminated</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN795"
+></A
+><H3
+><A
+NAME="ENDELEMENTSAXFUNC"
+></A
+>endElementSAXFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        (*endElementSAXFunc)            (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *name);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Called when the end of an element has been detected.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN802"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctx</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the user data (XML parser context)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>name</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  The element name</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN815"
+></A
+><H3
+><A
+NAME="ATTRIBUTESAXFUNC"
+></A
+>attributeSAXFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        (*attributeSAXFunc)             (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *name,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *value);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Handle an attribute that has been read by the parser.
+The default handling is to convert the attribute into an
+DOM subtree and past it in a new xmlAttr element added to
+the element.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN823"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctx</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the user data (XML parser context)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>name</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  The attribute name, including namespace prefix</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>value</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  The attribute value</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN840"
+></A
+><H3
+><A
+NAME="REFERENCESAXFUNC"
+></A
+>referenceSAXFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        (*referenceSAXFunc)             (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *name);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Called when an entity reference is detected.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN847"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctx</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the user data (XML parser context)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>name</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  The entity name</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN860"
+></A
+><H3
+><A
+NAME="CHARACTERSSAXFUNC"
+></A
+>charactersSAXFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        (*charactersSAXFunc)            (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *ch,
+                                             int len);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Receiving some chars from the parser.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN867"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctx</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the user data (XML parser context)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ch</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a xmlChar string</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>len</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> the number of xmlChar</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN884"
+></A
+><H3
+><A
+NAME="IGNORABLEWHITESPACESAXFUNC"
+></A
+>ignorableWhitespaceSAXFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        (*ignorableWhitespaceSAXFunc)   (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *ch,
+                                             int len);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Receiving some ignorable whitespaces from the parser.
+UNUSED: by default the DOM building will use characters.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN891"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctx</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the user data (XML parser context)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ch</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a xmlChar string</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>len</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> the number of xmlChar</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN908"
+></A
+><H3
+><A
+NAME="PROCESSINGINSTRUCTIONSAXFUNC"
+></A
+>processingInstructionSAXFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        (*processingInstructionSAXFunc) (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *target,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *data);</PRE
+></TD
+></TR
+></TABLE
+><P
+>A processing instruction has been parsed.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN916"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctx</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the user data (XML parser context)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>target</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the target name</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>data</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> the PI data's</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN933"
+></A
+><H3
+><A
+NAME="COMMENTSAXFUNC"
+></A
+>commentSAXFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        (*commentSAXFunc)               (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *value);</PRE
+></TD
+></TR
+></TABLE
+><P
+>A comment has been parsed.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN940"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctx</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the user data (XML parser context)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>value</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the comment content</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN953"
+></A
+><H3
+><A
+NAME="CDATABLOCKSAXFUNC"
+></A
+>cdataBlockSAXFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        (*cdataBlockSAXFunc)            (void *ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *value,
+                                             int len);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Called when a pcdata block has been parsed.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN960"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctx</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the user data (XML parser context)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>value</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  The pcdata content</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>len</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the block length</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN977"
+></A
+><H3
+><A
+NAME="WARNINGSAXFUNC"
+></A
+>warningSAXFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        (*warningSAXFunc)               (void *ctx,
+                                             const char *msg,
+                                             ...);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Display and format a warning messages, callback.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN983"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctx</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an XML parser context</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>msg</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the message to display/transmit</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>...</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  extra parameters for the message display</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1000"
+></A
+><H3
+><A
+NAME="ERRORSAXFUNC"
+></A
+>errorSAXFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        (*errorSAXFunc)                 (void *ctx,
+                                             const char *msg,
+                                             ...);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Display and format an error messages, callback.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1006"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctx</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an XML parser context</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>msg</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the message to display/transmit</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>...</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  extra parameters for the message display</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1023"
+></A
+><H3
+><A
+NAME="FATALERRORSAXFUNC"
+></A
+>fatalErrorSAXFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        (*fatalErrorSAXFunc)            (void *ctx,
+                                             const char *msg,
+                                             ...);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Display and format fatal error messages, callback.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1029"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctx</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an XML parser context</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>msg</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the message to display/transmit</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>...</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  extra parameters for the message display</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1046"
+></A
+><H3
+><A
+NAME="ISSTANDALONESAXFUNC"
+></A
+>isStandaloneSAXFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         (*isStandaloneSAXFunc)          (void *ctx);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Is this document tagged standalone?</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1052"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctx</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the user data (XML parser context)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>1 if true</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1065"
+></A
+><H3
+><A
+NAME="HASINTERNALSUBSETSAXFUNC"
+></A
+>hasInternalSubsetSAXFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         (*hasInternalSubsetSAXFunc)     (void *ctx);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Does this document has an internal subset.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1071"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctx</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the user data (XML parser context)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>1 if true</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1084"
+></A
+><H3
+><A
+NAME="HASEXTERNALSUBSETSAXFUNC"
+></A
+>hasExternalSubsetSAXFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         (*hasExternalSubsetSAXFunc)     (void *ctx);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Does this document has an external subset?</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1090"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctx</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the user data (XML parser context)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>1 if true</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1103"
+></A
+><H3
+><A
+NAME="XMLSAXHANDLER"
+></A
+>struct xmlSAXHandler</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>struct xmlSAXHandler {
+    internalSubsetSAXFunc internalSubset;
+    isStandaloneSAXFunc isStandalone;
+    hasInternalSubsetSAXFunc hasInternalSubset;
+    hasExternalSubsetSAXFunc hasExternalSubset;
+    resolveEntitySAXFunc resolveEntity;
+    getEntitySAXFunc getEntity;
+    entityDeclSAXFunc entityDecl;
+    notationDeclSAXFunc notationDecl;
+    attributeDeclSAXFunc attributeDecl;
+    elementDeclSAXFunc elementDecl;
+    unparsedEntityDeclSAXFunc unparsedEntityDecl;
+    setDocumentLocatorSAXFunc setDocumentLocator;
+    startDocumentSAXFunc startDocument;
+    endDocumentSAXFunc endDocument;
+    startElementSAXFunc startElement;
+    endElementSAXFunc endElement;
+    referenceSAXFunc reference;
+    charactersSAXFunc characters;
+    ignorableWhitespaceSAXFunc ignorableWhitespace;
+    processingInstructionSAXFunc processingInstruction;
+    commentSAXFunc comment;
+    warningSAXFunc warning;
+    errorSAXFunc error;
+    fatalErrorSAXFunc fatalError;
+    getParameterEntitySAXFunc getParameterEntity;
+    cdataBlockSAXFunc cdataBlock;
+    externalSubsetSAXFunc externalSubset;
+    int initialized;
+};</PRE
+></TD
+></TR
+></TABLE
+><P
+>A SAX handler is bunch of callbacks called by the parser when processing
+of the input generate data or structure informations.</P
+><P
+></P
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1109"
+></A
+><H3
+><A
+NAME="XMLEXTERNALENTITYLOADER"
+></A
+>xmlExternalEntityLoader ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLPARSERINPUTPTR"
+>xmlParserInputPtr</A
+> (*xmlExternalEntityLoader)
+                                            (const char *URL,
+                                             const char *ID,
+                                             <A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> context);</PRE
+></TD
+></TR
+></TABLE
+><P
+>External entity loaders types.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1117"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>URL</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> The System ID of the resource requested</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ID</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> The Public ID of the resource requested</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>context</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> the XML parser context </TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the entity input parser.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1138"
+></A
+><H3
+><A
+NAME="XMLSUBSTITUTEENTITIESDEFAULTVALUE"
+></A
+>xmlSubstituteEntitiesDefaultValue</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>#define     xmlSubstituteEntitiesDefaultValue</PRE
+></TD
+></TR
+></TABLE
+><P
+>Global variable controlling the entity substitution default behavior.</P
+><P
+></P
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1144"
+></A
+><H3
+><A
+NAME="XMLINITPARSER"
+></A
+>xmlInitParser ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        xmlInitParser                   (void);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Initialization function for the XML parser.
+This is not reentrant. Call once before processing in case of
+use in multithreaded programs.</P
+><P
+></P
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1150"
+></A
+><H3
+><A
+NAME="XMLCLEANUPPARSER"
+></A
+>xmlCleanupParser ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        xmlCleanupParser                (void);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Cleanup function for the XML parser. It tries to reclaim all
+parsing related global memory allocated for the parser processing.
+It doesn't deallocate any document related memory. Calling this
+function should not prevent reusing the parser.</P
+><P
+></P
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1156"
+></A
+><H3
+><A
+NAME="XMLPARSERINPUTREAD"
+></A
+>xmlParserInputRead ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlParserInputRead              (<A
+HREF="libxml-tree.html#XMLPARSERINPUTPTR"
+>xmlParserInputPtr</A
+> in,
+                                             int len);</PRE
+></TD
+></TR
+></TABLE
+><P
+>This function refresh the input for the parser. It doesn't try to
+preserve pointers to the input buffer, and discard already read data</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1163"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>in</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an XML parser input</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>len</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an indicative size for the lookahead</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the number of xmlChars read, or -1 in case of error, 0 indicate the
+end of this entity</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1180"
+></A
+><H3
+><A
+NAME="XMLPARSERINPUTGROW"
+></A
+>xmlParserInputGrow ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlParserInputGrow              (<A
+HREF="libxml-tree.html#XMLPARSERINPUTPTR"
+>xmlParserInputPtr</A
+> in,
+                                             int len);</PRE
+></TD
+></TR
+></TABLE
+><P
+>This function increase the input for the parser. It tries to
+preserve pointers to the input buffer, and keep already read data</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1187"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>in</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an XML parser input</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>len</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an indicative size for the lookahead</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the number of xmlChars read, or -1 in case of error, 0 indicate the
+end of this entity</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1204"
+></A
+><H3
+><A
+NAME="XMLSTRDUP"
+></A
+>xmlStrdup ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+>*    xmlStrdup                       (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *cur);</PRE
+></TD
+></TR
+></TABLE
+><P
+>a strdup for array of xmlChar's. Since they are supposed to be
+encoded in UTF-8 or an encoding with 8bit based chars, we assume
+a termination mark of '0'.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1212"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>cur</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the input xmlChar *</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>a new xmlChar * or NULL</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1225"
+></A
+><H3
+><A
+NAME="XMLSTRNDUP"
+></A
+>xmlStrndup ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+>*    xmlStrndup                      (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *cur,
+                                             int len);</PRE
+></TD
+></TR
+></TABLE
+><P
+>a strndup for array of xmlChar's</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1233"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>cur</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the input xmlChar *</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>len</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the len of <TT
+CLASS="PARAMETER"
+><I
+>cur</I
+></TT
+></TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>a new xmlChar * or NULL</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1251"
+></A
+><H3
+><A
+NAME="XMLCHARSTRNDUP"
+></A
+>xmlCharStrndup ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+>*    xmlCharStrndup                  (const char *cur,
+                                             int len);</PRE
+></TD
+></TR
+></TABLE
+><P
+>a strndup for char's to xmlChar's</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1258"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>cur</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the input char *</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>len</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the len of <TT
+CLASS="PARAMETER"
+><I
+>cur</I
+></TT
+></TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>a new xmlChar * or NULL</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1276"
+></A
+><H3
+><A
+NAME="XMLCHARSTRDUP"
+></A
+>xmlCharStrdup ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+>*    xmlCharStrdup                   (const char *cur);</PRE
+></TD
+></TR
+></TABLE
+><P
+>a strdup for char's to xmlChar's</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1283"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>cur</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the input char *</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>a new xmlChar * or NULL</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1296"
+></A
+><H3
+><A
+NAME="XMLSTRSUB"
+></A
+>xmlStrsub ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+>*    xmlStrsub                       (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str,
+                                             int start,
+                                             int len);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Extract a substring of a given string</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1304"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>str</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the xmlChar * array (haystack)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>start</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the index of the first char (zero based)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>len</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the length of the substring</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the xmlChar * for the first occurrence or NULL.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1325"
+></A
+><H3
+><A
+NAME="XMLSTRCHR"
+></A
+>xmlStrchr ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+>* xmlStrchr                    (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str,
+                                             <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> val);</PRE
+></TD
+></TR
+></TABLE
+><P
+>a strchr for xmlChar's</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1334"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>str</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the xmlChar * array</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>val</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the xmlChar to search</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the xmlChar * for the first occurrence or NULL.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1351"
+></A
+><H3
+><A
+NAME="XMLSTRSTR"
+></A
+>xmlStrstr ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+>* xmlStrstr                    (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *val);</PRE
+></TD
+></TR
+></TABLE
+><P
+>a strstr for xmlChar's</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1360"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>str</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the xmlChar * array (haystack)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>val</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the xmlChar to search (needle)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the xmlChar * for the first occurrence or NULL.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1377"
+></A
+><H3
+><A
+NAME="XMLSTRCASESTR"
+></A
+>xmlStrcasestr ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+>* xmlStrcasestr                (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str,
+                                             <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *val);</PRE
+></TD
+></TR
+></TABLE
+><P
+>a case-ignoring strstr for xmlChar's</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1386"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>str</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the xmlChar * array (haystack)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>val</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the xmlChar to search (needle)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the xmlChar * for the first occurrence or NULL.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1403"
+></A
+><H3
+><A
+NAME="XMLSTRCMP"
+></A
+>xmlStrcmp ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlStrcmp                       (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str1,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str2);</PRE
+></TD
+></TR
+></TABLE
+><P
+>a strcmp for xmlChar's</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1411"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>str1</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the first xmlChar *</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>str2</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the second xmlChar *</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the integer result of the comparison</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1428"
+></A
+><H3
+><A
+NAME="XMLSTRNCMP"
+></A
+>xmlStrncmp ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlStrncmp                      (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str1,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str2,
+                                             int len);</PRE
+></TD
+></TR
+></TABLE
+><P
+>a strncmp for xmlChar's</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1436"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>str1</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the first xmlChar *</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>str2</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the second xmlChar *</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>len</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the max comparison length</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the integer result of the comparison</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1457"
+></A
+><H3
+><A
+NAME="XMLSTRCASECMP"
+></A
+>xmlStrcasecmp ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlStrcasecmp                   (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str1,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str2);</PRE
+></TD
+></TR
+></TABLE
+><P
+>a strcasecmp for xmlChar's</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1465"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>str1</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the first xmlChar *</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>str2</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the second xmlChar *</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the integer result of the comparison</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1482"
+></A
+><H3
+><A
+NAME="XMLSTRNCASECMP"
+></A
+>xmlStrncasecmp ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlStrncasecmp                  (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str1,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str2,
+                                             int len);</PRE
+></TD
+></TR
+></TABLE
+><P
+>a strncasecmp for xmlChar's</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1490"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>str1</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the first xmlChar *</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>str2</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the second xmlChar *</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>len</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the max comparison length</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the integer result of the comparison</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1511"
+></A
+><H3
+><A
+NAME="XMLSTREQUAL"
+></A
+>xmlStrEqual ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlStrEqual                     (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str1,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str2);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Check if both string are equal of have same content
+Should be a bit more readable and faster than <A
+HREF="libxml-parser.html#XMLSTREQUAL"
+>xmlStrEqual</A
+>()</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1520"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>str1</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the first xmlChar *</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>str2</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the second xmlChar *</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>1 if they are equal, 0 if they are different</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1537"
+></A
+><H3
+><A
+NAME="XMLSTRLEN"
+></A
+>xmlStrlen ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlStrlen                       (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *str);</PRE
+></TD
+></TR
+></TABLE
+><P
+>length of a xmlChar's string</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1544"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>str</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the xmlChar * array</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the number of xmlChar contained in the ARRAY.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1557"
+></A
+><H3
+><A
+NAME="XMLSTRCAT"
+></A
+>xmlStrcat ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+>*    xmlStrcat                       (<A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *cur,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *add);</PRE
+></TD
+></TR
+></TABLE
+><P
+>a strcat for array of xmlChar's. Since they are supposed to be
+encoded in UTF-8 or an encoding with 8bit based chars, we assume
+a termination mark of '0'.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1566"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>cur</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the original xmlChar * array</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>add</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the xmlChar * array added</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>a new xmlChar * containing the concatenated string.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1583"
+></A
+><H3
+><A
+NAME="XMLSTRNCAT"
+></A
+>xmlStrncat ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+>*    xmlStrncat                      (<A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *cur,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *add,
+                                             int len);</PRE
+></TD
+></TR
+></TABLE
+><P
+>a strncat for array of xmlChar's, it will extend <TT
+CLASS="PARAMETER"
+><I
+>cur</I
+></TT
+> with the len
+first bytes of <TT
+CLASS="PARAMETER"
+><I
+>add</I
+></TT
+>.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1594"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>cur</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the original xmlChar * array</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>add</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the xmlChar * array added</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>len</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the length of <TT
+CLASS="PARAMETER"
+><I
+>add</I
+></TT
+></TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>a new xmlChar *, the original <TT
+CLASS="PARAMETER"
+><I
+>cur</I
+></TT
+> is reallocated if needed
+and should not be freed</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1617"
+></A
+><H3
+><A
+NAME="XMLPARSEDOC"
+></A
+>xmlParseDoc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLDOCPTR"
+>xmlDocPtr</A
+>   xmlParseDoc                     (<A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *cur);</PRE
+></TD
+></TR
+></TABLE
+><P
+>parse an XML in-memory document and build a tree.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1625"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>cur</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a pointer to an array of xmlChar</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the resulting document tree</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1638"
+></A
+><H3
+><A
+NAME="XMLPARSEMEMORY"
+></A
+>xmlParseMemory ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLDOCPTR"
+>xmlDocPtr</A
+>   xmlParseMemory                  (const char *buffer,
+                                             int size);</PRE
+></TD
+></TR
+></TABLE
+><P
+>parse an XML in-memory block and build a tree.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1645"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>buffer</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an pointer to a char array</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>size</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the size of the array</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the resulting document tree</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1662"
+></A
+><H3
+><A
+NAME="XMLPARSEFILE"
+></A
+>xmlParseFile ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLDOCPTR"
+>xmlDocPtr</A
+>   xmlParseFile                    (const char *filename);</PRE
+></TD
+></TR
+></TABLE
+><P
+>parse an XML file and build a tree. Automatic support for ZLIB/Compress
+compressed document is provided by default if found at compile-time.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1669"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>filename</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the filename</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the resulting document tree if the file was wellformed,
+NULL otherwise.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1682"
+></A
+><H3
+><A
+NAME="XMLSUBSTITUTEENTITIESDEFAULT"
+></A
+>xmlSubstituteEntitiesDefault ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlSubstituteEntitiesDefault    (int val);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Set and return the previous value for default entity support.
+Initially the parser always keep entity references instead of substituting
+entity values in the output. This function has to be used to change the
+default parser behavior
+SAX::<GTKDOCLINK
+HREF="SUBSTITUTEENTITIES"
+>substituteEntities</GTKDOCLINK
+>() has to be used for changing that on a file by
+file basis.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1689"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>val</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  int 0 or 1 </TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the last value for 0 for no substitution, 1 for substitution.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1702"
+></A
+><H3
+><A
+NAME="XMLKEEPBLANKSDEFAULT"
+></A
+>xmlKeepBlanksDefault ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlKeepBlanksDefault            (int val);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Set and return the previous value for default blanks text nodes support.
+The 1.x version of the parser used an heuristic to try to detect
+ignorable white spaces. As a result the SAX callback was generating
+<A
+HREF="libxml-sax.html#IGNORABLEWHITESPACE"
+>ignorableWhitespace</A
+>() callbacks instead of <A
+HREF="libxml-sax.html#CHARACTERS"
+>characters</A
+>() one, and when
+using the DOM output text nodes containing those blanks were not generated.
+The 2.x and later version will switch to the XML standard way and
+<A
+HREF="libxml-sax.html#IGNORABLEWHITESPACE"
+>ignorableWhitespace</A
+>() are only generated when running the parser in
+validating mode and when the current element doesn't allow CDATA or
+mixed content.
+This function is provided as a way to force the standard behavior 
+on 1.X libs and to switch back to the old mode for compatibility when
+running 1.X client code on 2.X . Upgrade of 1.X code should be done
+by using <A
+HREF="libxml-tree.html#XMLISBLANKNODE"
+>xmlIsBlankNode</A
+>() commodity function to detect the "empty"
+nodes generated.
+This value also affect autogeneration of indentation when saving code
+if blanks sections are kept, indentation is not generated.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1712"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>val</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  int 0 or 1 </TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the last value for 0 for no substitution, 1 for substitution.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1725"
+></A
+><H3
+><A
+NAME="XMLSTOPPARSER"
+></A
+>xmlStopParser ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        xmlStopParser                   (<A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> ctxt);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Blocks further parser processing</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1732"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctxt</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an XML parser context</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1741"
+></A
+><H3
+><A
+NAME="XMLPEDANTICPARSERDEFAULT"
+></A
+>xmlPedanticParserDefault ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlPedanticParserDefault        (int val);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Set and return the previous value for enabling pedantic warnings.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1747"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>val</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  int 0 or 1 </TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the last value for 0 for no substitution, 1 for substitution.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1760"
+></A
+><H3
+><A
+NAME="XMLLINENUMBERSDEFAULT"
+></A
+>xmlLineNumbersDefault ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlLineNumbersDefault           (int val);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Set and return the previous value for enabling line numbers in elements
+contents. This may break on old application and is turned off by default.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1766"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>val</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  int 0 or 1 </TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the last value for 0 for no substitution, 1 for substitution.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1779"
+></A
+><H3
+><A
+NAME="XMLRECOVERDOC"
+></A
+>xmlRecoverDoc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLDOCPTR"
+>xmlDocPtr</A
+>   xmlRecoverDoc                   (<A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *cur);</PRE
+></TD
+></TR
+></TABLE
+><P
+>parse an XML in-memory document and build a tree.
+In the case the document is not Well Formed, a tree is built anyway</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1787"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>cur</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a pointer to an array of xmlChar</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the resulting document tree</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1800"
+></A
+><H3
+><A
+NAME="XMLRECOVERMEMORY"
+></A
+>xmlRecoverMemory ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLDOCPTR"
+>xmlDocPtr</A
+>   xmlRecoverMemory                (const char *buffer,
+                                             int size);</PRE
+></TD
+></TR
+></TABLE
+><P
+>parse an XML in-memory block and build a tree.
+In the case the document is not Well Formed, a tree is built anyway</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1807"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>buffer</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an pointer to a char array</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>size</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the size of the array</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the resulting document tree</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1824"
+></A
+><H3
+><A
+NAME="XMLRECOVERFILE"
+></A
+>xmlRecoverFile ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLDOCPTR"
+>xmlDocPtr</A
+>   xmlRecoverFile                  (const char *filename);</PRE
+></TD
+></TR
+></TABLE
+><P
+>parse an XML file and build a tree. Automatic support for ZLIB/Compress
+compressed document is provided by default if found at compile-time.
+In the case the document is not Well Formed, a tree is built anyway</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1831"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>filename</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the filename</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the resulting document tree</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1844"
+></A
+><H3
+><A
+NAME="XMLPARSEDOCUMENT"
+></A
+>xmlParseDocument ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlParseDocument                (<A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> ctxt);</PRE
+></TD
+></TR
+></TABLE
+><P
+>parse an XML document (and build a tree if using the standard SAX
+interface).</P
+><P
+>[1] document ::= prolog element Misc*</P
+><P
+>[22] prolog ::= XMLDecl? Misc* (doctypedecl Misc*)?</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1853"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctxt</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an XML parser context</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>0, -1 in case of error. the parser context is augmented
+as a result of the parsing.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1866"
+></A
+><H3
+><A
+NAME="XMLPARSEEXTPARSEDENT"
+></A
+>xmlParseExtParsedEnt ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlParseExtParsedEnt            (<A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> ctxt);</PRE
+></TD
+></TR
+></TABLE
+><P
+>parse a general parsed entity
+An external general parsed entity is well-formed if it matches the
+production labeled extParsedEnt.</P
+><P
+>[78] extParsedEnt ::= TextDecl? content</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1874"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctxt</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an XML parser context</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>0, -1 in case of error. the parser context is augmented
+as a result of the parsing.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1887"
+></A
+><H3
+><A
+NAME="XMLSAXPARSEDOC"
+></A
+>xmlSAXParseDoc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLDOCPTR"
+>xmlDocPtr</A
+>   xmlSAXParseDoc                  (<A
+HREF="libxml-tree.html#XMLSAXHANDLERPTR"
+>xmlSAXHandlerPtr</A
+> sax,
+                                             <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *cur,
+                                             int recovery);</PRE
+></TD
+></TR
+></TABLE
+><P
+>parse an XML in-memory document and build a tree.
+It use the given SAX function block to handle the parsing callback.
+If sax is NULL, fallback to the default DOM tree building routines.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1896"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>sax</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the SAX handler block</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>cur</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a pointer to an array of xmlChar</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>recovery</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  work in recovery mode, i.e. tries to read no Well Formed
+documents</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the resulting document tree</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1917"
+></A
+><H3
+><A
+NAME="XMLSAXUSERPARSEFILE"
+></A
+>xmlSAXUserParseFile ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlSAXUserParseFile             (<A
+HREF="libxml-tree.html#XMLSAXHANDLERPTR"
+>xmlSAXHandlerPtr</A
+> sax,
+                                             void *user_data,
+                                             const char *filename);</PRE
+></TD
+></TR
+></TABLE
+><P
+>parse an XML file and call the given SAX handler routines.
+Automatic support for ZLIB/Compress compressed document is provided</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1924"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>sax</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a SAX handler</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>user_data</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  The user data returned on SAX callbacks</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>filename</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a file name</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>0 in case of success or a error number otherwise</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1945"
+></A
+><H3
+><A
+NAME="XMLSAXUSERPARSEMEMORY"
+></A
+>xmlSAXUserParseMemory ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlSAXUserParseMemory           (<A
+HREF="libxml-tree.html#XMLSAXHANDLERPTR"
+>xmlSAXHandlerPtr</A
+> sax,
+                                             void *user_data,
+                                             const char *buffer,
+                                             int size);</PRE
+></TD
+></TR
+></TABLE
+><P
+>A better SAX parsing routine.
+parse an XML in-memory buffer and call the given SAX handler routines.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1952"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>sax</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a SAX handler</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>user_data</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  The user data returned on SAX callbacks</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>buffer</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an in-memory XML document input</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>size</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the length of the XML document in bytes</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>0 in case of success or a error number otherwise</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN1977"
+></A
+><H3
+><A
+NAME="XMLSAXPARSEMEMORY"
+></A
+>xmlSAXParseMemory ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLDOCPTR"
+>xmlDocPtr</A
+>   xmlSAXParseMemory               (<A
+HREF="libxml-tree.html#XMLSAXHANDLERPTR"
+>xmlSAXHandlerPtr</A
+> sax,
+                                             const char *buffer,
+                                             int size,
+                                             int recovery);</PRE
+></TD
+></TR
+></TABLE
+><P
+>parse an XML in-memory block and use the given SAX function block
+to handle the parsing callback. If sax is NULL, fallback to the default
+DOM tree building routines.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN1985"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>sax</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the SAX handler block</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>buffer</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an pointer to a char array</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>size</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the size of the array</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>recovery</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  work in recovery mode, i.e. tries to read not Well Formed
+documents</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the resulting document tree</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2010"
+></A
+><H3
+><A
+NAME="XMLSAXPARSEFILE"
+></A
+>xmlSAXParseFile ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLDOCPTR"
+>xmlDocPtr</A
+>   xmlSAXParseFile                 (<A
+HREF="libxml-tree.html#XMLSAXHANDLERPTR"
+>xmlSAXHandlerPtr</A
+> sax,
+                                             const char *filename,
+                                             int recovery);</PRE
+></TD
+></TR
+></TABLE
+><P
+>parse an XML file and build a tree. Automatic support for ZLIB/Compress
+compressed document is provided by default if found at compile-time.
+It use the given SAX function block to handle the parsing callback.
+If sax is NULL, fallback to the default DOM tree building routines.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2018"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>sax</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the SAX handler block</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>filename</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the filename</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>recovery</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  work in recovery mode, i.e. tries to read no Well Formed
+documents</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the resulting document tree</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2039"
+></A
+><H3
+><A
+NAME="XMLSAXPARSEFILEWITHDATA"
+></A
+>xmlSAXParseFileWithData ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLDOCPTR"
+>xmlDocPtr</A
+>   xmlSAXParseFileWithData         (<A
+HREF="libxml-tree.html#XMLSAXHANDLERPTR"
+>xmlSAXHandlerPtr</A
+> sax,
+                                             const char *filename,
+                                             int recovery,
+                                             void *data);</PRE
+></TD
+></TR
+></TABLE
+><P
+>parse an XML file and build a tree. Automatic support for ZLIB/Compress
+compressed document is provided by default if found at compile-time.
+It use the given SAX function block to handle the parsing callback.
+If sax is NULL, fallback to the default DOM tree building routines.</P
+><P
+>User data (void *) is stored within the parser context in the
+context's _private member, so it is available nearly everywhere in libxml</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2048"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>sax</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the SAX handler block</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>filename</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the filename</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>recovery</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  work in recovery mode, i.e. tries to read no Well Formed
+documents</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>data</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the userdata</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the resulting document tree</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2073"
+></A
+><H3
+><A
+NAME="XMLSAXPARSEENTITY"
+></A
+>xmlSAXParseEntity ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLDOCPTR"
+>xmlDocPtr</A
+>   xmlSAXParseEntity               (<A
+HREF="libxml-tree.html#XMLSAXHANDLERPTR"
+>xmlSAXHandlerPtr</A
+> sax,
+                                             const char *filename);</PRE
+></TD
+></TR
+></TABLE
+><P
+>parse an XML external entity out of context and build a tree.
+It use the given SAX function block to handle the parsing callback.
+If sax is NULL, fallback to the default DOM tree building routines.</P
+><P
+>[78] extParsedEnt ::= TextDecl? content</P
+><P
+>This correspond to a "Well Balanced" chunk</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2083"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>sax</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the SAX handler block</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>filename</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the filename</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the resulting document tree</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2100"
+></A
+><H3
+><A
+NAME="XMLPARSEENTITY"
+></A
+>xmlParseEntity ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLDOCPTR"
+>xmlDocPtr</A
+>   xmlParseEntity                  (const char *filename);</PRE
+></TD
+></TR
+></TABLE
+><P
+>parse an XML external entity out of context and build a tree.</P
+><P
+>[78] extParsedEnt ::= TextDecl? content</P
+><P
+>This correspond to a "Well Balanced" chunk</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2109"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>filename</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the filename</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the resulting document tree</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2122"
+></A
+><H3
+><A
+NAME="XMLPARSEDTD"
+></A
+>xmlParseDTD ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLDTDPTR"
+>xmlDtdPtr</A
+>   xmlParseDTD                     (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *ExternalID,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *SystemID);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Load and parse an external subset.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2131"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ExternalID</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a NAME* containing the External ID of the DTD</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>SystemID</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a NAME* containing the URL to the DTD</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the resulting xmlDtdPtr or NULL in case of error.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2148"
+></A
+><H3
+><A
+NAME="XMLSAXPARSEDTD"
+></A
+>xmlSAXParseDTD ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLDTDPTR"
+>xmlDtdPtr</A
+>   xmlSAXParseDTD                  (<A
+HREF="libxml-tree.html#XMLSAXHANDLERPTR"
+>xmlSAXHandlerPtr</A
+> sax,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *ExternalID,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *SystemID);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Load and parse an external subset.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2158"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>sax</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the SAX handler block</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ExternalID</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a NAME* containing the External ID of the DTD</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>SystemID</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a NAME* containing the URL to the DTD</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the resulting xmlDtdPtr or NULL in case of error.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2179"
+></A
+><H3
+><A
+NAME="XMLIOPARSEDTD"
+></A
+>xmlIOParseDTD ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLDTDPTR"
+>xmlDtdPtr</A
+>   xmlIOParseDTD                   (<A
+HREF="libxml-tree.html#XMLSAXHANDLERPTR"
+>xmlSAXHandlerPtr</A
+> sax,
+                                             <A
+HREF="libxml-tree.html#XMLPARSERINPUTBUFFERPTR"
+>xmlParserInputBufferPtr</A
+> input,
+                                             <A
+HREF="libxml-encoding.html#XMLCHARENCODING"
+>xmlCharEncoding</A
+> enc);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Load and parse a DTD</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2189"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>sax</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the SAX handler block or NULL</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>input</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an Input Buffer</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>enc</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the charset encoding if known</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the resulting xmlDtdPtr or NULL in case of error.
+<TT
+CLASS="PARAMETER"
+><I
+>input</I
+></TT
+> will be freed at parsing end.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2211"
+></A
+><H3
+><A
+NAME="XMLPARSEBALANCEDCHUNKMEMORY"
+></A
+>xmlParseBalancedChunkMemory ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlParseBalancedChunkMemory     (<A
+HREF="libxml-tree.html#XMLDOCPTR"
+>xmlDocPtr</A
+> doc,
+                                             <A
+HREF="libxml-tree.html#XMLSAXHANDLERPTR"
+>xmlSAXHandlerPtr</A
+> sax,
+                                             void *user_data,
+                                             int depth,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *string,
+                                             <A
+HREF="libxml-tree.html#XMLNODEPTR"
+>xmlNodePtr</A
+> *lst);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Parse a well-balanced chunk of an XML document
+called by the parser
+The allowed sequence for the Well Balanced Chunk is the one defined by
+the content production in the XML grammar:</P
+><P
+>[43] content ::= (element | CharData | Reference | CDSect | PI | Comment)*</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2222"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>doc</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the document the chunk pertains to</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>sax</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the SAX handler bloc (possibly NULL)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>user_data</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  The user data returned on SAX callbacks (possibly NULL)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>depth</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  Used for loop detection, use 0</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>string</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the input string in UTF8 or ISO-Latin (zero terminated)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>lst</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the return value for the set of parsed nodes</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>0 if the chunk is well balanced, -1 in case of args problem and
+the parser error code otherwise</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2255"
+></A
+><H3
+><A
+NAME="XMLPARSEBALANCEDCHUNKMEMORYRECOVER"
+></A
+>xmlParseBalancedChunkMemoryRecover ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlParseBalancedChunkMemoryRecover
+                                            (<A
+HREF="libxml-tree.html#XMLDOCPTR"
+>xmlDocPtr</A
+> doc,
+                                             <A
+HREF="libxml-tree.html#XMLSAXHANDLERPTR"
+>xmlSAXHandlerPtr</A
+> sax,
+                                             void *user_data,
+                                             int depth,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *string,
+                                             <A
+HREF="libxml-tree.html#XMLNODEPTR"
+>xmlNodePtr</A
+> *lst,
+                                             int recover);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Parse a well-balanced chunk of an XML document
+called by the parser
+The allowed sequence for the Well Balanced Chunk is the one defined by
+the content production in the XML grammar:</P
+><P
+>[43] content ::= (element | CharData | Reference | CDSect | PI | Comment)*</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2266"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>doc</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the document the chunk pertains to</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>sax</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the SAX handler bloc (possibly NULL)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>user_data</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  The user data returned on SAX callbacks (possibly NULL)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>depth</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  Used for loop detection, use 0</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>string</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the input string in UTF8 or ISO-Latin (zero terminated)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>lst</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the return value for the set of parsed nodes</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>recover</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> return nodes even if the data is broken (use 0)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>0 if the chunk is well balanced, -1 in case of args problem and
+the parser error code otherwise
+
+In case recover is set to 1, the nodelist will not be empty even if
+the parsed chunk is not well balanced. </TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2303"
+></A
+><H3
+><A
+NAME="XMLPARSEEXTERNALENTITY"
+></A
+>xmlParseExternalEntity ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlParseExternalEntity          (<A
+HREF="libxml-tree.html#XMLDOCPTR"
+>xmlDocPtr</A
+> doc,
+                                             <A
+HREF="libxml-tree.html#XMLSAXHANDLERPTR"
+>xmlSAXHandlerPtr</A
+> sax,
+                                             void *user_data,
+                                             int depth,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *URL,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *ID,
+                                             <A
+HREF="libxml-tree.html#XMLNODEPTR"
+>xmlNodePtr</A
+> *lst);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Parse an external general entity
+An external general parsed entity is well-formed if it matches the
+production labeled extParsedEnt.</P
+><P
+>[78] extParsedEnt ::= TextDecl? content</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2315"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>doc</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the document the chunk pertains to</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>sax</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the SAX handler bloc (possibly NULL)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>user_data</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  The user data returned on SAX callbacks (possibly NULL)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>depth</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  Used for loop detection, use 0</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>URL</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the URL for the entity to load</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ID</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the System ID for the entity to load</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>lst</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the return value for the set of parsed nodes</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>0 if the entity is well formed, -1 in case of args problem and
+the parser error code otherwise</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2352"
+></A
+><H3
+><A
+NAME="XMLPARSECTXTEXTERNALENTITY"
+></A
+>xmlParseCtxtExternalEntity ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlParseCtxtExternalEntity      (<A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> ctx,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *URL,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *ID,
+                                             <A
+HREF="libxml-tree.html#XMLNODEPTR"
+>xmlNodePtr</A
+> *lst);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Parse an external general entity within an existing parsing context
+An external general parsed entity is well-formed if it matches the
+production labeled extParsedEnt.</P
+><P
+>[78] extParsedEnt ::= TextDecl? content</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2363"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctx</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the existing parsing context</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>URL</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the URL for the entity to load</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ID</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the System ID for the entity to load</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>lst</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the return value for the set of parsed nodes</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>0 if the entity is well formed, -1 in case of args problem and
+the parser error code otherwise</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2388"
+></A
+><H3
+><A
+NAME="XMLINITPARSERCTXT"
+></A
+>xmlInitParserCtxt ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        xmlInitParserCtxt               (<A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> ctxt);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Initialize a parser context</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2395"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctxt</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an XML parser context</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2404"
+></A
+><H3
+><A
+NAME="XMLCLEARPARSERCTXT"
+></A
+>xmlClearParserCtxt ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        xmlClearParserCtxt              (<A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> ctxt);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Clear (release owned resources) and reinitialize a parser context</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2411"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctxt</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an XML parser context</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2420"
+></A
+><H3
+><A
+NAME="XMLFREEPARSERCTXT"
+></A
+>xmlFreeParserCtxt ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        xmlFreeParserCtxt               (<A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> ctxt);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Free all the memory used by a parser context. However the parsed
+document in ctxt-&gt;myDoc is not freed.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2427"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctxt</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an XML parser context</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2436"
+></A
+><H3
+><A
+NAME="XMLSETUPPARSERFORBUFFER"
+></A
+>xmlSetupParserForBuffer ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        xmlSetupParserForBuffer         (<A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> ctxt,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *buffer,
+                                             const char *filename);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Setup the parser context to parse a new buffer; Clears any prior
+contents from the parser context. The buffer parameter must not be
+NULL, but the filename parameter can be</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2444"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctxt</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an XML parser context</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>buffer</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a xmlChar * buffer</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>filename</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a file name</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2461"
+></A
+><H3
+><A
+NAME="XMLCREATEDOCPARSERCTXT"
+></A
+>xmlCreateDocParserCtxt ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> xmlCreateDocParserCtxt     (<A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *cur);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Creates a parser context for an XML in-memory document.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2469"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>cur</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a pointer to an array of xmlChar</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the new parser context or NULL</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2482"
+></A
+><H3
+><A
+NAME="XMLGETFEATURESLIST"
+></A
+>xmlGetFeaturesList ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlGetFeaturesList              (int *len,
+                                             const char **result);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Copy at most *<TT
+CLASS="PARAMETER"
+><I
+>len</I
+></TT
+> feature names into the <TT
+CLASS="PARAMETER"
+><I
+>result</I
+></TT
+> array</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2490"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>len</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the length of the features name array (input/output)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>result</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an array of string to be filled with the features name.</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>-1 in case or error, or the total number of features,
+len is updated with the number of strings copied,
+strings must not be deallocated</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2507"
+></A
+><H3
+><A
+NAME="XMLGETFEATURE"
+></A
+>xmlGetFeature ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlGetFeature                   (<A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> ctxt,
+                                             const char *name,
+                                             void *result);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Read the current value of one feature of this parser instance</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2514"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctxt</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an XML/HTML parser context</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>name</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the feature name</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>result</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  location to store the result</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>-1 in case or error, 0 otherwise</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2535"
+></A
+><H3
+><A
+NAME="XMLSETFEATURE"
+></A
+>xmlSetFeature ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlSetFeature                   (<A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> ctxt,
+                                             const char *name,
+                                             void *value);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Change the current value of one feature of this parser instance</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2542"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctxt</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an XML/HTML parser context</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>name</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the feature name</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>value</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  pointer to the location of the new value</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>-1 in case or error, 0 otherwise</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2563"
+></A
+><H3
+><A
+NAME="XMLCREATEPUSHPARSERCTXT"
+></A
+>xmlCreatePushParserCtxt ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> xmlCreatePushParserCtxt    (<A
+HREF="libxml-tree.html#XMLSAXHANDLERPTR"
+>xmlSAXHandlerPtr</A
+> sax,
+                                             void *user_data,
+                                             const char *chunk,
+                                             int size,
+                                             const char *filename);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Create a parser context for using the XML parser in push mode
+To allow content encoding detection, <TT
+CLASS="PARAMETER"
+><I
+>size</I
+></TT
+> should be &gt;= 4
+The value of <TT
+CLASS="PARAMETER"
+><I
+>filename</I
+></TT
+> is used for fetching external entities
+and error/warning reports.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2573"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>sax</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a SAX handler</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>user_data</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  The user data returned on SAX callbacks</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>chunk</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a pointer to an array of chars</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>size</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  number of chars in the array</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>filename</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an optional file name or URI</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the new parser context or NULL</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2602"
+></A
+><H3
+><A
+NAME="XMLPARSECHUNK"
+></A
+>xmlParseChunk ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlParseChunk                   (<A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> ctxt,
+                                             const char *chunk,
+                                             int size,
+                                             int terminate);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Parse a Chunk of memory</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2609"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctxt</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an XML parser context</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>chunk</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an char array</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>size</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the size in byte of the chunk</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>terminate</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  last chunk indicator</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>zero if no error, the xmlParserErrors otherwise.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2634"
+></A
+><H3
+><A
+NAME="XMLCREATEIOPARSERCTXT"
+></A
+>xmlCreateIOParserCtxt ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> xmlCreateIOParserCtxt      (<A
+HREF="libxml-tree.html#XMLSAXHANDLERPTR"
+>xmlSAXHandlerPtr</A
+> sax,
+                                             void *user_data,
+                                             <A
+HREF="libxml-xmlio.html#XMLINPUTREADCALLBACK"
+>xmlInputReadCallback</A
+> ioread,
+                                             <A
+HREF="libxml-xmlio.html#XMLINPUTCLOSECALLBACK"
+>xmlInputCloseCallback</A
+> ioclose,
+                                             void *ioctx,
+                                             <A
+HREF="libxml-encoding.html#XMLCHARENCODING"
+>xmlCharEncoding</A
+> enc);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Create a parser context for using the XML parser with an existing
+I/O stream</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2645"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>sax</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a SAX handler</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>user_data</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  The user data returned on SAX callbacks</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ioread</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an I/O read function</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ioclose</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an I/O close function</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ioctx</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an I/O handler</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>enc</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the charset encoding if known</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the new parser context or NULL</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2678"
+></A
+><H3
+><A
+NAME="XMLNEWIOINPUTSTREAM"
+></A
+>xmlNewIOInputStream ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLPARSERINPUTPTR"
+>xmlParserInputPtr</A
+> xmlNewIOInputStream       (<A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> ctxt,
+                                             <A
+HREF="libxml-tree.html#XMLPARSERINPUTBUFFERPTR"
+>xmlParserInputBufferPtr</A
+> input,
+                                             <A
+HREF="libxml-encoding.html#XMLCHARENCODING"
+>xmlCharEncoding</A
+> enc);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Create a new input stream structure encapsulating the <TT
+CLASS="PARAMETER"
+><I
+>input</I
+></TT
+> into
+a stream suitable for the parser.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2689"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctxt</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an XML parser context</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>input</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an I/O Input</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>enc</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the charset encoding if known</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the new input stream or NULL</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2710"
+></A
+><H3
+><A
+NAME="XMLPARSERFINDNODEINFO"
+></A
+>xmlParserFindNodeInfo ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>const <A
+HREF="libxml-parser.html#XMLPARSERNODEINFO"
+>xmlParserNodeInfo</A
+>* xmlParserFindNodeInfo
+                                            (const <A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> ctxt,
+                                             const <A
+HREF="libxml-tree.html#XMLNODEPTR"
+>xmlNodePtr</A
+> node);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Find the parser node info struct for a given node</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2719"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctxt</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an XML parser context</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>node</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an XML node within the tree</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>an xmlParserNodeInfo block pointer or NULL</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2736"
+></A
+><H3
+><A
+NAME="XMLINITNODEINFOSEQ"
+></A
+>xmlInitNodeInfoSeq ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        xmlInitNodeInfoSeq              (<A
+HREF="libxml-parser.html#XMLPARSERNODEINFOSEQPTR"
+>xmlParserNodeInfoSeqPtr</A
+> seq);</PRE
+></TD
+></TR
+></TABLE
+><P
+>-- Initialize (set to initial state) node info sequence</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2743"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>seq</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a node info sequence pointer</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2752"
+></A
+><H3
+><A
+NAME="XMLCLEARNODEINFOSEQ"
+></A
+>xmlClearNodeInfoSeq ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        xmlClearNodeInfoSeq             (<A
+HREF="libxml-parser.html#XMLPARSERNODEINFOSEQPTR"
+>xmlParserNodeInfoSeqPtr</A
+> seq);</PRE
+></TD
+></TR
+></TABLE
+><P
+>-- Clear (release memory and reinitialize) node
+info sequence</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2759"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>seq</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a node info sequence pointer</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2768"
+></A
+><H3
+><A
+NAME="XMLPARSERFINDNODEINFOINDEX"
+></A
+>xmlParserFindNodeInfoIndex ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>unsigned <GTKDOCLINK
+HREF="LONG"
+>long</GTKDOCLINK
+> xmlParserFindNodeInfoIndex    (const <A
+HREF="libxml-parser.html#XMLPARSERNODEINFOSEQPTR"
+>xmlParserNodeInfoSeqPtr</A
+> seq,
+                                             const <A
+HREF="libxml-tree.html#XMLNODEPTR"
+>xmlNodePtr</A
+> node);</PRE
+></TD
+></TR
+></TABLE
+><P
+>xmlParserFindNodeInfoIndex : Find the index that the info record for
+the given node is or should be at in a sorted sequence</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2777"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>seq</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a node info sequence pointer</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>node</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an XML node pointer</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>a long indicating the position of the record</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2794"
+></A
+><H3
+><A
+NAME="XMLPARSERADDNODEINFO"
+></A
+>xmlParserAddNodeInfo ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        xmlParserAddNodeInfo            (<A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> ctxt,
+                                             const <A
+HREF="libxml-parser.html#XMLPARSERNODEINFOPTR"
+>xmlParserNodeInfoPtr</A
+> info);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Insert node info record into the sorted sequence</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2802"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctxt</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an XML parser context</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>info</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a node info sequence pointer</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2815"
+></A
+><H3
+><A
+NAME="XMLSETEXTERNALENTITYLOADER"
+></A
+>xmlSetExternalEntityLoader ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        xmlSetExternalEntityLoader      (<A
+HREF="libxml-parser.html#XMLEXTERNALENTITYLOADER"
+>xmlExternalEntityLoader</A
+> f);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Changes the defaultexternal entity resolver function for the application</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2822"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>f</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the new entity resolver function</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2831"
+></A
+><H3
+><A
+NAME="XMLGETEXTERNALENTITYLOADER"
+></A
+>xmlGetExternalEntityLoader ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-parser.html#XMLEXTERNALENTITYLOADER"
+>xmlExternalEntityLoader</A
+> xmlGetExternalEntityLoader
+                                            (void);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Get the default external entity resolver function for the application</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2838"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the xmlExternalEntityLoader function pointer</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN2847"
+></A
+><H3
+><A
+NAME="XMLLOADEXTERNALENTITY"
+></A
+>xmlLoadExternalEntity ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLPARSERINPUTPTR"
+>xmlParserInputPtr</A
+> xmlLoadExternalEntity     (const char *URL,
+                                             const char *ID,
+                                             <A
+HREF="libxml-tree.html#XMLPARSERCTXTPTR"
+>xmlParserCtxtPtr</A
+> ctxt);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Load an external entity, note that the use of this function for
+unparsed entities may generate problems
+TODO: a more generic External entity API must be designed</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN2855"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>URL</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the URL for the entity to load</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ID</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the Public ID for the entity to load</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ctxt</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the context in which the entity is called or NULL</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the xmlParserInputPtr or NULL</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><BR
+CLEAR="all"><BR><TABLE
+WIDTH="100%"
+BORDER="0"
+BGCOLOR="#000000"
+CELLPADDING="1"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="25%"
+BGCOLOR="#C00000"
+ALIGN="left"
+><A
+HREF="libxml-lib.html"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+>&#60;&#60;&#60; Previous Page</B
+></FONT
+></A
+></TD
+><TD
+WIDTH="25%"
+BGCOLOR="#0000C0"
+ALIGN="center"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+><A
+HREF="book1.html"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+>Home</B
+></FONT
+></A
+></B
+></FONT
+></TD
+><TD
+WIDTH="25%"
+BGCOLOR="#00C000"
+ALIGN="center"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+><A
+HREF="libxml-lib.html"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+>Up</B
+></FONT
+></A
+></B
+></FONT
+></TD
+><TD
+WIDTH="25%"
+BGCOLOR="#C00000"
+ALIGN="right"
+><A
+HREF="libxml-sax.html"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+>Next Page &#62;&#62;&#62;</B
+></FONT
+></A
+></TD
+></TR
+><TR
+><TD
+COLSPAN="2"
+ALIGN="left"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+>Libxml Library Reference</B
+></FONT
+></TD
+><TD
+COLSPAN="2"
+ALIGN="right"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+>SAX</B
+></FONT
+></TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

@@ -15,7 +15,7 @@
   */
 
 #ifndef lint
-static char sccsid[] = "@(#) tli.c 1.15 97/03/21 19:27:25";
+/*static char sccsid[] = "@(#) tli.c 1.15 97/03/21 19:27:25";*/
 #endif
 
 #ifdef TLI
@@ -40,8 +40,10 @@ static char sccsid[] = "@(#) tli.c 1.15 97/03/21 19:27:25";
 
 extern char *nc_sperror();
 extern int errno;
+#ifndef USE_STRERROR
 extern char *sys_errlist[];
 extern int sys_nerr;
+#endif
 extern int t_errno;
 extern char *t_errlist[];
 extern int t_nerr;
@@ -65,8 +67,8 @@ static void tli_sink();
 void    tli_host(request)
 struct request_info *request;
 {
-    static struct sockaddr_in client;
-    static struct sockaddr_in server;
+    static struct sockaddr_gen client;
+    static struct sockaddr_gen server;
 
     /*
      * If we discover that we are using an IP transport, pretend we never
@@ -76,14 +78,24 @@ struct request_info *request;
 
     tli_endpoints(request);
     if ((request->config = tli_transport(request->fd)) != 0
-	&& STR_EQ(request->config->nc_protofmly, "inet")) {
+	&& (STR_EQ(request->config->nc_protofmly, "inet")
+#ifdef HAVE_IPV6
+	    || STR_EQ(request->config->nc_protofmly, "inet6")
+#endif
+	)) {
 	if (request->client->unit != 0) {
-	    client = *(struct sockaddr_in *) request->client->unit->addr.buf;
+	    memcpy(&client, request->client->unit->addr.buf,
+		SGSOCKADDRSZ((struct sockaddr_gen*)
+				request->client->unit->addr.buf));
 	    request->client->sin = &client;
+	    sockgen_simplify(&client);
 	}
 	if (request->server->unit != 0) {
-	    server = *(struct sockaddr_in *) request->server->unit->addr.buf;
+	    memcpy(&server, request->server->unit->addr.buf,
+		SGSOCKADDRSZ((struct sockaddr_gen*)
+				request->server->unit->addr.buf));
 	    request->server->sin = &server;
+	    sockgen_simplify(&server);
 	}
 	tli_cleanup(request);
 	sock_methods(request);
@@ -187,7 +199,9 @@ int     fd;
     }
     while (config = getnetconfig(handlep)) {
 	if (stat(config->nc_device, &from_config) == 0) {
-	    if (minor(from_config.st_rdev) == major(from_client.st_rdev))
+	    if (minor(from_config.st_rdev) == major(from_client.st_rdev) ||
+		/* XXX: Solaris 8 no longer has clone devices for IP */
+		major(from_config.st_rdev) == major(from_client.st_rdev))
 		break;
 	}
     }
@@ -305,12 +319,16 @@ static char *tli_error()
 	    return (t_errlist[t_errno]);
 	}
     } else {
+#ifdef USE_STRERROR
+	return (strerror(errno));
+#else
 	if (errno < 0 || errno >= sys_nerr) {
 	    sprintf(buf, "Unknown UNIX error %d", errno);
 	    return (buf);
 	} else {
 	    return (sys_errlist[errno]);
 	}
+#endif
     }
 }
 

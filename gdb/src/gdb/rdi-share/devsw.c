@@ -8,8 +8,8 @@
 
 /* -*-C-*-
  *
- * 1.3
- *     2002/01/20 22:44:44
+ * 1.4
+ *     2002/06/08 20:34:41
  *
  */
 #include <stdio.h>
@@ -53,7 +53,7 @@ static void openLogFile ()
       /* The following line is equivalent to: */
       /* setlinebuf (angelDebugLogFile); */
       setvbuf(angelDebugLogFile, (char *)NULL, _IOLBF, 0);
-#if defined(__CYGWIN32__) || defined(__CYGWIN__)
+#if defined(__CYGWIN__)
       setmode(fileno(angelDebugLogFile), O_TEXT);
 #endif
     }

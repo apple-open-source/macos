@@ -236,7 +236,7 @@ pw_error(name, err, eval)
 	int err, eval;
 {
 	if (err)
-		warn(name);
+		warn("%s", name);
 
 	warnx("%s: unchanged", _PATH_MASTERPASSWD);
 	(void)unlink(tempname);

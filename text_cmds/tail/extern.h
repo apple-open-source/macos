@@ -1,5 +1,3 @@
-/*	$NetBSD: extern.h,v 1.3 1994/11/23 07:42:00 jtc Exp $	*/
-
 /*-
  * Copyright (c) 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,23 +31,37 @@
  * SUCH DAMAGE.
  *
  *	@(#)extern.h	8.1 (Berkeley) 6/6/93
+ *
+ * $FreeBSD: src/usr.bin/tail/extern.h,v 1.8 2002/03/22 01:42:32 imp Exp $
  */
 
-#define	WR(p, size) \
-	if (write(STDOUT_FILENO, p, size) != size) \
-		oerr();
+#define	WR(p, size) do { \
+	if (write(STDOUT_FILENO, p, size) != (ssize_t)size) \
+		oerr(); \
+	} while(0)
+
+#define TAILMAPLEN (4<<20)
+
+struct mapinfo {
+	off_t	mapoff;
+	off_t	maxoff;
+	size_t	maplen;
+	char	*start;
+	int	fd;
+};
 
 enum STYLE { NOTSET = 0, FBYTES, FLINES, RBYTES, RLINES, REVERSE };
 
-void forward __P((FILE *, enum STYLE, long, struct stat *));
-void reverse __P((FILE *, enum STYLE, long, struct stat *));
+void forward(FILE *, enum STYLE, off_t, struct stat *);
+void reverse(FILE *, enum STYLE, off_t, struct stat *);
 
-void bytes __P((FILE *, off_t));
-void lines __P((FILE *, off_t));
+int bytes(FILE *, off_t);
+int lines(FILE *, off_t);
 
-void err __P((int fatal, const char *fmt, ...));
-void ierr __P((void));
-void oerr __P((void));
+void ierr(void);
+void oerr(void);
+int mapprint(struct mapinfo *, off_t, off_t);
+int maparound(struct mapinfo *, off_t);
 
-extern int fflag, rflag, rval;
-extern char *fname;
+extern int Fflag, fflag, rflag, rval;
+extern const char *fname;

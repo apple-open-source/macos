@@ -47,6 +47,7 @@
 #include "inferior.h"		/* for NUM_PSEUDO_REGS.  NOTE: replace 
 				   with "gdbarch.h" when appropriate.  */
 #include "doublest.h"
+#include "gdb_assert.h"
 
 
 /* Symbols which architectures can redefine.  */
@@ -69,11 +70,13 @@ struct expression *expout;
 int expout_size;
 int expout_ptr;
 struct block *expression_context_block;
+CORE_ADDR expression_context_pc;
 struct block *innermost_block;
 int arglist_len;
 union type_stack_elt *type_stack;
 int type_stack_depth, type_stack_size;
 char *lexptr;
+char *prev_lexptr;
 char *namecopy;
 int paren_depth;
 int comma_terminates;
@@ -86,8 +89,8 @@ static void free_funcalls (void *ignore);
 
 static void prefixify_expression (struct expression *);
 
-static void
-prefixify_subexp (struct expression *, struct expression *, int, int);
+static void prefixify_subexp (struct expression *, struct expression *, int,
+			      int);
 
 void _initialize_parse (void);
 
@@ -101,40 +104,6 @@ struct funcall
   };
 
 static struct funcall *funcall_chain;
-
-/* Assign machine-independent names to certain registers 
-   (unless overridden by the REGISTER_NAMES table) */
-
-unsigned num_std_regs = 0;
-struct std_regs *std_regs;
-
-/* The generic method for targets to specify how their registers are
-   named.  The mapping can be derived from three sources:
-   REGISTER_NAME; std_regs; or a target specific alias hook. */
-
-int
-target_map_name_to_register (char *str, int len)
-{
-  int i;
-
-  /* Search register name space. */
-  for (i = 0; i < NUM_REGS + NUM_PSEUDO_REGS; i++)
-    if (REGISTER_NAME (i) && len == strlen (REGISTER_NAME (i))
-	&& STREQN (str, REGISTER_NAME (i), len))
-      {
-	return i;
-      }
-
-  /* Try standard aliases. */
-  for (i = 0; i < num_std_regs; i++)
-    if (std_regs[i].name && len == strlen (std_regs[i].name)
-	&& STREQN (str, std_regs[i].name, len))
-      {
-	return std_regs[i].regnum;
-      }
-
-  return -1;
-}
 
 /* Begin counting arguments for a function call,
    saving the data about any containing call.  */
@@ -485,7 +454,7 @@ write_dollar_variable (struct stoken str)
 
   /* Handle tokens that refer to machine registers:
      $ followed by a register name.  */
-  i = target_map_name_to_register (str.ptr + 1, str.length - 1);
+  i = frame_map_name_to_regnum (str.ptr + 1, str.length - 1);
   if (i >= 0)
     goto handle_register;
 
@@ -861,7 +830,7 @@ length_of_subexp (register struct expression *expr, register int endpos)
       args = 1 + longest_to_int (expr->elts[endpos - 2].longconst);
       break;
 
-    case OP_MSGCALL:		/* Objective C message (method) call */
+    case OP_OBJC_MSGCALL:	/* Objective C message (method) call */
       oplen = 4;
       args = 1 + longest_to_int (expr->elts[endpos - 2].longconst);
       break;
@@ -897,8 +866,8 @@ length_of_subexp (register struct expression *expr, register int endpos)
       /* fall through */
     case OP_M2_STRING:
     case OP_STRING:
-    case OP_NSSTRING:		/* Objective C Foundation Class NSString constant */
-    case OP_SELECTOR:		/* Objective C "@selector" pseudo-op */
+    case OP_OBJC_NSSTRING:	/* Objective C Foundation Class NSString constant */
+    case OP_OBJC_SELECTOR:	/* Objective C "@selector" pseudo-op */
     case OP_NAME:
     case OP_EXPRSTRING:
       oplen = longest_to_int (expr->elts[endpos - 2].longconst);
@@ -937,7 +906,7 @@ length_of_subexp (register struct expression *expr, register int endpos)
 
       /* C++ */
     case OP_THIS:
-    case OP_SELF:
+    case OP_OBJC_SELF:
       oplen = 2;
       break;
 
@@ -1006,7 +975,7 @@ prefixify_subexp (register struct expression *inexpr,
       args = 1 + longest_to_int (inexpr->elts[inend - 2].longconst);
       break;
 
-    case OP_MSGCALL:		/* Objective C message (method) call */
+    case OP_OBJC_MSGCALL:	/* Objective C message (method) call */
       oplen = 4;
       args = 1 + longest_to_int (inexpr->elts[inend - 2].longconst);
       break;
@@ -1041,8 +1010,8 @@ prefixify_subexp (register struct expression *inexpr,
       /* fall through */
     case OP_M2_STRING:
     case OP_STRING:
-    case OP_NSSTRING:		/* Objective C Foundation Class NSString constant */
-    case OP_SELECTOR:		/* Objective C "@selector" pseudo-op */
+    case OP_OBJC_NSSTRING:	/* Objective C Foundation Class NSString constant */
+    case OP_OBJC_SELECTOR:	/* Objective C "@selector" pseudo-op */
     case OP_NAME:
     case OP_EXPRSTRING:
       oplen = longest_to_int (inexpr->elts[inend - 2].longconst);
@@ -1081,7 +1050,7 @@ prefixify_subexp (register struct expression *inexpr,
 
       /* C++ */
     case OP_THIS:
-    case OP_SELF:
+    case OP_OBJC_SELF:
       oplen = 2;
       break;
 
@@ -1138,6 +1107,7 @@ parse_exp_1 (char **stringptr, struct block *block, int comma)
   struct cleanup *old_chain;
 
   lexptr = *stringptr;
+  prev_lexptr = NULL;
 
   paren_depth = 0;
   type_stack_depth = 0;
@@ -1150,7 +1120,13 @@ parse_exp_1 (char **stringptr, struct block *block, int comma)
   old_chain = make_cleanup (free_funcalls, 0 /*ignore*/);
   funcall_chain = 0;
 
-  expression_context_block = block ? block : get_selected_block (0);
+  if (block)
+    {
+      expression_context_block = block;
+      expression_context_pc = BLOCK_START (block);
+    }
+  else
+    expression_context_block = get_selected_block (&expression_context_pc);
 
   namecopy = (char *) alloca (strlen (lexptr) + 1);
   expout_size = 10;
@@ -1367,63 +1343,23 @@ build_parse (void)
     init_type (TYPE_CODE_ERROR, 0, 0,
 	       "<variable (not text or data), no debug info>",
 	       NULL);
+}
 
-  /* create the std_regs table */
-
-  num_std_regs = 0;
-#ifdef PC_REGNUM
-  if (PC_REGNUM >= 0)
-    num_std_regs++;
-#endif
-#ifdef FP_REGNUM
-  if (FP_REGNUM >= 0)
-    num_std_regs++;
-#endif
-#ifdef SP_REGNUM
-  if (SP_REGNUM >= 0)
-    num_std_regs++;
-#endif
-#ifdef PS_REGNUM
-  if (PS_REGNUM >= 0)
-    num_std_regs++;
-#endif
-  /* create an empty table */
-  std_regs = xmalloc ((num_std_regs + 1) * sizeof *std_regs);
-  i = 0;
-  /* fill it in */
-#ifdef PC_REGNUM
-  if (PC_REGNUM >= 0)
+/* This function avoids direct calls to fprintf 
+   in the parser generated debug code.  */
+void
+parser_fprintf (FILE *x, const char *y, ...)
+{ 
+  va_list args;
+  va_start (args, y);
+  if (x == stderr)
+    vfprintf_unfiltered (gdb_stderr, y, args); 
+  else
     {
-      std_regs[i].name = "pc";
-      std_regs[i].regnum = PC_REGNUM;
-      i++;
+      fprintf_unfiltered (gdb_stderr, " Unknown FILE used.\n");
+      vfprintf_unfiltered (gdb_stderr, y, args);
     }
-#endif
-#ifdef FP_REGNUM
-  if (FP_REGNUM >= 0)
-    {
-      std_regs[i].name = "fp";
-      std_regs[i].regnum = FP_REGNUM;
-      i++;
-    }
-#endif
-#ifdef SP_REGNUM
-  if (SP_REGNUM >= 0)
-    {
-      std_regs[i].name = "sp";
-      std_regs[i].regnum = SP_REGNUM;
-      i++;
-    }
-#endif
-#ifdef PS_REGNUM
-  if (PS_REGNUM >= 0)
-    {
-      std_regs[i].name = "ps";
-      std_regs[i].regnum = PS_REGNUM;
-      i++;
-    }
-#endif
-  memset (&std_regs[i], 0, sizeof (std_regs[i]));
+  va_end (args);
 }
 
 void
@@ -1443,8 +1379,6 @@ _initialize_parse (void)
   register_gdbarch_swap (&msym_data_symbol_type, sizeof (msym_data_symbol_type), NULL);
   register_gdbarch_swap (&msym_unknown_symbol_type, sizeof (msym_unknown_symbol_type), NULL);
 
-  register_gdbarch_swap (&num_std_regs, sizeof (std_regs), NULL);
-  register_gdbarch_swap (&std_regs, sizeof (std_regs), NULL);
   register_gdbarch_swap (NULL, 0, build_parse);
 
   add_show_from_set (

@@ -9,18 +9,95 @@ these suggestions... their presence here doesn't imply my endorsement.
 
 * Soon
 
+** AC_CHECK_HEADERS
+and the like, don't have a consistent way to handle multi-line
+arguments.  Fix, test, and document.
+
+** AC_PROG_INSTALL
+This test should be extended to check that install supports the GNU
+Install syntax: install FILES... DIR.  This will relieve everybody
+form having to use mkinstalldirs to create the directories, as install
+does it itself.  install-sh is already handling this case.  This also
+makes it simple not to create the directories where nothing will be
+installed because of configuration options, which is next to
+impossible using the current setting.
+
+In other words: everything is ready (install-sh and Automake), we just
+need a good reimplementation of AC_PROG_INSTALL.
+
 ** --target & AC_ARG_PROGRAM
 Shouldn't *any* `program' be installed as `$target_alias-program' even
 if AC_ARG_PROGRAM is not called?  That would be much more predictable.
 Ian?
 
-** RedHat's Autoconf page
-should be removed.
-
 ** AC_CHECK_TOOL...
 Write a test that checks that it honors the values set by the user.
 
-* Autoconf 2.52 or later
+** autom4te and warnings.
+Decide what must be done.
+
+** AC_DEFINE(func, rpl_func)
+This scheme causes problems: if for instance, #define malloc
+rpl_malloc, then the rest of configure will use an undefined malloc.
+Hence some tests fail.  Up to now we simply #undef these functions
+where we had a problem (cf. AC_FUNC_MKTIME and AC_FUNC_MMAP for
+instance).  This is _bad_.  Maybe the #define func rpl_malloc should
+be performed in another file than confdefs.h, say confh.h, which is
+used for config.h generation, but not used in configure's own tests.
+
+** AC_PROG_CC
+Currently it tries to put the C compiler in ANSI C mode by default.
+We should change this spec so that AC_PROG_CC tries to change the
+compiler to be the "nicest" mode, i.e. support for the latest standard
+features (currently ISO C99) plus support for all vendor extensions,
+even if they are slightly incompatible with C99.  The basic idea here
+is that AC_PROG_CC should disable pedanticisms and should enable
+extensions.
+
+** AC_GNU_SOURCE, AC_AIX, and AC_MINIX
+Deprecate these, as they will be superseded by the AC_PROG_CC changes.
+
+
+* Later
+
+** config.site
+This guy is really a problem.  It's contents should be read before
+handling the options, so that the latter properly override the latter,
+but most people would want a means to have a config.site that depends
+on $prefix for instance.
+
+Some other would like config.site to be looked for in the current
+directory.
+
+Harlan:
+
+   I'll go further.
+
+   I'd like to see several layers of config.site available.
+
+   I'm starting to use "modules" at more places to handle software
+   installation, and it would be helpful to set general things like:
+
+   	prefix=/opt/pkg/@PACKAGE@/@VERSION@
+
+   once at a global level, and then, for example, have things like:
+
+   	--with-etcdir=$prefix/etc
+
+   stuffed "above" the various versions of SSH so I wouldn't have to hunt for
+   these things every time it was time to recompile a new version of a
+   previously installed package.
+
+   Something like:
+
+     src/config.site		Global stuff
+     ...
+     src/ssh/config.site		package-specific stuff
+     src/ssh/ssh-1.2.27/		the actual source code
+
+   I'd like to see automake/autoconf better support packaging tools (like
+   modules, the *BSD ports/ stuff, and others would like hooks for RPMs).
+
 
 ** Languages
 Integrate other Fortrans etc.
@@ -31,40 +108,31 @@ which requires to have two different sources: AC_LANG_CALL and
 AC_LANG_FUNC_LINK_TRY (which names seem to be inappropriate).
 Wouldn't one be enough?
 
-** autom4te
-Eve it out of autoconf.  Install support for Autotest, M4sugar, and
-M4sh.  Give a means to trace at the same time as we produce the
-output.  autoconf shall use this feature to make autoheader obsolete,
-and to produce some kind of input file for automake which should no
-longer *ever* try to parse Autoconf files.
-
-** Autotest
-Document it.
-
 ** Document AC_COMPILE_IFELSE, AC_LANG_PROGRAM etc.
 And make AC_TRY_COMPILE etc. obsolete.
-
-** Autoscan macros
-Can be introduced even before specializing macros.  It just means that
-specializing macros will call them.  OTOH, this doubles our work,
-since specializing macros will save us from additional typing.  But
-the more powerful autoscan is, the better...
 
 ** Libtool
 Define once for all the hooks they need, any redefinition of
 AC_PROG_CC etc. is way too dangerous and too limiting.  The GCC team
 certainly has requirements too.
 
-** Pentateuch
-Heck, there is nothing after `Deuteronomy'!  We're stuck, but we
-_must_ update the `history' section.  Can't go to `New testament', we
-might hurt feelings?  In addition, it means that the Messiah has come,
-which might be slightly presumptuous :).  Still, someone fluent in
-English should write it.
+** AC_SEARCH_LIBS
+From: Tom Tromey <tromey@cygnus.com>
+Subject: AC_SEARCH_LIBS
 
-** AC_FUNC_GETLOADAVG
-We must find a solution for this macro which needs to find
-`getloadavg.c'.
+I think AC_SEARCH_LIBS has an unfortunate interface.
+
+ACTION-IF-FOUND is run in addition to the default action.  Most
+autoconf macros don't work this way.  This is confusing.
+
+In my case I can't use this macro because it always appends to LIBS.
+I don't want that.  Instead I want to use ACTION-IF-FOUND to set my
+own macro.
+
+Also there is no documentation on the format of library names expected
+by the macro.  Even a reference to some other function (e.g., "the
+library name can have the same forms as with AC_HAVE_LIBRARY" (if that
+is true, which I haven't looked up) would be fine.
 
 ** Revamp the language support
 We should probably have a language for C89, and C99.  We must give the
@@ -91,59 +159,76 @@ objext and exeext.
 
 ** AC_PROG_CC_STDC
 Should be: AC_PROG_CC_ISO?  Or even more specific for the ISO version?
-Should include more tests (e.g., AC_C_CONST etc.)?
-
-** AC_SYS_INTERPRETER
-Defines $interpval.  This is not a standard name.  Do we want to keep
-this?  Clarify our policy on those names.
+Should include more tests (e.g., AC_C_CONST etc.)?  See Peter for very
+useful comments on the technology.  Should we make this a new
+language?  AC_LANG(ISO C).  It would be great to introduce
+AC_LANG_COMPILER in this release too.
 
 ** autoupdate
 We should probably install the files which do not depend upon the
 user, just the Autoconf library files.  But conversely autoupdate must
 be opened to user macros, i.e., for instance libtool itself must be
 able to say that AM_PROG_LIBTOOL is now AC_PROG_LIBTOOL, and have
-autoupdate do its job on old configure.in.
+autoupdate do its job on old configure.ac.
 
-** AC_LIBOBJ_DECL
-Decide with the Automake team whether this macro should list only `.c'
-files, or it should include the `.h' too.  For instance the
-AC_FUNC_GNU_GETOPT macro could provide the three files, likewise for
-the macro which allows to choose a regex engine.
+* Even later
+
+** Pentateuch
+Heck, there is nothing after `Deuteronomy'!  We're stuck, but we
+_must_ update the `history' section.  Can't go to `New testament', we
+might hurt feelings?  In addition, it means that the Messiah has come,
+which might be slightly presumptuous :).  Still, someone fluent in
+English should write it.
+
+** AC_PATH_X
+Hi Robert,
+
+> Hi, autoconf people.  While packaging plotutils-2.2 (just released),
+> I noticed what looks like a small error in the autoconf-2.13 texinfo
+> documentation, the entry for AC_PATH_XTRA, in particular.
+
+> The documentation says that AC_PATH_XTRA
+> 	... adds the C compiler flags that X needs to output variable
+> 	`X_CFLAGS', and the X linker flags to `X_LIBS'.  If X is not
+> 	available, adds `-DX_DISPLAY_MISSING' to `X_CFLAGS'.
+
+> It doesn't seem to add -DX_DISPLAY_MISSING to X_CFLAGS.  X_DISPLAY_MISSING
+> ends up defined in config.h, instead.
+
+That's only because you're no doubt using AC_CONFIG_HEADER(..) to send
+your defines to a config.h-style file.  If you were to not use
+AC_CONFIG_HEADER and X was not available, then you would see
+-DX_DISPLAY_MISSING being added to @DEFS@ as your output files were being
+generated.
+
+But you are right--the documentation is not clear about this.  I'll change
+it.
+
+> In fact it looks to me as if right now, X_CFLAGS is used only for
+> specifying directories where X include files are stored, via the `-I' option.
+> Maybe it should really be called X_CPPFLAGS?
+
+Well, perhaps.  If you feel strongly about this, feel free to submit a
+change-request.  There is a hyperlink to the bug tracking database from
+http://sourceware.cygnus.com/autoconf/.  With the way it reads in the
+manual right now, it's designed to allow the user to set additional flags
+in the environment prior to running configure--and these don't need to be
+limited to just -I flags.  Nevertheless, I can see a few clean ways to
+improve this.
+
+** AC_SYS_INTERPRETER
+Defines $interpval.  This is not a standard name.  Do we want to keep
+this?  Clarify our policy on those names.
 
 ** Allow --recursive to config.status
 So that --recheck does not pass --no-recursive to configure.
 
-** AC_PROG_CC_STDC
-Well, back onto this one :( See Peter for very useful comments on the
-technology.  Should we make this a new language?  AC_LANG(ISO C).  It
-would be great to introduce AC_LANG_COMPILER in this release too.
-
 * autoconf.texi
 Move the specific macro documentation blocks into the source files,
-and use a doc-block extraction/merge technique to get docuemntation
+and use a doc-block extraction/merge technique to get documentation
 into texi-file.  This should help avoid bit-rot in the doc, and make
 the doc easier to update when people add/change macros.  The name
 "autodoc" is probably already taken so we probably need another one.
-
-------------------------------------------------------------------------------
-
-* Automake
-
-** missing.m4
-The test for a recent missing doesn't hide the error messages from the
-old missing.
-
-** AU_DEFUN
-The section for old macros is not completely up to date.  For
-instance, there is still AM_PROG_LIBTOOL.  Anyway, since autoupdate
-takes care of them, it is no longer the role of Automake to handle
-this.  Most should be removed.
-
-** AC_EXEXT, AC_OBJEXT
-Support should be enabled by default.
-
-** Macros now swallowed by Autoconf.
-error.m4, obstack.m4, ptrdiff.m4, strtod.m4, termios.m4, winsz.m4.
 
 ------------------------------------------------------------------------------
 
@@ -383,7 +468,7 @@ AC_PKG_WITH(hesiod,
 ,,-lhesiod,HESIOD,,)
 AC_PKG_WITH(glue,,,-lglue,GLUE,,)
 AC_PKG_WITH(bind,,/usr/local/bind, [lib/resolv.a lib/lib44bsd.a], ,include)
-After the apropriate checks, the existance of the paths, and libs and such
+After the appropriate checks, the existence of the paths, and libs and such
 LIBS=$LIBS $PKG-LIBS
 DEFS=$DEFS $PKG-DEFS
 CPPFLAGS=$PKG-CPPFLAGS $CPPFLAGS
@@ -552,7 +637,7 @@ name was used, whether X or Xt are in use, etc. The specific
 decisions, and progress messages, should be recorded on the terminal
 only if --verbose is used.
 
-    --silent just supresses the "checking for...result"
+    --silent just suppresses the "checking for...result"
     messages, not the "creating FOO" messages.
 
 I think the default should be to suppress both.
@@ -569,8 +654,8 @@ From: Roland McGrath <roland@gnu.ai.mit.edu>
 ------------------------------------------------------------------------------
 
 Another thing I wish for is a macro which figures out which libraries are
-needed for BSD-sytle sockets.  AC_PATH_X already detects this
-correctly...so it's just a matter of seperating out the socket-related code.
+needed for BSD-style sockets.  AC_PATH_X already detects this
+correctly...so it's just a matter of separating out the socket-related code.
 From: "Joel N. Weber II" <nemo@koa.iolani.honolulu.hi.us>
 
 ------------------------------------------------------------------------------
@@ -597,19 +682,22 @@ with autoconf scripts.
 
 ------------------------------------------------------------------------------
 
-autoreconf doesn't support having (in the same tree) both directories
-that are parts of a larger package (sharing aclocal.m4 and
-acconfig.h), and directories that are independent packages (each with
-their own ac*).  It assumes that they are all part of the same
-package, if you use --localdir, or that each directory is a separate
-package, if you don't use it.
+Copyright (C) 1994, 1995, 1996, 1999, 2000, 2001, 2002 Free Software
+Foundation, Inc.
 
-autoreconf should automatically figure out which ac* files to use--the
-closest ones up the tree from each directory, probably, unless
-overridden by --localdir.
+This file is part of GNU Autoconf.
 
-Also, autoreconf recurses on all subdirectories containing a
-configure.in, not just those given by an AC_CONFIG_SUBDIRS directive.
-This may not be a problem in practice.
+GNU Autoconf is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2, or (at your option)
+any later version.
 
-------------------------------------------------------------------------------
+GNU Autoconf is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with autoconf; see the file COPYING.  If not, write to
+the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.

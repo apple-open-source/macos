@@ -1,5 +1,8 @@
 /* Extract files from a tar archive.
-   Copyright (C) 1988, 92,93,94,96,97,98, 1999 Free Software Foundation, Inc.
+
+   Copyright 1988, 1992, 1993, 1994, 1996, 1997, 1998, 1999, 2000,
+   2001 Free Software Foundation, Inc.
+
    Written by John Gilmore, on 1985-11-19.
 
    This program is free software; you can redistribute it and/or modify it
@@ -17,9 +20,7 @@
    59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "system.h"
-
-#include <time.h>
-time_t time ();
+#include <quotearg.h>
 
 #if HAVE_UTIME_H
 # include <utime.h>
@@ -33,87 +34,174 @@ struct utimbuf
 
 #include "common.h"
 
-static time_t now;		/* current time */
-static int we_are_root;		/* true if our effective uid == 0 */
+int we_are_root;		/* true if our effective uid == 0 */
 static mode_t newdir_umask;	/* umask when creating new directories */
 static mode_t current_umask;	/* current umask (which is set to 0 if -p) */
 
-#if 0
-/* "Scratch" space to store the information about a sparse file before
-   writing the info into the header or extended header.  */
-struct sp_array *sparsearray;
+/* Status of the permissions of a file that we are extracting.  */
+enum permstatus
+{
+  /* This file may have existed already; its permissions are unknown.  */
+  UNKNOWN_PERMSTATUS,
 
-/* Number of elts storable in the sparsearray.  */
-int   sp_array_size = 10;
-#endif
+  /* This file was created using the permissions from the archive.  */
+  ARCHIVED_PERMSTATUS,
+
+  /* This is an intermediate directory; the archive did not specify
+     its permissions.  */
+  INTERDIR_PERMSTATUS
+};
+
+/* List of directories whose statuses we need to extract after we've
+   finished extracting their subsidiary files.  If you consider each
+   contiguous subsequence of elements of the form [D]?[^D]*, where [D]
+   represents an element where AFTER_SYMLINKS is nonzero and [^D]
+   represents an element where AFTER_SYMLINKS is zero, then the head
+   of the subsequence has the longest name, and each non-head element
+   in the prefix is an ancestor (in the directory hierarchy) of the
+   preceding element.  */
 
 struct delayed_set_stat
   {
     struct delayed_set_stat *next;
-    char *file_name;
     struct stat stat_info;
+    size_t file_name_len;
+    mode_t invert_permissions;
+    enum permstatus permstatus;
+    bool after_symlinks;
+    char file_name[1];
   };
 
 static struct delayed_set_stat *delayed_set_stat_head;
 
-/*--------------------------.
-| Set up to extract files.  |
-`--------------------------*/
+/* List of symbolic links whose creation we have delayed.  */
+struct delayed_symlink
+  {
+    /* The next delayed symbolic link in the list.  */
+    struct delayed_symlink *next;
 
+    /* The device, inode number and last-modified time of the placeholder.  */
+    dev_t dev;
+    ino_t ino;
+    time_t mtime;
+
+    /* The desired owner and group of the symbolic link.  */
+    uid_t uid;
+    gid_t gid;
+
+    /* A list of sources for this symlink.  The sources are all to be
+       hard-linked together.  */
+    struct string_list *sources;
+
+    /* The desired target of the desired link.  */
+    char target[1];
+  };
+
+static struct delayed_symlink *delayed_symlink_head;
+
+struct string_list
+  {
+    struct string_list *next;
+    char string[1];
+  };
+
+/*  Set up to extract files.  */
 void
 extr_init (void)
 {
-  now = time ((time_t *) 0);
   we_are_root = geteuid () == 0;
+  same_permissions_option += we_are_root;
+  same_owner_option += we_are_root;
+  xalloc_fail_func = extract_finish;
 
   /* Option -p clears the kernel umask, so it does not affect proper
      restoration of file permissions.  New intermediate directories will
      comply with umask at start of program.  */
 
   newdir_umask = umask (0);
-  if (same_permissions_option)
+  if (0 < same_permissions_option)
     current_umask = 0;
   else
     {
       umask (newdir_umask);	/* restore the kernel umask */
       current_umask = newdir_umask;
     }
-
-  /* FIXME: Just make sure we can add files in directories we create.  Maybe
-     should we later remove permissions we are adding, here?  */
-  newdir_umask &= ~ MODE_WXUSR;
 }
 
-/*------------------------------------------------------------------.
-| Restore mode for FILE_NAME, from information given in STAT_INFO.  |
-`------------------------------------------------------------------*/
-
+/* If restoring permissions, restore the mode for FILE_NAME from
+   information given in *STAT_INFO (where *CURRENT_STAT_INFO gives
+   the current status if CURRENT_STAT_INFO is nonzero); otherwise invert the
+   INVERT_PERMISSIONS bits from the file's current permissions.
+   PERMSTATUS specifies the status of the file's permissions.
+   TYPEFLAG specifies the type of the file.  */
 static void
-set_mode (char *file_name, struct stat *stat_info)
+set_mode (char const *file_name, struct stat const *stat_info,
+	  struct stat const *current_stat_info,
+	  mode_t invert_permissions, enum permstatus permstatus,
+	  char typeflag)
 {
-  /* We ought to force permission when -k is not selected, because if the
-     file already existed, open or creat would save the permission bits from
-     the previously created file, ignoring the ones we specified.
+  mode_t mode;
 
-     But with -k selected, we know *we* created this file, so the mode
-     bits were set by our open.  If the file has abnormal mode bits, we must
-     chmod since writing or chown has probably reset them.  If the file is
-     normal, we merely skip the chmod.  This works because we did umask (0)
-     when -p, so umask will have left the specified mode alone.  */
+  if (0 < same_permissions_option
+      && permstatus != INTERDIR_PERMSTATUS)
+    {
+      mode = stat_info->st_mode;
 
-  if (!keep_old_files_option
-      || (stat_info->st_mode & (S_ISUID | S_ISGID | S_ISVTX)))
-    if (chmod (file_name, ~current_umask & stat_info->st_mode) < 0)
-      ERROR ((0, errno, _("%s: Cannot change mode to %04lo"),
-	      file_name,
-	      (unsigned long) (~current_umask & stat_info->st_mode)));
+      /* If we created the file and it has a usual mode, then its mode
+	 is normally set correctly already.  But on many hosts, some
+	 directories inherit the setgid bits from their parents, so we
+	 we must set directories' modes explicitly.  */
+      if (permstatus == ARCHIVED_PERMSTATUS
+	  && ! (mode & ~ MODE_RWX)
+	  && typeflag != DIRTYPE
+	  && typeflag != GNUTYPE_DUMPDIR)
+	return;
+    }
+  else if (! invert_permissions)
+    return;
+  else
+    {
+      /* We must inspect a directory's current permissions, since the
+	 directory may have inherited its setgid bit from its parent.
+
+	 INVERT_PERMISSIONS happens to be nonzero only for directories
+	 that we created, so there's no point optimizing this code for
+	 other cases.  */
+      struct stat st;
+      if (! current_stat_info)
+	{
+	  if (stat (file_name, &st) != 0)
+	    {
+	      stat_error (file_name);
+	      return;
+	    }
+	  current_stat_info = &st;
+	}
+      mode = current_stat_info->st_mode ^ invert_permissions;
+    }
+
+  if (chmod (file_name, mode) != 0)
+    chmod_error_details (file_name, mode);
 }
 
-/*----------------------------------------------------------------------.
-| Restore stat attributes (owner, group, mode and times) for FILE_NAME, |
-| using information given in STAT_INFO.  SYMLINK_FLAG is non-zero for a |
-| freshly restored symbolic link.				        |
-`----------------------------------------------------------------------*/
+/* Check time after successfully setting FILE_NAME's time stamp to T.  */
+static void
+check_time (char const *file_name, time_t t)
+{
+  time_t now;
+  if (start_time < t && (now = time (0)) < t)
+    WARN ((0, 0, _("%s: time stamp %s is %lu s in the future"),
+	   file_name, tartime (t), (unsigned long) (t - now)));
+}
+
+/* Restore stat attributes (owner, group, mode and times) for
+   FILE_NAME, using information given in *STAT_INFO.
+   If CURRENT_STAT_INFO is nonzero, *CURRENT_STAT_INFO is the
+   file's currernt status.
+   If not restoring permissions, invert the
+   INVERT_PERMISSIONS bits from the file's current permissions.
+   PERMSTATUS specifies the status of the file's permissions.
+   TYPEFLAG specifies the type of the file.  */
 
 /* FIXME: About proper restoration of symbolic link attributes, we still do
    not have it right.  Pretesters' reports tell us we need further study and
@@ -121,16 +209,19 @@ set_mode (char *file_name, struct stat *stat_info)
    punt for the rest.  Sigh!  */
 
 static void
-set_stat (char *file_name, struct stat *stat_info, int symlink_flag)
+set_stat (char const *file_name, struct stat const *stat_info,
+	  struct stat const *current_stat_info,
+	  mode_t invert_permissions, enum permstatus permstatus,
+	  char typeflag)
 {
   struct utimbuf utimbuf;
 
-  if (!symlink_flag)
+  if (typeflag != SYMTYPE)
     {
       /* We do the utime before the chmod because some versions of utime are
 	 broken and trash the modes of the file.  */
 
-      if (!touch_option)
+      if (! touch_option && permstatus != INTERDIR_PERMSTATUS)
 	{
 	  /* We set the accessed time to `now', which is really the time we
 	     started extracting files, unless incremental_option is used, in
@@ -141,121 +232,163 @@ set_stat (char *file_name, struct stat *stat_info, int symlink_flag)
 	  if (incremental_option)
 	    utimbuf.actime = stat_info->st_atime;
 	  else
-	    utimbuf.actime = now;
+	    utimbuf.actime = start_time;
 
 	  utimbuf.modtime = stat_info->st_mtime;
 
 	  if (utime (file_name, &utimbuf) < 0)
-	    ERROR ((0, errno,
-		    _("%s: Could not change access and modification times"),
-		    file_name));
+	    utime_error (file_name);
+	  else
+	    {
+	      check_time (file_name, stat_info->st_atime);
+	      check_time (file_name, stat_info->st_mtime);
+	    }
 	}
 
       /* Some systems allow non-root users to give files away.  Once this
 	 done, it is not possible anymore to change file permissions, so we
 	 have to set permissions prior to possibly giving files away.  */
 
-      set_mode (file_name, stat_info);
+      set_mode (file_name, stat_info, current_stat_info,
+		invert_permissions, permstatus, typeflag);
     }
 
-  /* If we are root, set the owner and group of the extracted file, so we
-     extract as the original owner.  Or else, if we are running as a user,
-     leave the owner and group as they are, so we extract as that user.  */
-
-  if (we_are_root || same_owner_option)
+  if (0 < same_owner_option && permstatus != INTERDIR_PERMSTATUS)
     {
-#if HAVE_LCHOWN
-
       /* When lchown exists, it should be used to change the attributes of
 	 the symbolic link itself.  In this case, a mere chown would change
 	 the attributes of the file the symbolic link is pointing to, and
 	 should be avoided.  */
 
-      if (symlink_flag)
+      if (typeflag == SYMTYPE)
 	{
+#if HAVE_LCHOWN
 	  if (lchown (file_name, stat_info->st_uid, stat_info->st_gid) < 0)
-	    ERROR ((0, errno, _("%s: Cannot lchown to uid %lu gid %lu"),
-		    file_name,
-		    (unsigned long) stat_info->st_uid,
-		    (unsigned long) stat_info->st_gid));
+	    chown_error_details (file_name,
+				 stat_info->st_uid, stat_info->st_gid);
+#endif
 	}
       else
 	{
 	  if (chown (file_name, stat_info->st_uid, stat_info->st_gid) < 0)
-	    ERROR ((0, errno, _("%s: Cannot chown to uid %lu gid %lu"),
-		    file_name,
-		    (unsigned long) stat_info->st_uid,
-		    (unsigned long) stat_info->st_gid));
+	    chown_error_details (file_name,
+				 stat_info->st_uid, stat_info->st_gid);
+
+	  /* On a few systems, and in particular, those allowing to give files
+	     away, changing the owner or group destroys the suid or sgid bits.
+	     So let's attempt setting these bits once more.  */
+	  if (stat_info->st_mode & (S_ISUID | S_ISGID | S_ISVTX))
+	    set_mode (file_name, stat_info, 0,
+		      invert_permissions, permstatus, typeflag);
 	}
-
-#else /* not HAVE_LCHOWN */
-
-      if (!symlink_flag)
-
-	if (chown (file_name, stat_info->st_uid, stat_info->st_gid) < 0)
-	  ERROR ((0, errno, _("%s: Cannot chown to uid %lu gid %lu"),
-		  file_name,
-		  (unsigned long) stat_info->st_uid,
-		  (unsigned long) stat_info->st_gid));
-
-#endif/* not HAVE_LCHOWN */
-
-      if (!symlink_flag)
-
-	/* On a few systems, and in particular, those allowing to give files
-	   away, changing the owner or group destroys the suid or sgid bits.
-	   So let's attempt setting these bits once more.  */
-
-	if (stat_info->st_mode & (S_ISUID | S_ISGID | S_ISVTX))
-	  set_mode (file_name, stat_info);
     }
 }
 
-/*-----------------------------------------------------------------------.
-| After a file/link/symlink/directory creation has failed, see if it's	 |
-| because some required directory was not present, and if so, create all |
-| required directories.  Return non-zero if a directory was created.	 |
-`-----------------------------------------------------------------------*/
+/* Remember to restore stat attributes (owner, group, mode and times)
+   for the directory FILE_NAME, using information given in *STAT_INFO,
+   once we stop extracting files into that directory.
+   If not restoring permissions, remember to invert the
+   INVERT_PERMISSIONS bits from the file's current permissions.
+   PERMSTATUS specifies the status of the file's permissions.  */
+static void
+delay_set_stat (char const *file_name, struct stat const *stat_info,
+		mode_t invert_permissions, enum permstatus permstatus)
+{
+  size_t file_name_len = strlen (file_name);
+  struct delayed_set_stat *data =
+    xmalloc (offsetof (struct delayed_set_stat, file_name)
+	     + file_name_len + 1);
+  data->file_name_len = file_name_len;
+  strcpy (data->file_name, file_name);
+  data->invert_permissions = invert_permissions;
+  data->permstatus = permstatus;
+  data->after_symlinks = 0;
+  data->stat_info = *stat_info;
+  data->next = delayed_set_stat_head;
+  delayed_set_stat_head = data;
+}
 
+/* Update the delayed_set_stat info for an intermediate directory
+   created on the path to DIR_NAME.  The intermediate directory turned
+   out to be the same as this directory, e.g. due to ".." or symbolic
+   links.  *DIR_STAT_INFO is the status of the directory.  */
+static void
+repair_delayed_set_stat (char const *dir_name,
+			 struct stat const *dir_stat_info)
+{
+  struct delayed_set_stat *data;
+  for (data = delayed_set_stat_head;  data;  data = data->next)
+    {
+      struct stat st;
+      if (stat (data->file_name, &st) != 0)
+	{
+	  stat_error (data->file_name);
+	  return;
+	}
+
+      if (st.st_dev == dir_stat_info->st_dev
+	  && st.st_ino == dir_stat_info->st_ino)
+	{
+	  data->stat_info = current_stat;
+	  data->invert_permissions = (MODE_RWX
+				      & (current_stat.st_mode ^ st.st_mode));
+	  data->permstatus = ARCHIVED_PERMSTATUS;
+	  return;
+	}
+    }
+
+  ERROR ((0, 0, _("%s: Unexpected inconsistency when making directory"),
+	  quotearg_colon (dir_name)));
+}
+
+/* After a file/link/symlink/directory creation has failed, see if
+   it's because some required directory was not present, and if so,
+   create all required directories.  Return non-zero if a directory
+   was created.  */
 static int
 make_directories (char *file_name)
 {
+  char *cursor0 = file_name + FILESYSTEM_PREFIX_LEN (file_name);
   char *cursor;			/* points into path */
   int did_something = 0;	/* did we do anything yet? */
-  int saved_errno = errno;	/* remember caller's errno */
+  int mode;
+  int invert_permissions;
   int status;
 
-  for (cursor = strchr (file_name, '/');
-       cursor != NULL;
-       cursor = strchr (cursor + 1, '/'))
+  
+  for (cursor = cursor0; *cursor; cursor++)
     {
-      /* Avoid mkdir of empty string, if leading or double '/'.  */
-
-      if (cursor == file_name || cursor[-1] == '/')
+      if (! ISSLASH (*cursor))
 	continue;
 
-      /* Avoid mkdir where last part of path is '.'.  */
+      /* Avoid mkdir of empty string, if leading or double '/'.  */
 
-      if (cursor[-1] == '.' && (cursor == file_name + 1 || cursor[-2] == '/'))
+      if (cursor == cursor0 || ISSLASH (cursor[-1]))
+	continue;
+
+      /* Avoid mkdir where last part of path is "." or "..".  */
+
+      if (cursor[-1] == '.'
+	  && (cursor == cursor0 + 1 || ISSLASH (cursor[-2])
+	      || (cursor[-2] == '.'
+		  && (cursor == cursor0 + 2 || ISSLASH (cursor[-3])))))
 	continue;
 
       *cursor = '\0';		/* truncate the path there */
-      status = mkdir (file_name, ~newdir_umask & MODE_RWX);
+      mode = MODE_RWX & ~ newdir_umask;
+      invert_permissions = we_are_root ? 0 : MODE_WXUSR & ~ mode;
+      status = mkdir (file_name, mode ^ invert_permissions);
 
       if (status == 0)
 	{
-	  /* Fix ownership.  */
+	  /* Create a struct delayed_set_stat even if
+	     invert_permissions is zero, because
+	     repair_delayed_set_stat may need to update the struct.  */
+	  delay_set_stat (file_name,
+			  &current_stat /* ignored */,
+			  invert_permissions, INTERDIR_PERMSTATUS);
 
-	  if (we_are_root)
-	    if (chown (file_name, current_stat.st_uid, current_stat.st_gid) < 0)
-	      ERROR ((0, errno,
-		      _("%s: Cannot change owner to uid %lu, gid %lu"),
-		      file_name,
-		      (unsigned long) current_stat.st_uid,
-		      (unsigned long) current_stat.st_gid));
-
-	  print_for_mkdir (file_name, cursor - file_name,
-			   ~newdir_umask & MODE_RWX);
+	  print_for_mkdir (file_name, cursor - file_name, mode);
 	  did_something = 1;
 
 	  *cursor = '/';
@@ -277,35 +410,68 @@ make_directories (char *file_name)
       break;
     }
 
-  errno = saved_errno;		/* FIXME: errno should be read-only */
   return did_something;		/* tell them to retry if we made one */
 }
 
-/*--------------------------------------------------------------------.
-| Attempt repairing what went wrong with the extraction.  Delete an   |
-| already existing file or create missing intermediate directories.   |
-| Return nonzero if we somewhat increased our chances at a successful |
-| extraction.  errno is properly restored on zero return.	      |
-`--------------------------------------------------------------------*/
+/* Prepare to extract a file.
+   Return zero if extraction should not proceed.  */
 
 static int
-maybe_recoverable (char *file_name)
+prepare_to_extract (char const *file_name)
 {
+  if (to_stdout_option)
+    return 0;
+
+  if (old_files_option == UNLINK_FIRST_OLD_FILES
+      && !remove_any_file (file_name, recursive_unlink_option)
+      && errno && errno != ENOENT)
+    {
+      unlink_error (file_name);
+      return 0;
+    }
+
+  return 1;
+}
+
+/* Attempt repairing what went wrong with the extraction.  Delete an
+   already existing file or create missing intermediate directories.
+   Return nonzero if we somewhat increased our chances at a successful
+   extraction.  errno is properly restored on zero return.  */
+static int
+maybe_recoverable (char *file_name, int *interdir_made)
+{
+  if (*interdir_made)
+    return 0;
+
   switch (errno)
     {
     case EEXIST:
-      /* Attempt deleting an existing file.  However, with -k, just stay
-	 quiet.  */
+      /* Remove an old file, if the options allow this.  */
 
-      if (keep_old_files_option)
-	return 0;
+      switch (old_files_option)
+	{
+	default:
+	  return 0;
 
-      return remove_any_file (file_name, 0);
+	case DEFAULT_OLD_FILES:
+	case OVERWRITE_OLD_DIRS:
+	case OVERWRITE_OLD_FILES:
+	  {
+	    int r = remove_any_file (file_name, 0);
+	    errno = EEXIST;
+	    return r;
+	  }
+	}
 
     case ENOENT:
       /* Attempt creating missing intermediate directories.  */
-
-      return make_directories (file_name);
+      if (! make_directories (file_name))
+	{
+	  errno = ENOENT;
+	  return 0;
+	}
+      *interdir_made = 1;
+      return 1;
 
     default:
       /* Just say we can't do anything about it...  */
@@ -314,93 +480,134 @@ maybe_recoverable (char *file_name)
     }
 }
 
-/*---.
-| ?  |
-`---*/
-
 static void
 extract_sparse_file (int fd, off_t *sizeleft, off_t totalsize, char *name)
 {
   int sparse_ind = 0;
-  size_t written;
-  ssize_t count;
 
   /* assuming sizeleft is initially totalsize */
 
   while (*sizeleft > 0)
     {
+      size_t written;
+      size_t count;
       union block *data_block = find_next_block ();
-      if (data_block == NULL)
+      if (! data_block)
 	{
-	  ERROR ((0, 0, _("Unexpected EOF on archive file")));
+	  ERROR ((0, 0, _("Unexpected EOF in archive")));
 	  return;
 	}
       if (lseek (fd, sparsearray[sparse_ind].offset, SEEK_SET) < 0)
 	{
-	  char buf[UINTMAX_STRSIZE_BOUND];
-	  ERROR ((0, errno, _("%s: lseek error at byte %s"),
-		  STRINGIFY_BIGINT (sparsearray[sparse_ind].offset, buf),
-		  name));
+	  seek_error_details (name, sparsearray[sparse_ind].offset);
 	  return;
 	}
       written = sparsearray[sparse_ind++].numbytes;
       while (written > BLOCKSIZE)
 	{
 	  count = full_write (fd, data_block->buffer, BLOCKSIZE);
-	  if (count < 0)
-	    ERROR ((0, errno, _("%s: Could not write to file"), name));
 	  written -= count;
 	  *sizeleft -= count;
+	  if (count != BLOCKSIZE)
+	    {
+	      write_error_details (name, count, BLOCKSIZE);
+	      return;
+	    }
 	  set_next_block_after (data_block);
 	  data_block = find_next_block ();
+	  if (! data_block)
+	    {
+	      ERROR ((0, 0, _("Unexpected EOF in archive")));
+	      return;
+	    }
 	}
 
       count = full_write (fd, data_block->buffer, written);
+      *sizeleft -= count;
 
-      if (count < 0)
-	ERROR ((0, errno, _("%s: Could not write to file"), name));
-      else if (count != written)
+      if (count != written)
 	{
-	  char buf1[UINTMAX_STRSIZE_BOUND];
-	  char buf2[UINTMAX_STRSIZE_BOUND];
-	  ERROR ((0, 0, _("%s: Could only write %s of %s bytes"),
-		  name,
-		  STRINGIFY_BIGINT (totalsize - *sizeleft, buf1),
-		  STRINGIFY_BIGINT (totalsize, buf2)));
-	  skip_file (*sizeleft);
+	  write_error_details (name, count, written);
+	  return;
 	}
 
-      written -= count;
-      *sizeleft -= count;
       set_next_block_after (data_block);
     }
-
-  free (sparsearray);
 }
 
-/*----------------------------------.
-| Extract a file from the archive.  |
-`----------------------------------*/
+/* Fix the statuses of all directories whose statuses need fixing, and
+   which are not ancestors of FILE_NAME.  If AFTER_SYMLINKS is
+   nonzero, do this for all such directories; otherwise, stop at the
+   first directory that is marked to be fixed up only after delayed
+   symlinks are applied.  */
+static void
+apply_nonancestor_delayed_set_stat (char const *file_name, bool after_symlinks)
+{
+  size_t file_name_len = strlen (file_name);
+  bool check_for_renamed_directories = 0;
 
+  while (delayed_set_stat_head)
+    {
+      struct delayed_set_stat *data = delayed_set_stat_head;
+      bool skip_this_one = 0;
+      struct stat st;
+      struct stat const *current_stat_info = 0;
+
+      check_for_renamed_directories |= data->after_symlinks;
+
+      if (after_symlinks < data->after_symlinks
+	  || (data->file_name_len < file_name_len
+	      && file_name[data->file_name_len]
+	      && (ISSLASH (file_name[data->file_name_len])
+		  || ISSLASH (file_name[data->file_name_len - 1]))
+	      && memcmp (file_name, data->file_name, data->file_name_len) == 0))
+	break;
+
+      if (check_for_renamed_directories)
+	{
+	  current_stat_info = &st;
+	  if (stat (data->file_name, &st) != 0)
+	    {
+	      stat_error (data->file_name);
+	      skip_this_one = 1;
+	    }
+	  else if (! (st.st_dev == data->stat_info.st_dev
+		      && (st.st_ino == data->stat_info.st_ino)))
+	    {
+	      ERROR ((0, 0,
+		      _("%s: Directory renamed before its status could be extracted"),
+		      quotearg_colon (data->file_name)));
+	      skip_this_one = 1;
+	    }
+	}
+
+      if (! skip_this_one)
+	set_stat (data->file_name, &data->stat_info, current_stat_info,
+		  data->invert_permissions, data->permstatus, DIRTYPE);
+
+      delayed_set_stat_head = data->next;
+      free (data);
+    }
+}
+
+/* Extract a file from the archive.  */
 void
 extract_archive (void)
 {
   union block *data_block;
   int fd;
   int status;
-  ssize_t sstatus;
+  size_t count;
   size_t name_length;
   size_t written;
   int openflag;
+  mode_t mode;
   off_t size;
-  int skipcrud;
+  size_t skipcrud;
   int counter;
+  int interdir_made = 0;
   char typeflag;
-#if 0
-  int sparse_ind = 0;
-#endif
   union block *exhdr;
-  struct delayed_set_stat *data;
 
 #define CURRENT_FILE_NAME (skipcrud + current_file_name)
 
@@ -409,13 +616,11 @@ extract_archive (void)
 
   if (interactive_option && !confirm ("extract", current_file_name))
     {
-      if (current_header->oldgnu_header.isextended)
-	skip_extended_headers ();
-      skip_file (current_stat.st_size);
+      skip_member ();
       return;
     }
 
-  /* Print the block from `current_header' and `current_stat'.  */
+  /* Print the block from current_header and current_stat.  */
 
   if (verbose_option)
     print_header ();
@@ -423,29 +628,44 @@ extract_archive (void)
   /* Check for fully specified file names and other atrocities.  */
 
   skipcrud = 0;
-  while (!absolute_names_option && CURRENT_FILE_NAME[0] == '/')
+  if (! absolute_names_option)
     {
-      static int warned_once = 0;
-
-      skipcrud++;		/* force relative path */
-      if (!warned_once)
+      if (contains_dot_dot (CURRENT_FILE_NAME))
 	{
-	  warned_once = 1;
-	  WARN ((0, 0, _("\
-Removing leading `/' from absolute path names in the archive")));
+	  ERROR ((0, 0, _("%s: Member name contains `..'"),
+		  quotearg_colon (CURRENT_FILE_NAME)));
+	  skip_member ();
+	  return;
+	}
+
+      skipcrud = FILESYSTEM_PREFIX_LEN (current_file_name);
+      while (ISSLASH (CURRENT_FILE_NAME[0]))
+	skipcrud++;
+
+      if (skipcrud)
+	{
+	  static int warned_once;
+	  
+	  if (!warned_once)
+	    {
+	      warned_once = 1;
+	      WARN ((0, 0, _("Removing leading `%.*s' from member names"),
+		     (int) skipcrud, current_file_name));
+	    }
 	}
     }
+
+  apply_nonancestor_delayed_set_stat (CURRENT_FILE_NAME, 0);
 
   /* Take a safety backup of a previously existing file.  */
 
   if (backup_option && !to_stdout_option)
     if (!maybe_backup_file (CURRENT_FILE_NAME, 0))
       {
-	ERROR ((0, errno, _("%s: Was unable to backup this file"),
-		CURRENT_FILE_NAME));
-	if (current_header->oldgnu_header.isextended)
-	  skip_extended_headers ();
-	skip_file (current_stat.st_size);
+	int e = errno;
+	ERROR ((0, e, _("%s: Was unable to backup this file"),
+		quotearg_colon (CURRENT_FILE_NAME)));
+	skip_member ();
 	return;
       }
 
@@ -470,15 +690,14 @@ Removing leading `/' from absolute path names in the archive")));
 
     case GNUTYPE_SPARSE:
       sp_array_size = 10;
-      sparsearray = (struct sp_array *)
+      sparsearray =
 	xmalloc (sp_array_size * sizeof (struct sp_array));
 
       for (counter = 0; counter < SPARSES_IN_OLDGNU_HEADER; counter++)
 	{
-	  sparsearray[counter].offset =
-	    OFF_FROM_OCT (current_header->oldgnu_header.sp[counter].offset);
-	  sparsearray[counter].numbytes =
-	    SIZE_FROM_OCT (current_header->oldgnu_header.sp[counter].numbytes);
+	  struct sparse const *s = &current_header->oldgnu_header.sp[counter];
+	  sparsearray[counter].offset = OFF_FROM_HEADER (s->offset);
+	  sparsearray[counter].numbytes = SIZE_FROM_HEADER (s->numbytes);
 	  if (!sparsearray[counter].numbytes)
 	    break;
 	}
@@ -494,26 +713,30 @@ Removing leading `/' from absolute path names in the archive")));
 	  while (1)
 	    {
 	      exhdr = find_next_block ();
+	      if (! exhdr)
+		{
+		  ERROR ((0, 0, _("Unexpected EOF in archive")));
+		  return;
+		}
 	      for (counter = 0; counter < SPARSES_IN_SPARSE_HEADER; counter++)
 		{
+		  struct sparse const *s = &exhdr->sparse_header.sp[counter];
 		  if (counter + ind > sp_array_size - 1)
 		    {
 		      /* Realloc the scratch area since we've run out of
 			 room.  */
 
 		      sp_array_size *= 2;
-		      sparsearray = (struct sp_array *)
+		      sparsearray =
 			xrealloc (sparsearray,
-				  sp_array_size * (sizeof (struct sp_array)));
+				  sp_array_size * sizeof (struct sp_array));
 		    }
-		  /* Compare to 0, or use !(int)..., for Pyramid's dumb
-		     compiler.  */
-		  if (exhdr->sparse_header.sp[counter].numbytes == 0)
+		  if (s->numbytes[0] == 0)
 		    break;
 		  sparsearray[counter + ind].offset =
-		    OFF_FROM_OCT (exhdr->sparse_header.sp[counter].offset);
+		    OFF_FROM_HEADER (s->offset);
 		  sparsearray[counter + ind].numbytes =
-		    SIZE_FROM_OCT (exhdr->sparse_header.sp[counter].numbytes);
+		    SIZE_FROM_HEADER (s->numbytes);
 		}
 	      if (!exhdr->sparse_header.isextended)
 		break;
@@ -534,35 +757,33 @@ Removing leading `/' from absolute path names in the archive")));
       /* Appears to be a file.  But BSD tar uses the convention that a slash
 	 suffix means a directory.  */
 
-      name_length = strlen (CURRENT_FILE_NAME) - 1;
-      if (CURRENT_FILE_NAME[name_length] == '/')
+      name_length = strlen (CURRENT_FILE_NAME);
+      if (FILESYSTEM_PREFIX_LEN (CURRENT_FILE_NAME) < name_length
+	  && CURRENT_FILE_NAME[name_length - 1] == '/')
 	goto really_dir;
 
       /* FIXME: deal with protection issues.  */
 
     again_file:
-      openflag = (keep_old_files_option ?
-		  O_BINARY | O_NDELAY | O_WRONLY | O_CREAT | O_EXCL :
-		  O_BINARY | O_NDELAY | O_WRONLY | O_CREAT | O_TRUNC)
-	| ((typeflag == GNUTYPE_SPARSE) ? 0 : O_APPEND);
-
-      /* JK - The last | is a kludge to solve the problem the O_APPEND
-	 flag causes with files we are trying to make sparse: when a file
-	 is opened with O_APPEND, it writes to the last place that
-	 something was written, thereby ignoring any lseeks that we have
-	 done.  We add this extra condition to make it able to lseek when
-	 a file is sparse, i.e., we don't open the new file with this
-	 flag.  (Grump -- this bug caused me to waste a good deal of
-	 time, I might add)  */
+      openflag = (O_WRONLY | O_BINARY | O_CREAT
+		  | (old_files_option == OVERWRITE_OLD_FILES
+		     ? O_TRUNC
+		     : O_EXCL));
+      mode = current_stat.st_mode & MODE_RWX & ~ current_umask;
 
       if (to_stdout_option)
 	{
-	  fd = 1;
+	  fd = STDOUT_FILENO;
 	  goto extract_file;
 	}
 
-      if (unlink_first_option)
-	remove_any_file (CURRENT_FILE_NAME, recursive_unlink_option);
+      if (! prepare_to_extract (CURRENT_FILE_NAME))
+	{
+	  skip_member ();
+	  if (backup_option)
+	    undo_last_backup ();
+	  break;
+	}
 
 #if O_CTG
       /* Contiguous files (on the Masscomp) have to specify the size in
@@ -570,14 +791,14 @@ Removing leading `/' from absolute path names in the archive")));
 
       if (typeflag == CONTTYPE)
 	fd = open (CURRENT_FILE_NAME, openflag | O_CTG,
-		   current_stat.st_mode, current_stat.st_size);
+		   mode, current_stat.st_size);
       else
-	fd = open (CURRENT_FILE_NAME, openflag, current_stat.st_mode);
+	fd = open (CURRENT_FILE_NAME, openflag, mode);
 
 #else /* not O_CTG */
       if (typeflag == CONTTYPE)
 	{
-	  static int conttype_diagnosed = 0;
+	  static int conttype_diagnosed;
 
 	  if (!conttype_diagnosed)
 	    {
@@ -585,20 +806,17 @@ Removing leading `/' from absolute path names in the archive")));
 	      WARN ((0, 0, _("Extracting contiguous files as regular files")));
 	    }
 	}
-      fd = open (CURRENT_FILE_NAME, openflag, current_stat.st_mode);
+      fd = open (CURRENT_FILE_NAME, openflag, mode);
 
 #endif /* not O_CTG */
 
       if (fd < 0)
 	{
-	  if (maybe_recoverable (CURRENT_FILE_NAME))
+	  if (maybe_recoverable (CURRENT_FILE_NAME, &interdir_made))
 	    goto again_file;
 
-	  ERROR ((0, errno, _("%s: Could not create file"),
-		  CURRENT_FILE_NAME));
-	  if (current_header->oldgnu_header.isextended)
-	    skip_extended_headers ();
-	  skip_file (current_stat.st_size);
+	  open_error (CURRENT_FILE_NAME);
+	  skip_member ();
 	  if (backup_option)
 	    undo_last_backup ();
 	  break;
@@ -617,15 +835,14 @@ Removing leading `/' from absolute path names in the archive")));
 	     REAL interesting unless we do this.  */
 
 	  name_length_bis = strlen (CURRENT_FILE_NAME) + 1;
-	  name = (char *) xmalloc (name_length_bis);
+	  name = xmalloc (name_length_bis);
 	  memcpy (name, CURRENT_FILE_NAME, name_length_bis);
 	  size = current_stat.st_size;
 	  extract_sparse_file (fd, &size, current_stat.st_size, name);
+	  free (sparsearray);
 	}
       else
-	for (size = current_stat.st_size;
-	     size > 0;
-	     size -= written)
+	for (size = current_stat.st_size; size > 0; )
 	  {
 	    if (multi_volume_option)
 	      {
@@ -639,9 +856,9 @@ Removing leading `/' from absolute path names in the archive")));
 	       worked.  */
 
 	    data_block = find_next_block ();
-	    if (data_block == NULL)
+	    if (! data_block)
 	      {
-		ERROR ((0, 0, _("Unexpected EOF on archive file")));
+		ERROR ((0, 0, _("Unexpected EOF in archive")));
 		break;		/* FIXME: What happens, then?  */
 	      }
 
@@ -649,31 +866,23 @@ Removing leading `/' from absolute path names in the archive")));
 
 	    if (written > size)
 	      written = size;
-	    errno = 0;		/* FIXME: errno should be read-only */
-	    sstatus = full_write (fd, data_block->buffer, written);
+	    errno = 0;
+	    count = full_write (fd, data_block->buffer, written);
+	    size -= count;
 
 	    set_next_block_after ((union block *)
 				  (data_block->buffer + written - 1));
-	    if (sstatus == written)
-	      continue;
-
-	    /* Error in writing to file.  Print it, skip to next file in
-	       archive.  */
-
-	    if (sstatus < 0)
-	      ERROR ((0, errno, _("%s: Could not write to file"),
-		      CURRENT_FILE_NAME));
-	    else
-	      ERROR ((0, 0, _("%s: Could only write %lu of %lu bytes"),
-		      CURRENT_FILE_NAME,
-		      (unsigned long) sstatus,
-		      (unsigned long) written));
-	    skip_file (size - written);
-	    break;		/* still do the close, mod time, chmod, etc */
+	    if (count != written)
+	      {
+		write_error_details (CURRENT_FILE_NAME, count, written);
+		break;
+	      }
 	  }
 
+      skip_file (size);
+
       if (multi_volume_option)
-	assign_string (&save_name, NULL);
+	assign_string (&save_name, 0);
 
       /* If writing to stdout, don't try to do anything to the filename;
 	 it doesn't exist, or we don't want to touch it anyway.  */
@@ -684,90 +893,169 @@ Removing leading `/' from absolute path names in the archive")));
       status = close (fd);
       if (status < 0)
 	{
-	  ERROR ((0, errno, _("%s: Error while closing"), CURRENT_FILE_NAME));
+	  close_error (CURRENT_FILE_NAME);
 	  if (backup_option)
 	    undo_last_backup ();
 	}
 
-      set_stat (CURRENT_FILE_NAME, &current_stat, 0);
+      set_stat (CURRENT_FILE_NAME, &current_stat, 0, 0,
+		(old_files_option == OVERWRITE_OLD_FILES
+		 ? UNKNOWN_PERMSTATUS
+		 : ARCHIVED_PERMSTATUS),
+		typeflag);
       break;
 
     case SYMTYPE:
-      if (to_stdout_option)
+#ifdef HAVE_SYMLINK
+      if (! prepare_to_extract (CURRENT_FILE_NAME))
 	break;
 
-#ifdef S_ISLNK
-      if (unlink_first_option)
-	remove_any_file (CURRENT_FILE_NAME, recursive_unlink_option);
+      if (absolute_names_option
+	  || ! (ISSLASH (current_link_name
+			 [FILESYSTEM_PREFIX_LEN (current_link_name)])
+		|| contains_dot_dot (current_link_name)))
+	{
+	  while (status = symlink (current_link_name, CURRENT_FILE_NAME),
+		 status != 0)
+	    if (!maybe_recoverable (CURRENT_FILE_NAME, &interdir_made))
+	      break;
 
-      while (status = symlink (current_link_name, CURRENT_FILE_NAME),
-	     status != 0)
-	if (!maybe_recoverable (CURRENT_FILE_NAME))
-	  break;
-
-      if (status == 0)
-
-	/* Setting the attributes of symbolic links might, on some systems,
-	   change the pointed to file, instead of the symbolic link itself.
-	   At least some of these systems have a lchown call, and the
-	   set_stat routine knows about this.    */
-
-	set_stat (CURRENT_FILE_NAME, &current_stat, 1);
-
+	  if (status == 0)
+	    set_stat (CURRENT_FILE_NAME, &current_stat, 0, 0, 0, SYMTYPE);
+	  else
+	    symlink_error (current_link_name, CURRENT_FILE_NAME);
+	}
       else
 	{
-	  ERROR ((0, errno, _("%s: Could not create symlink to `%s'"),
-		  CURRENT_FILE_NAME, current_link_name));
-	  if (backup_option)
-	    undo_last_backup ();
+	  /* This symbolic link is potentially dangerous.  Don't
+	     create it now; instead, create a placeholder file, which
+	     will be replaced after other extraction is done.  */
+	  struct stat st;
+
+	  while (fd = open (CURRENT_FILE_NAME, O_WRONLY | O_CREAT | O_EXCL, 0),
+		 fd < 0)
+	    if (! maybe_recoverable (CURRENT_FILE_NAME, &interdir_made))
+	      break;
+
+	  status = -1;
+	  if (fd < 0)
+	    open_error (CURRENT_FILE_NAME);
+	  else if (fstat (fd, &st) != 0)
+	    {
+	      stat_error (CURRENT_FILE_NAME);
+	      close (fd);
+	    }
+	  else if (close (fd) != 0)
+	    close_error (CURRENT_FILE_NAME);
+	  else
+	    {
+	      struct delayed_set_stat *h;
+	      struct delayed_symlink *p =
+		xmalloc (offsetof (struct delayed_symlink, target)
+			 + strlen (current_link_name) + 1);
+	      p->next = delayed_symlink_head;
+	      delayed_symlink_head = p;
+	      p->dev = st.st_dev;
+	      p->ino = st.st_ino;
+	      p->mtime = st.st_mtime;
+	      p->uid = current_stat.st_uid;
+	      p->gid = current_stat.st_gid;
+	      p->sources = xmalloc (offsetof (struct string_list, string)
+				    + strlen (CURRENT_FILE_NAME) + 1);
+	      p->sources->next = 0;
+	      strcpy (p->sources->string, CURRENT_FILE_NAME);
+	      strcpy (p->target, current_link_name);
+
+	      h = delayed_set_stat_head;
+	      if (h && ! h->after_symlinks
+		  && strncmp (CURRENT_FILE_NAME, h->file_name, h->file_name_len) == 0
+		  && ISSLASH (CURRENT_FILE_NAME[h->file_name_len])
+		  && (base_name (CURRENT_FILE_NAME)
+		      == CURRENT_FILE_NAME + h->file_name_len + 1))
+		{
+		  do
+		    {
+		      h->after_symlinks = 1;
+
+		      if (stat (h->file_name, &st) != 0)
+			stat_error (h->file_name);
+		      else
+			{
+			  h->stat_info.st_dev = st.st_dev;
+			  h->stat_info.st_ino = st.st_ino;
+			}
+		    }
+		  while ((h = h->next) && ! h->after_symlinks);
+		}
+
+	      status = 0;
+	    }
 	}
+  
+      if (status != 0 && backup_option)
+	undo_last_backup ();
       break;
 
-#else /* not S_ISLNK */
+#else
       {
-	static int warned_once = 0;
+	static int warned_once;
 
 	if (!warned_once)
 	  {
 	    warned_once = 1;
-	    WARN ((0, 0, _("\
-Attempting extraction of symbolic links as hard links")));
+	    WARN ((0, 0,
+		   _("Attempting extraction of symbolic links as hard links")));
 	  }
       }
+      typeflag = LNKTYPE;
       /* Fall through.  */
-
-#endif /* not S_ISLNK */
+#endif
 
     case LNKTYPE:
-      if (to_stdout_option)
+      if (! prepare_to_extract (CURRENT_FILE_NAME))
 	break;
-
-      if (unlink_first_option)
-	remove_any_file (CURRENT_FILE_NAME, recursive_unlink_option);
 
     again_link:
       {
 	struct stat st1, st2;
+	int e;
 
 	/* MSDOS does not implement links.  However, djgpp's link() actually
 	   copies the file.  */
 	status = link (current_link_name, CURRENT_FILE_NAME);
 
 	if (status == 0)
-	  break;
-	if (maybe_recoverable (CURRENT_FILE_NAME))
+	  {
+	    struct delayed_symlink *ds = delayed_symlink_head;
+	    if (ds && stat (current_link_name, &st1) == 0)
+	      for (; ds; ds = ds->next)
+		if (ds->dev == st1.st_dev
+		    && ds->ino == st1.st_ino
+		    && ds->mtime == st1.st_mtime)
+		  {
+		    struct string_list *p = 
+		      xmalloc (offsetof (struct string_list, string)
+			       + strlen (CURRENT_FILE_NAME) + 1);
+		    strcpy (p->string, CURRENT_FILE_NAME);
+		    p->next = ds->sources;
+		    ds->sources = p;
+		    break;
+		  }
+	    break;
+	  }
+	if (maybe_recoverable (CURRENT_FILE_NAME, &interdir_made))
 	  goto again_link;
 
 	if (incremental_option && errno == EEXIST)
 	  break;
+	e = errno;
 	if (stat (current_link_name, &st1) == 0
 	    && stat (CURRENT_FILE_NAME, &st2) == 0
 	    && st1.st_dev == st2.st_dev
 	    && st1.st_ino == st2.st_ino)
 	  break;
 
-	ERROR ((0, errno, _("%s: Could not link to `%s'"),
-		CURRENT_FILE_NAME, current_link_name));
+	link_error (current_link_name, CURRENT_FILE_NAME);
 	if (backup_option)
 	  undo_last_backup ();
       }
@@ -784,48 +1072,43 @@ Attempting extraction of symbolic links as hard links")));
       current_stat.st_mode |= S_IFBLK;
 #endif
 
-#if defined(S_IFCHR) || defined(S_IFBLK)
+#if S_IFCHR || S_IFBLK
     make_node:
-      if (to_stdout_option)
+      if (! prepare_to_extract (CURRENT_FILE_NAME))
 	break;
-
-      if (unlink_first_option)
-	remove_any_file (CURRENT_FILE_NAME, recursive_unlink_option);
 
       status = mknod (CURRENT_FILE_NAME, current_stat.st_mode,
 		      current_stat.st_rdev);
       if (status != 0)
 	{
-	  if (maybe_recoverable (CURRENT_FILE_NAME))
+	  if (maybe_recoverable (CURRENT_FILE_NAME, &interdir_made))
 	    goto make_node;
-
-	  ERROR ((0, errno, _("%s: Could not make node"), CURRENT_FILE_NAME));
+	  mknod_error (CURRENT_FILE_NAME);
 	  if (backup_option)
 	    undo_last_backup ();
 	  break;
 	};
-      set_stat (CURRENT_FILE_NAME, &current_stat, 0);
+      set_stat (CURRENT_FILE_NAME, &current_stat, 0, 0,
+		ARCHIVED_PERMSTATUS, typeflag);
       break;
 #endif
 
-#ifdef S_ISFIFO
+#if HAVE_MKFIFO || defined mkfifo
     case FIFOTYPE:
-      if (to_stdout_option)
+      if (! prepare_to_extract (CURRENT_FILE_NAME))
 	break;
-
-      if (unlink_first_option)
-	remove_any_file (CURRENT_FILE_NAME, recursive_unlink_option);
 
       while (status = mkfifo (CURRENT_FILE_NAME, current_stat.st_mode),
 	     status != 0)
-	if (!maybe_recoverable (CURRENT_FILE_NAME))
+	if (!maybe_recoverable (CURRENT_FILE_NAME, &interdir_made))
 	  break;
 
       if (status == 0)
-	set_stat (CURRENT_FILE_NAME, &current_stat, 0);
+	set_stat (CURRENT_FILE_NAME, &current_stat, 0, 0,
+		  ARCHIVED_PERMSTATUS, typeflag);
       else
 	{
-	  ERROR ((0, errno, _("%s: Could not make fifo"), CURRENT_FILE_NAME));
+	  mkfifo_error (CURRENT_FILE_NAME);
 	  if (backup_option)
 	    undo_last_backup ();
 	}
@@ -834,12 +1117,14 @@ Attempting extraction of symbolic links as hard links")));
 
     case DIRTYPE:
     case GNUTYPE_DUMPDIR:
-      name_length = strlen (CURRENT_FILE_NAME) - 1;
+      name_length = strlen (CURRENT_FILE_NAME);
 
     really_dir:
-      /* Check for trailing /, and zap as many as we find.  */
-      while (name_length && CURRENT_FILE_NAME[name_length] == '/')
-	CURRENT_FILE_NAME[name_length--] = '\0';
+      /* Remove any redundant trailing "/"s.  */
+      while (FILESYSTEM_PREFIX_LEN (CURRENT_FILE_NAME) < name_length
+	     && CURRENT_FILE_NAME[name_length - 1] == '/')
+	name_length--;
+      CURRENT_FILE_NAME[name_length] = '\0';
 
       if (incremental_option)
 	{
@@ -849,101 +1134,68 @@ Attempting extraction of symbolic links as hard links")));
 	  gnu_restore (skipcrud);
 	}
       else if (typeflag == GNUTYPE_DUMPDIR)
-	skip_file (current_stat.st_size);
+	skip_member ();
 
-      if (to_stdout_option)
+      if (! prepare_to_extract (CURRENT_FILE_NAME))
 	break;
 
+      mode = ((current_stat.st_mode
+	       | (we_are_root ? 0 : MODE_WXUSR))
+	      & MODE_RWX);
+
     again_dir:
-      status = mkdir (CURRENT_FILE_NAME,
-		      ((we_are_root ? 0 : MODE_WXUSR)
-		       | current_stat.st_mode));
+      status = mkdir (CURRENT_FILE_NAME, mode);
+
       if (status != 0)
 	{
-	  /* If the directory creation fails, let's consider immediately the
-	     case where the directory already exists.  We have three good
-	     reasons for clearing out this case before attempting recovery.
-
-	     1) It would not be efficient recovering the error by deleting
-	     the directory in maybe_recoverable, then recreating it right
-	     away.  We only hope we will be able to adjust its permissions
-	     adequately, later.
-
-	     2) Removing the directory might fail if it is not empty.  By
-	     exception, this real error is traditionally not reported.
-
-	     3) Let's suppose `DIR' already exists and we are about to
-	     extract `DIR/../DIR'.  This would fail because the directory
-	     already exists, and maybe_recoverable would react by removing
-	     `DIR'.  This then would fail again because there are missing
-	     intermediate directories, and maybe_recoverable would react by
-	     creating `DIR'.  We would then have an extraction loop.  */
-
-	  if (errno == EEXIST)
+	  if (errno == EEXIST
+	      && (interdir_made
+		  || old_files_option == OVERWRITE_OLD_DIRS
+		  || old_files_option == OVERWRITE_OLD_FILES))
 	    {
-	      struct stat st1;
-	      int saved_errno = errno;
-
-	      if (stat (CURRENT_FILE_NAME, &st1) == 0 && S_ISDIR (st1.st_mode))
-		goto check_perms;
-
-	      errno = saved_errno; /* FIXME: errno should be read-only */
+	      struct stat st;
+	      if (stat (CURRENT_FILE_NAME, &st) == 0)
+		{
+		  if (interdir_made)
+		    {
+		      repair_delayed_set_stat (CURRENT_FILE_NAME, &st);
+		      break;
+		    }
+		  if (S_ISDIR (st.st_mode))
+		    {
+		      mode = st.st_mode & ~ current_umask;
+		      goto directory_exists;
+		    }
+		}
+	      errno = EEXIST;
 	    }
-
-	  if (maybe_recoverable (CURRENT_FILE_NAME))
+	
+	  if (maybe_recoverable (CURRENT_FILE_NAME, &interdir_made))
 	    goto again_dir;
 
-	  /* If we're trying to create '.', let it be.  */
-
-	  /* FIXME: Strange style...  */
-
-	  if (CURRENT_FILE_NAME[name_length] == '.'
-	      && (name_length == 0
-		  || CURRENT_FILE_NAME[name_length - 1] == '/'))
-	    goto check_perms;
-
-	  ERROR ((0, errno, _("%s: Could not create directory"),
-		  CURRENT_FILE_NAME));
-	  if (backup_option)
-	    undo_last_backup ();
-	  break;
+	  if (errno != EEXIST)
+	    {
+	      mkdir_error (CURRENT_FILE_NAME);
+	      if (backup_option)
+		undo_last_backup ();
+	      break;
+	    }
 	}
 
-    check_perms:
-      if (!we_are_root && MODE_WXUSR != (MODE_WXUSR & current_stat.st_mode))
-	{
-	  current_stat.st_mode |= MODE_WXUSR;
-	  WARN ((0, 0, _("Added write and execute permission to directory %s"),
-		 CURRENT_FILE_NAME));
-	}
-
-#if !MSDOS
-      /* MSDOS does not associate timestamps with directories.   In this
-	 case, no need to try delaying their restoration.  */
-
-      if (touch_option)
-
-	/* FIXME: I do not believe in this.  Ignoring time stamps does not
-	   alleviate the need of delaying the restoration of directories'
-	   mode.  Let's ponder this for a little while.  */
-
-	set_mode (CURRENT_FILE_NAME, &current_stat);
-
-      else
-	{
-	  data = ((struct delayed_set_stat *)
-		      xmalloc (sizeof (struct delayed_set_stat)));
-	  data->file_name = xstrdup (CURRENT_FILE_NAME);
-	  data->stat_info = current_stat;
-	  data->next = delayed_set_stat_head;
-	  delayed_set_stat_head = data;
-	}
-#endif /* !MSDOS */
+    directory_exists:
+      if (status == 0
+	  || old_files_option == OVERWRITE_OLD_DIRS
+	  || old_files_option == OVERWRITE_OLD_FILES)
+	delay_set_stat (CURRENT_FILE_NAME, &current_stat,
+			MODE_RWX & (mode ^ current_stat.st_mode),
+			(status == 0
+			 ? ARCHIVED_PERMSTATUS
+			 : UNKNOWN_PERMSTATUS));
       break;
 
     case GNUTYPE_VOLHDR:
       if (verbose_option)
-	fprintf (stdlis, _("Reading %s\n"), current_file_name);
+	fprintf (stdlis, _("Reading %s\n"), quote (current_file_name));
       break;
 
     case GNUTYPE_NAMES:
@@ -951,10 +1203,10 @@ Attempting extraction of symbolic links as hard links")));
       break;
 
     case GNUTYPE_MULTIVOL:
-      ERROR ((0, 0, _("\
-Cannot extract `%s' -- file is continued from another volume"),
-	      current_file_name));
-      skip_file (current_stat.st_size);
+      ERROR ((0, 0,
+	      _("%s: Cannot extract -- file is continued from another volume"),
+	      quotearg_colon (current_file_name)));
+      skip_member ();
       if (backup_option)
 	undo_last_backup ();
       break;
@@ -962,36 +1214,100 @@ Cannot extract `%s' -- file is continued from another volume"),
     case GNUTYPE_LONGNAME:
     case GNUTYPE_LONGLINK:
       ERROR ((0, 0, _("Visible long name error")));
-      skip_file (current_stat.st_size);
+      skip_member ();
       if (backup_option)
 	undo_last_backup ();
       break;
 
     default:
       WARN ((0, 0,
-	     _("Unknown file type '%c' for %s, extracted as normal file"),
-	     typeflag, CURRENT_FILE_NAME));
+	     _("%s: Unknown file type '%c', extracted as normal file"),
+	     quotearg_colon (CURRENT_FILE_NAME), typeflag));
       goto again_file;
     }
 
 #undef CURRENT_FILE_NAME
 }
 
-/*----------------------------------------------------------------.
-| Set back the utime and mode for all the extracted directories.  |
-`----------------------------------------------------------------*/
+/* Extract the symbolic links whose final extraction were delayed.  */
+static void
+apply_delayed_symlinks (void)
+{
+  struct delayed_symlink *ds;
+
+  for (ds = delayed_symlink_head; ds; )
+    {
+      struct string_list *sources = ds->sources;
+      char const *valid_source = 0;
+
+      for (sources = ds->sources; sources; sources = sources->next)
+	{
+	  char const *source = sources->string;
+	  struct stat st;
+
+	  /* Make sure the placeholder file is still there.  If not,
+	     don't create a symlink, as the placeholder was probably
+	     removed by a later extraction.  */
+	  if (lstat (source, &st) == 0
+	      && st.st_dev == ds->dev
+	      && st.st_ino == ds->ino
+	      && st.st_mtime == ds->mtime)
+	    {
+	      /* Unlink the placeholder, then create a hard link if possible,
+		 a symbolic link otherwise.  */
+	      if (unlink (source) != 0)
+		unlink_error (source);
+	      else if (valid_source && link (valid_source, source) == 0)
+		;
+	      else if (symlink (ds->target, source) != 0)
+		symlink_error (ds->target, source);
+	      else
+		{
+		  valid_source = source;
+		  st.st_uid = ds->uid;
+		  st.st_gid = ds->gid;
+		  set_stat (source, &st, 0, 0, 0, SYMTYPE);
+		}
+	    }
+	}
+
+      for (sources = ds->sources; sources; )
+	{
+	  struct string_list *next = sources->next;
+	  free (sources);
+	  sources = next;
+	}
+
+      {
+	struct delayed_symlink *next = ds->next;
+	free (ds);
+	ds = next;
+      }
+    }
+
+  delayed_symlink_head = 0;
+}
+
+/* Finish the extraction of an archive.  */
+void
+extract_finish (void)
+{
+  /* First, fix the status of ordinary directories that need fixing.  */
+  apply_nonancestor_delayed_set_stat ("", 0);
+
+  /* Then, apply delayed symlinks, so that they don't affect delayed
+     directory status-setting for ordinary directories.  */
+  apply_delayed_symlinks ();
+
+  /* Finally, fix the status of directories that are ancestors
+     of delayed symlinks.  */
+  apply_nonancestor_delayed_set_stat ("", 1);
+}
 
 void
-apply_delayed_set_stat (void)
+fatal_exit (void)
 {
-  struct delayed_set_stat *data;
-
-  while (delayed_set_stat_head != NULL)
-    {
-      data = delayed_set_stat_head;
-      delayed_set_stat_head = delayed_set_stat_head->next;
-      set_stat (data->file_name, &data->stat_info, 0);
-      free (data->file_name);
-      free (data);
-    }
+  extract_finish ();
+  error (TAREXIT_FAILURE, 0, _("Error is not recoverable: exiting now"));
+  abort ();
 }

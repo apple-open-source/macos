@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -41,7 +39,7 @@ struct literal_pointer_data {
     unsigned long nliterals;	/* total number of literal pointers in the */
 				/*  input files merged into this section  */
     unsigned long nprobes;	/* number of hash probes */
-#endif DEBUG
+#endif /* DEBUG */
 };
 
 /* the number of entries in the hash table */
@@ -104,4 +102,4 @@ __private_extern__ void print_literal_pointer_data(
 __private_extern__ void literal_pointer_data_stats(
     struct literal_pointer_data *data,
     struct merged_section *ms);
-#endif DEBUG
+#endif /* DEBUG */

@@ -1,0 +1,109 @@
+# Jamfile for target "AppleSCCSerial" of project "AppleSCCSerial"
+
+
+JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
+
+# Implicitly computed project-wide settings for project
+export deferred DEVELOPMENT_LANGUAGE = English ;
+export deferred PROJECT = $(PROJECT_NAME) ;
+export deferred PROJECT_NAME = AppleSCCSerial ;
+export deferred SRCROOT = /Volumes/OSXSourceCode/AppleSCCSerialDrivers/126.4.0/AppleSCCSerial ;
+
+# User-defined project-wide settings for project
+
+# Target "AppleSCCSerial"
+
+export deferred _INFO_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/AppleSCCSerial.build/Info.plist" ;
+export deferred _PKGINFO_FILE_PATH = "$(SRCROOT)/pbxbuild.data/AppleSCCSerial.build/PkgInfo" ;
+export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/AppleSCCSerial.build/pbdevelopment.plist" ;
+
+# Implicitly computed build settings for target "AppleSCCSerial"
+export deferred CLONE_HEADERS = NO ;
+export deferred PFE_FILE_C_DIALECTS = c++ ;
+export deferred TARGETNAME = $(TARGET_NAME) ;
+export deferred TARGET_NAME = AppleSCCSerial ;
+
+# User-defined build settings for target "AppleSCCSerial"
+export deferred FRAMEWORK_SEARCH_PATHS =  ;
+export deferred HEADER_SEARCH_PATHS =  ;
+export deferred INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOSerialFamily.kext/Contents/PlugIns/" ;
+export deferred KERNEL_MODULE = YES ;
+export deferred LIBRARY_SEARCH_PATHS =  ;
+export deferred MODULE_IOKIT = YES ;
+export deferred MODULE_NAME = com.apple.driver.AppleSCCSerial ;
+export deferred MODULE_VERSION = 1.2.6 ;
+export deferred OTHER_CFLAGS =  ;
+export deferred OTHER_LDFLAGS =  ;
+export deferred OTHER_REZFLAGS =  ;
+export deferred PRODUCT_NAME = AppleSCCSerial ;
+export deferred SECTORDER_FLAGS =  ;
+export deferred WARNING_CFLAGS = -Wmost -Wno-four-char-constants -Wno-unknown-pragmas ;
+export deferred WRAPPER_EXTENSION = kext ;
+
+if "$(BUILD_STYLE)" = Development {
+	export deferred COPY_PHASE_STRIP = NO ;
+	export deferred OPTIMIZATION_CFLAGS = -O0 ;
+}
+
+if "$(BUILD_STYLE)" = Deployment {
+	export deferred COPY_PHASE_STRIP = YES ;
+}
+
+
+ConditionalDefinitions _ ;
+commitdeferred ;
+
+
+BeginBundle "<AppleSCCSerial>AppleSCCSerial.kext" ;
+
+# Script Build Phase Files
+SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/AppleSCCSerial.build/BPTag000-script.sh" ;
+ProcessScriptBuildPhaseFiles "<AppleSCCSerial>AppleSCCSerial.kext" : "$(SCRIPT_BUILD_PHASE_FILES)" : "" : BPTag000 ;
+
+# Headers
+HEADERS =
+	HardwareDefs.h
+	PPCSerialPort.h
+	SccChipPrimatives.h
+	SccQueuePrimatives.h
+	SccTypes.h
+	Z85C30.h ;
+ProcessHeaders "<AppleSCCSerial>AppleSCCSerial.kext" : "$(HEADERS)" : BPTag000 : BPTag001 ;
+
+# Resources
+English.lproj/InfoPlist.strings_REGION = English ;
+RESOURCES = English.lproj/InfoPlist.strings ;
+ProcessResources "<AppleSCCSerial>AppleSCCSerial.kext" : "$(RESOURCES)" : BPTag001 : BPTag002 ;
+
+# Sources
+AppleSCCModem.cpp_ATTRIBUTES = ;
+PPCSerialPort.cpp_ATTRIBUTES = ;
+SccChipPrimatives.cpp_ATTRIBUTES = ;
+SccQueuePrimatives.cpp_ATTRIBUTES = ;
+SOURCES =
+	AppleSCCModem.cpp
+	PPCSerialPort.cpp
+	SccChipPrimatives.cpp
+	SccQueuePrimatives.cpp ;
+ProcessSources "<AppleSCCSerial>AppleSCCSerial.kext" : "$(SOURCES)" : BPTag002 : BPTag003 ;
+
+# Frameworks & Libraries
+FRAMEWORKS_AND_LIBRARIES = ;
+ProcessFrameworksAndLibraries "<AppleSCCSerial>AppleSCCSerial.kext" : "$(FRAMEWORKS_AND_LIBRARIES)" : BPTag003 : BPTag004 ;
+
+# Rez Files
+REZ_FILES = ;
+ProcessRezFiles "<AppleSCCSerial>AppleSCCSerial.kext" : "$(REZ_FILES)" : BPTag004 : BPTag005 ;
+
+# Script Build Phase Files
+SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/AppleSCCSerial.build/BPTag006-script.sh" ;
+ProcessScriptBuildPhaseFiles "<AppleSCCSerial>AppleSCCSerial.kext" : "$(SCRIPT_BUILD_PHASE_FILES)" : BPTag005 : BPTag006 ;
+
+rule DefineHeaderDependencies
+{
+}
+
+DefineHeaderDependencies "<AppleSCCSerial>AppleSCCSerial.kext" ;
+
+EndBundle "<AppleSCCSerial>AppleSCCSerial.kext" ;
+

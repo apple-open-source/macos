@@ -1,0 +1,16 @@
+--- fputs.3.orig	Tue May 20 15:22:42 2003
++++ fputs.3	Thu Jul 31 17:34:11 2003
+@@ -109,3 +109,13 @@
+ .Fn puts
+ conform to
+ .St -isoC .
++While not mentioned in the standard, both
++.Fn fputs
++and
++.Fn puts
++print
++.Ql (null)
++if
++.Fa str
++is
++.Dv NULL .

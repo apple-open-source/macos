@@ -1,0 +1,456 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML
+><HEAD
+><TITLE
+>Create a minimal project, e.g. calc</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.64
+"><LINK
+REL="HOME"
+TITLE="DejaGnu"
+HREF="book1.html"><LINK
+REL="UP"
+TITLE="Getting DejaGnu up and running"
+HREF="gettingup.html"><LINK
+REL="PREVIOUS"
+TITLE="Getting DejaGnu up and running"
+HREF="gettingup.html"><LINK
+REL="NEXT"
+TITLE="Our first automated tests"
+HREF="x276.html"></HEAD
+><BODY
+CLASS="SECT1"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+>DejaGnu: The GNU Testing Framework</TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="gettingup.html"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+>Getting DejaGnu up and running</TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+><A
+HREF="x276.html"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="AEN227"
+>Create a minimal project, e.g. calc</A
+></H1
+><P
+>In this section you will to start a small project, 
+using the sample application calc, which is part of your DejaGnu distribution</P
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN230"
+>A simple project without the GNU autotools</A
+></H2
+><P
+>The runtest program can be run standalone. All the autoconf/automake support is just cause those programs are commonly used for other GNU applications. The key to running runtest standalone is having the local site.exp file setup correctly, which automake does.</P
+><P
+>The generated site.exp should like like:</P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>set tool calc 
+set srcdir . 
+set objdir /home/dgt/dejagnu.test</PRE
+></TD
+></TR
+></TABLE
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="AEN235"
+>Using autoconf/autoheader/automake</A
+></H2
+><P
+>We have to prepare some input file in order to run autocon and automake. There is book &#8220;GNU autoconf, automake and libtool&#8221; by Garry V. Vaughan, et al. NewRider, ISBN 1-57870-190-2 which describes this process thoroughly.</P
+><P
+>From the calc example distributed with the DejaGnu documentation you should copy the program file itself (calc.c) and some additional files, which you might examine a little bit close to derive their meanings.</P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>dgt:~/dejagnu.test$ cp -r /usr/share/doc/dejagnu/examples/calc/\
+{configure.in,Makefile.am,calc.c,testsuite} .</PRE
+></TD
+></TR
+></TABLE
+><P
+>In Makemake.am note the presence of the AUTOMAKE_OPTIONS = dejagnu. This option is needed.</P
+><P
+>Run aclocal to generate aclocal.m4, which is a collection of macros needed by configure.in</P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>dgt:~/dejagnu.test$ aclocal</PRE
+></TD
+></TR
+></TABLE
+><P
+>autoconf is another part of the auto-tools. 
+Run it to generate configure based on information contained in configure.in.</P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>dgt:~/dejagnu.test$ autoconf</PRE
+></TD
+></TR
+></TABLE
+><P
+>autoheader is another part of the auto-tools. 
+Run it to generate calc.h.in. </P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>dgt:~/dejagnu.test$ autoheader</PRE
+></TD
+></TR
+></TABLE
+><P
+>The Makefile.am of this example was developed as port of the DejaGnu 
+distribution. 
+Adapt Makefile.am for this test. Replace the line 
+&#8220;#noinst_PROGRAMS = calc&#8221; to 
+&#8220;bin_PROGRAMS = calc&#8221;. 
+Change the RUNTESTDEFAULTFLAGS from
+&#8220;$$srcdir/testsuite&#8221; to 
+&#8220;./testsuite&#8221;.</P
+><P
+>Running automake at this point contains a series of warning in its output as shown in the following example:</P
+><DIV
+CLASS="EXAMPLE"
+><A
+NAME="AEN249"
+></A
+><P
+><B
+>Example 2. Sample output of automake with missing files</B
+></P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>dgt:~/dejagnu.test$ automake --add-missing
+automake: configure.in: installing `./install-sh' 
+automake: configure.in: installing `./mkinstalldirs' 
+automake: configure.in: installing `./missing' 
+automake: Makefile.am: installing `./INSTALL' 
+automake: Makefile.am: required file `./NEWS' not found 
+automake: Makefile.am: required file `./README' not found 
+automake: Makefile.am: installing `./COPYING' 
+automake: Makefile.am: required file `./AUTHORS' not found 
+automake: Makefile.am: required file `./ChangeLog' not found 
+configure.in: 4: required file `./calc.h.in' not found 
+Makefile.am:6: required directory ./doc does not exist</PRE
+></TD
+></TR
+></TABLE
+></DIV
+><P
+>Create a empty directory doc and empty files 
+INSTALL, NEWS, README, AUTHORS, ChangeLog and COPYING. 
+The default COPYING will point to the GNU Public License (GPL).
+In a real project it would be time to add some meaningfull text in each file.</P
+><P
+>Adapt calc to your environment by calling configure.</P
+><DIV
+CLASS="EXAMPLE"
+><A
+NAME="AEN254"
+></A
+><P
+><B
+>Example 3. Sample output of configure</B
+></P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>dgt:~/dejagnu.test$ ./configure 
+creating cache ./config.cache 
+checking whether to enable maintainer-specific portions of Makefiles... no 
+checking for a BSD compatible install... /usr/bin/install -c 
+checking whether build environment is sane... yes 
+checking whether make sets ${MAKE}... yes 
+checking for working aclocal... found 
+checking for working autoconf... found 
+checking for working automake... found 
+checking for working autoheader... found 
+checking for working makeinfo... found 
+checking for gcc... gcc checking whether the C compiler (gcc ) works... yes 
+checking whether the C compiler (gcc ) is a cross-compiler... no 
+checking whether we are using GNU C... yes
+checking whether gcc accepts -g... yes 
+checking for a BSD compatible install... /usr/bin/install -c 
+checking how to run the C preprocessor... gcc -E 
+checking for stdlib.h... yes 
+checking for strcmp... yes 
+updating cache ./config.cache 
+creating ./config.status 
+creating Makefile creating calc.h</PRE
+></TD
+></TR
+></TABLE
+></DIV
+><P
+>If you are familiar with GNU software, 
+this output should not contain any surprise to you. 
+Any errors should be easy to fix for such a simple program.</P
+><P
+>Build the calc executable:</P
+><DIV
+CLASS="EXAMPLE"
+><A
+NAME="AEN259"
+></A
+><P
+><B
+>Example 4. Sample output building calc</B
+></P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>dgt:~/dejagnu.test$ make 
+gcc -DHAVE_CONFIG_H -I. -I. -I. -g -O2 -c calc.c 
+gcc -g -O2 -o calc calc.o</PRE
+></TD
+></TR
+></TABLE
+></DIV
+><P
+>You prepared a few files and then called some commands. 
+Respecting the right order assures a automatic and correctly compiled calc program. The following example resumes the correct order.</P
+><DIV
+CLASS="EXAMPLE"
+><A
+NAME="AEN263"
+></A
+><P
+><B
+>Example 5. Creating the calc program using the GNU autotools</B
+></P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>dgt:~/dejagnu.test$ aclocal
+dgt:~/dejagnu.test$ autoconf
+dgt:~/dejagnu.test$ autoheader
+dgt:~/dejagnu.test$ automake --add-missing
+dgt:~/dejagnu.test$ ./configure
+dgt:~/dejagnu.test$ make&#13;</PRE
+></TD
+></TR
+></TABLE
+></DIV
+><P
+>Play with calc and verify whether it works correctly.
+A sample session might look like this:</P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>dgt:~/dejagnu.test$ ./calc 
+calc: version 
+Version: 1.1 
+calc:<I
+CLASS="EMPHASIS"
+> </I
+>add 3 4 
+7 
+calc: multiply 3 4<I
+CLASS="EMPHASIS"
+> </I
+>
+12 
+calc: multiply 2 4<I
+CLASS="EMPHASIS"
+> </I
+>
+12 
+calc: quit&#13;</PRE
+></TD
+></TR
+></TABLE
+><P
+>Look at the intentional bug that 2 times 4 equals 12.</P
+><P
+>The tests run by DejaGnu need a file called site.exp, 
+which is automatically generated if we call &#8220;make site.exp&#8221;. 
+This was the purpose of the &#8220;AUTOMAKE_OPTIONS = dejagnu&#8221; in Makefile.am.</P
+><DIV
+CLASS="EXAMPLE"
+><A
+NAME="AEN273"
+></A
+><P
+><B
+>Example 6. Sample output generating a site.exp</B
+></P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>dgt: make site.exp 
+dgt:~/dejagnu.test$ make site.exp 
+Making a new site.exp file...</PRE
+></TD
+></TR
+></TABLE
+></DIV
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="gettingup.html"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="book1.html"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="x276.html"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>Getting DejaGnu up and running</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="gettingup.html"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>Our first automated tests</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

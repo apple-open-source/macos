@@ -1,27 +1,11 @@
 /*
- * Copyright (c) 1984,1985,1989,1994,1995,1996,1999  Mark Nudelman
- * All rights reserved.
+ * Copyright (C) 1984-2002  Mark Nudelman
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice in the documentation and/or other materials provided with 
- *    the distribution.
+ * You may distribute under the terms of either the GNU General Public
+ * License or the Less License, as specified in the README file.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT 
- * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR 
- * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE 
- * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN 
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * For more information about less, or for information on how to 
+ * contact the author, see the README file.
  */
 
 
@@ -79,6 +63,8 @@
 #define	A_F_FOREVER		50
 #define	A_GOPOS			51
 #define	A_REMOVE_FILE		52
+#define	A_NEXT_TAG		53
+#define	A_PREV_TAG		54
 
 #define	A_INVALID		100
 #define	A_NOACTION		101
@@ -119,6 +105,7 @@
 #define	EC_PEEK		01
 #define	EC_NOHISTORY	02
 #define	EC_NOCOMPLETE	04
+#define	EC_NORIGHTLEFT	010
 
 /* Environment variable stuff */
 #define	EV_OK		01
@@ -138,4 +125,7 @@
 #define SK_CTL_LEFT_ARROW	11
 #define SK_CTL_RIGHT_ARROW	12
 #define SK_CTL_DELETE		13
+#define SK_F1			14
+#define SK_BACKTAB		15
+#define SK_CTL_BACKSPACE	16
 #define SK_CONTROL_K		40

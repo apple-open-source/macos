@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,8 +40,6 @@
 #define	ANYWHERE	TRUE	/* For use with vm_allocate() */
 
 #define DEMAND_REQUEST	MACH_NOTIFY_LAST	/* demand service messaged */
-
-#define DELAYED_BOOTSTRAP_DESTROY TRUE		/* destroyed on last reference */
 
 extern const char *program_name;
 extern mach_port_t lookup_only_port;

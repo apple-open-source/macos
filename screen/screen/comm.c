@@ -1,4 +1,4 @@
-/* Copyright (c) 1993-2000
+/* Copyright (c) 1993-2002
  *      Juergen Weigert (jnweiger@immd4.informatik.uni-erlangen.de)
  *      Michael Schroeder (mlschroe@immd4.informatik.uni-erlangen.de)
  * Copyright (c) 1987 Oliver Laumann
@@ -31,7 +31,7 @@
  */
 
 #include "rcs.h"
-RCS_ID("$Id: comm.c,v 1.1.1.1 2001/12/14 22:08:28 bbraun Exp $ FAU")
+RCS_ID("$Id: comm.c,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU")
 
 #include "config.h"
 #include "acls.h"
@@ -55,6 +55,7 @@ struct comm comms[RC_LAST + 1] =
   { "addacl",		ARGS_1234 },
 #endif
   { "allpartial",	NEED_DISPLAY|ARGS_1 },
+  { "altscreen",	ARGS_01 },
   { "at",		NEED_DISPLAY|ARGS_2|ARGS_ORMORE },
 #ifdef COLOR
   { "attrcolor",	ARGS_12 },
@@ -63,6 +64,7 @@ struct comm comms[RC_LAST + 1] =
 #ifdef AUTO_NUKE
   { "autonuke",		NEED_DISPLAY|ARGS_1 },
 #endif
+  { "backtick",		ARGS_1|ARGS_ORMORE },
 #ifdef COLOR
   { "bce",		NEED_FORE|ARGS_01 },
 #endif
@@ -111,7 +113,7 @@ struct comm comms[RC_LAST + 1] =
   { "chdir",		ARGS_01 },
   { "clear",		NEED_FORE|ARGS_0 },
   { "colon",		NEED_LAYER|ARGS_01 },
-  { "command",		NEED_DISPLAY|ARGS_0 },
+  { "command",		NEED_DISPLAY|ARGS_02 },
 #ifdef COPY_PASTE
   { "compacthist",	ARGS_01 },
 #endif
@@ -130,13 +132,17 @@ struct comm comms[RC_LAST + 1] =
   { "defbreaktype",	ARGS_01 },
   { "defc1",		ARGS_1 },
   { "defcharset",       ARGS_01 },
+#ifdef ENCODINGS
+  { "defencoding",	ARGS_1 },
+#endif
   { "defescape",	ARGS_1 },
   { "defflow",		ARGS_12 },
   { "defgr",		ARGS_1 },
   { "defhstatus",	ARGS_01 },
-#ifdef KANJI
+#ifdef ENCODINGS
   { "defkanji",		ARGS_1 },
 #endif
+  { "deflog",		ARGS_1 },
 #if defined(UTMPOK) && defined(LOGOUTOK)
   { "deflogin",		ARGS_1 },
 #endif
@@ -155,14 +161,18 @@ struct comm comms[RC_LAST + 1] =
   { "defwrap",		ARGS_1 },
   { "defwritelock",	ARGS_1 },
 #ifdef DETACH
-  { "detach",		NEED_DISPLAY|ARGS_0 },
+  { "detach",		NEED_DISPLAY|ARGS_01 },
 #endif
   { "digraph",		NEED_LAYER|ARGS_01 },
   { "dinfo",		NEED_DISPLAY|ARGS_0 },
   { "displays",		NEED_LAYER|ARGS_0 },
   { "dumptermcap",	NEED_FORE|ARGS_0 },
   { "echo",		ARGS_12 },
+#ifdef ENCODINGS
+  { "encoding",		ARGS_12 },
+#endif
   { "escape",		ARGS_1 },
+  { "eval",		ARGS_1|ARGS_ORMORE },
 #ifdef PSEUDOS
   { "exec", 		NEED_FORE|ARGS_0|ARGS_ORMORE },
 #endif
@@ -170,18 +180,19 @@ struct comm comms[RC_LAST + 1] =
   { "flow",		NEED_FORE|ARGS_01 },
   { "focus",		NEED_DISPLAY|ARGS_01 },
   { "gr",		NEED_FORE|ARGS_01 },
-  { "hardcopy",		NEED_FORE|ARGS_0 },
+  { "hardcopy",		ARGS_012 },
   { "hardcopy_append",	ARGS_1 },
   { "hardcopydir",	ARGS_01 },
   { "hardstatus",	ARGS_012 },
   { "height",		ARGS_0123 },
-  { "help",		NEED_LAYER|ARGS_0 },
+  { "help",		NEED_LAYER|ARGS_02 },
 #ifdef COPY_PASTE
   { "history",		NEED_DISPLAY|NEED_FORE|ARGS_0 },
 #endif
   { "hstatus",		NEED_FORE|ARGS_1 },
+  { "ignorecase",	ARGS_01 },
   { "info",		NEED_LAYER|ARGS_0 },
-#ifdef KANJI
+#ifdef ENCODINGS
   { "kanji",		NEED_FORE|ARGS_12 },
 #endif
   { "kill",		NEED_FORE|ARGS_0 },
@@ -204,6 +215,7 @@ struct comm comms[RC_LAST + 1] =
 #ifdef COPY_PASTE
   { "markkeys",		ARGS_1 },
 #endif
+  { "maxwin",		ARGS_1 },
   { "meta",		NEED_LAYER|ARGS_0 },
   { "monitor",		NEED_FORE|ARGS_01 },
   { "msgminwait",	ARGS_1 },
@@ -240,11 +252,11 @@ struct comm comms[RC_LAST + 1] =
   { "process",		NEED_DISPLAY|ARGS_01 },
   { "quit",		ARGS_0 },
 #ifdef COPY_PASTE
-  { "readbuf",		ARGS_01 },
+  { "readbuf",		ARGS_0123 },
 #endif
-  { "readreg",          ARGS_012 },
+  { "readreg",          ARGS_0|ARGS_ORMORE },
   { "redisplay",	NEED_DISPLAY|ARGS_0 },
-  { "register",		ARGS_2 },
+  { "register",		ARGS_24 },
   { "remove",		NEED_DISPLAY|ARGS_0 },
 #ifdef COPY_PASTE
   { "removebuf",	ARGS_0 },
@@ -258,6 +270,7 @@ struct comm comms[RC_LAST + 1] =
   { "select",		ARGS_01 },
   { "sessionname",	ARGS_01 },
   { "setenv",		ARGS_012 },
+  { "setsid",		ARGS_1 },
   { "shell",		ARGS_1 },
   { "shelltitle",	ARGS_1 },
   { "silence",		NEED_FORE|ARGS_01 },
@@ -265,6 +278,7 @@ struct comm comms[RC_LAST + 1] =
   { "sleep",		ARGS_1 },
   { "slowpaste",	NEED_FORE|ARGS_01 },
   { "sorendition",      ARGS_012 },
+  { "source",		ARGS_1 },
   { "split",		NEED_DISPLAY|ARGS_0 },
   { "startup_message",	ARGS_1 },
   { "stuff",		NEED_LAYER|ARGS_12 },
@@ -278,7 +292,7 @@ struct comm comms[RC_LAST + 1] =
   { "termcap",		ARGS_23 },
   { "termcapinfo",	ARGS_23 },
   { "terminfo",		ARGS_23 },
-  { "time",		ARGS_0 },
+  { "time",		ARGS_01 },
   { "title",		NEED_FORE|ARGS_01 },
   { "umask",		ARGS_1|ARGS_ORMORE },
   { "unsetenv",		ARGS_1 },
@@ -292,10 +306,11 @@ struct comm comms[RC_LAST + 1] =
   { "version",		ARGS_0 },
   { "wall",		NEED_DISPLAY|ARGS_1},
   { "width",		ARGS_0123 },
+  { "windowlist",	NEED_DISPLAY|ARGS_012 },
   { "windows",		NEED_DISPLAY|ARGS_0 },
   { "wrap",		NEED_FORE|ARGS_01 },
 #ifdef COPY_PASTE
-  { "writebuf",		ARGS_01 },
+  { "writebuf",		ARGS_0123 },
 #endif
   { "writelock",	NEED_FORE|ARGS_01 },
   { "xoff",		NEED_LAYER|ARGS_0 },

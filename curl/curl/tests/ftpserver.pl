@@ -1,9 +1,9 @@
 #!/usr/bin/perl
 #
-# $Id: ftpserver.pl,v 1.1.1.2 2001/04/24 18:49:16 wsanchez Exp $
+# $Id: ftpserver.pl,v 1.1.1.3 2002/11/26 19:08:09 zarzycki Exp $
 # This is the FTP server designed for the curl test suite.
 #
-# It is meant to excersive curl, it is not meant to become a fully working
+# It is meant to exercise curl, it is not meant to be a fully working
 # or even very standard compliant server.
 #
 # You may optionally specify port on the command line, otherwise it'll
@@ -16,6 +16,8 @@ use FileHandle;
 
 use strict;
 
+require "getpart.pm";
+
 open(FTPLOG, ">log/ftpd.log") ||
     print STDERR "failed to open log file, runs without logging\n";
 
@@ -24,6 +26,7 @@ sub logmsg { print FTPLOG "$$: "; print FTPLOG @_; }
 sub ftpmsg { print INPUT @_; }
 
 my $verbose=0; # set to 1 for debugging
+my $retrweirdo=0;
 
 my $port = 8921; # just a default
 do {
@@ -45,7 +48,7 @@ listen(Server,SOMAXCONN) || die "listen: $!";
 
 #print "FTP server started on port $port\n";
 
-open(PID, ">.ftpserver.pid");
+open(PID, ">.ftp.pid");
 print PID $$;
 close(PID);
 
@@ -63,6 +66,7 @@ my %commandok = (
                  'USER' => 'fresh',
                  'PASS' => 'passwd',
                  'PASV' => 'loggedin|twosock',
+                 'EPSV' => 'loggedin|twosock',
                  'PORT' => 'loggedin|twosock',
                  'TYPE' => 'loggedin|twosock',
                  'LIST' => 'twosock',
@@ -84,6 +88,7 @@ my %statechange = ( 'USER' => 'passwd',    # USER goes to passwd state
                     'PASS' => 'loggedin',  # PASS goes to loggedin state
                     'PORT' => 'twosock',   # PORT goes to twosock
                     'PASV' => 'twosock',   # PASV goes to twosock
+                    'EPSV' => 'twosock',   # EPSV goes to twosock
                     );
 
 # this text is shown before the function specified below is run
@@ -106,12 +111,22 @@ my %commandfunc = ( 'PORT' => \&PORT_command,
                     'LIST' => \&LIST_command,
                     'NLST' => \&NLST_command,
                     'PASV' => \&PASV_command,
+                    'EPSV' => \&PASV_command,
                     'RETR' => \&RETR_command,   
                     'SIZE' => \&SIZE_command,
                     'REST' => \&REST_command,
                     'STOR' => \&STOR_command,
                     'APPE' => \&STOR_command, # append looks like upload
                     );
+
+my $rest=0;
+sub REST_command {
+    $rest = $_[0];
+    logmsg "Set REST position to $rest\n"
+}
+
+sub LIST_command {
+  #  print "150 ASCII data connection for /bin/ls (193.15.23.1,59196) (0 bytes)\r\n";
 
 # this is a built-in fake-dir ;-)
 my @ftpdir=("total 20\r\n",
@@ -125,14 +140,6 @@ my @ftpdir=("total 20\r\n",
 "dr-xr-xr-x   2 0        1            512 Nov 30  1995 etc\r\n",
 "drwxrwxrwx   2 98       1            512 Oct 30 14:33 pub\r\n",
 "dr-xr-xr-x   5 0        1            512 Oct  1  1997 usr\r\n");
-
-my $rest=0;
-sub REST_command {
-    $rest = $_[0];
-}
-
-sub LIST_command {
-  #  print "150 ASCII data connection for /bin/ls (193.15.23.1,59196) (0 bytes)\r\n";
 
     logmsg "$$: pass data to child pid\n";
     for(@ftpdir) {
@@ -158,19 +165,32 @@ sub NLST_command {
 sub SIZE_command {
     my $testno = $_[0];
 
+    loadtest("data/test$testno");
+
     logmsg "SIZE number $testno\n";
 
-    my $filename = "data/reply$testno.txt";
+    my @data = getpart("reply", "size");
 
-    my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
-        $atime,$mtime,$ctime,$blksize,$blocks)
-        = stat($filename);
+    my $size = $data[0];
 
     if($size) {
         print "213 $size\r\n";
+        logmsg "SIZE $testno returned $size\n";
     }
     else {
-        print "550 $testno: No such file or directory.\r\n";
+        $size=0;
+        @data = getpart("reply", "data");
+        for(@data) {
+            $size += length($_);
+        }
+        if($size) {
+            print "213 $size\r\n";
+            logmsg "SIZE $testno returned $size\n";
+        }
+        else {
+            print "550 $testno: No such file or directory.\r\n";
+            logmsg "SIZE $testno: no such file\n";
+        }
     }
     return 0;
 }
@@ -190,33 +210,51 @@ sub RETR_command {
         return 0;
     }
 
-    my $filename = "data/reply$testno.txt";
+    loadtest("data/test$testno");
 
-    my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
-        $atime,$mtime,$ctime,$blksize,$blocks)
-        = stat($filename);
+    my @data = getpart("reply", "data");
+
+    my $size=0;
+    for(@data) {
+        $size += length($_);
+    }
 
     if($size) {
     
-        open(FILE, "<$filename");
         if($rest) {
             # move read pointer forward
-            seek(FILE, $rest, 1);
             $size -= $rest;
+            logmsg "REST $rest was removed from size, makes $size left\n";
+            $rest = 0; # reset REST offset again
         }
-        print "150 Binary data connection for $testno () ($size bytes).\r\n";
-        $rest=0; # reset rest again
+        if($retrweirdo) {
+            print "150 Binary data connection for $testno () ($size bytes).\r\n",
+            "226 File transfer complete\r\n";
+            logmsg "150+226 in one shot!\n";
 
-        while(<FILE>) {
-            print SOCK $_;
+            for(@data) {
+                my $send = $_;
+                print SOCK $send;
+            }
+            close(SOCK);
+            $retrweirdo=0; # switch off the weirdo again!
         }
-        close(FILE);
-        close(SOCK);
+        else {
+            print "150 Binary data connection for $testno () ($size bytes).\r\n";
+            logmsg "150 Binary data connection for $testno ($size bytes).\n";
 
-        print "226 File transfer complete\r\n";
+            for(@data) {
+                my $send = $_;
+                print SOCK $send;
+            }
+            close(SOCK);
+
+            print "226 File transfer complete\r\n";
+        }
     }
     else {
         print "550 $testno: No such file or directory.\r\n";
+        logmsg "550 $testno: no such file\n";
     }
     return 0;
 }
@@ -224,9 +262,9 @@ sub RETR_command {
 sub STOR_command {
     my $testno=$_[0];
 
-    logmsg "STOR test number $testno\n";
-
     my $filename = "log/upload.$testno";
+
+    logmsg "STOR test number $testno in $filename\n";
 
     print "125 Gimme gimme gimme!\r\n";
 
@@ -248,37 +286,57 @@ sub STOR_command {
     return 0;
 }
 
+my $pasvport=9000;
 sub PASV_command {
+    my ($arg, $cmd)=@_;
+
     socket(Server2, PF_INET, SOCK_STREAM, $proto) || die "socket: $!";
     setsockopt(Server2, SOL_SOCKET, SO_REUSEADDR,
                pack("l", 1)) || die "setsockopt: $!";
-    while($port < 11000) {
-        if(bind(Server2, sockaddr_in($port, INADDR_ANY))) {
+
+    my $ok=0;
+
+    $pasvport++; # don't reuse the previous
+    for(1 .. 10) {
+        if($pasvport > 65535) {
+            $pasvport = 1025;
+        }
+        if(bind(Server2, sockaddr_in($pasvport, INADDR_ANY))) {
+            $ok=1;
             last;
         }
-        $port++; # try next port please
+        $pasvport+= 3; # try another port please
     }
-    if(11000 == $port) {
+    if(!$ok) {
         print "500 no free ports!\r\n";
         logmsg "couldn't find free port\n";
         return 0;
     }
     listen(Server2,SOMAXCONN) || die "listen: $!";
 
-    printf("227 Entering Passive Mode (127,0,0,1,%d,%d)\n",
-           ($port/256), ($port%256));
+    if($cmd ne "EPSV") {
+        # PASV reply
+        logmsg "replying to a $cmd command\n";
+        printf("227 Entering Passive Mode (127,0,0,1,%d,%d)\n",
+               ($pasvport/256), ($pasvport%256));
+    }
+    else {
+        # EPSV reply
+        logmsg "replying to a $cmd command\n";
+        printf("229 Entering Passive Mode (|||%d|)\n", $pasvport);
+    }
 
-    my $waitedpid;
-    my $paddr;
-
-    $paddr = accept(SOCK, Server2);
-    my($port,$iaddr) = sockaddr_in($paddr);
+    my $paddr = accept(SOCK, Server2);
+    my($iport,$iaddr) = sockaddr_in($paddr);
     my $name = gethostbyaddr($iaddr,AF_INET);
 
-    logmsg "$$: data connection from $name [", inet_ntoa($iaddr), "] at port $port\n";
+    close(Server2); # close the listener when its served its purpose!
 
-    return \&SOCK;
+    logmsg "$$: data connection from $name [", inet_ntoa($iaddr), "] at port $iport\n";
+
+    return;
 }
+
 
 sub PORT_command {
     my $arg = $_[0];
@@ -289,7 +347,15 @@ sub PORT_command {
         return 0;
     }
     my $iaddr = inet_aton("$1.$2.$3.$4");
-    my $paddr = sockaddr_in(($5<<8)+$6, $iaddr);
+
+    my $port = ($5<<8)+$6;
+
+    if(!$port || $port > 65535) {
+        print STDERR "very illegal PORT number: $port\n";
+        return 1;
+    }
+
+    my $paddr = sockaddr_in($port, $iaddr);
     my $proto   = getprotobyname('tcp') || 6;
 
     socket(SOCK, PF_INET, SOCK_STREAM, $proto) || die "major failure";
@@ -301,18 +367,24 @@ sub PORT_command {
 $SIG{CHLD} = \&REAPER;
 
 my %customreply;
+my %delayreply;
 sub customize {
     undef %customreply;
     open(CUSTOM, "<log/ftpserver.cmd") ||
         return 1;
 
-    if($verbose) {
-        print STDERR "FTPD: Getting commands from log/ftpserver.cmd\n";
-    }
+    logmsg "FTPD: Getting commands from log/ftpserver.cmd\n";
 
     while(<CUSTOM>) {
         if($_ =~ /REPLY ([A-Z]+) (.*)/) {
             $customreply{$1}=$2;
+        }
+        elsif($_ =~ /DELAY ([A-Z]+) (\d*)/) {
+            $delayreply{$1}=$2;
+        }
+        elsif($_ =~ /RETRWEIRDO/) {
+            print "instructed to use RETRWEIRDO\n";
+            $retrweirdo=1;
         }
     }
     close(CUSTOM);
@@ -393,11 +465,20 @@ for ( $waitedpid = 0;
             $state = $newstate;
         }
 
+        my $delay = $delayreply{$FTPCMD};
+        if($delay) {
+            # just go sleep this many seconds!
+            sleep($delay);
+        }
+
         my $text;
         $text = $customreply{$FTPCMD};
         my $fake = $text;
         if($text eq "") {
             $text = $displaytext{$FTPCMD};
+        }
+        else {
+            logmsg "$FTPCMD made to send '$text'\n";
         }
         if($text) {
             print "$text\r\n";
@@ -409,7 +490,7 @@ for ( $waitedpid = 0;
             my $func = $commandfunc{$FTPCMD};
             if($func) {
                 # it is!
-                \&$func($FTPARG);
+                \&$func($FTPARG, $FTPCMD);
             }
         }
 
@@ -418,5 +499,4 @@ for ( $waitedpid = 0;
     } # while(1)
     close(Client);
     close(Client2);
-    close(Server2);
 }

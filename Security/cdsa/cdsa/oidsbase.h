@@ -100,11 +100,26 @@ representation is implied */
 #define OID_PKCS_9          				OID_PKCS, 9
 #define OID_PKCS_9_LENGTH   				OID_PKCS_LENGTH +1
 #define OID_PKCS_10         				OID_PKCS, 10
+#define OID_PKCS_11          				OID_PKCS, 11
+#define OID_PKCS_11_LENGTH   				OID_PKCS_LENGTH +1
+#define OID_PKCS_12          				OID_PKCS, 12
+#define OID_PKCS_12_LENGTH   				OID_PKCS_LENGTH +1
+
+/* ANSI X9.42 */
+#define OID_ANSI_X9_42						OID_US, 206, 62, 2
+#define OID_ANSI_X9_42_LEN					OID_US_LENGTH + 3
+#define OID_ANSI_X9_42_SCHEME				OID_ANSI_X9_42, 3
+#define OID_ANSI_X9_42_SCHEME_LEN			OID_ANSI_X9_42_LEN + 1
+#define OID_ANSI_X9_42_NAMED_SCHEME			OID_ANSI_X9_42, 4
+#define OID_ANSI_X9_42_NAMED_SCHEME_LEN		OID_ANSI_X9_42_LEN + 1
 
 #define OID_PKIX							OID_DOD, 1, 5, 5, 7
 #define OID_PKIX_LENGTH						6
 #define OID_QT								OID_PKIX, 2
 #define OID_QT_LENGTH						OID_PKIX_LENGTH + 1
+
+#define OID_KP								OID_PKIX, 3
+#define OID_KP_LENGTH						OID_PKIX_LENGTH + 1
 
 #define OID_OIW_SECSIG        				OID_OIW, 3
 #define OID_OIW_LENGTH       				2

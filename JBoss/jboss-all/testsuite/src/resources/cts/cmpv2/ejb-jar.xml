@@ -1,0 +1,41 @@
+<!DOCTYPE ejb-jar PUBLIC
+    "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 2.0//EN"
+    "http://java.sun.com/dtd/ejb-jar_2_0.dtd">
+
+<ejb-jar>
+   <enterprise-beans>
+     <session>
+        <ejb-name>CtsCmp2SessionBean</ejb-name>
+        <home>org.jboss.test.cts.interfaces.CtsCmp2SessionHome</home>
+        <remote>org.jboss.test.cts.interfaces.CtsCmp2Session</remote>
+        <ejb-class>org.jboss.test.cts.ejb.CtsCmp2SessionBean</ejb-class>
+        <session-type>Stateless</session-type>
+        <transaction-type>Container</transaction-type>
+        <ejb-local-ref>
+           <ejb-ref-name>ejb/CtsCmp2LocalHome</ejb-ref-name>
+           <ejb-ref-type>Entity</ejb-ref-type>
+           <local-home>org.jboss.test.cts.interfaces.CtsCmp2LocalHome</local-home>
+           <local>org.jboss.test.cts.interfaces.CtsCmp2Local</local>
+           <ejb-link>CtsCmp2Bean</ejb-link>
+        </ejb-local-ref>
+     </session>
+
+      <entity>
+         <ejb-name>CtsCmp2Bean</ejb-name>
+         <local-home>org.jboss.test.cts.interfaces.CtsCmp2LocalHome</local-home>
+         <local>org.jboss.test.cts.interfaces.CtsCmp2Local</local>
+         <ejb-class>org.jboss.test.cts.ejb.CtsCmp2Bean</ejb-class>
+         <persistence-type>Container</persistence-type>
+         <prim-key-class>java.lang.String</prim-key-class>
+         <reentrant>False</reentrant>
+         <cmp-version>2.x</cmp-version>
+         <abstract-schema-name>CtsCmp2V2</abstract-schema-name>
+
+         <cmp-field><field-name>key</field-name></cmp-field>
+         <cmp-field><field-name>data</field-name></cmp-field>
+         <cmp-field><field-name>moreData</field-name></cmp-field>
+
+         <primkey-field>key</primkey-field>
+      </entity>
+   </enterprise-beans>
+</ejb-jar>

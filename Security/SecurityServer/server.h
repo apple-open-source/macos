@@ -30,19 +30,22 @@
 #include <Security/osxsigner.h>
 #include <Security/devrandom.h>
 #include <Security/uniformrandom.h>
+#include "codesigdb.h"
 #include "connection.h"
 #include "key.h"
 #include "xdatabase.h"
 #include "authority.h"
 #include <map>
 
+#define EQUIVALENCEDBPATH "/var/db/CodeEquivalenceDatabase"
+
 
 class Server : public MachPlusPlus::MachServer,
                public UniformRandomBlobs<DevRandomGenerator> {
 public:
-	Server(Authority &myAuthority, const char *bootstrapName);
+	Server(Authority &myAuthority, CodeSignatures &signatures, const char *bootstrapName);
 	~Server();
-	
+		
     // run the server until it shuts down
 	void run();
 	
@@ -58,24 +61,29 @@ public:
 	static void requestComplete();
 	
 	static Key &key(KeyHandle key)
-	{ return findHandle<Key>(key, CSSMERR_CSP_INVALID_KEY); }
+	{ return findHandle<Key>(key, CSSMERR_CSP_INVALID_KEY_REFERENCE); }
     static Key *optionalKey(KeyHandle k) { return (k == noKey) ? NULL : &key(k); }
 	static Database &database(DbHandle db)
 	{ return findHandle<Database>(db, CSSMERR_DL_INVALID_DB_HANDLE); }
 	static Database *optionalDatabase(DbHandle db) { return db ? &database(db) : NULL; }
     static Authority &authority() { return active().mAuthority; }
-	static CodeSigning::OSXSigner &signer() { return active().mSigner; }
+	static CodeSignatures &codeSignatures() { return active().mCodeSignatures; }
 	static SecurityServerAcl &aclBearer(AclKind kind, CSSM_HANDLE handle);
 	static CssmClient::CSP &csp() { return active().getCsp(); }
 
 	void loadCssm();
 	
 public:
-	void setupConnection(Port servicePort, Port replyPort, Port taskPort,
-        const security_token_t &securityToken, const char *executablePath);
-#if 0
-    Process *resetConnection();
-#endif
+	// set up a new connection
+	enum ConnectLevel {
+		connectNewSession,
+		connectNewProcess,
+		connectNewThread
+	};
+	void setupConnection(ConnectLevel type, Port servicePort, Port replyPort, Port taskPort,
+        const security_token_t &securityToken,
+		const ClientSetupInfo *info = NULL, const char *executablePath = NULL);
+		
 	void endConnection(Port replyPort);
 	
 	static void releaseWhenDone(CssmAllocator &alloc, void *memory)
@@ -111,17 +119,18 @@ private:
 	ProcessMap processes;
 	
 	// Current connection, if any (per thread).
-	// Set as a side effect of calling the connection() method.
+	// Set as a side effect of calling connection(mach_port_t)
+	// and returned by connection(bool).
 	PerThreadPointer<Connection> mCurrentConnection;
 	
     // CSSM components
-    CssmClient::Cssm mCssm;
-    CssmClient::Module mCSPModule;
-	CssmClient::CSP mCSP;
-    CssmClient::CSP &getCsp();
+    CssmClient::Cssm mCssm;				// CSSM instance
+    CssmClient::Module mCSPModule;		// CSP module
+	CssmClient::CSP mCSP;				// CSP attachment
+    CssmClient::CSP &getCsp();			// lazily initialize, then return CSP attachment
     
 	Authority &mAuthority;
-	CodeSigning::OSXSigner mSigner;
+	CodeSignatures &mCodeSignatures;
 };
 
 #endif //_H_SERVER

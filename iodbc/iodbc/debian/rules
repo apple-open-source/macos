@@ -1,0 +1,76 @@
+#!/usr/bin/make -f
+#-*- makefile -*-
+# Made with the aid of dh_make, by Craig Small
+# Sample debian/rules that uses debhelper. GNU copyright 1997 by Joey Hess.
+# This version is for a hypothetical package that builds an
+# architecture-dependant package, as well as an architecture-independant
+# package.
+
+package=libiodbc
+
+version=$(shell expr `pwd` : '.*-\([0-9.]*\)')
+version_major=$(shell expr `pwd` : '.*-\([0-9]*\).[0-9.]*')
+
+# Uncomment this to turn on verbose mode. 
+export DH_VERBOSE=1
+export DH_COMPAT=3
+
+build: build-stamp
+build-stamp:
+	dh_testdir
+
+	./configure --prefix=/usr
+	$(MAKE)
+
+	touch build-stamp
+
+clean:
+	dh_testdir
+	dh_testroot
+	rm -f build-stamp install-stamp
+
+	# Add here commands to clean up after the build process.
+	-$(MAKE) clean
+	-$(MAKE) distclean
+
+	rm -f iodbcadm/gtk/question.xpm
+
+	dh_clean
+
+install: install-stamp
+install-stamp: build-stamp
+	dh_testdir
+	dh_testroot
+	dh_clean -k
+	dh_installdirs
+
+	# Add here commands to install the package into debian/tmp.
+	$(MAKE) install prefix=`pwd`/debian/tmp/usr
+
+	touch install-stamp
+
+binary-indep: build install
+
+binary-arch: build install
+	dh_testdir -a
+	dh_testroot -a
+	dh_installdirs -a
+	dh_movefiles -a
+	dh_installdocs -a
+	dh_installexamples -a
+	dh_undocumented -a
+	dh_installchangelogs -a 	ChangeLog
+	dh_link -a
+	dh_strip -a
+	dh_compress -a
+	dh_fixperms -a
+	dh_makeshlibs -a
+	dh_installdeb -a
+	dh_perl -a
+	dh_shlibdeps -a
+	dh_gencontrol -a
+	dh_md5sums -a
+	dh_builddeb -a
+
+binary: binary-indep binary-arch
+.PHONY: build clean binary-indep binary-arch binary install

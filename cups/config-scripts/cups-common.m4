@@ -1,9 +1,9 @@
 dnl
-dnl "$Id: cups-common.m4,v 1.8 2002/06/10 23:47:26 jlovell Exp $"
+dnl "$Id: cups-common.m4,v 1.11 2003/09/05 01:14:50 jlovell Exp $"
 dnl
 dnl   Common configuration stuff for the Common UNIX Printing System (CUPS).
 dnl
-dnl   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+dnl   Copyright 1997-2003 by Easy Software Products, all rights reserved.
 dnl
 dnl   These coded instructions, statements, and computer programs are the
 dnl   property of Easy Software Products and are protected by Federal
@@ -28,6 +28,11 @@ AC_PREREQ(2.50)
 dnl Set the name of the config header file...
 AC_CONFIG_HEADER(config.h)
 
+dnl Version number information...
+CUPS_VERSION="1.1.20rc1"
+AC_SUBST(CUPS_VERSION)
+AC_DEFINE_UNQUOTED(CUPS_SVERSION, "CUPS v$CUPS_VERSION")
+
 dnl Default compiler flags...
 CFLAGS="${CFLAGS:=}"
 CPPFLAGS="${CPPFLAGS:=}"
@@ -47,6 +52,7 @@ fi
 AC_PROG_RANLIB
 AC_PATH_PROG(AR,ar)
 AC_PATH_PROG(HTMLDOC,htmldoc)
+AC_PATH_PROG(LN,ln)
 AC_PATH_PROG(MV,mv)
 AC_PATH_PROG(NROFF,nroff)
 if test "$NROFF" = ""; then
@@ -60,6 +66,16 @@ fi
 AC_PATH_PROG(RM,rm)
 AC_PATH_PROG(SED,sed)
 AC_PATH_PROG(STRIP,strip)
+
+if test "x$AR" = x; then
+	AC_MSG_ERROR([Unable to find required library archive command.])
+fi
+if test "x$CC" = x; then
+	AC_MSG_ERROR([Unable to find required C compiler command.])
+fi
+if test "x$CXX" = x; then
+	AC_MSG_ERROR([Unable to find required C++ compiler command.])
+fi
 
 dnl Architecture checks...
 AC_C_BIGENDIAN
@@ -84,6 +100,19 @@ fi
 
 AC_SUBST(LIBMALLOC)
 
+dnl Check for libpaper support...
+AC_ARG_ENABLE(libpaper, [  --enable-libpaper       turn on libpaper support, default=no])
+
+if test x$enable_libpaper = xyes; then
+	AC_CHECK_LIB(paper,systempapername,
+		AC_DEFINE(HAVE_LIBPAPER)
+		LIBPAPER="-lpaper",
+		LIBPAPER="")
+else
+	LIBPAPER=""
+fi
+AC_SUBST(LIBPAPER)
+
 dnl Checks for header files.
 AC_HEADER_STDC
 AC_HEADER_DIRENT
@@ -92,6 +121,7 @@ AC_CHECK_HEADER(malloc.h,AC_DEFINE(HAVE_MALLOC_H))
 AC_CHECK_HEADER(shadow.h,AC_DEFINE(HAVE_SHADOW_H))
 AC_CHECK_HEADER(string.h,AC_DEFINE(HAVE_STRING_H))
 AC_CHECK_HEADER(strings.h,AC_DEFINE(HAVE_STRINGS_H))
+AC_CHECK_HEADER(bstring.h,AC_DEFINE(HAVE_BSTRING_H))
 AC_CHECK_HEADER(usersec.h,AC_DEFINE(HAVE_USERSEC_H))
 AC_CHECK_HEADER(sys/ioctl.h,AC_DEFINE(HAVE_SYS_IOCTL_H))
 
@@ -144,6 +174,15 @@ AC_TRY_COMPILE([#include <time.h>],[struct tm t;
 	AC_DEFINE(HAVE_TM_GMTOFF),
 	AC_MSG_RESULT(no))
 
+dnl Check for the new notify functions in MacOSX 10.3 (Panther)...
+AC_CHECK_HEADER(notify.h, AC_DEFINE(HAVE_NOTIFY_H))
+AC_CHECK_FUNCS(notify_post)
+
+dnl Check for CFLocaleCreateCanonicalLocaleIdentifierFromString...
+if test "$uname" = "Darwin" -a $uversion -ge 700; then
+	AC_DEFINE(HAVE_CF_LOCALE_ID),
+fi
+
 dnl Flags for "ar" command...
 case $uname in
         Darwin* | *BSD*)
@@ -156,6 +195,21 @@ esac
 
 AC_SUBST(ARFLAGS)
 
+dnl Extra platform-specific libraries...
+case $uname in
+        Darwin*)
+                BACKLIBS="-framework IOKit"
+                COMMONLIBS="-framework CoreFoundation"
+                ;;
+        *)
+                BACKLIBS=""
+		COMMONLIBS=""
+                ;;
+esac
+
+AC_SUBST(BACKLIBS)
+AC_SUBST(COMMONLIBS)
+
 dnl
-dnl End of "$Id: cups-common.m4,v 1.8 2002/06/10 23:47:26 jlovell Exp $".
+dnl End of "$Id: cups-common.m4,v 1.11 2003/09/05 01:14:50 jlovell Exp $".
 dnl

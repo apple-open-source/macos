@@ -25,7 +25,7 @@
 		<integer>95</integer>
 	</array>
 	<key>GatherTimeSeconds</key>
-	<integer>2</integer>
+	<integer>1</integer>
 	<key>LinkInactiveWaitTimeSeconds</key>
 	<integer>4</integer>
 	<key>RetryCount</key>

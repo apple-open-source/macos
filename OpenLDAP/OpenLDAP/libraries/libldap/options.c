@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/options.c,v 1.60 2002/01/04 20:17:39 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/options.c,v 1.60.2.3 2003/03/03 17:10:05 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -158,16 +158,14 @@ ldap_get_option(
 
 	case LDAP_OPT_TIMEOUT:
 		/* the caller has to free outvalue ! */
-		if ( ldap_int_timeval_dup( outvalue, lo->ldo_tm_api) != 0 )
-		{
+		if ( ldap_int_timeval_dup( outvalue, lo->ldo_tm_api) != 0 ) {
 			return LDAP_OPT_ERROR;
 		}
 		return LDAP_OPT_SUCCESS;
 		
 	case LDAP_OPT_NETWORK_TIMEOUT:
 		/* the caller has to free outvalue ! */
-		if ( ldap_int_timeval_dup( outvalue, lo->ldo_tm_net ) != 0 )
-		{
+		if ( ldap_int_timeval_dup( outvalue, lo->ldo_tm_net ) != 0 ) {
 			return LDAP_OPT_ERROR;
 		}
 		return LDAP_OPT_SUCCESS;
@@ -252,6 +250,20 @@ ldap_get_option(
 
 		return LDAP_OPT_SUCCESS;
 
+	case LDAP_OPT_REFERRAL_URLS:
+		if(ld == NULL) {
+			/* bad param */
+			break;
+		} 
+
+		if( ld->ld_referrals == NULL ) {
+			* (char ***) outvalue = NULL;
+		} else {
+			* (char ***) outvalue = ldap_value_dup(ld->ld_referrals);
+		}
+
+		return LDAP_OPT_SUCCESS;
+
 	case LDAP_OPT_API_FEATURE_INFO: {
 			LDAPAPIFeatureInfo *info = (LDAPAPIFeatureInfo *) outvalue;
 			int i;
@@ -318,8 +330,9 @@ ldap_set_option(
 	 * problem. Thus, we introduce a fix here.
 	 */
 
-	if (option == LDAP_OPT_DEBUG_LEVEL)
-	    dbglvl = (int *) invalue;
+	if (option == LDAP_OPT_DEBUG_LEVEL) {
+		dbglvl = (int *) invalue;
+	}
 
 	if( lo->ldo_valid != LDAP_INITIALIZED ) {
 		ldap_int_initialize(lo, dbglvl);
@@ -575,6 +588,21 @@ ldap_set_option(
 			ld->ld_matched = LDAP_STRDUP(err);
 		} return LDAP_OPT_SUCCESS;
 
+	case LDAP_OPT_REFERRAL_URLS: {
+			char *const *referrals = (char *const *) invalue;
+			
+			if(ld == NULL) {
+				/* need a struct ldap */
+				break;
+			}
+
+			if( ld->ld_referrals ) {
+				LDAP_VFREE(ld->ld_referrals);
+			}
+
+			ld->ld_referrals = ldap_value_dup(referrals);
+		} return LDAP_OPT_SUCCESS;
+
 	case LDAP_OPT_API_FEATURE_INFO:
 		/* read-only */
 		break;
@@ -586,7 +614,7 @@ ldap_set_option(
 	default:
 #ifdef HAVE_TLS
 		if ( ldap_pvt_tls_set_option( ld, option, (void *)invalue ) == 0 )
-	     	return LDAP_OPT_SUCCESS;
+			return LDAP_OPT_SUCCESS;
 #endif
 #ifdef HAVE_CYRUS_SASL
 		if ( ldap_int_sasl_set_option( ld, option, (void *)invalue ) == 0 )

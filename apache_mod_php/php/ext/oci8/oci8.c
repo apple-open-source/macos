@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -13,14 +13,15 @@
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Stig Sæther Bakken <ssb@fast.no>                            |
-   |          Thies C. Arntzen <thies@thieso.net>						  |
-   |																	  |
+   |          Thies C. Arntzen <thies@thieso.net>                         |
+   |          Maxim Maletsky <maxim@maxim.cx>                             |
+   |                                                                      |
    | Collection support by Andy Sautins <asautins@veripost.net>           |
-   | Temporary LOB support by David Benson <dbenson@mancala.com>		  |
+   | Temporary LOB support by David Benson <dbenson@mancala.com>          |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: oci8.c,v 1.1.1.5 2001/12/14 22:12:52 zarzycki Exp $ */
+/* $Id: oci8.c,v 1.1.1.8 2003/07/18 18:07:38 zarzycki Exp $ */
 
 /* TODO list:
  *
@@ -28,7 +29,6 @@
  *   especialliy important for things like oci_ping
  * - Change return-value for OCIFetch*() (1-row read, 0-Normal end, false-error) 
  * - Error mode (print or shut up?)
- * - OCIPasswordChange()
  * - binding of arrays
  * - Character sets for NCLOBS
  * - split the module into an upper (php-callable) and lower (c-callable) layer!
@@ -39,7 +39,6 @@
  * - have one ocifree() call.
  * - make it possible to have persistent statements?
  * - implement connection pooling in ZTS mode.
- * - implement automatic commit *OR* rollback on script end
  * - failover
  * - change all the lob stuff to work without classes (optional)! 
  * - make sure that the callbacks terminate the strings with \0
@@ -49,6 +48,8 @@
  * - delay OCIInitialize() as far as we can.
  * - add PHP Array <-> OCICollection conversion
  * - add Collection iterator object for INDEX BY tables
+ * - make auto-rollback only happen if we have an outstanding transaction
+ * - implement ocidisconnect
  */
 
 /* {{{ includes & stuff */
@@ -68,14 +69,14 @@
 #include "php_oci8.h"
 
 /* True globals, no need for thread safety */
-static int le_conn; 
-static int le_stmt; 
-static int le_desc; 
+static int le_conn;
+static int le_stmt;
+static int le_desc;
 #ifdef WITH_COLLECTIONS 
-static int le_coll; 
+static int le_coll;
 #endif
-static int le_server; 
-static int le_session; 
+static int le_server;
+static int le_session;
 static zend_class_entry *oci_lob_class_entry_ptr;
 #ifdef WITH_COLLECTIONS
 static zend_class_entry *oci_coll_class_entry_ptr;
@@ -101,7 +102,7 @@ static zend_class_entry *oci_coll_class_entry_ptr;
 #define CALL_OCI(call) \
 { \
 	if (OCI(in_call)) { \
-		php_error(E_WARNING, "OCI8 Recursive call!\n"); \
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "OCI8 Recursive call!\n"); \
 		exit(-1); \
 	} else { \
 		OCI(in_call)=1; \
@@ -114,7 +115,7 @@ static zend_class_entry *oci_coll_class_entry_ptr;
 { \
 	if (OCI(in_call)) { \
 		retcode=-1; \
-		php_error(E_WARNING, "OCI8 Recursive call!\n"); \
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "OCI8 Recursive call!\n"); \
 		exit(-1); \
 	} else { \
 		OCI(in_call)=1; \
@@ -122,10 +123,6 @@ static zend_class_entry *oci_coll_class_entry_ptr;
 		OCI(in_call)=0; \
 	} \
 }
-
-#ifndef PHP_WIN32
-#include "build-defs.h"
-#endif
 
 #include <fcntl.h>
 
@@ -198,7 +195,7 @@ static void oci_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent,int exclu
 static oci_server *_oci_open_server(char *dbname,int persistent);
 static void _oci_close_server(oci_server *server);
 
-static oci_session *_oci_open_session(oci_server* server,char *username,char *password,int persistent,int exclusive);
+static oci_session *_oci_open_session(oci_server* server,char *username,char *password,int persistent,int exclusive, char *charset);
 static void _oci_close_session(oci_session *session);
 
 static sb4 oci_bind_in_callback(dvoid *, OCIBind *, ub4, ub4, dvoid **, ub4 *, ub1 *, dvoid **);
@@ -248,6 +245,7 @@ PHP_FUNCTION(ociserverversion);
 PHP_FUNCTION(ocistatementtype);
 PHP_FUNCTION(ocirowcount);
 PHP_FUNCTION(ocisetprefetch);
+PHP_FUNCTION(ocipasswordchange);
 #ifdef HAVE_OCI8_TEMP_LOB
 PHP_FUNCTION(ociwritetemporarylob);
 PHP_FUNCTION(ocicloselob);
@@ -284,118 +282,123 @@ PHP_FUNCTION(ocicolltrim);
 
 #ifdef WITH_COLLECTIONS
 #define OCI_GET_COLL(collection,index) \
-    collection = oci_get_coll(index TSRMLS_CC); \
-    if (collection == NULL) { \
-        RETURN_FALSE; \
-    }
+	collection = oci_get_coll(index TSRMLS_CC); \
+	if (collection == NULL) { \
+		RETURN_FALSE; \
+	}
 #endif
 
 /* }}} */
 /* {{{ extension definition structures */
 
-#define OCI_ASSOC     			1<<0
-#define OCI_NUM       			1<<1
-#define OCI_BOTH      			(OCI_ASSOC|OCI_NUM)
+#define OCI_ASSOC               1<<0
+#define OCI_NUM                 1<<1
+#define OCI_BOTH                (OCI_ASSOC|OCI_NUM)
 
-#define OCI_RETURN_NULLS       	1<<2
-#define OCI_RETURN_LOBS       	1<<3
+#define OCI_RETURN_NULLS        1<<2
+#define OCI_RETURN_LOBS         1<<3
+
+#define OCI_FETCHSTATEMENT_BY_COLUMN    1<<4
+#define OCI_FETCHSTATEMENT_BY_ROW       1<<5
+#define OCI_FETCHSTATEMENT_BY           (OCI_FETCHSTATEMENT_BY_COLUMN | OCI_FETCHSTATEMENT_BY_ROW)
 
 static unsigned char a3_arg_force_ref[] = { 3, BYREF_NONE, BYREF_NONE, BYREF_FORCE };
 static unsigned char a2_arg_force_ref[] = { 2, BYREF_NONE, BYREF_FORCE };
 
 static zend_function_entry php_oci_functions[] = {
-	PHP_FE(ocidefinebyname,  a3_arg_force_ref)
-	PHP_FE(ocibindbyname,    a3_arg_force_ref)
-	PHP_FE(ocicolumnisnull,  NULL)
-	PHP_FE(ocicolumnname,    NULL)
-	PHP_FE(ocicolumnsize,    NULL)
-	PHP_FE(ocicolumnscale,    NULL)
-	PHP_FE(ocicolumnprecision,    NULL)	
-	PHP_FE(ocicolumntype,    NULL)
-	PHP_FE(ocicolumntyperaw,    NULL)	
-	PHP_FE(ociexecute,       NULL)
-	PHP_FE(ocicancel,        NULL)
-	PHP_FE(ocifetch,         NULL)
-	PHP_FE(ocifetchinto,     a2_arg_force_ref)
-	PHP_FE(ocifetchstatement,a2_arg_force_ref)
-	PHP_FE(ocifreestatement, NULL)
-	PHP_FE(ociinternaldebug, NULL)
-	PHP_FE(ocinumcols,       NULL)
-	PHP_FE(ociparse,         NULL)
-	PHP_FE(ocinewcursor,     NULL)
-	PHP_FE(ociresult,        NULL)
-	PHP_FE(ociserverversion, NULL)
-	PHP_FE(ocistatementtype, NULL)
-	PHP_FE(ocirowcount, 	 NULL)
-    PHP_FE(ocilogoff,        NULL)
-    PHP_FE(ocilogon,         NULL)
-    PHP_FE(ocinlogon,        NULL)
-    PHP_FE(ociplogon,        NULL)
-    PHP_FE(ocierror,         NULL)
-    PHP_FE(ocifreedesc,		 NULL)
-    PHP_FE(ocisavelob,       NULL)
-    PHP_FE(ocisavelobfile,   NULL)
-    PHP_FE(ociloadlob,       NULL)
-    PHP_FE(ociwritelobtofile,NULL)
-    PHP_FE(ocicommit,        NULL)
-    PHP_FE(ocirollback,      NULL)
-    PHP_FE(ocinewdescriptor, NULL)
-    PHP_FE(ocisetprefetch,   NULL)
+	PHP_FE(ocidefinebyname,        a3_arg_force_ref)
+	PHP_FE(ocibindbyname,          a3_arg_force_ref)
+	PHP_FE(ocicolumnisnull,        NULL)
+	PHP_FE(ocicolumnname,          NULL)
+	PHP_FE(ocicolumnsize,          NULL)
+	PHP_FE(ocicolumnscale,         NULL)
+	PHP_FE(ocicolumnprecision,     NULL)
+	PHP_FE(ocicolumntype,          NULL)
+	PHP_FE(ocicolumntyperaw,       NULL)
+	PHP_FE(ociexecute,             NULL)
+	PHP_FE(ocicancel,              NULL)
+	PHP_FE(ocifetch,               NULL)
+	PHP_FE(ocifetchinto,           a2_arg_force_ref)
+	PHP_FE(ocifetchstatement,      a2_arg_force_ref)
+	PHP_FE(ocifreestatement,       NULL)
+	PHP_FE(ociinternaldebug,       NULL)
+	PHP_FE(ocinumcols,             NULL)
+	PHP_FE(ociparse,               NULL)
+	PHP_FE(ocinewcursor,           NULL)
+	PHP_FE(ociresult,              NULL)
+	PHP_FE(ociserverversion,       NULL)
+	PHP_FE(ocistatementtype,       NULL)
+	PHP_FE(ocirowcount,            NULL)
+	PHP_FE(ocilogoff,              NULL)
+	PHP_FE(ocilogon,               NULL)
+	PHP_FE(ocinlogon,              NULL)
+	PHP_FE(ociplogon,              NULL)
+	PHP_FE(ocierror,               NULL)
+	PHP_FE(ocifreedesc,            NULL)
+	PHP_FE(ocisavelob,             NULL)
+	PHP_FE(ocisavelobfile,         NULL)
+	PHP_FE(ociloadlob,             NULL)
+	PHP_FE(ociwritelobtofile,      NULL)
+	PHP_FE(ocicommit,              NULL)
+	PHP_FE(ocirollback,            NULL)
+	PHP_FE(ocinewdescriptor,       NULL)
+	PHP_FE(ocisetprefetch,         NULL)
+	PHP_FE(ocipasswordchange,      NULL)
 #ifdef WITH_COLLECTIONS
-    PHP_FE(ocifreecollection,NULL)
-    PHP_FE(ocicollappend,    NULL)
-    PHP_FE(ocicollgetelem,   NULL)
-    PHP_FE(ocicollassignelem,NULL)
-    PHP_FE(ocicollassign,    NULL)
-    PHP_FE(ocicollsize,      NULL)
-    PHP_FE(ocicollmax,       NULL)
-    PHP_FE(ocicolltrim,      NULL)
-    PHP_FE(ocinewcollection, NULL)
+	PHP_FE(ocifreecollection,      NULL)
+	PHP_FE(ocicollappend,          NULL)
+	PHP_FE(ocicollgetelem,         NULL)
+	PHP_FE(ocicollassignelem,      NULL)
+	PHP_FE(ocicollassign,          NULL)
+	PHP_FE(ocicollsize,            NULL)
+	PHP_FE(ocicollmax,             NULL)
+	PHP_FE(ocicolltrim,            NULL)
+	PHP_FE(ocinewcollection,       NULL)
 #endif
 
-    PHP_FALIAS(ocifreecursor,ocifreestatement,NULL)
+	PHP_FALIAS(ocifreecursor,ocifreestatement,NULL)
 
-    {NULL,NULL,NULL}
+	{NULL,NULL,NULL}
 };
 
 static zend_function_entry php_oci_lob_class_functions[] = {
-    PHP_FALIAS(load,	    ociloadlob,       NULL)
-    PHP_FALIAS(writetofile,	ociwritelobtofile,NULL)
+	PHP_FALIAS(load,        ociloadlob,             NULL)
+	PHP_FALIAS(writetofile, ociwritelobtofile,      NULL)
 #ifdef HAVE_OCI8_TEMP_LOB
-    PHP_FALIAS(writetemporary,	ociwritetemporarylob,NULL)
-    PHP_FALIAS(close,      	ocicloselob,      NULL)
+	PHP_FALIAS(writetemporary, ociwritetemporarylob,NULL)
+	PHP_FALIAS(close,       ocicloselob,            NULL)
 #endif
-    PHP_FALIAS(save,	    ocisavelob,       NULL)
-    PHP_FALIAS(savefile,    ocisavelobfile,   NULL)
-    PHP_FALIAS(free,	    ocifreedesc,      NULL)
-    {NULL,NULL,NULL}
+	PHP_FALIAS(save,        ocisavelob,             NULL)
+	PHP_FALIAS(savefile,    ocisavelobfile,         NULL)
+	PHP_FALIAS(free,        ocifreedesc,            NULL)
+	{NULL,NULL,NULL}
 };
 
 #ifdef WITH_COLLECTIONS
 static zend_function_entry php_oci_coll_class_functions[] = {
-    PHP_FALIAS(append,        ocicollappend,  NULL)
-    PHP_FALIAS(getelem,       ocicollgetelem, NULL)
-    PHP_FALIAS(assignelem,    ocicollassignelem, NULL)
-    PHP_FALIAS(assign,        ocicollassign,  NULL)
-    PHP_FALIAS(size,          ocicollsize,    NULL)
-    PHP_FALIAS(max,           ocicollmax,     NULL)
-    PHP_FALIAS(trim,          ocicolltrim,    NULL)
-    PHP_FALIAS(free,          ocifreecollection, NULL)
-    {NULL,NULL,NULL}
+	PHP_FALIAS(append,        ocicollappend,        NULL)
+	PHP_FALIAS(getelem,       ocicollgetelem,       NULL)
+	PHP_FALIAS(assignelem,    ocicollassignelem,    NULL)
+	PHP_FALIAS(assign,        ocicollassign,        NULL)
+	PHP_FALIAS(size,          ocicollsize,          NULL)
+	PHP_FALIAS(max,           ocicollmax,           NULL)
+	PHP_FALIAS(trim,          ocicolltrim,          NULL)
+	PHP_FALIAS(free,          ocifreecollection,    NULL)
+	{NULL,NULL,NULL}
 };
 #endif
 
 zend_module_entry oci8_module_entry = {
 	STANDARD_MODULE_HEADER,
-    "oci8",        /* extension name */
-    php_oci_functions,    /* extension function list */
-    PHP_MINIT(oci),       /* extension-wide startup function */
-    PHP_MSHUTDOWN(oci),   /* extension-wide shutdown function */
-    PHP_RINIT(oci),       /* per-request startup function */
-    PHP_RSHUTDOWN(oci),   /* per-request shutdown function */
-    PHP_MINFO(oci),       /* information function */
-    NO_VERSION_YET,
-    STANDARD_MODULE_PROPERTIES
+	"oci8",               /* extension name */
+	php_oci_functions,    /* extension function list */
+	PHP_MINIT(oci),       /* extension-wide startup function */
+	PHP_MSHUTDOWN(oci),   /* extension-wide shutdown function */
+	PHP_RINIT(oci),       /* per-request startup function */
+	PHP_RSHUTDOWN(oci),   /* per-request shutdown function */
+	PHP_MINFO(oci),       /* information function */
+	NO_VERSION_YET,
+	STANDARD_MODULE_PROPERTIES
 };
 
 /* }}} */
@@ -406,24 +409,24 @@ zend_module_entry oci8_module_entry = {
 #if OCI_USE_EMALLOC
 CONST dvoid *ocimalloc(dvoid *ctx, size_t size)
 {
-    dvoid *ret;
+	dvoid *ret;
 	ret = (dvoid *)malloc(size);
-    oci_debug("ocimalloc(%d) = %08x", size,ret);
-    return ret;
+	oci_debug("ocimalloc(%d) = %08x", size,ret);
+	return ret;
 }
 
 CONST dvoid *ocirealloc(dvoid *ctx, dvoid *ptr, size_t size)
 {
-    dvoid *ret;
-    oci_debug("ocirealloc(%08x, %d)", ptr, size);
+	dvoid *ret;
+	oci_debug("ocirealloc(%08x, %d)", ptr, size);
 	ret = (dvoid *)realloc(ptr, size);
-    return ptr;
+	return ptr;
 }
 
 CONST void ocifree(dvoid *ctx, dvoid *ptr)
 {
-    oci_debug("ocifree(%08x)", ptr);
-    free(ptr);
+	oci_debug("ocifree(%08x)", ptr);
+	free(ptr);
 }
 #endif
 
@@ -459,13 +462,25 @@ PHP_MINIT_FUNCTION(oci)
 {
 	zend_class_entry oci_lob_class_entry;
 #ifdef WITH_COLLECTIONS
-    zend_class_entry oci_coll_class_entry;
+	zend_class_entry oci_coll_class_entry;
 #endif
+
+#ifdef HAVE_OCI8_SHARED_MODE
+
+#ifdef WITH_COLLECTIONS
+#define PHP_OCI_INIT_MODE OCI_SHARED | OCI_OBJECT
+#else
+#define PHP_OCI_INIT_MODE OCI_SHARED
+#endif
+
+#else
 
 #ifdef WITH_COLLECTIONS
 #define PHP_OCI_INIT_MODE OCI_DEFAULT | OCI_OBJECT
 #else
 #define PHP_OCI_INIT_MODE OCI_DEFAULT
+#endif
+
 #endif
 
 #if OCI_USE_EMALLOC
@@ -484,19 +499,19 @@ PHP_MINIT_FUNCTION(oci)
 	le_conn = zend_register_list_destructors_ex(php_oci_free_conn_list, NULL, "oci8 connection", module_number);
 	le_desc = zend_register_list_destructors_ex(_oci_descriptor_list_dtor, NULL, "oci8 descriptor", module_number);
 #ifdef WITH_COLLECTIONS
-    le_coll = zend_register_list_destructors_ex(_oci_coll_list_dtor, NULL, "oci8 collection", module_number);
+	le_coll = zend_register_list_destructors_ex(_oci_coll_list_dtor, NULL, "oci8 collection", module_number);
 #endif
 	le_server = zend_register_list_destructors_ex(_oci_server_list_dtor, NULL, "oci8 server", module_number);
 	le_session = zend_register_list_destructors_ex(_oci_session_list_dtor, NULL, "oci8 session", module_number);
 
 	INIT_CLASS_ENTRY(oci_lob_class_entry, "OCI-Lob", php_oci_lob_class_functions);
 #ifdef WITH_COLLECTIONS
-    INIT_CLASS_ENTRY(oci_coll_class_entry, "OCI-Collection", php_oci_coll_class_functions);
+	INIT_CLASS_ENTRY(oci_coll_class_entry, "OCI-Collection", php_oci_coll_class_functions);
 #endif
 
- 	oci_lob_class_entry_ptr = zend_register_internal_class(&oci_lob_class_entry TSRMLS_CC);
+	oci_lob_class_entry_ptr = zend_register_internal_class(&oci_lob_class_entry TSRMLS_CC);
 #ifdef WITH_COLLECTIONS
-    oci_coll_class_entry_ptr = zend_register_internal_class(&oci_coll_class_entry TSRMLS_CC);
+	oci_coll_class_entry_ptr = zend_register_internal_class(&oci_coll_class_entry TSRMLS_CC);
 #endif
 
 /* thies@thieso.net 990203 i do not think that we will need all of them - just in here for completeness for now! */
@@ -513,8 +528,8 @@ PHP_MINIT_FUNCTION(oci)
 	REGISTER_LONG_CONSTANT("SQLT_RDD",SQLT_RDD, CONST_CS | CONST_PERSISTENT);
 
 #ifdef WITH_COLLECTIONS
-    REGISTER_LONG_CONSTANT("OCI_B_SQLT_NTY",SQLT_NTY, CONST_CS | CONST_PERSISTENT);
-    REGISTER_STRING_CONSTANT("OCI_SYSDATE","SYSDATE",CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("OCI_B_SQLT_NTY",SQLT_NTY, CONST_CS | CONST_PERSISTENT);
+	REGISTER_STRING_CONSTANT("OCI_SYSDATE","SYSDATE",CONST_PERSISTENT);
 #endif
 
 	REGISTER_LONG_CONSTANT("OCI_B_BFILE",SQLT_BFILEE, CONST_CS | CONST_PERSISTENT);
@@ -524,6 +539,10 @@ PHP_MINIT_FUNCTION(oci)
 	REGISTER_LONG_CONSTANT("OCI_B_ROWID",SQLT_RDD, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("OCI_B_CURSOR",SQLT_RSET, CONST_CS | CONST_PERSISTENT);
 	REGISTER_LONG_CONSTANT("OCI_B_BIN",SQLT_BIN, CONST_CS | CONST_PERSISTENT);
+
+/* for OCIFetchStatement */
+	REGISTER_LONG_CONSTANT("OCI_FETCHSTATEMENT_BY_COLUMN", OCI_FETCHSTATEMENT_BY_COLUMN, CONST_CS | CONST_PERSISTENT);
+	REGISTER_LONG_CONSTANT("OCI_FETCHSTATEMENT_BY_ROW", OCI_FETCHSTATEMENT_BY_ROW, CONST_CS | CONST_PERSISTENT);
 
 /* for OCIFetchInto &  OCIResult */
 	REGISTER_LONG_CONSTANT("OCI_ASSOC",OCI_ASSOC, CONST_CS | CONST_PERSISTENT);
@@ -557,9 +576,9 @@ PHP_RINIT_FUNCTION(oci)
 	OCI(debug_mode) = 0; /* start "fresh" */
 /*	OCI(in_call) = 0; i don't think we want this! */
 
-    oci_debug("php_rinit_oci");
+	oci_debug("php_rinit_oci");
 
-    return SUCCESS;
+	return SUCCESS;
 }
 
 static int _session_pcleanup(oci_session *session TSRMLS_DC)
@@ -580,7 +599,7 @@ PHP_MSHUTDOWN_FUNCTION(oci)
 {
 	OCI(shutdown) = 1;
 
-    oci_debug("START php_mshutdown_oci");
+	oci_debug("START php_mshutdown_oci");
 
 	zend_hash_apply(OCI(user), (apply_func_t)_session_pcleanup TSRMLS_CC);
 	zend_hash_apply(OCI(server), (apply_func_t)_server_pcleanup TSRMLS_CC);
@@ -595,14 +614,14 @@ PHP_MSHUTDOWN_FUNCTION(oci)
 				(dvoid *)OCI(pEnv), 
 				OCI_HTYPE_ENV));
 
-    oci_debug("END   php_mshutdown_oci");
+	oci_debug("END   php_mshutdown_oci");
 
 	return SUCCESS;
 }
 
 PHP_RSHUTDOWN_FUNCTION(oci)
 {
-    oci_debug("START php_rshutdown_oci");
+	oci_debug("START php_rshutdown_oci");
 
 #if 0
 	/* XXX free all statements, rollback all outstanding transactions */
@@ -611,9 +630,9 @@ PHP_RSHUTDOWN_FUNCTION(oci)
 	zend_hash_apply(OCI(server), (apply_func_t) _server_cleanup TSRMLS_CC);
 #endif
 
-    oci_debug("END   php_rshutdown_oci");
+	oci_debug("END   php_rshutdown_oci");
 
-    return SUCCESS;
+	return SUCCESS;
 }
 
 
@@ -622,7 +641,7 @@ PHP_MINFO_FUNCTION(oci)
 
 	php_info_print_table_start();
 	php_info_print_table_row(2, "OCI8 Support", "enabled");
-	php_info_print_table_row(2, "Revision", "$Revision: 1.1.1.5 $");
+	php_info_print_table_row(2, "Revision", "$Revision: 1.1.1.8 $");
 #ifndef PHP_WIN32
 	php_info_print_table_row(2, "Oracle Version", PHP_OCI8_VERSION );
 	php_info_print_table_row(2, "Compile-time ORACLE_HOME", PHP_OCI8_DIR );
@@ -660,7 +679,7 @@ _oci_bind_hash_dtor(void *data)
 
 	oci_debug("_oci_bind_hash_dtor:");
 
-   	zval_ptr_dtor(&(bind->zval));
+	zval_ptr_dtor(&(bind->zval));
 }
 
 /* }}} */
@@ -673,7 +692,7 @@ _oci_bind_pre_exec(void *data TSRMLS_DC)
 
 	/* reset all bind stuff to a normal state..-. */
 
-   	bind->indicator = 0; 
+	bind->indicator = 0; 
 
 	return 0;
 }
@@ -688,11 +707,14 @@ _oci_bind_post_exec(void *data TSRMLS_DC)
 
 	if (bind->indicator == -1) { /* NULL */
 		zval *val = bind->zval;
+		if (Z_TYPE_P(val) == IS_STRING && (Z_STRVAL_P(val) != empty_string)) {
+			*Z_STRVAL_P(val) = '\0'; /* XXX avoid warning in debug mode */
+		}
 		zval_dtor(val);
 		ZVAL_NULL(val);
-	} else if (bind->zval->type == IS_STRING && (bind->zval->value.str.val != empty_string)) {
-		bind->zval->value.str.val = erealloc(bind->zval->value.str.val, bind->zval->value.str.len+1);
-		bind->zval->value.str.val[ bind->zval->value.str.len ] = '\0';
+	} else if (Z_TYPE_P(bind->zval) == IS_STRING && (Z_STRVAL_P(bind->zval) != empty_string)) {
+		Z_STRVAL_P(bind->zval) = erealloc(Z_STRVAL_P(bind->zval), Z_STRLEN_P(bind->zval)+1);
+		Z_STRVAL_P(bind->zval)[ Z_STRLEN_P(bind->zval) ] = '\0';
 	}
 
 
@@ -793,13 +815,20 @@ _oci_conn_list_dtor(oci_connection *connection TSRMLS_DC)
 	oci_debug("START _oci_conn_list_dtor: id=%d",connection->id);
 
 	if (connection->pServiceContext) {
-		CALL_OCI_RETURN(connection->error,OCITransRollback(
-					connection->pServiceContext,
-					connection->pError,
-					(ub4)0));
- 
-		if (connection->error) {
-			oci_error(connection->pError, "failed to rollback outstanding transactions!", connection->error);
+
+		if (connection->needs_commit) {
+			oci_debug("OCITransRollback");
+			CALL_OCI_RETURN(connection->error,OCITransRollback(
+						connection->pServiceContext,
+						connection->pError,
+						(ub4)0));
+	 
+			if (connection->error) {
+				oci_error(connection->pError, "failed to rollback outstanding transactions!", connection->error);
+			}
+			connection->needs_commit = 0;
+		} else {
+			oci_debug("nothing to do..");
 		}
 
 		CALL_OCI(OCIHandleFree(
@@ -848,8 +877,8 @@ _oci_coll_list_dtor(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 
 	zend_list_delete(coll->conn->id);
 	/* Note sure if we need to free the object.  Have an
-	    oracle TAR out on this one.
-	    OCIDescriptorFree(descr->ocidescr, descr->type); */
+	   oracle TAR out on this one.
+	   OCIDescriptorFree(descr->ocidescr, Z_TYPE_P(descr)); */
 
 	oci_debug("END   _oci_coll_list_dtor: %d",coll->id);
 
@@ -865,15 +894,15 @@ static void
 _oci_descriptor_list_dtor(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	oci_descriptor *descr = (oci_descriptor *)rsrc->ptr;
-    oci_debug("START _oci_descriptor_list_dtor: %d",descr->id);
+	oci_debug("START _oci_descriptor_list_dtor: %d",descr->id);
 
 	zend_list_delete(descr->conn->id);
 
 	CALL_OCI(OCIDescriptorFree(
 				descr->ocidescr, 
-				descr->type));
+				Z_TYPE_P(descr)));
 
-    oci_debug("END   _oci_descriptor_list_dtor: %d",descr->id);
+	oci_debug("END   _oci_descriptor_list_dtor: %d",descr->id);
 
 	efree(descr);
 }
@@ -900,7 +929,7 @@ static void
 _oci_session_list_dtor(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	oci_session *session = (oci_session *)rsrc->ptr;
-   	if (session->persistent)
+	if (session->persistent)
 		return;
 
 	_oci_close_session(session);
@@ -914,16 +943,20 @@ static ub4
 oci_handle_error(oci_connection *connection, ub4 errcode)
 {
 	switch (errcode) {
-    	case 22:   /* ORA-00022 Invalid session id */
-       	case 1012: /* ORA-01012: */
-       	case 3113: /* ORA-03113: end-of-file on communication channel */
+		case 1013: /* user requested cancel of current operation */
+			zend_bailout();
+			break;
+
+		case 22:   /* ORA-00022 Invalid session id */
+		case 1012: /* ORA-01012: */
+		case 3113: /* ORA-03113: end-of-file on communication channel */
 		case 604:
 		case 1041:
-        	connection->is_open = 0;
-           	connection->session->is_open = 0;
-           	connection->session->server->is_open = 0;
+			connection->is_open = 0;
+			connection->session->is_open = 0;
+			connection->session->server->is_open = 0;
 			return 1; /* fatal error */
-   	}
+	}
 
 	return 0; /* no fatal error */
 }
@@ -934,23 +967,32 @@ oci_handle_error(oci_connection *connection, ub4 errcode)
 static ub4
 oci_error(OCIError *err_p, char *what, sword status)
 {
-    text errbuf[512];
-    sb4 errcode = 0;
+	text errbuf[512];
+	sb4 errcode = 0;
+	TSRMLS_FETCH();
 
-    switch (status) {
+	switch (status) {
 	case OCI_SUCCESS:
 		break;
 	case OCI_SUCCESS_WITH_INFO:
-		php_error(E_WARNING, "%s: OCI_SUCCESS_WITH_INFO", what);
+		CALL_OCI(OCIErrorGet(
+				err_p, 
+				(ub4)1, 
+				NULL, 
+				&errcode, 
+				errbuf,
+				(ub4)sizeof(errbuf), 
+				(ub4)OCI_HTYPE_ERROR));
+
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s: OCI_SUCCESS_WITH_INFO: %s", what, errbuf);
 		break;
 	case OCI_NEED_DATA:
-		php_error(E_WARNING, "%s: OCI_NEED_DATA", what);
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s: OCI_NEED_DATA", what);
 		break;
 	case OCI_NO_DATA:
-		php_error(E_WARNING, "%s: OCI_NO_DATA", what);
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s: OCI_NO_DATA", what);
 		break;
 	case OCI_ERROR: {
-			TSRMLS_FETCH();
 			CALL_OCI(OCIErrorGet(
 					err_p, 
 					(ub4)1, 
@@ -960,22 +1002,22 @@ oci_error(OCIError *err_p, char *what, sword status)
 					(ub4)sizeof(errbuf), 
 					(ub4)OCI_HTYPE_ERROR));
 		
-			php_error(E_WARNING, "%s: %s", what, errbuf);
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s: %s", what, errbuf);
 			break;
 		}
 	case OCI_INVALID_HANDLE:
-		php_error(E_WARNING, "%s: OCI_INVALID_HANDLE", what);
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s: OCI_INVALID_HANDLE", what);
 		break;
 	case OCI_STILL_EXECUTING:
-		php_error(E_WARNING, "%s: OCI_STILL_EXECUTING", what);
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s: OCI_STILL_EXECUTING", what);
 		break;
 	case OCI_CONTINUE:
-		php_error(E_WARNING, "%s: OCI_CONTINUE", what);
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s: OCI_CONTINUE", what);
 		break;
 	default:
 		break;
-    }
-    return errcode;
+	}
+	return errcode;
 }
 
 /* }}} */
@@ -999,7 +1041,7 @@ static int oci_ping(oci_server *server)
 
 	oci_error(OCI(pError), "oci_ping", OCI(error));
 
-    return 0;
+	return 0;
 }
 
 /* }}} */
@@ -1012,7 +1054,7 @@ static void oci_debug(const char *format, ...)
 {
 	TSRMLS_FETCH();
 
-    if (OCI(debug_mode)) {
+	if (OCI(debug_mode)) {
 		char buffer[1024];
 		va_list args;
 
@@ -1020,7 +1062,7 @@ static void oci_debug(const char *format, ...)
 		vsnprintf(buffer, sizeof(buffer)-1, format, args);
 		va_end(args);
 		buffer[sizeof(buffer)-1] = '\0';
-		php_printf("OCIDebug: %s<br>\n", buffer);
+		php_printf("OCIDebug: %s<br />\n", buffer);
 	}
 }
 
@@ -1081,29 +1123,30 @@ oci_get_col(oci_statement *statement, int col, zval **value)
 {
 	oci_out_column *outcol = NULL;
 	int i;
+	TSRMLS_FETCH();
 
 	if (statement->columns == 0) { /* we release the columns at the end of a fetch */
 		return NULL;
 	}
 
 	if (value) {
-	    if ((*value)->type == IS_STRING) {
+		if (Z_TYPE_PP(value) == IS_STRING) {
 			for (i = 0; i < statement->ncolumns; i++) {
-		   		outcol = oci_get_col(statement, i + 1, 0);
-                if (outcol == NULL) {
-         	       continue;
-                } else if (((int) outcol->name_len == (*value)->value.str.len) 
-                           && (! strncmp(outcol->name,(*value)->value.str.val,(*value)->value.str.len))) {
-                	return outcol;   	
-			   	}
-		   	}
-       	} else {
+				outcol = oci_get_col(statement, i + 1, 0);
+				if (outcol == NULL) {
+					continue;
+				} else if (((int) outcol->name_len == Z_STRLEN_PP(value)) 
+						&& (! strncmp(outcol->name,Z_STRVAL_PP(value),Z_STRLEN_PP(value)))) {
+				return outcol;
+				}
+			}
+		} else {
 			convert_to_long_ex(value);
-			return oci_get_col(statement,(*value)->value.lval,0);
+			return oci_get_col(statement,Z_LVAL_PP(value),0);
 		}
 	} else if (col != -1) {
 		if (zend_hash_index_find(statement->columns, col, (void **)&outcol) == FAILURE) {
-			php_error(E_WARNING, "Invalid column %d", col);
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid column %d", col);
 			return NULL;
 		}
 		return outcol;
@@ -1123,23 +1166,23 @@ oci_new_desc(int type,oci_connection *connection)
 
 	descr = emalloc(sizeof(oci_descriptor));
 	
-    descr->type = type;
+	Z_TYPE_P(descr) = type;
 
-	switch (descr->type) {
-	    case OCI_DTYPE_FILE:
-	    case OCI_DTYPE_LOB:
-	    case OCI_DTYPE_ROWID:
+	switch (Z_TYPE_P(descr)) {
+		case OCI_DTYPE_FILE:
+		case OCI_DTYPE_LOB:
+		case OCI_DTYPE_ROWID:
 			break;
-		   
-	    default:
-			php_error(E_WARNING, "Unknown descriptor type %d.",descr->type);
+
+		default:
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unknown descriptor type %d.",Z_TYPE_P(descr));
 			return 0;
 	}
 	
 	CALL_OCI_RETURN(OCI(error), OCIDescriptorAlloc(
-				OCI(pEnv),
+				connection->session->pEnv,
 				(dvoid*)&(descr->ocidescr), 
-				descr->type, 
+				Z_TYPE_P(descr), 
 				(size_t) 0, 
 				(dvoid **) 0));
 	
@@ -1166,18 +1209,18 @@ oci_new_desc(int type,oci_connection *connection)
 static int
 _oci_get_ocicoll(zval *id,oci_collection **collection TSRMLS_DC)
 {
-    zval **coll;
-    
-    if (zend_hash_find(Z_OBJPROP_P(id), "collection", sizeof("collection"), (void **)&coll) == FAILURE) {
-        php_error(E_WARNING, "cannot find collection");
-        return 0;
-    }
-    if ((*collection = oci_get_coll((*coll)->value.lval TSRMLS_CC)) == NULL) {
-        php_error(E_WARNING, "collection not found");
-        return 0;
-    }
+	zval **coll;
+	
+	if (zend_hash_find(Z_OBJPROP_P(id), "collection", sizeof("collection"), (void **)&coll) == FAILURE) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "cannot find collection");
+		return 0;
+	}
+	if ((*collection = oci_get_coll(Z_LVAL_PP(coll) TSRMLS_CC)) == NULL) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "collection not found");
+		return 0;
+	}
  
-    return (*coll)->value.lval;
+	return Z_LVAL_PP(coll);
 }
 
 /* }}} */
@@ -1193,16 +1236,16 @@ _oci_get_ocidesc(zval *id,oci_descriptor **descriptor TSRMLS_DC)
 	zval **desc;
 	
 	if (zend_hash_find(Z_OBJPROP_P(id), "descriptor", sizeof("descriptor"), (void **)&desc) == FAILURE) {
-		php_error(E_WARNING, "cannot find descriptor");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "cannot find descriptor");
 		return 0;
 	}
 
-	if ((*descriptor = oci_get_desc((*desc)->value.lval TSRMLS_CC)) == NULL) {
-		php_error(E_WARNING, "descriptor not found");
+	if ((*descriptor = oci_get_desc(Z_LVAL_PP(desc) TSRMLS_CC)) == NULL) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "descriptor not found");
 		return 0;
 	}
 	
-	return (*desc)->value.lval;
+	return Z_LVAL_PP(desc);
 }
 
 /* }}} */
@@ -1221,23 +1264,23 @@ _oci_make_zval(zval *value,oci_statement *statement,oci_out_column *column, char
 			oci_debug("_oci_make_zval: %16s,retlen = %4d,retlen4 = %d,storage_size4 = %4d,indicator %4d, retcode = %4d",
 					  column->name,column->retlen,column->retlen4,column->storage_size4,column->indicator,column->retcode);
 	
-	if (column->indicator == -1) { /* column is NULL */
+	if ((! statement->has_data) || (column->indicator == -1)) { /* column is NULL or statment has no current data */
 		ZVAL_NULL(value); 
 		return 0;
 	}
 	
 	if (column->is_cursor) { /* REFCURSOR -> simply return the statement id */
 		ZVAL_RESOURCE(value,column->stmtid);
-	   	zend_list_addref(column->stmtid);
+		zend_list_addref(column->stmtid);
 	} else if (column->is_descr) {
 		if ((column->data_type != SQLT_RDD) && (mode & OCI_RETURN_LOBS)) {
 			/* OCI_RETURN_LOBS means that we want the content of the LOB back instead of the locator */
 
 			descr = oci_get_desc(column->descid TSRMLS_CC);
-	        if (! descr) {
-   	        	php_error(E_WARNING, "unable to find my descriptor %d",column->data);
-            	return -1;
-        	}
+			if (! descr) {
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "unable to find my descriptor %d",column->data);
+				return -1;
+			}
 			
 			if (oci_loadlob(statement->conn,descr,&buffer,&loblen)) {
 				ZVAL_FALSE(value);
@@ -1248,7 +1291,7 @@ _oci_make_zval(zval *value,oci_statement *statement,oci_out_column *column, char
 			/* return the locator */
 			object_init_ex(value, oci_lob_class_entry_ptr);
 			add_property_resource(value, "descriptor", column->descid);
-   			zend_list_addref(column->descid);
+			zend_list_addref(column->descid);
 		}
 	} else {
 		switch (column->retcode) {
@@ -1296,7 +1339,7 @@ oci_setprefetch(oci_statement *statement,int size)
 	statement->error = oci_error(statement->pError, "OCIAttrSet OCI_ATTR_PREFETCH_MEMORY", error);
 
 	if (statement->error) {
-	       oci_handle_error(statement->conn, statement->error);
+		oci_handle_error(statement->conn, statement->error);
 	}
 
 	prefetch = size;
@@ -1309,7 +1352,7 @@ oci_setprefetch(oci_statement *statement,int size)
 				statement->pError));
 
 	statement->error = oci_error(statement->pError, "OCIAttrSet OCI_ATTR_PREFETCH_MEMORY", error);
-    if (statement->error) {
+	if (statement->error) {
 		oci_handle_error(statement->conn, statement->error);
 	}
 
@@ -1327,15 +1370,15 @@ static oci_statement *oci_parse(oci_connection *connection, char *query, int len
 
 	statement = ecalloc(1,sizeof(oci_statement));
 
-    CALL_OCI(OCIHandleAlloc(
-				OCI(pEnv),
-			    (dvoid **)&statement->pStmt,
+	CALL_OCI(OCIHandleAlloc(
+				connection->session->pEnv,
+				(dvoid **)&statement->pStmt,
 				OCI_HTYPE_STMT, 
 				0, 
 				NULL));
 
-    CALL_OCI(OCIHandleAlloc(
-				OCI(pEnv),
+	CALL_OCI(OCIHandleAlloc(
+				connection->session->pEnv,
 				(dvoid **)&statement->pError,
 				OCI_HTYPE_ERROR,
 				0,
@@ -1356,7 +1399,7 @@ static oci_statement *oci_parse(oci_connection *connection, char *query, int len
 						statement->pStmt, 
 						OCI_HTYPE_STMT));
 			
-		   	CALL_OCI(OCIHandleFree(
+			CALL_OCI(OCIHandleFree(
 						statement->pError, 
 						OCI_HTYPE_ERROR));
 
@@ -1369,14 +1412,16 @@ static oci_statement *oci_parse(oci_connection *connection, char *query, int len
 	if (query) {
 		statement->last_query = estrdup(query);
 	}
+
 	statement->conn = connection;
+	statement->has_data = 0;
 
 	statement->id = zend_list_insert(statement,le_stmt);
 
 	oci_debug("oci_parse \"%s\" id=%d conn=%d",
-			   SAFE_STRING(query),
-			   statement->id,
-			   statement->conn->id);
+				SAFE_STRING(query),
+				statement->id,
+				statement->conn->id);
 
 	zend_list_addref(statement->conn->id);
 
@@ -1395,7 +1440,6 @@ oci_execute(oci_statement *statement, char *func,ub4 mode)
 	text *colname;
 	ub4 counter;
 	ub2 define_type;
-	ub2 stmttype;
 	ub4 iters;
 	ub4 colcount;
 	ub2 dynamic;
@@ -1405,21 +1449,24 @@ oci_execute(oci_statement *statement, char *func,ub4 mode)
 	sword error;
 	TSRMLS_FETCH();
 
-	CALL_OCI_RETURN(error, OCIAttrGet(
-				(dvoid *)statement->pStmt,
-	 			OCI_HTYPE_STMT,
-				(ub2 *)&stmttype,
-				(ub4 *)0,
-				OCI_ATTR_STMT_TYPE,
-				statement->pError));
+	if (! statement->stmttype) {
+		CALL_OCI_RETURN(error, OCIAttrGet(
+					(dvoid *)statement->pStmt,
+					OCI_HTYPE_STMT,
+					(ub2 *)&statement->stmttype,
+					(ub4 *)0,
+					OCI_ATTR_STMT_TYPE,
+					statement->pError));
 
-	statement->error = oci_error(statement->pError, "OCIAttrGet OCI_HTYPE_STMT/OCI_ATTR_STMT_TYPE", error);
-	if (statement->error) {
-		oci_handle_error(statement->conn, statement->error);
-		return 0;
+		statement->error = oci_error(statement->pError, "OCIAttrGet OCI_HTYPE_STMT/OCI_ATTR_STMT_TYPE", error);
+
+		if (statement->error) {
+			oci_handle_error(statement->conn, statement->error);
+			return 0;
+		}
 	}
 
-	if (stmttype == OCI_STMT_SELECT) {
+	if (statement->stmttype == OCI_STMT_SELECT) {
 		iters = 0;
 	} else {
 		iters = 1;
@@ -1444,6 +1491,7 @@ oci_execute(oci_statement *statement, char *func,ub4 mode)
 					mode));
 
 		statement->error = oci_error(statement->pError, "OCIStmtExecute", error);
+
 		if (statement->binds) {
 			zend_hash_apply(statement->binds, (apply_func_t) _oci_bind_post_exec TSRMLS_CC);
 		}
@@ -1453,11 +1501,17 @@ oci_execute(oci_statement *statement, char *func,ub4 mode)
 		if (statement->error) {
 			return 0;
 		}
+
+		if (mode & OCI_COMMIT_ON_SUCCESS) {
+			statement->conn->needs_commit = 0;
+		} else {
+			statement->conn->needs_commit = 1;
+		}
 	}
 
-	if (stmttype == OCI_STMT_SELECT && (statement->executed == 0)) {
+	if ((statement->stmttype == OCI_STMT_SELECT) && (statement->executed == 0)) {
 		/* we only need to do the define step is this very statement is executed the first time! */
-		statement->executed++;
+		statement->executed = 1;
 		
 		ALLOC_HASHTABLE(statement->columns);
 		zend_hash_init(statement->columns, 13, NULL, _oci_column_hash_dtor, 0);
@@ -1484,7 +1538,7 @@ oci_execute(oci_statement *statement, char *func,ub4 mode)
 			memset(&column,0,sizeof(oci_out_column));
 			
 			if (zend_hash_index_update(statement->columns, counter, &column,
-									   sizeof(oci_out_column), (void**) &outcol) == FAILURE) {
+										sizeof(oci_out_column), (void**) &outcol) == FAILURE) {
 				efree(statement->columns);
 				/* out of memory */
 				return 0;
@@ -1618,11 +1672,11 @@ oci_execute(oci_statement *statement, char *func,ub4 mode)
 					
 					descr = oci_new_desc(dtype,statement->conn);
 					outcol->descid = descr->id;
-   					buf =  &(descr->ocidescr);
+					buf =  &(descr->ocidescr);
 					break;
 
 				case SQLT_LNG:
-			    case SQLT_LBI:
+				case SQLT_LBI:
 					if (outcol->data_type == SQLT_LBI) {
 						define_type = SQLT_BIN;
 					} else {
@@ -1636,7 +1690,14 @@ oci_execute(oci_statement *statement, char *func,ub4 mode)
 				case SQLT_BIN:
 				default:
 					define_type = SQLT_CHR;
-					if ((outcol->data_type == SQLT_DAT) || (outcol->data_type == SQLT_NUM)) {
+					if ((outcol->data_type == SQLT_DAT) || (outcol->data_type == SQLT_NUM)
+#ifdef SQLT_TIMESTAMP
+						|| (outcol->data_type == SQLT_TIMESTAMP)
+#endif
+#ifdef SQLT_TIMESTAMP_TZ
+						|| (outcol->data_type == SQLT_TIMESTAMP_TZ)
+#endif
+						) {
 						outcol->storage_size4 = 512; /* XXX this should fit "most" NLS date-formats and Numbers */
 					} else {
 						outcol->storage_size4++; /* add one for string terminator */
@@ -1651,32 +1712,32 @@ oci_execute(oci_statement *statement, char *func,ub4 mode)
 
 			if (dynamic == OCI_DYNAMIC_FETCH) {
 				CALL_OCI_RETURN(error, OCIDefineByPos(
-							statement->pStmt,							/* IN/OUT handle to the requested SQL query */
-							(OCIDefine **)&outcol->pDefine,				/* IN/OUT pointer to a pointer to a define handle */
-						  	statement->pError, 							/* IN/OUT An error handle  */
-						  	counter,									/* IN     position in the select list */ 
-							(dvoid *)NULL,								/* IN/OUT pointer to a buffer */ 
-							outcol->storage_size4, 	    				/* IN	  The size of each valuep buffer in bytes */ 
-							define_type,			 					/* IN	  The data type */ 
-							(dvoid *)&outcol->indicator, 				/* IN	  pointer to an indicator variable or arr */ 
-							(ub2 *)NULL, 		            			/* IN/OUT Pointer to array of length of data fetched */ 
-							(ub2 *)NULL,		            			/* OUT	  Pointer to array of column-level return codes */ 
-							OCI_DYNAMIC_FETCH));	        			/* IN	  mode (OCI_DEFAULT, OCI_DYNAMIC_FETCH) */
+							statement->pStmt,                           /* IN/OUT handle to the requested SQL query */
+							(OCIDefine **)&outcol->pDefine,             /* IN/OUT pointer to a pointer to a define handle */
+							statement->pError,                          /* IN/OUT An error handle  */
+							counter,                                    /* IN     position in the select list */
+							(dvoid *)NULL,                              /* IN/OUT pointer to a buffer */
+							outcol->storage_size4,                      /* IN     The size of each valuep buffer in bytes */
+							define_type,                                /* IN     The data type */
+							(dvoid *)&outcol->indicator,                /* IN     pointer to an indicator variable or arr */
+							(ub2 *)NULL,                                /* IN/OUT Pointer to array of length of data fetched */
+							(ub2 *)NULL,                                /* OUT    Pointer to array of column-level return codes */
+							OCI_DYNAMIC_FETCH));                        /* IN     mode (OCI_DEFAULT, OCI_DYNAMIC_FETCH) */
 
 				statement->error = oci_error(statement->pError, "OCIDefineByPos", error);
 			} else {
 				CALL_OCI_RETURN(error, OCIDefineByPos(
-							statement->pStmt,							/* IN/OUT handle to the requested SQL query */ 
-							(OCIDefine **)&outcol->pDefine,				/* IN/OUT pointer to a pointer to a define handle */
-						  	statement->pError, 							/* IN/OUT An error handle  */
-							counter,									/* IN     position in the select list */
-							(dvoid *)buf,								/* IN/OUT pointer to a buffer */
-							outcol->storage_size4, 	    				/* IN	  The size of each valuep buffer in bytes */
-							define_type,			 					/* IN	  The data type */
-							(dvoid *)&outcol->indicator, 				/* IN	  pointer to an indicator variable or arr */
-							(ub2 *)&outcol->retlen, 					/* IN/OUT Pointer to array of length of data fetched */
-							(ub2 *)&outcol->retcode,					/* OUT	  Pointer to array of column-level return codes */
-							OCI_DEFAULT));		        				/* IN	  mode (OCI_DEFAULT, OCI_DYNAMIC_FETCH) */
+							statement->pStmt,                           /* IN/OUT handle to the requested SQL query */ 
+							(OCIDefine **)&outcol->pDefine,             /* IN/OUT pointer to a pointer to a define handle */
+							statement->pError,                          /* IN/OUT An error handle  */
+							counter,                                    /* IN     position in the select list */
+							(dvoid *)buf,                               /* IN/OUT pointer to a buffer */
+							outcol->storage_size4,                      /* IN     The size of each valuep buffer in bytes */
+							define_type,                                /* IN     The data type */
+							(dvoid *)&outcol->indicator,                /* IN     pointer to an indicator variable or arr */
+							(ub2 *)&outcol->retlen,                     /* IN/OUT Pointer to array of length of data fetched */
+							(ub2 *)&outcol->retcode,                    /* OUT    Pointer to array of column-level return codes */
+							OCI_DEFAULT));                              /* IN     mode (OCI_DEFAULT, OCI_DYNAMIC_FETCH) */
 
 				statement->error = oci_error(statement->pError, "OCIDefineByPos", error);
 			}
@@ -1698,7 +1759,7 @@ _oci_column_pre_fetch(void *data TSRMLS_DC)
 {
 	oci_out_column *col = (oci_out_column *) data;
 	
-   	if (col->piecewise) {
+	if (col->piecewise) {
 		col->retlen4 = 0; 
 	}
 	
@@ -1716,6 +1777,7 @@ oci_fetch(oci_statement *statement, ub4 nrows, char *func TSRMLS_DC)
 		zend_hash_apply(statement->columns, (apply_func_t) _oci_column_pre_fetch TSRMLS_CC);
 	}
 
+
 	CALL_OCI_RETURN(statement->error, OCIStmtFetch(
 				statement->pStmt, 
 				statement->pError, 
@@ -1724,16 +1786,19 @@ oci_fetch(oci_statement *statement, ub4 nrows, char *func TSRMLS_DC)
 				OCI_DEFAULT));
 
 	if ((statement->error == OCI_NO_DATA) || (nrows == 0)) {
-		/* XXX this is needed for REFCURSORS! */
-		if (statement->columns) {
-			zend_hash_destroy(statement->columns);
-			efree(statement->columns);
-			statement->columns = 0;
-			statement->ncolumns = 0;
+		if (statement->last_query == 0) {
+			/* reset define-list for refcursors */
+			if (statement->columns) {
+				zend_hash_destroy(statement->columns);
+				efree(statement->columns);
+				statement->columns = 0;
+				statement->ncolumns = 0;
+			}
+			statement->executed = 0;
 		}
-		statement->executed = 0;
 
 		statement->error = 0; /* OCI_NO_DATA is NO error for us!!! */
+		statement->has_data = 0;
 
 		return 0;
 	}
@@ -1760,7 +1825,7 @@ oci_fetch(oci_statement *statement, ub4 nrows, char *func TSRMLS_DC)
 							&column->indicator, 
 							&column->retcode));
 			}
-		}	
+		}
 
 		CALL_OCI_RETURN(statement->error, OCIStmtFetch(
 					statement->pStmt, 
@@ -1778,6 +1843,8 @@ oci_fetch(oci_statement *statement, ub4 nrows, char *func TSRMLS_DC)
 	}
 
 	if (statement->error == OCI_SUCCESS_WITH_INFO || statement->error == OCI_SUCCESS) {
+		statement->has_data = 1;
+
 		/* do the stuff needed for OCIDefineByName */
 		for (i = 0; i < statement->ncolumns; i++) {
 			column = oci_get_col(statement, i + 1, 0);
@@ -1799,6 +1866,8 @@ oci_fetch(oci_statement *statement, ub4 nrows, char *func TSRMLS_DC)
 	oci_error(statement->pError, func, statement->error);
 	oci_handle_error(statement->conn, statement->error);
 
+	statement->has_data = 0;
+
 	return 0;
 }
 
@@ -1817,7 +1886,7 @@ oci_loadlob(oci_connection *connection, oci_descriptor *mydescr, char **buffer,u
 
 	*loblen = 0;
 	
-	if (mydescr->type == OCI_DTYPE_FILE) {
+	if (Z_TYPE_P(mydescr) == OCI_DTYPE_FILE) {
 		CALL_OCI_RETURN(connection->error, OCILobFileOpen(
 					connection->pServiceContext, 
 					connection->pError, 
@@ -1856,7 +1925,7 @@ oci_loadlob(oci_connection *connection, oci_descriptor *mydescr, char **buffer,u
 					readlen,		 			/* size of buffer */ 
 					(dvoid *)0, 
 					(OCICallbackLobRead) 0, 	/* callback... */ 
-					(ub2) 0, 					/* The character set ID of the buffer data. */ 
+					(ub2) connection->session->charsetId, 					/* The character set ID of the buffer data. */ 
 					(ub1) SQLCS_IMPLICIT));		/* The character set form of the buffer data. */
 
 		siz += readlen;
@@ -1877,7 +1946,7 @@ oci_loadlob(oci_connection *connection, oci_descriptor *mydescr, char **buffer,u
 		return -1;
 	}
 
-	if (mydescr->type == OCI_DTYPE_FILE) {
+	if (Z_TYPE_P(mydescr) == OCI_DTYPE_FILE) {
 		CALL_OCI_RETURN(connection->error, OCILobFileClose(
 					connection->pServiceContext, 
 					connection->pError, 
@@ -1906,10 +1975,10 @@ oci_loadlob(oci_connection *connection, oci_descriptor *mydescr, char **buffer,u
 #if 0 /* not needed yet ! */
 static sb4 
 oci_failover_callback(dvoid *svchp,
-					   dvoid* envhp,
-					   dvoid *fo_ctx,
-					   ub4 fo_type,
-					   ub4 fo_event)
+						dvoid* envhp,
+						dvoid *fo_ctx,
+						ub4 fo_type,
+						ub4 fo_event)
 {
 	/* 
 	   this stuff is from an oci sample - it will get cleaned up as soon as i understand it!!! (thies@thieso.net 990420) 
@@ -1922,12 +1991,12 @@ oci_failover_callback(dvoid *svchp,
 			{
 				printf(" Failing Over ... Please stand by \n");
 				printf(" Failover type was found to be %s \n",
-					   ((fo_type==OCI_FO_NONE) ? "NONE"
+						((fo_type==OCI_FO_NONE) ? "NONE"
 						:(fo_type==OCI_FO_SESSION) ? "SESSION"
 						:(fo_type==OCI_FO_SELECT) ? "SELECT"
 						: "UNKNOWN!"));
 				printf(" Failover Context is :%s\n",
-					   (fo_ctx?(char *)fo_ctx:"NULL POINTER!"));
+						(fo_ctx?(char *)fo_ctx:"NULL POINTER!"));
 				break;
 			}
 			
@@ -1992,9 +2061,10 @@ oci_bind_in_callback(dvoid *ictxp,     /* context pointer */
 {
 	oci_bind *phpbind;
 	zval *val;
+	TSRMLS_FETCH();
 
 	if (!(phpbind=(oci_bind *)ictxp) || !(val = phpbind->zval)) {
-		php_error(E_WARNING, "!phpbind || !phpbind->val");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "!phpbind || !phpbind->val");
 		return OCI_ERROR;
 	}
 
@@ -2008,12 +2078,12 @@ oci_bind_in_callback(dvoid *ictxp,     /* context pointer */
 		/* "normal string bind */
 		convert_to_string(val); 
 
-		*bufpp = val->value.str.val;
-		*alenp = val->value.str.len;
+		*bufpp = Z_STRVAL_P(val);
+		*alenp = Z_STRLEN_P(val);
 		*indpp = (dvoid *)&phpbind->indicator;
 	} else if (phpbind->pStmt != 0) {
 		/* RSET */
-   		*bufpp = phpbind->pStmt;
+		*bufpp = phpbind->pStmt;
 		*alenp = -1;		/* seems to be allright */
 		*indpp = (dvoid *)&phpbind->indicator;
 	} else { 
@@ -2045,24 +2115,25 @@ oci_bind_out_callback(dvoid *octxp,      /* context pointer */
 	oci_bind *phpbind;
 	zval *val;
 	sb4 retval = OCI_ERROR;
+	TSRMLS_FETCH();
 
 	if (!(phpbind=(oci_bind *)octxp) || !(val = phpbind->zval)) {
-		php_error(E_WARNING, "!phpbind || !phpbind->val");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "!phpbind || !phpbind->val");
 		return retval;
 	}
 
-	if ((val->type == IS_OBJECT) || (val->type == IS_RESOURCE)) {
+	if ((Z_TYPE_P(val) == IS_OBJECT) || (Z_TYPE_P(val) == IS_RESOURCE)) {
 		retval = OCI_CONTINUE;
 	} else {
 		convert_to_string(val);
 		zval_dtor(val);
 		
-		val->value.str.len = OCI_PIECE_SIZE; /* 64K-1 is max XXX */
-		val->value.str.val = emalloc(phpbind->zval->value.str.len);
+		Z_STRLEN_P(val) = OCI_PIECE_SIZE; /* 64K-1 is max XXX */
+		Z_STRVAL_P(val) = emalloc(Z_STRLEN_P(phpbind->zval));
 		
 		/* XXX we assume that zend-zval len has 4 bytes */
-		*alenpp = (ub4*) &phpbind->zval->value.str.len; 
-		*bufpp = phpbind->zval->value.str.val;
+		*alenpp = (ub4*) &Z_STRLEN_P(phpbind->zval); 
+		*bufpp = Z_STRVAL_P(phpbind->zval);
 		*piecep = OCI_ONE_PIECE;
 		*rcodepp = &phpbind->retcode;
 		*indpp = &phpbind->indicator;
@@ -2077,12 +2148,15 @@ oci_bind_out_callback(dvoid *octxp,      /* context pointer */
 
  */
 
-static oci_session *_oci_open_session(oci_server* server,char *username,char *password,int persistent,int exclusive)
+static oci_session *_oci_open_session(oci_server* server,char *username,char *password,int persistent,int exclusive,char *charset)
 {
 	oci_session *session = 0, *psession = 0;
 	OCISvcCtx *svchp = 0;
 	char *hashed_details;
-    TSRMLS_FETCH();
+#ifdef HAVE_OCI_9_2
+	ub2 charsetid = 0;
+#endif
+	TSRMLS_FETCH();
 
 	/* 
 	   check if we already have this user authenticated
@@ -2130,9 +2204,49 @@ static oci_session *_oci_open_session(oci_server* server,char *username,char *pa
 	session->server = server;
 	session->exclusive = exclusive;
 
+#ifdef HAVE_OCI_9_2
+
+	/* following chunk is Oracle 9i+ ONLY */
+	if (*charset) {
+		/*
+		   get ub2 charset id based on charset
+		   this is pretty secure, since if we don't have a valid character set name,
+		   0 comes back and we can still use the 0 in all further statements -> OCI uses NLS_LANG
+		   setting in that case
+		*/
+		CALL_OCI_RETURN(charsetid, OCINlsCharSetNameToId(
+							OCI(pEnv),
+							charset));
+		
+		oci_debug("oci_do_connect: using charset id=%d",charsetid);
+	}
+
+	session->charsetId = charsetid;
+	
+	/* create an environment using the character set id, Oracle 9i+ ONLY */
+	CALL_OCI(OCIEnvNlsCreate(
+				&session->pEnv,
+				OCI_DEFAULT, 
+				0, 
+				NULL,
+				NULL,
+				NULL,
+				0,
+				NULL,
+				charsetid,
+				charsetid));
+
+#else
+
+	/* fallback solution (simply use global env and charset, same behaviour as always been) */
+	session->pEnv = OCI(pEnv);
+	session->charsetId = 0;
+
+#endif  /* HAVE_OCI_9_2 */
+
 	/* allocate temporary Service Context */
 	CALL_OCI_RETURN(OCI(error), OCIHandleAlloc(
-				OCI(pEnv), 
+				session->pEnv, 
 				(dvoid **)&svchp, 
 				OCI_HTYPE_SVCCTX, 
 				0, 
@@ -2145,7 +2259,7 @@ static oci_session *_oci_open_session(oci_server* server,char *username,char *pa
 
 	/* allocate private session-handle */
 	CALL_OCI_RETURN(OCI(error), OCIHandleAlloc(
-				OCI(pEnv), 
+				session->pEnv, 
 				(dvoid **)&session->pSession, 
 				OCI_HTYPE_SESSION, 
 				0, 
@@ -2235,7 +2349,7 @@ static oci_session *_oci_open_session(oci_server* server,char *username,char *pa
 
 	return psession;
 
- CLEANUP:
+CLEANUP:
 	oci_debug("_oci_open_session: FAILURE -> CLEANUP called");
 
 	_oci_close_session(session);
@@ -2263,7 +2377,7 @@ _oci_close_session(oci_session *session)
 	if (session->is_open) {
 		/* Temporary Service Context */
 		CALL_OCI_RETURN(OCI(error), OCIHandleAlloc(
-					OCI(pEnv), 
+					session->pEnv, 
 					(dvoid **) &svchp, 
 					(ub4) OCI_HTYPE_SVCCTX, 
 					(size_t) 0, 
@@ -2339,7 +2453,7 @@ _oci_close_session(oci_session *session)
 static oci_server *_oci_open_server(char *dbname,int persistent)
 { 
 	oci_server *server, *pserver = 0;
-    TSRMLS_FETCH();
+	TSRMLS_FETCH();
 
 	/* 
 	   check if we already have this server open 
@@ -2412,7 +2526,7 @@ static oci_server *_oci_open_server(char *dbname,int persistent)
 
 	return pserver;
 
- CLEANUP:
+CLEANUP:
 	oci_debug("_oci_open_server: FAILURE -> CLEANUP called");
 
 	_oci_close_server(server);
@@ -2425,11 +2539,11 @@ static oci_server *_oci_open_server(char *dbname,int persistent)
 	server->failover.callback_function = oci_failover_callback;
 
 	error = OCIAttrSet((dvoid *)server->pServer,
-					   (ub4) OCI_HTYPE_SERVER,
-					   (dvoid *) &server->failover, 
-					   (ub4) 0,
-					   (ub4) OCI_ATTR_FOCBK,
-					   OCI(pError));   
+						(ub4) OCI_HTYPE_SERVER,
+						(dvoid *) &server->failover, 
+						(ub4) 0,
+						(ub4) OCI_ATTR_FOCBK,
+						OCI(pError));
 
 	if (error) {
 		oci_error(OCI(pError), "_oci_open_server OCIAttrSet OCI_ATTR_FOCBK", error);
@@ -2445,7 +2559,7 @@ static oci_server *_oci_open_server(char *dbname,int persistent)
 static int _oci_session_cleanup(void *data TSRMLS_DC)
 {
 	list_entry *le = (list_entry *) data;
-	if (le->type == le_session) {
+	if (Z_TYPE_P(le) == le_session) {
 		oci_server *server = ((oci_session*) le->ptr)->server;
 		if (server->is_open == 2) 
 			return 1;
@@ -2509,30 +2623,44 @@ _oci_close_server(oci_server *server)
  */
 static void oci_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent,int exclusive)
 {
-    char *username, *password, *dbname;
-    zval **userParam, **passParam, **dbParam;
-    oci_server *server = 0;
-    oci_session *session = 0;
-    oci_connection *connection = 0;
+	char *username, *password, *dbname, *charset;
+	zval **userParam, **passParam, **dbParam, **charParam;
+	oci_server *server = 0;
+	oci_session *session = 0;
+	oci_connection *connection = 0;
 	
-    if (zend_get_parameters_ex(3, &userParam, &passParam, &dbParam) == SUCCESS) {
+	/* if a forth parameter is handed over, it is the charset identifier (but is only used in Oracle 9i+) */
+	if (zend_get_parameters_ex(4, &userParam, &passParam, &dbParam, &charParam) == SUCCESS) {
+		convert_to_string_ex(userParam);
+		convert_to_string_ex(passParam);
+		convert_to_string_ex(dbParam);
+		convert_to_string_ex(charParam);
+
+		username = Z_STRVAL_PP(userParam);
+		password = Z_STRVAL_PP(passParam);
+		dbname = Z_STRVAL_PP(dbParam);
+		charset = Z_STRVAL_PP(charParam);
+		oci_debug("oci_do_connect: using charset=%s",charset);
+	} else if (zend_get_parameters_ex(3, &userParam, &passParam, &dbParam) == SUCCESS) {
 		convert_to_string_ex(userParam);
 		convert_to_string_ex(passParam);
 		convert_to_string_ex(dbParam);
 
-		username = (*userParam)->value.str.val;
-		password = (*passParam)->value.str.val;
-		dbname = (*dbParam)->value.str.val;
-    } else if (zend_get_parameters_ex(2, &userParam, &passParam) == SUCCESS) {
+		username = Z_STRVAL_PP(userParam);
+		password = Z_STRVAL_PP(passParam);
+		dbname = Z_STRVAL_PP(dbParam);
+		charset = "";
+	} else if (zend_get_parameters_ex(2, &userParam, &passParam) == SUCCESS) {
 		convert_to_string_ex(userParam);
 		convert_to_string_ex(passParam);
 
-		username = (*userParam)->value.str.val;
-		password = (*passParam)->value.str.val;
+		username = Z_STRVAL_PP(userParam);
+		password = Z_STRVAL_PP(passParam);
 		dbname = "";
-    } else {
+		charset = "";
+	} else {
 		WRONG_PARAM_COUNT;
-    }
+	}
 
 	connection = (oci_connection *) ecalloc(1,sizeof(oci_connection));
 
@@ -2546,9 +2674,15 @@ static void oci_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent,int exclu
 		goto CLEANUP;
 	}
 
-	persistent = server->persistent; /* if our server-context is not persistent we can't */
+	if (exclusive) {
+		/* exlusive session can never be persistent!*/
+		persistent = 0;
+	} else {
+		/* if our server-context is not persistent we can't */
+		persistent = server->persistent; 
+	}
 
-	session = _oci_open_session(server,username,password,persistent,exclusive);
+	session = _oci_open_session(server,username,password,persistent,exclusive,charset);
 
 	if (! session) {
 		goto CLEANUP;
@@ -2559,7 +2693,7 @@ static void oci_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent,int exclu
 
 	/* allocate our private error-handle */
 	CALL_OCI_RETURN(OCI(error), OCIHandleAlloc(
-				OCI(pEnv), 
+				connection->session->pEnv, 
 				(dvoid **)&connection->pError, 
 				OCI_HTYPE_ERROR, 
 				0, 
@@ -2572,7 +2706,7 @@ static void oci_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent,int exclu
 
 	/* allocate our service-context */
 	CALL_OCI_RETURN(OCI(error), OCIHandleAlloc(
-				OCI(pEnv), 
+				connection->session->pEnv, 
 				(dvoid **)&connection->pServiceContext, 
 				OCI_HTYPE_SVCCTX, 
 				0, 
@@ -2613,18 +2747,18 @@ static void oci_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent,int exclu
 
 	/*
 	OCIAttrSet((dvoid *)session->server->pServer, 
-			   OCI_HTYPE_SERVER,
-			   (dvoid *) "demo",
-			   0,
-			   OCI_ATTR_EXTERNAL_NAME,
-			   connection->pError);
+				OCI_HTYPE_SERVER,
+				(dvoid *) "demo",
+				0,
+				OCI_ATTR_EXTERNAL_NAME,
+				connection->pError);
 
 	OCIAttrSet((dvoid *)session->server->pServer,
-			   OCI_HTYPE_SERVER,
-			   (dvoid *) "txn demo2",
-			   0,
-               OCI_ATTR_INTERNAL_NAME,
-			   connection->pError);
+				OCI_HTYPE_SERVER,
+				(dvoid *) "txn demo2",
+				0,
+				OCI_ATTR_INTERNAL_NAME,
+				connection->pError);
 	*/
 
 	connection->id = zend_list_insert(connection, le_conn);
@@ -2635,7 +2769,7 @@ static void oci_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent,int exclu
 
 	RETURN_RESOURCE(connection->id);
 	
- CLEANUP:
+CLEANUP:
 	oci_debug("oci_do_connect: FAILURE -> CLEANUP called");
 
 	if (connection->id) {
@@ -2651,7 +2785,7 @@ static void oci_do_connect(INTERNAL_FUNCTION_PARAMETERS,int persistent,int exclu
 
 /************************* EXTENSION FUNCTIONS *************************/
 
-/* {{{ proto int ocidefinebyname(int stmt, string name, mixed &var [, int type])
+/* {{{ proto bool ocidefinebyname(int stmt, string name, mixed &var [, int type])
    Define a PHP variable to an Oracle column by name */
 /* if you want to define a LOB/CLOB etc make sure you allocate it via OCINewDescriptor BEFORE defining!!!
  */
@@ -2664,14 +2798,14 @@ PHP_FUNCTION(ocidefinebyname)
 	ub2	ocitype = SQLT_CHR; /* zero terminated string */
 	int ac = ZEND_NUM_ARGS();
 
-    if (ac < 3 || ac > 4 || zend_get_parameters_ex(ac, &stmt, &name, &var, &type) == FAILURE) {
-        WRONG_PARAM_COUNT;
-    }
+	if (ac < 3 || ac > 4 || zend_get_parameters_ex(ac, &stmt, &name, &var, &type) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
 
-    switch (ac) {
+	switch (ac) {
 	case 4:
 		convert_to_long_ex(type);
-		ocitype = (ub2) (*type)->value.lval;
+		ocitype = (ub2) Z_LVAL_PP(type);
 		/* possible breakthru */
 	}
 
@@ -2687,8 +2821,8 @@ PHP_FUNCTION(ocidefinebyname)
 	define = ecalloc(1,sizeof(oci_define));
 
 	if (zend_hash_add(statement->defines,
-					  (*name)->value.str.val,
-					  (*name)->value.str.len,
+					  Z_STRVAL_PP(name),
+					  Z_STRLEN_PP(name),
 					  define,
 					  sizeof(oci_define),
 					  (void **)&tmp_define) == SUCCESS) {
@@ -2699,9 +2833,9 @@ PHP_FUNCTION(ocidefinebyname)
 		RETURN_FALSE;
 	}
 
-	define->name = (text*) estrndup((*name)->value.str.val,(*name)->value.str.len);
-	define->name_len = (*name)->value.str.len;
-	define->type = ocitype;
+	define->name = (text*) estrndup(Z_STRVAL_PP(name),Z_STRLEN_PP(name));
+	define->name_len = Z_STRLEN_PP(name);
+	Z_TYPE_P(define) = ocitype;
 	define->zval = *var;
 	zval_add_ref(var);
 
@@ -2710,7 +2844,7 @@ PHP_FUNCTION(ocidefinebyname)
 
 /* }}} */
 
-/* {{{ proto int ocibindbyname(int stmt, string name, mixed &var, int maxlength [, int type])
+/* {{{ proto bool ocibindbyname(int stmt, string name, mixed &var, [, int maxlength] [, int type])
    Bind a PHP variable to an Oracle placeholder by name */
 /* if you want to bind a LOB/CLOB etc make sure you allocate it via OCINewDescriptor BEFORE binding!!!
  */
@@ -2723,28 +2857,28 @@ PHP_FUNCTION(ocibindbyname)
 	oci_bind bind, *bindp;
 	oci_descriptor *descr;
 #ifdef WITH_COLLECTIONS
-    oci_collection *coll;
-    dvoid *mycoll = 0;
+	oci_collection *coll;
+	dvoid *mycoll = 0;
 #endif
 	int mode = OCI_DATA_AT_EXEC;
 	ub2	ocitype = SQLT_CHR; /* unterminated string */
-    OCIStmt *mystmt = 0;
+	OCIStmt *mystmt = 0;
 	dvoid *mydescr = 0;
 	sb4 value_sz = -1;
 	int ac = ZEND_NUM_ARGS(), inx;
 
-    if (ac < 3 || ac > 5 || zend_get_parameters_ex(ac, &stmt, &name, &var, &maxlen, &type) == FAILURE) {
+	if (ac < 3 || ac > 5 || zend_get_parameters_ex(ac, &stmt, &name, &var, &maxlen, &type) == FAILURE) {
 		WRONG_PARAM_COUNT;
-    }
+	}
 
-    switch (ac) {
+	switch (ac) {
 	case 5:
 		convert_to_long_ex(type);
-		ocitype = (ub2) (*type)->value.lval;
+		ocitype = (ub2) Z_LVAL_PP(type);
 		/* possible breakthru */
 	case 4:
 		convert_to_long_ex(maxlen);
-		value_sz = (*maxlen)->value.lval;
+		value_sz = Z_LVAL_PP(maxlen);
 		/* possible breakthru */
 	}
 
@@ -2752,40 +2886,40 @@ PHP_FUNCTION(ocibindbyname)
 
 	switch (ocitype) {
 #ifdef WITH_COLLECTIONS
-        case SQLT_NTY:
-			if((*var)->type != IS_OBJECT) {
-                php_error(E_WARNING,"Variable must be allocated using OCINewCollection()");
-                RETURN_FALSE;
+		case SQLT_NTY:
+			if(Z_TYPE_PP(var) != IS_OBJECT) {
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Variable must be allocated using OCINewCollection()");
+				RETURN_FALSE;
 			}
-            if ((inx = _oci_get_ocicoll(*var,&coll TSRMLS_CC)) == 0) {
-                php_error(E_WARNING,"Variable must be allocated using OCINewCollection()");
-                RETURN_FALSE;
-            }
-            if (! (mycoll = (dvoid *) coll->coll)) {
-                php_error(E_WARNING,"Collection empty");
-                RETURN_FALSE;
-            }
-            value_sz = sizeof(void*);
-            mode = OCI_DEFAULT;
-            break;
+			if ((inx = _oci_get_ocicoll(*var,&coll TSRMLS_CC)) == 0) {
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Variable must be allocated using OCINewCollection()");
+				RETURN_FALSE;
+			}
+			if (! (mycoll = (dvoid *) coll->coll)) {
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Collection empty");
+				RETURN_FALSE;
+			}
+			value_sz = sizeof(void*);
+			mode = OCI_DEFAULT;
+break;
 #endif
 		case SQLT_BFILEE:
 		case SQLT_CFILEE:
 		case SQLT_CLOB:
 		case SQLT_BLOB:
 		case SQLT_RDD:
-			if ((*var)->type != IS_OBJECT) {
-				php_error(E_WARNING,"Variable must be allocated using OCINewDescriptor()");
+			if (Z_TYPE_PP(var) != IS_OBJECT) {
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Variable must be allocated using OCINewDescriptor()");
 				RETURN_FALSE;
 			}
 
 			if ((inx = _oci_get_ocidesc(*var,&descr TSRMLS_CC)) == 0) {
-				php_error(E_WARNING,"Variable must be allocated using OCINewDescriptor()");
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Variable must be allocated using OCINewDescriptor()");
 				RETURN_FALSE;
 			}
 		
 			if (! (mydescr = (dvoid *) descr->ocidescr)) {
-				php_error(E_WARNING,"Descriptor empty");
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Descriptor empty");
 				RETURN_FALSE;
 			}
 			value_sz = sizeof(void*);
@@ -2803,7 +2937,7 @@ PHP_FUNCTION(ocibindbyname)
 	
 	if ((ocitype == SQLT_CHR) && (value_sz == -1)) {
 		convert_to_string_ex(var);
-		value_sz = (*var)->value.str.len;
+		value_sz = Z_STRLEN_PP(var);
 	}
 
 	if (value_sz == 0) { 
@@ -2827,19 +2961,19 @@ PHP_FUNCTION(ocibindbyname)
 	
 	CALL_OCI_RETURN(statement->error, OCIBindByName(
 				statement->pStmt,                /* statement handle */
-			    (OCIBind **)&bindp->pBind,       /* bind hdl (will alloc) */
-			    statement->pError,               /* error handle */
-			    (text*) (*name)->value.str.val,  /* placeholder name */					  
-			    (*name)->value.str.len,          /* placeholder length */
-			    (dvoid *)0,                      /* in/out data */
-			    value_sz, /* OCI_MAX_DATA_SIZE, */               /* max size of input/output data */
-			    (ub2)ocitype,                    /* in/out data type */
-			    (dvoid *)&bindp->indicator,      /* indicator (ignored) */
-			    (ub2 *)0,                        /* size array (ignored) */
-			    (ub2 *)&bindp->retcode,          /* return code (ignored) */
-			    (ub4)0,                          /* maxarr_len (PL/SQL only?) */
-			    (ub4 *)0,                        /* actual array size (PL/SQL only?) */
-			    mode                             /* mode */
+				(OCIBind **)&bindp->pBind,       /* bind hdl (will alloc) */
+				statement->pError,               /* error handle */
+				(text*) Z_STRVAL_PP(name),  /* placeholder name */					  
+				Z_STRLEN_PP(name),          /* placeholder length */
+				(dvoid *)0,                      /* in/out data */
+				value_sz, /* OCI_MAX_DATA_SIZE, */               /* max size of input/output data */
+				(ub2)ocitype,                    /* in/out data type */
+				(dvoid *)&bindp->indicator,      /* indicator (ignored) */
+				(ub2 *)0,                        /* size array (ignored) */
+				(ub2 *)&bindp->retcode,          /* return code (ignored) */
+				(ub4)0,                          /* maxarr_len (PL/SQL only?) */
+				(ub4 *)0,                        /* actual array size (PL/SQL only?) */
+				mode                             /* mode */
 				));
 
 	if (statement->error != OCI_SUCCESS) {
@@ -2888,7 +3022,7 @@ PHP_FUNCTION(ocibindbyname)
 
 /* }}} */
 
-/* {{{ proto string ocifreedesc(object lob)
+/* {{{ proto bool ocifreedesc(object lob)
    Deletes large object description */
 
 PHP_FUNCTION(ocifreedesc)
@@ -2906,13 +3040,13 @@ PHP_FUNCTION(ocifreedesc)
 		}
 	}
 
-	php_error(E_NOTICE, "OCIFreeDesc() should not be called like this. Use $somelob->free() to free a LOB");
+	php_error_docref(NULL TSRMLS_CC, E_NOTICE, "OCIFreeDesc() should not be called like this. Use $somelob->free() to free a LOB");
 
   	RETURN_FALSE;
 }
 /* }}} */
 
-/* {{{ proto string ocisavelob(object lob)
+/* {{{ proto bool ocisavelob(object lob)
    Saves a large object */
 
 PHP_FUNCTION(ocisavelob)
@@ -2923,8 +3057,8 @@ PHP_FUNCTION(ocisavelob)
 	oci_descriptor *descr;
 	int offparam,inx;
 	ub4 loblen;
-    ub4 curloblen;
-    ub4 offset;
+	ub4 curloblen;
+	ub4 offset;
 
 	if ((id = getThis()) != 0) {
 		if ((inx = _oci_get_ocidesc(id,&descr TSRMLS_CC)) == 0) {
@@ -2940,9 +3074,9 @@ PHP_FUNCTION(ocisavelob)
 		connection = descr->conn;
 
 		offset = 0;	
-	    if (zend_get_parameters_ex(2, &arg, &oarg) == SUCCESS) {
+		if (zend_get_parameters_ex(2, &arg, &oarg) == SUCCESS) {
 			convert_to_long_ex(oarg);
-			offparam = (*oarg)->value.lval;
+			offparam = Z_LVAL_PP(oarg);
 
 			CALL_OCI_RETURN(connection->error, OCILobGetLength(
 						connection->pServiceContext, 
@@ -2955,21 +3089,21 @@ PHP_FUNCTION(ocisavelob)
 			if (offparam == -1) {
 				offset = curloblen;
 			} else if ((ub4) offparam >= curloblen) {
-				php_error(E_WARNING, "Offset smaller than current LOB-Size - appending");
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Offset smaller than current LOB-Size - appending");
 				offset = curloblen;
 			} else {
 				offset = offparam;
 			}
-    	} else if (zend_get_parameters_ex(1, &arg) == FAILURE) {
-        	WRONG_PARAM_COUNT;
-    	}
+		} else if (zend_get_parameters_ex(1, &arg) == FAILURE) {
+			WRONG_PARAM_COUNT;
+		}
 
 		offset++;
 		convert_to_string_ex(arg);
-		loblen = (*arg)->value.str.len;
+		loblen = Z_STRLEN_PP(arg);
 	
 		if (loblen < 1) {
-			php_error(E_WARNING, "Cannot save a lob wich size is less than 1 byte");
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Cannot save a lob which size is less than 1 byte");
 			RETURN_FALSE;
 		}
 
@@ -2979,7 +3113,7 @@ PHP_FUNCTION(ocisavelob)
 					mylob,
 					&loblen,
 					(ub4) offset,
-					(dvoid *) (*arg)->value.str.val,
+					(dvoid *) Z_STRVAL_PP(arg),
 					(ub4) loblen,
 					OCI_ONE_PIECE,
 					(dvoid *)0,
@@ -3003,7 +3137,7 @@ PHP_FUNCTION(ocisavelob)
 
 /* }}} */
 
-/* {{{ proto string ocisavelobfile(object lob)
+/* {{{ proto bool ocisavelobfile(object lob)
    Saves a large object file */
 
 PHP_FUNCTION(ocisavelobfile)
@@ -3031,22 +3165,22 @@ PHP_FUNCTION(ocisavelobfile)
 
 		connection = descr->conn;
 
-	    if (zend_get_parameters_ex(1, &arg) == FAILURE) {
-        	WRONG_PARAM_COUNT;
-    	}
+		if (zend_get_parameters_ex(1, &arg) == FAILURE) {
+			WRONG_PARAM_COUNT;
+		}
 
 		convert_to_string_ex(arg);
 
-		if (php_check_open_basedir((*arg)->value.str.val TSRMLS_CC)) {
+		if (php_check_open_basedir(Z_STRVAL_PP(arg) TSRMLS_CC)) {
 			RETURN_FALSE;
 		}
 
-		filename = (*arg)->value.str.val;
+		filename = Z_STRVAL_PP(arg);
 
 		if ((fp = VCWD_OPEN(filename, O_RDONLY|O_BINARY)) == -1) {
-			php_error(E_WARNING, "Can't open file %s", filename);
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Can't open file %s", filename);
 			RETURN_FALSE;
-        } 
+		}
 
 		while ((loblen = read(fp, &buf, sizeof(buf))) > 0) {	
 			CALL_OCI_RETURN(connection->error, OCILobWrite(
@@ -3109,7 +3243,7 @@ PHP_FUNCTION(ociloadlob)
 }
 /* }}} */
 
-/* {{{ proto void ociwritelobtofile(object lob [, string filename] [, int start] [, int length])
+/* {{{ proto bool ociwritelobtofile(object lob [, string filename] [, int start] [, int length])
    Writes a large object into a file */
 
 PHP_FUNCTION(ociwritelobtofile)
@@ -3140,20 +3274,20 @@ PHP_FUNCTION(ociwritelobtofile)
 
 		connection = descr->conn;
 
-	    if (ac < 0 || ac > 3 || zend_get_parameters_ex(ac, &zfilename, &zstart, &zlength) == FAILURE) {
-        	WRONG_PARAM_COUNT;
-    	}
+		if (ac < 0 || ac > 3 || zend_get_parameters_ex(ac, &zfilename, &zstart, &zlength) == FAILURE) {
+			WRONG_PARAM_COUNT;
+		}
 
 		switch (ac) {
 		case 3:
 			convert_to_long_ex(zlength);
-			length = (*zlength)->value.lval;
+			length = Z_LVAL_PP(zlength);
 		case 2:
 			convert_to_long_ex(zstart);
-			start = (*zstart)->value.lval;
+			start = Z_LVAL_PP(zstart);
 		case 1:
 			convert_to_string_ex(zfilename);
-			filename = (*zfilename)->value.str.val;
+			filename = Z_STRVAL_PP(zfilename);
 		}
 
 		if (filename && *filename) {
@@ -3162,7 +3296,7 @@ PHP_FUNCTION(ociwritelobtofile)
 			}
 
 			if ((fp = VCWD_OPEN_MODE(filename,O_CREAT | O_RDWR | O_BINARY | O_TRUNC, 0600)) == -1) {
-				php_error(E_WARNING, "Can't create file %s", filename);
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "Can't create file %s", filename);
 				goto bail;
 			} 
 		}
@@ -3179,7 +3313,7 @@ PHP_FUNCTION(ociwritelobtofile)
 			goto bail;
 		}
 		
-		if (descr->type == OCI_DTYPE_FILE) {
+		if (Z_TYPE_P(descr) == OCI_DTYPE_FILE) {
 			CALL_OCI_RETURN(connection->error, OCILobFileOpen(
 						connection->pServiceContext, 
 						connection->pError, 
@@ -3226,16 +3360,16 @@ PHP_FUNCTION(ociwritelobtofile)
 
 			CALL_OCI_RETURN(connection->error, OCILobRead(
 						connection->pServiceContext, 
-					    connection->pError,
-					    descr->ocidescr,
-					    &toread,				/* IN/OUT bytes toread/read */
-					    coffs+1,				/* offset (starts with 1) */ 
-					    (dvoid *) buffer,
-					    toread, 				/* size of buffer */
-					    (dvoid *)0,
-					    (OCICallbackLobRead) 0, /* callback... */
-					    (ub2) 0, 			   	/* The character set ID of the buffer data. */
-				 	    (ub1) SQLCS_IMPLICIT)); /* The character set form of the buffer data. */
+						connection->pError,
+						descr->ocidescr,
+						&toread,                /* IN/OUT bytes toread/read */
+						coffs+1,                /* offset (starts with 1) */ 
+						(dvoid *) buffer,
+						toread,                 /* size of buffer */
+						(dvoid *)0,
+						(OCICallbackLobRead) 0, /* callback... */
+						(ub2) 0,                /* The character set ID of the buffer data. */
+						(ub1) SQLCS_IMPLICIT)); /* The character set form of the buffer data. */
 			
 			oci_debug("OCILobRead(read - %d",toread);
 
@@ -3247,7 +3381,7 @@ PHP_FUNCTION(ociwritelobtofile)
 
 			if (fp != -1) {
 				if ((ub4) write(fp,buffer,toread) != toread) {
-					php_error(E_WARNING, "cannot write file!");
+					php_error_docref(NULL TSRMLS_CC, E_WARNING, "cannot write file!");
 					goto bail;
 				}
 			} else {
@@ -3266,7 +3400,7 @@ PHP_FUNCTION(ociwritelobtofile)
 			fp = 0;
 		}
 
-		if (descr->type == OCI_DTYPE_FILE) {
+		if (Z_TYPE_P(descr) == OCI_DTYPE_FILE) {
 			CALL_OCI_RETURN(connection->error,OCILobFileClose(
 						connection->pServiceContext, 
 						connection->pError, 
@@ -3281,7 +3415,7 @@ PHP_FUNCTION(ociwritelobtofile)
 		RETURN_TRUE;
 	}
 	
- bail:
+bail:
 	if (fp != -1) {
 		close(fp);
 	}
@@ -3295,41 +3429,41 @@ PHP_FUNCTION(ociwritelobtofile)
 /* }}} */
 
 #ifdef HAVE_OCI8_TEMP_LOB
-/* {{{ proto int ociwritetemporarylob(int stmt, int loc, string var)
+/* {{{ proto bool ociwritetemporarylob(int stmt, int loc, string var)
    Return the row count of an OCI statement */
 
 PHP_FUNCTION(ociwritetemporarylob)
 {
-    zval *id, **var;
+	zval *id, **var;
 	OCILobLocator *mylob;
 	oci_connection *connection;
 	oci_descriptor *descr;
 	ub4 offset = 1;
 	ub4 loblen;
 
-    oci_debug ("oci_write_temporary_lob");
+	oci_debug ("oci_write_temporary_lob");
 
 	if ((id = getThis()) == 0) {
-        RETURN_FALSE;
-    }
+		RETURN_FALSE;
+	}
 
-    if (_oci_get_ocidesc(id,&descr TSRMLS_CC) == 0) {
-        RETURN_FALSE;
-    }
+	if (_oci_get_ocidesc(id,&descr TSRMLS_CC) == 0) {
+		RETURN_FALSE;
+	}
 
-    mylob = (OCILobLocator *) descr->ocidescr;
+	mylob = (OCILobLocator *) descr->ocidescr;
 
-    if (! mylob) {
-        RETURN_FALSE;
-    }
+	if (! mylob) {
+		RETURN_FALSE;
+	}
 
-    connection = descr->conn;
+	connection = descr->conn;
 
-    if (zend_get_parameters_ex(1, &var) == FAILURE) {
-        WRONG_PARAM_COUNT;
-    }
+	if (zend_get_parameters_ex(1, &var) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
 
-    convert_to_string_ex(var);
+	convert_to_string_ex(var);
 
 	CALL_OCI_RETURN(connection->error, OCILobCreateTemporary(
 				connection->pServiceContext, 
@@ -3338,14 +3472,14 @@ PHP_FUNCTION(ociwritetemporarylob)
 				OCI_DEFAULT, 
 				OCI_DEFAULT, 
 				OCI_TEMP_CLOB, 
-				TRUE, 
+				OCI_ATTR_NOCACHE, 
 				OCI_DURATION_SESSION));
 
-    if (connection->error) {
-        oci_error(connection->pError, "OCILobCreateTemporary", connection->error);
-        oci_handle_error(connection, connection->error);
-        RETURN_FALSE;
-    }
+	if (connection->error) {
+		oci_error(connection->pError, "OCILobCreateTemporary", connection->error);
+		oci_handle_error(connection, connection->error);
+		RETURN_FALSE;
+	}
 
 	CALL_OCI_RETURN(connection->error, OCILobOpen(
 				connection->pServiceContext, 
@@ -3353,19 +3487,19 @@ PHP_FUNCTION(ociwritetemporarylob)
 				mylob, 
 				OCI_LOB_READWRITE));
 
-    if (connection->error) {
-        oci_error(connection->pError, "OCILobOpen", connection->error);
-        oci_handle_error(connection, connection->error);
-        RETURN_FALSE;
-    }
+	if (connection->error) {
+		oci_error(connection->pError, "OCILobOpen", connection->error);
+		oci_handle_error(connection, connection->error);
+		RETURN_FALSE;
+	}
 
-    convert_to_string_ex(var);
-    loblen = (*var)->value.str.len;
+	convert_to_string_ex(var);
+	loblen = Z_STRLEN_PP(var);
 	
-    if (loblen < 1) {
-        php_error(E_WARNING, "Cannot save a lob wich size is less than 1 byte");
-        RETURN_FALSE;
-    }
+	if (loblen < 1) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Cannot save a lob that is less than 1 byte");
+		RETURN_FALSE;
+	}
 
 	CALL_OCI_RETURN(connection->error, OCILobWrite(
 				connection->pServiceContext, 
@@ -3373,7 +3507,7 @@ PHP_FUNCTION(ociwritetemporarylob)
 				mylob, 
 				(ub4 *) &loblen, 
 				(ub4) offset, 
-				(dvoid *) (*var)->value.str.val, 
+				(dvoid *) Z_STRVAL_PP(var), 
 				(ub4) loblen, 
 				OCI_ONE_PIECE, 
 				(dvoid *)0, 
@@ -3381,18 +3515,18 @@ PHP_FUNCTION(ociwritetemporarylob)
 				(ub2) 0, 
 				(ub1) SQLCS_IMPLICIT));
 
-    if (connection->error) {
-        oci_error(connection->pError, "OCILobWrite", connection->error);
-        oci_handle_error(connection, connection->error);
-        RETURN_FALSE;
-    }
+	if (connection->error) {
+		oci_error(connection->pError, "OCILobWrite", connection->error);
+		oci_handle_error(connection, connection->error);
+		RETURN_FALSE;
+	}
 
-    RETURN_TRUE;
+	RETURN_TRUE;
 }
 
 /* }}} */
 
-/* {{{ proto string ocicloselob(object lob)
+/* {{{ proto bool ocicloselob(object lob)
    Closes lob descriptor */
 
 PHP_FUNCTION(ocicloselob)
@@ -3402,38 +3536,59 @@ PHP_FUNCTION(ocicloselob)
 	OCILobLocator *mylob;
 	oci_connection *connection;
 	oci_descriptor *descriptor;
+	int is_temporary;
 
 	if ((id = getThis()) != 0) {
 		inx = _oci_get_ocidesc(id,&descriptor TSRMLS_CC);
 		if (inx) {
 
-            mylob = (OCILobLocator *) descriptor->ocidescr;
+			mylob = (OCILobLocator *) descriptor->ocidescr;
 
-            if (! mylob) {
-                RETURN_FALSE;
-            }
+			if (! mylob) {
+				RETURN_FALSE;
+			}
 
-            connection = descriptor->conn;
+			connection = descriptor->conn;
 
 			CALL_OCI_RETURN(connection->error, OCILobClose(
 						connection->pServiceContext, 
 						connection->pError, 
 						mylob)); 
 
-            if (connection->error) {
-                oci_error(connection->pError, "OCILobClose", connection->error);
-                oci_handle_error(connection, connection->error);
-                RETURN_FALSE;
-            }
+			if (connection->error) {
+				oci_error(connection->pError, "OCILobClose", connection->error);
+				oci_handle_error(connection, connection->error);
+				RETURN_FALSE;
+			}
+
+			connection->error = 
+				OCILobIsTemporary(connection->session->pEnv,
+									connection->pError,
+									mylob,
+									&is_temporary);
+			if (is_temporary) {
+				connection->error = 
+					OCILobFreeTemporary(connection->pServiceContext,
+										connection->pError,
+										mylob);
+
+				if (connection->error) {
+					oci_error(connection->pError, "OCILobFreeTemporary", 
+							  connection->error);
+					oci_handle_error(connection, connection->error);
+					RETURN_FALSE;
+				}
+				oci_debug("oci_lob_free_temporary: descr=%d",inx);
+			}
 
 			oci_debug("oci_close_lob: descr=%d",inx);
 			RETURN_TRUE;
 		}
 	}
 
-	php_error(E_NOTICE, "OCICloselob() should not be called like this. Use $somelob->close() to close a LOB");
+	php_error_docref(NULL TSRMLS_CC, E_NOTICE, "OCICloselob() should not be called like this. Use $somelob->close() to close a LOB");
 
-  	RETURN_FALSE;
+	RETURN_FALSE;
 }
 
 /* }}} */
@@ -3449,11 +3604,11 @@ PHP_FUNCTION(ocinewdescriptor)
 	oci_descriptor *descr;
 	int dtype;
 
-    dtype = OCI_DTYPE_LOB;
+	dtype = OCI_DTYPE_LOB;
 
 	if (zend_get_parameters_ex(2, &conn, &type) == SUCCESS) {
 		convert_to_long_ex(type);
-		dtype = (*type)->value.lval;
+		dtype = Z_LVAL_PP(type);
 	} else if (zend_get_parameters_ex(1, &conn) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
@@ -3462,13 +3617,17 @@ PHP_FUNCTION(ocinewdescriptor)
 
 	descr = oci_new_desc(dtype,connection);
 
-   	object_init_ex(return_value, oci_lob_class_entry_ptr);
+	if (! descr) {
+		RETURN_NULL();
+	}
+
+	object_init_ex(return_value, oci_lob_class_entry_ptr);
 	add_property_resource(return_value, "descriptor", descr->id);
 }
 
 /* }}} */
 
-/* {{{ proto string ocirollback(int conn)
+/* {{{ proto bool ocirollback(int conn)
    Rollback the current context */
 
 PHP_FUNCTION(ocirollback)
@@ -3482,10 +3641,16 @@ PHP_FUNCTION(ocirollback)
 
 	OCI_GET_CONN(connection,conn);
 
+	oci_debug("<OCITransRollback");
+
 	CALL_OCI_RETURN(connection->error, OCITransRollback(
 				connection->pServiceContext, 
 				connection->pError, 
 				(ub4) 0));
+
+	connection->needs_commit = 0;
+
+	oci_debug(">OCITransRollback");
 
 	if (connection->error) {
 		oci_error(connection->pError, "OCIRollback", connection->error);
@@ -3498,7 +3663,7 @@ PHP_FUNCTION(ocirollback)
 
 /* }}} */
 
-/* {{{ proto string ocicommit(int conn)
+/* {{{ proto bool ocicommit(int conn)
    Commit the current context */
 
 PHP_FUNCTION(ocicommit)
@@ -3512,14 +3677,16 @@ PHP_FUNCTION(ocicommit)
 
 	OCI_GET_CONN(connection,conn);
 
-    oci_debug("<OCITransCommit");
+	oci_debug("<OCITransCommit");
 
 	CALL_OCI_RETURN(connection->error, OCITransCommit(
 				connection->pServiceContext, 
 				connection->pError, 
 				(ub4) 0));
 
-    oci_debug(">OCITransCommit");
+	connection->needs_commit = 0;
+
+	oci_debug(">OCITransCommit");
 
 	if (connection->error) {
 		oci_error(connection->pError, "OCICommit", connection->error);
@@ -3658,6 +3825,16 @@ PHP_FUNCTION(ocicolumntype)
 		RETURN_FALSE;
 	}
 	switch (outcol->data_type) {
+#ifdef SQLT_TIMESTAMP
+		case SQLT_TIMESTAMP:
+			RETVAL_STRING("TIMESTAMP",1);
+			break;
+#endif
+#ifdef SQLT_TIMESTAMP_TZ
+		case SQLT_TIMESTAMP_TZ:
+			RETVAL_STRING("TIMESTAMP_TZ",1);
+			break;
+#endif
 		case SQLT_DAT:
 			RETVAL_STRING("DATE",1);
 			break;
@@ -3725,7 +3902,7 @@ PHP_FUNCTION(ocicolumntyperaw)
 
 /* }}} */
 
-/* {{{ proto int ocicolumnisnull(int stmt, int col)
+/* {{{ proto bool ocicolumnisnull(int stmt, int col)
    Tell whether a column is NULL */
 
 PHP_FUNCTION(ocicolumnisnull)
@@ -3766,13 +3943,13 @@ PHP_FUNCTION(ociinternaldebug)
 		WRONG_PARAM_COUNT;
 	}
 	convert_to_long_ex(arg);
-	OCI(debug_mode) = (*arg)->value.lval;
+	OCI(debug_mode) = Z_LVAL_PP(arg);
 }
 
 
 /* }}} */
 
-/* {{{ proto int ociexecute(int stmt [, int mode])
+/* {{{ proto bool ociexecute(int stmt [, int mode])
    Execute a parsed statement */
 
 PHP_FUNCTION(ociexecute)
@@ -3783,7 +3960,7 @@ PHP_FUNCTION(ociexecute)
 
 	if (zend_get_parameters_ex(2, &stmt, &mode) == SUCCESS) {
 		convert_to_long_ex(mode);
-		execmode = (*mode)->value.lval;
+		execmode = Z_LVAL_PP(mode);
 	} else if (zend_get_parameters_ex(1, &stmt) == SUCCESS) {
 		execmode = OCI_COMMIT_ON_SUCCESS;
 	} else {
@@ -3801,7 +3978,7 @@ PHP_FUNCTION(ociexecute)
 
 /* }}} */
 
-/* {{{ proto int ocicancel(int stmt)
+/* {{{ proto bool ocicancel(int stmt)
    Prepare a new row of data for reading */
 
 PHP_FUNCTION(ocicancel)
@@ -3824,7 +4001,7 @@ PHP_FUNCTION(ocicancel)
 
 /* }}} */
 
-/* {{{ proto int ocifetch(int stmt)
+/* {{{ proto bool ocifetch(int stmt)
    Prepare a new row of data for reading */
 
 PHP_FUNCTION(ocifetch)
@@ -3861,14 +4038,14 @@ PHP_FUNCTION(ocifetchinto)
 	int mode = OCI_NUM;
 	int ac = ZEND_NUM_ARGS();
 	
-    if (ac < 2 || ac > 3 || zend_get_parameters_ex(ac, &stmt, &array, &fmode) == FAILURE) {
-        WRONG_PARAM_COUNT;
-    }
+	if (ac < 2 || ac > 3 || zend_get_parameters_ex(ac, &stmt, &array, &fmode) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
 	
-    switch (ac) {
+	switch (ac) {
 	case 3:
 		convert_to_long_ex(fmode);
-		mode = (*fmode)->value.lval;
+		mode = Z_LVAL_PP(fmode);
 		/* possible breakthru */
 	}
 
@@ -3879,10 +4056,7 @@ PHP_FUNCTION(ocifetchinto)
 	}
 	
 	zval_dtor(*array);
-	if (array_init(*array) == FAILURE) {
-		php_error(E_WARNING, "OCIFetchInto: unable to convert arg 2 to array");
-		RETURN_FALSE;
-	}
+	array_init(*array);
 
 	for (i = 0; i < statement->ncolumns; i++) {
 		column = oci_get_col(statement, i + 1, 0);
@@ -3899,7 +4073,7 @@ PHP_FUNCTION(ocifetchinto)
 		_oci_make_zval(element,statement,column,"OCIFetchInto",mode TSRMLS_CC);
 		
 		if ((mode & OCI_NUM) || (! (mode & OCI_ASSOC))) {
-			zend_hash_index_update((*array)->value.ht,i,(void *)&element,sizeof(zval*),NULL);
+			zend_hash_index_update(Z_ARRVAL_PP(array),i,(void *)&element,sizeof(zval*),NULL);
 			used=1;
 		}
 
@@ -3907,7 +4081,7 @@ PHP_FUNCTION(ocifetchinto)
 			if (used) {
 				element->refcount++;
 			}
-		  	zend_hash_update((*array)->value.ht,column->name,column->name_len+1,(void *)&element,sizeof(zval*),NULL);
+		  	zend_hash_update(Z_ARRVAL_PP(array),column->name,column->name_len+1,(void *)&element,sizeof(zval*),NULL);
 		}
 	}
 
@@ -3916,31 +4090,36 @@ PHP_FUNCTION(ocifetchinto)
 
 /* }}} */
 
-/* {{{ proto int ocifetchstatement(int stmt, array &output)
+/* {{{ proto int ocifetchstatement(int stmt, array &output[, int skip][, int maxrows][, int flags])
    Fetch all rows of result data into an array */
 
 PHP_FUNCTION(ocifetchstatement)
 {
-	zval **stmt, **array, *element, **fmode, *tmp;
+	zval **stmt, **array, *element, **zskip, **zmaxrows, **zflags, *tmp;
 	oci_statement *statement;
 	oci_out_column **columns;
 	zval ***outarrs;
 	ub4 nrows = 1;
 	int i;
-	int mode = OCI_NUM;
+	int skip = 0, maxrows = -1;
+	int flags = 0;
 	int rows = 0;
-	char *namebuf;
 	int ac = ZEND_NUM_ARGS();
 
-	if (ac < 2 || ac > 3 || zend_get_parameters_ex(ac, &stmt, &array, &fmode) == FAILURE) {
+	if (ac < 2 || ac > 5 || zend_get_parameters_ex(ac, &stmt, &array, &zskip, &zmaxrows, &zflags) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 	
-    switch (ac) {
+	switch (ac) {
+	case 5:
+		convert_to_long_ex(zflags);
+		flags = Z_LVAL_PP(zflags);
+	case 4:
+		convert_to_long_ex(zmaxrows);
+		maxrows = Z_LVAL_PP(zmaxrows);
 	case 3:
-		convert_to_long_ex(fmode);
-		mode = (*fmode)->value.lval;
-		/* possible breakthru */
+		convert_to_long_ex(zskip);
+		skip = Z_LVAL_PP(zskip);
 	}
 
 	OCI_GET_STMT(statement,stmt);
@@ -3948,41 +4127,103 @@ PHP_FUNCTION(ocifetchstatement)
 	zval_dtor(*array);
 	array_init(*array);
 
-	columns = emalloc(statement->ncolumns * sizeof(oci_out_column *));
-	outarrs = emalloc(statement->ncolumns * sizeof(zval*));
-	
-	for (i = 0; i < statement->ncolumns; i++) {
-		columns[ i ] = oci_get_col(statement, i + 1, 0);
-		
-		MAKE_STD_ZVAL(tmp);
-		array_init(tmp);
-
-		namebuf = estrndup(columns[ i ]->name,columns[ i ]->name_len);
-				
-		zend_hash_update((*array)->value.ht, namebuf, columns[ i ]->name_len+1, (void *) &tmp, sizeof(zval*), (void **) &(outarrs[ i ]));
-		efree(namebuf);
+	while (skip--) {
+		if (! oci_fetch(statement, nrows, "OCIFetchStatement" TSRMLS_CC))
+			RETURN_LONG(0);
 	}
 
-	while (oci_fetch(statement, nrows, "OCIFetchStatement" TSRMLS_CC)) {
+	if (flags & OCI_FETCHSTATEMENT_BY_ROW) {
+		columns = emalloc(statement->ncolumns * sizeof(oci_out_column *));
+
 		for (i = 0; i < statement->ncolumns; i++) {
-			MAKE_STD_ZVAL(element);
-
-			_oci_make_zval(element,statement,columns[ i ], "OCIFetchStatement",OCI_RETURN_LOBS TSRMLS_CC);
-
-			zend_hash_index_update((*(outarrs[ i ]))->value.ht, rows, (void *)&element, sizeof(zval*), NULL);
+			columns[ i ] = oci_get_col(statement, i + 1, 0);
 		}
-		rows++;
-	}
-	
-	efree(columns);
-	efree(outarrs);
+
+		while (oci_fetch(statement, nrows, "OCIFetchStatement" TSRMLS_CC)) {
+			zval *row;
+
+			MAKE_STD_ZVAL(row);
+			array_init(row);
+
+			for (i = 0; i < statement->ncolumns; i++) {
+				MAKE_STD_ZVAL(element);
+
+				_oci_make_zval(element,statement,columns[ i ], "OCIFetchStatement",OCI_RETURN_LOBS TSRMLS_CC);
+
+				if (flags & OCI_NUM) {
+					zend_hash_next_index_insert(Z_ARRVAL_P(row), &element, sizeof(zval*), NULL);
+				} else { /* default to ASSOC */
+					zend_hash_update(Z_ARRVAL_P(row), 
+							columns[ i ]->name, columns[ i ]->name_len+1, 
+							&element, sizeof(zval*), NULL);
+				}
+			}
+
+			zend_hash_next_index_insert(Z_ARRVAL_PP(array), &row, sizeof(zval*), NULL),
+
+			rows++;
+
+			if ((maxrows != -1) && (rows == maxrows)) {
+				oci_fetch(statement, 0, "OCIFetchStatement" TSRMLS_CC);
+				break;
+			}
+		}
+
+		efree(columns);
+	} else { /* default to BY_COLUMN */
+		columns = emalloc(statement->ncolumns * sizeof(oci_out_column *));
+		outarrs = emalloc(statement->ncolumns * sizeof(zval*));
+		
+		if (flags & OCI_NUM) {
+			for (i = 0; i < statement->ncolumns; i++) {
+				columns[ i ] = oci_get_col(statement, i + 1, 0);
+				
+				MAKE_STD_ZVAL(tmp);
+				array_init(tmp);
+						
+				zend_hash_next_index_insert(Z_ARRVAL_PP(array), 
+						&tmp, sizeof(zval*), (void **) &(outarrs[ i ]));
+			}
+		} else { /* default to ASSOC */
+			for (i = 0; i < statement->ncolumns; i++) {
+				columns[ i ] = oci_get_col(statement, i + 1, 0);
+				
+				MAKE_STD_ZVAL(tmp);
+				array_init(tmp);
+						
+				zend_hash_update(Z_ARRVAL_PP(array), 
+						columns[ i ]->name, columns[ i ]->name_len+1, 
+						(void *) &tmp, sizeof(zval*), (void **) &(outarrs[ i ]));
+			}
+		}
+
+		while (oci_fetch(statement, nrows, "OCIFetchStatement" TSRMLS_CC)) {
+			for (i = 0; i < statement->ncolumns; i++) {
+				MAKE_STD_ZVAL(element);
+
+				_oci_make_zval(element,statement,columns[ i ], "OCIFetchStatement",OCI_RETURN_LOBS TSRMLS_CC);
+
+				zend_hash_index_update((*(outarrs[ i ]))->value.ht, rows, (void *)&element, sizeof(zval*), NULL);
+			}
+
+			rows++;
+
+			if ((maxrows != -1) && (rows == maxrows)) {
+				oci_fetch(statement, 0, "OCIFetchStatement" TSRMLS_CC);
+				break;
+			}
+		}
+		
+		efree(columns);
+		efree(outarrs);
+	} 
 
 	RETURN_LONG(rows);
 }
 
 /* }}} */
 
-/* {{{ proto int ocifreestatement(int stmt)
+/* {{{ proto bool ocifreestatement(int stmt)
    Free all resources associated with a statement */
 
 PHP_FUNCTION(ocifreestatement)
@@ -4003,7 +4244,7 @@ PHP_FUNCTION(ocifreestatement)
 
 /* }}} */
 
-/* {{{ proto int ocilogoff(int conn)
+/* {{{ proto bool ocilogoff(int conn)
    Disconnect from database */
 
 PHP_FUNCTION(ocilogoff)
@@ -4013,8 +4254,8 @@ PHP_FUNCTION(ocilogoff)
 	request-end. connection handles will "dissappear" as soon as they are no longer 
 	referenced. as this module makes heavy use of zends reference-counting mechanism
 	this is the desired behavior. it has always been a bad idea to close a connection that
-    has outstanding transactions. this way we have a nice-clean approach.
-    (thies@thieso.net 20000110)
+	has outstanding transactions. this way we have a nice-clean approach.
+	(thies@thieso.net 20000110)
 
 	oci_connection *connection;
 	zval **conn;
@@ -4090,16 +4331,39 @@ PHP_FUNCTION(ocierror)
 	zval **arg;
 	oci_statement *statement;
 	oci_connection *connection;
-    text errbuf[512];
-    sb4 errcode = 0;
+	text errbuf[512];
+	sb4 errcode = 0;
 	sword error = 0;
 	dvoid *errh = NULL;
+#ifdef HAVE_OCI8_ATTR_STATEMENT
+	ub2 errorofs = 0;
+	text *sqltext = NULL;
+#endif
 
 	if (zend_get_parameters_ex(1, &arg) == SUCCESS) {
 		statement = (oci_statement *) zend_fetch_resource(arg TSRMLS_CC, -1, NULL, NULL, 1, le_stmt);
 		if (statement) {
 			errh = statement->pError;
 			error = statement->error;
+
+#ifdef HAVE_OCI8_ATTR_STATEMENT
+			CALL_OCI_RETURN(statement->error, OCIAttrGet(
+				(dvoid *)statement->pStmt,
+				OCI_HTYPE_STMT,
+				(text *) &sqltext,
+				(ub4 *)0,
+				OCI_ATTR_STATEMENT,
+				statement->pError));
+
+			CALL_OCI_RETURN(statement->error, OCIAttrGet(
+				(dvoid *)statement->pStmt,
+				OCI_HTYPE_STMT,
+				(ub2 *)&errorofs,
+				(ub4 *)0,
+				OCI_ATTR_PARSE_ERROR_OFFSET,
+				statement->pError));
+#endif
+
 		} else {
 			connection = (oci_connection *) zend_fetch_resource(arg TSRMLS_CC, -1, NULL, NULL, 1, le_conn);
 			if (connection) {
@@ -4117,7 +4381,7 @@ PHP_FUNCTION(ocierror)
 	}
 
 	if (! errh) {
-		php_error(E_WARNING, "OCIError: unable to find Error handle");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "OCIError: unable to find Error handle");
 		RETURN_FALSE;
 	}
 
@@ -4134,6 +4398,10 @@ PHP_FUNCTION(ocierror)
 		array_init(return_value);
 		add_assoc_long(return_value, "code", errcode);
 		add_assoc_string(return_value, "message", (char*) errbuf, 1);
+#ifdef HAVE_OCI8_ATTR_STATEMENT
+		add_assoc_long(return_value, "offset", errorofs);
+		add_assoc_string(return_value, "sqltext", sqltext ? (char *) sqltext : "", 1);
+#endif
 	} else {
 		RETURN_FALSE;
 	}
@@ -4177,7 +4445,7 @@ PHP_FUNCTION(ociparse)
 
 	convert_to_string_ex(query);
 
-	statement = oci_parse(connection,(*query)->value.str.val,(*query)->value.str.len);
+	statement = oci_parse(connection,Z_STRVAL_PP(query),Z_STRLEN_PP(query));
 
 	if (statement) {
 		RETURN_RESOURCE(statement->id);
@@ -4204,9 +4472,61 @@ PHP_FUNCTION(ocisetprefetch)
 
 	OCI_GET_STMT(statement,stmt);
 
-	oci_setprefetch(statement,(*size)->value.lval); 
+	oci_setprefetch(statement,Z_LVAL_PP(size)); 
 
 	RETURN_TRUE;
+}
+
+/* }}} */
+
+/* {{{ proto bool ocipasswordchange(int conn, string username, string old_password, string new_password)
+  changes the password of an account*/
+
+PHP_FUNCTION(ocipasswordchange)
+{
+	zval **conn, **user_param, **pass_old_param, **pass_new_param;
+	text *user, *pass_old, *pass_new;
+	oci_connection *connection;
+
+	/*  Disable in Safe Mode  */
+	if (PG(safe_mode)) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "is disabled in Safe Mode");
+		RETURN_FALSE;
+	}
+
+	if (zend_get_parameters_ex(4, &conn, &user_param, &pass_old_param, &pass_new_param) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
+
+	user      = Z_STRVAL_PP(user_param);
+	pass_old  = Z_STRVAL_PP(pass_old_param);
+	pass_new  = Z_STRVAL_PP(pass_new_param);
+
+	OCI_GET_CONN(connection, conn);
+
+	CALL_OCI_RETURN(
+		 connection->error
+		,OCIPasswordChange(
+			 connection->pServiceContext
+			,connection->pError
+			,user
+			,strlen(user)+1
+			,pass_old
+			,strlen(pass_old)+1
+			,pass_new
+			,strlen(pass_new)+1
+			,OCI_DEFAULT
+		)
+	);
+
+	if (connection->error == OCI_SUCCESS) {
+		RETURN_TRUE;
+	}
+	else {
+		oci_error(connection->pError, "OCIPasswordChange", connection->error);
+		oci_handle_error(connection, connection->error);
+		RETURN_FALSE;
+	}
 }
 
 /* }}} */
@@ -4292,7 +4612,7 @@ PHP_FUNCTION(ociserverversion)
 
 /* }}} */
 
-/* {{{ proto int ocistatementtype(int stmt)
+/* {{{ proto string ocistatementtype(int stmt)
    Return the query type of an OCI statement */
  
 /* XXX it would be better with a general interface to OCIAttrGet() */
@@ -4396,41 +4716,41 @@ PHP_FUNCTION(ocirowcount)
 
 static oci_collection *oci_get_coll(int ind TSRMLS_DC)
 {
-    oci_collection *collection;
-    int actual_resource_type;
+	oci_collection *collection;
+	int actual_resource_type;
 
-    collection = (oci_collection *) zend_list_find(ind, &actual_resource_type);
+	collection = (oci_collection *) zend_list_find(ind, &actual_resource_type);
 
-    if (collection && (actual_resource_type == le_coll)) {
-        return collection;
-    } else {
-        return (oci_collection *) NULL;
-    }
+	if (collection && (actual_resource_type == le_coll)) {
+		return collection;
+	} else {
+		return (oci_collection *) NULL;
+	}
 }
 /* }}} */
 
-/* {{{ proto string ocifreecollection(object lob)
+/* {{{ proto bool ocifreecollection(object lob)
    Deletes collection object*/
 
 PHP_FUNCTION(ocifreecollection)
 {
-    zval *id;
-    int inx;
-    oci_collection *coll;
-    oci_connection *connection;
+	zval *id;
+	int inx;
+	oci_collection *coll;
+	oci_connection *connection;
 	
-    if ((id = getThis()) != 0) {
-        inx = _oci_get_ocicoll(id,&coll TSRMLS_CC);
-        if (inx) {
+	if ((id = getThis()) != 0) {
+		inx = _oci_get_ocicoll(id,&coll TSRMLS_CC);
+		if (inx) {
 			/*
 			 * Do we need to free the object?
 			 * 
 			 */
 			connection = coll->conn;
-            oci_debug("OCIfreecollection: coll=%d",inx);
+			oci_debug("OCIfreecollection: coll=%d",inx);
 
 			CALL_OCI_RETURN(connection->error, OCIObjectFree(
-						OCI(pEnv), 
+						connection->session->pEnv, 
 						connection->pError, 
 						(dvoid *)coll->coll, 
 						(ub2)(OCI_OBJECTFREE_FORCE)));
@@ -4440,133 +4760,154 @@ PHP_FUNCTION(ocifreecollection)
 				RETURN_FALSE;
 			}
 
-            zend_list_delete(inx);
-            RETURN_TRUE;
-        }
-    }
+			zend_list_delete(inx);
+			RETURN_TRUE;
+		}
+	}
 
 	RETURN_FALSE;
 }
 /* }}} */
 
-/* {{{ proto string ocicollappend(object collection,value)
+/* {{{ proto bool ocicollappend(object collection,value)
    Append an object to the collection */
 
 PHP_FUNCTION(ocicollappend)
 {
-    zval *id, **arg;
-    oci_connection *connection;
-    oci_collection *coll;
-    OCINumber num;
+	zval *id, **arg;
+	oci_connection *connection;
+	oci_collection *coll;
+	OCINumber num;
 	OCIString *ocistr = (OCIString *)0;
 	OCIInd new_ind = OCI_IND_NOTNULL;
+	OCIInd null_ind = OCI_IND_NULL;
 	OCIDate dt;
-    int inx;
+	int inx;
 	double ndx;
 
-    if ((id = getThis()) != 0) {
-        if ((inx = _oci_get_ocicoll(id,&coll TSRMLS_CC)) == 0) {
-            RETURN_FALSE;
-        }
+	if ((id = getThis()) != 0) {
+		if ((inx = _oci_get_ocicoll(id,&coll TSRMLS_CC)) == 0) {
+			RETURN_FALSE;
+		}
 
-        connection = coll->conn;
-        if (zend_get_parameters_ex(1, &arg) == FAILURE) {
-            WRONG_PARAM_COUNT;
-        }
+		connection = coll->conn;
+		if (zend_get_parameters_ex(1, &arg) == FAILURE) {
+			WRONG_PARAM_COUNT;
+		}
+
+		/* 
+		 * Handle NULLS.  For consistency with the rest of the OCI8 library, when
+		 * a value passed in is a 0 length string, consider it a null
+		 */
+		convert_to_string_ex(arg);
+		if(Z_STRLEN_PP(arg) == 0) {
+			CALL_OCI_RETURN(connection->error, OCICollAppend(
+				  connection->session->pEnv, 
+				  connection->pError, 
+				  (dword *)0, 
+				  &null_ind, 
+				  coll->coll));
+			if (connection->error) {
+				oci_error(connection->pError, "OCICollAppend - NULL", connection->error);
+				RETURN_FALSE;
+			}
+
+			RETURN_TRUE;
+		}
 
 		switch(coll->element_typecode) {
-		   case OCI_TYPECODE_DATE:
-			   convert_to_string_ex(arg);
+			case OCI_TYPECODE_DATE:
+				convert_to_string_ex(arg);
 
-			   CALL_OCI_RETURN(connection->error, OCIDateFromText(
-						   connection->pError, 
-						   (*arg)->value.str.val, 
-						   (*arg)->value.str.len, 
-						   0,
-						   0,
-						   0,
-						   0,
-						   &dt));
+				CALL_OCI_RETURN(connection->error, OCIDateFromText(
+							connection->pError, 
+							Z_STRVAL_PP(arg), 
+							Z_STRLEN_PP(arg), 
+							0,
+							0,
+							0,
+							0,
+							&dt));
 
-			   if (connection->error) {
-				   oci_error(connection->pError, "OCIDateFromText", connection->error);
-				   RETURN_FALSE;
-			   }
+				if (connection->error) {
+					oci_error(connection->pError, "OCIDateFromText", connection->error);
+					RETURN_FALSE;
+				}
 
-			   CALL_OCI_RETURN(connection->error, OCICollAppend(
-						   OCI(pEnv), 
-						   connection->pError, 
-						   (dvoid *) &dt, 
-						   (dvoid *) &new_ind, 
-						   (OCIColl *) coll->coll));
+				CALL_OCI_RETURN(connection->error, OCICollAppend(
+							connection->session->pEnv, 
+							connection->pError, 
+							(dvoid *) &dt, 
+							(dvoid *) &new_ind, 
+							(OCIColl *) coll->coll));
 
-			   if (connection->error) {
-				   oci_error(connection->pError, "OCICollAppend", connection->error);
-				   RETURN_FALSE;
-			   }
-			   RETURN_TRUE;
-			   break;
-		   case OCI_TYPECODE_VARCHAR2 :
-			   convert_to_string_ex(arg);
+				if (connection->error) {
+					oci_error(connection->pError, "OCICollAppend", connection->error);
+					RETURN_FALSE;
+				}
+				RETURN_TRUE;
+				break;
+			case OCI_TYPECODE_VARCHAR2 :
+				convert_to_string_ex(arg);
 
-			   CALL_OCI_RETURN(connection->error, OCIStringAssignText(
-						   OCI(pEnv), 
-						   connection->pError, 
-						   (*arg)->value.str.val, 
-						   (*arg)->value.str.len, 
-						   &ocistr));
+				CALL_OCI_RETURN(connection->error, OCIStringAssignText(
+							connection->session->pEnv, 
+							connection->pError, 
+							Z_STRVAL_PP(arg), 
+							Z_STRLEN_PP(arg), 
+							&ocistr));
 
-			   if (connection->error) {
-				   oci_error(connection->pError, "OCIStringAssignText", connection->error);
-				   RETURN_FALSE;
-			   }
+				if (connection->error) {
+					oci_error(connection->pError, "OCIStringAssignText", connection->error);
+					RETURN_FALSE;
+				}
 
-			   CALL_OCI_RETURN(connection->error, OCICollAppend(
-						   OCI(pEnv), 
-						   connection->pError, 
-						   (dvoid *) ocistr, 
-						   (dvoid *) &new_ind, 
-						   (OCIColl *) coll->coll));
+				CALL_OCI_RETURN(connection->error, OCICollAppend(
+							connection->session->pEnv, 
+							connection->pError, 
+							(dvoid *) ocistr, 
+							(dvoid *) &new_ind, 
+							(OCIColl *) coll->coll));
 
-			   if (connection->error) {
-				   oci_error(connection->pError, "OCICollAppend", connection->error);
-				   RETURN_FALSE;
-			   }
-			   RETURN_TRUE;
-			   break;
-		   case OCI_TYPECODE_UNSIGNED16 :                       /* UNSIGNED SHORT  */
-		   case OCI_TYPECODE_UNSIGNED32 :                        /* UNSIGNED LONG  */
-		   case OCI_TYPECODE_REAL :                                     /* REAL    */
-		   case OCI_TYPECODE_DOUBLE :                                   /* DOUBLE  */
-		   case OCI_TYPECODE_INTEGER :                                     /* INT  */
-		   case OCI_TYPECODE_SIGNED16 :                                  /* SHORT  */
-		   case OCI_TYPECODE_SIGNED32 :                                   /* LONG  */
-		   case OCI_TYPECODE_DECIMAL :                                 /* DECIMAL  */
-		   case OCI_TYPECODE_FLOAT :                                   /* FLOAT    */
-		   case OCI_TYPECODE_NUMBER :                                  /* NUMBER   */
-		   case OCI_TYPECODE_SMALLINT :                                /* SMALLINT */
-			   convert_to_double_ex(arg);
-			   ndx = (double)(*arg)->value.dval;
+				if (connection->error) {
+					oci_error(connection->pError, "OCICollAppend", connection->error);
+					RETURN_FALSE;
+				}
+				RETURN_TRUE;
+				break;
+			case OCI_TYPECODE_UNSIGNED16 :                       /* UNSIGNED SHORT  */
+			case OCI_TYPECODE_UNSIGNED32 :                        /* UNSIGNED LONG  */
+			case OCI_TYPECODE_REAL :                                     /* REAL    */
+			case OCI_TYPECODE_DOUBLE :                                   /* DOUBLE  */
+			case OCI_TYPECODE_INTEGER :                                     /* INT  */
+			case OCI_TYPECODE_SIGNED16 :                                  /* SHORT  */
+			case OCI_TYPECODE_SIGNED32 :                                   /* LONG  */
+			case OCI_TYPECODE_DECIMAL :                                 /* DECIMAL  */
+			case OCI_TYPECODE_FLOAT :                                   /* FLOAT    */
+			case OCI_TYPECODE_NUMBER :                                  /* NUMBER   */
+			case OCI_TYPECODE_SMALLINT :                                /* SMALLINT */
+				convert_to_double_ex(arg);
+				ndx = (double)Z_DVAL_PP(arg);
 
-			   CALL_OCI_RETURN(connection->error, OCINumberFromReal(
-						   connection->pError,
-						   &ndx, 
-						   sizeof(double),&num));
+				CALL_OCI_RETURN(connection->error, OCINumberFromReal(
+							connection->pError,
+							&ndx, 
+							sizeof(double),&num));
 
-			   if (connection->error) {
-				   oci_error(connection->pError, "OCINumberFromReal", connection->error);
-				   RETURN_FALSE;
-			   }
+				if (connection->error) {
+					oci_error(connection->pError, "OCINumberFromReal", connection->error);
+					RETURN_FALSE;
+				}
 
-			   CALL_OCI_RETURN(connection->error, OCICollAppend(
-						   OCI(pEnv), 
-						   connection->pError, 
-						   (dvoid *) &num, 
-						   (dvoid *) &new_ind, 
-						   (OCIColl *) coll->coll));
+				CALL_OCI_RETURN(connection->error, OCICollAppend(
+							connection->session->pEnv, 
+							connection->pError, 
+							(dvoid *) &num, 
+							(dvoid *) &new_ind, 
+							(OCIColl *) coll->coll));
 
-			   RETURN_TRUE;
-			   break;
+				RETURN_TRUE;
+				break;
 		}
 	}
 
@@ -4579,13 +4920,13 @@ PHP_FUNCTION(ocicollappend)
 
 PHP_FUNCTION(ocicollgetelem)
 {
- 	zval *id,**arg;
+	zval *id,**arg;
 	oci_connection *connection;
 	oci_collection *coll;
 	ub4  ndx;
 	int inx;
 	dvoid *elem;
-	dvoid *elemind;
+	OCIInd *elemind;
 	boolean exists;
 	OCIString *ocistr = (OCIString *)0;
 	text *str;
@@ -4602,66 +4943,77 @@ PHP_FUNCTION(ocicollgetelem)
 		}
 
 		convert_to_long_ex(arg);
-		ndx = (*arg)->value.lval;
+		ndx = Z_LVAL_PP(arg);
 
 		connection = coll->conn;
 
 		CALL_OCI_RETURN(connection->error, OCICollGetElem(
-					OCI(pEnv), 
+					connection->session->pEnv, 
 					connection->pError, 
 					coll->coll, 
 					ndx, 
 					&exists, 
 					&elem, 
-					&elemind));
+					(dvoid **)&elemind));
 
 		if (connection->error) {
 			oci_error(connection->pError, "OCICollGetElem", connection->error);
+			RETURN_NULL();
+		}
+		
+		/* Return false if value does not exist at that location */
+		if(exists == 0) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "OCICollGetElem - Invalid index %d", ndx);
 			RETURN_FALSE;
 		}
 
+		/* Return null if the value is null */
+		if(*elemind == OCI_IND_NULL) {
+			RETURN_FALSE;
+		} 
+
 		switch (coll->element_typecode) {
-		   case OCI_TYPECODE_DATE:
-			   len = 1024;
-			   CALL_OCI(OCIDateToText(
-						   connection->pError, 
-						   elem, 
-						   0, /* fmt */ 
-						   0, /* fmt_length */ 
-						   0, /* lang_name */ 
-						   0, /* lang_length */ 
-						   &len,
-						   buff));
+			case OCI_TYPECODE_DATE:
+				len = 1024;
+				CALL_OCI(OCIDateToText(
+							connection->pError, 
+							elem, 
+							0, /* fmt */ 
+							0, /* fmt_length */ 
+							0, /* lang_name */ 
+							0, /* lang_length */ 
+							&len,
+							buff));
 
-			   RETURN_STRINGL(buff,len,1);
-		   case OCI_TYPECODE_VARCHAR2 :
-			   ocistr = *(OCIString **)elem;
-			   str = OCIStringPtr(OCI(pEnv),ocistr); /* XXX not protected against recursion! */
-			   RETURN_STRINGL(str,strlen(str),1);
-			   break;
-		   case OCI_TYPECODE_UNSIGNED16 :                       /* UNSIGNED SHORT  */
-		   case OCI_TYPECODE_UNSIGNED32 :                       /* UNSIGNED LONG  */
-		   case OCI_TYPECODE_REAL :                             /* REAL    */
-		   case OCI_TYPECODE_DOUBLE :                           /* DOUBLE  */
-		   case OCI_TYPECODE_INTEGER :                          /* INT  */
-		   case OCI_TYPECODE_SIGNED16 :                         /* SHORT  */
-		   case OCI_TYPECODE_SIGNED32 :                         /* LONG  */
-		   case OCI_TYPECODE_DECIMAL :                          /* DECIMAL  */
-		   case OCI_TYPECODE_FLOAT :                            /* FLOAT    */
-		   case OCI_TYPECODE_NUMBER :                           /* NUMBER   */
-		   case OCI_TYPECODE_SMALLINT :                         /* SMALLINT */
-			   CALL_OCI_RETURN(connection->error, OCINumberToReal(
-						   connection->pError, 
-						   (CONST OCINumber *) elem, 
-						   (uword) sizeof(dnum), 
-						   (dvoid *) &dnum));
+				RETURN_STRINGL(buff,len,1);
+			case OCI_TYPECODE_VARCHAR2 :
+				ocistr = *(OCIString **)elem;
+				str = OCIStringPtr(connection->session->pEnv,ocistr); /* XXX not protected against recursion! */
+				RETURN_STRINGL(str,strlen(str),1);
+				break;
+			case OCI_TYPECODE_UNSIGNED16 :                       /* UNSIGNED SHORT  */
+			case OCI_TYPECODE_UNSIGNED32 :                       /* UNSIGNED LONG  */
+			case OCI_TYPECODE_REAL :                             /* REAL    */
+			case OCI_TYPECODE_DOUBLE :                           /* DOUBLE  */
+			case OCI_TYPECODE_INTEGER :                          /* INT  */
+			case OCI_TYPECODE_SIGNED16 :                         /* SHORT  */
+			case OCI_TYPECODE_SIGNED32 :                         /* LONG  */
+			case OCI_TYPECODE_DECIMAL :                          /* DECIMAL  */
+			case OCI_TYPECODE_FLOAT :                            /* FLOAT    */
+			case OCI_TYPECODE_NUMBER :                           /* NUMBER   */
+			case OCI_TYPECODE_SMALLINT :                         /* SMALLINT */
+				CALL_OCI_RETURN(connection->error, OCINumberToReal(
+							connection->pError, 
+							(CONST OCINumber *) elem, 
+							(uword) sizeof(dnum), 
+							(dvoid *) &dnum));
 
-			   if (connection->error) {
-				   oci_error(connection->pError, "OCINumberToReal", connection->error);
-				   RETURN_FALSE;
-			   }
-			   RETURN_DOUBLE(dnum);
-			   break;
+				if (connection->error) {
+					oci_error(connection->pError, "OCINumberToReal", connection->error);
+					RETURN_FALSE;
+				}
+				RETURN_DOUBLE(dnum);
+				break;
 		}
 	}
 
@@ -4669,7 +5021,7 @@ PHP_FUNCTION(ocicollgetelem)
 }
 /* }}} */
 
-/* {{{ proto string ocicollassign(object collection,object)
+/* {{{ proto bool ocicollassign(object collection,object)
    Assign a collection from another existing collection */
 
 PHP_FUNCTION(ocicollassign)
@@ -4695,7 +5047,7 @@ PHP_FUNCTION(ocicollassign)
 		connection = coll->conn;
 	
 		CALL_OCI_RETURN(connection->error, OCICollAssign(
-					OCI(pEnv),
+					connection->session->pEnv,
 					connection->pError, 
 					from_coll->coll,
 					coll->coll));
@@ -4711,7 +5063,7 @@ PHP_FUNCTION(ocicollassign)
 }
 /* }}} */
 
-/* {{{ proto string ocicollassignelem(object collection,ndx,val)
+/* {{{ proto bool ocicollassignelem(object collection,ndx,val)
    Assign element val to collection at index ndx */
 
 PHP_FUNCTION(ocicollassignelem)
@@ -4721,6 +5073,7 @@ PHP_FUNCTION(ocicollassignelem)
 	oci_collection *coll;
 	OCINumber num;
 	OCIInd new_ind = OCI_IND_NOTNULL;
+	OCIInd null_ind = OCI_IND_NULL;
 	ub4  ndx;
 	int inx;
 	OCIString *ocistr = (OCIString *)0;
@@ -4737,120 +5090,143 @@ PHP_FUNCTION(ocicollassignelem)
 		}
 
 		convert_to_long_ex(index);
-		ndx = (*index)->value.lval;
+		ndx = Z_LVAL_PP(index);
 
 		connection = coll->conn;
-											  
+
 		if (connection->error) {
 			oci_error(connection->pError, "OCICollAssignElem", connection->error);
 			RETURN_FALSE;
 		}
+
+		/* 
+		 * Handle NULLS.  For consistency with the rest of the OCI8 library, when
+		 * a value passed in is a 0 length string, consider it a null
+		 */
+		convert_to_string_ex(val);
+
+		if(Z_STRLEN_PP(val) == 0) {
+			CALL_OCI_RETURN(connection->error, OCICollAssignElem(
+				  connection->session->pEnv, 
+				  connection->pError, 
+				  ndx, 
+				  (dword *)0, 
+				  &null_ind, 
+				  coll->coll));
+			if (connection->error) {
+				oci_error(connection->pError, "OCICollAssignElem - NULL", connection->error);
+				RETURN_FALSE;
+			}
+
+			RETURN_TRUE;
+		}
+
 		switch(coll->element_typecode) {
-		   case OCI_TYPECODE_DATE:
-			   convert_to_string_ex(val);
-			   CALL_OCI_RETURN(connection->error, OCIDateFromText(
-						   connection->pError, 
-						   (*val)->value.str.val, 
-						   (*val)->value.str.len, 
-						   0,
-						   0,
-						   0,
-						   0,
-						   &dt));
+			case OCI_TYPECODE_DATE:
+				convert_to_string_ex(val);
+				CALL_OCI_RETURN(connection->error, OCIDateFromText(
+							connection->pError, 
+							Z_STRVAL_PP(val), 
+							Z_STRLEN_PP(val), 
+							0,
+							0,
+							0,
+							0,
+							&dt));
 
-			   if (connection->error) {
-				   oci_error(connection->pError, "OCIDateFromText", connection->error);
-				   RETURN_FALSE;
-			   }
+				if (connection->error) {
+					oci_error(connection->pError, "OCIDateFromText", connection->error);
+					RETURN_FALSE;
+				}
 
-			   CALL_OCI_RETURN(connection->error, OCICollAssignElem(
-						   OCI(pEnv), 
-						   connection->pError, 
-						   ndx, 
-						   (dword *)&dt, 
-						   &new_ind, 
-						   coll->coll));
+				CALL_OCI_RETURN(connection->error, OCICollAssignElem(
+							connection->session->pEnv, 
+							connection->pError, 
+							ndx, 
+							(dword *)&dt, 
+							&new_ind, 
+							coll->coll));
 
-			   if (connection->error) {
-				   oci_error(connection->pError, "OCICollAssignElem", connection->error);
-				   RETURN_FALSE;
-			   }
-			   break;
-		   case OCI_TYPECODE_VARCHAR2 :
-			   convert_to_string_ex(val);
+				if (connection->error) {
+					oci_error(connection->pError, "OCICollAssignElem", connection->error);
+					RETURN_FALSE;
+				}
+				break;
+			case OCI_TYPECODE_VARCHAR2 :
+				convert_to_string_ex(val);
 
-			   CALL_OCI_RETURN(connection->error, OCIStringAssignText(
-						   OCI(pEnv), 
-						   connection->pError, 
-						   (*val)->value.str.val, 
-						   (*val)->value.str.len, 
-						   &ocistr));
+				CALL_OCI_RETURN(connection->error, OCIStringAssignText(
+							connection->session->pEnv, 
+							connection->pError, 
+							Z_STRVAL_PP(val), 
+							Z_STRLEN_PP(val), 
+							&ocistr));
 
-			   if (connection->error) {
-				   oci_error(connection->pError, "OCIStringAssignText", connection->error);
-				   RETURN_FALSE;
-			   }
+				if (connection->error) {
+					oci_error(connection->pError, "OCIStringAssignText", connection->error);
+					RETURN_FALSE;
+				}
 
-			   CALL_OCI_RETURN(connection->error, OCICollAssignElem(
-						   OCI(pEnv), 
-						   connection->pError, 
-						   ndx, 
-						   (dword *)ocistr, 
-						   &new_ind, 
-						   coll->coll));
+				CALL_OCI_RETURN(connection->error, OCICollAssignElem(
+							connection->session->pEnv, 
+							connection->pError, 
+							ndx, 
+							(dword *)ocistr, 
+							&new_ind, 
+							coll->coll));
 
-			   if (connection->error) {
-				   oci_error(connection->pError, "OCICollAssignElem", connection->error);
-				   RETURN_FALSE;
-			   }
-			   RETURN_TRUE;
-			   break;
-		   case OCI_TYPECODE_UNSIGNED16 :                       /* UNSIGNED SHORT  */
-		   case OCI_TYPECODE_UNSIGNED32 :                       /* UNSIGNED LONG  */
-		   case OCI_TYPECODE_REAL :                             /* REAL    */
-		   case OCI_TYPECODE_DOUBLE :                           /* DOUBLE  */
-		   case OCI_TYPECODE_INTEGER :                          /* INT  */
-		   case OCI_TYPECODE_SIGNED16 :                         /* SHORT  */
-		   case OCI_TYPECODE_SIGNED32 :                         /* LONG  */
-		   case OCI_TYPECODE_DECIMAL :                          /* DECIMAL  */
-		   case OCI_TYPECODE_FLOAT :                            /* FLOAT    */
-		   case OCI_TYPECODE_NUMBER :                           /* NUMBER   */
-		   case OCI_TYPECODE_SMALLINT :                         /* SMALLINT */
-			   convert_to_double_ex(val);
-			   dnum = (double)(*val)->value.dval;
+				if (connection->error) {
+					oci_error(connection->pError, "OCICollAssignElem", connection->error);
+					RETURN_FALSE;
+				}
+				RETURN_TRUE;
+				break;
+			case OCI_TYPECODE_UNSIGNED16 :                       /* UNSIGNED SHORT  */
+			case OCI_TYPECODE_UNSIGNED32 :                       /* UNSIGNED LONG  */
+			case OCI_TYPECODE_REAL :                             /* REAL    */
+			case OCI_TYPECODE_DOUBLE :                           /* DOUBLE  */
+			case OCI_TYPECODE_INTEGER :                          /* INT  */
+			case OCI_TYPECODE_SIGNED16 :                         /* SHORT  */
+			case OCI_TYPECODE_SIGNED32 :                         /* LONG  */
+			case OCI_TYPECODE_DECIMAL :                          /* DECIMAL  */
+			case OCI_TYPECODE_FLOAT :                            /* FLOAT    */
+			case OCI_TYPECODE_NUMBER :                           /* NUMBER   */
+			case OCI_TYPECODE_SMALLINT :                         /* SMALLINT */
+				convert_to_double_ex(val);
+				dnum = (double)Z_DVAL_PP(val);
 
-			   CALL_OCI_RETURN(connection->error, OCINumberFromReal(
-						   connection->pError,
-						   &dnum, 
-						   sizeof(double),
-						   &num));
+				CALL_OCI_RETURN(connection->error, OCINumberFromReal(
+							connection->pError,
+							&dnum, 
+							sizeof(double),
+							&num));
 
-			   if (connection->error) {
-				   oci_error(connection->pError, "OCINumberFromReal", connection->error);
-				   RETURN_FALSE;
-			   }
+				if (connection->error) {
+					oci_error(connection->pError, "OCINumberFromReal", connection->error);
+					RETURN_FALSE;
+				}
 
-			   CALL_OCI_RETURN(connection->error, OCICollAssignElem(
-						   OCI(pEnv), 
-						   connection->pError, 
-						   ndx, 
-						   (dword *)&num, 
-						   &new_ind, 
-						   coll->coll));
+				CALL_OCI_RETURN(connection->error, OCICollAssignElem(
+							connection->session->pEnv, 
+							connection->pError, 
+							ndx, 
+							(dword *)&num, 
+							&new_ind, 
+							coll->coll));
 
-			   if (connection->error) {
-				   oci_error(connection->pError, "OCICollAssignElem", connection->error);
-				   RETURN_FALSE;
-			   }
-			   RETURN_TRUE;
-			   break;
+				if (connection->error) {
+					oci_error(connection->pError, "OCICollAssignElem", connection->error);
+					RETURN_FALSE;
+				}
+				RETURN_TRUE;
+				break;
 		}
 	}
 	RETURN_FALSE;
 }
 /* }}} */
 
-/* {{{ proto string ocicollsize(object collection)
+/* {{{ proto int ocicollsize(object collection)
    Return the size of a collection */
 
 PHP_FUNCTION(ocicollsize)
@@ -4868,7 +5244,7 @@ PHP_FUNCTION(ocicollsize)
 		connection = coll->conn;
 
 		CALL_OCI_RETURN(connection->error, OCICollSize(
-					OCI(pEnv),
+					connection->session->pEnv,
 					coll->conn->pError,
 					coll->coll,
 					&sz));
@@ -4877,15 +5253,15 @@ PHP_FUNCTION(ocicollsize)
 			oci_error(connection->pError, "OCICollSize", connection->error);
 			RETURN_FALSE;
 		}
+
 		RETURN_LONG(sz);
 	}
 	RETURN_FALSE;
 }
 /* }}} */
 
-/* {{{ proto string ocicollmax(object collection)
-   Return the max value of a collection.  For a 
-   varray this is the maximum length of the array */
+/* {{{ proto int ocicollmax(object collection)
+   Return the max value of a collection.  For a varray this is the maximum length of the array */
 
 PHP_FUNCTION(ocicollmax)
 {
@@ -4906,7 +5282,7 @@ PHP_FUNCTION(ocicollmax)
 }
 /* }}} */
 
-/* {{{ proto string ocicolltrim(object collection,num)
+/* {{{ proto bool ocicolltrim(object collection,num)
    Trim num elements from the end of a collection */
 
 PHP_FUNCTION(ocicolltrim)
@@ -4927,7 +5303,7 @@ PHP_FUNCTION(ocicolltrim)
 		CALL_OCI_RETURN(coll->conn->error, OCICollTrim(
 					OCI(pEnv),
 					coll->conn->pError,
-					(*arg)->value.lval,
+					Z_LVAL_PP(arg),
 					coll->coll));
 
 		if (coll->conn->error) {
@@ -4940,24 +5316,24 @@ PHP_FUNCTION(ocicolltrim)
 }
 /* }}} */
 
-/* {{{ proto string ocinewcollection(int connection, string tdo,[string schema])
+/* {{{ proto bool ocinewcollection(int connection, string tdo,[string schema])
    Initialize a new collection */
 
 PHP_FUNCTION(ocinewcollection)
 {
-    dvoid *dschp1;
-    dvoid *parmp1;
-    dvoid *parmp2;
-    zval **conn, **tdo, **schema;
-    oci_connection *connection;
-    oci_collection *coll;
+	dvoid *dschp1;
+	dvoid *parmp1;
+	dvoid *parmp2;
+	zval **conn, **tdo, **schema;
+	oci_connection *connection;
+	oci_collection *coll;
 	int ac = ZEND_NUM_ARGS();
 
-    if (ac < 2 || ac > 3 || zend_get_parameters_ex(ac, &conn, &tdo, &schema) == FAILURE) {
-        WRONG_PARAM_COUNT;
-    }
+	if (ac < 2 || ac > 3 || zend_get_parameters_ex(ac, &conn, &tdo, &schema) == FAILURE) {
+		WRONG_PARAM_COUNT;
+	}
 
-    convert_to_string_ex(tdo);
+	convert_to_string_ex(tdo);
 
 	if(ac == 3) {
 		convert_to_string_ex(schema);
@@ -4972,35 +5348,35 @@ PHP_FUNCTION(ocinewcollection)
 	zend_list_addref(connection->id);
 
 	CALL_OCI_RETURN(connection->error, OCITypeByName(
-				OCI(pEnv), 
+				connection->session->pEnv, 
 				connection->pError, 
 				connection->pServiceContext, 
-				ac==3?(text *)(*schema)->value.str.val:(text *)0, 
-				ac==3?(ub4)(*schema)->value.str.len: (ub4)0, 
-				(text *) (*tdo)->value.str.val, 
-				(ub4)    (*tdo)->value.str.len, 
+				ac==3?(text *)Z_STRVAL_PP(schema):(text *)0, 
+				ac==3?(ub4)Z_STRLEN_PP(schema): (ub4)0, 
+				(text *) Z_STRVAL_PP(tdo), 
+				(ub4)    Z_STRLEN_PP(tdo), 
 				(CONST text *) 0, 
 				(ub4) 0, 
 				OCI_DURATION_SESSION, 
 				OCI_TYPEGET_ALL, 
 				&(coll->tdo)));
 
-    if (connection->error) {
-        oci_error(connection->pError, "OCITypeByName", connection->error);
-        RETURN_FALSE;
-    }
+	if (connection->error) {
+		oci_error(connection->pError, "OCITypeByName", connection->error);
+		RETURN_FALSE;
+	}
 
 	CALL_OCI_RETURN(connection->error, OCIHandleAlloc(
-				OCI(pEnv), 
+				connection->session->pEnv, 
 				(dvoid **) &dschp1, 
 				(ub4) OCI_HTYPE_DESCRIBE, 
 				(size_t) 0, 
 				(dvoid **) 0)); 
 
-    if (connection->error) {
-        oci_error(connection->pError, "OCI_HTYPE_DESCRIBE", connection->error);
-        RETURN_FALSE;
-    }
+	if (connection->error) {
+		oci_error(connection->pError, "OCI_HTYPE_DESCRIBE", connection->error);
+		RETURN_FALSE;
+	}
 
 	CALL_OCI_RETURN(connection->error, OCIDescribeAny(
 				connection->pServiceContext, 
@@ -5012,10 +5388,10 @@ PHP_FUNCTION(ocinewcollection)
 				(ub1) OCI_PTYPE_TYPE, 
 				dschp1));
 
-    if (connection->error) {
-        oci_error(connection->pError, "OCI_OTYPE_PTR", connection->error);
-        RETURN_FALSE;
-    }
+	if (connection->error) {
+		oci_error(connection->pError, "OCI_OTYPE_PTR", connection->error);
+		RETURN_FALSE;
+	}
 
 	CALL_OCI_RETURN(connection->error, OCIAttrGet(
 				(dvoid *) dschp1, 
@@ -5025,10 +5401,10 @@ PHP_FUNCTION(ocinewcollection)
 				(ub4)OCI_ATTR_PARAM,
 				connection->pError));
 
-    if (connection->error) {
-        oci_error(connection->pError, "OCI_ATTR_PARAM", connection->error);
-        RETURN_FALSE;
-    }
+	if (connection->error) {
+		oci_error(connection->pError, "OCI_ATTR_PARAM", connection->error);
+		RETURN_FALSE;
+	}
 
 	/* get the collection type code of the attribute */
 
@@ -5040,74 +5416,74 @@ PHP_FUNCTION(ocinewcollection)
 				(ub4) OCI_ATTR_COLLECTION_TYPECODE, 
 				connection->pError));
 
-    if (connection->error) {
-        oci_error(connection->pError, "OCI_ATTR_COLLECTION_TYPECODE", connection->error);
-        RETURN_FALSE;
-    }
+	if (connection->error) {
+		oci_error(connection->pError, "OCI_ATTR_COLLECTION_TYPECODE", connection->error);
+		RETURN_FALSE;
+	}
 
 	switch(coll->coll_typecode) {
-	   case OCI_TYPECODE_VARRAY:
-	   case OCI_TYPECODE_TABLE:
-		   CALL_OCI_RETURN(connection->error, OCIAttrGet(
-					   (dvoid*) parmp1, 
-					   (ub4) OCI_DTYPE_PARAM, 
-					   (dvoid*) &parmp2, 
-					   (ub4 *) 0, 
-					   (ub4) OCI_ATTR_COLLECTION_ELEMENT, 
-					   connection->pError));
+		case OCI_TYPECODE_TABLE:
+		case OCI_TYPECODE_VARRAY:
+			CALL_OCI_RETURN(connection->error, OCIAttrGet(
+						(dvoid*) parmp1, 
+						(ub4) OCI_DTYPE_PARAM, 
+						(dvoid*) &parmp2, 
+						(ub4 *) 0, 
+						(ub4) OCI_ATTR_COLLECTION_ELEMENT, 
+						connection->pError));
 
-		   if (connection->error) {
-			   oci_error(connection->pError, "OCI_ATTR_COLLECTION_ELEMENT", connection->error);
-			   RETURN_FALSE;
-		   }
+			if (connection->error) {
+				oci_error(connection->pError, "OCI_ATTR_COLLECTION_ELEMENT", connection->error);
+				RETURN_FALSE;
+			}
 
-		   CALL_OCI_RETURN(connection->error, OCIAttrGet(
-					   (dvoid*) parmp2, 
-					   (ub4) OCI_DTYPE_PARAM, 
-					   (dvoid*) &(coll->elem_ref), 
-					   (ub4 *) 0, 
-					   (ub4) OCI_ATTR_REF_TDO, 
-					   connection->pError));
+			CALL_OCI_RETURN(connection->error, OCIAttrGet(
+						(dvoid*) parmp2, 
+						(ub4) OCI_DTYPE_PARAM, 
+						(dvoid*) &(coll->elem_ref), 
+						(ub4 *) 0, 
+						(ub4) OCI_ATTR_REF_TDO, 
+						connection->pError));
 
-		   if (connection->error) {
-			   oci_error(connection->pError, "OCI_ATTR_REF_TDO", connection->error);
-			   RETURN_FALSE;
-		   }
+			if (connection->error) {
+				oci_error(connection->pError, "OCI_ATTR_REF_TDO", connection->error);
+				RETURN_FALSE;
+			}
 
-		   CALL_OCI_RETURN(connection->error, OCITypeByRef(
-					   OCI(pEnv), 
-					   connection->pError, 
-					   coll->elem_ref, 
-					   OCI_DURATION_SESSION, 
-					   OCI_TYPEGET_HEADER, 
-					   &(coll->element_type)));
+			CALL_OCI_RETURN(connection->error, OCITypeByRef(
+						connection->session->pEnv, 
+						connection->pError, 
+						coll->elem_ref, 
+						OCI_DURATION_SESSION, 
+						OCI_TYPEGET_HEADER, 
+						&(coll->element_type)));
 
-		   if (connection->error) {
-			   oci_error(connection->pError, "OCI_TYPEGET_HEADER", connection->error);
-			   RETURN_FALSE;
-		   }
+			if (connection->error) {
+				oci_error(connection->pError, "OCI_TYPEGET_HEADER", connection->error);
+				RETURN_FALSE;
+			}
 
-		   CALL_OCI_RETURN(connection->error, OCIAttrGet(
-					   (dvoid*) parmp2, 
-					   (ub4) OCI_DTYPE_PARAM, 
-					   (dvoid*) &(coll->element_typecode), 
-					   (ub4 *) 0, 
-					   (ub4) OCI_ATTR_TYPECODE, 
-					   connection->pError));
+			CALL_OCI_RETURN(connection->error, OCIAttrGet(
+						(dvoid*) parmp2, 
+						(ub4) OCI_DTYPE_PARAM, 
+						(dvoid*) &(coll->element_typecode), 
+						(ub4 *) 0, 
+						(ub4) OCI_ATTR_TYPECODE, 
+						connection->pError));
 
-		   if (connection->error) {
-			   oci_error(connection->pError, "OCI_ATTR_TYPECODE", connection->error);
-			   RETURN_FALSE;
-		   }
-		   break;
-	   default:
-		   php_error(E_WARNING, "OCINewCollection - Unknown Type %d", coll->coll_typecode);
-		   break;
-	}    
+			if (connection->error) {
+				oci_error(connection->pError, "OCI_ATTR_TYPECODE", connection->error);
+				RETURN_FALSE;
+			}
+			break;
+		default:
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "OCINewCollection - Unknown Type %d", coll->coll_typecode);
+			break;
+	}	
 
 	/* Create object to hold return table */
 	CALL_OCI_RETURN(connection->error, OCIObjectNew(
-				OCI(pEnv), 
+				connection->session->pEnv, 
 				connection->pError, 
 				connection->pServiceContext, 
 				OCI_TYPECODE_TABLE, 
@@ -5122,8 +5498,8 @@ PHP_FUNCTION(ocinewcollection)
 		RETURN_FALSE;
 	}
 
-    object_init_ex(return_value, oci_coll_class_entry_ptr);
-    add_property_resource(return_value, "collection",coll->id);
+	object_init_ex(return_value, oci_coll_class_entry_ptr);
+	add_property_resource(return_value, "collection",coll->id);
 }
 
 /* }}} */
@@ -5137,6 +5513,6 @@ PHP_FUNCTION(ocinewcollection)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

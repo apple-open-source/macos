@@ -27,13 +27,32 @@ WORD: "up";
 %%
 END
 
-$ACLOCAL || exit 1
-$AUTOMAKE -a || exit 1
-$AUTOCONF || exit 1
-./configure || exit 1
+set -e
 
-$MAKE foo.h || exit 1
+$ACLOCAL
+$AUTOMAKE -a
+$AUTOCONF
+./configure
 
-test -f foo.h || exit 1
+$MAKE foo.h
+test -f foo.h
 
-exit 0
+# We should be able to recover if foo.h is deleted.
+
+rm -f foo.h
+$MAKE foo.h
+test -f foo.h
+
+# Make distclean must not erase foo.c nor foo.h (by GNU standards) ...
+$MAKE foo.c
+test -f foo.h
+test -f foo.c
+$MAKE distclean
+test -f foo.h
+test -f foo.c
+# ... but maintainer-clean should.
+./configure
+$MAKE maintainer-clean
+test ! -f foo.h
+test ! -f foo.c
+:

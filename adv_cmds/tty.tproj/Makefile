@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = tty.c
 
-OTHERSRCS = Makefile.preamble Makefile tty.1
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble tty.1
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

@@ -12,7 +12,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclPreserve.c,v 1.1.1.3 2000/04/12 02:01:34 wsanchez Exp $
+ * RCS: @(#) $Id: tclPreserve.c,v 1.1.1.4 2003/07/22 23:11:08 landonf Exp $
  */
 
 #include "tclInt.h"
@@ -233,8 +233,7 @@ Tcl_Release(clientData)
 		refArray[i] = refArray[inUse];
 	    }
 	    if (mustFree) {
-		if ((freeProc == TCL_DYNAMIC) ||
-                        (freeProc == (Tcl_FreeProc *) free)) {
+		if (freeProc == TCL_DYNAMIC) {
 		    ckfree((char *) clientData);
 		} else {
 		    Tcl_MutexUnlock(&preserveMutex);
@@ -306,8 +305,7 @@ Tcl_EventuallyFree(clientData, freeProc)
      * No reference for this block.  Free it now.
      */
 
-    if ((freeProc == TCL_DYNAMIC)
-	    || (freeProc == (Tcl_FreeProc *) free)) {
+    if (freeProc == TCL_DYNAMIC) {
 	ckfree((char *) clientData);
     } else {
 	(*freeProc)((char *)clientData);

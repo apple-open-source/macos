@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+  <jboss>
+    <secure>false</secure>
+
+    <container-configurations>
+
+      <container-configuration extends="Standard CMP 2.x EntityBean">
+         <container-name>EntityBean_A</container-name>
+         <commit-option>A</commit-option>
+      </container-configuration>
+
+      <container-configuration extends="Standard CMP 2.x EntityBean">
+         <container-name>EntityBean_B</container-name>
+         <commit-option>B</commit-option>
+      </container-configuration>
+
+      <container-configuration extends="Standard CMP 2.x EntityBean">
+         <container-name>EntityBean_C</container-name>
+         <commit-option>C</commit-option>
+      </container-configuration>
+
+      <container-configuration extends="Standard CMP 2.x EntityBean">
+         <container-name>EntityBean_D</container-name>
+         <commit-option>D</commit-option>
+         <optiond-refresh-rate>10</optiond-refresh-rate>
+      </container-configuration>
+
+      <container-configuration extends="Instance Per Transaction CMP 2.x EntityBean">
+         <container-name>EntityBean_B_Multi</container-name>
+         <commit-option>B</commit-option>
+      </container-configuration>
+
+      <container-configuration extends="Instance Per Transaction CMP 2.x EntityBean">
+         <container-name>EntityBean_C_Multi</container-name>
+         <commit-option>C</commit-option>
+      </container-configuration>
+
+    </container-configurations>
+
+    <enterprise-beans>
+      <entity>
+	<ejb-name>EnterpriseEntity_A</ejb-name>
+	<jndi-name>EnterpriseEntity_A</jndi-name>
+	<configuration-name>EntityBean_A</configuration-name>
+      </entity>
+
+      <entity>
+	<ejb-name>EnterpriseEntity_B</ejb-name>
+	<jndi-name>EnterpriseEntity_B</jndi-name>
+	<configuration-name>EntityBean_B</configuration-name>
+      </entity>
+
+      <entity>
+	<ejb-name>EnterpriseEntity_C</ejb-name>
+	<jndi-name>EnterpriseEntity_C</jndi-name>
+	<configuration-name>EntityBean_C</configuration-name>
+      </entity>
+
+      <entity>
+	<ejb-name>EnterpriseEntity_D</ejb-name>
+	<jndi-name>EnterpriseEntity_D</jndi-name>
+	<configuration-name>EntityBean_D</configuration-name>
+      </entity>
+      <entity>
+	<ejb-name>EnterpriseEntity_B_Multi</ejb-name>
+	<jndi-name>EnterpriseEntity_B_Multi</jndi-name>
+	<configuration-name>EntityBean_B_Multi</configuration-name>
+      </entity>
+
+      <entity>
+	<ejb-name>EnterpriseEntity_C_Multi</ejb-name>
+	<jndi-name>EnterpriseEntity_C_Multi</jndi-name>
+	<configuration-name>EntityBean_C_Multi</configuration-name>
+      </entity>
+
+    </enterprise-beans>
+
+  </jboss>

@@ -1,0 +1,7 @@
+A lista %(real_name)s@%(host_name)s tem %(count)d pedido(s) à sua espera
+em:
+
+	%(adminDB)s
+	
+Por favor trate destes pedidos logo que possível. Esta nota será
+enviada diariamente, sempre que houver pedidos pendentes.

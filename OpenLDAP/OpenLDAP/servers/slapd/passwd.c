@@ -1,7 +1,7 @@
 /* bind.c - ldbm backend bind and unbind routines */
-/* $OpenLDAP: pkg/ldap/servers/slapd/passwd.c,v 1.35 2002/02/14 12:32:41 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/passwd.c,v 1.35.2.8 2003/03/03 17:10:07 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -16,6 +16,7 @@
 
 #include "slap.h"
 
+#include <lber_pvt.h>
 #include <lutil.h>
 
 int passwd_extop(
@@ -28,6 +29,7 @@ int passwd_extop(
 	const char **text,
 	BerVarray *refs )
 {
+	Backend *be;
 	int rc;
 
 	assert( reqoid != NULL );
@@ -38,28 +40,50 @@ int passwd_extop(
 		return LDAP_STRONG_AUTH_REQUIRED;
 	}
 
-	if( conn->c_authz_backend != NULL && conn->c_authz_backend->be_extended ) {
-		if( conn->c_authz_backend->be_restrictops & SLAP_RESTRICT_OP_MODIFY ) {
-			*text = "authorization database is read only";
-			rc = LDAP_UNWILLING_TO_PERFORM;
+	ldap_pvt_thread_mutex_lock( &conn->c_mutex );
+	be = conn->c_authz_backend;
+	ldap_pvt_thread_mutex_unlock( &conn->c_mutex );
 
-		} else if( conn->c_authz_backend->be_update_ndn.bv_len ) {
-			/* we SHOULD return a referral in this case */
-			*refs = referral_rewrite( conn->c_authz_backend->be_update_refs,
-				NULL, NULL, LDAP_SCOPE_DEFAULT );
+	if( be && !be->be_extended ) {
+		*text = "operation not supported for current user";
+		return LDAP_UNWILLING_TO_PERFORM;
+	}
+
+	{
+		struct berval passwd = BER_BVC( LDAP_EXOP_MODIFY_PASSWD );
+		rc = backend_check_restrictions( be, conn, op, &passwd, text );
+	}
+
+	if( rc != LDAP_SUCCESS ) {
+		return rc;
+	}
+
+	if( be == NULL ) {
+#ifdef HAVE_CYRUS_SASL
+		rc = slap_sasl_setpass( conn, op,
+			reqoid, reqdata,
+			rspoid, rspdata, rspctrls,
+			text );
+#else
+		*text = "no authz backend";
+		rc = LDAP_OTHER;
+#endif
+
+#ifndef SLAPD_MULTIMASTER
+	/* This does not apply to multi-master case */
+	} else if( be->be_update_ndn.bv_len ) {
+		/* we SHOULD return a referral in this case */
+		*refs = referral_rewrite( be->be_update_refs,
+			NULL, NULL, LDAP_SCOPE_DEFAULT );
 			rc = LDAP_REFERRAL;
-
-		} else {
-			rc = conn->c_authz_backend->be_extended(
-				conn->c_authz_backend, conn, op,
-				reqoid, reqdata,
-				rspoid, rspdata, rspctrls,
-				text, refs );
-		}
+#endif /* !SLAPD_MULTIMASTER */
 
 	} else {
-		*text = "operation not supported for current user";
-		rc = LDAP_UNWILLING_TO_PERFORM;
+		rc = be->be_extended(
+			be, conn, op,
+			reqoid, reqdata,
+			rspoid, rspdata, rspctrls,
+			text, refs );
 	}
 
 	return rc;
@@ -74,11 +98,16 @@ int slap_passwd_parse( struct berval *reqdata,
 	int rc = LDAP_SUCCESS;
 	ber_tag_t tag;
 	ber_len_t len;
-	char berbuf[256];
+	char berbuf[LBER_ELEMENT_SIZEOF];
 	BerElement *ber = (BerElement *)berbuf;
 
 	if( reqdata == NULL ) {
 		return LDAP_SUCCESS;
+	}
+
+	if( reqdata->bv_len == 0 ) {
+		*text = "empty request data field";
+		return LDAP_PROTOCOL_ERROR;
 	}
 
 	/* ber_init2 uses reqdata directly, doesn't allocate new buffers */
@@ -93,8 +122,8 @@ int slap_passwd_parse( struct berval *reqdata,
 	if( tag == LDAP_TAG_EXOP_MODIFY_PASSWD_ID ) {
 		if( id == NULL ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "operation", LDAP_LEVEL_ERR,
-				   "slap_passwd_parse: ID not allowed.\n"));
+			LDAP_LOG( OPERATION, ERR,
+			   "slap_passwd_parse: ID not allowed.\n", 0, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_TRACE, "slap_passwd_parse: ID not allowed.\n",
 				0, 0, 0 );
@@ -109,8 +138,8 @@ int slap_passwd_parse( struct berval *reqdata,
 
 		if( tag == LBER_ERROR ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "operation", LDAP_LEVEL_ERR,
-				   "slap_passwd_parse:  ID parse failed.\n"));
+			LDAP_LOG( OPERATION, ERR,
+			   "slap_passwd_parse:  ID parse failed.\n", 0, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_TRACE, "slap_passwd_parse: ID parse failed.\n",
 				0, 0, 0 );
@@ -125,8 +154,8 @@ int slap_passwd_parse( struct berval *reqdata,
 	if( tag == LDAP_TAG_EXOP_MODIFY_PASSWD_OLD ) {
 		if( oldpass == NULL ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "operation", LDAP_LEVEL_ERR,
-				   "slap_passwd_parse: OLD not allowed.\n" ));
+			LDAP_LOG( OPERATION, ERR,
+			   "slap_passwd_parse: OLD not allowed.\n" , 0, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_TRACE, "slap_passwd_parse: OLD not allowed.\n",
 				0, 0, 0 );
@@ -141,8 +170,8 @@ int slap_passwd_parse( struct berval *reqdata,
 
 		if( tag == LBER_ERROR ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "operation", LDAP_LEVEL_ERR,
-				   "slap_passwd_parse:  ID parse failed.\n" ));
+			LDAP_LOG( OPERATION, ERR,
+			   "slap_passwd_parse:  ID parse failed.\n" , 0, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_TRACE, "slap_passwd_parse: ID parse failed.\n",
 				0, 0, 0 );
@@ -151,14 +180,14 @@ int slap_passwd_parse( struct berval *reqdata,
 			goto decoding_error;
 		}
 
-		tag = ber_peek_tag( ber, &len);
+		tag = ber_peek_tag( ber, &len );
 	}
 
 	if( tag == LDAP_TAG_EXOP_MODIFY_PASSWD_NEW ) {
 		if( newpass == NULL ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "operation", LDAP_LEVEL_ERR,
-				   "slap_passwd_parse:  NEW not allowed.\n" ));
+			LDAP_LOG( OPERATION, ERR,
+			   "slap_passwd_parse:  NEW not allowed.\n", 0, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_TRACE, "slap_passwd_parse: NEW not allowed.\n",
 				0, 0, 0 );
@@ -173,8 +202,8 @@ int slap_passwd_parse( struct berval *reqdata,
 
 		if( tag == LBER_ERROR ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "operation", LDAP_LEVEL_ERR,
-				   "slap_passwd_parse:  OLD parse failed.\n"));
+			LDAP_LOG( OPERATION, ERR,
+			   "slap_passwd_parse:  OLD parse failed.\n", 0, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_TRACE, "slap_passwd_parse: OLD parse failed.\n",
 				0, 0, 0 );
@@ -189,14 +218,13 @@ int slap_passwd_parse( struct berval *reqdata,
 	if( len != 0 ) {
 decoding_error:
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_ERR,
-			   "slap_passwd_parse: decoding error, len=%ld\n", (long)len ));
+		LDAP_LOG( OPERATION, ERR, 
+			"slap_passwd_parse: decoding error, len=%ld\n", (long)len, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_TRACE,
 			"slap_passwd_parse: decoding error, len=%ld\n",
 			(long) len, 0, 0 );
 #endif
-
 
 		*text = "data decoding error";
 		rc = LDAP_PROTOCOL_ERROR;
@@ -211,15 +239,15 @@ struct berval * slap_passwd_return(
 {
 	int rc;
 	struct berval *bv = NULL;
-	char berbuf[256];
+	char berbuf[LBER_ELEMENT_SIZEOF];
 	/* opaque structure, size unknown but smaller than berbuf */
 	BerElement *ber = (BerElement *)berbuf;
 
 	assert( cred != NULL );
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "operation", LDAP_LEVEL_ENTRY,
-		   "slap_passwd_return: %ld\n",(long)cred->bv_len ));
+	LDAP_LOG( OPERATION, ENTRY, 
+		"slap_passwd_return: %ld\n",(long)cred->bv_len, 0, 0 );
 #else
 	Debug( LDAP_DEBUG_TRACE, "slap_passwd_return: %ld\n",
 		(long) cred->bv_len, 0, 0 );
@@ -277,8 +305,7 @@ slap_passwd_generate( struct berval *pass )
 {
 	struct berval *tmp;
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "operation", LDAP_LEVEL_ENTRY,
-		   "slap_passwd_generate: begin\n" ));
+	LDAP_LOG( OPERATION, ENTRY, "slap_passwd_generate: begin\n", 0, 0, 0 );
 #else
 	Debug( LDAP_DEBUG_TRACE, "slap_passwd_generate\n", 0, 0, 0 );
 #endif
@@ -318,8 +345,13 @@ slap_passwd_hash(
 #if defined( SLAPD_CRYPT ) || defined( SLAPD_SPASSWD )
 	ldap_pvt_thread_mutex_unlock( &passwd_mutex );
 #endif
+
+	if( tmp == NULL ) {
+		new->bv_len = 0;
+		new->bv_val = NULL;
+	}
+
 	*new = *tmp;
 	free( tmp );
-
 	return;
 }

@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +21,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 #include <libkern/OSByteOrder.h>
 
 extern "C" {
@@ -89,9 +89,13 @@ AppleUSBOHCI::CreateGeneralTransfer(
 
     // 5-14-02 JRH
     // 2905718
-    // before we do anything, check to make sure that the endpoint is not halted. if it is, return an immediate error
-    if (USBToHostLong(queue->pShared->tdQueueHeadPtr) & kOHCIHeadPointer_H)
+    // before we do anything, check to make sure that the endpoint is not halted. if it is, return an immediate error.
+    // 4-2-03 FAU
+    // Don't do this for a control transaction to endpoint 0
+    //
+    if ( (USBToHostLong(queue->pShared->tdQueueHeadPtr) & kOHCIHeadPointer_H) && !( (type == kOHCIControlSetupType) && ( ((USBToHostLong(queue->pShared->flags) & kOHCIEDControl_EN) >> kOHCIEDControl_ENPhase) == 0 )) )
     {
+        
         USBError(1, "%s[%p]::CreateGeneralTransfer - trying to queue to a stalled pipe", getName(), this);
         status = kIOUSBPipeStalled;
     }

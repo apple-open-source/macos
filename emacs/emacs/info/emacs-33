@@ -1,7 +1,8 @@
-This is ../info/emacs, produced by makeinfo version 4.0 from emacs.texi.
+This is ../info/emacs, produced by makeinfo version 4.0f from
+emacs.texi.
 
    This is the Fourteenth edition of the `GNU Emacs Manual', updated
-for Emacs version 21.1.
+for Emacs version 21.2.
 
 INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
@@ -11,9 +12,9 @@ END-INFO-DIR-ENTRY
    Published by the Free Software Foundation 59 Temple Place, Suite 330
 Boston, MA  02111-1307 USA
 
-   Copyright (C) 1985,
-1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001    Free Software
-Foundation, Inc.
+   Copyright (C)
+1985,1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001,2002
+Free Software Foundation, Inc.
 
    Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.1 or
@@ -76,8 +77,8 @@ Key (Character) Index
 * > (Rmail):                             Rmail Motion.
 * ^ (Dired):                             Dired Visiting.
 * a (Calendar mode):                     Holidays.
-* a (Dired):                             Dired Visiting.
 * A (Dired):                             Operating on Files.
+* a (Dired):                             Dired Visiting.
 * a (Rmail):                             Rmail Labels.
 * B (Dired):                             Operating on Files.
 * b (Rmail):                             Rmail Basics.
@@ -100,10 +101,10 @@ Key (Character) Index
 * C-c ' (Picture mode):                  Insert in Picture.
 * C-c . (Picture mode):                  Insert in Picture.
 * C-c / (Picture mode):                  Insert in Picture.
-* C-c : (C mode):                        Electric C.
 * C-c ; (Fortran mode):                  Fortran Comments.
 * C-c < (GUD):                           Commands of GUD.
 * C-c < (Picture mode):                  Insert in Picture.
+* C-c <colon> (C mode):                  Electric C.
 * C-c > (GUD):                           Commands of GUD.
 * C-c > (Picture mode):                  Insert in Picture.
 * C-c @ (Outline minor mode):            Outline Mode.
@@ -238,14 +239,14 @@ Key (Character) Index
 * C-h C-k:                               Misc Help.
 * C-h C-p:                               Misc Help.
 * C-h C-w:                               Misc Help.
-* C-h f:                                 Name Help.
 * C-h F:                                 Misc Help.
+* C-h f:                                 Name Help.
 * C-h h:                                 International Chars.
-* C-h i:                                 Misc Help.
 * C-h I:                                 Select Input Method.
+* C-h i:                                 Misc Help.
 * C-h k:                                 Key Help.
-* C-h l:                                 Misc Help.
 * C-h L:                                 Language Environments.
+* C-h l:                                 Misc Help.
 * C-h m:                                 Misc Help.
 * C-h n:                                 Misc Help.
 * C-h P:                                 Misc Help.
@@ -306,8 +307,8 @@ Key (Character) Index
 * C-Mouse-1:                             Menu Mouse Clicks.
 * C-Mouse-2:                             Menu Mouse Clicks.
 * C-mouse-2 (mode line):                 Mode Line Mouse.
-* C-Mouse-2 (scroll bar) <1>:            Split Window.
-* C-Mouse-2 (scroll bar):                Mode Line Mouse.
+* C-Mouse-2 (scroll bar) <1>:            Mode Line Mouse.
+* C-Mouse-2 (scroll bar):                Split Window.
 * C-Mouse-3:                             Menu Mouse Clicks.
 * C-Mouse-3 (when menu bar is disabled): Menu Bars.
 * C-n:                                   Moving Point.
@@ -464,8 +465,8 @@ Key (Character) Index
 * C-x RET k:                             Specify Coding.
 * C-x RET p:                             Specify Coding.
 * C-x RET t:                             Specify Coding.
-* C-x RET x:                             Specify Coding.
 * C-x RET X:                             Specify Coding.
+* C-x RET x:                             Specify Coding.
 * C-x s:                                 Saving.
 * C-x SPC:                               Commands of GUD.
 * C-x TAB:                               Indentation Commands.
@@ -525,8 +526,8 @@ Key (Character) Index
 * F2 d:                                  Two-Column.
 * F2 RET:                                Two-Column.
 * F2 s:                                  Two-Column.
-* G (Dired):                             Operating on Files.
 * g (Dired):                             Dired Updating.
+* G (Dired):                             Operating on Files.
 * g (Rmail):                             Rmail Files.
 * g CHAR (Calendar mode):                From Other Calendar.
 * g d (Calendar mode):                   Specified Dates.
@@ -548,14 +549,14 @@ Key (Character) Index
 * j (Rmail):                             Rmail Motion.
 * k (Dired):                             Dired Updating.
 * k (Rmail):                             Rmail Labels.
-* L (Dired):                             Operating on Files.
 * l (Dired):                             Dired Updating.
-* L (Gnus Group mode):                   Summary of Gnus.
+* L (Dired):                             Operating on Files.
 * l (Gnus Group mode):                   Summary of Gnus.
+* L (Gnus Group mode):                   Summary of Gnus.
 * l (Rmail):                             Rmail Make Summary.
 * LEFT:                                  Moving Point.
-* M (Calendar mode):                     Lunar Phases.
 * m (Calendar mode):                     Diary Commands.
+* M (Calendar mode):                     Lunar Phases.
 * M (Dired):                             Operating on Files.
 * m (Dired):                             Marks vs Flags.
 * m (Rmail):                             Rmail Reply.
@@ -573,10 +574,10 @@ Key (Character) Index
 * M-.:                                   Find Tag.
 * M-/:                                   Dynamic Abbrevs.
 * M-1:                                   Arguments.
-* M-::                                   Lisp Eval.
 * M-;:                                   Comment Commands.
 * M-<:                                   Moving Point.
 * M-< (Calendar mode):                   Move to Beginning or End.
+* M-<colon>:                             Lisp Eval.
 * M-=:                                   Position Info.
 * M-= (Calendar mode):                   Counting Days.
 * M-= (Dired):                           Comparison in Dired.
@@ -670,8 +671,8 @@ Key (Character) Index
 * n (Rmail):                             Rmail Motion.
 * NEXT:                                  Scrolling.
 * o (Calendar mode):                     Specified Dates.
-* o (Dired):                             Dired Visiting.
 * O (Dired):                             Operating on Files.
+* o (Dired):                             Dired Visiting.
 * o (Rmail):                             Rmail Output.
 * p (Calendar mode):                     To Other Calendar.
 * P (Dired):                             Operating on Files.
@@ -694,10 +695,10 @@ Key (Character) Index
 * RET (Occur mode):                      Other Repeating Search.
 * RET (Shell mode):                      Shell Mode.
 * RIGHT:                                 Moving Point.
-* S (Calendar mode):                     Sunrise/Sunset.
 * s (Calendar mode):                     Diary Commands.
-* S (Dired):                             Operating on Files.
+* S (Calendar mode):                     Sunrise/Sunset.
 * s (Dired):                             Dired Updating.
+* S (Dired):                             Operating on Files.
 * s (Gnus Summary mode):                 Summary of Gnus.
 * s (Rmail):                             Rmail Basics.
 * S-<TAB> (Help mode):                   Help Mode.
@@ -794,7 +795,7 @@ Command-Line Options Index
 * -q:                                    Initial Options.
 * -r:                                    Colors X.
 * -rv:                                   Colors X.
-* -t:                                    Initial Options.
 * -T:                                    Title X.
+* -t:                                    Initial Options.
 * -u:                                    Initial Options.
 

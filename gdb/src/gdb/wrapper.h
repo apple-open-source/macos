@@ -19,6 +19,7 @@
 #ifndef WRAPPER_H
 #define WRAPPER_H 1
 #include "gdb.h"
+#include "varobj.h"
 
 struct value;
 
@@ -29,6 +30,10 @@ extern int gdb_parse_exp_1 (char **, struct block *,
 			    int, struct expression **);
 
 extern int gdb_evaluate_expression (struct expression *, struct value **);
+
+extern int gdb_print_expression (struct expression *, struct ui_file *);
+
+extern int gdb_evaluate_type (struct expression *exp, struct value **value);
 
 extern int gdb_value_fetch_lazy (struct value *);
 
@@ -44,9 +49,14 @@ extern enum gdb_rc gdb_value_struct_elt (struct ui_out *uiout, struct value **re
 
 extern int gdb_value_ind (struct value *val, struct value ** rval);
 
+extern int
+gdb_value_cast (struct type *type, struct value *in_val, struct value **out_val);
+
 extern int gdb_parse_and_eval_type (char *, int, struct type **);
 
 int gdb_varobj_get_value (struct varobj *val1, char **result);
+
+int safe_value_objc_target_type (struct value *val, struct type **dynamic_type);
 
 extern int safe_execute_command (char *command, int from_tty);
 #endif /* WRAPPER_H */

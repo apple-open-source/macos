@@ -30,15 +30,16 @@
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/missing/strlcpy.c,v 1.1.1.1 2001/07/07 00:50:55 bbraun Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/missing/strlcpy.c,v 1.1.1.2 2003/03/17 18:42:21 rbraun Exp $ (LBL)";
 #endif
 
+#ifdef HAVE_CONFIG_H 
 #include <config.h>
+#endif
 
-#include <sys/types.h>
+#include <tcpdump-stdinc.h>
+
 #include <string.h>
-
-#include "interface.h"
 
 /*
  * Copy src to string dst of size siz.  At most siz-1 characters
@@ -46,10 +47,7 @@ static const char rcsid[] =
  * Returns strlen(src); if retval >= siz, truncation occurred.
  */
 size_t
-strlcpy(dst, src, siz)
-	char *dst;
-	const char *src;
-	size_t siz;
+strlcpy(char *dst, const char *src, size_t siz)
 {
 	register char *d = dst;
 	register const char *s = src;

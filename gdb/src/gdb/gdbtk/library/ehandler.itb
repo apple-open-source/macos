@@ -17,7 +17,7 @@
 #                 method to call is stored in the event's
 #                 "handler" method.                  
 # ------------------------------------------------------------
-body GDBEventHandler::dispatch {event} {
+itcl::body GDBEventHandler::dispatch {event} {
 
   set handler [$event handler]
 

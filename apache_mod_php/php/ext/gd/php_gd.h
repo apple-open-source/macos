@@ -1,8 +1,8 @@
-/* 
+/*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,12 +12,12 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
-   |          Stig Bakken <ssb@guardian.no>                               |
+   | Authors: Rasmus Lerdorf <rasmus@php.net>                             |
+   |          Stig Bakken <ssb@fast.no>                                   |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_gd.h,v 1.1.1.5 2001/12/14 22:12:21 zarzycki Exp $ */
+/* $Id: php_gd.h,v 1.1.1.8 2003/07/18 18:07:32 zarzycki Exp $ */
 
 #ifndef PHP_GD_H
 #define PHP_GD_H
@@ -29,12 +29,6 @@
 #endif
 
 #if HAVE_LIBGD
-
-#include <gd.h>
-
-#if HAVE_LIBT1
-#include "gdt1.h"
-#endif
 
 #define PHP_GDIMG_TYPE_GIF      1
 #define PHP_GDIMG_TYPE_PNG      2
@@ -64,13 +58,16 @@ extern zend_module_entry gd_module_entry;
 PHP_MINFO_FUNCTION(gd);
 PHP_MINIT_FUNCTION(gd);
 PHP_MSHUTDOWN_FUNCTION(gd);
-
-#ifndef HAVE_GDIMAGECOLORRESOLVE
-static int gdImageColorResolve(gdImagePtr, int, int, int);
+#if HAVE_LIBGD20 && HAVE_GD_STRINGFT
+PHP_RSHUTDOWN_FUNCTION(gd);
 #endif
+
+PHP_FUNCTION(gd_info);
 PHP_FUNCTION(imagearc);
+PHP_FUNCTION(imageellipse);
 PHP_FUNCTION(imagechar);
 PHP_FUNCTION(imagecharup);
+PHP_FUNCTION(imageistruecolor);
 PHP_FUNCTION(imagecolorallocate);
 PHP_FUNCTION(imagepalettecopy);
 PHP_FUNCTION(imagecolorat);
@@ -91,19 +88,27 @@ PHP_FUNCTION(imagecreate);
 PHP_FUNCTION(imageftbbox);
 PHP_FUNCTION(imagefttext);
 
+#ifdef HAVE_LIBGD20
 PHP_FUNCTION(imagecreatetruecolor);
 PHP_FUNCTION(imagetruecolortopalette);
 PHP_FUNCTION(imagesetthickness);
-PHP_FUNCTION(imageellipse);
 PHP_FUNCTION(imagefilledellipse);
 PHP_FUNCTION(imagefilledarc);
 PHP_FUNCTION(imagealphablending);
+PHP_FUNCTION(imagesavealpha);
+PHP_FUNCTION(imagecolorallocatealpha);
 PHP_FUNCTION(imagecolorresolvealpha);
 PHP_FUNCTION(imagecolorclosestalpha);
 PHP_FUNCTION(imagecolorexactalpha);
 PHP_FUNCTION(imagecopyresampled);
+#endif
+
+#ifdef HAVE_GD_BUNDLED
+PHP_FUNCTION(imagerotate);
+PHP_FUNCTION(imageantialias);
+#endif
+
 PHP_FUNCTION(imagesetthickness);
-PHP_FUNCTION(imagesettile);
 PHP_FUNCTION(imagecopymergegray);
 PHP_FUNCTION(imagesetbrush);
 PHP_FUNCTION(imagesettile);
@@ -113,12 +118,14 @@ PHP_FUNCTION(imagecreatefromstring);
 PHP_FUNCTION(imagecreatefromgif);
 PHP_FUNCTION(imagecreatefromjpeg);
 PHP_FUNCTION(imagecreatefromxbm);
-PHP_FUNCTION(imagecreatefromxpm);
 PHP_FUNCTION(imagecreatefrompng);
 PHP_FUNCTION(imagecreatefromwbmp);
 PHP_FUNCTION(imagecreatefromgd);
 PHP_FUNCTION(imagecreatefromgd2);
 PHP_FUNCTION(imagecreatefromgd2part);
+#if defined(HAVE_GD_XPM) && defined(HAVE_GD_BUNDLED)
+PHP_FUNCTION(imagecreatefromxpm);
+#endif
 
 PHP_FUNCTION(imagegammacorrect);
 PHP_FUNCTION(imagedestroy);
@@ -164,12 +171,13 @@ PHP_FUNCTION(jpeg2wbmp);
 PHP_FUNCTION(png2wbmp);
 PHP_FUNCTION(image2wbmp);
 
-PHP_GD_API int phpi_get_le_gd(void);
-
-/* This is missing from gd.h */
-#if HAVE_COLORCLOSESTHWB
-int gdImageColorClosestHWB(gdImagePtr im, int r, int g, int b);
+#if HAVE_GD_BUNDLED
+PHP_FUNCTION(imagelayereffect);
+PHP_FUNCTION(imagecolormatch);
+PHP_FUNCTION(imagefilter);
 #endif
+
+PHP_GD_API int phpi_get_le_gd(void);
 
 #else
 

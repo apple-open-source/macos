@@ -33,6 +33,12 @@ Crypt::Crypt(const CSP &csp, CSSM_ALGORITHMS alg) : Context(csp, alg)
 	mPadding = CSSM_PADDING_NONE;
 }
 
+void Crypt::key(const Key &key)
+{
+	mKey = key;
+	set(CSSM_ATTRIBUTE_KEY, static_cast<const CssmKey &>(key));
+}
+
 void
 Crypt::activate()
 {

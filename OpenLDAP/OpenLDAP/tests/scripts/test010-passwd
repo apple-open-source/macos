@@ -1,5 +1,5 @@
 #! /bin/sh
-# $OpenLDAP: pkg/ldap/tests/scripts/test010-passwd,v 1.9 2002/01/21 05:35:04 kurt Exp $
+# $OpenLDAP: pkg/ldap/tests/scripts/test010-passwd,v 1.9.2.3 2002/09/01 22:02:30 kurt Exp $
 
 SRCDIR="."
 if test $# -ge 1 ; then
@@ -8,6 +8,10 @@ fi
 BACKEND=bdb
 if test $# -ge 1 ; then
 	BACKEND=$1; shift
+fi
+MONITORDB=no
+if test $# -ge 1 ; then
+	MONITORDB=$1; shift
 fi
 WAIT=0
 if test $# -ge 1 ; then
@@ -22,7 +26,7 @@ echo "Cleaning up in $DBDIR..."
 rm -f $DBDIR/[!C]*
 
 echo "Starting slapd on TCP/IP port $PORT..."
-. $CONFFILTER $BACKEND < $PWCONF > $DBCONF
+. $CONFFILTER $BACKEND $MONITORDB < $PWCONF > $DBCONF
 $SLAPD -f $DBCONF -h $MASTERURI -d $LVL $TIMING > $MASTERLOG 2>&1 &
 PID=$!
 if test $WAIT != 0 ; then
@@ -35,10 +39,11 @@ for i in 0 1 2 3 4 5; do
 	$LDAPSEARCH -s base -b "$MONITOR" -h $LOCALHOST -p $PORT \
 		'objectclass=*' > /dev/null 2>&1
 	RC=$?
-	if test $RC = 1 ; then
-		echo "Waiting 5 seconds for slapd to start..."
-		sleep 5
+	if test $RC = 0 ; then
+		break
 	fi
+	echo "Waiting 5 seconds for slapd to start..."
+	sleep 5
 done
 
 echo "Using ldapadd to populate the database..."
@@ -74,7 +79,8 @@ if test $RC != 0 ; then
 fi
 $LDAPPASSWD -h $LOCALHOST -p $PORT \
 	-w $PASSWD -s newsecret \
-	-D $MANAGERDN "cn=smd5, $BASEDN" >> $TESTOUT 2>&1
+	-D "$MANAGERDN" "cn=smd5, $BASEDN" >> $TESTOUT 2>&1
+RC=$?
 if test $RC != 0 ; then
 	echo "ldappasswd failed ($RC)!"
 	kill -HUP $PID
@@ -83,6 +89,7 @@ fi
 $LDAPPASSWD -h $LOCALHOST -p $PORT \
 	-w secret -s newsecret \
 	-D "cn=sha, $BASEDN" >> $TESTOUT 2>&1
+RC=$?
 if test $RC != 0 ; then
 	echo "ldappasswd failed ($RC)!"
 	kill -HUP $PID
@@ -91,6 +98,7 @@ fi
 $LDAPPASSWD -h $LOCALHOST -p $PORT \
 	-w secret -s newsecret \
 	-D "cn=ssha, $BASEDN" >> $TESTOUT 2>&1
+RC=$?
 if test $RC != 0 ; then
 	echo "ldappasswd failed ($RC)!"
 	kill -HUP $PID
@@ -103,6 +111,7 @@ echo "Using ldappasswd (PASS 2)  ..."
 $LDAPPASSWD -h $LOCALHOST -p $PORT \
 	-w newsecret \
 	-D "cn=md5, $BASEDN" >> $TESTOUT 2>&1
+RC=$?
 if test $RC != 0 ; then
 	echo "ldappasswd failed ($RC)!"
 	kill -HUP $PID
@@ -111,6 +120,7 @@ fi
 $LDAPPASSWD -h $LOCALHOST -p $PORT \
 	-w newsecret \
 	-D "cn=smd5, $BASEDN" >> $TESTOUT 2>&1
+RC=$?
 if test $RC != 0 ; then
 	echo "ldappasswd failed ($RC)!"
 	kill -HUP $PID
@@ -119,6 +129,7 @@ fi
 $LDAPPASSWD -h $LOCALHOST -p $PORT \
 	-w newsecret \
 	-D "cn=sha, $BASEDN" >> $TESTOUT 2>&1
+RC=$?
 if test $RC != 0 ; then
 	echo "ldappasswd failed ($RC)!"
 	kill -HUP $PID
@@ -127,6 +138,7 @@ fi
 $LDAPPASSWD -h $LOCALHOST -p $PORT \
 	-w newsecret \
 	-D "cn=ssha, $BASEDN" >> $TESTOUT 2>&1
+RC=$?
 if test $RC != 0 ; then
 	echo "ldappasswd failed ($RC)!"
 	kill -HUP $PID

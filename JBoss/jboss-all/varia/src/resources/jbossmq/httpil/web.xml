@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE web-app
+    PUBLIC "-//Sun Microsystems, Inc.//DTD Web Application 2.3//EN"
+    "http://java.sun.com/dtd/web-app_2_3.dtd">
+
+<web-app>
+  <servlet>
+    <servlet-name>HTTPServerILServlet</servlet-name>
+    <display-name>JBossMQ HTTP-IL Servlet</display-name>
+    <description>Provides and HTTP invocation layer for JBossMQ</description>
+    <servlet-class>org.jboss.mq.il.http.servlet.HTTPServerILServlet</servlet-class>
+    <init-param>
+        <param-name>Invoker</param-name> 
+        <param-value>jboss.mq:service=Invoker</param-value> 
+     </init-param>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>HTTPServerILServlet</servlet-name>
+    <url-pattern>/HTTPServerILServlet/*</url-pattern>
+  </servlet-mapping>
+
+  <!-- Alternate mappings that place the servlets under the restricted
+    path to required authentication for access. Remove the unsecure mappings
+    if only authenticated users should be allowed.
+    -->
+  <servlet-mapping>
+    <servlet-name>HTTPServerILServlet</servlet-name>
+    <url-pattern>/restricted/HTTPServerILServlet/*</url-pattern>
+  </servlet-mapping>
+
+   <!-- An example security constraint that restricts access to the HTTP invoker
+   to users with the role HttpInvoker Edit the roles to what you want and
+   configure the WEB-INF/jboss-web.xml/security-domain element to reference
+   the security domain you want.
+   -->
+   <security-constraint>
+      <web-resource-collection>
+         <web-resource-name>HTTPServerILServlet</web-resource-name>
+         <description>An example security config that only allows users with the
+            role JBossMqHttpIl to access the HTTP-IL servlet
+         </description>
+         <url-pattern>/restricted/*</url-pattern>
+         <http-method>GET</http-method>
+         <http-method>POST</http-method>
+      </web-resource-collection>
+      <auth-constraint>
+         <role-name>JBossMqHttpIl</role-name>
+      </auth-constraint>
+   </security-constraint>
+   <login-config>
+      <auth-method>BASIC</auth-method>
+      <realm-name>JBossMQ HTTP-IL</realm-name>
+   </login-config>
+
+   <security-role>
+      <role-name>JBossMqHttpIl</role-name>
+   </security-role>
+  
+
+</web-app>

@@ -55,7 +55,7 @@ fields on each line are separated by tabs or spaces.
 The order of records in
 .Nm fstab
 is important because
-.Xr autodiskmount 8 ,
+.Xr diskarbitrationd 8 ,
 .Xr fsck 8 ,
 .Xr mount 8 ,
 and
@@ -68,7 +68,7 @@ The first field,
 .Pq Fa fs_spec ,
 describes the block special device, the local filesystem, or
 the remote filesystem to be mounted.  The
-.Xr autodiskmount 8
+.Xr diskarbitrationd
 program supports the identification of a local filesystem uniquely by its
 UUID or by its volume name, irrespective of hardware configuration and of
 hardware parallelism, using the constructs ``UUID'' and ``LABEL''.
@@ -85,8 +85,6 @@ The system currently supports these types of filesystems:
 .Bl -tag -width indent -offset indent
 .It Em ufs 
 a local UNIX filesystem
-.It Em mfs 
-a local memory-based UNIX filesystem
 .It Em nfs 
 a Sun Microsystems compatible ``Network File System''
 .It Em swap 
@@ -208,8 +206,8 @@ resides in
 .Pa /etc .
 .El
 .Sh SEE ALSO
-.Xr autodiskmount 8 ,
-.Xr getfsent 3
+.Xr getfsent 3 ,
+.Xr diskarbitrationd 8
 .Sh HISTORY
 The
 .Nm

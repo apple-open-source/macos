@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE jbosscmp-jdbc PUBLIC "-//JBoss//DTD JBOSSCMP-JDBC 3.2//EN" "http://www.jboss.org/j2ee/dtd/jbosscmp-jdbc_3_2.dtd">
+
+<jbosscmp-jdbc>
+   <defaults>
+     <datasource>java:/DefaultDS</datasource>
+     <datasource-mapping>Hypersonic SQL</datasource-mapping>
+   </defaults>
+
+   <enterprise-beans>
+
+      <entity>
+         <ejb-name>EntityGroupLocking</ejb-name>
+         <create-table>true</create-table>
+         <remove-table>true</remove-table>
+         <table-name>entitygrouplocking</table-name>
+         <cmp-field>
+            <field-name>dateField</field-name>
+         </cmp-field>
+         <cmp-field>
+            <field-name>integerField</field-name>
+         </cmp-field>
+         <cmp-field>
+            <field-name>stringField</field-name>
+         </cmp-field>
+
+         <load-groups>
+            <load-group>
+               <load-group-name>string</load-group-name>
+               <field-name>stringField</field-name>
+            </load-group>
+            <load-group>
+               <load-group-name>all</load-group-name>
+               <field-name>stringField</field-name>
+               <field-name>dateField</field-name>
+            </load-group>
+         </load-groups>
+
+         <optimistic-locking>
+            <group-name>string</group-name>
+         </optimistic-locking>
+      </entity>
+
+      <entity>
+         <ejb-name>EntityModifiedLocking</ejb-name>
+         <create-table>true</create-table>
+         <remove-table>true</remove-table>
+         <table-name>entitymodifiedlocking</table-name>
+         <cmp-field>
+            <field-name>dateField</field-name>
+         </cmp-field>
+         <cmp-field>
+            <field-name>integerField</field-name>
+         </cmp-field>
+         <cmp-field>
+            <field-name>stringField</field-name>
+         </cmp-field>
+
+         <optimistic-locking>
+            <modified-strategy/>
+         </optimistic-locking>
+      </entity>
+
+      <entity>
+         <ejb-name>EntityReadLocking</ejb-name>
+         <create-table>true</create-table>
+         <remove-table>true</remove-table>
+         <table-name>entityreadlocking</table-name>
+         <cmp-field>
+            <field-name>dateField</field-name>
+         </cmp-field>
+         <cmp-field>
+            <field-name>integerField</field-name>
+         </cmp-field>
+         <cmp-field>
+            <field-name>stringField</field-name>
+         </cmp-field>
+
+         <optimistic-locking>
+            <read-strategy/>
+         </optimistic-locking>
+      </entity>
+
+      <entity>
+         <ejb-name>EntityVersionLocking</ejb-name>
+         <create-table>true</create-table>
+         <remove-table>true</remove-table>
+         <table-name>entityversionlocking</table-name>
+         <cmp-field>
+            <field-name>dateField</field-name>
+         </cmp-field>
+         <cmp-field>
+            <field-name>integerField</field-name>
+         </cmp-field>
+         <cmp-field>
+            <field-name>stringField</field-name>
+         </cmp-field>
+
+         <optimistic-locking>
+            <version-column/>
+            <field-name>versionField</field-name>
+            <column-name>ol_version</column-name>
+            <jdbc-type>INTEGER</jdbc-type>
+            <sql-type>INTEGER(5)</sql-type>
+         </optimistic-locking>
+      </entity>
+
+      <entity>
+         <ejb-name>EntityTimestampLocking</ejb-name>
+         <create-table>true</create-table>
+         <remove-table>true</remove-table>
+         <table-name>entitytimestamplocking</table-name>
+         <cmp-field>
+            <field-name>dateField</field-name>
+         </cmp-field>
+         <cmp-field>
+            <field-name>integerField</field-name>
+         </cmp-field>
+         <cmp-field>
+            <field-name>stringField</field-name>
+         </cmp-field>
+
+         <optimistic-locking>
+            <timestamp-column/>
+            <field-name>versionField</field-name>
+            <column-name>ol_timestamp</column-name>
+            <jdbc-type>TIMESTAMP</jdbc-type>
+            <sql-type>DATETIME</sql-type>
+         </optimistic-locking>
+      </entity>
+
+      <entity>
+         <ejb-name>EntityKeyGeneratorLocking</ejb-name>
+         <create-table>true</create-table>
+         <remove-table>true</remove-table>
+         <table-name>entitykeygenlocking</table-name>
+         <cmp-field>
+            <field-name>dateField</field-name>
+         </cmp-field>
+         <cmp-field>
+            <field-name>integerField</field-name>
+         </cmp-field>
+         <cmp-field>
+            <field-name>stringField</field-name>
+         </cmp-field>
+
+         <optimistic-locking>
+            <key-generator-factory>UUIDKeyGeneratorFactory</key-generator-factory>
+            <field-type>java.lang.String</field-type>
+            <field-name>uuidField</field-name>
+            <column-name>ol_uuid</column-name>
+            <jdbc-type>VARCHAR</jdbc-type>
+            <sql-type>VARCHAR(32)</sql-type>
+         </optimistic-locking>
+      </entity>
+
+   </enterprise-beans>
+
+</jbosscmp-jdbc>
+

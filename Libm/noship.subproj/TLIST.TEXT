@@ -2,25 +2,15 @@
 ! Run everything in sight, except as noted.
 !
 ../noship.subproj/vectors/TVadd.3.TEXT
-
 !../noship.subproj/vectors/TVann.text
-! tests 4{OPQTRUXYZ}, no case 'Z': in harness
-
 !../noship.subproj/vectors/TVAnnuity.3.TEXT
-! no case 'Z': in harness
-
 ../noship.subproj/vectors/TVasinacos.3.TEXT
 ../noship.subproj/vectors/TVatan2.3.TEXT
 ../noship.subproj/vectors/TVB2D2B.TEXT
 ../noship.subproj/vectors/TVceil.3.TEXT
 ../noship.subproj/vectors/TVcompare.3.TEXT
-
 !../noship.subproj/vectors/TVCompound1.3.TEXT
-! no case 'Y': in harness
-
 !../noship.subproj/vectors/TVCompound2.3.TEXT
-! no case 'Y': in harness
-
 ../noship.subproj/vectors/TVcopysign.3.TEXT
 ../noship.subproj/vectors/TVdivide.3.TEXT
 
@@ -87,4 +77,4 @@
 ../noship.subproj/vectors/TanhVecs.text
 
 ! Take vectors from the vector generator server
-!U17.202.45.142
+!U17.202.41.168

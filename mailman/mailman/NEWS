@@ -1,0 +1,2165 @@
+Mailman - The GNU Mailing List Management System
+Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+
+Here is a history of user visible changes to Mailman.
+
+2.1.2 (22-Apr-2003)
+
+    - New languages Portuguese (Portugal) and Polish.
+
+    - Many convenient constants have been added to the Defaults.py
+      module to (hopefully) make it more readable.
+
+    - Email addresses which contain 8-bit characters in them are now
+      rejected and won't be subscribed.  This is not the same as 8-bit
+      characters in the realname, which is still allowed.
+
+    - The X-Originating-Email header is removed for anonymous lists.
+      Hotmail apparently adds this header.
+
+    - When running make to build Mailman, you can specify $DESTDIR to
+      the install target to specify an alternative location for
+      installation, without influencing the paths stored in
+      e.g. Defaults.py.  This is useful to package managers.
+
+    - New Defaults.py variable DELIVERY_RETRY_WAIT which controls how
+      long the outgoing qrunner will wait before it retries a
+      tempfailure delivery.
+
+    - The semantics for the extend.py hook to MailList objects has
+      changed slightly.  The hook is now called before attempting to
+      lock and load the database.
+
+    - Mailman now uses the email package version 2.5.1
+
+    - bin/transcheck now checks for double-%'s
+
+    - bin/genaliases grew a -q / --quiet flag
+
+    - cron/checkdbs grew a -h / --help option.
+
+    - The -c / --change-msg option has been removed from bin/add_members
+
+    - bin/msgfmt.py has been added, taken from Python 2.3's Tools/i18n
+      directory.  The various .mo files are now no longer distributed
+      with Mailman.  They are generated at build time instead.
+
+    - A new file misc/sitelist.cfg which can be used with
+      bin/config_list provides a small number of recommended settings
+      for your site list.  Be sure to read it over before applying!
+      sitelist.cfg is installed into the data directory.
+
+    - Many bug fixes, including these SourceForge bugs closed and
+      patches applied: 677668, 690448, 700538, 700537, 673294, 683906,
+      671294, 522080, 521124, 534297, 699900, 697321, 695526, 703941,
+      658261, 710678, 707608, 671303, 717096, 694912, 707624, 716755,
+      661138, 716754, 716702, 667167, 725369, 726415
+
+
+2.1.1 (08-Feb-2003)
+
+    Lots of bug fixes and language updates.  Also:
+
+    - Closed a cross-site scripting vulnerability in the user options page.
+
+    - Restore the ability to control which headers show up in messages
+      included in plaintext and MIME digests.  See the variables
+      PLAIN_DIGEST_KEEP_HEADERS and MIME_DIGEST_KEEP_HEADERS in
+      Defaults.py.
+
+    - Messages included in the plaintext digests are now sent through
+      the scrubber to remove (and archive) attachments.  Otherwise,
+      attachments would screw up plaintext digests.  MIME digests
+      include the attachments inline.
+
+2.1 final (30-Dec-2002)
+
+    Last minute bug fixes and language updates.
+
+2.1 rc 1 (24-Dec-2002)
+
+    Bug fixes and language updates.  Also,
+
+    - Lithuanian support has been added.
+
+    - bin/remove_members grew --nouserack and --noadminack switches
+
+    - configure now honors --srcdir
+
+2.1 beta 6 (09-Dec-2002)
+
+    Lots and lots of bug fixes, and translation updates.  Also,
+
+    - ARCHIVER_OBSCURES_EMAILADDRS is now set to true by default.
+
+    - QRUNNER_SAVE_BAD_MESSAGES is now set to true by default.
+
+    - Bounce messages which were recognized, but in which no member
+      addresses were found are no longer forwarded to the list
+      administrator.
+
+    - bin/arch grew a --wipe option which first removes the entire old
+      archive before regenerating the new one.
+
+    - bin/mailmanctl -u now prints a warning that permission problems
+      could appear, such as when trying to delete a list through the
+      web that has some archives in it.
+
+    - bin/remove_members grew --nouserack/-n and -noadminack/-N options.
+
+    - A new script bin/list_owners has been added for printing out
+      list owners and moderators.
+
+    - Dates in the web version of archived messages are now relative
+      to the local timezone, and include the timezone names, when
+      available.
+
+2.1 beta 5 (19-Nov-2002)
+
+    As is typical for a late beta release, this one includes the usual
+    bug fixes, tweaks, and massive new features (just kidding).
+
+    IMPORTANT: If you are using Pipermail, and you have any archives
+    that were created or added to in 2.1b4, you will need to run
+    bin/b4b5-archfix, followed by bin/check_perms to fix some serious
+    performance problems.  From you install directory, run
+    "bin/b4b5-archfix --help" for details.
+
+    - The personalization options have been tweaked to provide more
+      control over mail header and decoration personalizations.  In
+      2.1b4, when personalization was enabled, the To and Cc headers
+      were always overwritten.  But that's usually not appropriate for
+      anything but announce lists, so now these headers aren't changed
+      unless "Full personalization" is enabled.
+
+    - You now need to go to the General category to enable emergency
+      moderation.
+
+    - The order of the hold modules in the GLOBAL_PIPELINE has
+      changed, again.  Now Moderate comes before Hold.
+
+    - Estonian language support has been added.
+
+    - All posted messages should now get decorated with headers and
+      footers in a MIME-safe way.  Previously, some MIME type messages
+      didn't get decorated at all.
+
+    - bin/arch grew a -q/--quiet option
+
+    - bin/list_lists grew a -b/--bare option
+
+2.1 beta 4 (26-Oct-2002)
+
+    The usual assortment of bug fixes and language updates, some u/i
+    tweaks, as well as the following:
+
+    - Configuring / building / installing
+        o Tightened up some configure checks; it will now bark loudly
+          if you don't have the Python distutils package available
+          (some Linux distros only include distutils in their "devel"
+          packages).
+
+        o Mailman's username/group security assertions are now done by
+          symbolic name instead of numeric id.  This provides a level
+          of indirection that makes it much easier to move or package
+          Mailman.  --with-mail-gid and --with-cgi-gid are retained,
+          but they control the group names used instead.
+
+    - Command line scripts
+        o A new script, bin/transcheck that language teams can use to
+          check their .po files.
+
+        o bin/list_members grew a --fullnames/-f option to print the
+          full names along with the addresses.
+
+        o cron/senddigests grew --help/-h and --listname/-l options.
+
+        o bin/fix_url.py grew some command line options to support moving
+          a list to a specific virtual domain.
+
+    - Pipermail / archiving
+        o Reworked the directory layout for archive attachments to be
+          less susceptible to inode overload.  Attachments are now
+          placed in
+
+          archives/private/<listname>/attachments/<YYYYMMDD>/<msgidhash>
+
+        o Internationalization support in the archiver has been improved.
+
+    - Internationalization
+        o New languages: Swedish.
+
+    - Mail handling
+        o Content filtering now has a pass_mime_type variable, which
+          is a whitelist of MIME types to allow in postings.  See the
+          details of the variable in the Content Filtering category
+          for more information.
+
+        o If a member has enabled their DontReceiveDuplicates option,
+          we'll also strip their addresses from the Cc headers in the
+          copy of the message sent to the list.  This helps keep the
+          Cc lines from growing astronomically.
+
+        o Bounce messages are now forwarded to the list administrators
+          both if they are unrecognized, and if no list member's
+          address could be extracted.
+
+        o Content filtering now has a filter_action variable which
+          controls what happens when a message matches the content
+          filter rules.  The default is still to discard the message.
+
+        o When searching for an Approve/Approved header, the first
+          non-whitespace line of the body of the message is also
+          checked, if the body has a MIME type of text/plain.
+
+        o If a list is personalized, and the list's posting address is
+          not included in a Reply-To header, the posting address is
+          copied into a Cc header, otherwise there was no (easy) way a
+          recipient could reply back to the list.
+
+        o Added a MS Exchange bounce recognizer.
+
+        o New configuration variable news_moderation which allows the
+          mail->news gateway to properly post to moderated newsgroups.
+
+        o Messages sent to a list's owners now comes from the site
+          list to prevent mail loops when list owners or moderators
+          having bouncing addresses.
+
+    - Miscellaneous
+        o mailanctl prevents runaway restarts by imposing a maximum
+          restart value (defaulting to 10) for restarting the
+          qrunners.  If you hit this limit, do "mailmanctl stop"
+          followed by "mailmanctl start".
+
+        o The Membership Management page's search feature now includes
+          searching on members real names.
+
+        o The start of a manual for list administrators is given in
+          Python HOWTO format (LaTeX).  It's in doc/mailman-admin.tex
+          but it still needs lots of fleshing out.
+
+        o More protections against creating a list with an invalid name.
+
+2.1 beta 3 (09-Aug-2002)
+
+    The usual assortment of bug fixes and language updates.
+
+    - New languages: Dutch, Portuguese (Brazil)
+
+    - New configure script options: --with-mailhost, --with-urlhost,
+      --without-permcheck.  See ./configure --help for details.
+
+    - The encoding of Subject: prefixes is controlled by a new list
+      option encode_ascii_prefixes.  This is useful for languages with
+      character sets other than us-ascii.  See the Languages admin
+      page for details.
+
+    - A new list option news_prefix_subject_too controls whether
+      postings gated from mail to news should have the subject prefix
+      added to their Subject: header.
+
+    - The algorithm for upgrading the moderation controls for a
+      Mailman 2.0.x list has changed.  The change should be
+      transparent, but you'll want to double check the moderation
+      controls after upgrading from MM2.0.x.  This should have no
+      effect for upgrades from a previous MM2.1 beta.
+
+      See the UPGRADING file for details.
+
+    - On the Mass Subscribe admin page, a text box has been added so
+      that the admin can add a custom message to be prepended to the
+      welcome/invite notification.
+
+    - On the admindb page, a link is included to more easily reload
+      the page.
+
+    - The Sendmail.py delivery module is sabotaged so that it can't be
+      used naively.  You need to read the comments in the file and
+      edit the code to use this unsafe module.
+
+    - When a member sends a `help' command to the request address,
+      the url to their options page is included in the response.
+
+    - Autoresponses, -request command responses, and posting hold
+      notifications are inhibited for any message that has a
+      Precedence: {bulk|list|junk} header.  This is to avoid mail
+      loops between email 'bots.  If the original message has an
+      X-Ack: yes header, the response is sent.
+
+      Responses are also limited to a maximum number per day, as
+      defined in the site variable MAX_AUTORESPONSES_PER_DAY.  This is
+      another guard against 'bot loops, and it defaults to 10.
+
+    - When a Reply-To: header is munged to include both the original
+      and the list address, the list address is always added last.
+
+    - The cron/mailpasswds script has grown a -l/--listname option.
+
+    - The cron/disabled script has grown options to send out
+      notifications for reasons other than bounce-disabled.  It has
+      also grown a -f/--force option.  See cron/disabled --help for
+      details.
+
+    - The bin/dumpdb script has grown a -n/--noprint option.
+
+    - An experimental new mechanism for processing incoming messages
+      has been added.  If you can configure your MTA to do qmail-style
+      Maildir delivery, Mailman now has a MaildirRunner qrunner.  This
+      may turn out to be much more efficient and scalable, but for
+      MM2.1, it will not be officially supported.  See Defaults.py.in
+      and Mailman/Queue/MaildirRunner.py for details.
+
+2.1 beta 2 (05-May-2002)
+
+    Lots of bug fixing, and the following new features and changes:
+
+    - A "de-mime" content filter feature has been added.  This
+      oft-requested feature allows you to specify MIME types that
+      Mailman should strip off of any messages before they're posted
+      to the list.  You can also optionally convert text/html to
+      text/plain (by default, through lynx if it's available).
+
+    - Changes to the way the RFC 2919 and 2369 headers (i.e. the
+      List-*: headers) are added:
+          o List-Id: is always added
+          o List-Post:, List-Help:, List-Subscribe:,
+            List-Unsubscribe:, and List-Archive: are only added to
+            posting messages.
+          o X-List-Administrivia: is only added to messages Mailman
+            creates and sends out of its own accord.
+
+      Also, if the site administrator allows it, list owners can
+      suppress the addition of all the List-*: headers.  List owners
+      can also separately suppress the List-Post: header for
+      announce-only lists.
+
+    - A new framework for email commands has been added.  This allows
+      you to easily add, delete, or change the email commands that
+      Mailman understands, on a per-site, per-list, or even per-user
+      basis.
+
+    - Users can now change their digest delivery type from MIME to
+      plain text globally, for all lists they are subscribed to.
+
+    - No language select pulldowns are shown if the list only supports
+      one language.
+
+    - More mylist-admin eradication.
+
+    - Several performance improvements in the bounce qrunner, one of
+      which is to make it run only once per minute instead of once per
+      second.
+
+    - Korean language support as been added.
+
+    - Gatewaying from news -> mail uses its connections to the nntpd
+      more efficiently.
+
+    - In bin/add_members, -n/--non-digest-members-file command line
+      switch is deprecated in favor of -r/--regular-members-file.
+
+    - bin/sync_members grew a -g/--goodbye-msg switch.
+
+2.1 beta 1 (16-Mar-2002)
+
+    In addition to the usual bug fixes, performance improvements, and
+    GUI changes, here are the highlights:
+
+    - MIME and other message handling
+        o More robustness against badly MIME encapsulated messages: if
+          a MessageParseError is raised during the initial parse, the
+          message can either be discarded or saved in qfiles/bad,
+          depending on the value of the new configuration variable
+          QRUNNER_SAVE_BAD_MESSAGES.
+
+        o There is a new per-user option that can be used to avoid
+          receipt of extra copies, when a member of the list is also
+          explicitly CC'd.
+
+        o Always add an RFC 2822 Date: header if missing, since not
+          all MTAs insert one automatically.
+
+        o The Sender: and Errors-To: headers are no longer added to
+          outgoing messages.
+
+        o Headers and footers are always added by concatenation, if
+          the message is not MIME and if the list's charset is a
+          superset of us-ascii.
+
+    - List administration
+        o An `invitation' feature has been added.  This is selectable
+          as a radio button on the mass subscribe page.  When
+          selected, users are invited to join instead of immediately
+          joined, i.e. they get a confirmation message.
+
+        o You can now enable and disable list owner notifications for
+          disabled-due-to-bouncing and removal-due-to-bouncing
+          actions.  The site config variables
+          DEFAULT_BOUNCE_NOTIFY_OWNER_ON_DISABLE and
+          DEFAULT_BOUNCE_NOTIFY_OWNER_ON_REMOVAL control the default
+          behavior.
+
+        o List owners can now decide whether they receive unrecognized
+          bounce messages or not (i.e. messages that the bounce
+          processor doesn't recognize).  Site admins can set the
+          default value for this flag with the config variable
+          DEFAULT_BOUNCE_UNRECOGNIZED_GOES_TO_LIST_OWNER.
+
+        o The admindb summary page gives the option of clearing the
+          moderation flag of members who are on quarantined.
+
+        o The action to take when a moderated member posts to a list
+          is now configurable.  The message can either be held,
+          rejected (bounced), or discarded.  If the message is
+          rejected, a rejection notice string can be given.
+
+        o In the General admin page, you can now set the default value
+          for five per-user flags: concealing the user's email
+          address, acknowledging posts sent by the user, copy
+          suppression, not-me-too selection, and the default digest
+          type.  Site admins can set the default bit field with the
+          new DEFAULT_NEW_MEMBER_OPTIONS variable.
+
+        o A new "Emergency brake" feature for turning on moderation of
+          all list postings.  This is useful for when flamewars break
+          out, and the list needs a cooling off period.  Messages
+          containing an Approved: header with the list owner password
+          are still allowed through, as are messages approved through
+          the admindb interface.
+
+        o When a moderated message is approved for the list, add an
+          X-Mailman-Approved-At: header which contains the timestamp
+          of the approval action (changed from X-Moderated: with a
+          different format).
+
+        o Lists can now be converted to using a less error prone
+          mechanism for variable substitution syntax in headers and
+          footers.  Instead of %(var)s strings, you'd use $var
+          strings.  You must use "bin/withlist -r convert" to enable
+          this.
+
+        o When moderating held messages, the header text box and the
+          message excerpt text box are now both read-only.
+
+        o You can't delete the site list through the web.
+
+        o When creating new lists through the web, you have the option
+          of setting the "default member moderation" flag.
+
+    - Security and privacy
+        o New feature: banned subscription addresses.  Privacy
+          options/subscription rules now have an additional list box
+          which can contain addresses or regular expressions.
+          Subscription requests from any matching address are
+          automatically rejected.
+
+        o Membership tests which compare message headers against list
+          rosters are now more robust.  They now check, by default
+          these header in order: From:, unixfrom, Reply-To:, Sender:.
+          If any match, then the membership test succeeds.
+
+        o ALLOW_SITE_ADMIN_COOKIES is a new configuration variable
+          which says whether to allow AuthSiteAdmin cookies or not.
+          Normally, when a list administrator logs into a list with
+          the site password, they are issued a cookie that only allows
+          them to do administration for this one list.  By setting
+          ALLOW_SITE_ADMIN_COOKIES to 1, the user only needs to
+          authenticate to one list with the site password, and they
+          can administer any mailing list.
+
+          I'm not sure this feature is wise, so the default value for
+          ALLOW_SITE_ADMIN_COOKIES is 0.
+
+        o Marc MERLIN's new recipes for secure Linuxes have been
+          updated.
+
+        o DEFAULT_PRIVATE_ROSTER now defaults to 1.
+
+        o Passwords are no longer included in the confirmation pages.
+
+    - Internationalization
+        o With the approval of Tamito KAJIYAMA, the Japanese codecs
+          for Python are now included automatically, so you don't need
+          to download and install these separate.  It is installed in
+          a Mailman-specific place so it won't affect your larger
+          Python installation.
+
+        o The configure script will produce a warning if the Chinese
+          codes are not installed.  This is not a fatal error.
+
+        o Russian templates and catalogs have been added.
+
+        o Finnish templates and catalogs have been added.
+
+    - Scripts and utilities
+        o New program bin/unshunt to safely move shunted messages back
+          into the appropriate processing queue.
+
+        o New program bin/inject for sending a plaintext message into
+          the incoming queue from the command line.
+
+        o New cron script cron/disabled for periodically culling the
+          disabled membership.
+
+        o bin/list_members has grown some new command line switches
+          for filtering on different criteria (digest mode, disable
+          mode, etc.)
+
+        o bin/remove_members has grown the --fromall switch.
+
+        o You can now do a bin/rmlist -a to remove an archive even
+          after the list has been deleted.
+
+        o bin/update removes the $prefix/Mailman/pythonlib directory.
+
+        o bin/withlist grows a --all/-a flag so the --run/-r option
+          can be applied to all the mailing lists.  Also, interactive
+          mode is now the default if -r isn't used.  You don't need to
+          run this script as "python -i bin/withlist" anymore.
+
+        o There is a new script contrib/majordomo2mailman.pl which
+          should ease the transition from Majordomo to Mailman.
+
+    - MTA integration
+        o Postfix integration has been made much more robust, but now
+          you have to set POSTFIX_ALIAS_CMD and POSTFIX_MAP_CMD to
+          point to the postalias and postmap commands respectively.
+
+        o VERP-ish delivery has been made much more efficient by
+          eliminating extra disk copies of messages for each recipient
+          of a VERP delivery.  It has also been made more robust in
+          the face of failures during chunk delivery.  This required a
+          rewrite of SMTPDirect.py and one casualty of that rewrite
+          was the experimental threaded delivery.  It is no longer
+          supported (but /might/ be resurrected if there's enough
+          demand -- or a contributed patch :).
+
+        o A new site config variable SMTP_MAX_SESSIONS_PER_CONNECTION
+          specifies how many consecutive SMTP sessions will be
+          conducted down the same socket connection.  Some MTAs have a
+          limit on this.
+
+        o Support for VERP-ing confirmation messages.  These are less
+          error prone since the Subject: header doesn't need to be
+          retained, and they allow a more user friendly (and i18n'd)
+          Subject: header.  VERP_CONFIRM_FORMAT, VERP_CONFIRM_REGEXP,
+          and VERP_CONFIRMATIONS control this feature (only supported
+          for invitation confirmations currently, but will be expanded
+          to the other confirmations).
+
+        o Several new list-centric addresses have been added:
+          -subscribe and -unsubscribe are synonyms for -join and
+          -leave, respectively.  Also -confirm has been added to
+          support VERP'd confirmations.
+
+    - Archiver
+        o There's now a default page for the Pipermail archive link
+          for when no messages have yet been posted to the list.
+
+        o Just the mere presence of an X-No-Archive: is enough to
+          inhibit archiving for this message; the value of the header
+          is now ignored.
+
+    - Configuring, building, installing
+        o Mailman now has a new favicon, donated by Terry Oda.  Not
+          all web pages are linked to the favicon yet though.
+
+        o The add-on email package is now distributed and installed
+          automatically, so you don't need to do this.  It is
+          installed in a Mailman-specific place so it won't affect
+          your larger Python installation.
+
+        o The default value of VERP_REGEXP has changed.
+
+        o New site configuration variables BADQUEUE_DIR and
+          QRUNNER_SAVE_BAD_MESSAGES which describe where to save
+          messages which are not properly MIME encoded.
+
+        o configure should be more POSIX-ly conformant.
+
+        o The Mailman/pythonlib directory has been removed, but a new
+          $prefix/pythonlib directory has been added.
+
+        o Regression tests are now installed.
+
+        o The second argument to add_virtual() calls in mm_cfg.py are
+          now optional.
+
+        o DEFAULT_FIRST_STRIP_REPLY_TO now defaults to 0.
+
+        o Site administrators can edit the Mailman/Site.py file to
+          customize some filesystem layout policies.
+
+
+2.1 alpha 4 (31-Dec-2001)
+
+    - The administrative requests database page (admindb) has been
+      redesigned for better usability when there are lots of held
+      postings.  Changes include:
+        o A summary page which groups held messages by sender email
+          address.  On this page you can dispose of all the sender's
+          messages in one action.  You can also view the details of
+          all the sender's messages, or the details of a single
+          message.  You can also add the sender to one of the list's
+          sender filters.
+
+        o A details page where you can view all messages, just those
+          for a particular sender, or just a single held message.
+          This details page is laid out the same as the old admindb
+          page.
+
+        o The instructions have been shorted on the summary and
+          details page, with links to more detailed explanations.
+
+    - Bounce processing
+        o Mailman now keeps track of the reason a member's delivery
+          has been disabled: explicitly by the administrator,
+          explicitly by the user, by the system due to excessive
+          bounces, or for (legacy) unknown reasons.
+
+        o A new bounce processing algorithm has been implemented (we
+          might actually understand this one ;).  When an address
+          starts bouncing, the member gets a "bounce score".  Hard
+          (fatal) bounces score 1.0, while soft (transient) bounces
+          score 0.5.
+
+          List administrators can specify a bounce threshold above
+          which a member gets disabled.  They can also specify a time
+          interval after which, if no bounces are received from the
+          member, the member's bounce score is considered stale and is
+          thrown away.
+
+        o A new cron script, cron/disabled, periodically sends
+          notifications to members who are bounce disabled.  After a
+          certain number of warnings the member is deleted from the
+          list.  List administrators can control both the number of
+          notifications and the amount of time between notifications.
+
+          Notifications include a confirmation cookie that the member
+          can use to re-enable their subscription, via email or web.
+
+        o New configuration variables to support the bounce processing
+          are DEFAULT_BOUNCE_SCORE_THRESHOLD,
+          DEFAULT_BOUNCE_INFO_STALE_AFTER,
+          DEFAULT_BOUNCE_YOU_ARE_DISABLED_WARNINGS,
+          DEFAULT_BOUNCE_YOU_ARE_DISABLED_WARNINGS_INTERVAL.
+
+    - Privacy and security
+        o Sender filters can now be regular expressions.  If a line
+          starts with ^ it is taken as a (raw string) regular
+          expression, otherwise it is a literal email address.
+
+        o Fixes in 2.0.8 ported forward: prevent cross-site scripting
+          exploits.
+
+    - Mail delivery
+        o Aliases have all been changed so that there's more
+          consistency between the alias a message gets delivered to,
+          and the script & queue runner that handles the message.
+
+          I've also renamed the mail wrapper script to `mailman' from
+          `wrapper' to avoid collisions with other MLM's.  You /will/
+          need to regenerate your alias files with bin/genaliases, and
+          you may need to update your smrsh (Sendmail) configs.a
+
+          Bounces always go to listname-bounces now, since
+          administration has been separated from bounce processing.
+          listname-admin is obsolete.
+
+        o VERP support!  This greatly improves the accuracy of bounce
+          detection.  Configuration variables which control this feature
+          include VERP_DELIVERY_INTERVAL, VERP_PERSONALIZED_DELIVERIES,
+          VERP_PASSWORD_REMINDERS, VERP_REGEXP, and VERP_FORMAT.  The
+          latter two must be tuned to your MTA.
+
+        o A new alias mailman-loop@dom.ain is added which directs all
+          output to the file $prefix/data/owner-bounces.mbox.  This is
+          used when sending messages to the site list owners, as the
+          final fallback for bouncing messages.
+
+        o New configuration variable POSTFIX_STYLE_VIRTUAL_DOMAINS
+          which should be set if you are using the Postfix MTA and
+          want Mailman to play nice with Postfix-style virtual
+          domains.
+
+    - Miscellaneous
+        o Better interoperability with Python 2.2.
+
+        o MailList objects now record the date (in seconds since
+          epoch) that they were created.  This is in a hidden
+          attribute `created_at'.
+
+        o bin/qrunner grows a -s/--subproc switch which is usually
+          used only when it's started from mailmanctl.
+
+        o bin/newlist grows a -l/--language option so that the list's
+          preferred language can be set from the command line.
+
+        o cron changes: admin reminders go out at 8am local time instead
+          of 10pm local time.
+
+    - Pipermail archiver
+        o MIME attachments are scrubbed out into separate files which
+          can be viewed by following a link in the original article.
+          Article contains an indication of the size of the
+          attachment, its type, and other useful information.
+
+        o New script bin/cleanarch which can be used to `clean' an
+          .mbox archive file by fixing unescaped embedded Unix From_
+          lines.
+
+        o New configuration variable ARCHIVE_SCRUBBER in
+          Defaults.py.in which names the module that Pipermail should
+          use to scrub articles of MIME attachments.
+
+        o New configuration variable ARCHIVE_HTML_SANITIZER which
+          describes how the scrubber should handle text/html
+          attachments.
+
+        o PUBLIC_ARCHIVE_URL has change its semantics.  It is now an
+          absolute url, with the hostname and listname parts
+          interpolated into it on a per-list basis.
+
+        o Pipermail should now provide the proper character set in the
+          Content-Type: header for archived articles.
+
+    - Internationalization
+        o Czech translations by Dan Ohnesorg.
+
+        o The Hungarian charset has be fixed to be iso-8859-2.
+
+        o The member options login page now has a language selection
+          widget.
+
+    - Building, configuration
+        o email-0.96 package is required (see the misc directory).
+
+        o New recipes for integrating Mailman and Sendmail,
+          contributed by David Champion.
+
+
+2.1 alpha 3 (22-Oct-2001)
+
+    - Realname support
+        o Mailman now tracks a member's Real Name in addition to their
+          email address.
+
+        o List members can now supply their Real Names when
+          subscribing via the web.  Their Real Names are parsed from
+          any thru-email subscriptions.
+
+        o Members can change their Real Names on their options page,
+          and admins can change members' Real Names on the membership
+          pages.  Mass subscribing accepts "email@dom.ain (Real Name)"
+          and "Real Name <email@dom.ain>" entries, for both
+          in-text-box and file-upload mass subscriptions.
+
+    - Filtering and Privacy
+        o Reply-To: munging has been enhanced to allow a wider range
+          of list policies.  You can now pre-strip any Reply-To:
+          headers before adding list-specific ones (i.e. you can
+          override or extend existing Reply-To: headers).  If
+          stripping, the old headers are no longer saved on
+          X-Reply-To:
+
+        o New sender moderation rules.  The old `posters',
+          `member_only_posting', `moderated' and `forbidden_posters'
+          options have been removed in favor of a new moderation
+          scheme.  Each member has a personal moderation bit, and
+          non-member postings can be automatically accepted, held for
+          approval, rejected (bounced) or discarded.
+
+        o When membership rosters are private, responses to
+          subscription (and other) requests are made more generic so
+          that these processes can't be covertly mined for hidden
+          addresses.  If a subscription request comes in for a user
+          who is already subscribed, the user is notified of potential
+          membership mining.
+
+        o When a held message is approved via the admindb page, an
+          X-Moderated: header is added to the message.
+
+        o List admins can now set an unsubscribe policy which requires
+          them to approve of member unsubscriptions.
+
+    - Web U/I
+        o All web confirmations now require a two-click procedure,
+          where the first click gives them a page that allows them to
+          confirm or cancel their subscription.  It is bad form for an
+          email click (HTTP GET) to have side effects.
+
+        o Lots of improvements for clarity.
+
+        o The Privacy category has grown three subcategories.
+
+        o The General options page as a number of subsection headers.
+
+        o The Passwords and Languages categories are now on separate
+          admin pages.
+
+        o The admin subcategories are now formated as two columns in
+          the top and bottom legends.
+
+        o When creating a list through the web, you can now specify
+          the initial list of supported languages.
+
+        o The U/I for unsubscribing a member on the admin's membership
+          page should be more intuitive now.
+
+        o There is now a separate configuration option for whether the
+          goodbye_msg is sent when a member is unsubscribed.
+
+    - Performance
+        o misc/mailman is a Unix init script, appropriate for
+          /etc/init.d, and containing chkconfig hooks for systems that
+          support it.
+
+        o bin/mailmanctl has been rewritten; the `restart' command
+          actually works now.  It now also accepts -s, -q, and -u
+          options.
+
+        o bin/qrunner has been rewritten too; it can serve the role of
+          the old cron/qrunner script for those who want classic
+          cron-invoked mail delivery.
+
+        o Internally, messages are now stored in the qfiles directory
+          primarily as pickles.  List configuration databases are now
+          stored as pickles too (i.e. config.pck).  bin/dumpdb knows
+          how to display both pickles and marshals.
+
+    - Mail delivery
+        o If a user's message is held for approval, they are sent a
+          notification message containing a confirmation cookie.  They
+          can use this confirmation cookie to cancel their own
+          postings (if they haven't already been approved).
+
+        o When held messages are forwarded to an explicit address
+          using the admindb page, it is done so  in a message/rfc822
+          encapsulation.
+
+        o When a message is first held for approval, the notification
+          sent to the list admin is a 3-part multipart/mixed.  The
+          first part holds the notification message, the second part
+          hold the original message, and the third part hold a cookie
+          confirmation message, to which the admin can respond to
+          approve or discard the message via email.
+
+        o In the mail->news gateway, you can define mail headers that
+          must be modified or deleted before the message can be posted
+          to the nntp server.
+
+        o The list admin can send an immediate urgent message to the
+          entire list membership, bypassing digest delivery.  This is
+          done by adding an Urgent: header with the list password.
+          Urgent messages with an invalid password are rejected.
+
+        o Lists can now optionally personalize email messages, if the
+          site admin allows it.  Personalized messages mean that the
+          To: header includes the recipient's address instead of the
+          list's address, and header and footer messages can contain
+          user-specific information.  Note that only regular
+          deliveries can currently be personalized.
+
+        o Message that come from Usenet but that have broken MIME
+          boundaries are ignored.
+
+        o If the site administrator agrees, list owners have the
+          ability to disable RFC 2369 List-* headers.
+
+        o There is now an API for an external process to post a
+          message to a list.  This posting process can also specify an
+          explicit list of recipients, in effect turning the mailing
+          list into a "virtual list" with a fluid membership.  See
+          Mailman/Post.py for details.
+
+    - Building/testing/configuration
+        o mimelib is no longer required, but you must install the
+          email package (see the tarball in the misc directory).
+
+        o An (as yet) incomplete test suite has been added.  Don't try
+          running it in a production environment!
+
+        o Better virtual host support by adding a mapping from the
+          host name given in cgi's HTTP_HOST/SERVER_NAME variable to
+          the email host used in list addresses.  (E.g. www.python.org
+          maps to @python.org).
+
+        o Specifying urls to external public archivers is more
+          flexible.
+
+        o The filters/ subdirectory has been removed.
+
+        o There is now a `site list' which is a mailing list that must
+          be created first, and from which all password reminders
+          appear to come from.  It is recommended that this list be
+          called "mailman@your.site".
+
+        o bin/move_list is no longer necessary (see the FAQ for
+          detailed instructions on renaming a list).
+
+        o A new script bin/fix_url.py can be used with bin/withlist to
+          change a list's web_page_url configuration variable (since
+          it is no longer modifiable through the web).
+
+    - Internationalization
+        o Support for German, Hungarian, Italian, Japanese, and
+          Norwegian have been added.
+
+    - Miscellaneous
+        o Lots of new bounce detectors.  Bounce detectors can now
+          discard temporary bounce messages by returning a special
+          Stop value.
+
+        o bin/withlist now sports a -q/--quiet flag.
+
+        o bin/add_members has a new -a/--admin-notify flag which can
+          be used to inhibit list owner notification for each
+          subscription.
+
+    - Membership Adaptors
+        o Internally, mailing list memberships are accessed through a
+          MemberAdaptor interface.  This would allow for integrating
+          membership databases with external sources (e.g. Zope or
+          LDAP), although the only MemberAdaptor currently implemented
+          is a "classic" adaptor which stores the membership
+          information on the MailList object.
+
+        o There's a new pipeline handler module called FileRecips.py
+          which could be used to get all regular delivery mailing list
+          recipients from a Sendmail-style :include: file (see List
+          Extensibility bullet below).
+
+          This work was sponsored by Control.com
+
+    - List Extensibility
+        o A framework has been added which can be used to specialize
+          and extend specific mailing lists.  If there is a file
+          called lists/<yourlist>/extend.py, it is execfile()'d after
+          the MailList object is instantiated.  The file should
+          contain a function extend() which will be called with the
+          MailList instance.  This function can do all sorts of deep
+          things, like modify the handler pipeline just for this list,
+          or even strip out particular admin GUI elements (see below).
+
+        o All the admin page GUI elements are now separate
+          components.  This provides greater flexibility for list
+          customization.  Also, each GUI element will be given an
+          opportunity to handle admin CGI form data.
+
+          This work was sponsored by Control.com
+
+    - Topic Filters
+        o A new feature has been added called "Topic Filters".  A list
+          administrator can create topics, which are essentially
+          regular expression matches against Subject: and Keyword:
+          headers (including such pseudo-headers if they appear in the
+          first few lines of the body of a message).
+
+          List members can then `subscribe' to various topics, which
+          allows them to filter out any messages that don't match a
+          topic, or to filter out any message that does match a
+          topic.  This can be useful for high volume lists where not
+          everyone will be interested in every message.
+
+          This work was sponsored by Control.com
+
+2.1 alpha 2 (11-Jul-2001)
+
+    - Building
+        o mimelib 0.4 is now required.  Get it from
+          http://mimelib.sf.net.  If you've installed an earlier
+          version of mimelib, you must upgrade.
+
+        o /usr/local/mailman is now the default installation
+          directory.  Use configure's --prefix switch to change it
+          back to the default (/home/mailman) or any other
+          installation directory of your choice.
+
+    - Security
+        o Better definition of authentication domains.  The following
+          roles have been defined: user, list-admin, list-moderator,
+          creator, site-admin.
+
+        o There is now a separate role of "list moderator", which has
+          access to the pending requests (admindb) page, but not the
+          list configuration pages.
+
+        o Subscription confirmations can now be performed via email or
+          via URL.  When a subscription is received, a unique (sha)
+          confirm URL is generated in the confirmation message.
+          Simply visiting this URL completes the subscription process.
+
+        o In a similar manner, removal requests (via web or email
+          command) no longer require the password.  If the correct
+          password is given, the removal is performed immediately.  If
+          no password is given, then a confirmation message is
+          generated.
+
+    - Internationalization
+        o More I18N patches.  The basic infrastructure should now be
+          working correctly.  Spanish templates and catalogs are
+          included, and English, French, Hungarian, and Big5 templates
+          are included.
+
+        o Cascading specializations and internationalization of
+          templates.  Templates are now search for in the following
+          order: list-specific location, domain-specific location,
+          site-wide location, global defaults.  Each search location
+          is further qualified by the language being displayed.  This
+          means that you only need to change the templates that are
+          different from the global defaults.
+
+          Templates renamed: admlogin.txt => admlogin.html
+          Templates added: private.html
+
+    - Web UI
+        o Redesigned the user options page.  It now sits behind an
+          authentication so user options cannot be viewed without the
+          proper password.  The other advantage is that the user's
+          password need not be entered on the options page to
+          unsubscribe or change option values.  The login screen also
+          provides for password mail-back, and unsubscription w/
+          confirmation.
+
+          Other new features accessible from the user options page
+          include: ability to change email address (with confirmation)
+          both per-list and globally for all list on virtual domain;
+          global membership password changing; global mail delivery
+          disable/enable; ability to suppress password reminders both
+          per-list and globally; logout button.
+
+          [Note: the handle_opts cgi has gone away]
+
+        o Color schemes for non-template based web pages can be defined
+          via mm_cfg.
+
+        o Redesign of the membership management page.  The page is now
+          split into three subcategories (Membership List, Mass
+          Subscription, and Mass Removal).  The Membership List
+          subcategory now supports searching for member addresses by
+          regular expression, and if necessary, it groups member
+          addresses first alphabetically, and then by chunks.
+
+          Mass Subscription and Mass Removal now support file upload,
+          with one address per line.
+
+        o Hyperlinks from the logos in the footers have been removed.
+          The sponsors got too much "unsubscribe me!" spam from
+          desperate user of Mailman at other sites.
+
+        o New buttons on the digest admin page to send a digest
+          immediately (if it's non-empty), to start a new digest
+          volume with the next digest, and to select the interval with
+          which to automatically start a new digest volume (yearly,
+          monthly, quarterly, weekly, daily).
+
+          DEFAULT_DIGEST_VOLUME_FREQUENCY is a new configuration
+          variable, initially set to give a new digest volume monthly.
+
+        o Through-the-web list creation and removal, using a separate
+          site-wide authentication role called the "list creator and
+          destroyer" or simply "list creator".  If the configuration
+          variable OWNERS_CAN_DELETE_THEIR_OWN_LISTS is set to 1 (by
+          default, it's 0), then list admins can delete their own
+          lists.
+
+          This feature requires an adaptor for the particular MTA
+          you're using.  An adaptor for Postfix is included, as is a
+          dumb adaptor that just emails mailman@yoursite with the
+          necessary Sendmail style /etc/alias file changes.  Some MTAs
+          like Exim can be configured to automatically recognize new
+          lists.  The adaptor is selected via the MTA option in
+          mm_cfg.py
+
+    - Email UI
+        o In email commands, "join" is a synonym for
+          "subscribe". "remove" and "leave" are synonyms for
+          "unsubscribe".  New robot addresses are support to make
+          subscribing and unsubscribing much easier:
+
+          mylist-join@mysite
+          mylist-leave@mysite
+
+        o Confirmation messages have a shortened Subject: header,
+          containing just the word "confirm" and the confirmation
+          cookie.  This should help for MUAs that like to wrap long
+          Subject: lines, messing up confirmation.
+
+        o Mailman now recognizes an Urgent: header, which, if it
+          contains the list moderator or list administrator password,
+          forces the message to be delivered immediately to all
+          members (i.e. both regular and digest members).  The message
+          is also placed in the digest.  If the password is incorrect,
+          the message will be bounced back to the sender.
+
+    - Performance
+        o Refinements to the new qrunner subsystem which preserves
+          FIFO order of messages.
+
+        o The qrunner is no longer started from cron.  It is started
+          by a Un*x init-style script called bin/mailmanctl (see
+          below).  cron/qrunner has been removed.
+
+    - Command line scripts
+        o bin/mailmanctl script added, which is used to start, stop,
+          and restart the qrunner daemon.
+
+        o bin/qrunner script added which allows a single sub-qrunner
+          to run once through its processing loop.
+
+        o bin/change_pw script added (eases mass changing of list
+          passwords).
+
+        o bin/update grows a -f switch to force an update.
+
+        o bin/newlang renamed to bin/addlang; bin/rmlang removed.
+
+        o bin/mmsitepass has grown a -c option to set the list
+          creator's password.  The site-wide `create' web page is
+          linked to from the admin overview page.
+
+        o bin/newlist's -o option is removed.  This script also grows
+          a way of spelling the creation of a list in a specific
+          virtual domain.
+
+        o The `auto' script has been removed.
+
+        o bin/dumpdb has grown -m/--marshal and -p/--pickle options.
+
+        o bin/list_admins can be used to print the owners of a mailing list.
+
+        o bin/genaliases regenerates from scratch the aliases and
+          aliases.db file for the Postfix MTA.
+
+    - Archiver
+        o New archiver date clobbering option, which allows dates to
+          only be clobber if they are outrageously out-of-date
+          (default setting is 15 days on either side of received
+          timestamp).  New configuration variables:
+
+          ARCHIVER_CLOBBER_DATE_POLICY
+          ARCHIVER_ALLOWABLE_SANE_DATE_SKEW
+
+          The archived copy of messages grows an X-List-Received-Date:
+          header indicating the time the message was received by
+          Mailman.
+
+        o PRIVATE_ARCHIVE_URL configuration variable is removed (this
+          can be calculated on the fly, and removing it actually makes
+          site configuration easier).
+
+    - Miscellaneous
+        o Several new README's have been added.
+
+        o Most syslog entries for the qrunner have been redirected to
+          logs/error.
+
+        o On SIGHUP, qrunner will re-open all its log files and
+          restart all child processes.  See "bin/mailmanctl restart".
+
+    - Patches and bug fixes
+        o SF patches and bug fixes applied: 420396, 424389, 227694,
+          426002, 401372 (partial), 401452.
+
+        o Fixes in 2.0.5 ported forward:
+            Fix a lock stagnation problem that can result when the
+            user hits the `stop' button on their browser during a
+            write operation that can take a long time (e.g. hitting
+            the membership management admin page).
+
+        o Fixes in 2.0.4 ported forward:
+            Python 2.1 compatibility release.  There were a few
+            questionable constructs and uses of deprecated modules
+            that caused annoying warnings when used with Python 2.1.
+            This release quiets those warnings.
+
+        o Fixes in 2.0.3 ported forward:
+            Bug fix release.  There was a small typo in 2.0.2 in
+            ListAdmin.py for approving an already subscribed member
+            (thanks Thomas!).  Also, an update to the OpenWall
+            security workaround (contrib/securelinux_fix.py) was
+            included.  Thanks to Marc Merlin.
+
+2.1 alpha 1 (04-Mar-2001)
+
+    - Python 2.0 or newer required.  Also required is `mimelib' a new
+      library for handling MIME documents.  This will be bundled in
+      future releases, but for now, you must download and install it
+      (using Python's distutils) from
+
+      http://barry.wooz.org/software/Code/mimelib-0.2.tar.gz
+
+      You need mimelib 0.2 or better.
+
+    - Redesigned qrunner subsystem.  Now there are multiple message
+      queues, and considerable flexibility in file formats for
+      integration with external systems.  The current crop of queues
+      include:
+
+      archive -- for posting messages to an archiver
+      commands -- for incoming email commands and bounces
+      in -- for list-destined incoming email
+      news -- for messages outgoing to a nntp server
+      out -- for messages outgoing to a smtp server
+      shunt -- for messages that trigger unexpected exceptions in Mailman
+      virgin -- for messages that are generated by Mailman
+
+      cron/qrunner is now a long running script that forks off
+      sub-runners for each of the above queues.  qrunner still plays
+      nice with cron, but it is expected to be started by init at some
+      point in the future.  Some support exists for parallel
+      processing of messages in the queues.
+
+    - Support for internationalization support merged in.  Original
+      work done by Juan Carlos Rey Anaya and Victoriano Giralt.  I've
+      tested about 90% of the web side, 50% of the email, and 50% of
+      the command line / cron scripts.
+
+      New scripts: bin/newlang, bin/rmlang
+
+    - New delivery script `auto' for automatic integration with the
+      Postfix MTA.
+
+    - A bunch of new bounce detectors.
+
+    Changes ported from Mailman 2.0.2 and 2.0.1:
+
+    - A fix for a potential privacy exploit where a clever list
+      administrator could gain access to user passwords.  This doesn't
+      allow them to do much more harm to the user then they normally
+      could, but they still shouldn't have access to the passwords.
+
+    - In the admindb page, don't complain when approving a
+      subscription of someone who's already on the list (SF bug
+      #222409 - Thomas Wouters).
+
+      Also, quote for HTML the Subject: text printed for held
+      messages, otherwise messages with e.g. "Subject: </table>" could
+      royally screw page formatting.
+
+    - Docstring fix bin/newlist to remove mention of "immediate"
+      argument (Thomas Wouters).
+
+    - Fix for bin/update when PREFIX != VAR_PREFIX (SF bug #229794 --
+      Thomas Wouters).
+
+    - Bug fix release, namely fixes a buglet in bin/withlist affecting
+      the -l and -r flags; also a problem that can cause qrunner to
+      stop processing mail after disk-full events (SourceForge bug
+      127199).
+
+2.0 final (21-Nov-2000)
+
+    No changes from rc3.
+
+2.0 release candidate 3 (16-Nov-2000)
+
+    - By popular demand, Reply-To: munging policy is now to always
+      override any Reply-To: header in the original message, if
+      reply_goes_to_list is set to "This list" or "Explicit Address"
+
+    - bin/newlist given -q/--quiet flag instead of the <immediate>
+      positional argument
+
+    - Hopefully last fix to DEFAULT_URL not ending in a slash
+      sensitivity
+
+    - 2.0rc2 buglets fixed:
+        o newlist argument parsing
+        o updating with unlocked lists
+        o HyperArch.py traceback when there's no
+          Content-Transfer-Encoding: header
+
+    - SourceForge bugs fixed:
+        122358 (qmail-to-mailman.py listname case folding)
+
+    - SourceForge patches applied:
+        102373 (qmail-to-mailman.py listname case folding)
+
+2.0 release candidate 2 (10-Nov-2000)
+
+    - Documentation updates: start at admin/www/index.html
+
+    - bin/withlist accepts additional command line arguments when used
+      with the --run flag; bin/mmsitepass and bin/newlist accept
+      -h/--help flags
+
+    - bin/newlist has a -o/--output flag to append /etc/aliases
+      suggestions to a specified file
+
+    - SourceForge bugs fixed:
+        116615 (README.BSD update), 117015 (duplicate messages on
+        moderated posts), 117548 (exception in HyperArch.py), 117682
+        (typos), 121185 (vsnprintf signature), 121591 and 122017
+        (bogus link after web unsubscribe), 121811 (`subscribe' in
+        Subject: doesn't get archived)
+
+    - SourceForge patches applied:
+        101812 (securelinux_fix.py contrib), 102097 (fix for bug
+        117548), 102211 (additional args for withlist), 102268 (case
+        insensitive Content-Transfer-Encoding:)
+
+2.0 release candidate 1 (23-Oct-2000)
+
+    - Bug fixes and security patches.
+
+    - Better html rendition of articles in non us-ascii charsets
+      (Jeremy Hylton).  See VERBATIM_ENCODING variable in
+      Defaults.py.in for customization.
+
+2.0 beta 6 (22-Sep-2000)
+
+    - Building
+        o Tested with Python 1.5.2, Python 1.6, and Python 2.0 beta 1.
+          Conducted on RH Linux 6.1 only, but should work
+          cross-platform.
+
+        o Configure now accepts --with-username, --with-groupname,
+          --with-var-prefix flags.  See `configure --help' or the
+          INSTALL file for details.
+
+        o Setting the CFLAGS environment variable before invoking
+          configure now works.
+
+        o The icons are now copied into $prefix/icons at install time.
+          Patch by David Champion.
+
+    - Standards
+        o Compliance with RFC 2369 (List-*: headers).  Patch by
+          Darrell Fuhriman.  List-ID: header is kept for historical
+          reasons.
+
+        o Fixes by Jeremy Hylton to Pipermail in support of non-ASCII
+          charsets, based on the Content-Type: and encoded-words in
+          the original message.  Mail headers are now decoded as per
+          RFC 2047.
+
+        o Many more bounce formats are detected: Microsoft's SMTPSVC,
+          Compuserve, GroupWise, SMTP32, and the more generic
+          SimpleMatch (which catches lots of similar but slightly
+          different formats).
+
+    - Defaults
+        o Email addresses can now be obscured in Pipermail archives by
+          setting mm_cfg.ARCHIVER_OBSCURES_EMAILADDRS to 1 (obscuring
+          is turned off by default).  Patch provided by Chris Snell.
+
+        o The default NNTP host can now be set by editing
+          mm_cfg.DEFAULT_NNTP_HOST.  Patch by David Champion.
+
+        o The default archiving mode (public/private) can now be set
+          by editing mm_cfg.DEFAULT_ARCHIVE.  Patch by Ted Cabeen.
+
+    - Web UI
+        o The variable details pages in the administrators interface
+          is now `live', i.e. there's a submit button on the details
+          page.
+
+        o A link to the administrative interface is placed in the
+          footer of the general user pages (authentication still
+          required, of course!)
+
+        o The user options change results page has a link back to the
+          user's main page.
+
+        o In the admindb page (for dealing with held postings), the
+          default forward address is now listname-owner instead of
+          listname-admin.  This avoids bounce detection on the
+          forwarded message.
+
+    - Miscellaneous
+        o Fixed config.db corruption problem when disk-full errors are
+          encountered.
+
+        o Command line scripts accept list names case-insensitively.
+
+        o bin/remove_members takes a -a flag to remove all members of
+          a list in one fell swoop.
+
+        o List admin passwords must be non-empty.
+
+        o Mailman generated passwords are slightly more mnemonic, and
+          shouldn't have confusing character selections (i.e. `i'
+          only, but no `1' or `l').
+
+        o Crossposting to two gated mailing lists should be fixed.
+
+        o Many other bug fixes and minor web UI improvements.
+
+2.0 beta 5 (01-Aug-2000)
+
+    - Bug fix release.  This includes a fix for a small security hole
+      which could be exploited to gain mailman group access by a local
+      user (not a mail or web user).
+
+    - As part of the fix for the "cookie reauthorization" bug, only
+      session cookies are used now.  This means that administrative
+      and private archive cookies expire only when the browser session
+      is quit, however an explicit "Logout" button has been added.
+
+2.0 beta 4 (06-Jul-2000)
+
+    - Bug fix release.
+
+2.0 beta 3 (29-Jun-2000)
+
+    - Delivery mechanism (qrunner) refined to support immediate
+      queuing, queuing directly from MTA, and queuing on any error
+      along the delivery pipeline.  This means 1) that huge lists
+      can't time out the MTA's program delivery channel; 2) it is much
+      harder to completely lose messages; 3) eventually, qrunner will
+      be elaborated to meter delivery to the MTA so as not to swamp
+      it.  The tradeoff is in more disk I/O since every message coming
+      into the system (and most that are generated by the system) live
+      on disk for some part of their journey through Mailman.
+
+      For now, see the Default.py variables QRUNNER_PROCESS_LIFETIME
+      and QRUNNER_MAX_MESSAGES for primitive resource management.
+
+      The API to the pipeline handler modules has changed.  See
+      Mailman/Handlers/HandlerAPI.py for details.
+
+    - Revamped admindb web page: held messages are split into headers
+      and bodies so they are easier to vette; admins can now also
+      preserve a held message (for spam evidence gathering) or forward
+      the message to a specified email address; disposition of held
+      messages can be deferred; held messages have a more context
+      meaningful default rejection message.
+
+    - Change to the semantics for `acceptable_aliases' list
+      configuration variable, based on suggestions by Harald Meland.
+
+    - New mm_cfg.py variables NNTP_USERNAME and NNTP_PASSWORD can be
+      set on a site-wide basis if connection to your nntpd requires
+      authentication.
+
+    - The list attribute `num_spawns' has been removed.  The mm_cfg.py
+      variables MAX_SPAWNS, and DEFAULT_NUM_SPAWNS removed too.
+
+    - LIST_LOCK_LIFETIME cranked to 5 hours and LIST_LOCK_TIMEOUT
+      shortened to 10 seconds.  QRUNNER_LOCK_LIFETIME cranked up to 10
+      hours.  This should decrease the changes for bogus and harmful
+      lock breaking.
+
+    - Resent-to: is now one of the headers checked for explicit
+      destinations.
+
+    - Tons more bounce formats are recognized.  The API to the bounce
+      modules has changed.
+
+    - A rewritten LockFile module which should fix most (hopefully all)
+      bugs in the locking machinery.  Many improvements suggested by
+      Thomas Wouters and Harald Meland.
+
+    - Experimental support (disabled by default) for delivering SMTP
+      chunks to the MTA via multiple threads.  Your Python executable
+      must have been compiled with thread support enabled, and you
+      must set MAX_DELIVERY_THREADS in mm_cfg.py.  Note that this may
+      not improve your overall system performance.
+
+    - Some changes and additions to scripts: bin/find_member now
+      supports a -w/--owner flag to match regexps against mailing list
+      owners; bin/find_member now supports multiple regexps;
+      cron/gate_news command line option changes; new script
+      bin/dumbdb for debugging purposes; bin/clone_member can now also
+      remove the old address and change change the list owner
+      addresses.
+
+    - The News/Mail gateway admin page has a button that lets you do
+      an explicit catchup of the newsgroup.
+
+    - The CVS repository has been moved out to SourceForge.  For more
+      information, see the project summary at
+
+      http://sourceforge.net/project/?group_id=103
+
+    - Lots 'o bug fixes and some performance improvements.
+
+2.0 beta 2 (07-Apr-2000)
+
+    - Rewritten gate_news cron script which should be more efficient
+      and avoid race and locking problems.  Each list now maintains
+      its own watermark, and when you use the admin CGI script to turn
+      on gating from Usenet->mail, an automatic mass catch up is done
+      to avoid flooding the mailing list.  cron/gate_news's command
+      line interface has also changed.  See its docstring for
+      details.
+
+    - A new cron script called qrunner has been added to retry message
+      deliveries that fail because of temporary smtpd problems.
+
+    - New command line script called bin/list_lists which does exactly
+      that: lists all the mailing lists on the system (much like the
+      listinfo CGI does).
+
+    - bin/withlist is now directly executable, however if you want to
+      use python -i, you must still explicitly invoke it.
+      bin/withlist also now cleans up after itself by unlocking any
+      locked lists.  It does NOT save any dirty lists though - you
+      must do this explicitly.
+
+    - $prefix permissions (and all subdirs) must now be 02775.
+      bin/check_perms has been updated to fix all the subdir
+      permissions.
+
+    - "make update" (a.k.a. bin/update) is run automatically when you
+      do a "make install"
+
+    - The CGI driver script now puts information about the Python
+      environment into the logs/error file (but not the diagnostic web
+      page).
+
+    - Bug fixes and some performance improvements
+
+2.0 beta 1 (19-Mar-2000)
+
+    - Python 1.5.2 (or newer) is now required.
+
+    - A new bundled auto-responder has been added.  You can now
+      configure an autoresponse text for each list's primary
+      addresses:
+
+        listname@yourhost.com -- the general posting address
+        listname-request@...  -- the automated "request bot" address
+        listname-admin@...    -- the human administrator address
+
+    - The standard UI now includes three logos at the bottom of the
+      page: Dragon's Mailman logo, the Python Powered logo, and the
+      GNU logo.  All point to their respective home pages.
+
+    - It is now possible to set the Reply-To: field on lists to an
+      arbitrary address.  NOTE: Reply-To: munging is generally
+      considered harmful!  However for some read-only lists, it is
+      useful to direct replies to a parallel discussion list.
+
+    - There is a new message delivery architecture which uses a
+      pipeline processor for incoming and internally generated
+      messages.  Mailman no longer contains a bundled bulk-mailer;
+      instead message delivery is handled completely by the MTA.  Most
+      MTAs give a high enough priority to connections from the
+      localhost that mail will not be lost because of system load, but
+      this is not guaranteed (or handled) by Mailman currently.  Be
+      careful also if your smtpd is on a different host than the
+      Mailman host.  In practice, mail lossage has not be observed.
+
+      For this reason cron/run_queue is no longer needed (see the
+      UPGRADING file for details).
+
+      Also, you can choose whether you want direct smtp delivery, or
+      delivery via the command line to a sendmail-compatible daemon.
+      You can also easily add your own delivery module.  See
+      Mailman/Defaults.py for details.
+
+    - A similar pipeline architecture for the parsing of bounce
+      messages has been added.  Most common bounce formats are now
+      handled, including Qmail, Postfix, and DSN.  It is now much
+      easier to add new bounce detectors.
+
+    - The approval pending architecture has also been revamped.
+      Subscription requests and message posts waiting for admin
+      approval are no longer kept in the config.db file, but in a
+      separate requests.db file instead.
+
+    - Finally made consistent the use of Sender:/From:/From_ in the
+      matching of headers for such things as member-post-only.  Now,
+      if USE_ENVELOPE_SENDER is true, Sender: will always be chosen
+      over From:, however the default has been changed to
+      USE_ENVELOPE_SENDER false so that From: is always chosen over
+      Sender:.  In both cases, if no header is found, From_ (i.e. the
+      envelope sender is used).  Note that the variable is now
+      misnamed!  Most people want From: matching anyway and any are
+      easily spoofable.
+
+    - New scripts bin/move_list, bin/config_list
+
+    - cron/upvolumes_yearly, cron/upvolumes_monthly, cron/archive,
+      cron/run_queue all removed.  Edit your crontab if you used these
+      scripts.  Other scripts removed: contact_transport, deliver,
+      dumb_deliver.
+
+    - Several web UI improvements, especially in the admin page.
+
+    - Remove X-pmrqc: headers to prevent return reciepts for Pegasus
+      mail users.
+
+    - Security patch when using external archivers.
+
+    - Honor "X-Archive: No" header by not putting this message in the
+      archive.
+
+    - Changes to the log file format.
+
+    - The usual bug fixes.
+
+1.1 (05-Nov-1999)
+
+    - All GIFs removed.  See http://www.gnu.org/philosophy/gif.html
+      for the reason why.
+
+    - Improvements to the Pipermail archiver which make things faster.
+      Primary change is that the .txt files are not gzipped on every
+      posted message.  Instead, use the new cron script `nightly_gzip'
+      to gzip the .txt file in batches (this means that the .txt file
+      will lag behind the on-line archives a little).
+
+    - From the C drivers programs, Python is invoked with the -S
+      option.  This tells Python to avoid importing the site module,
+      which can improve start up time of the Python process
+      considerably.  Note that the command line script invocation has
+      not been changed.
+
+    - New configuration variables PUBLIC_EXTERNAL_ARCHIVER and
+      PRIVATE_EXTERNAL_ARCHIVER which can contain a shell command
+      string for os.popen().  This can be used to invoke an external
+      archiver instead of the bundled Pipermail archiver.  See
+      Defaults.py for details.
+
+    - new script `bin/find_member' which can be used to search for a
+      member by regular expression.
+
+    - More child processes are reaped, which should eliminate most
+      occurrences of zombie processes.
+
+    - A few small miscellaneous bug fixes (including PR#99, PR#107)
+      and improvements to the file locking algorithms.
+
+1.0 (30-Jul-1999)
+
+    - Configure script now allows $PREFIX (by default /home/mailman)
+      to be permissions 02755.  Also, configure now tests for
+      vsnprintf()
+
+    - Workaround, taken from GNU screen, for systems missing
+      vsnprintf()
+
+    - Return-Receipt-To: and Disposition-Notification-To: headers are
+      always removed from posted messages (they can be used to troll
+      for list membership).
+
+    - Workaround for MSIE4.01 (and possibly other versions) bug in the
+      handling of cookies.
+
+    - A small collection of other bug fixes.
+
+1.0rc3 (10-Jul-1999)
+
+    - new script bin/check_perms which checks (and optionally fixes)
+      the permissions and group ownerships of the files in your
+      Mailman installation.
+
+    - Removed a bottleneck in the archiving code that was causing
+      performance problems on highly loaded servers.
+
+    - The code that saves a list's state and configuration database
+      has been made more robust.
+
+    - Additional exception handlers have been added in several places
+      to alleviate problems with Mailman bombing out when it really
+      would be better to print/log a helpful message.
+
+    - The "password" mail command will now mail back the sender's
+      subscription password when given with no arguments.
+
+    - The embarrassing subject-prefixing bug present in rc2 has been
+      fixed.
+
+    - A small (but nice :) collection of other squashed bugs.
+
+1.0rc2 (14-Jun-1999)
+
+    - A security flaw in the CGI cookie mechanisms was discovered --
+      the Mailman-issued cookies were easily spoofable, implying that
+      e.g. admin access to all Mailman lists via the web interface
+      could be compromised.  This flaw has now been fixed.
+
+    - Handling of SMTP errors has been improved.
+
+    - Both "Mass Subscription" via web admin interface and
+      bin/add_members have been greatly sped up.
+
+    - autoconf check for syslog has been revamped, and is now verified
+      to work on SCO OpenServer 5.  If syslog can't be found, the C
+      wrappers will compile, but without any syslog calls.
+
+    - Various other bug fixes.
+
+1.0rc1 (04-May-1999)
+
+    - There is a new Mailman logo, contributed by The Dragon De
+      Monsyne.  Please read the INSTALL file for information about
+      installing the logo in a place your Web server can find it.
+
+    - USE_ENVELOPE_SENDER is now set to 0 by default.  Turning this on
+      caused problems for too many users; lists restricted to
+      member-only posts were not matching the addresses correctly.
+
+    - A revamped bin/withlist to be a little more useful.
+
+    - A revamped cron/mailpasswds which groups users by virtual hosts.
+
+    - The usual assortment of bug fixes.
+
+1.0b11 (03-Apr-1999)
+
+    - Bug fixes and improvements for case preservation of subscribed
+      addresses.  The DATA_FILE_VERSION has been bumped to 14.
+
+    - New script bin/withlist, useful for interactive debugging.
+
+1.0b10 (26-Mar-1999)
+
+    - New script bin/sync_members which can be used to synchronize a
+      list's membership against a flat (e.g. sendmail :include: style)
+      file.
+
+    - bin/add_members and bin/remove_members now accept addresses on
+      the command line with `-' as the value for the -d and -n
+      options.
+
+    - Added variable USE_ENVELOPE_SENDER to Defaults.py for site-wide
+      configuration of address matching scheme.  With this variable
+      set to true, the envelope sender (e.g. Unix "From_" header) is
+      used to match addresses, otherwise the From: header is used.
+      Envelope sender matching seems not to work on many systems.
+      This variable is currently defaulted to 1, but may change to 0
+      for the final release.
+
+    - Reorganization of the membership management admin page.  Also
+      member addresses are linked to their options page.  Only the
+      `General' category has the admin password change form.
+
+    - Major reorganization of email command handling and responses.
+      `notmetoo' is the preferred email command instead of `norcv',
+      although the latter is still accepted as an argument.  If more
+      than 5 errors are found in the message, command processing is
+      halted.
+
+    - User options page now shows the user their case-preserved
+      subscribed address as well.
+
+    - The usual assortment of bug fixes.
+
+1.0b9 (01-Mar-1999)
+
+    - New bin scripts: clone_member, list_members, add_members (a
+      consolidation of convertlist and populate_new_list which have
+      been removed).
+
+    - Two new readmes have been added: README.LINUX and README.QMAIL
+
+    - New configure option --with-cgi-ext which can be used if your
+      Web server requires extensions on CGI scripts.  The extension
+      must include a dot (e.g. --with-cgi-ext=".cgi").
+
+    - Many bug fixes, including the setgid problem that was causing
+      mail to be lost on some versions of Linux.
+
+1.0b8 (14-Jan-1999)
+
+     - Bug fixes and workarounds for certain Linuxes.
+
+     - Illegal addresses are no longer allowed to be subscribed, from
+       any interface.
+
+1.0b7 (31-Dec-1998)
+
+     - Many, many bug fixes.  Some performance improvements for large
+       lists.  Some improvements in the Web interfaces.  Some security
+       improvements.  Improved compatibility with Python 1.5.
+
+     - bin/convert_list and bin/populate_new_list have been replaced
+       by bin/add_members.
+
+     - Admins can now get notification on subscriptions and
+       unsubscriptions.  Posts are now logged.
+
+     - The username portion of email addresses are now case-preserved
+       for delivery purposes.  All other address comparisions are
+       case-insensitive.
+
+     - New default SMTP_MAX_RCPTS that limits the number of "RCPT TO"
+       SMTP commands that can be given for a single message.  Most
+       MTAs have some hard limit.
+
+     - "Precedence: bulk" header and "List-id:" header are now added
+       to all outgoing messages.  The latter is not added if the
+       message already has a "List-id:" header.  See RFC 2046 and
+       draft-chandhok-listid-02 for details.
+
+     - The standard (as of Python 1.5.2) smtplib.py is now used.
+
+     - The install process now compiles all the .py files in the
+       installation.
+
+     - Versions of the Mailman papers given at IPC7 and LISA-98 are
+       now included.
+
+1.0b6 (07-Nov-1998)
+
+     - Archiving is (finally) back in.
+
+     - Administrivia filter added.
+
+     - Mail queue mechanism revamped with better concurrency control.
+
+     - For recipients that have estmp MTAs, set delivery notification
+       status so that only delivery failure notices are sent out,
+       inhibiting 4 hour and N day warning notices.
+
+     - Now expire old unconfirmed subscription requests, rather than
+       keeping them forever.
+
+     - Added proposed standard List-Id: header, and our own
+       X-MailmanVersion header.
+
+     - Prevent havoc from attempts to subscribe a list to itself.  (!)
+
+     - Refine mail command processing to prevent loops.
+
+     - Pending subscription DB redone with better locking and cleaner
+       interface.
+
+     - posters functionality expanded.
+
+     - Subscription policy more flexible, sensible, and
+       site-configurable.
+
+     - Various and sundry bug fixes.
+
+1.0b5 (27-Jul-1998)
+
+    - New file locking that should be portable and work w/ NFS.
+
+    - Better use of packages.
+
+    - Better error logging and reporting.
+
+    - Less startup overhead.
+
+    - Various and sundry bug fixes.
+
+
+1.0b4 (03-Jun-1998)
+
+    - A configure script for easy installation (Barry Warsaw)
+
+    - The ability to install Mailman to locations other than
+      /home/mailman (Barry Warsaw)
+
+    - Use cookies on the admin pages (also hides admin pages from
+      others) (Scott Cotton)
+
+    - Subscription requests send a request for confirmation, which may
+      be done by simply replying to the message (Scott Cotton)
+
+    - Facilities for gating mail to a newsgroup, and for gating a
+      newsgroup to a mailing list (John Viega)
+
+    - Contact the SMTP port instead of calling sendmail (primarily for
+      portability) (John Viega)
+
+    - Changed all links on web pages to relative links where appropriate.
+      (John Viega)
+
+    - Use MD5 if crypt is not available (John Viega)
+
+    - Lots of fixing up of bounce handling (Ken Manheimer)
+
+    - General UI polishing (Ken Manheimer)
+
+    - mm_html: Make it prominent when the user's delivery is disabled
+      on his option page. (Ken Manheimer)
+
+    - mallist:DeleteMember() Delete the option setings if any. (Ken
+      Manheimer)
+
+1.0b3 (03-May-1998)
+
+    - mm_message:Deliverer.DeliverToList() added missing newline
+      between the headers and message body.  Without it, any sequence
+      of initial body lines that _looked_ like headers ("Sir: Please
+      excuse my impertinence, but") got treated like headers.
+
+    - Fixed typo which broke subscription acknowledgement message
+      (thanks to janne sinkonen for pointing this out promptly after
+      release).  (Anyone who applied my intermediate patch will
+      probably see this one trigger patch'es reversed-patch
+      detector...)
+
+    - Fixed cgi-wrapper.c so it doesn't segfault when invoked with
+      improper uid or gid, and generally wrappers are cleaned up a
+      bit.
+
+    - Prevented delivery-failure notices for misdirected subscribe-
+      confirmation requests from bouncing back to the -request addr,
+      and then being treated as failing requests.
+
+      Implemented two measures.  Set the reply-to for the
+      confirmation- request to the -request addr, and the sender to be
+      the list admin.  This way, bounces go to list admin instead of
+      to -request addr.  (Using the errors-to header wasn't
+      sufficient.  Thanks, barry, for pointing out the use of sender
+      here.)  Second, ignore any mailcommands coming from postmaster
+      or non-login system type accounts (mailer-daemon, daemon,
+      postoffice, etc.)
+
+    - Reenabled admin setting of web_page_url - crucial for having
+      lists use alternate names of a host that occupies multiple
+      addresses.
+
+    - Fixed and refined admin-options help mechanism.  Top-level visit
+      to general-category (where the "general" isn't in the URL) was
+      broken.  New help presentation shows the same row that shows on
+      the actual options page.
+
+    - cron/crontab.in crontab template had wrong name for senddigests.
+
+    - Default digest format setting, as distributed, is now non-MIME,
+      on urging of reasoned voices asserting that there are still
+      enough bad MIME implementations in the world to be a nuisance to
+      too many users if MIME is the default.  Sigh.
+
+    - MIME digests now preserve the structure of MIME postings,
+      keeping attachments as attachments, etc.  They also are more
+      structured in general.
+
+    - Added README instructions explaining how to determine the right
+      UID and GID settings for the wrapper executables, and improved
+      some of the explanations about exploratory interaction
+      w/mailman.
+
+    - Removed the constraint that subscribers have their domain
+      included in a static list in the code.  We might want to
+      eventually reincorporate the check for the sake of a warning
+      message, to give a heads up to the subscriber, but try delivery
+      anyway...
+
+    - Added missing titles to error docs.
+
+    - Improved several help details, including particularly explaining
+      better how real_name setting is used.
+
+    - Strengthened admonition against setting reply_goes_to_list.
+
+    - Added X-BeenThere header to postings for the sake of prevention
+      of external mail loops.
+
+    - Improved handling of bounced messages to better recognize
+      members address, and prevent duplicate attempts to react (which
+      could cause superfluous notices to administrator).
+
+    - Added __delitem__ method to mm_message.OutgoingMessage, to fix
+      the intermediate patch posted just before this one.
+
+    - Using keyword substitution format for more message text (ie,
+      "substituting %(such)s into text" % {'such': "something"}) to
+      make the substitutions less fragile and, presumably, easier to
+      debug.
+
+    - Removed hardwired (and failure-prone) /tmp file logging from
+      answer.majordomo_mail, and generally spiffed up following janne
+      sinkkonen's lead.
+
+1.0b2 (13-Apr-1998)
+1.0b1 (09-Apr-1998)
+
+  Web pages much more polished
+   - Better organized, text more finely crafted
+   - Easier, more refined layout
+   - List info and admin interface overviews, enumerate all public lists
+     (via, e.g., http://www.python.org/mailman/listinfo - sans the
+     specific list)
+   - Admin interface broken into sections, with help elaboration for
+     complicated configuration options
+
+  Mailing List Archives
+   - Integrated with a newer, *much* improved, external pipermail - to be
+     found at http://starship.skyport.net/crew/amk/maintained/pipermail.html
+   - Private archives protected with mailing list members passwords,
+     cookie-fied.
+
+  Spam prevention
+   - New spam prevention measures catch most if not all spam without
+     operator intervention or general constraints on who can post to
+     list:
+       require_explicit_destination option imposes hold of any postings
+       that do not have the list name in any of the to or cc header
+       destination addresses.  This catches the vast majority of random
+       spam.
+     Other options (forbidden_posters, bounce_matching_headers) provide
+     for filtering of known transgressors.
+   - Option obscure_addresses (default on) causes mailing list subscriber
+     lists on the web to be slightly mangled so they're not directly
+     recognizable as email address by web spiders, which might be
+     seeking targets for spammers.
+
+  Site configuration arrangement organized - in mailman/mailman/modules:
+   - When installing, create a mailman/modules/mm_cfg.py (if there's not
+     one already there), using mm_cfg.py.dist as a template.
+     mm_default.py contains the distributed defaults, including
+     descriptions of the values.  mm_cfg.py does a 'from mm_defaults.py
+     import *' to get the distributed defaults.  Include settings in
+     mm_cfg.py for any values in mm_defaults.py that need to be
+     customized for your site, after the 'from .. import *'.
+   See mm_cfg.py.dist for more details.
+
+  Logging
+   - Major operations (subscription, admin approval, bounce,
+     digestification, cgi script failure tracebacks) logged in files
+     using a reliable mechanism
+   - Wrapper executables log authentication complaints via syslog
+
+  Wrappers
+   - All cgi-script wrapper executables combined in a single source,
+     easier to configure.  (Mail and aliases wrappers separate.)
+
+  List structure version migration
+   - Provision for automatic update of list structures when moving to a
+     new version of the system.  See modules/versions.py.
+
+  Code cleaning
+   - Many more module docstrings, __version__ settings, more function
+     docstrings.
+   - Most unqualified exception catches have been replaced with more
+     finely targeted catches, to avoid concealing bugs.
+   - Lotsa long lines wrapped (pet peeve:).
+
+  Random details (not complete, sorry):
+   - make archival frequency a list option
+   - Option for daily digest dispatch, in addition to size threshhold
+   - make sure users only get one periodic password notifcation message for
+     all the lists they're on (repaired 1.0b1.1 varying-case mistake)
+   - Fix rmlist sans-argument bug causing deletion of all lists!
+   - doubled generated random passwords to four letters
+   - Cleaned lots and lots of notices
+   - Lots and lots of html page cleanup, including table-of-contents, etc
+   - Admin options sections - don't do the "if so" if the ensuing list
+     is empty
+   - Prevent list subject-prefix cascade
+   - Sources under CVS
+   - Various spam filters - implicit-destination, header-field
+   - Adjusted permissions for group access
+   - Prevent redundant subscription from redundant vetted requests
+   - Instituted centralize, robustish logging
+   - Wrapper sources use syslog for logging (john viega)
+   - Sorting of users done on presentation, not in list.
+   - Edit options - give an error for non-existent users, not an options page.
+   - Bounce handling - offer 'disable' option, instead of remove, and
+     never remove without notifying admin
+   - Moved subscribers off of listinfo (and made private lists visible
+     modulo authentication)
+   - Parameterize default digest headers and footers and create some
+   - Put titles on cgi result pages that do not get titles (all?)
+   - Option for immediate admin notifcation via email of pending
+     requests, as well as periodic
+   - Admin options web-page help
+   - Enabled grouped and cascading lists despite implicit-name constraint
+   - Changed subscribers list so it has its own script (roster)
+   - Welcome pages: http://www.python.org/mailman/{admin,listinfo}/
+
+0.95 (25-Jan-1997)
+  - Fixed a bug in sending out digests added when adding disable mime option.
+  - Added an option to not notify about bounced posts.
+  - Added hook for pre-posting filters.  These could be used to
+    auto-strip signatures.  I'm using the feature to auto-strip footers
+    that are auto-generated by mail received from another mailing list.
+
+0.94 (22-Jan-1997)
+  - Made admin password work ubiquitously in place of a user password.
+  - Added an interface for getting / setting user options.
+  - Added user option to disable mime digests (digested people only)
+  - Added user option to not receive your own posts (nondigested people only)
+  - Added user option to ack posts
+  - Added user option to disable list delivery to their box.
+  - Added web interface to user options
+  - Config number of sendmail spawns on a per-list basis
+  - Fixed extra space at beginning of each message in digests...
+  - Handled comma separated emails in bounce messages...
+  - Added a FindUser() function to MailList.  Used it where appropriate.
+  - Added mail interface to setting list options.
+  - Added name links to the templates options page
+  - Added an option so people can hide their names from the subscription list.
+  - Added an answer_majordomo_mail script for people switching...
+
+0.93 (18/20-Jan-1997)
+  -  When delivering to list, don't call sendmail directly.  Write to a file,
+     and then run the new deliver script, which forks and exits in the parent
+     immediately to avoid hanging when delivering mail for large lists, so that
+     large lists don't spend a lot of time locked.
+  -  GetSender() no longer assumes that you don't have an owner-xxx address.
+  -  Fixed unsubscribing via mail.
+  -  Made subscribe via mail generate a password if you don't supply one.
+  -  Added an option to clobber the date in the archives to the date the list
+     resent the post, so that the archive doesn't get mail from people sending
+      bad dates clumped up at the beginning or end.
+  -  Added automatic error message processing as an option.  Currently
+     logging to /tmp/bounce.log
+  -  Changed archive to take a list as an argument, (the old way was broken)
+  -  Remove (ignore) spaces in email addresses
+  -  Allow user passwords to be case insensitive.
+  -  Removed the cleanup script since it was now redundant.
+  -  Fixed archives if there were no archives.
+  -  Added a Lock() call to Load() and Create().  This fixes the
+     problem of loading then locking.
+  -  Removed all occurances of Lock() except for the ones in mailing
+     list since creating a list
+     now implicitly locks it.
+  -  Quote single periods in message text.
+  - Made bounce system handle digest users fairly.
+
+0.92 (13/16-Jan-1997)
+  -  Added Lock and Unlock methods to list to ensure each operation is atomic
+  -  Added a cmd that rms all files of a mailing list (but not the aliases)
+  -  Fixed subscribing an unknown user@localhost (confirm this)
+  -  Changed the sender to list-admin@... to ensure we avoid mail loops.
+  -  check to make sure there are msgs to archive before calling pipermail.
+  -  started using this w/ real mailing lists.
+  -  Added a cron script that scours the maillog for User/Host unknown errs
+  -  Sort membership lists
+  -  Always display digest_is_default option
+  -  Don't slam the TO list unless you're sending a digest.
+  -  When making digest summaries, if missing sender name, use their email.
+  -  Hacked in some protection against crappy dates in pipermail.py
+  -  Made it so archive/digest volumes can go up monthly for large large lists.
+  -  Number digest messages
+  -  Add headers/footers to each message in digest for braindead mailers
+  -  I removed some forgotten debug statements that caused server errors
+         when a CGI script sent mail.
+  -  Removed loose_matches flag, since everything used it.
+  -  Fixed a problem in pipermail if there was no From line.
+  -  In upvolume_ scripts, remove INDEX files as we leave a volume.
+  -  Threw a couple of scripts in bin for generating archives from majordomo's
+     digest-archives.  I wouldn't recommend them for the layman, though, they
+     were meant to do a job quickly, not to be usable.
+
+0.91 (23-Dec-1996)
+  -  broke code into mixins for managability
+  -  tag parsing instead of lots of gsubs
+  -  tweaked pipermail (see comments on pipermail header)
+  -  templates are now on a per-list basis as intended.
+  -  request over web that your password be emailed to you.
+  -  option so that web subscriptions require email confirmation.
+  -  wrote a first pass at an admin interface to configurable variables.
+  -  made digests mime-compliant.
+  -  added a FakeFile class that simulates enough of a file object on a
+        string of text to fool rfc822.Message in non-seek mode.
+  -  changed OutgoingMessage not to require its args in constructor.
+  -  added an admin request DB interface.
+  -  clearly separated the internal name from the real name.
+  -  replaced lots of ugly, redundant code w/ nice code.
+        (added Get...Email() interfaces, GetScriptURL, etc...)
+  -  Wrote a lot of pretty html formatting functions / classes.
+  -  Fleshed out the newlist command a lot.  It now mails the new list
+        admin, and auto-updates the aliases file.
+  -  Made multiple owners acceptable.
+  -  Non-advertised lists, closed lists, max header length, max msg length
+  -  Allowed editing templates from list admin pages.
+  -  You can get to your info page from the web even if the list is closed.
+
+
+Local Variables:
+mode: indented-text
+indent-tabs-mode: nil
+End:

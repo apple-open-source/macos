@@ -1,0 +1,112 @@
+Return-Path: <boost-admin@lists.boost.org>
+Received: from mx04.mrf.mail.rcn.net ([207.172.4.53] [207.172.4.53])
+          by mta05.mrf.mail.rcn.net with ESMTP
+          id <20020403160902.ETVB19155.mta05.mrf.mail.rcn.net@mx04.mrf.mail.rcn.net>;
+          Wed, 3 Apr 2002 11:09:02 -0500
+Received: from milliways.osl.iu.edu ([129.79.245.239])
+	by mx04.mrf.mail.rcn.net with esmtp (Exim 3.35 #5)
+	id 16snJm-00067W-00
+	for david.abrahams@rcn.com; Wed, 03 Apr 2002 11:09:02 -0500
+Received: from milliways.osl.iu.edu (localhost [127.0.0.1])
+	by milliways.osl.iu.edu (8.11.6/8.11.6/IUCS_2.44) with ESMTP id g33G90A24959;
+	Wed, 3 Apr 2002 11:09:00 -0500
+Received: from mta532.mail.yahoo.com (mta532.mail.yahoo.com [216.136.129.204])
+	by milliways.osl.iu.edu (8.11.6/8.11.6/IUCS_2.44) with SMTP id g33G84A24927
+	for <boost-admin@lists.boost.org>; Wed, 3 Apr 2002 11:08:05 -0500
+Date: Wed, 3 Apr 2002 11:08:05 -0500
+Message-Id: <200204031608.g33G84A24927@milliways.osl.iu.edu>
+From: MAILER-DAEMON@yahoo.com
+To: boost-admin@lists.boost.org
+X-Loop: MAILER-DAEMON@yahoo.com
+Subject: Delivery failure
+Sender: boost-owner@lists.boost.org
+Errors-To: boost-owner@lists.boost.org
+X-BeenThere: boost@lists.boost.org
+X-Mailman-Version: 2.0.8
+Precedence: bulk
+List-Help: <mailto:boost-request@lists.boost.org?subject=help>
+List-Post: <mailto:boost@lists.boost.org>
+List-Subscribe: <http://lists.boost.org/mailman/listinfo.cgi/boost>,
+	<mailto:boost-request@lists.boost.org?subject=subscribe>
+List-Id: Boost mailing list <boost.lists.boost.org>
+List-Unsubscribe: <http://lists.boost.org/mailman/listinfo.cgi/boost>,
+	<mailto:boost-request@lists.boost.org?subject=unsubscribe>
+List-Archive: <http://lists.boost.org/MailArchives/boost/>
+
+Message from yahoo.com.
+Unable to deliver message to the following address(es).
+
+<mark1960_1998@yahoo.com>:
+Sorry your message to mark1960_1998@yahoo.com cannot be delivered. This account has been disabled or discontinued.
+
+<ovchenkov@yahoo.com>:
+Sorry your message to ovchenkov@yahoo.com cannot be delivered. This account has been disabled or discontinued.
+
+<tsa412@yahoo.com>:
+Sorry your message to tsa412@yahoo.com cannot be delivered. This account has been disabled or discontinued.
+
+<vaxheadroom@yahoo.com>:
+Sorry your message to vaxheadroom@yahoo.com cannot be delivered. This account has been disabled or discontinued.
+
+--- Original message follows.
+
+X-Track: 1: 40
+Return-Path: <boost-admin@lists.boost.org>
+Received: from 129.79.245.239  (EHLO milliways.osl.iu.edu) (129.79.245.239)
+  by mta532.mail.yahoo.com with SMTP; 03 Apr 2002 08:06:35 -0800 (PST)
+Received: from milliways.osl.iu.edu (localhost [127.0.0.1])
+	by milliways.osl.iu.edu (8.11.6/8.11.6/IUCS_2.44) with ESMTP id g33DItA21480;
+	Wed, 3 Apr 2002 08:18:55 -0500
+Received: from hotmail.com (f110.law10.hotmail.com [64.4.15.110])
+	by milliways.osl.iu.edu (8.11.6/8.11.6/IUCS_2.44) with ESMTP id g33DH7A21450
+	for <boost@lists.boost.org>; Wed, 3 Apr 2002 08:17:07 -0500
+Received: from mail pickup service by hotmail.com with Microsoft SMTPSVC;
+	 Wed, 3 Apr 2002 05:16:59 -0800
+Received: from 194.100.118.234 by lw10fd.law10.hotmail.msn.com with HTTP;
+	Wed, 03 Apr 2002 13:16:59 GMT
+X-Originating-IP: [194.100.118.234]
+From: "Vesa Karvonen" <vesa_karvonen@hotmail.com>
+To: boost@lists.boost.org
+Subject: Re: [boost] [Type Traits] Patch for type_with_alignment 
+Mime-Version: 1.0
+Content-Type: text/plain; format=flowed
+Message-ID: <F110iKiIcN3VknIDBoH00014513@hotmail.com>
+X-OriginalArrivalTime: 03 Apr 2002 13:16:59.0830 (UTC) FILETIME=[D63C7D60:01C1DB11]
+Sender: boost-admin@lists.boost.org
+Errors-To: boost-admin@lists.boost.org
+X-BeenThere: boost@lists.boost.org
+X-Mailman-Version: 2.0.8
+Precedence: bulk
+Reply-To: boost@lists.boost.org
+List-Help: <mailto:boost-request@lists.boost.org?subject=help>
+List-Post: <mailto:boost@lists.boost.org>
+List-Subscribe: <http://lists.boost.org/mailman/listinfo.cgi/boost>,
+	<mailto:boost-request@lists.boost.org?subject=subscribe>
+List-Id: Boost mailing list <boost.lists.boost.org>
+List-Unsubscribe: <http://lists.boost.org/mailman/listinfo.cgi/boost>,
+	<mailto:boost-request@lists.boost.org?subject=unsubscribe>
+List-Archive: <http://lists.boost.org/MailArchives/boost/>
+Date: Wed, 03 Apr 2002 16:16:59 +0300
+
+>On Fri, 29 Mar 2002, David Abrahams wrote:
+>>Are you planning to apply this patch?
+>>
+>>-Dave
+>
+>Yes, but I can't right now. I'll apply it tomorrow if it hasn't already
+>been done.
+>
+>	Doug
+
+How is the patch coming up (or did I miss some post on this subject)?
+
+I'm also working on something that could use type_with_alignment<>.
+
+
+_________________________________________________________________
+Join the world’s largest e-mail service with MSN Hotmail. 
+http://www.hotmail.com
+
+_______________________________________________
+Unsubscribe & other changes: http://lists.boost.org/mailman/listinfo.cgi/boost
+.

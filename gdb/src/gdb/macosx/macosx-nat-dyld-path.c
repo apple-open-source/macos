@@ -32,6 +32,7 @@
 #include "defs.h"
 #include "inferior.h"
 #include "environ.h"
+#include "gdbcore.h"
 
 #define assert CHECK_FATAL
 
@@ -344,6 +345,41 @@ char *dyld_resolve_image (const struct dyld_path_info *d, const char *dylib_name
 
   if (dylib_name == NULL)
     return NULL;
+
+  if (dylib_name[0] == '@' && strstr (dylib_name, "@executable_path") == dylib_name)
+    {
+      /* Handle the @executable_path name here... */
+      int cookie_len = strlen ("@executable_path");
+      const char *relative_name = dylib_name + cookie_len;
+      if ((exec_bfd != NULL) && (exec_bfd->filename != NULL))
+	{
+	  int relative_name_len = strlen (relative_name);
+	  char *executable_path_end = strrchr (exec_bfd->filename, '/');
+	  if (executable_path_end != NULL)
+	    {
+	      int executable_path_len = executable_path_end - exec_bfd->filename;
+	      char *final_name = xmalloc (relative_name_len + executable_path_len + 1);
+	      memcpy (final_name, exec_bfd->filename, executable_path_len);
+	      memcpy (final_name + executable_path_len, relative_name, relative_name_len);
+	      final_name[executable_path_len + relative_name_len] = '\0';
+	      if (stat (final_name, &stat_buf) == 0)
+		return final_name;
+	      else
+		xfree (final_name);
+	    }
+	  else
+	    {
+	      warning ("Executable filename not a path, "
+		       "can't resolve \"@executable_path load command.");
+	      return NULL;
+	    }
+	}
+      else
+	{
+	  warning ("Couldn't find executable filename while trying to"
+		   " resolve \"@executable_path\" load command.");
+	} 
+    }
 
   framework_name = get_framework_pathname (dylib_name, ".framework/", 0);
   framework_name_suffix = get_framework_pathname (dylib_name, ".framework/", 1);

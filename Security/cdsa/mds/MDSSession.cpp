@@ -109,6 +109,8 @@ namespace Security
 /* debug - skip file-level locking */
 #define SKIP_FILE_LOCKING	0
 
+#ifndef	NDEBUG
+
 /* Only allow root to create and update system DB files - in the final config this
  * will be true */
 #define SYSTEM_MDS_ROOT_ONLY	0
@@ -119,10 +121,12 @@ namespace Security
  * false for intermediate testing).
  */ 
 #define SYSTEM_DBS_VIA_USER		1
-		
-/* when true, turn autocommit off when building system DB */
-#define AUTO_COMMIT_OPT			1
 
+#else	/* NDEBUG */
+/* normal deployment case */
+#define SYSTEM_MDS_ROOT_ONLY	1
+#define SYSTEM_DBS_VIA_USER		0
+#endif	/* NDEBUG */
 
 /*
  * Determine if both of the specified DB files exist as
@@ -299,7 +303,12 @@ MDSSession::install ()
 			CssmError::throwMe(CSSM_ERRCODE_MDS_ERROR);
 		}
 		if(!systemDatabasesPresent(true)) {
-			bool created = createSystemDatabases();
+			/* 
+			 * Root umask is 0 when this runs, so specify readable (only) 
+			 * by world. Also, turn off autocommit during initial
+			 * system DB population.
+			 */
+			bool created = createSystemDatabases(CSSM_FALSE, 0644);
 			if(created) {
 				/* 
 				 * Skip possible race condition in which this is called twice,
@@ -309,9 +318,7 @@ MDSSession::install ()
 				 * Do initial population of system DBs.
 				 */
 				DbFilesInfo dbFiles(*this, MDS_SYSTEM_DB_DIR);
-				#if 	AUTO_COMMIT_OPT
 				dbFiles.autoCommit(CSSM_FALSE);
-				#endif
 				dbFiles.updateSystemDbInfo(MDS_SYSTEM_PATH, MDS_BUNDLE_PATH);
 			}
 		}
@@ -870,6 +877,8 @@ MDSSession::createSystemDatabase(
 	const char *dbName,
 	const RelationInfo *relationInfo,
 	unsigned numRelations,
+	CSSM_BOOL autoCommit,
+	mode_t mode,
 	CSSM_DB_HANDLE &dbHand)			// RETURNED
 {
 	CSSM_DBINFO dbInfo;
@@ -910,13 +919,22 @@ MDSSession::createSystemDatabase(
 		indexInfo->IndexInfo = (CSSM_DB_INDEX_INFO_PTR)relp->IndexInfo;
 	}
 
+	/* set autocommit and mode */
+	CSSM_APPLEDL_OPEN_PARAMETERS openParams;
+	memset(&openParams, 0, sizeof(openParams));
+	openParams.length = sizeof(openParams);
+	openParams.version = CSSM_APPLEDL_OPEN_PARAMETERS_VERSION;
+	openParams.autoCommit = autoCommit;
+	openParams.mask = kCSSM_APPLEDL_MASK_MODE;
+	openParams.mode = mode;
+	
 	try {
 		DbCreate(dbName,
 			NULL,			// DbLocation
 			*dbInfoP,
 			CSSM_DB_ACCESS_READ | CSSM_DB_ACCESS_WRITE,
 			NULL,			// CredAndAclEntry
-			NULL,			// OpenParameters
+			&openParams,
 			dbHand);
 	}
 	catch(...) {
@@ -939,7 +957,9 @@ MDSSession::createSystemDatabase(
  * Returns true if we actually built the files, false if they already 
  * existed.
  */
-bool MDSSession::createSystemDatabases()
+bool MDSSession::createSystemDatabases(
+	CSSM_BOOL autoCommit,
+	mode_t mode)
 {
 	CSSM_DB_HANDLE objectDbHand = 0;
 	CSSM_DB_HANDLE directoryDbHand = 0;
@@ -954,11 +974,12 @@ bool MDSSession::createSystemDatabases()
 	/* create two DBs - any exception here results in deleting both of them */
 	MSDebug("Creating MDS DBs");
 	try {
-		createSystemDatabase(MDS_OBJECT_DB_PATH, &kObjectRelation, 1, objectDbHand);
+		createSystemDatabase(MDS_OBJECT_DB_PATH, &kObjectRelation, 1, 
+			autoCommit, mode, objectDbHand);
 		DbClose(objectDbHand);
 		objectDbHand = 0;
 		createSystemDatabase(MDS_DIRECT_DB_PATH, kMDSRelationInfo, kNumMdsRelations,
-			directoryDbHand);
+			autoCommit, mode, directoryDbHand);
 		DbClose(directoryDbHand);
 		directoryDbHand = 0;
 	}
@@ -1010,27 +1031,22 @@ MDSSession::DbFilesInfo::DbFilesInfo(
 	}
 }
 
-#define AUTO_COMMIT_OFF_ON_CLOSE	1
-
 MDSSession::DbFilesInfo::~DbFilesInfo()
 {
 	if(mObjDbHand != 0) {
-		#if AUTO_COMMIT_OPT && AUTO_COMMIT_OFF_ON_CLOSE
+		/* autocommit on, henceforth */
 		mSession.PassThrough(mObjDbHand,
 			CSSM_APPLEFILEDL_TOGGLE_AUTOCOMMIT,
 			reinterpret_cast<void *>(CSSM_TRUE),
 			NULL);
-		#endif
 		mSession.DbClose(mObjDbHand);
 		mObjDbHand = 0;
 	}
 	if(mDirectDbHand != 0) {
-		#if AUTO_COMMIT_OPT && AUTO_COMMIT_OFF_ON_CLOSE
 		mSession.PassThrough(mDirectDbHand,
 			CSSM_APPLEFILEDL_TOGGLE_AUTOCOMMIT,
 			reinterpret_cast<void *>(CSSM_TRUE),
 			NULL);
-		#endif
 		mSession.DbClose(mDirectDbHand);
 		mDirectDbHand = 0;
 	}
@@ -1389,6 +1405,5 @@ void MDSSession::DbFilesInfo::autoCommit(CSSM_BOOL val)
 		/* but proceed */
 	}
 }
-
 
 } // end namespace Security

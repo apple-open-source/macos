@@ -1,11 +1,18 @@
-PHP_ARG_WITH(pi3web,for Pi3Web Support,
-[  --with-pi3web=DIR       Build PHP as a module for use with Pi3Web.])
+dnl
+dnl $Id: config.m4,v 1.4 2003/03/11 17:04:45 zarzycki Exp $
+dnl
 
-if test "$PHP_PI3WEB" != "no"; then
-	if test "$PHP_PI3WEB" = "yes"; then
+RESULT=no
+AC_MSG_CHECKING(for Pi3Web support)
+
+AC_ARG_WITH(pi3web,
+[  --with-pi3web=DIR       Build PHP as Pi3Web module],
+[
+if test "$withval" != "no"; then
+	if test "$withval" = "yes"; then
 		PI3PATH=../.. # the default
 	else
-		PI3PATH=$PHP_PI3WEB
+		PI3PATH=$withval
 	fi
 	test -f "$PI3PATH/PiAPI/PiAPI.h" || AC_MSG_ERROR(Unable to find PiAPI.h in $PI3PATH/PiAPI)
 	PHP_BUILD_THREAD_SAFE
@@ -14,10 +21,14 @@ if test "$PHP_PI3WEB" != "no"; then
 	PHP_ADD_INCLUDE($PI3PATH/Pi2API)
 	PHP_ADD_INCLUDE($PI3PATH/Pi3API)
 	PHP_ADD_INCLUDE($PI3PATH/PHP4)
-	PHP_SAPI=pi3web
-	PHP_BUILD_SHARED
+	PHP_SELECT_SAPI(pi3web, shared, pi3web_sapi.c)
 	INSTALL_IT="\$(SHELL) \$(srcdir)/install-sh -m 0755 $SAPI_SHARED \$(INSTALL_ROOT)$PI3PATH/bin/"
+	RESULT=yes
+else
+	RESULT=no
 fi
+])
+AC_MSG_RESULT($RESULT)
 
 dnl ## Local Variables:
 dnl ## tab-width: 4

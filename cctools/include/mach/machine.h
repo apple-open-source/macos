@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -131,7 +129,7 @@ extern struct machine_info	machine_info;
 extern struct machine_slot	machine_slot[];
 
 extern vm_offset_t		interrupt_stack[];
-#endif	KERNEL
+#endif	/* KERNEL */
 
 /*
  *	Machine types known by all.
@@ -356,6 +354,7 @@ extern vm_offset_t		interrupt_stack[];
 #define CPU_SUBTYPE_POWERPC_750		((cpu_subtype_t) 9)
 #define CPU_SUBTYPE_POWERPC_7400	((cpu_subtype_t) 10)
 #define CPU_SUBTYPE_POWERPC_7450	((cpu_subtype_t) 11)
+#define CPU_SUBTYPE_POWERPC_970		((cpu_subtype_t) 100)
 
 /*
  * VEO subtypes
@@ -366,4 +365,4 @@ extern vm_offset_t		interrupt_stack[];
 #define CPU_SUBTYPE_VEO_2	((cpu_subtype_t) 2)
 #define CPU_SUBTYPE_VEO_ALL	CPU_SUBTYPE_VEO_2
 
-#endif	_MACH_MACHINE_H_
+#endif	/* _MACH_MACHINE_H_ */

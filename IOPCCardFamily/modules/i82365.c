@@ -19,7 +19,7 @@
     <dahinds@users.sourceforge.net>.  Portions created by David A. Hinds
     are Copyright (C) 1999 David A. Hinds.  All Rights Reserved.
 
-    Contributor:  Apple Computer, Inc.  Portions © 2000 Apple Computer, 
+    Contributor:  Apple Computer, Inc.  Portions © 2003 Apple Computer, 
     Inc. All rights reserved.
 
     Alternatively, the contents of this file may be used under the
@@ -645,6 +645,18 @@ static void ti113x_set_state(socket_info_t *s)
     pci_writel(s, TI12XX_IRQMUX, p->irqmux);
     i365_set_pair(s, TI113X_IO_OFFSET(0), 0);
     i365_set_pair(s, TI113X_IO_OFFSET(1), 0);
+
+#ifdef __MACOSX__
+    // MACOSXXX - hack for 3262074, some funkiness with
+    // pci byte enables on lombards and wallstreets
+    extern int gIOPCCardDisablePrefetch;
+    if (gIOPCCardDisablePrefetch) {
+    	u_short bcr;
+	pci_readw(s, CB_BRIDGE_CONTROL, &bcr);
+	bcr &= ~(CB_BCR_PREFETCH(0) | CB_BCR_PREFETCH(1));
+	pci_writew(s, CB_BRIDGE_CONTROL, bcr);
+    }
+#endif
 }
 
 static int ti113x_set_irq_mode(socket_info_t *s, int pcsc, int pint)
@@ -909,8 +921,13 @@ static u_int __init o2micro_set_opts(socket_info_t *s, char *buf)
     }
     if (p->mode_b & O2_MODE_B_IRQ15_RI)
 	strcat(buf, " [ring]");
+    
+#ifndef __MACOSX__
+    // MACOSXXX - This causes a hard hang on a OZ711E1 implementation?
     if (irq_mode != -1)
-	p->mode_d = irq_mode;
+    p->mode_d = irq_mode;
+#endif    
+    
     if (p->mode_d & O2_MODE_D_ISA_IRQ) {
 	strcat(buf, " [pci+isa]");
     } else {
@@ -1987,7 +2004,8 @@ pcic_enable_functional_interrupt(u_int socket_index)
 {
     socket_info_t *s = &socket[socket_index];
 
-    if (s->type <= IS_TI1131) {
+    if (s->type == IS_TI1130 ||
+	s->type == IS_TI1131) {
 	u_char cardctl;
 	pci_readb(s, TI113X_CARD_CONTROL, &cardctl);
 	cardctl |= TI113X_CCR_PCI_IREQ;
@@ -1996,11 +2014,19 @@ pcic_enable_functional_interrupt(u_int socket_index)
 	       s->type == IS_TI1211 || 
 	       s->type == IS_TI1410 ||
 	       s->type == IS_TI1420 ||
-	       s->type == IS_TI1510) {
+	       s->type == IS_TI1510 ||
+	       s->type == IS_TI4451 ||
+	       s->type == IS_RL5C475 ||
+	       s->type == IS_RL5C476 ||
+	       s->type == IS_RL5C478) {
     	u_short bcr;
 	pci_readw(s, CB_BRIDGE_CONTROL, &bcr);
 	bcr &= ~CB_BCR_ISA_IRQ;
 	pci_writew(s, CB_BRIDGE_CONTROL, bcr);
+    } else if (s->type >= IS_OZ6729 && s->type <= IS_OS7223) {
+	s->state.o2micro.mhpg = i365_get(s, O2_MHPG_DMA);
+	s->state.o2micro.mhpg |= O2_MHPG_CINT_ENA;
+        i365_set(s, O2_MHPG_DMA, s->state.o2micro.mhpg);
     }
 
     return 0;
@@ -2011,7 +2037,8 @@ pcic_disable_functional_interrupt(u_int socket_index)
 {
     socket_info_t *s = &socket[socket_index];
 
-    if (s->type <= IS_TI1131) {
+    if (s->type == IS_TI1130 ||
+	s->type == IS_TI1131) {
 	u_char cardctl;
 	pci_readb(s, TI113X_CARD_CONTROL, &cardctl);
 	cardctl &= ~TI113X_CCR_PCI_IREQ;
@@ -2020,11 +2047,19 @@ pcic_disable_functional_interrupt(u_int socket_index)
 	       s->type == IS_TI1211 || 
 	       s->type == IS_TI1410 ||
 	       s->type == IS_TI1420 ||
-	       s->type == IS_TI1510) {
+	       s->type == IS_TI1510 ||
+	       s->type == IS_TI4451 ||
+	       s->type == IS_RL5C475 ||
+	       s->type == IS_RL5C476 ||
+	       s->type == IS_RL5C478) {
     	u_short bcr;
 	pci_readw(s, CB_BRIDGE_CONTROL, &bcr);
 	bcr |= CB_BCR_ISA_IRQ;
 	pci_writew(s, CB_BRIDGE_CONTROL, bcr);
+    } else if (s->type >= IS_OZ6729 && s->type <= IS_OS7223) {
+	s->state.o2micro.mhpg = i365_get(s, O2_MHPG_DMA);
+	s->state.o2micro.mhpg &= ~O2_MHPG_CINT_ENA;
+        i365_set(s, O2_MHPG_DMA, s->state.o2micro.mhpg);
     }
 
     return 0;

@@ -101,6 +101,12 @@ static const struct attribute service_attributes[] =
    { "v6only",         A_V6ONLY,         1,  v6only_parser          },
    { "deny_time",      A_DENY_TIME,      1,  deny_time_parser       },
    { "umask",          A_UMASK,          1,  umask_parser           },
+#ifdef HAVE_DNSREGISTRATION
+   { "mdns",           A_MDNS,           1,  mdns_parser            },
+#endif
+#ifdef HAVE_SESSIONCREATE
+   { "session_create", A_SESSIONCREATE,  1,  sessioncreate_parser   },
+#endif
    { NULL,             A_NONE,          -1,  NULL                   }
 } ;
 
@@ -128,6 +134,9 @@ static const struct attribute default_attributes[] =
 #endif
    { "v6only",          A_V6ONLY,         1,    v6only_parser         },
    { "umask",           A_UMASK,          1,    umask_parser          },
+#ifdef HAVE_DNSREGISTRATION
+   { "mdns",            A_MDNS,           1,    mdns_parser           },
+#endif
    { NULL,              A_NONE,           0,    NULL                  }
 } ;
 
@@ -137,7 +146,7 @@ static const struct attribute default_attributes[] =
 
 int line_count ;
 
-static void get_service_entry( int fd, pset_h, char *, 
+static void get_service_entry( int fd, pset_h, const char *, 
 	struct service_config * );
 static void fill_attribute( unsigned attr_id, struct service_config *scp, 
         struct service_config *def );
@@ -147,7 +156,7 @@ static status_e parse_entry(entry_e, int, struct service_config *) ;
 /*
  * Given the id, return the name (only the service attributes are searched)
  */
-char *attr_name_lookup( int id )
+const char *attr_name_lookup( unsigned int id )
 {
    const struct attribute *ap ;
 
@@ -204,7 +213,7 @@ void parse_conf_file( int fd, struct configuration *confp )
    for ( ;; )
    {
       entry_e   entry_type ;
-      char      *service_name ;
+      char      *service_name  = NULL;
 
       /*
        * if find_next_entry is successful, service_name
@@ -224,7 +233,11 @@ void parse_conf_file( int fd, struct configuration *confp )
          parsemsg( LOG_DEBUG,func,
             "Reading included configuration file: %s",service_name);
          parse_conf_file(incfd, confp);
-         close(incfd);
+	 /*
+	  * parse_conf_file eventually calls Srdline, try Sclosing it
+	  * to unmmap memory.
+	  */
+         Sclose(incfd);
          break;
       case INCLUDEDIR_ENTRY:
          handle_includedir(service_name, confp);
@@ -241,8 +254,15 @@ void parse_conf_file( int fd, struct configuration *confp )
             skip_entry( fd ) ;
          }
          else if ( parse_entry( DEFAULTS_ENTRY, fd,
-                           default_config ) == OK )
+                           default_config ) == OK ) {
             found_defaults = YES ;
+	    /*
+	     * We must check bind_address to see if it was deferred. 
+	     */
+            if (SC_SPECIFIED( default_config, A_BIND) && 
+                  default_config->sc_bind_addr == NULL)
+               M_CLEAR( default_config->sc_specified_attributes, A_BIND ) ;
+	 }
          break ;
          
       case BAD_ENTRY:
@@ -252,7 +272,8 @@ void parse_conf_file( int fd, struct configuration *confp )
       case NO_ENTRY:
          return ;
       }
-      free(service_name);
+      if (service_name)
+         free(service_name);
    }
 }
 
@@ -371,7 +392,7 @@ static entry_e find_next_entry( int fd, char **snamep )
  */
 static void get_service_entry( int fd, 
                                 pset_h sconfs,
-                                char *name,
+                                const char *name,
                                 struct service_config *defaults )
 {
    struct service_config   *scp ;
@@ -400,6 +421,18 @@ static void get_service_entry( int fd,
    if ( SC_SPECIFIED( defaults, A_PASSENV ) &&
       ! SC_IS_PRESENT( scp, A_PASSENV ) )
       fill_attribute( A_PASSENV, scp, defaults ) ;
+   if ( SC_SPECIFIED( defaults, A_ACCESS_TIMES ) &&
+      ! SC_IS_PRESENT( scp, A_ACCESS_TIMES ) )
+      fill_attribute( A_ACCESS_TIMES, scp, defaults ) ;
+   if ( SC_SPECIFIED( defaults, A_BANNER ) &&
+      ! SC_IS_PRESENT( scp, A_BANNER ) )
+      fill_attribute( A_BANNER, scp, defaults ) ;
+   if ( SC_SPECIFIED( defaults, A_BANNER_SUCCESS ) &&
+      ! SC_IS_PRESENT( scp, A_BANNER_SUCCESS ) )
+      fill_attribute( A_BANNER_SUCCESS, scp, defaults ) ;
+   if ( SC_SPECIFIED( defaults, A_BANNER_FAIL ) &&
+      ! SC_IS_PRESENT( scp, A_BANNER_FAIL ) )
+      fill_attribute( A_BANNER_FAIL, scp, defaults ) ;
   
    if ( parse_entry( SERVICE_ENTRY, fd, scp ) == FAILED )
    {
@@ -471,6 +504,28 @@ static void fill_attribute( unsigned attr_id,
                            &scp->sc_pass_env_vars, 0 ) == OK )
             SC_PRESENT( scp, A_PASSENV ) ;
          break ;
+      
+      case A_ACCESS_TIMES:
+         if ( copy_pset( def->sc_access_times,
+                           &scp->sc_access_times, 0 ) == OK )
+            SC_PRESENT( scp, A_ACCESS_TIMES ) ;
+         break ;
+
+      case A_BANNER:
+	    if ((scp->sc_banner = new_string(def->sc_banner)) != NULL)
+               SC_PRESENT( scp, A_BANNER );
+         break ;
+
+      case A_BANNER_SUCCESS:
+	    if ((scp->sc_banner_success = new_string(def->sc_banner_success))
+                  != NULL)
+               SC_PRESENT( scp, A_BANNER_SUCCESS );
+         break ;
+
+      case A_BANNER_FAIL:
+	    if ((scp->sc_banner_fail = new_string(def->sc_banner_fail)) != NULL)
+               SC_PRESENT( scp, A_BANNER_FAIL );
+         break ;
    }
 }
 
@@ -479,7 +534,7 @@ static void fill_attribute( unsigned attr_id,
  * Find the attribute with the specified name
  */
 static const struct attribute *attr_lookup( 
-	const struct attribute attr_array[], char *attr_name )
+	const struct attribute attr_array[], const char *attr_name )
 {
    const struct attribute *ap ;
    const char *func = "attr_lookup" ;
@@ -504,11 +559,14 @@ static const struct attribute *attr_lookup(
  *      2) the value count is correct
  *      3) the assign op is appropriate
  *
- * Invoke appropriate parser
+ * Invoke appropriate parser.
+ *
+ * This function will return FAILED only if its in the default section
+ * and an attribute cannot be ID'd. Otherwise, it returns OK.
  */
-static void identify_attribute( entry_e entry_type, 
+static status_e identify_attribute( entry_e entry_type, 
                                  struct service_config *scp, 
-                                 char *attr_name, 
+                                 const char *attr_name, 
                                  enum assign_op op, 
                                  pset_h attr_values )
 {
@@ -521,7 +579,7 @@ static void identify_attribute( entry_e entry_type,
       ap = attr_lookup( default_attributes, attr_name ) ;
   
    if ( ap == NULL )
-      return ;   /* We simply ignore keywords not on the list */
+      return OK;   /* We simply ignore keywords not on the list */
 
    if ( ! MODIFIABLE( ap ) )
    {
@@ -529,7 +587,7 @@ static void identify_attribute( entry_e entry_type,
       {
          parsemsg( LOG_WARNING, func, "Service %s: attribute already set: %s",
                   scp->sc_name, attr_name ) ;
-         return ;
+         return OK;
       }
 
       if ( op != SET_EQ )
@@ -537,7 +595,7 @@ static void identify_attribute( entry_e entry_type,
          parsemsg( LOG_WARNING, func,
             "Service %s: operator '%s' cannot be used for attribute '%s'",
                scp->sc_name, ( op == PLUS_EQ ) ? "+=" : "-=", attr_name ) ;
-         return ;
+         return OK;
       }
    }
    else      /* modifiable attribute */
@@ -554,7 +612,7 @@ static void identify_attribute( entry_e entry_type,
       parsemsg( LOG_WARNING, func,
          "attribute %s expects %d values and %d values were specified",
          attr_name, ap->a_nvalues, pset_count( attr_values ) ) ;
-      return ;
+      return OK;
    }
 
    if ( (*ap->a_parser)( attr_values, scp, op ) == OK )
@@ -567,17 +625,15 @@ static void identify_attribute( entry_e entry_type,
          "Error parsing attribute %s - DISABLING SERVICE", attr_name ) ;
       SC_DISABLE( scp );
    }
-   /* We are in the default section and an error was detected. At
+   /*
+    * We are in the default section and an error was detected. At
     * this point, we should terminate since whatever attribute 
     * was trying to be specified cannot be propagated.
     */
    else if ( !debug.on )
-   {
-      msg(LOG_ERR, func, 
-         "A fatal error was encountered while parsing the default section."
-	 " xinetd will exit.");
-      terminate_program();
-   }
+      return FAILED;
+   
+   return OK;
 }
 
 
@@ -619,8 +675,19 @@ static status_e parse_entry( entry_e entry_type,
          return( FAILED ) ;
       }
 
-      identify_attribute( entry_type,
-               scp, attr_name, op, attr_values ) ;
+      if (identify_attribute( entry_type,
+               scp, attr_name, op, attr_values ) == FAILED )
+      {  
+        /*
+         * An error was detected in the default section. We will terminate
+         * since whatever attribute being specified cannot be propagated.
+         */
+         msg(LOG_ERR, func, 
+            "A fatal error was encountered while parsing the default section."
+	    " xinetd will exit.");
+         Sclose( fd );
+         terminate_program();
+      }
       pset_clear( attr_values ) ;
    }
 }

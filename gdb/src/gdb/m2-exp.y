@@ -89,6 +89,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define	yylloc	m2_lloc
 #define	yyreds	m2_reds		/* With YYDEBUG defined */
 #define	yytoks	m2_toks		/* With YYDEBUG defined */
+#define yyname	m2_name		/* With YYDEBUG defined */
+#define yyrule	m2_rule		/* With YYDEBUG defined */
 #define yylhs	m2_yylhs
 #define yylen	m2_yylen
 #define yydefred m2_yydefred
@@ -100,8 +102,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define yycheck	 m2_yycheck
 
 #ifndef YYDEBUG
-#define	YYDEBUG	0		/* Default to no yydebug support */
+#define	YYDEBUG 1		/* Default to yydebug support */
 #endif
+
+#define YYFPRINTF parser_fprintf
 
 int yyparse (void);
 
@@ -214,6 +218,7 @@ type_exp:	type
 
 exp     :       exp '^'   %prec UNARY
                         { write_exp_elt_opcode (UNOP_IND); }
+	;
 
 exp	:	'-'
 			{ number_sign = -1; }
@@ -328,6 +333,7 @@ exp	:	INCL '(' exp ',' exp ')'
 
 exp	:	EXCL '(' exp ',' exp ')'
 			{ error("Sets are not implemented.");}
+	;
 
 set	:	'{' arglist '}'
 			{ error("Sets are not implemented.");}
@@ -823,6 +829,8 @@ yylex ()
 
  retry:
 
+  prev_lexptr = lexptr;
+
   tokstart = lexptr;
 
 
@@ -1092,5 +1100,8 @@ void
 yyerror (msg)
      char *msg;
 {
+  if (prev_lexptr)
+    lexptr = prev_lexptr;
+
   error ("A %s in expression, near `%s'.", (msg ? msg : "error"), lexptr);
 }

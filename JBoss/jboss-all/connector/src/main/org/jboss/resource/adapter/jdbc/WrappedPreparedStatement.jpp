@@ -1,0 +1,747 @@
+/*
+ * JBoss, the OpenSource J2EE webOS
+ *
+ * Distributable under LGPL license.
+ * See terms of license at gnu.org.
+ */
+
+package org.jboss.resource.adapter.jdbc;
+
+import java.io.InputStream;
+import java.io.Reader;
+import java.math.BigDecimal;
+import java.net.URL;
+import java.sql.Array;
+import java.sql.Blob;
+import java.sql.Clob;
+import java.sql.Connection;
+import java.sql.Date;
+import java.sql.ParameterMetaData;
+import java.sql.PreparedStatement;
+import java.sql.Ref;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.SQLWarning;
+import java.sql.Statement;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.util.Calendar;
+
+
+/**
+ * WrappedPreparedStatement.java
+ *
+ *
+ * Created: Sat Apr 20 22:13:59 2002
+ *
+ * @author <a href="mailto:d_jencks@users.sourceforge.net">David Jencks</a>
+ * @version
+ */
+
+public class WrappedPreparedStatement 
+   extends WrappedStatement
+   implements PreparedStatement 
+{
+
+   private final PreparedStatement ps;
+
+   public WrappedPreparedStatement(final WrappedConnection lc, final PreparedStatement ps) 
+   {
+      super(lc, ps);
+      this.ps = ps;
+   }
+   // implementation of java.sql.PreparedStatement interface
+
+   /**
+    *
+    * @param param1 <description>
+    * @param value <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public void setBoolean(int parameterIndex, boolean value) throws SQLException
+   {
+      try 
+      {
+         ps.setBoolean(parameterIndex, value);         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @param value <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public void setByte(int parameterIndex, byte value) throws SQLException
+   {
+      try 
+      {
+         ps.setByte(parameterIndex, value);         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @param value <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public void setShort(int parameterIndex, short value) throws SQLException
+   {
+      try 
+      {
+         ps.setShort(parameterIndex, value);         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @param value <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public void setInt(int parameterIndex, int value) throws SQLException
+   {
+      try 
+      {
+         ps.setInt(parameterIndex, value);         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @param value <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public void setLong(int parameterIndex, long value) throws SQLException
+   {
+      try 
+      {
+         ps.setLong(parameterIndex, value);         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @param value <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public void setFloat(int parameterIndex, float value) throws SQLException
+   {
+      try 
+      {
+         ps.setFloat(parameterIndex, value);         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @param value <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public void setDouble(int parameterIndex, double value) throws SQLException
+   {
+      try 
+      {
+         ps.setDouble(parameterIndex, value);         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @param value <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public void setURL(int parameterIndex, URL value) throws SQLException
+   {
+@JDK1.4START@
+      try 
+      {
+         ps.setURL(parameterIndex, value);         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+@JDK1.4END@
+@JDK1.3START@
+   throw new SQLException("JDK1.4 method not available in JDK1.3");
+@JDK1.3END@
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @param value <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public void setTime(int parameterIndex, Time value) throws SQLException
+   {
+      try 
+      {
+         ps.setTime(parameterIndex, value);         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @param value <description>
+    * @param param3 <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public void setTime(int parameterIndex, Time value, Calendar calendar) throws SQLException
+   {
+      try 
+      {
+         ps.setTime(parameterIndex, value, calendar);         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @return <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public boolean execute() throws SQLException
+   {
+      checkTransaction();
+      try 
+      {
+         return ps.execute();         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+         return false;
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @return <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public ResultSetMetaData getMetaData() throws SQLException
+   {
+      try 
+      {
+         return ps.getMetaData();         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+         return null;
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @return <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public ResultSet executeQuery() throws SQLException
+   {
+      checkTransaction();
+      try 
+      {
+         return ps.executeQuery();         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+         return null;
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @return <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public int executeUpdate() throws SQLException
+   {
+      checkTransaction();
+      try 
+      {
+         return ps.executeUpdate();         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+         return 0;
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @exception java.sql.SQLException <description>
+    */
+   public void addBatch() throws SQLException
+   {
+      try 
+      {
+         ps.addBatch();         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @param value <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public void setNull(int parameterIndex, int sqlType) throws SQLException
+   {
+      try 
+      {
+         ps.setNull(parameterIndex, sqlType);         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @param param2 <description>
+    * @param param3 <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public void setNull(int parameterIndex, int sqlType, String typeName) throws SQLException
+   {
+      try 
+      {
+         ps.setNull(parameterIndex, sqlType, typeName);         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @param value <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public void setBigDecimal(int parameterIndex, BigDecimal value) throws SQLException
+   {
+      try 
+      {
+         ps.setBigDecimal(parameterIndex, value);         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @param value <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public void setString(int parameterIndex, String value) throws SQLException
+   {
+      try 
+      {
+         ps.setString(parameterIndex, value);         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @param value <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public void setBytes(int parameterIndex, byte[] value) throws SQLException
+   {
+      try 
+      {
+         ps.setBytes(parameterIndex, value);         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @param value <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public void setDate(int parameterIndex, Date value) throws SQLException
+   {
+      try 
+      {
+         ps.setDate(parameterIndex, value);         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @param value <description>
+    * @param param3 <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public void setDate(int parameterIndex, Date value, Calendar calendar) throws SQLException
+   {
+      try 
+      {
+         ps.setDate(parameterIndex, value, calendar);         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @param value <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public void setTimestamp(int parameterIndex, Timestamp value) throws SQLException
+   {
+      try 
+      {
+         ps.setTimestamp(parameterIndex, value);         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @param value <description>
+    * @param param3 <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public void setTimestamp(int parameterIndex, Timestamp value, Calendar calendar) throws SQLException
+   {
+      try 
+      {
+         ps.setTimestamp(parameterIndex, value, calendar);         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @param param2 <description>
+    * @param param3 <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public void setAsciiStream(int parameterIndex, InputStream stream, int length) throws SQLException
+   {
+      try 
+      {
+         ps.setAsciiStream(parameterIndex, stream, length);         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @param param2 <description>
+    * @param param3 <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public void setUnicodeStream(int parameterIndex, InputStream stream, int length) throws SQLException
+   {
+@JDK1.4START@
+      try 
+      {
+         ps.setUnicodeStream(parameterIndex, stream, length);         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+@JDK1.4END@
+@JDK1.3START@
+   throw new SQLException("JDK1.4 method not available in JDK1.3");
+@JDK1.3END@
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @param param2 <description>
+    * @param param3 <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public void setBinaryStream(int parameterIndex, InputStream stream, int length) throws SQLException
+   {
+      try 
+      {
+         ps.setBinaryStream(parameterIndex, stream, length);         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @exception java.sql.SQLException <description>
+    */
+   public void clearParameters() throws SQLException
+   {
+      try 
+      {
+         ps.clearParameters();         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @param value <description>
+    * @param param3 <description>
+    * @param param4 <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public void setObject(int parameterIndex, Object value, int sqlType, int scale) throws SQLException
+   {
+      try 
+      {
+         ps.setObject(parameterIndex, value, sqlType, scale);         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @param value <description>
+    * @param param3 <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public void setObject(int parameterIndex, Object value, int sqlType) throws SQLException
+   {
+      try 
+      {
+         ps.setObject(parameterIndex, value, sqlType);         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @param value <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public void setObject(int parameterIndex, Object value) throws SQLException
+   {
+      try 
+      {
+         ps.setObject(parameterIndex, value);         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @param param2 <description>
+    * @param param3 <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public void setCharacterStream(int parameterIndex, Reader reader, int length) throws SQLException
+   {
+      try 
+      {
+         ps.setCharacterStream(parameterIndex, reader, length);         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @param value <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public void setRef(int parameterIndex, Ref value) throws SQLException
+   {
+      try 
+      {
+         ps.setRef(parameterIndex, value);         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @param value <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public void setBlob(int parameterIndex, Blob value) throws SQLException
+   {
+      try 
+      {
+         ps.setBlob(parameterIndex, value);         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @param value <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public void setClob(int parameterIndex, Clob value) throws SQLException
+   {
+      try 
+      {
+         ps.setClob(parameterIndex, value);         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @param param1 <description>
+    * @param value <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public void setArray(int parameterIndex, Array value) throws SQLException
+   {
+      try 
+      {
+         ps.setArray(parameterIndex, value);         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+      } // end of try-catch
+   }
+
+   /**
+    *
+    * @return <description>
+    * @exception java.sql.SQLException <description>
+    */
+   public ParameterMetaData getParameterMetaData() throws SQLException
+   {
+@JDK1.4START@
+      try 
+      {
+         return ps.getParameterMetaData();         
+      }
+      catch (SQLException e)
+      {
+         checkException(e);
+         return null;
+      } // end of try-catch
+@JDK1.4END@
+@JDK1.3START@
+   throw new SQLException("JDK1.4 method not available in JDK1.3");
+@JDK1.3END@
+   }
+
+}// LocalPreparedStatement

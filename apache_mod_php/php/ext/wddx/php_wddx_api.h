@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_wddx_api.h,v 1.1.1.3 2001/07/19 00:20:29 zarzycki Exp $ */
+/* $Id: php_wddx_api.h,v 1.1.1.6 2003/07/18 18:07:46 zarzycki Exp $ */
 
 #ifndef PHP_WDDX_API_H
 #define PHP_WDDX_API_H
@@ -59,7 +59,7 @@ void		 php_wddx_destructor(wddx_packet *packet);
 void 		 php_wddx_packet_start(wddx_packet *packet, char *comment, int comment_len);
 void 		 php_wddx_packet_end(wddx_packet *packet);
 
-void 		 php_wddx_serialize_var(wddx_packet *packet, zval *var, char *name, int name_len);
+void 		 php_wddx_serialize_var(wddx_packet *packet, zval *var, char *name, int name_len TSRMLS_DC);
 int 		 php_wddx_deserialize_ex(char *, int, zval *return_value);
 #define php_wddx_gather(packet) estrndup(packet->c, packet->len)
 

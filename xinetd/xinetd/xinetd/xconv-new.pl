@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# $RCSid = "$Id: xconv-new.pl,v 1.1.1.2 2002/06/17 22:51:29 zarzycki Exp $";
+# $RCSid = "$Id: xconv-new.pl,v 1.1.1.3 2003/05/22 01:16:36 rbraun Exp $";
 
 use strict;
 
@@ -98,7 +98,7 @@ defaults
 	log_on_success = HOST PID
 
 	# What to log when the connection fails.  Same options as above
-	log_on_failure = HOST RECORD
+	log_on_failure = HOST 
 
 	# The maximum number of connections a specific IP address can
 	# have to a specific service.

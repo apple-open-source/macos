@@ -31,6 +31,8 @@
 #ifndef _SCSIDEVICE_H
 #define _SCSIDEVICE_H
 
+#include <IOKit/IOTypes.h>
+
 #define kDefaultInquirySize	255
 
 typedef struct SCSITargetLun

@@ -21,7 +21,7 @@
   ghost@aladdin.com
 
  */
-/*$Id: md5.h,v 1.1.1.1 2001/10/18 22:50:24 jlovell Exp $ */
+/*$Id: md5.h,v 1.1.1.4 2002/12/23 18:59:38 jlovell Exp $ */
 /*
   Independent implementation of MD5 (RFC 1321).
 

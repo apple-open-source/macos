@@ -23,6 +23,8 @@
 
 #include <Security/SecRuntime.h>
 #include <Security/SecCertificate.h>
+#include <Security/SecIdentity.h>
+#include <Security/SecIdentitySearch.h>
 #include <Security/securestorage.h>
 #include <Security/KCCursor.h>
 #include <CoreFoundation/CFArray.h>
@@ -40,15 +42,17 @@ class IdentityCursor : public SecCFObject
 {
     NOCOPY(IdentityCursor)
 public:
+	SECCFFUNCTIONS(IdentityCursor, SecIdentitySearchRef, errSecInvalidSearchRef)
+
     IdentityCursor(const StorageManager::KeychainList &searchList, CSSM_KEYUSE keyUsage);
-	virtual ~IdentityCursor();
-	bool next(RefPointer<Identity> &identity);
+	virtual ~IdentityCursor() throw();
+	bool next(SecPointer<Identity> &identity);
 
 private:
 	StorageManager::KeychainList mSearchList;
 	KCCursor mKeyCursor;
 	KCCursor mCertificateCursor;
-	RefPointer<KeyItem> mCurrentKey;
+	SecPointer<KeyItem> mCurrentKey;
 };
 
 } // end namespace KeychainCore

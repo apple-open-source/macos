@@ -29,6 +29,9 @@ namespace Security {
 namespace MachPlusPlus {
 
 
+//
+// Mach subsystem exceptions, a subclass of CssmCommonError
+//
 Error::Error(kern_return_t err) : error(err)
 {
 }
@@ -83,7 +86,7 @@ void Error::debugDiagnose(const void *id) const
 	case BOOTSTRAP_SERVICE_ACTIVE:
 		name = "BOOTSTRAP_SERVICE_ACTIVE"; break;
 	}
-    debug("exception", "%p Mach Error %s (%d) osStatus %ld",
+    secdebug("exception", "%p Mach Error %s (%d) osStatus %ld",
 		id, name, error, osStatus());
 }
 #endif //NDEBUG
@@ -114,12 +117,29 @@ mach_port_urefs_t Port::getRefs(mach_port_right_t right)
 	check(::mach_port_get_refs(self(), mPort, right, &count));
 	return count;
 }
+
 mach_port_t Port::requestNotify(mach_port_t notify, mach_msg_id_t type, mach_port_mscount_t sync)
 {
     mach_port_t previous;
     check(mach_port_request_notification(self(), mPort, type, sync, notify,
         MACH_MSG_TYPE_MAKE_SEND_ONCE, &previous));
-	debug("port", "%d request notify(%d) to %d (sync=%d)", port(), type, notify, sync);
+
+#if !defined(NDEBUG)
+	const char *typeName;
+	switch (type) {
+	case MACH_NOTIFY_PORT_DELETED:	typeName = "port deleted"; break;
+	case MACH_NOTIFY_PORT_DESTROYED:typeName = "port destroyed"; break;
+	case MACH_NOTIFY_NO_SENDERS:	typeName = "no senders"; break;
+	case MACH_NOTIFY_SEND_ONCE:		typeName = "send once"; break;
+	case MACH_NOTIFY_DEAD_NAME:		typeName = "dead name"; break;
+	default:						typeName = "???"; break;
+	}
+	if (notify == MACH_PORT_NULL)
+		secdebug("port", "%d cancel notify %s", port(), typeName);
+	else
+		secdebug("port", "%d request notify %s to %d (sync %d)", port(), typeName, notify, sync);
+#endif //!NDEBUG
+
     return previous;
 }
 
@@ -129,7 +149,6 @@ mach_port_t Port::cancelNotify(mach_msg_id_t type)
     // (EVEN if the DPN has already been sent!) So just ignore that case...
     if (isDead())
         return MACH_PORT_NULL;
-	debug("port", "%d cancel DPN", port());
 	return requestNotify(MACH_PORT_NULL, type);
 }
 
@@ -196,7 +215,7 @@ mach_port_t Bootstrap::checkInOptional(const char *name) const
 	case BOOTSTRAP_SERVICE_ACTIVE:
     case BOOTSTRAP_UNKNOWN_SERVICE:
 	case BOOTSTRAP_NOT_PRIVILEGED:
-        return 0;
+        return MACH_PORT_NULL;
 	default:
 		check(err);
 	}
@@ -205,7 +224,7 @@ mach_port_t Bootstrap::checkInOptional(const char *name) const
 
 void Bootstrap::registerAs(mach_port_t port, const char *name) const
 {
-	debug("bootstrap", "creating service port %d in %d:%s", port, this->port(), name);
+	secdebug("bootstrap", "creating service port %d in %d:%s", port, this->port(), name);
 	check(::bootstrap_register(mPort, makeName(name), port));
 }
 
@@ -263,13 +282,13 @@ StBootstrap::StBootstrap(const Bootstrap &newBoot, const TaskPort &task)
 {
     mOldBoot = Bootstrap();
     mTask.bootstrap(newBoot);
-    debug("StBoot", "bootstrap for %d switched to %d", mTask.port(), newBoot.port());
+    secdebug("StBoot", "bootstrap for %d switched to %d", mTask.port(), newBoot.port());
 }
 
 StBootstrap::~StBootstrap()
 {
     mTask.bootstrap(mOldBoot);
-    debug("StBoot", "bootstrap for %d returned to %d", mTask.port(), mOldBoot.port());
+    secdebug("StBoot", "bootstrap for %d returned to %d", mTask.port(), mOldBoot.port());
 }
 
 

@@ -19,7 +19,7 @@
 #include "server.h"
 
 /*
- * $Id: service.h,v 1.1.1.3 2002/10/02 21:07:30 bbraun Exp $
+ * $Id: service.h,v 1.1.1.4 2003/05/22 01:16:36 rbraun Exp $
  */
 
 
@@ -44,8 +44,8 @@ struct service
 {
    state_e                svc_state ;
    int                    svc_ref_count ;   /* # of pters to this struct */
-   struct service_config *svc_conf ;   /* service configuration */
-   int                    svc_fd ;
+   struct service_config *svc_conf ;    /* service configuration */
+   int                    svc_fd ;	/* The Listening FD for the service */
    unsigned               svc_running_servers ;
    unsigned               svc_retry_servers ;
    unsigned               svc_attempts ; /* # of attempts to start server */
@@ -108,8 +108,6 @@ struct service
       ( SVC_IS_LOGGING( sp ) && SC_LOGS_USERID_ON_SUCCESS( SVC_CONF( sp ) ) )
 #define SVC_LOGS_USERID_ON_FAILURE( sp )   \
       ( SVC_IS_LOGGING( sp ) && SC_LOGS_USERID_ON_FAILURE( SVC_CONF( sp ) ) )
-#define SVC_RECORDS( sp )                  \
-      ( SVC_IS_LOGGING( sp ) && SC_RECORDS( SVC_CONF( sp ) ) )
 
 /*
  * Reference counting macros
@@ -150,6 +148,6 @@ status_e svc_generic_handler( struct service *sp, connection_s *cp );
 status_e svc_parent_access_control(struct service *sp,connection_s *cp);
 status_e svc_child_access_control(struct service *sp,connection_s *cp);
 void svc_postmortem(struct service *sp,struct server *serp);
-
+void close_all_svc_descriptors(void);
 
 #endif   /* SERVICE_H */

@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(pthread_sigmask, 3)
-	blr
 

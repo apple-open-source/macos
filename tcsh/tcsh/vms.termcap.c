@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/vms.termcap.c,v 1.1.1.2 2001/06/28 23:10:57 bbraun Exp $ */
+/* $Header: /cvs/root/tcsh/tcsh/vms.termcap.c,v 1.1.1.2 2001/06/28 23:10:57 bbraun Exp $ */
 /*
  *	termcap.c	1.1	20/7/87		agc	Joypace Ltd
  *

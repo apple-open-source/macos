@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/snames.h,v 1.1.1.2 2001/06/28 23:10:53 bbraun Exp $ */
+/* $Header: /cvs/root/tcsh/tcsh/snames.h,v 1.1.1.2 2001/06/28 23:10:53 bbraun Exp $ */
 /*
  * snames.h: Short names for old compilers
  */

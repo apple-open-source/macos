@@ -1,9 +1,9 @@
 /*
- * "$Id: imagetoraster.c,v 1.1.1.4 2002/06/06 22:13:02 jlovell Exp $"
+ * "$Id: imagetoraster.c,v 1.1.1.11 2003/08/03 06:18:43 jlovell Exp $"
  *
  *   Image file to raster filter for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1993-2002 by Easy Software Products.
+ *   Copyright 1993-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -473,6 +473,10 @@ main(int  argc,		/* I - Number of command-line arguments */
   if ((val = cupsGetOption("hue", num_options, options)) != NULL)
     hue = atoi(val);
 
+  if ((val = cupsGetOption("mirror", num_options, options)) != NULL &&
+      strcasecmp(val, "True") == 0)
+    Flip = 1;
+
  /*
   * Set the needed options in the page header...
   */
@@ -534,6 +538,15 @@ main(int  argc,		/* I - Number of command-line arguments */
     case CUPS_CSPACE_RGBA :
         primary   = IMAGE_RGB;
 	secondary = IMAGE_RGB;
+
+       /*
+        * Ensure that colorimetric colorspaces use at least 8 bits per
+	* component...
+	*/
+
+        if (header.cupsColorSpace >= CUPS_CSPACE_CIEXYZ &&
+	    header.cupsBitsPerColor < 8)
+	  header.cupsBitsPerColor = 8;
 
 	if (header.cupsColorOrder == CUPS_ORDER_CHUNKED)
 	{
@@ -711,6 +724,9 @@ main(int  argc,		/* I - Number of command-line arguments */
   if (yppi == 0)
     yppi = xppi;
 
+  fprintf(stderr, "DEBUG: Before scaling: xppi=%d, yppi=%d, zoom=%.2f\n",
+          xppi, yppi, zoom);
+
   if (xppi > 0)
   {
    /*
@@ -728,8 +744,14 @@ main(int  argc,		/* I - Number of command-line arguments */
       yprint = (PageTop - PageBottom) / 72.0;
     }
 
+    fprintf(stderr, "DEBUG: Before scaling: xprint=%.1f, yprint=%.1f\n",
+            xprint, yprint);
+
     xinches = (float)img->xsize / (float)xppi;
     yinches = (float)img->ysize / (float)yppi;
+
+    fprintf(stderr, "DEBUG: Image size is %.1f x %.1f inches...\n",
+            xinches, yinches);
 
     if ((val = cupsGetOption("natural-scaling", num_options, options)) != NULL)
     {
@@ -744,12 +766,16 @@ main(int  argc,		/* I - Number of command-line arguments */
       * Rotate the image if it will fit landscape but not portrait...
       */
 
+      fputs("DEBUG: Auto orientation...\n", stderr);
+
       if ((xinches > xprint || yinches > yprint) &&
           xinches <= yprint && yinches <= xprint)
       {
        /*
 	* Rotate the image as needed...
 	*/
+
+        fputs("DEBUG: Using landscape orientation...\n", stderr);
 
 	Orientation = (Orientation + 1) & 3;
 	xsize       = yprint;
@@ -767,6 +793,9 @@ main(int  argc,		/* I - Number of command-line arguments */
     xprint = (PageRight - PageLeft) / 72.0;
     yprint = (PageTop - PageBottom) / 72.0;
     aspect = (float)img->yppi / (float)img->xppi;
+
+    fprintf(stderr, "DEBUG: Before scaling: xprint=%.1f, yprint=%.1f\n",
+            xprint, yprint);
 
     fprintf(stderr, "DEBUG: img->xppi = %d, img->yppi = %d, aspect = %f\n",
             img->xppi, img->yppi, aspect);
@@ -789,8 +818,8 @@ main(int  argc,		/* I - Number of command-line arguments */
       xsize2 = ysize2 * img->xsize * aspect / img->ysize;
     }
 
-    fprintf(stderr, "DEBUG: xsize = %.0f, ysize = %.0f\n", xsize, ysize);
-    fprintf(stderr, "DEBUG: xsize2 = %.0f, ysize2 = %.0f\n", xsize2, ysize2);
+    fprintf(stderr, "DEBUG: Portrait size is %.2f x %.2f inches\n", xsize, ysize);
+    fprintf(stderr, "DEBUG: Landscape size is %.2f x %.2f inches\n", xsize2, ysize2);
 
     if (cupsGetOption("orientation-requested", num_options, options) == NULL &&
         cupsGetOption("landscape", num_options, options) == NULL)
@@ -800,11 +829,15 @@ main(int  argc,		/* I - Number of command-line arguments */
       * portrait if they are equal...
       */
 
+      fputs("DEBUG: Auto orientation...\n", stderr);
+
       if ((xsize * ysize) < (xsize2 * xsize2))
       {
        /*
 	* Do landscape orientation...
 	*/
+
+        fputs("DEBUG: Using landscape orientation...\n", stderr);
 
 	Orientation = 1;
 	xinches     = xsize2;
@@ -818,6 +851,8 @@ main(int  argc,		/* I - Number of command-line arguments */
 	* Do portrait orientation...
 	*/
 
+        fputs("DEBUG: Using portrait orientation...\n", stderr);
+
 	Orientation = 0;
 	xinches     = xsize;
 	yinches     = ysize;
@@ -825,6 +860,8 @@ main(int  argc,		/* I - Number of command-line arguments */
     }
     else if (Orientation & 1)
     {
+      fputs("DEBUG: Using landscape orientation...\n", stderr);
+
       xinches     = xsize2;
       yinches     = ysize2;
       xprint      = (PageTop - PageBottom) / 72.0;
@@ -842,6 +879,8 @@ main(int  argc,		/* I - Number of command-line arguments */
     }
     else
     {
+      fputs("DEBUG: Using portrait orientation...\n", stderr);
+
       xinches     = xsize;
       yinches     = ysize;
       xprint      = (PageRight - PageLeft) / 72.0;
@@ -895,6 +934,9 @@ main(int  argc,		/* I - Number of command-line arguments */
 
     if (length < ppd->custom_min[1])
       length = ppd->custom_min[1];
+
+    fprintf(stderr, "DEBUG: Updated custom page size to %.2f x %.2f inches...\n",
+            width / 72.0, length / 72.0);
 
    /*
     * Set the new custom size...
@@ -1212,7 +1254,12 @@ main(int  argc,		/* I - Number of command-line arguments */
 	  * Initialize the image "zoom" engine...
 	  */
 
-	  z = ImageZoomAlloc(img, x0, y0, x1, y1, xtemp, ytemp, Orientation & 1);
+          if (Flip)
+	    z = ImageZoomAlloc(img, x0, y0, x1, y1, -xtemp, ytemp,
+	                       Orientation & 1);
+          else
+	    z = ImageZoomAlloc(img, x0, y0, x1, y1, xtemp, ytemp,
+	                       Orientation & 1);
 
          /*
 	  * Write leading blank space as needed...
@@ -1495,43 +1542,87 @@ exec_code(cups_page_header_t *header,	/* I - Page header */
       *ptr = '\0';
     }
     else
-      continue;
+    {
+     /*
+      * Read a single name...
+      */
+
+      for (ptr = value;
+           (isalnum(*code) || *code == '_') &&
+	       (ptr - value) < (sizeof(value) - 1);)
+	*ptr++ = *code++;
+      *ptr = '\0';
+    }
 
    /*
     * Assign the value as needed...
     */
 
-    if (strcmp(name, "cupsMediaType") == 0)
-      header->cupsMediaType = atoi(value);
-    else if (strcmp(name, "cupsBitsPerColor") == 0)
-      header->cupsBitsPerColor = atoi(value);
-    else if (strcmp(name, "cupsColorOrder") == 0)
-      header->cupsColorOrder = (cups_order_t)atoi(value);
-    else if (strcmp(name, "cupsColorSpace") == 0)
-      header->cupsColorSpace = (cups_cspace_t)atoi(value);
-    else if (strcmp(name, "cupsCompression") == 0)
-      header->cupsCompression = atoi(value);
-    else if (strcmp(name, "cupsRowCount") == 0)
-      header->cupsRowCount = atoi(value);
-    else if (strcmp(name, "cupsRowFeed") == 0)
-      header->cupsRowFeed = atoi(value);
-    else if (strcmp(name, "cupsRowStep") == 0)
-      header->cupsRowStep = atoi(value);
-    else if (strcmp(name, "CutMedia") == 0)
-      header->CutMedia = (cups_cut_t)atoi(value);
-    else if (strcmp(name, "HWResolution") == 0)
-      sscanf(value, "%d%d", header->HWResolution + 0, header->HWResolution + 1);
-    else if (strcmp(name, "cupsMediaPosition") == 0 || /* Compatibility */
-             strcmp(name, "MediaPosition") == 0)
-      header->MediaPosition = atoi(value);
-    else if (strcmp(name, "MediaClass") == 0)
+    if (!strcmp(name, "MediaClass"))
       strlcpy(header->MediaClass, value, sizeof(header->MediaClass));
-    else if (strcmp(name, "MediaColor") == 0)
+    else if (!strcmp(name, "MediaColor"))
       strlcpy(header->MediaColor, value, sizeof(header->MediaColor));
-    else if (strcmp(name, "MediaType") == 0)
+    else if (!strcmp(name, "MediaType"))
       strlcpy(header->MediaType, value, sizeof(header->MediaType));
-    else if (strcmp(name, "OutputType") == 0)
+    else if (!strcmp(name, "OutputType"))
       strlcpy(header->OutputType, value, sizeof(header->OutputType));
+    else if (!strcmp(name, "AdvanceDistance"))
+      header->AdvanceDistance = atoi(value);
+    else if (!strcmp(name, "AdvanceMedia"))
+      header->AdvanceMedia = atoi(value);
+    else if (!strcmp(name, "Collate"))
+      header->Collate = !strcmp(value, "true");
+    else if (!strcmp(name, "CutMedia"))
+      header->CutMedia = (cups_cut_t)atoi(value);
+    else if (!strcmp(name, "Duplex"))
+      header->Duplex = !strcmp(value, "true");
+    else if (!strcmp(name, "HWResolution"))
+      sscanf(value, "%d%d", header->HWResolution + 0, header->HWResolution + 1);
+    else if (!strcmp(name, "InsertSheet"))
+      header->InsertSheet = !strcmp(value, "true");
+    else if (!strcmp(name, "Jog"))
+      header->Jog = atoi(value);
+    else if (!strcmp(name, "LeadingEdge"))
+      header->LeadingEdge = atoi(value);
+    else if (!strcmp(name, "Margins"))
+      sscanf(value, "%d%d", header->Margins + 0, header->Margins + 1);
+    else if (!strcmp(name, "ManualFeed"))
+      header->ManualFeed = !strcmp(value, "true");
+    else if (!strcmp(name, "cupsMediaPosition") || /* Compatibility */
+             !strcmp(name, "MediaPosition"))
+      header->MediaPosition = atoi(value);
+    else if (!strcmp(name, "MediaWeight"))
+      header->MediaWeight = atoi(value);
+    else if (!strcmp(name, "MirrorPrint"))
+      header->MirrorPrint = !strcmp(value, "true");
+    else if (!strcmp(name, "NegativePrint"))
+      header->NegativePrint = !strcmp(value, "true");
+    else if (!strcmp(name, "Orientation"))
+      header->Orientation = atoi(value);
+    else if (!strcmp(name, "OutputFaceUp"))
+      header->OutputFaceUp = !strcmp(value, "true");
+    else if (!strcmp(name, "Separations"))
+      header->Separations = !strcmp(value, "true");
+    else if (!strcmp(name, "TraySwitch"))
+      header->TraySwitch = !strcmp(value, "true");
+    else if (!strcmp(name, "Tumble"))
+      header->Tumble = !strcmp(value, "true");
+    else if (!strcmp(name, "cupsMediaType"))
+      header->cupsMediaType = atoi(value);
+    else if (!strcmp(name, "cupsBitsPerColor"))
+      header->cupsBitsPerColor = atoi(value);
+    else if (!strcmp(name, "cupsColorOrder"))
+      header->cupsColorOrder = (cups_order_t)atoi(value);
+    else if (!strcmp(name, "cupsColorSpace"))
+      header->cupsColorSpace = (cups_cspace_t)atoi(value);
+    else if (!strcmp(name, "cupsCompression"))
+      header->cupsCompression = atoi(value);
+    else if (!strcmp(name, "cupsRowCount"))
+      header->cupsRowCount = atoi(value);
+    else if (!strcmp(name, "cupsRowFeed"))
+      header->cupsRowFeed = atoi(value);
+    else if (!strcmp(name, "cupsRowStep"))
+      header->cupsRowStep = atoi(value);
   }
 }
 
@@ -4503,5 +4594,5 @@ make_lut(ib_t  *lut,		/* I - Lookup table */
 
 
 /*
- * End of "$Id: imagetoraster.c,v 1.1.1.4 2002/06/06 22:13:02 jlovell Exp $".
+ * End of "$Id: imagetoraster.c,v 1.1.1.11 2003/08/03 06:18:43 jlovell Exp $".
  */

@@ -1,4 +1,4 @@
-This is automake.info, produced by makeinfo version 4.1 from
+This is automake.info, produced by makeinfo version 4.2 from
 automake.texi.
 
 INFO-DIR-SECTION GNU programming tools
@@ -11,7 +11,7 @@ START-INFO-DIR-ENTRY
 * aclocal: (automake)Invoking aclocal.          Generating aclocal.m4
 END-INFO-DIR-ENTRY
 
-   This file documents GNU automake 1.6.1
+   This file documents GNU automake 1.6.3
 
    Copyright 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002 Free
 Software Foundation, Inc.
@@ -33,9 +33,9 @@ translation approved by the Foundation.
 
 Indirect:
 automake.info-1: 1147
-automake.info-2: 49364
-automake.info-3: 99128
-automake.info-4: 147498
+automake.info-2: 49299
+automake.info-3: 99455
+automake.info-4: 148641
 
 Tag Table:
 (Indirect)
@@ -57,73 +57,77 @@ Node: Invoking Automake25942
 Node: configure30432
 Node: Requirements31352
 Node: Optional32429
-Node: Invoking aclocal37950
-Node: Macros40222
-Node: Public macros40704
-Node: Private macros46937
-Node: Extending aclocal48331
-Node: Top level49364
-Node: Alternative52578
-Ref: Alternative-Footnote-153949
-Node: Rebuilding54074
-Node: Programs54839
-Node: A Program55883
-Node: A Library62039
-Node: A Shared Library63309
-Node: Program and Library Variables65448
-Ref: Program and Library Variables-Footnote-173501
-Node: LIBOBJS73584
-Node: Program variables74242
-Node: Yacc and Lex76426
-Node: C++ Support80626
-Node: Assembly Support81460
-Node: Fortran 77 Support82235
-Ref: Fortran 77 Support-Footnote-183816
-Node: Preprocessing Fortran 7784019
-Node: Compiling Fortran 77 Files84611
-Node: Mixing Fortran 77 With C and C++85172
-Ref: Mixing Fortran 77 With C and C++-Footnote-187536
-Node: How the Linker is Chosen87839
-Node: Fortran 77 and Autoconf90387
-Node: Java Support90805
-Node: Support for Other Languages91831
-Node: ANSI92387
-Node: Dependencies95046
-Ref: Dependencies-Footnote-196766
-Node: EXEEXT96932
-Node: Other objects99128
-Node: Scripts99719
-Node: Headers100805
-Ref: Headers-Footnote-1101509
-Node: Data101742
-Node: Sources102394
-Node: Other GNU Tools103316
-Node: Emacs Lisp103804
-Node: gettext104861
-Node: Libtool105361
-Node: Java105609
-Node: Python107241
-Node: Documentation109975
-Node: Texinfo110276
-Node: Man pages113525
-Node: Install115813
-Node: Clean120194
-Node: Dist121391
-Node: Tests127812
-Node: Options130908
-Node: Miscellaneous135794
-Node: Tags136184
-Node: Suffixes137901
-Node: Multilibs139452
-Node: Include140080
-Node: Conditionals140855
-Ref: Conditional Append143011
-Node: Gnits144079
-Node: Cygnus145676
-Node: Extending147498
-Node: Distributing149237
-Node: API versioning149870
-Node: Macro and Variable Index152531
-Node: General Index163105
+Node: Invoking aclocal37885
+Node: Macros40157
+Node: Public macros40639
+Node: Private macros46872
+Node: Extending aclocal48266
+Node: Top level49299
+Node: Alternative52513
+Ref: Alternative-Footnote-153884
+Node: Rebuilding54009
+Node: Programs54774
+Node: A Program55818
+Node: Program Sources56551
+Node: Linking58520
+Node: Conditional Sources60819
+Node: Conditional Programs63602
+Node: A Library64378
+Node: A Shared Library65648
+Node: Program and Library Variables67787
+Ref: Program and Library Variables-Footnote-175851
+Node: LIBOBJS75934
+Node: Program variables76592
+Node: Yacc and Lex78776
+Node: C++ Support82976
+Node: Assembly Support83810
+Node: Fortran 77 Support84585
+Ref: Fortran 77 Support-Footnote-186166
+Node: Preprocessing Fortran 7786369
+Node: Compiling Fortran 77 Files86961
+Node: Mixing Fortran 77 With C and C++87522
+Ref: Mixing Fortran 77 With C and C++-Footnote-189886
+Node: How the Linker is Chosen90189
+Node: Fortran 77 and Autoconf92737
+Node: Java Support93155
+Node: Support for Other Languages94354
+Node: ANSI94910
+Node: Dependencies97569
+Ref: Dependencies-Footnote-199289
+Node: EXEEXT99455
+Node: Other objects101651
+Node: Scripts102242
+Node: Headers103328
+Ref: Headers-Footnote-1104032
+Node: Data104265
+Node: Sources104917
+Node: Other GNU Tools105839
+Node: Emacs Lisp106327
+Node: gettext107384
+Node: Libtool107884
+Node: Java108132
+Node: Python109764
+Node: Documentation112498
+Node: Texinfo112799
+Node: Man pages116048
+Node: Install118336
+Node: Clean122717
+Node: Dist123914
+Node: Tests130335
+Node: Options133865
+Node: Miscellaneous138748
+Node: Tags139138
+Node: Suffixes140855
+Node: Multilibs142406
+Node: Include143034
+Node: Conditionals143809
+Ref: Conditional Append145976
+Node: Gnits147044
+Node: Cygnus148641
+Node: Extending150463
+Node: Distributing152202
+Node: API versioning152835
+Node: Macro and Variable Index155497
+Node: General Index166122
 
 End Tag Table

@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -36,6 +39,8 @@
 #define kBytesPerSample    2    // number of bytes per 16-bit sample
 #define kNumDescriptors    32   // number of buffer descriptors (fixed)
 #define k48KSampleRate     48000
+#define kSampleOffset      64   // very conservative value
+#define kSampleLatency     32
 
 #define super IOAudioEngine
 OSDefineMetaClassAndStructors( AppleIntelAC97AudioEngine, IOAudioEngine )
@@ -72,25 +77,44 @@ bool AppleIntelAC97AudioEngine::init( OSDictionary *        properties,
     // Report the number of samples ahead of the playback head that
     // is safe to write into the sample buffer.
 
-    setSampleOffset( 64 /* very conservative value */ );
+    setSampleOffset(  kSampleOffset );
+    setSampleLatency( kSampleLatency );
 
     return true;
 }
 
 //---------------------------------------------------------------------------
 
-void AppleIntelAC97AudioEngine::free()
+void AppleIntelAC97AudioEngine::free( void )
 {
-    if ( _outSampleBuf )
+    if ( _outSampleMemory )
     {
-        IOFreeAligned( _outSampleBuf, _outSampleBufSize );
-        _outSampleBuf = 0;
+        _outSampleMemory->complete();
+        _outSampleMemory->release();
+        _outSampleMemory = 0;
     }
 
-    if ( _outBDList )
+    if ( _outBDListMemory )
     {
-        IOFreeAligned( _outBDList, _outBDListSize );
-        _outBDList = 0;
+    
+        _outBDListMemory->complete();
+        _outBDListMemory->release();
+        _outBDListMemory = 0;
+    }
+
+    if ( _inSampleMemory )
+    {
+        _inSampleMemory->complete();
+        _inSampleMemory->release();
+        _inSampleMemory = 0;
+    }
+
+    if ( _inBDListMemory )
+    {
+    
+        _inBDListMemory->complete();
+        _inBDListMemory->release();
+        _inBDListMemory = 0;
     }
 
     RELEASE( _interruptEvSrc );
@@ -104,9 +128,13 @@ void AppleIntelAC97AudioEngine::free()
 bool AppleIntelAC97AudioEngine::initHardware( IOService * provider )
 {
     bool                      success  = false;
-	IOWorkLoop *              workLoop = getWorkLoop();
+    IOByteCount               length;
+    AC97BD *                  outBDList;
+    AC97BD *                  inBDList;
+    IOWorkLoop *              workLoop = getWorkLoop();
     IOAudioSampleRate         sampleRate;
-    IOAudioStream *           stream;
+    IOAudioStream *           outStream = 0;
+    IOAudioStream *           inStream  = 0;
     IOAudioStreamFormat       streamFormat =
     {
         /* fNumChannels */    2,     
@@ -127,58 +155,110 @@ bool AppleIntelAC97AudioEngine::initHardware( IOService * provider )
         goto exit;
     }
 
-	// Allocate memory for the output sample buffer.
+    // Allocate memory for output and input sample buffers.
 
-    _outSampleBufSize = round_page( _bufferCount * _bufferSize );
-    _outSampleBuf     = IOMallocAligned( _outSampleBufSize, PAGE_SIZE );
+    _outSampleMemory = IOBufferMemoryDescriptor::withOptions(
+                       /* options   */  0,
+                       /* capacity  */  _bufferSize * _bufferCount,
+                       /* alignment */  PAGE_SIZE );
 
-    if ( _outSampleBuf == 0 )
+    if ( _outSampleMemory == 0 ||
+         _outSampleMemory->prepare() != kIOReturnSuccess )
     {
         IOLog("%s: failed to allocate %ld bytes for output sample buffer\n",
-              getName(), _outSampleBufSize);
+              getName(), _bufferSize * _bufferCount);
         goto exit;
     }
 
-    bzero( _outSampleBuf, _outSampleBufSize );
+    _inSampleMemory = IOBufferMemoryDescriptor::withOptions(
+                      /* options   */  0,
+                      /* capacity  */  _bufferSize * _bufferCount,
+                      /* alignment */  PAGE_SIZE );
 
-    // Allocate memory for the buffer descriptors.
+    if ( _inSampleMemory == 0 ||
+         _inSampleMemory->prepare() != kIOReturnSuccess )
+    {
+        IOLog("%s: failed to allocate %ld bytes for input sample buffer\n",
+              getName(), _bufferSize * _bufferCount);
+        goto exit;
+    }
 
-    _outBDListSize = sizeof(AC97BD) * _bufferCount;
-    _outBDList     = (AC97BD *) IOMallocAligned( _outBDListSize, PAGE_SIZE );
+    bzero( _outSampleMemory->getBytesNoCopy(),
+           _outSampleMemory->getCapacity() );
 
-    if ( _outBDList == 0 )
+    bzero( _inSampleMemory->getBytesNoCopy(),
+           _inSampleMemory->getCapacity() );
+
+    // Allocate contiguous memory for the buffer descriptors.
+    // The amount of memory allocated is less than a page.
+
+    _outBDListMemory = IOBufferMemoryDescriptor::withOptions(
+                       /* options   */  kIOMemoryPhysicallyContiguous,
+                       /* capacity  */  sizeof(AC97BD) * _bufferCount,
+                       /* alignment */  PAGE_SIZE );
+
+    if ( _outBDListMemory == 0 ||
+         _outBDListMemory->prepare() != kIOReturnSuccess )
     {
         IOLog("%s: failed to allocate %ld bytes for output descriptor list\n",
-              getName(), _outBDListSize);
+              getName(), sizeof(AC97BD) * _bufferCount);
         goto exit;
     }
+    outBDList = (AC97BD *) _outBDListMemory->getBytesNoCopy();
 
-    // Get the physical address of the buffer descriptor list.
+    _inBDListMemory = IOBufferMemoryDescriptor::withOptions(
+                      /* options   */  kIOMemoryPhysicallyContiguous,
+                      /* capacity  */  sizeof(AC97BD) * _bufferCount,
+                      /* alignment */  PAGE_SIZE );
 
-    _outBDListPhys = pmap_extract( kernel_pmap, (vm_address_t)_outBDList );
+    if ( _inBDListMemory == 0 ||
+         _inBDListMemory->prepare() != kIOReturnSuccess )
+    {
+        IOLog("%s: failed to allocate %ld bytes for input descriptor list\n",
+              getName(), sizeof(AC97BD) * _bufferCount);
+        goto exit;
+    }
+    inBDList = (AC97BD *) _inBDListMemory->getBytesNoCopy();
 
-    DebugLog("%s: BDList virt = %p phys = %lx\n", getName(),
-             _outBDList, _outBDListPhys);
+    // Get the physical address of the buffer descriptor lists.
 
-    // Initialize buffer descriptor list.
+    _outBDListPhys = _outBDListMemory->getPhysicalSegment( 0, &length );
+    if (length != sizeof(AC97BD) * _bufferCount)
+        goto exit;  // failed sanity check
+
+    DebugLog("%s: Output BDList virt = %p phys = %lx\n", getName(),
+             outBDList, _outBDListPhys);
+
+    _inBDListPhys = _inBDListMemory->getPhysicalSegment( 0, &length );
+    if (length != sizeof(AC97BD) * _bufferCount)
+        goto exit;  // failed sanity check
+
+    DebugLog("%s: Input BDList virt = %p phys = %lx\n", getName(),
+             inBDList, _inBDListPhys);
+
+    // Initialize buffer descriptor lists.
 
     for ( UInt32 i = 0; i < _bufferCount; i++ )
     {
-        OSWriteLittleInt32( &_outBDList[i].pointer, 0,
-                            pmap_extract( kernel_pmap,
-                                          (IOVirtualAddress) _outSampleBuf
-                                          + (i * _bufferSize) ) );
-        
-        OSWriteLittleInt16( &_outBDList[i].length, 0, _bufferSamples );
-        OSWriteLittleInt16( &_outBDList[i].command, 0, 0 );
+        OSWriteLittleInt32( &outBDList[i].pointer, 0,
+                            _outSampleMemory->getPhysicalSegment(
+                                              i * _bufferSize, &length ) );
+        OSWriteLittleInt16( &outBDList[i].length, 0, _bufferSamples );
+        OSWriteLittleInt16( &outBDList[i].command, 0, 0 );
+
+        OSWriteLittleInt32( &inBDList[i].pointer, 0,
+                            _inSampleMemory->getPhysicalSegment(
+                                             i * _bufferSize, &length ) );
+        OSWriteLittleInt16( &inBDList[i].length, 0, _bufferSamples );
+        OSWriteLittleInt16( &inBDList[i].command, 0, 0 );
     }
 
     // A timestamp is required by the audio family every time the engine
     // loops around the sample buffer. To do this, arm an interrupt on the
     // last descriptor, and have the primary interrupt handler record the
-    // time stamp.
+    // time stamp. Only do this on the output descriptor ring.
 
-    OSWriteLittleInt16( &_outBDList[kNumDescriptors - 1].command, 0,
+    OSWriteLittleInt16( &outBDList[kNumDescriptors - 1].command, 0,
                         kInterruptOnCompletion );
 
     // Install an interrupt handler to take time stamps.
@@ -192,7 +272,7 @@ bool AppleIntelAC97AudioEngine::initHardware( IOService * provider )
     // Locate the IOPCIDevice that has the interrupt properties.
 
     IOService * pciDevice;
-	for ( pciDevice = provider; pciDevice; pciDevice = pciDevice->getProvider() )
+    for ( pciDevice = provider; pciDevice; pciDevice = pciDevice->getProvider() )
     {
         if ( pciDevice->metaCast( "IOPCIDevice" ) )
         {
@@ -221,15 +301,25 @@ bool AppleIntelAC97AudioEngine::initHardware( IOService * provider )
 
     _interruptEvSrc->enable();
 
-	// Create the output audio stream.
+    // Create the output and input audio streams.
 
-	stream = new IOAudioStream;
-    if ( stream == 0 ||
-         stream->initWithAudioEngine( this,
-                 /* direction */      kIOAudioStreamDirectionOutput,
-                 /* startChannelID */ 1 ) != true )
+    outStream = new IOAudioStream;
+    if ( outStream == 0 ||
+         outStream->initWithAudioEngine( this,
+                    /* direction */      kIOAudioStreamDirectionOutput,
+                    /* startChannelID */ 1 ) != true )
     {
         IOLog("%s: output stream new/init error\n", getName());
+        goto exit;
+    }
+
+    inStream = new IOAudioStream;
+    if ( inStream == 0 ||
+         inStream->initWithAudioEngine( this,
+                   /* direction */      kIOAudioStreamDirectionInput,
+                   /* startChannelID */ 1 ) != true )
+    {
+        IOLog("%s: input stream new/init error\n", getName());
         goto exit;
     }
 
@@ -245,9 +335,11 @@ bool AppleIntelAC97AudioEngine::initHardware( IOService * provider )
 
     sampleRate.whole = 48000; 
     sampleRate.fraction = 0;
-	if ( setOutputSampleRate( sampleRate.whole ) == sampleRate.whole )
+    if ( setOutputSampleRate( sampleRate.whole ) == sampleRate.whole )
     {
-        stream->addAvailableFormat( &streamFormat, &sampleRate, &sampleRate );
+        outStream->addAvailableFormat( &streamFormat, &sampleRate, &sampleRate );
+        inStream->addAvailableFormat( &streamFormat, &sampleRate, &sampleRate );
+        setInputSampleRate( sampleRate.whole );
         setSampleRate( &sampleRate );
     }
 
@@ -255,41 +347,54 @@ bool AppleIntelAC97AudioEngine::initHardware( IOService * provider )
 
     sampleRate.whole = 44100; 
     sampleRate.fraction = 0;
-	if ( setOutputSampleRate( sampleRate.whole ) == sampleRate.whole )
+    if ( setOutputSampleRate( sampleRate.whole ) == sampleRate.whole )
     {
-        stream->addAvailableFormat( &streamFormat, &sampleRate, &sampleRate );
+        outStream->addAvailableFormat( &streamFormat, &sampleRate, &sampleRate );
+        inStream->addAvailableFormat( &streamFormat, &sampleRate, &sampleRate );
+        setInputSampleRate( sampleRate.whole );
         setSampleRate( &sampleRate );
     }
 
-    stream->setSampleBuffer( _outSampleBuf, _bufferCount * _bufferSize );
-    stream->setFormat( &streamFormat );
-    addAudioStream( stream );
-    stream->release();
+    // Add output stream
+
+    outStream->setSampleBuffer( _outSampleMemory->getBytesNoCopy(),
+                                _outSampleMemory->getCapacity() );
+    outStream->setFormat( &streamFormat );
+    addAudioStream( outStream );
+
+    // Add input stream
+
+    inStream->setSampleBuffer( _inSampleMemory->getBytesNoCopy(),
+                               _inSampleMemory->getCapacity() );
+    inStream->setFormat( &streamFormat );
+    addAudioStream( inStream );
 
     DebugLog("%s::%s(%p) success!\n", getName(), __FUNCTION__, provider);
 
     success = true;
 
 exit:
+
+    if ( outStream ) outStream->release();
+    if ( inStream )  inStream->release();
+
     return success;
 }
 
 //---------------------------------------------------------------------------
 
-UInt32
-AppleIntelAC97AudioEngine::setOutputSampleRate( UInt32 rate,
-                                                bool   calibrate = false )
+UInt32 AppleIntelAC97AudioEngine::setOutputSampleRate( UInt32 rate,
+                                                       bool   calibrate )
 {
-
-    UInt32 dacRate;
-    UInt32 actualDACRate;
+    UInt32  dacRate;
+    UInt32  actualDACRate;
 
     DebugLog("%s::%s(%ld)\n", getName(), __FUNCTION__, rate);
 
     if ( calibrate )
     {
         UInt32 before, after;
-    	AbsoluteTime now, deadline;
+        AbsoluteTime now, deadline;
         
         // Set the DAC to 48KHz, this should always succeed.
     
@@ -302,6 +407,16 @@ AppleIntelAC97AudioEngine::setOutputSampleRate( UInt32 rate,
         updateDescriptorTail( kChannelPCMOut );
     
         _codec->startDMAChannel( kChannelPCMOut );
+
+#define kQuiescenceMilliseconds 12
+        // Busy poll for kQuiescenceMilliseconds milliseconds. This settles DMA
+        // hardware on some configurations, making sampling reliable. (3224448)
+        // Make sure the descriptor list is large enough without stalling the engine.
+    
+        clock_interval_to_deadline( kQuiescenceMilliseconds, kMillisecondScale, &deadline );
+        do {
+            clock_get_uptime( &now );
+        } while ( CMP_ABSOLUTETIME(&deadline, &now) > 0 );
 
         before = getOutputPosition();
 
@@ -338,19 +453,43 @@ AppleIntelAC97AudioEngine::setOutputSampleRate( UInt32 rate,
 
     if ( _out48KRate == 0 ) return 0;
 
-	dacRate = rate * k48KSampleRate / _out48KRate;
+    dacRate = rate * k48KSampleRate / _out48KRate;
 
     _codec->setDACSampleRate( dacRate, &actualDACRate );
 
     if ( actualDACRate != dacRate )
         rate = actualDACRate * _out48KRate / k48KSampleRate;
 
-	return rate;
+    return rate;
 }
 
 //---------------------------------------------------------------------------
 
-IOReturn AppleIntelAC97AudioEngine::performAudioEngineStart()
+UInt32 AppleIntelAC97AudioEngine::setInputSampleRate( UInt32 rate )
+{
+    UInt32  adcRate;
+    UInt32  actualADCRate;
+
+    DebugLog("%s::%s(%ld)\n", getName(), __FUNCTION__, rate);
+
+    // Assume that calibration was performed for the DAC
+    // and use the same calibration factor for the ADC.
+
+    if ( _out48KRate == 0 ) return 0;
+
+    adcRate = rate * k48KSampleRate / _out48KRate;
+
+    _codec->setADCSampleRate( adcRate, &actualADCRate );
+
+    if ( actualADCRate != adcRate )
+        rate = actualADCRate * _out48KRate / k48KSampleRate;
+
+    return rate;
+}
+
+//---------------------------------------------------------------------------
+
+IOReturn AppleIntelAC97AudioEngine::performAudioEngineStart( void )
 {
     DebugLog("%s::%s\n", getName(), __FUNCTION__);
 
@@ -360,14 +499,17 @@ IOReturn AppleIntelAC97AudioEngine::performAudioEngineStart()
 
     // Set the buffer descriptor list base address register.
 
-	_codec->setDescriptorBaseAddress( kChannelPCMOut, _outBDListPhys );
+    _codec->setDescriptorBaseAddress( kChannelPCMIn,  _inBDListPhys );
+    _codec->setDescriptorBaseAddress( kChannelPCMOut, _outBDListPhys );
 
-    // Set the last valid index.
-    
-	updateDescriptorTail( kChannelPCMOut );
+    // Set the last valid indices.
 
-    // Start the output DMA engine.
+    updateDescriptorTail( kChannelPCMIn  );
+    updateDescriptorTail( kChannelPCMOut );
 
+    // Start the DMA engines.
+
+    _codec->startDMAChannel( kChannelPCMIn );
     _codec->startDMAChannel( kChannelPCMOut );
     _isRunning = true;
         
@@ -376,21 +518,22 @@ IOReturn AppleIntelAC97AudioEngine::performAudioEngineStart()
 
 //---------------------------------------------------------------------------
 
-IOReturn AppleIntelAC97AudioEngine::performAudioEngineStop()
+IOReturn AppleIntelAC97AudioEngine::performAudioEngineStop( void )
 {
     DebugLog("%s::%s\n", getName(), __FUNCTION__);
 
     // Stop the output DMA engine.
 
     _isRunning = false;
-	_codec->stopDMAChannel( kChannelPCMOut );
+    _codec->stopDMAChannel( kChannelPCMIn  );
+    _codec->stopDMAChannel( kChannelPCMOut );
 
     return kIOReturnSuccess;
 }
 
 //---------------------------------------------------------------------------
 
-void AppleIntelAC97AudioEngine::interruptFilter()
+void AppleIntelAC97AudioEngine::interruptFilter( void )
 {
     if ( _codec->serviceChannelInterrupt( kChannelPCMOut ) )
     {
@@ -404,7 +547,7 @@ bool AppleIntelAC97AudioEngine::interruptFilterHandler(
                                     OSObject *                     owner,
                                     IOFilterInterruptEventSource * source )
 {
-	AppleIntelAC97AudioEngine * self = (AppleIntelAC97AudioEngine *) owner;
+    AppleIntelAC97AudioEngine * self = (AppleIntelAC97AudioEngine *) owner;
     if ( self )
     {
         self->interruptFilter();
@@ -424,7 +567,7 @@ AppleIntelAC97AudioEngine::interruptHandler( OSObject *               owner,
 
 //---------------------------------------------------------------------------
 
-UInt32 AppleIntelAC97AudioEngine::getCurrentSampleFrame()
+UInt32 AppleIntelAC97AudioEngine::getCurrentSampleFrame( void )
 {
     // Report the start of the current buffer in sample frame units.
     // This tells the audio family that it is safe to erase samples
@@ -449,13 +592,21 @@ IOReturn AppleIntelAC97AudioEngine::performFormatChange(
 
     if ( newSampleRate )
     {
-        DebugLog("%s::%s %ld sample rate\n", getName(), __FUNCTION__,
-                 newSampleRate->whole);
-        
-        setOutputSampleRate( newSampleRate->whole );
+        DebugLog("%s::%s %ld sample rate for dir %d\n", getName(),
+                 __FUNCTION__, newSampleRate->whole,
+                 audioStream->getDirection() );
+
+        if ( audioStream->getDirection() == kIOAudioStreamDirectionOutput )
+        {
+            setOutputSampleRate( newSampleRate->whole );
+        }
+        else
+        {
+            setInputSampleRate( newSampleRate->whole );
+        }
     }
 
-	return kIOReturnSuccess;
+    return kIOReturnSuccess;
 }
 
 //---------------------------------------------------------------------------
@@ -472,18 +623,19 @@ void AppleIntelAC97AudioEngine::updateDescriptorTail( DMAChannel channel )
 
 //---------------------------------------------------------------------------
 
-void AppleIntelAC97AudioEngine::timerFired()
+void AppleIntelAC97AudioEngine::timerFired( void )
 {
     // Override the call from IOAudioEngine to periodically update the
-    // tail of the descriptor list.
+    // tail of the descriptor list(s).
 
+    updateDescriptorTail( kChannelPCMIn  );
     updateDescriptorTail( kChannelPCMOut );
     super::timerFired();
 }
 
 //---------------------------------------------------------------------------
 
-UInt32 AppleIntelAC97AudioEngine::getOutputPosition()
+UInt32 AppleIntelAC97AudioEngine::getOutputPosition( void )
 {
     UInt8  index;
     UInt32 samplesRemain;

@@ -1,0 +1,303 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		A12C48F20447282900D11EB3 = {
+			fileRef = F549EFE3023D002801650119;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A12C48F30447287F00D11EB3 = {
+			isa = PBXFileReference;
+			path = libCredentialsCache.a;
+			refType = 3;
+		};
+		A12C48F40447287F00D11EB3 = {
+			isa = PBXFileReference;
+			path = libKerberos4.a;
+			refType = 3;
+		};
+		A12C48F50447287F00D11EB3 = {
+			isa = PBXFileReference;
+			path = libKerberos5.a;
+			refType = 3;
+		};
+		A12C48F60447287F00D11EB3 = {
+			isa = PBXFileReference;
+			path = libKerberosDebug.a;
+			refType = 3;
+		};
+		A12C48F70447287F00D11EB3 = {
+			isa = PBXFileReference;
+			path = libKerberosDES.a;
+			refType = 3;
+		};
+		A12C48F80447287F00D11EB3 = {
+			isa = PBXFileReference;
+			path = libKerberosErrors.a;
+			refType = 3;
+		};
+		A12C48F90447287F00D11EB3 = {
+			isa = PBXFileReference;
+			path = libKerberosIPC.a;
+			refType = 3;
+		};
+		A12C48FA0447287F00D11EB3 = {
+			isa = PBXFileReference;
+			path = libKerberosLogin.a;
+			refType = 3;
+		};
+		A12C48FB0447287F00D11EB3 = {
+			isa = PBXFileReference;
+			path = libKerberosProfile.a;
+			refType = 3;
+		};
+		A12C49050447288700D11EB3 = {
+			children = (
+				A12C4AE204472B2900D11EB3,
+				F549EFE3023D002801650119,
+				A12C4A7E04472A9000D11EB3,
+				A141D11A04E55ACC00137A94,
+				A12C48F30447287F00D11EB3,
+				A12C48F40447287F00D11EB3,
+				A12C48F50447287F00D11EB3,
+				A12C48F60447287F00D11EB3,
+				A12C48F70447287F00D11EB3,
+				A12C48F80447287F00D11EB3,
+				A12C48F90447287F00D11EB3,
+				A12C48FA0447287F00D11EB3,
+				A12C48FB0447287F00D11EB3,
+			);
+			isa = PBXGroup;
+			name = Libraries;
+			refType = 4;
+		};
+		A12C4A7E04472A9000D11EB3 = {
+			isa = PBXFrameworkReference;
+			name = Security.framework;
+			path = /System/Library/Frameworks/Security.framework;
+			refType = 0;
+		};
+		A12C4A7F04472A9000D11EB3 = {
+			fileRef = A12C4A7E04472A9000D11EB3;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A12C4AE204472B2900D11EB3 = {
+			isa = PBXFileReference;
+			name = "libstdc++.a";
+			path = "/usr/lib/libstdc++.a";
+			refType = 0;
+		};
+		A141D11A04E55ACC00137A94 = {
+			isa = PBXFrameworkReference;
+			name = Kerberos.framework;
+			path = /System/Library/Frameworks/Kerberos.framework;
+			refType = 0;
+		};
+		A141D11B04E55ACC00137A94 = {
+			fileRef = A141D11A04E55ACC00137A94;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//A10
+//A11
+//A12
+//A13
+//A14
+//F50
+//F51
+//F52
+//F53
+//F54
+		F549EFCE023CFDF901650119 = {
+			buildStyles = (
+				F549EFD0023CFDF901650119,
+				F549EFD1023CFDF901650119,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = F549EFCF023CFDF901650119;
+			productRefGroup = F549EFD5023CFE4601650119;
+			projectDirPath = "";
+			targets = (
+				F549EFD8023CFE4601650119,
+			);
+		};
+		F549EFCF023CFDF901650119 = {
+			children = (
+				F549EFD2023CFE4601650119,
+				A12C49050447288700D11EB3,
+				F549EFD5023CFE4601650119,
+			);
+			isa = PBXGroup;
+			refType = 4;
+		};
+		F549EFD0023CFDF901650119 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		F549EFD1023CFDF901650119 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		F549EFD2023CFE4601650119 = {
+			children = (
+				F549EFD3023CFE4601650119,
+				F549EFD4023CFE4601650119,
+			);
+			isa = PBXGroup;
+			name = Sources;
+			path = ../Sources;
+			refType = 2;
+		};
+		F549EFD3023CFE4601650119 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = LoginTest.c;
+			refType = 4;
+		};
+		F549EFD4023CFE4601650119 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = TerminalLoginTest.c;
+			refType = 4;
+		};
+		F549EFD5023CFE4601650119 = {
+			children = (
+				F549EFD6023CFE4601650119,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+		F549EFD6023CFE4601650119 = {
+			isa = PBXApplicationReference;
+			path = LoginTest.app;
+			refType = 3;
+		};
+		F549EFD8023CFE4601650119 = {
+			buildPhases = (
+				F549EFD9023CFE4601650119,
+				F549EFDA023CFE4601650119,
+				F549EFDB023CFE4601650119,
+				F549EFDD023CFE4601650119,
+				F549EFDF023CFE4601650119,
+			);
+			buildSettings = {
+				LIBRARY_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = LoginTest;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = app;
+			};
+			dependencies = (
+			);
+			isa = PBXApplicationTarget;
+			name = LoginTest;
+			productInstallPath = "$(USER_APPS_DIR)";
+			productName = LoginTest;
+			productReference = F549EFD6023CFE4601650119;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string></string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string></string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string></string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string></string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>0.0.1d1</string>
+</dict>
+</plist>
+";
+		};
+		F549EFD9023CFE4601650119 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F549EFDA023CFE4601650119 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F549EFDB023CFE4601650119 = {
+			buildActionMask = 2147483647;
+			files = (
+				F549EFDC023CFE4601650119,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F549EFDC023CFE4601650119 = {
+			fileRef = F549EFD3023CFE4601650119;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F549EFDD023CFE4601650119 = {
+			buildActionMask = 2147483647;
+			files = (
+				A12C48F20447282900D11EB3,
+				A12C4A7F04472A9000D11EB3,
+				A141D11B04E55ACC00137A94,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F549EFDF023CFE4601650119 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F549EFE3023D002801650119 = {
+			isa = PBXFrameworkReference;
+			name = Carbon.framework;
+			path = /System/Library/Frameworks/Carbon.framework;
+			refType = 0;
+		};
+	};
+	rootObject = F549EFCE023CFDF901650119;
+}

@@ -38,7 +38,12 @@
 #ifndef _IOSCSIDEVICE_H
 #define _IOSCSIDEVICE_H
 
+#include "IOCDBDevice.h"
+#include "IOCDBCommand.h"
+#include "SCSIDevice.h"
+
 class IOSCSICommand;
+class IOCDBDevice;
 
 class IOSCSIDevice : public IOCDBDevice
 {

@@ -43,31 +43,34 @@ void macosx_cfm_thread_init (macosx_cfm_thread_status *s)
 {
   s->notify_debugger = 0;
   s->info_api_cookie = 0;
+  s->breakpoint_offset = 0;
+  s->cfm_breakpoint = NULL;
 }
 
 void macosx_cfm_thread_create (macosx_cfm_thread_status *s, task_t task)
 {
-  struct breakpoint *b;
   struct symtab_and_line sal;
   char buf[64];
 
   snprintf (buf, 64, "PrepareClosure + %s", core_addr_to_string (s->breakpoint_offset));
   s->notify_debugger = lookup_address ("PrepareClosure") + s->breakpoint_offset;
 
-  INIT_SAL (&sal);
+  init_sal (&sal);
   sal.pc = s->notify_debugger;
-  b = set_momentary_breakpoint (sal, NULL, bp_shlib_event);
-  b->disposition = disp_donttouch;
-  b->thread = -1;
-  b->addr_string = savestring (buf, strlen (buf));
+  s->cfm_breakpoint = set_momentary_breakpoint (sal, null_frame_id, bp_shlib_event);
+  s->cfm_breakpoint->disposition = disp_donttouch;
+  s->cfm_breakpoint->thread = -1;
+  s->cfm_breakpoint->addr_string = savestring (buf, strlen (buf));
 
   breakpoints_changed ();
 }
 
 void macosx_cfm_thread_destroy (macosx_cfm_thread_status *s)
 {
-  s->notify_debugger = 0;
-  s->info_api_cookie = 0;
+  if (s->cfm_breakpoint != NULL)
+    delete_breakpoint (s->cfm_breakpoint);
+  s->cfm_breakpoint = NULL;
+  macosx_cfm_thread_init (s);
 }
 
 void

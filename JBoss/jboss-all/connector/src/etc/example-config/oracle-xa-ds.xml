@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- ===================================================================== -->
+<!--                                                                       -->
+<!--  JBoss Server Configuration                                           -->
+<!--                                                                       -->
+<!-- ===================================================================== -->
+
+<!-- $Id: oracle-xa-ds.xml,v 1.1.2.11 2003/05/14 11:24:00 igorfie Exp $ -->
+
+<!-- ===================================================================== -->
+<!-- ATTENTION:  DO NOT FORGET TO SET Pad=true IN transaction-service.xml  -->
+<!-- ===================================================================== -->
+
+<datasources>
+  <xa-datasource>
+    <jndi-name>XAOracleDS</jndi-name>
+    <track-connection-by-tx>true</track-connection-by-tx>
+    <isSameRM-override-value>false</isSameRM-override-value>
+    <xa-datasource-class>oracle.jdbc.xa.client.OracleXADataSource</xa-datasource-class>
+    <xa-datasource-property name="URL">jdbc:oracle:oci8:@tc</xa-datasource-property>
+    <xa-datasource-property name="User">scott</xa-datasource-property>
+    <xa-datasource-property name="Password">tiger</xa-datasource-property>
+    <exception-sorter-class-name>org.jboss.resource.adapter.jdbc.vendor.OracleExceptionSorter</exception-sorter-class-name>
+  </xa-datasource>
+
+  <mbean code="org.jboss.resource.adapter.jdbc.xa.oracle.OracleXAExceptionFormatter" 
+         name="jboss.jca:service=OracleXAExceptionFormatter">
+    <depends optional-attribute-name="TransactionManagerService">jboss:service=TransactionManager</depends>
+  </mbean>
+
+</datasources>

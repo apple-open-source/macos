@@ -1,0 +1,11 @@
+<!DOCTYPE application PUBLIC
+   "-//Sun Microsystems, Inc.//DTD J2EE Application 1.3//EN"
+   "http://java.sun.com/dtd/application_1_3.dtd">
+
+<application>
+   <display-name>CMP2 Version 1 Ear</display-name>
+    <module>
+        <ejb>cts-v1cmp.jar</ejb>
+    </module>
+</application>
+

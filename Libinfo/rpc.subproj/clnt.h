@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -51,7 +52,7 @@
  *
  *	from: @(#)clnt.h 1.31 88/02/08 SMI
  *	from: @(#)clnt.h	2.1 88/07/29 4.0 RPCSRC
- *	$Id: clnt.h,v 1.2 1999/10/14 21:56:52 wsanchez Exp $
+ *	$Id: clnt.h,v 1.3 2003/07/03 21:56:21 majka Exp $
  */
 
 /*
@@ -143,19 +144,20 @@ struct rpc_err {
  * Created by individual implementations, see e.g. rpc_udp.c.
  * Client is responsible for initializing auth, see e.g. auth_none.c.
  */
-typedef struct {
-	AUTH	*cl_auth;			/* authenticator */
+typedef struct CLIENT CLIENT;
+struct CLIENT
+{
+	AUTH	*cl_auth;	/* authenticator */
 	struct clnt_ops {
-		enum clnt_stat	(*cl_call)();	/* call remote procedure */
-		void		(*cl_abort)();	/* abort a call */
-		void		(*cl_geterr)();	/* get specific error code */
-		bool_t		(*cl_freeres)(); /* frees results */
-		void		(*cl_destroy)();/* destroy this structure */
-		bool_t          (*cl_control)();/* the ioctl() of rpc */
+		enum clnt_stat (*cl_call)(CLIENT *, u_long, xdrproc_t, void *, xdrproc_t, void *, struct timeval); 	/* call remote procedure */
+		void (*cl_abort)(void); 	/* abort a call */
+		void (*cl_geterr)(CLIENT *, struct rpc_err *); 	/* get specific error code */
+		bool_t (*cl_freeres)(CLIENT *, xdrproc_t, void *); 	/* frees results */
+		void (*cl_destroy)(CLIENT *); 	/* destroy this structure */
+		bool_t (*cl_control)(CLIENT *, int, char *); 	/* the ioctl() of rpc */
 	} *cl_ops;
-	caddr_t			cl_private;	/* private stuff */
-} CLIENT;
-
+	caddr_t cl_private;	/* private stuff */
+};
 
 /*
  * client side rpc interface ops

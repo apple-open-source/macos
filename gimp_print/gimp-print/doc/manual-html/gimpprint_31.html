@@ -1,0 +1,87 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from .././gimpprint.texi on 22 January 2003 -->
+
+<TITLE>GIMP-Print - Weaving collisions</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_30.html">previous</A>, <A HREF="gimpprint_32.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H3><A NAME="SEC46" HREF="gimpprint_toc.html#TOC46">B.2.3  Weaving collisions</A></H3>
+<P>
+<A NAME="IDX186"></A>
+<A NAME="IDX187"></A>
+
+</P>
+<P>
+This perfect weave is not possible in all cases.  Let's look at another
+example:
+
+</P>
+<P>
+@math{S=6},  @math{J=4}:
+
+</P>
+
+<PRE>
+0 *-----*-----*-----*
+1     *-----*-----*-----*
+2         *-----*-----*-----*
+3             *-----*-----*-----*
+4             ^   *-^---*-----*-----*
+5             |   ^ | *-^---*-----*-----*
+              OUCH!   ^ |   ^
+                      |     |
+</PRE>
+
+<P>
+Here we have a collision.  Some lines printed in later passes overprint
+lines printed by earlier passes.  We can see why by considering which
+row number is printed by a given jet number @math{j} (numbered from 0)
+of a given pass, @math{p}:
+
+</P>
+
+<PRE>
+@math{row(p, j) = p*J + j*S}
+</PRE>
+
+<P>
+Because @math{J=4} and @math{S=6} have a common factor of 2, jet 2 of
+pass 0 prints the same row as jet 0 of pass 3:
+
+</P>
+
+<PRE>
+@math{row(0, 2) = 0*4 + 2*6 = 12}
+@math{row(3, 0) = 3*4 + 0*6 = 12}
+</PRE>
+
+<P>
+In fact, with this particular weave pattern, jets 0 and 1 of pass
+@math{p+3} always overprint jets 2 and 3 of pass @math{p}.  We'll
+represent overprinting rows by a <SAMP>`^'</SAMP> in our diagrams, and correct
+rows by <SAMP>`*'</SAMP>:
+
+</P>
+<P>
+@math{S=6}  @math{J=4}:
+
+</P>
+
+<PRE>
+0 *-----*-----*-----*
+1     *-----*-----*-----*
+2         *-----*-----*-----*
+3             ^-----^-----*-----*
+4                 ^-----^-----*-----*
+5                     ^-----^-----*-----*
+</PRE>
+
+<P><HR><P>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_30.html">previous</A>, <A HREF="gimpprint_32.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+</BODY>
+</HTML>

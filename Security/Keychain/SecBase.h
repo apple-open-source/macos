@@ -158,14 +158,14 @@ typedef struct SecKeychainAttributeInfo  SecKeychainAttributeInfo;
 /*!
 @enum Security Error Codes 
 @abstract Represents the result codes.
-@constant errSecNotAvailable No trust results are available.
+@constant errSecNotAvailable No keychain is available.
 @constant errSecReadOnly Read only error.
 @constant errSecAuthFailed Authorization/Authentication failed.
 @constant errSecNoSuchKeychain The keychain does not exist.
 @constant errSecInvalidKeychain The keychain is not valid.
 @constant errSecDuplicateKeychain A keychain with the same name already exists.
-@constant errSecDuplicateCallback More than one callback of the same name exists.
-@constant errSecInvalidCallback The callback is not valid.
+@constant errSecDuplicateCallback The specified callback is already installed.
+@constant errSecInvalidCallback The specified callback is not valid.
 @constant errSecDuplicateItem The item already exists.
 @constant errSecItemNotFound The item cannot be found.
 @constant errSecBufferTooSmall The buffer is too small.
@@ -190,44 +190,56 @@ typedef struct SecKeychainAttributeInfo  SecKeychainAttributeInfo;
 @constant errSecPolicyNotFound The policy specified cannot be found.
 @constant errSecInvalidTrustSetting The trust setting is invalid.
 @constant errSecNoAccessForItem The specified item has no access control.
+@constant errSecInvalidOwnerEdit Invalid attempt to change the owner of this item.
+@constant errSecTrustNotAvailable No trust results are available.
 @discussion The assigned error space is discontinuous: -25240..-25279, -25290..25329.
 */
+
+/*
+    Note: the comments that appear after these errors are used to create SecErrorMessages.strings.
+    The comments must not be multi-line, and should be in a form meaningful to an end user. If
+    a different or additional comment is needed, it can be put in the header doc format, or on a
+    line that does not start with errZZZ.
+*/
+
 enum
 {
-    errSecNotAvailable           = -25291,
-    errSecReadOnly               = -25292,
-    errSecAuthFailed             = -25293,
-    errSecNoSuchKeychain         = -25294,
-    errSecInvalidKeychain        = -25295,
-    errSecDuplicateKeychain      = -25296,
-    errSecDuplicateCallback      = -25297,
-    errSecInvalidCallback        = -25298,
-    errSecDuplicateItem          = -25299,
-    errSecItemNotFound           = -25300,
-    errSecBufferTooSmall         = -25301,
-    errSecDataTooLarge           = -25302,
-    errSecNoSuchAttr             = -25303,
-    errSecInvalidItemRef         = -25304,
-    errSecInvalidSearchRef       = -25305,
-    errSecNoSuchClass            = -25306,
-    errSecNoDefaultKeychain      = -25307,
-    errSecInteractionNotAllowed  = -25308,
-    errSecReadOnlyAttr           = -25309,
-    errSecWrongSecVersion        = -25310,
-    errSecKeySizeNotAllowed      = -25311,
-    errSecNoStorageModule        = -25312,
-    errSecNoCertificateModule    = -25313,
-    errSecNoPolicyModule         = -25314,
-    errSecInteractionRequired    = -25315,
-    errSecDataNotAvailable       = -25316,
-    errSecDataNotModifiable      = -25317,
-    errSecCreateChainFailed      = -25318,
+    errSecNotAvailable           = -25291,	/* No keychain is available. You may need to restart your computer. */
+    errSecReadOnly               = -25292,	/* This keychain cannot be modified. */
+    errSecAuthFailed             = -25293,	/* The user name or passphrase you entered is not correct. */
+    errSecNoSuchKeychain         = -25294,	/* The specified keychain could not be found. */
+    errSecInvalidKeychain        = -25295,	/* The specified keychain is not a valid keychain file. */
+    errSecDuplicateKeychain      = -25296,	/* A keychain with the same name already exists. */
+    errSecDuplicateCallback      = -25297,	/* The specified callback function is already installed. */
+    errSecInvalidCallback        = -25298,	/* The specified callback function is not valid. */
+    errSecDuplicateItem          = -25299,	/* The specified item already exists in the keychain. */
+    errSecItemNotFound           = -25300,	/* The specified item could not be found in the keychain. */
+    errSecBufferTooSmall         = -25301,	/* There is not enough memory available to use the specified item. */
+    errSecDataTooLarge           = -25302,	/* This item contains information which is too large or in a format that cannot be displayed. */
+    errSecNoSuchAttr             = -25303,	/* The specified attribute does not exist. */
+    errSecInvalidItemRef         = -25304,	/* The specified item is no longer valid. It may have been deleted from the keychain. */
+    errSecInvalidSearchRef       = -25305,	/* Unable to search the current keychain. */
+    errSecNoSuchClass            = -25306,	/* The specified item does not appear to be a valid keychain item. */
+    errSecNoDefaultKeychain      = -25307,	/* A default keychain could not be found. */
+    errSecInteractionNotAllowed  = -25308,	/* User interaction is not allowed. */
+    errSecReadOnlyAttr           = -25309,	/* The specified attribute could not be modified. */
+    errSecWrongSecVersion        = -25310,	/* This keychain was created by a different version of the system software and cannot be opened. */
+    errSecKeySizeNotAllowed      = -25311,	/* This item specifies a key size which is too large. */
+    errSecNoStorageModule        = -25312,	/* A required component (data storage module) could not be loaded. You may need to restart your computer. */
+    errSecNoCertificateModule    = -25313,	/* A required component (certificate module) could not be loaded. You may need to restart your computer. */
+    errSecNoPolicyModule         = -25314,	/* A required component (policy module) could not be loaded. You may need to restart your computer. */
+    errSecInteractionRequired    = -25315,	/* User interaction is required, but is currently not allowed. */
+    errSecDataNotAvailable       = -25316,	/* The contents of this item cannot be retrieved. */
+    errSecDataNotModifiable      = -25317,	/* The contents of this item cannot be modified. */
+    errSecCreateChainFailed      = -25318,	/* One or more certificates required to validate this certificate cannot be found. */
+	errSecInvalidPrefsDomain	 = -25319,  /* The specified preferences domain is not valid. */
 	
-	errSecACLNotSimple           = -25240,
-	errSecPolicyNotFound         = -25241,
-	errSecInvalidTrustSetting    = -25242,
-	errSecNoAccessForItem        = -25243,
-	errSecInvalidOwnerEdit       = -25244
+	errSecACLNotSimple           = -25240,	/* The specified access control list is not in standard (simple) form. */
+	errSecPolicyNotFound         = -25241,	/* The specified policy cannot be found. */
+	errSecInvalidTrustSetting    = -25242,	/* The specified trust setting is invalid. */
+	errSecNoAccessForItem        = -25243,	/* The specified item has no access control. */
+	errSecInvalidOwnerEdit       = -25244,  /* Invalid attempt to change the owner of this item. */
+	errSecTrustNotAvailable      = -25245	/* No trust results are available. */
 };
 
 #if defined(__cplusplus)

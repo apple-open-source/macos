@@ -1,0 +1,21 @@
+Seu endereço de email "%(email)s" foi convidado para participar da 
+lista de discussão %(listname)s em %(hostname)s sendo 
+coordenada por %(listname)s.
+Você pdoerá aceitar o convite simplesmente respondendo a esta 
+mensagem, mantendo a linha de Assunto intacta.
+
+Você também poderá visitar esta página:
+
+    %(confirmurl)s
+
+Ou deverá incluir as seguintes listas -- e somente a seguinte
+linha -- em uma mensagem para %(requestaddr)s:
+
+    confirm %(cookie)s
+
+Note que simplesmente enviando um 'reply' a esta mensagem deve 
+funcionar para a maioria dos leitures de e-mail.
+
+Se desejar recusar este convite, ignore esta mensagem. Se tiver 
+qualquer estão, envie-as para 
+%(listowner)s.

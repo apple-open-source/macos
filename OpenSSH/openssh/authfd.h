@@ -1,4 +1,4 @@
-/*	$OpenBSD: authfd.h,v 1.30 2002/06/19 00:27:55 deraadt Exp $	*/
+/*	$OpenBSD: authfd.h,v 1.32 2003/01/23 13:50:27 markus Exp $	*/
 
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
@@ -51,6 +51,7 @@
 #define SSH2_AGENTC_ADD_ID_CONSTRAINED		25
 
 #define	SSH_AGENT_CONSTRAIN_LIFETIME		1
+#define	SSH_AGENT_CONSTRAIN_CONFIRM		2
 
 /* extended failure messages */
 #define SSH2_AGENT_FAILURE			30
@@ -66,6 +67,7 @@ typedef struct {
 	int	howmany;
 }	AuthenticationConnection;
 
+int	ssh_agent_present(void);
 int	ssh_get_authentication_socket(void);
 void	ssh_close_authentication_socket(int);
 
@@ -75,7 +77,8 @@ int	 ssh_get_num_identities(AuthenticationConnection *, int);
 Key	*ssh_get_first_identity(AuthenticationConnection *, char **, int);
 Key	*ssh_get_next_identity(AuthenticationConnection *, char **, int);
 int	 ssh_add_identity(AuthenticationConnection *, Key *, const char *);
-int	 ssh_add_identity_constrained(AuthenticationConnection *, Key *, const char *, u_int);
+int	 ssh_add_identity_constrained(AuthenticationConnection *, Key *,
+    const char *, u_int, u_int);
 int	 ssh_remove_identity(AuthenticationConnection *, Key *);
 int	 ssh_remove_all_identities(AuthenticationConnection *, int);
 int	 ssh_lock_agent(AuthenticationConnection *, int, const char *);

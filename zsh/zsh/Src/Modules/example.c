@@ -39,7 +39,7 @@ static char **arrparam;
 
 /**/
 static int
-bin_example(char *nam, char **args, char *ops, int func)
+bin_example(char *nam, char **args, Options ops, int func)
 {
     unsigned char c;
     char **oargs = args, **p = arrparam;
@@ -47,7 +47,7 @@ bin_example(char *nam, char **args, char *ops, int func)
 
     printf("Options: ");
     for (c = 32; ++c < 128;)
-	if (ops[c])
+	if (OPT_ISSET(ops,c))
 	    putchar(c);
     printf("\nArguments:");
     for (; *args; i++, args++) {

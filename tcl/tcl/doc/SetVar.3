@@ -5,7 +5,7 @@
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" RCS: @(#) $Id: SetVar.3,v 1.1.1.3 2000/04/12 02:01:56 wsanchez Exp $
+'\" RCS: @(#) $Id: SetVar.3,v 1.1.1.5 2003/07/22 23:11:03 landonf Exp $
 '\" 
 .so man.macros
 .TH Tcl_SetVar 3 8.1 Tcl "Tcl Library Procedures"
@@ -21,10 +21,10 @@ Tcl_Obj *
 \fBTcl_SetVar2Ex\fR(\fIinterp, name1, name2, newValuePtr, flags\fR)
 .VE
 .sp
-char *
+CONST char *
 \fBTcl_SetVar\fR(\fIinterp, varName, newValue, flags\fR)
 .sp
-char *
+CONST char *
 \fBTcl_SetVar2\fR(\fIinterp, name1, name2, newValue, flags\fR)
 .sp
 Tcl_Obj *
@@ -35,10 +35,10 @@ Tcl_Obj *
 \fBTcl_GetVar2Ex\fR(\fIinterp, name1, name2, flags\fR)
 .VE
 .sp
-char *
+CONST char *
 \fBTcl_GetVar\fR(\fIinterp, varName, flags\fR)
 .sp
-char *
+CONST char *
 \fBTcl_GetVar2\fR(\fIinterp, name1, name2, flags\fR)
 .sp
 Tcl_Obj *
@@ -53,13 +53,13 @@ int
 .AS Tcl_Interp *newValuePtr
 .AP Tcl_Interp *interp in
 Interpreter containing variable.
-.AP char *name1 in
+.AP "CONST char" *name1 in
 Contains the name of an array variable (if \fIname2\fR is non-NULL)
 or (if \fIname2\fR is NULL) either the name of a scalar variable
 or a complete name including both variable name and index.
 May include \fB::\fR namespace qualifiers
 to specify a variable in a particular namespace.
-.AP char *name2 in
+.AP "CONST char" *name2 in
 If non-NULL, gives name of element within array; in this
 case \fIname1\fR must refer to an array variable.
 .AP Tcl_Obj *newValuePtr in
@@ -69,17 +69,14 @@ Points to a Tcl object containing the new value for the variable.
 .AP int flags in
 OR-ed combination of bits providing additional information. See below
 for valid values.
-.AP char *varName in
+.AP "CONST char" *varName in
 Name of variable.
 May include \fB::\fR namespace qualifiers
 to specify a variable in a particular namespace.
 May refer to a scalar variable or an element of
 an array.
-If the name references an element of an array, then the name
-must be in writable memory:  Tcl will make temporary modifications 
-to it while looking up the name.
-.AP char *newValue in
-New value for variable, specified as a NULL-terminated string.
+.AP "CONST char" *newValue in
+New value for variable, specified as a null-terminated string.
 A copy of this value is stored in the variable.
 .AP Tcl_Obj *part1Ptr in
 Points to a Tcl object containing the variable's name.

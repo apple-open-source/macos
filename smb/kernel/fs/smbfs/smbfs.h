@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs.h,v 1.5 2002/05/03 17:20:38 lindak Exp $
+ * $Id: smbfs.h,v 1.9 2003/08/27 02:27:51 lindak Exp $
  */
 #ifndef _SMBFS_SMBFS_H_
 #define _SMBFS_SMBFS_H_
@@ -86,6 +86,25 @@ struct u_cred;
 struct vop_ioctl_args;
 struct buf;
 
+/*
+ * SM_MAX_STATFSTIME is the maximum time to cache statfs data. Since this
+ * should be a fast call on the server, the time the data cached is short.
+ * That lets the cache handle bursts of statfs() requests without generating
+ * lots of network traffic.
+ */
+#define SM_MAX_STATFSTIME 2
+
+/* Mask values for smbmount structure sm_status field */
+#define SM_STATUS_STATFS 0x00000001 /* statfs is in progress */
+#define SM_STATUS_STATFS_WANTED 0x00000002 /* statfs wakeup is wanted */
+#define SM_STATUS_TIMEO 0x00000004 /* this mount is not responding */
+#define SM_STATUS_FORCE 0x00000008 /* force unmount in progress */
+#define SM_STATUS_DEAD	0x00000010 /* connection gone - unmount this */
+
+void smbfs_down(struct smbmount *smp);
+void smbfs_up(struct smbmount *smp);
+void smbfs_dead(struct smbmount *smp);
+
 struct smbmount {
 	struct smbfs_args	sm_args;
 	struct mount * 		sm_mp;
@@ -104,6 +123,9 @@ struct smbmount {
 #endif
 	LIST_HEAD(smbnode_hashhead, smbnode) *sm_hash;
 	u_long			sm_hashlen;
+	u_int32_t		sm_status; /* status bits for this mount */
+	time_t			sm_statfstime; /* sm_statfsbuf cache time */
+	struct statfs		sm_statfsbuf; /* cached statfs data */
 };
 
 #define VFSTOSMBFS(mp)		((struct smbmount *)((mp)->mnt_data))

@@ -1,7 +1,7 @@
 /* config.c - ldbm backend configuration file routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/config.c,v 1.29 2002/01/04 20:17:52 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/config.c,v 1.29.2.4 2003/03/03 17:10:09 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -106,18 +106,32 @@ ldbm_back_db_config(
 #ifndef NO_THREADS
 		int i;
 		if ( argc < 2 ) {
+#ifdef NEW_LOGGING
+			LDAP_LOG ( CONFIG, ERR, "ldbm_back_db_config: %s: "
+				"line %d: missing frequency value in \"dbsync <frequency> "
+				"[<wait-times> [wait-interval]]\" line\n", fname, lineno, 0 );
+#else	
 			Debug( LDAP_DEBUG_ANY,
     "%s: line %d: missing frquency value in \"dbsync <frequency> [<wait-times> [wait-interval]]\" line\n",
 			    fname, lineno, 0 );
+#endif
 			return 1;
 		}
 
 		i = atoi( argv[1] );
 
 		if( i < 0 ) {
+#ifdef NEW_LOGGING
+			LDAP_LOG ( CONFIG, ERR, 
+				"ldbm_back_db_config: %s: "
+				"line %d: frequency value (%d) invalid \"dbsync "
+				"<frequency> [<wait-times> [wait-interval]]\" line\n", 
+				fname, lineno, i );
+#else	
 			Debug( LDAP_DEBUG_ANY,
     "%s: line %d: frquency value (%d) invalid \"dbsync <frequency> [<wait-times> [wait-interval]]\" line\n",
 			    fname, lineno, i );
+#endif
 			return 1;
 		}
 
@@ -126,9 +140,16 @@ ldbm_back_db_config(
 		if ( argc > 2 ) {
 			i = atoi( argv[2] );
 			if ( i < 0 ) {
+#ifdef NEW_LOGGING
+				LDAP_LOG ( CONFIG,ERR, "ldbm_back_db_config: %s: "
+					"line %d: frequency value (%d) invalid \"dbsync "
+					"<frequency> [<wait-times> [wait-interval]]\" line\n", 
+					fname, lineno, i );
+#else	
 				Debug( LDAP_DEBUG_ANY,
 	    "%s: line %d: frquency value (%d) invalid \"dbsync <frequency> [<wait-times> [wait-interval]]\" line\n",
 				    fname, lineno, i );
+#endif
 				return 1;
 			}
 			li ->li_dbsyncwaitn = i;
@@ -137,9 +158,16 @@ ldbm_back_db_config(
 		if ( argc > 3 ) {
 			i = atoi( argv[3] );
 			if ( i <= 0 ) {
+#ifdef NEW_LOGGING
+				LDAP_LOG ( CONFIG,ERR, "ldbm_back_db_config: %s: "
+					"line %d: frequency value (%d) invalid \"dbsync "
+					"<frequency> [<wait-times> [wait-interval]]\" line\n", 
+					fname, lineno, i );
+#else	
 				Debug( LDAP_DEBUG_ANY,
 	    "%s: line %d: frquency value (%d) invalid \"dbsync <frequency> [<wait-times> [wait-interval]]\" line\n",
 				    fname, lineno, i );
+#endif
 				return 1;
 			}
 			li ->li_dbsyncwaitinterval = i;
@@ -149,8 +177,13 @@ ldbm_back_db_config(
 		li->li_dbwritesync = 0;
 
 #else
+#ifdef NEW_LOGGING
+		LDAP_LOG ( CONFIG, ERR, "ldbm_back_db_config: \"dbsync\""
+			" policies not supported in non-threaded environments\n", 0, 0, 0 );
+#else	
 		Debug( LDAP_DEBUG_ANY,
     "\"dbsync\" policies not supported in non-threaded environments\n", 0, 0, 0);
+#endif
 		return 1;
 #endif
 

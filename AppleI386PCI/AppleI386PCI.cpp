@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,7 +39,7 @@
 #include "AppleI386PCI.h"
 
 //#include <assert.h>
-#warning Should be including these definitions from Kernel.framework as soon as they get exported #2688371
+#warning Should be including these definitions from Kernel.framework as soon as they get exported #2579444
 #ifndef I386_PIO_H
 #define I386_PIO_H
 typedef unsigned short i386_ioport_t;
@@ -245,7 +245,10 @@ UInt8 AppleI386PCI::firstBusNum( void )
 
 UInt8 AppleI386PCI::lastBusNum( void )
 {
-    return( firstBusNum() );
+    // this is a best guess, getting the correct value for this is
+    // unfortunately chip specific, in future we maybe be able to
+    // get this from the bios
+    return( 255 );
 }
 
 IOPCIAddressSpace AppleI386PCI::getBridgeSpace( void )
@@ -265,7 +268,8 @@ IOPCIAddressSpace AppleI386PCI::getBridgeSpace( void )
 #define PCI_CSE_REGISTER        0x0cf8
 #define PCI_BUS_FORWARD         0x0cfa
 
-#define	PCI_DEFAULT_DATA	0xffffffff
+#define	PCI_DEFAULT_DATA        0xffffffff
+#define PCI_REGNUM_DWORD(x)     ((x) & ~0x03)
 
 #if 0
 
@@ -318,15 +322,23 @@ IOPCIAddressSpace AppleI386PCI::getBridgeSpace( void )
 }
 #endif
 
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ *
+ * Configuration Mechanism #1.
+ *
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+
 UInt32 AppleI386PCI::configRead32Method1( IOPCIAddressSpace space,
-                                            UInt8 offset )
+                                          UInt8 offset )
 {
-    IOPCIAddressSpace	addrCycle;
-    UInt32		data = PCI_DEFAULT_DATA;
+    IOPCIAddressSpace  addrCycle;
+    UInt32             data = PCI_DEFAULT_DATA;
 
     addrCycle = space;
     addrCycle.s.reloc = 1;
-    addrCycle.s.registerNum = offset;
+    addrCycle.s.registerNum = PCI_REGNUM_DWORD(offset);
 
     outl( PCI_CONFIG_ADDRESS, addrCycle.bits);
     if (inl( PCI_CONFIG_ADDRESS) == addrCycle.bits)
@@ -337,15 +349,14 @@ UInt32 AppleI386PCI::configRead32Method1( IOPCIAddressSpace space,
     return( data );
 }
 
-
 void AppleI386PCI::configWrite32Method1( IOPCIAddressSpace space, 
-					UInt8 offset, UInt32 data )
+                                         UInt8 offset, UInt32 data )
 {
-    IOPCIAddressSpace	addrCycle;
+    IOPCIAddressSpace  addrCycle;
 
     addrCycle = space;
     addrCycle.s.reloc = 1;
-    addrCycle.s.registerNum = offset;
+    addrCycle.s.registerNum = PCI_REGNUM_DWORD(offset);
 
     outl( PCI_CONFIG_ADDRESS, addrCycle.bits);
     if (inl( PCI_CONFIG_ADDRESS) == addrCycle.bits)
@@ -355,82 +366,91 @@ void AppleI386PCI::configWrite32Method1( IOPCIAddressSpace space,
 }
 
 UInt16 AppleI386PCI::configRead16Method1( IOPCIAddressSpace space,
-                                            UInt8 offset )
+                                          UInt8 offset )
 {
-    IOPCIAddressSpace	addrCycle;
-    UInt16		data = 0xffff;
+    IOPCIAddressSpace  addrCycle;
+    UInt16             data = 0xffff;
 
     addrCycle = space;
     addrCycle.s.reloc = 1;
-    addrCycle.s.registerNum = offset;
+    addrCycle.s.registerNum = PCI_REGNUM_DWORD(offset);
 
     outl( PCI_CONFIG_ADDRESS, addrCycle.bits);
     if (inl( PCI_CONFIG_ADDRESS) == addrCycle.bits)
-        data = inw( PCI_CONFIG_DATA);
+        data = inw( PCI_CONFIG_DATA + (offset & 0x2));
 
     outl( PCI_CONFIG_ADDRESS, 0);
 
     return( data );
 }
 
-
 void AppleI386PCI::configWrite16Method1( IOPCIAddressSpace space, 
-					UInt8 offset, UInt16 data )
+                                         UInt8 offset, UInt16 data )
 {
-    IOPCIAddressSpace	addrCycle;
+    IOPCIAddressSpace  addrCycle;
 
     addrCycle = space;
     addrCycle.s.reloc = 1;
-    addrCycle.s.registerNum = offset;
+    addrCycle.s.registerNum = PCI_REGNUM_DWORD(offset);
 
     outl( PCI_CONFIG_ADDRESS, addrCycle.bits);
     if (inl( PCI_CONFIG_ADDRESS) == addrCycle.bits)
-        outw(PCI_CONFIG_DATA, data);
+        outw(PCI_CONFIG_DATA + (offset & 0x2), data);
 
     outl( PCI_CONFIG_ADDRESS, 0);
 }
 
 UInt8 AppleI386PCI::configRead8Method1( IOPCIAddressSpace space,
-                                            UInt8 offset )
+                                        UInt8 offset )
 {
-    IOPCIAddressSpace	addrCycle;
-    UInt8		data = 0xff;
+    IOPCIAddressSpace  addrCycle;
+    UInt8              data = 0xff;
 
     addrCycle = space;
     addrCycle.s.reloc = 1;
-    addrCycle.s.registerNum = offset;
+    addrCycle.s.registerNum = PCI_REGNUM_DWORD(offset);
 
     outl( PCI_CONFIG_ADDRESS, addrCycle.bits);
     if (inl( PCI_CONFIG_ADDRESS) == addrCycle.bits)
-        data = inb( PCI_CONFIG_DATA);
+        data = inb( PCI_CONFIG_DATA + (offset & 0x3));
 
     outl( PCI_CONFIG_ADDRESS, 0);
 
     return( data );
 }
 
-
 void AppleI386PCI::configWrite8Method1( IOPCIAddressSpace space, 
-					UInt8 offset, UInt8 data )
+                                        UInt8 offset, UInt8 data )
 {
-    IOPCIAddressSpace	addrCycle;
+    IOPCIAddressSpace  addrCycle;
 
     addrCycle = space;
     addrCycle.s.reloc = 1;
-    addrCycle.s.registerNum = offset;
+    addrCycle.s.registerNum = PCI_REGNUM_DWORD(offset);
 
     outl( PCI_CONFIG_ADDRESS, addrCycle.bits);
     if (inl( PCI_CONFIG_ADDRESS) == addrCycle.bits)
-        outb(PCI_CONFIG_DATA, data);
+        outb(PCI_CONFIG_DATA + (offset & 0x3), data);
 
     outl( PCI_CONFIG_ADDRESS, 0);
 }
 
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ *
+ * Configuration Mechanism #2
+ *
+ * PCI 2.0/2.1 specification states that only configuration mechanism #1
+ * is allowed on new designs.
+ *
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+
 UInt32 AppleI386PCI::configRead32Method2( IOPCIAddressSpace space,
-                                            UInt8 offset )
+                                          UInt8 offset )
 {
-    UInt32	data = PCI_DEFAULT_DATA;
-    UInt8	cse;
+    UInt32  data = PCI_DEFAULT_DATA;
+    UInt8   cse;
 
     if( space.s.deviceNum > 15)
 	return( data);
@@ -451,11 +471,10 @@ UInt32 AppleI386PCI::configRead32Method2( IOPCIAddressSpace space,
     return( data );
 }
 
-
 void AppleI386PCI::configWrite32Method2( IOPCIAddressSpace space, 
-					UInt8 offset, UInt32 data )
+                                         UInt8 offset, UInt32 data )
 {
-    UInt8	cse;
+    UInt8  cse;
 
     if( space.s.deviceNum > 15)
 	return;
@@ -475,10 +494,10 @@ void AppleI386PCI::configWrite32Method2( IOPCIAddressSpace space,
 }
 
 UInt16 AppleI386PCI::configRead16Method2( IOPCIAddressSpace space,
-                                            UInt8 offset )
+                                          UInt8 offset )
 {
-    UInt16	data = 0xffff;
-    UInt8	cse;
+    UInt16  data = 0xffff;
+    UInt8   cse;
 
     if( space.s.deviceNum > 15)
 	return( data);
@@ -499,11 +518,10 @@ UInt16 AppleI386PCI::configRead16Method2( IOPCIAddressSpace space,
     return( data );
 }
 
-
 void AppleI386PCI::configWrite16Method2( IOPCIAddressSpace space, 
-					UInt8 offset, UInt16 data )
+                                         UInt8 offset, UInt16 data )
 {
-    UInt8	cse;
+    UInt8  cse;
 
     if( space.s.deviceNum > 15)
 	return;
@@ -522,12 +540,11 @@ void AppleI386PCI::configWrite16Method2( IOPCIAddressSpace space,
     outb( PCI_CSE_REGISTER, 0x00);
 }
 
-
 UInt8 AppleI386PCI::configRead8Method2( IOPCIAddressSpace space,
-                                            UInt8 offset )
+                                        UInt8 offset )
 {
-    UInt16	data = 0xffff;
-    UInt8	cse;
+    UInt16  data = 0xffff;
+    UInt8   cse;
 
     if( space.s.deviceNum > 15)
 	return( data);
@@ -548,11 +565,10 @@ UInt8 AppleI386PCI::configRead8Method2( IOPCIAddressSpace space,
     return( data );
 }
 
-
 void AppleI386PCI::configWrite8Method2( IOPCIAddressSpace space, 
-					UInt8 offset, UInt8 data )
+                                        UInt8 offset, UInt8 data )
 {
-    UInt8	cse;
+    UInt8  cse;
 
     if( space.s.deviceNum > 15)
 	return;
@@ -572,8 +588,15 @@ void AppleI386PCI::configWrite8Method2( IOPCIAddressSpace space,
 }
 
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+ *
+ * Configuration Space Access (defined by IOPCIBridge).
+ *
+ * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+
 UInt32 AppleI386PCI::configRead32( IOPCIAddressSpace space,
-					UInt8 offset )
+                                   UInt8 offset )
 {
     IOInterruptState ints;
     UInt32 retval;
@@ -590,7 +613,7 @@ UInt32 AppleI386PCI::configRead32( IOPCIAddressSpace space,
 }
 
 void AppleI386PCI::configWrite32( IOPCIAddressSpace space, 
-					UInt8 offset, UInt32 data )
+                                  UInt8 offset, UInt32 data )
 {
     IOInterruptState ints;
 
@@ -605,7 +628,7 @@ void AppleI386PCI::configWrite32( IOPCIAddressSpace space,
 }
 
 UInt16 AppleI386PCI::configRead16( IOPCIAddressSpace space,
-					UInt8 offset )
+                                   UInt8 offset )
 {
     IOInterruptState ints;
     UInt16 retval;
@@ -622,7 +645,7 @@ UInt16 AppleI386PCI::configRead16( IOPCIAddressSpace space,
 }
 
 void AppleI386PCI::configWrite16( IOPCIAddressSpace space, 
-					UInt8 offset, UInt16 data )
+                                  UInt8 offset, UInt16 data )
 {
     IOInterruptState ints;
 
@@ -637,7 +660,7 @@ void AppleI386PCI::configWrite16( IOPCIAddressSpace space,
 }
 
 UInt8 AppleI386PCI::configRead8( IOPCIAddressSpace space,
-					UInt8 offset )
+                                 UInt8 offset )
 {
     IOInterruptState ints;
     UInt8 retval;
@@ -654,7 +677,7 @@ UInt8 AppleI386PCI::configRead8( IOPCIAddressSpace space,
 }
 
 void AppleI386PCI::configWrite8( IOPCIAddressSpace space, 
-					UInt8 offset, UInt8 data )
+                                 UInt8 offset, UInt8 data )
 {
     IOInterruptState ints;
 
@@ -667,4 +690,3 @@ void AppleI386PCI::configWrite8( IOPCIAddressSpace space,
 
     IOSimpleLockUnlockEnableInterrupt( lock, ints );
 }
-

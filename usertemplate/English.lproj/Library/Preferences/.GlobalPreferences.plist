@@ -6,13 +6,21 @@
 	<integer>8</integer>
         <key>AppleLanguages</key>
         <array>
-                <string>English</string>
-                <string>German</string>
-                <string>French</string>
-                <string>Dutch</string>
-                <string>Italian</string>
-                <string>Japanese</string>
-                <string>Spanish</string>
+                <string>en</string>
+                <string>ja</string>
+                <string>fr</string>
+                <string>de</string>
+                <string>es</string>
+                <string>it</string>
+                <string>nl</string>
+                <string>sv</string>
+                <string>no</string>
+                <string>da</string>
+                <string>fi</string>
+                <string>pt</string>
+                <string>zh_CN</string>
+                <string>zh_TW</string>
+                <string>ko</string>
         </array>
 </dict>
 </plist>

@@ -1,0 +1,7 @@
+<!DOCTYPE funcsynopsis PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
+<funcsynopsis>
+<funcprototype>
+<funcdef>int <function>rand</function></funcdef>
+  <void>
+</funcprototype>
+</funcsynopsis>

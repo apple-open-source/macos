@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Sascha Schumann <sascha@schumann.cx>                        |
+   | Author: Sascha Schumann <sascha@schumann.cx>                         |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_lcg.h,v 1.1.1.4 2001/12/14 22:13:26 zarzycki Exp $ */
+/* $Id: php_lcg.h,v 1.1.1.6 2003/07/18 18:07:43 zarzycki Exp $ */
 
 #ifndef PHP_LCG_H
 #define PHP_LCG_H
@@ -26,16 +26,18 @@
 typedef struct {
 	php_int32 s1;
 	php_int32 s2;
+	int seeded;
 } php_lcg_globals;
 
-double php_combined_lcg(TSRMLS_D);
+PHPAPI double php_combined_lcg(TSRMLS_D);
 PHP_FUNCTION(lcg_value);
 
-#ifdef ZTS
 PHP_MINIT_FUNCTION(lcg);
+PHP_RINIT_FUNCTION(lcg);
+
+#ifdef ZTS
 #define LCG(v) TSRMG(lcg_globals_id, php_lcg_globals *, v)
 #else
-PHP_RINIT_FUNCTION(lcg);
 #define LCG(v) (lcg_globals.v)
 #endif
 

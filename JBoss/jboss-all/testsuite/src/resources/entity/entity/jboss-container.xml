@@ -1,0 +1,7 @@
+    <container-configurations>
+        <!-- Commit option B CMP Bean -->
+        <container-configuration extends="Standard CMP 2.x EntityBean">
+            <container-name>TestEntity Container Configuration</container-name>
+            <commit-option>B</commit-option>
+        </container-configuration>
+    </container-configurations>

@@ -1,4 +1,4 @@
-/*	$KAME: oakley.c,v 1.111 2001/12/20 23:33:22 sakane Exp $	*/
+/*	$KAME: oakley.c,v 1.115 2003/01/10 08:38:23 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -74,6 +74,9 @@
 #include "sockmisc.h"
 #include "strnames.h"
 #include "gcmalloc.h"
+#ifndef HAVE_ARC4RANDOM
+#include "arc4random.h"
+#endif
 
 #ifdef HAVE_GSSAPI
 #include "gssapi.h"
@@ -89,6 +92,7 @@ do {                                                                           \
 	memset(&a, 0, sizeof(struct dhgroup));                                 \
 	a.type = (t);                                                          \
 	a.prime = vdup(&buf);                                                  \
+	racoon_free(buf.v);																\
 	a.gen1 = 2;                                                            \
 	a.gen2 = 0;                                                            \
 } while(0);
@@ -199,7 +203,7 @@ oakley_dh_compute(dh, pub, priv, pub_p, gxy)
 
 #ifdef ENABLE_STATS
 	gettimeofday(&end, NULL);
-	syslog(LOG_NOTICE, "%s(%s%d): %8.6f", __FUNCTION__,
+	syslog(LOG_NOTICE, "%s(%s%d): %8.6f", __func__,
 		s_attr_isakmp_group(dh->type), dh->prime->l << 3,
 		timedelta(&start, &end));
 #endif
@@ -246,7 +250,7 @@ oakley_dh_generate(dh, pub, priv)
 
 #ifdef ENABLE_STATS
 	gettimeofday(&end, NULL);
-	syslog(LOG_NOTICE, "%s(%s%d): %8.6f", __FUNCTION__,
+	syslog(LOG_NOTICE, "%s(%s%d): %8.6f", __func__,
 		s_attr_isakmp_group(dh->type), dh->prime->l << 3,
 		timedelta(&start, &end));
 #endif
@@ -356,7 +360,7 @@ oakley_hash(buf, iph1)
 	res = alg_oakley_hashdef_one(type, buf);
 	if (res == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
-			"invalid hash algoriym %d.\n", type);
+			"invalid hash algorithm %d.\n", type);
 		return NULL;
 	}
 
@@ -1286,7 +1290,7 @@ oakley_validate_auth(iph1)
 			}
 			if (error != 0) {
 				plog(LLV_ERROR, LOCATION, NULL,
-					"Invalid authority of the CERT.\n");
+					"the peer's certificate is not verified.\n");
 				return ISAKMP_NTYPE_INVALID_CERT_AUTHORITY;
 			}
 		}
@@ -1395,7 +1399,7 @@ oakley_validate_auth(iph1)
 	}
 #ifdef ENABLE_STATS
 	gettimeofday(&end, NULL);
-	syslog(LOG_NOTICE, "%s(%s): %8.6f", __FUNCTION__,
+	syslog(LOG_NOTICE, "%s(%s): %8.6f", __func__,
 		s_oakley_attr_method(iph1->approval->authmethod),
 		timedelta(&start, &end));
 #endif
@@ -2026,7 +2030,23 @@ oakley_skeyid(iph1)
 	/* SKEYID */
 	switch(iph1->approval->authmethod) {
 	case OAKLEY_ATTR_AUTH_METHOD_PSKEY:
-		if (iph1->etype != ISAKMP_ETYPE_IDENT) {
+                /* if we have a preshared key defined, just use it */
+                if (iph1->rmconf->shared_secret) {
+
+                    switch (iph1->rmconf->secrettype) {
+                        case SECRETTYPE_KEY:
+                            iph1->authstr = getpsk(iph1->rmconf->shared_secret->v, iph1->rmconf->shared_secret->l-1);
+                            break;
+                        case SECRETTYPE_KEYCHAIN:
+                            iph1->authstr = getpskfromkeychain(iph1->rmconf->shared_secret->v);
+                            break;
+                        case SECRETTYPE_USE:
+                        default:
+                            iph1->authstr = vdup(iph1->rmconf->shared_secret);
+                    }
+
+                }
+		else if (iph1->etype != ISAKMP_ETYPE_IDENT) {
 			iph1->authstr = getpskbyname(iph1->id_p);
 			if (iph1->authstr == NULL) {
 				if (iph1->rmconf->verify_identifier) {
@@ -2769,7 +2789,7 @@ oakley_do_encrypt(iph1, msg, ivep, ivp)
 		char *p = &buf->v[len];
 		if (lcconf->pad_random) {
 			for (i = 0; i < padlen; i++)
-				*p++ = (char)random();
+				*p++ = arc4random() & 0xff;
 		}
         }
         memcpy(buf->v, pl, len);
@@ -2845,7 +2865,8 @@ oakley_padlen(len, base)
 	padlen = base - len % base;
 
 	if (lcconf->pad_randomlen)
-		padlen += ((random() % (lcconf->pad_maxsize + 1) + 1) * base);
+		padlen += ((arc4random() % (lcconf->pad_maxsize + 1) + 1) *
+		    base);
 
 	return padlen;
 }

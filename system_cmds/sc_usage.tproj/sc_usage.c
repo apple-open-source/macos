@@ -40,6 +40,7 @@ cc -I. -DKERNEL_PRIVATE -O -o sc_usage sc_usage.c -lncurses
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/time.h>
+#include <sys/ptrace.h>
 
 #include <libc.h>
 #include <termios.h>
@@ -213,6 +214,9 @@ void set_pidcheck();
 void set_remove();
 void set_numbufs();
 void set_init();
+void quit(char *);
+int argtopid(char *);
+int argtoi(int, char*, char*, int);
 
 
 /*
@@ -261,7 +265,7 @@ void sigwinch()
 }
 
 int
-exit_usage(myname) {
+exit_usage(char *myname) {
 
         fprintf(stderr, "Usage: %s [-c codefile] [-e] [-l] [-sn] pid | cmd | -E execute path\n", myname);
 	fprintf(stderr, "  -c         name of codefile containing mappings for syscalls\n");
@@ -287,19 +291,19 @@ void print_time(char *p, unsigned int useconds, unsigned int seconds)
 	hours = minutes / 60;
 
 	if (minutes < 100) { // up to 100 minutes
-		sprintf(p, "%2ld:%02ld.%03ld", minutes, seconds % 60,
-			usec_to_1000ths(useconds));
+		sprintf(p, "%2ld:%02ld.%03ld", minutes, (unsigned long)(seconds % 60),
+			(unsigned long)usec_to_1000ths(useconds));
 	}
 	else if (hours < 100) { // up to 100 hours
-		sprintf(p, "%2ld:%02ld:%02ld ", hours, minutes % 60,
-				seconds % 60);
+		sprintf(p, "%2ld:%02ld:%02ld ", hours, (minutes % 60),
+				(unsigned long)(seconds % 60));
 	}
 	else {
 		sprintf(p, "%4ld hrs ", hours);
 	}
 }
 
-
+int
 main(argc, argv)
 	int	argc;
 	char	*argv[];
@@ -309,15 +313,11 @@ main(argc, argv)
 	char    ch;
 	char    *ptr;
 	int	delay = Default_DELAY;
-	int     length;
         void screen_update();
 	void sort_scalls();
 	void sc_tab_init();
 	void getdivisor();
 	void reset_counters();
-	int argtopid();
-	int argtoi();
-	int quit();
 
 	if ( geteuid() != 0 ) {
 	      printf("'sc_usage' must be run as root...\n");
@@ -402,7 +402,7 @@ main(argc, argv)
 		    exit(1);
 		  case 0: /* child */
 		    setsid();
-		    ptrace(0,0,0,0); /* PT_TRACE_ME */
+		    ptrace(0,(pid_t)0,(caddr_t)0,0); /* PT_TRACE_ME */
 		    execve(argv[optind], &argv[optind], environ);
 		    perror("execve:");
 		    exit(1);
@@ -457,7 +457,7 @@ main(argc, argv)
 	set_pidcheck(pid, 1);
 	set_enable(1);
 	if (execute_flag)
-	  ptrace(7, pid, 1, 0);  /* PT_CONTINUE */
+	  ptrace(7, pid, (caddr_t)1, 0);  /* PT_CONTINUE */
 	getdivisor();
 
 	if (delay == 0)
@@ -472,7 +472,6 @@ main(argc, argv)
 
 	while (1) {
 	        int     i;
-		int     cnt;
 		char    c;
 		void    sample_sc();
 		
@@ -652,7 +651,7 @@ void screen_update()
 
 	clen = strlen(tbuf);
 	sprintf(&tbuf[clen], "                    %3ld:%02ld:%02ld\n", 
-		hours, minutes % 60, elapsed_secs % 60);
+		(long)hours, (long)(minutes % 60), (long)(elapsed_secs % 60));
 
 	if (tbuf[COLS-2] != '\n') {
 	        tbuf[COLS-1] = '\n';
@@ -981,7 +980,6 @@ sc_tab_init(char *codefile) {
 	int msgcode_indx=0;
 	char name[56];
         FILE *fp;
-	int quit();
 
 	if ((fp = fopen(codefile,"r")) == (FILE *)0) {
 		printf("Failed to open code description file %s\n", codefile);
@@ -1413,8 +1411,8 @@ sample_sc()
 		switched_out = (struct th_info *)0;
 		switched_in  = (struct th_info *)0;
 
-		now = (((uint64_t)kd[i].timestamp.tv_sec) << 32) |
-		        (uint64_t)((unsigned int)(kd[i].timestamp.tv_nsec));
+		now = kd[i].timestamp;
+		
 		baseid = debugid & 0xffff0000;
 
 		if (type == vfs_lookup) {
@@ -1471,8 +1469,8 @@ sample_sc()
 		        code = (debugid >> 2) & 0x1ff;
 	        else if (baseid == msc_base)
 		        code = 512 + ((debugid >> 2) & 0x1ff);
-		else if (baseid == mach_sched || baseid == mach_stkhandoff) {
-		        switched_out = find_thread(kd[i].arg1);
+		else if (type == mach_sched || type == mach_stkhandoff) {
+		        switched_out = find_thread((kd[i].arg5 & KDBG_THREAD_MASK));
 			switched_in  = find_thread(kd[i].arg2);
 
 			if (in_idle) {
@@ -1685,9 +1683,8 @@ sample_sc()
 	delta_otime_secs += secs;
 }
 
-
-quit(s)
-char *s;
+void
+quit(char *s)
 {
         if (trace_enabled)
 	        set_enable(0);
@@ -1717,6 +1714,7 @@ void getdivisor()
 }
 
 
+int
 argtopid(str)
         char *str;
 {
@@ -1774,7 +1772,8 @@ find_msgcode(int debugid)
     }
   return (0);
 }
-  
+
+int
 argtoi(flag, req, str, base)
 	int flag;
 	char *req, *str;

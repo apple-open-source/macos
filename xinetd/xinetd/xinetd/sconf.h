@@ -9,7 +9,7 @@
 #define SCONF_H
 
 /*
- * $Id: sconf.h,v 1.1.1.3 2002/10/02 21:07:29 bbraun Exp $
+ * $Id: sconf.h,v 1.5 2003/08/06 01:15:36 rbraun Exp $
  */
 #include "config.h"
 #ifdef HAVE_STDINT_H
@@ -70,9 +70,9 @@
 #define LO_DURATION  3
 #define LO_ATTEMPT   4
 #define LO_EXIT      5
-#define LO_RECORD    6
-#define LO_PID       7
-#define LO_USERID    8
+#define LO_PID       6
+#define LO_USERID    7
+#define LO_TRAFFIC   8
 
 struct rpc_data
 {
@@ -106,7 +106,7 @@ struct service_config
    char                *sc_id ;                /* e.g. "echo-stream"          */
    uint16_t             sc_port ;              /* in host byte order          */
    int                  sc_socket_type ;       /* e.g. SOCK_DGRAM             */
-   struct name_value    sc_protocol ;          /* e.g. "TCP", IPPROTO_TCP     */
+   struct protocol_name_value sc_protocol ;    /* e.g. "TCP", IPPROTO_TCP     */
    boolean_e            sc_wait ;
    uid_t                sc_uid ;
    gid_t                sc_user_gid ;          /* gid corresponding to uid    */
@@ -155,6 +155,11 @@ struct service_config
                                                   X: X minutes          */
 #ifdef HAVE_DNSREGISTRATION
    dns_service_discovery_ref sc_mdnscon;
+   char                *sc_mdns_name;
+   boolean_e            sc_mdns;
+#endif
+#ifdef HAVE_SESSIONCREATE
+   boolean_e            sc_sessioncreate;
 #endif
 } ;
 
@@ -237,7 +242,6 @@ struct service_config
 #define SC_LOGS_ON_EXIT( scp )  \
    ( M_IS_SET( (scp)->sc_log_on_success, LO_DURATION ) || \
       M_IS_SET( (scp)->sc_log_on_success, LO_EXIT ) )
-#define SC_RECORDS( scp )    M_IS_SET( (scp)->sc_log_on_failure, LO_RECORD ) 
 #define SC_LOGS_PID( scp )   M_IS_SET( (scp)->sc_log_on_success, LO_PID )
 #define SC_LOGS_EXITS( scp ) M_IS_SET( (scp)->sc_log_on_success, LO_EXIT )
 #define SC_LOGS_DURATION( scp ) \
@@ -267,7 +271,7 @@ struct service_config
 #define SC_INTERNAL( scp, serp )  BUILTIN_INVOKE( (scp)->sc_builtin, serp )
 #define SC_MAKE_EXTERNAL( scp )   M_CLEAR( (scp)->sc_type, ST_INTERNAL )
 
-struct service_config *sc_alloc(char *name);
+struct service_config *sc_alloc(const char *name);
 void sc_free(struct service_config *scp);
 struct service_config *sc_make_special(const char *service_name,const builtin_s *bp,int instances);
 void sc_dump(struct service_config *scp,int fd,int tab_level,bool_int is_defaults);

@@ -1,6 +1,6 @@
 /* conn.c - deal with connection subsystem */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*
@@ -36,7 +36,10 @@
 #include <stdio.h>
 
 #include "slap.h"
+#include "lutil.h"
 #include "back-monitor.h"
+
+#define CONN_CN_PREFIX	"Connection"
 
 int
 monitor_subsys_conn_init(
@@ -57,10 +60,10 @@ monitor_subsys_conn_init(
 	if ( monitor_cache_get( mi,
 			&monitor_subsys[SLAPD_MONITOR_CONN].mss_ndn, &e_conn ) ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_CRIT,
+		LDAP_LOG( OPERATION, CRIT,
 			"monitor_subsys_conn_init: "
 			"unable to get entry '%s'\n",
-			monitor_subsys[SLAPD_MONITOR_CONN].mss_ndn.bv_val ));
+			monitor_subsys[SLAPD_MONITOR_CONN].mss_ndn.bv_val, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
 			"monitor_subsys_conn_init: "
@@ -85,10 +88,10 @@ monitor_subsys_conn_init(
 	e = str2entry( buf );
 	if ( e == NULL ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_CRIT,
+		LDAP_LOG( OPERATION, CRIT,
 			"monitor_subsys_conn_init: "
 			"unable to create entry 'cn=Total,%s'\n",
-			monitor_subsys[SLAPD_MONITOR_CONN].mss_ndn.bv_val ));
+			monitor_subsys[SLAPD_MONITOR_CONN].mss_ndn.bv_val, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
 			"monitor_subsys_conn_init: "
@@ -115,10 +118,10 @@ monitor_subsys_conn_init(
 
 	if ( monitor_cache_add( mi, e ) ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_CRIT,
+		LDAP_LOG( OPERATION, CRIT,
 			"monitor_subsys_conn_init: "
 			"unable to add entry 'cn=Total,%s'\n",
-			monitor_subsys[SLAPD_MONITOR_CONN].mss_ndn.bv_val ));
+			monitor_subsys[SLAPD_MONITOR_CONN].mss_ndn.bv_val, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
 			"monitor_subsys_conn_init: "
@@ -143,10 +146,10 @@ monitor_subsys_conn_init(
 	e = str2entry( buf );
 	if ( e == NULL ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_CRIT,
+		LDAP_LOG( OPERATION, CRIT,
 			"monitor_subsys_conn_init: "
 			"unable to create entry 'cn=Current,%s'\n",
-			monitor_subsys[SLAPD_MONITOR_CONN].mss_ndn.bv_val ));
+			monitor_subsys[SLAPD_MONITOR_CONN].mss_ndn.bv_val, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
 			"monitor_subsys_conn_init: "
@@ -156,6 +159,11 @@ monitor_subsys_conn_init(
 #endif
 		return( -1 );
 	}
+	
+	bv[1].bv_val = NULL;
+	bv[0].bv_val = "0";
+	bv[0].bv_len = 1;
+	attr_merge( e, monitor_ad_desc, bv );
 	
 	mp = ( struct monitorentrypriv * )ch_calloc( sizeof( struct monitorentrypriv ), 1 );
 	e->e_private = ( void * )mp;
@@ -168,10 +176,10 @@ monitor_subsys_conn_init(
 
 	if ( monitor_cache_add( mi, e ) ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_CRIT,
+		LDAP_LOG( OPERATION, CRIT,
 			"monitor_subsys_conn_init: "
 			"unable to add entry 'cn=Current,%s'\n",
-			monitor_subsys[SLAPD_MONITOR_CONN].mss_ndn.bv_val ));
+			monitor_subsys[SLAPD_MONITOR_CONN].mss_ndn.bv_val, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
 			"monitor_subsys_conn_init: "
@@ -203,12 +211,12 @@ monitor_subsys_conn_update(
 	assert( mi );
 	assert( e );
 	
-	if ( strncasecmp( e->e_ndn, "CN=TOTAL", 
-				sizeof("CN=TOTAL")-1 ) == 0 ) {
+	if ( strncasecmp( e->e_ndn, "cn=total", 
+				sizeof("cn=total")-1 ) == 0 ) {
 		n = connections_nextid();
 
-	} else if ( strncasecmp( e->e_ndn, "CN=CURRENT", 
-				sizeof("CN=CURRENT")-1 ) == 0 ) {
+	} else if ( strncasecmp( e->e_ndn, "cn=current", 
+				sizeof("cn=current")-1 ) == 0 ) {
 		Connection	*c;
 		int		connindex;
 
@@ -245,9 +253,9 @@ conn_create(
 {
 	struct monitorentrypriv *mp;
 	struct tm		*ltm;
-	char			buf[1024];
-	char			buf2[22];
-	char			buf3[22];
+	char			buf[ 1024 ];
+	char			buf2[ LDAP_LUTIL_GENTIME_BUFSIZE ];
+	char			buf3[ LDAP_LUTIL_GENTIME_BUFSIZE ];
 
 	struct berval           bv[2];
 
@@ -257,26 +265,25 @@ conn_create(
 	assert( ep != NULL );
 
 	snprintf( buf, sizeof( buf ),
-		"dn: cn=Connection %ld,%s\n"
+		"dn: cn=" CONN_CN_PREFIX " %ld,%s\n"
 		SLAPD_MONITOR_OBJECTCLASSES
-		"cn: Connection %ld\n",
+		"cn: " CONN_CN_PREFIX " %ld\n",
 		c->c_connid, monitor_subsys[SLAPD_MONITOR_CONN].mss_dn.bv_val,
 		c->c_connid );
 	e = str2entry( buf );
 
 	if ( e == NULL) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_CRIT,
+		LDAP_LOG( OPERATION, CRIT,
 			"monitor_subsys_conn_create: "
 			"unable to create entry "
-			"'cn=Connection %ld,%s' entry\n",
-			c->c_connid, 
-			monitor_subsys[SLAPD_MONITOR_CONN].mss_dn.bv_val ));
+			"'cn=" CONN_CN_PREFIX " %ld,%s' entry\n",
+			c->c_connid, monitor_subsys[SLAPD_MONITOR_CONN].mss_dn.bv_val, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
 			"monitor_subsys_conn_create: "
 			"unable to create entry "
-			"'cn=Connection %ld,%s' entry\n",
+			"'cn=" CONN_CN_PREFIX " %ld,%s' entry\n",
 			c->c_connid, 
 			monitor_subsys[SLAPD_MONITOR_CONN].mss_dn.bv_val, 0 );
 #endif
@@ -286,10 +293,10 @@ conn_create(
 	ldap_pvt_thread_mutex_lock( &gmtime_mutex );
 	
 	ltm = gmtime( &c->c_starttime );
-	strftime( buf2, sizeof(buf2), "%Y%m%d%H%M%SZ", ltm );
+	lutil_gentime( buf2, sizeof( buf2 ), ltm );
 			
 	ltm = gmtime( &c->c_activitytime );
-	strftime( buf3, sizeof(buf2), "%Y%m%d%H%M%SZ", ltm );
+	lutil_gentime( buf3, sizeof( buf3 ), ltm );
 			
 	ldap_pvt_thread_mutex_unlock( &gmtime_mutex );
 
@@ -315,7 +322,7 @@ conn_create(
 		connection_state2str( c->c_conn_state ),
 		c->c_sasl_bind_in_progress ? "S" : "",
 		
-		c->c_cdn.bv_len ? c->c_cdn.bv_val : SLAPD_ANONYMOUS,
+		c->c_dn.bv_len ? c->c_dn.bv_val : SLAPD_ANONYMOUS,
 		
 		c->c_listener_url.bv_val,
 		c->c_peer_domain.bv_val,
@@ -369,6 +376,16 @@ monitor_subsys_conn_create(
 				c = connection_next( c, &connindex )) {
 			if ( conn_create( c, &e ) || e == NULL ) {
 				connection_done(c);
+				for ( ; e_tmp != NULL; ) {
+					mp = ( struct monitorentrypriv * )e_tmp->e_private;
+					e = mp->mp_next;
+
+					ch_free( mp );
+					e_tmp->e_private = NULL;
+					entry_free( e_tmp );
+
+					e_tmp = e;
+				}
 				return( -1 );
 			}
 			mp = ( struct monitorentrypriv * )e->e_private;
@@ -395,7 +412,8 @@ monitor_subsys_conn_create(
 		assert( values );
 		assert( values[ 0 ][ 0 ] );
 
-		connid = atol( values[ 0 ][ 0 ]->la_value.bv_val );
+		connid = atol( values[ 0 ][ 0 ]->la_value.bv_val
+				+ sizeof( CONN_CN_PREFIX ) );
 
 		ldap_rdnfree( values );
 
@@ -407,6 +425,8 @@ monitor_subsys_conn_create(
 					connection_done(c);
 					return( -1 );
 				}
+
+				break;
 			}
 		}
 		

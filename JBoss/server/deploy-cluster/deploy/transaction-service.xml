@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE server>
+<!-- $Id: transaction-service.xml,v 1.2.2.2 2003/07/18 19:35:09 starksm Exp $ -->
+
+<server>
+
+  <!-- ==================================================================== -->
+  <!-- Transactions                                                         -->
+  <!-- ==================================================================== -->
+
+  <!-- 
+     | The CachedConnectionManager is used partly to relay started UserTransactions to 
+     | open connections so they may be enrolled in the new tx.
+   -->
+  <mbean code="org.jboss.resource.connectionmanager.CachedConnectionManager" 
+	 name="jboss.jca:service=CachedConnectionManager">
+    <!--SpecCompliant false means JBoss will close connections left open when you 
+        return from a method call and generate a loud warning.  SpecCompliant true
+        means JBoss will disconnect connection handles left open on return from a
+        method call and reconnect them with an appropriate (security, tx) 
+        connection on the next call to the same object.-->
+    <attribute name="SpecCompliant">true</attribute>
+  </mbean>
+
+</server>

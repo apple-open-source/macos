@@ -1,9 +1,11 @@
-.TH LDAP 3 "13 January 2002" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man3/ldap.3,v 1.23 2002/01/13 13:45:29 hyc Exp $
-.\" Copyright 1998-2002 The OpenLDAP Foundation All Rights Reserved.
+.TH LDAP 3 "RELEASEDATE" "OpenLDAP LDVERSION"
+.\" $OpenLDAP: pkg/ldap/doc/man/man3/ldap.3,v 1.23.2.6 2003/03/24 03:37:43 kurt Exp $
+.\" Copyright 1998-2003 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ldap - OpenLDAP Lightweight Directory Access Protocol API
+.SH LIBRARY
+OpenLDAP LDAP (libldap, -lldap)
 .SH SYNOPSIS
 .nf
 .ft B
@@ -89,12 +91,6 @@ The
 routines can be used to test a URL to see if it is an LDAP URL, to parse LDAP
 URLs into their component pieces, and to initiate searches directly using
 an LDAP URL.
-.SH CACHING
-The
-.BR ldap_cache (3)
-routines implement a local client caching scheme,
-providing a substantial performance increase for repeated queries.
-Caching is experiemental.
 .SH UTILITY ROUTINES
 Also provided are various utility routines.  The
 .BR ldap_sort (3)
@@ -159,27 +155,6 @@ equivalent to
 .TP
 .SM ldap_memfree (3)
 dispose of memory allocated by LDAP routines.
-.TP
-.SM ldap_enable_cache(3)
-enable LDAP client caching
-.TP
-.SM ldap_disable_cache(3)
-disable LDAP client caching
-.TP
-.SM ldap_destroy_cache(3)
-disable LDAP client caching and destroy cache contents
-.TP
-.SM ldap_flush_cache(3)
-flush LDAP client cache
-.TP
-.SM ldap_uncache_entry(3)
-uncache requests pertaining to an entry
-.TP
-.SM ldap_uncache_request(3)
-uncache a request
-.TP
-.SM ldap_set_cache_options(3)
-set cache options
 .TP
 .SM ldap_compare(3)
 asynchronously compare to a directory entry
@@ -304,7 +279,8 @@ sort a list of attribute values
 .SM ldap_sort_strcasecmp(3)
 case insensitive string comparison
 .SH SEE ALSO
-.BR slapd (8)
+.BR ldap.conf (5),
+.BR slapd (8),
 .BR draft-ietf-ldapext-ldap-c-api-xx.txt \ <http://www.ietf.org>
 .SH ACKNOWLEDGEMENTS
 .B	OpenLDAP

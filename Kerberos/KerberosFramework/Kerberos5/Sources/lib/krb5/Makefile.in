@@ -1,0 +1,137 @@
+thisconfigdir=.
+myfulldir=lib/krb5
+mydir=.
+BUILDTOP=$(REL)..$(S)..
+LOCAL_SUBDIRS= error_tables asn.1 ccache keytab krb os rcache posix
+
+##DOSBUILDTOP = ..\..
+##DOSLIBNAME=$(OUTPRE)krb5.lib
+##DOSOBJFILEDEP=$(OUTPRE)asn1.lst $(OUTPRE)ccache.lst $(OUTPRE)err_tbls.lst $(OUTPRE)keytab.lst $(OUTPRE)krb.lst $(OUTPRE)os.lst $(OUTPRE)posix.lst $(OUTPRE)rcache.lst
+##DOSOBJFILELIST=@$(OUTPRE)asn1.lst @$(OUTPRE)ccache.lst @$(OUTPRE)err_tbls.lst @$(OUTPRE)keytab.lst @$(OUTPRE)krb.lst @$(OUTPRE)os.lst @$(OUTPRE)posix.lst @$(OUTPRE)rcache.lst
+
+TST=if test -n "`cat DONE`" ; then
+
+MAC_SUBDIRS = error_tables asn.1 ccache keytab krb rcache os posix 
+
+STLIBOBJS=krb5_libinit.o
+
+LIB=krb5
+LIBMAJOR=3
+LIBMINOR=2
+
+STOBJLISTS= \
+	OBJS.ST \
+	error_tables/OBJS.ST \
+	asn.1/OBJS.ST \
+	ccache/OBJS.ST \
+	keytab/OBJS.ST \
+	krb/OBJS.ST \
+	rcache/OBJS.ST \
+	os/OBJS.ST \
+	posix/OBJS.ST \
+	$(BUILDTOP)/util/profile/OBJS.ST
+
+SUBDIROBJLISTS= \
+	error_tables/OBJS.ST \
+	asn.1/OBJS.ST \
+	ccache/OBJS.ST \
+	keytab/OBJS.ST \
+	krb/OBJS.ST \
+	rcache/OBJS.ST \
+	os/OBJS.ST \
+	posix/OBJS.ST \
+	$(BUILDTOP)/util/profile/OBJS.ST
+
+OBJS=\
+	$(OUTPRE)krb5_libinit.$(OBJEXT)
+
+SRCS=\
+	$(srcdir)/krb5_libinit.c
+
+RELDIR=krb5
+SHLIB_EXPDEPS = \
+	$(TOPLIBD)/libk5crypto$(SHLIBEXT) \
+	$(COM_ERR_DEPLIB)
+SHLIB_EXPLIBS=-lk5crypto -lcom_err @GEN_LIB@ $(LIBS)
+SHLIB_DIRS=-L$(TOPLIBD)
+SHLIB_RDIRS=$(KRB5_LIBDIR)
+
+all-unix:: all-liblinks
+
+all-windows::
+
+clean-unix:: clean-liblinks clean-libs clean-libobjs
+
+clean-windows::
+	$(RM) $(OUTPRE)krb5.lib krb5.bak
+
+all-windows::
+	cd asn.1
+	@echo Making in krb5\asn.1
+	$(MAKE) -$(MFLAGS)
+	cd ..\ccache
+	@echo Making in krb5\ccache
+	$(MAKE) -$(MFLAGS)
+	cd ..\error_tables
+	@echo Making in krb5\error_tables
+	$(MAKE) -$(MFLAGS)
+	cd ..\keytab
+	@echo Making in krb5\keytab
+	$(MAKE) -$(MFLAGS)
+	cd ..\krb
+	@echo Making in krb5\krb
+	$(MAKE) -$(MFLAGS)
+	cd ..\os
+	@echo Making in krb5\os
+	$(MAKE) -$(MFLAGS)
+	cd ..\posix
+	@echo Making in krb5\posix
+	$(MAKE) -$(MFLAGS)
+	cd ..\rcache
+	@echo Making in krb5\rcache
+	$(MAKE) -$(MFLAGS)
+	cd ..
+
+clean-windows::
+	cd asn.1
+	@echo Making clean in krb5\asn.1
+	$(MAKE) -$(MFLAGS) clean
+	cd ..\ccache
+	@echo Making clean in krb5\ccache
+	$(MAKE) -$(MFLAGS) clean
+	cd ..\error_tables
+	@echo Making clean in krb5\error_tables
+	$(MAKE) -$(MFLAGS) clean
+	cd ..\keytab
+	@echo Making clean in krb5\keytab
+	$(MAKE) -$(MFLAGS) clean
+	cd ..\krb
+	@echo Making clean in krb5\krb
+	$(MAKE) -$(MFLAGS) clean
+	cd ..\os
+	@echo Making clean in krb5\os
+	$(MAKE) -$(MFLAGS) clean
+	cd ..\posix
+	@echo Making clean in krb5\posix
+	$(MAKE) -$(MFLAGS) clean
+	cd ..\rcache
+	@echo Making clean in krb5\rcache
+	$(MAKE) -$(MFLAGS) clean
+	cd ..
+	@echo Making clean locally
+
+install-unix:: install-libs
+
+# @lib_frag@
+# @libobj_frag@
+
+# +++ Dependency line eater +++
+# 
+# Makefile dependencies follow.  This must be the last section in
+# the Makefile.in file
+#
+krb5_libinit.so krb5_libinit.po $(OUTPRE)krb5_libinit.$(OBJEXT): krb5_libinit.c $(COM_ERR_DEPS) \
+  $(BUILDTOP)/include/krb5.h $(BUILDTOP)/include/krb5_err.h \
+  $(BUILDTOP)/include/kv5m_err.h $(BUILDTOP)/include/asn1_err.h \
+  $(BUILDTOP)/include/kdb5_err.h krb5_libinit.h
+

@@ -15,13 +15,20 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: basic.test,v 1.1.1.4 2000/12/06 23:04:02 wsanchez Exp $
+# RCS: @(#) $Id: basic.test,v 1.1.1.6 2003/07/09 01:33:53 landonf Exp $
 #
 
-if {[lsearch [namespace children] ::tcltest] == -1} {
-    package require tcltest
-    namespace import -force ::tcltest::*
-}
+package require tcltest 2
+namespace import -force ::tcltest::*
+
+testConstraint testcmdtoken [llength [info commands testcmdtoken]]
+testConstraint testcmdtrace [llength [info commands testcmdtrace]]
+testConstraint testcreatecommand [llength [info commands testcreatecommand]]
+testConstraint exec [llength [info commands exec]]
+
+# This variable needs to be changed when the major or minor version number for
+# Tcl changes.
+set tclvers 8.4
 
 catch {namespace delete test_ns_basic}
 catch {interp delete test_interp}
@@ -125,7 +132,7 @@ test basic-12.1 {Tcl_HideCommand, names of hidden cmds can't have namespace qual
     list [catch {test_interp hide test_ns_basic::p x} msg] $msg \
 	 [catch {test_interp hide x test_ns_basic::p} msg1] $msg1 \
          [interp delete test_interp]
-} {1 {can only hide global namespace commands (use rename then hide)} 1 {cannot use namespace qualifiers as hidden commandtoken (rename)} {}}
+} {1 {can only hide global namespace commands (use rename then hide)} 1 {cannot use namespace qualifiers in hidden command token (rename)} {}}
 
 test basic-12.2 {Tcl_HideCommand, a hidden cmd remembers its containing namespace} {
     catch {namespace delete test_ns_basic}
@@ -198,24 +205,19 @@ test basic-13.2 {Tcl_ExposeCommand, invalidate cached refs to cmd now being expo
          [p]
 } {42 {} {} Hello {} {} 42}
 
-if {[info commands testcreatecommand] == ""} {
-    puts "This application hasn't been compiled with the testcreatecommand"
-    puts "command.  Skipping affected tests."
-} else {
-test basic-14.1 {Tcl_CreateCommand, new cmd goes into a namespace specified in its name, if any} {
+test basic-14.1 {Tcl_CreateCommand, new cmd goes into a namespace specified in its name, if any} {testcreatecommand} {
     catch {eval namespace delete [namespace children :: test_ns_*]}
     list [testcreatecommand create] \
 	 [test_ns_basic::createdcommand] \
 	 [testcreatecommand delete]
 } {{} {CreatedCommandProc in ::test_ns_basic} {}}
-test basic-14.2 {Tcl_CreateCommand, namespace code ignore single ":"s in middle or end of names} {
+test basic-14.2 {Tcl_CreateCommand, namespace code ignore single ":"s in middle or end of names} {testcreatecommand} {
     catch {eval namespace delete [namespace children :: test_ns_*]}
     catch {rename value:at: ""}
     list [testcreatecommand create2] \
 	 [value:at:] \
 	 [testcreatecommand delete2]
 } {{} {CreatedCommandProc2 in ::} {}}
-}
 
 test basic-15.1 {Tcl_CreateObjCommand, new cmd goes into a namespace specified in its name, if any} {
     catch {eval namespace delete [namespace children :: test_ns_*]}
@@ -300,11 +302,7 @@ test basic-18.6 {TclRenameCommand, check for command shadowing by newly renamed 
 test basic-19.1 {Tcl_SetCommandInfo} {emptyTest} {
 } {}
 
-if {[info commands testcmdtoken] == {}} {
-    puts "This application hasn't been compiled with the \"testcmdtoken\""
-    puts "command, so I can't test Tcl_GetCommandInfo."
-} else {
-test basic-20.1 {Tcl_GetCommandInfo, names for commands created inside namespaces} {
+test basic-20.1 {Tcl_GetCommandInfo, names for commands created inside namespaces} {testcmdtoken} {
     catch {eval namespace delete [namespace children :: test_ns_*]}
     catch {rename p ""}
     catch {rename q ""}
@@ -317,14 +315,13 @@ test basic-20.1 {Tcl_GetCommandInfo, names for commands created inside namespace
          [rename ::p q] \
          [testcmdtoken name $x]
 } {{p ::p} {} {q ::q}}
-test basic-20.2 {Tcl_GetCommandInfo, names for commands created outside namespaces} {
+test basic-20.2 {Tcl_GetCommandInfo, names for commands created outside namespaces} {testcmdtoken} {
     catch {rename q ""}
     set x [testcmdtoken create test_ns_basic::test_ns_basic2::p]
     list [testcmdtoken name $x] \
          [rename test_ns_basic::test_ns_basic2::p q] \
          [testcmdtoken name $x]
 } {{p ::test_ns_basic::test_ns_basic2::p} {} {q ::q}}
-}
 
 test basic-21.1 {Tcl_GetCommandName} {emptyTest} {
 } {}
@@ -423,12 +420,13 @@ test basic-26.1 {Tcl_EvalObj: preserve object while evaling it} {
     # message.
 
     proc bgerror {args} {set ::x $::errorInfo}
-    set f [open test1 w]
+    set fName [makeFile {} test1]
+    set f [open $fName w]
     fileevent $f writable "fileevent $f writable {}; error foo"
     set x {}
     vwait x
     close $f
-    file delete test1
+    removeFile test1
     rename bgerror {}
     set x
 } "foo\n    while executing\n\"error foo\""
@@ -485,22 +483,61 @@ test basic-37.1 {Tcl_ExprString: see expr.test} {emptyTest} {
 test basic-38.1 {Tcl_ExprObj} {emptyTest} {
 } {}
 
-if {[info commands testcmdtrace] == {}} {
-    puts "This application hasn't been compiled with the \"testcmdtrace\""
-    puts "command, so I can't test Tcl_CreateTrace."
-} else {
-test basic-39.1 {Tcl_CreateTrace, correct command and argc/argv arguments of trace proc} {
+test basic-39.1 {Tcl_CreateTrace, correct command and argc/argv arguments of trace proc} {testcmdtrace} {
     testcmdtrace tracetest {set stuff [expr 14 + 16]}
 } {{expr 14 + 16} {expr 14 + 16} {set stuff [expr 14 + 16]} {set stuff 30}}
-test basic-39.2 {Tcl_CreateTrace, correct command and argc/argv arguments of trace proc} {
+test basic-39.2 {Tcl_CreateTrace, correct command and argc/argv arguments of trace proc} {testcmdtrace} {
     testcmdtrace tracetest {set stuff [info tclversion]}
-} [list {info tclversion} {info tclversion} {set stuff [info tclversion]} "set stuff $::tcltest::version"]
-test basic-39.3 {Tcl_CreateTrace, correct command and argc/argv arguments of trace proc} {
+} [list {info tclversion} {info tclversion} {set stuff [info tclversion]} "set stuff $tclvers"]
+test basic-39.3 {Tcl_CreateTrace, correct command and argc/argv arguments of trace proc} {testcmdtrace} {
     testcmdtrace deletetest {set stuff [info tclversion]}
-} $::tcltest::version
-}
+} $tclvers
+test basic-39.4 {Tcl_CreateTrace, check that tracing doesn't cause memory faults} {testcmdtrace} {
+    # Note that the proc call is the same as the variable name, and that
+    # the call can be direct or indirect by way of another procedure
+    proc tracer {args} {}
+    proc tracedLoop {level} {
+	incr level
+	tracer
+	foreach tracer [expr {$level==1 ? {1 2} : {}}] {tracedLoop $level}
+    }
+    testcmdtrace tracetest {tracedLoop 0}
+} {{tracedLoop 0} {tracedLoop 0} {incr level} {incr level} tracer {tracer} {expr {$level==1 ? {1 2} : {}}} {expr {$level==1 ? {1 2} : {}}} {foreach tracer [expr {$level==1 ? {1 2} : {}}] {tracedLoop $level}} {foreach tracer {1 2} {tracedLoop $level}} {tracedLoop $level} {tracedLoop 1} {incr level} {incr level} tracer {tracer} {expr {$level==1 ? {1 2} : {}}} {expr {$level==1 ? {1 2} : {}}} {foreach tracer [expr {$level==1 ? {1 2} : {}}] {tracedLoop $level}} {foreach tracer {} {tracedLoop $level}} {tracedLoop $level} {tracedLoop 1} {incr level} {incr level} tracer {tracer} {expr {$level==1 ? {1 2} : {}}} {expr {$level==1 ? {1 2} : {}}} {foreach tracer [expr {$level==1 ? {1 2} : {}}] {tracedLoop $level}} {foreach tracer {} {tracedLoop $level}}}
+catch {rename tracer {}}
+catch {rename tracedLoop {}}
+
+test basic-39.5 {Tcl_CreateObjTrace, status return TCL_ERROR} {testcmdtrace} {
+    proc Error { args } { error "Shouldn't get here" }
+    set x 1;
+    list [catch {testcmdtrace resulttest {Error $x}} result] [set result]
+} {1 {Error $x}}
+
+test basic-39.6 {Tcl_CreateObjTrace, status return TCL_RETURN} {testcmdtrace} {
+    proc Return { args } { error "Shouldn't get here" }
+    set x 1;
+    list [catch {testcmdtrace resulttest {Return $x}} result] [set result]
+} {2 {}}
+
+test basic-39.7 {Tcl_CreateObjTrace, status return TCL_BREAK} {testcmdtrace} {
+    proc Break { args } { error "Shouldn't get here" }
+    set x 1;
+    list [catch {testcmdtrace resulttest {Break $x}} result] [set result]
+} {3 {}}
+
+test basic-39.8 {Tcl_CreateObjTrace, status return TCL_CONTINUE} {testcmdtrace} {
+    proc Continue { args } { error "Shouldn't get here" }
+    set x 1;
+    list [catch {testcmdtrace resulttest {Continue $x}} result] [set result]
+} {4 {}}
+
+test basic-39.9 {Tcl_CreateObjTrace, status return unknown} {testcmdtrace} {
+    proc OtherStatus { args } { error "Shouldn't get here" }
+    set x 1;
+    list [catch {testcmdtrace resulttest {OtherStatus $x}} result] [set result]
+} {6 {}}
 
 test basic-40.1 {Tcl_DeleteTrace} {emptyTest} {
+    # the above tests have tested Tcl_DeleteTrace
 } {}
 
 test basic-41.1 {Tcl_AddErrorInfo} {emptyTest} {
@@ -518,8 +555,93 @@ test basic-44.1 {Tcl_GlobalEval} {emptyTest} {
 test basic-45.1 {Tcl_SetRecursionLimit: see interp.test} {emptyTest} {
 } {}
 
-test basic-46.1 {Tcl_AllowExceptions} {emptyTest} {
-} {}
+test basic-46.1 {Tcl_AllowExceptions: exception return not allowed} {stdio} {
+    catch {close $f}
+    set res [catch {
+	set f [open |[list [interpreter]] w+]
+	fconfigure $f -buffering line
+	puts $f {fconfigure stdout -buffering line}
+	puts $f continue
+	puts $f {puts $errorInfo}
+	puts $f {puts DONE}
+	set newMsg {}
+	set msg {}
+	while {$newMsg != "DONE"} {
+	    set newMsg [gets $f]
+	    append msg "${newMsg}\n"
+	}
+	close $f
+    } error]
+    list $res $msg
+} {1 {invoked "continue" outside of a loop
+    while executing
+"continue
+"
+DONE
+}}
+
+test basic-46.2 {Tcl_AllowExceptions: exception return not allowed} {exec} {
+    set fName [makeFile {
+	puts hello
+	break
+    } BREAKtest]
+    set res [list [catch {exec [interpreter] $fName} msg] $msg]
+    removeFile BREAKtest
+    regsub {file ".*BREAKtest"} $res {file "BREAKtest"} res
+    set res
+} {1 {hello
+invoked "break" outside of a loop
+    while executing
+"break"
+    (file "BREAKtest" line 3)}}    
+
+test basic-46.3 {Tcl_AllowExceptions: exception return not allowed} {exec} {
+    set fName [makeFile {
+	interp alias {} patch {} info patchlevel
+	patch
+	break
+    } BREAKtest]
+    set res [list [catch {exec [interpreter] $fName} msg] $msg]
+    removeFile BREAKtest
+    regsub {file ".*BREAKtest"} $res {file "BREAKtest"} res
+    set res
+} {1 {invoked "break" outside of a loop
+    while executing
+"break"
+    (file "BREAKtest" line 4)}}    
+
+test basic-46.4 {Tcl_AllowExceptions: exception return not allowed} {exec} {
+    set fName [makeFile {
+	foo [set a 1] [break]
+    } BREAKtest]
+    set res [list [catch {exec [interpreter] $fName} msg] $msg]
+    removeFile BREAKtest
+    regsub {file ".*BREAKtest"} $res {file "BREAKtest"} res
+    set res
+} {1 {invoked "break" outside of a loop
+    while executing
+"break"
+    invoked from within
+"foo [set a 1] [break]"
+    (file "BREAKtest" line 2)}}
+
+test basic-46.5 {Tcl_AllowExceptions: exception return not allowed} {exec} {
+    set fName [makeFile {
+	return -code return
+    } BREAKtest]
+    set res [list [catch {exec [interpreter] $fName} msg] $msg]
+    removeFile BREAKtest
+    regsub {file ".*BREAKtest"} $res {file "BREAKtest"} res
+    set res
+} {1 {command returned bad code: 2
+    while executing
+"return -code return"
+    (file "BREAKtest" line 2)}}
+
+test basic-47.1 {Tcl_EvalEx: check for missing close-bracket} -body {
+    subst {a[set b [format cd]}
+} -returnCodes error -result {missing close-bracket}
+
 
 # cleanup
 catch {eval namespace delete [namespace children :: test_ns_*]}
@@ -532,15 +654,3 @@ catch {rename value:at: ""}
 catch {unset x}
 ::tcltest::cleanupTests
 return
-
-
-
-
-
-
-
-
-
-
-
-

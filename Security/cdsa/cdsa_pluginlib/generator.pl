@@ -28,7 +28,7 @@ $/=undef;	# gulp file
 open(APICFG, $APICFG) or die "Cannot open $APICFG: $^E";
 $_=<APICFG>;
 close(APICFG);
-%optionals = /^\s*optional\s+(\w+)\s+(.*)$/gm;
+%optionals = /^\s*optional\s+(\w+:\w+)\s+(.*)$/gm;
 
 
 #
@@ -124,7 +124,7 @@ while (($type, $header) = each %SPI_H) {
 	#
 	# Fix optional arguments
 	#
-	foreach $opt (split " ", $optionals{$function}) {
+	foreach $opt (split " ", $optionals{"$type:$function"}) {
 	  $methods{$function} =~ s/\&$opt\b/\*$opt/;	# turn refs back into pointers
 	  $actuals{$function} =~ s/::required\($opt\)/::optional($opt)/; # optional specific
 	  $actuals{$function} =~ s/Required\($opt\)/$opt/; # optional generic

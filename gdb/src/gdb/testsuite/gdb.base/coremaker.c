@@ -115,6 +115,8 @@ func1 ()
 
 int main ()
 {
+  fprintf (stdout, "%d\n", getpid());
+  fflush (stdout);
   mmapdata ();
   func1 ();
   return 0;

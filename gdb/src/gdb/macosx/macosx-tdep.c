@@ -55,14 +55,16 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include "macosx-tdep.h"
 
-struct complaint unknown_macho_symtype_complaint =
+#if 0
+struct deprecated_complaint unknown_macho_symtype_complaint =
   {"unknown Mach-O symbol type %s", 0, 0};
 
-struct complaint unknown_macho_section_complaint =
+struct deprecated_complaint unknown_macho_section_complaint =
   {"unknown Mach-O section value %s (assuming DATA)", 0, 0};
 
-struct complaint unsupported_indirect_symtype_complaint =
+struct deprecated_complaint unsupported_indirect_symtype_complaint =
   {"unsupported Mach-O symbol type %s (indirect)", 0, 0};
+#endif
 
 #define BFD_GETB16(addr) ((addr[0] << 8) | addr[1])
 #define BFD_GETB32(addr) ((((((unsigned long) addr[0] << 8) | addr[1]) << 8) | addr[2]) << 8 | addr[3])
@@ -131,21 +133,41 @@ static void macosx_symbol_types_init ()
   }
 }
 
-static unsigned char macosx_symbol_type (macho_type, macho_other)
+static unsigned char macosx_symbol_type (macho_type, macho_other, abfd)
      unsigned char macho_type;
      unsigned char macho_other;
+     bfd *abfd;
 {
   unsigned char ntype = macosx_symbol_types[macho_type];
 
-  if ((macho_type & BFD_MACH_O_N_TYPE) == BFD_MACH_O_N_SECT) {
-    
-    if (macho_other == 1) {
-      ntype |= N_TEXT;
-    } else {
-      /* complain (&unknown_macho_section_complaint, local_hex_string (macho_other)); */
-      ntype |= N_DATA;
+  if ((macho_type & BFD_MACH_O_N_TYPE) == BFD_MACH_O_N_SECT)
+    {
+      if (macho_other == 1)
+	{
+	  ntype |= N_TEXT;
+	}
+      else if (macho_other <= abfd->tdata.mach_o_data->nsects)
+	{
+	  const char *segname = abfd->tdata.mach_o_data->sections[macho_other - 1]->segname;
+	  const char *sectname = abfd->tdata.mach_o_data->sections[macho_other - 1]->sectname;
+	
+	  if ((segname != NULL) && (strcmp (segname, "__DATA") == 0))
+	    {
+	      if ((sectname != NULL) && (strcmp (sectname, "__bss") == 0))
+		ntype |= N_BSS;
+	      else
+		ntype |= N_DATA;
+	    }
+
+	  if ((segname != NULL) && (strcmp (segname, "__TEXT") == 0))
+	    ntype |= N_TEXT;
+	}
+      else
+	{
+	  /* complain (&unknown_macho_section_complaint, local_hex_string (macho_other)); */
+	  ntype |= N_DATA;
+	}
     }
-  }
   
   return ntype;
 }
@@ -167,7 +189,7 @@ void macosx_internalize_symbol (in, ext, abfd)
     error ("unable to internalize symbol (unknown endianness)");
   }
 
-  in->n_type = macosx_symbol_type (ext->e_type[0], ext->e_other[0]);
+  in->n_type = macosx_symbol_type (ext->e_type[0], ext->e_other[0], abfd);
   in->n_other = 0;
 }
 

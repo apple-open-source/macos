@@ -88,13 +88,20 @@ typedef enum {
     kKXKextManagerErrorLoadExecutableBad,     // not a kmod
     kKXKextManagerErrorLoadExecutableNoArch,  // has no arch for this computer
     kKXKextManagerErrorAlreadyLoaded,
-    kKXKextManagerErrorLoadedVersionDiffers,  // kext or any of its dependencies
-    kKXKextManagerErrorLinkLoad
+    kKXKextManagerErrorLoadedVersionDiffers,  // kext itself
+    kKXKextManagerErrorDependencyLoadedVersionDiffers,  // kext dependency
+    kKXKextManagerErrorLinkLoad, 
+    
+    // 
+    kKXKextManagerErrorKextHasNoReceipt,
+    kKXKextManagerErrorKextIsModified
 
 } KXKextManagerError;
 
 typedef enum {
-    kKXKextManagerLogLevelNone        = 0,
+    kKXKextManagerLogLevelSilent      = -2,   // no notices, no errors
+    kKXKextManagerLogLevelErrorsOnly  = -1,
+    kKXKextManagerLogLevelDefault     = 0,
     kKXKextManagerLogLevelBasic       = 1,
     kKXKextManagerLogLevelLoadBasic   = 2,
     kKXKextManagerLogLevelDetails     = 3,
@@ -171,16 +178,6 @@ KXKextManagerError KXKextManagerAddRepositoryDirectory(
     CFURLRef directoryURL,
     Boolean scanForKexts,
     Boolean useCache,
-    KXKextRepositoryRef * theRepository);  // out param
-
-KXKextManagerError KXKextManagerAddRepositoryFromCacheFile(
-    KXKextManagerRef aKextManager,
-    CFURLRef fileURL,
-    KXKextRepositoryRef * theRepository);
-
-KXKextManagerError KXKextManagerAddRepositoryFromCacheDictionary(
-    KXKextManagerRef aKextManager,
-    CFDictionaryRef aRepositoryCache,
     KXKextRepositoryRef * theRepository);  // out param
 
 void KXKextManagerRemoveRepositoryDirectory(
@@ -291,6 +288,8 @@ Boolean KXKextManagerPerformsStrictAuthentication(
 void KXKextManagerSetPerformsStrictAuthentication(
     KXKextManagerRef aKextManager,
     Boolean flag);
+
+void KXKextManagerVerifyIntegrityOfAllKexts(KXKextManagerRef aKextManager);
 
 /*******************************************************************************
 * any load request blows away all existing dependency info in

@@ -70,7 +70,7 @@ typedef union upat *Upat;
 
 #include "pattern.pro"
 
-/* Number of active parenthesised expressions allowed in backreferencing */
+/* Number of active parenthesized expressions allowed in backreferencing */
 #define NSUBEXP  9
 
 /* definition	number	opnd?	meaning */
@@ -119,7 +119,7 @@ typedef union upat *Upat;
  *
  *  P_ANY, P_ANYOF:  the operand is a null terminated
  *    string.  Normal characters match as expected.  Characters
- *    in the range Meta+PP_ALPHA..Meta+PP_UNKNWN do the approprate
+ *    in the range Meta+PP_ALPHA..Meta+PP_UNKNWN do the appropriate
  *    Posix range tests.  This relies on imeta returning true for these
  *    characters.  We treat unknown POSIX ranges as never matching.
  *    PP_RANGE means the next two (possibly metafied) characters form
@@ -158,18 +158,19 @@ typedef union upat *Upat;
  */
 #define PP_ALPHA  1
 #define PP_ALNUM  2
-#define PP_BLANK  3
-#define PP_CNTRL  4
-#define PP_DIGIT  5
-#define PP_GRAPH  6
-#define PP_LOWER  7
-#define PP_PRINT  8
-#define PP_PUNCT  9
-#define PP_SPACE  10
-#define PP_UPPER  11
-#define PP_XDIGIT 12
-#define PP_UNKWN  13
-#define PP_RANGE  14
+#define PP_ASCII  3
+#define PP_BLANK  4
+#define PP_CNTRL  5
+#define PP_DIGIT  6
+#define PP_GRAPH  7
+#define PP_LOWER  8
+#define PP_PRINT  9
+#define PP_PUNCT  10
+#define PP_SPACE  11
+#define PP_UPPER  12
+#define PP_XDIGIT 13
+#define PP_UNKWN  14
+#define PP_RANGE  15
 
 #define	P_OP(p)		((p)->l & 0xff)
 #define	P_NEXT(p)	((p)->l >> 8)
@@ -447,7 +448,7 @@ patcompile(char *exp, int inflags, char **endexp)
 }
 
 /*
- * Main body or parenthesised subexpression in pattern
+ * Main body or parenthesized subexpression in pattern
  * Parenthesis (and any ksh_glob gubbins) will have been removed.
  */
 
@@ -630,7 +631,7 @@ patcompswitch(int paren, int *flagp)
 static long
 patcompbranch(int *flagp)
 {
-    long chain, latest, starter;
+    long chain, latest = 0, starter;
     int flags = 0;
 
     *flagp = P_PURESTR;
@@ -646,46 +647,51 @@ patcompbranch(int *flagp)
 	      patparse[2] == Pound))) {
 	    /* Globbing flags. */
 	    char *pp1 = patparse;
-	    int oldglobflags = patglobflags;
+	    int oldglobflags = patglobflags, ignore;
 	    long assert;
 	    patparse += (*patparse == '@') ? 3 : 2;
-	    if (!patgetglobflags(&patparse, &assert))
+	    if (!patgetglobflags(&patparse, &assert, &ignore))
 		return 0;
-	    if (assert) {
-		/*
-		 * Start/end assertion looking like flags, but
-		 * actually handled as a normal node
-		 */
-		latest = patnode(assert);
-		flags = 0;
-	    } else {
-		if (pp1 == patstart) {
-		    /* Right at start of pattern, the simplest case.
-		     * Put them into the flags and don't emit anything.
+	    if (!ignore) {
+		if (assert) {
+		    /*
+		     * Start/end assertion looking like flags, but
+		     * actually handled as a normal node
 		     */
-		    ((Patprog)patout)->globflags = patglobflags;
-		    continue;
-		} else if (!*patparse) {
-		    /* Right at the end, so just leave the flags for
-		     * the next Patprog in the chain to pick up.
-		     */
-		    break;
-		}
-		/*
-		 * Otherwise, we have to stick them in as a pattern
-		 * matching nothing.
-		 */
-		if (oldglobflags != patglobflags) {
-		    /* Flags changed */
-		    union upat up;
-		    latest = patnode(P_GFLAGS);
-		    up.l = patglobflags;
-		    patadd((char *)&up, 0, sizeof(union upat), 0);
+		    latest = patnode(assert);
+		    flags = 0;
 		} else {
-		    /* No effect. */
-		    continue;
+		    if (pp1 == patstart) {
+			/* Right at start of pattern, the simplest case.
+			 * Put them into the flags and don't emit anything.
+			 */
+			((Patprog)patout)->globflags = patglobflags;
+			continue;
+		    } else if (!*patparse) {
+			/* Right at the end, so just leave the flags for
+			 * the next Patprog in the chain to pick up.
+			 */
+			break;
+		    }
+		    /*
+		     * Otherwise, we have to stick them in as a pattern
+		     * matching nothing.
+		     */
+		    if (oldglobflags != patglobflags) {
+			/* Flags changed */
+			union upat up;
+			latest = patnode(P_GFLAGS);
+			up.l = patglobflags;
+			patadd((char *)&up, 0, sizeof(union upat), 0);
+		    } else {
+			/* No effect. */
+			continue;
+		    }
 		}
-	    }
+	    } else if (!*patparse)
+		break;
+	    else
+		continue;
 	} else if (isset(EXTENDEDGLOB) && *patparse == Hat) {
 	    /*
 	     * ^pat:  anything but pat.  For proper backtracking,
@@ -719,74 +725,83 @@ patcompbranch(int *flagp)
 
 /**/
 int
-patgetglobflags(char **strp, long *assertp)
+patgetglobflags(char **strp, long *assertp, int *ignore)
 {
     char *nptr, *ptr = *strp;
     zlong ret;
 
     *assertp = 0;
+    *ignore = 1;
     /* (#X): assumes we are still positioned on the first X */
     for (; *ptr && *ptr != Outpar; ptr++) {
-	switch (*ptr) {
-	case 'a':
-	    /* Approximate matching, max no. of errors follows */
-	    ret = zstrtol(++ptr, &nptr, 10);
-	    /*
-	     * We can't have more than 254, because we need 255 to
-	     * mark 254 errors in wbranch and exclude sync strings
-	     * (hypothetically --- hope no-one tries it).
-	     */
-	    if (ret < 0 || ret > 254 || ptr == nptr)
+	if (*ptr == 'q') { 
+	    /* Glob qualifiers, ignored in pattern code */
+	    while (*ptr && *ptr != Outpar)
+		ptr++;
+	    break;
+	} else {
+	    *ignore = 0;
+	    switch (*ptr) {
+	    case 'a':
+		/* Approximate matching, max no. of errors follows */
+		ret = zstrtol(++ptr, &nptr, 10);
+		/*
+		 * We can't have more than 254, because we need 255 to
+		 * mark 254 errors in wbranch and exclude sync strings
+		 * (hypothetically --- hope no-one tries it).
+		 */
+		if (ret < 0 || ret > 254 || ptr == nptr)
+		    return 0;
+		patglobflags = (patglobflags & ~0xff) | (ret & 0xff);
+		ptr = nptr-1;
+		break;
+
+	    case 'l':
+		/* Lowercase in pattern matches lower or upper in target */
+		patglobflags = (patglobflags & ~GF_IGNCASE) | GF_LCMATCHUC;
+		break;
+
+	    case 'i':
+		/* Fully case insensitive */
+		patglobflags = (patglobflags & ~GF_LCMATCHUC) | GF_IGNCASE;
+		break;
+
+	    case 'I':
+		/* Restore case sensitivity */
+		patglobflags &= ~(GF_LCMATCHUC|GF_IGNCASE);
+		break;
+
+	    case 'b':
+		/* Make backreferences */
+		patglobflags |= GF_BACKREF;
+		break;
+
+	    case 'B':
+		/* Don't make backreferences */
+		patglobflags &= ~GF_BACKREF;
+		break;
+
+	    case 'm':
+		/* Make references to complete match */
+		patglobflags |= GF_MATCHREF;
+		break;
+
+	    case 'M':
+		/* Don't */
+		patglobflags &= ~GF_MATCHREF;
+		break;
+
+	    case 's':
+		*assertp = P_ISSTART;
+		break;
+
+	    case 'e':
+		*assertp = P_ISEND;
+		break;
+
+	    default:
 		return 0;
-	    patglobflags = (patglobflags & ~0xff) | (ret & 0xff);
-	    ptr = nptr-1;
-	    break;
-
-	case 'l':
-	    /* Lowercase in pattern matches lower or upper in target */
-	    patglobflags = (patglobflags & ~GF_IGNCASE) | GF_LCMATCHUC;
-	    break;
-
-	case 'i':
-	    /* Fully case insensitive */
-	    patglobflags = (patglobflags & ~GF_LCMATCHUC) | GF_IGNCASE;
-	    break;
-
-	case 'I':
-	    /* Restore case sensitivity */
-	    patglobflags &= ~(GF_LCMATCHUC|GF_IGNCASE);
-	    break;
-
-	case 'b':
-	    /* Make backreferences */
-	    patglobflags |= GF_BACKREF;
-	    break;
-
-	case 'B':
-	    /* Don't make backreferences */
-	    patglobflags &= ~GF_BACKREF;
-	    break;
-
-	case 'm':
-	    /* Make references to complete match */
-	    patglobflags |= GF_MATCHREF;
-	    break;
-
-	case 'M':
-	    /* Don't */
-	    patglobflags &= ~GF_MATCHREF;
-	    break;
-
-	case 's':
-	    *assertp = P_ISSTART;
-	    break;
-
-	case 'e':
-	    *assertp = P_ISEND;
-	    break;
-
-	default:
-	    return 0;
+	    }
 	}
     }
     if (*ptr != Outpar)
@@ -818,7 +833,7 @@ patcomppiece(int *flagp)
     for (;;) {
 	/*
 	 * Check if we have a string. First, we need to make sure
-	 * the string doesn't introduce a ksh-like parenthesised expression.
+	 * the string doesn't introduce a ksh-like parenthesized expression.
 	 */
 	kshchar = '\0';
 	if (isset(KSHGLOB) && *patparse && patparse[1] == Inpar) {
@@ -928,6 +943,8 @@ patcomppiece(int *flagp)
 			    ch = PP_ALPHA;
 			else if (!strncmp(patparse, "alnum", len))
 			    ch = PP_ALNUM;
+			else if (!strncmp(patparse, "ascii", len))
+			    ch = PP_ASCII;
 			else if (!strncmp(patparse, "blank", len))
 			    ch = PP_BLANK;
 			else if (!strncmp(patparse, "cntrl", len))
@@ -1958,7 +1975,7 @@ patmatch(Upat prog)
 	     * This is just simple cases, matching one character.
 	     * With approximations, we still handle * this way, since
 	     * no approximation is ever necessary, but other closures
-	     * are handled by the more compicated branching method
+	     * are handled by the more complicated branching method
 	     */
 	    op = P_OP(scan);
 	    /* Note that no counts possibly metafied characters */
@@ -2187,6 +2204,10 @@ patmatchrange(char *range, int ch)
 		if (isalnum(ch))
 		    return 1;
 		break;
+	    case PP_ASCII:
+		if ((ch & ~0x7f) == 0)
+		    return 1;
+		break;
 	    case PP_BLANK:
 		if (ch == ' ' || ch == '\t')
 		    return 1;
@@ -2226,6 +2247,7 @@ patmatchrange(char *range, int ch)
 	    case PP_XDIGIT:
 		if (isxdigit(ch))
 		    return 1;
+		break;
 	    case PP_RANGE:
 		range++;
 		r1 = STOUC(UNMETA(range));

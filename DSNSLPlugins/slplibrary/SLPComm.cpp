@@ -1,28 +1,40 @@
 /*
-	File:		SLPComm.cp
-
-	Contains:	IPC calling conventions for communication with slpd
-
-	Written by:	Kevin Arnold
-
-	Copyright:	й 2000 by Apple Computer, Inc., all rights reserved.
-
-	Change History (most recent first):
-
-
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+ 
+/*!
+ *  @header SLPComm
+ *  IPC calling conventions for communication with slpd
+ *   0                   1                   2                   3
+ *   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |            Code               |            Length             |
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |           Status              |                Data           /
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 */
 
-/*
-      0                   1                   2                   3
-      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-     |            Code               |            Length             |
-     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-     |           Status              |                Data           /
-     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
-
-*/
 #define _MATH_H_		// to squash OVERFLOWFLAG redef
 
 #include <stdio.h>
@@ -34,7 +46,8 @@
 #include <sys/wait.h> // for wait
 #include <sys/time.h>	// for struct timeval (via resource.h)
 #include <sys/resource.h>	// for getrlimit()
-//#include <Carbon/Carbon.h>
+
+#include <DirectoryService/DirServicesTypes.h>
 
 #include "mslp_sd.h"
 #include "slp.h"
@@ -45,6 +58,7 @@
 
 #include "SLPDefines.h"
 #include "SLPComm.h"
+#include "CNSLTimingUtils.h"
 
 #pragma mark еее Communication Routines еее
 OSStatus SendDataToSLPd(	char* data,
@@ -219,13 +233,11 @@ static void detach (void)
 OSStatus RunSLPLoad( void )
 {
     OSStatus	status = noErr;
-//    char		tmp[1024];
 
     SLP_LOG( SLP_LOG_DEBUG, "RunSLPLoad called" );
         
     register pid_t  pidChild = -1 ;
 
-//    if (pidChild = std::fork ())
     if ( (pidChild = ::fork()) != 0 )
     {
     // No processing in the parent; pause for the child.
@@ -242,39 +254,17 @@ OSStatus RunSLPLoad( void )
 			status = nStatus;
 		}
 
-        sleep(1);
+        SmartSleep(1*USEC_PER_SEC);
 
         return status;
     }
-#if 0
-    // In the child:
-    register int    i = OPEN_MAX;
-    struct rlimit   lim;
 
-    if (!getrlimit (RLIMIT_NOFILE, &lim))
-        i = lim.rlim_cur ;
-
-    // Leave stdin, stdout, and stderr open.
-    while (--i > STDERR_FILENO)
-        close (i) ;
-#endif
     //Launch the loader.
 
     detach();
     
     status = execl ("/usr/sbin/slpd", "slpd", "-f", "/etc/slpsa.conf", 0);
-//    status = execl(kSLPLoadToolPath, kSLPLoadToolCmd, 0);
-    // The second kSLPLoadToolPath should really be the trailing component (see next block)
 
-    //Should never reach here.
-/*
-    status = system( kSLPLoadToolPath );
-
-#if 1
-    system( "sleep 1" );	// HACK Alert.  We need a better way to register with SLPd.  This will prevent
-                            // SLPd from checking the reg file and not seeing a mod change within 1 second of launch
-#endif
-*/
     return status;
 
 }
@@ -390,7 +380,7 @@ OSStatus MakeSLPSimpleRequestDataBuffer( SLPdMessageType messageType, UInt32* da
         header->messageStatus = 0;
     }
     else
-        status = memFullErr;
+        status = eMemoryAllocError;
 
     return status;
 }
@@ -415,7 +405,7 @@ OSStatus MakeSLPDAStatus( SLPDAStatus daStatus, UInt32* dataBufferLen, char** da
         header->messageStatus = daStatus;
     }
     else
-        status = memFullErr;
+        status = eMemoryAllocError;
 
     return status;
 }
@@ -497,6 +487,30 @@ char* MakeSLPScopeDeletedDataBuffer(  char* scopePtr,
         curPtr = dataBuffer + sizeof(SLPdMessageHeader);
 
         ::memcpy( curPtr, scopePtr, scopeLen );
+    }
+    else
+    {
+        dataBuffer = NULL;
+        *dataBufferLen = 0;
+    }
+
+    return dataBuffer;
+}
+
+char* MakeSLPIOCallBuffer( 	Boolean	turnOnSLPd,
+							UInt32* dataBufferLen )
+ {
+    char*		dataBuffer = NULL;
+	
+   *dataBufferLen = sizeof(SLPdMessageHeader);
+	dataBuffer = (char*)::malloc( *dataBufferLen );
+
+    if ( dataBuffer )
+    {
+        SLPdMessageHeader*	header = (SLPdMessageHeader*)dataBuffer;
+        header->messageType = (turnOnSLPd)?kSLPStartUp:kSLPShutDown;
+        header->messageLength = *dataBufferLen;
+        header->messageStatus = 0;
     }
     else
     {
@@ -680,9 +694,6 @@ OSStatus GetSLPDAStatusFromBuffer( char* dataBuffer, SLPDAStatus* daStatus )
     return status;
 }
 
-
-
-
 const char* PrintableHeaderType( void* message )
 {
 	SLPdMessageHeader*	header = (SLPdMessageHeader*)(message);
@@ -713,15 +724,3 @@ const char* PrintableHeaderType( void* message )
     
     return returnString;
 }
-
-
-
-
-
-
-
-
-
-
-
-

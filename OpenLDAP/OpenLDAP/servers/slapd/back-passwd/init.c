@@ -1,5 +1,5 @@
 /* init.c - initialize passwd backend */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-passwd/init.c,v 1.19 2001/12/26 07:32:08 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-passwd/init.c,v 1.19.2.1 2002/05/22 14:25:55 kurt Exp $ */
 
 #include "portable.h"
 
@@ -8,7 +8,9 @@
 #include <ac/socket.h>
 
 #include "slap.h"
-#include "external.h"
+#include "back-passwd.h"
+
+ldap_pvt_thread_mutex_t passwd_mutex;
 
 #ifdef SLAPD_PASSWD_DYNAMIC
 
@@ -30,10 +32,12 @@ passwd_back_initialize(
     BackendInfo	*bi
 )
 {
+	ldap_pvt_thread_mutex_init( &passwd_mutex );
+
 	bi->bi_open = 0;
 	bi->bi_config = 0;
 	bi->bi_close = 0;
-	bi->bi_destroy = 0;
+	bi->bi_destroy = passwd_back_destroy;
 
 	bi->bi_db_init = 0;
 	bi->bi_db_config = passwd_back_db_config;
@@ -60,5 +64,14 @@ passwd_back_initialize(
 	bi->bi_connection_init = 0;
 	bi->bi_connection_destroy = 0;
 
+	return 0;
+}
+
+int
+passwd_back_destroy(
+	BackendInfo *bi
+)
+{
+	ldap_pvt_thread_mutex_destroy( &passwd_mutex );
 	return 0;
 }

@@ -1,21 +1,22 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
- *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -68,11 +69,11 @@
 #define	NULLEVENTNUM 0		/* The event number that never was */
 
 #define MOVEDEVENTMASK \
-	(NX_MOUSEMOVEDMASK | NX_LMOUSEDRAGGEDMASK | NX_RMOUSEDRAGGEDMASK )
+	(NX_MOUSEMOVEDMASK | NX_LMOUSEDRAGGEDMASK | NX_RMOUSEDRAGGEDMASK | NX_OMOUSEDRAGGEDMASK)
 #define COALESCEEVENTMASK \
 	(MOVEDEVENTMASK | NX_MOUSEEXITEDMASK)
 #define MOUSEEVENTMASK \
-	(NX_LMOUSEDOWNMASK|NX_RMOUSEDOWNMASK|NX_LMOUSEUPMASK|NX_RMOUSEUPMASK)
+	(NX_LMOUSEDOWNMASK|NX_RMOUSEDOWNMASK|NX_LMOUSEUPMASK|NX_RMOUSEUPMASK|NX_OMOUSEDOWNMASK|NX_OMOUSEUPMASK)
 #define PRESSUREEVENTMASK \
 	(NX_LMOUSEDOWNMASK|NX_LMOUSEUPMASK|NX_MOUSEMOVEDMASK|NX_LMOUSEDRAGGEDMASK)
 
@@ -83,12 +84,10 @@
 /* Bits in evg->eventFlags owned by keyboard devices */
 #define KEYBOARD_FLAGSMASK \
         (NX_ALPHASHIFTMASK | NX_SHIFTMASK | NX_CONTROLMASK | NX_ALTERNATEMASK \
-        | NX_COMMANDMASK | NX_NUMERICPADMASK | NX_HELPMASK | NX_SECONDARYFNMASK)
-#if 0
-                                                           | NX_NEXTCTLKEYMASK \
-        | NX_NEXTLSHIFTKEYMASK | NX_NEXTRSHIFTKEYMASK | NX_NEXTLCMDKEYMASK \
-        | NX_NEXTRCMDKEYMASK | NX_NEXTLALTKEYMASK | NX_NEXTRALTKEYMASK)
-#endif
+        | NX_COMMANDMASK | NX_NUMERICPADMASK | NX_HELPMASK | NX_SECONDARYFNMASK\
+        | NX_DEVICELSHIFTKEYMASK | NX_DEVICERSHIFTKEYMASK | NX_DEVICELCMDKEYMASK \
+        | NX_DEVICERCMDKEYMASK | NX_DEVICELALTKEYMASK | NX_DEVICERALTKEYMASK\
+        | NX_DEVICELCTLKEYMASK | NX_DEVICERCTLKEYMASK)
 
 /* Some non-zero token to or with screen number */
 #define SCREENTOKEN 256

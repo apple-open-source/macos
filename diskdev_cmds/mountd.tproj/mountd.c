@@ -189,65 +189,66 @@ struct fhreturn {
 };
 
 /* Global defs */
-char	*add_expdir __P((struct dirlist **, char *, int));
+char	*add_expdir(struct dirlist **, char *, int);
 void	add_dlist __P((struct dirlist **, struct dirlist *,
 				struct grouplist *, int));
-void	add_mlist __P((char *, char *));
-int	check_dirpath __P((char *));
-int	check_options __P((struct dirlist *));
-int	chk_host __P((struct dirlist *, u_long, int *, int *));
-void	del_mlist __P((char *, char *));
-struct dirlist *dirp_search __P((struct dirlist *, char *));
+void	add_mlist(char *, char *);
+int	check_dirpath(char *);
+int	check_options(struct dirlist *);
+int	chk_host(struct dirlist *, u_long, int *, int *);
+void	del_mlist(char *, char *);
+struct dirlist *dirp_search(struct dirlist *, char *);
 int	do_mount __P((struct exportlist *, struct grouplist *, int,
 		struct ucred *, char *, int, struct statfs *));
 int	do_opt __P((char **, char **, struct exportlist *, struct grouplist *,
 				int *, int *, struct ucred *));
-struct	exportlist *ex_search __P((fsid_t *));
-struct	exportlist *get_exp __P((void));
-void	free_dir __P((struct dirlist *));
-void	free_exp __P((struct exportlist *));
-void	free_grp __P((struct grouplist *));
-void	free_host __P((struct hostlist *));
-void	get_hostnames __P((char **hostnamearray));
-int	register_export __P((const char *path, const char **hostnamearray, int addurl));
+struct	exportlist *ex_search(fsid_t *);
+struct	exportlist *get_exp(void);
+void	free_dir(struct dirlist *);
+void	free_exp(struct exportlist *);
+void	free_grp(struct grouplist *);
+void	free_host(struct hostlist *);
+void	get_hostnames(char **hostnamearray);
+int	register_export(const char *path, const char **hostnamearray, int addurl);
 char *	get_ifinfo(int family, int index, int *buflen);
-void	get_exportlist __P((void));
-int	get_host __P((char *, struct grouplist *));
-int	get_num __P((char *));
-struct hostlist *get_ht __P((void));
-int get_line __P((int));
-int ni_get_line __P((void));
-int file_get_line __P((void));
-void	get_mountlist __P((void));
-int	get_net __P((char *, struct netmsk *, int));
-void	getexp_err __P((struct exportlist *, struct grouplist *));
-struct grouplist *get_grp __P((void));
+void	get_exportlist(void);
+int	get_host(char *, struct grouplist *);
+int	get_num(char *);
+struct hostlist *get_ht(void);
+int get_line(int);
+int ni_get_line(void);
+int file_get_line(void);
+void	get_mountlist(void);
+int	get_net(char *, struct netmsk *, int);
+void	getexp_err(struct exportlist *, struct grouplist *);
+struct grouplist *get_grp(void);
 void	hang_dirp __P((struct dirlist *, struct grouplist *,
 				struct exportlist *, int));
-void	mntsrv __P((struct svc_req *, SVCXPRT *));
-void	nextfield __P((char **, char **));
-void	out_of_mem __P((void));
-void	parsecred __P((char *, struct ucred *));
-int	put_exlist __P((struct dirlist *, XDR *, struct dirlist *, int *));
-int	scan_tree __P((struct dirlist *, u_long));
-void	send_umntall __P((void));
-int	umntall_each __P((caddr_t, struct sockaddr_in *));
-int	xdr_dir __P((XDR *, char *));
-int	xdr_explist __P((XDR *, caddr_t));
-int	xdr_fhs __P((XDR *, caddr_t));
-int	xdr_mlist __P((XDR *, caddr_t));
+void	mntsrv(struct svc_req *, SVCXPRT *);
+void	my_svc_run(void);
+void	nextfield(char **, char **);
+void	out_of_mem(void);
+void	parsecred(char *, struct ucred *);
+int	put_exlist(struct dirlist *, XDR *, struct dirlist *, int *);
+int	scan_tree(struct dirlist *, u_long);
+void	send_umntall(void);
+void	sigmux(int);
+int	xdr_dir(XDR *, char *);
+int	xdr_explist(XDR *, caddr_t);
+int	xdr_fhs(XDR *, caddr_t);
+int	xdr_mlist(XDR *, caddr_t);
 
 /* C library */
-int	getnetgrent();
-void	endnetgrent();
-void	setnetgrent();
+int	getnetgrent(char **host, char **user, char **domain);
+void	endnetgrent(void);
+void	setnetgrent(const char *netgroup);
 
 #ifdef ISO
-struct iso_addr *iso_addr();
+struct iso_addr *iso_addr(void);
 #endif
 
-void ni_exports_open __P(());
-void ni_exports_close __P(());
+void ni_exports_open(void);
+void ni_exports_close(void);
 
 struct exportlist *exphead;
 struct mountlist *mlhead;
@@ -285,7 +286,7 @@ static char URLRegistrar[] = _PATH_SLP_REG;
 #define DELETE_URL	0
 
 int debug = 0;
-void	SYSLOG __P((int, const char *, ...));
+void	SYSLOG(int, const char *, ...);
 #define log (debug ? SYSLOG : syslog)
 
 /*
@@ -349,8 +350,8 @@ main(int argc, char *argv[])
 		signal(SIGINT, SIG_IGN);
 		signal(SIGQUIT, SIG_IGN);
 	}
-	signal(SIGHUP, (void (*) __P((int))) get_exportlist);
-	signal(SIGTERM, (void (*) __P((int))) send_umntall);
+	signal(SIGHUP, sigmux);
+	signal(SIGTERM, sigmux);
 	{ FILE *pidfile = fopen(_PATH_MOUNTDPID, "w");
 	  if (pidfile != NULL) {
 		fprintf(pidfile, "%d\n", getpid());
@@ -371,9 +372,57 @@ main(int argc, char *argv[])
 		log(LOG_ERR, "Can't register mount");
 		exit(1);
 	}
-	svc_run();
+	my_svc_run();
 	log(LOG_ERR, "Mountd died");
 	exit(1);
+}
+
+volatile static int gothup;
+volatile static int gotterm;
+
+void
+sigmux(int sig)
+{
+
+	switch (sig) {
+	case SIGHUP:
+		gothup = 1;
+		break;
+	case SIGTERM:
+		gotterm = 1;
+		break;
+	}
+}
+
+void
+my_svc_run(void)
+{
+	fd_set	readfdset;
+	static int tsize = 0;
+	int x;
+
+	if (tsize == 0)
+		tsize = getdtablesize();
+
+	for ( ; ; ) {
+		bcopy(&svc_fdset, &readfdset, sizeof(svc_fdset));
+		x = select(tsize, &readfdset, NULL, NULL, NULL);
+		if (x > 0) {
+			svc_getreqset(&readfdset);
+		} else if (x == -1) {
+			switch (errno) {
+			case EINTR:
+				if (gotterm) {
+					gotterm = 0;
+					send_umntall();
+				}
+				if (gothup) {
+					gothup = 0;
+					get_exportlist();
+				}
+			}
+		}
+	}
 }
 
 /*
@@ -896,7 +945,7 @@ clean_white_space(char *line)
 	if (line == NULL)
 		return NULL;
 	len = strlen(line);
-	s = malloc(len);
+	s = malloc(len + 1);
 
 	len = 0;
 	esc = 0;
@@ -1025,8 +1074,7 @@ exportable(struct statfs *fsp)
 	 * (getattrlist() or statfs() or the .util program should return
 	 * whether filesystem supports NFS export)
 	 */
-	return (!strcmp(fsp->f_fstypename, "mfs") ||
-		!strcmp(fsp->f_fstypename, "ufs") ||
+	return (!strcmp(fsp->f_fstypename, "ufs") ||
 		!strcmp(fsp->f_fstypename, "hfs") ||
 		!strcmp(fsp->f_fstypename, "cd9660"));
 }
@@ -1041,7 +1089,7 @@ FILE *exp_file;
  * Get the export list
  */
 void
-get_exportlist()
+get_exportlist(void)
 {
 	struct exportlist *ep, *ep2;
 	struct grouplist *grp, *tgrp;
@@ -1055,7 +1103,6 @@ get_exportlist()
 	union {
 		struct ufs_args ua;
 		struct iso_args ia;
-		struct mfs_args ma;
 	} targs;
 	struct reglist *rl;
 
@@ -1116,6 +1163,7 @@ get_exportlist()
 	 * Read in the exports and build the list, calling mount()
 	 * as we go along to push the export rules into the kernel.
 	 */
+
 	dirhead = (struct dirlist *)NULL;
 	reghead = (struct reglist *)NULL;
 	while (get_line(source)) {
@@ -1389,7 +1437,7 @@ nextline:
  * Allocate an export list element
  */
 struct exportlist *
-get_exp()
+get_exp(void)
 {
 	struct exportlist *ep;
 
@@ -1404,7 +1452,7 @@ get_exp()
  * Allocate a group list element
  */
 struct grouplist *
-get_grp()
+get_grp(void)
 {
 	struct grouplist *gp;
 
@@ -1896,7 +1944,7 @@ free_host(hp)
 }
 
 struct hostlist *
-get_ht()
+get_ht(void)
 {
 	struct hostlist *hp;
 
@@ -1942,7 +1990,7 @@ get_isoaddr(cp, grp)
  * Out of memory, fatal
  */
 void
-out_of_mem()
+out_of_mem(void)
 {
 	log(LOG_ERR, "Out of memory");
 	exit(2);
@@ -1970,10 +2018,8 @@ do_mount(ep, grp, exflags, anoncrp, dirp, dirplen, fsb)
 	union {
 		struct ufs_args ua;
 		struct iso_args ia;
-		struct mfs_args ma;
 	} args;
 	u_long net;
-	struct reglist *rl;
 
 	args.ua.fspec = 0;
 	args.ua.export.ex_flags = exflags;
@@ -2218,7 +2264,7 @@ static int ni_exports_index;
 static void *ni;
 
 void
-ni_exports_open()
+ni_exports_open(void)
 {
 	int status;
 	ni_id dir;
@@ -2248,7 +2294,7 @@ ni_exports_open()
 }
 
 void
-ni_exports_close()
+ni_exports_close(void)
 {
 	ni_free(ni);
 	ni_idlist_free(&ni_exports_list);
@@ -2256,7 +2302,7 @@ ni_exports_close()
 }
 
 int
-ni_get_line()
+ni_get_line(void)
 {
 	ni_id dir;
 	ni_proplist pl;
@@ -2324,7 +2370,7 @@ ni_get_line()
  * continuations.
  */
 int
-file_get_line()
+file_get_line(void)
 {
 	char *p, *cp;
 	int len;
@@ -2448,7 +2494,7 @@ parsecred(namelist, cr)
  * Routines that maintain the remote mounttab
  */
 void
-get_mountlist()
+get_mountlist(void)
 {
 	struct mountlist *mlp, **mlpp;
 	char *host, *dirp, *cp;
@@ -2558,20 +2604,13 @@ add_mlist(hostp, dirp)
  * It sends a broadcast RPCMNT_UMNTALL.
  */
 void
-send_umntall()
+send_umntall(void)
 {
+	/* NULL callback tells it not to wait. */
 	(void) clnt_broadcast(RPCPROG_MNT, RPCMNT_VER1, RPCMNT_UMNTALL,
 			      xdr_void, (caddr_t)0, xdr_void, (caddr_t)0,
-			      umntall_each);
+			      NULL);
 	exit(0);
-}
-
-int
-umntall_each(resultsp, raddr)
-	caddr_t resultsp;
-	struct sockaddr_in *raddr;
-{
-	return (1);
 }
 
 /*

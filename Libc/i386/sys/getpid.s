@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -27,5 +27,41 @@
  */
 #include "SYS.h"
 
-UNIX_SYSCALL(getpid, 0)
-	ret		// pid = getpid();
+	.data
+	.private_extern __current_pid
+__current_pid:
+	.long 0
+L__current_pid_addr = __current_pid
+
+#if defined(__DYNAMIC__)
+#define GET_CURRENT_PID				\
+	call	0f				; \
+0:						; \
+	popl	%ecx				; \
+	leal	L__current_pid_addr-0b(%ecx), %ecx
+
+#define __current_pid (%ecx)
+
+#else
+#define GET_CURRENT_PID
+#endif
+
+/*
+ * If __current_pid is > 0, return it, else make syscall.
+ * If __current_pid is 0, cache result of syscall.
+ */
+TEXT
+LEAF(_getpid, 0)
+	GET_CURRENT_PID
+	movl		__current_pid, %eax
+	testl		%eax, %eax
+	jle		1f
+	ret
+1:
+	UNIX_SYSCALL_NONAME(getpid, 0)
+	movl		%eax, %edx
+	xorl		%eax, %eax
+	lock
+	cmpxchgl	%edx, __current_pid
+	movl		%edx, %eax
+	ret

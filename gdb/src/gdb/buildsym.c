@@ -1,6 +1,7 @@
 /* Support routines for building symbol tables in GDB's internal format.
    Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
-   1996, 1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -28,17 +29,20 @@
 
 #include "defs.h"
 #include "bfd.h"
-#include "obstack.h"
+#include "gdb_obstack.h"
 #include "symtab.h"
-#include "symfile.h"		/* Needed for "struct complaint" */
+#include "symfile.h"
 #include "objfiles.h"
 #include "gdbtypes.h"
+#include "gdb_assert.h"
 #include "complaints.h"
 #include "gdb_string.h"
 #include "expression.h"		/* For "enum exp_opcode" used by... */
-#include "language.h"		/* For "longest_local_hex_string_custom" */
+#include "language.h"		/* For "local_hex_string" */
 #include "bcache.h"
 #include "filenames.h"		/* For DOSish file names */
+#include "macrotab.h"
+#include "demangle.h"		/* Needed by SYMBOL_INIT_DEMANGLED_NAME.  */
 /* Ask buildsym.h to define the vars it normally declares `extern'.  */
 #define	EXTERN
 /**/
@@ -59,8 +63,6 @@ static struct pending *free_pendings;
 
 static int have_line_numbers;
 
-static int compare_line_numbers (const void *ln1p, const void *ln2p);
-
 
 /* Initial sizes of data structures.  These are realloc'd larger if
    needed, and realloc'd down to the size actually used, when
@@ -70,23 +72,6 @@ static int compare_line_numbers (const void *ln1p, const void *ln2p);
 #define	INITIAL_LINE_VECTOR_LENGTH	1000
 
 
-/* Complaints about the symbols we have encountered.  */
-
-struct complaint block_end_complaint =
-{"block end address less than block start address in %s (patched it)", 0, 0};
-
-struct complaint anon_block_end_complaint =
-{"block end address 0x%lx less than block start address 0x%lx (patched it)", 0, 0};
-
-struct complaint innerblock_complaint =
-{"inner block (0x%lx-0x%lx) not inside outer block (0x%lx-0x%lx) in %s", 0, 0};
-
-struct complaint innerblock_anon_complaint =
-{"inner block (0x%lx-0x%lx) not inside outer block (0x%lx-0x%lx)", 0, 0};
-
-struct complaint blockvector_complaint =
-{"block at %s out of order", 0, 0};
-
 /* maintain the lists of symbols and blocks */
 
 /* Add a pending list to free_pendings. */
@@ -134,6 +119,9 @@ add_symbol_to_list (struct symbol *symbol, struct pending **listhead)
     }
 
   (*listhead)->symbol[(*listhead)->nsyms++] = symbol;
+
+  /* APPLE LOCAL fix-and-continue */
+  SYMBOL_OBSOLETED (symbol) = 0;
 }
 
 /* Find a symbol named NAME on a LIST.  NAME need not be
@@ -166,7 +154,7 @@ find_symbol_in_list (struct pending *list, char *name, int length)
 
 /* ARGSUSED */
 void
-really_free_pendings (PTR dummy)
+really_free_pendings (void *dummy)
 {
   struct pending *next, *next1;
 
@@ -192,6 +180,9 @@ really_free_pendings (PTR dummy)
       xfree ((void *) next);
     }
   global_symbols = NULL;
+
+  if (pending_macros)
+    free_macro_table (pending_macros);
 }
 
 /* This function is called to discard any pending blocks. */
@@ -239,17 +230,49 @@ finish_block (struct symbol *symbol, struct pending **listhead,
       /* EMPTY */ ;
     }
 
-  block = (struct block *) obstack_alloc (&objfile->symbol_obstack,
-	    (sizeof (struct block) + ((i - 1) * sizeof (struct symbol *))));
-
   /* Copy the symbols into the block.  */
 
-  BLOCK_NSYMS (block) = i;
-  for (next = *listhead; next; next = next->next)
+  if (symbol)
     {
-      for (j = next->nsyms - 1; j >= 0; j--)
+      block = (struct block *) 
+	obstack_alloc (&objfile->symbol_obstack,
+		       (sizeof (struct block) + 
+			((i - 1) * sizeof (struct symbol *))));
+      BLOCK_NSYMS (block) = i;
+      for (next = *listhead; next; next = next->next)
+	for (j = next->nsyms - 1; j >= 0; j--)
+	  {
+	    BLOCK_SYM (block, --i) = next->symbol[j];
+	  }
+    }
+  else
+    {
+      int htab_size = BLOCK_HASHTABLE_SIZE (i);
+
+      block = (struct block *) 
+	obstack_alloc (&objfile->symbol_obstack,
+		       (sizeof (struct block) + 
+			((htab_size - 1) * sizeof (struct symbol *))));
+      for (j = 0; j < htab_size; j++)
 	{
-	  BLOCK_SYM (block, --i) = next->symbol[j];
+	  BLOCK_BUCKET (block, j) = 0;
+	}
+      BLOCK_BUCKETS (block) = htab_size;
+      for (next = *listhead; next; next = next->next)
+	{
+	  for (j = next->nsyms - 1; j >= 0; j--)
+	    {
+	      struct symbol *sym;
+	      unsigned int hash_index;
+	      const char *name = SYMBOL_DEMANGLED_NAME (next->symbol[j]);
+	      if (name == NULL)
+		name = SYMBOL_NAME (next->symbol[j]);
+	      hash_index = msymbol_hash_iw (name);
+	      hash_index = hash_index % BLOCK_BUCKETS (block);
+	      sym = BLOCK_BUCKET (block, hash_index);
+	      BLOCK_BUCKET (block, hash_index) = next->symbol[j];
+	      next->symbol[j]->hash_next = sym;
+	    }
 	}
     }
 
@@ -267,6 +290,7 @@ finish_block (struct symbol *symbol, struct pending **listhead,
       struct type *ftype = SYMBOL_TYPE (symbol);
       SYMBOL_BLOCK_VALUE (symbol) = block;
       BLOCK_FUNCTION (block) = symbol;
+      BLOCK_HASHTABLE (block) = 0;
 
       if (TYPE_NFIELDS (ftype) <= 0)
 	{
@@ -309,6 +333,7 @@ finish_block (struct symbol *symbol, struct pending **listhead,
 	      TYPE_NFIELDS (ftype) = nparams;
 	      TYPE_FIELDS (ftype) = (struct field *)
 		TYPE_ALLOC (ftype, nparams * sizeof (struct field));
+	      memset (TYPE_FIELDS (ftype), 0, sizeof (struct field) * nparams);
 
 	      for (i = iparams = 0; iparams < nparams; i++)
 		{
@@ -348,6 +373,7 @@ finish_block (struct symbol *symbol, struct pending **listhead,
   else
     {
       BLOCK_FUNCTION (block) = NULL;
+      BLOCK_HASHTABLE (block) = 1;
     }
 
   /* Now "free" the links of the list, and empty the list.  */
@@ -368,14 +394,15 @@ finish_block (struct symbol *symbol, struct pending **listhead,
     {
       if (symbol)
 	{
-	  complain (&block_end_complaint, SYMBOL_SOURCE_NAME (symbol));
+	  complaint (&symfile_complaints,
+		     "block end address less than block start address in %s (patched it)",
+		     SYMBOL_SOURCE_NAME (symbol));
 	}
       else
 	{
-	  /* FIXME 32x64 */
-	  complain (&anon_block_end_complaint,
-		    (unsigned long) BLOCK_END (block),
-		    (unsigned long) BLOCK_START (block));
+	  complaint (&symfile_complaints,
+		     "block end address 0x%s less than block start address 0x%s (patched it)",
+		     paddr_nz (BLOCK_END (block)), paddr_nz (BLOCK_START (block)));
 	}
       /* Better than nothing */
       BLOCK_END (block) = BLOCK_START (block);
@@ -386,7 +413,9 @@ finish_block (struct symbol *symbol, struct pending **listhead,
      start of this scope that don't have superblocks yet.  */
 
   opblock = NULL;
-  for (pblock = pending_blocks; pblock != old_blocks; pblock = pblock->next)
+  for (pblock = pending_blocks; 
+       pblock && pblock != old_blocks; 
+       pblock = pblock->next)
     {
       if (BLOCK_SUPERBLOCK (pblock->block) == NULL)
 	{
@@ -399,26 +428,22 @@ finish_block (struct symbol *symbol, struct pending **listhead,
 	    {
 	      if (symbol)
 		{
-		  /* FIXME 32x64 */
-		  complain (&innerblock_complaint,
-			    (unsigned long) BLOCK_START (pblock->block),
-			    (unsigned long) BLOCK_END (pblock->block),
-			    (unsigned long) BLOCK_START (block),
-			    (unsigned long) BLOCK_END (block),
-			    SYMBOL_SOURCE_NAME (symbol));
+		  complaint (&symfile_complaints,
+			     "inner block not inside outer block in %s",
+			     SYMBOL_SOURCE_NAME (symbol));
 		}
 	      else
 		{
-		  /* FIXME 32x64 */
-		  complain (&innerblock_anon_complaint,
-			    (unsigned long) BLOCK_START (pblock->block),
-			    (unsigned long) BLOCK_END (pblock->block),
-			    (unsigned long) BLOCK_START (block),
-			    (unsigned long) BLOCK_END (block));
+		  complaint (&symfile_complaints,
+			     "inner block (0x%s-0x%s) not inside outer block (0x%s-0x%s)",
+			     paddr_nz (BLOCK_START (pblock->block)),
+			     paddr_nz (BLOCK_END (pblock->block)),
+			     paddr_nz (BLOCK_START (block)),
+			     paddr_nz (BLOCK_END (block)));
 		}
 	      if (BLOCK_START (pblock->block) < BLOCK_START (block))
 		BLOCK_START (pblock->block) = BLOCK_START (block);
-	      if (BLOCK_END (pblock->block) > BLOCK_END (block)) 
+	      if (BLOCK_END (pblock->block) > BLOCK_END (block))
 		BLOCK_END (pblock->block) = BLOCK_END (block);
 	    }
 #endif
@@ -476,11 +501,7 @@ compare_blocks (const void *v1, const void *v2)
     return 0;
 }
 
-/* Note that this is only used in this file and in dstread.c, which
-   should be fixed to not need direct access to this function.  When
-   that is done, it can be made static again. */
-
-struct blockvector *
+static struct blockvector *
 make_blockvector (struct objfile *objfile)
 {
   register struct pending_block *next;
@@ -562,8 +583,8 @@ make_blockvector (struct objfile *objfile)
 	      CORE_ADDR start
 		= BLOCK_START (BLOCKVECTOR_BLOCK (blockvector, i));
 
-	      complain (&blockvector_complaint,
-			longest_local_hex_string ((LONGEST) start));
+	      complaint (&symfile_complaints, "block at %s out of order",
+			 local_hex_string ((LONGEST) start));
 	    }
 	}
     }
@@ -634,15 +655,17 @@ start_subfile (char *name, char *dirname)
      later via a call to record_debugformat. */
   subfile->debugformat = NULL;
 
-  /* cfront output is a C program, so in most ways it looks like a C
-     program.  But to demangle we need to set the language to C++.  We
-     can distinguish cfront code by the fact that it has #line
-     directives which specify a file name ending in .C.
-
-     So if the filename of this subfile ends in .C, then change the
+#if 0 /* OBSOLETE CFront */
+// OBSOLETE   /* cfront output is a C program, so in most ways it looks like a C
+// OBSOLETE      program.  But to demangle we need to set the language to C++.  We
+// OBSOLETE      can distinguish cfront code by the fact that it has #line
+// OBSOLETE      directives which specify a file name ending in .C. */
+#endif /* OBSOLETE CFront */
+     
+  /* If the filename of this subfile ends in .C, then change the
      language of any pending subfiles from C to C++.  We also accept
-     any other C++ suffixes accepted by deduce_language_from_filename
-     (in particular, some people use .cxx with cfront).  */
+     any other C++ suffixes accepted by deduce_language_from_filename.  */
+  /* OBSOLETE     (in particular, some people use .cxx with cfront).  */
   /* Likewise for f2c.  */
 
   if (subfile->name)
@@ -787,7 +810,7 @@ record_line (register struct subfile *subfile, int line, CORE_ADDR pc)
 
 /* Needed in order to sort line tables from IBM xcoff files.  Sigh!  */
 
-static int
+int
 compare_line_numbers (const void *ln1p, const void *ln2p)
 {
   struct linetable_entry *ln1 = (struct linetable_entry *) ln1p;
@@ -876,7 +899,6 @@ end_symtab (CORE_ADDR end_addr, struct objfile *objfile, int section)
       finish_block (cstk->name, &local_symbols, cstk->old_blocks,
 		    cstk->start_addr, end_addr, objfile);
 
-
       if (context_stack_depth > 0)
 	{
 	  /* This is said to happen with SCO.  The old coffread.c
@@ -884,9 +906,8 @@ end_symtab (CORE_ADDR end_addr, struct objfile *objfile, int section)
 	     same.  FIXME: Find out why it is happening.  This is not
 	     believed to happen in most cases (even for coffread.c);
 	     it used to be an abort().  */
-	  static struct complaint msg =
-	  {"Context stack not empty in end_symtab", 0, 0};
-	  complain (&msg);
+	  complaint (&symfile_complaints,
+	             "Context stack not empty in end_symtab");
 	  context_stack_depth = 0;
 	}
     }
@@ -942,7 +963,8 @@ end_symtab (CORE_ADDR end_addr, struct objfile *objfile, int section)
   if (pending_blocks == NULL
       && file_symbols == NULL
       && global_symbols == NULL
-      && have_line_numbers == 0)
+      && have_line_numbers == 0
+      && pending_macros == NULL)
     {
       /* Ignore symtabs that have no functions with real debugging
          info.  */
@@ -950,7 +972,7 @@ end_symtab (CORE_ADDR end_addr, struct objfile *objfile, int section)
     }
   else
     {
-      /* Define STATIC_BLOCK and GLOBAL_BLOCK and build the
+      /* Define the STATIC_BLOCK & GLOBAL_BLOCK, and build the
 	 blockvector. */
       finish_block (0, &file_symbols, 0, last_source_start_addr, end_addr,
 		    objfile);
@@ -1003,6 +1025,7 @@ end_symtab (CORE_ADDR end_addr, struct objfile *objfile, int section)
 
 	  /* Fill in its components.  */
 	  symtab->blockvector = blockvector;
+          symtab->macro_table = pending_macros;
 	  if (subfile->line_vector)
 	    {
 	      /* Reallocate the line table on the symbol obstack */
@@ -1051,6 +1074,9 @@ end_symtab (CORE_ADDR end_addr, struct objfile *objfile, int section)
 	     but the main file.  */
 
 	  symtab->primary = 0;
+
+          /* APPLE LOCAL fix-and-continue */
+          SYMTAB_OBSOLETED (symtab) = 50;
 	}
       if (subfile->name != NULL)
 	{
@@ -1081,6 +1107,7 @@ end_symtab (CORE_ADDR end_addr, struct objfile *objfile, int section)
 
   last_source_file = NULL;
   current_subfile = NULL;
+  pending_macros = NULL;
 
   return symtab;
 }
@@ -1115,6 +1142,17 @@ push_context (int desc, CORE_ADDR valu)
 
   return new;
 }
+
+/* Pop a context block.  Returns the address of the context block just
+   popped. */
+
+struct context_stack *
+pop_context (void)
+{
+  gdb_assert (context_stack_depth > 0);
+  return (&context_stack[--context_stack_depth]);
+}
+
 
 
 /* Compute a small integer hash code for the given name. */
@@ -1171,6 +1209,7 @@ buildsym_init (void)
   file_symbols = NULL;
   global_symbols = NULL;
   pending_blocks = NULL;
+  pending_macros = NULL;
 }
 
 /* Initialize anything that needs initializing when a completely new

@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(revoke, 1)
-	blr
 

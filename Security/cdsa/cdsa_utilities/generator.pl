@@ -10,8 +10,9 @@
 $ERR_H="cssmerr.h";
 $APPLE_ERR_H="cssmapple.h";
 
-$SOURCEDIR=$ARGV[0];						# directory with inputs
-$TARGETDIR=$ARGV[1];
+$SOURCEDIR=$ARGV[0];						# directory with cdsa headers
+$TARGETDIR=$ARGV[1];						# where to put the output file
+@INPUTFILES=@ARGV[2 .. 9999];				# list of input files
 
 $TABLES="$TARGETDIR/errorcodes.gen";		# error name tables
 
@@ -36,6 +37,17 @@ while ($name = shift @convertibles) {
   $convErrors[hex $value] = $name;
 };
 
+
+#
+# Read Keychain-level headers for more error codes (errSecBlahBlah)
+#
+open(ERR, "cat " . join(" ", @INPUTFILES) . "|") or die "Cannot open error header files";
+$/=undef;	# still gulping
+$_ = <ERR>;
+@kcerrors = /err((?:Sec|Authorization)\w+)\s*=\s*-?\d+/gm;
+close(ERR);
+
+
 #
 # Now we will generate the error name tables.
 #
@@ -51,6 +63,9 @@ static const Mapping errorList[] = {
 HDR
 foreach $name (@fullErrors) {
   print "  { CSSMERR_$name, \"$name\" },\n";
+};
+foreach $err (@kcerrors) {
+  print "  { err$err, \"$err\" },\n";
 };
 print <<MID;
 };

@@ -1,0 +1,24 @@
+You, or someone posing as you, has requested a password reminder for
+your membership on the mailing list %(fqdn_lname)s.  You will need
+this password in order to change your membership options (e.g. do you
+want regular delivery or digest delivery), and having this password
+makes it easier for you to unsubscribe from the mailing list.
+
+You are subscribed with the address: %(user)s
+
+Your %(listname)s password is: %(password)s
+
+To make changes to your membership options, log in and visit your
+options web page:
+
+    %(options_url)s
+
+You can also make such changes via email by sending a message to:
+
+    %(requestaddr)s
+
+with the text "help" in the subject or body.  The automatic reply will
+contain more detailed instructions.
+
+Questions or comments?  Please send them to the %(listname)s mailing
+list administrator at %(owneraddr)s.

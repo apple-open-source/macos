@@ -77,7 +77,7 @@
 
 __BEGIN_DECLS
 #ifndef	_POSIX_SOURCE
-int	 fnmatch __P((const char *, const char *, int));
+int	 fnmatch(const char *, const char *, int);
 #endif
 __END_DECLS
 

@@ -31,58 +31,12 @@
 #include "sslMemory.h"
 #include "sslDebug.h"
 #include "sslBER.h"
+#include "appleCdsa.h"
 
-#include <Security/asn-incl.h>
-#include <Security/sm_vdatypes.h>
-#include <Security/asn-type.h>
-#include <Security/pkcs1oids.h>		/* for RSAPublicKey */
-#include <Security/cdsaUtils.h>
 #include <string.h>
 #include <Security/cssmdata.h>
-
-/* convert between SSLBuffer and snacc-style BigIntegerStr */
-
-static void snaccIntToData(
-	const BigIntegerStr			&snaccInt,
-	SSLBuffer					*outData)		// already mallocd
-{
-	const char *scp = snaccInt;
-	uint8 *cp = (uint8 *)scp;
-	uint32 len = snaccInt.Len();
-
-	if (*cp == 0x00) {
-		/* skip over this place-holding m.s. byte */
-		cp++;
-		len--;
-	}
-
-	memmove(outData->data, cp, len);
-	outData->length = len;
-}
-
-static void dataToSnaccInt(
-	const SSLBuffer		*inData,
-	BigIntegerStr 		&snaccInt)
-{
-	uint8 *cp;
-	int msbIsSet = 0;
-	
-	if (inData->data[0] & 0x80) {
-		/* m.s. bit of BER data must be zero! */ 
-		cp = (uint8 *)malloc(inData->length + 1);
-		*cp = 0;
-		memmove(cp+1, inData->data, inData->length);
-		msbIsSet = 1;
-	}
-	else {
-		cp = inData->data;
-	}
-	snaccInt.Set(reinterpret_cast<const char *>(cp), 
-		inData->length + msbIsSet);
-	if(msbIsSet) {
-		free(cp);
-	}
-}
+#include <SecurityNssAsn1/SecNssCoder.h>
+#include <SecurityNssAsn1/keyTemplates.h>
 
 /*
  * Given a PKCS-1 encoded RSA public key, extract the 
@@ -105,28 +59,24 @@ OSStatus sslDecodeRsaBlob(
 	assert(exponent != NULL);
 	
 	/* DER-decode the blob */
-	RSAPublicKey snaccPubKey;
-	CssmData cssmBlob(blob->data, blob->length);
-	try {
-		SC_decodeAsnObj(cssmBlob, snaccPubKey);
-	}
-	catch(...) {
+	NSS_RSAPublicKeyPKCS1 nssPubKey;
+	SecNssCoder coder;
+	
+	memset(&nssPubKey, 0, sizeof(nssPubKey));
+	PRErrorCode perr = coder.decode(blob->data, blob->length, 
+		NSS_RSAPublicKeyPKCS1Template, &nssPubKey);
+	if(perr) {
 		return errSSLBadCert;
 	}
-	
-	/* malloc & convert components */
-	srtn = SSLAllocBuffer(*modulus, snaccPubKey.modulus.Len(), NULL);
+
+	/* malloc & copy components */
+	srtn = SSLCopyBufferFromData(nssPubKey.modulus.Data,
+		nssPubKey.modulus.Length, *modulus);
 	if(srtn) {
 		return srtn;
 	}
-	snaccIntToData(snaccPubKey.modulus, modulus);
-	srtn = SSLAllocBuffer(*exponent, snaccPubKey.publicExponent.Len(), 
-		NULL);
-	if(srtn) {
-		return srtn;
-	}
-	snaccIntToData(snaccPubKey.publicExponent, exponent);
-	return noErr;
+	return SSLCopyBufferFromData(nssPubKey.publicExponent.Data,
+		nssPubKey.publicExponent.Length, *exponent);
 }
 
 /*
@@ -142,29 +92,110 @@ OSStatus sslEncodeRsaBlob(
 	blob->data = NULL;
 	blob->length = 0;
 
-	/* Cook up a snacc-style RSAPublic key */
-	RSAPublicKey snaccPubKey;
-	dataToSnaccInt(modulus, snaccPubKey.modulus);
-	dataToSnaccInt(exponent, snaccPubKey.publicExponent);
-		
-	/* estimate max size, BER-encode */
-	size_t maxSize = 2 * (modulus->length + exponent->length);
-	CssmAllocator &alloc  = CssmAllocator::standard();
-	CssmAutoData cblob(alloc);
-	try {
-		SC_encodeAsnObj(snaccPubKey, cblob, maxSize);
-	}
-	catch(...) {
-		/* right...? */
-		return memFullErr;
-	}
+	/* convert to NSS_RSAPublicKeyPKCS1 */
+	NSS_RSAPublicKeyPKCS1 nssPubKey;
+	SSLBUF_TO_CSSM(modulus, &nssPubKey.modulus);
+	SSLBUF_TO_CSSM(exponent, &nssPubKey.publicExponent);
 	
-	/* copy to caller's SSLBuffer */
-	OSStatus srtn = SSLAllocBuffer(*blob, cblob.length(), NULL);
-	if(srtn) {
-		return srtn;
+	/* DER encode */
+	SecNssCoder coder;
+	CSSM_DATA encBlob;
+	PRErrorCode perr;
+	perr = coder.encodeItem(&nssPubKey, NSS_RSAPublicKeyPKCS1Template, encBlob);
+	if(perr) {
+		return memFullErr;
+		
 	}
-	memmove(blob->data, cblob.data(), cblob.length());
-	return noErr;
+	/* copy out to caller */
+	return SSLCopyBufferFromData(encBlob.Data, encBlob.Length, *blob);
+}
+
+/*
+ * Given a DER encoded DHParameterBlock, extract the prime and generator. 
+ * modulus and public exponent.
+ * This will work with either PKCS-1 encoded DHParameterBlock or
+ * openssl-style DHParameter.
+ */
+OSStatus sslDecodeDhParams(
+	const SSLBuffer	*blob,			/* PKCS-1 encoded */
+	SSLBuffer		*prime,			/* data mallocd and RETURNED */
+	SSLBuffer		*generator)		/* data mallocd and RETURNED */
+{
+	assert(blob != NULL);
+	assert(prime != NULL);
+	assert(generator != NULL);
+	
+	PRErrorCode perr;
+	NSS_DHParameterBlock paramBlock;
+	SecNssCoder coder;
+	CSSM_DATA cblob;
+	
+	memset(&paramBlock, 0, sizeof(paramBlock));
+	SSLBUF_TO_CSSM(blob, &cblob);
+	
+	/*
+	 * Since the common case here is to decode a parameter block coming
+	 * over the wire, which is in openssl format, let's try that format first.
+	 */
+	perr = coder.decodeItem(cblob, NSS_DHParameterTemplate, 
+		&paramBlock.params);
+	if(perr) {
+		/*
+		 * OK, that failed when trying as a CDSA_formatted parameter
+		 * block DHParameterBlock). Openssl uses a subset of that,
+		 * a DHParameter. Try that instead.
+		 */
+		memset(&paramBlock, 0, sizeof(paramBlock));
+		perr = coder.decodeItem(cblob, NSS_DHParameterBlockTemplate, 
+			&paramBlock);
+		if(perr) {
+			/* Ah well, we tried. */
+			sslErrorLog("sslDecodeDhParams: both CDSA and openssl format"
+				"failed\n");
+			return errSSLCrypto;
+		}
+	}
+
+	/* copy out components */
+	NSS_DHParameter &param = paramBlock.params;
+	OSStatus ortn = SSLCopyBufferFromData(param.prime.Data,
+		param.prime.Length, *prime);
+	if(ortn) {
+		return ortn;
+	}
+	return SSLCopyBufferFromData(param.base.Data,
+		param.base.Length, *generator);
+}
+
+/*
+ * Given a prime and generator, cook up a BER-encoded DHParameter blob.
+ */
+OSStatus sslEncodeDhParams(
+	const SSLBuffer	*prime,		
+	const SSLBuffer	*generator,		
+	SSLBuffer		*blob)			/* data mallocd and RETURNED */
+{
+	assert((prime != NULL) && (generator != NULL));
+	blob->data = NULL;
+	blob->length = 0;
+
+	/* convert to NSS_DHParameter */
+	NSS_DHParameter dhParams;
+	SSLBUF_TO_CSSM(prime, &dhParams.prime);
+	SSLBUF_TO_CSSM(generator, &dhParams.base);
+	dhParams.privateValueLength.Data = NULL;
+	dhParams.privateValueLength.Length = 0;
+	
+	/* DER encode */
+	SecNssCoder coder;
+	CSSM_DATA encBlob;
+	PRErrorCode perr;
+	perr = coder.encodeItem(&dhParams, NSS_DHParameterTemplate, encBlob);
+	if(perr) {
+		return memFullErr;
+		
+	}
+	/* copy out to caller */
+	return SSLCopyBufferFromData(encBlob.Data, encBlob.Length, *blob);
 }
 

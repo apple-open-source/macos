@@ -455,7 +455,12 @@ ProgramNode *Parser::parse(const UChar *code, unsigned int length, int *sourceId
       *errLine = eline;
     if (errMsg)
       *errMsg = "Parse error at line " + UString::from(eline);
-    delete prog;
+    if (prog) {
+      // must ref and deref to clean up properly
+      prog->ref();
+      prog->deref();
+      delete prog;
+    }
     return 0;
   }
 
@@ -518,7 +523,6 @@ InterpreterImp::InterpreterImp(Interpreter *interp, const Object &glob)
     s_hook = next = prev = this;
     globalInit();
   }
-  unlockInterpreter();
 
   global = glob;
   globExec = new ExecState(m_interpreter,0);
@@ -529,6 +533,7 @@ InterpreterImp::InterpreterImp(Interpreter *interp, const Object &glob)
   initGlobalObject();
 
   recursion = 0;
+  unlockInterpreter();
 }
 
 void InterpreterImp::lock()
@@ -546,7 +551,7 @@ void InterpreterImp::unlock()
   unlockInterpreter();
 }
 
-void InterpreterImp::initGlobalObject()
+ void InterpreterImp::initGlobalObject()
 {
   Identifier::init();
   
@@ -659,6 +664,10 @@ void InterpreterImp::initGlobalObject()
   global.put(globExec,"isFinite",   Object(new GlobalFuncImp(globExec,funcProto,GlobalFuncImp::IsFinite,   1)), DontEnum);
   global.put(globExec,"escape",     Object(new GlobalFuncImp(globExec,funcProto,GlobalFuncImp::Escape,     1)), DontEnum);
   global.put(globExec,"unescape",   Object(new GlobalFuncImp(globExec,funcProto,GlobalFuncImp::UnEscape,   1)), DontEnum);
+  global.put(globExec,"decodeURI",  Object(new GlobalFuncImp(globExec,funcProto,GlobalFuncImp::DecodeURI,  1)), DontEnum);
+  global.put(globExec,"decodeURIComponent", Object(new GlobalFuncImp(globExec,funcProto,GlobalFuncImp::DecodeURIComponent, 1)), DontEnum);
+  global.put(globExec,"encodeURI",  Object(new GlobalFuncImp(globExec,funcProto,GlobalFuncImp::EncodeURI,  1)), DontEnum);
+  global.put(globExec,"encodeURIComponent", Object(new GlobalFuncImp(globExec,funcProto,GlobalFuncImp::EncodeURIComponent, 1)), DontEnum);
 #ifndef NDEBUG
   global.put(globExec,"kjsprint",   Object(new GlobalFuncImp(globExec,funcProto,GlobalFuncImp::KJSPrint,   1)), DontEnum);
 #endif
@@ -725,7 +734,12 @@ bool InterpreterImp::checkSyntax(const UString &code)
   // Parser::parse() returns 0 in a syntax error occurs, so we just check for that
   ProgramNode *progNode = Parser::parse(code.data(),code.size(),0,0,0);
   bool ok = (progNode != 0);
-  delete progNode;
+  if (progNode) {
+    // must ref and deref to clean up properly
+    progNode->ref();
+    progNode->deref();
+    delete progNode;
+  }
   return ok;
 }
 
@@ -820,6 +834,88 @@ void InterpreterImp::setDebugger(Debugger *d)
   if (d)
     d->detach(m_interpreter);
   dbg = d;
+}
+
+void InterpreterImp::saveBuiltins (SavedBuiltins &builtins) const
+{
+  if (!builtins._internal) {
+    builtins._internal = new SavedBuiltinsInternal;
+  }
+
+  builtins._internal->b_Object = b_Object;
+  builtins._internal->b_Function = b_Function;
+  builtins._internal->b_Array = b_Array;
+  builtins._internal->b_Boolean = b_Boolean;
+  builtins._internal->b_String = b_String;
+  builtins._internal->b_Number = b_Number;
+  builtins._internal->b_Date = b_Date;
+  builtins._internal->b_RegExp = b_RegExp;
+  builtins._internal->b_Error = b_Error;
+  
+  builtins._internal->b_ObjectPrototype = b_ObjectPrototype;
+  builtins._internal->b_FunctionPrototype = b_FunctionPrototype;
+  builtins._internal->b_ArrayPrototype = b_ArrayPrototype;
+  builtins._internal->b_BooleanPrototype = b_BooleanPrototype;
+  builtins._internal->b_StringPrototype = b_StringPrototype;
+  builtins._internal->b_NumberPrototype = b_NumberPrototype;
+  builtins._internal->b_DatePrototype = b_DatePrototype;
+  builtins._internal->b_RegExpPrototype = b_RegExpPrototype;
+  builtins._internal->b_ErrorPrototype = b_ErrorPrototype;
+  
+  builtins._internal->b_evalError = b_evalError;
+  builtins._internal->b_rangeError = b_rangeError;
+  builtins._internal->b_referenceError = b_referenceError;
+  builtins._internal->b_syntaxError = b_syntaxError;
+  builtins._internal->b_typeError = b_typeError;
+  builtins._internal->b_uriError = b_uriError;
+  
+  builtins._internal->b_evalErrorPrototype = b_evalErrorPrototype;
+  builtins._internal->b_rangeErrorPrototype = b_rangeErrorPrototype;
+  builtins._internal->b_referenceErrorPrototype = b_referenceErrorPrototype;
+  builtins._internal->b_syntaxErrorPrototype = b_syntaxErrorPrototype;
+  builtins._internal->b_typeErrorPrototype = b_typeErrorPrototype;
+  builtins._internal->b_uriErrorPrototype = b_uriErrorPrototype;
+}
+
+void InterpreterImp::restoreBuiltins (const SavedBuiltins &builtins)
+{
+  if (!builtins._internal) {
+    return;
+  }
+
+  b_Object = builtins._internal->b_Object;
+  b_Function = builtins._internal->b_Function;
+  b_Array = builtins._internal->b_Array;
+  b_Boolean = builtins._internal->b_Boolean;
+  b_String = builtins._internal->b_String;
+  b_Number = builtins._internal->b_Number;
+  b_Date = builtins._internal->b_Date;
+  b_RegExp = builtins._internal->b_RegExp;
+  b_Error = builtins._internal->b_Error;
+  
+  b_ObjectPrototype = builtins._internal->b_ObjectPrototype;
+  b_FunctionPrototype = builtins._internal->b_FunctionPrototype;
+  b_ArrayPrototype = builtins._internal->b_ArrayPrototype;
+  b_BooleanPrototype = builtins._internal->b_BooleanPrototype;
+  b_StringPrototype = builtins._internal->b_StringPrototype;
+  b_NumberPrototype = builtins._internal->b_NumberPrototype;
+  b_DatePrototype = builtins._internal->b_DatePrototype;
+  b_RegExpPrototype = builtins._internal->b_RegExpPrototype;
+  b_ErrorPrototype = builtins._internal->b_ErrorPrototype;
+  
+  b_evalError = builtins._internal->b_evalError;
+  b_rangeError = builtins._internal->b_rangeError;
+  b_referenceError = builtins._internal->b_referenceError;
+  b_syntaxError = builtins._internal->b_syntaxError;
+  b_typeError = builtins._internal->b_typeError;
+  b_uriError = builtins._internal->b_uriError;
+  
+  b_evalErrorPrototype = builtins._internal->b_evalErrorPrototype;
+  b_rangeErrorPrototype = builtins._internal->b_rangeErrorPrototype;
+  b_referenceErrorPrototype = builtins._internal->b_referenceErrorPrototype;
+  b_syntaxErrorPrototype = builtins._internal->b_syntaxErrorPrototype;
+  b_typeErrorPrototype = builtins._internal->b_typeErrorPrototype;
+  b_uriErrorPrototype = builtins._internal->b_uriErrorPrototype;
 }
 
 // ------------------------------ InternalFunctionImp --------------------------

@@ -1,4 +1,28 @@
 /*
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * Copyright 1996 1995 by Open Software Foundation, Inc. 1997 1996 1995 1994 1993 1992 1991  
  *              All Rights Reserved 
  *  
@@ -30,45 +54,64 @@
 #include <sys/time.h>              /* For struct timespec and getclock(). */
 #include <stdio.h>
     
-    /*
+extern void _pthread_mutex_remove(pthread_mutex_t *, pthread_t);
+
+/*
  * Destroy a condition variable.
  */
 int       
 pthread_cond_destroy(pthread_cond_t *cond)
 {
+	int ret;
+	int sig = cond->sig;
+
+	/* to provide backwards compat for apps using united condtn vars */
+	if((sig != _PTHREAD_COND_SIG) && (sig !=_PTHREAD_COND_SIG_init))
+		return(EINVAL);
+
+	LOCK(cond->lock);
 	if (cond->sig == _PTHREAD_COND_SIG)
 	{
-		LOCK(cond->lock);
-		if (cond->busy != (pthread_mutex_t *)NULL)
-		{
-			UNLOCK(cond->lock);
-			return (EBUSY);
-		} else
+		if (cond->busy == (pthread_mutex_t *)NULL)
 		{
 			cond->sig = _PTHREAD_NO_SIG;
-			UNLOCK(cond->lock);
-                        return (ESUCCESS);
-		}
+			ret = ESUCCESS;
+		} else
+			ret = EBUSY;
 	} else
-		return (EINVAL); /* Not an initialized condition variable structure */
+		ret = EINVAL; /* Not an initialized condition variable structure */
+	UNLOCK(cond->lock);
+	return (ret);
 }
 
 /*
  * Initialize a condition variable.  Note: 'attr' is ignored.
  */
-int       
-pthread_cond_init(pthread_cond_t *cond,
+static int       
+_pthread_cond_init(pthread_cond_t *cond,
 		  const pthread_condattr_t *attr)
 {
-        LOCK_INIT(cond->lock);
-	cond->sig = _PTHREAD_COND_SIG;
 	cond->next = (pthread_cond_t *)NULL;
 	cond->prev = (pthread_cond_t *)NULL;
 	cond->busy = (pthread_mutex_t *)NULL;
 	cond->waiters = 0;
 	cond->sigspending = 0;
-	cond->sem = MACH_PORT_NULL;
-        return (ESUCCESS);
+	cond->sem = SEMAPHORE_NULL;
+	cond->sig = _PTHREAD_COND_SIG;
+	return (ESUCCESS);
+}
+
+/*
+ * Initialize a condition variable.  This is the public interface.
+ * We can't trust the lock, so initialize it first before taking
+ * it.
+ */
+int       
+pthread_cond_init(pthread_cond_t *cond,
+		  const pthread_condattr_t *attr)
+{
+	LOCK_INIT(cond->lock);
+	return (_pthread_cond_init(cond, attr));
 }
 
 /*
@@ -77,37 +120,50 @@ pthread_cond_init(pthread_cond_t *cond,
 int       
 pthread_cond_broadcast(pthread_cond_t *cond)
 {
-    kern_return_t kern_res;
-    int res;
-    if (cond->sig == _PTHREAD_COND_SIG_init) {
-        if ((res = pthread_cond_init(cond, NULL)) != 0) {
-            return (res);
-        }
-    }
-    if (cond->sig != _PTHREAD_COND_SIG) {
-        /* Not a condition variable */
-        return (EINVAL);
-    }
-    LOCK(cond->lock);
-    if (cond->sem == MACH_PORT_NULL) {
-        /* Avoid kernel call since there are no waiters... */
-        UNLOCK(cond->lock);
-        return (ESUCCESS);
-    }
-    cond->sigspending++;
-    UNLOCK(cond->lock);
-    PTHREAD_MACH_CALL(semaphore_signal_all(cond->sem), kern_res);
-    LOCK(cond->lock);
-    cond->sigspending--;
-    if (cond->waiters == 0 && cond->sigspending == 0) {
-        restore_sem_to_pool(cond->sem);
-        cond->sem = MACH_PORT_NULL;
-    }
-    UNLOCK(cond->lock);
-    if (kern_res != KERN_SUCCESS) {
-        return (EINVAL);
-    }
-    return (ESUCCESS);
+	kern_return_t kern_res;
+	semaphore_t sem;
+	int sig = cond->sig;
+
+	/* to provide backwards compat for apps using united condtn vars */
+	if((sig != _PTHREAD_COND_SIG) && (sig !=_PTHREAD_COND_SIG_init))
+		return(EINVAL);
+
+	LOCK(cond->lock);
+	if (cond->sig != _PTHREAD_COND_SIG)
+	{
+		int res;
+
+		if (cond->sig == _PTHREAD_COND_SIG_init)
+		{
+			_pthread_cond_init(cond, NULL);
+			res = ESUCCESS;
+		} else 
+			res = EINVAL;  /* Not a condition variable */
+		UNLOCK(cond->lock);
+		return (res);
+	}
+	else if ((sem = cond->sem) == SEMAPHORE_NULL)
+	{
+		/* Avoid kernel call since there are no waiters... */
+		UNLOCK(cond->lock);
+		return (ESUCCESS);
+	}
+	cond->sigspending++;
+	UNLOCK(cond->lock);
+
+	PTHREAD_MACH_CALL(semaphore_signal_all(sem), kern_res);
+
+	LOCK(cond->lock);
+	cond->sigspending--;
+	if (cond->waiters == 0 && cond->sigspending == 0)
+	{
+		cond->sem = SEMAPHORE_NULL;
+		restore_sem_to_pool(sem);
+	}
+	UNLOCK(cond->lock);
+	if (kern_res != KERN_SUCCESS)
+		return (EINVAL);
+	return (ESUCCESS);
 }
 
 /*
@@ -116,48 +172,63 @@ pthread_cond_broadcast(pthread_cond_t *cond)
 int       
 pthread_cond_signal_thread_np(pthread_cond_t *cond, pthread_t thread)
 {
-    kern_return_t kern_res;
-    if (cond->sig == _PTHREAD_COND_SIG_init) {
-        int res;
-        if ((res = pthread_cond_init(cond, NULL)) != 0) {
-            return (res);
-        }
-    }
-    if (cond->sig != _PTHREAD_COND_SIG) {
-        return (EINVAL); /* Not a condition variable */
-    }
-    LOCK(cond->lock);
-    if (cond->sem == MACH_PORT_NULL) {
-        /* Avoid kernel call since there are not enough waiters... */
-        UNLOCK(cond->lock);
-        return (ESUCCESS);
-    }
-    cond->sigspending++;
-    UNLOCK(cond->lock);
-    if (thread == (pthread_t)NULL) {
-        kern_res = semaphore_signal_thread(cond->sem, MACH_PORT_NULL);
-	if (kern_res == KERN_INVALID_ARGUMENT) {
-		PTHREAD_MACH_CALL(semaphore_signal(cond->sem), kern_res);
-	 } else if (kern_res == KERN_NOT_WAITING) {
-		kern_res = KERN_SUCCESS;
+	kern_return_t kern_res;
+	semaphore_t sem;
+	int sig = cond->sig;
+
+	/* to provide backwards compat for apps using united condtn vars */
+	if((sig != _PTHREAD_COND_SIG) && (sig !=_PTHREAD_COND_SIG_init))
+		return(EINVAL);
+
+	LOCK(cond->lock);
+	if (cond->sig != _PTHREAD_COND_SIG)
+	{
+		int ret;
+
+		if (cond->sig == _PTHREAD_COND_SIG_init) 
+		{
+			_pthread_cond_init(cond, NULL);
+			ret = ESUCCESS;
+		}
+		else
+			ret = EINVAL; /* Not a condition variable */
+		UNLOCK(cond->lock);
+		return (ret);
 	}
-    } else if (thread->sig == _PTHREAD_SIG) {
-        PTHREAD_MACH_CALL(semaphore_signal_thread(
-		cond->sem, pthread_mach_thread_np(thread)), kern_res);
-    } else {
-        kern_res = KERN_FAILURE;
-    }
-    LOCK(cond->lock);
-    cond->sigspending--;
-    if (cond->waiters == 0 && cond->sigspending == 0) {
-        restore_sem_to_pool(cond->sem);
-        cond->sem = MACH_PORT_NULL;
-    }
-    UNLOCK(cond->lock);
-    if (kern_res != KERN_SUCCESS)     {
-        return (EINVAL);
-    }
-    return (ESUCCESS);
+	else if ((sem = cond->sem) == SEMAPHORE_NULL)
+	{
+		/* Avoid kernel call since there are not enough waiters... */
+		UNLOCK(cond->lock);
+		return (ESUCCESS);
+	}
+	cond->sigspending++;
+	UNLOCK(cond->lock);
+
+	if (thread == (pthread_t)NULL)
+	{
+		kern_res = semaphore_signal_thread(sem, THREAD_NULL);
+		if (kern_res == KERN_NOT_WAITING)
+			kern_res = KERN_SUCCESS;
+	}
+	else if (thread->sig == _PTHREAD_SIG)
+	{
+	        PTHREAD_MACH_CALL(semaphore_signal_thread(
+			sem, pthread_mach_thread_np(thread)), kern_res);
+	}
+	else
+		kern_res = KERN_FAILURE;
+
+	LOCK(cond->lock);
+	cond->sigspending--;
+	if (cond->waiters == 0 && cond->sigspending == 0)
+	{
+		cond->sem = SEMAPHORE_NULL;
+		restore_sem_to_pool(sem);
+	}
+	UNLOCK(cond->lock);
+	if (kern_res != KERN_SUCCESS)
+		return (EINVAL);
+	return (ESUCCESS);
 }
 
 /*
@@ -166,7 +237,7 @@ pthread_cond_signal_thread_np(pthread_cond_t *cond, pthread_t thread)
 int
 pthread_cond_signal(pthread_cond_t *cond)
 {
-    return pthread_cond_signal_thread_np(cond, NULL);
+	return pthread_cond_signal_thread_np(cond, NULL);
 }
 
 /*
@@ -186,15 +257,15 @@ _pthread_cond_add(pthread_cond_t *cond, pthread_mutex_t *mutex)
 	cond->prev = (pthread_cond_t *)NULL;
 	mutex->busy = cond;
 	UNLOCK(mutex->lock);
-	if (cond->sem == MACH_PORT_NULL) {
+	if (cond->sem == SEMAPHORE_NULL)
 		cond->sem = new_sem_from_pool();
-	}
 }
 
 static void
 _pthread_cond_remove(pthread_cond_t *cond, pthread_mutex_t *mutex)
 {
 	pthread_cond_t *n, *p;
+
 	LOCK(mutex->lock);
 	if ((n = cond->next) != (pthread_cond_t *)NULL)
 	{
@@ -203,14 +274,16 @@ _pthread_cond_remove(pthread_cond_t *cond, pthread_mutex_t *mutex)
 	if ((p = cond->prev) != (pthread_cond_t *)NULL)
 	{
 		p->next = cond->next;
-	} else
+	} 
+	else
 	{ /* This is the first in the list */
 		mutex->busy = n;
 	}
 	UNLOCK(mutex->lock);
-	if (cond->sigspending == 0) {
-            restore_sem_to_pool(cond->sem);
-            cond->sem = MACH_PORT_NULL;
+	if (cond->sigspending == 0)
+	{
+		restore_sem_to_pool(cond->sem);
+		cond->sem = SEMAPHORE_NULL;
 	}
 }
 
@@ -225,88 +298,120 @@ _pthread_cond_wait(pthread_cond_t *cond,
 		   const struct timespec *abstime,
 		   int isRelative)
 {
-    int res;
-    kern_return_t kern_res;
-    pthread_mutex_t *busy;
-    mach_timespec_t then;
-    if (cond->sig == _PTHREAD_COND_SIG_init) {
-        if ((res = pthread_cond_init(cond, NULL)) != 0) {
-            return (res);
-        }
-    }
-    if (cond->sig != _PTHREAD_COND_SIG) {
-        /* Not a condition variable */
-        return (EINVAL);
-    }
+	int res;
+	kern_return_t kern_res;
+	pthread_mutex_t *busy;
+	mach_timespec_t then;
+	int sig = cond->sig;
 
-    if (abstime) {
-        if (isRelative == 0) {
-            struct timespec now;
-            struct timeval tv;
-            gettimeofday(&tv, NULL);
-            TIMEVAL_TO_TIMESPEC(&tv, &now);
+	/* to provide backwards compat for apps using united condtn vars */
+	if((sig != _PTHREAD_COND_SIG) && (sig !=_PTHREAD_COND_SIG_init))
+		return(EINVAL);
+	LOCK(cond->lock);
+	if (cond->sig != _PTHREAD_COND_SIG)
+	{
+		if (cond->sig != _PTHREAD_COND_SIG_init)
+		{
+			UNLOCK(cond->lock);
+			return (EINVAL);        /* Not a condition variable */
+		}
+		_pthread_cond_init(cond, NULL);
+	}
 
-            /* Compute relative time to sleep */
-            then.tv_nsec = abstime->tv_nsec - now.tv_nsec;
-            then.tv_sec = abstime->tv_sec - now.tv_sec;
-            if (then.tv_nsec < 0) {
-                then.tv_nsec += NSEC_PER_SEC;
-                then.tv_sec--;
-            }
-            if (((int)then.tv_sec < 0) ||
-		((then.tv_sec == 0) && (then.tv_nsec == 0))) {
-                return ETIMEDOUT;
-            }
-        } else {
-            then.tv_sec = abstime->tv_sec;
-            then.tv_nsec = abstime->tv_nsec;
-        }
-        if (then.tv_nsec >= NSEC_PER_SEC) {
-   	    return EINVAL;
-        }
-    }
-    LOCK(cond->lock);
-    busy = cond->busy;
-    if ((busy != (pthread_mutex_t *)NULL) && (busy != mutex)) {
-        /* Must always specify the same mutex! */
-        UNLOCK(cond->lock);
-        return (EINVAL);
-    }
-    cond->waiters++;
-    if (cond->waiters == 1) {
-        _pthread_cond_add(cond, mutex);
-        cond->busy = mutex;
-    }
-    UNLOCK(cond->lock);
-    LOCK(mutex->lock);
-    if (mutex->sem == MACH_PORT_NULL) {
-        mutex->sem = new_sem_from_pool();
-    }
-    mutex->cond_lock = 1;
-    UNLOCK(mutex->lock);
-    if (abstime) {
-        kern_res = semaphore_timedwait_signal(cond->sem, mutex->sem, then);
-    } else {
-        PTHREAD_MACH_CALL(semaphore_wait_signal(cond->sem, mutex->sem), kern_res);
-    }
-    LOCK(cond->lock);
-    cond->waiters--;
-    if (cond->waiters == 0) {
-        _pthread_cond_remove(cond, mutex);
-        cond->busy = (pthread_mutex_t *)NULL;
-    }
-    UNLOCK(cond->lock);
-    if ((res = pthread_mutex_lock(mutex)) != ESUCCESS) {
-        return (res);
-    }
-    /* KERN_ABORTED can be treated as a spurious wakeup */
-    if ((kern_res == KERN_SUCCESS) || (kern_res == KERN_ABORTED)) {
-        return (ESUCCESS);
-    } else if (kern_res == KERN_OPERATION_TIMED_OUT) {
-        return (ETIMEDOUT);
-    } else {
-        return (EINVAL);
-    }
+	if (abstime)
+	{
+	        if (isRelative == 0)
+		{
+			struct timespec now;
+			struct timeval tv;
+			gettimeofday(&tv, NULL);
+			TIMEVAL_TO_TIMESPEC(&tv, &now);
+
+			/* Compute relative time to sleep */
+			then.tv_nsec = abstime->tv_nsec - now.tv_nsec;
+			then.tv_sec = abstime->tv_sec - now.tv_sec;
+			if (then.tv_nsec < 0)
+			{
+				then.tv_nsec += NSEC_PER_SEC;
+				then.tv_sec--;
+			}
+			if (((int)then.tv_sec < 0) ||
+				((then.tv_sec == 0) && (then.tv_nsec == 0)))
+			{
+				UNLOCK(cond->lock);
+				return ETIMEDOUT;
+			}
+		}
+		else
+		{
+			then.tv_sec = abstime->tv_sec;
+			then.tv_nsec = abstime->tv_nsec;
+		}
+		if (then.tv_nsec >= NSEC_PER_SEC)
+		{
+			UNLOCK(cond->lock);
+			return EINVAL;
+		}
+	}
+
+	if (++cond->waiters == 1)
+	{
+		_pthread_cond_add(cond, mutex);
+		cond->busy = mutex;
+	}
+	else if ((busy = cond->busy) != mutex)
+	{
+		/* Must always specify the same mutex! */
+		cond->waiters--;
+		UNLOCK(cond->lock);
+		return (EINVAL);
+	}
+	UNLOCK(cond->lock);
+	
+#if defined(DEBUG)
+	_pthread_mutex_remove(mutex, pthread_self());
+#endif
+	LOCK(mutex->lock);
+	if (--mutex->lock_count == 0)
+	{
+		if (mutex->sem == SEMAPHORE_NULL)
+			mutex->sem = new_sem_from_pool();
+		mutex->owner = _PTHREAD_MUTEX_OWNER_SWITCHING;
+		UNLOCK(mutex->lock);
+
+		if (abstime) {
+			kern_res = semaphore_timedwait_signal(cond->sem, mutex->sem, then);
+		} else {
+			PTHREAD_MACH_CALL(semaphore_wait_signal(cond->sem, mutex->sem), kern_res);
+		}
+	}
+	else
+	{
+		UNLOCK(mutex->lock);
+		if (abstime) {
+			kern_res = semaphore_timedwait(cond->sem, then);
+		} else {
+			PTHREAD_MACH_CALL(semaphore_wait(cond->sem), kern_res);
+		}
+	}
+
+	LOCK(cond->lock);
+	cond->waiters--;
+	if (cond->waiters == 0)
+	{
+		_pthread_cond_remove(cond, mutex);
+		cond->busy = (pthread_mutex_t *)NULL;
+	}
+	UNLOCK(cond->lock);
+	if ((res = pthread_mutex_lock(mutex)) != ESUCCESS)
+		return (res);
+
+	/* KERN_ABORTED can be treated as a spurious wakeup */
+	if ((kern_res == KERN_SUCCESS) || (kern_res == KERN_ABORTED))
+		return (ESUCCESS);
+	else if (kern_res == KERN_OPERATION_TIMED_OUT)
+		return (ETIMEDOUT);
+	return (EINVAL);
 }
 
 int       

@@ -1,0 +1,15 @@
+#!/bin/sh -e
+#
+# Debian package preinst
+
+case "$1" in
+  install|upgrade)
+		   # need to move configuration file to proper directory
+		   if [ -f /var/lib/dejagnu/site.exp ]; then
+		     if [ ! -d /etc/dejagnu ]; then
+		       install -d -g root -m 755 -o root /etc/dejagnu
+		     fi
+		     mv -f /var/lib/dejagnu/site.exp /etc/dejagnu
+		   fi
+		   ;;
+esac

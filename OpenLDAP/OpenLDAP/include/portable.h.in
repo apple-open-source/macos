@@ -1,6 +1,6 @@
 /* include/portable.h.in.  Generated automatically from configure.in by autoheader.  */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, Redwood City, California, USA
+ * Copyright 1998-2003 The OpenLDAP Foundation, Redwood City, California, USA
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -63,7 +63,9 @@
 
 /* Define if your processor stores words with the most significant
    byte first (like Motorola and SPARC, unlike Intel and VAX).  */
-#undef WORDS_BIGENDIAN
+#ifdef __BIG_ENDIAN__
+#define WORDS_BIGENDIAN
+#endif
 
 /* define this if needed to get reentrant functions */
 #ifndef REENTRANT
@@ -131,6 +133,9 @@
 /* Define if you have the flock function.  */
 #undef HAVE_FLOCK
 
+/* Define if you have the fstat function.  */
+#undef HAVE_FSTAT
+
 /* Define if you have the gai_strerror function.  */
 #undef HAVE_GAI_STRERROR
 
@@ -152,6 +157,9 @@
 /* Define if you have the gethostname function.  */
 #undef HAVE_GETHOSTNAME
 
+/* Define if you have the getnameinfo function.  */
+#undef HAVE_GETNAMEINFO
+
 /* Define if you have the getopt function.  */
 #undef HAVE_GETOPT
 
@@ -160,6 +168,9 @@
 
 /* Define if you have the getpassphrase function.  */
 #undef HAVE_GETPASSPHRASE
+
+/* Define if you have the getpeereid function.  */
+#undef HAVE_GETPEEREID
 
 /* Define if you have the getpwnam function.  */
 #undef HAVE_GETPWNAM
@@ -230,6 +241,9 @@
 /* Define if you have the send function.  */
 #undef HAVE_SEND
 
+/* Define if you have the sendmsg function.  */
+#undef HAVE_SENDMSG
+
 /* Define if you have the sendto function.  */
 #undef HAVE_SENDTO
 
@@ -259,6 +273,9 @@
 
 /* Define if you have the sigset function.  */
 #undef HAVE_SIGSET
+
+/* Define if you have the snprintf function.  */
+#undef HAVE_SNPRINTF
 
 /* Define if you have the strdup function.  */
 #undef HAVE_STRDUP
@@ -304,9 +321,6 @@
 
 /* Define if you have the vsnprintf function.  */
 #undef HAVE_VSNPRINTF
-
-/* Define if you have the vsprintf function.  */
-#undef HAVE_VSPRINTF
 
 /* Define if you have the wait4 function.  */
 #undef HAVE_WAIT4
@@ -479,6 +493,12 @@
 /* Define if you have the <slp.h> header file.  */
 #undef HAVE_SLP_H
 
+/* Define if you have the <sql.h> header file.  */
+#undef HAVE_SQL_H
+
+/* Define if you have the <sqlext.h> header file.  */
+#undef HAVE_SQLEXT_H
+
 /* Define if you have the <ssl.h> header file.  */
 #undef HAVE_SSL_H
 
@@ -524,6 +544,9 @@
 /* Define if you have the <sys/socket.h> header file.  */
 #undef HAVE_SYS_SOCKET_H
 
+/* Define if you have the <sys/stat.h> header file.  */
+#undef HAVE_SYS_STAT_H
+
 /* Define if you have the <sys/syslog.h> header file.  */
 #undef HAVE_SYS_SYSLOG_H
 
@@ -532,6 +555,12 @@
 
 /* Define if you have the <sys/types.h> header file.  */
 #undef HAVE_SYS_TYPES_H
+
+/* Define if you have the <sys/ucred.h> header file.  */
+#undef HAVE_SYS_UCRED_H
+
+/* Define if you have the <sys/uio.h> header file.  */
+#undef HAVE_SYS_UIO_H
 
 /* Define if you have the <sys/un.h> header file.  */
 #undef HAVE_SYS_UN_H
@@ -623,6 +652,9 @@
 /* define if you have AIX security lib */
 #undef HAVE_AIX_SECURITY
 
+/* define to use both <string.h> and <strings.h> */
+#undef BOTH_STRINGS_H
+
 /* define if you have libtool -ltdl */
 #undef HAVE_LIBLTDL
 
@@ -683,15 +715,6 @@
 /* define to support LAN Manager passwords */
 #undef SLAPD_LMHASH
 
-/* set to the number of arguments ctime_r() expects */
-#undef CTIME_R_NARGS
-
-/* set to the number of arguments gethostbyname_r() expects */
-#undef GETHOSTBYNAME_R_NARGS
-
-/* set to the number of arguments gethostbyaddr_r() expects */
-#undef GETHOSTBYADDR_R_NARGS
-
 /* if you have NT Threads */
 #undef HAVE_NT_THREADS
 
@@ -701,17 +724,11 @@
 /* if you have NT Event Log */
 #undef HAVE_NT_EVENT_LOG
 
-/* define if pthreads API compatible with final spec */
-#undef HAVE_PTHREADS_FINAL
-
-/* define if pthreads API compatible with draft4 spec */
-#undef HAVE_PTHREADS_D4
+/* define to pthreads API spec revision */
+#undef HAVE_PTHREADS
 
 /* if you have LinuxThreads */
 #undef HAVE_LINUX_THREADS
-
-/* define if you have POSIX Threads */
-#undef HAVE_PTHREADS
 
 /* Define if you have the sched_yield function. */
 #undef HAVE_SCHED_YIELD
@@ -739,6 +756,15 @@
 
 /* define if you have (or want) no threads */
 #undef NO_THREADS
+
+/* set to the number of arguments ctime_r() expects */
+#undef CTIME_R_NARGS
+
+/* set to the number of arguments gethostbyname_r() expects */
+#undef GETHOSTBYNAME_R_NARGS
+
+/* set to the number of arguments gethostbyaddr_r() expects */
+#undef GETHOSTBYADDR_R_NARGS
 
 /* define if Berkeley DB has DB_THREAD support */
 #undef HAVE_BERKELEY_DB_THREAD
@@ -778,6 +804,9 @@
 
 /* define if you have Cyrus SASL */
 #undef HAVE_CYRUS_SASL
+
+/* define if your SASL library has sasl_version() */
+#undef HAVE_SASL_VERSION
 
 /* set to urandom device */
 #undef URANDOM_DEVICE
@@ -860,6 +889,15 @@
 /* define to vsnprintf routine */
 #undef vsnprintf
 
+/* define if struct msghdr has msg_accrights */
+#undef HAVE_MSGHDR_MSG_ACCRIGHTS
+
+/* define to snprintf routine */
+#undef snprintf
+
+/* define to snprintf routine */
+#undef vsnprintf
+
 /* define if sys_errlist is not declared in stdio.h or errno.h */
 #undef DECL_SYS_ERRLIST
 
@@ -871,9 +909,6 @@
 
 /* define this to add syslog code */
 #undef LDAP_SYSLOG
-
-/* define this to remove -lldap cache support */
-#undef LDAP_NOCACHE
 
 /* define this for LDAP process title support */
 #undef LDAP_PROCTITLE
@@ -895,6 +930,9 @@
 
 /* define to support SASL passwords */
 #undef SLAPD_SPASSWD
+
+/* define to support multimaster replication */
+#undef SLAPD_MULTIMASTER
 
 /* define to support phonetic */
 #undef SLAPD_PHONETIC
@@ -932,12 +970,6 @@
 /* define to support dynamic LDBM backend */
 #undef SLAPD_LDBM_DYNAMIC
 
-/* define to support NetInfo backend */
-#undef SLAPD_NETINFO
-
-/* define to support dynamic NetInfo backend */
-#undef SLAPD_NETINFO_DYNAMIC
-
 /* define to support LDAP Metadirectory backend */
 #undef SLAPD_META
 
@@ -949,6 +981,18 @@
 
 /* define to support dynamic cn=Monitor backend */
 #undef SLAPD_MONITOR_DYNAMIC
+
+/* define to support NULL backend */
+#undef SLAPD_NULL
+
+/* define to support dynamic NULL backend */
+#undef SLAPD_NULL_DYNAMIC
+
+/* define to support NetInfo backend */
+#undef SLAPD_NETINFO
+
+/* define to support dynamic NetInfo backend */
+#undef SLAPD_NETINFO_DYNAMIC
 
 /* define to support PASSWD backend */
 #undef SLAPD_PASSWD
@@ -994,11 +1038,29 @@
 #	include <stddef.h>
 #endif
 
+#ifndef LDAP_REL_ENG
+#if (LDAP_VENDOR_VERSION == 000000) && !defined(LDAP_DEVEL)
+#define LDAP_DEVEL
+#endif
 #if defined(LDAP_DEVEL) && !defined(LDAP_TEST)
 #define LDAP_TEST
 #endif
 #if defined(LDAP_TEST) && !defined(LDAP_DEBUG)
 #define LDAP_DEBUG
+#endif
+#endif
+
+#ifdef HAVE_EBCDIC 
+/* ASCII/EBCDIC converting replacements for stdio funcs
+ * vsnprintf and snprintf are used too, but they are already
+ * checked by the configure script
+ */
+#define fputs ber_pvt_fputs
+#define fgets ber_pvt_fgets
+#define printf ber_pvt_printf
+#define fprintf ber_pvt_fprintf
+#define vfprintf ber_pvt_vfprintf
+#define vsprintf ber_pvt_vsprintf
 #endif
 
 #include "ldap_cdefs.h"

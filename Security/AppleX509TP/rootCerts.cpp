@@ -30,7 +30,11 @@
 */
 
 #include "rootCerts.h"
+
+#if		TP_ROOT_CERT_ENABLE
+
 #include "certGroupUtils.h"
+#include "tpdebugging.h"
 #include <Security/Trust.h>
 #include <Security/TrustStore.h>
 #include <Security/debugging.h>
@@ -69,13 +73,13 @@ const tpRootCert *TPRootStore::rootCerts(
 			Security::KeychainCore::Trust::gStore();
 		trustStore.getCssmRootCertificates(roots);
 		if(roots.type() != CSSM_CERTGROUP_DATA) {
-			debug("tpAnchor", "Bad certGroup Type (%d)\n",
+			secdebug("tpAnchor", "Bad certGroup Type (%d)\n",
 				(int)roots.type());
 			return NULL;
 		}
 		numTpRoots = roots.count();
 		if(numTpRoots == 0) {
-			debug("tpAnchor", "empty certGroup\n");
+			secdebug("tpAnchor", "empty certGroup\n");
 			return NULL;
 		}
 		
@@ -100,7 +104,7 @@ const tpRootCert *TPRootStore::rootCerts(
 				&numFields,
 				&field);
 			if(crtn) {
-				debug("tpAnchor", "GetFirstFieldValue error on cert %u",
+				secdebug("tpAnchor", "GetFirstFieldValue error on cert %u",
 					(unsigned)certNum);
 				continue;
 			}
@@ -113,7 +117,7 @@ const tpRootCert *TPRootStore::rootCerts(
 			CSSM_KEY_PTR key;
 			crtn = CSSM_CL_CertGetKeyInfo(clHand, certData, &key);
 			if(crtn) {
-				debug("tpAnchor", "CSSM_CL_CertGetKeyInfo error on cert %u",
+				secdebug("tpAnchor", "CSSM_CL_CertGetKeyInfo error on cert %u",
 					(unsigned)certNum);
 				/* clear out this tpRoot? */
 				continue;
@@ -128,7 +132,7 @@ const tpRootCert *TPRootStore::rootCerts(
 			CSSM_API_MEMORY_FUNCS memFuncs;
 			crtn = CSSM_GetAPIMemoryFunctions(clHand, &memFuncs);
 			if(crtn) {
-				debug("tpAnchor", "CSSM_GetAPIMemoryFunctions error");
+				secdebug("tpAnchor", "CSSM_GetAPIMemoryFunctions error");
 				/* Oh well.. */
 				continue;
 			}
@@ -145,3 +149,154 @@ const tpRootCert *TPRootStore::rootCerts(
 	mRootCerts = tpRoots;
 	return mRootCerts;
 }
+
+/*
+ * Compare a root cert to a list of known embedded roots.
+ */
+CSSM_BOOL tp_isKnownRootCert(
+	TPCertInfo			*rootCert,		// raw cert to compare
+	CSSM_CL_HANDLE		clHand)
+{
+	const CSSM_DATA		*subjectName = NULL;
+	CSSM_DATA_PTR		publicKey = NULL;
+	unsigned			dex;
+	CSSM_BOOL			brtn = CSSM_FALSE;
+	CSSM_DATA_PTR		valToFree = NULL;
+	const 				tpRootCert *roots;
+	unsigned 			numRoots;
+	
+	roots = TPRootStore::tpGlobalRoots().rootCerts(clHand, numRoots);
+	
+	subjectName = rootCert->subjectName();
+	publicKey = tp_CertGetPublicKey(rootCert, &valToFree);	
+	if(publicKey == NULL) {
+		tpPolicyError("tp_isKnownRootCert: error retrieving public "
+			"key info!");
+		goto errOut;
+	}
+	
+	/*
+	 * Grind thru the list of known certs, demanding perfect match of 
+	 * both fields 
+	 */
+	for(dex=0; dex<numRoots; dex++) {
+		if(!tpCompareCssmData(subjectName, 
+	                          &roots[dex].subjectName)) {
+	    	continue;
+	    }
+		if(!tpCompareCssmData(publicKey,
+	                          &roots[dex].publicKey)) {
+	    	continue;
+	    }
+	    brtn = CSSM_TRUE;
+	    break;
+	}
+errOut:
+	tp_CertFreePublicKey(rootCert->clHand(), valToFree);
+	return brtn;
+}
+
+/*
+ * Attempt to verify specified cert (from the end of a chain) with one of
+ * our known roots. 
+ */
+CSSM_BOOL tp_verifyWithKnownRoots(
+	CSSM_CL_HANDLE	clHand, 
+	CSSM_CSP_HANDLE	cspHand, 
+	TPCertInfo		*certToVfy)			// last in chain, not root
+{
+	CSSM_KEY 		rootKey;			// pub key manufactured from tpRootCert info
+	CSSM_CC_HANDLE	ccHand;				// signature context
+	CSSM_RETURN		crtn;
+	unsigned 		dex;
+	const tpRootCert *rootInfo;
+	CSSM_BOOL		brtn = CSSM_FALSE;
+	CSSM_KEYHEADER	*hdr = &rootKey.KeyHeader;
+	CSSM_X509_ALGORITHM_IDENTIFIER_PTR algId;
+	CSSM_DATA_PTR	valToFree = NULL;
+	CSSM_ALGORITHMS	sigAlg;
+	const tpRootCert *rootCerts = NULL;
+	unsigned 		numRootCerts = 0;
+		
+	memset(&rootKey, 0, sizeof(CSSM_KEY));
+	
+	/*
+	 * Get signature algorithm from subject key
+	 */
+	algId = tp_CertGetAlgId(certToVfy, &valToFree);
+	if(algId == NULL) {
+		/* bad cert */
+		return CSSM_FALSE;
+	}
+	/* subsequest errors to errOut: */
+	
+	/* map to key and signature algorithm */
+	sigAlg = tpOidToAldId(&algId->algorithm, &hdr->AlgorithmId);
+	if(sigAlg == CSSM_ALGID_NONE) {
+		tpPolicyError("tp_verifyWithKnownRoots: unknown sig alg");
+		goto errOut;
+	}
+	
+	/* Set up other constant key fields */
+	hdr->BlobType = CSSM_KEYBLOB_RAW;
+	switch(hdr->AlgorithmId) {
+		case CSSM_ALGID_RSA:
+			hdr->Format = CSSM_KEYBLOB_RAW_FORMAT_PKCS1;
+			break;
+		case CSSM_ALGID_DSA:
+			hdr->Format = CSSM_KEYBLOB_RAW_FORMAT_FIPS186;
+			break;
+		case CSSM_ALGID_FEE:
+			hdr->Format = CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING;
+			break;
+		default:
+			/* punt */
+			hdr->Format = CSSM_KEYBLOB_RAW_FORMAT_NONE;
+	}
+	hdr->KeyClass = CSSM_KEYCLASS_PUBLIC_KEY;
+	hdr->KeyAttr = CSSM_KEYATTR_MODIFIABLE | CSSM_KEYATTR_EXTRACTABLE;
+	hdr->KeyUsage = CSSM_KEYUSE_VERIFY;
+	
+	rootCerts = TPRootStore::tpGlobalRoots().rootCerts(clHand, numRootCerts);
+	for(dex=0; dex<numRootCerts; dex++) {
+		rootInfo = &rootCerts[dex];
+		if(!tpCompareCssmData(&rootInfo->subjectName, certToVfy->issuerName())) {
+			/* not this root */
+			continue;
+		}
+
+		/* only variation in key in the loop - raw key bits and size */
+		rootKey.KeyData = rootInfo->publicKey;
+		hdr->LogicalKeySizeInBits = rootInfo->keySize;
+		crtn = CSSM_CSP_CreateSignatureContext(cspHand,
+			sigAlg,
+			NULL,		// AcccedCred
+			&rootKey,
+			&ccHand);
+		if(crtn) {
+			tpPolicyError("tp_verifyWithKnownRoots: "
+				"CSSM_CSP_CreateSignatureContext err");
+			CssmError::throwMe(CSSMERR_TP_INTERNAL_ERROR);
+		}
+		crtn = CSSM_CL_CertVerify(clHand,
+			ccHand,
+			certToVfy->itemData(),
+			NULL,			// no signer cert
+			NULL,			// VerifyScope
+			0);				// ScopeSize
+		CSSM_DeleteContext(ccHand);
+		if(crtn == CSSM_OK) {
+			/* success! */
+			brtn = CSSM_TRUE;
+			break;
+		}
+	}
+errOut:
+	if(valToFree != NULL) {
+		tp_CertFreeAlgId(clHand, valToFree);
+	}
+	return brtn;
+}
+
+#endif	/* TP_ROOT_CERT_ENABLE */
+

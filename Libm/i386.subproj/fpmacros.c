@@ -169,7 +169,7 @@ long int __fpclassify ( long double arg )
     exponent = z.u.head & 0x7fff;
     if (exponent == 0x7fff)
     {
-        if ((z.u.least_mantissa | z.u.most_mantissa) == 0)
+        if ((z.u.least_mantissa | (z.u.most_mantissa & 0x7fffffff)) == 0)
                 return (long int) FP_INFINITE;
         else
                 return FP_NAN;
@@ -178,7 +178,7 @@ long int __fpclassify ( long double arg )
             return (long int) FP_NORMAL;
     else
     {
-        if ((z.u.least_mantissa | z.u.most_mantissa) == 0)
+        if ((z.u.least_mantissa | (z.u.most_mantissa & 0x7fffffff)) == 0)
                 return (long int) FP_ZERO;
         else
                 return (long int) FP_SUBNORMAL;
@@ -318,7 +318,8 @@ long int __isinf ( long double arg )
     hexlongdouble z;
     
     z.e80 = arg;
-    return (((z.u.head & 0x7fff) == 0x7fff) && ((z.u.least_mantissa | z.u.most_mantissa) == 0));
+    return (((z.u.head & 0x7fff) == 0x7fff) && 
+            ((z.u.least_mantissa | (z.u.most_mantissa & 0x7fffffff)) == 0));
 }
 
 
@@ -359,7 +360,8 @@ long int __isnan ( long double arg )
     hexlongdouble z;
     
     z.e80 = arg;
-    return (((z.u.head & 0x7fff) == 0x7fff) && ((z.u.least_mantissa | z.u.most_mantissa) != 0));
+    return (((z.u.head & 0x7fff) == 0x7fff) && 
+            ((z.u.least_mantissa | (z.u.most_mantissa & 0x7fffffff)) != 0));
 }
 
 

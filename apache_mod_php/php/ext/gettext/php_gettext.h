@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_gettext.h,v 1.1.1.3 2001/07/19 00:19:12 zarzycki Exp $ */
+/* $Id: php_gettext.h,v 1.1.1.5 2003/07/18 18:07:33 zarzycki Exp $ */
 
 #ifndef PHP_GETTEXT_H
 #define PHP_GETTEXT_H
@@ -36,6 +36,18 @@ PHP_FUNCTION(gettext);
 PHP_FUNCTION(dgettext);
 PHP_FUNCTION(dcgettext);
 PHP_FUNCTION(bindtextdomain);
+#if HAVE_NGETTEXT
+PHP_FUNCTION(ngettext);
+#endif
+#if HAVE_DNGETTEXT
+PHP_FUNCTION(dngettext);
+#endif
+#if HAVE_DCNGETTEXT
+PHP_FUNCTION(dcngettext);
+#endif
+#if HAVE_BIND_TEXTDOMAIN_CODESET
+PHP_FUNCTION(bind_textdomain_codeset);
+#endif
 
 #else
 #define gettext_module_ptr NULL

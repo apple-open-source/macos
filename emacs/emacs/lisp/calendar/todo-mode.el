@@ -5,7 +5,7 @@
 ;; Author: Oliver Seidel <os10000@seidel-space.de>
 ;;   [Not clear the above works, July 2000]
 ;; Created: 2 Aug 1997
-;; Version: $Id: todo-mode.el,v 1.1.1.1 2001/10/31 17:58:28 jevans Exp $
+;; Version: $Id: todo-mode.el,v 1.1.1.2 2002/09/10 23:33:24 jevans Exp $
 ;; Keywords: calendar, todo
 
 ;; This file is part of GNU Emacs.
@@ -97,7 +97,7 @@
 ;;
 ;;      Which version of todo-mode.el does this documentation refer to?
 ;;
-;;      $Id: todo-mode.el,v 1.1.1.1 2001/10/31 17:58:28 jevans Exp $
+;;      $Id: todo-mode.el,v 1.1.1.2 2002/09/10 23:33:24 jevans Exp $
 ;;
 ;;  Pre-Requisites
 ;;
@@ -494,9 +494,11 @@ Use `todo-categories' instead.")
 (defun todo-save ()
   "Save the TODO list."
   (interactive)
-  (save-buffer)
-  (if todo-save-top-priorities-too (todo-save-top-priorities))
-  )
+  (save-excursion
+    (save-restriction
+      (save-buffer)
+      (if todo-save-top-priorities-too (todo-save-top-priorities))
+      )))
 (defalias 'todo-cmd-save 'todo-save)
 
 (defun todo-quit ()

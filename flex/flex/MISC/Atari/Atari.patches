@@ -226,7 +226,7 @@ X***************
 X*** 26,31 ****
 X--- 26,40 ----
 X  
-X  /* @(#) $Header: /cvs/Darwin/flex/flex/MISC/Atari/Atari.patches,v 1.1.1.1 1999/04/23 00:46:31 wsanchez Exp $ (LBL) */
+X  /* @(#) $Header: /cvs/root/flex/flex/MISC/Atari/Atari.patches,v 1.1.1.1 1999/04/23 00:46:31 wsanchez Exp $ (LBL) */
 X  
 X+ #ifdef ATARI
 X+ #define SYS_V
@@ -565,7 +565,7 @@ echo x - Makefile.tos
 sed '/^X/s///' > Makefile.tos << '/'
 X# make file for "flex" tool
 X
-X# @(#) $Header: /cvs/Darwin/flex/flex/MISC/Atari/Atari.patches,v 1.1.1.1 1999/04/23 00:46:31 wsanchez Exp $ (LBL)
+X# @(#) $Header: /cvs/root/flex/flex/MISC/Atari/Atari.patches,v 1.1.1.1 1999/04/23 00:46:31 wsanchez Exp $ (LBL)
 X
 X# Porting considerations:
 X#

@@ -1,0 +1,841 @@
+INTRODUCTION
+
+    This is Gimp-Print version 4.2.5, a stable release in the 4.2
+    series.  Gimp-Print is a suite of printer drivers that may be used
+    with most common UNIX print spooling systems, including CUPS, lpr,
+    LPRng, or others.  These drivers provide high quality printing for
+    UNIX (including Macintosh OS X 10.2 and newer) and Linux systems
+    in many cases equal to or better than proprietary vendor-supplied
+    drivers, and can be used for many of the most demanding printing
+    tasks.  A complete list of supported printers may be found in the
+    NEWS file.
+
+    This release is backward compatible with other releases of
+    Gimp-Print 4.2 (4.2.0, 4.2.1, 4.2.2, 4.2.3, and 4.2.4).
+
+    Gimp-Print also includes a plug-in for the GIMP image editor.
+    This plug-in is also distributed with the GIMP.
+
+    Please read this README, and the NEWS file carefully!  Many things
+    have changed from previous releases.  The package is quite
+    different in many ways from Gimp-Print 4.0, and you should read
+    these instructions carefully.
+
+    A user's manual exists in doc/users_guide; it is normally
+    installed in PDF and HTML form in /usr/local/share/gimp-print/doc.
+    This manual covers setup and use of the GIMP Print plug-in and the
+    CUPS driver.
+
+    We urge all distributors of this package to read the PACKAGING and
+    KNOWN BUILD ISSUES section below.
+
+
+MACINTOSH OS X NOTE
+
+    As of Gimp-Print 4.2.2, this package fully supports Macintosh OS X
+    10.2.  OS X uses CUPS (Common UNIX Printing System) to provide
+    printing services; Gimp-Print works with CUPS to permit high
+    quality, full-featured printing to a wide variety of printers.
+
+    This package requires Macintosh OS X 10.2 or later; it will not
+    work with any 10.0 or 10.1 release (including 10.1.5), or any
+    Macintosh OS prior to OS X.
+
+    We strongly recommend that Macintosh users download the
+    precompiled installer package from
+    http://gimp-print.sourceforge.net/MacOSX.php3 rather than attempt
+    to build this package from source, as using the installer is much
+    simpler.
+
+    We further recommend that Macintosh OS X users install ESP
+    GhostScript, to permit printing from applications (such as most
+    Adobe applications) that generate PostScript rather than PDF
+    output.  NOTE THAT WITHOUT THIS PACKAGE, YOU WILL NOT BE ABLE TO
+    PRINT FROM ANY CARBON APPLICATIONS (in particular, many Adobe
+    applications)!  Directions for that are also available at
+    http://gimp-print.sourceforge.net/MacOSX.php3.
+
+    Users installing these packages do not need any additional
+    software packages.
+
+    Please read the release notes (the NEWS file) for information on
+    bugs fixed, new features, supported printers, and any specific
+    information related to your printer.
+
+
+BASIC INSTALLATION
+
+    Gimp-Print includes the following primary components:
+
+      - The core driver, libgimpprint.so
+      - A user's manual
+      - A Print plug-in for the GIMP
+      - A CUPS (Common UNIX Printing System) driver
+      - A standard Ghostscript driver, `stp'
+      - An IJS-based Ghostscript driver
+      - Support for the Foomatic spooler configuration system
+      - A utility to administer Epson printers, escputil
+
+    By default, Gimp-Print builds the Print plugin for the GIMP, the
+    user's manual, and a utility to perform head cleaning, nozzle
+    alignment, and other tasks on EPSON Stylus inkjet printers, named
+    "escputil".  Directions for building other components are listed
+    below.
+
+    Please check our web site at http://gimp-print.sourceforge.net for
+    details about what is and is not supported.
+
+    Please report any problems to gimp-print-devel@sourceforge.net.
+
+    In general, to build Gimp-Print, you run the following commands:
+
+    ./configure [options]
+    make
+    make install
+
+    If you do not have the GIMP installed (or if you have only the
+    user package installed, and not the development package that most
+    distributions include separately), the attempt to run configure
+    will fail.  To build other components (such as the IJS or CUPS
+    drivers) without the GIMP being present, you must use the
+    --without-gimp option to configure.
+
+    Note: This package requires the use of GNU Make to compile.  On
+    systems with both GNU make and another make installed, GNU make
+    may be named `gmake' or `gnumake'.  BSD users in particular will
+    need to use 'gmake'.
+
+
+THE GIMP
+
+    Gimp-Print may be used as a plug-in for the GIMP, providing the
+    ability to print images.  If you wish to do so, you must use the
+    GIMP 1.2; it is not currently compatible with the GIMP 1.3.
+
+    To build and install the Gimp Print plug-in:
+
+    ./configure [--with-gimp]
+    make
+    make install
+
+    You may optionally specify --with-gimp if you wish to be explicit
+    about building the Gimp Print plugin; --with-gimp is implied if
+    `configure' detects that the GIMP is installed, so you do not
+    actually need to specify it.
+
+    This installs the GIMP Print plugin in your system plug-in
+    directory.  If you wish to install it in your personal plugin
+    directory, you may use
+
+    ./configure --enable-user-install
+
+    If you have installed the Gimp as a precompiled package
+    (e. g. from an RPM), you will need to install the gimp-devel
+    (sometimes called gimp-developer, or something similar) package as
+    well as the gimp package.  The gimp package as supplied in most
+    distributions only contains what's needed to run the Gimp, not the
+    additional files needed to build GIMP-based applications and
+    plugins such as the Print plugin.  On some systems, you will also
+    need to install gtk-devel and glib-devel packages as well.
+
+    If you have installed the Gimp from source on Linux: after running
+    make install, you must run ldconfig as root before attempting to
+    build this plugin.
+
+
+CUPS
+
+    Gimp-print may be used as a driver under CUPS (Common UNIX
+    Printing System), if your system uses that spooler.  Full
+    description of CUPS is beyond the scope of this README file; full
+    information may be found at http://www.cups.org.  Gimp-print 4.2
+    requires CUPS 1.1.9 or higher.  We recommend use of 1.1.14 or
+    above; that release of CUPS features better internationalization
+    and fixes some important bugs.
+
+    This package includes a CUPS driver that may be built, allowing
+    use of this software for general printing purposes.  To build and
+    install the CUPS driver, you must run:
+
+    ./configure --with-cups
+    make
+    make install
+    /etc/software/init.d/cups restart
+
+    The last command varies with your operating system; the purpose is
+    to restart the CUPS server (daemon) so that it sees the newly
+    installed driver.  It is typically /etc/init.d/cups,
+    /etc/rc.d/cups, or even /etc/rc.d/init.d/cups.  Your system may
+    have a different way to restart the CUPS server.  OS X uses the
+    following command:
+
+    sudo /System/Library/StartupItems/PrintingServices/PrintingServices.sh restart
+  
+    NOTE for Linux (at least) users: If you are using CUPS 1.1.11 or
+    higher, and you have a USB-connected printer, you must have a
+    printer connected to each USB port that you plan to use and
+    powered on when you restart CUPS.  If you do not do so, you will
+    not be able to perform the following step (reinstalling the
+    printer), as described below.
+
+    Following this, you must reinstall any printers that you are using
+    Gimp-Print PPD's with.  Such printers may be identified in any
+    CUPS front end (e. g. KUPS, or via the web interface) because they
+    look something like this:
+
+		    EPSON Stylus Photo EX, CUPS+GIMP-print v4.2.5(en)
+
+    If the version number (in this case, 4.2.5) does not match
+    the version of Gimp-Print that you are installing, you must use
+    Modify Printer to force the new PPD file to get installed.
+    Failure to do so may lead to incorrect output and/or other errors!
+
+    Starting with CUPS 1.1.11, you cannot choose an AppSocket
+    connection and enter "usb:/dev/usblp0" or the like as the URI; you
+    will get a "client-error-not-possible" error at the end of the
+    installation process, and you will have a message like the
+    following in your CUPS error log (typically
+    /var/log/cups/error_log):
+
+E [21/Nov/2001:17:59:07 +0500] add_printer: bad device-uri attribute 'usb:/dev/usblp0'!
+
+    If the printer was turned on correctly, you will be given a choice
+    of a USB connection in the Device dialog.
+
+    You may also have problems if you have a .lpoptions file that has
+    old options set.  If you have problems printing, please remove any
+    existing .lpoptions file in your home directory and try printing
+    again.
+
+    This package normally builds translated versions of the PPD
+    files.  This provides PPD files translated into the languages that
+    this package supports.  However, the translation process does not
+    work correctly on all systems; in particular, many BSD systems are
+    known to simply build multiple copies of the English PPD files.
+    If your system does not build these files correctly, which will be
+    apparent when you use a CUPS front end to select a PPD file and
+    you see something like this:
+
+		    EPSON Stylus Photo EX, CUPS+GIMP-print v4.2.5(en)
+		    EPSON Stylus Photo EX, CUPS+GIMP-print v4.2.5(en)
+		    EPSON Stylus Photo EX, CUPS+GIMP-print v4.2.5(en)
+
+    rather than this:
+
+		    EPSON Stylus Photo EX, CUPS+GIMP-print v4.2.5(en)
+		    EPSON Stylus Photo EX, CUPS+GIMP-print v4.2.5(sv)
+		    EPSON Stylus Photo EX, CUPS+GIMP-print v4.2.5(fr)
+
+    you may wish to turn off the translation of PPD files:
+
+    ./configure --with-cups --without-translated-ppds
+
+    You may also wish to do this to greatly reduce the number of PPD
+    files installed on your system, as the number of translations is
+    large and growing.
+
+    The PPD files associated with this driver are for Level 2
+    PostScript.  CUPS implements most level 3 PostScript, but there
+    are a few constructs that are not implemented.  For this reason,
+    we have chosen to define a LanguageLevel of 2 rather than 3.
+    PostScript level 3 files are smaller in some cases, and can
+    produce smoother gradients, but few applications generate Level 3
+    PostScript.  If you would like to use level 3 PostScript, you may
+    do
+
+    ./configure --with-cups --enable-cups-level3-ppds
+
+    Unless you fully understand what you are doing, we recommend not
+    doing this.
+
+    If you do not wish to build the Gimp Print plugin, you must run
+
+    ./configure --with-cups --without-gimp
+
+    If you have installed CUPS as a precompiled package (e. g. it's
+    the standard printing system that your distribution uses), you may
+    need to install a separate development package (typically called
+    "cups-devel" or "cups-developer").  The CUPS package typically
+    installed by most distributions only contains the components
+    needed to run CUPS, not those required to build additional CUPS
+    drivers.
+
+    We recommend that all users who wish to use this package for
+    general purpose printing install either CUPS or use Foomatic with
+    the IJS driver (both described below) and use that as their
+    printing system, rather than the traditional lpd or lp systems.
+    It is much simpler to manage than lpd, and provides an excellent
+    web-based interface for both administration and use.  Please visit
+    http://www.cups.org for information on downloading and installing
+    CUPS.
+
+
+FOOMATIC
+
+    Gimp-Print includes support for the Foomatic meta-driver package.
+    This requires the foomatic-xml distribution.  Foomatic is
+    available from http://www.linuxprinting.org/foomatic.html.  It is
+    also available in Debian unstable.  For best results, use the
+    version in cvs.  The first version of Foomatic (the one used with
+    Gimp-Print 4.0) is not compatible with Gimp-Print 4.2.  Note that
+    the Foomatic driver is named `stp' in Gimp-Print 4.0; in
+    Gimp-Print 4.2 it is named `gimp-print' for the Ghostscript
+    ("stp") driver and "gimp-print-ijs" for the IJS driver. The data
+    for the Gimp-Print 4.0 driver is not compatible with the 4.2
+    driver.
+
+    To verify that you have an appropriate version of Foomatic, please
+    run
+
+    foomatic-kitload
+
+    or
+
+    /usr/local/sbin/foomatic-kitload (if /usr/local/sbin is not on your PATH).
+
+    Both Foomatic 2.0.x (stable branch) and 2.9.x (development branch,
+    approaching Foomatic 3.0.x) are supported. With Foomatic 2.9.x there
+    are the extra features of heaving an additional "PrintoutMode" option
+    with pre-configurations for common printing tasks and the options
+    being put into different groups ("General", "PrintoutMode",
+    "Adjustment").
+
+    If you don't have Foomatic installed, or the version that is
+    installed is too old, please download the current Foomatic 2.0.x 
+    package from
+
+    http://www.linuxprinting.org/download/foomatic/foomatic-current.tar.gz
+
+    and follow the instructions in that package. See
+
+    http://www.linuxprinting.org/foomatic2.9/foomatic.html
+
+    on how to download and install Foomatic 2.9.x.
+
+    After Foomatic is installed, build the Foomatic data as follows:
+
+    ./configure --with-foomatic
+    make
+    make install
+
+    for obtaining the Foomatic data only for the Ghostscript ("stp")
+    driver or
+
+    ./configure --with-ijs --with-foomatic
+    make
+    make install
+
+    for obtaining the Foomatic data for both the Ghostscript ("stp")
+    driver and the IJS driver (note that this also build the IJS
+    interface itself, so you have to follow the instructions in
+    src/ghost/README, too).
+
+    The "make install" step will add the necessary data to your
+    Foomatic installation.  It must be run as root.  It will fail if
+    Foomatic is not installed or your Foomatic is too old.  Now you
+    can either set up a queue for your printer with
+    "foomatic-configure" (see USAGE file in the Foomatic package) or
+    generate the printer description file for your spooler (with 
+    "foomatic-datafile") and configure your printer as described on
+    the spooler-specific web pages of linuxprinting.org.
+
+    Note that it almost never makes sense to build the Foomatic driver
+    without also building the Ghostscript driver or the IJS driver, 
+    even if Foomatic is to be used with CUPS (CUPS-O-Matic).  Please 
+    read the instructions below in the GHOSTSCRIPT section.
+
+    If you do not wish to build the Gimp Print plugin, you must run
+
+    ./configure --with-foomatic --without-gimp
+
+    or
+
+    ./configure --with-ijs --with-foomatic --without-gimp
+
+    Please visit http://www.linuxprinting.org/foomatic.html for more
+    information on Foomatic.
+
+    Foomatic provides an alternate interface to CUPS, in addition to
+    an interface to LPD, LPRng, GNUlpr, PDQ, PPR, CPS, and spooler-less
+    printing.
+
+
+GHOSTSCRIPT
+
+    Gimp-Print 4.2 includes a Ghostscript driver that may be built,
+    allowing use of this software for general printing purposes.  This
+    package requires GNU Ghostscript 5.10, 5.50, 6.51, or 6.52.  There
+    is a simpler build procedure for GNU Ghostscript 6.53 and 7.05,
+    and for ESP Ghostscript 7.05.  In particular, versions of
+    Ghostscript that are not licensed under the GNU General Public
+    License (GPL) are not supported, and this driver may not be
+    distributed with such a version.  If you wish to use Gimp-Print
+    with AFPL Ghostscript, you may do so via the IJS-based driver,
+    described below.
+
+    Please read src/ghost/README for more information, including how
+    to build and install it, and available options; the build
+    procedure here merely creates the necessary source files that you
+    must add to your Ghostscript source.  The directions vary for
+    different versions of Ghostscript.
+
+    We *strongly* recommend that end users not attempt to use this
+    driver directly.  The available options are very complex, and the
+    standard printer configuration tools (such as apsfilter and
+    magicfilter) are not designed for drivers such as Gimp-print, and
+    do not provide a convenient interface to the driver's
+    capabilities.  We recommend that end users either install CUPS, as
+    described above, or use Foomatic to configure printer queues.
+    CUPS is very easy to install, configure, and use, and is the
+    recommended solution.
+
+    Note that many of the options to the Ghostscript driver are
+    incompatible with the options used prior to release 4.2.0.
+    Please read src/ghost/README for information on the current
+    options.
+
+    This driver will not be developed beyond the 4.2 release series.
+    It will be replaced by the IJS driver, described below.
+
+
+IJS
+
+    Gimp-Print includes an IJS-based Ghostscript driver.  As
+    paraphrased from the Ghostscript documentation, IJS is a
+    relatively new initiative to improve the quality and ease of use
+    of inkjet printing with Ghostscript.  Using IJS, one can add new
+    drivers, or upgrade existing ones, without recompiling
+    Ghostscript.  IJS drivers run as separate processes that
+    communicate with Ghostscript via an IPC channel.  As the basic IJS
+    implementation is licensed compatibly with the GPL, and as the
+    driver runs in a separate process from Ghostscript itself, the IJS
+    driver may be used with AFPL Ghostscript (7.04 and above).
+
+    The basic way to build the IJS driver is
+
+    ./configure --with-ijs [--without-gimp]
+    make
+    make install
+
+    You must have the IJS libraries installed for this to work.
+    Instructions for that are included with GNU Ghostscript 6.53 and
+    beyond, and AFPL Ghostscript 7.04 and beyond.
+
+    Detailed instructions for building and using the IJS driver is
+    described in src/ghost/README.
+
+
+RECOMMENDED SETTINGS
+
+    We recommend starting with all default settings for the color
+    settings.  The settings can be adjusted as necessary for
+    particular combinations of ink, paper, and subject material.
+
+    We recommend use of the Adaptive Hybrid dithering algorithm in
+    most cases.  Ordered dithering also works very well in many cases,
+    and is somewhat faster, but it does not work very well with text
+    and very fine details (certain kinds of line art), particularly at
+    high resolutions.  Fast dithering is also quite usable in many
+    cases.
+
+    On most inkjet printers, 600 or 720 dpi will produce very high
+    quality; 1200x1200 or 1440x720 dpi will produce extremely high
+    quality.
+
+
+SUPPORT
+
+    1) Read the FAQ, in doc/FAQ.html.  Your question may be answered
+       there.
+
+    2) Read the user's manual, in doc/users_guide.
+
+    3) There are public forums on Sourceforge dedicated to this
+       package.  Please see
+       http://sourceforge.net/forum/?group_id=1537 for more
+       information.  The Help forum is a good source of information.
+
+    4) If you have a technical support issue that does not appear to
+       be a bug in the software, you can use the Tech Support Manager.
+       Please see http://sourceforge.net/support/?group_id=1537.
+
+    5) If you have found a clear bug in the package, you may file a
+       bug report at http://sourceforge.net/bugs/?group_id=1537.
+
+    6) You may send mail to the gimp-print-devel@sourceforge.net
+       mailing list.  This is recommended as a last resort only.
+
+
+KNOWN BUILD ISSUES
+
+    * There is a known complication building "escputil" that causes
+      problems on some systems.  "escputil" uses the "readline"
+      package, to support command editing and history within the
+      program.  Unfortunately, linking programs with "readline" often
+      requires linking against additional libraries, and the exact
+      library depends upon the system (e. g. not all Linux systems
+      have the same requirements).
+
+      The configure script attempts to determine which additional
+      library must be linked against.  It tries using the following
+      libraries in this order to build a test executable:
+
+      -lncurses
+      -lcurses
+      -ltermcap
+      no additional libraries
+
+      The reason it tries other libraries first is that some systems
+      will link successfully, but only fail when an attempt is made to
+      actually call readline.  Therefore, we assume that additional
+      libraries are required.  Since we try the extra libraries in
+      order from most recent to oldest, we expect that the first one
+      we find will be appropriate.  For example, if the "ncurses"
+      library is the standard on a given system, the "termcap" library
+      may be provided for back compatibility, but it is unlikely that
+      "termcap" will be the standard with "curses" or "ncurses" being
+      provided for compatibility only (so that the link will succeed
+      but the command will use the incorrect library).
+
+      As this procedure is not failsafe, we provide the following
+      configure options to control this behavior:
+
+      ./configure --with-readline=yes  (the default; attempts to
+				       determine the correct library
+				       to link against)
+
+      ./configure --with-readline=no   (turns off use of readline
+				       altogether)
+
+      ./configure --with-readline=only (specifically instructs
+				       configure to not attempt to
+				       link against any other
+				       libraries)
+
+      ./configure --with-readline=libs (specifies the libraries to be
+				       linked against)
+
+      An hypothetical (this won't work anywhere!) example of the
+      latter would be
+
+      ./configure --with-readline='-lncurses -ltermcap'
+
+      Note that configure will not allow readline to be used if it
+      cannot successfully build the test program, regardless of the
+      option selected.  If you are having difficulty getting escputil
+      to build, we suggest using --with-readline=no.  The commands
+      used within escputil are very short and seldom require
+      significant editing.
+
+    * There is a known translation problem building the PPD files used
+      by the CUPS driver such that on many systems all of the PPD
+      files are in the English language.  This causes CUPS tools, such
+      as KUPS or http://localhost:631 to display many copies of each
+      PPD file, all in the English (en) language.  In fact, the PPD
+      files should be translated into Swedish, Polish, Norwegian,
+      French, Danish, Spanish, Slovakian, Greek, British English,
+      Dutch, German, and Portuguese.  With CUPS 1.1.10 and lower,
+      there should be two copies of the (en) PPD file, and one copy
+      each of (sv), (no), (fr), (pl), (da), (sk), (el), (es), (nl),
+      (de), and (pt).  With CUPS 1.1.11 and above, there should be
+      (en), (en_GB), (sv), (no), (fr), (pl), (da), (sk), (el), (es),
+      (nl), (de), and (pt) PPD files.
+
+      The PPD files are created by a program named "genppd" in the
+      src/cups directory.  This program is called once for each
+      language, and creates all of the PPD files for the language in
+      one shot.
+
+      The command 'zgrep' can be used to determine if genppd is
+      creating the PPD files correctly, as follows:
+
+	  src/cups$ zgrep LanguageVersion ppd/*/pcl-4.ppd.gz
+	  ppd/C/pcl-4.ppd.gz:*LanguageVersion: English
+	  ppd/da/pcl-4.ppd.gz:*LanguageVersion: Danish
+	  ppd/en_GB/pcl-4.ppd.gz:*LanguageVersion: English-GB
+	  ...
+
+      If the PPD file for each language has a different language
+      version, the genppd program operated correctly.  If instead the
+      output looks like this:
+
+	  src/cups$ zgrep LanguageVersion ppd/*/pcl-4.ppd.gz
+	  ppd/C/pcl-4.ppd.gz:*LanguageVersion: English
+	  ppd/da/pcl-4.ppd.gz:*LanguageVersion: English
+	  ppd/en_GB/pcl-4.ppd.gz:*LanguageVersion: English
+	  ...
+
+      the program did not operate correctly.
+
+      If you do not have 'zgrep' on your system, you can gunzip the
+      PPD files, and use
+
+	  grep LanguageVersion ppd/*/pcl-4.ppd
+
+      to accomplish the same test.
+
+      The normal mechanism for performing translations is to set the
+      LANG environment variable to the appropriate language prior to
+      running the program.  This normally causes the program to search
+      the translations (normally in /usr/share/locale or
+      /usr/lib/locale) for the chosen language.  When a specially
+      marked string is used, a special macro calls `gettext()' on the
+      string to retrieve the translation, and substitutes the
+      translation for the string in question.
+
+      There are two problems with this approach in the context of
+      genppd.  The translation engine is intended to be used after
+      installation, not during build, and this causes problems.
+
+      1) At the time genppd is run, the translations have not been
+         installed in the normal system directories.  Fortunately,
+         it's possible to tell the translation machinery (via
+         bindtextdomain) to look elsewhere for the translation
+         catalogs.  What we do is install the catalogs in a temporary
+         directory under src/cups, and tell genppd to instruct the
+         translation machinery to look there.  This workaround is
+         straightforward, and doesn't normally cause problems.
+
+      2) LANG only lets us pick a valid locale (normally determined by
+         listing the directories in /usr/share/locale or
+         /usr/lib/locale).  Unfortunately, while language codes (which
+         form the base of locales) are standard, the actual locale
+         names aren't always.  On some systems, the locale names are
+         just the language base names; on others, they are the
+         language names concatenated with country codes (e. g. en_US),
+         while on others they are language codes concatenated with
+         character sets.  We are not aware of any workaround for this,
+         possibly short of actually running make install and then
+         rebuilding the PPD's.  'make install' will install the
+         message catalogs, and that may create the necessary locale
+         directories.  This is not exactly a very elegant approach.
+
+      The GNU gettext library (libintl.a) provides another environment
+      variable, LANGUAGE, which unconditionally looks up translations
+      according to the language, ignoring LANG and the LC_*
+      environment variables that are normally used for translation.
+      This library is included with the Gimp-Print tarball, but it is
+      not used unless --with-included-gettext is specified on the
+      configure command line.  This is because many systems provide
+      translation machinery in their standard libraries, and it may
+      not always be best to use foreign libraries to replace standard
+      system functionality.
+
+      We have chosen to use LANGUAGE for this purpose, as the GNU
+      gettext library appears to offer the most reliable translation,
+      and LANGUAGE appears to offer the most reliable mechanism.  We
+      have actually found that LANG and LC_* can interfere with
+      LANGUAGE, thus we do not use both.
+
+      To determine if the translations are working, you must actually
+      inspect the PPD files.  You will need to
+
+      cd src/cups/ppd/sv
+      gunzip *
+      more *
+
+      or the like to determine if this is successful.  In particular,
+      look for LanguageVersion, and make sure that it is correct (it
+      should be "Swedish" in the sv directory, for example), and also
+      make sure that the paper sizes are also translated.  We
+      currently suggest using the Swedish translation for this purpose
+      as it is the most complete.
+
+      If packagers find that the PPD files are all in English, rather
+      than translated into the appropriate languages, we suggest the
+      following:
+
+      1) Use --with-included-gettext to use the GNU gettext.  If your
+         system is not based on GNU libc (Linux usually is based on
+         GNU libc; BSD, Solaris, IRIX, etc. are not), you will need
+         this option to have any possibility of creating the
+         translated PPD files.
+
+      2) Run 'make install' to install the package (including the
+         message catalogs) onto the system first, and then do the
+         following:
+
+	 cd src/cups
+	 rm ppd-stamp
+	 make
+
+	 to rebuild the PPD files.  Having the message catalogs on the
+	 system may permit this to succeed.
+
+      3) Ensure that your system actually has locales named 'sv',
+         'pl', and all of the other supported languages, and change
+         LANGUAGE to something more appropriate (most likely LANG,
+         LC_MESSAGES, or LC_ALL).
+
+      4) Build the PPD files on a Linux-based system; they are
+         portable.
+
+      5) Use --without-translated-ppds on the configure command line
+         to suppress the translated PPD files altogether.
+
+      Please feel free to contact us about this issue.
+
+
+PACKAGING
+
+    We recommend that packagers and distributors of Gimp-print use the
+    following settings to build the package:
+
+    --with-foomatic
+    --with-ijs  (distros with GhostScript 6.53 or newer)
+    --with-user-guide
+    --with-samples
+    --with-escputil
+
+    We suggest the following packaging:
+
+    * A gimp-print core package should contain the following.  You may
+      wish to install the user's guide only in certain formats.
+
+      /usr/lib/libgimpprint.so.1.0 (the core shared library)
+      /usr/bin/escputil (Epson Stylus utility)
+      /usr/bin/ijsgimpprint (GIMP-Print IJS plug-in driver)
+      /usr/share/gimp-print/doc/html (HTML documentation)
+      /usr/share/gimp-print/doc/users-guide.pdf
+      /usr/share/gimp-print/doc/users-guide.ps
+      /usr/share/locale/*/LC_MESSAGES/gimp-print.mo
+
+    * A gimp-print-devel package (for developers) should contain the
+      following.  Again, you may wish to install the programmer's
+      manual only in certain formats.
+
+      /usr/include/gimp-print
+      /usr/bin/gimpprint-config
+      /usr/share/gimp-print/doc/manual-html
+      /usr/share/gimp-print/doc/gimpprint.ps
+      /usr/share/aclocal/gimpprint.m4
+      /usr/lib/libgimpprint.a
+      /usr/lib/libgimpprint.so
+
+      You may wish to include the test pattern generator source and
+      the sample test pattern in this package, and you may wish to
+      include test patterns of your own.  You may also wish to include
+      the various unprint programs and the parse-* scripts from the
+      test directory, although these are typically of more use to
+      developers of the Gimp-Print package per se than developers of
+      applications layered on Gimp-Print.  However, the test programs
+      have received less testing than the others, and are known to
+      have some limitations that are not documented.
+
+    * A gimp-print-extras package should contain
+
+      /usr/share/gimp-print/samples
+
+      You may wish to include the test pattern generator and the
+      sample test pattern from src/testpattern if you don't include it
+      in the developer package; test/unprint; test/pcl-unprint;
+      test/bjc-unprint; test/parse-escp2; and test/parse-bjc in this
+      package.
+
+    * Ghostscript should be built with the stp driver using either the
+      "new" instructions (requiring only gdevstp.c, and linking
+      dynamically against libgimpprint) for Ghostscript 6.52 or
+      earlier, or the IJS driver for Ghostscript 6.53 or newer.  This
+      will allow Ghostscript to operate with future 4.2 upgrade
+      releases without requiring recompilation.
+
+    * CUPS packages should include the Gimp-print PPD's in
+      /usr/share/cups/model, and the following utilities:
+
+      + "epson" and "canon" belong in /usr/lib/cups/backend.
+
+      + "rastertoprinter", "commandtoepson", and "commandtocanon" belong
+	in /usr/lib/cups/filter.
+
+      + "cups-calibrate" belongs in /usr/bin.
+
+      + "command.types" belongs in /etc/cups.
+
+      + "calibrate.ppm" belongs in /usr/share/cups.
+
+      The PPD's packaged with Gimp-print are rather bulky, about 1 MB
+      for each language installed.  At present, twelve language
+      translations are installed, in addition to the US English
+      defaults: GB English, Swedish, Danish, Norwegian, French,
+      Polish, Slovakian, Greek, Spanish, Dutch, German, and
+      Portuguese.  You may wish to install these selectively.
+
+      Please see KNOWN BUILD ISSUES above for more discussion about
+      build issues related to the PPD files.
+
+    * A gimp-print-foomatic package, containing the
+      src/foomatic/foomatic-db/gimp-print*/ directories, should be 
+      provided to allow people who wish to use foomatic to install the
+      corresponding data files. The packaging should arrange to call
+      "foomatic-kitload" (or the equivalent) on this tree when it is
+      installed.
+
+    * We recommend that you replace the Print plugin bundled with the
+      Gimp (any 1.2 version) with the Gimp Print plugin in this
+      distribution.  There are various ways to do this; you can run
+      'make gimp-dist' from top level and untar the resulting tarball
+      into the Gimp source directory prior to building the Gimp, or
+      you can install the plugin (src/gimp/print) over an existing
+      Gimp Print plugin.  The plugin in the Gimp 1.2 tree is based on
+      the older Gimp-Print 4.0 source base; 4.2 supports more printers
+      with better quality, and has more features than 4.0.
+
+      We are working with the GIMP development team to replace the
+      current Print plugin (which contains the entire source required
+      to build the driver) with a smaller base containing just the
+      plugin itself.  This will allow compatibility with at least all
+      4.2-based releases of Gimp-Print, allowing upgrading the plugin
+      by simply upgrading the libgimpprint library.
+
+    * Please read the release notes carefully!
+
+    * Distributors (UNIX vendors and Linux distributors) should
+      subscribe to the gimp-print-devel@sourceforge.net mailing list
+      to monitor development activities.  When reporting a problem
+      related to building the package for distribution, please
+      identify yourself as such.  The Gimp-Print package is primarily
+      an infrastructure package, rather than an end-user application,
+      and as such we particularly want to fix any problems that
+      interfere with building and distribution of this package on any
+      POSIX-compliant operating system.
+
+
+DEBIAN
+
+    The Debian packaging has been rewritten from scratch in 4.2.  It
+    is compliant with Standards-Version 3.5.6.0, and is lintian-clean.
+    It should build from source on woody and sid, but will not build
+    on potato.  There are seven separate packages:
+
+    gimp1.2-print	    The GIMP Print plugin. Also contains HTML
+			    and SGML documentation that is registered
+			    with doc-base.
+    cupsys-driver-gimpprint The CUPS driver and PPD files.
+    foomatic-db-gimpprint   Foomatic data files for gimp-print drivers.
+    ijsgimpprint	    Ghostscript IJS server.
+    libgimpprint1	    The libgimpprint library (GIMP-Print core).
+    libgimpprint-dev	    Headers, symlinks, m4 macro
+			    (AM_PATH_GIMPPRINT) and gimpprint-config
+			    needed to develop programs that link with
+			    libgimpprint.
+    gimpprint-doc	    User's Guide in HTML and PDF format
+    libgimpprint-doc	    Programmer's Guide in Info, DVI and HTML
+			    format.
+    gimpprint-locales	    Message catalogues for internationalisation.
+    escputil		    The escputil printer tool for Epson printers.
+
+    The library symlinks will get packaged without any modification needed
+    to the debian packaging whatever library versioning scheme is
+    used.  Most packages depend on libgimpprint as this will provide
+    translations for i18n in the future that they will use, or they
+    require libgimpprint anyway.
+
+    The newer Debian gs packages (>= 5.50) are linked with libgimpprint, so
+    you need not do any patching!  However, if you compile a newer version
+    of libgimpprint, the newer version will be used by ghostscript.
+
+
+USE OF THE CVS REPOSITORY
+
+    Please read doc/README.maintaining for instructions on how to
+    build from the CVS repository.

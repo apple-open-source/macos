@@ -1,6 +1,6 @@
 .\" Copyright (c) 2000, Apple Computer, Inc.  All rights reserved.
 .\"
-.Dd March 28, 2000
+.Dd October 28, 2002
 .Dt SC_USAGE 1
 .Os "Mac OS X"
 .Sh NAME
@@ -12,12 +12,17 @@
 .Op Fl e
 .Op Fl l
 .Op Fl s Ar interval
-pid | cmd | -E execute
+pid | cmd | 
+.Fl E
+execute
 .Sh DESCRIPTION
 .Nm sc_usage
-displays an ongoing sample of system call and
-page fault usage statistics for a given process,
-in a 'top' like fashion.
+displays an ongoing sample of system call and page fault usage statistics for
+a given process in a
+.Dq Li top-like
+fashion.
+It requires root privileges due to the kernel tracing facility it uses to
+operate.
 .Pp
 Page faults can be of the following types:
 .Bl -tag -width CACHEHITTT -compact
@@ -39,9 +44,9 @@ When the
 option is specified, it expects a path to a 
 .Ar codefile 
 that
-contains the mappings for the system calls.  This option
-overrides the default location of the system call codefile
-which is found in /usr/share/misc/trace.codes.
+contains the mappings for the system calls.
+This option overrides the default location of the system call codefile which
+is found in /usr/share/misc/trace.codes.
 .It Fl e
 Specifying the
 .Fl e
@@ -52,27 +57,27 @@ The
 .Fl l
 option causes
 .Nm sc_usage
-to turn off it's continuous window updating style of
-output and instead output as a continuous scrolling
-of data.
+to turn off its continuous window updating style of output and instead output
+as a continuous scrolling of data.
 .It Fl s
 By default,
 .Nm sc_usage
-updates its output at one second intervals. This sampling
-interval may be changed by specifying the
+updates its output at one second intervals.
+This sampling interval may be changed by specifying the
 .Fl s
-option.  Enter the
+option.
+Enter the
 .Ar interval
 in seconds.
-.It  pid | cmd | -E execute
-The last argument must be a process id, a running command
-name, or using the -E option, an execution path followed
-by optional arguments.
-The system call usage data for the process or command
-is displayed.
-If the -E flag is used, sc_usage will launch the executable,
-pass along any optional arguments and display system call
-usage date for that executable.
+.It pid | cmd | -E execute
+The last argument must be a process id, a running command name, or using the
+.Fl E
+option, an execution path followed by optional arguments.
+The system call usage data for the process or command is displayed.
+If the
+.Fl E
+flag is used, sc_usage will launch the executable, pass along any optional
+arguments and display system call usage date for that executable.
 .El
 .Pp
 The data columns displayed are as follows:
@@ -102,24 +107,27 @@ current scheduling priority
 The
 .Nm sc_usage
 command also displays some global state in the first few lines of output,
-including the number of preemptions, context switches, threads, faults
-and system calls, found during the sampling period.  The current time
-and the elapsed time that the command has been running is also
+including the number of preemptions, context switches, threads, faults and
+system calls, found during the sampling period.
+The current time and the elapsed time that the command has been running is also
 displayed here.
 The
 .Nm sc_usage
 command is also SIGWINCH savvy, so adjusting your window geometry may change
-the list of system calls being displayed.  Typing a 'q' will cause sc_usage to
-exit immediately.  Typing any other character will cause sc_usage to reset its
-counters and the display.
+the list of system calls being displayed.
+Typing a
+.Sq Li q
+will cause sc_usage to exit immediately.
+Typing any other character will cause sc_usage to reset its counters and the
+display.
 .Sh SAMPLE USAGE
 .Pp
 sc_usage Finder -e -s2
 .Pp
 .Nm sc_usage
-will sort the Finder process usage data according to system call count
-and update the output at 2 second intervals.
+will sort the Finder process usage data according to system call count and
+update the output at 2 second intervals.
 .Sh SEE ALSO
+.Xr fs_usage 1 ,
+.Xr latency 1 ,
 .Xr top 1
-.Xr fs_usage 1
-.Xr latency 1

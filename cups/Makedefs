@@ -1,9 +1,9 @@
 #
-# "$Id: Makedefs,v 1.20 2002/06/10 23:47:22 jlovell Exp $"
+# "$Id: Makedefs,v 1.32 2003/07/23 23:14:44 jlovell Exp $"
 #
 #   Common makefile definitions for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+#   Copyright 1997-2003 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
 #   property of Easy Software Products and are protected by Federal
@@ -26,22 +26,22 @@
 # Programs...
 #
 
-AR	=	/usr/bin/ar
-AWK	=	awk
-CC	=	 gcc
-CXX	=	 gcc
-DSO	=	$(CC)
-HTMLDOC	=	
-INSTALL	=	/usr/bin/install -c
-LIBTOOL	=	
-LN	=	/bin/ln -sf
-MV	=	/bin/mv
-NROFF	=	/usr/bin/nroff
-RANLIB	=	ranlib
-RM	=	/bin/rm -f
-SED	=	/usr/bin/sed
-SHELL	=	/bin/sh
-STRIP	=	/usr/bin/strip
+AR		=	/usr/bin/ar
+AWK		=	awk
+CC		=	 gcc
+CXX		=	 gcc
+DSO		=	$(CC)
+HTMLDOC		=	
+INSTALL		=	/usr/bin/install -c
+LIBTOOL		=	
+LN		=	/bin/ln -sf
+MV		=	/bin/mv
+NROFF		=	/usr/bin/nroff
+RANLIB		=	ranlib
+RM		=	/bin/rm -f
+SED		=	/usr/bin/sed
+SHELL		=	/bin/sh
+STRIP		=	/usr/bin/strip
 
 #
 # Installation programs...
@@ -58,21 +58,22 @@ INSTALL_SCRIPT	=	$(INSTALL) -m 755
 # Default user and group for the scheduler...
 #
 
-CUPS_USER	=	daemon
-CUPS_GROUP	=	admin
+CUPS_USER	=	lp
+CUPS_GROUP	=	lp
 
 #
 # Libraries...
 #
 
-LIBCUPS	=	libcups.2.dylib
-LIBCUPSIMAGE =	libcupsimage.2.dylib
-LIBJPEG	=	
-LIBMALLOC =	
-LIBPNG	=	
-LIBSLP	=	
-LIBTIFF	=	
-LIBZ	=	-lz
+LIBCUPS		=	libcups.2.dylib
+LIBCUPSIMAGE	=	libcupsimage.2.dylib
+LIBJPEG		=	
+LIBMALLOC	=	
+LIBPAPER	=	
+LIBPNG		=	
+LIBSLP		=	
+LIBTIFF		=	
+LIBZ		=	-lz
 
 #
 # Program options...
@@ -82,22 +83,24 @@ LIBZ	=	-lz
 #         extra debug info)
 #
 
-ARFLAGS	=	-rcv
-CFLAGS	=	$(RC_CFLAGS)  -I.. $(OPTIONS)
-CXXFLAGS =	$(RC_CFLAGS)  -I.. $(OPTIONS)
-CXXLIBS	=	-lsupc++
-DSOFLAGS =	 $(RC_CFLAGS) -dynamiclib -lc
-DSOLIBS	=	$(LIBPNG) $(LIBTIFF) $(LIBJPEG) $(LIBZ)
-IMGLIBS	=	 -lm
-LDFLAGS	=	-L../cups -L../filter  $(OPTIM)
-LINKCUPS =	-lcups
-LINKCUPSIMAGE =	-lcupsimage
-LIBS	=	$(LINKCUPS) $(NETLIBS) 
-NETLIBS	=	
-OPTIM	=	-fPIC -Os -g 
-OPTIONS	=
-PAMLIBS	=	
-SSLLIBS	=	-lssl -lcrypto
+ARFLAGS		=	-rcv
+BACKLIBS	=	-framework IOKit
+CFLAGS		=	$(RC_CFLAGS)   -I.. $(OPTIONS)
+COMMONLIBS	=	-framework CoreFoundation
+CXXFLAGS	=	$(RC_CFLAGS)   -I.. $(OPTIONS)
+CXXLIBS		=	-lsupc++
+DSOFLAGS	=	 $(RC_CFLAGS) -dynamiclib -lc
+DSOLIBS		=	$(LIBPNG) $(LIBTIFF) $(LIBJPEG) $(LIBZ) $(COMMONLIBS)
+IMGLIBS		=	 -lm
+LDFLAGS		=	-L../cups -L../filter $(RC_CFLAGS)  $(OPTIM)
+LINKCUPS	=	-lcups
+LINKCUPSIMAGE	=	-lcupsimage
+LIBS		=	$(LINKCUPS) $(NETLIBS)  $(COMMONLIBS)
+NETLIBS		=	
+OPTIM		=	-fPIC -Os -g 
+OPTIONS		=
+PAMLIBS		=	
+SSLLIBS		=	-lssl -lcrypto
 
 #
 # Directories...
@@ -116,7 +119,7 @@ datadir		=	/usr/share
 exec_prefix	=	/usr
 includedir	=	/usr/include
 infodir		=	${prefix}/info
-libdir		=	${exec_prefix}/lib
+libdir		=	/usr/lib
 libexecdir	=	${exec_prefix}/libexec
 localstatedir	=	/private/var
 mandir		=	/usr/share/man
@@ -173,11 +176,12 @@ MAN8DIR		=	8
 	-$(NROFF) -man $< >$@
 .man.z:
 	echo Formatting $<...
-	$(RM) $@ t.z
-	-$(NROFF) -man $< >t
-	pack -f t
-	$(MV) t.z $@
+	$(RM) $@ $@.tmp $@.tmp.z
+	-$(NROFF) -man $< >$@.tmp
+	pack -f $@.tmp
+	$(MV) $@.tmp.z $@
+
 
 #
-# End of "$Id: Makedefs,v 1.20 2002/06/10 23:47:22 jlovell Exp $"
+# End of "$Id: Makedefs,v 1.32 2003/07/23 23:14:44 jlovell Exp $"
 #

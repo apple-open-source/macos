@@ -16,10 +16,10 @@
 
 #ifndef lint
 static const char rcsid[] =
-     "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/strcasecmp.c,v 1.1.1.1 2001/07/07 00:50:54 bbraun Exp $";
+     "@(#) $Header: /cvs/root/tcpdump/tcpdump/strcasecmp.c,v 1.1.1.2 2003/03/17 18:42:20 rbraun Exp $";
 #endif
 
-#include <sys/types.h>
+#include <tcpdump-stdinc.h>
 
 #include "interface.h"
 

@@ -3,6 +3,6 @@
 <plist version="1.0">
 <dict>
 	<key>PBXProjectSourcePath</key>
-	<string>/Volumes/Home/Latest/Smeagol/IOUSBFamily-200/IOUSBFamily.pbproj</string>
+	<string>/var/tmp/IOUSBFamily/IOUSBFamily.pbproj</string>
 </dict>
 </plist>

@@ -1,0 +1,61 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+  <head>
+    <!--
+
+    JBoss, the OpenSource J2EE webOS
+
+    This library is free software; you can redistribute it and/or modify it   
+    under the terms of the GNU Lesser General Public License as published     
+    by the Free Software Foundation; either version 2 of the License, or      
+    (at your option) any later version.                                       
+                                                                              
+    This library is distributed in the hope that it will be useful, but       
+    WITHOUT ANY WARRANTY; without even the implied warranty of                
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU         
+    Lesser General Public License for more details.                           
+
+    -->
+    <!-- $Id: package.html,v 1.1 2001/12/21 01:39:37 ejort Exp $ -->
+  </head>
+
+  <body bgcolor="white">
+    <p><em>The JBossMX monitor services</em>.
+
+    <h2>Package Specification</h2>
+    <ul>
+      <li>The monitor services allow notifications to be sent when
+          attribute values change. The notification is NOT done in
+          real time, rather the value is polled at regular intervals.
+          Notifications are also sent when the monitoring cannot be
+          performed for various reasons.
+      </li>
+      <li>The monitor services are registered as separate MBeans for
+          each attribute. Any number of notification listeners can be
+          added to these services, to perform the required operations.
+      </li>
+      <li>The <i>CounterMonitor</i> is used for "integer" attributes that 
+          only increase, except for modulus behaviour (e.g. a 24 hour clock).
+      </li>
+      <li>The <i>GaugeMonitor</i> is used for numeric attributes that can
+          both increase and decrease.
+      </li>
+      <li>The <i>StringMonitor</i> is used for any attribute to check for
+          a matching or differing value.
+      </li>
+    </ul>
+      
+    <h2>Related Documentation</h2>
+    <ul>
+      <li>TODO: get the link for the JMX specification.
+    </ul>
+
+    <h2>Package Status</h2>
+    <ul>
+      <li><font color="red"><b>ALPHA</b></font>
+    </ul>
+
+    <!-- Put @see and @since tags down here. -->
+
+  </body>
+</html>

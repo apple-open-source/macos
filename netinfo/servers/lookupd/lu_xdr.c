@@ -267,6 +267,7 @@ lu_xdr_string(lu_xdr_t *x, char **s)
 		return 0;
 	}
 
+	if (*s == NULL) return -1;
 	len = strlen(*s) + 1;
 
 	return lu_xdr_buffer(x, s, &len);

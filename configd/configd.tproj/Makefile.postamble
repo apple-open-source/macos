@@ -64,6 +64,7 @@
 #	the include path (defaults to -I.)
 #    DEBUG_BUILD_LDFLAGS, OPTIMIZE_BUILD_LDFLAGS, PROFILE_BUILD_LDFLAGS: flags
 #	passed to ld/libtool (defaults to nothing)
+WARNING_CFLAGS=-Wall
 
 
 # Library and Framework projects only:
@@ -98,4 +99,8 @@
 # owned by the top-level Makefile API and no context has been set up for where
 # derived files should go.
 #
+MACH_INIT_DIR = /private/etc/mach_init.d
+install_extra:
+	$(MKDIRS) $(DSTROOT)$(MACH_INIT_DIR)
+	install -c -m 644 configd.plist $(DSTROOT)$(MACH_INIT_DIR)/configd.plist
 

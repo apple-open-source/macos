@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +21,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 
 #include <IOKit/IOBufferMemoryDescriptor.h>
 
@@ -48,4 +48,3 @@ public:
     IOPhysicalAddress				GetPhysicalPtr(UInt32 index);
     EHCIIsochTransferDescriptorSharedPtr	GetLogicalPtr(UInt32 index);
     
-};

@@ -1,0 +1,109 @@
+From VM Tue Dec 26 22:41:02 2000
+Return-Path: <python-list-admin@python.org>
+Received: from ns2.digicool.com ([216.164.72.2] verified)
+  by digicool.com (CommuniGate Pro SMTP 3.3.1)
+  with ESMTP id 400019 for xxxxx@mail.digicool.com; Tue, 26 Dec 2000 18:02:35 -0500
+Received: from mail.python.org (starship.python.net [63.102.49.30])
+	by ns2.digicool.com (8.9.3/8.9.3) with ESMTP id SAA02602
+	for <xxxxx@digicool.com>; Tue, 26 Dec 2000 18:02:28 -0500
+Received: from ns1.zope.org (localhost.localdomain [127.0.0.1])
+	by mail.python.org (Postfix) with ESMTP id 9D20DE71C
+	for <xxxxx@digicool.com>; Tue, 26 Dec 2000 12:47:01 -0500 (EST)
+Delivered-To: mm+python-list-admin@python.org
+Received: from mail1.microsoft.com (mail1.microsoft.com [131.107.3.125])
+	by mail.python.org (Postfix) with SMTP id 23085E950
+	for <python-list-admin@python.org>; Tue, 26 Dec 2000 12:46:03 -0500 (EST)
+Received: from 157.54.9.101 by mail1.microsoft.com (InterScan E-Mail VirusWall NT); Tue, 26 Dec 2000 09:43:37 -0800 (Pacific Standard Time)
+Received: from inet-imc-01.redmond.corp.microsoft.com ([157.54.9.101]) by inet-imc-01.redmond.corp.microsoft.com with Microsoft SMTPSVC(5.0.2195.1600);
+	 Tue, 26 Dec 2000 09:44:45 -0800
+Received: from mail1.microsoft.com ([157.54.7.20]) by inet-imc-01.redmond.corp.microsoft.com with Microsoft SMTPSVC(5.0.2195.1600);
+	 Tue, 26 Dec 2000 09:44:44 -0800
+MIME-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------InterScan_NT_MIME_Boundary"
+Message-ID: <INET-IMC-01r6j6TKAB0000313a@inet-imc-01.redmond.corp.microsoft.com>
+Errors-To: python-list-owner@python.org
+Precedence: bulk
+List-Help: <mailto:python-list-request@python.org?subject=help>
+List-Post: <mailto:python-list@python.org>
+List-Subscribe: <http://www.python.org/mailman/listinfo/python-list>,
+	<mailto:python-list-request@python.org?subject=subscribe>
+List-Id: General discussion list for the Python programming language <python-list.python.org>
+List-Unsubscribe: <http://www.python.org/mailman/listinfo/python-list>,
+	<mailto:python-list-request@python.org?subject=unsubscribe>
+List-Archive: <http://www.python.org/pipermail/python-list/>
+From: inetgw1@microsoft.com
+Sender: python-list-owner@python.org
+To: <python-list-admin@python.org>
+Subject: Mail could not be delivered
+Date: 26 Dec 2000 09:44:44 -0800
+X-OriginalArrivalTime: 26 Dec 2000 17:44:44.0596 (UTC) FILETIME=[8852FF40:01C06F63]
+X-BeenThere: python-list@python.org
+X-Mailman-Version: 2.0
+
+
+--------------InterScan_NT_MIME_Boundary
+Content-type: text/plain
+
+****** Message from InterScan E-Mail VirusWall NT ******
+
+The following mail could not be delivered.
+Reason:  Exceeded Maximum Delivery Attempts.  Verify that the recipient address is correct.
+
+*****************     End of message     ***************
+
+--------------InterScan_NT_MIME_Boundary
+Content-type: message/rfc822
+
+Received: from 63.102.49.30 by mail1.microsoft.com (InterScan E-Mail VirusWall NT); Mon, 25 Dec 2000 08:40:09 -0800 (Pacific Standard Time)
+Received: from ns1.zope.org (localhost.localdomain [127.0.0.1])
+	by mail.python.org (Postfix) with ESMTP
+	id 80C4BE86C; Mon, 25 Dec 2000 11:41:09 -0500 (EST)
+Path: news.baymountain.net!uunet!ash.uu.net!news.netins.net!news-spur1.maxwell.syr.edu!news.maxwell.syr.edu!howland.erols.net!panix!news.panix.com!panix2.panix.com!not-for-mail
+From: aahz@panix.com (Aahz Maruch)
+Newsgroups: comp.lang.python
+Subject: Season's greetings (was Re: Some Python 2.1 ideas)
+Organization: The Cat & Dragon
+Lines: 13
+Message-ID: <927suu$r5l$1@panix2.panix.com>
+References: <925tl301ub0@news1.newsguy.com> <mailman.977688488.25438.python-list@python.org> <20001225150250.6FA06A84F@darjeeling.zadka.site.co.il> <mailman.977760789.10224.python-list@python.org>
+NNTP-Posting-Host: panix2.panix.com
+X-Trace: news.panix.com 977762079 17648 166.84.0.227 (25 Dec 2000 16:34:39 GMT)
+X-Complaints-To: abuse@panix.com
+NNTP-Posting-Date: 25 Dec 2000 16:34:39 GMT
+Xref: news.baymountain.net comp.lang.python:81985
+To: python-list@python.org
+Sender: python-list-admin@python.org
+Errors-To: python-list-admin@python.org
+X-BeenThere: python-list@python.org
+X-Mailman-Version: 2.0
+Precedence: bulk
+List-Help: <mailto:python-list-request@python.org?subject=help>
+List-Post: <mailto:python-list@python.org>
+List-Subscribe: <http://www.python.org/mailman/listinfo/python-list>,
+	<mailto:python-list-request@python.org?subject=subscribe>
+List-Id: General discussion list for the Python programming language <python-list.python.org>
+List-Unsubscribe: <http://www.python.org/mailman/listinfo/python-list>,
+	<mailto:python-list-request@python.org?subject=unsubscribe>
+List-Archive: <http://www.python.org/pipermail/python-list/>
+Date: 25 Dec 2000 08:34:38 -0800
+
+In article <mailman.977760789.10224.python-list@python.org>,
+Bob Alexander <bobalex@home.com> wrote:
+>
+>P.S. Merry Christmas!
+
+Bah, humbug.
+-- 
+                      --- Aahz (Copyright 2000 by aahz@pobox.com)
+
+Androgynous poly kinky vanilla queer het    <*>     http://www.rahul.net/aahz/
+Hugs and backrubs -- I break Rule 6
+
+'"Crisp" is a good quality for crackers; less so for pot roast.'  --pnh
+-- 
+http://www.python.org/mailman/listinfo/python-list
+
+--------------InterScan_NT_MIME_Boundary--
+
+

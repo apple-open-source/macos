@@ -1,4 +1,4 @@
-/*	$KAME: gcmalloc.h,v 1.3 2001/04/04 22:23:05 thorpej Exp $	*/
+/*	$KAME: gcmalloc.h,v 1.4 2001/11/16 04:34:57 sakane Exp $	*/
 
 /*
  * Copyright (C) 2000, 2001 WIDE Project.

@@ -3,6 +3,8 @@
 
 #ifdef PHP_WIN32
 #include "config.w32.h"
+#elif defined(NETWARE)
+#include "config.nw.h"
 #else
 #include "php_config.h"
 #endif
@@ -92,6 +94,7 @@
 #define XML_UseParserAsHandlerArg php_XML_UseParserAsHandlerArg
 #define XmlUtf16Encode php_XmlUtf16Encode
 #define XmlUtf8Encode php_XmlUtf8Encode
+#define XML_CONTEXT_BYTES 1024
 #endif
 
 #endif

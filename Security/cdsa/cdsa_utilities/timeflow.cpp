@@ -45,6 +45,9 @@ Absolute now()
 Absolute::Absolute(const struct timeval &tv)
 { mValue = tv.tv_sec + double(tv.tv_usec) / 1E6; }
 
+Absolute::Absolute(const struct timespec &tv)
+{ mValue = tv.tv_sec + double(tv.tv_nsec) / 1E9; }
+
 Absolute::operator struct timeval () const
 {
     struct timeval tv;
@@ -54,9 +57,23 @@ Absolute::operator struct timeval () const
     } else {
         tv.tv_sec = int32_t(mValue);
         double intPart;
-        tv.tv_usec = int32_t(modf(mValue, &intPart));
+        tv.tv_usec = int32_t(modf(mValue, &intPart) * 1E6);
     }
     return tv;
+}
+
+Absolute::operator struct timespec () const
+{
+    struct timespec ts;
+    if (mValue > LONG_MAX) {
+        ts.tv_sec = LONG_MAX;
+        ts.tv_nsec = 0;
+    } else {
+        ts.tv_sec = time_t(mValue);
+        double intPart;
+        ts.tv_nsec = int32_t(modf(mValue, &intPart) * 1E9);
+    }
+    return ts;
 }
 
 struct timeval Interval::timevalInterval() const
@@ -70,7 +87,7 @@ struct timeval Interval::timevalInterval() const
     } else {
         tv.tv_sec = int32_t(mValue);
         double intPart;
-        tv.tv_usec = int32_t(modf(mValue, &intPart));
+        tv.tv_usec = int32_t(modf(mValue, &intPart) * 1E6);
     }
     return tv;
 }

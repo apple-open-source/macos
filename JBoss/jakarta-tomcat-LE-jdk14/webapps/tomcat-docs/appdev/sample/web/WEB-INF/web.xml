@@ -1,0 +1,23 @@
+<!DOCTYPE web-app 
+    PUBLIC "-//Sun Microsystems, Inc.//DTD Web Application 2.3//EN" 
+    "http://java.sun.com/dtd/web-app_2_3.dtd">
+
+<web-app>
+
+    <display-name>Hello, World Application</display-name>
+    <description>
+	This is a simple web application with a source code organization
+	based on the recommendations of the Application Developer's Guide.
+    </description>
+
+    <servlet>
+        <servlet-name>HelloServlet</servlet-name>
+        <servlet-class>mypackage.Hello</servlet-class>
+    </servlet>
+
+    <servlet-mapping>
+        <servlet-name>HelloServlet</servlet-name>
+        <url-pattern>/hello</url-pattern>
+    </servlet-mapping>
+
+</web-app>

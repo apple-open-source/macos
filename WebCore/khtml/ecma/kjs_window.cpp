@@ -451,10 +451,7 @@ Value Window::get(ExecState *exec, const Identifier &p) const
     case Length:
       return Number(m_part->frames().count());
     case _Location:
-      if (isSafeScript(exec))
-        return Value(location());
-      else
-        return Undefined();
+      return Value(location());
     case Name:
       return String(m_part->name());
     case _Navigator:
@@ -953,38 +950,37 @@ bool Window::isSafeScript(ExecState *exec) const
     return true;
   }
 
-  DOM::HTMLDocument thisDocument = m_part->htmlDocument();
-#if !APPLE_CHANGES
-  if ( thisDocument.isNull() ) {
-    kdDebug(6070) << "Window::isSafeScript: trying to access an XML document !?" << endl;
-    return false;
-  }
-#else
   // JS may be attempting to access the "window" object, which should be valid,
   // even if the document hasn't been constructed yet.  If the document doesn't
   // exist yet allow JS to access the window object.
-  if (thisDocument.isNull())
-    return true;
-#endif
+  if (!m_part->xmlDocImpl())
+      return true;
 
-  DOM::HTMLDocument actDocument = activePart->htmlDocument();
+  DOM::DocumentImpl* thisDocument = m_part->xmlDocImpl();
+  DOM::DocumentImpl* actDocument = activePart->xmlDocImpl();
 
-  if ( actDocument.isNull() ) {
+  if (!actDocument) {
     kdDebug(6070) << "Window::isSafeScript: active part has no document!" << endl;
     return false;
   }
 
-  DOM::DOMString actDomain = actDocument.domain();
+  DOM::DOMString actDomain = actDocument->domain();
   
   // Always allow local pages to execute any JS.
   if (actDomain.isNull())
     return true;
   
-  DOM::DOMString thisDomain = thisDocument.domain();
+  DOM::DOMString thisDomain = thisDocument->domain();
   //kdDebug(6070) << "current domain:" << actDomain.string() << ", frame domain:" << thisDomain.string() << endl;
   if ( actDomain == thisDomain )
     return true;
-
+#if APPLE_CHANGES
+  if (Interpreter::shouldPrintExceptions()) {
+      printf("Unsafe JavaScript attempt to access frame with URL %s from frame with URL %s. Domains must match.\n", 
+             thisDocument->URL().latin1(), actDocument->URL().latin1());
+  }
+#endif
+  
   kdWarning(6070) << "Javascript: access denied for current frame '" << actDomain.string() << "' to frame '" << thisDomain.string() << "'" << endl;
   return false;
 }
@@ -1034,6 +1030,7 @@ JSEventListener *Window::getJSEventListener(const Value& val, bool html)
 
 void Window::clear( ExecState *exec )
 {
+  KJS::Interpreter::lock();
   kdDebug(6070) << "Window::clear " << this << endl;
   delete winq;
   winq = new WindowQObject(this);;
@@ -1044,6 +1041,7 @@ void Window::clear( ExecState *exec )
   // Now recreate a working global object for the next URL that will use us
   KJS::Interpreter *interpreter = KJSProxy::proxy( m_part )->interpreter();
   interpreter->initGlobalObject();
+  KJS::Interpreter::unlock();
 }
 
 void Window::setCurrentEvent( DOM::Event *evt )
@@ -1289,11 +1287,14 @@ Value WindowFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
           khtmlpart->begin();
           khtmlpart->write("<HTML><BODY>");
           khtmlpart->end();
-          if ( part->docImpl() ) {
-            kdDebug(6070) << "Setting domain to " << part->docImpl()->domain().string() << endl;
-            khtmlpart->docImpl()->setDomain( part->docImpl()->domain(), true );
-            khtmlpart->docImpl()->setBaseURL( part->docImpl()->baseURL() );
+
+          if (part->xmlDocImpl()) {
+            kdDebug(6070) << "Setting domain to " << part->xmlDocImpl()->domain().string() << endl;
+            khtmlpart->xmlDocImpl()->setDomain( part->docImpl()->domain(), true );
           }
+          
+          if ( part->docImpl() )
+            khtmlpart->docImpl()->setBaseURL( part->docImpl()->baseURL() );
         }
 #if APPLE_CHANGES
         if (!url.isEmpty()) {
@@ -1803,6 +1804,10 @@ Value Location::get(ExecState *exec, const Identifier &p) const
 
   if (m_part.isNull())
     return Undefined();
+  
+  const Window* window = Window::retrieveWindow(m_part);
+  if (!window || !window->isSafeScript(exec))
+      return Undefined();
 
   KURL url = m_part->url();
   const HashEntry *entry = Lookup::findEntry(&LocationTable, p);
@@ -1937,6 +1942,11 @@ Value LocationFunc::tryCall(ExecState *exec, Object &thisObj, const List &args)
   Location *location = static_cast<Location *>(thisObj.imp());
   KHTMLPart *part = location->part();
   if (part) {
+      
+    Window* window = Window::retrieveWindow(part);
+    if (!window->isSafeScript(exec) && id != Location::Replace)
+        return Undefined();
+      
     switch (id) {
     case Location::Replace:
     {

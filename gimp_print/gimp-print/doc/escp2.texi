@@ -1,0 +1,919 @@
+@node ESC/P2, New Printer, Weaving, Appendices
+@appendix ESC/P2
+@cindex ESC/P2
+
+@menu
+* ESC/P2 Introduction::                What is ESC/P2
+* ESC/P2 Standard Commands::           Normal ESC/P2 commands
+* ESC/P2 Remote Mode Commands::        Exotic ESC/P2 commands
+* ESC/P2 Appropriate Remote Commands:: Useful remote command sequences
+@end menu
+
+@node ESC/P2 Introduction, ESC/P2 Standard Commands, , ESC/P2
+@appendixsection Introduction to ESC/P2
+@cindex ESC/P2 introduction
+
+This is a description of the ESC/P2 raster commands used by the
+gimp-print plugin and Ghostscript driver, which is a subset of the
+complete command set.  The full documents are found on
+@url{http://www.ercipd.com/isv/edr_docs.htm}.  Note that these are
+@strong{not} always correct, and are certainly not complete.
+
+All ESCP/2 raster commands begin with the @samp{ESC} character (1b hex),
+followed by either one or two command characters and arguments where
+applicable.  Older commands generally have one command character.  Newer
+commands usually have a @samp{(} (left parenthesis) followed by a
+command character and a byte count for the arguments that follow.  The
+byte count is a 16-bit (2 byte) binary integer, in little endian order.
+
+All arguments listed here are of the form @samp{name[bytes]} where
+@samp{[bytes]} is the number of bytes that comprise the argument.  The
+arguments themselves are usually one, two, or four byte integers, always
+little endian (the least significant bits come first).  Presumably this
+is to match Intel processors.
+
+In some cases, the same command sequence identifies different versions
+of the same command, depending upon the number of bytes of arguments.
+
+
+@node ESC/P2 Standard Commands, ESC/P2 Remote Mode Commands, ESC/P2 Introduction, ESC/P2
+@appendixsection Standard commands
+
+@deffn {ESC/P2 command} @code{ESC @@}
+Reset the printer.  Discards any output, ejects the existing page,
+returns all settings to their default.  Always use this before printing
+a page.
+@end deffn
+
+@deffn {ESC/P2 command} @code{ESC (G @var{BC}=1 @var{ON1}}
+Turn on graphics mode.  @var{ON} should be @samp{1} (turn on graphics
+mode).
+@end deffn
+
+@deffn {ESC/P2 command} @code{ESC (U @var{BC}=1 @var{UNIT1}}
+Set basic unit of measurement used by printer.  This is expressed in
+multiples of 1/3600".  At 720 DPI, @var{UNIT} is @samp{5}; at 360 DPI,
+@var{UNIT} is @samp{10}.
+@end deffn
+
+@deffn {ESC/P2 command} @code{ESC (U @var{BC}=5 @var{PAGEUNITS1} @var{VUNIT1} @var{HUNIT1} @var{BASEUNIT2}}
+Set basic units of measurement used by the printer.  @var{PAGEUNIT} is
+the unit of page measurement (for commands that set page dimensions and
+the like).  @var{VUNIT} is the unit of vertical measurement (for
+vertical movement commands).  @var{HUNIT} is the unit of horizontal
+movement (for horizontal positioning commands).  All of these units are
+expressed in @var{BASEUNIT}, which is in reciprocal inches.  Typically,
+@var{BASEUNIT} is @samp{1440}.  In 720 DPI mode, @var{PAGEUNIT},
+@var{VUNIT}, and @var{HUNIT} are all @samp{2}; in 1440x720 DPI mode,
+@var{PAGEUNIT} and @var{VUNIT} are normally set to @samp{2}; @var{HUNIT}
+is set to @samp{1}.
+@end deffn
+
+@deffn {ESC/P2 command} @code{ESC (K @var{BC}=2 @var{ZERO1} @var{GRAYMODE1}}
+Set color or grayscale mode, on printers supporting an explicit
+grayscale mode.  These printers can be identified because they are
+advertised as having more black nozzles than nozzles of individual
+colors.  Setting grayscale mode allows use of these extra nozzles for
+faster printing.  @var{GRAYMODE} should be @samp{0} or @samp{2} for
+color, @samp{1} for grayscale.  @var{ZERO} should always be @samp{0}.
+@end deffn
+
+@deffn {ESC/P2 command} @code{ESC (i @var{BC}=1 @var{MICROWEAVE1}}
+If @var{MICROWEAVE} is @samp{1}, use microweave mode.  On older
+printers, this is used to turn on microweave; on newer printers, it
+prints one row at a time.  All printers support this mode.  It should
+only be used at 720 (or 1440x720) DPI.  The Epson Stylus Pro series
+indicates additional modes:
+
+@table @samp
+@item 2
+``Full-overlap''
+@item 3
+``Four-pass''
+@item 4
+``Full-overlap 2''
+@end table
+
+Any of these commands can be used with the high four bits set to either
+@samp{3} or @samp{0}.
+@end deffn
+
+@deffn {ESC/P2 command} @code{ESC U @var{DIRECTION1}}
+If @var{DIRECTION} is @samp{1}, print unidirectionally; if @samp{0},
+print bidirectionally.
+@end deffn
+
+@deffn {ESC/P2 command} @code{ESC (s @var{BC}=1 @var{SPEED1}}
+On some older printers, this controls the print head speed.  @var{SPEED}
+of @samp{2} is 10 inches/sec; SPEED of @samp{0} or 1 is 20.
+@end deffn
+
+@deffn {ESC/P2 command} @code{ESC (e @var{BC}=2 @var{ZERO1} @var{DOTSIZE1}}
+Choose print dotsize.  @var{DOTSIZE} can take on various values,
+depending upon the printer.  Almost all printers support @samp{0} and
+@samp{2}.  Variable dot size printers allow a value of @var{16}.  Other
+than the value of @var{16}, this appears to be ignored at resolutions of
+720 DPI and above.
+@end deffn
+
+@deffn {ESC/P2 command} @code{ESC (C @var{BC}=2 @var{PAGELENGTH2}}
+@deffnx {ESC/P2 command} @code{ESC (C @var{BC}=4 @var{PAGELENGTH4}}
+Set the length of the page in "pageunits" (see @samp{ESC (U} above).
+The second form of the command allows setting of longer page lengths on
+new printers (these happen to be the printers that support variable dot
+size).
+@end deffn
+
+@deffn {ESC/P2 command} @code{ESC (c @var{BC}=4 @var{TOP2} @var{LENGTH2}}
+@deffnx {ESC/P2 command} @code{ESC (c @var{BC}=8 @var{TOP4} @var{LENGTH4}}
+Set the vertical page margins of the page in "pageunits" (see @samp{ESC
+(U} above).  The margins are specified as the top of the page and the
+length of the page.  The second form of the command allows setting of
+longer page lengths on new printers (these happen to be the printers
+that support variable dot size).
+@end deffn
+
+@deffn {ESC/P2 command} @code{ESC (S @var{BC}=8 @var{WIDTH4} @var{LENGTH4}}
+Set the width and length of the printed page region in "pageunits" (see
+@samp{ESC (U} above).
+@end deffn
+
+@deffn {ESC/P2 command} @code{ESC (v @var{BC}=2 @var{ADVANCE2}}
+@deffnx {ESC/P2 command} @code{ESC (v @var{BC}=4 @var{ADVANCE4}}
+Feed vertically @var{ADVANCE} "vertical units" (see @samp{ESC (U} above)
+from the current print head position.
+@end deffn
+
+@deffn {ESC/P2 command} @code{ESC (V @var{BC}=2 @var{ADVANCE2}}
+@deffnx {ESC/P2 command} @code{ESC (V @var{BC}=4 @var{ADVANCE4}}
+Feed vertically @var{ADVANCE} "vertical units" (see @samp{ESC (U} above)
+from the top margin.
+@end deffn
+
+@deffn {ESC/P2 command} @code{ESC ($ @var{BC}=4 @var{OFFSET4}}
+Set horizontal position to @var{OFFSET} from the left margin.  This
+command operates on printers of the 740 class and newer (all printers
+with variable dot size).
+@end deffn
+
+@deffn {ESC/P2 command} @code{ESC $ @var{OFFSET2}}
+Set horizontal position to @var{OFFSET} from the left margin.  This
+command operates on printers of the 740 class and newer (all printers
+with variable dot size).
+@end deffn
+
+@deffn {ESC/P2 command} @code{ESC (\ @var{BC}=4 @var{UNITS2} @var{OFFSET2}}
+Set horizontal position to @var{OFFSET} from the previous print head
+position, measured in @var{UNITS}.  @var{UNITS} is measured in inverse
+inches, and should be set to 1440 in all cases.  This operates on all
+1440 dpi printers that do not support variable dot size.
+@end deffn
+
+@deffn {ESC/P2 command} @code{ESC (/ @var{BC}=4 @var{OFFSET4}}
+Set horizontal position to @var{OFFSET} from the previous print head
+position, measured in "horizontal units" (see @samp{ESC (U} above).
+This operates on all variable dot size printers.
+@end deffn
+
+@deffn {ESC/P2 command} @code{ESC \ @var{OFFSET2}}
+Set horizontal position to @var{OFFSET} from the previous print head
+position, measured in basic unit of measurement (see @samp{ESC (U}
+above). This is used on all 720 dpi printers, and can also be used on
+1440 dpi printers in lower resolutions to save a few bytes.  Note that
+@var{OFFSET} may be negative.  The range of values for this command is
+between @samp{-16384} and @samp{16383}.
+@end deffn
+
+@deffn {ESC/P2 command} @code{ESC r @var{COLOR1}}
+@deffnx {ESC/P2 command} @code{ESC (r @var{BC}=2 @var{DENSITY1} @var{COLOR1}}
+Set the ink color.  The first form is used on four-color printers; the
+second on six-color printers.  @var{DENSITY} is @samp{0} for dark inks,
+@samp{1} for light.  @var{COLOR} is
+
+@table @samp
+@item 0
+black
+@item 1
+magenta
+@item 2
+cyan
+@item 4
+yellow
+@end table
+
+This command is not used on variable dot size printers in softweave
+mode.
+@end deffn
+
+@deffn {ESC/P2 command} @code{ESC . @var{COMPRESS1} @var{VSEP1} @var{HSEP1} @var{LINES1} @var{WIDTH2} @var{data...}}
+	Print data.  @var{COMPRESS} signifies the compression mode:
+
+@table @samp
+@item 0
+no compression
+@item 1
+TIFF compression (incorrectly documented as "run length encoded")
+@item 2
+TIFF compression with a special command set.
+@end table
+
+@var{VSEP} depends upon resolution and printer type.  At 360 DPI, it is
+always @samp{10}.  At 720 DPI, it is normally @samp{5}5.  On the ESC
+600, it is @samp{40} (@math{8 * 5}).  On some other printers, it varies.
+
+@var{HSEP1} is @samp{10} at 360 DPI and @samp{5} at 720 or 1440 DPI
+(1440 DPI cannot be printed in one pass; it is printed in two passes,
+with the dots separated in each pass by 1/720").
+
+@var{LINES} is the number of lines to be printed.  It should be @samp{1}
+in microweave and 360 DPI.  At 720 DPI softweave, it should be the
+number of lines to be actually printed.
+
+@var{WIDTH} is the number of pixels to be printed in each row.
+Following this command, a carriage return (@samp{13} decimal, @samp{0A}
+hex) should be output to return the print head position to the left
+margin.
+
+The basic data format is a string of bytes, with data from left to right
+on the page.  Within each byte, the highest bit is first.
+
+The TIFF compression is implemented as one count byte followed by one or
+more data bytes.  There are two cases:
+
+@enumerate
+@item
+If the count byte is @samp{128} or less, it is followed by @math{[count]
++ 1} data bytes.  So if the count byte is @samp{0}, it is followed by 1
+data byte; if it is @samp{128}, it is followed by 129 data bytes.
+
+@item
+If the count byte is greater than 128, it is followed by one byte.  This
+byte is repeated (257 - [count]) times.  So if [count] is 129, the next
+byte is treated as though it were repeated 128 times; if [count] is 255,
+it is treated as though it were repeated twice.
+@end enumerate
+@end deffn
+
+@deffn {ESC/P2 command} @code{ESC i @var{COLOR1} @var{COMPRESS1} @var{BITS1} @var{BYTES2} @var{LINES2} @var{data...}}
+Print data in the newer printers (that support variable dot size), and
+Stylus Pro models.
+
+@var{COLOR} is the color:
+
+@table @samp
+@item 0
+black
+@item 1
+magenta
+@item 2
+cyan
+@item 4
+yellow
+@item 17
+light magenta
+@item 18
+light cyan
+@end table
+
+@var{COMPRESS} signifies the
+compression mode:
+
+@table @samp
+@item 0
+no compression
+@item 1
+TIFF compression (incorrectly documented as "run length encoded")
+@item 2
+TIFF compression with a special command set.
+@end table
+
+@var{BITS} is the number of bits per pixel.
+
+@var{BYTES} is the number of bytes wide for each row (@math{ceiling(BITS
+* width_of_row, 8)}). Note that this is different from the @samp{ESC .}
+command above.
+
+@var{LINES} is the number of lines to be printed.  This command is the
+only way to get variable dot size printing.  In variable dot mode, the
+size of the dots increases as the value (@samp{1}, @samp{2}, or
+@samp{3}) increases.
+@end deffn
+
+@deffn {ESC/P2 command} @code{ESC (D @var{BC}=4 @var{BASE2} @var{VERTICAL1} @var{HORIZONTAL1}}
+Set printer horizontal and vertical spacing.  It only applies to
+variable dot size printers in softweave mode (and possibly other high
+end printers).
+
+@var{BASE} is the base unit for this command; it must be @samp{14400}.
+
+@var{VERTICAL} is the distance in these units between printed rows; it
+should be (@math{separation_in_nozzles * BASE / 720}).
+
+@var{HORIZONTAL} is the horizontal separation between dots in a row.
+Depending upon the printer, this should be either (@math{14400 / 720})
+or (@math{14400 / 360}).  The Stylus Pro 9000 manual suggests that the
+settings should match the chosen resolution, but that is apparently not
+the case (or not always the case) on other printers.
+@end deffn
+
+@deffn {ESC/P2 command} @code{ESC (R @var{BC}=8 00 R E M O T E 1}
+Enters ``remote mode''.  This is a special, undocumented command set that
+is used to set up various printer options, such as paper feed tray, and
+perform utility functions such as head cleaning and alignment.  It does
+not appear that anything here is actually required to make the printer
+print.  Our best understanding of what is in a remote command sequence
+is described in a separate section below.
+@end deffn
+
+@deffn {ESC/P2 command} @code{ESC 01 @@EJL [sp] ID\r\n}
+Return the printer ID.  This is considered a remote mode command,
+although the syntax is that of a conventional command.  This returns the
+following information:
+
+@example
+@@EJL ID\r
+MFG:EPSON;
+CMD:ESCPL2,BDC;
+MDL:[printer model];
+CLS:PRINTER;
+DES:EPSON [printer model];
+\f
+@end example
+@end deffn
+
+After all data has been sent, a form feed byte should be sent.
+
+All newer Epson printers (STC 440, STP 750) require the following
+command to be sent at least once to enable printing at all.  This
+command specifically takes the printer out of the Epson packet mode
+communication protocol (whatever that is) and enables normal data
+transfer.  Sending it multiple times is is not harmful, so it is
+normally sent at the beginning of each job:
+
+@example
+ESC 01@@EJL[space]1284.4[newline]@@EJL[space][space][space][space]
+[space][newline]ESC@@
+@end example
+
+The proper sequence of initialization commands is:
+
+@example
+magic command
+ESC @
+remote mode if needed
+ESC (G
+ESC (U
+ESC (K (if appropriate)
+ESC (i
+ESC U (if needed)
+ESC (s (if appropriate)
+ESC (e
+ESC (C
+ESC (c
+ESC (S
+ESC (D (if needed)
+ESC (V (optional -- this can be accomplished with ESC (v)
+@end example
+
+For printing, the proper sequence is:
+
+@example
+ESC (v
+@end example
+
+@noindent
+and repeat for each color:
+
+@example
+ESC ($ @r{or} ESC (\ @r{or} ESC \
+ESC (r @r{or} ESC r @r{(if needed---not used with @samp{ESC i} and not needed if the color
+has not changed from the previous printed line)}
+ESC . @r{or} ESC i  ...data... [return] (0A hex)
+@end example
+
+To terminate a page:
+
+@example
+[formfeed] (0C hex)
+ESC @@
+@end example
+
+
+@node ESC/P2 Remote Mode Commands, ESC/P2 Appropriate Remote Commands, ESC/P2 Standard Commands, ESC/P2
+@appendixsection Remote Mode Commands
+
+The following description of remote commands comes out of an
+examination of the sequences used by the printer utilities bundled
+with the Windows drivers for the ESC740, and from other sources (some
+Epson manuals, experimentation, analysis of print files).  It is
+largely speculative as these commands are not all documented in the
+Epson documentation we have access to.  Generally, newer manuals
+provide more thorough documentation.
+
+Remote command mode is entered when the printer is sent the following
+sequence:
+
+@example
+ESC (R BC=8 00 R E M O T E 1
+@end example
+
+Remote mode commands are then sent, and terminated with the following
+sequence:
+
+@example
+ESC 00 00 00
+@end example
+
+All remote mode commands must be sent before the initial @samp{ESC (G}
+command is sent.
+
+This introductory sequence is then followed by a sequence of commands.
+Each command is constructed as follows:
+
+@itemize
+@item Two ASCII bytes indicating the function
+@item A byte count (two bytes, little-endian) for the parameters
+@item Binary parameters, if any
+@end itemize
+
+This is a list of all remote commands we have seen:
+
+@deffn {ESC/P2 remote command} @code{NC @var{BC}=2 00 00}
+Print a nozzle check pattern
+@end deffn
+
+@deffn {ESC/P2 remote command} @code{VI @var{BC}=2 00 00}
+on my 740, prints the following:
+
+@example
+W01286 I02382\r\n
+@end example
+
+@noindent
+probably ``version information''
+@end deffn
+
+@deffn {ESC/P2 remote command} @code{* AI @var{BC}=3 00 00 00}
+Prints a ``printer ID''.  On one 870, prints the following:
+@example
+51-51-50-51-49-48\r\n
+@end example
+
+The Windows driver has a text entry field where this number can be
+entered, but its purpose is unknown.
+@end deffn
+
+@deffn {ESC/P2 remote command} @code{* LD @var{BC}=0}
+Load printer defaults from NVRAM, DIP switches, and/or ROM. This
+apparently does not load factory defaults per se, but any settings that
+are saved.  This is commonly used right at the end of each print job
+after the @samp{ESC @@} printer reset command.
+@end deffn
+
+@deffn {ESC/P2 remote command} @code{* CH @var{BC}=2 00 @var{xx}}
+Perform a head cleaning cycle.  The heads to clean are determined by
+parameter @var{xx}:
+
+@table @samp
+@item 00
+clean all heads
+@item 01
+clean black head
+@item 02
+clean color heads
+@end table
+
+While @var{xx} = @samp{00} is probably supported by all printers, @var{xx} =
+@samp{01} and @samp{02} may well not be.
+@end deffn
+
+@deffn {ESC/P2 remote command} @code{* DT @var{BC}=3 00 @var{xx} 00}
+Print an alignment pattern.  There are three patterns, which are picked
+via the choice of @var{xx}.  Pattern @samp{0} is coarse, pattern
+@samp{1} is medium, and pattern @samp{2} is fine.
+@end deffn
+
+@deffn {ESC/P2 remote command} @code{* DU @var{BC}=6 00 @var{xx} 00 09 00 @var{yy}}
+Print another alignment pattern.  It isn't entirely clear what @var{xx}
+and @var{yy} are, but it appears that @var{xx} takes on the values
+@samp{1} and @samp{2} , and @var{yy} takes on the values @samp{0} and
+@var{1}.  This may only work on the 580 and/or 480.
+@end deffn
+
+@deffn {ESC/P2 remote command} @code{* DA @var{BC}=4 00 @var{xx} 00 @var{yy}}
+Set results for the first alignment pattern.  @var{xx} is the pattern
+(@samp{1}--@samp{3}); @var{yy} is the best choice from the set
+(@samp{1}--@samp{7} or @samp{1}--@samp{15}).  This does not save to
+NVRAM, so when the printer is powered off, the setting will be lost.
+@end deffn
+
+@deffn {ESC/P2 remote command} @code{* DA @var{BC}=6 00 @var{xx} 00 @var{yy} 09 00}
+Set results for alternate alignment pattern.  @var{xx} appears to be the
+pass, and @var{yy} appears to be the optimum pattern.  This does not
+save to NVRAM, so when the printer is powered off, the setting will be
+lost.
+@end deffn
+
+@deffn {ESC/P2 remote command} @code{* SV @var{BC}=0}
+Save the current settings to NVRAM.
+@end deffn
+
+@deffn {ESC/P2 remote command} @code{* RS @var{BC}=1 01}
+Reset the printer.
+@end deffn
+
+@deffn {ESC/P2 remote command} @code{* IQ @var{BC}=1 01}
+Get ink quantity.  This requires direct access to the printer port.  The
+return looks like
+
+@example
+IQ:KKCCMMYY
+@end example
+
+@noindent
+or
+
+@example
+IQ:KKCCMMYYccmm
+@end example
+
+@noindent
+(for 4-color and 6-color printers respectively), where each pair of
+digits are hexadecimal representations of percent.
+@end deffn
+
+The following two commands have been observed on an STP 870.
+
+@deffn {ESC/P2 remote command} @code{* IR @var{BC}=2 00 @var{xx}}
+@strong{Function unknown}. This command has been observed on an STP 870
+with @var{xx}=@samp{03} at the start of a job and @var{xx}=@samp{02} at
+the end of a job (where it is followed by an @samp{LD} command).  When
+in roll mode, the values change to @var{xx}=@samp{01} at the start of a
+job and @var{xx}=@samp{00} at the end of a job.
+@end deffn
+
+@deffn {ESC/P2 remote command} @code{* FP @var{BC}=3 00 @var{xx} @var{yy}}
+@var{xx}=@samp{00} and @var{yy}=@samp{00} selects the printer's normal
+left margin (about 3mm).  @var{xx}=@samp{0xb0} and @var{yy}=@samp{0xff}
+selects zero-margin mode, where the left-most print position is shifted
+to a point about 0.1" to the left of the left-hand edge of the paper,
+allowing printing up to (and off) the left-hand edge of the paper.
+@end deffn
+
+The commands below are partially documented in the Stylus Pro 9000
+manual.  Much of this information is interpreted; none is tested.
+
+@deffn {ESC/P2 remote command} @code{* SN @var{BC}=3 00 @var{xx} @var{yy}}
+Select Mechanism Sequence.  @var{xx} controls which sub-operation is
+performed.  @var{xx}=@samp{00} selects the ``Feed paper sequence
+setting''.  @var{yy} can take on the following values (on the STP 870,
+at any rate):
+
+@table @samp
+@item 0
+default
+@item 1
+plain paper
+@item 2
+postcards
+@item 3
+film (photo quality glossy film, transparencies)
+@item 4
+envelopes
+@item 5
+plain paper (fast load)
+@item 6
+back light film (although this has been observed with heavyweight matte
+paper)
+@item 7
+matte paper (observed with 360 dpi inkjet paper, and photo quality
+inkjet paper)
+@item 8
+photo paper
+@end table
+
+Experimentation suggests that this setting changes details of how the
+printers' cut sheet feeder works, presumably to tune it for different
+types of paper.
+
+@var{xx}=@samp{01} controls the platen gap setting; @var{yy}=@samp{00}
+is the default, @var{yy}=@samp{1} or @samp{2} are higher settings.
+
+@var{xx}=@samp{02} controls paper loading speed (@var{yy}=@samp{0} is
+normal, @samp{1} is fast, @samp{2} is slow).  It appears that @samp{1}
+is used when printing on ``plain paper'', ``360dpi ink jet paper'' or
+``ink jet transparencies'', and @var{yy}=@samp{00} for all other paper
+type settings.
+
+@var{xx}=@samp{07} controls duplex printing for printers with that
+capability (@var{yy}=@var{0} is default, for non-duplex printing;
+@samp{1} is front side of the paper, and @var{2} is back side).
+
+@var{xx}=@samp{09} controls zero margin printing on the printers with
+the capability of printing zero-margin on all sides (Stylus Photo
+780/790, 890, and 1280/1290).  @var{yy}=@samp{0} is the default;
+@samp{1} enables zero margin printing.
+@end deffn
+
+@deffn {ESC/P2 remote command} @code{* PP @var{BC}=3 00 @var{xx} @var{yy}}
+Set Paper Path.  @var{xx}=@samp{2} indicates manual feed,
+@var{xx}=@samp{3} is for roll paper.  @var{yy} selects ``paper path
+number''.
+@end deffn
+
+@deffn {ESC/P2 remote command} @code{* AC @var{BC}=2 00 @var{xx}}
+Set Auto Cutting State.  @var{xx}=@samp{0} selects auto cutting off,
+@var{xx}=@samp{1} selects auto cutting on, and @var{xx}=@samp{2}
+indicates horizontal print page line on.  It appears that with auto
+cutting on, roll paper is cut automatically at the point a formfeed
+character is sent.  The formfeed character is normally used to eject a
+page; with this turned on, it also cuts the roll paper.  Horizontal
+print page line on prints a narrow line of black dots at the position
+the paper should be cut manually.
+@end deffn
+
+@deffn {ESC/P2 remote command} @code{* DR @var{BC}=4 00 xx @var{DT2}}
+Set Drying Time.  @var{xx}=@samp{00} sets the drying time ``per scan''
+(per pass?); @var{xx}=@samp{01} sets the drying time per page. @var{DT}
+indicates the drying time, which is in seconds if page mode is used and
+in milliseconds if scan mode is used.  @var{DT} must not exceed 3600
+seconds in per-page mode and 10000 milliseconds in per-scan mode.
+@end deffn
+
+@deffn {ESC/P2 remote command} @code{* IK @var{BC}=2 00 @var{xx}}
+Select Ink Type.  @var{xx}=@samp{00} selects dye ink.  Pigment ink is
+apparently selected by @var{xx}=@samp{01}.  This probably does not apply
+to the consumer-grade printers.
+@end deffn
+
+@deffn {ESC/P2 remote command} @code{* PZ BC=2 00 xx}
+Set Pause After Printing.  @var{xx}=@samp{00} selects no pause after
+printing; @var{xx}=@samp{01} selects pause after printing.  If turned
+on, the printer is paused after the page is ejected (by the FF
+byte).  If cutting is turned on, the printer is paused @strong{after}
+the cutting or printing of the horizontal cut line.
+@end deffn
+
+@deffn {ESC/P2 remote command} @code{* EX @var{BC}=6 00 00 00 00 0x14 @var{xx}}
+Set Vertical Print Page Line Mode.  @var{xx}=@samp{00} is off,
+@var{xx}=@samp{01} is on.  If turned on, this prints vertical trim lines
+at the left and right margins.
+@end deffn
+
+@deffn {ESC/P2 remote command} @code{* EX @var{BC}=6 00 00 00 00 0x05 @var{xx}}
+Set Roll Paper Mode.  If @var{xx} is @samp{0}, roll paper mode is off;
+if @var{xx} is @samp{1}, roll paper mode is on.
+@end deffn
+
+@deffn {ESC/P2 remote command} @code{* EX @var{BC}=3 00 @var{xx} @var{yy}}
+Appears to be a synonym for the @samp{SN} command described above.
+@end deffn
+
+@deffn {ESC/P2 remote command} @code{* PH @var{BC}=2 00 @var{xx}}
+Select Paper Thickness.  Set the paper thickness @var{xx} in .1 mm
+units.  This must not exceed 0x10 (1.6 mm).  If the thickness is set
+"more than" .6 mm (which probably means "at least" .6 mm, since the
+other case reads "less than 0.5 mm"), the platen gap is set high
+irrespective of the @samp{SN} command.
+@end deffn
+
+@deffn {ESC/P2 remote command} @code{* PM @var{BC}=2 00 00}
+@strong{Function unknown}. Used on the STC 3000 at least when using roll
+feed, and on the STP 870 in all print files analysed to date.
+@end deffn
+
+@deffn {ESC/P2 remote command} @code{* ST @var{BC}=2 00 @var{xx}}
+Epson's STP 750/1200 programming guide refers to the @samp{ST} command
+as ``Set printer state reply''.  If @var{xx} is @samp{0} or @samp{2},
+the printer will not send status replies.  If @var{xx} is @samp{1} or
+@samp{3}, the printer will send status replies.  The status replies
+consist of state, error codes, ink leve, firmware version, and warning
+status.
+
+The actual reply is documented as
+
+@example
+@@BDC ST\r
+ST: xx;
+[ER: yy;]
+IQ: n1n2n3n4;
+[WR: w1,w2...;]
+RV: zz;
+AI:CW:02kkccmmyy, MI:mm
+[TC:tttt;]
+INK:...;
+\f
+@end example
+
+@noindent
+(@samp{\r} is carriage return; @samp{\n} is newline; @samp{\f} is
+formfeed.)
+
+@samp{ST} is the printer status:
+
+@table @samp
+@item 00
+Error
+@item 01
+Self-test
+@item  02
+Busy
+@item 03
+Waiting while printing
+@item 04
+Idle
+@item 07
+Cleaning/filling ink heads
+@item 08
+Not yet initialized/filling heads
+@end table
+
+@samp{ER}, if provided, is the error status:
+
+@table @samp
+@item 00
+Fatal error
+@item 01
+Interface not selected
+@item 04
+Paper jam
+@item 05
+Out of ink
+@item 06
+Paper out
+@end table
+
+@samp{IQ} is the amount of ink left, as a (decimal!) percentage
+expressed in hexadecimal.  The values are black, cyan, magenta, and
+yellow (presumably 6-color printers supply light cyan and light magenta
+inks as additional parameters).
+
+@samp{WR}, if provided, is the warning status:
+
+@table @samp
+@item 10
+Black ink low
+@item 11
+Cyan
+@item 12
+Magenta
+@item 13
+Yellow
+@item 14
+Light cyan (presumably)
+@item 15
+Light magenta (presumably)
+@end table
+
+@samp{RV} is the firmware revision (one byte ASCII).
+
+@samp{AI} is actuator information.  These are two byte ASCII codes that
+indicate ``ink weight rank ID'' of KCMY, respectively.
+
+@samp{TC}, if provided, is the total time of cleaning or ink filling (?).
+
+@samp{INK:} and @samp{MI} are @strong{not documented}.
+@end deffn
+
+@deffn {ESC/P2 remote command} @code{* SM @var{BC}=2 00 @var{xx}}
+Set Status Reply Rate.  @var{xx} is the repeat interval in seconds.  If
+@var{xx} is @samp{0}, the status is returned only when the printer's
+state changes.
+@end deffn
+
+@deffn {ESC/P2 remote command} @code{* ST @var{BC}=1 01}
+Reply Printer Status.  The reply is formatted as
+
+@example
+@@BDC PS\r\nST:@var{xx};\f
+@end example
+
+(@samp{\r} is carriage return; @samp{\n} is newline; @samp{\f} is
+formfeed).  If @var{xx} (the reply value) is @samp{0} or @samp{2},
+automatic status update is disabled; if @samp{1} or @samp{3}, it is
+enabled.
+@end deffn
+
+@deffn {ESC/P2 remote command} @code{* SM @var{BC}=1 01}
+Reply Printer Status Rate.  The reply is formatted as
+
+@example
+@@BDC PS\r\nST:xx;\f
+@end example
+
+(@samp{\r} is carriage return; @samp{\n} is newline; @samp{\f} is
+formfeed).  See @samp{SM @var{BC}=2} above for the meaning of the return
+value.
+@end deffn
+
+@deffn {ESC/P2 remote command} @code{* ?? @var{BC}=@var{xx} @var{y}[1] @dots{} @var{y}[xx]}
+Echo Parameters (perhaps better described as Echo Commands).  The
+command string is executed (it would appear from the documentation), and
+the string sent is returned using a sequence similar to that described
+in the @samp{ST @var{BC}=1} and @samp{SM @var{BC}=1} commands.  Note
+that in this case the number of bytes is variable!
+@end deffn
+
+@deffn {ESC/P2 remote command} @code{* SM @var{BC}=2 00 02}
+@strong{Function unknown}.  Used on the STC 3000 at least when using
+roll feed.
+@end deffn
+
+
+@node ESC/P2 Appropriate Remote Commands, , ESC/P2 Remote Mode Commands, ESC/P2
+@appendixsection Appropriate Remote Commands
+
+All of the remote commands described above are wrapped up with the usual
+boilerplate.  The files always start with @samp{00 00 00} and the
+``magic'' command described above, then two @samp{ESC @@}s to reset the
+printer.  The remote command sequences come next; if they print anything
+that is usually followed by a @samp{FF} (0C hex) character to feed the
+page, then the file ends with another two @samp{ESC @@}s to get back to
+the ground state.
+
+An alignment sequence goes like this:
+
+@enumerate
+@item Host uses @samp{DT} to print an alignment sheet
+@item User eyeballs the sheet to see which is the best aligned pattern.
+@item Host sends a @samp{DA} command indicating which pattern the user chose
+@item If the user said "realign", meaning he isn't done yet, go to step 1
+@item We are done: host sends a @samp{SV} command and exits
+@end enumerate
+
+The sequence used (by the STC 3000, at least) to print from the roll
+feed is (with byte count omitted)
+
+@example
+     PM 00 00
+     SN 00 00 00
+     EX 00 00 00 00 05 01
+     ST 00 01
+     SM 00 02
+@end example
+
+The sequence used by the STP 870 to print on plain paper is
+
+@example
+     PM 00 00
+     IR 00 03
+     SN 00 00 01
+     SN 00 01 00
+     SN 00 02 01
+     EX 00 00 00 00 05 00
+     FP 00 00 00
+@end example
+
+@noindent
+and the job finishes with
+
+@example
+     IR 00 02
+     LD
+@end example
+
+For different paper type settings on the STP 870, the arguments to
+@samp{SN} vary.  The arguments to the first and third @samp{SN} commands
+are as outlined in the description of the @samp{SN} command above; the
+arguments to the second (``platen gap'') are @samp{00 01 01} for thick
+papers (``matte paper---heavyweight'', ``photo paper'' and ``premium
+glossy photo paper'') and @samp{00 01 00} for all others.
+
+For roll-mode printing, the STP 870's sequence changes as follows.
+@samp{IR}'s arguments become @samp{00 01} in the header, and @samp{00
+00} after the job, and @samp{EX}'s last argument changes from @samp{00}
+to @samp{01}.
+
+For zero-margin printing on the STP 870, the arguments to @samp{FP} become
+@samp{00 0xb0 0xff}.  This moves the origin about 5.5mm to the left, to a
+point one tenth of an inch to the left of the left-hand edge of the
+paper, allowing printing right up to (and beyond) the edge of the
+paper.  Some printers (at least the STP 870) include white absorbent
+pads at the left margin position and other positions (89mm and 100mm
+on the STP 870) to soak up ink which misses the edge of the paper.
+Printing off the edge of paper of a width not aligned with a pad could
+result in making a mess of the inside of the printer and ink getting
+on the reverse of the paper.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -24,14 +24,10 @@
 
 #include <Security/utilities.h>
 #include <Security/cssmalloc.h>
-#include <Security/walkers.h>
+#include <Security/cssmwalkers.h>
 
-#ifdef _CPP_CSSMLIST
-#pragma export on
-#endif
 
-namespace Security
-{
+namespace Security {
 
 class CssmList;
 class TypedList;
@@ -57,9 +53,9 @@ public:
 	ListElement *last();
 	
     // CssmData personality
-	ListElement(const CssmData &data);
-	ListElement(CssmAllocator &alloc, const CssmData &data);
-	ListElement(CssmAllocator &alloc, const std::string &stringData);
+	explicit ListElement(const CssmData &data);
+	explicit ListElement(CssmAllocator &alloc, const CssmData &data);
+	explicit ListElement(CssmAllocator &alloc, const std::string &stringData);
 	CssmData &data();
 	string toString() const	{ return data().toString(); }
 	const CssmData &data() const;
@@ -74,22 +70,20 @@ public:
     { data().extract(destination, error); }
 	
     // CssmList (sublist) personality
-	ListElement(const CssmList &list);
+	explicit ListElement(const CssmList &list);
 	CssmList &list();
 	const CssmList &list() const;
+	TypedList &typedList();
+	const TypedList &typedList() const;
 	ListElement &operator = (const CssmList &list);
 	operator CssmList &() { return list(); }
-	operator const CssmList &() const { return list(); }
     operator TypedList &();
-    operator const TypedList &() const;
 	
     // WORDID (number) personality
-	ListElement(CSSM_WORDID_TYPE word);
+	explicit ListElement(CSSM_WORDID_TYPE word);
 	CSSM_WORDID_TYPE word() const;
 	ListElement &operator = (CSSM_WORDID_TYPE word);
     operator CSSM_WORDID_TYPE () const { return word(); }
-	bool operator == (CSSM_WORDID_TYPE other) const	{ return word() == other; }
-	bool operator != (CSSM_WORDID_TYPE other) const	{ return word() != other; }
 	
 public:
 	void *operator new (size_t size, CssmAllocator &alloc)
@@ -107,8 +101,8 @@ inline void destroy(ListElement *elem, CssmAllocator &alloc)
 	alloc.free(elem);
 }
 
-namespace Security
-{
+namespace Security {
+
 
 //
 // A POD Wrapper for CSSM_LIST.
@@ -160,7 +154,7 @@ namespace Security
 //
 class TypedList : public CssmList {
 public:
-    TypedList(const CSSM_LIST &list) { *(CSSM_LIST *)this = list; }
+    explicit TypedList(const CSSM_LIST &list) { *(CSSM_LIST *)this = list; }
 	TypedList(CssmAllocator &alloc, CSSM_WORDID_TYPE type);
 	TypedList(CssmAllocator &alloc, CSSM_WORDID_TYPE type, ListElement *elem1);
 	TypedList(CssmAllocator &alloc, CSSM_WORDID_TYPE type, ListElement *elem1,
@@ -171,6 +165,7 @@ public:
 		ListElement *elem2, ListElement *elem3, ListElement *elem4);
 	
 	bool isProper() const;	// format check (does not throw)
+	void checkProper(CSSM_RETURN error = CSSM_ERRCODE_INVALID_SAMPLE_VALUE) const;
 	static TypedList &overlay(CSSM_LIST &list)
 	{ return static_cast<TypedList &>(list); }
 	static const TypedList &overlay(const CSSM_LIST &list)
@@ -183,17 +178,14 @@ public:
 inline ListElement::operator TypedList &()
 { return TypedList::overlay(operator CssmList &()); }
 
-inline ListElement::operator const TypedList &() const
-{ return TypedList::overlay(operator const CssmList &()); }
-
 
 //
 // Data walkers to parse list elements and lists.
 // @@@ Walking lists by recursing over next() is stack intensive. Do this in CssmList walker by loop?
 //
-namespace DataWalkers
-{
+namespace DataWalkers {
 
+// ListElement
 template <class Action>
 ListElement *walk(Action &operate, ListElement * &elem)
 {
@@ -208,7 +200,8 @@ ListElement *walk(Action &operate, ListElement * &elem)
 	case CSSM_LIST_ELEMENT_WORDID:
 		break;
 	default:
-		assert(false);
+		secdebug("walkers", "invalid list element type (%lx)", elem->type());
+		break;
 	}
 	if (elem->next())		
 		walk(operate, elem->next());
@@ -217,10 +210,11 @@ ListElement *walk(Action &operate, ListElement * &elem)
 
 template <class Action>
 ListElement *walk(Action &operate, CSSM_LIST_ELEMENT * &elem)
-{ walk(operate, ListElement::overlay(elem)); }
+{ walk(operate, ListElement::overlayVar(elem)); }
 
+// CssmList
 template <class Action>
-void walk(Action &operate, CssmList &list)
+void enumerate(Action &operate, CssmList &list)
 {
 	if (!list.empty()) {
 		walk(operate, list.first());
@@ -228,6 +222,25 @@ void walk(Action &operate, CssmList &list)
 			list.Tail = list.first()->last();	// re-establish "tail" link
 	}
 }
+
+template <class Action>
+CssmList *walk(Action &operate, CssmList * &list)
+{
+	operate(list);
+	enumerate(operate, *list);
+	return list;
+}
+
+template <class Action>
+void walk(Action &operate, CssmList &list)
+{
+	operate(list);
+	enumerate(operate, list);
+}
+
+template <class Action>
+void walk(Action &operate, const CssmList &list)
+{ walk(operate, const_cast<CssmList &>(list)); }
 
 template <class Action>
 void walk(Action &operate, CSSM_LIST &list)
@@ -238,24 +251,20 @@ void walk(Action &operate, const CSSM_LIST &list)
 { walk(operate, const_cast<CSSM_LIST &>(list)); }
 
 template <class Action>
-void walk(Action &operate, const CssmList &list)
-{ walk(operate, const_cast<CssmList &>(list)); }
-
+CSSM_LIST *walk(Action &operate, CSSM_LIST * &list)
+{ return walk(operate, CssmList::overlayVar(list)); }
 
 template <class Action>
-CSSM_LIST *walk(Action &operate, CSSM_LIST * &list)
-{
-	operate(list);
-	walk(operate, *list);
-	return list;
-}
+TypedList *walk(Action &operate, TypedList * &list)
+{ return static_cast<TypedList *>(walk(operate, reinterpret_cast<CssmList * &>(list))); }
 
-} // end namespace DataWalkers
+template <class Action>
+void walk(Action &operate, TypedList &list)
+{ walk(operate, static_cast<CssmList &>(list)); }
 
-}; 	// end namespace Security
 
-#ifdef _CPP_CSSMLIST
-#pragma export off
-#endif
+}	// end namespace DataWalkers
+} 	// end namespace Security
+
 
 #endif //_H_CSSMLIST

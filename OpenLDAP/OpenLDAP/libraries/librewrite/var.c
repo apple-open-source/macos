@@ -37,8 +37,8 @@ rewrite_var_cmp(
 {
 	const struct rewrite_var *v1, *v2;
 
-	v1 = ( struct rewrite_var * )c1;
-	v2 = ( struct rewrite_var * )c2;
+	v1 = ( const struct rewrite_var * )c1;
+	v2 = ( const struct rewrite_var * )c2;
 	
 	assert( v1 != NULL );
 	assert( v2 != NULL );
@@ -173,9 +173,10 @@ rewrite_var_set(
  */
 static void 
 rewrite_var_free(
-                struct rewrite_var *var
+		void *v_var
 )
 {
+	struct rewrite_var *var = v_var;
 	assert( var != NULL );
 
 	assert( var->lv_name != NULL );
@@ -193,7 +194,7 @@ rewrite_var_delete(
 		Avlnode *tree
 )
 {
-	avl_free( tree, ( AVL_FREE )rewrite_var_free );
+	avl_free( tree, rewrite_var_free );
 	return REWRITE_SUCCESS;
 }
 

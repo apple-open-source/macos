@@ -22,38 +22,23 @@
 #ifndef _SECURITY_KCEVENTOBSERVER_H_
 #define _SECURITY_KCEVENTOBSERVER_H_
 
-#include <CoreFoundation/CFNotificationCenter.h>
-#include <CoreFoundation/CFString.h>
+#include "dictionary.h"
+#include "eventlistener.h"
+#include "notifications.h"
+
 
 namespace Security
 {
 
-class Observer
+class Observer : private SecurityServer::EventListener
 {
+protected:
+	void EventReceived (Listener::Domain domain, Listener::Event event, const void* data, size_t dataLength);
+
 public:
-    Observer				();
-    
-    Observer				( CFStringRef 						name, 
-                              const void*						object, 
-                              CFNotificationSuspensionBehavior 	suspensionBehavior = 
-                                                                CFNotificationSuspensionBehaviorHold );
-    
-    virtual	~Observer		();
-
-    static void callback	( CFNotificationCenterRef 	center, 
-                              void*					 	observer, 
-                              CFStringRef 				name, 
-                              const void* 				object, 
-                              CFDictionaryRef 			userInfo );
-
-            void	add		( CFStringRef 						name, 
-                              const void*						object, 
-                              CFNotificationSuspensionBehavior  suspensionBehavior );
-
-    virtual void 	Event	( CFNotificationCenterRef 	center, 
-                              CFStringRef 				name, 
-                              const void* 				object, 
-                              CFDictionaryRef 			userInfo ) = 0;
+    Observer (Listener::Domain whichDomain, Listener::EventMask whichEvents);
+    virtual	~Observer ();
+    virtual void Event (Listener::Domain domain, Listener::Event whichEvent, NameValueDictionary &dictionary) = 0;
 };
 
 } // end namespace Security

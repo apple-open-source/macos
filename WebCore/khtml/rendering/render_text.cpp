@@ -96,7 +96,7 @@ void TextRun::paintSelection(const Font *f, RenderText *text, QPainter *p, Rende
     ty += m_baseline;
 
     //kdDebug( 6040 ) << "textRun::painting(" << s.string() << ") at(" << x+_tx << "/" << y+_ty << ")" << endl;
-    f->drawText(p, m_x + tx, m_y + ty, text->str->s, text->str->l, m_start, m_len,
+    f->drawHighlightForText(p, m_x + tx, m_y + ty, text->str->s, text->str->l, m_start, m_len,
 		m_toAdd, m_reversed ? QPainter::RTL : QPainter::LTR, startPos, endPos, c);
     p->restore();
 }
@@ -184,52 +184,7 @@ FindSelectionResult TextRun::checkSelectionPoint(int _x, int _y, int _tx, int _t
     }
 
 #if APPLE_CHANGES
-    // Floating point version needed for best results with Mac OS X text.
-    float delta = _x - (_tx + m_x);
-    float _widths[LOCAL_WIDTH_BUF_SIZE]; 
-    float *widths = 0;
-    float monospaceWidth = 0;
-
-    if (text->shouldUseMonospaceCache(f)){
-        monospaceWidth = text->widthFromCache (f, m_start, 1);
-    }
-    else {
-        if (text->str->l > LOCAL_WIDTH_BUF_SIZE)
-            widths = (float *)malloc(text->str->l * sizeof(float));
-        else
-            widths = &_widths[0];
-        // Do width calculations for whole run once.
-        f->floatCharacterWidths( text->str->s, text->str->l, m_start, m_len, m_toAdd, &widths[0]);
-    }
-        
-    int pos = 0;
-    if ( m_reversed ) {
-	delta -= m_width;
-	while(pos < m_len) {
-	    float w = (monospaceWidth != 0 ? monospaceWidth : widths[pos+m_start]);
-	    float w2 = w/2;
-	    w -= w2;
-	    delta += w2;
-	    if(delta >= 0)
-	        break;
-	    pos++;
-	    delta += w;
-	}
-    } else {
-	while(pos < m_len) {
-	    float w = (monospaceWidth != 0 ? monospaceWidth : widths[pos+m_start]);
-	    float w2 = w/2;
-	    w -= w2;
-	    delta -= w2;
-	    if(delta <= 0) 
-	        break;
-	    pos++;
-	    delta -= w;
-	}
-    }
-    
-    if (widths != _widths)
-        free (widths);
+    int pos = f->checkSelectionPoint (text->str->s, text->str->l, m_start, m_len, m_toAdd, _x - (_tx + m_x), m_reversed);
 #else
     int delta = _x - (_tx + m_x);
     //kdDebug(6040) << "TextRun::checkSelectionPoint delta=" << delta << endl;
@@ -681,17 +636,35 @@ void RenderText::paintObject(QPainter *p, int /*x*/, int y, int /*w*/, int h,
             if(_style->color() != p->pen().color())
                 p->setPen(_style->color());
 
+#if APPLE_CHANGES
+            // Set a text shadow if we have one.
+            // FIXME: Support multiple shadow effects.  Need more from the CG API before
+            // we can do this.
+            bool setShadow = false;
+            if (_style->textShadow()) {
+                p->setShadow(_style->textShadow()->x, _style->textShadow()->y,
+                             _style->textShadow()->blur, _style->textShadow()->color);
+                setShadow = true;
+            }
+#endif
+            
             if (s->m_len > 0) {
                 bool paintSelectedTextOnly = (paintAction == PaintActionSelection);
                 bool paintSelectedTextSeparately = false; // Whether or not we have to do multiple paints.  Only
                                                // necessary when a custom ::selection foreground color is applied.
                 QColor selectionColor = p->pen().color();
+                ShadowData* selectionTextShadow = 0;
                 if (haveSelection) {
                     RenderStyle* pseudoStyle = style()->getPseudoStyle(RenderStyle::SELECTION);
-                    if (pseudoStyle && pseudoStyle->color() != selectionColor) {
-                        if (!paintSelectedTextOnly)
-                            paintSelectedTextSeparately = true;
-                        selectionColor = pseudoStyle->color();
+                    if (pseudoStyle) {
+                        if (pseudoStyle->color() != selectionColor || pseudoStyle->textShadow()) {
+                            if (!paintSelectedTextOnly)
+                                paintSelectedTextSeparately = true;
+                            if (pseudoStyle->color() != selectionColor)
+                                selectionColor = pseudoStyle->color();
+                            if (pseudoStyle->textShadow())
+                                selectionTextShadow = pseudoStyle->textShadow();
+                        }
                     }
                 }
                 
@@ -724,14 +697,25 @@ void RenderText::paintObject(QPainter *p, int /*x*/, int y, int /*w*/, int h,
                     if ( sPos < ePos ) {
                         if (selectionColor != p->pen().color())
                             p->setPen(selectionColor);
-                        
+
+#if APPLE_CHANGES
+                        if (selectionTextShadow)
+                            p->setShadow(selectionTextShadow->x,
+                                         selectionTextShadow->y,
+                                         selectionTextShadow->blur,
+                                         selectionTextShadow->color);
+#endif                       
                         font->drawText(p, s->m_x + tx, s->m_y + ty + s->m_baseline, str->s,
                                        str->l, s->m_start, s->m_len,
                                        s->m_toAdd, s->m_reversed ? QPainter::RTL : QPainter::LTR, sPos, ePos);
+#if APPLE_CHANGES
+                        if (selectionTextShadow)
+                            p->clearShadow();
+#endif
                     }
                 } 
             }
-
+            
             if (d != TDNONE && paintAction == PaintActionForeground &&
                 style()->htmlHacks()) {
                 p->setPen(_style->color());
@@ -739,6 +723,9 @@ void RenderText::paintObject(QPainter *p, int /*x*/, int y, int /*w*/, int h,
             }
 
 #if APPLE_CHANGES
+            if (setShadow)
+                p->clearShadow();
+            
             } // drawText
 #endif
 
@@ -901,34 +888,36 @@ void RenderText::trimmedMinMaxWidth(short& beginMinW, bool& beginWS,
                                     short& beginMaxW, short& endMaxW,
                                     short& minW, short& maxW, bool& stripFrontSpaces)
 {
-    int len = str->l;
     bool isPre = style()->whiteSpace() == PRE;
     if (isPre)
         stripFrontSpaces = false;
     
+    int len = str->l;
+    if (len == 0 || (stripFrontSpaces && str->containsOnlyWhitespace())) {
+        maxW = 0;
+        hasBreak = false;
+        return;
+    }
+    
     minW = m_minWidth;
     maxW = m_maxWidth;
     beginWS = stripFrontSpaces ? false : m_hasBeginWS;
-    // Handle the case where all space got stripped.
-    endWS = stripFrontSpaces && len > 0 && str->containsOnlyWhitespace() ? false : m_hasEndWS;
+    endWS = m_hasEndWS;
     
     beginMinW = m_beginMinWidth;
     endMinW = m_endMinWidth;
     
     hasBreakableChar = m_hasBreakableChar;
     hasBreak = m_hasBreak;
-    
-    if (len == 0)
-        return;
-        
-    if (stripFrontSpaces && str->s[0].direction() == QChar::DirWS) {
+
+    if (stripFrontSpaces && str->s[0].unicode() == ' ') {
         const Font *f = htmlFont( false );
         QChar space[1]; space[0] = ' ';
         int spaceWidth = f->width(space, 1, 0);
         maxW -= spaceWidth;
     }
     
-    stripFrontSpaces = !isPre && endWS;
+    stripFrontSpaces = !isPre && m_hasEndWS;
     
     if (style()->whiteSpace() == NOWRAP)
         minW = maxW;
@@ -1007,7 +996,7 @@ void RenderText::calcMinMaxWidth()
         }
         
         bool previousCharacterIsSpace = isSpace;
-        isSpace = str->s[i].direction() == QChar::DirWS;
+        isSpace = str->s[i].unicode() == ' ';
         
         if ((isSpace || isNewline) && i == 0)
             m_hasBeginWS = true;
@@ -1087,7 +1076,7 @@ bool RenderText::containsOnlyWhitespace(unsigned int from, unsigned int len) con
 {
     unsigned int currPos;
     for (currPos = from; 
-         currPos < from+len && (str->s[currPos] == '\n' || str->s[currPos].direction() == QChar::DirWS); 
+         currPos < from+len && (str->s[currPos] == '\n' || str->s[currPos].unicode() == ' '); 
          currPos++);
     return currPos >= (from+len);
 }
@@ -1176,7 +1165,7 @@ int RenderText::height() const
     return retval;
 }
 
-short RenderText::lineHeight( bool firstLine ) const
+short RenderText::lineHeight( bool firstLine, bool ) const
 {
     if ( firstLine )
  	return RenderObject::lineHeight( firstLine );
@@ -1184,16 +1173,17 @@ short RenderText::lineHeight( bool firstLine ) const
     return m_lineHeight;
 }
 
-short RenderText::baselinePosition( bool firstLine ) const
+short RenderText::baselinePosition( bool firstLine, bool ) const
 {
     const QFontMetrics &fm = metrics( firstLine );
     return fm.ascent() +
         ( lineHeight( firstLine ) - fm.height() ) / 2;
 }
 
-InlineBox* RenderText::createInlineBox(bool)
+InlineBox* RenderText::createInlineBox(bool, bool isRootLineBox)
 {
     // FIXME: Either ditch the array or get this object into it.
+    KHTMLAssert(!isRootLineBox);
     return new (renderArena()) TextRun(this);
 }
 

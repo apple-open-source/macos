@@ -27,7 +27,7 @@
 #ifndef _IOKIT_SCSI_TASK_DEFINITION_H_
 #define _IOKIT_SCSI_TASK_DEFINITION_H_
 
-#include <IOKit/scsi-commands/SCSITask.h>
+#include <IOKit/scsi/SCSITask.h>
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Class Declaration

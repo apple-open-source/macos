@@ -1,0 +1,65 @@
+<h3> This Todo list is deprecated, please see the sourceforge tasklist under 
+http://sourceforge.net/pm/task.php?group_id=22866&group_project_id=13975 </h3>
+
+<h3>DONE</h3>
+<ul>
+<li> AxisService installation, WebContainer invocation.</li>
+<li> Axis logging configuration corrected.<li> 
+<li> Axis deployment information extension to remember service classloader correctly.<li> 
+<li> WSR-file structure and deployment.<li> 
+<li> MBeanProvider for Axis. <li> 
+<li> RemoteAdaptor basic layout. <li> 
+<li> javax.management.ObjectName support. <li> 
+<li> Inclusion of .wsr as java-client into .ear, AxisService as java-client deployer in J2eeDeployer. <li> 
+<li> Naming Environment correctly set. <li> 
+<li> Stateless and Stateful Session Bean functionality through EJBProvider. <li> 
+<li> Authentication propagation and security constraints for AxisServlet. <li> 
+<li> Integration of Axis-Beta and the new WSDD format. <li> 
+<li> JBossAuthenticationHandler and JBossAuthorizationHandlers that connect to configurable
+JBoss Security Domain Manager. </li>
+<li> JBossTxHandler for introducing coarse-grained transactions on the web-service level. </li>
+<li> EntityBeanDeserializer will impose xml structures upon entity bean instances. </li>
+<li> WSDL-generation for EJBProvider needs classloader adjustment. </li>
+<li> EJBHomeProvider for exposing Home methods. </li>
+<li> Advanced J2EE store example for testing functionality and .Net interoperability. </li>
+<li> TypeMapping parameters have been introduced. </li>
+<li> MBeanProvider wsdl generation. </li>
+<li> javax.management.Attribute mapping </li>
+<li> External web-service references in JNDI. </li>
+</ul>
+
+<H3>TODO for 1.0 release</h3>
+<ul>
+<li> Finish order part of the store example.</li> 
+<li> EJB-Refs should be either outsourced (different namespace, different file) or should be removed.</li>
+<li> JMX mappings for other complex types </li>
+<li> UDDI registry </li>
+<li> call remove method on bean references hashed in the httpsession when session goes down. </li>
+<li> publish/remove interface to UDDI from deployer </li>
+<li> detailed Documentation </li>
+</ul>
+
+<H3>TODO - pick one</h3>
+<ul>
+<li> Generation of reference handles that can be used in the calls, e.g., the URLs, to address particular states. </li>
+<li> Remote Service References via Axis/SOAP </li>
+<li> AxisClient deployment </li>
+<li> Exception (de-)serialisation </li>
+<li> JMSTransportProvider </li>
+<li> JMSListener </li>
+<li> Castor JAXB integration as typemapping. </li>
+<li> switch to JAXR UDDI interaction. </li>
+<li> use JAXM/JAXRPC interface to decouple from AXIS </li>
+<li> have a look at BTP Internet Transactions </li>
+<li> Integrate EntityBeanDeserializer/Serialiser to the persistence engine w/o invocation stack. </li>
+<li> partial retrieval of entity beans. </li>
+<li> lazy retrieval of relationships. </li>
+<li> incremental retrieval of collections. </li>
+<li> XML Dig-Sig </li>
+</ul>
+
+<h3>Open Bugs</h3>
+<ul>
+<li>none currently known.</li>
+</ul>
+ 

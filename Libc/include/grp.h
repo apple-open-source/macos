@@ -79,16 +79,19 @@ struct group {
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
-struct group *getgrgid __P((gid_t));
-struct group *getgrnam __P((const char *));
-int getgrgid_r __P((gid_t, struct group *, char *, size_t, struct group **));
-int getgrnam_r __P((const char *, struct group *, char *, size_t, struct group **));
+struct group *getgrgid(gid_t);
+struct group *getgrnam(const char *);
+int getgrgid_r(gid_t, struct group *, char *, size_t, struct group **);
+int getgrnam_r(const char *, struct group *, char *, size_t, struct group **);
 #ifndef _POSIX_SOURCE
-struct group *getgrent __P((void));
-int setgrent __P((void));
-void endgrent __P((void));
-void setgrfile __P((const char *));
-int setgroupent __P((int));
+struct group *getgrent(void);
+#ifndef _XOPEN_SOURCE
+char *group_from_gid(gid_t, int);
+#endif
+int setgrent(void);
+void endgrent(void);
+void setgrfile(const char *);
+int setgroupent(int);
 #endif
 __END_DECLS
 

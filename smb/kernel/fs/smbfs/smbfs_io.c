@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_io.c,v 1.10.34.2 2003/03/14 00:05:54 lindak Exp $
+ * $Id: smbfs_io.c,v 1.20 2003/09/21 20:53:11 lindak Exp $
  *
  */
 #include <sys/param.h>
@@ -75,6 +75,11 @@
 
 #include <sys/buf.h>
 
+/* keep build working with older headers */
+#ifndef round_page_32
+	#define round_page_32 round_page
+#endif
+
 /*#define SMBFS_RWGENERIC*/
 
 extern int smbfs_pbuf_freecnt;
@@ -100,7 +105,7 @@ SYSCTL_INT(_vfs_smbfs, OID_AUTO, fastlookup, CTLFLAG_RW, &smbfs_fastlookup, 0, "
 #endif /* APPLE */
 
 
-#define DE_SIZE	(sizeof(struct dirent))
+#define DE_SIZE	(int)(sizeof(struct dirent))
 
 static int
 smbfs_readvdir(struct vnode *vp, struct uio *uio, struct ucred *cred)
@@ -221,6 +226,8 @@ smbfs_readvnode(struct vnode *vp, struct uio *uiop, struct ucred *cred)
 	struct vattr vattr;
 	struct smb_cred scred;
 	int error, lks;
+	int requestsize;
+	int remainder;
 
 	if (vp->v_type != VREG && vp->v_type != VDIR) {
 		SMBFSERR("vn types other than VREG or VDIR are unsupported !\n");
@@ -245,7 +252,7 @@ smbfs_readvnode(struct vnode *vp, struct uio *uiop, struct ucred *cred)
 
 /*	biosize = SSTOCN(smp->sm_share)->sc_txmax;*/
 	if (np->n_flag & NMODIFIED) {
-		smbfs_attr_cacheremove(vp);
+		smbfs_attr_cacheremove(np);
 		error = VOP_GETATTR(vp, &vattr, cred, p);
 		if (error)
 			return error;
@@ -263,7 +270,30 @@ smbfs_readvnode(struct vnode *vp, struct uio *uiop, struct ucred *cred)
 	}
 	smb_makescred(&scred, p, cred);
 	(void) smbfs_smb_flush(np, &scred);
-	return smb_read(smp->sm_share, np->n_fid, uiop, &scred);
+	
+	if (uiop->uio_offset >= (off_t)vattr.va_size) {
+		/* if offset is beyond EOF, read nothing */
+		error = 0;
+		goto exit;
+	}
+	
+	/* pin requestsize to EOF */
+	requestsize = MIN(uiop->uio_resid, (off_t)(vattr.va_size - uiop->uio_offset));
+	
+	/* subtract requestSize from uio_resid and save remainder */
+	remainder = uiop->uio_resid - requestsize;
+	
+	/* adjust size of read */
+	uiop->uio_resid = requestsize;
+	
+	error = smb_read(smp->sm_share, np->n_fid, uiop, &scred);
+	
+	/* set remaining uio_resid */
+	uiop->uio_resid += remainder;
+
+exit:
+	
+	return error;
 }
 
 #ifdef APPLE
@@ -271,7 +301,7 @@ char smbzeroes[4096] = { 0 };
 
 int
 smbfs_0extend(struct vnode *vp, u_quad_t from, u_quad_t to,
-	      struct smb_cred *scredp, struct proc *p)
+	      struct smb_cred *scredp, struct proc *p, int timo)
 {
 	struct smbmount *smp = VTOSMBFS(vp);
 	struct smbnode *np = VTOSMB(vp);
@@ -293,8 +323,9 @@ smbfs_0extend(struct vnode *vp, u_quad_t from, u_quad_t to,
 		uio.uio_segflg = UIO_SYSSPACE; 
 		uio.uio_rw = UIO_WRITE;  
 		uio.uio_procp = p;
-		error = smb_write(smp->sm_share, np->n_fid, &uio, scredp);
-		np->n_flag |= NFLUSHWIRE;
+		error = smb_write(smp->sm_share, np->n_fid, &uio, scredp, timo);
+		timo = 0;
+		np->n_flag |= (NFLUSHWIRE | NATTRCHANGED);
 		if (error)
 			break;
 		if (uio.uio_resid == len) { /* nothing written?!? */
@@ -311,7 +342,7 @@ smbfs_0extend(struct vnode *vp, u_quad_t from, u_quad_t to,
 
 int
 smbfs_writevnode(struct vnode *vp, struct uio *uiop,
-	struct ucred *cred, int ioflag)
+	struct ucred *cred, int ioflag, int timo)
 {
 	struct smbmount *smp = VTOSMBFS(vp);
 	struct smbnode *np = VTOSMB(vp);
@@ -331,7 +362,7 @@ smbfs_writevnode(struct vnode *vp, struct uio *uiop,
 	p = uiop->uio_procp;
 	if (ioflag & (IO_APPEND | IO_SYNC)) {
 		if (np->n_flag & NMODIFIED) {
-			smbfs_attr_cacheremove(vp);
+			smbfs_attr_cacheremove(np);
 			error = smbfs_vinvalbuf(vp, V_SAVE, cred, p, 1);
 			if (error)
 				return error;
@@ -341,7 +372,7 @@ smbfs_writevnode(struct vnode *vp, struct uio *uiop,
 			/*
 			 * File size can be changed by another client
 			 */
-			smbfs_attr_cacheremove(vp);
+			smbfs_attr_cacheremove(np);
 			error = VOP_GETATTR(vp, &vattr, cred, p);
 			if (error) return (error);
 #endif
@@ -356,19 +387,20 @@ smbfs_writevnode(struct vnode *vp, struct uio *uiop,
 	}
 	smb_makescred(&scred, p, cred);
 #ifdef APPLE
-	if (uiop->uio_offset > np->n_size) {
+	if (uiop->uio_offset > (off_t)np->n_size) {
 		error = smbfs_0extend(vp, np->n_size, uiop->uio_offset,
-				      &scred, p);
+				      &scred, p, timo);
+		timo = 0;
 		if (!error)
 			smbfs_setsize(vp, uiop->uio_offset);
 	}
 #endif /* APPLE */
 	if (!error)
-		error = smb_write(smp->sm_share, np->n_fid, uiop, &scred);
-	np->n_flag |= NFLUSHWIRE;
+		error = smb_write(smp->sm_share, np->n_fid, uiop, &scred, timo);
+	np->n_flag |= (NFLUSHWIRE | NATTRCHANGED);
 	SMBVDEBUG("after: ofs=%d,resid=%d\n",(int)uiop->uio_offset, uiop->uio_resid);
 	if (!error) {
-		if (uiop->uio_offset > np->n_size)
+		if (uiop->uio_offset > (off_t)np->n_size)
 			smbfs_setsize(vp, uiop->uio_offset);
 	}
 	return error;
@@ -402,7 +434,7 @@ smbfs_doio(struct buf *bp, struct ucred *cr, struct proc *p)
 	    switch (vp->v_type) {
 	      case VREG:
 		uiop->uio_offset = ((off_t)bp->b_blkno) * DEV_BSIZE;
-		(void) smbfs_smb_flush(np, &scred);          
+		(void) smbfs_smb_flush(np, &scred);
 		error = smb_read(smp->sm_share, np->n_fid, uiop, &scred);
 		if (error)
 			break;
@@ -422,7 +454,7 @@ smbfs_doio(struct buf *bp, struct ucred *cr, struct proc *p)
 		bp->b_flags |= B_ERROR;
 	    }
 	} else { /* write */
-	    if (((bp->b_blkno * DEV_BSIZE) + bp->b_dirtyend) > np->n_size)
+	    if (((bp->b_blkno * DEV_BSIZE) + bp->b_dirtyend) > (off_t)np->n_size)
 		bp->b_dirtyend = np->n_size - (bp->b_blkno * DEV_BSIZE);
 
 	    if (bp->b_dirtyend > bp->b_dirtyoff) {
@@ -431,8 +463,9 @@ smbfs_doio(struct buf *bp, struct ucred *cr, struct proc *p)
 		io.iov_base = (char *)bp->b_data + bp->b_dirtyoff;
 		uiop->uio_rw = UIO_WRITE;
 		bp->b_flags |= B_WRITEINPROG;
-		error = smb_write(smp->sm_share, np->n_fid, uiop, &scred);
-		np->n_flag |= NFLUSHWIRE;
+		error = smb_write(smp->sm_share, np->n_fid, uiop, &scred,
+				  SMBWRTTIMO);
+		np->n_flag |= (NFLUSHWIRE | NATTRCHANGED);
 		bp->b_flags &= ~B_WRITEINPROG;
 
 		/*
@@ -687,7 +720,7 @@ smbfs_putpages(ap)
 
 	smb_makescred(&scred, p, cred);
 	error = smb_write(smp->sm_share, np->n_fid, &uio, &scred);
-	np->n_flag |= NFLUSHWIRE;
+	np->n_flag |= (NFLUSHWIRE | NATTRCHANGED);
 /*	VOP_CLOSE(vp, FWRITE, cred, p);*/
 	SMBVDEBUG("paged write done: %d\n", error);
 
@@ -695,7 +728,7 @@ smbfs_putpages(ap)
 	relpbuf(bp, &smbfs_pbuf_freecnt);
 
 	if (!error) {
-		int nwritten = round_page(count - uio.uio_resid) / PAGE_SIZE;
+		int nwritten = round_page_32(count - uio.uio_resid) / PAGE_SIZE;
 		for (i = 0; i < nwritten; i++) {
 			rtvals[i] = VM_PAGER_OK;
 			pages[i]->dirty = 0;
@@ -742,7 +775,7 @@ smbfs_vinvalbuf(vp, flags, cred, p, intrflg)
 	}
 	np->n_flag |= NFLUSHINPROG;
 	error = vinvalbuf(vp, flags, cred, p, slpflag, 0);
-	while (error) {
+	while (error && error != ENXIO) {
 		if (intrflg && (error == ERESTART || error == EINTR)) {
 			np->n_flag &= ~NFLUSHINPROG;
 			if (np->n_flag & NFLUSHWANT) {
@@ -751,6 +784,8 @@ smbfs_vinvalbuf(vp, flags, cred, p, intrflg)
 			}
 			return EINTR;
 		}
+		/* Avoid potential CPU loop by yielding for at least 0.1 sec */
+		(void)tsleep(NULL, PWAIT, "smbfs_vinvalbuf", hz/10);
 		error = vinvalbuf(vp, flags, cred, p, slpflag, 0);
 	}
 	np->n_flag &= ~(NMODIFIED | NFLUSHINPROG);

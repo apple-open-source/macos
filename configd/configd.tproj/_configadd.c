@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -33,19 +36,30 @@
 #include "configd.h"
 #include "session.h"
 
+__private_extern__
 int
-__SCDynamicStoreAddValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListRef value)
+__SCDynamicStoreAddValue(SCDynamicStoreRef store, CFStringRef key, CFDataRef value)
 {
 	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 	int				sc_status	= kSCStatusOK;
-	CFPropertyListRef		tempValue;
+	CFDataRef			tempValue;
 
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("__SCDynamicStoreAddValue:"));
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  key          = %@"), key);
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  value        = %@"), value);
+	if (_configd_verbose) {
+		CFPropertyListRef	val;
+
+		(void) _SCUnserialize(&val, value, NULL, NULL);
+		SCLog(TRUE, LOG_DEBUG, CFSTR("__SCDynamicStoreAddValue:"));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  key          = %@"), key);
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  value        = %@"), val);
+		CFRelease(val);
+	}
 
 	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
 		return kSCStatusNoStoreSession;	/* you must have an open session to play */
+	}
+
+	if (_configd_trace) {
+		SCTrace(TRUE, _configd_trace, CFSTR("add     : %5d : %@\n"), storePrivate->server, key);
 	}
 
 	/*
@@ -59,7 +73,7 @@ __SCDynamicStoreAddValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyLis
 	/*
 	 * 2. Ensure that this is a new key.
 	 */
-	sc_status = __SCDynamicStoreCopyValue(store, key, &tempValue);
+	sc_status = __SCDynamicStoreCopyValue(store, key, &tempValue, TRUE);
 	switch (sc_status) {
 		case kSCStatusNoKey :
 			/* store key does not exist, proceed */
@@ -72,14 +86,14 @@ __SCDynamicStoreAddValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyLis
 			goto done;
 
 		default :
-			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  _SCDGet(): %s"), SCErrorString(sc_status));
+			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  __SCDynamicStoreCopyValue(): %s"), SCErrorString(sc_status));
 			goto done;
 	}
 
 	/*
 	 * 3. Save the new key.
 	 */
-	sc_status = __SCDynamicStoreSetValue(store, key, value);
+	sc_status = __SCDynamicStoreSetValue(store, key, value, TRUE);
 
 	/*
 	 * 4. Release our lock.
@@ -91,6 +105,7 @@ __SCDynamicStoreAddValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyLis
 }
 
 
+__private_extern__
 kern_return_t
 _configadd(mach_port_t 			server,
 	   xmlData_t			keyRef,		/* raw XML bytes */
@@ -103,29 +118,29 @@ _configadd(mach_port_t 			server,
 {
 	serverSessionRef	mySession = getSession(server);
 	CFStringRef		key;		/* key  (un-serialized) */
-	CFPropertyListRef	data;		/* data (un-serialized) */
+	CFDataRef		data;		/* data (un-serialized) */
 
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Add key to configuration database."));
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  server = %d"), server);
+	if (_configd_verbose) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("Add key to configuration database."));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  server = %d"), server);
+	}
 
 	*sc_status = kSCStatusOK;
 
 	/* un-serialize the key */
-	if (!_SCUnserialize((CFPropertyListRef *)&key, (void *)keyRef, keyLen)) {
+	if (!_SCUnserializeString(&key, NULL, (void *)keyRef, keyLen)) {
 		*sc_status = kSCStatusFailed;
-	}
-
-	if (!isA_CFString(key)) {
+	} else if (!isA_CFString(key)) {
 		*sc_status = kSCStatusInvalidArgument;
 	}
 
 	/* un-serialize the data */
-	if (!_SCUnserialize((CFPropertyListRef *)&data, (void *)dataRef, dataLen)) {
+	if (!_SCUnserializeData(&data, (void *)dataRef, dataLen)) {
 		*sc_status = kSCStatusFailed;
 	}
 
-	if (!isA_CFPropertyList(data)) {
-		*sc_status = kSCStatusInvalidArgument;
+	if (!mySession) {
+		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
 	}
 
 	if (*sc_status != kSCStatusOK) {

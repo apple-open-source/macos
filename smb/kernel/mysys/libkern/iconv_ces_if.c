@@ -21,43 +21,43 @@
 #include <sys/iconv.h>
 #include "iconv_ces_if.h"
 
-struct kobjop_desc iconv_ces_open_desc = {
+PRIVSYM struct kobjop_desc iconv_ces_open_desc = {
 	0, (kobjop_t) 0
 };
 
-struct kobjop_desc iconv_ces_close_desc = {
+PRIVSYM struct kobjop_desc iconv_ces_close_desc = {
 	0, (kobjop_t) 0
 };
 
-struct kobjop_desc iconv_ces_reset_desc = {
+PRIVSYM struct kobjop_desc iconv_ces_reset_desc = {
 	0, (kobjop_t) iconv_ces_noreset
 };
 
-struct kobjop_desc iconv_ces_names_desc = {
+PRIVSYM struct kobjop_desc iconv_ces_names_desc = {
 	0, (kobjop_t) 0
 };
 
-struct kobjop_desc iconv_ces_nbits_desc = {
+PRIVSYM struct kobjop_desc iconv_ces_nbits_desc = {
 	0, (kobjop_t) 0
 };
 
-struct kobjop_desc iconv_ces_nbytes_desc = {
+PRIVSYM struct kobjop_desc iconv_ces_nbytes_desc = {
 	0, (kobjop_t) 0
 };
 
-struct kobjop_desc iconv_ces_fromucs_desc = {
+PRIVSYM struct kobjop_desc iconv_ces_fromucs_desc = {
 	0, (kobjop_t) 0
 };
 
-struct kobjop_desc iconv_ces_toucs_desc = {
+PRIVSYM struct kobjop_desc iconv_ces_toucs_desc = {
 	0, (kobjop_t) 0
 };
 
-struct kobjop_desc iconv_ces_init_desc = {
+PRIVSYM struct kobjop_desc iconv_ces_init_desc = {
 	0, (kobjop_t) iconv_ces_initstub
 };
 
-struct kobjop_desc iconv_ces_done_desc = {
+PRIVSYM struct kobjop_desc iconv_ces_done_desc = {
 	0, (kobjop_t) iconv_ces_donestub
 };
 

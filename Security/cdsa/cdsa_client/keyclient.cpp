@@ -20,6 +20,8 @@
 // keyclient
 //
 #include <Security/keyclient.h>
+#include <Security/cssmdata.h>
+
 
 using namespace CssmClient;
 
@@ -29,8 +31,10 @@ KeyImpl::KeyImpl(const CSP &csp) : ObjectImpl(csp), CssmKey()
 	mActive=false;
 }
 
-KeyImpl::KeyImpl(const CSP &csp, CSSM_KEY &key) : ObjectImpl(csp), CssmKey(key) 
+KeyImpl::KeyImpl(const CSP &csp, const CSSM_KEY &key, bool copy) : ObjectImpl(csp), CssmKey(key)
 {
+	if (copy)
+		keyData() = CssmAutoData(csp.allocator(), keyData()).release();
 	mActive=true;
 }
 

@@ -40,6 +40,8 @@ test -f acinclude.m4 && mv -f acinclude.m4 acinclude.m4.old
 # generate aclocal.m4 file
 echo "AMU: aclocal..."
 test -f aclocal.m4 && mv -f aclocal.m4 aclocal.m4.old
+# show version
+aclocal --version 2>&1 | head -1
 if aclocal ; then
     :
 else
@@ -49,6 +51,8 @@ fi
 
 # produce new configure.in (temp) script
 echo "AMU: autoconf..."
+# show version
+autoconf --version 2>&1 | head -1
 LOG=/tmp/amu-$$.log
 rm -f ${LOG}
 autoconf configure.in > configure.new 2> ${LOG}
@@ -70,6 +74,8 @@ rm -f configure.old
 
 # run autoheader to produce C header .in files
 echo "AMU: autoheader..."
+# show version
+autoheader --version 2>&1 | head -1
 autoheader configure.in > config.h.in 2> ${LOG}
 CUTWARNMSG2="autoheader: \`config.h.in' is updated"
 egrep -v "${CUTWARNMSG2}" ${LOG} > ${LOG}.new
@@ -86,6 +92,8 @@ rm -f ${LOG}
 cmd="automake --add-missing --copy --ignore-deps"
 #cmd="automake --add-missing"
 echo "AMU: $cmd..."
+# show version
+automake --version 2>&1 | head -1
 if ${cmd} ; then
     :
 else

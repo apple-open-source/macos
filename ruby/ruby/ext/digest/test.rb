@@ -1,10 +1,9 @@
 #!/usr/bin/env ruby
 #
 # $RoughId: test.rb,v 1.4 2001/07/13 15:38:27 knu Exp $
-# $Id: test.rb,v 1.1.1.1 2002/05/27 17:59:45 jkh Exp $
+# $Id: test.rb,v 1.1.1.2 2003/05/14 13:58:46 melville Exp $
 
-require 'runit/testcase'
-require 'runit/cui/testrunner'
+require 'test/unit'
 
 require 'digest/md5'
 require 'digest/rmd160'
@@ -12,7 +11,7 @@ require 'digest/sha1'
 require 'digest/sha2'
 include Digest
 
-class TestDigest < RUNIT::TestCase
+class TestDigest < Test::Unit::TestCase
   ALGOS = [
     MD5,
     SHA1,
@@ -89,12 +88,4 @@ class TestDigest < RUNIT::TestCase
       assert_equal(md1, md2)
     end
   end
-end
-
-if $0 == __FILE__
-  suite = RUNIT::TestSuite.new
-
-  suite.add_test(TestDigest.suite)
-
-  RUNIT::CUI::TestRunner.run(suite)
 end

@@ -3,16 +3,21 @@
 .Os Darwin
 .Sh NAME
 .Nm kextcache
-.Nd creates or updates kext repository caches and mkext caches
+.Nd creates or updates kext caches
 .Sh SYNOPSIS
 .Nm
 .Op Fl a Ar arch
+.Op Fl c Ar kernel_cache_filename
 .Op Fl e
 .Op Fl F
+.Op Fl h
 .Op Fl k
+.Op Fl K Ar kernel_filename
 .Op Fl l | L
 .Op Fl m Ar mkext_filename
 .Op Fl n | N
+.Op Fl r
+.Op Fl s | S
 .Op Fl t
 .Op Fl v Op 1-6
 .Op Fl z
@@ -25,7 +30,7 @@ program creates or updates kext caches, which are used to speed up
 kext loading operations and to prepare kexts for inclusion in such
 media as device ROM.
 .Pp
-There are two kinds of kext cache.
+There are three kinds of kext cache.
 The first is the mkext cache,
 which contains the info dictionaries and binary files
 for an arbitrary set of kexts.
@@ -53,6 +58,17 @@ To create or update a kext cache use the
 .Fl k
 option.
 .Pp
+The third type of cache is the kernel cache,
+which contains the kernel code, linked kext code, and info
+dictionaries for an arbitrary set of kexts. Having the kernel
+code and kexts already linked speeds the startup of tools such as
+.Xr kextload 8
+and
+.Xr kextd 8 . 
+To create or update a kernel cache use the
+.Fl c
+option.
+.Pp
 .Nm
 accepts these arguments and options:
 .Bl -tag -width -indent
@@ -71,6 +87,15 @@ whose executable files contain code
 for the given
 .Ar arch ,
 stripping the binaries before inclusion.
+If multiple
+.Fl a
+options are used, a fat file will be created
+containing multiple mkext archives that are thinned
+for each of the specified architectures.
+.It Fl c Ar kernel_cache_filename
+The name of the kernel cache file to create. If none is specified,
+a cache file is created in the
+/System/Library/Caches/com.apple.kernelcaches/ folder.
 .It Fl e
 This option is a convenience to update the mkext cache
 for the /System/Library/Extensions folder.
@@ -78,8 +103,12 @@ for the /System/Library/Extensions folder.
 Fork a child process and exit immediately.
 This allows a cache update during system startup to continue
 without delaying startup.
+.It Fl h
+Extended usage statement
 .It Fl k
 Create or update the kext cache for any repository directories specified.
+.It Fl K Ar kernel_filename
+The name of the kernel file to use as the base of a kernel cache file (default is /mach_kernel).
 .It Fl l
 Specifies that for directory arguments,
 only extensions required for local disk boot
@@ -90,10 +119,12 @@ to apply this restriction to all kexts, use the
 .Fl L
 option.
 May be combined with the
-.Fl n
+.Fl n ,
+.Fl N ,
+.Fl s ,
 or
-.Fl N
-option to archive both local- and network-root extensions.
+.Fl S
+options to archive network-root and safe boot extensions as well.
 .It Fl L
 Specifies that only extensions required for local disk boot
 be included in an mkext cache.
@@ -101,10 +132,12 @@ To apply this restriction only to repository directories, use the
 .Fl l
 option.
 May be combined with the
-.Fl n
+.Fl n ,
+.Fl N ,
+.Fl s ,
 or
-.Fl N
-option to archive both local- and network-root extensions.
+.Fl S
+options to archive network-root and safe boot extensions as well.
 .It Fl m Ar mkext_filename
 The name of the mkext cache file to create.
 .It Fl n
@@ -117,10 +150,12 @@ to apply this restriction to all kexts, use the
 .Fl N
 option.
 May be combined with the
-.Fl l
+.Fl l ,
+.Fl L ,
+.Fl s ,
 or
-.Fl L
-option to archive both local- and network-root extensions.
+.Fl S
+options to archive local-root and safe boot extensions as well.
 .It Fl N
 Specifies that only extensions required for network boot
 be included in an mkext cache.
@@ -128,10 +163,44 @@ To apply this restriction only to repository directories, use the
 .Fl n
 option.
 May be combined with the
-.Fl l
+.Fl l ,
+.Fl L ,
+.Fl s ,
 or
-.Fl L
-option to archive both local- and network-root extensions.
+.Fl S
+options to archive local-root and safe boot extensions as well.
+.It Fl r
+Include all kexts that have been loaded by the machine running
+this command during this boot. This include kexts loaded and later unloaded.
+.It Fl s
+Specifies that for directory arguments,
+only extensions required for safe boot
+be included in an mkext cache.
+Kexts explicitly named on the command line
+are included unconditionally;
+to apply this restriction to all kexts, use the
+.Fl S
+option.
+May be combined with the
+.Fl l ,
+.Fl L ,
+.Fl n ,
+or
+.Fl N
+options to archive local- and network-root extensions as well.
+.It Fl S
+Specifies that only extensions required for safe boot
+be included in an mkext cache.
+To apply this restriction only to repository directories, use the
+.Fl s
+option.
+May be combined with the
+.Fl l ,
+.Fl L ,
+.Fl n ,
+or
+.Fl N
+options to archive local- and network-root extensions as well.
 .It Fl t
 Perform all possible tests on the named kext(s) and indicate
 whether the kext is loadable
@@ -170,8 +239,11 @@ property.
 Its values are 1 and 2, for basic and detailed information,
 respectively.
 .It Fl z
-Don't authenticate kexts before loading.
-This option is for convenience during development.
+Don't authenticate kexts.
+This option is for convenience in building archive and cache files.
+Mkext archives and kext repository caches must have
+proper ownership (root:wheel) and permissions (0644)
+in order to be used by the system.
 .It Fl -
 End of all options. Only kext or directory names follow.
 .El
@@ -190,6 +262,7 @@ operation fails.
 .Sh SEE ALSO 
 .Xr kextd 8 ,
 .Xr kextload 8 ,
+.Xr kextstat 8 ,
 .Xr kextunload 8
 .Sh BUGS
 Upon encountering a kext with validation errors,

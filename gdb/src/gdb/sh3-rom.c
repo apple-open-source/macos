@@ -27,6 +27,9 @@
 #include "srec.h"
 #include "arch-utils.h"
 #include "regcache.h"
+#include "gdb_string.h"
+
+#include "sh-tdep.h"
 
 static struct serial *parallel;
 static int parallel_in_use;

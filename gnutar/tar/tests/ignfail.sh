@@ -6,7 +6,10 @@
 
 > check-uid
 set - x`ls -l check-uid`
-if test $3 = root; then
+uid_name="$3"
+set - x`ls -ln check-uid`
+uid_number="$3"
+if test "$uid_name" = root || test "$uid_number" = 0; then
 
   # The test is meaningless for super-user.
   rm check-uid
@@ -47,15 +50,15 @@ else
 
    err="\
 -----
-tar: Cannot add file file: Permission denied
+tar: file: Cannot open: Permission denied
 tar: Error exit delayed from previous errors
 -----
-tar: Cannot add file file: Permission denied
+tar: file: Warning: Cannot open: Permission denied
 -----
-tar: Cannot add directory directory: Permission denied
+tar: directory: Cannot savedir: Permission denied
 tar: Error exit delayed from previous errors
 -----
-tar: Cannot add directory directory: Permission denied
+tar: directory: Warning: Cannot savedir: Permission denied
 "
 
 fi

@@ -46,10 +46,10 @@ va_list ap;
 	    request->fd = va_arg(ap, int);
 	    continue;
 	case RQ_CLIENT_SIN:
-	    request->client->sin = va_arg(ap, struct sockaddr_in *);
+	    request->client->sin = va_arg(ap, struct sockaddr_gen *);
 	    continue;
 	case RQ_SERVER_SIN:
-	    request->server->sin = va_arg(ap, struct sockaddr_in *);
+	    request->server->sin = va_arg(ap, struct sockaddr_gen *);
 	    continue;
 
 	    /*

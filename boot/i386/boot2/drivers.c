@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -29,47 +30,14 @@
  *  DRI: Josh de Cesare
  */
 
+#include <mach-o/fat.h>
+#include <libkern/OSByteOrder.h>
+#include <mach/machine.h>
+
 #include "sl.h"
 #include "boot.h"
-
-enum {
-  kTagTypeNone = 0,
-  kTagTypeDict,
-  kTagTypeKey,
-  kTagTypeString,
-  kTagTypeInteger,
-  kTagTypeData,
-  kTagTypeDate,
-  kTagTypeFalse,
-  kTagTypeTrue,
-  kTagTypeArray
-};
-
-#define kXMLTagPList   "plist "
-#define kXMLTagDict    "dict"
-#define kXMLTagKey     "key"
-#define kXMLTagString  "string"
-#define kXMLTagInteger "integer"
-#define kXMLTagData    "data"
-#define kXMLTagDate    "date"
-#define kXMLTagFalse   "false/"
-#define kXMLTagTrue    "true/"
-#define kXMLTagArray   "array"
-
-#define kPropCFBundleIdentifier ("CFBundleIdentifier")
-#define kPropCFBundleExecutable ("CFBundleExecutable")
-#define kPropOSBundleRequired   ("OSBundleRequired")
-#define kPropOSBundleLibraries  ("OSBundleLibraries")
-#define kPropIOKitPersonalities ("IOKitPersonalities")
-#define kPropIONameMatch        ("IONameMatch")
-
-struct Tag {
-  long       type;
-  char       *string;
-  struct Tag *tag;
-  struct Tag *tagNext;
-};
-typedef struct Tag Tag, *TagPtr;
+#include "bootstruct.h"
+#include "xml.h"
 
 struct Module {  
   struct Module *nextModule;
@@ -109,6 +77,8 @@ enum {
   kCFBundleType3
 };
 
+static unsigned long Alder32( unsigned char * buffer, long length );
+
 static long FileLoadDrivers(char *dirSpec, long plugin);
 static long NetLoadDrivers(char *dirSpec);
 static long LoadDriverMKext(char *fileSpec);
@@ -116,24 +86,12 @@ static long LoadDriverPList(char *dirSpec, char *name, long bundleType);
 static long LoadMatchedModules(void);
 static long MatchPersonalities(void);
 static long MatchLibraries(void);
-static TagPtr GetProperty(TagPtr dict, char *key);
-// static ModulePtr FindModule(char *name);
+#ifdef NOTDEF
+static ModulePtr FindModule(char *name);
+static void ThinFatFile(void **loadAddrP, unsigned long *lengthP);
+#endif
 static long ParseXML(char *buffer, ModulePtr *module, TagPtr *personalities);
-static long ParseNextTag(char *buffer, TagPtr *tag);
-static long ParseTagList(char *buffer, TagPtr *tag, long type, long empty);
-static long ParseTagKey(char *buffer, TagPtr *tag);
-static long ParseTagString(char *buffer, TagPtr *tag);
-static long ParseTagInteger(char *buffer, TagPtr *tag);
-static long ParseTagData(char *buffer, TagPtr *tag);
-static long ParseTagDate(char *buffer, TagPtr *tag);
-static long ParseTagBoolean(char *buffer, TagPtr *tag, long type);
-static long GetNextTag(char *buffer, char **tag, long *start);
-static long FixDataMatchingTag(char *buffer, char *tag);
-static TagPtr NewTag(void);
-static void FreeTag(TagPtr tag);
-static char *NewSymbol(char *string);
-static void FreeSymbol(char *string);
-// static void DumpTag(TagPtr tag, long depth);
+static long InitDriverSupport(void);
 
 static ModulePtr gModuleHead, gModuleTail;
 static TagPtr    gPersonalityHead, gPersonalityTail;
@@ -143,91 +101,6 @@ static char *    gFileSpec;
 static char *    gTempSpec;
 static char *    gFileName;
 
-//==========================================================================
-// BootX shim functions.
-
-#define kPageSize     4096
-#define RoundPage(x)  ((((unsigned)(x)) + kPageSize - 1) & ~(kPageSize - 1))
-
-static long  gImageFirstBootXAddr;
-static long  gImageLastKernelAddr;
-
-static void *
-AllocateBootXMemory( long size )
-{
-	long addr = gImageFirstBootXAddr - size;
-  
-	if ( addr < gImageLastKernelAddr ) return 0;
-
-    bzero((void *)addr, size);
-
-	gImageFirstBootXAddr = addr;
-  
-	return (void *)addr;
-}
-
-static long
-AllocateKernelMemory( long inSize )
-{
-	long addr = gImageLastKernelAddr;
-
-    gImageLastKernelAddr += RoundPage(inSize);
-
-    if ( gImageLastKernelAddr > gImageFirstBootXAddr )
-        stop( "AllocateKernelMemory error" );
-        
-    kernBootStruct->ksize = gImageLastKernelAddr - kernBootStruct->kaddr;
-
-    return addr;
-}
-
-static long
-AllocateMemoryRange(char * rangeName, long start, long length, long type)
-{
-    if ( kernBootStruct->numBootDrivers < NDRIVERS )
-    {
-        int num = kernBootStruct->numBootDrivers;
-
-        kernBootStruct->driverConfig[num].address = start;
-        kernBootStruct->driverConfig[num].size    = length;
-        kernBootStruct->driverConfig[num].type    = type;
-        kernBootStruct->numBootDrivers++;
-    }
-    else
-    {
-        stop( "AllocateMemoryRange error" );
-    }
-    return 0;
-}
-
-// Map BootX types to boot counterparts.
-
-#define gBootFileType    BIOS_DEV_TYPE(gBIOSDev)
-enum {
-    kNetworkDeviceType = kBIOSDevTypeNetwork,
-    kBlockDeviceType   = kBIOSDevTypeHardDrive
-};
-
-
-static long
-InitDriverSupport()
-{
-    gExtensionsSpec = (char *) malloc( 4096 );
-    gDriverSpec     = (char *) malloc( 4096 );
-    gFileSpec       = (char *) malloc( 4096 );
-    gTempSpec       = (char *) malloc( 4096 );
-    gFileName       = (char *) malloc( 4096 );
-
-    if ( !gExtensionsSpec || !gDriverSpec || !gFileSpec || !gTempSpec || !gFileName )
-        stop("InitDriverSupport error");
-
-    gImageLastKernelAddr = RoundPage( kernBootStruct->kaddr +
-                                      kernBootStruct->ksize );
-
-    gImageFirstBootXAddr = ( KERNEL_ADDR + KERNEL_LEN );
-
-    return 0;
-}
 
 static unsigned long
 Alder32( unsigned char * buffer, long length )
@@ -258,6 +131,25 @@ Alder32( unsigned char * buffer, long length )
 	return result;
 }
 
+
+//==========================================================================
+// InitDriverSupport
+
+static long
+InitDriverSupport( void )
+{
+    gExtensionsSpec = (char *) malloc( 4096 );
+    gDriverSpec     = (char *) malloc( 4096 );
+    gFileSpec       = (char *) malloc( 4096 );
+    gTempSpec       = (char *) malloc( 4096 );
+    gFileName       = (char *) malloc( 4096 );
+
+    if ( !gExtensionsSpec || !gDriverSpec || !gFileSpec || !gTempSpec || !gFileName )
+        stop("InitDriverSupport error");
+
+    return 0;
+}
+
 //==========================================================================
 // LoadDrivers
 
@@ -270,18 +162,16 @@ long LoadDrivers( char * dirSpec )
     {
         NetLoadDrivers(dirSpec);
     }
-    else /* if ( gBootFileType == kBlockDeviceType ) */
+    else if ( gBootFileType == kBlockDeviceType )
     {
         strcpy(gExtensionsSpec, dirSpec);
         strcat(gExtensionsSpec, "System/Library/");
         FileLoadDrivers(gExtensionsSpec, 0);
     }
-#if 0
     else
     {
         return 0;
     }
-#endif
 
     MatchPersonalities();
 
@@ -351,7 +241,7 @@ FileLoadDrivers( char * dirSpec, long plugin )
         ret = LoadDriverPList(dirSpec, gFileName, bundleType);
         if (ret != 0)
         {
-            // printf("LoadDrivers: failed\n");
+            //printf("LoadDrivers: failed for '%s'/'%s'\n", dirSpec, gFileName);
         }
 
         if (!plugin) 
@@ -369,7 +259,7 @@ NetLoadDrivers( char * dirSpec )
 {
     long tries;
 
-#if 0
+#if NODEF
     long cnt;
 
     // Get the name of the kernel
@@ -383,7 +273,7 @@ NetLoadDrivers( char * dirSpec )
 #endif
 
     // INTEL modification
-    sprintf(gDriverSpec, "%s%s.mkext", dirSpec, kernBootStruct->bootFile);
+    sprintf(gDriverSpec, "%s%s.mkext", dirSpec, bootArgs->bootFile);
     
     verbose("NetLoadDrivers: Loading from [%s]\n", gDriverSpec);
     
@@ -403,14 +293,18 @@ NetLoadDrivers( char * dirSpec )
 static long
 LoadDriverMKext( char * fileSpec )
 {
-    long             driversAddr, driversLength;
+    unsigned long    driversAddr, driversLength;
+    long             length;
     char             segName[32];
     DriversPackage * package = (DriversPackage *)kLoadAddr;
 
-#define GetPackageElement(e)     NXSwapBigLongToHost(package->e)
+#define GetPackageElement(e)     OSSwapBigToHostInt32(package->e)
 
     // Load the MKext.
-    if (LoadFile(fileSpec) == -1) return -1;
+    length = LoadFile(fileSpec);
+    if (length == -1) return -1;
+
+    ThinFatFile((void **)&package, &length);
 
     // Verify the MKext.
     if (( GetPackageElement(signature1) != kDriverPackageSignature1) ||
@@ -425,9 +319,9 @@ LoadDriverMKext( char * fileSpec )
     // Make space for the MKext.
     driversLength = GetPackageElement(length);
     driversAddr   = AllocateKernelMemory(driversLength);
-    
+
     // Copy the MKext.
-    memcpy((void *)driversAddr, (void *)kLoadAddr, driversLength);
+    memcpy((void *)driversAddr, (void *)package, driversLength);
 
     // Add the MKext to the memory map.
     sprintf(segName, "DriversPackage-%lx", driversAddr);
@@ -447,7 +341,7 @@ LoadDriverPList( char * dirSpec, char * name, long bundleType )
     ModulePtr module;
     TagPtr    personalities;
     char *    buffer = 0;
-    char *	  tmpDriverPath = 0;
+    char *    tmpDriverPath = 0;
     long      ret = -1;
 
     do {
@@ -455,9 +349,9 @@ LoadDriverPList( char * dirSpec, char * name, long bundleType )
         
         sprintf(gFileSpec, "%s/%s/%s", dirSpec, name,
                 (bundleType == kCFBundleType2) ? "Contents/MacOS/" : "");
-        driverPathLength = strlen(gFileSpec);
+        driverPathLength = strlen(gFileSpec) + 1;
 
-        tmpDriverPath = malloc(driverPathLength + 1);
+        tmpDriverPath = malloc(driverPathLength);
         if (tmpDriverPath == 0) break;
 
         strcpy(tmpDriverPath, gFileSpec);
@@ -470,32 +364,33 @@ LoadDriverPList( char * dirSpec, char * name, long bundleType )
         length = LoadFile(gFileSpec);
         if (length == -1) break;
 
-        buffer = malloc(length + 1);
+        length = length + 1;
+        buffer = malloc(length);
         if (buffer == 0) break;
 
-        strncpy(buffer, (char *)kLoadAddr, length);
+        strlcpy(buffer, (char *)kLoadAddr, length);
 
         // Parse the plist.
 
         ret = ParseXML(buffer, &module, &personalities);
-        if (ret != 0) break;
+        if (ret != 0) { break; }
 
         // Allocate memory for the driver path and the plist.
 
-        module->driverPath = AllocateBootXMemory(driverPathLength + 1);
-        module->plistAddr  = AllocateBootXMemory(length + 1);
+        module->driverPath = tmpDriverPath;
+        module->plistAddr = (void *)malloc(length);
   
         if ((module->driverPath == 0) || (module->plistAddr == 0))
             break;
 
         // Save the driver path in the module.
-
-        strcpy(module->driverPath, tmpDriverPath);
+        //strcpy(module->driverPath, tmpDriverPath);
+        tmpDriverPath = 0;
 
         // Add the plist to the module.
 
-        strncpy(module->plistAddr, (char *)kLoadAddr, length);
-        module->plistLength = length + 1;
+        strlcpy(module->plistAddr, (char *)kLoadAddr, length);
+        module->plistLength = length;
   
         // Add the module to the end of the module list.
         
@@ -529,6 +424,54 @@ LoadDriverPList( char * dirSpec, char * name, long bundleType )
     return ret;
 }
 
+#if 0
+//==========================================================================
+// ThinFatFile
+// Checks the loaded file for a fat header; if present, updates
+// loadAddr and length to be the portion of the fat file relevant
+// to the current architecture; otherwise leaves them unchanged.
+
+static void
+ThinFatFile(void **loadAddrP, unsigned long *lengthP)
+{
+    // Check for fat files.
+    struct fat_header *fhp = (struct fat_header *)kLoadAddr;
+    struct fat_arch *fap = (struct fat_arch *)((void *)kLoadAddr +
+					       sizeof(struct fat_header));
+    int nfat, swapped;
+    void *loadAddr = 0;
+    unsigned long length = 0;
+
+    if (fhp->magic == FAT_MAGIC) {
+	nfat = fhp->nfat_arch;
+	swapped = 0;
+    } else if (fhp->magic == FAT_CIGAM) {
+	nfat = OSSwapInt32(fhp->nfat_arch);
+	swapped = 1;
+    } else {
+	nfat = 0;
+	swapped = 0;
+    }
+
+    for (; nfat > 0; nfat--, fap++) {
+	if (swapped) {
+	    fap->cputype = OSSwapInt32(fap->cputype);
+	    fap->offset = OSSwapInt32(fap->offset);
+	    fap->size = OSSwapInt32(fap->size);
+	}
+	if (fap->cputype == CPU_TYPE_I386) {
+	    loadAddr = (void *)kLoadAddr + fap->offset;
+	    length = fap->size;
+	    break;
+	}
+    }
+    if (loadAddr)
+	*loadAddrP = loadAddr;
+    if (length)
+	*lengthP = length;
+}
+#endif
+
 //==========================================================================
 // LoadMatchedModules
 
@@ -547,7 +490,8 @@ LoadMatchedModules( void )
     {
         if (module->willLoad)
         {
-            prop = GetProperty(module->dict, kPropCFBundleExecutable);
+            prop = XMLGetProperty(module->dict, kPropCFBundleExecutable);
+
             if (prop != 0)
             {
                 fileName = prop->string;
@@ -559,6 +503,12 @@ LoadMatchedModules( void )
 
             if (length != -1)
             {
+		void *driverModuleAddr = (void *)kLoadAddr;
+                if (length != 0)
+                {
+		    ThinFatFile(&driverModuleAddr, &length);
+		}
+
                 // Make make in the image area.
                 driverLength = sizeof(DriverInfo) + module->plistLength + length;
                 driverAddr = AllocateKernelMemory(driverLength);
@@ -583,7 +533,7 @@ LoadMatchedModules( void )
                 strcpy(driver->plistAddr, module->plistAddr);
                 if (length != 0)
                 {
-                    memcpy(driver->moduleAddr, (void *)kLoadAddr, driver->moduleLength);
+                    memcpy(driver->moduleAddr, driverModuleAddr, length);
                 }
 
                 // Add an entry to the memory map.
@@ -604,7 +554,7 @@ LoadMatchedModules( void )
 static long
 MatchPersonalities( void )
 {
-#warning IONameMatch support not implemented
+    /* IONameMatch support not implemented */
     return 0;
 }
 
@@ -626,7 +576,7 @@ MatchLibraries( void )
         {
             if (module->willLoad == 1)
             {
-                prop = GetProperty(module->dict, kPropOSBundleLibraries);
+                prop = XMLGetProperty(module->dict, kPropOSBundleLibraries);
                 if (prop != 0)
                 {
                     prop = prop->tag;
@@ -635,7 +585,7 @@ MatchLibraries( void )
                         module2 = gModuleHead;
                         while (module2 != 0)
                         {
-                            prop2 = GetProperty(module2->dict, kPropCFBundleIdentifier);
+                            prop2 = XMLGetProperty(module2->dict, kPropCFBundleIdentifier);
                             if ((prop2 != 0) && (!strcmp(prop->string, prop2->string)))
                             {
                                 if (module2->willLoad == 0) module2->willLoad = 1;
@@ -657,30 +607,6 @@ MatchLibraries( void )
     return 0;
 }
 
-//==========================================================================
-// GetProperty
-
-static TagPtr
-GetProperty( TagPtr dict, char * key )
-{
-    TagPtr tagList, tag;
-
-    if (dict->type != kTagTypeDict) return 0;
-    
-    tag = 0;
-    tagList = dict->tag;
-    while (tagList)
-    {
-        tag = tagList;
-        tagList = tag->tagNext;
-        
-        if ((tag->type != kTagTypeKey) || (tag->string == 0)) continue;
-        
-        if (!strcmp(tag->string, key)) return tag->tag;
-    }
-    
-    return 0;
-}
 
 //==========================================================================
 // FindModule
@@ -719,7 +645,7 @@ ParseXML( char * buffer, ModulePtr * module, TagPtr * personalities )
   
     while (1)
     {
-        length = ParseNextTag(buffer + pos, &moduleDict);
+        length = XMLParseNextTag(buffer + pos, &moduleDict);
         if (length == -1) break;
     
         pos += length;
@@ -727,24 +653,24 @@ ParseXML( char * buffer, ModulePtr * module, TagPtr * personalities )
         if (moduleDict == 0) continue;
         if (moduleDict->type == kTagTypeDict) break;
     
-        FreeTag(moduleDict);
+        XMLFreeTag(moduleDict);
     }
   
     if (length == -1) return -1;
 
-    required = GetProperty(moduleDict, kPropOSBundleRequired);
+    required = XMLGetProperty(moduleDict, kPropOSBundleRequired);
     if ( (required == 0) ||
          (required->type != kTagTypeString) ||
          !strcmp(required->string, "Safe Boot"))
     {
-        FreeTag(moduleDict);
+        XMLFreeTag(moduleDict);
         return -2;
     }
 
-    tmpModule = AllocateBootXMemory(sizeof(Module));
+    tmpModule = (ModulePtr)malloc(sizeof(Module));
     if (tmpModule == 0)
     {
-        FreeTag(moduleDict);
+        XMLFreeTag(moduleDict);
         return -1;
     }
     tmpModule->dict = moduleDict;
@@ -757,509 +683,64 @@ ParseXML( char * buffer, ModulePtr * module, TagPtr * personalities )
   
     // Get the personalities.
 
-    *personalities = GetProperty(moduleDict, kPropIOKitPersonalities);
+    *personalities = XMLGetProperty(moduleDict, kPropIOKitPersonalities);
   
     return 0;
 }
 
-//==========================================================================
-// ParseNextTag
+#if NOTDEF
+static char gPlatformName[64];
+#endif
 
-static long
-ParseNextTag( char * buffer, TagPtr * tag )
+long 
+DecodeKernel(void *binary, entry_t *rentry, char **raddr, int *rsize)
 {
-	long   length, pos;
-	char * tagName;
-
-    length = GetNextTag(buffer, &tagName, 0);
-    if (length == -1) return -1;
-
-	pos = length;
-    if (!strncmp(tagName, kXMLTagPList, 6))
-    {
-        length = 0;
-    }
-    else if (!strcmp(tagName, kXMLTagDict))
-    {
-        length = ParseTagList(buffer + pos, tag, kTagTypeDict, 0);
-    }
-    else if (!strcmp(tagName, kXMLTagDict "/"))
-    {
-        length = ParseTagList(buffer + pos, tag, kTagTypeDict, 1);
-    }
-    else if (!strcmp(tagName, kXMLTagKey))
-    {
-        length = ParseTagKey(buffer + pos, tag);
-    }
-    else if (!strcmp(tagName, kXMLTagString))
-    {
-        length = ParseTagString(buffer + pos, tag);
-    }
-    else if (!strcmp(tagName, kXMLTagInteger))
-    {
-        length = ParseTagInteger(buffer + pos, tag);
-    }
-    else if (!strcmp(tagName, kXMLTagData))
-    {
-        length = ParseTagData(buffer + pos, tag);
-    }
-    else if (!strcmp(tagName, kXMLTagDate))
-    {
-        length = ParseTagDate(buffer + pos, tag);
-    }
-    else if (!strcmp(tagName, kXMLTagFalse))
-    {
-        length = ParseTagBoolean(buffer + pos, tag, kTagTypeFalse);
-    }
-    else if (!strcmp(tagName, kXMLTagTrue))
-    {
-        length = ParseTagBoolean(buffer + pos, tag, kTagTypeTrue);
-    }
-    else if (!strcmp(tagName, kXMLTagArray))
-    {
-        length = ParseTagList(buffer + pos, tag, kTagTypeArray, 0);
-    }
-    else if (!strcmp(tagName, kXMLTagArray "/"))
-    {
-        length = ParseTagList(buffer + pos, tag, kTagTypeArray, 1);
-    }
-    else
-    {
-        *tag = 0;
-        length = 0;
-    }
+    long ret;
+    compressed_kernel_header * kernel_header = (compressed_kernel_header *) binary;
+    u_int32_t uncompressed_size, size;
+    void *buffer;
   
-    if (length == -1) return -1;
-  
-    return pos + length;
-}
+#if 0
+    printf("kernel header:\n");
+    printf("signature: 0x%x\n", kernel_header->signature);
+    printf("compress_type: 0x%x\n", kernel_header->compress_type);
+    printf("adler32: 0x%x\n", kernel_header->adler32);
+    printf("uncompressed_size: 0x%x\n", kernel_header->uncompressed_size);
+    printf("compressed_size: 0x%x\n", kernel_header->compressed_size);
+    getc();
+#endif
 
-//==========================================================================
-// ParseTagList
-
-static long
-ParseTagList( char * buffer, TagPtr * tag, long type, long empty )
-{
-	long   length, pos;
-	TagPtr tagList, tmpTag;
-  
-    tagList = 0;
-    pos = 0;
-  
-    if (!empty)
-    {
-        while (1)
-        {
-            length = ParseNextTag(buffer + pos, &tmpTag);
-            if (length == -1) break;
-
-            pos += length;
-      
-            if (tmpTag == 0) break;
-            tmpTag->tagNext = tagList;
-            tagList = tmpTag;
+    if (kernel_header->signature == OSSwapBigToHostConstInt32('comp')) {
+        if (kernel_header->compress_type != OSSwapBigToHostConstInt32('lzss')) {
+            error("kernel compression is bad\n");
+            return -1;
         }
+#if NOTDEF
+        if (kernel_header->platform_name[0] && strcmp(gPlatformName, kernel_header->platform_name))
+            return -1;
+        if (kernel_header->root_path[0] && strcmp(gBootFile, kernel_header->root_path))
+            return -1;
+#endif
     
-        if (length == -1)
-        {
-            FreeTag(tagList);
+        uncompressed_size = OSSwapBigToHostInt32(kernel_header->uncompressed_size);
+        binary = buffer = malloc(uncompressed_size);
+    
+        size = decompress_lzss((u_int8_t *) binary, &kernel_header->data[0],
+                               OSSwapBigToHostInt32(kernel_header->compressed_size));
+        if (uncompressed_size != size) {
+            error("size mismatch from lzss: %x\n", size);
+            return -1;
+        }
+        if (OSSwapBigToHostInt32(kernel_header->adler32) !=
+            Alder32(binary, uncompressed_size)) {
+            printf("adler mismatch\n");
             return -1;
         }
     }
   
-    tmpTag = NewTag();
-    if (tmpTag == 0)
-    {
-        FreeTag(tagList);
-        return -1;
-    }
-
-    tmpTag->type = type;
-    tmpTag->string = 0;
-    tmpTag->tag = tagList;
-    tmpTag->tagNext = 0;
-    
-    *tag = tmpTag;
-    
-    return pos;
-}
-
-//==========================================================================
-// ParseTagKey
-
-static long
-ParseTagKey( char * buffer, TagPtr * tag )
-{
-    long   length, length2;
-    char   *string;
-    TagPtr tmpTag, subTag;
+  ThinFatFile(&binary, 0);
   
-    length = FixDataMatchingTag(buffer, kXMLTagKey);
-    if (length == -1) return -1;
+  ret = DecodeMachO(binary, rentry, raddr, rsize);
   
-    length2 = ParseNextTag(buffer + length, &subTag);
-    if (length2 == -1) return -1;
-  
-    tmpTag = NewTag();
-    if (tmpTag == 0)
-    {
-        FreeTag(subTag);
-        return -1;
-    }
-  
-    string = NewSymbol(buffer);
-    if (string == 0)
-    {
-        FreeTag(subTag);
-        FreeTag(tmpTag);
-        return -1;
-    }
-  
-	tmpTag->type = kTagTypeKey;
-    tmpTag->string = string;
-    tmpTag->tag = subTag;
-    tmpTag->tagNext = 0;
-  
-    *tag = tmpTag;
-  
-    return length + length2;
-}
-
-//==========================================================================
-// ParseTagString
-
-static long
-ParseTagString( char * buffer, TagPtr * tag )
-{
-    long   length;
-    char * string;
-    TagPtr tmpTag;
-  
-	length = FixDataMatchingTag(buffer, kXMLTagString);
-    if (length == -1) return -1;
-  
-    tmpTag = NewTag();
-    if (tmpTag == 0) return -1;
-  
-    string = NewSymbol(buffer);
-    if (string == 0)
-    {
-        FreeTag(tmpTag);
-        return -1;
-    }
-  
-    tmpTag->type = kTagTypeString;
-    tmpTag->string = string;
-    tmpTag->tag = 0;
-    tmpTag->tagNext = 0;
-  
-    *tag = tmpTag;
-  
-    return length;
-}
-
-//==========================================================================
-// ParseTagInteger
-
-static long
-ParseTagInteger( char * buffer, TagPtr * tag )
-{
-    long   length, integer;
-    TagPtr tmpTag;
-    
-    length = FixDataMatchingTag(buffer, kXMLTagInteger);
-    if (length == -1) return -1;
-    
-    tmpTag = NewTag();
-    if (tmpTag == 0) return -1;
-    
-    integer = 0;
-    
-    tmpTag->type = kTagTypeInteger;
-    tmpTag->string = (char *)integer;
-    tmpTag->tag = 0;
-    tmpTag->tagNext = 0;
-    
-    *tag = tmpTag;
-    
-    return length;
-}
-
-//==========================================================================
-// ParseTagData
-
-static long
-ParseTagData( char * buffer, TagPtr * tag )
-{
-    long   length;
-    TagPtr tmpTag;
-    
-    length = FixDataMatchingTag(buffer, kXMLTagData);
-    if (length == -1) return -1;
-    
-    tmpTag = NewTag();
-    if (tmpTag == 0) return -1;
-    
-    tmpTag->type = kTagTypeData;
-    tmpTag->string = 0;
-    tmpTag->tag = 0;
-    tmpTag->tagNext = 0;
-    
-    *tag = tmpTag;
-    
-    return length;
-}
-
-//==========================================================================
-// ParseTagDate
-
-static long
-ParseTagDate( char * buffer, TagPtr * tag )
-{
-    long   length;
-    TagPtr tmpTag;
-    
-    length = FixDataMatchingTag(buffer, kXMLTagDate);
-    if (length == -1) return -1;
-    
-    tmpTag = NewTag();
-    if (tmpTag == 0) return -1;
-    
-    tmpTag->type = kTagTypeDate;
-    tmpTag->string = 0;
-    tmpTag->tag = 0;
-    tmpTag->tagNext = 0;
-    
-    *tag = tmpTag;
-    
-    return length;
-}
-
-//==========================================================================
-// ParseTagBoolean
-
-static long
-ParseTagBoolean( char * buffer, TagPtr * tag, long type )
-{
-    TagPtr tmpTag;
-    
-    tmpTag = NewTag();
-    if (tmpTag == 0) return -1;
-    
-    tmpTag->type = type;
-    tmpTag->string = 0;
-    tmpTag->tag = 0;
-    tmpTag->tagNext = 0;
-    
-    *tag = tmpTag;
-    
-    return 0;
-}
-
-//==========================================================================
-// GetNextTag
-
-static long
-GetNextTag( char * buffer, char ** tag, long * start )
-{
-    long cnt, cnt2;
-
-    if (tag == 0) return -1;
-    
-    // Find the start of the tag.
-    cnt = 0;
-    while ((buffer[cnt] != '\0') && (buffer[cnt] != '<')) cnt++;
-    if (buffer[cnt] == '\0') return -1;
-    
-    // Find the end of the tag.
-    cnt2 = cnt + 1;
-    while ((buffer[cnt2] != '\0') && (buffer[cnt2] != '>')) cnt2++;
-    if (buffer[cnt2] == '\0') return -1;
-
-    // Fix the tag data.
-    *tag = buffer + cnt + 1;
-    buffer[cnt2] = '\0';
-    if (start) *start = cnt;
-    
-    return cnt2 + 1;
-}
-
-//==========================================================================
-// FixDataMatchingTag
-
-static long
-FixDataMatchingTag( char * buffer, char * tag )
-{
-    long   length, start, stop;
-    char * endTag;
-    
-    start = 0;
-    while (1)
-    {
-        length = GetNextTag(buffer + start, &endTag, &stop);
-        if (length == -1) return -1;
-        
-        if ((*endTag == '/') && !strcmp(endTag + 1, tag)) break;
-        start += length;
-    }
-    
-    buffer[start + stop] = '\0';
-    
-    return start + length;
-}
-
-//==========================================================================
-// NewTag
-
-#define kTagsPerBlock (0x1000)
-
-static TagPtr gTagsFree;
-
-static TagPtr
-NewTag( void )
-{
-	long   cnt;
-	TagPtr tag;
-  
-    if (gTagsFree == 0)
-    {
-        tag = (TagPtr)AllocateBootXMemory(kTagsPerBlock * sizeof(Tag));
-        if (tag == 0) return 0;
-        
-        // Initalize the new tags.
-        for (cnt = 0; cnt < kTagsPerBlock; cnt++)
-        {
-            tag[cnt].type = kTagTypeNone;
-            tag[cnt].string = 0;
-            tag[cnt].tag = 0;
-            tag[cnt].tagNext = tag + cnt + 1;
-        }
-        tag[kTagsPerBlock - 1].tagNext = 0;
-
-        gTagsFree = tag;
-    }
-
-    tag = gTagsFree;
-    gTagsFree = tag->tagNext;
-    
-    return tag;
-}
-
-//==========================================================================
-// FreeTag
-
-static void
-FreeTag( TagPtr tag )
-{
-	return;
-    if (tag == 0) return;
-  
-    if (tag->string) FreeSymbol(tag->string);
-  
-    FreeTag(tag->tag);
-    FreeTag(tag->tagNext);
-  
-    // Clear and free the tag.
-    tag->type = kTagTypeNone;
-    tag->string = 0;
-    tag->tag = 0;
-    tag->tagNext = gTagsFree;
-    gTagsFree = tag;
-}
-
-//==========================================================================
-// Symbol object.
-
-struct Symbol
-{
-  long          refCount;
-  struct Symbol *next;
-  char          string[1];
-};
-typedef struct Symbol Symbol, *SymbolPtr;
-
-static SymbolPtr FindSymbol(char * string, SymbolPtr * prevSymbol);
-
-static SymbolPtr gSymbolsHead;
-
-//==========================================================================
-// NewSymbol
-
-static char *
-NewSymbol( char * string )
-{
-	SymbolPtr symbol;
-  
-    // Look for string in the list of symbols.
-    symbol = FindSymbol(string, 0);
-  
-    // Add the new symbol.
-    if (symbol == 0)
-    {
-        symbol = AllocateBootXMemory(sizeof(Symbol) + strlen(string));
-        if (symbol == 0) return 0;
-    
-        // Set the symbol's data.
-        symbol->refCount = 0;
-        strcpy(symbol->string, string);
-    
-        // Add the symbol to the list.
-        symbol->next = gSymbolsHead;
-        gSymbolsHead = symbol;
-    }
-  
-    // Update the refCount and return the string.
-    symbol->refCount++;
-    return symbol->string;
-}
-
-//==========================================================================
-// FreeSymbol
-
-static void
-FreeSymbol( char * string )
-{ 
-#if 0
-    SymbolPtr symbol, prev;
-    
-    // Look for string in the list of symbols.
-    symbol = FindSymbol(string, &prev);
-    if (symbol == 0) return;
-    
-    // Update the refCount.
-    symbol->refCount--;
-    
-    if (symbol->refCount != 0) return;
-    
-    // Remove the symbol from the list.
-    if (prev != 0) prev->next = symbol->next;
-    else gSymbolsHead = symbol->next;
-    
-    // Free the symbol's memory.
-    free(symbol);
-#endif
-}
-
-//==========================================================================
-// FindSymbol
-
-static SymbolPtr
-FindSymbol( char * string, SymbolPtr * prevSymbol )
-{
-	SymbolPtr symbol, prev;
-  
-	symbol = gSymbolsHead;
-	prev = 0;
-  
-	while (symbol != 0)
-    {
-        if (!strcmp(symbol->string, string)) break;
-    
-        prev = symbol;
-        symbol = symbol->next;
-    }
-  
-    if ((symbol != 0) && (prevSymbol != 0)) *prevSymbol = prev;
-  
-    return symbol;
+  return ret;
 }

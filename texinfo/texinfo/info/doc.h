@@ -1,5 +1,5 @@
 /* doc.h -- Structures associating function pointers with documentation.
-   $Id: doc.h,v 1.1.1.1 2002/04/19 01:00:24 jkh Exp $
+   $Id: doc.h,v 1.2 2003/07/25 18:37:06 jkh Exp $
 
    Copyright (C) 1993, 2001 Free Software Foundation, Inc.
 

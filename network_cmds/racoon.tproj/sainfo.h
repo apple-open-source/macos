@@ -1,4 +1,4 @@
-/*	$KAME: sainfo.h,v 1.6 2000/10/04 17:41:03 itojun Exp $	*/
+/*	$KAME: sainfo.h,v 1.7 2000/10/11 19:54:08 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.

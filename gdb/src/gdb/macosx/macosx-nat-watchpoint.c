@@ -21,6 +21,7 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
+#include "macosx-nat-watchpoint.h"
 #include "macosx-nat-dyld.h"
 #include "macosx-nat-inferior.h"
 #include "macosx-nat-mutils.h"
@@ -151,8 +152,7 @@ static void
 unwrite_protect_page (int pid, CORE_ADDR page_start, int original_permissions)
 {
   kern_return_t kret;
-
-    kret = vm_protect (macosx_status->task, page_start, 4096, 0, original_permissions);
+  kret = vm_protect (macosx_status->task, page_start, 4096, 0, original_permissions);
 }
 
 
@@ -220,7 +220,7 @@ macosx_disable_page_protection_events (int pid)
    (Yes, this is intentionally (though lord only knows why) different
    from the TYPE that is passed to hppa_remove_hw_watchpoint.)
  */
-int
+static int
 hppa_insert_hw_watchpoint (int pid, CORE_ADDR start, LONGEST len, int type)
 {
   CORE_ADDR page_start;
@@ -295,7 +295,7 @@ hppa_insert_hw_watchpoint (int pid, CORE_ADDR start, LONGEST len, int type)
    overlap that range, which are not also being watched by other
    watchpoints.
  */
-int
+static int
 hppa_remove_hw_watchpoint (int pid, CORE_ADDR start, LONGEST len,
 			   enum bptype type)
 {
@@ -359,11 +359,10 @@ hppa_remove_hw_watchpoint (int pid, CORE_ADDR start, LONGEST len,
    hardware support.
  */
 int
-macosx_can_use_hw_watchpoint (enum bptype type, int cnt, enum bptype ot)
+macosx_can_use_hw_watchpoint (int type, int cnt, int ot)
 {
   return (type == bp_hardware_watchpoint);
 }
-
 
 int
 macosx_region_ok_for_hw_watchpoint (CORE_ADDR start, LONGEST len)

@@ -1,21 +1,24 @@
 /*
- * Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -25,14 +28,18 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Wed Feb 21 2002.
- *  Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: bless.h,v 1.15 2002/05/03 04:23:54 ssen Exp $
+ *  $Id: bless.h,v 1.42 2003/07/23 09:18:48 ssen Exp $
  *
  */
  
 #ifndef _BLESS_H_
 #define _BLESS_H_
+
+#include <CoreFoundation/CoreFoundation.h>
+
+#include <stdint.h>
 
 #ifdef _cplusplus
 extern "C" {
@@ -48,7 +55,7 @@ extern "C" {
 /***** Structs *****/
 
 /*!
- * @struct BLContextStruct
+ * @struct BLContext
  * @abstract Bless Library Context
  * @discussion Each thread of a multi-threaded program should
  *    have their own bless context, which is the first argument
@@ -59,16 +66,19 @@ extern "C" {
  *    be called with a null context, or a non-null context with
  *    a null <b>logstring</b> member. a null <b>logrefcon</b>
  *    may or may not be allowed depending on the user-defined
- *    <b>printf</b> function.
+ *    <b>logstring</b> function.
+ * @field version version of BLContext in use by client. Currently
+ *    0
  * @field logstring function used for messages from the library. It
- *    will be called with <b>printfrefcon</b> and a log level, which
+ *    will be called with <b>logrefcon</b> and a log level, which
  *    can be used to tailor the output
- * @field logrefcon arbitrary data passed to <b>printf</b>
+ * @field logrefcon arbitrary data passed to <b>logrefcon</b>
  */
 typedef struct {
+  int version;
   int (*logstring)(void *refcon, int level, char const *string);
   void *logrefcon;
-} BLContextStruct, *BLContext;
+} BLContext, *BLContextPtr;
 
 /*!
  * @define kBLLogLevelNormal
@@ -88,67 +98,121 @@ typedef struct {
  */
 #define kBLLogLevelError   0x00000004
 
+/***** Constants *****/
+
+/*!
+ * @define kBL_PATH_PPC_BOOTBLOCKDATA
+ * @discussion Boot blocks for Darwin PPC on HFS/HFS+ partitions
+ */
+#define kBL_PATH_PPC_BOOTBLOCKDATA "/usr/share/misc/bootblockdata"
+
+/*!
+ * @define kBL_PATH_PPC_CDBOOTDATA
+ * @discussion Fake System file for an HFS+ wrapper to repatch OF
+ */
+#define kBL_PATH_PPC_CDBOOTDATA "/usr/share/misc/cdblockdata"
+
+/*!
+ * @define kBL_PATH_PPC_HDBOOTDATA
+ * @discussion Fake System file for an HFS+ volume to repatch OF
+ */
+#define kBL_PATH_PPC_HDBOOTDATA "/usr/share/misc/hdblockdata"
+
+/*!
+ * @define kBL_PATH_PPC_BOOTX_XCOFF
+ * @discussion XCOFF format Secondary loader for Old World
+ */
+#define kBL_PATH_PPC_BOOTX_XCOFF "/usr/standalone/ppc/bootx.xcoff"
+
+/*!
+ * @define kBL_PATH_PPC_BOOTX_BOOTINFO
+ * @discussion bootinfo format Secondary loader for New World
+ */
+#define kBL_PATH_PPC_BOOTX_BOOTINFO "/usr/standalone/ppc/bootx.bootinfo"
+
+/*!
+ * @define kBL_PATH_CORESERVICES
+ * @discussion Default blessed system folder for Mac OS X
+ */
+#define kBL_PATH_CORESERVICES "/System/Library/CoreServices"
+
+/*!
+ * @define kBL_PATH_I386_BOOT0
+ * @discussion MBR boot code
+ */
+#define kBL_PATH_I386_BOOT0 "/usr/standalone/i386/boot0"
+
+/*!
+ * @define kBL_PATH_I386_BOOT1HFS
+ * @discussion partition boot record boot code for HFS+
+ */
+#define kBL_PATH_I386_BOOT1HFS "/usr/standalone/i386/boot1h"
+
+/*!
+ * @define kBL_PATH_I386_BOOT1UFS
+ * @discussion partition boot record boot code for UFS
+ */
+#define kBL_PATH_I386_BOOT1UFS "/usr/standalone/i386/boot1u"
+
+/*!
+ * @define kBL_PATH_I386_BOOT2
+ * @discussion Second stage loader for Darwin x86
+ */
+#define kBL_PATH_I386_BOOT2 "/usr/standalone/i386/boot"
+
+/*!
+ * @define kBL_PATH_I386_BOOT2_CONFIG_PLIST
+ * @discussion Second stage loader config file for Darwin x86
+ */
+#define kBL_PATH_I386_BOOT2_CONFIG_PLIST "/Library/Preferences/SystemConfiguration/com.apple.Boot.plist"
+
+
+/*!
+ * @define kBL_OSTYPE_PPC_TYPE_BOOTX
+ * @discussion HFS+ type for Secondary loader for New World
+ */
+#define kBL_OSTYPE_PPC_TYPE_BOOTX 'tbxi'
+
+/*!
+ * @define kBL_OSTYPE_PPC_TYPE_OFLABEL
+ * @discussion HFS+ type for OpenFirmware volume label
+ */
+#define kBL_OSTYPE_PPC_TYPE_OFLABEL 'tbxj'
+
+/*!
+ * @define kBL_OSTYPE_PPC_CREATOR_CHRP
+ * @discussion HFS+ creator for all OF support files
+ */
+#define kBL_OSTYPE_PPC_CREATOR_CHRP 'chrp'
+
+/***** Enumerations *****/
+
+typedef enum {
+
+    kBLPartitionType_None = 0x00000001UL,
+
+    kBLPartitionType_MBR  = 0x00000002UL,
+
+    kBLPartitionType_APM  = 0x00000004UL,
+
+} BLPartitionType;
+
 
 /***** BootBlocks *****/
 
-/*!
- * @function BLGetBootBlocksFromFolder
- * @abstract Read boot blocks from a Mac OS 9-style System file
- * @discussion Using the system folder specified by <b>dirID</b>
- *   on <b>mountpoint</b>, find the system file named &quot;System&quot;
- *   and use the <i>Carbon Resource Manager</i> to read boot blocks
- *   from the 'boot' 1 resource
- * @param context Bless Library context
- * @param mountpoint mountpoint of volume to use
- * @param dir9 directory ID of system folder on <b>mountpoint</b>
- * @param bootBlocks buffer of at least 1024 bytes to hold boot blocks
- */
-
-int BLGetBootBlocksFromFolder(BLContext context,
-			      unsigned char mountpoint[],
-			      u_int32_t dir9,
-			      unsigned char bootBlocks[]);
-
-/*!
- * @function BLGetBootBlocksFromFile
- * @abstract Read boot blocks from a Mac OS 9-style System file
- * @discussion Using the system file <b>file</b>, use the
- *   <i>Carbon Resource Manager</i> to read boot blocks
- *   from the 'boot' 1 resource
- * @param context Bless Library context
- * @param path full path to Mac OS 9 System file
- * @param bootBlocks buffer of at least 1024 bytes to hold boot blocks
- */
-
-int BLGetBootBlocksFromFile(BLContext context,
-			    unsigned char file[],
-			    unsigned char bootBlocks[]);
-
-/*!
- * @function BLGetBootBlocksDataForkFromFile
- * @abstract Read boot blocks from a data file
- * @discussion Read the first 1024 bytes from the data fork of the
- *   file <b>file</b> as boot blocks
- * @param context Bless Library context
- * @param path Full path to data file
- * @param bootBlocks buffer of at least 1024 bytes to hold boot blocks
- */
-int BLGetBootBlocksFromDataForkFile(BLContext context,
-				    unsigned char file[],
-				    unsigned char bootBlocks[]);
 
 /*!
  * @function BLSetBootBlocks
  * @abstract Write boot blocks to a volume
- * @discussion Write the first 1024 bytes from the buffer <b>bbPtr</b>
- *   as the boot blocks of the volume mounted at <b>mountpoint</b>
+ * @discussion Write the bytes from <b>bootblocks</b>
+ *   as the boot blocks of the HFS+ volume mounted at <b>mountpoint</b>
  * @param context Bless Library context
  * @param mountpoint mountpoint of volume to modify
- * @param bbPtr buffer of at least 1024 bytes to hold boot blocks
+ * @param bbPtr buffer of at most 1024 bytes to hold boot blocks
  */
-int BLSetBootBlocks(BLContext context,
+int BLSetBootBlocks(BLContextPtr context,
 		    unsigned char mountpoint[],
-		    unsigned char bbPtr[]);
+		    CFDataRef bootblocks);
 
 /***** FinderInfo *****/
 
@@ -162,9 +226,9 @@ int BLSetBootBlocks(BLContext context,
  * @param mount mountpoint of volume to gather information on
  * @param outDict result dictionary
  */
-int BLCreateVolumeInformationDictionary(BLContext context,
+int BLCreateVolumeInformationDictionary(BLContextPtr context,
 					unsigned char mount[],
-					/* CFDictionaryRef */ void **outDict);
+					CFDictionaryRef *outDict);
 
 /*!
  * @function BLGetFinderFlag
@@ -177,9 +241,9 @@ int BLCreateVolumeInformationDictionary(BLContext context,
  * @param flag bitmask of flag to be fetched
  * @param retval value of <b>flag</b> for <b>path</b>.
  */
-int BLGetFinderFlag(BLContext context,
+int BLGetFinderFlag(BLContextPtr context,
 		    unsigned char path[],
-		    u_int16_t flag,
+		    uint16_t flag,
 		    int *retval);
 /*!
  * @function BLSetFinderFlag
@@ -192,9 +256,9 @@ int BLGetFinderFlag(BLContext context,
  * @param flag bitmask of flag to be set
  * @param setval value of <b>flag</b> for <b>path</b>.
  */
-int BLSetFinderFlag(BLContext context,
+int BLSetFinderFlag(BLContextPtr context,
 		    unsigned char path[],
-		    u_int16_t flag,
+		    uint16_t flag,
 		    int setval);
 
 /*!
@@ -206,10 +270,11 @@ int BLSetFinderFlag(BLContext context,
  * @param context Bless Library context
  * @param mountpoint mountpoint of volume
  * @param words array of at least length 8
+ *    (directory IDs in host endianness)
  */
-int BLGetVolumeFinderInfo(BLContext context,
+int BLGetVolumeFinderInfo(BLContextPtr context,
 			  unsigned char mountpoint[],
-			  u_int32_t words[]);
+			  uint32_t words[]);
 
 /*!
  * @function BLSetVolumeFinderInfo
@@ -221,10 +286,11 @@ int BLGetVolumeFinderInfo(BLContext context,
  * @param mountpoint mountpoint of volume
  * @param words array of at least length 6, which will
  *    replace the first 6 words on-disk
+ *    (directory IDs in host endianness)
  */
-int BLSetVolumeFinderInfo(BLContext context,
+int BLSetVolumeFinderInfo(BLContextPtr context,
 			  unsigned char mountpoint[],
-			  u_int32_t words[]);
+			  uint32_t words[]);
 
 /*!
  * @function BLSetTypeAndCreator
@@ -237,10 +303,10 @@ int BLSetVolumeFinderInfo(BLContext context,
  * @param type OSType with type
  * @param creator OSType with creator
  */
-int BLSetTypeAndCreator(BLContext context,
+int BLSetTypeAndCreator(BLContextPtr context,
 			unsigned char path[],
-			u_int32_t type,
-			u_int32_t creator);
+			uint32_t type,
+			uint32_t creator);
 
 /***** HFS *****/
 
@@ -265,10 +331,10 @@ int BLSetTypeAndCreator(BLContext context,
  *    loading the secondary loader
  */
 
-int BLBlessDir(BLContext context,
+int BLBlessDir(BLContextPtr context,
 	       unsigned char mountpoint[],
-	       u_int32_t dirX,
-	       u_int32_t dir9,
+	       uint32_t dirX,
+	       uint32_t dir9,
 	       int useX);
 
 /*!
@@ -284,7 +350,7 @@ int BLBlessDir(BLContext context,
  * @param fsargs additional arguments to
  *    <i>newfs_hfs</i>
  */
-int BLFormatHFS(BLContext context,
+int BLFormatHFS(BLContextPtr context,
 		unsigned char devicepath[],
                 off_t bytesLeftFree,
 		unsigned char fslabel[],
@@ -299,9 +365,9 @@ int BLFormatHFS(BLContext context,
  * @param path path to file
  * @param folderID file ID of <b>path</b>
  */
-int BLGetFileID(BLContext context,
+int BLGetFileID(BLContextPtr context,
 		unsigned char path[],
-		u_int32_t *folderID);
+		uint32_t *folderID);
 
 /*!
  * @function BLIsMountHFS
@@ -313,7 +379,7 @@ int BLGetFileID(BLContext context,
  * @param mountpt Mountpoint of volume
  * @param isHFS is the mount hfs?
  */
-int BLIsMountHFS(BLContext context,
+int BLIsMountHFS(BLContextPtr context,
 		 unsigned char mountpt[],
 		 int *isHFS);
 
@@ -326,40 +392,18 @@ int BLIsMountHFS(BLContext context,
  * @param context Bless Library context
  * @param mount Mountpoint of volume
  * @param fileID file ID to look up
- * @param out resulting path
+ * @param out resulting path (up to MAXPATHLEN characeters will be written)
  */
-int BLLookupFileIDOnMount(BLContext context,
+int BLLookupFileIDOnMount(BLContextPtr context,
 			  unsigned char mount[],
-			  u_int32_t fileID,
+			  uint32_t fileID,
 			  unsigned char out[]);
 
-#if !defined(DARWIN)
-
-/*!
- * @function BLWriteStartupFile
- * @abstract Write the StartupFile for Old World booting
- * @discussion Read the xcoff at from <b>xcoff</b> and
- *    write it into the HFS+ partition <b>partitionDev</b>
- * @param context Bless Library context
- * @param xcoff source of Secondary Loader (i.e.
- *    /usr/standalone/ppc/bootx.xcoff
- * @param partitionDev partition to install onto
- * @param parentDev whole device containing <b>partitionDev</b>
- * @param partitionNum which partition of <b>parentDev</b>
- *    is <b>partitionDev</b>
- */
-int BLWriteStartupFile(BLContext context,
-		       unsigned char xcoff[],
-		       unsigned char partitionDev[],
-		       unsigned char parentDev[],
-		       unsigned long partitionNum);
-
-#endif /* !DARWIN */
 
 /*!
  * @function BLLoadXCOFFLoader
  * @abstract Load Old World Secondary Loader into memory
- * @description Decode the BootX secondary
+ * @discussion Decode the BootX secondary
  *    loader at <b>xcoff</b> and calculate parameters
  *    for the partition entry
  * @param context Bless Library context
@@ -371,13 +415,31 @@ int BLWriteStartupFile(BLContext context,
  * @param checksum pmBootCksum field in partition entry
  * @param data CFDataRef containing decoded XCOFF
  */
-int BLLoadXCOFFLoader(BLContext context,
+int BLLoadXCOFFLoader(BLContextPtr context,
                         unsigned char xcoff[],
-                        u_int32_t *entrypoint,
-                        u_int32_t *loadbase,
-                        u_int32_t *size,
-                        u_int32_t *checksum,
-                        void /* CFDataRef */ **data);
+                        uint32_t *entrypoint,
+                        uint32_t *loadbase,
+                        uint32_t *size,
+                        uint32_t *checksum,
+                        CFDataRef *data);
+
+/*!
+ * @function BLGetDiskSectorsForFile
+ * @abstract Determine the on-disk location of a file
+ * @discussion Get the HFS/HFS+ extents for the
+ *    file <b>path</b>, and translate it to 512-byte
+ *    sector start/length pairs, relative to the beginning
+ *    of the partition.
+ * @param context Bless Library context
+ * @param path path to file
+ * @param extents array to hold start/length pairs for disk extents
+ * @param device filled in with the device the extent information applies to
+ */
+
+int BLGetDiskSectorsForFile(BLContextPtr context,
+                        unsigned char path[],
+                        off_t extents[8][2],
+                        unsigned char device[]);
 
 /***** HFSWrapper *****/
 
@@ -390,7 +452,7 @@ int BLLoadXCOFFLoader(BLContext context,
  * @param device wrapped HFS+ partition
  * @param mountpt mountpoint to use
  */
-int BLMountHFSWrapper(BLContext context,
+int BLMountHFSWrapper(BLContextPtr context,
 		      unsigned char device[],
 		      unsigned char mountpt[]);
 
@@ -403,7 +465,7 @@ int BLMountHFSWrapper(BLContext context,
  * @param device wrapped HFS+ partition
  * @param mountpt mountpoint to unmount from
  */
-int BLUnmountHFSWrapper(BLContext context,
+int BLUnmountHFSWrapper(BLContextPtr context,
 			unsigned char device[],
 			unsigned char mountpt[]);
 
@@ -417,7 +479,7 @@ int BLUnmountHFSWrapper(BLContext context,
  * @param mountpt mountpoint to use
  * @param system data-fork system file
  */
-int BLUpdateHFSWrapper(BLContext context,
+int BLUpdateHFSWrapper(BLContextPtr context,
 		       unsigned char mountpt[],
 		       unsigned char system[]);
 
@@ -439,13 +501,13 @@ int BLUpdateHFSWrapper(BLContext context,
  * @param type an OSType representing the type of the new file
  * @param creator an OSType representing the creator of the new file
  */
-int BLCreateFile(BLContext context,
-                 void * /* CFDataRef */ data,
+int BLCreateFile(BLContextPtr context,
+                 CFDataRef data,
                  unsigned char dest[],
 		 unsigned char file[],
 		 int useRsrcFork,
-                 u_int32_t type,
-                 u_int32_t creator);
+                 uint32_t type,
+                 uint32_t creator);
 
 /*!
  * @function BLGetCommonMountPoint
@@ -457,7 +519,7 @@ int BLCreateFile(BLContext context,
  * @param f2 Second path
  * @param mountp Resulting mount path
  */
-int BLGetCommonMountPoint(BLContext context,
+int BLGetCommonMountPoint(BLContextPtr context,
 			  unsigned char f1[],
 			  unsigned char f2[],
 			  unsigned char mountp[]);
@@ -473,10 +535,30 @@ int BLGetCommonMountPoint(BLContext context,
  * @param partitionNum which partition of <b>parentDev</b>
  *    is <b>partitionDev</b>
  */
-int BLGetParentDevice(BLContext context,
+int BLGetParentDevice(BLContextPtr context,
 		      unsigned char partitionDev[],
 		      unsigned char parentDev[],
 		      unsigned long *partitionNum);
+
+/*!
+* @function BLGetParentDeviceAndPartitionType
+ * @abstract Get the parent and type of a leaf device
+ * @discussion Get the parent whole device for
+ *    a leaf device, and return which slice this is. Als
+ *    what type of container it is
+ * @param context Bless Library context
+ * @param partitionDev partition to use
+ * @param parentDev parent partition of <b>partitionDev</b>
+ * @param partitionNum which partition of <b>parentDev</b>
+ *    is <b>partitionDev</b>
+ * @param pmapType the partition type
+ */
+int BLGetParentDeviceAndPartitionType(BLContextPtr context,
+		      unsigned char partitionDev[],
+		      unsigned char parentDev[],
+		      unsigned long *partitionNum,
+		    BLPartitionType *pmapType);
+
 
 /*!
  * @function BLIsNewWorld
@@ -485,7 +567,7 @@ int BLGetParentDevice(BLContext context,
  *    current machine
  * @param context Bless Library context
  */
-int BLIsNewWorld(BLContext context);
+int BLIsNewWorld(BLContextPtr context);
 
 /*!
  * @function BLGenerateOFLabel
@@ -496,9 +578,28 @@ int BLIsNewWorld(BLContext context);
  * @param label UTF-8 encoded text to use
  * @param data bitmap data
  */
-int BLGenerateOFLabel(BLContext context,
+int BLGenerateOFLabel(BLContextPtr context,
                     unsigned char label[],
-                    void /* CFDataRef */ **data);
+                    CFDataRef *data);
+
+/*!
+ * @function BLSetOFLabelForDevice
+ * @abstract Set the OpenFirmware label for an
+ *    unmounted volume
+ * @discussion Use MediaKit to analyze an HFS+
+ *    volume header and catalog to find the OF
+ *    label, and if it exists write the new data.
+ *    If an existing label is not present, or if
+ *    the on-disk allocated extent is too small,
+ *    return an error
+ * @param context Bless Library context
+ * @param device an HFS+ (wrapped or not) device node
+ * @param label a correctly formatted OF label,
+ *    as returned by BLGenerateOFLabel
+ */
+int BLSetOFLabelForDevice(BLContextPtr context,
+			  unsigned char device[],
+			  CFDataRef label);
 
 /*!
  * @function BLLoadFile
@@ -511,13 +612,26 @@ int BLGenerateOFLabel(BLContext context,
  * @param useRsrcFork whether to copy data from resource fork
  * @param data pointer to new data
  */
-int BLLoadFile(BLContext context,
+int BLLoadFile(BLContextPtr context,
                unsigned char src[],
                int useRsrcFork,
-               void ** /* CFDataRef* */ data);
+               CFDataRef* data);
+
+/***** BIOS ******/
+
+int BLSetActiveBIOSBootDevice(BLContextPtr context, unsigned char device[]);
 
 
 /***** OpenFirmware *****/
+
+/*!
+ * @function BLIsOpenFirmwarePresent
+ * @abstract Does the host use Open Firmware
+ * @discussion Attempts to access the IODeviceTree
+ *     plane to see if Open Firmware is present
+ * @param context Bless Library context
+ */
+int BLIsOpenFirmwarePresent(BLContextPtr context);
 
 /*!
  * @function BLGetOpenFirmwareBootDevice
@@ -531,7 +645,7 @@ int BLLoadFile(BLContext context,
  * @param mntfrm partition device to use
  * @param ostring resulting OF string
  */
-int BLGetOpenFirmwareBootDevice(BLContext context,
+int BLGetOpenFirmwareBootDevice(BLContextPtr context,
 				unsigned char mntfrm[],
 				char ofstring[]);
 
@@ -547,7 +661,7 @@ int BLGetOpenFirmwareBootDevice(BLContext context,
  * @param mountpoint mountpoint to use
  * @param ostring resulting OF string
  */
-int BLGetOpenFirmwareBootDeviceForMountPoint(BLContext context,
+int BLGetOpenFirmwareBootDeviceForMountPoint(BLContextPtr context,
 					     unsigned char mountpoint[],
 					     char ofstring[]);
 
@@ -562,7 +676,7 @@ int BLGetOpenFirmwareBootDeviceForMountPoint(BLContext context,
  * @param context Bless Library context
  * @param mntfrom device to use
  */
-int BLSetOpenFirmwareBootDevice(BLContext context,
+int BLSetOpenFirmwareBootDevice(BLContextPtr context,
 				unsigned char mntfrm[]);
 
 /*!
@@ -576,7 +690,7 @@ int BLSetOpenFirmwareBootDevice(BLContext context,
  * @param context Bless Library context
  * @param mountpoint mountpoint to use
  */
-int BLSetOpenFirmwareBootDeviceForMountPoint(BLContext context,
+int BLSetOpenFirmwareBootDeviceForMountPoint(BLContextPtr context,
 					     unsigned char mountpoint[]);
 
 
@@ -589,12 +703,10 @@ int BLSetOpenFirmwareBootDeviceForMountPoint(BLContext context,
  * @param ofstring OF string
  * @param mntfrom resulting mountpoint
  */
-int BLGetDeviceForOpenFirmwarePath(BLContext context,
+int BLGetDeviceForOpenFirmwarePath(BLContextPtr context,
 				   char ofstring[],
 				   unsigned char mntfrm[]);
 
-
-int contextprintf(BLContext context, int loglevel, char const *fmt, ...);
 
 #ifdef _cplusplus
 }

@@ -5,7 +5,7 @@
  */
 
 /*
- * $Id: impl.h,v 1.1.1.2 2002/06/17 22:51:08 zarzycki Exp $
+ * $Id: impl.h,v 1.1.1.3 2003/05/22 01:16:35 rbraun Exp $
  */
 
 #ifndef SIO_BUFFER_SIZE
@@ -62,7 +62,7 @@ typedef struct mmap_descriptor mapd_s ;
 
 #endif /* HAVE_MMAP */
 
-typedef enum { FAILURE, SUCCESS } status_e ;
+typedef enum { FAILURE, SUCCESS } sio_status_e ;
 
 /*
  * Descriptor management: convert a descriptor pointer to an input or
@@ -145,7 +145,7 @@ int __sio_writef( __sio_od_t *odp, int fd ) ;
 int __sio_extend_buffer( __sio_id_t *idp, int fd, int b_left ) ;
 int __sio_init( __sio_descriptor_t *dp, int fd, enum __sio_stream stream_type );
 int __sio_more( __sio_id_t *idp, int fd ) ;
-status_e __sio_switch( __sio_id_t *idp, int fd ) ;
+sio_status_e __sio_switch( __sio_id_t *idp, int fd ) ;
 
 
 #ifdef HAVE_MEMCPY

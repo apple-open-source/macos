@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -25,6 +28,7 @@
 #include <IOKit/audio/IOAudioDefines.h>
 #include <IOKit/audio/IOAudioLevelControl.h>
 #include <IOKit/audio/IOAudioToggleControl.h>
+#include <IOKit/audio/IOAudioSelectorControl.h>
 #include <IOKit/audio/IOAudioPort.h>
 
 #include "AC97AudioDriver.h"
@@ -76,7 +80,7 @@ bool AppleIntelAC97AudioDriver::initHardware( IOService * provider )
 
     // Create audio ports, and attach them to audio engine.
 
-	if ( createAudioPorts() == false )
+    if ( createAudioPorts() == false )
     {
         DebugLog("%s: createAudioPorts() error\n", getName());
         goto fail;
@@ -164,26 +168,33 @@ bool AppleIntelAC97AudioDriver::createAudioEngine()
     return success;
 }
 
+//---------------------------------------------------------------------------
+
 /*
- * IOAudioControl channel ID values.
+ * IOAudioControl ID values.
  */
 enum {
-    kOutMute = 0,
-    kOutVolLeft,
-    kOutVolRight,
-    kNumControls
+    kControlOutputMute = 0,
+    kControlOutputVolumeL,
+    kControlOutputVolumeR,
+    kControlInputGainL,
+    kControlInputGainR,
+    kControlInputSelector,
+    kControlCount
 };
-
-//---------------------------------------------------------------------------
 
 bool AppleIntelAC97AudioDriver::createAudioPorts()
 {
-    IOAudioPort *          outputPort  = 0;
-    IOAudioLevelControl *  outVolLeft  = 0;
-    IOAudioLevelControl *  outVolRight = 0;
-    IOAudioToggleControl * outMute     = 0;
-    bool                   success     = false;
-    UInt32                 initialVolume;
+    IOAudioPort *            outputPort    = 0;
+    IOAudioPort *            inputPort     = 0;
+    IOAudioLevelControl *    outVolLeft    = 0;
+    IOAudioLevelControl *    outVolRight   = 0;
+    IOAudioLevelControl *    inGainLeft    = 0;
+    IOAudioLevelControl *    inGainRight   = 0;
+    IOAudioToggleControl *   outMute       = 0;
+    IOAudioSelectorControl * inputSelector = 0;
+    bool                     success       = false;
+    UInt32                   initialVolume;
 
     DebugLog("%s::%s\n", getName(), __FUNCTION__);
 
@@ -206,16 +217,12 @@ bool AppleIntelAC97AudioDriver::createAudioPorts()
                      /* maxDB        */   _audioCodec->getOutputVolumeMaxDB(),
                      /* channelID    */   kIOAudioControlChannelIDDefaultLeft,
                      /* channelName  */   kIOAudioControlChannelNameLeft,
-                     /* cntrlID      */   kOutVolLeft, 
+                     /* cntrlID      */   kControlOutputVolumeL, 
                      /* usage        */   kIOAudioControlUsageOutput );
 
         if ( outVolLeft == 0 ) break;
 
-        outVolLeft->setValueChangeHandler(
-                    (IOAudioControl::IntValueChangeHandler)
-                        audioControlChangeHandler,
-                    this );
-
+        outVolLeft->setValueChangeHandler( audioControlChangeHandler, this );
         _audioEngine->addDefaultAudioControl( outVolLeft );
 
         // Right master output volume.
@@ -228,16 +235,12 @@ bool AppleIntelAC97AudioDriver::createAudioPorts()
                       /* maxDB        */   _audioCodec->getOutputVolumeMaxDB(),
                       /* channelID    */   kIOAudioControlChannelIDDefaultRight,
                       /* channelName  */   kIOAudioControlChannelNameRight,
-                      /* cntrlID      */   kOutVolRight, 
+                      /* cntrlID      */   kControlOutputVolumeR, 
                       /* usage        */   kIOAudioControlUsageOutput );
 
         if ( outVolRight == 0 ) break;
 
-        outVolRight->setValueChangeHandler(
-                     (IOAudioControl::IntValueChangeHandler)
-                         audioControlChangeHandler,
-                     this );
-
+        outVolRight->setValueChangeHandler( audioControlChangeHandler, this );
         _audioEngine->addDefaultAudioControl( outVolRight );
 
         // Mute master output.
@@ -246,30 +249,93 @@ bool AppleIntelAC97AudioDriver::createAudioPorts()
                   /* initialValue */    false,
                   /* channelID    */    kIOAudioControlChannelIDAll,
                   /* channelName  */    kIOAudioControlChannelNameAll,
-                  /* cntrlID      */    kOutMute, 
+                  /* cntrlID      */    kControlOutputMute, 
                   /* usage        */    kIOAudioControlUsageOutput);
         
         if ( outMute == 0 ) break;
 
-        outMute->setValueChangeHandler(
-                 (IOAudioControl::IntValueChangeHandler)
-                     audioControlChangeHandler,
-                 this );
-
+        outMute->setValueChangeHandler( audioControlChangeHandler, this );
         _audioEngine->addDefaultAudioControl( outMute );
 
         // Attach audio port to audio topology.
 
          attachAudioPort( outputPort, _audioEngine, 0 );
 
+        // Create input port and attach it to audio topology.
+
+        inputPort = IOAudioPort::withAttributes( kIOAudioPortTypeInput,
+                                                 "Main Input Port" );
+        if ( inputPort == 0 ) break;
+
+        // Left input gain.
+
+        initialVolume = 0x17;
+
+        inGainLeft = IOAudioLevelControl::createVolumeControl(
+                     /* initialValue */   initialVolume,
+                     /* minValue     */   _audioCodec->getInputGainMin(),
+                     /* maxValue     */   _audioCodec->getInputGainMax(),
+                     /* minDB        */   _audioCodec->getInputGainMinDB(),
+                     /* maxDB        */   _audioCodec->getInputGainMaxDB(),
+                     /* channelID    */   kIOAudioControlChannelIDDefaultLeft,
+                     /* channelName  */   kIOAudioControlChannelNameLeft,
+                     /* cntrlID      */   kControlInputGainL, 
+                     /* usage        */   kIOAudioControlUsageInput );
+
+        if ( inGainLeft == 0 ) break;
+
+        inGainLeft->setValueChangeHandler( audioControlChangeHandler, this );
+        _audioEngine->addDefaultAudioControl( inGainLeft );
+
+        // Right input gain.
+
+        inGainRight = IOAudioLevelControl::createVolumeControl(
+                      /* initialValue */   initialVolume,
+                      /* minValue     */   _audioCodec->getInputGainMin(),
+                      /* maxValue     */   _audioCodec->getInputGainMax(),
+                      /* minDB        */   _audioCodec->getInputGainMinDB(),
+                      /* maxDB        */   _audioCodec->getInputGainMaxDB(),
+                      /* channelID    */   kIOAudioControlChannelIDDefaultRight,
+                      /* channelName  */   kIOAudioControlChannelNameRight,
+                      /* cntrlID      */   kControlInputGainR, 
+                      /* usage        */   kIOAudioControlUsageInput );
+
+        if ( inGainRight == 0 ) break;
+
+        inGainRight->setValueChangeHandler( audioControlChangeHandler, this );
+        _audioEngine->addDefaultAudioControl( inGainRight );
+
+        // Create input source selector.
+
+        inputSelector = IOAudioSelectorControl::createInputSelector(
+                        /* initialValue */      kInputSourceMic1,
+                        /* channelID    */      kIOAudioControlChannelIDAll,
+                        /* channelName  */      kIOAudioControlChannelNameAll,
+                        /* cntrlID      */      kControlInputSelector );
+
+        if ( inputSelector == 0 ) break;
+
+        inputSelector->addAvailableSelection( kInputSourceMic1, "Microphone" );
+        inputSelector->addAvailableSelection( kInputSourceLine, "Line In" );
+        inputSelector->setValueChangeHandler( audioControlChangeHandler, this );
+        _audioEngine->addDefaultAudioControl( inputSelector );
+
+        // Attach input port.
+
+         attachAudioPort( inputPort, 0, _audioEngine );
+
          success = true;
     }
     while ( false );
 
-    if ( outputPort  ) outputPort->release();
-    if ( outVolLeft  ) outVolLeft->release();
-    if ( outVolRight ) outVolRight->release();
-	if ( outMute     ) outMute->release();
+    if ( inputPort     ) inputPort->release();
+    if ( outputPort    ) outputPort->release();
+    if ( outVolLeft    ) outVolLeft->release();
+    if ( outVolRight   ) outVolRight->release();
+    if ( inGainLeft    ) inGainLeft->release();
+    if ( inGainRight   ) inGainRight->release();
+    if ( outMute       ) outMute->release();
+    if ( inputSelector ) inputSelector->release();
 
     return success;
 }
@@ -277,10 +343,10 @@ bool AppleIntelAC97AudioDriver::createAudioPorts()
 //---------------------------------------------------------------------------
 
 IOReturn AppleIntelAC97AudioDriver::audioControlChangeHandler(
-                               IOService *      target,
-                               IOAudioControl * control,
-                               SInt32           oldValue,
-                               SInt32           newValue )
+                                    OSObject *       target,
+                                    IOAudioControl * control,
+                                    SInt32           oldValue,
+                                    SInt32           newValue )
 {
     AppleIntelAC97AudioDriver * self;
     AppleIntelAC97Codec *       audioCodec = 0;
@@ -290,18 +356,31 @@ IOReturn AppleIntelAC97AudioDriver::audioControlChangeHandler(
     if ( self ) audioCodec = self->_audioCodec;
     if ( audioCodec == 0 ) return kIOReturnBadArgument;
 
-    switch ( control->getChannelID() )
+    switch ( control->getControlID() )
     {
-        case kOutVolLeft:
+        case kControlOutputVolumeL:
             audioCodec->setOutputVolumeLeft( newValue );
             break;
-        
-        case kOutVolRight:
+
+        case kControlOutputVolumeR:
             audioCodec->setOutputVolumeRight( newValue );
             break;
-        
-        case kOutMute:
+
+        case kControlOutputMute:
             audioCodec->setOutputVolumeMute( newValue );
+            break;
+
+        case kControlInputGainL:
+            audioCodec->setInputGainLeft( newValue );
+            break;
+
+        case kControlInputGainR:
+            audioCodec->setInputGainRight( newValue );
+            break;
+
+        case kControlInputSelector:
+            audioCodec->selectInputSource( newValue );
+            break;
     }
     
     return kIOReturnSuccess;

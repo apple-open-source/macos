@@ -1,8 +1,8 @@
 #
 #   complex.rb - 
 #   	$Release Version: 0.5 $
-#   	$Revision: 1.1.1.1 $
-#   	$Date: 2002/05/27 17:59:48 $
+#   	$Revision: 1.1.1.2 $
+#   	$Date: 2003/05/14 13:58:48 $
 #   	by Keiju ISHITSUKA(SHL Japan Inc.)
 #
 # --
@@ -65,7 +65,7 @@ def Complex(a, b = 0)
 end
 
 class Complex < Numeric
-  @RCS_ID='-$Id: complex.rb,v 1.1.1.1 2002/05/27 17:59:48 jkh Exp $-'
+  @RCS_ID='-$Id: complex.rb,v 1.1.1.2 2003/05/14 13:58:48 melville Exp $-'
   
   def Complex.generic?(other)
     other.kind_of?(Integer) or
@@ -374,9 +374,10 @@ module Math
   alias sin! sin
   alias tan! tan
   alias log! log
+  alias atan! atan  
   alias log10! log10
   alias atan2! atan2
-  
+
   def sqrt(z)
     if Complex.generic?(z)
       if z >= 0

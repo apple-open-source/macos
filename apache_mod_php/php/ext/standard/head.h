@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
+   | Author: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                        |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: head.h,v 1.1.1.4 2001/12/14 22:13:22 zarzycki Exp $ */
+/* $Id: head.h,v 1.1.1.6 2003/07/18 18:07:43 zarzycki Exp $ */
 
 #ifndef HEAD_H
 #define HEAD_H
@@ -27,5 +27,6 @@ PHP_FUNCTION(setcookie);
 PHP_FUNCTION(headers_sent);
 
 PHPAPI int php_header(void);
+PHPAPI int php_setcookie(char *name, int name_len, char *value, int value_len, time_t expires, char *path, int path_len, char *domain, int domain_len, int secure TSRMLS_DC);
 
 #endif

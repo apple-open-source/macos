@@ -39,6 +39,27 @@ const AccessCredentials &AccessCredentials::null =
 
 
 //
+// Scan a SampleGroup for samples with a given CSSM_SAMPLE_TYPE.
+// Collect all matching samples into a list (which is cleared to begin with).
+// Return true if any were found, false if none.
+// Throw if any of the samples are obviously malformed.
+//
+bool SampleGroup::collect(CSSM_SAMPLE_TYPE sampleType, list<CssmSample> &matches) const
+{
+	for (uint32 n = 0; n < length(); n++) {
+		TypedList sample = (*this)[n];
+		sample.checkProper();
+		if (sample.type() == sampleType) {
+			sample.snip();	// skip sample type
+			matches.push_back(sample);
+		}
+	}
+	return !matches.empty();
+}
+
+
+
+//
 // AutoCredentials self-constructing credentials structure
 //
 AutoCredentials::AutoCredentials(CssmAllocator &alloc) : allocator(alloc)

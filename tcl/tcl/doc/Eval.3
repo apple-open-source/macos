@@ -1,11 +1,12 @@
 '\"
 '\" Copyright (c) 1989-1993 The Regents of the University of California.
 '\" Copyright (c) 1994-1997 Sun Microsystems, Inc.
+'\" Copyright (c) 2000 Scriptics Corporation.
 '\"
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" RCS: @(#) $Id: Eval.3,v 1.1.1.5 2002/04/05 16:12:56 jevans Exp $
+'\" RCS: @(#) $Id: Eval.3,v 1.1.1.8 2003/07/22 23:11:02 landonf Exp $
 '\" 
 .so man.macros
 .TH Tcl_Eval 3 8.1 Tcl "Tcl Library Procedures"
@@ -36,7 +37,7 @@ int
 \fBTcl_GlobalEval\fR(\fIinterp, script\fR)
 .sp
 int
-\fBTcl_GlobalEvalObj\fR(\fIinterp, objPtr, flags\fR)
+\fBTcl_GlobalEvalObj\fR(\fIinterp, objPtr\fR)
 .sp
 int
 \fBTcl_VarEval\fR(\fIinterp, string, string, ... \fB(char *) NULL\fR)
@@ -53,7 +54,7 @@ A Tcl object containing the script to execute.
 .AP int flags in
 ORed combination of flag bits that specify additional options.
 \fBTCL_EVAL_GLOBAL\fR and \fBTCL_EVAL_DIRECT\fR are currently supported.
-.AP char *fileName in
+.AP "CONST char" *fileName in
 Name of a file containing a Tcl script.
 .AP int objc in
 The number of objects in the array pointed to by \fIobjPtr\fR;
@@ -65,10 +66,8 @@ value of a single word in the command to execute.
 The number of bytes in \fIscript\fR, not including any
 null terminating character.  If \-1, then all characters up to the
 first null byte are used.
-.AP char *script in
-Points to first byte of script to execute (NULL terminated and UTF-8).
-This script must be in writable memory: temporary modifications are made
-to it during parsing.
+.AP "CONST char" *script in
+Points to first byte of script to execute (null-terminated and UTF-8).
 .AP char *string in
 String forming part of a Tcl script.
 .AP va_list argList in
@@ -92,7 +91,8 @@ can be skipped if the object is evaluated again in the future.
 The return value from \fBTcl_EvalObjEx\fR (and all the other procedures
 described here) is a Tcl completion code with
 one of the values \fBTCL_OK\fR, \fBTCL_ERROR\fR, \fBTCL_RETURN\fR,
-\fBTCL_BREAK\fR, or \fBTCL_CONTINUE\fR.
+\fBTCL_BREAK\fR, or \fBTCL_CONTINUE\fR, or possibly some other
+integer value originating in an extension.
 In addition, a result value or error message is left in \fIinterp\fR's
 result; it can be retrieved using \fBTcl_GetObjResult\fR.
 .PP
@@ -101,6 +101,12 @@ its contents as a Tcl script.  It returns the same information as
 \fBTcl_EvalObjEx\fR.
 If the file couldn't be read then a Tcl error is returned to describe
 why the file couldn't be read.
+.VS 8.4
+The eofchar for files is '\\32' (^Z) for all platforms.
+If you require a ``^Z'' in code for string comparison, you can use
+``\\032'' or ``\\u001a'', which will be safely substituted by the Tcl
+interpreter into ``^Z''.
+.VE 8.4
 .PP
 \fBTcl_EvalObjv\fR executes a single pre-parsed command instead of a
 script.  The \fIobjc\fR and \fIobjv\fR arguments contain the values
@@ -112,16 +118,16 @@ a completion code and result just like \fBTcl_EvalObjEx\fR.
 be executed is supplied as a string instead of an object and no compilation
 occurs.  The string should be a proper UTF-8 string as converted by
 \fBTcl_ExternalToUtfDString\fR or \fBTcl_ExternalToUtf\fR when it is known
-to possibly contain upper ascii characters who's possible combinations
+to possibly contain upper ASCII characters who's possible combinations
 might be a UTF-8 special code.  The string is parsed and executed directly
 (using \fBTcl_EvalObjv\fR) instead of compiling it and executing the
 bytecodes.  In situations where it is known that the script will never be
 executed again, \fBTcl_Eval\fR may be faster than \fBTcl_EvalObjEx\fR.
-\fBTcl_Eval\fR returns a completion code and result just like 
+ \fBTcl_Eval\fR returns a completion code and result just like 
 \fBTcl_EvalObjEx\fR.  Note: for backward compatibility with versions before
 Tcl 8.0, \fBTcl_Eval\fR copies the object result in \fIinterp\fR to
 \fIinterp->result\fR (use is deprecated) where it can be accessed directly.
-This makes \fBTcl_Eval\fR somewhat slower than \fBTcl_EvalEx\fR, which
+ This makes \fBTcl_Eval\fR somewhat slower than \fBTcl_EvalEx\fR, which
 doesn't do the copy.
 .PP
 \fBTcl_EvalEx\fR is an extended version of \fBTcl_Eval\fR that takes

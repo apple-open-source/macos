@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE StateManager>
+
+<!-- ===================================================================== -->
+<!--                                                                       -->
+<!--  JBossMQ StateManager Configuration                                   -->
+<!--                                                                       -->
+<!-- ===================================================================== -->
+
+<!-- $Id: jbossmq-oldstate.xml,v 1.1 2002/04/12 23:30:31 chirino Exp $ -->
+
+<StateManager>
+   <User>
+      <Name>guest</Name>
+      <Password>guest</Password>
+   </User>
+
+   <User>
+      <Name>john</Name>
+      <Password>needle</Password>
+      <Id>DurableSubscriberExample</Id>
+   </User>
+</StateManager>
+

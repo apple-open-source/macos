@@ -1,4 +1,6 @@
-dnl ## $Id: config.m4,v 1.1.1.3 2001/12/14 22:15:18 zarzycki Exp $ -*- sh -*-
+dnl
+dnl $Id: config.m4,v 1.1.1.5 2003/03/11 01:09:38 zarzycki Exp $
+dnl 
 
 RESULT=no
 AC_MSG_CHECKING(for Caudium support)
@@ -80,8 +82,7 @@ AC_ARG_WITH(caudium,
 	fi
     PIKE_VERSION=`$PIKE -e 'string v; int rel;sscanf(version(), "Pike v%s release %d", v, rel); write(v+"."+rel);'`   
 	AC_DEFINE(HAVE_CAUDIUM,1,[Whether to compile with Caudium support])
-	PHP_SAPI=caudium
-	PHP_BUILD_SHARED
+    PHP_SELECT_SAPI(caudium, shared, caudium.c)
 	INSTALL_IT="\$(INSTALL) -m 0755 $SAPI_SHARED $withval/lib/$PIKE_VERSION/PHP4.so"
 	RESULT="	*** Pike binary used:         $PIKE
 	*** Pike include dir(s) used: $PIKE_INCLUDE_DIR

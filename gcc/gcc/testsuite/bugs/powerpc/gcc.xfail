@@ -1,0 +1,278 @@
+###
+### List of failing tests with Radar bug numbers
+### <radarNum>: <test name>
+### test name should be exactly as it appears html summary reports    
+### including any trailing #<number>
+###
+### When the bug is fixed and the test passes, it will be a
+### analyzed non-fail. You should then comment out the test in this
+### file and make sure the Radar bug is closed.
+###
+###-----------------------------------------------------------------------------------
+#3239469: gcc.dg/cpp/uchar-3.c (test for excess errors)
+#3245850: gcc.dg/cpp/skipping2.c tokens after #endif (test for warnings, line 16)
+#3248763: gcc.apple/asm-function-2.c execution test
+#3256731: gcc.dg/cast-ptr-1.c (test for excess errors)
+#3240896: gcc.dg/struct-by-value-1.c (test for excess errors)
+#3247367: gcc.apple/Wextra-tokens.c bad warning (test for bogus messages, line 13)
+#3247367: gcc.apple/Wextra-tokens.c bad warning (test for bogus messages, line 14)
+#3247367: gcc.apple/Wextra-tokens.c bad warning (test for warnings, line 13)
+#3247367: gcc.apple/Wextra-tokens.c bad warning (test for warnings, line 14)
+#3239367: gcc.dg/cpp/extratokens.c tokens after #assert (test for errors, line 26)
+#3239367: gcc.dg/cpp/extratokens.c tokens after #else (test for warnings, line 20)
+#3239367: gcc.dg/cpp/extratokens.c tokens after #endif (test for warnings, line 21)
+#3239367: gcc.dg/cpp/extratokens.c tokens after #ident (test for errors, line 32)
+#3239367: gcc.dg/cpp/extratokens.c tokens after #ifdef (test for errors, line 12)
+#3239367: gcc.dg/cpp/extratokens.c tokens after #ifndef (test for errors, line 15)
+#3239367: gcc.dg/cpp/extratokens.c tokens after #include (test for errors, line 30)
+#3239367: gcc.dg/cpp/extratokens.c tokens after #unassert (test for errors, line 28)
+#3239367: gcc.dg/cpp/extratokens.c tokens after #undef (test for errors, line 24)
+#3239367: gcc.dg/cpp/extratokens.c tokens after #ifdef (test for errors, line 13)
+#3239367: gcc.dg/cpp/extratokens.c tokens after #ifndef (test for errors, line 16)
+#3239367: gcc.dg/cpp/extratokens.c tokens after #else (test for warnings, line 21)
+#3239367: gcc.dg/cpp/extratokens.c tokens after #endif (test for warnings, line 22)
+#3239367: gcc.dg/cpp/extratokens.c tokens after #undef (test for errors, line 25)
+#3239367: gcc.dg/cpp/extratokens.c tokens after #assert (test for errors, line 27)
+#3239367: gcc.dg/cpp/extratokens.c tokens after #unassert (test for errors, line 29)
+#3239367: gcc.dg/cpp/extratokens.c tokens after #include (test for errors, line 31)
+#3239367: gcc.dg/cpp/extratokens.c tokens after #ident (test for errors, line 33)
+#3239367: gcc.dg/cpp/extratokens.c bad warning (test for bogus messages, line 39)
+#3191171: gcc.apple/preprocess.s (test for excess errors)
+#3191171: gcc.apple/preprocess.s spurious warning (test for bogus messages, line 9)
+#3233588: gcc.c-torture/compile/simd-4.c,  -O0  
+#3233588: gcc.c-torture/execute/simd-1.c compilation,  -O0 
+#3233588: gcc.c-torture/execute/simd-2.c compilation,  -O0 
+#3239367: gcc.dg/cpp/endif-pedantic2.c tokens after #else (test for errors, line 14)
+#3239367: gcc.dg/cpp/endif-pedantic2.c tokens after #endif (test for errors, line 15)
+#3239413: gcc.dg/cpp/if-2.c multi-character charconst (test for warnings, line 20)
+#3239435: gcc.dg/cpp/include2.c  (test for warnings, line 10)
+#3239435: gcc.dg/cpp/include2.c  (test for warnings, line 11)
+#3219341: gcc.dg/builtin-inf-1.c (test for excess errors)
+#3219341: gcc.dg/builtins-1.c (test for excess errors)
+###-----------------------------------------------------------------------------------
+###------------ The following tests use to fail on Panther only, now pass on S/J/P ---
+#3301194: gcc.dg/format/array-1.c   (test for excess errors)
+#3301194: gcc.dg/format/array-1.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/attr-1.c   (test for excess errors)
+#3301194: gcc.dg/format/attr-1.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/attr-2.c   (test for excess errors)
+#3301194: gcc.dg/format/attr-2.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/attr-3.c   (test for excess errors)
+#3301194: gcc.dg/format/attr-3.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/attr-4.c   (test for excess errors)
+#3301194: gcc.dg/format/attr-4.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/attr-7.c   (test for excess errors)
+#3301194: gcc.dg/format/attr-7.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/branch-1.c   (test for excess errors)
+#3301194: gcc.dg/format/branch-1.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/builtin-1.c   (test for excess errors)
+#3301194: gcc.dg/format/builtin-1.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/c90-printf-1.c   (test for excess errors)
+#3301194: gcc.dg/format/c90-printf-1.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/c90-printf-2.c   (test for excess errors)
+#3301194: gcc.dg/format/c90-printf-2.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/c90-printf-3.c   (test for excess errors)
+#3301194: gcc.dg/format/c90-printf-3.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/c90-scanf-1.c   (test for excess errors)
+#3301194: gcc.dg/format/c90-scanf-1.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/c90-scanf-2.c   (test for excess errors)
+#3301194: gcc.dg/format/c90-scanf-2.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/c90-scanf-3.c   (test for excess errors)
+#3301194: gcc.dg/format/c90-scanf-3.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/c90-scanf-4.c   (test for excess errors)
+#3301194: gcc.dg/format/c90-scanf-4.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/c90-strftime-1.c   (test for excess errors)
+#3301194: gcc.dg/format/c90-strftime-1.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/c90-strftime-2.c   (test for excess errors)
+#3301194: gcc.dg/format/c90-strftime-2.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/c94-printf-1.c   (test for excess errors)
+#3301194: gcc.dg/format/c94-printf-1.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/c94-scanf-1.c   (test for excess errors)
+#3301194: gcc.dg/format/c94-scanf-1.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/c99-printf-2.c   (test for excess errors)
+#3301194: gcc.dg/format/c99-printf-2.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/c99-printf-3.c   (test for excess errors)
+#3301194: gcc.dg/format/c99-printf-3.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/c99-scanf-2.c   (test for excess errors)
+#3301194: gcc.dg/format/c99-scanf-2.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/c99-scanf-3.c   (test for excess errors)
+#3301194: gcc.dg/format/c99-scanf-3.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/c99-strftime-1.c   (test for excess errors)
+#3301194: gcc.dg/format/c99-strftime-1.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/c99-strftime-2.c   (test for excess errors)
+#3301194: gcc.dg/format/c99-strftime-2.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/diag-1.c   (test for excess errors)
+#3301194: gcc.dg/format/diag-1.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/errmk-1.c   (test for excess errors)
+#3301194: gcc.dg/format/errmk-1.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/ext-1.c   (test for excess errors)
+#3301194: gcc.dg/format/ext-1.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/ext-2.c   (test for excess errors)
+#3301194: gcc.dg/format/ext-2.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/ext-3.c   (test for excess errors)
+#3301194: gcc.dg/format/ext-3.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/ext-4.c   (test for excess errors)
+#3301194: gcc.dg/format/ext-4.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/ext-5.c   (test for excess errors)
+#3301194: gcc.dg/format/ext-5.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/ext-6.c   (test for excess errors)
+#3301194: gcc.dg/format/ext-6.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/miss-1.c   (test for excess errors)
+#3301194: gcc.dg/format/miss-1.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/miss-2.c   (test for excess errors)
+#3301194: gcc.dg/format/miss-2.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/multattr-1.c   (test for excess errors)
+#3301194: gcc.dg/format/multattr-1.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/multattr-2.c   (test for excess errors)
+#3301194: gcc.dg/format/multattr-2.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/multattr-3.c   (test for excess errors)
+#3301194: gcc.dg/format/multattr-3.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/no-exargs-1.c   (test for excess errors)
+#3301194: gcc.dg/format/no-exargs-1.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/no-exargs-2.c   (test for excess errors)
+#3301194: gcc.dg/format/no-exargs-2.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/no-y2k-1.c   (test for excess errors)
+#3301194: gcc.dg/format/no-y2k-1.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/nonlit-1.c   (test for excess errors)
+#3301194: gcc.dg/format/nonlit-1.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/nonlit-2.c   (test for excess errors)
+#3301194: gcc.dg/format/nonlit-2.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/nonlit-3.c   (test for excess errors)
+#3301194: gcc.dg/format/nonlit-3.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/null-1.c   (test for excess errors)
+#3301194: gcc.dg/format/null-1.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/plus-1.c   (test for excess errors)
+#3301194: gcc.dg/format/plus-1.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/sec-1.c   (test for excess errors)
+#3301194: gcc.dg/format/sec-1.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/strfmon-1.c   (test for excess errors)
+#3301194: gcc.dg/format/strfmon-1.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/va-1.c   (test for excess errors)
+#3301194: gcc.dg/format/va-1.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/warnll-1.c   (test for excess errors)
+#3301194: gcc.dg/format/warnll-1.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/xopen-1.c   (test for excess errors)
+#3301194: gcc.dg/format/xopen-1.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/xopen-2.c   (test for excess errors)
+#3301194: gcc.dg/format/xopen-2.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/z-1.c   (test for excess errors)
+#3301194: gcc.dg/format/z-1.c  -DWIDE  (test for excess errors)
+#3301194: gcc.dg/format/zero-length-1.c   (test for excess errors)
+#3301194: gcc.dg/format/zero-length-1.c  -DWIDE  (test for excess errors)
+###-----------------------------------------------------------------------------------
+## --- The below tests used to fail on Panther, now work, still fails on Smeagol/Jaguar.
+3056057: gcc.dg/format/c99-scanf-3.c   vfscanf (test for warnings, line 21)
+3056057: gcc.dg/format/c99-scanf-3.c  -DWIDE  vfscanf (test for warnings, line 21)
+3056057: gcc.dg/format/ext-6.c   vfscanf (test for warnings, line 42)
+3056057: gcc.dg/format/ext-6.c  -DWIDE  vfscanf (test for warnings, line 42)
+3132068: gcc.dg/wchar_t-1.c (test for excess errors)
+3132068: gcc.dg/wint_t-1.c (test for excess errors)
+###-----------------------------------------------------------------------------------
+2863546: gcc.dg/cpp/cxxcom2.c #line extension (test for warnings, line 5)
+3191351: gcc.c-torture/compile/20000518-1.c,  -O1  
+3191351: gcc.c-torture/compile/20000518-1.c,  -O2  
+3191351: gcc.c-torture/compile/20000518-1.c,  -O3 -fomit-frame-pointer  
+3191351: gcc.c-torture/compile/20000518-1.c,  -O3 -g  
+3191351: gcc.c-torture/compile/20000518-1.c,  -Os  
+3191500: gcc.dg/c99-func-3.c execution test
+3219341: gcc.dg/format/c99-printf-1.c   (test for excess errors)
+3219341: gcc.dg/format/c99-printf-1.c  -DWIDE  (test for excess errors)
+3219341: gcc.dg/format/c99-scanf-1.c   (test for excess errors)
+3219341: gcc.dg/format/c99-scanf-1.c  -DWIDE  (test for excess errors)
+3233476: gcc.c-torture/compile/simd-1.c,  -O0
+3233476: gcc.c-torture/compile/simd-1.c,  -O1
+3233476: gcc.c-torture/compile/simd-1.c,  -O2
+3233476: gcc.c-torture/compile/simd-1.c,  -O3 -fomit-frame-pointer
+3233476: gcc.c-torture/compile/simd-1.c,  -O3 -g
+3233476: gcc.c-torture/compile/simd-1.c,  -Os
+3233476: gcc.c-torture/compile/simd-5.c,  -O0  
+3233476: gcc.c-torture/compile/simd-5.c,  -O1  
+3233476: gcc.c-torture/compile/simd-5.c,  -O2  
+3233476: gcc.c-torture/compile/simd-5.c,  -O3 -fomit-frame-pointer  
+3233476: gcc.c-torture/compile/simd-5.c,  -O3 -g  
+3233476: gcc.c-torture/compile/simd-5.c,  -Os  
+3233562: gcc.c-torture/compile/simd-2.c,  -O0  
+3233562: gcc.c-torture/compile/simd-2.c,  -O1  
+3233562: gcc.c-torture/compile/simd-2.c,  -O2  
+3233562: gcc.c-torture/compile/simd-2.c,  -O3 -fomit-frame-pointer  
+3233562: gcc.c-torture/compile/simd-2.c,  -O3 -g  
+3233562: gcc.c-torture/compile/simd-2.c,  -Os  
+3233562: gcc.c-torture/compile/simd-3.c,  -O0  
+3233562: gcc.c-torture/compile/simd-3.c,  -O1  
+3233562: gcc.c-torture/compile/simd-3.c,  -O2  
+3233562: gcc.c-torture/compile/simd-3.c,  -O3 -fomit-frame-pointer  
+3233562: gcc.c-torture/compile/simd-3.c,  -O3 -g  
+3233562: gcc.c-torture/compile/simd-3.c,  -Os  
+3233562: gcc.c-torture/compile/simd-4.c,  -O1  
+3233562: gcc.c-torture/compile/simd-4.c,  -O2  
+3233562: gcc.c-torture/compile/simd-4.c,  -O3 -fomit-frame-pointer  
+3233562: gcc.c-torture/compile/simd-4.c,  -O3 -g  
+3233562: gcc.c-torture/compile/simd-4.c,  -Os  
+3233562: gcc.c-torture/execute/simd-1.c compilation,  -O1 
+3233562: gcc.c-torture/execute/simd-1.c compilation,  -O2 
+3233562: gcc.c-torture/execute/simd-1.c compilation,  -O3 -fomit-frame-pointer 
+3233562: gcc.c-torture/execute/simd-1.c compilation,  -O3 -g 
+3233562: gcc.c-torture/execute/simd-1.c compilation,  -Os 
+3233562: gcc.c-torture/execute/simd-2.c compilation,  -O1 
+3233562: gcc.c-torture/execute/simd-2.c compilation,  -O2 
+3233562: gcc.c-torture/execute/simd-2.c compilation,  -O3 -fomit-frame-pointer 
+3233562: gcc.c-torture/execute/simd-2.c compilation,  -O3 -g 
+3233562: gcc.c-torture/execute/simd-2.c compilation,  -Os 
+3233613: gcc.c-torture/execute/20020412-1.c execution,  -O0 
+3233613: gcc.c-torture/execute/20020412-1.c execution,  -O1 
+3233613: gcc.c-torture/execute/20020412-1.c execution,  -O2 
+3233613: gcc.c-torture/execute/20020412-1.c execution,  -O3 -fomit-frame-pointer 
+3233613: gcc.c-torture/execute/20020412-1.c execution,  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions 
+3233613: gcc.c-torture/execute/20020412-1.c execution,  -O3 -fomit-frame-pointer -funroll-loops 
+3233613: gcc.c-torture/execute/20020412-1.c execution,  -O3 -g 
+3233613: gcc.c-torture/execute/20020412-1.c execution,  -Os 
+3233626: gcc.c-torture/execute/pure-1.c compilation,  -O1 
+3233626: gcc.c-torture/execute/pure-1.c compilation,  -O2 
+3233626: gcc.c-torture/execute/pure-1.c compilation,  -Os 
+3239546: gcc.dg/debug/20020220-1.c -gdwarf-2 (test for excess errors)
+3239546: gcc.dg/debug/20020220-1.c -gdwarf-2 -O (test for excess errors)
+3239546: gcc.dg/debug/20020220-1.c -gdwarf-2 -O3 (test for excess errors)
+3239546: gcc.dg/debug/20020220-1.c -gdwarf-21 (test for excess errors)
+3239546: gcc.dg/debug/20020220-1.c -gdwarf-21 -O (test for excess errors)
+3239546: gcc.dg/debug/20020220-1.c -gdwarf-21 -O3 (test for excess errors)
+3239546: gcc.dg/debug/20020220-1.c -gdwarf-23 (test for excess errors)
+3239546: gcc.dg/debug/20020220-1.c -gdwarf-23 -O (test for excess errors)
+3239546: gcc.dg/debug/20020220-1.c -gdwarf-23 -O3 (test for excess errors)
+3239546: gcc.dg/debug/20020327-1.c -gdwarf-2 (test for excess errors)
+3239546: gcc.dg/debug/20020327-1.c -gdwarf-2 -O (test for excess errors)
+3239546: gcc.dg/debug/20020327-1.c -gdwarf-2 -O3 (test for excess errors)
+3239546: gcc.dg/debug/20020327-1.c -gdwarf-21 (test for excess errors)
+3239546: gcc.dg/debug/20020327-1.c -gdwarf-21 -O (test for excess errors)
+3239546: gcc.dg/debug/20020327-1.c -gdwarf-21 -O3 (test for excess errors)
+3239546: gcc.dg/debug/20020327-1.c -gdwarf-23 (test for excess errors)
+3239546: gcc.dg/debug/20020327-1.c -gdwarf-23 -O (test for excess errors)
+3239546: gcc.dg/debug/20020327-1.c -gdwarf-23 -O3 (test for excess errors)
+3239546: gcc.dg/debug/trivial.c -gdwarf-2 (test for excess errors)
+3239546: gcc.dg/debug/trivial.c -gdwarf-2 -O (test for excess errors)
+3239546: gcc.dg/debug/trivial.c -gdwarf-2 -O3 (test for excess errors)
+3239546: gcc.dg/debug/trivial.c -gdwarf-21 (test for excess errors)
+3239546: gcc.dg/debug/trivial.c -gdwarf-21 -O (test for excess errors)
+3239546: gcc.dg/debug/trivial.c -gdwarf-21 -O3 (test for excess errors)
+3239546: gcc.dg/debug/trivial.c -gdwarf-23 (test for excess errors)
+3239546: gcc.dg/debug/trivial.c -gdwarf-23 -O (test for excess errors)
+3239546: gcc.dg/debug/trivial.c -gdwarf-23 -O3 (test for excess errors)
+3239592: gcc.dg/altivec-4.c (test for excess errors)
+3239685: gcc.dg/debug/debug-1.c -gstabs -O3 scan-assembler xyzzy
+3239685: gcc.dg/debug/debug-1.c -gstabs+ -O3 scan-assembler xyzzy
+3239685: gcc.dg/debug/debug-1.c -gstabs+3 -O3 scan-assembler xyzzy
+3239685: gcc.dg/debug/debug-1.c -gstabs3 -O3 scan-assembler xyzzy
+3239685: gcc.dg/debug/debug-2.c -gstabs -O3 scan-assembler xyzzy
+3239685: gcc.dg/debug/debug-2.c -gstabs+ -O3 scan-assembler xyzzy
+3239685: gcc.dg/debug/debug-2.c -gstabs+3 -O3 scan-assembler xyzzy
+3239685: gcc.dg/debug/debug-2.c -gstabs3 -O3 scan-assembler xyzzy
+3240498: gcc.dg/altivec-7.c (test for excess errors)
+3240498: gcc.dg/altivec-8.c (test for excess errors)
+3240568: gcc.dg/uninit-C.c (test for excess errors)
+3240749: gcc.dg/duff-2.c (test for excess errors)
+3240754: gcc.dg/simd-1.c  (test for errors, line 57)
+3240754: gcc.dg/simd-1.c  (test for errors, line 58)
+3240754: gcc.dg/simd-1.c  (test for errors, line 59)
+3240754: gcc.dg/simd-1.c  (test for errors, line 60)
+3240754: gcc.dg/simd-1.c (test for excess errors)
+3266222: gcc.dg/pch/apple-altivec-1.c -O0 -g assembly comparison
+3266222: gcc.dg/pch/apple-altivec-1.c  -O3 -g  assembly comparison

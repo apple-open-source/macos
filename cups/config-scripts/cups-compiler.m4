@@ -1,9 +1,9 @@
 dnl
-dnl "$Id: cups-compiler.m4,v 1.9 2002/06/10 23:47:26 jlovell Exp $"
+dnl "$Id: cups-compiler.m4,v 1.1.1.12 2003/04/11 21:07:17 jlovell Exp $"
 dnl
 dnl   Common configuration stuff for the Common UNIX Printing System (CUPS).
 dnl
-dnl   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+dnl   Copyright 1997-2003 by Easy Software Products, all rights reserved.
 dnl
 dnl   These coded instructions, statements, and computer programs are the
 dnl   property of Easy Software Products and are protected by Federal
@@ -55,13 +55,17 @@ if test -n "$GCC"; then
 	AC_MSG_CHECKING(if libsupc++ is required)
 
  	SUPC="`$CXX -print-file-name=libsupc++.a 2>/dev/null`"
- 	if test -n "$SUPC" -a "$SUPC" != "libsupc++.a"; then
- 		# This is gcc 3.x, and it knows of libsupc++, so we need it
- 		CXXLIBS="-lsupc++"
-		AC_MSG_RESULT(yes)
-	else
-		AC_MSG_RESULT(no)
- 	fi
+	case "$SUPC" in
+    		libsupc++.a*)
+			# Library not found, so this is and older GCC...
+			AC_MSG_RESULT(no)
+			;;
+		*)
+        		# This is gcc 3.x, and it knows of libsupc++, so we need it
+        		CXXLIBS="-lsupc++"
+        		AC_MSG_RESULT(yes)
+			;;
+	esac
 
 	CXX="$CC"
 
@@ -176,15 +180,16 @@ else
 	esac
 fi
 
-case $uname in
-	*BSD | Darwin*)
-		ARFLAGS="-rcv"
-		;;
-	*)
-		ARFLAGS="crvs"
-		;;
-esac
+if test $uname = HP-UX; then
+	# HP-UX 10.20 (at least) needs this definition to get the
+	# h_errno global...
+	OPTIM="$OPTIM -D_XOPEN_SOURCE_EXTENDED"
+
+	# HP-UX 11.00 (at least) needs this definition to get the
+	# u_short type used by the IP headers...
+	OPTIM="$OPTIM -D_INCLUDE_HPUX_SOURCE"
+fi
 
 dnl
-dnl End of "$Id: cups-compiler.m4,v 1.9 2002/06/10 23:47:26 jlovell Exp $".
+dnl End of "$Id: cups-compiler.m4,v 1.1.1.12 2003/04/11 21:07:17 jlovell Exp $".
 dnl

@@ -1,9 +1,11 @@
-.TH LDAP_BIND 3 "13 January 2002" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man3/ldap_bind.3,v 1.8 2002/01/13 13:45:29 hyc Exp $
-.\" Copyright 1998-2002 The OpenLDAP Foundation All Rights Reserved.
+.TH LDAP_BIND 3 "RELEASEDATE" "OpenLDAP LDVERSION"
+.\" $OpenLDAP: pkg/ldap/doc/man/man3/ldap_bind.3,v 1.8.2.4 2003/03/03 17:10:02 kurt Exp $
+.\" Copyright 1998-2003 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ldap_bind, ldap_bind_s, ldap_simple_bind, ldap_simple_bind_s, ldap_kerberos_bind_s, ldap_kerberos_bind1, ldap_kerberos_bind1_s, ldap_kerberos_bind2, ldap_kerberos_bind2_s, ldap_sasl_bind, ldap_sasl_bind_s, ldap_sasl_interactive_bind_s, ldap_parse_sasl_bind_result, ldap_unbind, ldap_unbind_s \- LDAP bind routines
+.SH LIBRARY
+OpenLDAP LDAP (libldap, -lldap)
 .SH SYNOPSIS
 .nf
 .B #include <ldap.h>
@@ -211,9 +213,9 @@ routines return whatever \fIld_errno\fP is set to.  See
 .BR ldap_error (3)
 for more information.
 .SH SEE ALSO
-.BR ldap(3),
-.BR ldap_error(3),
-.BR ldap_open(3),
+.BR ldap (3),
+.BR ldap_error (3),
+.BR ldap_open (3),
 .B RFC 2222
 (http://www.ietf.org),
 .B Cyrus SASL

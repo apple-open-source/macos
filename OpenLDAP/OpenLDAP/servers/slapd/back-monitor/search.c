@@ -1,6 +1,6 @@
 /* search.c - monitor backend search function */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*
@@ -152,13 +152,13 @@ monitor_back_search(
 )
 {
 	struct monitorinfo	*mi = (struct monitorinfo *) be->be_private;
-	int		rc;
+	int		rc = LDAP_SUCCESS;
 	Entry		*e, *matched = NULL;
 	int		nentries = 0;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_ENTRY,
-		   "monitor_back_search: enter\n" ));
+	LDAP_LOG( BACK_MON, ENTRY,
+		   "monitor_back_search: enter\n", 0, 0, 0 );
 #else
 	Debug(LDAP_DEBUG_TRACE, "=> monitor_back_search\n%s%s%s", "", "", "");
 #endif
@@ -174,7 +174,7 @@ monitor_back_search(
 			monitor_cache_release( mi, matched );
 		}
 
-		return( 0 );
+		return( rc );
 	}
 
 	nentries = 0;
@@ -187,6 +187,7 @@ monitor_back_search(
 					attrsonly, NULL );
 			nentries = 1;
 		}
+		rc = LDAP_SUCCESS;
 		monitor_cache_release( mi, e );
 		break;
 
@@ -195,7 +196,7 @@ monitor_back_search(
 				attrs, attrsonly,
 				e, 0, &nentries );
 		if ( rc ) {
-			// error
+			rc = LDAP_OTHER;
 		}		
 		
 		break;
@@ -213,14 +214,14 @@ monitor_back_search(
 				attrs, attrsonly,
 				e, 1, &nentries );
 		if ( rc ) {
-			// error
+			rc = LDAP_OTHER;
 		}
 
 		break;
 	}
 	
-	send_search_result( conn, op, LDAP_SUCCESS,
+	send_search_result( conn, op, rc,
 			NULL, NULL, NULL, NULL, nentries );
 
-	return( 0 );
+	return( rc == LDAP_SUCCESS ? 0 : 1 );
 }

@@ -62,40 +62,43 @@ SSLReadRecord(SSLRecord &rec, SSLContext *ctx)
     if (!ctx->partialReadBuffer.data || ctx->partialReadBuffer.length < 5)
     {   if (ctx->partialReadBuffer.data)
             if ((err = SSLFreeBuffer(ctx->partialReadBuffer, ctx)) != 0)
-            {   SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);
+            {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
                 return err;
             }
         if ((err = SSLAllocBuffer(ctx->partialReadBuffer, 
 				DEFAULT_BUFFER_SIZE, ctx)) != 0)
-        {   SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);
+        {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
             return err;
         }
     }
     
-    if (ctx->negProtocolVersion == SSL_Version_Undetermined ||
-        ctx->negProtocolVersion == SSL_Version_3_0_With_2_0_Hello)
+    if (ctx->negProtocolVersion == SSL_Version_Undetermined) {
         if (ctx->amountRead < 1)
         {   readData.length = 1 - ctx->amountRead;
             readData.data = ctx->partialReadBuffer.data + ctx->amountRead;
             len = readData.length;
             err = sslIoRead(readData, &len, ctx);
             if(err != 0)
-            {   if (err == errSSLWouldBlock)
-                    ctx->amountRead += len;
-                else
+            {   if (err == errSSLWouldBlock) {
+					ctx->amountRead += len;
+					return err;
+				}
+                else {
+					/* abort */
                     SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);
-                return err;
+					return errSSLClosedAbort;
+				}
             }
             ctx->amountRead += len;
         }
-    
+    }
+	
 	/* 
 	 * In undetermined cases, if the first byte isn't in the range of SSL 3.0
 	 * record types, this is an SSL 2.0 record
 	 */
     switch (ctx->negProtocolVersion)
     {   case SSL_Version_Undetermined:
-        case SSL_Version_3_0_With_2_0_Hello:
             if (ctx->partialReadBuffer.data[0] < SSL_RecordTypeV3_Smallest ||
                 ctx->partialReadBuffer.data[0] > SSL_RecordTypeV3_Largest)
                 return SSL2ReadRecord(rec, ctx);
@@ -124,7 +127,7 @@ SSLReadRecord(SSLRecord &rec, SSLContext *ctx)
 					 * the handshake */
 					if((ctx->amountRead == 0) && 				/* nothing pending */
 					   (len == 0) &&							/* nothing new */
-					   (ctx->state == SSL2_HdskStateClientReady)) {	/* handshake done */
+					   (ctx->state == SSL_HdskStateClientReady)) {	/* handshake done */
 					    /*
 						 * This means that the server has disconnected without 
 						 * sending a closure alert notice. This is technically
@@ -169,13 +172,13 @@ SSLReadRecord(SSLRecord &rec, SSLContext *ctx)
     charPtr += 2;
     if (contentLen > (16384 + 2048))    /* Maximum legal length of an 
 										 * SSLCipherText payload */
-    {   SSLFatalSessionAlert(SSL_AlertUnexpectedMsg, ctx);
+    {   SSLFatalSessionAlert(SSL_AlertRecordOverflow, ctx);
         return errSSLProtocol;
     }
     
     if (ctx->partialReadBuffer.length < 5 + contentLen)
     {   if ((err = SSLReallocBuffer(ctx->partialReadBuffer, 5 + contentLen, ctx)) != 0)
-        {   SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);
+        {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
             return err;
         }
     }
@@ -219,7 +222,7 @@ SSLReadRecord(SSLRecord &rec, SSLContext *ctx)
     
 	/* Allocate a buffer to return the plaintext in and return it */
     if ((err = SSLAllocBuffer(rec.contents, cipherFragment.length, ctx)) != 0)
-    {   SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);
+    {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
         return err;
     }
     memcpy(rec.contents.data, cipherFragment.data, cipherFragment.length);

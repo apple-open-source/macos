@@ -25,7 +25,7 @@
 #import <string.h>
 #import <stdlib.h>
 #import <stdio.h>
-#import <varargs.h>
+#import <stdarg.h>
 #import "stringops.h"
 
 char *copyString(char *s)

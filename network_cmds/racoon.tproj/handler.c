@@ -1,4 +1,4 @@
-/*	$KAME: handler.c,v 1.56 2002/01/02 09:05:25 jinmei Exp $	*/
+/*	$KAME: handler.c,v 1.57 2002/01/21 08:45:54 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -260,6 +260,11 @@ delph1(iph1)
 	VPTRINIT(iph1->gi_r);
 
 	gssapi_free_state(iph1);
+#endif
+
+#ifdef IKE_NAT_T
+	VPTRINIT(iph1->local_natd);
+	VPTRINIT(iph1->remote_natd);
 #endif
 
 	racoon_free(iph1);

@@ -27,7 +27,6 @@
 #include <Security/cssmapple.h>
 #include <CoreFoundation/CFArray.h>
 
-
 #if defined(__cplusplus)
 extern "C" {
 #endif
@@ -47,6 +46,7 @@ enum
 };
 
 #define SEC_KEYCHAIN_SETTINGS_VERS1 1
+
 
 /*!
 	@typedef SecKeychainSettings
@@ -78,17 +78,28 @@ typedef FourCharCode SecAuthenticationType;
 	@constant kSecAuthenticationTypeMSN Specifies Microsoft Network default authentication.
 	@constant kSecAuthenticationTypeDPA Specifies Distributed Password authentication.
 	@constant kSecAuthenticationTypeRPA Specifies Remote Password authentication. 
+	@constant kSecAuthenticationTypeHTTPBasic Specifies HTTP Basic authentication.
 	@constant kSecAuthenticationTypeHTTPDigest Specifies HTTP Digest Access authentication.
+	@constant kSecAuthenticationTypeHTMLForm Specifies HTML form based authentication.
 	@constant kSecAuthenticationTypeDefault Specifies the default authentication type.
 */
+#ifdef __LITTLE_ENDIAN__
+#define AUTH_TYPE_FIX_(x) \
+        ((x >> 24) | ((x >> 8) & 0xff00) | ((x << 8) & 0xff0000) | (x & 0xff) << 24)
+#else
+#define AUTH_TYPE_FIX_(x) (x)
+#endif
+
 enum
 {
-    kSecAuthenticationTypeNTLM             = 'ntlm',
-    kSecAuthenticationTypeMSN              = 'msna',
-    kSecAuthenticationTypeDPA              = 'dpaa',
-    kSecAuthenticationTypeRPA              = 'rpaa',
-    kSecAuthenticationTypeHTTPDigest       = 'httd',
-    kSecAuthenticationTypeDefault          = 'dflt'
+    kSecAuthenticationTypeNTLM             = AUTH_TYPE_FIX_ ('ntlm'),
+    kSecAuthenticationTypeMSN              = AUTH_TYPE_FIX_ ('msna'),
+    kSecAuthenticationTypeDPA              = AUTH_TYPE_FIX_ ('dpaa'),
+    kSecAuthenticationTypeRPA              = AUTH_TYPE_FIX_ ('rpaa'),
+    kSecAuthenticationTypeHTTPBasic        = AUTH_TYPE_FIX_ ('http'),
+    kSecAuthenticationTypeHTTPDigest       = AUTH_TYPE_FIX_ ('httd'),
+    kSecAuthenticationTypeHTMLForm         = AUTH_TYPE_FIX_ ('form'),
+    kSecAuthenticationTypeDefault          = AUTH_TYPE_FIX_ ('dflt')
 };
 
 /*!
@@ -101,7 +112,7 @@ typedef FourCharCode SecProtocolType;
 	@enum ProtocolTypeConstants
 	@abstract Defines the protocol type associated with an AppleShare or Internet password.
 	@constant kSecProtocolTypeFTP Indicates FTP.
-	@constant kSecProtocolTypeFTPAccount Indicates FTP Account.
+	@constant kSecProtocolTypeFTPAccount Indicates FTP Account (client side), usage deprecated.
 	@constant kSecProtocolTypeHTTP Indicates HTTP. 
 	@constant kSecProtocolTypeIRC Indicates IRC.
 	@constant kSecProtocolTypeNNTP Indicates NNTP.
@@ -111,26 +122,60 @@ typedef FourCharCode SecProtocolType;
 	@constant kSecProtocolTypeIMAP Indicates IMAP.
 	@constant kSecProtocolTypeLDAP Indicates LDAP.
 	@constant kSecProtocolTypeAppleTalk Indicates AFP over AppleTalk.
-	@constant kSecProtocolTypeAFP Indicates AFP.
+	@constant kSecProtocolTypeAFP Indicates AFP over TCP.
 	@constant kSecProtocolTypeTelnet Indicates Telnet.
 	@constant kSecProtocolTypeSSH Indicates SSH.
+	@constant kSecProtocolTypeFTPS Indicates FTPS (FTP over TLS/SSL).
+	@constant kSecProtocolTypeHTTPS Indicates HTTPS (HTTP over TLS/SSL).
+	@constant kSecProtocolTypeHTTPProxy Indicates HTTP proxy.
+	@constant kSecProtocolTypeHTTPSProxy Indicates HTTPS proxy.
+	@constant kSecProtocolTypeFTPProxy Indicates FTP proxy.
+	@constant kSecProtocolTypeSMB Indicates SMB.
+	@constant kSecProtocolTypeRTSP Indicates RTSP.
+	@constant kSecProtocolTypeRTSPProxy Indicates RTSP proxy.
+	@constant kSecProtocolTypeDAAP Indicates DAAP.
+	@constant kSecProtocolTypeEPPC Indicates EPPC (Remote Apple Events).
+	@constant kSecProtocolTypeIPP Indicates IPP.
+	@constant kSecProtocolTypeNNTPS Indicates NNTPS (NNTP over TLS/SSL).
+	@constant kSecProtocolTypeLDAPS Indicates LDAPS (LDAP over TLS/SSL).
+	@constant kSecProtocolTypeTelnetS Indicates Telnet over TLS/SSL.
+	@constant kSecProtocolTypeIMAPS Indicates IMAPS (IMAP4 over TLS/SSL).
+	@constant kSecProtocolTypeIRCS Indicates IRCS (IRC over TLS/SSL).
+	@constant kSecProtocolTypePOP3S Indicates POP3S (POP3 over TLS/SSL).
 */
 enum
 {
-    kSecProtocolTypeFTP			= 'ftp ',
-    kSecProtocolTypeFTPAccount	= 'ftpa',
-    kSecProtocolTypeHTTP		= 'http',
-    kSecProtocolTypeIRC			= 'irc ',
-    kSecProtocolTypeNNTP		= 'nntp',
-    kSecProtocolTypePOP3		= 'pop3',
-    kSecProtocolTypeSMTP		= 'smtp',
-    kSecProtocolTypeSOCKS		= 'sox ',
-    kSecProtocolTypeIMAP		= 'imap',
-    kSecProtocolTypeLDAP		= 'ldap',
-    kSecProtocolTypeAppleTalk	= 'atlk',
-    kSecProtocolTypeAFP			= 'afp ',
-    kSecProtocolTypeTelnet		= 'teln',
-	kSecProtocolTypeSSH			= 'ssh '
+    kSecProtocolTypeFTP         = 'ftp ',
+    kSecProtocolTypeFTPAccount  = 'ftpa',
+    kSecProtocolTypeHTTP        = 'http',
+    kSecProtocolTypeIRC         = 'irc ',
+    kSecProtocolTypeNNTP        = 'nntp',
+    kSecProtocolTypePOP3        = 'pop3',
+    kSecProtocolTypeSMTP        = 'smtp',
+    kSecProtocolTypeSOCKS       = 'sox ',
+    kSecProtocolTypeIMAP        = 'imap',
+    kSecProtocolTypeLDAP        = 'ldap',
+    kSecProtocolTypeAppleTalk   = 'atlk',
+    kSecProtocolTypeAFP         = 'afp ',
+    kSecProtocolTypeTelnet      = 'teln',
+    kSecProtocolTypeSSH         = 'ssh ',
+    kSecProtocolTypeFTPS        = 'ftps',
+    kSecProtocolTypeHTTPS       = 'htps',
+    kSecProtocolTypeHTTPProxy   = 'htpx',
+    kSecProtocolTypeHTTPSProxy  = 'htsx',
+    kSecProtocolTypeFTPProxy    = 'ftpx',
+    kSecProtocolTypeSMB         = 'smb ',
+    kSecProtocolTypeRTSP        = 'rtsp',
+    kSecProtocolTypeRTSPProxy   = 'rtsx',
+    kSecProtocolTypeDAAP        = 'daap',
+    kSecProtocolTypeEPPC        = 'eppc',
+    kSecProtocolTypeIPP         = 'ipp ',
+    kSecProtocolTypeNNTPS       = 'ntps',
+    kSecProtocolTypeLDAPS       = 'ldps',
+    kSecProtocolTypeTelnetS     = 'tels',
+    kSecProtocolTypeIMAPS       = 'imps',
+    kSecProtocolTypeIRCS        = 'ircs',
+    kSecProtocolTypePOP3S       = 'pops'
 };
 
 /*!
@@ -234,7 +279,9 @@ OSStatus SecKeychainGetVersion(UInt32 *returnVers);
 #pragma mark ÑÑÑÑ Keychain Management ÑÑÑÑ
 /*!
     @function SecKeychainOpen
-    @abstract Opens a keychain.
+    @abstract Create a SecKeychainRef for a keychain at pathName.  This keychain might
+	not currently exist, use SecKeychainGetStatus if you want to confirm the existence
+	of this keychain.
 	@param pathName The POSIX path to a keychain.
     @param keychain On return, a pointer to the keychain reference. The memory that keychain occupies must be released by calling CFRelease when finished with it.
 	@result A result code.  See "Security Error Codes" (SecBase.h). In addition, paramErr (-50) may be returned if the keychain parameter is invalid (NULL).
@@ -242,7 +289,7 @@ OSStatus SecKeychainGetVersion(UInt32 *returnVers);
 OSStatus SecKeychainOpen(const char *pathName, SecKeychainRef *keychain);
 
 /*!
-	@function SecKeychainCreateNew
+	@function SecKeychainCreate
     @abstract Creates a new keychain.
     @param pathName The POSIX path to a keychain file.
     @param passwordLength An unsigned 32-bit integer representing the length of the password buffer.
@@ -256,11 +303,11 @@ OSStatus SecKeychainCreate(const char *pathName, UInt32 passwordLength, const vo
 
 /*!
 	@function SecKeychainDelete
-    @abstract Deletes a keychain from the default searchlist, and removes the keychain itself if it is a file.
-    @param keychain A pointer to a keychain reference.
-	@result A result code.  See "Security Error Codes" (SecBase.h). In addition, paramErr (-50) may be returned if the keychain parameter is invalid (NULL).
+    @abstract Removes one or more keychains from the current keychain searchlist, and deletes the keychain storage (if the keychains are file-based).
+    @param keychainOrArray A single keychain reference or a reference to an array of keychains to delete.
+	@result A result code.  See "Security Error Codes" (SecBase.h). In addition, errSecInvalidKeychain (-25295) may be returned if the keychain parameter is invalid (NULL).
 */
-OSStatus SecKeychainDelete(SecKeychainRef keychain);
+OSStatus SecKeychainDelete(SecKeychainRef keychainOrArray);
 
 /*!
 	@function SecKeychainSetSettings
@@ -334,10 +381,30 @@ OSStatus SecKeychainCopySearchList(CFArrayRef *searchList);
 /*!
 	@function SecKeychainSetSearchList
 	@abstract Specifies the list of keychains to use in a keychain search list.
-	@param searchList The list of keychains to use in a search list when the SecKeychainCopySearchList function is called.
+	@param searchList The list of keychains to use in a search list when the SecKeychainCopySearchList function is called. An empty array clears the search list.
 	@result A result code.  See "Security Error Codes" (SecBase.h). In addition, paramErr (-50) may be returned if the keychain list is not specified (NULL).
 */
 OSStatus SecKeychainSetSearchList(CFArrayRef searchList);
+
+
+/*
+ *	New versions of {Copy,Get}{SearchList,Default} that address multiple preference domains.
+ *	These calls subsume the old forms with domain == kPreferenceDomainUser.
+ */
+typedef enum {
+	kSecPreferencesDomainUser,			// user domain
+	kSecPreferencesDomainSystem,		// system (daemon) domain
+	kSecPreferencesDomainCommon,		// preferences to be merged to everyone
+	kSecPreferencesDomainAlternate		// alternate user
+} SecPreferencesDomain;
+
+OSStatus SecKeychainCopyDomainDefault(SecPreferencesDomain domain, SecKeychainRef *keychain);
+OSStatus SecKeychainSetDomainDefault(SecPreferencesDomain domain, SecKeychainRef keychain);
+OSStatus SecKeychainCopyDomainSearchList(SecPreferencesDomain domain, CFArrayRef *searchList);
+OSStatus SecKeychainSetDomainSearchList(SecPreferencesDomain domain, CFArrayRef searchList);
+OSStatus SecKeychainSetPreferenceDomain(SecPreferencesDomain domain);
+OSStatus SecKeychainGetPreferenceDomain(SecPreferencesDomain *domain);
+
 
 /*!
 	@function SecKeychainGetStatus
@@ -363,7 +430,7 @@ OSStatus SecKeychainGetPath(SecKeychainRef keychain, UInt32 *ioPathLength, char 
 	@function SecKeychainAttributeInfoForItemID
 	@abstract Obtains tags for all possible attributes for a given item class.
     @param keychain A keychain reference.
-	@param itemID The relation identifier of the item tags.
+	@param itemID The relation identifier of the item tags (an itemID is a CSSM_DB_RECORDTYPE defined in cssmtype.h).
 	@param info On return, a pointer to the keychain attribute information. User should call the SecKeychainFreeAttributeInfo function to release the structure when done with it. 
     @result A result code.  See "Security Error Codes" (SecBase.h). In addition, paramErr (-50) may be returned if not enough valid parameters were supplied (NULL).
 	@discussion Warning, this call returns more attributes than are support by the old style Keychain API and passing them into older calls will yield an invalid attribute error. The recommended call to retrieve the attribute values is the SecKeychainItemCopyAttributesAndData function.
@@ -418,82 +485,79 @@ OSStatus SecKeychainRemoveCallback(SecKeychainCallback callbackFunction);
 #pragma mark ÑÑÑÑ High Level Keychain Manager Calls ÑÑÑÑ
 /*!
 	@function SecKeychainAddInternetPassword
-	@abstract Adds an internet password as a keychain item to the specified keychain.
-	@param keychain	A reference to keychain in which to store an internet password.
-	@param serverNameLength The length of the buffer pointed to by server name.
-	@param serverName A pointer to a string containing the server name.
-	@param securityDomainLength The length of the buffer pointed to by security domain.
-	@param securityDomain A pointer to a string containing the security domain. This parameter is optional, as not all protocols will require it.
-	@param accountNameLength The length of the buffer pointed to by account name.
-	@param accountName A pointer to a string containing the account name.
+	@abstract Adds an Internet password to the specified keychain.
+	@param keychain	A reference to a keychain in which to store an Internet password. Pass NULL to specify the user's default keychain.
+	@param serverNameLength The length of the buffer pointed to by serverName.
+	@param serverName A pointer to a string containing the server name associated with this password.
+	@param securityDomainLength The length of the buffer pointed to by securityDomain.
+	@param securityDomain A pointer to a string containing the security domain associated with this password, or NULL if there is no relevant security domain.
+	@param accountNameLength The length of the buffer pointed to by accountName.
+	@param accountName A pointer to a string containing the account name associated with this password.
 	@param pathLength The length of the buffer pointed to by path.
-	@param path A pointer to a string containing the path.
-	@param port The TCP/IP port number.
+	@param path A pointer to a string containing the path associated with this password, or NULL if there is no relevant path string.
+	@param port The TCP/IP port number. If no specific port number is associated with this item, pass 0.
 	@param protocol The protocol associated with this password. See SecProtocolType for a description of possible values.
-	@param authenticationType The authentication scheme used. See SecAuthenticationType for a description of possible values. Pass the constant kSecAuthenticationTypeDefault, to specify the default authentication scheme. 
+	@param authenticationType The authentication scheme used. See SecAuthenticationType for a description of possible values. Pass the constant kSecAuthenticationTypeDefault to specify the default authentication scheme. 
 	@param passwordLength The length of the buffer pointed to by passwordData.
-	@param passwordData A pointer to a buffer which will hold the returned password data. Before calling SecKeychainAddInternetPassword, allocate enough memory for the buffer to hold the data you want to store.
-	@param itemRef On return, a pointer to the new keychain item.
+	@param passwordData A pointer to a buffer containing the password data to be stored in the keychain.
+	@param itemRef On return, a reference to the new keychain item.
 	@result A result code.  See "Security Error Codes" (SecBase.h).
-	@discussion The SecKeychainAddInternetPassword function adds a new internet server password to the default keychain. Required parameters to identify the password are serverName and accountName (you cannot pass NULL for both parameters). In addition, some protocols may require an optional securityDomain when authentication is requested. SecKeychainAddInternetPassword optionally returns a reference to the newly added item. 
+	@discussion The SecKeychainAddInternetPassword function adds a new Internet server password to the specified keychain. Required parameters to identify the password are serverName and accountName (you cannot pass NULL for both parameters). In addition, some protocols may require an optional securityDomain when authentication is requested. SecKeychainAddInternetPassword optionally returns a reference to the newly added item. 
 */
 OSStatus SecKeychainAddInternetPassword(SecKeychainRef keychain, UInt32 serverNameLength, const char *serverName, UInt32 securityDomainLength, const char *securityDomain, UInt32 accountNameLength, const char *accountName, UInt32 pathLength, const char *path, UInt16 port, SecProtocolType protocol, SecAuthenticationType authenticationType, UInt32 passwordLength, const void *passwordData, SecKeychainItemRef *itemRef);
 
 /*!
 	@function SecKeychainFindInternetPassword
-	@abstract Finds an internet password based on the attributes passed.
-    @param keychainOrArray An reference to an array of keychains to search, a single keychain or NULL to search the user's default keychain search list.
-	@param serverNameLength The length of the buffer pointed to by server name.
+	@abstract Finds an Internet password based on the attributes passed.
+    @param keychainOrArray A reference to an array of keychains to search, a single keychain, or NULL to search the user's default keychain search list.
+	@param serverNameLength The length of the buffer pointed to by serverName.
 	@param serverName A pointer to a string containing the server name.
-	@param securityDomainLength The length of the buffer pointed to by security domain.
+	@param securityDomainLength The length of the buffer pointed to by securityDomain.
 	@param securityDomain A pointer to a string containing the security domain. This parameter is optional, as not all protocols will require it.
-	@param accountNameLength The length of the buffer pointed to by account name.
+	@param accountNameLength The length of the buffer pointed to by accountName.
 	@param accountName A pointer to a string containing the account name.
 	@param pathLength The length of the buffer pointed to by path.
 	@param path A pointer to a string containing the path.
-	@param port The TCP/IP port number.
+	@param port The TCP/IP port number. Pass 0 to ignore the port number.
 	@param protocol The protocol associated with this password. See SecProtocolType for a description of possible values.
-	@param authenticationType The authentication scheme used. See SecAuthenticationType for a description of possible values. Pass the constant kSecAuthenticationTypeDefault, to specify the default authentication scheme. 
-	@param passwordLength The length of the buffer pointed to by passwordData.
-	@param passwordData A pointer to a buffer which will hold the returned password data. Before calling SecKeychainFindInternetPassword, allocate enough memory for the buffer to hold the data you want to store.
-	@param itemRef The item reference of the internet password.
+	@param authenticationType The authentication scheme used. See SecAuthenticationType for a description of possible values. Pass the constant kSecAuthenticationTypeDefault to specify the default authentication scheme. 
+	@param passwordLength On return, the length of the buffer pointed to by passwordData.
+	@param passwordData On return, a pointer to a data buffer containing the password. Your application must call SecKeychainItemFreeContent(NULL, passwordData) to release this data buffer when it is no longer needed. Pass NULL if you are not interested in retrieving the password data at this time, but simply want to find the item reference.
+	@param itemRef On return, a reference to the keychain item which was found.
 	@result A result code.  See "Security Error Codes" (SecBase.h).
-	@discussion The SecKeychainFindInternetPassword function finds the first internet password item which matches the attributes you provide. The buffer specified in the passwordData parameter must be large enough to hold the password data, otherwise SecKeychainFindInternetPassword returns the result code errSecBufferTooSmall. In this case, your application must allocate a new buffer of sufficient size before calling SecKeychainFindInternetPassword again. SecKeychainFindInternetPassword optionally returns a reference to the found item. 
-  
+	@discussion The SecKeychainFindInternetPassword function finds the first Internet password item which matches the attributes you provide. Most attributes are optional; you should pass only as many as you need to narrow the search sufficiently for your application's intended use. SecKeychainFindInternetPassword optionally returns a reference to the found item.
 */
 OSStatus SecKeychainFindInternetPassword(CFTypeRef keychainOrArray, UInt32 serverNameLength, const char *serverName, UInt32 securityDomainLength, const char *securityDomain, UInt32 accountNameLength, const char *accountName, UInt32 pathLength, const char *path, UInt16 port, SecProtocolType protocol, SecAuthenticationType authenticationType, UInt32 *passwordLength, void **passwordData, SecKeychainItemRef *itemRef);
 
 /*!
 	@function SecKeychainAddGenericPassword
 	@abstract Adds a generic password to the specified keychain.
-	@param keychain A reference to keychain in which to store a generic password. 
-	@param serviceNameLength The length of the buffer pointed to by service name.
-	@param serviceName A pointer to a string containing the service name.
-	@param accountNameLength The length of the buffer pointed to by account name.
-	@param accountName A pointer to a string containing the account name.
+	@param keychain A reference to the keychain in which to store a generic password. Pass NULL to specify the user's default keychain.
+	@param serviceNameLength The length of the buffer pointed to by serviceName.
+	@param serviceName A pointer to a string containing the service name associated with this password.
+	@param accountNameLength The length of the buffer pointed to by accountName.
+	@param accountName A pointer to a string containing the account name associated with this password.
 	@param passwordLength The length of the buffer pointed to by passwordData.
-	@param passwordData A pointer to a buffer which will hold the returned password data. Before calling SecKeychainAddInternetPassword, allocate enough memory for the buffer to hold the data you want to store.
-	@param itemRef On return, a pointer to the new keychain item reference.
-	@result A result code.  See "Security Error Codes" (SecBase.h).
+	@param passwordData A pointer to a buffer containing the password data to be stored in the keychain.
+	@param itemRef On return, a reference to the new keychain item.
+	@result A result code. See "Security Error Codes" (SecBase.h).
 	@discussion The SecKeychainAddGenericPassword function adds a new generic password to the default keychain. Required parameters to identify the password are serviceName and accountName, which are application-defined strings. SecKeychainAddGenericPassword optionally returns a reference to the newly added item. 
-
-	You can use SecKeychainAddGenericPassword to add passwords for accounts other than Internet or Appleshare. For example, you might add passwords for your database or scheduling programs.
 */
 OSStatus SecKeychainAddGenericPassword(SecKeychainRef keychain, UInt32 serviceNameLength, const char *serviceName, UInt32 accountNameLength, const char *accountName, UInt32 passwordLength, const void *passwordData, SecKeychainItemRef *itemRef);
 
 /*!
 	@function SecKeychainFindGenericPassword
 	@abstract Find a generic password based on the attributes passed.
-    @param keychainOrArray An reference to an array of keychains to search, a single keychain or NULL to search the user's default keychain search list.
-	@param serviceNameLength The length of the buffer pointed to by service name.
+    @param keychainOrArray A reference to an array of keychains to search, a single keychain, or NULL to search the user's default keychain search list.
+	@param serviceNameLength The length of the buffer pointed to by serviceName.
 	@param serviceName A pointer to a string containing the service name.
-	@param accountNameLength The length of the buffer pointed to by account name.
+	@param accountNameLength The length of the buffer pointed to by accountName.
 	@param accountName A pointer to a string containing the account name.
-	@param passwordLength The length of the buffer pointed to by passwordData.
-	@param passwordData A pointer to a buffer which will hold the returned password data. Before calling SecKeychainAddInternetPassword, allocate enough memory for the buffer to hold the data you want to store.
-	@param itemRef On return, a pointer to the new keychain item reference.
+	@param passwordLength On return, the length of the buffer pointed to by passwordData.
+	@param passwordData On return, a pointer to a data buffer containing the password. Your application must call SecKeychainItemFreeContent(NULL, passwordData) to release this data buffer when it is no longer needed. Pass NULL if you are not interested in retrieving the password data at this time, but simply want to find the item reference.
+	@param itemRef On return, a reference to the keychain item which was found.
 	@result A result code.  See "Security Error Codes" (SecBase.h).
-	@discussion The SecKeychainFindGenericPassword function finds the first generic password item which matches the attributes you provide. The buffer specified in the passwordData parameter must be large enough to hold the password data, otherwise SecKeychainFindGenericPassword returns the result code errSecBufferTooSmall. In this case, your application must allocate a new buffer of sufficient size before calling SecKeychainFindGenericPassword again. SecKeychainFindGenericPassword optionally returns a reference to the found item. 
+	@discussion The SecKeychainFindGenericPassword function finds the first generic password item which matches the attributes you provide. Most attributes are optional; you should pass only as many as you need to narrow the search sufficiently for your application's intended use. SecKeychainFindGenericPassword optionally returns a reference to the found item. 
 */
 OSStatus SecKeychainFindGenericPassword(CFTypeRef keychainOrArray,  UInt32 serviceNameLength, const char *serviceName, UInt32 accountNameLength, const char *accountName, UInt32 *passwordLength, void **passwordData, SecKeychainItemRef *itemRef);
 

@@ -1,6 +1,6 @@
 /* OTP SASL plugin
  * Ken Murchison
- * $Id: otp.c,v 1.2 2002/05/22 17:57:03 snsimon Exp $
+ * $Id: otp.c,v 1.3 2003/07/27 14:37:57 snsimon Exp $
  */
 /* 
  * Copyright (c) 2001 Carnegie Mellon University.  All rights reserved.
@@ -57,9 +57,9 @@
 #include <openssl/evp.h>
 
 #include <sasl.h>
-#if OPENSSL_VERSION_NUMBER < 0x00907000L
+//#if OPENSSL_VERSION_NUMBER < 0x00907000L
 #define MD5_H  /* suppress internal MD5 */
-#endif
+//#endif
 #include <saslplug.h>
 
 #include "plugin_common.h"
@@ -76,7 +76,7 @@
 
 /*****************************  Common Section  *****************************/
 
-static const char plugin_id[] = "$Id: otp.c,v 1.2 2002/05/22 17:57:03 snsimon Exp $";
+static const char plugin_id[] = "$Id: otp.c,v 1.3 2003/07/27 14:37:57 snsimon Exp $";
 
 #define OTP_SEQUENCE_MAX	9999
 #define OTP_SEQUENCE_DEFAULT	499

@@ -104,21 +104,21 @@ Concept Index
 * arglist-intro syntactic symbol:        Syntactic Symbols.
 * auto fill mode:                        Text Filling and Line Breaking.
 * auto-newline insertion:                Auto-newline Insertion.
-* block-close syntactic symbol <1>:      Hanging Braces.
-* block-close syntactic symbol:          Syntactic Symbols.
+* block-close syntactic symbol <1>:      Syntactic Symbols.
+* block-close syntactic symbol:          Hanging Braces.
 * block-open syntactic symbol <1>:       Syntactic Symbols.
 * block-open syntactic symbol:           Hanging Braces.
 * BOCM:                                  Introduction.
 * brace lists:                           Syntactic Symbols.
-* brace-entry-open syntactic symbol <1>: Hanging Braces.
-* brace-entry-open syntactic symbol:     Syntactic Symbols.
-* brace-list-close syntactic symbol <1>: Hanging Braces.
-* brace-list-close syntactic symbol:     Syntactic Symbols.
+* brace-entry-open syntactic symbol <1>: Syntactic Symbols.
+* brace-entry-open syntactic symbol:     Hanging Braces.
+* brace-list-close syntactic symbol <1>: Syntactic Symbols.
+* brace-list-close syntactic symbol:     Hanging Braces.
 * brace-list-entry syntactic symbol:     Syntactic Symbols.
 * brace-list-intro syntactic symbol <1>: Syntactic Symbols.
 * brace-list-intro syntactic symbol:     Hanging Braces.
-* brace-list-open syntactic symbol <1>:  Hanging Braces.
-* brace-list-open syntactic symbol:      Syntactic Symbols.
+* brace-list-open syntactic symbol <1>:  Syntactic Symbols.
+* brace-list-open syntactic symbol:      Hanging Braces.
 * BSD style:                             Built-in Styles.
 * bug report mailing list:               Mailing Lists and Submitting Bug Reports.
 * bugs:                                  Limitations and Known Bugs.
@@ -156,8 +156,8 @@ Concept Index
 * else-clause syntactic symbol:          Syntactic Symbols.
 * extern-lang-close syntactic symbol <1>: Syntactic Symbols.
 * extern-lang-close syntactic symbol:    Hanging Braces.
-* extern-lang-open syntactic symbol <1>: Hanging Braces.
-* extern-lang-open syntactic symbol:     Syntactic Symbols.
+* extern-lang-open syntactic symbol <1>: Syntactic Symbols.
+* extern-lang-open syntactic symbol:     Hanging Braces.
 * FAQ:                                   Frequently Asked Questions.
 * file styles:                           File Styles.
 * Filladapt mode:                        Text Filling and Line Breaking.
@@ -187,10 +187,10 @@ Concept Index
 * inher-cont syntactic symbol:           Syntactic Symbols.
 * inher-intro syntactic symbol:          Syntactic Symbols.
 * inlambda syntactic symbol:             Syntactic Symbols.
-* inline-close syntactic symbol <1>:     Hanging Braces.
-* inline-close syntactic symbol:         Syntactic Symbols.
-* inline-open syntactic symbol <1>:      Hanging Braces.
-* inline-open syntactic symbol:          Syntactic Symbols.
+* inline-close syntactic symbol <1>:     Syntactic Symbols.
+* inline-close syntactic symbol:         Hanging Braces.
+* inline-open syntactic symbol <1>:      Syntactic Symbols.
+* inline-open syntactic symbol:          Hanging Braces.
 * innamespace syntactic symbol:          Syntactic Symbols.
 * interactive customization:             Interactive Customization.
 * Java style:                            Built-in Styles.
@@ -203,18 +203,18 @@ Concept Index
 * limitations:                           Limitations and Known Bugs.
 * line-up functions:                     Indentation Functions.
 * Linux style:                           Built-in Styles.
-* literal <1>:                           Hungry-deletion of Whitespace.
-* literal <2>:                           Indentation Commands.
-* literal <3>:                           Auto-newline Insertion.
-* literal:                               Clean-ups.
+* literal <1>:                           Indentation Commands.
+* literal <2>:                           Hungry-deletion of Whitespace.
+* literal <3>:                           Clean-ups.
+* literal:                               Auto-newline Insertion.
 * local variables:                       File Styles.
 * mailing lists:                         Mailing Lists and Submitting Bug Reports.
 * member-init-cont syntactic symbol:     Syntactic Symbols.
 * member-init-intro syntactic symbol:    Syntactic Symbols.
 * movement commands:                     Movement Commands.
 * multi-line macros:                     Syntactic Symbols.
-* namespace-close syntactic symbol <1>:  Hanging Braces.
-* namespace-close syntactic symbol:      Syntactic Symbols.
+* namespace-close syntactic symbol <1>:  Syntactic Symbols.
+* namespace-close syntactic symbol:      Hanging Braces.
 * namespace-open syntactic symbol <1>:   Syntactic Symbols.
 * namespace-open syntactic symbol:       Hanging Braces.
 * objc-method-args-cont syntactic symbol: Syntactic Symbols.
@@ -229,8 +229,8 @@ Concept Index
 * reporting bugs:                        Mailing Lists and Submitting Bug Reports.
 * statement syntactic symbol:            Syntactic Symbols.
 * statement-case-intro syntactic symbol: Syntactic Symbols.
-* statement-case-open syntactic symbol <1>: Hanging Braces.
-* statement-case-open syntactic symbol:  Syntactic Symbols.
+* statement-case-open syntactic symbol <1>: Syntactic Symbols.
+* statement-case-open syntactic symbol:  Hanging Braces.
 * statement-cont syntactic symbol:       Syntactic Symbols.
 * stream-op syntactic symbol <1>:        Syntactic Symbols.
 * stream-op syntactic symbol:            Custom Indentation Functions.
@@ -242,8 +242,8 @@ Concept Index
 * substatement block:                    Syntactic Analysis.
 * substatement syntactic symbol:         Syntactic Symbols.
 * substatement-block-intro syntactic symbol: Syntactic Symbols.
-* substatement-open syntactic symbol <1>: Hanging Braces.
-* substatement-open syntactic symbol:    Syntactic Symbols.
+* substatement-open syntactic symbol <1>: Syntactic Symbols.
+* substatement-open syntactic symbol:    Hanging Braces.
 * syntactic analysis:                    Syntactic Analysis.
 * syntactic component:                   Syntactic Analysis.
 * syntactic component list:              Syntactic Analysis.
@@ -273,8 +273,8 @@ appears under its `c-<THING>' name and its `<THING> (c-)' name.
 * backward-conditional (c-):             Movement Commands.
 * backward-delete-char-untabify:         Hungry-deletion of Whitespace.
 * backward-into-nomenclature (c-):       Movement Commands.
-* beginning-of-defun <1>:                Movement Commands.
-* beginning-of-defun:                    Performance Issues.
+* beginning-of-defun <1>:                Performance Issues.
+* beginning-of-defun:                    Movement Commands.
 * beginning-of-defun (c-):               Movement Commands.
 * beginning-of-statement (c-):           Movement Commands.
 * c++-mode:                              Introduction.
@@ -323,8 +323,8 @@ appears under its `c-<THING>' name and its `<THING> (c-)' name.
 * c-lineup-ObjC-method-args-2:           Indentation Functions.
 * c-lineup-ObjC-method-call:             Indentation Functions.
 * c-lineup-runin-statements:             Indentation Functions.
-* c-lineup-streamop <1>:                 Custom Indentation Functions.
-* c-lineup-streamop:                     Indentation Functions.
+* c-lineup-streamop <1>:                 Indentation Functions.
+* c-lineup-streamop:                     Custom Indentation Functions.
 * c-lineup-template-args:                Indentation Functions.
 * c-lineup-whitesmith-in-block:          Indentation Functions.
 * c-mark-function:                       Indentation Commands.
@@ -375,8 +375,8 @@ appears under its `c-<THING>' name and its `<THING> (c-)' name.
 * indent-new-comment-line (c-):          Text Filling and Line Breaking.
 * indent-one-line-block (c-):            Indentation Functions.
 * indent-region:                         Indentation Commands.
-* java-mode <1>:                         Introduction.
-* java-mode:                             Built-in Styles.
+* java-mode <1>:                         Built-in Styles.
+* java-mode:                             Introduction.
 * lineup-arglist (c-):                   Indentation Functions.
 * lineup-arglist-close-under-paren (c-): Indentation Functions.
 * lineup-arglist-intro-after-paren (c-): Indentation Functions.
@@ -393,8 +393,8 @@ appears under its `c-<THING>' name and its `<THING> (c-)' name.
 * lineup-ObjC-method-args-2 (c-):        Indentation Functions.
 * lineup-ObjC-method-call (c-):          Indentation Functions.
 * lineup-runin-statements (c-):          Indentation Functions.
-* lineup-streamop (c-) <1>:              Custom Indentation Functions.
-* lineup-streamop (c-):                  Indentation Functions.
+* lineup-streamop (c-) <1>:              Indentation Functions.
+* lineup-streamop (c-):                  Custom Indentation Functions.
 * lineup-template-args (c-):             Indentation Functions.
 * lineup-whitesmith-in-block (c-):       Indentation Functions.
 * mark-function (c-):                    Indentation Commands.
@@ -498,8 +498,8 @@ each appears under its `c-<THING>' name and its `<THING> (c-)' name.
 * c-enable-xemacs-performance-kludge-p:  Performance Issues.
 * c-file-offsets:                        File Styles.
 * c-file-style:                          File Styles.
-* c-hanging-braces-alist <1>:            Hanging Braces.
-* c-hanging-braces-alist:                Custom Brace and Colon Hanging.
+* c-hanging-braces-alist <1>:            Custom Brace and Colon Hanging.
+* c-hanging-braces-alist:                Hanging Braces.
 * c-hanging-colon-alist:                 Custom Brace and Colon Hanging.
 * c-hanging-colons-alist:                Hanging Colons.
 * c-hanging-semi&comma-criteria:         Customizing Semi-colons and Commas.
@@ -510,8 +510,8 @@ each appears under its `c-<THING>' name and its `<THING> (c-)' name.
 * c-insert-tab-function:                 Indentation Commands.
 * c-Java-defun-prompt-regexp:            Performance Issues.
 * c-label-minimum-indentation:           Other Special Indentations.
-* c-mode-common-hook <1>:                Hooks.
-* c-mode-common-hook:                    Built-in Styles.
+* c-mode-common-hook <1>:                Built-in Styles.
+* c-mode-common-hook:                    Hooks.
 * c-mode-hook:                           Hooks.
 * c-offsets-alist <1>:                   Syntactic Symbols.
 * c-offsets-alist:                       Customizing Indentation.
@@ -520,9 +520,9 @@ each appears under its `c-<THING>' name and its `<THING> (c-)' name.
 * c-recognize-knr-p:                     Performance Issues.
 * c-special-indent-hook:                 Other Special Indentations.
 * c-strict-syntax-p:                     Customizing Indentation.
-* c-style-alist <1>:                     Built-in Styles.
-* c-style-alist <2>:                     Advanced Customizations.
-* c-style-alist:                         Adding Styles.
+* c-style-alist <1>:                     Advanced Customizations.
+* c-style-alist <2>:                     Adding Styles.
+* c-style-alist:                         Built-in Styles.
 * c-style-variables-are-local-p:         Permanent Customization.
 * c-syntactic-context:                   Custom Brace and Colon Hanging.
 * c-tab-always-indent:                   Indentation Commands.
@@ -535,8 +535,8 @@ each appears under its `c-<THING>' name and its `<THING> (c-)' name.
 * comment-only-line-offset (c-):         Indentation Functions.
 * comment-prefix-regexp (c-):            Text Filling and Line Breaking.
 * comment-start:                         Text Filling and Line Breaking.
-* comment-start-skip <1>:                Text Filling and Line Breaking.
-* comment-start-skip:                    Indentation Functions.
+* comment-start-skip <1>:                Indentation Functions.
+* comment-start-skip:                    Text Filling and Line Breaking.
 * default-style (c-):                    Built-in Styles.
 * delete-function (c-):                  Hungry-deletion of Whitespace.
 * delete-key-deletes-forward:            Hungry-deletion of Whitespace.
@@ -576,9 +576,9 @@ each appears under its `c-<THING>' name and its `<THING> (c-)' name.
 * signal-error-on-buffer-boundary:       Limitations and Known Bugs.
 * special-indent-hook (c-):              Other Special Indentations.
 * strict-syntax-p (c-):                  Customizing Indentation.
-* style-alist (c-) <1>:                  Built-in Styles.
-* style-alist (c-) <2>:                  Advanced Customizations.
-* style-alist (c-):                      Adding Styles.
+* style-alist (c-) <1>:                  Advanced Customizations.
+* style-alist (c-) <2>:                  Adding Styles.
+* style-alist (c-):                      Built-in Styles.
 * style-variables-are-local-p (c-):      Permanent Customization.
 * syntactic-context (c-):                Custom Brace and Colon Hanging.
 * tab-always-indent (c-):                Indentation Commands.

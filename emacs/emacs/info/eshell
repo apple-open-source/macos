@@ -1,4 +1,4 @@
-This is ../info/eshell, produced by makeinfo version 4.0 from
+This is ../info/eshell, produced by makeinfo version 4.0f from
 eshell.texi.
 
 INFO-DIR-SECTION Emacs
@@ -608,8 +608,8 @@ File: eshell,  Node: Known problems,  Prev: Bugs and ideas,  Up: Bugs and ideas
 Known problems
 ==============
 
-   Below is complete list of known problems with Eshell version 2.4.1,
-which is the version included with Emacs 21.1.
+   Below is complete list of known problems with Eshell version 2.4.2,
+which is the version included with Emacs 21.2.
 
 Differentiate between aliases and functions
      Allow for a bash-compatible syntax, such as:
@@ -1027,43 +1027,43 @@ Key Index
 
 
 Tag Table:
-Node: Top1185
-Node: What is Eshell?2090
-Ref: What is Eshell?-Footnote-14807
-Ref: What is Eshell?-Footnote-24897
-Node: Contributors to Eshell5090
-Node: Installation6263
-Node: Command basics11700
-Node: Commands verbs12251
-Node: Command arguments14033
-Node: Commands15279
-Node: Invocation15644
-Ref: Invocation-Footnote-116282
-Node: Completion16375
-Node: Aliases16483
-Node: History16582
-Node: Scripts16678
-Node: Arguments16758
-Node: The Parser16945
-Node: Variables17055
-Node: Substitution17166
-Node: Globbing17281
-Node: Predicates17389
-Node: Input/Output17480
-Node: Process control17596
-Node: Extension modules17726
-Node: Writing a module18027
-Node: Module testing18176
-Node: Directory handling18322
-Node: Key rebinding18473
-Node: Smart scrolling18615
-Node: Terminal emulation18761
-Node: Built-in UNIX commands18922
-Node: Extras and Goodies19067
-Node: Bugs and ideas19208
-Node: Known problems19785
-Node: Concept Index34923
-Node: Function and Variable Index35936
-Node: Key Index36103
+Node: Top1186
+Node: What is Eshell?2091
+Ref: What is Eshell?-Footnote-14808
+Ref: What is Eshell?-Footnote-24898
+Node: Contributors to Eshell5091
+Node: Installation6264
+Node: Command basics11701
+Node: Commands verbs12252
+Node: Command arguments14034
+Node: Commands15280
+Node: Invocation15645
+Ref: Invocation-Footnote-116283
+Node: Completion16376
+Node: Aliases16484
+Node: History16583
+Node: Scripts16679
+Node: Arguments16759
+Node: The Parser16946
+Node: Variables17056
+Node: Substitution17167
+Node: Globbing17282
+Node: Predicates17390
+Node: Input/Output17481
+Node: Process control17597
+Node: Extension modules17727
+Node: Writing a module18028
+Node: Module testing18177
+Node: Directory handling18323
+Node: Key rebinding18474
+Node: Smart scrolling18616
+Node: Terminal emulation18762
+Node: Built-in UNIX commands18923
+Node: Extras and Goodies19068
+Node: Bugs and ideas19209
+Node: Known problems19786
+Node: Concept Index34924
+Node: Function and Variable Index35937
+Node: Key Index36104
 
 End Tag Table

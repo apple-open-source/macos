@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +21,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 #include <libkern/OSByteOrder.h>
 
 #include <IOKit/usb/IOUSBDevice.h>
@@ -531,6 +531,11 @@ IOUSBInterface::matchPropertyTable(OSDictionary * table, SInt32 *score)
     OSString	*userClientInitMatchKey;
     char	logString[256]="";
     
+    if ( table == NULL )
+    {
+        return false;
+    }
+        
     bool	vendorPropertyExists = table->getObject(kUSBVendorID);
     bool	productPropertyExists = table->getObject(kUSBProductID);
     bool	interfaceNumberPropertyExists = table->getObject(kUSBInterfaceNumber);

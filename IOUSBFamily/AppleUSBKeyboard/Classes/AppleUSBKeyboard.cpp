@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -213,7 +213,7 @@ AppleUSBKeyboard::start(IOService * provider)
             locationID = locationIDProperty->unsigned32BitValue();
         }
 
-        USBLog(1, "%s[%p]::start USB Generic Keyboard @ %d (0x%x)", getName(), this, _device->GetAddress(), locationID);
+        USBError(1, "%s[%p]::start USB Generic Keyboard @ %d (0x%x)", getName(), this, _device->GetAddress(), locationID);
 
 	// OK- so this is not totally kosher in the IOKit world. You are supposed to call super::start near the BEGINNING
 	// of your own start method. However, the IOHIKeyboard::start method invokes registerService, which we don't want to

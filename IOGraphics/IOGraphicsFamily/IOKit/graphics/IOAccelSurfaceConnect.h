@@ -73,13 +73,13 @@ enum eIOAccelSurfaceMemoryTypes {
 ** kIOAccelNumSurfaceMethods.
 */
 enum eIOAccelSurfaceMethods {
-	kIOAccelSurfaceSetIDModeOld,
-	kIOAccelSurfaceSetShapeOld,
+	kIOAccelSurfaceReadLockOptions,
+	kIOAccelSurfaceReadUnlockOptions,
 	kIOAccelSurfaceGetState,
-	kIOAccelSurfaceLock,
-	kIOAccelSurfaceUnlock,
+	kIOAccelSurfaceWriteLockOptions,
+	kIOAccelSurfaceWriteUnlockOptions,
 	kIOAccelSurfaceRead,
-	kIOAccelSurfaceFlushOld,
+	kIOAccelSurfaceSetShapeBacking,
 
 	kIOAccelSurfaceSetIDMode,
 	kIOAccelSurfaceSetScale,
@@ -109,6 +109,7 @@ typedef enum {
 	kIOAccelSurfaceModeColorDepthYUV9  = 0x00000007,
 	kIOAccelSurfaceModeColorDepthYUV12 = 0x00000008,
 	kIOAccelSurfaceModeColorDepthYUV2  = 0x00000009,
+	kIOAccelSurfaceModeColorDepthBGRA32 = 0x0000000A,
         kIOAccelSurfaceModeColorDepthBits  = 0x0000000F,
 
 	kIOAccelSurfaceModeStereoBit       = 0x00000010,
@@ -126,6 +127,8 @@ typedef enum {
         kIOAccelSurfaceShapeNonBlockingBit   = 0x00000001,
         kIOAccelSurfaceShapeNonSimpleBit     = 0x00000002,
         kIOAccelSurfaceShapeIdentityScaleBit = 0x00000004,
+        kIOAccelSurfaceShapeFrameSyncBit     = 0x00000008,
+        kIOAccelSurfaceShapeBeamSyncBit      = 0x00000010,
 
         /* wrong name, use kIOAccelSurfaceShapeNonBlockingBit */
         kIOAccelSurfaceShapeBlockingBit      = kIOAccelSurfaceShapeNonBlockingBit
@@ -152,6 +155,16 @@ typedef enum {
 	kIOAccelSurfaceFilterLinear  = 0x00000020
 
 } eIOAccelSurfaceScaleBits;
+
+/*
+** Option bits for the kIOAccelSurfaceLock methods.
+*/
+typedef enum {
+    kIOAccelSurfaceLockInBacking  = 0,
+    kIOAccelSurfaceLockInAccel    = 1,
+    kIOAccelSurfaceLockInDontCare = 2,
+    kIOAccelSurfaceLockInMask     = 0x00000003
+} eIOAccelSurfaceLockBits;
 
 #endif /* _IOACCEL_SURFACE_CONNECT_H */
 

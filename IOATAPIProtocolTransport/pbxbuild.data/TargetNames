@@ -1,9 +1,9 @@
-if [ "${Target}" = "IOATAPIProtocolTransport (Kernel Extension)" ]; then
+if [ "${Target}" = "IOATAPIProtocolTransport" ]; then
 	Targets='InstallHdrs
-IOATAPIProtocolTransport (Kernel Extension)'
+IOATAPIProtocolTransport'
 elif [ "${Target}" = "InstallHdrs" ]; then
 	Targets='InstallHdrs'
 else
 	Targets='InstallHdrs
-IOATAPIProtocolTransport (Kernel Extension)'
+IOATAPIProtocolTransport'
 fi

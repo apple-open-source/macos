@@ -1,7 +1,7 @@
 /* Handle shared libraries for GDB, the GNU Debugger.
-   Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001
-   Free Software Foundation, Inc.
+
+   Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -42,6 +42,7 @@
 #include "filenames.h"		/* for DOSish file names */
 
 #include "solist.h"
+#include <readline/readline.h>
 
 /* external data declarations */
 
@@ -56,7 +57,7 @@ static int solib_cleanup_queued = 0;	/* make_run_cleanup called */
 
 /* Local function prototypes */
 
-static void do_clear_solib (PTR);
+static void do_clear_solib (void *);
 
 /* If non-zero, this is a prefix that will be added to the front of the name
    shared libraries with an absolute filename for loading.  */
@@ -206,7 +207,7 @@ solib_open (char *in_pathname, char **found_pathname)
  */
 
 static int
-solib_map_sections (PTR arg)
+solib_map_sections (void *arg)
 {
   struct so_list *so = (struct so_list *) arg;	/* catch_errors bogon */
   char *filename;
@@ -323,7 +324,7 @@ free_so (struct so_list *so)
 /* A small stub to get us past the arg-passing pinhole of catch_errors.  */
 
 static int
-symbol_add_stub (PTR arg)
+symbol_add_stub (void *arg)
 {
   register struct so_list *so = (struct so_list *) arg;  /* catch_errs bogon */
   struct section_addr_info *sap;
@@ -386,7 +387,7 @@ update_solib_list (int from_tty, struct target_ops *target)
      symbols now!  */
   if (attach_flag &&
       symfile_objfile == NULL)
-    catch_errors (TARGET_SO_OPEN_SYMBOL_FILE_OBJECT, (PTR) &from_tty, 
+    catch_errors (TARGET_SO_OPEN_SYMBOL_FILE_OBJECT, &from_tty, 
 		  "Error reading attached process's symbol file.\n",
 		  RETURN_MASK_ALL);
 
@@ -655,13 +656,13 @@ info_sharedlibrary_command (char *ignore, int from_tty)
 
 	  printf_unfiltered ("%-*s", addr_width,
 			     so->textsection != NULL 
-			       ? longest_local_hex_string_custom (
+			       ? local_hex_string_custom (
 			           (LONGEST) so->textsection->addr,
 	                           addr_fmt)
 			       : "");
 	  printf_unfiltered ("%-*s", addr_width,
 			     so->textsection != NULL 
-			       ? longest_local_hex_string_custom (
+			       ? local_hex_string_custom (
 			           (LONGEST) so->textsection->endaddr,
 	                           addr_fmt)
 			       : "");
@@ -757,7 +758,7 @@ clear_solib (void)
 }
 
 static void
-do_clear_solib (PTR dummy)
+do_clear_solib (void *dummy)
 {
   solib_cleanup_queued = 0;
   clear_solib ();
@@ -876,6 +877,10 @@ For other (relative) files, you can add values using `set solib-search-path'.",
 		   &setlist);
   add_show_from_set (c, &showlist);
   set_cmd_completer (c, filename_completer);
+
+  /* Set the default value of "solib-absolute-prefix" from the sysroot, if
+     one is set.  */
+  solib_absolute_prefix = xstrdup (gdb_sysroot);
 
   c = add_set_cmd ("solib-search-path", class_support, var_string,
 		   (char *) &solib_search_path,

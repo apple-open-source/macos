@@ -22,7 +22,6 @@ __RCSID("$NetBSD: e_jnf.c,v 1.7 1999/07/02 15:37:40 simonb Exp $");
 #include "math_private.h"
 
 static const float
-invsqrtpi=  5.6418961287e-01, /* 0x3f106ebb */
 two   =  2.0000000000e+00, /* 0x40000000 */
 one   =  1.0000000000e+00; /* 0x3F800000 */
 
@@ -191,7 +190,7 @@ float ynf(int n, float x)
 	b = __ieee754_y1f(x);
 	/* quit if b is -inf */
 	GET_FLOAT_WORD(ib,b);
-	for(i=1;i<n&&ib!=0xff800000;i++){
+	for(i=1;i<n&&(unsigned long)ib!=0xff800000ul;i++){
 	    temp = b;
 	    b = ((float)(i+i)/x)*b - a;
 	    GET_FLOAT_WORD(ib,b);

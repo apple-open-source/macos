@@ -11,7 +11,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclPosixStr.c,v 1.1.1.4 2000/12/06 23:03:30 wsanchez Exp $
+ * RCS: @(#) $Id: tclPosixStr.c,v 1.1.1.5 2003/03/06 00:10:55 landonf Exp $
  */
 
 #include "tclInt.h"
@@ -35,7 +35,7 @@
  *----------------------------------------------------------------------
  */
 
-char *
+CONST char *
 Tcl_ErrnoId()
 {
     switch (errno) {
@@ -339,6 +339,9 @@ Tcl_ErrnoId()
 #if defined(EOPNOTSUPP) &&  (!defined(ENOTSUP) || (ENOTSUP != EOPNOTSUPP))
 	case EOPNOTSUPP: return "EOPNOTSUPP";
 #endif
+#if defined(EOVERFLOW) && ( !defined(EFBIG) || (EOVERFLOW != EFBIG) ) && ( !defined(EINVAL) || (EOVERFLOW != EINVAL) )
+        case EOVERFLOW: return "EOVERFLOW";
+#endif
 #ifdef EPERM
 	case EPERM: return "EPERM";
 #endif
@@ -480,7 +483,7 @@ Tcl_ErrnoId()
  *----------------------------------------------------------------------
  */
 
-char *
+CONST char *
 Tcl_ErrnoMsg(err)
     int err;			/* Error number (such as in errno variable). */
 {
@@ -786,6 +789,9 @@ Tcl_ErrnoMsg(err)
 #if defined(EOPNOTSUPP) &&  (!defined(ENOTSUP) || (ENOTSUP != EOPNOTSUPP))
 	case EOPNOTSUPP: return "operation not supported on socket";
 #endif
+#if defined(EOVERFLOW) && ( !defined(EFBIG) || (EOVERFLOW != EFBIG) ) && ( !defined(EINVAL) || (EOVERFLOW != EINVAL) )
+        case EOVERFLOW: return "file too big";
+#endif
 #ifdef EPERM
 	case EPERM: return "not owner";
 #endif
@@ -927,7 +933,7 @@ Tcl_ErrnoMsg(err)
  *----------------------------------------------------------------------
  */
 
-char *
+CONST char *
 Tcl_SignalId(sig)
     int sig;			/* Number of signal. */
 {
@@ -1059,7 +1065,7 @@ Tcl_SignalId(sig)
  *----------------------------------------------------------------------
  */
 
-char *
+CONST char *
 Tcl_SignalMsg(sig)
     int sig;			/* Number of signal. */
 {

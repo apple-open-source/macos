@@ -1,0 +1,24 @@
+Notifica di conferma rimozione dalla lista %(listname)s
+
+Abbiamo ricevuto una richiesta%(remote)s per la rimozione del tuo
+indirizzo email, "%(email)s" dalla mailing list %(listaddr)s.
+Per confermare che vuoi essere cancellato da questa lista, 
+rispondi semplicemente a questo messaggio lasciando intatto
+l'oggetto.  Oppure visita questa pagina:
+
+
+    %(confirmurl)s
+
+Oppure includi la riga seguente -- e solo quella -- in un messaggio
+indirizzato a %(requestaddr)s:
+
+    confirm %(cookie)s
+
+Nota che il semplice invio di un `reply' a questo messaggio dovrebbe
+essere sufficiente per la maggior parte dei programmi di lettura della
+posta, poiché questi lasciano normalmente inalterato l'oggetto
+(l'aggiunta di "Re:" non da problemi).
+
+Se non vuoi essere cancellato dalla lista, ignora questo messaggio.
+Se pensi che qualcuno stia cercando di farti uno scherzo o hai
+domande, parlane con %(listadmin)s.

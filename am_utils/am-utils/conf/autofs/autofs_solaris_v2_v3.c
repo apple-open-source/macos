@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2001 Ion Badulescu
+ * Copyright (c) 1999-2002 Ion Badulescu
  * Copyright (c) 1997-2002 Erez Zadok
  * Copyright (c) 1990 Jan-Simon Pendry
  * Copyright (c) 1990 Imperial College of Science, Technology & Medicine
@@ -38,7 +38,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: autofs_solaris_v2_v3.c,v 1.1.1.1 2002/05/15 01:22:05 jkh Exp $
+ * $Id: autofs_solaris_v2_v3.c,v 1.1.1.2 2002/07/15 19:42:50 zarzycki Exp $
  *
  */
 
@@ -218,10 +218,21 @@ xdr_umntrequest(XDR *xdrs, umntrequest *objp)
 
   if (!xdr_bool_t(xdrs, &objp->isdirect))
     return (FALSE);
+#ifdef HAVE_STRUCT_UMNTREQUEST_DEVID
   if (!xdr_dev_t(xdrs, &objp->devid))
     return (FALSE);
   if (!xdr_dev_t(xdrs, &objp->rdevid))
     return (FALSE);
+#else  /* not HAVE_STRUCT_UMNTREQUEST_DEVID */
+  if (!xdr_string(xdrs, &objp->mntresource, AUTOFS_MAXPATHLEN))
+    return (FALSE);
+  if (!xdr_string(xdrs, &objp->mntpnt, AUTOFS_MAXPATHLEN))
+    return (FALSE);
+  if (!xdr_string(xdrs, &objp->fstype, AUTOFS_MAXCOMPONENTLEN))
+    return (FALSE);
+  if (!xdr_string(xdrs, &objp->mntopts, AUTOFS_MAXOPTSLEN))
+    return (FALSE);
+#endif /* not HAVE_STRUCT_UMNTREQUEST_DEVID */
   if (!xdr_pointer(xdrs, (char **) &objp->next, sizeof(umntrequest),
 		   (XDRPROC_T_TYPE) xdr_umntrequest))
     return (FALSE);
@@ -304,7 +315,7 @@ bool_t
 xdr_autofs_lookupargs(XDR *xdrs, autofs_lookupargs *objp)
 {
   amuDebug(D_XDRTRACE)
-    plog(XLOG_DEBUG, "xdr_mntrequest:");
+    plog(XLOG_DEBUG, "xdr_autofs_lookupargs:");
 
   if (!xdr_string(xdrs, &objp->map, AUTOFS_MAXPATHLEN))
     return (FALSE);
@@ -662,43 +673,60 @@ autofs_mount_2_free(struct autofs_mountres *res)
 
 
 static int
-autofs_unmount_2_req(umntrequest *m,
+autofs_unmount_2_req(umntrequest *ul,
 		     umntres *res,
 		     struct authunix_parms *cred)
 {
-  umntrequest *ul = m;
-  int i, err;
+  int mapno, err;
+  am_node *mp = NULL;
 
+#ifdef HAVE_STRUCT_UMNTREQUEST_DEVID
   dlog("UNMOUNT REQUEST: dev=%lx rdev=%lx %s\n",
        (u_long) ul->devid,
        (u_long) ul->rdevid,
        ul->isdirect ? "direct" : "indirect");
+#else  /* not HAVE_STRUCT_UMNTREQUEST_DEVID */
+  dlog("UNMOUNT REQUEST: mntresource='%s' mntpnt='%s' fstype='%s' mntopts='%s' %s\n",
+       ul->mntresource,
+       ul->mntpnt,
+       ul->fstype,
+       ul->mntopts,
+       ul->isdirect ? "direct" : "indirect");
+#endif /* not HAVE_STRUCT_UMNTREQUEST_DEVID */
 
   /* by default, and if not found, succeed */
   res->status = 0;
 
-  for (i = 0; i <= last_used_map; i++) {
-    am_node *mp = exported_ap[i];
+#ifdef HAVE_STRUCT_UMNTREQUEST_DEVID
+  for (mapno = 0; mapno <= last_used_map; mapno++) {
+    mp = exported_ap[mapno];
     if (mp &&
 	mp->am_dev == ul->devid &&
-	mp->am_rdev == ul->rdevid) {
+	mp->am_rdev == ul->rdevid)
+      break;
+    mp = NULL;
+  }
+#else  /* not HAVE_STRUCT_UMNTREQUEST_DEVID */
+  mp = find_ap(ul->mntpnt);
+#endif /* not HAVE_STRUCT_UMNTREQUEST_DEVID */
 
-      /* save RPC context */
-      if (!mp->am_transp && current_transp) {
-	mp->am_transp = (SVCXPRT *) xmalloc(sizeof(SVCXPRT));
-	*(mp->am_transp) = *current_transp;
-      }
-
-      err = unmount_mp(mp);
-
-      if (err)
-	/* backgrounded, don't reply yet */
-	return 1;
-
-      if (exported_ap[i])
-	/* unmounting failed, tell the kernel */
-	res->status = 1;
+  if (mp) {
+    /* save RPC context */
+    if (!mp->am_transp && current_transp) {
+      mp->am_transp = (SVCXPRT *) xmalloc(sizeof(SVCXPRT));
+      *(mp->am_transp) = *current_transp;
     }
+
+    mapno = mp->am_mapno;
+    err = unmount_mp(mp);
+
+    if (err)
+      /* backgrounded, don't reply yet */
+      return 1;
+
+    if (exported_ap[mapno])
+      /* unmounting failed, tell the kernel */
+      res->status = 1;
   }
 
   dlog("UNMOUNT REPLY: status=%d\n", res->status);
@@ -955,9 +983,10 @@ autofs_get_fh(am_node *mp)
 
 
 void
-autofs_mounted(mntfs *mf)
+autofs_mounted(am_node *mp)
 {
-  /* nothing */
+  /* We don't want any timeouts on autofs nodes */
+  mp->am_ttl = NEVER;
 }
 
 
@@ -1036,6 +1065,7 @@ create_autofs_service(void)
   int fd = -1, err = 1;		/* assume failed */
   struct netconfig *autofs_ncp;
 
+  plog(XLOG_INFO, "creating autofs service listener");
   autofs_ncp = getnetconfigent(autofs_conftype);
   if (autofs_ncp == NULL) {
     plog(XLOG_ERROR, "create_autofs_service: cannot getnetconfigent for %s", autofs_conftype);
@@ -1099,6 +1129,7 @@ destroy_autofs_service(void)
   struct netconfig *autofs_ncp;
   int err = 1;
 
+  plog(XLOG_INFO, "destroying autofs service listener");
   autofs_ncp = getnetconfigent(autofs_conftype);
   if (autofs_ncp == NULL) {
     plog(XLOG_ERROR, "create_autofs_service: cannot getnetconfigent for %s", autofs_conftype);
@@ -1279,9 +1310,17 @@ autofs_get_opts(char *opts, autofs_fh_t *fh)
 	  fh->direct ? "" : "in");
 }
 
+
 int
 autofs_compute_mount_flags(mntent_t *mntp)
 {
   /* Must use overlay mounts */
   return MNT2_GEN_OPT_OVERLAY;
+}
+
+
+void autofs_timeout_mp(am_node *mp)
+{
+  /* We don't want any timeouts on autofs nodes */
+  mp->am_ttl = NEVER;
 }

@@ -1,111 +1,348 @@
 // !$*UTF8*$!
 {
-	00FE5D8DFEF9EE7911CA2CB3 = {
-		activeExec = 0;
-	};
-	00FE5D97FEF9EFA211CA2CB3 = {
-		activeExec = 0;
-	};
 	3C561387FEEF59C211CA2CB3 = {
 		activeBuildStyle = 07B3C7DFFFA7A65311CA2CEA;
+		activeExecutable = 98D6987A00A2035405CA2923;
 		activeTarget = 3C5613D6FEEF59C211CA2CB3;
-		intermediatesDirectory = "/Volumes/Hourman/Users/tooker/Development/Products/Project Builder/Objects";
+		executables = (
+			98D6987A00A2035405CA2923,
+		);
 		perUserDictionary = {
-			PBXWorkspaceConfiguration = {
-				ContentSize = "{600, 523}";
-				LeftSlideOut = {
-					ActiveTab = 0;
-					Frame = "{{0, 23}, {600, 500}}";
-					Split0 = {
-						Frame = "{{225, 0}, {375, 500}}";
+			PBXPerProjectTemplateStateSaveDate = 48111338;
+			PBXWorkspaceContents = (
+				{
+					LeftSlideOut = {
 						Split0 = {
-							Frame = "{{0, 25}, {375, 475}}";
+							Split0 = {
+								NavCount = 1;
+								NavGeometry0 = {
+									Frame = "{{0, 0}, {150, 530}}";
+									NavBarVisible = YES;
+								};
+							};
+							SplitCount = 1;
+							Tab0 = {
+								Debugger = {
+									Split0 = {
+										SplitCount = 2;
+									};
+									SplitCount = 1;
+									TabCount = 2;
+								};
+								LauncherConfigVersion = 7;
+							};
+							Tab1 = {
+								LauncherConfigVersion = 3;
+								Runner = {
+								};
+							};
+							TabCount = 4;
+						};
+						SplitCount = 1;
+						Tab1 = {
+							OptionsSetName = "Hierarchy, all classes";
+						};
+						TabCount = 5;
+					};
+				},
+				{
+					LeftSlideOut = {
+						Split0 = {
+							Split0 = {
+								NavCount = 1;
+								NavGeometry0 = {
+									Frame = "{{0, 0}, {685, 190}}";
+									NavBarVisible = YES;
+								};
+							};
+							SplitCount = 1;
+							Tab0 = {
+								Debugger = {
+									Split0 = {
+										SplitCount = 2;
+									};
+									SplitCount = 1;
+									TabCount = 2;
+								};
+								LauncherConfigVersion = 7;
+							};
+							Tab1 = {
+								LauncherConfigVersion = 3;
+								Runner = {
+								};
+							};
+							TabCount = 4;
+						};
+						SplitCount = 1;
+						Tab1 = {
+							OptionsSetName = "Hierarchy, all classes";
+						};
+						TabCount = 5;
+					};
+				},
+			);
+			PBXWorkspaceGeometries = (
+				{
+					ContentSize = "{352, 553}";
+					LeftSlideOut = {
+						ActiveTab = 0;
+						Collapsed = YES;
+						Frame = "{{0, 23}, {352, 530}}";
+						Split0 = {
+							Collapsed = NO;
+							Frame = "{{1e+06, 1e+06}, {0, 530}}";
+							Split0 = {
+								Frame = "{{0, 0}, {0, 530}}";
+							};
+							SplitCount = 1;
+							Tab0 = {
+								Debugger = {
+									Collapsed = NO;
+									Frame = "{{0, 0}, {484, 208}}";
+									Split0 = {
+										Frame = "{{0, 24}, {484, 184}}";
+										Split0 = {
+											Frame = "{{0, 0}, {236, 184}}";
+										};
+										Split1 = {
+											DebugVariablesTableConfiguration = (
+												Name,
+												123,
+												Value,
+												85,
+												Summary,
+												62.123,
+											);
+											Frame = "{{245, 0}, {239, 184}}";
+										};
+										SplitCount = 2;
+									};
+									SplitCount = 1;
+									Tab0 = {
+										Frame = "{{0, 0}, {100, 50}}";
+									};
+									Tab1 = {
+										Frame = "{{0, 0}, {100, 50}}";
+									};
+									TabCount = 2;
+									TabsVisible = YES;
+								};
+								Frame = "{{0, 0}, {484, 208}}";
+								LauncherConfigVersion = 7;
+							};
+							Tab1 = {
+								Frame = "{{0, 0}, {664, 208}}";
+								LauncherConfigVersion = 3;
+								Runner = {
+									Frame = "{{0, 0}, {664, 208}}";
+								};
+							};
+							Tab2 = {
+								BuildMessageFrame = "{{0, 0}, {666, 43}}";
+								BuildTranscriptFrame = "{{0, 52}, {666, 0}}";
+								Frame = "{{0, 0}, {664, 50}}";
+							};
+							Tab3 = {
+								Frame = "{{0, 0}, {612, 295}}";
+							};
+							TabCount = 4;
+							TabsVisible = NO;
 						};
 						SplitCount = 1;
 						Tab0 = {
-							Debugger = {
-								Frame = "{{0, 0}, {484, 208}}";
-								Split0 = {
-									Frame = "{{0, 25}, {484, 183}}";
-									Split0 = {
-										Frame = "{{0, 0}, {236, 183}}";
-									};
-									Split1 = {
-										Frame = "{{245, 0}, {239, 183}}";
-									};
-									SplitCount = 2;
-								};
-								SplitCount = 1;
-								Tab0 = {
-									Frame = "{{0, 0}, {100, 50}}";
-								};
-								Tab1 = {
-									Frame = "{{0, 0}, {100, 50}}";
-								};
-								TabCount = 2;
-							};
-							Frame = "{{0, 0}, {484, 208}}";
-							LauncherConfigVersion = 4;
+							Frame = "{{0, 0}, {328, 530}}";
+							GroupTreeTableConfiguration = (
+								SCMStatusColumn,
+								22,
+								TargetStatusColumn,
+								18,
+								MainColumn,
+								273,
+							);
 						};
 						Tab1 = {
-							Frame = "{{0, 0}, {484, 208}}";
-							LauncherConfigVersion = 3;
-							Runner = {
-								Frame = "{{0, 0}, {484, 208}}";
-							};
+							ClassesFrame = "{{0, 0}, {343, 348}}";
+							ClassesTreeTableConfiguration = (
+								PBXBookColumnIdentifier,
+								20,
+								PBXClassColumnIdentifier,
+								300,
+							);
+							Frame = "{{0, 0}, {341, 578}}";
+							MembersFrame = "{{0, 357}, {343, 221}}";
+							MembersTreeTableConfiguration = (
+								PBXBookColumnIdentifier,
+								20,
+								PBXMethodColumnIdentifier,
+								299,
+							);
 						};
 						Tab2 = {
-							BuildMessageFrame = "{{0, 0}, {377, 137}}";
-							BuildTranscriptFrame = "{{0, 146}, {377, 48}}";
-							Frame = "{{0, 0}, {375, 192}}";
+							Frame = "{{0, 0}, {319, 576}}";
 						};
 						Tab3 = {
-							Frame = "{{0, 0}, {612, 295}}";
+							Frame = "{{0, 0}, {341, 578}}";
+							TargetTableConfiguration = (
+								ActiveObject,
+								16,
+								ObjectNames,
+								308.296,
+							);
 						};
-						TabCount = 4;
+						Tab4 = {
+							BreakpointsTreeTableConfiguration = (
+								breakpointColumn,
+								266,
+								enabledColumn,
+								31,
+							);
+							Frame = "{{0, 0}, {319, 576}}";
+						};
+						TabCount = 5;
+						TabsVisible = YES;
 					};
-					SplitCount = 1;
-					Tab0 = {
-						Frame = "{{0, 0}, {200, 500}}";
-					};
-					Tab1 = {
-						ClassesFrame = "{{0, 0}, {202, 56}}";
-						Frame = "{{0, 0}, {200, 100}}";
-						MembersFrame = "{{0, 65}, {202, 35}}";
-						OptionsSetName = "Default Options";
-					};
-					Tab2 = {
-						Frame = "{{0, 0}, {200, 100}}";
-					};
-					Tab3 = {
-						Frame = "{{0, 0}, {200, 100}}";
+					StatusViewVisible = YES;
+					Template = F5E465990156DFB90DCA290F;
+					ToolbarVisible = YES;
+					WindowLocation = "{500, 77}";
+				},
+				{
+					ContentSize = "{685, 434}";
+					LeftSlideOut = {
+						Collapsed = NO;
+						Frame = "{{0, 23}, {685, 411}}";
 						Split0 = {
-							Frame = "{{0, 0}, {200, 45}}";
+							ActiveTab = 2;
+							Collapsed = NO;
+							Frame = "{{0, 0}, {685, 411}}";
+							Split0 = {
+								Frame = "{{0, 221}, {685, 190}}";
+							};
+							SplitCount = 1;
+							Tab0 = {
+								Debugger = {
+									Collapsed = NO;
+									Frame = "{{0, 0}, {952, 321}}";
+									Split0 = {
+										Frame = "{{0, 24}, {952, 297}}";
+										Split0 = {
+											Frame = "{{0, 0}, {468, 297}}";
+										};
+										Split1 = {
+											DebugVariablesTableConfiguration = (
+												Name,
+												126.803,
+												Value,
+												150.074,
+												Summary,
+												172.123,
+											);
+											Frame = "{{477, 0}, {475, 297}}";
+										};
+										SplitCount = 2;
+									};
+									SplitCount = 1;
+									Tab0 = {
+										Frame = "{{0, 0}, {100, 50}}";
+									};
+									Tab1 = {
+										Frame = "{{0, 0}, {100, 50}}";
+									};
+									TabCount = 2;
+									TabsVisible = YES;
+								};
+								Frame = "{{0, 0}, {952, 321}}";
+								LauncherConfigVersion = 7;
+							};
+							Tab1 = {
+								Frame = "{{0, 0}, {781, 452}}";
+								LauncherConfigVersion = 3;
+								Runner = {
+									Frame = "{{0, 0}, {781, 452}}";
+								};
+							};
+							Tab2 = {
+								BuildMessageFrame = "{{0, 0}, {687, 149}}";
+								BuildTranscriptFrame = "{{0, 158}, {687, 59}}";
+								Frame = "{{0, 0}, {685, 215}}";
+							};
+							Tab3 = {
+								Frame = "{{0, 0}, {612, 295}}";
+							};
+							TabCount = 4;
+							TabsVisible = NO;
 						};
-						Split1 = {
-							Frame = "{{0, 54}, {200, 46}}";
+						SplitCount = 1;
+						Tab0 = {
+							Frame = "{{0, 0}, {300, 533}}";
+							GroupTreeTableConfiguration = (
+								TargetStatusColumn,
+								18,
+								MainColumn,
+								267,
+							);
 						};
-						SplitCount = 2;
+						Tab1 = {
+							ClassesFrame = "{{0, 0}, {280, 398}}";
+							ClassesTreeTableConfiguration = (
+								PBXBookColumnIdentifier,
+								20,
+								PBXClassColumnIdentifier,
+								237,
+							);
+							Frame = "{{0, 0}, {278, 659}}";
+							MembersFrame = "{{0, 407}, {280, 252}}";
+							MembersTreeTableConfiguration = (
+								PBXBookColumnIdentifier,
+								20,
+								PBXMethodColumnIdentifier,
+								236,
+							);
+						};
+						Tab2 = {
+							Frame = "{{0, 0}, {200, 100}}";
+						};
+						Tab3 = {
+							Frame = "{{0, 0}, {200, 100}}";
+							TargetTableConfiguration = (
+								ActiveObject,
+								16,
+								ObjectNames,
+								202.296,
+							);
+						};
+						Tab4 = {
+							BreakpointsTreeTableConfiguration = (
+								breakpointColumn,
+								197,
+								enabledColumn,
+								31,
+							);
+							Frame = "{{0, 0}, {250, 100}}";
+						};
+						TabCount = 5;
+						TabsVisible = NO;
 					};
-					Tab4 = {
-						Frame = "{{0, 0}, {250, 100}}";
-					};
-					TabCount = 5;
-				};
-				WindowLocation = "{53, 118}";
-			};
+					StatusViewVisible = YES;
+					Template = F5314676015831810DCA290F;
+					ToolbarVisible = YES;
+					WindowLocation = "{105, 130}";
+				},
+			);
+			PBXWorkspaceStateSaveDate = 48111338;
 		};
-		productDirectory = "/Volumes/Hourman/Users/tooker/Development/Products/Project Builder";
+		projectwideBuildSettings = {
+			OBJROOT = "$(SYMROOT)";
+			SYMROOT = "/Volumes/Hourman/Users/tooker/Developer/Products/Project Builder/TOT/";
+		};
 		wantsIndex = 1;
 		wantsSCM = -1;
 	};
 	3C5613D6FEEF59C211CA2CB3 = {
 		activeExec = 0;
-		targetExecs = {
-			macosx = (
-				98D6987A00A2035405CA2923,
-			);
-		};
+		executables = (
+			98D6987A00A2035405CA2923,
+		);
 	};
 	98D6987A00A2035405CA2923 = {
 		activeArgIndex = 2147483647;
@@ -116,6 +353,7 @@
 		environmentEntries = (
 		);
 		isa = PBXExecutable;
+		name = jam;
 		shlibInfoDictList = (
 		);
 		sourceDirectories = (

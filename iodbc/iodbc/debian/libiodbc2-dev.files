@@ -1,0 +1,11 @@
+usr/include/*.h
+usr/lib/libiodbc.so
+usr/lib/libiodbc.a
+usr/lib/libiodbc.la
+usr/lib/libiodbcinst.so
+usr/lib/libiodbcinst.a
+usr/lib/libiodbcinst.la
+usr/lib/libiodbcadm-gtk.a
+usr/lib/libiodbcadm-gtk.la
+usr/lib/libdrvproxy-gtk.a
+usr/lib/libdrvproxy-gtk.la

@@ -27,4 +27,3 @@
 #include "SYS.h"
 
 SYSCALL(mincore, 3)
-	blr

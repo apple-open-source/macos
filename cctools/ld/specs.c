@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -24,7 +22,7 @@
  */
 #ifdef SHLIB
 #include "shlib.h"
-#endif SHLIB
+#endif /* SHLIB */
 /*
  * This file contains the routines to manage the structures that hold the
  * command line specifications about segment and sections.
@@ -370,7 +368,7 @@ process_segment_specs(void)
 	    }
 	}
 }
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 
 #ifdef DEBUG
 #ifndef RLD
@@ -433,7 +431,7 @@ print_segment_specs(void)
 	    }
 	}
 }
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 
 __private_extern__
 void
@@ -453,4 +451,4 @@ vm_prot_t prot)
 	else
 	    print("-");
 }
-#endif DEBUG
+#endif /* DEBUG */

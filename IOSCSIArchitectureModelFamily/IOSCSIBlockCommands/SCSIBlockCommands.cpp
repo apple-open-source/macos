@@ -32,7 +32,7 @@
 #include <libkern/OSByteOrder.h>
 
 // SCSI Architecture Model Family includes
-#include <IOKit/scsi-commands/SCSICommandOperationCodes.h>
+#include <IOKit/scsi/SCSICommandOperationCodes.h>
 #include "SCSIBlockCommands.h"
 
 

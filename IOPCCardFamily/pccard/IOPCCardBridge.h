@@ -27,6 +27,14 @@
 #ifndef _IOKIT_IOPCCARDBRIDGE_H
 #define _IOKIT_IOPCCARDBRIDGE_H
 
+/*! @header IOPCCardBridge
+    @abstract An IOPCI2PCIBridge based class for supporting PCI Cardbus controllers.
+    @discussion
+
+The IOPCCardBridge and IOPCCardInterruptController classes are still under development and subject to change.  They should not be subclassed at this time.  Methods in the IOPCCardBridge class should not be called unless they are also part of the superclass IOPCI2PCIBridge.
+
+ */
+
 #include <libkern/OSByteOrder.h>
 #include <libkern/c++/OSContainers.h>
 

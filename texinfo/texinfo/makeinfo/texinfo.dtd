@@ -1,4 +1,4 @@
-<!-- $Id: texinfo.dtd,v 1.1.1.1 2002/04/19 01:00:31 jkh Exp $
+<!-- $Id: texinfo.dtd,v 1.2 2003/07/25 18:37:24 jkh Exp $
    Document Type Definition for Texinfo.
 
    Author: Philippe Martin (feloy@free.fr)
@@ -98,7 +98,7 @@
 <!-- NODES -->
 <!-- ***** -->
 <!ELEMENT node (nodename, nodenext?, nodeprev?, nodeup?, 
-                (para | menu | %section.all;)*) >
+                (%section.all; | %block;)*) >
 
 <!ELEMENT nodename (#PCDATA)>
 <!ELEMENT nodenext (#PCDATA)>
@@ -227,7 +227,7 @@
 
 <!ELEMENT indexterm (#PCDATA | %Inline.phrase;)*>
 <!ATTLIST indexterm
-          INDEX CDATA #IMPLIED>
+          index CDATA #IMPLIED>
 
 <!ELEMENT email (emailaddress, emailname?)>
 <!ELEMENT emailaddress (#PCDATA | %Inline.phrase;)*>

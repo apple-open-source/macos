@@ -1,4 +1,4 @@
-/*	$KAME: strnames.c,v 1.22 2001/11/16 04:12:59 sakane Exp $	*/
+/*	$KAME: strnames.c,v 1.23 2001/12/12 18:23:42 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -293,6 +293,8 @@ static struct ksmap name_isakmp_nptype[] = {
 { ISAKMP_NPTYPE_D,	"delete",	NULL },
 { ISAKMP_NPTYPE_VID,	"vid",		NULL },
 { ISAKMP_NPTYPE_GSS,	"gss id",	NULL },
+{ 0, "", NULL },
+{ ISAKMP_NPTYPE_NATD, "natd", NULL }
 };
 
 char *
@@ -456,6 +458,8 @@ static struct ksmap name_attr_ipsec_encmode[] = {
 { IPSECDOI_ATTR_ENC_MODE_ANY,		"Any",		NULL },
 { IPSECDOI_ATTR_ENC_MODE_TUNNEL,	"Tunnel",	NULL },
 { IPSECDOI_ATTR_ENC_MODE_TRNS,		"Transport",	NULL },
+{ IPSECDOI_ATTR_ENC_MODE_UDP_TUNNEL,	"UDP Encapsulated Tunnel",	NULL },
+{ IPSECDOI_ATTR_ENC_MODE_UDP_TRNS,		"UDP Encapsulated Transport",	NULL },
 };
 
 char *

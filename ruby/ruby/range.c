@@ -2,8 +2,8 @@
 
   range.c -
 
-  $Author: jkh $
-  $Date: 2002/05/27 17:59:44 $
+  $Author: melville $
+  $Date: 2003/05/14 13:58:44 $
   created at: Thu Aug 19 17:46:47 JST 1993
 
   Copyright (C) 1993-2000 Yukihiro Matsumoto
@@ -16,7 +16,7 @@ VALUE rb_cRange;
 static ID id_cmp, id_beg, id_end, id_excl;
 
 #define EXCL(r) RTEST(rb_ivar_get((r), id_excl))
-#define SET_EXCL(r,v) rb_ivar_set((r), id_excl, (v)?Qtrue:Qfalse)
+#define SET_EXCL(r,v) rb_ivar_set((r), id_excl, (v) ? Qtrue : Qfalse)
 
 static VALUE
 range_check(args)
@@ -83,14 +83,14 @@ static VALUE
 range_exclude_end_p(range)
     VALUE range;
 {
-    return EXCL(range)?Qtrue:Qfalse;
+    return EXCL(range) ? Qtrue : Qfalse;
 }
 
 static VALUE
 range_eq(range, obj)
     VALUE range, obj;
 {
-    if (!rb_obj_is_kind_of(obj, rb_cRange)) return Qfalse;
+    if (!rb_obj_is_kind_of(obj, rb_obj_class(range))) return Qfalse;
 
     if (!rb_equal(rb_ivar_get(range, id_beg), rb_ivar_get(obj, id_beg)))
 	return Qfalse;
@@ -140,7 +140,7 @@ range_eql(range, obj)
     VALUE range, obj;
 {
     if (range == obj) return Qtrue;
-    if (!rb_obj_is_kind_of(obj, rb_cRange)) return Qfalse;
+    if (!rb_obj_is_kind_of(obj, rb_obj_class(range))) return Qfalse;
 
     if (!rb_eql(rb_ivar_get(range, id_beg), rb_ivar_get(obj, id_beg)))
 	return Qfalse;
@@ -288,8 +288,8 @@ rb_range_beg_len(range, begp, lenp, len, err)
 
   out_of_range:
     if (err) {
-	rb_raise(rb_eRangeError, "%d..%s%d out of range",
-		 b, EXCL(range)?".":"", e);
+	rb_raise(rb_eRangeError, "%ld..%s%ld out of range",
+		 b, EXCL(range) ? "." : "", e);
     }
     return Qnil;
 }
@@ -303,7 +303,7 @@ range_to_s(range)
     str = rb_obj_as_string(rb_ivar_get(range, id_beg));
     str2 = rb_obj_as_string(rb_ivar_get(range, id_end));
     str = rb_str_dup(str);
-    rb_str_cat(str, "...", EXCL(range)?3:2);
+    rb_str_cat(str, "...", EXCL(range) ? 3 : 2);
     rb_str_append(str, str2);
     OBJ_INFECT(str, str2);
 
@@ -319,7 +319,7 @@ range_inspect(range)
     str = rb_inspect(rb_ivar_get(range, id_beg));
     str2 = rb_inspect(rb_ivar_get(range, id_end));
     str = rb_str_dup(str);
-    rb_str_cat(str, "...", EXCL(range)?3:2);
+    rb_str_cat(str, "...", EXCL(range) ? 3 : 2);
     rb_str_append(str, str2);
     OBJ_INFECT(str, str2);
 

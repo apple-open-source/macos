@@ -94,14 +94,14 @@ IMPLICIT_SOURCE_FILES += Makefile
 install-source-files: $(SRCFILES) $(IMPLICIT_SOURCE_FILES)
 	$(RM) -rf $(SRCROOT)$(SRCPATH)
 	$(MKDIRS) $(SRCROOT)$(SRCPATH)
-	$(TAR) cf - $(SRCFILES) | ( cd $(SRCROOT)$(SRCPATH) && $(TAR) xf - )
+	$(TAR) cf - $(SRCFILES) | ( cd $(SRCROOT)$(SRCPATH) && $(TAR) Pxf - )
 	$(SILENT) for i in $(IMPLICIT_SOURCE_FILES) none ; do \
             if [ -r $$i -a ! -r $(SRCROOT)$(SRCPATH)/$$i ] ; then \
                 supportfiles="$$supportfiles $$i" ; \
             fi ; \
         done ; \
         if [ -n "$$supportfiles" ] ; then \
-	   $(ECHO) "$(TAR) cf - $$supportfiles | ( cd $(SRCROOT)$(SRCPATH) && $(TAR) xf - )"  ; \
-	   $(TAR) cf - $$supportfiles | ( cd $(SRCROOT)$(SRCPATH) && $(TAR) xf - ) ; \
+	   $(ECHO) "$(TAR) cf - $$supportfiles | ( cd $(SRCROOT)$(SRCPATH) && $(TAR) Pxf - )"  ; \
+	   $(TAR) cf - $$supportfiles | ( cd $(SRCROOT)$(SRCPATH) && $(TAR) Pxf - ) ; \
         fi
 

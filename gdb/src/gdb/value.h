@@ -1,6 +1,6 @@
 /* Definitions for values of C expressions, for GDB.
    Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994,
-   1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
+   1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -22,6 +22,8 @@
 
 #if !defined (VALUE_H)
 #define VALUE_H 1
+
+struct regcache;
 
 #include "doublest.h"
 
@@ -125,9 +127,7 @@ struct value
        list.  */
     struct value *next;
 
-    /* Register number if the value is from a register.  Is not kept
-       if you take a field of a structure that is stored in a
-       register.  Shouldn't it be?  */
+    /* Register number if the value is from a register.  */
     short regno;
     /* If zero, contents of this value are in the contents field.
        If nonzero, contents are in inferior memory at address
@@ -239,9 +239,9 @@ do { COERCE_REF(arg);							\
 #define COERCE_NUMBER(arg)  \
   do { COERCE_ARRAY(arg);  COERCE_ENUM(arg); } while (0)
 
-#define COERCE_VARYING_ARRAY(arg, real_arg_type)	\
-{ if (chill_varying_type (real_arg_type))  \
-    arg = varying_to_slice (arg), real_arg_type = VALUE_TYPE (arg); }
+/* NOTE: cagney/2002-12-17: This macro was handling a chill language
+   problem but that language has gone away.  */
+#define COERCE_VARYING_ARRAY(arg, real_arg_type)
 
 /* If ARG is an enum, convert it to an integer.  */
 
@@ -282,13 +282,14 @@ extern DOUBLEST value_as_double (struct value *val);
 
 extern CORE_ADDR value_as_address (struct value *val);
 
-extern LONGEST unpack_long (struct type *type, char *valaddr);
+extern LONGEST unpack_long (struct type *type, const char *valaddr);
 
-extern DOUBLEST unpack_double (struct type *type, char *valaddr, int *invp);
+extern DOUBLEST unpack_double (struct type *type, const char *valaddr,
+			       int *invp);
 
-extern CORE_ADDR unpack_pointer (struct type *type, char *valaddr);
+extern CORE_ADDR unpack_pointer (struct type *type, const char *valaddr);
 
-extern LONGEST unpack_field_as_long (struct type *type, char *valaddr,
+extern LONGEST unpack_field_as_long (struct type *type, const char *valaddr,
 				     int fieldno);
 
 extern struct value *value_from_longest (struct type *type, LONGEST num);
@@ -375,7 +376,7 @@ extern struct value *value_struct_elt_for_reference (struct type *domain,
 extern struct value *value_static_field (struct type *type, int fieldno);
 
 extern struct fn_field *value_find_oload_method_list (struct value **, char *,
-						      int, int *, int *,
+						      int, int *,
 						      struct type **, int *);
 
 extern int find_overload_match (struct type **arg_types, int nargs,
@@ -405,11 +406,9 @@ extern struct value *value_repeat (struct value *arg1, int count);
 
 extern struct value *value_subscript (struct value *array, struct value *idx);
 
-extern struct value *value_from_vtable_info (struct value *arg,
-					     struct type *type);
-
 extern struct value *value_being_returned (struct type *valtype,
-					   char *retbuf, int struct_return);
+					   struct regcache *retbuf,
+					   int struct_return);
 
 extern struct value *value_in (struct value *element, struct value *set);
 
@@ -460,8 +459,6 @@ extern int value_logical_not (struct value *arg1);
 
 /* C++ */
 
-extern struct value *value_of_local (char *name, int complain);
-
 extern struct value *value_x_binop (struct value *arg1, struct value *arg2,
 				    enum exp_opcode op,
 				    enum exp_opcode otherop,
@@ -488,11 +485,13 @@ extern void release_value (struct value *val);
 
 extern int record_latest_value (struct value *val);
 
-extern void
-modify_field (char *addr, LONGEST fieldval, int bitpos, int bitsize);
+extern void modify_field (char *addr, LONGEST fieldval, int bitpos,
+			  int bitsize);
 
 extern void type_print (struct type * type, char *varstring,
 			struct ui_file * stream, int show);
+
+extern char *type_sprint (struct type *type, char *varstring, int show);
 
 extern char *baseclass_addr (struct type *type, int index, char *valaddr,
 			     struct value **valuep, int *errp);
@@ -556,10 +555,6 @@ call_function_by_hand_expecting_type (struct value *,
 				      struct type *, int,
 				      struct value **, int);
 
-extern int default_coerce_float_to_double (struct type *, struct type *);
-
-extern int standard_coerce_float_to_double (struct type *, struct type *);
-
 extern struct value *value_literal_complex (struct value *, struct value *,
 					    struct type *);
 
@@ -568,7 +563,7 @@ extern void find_rt_vbase_offset (struct type *, struct type *, char *, int,
 
 extern CORE_ADDR find_function_addr (struct value *, struct type **);
 
-extern struct value *find_function_in_inferior (char *, struct type *);
+extern struct value *find_function_in_inferior (const char *, struct type *);
 
 extern struct value *value_allocate_space_in_inferior (int);
 
@@ -587,6 +582,8 @@ struct cached_value
 extern struct cached_value *create_cached_function (char *, struct type *);
 
 extern struct value *lookup_cached_function (struct cached_value *cval);
+
+extern struct value *value_of_local (const char *name, int complain);
 
 int set_unwind_on_signal (int new_val);
 

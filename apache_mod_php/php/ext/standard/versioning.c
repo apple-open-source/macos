@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000, 2001 The PHP Group             |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,12 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Stig Sæther Bakken <ssb@fast.no>                            |
-   |                                                                      |
+   | Author: Stig Sæther Bakken <ssb@fast.no>                             |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: versioning.c,v 1.1.1.1 2001/12/14 22:13:29 zarzycki Exp $ */
+/* $Id: versioning.c,v 1.1.1.4 2003/07/18 18:07:44 zarzycki Exp $ */
 
 #include <stdio.h>
 #include <sys/types.h>
@@ -34,7 +33,7 @@
 PHPAPI char *
 php_canonicalize_version(const char *version)
 {
-    int len = strlen(version), in_number = 0;
+    int len = strlen(version);
     char *buf = emalloc(len * 2 + 1), *q, lp, lq;
     const char *p;
 
@@ -52,16 +51,28 @@ php_canonicalize_version(const char *version)
  *  s/([^\d\.])([^\D\.])/$1.$2/g;
  *  s/([^\D\.])([^\d\.])/$1.$2/g;
  */
-#define isdigdot(x) (isdigit(x)||(x)=='.')
+#define isdig(x) (isdigit(x)&&(x)!='.')
+#define isndig(x) (!isdigit(x)&&(x)!='.')
 #define isspecialver(x) ((x)=='-'||(x)=='_'||(x)=='+')
 
         lq = *(q - 1);
-        if ((isdigdot(*p) != isdigdot(lp) || isspecialver(*p)) &&
-            (lq != '.' && *p != '.')) {
-            lq = *q;
-            *q++ = '.';
-        }
-        *q++ = lp = *p++;
+		if (isspecialver(*p)) {
+			if (lq != '.') {
+				lq = *q++ = '.';
+			}
+		} else if ((isndig(lp) && isdig(*p)) || (isdig(lp) && isndig(*p))) {
+			if (lq != '.') {
+				*q++ = '.';
+			}
+			lq = *q++ = *p;
+		} else if (!isalnum(*p)) {
+			if (lq != '.') {
+				lq = *q++ = '.';
+			}
+		} else {
+			lq = *q++ = *p;
+		}
+		lp = *p++;
     }
     *q++ = '\0';
     return buf;
@@ -70,30 +81,37 @@ php_canonicalize_version(const char *version)
 /* }}} */
 /* {{{ compare_special_version_forms() */
 
-static int
-compare_special_version_forms(const char *form1, const char *form2)
-{
-	int i, found1 = -1, found2 = -1;
-	char **pp;
-	static char *special_forms[] = {
-		"dev",
-		"a",
-		"b",
-		"RC",
-		"#N#",
-		"pl",
-		NULL
-	};
+typedef struct {
+	const char *name;
+	int order;
+} special_forms_t;
 
-	for (pp = special_forms, i = 0; *pp != NULL; pp++, i++) {
-		if (strncmp(form1, *pp, strlen(*pp)) == 0) {
-			found1 = i;
+static int
+compare_special_version_forms(char *form1, char *form2)
+{
+	int found1 = -1, found2 = -1;
+	special_forms_t special_forms[9] = {
+		{"dev", 0},
+		{"alpha", 1},
+		{"a", 1},
+		{"beta", 2},
+		{"b", 2},
+		{"RC", 3},
+		{"#", 4},
+		{"pl", 5},
+		{NULL, 0},
+	};
+	special_forms_t *pp;
+
+	for (pp = special_forms; pp && pp->name; pp++) {
+		if (strncmp(form1, pp->name, strlen(pp->name)) == 0) {
+			found1 = pp->order;
 			break;
 		}
 	}
-	for (pp = special_forms, i = 0; *pp != NULL; pp++, i++) {
-		if (strncmp(form2, *pp, strlen(*pp)) == 0) {
-			found2 = i;
+	for (pp = special_forms; pp && pp->name; pp++) {
+		if (strncmp(form2, pp->name, strlen(pp->name)) == 0) {
+			found2 = pp->order;
 			break;
 		}
 	}
@@ -106,12 +124,29 @@ compare_special_version_forms(const char *form1, const char *form2)
 PHPAPI int
 php_version_compare(const char *orig_ver1, const char *orig_ver2)
 {
-	char *ver1 = php_canonicalize_version(orig_ver1);
-	char *ver2 = php_canonicalize_version(orig_ver2);
+	char *ver1;
+	char *ver2;
 	char *p1, *p2, *n1, *n2;
 	long l1, l2;
 	int compare = 0;
 
+	if (!*orig_ver1 || !*orig_ver2) {
+		if (!*orig_ver1 && !*orig_ver2) {
+			return 0;
+		} else {
+			return *orig_ver1 ? 1 : -1;
+		}
+	}
+	if (orig_ver1[0] == '#') {
+		ver1 = estrdup(orig_ver1);
+	} else {
+		ver1 = php_canonicalize_version(orig_ver1);
+	}
+	if (orig_ver2[0] == '#') {
+		ver2 = estrdup(orig_ver2);
+	} else {
+		ver2 = php_canonicalize_version(orig_ver2);
+	}
 	p1 = n1 = ver1;
 	p2 = n2 = ver2;
 	while (*p1 && *p2 && n1 && n2) {
@@ -175,39 +210,36 @@ php_version_compare(const char *orig_ver1, const char *orig_ver2)
 
 PHP_FUNCTION(version_compare)
 {
-    zval **v1, **v2, **oper;
+	char *v1, *v2, *op;
+	int v1_len, v2_len, op_len;
 	int compare, argc;
-	char *op;
 
 	argc = ZEND_NUM_ARGS();
-	if (argc < 2 || argc > 3 || zend_get_parameters_ex(argc, &v1, &v2, &oper) == FAILURE) {
-		WRONG_PARAM_COUNT;
+	if (zend_parse_parameters(argc TSRMLS_CC, "ss|s", &v1, &v1_len, &v2,
+							  &v2_len, &op, &op_len) == FAILURE) {
+		return;
 	}
-	convert_to_string_ex(v1);
-	convert_to_string_ex(v2);
-	compare = php_version_compare(Z_STRVAL_PP(v1), Z_STRVAL_PP(v2));
+	compare = php_version_compare(v1, v2);
 	if (argc == 2) {
 		RETURN_LONG(compare);
 	}
-	convert_to_string_ex(oper);
-	op = Z_STRVAL_PP(oper);
-	if (!strcmp(op, "<") || !strcmp(op, "lt")) {
-		RETURN_LONG(compare == -1);
+	if (!strncmp(op, "<", op_len) || !strncmp(op, "lt", op_len)) {
+		RETURN_BOOL(compare == -1);
 	}
-	if (!strcmp(op, "<=") || !strcmp(op, "le")) {
-		RETURN_LONG(compare != 1);
+	if (!strncmp(op, "<=", op_len) || !strncmp(op, "le", op_len)) {
+		RETURN_BOOL(compare != 1);
 	}
-	if (!strcmp(op, ">") || !strcmp(op, "gt")) {
-		RETURN_LONG(compare == 1);
+	if (!strncmp(op, ">", op_len) || !strncmp(op, "gt", op_len)) {
+		RETURN_BOOL(compare == 1);
 	}
-	if (!strcmp(op, ">=") || !strcmp(op, "ge")) {
-		RETURN_LONG(compare != -1);
+	if (!strncmp(op, ">=", op_len) || !strncmp(op, "ge", op_len)) {
+		RETURN_BOOL(compare != -1);
 	}
-	if (!strcmp(op, "==") || !strcmp(op, "=") || !strcmp(op, "eq")) {
-		RETURN_LONG(compare == 0);
+	if (!strncmp(op, "==", op_len) || !strncmp(op, "=", op_len) || !strncmp(op, "eq", op_len)) {
+		RETURN_BOOL(compare == 0);
 	}
-	if (!strcmp(op, "!=") || !strcmp(op, "<>") || !strcmp(op, "ne")) {
-		RETURN_LONG(compare != 0);
+	if (!strncmp(op, "!=", op_len) || !strncmp(op, "<>", op_len) || !strncmp(op, "ne", op_len)) {
+		RETURN_BOOL(compare != 0);
 	}
 	RETURN_NULL();
 }

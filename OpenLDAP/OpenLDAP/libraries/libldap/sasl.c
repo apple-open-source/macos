@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/sasl.c,v 1.41 2002/01/04 20:17:39 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/sasl.c,v 1.41.2.7 2003/05/22 22:22:41 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -61,7 +61,11 @@ ldap_sasl_bind(
 	BerElement	*ber;
 	int rc;
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( TRANSPORT, ENTRY, "ldap_sasl_bind\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_sasl_bind\n", 0, 0, 0 );
+#endif
 
 	assert( ld != NULL );
 	assert( LDAP_VALID( ld ) );
@@ -71,13 +75,8 @@ ldap_sasl_bind(
 	rc = ldap_int_client_controls( ld, cctrls );
 	if( rc != LDAP_SUCCESS ) return rc;
 
-	if( msgidp == NULL ) {
-		ld->ld_errno = LDAP_PARAM_ERROR;
-		return ld->ld_errno;
-	}
-
 	if( mechanism == LDAP_SASL_SIMPLE ) {
-		if( dn == NULL && cred != NULL ) {
+		if( dn == NULL && cred != NULL && cred->bv_len ) {
 			/* use default binddn */
 			dn = ld->ld_defbinddn;
 		}
@@ -106,7 +105,7 @@ ldap_sasl_bind(
 			ld->ld_version, dn, LDAP_AUTH_SIMPLE,
 			cred );
 		
-	} else if ( cred == NULL || !cred->bv_len ) {
+	} else if ( cred == NULL || cred->bv_val == NULL ) {
 		/* SASL bind w/o creditials */
 		rc = ber_printf( ber, "{it{ist{sN}N}" /*}*/,
 			++ld->ld_msgid, LDAP_REQ_BIND,
@@ -139,11 +138,6 @@ ldap_sasl_bind(
 		return ld->ld_errno;
 	}
 
-#ifndef LDAP_NOCACHE
-	if ( ld->ld_cache != NULL ) {
-		ldap_flush_cache( ld );
-	}
-#endif /* !LDAP_NOCACHE */
 
 	/* send the message */
 	*msgidp = ldap_send_initial_request( ld, LDAP_REQ_BIND, dn, ber );
@@ -169,7 +163,11 @@ ldap_sasl_bind_s(
 	LDAPMessage	*result;
 	struct berval	*scredp = NULL;
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( TRANSPORT, ENTRY, "ldap_sasl_bind_s\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_sasl_bind_s\n", 0, 0, 0 );
+#endif
 
 	/* do a quick !LDAPv3 check... ldap_sasl_bind will do the rest. */
 	if( servercredp != NULL ) {
@@ -251,15 +249,15 @@ ldap_parse_sasl_bind_result(
 	ber_tag_t tag;
 	BerElement	*ber;
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( TRANSPORT, ENTRY, "ldap_parse_sasl_bind_result\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_parse_sasl_bind_result\n", 0, 0, 0 );
+#endif
 
 	assert( ld != NULL );
 	assert( LDAP_VALID( ld ) );
 	assert( res != NULL );
-
-	if ( ld == NULL || res == NULL ) {
-		return LDAP_PARAM_ERROR;
-	}
 
 	if( servercredp != NULL ) {
 		if( ld->ld_version < LDAP_VERSION2 ) {
@@ -364,7 +362,11 @@ ldap_pvt_sasl_getmechs ( LDAP *ld, char **pmechlist )
 	char **values, *mechlist;
 	int rc;
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( TRANSPORT, ENTRY, "ldap_pvt_sasl_getmech\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_pvt_sasl_getmech\n", 0, 0, 0 );
+#endif
 
 	rc = ldap_search_s( ld, "", LDAP_SCOPE_BASE,
 		NULL, attrs, 0, &res );
@@ -448,16 +450,27 @@ ldap_sasl_interactive_bind_s(
 			goto done;
 		}
 
+#ifdef NEW_LOGGING
+		LDAP_LOG ( TRANSPORT, DETAIL1, 
+			"ldap_interactive_sasl_bind_s: server supports: %s\n", 
+			smechs, 0, 0 );
+#else
 		Debug( LDAP_DEBUG_TRACE,
 			"ldap_interactive_sasl_bind_s: server supports: %s\n",
 			smechs, 0, 0 );
+#endif
 
 		mechs = smechs;
 
 	} else {
+#ifdef NEW_LOGGING
+		LDAP_LOG ( TRANSPORT, DETAIL1, 
+			"ldap_interactive_sasl_bind_s: user selected: %s\n", mechs, 0, 0 );
+#else
 		Debug( LDAP_DEBUG_TRACE,
 			"ldap_interactive_sasl_bind_s: user selected: %s\n",
 			mechs, 0, 0 );
+#endif
 	}
 
 	rc = ldap_int_sasl_bind( ld, dn, mechs,

@@ -1,7 +1,7 @@
 #! /bin/sh
 :
 # Copyright (c) 1990-1997, S.R. van den Berg, The Netherlands
-#$Id: autoconf,v 1.1.1.2 2001/07/20 19:38:14 bbraun Exp $
+#$Id: autoconf,v 1.2 2003/03/14 11:04:12 zarzycki Exp $
 
 # All possible entries in autoconf.h:
 
@@ -1379,7 +1379,7 @@ openerr:
 	 }
 	if(!newdiff)				    /* reductio ad adsurdum? */
 	   break;			    /* yes, break off the engagement */
-	sprintf(num,"%u",newdiff);nargv[argc+diff]=0;  /* pass on the target */
+	sprintf(num,"%u",newdiff);nargv[argc+newdiff]=0;  /* pass on the target */
 	execv(argv[0],nargv);					/* jeronimo! */
       }
 printit:				  /* we proudly present the findings */

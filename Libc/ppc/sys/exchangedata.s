@@ -27,4 +27,3 @@
 #include "SYS.h"
 
 SYSCALL(exchangedata, 0)
-	blr

@@ -37,10 +37,15 @@ attributetype ( 1.3.6.1.1.1.1.2 NAME 'gecos'
 	SUBSTR caseIgnoreIA5SubstringsMatch
 	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 SINGLE-VALUE )
 
-attributetype ( 1.3.6.1.1.1.1.3 NAME 'homeDirectory'
+#attributetype ( 1.3.6.1.1.1.1.3 NAME 'homeDirectory'
+#	DESC 'The absolute path to the home directory'
+#	EQUALITY caseExactIA5Match
+#	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 SINGLE-VALUE )
+attributetype ( 1.3.6.1.4.1.63.1000.1.1.1.1.99 NAME 'homeDirectory'
 	DESC 'The absolute path to the home directory'
-	EQUALITY caseExactIA5Match
-	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 SINGLE-VALUE )
+	EQUALITY caseExactMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE )
+
 
 attributetype ( 1.3.6.1.1.1.1.4 NAME 'loginShell'
 	DESC 'The path to the login shell'

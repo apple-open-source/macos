@@ -152,4 +152,4 @@ private:
 }	// end namespace Security
 
 
-#endif _H_NETCONNECTION
+#endif /* _H_NETCONNECTION */

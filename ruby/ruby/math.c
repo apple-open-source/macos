@@ -2,8 +2,8 @@
 
   math.c -
 
-  $Author: jkh $
-  $Date: 2002/05/27 17:59:44 $
+  $Author: melville $
+  $Date: 2003/05/14 13:58:43 $
   created at: Tue Jan 25 14:12:56 JST 1994
 
   Copyright (C) 1993-2000 Yukihiro Matsumoto
@@ -54,6 +54,39 @@ math_tan(obj, x)
     Need_Float(x);
 
     return rb_float_new(tan(RFLOAT(x)->value));
+}
+
+static VALUE
+math_acos(obj, x)
+    VALUE obj, x;
+{
+    Need_Float(x);
+    /*
+    if (RFLOAT(x)->value < -1.0 || RFLOAT(x)->value > 1.0)
+	rb_raise(rb_eArgError, "Out of range (-1..1)");
+    */
+    return rb_float_new(acos(RFLOAT(x)->value));
+}
+
+static VALUE
+math_asin(obj, x)
+    VALUE obj, x;
+{
+    Need_Float(x);
+    /*
+    if (RFLOAT(x)->value < -1.0 || RFLOAT(x)->value > 1.0)
+	rb_raise(rb_eArgError, "Out of range (-1..1)");
+    */
+    return rb_float_new(asin(RFLOAT(x)->value));
+}
+
+static VALUE
+math_atan(obj, x)
+    VALUE obj, x;
+{
+    Need_Float(x);
+    
+    return rb_float_new(atan(RFLOAT(x)->value));
 }
 
 static VALUE
@@ -139,6 +172,10 @@ Init_Math()
     rb_define_module_function(rb_mMath, "cos", math_cos, 1);
     rb_define_module_function(rb_mMath, "sin", math_sin, 1);
     rb_define_module_function(rb_mMath, "tan", math_tan, 1);
+
+    rb_define_module_function(rb_mMath, "acos", math_acos, 1);
+    rb_define_module_function(rb_mMath, "asin", math_asin, 1);
+    rb_define_module_function(rb_mMath, "atan", math_atan, 1);
 
     rb_define_module_function(rb_mMath, "exp", math_exp, 1);
     rb_define_module_function(rb_mMath, "log", math_log, 1);

@@ -40,9 +40,12 @@ public:
     CFRef(CFType ref) : mRef(ref) { }
     CFRef(const CFRef &ref) : mRef(ref) { if (ref) CFRetain(ref); }
     ~CFRef() { if (mRef) CFRelease(mRef); }
+	
+	CFRef &take(CFType ref)
+	{ if (mRef) CFRelease(mRef); mRef = ref; return *this; }
 
     CFRef &operator = (CFType ref)
-    { if (ref) CFRetain(ref); if (mRef) CFRelease(mRef); mRef = ref; return *this; }
+    { if (ref) CFRetain(ref); return take(ref); }
 
     operator CFType () const { return mRef; }
     operator bool () const { return mRef != NULL; }
@@ -60,8 +63,11 @@ public:
     CFCopyRef(const CFCopyRef &ref) : mRef(ref) { if (ref) CFRetain(ref); }
     ~CFCopyRef() { if (mRef) CFRelease(mRef); }
 
+	CFCopyRef &take(CFType ref)
+	{ if (mRef) CFRelease(mRef); mRef = ref; return *this; }
+
     CFCopyRef &operator = (CFType ref)
-    { if (ref) CFRetain(ref); if (mRef) CFRelease(mRef); mRef = ref; return *this; }
+    { if (ref) CFRetain(ref); return take(ref); }
 
     operator CFType () const { return mRef; }
     operator bool () const { return mRef != NULL; }
@@ -74,18 +80,19 @@ private:
 
 //
 // A simple function that turns a non-array CFTypeRef into
-// an array of one with that element.
+// an array of one with that element. This will retain its argument
+// (directly or indirectly).
 //
 inline CFArrayRef cfArrayize(CFTypeRef arrayOrItem)
 {
     if (arrayOrItem == NULL)
         return NULL;		// NULL is NULL
-    else if (CFGetTypeID(arrayOrItem) == CFArrayGetTypeID())
+    else if (CFGetTypeID(arrayOrItem) == CFArrayGetTypeID()) {
+		CFRetain(arrayOrItem);
         return CFArrayRef(arrayOrItem);		// already an array
-    else {
+    } else {
         CFArrayRef array = CFArrayCreate(NULL,
             (const void **)&arrayOrItem, 1, &kCFTypeArrayCallBacks);
-        CFRelease(arrayOrItem);	// was retained by ArrayCreate
         return array;
     }
 }
@@ -172,7 +179,7 @@ private:
     uint32 mCount;
 };
 
-template <class VectorBase, class CFRefType, VectorBase convert(CFTypeRef)>
+template <class VectorBase, class CFRefType, VectorBase convert(CFRefType)>
 CFToVector<VectorBase, CFRefType, convert>::CFToVector(CFArrayRef arrayRef)
 {
     if (arrayRef == NULL) {

@@ -39,7 +39,7 @@
 #include <IOKit/IOCommandGate.h>
 
 // SCSI Architecture Model Family includes
-#include <IOKit/scsi-commands/IOSCSIProtocolInterface.h>
+#include <IOKit/scsi/IOSCSIProtocolInterface.h>
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ

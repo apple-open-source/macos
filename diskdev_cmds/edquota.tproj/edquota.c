@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -177,7 +177,7 @@ main(argc, argv)
 		protoprivs = getprivs(protoid, quotatype);
 #ifdef __APPLE__
 		if (protoprivs == (struct quotause *) NULL)
-		  exit(0);
+			exit(0);
 #endif /* __APPLE__ */
 		for (qup = protoprivs; qup; qup = qup->next) {
 			qup->dqblk.dqb_btime = 0;
@@ -200,8 +200,20 @@ main(argc, argv)
 #endif /* __APPLE__ */
 		if (writetimes(protoprivs, tmpfd, quotatype) == 0)
 			exit(1);
-		if (editit(tmpfil) && readtimes(protoprivs, tmpfd))
-			putprivs(0, quotatype, protoprivs);
+		if (editit(tmpfil)) {
+			/*
+			 * Re-open tmpfil to be editor independent.
+			 */
+			close(tmpfd);
+			tmpfd = open(tmpfil, O_RDWR, 0);
+			if (tmpfd < 0) {
+				freeprivs(protoprivs);
+				unlink(tmpfil);
+				exit(1);
+			}
+			if (readtimes(protoprivs, tmpfd))
+				putprivs(0, quotatype, protoprivs);
+		}
 		freeprivs(protoprivs);
 		exit(0);
 	}
@@ -213,10 +225,26 @@ main(argc, argv)
 		if (curprivs == (struct quotause *) NULL)
 		  exit(0);
 #endif /* __APPLE__ */
-		if (writeprivs(curprivs, tmpfd, *argv, quotatype) == 0)
+
+
+		if (writeprivs(curprivs, tmpfd, *argv, quotatype) == 0) {
+			freeprivs(curprivs);
 			continue;
-		if (editit(tmpfil) && readprivs(curprivs, tmpfd))
-			putprivs(id, quotatype, curprivs);
+		}
+		if (editit(tmpfil)) {
+			/*
+			 * Re-open tmpfil to be editor independent.
+			 */
+			close(tmpfd);
+			tmpfd = open(tmpfil, O_RDWR, 0);
+			if (tmpfd < 0) {
+				freeprivs(curprivs);
+				unlink(tmpfil);
+				exit(1);
+			}
+			if (readprivs(curprivs, tmpfd))
+				putprivs(id, quotatype, curprivs);
+		}
 		freeprivs(curprivs);
 	}
 	close(tmpfd);

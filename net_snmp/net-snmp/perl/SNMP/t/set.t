@@ -73,7 +73,7 @@ my $vars = new SNMP::VarList (
 #########################  1  #######################################
 # Fire up a session.
     my $s1 =
-    new SNMP::Session (DestHost=>$agent_host,Community=>$comm,RemotePort=>$agent_port);
+    new SNMP::Session (DestHost=>$agent_host,Version=>1,Community=>$comm,RemotePort=>$agent_port);
     ok(defined($s1));
 
 #######################  2  ##########################################
@@ -198,7 +198,7 @@ ok($s1->{ErrorStr} =~ /^Bad/ );
 # OID test
 my $oldoid = $s1->get("sysORID.1");
 #print("OID is : $oldoid\n");
-$junk_OID = .6.6.6.6.6.6;
+$junk_OID = ".6.6.6.6.6.6";
 $s1->set('sysORID.1', $junk_OID);
 $newOID = $s1->get("sysORID.1");
 #print("new oid is $newOID\n");

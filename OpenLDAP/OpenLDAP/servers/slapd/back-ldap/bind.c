@@ -1,7 +1,7 @@
 /* bind.c - ldap backend bind function */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/bind.c,v 1.24 2002/01/22 07:17:02 ando Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/bind.c,v 1.24.2.9 2003/05/07 22:29:11 hyc Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /* This is an altered version */
@@ -49,6 +49,8 @@
 
 #define PRINT_CONNTREE 0
 
+static LDAP_REBIND_PROC	ldap_back_rebind;
+
 int
 ldap_back_bind(
     Backend		*be,
@@ -72,6 +74,14 @@ ldap_back_bind(
 		return( -1 );
 	}
 
+	if ( op->o_ctrls ) {
+		if ( ldap_set_option( lc->ld, LDAP_OPT_SERVER_CONTROLS,
+					op->o_ctrls ) != LDAP_SUCCESS ) {
+			ldap_back_op_result( lc, op );
+			return( -1 );
+		}
+	}
+	
 	/*
 	 * Rewrite the bind dn if needed
 	 */
@@ -82,8 +92,8 @@ ldap_back_bind(
 			mdn.bv_val = ( char * )dn->bv_val;
 		}
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
-				"[rw] bindDn: \"%s\" -> \"%s\"\n", dn->bv_val, mdn.bv_val ));
+		LDAP_LOG( BACK_LDAP, DETAIL1, 
+			"[rw] bindDn: \"%s\" -> \"%s\"\n", dn->bv_val, mdn.bv_val, 0 );
 #else /* !NEW_LOGGING */
 		Debug( LDAP_DEBUG_ARGS, "rw> bindDn: \"%s\" -> \"%s\"\n%s",
 				dn->bv_val, mdn.bv_val, "" );
@@ -92,12 +102,12 @@ ldap_back_bind(
 		
 	case REWRITE_REGEXEC_UNWILLING:
 		send_ldap_result( conn, op, LDAP_UNWILLING_TO_PERFORM,
-				NULL, "Unwilling to perform", NULL, NULL );
+				NULL, "Operation not allowed", NULL, NULL );
 		return( -1 );
 
 	case REWRITE_REGEXEC_ERR:
-		send_ldap_result( conn, op, LDAP_OPERATIONS_ERROR,
-				NULL, "Operations error", NULL, NULL );
+		send_ldap_result( conn, op, LDAP_OTHER,
+				NULL, "Rewrite error", NULL, NULL );
 		return( -1 );
 	}
 #else /* !ENABLE_REWRITE */
@@ -111,8 +121,21 @@ ldap_back_bind(
 		lc->bound = 1;
 	}
 
+	if ( li->savecred ) {
+		if ( lc->cred.bv_val ) {
+			memset( lc->cred.bv_val, 0, lc->cred.bv_len );
+			ch_free( lc->cred.bv_val );
+		}
+		ber_dupbv( &lc->cred, cred );
+		ldap_set_rebind_proc( lc->ld, ldap_back_rebind, lc );
+	}
+
+	if ( lc->bound_dn.bv_val )
+		ch_free( lc->bound_dn.bv_val );
 	if ( mdn.bv_val != dn->bv_val ) {
-		free( mdn.bv_val );
+		lc->bound_dn = mdn;
+	} else {
+		ber_dupbv( &lc->bound_dn, dn );
 	}
 	
 	return( rc );
@@ -130,10 +153,10 @@ ldap_back_conn_cmp(
 	const void *c2
 	)
 {
-	struct ldapconn *lc1 = (struct ldapconn *)c1;
-        struct ldapconn *lc2 = (struct ldapconn *)c2;
+	const struct ldapconn *lc1 = (const struct ldapconn *)c1;
+	const struct ldapconn *lc2 = (const struct ldapconn *)c2;
 	
-	return ( ( lc1->conn < lc2->conn ) ? -1 : ( ( lc1->conn > lc2-> conn ) ? 1 : 0 ) );
+	return SLAP_PTRCMP(lc1->conn, lc2->conn);
 }
 
 /*
@@ -207,7 +230,7 @@ ldap_back_getconn(struct ldapinfo *li, Connection *conn, Operation *op)
 		if (err != LDAP_SUCCESS) {
 			err = ldap_back_map_result(err);
 			send_ldap_result( conn, op, err,
-				NULL, "ldap_init failed", NULL, NULL );
+				NULL, "ldap_initialize() failed", NULL, NULL );
 			return( NULL );
 		}
 		/* Set LDAP version. This will always succeed: If the client
@@ -219,6 +242,9 @@ ldap_back_getconn(struct ldapinfo *li, Connection *conn, Operation *op)
 		lc->conn = conn;
 		lc->ld = ld;
 
+		lc->cred.bv_len = 0;
+		lc->cred.bv_val = NULL;
+
 #ifdef ENABLE_REWRITE
 		/*
 		 * Sets a cookie for the rewrite session
@@ -226,7 +252,7 @@ ldap_back_getconn(struct ldapinfo *li, Connection *conn, Operation *op)
 		( void )rewrite_session_init( li->rwinfo, conn );
 #endif /* ENABLE_REWRITE */
 
-		if ( lc->conn->c_cdn.bv_len != 0 ) {
+		if ( lc->conn->c_dn.bv_len != 0 ) {
 			
 			/*
 			 * Rewrite the bind dn if needed
@@ -235,23 +261,24 @@ ldap_back_getconn(struct ldapinfo *li, Connection *conn, Operation *op)
 			lc->bound_dn.bv_val = NULL;
 			lc->bound_dn.bv_len = 0;
 			switch ( rewrite_session( li->rwinfo, "bindDn",
-						lc->conn->c_cdn.bv_val, conn,
+						lc->conn->c_dn.bv_val, conn,
 						&lc->bound_dn.bv_val ) ) {
 			case REWRITE_REGEXEC_OK:
 				if ( lc->bound_dn.bv_val == NULL ) {
-					ber_dupbv( &lc->bound_dn, &lc->conn->c_cdn );
+					ber_dupbv( &lc->bound_dn,
+							&lc->conn->c_dn );
 				}
 #ifdef NEW_LOGGING
-				LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
-						"[rw] bindDn: \"%s\" ->"
+				LDAP_LOG( BACK_LDAP, DETAIL1, 
+						"[rw] bindDn: \"%s\" ->" 
 						" \"%s\"\n%s",
-						lc->conn->c_cdn.bv_val,
-						lc->bound_dn.bv_val ));
+						lc->conn->c_dn.bv_val, 
+						lc->bound_dn.bv_val, "" );
 #else /* !NEW_LOGGING */
 				Debug( LDAP_DEBUG_ARGS,
 					       	"rw> bindDn: \"%s\" ->"
 						" \"%s\"\n%s",
-						lc->conn->c_cdn.bv_val,
+						lc->conn->c_dn.bv_val,
 						lc->bound_dn.bv_val, "" );
 #endif /* !NEW_LOGGING */
 				break;
@@ -259,25 +286,28 @@ ldap_back_getconn(struct ldapinfo *li, Connection *conn, Operation *op)
 			case REWRITE_REGEXEC_UNWILLING:
 				send_ldap_result( conn, op,
 						LDAP_UNWILLING_TO_PERFORM,
-						NULL, "Unwilling to perform",
+						NULL, "Operation not allowed",
 						NULL, NULL );
 				return( NULL );
 				
 			case REWRITE_REGEXEC_ERR:
 				send_ldap_result( conn, op,
-						LDAP_OPERATIONS_ERROR,
-						NULL, "Operations error",
+						LDAP_OTHER,
+						NULL, "Rewrite error",
 						NULL, NULL );
 				return( NULL );
 			}
+
 #else /* !ENABLE_REWRITE */
 			struct berval bv;
-			ldap_back_dn_massage( li, &lc->conn->c_cdn, &bv, 0, 1 );
-			if ( bv.bv_val == lc->conn->c_cdn.bv_val )
+			ldap_back_dn_massage( li, &lc->conn->c_dn, &bv, 0, 1 );
+			if ( bv.bv_val == lc->conn->c_dn.bv_val ) {
 				ber_dupbv( &lc->bound_dn, &bv );
-			else
+			} else {
 				lc->bound_dn = bv;
+			}
 #endif /* !ENABLE_REWRITE */
+
 		} else {
 			lc->bound_dn.bv_val = NULL;
 			lc->bound_dn.bv_len = 0;
@@ -296,9 +326,8 @@ ldap_back_getconn(struct ldapinfo *li, Connection *conn, Operation *op)
 		ldap_pvt_thread_mutex_unlock( &li->conn_mutex );
 
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_INFO,
-				"ldap_back_getconn: conn %ld inserted\n",
-				lc->conn->c_connid ));
+		LDAP_LOG( BACK_LDAP, INFO, 
+			"ldap_back_getconn: conn %ld inserted\n", lc->conn->c_connid, 0, 0);
 #else /* !NEW_LOGGING */
 		Debug( LDAP_DEBUG_TRACE,
 			"=>ldap_back_getconn: conn %ld inserted\n%s%s",
@@ -307,16 +336,16 @@ ldap_back_getconn(struct ldapinfo *li, Connection *conn, Operation *op)
 		
 		/* Err could be -1 in case a duplicate ldapconn is inserted */
 		if ( err != 0 ) {
-			send_ldap_result( conn, op, LDAP_OPERATIONS_ERROR,
+			send_ldap_result( conn, op, LDAP_OTHER,
 			NULL, "internal server error", NULL, NULL );
 			/* better destroy the ldapconn struct? */
 			return( NULL );
 		}
 	} else {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_INFO,
-				"ldap_back_getconn: conn %ld inserted\n",
-				lc->conn->c_connid ));
+		LDAP_LOG( BACK_LDAP, INFO, 
+			"ldap_back_getconn: conn %ld inserted\n", 
+			lc->conn->c_connid, 0, 0 );
 #else /* !NEW_LOGGING */
 		Debug( LDAP_DEBUG_TRACE,
 			"=>ldap_back_getconn: conn %ld fetched%s%s\n",
@@ -335,18 +364,41 @@ ldap_back_getconn(struct ldapinfo *li, Connection *conn, Operation *op)
  * it can be used to simplify the check.
  */
 int
-ldap_back_dobind(struct ldapconn *lc, Operation *op)
-{
-	if (lc->bound) {
+ldap_back_dobind( struct ldapconn *lc, Operation *op )
+{	
+	if ( op->o_ctrls ) {
+		if ( ldap_set_option( lc->ld, LDAP_OPT_SERVER_CONTROLS,
+				op->o_ctrls ) != LDAP_SUCCESS ) {
+			ldap_back_op_result( lc, op );
+			return( 0 );
+		}
+	}
+	
+	if ( lc->bound ) {
 		return( lc->bound );
 	}
 
-	if (ldap_bind_s(lc->ld, lc->bound_dn.bv_val, NULL, LDAP_AUTH_SIMPLE) !=
-		LDAP_SUCCESS) {
-		ldap_back_op_result(lc, op);
+	if ( ldap_bind_s( lc->ld, lc->bound_dn.bv_val, lc->cred.bv_val, 
+				LDAP_AUTH_SIMPLE ) != LDAP_SUCCESS ) {
+		ldap_back_op_result( lc, op );
 		return( 0 );
 	} /* else */
 	return( lc->bound = 1 );
+}
+
+/*
+ * ldap_back_rebind
+ *
+ * This is a callback used for chasing referrals using the same
+ * credentials as the original user on this session.
+ */
+static int 
+ldap_back_rebind( LDAP *ld, LDAP_CONST char *url, ber_tag_t request,
+	ber_int_t msgid, void *params )
+{
+	struct ldapconn *lc = params;
+
+	return ldap_bind_s( ld, lc->bound_dn.bv_val, lc->cred.bv_val, LDAP_AUTH_SIMPLE );
 }
 
 /* Map API errors to protocol errors... */
@@ -359,7 +411,7 @@ ldap_back_map_result(int err)
 	case LDAP_SERVER_DOWN:
 		return LDAP_UNAVAILABLE;
 	case LDAP_LOCAL_ERROR:
-		return LDAP_OPERATIONS_ERROR;
+		return LDAP_OTHER;
 	case LDAP_ENCODING_ERROR:
 	case LDAP_DECODING_ERROR:
 		return LDAP_PROTOCOL_ERROR;
@@ -368,13 +420,13 @@ ldap_back_map_result(int err)
 	case LDAP_AUTH_UNKNOWN:
 		return LDAP_AUTH_METHOD_NOT_SUPPORTED;
 	case LDAP_FILTER_ERROR:
-		return LDAP_OPERATIONS_ERROR;
+		return LDAP_OTHER;
 	case LDAP_USER_CANCELLED:
-		return LDAP_OPERATIONS_ERROR;
+		return LDAP_OTHER;
 	case LDAP_PARAM_ERROR:
 		return LDAP_PROTOCOL_ERROR;
 	case LDAP_NO_MEMORY:
-		return LDAP_OPERATIONS_ERROR;
+		return LDAP_OTHER;
 	case LDAP_CONNECT_ERROR:
 		return LDAP_UNAVAILABLE;
 	case LDAP_NOT_SUPPORTED:

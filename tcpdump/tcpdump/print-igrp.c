@@ -23,20 +23,15 @@
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-igrp.c,v 1.1.1.2 2002/05/29 00:05:37 landonf Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-igrp.c,v 1.1.1.3 2003/03/17 18:42:17 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <sys/param.h>
-#include <sys/types.h>			/* concession to AIX */
-#include <sys/socket.h>
+#include <tcpdump-stdinc.h>
 
-#include <netinet/in.h>
-
-#include <errno.h>
 #include <stdio.h>
 
 #include "interface.h"

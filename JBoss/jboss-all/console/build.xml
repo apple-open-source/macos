@@ -1,0 +1,607 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE project [
+   <!ENTITY buildmagic SYSTEM "../tools/etc/buildmagic/buildmagic.ent">
+]>
+
+<!-- ====================================================================== -->
+<!--                                                                        -->
+<!--  JBoss, the OpenSource J2EE webOS                                      -->
+<!--                                                                        -->
+<!--  Distributable under LGPL license.                                     -->
+<!--  See terms of license at http://www.gnu.org.                           -->
+<!--                                                                        -->
+<!-- ====================================================================== -->
+
+<!-- $Id: build.xml,v 1.5.2.3 2003/05/18 06:27:49 starksm Exp $ -->
+
+<project default="main" name="JBoss/Console">
+
+  <!-- ================================================================== -->
+  <!-- Setup                                                              -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Include the common Buildmagic elements.
+     |
+     | This defines several different targets, properties and paths.
+     | It also sets up the basic extention tasks amoung other things.
+   -->
+
+  &buildmagic;
+
+
+  <!-- ================================================================== -->
+  <!-- Initialization                                                     -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Initialize the build system.  Must depend on '_buildmagic:init'.  
+     | Other targets should depend on 'init' or things will mysteriously fail.
+   -->
+
+  <target name="init" unless="init.disable" depends="_buildmagic:init">
+  </target>
+
+
+  <!-- ================================================================== -->
+  <!-- Configuration                                                      -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Configure the build system.  
+     |
+     | This target is invoked by the Buildmagic initialization logic and 
+     | should contain module specific configuration elements.
+   -->
+
+  <target name="configure" unless="configure.disable">
+
+    <!-- =================== -->
+    <!-- Basic Configuration -->
+    <!-- =================== -->
+
+    <!-- Module name(s) & version -->
+    <property name="module.name" value="jboss-console"/>
+    <property name="module.Name" value="JBoss Console"/>
+    <property name="module.version" value="DEV"/>
+
+    <!-- ========= -->
+    <!-- Libraries -->
+    <!-- ========= -->
+
+    <!-- JUnit -->
+    <property name="junit.junit.root" value="${project.thirdparty}/junit/junit"/>
+    <property name="junit.junit.lib" value="${junit.junit.root}/lib"/>
+    <path id="junit.junit.classpath">
+      <pathelement path="${junit.junit.lib}/junit.jar"/>
+    </path>
+
+    <!-- GNU Getopt -->
+    <property name="gnu.getopt.root" value="${project.thirdparty}/gnu/getopt"/>
+    <property name="gnu.getopt.lib" value="${gnu.getopt.root}/lib"/>
+    <path id="gnu.getopt.classpath">
+      <fileset dir="${gnu.getopt.lib}">
+        <include name="*.jar"/>
+      </fileset>
+    </path>
+
+    <!-- Apache Commons -->
+    <property name="apache.commons.root" value="${project.thirdparty}/apache/commons"/>
+    <property name="apache.commons.lib" value="${apache.commons.root}/lib"/>
+    <path id="apache.commons.classpath">
+      <pathelement path="${apache.commons.lib}/commons-collections.jar"/>
+      <pathelement path="${apache.commons.lib}/commons-logging.jar"/>
+    </path>
+
+    <!-- Log4j -->
+    <property name="apache.log4j.root" value="${project.thirdparty}/apache/log4j"/>
+    <property name="apache.log4j.lib" value="${apache.log4j.root}/lib"/>
+    <path id="apache.log4j.classpath">
+      <pathelement path="${apache.log4j.lib}/log4j.jar"/>
+    </path>
+
+    <!-- BeanShell -->
+    <property name="beanshell.beanshell.root" value="${project.thirdparty}/beanshell/beanshell"/>
+    <property name="beanshell.beanshell.lib" value="${beanshell.beanshell.root}/lib"/>
+    <path id="beanshell.beanshell.classpath">
+      <pathelement path="${beanshell.beanshell.lib}/bsh-core-1.2b7.jar"/>
+    </path>
+
+    <!-- Java Servlets -->
+    <property name="sun.servlet.root" value="${project.thirdparty}/sun/servlet"/>
+    <property name="sun.servlet.lib" value="${sun.servlet.root}/lib"/>
+    <path id="sun.servlet.classpath">
+      <pathelement path="${sun.servlet.lib}/servlet.jar"/>
+    </path>
+
+    <!-- JMX -->
+    <property name="jboss.jmx.root" value="${project.root}/jmx/output"/>
+    <property name="jboss.jmx.lib" value="${jboss.jmx.root}/lib"/>
+    <path id="jboss.jmx.classpath">
+      <pathelement path="${jboss.jmx.lib}/jboss-jmx.jar"/>
+    </path>
+
+
+    <!-- Java Servlets -->
+    <property name="sun.servlet.root" value="${project.thirdparty}/sun/servlet"/>
+    <property name="sun.servlet.lib" value="${sun.servlet.root}/lib"/>
+    <path id="sun.servlet.classpath">
+      <pathelement path="${sun.servlet.lib}/servlet.jar"/>
+    </path>
+
+    <!-- Joe SNMP lib -->
+    <property name="opennms.joesnmp.root" value="${project.thirdparty}/opennms/joesnmp"/>
+    <property name="opennms.joesnmp.lib" value="${opennms.joesnmp.root}/lib"/>
+    <path id="opennms.joesnmp.classpath">
+      <pathelement path="${opennms.joesnmp.lib}/joesnmp.jar"/>
+    </path>
+
+    <!-- SUN JSSE lib -->
+    <property name="sun.jsse.root" value="${project.thirdparty}/sun/jsse"/>
+    <property name="sun.jsse.lib" value="${sun.jsse.root}/lib"/>
+    <path id="sun.jsse.classpath">
+      <pathelement path="${sun.jsse.lib}/jsse.jar"/>
+    </path>
+
+    <!-- The combined library classpath -->
+    <path id="library.classpath">
+      <path refid="gnu.getopt.classpath"/>
+      <path refid="apache.log4j.classpath"/>
+      <path refid="apache.commons.classpath"/>
+      <path refid="beanshell.beanshell.classpath"/>
+      <path refid="sun.servlet.classpath"/>
+      <path refid="sun.jsse.classpath"/>
+    </path>
+
+    <!-- ======= -->
+    <!-- Modules -->
+    <!-- ======= -->
+
+    <!-- Common -->
+    <property name="jboss.common.root" value="${project.root}/common/output"/>
+    <property name="jboss.common.lib" value="${jboss.common.root}/lib"/>
+    <path id="jboss.common.classpath">
+      <pathelement path="${jboss.common.lib}/jboss-common.jar"/>
+    </path>
+
+    <!-- System -->
+    <property name="jboss.system.root" value="${project.root}/system/output"/>
+    <property name="jboss.system.lib" value="${jboss.system.root}/lib"/>
+    <path id="jboss.system.classpath">
+      <pathelement path="${jboss.system.lib}/jboss-system.jar"/>
+    </path>
+
+    <!-- JMX -->
+    <property name="jboss.jmx.root" value="${project.root}/jmx/output"/>
+    <property name="jboss.jmx.lib" value="${jboss.jmx.root}/lib"/>
+    <path id="jboss.jmx.classpath">
+      <pathelement path="${jboss.jmx.lib}/jboss-jmx.jar"/>
+    </path>
+
+    <!-- Naming -->
+    <property name="jboss.naming.root" value="${project.root}/naming/output"/>
+    <property name="jboss.naming.lib" value="${jboss.naming.root}/lib"/>
+    <path id="jboss.naming.classpath">
+      <pathelement path="${jboss.naming.lib}/jnpserver.jar"/>
+    </path>    
+
+    <!-- Server -->
+    <property name="jboss.server.root" value="${project.root}/server/output"/>
+    <property name="jboss.server.lib" value="${jboss.server.root}/lib"/>
+    <path id="jboss.server.classpath">
+      <pathelement path="${jboss.server.lib}/jboss.jar"/>
+      <pathelement path="${jboss.server.lib}/jmx-adaptor-plugin.jar"/>
+      <pathelement path="${jboss.server.lib}/jmx-rmi-connector-client.jar"/>
+    </path>
+
+    <!-- Management -->
+    <property name="jboss.management.root" value="${project.root}/management/output"/>
+    <property name="jboss.management.lib" value="${jboss.management.root}/lib"/>
+    <path id="jboss.management.classpath">
+      <pathelement path="${jboss.management.lib}/jboss-management.jar"/>
+    </path>
+
+    <!-- The combined dependent module classpath -->
+    <path id="dependentmodule.classpath">
+      <path refid="jboss.common.classpath"/>
+      <path refid="jboss.jmx.classpath"/>
+      <path refid="jboss.management.classpath"/>      
+      <path refid="jboss.server.classpath"/>
+      <path refid="jboss.system.classpath"/>
+    </path>
+
+    <!-- ===== -->
+    <!-- Tasks -->
+    <!-- ===== -->
+
+    <!-- Where source files live -->
+    <property name="source.java" value="${module.source}/main"/>
+    <property name="source.bin" value="${module.source}/bin"/>
+    <property name="source.resources" value="${module.source}/resources"/>
+    <property name="source.etc" value="${module.source}/etc"/>
+
+    <!-- Where build generated files will go -->
+    <property name="build.reports" value="${module.output}/reports"/>
+    <property name="build.classes" value="${module.output}/classes"/>
+    <property name="build.lib" value="${module.output}/lib"/>
+    <property name="build.api" value="${module.output}/api"/>
+    <property name="build.etc" value="${module.output}/etc"/>
+    <property name="build.bin" value="${module.output}/bin"/>
+    <property name="build.resources" value="${module.output}/resources"/>
+    <property name="build.etc" value="${module.output}/etc"/>
+    <property name="build.gen-src" value="${module.output}/gen-src"/>
+
+    <!-- Install/Release structure -->
+    <property name="install.id" value="${module.name}-${module.version}"/>
+    <property name="release.id" value="${install.id}"/>
+    <property name="install.root" value="${module.output}/${install.id}"/>
+
+    <!-- The combined thirdparty classpath -->
+    <path id="thirdparty.classpath">
+      <path refid="library.classpath"/>
+      <path refid="dependentmodule.classpath"/>
+    </path>
+
+    <!-- This module is based on Java 1.2 -->
+    <property name="javac.target" value="1.2"/>
+
+    <!-- classpath and local.classpath must have a value using with a path -->
+    <property name="classpath" value=""/>
+    <property name="local.classpath" value=""/>
+
+    <!-- The classpath required to build classes. -->
+    <path id="javac.classpath">
+      <pathelement path="${classpath}"/>
+      <pathelement path="${local.classpath}"/>
+      <path refid="thirdparty.classpath"/>
+    </path>
+
+    <!-- The classpath required to build javadocs. -->
+    <path id="javadoc.classpath">
+      <path refid="javac.classpath"/>
+    </path>
+
+    <!-- Packages to include when generating api documentation -->
+    <property name="javadoc.packages" value="org.jboss.*"/>
+
+    <!-- Override JUnit defaults -->
+    <property name="junit.timeout" value="240000"/> <!-- 4 minutes -->
+    <property name="junit.batchtest.todir" value="${build.reports}"/>
+    <property name="junit.jvm.options" value="-Ddummy"/>
+
+    <!-- xdoclet -->
+    <path id="xdoclet.task.classpath">
+      <path refid="javac.classpath"/>
+      <fileset dir="${project.thirdparty}/xdoclet/xdoclet/lib">
+        <include name="**/*.jar"/>
+      </fileset>
+    </path>
+    <property name="xdoclet.task.classpath" 
+	      refid="xdoclet.task.classpath"/>
+
+    <!-- Misc... -->
+    <property name="log4j.console.threshold" value="INFO"/>
+  </target>
+
+
+  <!-- ================================================================== -->
+  <!-- Compile                                                            -->
+  <!-- ================================================================== -->
+
+  <!-- 
+     | Compile everything.
+     |
+     | This target should depend on other compile-* targets for each 
+     | different type of compile that needs to be performed, short of
+     | documentation compiles.
+   -->
+
+  <target name="compile" 
+	  description="Compile all source files."
+	  depends="compile-classes,
+                   compile-resources,
+                   compile-etc,
+                   compile-bin"/>
+
+  <!-- Compile mbeans with XDoclet -->
+  <!-- Compile mbeans with XDoclet -->
+  <target name="compile-mbean-sources" depends="init">
+    <taskdef name="jmxdoclet" classname="xdoclet.modules.jmx.JMXDocletTask" classpathref="xdoclet.task.classpath"/>
+
+    <mkdir dir="${build.gen-src}"/>
+    <jmxdoclet 
+	     destdir="${build.gen-src}"
+	     excludedtags="@version,@author">
+      <fileset dir="${source.java}">
+        <include name="**/*.java"/>
+      </fileset>
+      <mbeaninterface mergedir="${project.tools}/etc/xdoclet/templates"/>
+    </jmxdoclet>
+  </target>
+
+
+  <!-- Compile all class files -->
+  <target name="compile-classes" depends="compile-mbean-sources">
+    <mkdir dir="${build.classes}"/>
+    <javac destdir="${build.classes}"
+           optimize="${javac.optimize}"
+	   target="${javac.target}"
+           debug="${javac.debug}"
+	   depend="${javac.depend}"
+	   verbose="${javac.verbose}"
+	   deprecation="${javac.deprecation}"
+	   includeAntRuntime="${javac.include.ant.runtime}"
+	   includeJavaRuntime="${javac.include.java.runtime}"
+	   failonerror="${javac.fail.onerror}">
+       <src path="${source.java}"/>
+       <src path="${build.gen-src}"/>
+       <classpath refid="javac.classpath"/>
+       <include name="${javac.includes}"/>
+       <exclude name="${javac.excludes}"/>
+    </javac>
+  </target>
+
+  <!-- Compile resource files -->
+  <target name="compile-resources" depends="init">
+    <mkdir dir="${build.resources}"/>
+    <copy todir="${build.resources}" filtering="yes">
+      <fileset dir="${source.resources}">
+         <include name="**/*"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <!-- Compile etc files (manifests and such) -->
+  <target name="compile-etc" depends="init">
+    <mkdir dir="${build.etc}"/>
+    <copy todir="${build.etc}" filtering="yes" overwrite="yes">
+      <fileset dir="${source.etc}">
+         <include name="**/*"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <!-- Compile bin scripts -->
+  <target name="compile-bin" depends="init">
+    <mkdir dir="${build.bin}"/>
+    <copy todir="${build.bin}" filtering="yes">
+      <fileset dir="${source.bin}">
+         <include name="**/*"/>
+      </fileset>
+    </copy>
+
+    <fixcrlf srcdir="${build.bin}"
+	     eol="lf" eof="remove"
+	     includes="**/*.sh"/>
+
+    <fixcrlf srcdir="${build.bin}" 
+	     eol="crlf" eof="remove"
+	     includes="**/*.bat, **/*.cmd"/>
+
+    <chmod perm="+x">
+      <fileset dir="${build.bin}">
+         <include name="**/*.sh"/>
+      </fileset>
+    </chmod>
+  </target>
+
+
+  <!-- ================================================================== -->
+  <!-- Archives                                                           -->
+  <!-- ================================================================== -->
+
+  <!-- 
+     | Build all jar files.
+   -->
+  <target name="jars" 
+	  description="Builds all jar files."
+	  depends="compile">
+
+    <mkdir dir="${build.lib}"/>
+
+    <!-- Build the ${module.name}.jar -->
+    <jar jarfile="${build.lib}/${module.name}.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/console/**"/>
+      </fileset>
+    </jar>
+    
+    <!-- Build the ${module.name}-client.jar -->
+    <jar jarfile="${build.lib}/${module.name}-client.jar">
+      <fileset dir="${build.classes}">
+        <include name="**/*Exception*.class"/>
+      </fileset>
+    </jar>
+
+    <!-- Build twiddle.jar -->
+    <jar jarfile="${build.lib}/twiddle.jar" manifest="${build.etc}/twiddle.mf">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/console/twiddle/**"/>
+      </fileset>
+      <fileset dir="${build.resources}">
+        <include name="org/jboss/console/twiddle/**"/>
+        <include name="log4j.properties"/>
+        <include name="jndi.properties"/>
+      </fileset>
+    </jar>
+
+    <!-- Build console.jar -->
+    <jar jarfile="${build.lib}/console.jar" manifest="${build.etc}/console.mf">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/console/text/**"/>
+      </fileset>
+      <fileset dir="${build.resources}">
+        <include name="org/jboss/console/text/**"/>
+        <include name="log4j.properties"/>
+        <include name="jndi.properties"/>
+      </fileset>
+    </jar>
+
+    <!-- Build console-mgr-classes.jar (we need this for jsp compilation 
+         that do not check classes inside SARs -->
+    <jar jarfile="${build.lib}/console-mgr-classes.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/console/**"/>
+        <exclude name="org/jboss/console/text/**"/>
+        <exclude name="org/jboss/console/twiddle/**"/>
+      </fileset>
+    </jar>
+    <!-- Build console-mgr.sar -->
+    <jar jarfile="${build.lib}/console-mgr.sar">
+      <fileset dir="${build.lib}">
+        <include name="console-mgr-classes.jar"/>
+      </fileset>
+      <fileset dir="${source.resources}/console-mgr.sar">
+        <include name="**"/>
+      </fileset>
+    </jar>
+
+    <!-- Build applet.jar -->
+    <jar destfile="${build.lib}/applet.jar" excludes="META-INF/INDEX.LIST">
+      <zipgroupfileset dir="${jboss.server.lib}">
+        <include name="jmx-rmi-adaptor.jar"/>
+      </zipgroupfileset>
+      <zipfileset src="${jboss.server.lib}/jboss-client.jar">
+        <include name="org/jboss/invocation/*"/>
+        <exclude name="META-INF/INDEX.LIST"/>
+      </zipfileset>
+      <zipfileset src="${jboss.common.lib}/jboss-common-client.jar">
+        <exclude name="META-INF/INDEX.LIST"/>
+        <exclude name="org/jboss/util/property/**"/>
+        <exclude name="org/jboss/util/propertyeditor/**"/>
+        <exclude name="org/jboss/util/state/**"/>
+        <exclude name="org/jboss/util/xml/**"/>
+        <exclude name="org/jboss/util/collection/**"/>
+        <exclude name="org/jboss/util/file/**"/>
+        <exclude name="org/jboss/util/platform/**"/>
+        <exclude name="org/jboss/util/stream/**"/>
+        <exclude name="org/jboss/util/timeout/**"/>
+        <exclude name="org/jboss/util/coerce/**"/>
+        <exclude name="org/jboss/util/net/**"/>
+      </zipfileset>
+      <zipfileset src="${jboss.system.lib}/jboss-system-client.jar">
+        <exclude name="META-INF/INDEX.LIST"/>
+      </zipfileset>
+      <zipfileset src="${jboss.naming.lib}/jnp-client.jar">
+        <exclude name="META-INF/INDEX.LIST"/>
+      </zipfileset>
+      <zipfileset src="${jboss.jmx.lib}/jboss-jmx.jar">
+        <exclude name="META-INF/INDEX.LIST"/>
+        <exclude name="org/jboss/mx/server/**"/>
+        <exclude name="org/jboss/mx/remote/**"/>
+        <exclude name="org/jboss/mx/persistence/**"/>
+        <exclude name="org/jboss/mx/modelmbean/**"/>
+        <exclude name="org/jboss/mx/metadata/**"/>
+        <exclude name="org/jboss/mx/loading/**"/>
+        <exclude name="org/jboss/mx/logging/**"/>
+        <exclude name="org/jboss/mx/interceptor/**"/>
+        <exclude name="javax/management/loading/**"/>
+        <exclude name="javax/management/modelmbean/**"/>
+      </zipfileset>      
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/console/manager/**"/>
+        <include name="org/jboss/console/plugins/**"/>
+        <include name="org/jboss/console/navtree/**"/>
+        <include name="org/jboss/console/remote/**"/>
+        <include name="org/jboss/console/manager/navtree/**"/>
+        <include name="org/jboss/console/manager/**MBean.*"/>
+      </fileset>
+    </jar>
+      
+    <!-- Build web-console.war -->
+     <jar destfile="${build.lib}/web-console.war">
+      <fileset dir="${build.lib}">
+        <include name="applet.jar"/>
+      </fileset>
+      <!--fileset dir="${build.lib}">
+        <include name="console-mgr.sar"/>
+      </fileset-->
+      <fileset dir="${source.resources}/webconsole.war">
+        <include name="**"/>
+      </fileset>
+    </jar>
+    
+    <!-- Create single SNMP archive containing both 
+         JoeSNMP and its log4j appender-->
+    <jar destfile="${build.lib}/snmp-support.jar" 
+         excludes="META-INF/INDEX.LIST"
+         manifest="${build.etc}/snmp-support.mf">
+      <zipfileset src="${opennms.joesnmp.lib}/joesnmp.jar">
+        <include name="**"/>
+        <exclude name="META-INF/manifest.mf"/>
+      </zipfileset>
+      <zipfileset src="${apache.log4j.lib}/snmpTrapAppender.jar">
+        <include name="**"/>
+        <exclude name="META-INF/MANIFEST.MF"/>
+      </zipfileset>
+    </jar>
+         
+         
+
+  </target>
+
+  <!-- ================================================================== -->
+  <!-- Install & Release                                                  -->
+  <!-- ================================================================== -->
+
+  <target name="install" 
+	  description="Install the structure for a release."
+	  depends="all, _buildmagic:install:default"/>
+
+  <target name="release" depends="install"/>
+
+  <target name="release-zip" 
+	  description="Builds a ZIP distribution."
+	  depends="release, _buildmagic:release:zip"/>
+
+  <target name="release-tar" 
+	  description="Builds a TAR distribution."
+	  depends="release, _buildmagic:release:tar"/>
+
+  <target name="release-tgz" 
+	  description="Builds a TAR-GZ distribution."
+	  depends="release, _buildmagic:release:tgz"/>
+
+  <target name="release-all"
+	  description="Builds a distribution for each archive type."
+	  depends="release-zip, release-tgz"/>
+
+
+  <!-- ================================================================== -->
+  <!-- Cleaning                                                           -->
+  <!-- ================================================================== -->
+
+  <!-- Clean up all build output -->
+  <target name="clean" 
+	  description="Cleans up most generated files."
+	  depends="_buildmagic:clean">
+  </target>
+
+  <!-- Clean up all generated files -->
+  <target name="clobber" 
+	  description="Cleans up all generated files."
+	  depends="_buildmagic:clobber, clean">
+  </target>
+
+
+  <!-- ================================================================== -->
+  <!-- Misc.                                                              -->
+  <!-- ================================================================== -->
+
+  <target name="main"
+	  description="Executes the default target (most)."
+	  depends="most"/>
+    
+  <target name="all"
+	  description="Builds everything."
+	  depends="jars, docs"/>
+
+  <target name="most" 
+	  description="Builds almost everything."
+	  depends="jars"/>
+
+  <target name="help" 
+          description="Show this help message."
+	  depends="_buildmagic:help:standard"/>
+
+</project>

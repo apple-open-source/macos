@@ -1,21 +1,22 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
- *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -54,12 +55,46 @@ typedef void (*ScrollWheelEventAction)(OSObject * target,
                                        short      deltaAxis3,
                                        AbsoluteTime ts);
 
+/* Event Callback Definitions */
+
+typedef void (*RelativePointerEventCallback)(
+                        /* target */       OSObject * target,
+                        /* buttons */      int        buttons,
+                        /* deltaX */       int        dx,
+                        /* deltaY */       int        dy,
+                        /* atTime */       AbsoluteTime ts,
+                        /* sender */       OSObject * sender,
+                        /* refcon */       void *     refcon);
+
+typedef void (*AbsolutePointerEventCallback)(
+                        /* target */       OSObject * target,
+                        /* buttons */      int        buttons,
+                        /* at */           Point *    newLoc,
+                        /* withBounds */   Bounds *   bounds,
+                        /* inProximity */  bool       proximity,
+                        /* withPressure */ int        pressure,
+                        /* withAngle */    int        stylusAngle,
+                        /* atTime */       AbsoluteTime ts,
+                        /* sender */       OSObject * sender,
+                        /* refcon */       void *     refcon);
+
+typedef void (*ScrollWheelEventCallback)(
+                        /* target */       OSObject * target,
+                        /* delta1 */       short      deltaAxis1,
+                        /* delta2 */       short      deltaAxis2,
+                        /* delta3 */       short      deltaAxis3,
+                        /* atTime */       AbsoluteTime ts,
+                        /* sender */       OSObject * sender,
+                        /* refcon */       void *     refcon);
+
 /* End Action Definitions */
 class IOHIDPointingDevice;
 
 class IOHIPointing : public IOHIDevice
 {
     OSDeclareDefaultStructors(IOHIPointing);
+    
+    friend class IOHITablet;
 
 private:
     IOLock *		_deviceLock;  // Lock for all device access
@@ -105,30 +140,14 @@ private:
         AbsoluteTime	scrollLastEventTime3;
 
         // Added to post events to the HID Manager
-        IOHIDPointingDevice  * hidPointingNub;
-
+        IOHIDPointingDevice	* hidPointingNub;
+        IOService 		* openClient;
+        
+        bool		isSeized;
     };
 
     void *  _reserved;
     
-    #define _scrollAcceleration		((ExpansionData *)_reserved)->scrollAcceleration
-    #define _scrollScaleSegments 	((ExpansionData *)_reserved)->scrollScaleSegments
-    #define _scrollScaleSegCount 	((ExpansionData *)_reserved)->scrollScaleSegCount
-    #define _scrollTimeDeltas1		((ExpansionData *)_reserved)->scrollTimeDeltas1
-    #define _scrollTimeDeltas2		((ExpansionData *)_reserved)->scrollTimeDeltas2
-    #define _scrollTimeDeltas3		((ExpansionData *)_reserved)->scrollTimeDeltas3
-    #define _scrollTimeDeltaIndex1	((ExpansionData *)_reserved)->scrollTimeDeltaIndex1
-    #define _scrollTimeDeltaIndex2	((ExpansionData *)_reserved)->scrollTimeDeltaIndex2
-    #define _scrollTimeDeltaIndex3	((ExpansionData *)_reserved)->scrollTimeDeltaIndex3
-    #define _scrollLastDeltaAxis1	((ExpansionData *)_reserved)->scrollLastDeltaAxis1
-    #define _scrollLastDeltaAxis2	((ExpansionData *)_reserved)->scrollLastDeltaAxis2
-    #define _scrollLastDeltaAxis3	((ExpansionData *)_reserved)->scrollLastDeltaAxis3
-    #define _scrollLastEventTime1	((ExpansionData *)_reserved)->scrollLastEventTime1
-    #define _scrollLastEventTime2	((ExpansionData *)_reserved)->scrollLastEventTime2
-    #define _scrollLastEventTime3	((ExpansionData *)_reserved)->scrollLastEventTime3
-
-    #define _hidPointingNub		((ExpansionData *)_reserved)->hidPointingNub
-
 protected:
   virtual void dispatchRelativePointerEvent(int        dx,
                                             int        dy,
@@ -161,7 +180,17 @@ public:
                     RelativePointerEventAction rpeAction,
                     AbsolutePointerEventAction apeAction,
                     ScrollWheelEventAction     sweAction);
+                    
+  bool open(        IOService *				client,
+                    IOOptionBits			options,
+                    void *,
+                    RelativePointerEventCallback	rpeCallback,
+                    AbsolutePointerEventCallback	apeCallback,
+                    ScrollWheelEventCallback		sweCallback);
+
   virtual void close(IOService * client, IOOptionBits );
+  virtual IOReturn message( UInt32 type, IOService * provider,
+                              void * argument = 0 );
 
   virtual IOHIDKind hidKind();
   virtual bool 	    updateProperties( void );
@@ -197,6 +226,31 @@ private:
   // take advantage of this have their defined resolution 
   // in their property table.
   /*virtual*/ IOFixed	scrollResolution();
+  
+private:
+  static void _relativePointerEvent( IOHIPointing * self,
+				    int        buttons,
+                       /* deltaX */ int        dx,
+                       /* deltaY */ int        dy,
+                       /* atTime */ AbsoluteTime ts);
+
+  /* Tablet event reporting */
+  static void _absolutePointerEvent(IOHIPointing * self,
+				    int        buttons,
+                 /* at */           Point *    newLoc,
+                 /* withBounds */   Bounds *   bounds,
+                 /* inProximity */  bool       proximity,
+                 /* withPressure */ int        pressure,
+                 /* withAngle */    int        stylusAngle,
+                 /* atTime */       AbsoluteTime ts);
+
+  /* Mouse scroll wheel event reporting */
+  static void _scrollWheelEvent(IOHIPointing *self,
+                                short deltaAxis1,
+                                short deltaAxis2,
+                                short deltaAxis3,
+                                AbsoluteTime ts);
+
 };
 
 #endif /* !_IOHIPOINTING_H */

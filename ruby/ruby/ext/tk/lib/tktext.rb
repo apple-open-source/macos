@@ -1,6 +1,6 @@
 #
 #		tktext.rb - Tk text classes
-#			$Date: 2002/05/27 17:59:47 $
+#			$Date: 2003/05/14 13:58:48 $
 #			by Yukihiro Matsumoto <matz@caelum.co.jp>
 
 require 'tk.rb'
@@ -38,7 +38,7 @@ class TkText<TkTextWin
   def self.new(*args, &block)
     obj = super(*args){}
     obj.init_instance_variable
-    obj.instance_eval &block if defined? yield
+    obj.instance_eval(&block) if defined? yield
     obj
   end
 

@@ -2,21 +2,24 @@
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -83,6 +86,7 @@ struct pptp_rfc {
     
     // pptp info
     u_int32_t		peer_address;			/* ip address we are connected to */
+    u_int32_t		our_address;			/* our ip address */
     u_int16_t		call_id;			/* our session id */
     u_int16_t		peer_call_id;			/* peer's session id */
     u_int16_t		our_window;			/* our recv window */
@@ -244,7 +248,7 @@ void pptp_rfc_fasttimer()
             rfc->state &= ~PPTP_STATE_NEW_SEQUENCE;
                 
             //log(LOG_INFO, "pptp_rfc_fasttimer, output delayed ACK = %d\n", rfc->peer_last_seq);
-            pptp_ip_output(m, rfc->peer_address);
+            pptp_ip_output(m, rfc->our_address, rfc->peer_address);
         }
     }
 }
@@ -306,7 +310,7 @@ u_int16_t pptp_rfc_output(void *data, struct mbuf *m)
 
     M_PREPEND(m, size, M_WAIT);
     if (m == 0)
-        return 1;
+        return ENOBUFS;
     d = mtod(m, u_int8_t *);
 
     m->m_flags |= M_PKTHDR;
@@ -345,7 +349,7 @@ u_int16_t pptp_rfc_output(void *data, struct mbuf *m)
     }
     //log(LOG_INFO, "pptp_rfc_output, SEND packet = %d\n", rfc->our_last_seq);
 
-    pptp_ip_output(m, rfc->peer_address);
+    pptp_ip_output(m, rfc->our_address, rfc->peer_address);
     return 0;
 }
 
@@ -397,6 +401,14 @@ u_int16_t pptp_rfc_command(void *data, u_int32_t cmd, void *cmddata)
                 log(LOG_INFO, "PPTP command (0x%x): set peer IP address = %d.%d.%d.%d\n", rfc, p[0], p[1], p[2], p[3]);
             }
             rfc->peer_address = *(u_int32_t *)cmddata;
+            break;
+
+        case PPTP_CMD_SETOURADDR:	
+            if (rfc->flags & PPTP_FLAG_DEBUG) {
+                u_char *p = cmddata;
+                log(LOG_INFO, "PPTP command (0x%x): set our IP address = %d.%d.%d.%d\n", rfc, p[0], p[1], p[2], p[3]);
+            }
+            rfc->our_address = *(u_int32_t *)cmddata;
             break;
 
         case PPTP_CMD_SETPEERPPD:

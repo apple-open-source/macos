@@ -27,5 +27,5 @@
  */
 #include "SYS.h"
 
-UNIX_SYSCALL(msync, 2)
+UNIX_SYSCALL(msync, 3)
 	ret

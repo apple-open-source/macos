@@ -1,0 +1,84 @@
+#!/bin/sh
+
+# Default DEVOSRCDIR
+if [ "$DEVOSRCDIR" = "" ]; then
+	DEVOSRCDIR=$HOME/devo ; export DEVOSRCDIR
+fi
+
+# Check DEVOSRCDIR
+if [ ! -d "$DEVOSRCDIR" ]; then
+	echo "$0: no directory $DEVOSRCDIR" >&2
+	exit 2
+fi
+
+# Default DEVOBINDIR
+if [ "$DEVOBINDIR" = "" ]; then
+	CPU=`$DEVOSRCDIR/config.guess`
+	if [ $? != 0 ]; then
+		echo "$0: cannot run config.guess" >&2
+		exit 2
+	fi
+	DEVOBINDIR=$HOME/$CPU ; export DEVOBINDIR
+fi
+
+# Check DEVOBINDIR
+if [ ! -d "$DEVOBINDIR" ]; then
+	echo "$0: no directory $DEVOBINDIR" >&2
+	exit 2
+fi
+
+# Default LOGDIR
+if [ "$LOGDIR" = "" ]; then
+	LOGDIR=$HOME/logs ; export LOGDIR
+fi
+
+# Check LOGDIR
+if [ ! -d "$LOGDIR" ]; then
+	echo "$0: no directory $LOGDIR" >&2
+	exit 2
+fi
+	
+cd $LOGDIR || exit 2
+
+sum=g++-`date '+%y%m%d'`
+
+$DEVOSRCDIR/dejagnu/contrib/test-tool g++ > $sum 2>&1
+status=$?
+
+cd $DEVOBINDIR/libg++
+make check >/tmp/clgpp$$ 2>&1
+if [ $? != 0 ]; then
+	cd $LOGDIR
+	echo "" >> $sum
+	echo "libg++ fails to make check:" >> $sum
+	tail -20 /tmp/clgpp$$ >> $sum
+	if [ $status = 0 ]; then
+		status=1
+	fi
+fi
+
+cd $DEVOBINDIR/libio
+make check >/tmp/clgpp$$ 2>&1
+if [ $? != 0 ]; then
+	cd $LOGDIR
+	echo "" >> $sum
+	echo "libio fails to make check:" >> $sum
+	tail -20 /tmp/clgpp$$ >> $sum
+	if [ $status = 0 ]; then
+		status=1
+	fi
+fi
+
+cd $DEVOBINDIR/libstdc++
+make check >/tmp/clgpp$$ 2>&1
+if [ $? != 0 ]; then
+	cd $LOGDIR
+	echo "" >> $sum
+	echo "libstdc++ fails to make check:" >> $sum
+	tail -20 /tmp/clgpp$$ >> $sum
+	if [ $status = 0 ]; then
+		status=1
+	fi
+fi
+
+exit $status

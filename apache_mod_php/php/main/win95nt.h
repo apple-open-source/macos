@@ -18,15 +18,16 @@ typedef char * caddr_t;
 #define S_IFIFO		_IFIFO
 #define S_IFBLK		_IFBLK
 #define	S_IFLNK		_IFLNK
+#ifndef S_ISREG 
+#define S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
+#endif
 #define chdir(path) SetCurrentDirectory(path)
 #define mkdir(a, b)	_mkdir(a)
 #define rmdir(a)	_rmdir(a)
 #define getpid		_getpid
 #define php_sleep(t)	Sleep(t*1000)
 #define getcwd(a, b)		_getcwd(a, b)
-#define snprintf	_snprintf
 #define off_t		_off_t
-#define vsnprintf	_vsnprintf
 typedef unsigned int uint;
 typedef unsigned long ulong;
 #if !NSAPI
@@ -43,7 +44,7 @@ typedef long pid_t;
 #define M_PI_4           0.78539816339744830962
 #endif
 
-#if !PHP_DEBUG
+#if !defined(PHP_DEBUG)
 #ifdef inline
 #undef inline
 #endif

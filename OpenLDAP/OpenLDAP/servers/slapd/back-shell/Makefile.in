@@ -1,5 +1,5 @@
-# $OpenLDAP: pkg/ldap/servers/slapd/back-shell/Makefile.in,v 1.13 2002/01/04 20:17:54 kurt Exp $
-## Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+# $OpenLDAP: pkg/ldap/servers/slapd/back-shell/Makefile.in,v 1.13.2.3 2003/03/03 17:10:10 kurt Exp $
+## Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
 ## COPYING RESTRICTIONS APPLY, see COPYRIGHT file
 
 SRCS	= init.c config.c fork.c search.c bind.c unbind.c add.c \
@@ -17,8 +17,9 @@ BUILD_MOD_DYNAMIC = @BUILD_SHELL_DYNAMIC@
 mod_DEFS = -DSLAPD_IMPORT
 MOD_DEFS = $(@BUILD_SHELL@_DEFS)
 
-shared_LDAP_LIBS = $(LDAP_LIBPATH) -lldap_r -llber
+shared_LDAP_LIBS = $(LDAP_LIBLDAP_R_LA) $(LDAP_LIBLBER_LA)
 NT_LINK_LIBS = -L.. -lslapd $(@BUILD_LIBS_DYNAMIC@_LDAP_LIBS)
+UNIX_LINK_LIBS = $(@BUILD_LIBS_DYNAMIC@_LDAP_LIBS)
 
 LIBBASE = back_shell
 

@@ -2289,7 +2289,7 @@ call_ttrace_wait (int pid, ttwopt_t option, ttstate_t *tsp, size_t tsp_size)
      thread descriptor.
 
      This caches the state.  The implementation of queries like
-     target_has_execd can then use this cached state, rather than
+     hpux_has_execd can then use this cached state, rather than
      be forced to make an explicit ttrace call to get it.
 
      (Guard against the condition that this is the first time we've
@@ -3357,8 +3357,6 @@ child_remove_vfork_catchpoint (int tid)
 }
 #endif
 
-#if defined(CHILD_HAS_FORKED)
-
 /* Q: Do we need to map the returned process ID to a thread ID?
 
  * A: I don't think so--here we want a _real_ pid.  Any later
@@ -3366,7 +3364,7 @@ child_remove_vfork_catchpoint (int tid)
  *    start the mapping.
  */
 int
-child_has_forked (int tid, int *childpid)
+hpux_has_forked (int tid, int *childpid)
 {
   int tt_status;
   ttstate_t ttrace_state;
@@ -3403,15 +3401,11 @@ child_has_forked (int tid, int *childpid)
 
   return 0;
 }
-#endif
 
-
-#if defined(CHILD_HAS_VFORKED)
-
-/* See child_has_forked for pid discussion.
+/* See hpux_has_forked for pid discussion.
  */
 int
-child_has_vforked (int tid, int *childpid)
+hpux_has_vforked (int tid, int *childpid)
 {
   int tt_status;
   ttstate_t ttrace_state;
@@ -3446,22 +3440,6 @@ child_has_vforked (int tid, int *childpid)
 
   return 0;
 }
-#endif
-
-
-#if defined(CHILD_CAN_FOLLOW_VFORK_PRIOR_TO_EXEC)
-int
-child_can_follow_vfork_prior_to_exec (void)
-{
-  /* ttrace does allow this.
-
-     ??rehrauer: However, I had major-league problems trying to
-     convince wait_for_inferior to handle that case.  Perhaps when
-     it is rewritten to grok multiple processes in an explicit way...
-   */
-  return 0;
-}
-#endif
 
 
 #if defined(CHILD_INSERT_EXEC_CATCHPOINT)
@@ -3490,9 +3468,8 @@ child_remove_exec_catchpoint (int tid)
 #endif
 
 
-#if defined(CHILD_HAS_EXECD)
 int
-child_has_execd (int tid, char **execd_pathname)
+hpux_has_execd (int tid, char **execd_pathname)
 {
   int tt_status;
   ttstate_t ttrace_state;
@@ -3531,12 +3508,10 @@ child_has_execd (int tid, char **execd_pathname)
 
   return 0;
 }
-#endif
 
 
-#if defined(CHILD_HAS_SYSCALL_EVENT)
 int
-child_has_syscall_event (int pid, enum target_waitkind *kind, int *syscall_id)
+hpux_has_syscall_event (int pid, enum target_waitkind *kind, int *syscall_id)
 {
   int tt_status;
   ttstate_t ttrace_state;
@@ -3576,7 +3551,6 @@ child_has_syscall_event (int pid, enum target_waitkind *kind, int *syscall_id)
   *syscall_id = ttrace_state.tts_scno;
   return 1;
 }
-#endif
 
 
 
@@ -4539,98 +4513,49 @@ child_resume (ptid_t ptid, int step, enum target_signal signal)
 
   else
     {
-      /* TT_LWP_CONTINUE can pass signals to threads,
-       * TT_PROC_CONTINUE can't.  So if there are any
-       * signals to pass, we have to use the (slower)
-       * loop over the stopped threads.
-       *
-       * Equally, if we have to not continue some threads,
-       * due to saved events, we have to use the loop.
-       */
-      if ((signal != 0) || saved_signals_exist ())
+      /* TT_LWP_CONTINUE can pass signals to threads, TT_PROC_CONTINUE can't.
+	 Therefore, we really can't use TT_PROC_CONTINUE here.
+
+	 Consider a process which stopped due to signal which gdb decides
+	 to handle and not pass on to the inferior.  In that case we must
+	 clear the pending signal by restarting the inferior using
+	 TT_LWP_CONTINUE and pass zero as the signal number.  Else the
+	 pending signal will be passed to the inferior.  interrupt.exp
+	 in the testsuite does this precise thing and fails due to the
+	 unwanted signal delivery to the inferior.  */
+      /* drow/2002-12-05: However, note that we must use TT_PROC_CONTINUE
+	 if we are tracing a vfork.  */
+      if (vfork_in_flight)
 	{
-	  if (resume_all_threads)
-	    {
-
-#ifdef THREAD_DEBUG
-	      if (debug_on)
-		printf ("Doing a continue by loop of all threads\n");
-#endif
-
-	      threads_continue_all_with_signals (tid, signal);
-
-	      clear_all_handled ();
-	      clear_all_stepping_mode ();
-	    }
-
-	  else
-	    {
-#ifdef THREAD_DEBUG
-	      printf ("Doing a continue w/signal of just thread %d\n", tid);
-#endif
-
-	      threads_continue_one_with_signal (tid, signal);
-
-	      /* Clear the "handled" state of this thread, because
-	       * we'll soon get a new event for it.  Other events
-	       * can stay as they were.
-	       */
-	      clear_handled (tid);
-	      clear_stepping_mode (tid);
-	    }
+	  call_ttrace (TT_PROC_CONTINUE, tid, TT_NIL, TT_NIL, TT_NIL);
+	  clear_all_handled ();
+	  clear_all_stepping_mode ();
 	}
+      else if (resume_all_threads)
+	{
+#ifdef THREAD_DEBUG
+	  if (debug_on)
+	    printf ("Doing a continue by loop of all threads\n");
+#endif
 
+	  threads_continue_all_with_signals (tid, signal);
+
+	  clear_all_handled ();
+	  clear_all_stepping_mode ();
+	}
       else
 	{
-	  /* No signals to send.
-	   */
-	  if (resume_all_threads)
-	    {
 #ifdef THREAD_DEBUG
-	      if (debug_on)
-		printf ("Doing a continue by process of process %d\n", tid);
+	  printf ("Doing a continue w/signal of just thread %d\n", tid);
 #endif
 
-	      if (more_events_left > 0)
-		{
-		  warning ("Losing buffered events on continue.");
-		  more_events_left = 0;
-		}
+	  threads_continue_one_with_signal (tid, signal);
 
-	      call_ttrace (TT_PROC_CONTINUE,
-			   tid,
-			   TT_NIL,
-			   TT_NIL,
-			   TT_NIL);
-
-	      clear_all_handled ();
-	      clear_all_stepping_mode ();
-	    }
-
-	  else
-	    {
-#ifdef THREAD_DEBUG
-	      if (debug_on)
-		{
-		  printf ("Doing a continue of just thread %d\n", tid);
-		  if (is_terminated (tid))
-		    printf ("Why are we continuing a dead thread? (5)\n");
-		}
-#endif
-
-	      call_ttrace (TT_LWP_CONTINUE,
-			   tid,
-			   TT_NIL,
-			   TT_NIL,
-			   TT_NIL);
-
-	      /* Clear the "handled" state of this thread, because
-	       * we'll soon get a new event for it.  Other events
-	       * can stay as they were.
-	       */
-	      clear_handled (tid);
-	      clear_stepping_mode (tid);
-	    }
+	  /* Clear the "handled" state of this thread, because we
+	     will soon get a new event for it.  Other events can
+	     stay as they were.  */
+	  clear_handled (tid);
+	  clear_stepping_mode (tid);
 	}
     }
 
@@ -5125,9 +5050,7 @@ pre_fork_inferior (void)
     }
 }
 
-/* Called via #define REQUIRE_ATTACH from inftarg.c,
- * ultimately from "follow_inferior_fork" in infrun.c,
- * itself called from "resume".
+/* Called from child_follow_fork in hppah-nat.c.
  *
  * This seems to be intended to attach after a fork or
  * vfork, while "attach" is used to attach to a pid

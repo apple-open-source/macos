@@ -22,8 +22,8 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-#include "IOFireWireAVCCommand.h"
-#include "IOFireWireAVCConsts.h"
+#include <IOKit/avc/IOFireWireAVCCommand.h>
+#include <IOKit/avc/IOFireWireAVCConsts.h>
 
 #include <IOKit/firewire/IOFireWireNub.h>
 #include <IOKit/firewire/IOFireWireController.h>
@@ -118,7 +118,7 @@ UInt32 IOFireWireAVCCommand::handleResponse(UInt16 nodeID, UInt32 len, const voi
     else {
         IOLog("%p: ------ Write not for me ----------\n", this);
         IOLog("nodeID: %d-%d\n", nodeID, fWriteNodeID);
-        IOLog("Data: %x len %d\n", *(const UInt32 *)buf, len);
+        IOLog("Data: %x len %d\n", (unsigned int) *(const UInt32 *)buf, (int)len);
     }
     return res;
 }
@@ -222,7 +222,7 @@ bool IOFireWireAVCCommand::init(IOFireWireNub *device, const UInt8 * command, UI
         if(!fMem) {
             return false;
         }
-		
+
 		IOReturn err = fMem->prepare();
 		if( err != kIOReturnSuccess )
 		{

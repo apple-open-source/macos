@@ -34,6 +34,8 @@
 #include "rsync.h"
 
 static const char default_name[] = "UNKNOWN";
+extern int am_daemon;
+extern int am_server;
 
 
 /**
@@ -43,6 +45,8 @@ char *client_addr(int fd)
 {
 	struct sockaddr_storage ss;
 	socklen_t length = sizeof ss;
+	char *ssh_client, *p;
+	int len;
 	static char addr_buf[100];
 	static int initialised;
 
@@ -50,11 +54,25 @@ char *client_addr(int fd)
 
 	initialised = 1;
 
-	client_sockaddr(fd, &ss, &length);
+	if (am_server) {
+		/* daemon over --rsh mode */
+		strcpy(addr_buf, "0.0.0.0");
+		if ((ssh_client = getenv("SSH_CLIENT")) != NULL) {
+			/* truncate SSH_CLIENT to just IP address */
+			p = strchr(ssh_client, ' ');
+			if (p) {
+				len = MIN((unsigned int) (p - ssh_client), 
+						sizeof(addr_buf) - 1);
+				strncpy(addr_buf, ssh_client, len);
+				*(addr_buf + len) = '\0';
+			}
+		}
+	} else {
+		client_sockaddr(fd, &ss, &length);
+		getnameinfo((struct sockaddr *)&ss, length,
+			    addr_buf, sizeof addr_buf, NULL, 0, NI_NUMERICHOST);
+	}
 
-	getnameinfo((struct sockaddr *)&ss, length,
-		    addr_buf, sizeof(addr_buf), NULL, 0, NI_NUMERICHOST);
-	
 	return addr_buf;
 }
 
@@ -74,24 +92,67 @@ static int get_sockaddr_family(const struct sockaddr_storage *ss)
  * If anything goes wrong, including the name->addr->name check, then
  * we just use "UNKNOWN", so you can use that value in hosts allow
  * lines.
+ *
+ * After translation from sockaddr to name we do a forward lookup to
+ * make sure nobody is spoofing PTR records.
  **/
 char *client_name(int fd)
 {
-	struct sockaddr_storage ss;
-	socklen_t ss_len = sizeof ss;
 	static char name_buf[100];
 	static char port_buf[100];
 	static int initialised;
+	struct sockaddr_storage ss, *ssp;
+	struct sockaddr_in sin;
+#ifdef INET6
+	struct sockaddr_in6 sin6;
+#endif
+	socklen_t ss_len;
 
 	if (initialised) return name_buf;
 
 	strcpy(name_buf, default_name);
 	initialised = 1;
 
-	client_sockaddr(fd, &ss, &ss_len);
+	if (am_server) {
+		/* daemon over --rsh mode */
 
-	if (!lookup_name(fd, &ss, ss_len, name_buf, sizeof name_buf, port_buf, sizeof port_buf))
-		check_name(fd, &ss, name_buf, port_buf);
+		char *addr = client_addr(fd);
+#ifdef INET6
+		int dots = 0;
+		char *p;
+
+		for (p = addr; *p && (dots <= 3); p++) {
+		    if (*p == '.')
+			dots++;
+		}
+		if (dots > 3) {
+			/* more than 4 parts to IP address, must be ipv6 */
+			ssp = (struct sockaddr_storage *) &sin6;
+			ss_len = sizeof sin6;
+			memset(ssp, 0, ss_len);
+			inet_pton(AF_INET6, addr, &sin6.sin6_addr);
+			sin6.sin6_family = AF_INET6;
+		} else
+#endif
+		{
+			ssp = (struct sockaddr_storage *) &sin;
+			ss_len = sizeof sin;
+			memset(ssp, 0, ss_len);
+			inet_pton(AF_INET, addr, &sin.sin_addr);
+			sin.sin_family = AF_INET;
+		}
+
+	} else {
+		ss_len = sizeof ss;
+		ssp = &ss;
+
+		client_sockaddr(fd, &ss, &ss_len);
+
+	}
+
+	if (!lookup_name(fd, ssp, ss_len, name_buf, sizeof name_buf, 
+			port_buf, sizeof port_buf))
+		check_name(fd, ssp, name_buf);
 
 	return name_buf;
 }
@@ -108,6 +169,8 @@ void client_sockaddr(int fd,
 		     struct sockaddr_storage *ss,
 		     socklen_t *ss_len)
 {
+	memset(ss, 0, sizeof(*ss));
+
 	if (getpeername(fd, (struct sockaddr *) ss, ss_len)) {
 		/* FIXME: Can we really not continue? */
 		rprintf(FERROR, RSYNC_NAME ": getpeername on fd%d failed: %s\n",
@@ -149,6 +212,8 @@ void client_sockaddr(int fd,
 
 /**
  * Look up a name from @p ss into @p name_buf.
+ *
+ * @param fd file descriptor for client socket.
  **/
 int lookup_name(int fd, const struct sockaddr_storage *ss,
 		socklen_t ss_len,
@@ -209,9 +274,23 @@ int compare_addrinfo_sockaddr(const struct addrinfo *ai,
 
 		sin1 = (const struct sockaddr_in6 *) ss;
 		sin2 = (const struct sockaddr_in6 *) ai->ai_addr;
-		
-		return memcmp(&sin1->sin6_addr, &sin2->sin6_addr,
-			      sizeof sin1->sin6_addr);
+
+		if (ai->ai_addrlen < sizeof(struct sockaddr_in6)) {
+			rprintf(FERROR,
+				"%s: too short sockaddr_in6; length=%d\n",
+				fn, ai->ai_addrlen);
+			return 1;
+		}
+
+		if (memcmp(&sin1->sin6_addr, &sin2->sin6_addr,
+			   sizeof sin1->sin6_addr))
+			return 1;
+
+#ifdef HAVE_SOCKADDR_IN6_SCOPE_ID
+		if (sin1->sin6_scope_id != sin2->sin6_scope_id)
+			return 1;
+#endif
+		return 0;
 	}
 #endif /* INET6 */
 	else {
@@ -226,11 +305,14 @@ int compare_addrinfo_sockaddr(const struct addrinfo *ai,
  * @p ss -- otherwise we may be being spoofed.  If we suspect we are,
  * then we don't abort the connection but just emit a warning, and
  * change @p name_buf to be "UNKNOWN".
+ *
+ * We don't do anything with the service when checking the name,
+ * because it doesn't seem that it could be spoofed in any way, and
+ * getaddrinfo on random service names seems to cause problems on AIX.
  **/
 int check_name(int fd,
 	       const struct sockaddr_storage *ss,
-	       char *name_buf,
-	       const char *port_buf)
+	       char *name_buf)
 {
 	struct addrinfo hints, *res, *res0;
 	int error;
@@ -240,7 +322,7 @@ int check_name(int fd,
 	hints.ai_family = ss_family;
 	hints.ai_flags = AI_CANONNAME;
 	hints.ai_socktype = SOCK_STREAM;
-	error = getaddrinfo(name_buf, port_buf, &hints, &res0);
+	error = getaddrinfo(name_buf, NULL, &hints, &res0);
 	if (error) {
 		rprintf(FERROR,
 			RSYNC_NAME ": forward name lookup for %s failed: %s\n",

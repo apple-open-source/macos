@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- ===================================================================== -->
+<!--                                                                       -->
+<!--  UUID Key Generator Factory Service Configuration                     -->
+<!--                                                                       -->
+<!-- ===================================================================== -->
+<server>
+
+  <!--
+     | Specify required libraries here.
+  -->
+  <classpath codebase="lib" archives="jboss.jar"/>
+
+  <!--
+     | UUIDKeyGeneratorFactoryService
+  -->
+  <mbean code="org.jboss.ejb.plugins.keygenerator.uuid.UUIDKeyGeneratorFactoryService"
+         name="jboss:service=UUIDKeyGeneratorFactory">
+  </mbean>
+
+</server>

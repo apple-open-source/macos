@@ -235,15 +235,22 @@ Abbreviation*	  Prefix	 Number       LSOF_VERS
 				  4.3.1		   4310
 				  4.3.2		   4320
 				  4.3.3		   4330
+				  5.0.x		   5000
+				  5.1.x		   5100
+				  5.2.x		   5200
 	bsdi	    BSDI	  2.0.x		  20000
 				  2.1.x		  20100
 				  3.0.x		  30000
 				  3.1.x		  30100
 				  4.0		  40000
 				  4.1		  40100
+				  4.3		  40300
       darwin	  DARWIN	  1.2*		    120
 				  1.3*		    130
 				  1.4*		    140
+				  5.[012]	    500
+				  5.[3-9]	    530
+				  6.x		    600
 	  du	      DU	  2.0		  20000
 				  3.0		  30000
 				  3.2		  30200
@@ -275,6 +282,7 @@ Abbreviation*	  Prefix	 Number       LSOF_VERS
 				  1.3		   1030
 				  1.4		   1040
 				  1.5		   1050
+				  1.6		   1060
 	 ns     NEXTSTEP	  3.1		     31
     openbsd	 OPENBSD	  1.2		   1020
 				  2.0		   2000
@@ -288,6 +296,9 @@ Abbreviation*	  Prefix	 Number       LSOF_VERS
 				  2.8		   2080
 				  2.9		   2090
 				  3.0		   3000
+				  3.1		   3010
+				  3.2		   3020
+				  3.3		   3030
          os     OPENSTEP	  4.x		     4x
 	osr	     OSR	  3.2v2.0	     20
 				  3.2v2.1	     21
@@ -310,6 +321,7 @@ Abbreviation*	  Prefix	 Number       LSOF_VERS
 	 uw	      UW	  7.0		  70000
 	 	       		  7.1.0		  70100
 	 	       		  7.1.1		  70101
+	 	       		  7.1.3		  70103
 
 * -- The optional Configure abbreviations -- e.g., the ``decosf''
      and ``digital_unix'' alternatives to ``du'' -- aren't listed
@@ -327,9 +339,25 @@ listing of the abbreviations.
 
 AIX_ARCH		specifies the AIX architecture when the AIX version is
 			5.0 or higher.  A value of "" signifies POWER; "ia64",
-			64 bit Intel (Itanium).
+			64 bit x86 (Itanium).
 
 			default: none (tested via `uname -a`)
+
+AIX_HAS_AFS		specifies the state of AIX ADS support when the AIX
+			version is 4.3.3 or lower.  (Lsof doesn't support AFS
+			above AIX 4.3.3.)  A value of "" allows the Configure
+			script to determine the AFS support state; "no",
+			disables AFS support; and "yes", forces the enabling of
+			AFS support.
+
+			default: none (tested via presence of AFS files and the
+				 lsof AFSConfig shell script)
+
+AIX_KERNBITS		specifies the kernel bit size, 32 or 64, of the Power
+			architecture AIX 5.x kernel for which lsof was built.
+
+			default: determined by the Configure script with a test
+				 program that uses <sys/systemcfg.h> macroes.
 
 AIX_USHACK		If this environment variable has a value of "Y" or "y",
 			and if the aixgcc Configure abbreviation is selected,
@@ -377,6 +405,13 @@ HPUX_BASE		specifies the HP-UX lsof source code base, kmem or
 
 			default: determined by testing for the
 				 /usr/include/sys/pstat subdirectory
+
+HPUX_BOOTFILE		specifies the file in which lsof's Configure script can
+			find kernel information.  This specification may be
+			useful for defining the path to a copy of /stand/vmunix
+			that has been processed by pxdb or q4pxdb.
+
+			default: /stand/vmunix
 
 HPUX_CCDIR1		specifies the first directory where Configure might
 			find an HP-UX C compiler.  This is ignored when
@@ -574,4 +609,4 @@ UW_HAS_NSC		If this environment variable has a value of "Y" or "y",
 			default: tested via /bin/node_self
 
 Vic Abell <abe@purdue.edu>
-November 1, 2001
+June 11, 2003

@@ -108,7 +108,7 @@ void int_init( struct intercept_s *ip, struct server *serp )
          continue ;
       if ( LOG_GET_TYPE( SC_LOG( SVC_CONF( sp ) ) ) == L_FILE )
          xlog_destroy( sp->svc_log ) ;
-      (void) close( SVC_FD( sp ) ) ;
+      (void) Sclose( SVC_FD( sp ) ) ;
    }
 
    /*
@@ -165,7 +165,7 @@ channel_s *int_newconn( struct intercept_s *ip,
    if ( connect( sd, SA( local ), sizeof( *local ) ) == -1 )
    {
       msg( LOG_ERR, func, "(intercepting %s) connect failed: %m", sid ) ;
-      (void) close( sd ) ;
+      (void) Sclose( sd ) ;
       return( CHANNEL_NULL ) ;
    }
 
@@ -173,7 +173,7 @@ channel_s *int_newconn( struct intercept_s *ip,
    if ( chp == CHANNEL_NULL )
    {
       msg( LOG_ERR, func, ES_NOMEM ) ;
-      (void) close( sd ) ;
+      (void) Sclose( sd ) ;
       return( CHANNEL_NULL ) ;
    }
 
@@ -181,7 +181,7 @@ channel_s *int_newconn( struct intercept_s *ip,
    {
       msg( LOG_ERR, func, ES_NOMEM ) ;
       FREE_CHANNEL( chp ) ;
-      (void) close( sd ) ;
+      (void) Sclose( sd ) ;
       return( CHANNEL_NULL ) ;
    }
 

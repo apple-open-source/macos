@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE server>
+<!-- $Id: jboss-service.xml,v 1.15.2.1 2002/09/12 16:18:06 cgjung Exp $ -->
+
+<server>
+
+  <classpath codebase="lib" archives="javax.servlet.jar"/>
+
+  <!-- ==================================================================== -->
+  <!-- Starts the Axis Deployer                                             -->
+  <!-- ==================================================================== -->
+
+  <!-- 
+     | The Axis service as an mbean.
+     |
+     | Besure to check that the configuration values are valid for your
+     | environment.
+     | 
+     | If you want to enable several services, be sure that you choose
+     | different root contexts.
+   -->
+  <mbean code="org.jboss.net.axis.server.AxisService"
+	 name="jboss.net:service=Axis">
+  </mbean>
+
+  <!-- 
+     | (Another!) JMX Adaptor that exposes itself as a web service through
+     | Axis
+   -->
+  <mbean code="org.jboss.net.jmx.adaptor.server.Adaptor"
+	 name="jboss.net:service=Adaptor">
+  </mbean>
+
+</server>

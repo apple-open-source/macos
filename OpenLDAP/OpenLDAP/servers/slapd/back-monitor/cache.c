@@ -1,6 +1,6 @@
 /* cache.c - routines to maintain an in-core cache of entries */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*
@@ -51,12 +51,10 @@ monitor_cache_cmp(
 	struct monitorcache 	*cc1 = ( struct monitorcache * )c1;
 	struct monitorcache 	*cc2 = ( struct monitorcache * )c2;
 
-	int			d = cc1->mc_ndn->bv_len - cc2->mc_ndn->bv_len;
-	
 	/*
 	 * case sensitive, because the dn MUST be normalized
 	 */
-	return d != 0 ? d : strcmp( cc1->mc_ndn->bv_val, cc2->mc_ndn->bv_val );
+	return ber_bvcmp( &cc1->mc_ndn, &cc2->mc_ndn );
 }
 
 /*
@@ -71,19 +69,10 @@ monitor_cache_dup(
 	struct monitorcache *cc1 = ( struct monitorcache * )c1;
 	struct monitorcache *cc2 = ( struct monitorcache * )c2;
 
-	
 	/*
 	 * case sensitive, because the dn MUST be normalized
 	 */
-#if 0
-	int 			cmp = monitor_cache_cmp( c1, c2 );
-#else
-	int			d = cc1->mc_ndn->bv_len - cc2->mc_ndn->bv_len;
-	int 			cmp = 
-		d != 0 ? d : strcmp( cc1->mc_ndn->bv_val, cc2->mc_ndn->bv_val );
-#endif
-
-	return cmp == 0 ? -1 : 0;
+	return ber_bvcmp( &cc1->mc_ndn, &cc2->mc_ndn ) == 0 ? -1 : 0;
 }
 
 /*
@@ -106,7 +95,7 @@ monitor_cache_add(
 	ldap_pvt_thread_mutex_init( &mp->mp_mutex );
 
 	mc = ( struct monitorcache * )ch_malloc( sizeof( struct monitorcache ) );
-	mc->mc_ndn = &e->e_nname;
+	mc->mc_ndn = e->e_nname;
 	mc->mc_e = e;
 	ldap_pvt_thread_mutex_lock( &mi->mi_cache_mutex );
 	rc = avl_insert( &mi->mi_cache, ( caddr_t )mc,
@@ -152,7 +141,7 @@ monitor_cache_get(
 	assert( ndn != NULL );
 	assert( ep != NULL );
 
-	tmp_mc.mc_ndn = ndn;
+	tmp_mc.mc_ndn = *ndn;
 	ldap_pvt_thread_mutex_lock( &mi->mi_cache_mutex );
 	mc = ( struct monitorcache * )avl_find( mi->mi_cache,
 			( caddr_t )&tmp_mc, monitor_cache_cmp );
@@ -262,12 +251,13 @@ monitor_cache_release(
 
 		/* volatile entries do not return to cache */
 		ldap_pvt_thread_mutex_lock( &mi->mi_cache_mutex );
-		tmp_mc.mc_ndn = &e->e_nname;
+		tmp_mc.mc_ndn = e->e_nname;
 		mc = avl_delete( &mi->mi_cache,
 				( caddr_t )&tmp_mc, monitor_cache_cmp );
 		ldap_pvt_thread_mutex_unlock( &mi->mi_cache_mutex );
 		ch_free( mc );
 		
+		ldap_pvt_thread_mutex_unlock( &mp->mp_mutex );
 		ldap_pvt_thread_mutex_destroy( &mp->mp_mutex );
 		ch_free( mp );
 		e->e_private = NULL;

@@ -8,7 +8,7 @@
 ##
 ## Annotated patch file: ssldoc.patch
 ## Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
-## Created on: 18-Mar-2003
+## Created on: 18-Jul-2003
 ##
 ## This file assembles changes to existing Apache source files
 ## between the original Apache and the patched variant. It can be
@@ -200,9 +200,9 @@ Index: htdocs/manual/mod/index-bytype.html.en
 | documented inside the mod_ssl document.
 +---------------------------------------------------------------------------
 Index: htdocs/manual/mod/directives.html.en
---- htdocs/manual/mod/directives.html.en	4 Oct 2002 11:50:01 -0000	1.1.1.4
-+++ htdocs/manual/mod/directives.html.en	4 Oct 2002 11:54:56 -0000	1.5
-@@ -538,6 +540,28 @@
+--- htdocs/manual/mod/directives.html.en	18 Jul 2003 15:44:16 -0000	1.1.1.5
++++ htdocs/manual/mod/directives.html.en	18 Jul 2003 15:56:57 -0000	1.6
+@@ -551,6 +553,28 @@
        <li><a href="mod_mime.html#sethandler">SetHandler</a></li>
  
        <li><a href="core.html#shmemuidisuser">ShmemUIDisUser</a></li>

@@ -29,11 +29,6 @@
 // client code that may have been generated with debug enabled. You don't actually
 // get *real* debug logging, of course, just cheap dummy stubs to keep the linker happy.
 //
-#if defined(NDEBUG) && !defined(CLEAN_NDEBUG)
-# undef NDEBUG
-# define NDEBUG_STUBS
-#endif
-
 #include <Security/debugging.h>
 #include <Security/threading.h>
 #include <cstdarg>
@@ -41,9 +36,6 @@
 
 namespace Security {
 namespace Debug {
-
-
-#if !defined(NDEBUG)
 
 
 //
@@ -184,19 +176,7 @@ private:
 };
 
 
-#else // NDEBUG
-
-//
-// Note that we don't scaffold up the entire Target hierarchy for NDEBUG.
-// If you directly manipulate debug Targets, Names, or Sinks, you need to
-// conditionalize the code based on NDEBUG.
-//
-
-#endif // NDEBUG
-
-
 } // end namespace Debug
-
 } // end namespace Security
 
 

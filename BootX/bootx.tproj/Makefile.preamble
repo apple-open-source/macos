@@ -127,7 +127,7 @@ LIBRARY_STYLE = STATIC
 
 # To include a version string, project source must exist in a directory named 
 # $(NAME).%d[.%d][.%d] and the following line must be uncommented.
-# OTHER_GENERATED_OFILES = $(VERS_OFILE)
+OTHER_GENERATED_OFILES = $(VERS_OFILE)
 
 # This definition will suppress stripping of debug symbols when an executable
 # is installed.  By default it is YES.

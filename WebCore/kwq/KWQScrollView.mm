@@ -192,7 +192,7 @@ void QScrollView::addChild(QWidget* child, int x, int y)
     [subview removeFromSuperview];
     
     LOG(Frames, "Adding %p %@ at (%d,%d) w %d h %d\n", subview,
-        [[subview class] className], x, y, (int)[subview frame].size.width, (int)[subview frame].size.height);
+        [(id)[subview class] className], x, y, (int)[subview frame].size.width, (int)[subview frame].size.height);
 
     [thisView addSubview:subview];
 }
@@ -204,16 +204,17 @@ void QScrollView::removeChild(QWidget* child)
 
 void QScrollView::resizeContents(int w, int h)
 {
-    LOG(Frames, "%p %@ at w %d h %d\n", getView(), [[getView() class] className], w, h);
+    LOG(Frames, "%p %@ at w %d h %d\n", getView(), [(id)[getView() class] className], w, h);
     NSView *view = getView();
     if ([view _KWQ_isScrollView]){
         view = getDocumentView();
         
-        LOG(Frames, "%p %@ at w %d h %d\n", view, [[view class] className], w, h);
+        LOG(Frames, "%p %@ at w %d h %d\n", view, [(id)[view class] className], w, h);
         if (w < 0)
             w = 0;
         if (h < 0)
             h = 0;
+
         [view setFrameSize: NSMakeSize (w,h)];
     } else {
         resize (w, h);
@@ -240,7 +241,7 @@ void QScrollView::updateContents(const QRect &rect, bool now)
 
 void QScrollView::repaintContents(int x, int y, int w, int h, bool erase)
 {
-    LOG(Frames, "%p %@ at (%d,%d) w %d h %d\n", getView(), [[getView() class] className], x, y, w, h);
+    LOG(Frames, "%p %@ at (%d,%d) w %d h %d\n", getView(), [(id)[getView() class] className], x, y, w, h);
 }
 
 QPoint QScrollView::contentsToViewport(const QPoint &p)

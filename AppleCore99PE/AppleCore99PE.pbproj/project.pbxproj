@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 34;
+	objectVersion = 38;
 	objects = {
 		06AA1264FFB2107B11CA28AA = {
 			buildActionMask = 2147483647;
@@ -12,9 +12,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -44,9 +44,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -100,7 +100,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleCore99PE;
-				MODULE_VERSION = 1.2d1;
+				MODULE_VERSION = 1.2.1d2;
 				OTHER_CFLAGS = "-fpermissive -D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -118,15 +118,15 @@
 			productName = AppleCore99PE;
 			productReference = 0B81C263FFB7832611CA28AA;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>AppleCore99PE</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleCore99PE version 1.2, Copyright 2001 Apple Computer, Inc.</string>
+	<string>AppleCore99PE version 1.2.1, Copyright 2001-2002 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -138,11 +138,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2</string>
+	<string>1.2.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2d1</string>
+	<string>1.2.1d2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>Core99CPU</key>
@@ -180,6 +180,365 @@
 			<integer>10000</integer>
 			<key>IOProviderClass</key>
 			<string>IOPlatformExpertDevice</string>
+			<key>powertreedesc</key>
+			<array>
+				<dict>
+					<key>children</key>
+					<array>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>multiple-parent</key>
+									<integer>0</integer>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb0u048</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>AAPL,clock-id</key>
+								<string>usb0u048</string>
+								<key>name</key>
+								<string>usb</string>
+							</dict>
+						</dict>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>multiple-parent</key>
+									<integer>1</integer>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb1u148</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>AAPL,clock-id</key>
+								<string>usb1u148</string>
+								<key>name</key>
+								<string>usb</string>
+							</dict>
+						</dict>
+					</array>
+					<key>device</key>
+					<dict>
+						<key>IOClass</key>
+						<string>IOPMUSB99</string>
+					</dict>
+				</dict>
+				<dict>
+					<key>children</key>
+					<array>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>multiple-parent</key>
+									<integer>0</integer>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb0u048</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>0</integer>
+							</dict>
+						</dict>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>multiple-parent</key>
+									<integer>1</integer>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb1u148</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>1</integer>
+							</dict>
+						</dict>
+					</array>
+					<key>device</key>
+					<dict>
+						<key>IOClass</key>
+						<string>KeyLargo</string>
+					</dict>
+				</dict>
+				<dict>
+					<key>children</key>
+					<array>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb2u048</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>0</integer>
+							</dict>
+						</dict>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb3u148</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>1</integer>
+							</dict>
+						</dict>
+					</array>
+					<key>device</key>
+					<dict>
+						<key>IOClass</key>
+						<string>KeyLargo</string>
+					</dict>
+				</dict>
+				<dict>
+					<key>children</key>
+					<array>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb4u048</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>0</integer>
+							</dict>
+						</dict>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb5u148</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>1</integer>
+							</dict>
+						</dict>
+					</array>
+					<key>device</key>
+					<dict>
+						<key>IOClass</key>
+						<string>KeyLargo</string>
+					</dict>
+				</dict>
+				<dict>
+					<key>children</key>
+					<array>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb6u048</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>0</integer>
+							</dict>
+						</dict>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb7u148</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>1</integer>
+							</dict>
+						</dict>
+					</array>
+					<key>device</key>
+					<dict>
+						<key>IOClass</key>
+						<string>KeyLargo</string>
+					</dict>
+				</dict>
+				<dict>
+					<key>children</key>
+					<array>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb8u048</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>0</integer>
+							</dict>
+						</dict>
+						<dict>
+							<key>children</key>
+							<array>
+								<dict>
+									<key>device</key>
+									<dict>
+										<key>IOClass</key>
+										<string>AppleUSBOHCI</string>
+									</dict>
+									<key>provider</key>
+									<dict>
+										<key>AAPL,clock-id</key>
+										<string>usb9u148</string>
+									</dict>
+								</dict>
+							</array>
+							<key>device</key>
+							<dict>
+								<key>IOClass</key>
+								<string>USBKeyLargo</string>
+								<key>usb</key>
+								<integer>1</integer>
+							</dict>
+						</dict>
+					</array>
+					<key>device</key>
+					<dict>
+						<key>IOClass</key>
+						<string>KeyLargo</string>
+					</dict>
+				</dict>
+			</array>
 		</dict>
 	</dict>
 	<key>OSBundleLibraries</key>
@@ -209,7 +568,7 @@
 				0C08A5C0FFF0C0B011CA2A1B,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1675FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -217,33 +576,32 @@
 				089C1680FE841241C02AAC07,
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1676FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 				0C08A5C1FFF0C0B011CA2A1B,
 				0C08A5C2FFF0C0B011CA2A1B,
-				0C08A5C3FFF0C0B011CA2A1B,
 				0C08A5C4FFF0C0B011CA2A1B,
 				0C08A5C5FFF0C0B011CA2A1B,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1677FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1679FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C167CFE841241C02AAC07 = {
 			children = (
@@ -319,11 +677,6 @@
 			path = Core99CPU.h;
 			refType = 4;
 		};
-		0C08A5B8FFF0C0B011CA2A1B = {
-			isa = PBXFileReference;
-			path = Core99PowerTree.cpp;
-			refType = 4;
-		};
 		0C08A5B9FFF0C0B011CA2A1B = {
 			isa = PBXFileReference;
 			path = IOPMSlots99.cpp;
@@ -384,14 +737,6 @@
 				);
 			};
 		};
-		0C08A5C3FFF0C0B011CA2A1B = {
-			fileRef = 0C08A5B8FFF0C0B011CA2A1B;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-				);
-			};
-		};
 		0C08A5C4FFF0C0B011CA2A1B = {
 			fileRef = 0C08A5B9FFF0C0B011CA2A1B;
 			isa = PBXBuildFile;
@@ -442,7 +787,6 @@
 				0C08A5B5FFF0C0B011CA2A1B,
 				0C08A5B6FFF0C0B011CA2A1B,
 				0C08A5B7FFF0C0B011CA2A1B,
-				0C08A5B8FFF0C0B011CA2A1B,
 				0C08A5B9FFF0C0B011CA2A1B,
 				0C08A5BAFFF0C0B011CA2A1B,
 				0C08A5BBFFF0C0B011CA2A1B,

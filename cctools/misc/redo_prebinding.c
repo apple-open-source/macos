@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -261,7 +259,7 @@ static struct lib *libs = NULL;
 static unsigned long nlibs = 0;
 
 /*
- * A fake lib struct for the arch being processed which is used if the arch
+ 
  * being processed is a two-level namespace image.
  */
 static struct lib arch_lib;
@@ -325,8 +323,6 @@ static enum bool load_library(
     unsigned long *image_pointer);
 
 static enum bool load_dependent_libraries(void);
-
-static void check_for_extra_LC_PREBOUND_DYLIB(void);
 
 static void print_two_level_info(
     struct lib *lib);
@@ -626,7 +622,7 @@ int argc,
 char *argv[],
 char *envp[])
 {
-    unsigned long i;
+    int i;
     char *input_file, *output_file;
     struct arch *archs;
     unsigned long narchs;
@@ -1247,6 +1243,119 @@ error_return:
 	return(NULL);
 }
 
+/*
+ * install_name() takes a file_name of a binary and returns a malloc(3)'ed
+ * pointer to a NULL terminated string containing the install_name value for
+ * the binary. If unsuccessful install_name() returns NULL.  In particular,
+ * NULL is returned if the binary is not a dylib and there is no error_message
+ * set.  If the all of the arch's are dylibs but all the install names don't
+ * match NULL is returned and a error_message is set.  If some but not all of
+ * the archs are dylibs NULL is returned and a error_message is set.
+ */ 
+char *
+install_name(
+const char *file_name,
+const char *program_name,
+char **error_message)
+{
+    struct arch *archs;
+    unsigned long narchs, i, j;
+    struct ofile *ofile;
+    char *install_name, *dylib_name;
+    struct load_command *lc;
+    struct dylib_command *dl_id;
+    enum bool non_dylib_found;
+
+	reset_statics();
+	progname = (char *)program_name;
+	if(error_message != NULL)
+	    *error_message = NULL;
+
+	ofile = NULL;
+	archs = NULL;
+	narchs = 0;
+	install_name = NULL;
+	non_dylib_found = FALSE;
+
+	/*
+	 * Set up to handle recoverable errors.
+	 */
+	if(setjmp(library_env) != 0){
+	    /*
+	     * It takes a longjmp() to get to this point.  So we got an error
+	     * so clean up and return NULL to say we were unsuccessful.
+	     */
+	    goto error_return;
+	}
+
+	/* breakout the file for processing */
+	ofile = breakout((char *)file_name, &archs, &narchs, FALSE);
+	if(errors)
+	    goto error_return;
+
+	/* checkout the file for processing */
+	checkout(archs, narchs);
+
+	/*
+	 * Count the number of dynamic librarys in the all of the archs which
+	 * are executables and dynamic libraries.
+	 */
+	for(i = 0; i < narchs; i++){
+	    arch = archs + i;
+	    if(arch->type == OFILE_Mach_O &&
+	       arch->object->mh->filetype == MH_DYLIB){
+		lc = arch->object->load_commands;
+		for(j = 0; j < arch->object->mh->ncmds; j++){
+		    switch(lc->cmd){
+		    case LC_ID_DYLIB:
+			dl_id = (struct dylib_command *)lc;
+			dylib_name = (char *)dl_id +
+				     dl_id->dylib.name.offset;
+			if(install_name != NULL){
+			    if(strcmp(install_name, dylib_name) != 0){
+				error("install names in all arch's don't "
+				      "match");
+				goto error_return;
+			    }
+			}
+			else{
+			    install_name = dylib_name;
+			}
+		    }
+		    lc = (struct load_command *)((char *)lc + lc->cmdsize);
+		}
+	    }
+	    else{
+		non_dylib_found = TRUE;
+	    }
+	}
+	if(install_name != NULL && non_dylib_found == TRUE){
+	    error("not all arch's are dylibs");
+	    goto error_return;
+	}
+	if(install_name != NULL){
+	    dylib_name = malloc(strlen(install_name) + 1);
+	    strcpy(dylib_name, install_name);
+	    install_name = dylib_name;
+	}
+
+	free_archs(archs, narchs);
+	if(ofile != NULL)
+	    ofile_unmap(ofile);
+	cleanup();
+	return(install_name);
+
+error_return:
+	free_archs(archs, narchs);
+	if(ofile != NULL)
+	    ofile_unmap(ofile);
+	cleanup();
+	if(error_message != NULL && error_message_buffer != NULL)
+	    *error_message = error_message_buffer;
+	else if(error_message_buffer != NULL)
+	    free(error_message_buffer);
+	return(NULL);
+}
 
 /*
  * redo_prebinding() takes a file_name of a binary and redoes the prebinding on
@@ -1957,12 +2066,11 @@ enum bool has_resource_fork)
 	    process_arch();
 #ifdef LIBRARY_API
 	    /*
-	     * for needs_redo_prebinding() we only check the first arch if
-	     * arch_cant_be_missing is not set.  Or we return if this is the
+	     * for needs_redo_prebinding() we return if this is the
 	     * arch that can't be missing.
 	     */
 	    if(check_only == TRUE &&
-	       (arch_cant_be_missing == 0 ||
+	       (arch_cant_be_missing != 0 &&
 	        arch_cant_be_missing == arch->object->mh->cputype))
 		return;
 #endif
@@ -2117,15 +2225,6 @@ void)
 		redo_exit(1);
 	}
 
-	/*
-	 * If this is an executable, make sure there are no extra
-	 * LC_PREBOUND_DYLIB load commands as dyld will check this not
-	 * use the prebinding.
-	 */
-	if(arch->object->mh->filetype == MH_EXECUTE){
-	    check_for_extra_LC_PREBOUND_DYLIB();
-	}
-	
 	/*
 	 * If check_only is set then load_library() checked the time stamps and
 	 * did an exit(1) if they did not match.  So if we get here this arch
@@ -2417,72 +2516,6 @@ void)
 	    }
 	}
 	return(TRUE);
-}
-
-/*
- * check_for_extra_LC_PREBOUND_DYLIB() checks to see that all the libraries for
- * the LC_PREBOUND_DYLIB() load commands have been loaded by the dependent
- * libraries.  If there are extra LC_PREBOUND_DYLIB() load commands for
- * libraries that are not loaded this reports the errors and calls redo_exit(1).
- */
-static
-void
-check_for_extra_LC_PREBOUND_DYLIB(
-void)
-{
-    unsigned long i, j;
-    struct load_command *lc, *load_commands;
-    struct prebound_dylib_command *pbdylib;
-    char *dylib_name;
-    enum bool found, found_by_stat;
-    struct stat stat_buf;
-
-	load_commands = arch->object->load_commands;
-	lc = load_commands;
-	for(i = 0; i < arch->object->mh->ncmds; i++){
-	    if(lc->cmd == LC_PREBOUND_DYLIB){
-		pbdylib = (struct prebound_dylib_command *)lc;
-		dylib_name = (char *)pbdylib + pbdylib->name.offset;
-		if(stat(dylib_name, &stat_buf) == -1){
-		    stat_buf.st_dev = 0;
-		    stat_buf.st_ino = 0;
-		}
-		found = FALSE;
-		found_by_stat = FALSE;
-		for(j = 0; j < nlibs; j++){
-		    if(strcmp(libs[j].dylib_name, dylib_name) == 0){
-			found = TRUE;
-			break;
-		    }
-		    if(stat_buf.st_dev == libs[j].dev && 
-		       stat_buf.st_ino == libs[j].ino){
-			found_by_stat = TRUE;
-			break;
-		    }
-		}
-		if(found_by_stat == TRUE){
-		    error("executable: %s (architecture %s) must be rebuilt, "
-			  "dynamic shared library: %s does not match its "
-			  "install_name: %s", arch->file_name, arch_name,
-			  dylib_name, libs[j].dylib_name);
-#ifdef LIBRARY_API
-		    if(check_if_needed == TRUE){
-			only_if_needed_retval = 
-			    REDO_PREBINDING_NEEDS_REBUILDING;
-		    }
-#endif
-		    redo_exit(1);
-		}
-		if(found == FALSE && check_only == TRUE){
-		    error("executable: %s (architecture %s) must be rebuilt, "
-			  "LC_PREBOUND_DYLIB found for dynamic shared library: "
-			  "%s but it was not loaded", arch->file_name,
-			  arch_name, dylib_name);
-		    redo_exit(1);
-		}
-	    }
-	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
-	}
 }
 
 /*
@@ -2900,8 +2933,11 @@ unsigned long *image_pointer)
 		 * this is not the one that can't be missing.
 		 */
 		if(arch_cant_be_missing != 0 &&
-		   arch_cant_be_missing != arch_flag.cputype)
+		   arch_cant_be_missing != arch_flag.cputype){
+		    if(already_loaded == FALSE)
+			ofile_unmap(ofile);
 		    return(FALSE);
+		}
 		error("dynamic shared library file: %s does not contain an "
 		      "architecture that can be used with %s (architecture %s)",
 		      dylib_name, file_name, arch_name);
@@ -2946,8 +2982,11 @@ unsigned long *image_pointer)
 		 * this is not the one that can't be missing.
 		 */
 		if(arch_cant_be_missing != 0 &&
-		   arch_cant_be_missing != arch_flag.cputype)
+		   arch_cant_be_missing != arch_flag.cputype){
+		    if(already_loaded == FALSE)
+			ofile_unmap(ofile);
 		    return(FALSE);
+		}
 		error("dynamic shared library: %s has the wrong CPU type for: "
 		      "%s (architecture %s)", dylib_name, file_name,
 		      arch_name);
@@ -2960,8 +2999,11 @@ unsigned long *image_pointer)
 		 * this is not the one that can't be missing.
 		 */
 		if(arch_cant_be_missing != 0 &&
-		   arch_cant_be_missing != arch_flag.cputype)
+		   arch_cant_be_missing != arch_flag.cputype){
+		    if(already_loaded == FALSE)
+			ofile_unmap(ofile);
 		    return(FALSE);
+		}
 		error("dynamic shared library: %s has the wrong CPU subtype "
 		      "for: %s (architecture %s)", dylib_name, file_name,
 		      arch_name);
@@ -2994,6 +3036,16 @@ good:
 		    dl_id = (struct dylib_command *)lc;
 		    if(dl_load->dylib.timestamp != dl_id->dylib.timestamp){
 #ifdef LIBRARY_API
+			/*
+			 * If we are allowing missing architectures except one
+			 * see if this is not the one that can't be missing.
+			 */
+			if(arch_cant_be_missing != 0 &&
+			   arch_cant_be_missing != arch_flag.cputype){
+			    if(already_loaded == FALSE)
+				ofile_unmap(ofile);
+			    return(FALSE);
+			}
 			redo_prebinding_needed = TRUE;
 #endif
 			if(time_stamps_must_match == TRUE){
@@ -3468,7 +3520,7 @@ unsigned long nextrefsyms)
 
 	/* check the symbol table's offsets into the string table */
 	for(i = 0; i < nsyms; i++){
-	    if(symbols[i].n_un.n_strx > strsize){
+	    if((unsigned long)symbols[i].n_un.n_strx > strsize){
 		error("mallformed file: %s (bad string table index (%ld) for "
 		      "symbol %lu) (for architecture %s)", file_name,
 		      symbols[i].n_un.n_strx, i, arch_name);
@@ -3487,8 +3539,8 @@ unsigned long nextrefsyms)
 		if(mh->filetype == MH_DYLIB){
 		    if(GET_LIBRARY_ORDINAL(symbols[i].n_desc) !=
 			   SELF_LIBRARY_ORDINAL &&
-		       GET_LIBRARY_ORDINAL(symbols[i].n_desc) - 1 >
-			   nlibrefs){
+		       (unsigned long)GET_LIBRARY_ORDINAL(symbols[i].n_desc)
+			   - 1 > nlibrefs){
 			error("mallformed file: %s (bad LIBRARY_ORDINAL (%d) "
 			      "for symbol %lu %s) (for architecture %s)",
 			      file_name, GET_LIBRARY_ORDINAL(symbols[i].n_desc),
@@ -3499,8 +3551,8 @@ unsigned long nextrefsyms)
 		else if(mh->filetype == MH_EXECUTE){
 		   if(GET_LIBRARY_ORDINAL(symbols[i].n_desc) ==
 			   SELF_LIBRARY_ORDINAL ||
-		      GET_LIBRARY_ORDINAL(symbols[i].n_desc) - 1 >
-			   nlibrefs){
+		      (unsigned long)GET_LIBRARY_ORDINAL(symbols[i].n_desc)
+			- 1 > nlibrefs){
 			error("mallformed file: %s (bad LIBRARY_ORDINAL (%d) "
 			      "for symbol %lu %s) (for architecture %s)",
 			      file_name, GET_LIBRARY_ORDINAL(symbols[i].n_desc),
@@ -3942,8 +3994,10 @@ add_undefineds:
 			    break;
 		    }
 		    if(j < lib->nmodtab){
-			if(lib->module_states[j] == UNLINKED)
+			if(lib->module_states[j] == UNLINKED){
 			    lib->module_states[j] = LINKED;
+			    link_library_module(lib->module_states + j, lib);
+			}
 		    }
 		}
 	    }
@@ -4028,12 +4082,23 @@ struct nlist *symbol)
 	if((mh->flags & MH_TWOLEVEL) != MH_TWOLEVEL)
 	    return(NULL);
 	/*
-	 * Note for prebinding no image should have a LIBRARY_ORDINAL of
-	 * EXECUTABLE_ORDINAL and this is only used for bundles and bundles are
-	 * not prebound.
+	 * Note for prebinding: no image should have a LIBRARY_ORDINAL of
+	 * EXECUTABLE_ORDINAL or DYNAMIC_LOOKUP_ORDINAL. These values are only
+	 * used for bundles and images that have undefined symbols that are
+	 * looked up dynamically both of which are not prebound.
+	 *
+	 * But care has to be taken for compatibility as the ordinal for
+	 * DYNAMIC_LOOKUP_ORDINAL use to be the maximum number of libraries an
+	 * image could have.  So if this is an old image with that number of
+	 * images then DYNAMIC_LOOKUP_ORDINAL is a valid library ordinal and
+	 * needs to be treated as a normal library ordinal.
 	 */
 	if(GET_LIBRARY_ORDINAL(symbol->n_desc) == EXECUTABLE_ORDINAL)
 	    return(NULL);
+	if(lib->ndependent_images != DYNAMIC_LOOKUP_ORDINAL &&
+	   GET_LIBRARY_ORDINAL(symbol->n_desc) == DYNAMIC_LOOKUP_ORDINAL)
+	    return(NULL);
+	
 	/*
 	 * For two-level libraries that reference symbols defined in the
 	 * same library then the LIBRARY_ORDINAL will be

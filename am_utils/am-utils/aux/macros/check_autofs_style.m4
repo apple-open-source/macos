@@ -7,11 +7,13 @@ ac_cv_autofs_style,
 [
 # select the correct style to mount(2) a filesystem
 case "${host_os}" in
+       solaris1* | solaris2.[[0-4]] )
+	       ac_cv_autofs_style=default ;;
        solaris2.5* )
                ac_cv_autofs_style=solaris_v1 ;;
-       # Solaris 8 uses the AutoFS V3 protocol, but it's very similar to V2,
+       # Solaris 8+ uses the AutoFS V3 protocol, but it's very similar to V2,
        # so use one style for both.
-       solaris2.6* | solaris2.7* | solaris2.8* )
+       solaris* )
                ac_cv_autofs_style=solaris_v2_v3 ;;
 #       irix* )
 #	       ac_cv_autofs_style=solaris_v1 ;;

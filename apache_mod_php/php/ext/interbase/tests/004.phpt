@@ -1,16 +1,13 @@
 --TEST--
 InterBase: BLOB test
 --SKIPIF--
-<?php if (!extension_loaded("interbase")) print "skip"; ?>
+<?php include("skipif.inc"); ?>
 --POST--
 --GET--
 --FILE--
-<?
-/* $Id: 004.phpt,v 1.1.1.1 2000/09/07 00:05:33 wsanchez Exp $ */
+<?php
 
-    require("interbase/interbase.inc");
-    
-	$test_base = "ibase_test.tmp";
+    require("interbase.inc");
     
     ibase_connect($test_base);
 
@@ -23,8 +20,7 @@ InterBase: BLOB test
     /* create 10k blob file  */
     $blob_str = rand_binstr(10*1024);
 
-    $name = tempnam("","blob.tmp");
-    $name = "blob.tmp";
+    $name = tempnam(dirname(__FILE__),"blob.tmp");
     $ftmp = fopen($name,"w");
     fwrite($ftmp,$blob_str);
     fclose($ftmp);
@@ -38,7 +34,8 @@ InterBase: BLOB test
     $q = ibase_query("select v_blob from test4 where v_integer = 1");
     $row = ibase_fetch_object($q);
     $bl_h = ibase_blob_open($row->V_BLOB);
-    
+
+	$blob = '';    
     while($piece = ibase_blob_get($bl_h, rand() % 1024))
         $blob .= $piece;
     if($blob != $blob_str)
@@ -63,6 +60,7 @@ InterBase: BLOB test
     $q = ibase_query("select v_blob from test4 where v_integer = 2");
     $row = ibase_fetch_object($q);
     $bl_h = ibase_blob_open($row->V_BLOB);
+	$blob = '';
     while($piece = ibase_blob_get($bl_h, rand() % 1024))
         $blob .= $piece;
     if($blob != $blob_str)

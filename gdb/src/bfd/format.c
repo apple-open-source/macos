@@ -1,5 +1,5 @@
 /* Generic BFD support for file formats.
-   Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1999, 2000, 2001
+   Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
    Written by Cygnus Support.
 
@@ -52,7 +52,7 @@ FUNCTION
 	bfd_check_format
 
 SYNOPSIS
-	boolean bfd_check_format(bfd *abfd, bfd_format format);
+	bfd_boolean bfd_check_format(bfd *abfd, bfd_format format);
 
 DESCRIPTION
 	Verify if the file attached to the BFD @var{abfd} is compatible
@@ -67,7 +67,7 @@ DESCRIPTION
 	matches, it is used.  If not, exactly one target must recognize
 	the file, or an error results.
 
-	The function returns <<true>> on success, otherwise <<false>>
+	The function returns <<TRUE>> on success, otherwise <<FALSE>>
 	with one of the following error codes:
 
 	o <<bfd_error_invalid_operation>> -
@@ -85,7 +85,7 @@ DESCRIPTION
 	more than one backend recognised the file format.
 */
 
-boolean
+bfd_boolean
 bfd_check_format (abfd, format)
      bfd *abfd;
      bfd_format format;
@@ -98,10 +98,10 @@ FUNCTION
 	bfd_check_format_matches
 
 SYNOPSIS
-	boolean bfd_check_format_matches(bfd *abfd, bfd_format format, char ***matching);
+	bfd_boolean bfd_check_format_matches(bfd *abfd, bfd_format format, char ***matching);
 
 DESCRIPTION
-	Like <<bfd_check_format>>, except when it returns false with
+	Like <<bfd_check_format>>, except when it returns FALSE with
 	<<bfd_errno>> set to <<bfd_error_file_ambiguously_recognized>>.  In that
 	case, if @var{matching} is not NULL, it will be filled in with
 	a NULL-terminated list of the names of the formats that matched,
@@ -112,7 +112,7 @@ DESCRIPTION
 	should free it.
 */
 
-boolean
+bfd_boolean
 bfd_check_format_matches (abfd, format, matching)
      bfd *abfd;
      bfd_format format;
@@ -130,11 +130,11 @@ bfd_check_format_matches (abfd, format, matching)
       ((int) (abfd->format) >= (int) bfd_type_end))
     {
       bfd_set_error (bfd_error_invalid_operation);
-      return false;
+      return FALSE;
     }
   
   if (abfd->format != bfd_unknown)
-    return (abfd->format == format) ? true : false;
+    return abfd->format == format;
 
   /* Since the target type was defaulted, check them 
      all in the hope that one will be uniquely recognized.  */
@@ -143,14 +143,14 @@ bfd_check_format_matches (abfd, format, matching)
     (char **) bfd_malloc (sizeof (char *) *
 			  (_bfd_target_vector_entries + 1));
   if (! matching_targnames)
-    return false;
+    return FALSE;
   matching_targnames[0] = NULL;
 
   matching_bfd = 
     (bfd *) bfd_malloc (sizeof (struct _bfd) *
 			  (_bfd_target_vector_entries + 1));
   if (! matching_bfd)
-    return false;
+    return FALSE;
 
   match_count = 0;
 
@@ -161,14 +161,13 @@ bfd_check_format_matches (abfd, format, matching)
   if (! abfd->target_defaulted) 
     {
       const bfd_target *ntarget = NULL;
-      int nerror; 
 
       if (bfd_seek (abfd, (file_ptr) 0, SEEK_SET) != 0)	/* rewind */
-	return false;
+	return FALSE;
       abfd->format = format;
       ntarget = BFD_SEND_FMT (abfd, _bfd_check_format, (abfd));
       if (bfd_seek (abfd, (file_ptr) 0, SEEK_SET) != 0)	/* rewind */
-	return false;
+	return FALSE;
       if (ntarget)
 	{
 	  abfd->xvec = ntarget;
@@ -186,7 +185,6 @@ bfd_check_format_matches (abfd, format, matching)
 
       for (targetptr = bfd_target_vector; *targetptr != NULL; targetptr++) 
 	{
-
 	  /* no point checking for this; it will always match */
 	  if (*targetptr == &binary_vec)
 	    continue;
@@ -202,13 +200,13 @@ bfd_check_format_matches (abfd, format, matching)
 	  abfd->format = format;
 
 	  if (bfd_seek (abfd, (file_ptr) 0, SEEK_SET) != 0)
-	    return false;
+	    return FALSE;
 
 	  ntarget = BFD_SEND_FMT (abfd, _bfd_check_format, (abfd));
 	  nerror = bfd_get_error ();
 
 	  if (bfd_seek (abfd, (file_ptr) 0, SEEK_SET) != 0)
-	    return false;
+	    return FALSE;
 
 	  if (ntarget != NULL)
 	    {
@@ -247,19 +245,20 @@ bfd_check_format_matches (abfd, format, matching)
       memcpy (abfd, &matching_bfd[0], sizeof (struct _bfd));
       free (matching_bfd);
       free (matching_targnames);
-      return true;
+      return TRUE;
     }
   else if (match_count == 0)
     {
       bfd_set_error (bfd_error_file_not_recognized);
       free (matching_bfd);
-      free (matching_targnames);
-      return false;
+      if (matching != NULL)
+	*matching = matching_targnames;
+      return FALSE;
     }
   else
     {
       bfd_set_error (bfd_error_file_ambiguously_recognized);
-      return false;
+      return FALSE;
     }
 }
 
@@ -268,17 +267,16 @@ FUNCTION
 	bfd_set_format
 
 SYNOPSIS
-	boolean bfd_set_format(bfd *abfd, bfd_format format);
+	bfd_boolean bfd_set_format(bfd *abfd, bfd_format format);
 
 DESCRIPTION
 	This function sets the file format of the BFD @var{abfd} to the
 	format @var{format}. If the target set in the BFD does not
 	support the format requested, the format is invalid, or the BFD
 	is not open for writing, then an error occurs.
-
 */
 
-boolean
+bfd_boolean
 bfd_set_format (abfd, format)
      bfd *abfd;
      bfd_format format;
@@ -288,21 +286,22 @@ bfd_set_format (abfd, format)
       ((int) abfd->format >= (int) bfd_type_end))
     {
       bfd_set_error (bfd_error_invalid_operation);
-      return false;
+      return FALSE;
     }
 
   if (abfd->format != bfd_unknown)
-    return (abfd->format == format) ? true:false;
+    return abfd->format == format;
 
-  /* presume the answer is yes */
+  /* Presume the answer is yes.  */
   abfd->format = format;
 
-  if (!BFD_SEND_FMT (abfd, _bfd_set_format, (abfd))) {
-    abfd->format = bfd_unknown;
-    return false;
-  }
+  if (!BFD_SEND_FMT (abfd, _bfd_set_format, (abfd)))
+    {
+      abfd->format = bfd_unknown;
+      return FALSE;
+    }
 
-  return true;
+  return TRUE;
 }
 
 /*

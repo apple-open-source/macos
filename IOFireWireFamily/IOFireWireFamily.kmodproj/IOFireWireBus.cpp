@@ -23,20 +23,22 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1999-2002 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All rights reserved.
  *
  * HISTORY
  * 27 April 99 wgulland created.
  *
  */
 
-#include <IOKit/firewire/IOFireWireBus.h>
+#import <IOKit/firewire/IOFireWireBus.h>
+#import <IOKit/firewire/IOFWDCLPool.h>
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-OSDefineMetaClassAndStructors(IOFireWireBusAux, OSObject);
-OSMetaClassDefineReservedUnused(IOFireWireBusAux, 0);
-OSMetaClassDefineReservedUnused(IOFireWireBusAux, 1);
+OSDefineMetaClassAndAbstractStructors(IOFireWireBusAux, OSObject);
+
+OSMetaClassDefineReservedUsed(IOFireWireBusAux, 0);			// createDCLPool
+OSMetaClassDefineReservedUnused(IOFireWireBusAux, 1);		// will be createBufferFillIsochPort
 OSMetaClassDefineReservedUnused(IOFireWireBusAux, 2);
 OSMetaClassDefineReservedUnused(IOFireWireBusAux, 3);
 OSMetaClassDefineReservedUnused(IOFireWireBusAux, 4);

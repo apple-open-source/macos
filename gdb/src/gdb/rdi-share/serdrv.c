@@ -8,8 +8,8 @@
 
 /* -*-C-*-
  *
- * 1.1.1.3
- *     2000/01/18 00:54:36
+ * 1.2
+ *     2002/06/08 20:34:41
  *
  *
  * serdrv.c - Synchronous Serial Driver for Angel.
@@ -254,7 +254,7 @@ static int SerialOpen(const char *name, const char *arg)
 
     serial_reset();
 
-#if defined(__unix) || defined(__CYGWIN32__)
+#if defined(__unix) || defined(__CYGWIN__)
     Unix_ioctlNonBlocking();
 #endif
 

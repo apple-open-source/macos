@@ -1,13 +1,21 @@
 #	Makefile.inc,v 1.2 1994/09/13 21:26:01 wollman Exp
-# $FreeBSD: src/lib/libc/stdtime/Makefile.inc,v 1.13 2001/10/28 19:54:49 dillon Exp $
+# $FreeBSD: src/lib/libc/stdtime/Makefile.inc,v 1.14 2002/11/18 09:50:56 ru Exp $
 
-.PATH:	${.CURDIR}/stdtime ${.CURDIR}/locale
+.PATH:	${.CURDIR}/stdtime
 
-SRCS+=	timelocal.c asctime.c difftime.c localtime.c strftime.c strptime.c
+CFLAGS += -DNOTIFY_TZ
+
+.include "Makefile.fbsd_begin"
+FBSDSRCS= asctime.c difftime.c localtime.c strftime.c strptime.c timelocal.c \
+	time32.c
+FBSDORIGHDRS= private.h timelocal.h tzfile.h
+.include "Makefile.fbsd_end"
 
 .if ${LIB} == "c"
-MAN3+=	ctime.3 strftime.3 strptime.3 time2posix.3
-MAN5+=	tzfile.5
+.include "Makefile.fbsd_begin"
+FBSDMAN3= ctime.3 strftime.3 strptime.3 time2posix.3
+FBSDMAN5= tzfile.5
+.include "Makefile.fbsd_end"
 
 MLINKS+=ctime.3 asctime.3 ctime.3 difftime.3 ctime.3 gmtime.3 \
 	ctime.3 localtime.3 ctime.3 mktime.3 ctime.3 timegm.3 \

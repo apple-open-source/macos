@@ -12,23 +12,16 @@ StartService ()
     # Internet super-server.
     ##
     ConsoleMessage "Starting internet services"
-    inetd
-    xinetd -pidfile /var/run/xinetd.pid 
+    xinetd -inetd_compat -pidfile /var/run/xinetd.pid 
 
     ##
-    # Start up network boot cofiguration services.
+    # Internet Address Sharing.
     ##
-    if [ "${CONFIGSERVER:=-NO-}" = "-YES-" ]; then
-	ConsoleMessage "Starting host configuration services"
-
-	if [ "${NETBOOTSERVER:=-NO-}" = "-YES-" ]; then
-	    bootpd -m
-	else
-	    bootpd
+    if [ -a /etc/com.apple.named.conf.proxy ]
+    then
+		ConsoleMessage "Starting Internet address sharing"
+		/usr/libexec/InternetSharing
 	fi
-
-	bootparamd
-    fi
 }
 
 StopService ()

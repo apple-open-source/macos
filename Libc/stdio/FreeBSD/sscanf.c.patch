@@ -1,0 +1,20 @@
+Index: sscanf.c
+===================================================================
+RCS file: /cvs/root/Libc/stdio/FreeBSD/sscanf.c,v
+retrieving revision 1.2
+diff -u -d -b -w -u -r1.2 sscanf.c
+--- sscanf.c	2003/05/20 22:22:44	1.2
++++ sscanf.c	2003/06/03 06:56:38
+@@ -66,6 +66,12 @@
+ 	struct __sFILEX extra;
+ 	FILE f;
+ 
++#if defined(__APPLE_PR3275149_HACK__)
++	/* If the string is NULL and we're using the broken Jaguar behavior, there's no sense in proceeding any further since we know we can return 0 */
++	if (str && str[0] == '\0')
++		return 0;
++#endif
++
+ 	f._file = -1;
+ 	f._flags = __SRD;
+ 	f._bf._base = f._p = (unsigned char *)str;

@@ -30,6 +30,10 @@
 #ifndef _IOSCSICOMMAND_H
 #define _IOSCSICOMMAND_H
 
+#include "SCSICommand.h"
+#include "SCSIDevice.h"
+#include "IOCDBCommand.h"
+
 class IOSCSIDevice;
 class IOSCSICommand;
 

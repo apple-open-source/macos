@@ -129,11 +129,16 @@ EOS
 end
 
   if try_link(<<EOF)
-#include <sys/types.h>
-#include <netdb.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
+#ifdef _WIN32
+# include <windows.h>
+# include <winsock.h>
+#else
+# include <sys/types.h>
+# include <netdb.h>
+# include <string.h>
+# include <sys/socket.h>
+# include <netinet/in.h>
+#endif
 int
 main()
 {
@@ -148,10 +153,15 @@ EOF
 end
 
   if try_link(<<EOF)
-#include <sys/types.h>
-#include <netdb.h>
-#include <string.h>
-#include <sys/socket.h>
+#ifdef _WIN32
+# include <windows.h>
+# include <winsock.h>
+#else
+# include <sys/types.h>
+# include <netdb.h>
+# include <string.h>
+# include <sys/socket.h>
+#endif
 int
 main()
 {

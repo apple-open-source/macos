@@ -1,8 +1,6 @@
-#include "psauth.h"
 #include <stdio.h>
 #include <string.h>		//used for strcpy, etc.
 #include <stdlib.h>		//used for malloc
-
 #include <stdarg.h>
 #include <ctype.h>
 #include <sysexits.h>
@@ -14,14 +12,22 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <openssl/md5.h>
 #include <openssl/bn.h>
 #include <openssl/blowfish.h>
 
+int OLConvertBinaryToHex( const unsigned char *inData, long len, char *outHexStr );
+
+#include <PasswordServer/SASLCode.h>
+#include <PasswordServer/CPSUtilities.h>
+#include <PasswordServer/key.h>
+
+#include "psauth.h"
 #include "sasl.h"
 #include "saslutil.h"
 
-#include "key.h"
 
 #define kBigBuffSize						4096
 
@@ -29,272 +35,35 @@
 #define kPasswordServerErrPrefixStr			"-ERR "
 #define kPasswordServerSASLErrPrefixStr		"SASL "
 
-typedef enum PWServerErrorType {
-    kPolicyError,
-    kSASLError
-} PWServerErrorType;
+typedef struct sSASLContext {
+	const char *password;
+	char username[35];
+} sSASLContext;
 
-typedef struct PWServerError {
-    int err;
-    PWServerErrorType type;
-} PWServerError;
-
-
-int getnameinfo(const struct sockaddr *, size_t, char *, size_t, char *, size_t, int);
-typedef int sasl_cbproc();
+int getnameinfo(const struct sockaddr *, socklen_t, char *, size_t, char *, size_t, int);
 int getrealm(void *context /*__attribute__((unused))*/, 
 		    int id,
 		    const char **availrealms,
 		    const char **result);
-int simple(void *context /*__attribute__((unused))*/,
+int ol_simple(void *context /*__attribute__((unused))*/,
 		  int id,
 		  const char **result,
 		  unsigned *len);
 int
-getsecret(sasl_conn_t *conn,
+ol_getsecret(sasl_conn_t *conn,
 	  void *context /*__attribute__((unused))*/,
 	  int id,
 	  sasl_secret_t **psecret);
 
-typedef struct AuthMethName {
-    char method[SASL_MECHNAMEMAX + 1];
-} AuthMethName;
-
-// Context data structure
-typedef struct sPSContextData {
-//	char	   *psName;					//domain or ip address of passwordserver
-	int		offset;					//offset for GetDirNodeInfo data extraction
-										// TODO ... more as needed
-    sasl_conn_t *conn;
-    FILE *serverIn, *serverOut;
-    int fd;
-    AuthMethName *mech;
-    int mechCount;
-    
-	char *rsaPublicKeyStr;
-    Key *rsaPublicKey;
-	
-    char username[35];
-    const char *password;
-} sPSContextData;
-
 int DoRSAValidation ( sPSContextData *inContext, const char *inUserKey );
-
-void writeToServer( FILE *out, char *buf );
-void writeToServer( FILE *out, char *buf )
-{
-    fwrite(buf, strlen(buf), 1, out);
-    fflush(out);
-    
-}
-
-
-PWServerError readFromServer( FILE *in, char *buf, unsigned long bufLen );
-PWServerError readFromServer( FILE *in, char *buf, unsigned long bufLen )
-{
-    char readChar;
-    char *tstr = buf;
-    PWServerError result = {0, kPolicyError};
-    int compareLen;
-    
-    if ( buf == NULL || bufLen < 2 ) {
-        result.err = -1;
-        return result;
-    }
-    
-    *buf = '\0';
-    do
-    {
-        fscanf( in, "%c", &readChar );
-#ifdef DEBUG_PRINTFS
-        if ( isprint((unsigned char) readChar) )
-            printf( "%c ", readChar );
-        else
-            printf( "%x ", readChar );
-#endif
-        if ( (unsigned long)(tstr - buf) < bufLen - 1 )
-            *tstr++ = readChar;
-    }
-    while ( readChar && readChar != '\n' );
-    
-    *tstr = '\0';
-#ifdef DEBUG_PRINTFS
-    printf( "\n" );
-#endif
-    
-    tstr = buf;
-    compareLen = strlen(kPasswordServerErrPrefixStr);
-    if ( strncmp( tstr, kPasswordServerErrPrefixStr, compareLen ) == 0 )
-    {
-        tstr += compareLen;
-        
-        // check if err is a PasswordServer or SASL error
-        compareLen = strlen(kPasswordServerSASLErrPrefixStr);
-        if ( strncmp(tstr, kPasswordServerSASLErrPrefixStr, compareLen) == 0 ) {
-            tstr += compareLen;
-            result.type = kSASLError;
-        }
-        
-        sscanf( tstr, "%d", &result.err );
-    }
-    
-    return result;
-}
-
-
-/* remove \r\n at end of the line */
-static void chop(char *s)
-{
-    char *p;
-
-    if (s==NULL)
-        return;
-    
-    p = s + strlen(s) - 1;
-    if (p[0] == '\n') {
-        *p-- = '\0';
-    }
-    if (p >= s && p[0] == '\r') {
-        *p-- = '\0';
-    }
-}
-
-// --------------------------------------------------------------------------------
-//	ConvertBinaryToHex
-// --------------------------------------------------------------------------------
-void ConvertBinaryToHex( const unsigned char *inData, unsigned long inLen, char *outHexStr )
-{
-    const unsigned char *sptr = inData;
-    char *tptr = outHexStr;
-    unsigned long index;
-    char high, low;
-    
-    for ( index = 0; index < inLen; index++ )
-    {
-        high = (*sptr & 0xF0) >> 4;
-        low = (*sptr & 0x0F);
-        
-        if ( high >= 0x0A )
-            *tptr++ = (high - 0x0A) + 'A';
-        else
-            *tptr++ = high + '0';
-            
-        if ( low >= 0x0A )
-            *tptr++ = (low - 0x0A) + 'A';
-        else
-            *tptr++ = low + '0';
-            
-        sptr++;
-    }
-    
-    *tptr = '\0';
-}
-
-
-// --------------------------------------------------------------------------------
-//	ConvertHexToBinary
-// --------------------------------------------------------------------------------
-void ConvertHexToBinary( const char *inHexStr, unsigned char *outData, unsigned long *outLen )
-{
-    unsigned char *tptr = outData;
-    unsigned char val;
-    
-    while ( *inHexStr && *(inHexStr+1) )
-    {
-        if ( *inHexStr >= 'A' )
-            val = (*inHexStr - 'A' + 0x0A) << 4;
-        else
-            val = (*inHexStr - '0') << 4;
-        
-        inHexStr++;
-        
-        if ( *inHexStr >= 'A' )
-            val += (*inHexStr - 'A' + 0x0A);
-        else
-            val += (*inHexStr - '0');
-        
-        inHexStr++;
-        
-        *tptr++ = val;
-    }
-    
-    *outLen = (tptr - outData);
-}
-
-// --------------------------------------------------------------------------------
-//	ConvertBinaryTo64
-//
-//	Since Base64 rounds up to the nearest multiple of 4/3, prepend
-//	the original length of the data to the string.
-// --------------------------------------------------------------------------------
-int ConvertBinaryTo64( const char *inData, unsigned long inLen, char *outHexStr )
-{
-    int result;
-    unsigned int outLen;
-    char *tempBuf;
-    unsigned long bufLen = (inLen+3) * 4 / 3 + 1;
-    
-    tempBuf = (char *) malloc( bufLen + 1 );
-    if ( tempBuf == NULL )
-        return kAuthOtherError;
-    
-    result = sasl_encode64( (char *)inData, inLen, tempBuf, bufLen, &outLen );
-    tempBuf[outLen] = '\0';
-    sprintf( outHexStr, "{%lu}%s", inLen, tempBuf );
-    
-    free( tempBuf );
-    
-    return result;
-}
-
-
-// --------------------------------------------------------------------------------
-//	Convert64ToBinary
-// --------------------------------------------------------------------------------
-int Convert64ToBinary( const char *inHexStr, char *outData, unsigned long *outLen )
-{
-    int result;
-    unsigned int sasl_outlen;
-    unsigned long attached_outlen = 0;
-    const char *readPtr = inHexStr;
-    
-    // get the original length
-    if ( *readPtr == '{' )
-    {
-        sscanf( readPtr + 1, "%lu", &attached_outlen );
-        
-        readPtr = strchr( readPtr, '}' );
-        if ( readPtr == NULL )
-            return kAuthOtherError;
-        
-        readPtr++;
-    }
-    
-    result = sasl_decode64( readPtr, strlen(readPtr), (char *)outData, 256, &sasl_outlen );
-    
-    *outLen = (attached_outlen > 0) ? attached_outlen : (unsigned long)sasl_outlen;
-    
-    return result;
-}
-
+long BeginServerSession( sPSContextData *inContext, int inSock );
+long EndServerSession( sPSContextData *inContext, bool inSendQuit );
+int GetRSAPublicKey( sPSContextData *inContext, char *inData );
+long OLHandleFirstContact( sPSContextData *inContext, const char *inIP, const char *inKeyHash );
 
 //-------------
-int getrealm(void *context /*__attribute__((unused))*/, 
-		    int id,
-		    const char **availrealms,
-		    const char **result)
-{
-    /* paranoia check */
-    if (id != SASL_CB_GETREALM) return SASL_BADPARAM;
-    if (!result) return SASL_BADPARAM;
 
-	if (availrealms != NULL)
-		*result = *availrealms;
-		  
-    return SASL_OK;
-}
-
-int simple(void *context /*__attribute__((unused))*/,
+int ol_simple(void *context /*__attribute__((unused))*/,
 		  int id,
 		  const char **result,
 		  unsigned *len)
@@ -311,9 +80,9 @@ int simple(void *context /*__attribute__((unused))*/,
         case SASL_CB_USER:
         case SASL_CB_AUTHNAME:
             //printf("please enter an authorization id: ");
-            *result = ((sPSContextData *)context)->username;
+            *result = ((sSASLContext *)context)->username;
             if (len != NULL)
-                *len = strlen(((sPSContextData *)context)->username);
+                *len = strlen(((sSASLContext *)context)->username);
 #ifdef DEBUG_PRINTFS
             printf("simple - user = %s (len = %d)\n", *result, *len);
 #endif
@@ -328,12 +97,11 @@ int simple(void *context /*__attribute__((unused))*/,
 
 
 int
-getsecret(sasl_conn_t *conn,
+ol_getsecret(sasl_conn_t *conn,
 	  void *context /*__attribute__((unused))*/,
 	  int id,
 	  sasl_secret_t **psecret)
 {
-    char *password = NULL;
     size_t len = 0;
 	sasl_secret_t *xsec = NULL;
     
@@ -346,20 +114,15 @@ getsecret(sasl_conn_t *conn,
     
     *psecret = NULL;
     
-    /*
-    password = getpassphrase("Password: ");
-    if (! password)
-	return SASL_FAIL;
-    */
-    if (((sPSContextData *)context)->password)
+    if (((sSASLContext *)context)->password)
     {
-        len = strlen(((sPSContextData *)context)->password);
+        len = strlen(((sSASLContext *)context)->password);
         xsec = (sasl_secret_t *) malloc(sizeof(sasl_secret_t) + len + 1);
     	if ( xsec == NULL )
             return SASL_NOMEM;
         
         xsec->len = len;
-        strcpy((char *)xsec->data, ((sPSContextData *)context)->password);
+        strcpy((char *)xsec->data, ((sSASLContext *)context)->password);
     }
     
     *psecret = xsec;
@@ -367,191 +130,449 @@ getsecret(sasl_conn_t *conn,
 }
 
 
-//---------
-
-int getconn(const char *host, const char *port)
+void OLCalcServerUniqueID( const char *inRSAPublicKey, char *outHexHash )
 {
-    char servername[1024];
-	char *endPtr = NULL;
-    struct sockaddr_in sin;
-	int rc;
-	struct in_addr inetAddr;
-    struct hostent *hp;
-    int sock;
-
-    strncpy(servername, host, sizeof(servername) - 1);
-    servername[sizeof(servername) - 1] = '\0';
-    
-    /* map hostname -> IP */
-	rc = inet_aton(servername, &inetAddr);
-	if ( rc == 1 ) {
-		sin.sin_addr.s_addr = inetAddr.s_addr;
-	} else {
-		if ((hp = gethostbyname(servername)) == NULL) {
-#ifdef DEBUG_PRINTFS
-			perror("gethostbyname");
-#endif
-			return -1;
-		}
-		memcpy(&sin.sin_addr, hp->h_addr, hp->h_length);
-	}
-    
-    /* map port -> num */
-    sin.sin_port = htons(strtol(port, &endPtr, 10));
-	if ((sin.sin_port == 0) || (endPtr == port)) {
-#ifdef DEBUG_PRINTFS
-		printf("port '%s' unknown\n", port);
-#endif
-		return -1;
-    }
-
-    sin.sin_family = AF_INET;
-
-    /* connect */
-    sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock < 0) {
-#ifdef DEBUG_PRINTFS
-        perror("socket");
-#endif
-        return -1;
-    }
-    
-    if (connect(sock, (struct sockaddr *) &sin, sizeof (sin)) < 0) {
-#ifdef DEBUG_PRINTFS
-        perror("connect");
-#endif
-        return -1;
-    }
-
-    return sock;
+	MD5_CTX ctx;
+	unsigned char pubKeyHash[MD5_DIGEST_LENGTH];
+	
+	if ( inRSAPublicKey == NULL || outHexHash == NULL )
+		return;
+	
+	MD5_Init( &ctx );
+	MD5_Update( &ctx, inRSAPublicKey, strlen(inRSAPublicKey) );
+	MD5_Final( pubKeyHash, &ctx );
+	
+	outHexHash[0] = 0;
+	OLConvertBinaryToHex( pubKeyHash, MD5_DIGEST_LENGTH, outHexHash );
 }
+
+
+//-----------------------------------------------------------------------------
+//	OLConvertBinaryToHex
+//-----------------------------------------------------------------------------
+
+int OLConvertBinaryToHex( const unsigned char *inData, long len, char *outHexStr )
+{
+    bool result = true;
+	char *tptr = outHexStr;
+	int idx;
+	char base16table[16] = { '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F' };
+	
+    if ( inData == nil || outHexStr == nil )
+        return false;
+    
+	for ( idx = 0; idx < len; idx++ )
+	{
+		*tptr++ = base16table[(inData[idx] >> 4) & 0x0F];
+		*tptr++ = base16table[(inData[idx] & 0x0F)];
+	}
+	*tptr = '\0';
+		
+	return result;
+}
+
+
+// ---------------------------------------------------------------------------
+//	* OLHandleFirstContact
+// ---------------------------------------------------------------------------
+
+long OLHandleFirstContact( sPSContextData *inContext, const char *inIP, const char *inKeyHash )
+{
+	long siResult = 0;
+	char *psName;
+	CFDataRef serverRef;
+	bool usingLocalCache = false;
+	bool usingConfigRecord = false;
+	int sock = -1;
+	sPSServerEntry anEntry;
+	
+	bzero( &anEntry, sizeof(anEntry) );
+	
+	do
+	{
+		if ( inContext->serverList != NULL )
+			CFRelease( inContext->serverList );
+		
+		// try the directory's config record if provided
+		if ( inContext->replicaFile != NULL )
+		{
+			siResult = GetServerListFromConfig( &inContext->serverList, inContext->replicaFile );
+			if ( siResult == 0 && inContext->serverList != NULL && CFArrayGetCount( inContext->serverList ) > 0 )
+				siResult = IdentifyReachableReplica( inContext->serverList, inKeyHash, &anEntry, &sock );
+			
+			// if provided, the config list is the only list used
+			if ( siResult != 0 )
+				break;
+				
+			usingConfigRecord = true;
+		}
+		
+		if ( ! usingConfigRecord )
+		{
+			// try the local cache
+			siResult = GetPasswordServerList( &inContext->serverList, kPWSearchLocalFile );
+			if ( siResult == 0 && inContext->serverList != NULL && CFArrayGetCount( inContext->serverList ) > 0 )
+			{
+				siResult = IdentifyReachableReplica( inContext->serverList, inKeyHash, &anEntry, &sock );
+				usingLocalCache = ( siResult == 0 );
+			}
+		
+			// try the replication database
+			if ( siResult != 0 || !usingLocalCache )
+			{
+				if ( inContext->serverList != NULL )
+					CFRelease( inContext->serverList );
+					
+				siResult = GetPasswordServerList( &inContext->serverList, kPWSearchReplicaFile );
+				if ( siResult == 0 && inContext->serverList != NULL && CFArrayGetCount( inContext->serverList ) > 0 )
+					siResult = IdentifyReachableReplica( inContext->serverList, inKeyHash, &anEntry, &sock );
+			}
+			
+			// try rendezvous
+			if ( siResult != 0 )
+			{
+				if ( inContext->serverList != NULL )
+					CFRelease( inContext->serverList );
+					
+				siResult = GetPasswordServerList( &inContext->serverList, kPWSearchRegisteredServices );
+				if ( siResult == 0 && inContext->serverList != NULL && CFArrayGetCount( inContext->serverList ) > 0 )
+					siResult = IdentifyReachableReplica( inContext->serverList, inKeyHash, &anEntry, &sock );
+			}
+		}
+		
+		// try node IP
+		if ( inContext->serverList == NULL || siResult != 0 )
+		{
+			if ( inContext->serverList != NULL )
+				CFRelease( inContext->serverList );
+				
+			inContext->serverList = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
+			if ( inContext->serverList == NULL ) {
+				siResult = kAuthOtherError;
+				break;
+			}
+			
+			serverRef = CFDataCreate( kCFAllocatorDefault, (const unsigned char *)&inContext->serverProvidedFromNode, sizeof(sPSServerEntry) );
+			if ( serverRef == NULL ) {
+				siResult = kAuthOtherError;
+				break;
+			}
+			
+			CFArrayAppendValue( inContext->serverList, serverRef );
+			CFRelease( serverRef );
+			
+			siResult = IdentifyReachableReplica( inContext->serverList, inKeyHash, &anEntry, &sock );
+		}
+		
+		if ( siResult != 0 || anEntry.ip[0] == '\0' ) {
+			siResult = kAuthOtherError;
+			break;
+		}
+		
+		psName = (char *) calloc( 1, strlen(anEntry.ip) + 1 );
+		if ( psName == NULL ) {
+			siResult = kAuthOtherError;
+			break;
+		}
+		
+		strcpy( psName, anEntry.ip );
+		
+		if ( inContext->psName != NULL )
+			free( inContext->psName );
+		inContext->psName = psName;
+		
+		strncpy(inContext->psPort, anEntry.port, 10);
+		inContext->psPort[9] = '\0';
+		
+		siResult = BeginServerSession( inContext, sock );
+		if ( siResult == 0 )
+		{
+			if ( inKeyHash != NULL && strcmp( inKeyHash, inContext->rsaPublicKeyHash ) != 0 )
+			{
+				EndServerSession( inContext, true );
+				siResult = kAuthOtherError;
+				
+				if ( usingLocalCache )
+				{
+					struct stat sb;
+					
+					if ( stat( kPWReplicaLocalFile, &sb ) == 0 )
+					{
+						remove( kPWReplicaLocalFile );
+						siResult = OLHandleFirstContact( inContext, inIP, inKeyHash );
+					}
+				}
+			}
+		}
+	}
+	while ( 0 );
+	
+	return siResult;
+}
+
+
+// ---------------------------------------------------------------------------
+//	* BeginServerSession
+// ---------------------------------------------------------------------------
+
+long BeginServerSession( sPSContextData *inContext, int inSock )
+{
+	long siResult = 0;
+	unsigned count;
+	char *tptr, *end;
+	char buf[4096];
+	PWServerError serverResult;
+	int salen;
+	char hbuf[NI_MAXHOST], pbuf[NI_MAXSERV];
+	struct sockaddr_storage local_ip;
+	
+	do
+	{
+		if ( inSock != -1 )
+		{
+			inContext->fd = inSock;
+			inContext->serverIn = fdopen(inSock, "r");
+			inContext->serverOut = fdopen(inSock, "w");
+			
+			// discard the greeting message
+			readFromServer(inSock, buf, sizeof(buf));
+		}
+		else
+		{
+			// connect to remote server
+			siResult = ConnectToServer( inContext );
+			if ( siResult != 0 )
+				break;
+		}
+		
+		// set ip addresses
+		salen = sizeof(local_ip);
+		if (getsockname(inContext->fd, (struct sockaddr *)&local_ip, &salen) < 0) {
+		}
+		
+		getnameinfo((struct sockaddr *)&local_ip, salen,
+					hbuf, sizeof(hbuf), pbuf, sizeof(pbuf),
+					NI_NUMERICHOST | NI_WITHSCOPEID | NI_NUMERICSERV);
+		snprintf(inContext->localaddr, sizeof(inContext->localaddr), "%s;%s", hbuf, pbuf);
+		snprintf(inContext->remoteaddr, sizeof(inContext->remoteaddr), "%s;%s", inContext->psName, inContext->psPort);
+		
+		// retrieve the password server's list of available auth methods
+		serverResult = SendFlushRead( inContext, "LIST RSAPUBLIC", NULL, NULL, buf, sizeof(buf) );
+		if ( serverResult.err != 0 ) {
+			siResult = kAuthOtherError;
+			break;
+		}
+		
+		sasl_chop(buf);
+		tptr = buf;
+		for (count=0; tptr; count++ ) {
+			tptr = strchr( tptr, ' ' );
+			if (tptr) tptr++;
+		}
+		
+		if (count > 0) {
+			inContext->mech = (AuthMethName *)calloc(count, sizeof(AuthMethName));
+			if ( inContext->mech == NULL ) {
+				siResult = kAuthOtherError;
+				break;
+			}
+			
+			inContext->mechCount = count;
+		}
+		
+		tptr = strstr( buf, kSASLListPrefix );
+		if ( tptr )
+		{
+			tptr += strlen( kSASLListPrefix );
+			
+			for ( ; tptr && count > 0; count-- )
+			{
+				if ( *tptr == '\"' )
+					tptr++;
+				else
+					break;
+				
+				end = strchr( tptr, '\"' );
+				if ( end != NULL )
+					*end = '\0';
+					
+				strcpy( inContext->mech[count-1].method, tptr );
+				
+				tptr = end;
+				if ( tptr != NULL )
+					tptr += 2;
+			}
+		}
+		
+		// did the rsa public key come too?
+		if ( recvfrom( inContext->fd, buf, 1, (MSG_DONTWAIT | MSG_PEEK), NULL, NULL ) > 0 )
+		{
+			serverResult = readFromServer( inContext->fd, buf, sizeof(buf) );
+			if ( serverResult.err != 0 ) {
+				siResult = kAuthOtherError;
+				break;
+			}
+			
+			siResult = GetRSAPublicKey( inContext, buf );
+		}
+		else
+		{
+			// retrieve the password server's public RSA key
+			siResult = GetRSAPublicKey( inContext, NULL );
+		}
+		
+		if ( siResult != 0 )
+			break;
+	}
+	while ( 0 );
+	
+	return siResult;
+}
+    
+
+// ---------------------------------------------------------------------------
+//	* EndServerSession
+// ---------------------------------------------------------------------------
+
+long EndServerSession( sPSContextData *inContext, bool inSendQuit )
+{
+	if ( inSendQuit )
+	{
+		if ( Connected( inContext ) )
+		{
+			int result;
+			struct timeval recvTimeoutVal = { 0, 150000 };
+			char buf[1024];
+			
+			result = setsockopt( inContext->fd, SOL_SOCKET, SO_RCVTIMEO, &recvTimeoutVal, sizeof(recvTimeoutVal) );
+			
+			writeToServer( inContext->serverOut, "QUIT\r\n" );
+            readFromServer( inContext->fd, buf, sizeof(buf) );
+        }
+	}
+	
+	if ( inContext->serverIn != NULL ) {
+		fpurge( inContext->serverIn );
+		fclose( inContext->serverIn );
+		inContext->serverIn = NULL;
+	}
+	if ( inContext->serverOut != NULL ) {
+		fpurge( inContext->serverOut );
+		fclose( inContext->serverOut );
+		inContext->serverOut = NULL;
+	}
+	if ( inContext->fd > 0 ) {
+		close( inContext->fd );
+	}
+	// always set to -1
+	inContext->fd = -1;
+	
+	return 0;
+}
+
 
 // ---------------------------------------------------------------------------
 //	* GetRSAPublicKey
 // ---------------------------------------------------------------------------
 
-int GetRSAPublicKey( sPSContextData *inContext )
+int GetRSAPublicKey( sPSContextData *inContext, char *inData )
 {
+	char				*keyStr				= NULL;
+	char				*bufPtr				= NULL;
+    int					bits				= 0;
     PWServerError		serverResult;
     char				buf[1024];
-    char				*keyStr;
-    int					bits				= 0;
     
     if ( inContext == NULL )
         return kAuthOtherError;
-    
-    // get string
-    writeToServer( inContext->serverOut, "RSAPUBLIC\r\n" );
-    serverResult = readFromServer( inContext->serverIn, buf, 1024 );
-    if (serverResult.err != 0)
-    {
-#ifdef DEBUG_PRINTFS
-        printf("no public key\n");
-#endif
-        return kAuthKeyError;
-    }
-    
-    chop(buf);
-    inContext->rsaPublicKeyStr = (char *) calloc(1, strlen(buf)+1);
-    if ( inContext->rsaPublicKeyStr == NULL )
-        return kAuthKeyError;
-    
-    strcpy(inContext->rsaPublicKeyStr, buf + 4);
-    
-    // get as struct
-    inContext->rsaPublicKey = PS_key_new(KEY_RSA);
-    if ( inContext->rsaPublicKey == NULL )
-        return kAuthKeyError;
-    
-    keyStr = buf + 4;
-    bits = PS_key_read(inContext->rsaPublicKey, &keyStr);
-    if (bits == 0) {
-#ifdef DEBUG_PRINTFS
-        printf("no bits\n");
-#endif
-        return kAuthKeyError;
-    }
-    
+
+	if ( inData == NULL )
+	{
+		// get string
+		serverResult = SendFlushRead( inContext, "RSAPUBLIC", NULL, NULL, buf, sizeof(buf) );
+		if ( serverResult.err != 0 )
+			return kAuthKeyError;
+		
+		bufPtr = buf;
+	}
+	else
+	{
+		bufPtr = inData;
+	}
+		
+	sasl_chop( bufPtr );
+	inContext->rsaPublicKeyStr = (char *) calloc( 1, strlen(bufPtr)+1 );
+	if ( inContext->rsaPublicKeyStr == NULL )
+		return kAuthKeyError;
+	
+	strcpy( inContext->rsaPublicKeyStr, bufPtr + 4 );
+	
+	// get as struct
+	inContext->rsaPublicKey = key_new( KEY_RSA );
+	if ( inContext->rsaPublicKey == NULL )
+		return kAuthKeyError;
+        
+	keyStr = bufPtr + 4;
+	bits = pwsf_key_read(inContext->rsaPublicKey, &keyStr);
+	if (bits == 0)
+		return kAuthKeyError;
+	
+	// calculate the hash so we can check this later
+	OLCalcServerUniqueID( inContext->rsaPublicKeyStr, inContext->rsaPublicKeyHash );
+	
     return kAuthNoError;
 }
 
 
-int InitConnection(sPSContextData* pContext, char* psName, char* rsakey)
+// ---------------------------------------------------------------------------
+//	* InitConnection
+// ---------------------------------------------------------------------------
+
+int InitConnection(sPSContextData* pContext, sSASLContext *saslContext, char* psName, char* rsakey)
 {
-	int result;
-	unsigned count;
-	char *tptr, *end;
+	static sasl_callback_t callbacks[5];
+
+	long result;
 	sasl_security_properties_t secprops = {0,65535,4096,0,NULL,NULL};
-	int salen;
+	char hexHash[34];
 	
 	pContext->fd = -1;
-    
-    // 2.x
-	char localaddr[NI_MAXHOST + NI_MAXSERV],
-	remoteaddr[NI_MAXHOST + NI_MAXSERV];
-	char hbuf[NI_MAXHOST], pbuf[NI_MAXSERV];
-	struct sockaddr_storage local_ip, remote_ip;
-	char buf[kBigBuffSize];
-	static sasl_callback_t callbacks[5];
 	
 	// callbacks we support
 	callbacks[0].id = SASL_CB_GETREALM;
 	callbacks[0].proc = (sasl_cbproc *)&getrealm;
-	callbacks[0].context = pContext;
+	callbacks[0].context = saslContext;
 	
 	callbacks[1].id = SASL_CB_USER;
-	callbacks[1].proc = (sasl_cbproc *)&simple;
-	callbacks[1].context = pContext;
+	callbacks[1].proc = (sasl_cbproc *)&ol_simple;
+	callbacks[1].context = saslContext;
 	
 	callbacks[2].id = SASL_CB_AUTHNAME;
-	callbacks[2].proc = (sasl_cbproc *)&simple;
-	callbacks[2].context = pContext;
+	callbacks[2].proc = (sasl_cbproc *)&ol_simple;
+	callbacks[2].context = saslContext;
 	
 	callbacks[3].id = SASL_CB_PASS;
-	callbacks[3].proc = (sasl_cbproc *)&getsecret;
-	callbacks[3].context = pContext;
+	callbacks[3].proc = (sasl_cbproc *)&ol_getsecret;
+	callbacks[3].context = saslContext;
 	
 	callbacks[4].id = SASL_CB_LIST_END;
 	callbacks[4].proc = NULL;
 	callbacks[4].context = NULL;
 	
-	result = sasl_client_init(callbacks);
-	if ( result != SASL_OK ) {
-#ifdef DEBUG_PRINTFS
-		printf("sasl_client_init failed.\n");
-#endif
-		return kAuthOtherError;
+	if ( rsakey != NULL )
+	{
+		OLCalcServerUniqueID( rsakey, hexHash );
+		result = OLHandleFirstContact( pContext, NULL, hexHash );
+	}
+	else
+	{
+		result = OLHandleFirstContact( pContext, NULL, NULL );
 	}
 	
-	// connect to remote server
-	pContext->fd = getconn(psName, "106");
-    if (pContext->fd == -1)
-        return kAuthOtherError;
+	if ( result != kAuthNoError )
+		return result;
 	
-	// set ip addresses
-	salen = sizeof(local_ip);
-	if (getsockname(pContext->fd, (struct sockaddr *)&local_ip, &salen) < 0) {
-		perror("getsockname");
-	}
-	
-	getnameinfo((struct sockaddr *)&local_ip, salen,
-				hbuf, sizeof(hbuf), pbuf, sizeof(pbuf),
-				NI_NUMERICHOST | NI_WITHSCOPEID | NI_NUMERICSERV);
-	snprintf(localaddr, sizeof(localaddr), "%s;%s", hbuf, pbuf);
-	
-	salen = sizeof(remote_ip);
-	if (getpeername(pContext->fd, (struct sockaddr *)&remote_ip, &salen) < 0) {
-#ifdef DEBUG_PRINTFS
-		perror("getpeername");
-#endif
-	}
-	
-	getnameinfo((struct sockaddr *)&remote_ip, salen,
-				hbuf, sizeof(hbuf), pbuf, sizeof(pbuf),
-				NI_NUMERICHOST | NI_WITHSCOPEID | NI_NUMERICSERV);
-	snprintf(remoteaddr, sizeof(remoteaddr), "%s;%s", hbuf, pbuf);
-	
-	result = sasl_client_new("rcmd", psName, localaddr, remoteaddr, NULL, 0, &pContext->conn);
+	result = sasl_client_new("rcmd", psName, pContext->localaddr, pContext->remoteaddr, callbacks, 0, &pContext->conn);
 	if ( result != SASL_OK || pContext->conn == NULL ) {
 #ifdef DEBUG_PRINTFS
 		printf("sasl_client_new failed.\n");
@@ -561,66 +582,12 @@ int InitConnection(sPSContextData* pContext, char* psName, char* rsakey)
 	
 	result = sasl_setprop(pContext->conn, SASL_SEC_PROPS, &secprops);
 	
-	pContext->serverIn = fdopen(pContext->fd, "r");
-	pContext->serverOut = fdopen(pContext->fd, "w");
-	
-	// yank hi there text
-	readFromServer(pContext->serverIn, buf, sizeof(buf));
-	
-    // retrieve the password server's public RSA key
-    result = GetRSAPublicKey(pContext);
-    if ( result != kAuthNoError ) {
-        return result;
-    }
-	
-	writeToServer(pContext->serverOut, "LIST\r\n");
-	readFromServer(pContext->serverIn, buf, sizeof(buf));
-	chop(buf);
-	tptr = buf;
-	for (count=0; tptr; count++ ) {
-		tptr = strchr( tptr, ' ' );
-		if (tptr) tptr++;
-	}
-	
-	if (count > 0) {
-		pContext->mech = (AuthMethName *)calloc(count, sizeof(AuthMethName));
-		if ( pContext->mech == NULL )
-			return( kAuthOtherError );
-		
-		pContext->mechCount = count;
-	}
-	
-	tptr = strstr(buf, kSASLListPrefix);
-	if ( tptr )
-	{
-		tptr += strlen(kSASLListPrefix);
-		
-		for ( ; tptr && count > 0; count-- )
-		{
-			if ( *tptr == '\"' )
-				tptr++;
-			else
-				break;
-			
-			end = strchr(tptr, '\"');
-			if (end)
-				*end = '\0';
-				
-			strcpy(pContext->mech[count-1].method, tptr);
-#ifdef DEBUG_PRINTFS
-            printf("mech=%s\n", tptr);
-#endif			
-			tptr = end;
-			if ( tptr )
-				tptr+=2;
-		}
-	}
-    
     return kAuthNoError;
 }
 
 int DoSASLAuth(
     sPSContextData *inContext,
+    sSASLContext *inSASLContext,
     const char *userName,
     const char *password,
     const char *inMechName )
@@ -649,10 +616,10 @@ int DoSASLAuth(
                     
         // attach the username and password to the sasl connection's context
         // set these before calling sasl_client_start
-        strncpy(inContext->username, userName, 35);
-        inContext->username[34] = '\0';
+        strncpy(inSASLContext->username, userName, 35);
+        inSASLContext->username[34] = '\0';
         
-        inContext->password = password;
+        inSASLContext->password = password;
         
 #ifdef DEBUG_PRINTFS
         const char **gmechs = sasl_global_listmech();
@@ -679,12 +646,12 @@ int DoSASLAuth(
         writeToServer(inContext->serverOut, dataBuf);
         
         // flush the read buffer; don't care what the response is for now
-        readFromServer( inContext->serverIn, buf, sizeof(buf) );
+        readFromServer( inContext->fd, buf, sizeof(buf) );
         
         // send the auth method
         dataBuf[0] = 0;
         if ( len > 0 )
-            ConvertBinaryToHex( (const unsigned char *)data, len, dataBuf );
+            OLConvertBinaryToHex( (const unsigned char *)data, len, dataBuf );
         
 #ifdef DEBUG_PRINTFS
         printf("AUTH %s %s\r\n", chosenmech, dataBuf);
@@ -696,7 +663,7 @@ int DoSASLAuth(
         writeToServer(inContext->serverOut, buf);
         
         // get server response
-        serverResult = readFromServer(inContext->serverIn, buf, sizeof(buf));
+        serverResult = readFromServer(inContext->fd, buf, sizeof(buf));
         if (serverResult.err != 0) {
 #ifdef DEBUG_PRINTFS
             printf("server returned an error, err=%d\n", serverResult);
@@ -704,7 +671,7 @@ int DoSASLAuth(
             return kAuthenticationError;
         }
         
-        chop(buf);
+        sasl_chop(buf);
         len = strlen(buf);
         
         while ( 1 )
@@ -741,7 +708,7 @@ int DoSASLAuth(
 #ifdef DEBUG_PRINTFS
                 printf("sending response length %d...\n", len);
 #endif
-                ConvertBinaryToHex( (const unsigned char *)data, len, dataBuf );
+                OLConvertBinaryToHex( (const unsigned char *)data, len, dataBuf );
                 
 #ifdef DEBUG_PRINTFS
                 printf("AUTH2 %s\r\n", dataBuf);
@@ -762,7 +729,7 @@ int DoSASLAuth(
             else
                 break;
             
-            serverResult = readFromServer(inContext->serverIn, buf, sizeof(buf) );
+            serverResult = readFromServer(inContext->fd, buf, sizeof(buf) );
             if ( serverResult.err != 0 ) {
 #ifdef DEBUG_PRINTFS
                 printf("server returned an error, err=%d\n", serverResult);
@@ -770,7 +737,7 @@ int DoSASLAuth(
                 return kAuthenticationError;
             }
             
-            chop(buf);
+            sasl_chop(buf);
             len = strlen(buf);
             
             if ( r != SASL_CONTINUE )
@@ -788,11 +755,13 @@ int DoRSAValidation ( sPSContextData *inContext, const char *inUserKey )
 {
 	int					siResult			= kAuthNoError;
 	PWServerError		serverResult;
-    char				buf[1024];
     BIGNUM				*nonce;
 	BN_CTX				*ctx;
-	char				*bnStr;
+	char				*bnStr				= NULL;
 	int					len;
+    int					nonceLen			= 0;
+    char				buf[1024];
+    char				encodedStr[1024];
     
     if ( inContext == NULL )
         return kAuthOtherError;
@@ -813,15 +782,12 @@ int DoRSAValidation ( sPSContextData *inContext, const char *inUserKey )
     BN_CTX_free(ctx);
     
     bnStr = BN_bn2dec(nonce);
+	BN_clear_free(nonce);
+	
 #ifdef DEBUG_PRINTFS
     printf("nonce = %s\n", bnStr);
 #endif    
-    int nonceLen = strlen(bnStr);
-    char *encodedStr = (char *)malloc(1024);
-    
-    if ( encodedStr == NULL )
-        return kAuthOtherError;
-    
+    nonceLen = strlen(bnStr);
     len = RSA_public_encrypt(nonceLen,
                                 (unsigned char *)bnStr,
                                 (unsigned char *)encodedStr,
@@ -832,6 +798,8 @@ int DoRSAValidation ( sPSContextData *inContext, const char *inUserKey )
 #ifdef DEBUG_PRINTFS
         printf("rsa_public_encrypt() failed");
 #endif
+		if ( bnStr != NULL )
+			free( bnStr );
         return kAuthKeyError;
     }
     
@@ -843,9 +811,9 @@ int DoRSAValidation ( sPSContextData *inContext, const char *inUserKey )
         snprintf( writeBuf, sizeof(writeBuf), "RSAVALIDATE %s\r\n", buf );
         writeToServer( inContext->serverOut, writeBuf );
         
-        serverResult = readFromServer( inContext->serverIn, buf, sizeof(buf) );
+        serverResult = readFromServer( inContext->fd, buf, sizeof(buf) );
         
-        if ( Convert64ToBinary( buf + 4, encodedStr, &encodedStrLen ) == SASL_OK )
+        if ( Convert64ToBinary( buf + 4, encodedStr, sizeof(encodedStr), &encodedStrLen ) == SASL_OK )
         {
             encodedStr[nonceLen] = '\0';
 #ifdef DEBUG_PRINTFS
@@ -856,23 +824,22 @@ int DoRSAValidation ( sPSContextData *inContext, const char *inUserKey )
         }
     }
     
+	if ( bnStr != NULL )
+		free( bnStr );
+	
     return siResult;
 }
 
-int CloseConnection ( sPSContextData *pContext )
+int OLCloseConnection ( sPSContextData *pContext )
 {
-	int				siResult	= kAuthNoError;
-    char			buf[1024];
+	int siResult = kAuthNoError;
     
-    //TODO do whatever to close out the context
-    writeToServer(pContext->serverOut, "QUIT\r\n");
-
-    // crashes
-    readFromServer( pContext->serverIn, buf, sizeof(buf) );
-    
+	EndServerSession( pContext, true );
+	
 	return( siResult );
 
-} // CloseConnection
+} // OLCloseConnection
+
 
 // ---------------------------------------------------------------------------
 //	* CleanContextData
@@ -914,11 +881,11 @@ int CleanContextData ( sPSContextData *inContext )
             inContext->serverOut = NULL;
         }
         
-        if (inContext->fd != -1)
+        if (inContext->fd > 0)
         {
             close(inContext->fd);
-            inContext->fd = -1;
         }
+		inContext->fd = -1;
         
 		if (inContext->rsaPublicKeyStr != NULL)
 		{
@@ -928,7 +895,7 @@ int CleanContextData ( sPSContextData *inContext )
 		
 		if (inContext->rsaPublicKey != NULL)
 		{
-			PS_key_free(inContext->rsaPublicKey);
+			key_free(inContext->rsaPublicKey);
 			inContext->rsaPublicKey = NULL;
 		}
 		
@@ -939,22 +906,19 @@ int CleanContextData ( sPSContextData *inContext )
         }
         
         inContext->mechCount = 0;
-        
-        memset(inContext->username, 0, sizeof(inContext->username));
-        
-        if (inContext->password != NULL)
-            inContext->password = NULL;
 	}
-
+	
     return( siResult );
 
 } // CleanContextData
 
 int ParseAuthorityData(char* inAuthAuthorityData, char** vers, 
-                        char** type, char** id, char** addr, char** key)
+                        char** type, char** id, char** addr, char** key, bool *addrIsID)
 {
     char* temp;
     
+	*addrIsID = false;
+	
     *vers = inAuthAuthorityData;
     temp = strchr(*vers, ';');
     if (temp == NULL) return 0;
@@ -980,7 +944,12 @@ int ParseAuthorityData(char* inAuthAuthorityData, char** vers,
 	else
 	if ( strncmp( *addr, "dns/", 4 ) == 0 )
 		*addr += 4;
-    
+	else
+	if ( strncmp( *addr, "id/", 3 ) == 0 ) {
+		*addr += 3;
+		*addrIsID = true;
+	}
+	
     return 1;
 }
 
@@ -993,33 +962,93 @@ int CheckAuthType(char* inAuthAuthorityData, char* authType)
 
 int DoPSAuth(char* userName, char* password, char* inAuthAuthorityData)
 {
-    sPSContextData context;
     char* infoVersion = NULL;
     char* authType = NULL;
     char* userID = NULL;
     char* serverAddr = NULL;
     char* rsaKey = NULL;
-    char* authDataCopy;
-    
+    char* authDataCopy = NULL;
+	int result;
+	bool addrIsID = false;
+	int rc;
+	int error_num;
+	sPSContextData context;
+    sSASLContext saslContext;
+	sPSServerEntry anEntry;
+	struct in_addr inetAddr;
+	struct hostent *hostEnt;
+	
+	bzero( &context, sizeof(sPSContextData) );
+	CleanContextData ( &context );
+	
+	do { // not a loop
     // copy to our own buffer
-    authDataCopy = malloc(strlen(inAuthAuthorityData) + 1);
-    if ( authDataCopy == NULL )
-        return kAuthOtherError;
+    authDataCopy = (char *)malloc(strlen(inAuthAuthorityData) + 1);
+    if ( authDataCopy == NULL ) {
+        result = kAuthOtherError;
+		break;
+	}
     
     strcpy(authDataCopy, inAuthAuthorityData);
     if (!ParseAuthorityData(authDataCopy, &infoVersion, &authType, 
-                            &userID, &serverAddr, &rsaKey))
-        return kAuthOtherError;
-
-    // check version???
-    // if (strcmp(infoVersion, "1")) return kAuthOtherError;
+                            &userID, &serverAddr, &rsaKey, &addrIsID)) {
+		result = kAuthOtherError;
+		break;
+	}
 
     // check auth info type
-    if (strcmp(authType, PASSWORD_SERVER_AUTH_TYPE) != 0) return kAuthOtherError;
-    
-    int result = InitConnection(&context, serverAddr, rsaKey);
+    if (strcmp(authType, PASSWORD_SERVER_AUTH_TYPE) != 0) {
+		result = kAuthOtherError;
+		break;
+	}
+	
+    if ( addrIsID && strlen(serverAddr) >= sizeof(anEntry.id) ) {
+		result = kAuthOtherError;
+		break;
+	} else if ( strlen(serverAddr) >= sizeof(anEntry.ip) ) {
+		result = kAuthOtherError;
+		break;
+	}
+	
+	bzero( &anEntry, sizeof(anEntry) );
+		
+	if ( addrIsID )
+	{
+		strcpy( anEntry.id, serverAddr );
+	}
+	else
+	{
+		// is it an IP address?
+		rc = inet_aton( serverAddr, &inetAddr );
+		if ( rc == 1 )
+		{
+			strcpy( anEntry.ip, serverAddr );
+		}
+		else
+		{
+			strncpy( anEntry.dns, serverAddr, sizeof(anEntry.dns) );
+			anEntry.dns[sizeof(anEntry.dns) - 1] = '\0';
+			
+			// resolve if possible
+			
+			hostEnt = getipnodebyname( anEntry.dns, AF_INET, AI_DEFAULT, &error_num );
+			if ( hostEnt != NULL )
+			{
+				if ( hostEnt->h_addr_list[0] != NULL ) {
+					if ( inet_ntop(AF_INET, hostEnt->h_addr_list[0], anEntry.ip, sizeof(anEntry.ip)) == NULL )
+						anEntry.ip[0] = 0;
+				}
+				freehostent( hostEnt );
+			}
+		}
+		
+		anEntry.ipFromNode = true;
+	}
+	context.serverProvidedFromNode = anEntry;
+	
+    result = InitConnection(&context, &saslContext, serverAddr, rsaKey);
     if (result != kAuthNoError)
-        return result;
+		break;
         
     if (rsaKey != NULL)
     {
@@ -1027,9 +1056,14 @@ int DoPSAuth(char* userName, char* password, char* inAuthAuthorityData)
     }
     
     if (result == kAuthNoError)
-    	result = DoSASLAuth(&context, userID, password, "DIGEST-MD5");
-    CloseConnection(&context);
+    	result = DoSASLAuth(&context, &saslContext, userID, password, "CRAM-MD5");
+	} while (0);	
+	
+    OLCloseConnection(&context);
     CleanContextData(&context);
-    free(authDataCopy);
+	if (authDataCopy != NULL)
+		free(authDataCopy);
+	
     return result;
 }
+

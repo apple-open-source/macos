@@ -1,0 +1,37 @@
+Velkommen til epostlisten %(real_name)s@%(host_name)s !
+%(welcome)s
+For å sende en epost til listen, send den til:
+
+  %(emailaddr)s
+
+Generell informasjon om listen finner du på:
+
+  %(listinfo_url)s
+
+Hvis du ønsker å melde deg av listen eller endre på dine innstillinger
+for listen (f.eks. endre passord, få tilsendt sammendrag med jevne
+mellomrom isteden, etc.), gå inn på din personlige medlemsside:
+
+  %(optionsurl)s
+%(umbrella)s
+Du kan også endre slike innstillinger ved å sende en epost til:
+
+  %(real_name)s-request@%(host_name)s
+
+med ordet "help" i emnefeltet eller i innholdet. Du vil da motta en epost
+med nærmere instruksjoner.
+
+Du må benytte et passord for å endre på dine innstillinger for listen, (også
+for å endre passordet) eller for å melde deg av listen.
+Passordet ditt er:
+
+  %(password)s
+
+Normalt vil Mailman en gang i måneden sende deg en epost med påminnelse om
+passordene du har for epostlistene du er medlem av på %(host_name)s,
+men det kan du skru av dersom du ønsker det.
+Påminnelsen vil også inneholde informasjon om hvordan du kan melde deg av
+listen, eller endre dine personlige innstillinger for listen.
+
+På din personlige medlemsside finnes det også en knapp som du kan trykke
+hvis du ønsker å få passordet ditt tilsendt i en epost.

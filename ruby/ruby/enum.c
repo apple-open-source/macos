@@ -2,8 +2,8 @@
 
   enum.c -
 
-  $Author: jkh $
-  $Date: 2002/05/27 17:59:43 $
+  $Author: melville $
+  $Date: 2003/05/14 13:58:42 $
   created at: Fri Oct  1 15:15:19 JST 1993
 
   Copyright (C) 1993-2000 Yukihiro Matsumoto
@@ -84,8 +84,9 @@ enum_find(argc, argv, obj)
     rb_scan_args(argc, argv, "01", &if_none);
     rb_iterate(rb_each, obj, find_i, (VALUE)memo);
     if (memo->u2.value) {
+	VALUE result = memo->u1.value;
 	rb_gc_force_recycle((VALUE)memo);
-	return memo->u1.value;
+	return result;
     }
     if (!NIL_P(if_none)) {
 	rb_eval_cmd(if_none, rb_ary_new2(0));
@@ -223,11 +224,13 @@ static VALUE
 enum_min(obj)
     VALUE obj;
 {
+    VALUE result;
     NODE *memo = rb_node_newnode(NODE_MEMO, Qnil, 0, 0);
 
     rb_iterate(rb_each, obj, rb_block_given_p()?min_ii:min_i, (VALUE)memo);
+    result = memo->u1.value;
     rb_gc_force_recycle((VALUE)memo);
-    return memo->u1.value;
+    return result;
 }
 
 static VALUE
@@ -268,11 +271,13 @@ static VALUE
 enum_max(obj)
     VALUE obj;
 {
+    VALUE result;
     NODE *memo = rb_node_newnode(NODE_MEMO, Qnil, 0, 0);
 
     rb_iterate(rb_each, obj, rb_block_given_p()?max_ii:max_i, (VALUE)memo);
+    result = memo->u1.value;
     rb_gc_force_recycle((VALUE)memo);
-    return memo->u1.value;
+    return result;
 }
 
 static VALUE
@@ -292,7 +297,6 @@ enum_member(obj, val)
     VALUE obj, val;
 {
     VALUE result;
-
     NODE *memo = rb_node_newnode(NODE_MEMO, val, Qfalse, 0);
 
     rb_iterate(rb_each, obj, member_i, (VALUE)memo);
@@ -319,7 +323,7 @@ enum_each_with_index(obj)
 
     rb_iterate(rb_each, obj, each_with_index_i, (VALUE)memo);
     rb_gc_force_recycle((VALUE)memo);
-    return Qnil;
+    return obj;
 }
 
 void

@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: dnode.c,v 1.4 2001/03/19 12:19:07 abe Exp $";
+static char *rcsid = "$Id: dnode.c,v 1.6 2002/10/08 20:16:56 abe Exp $";
 #endif
 
 
@@ -48,11 +48,11 @@ _PROTOTYPE(static int lkup_dev_tty,(dev_t *dr, dev_t *rdr, unsigned long *ir));
 #endif	/* DARWINV<600 */
 
 
+#if	DARWINV<600
 /*
  * lkup_dev_tty() - look up /dev/tty
  */
 
-#if	DARWINV<600
 static int
 lkup_dev_tty(dr, rdr, ir)
 	dev_t *dr;			/* place to return device number */
@@ -95,17 +95,6 @@ process_node(va)
 	static unsigned long fi;
 	static dev_t fdev, frdev;
 	static int fs = 0;
-#if	DARWINV<600
-	struct hfsnode *h = (struct hfsnode *)NULL;
-	struct hfsnode hb;
-	struct hfsfilemeta *hm = (struct hfsfilemeta *)NULL;
-	struct hfsfilemeta hmb;
-#else	/* cnode */
-	struct cnode *h = (struct cnode *)NULL;
-        struct cnode hb;
-        struct filefork *hf = (struct filefork *)NULL;
-        struct filefork hfb;
-#endif	/* DARWINV<600 */
 	struct inode *i = (struct inode *)NULL;
 	struct inode ib;
 	struct lockf lf, *lff, *lfp;
@@ -115,6 +104,18 @@ process_node(va)
 	enum vtype type;
 	struct vnode *v, vb;
 	struct l_vfs *vfs;
+
+#if	DARWINV<600
+	struct hfsnode *h = (struct hfsnode *)NULL;
+	struct hfsnode hb;
+	struct hfsfilemeta *hm = (struct hfsfilemeta *)NULL;
+	struct hfsfilemeta hmb;
+#else	/* DARWINV>=600 */
+	struct cnode *h = (struct cnode *)NULL;
+	struct cnode hb;
+	struct filefork *hf = (struct filefork *)NULL;
+	struct filefork hfb;
+#endif	/* DARWINV<600 */
 
 #if	defined(HAS9660FS)
 	dev_t iso_dev;
@@ -227,6 +228,7 @@ process_node(va)
 		    return;
 		}
 		h = &hb;
+
 #if	DARWINV<600
 		if (!h->h_meta
 		||  kread((KA_T)h->h_meta, (char *)&hmb, sizeof(hmb))) {
@@ -236,13 +238,13 @@ process_node(va)
 		    return;
 		}
 		hm = &hmb;
-#else
+#else	/* DARWINV>=600 */
 		if (v->v_type == VDIR)
-			break;
+		    break;
 		if (h->c_rsrc_vp == v)
-			hf = h->c_rsrcfork;
+		    hf = h->c_rsrcfork;
 		else
-			hf = h->c_datafork;
+		    hf = h->c_datafork;
 		if (!hf
 		||  kread((KA_T)hf, (char *)&hfb, sizeof(hfb))) {
 		    (void) snpf(Namech, Namechl, "no hfs node fork: %s",
@@ -371,6 +373,7 @@ process_node(va)
 	    if (f->fd_link
 	    &&  !kread((KA_T)f->fd_link, Namech, Namechl -1))
 		Namech[Namechl - 1] = '\0';
+
 #if	DARWINV<600
 	    else if (f->fd_type == Fctty) {
 		if (fs == 0)
@@ -383,19 +386,24 @@ process_node(va)
 		}
 	    }
 #endif	/* DARWINV<600 */
+
 	} else if (h) {
+
 #if	DARWINV<600
 	    dev = hm->h_dev;
-#else
+#else	/* DARWINV>=600 */
 	    dev = h->c_dev;
 #endif	/* DARWINV<600 */
+
 	    devs = 1;
 	    if ((type == VCHR) || (type == VBLK)) {
+
 #if	DARWINV<600
 		rdev = hm->h_rdev;
-#else
+#else	/* DARWINV>=600 */
 		rdev = h->c_rdev;
 #endif	/* DARWINV<600 */
+
 		rdevs = 1;
 	    }
 	} else if (d) {
@@ -417,19 +425,19 @@ process_node(va)
  * Obtain the inode number.
  */
 	if (i) {
-	    if (type != VBLK) {
-		Lf->inode = (unsigned long)i->i_number;
-		Lf->inp_ty = 1;
-	    }
+	    Lf->inode = (unsigned long)i->i_number;
+	    Lf->inp_ty = 1;
 	} else if (n) {
 	    Lf->inode = (unsigned long)n->n_vattr.va_fileid;
 	    Lf->inp_ty = 1;
 	} else if (h) {
+
 #if	DARWINV<600
 	    Lf->inode = (unsigned long)hm->h_nodeID;
-#else
+#else	/* DARWINV>=600 */
 	    Lf->inode = (unsigned long)h->c_fileid;
 #endif	/* DARWINV<600 */
+
 	    Lf->inp_ty = 1;
 	}
 
@@ -469,15 +477,17 @@ process_node(va)
 			Lf->sz = (SZOFFTYPE)i->i_size;
 			Lf->sz_def = 1;
 		    } else if (h) {
+
 #if	DARWINV<600
 			Lf->sz = (type == VDIR) ? (SZOFFTYPE)hm->h_size
 						: (SZOFFTYPE)h->fcbEOF;
-#else
+#else	/* DARWINV>=600 */
 			if (type == VDIR)
-				Lf->sz = (SZOFFTYPE)h->c_nlink * 128;
+			    Lf->sz = (SZOFFTYPE)h->c_nlink * 128;
 			else
-				Lf->sz = (SZOFFTYPE)hf->ff_size;
+			    Lf->sz = (SZOFFTYPE)hf->ff_size;
 #endif	/* DARWINV<600 */
+
 			Lf->sz_def = 1;
 		    }
 
@@ -516,11 +526,13 @@ process_node(va)
 		    Lf->nlink = (long)i->i_nlink;
 		    Lf->nlink_def = 1;
 		} else if (h) {
+
 #if	DARWINV<600
 		    Lf->nlink = (long)hm->h_nlink;
-#else
+#else	/* DARWINV>=600 */
 		    Lf->nlink = (long)h->c_nlink;
 #endif	/* DARWINV<600 */
+
 		    Lf->nlink_def = 1;
 		}
 

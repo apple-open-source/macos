@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -48,6 +51,7 @@ typedef struct sTreeNode
    	char			*fNodeName;
 	tDataList		*fDataListPtr;
 	CServerPlugin	*fPlugInPtr;
+	uInt32			fPlugInToken;
 	eDirNodeType	fType;
    	sTreeNode		*left;
    	sTreeNode		*right;
@@ -69,18 +73,21 @@ public:
 	void			CountNodes			( uInt32 *outCount );
 	bool		 	IsPresent			( const char *inStr, eDirNodeType inType );
 	bool		 	GetPluginHandle		( const char *inStr, CServerPlugin **outPlugInPtr );
-
+	CServerPlugin*	GetPluginPtr		( sTreeNode* nodePtr );
+	
 	sInt32			GetNodes			( char *inStr, tDirPatternMatch inMatch, tDataBuffer *inBuff );
 
-	sInt32		   	AddNode				( const char *inStr, tDataList *inListPtr, eDirNodeType inType, CServerPlugin *inPlugInPtr );
+	sInt32		   	AddNode				( const char *inStr, tDataList *inListPtr, eDirNodeType inType, CServerPlugin *inPlugInPtr, uInt32 inToken );
 	bool			DeleteNode			( char *inStr );
 
 	sInt32		   	BuildNodeListBuff	( sGetDirNodeList *inData );
 
 	const char*		GetDelimiter		( void ) { return( "~" ); };
 
-	void			WaitForLocalNode	( void );
-	void			WaitForConfigureNode( void );
+	void			WaitForLocalNode		( void );
+	void			WaitForConfigureNode	( void );
+	void			WaitForDHCPLDAPv3Init	( void );
+	void			WaitForAuthenticationSearchNode	( void );
 
 protected:
 	// Protected member functions
@@ -98,12 +105,13 @@ private:
 
 	sInt32		DoBuildNodeListBuff		( sTreeNode *inTree, tDataBuffer *outData, uInt32 *outCount );
 
-	sInt32	   	AddLocalNode					( const char *inStr, tDataList *inListPtr, eDirNodeType inType, CServerPlugin *inPlugInPtr );
-	sInt32	   	AddNodeToTree					( sTreeNode **inTree, const char *inStr, tDataList *inListPtr, eDirNodeType inType, CServerPlugin *inPlugInPtr );
-	sInt32	   	AddAuthenticationSearchNode		( const char *inStr, tDataList *inListPtr, eDirNodeType inType, CServerPlugin *inPlugInPtr );
-	sInt32	   	AddContactsSearchNode			( const char *inStr, tDataList *inListPtr, eDirNodeType inType, CServerPlugin *inPlugInPtr );
-	sInt32	   	AddNetworkSearchNode			( const char *inStr, tDataList *inListPtr, eDirNodeType inType, CServerPlugin *inPlugInPtr );
-	sInt32	   	AddConfigureNode				( const char *inStr, tDataList *inListPtr, eDirNodeType inType, CServerPlugin *inPlugInPtr );
+	sInt32	   	AddLocalNode					( const char *inStr, tDataList *inListPtr, eDirNodeType inType, CServerPlugin *inPlugInPtr, uInt32 inToken );
+	sInt32	   	AddNodeToTree					( sTreeNode **inTree, const char *inStr, tDataList *inListPtr, eDirNodeType inType, CServerPlugin *inPlugInPtr, uInt32 inToken );
+	sInt32	   	AddAuthenticationSearchNode		( const char *inStr, tDataList *inListPtr, eDirNodeType inType, CServerPlugin *inPlugInPtr, uInt32 inToken );
+	sInt32	   	AddContactsSearchNode			( const char *inStr, tDataList *inListPtr, eDirNodeType inType, CServerPlugin *inPlugInPtr, uInt32 inToken );
+	sInt32	   	AddNetworkSearchNode			( const char *inStr, tDataList *inListPtr, eDirNodeType inType, CServerPlugin *inPlugInPtr, uInt32 inToken );
+	sInt32	   	AddConfigureNode				( const char *inStr, tDataList *inListPtr, eDirNodeType inType, CServerPlugin *inPlugInPtr, uInt32 inToken );
+	sInt32	   	AddDHCPLDAPv3Node				( const char *inStr, tDataList *inListPtr, eDirNodeType inType, CServerPlugin *inPlugInPtr, uInt32 inToken );
 
 	bool	 	GetLocalNode					( CServerPlugin **outPlugInPtr );
 	bool	 	GetLocalNode					( tDataList **outListPtr );
@@ -117,7 +125,6 @@ private:
 	bool	 	GetNetworkSearchNode			( CServerPlugin **outPlugInPtr );
 	bool	 	GetNetworkSearchNode			( tDataList **outListPtr );
 
-	void		WaitForAuthenticationSearchNode	( void );
 	void		WaitForContactsSearchNode		( void );
 	void		WaitForNetworkSearchNode		( void );
 
@@ -131,7 +138,8 @@ private:
 	sTreeNode		   *fLocalHostedNodes;
 	sTreeNode		   *fDefaultNetworkNodes;
 	uInt32				fCount;
-	uInt32				fToken;
+	uInt32				fNodeChangeToken;
+    bool				bDHCPLDAPv3InitComplete;
 
 	DSMutexSemaphore		fMutex;
 	DSMutexSemaphore		fWaitForAuthenticationSN;
@@ -139,6 +147,7 @@ private:
 	DSMutexSemaphore		fWaitForNetworkSN;
 	DSMutexSemaphore		fWaitForLN;
 	DSMutexSemaphore		fWaitForConfigureN;
+	DSMutexSemaphore		fWaitForDHCPLDAPv3InitFlag;
 };
 
 #endif

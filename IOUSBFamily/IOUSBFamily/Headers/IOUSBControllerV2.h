@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +22,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 #ifndef _IOKIT_IOUSBCONTROLLERV2_H
 #define _IOKIT_IOUSBCONTROLLERV2_H
 
@@ -54,14 +55,17 @@ class IOUSBControllerV2 : public IOUSBController
 {
     OSDeclareAbstractStructors(IOUSBControllerV2)
 
-private:
+protected:
     
     // These for keeping track of high speed ancestor to allow controller to do splits.
     //
     UInt8 _highSpeedHub[128];
     UInt8 _highSpeedPort[128];
 
-    struct V2ExpansionData { /* */ };
+    struct V2ExpansionData { 
+	UInt8 _multiTT[128];
+	IOUSBCommand 	*ClearTTCommand;
+	};
     V2ExpansionData * _v2ExpansionData;
 
     // Super's expansion data
@@ -76,6 +80,7 @@ private:
     #define _currentSizeOfIsocCommandPool	_expansionData->_currentSizeOfIsocCommandPool
     #define _controllerSpeed		_expansionData->_controllerSpeed
 
+    virtual bool 		init( OSDictionary *  propTable );
 
     /*!
 	@function openPipe
@@ -91,6 +96,12 @@ private:
     static IOReturn  DoCreateEP(OSObject *owner,
                            void *arg0, void *arg1,
                            void *arg2, void *arg3);
+
+    static void		clearTTHandler( 
+			    OSObject *	target,
+                            void *	parameter,
+                            IOReturn	status,
+                            UInt32	bufferSizeRemaining );
 
 public:
 
@@ -229,7 +240,9 @@ public:
     OSMetaClassDeclareReservedUsed(IOUSBControllerV2,  5);
     virtual UInt64		GetMicroFrameNumber( void );
     
-    OSMetaClassDeclareReservedUnused(IOUSBControllerV2,  6);
+    OSMetaClassDeclareReservedUsed(IOUSBControllerV2,  6);
+    virtual void ClearTT(USBDeviceAddress addr, UInt8 endpt, Boolean IN);
+
     OSMetaClassDeclareReservedUnused(IOUSBControllerV2,  7);
     OSMetaClassDeclareReservedUnused(IOUSBControllerV2,  8);
     OSMetaClassDeclareReservedUnused(IOUSBControllerV2,  9);

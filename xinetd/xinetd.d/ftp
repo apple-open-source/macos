@@ -7,5 +7,5 @@ service ftp
 	server		= /usr/libexec/ftpd
 	server_args	= -l
 	groups		= yes
-	flags		= REUSE
+	flags		= REUSE IPv6
 }

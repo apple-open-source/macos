@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -55,9 +58,11 @@ static CacheEntry gCacheEntries[kCacheMaxEntries];
 static char       gCacheBuffer[kCacheSize];
 #endif
 
+#if CACHE_STATS
 unsigned long     gCacheHits;
 unsigned long     gCacheMisses;
 unsigned long     gCacheEvicts;
+#endif
 
 void CacheInit( CICell ih, long blockSize )
 {
@@ -74,9 +79,11 @@ void CacheInit( CICell ih, long blockSize )
     gCacheNumEntries = kCacheSize / gCacheBlockSize;
     gCacheTime = 0;
     
+#if CACHE_STATS
     gCacheHits = 0;
     gCacheMisses = 0;
     gCacheEvicts = 0;
+#endif
 
     gCacheIH = ih;
 
@@ -113,7 +120,9 @@ long CacheRead( CICell ih, char * buffer, long long offset,
         // If the data was found copy it to the caller.
         if (cnt != gCacheNumEntries) {
             bcopy(gCacheBuffer + cnt * gCacheBlockSize, buffer, gCacheBlockSize);
+#if CACHE_STATS
             gCacheHits++;
+#endif
             return gCacheBlockSize;
         }
 
@@ -124,7 +133,9 @@ long CacheRead( CICell ih, char * buffer, long long offset,
     // Read the data from the disk.
     Seek(ih, offset);
     Read(ih, (long)buffer, length);
+#if CACHE_STATS
     if (cache) gCacheMisses++;
+#endif
 
     // Put the data from the disk in the cache if needed.
     if (loadCache) {
@@ -145,7 +156,9 @@ long CacheRead( CICell ih, char * buffer, long long offset,
         // If no free entry was found, use the oldest.
         if (cnt == gCacheNumEntries) {
             cnt = oldestEntry;
+#if CACHE_STATS
             gCacheEvicts++;
+#endif
         }
 
         // Copy the data from disk to the new entry.

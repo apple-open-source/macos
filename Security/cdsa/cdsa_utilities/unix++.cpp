@@ -34,14 +34,14 @@ void FileDesc::open(const char *path, int flags, mode_t mode)
 {
     checkSetFd(::open(path, flags, mode));
     mAtEnd = false;
-    debug("unixio", "open(%s,0x%x,0x%x) = %d", path, flags, mode, mFd);
+    secdebug("unixio", "open(%s,0x%x,0x%x) = %d", path, flags, mode, mFd);
 }
 
 void FileDesc::close()
 {
     if (mFd >= 0) {
         checkError(::close(mFd));
-        debug("unixio", "close(%d)", mFd);
+        secdebug("unixio", "close(%d)", mFd);
         mFd = invalidFd;
     }
 }
@@ -55,11 +55,11 @@ size_t FileDesc::read(void *addr, size_t length)
     switch (ssize_t rc = ::read(mFd, addr, length)) {
     case 0:		// end-of-source
         if (length == 0) { // check for errors, but don't set mAtEnd unless we have to
-            debug("unixio", "%d zero read (ignored)", mFd);
+            secdebug("unixio", "%d zero read (ignored)", mFd);
             return 0;
         }
         mAtEnd = true;
-        debug("unixio", "%d end of data", mFd);
+        secdebug("unixio", "%d end of data", mFd);
         return 0;
     case -1:	// error
         if (errno == EAGAIN)
@@ -109,7 +109,7 @@ void *FileDesc::mmap(int prot, size_t length, int flags, off_t offset, void *add
 int FileDesc::fcntl(int cmd, int arg) const
 {
     int rc = ::fcntl(mFd, cmd, arg);
-    debug("unixio", "%d fcntl(%d,%d) = %d", mFd, cmd, arg, rc);
+    secdebug("unixio", "%d fcntl(%d,%d) = %d", mFd, cmd, arg, rc);
     if (rc == -1)
         UnixError::throwMe();
     return rc;
@@ -172,6 +172,17 @@ size_t FileDesc::fileSize() const
 FILE *FileDesc::fdopen(const char *form)
 {
     return ::fdopen(mFd, form);
+}
+
+
+//
+// Signals and signal masks
+//
+SigSet sigMask(SigSet set, int how /* = SIG_SETMASK */)
+{
+	sigset_t old;
+	checkError(::sigprocmask(how, &set.value(), &old));
+	return old;
 }
 
 

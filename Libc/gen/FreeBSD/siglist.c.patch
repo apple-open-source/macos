@@ -1,0 +1,7 @@
+--- siglist.c.orig	Sat Sep  7 01:14:19 2002
++++ siglist.c	Thu May  8 00:46:49 2003
+@@ -109,4 +109,3 @@
+ 	"User defined signal 1",	/* SIGUSR1 */
+ 	"User defined signal 2"		/* SIGUSR2 */
+ };
+-const int sys_nsig = sizeof(sys_siglist) / sizeof(sys_siglist[0]);

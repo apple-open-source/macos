@@ -25,8 +25,8 @@
  
 #include <IOKit/IOLib.h>
 #include <IOKit/firewire/IOFireWireController.h>
-#include "IOFireWireAVCConsts.h"
-#include "IOFireWirePCRSpace.h"
+#include <IOKit/avc/IOFireWireAVCConsts.h>
+#include <IOKit/avc/IOFireWirePCRSpace.h>
 
 OSDefineMetaClassAndStructors(IOFireWirePCRSpace, IOFWPseudoAddressSpace)
 OSMetaClassDefineReservedUnused(IOFireWirePCRSpace, 0);
@@ -36,7 +36,9 @@ OSMetaClassDefineReservedUnused(IOFireWirePCRSpace, 3);
 
 bool IOFireWirePCRSpace::init(IOFireWireBus *bus)
 {
-    if(!IOFWPseudoAddressSpace::initFixed(bus, 
+    //IOLog( "IOFireWirePCRSpace::init (0x%08X)\n",(int) this);
+
+	if(!IOFWPseudoAddressSpace::initFixed(bus, 
             FWAddress(kCSRRegisterSpaceBaseAddressHi, kPCRBaseAddress),
             sizeof(fBuf), simpleReader, NULL, this))
         return false;
@@ -64,14 +66,19 @@ bool IOFireWirePCRSpace::init(IOFireWireBus *bus)
     fBuf[32] = (2 << kIOFWPCRDataRatePhase) |
                 (0xff << kIOFWPCRExtensionPhase) |
                 (31 << kIOFWPCRNumPlugsPhase);
-    
-    return true;
+
+	fAVCTargetSpace = NULL;
+
+	return true;
 }
 
 IOFireWirePCRSpace * IOFireWirePCRSpace::getPCRAddressSpace(IOFireWireBus *bus)
 {
     IOFWAddressSpace *existing;
     IOFireWirePCRSpace *space;
+
+	//IOLog( "IOFireWirePCRSpace::getPCRAddressSpace\n");
+	
     existing = bus->getAddressSpace(FWAddress(kCSRRegisterSpaceBaseAddressHi, kPCRBaseAddress));
     if(existing && OSDynamicCast(IOFireWirePCRSpace, existing)) {
         existing->retain();
@@ -91,6 +98,8 @@ IOFireWirePCRSpace * IOFireWirePCRSpace::getPCRAddressSpace(IOFireWireBus *bus)
 UInt32 IOFireWirePCRSpace::doWrite(UInt16 nodeID, IOFWSpeed &speed, FWAddress addr, UInt32 len,
                            const void *buf, IOFWRequestRefCon refcon)
 {
+	//IOLog( "IOFireWirePCRSpace::doWrite (0x%08X)\n",(int) this);
+
     if(addr.addressHi != kCSRRegisterSpaceBaseAddressHi)
         return kFWResponseAddressError;
     if((addr.addressLo < kPCRBaseAddress) || (addr.addressLo + len > kPCRBaseAddress + 64*4))
@@ -113,12 +122,21 @@ UInt32 IOFireWirePCRSpace::doWrite(UInt16 nodeID, IOFWSpeed &speed, FWAddress ad
     if(fClients[offset].func)
         (fClients[offset].func)(fClients[offset].refcon, nodeID, (offset-1) & 31, oldVal, newVal);
 
+	// Notify target space object of plug value modification
+	if ((fAVCTargetSpace) && (offset > 0) && (offset < 32))
+		fAVCTargetSpace->pcrModified(IOFWAVCPlugIsochOutputType,(offset-1),newVal);
+	else if ((fAVCTargetSpace) && (offset > 32) && (offset < 64))
+		fAVCTargetSpace->pcrModified(IOFWAVCPlugIsochInputType,(offset-33),newVal);
+
     return kFWResponseComplete;
 }
 
 IOReturn IOFireWirePCRSpace::activate()
 {
     IOReturn res = kIOReturnSuccess;
+
+	//IOLog( "IOFireWirePCRSpace::activate (0x%08X)\n",(int) this);
+
     if(!fActivations++)
         res = IOFWAddressSpace::activate();
         
@@ -127,6 +145,8 @@ IOReturn IOFireWirePCRSpace::activate()
 
 void IOFireWirePCRSpace::deactivate()
 {
+	//IOLog( "IOFireWirePCRSpace::deactivate (0x%08X)\n",(int) this);
+
     if(!--fActivations)
         IOFWAddressSpace::deactivate();
 }
@@ -135,7 +155,9 @@ IOReturn IOFireWirePCRSpace::allocatePlug(void *refcon, IOFireWirePCRCallback fu
 {
     UInt32 i;
     IOReturn res = kIOReturnNoResources;
-    
+
+	//IOLog( "IOFireWirePCRSpace::allocatePlug (0x%08X)\n",(int) this);
+	
     fControl->closeGate();
     for(i=0; i<32; i++) {
         if(!head[i].func) {
@@ -152,6 +174,8 @@ IOReturn IOFireWirePCRSpace::allocatePlug(void *refcon, IOFireWirePCRCallback fu
 
 void IOFireWirePCRSpace::freePlug(UInt32 plug, Client* client)
 {
+	//IOLog( "IOFireWirePCRSpace::freePlug (0x%08X)\n",(int) this);
+
     fControl->closeGate();
     client->func = NULL;
     fBuf[plug] = 0;
@@ -160,6 +184,8 @@ void IOFireWirePCRSpace::freePlug(UInt32 plug, Client* client)
 
 UInt32 IOFireWirePCRSpace::readPlug(UInt32 plug)
 {
+	//IOLog( "IOFireWirePCRSpace::readPlug (0x%08X)\n",(int) this);
+
     UInt32 val;
     fControl->closeGate();
     val = fBuf[plug];
@@ -170,11 +196,19 @@ UInt32 IOFireWirePCRSpace::readPlug(UInt32 plug)
 
 IOReturn IOFireWirePCRSpace::updatePlug(UInt32 plug, UInt32 oldVal, UInt32 newVal)
 {
-    IOReturn res;
+	//IOLog( "IOFireWirePCRSpace::updatePlug (0x%08X)\n",(int) this);
+
+	IOReturn res;
     fControl->closeGate();
     if(oldVal == fBuf[plug]) {
         fBuf[plug] = newVal;
         res = kIOReturnSuccess;
+
+		// Notify target space object of plug value modification
+		if ((fAVCTargetSpace) && (plug > 0) && (plug < 32))
+			fAVCTargetSpace->pcrModified(IOFWAVCPlugIsochOutputType,(plug-1),newVal);
+		else if ((fAVCTargetSpace) && (plug > 32) && (plug < 64))
+			fAVCTargetSpace->pcrModified(IOFWAVCPlugIsochInputType,(plug-33),newVal);
     }
     else
         res = kIOReturnCannotLock;
@@ -184,68 +218,151 @@ IOReturn IOFireWirePCRSpace::updatePlug(UInt32 plug, UInt32 oldVal, UInt32 newVa
 
 IOReturn IOFireWirePCRSpace::allocateInputPlug(void *refcon, IOFireWirePCRCallback func, UInt32 &plug)
 {
+	//IOLog( "IOFireWirePCRSpace::allocateInputPlug (0x%08X)\n",(int) this);
+
     return allocatePlug(refcon, func, plug, fClients+33);
 }
 
 void IOFireWirePCRSpace::freeInputPlug(UInt32 plug)
 {
+	//IOLog( "IOFireWirePCRSpace::freeInputPlug (0x%08X)\n",(int) this);
+
     freePlug(plug+33, fClients+plug+33);
 }
 
 
 UInt32 IOFireWirePCRSpace::readInputPlug(UInt32 plug)
 {
+	//IOLog( "IOFireWirePCRSpace::readInputPlug (0x%08X)\n",(int) this);
+
     return readPlug(plug+33);
 }
 
 
 IOReturn IOFireWirePCRSpace::updateInputPlug(UInt32 plug, UInt32 oldVal, UInt32 newVal)
 {
+	//IOLog( "IOFireWirePCRSpace::updateInputPlug (0x%08X)\n",(int) this);
+
     return updatePlug(plug+33, oldVal, newVal);
 }
 
 IOReturn IOFireWirePCRSpace::allocateOutputPlug(void *refcon, IOFireWirePCRCallback func, UInt32 &plug)
 {
-    return allocatePlug(refcon, func, plug, fClients+1);
+    IOReturn result;
+
+	//IOLog( "IOFireWirePCRSpace::allocateOutputPlug (0x%08X)\n",(int) this);
+
+    result = allocatePlug(refcon, func, plug, fClients+1);
+    return result;
 }
 
 void IOFireWirePCRSpace::freeOutputPlug(UInt32 plug)
 {
+	//IOLog( "IOFireWirePCRSpace::freeOutputPlug (0x%08X)\n",(int) this);
+
     freePlug(plug+1, fClients+plug+1);
 }
 
 
 UInt32 IOFireWirePCRSpace::readOutputPlug(UInt32 plug)
 {
+	//IOLog( "IOFireWirePCRSpace::readOutputPlug (0x%08X)\n",(int) this);
+
     return readPlug(plug+1);
 }
 
 
 IOReturn IOFireWirePCRSpace::updateOutputPlug(UInt32 plug, UInt32 oldVal, UInt32 newVal)
 {
+	//IOLog( "IOFireWirePCRSpace::updateOutputPlug (0x%08X)\n",(int) this);
+
     return updatePlug(plug+1, oldVal, newVal);
 }
 
 UInt32 IOFireWirePCRSpace::readOutputMasterPlug()
 {
+	//IOLog( "IOFireWirePCRSpace::readOutputMasterPlug (0x%08X)\n",(int) this);
+
     return readPlug(0);
 }
 
 
 IOReturn IOFireWirePCRSpace::updateOutputMasterPlug(UInt32 oldVal, UInt32 newVal)
 {
+	//IOLog( "IOFireWirePCRSpace::updateOutputMasterPlug (0x%08X)\n",(int) this);
+
     return updatePlug(0, oldVal, newVal);
 }
 
 UInt32 IOFireWirePCRSpace::readInputMasterPlug()
 {
+	//IOLog( "IOFireWirePCRSpace::readInputMasterPlug (0x%08X)\n",(int) this);
+
     return readPlug(32);
 }
 
 
 IOReturn IOFireWirePCRSpace::updateInputMasterPlug(UInt32 oldVal, UInt32 newVal)
 {
+	//IOLog( "IOFireWirePCRSpace::updateInputMasterPlug (0x%08X)\n",(int) this);
+
     return updatePlug(32, oldVal, newVal);
 }
 
+void IOFireWirePCRSpace::setAVCTargetSpacePointer(IOFireWireAVCTargetSpace *pAVCTargetSpace)
+{
+	//IOLog( "IOFireWirePCRSpace::setAVCTargetSpacePointer (0x%08X)\n",(int) this);
 
+	fAVCTargetSpace = pAVCTargetSpace;
+	return;
+}
+
+void IOFireWirePCRSpace::clearAllP2PConnections(void)
+{
+	int i;
+	UInt32 oldVal;
+	
+	//IOLog( "IOFireWirePCRSpace::clearAllP2PConnections (0x%08X)\n",(int) this);
+
+	// Handle oPCRs
+    for(i=0; i<32; i++)
+	{
+		fControl->closeGate();
+		oldVal = fBuf[i+1];
+		if ((oldVal & 0x3F000000) != 0)
+		{
+			fBuf[i+1] &= 0xC0FFFFFF;	// Clear P2P field
+
+			// If this plug has a client, notify it
+			if(fClients[i+1].func)
+				(fClients[i+1].func)(fClients[i+1].refcon, 0xFFFF, i, oldVal, fBuf[i+1]);
+
+			// Notify the AVC Target Space Object of the change
+			if (fAVCTargetSpace)
+				fAVCTargetSpace->pcrModified(IOFWAVCPlugIsochOutputType,i,fBuf[i+1]);
+		}
+		fControl->openGate();
+	}
+
+	// Handle iPCRs
+    for(i=0; i<32; i++)
+	{
+		fControl->closeGate();
+		oldVal = fBuf[i+33];
+		if ((oldVal & 0x3F000000) != 0)
+		{
+			fBuf[i+33] &= 0xC0FFFFFF;	// Clear P2P field
+
+			// If this plug has a client, notify it
+			if(fClients[i+33].func)
+				(fClients[i+33].func)(fClients[i+33].refcon, 0xFFFF, i, oldVal, fBuf[i+33]);
+
+			// Notify the AVC Target Space Object of the change
+			if (fAVCTargetSpace)
+				fAVCTargetSpace->pcrModified(IOFWAVCPlugIsochInputType,i,fBuf[i+33]);
+		}
+		fControl->openGate();
+	}
+	
+	return;
+}

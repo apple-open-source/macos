@@ -1,0 +1,34 @@
+#!/bin/sh
+#
+# Synthesize limits.h to be installed in the the system.  It is
+# basically glimits.h with some additional stuff in front.
+#
+# This script is only called from the top-level GNUmakefile.  It
+# is called as follows:
+#
+# synthesize_limits $(SRCROOT) file
+#
+# i.e., it will add some stuff to $(SRCROOT)/gcc/glimits.h and
+# output the header into the file.
+#
+cat <<EOF >"$2"
+/* limits.h */
+#ifndef _LIMITS_H___
+#define _LIMITS_H___
+
+#if defined (__ppc__)
+#include <ppc/limits.h>
+#elif defined (__i386__)
+#include <i386/limits.h>
+#else
+#error architecture not supported
+#endif
+
+#undef MB_LEN_MAX
+EOF
+
+cat "$1"/gcc/glimits.h | grep -v _LIMITS_H___  >>"$2"
+
+cat <<EOF >>"$2"
+#endif /* _LIMITS_H___ */
+EOF

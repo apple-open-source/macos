@@ -32,9 +32,9 @@
 #include <Security/debugging.h>
 #include <Security/cssmdata.h>
 
-#define BlockCryptDebug(args...)	debug("blockCrypt", ## args)
-#define bprintf(args...)			debug("blockCryptBuf", ## args)
-#define ioprintf(args...)			debug("blockCryptIo", ## args)
+#define BlockCryptDebug(args...)	secdebug("blockCrypt", ## args)
+#define bprintf(args...)			secdebug("blockCryptBuf", ## args)
+#define ioprintf(args...)			secdebug("blockCryptIo", ## args)
 
 BlockCryptor::~BlockCryptor()
 {
@@ -576,7 +576,7 @@ size_t BlockCryptor::inputSize(
 
 size_t BlockCryptor::outputSize(
 	bool 			final,
-	size_t 			inSize = 0) 		// output for given input size
+	size_t 			inSize /*= 0*/) 		// output for given input size
 {
 	size_t rawBytes = inSize + mInBufSize;
 	// huh?Êdon't round this up!

@@ -1,0 +1,61 @@
+
+# Use: PBX  Target : Project ;
+rule PBX
+{
+	PBXBuild all         : "$(2)" "$(1)" all ;
+	PBXBuild build       : "$(2)" "$(1)" build ;
+	PBXBuild installsrc  : "$(2)" "$(1)" installsrc ;
+	PBXBuild installhdrs : "$(2)" "$(1)" installhdrs ;
+	PBXBuild install     : "$(2)" "$(1)" install ;
+	PBXBuild clean       : "$(2)" "$(1)" clean ;
+}
+
+actions PBX
+{
+}
+
+# Use: PBXBuild Action : Project Target Action;
+rule PBXBuild
+{
+    ALWAYS "$(1)" ;
+    NOTFILE "$(2[2])" ;
+    NOTFILE "$(2[3])" ;
+    
+    # When this jam script is called, these variables are set in the environment (PB checkbox)
+    # However, pbxbuild won't inherit these values from us, so we pass them in on the command line...
+    #
+    ENVIRONMENT = ;
+    if $(DSTROOT) != ""              { ENVIRONMENT += "DSTROOT=$(DSTROOT:J= )" ; }
+    if $(OBJROOT) != ""              { ENVIRONMENT += "OBJROOT=$(OBJROOT:J= )" ; }
+    if $(SYMROOT) != ""              { ENVIRONMENT += "SYMROOT=$(SYMROOT:J= )" ; }
+    if $(OPTIMIZATION_CFLAGS) != ""  { ENVIRONMENT += "OPTIMIZATION_CFLAGS=$(OPTIMIZATION_CFLAGS:J= )" ; }
+    if $(OTHER_CFLAGS) != ""         { ENVIRONMENT += "OTHER_CFLAGS=$(OTHER_CFLAGS:J= )" ; }
+    if $(OTHER_CPLUSPLUSFLAGS) != "" { ENVIRONMENT += "OTHER_CPLUSPLUSFLAGS =$(OTHER_CPLUSPLUSFLAGS:J= )" ; }
+    if $(INSTALL_MODE_FLAG) != ""    { ENVIRONMENT += "INSTALL_MODE_FLAG=$(INSTALL_MODE_FLAG:J= )" ; }
+    if $(KERBEROS_ORDER_FILE) != ""  { ENVIRONMENT += "KERBEROS_ORDER_FILE=$(KERBEROS_ORDER_FILE:J= )" ; }
+} 
+
+actions PBXBuild
+{
+    # Marshall sez "Insane!"
+    #srcroot=`echo -n "$(2[1]:D)" | perl -pe 'if (/^\.(\/.+)$/) { $_ = $ENV{PWD} . $1; }'`
+    
+    if [ -x /usr/bin/pbbuild ]; then
+        # Xcode
+        PBCOMMAND=/usr/bin/pbbuild
+    elif [ -x /usr/bin/pbxbuild ]; then
+        # Project Builder
+        PBCOMMAND=/usr/bin/pbxbuild
+    else
+        echo "ERROR!  No command line IDE"
+        exit 1
+    fi
+    
+    # PB behaves strangely when passed "all".  It really wants "build" or no action argument.
+    # Specify SRCROOT in the arguments for Jaguar build system:
+    if [ "$(2[3])" = "all" ]; then
+        cd "$(2[1]:D)" && ${PBCOMMAND} -target "$(2[2])" "SRCROOT=$(2[1]:D)" "$(ENVIRONMENT)"
+    else 
+        cd "$(2[1]:D)" && ${PBCOMMAND} "$(2[3])" -target "$(2[2])" "SRCROOT=$(2[1]:D)" "$(ENVIRONMENT)"
+    fi
+}

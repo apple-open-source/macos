@@ -2,21 +2,24 @@
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -39,18 +42,26 @@ int ppp_dispose(struct ppp *ppp);
 struct ppp *ppp_findbyname(u_char *name, u_short unit);
 struct ppp *ppp_findbyserviceID(CFStringRef serviceID);
 struct ppp *ppp_findbyref(u_long ref);
-struct ppp *ppp_find(struct msg *msg);
+struct ppp *ppp_findbysid(u_char *data, int len);
 void ppp_setorder(struct ppp *ppp, u_int16_t order);
 u_short ppp_findfreeunit(u_short subfam);
 u_int32_t ppp_makeref(struct ppp *ppp);
 u_int32_t ppp_makeifref(struct ppp *ppp);
 int ppp_logout();
 int ppp_login();
-int ppp_doconnect(struct ppp *ppp, struct options *opts, u_int8_t dialondemand);
-int ppp_dodisconnect(struct ppp *ppp, int sig);
+int ppp_logswitch();
+int ppp_doconnect(struct ppp *ppp, CFDictionaryRef opts, u_int8_t dialondemand, void *client, int autoclose);
+int ppp_dodisconnect(struct ppp *ppp, int sig, void *client);
 int ppp_dosuspend(struct ppp *ppp);
 int ppp_doresume(struct ppp *ppp);
+int ppp_clientgone(void *client);
 
+/* ppp service client, used for arbitration */
+struct ppp_client {
+    TAILQ_ENTRY(ppp_client) next;
+    void 	*client;
+    int 	autoclose;
+};
 
 /* this struct contains all the information to control a ppp interface */
 struct ppp {
@@ -80,17 +91,24 @@ struct ppp {
     u_int32_t 	alertenable;		/* alert level flags */
     CFBundleRef	bundle;			/* PPP device bundle */
 
+    int	iFD[2];				/* pipe for pppd params */
+
+    u_int8_t	dialondemand;		/* is pppd curently running in dialondemand mode ? */
     u_int8_t	started_link;		/* pppd has just been started */
     u_int8_t	kill_link;		/* pppd needs to be killed when it appears (sig number) */
     u_int8_t	kill_sent;		/* kill signal has been sent, wait for idle */
     u_int8_t	dosetup;		/* needs to process service setup */
     u_int8_t	needconnect;		/* needs to process service setup */
     u_int8_t	needdispose;		/* needs to dispose of the ppp structure */
-    struct options *needconnectopts; 	/* connect options to use */ 
+    u_int8_t    setupchanged;           /* setup has changed, dialondemand needs to rearm */
+    pid_t     	pid;                    /* pid of associated pppd */
+    CFDictionaryRef needconnectopts; 	/* connect options to use */ 
+    CFDictionaryRef connectopts; 	/* connect options in use */ 
+
+    // list of clients for this service. used to arbitrate connection/disconnection
+    TAILQ_HEAD(, ppp_client) 	client_head;
 };
 
-
-int ppp_getoptval(struct ppp *ppp, struct options *opts, u_int32_t otype, void *pdata, u_int32_t *plen, CFDictionaryRef dict);
 
 extern CFURLRef 	gBundleURLRef;
 extern CFBundleRef 	gBundleRef;

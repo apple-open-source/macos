@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+  <!-- ==================================================================== -->
+  <!-- ConnectionManager setup for jboss test adapter                       -->
+  <!-- Build jmx-api (build/build.sh all) and view for config documentation -->
+  <!-- ==================================================================== -->
+
+<connection-factories>
+
+  <tx-connection-factory>
+
+    <jndi-name>JBossTestCF</jndi-name>
+
+    <xa-transaction/>
+
+    <adapter-display-name>JBoss Test Adapter</adapter-display-name>
+
+    <config-property name="IntegerProperty" type="java.lang.Integer">2</config-property>
+    <config-property name="BooleanProperty" type="java.lang.Boolean">false</config-property>
+    <config-property name="DoubleProperty" type="java.lang.Double">5.5</config-property>
+    <config-property name="UrlProperty" type="java.net.URL">http://www.jboss.org</config-property>
+
+  </tx-connection-factory>
+
+
+  <tx-connection-factory>
+
+    <jndi-name>JBossTestCF2</jndi-name>
+
+    <xa-transaction/>
+
+    <adapter-display-name>JBoss Test Adapter</adapter-display-name>
+
+    <config-property name="IntegerProperty" type="java.lang.Integer">2</config-property>
+    <config-property name="BooleanProperty" type="java.lang.Boolean">false</config-property>
+    <config-property name="DoubleProperty" type="java.lang.Double">5.5</config-property>
+    <config-property name="UrlProperty" type="java.net.URL">http://www.jboss.org</config-property>
+
+  </tx-connection-factory>
+
+  <tx-connection-factory>
+
+    <jndi-name>JBossTestCFByTx</jndi-name>
+
+    <xa-transaction/>
+    <track-connection-by-tx>true</track-connection-by-tx>
+
+    <adapter-display-name>JBoss Test Adapter</adapter-display-name>
+
+    <config-property name="IntegerProperty" type="java.lang.Integer">2</config-property>
+    <config-property name="BooleanProperty" type="java.lang.Boolean">false</config-property>
+    <config-property name="DoubleProperty" type="java.lang.Double">5.5</config-property>
+    <config-property name="UrlProperty" type="java.net.URL">http://www.jboss.org</config-property>
+
+  </tx-connection-factory>
+
+</connection-factories>

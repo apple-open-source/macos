@@ -25,6 +25,7 @@
 
 #include <Security/acl_codesigning.h>
 #include <Security/cssmdata.h>
+#include <Security/endian.h>
 #include <algorithm>
 
 
@@ -59,7 +60,8 @@ bool CodeSignatureAclSubject::validate(const AclValidationContext &context) cons
 {
 	// a suitable environment is required for a match
     if (Environment *env = context.environment<Environment>())
-		return env->verifyCodeSignature(mSignature);
+			return env->verifyCodeSignature(mSignature,
+				mHaveComment ? &mComment.get() : NULL);
 	else
 		return false;
 }
@@ -109,7 +111,7 @@ CodeSignatureAclSubject *CodeSignatureAclSubject::Maker::make(Version version,
 {
 	assert(version == 0);
     CssmAllocator &alloc = CssmAllocator::standard();
-	uint32 sigType; pub(sigType);
+	Endian<uint32> sigType; pub(sigType);
 	const void *data; uint32 length; pub.countedData(data, length);
 	const void *commentData; uint32 commentLength; pub.countedData(commentData, commentLength);
 	return new CodeSignatureAclSubject(alloc, 
@@ -123,14 +125,14 @@ CodeSignatureAclSubject *CodeSignatureAclSubject::Maker::make(Version version,
 //
 void CodeSignatureAclSubject::exportBlob(Writer::Counter &pub, Writer::Counter &priv)
 {
-	uint32 sigType = mSignature->type(); pub(sigType);
+	Endian<uint32> sigType = mSignature->type(); pub(sigType);
 	pub.countedData(*mSignature);
 	pub.countedData(mComment);
 }
 
 void CodeSignatureAclSubject::exportBlob(Writer &pub, Writer &priv)
 {
-	uint32 sigType = mSignature->type(); pub(sigType);
+	Endian<uint32> sigType = mSignature->type(); pub(sigType);
 	pub.countedData(*mSignature);
 	pub.countedData(mComment);
 }

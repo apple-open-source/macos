@@ -1,4 +1,4 @@
-/* Copyright (c) 1993-2001
+/* Copyright (c) 1993-2002
  *      Juergen Weigert (jnweiger@immd4.informatik.uni-erlangen.de)
  *      Michael Schroeder (mlschroe@immd4.informatik.uni-erlangen.de)
  * Copyright (c) 1987 Oliver Laumann
@@ -31,7 +31,7 @@
  */
 
 #include "rcs.h"
-RCS_ID("$Id: screen.c,v 1.1.1.1 2001/12/14 22:08:29 bbraun Exp $ FAU")
+RCS_ID("$Id: screen.c,v 1.1.1.2 2003/03/19 21:16:19 landonf Exp $ FAU")
 
 
 #include <sys/types.h>
@@ -75,8 +75,10 @@ RCS_ID("$Id: screen.c,v 1.1.1.1 2001/12/14 22:08:29 bbraun Exp $ FAU")
 #if (defined(AUX) || defined(_AUX_SOURCE)) && defined(POSIX)
 # include <compat.h>
 #endif
-#if defined(HAVE_NL_LANGINFO) && defined(UTF8)
+#if defined(USE_LOCALE) || defined(ENCODINGS)
 # include <locale.h>
+#endif
+#if defined(HAVE_NL_LANGINFO) && defined(ENCODINGS)
 # include <langinfo.h>
 #endif
 
@@ -108,15 +110,12 @@ FILE *dfp;
 #endif
 
 
-extern char *blank, *null, Term[], screenterm[], **environ, Termcap[];
+extern char Term[], screenterm[], **environ, Termcap[];
 int force_vt = 1;
 int VBellWait, MsgWait, MsgMinWait, SilenceWait;
 
 extern struct acluser *users;
 extern struct display *displays, *display; 
-
-/* tty.c */
-extern int intrc;
 
 
 extern int visual_bell;
@@ -131,6 +130,7 @@ char *ShellProg;
 char *ShellArgs[2];
 
 extern struct NewWindow nwin_undef, nwin_default, nwin_options;
+struct backtick;
 
 static struct passwd *getpwbyname __P((char *, struct passwd *));
 static void  SigChldHandler __P((void));
@@ -142,6 +142,9 @@ static void  DoWait __P((void));
 static void  serv_read_fn __P((struct event *, char *));
 static void  serv_select_fn __P((struct event *, char *));
 static void  logflush_fn __P((struct event *, char *));
+static void  backtick_filter __P((struct backtick *));
+static void  backtick_fn __P((struct event *, char *));
+static char *runbacktick __P((struct backtick *, int *, time_t, struct win *));
 static int   IsSymbol __P((char *, char *));
 #ifdef DEBUG
 static void  fds __P((void));
@@ -186,6 +189,9 @@ char *PowDetachString;
 #endif
 char *hstatusstring;
 char *captionstring;
+char *timestring;
+char *wliststr;
+char *wlisttit;
 int auto_detach = 1;
 int iflag, rflag, dflag, lsflag, quietflag, wipeflag, xflag;
 int cmdflag;
@@ -208,12 +214,17 @@ int default_startup;
 int ZombieKey_destroy, ZombieKey_resurrect;
 char *preselect = NULL;		/* only used in Attach() */
 
+#ifdef UTF8
+char *screenencodings;
+#endif
+
 #ifdef NETHACK
 int nethackflag = 0;
 #endif
 #ifdef MAPKEYS
 int maptimeout = 300000;
 #endif
+int maxwin = MAXWIN;
 
 
 struct layer *flayer;
@@ -271,7 +282,7 @@ struct passwd *ppp;
   static char *spw = NULL;
 #endif
  
-  if (!(ppp = getpwnam(name)))
+  if (!ppp && !(ppp = getpwnam(name)))
     return NULL;
 
   /* Do password sanity check..., allow ##user for SUN_C2 security */
@@ -426,6 +437,9 @@ char **av;
   logtstamp_string = SaveStr("-- %n:%t -- time-stamp -- %M/%d/%y %c:%s --\n");
   hstatusstring = SaveStr("%h");
   captionstring = SaveStr("%3n %t");
+  timestring = SaveStr("%c:%s %M %d %H%? %l%?");
+  wlisttit = SaveStr("Num Name%=Flags");
+  wliststr = SaveStr("%3n %t%=%f");
 #ifdef COPY_PASTE
   BufferFile = SaveStr(DEFAULT_BUFFERFILE);
 #endif
@@ -445,6 +459,10 @@ char **av;
 
 #ifdef COPY_PASTE
   CompileKeys((char *)NULL, mark_key_tab);
+#endif
+#ifdef UTF8
+  InitBuiltinTabs();
+  screenencodings = SaveStr(SCREENENCODINGS);
 #endif
   nwin = nwin_undef;
   nwin_options = nwin_undef;
@@ -579,6 +597,9 @@ char **av;
 		    case '1':
 		      nwin_options.lflag = 1;
 		      break;
+		    case 'a':
+		      nwin_options.lflag = 3;
+		      break;
 		    case 's':	/* -ls */
 		    case 'i':	/* -list */
 		      lsflag = 1;
@@ -686,7 +707,7 @@ char **av;
 		  /* NOTREACHED */
 #ifdef UTF8
 		case 'U':
-		  nwin_options.utf8 = nwin_options.utf8 == -1 ? 1 : 0;
+		  nwin_options.encoding = nwin_options.encoding == -1 ? UTF8 : 0;
 		  break;
 #endif
 		default:
@@ -697,35 +718,7 @@ char **av;
       else
 	break;
     }
-#ifdef UTF8
-  if (nwin_options.utf8 == -1)
-    {
-      /* ask locale if we should start in UTF-8 mode */
-# ifdef HAVE_NL_LANGINFO
-      debug("asking locale for CODESET\n");
-      setlocale(LC_CTYPE, "");
-      if (strcmp(nl_langinfo(CODESET), "UTF-8") == 0)
-        nwin_options.utf8 = 1;
-      debug1("utf8 = %d\n", nwin_options.utf8);
-# else
-      char *s;
-      debug("asking environment for LC_CTYPE\n");
-      if (((s = getenv("LC_ALL")) || (s = getenv("LC_CTYPE")) ||
-          (s = getenv("LANG"))) && InStr(s, "UTF-8"))
-        nwin_options.utf8 = 1;
-      debug1("utf=%d\n", nwin_options.utf8);
-#endif
-    }
-#endif
-  if (SockMatch && strlen(SockMatch) >= MAXSTR)
-    Panic(0, "Ridiculously long socketname - try again.");
-  if (cmdflag && !rflag && !dflag && !xflag)
-    xflag = 1;
-  if (!cmdflag && dflag && mflag && !(rflag || xflag))
-    detached = 1;
-  nwin = nwin_options;
-  if (ac)
-    nwin.args = av;
+
   real_uid = getuid();
   real_gid = getgid();
   eff_uid = geteuid();
@@ -741,6 +734,43 @@ char **av;
 #endif /* SIGBUS */
       signal(SIGSEGV, CoreDump);
     }
+
+#ifdef USE_LOCALE
+  setlocale(LC_ALL, "");
+#endif
+#ifdef ENCODINGS
+  if (nwin_options.encoding == -1)
+    {
+      /* ask locale if we should start in UTF-8 mode */
+# ifdef HAVE_NL_LANGINFO
+#  ifndef USE_LOCALE
+      setlocale(LC_CTYPE, "");
+#  endif
+      nwin_options.encoding = FindEncoding(nl_langinfo(CODESET));
+      debug1("locale says encoding = %d\n", nwin_options.encoding);
+# else
+#  ifdef UTF8
+      char *s;
+      if (((s = getenv("LC_ALL")) || (s = getenv("LC_CTYPE")) ||
+          (s = getenv("LANG"))) && InStr(s, "UTF-8"))
+        nwin_options.encoding = UTF8;
+#  endif
+      debug1("environment says encoding=%d\n", nwin_options.encoding);
+#endif
+    }
+#endif
+  if (SockMatch && strlen(SockMatch) >= MAXSTR)
+    Panic(0, "Ridiculously long socketname - try again.");
+  if (cmdflag && !rflag && !dflag && !xflag)
+    xflag = 1;
+  if (!cmdflag && dflag && mflag && !(rflag || xflag))
+    detached = 1;
+  nwin = nwin_options;
+#ifdef ENCODINGS
+  nwin.encoding = nwin_undef.encoding;	/* let screenrc overwrite it */
+#endif
+  if (ac)
+    nwin.args = av;
 
   /* make the write() calls return -1 on all errors */
 #ifdef SIGXFSZ
@@ -865,7 +895,7 @@ char **av;
 #ifdef MULTIUSER
       tty_mode = (int)st.st_mode & 0777;
 #endif
-      if ((n = secopen(attach_tty, O_RDWR, 0)) < 0)
+      if ((n = secopen(attach_tty, O_RDWR | O_NONBLOCK, 0)) < 0)
 	Panic(0, "Cannot open your terminal '%s' - please check.", attach_tty);
       close(n);
       debug1("attach_tty is %s\n", attach_tty);
@@ -939,7 +969,7 @@ char **av;
 	  SockDir = SOCKDIR;
 	  if (lstat(SockDir, &st))
 	    {
-	      n = (eff_uid == 0) ? 0755 :
+	      n = (eff_uid == 0 && (real_uid || eff_gid == real_gid)) ? 0755 :
 	          (eff_gid != real_gid) ? 0775 :
 #ifdef S_ISVTX
 		  0777|S_ISVTX;
@@ -991,6 +1021,8 @@ char **av;
     }
   if ((st.st_mode & 0777) != 0700)
     Panic(0, "Directory %s must have mode 700.", SockPath);
+  if (SockMatch && index(SockMatch, '/'))
+    Panic(0, "Bad session name '%s'", SockMatch);
   SockName = SockPath + strlen(SockPath) + 1;
   *SockName = 0;
   (void) umask(oumask);
@@ -1186,8 +1218,9 @@ char **av;
     {
       if (MakeDisplay(LoginName, attach_tty, attach_term, n, getppid(), &attach_Mode) == 0)
 	Panic(0, "Could not alloc display");
-#ifdef UTF8
-      D_utf8 = nwin_options.utf8 == 1;
+#ifdef ENCODINGS
+      D_encoding = nwin_options.encoding > 0 ? nwin_options.encoding : 0;
+      debug1("D_encoding = %d\n", D_encoding);
 #endif
     }
 
@@ -1264,7 +1297,7 @@ char **av;
   if (display)
     {
       brktty(D_userfd);
-      SetMode(&D_OldMode, &D_NewMode, display->d_flow, iflag);
+      SetMode(&D_OldMode, &D_NewMode, D_flow, iflag);
       /* Note: SetMode must be called _before_ FinishRc. */
       SetTTY(D_userfd, &D_NewMode);
       if (fcntl(D_userfd, F_SETFL, FNBLOCK))
@@ -1357,6 +1390,7 @@ struct win *p;
       p->w_y = MFindUsedLine(p, p->w_bot, 1);
       sprintf(buf, "\n\r=== Window terminated (%s) ===", s ? s : "?");
       WriteString(p, buf, strlen(buf));
+      WindowChanged(p, 'f');
     }
   else
     KillWindow(p);
@@ -1406,18 +1440,9 @@ SigChld SIGDEFARG
 sigret_t
 SigHup SIGDEFARG
 {
-  if (display == 0)
-    return;
-  debug("SigHup()\n");
-  if (D_userfd >= 0)
-    {
-      close(D_userfd);
-      D_userfd = -1;
-    }
-  if (auto_detach || displays->d_next)
-    Detach(D_HANGUP);
-  else
-    Finit(0);
+  /* Hangup all displays */
+  while ((display = displays) != 0)
+    Hangup();
   SIGRETURN;
 }
 
@@ -1430,14 +1455,19 @@ static sigret_t
 SigInt SIGDEFARG
 {
 #if HAZARDOUS
-  char buf[1];
+  char ibuf;
 
   debug("SigInt()\n");
-  *buf = (char) intrc;
-  if (fore)
-    fore->w_inlen = 0;
-  if (fore)
-    write(fore->w_ptyfd, buf, 1);
+  if (fore && displays)
+    {
+# if defined(TERMIO) || defined(POSIX)
+      ibuf = displays->d_OldMode.tio.c_cc[VINTR];
+# else
+      ibuf = displays->d_OldMode.m_tchars.t_intrc;
+# endif
+      fore->w_inlen = 0;
+      write(fore->w_ptyfd, &ibuf, 1);
+    }
 #else
   signal(SIGINT, SigInt);
   debug("SigInt() careful\n");
@@ -1646,6 +1676,23 @@ int e;
   exit(e);
 }
 
+void
+Hangup()
+{
+  if (display == 0)
+    return;
+  debug1("Hangup %x\n", display);
+  if (D_userfd >= 0)
+    {
+      close(D_userfd);
+      D_userfd = -1;
+    }
+  if (auto_detach || displays->d_next)
+    Detach(D_HANGUP);
+  else
+    Finit(0);
+}
+
 /*
  * Detach now has the following modes:
  *D_DETACH	 SIG_BYE	detach backend and exit attacher
@@ -1675,6 +1722,8 @@ int mode;
   if (D_status)
     RemoveStatus();
   FinitTerm();
+  if (!display)
+    return;
   switch (mode)
     {
     case D_HANGUP:
@@ -1728,7 +1777,7 @@ int mode;
     {
       for (p = windows; p; p = p->w_next)
         {
-	  if (p->w_slot != (slot_t) -1)
+	  if (p->w_slot != (slot_t) -1 && !(p->w_lflag & 2))
 	    {
 	      RemoveUtmp(p);
 	      /*
@@ -1967,8 +2016,10 @@ VA_DECL
  *
  */
 
+#ifndef USE_LOCALE
 static const char days[]   = "SunMonTueWedThuFriSat";
 static const char months[] = "JanFebMarAprMayJunJulAugSepOctNovDec";
+#endif
 
 static char winmsg_buf[MAXSTR];
 #define MAX_WINMSG_REND 16	/* rendition changes */
@@ -1976,12 +2027,257 @@ static int winmsg_rend[MAX_WINMSG_REND];
 static int winmsg_rendpos[MAX_WINMSG_REND];
 static int winmsg_numrend;
 
+static char *
+pad_expand(buf, p, numpad, padlen)
+char *buf;
+char *p;
+int numpad;
+int padlen;
+{
+  char *pn, *pn2;
+  int i, r;
+
+  padlen = padlen - (p - buf);	/* space for rent */
+  if (padlen < 0)
+    padlen = 0;
+  pn2 = pn = p + padlen;
+  r = winmsg_numrend;
+  while (p >= buf)
+    {
+      if (r && p - buf == winmsg_rendpos[r - 1])
+	{
+	  winmsg_rendpos[--r] = pn - buf;
+	  continue;
+	}
+      *pn-- = *p;
+      if (*p-- == 127)
+	{
+	  pn[1] = ' ';
+	  i = numpad > 0 ? (padlen + numpad - 1) / numpad : 0;
+	  padlen -= i;
+	  while (i-- > 0)
+	    *pn-- = ' ';
+	  numpad--;
+	}
+    }
+  return pn2;
+}
+
+struct backtick {
+  struct backtick *next;
+  int num;
+  int tick;
+  int lifespan;
+  time_t bestbefore;
+  char result[MAXSTR];
+  char **cmdv;
+  struct event ev;
+  char *buf;
+  int bufi;
+};
+
+struct backtick *backticks;
+
+static void
+backtick_filter(bt)
+struct backtick *bt;
+{
+  char *p, *q;
+  int c;
+
+  for (p = q = bt->result; (c = (unsigned char)*p++) != 0;)
+    {
+      if (c == '\t')
+	c = ' ';
+      if (c >= ' ' || c == '\005')
+	*q++ = c;
+    }
+  *q = 0;
+}
+
+static void
+backtick_fn(ev, data)
+struct event *ev;
+char *data;
+{
+  struct backtick *bt;
+  int i, j, k, l;
+
+  bt = (struct backtick *)data;
+  debug1("backtick_fn for #%d\n", bt->num);
+  i = bt->bufi;
+  l = read(ev->fd, bt->buf + i, MAXSTR - i);
+  if (l <= 0)
+    {
+      debug1("EOF on backtick #%d\n", bt->num);
+      evdeq(ev);
+      close(ev->fd);
+      ev->fd = -1;
+      return;
+    }
+  debug1("read %d bytes\n", l);
+  i += l;
+  for (j = 0; j < l; j++)
+    if (bt->buf[i - j - 1] == '\n')
+      break;
+  if (j < l)
+    {
+      for (k = i - j - 2; k >= 0; k--)
+	if (bt->buf[k] == '\n')
+	  break;
+      k++;
+      bcopy(bt->buf + k, bt->result, i - j - k);
+      bt->result[i - j - k - 1] = 0;
+      backtick_filter(bt);
+      WindowChanged(0, '`');
+    }
+  if (j == l && i == MAXSTR)
+    {
+      j = MAXSTR/2;
+      l = j + 1;
+    }
+  if (j < l)
+    {
+      if (j)
+        bcopy(bt->buf + i - j, bt->buf, j);
+      i = j;
+    }
+  bt->bufi = i;
+}
+
+void
+setbacktick(num, lifespan, tick, cmdv)
+int num;
+int lifespan;
+int tick;
+char **cmdv;
+{
+  struct backtick **btp, *bt;
+  char **v;
+
+  debug1("setbacktick called for backtick #%d\n", num);
+  for (btp = &backticks; (bt = *btp) != 0; btp = &bt->next)
+    if (bt->num == num)
+      break;
+  if (!bt && !cmdv)
+    return;
+  if (bt)
+    {
+      for (v = bt->cmdv; *v; v++)
+	free(*v);
+      free(bt->cmdv);
+      if (bt->buf)
+	free(bt->buf);
+      if (bt->ev.fd >= 0)
+	close(bt->ev.fd);
+      evdeq(&bt->ev);
+    }
+  if (bt && !cmdv)
+    {
+      *btp = bt->next;
+      free(bt);
+      return;
+    }
+  if (!bt)
+    {
+      bt = (struct backtick *)malloc(sizeof *bt);
+      if (!bt)
+	{
+	  Msg(0, strnomem);
+          return;
+	}
+      bzero(bt, sizeof(*bt));
+      bt->next = 0;
+      *btp = bt;
+    }
+  bt->num = num;
+  bt->tick = tick;
+  bt->lifespan = lifespan;
+  bt->bestbefore = 0;
+  bt->result[0] = 0;
+  bt->buf = 0;
+  bt->bufi = 0;
+  bt->cmdv = cmdv;
+  bt->ev.fd = -1;
+  if (bt->tick == 0 && bt->lifespan == 0)
+    {
+      debug("setbacktick: continuous mode\n");
+      bt->buf = (char *)malloc(MAXSTR);
+      if (bt->buf == 0)
+	{
+	  Msg(0, strnomem);
+	  setbacktick(num, 0, 0, (char **)0);
+          return;
+	}
+      bt->ev.type = EV_READ;
+      bt->ev.fd = readpipe(bt->cmdv);
+      bt->ev.handler = backtick_fn;
+      bt->ev.data = (char *)bt;
+      if (bt->ev.fd >= 0)
+	evenq(&bt->ev);
+    }
+}
+
+static char *
+runbacktick(bt, tickp, now, win)
+struct backtick *bt;
+int *tickp;
+time_t now;
+struct win *win;
+{
+  int f, i, l, j;
+  time_t now2;
+
+  debug1("runbacktick called for backtick #%d\n", bt->num);
+  if (bt->tick && (!*tickp || bt->tick < *tickp))
+    *tickp = bt->tick;
+  if ((bt->lifespan == 0 && bt->tick == 0) || now < bt->bestbefore)
+    {
+      debug1("returning old result (%d)\n", bt->lifespan);
+      return bt->result;
+    }
+  f = readpipe(bt->cmdv);
+  if (f == -1)
+    return bt->result;
+  i = 0;
+  while ((l = read(f, bt->result + i, sizeof(bt->result) - i)) > 0)
+    {
+      debug1("runbacktick: read %d bytes\n", l);
+      i += l;
+      for (j = 1; j < l; j++)
+	if (bt->result[i - j - 1] == '\n')
+	  break;
+      if (j == l && i == sizeof(bt->result))
+	{
+	  j = sizeof(bt->result) / 2;
+	  l = j + 1;
+	}
+      if (j < l)
+	{
+	  bcopy(bt->result + i - j, bt->result, j);
+	  i = j;
+	}
+    }
+  close(f);
+  bt->result[sizeof(bt->result) - 1] = '\n';
+  if (i && bt->result[i - 1] == '\n')
+    i--;
+  debug1("runbacktick: finished, %d bytes\n", i);
+  bt->result[i] = 0;
+  backtick_filter(bt);
+  (void)time(&now2);
+  bt->bestbefore = now2 + bt->lifespan;
+  return bt->result;
+}
+
 char *
-MakeWinMsgEv(str, win, esc, ev)
+MakeWinMsgEv(str, win, esc, padlen, ev, rec)
 char *str;
 struct win *win;
 int esc;
+int padlen;
 struct event *ev;
+int rec;
 {
   static int tick;
   char *s = str;
@@ -1992,8 +2288,17 @@ struct event *ev;
   int l, i, r;
   int num;
   int zeroflg;
-  int qmflag = 0, omflag = 0;
+  int longflg;
+  int minusflg;
+  int plusflg;
+  int qmflag = 0, omflag = 0, qmnumrend = 0;
   char *qmpos = 0;
+  int numpad = 0;
+  int lastpad = 0;
+  int truncpos = -1;
+  int truncper = 0;
+  int trunclong = 0;
+  struct backtick *bt;
  
   if (winmsg_numrend >= 0)
     winmsg_numrend = 0;
@@ -2037,11 +2342,17 @@ struct event *ev;
 	}
       if (*++s == esc)	/* double escape ? */
 	continue;
+      if ((plusflg = *s == '+') != 0)
+	s++;
+      if ((minusflg = *s == '-') != 0)
+	s++;
       if ((zeroflg = *s == '0') != 0)
 	s++;
       num = 0;
       while(*s >= '0' && *s <= '9')
 	num = num * 10 + (*s++ - '0');
+      if ((longflg = *s == 'L') != 0)
+	s++;
       switch (*s)
 	{
         case '?':
@@ -2049,11 +2360,16 @@ struct event *ev;
 	  if (qmpos)
 	    {
 	      if ((!qmflag && !omflag) || omflag == 1)
-	        p = qmpos;
+		{
+	          p = qmpos;
+	          if (qmnumrend < winmsg_numrend)
+		    winmsg_numrend = qmnumrend;
+		}
 	      qmpos = 0;
 	      break;
 	    }
 	  qmpos = p;
+	  qmnumrend = winmsg_numrend;
 	  qmflag = omflag = 0;
 	  break;
         case ':':
@@ -2064,10 +2380,13 @@ struct event *ev;
 	    {
 	      omflag = 1;
 	      qmpos = p;
+	      qmnumrend = winmsg_numrend;
 	    }
 	  else
 	    {
 	      p = qmpos;
+	      if (qmnumrend < winmsg_numrend)
+		winmsg_numrend = qmnumrend;
 	      omflag = -1;
 	    }
 	  break;
@@ -2081,51 +2400,55 @@ struct event *ev;
 	      tm = localtime(&nowsec);
 	    }
 	  qmflag = 1;
+	  if (!tick || tick > 3600)
+	    tick = 3600;
 	  switch (*s)
 	    {
 	    case 'd':
 	      sprintf(p, "%02d", tm->tm_mday % 100);
-	      tick |= 4;
 	      break;
 	    case 'D':
+#ifdef USE_LOCALE
+	      strftime(p, l, (longflg ? "%A" : "%a"), tm);
+#else
 	      sprintf(p, "%3.3s", days + 3 * tm->tm_wday);
-	      tick |= 4;
+#endif
 	      break;
 	    case 'm':
 	      sprintf(p, "%02d", tm->tm_mon + 1);
-	      tick |= 4;
 	      break;
 	    case 'M':
+#ifdef USE_LOCALE
+	      strftime(p, l, (longflg ? "%B" : "%b"), tm);
+#else
 	      sprintf(p, "%3.3s", months + 3 * tm->tm_mon);
-	      tick |= 4;
+#endif
 	      break;
 	    case 'y':
 	      sprintf(p, "%02d", tm->tm_year % 100);
-	      tick |= 4;
 	      break;
 	    case 'Y':
 	      sprintf(p, "%04d", tm->tm_year + 1900);
-	      tick |= 4;
 	      break;
 	    case 'a':
 	      sprintf(p, tm->tm_hour >= 12 ? "pm" : "am");
-	      tick |= 4;
 	      break;
 	    case 'A':
 	      sprintf(p, tm->tm_hour >= 12 ? "PM" : "AM");
-	      tick |= 4;
 	      break;
 	    case 's':
 	      sprintf(p, "%02d", tm->tm_sec);
-	      tick |= 1;
+	      tick = 1;
 	      break;
 	    case 'c':
 	      sprintf(p, zeroflg ? "%02d:%02d" : "%2d:%02d", tm->tm_hour, tm->tm_min);
-	      tick |= 2;
+	      if (!tick || tick > 60)
+		tick = 60;
 	      break;
 	    case 'C':
 	      sprintf(p, zeroflg ? "%02d:%02d" : "%2d:%02d", (tm->tm_hour + 11) % 12 + 1, tm->tm_min);
-	      tick |= 2;
+	      if (!tick || tick > 60)
+		tick = 60;
 	      break;
 	    default:
 	      break;
@@ -2144,16 +2467,31 @@ struct event *ev;
 	    }
 	  else
 	    *p = '?';
-	  tick |= 2;
+	  if (!tick || tick > 60)
+	    tick = 60;
 #else
 	  *p = '?';
 #endif
 	  p += strlen(p) - 1;
 	  break;
+	case '`':
 	case 'h':
-	  if (win == 0 || win->w_hstatus == 0 || *win->w_hstatus == 0 || str == win->w_hstatus)
-	    p--;
-	  else
+	  if (rec >= 10 || (*s == 'h' && (win == 0 || win->w_hstatus == 0 || *win->w_hstatus == 0)))
+	    {
+	      p--;
+	      break;
+	    }
+	  if (*s == '`')
+	    {
+	      for (bt = backticks; bt; bt = bt->next)
+		if (bt->num == num)
+		  break;
+	      if (bt == 0)
+		{
+		  p--;
+		  break;
+		}
+	    }
 	    {
 	      char savebuf[sizeof(winmsg_buf)];
 	      int oldtick = tick;
@@ -2162,8 +2500,10 @@ struct event *ev;
 	      *p = 0;
 	      strcpy(savebuf, winmsg_buf);
 	      winmsg_numrend = -winmsg_numrend;
-	      MakeWinMsg(win->w_hstatus, win, '\005');
-	      tick |= oldtick;		/* small hack... */
+	      MakeWinMsgEv(*s == 'h' ? win->w_hstatus : runbacktick(bt, &oldtick, now.tv_sec, win), win, '\005', 0, (struct event *)0, rec + 1);
+	      debug2("oldtick=%d tick=%d\n", oldtick, tick);
+	      if (!tick || oldtick < tick)
+		tick = oldtick;
 	      if (strlen(winmsg_buf) < l)
 		strcat(savebuf, winmsg_buf);
 	      strcpy(winmsg_buf, savebuf);
@@ -2178,12 +2518,16 @@ struct event *ev;
 	case 'W':
 	  {
 	    struct win *oldfore = 0;
+	    char *ss;
+
 	    if (display)
 	      {
 		oldfore = D_fore;
 		D_fore = win;
 	      }
-	    AddWindows(p, l - 1, *s == 'w' ? 2 : 3, -1);
+	    ss = AddWindows(p, l - 1, (*s == 'w' ? 0 : 1) | (longflg ? 0 : 2) | (plusflg ? 4 : 0), win ? win->w_number : -1);
+	    if (minusflg)
+	       *ss = 0;
 	    if (display)
 	      D_fore = oldfore;
 	  }
@@ -2195,6 +2539,14 @@ struct event *ev;
 	  *p = 0;
 	  if (win)
 	    AddOtherUsers(p, l - 1, win);
+	  if (*p)
+	    qmflag = 1;
+	  p += strlen(p) - 1;
+	  break;
+	case 'f':
+	  *p = 0;
+	  if (win)
+	    AddWindowFlags(p, l - 1, win);
 	  if (*p)
 	    qmflag = 1;
 	  p += strlen(p) - 1;
@@ -2236,6 +2588,144 @@ struct event *ev;
 	    p--;
           }
 	  break;
+	case 'H':
+	  *p = 0;
+	  if (strlen(HostName) < l)
+	    {
+	      strcpy(p, HostName);
+	      if (*p)
+		qmflag = 1;
+	    }
+	  p += strlen(p) - 1;
+	  break;
+	case 'F':
+	  p--;
+	  /* small hack */
+	  if ((ev && ev == &D_forecv->c_captev) || (!ev && win && win == D_fore))
+	    qmflag = 1;
+	  break;
+	case '>':
+	  truncpos = p - winmsg_buf;
+	  truncper = num > 100 ? 100 : num;
+	  trunclong = longflg;
+	  p--;
+	  break;
+	case '=':
+	case '<':
+	  *p = ' ';
+	  if (num || zeroflg || plusflg || longflg || (*s != '='))
+	    {
+	      /* expand all pads */
+	      if (minusflg)
+		{
+		  num = (plusflg ? lastpad : padlen) - num;
+		  if (!plusflg && padlen == 0)
+		    num = p - winmsg_buf;
+		  plusflg = 0;
+		}
+	      else if (!zeroflg)
+		{
+		  if (*s != '=' && num == 0 && !plusflg)
+		    num = 100;
+		  if (num > 100)
+		    num = 100;
+		  if (padlen == 0)
+		    num = p - winmsg_buf;
+		  else
+		    num = (padlen - (plusflg ? lastpad : 0)) * num / 100;
+		}
+	      if (num < 0)
+		num = 0;
+	      if (plusflg)
+		num += lastpad;
+	      if (num > MAXSTR - 1)
+		num = MAXSTR - 1;
+	      if (numpad)
+	        p = pad_expand(winmsg_buf, p, numpad, num);
+	      numpad = 0;
+	      if (p - winmsg_buf > num && !longflg)
+		{
+		  int left, trunc;
+
+		  if (truncpos == -1)
+		    {
+		      truncpos = lastpad;
+		      truncper = 0;
+		    }
+		  trunc = lastpad + truncper * (num - lastpad) / 100;
+		  if (trunc > num)
+		    trunc = num;
+		  if (trunc < lastpad)
+		    trunc = lastpad;
+		  left = truncpos - trunc;
+		  if (left > p - winmsg_buf - num)
+		    left = p - winmsg_buf - num;
+		  debug1("lastpad = %d, ", lastpad);
+		  debug3("truncpos = %d, trunc = %d, left = %d\n", truncpos, trunc, left);
+		  if (left > 0)
+		    {
+		      if (left + lastpad > p - winmsg_buf)
+			left = p - winmsg_buf - lastpad;
+		      if (p - winmsg_buf - lastpad - left > 0)
+		        bcopy(winmsg_buf + lastpad + left, winmsg_buf + lastpad,  p - winmsg_buf - lastpad - left);
+		      p -= left;
+		      r = winmsg_numrend;
+		      while (r && winmsg_rendpos[r - 1] > lastpad)
+			{
+			  r--;
+			  winmsg_rendpos[r] -= left;
+			  if (winmsg_rendpos[r] < lastpad)
+			    winmsg_rendpos[r] = lastpad;
+			}
+		      if (trunclong)
+			{
+			  if (p - winmsg_buf > lastpad)
+			    winmsg_buf[lastpad] = '.';
+			  if (p - winmsg_buf > lastpad + 1)
+			    winmsg_buf[lastpad + 1] = '.';
+			  if (p - winmsg_buf > lastpad + 2)
+			    winmsg_buf[lastpad + 2] = '.';
+			}
+		    }
+		  if (p - winmsg_buf > num)
+		    {
+		      p = winmsg_buf + num;
+		      if (trunclong)
+			{
+			  if (num - 1 >= lastpad)
+			    p[-1] = '.';
+			  if (num - 2 >= lastpad)
+			    p[-2] = '.';
+			  if (num - 3 >= lastpad)
+			    p[-3] = '.';
+			}
+		      r = winmsg_numrend;
+		      while (r && winmsg_rendpos[r - 1] > num)
+			winmsg_rendpos[--r] = num;
+		    }
+		  truncpos = -1;
+		  trunclong = 0;
+		  if (lastpad > p - winmsg_buf)
+		    lastpad = p - winmsg_buf;
+		  debug1("lastpad now %d\n", lastpad);
+		}
+	      if (*s == '=')
+		{
+		  while (p - winmsg_buf < num)
+		    *p++ = ' ';
+		  lastpad = p - winmsg_buf;
+		  truncpos = -1;
+		  trunclong = 0;
+		  debug1("lastpad2 now %d\n", lastpad);
+		}
+	      p--;
+	    }
+	  else if (padlen)
+	    {
+	      *p = 127;		/* internal pad representation */
+	      numpad++;
+	    }
+	  break;
 	case 'n':
 	  s++;
 	  /* FALLTHROUGH */
@@ -2258,6 +2748,12 @@ struct event *ev;
   if (qmpos && !qmflag)
     p = qmpos + 1;
   *p = '\0';
+  if (numpad)
+    {
+      if (padlen > MAXSTR - 1)
+	padlen = MAXSTR - 1;
+      p = pad_expand(winmsg_buf, p, numpad, padlen);
+    }
   if (ev)
     {
       evdeq(ev);		/* just in case */
@@ -2266,14 +2762,13 @@ struct event *ev;
     }
   if (ev && tick)
     {
-      now.tv_usec = 0;
-      if (tick & 1)
+      now.tv_usec = 100000;
+      if (tick == 1)
 	now.tv_sec++;
-      else if (tick & 2)
-	now.tv_sec += 60 - (now.tv_sec % 60);
-      else if (tick & 4)
-	now.tv_sec += 3600 - (now.tv_sec % 3600);
+      else
+	now.tv_sec += tick - (now.tv_sec % tick);
       ev->timeout = now;
+      debug2("NEW timeout %d %d\n", ev->timeout.tv_sec, tick);
     }
   return winmsg_buf;
 }
@@ -2284,7 +2779,7 @@ char *s;
 struct win *win;
 int esc;
 {
-  return MakeWinMsgEv(s, win, esc, (struct event *)0);
+  return MakeWinMsgEv(s, win, esc, 0, (struct event *)0, 0);
 }
 
 int
@@ -2438,9 +2933,13 @@ char *data;
       debug("Backend received interrupt\n");
       /* This approach is rather questionable in a multi-display
        * environment */
-      if (fore)
+      if (fore && displays)
 	{
-	  char ibuf = intrc;
+#if defined(TERMIO) || defined(POSIX)
+	  char ibuf = displays->d_OldMode.tio.c_cc[VINTR];
+#else
+	  char ibuf = displays->d_OldMode.m_tchars.t_intrc;
+#endif
 #ifdef PSEUDOS
 	  write(W_UWP(fore) ? fore->w_pwin->p_ptyfd : fore->w_ptyfd, 
 		&ibuf, 1);
@@ -2485,6 +2984,7 @@ char *data;
 	  /* don't annoy the user with two messages */
 	  if (p->w_monitor == MON_FOUND)
 	    p->w_monitor = MON_DONE;
+          WindowChanged(p, 'f');
 	}
       if (p->w_monitor == MON_FOUND)
 	{
@@ -2504,6 +3004,7 @@ char *data;
 	      Msg(0, "%s", MakeWinMsg(ActivityString, p, '%'));
 	      p->w_monitor = MON_DONE;
 	    }
+          WindowChanged(p, 'f');
 	}
     }
 

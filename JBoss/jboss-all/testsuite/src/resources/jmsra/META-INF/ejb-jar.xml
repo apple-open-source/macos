@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE ejb-jar PUBLIC "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 2.0//EN" "http://java.sun.com/j2ee/dtds/ejb-jar_2_0.dtd">
+
+<ejb-jar>
+     <description>Queue Publisher</description>
+     <display-name>PublisherBean</display-name>
+     <enterprise-beans>
+       <session>
+          <ejb-name>JMSSession</ejb-name>
+          <home>org.jboss.test.jmsra.bean.JMSSessionHome</home>
+          <remote>org.jboss.test.jmsra.bean.JMSSession</remote>
+          <ejb-class>org.jboss.test.jmsra.bean.JMSSessionBean</ejb-class>
+          <session-type>Stateless</session-type>
+          <transaction-type>Container</transaction-type>
+       </session>
+       <session>
+	 <display-name>Publisher</display-name>
+	 <ejb-name>QueuePublisher</ejb-name>
+	 <home>org.jboss.test.jmsra.bean.PublisherHome</home>
+	 <remote>org.jboss.test.jmsra.bean.Publisher</remote>
+	 <ejb-class>org.jboss.test.jmsra.bean.PublisherBean</ejb-class>
+	 <session-type>Stateless</session-type>
+	 <transaction-type>Container</transaction-type>
+         <resource-ref>
+            <description>A Queue ConnectionFactory</description>
+            <res-ref-name>jms/MyQueueConnection</res-ref-name>
+            <res-type>javax.jms.QueueConnectionFactory</res-type>
+            <res-auth>Container</res-auth>
+         </resource-ref>
+         <resource-ref>
+            <description>A Queue </description>
+            <res-ref-name>jms/QueueName</res-ref-name>
+            <res-type>javax.jms.Queue</res-type>
+            <res-auth>Container</res-auth>
+         </resource-ref>
+          <ejb-ref>
+	   <ejb-ref-name>ejb/PublisherCMP</ejb-ref-name>
+	   <ejb-ref-type>Entity</ejb-ref-type>
+	   <home>org.jboss.test.jmsra.bean.PublisherCMPHome</home>
+	   <remote>org.jboss.test.jmsra.bean.PublisherCMP</remote>
+	   <ejb-link>PublisherCMP</ejb-link>
+	 </ejb-ref>
+       </session>
+       <session>
+	 <display-name>TopicPublisher</display-name>
+	 <ejb-name>TopicPublisher</ejb-name>
+	 <home>org.jboss.test.jmsra.bean.PublisherHome</home>
+	 <remote>org.jboss.test.jmsra.bean.Publisher</remote>
+	 <ejb-class>org.jboss.test.jmsra.bean.TopicPublisherBean</ejb-class>
+	 <session-type>Stateless</session-type>
+	 <transaction-type>Container</transaction-type>
+         <resource-ref>
+            <description>A Topic ConnectionFactory</description>
+            <res-ref-name>jms/MyTopicConnection</res-ref-name>
+            <res-type>javax.jms.TopicConnectionFactory</res-type>
+            <res-auth>Container</res-auth>
+         </resource-ref>
+         <resource-ref>
+            <description>A Topic </description>
+            <res-ref-name>jms/TopicName</res-ref-name>
+            <res-type>javax.jms.Topic</res-type>
+            <res-auth>Container</res-auth>
+         </resource-ref>
+          <ejb-ref>
+	   <ejb-ref-name>ejb/PublisherCMP</ejb-ref-name>
+	   <ejb-ref-type>Entity</ejb-ref-type>
+	   <home>org.jboss.test.jmsra.bean.PublisherCMPHome</home>
+	   <remote>org.jboss.test.jmsra.bean.PublisherCMP</remote>
+	   <ejb-link>PublisherCMP</ejb-link>
+	 </ejb-ref>
+       </session>
+       <session>
+	 <display-name>QueueRec</display-name>
+	 <ejb-name>QueueRec</ejb-name>
+	 <home>org.jboss.test.jmsra.bean.QueueRecHome</home>
+	 <remote>org.jboss.test.jmsra.bean.QueueRec</remote>
+	 <ejb-class>org.jboss.test.jmsra.bean.QueueRecBean</ejb-class>
+	 <session-type>Stateless</session-type>
+	 <transaction-type>Container</transaction-type>
+         <resource-ref>
+            <description>A Queue ConnectionFactory</description>
+            <res-ref-name>jms/MyQueueConnection</res-ref-name>
+            <res-type>javax.jms.QueueConnectionFactory</res-type>
+            <res-auth>Container</res-auth>
+         </resource-ref>
+         <resource-ref>
+            <description>A Queue </description>
+            <res-ref-name>jms/QueueName</res-ref-name>
+            <res-type>javax.jms.Queue</res-type>
+            <res-auth>Container</res-auth>
+         </resource-ref>
+       </session>
+       <entity>
+	 <display-name>Publisher Entity</display-name>
+	 <ejb-name>PublisherCMP</ejb-name>
+	 <home>org.jboss.test.jmsra.bean.PublisherCMPHome</home>
+	 <remote>org.jboss.test.jmsra.bean.PublisherCMP</remote>
+	 <ejb-class>org.jboss.test.jmsra.bean.PublisherCMPBean</ejb-class>
+	 <persistence-type>Container</persistence-type>
+	 <prim-key-class>java.lang.Integer</prim-key-class>
+	 <reentrant>True</reentrant>
+         <cmp-version>1.x</cmp-version>
+	 <cmp-field>
+	   <description>Nr</description>
+	   <field-name>nr</field-name>
+	 </cmp-field> 
+	 <primkey-field>nr</primkey-field>
+       </entity>
+       <message-driven>
+	<ejb-name>TopicAdapter</ejb-name>
+	<ejb-class>org.jboss.test.jmsra.bean.TopicAdapter</ejb-class>
+        <message-selector></message-selector>
+        <transaction-type>Container</transaction-type>
+        <message-driven-destination>
+            <destination-type>javax.jms.Topic</destination-type>
+            <subscription-durability>NonDurable</subscription-durability>
+        </message-driven-destination>
+        <resource-ref>
+            <description>A Queue ConnectionFactory</description>
+            <res-ref-name>jms/MyQueueConnection</res-ref-name>
+            <res-type>javax.jms.QueueConnectionFactory</res-type>
+            <res-auth>Container</res-auth>
+        </resource-ref>
+        <resource-ref>
+            <description>A Queue </description>
+            <res-ref-name>jms/QueueName</res-ref-name>
+            <res-type>javax.jms.Queue</res-type>
+            <res-auth>Container</res-auth>
+        </resource-ref>
+      </message-driven>
+     </enterprise-beans>
+     <assembly-descriptor>
+       <container-transaction>
+         <method>
+           <ejb-name>TopicAdapter</ejb-name>
+           <method-name>*</method-name>
+         </method>
+         <trans-attribute>Required</trans-attribute>
+       </container-transaction>
+     </assembly-descriptor>
+   </ejb-jar>

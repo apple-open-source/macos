@@ -9,7 +9,7 @@
  * Copyright (c) 1998-1999 by Scriptics Corporation.
  * All rights reserved.
  *
- * RCS: @(#) $Id: tclIntPlatDecls.h,v 1.1.1.4 2002/04/05 16:13:21 jevans Exp $
+ * RCS: @(#) $Id: tclIntPlatDecls.h,v 1.1.1.5 2003/03/06 00:10:32 landonf Exp $
  */
 
 #ifndef _TCLINTPLATDECLS
@@ -43,9 +43,9 @@ EXTERN int		TclpCreatePipe _ANSI_ARGS_((TclFile * readPipe,
 				TclFile * writePipe));
 /* 4 */
 EXTERN int		TclpCreateProcess _ANSI_ARGS_((Tcl_Interp * interp, 
-				int argc, char ** argv, TclFile inputFile, 
-				TclFile outputFile, TclFile errorFile, 
-				Tcl_Pid * pidPtr));
+				int argc, CONST char ** argv, 
+				TclFile inputFile, TclFile outputFile, 
+				TclFile errorFile, Tcl_Pid * pidPtr));
 /* Slot 5 is reserved */
 /* 6 */
 EXTERN TclFile		TclpMakeFile _ANSI_ARGS_((Tcl_Channel channel, 
@@ -59,6 +59,14 @@ EXTERN int		TclUnixWaitForFile _ANSI_ARGS_((int fd, int mask,
 /* 9 */
 EXTERN TclFile		TclpCreateTempFile _ANSI_ARGS_((
 				CONST char * contents));
+/* 10 */
+EXTERN Tcl_DirEntry *	TclpReaddir _ANSI_ARGS_((DIR * dir));
+/* 11 */
+EXTERN struct tm *	TclpLocaltime _ANSI_ARGS_((time_t * clock));
+/* 12 */
+EXTERN struct tm *	TclpGmtime _ANSI_ARGS_((time_t * clock));
+/* 13 */
+EXTERN char *		TclpInetNtoa _ANSI_ARGS_((struct in_addr addr));
 #endif /* UNIX */
 #ifdef __WIN32__
 /* 0 */
@@ -101,9 +109,9 @@ EXTERN int		TclpCreatePipe _ANSI_ARGS_((TclFile * readPipe,
 				TclFile * writePipe));
 /* 15 */
 EXTERN int		TclpCreateProcess _ANSI_ARGS_((Tcl_Interp * interp, 
-				int argc, char ** argv, TclFile inputFile, 
-				TclFile outputFile, TclFile errorFile, 
-				Tcl_Pid * pidPtr));
+				int argc, CONST char ** argv, 
+				TclFile inputFile, TclFile outputFile, 
+				TclFile errorFile, Tcl_Pid * pidPtr));
 /* Slot 16 is reserved */
 /* Slot 17 is reserved */
 /* 18 */
@@ -129,6 +137,8 @@ EXTERN TclPlatformType * TclWinGetPlatform _ANSI_ARGS_((void));
 EXTERN void		TclWinSetInterfaces _ANSI_ARGS_((int wide));
 /* 27 */
 EXTERN void		TclWinFlushDirtyChannels _ANSI_ARGS_((void));
+/* 28 */
+EXTERN void		TclWinResetInterfaces _ANSI_ARGS_((void));
 #endif /* __WIN32__ */
 #ifdef MAC_TCL
 /* 0 */
@@ -197,7 +207,10 @@ EXTERN FILE *		TclMacFOpenHack _ANSI_ARGS_((CONST char * path,
 /* 24 */
 EXTERN char *		TclpGetTZName _ANSI_ARGS_((int isdst));
 /* 25 */
-EXTERN int		TclMacChmod _ANSI_ARGS_((char * path, int mode));
+EXTERN int		TclMacChmod _ANSI_ARGS_((CONST char * path, int mode));
+/* 26 */
+EXTERN int		FSpLLocationFromPath _ANSI_ARGS_((int length, 
+				CONST char * path, FSSpecPtr theSpec));
 #endif /* MAC_TCL */
 
 typedef struct TclIntPlatStubs {
@@ -209,12 +222,16 @@ typedef struct TclIntPlatStubs {
     int (*tclpCloseFile) _ANSI_ARGS_((TclFile file)); /* 1 */
     Tcl_Channel (*tclpCreateCommandChannel) _ANSI_ARGS_((TclFile readFile, TclFile writeFile, TclFile errorFile, int numPids, Tcl_Pid * pidPtr)); /* 2 */
     int (*tclpCreatePipe) _ANSI_ARGS_((TclFile * readPipe, TclFile * writePipe)); /* 3 */
-    int (*tclpCreateProcess) _ANSI_ARGS_((Tcl_Interp * interp, int argc, char ** argv, TclFile inputFile, TclFile outputFile, TclFile errorFile, Tcl_Pid * pidPtr)); /* 4 */
+    int (*tclpCreateProcess) _ANSI_ARGS_((Tcl_Interp * interp, int argc, CONST char ** argv, TclFile inputFile, TclFile outputFile, TclFile errorFile, Tcl_Pid * pidPtr)); /* 4 */
     void *reserved5;
     TclFile (*tclpMakeFile) _ANSI_ARGS_((Tcl_Channel channel, int direction)); /* 6 */
     TclFile (*tclpOpenFile) _ANSI_ARGS_((CONST char * fname, int mode)); /* 7 */
     int (*tclUnixWaitForFile) _ANSI_ARGS_((int fd, int mask, int timeout)); /* 8 */
     TclFile (*tclpCreateTempFile) _ANSI_ARGS_((CONST char * contents)); /* 9 */
+    Tcl_DirEntry * (*tclpReaddir) _ANSI_ARGS_((DIR * dir)); /* 10 */
+    struct tm * (*tclpLocaltime) _ANSI_ARGS_((time_t * clock)); /* 11 */
+    struct tm * (*tclpGmtime) _ANSI_ARGS_((time_t * clock)); /* 12 */
+    char * (*tclpInetNtoa) _ANSI_ARGS_((struct in_addr addr)); /* 13 */
 #endif /* UNIX */
 #ifdef __WIN32__
     void (*tclWinConvertError) _ANSI_ARGS_((DWORD errCode)); /* 0 */
@@ -232,7 +249,7 @@ typedef struct TclIntPlatStubs {
     int (*tclpCloseFile) _ANSI_ARGS_((TclFile file)); /* 12 */
     Tcl_Channel (*tclpCreateCommandChannel) _ANSI_ARGS_((TclFile readFile, TclFile writeFile, TclFile errorFile, int numPids, Tcl_Pid * pidPtr)); /* 13 */
     int (*tclpCreatePipe) _ANSI_ARGS_((TclFile * readPipe, TclFile * writePipe)); /* 14 */
-    int (*tclpCreateProcess) _ANSI_ARGS_((Tcl_Interp * interp, int argc, char ** argv, TclFile inputFile, TclFile outputFile, TclFile errorFile, Tcl_Pid * pidPtr)); /* 15 */
+    int (*tclpCreateProcess) _ANSI_ARGS_((Tcl_Interp * interp, int argc, CONST char ** argv, TclFile inputFile, TclFile outputFile, TclFile errorFile, Tcl_Pid * pidPtr)); /* 15 */
     void *reserved16;
     void *reserved17;
     TclFile (*tclpMakeFile) _ANSI_ARGS_((Tcl_Channel channel, int direction)); /* 18 */
@@ -245,6 +262,7 @@ typedef struct TclIntPlatStubs {
     TclPlatformType * (*tclWinGetPlatform) _ANSI_ARGS_((void)); /* 25 */
     void (*tclWinSetInterfaces) _ANSI_ARGS_((int wide)); /* 26 */
     void (*tclWinFlushDirtyChannels) _ANSI_ARGS_((void)); /* 27 */
+    void (*tclWinResetInterfaces) _ANSI_ARGS_((void)); /* 28 */
 #endif /* __WIN32__ */
 #ifdef MAC_TCL
     VOID * (*tclpSysAlloc) _ANSI_ARGS_((long size, int isBin)); /* 0 */
@@ -272,7 +290,8 @@ typedef struct TclIntPlatStubs {
     int (*tclMacCreateEnv) _ANSI_ARGS_((void)); /* 22 */
     FILE * (*tclMacFOpenHack) _ANSI_ARGS_((CONST char * path, CONST char * mode)); /* 23 */
     char * (*tclpGetTZName) _ANSI_ARGS_((int isdst)); /* 24 */
-    int (*tclMacChmod) _ANSI_ARGS_((char * path, int mode)); /* 25 */
+    int (*tclMacChmod) _ANSI_ARGS_((CONST char * path, int mode)); /* 25 */
+    int (*fSpLLocationFromPath) _ANSI_ARGS_((int length, CONST char * path, FSSpecPtr theSpec)); /* 26 */
 #endif /* MAC_TCL */
 } TclIntPlatStubs;
 
@@ -327,6 +346,22 @@ extern TclIntPlatStubs *tclIntPlatStubsPtr;
 #ifndef TclpCreateTempFile
 #define TclpCreateTempFile \
 	(tclIntPlatStubsPtr->tclpCreateTempFile) /* 9 */
+#endif
+#ifndef TclpReaddir
+#define TclpReaddir \
+	(tclIntPlatStubsPtr->tclpReaddir) /* 10 */
+#endif
+#ifndef TclpLocaltime
+#define TclpLocaltime \
+	(tclIntPlatStubsPtr->tclpLocaltime) /* 11 */
+#endif
+#ifndef TclpGmtime
+#define TclpGmtime \
+	(tclIntPlatStubsPtr->tclpGmtime) /* 12 */
+#endif
+#ifndef TclpInetNtoa
+#define TclpInetNtoa \
+	(tclIntPlatStubsPtr->tclpInetNtoa) /* 13 */
 #endif
 #endif /* UNIX */
 #ifdef __WIN32__
@@ -426,6 +461,10 @@ extern TclIntPlatStubs *tclIntPlatStubsPtr;
 #ifndef TclWinFlushDirtyChannels
 #define TclWinFlushDirtyChannels \
 	(tclIntPlatStubsPtr->tclWinFlushDirtyChannels) /* 27 */
+#endif
+#ifndef TclWinResetInterfaces
+#define TclWinResetInterfaces \
+	(tclIntPlatStubsPtr->tclWinResetInterfaces) /* 28 */
 #endif
 #endif /* __WIN32__ */
 #ifdef MAC_TCL
@@ -532,6 +571,10 @@ extern TclIntPlatStubs *tclIntPlatStubsPtr;
 #ifndef TclMacChmod
 #define TclMacChmod \
 	(tclIntPlatStubsPtr->tclMacChmod) /* 25 */
+#endif
+#ifndef FSpLLocationFromPath
+#define FSpLLocationFromPath \
+	(tclIntPlatStubsPtr->fSpLLocationFromPath) /* 26 */
 #endif
 #endif /* MAC_TCL */
 

@@ -1,0 +1,106 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from .././gimpprint.texi on 22 January 2003 -->
+
+<TITLE>GIMP-Print - gimpprint-config</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_5.html">previous</A>, <A HREF="gimpprint_7.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H2><A NAME="SEC11" HREF="gimpprint_toc.html#TOC11">3.1  @command{gimpprint-config}</A></H2>
+<P>
+<A NAME="IDX7"></A>
+
+</P>
+<P>
+Depending on the setup of the computer system GIMP-Print was installed on, as
+well as the options passed to @command{configure} when configuring the
+package when it was built, the @env{CFLAGS} and @env{LIBS} parameters
+needed to compile and link programs with libgimpprint may vary. To make it
+simple to determine what these are on any given system, the script
+@command{gimpprint-config} was created. It's job is to output the
+correct parameters for the setup on your system. The following options
+are available:
+
+</P>
+
+<PRE>
+roger@whinlatter:~/gimpprint/devel$ gimpprint-config --help
+Usage: gimpprint-config [OPTIONS] [LIBRARIES]
+Options:
+        [--prefix[=DIR]]
+        [--exec-prefix[=DIR]]
+        [--version]
+        [--libs]
+        [--cflags]
+Libraries:
+        gimpprint
+</PRE>
+
+<P>
+The @option{--prefix} and @option{--exec-prefix} options are only needed if the
+installed locations of parts of GIMP-Print are different from the configured
+locations. These should never be needed if GIMP-Print was properly configured
+and installed.
+
+</P>
+<P>
+The installed version of GIMP-Print can be obtained with the
+@option{--version} option:
+
+</P>
+
+<PRE>
+roger@whinlatter:~/gimpprint/devel$ gimpprint-config --version
+4.2.5
+</PRE>
+
+<P>
+The correct @env{CFLAGS} to use can be obtained with the @option{--cflags}
+option:
+
+</P>
+
+<PRE>
+roger@whinlatter:~/gimpprint/devel$ gimpprint-config --cflags
+
+</PRE>
+
+<P>
+In this case, there are no special @env{CFLAGS} required to compile programs.
+
+</P>
+<P>
+The correct @env{LIBS} to use can the obtained with the @option{--libs} option:
+
+</P>
+
+<PRE>
+roger@whinlatter:~/gimpprint/devel$ gimpprint-config --libs
+-L/usr/lib -lgimpprint -lm
+</PRE>
+
+<P>
+The command can be used from the shell by enclosing it in backquotes <SAMP>``'</SAMP>:
+
+</P>
+
+<PRE>
+gcc `gimpprint-config --cflags` -c prog.c
+gcc `gimpprint-config --libs` -o prog prog.o
+</PRE>
+
+<P>
+However, this is not the way it it typically used. Normally it is used in a
+<TT>`Makefile'</TT> (see section <A HREF="gimpprint_7.html#SEC12">3.2  @command{make}</A>) or by an @command{m4} macro in a @command{configure}
+script (see section <A HREF="gimpprint_8.html#SEC13">3.3  @command{autoconf}</A>).
+
+</P>
+
+<P><HR><P>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_5.html">previous</A>, <A HREF="gimpprint_7.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+</BODY>
+</HTML>

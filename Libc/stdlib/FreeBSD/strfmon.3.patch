@@ -1,0 +1,11 @@
+--- strfmon.3.orig	Mon Apr 28 16:37:26 2003
++++ strfmon.3	Sat May  3 01:09:16 2003
+@@ -35,7 +35,7 @@
+ .Sh SYNOPSIS
+ .In monetary.h
+ .Ft ssize_t
+-.Fn strfmon "char * restrict s" "size_t maxsize" "const char * restrict format" "..."
++.Fn strfmon "char * s" "size_t maxsize" "const char *format" "..."
+ .Sh DESCRIPTION
+ The
+ .Fn strfmon

@@ -27,16 +27,22 @@
  *
  */
 
-#include <IOKit/scsi/IOSCSIParallelInterface.h>
 #include <IOKit/IOSyncer.h>
 
 #undef  super 
 #define super	IOService
 
+#include <IOKit/storage/IOStorageDeviceCharacteristics.h>
+#include "IOSCSIParallelController.h"
+#include "IOSCSIParallelDevice.h"
+#include "IOSCSIParallelCommand.h"
+
 OSDefineMetaClass( IOSCSIParallelController, IOService )
 OSDefineAbstractStructors( IOSCSIParallelController, IOService );
 
 #define round(x,y) (((int)(x) + (y) - 1) & ~((y)-1))
+
+SInt32	IOSCSIParallelController::sDomainCount = 1;
 
 /*
  *
@@ -44,6 +50,9 @@ OSDefineAbstractStructors( IOSCSIParallelController, IOService );
  */
 bool IOSCSIParallelController::start( IOService *forProvider )
 {
+    
+    UInt32	domainID;
+    
     provider = forProvider;
 
     if ( provider->open( this ) != true )
@@ -64,12 +73,15 @@ bool IOSCSIParallelController::start( IOService *forProvider )
 
     initQueues();
     
+	domainID = ( OSIncrementAtomic ( &sDomainCount ) << 16 );
+	setProperty ( kIOPropertySCSIDomainIdentifierKey, ( UInt64 ) domainID, 64 );
+	
     if ( scanSCSIBus() == false ) 
     {
         provider->close( this );
         return false;
     }
-
+		
     return true;
 }
 

@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_subr.h,v 1.5.34.2 2003/03/14 00:05:54 lindak Exp $
+ * $Id: smbfs_subr.h,v 1.11 2003/05/06 21:54:38 lindak Exp $
  */
 #ifndef _FS_SMBFS_SMBFS_SUBR_H_
 #define _FS_SMBFS_SMBFS_SUBR_H_
@@ -63,7 +63,7 @@ struct statfs;
 
 struct smbfattr {
 	int		fa_attr;
-	int64_t		fa_size;
+	u_quad_t	fa_size;
 	struct timespec	fa_atime;
 	struct timespec	fa_ctime;
 	struct timespec	fa_mtime;
@@ -134,7 +134,8 @@ extern int smbfs_debuglevel;
  * smb level
  */
 int  smbfs_smb_lock(struct smbnode *np, int op, caddr_t id,
-	off_t start, off_t end,	struct smb_cred *scred);
+	off_t start, u_int64_t len,	int largelock,
+	struct smb_cred *scred, u_int32_t timeout);
 int  smbfs_smb_statfs2(struct smb_share *ssp, struct statfs *sbp,
 	struct smb_cred *scred);
 int  smbfs_smb_statfs(struct smb_share *ssp, struct statfs *sbp,
@@ -156,7 +157,7 @@ int  smbfs_smb_setftime(struct smbnode *np, struct timespec *mtime,
 int  smbfs_smb_setfattrNT(struct smbnode *np, u_int16_t attr,
 	struct timespec *mtime,	struct timespec *atime, struct smb_cred *scred);
 
-int  smbfs_smb_open(struct smbnode *np, int accmode, struct smb_cred *scred);
+int  smbfs_smb_open(struct smbnode *np, int accmode, struct smb_cred *scred, int *attrcacheupdated);
 int  smbfs_smb_close(struct smb_share *ssp, u_int16_t fid,
 	 struct timespec *mtime, struct smb_cred *scred);
 int  smbfs_smb_create(struct smbnode *dnp, const char *name, int len,

@@ -8,6 +8,8 @@ SYSTEM_LIBRARY_DIR=$(DSTROOT)/System/Library
 SYSTEM_CORE_SERVICES_DIR=/System/Library/CoreServices
 AUTHORIZATION_LOCATION=$(DSTROOT)/private/etc
 AUTHORIZATION_PLIST=$(AUTHORIZATION_LOCATION)/authorization
+VARDB=$(DSTROOT)/private/var/db
+CANDIDATES=$(VARDB)/CodeEquivalenceCandidates
 
 DST=$(SYSTEM_LIBRARY_DIR)/StartupItems/SecurityServer
 SRC=$(SRCROOT)/SecurityServer
@@ -32,16 +34,21 @@ install:
 	mkdir -p $(DST)/Resources/English.lproj
 	cp $(SRC)/StartupItems/StartupParameters.plist $(DST)
 	sed -e "s:@@@:$(SYSTEM_CORE_SERVICES_DIR):g" $(SRC)/StartupItems/SecurityServer >$(DST)/SecurityServer
-	cp $(SRC)/StartupItems/Localizable.strings $(DST)/Resources/English.lproj/Localizable.strings
+	cp $(SRC)/StartupItems/Localizable.strings $(DST)/Resources/English.lproj/Localizable.plist
 	chown -R root.wheel $(DST)
 	chmod 755 $(DST)/SecurityServer
 	chmod 644 $(DST)/StartupParameters.plist
-	chmod 644 $(DST)/Resources/English.lproj/Localizable.strings
+	chmod 644 $(DST)/Resources/English.lproj/Localizable.plist
 	chmod 4711 $(DSTROOT)/$(SYSTEM_CORE_SERVICES_DIR)/AuthorizationTrampoline
+	chmod 4711 $(DSTROOT)/$(SYSTEM_CORE_SERVICES_DIR)/privportserver
 	mkdir -p $(AUTHORIZATION_LOCATION)
 	cp $(SRC)/Authorization/authorization.plist $(AUTHORIZATION_PLIST)
 	chown root.admin $(AUTHORIZATION_PLIST)
-	chmod 640 $(AUTHORIZATION_PLIST)
+	chmod 644 $(AUTHORIZATION_PLIST)
+	mkdir -p $(VARDB)
+	cp $(SRC)/StartupItems/CodeEquivalenceCandidates $(CANDIDATES)
+	chown root.admin $(CANDIDATES)
+	chmod 644 $(CANDIDATES)
 
 installhdrs:
 	@echo null installhdrs.

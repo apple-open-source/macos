@@ -33,14 +33,21 @@
 extern "C" {
 #endif
 
-#define IOGRAPHICSTYPES_REV	5
+#define IOGRAPHICSTYPES_REV	6
 
 typedef SInt32	IOIndex;
 typedef UInt32	IOSelect;
 typedef UInt32	IOFixed1616;
-typedef SInt32	IODisplayModeID;
 typedef UInt32	IODisplayVendorID;
 typedef UInt32	IODisplayProductID;
+
+typedef SInt32	IODisplayModeID;
+enum {
+    // This is the ID given to a programmable timing used at boot time
+    kIODisplayModeIDBootProgrammable = (long)0xFFFFFFFB,
+    // Lowest (unsigned) DisplayModeID reserved by Apple
+    kIODisplayModeIDReservedBase  = (long)0x80000000
+};
 
 enum {
     kIOMaxPixelBits 	= 64
@@ -109,7 +116,7 @@ struct IOPixelInformation {
 };
 typedef struct IOPixelInformation IOPixelInformation;
 
-// Info about a display mode
+// ID for industry standard display timings
 typedef UInt32  IOAppleTimingID;
 
 /*!
@@ -231,7 +238,11 @@ enum {
 
     kIOCapturedAttribute		= 'capd',
 
-    kIOCursorControlAttribute		= 'crsc'
+    kIOCursorControlAttribute		= 'crsc',
+
+    kIOSystemPowerAttribute		= 'spwr',
+    kIOVRAMSaveAttribute		= 'vrsv',
+    kIODeferCLUTSetAttribute		= 'vclt'
 };
 
 // values for kIOMirrorAttribute
@@ -248,7 +259,7 @@ enum {
 
 //// Display mode timing information
 
-struct IODetailedTimingInformation {
+struct IODetailedTimingInformationV1 {
     // from EDID defn
     UInt32			pixelClock;		// Hertz
     UInt32			horizontalActive;	// pixels
@@ -262,23 +273,22 @@ struct IODetailedTimingInformation {
     UInt32			verticalSyncOffset;	// lines
     UInt32			verticalSyncWidth;	// lines
 };
-typedef struct IODetailedTimingInformation IODetailedTimingInformation;
+typedef struct IODetailedTimingInformationV1 IODetailedTimingInformationV1;
 
 /*!
  * @struct IODetailedTimingInformationV2
  * @abstract A structure defining the detailed timing information of a display mode.
  * @discussion This structure is used by IOFramebuffer to define detailed timing information for a display mode. The VESA EDID document has more information.
  * @field __reservedA Set to zero.
- * @field scalerFlags If the mode is scaled, kScaleStretchToFitMask may be set to allow stretching.
+ * @field scalerFlags If the mode is scaled, kIOScaleStretchToFit may be set to allow stretching.
  * @field horizontalScaled If the mode is scaled, sets the size of the image before scaling.
  * @field verticalScaled If the mode is scaled, sets the size of the image before scaling.
- 
- * @field signalConfig kAnalogSetupExpectedMask set if display expects a blank-to-black setup or pedestal.  See VESA signal standards.
+ * @field signalConfig kIOAnalogSetupExpected set if display expects a blank-to-black setup or pedestal.  See VESA signal standards.
  * @field signalLevels One of:<br>
-    kAnalogSignalLevel_0700_0300 0.700 - 0.300 V p-p.<br>
-    kAnalogSignalLevel_0714_0286 0.714 - 0.286 V p-p.<br>
-    kAnalogSignalLevel_1000_0400 1.000 - 0.400 V p-p.<br>
-    kAnalogSignalLevel_0700_0000 0.700 - 0.000 V p-p.<br>
+    kIOAnalogSignalLevel_0700_0300 0.700 - 0.300 V p-p.<br>
+    kIOAnalogSignalLevel_0714_0286 0.714 - 0.286 V p-p.<br>
+    kIOAnalogSignalLevel_1000_0400 1.000 - 0.400 V p-p.<br>
+    kIOAnalogSignalLevel_0700_0000 0.700 - 0.000 V p-p.<br>
  * @field pixelClock Pixel clock frequency in Hz.
  * @field minPixelClock Minimum pixel clock frequency in Hz, with error.
  * @field maxPixelClock Maximum pixel clock frequency in Hz, with error.
@@ -294,9 +304,9 @@ typedef struct IODetailedTimingInformation IODetailedTimingInformation;
  * @field horizontalBorderRight Last clock of horizontal border or zero.
  * @field verticalBorderTop First line of vertical border or zero.
  * @field verticalBorderBottom Last line of vertical border or zero.
- * @field horizontalSyncConfig kSyncPositivePolarityMask for positive polarity horizontal sync.
+ * @field horizontalSyncConfig kIOSyncPositivePolarity for positive polarity horizontal sync (0 for negative).
  * @field horizontalSyncLevel Zero.
- * @field verticalSyncConfig kSyncPositivePolarityMask for positive polarity vertical sync.
+ * @field verticalSyncConfig kIOSyncPositivePolarity for positive polarity vertical sync (0 for negative).
  * @field verticalSyncLevel Zero.
  * @field __reservedB Reserved set to zero.
  */
@@ -340,28 +350,252 @@ struct IODetailedTimingInformationV2 {
     UInt32	__reservedB[8];			// Init to 0
 };
 typedef struct IODetailedTimingInformationV2 IODetailedTimingInformationV2;
+typedef struct IODetailedTimingInformationV2 IODetailedTimingInformation;
 
 struct IOTimingInformation {
-    IOAppleTimingID		appleTimingID;	// appleTimingXXX const
+    IOAppleTimingID		appleTimingID;	// kIOTimingIDXXX const
     UInt32			flags;
     union {
-      IODetailedTimingInformation	v1;
+      IODetailedTimingInformationV1	v1;
       IODetailedTimingInformationV2	v2;
     }				detailedInfo;
 };
 typedef struct IOTimingInformation IOTimingInformation;
 
 enum {
-    // b0-7 from EDID flags
+    // IOTimingInformation flags
     kIODetailedTimingValid	= 0x80000000,
     kIOScalingInfoValid		= 0x40000000
 };
+
+enum {
+    // scalerFlags
+    kIOScaleStretchToFit	  = 0x00000001
+};
+
 
 struct IOFBDisplayModeDescription {
     IODisplayModeInformation	info;
     IOTimingInformation 	timingInfo;
 };
 typedef struct IOFBDisplayModeDescription IOFBDisplayModeDescription;
+
+/*!
+ * @struct IODisplayTimingRange
+ * @abstract A structure defining the limits and attributes of a display or framebuffer.
+ * @discussion This structure is used to define the limits for modes programmed as detailed timings by the OS. The VESA EDID is useful background information for many of these fields. A data property with this structure under the key kIOFBTimingRangeKey in a framebuffer will allow the OS to program detailed timings that fall within its range.
+ * @field __reservedA Set to zero.
+ * @field version Set to zero.
+ * @field __reservedB Set to zero.
+ * @field minPixelClock minimum pixel clock frequency in range, in Hz.
+ * @field minPixelClock maximum pixel clock frequency in range, in Hz.
+ * @field maxPixelError largest variation between specified and actual pixel clock frequency, in Hz.
+ * @field supportedSyncFlags mask of supported sync attributes. The following are defined:<br>
+    kIORangeSupportsSeparateSyncs - digital separate syncs.<br>
+    kIORangeSupportsSyncOnGreen - sync on green.<br>
+    kIORangeSupportsCompositeSync - composite sync.<br>
+    kIORangeSupportsVSyncSerration - vertical sync has serration and equalization pulses.<br>
+ * @field supportedSignalLevels mask of possible signal levels. The following are defined:<br>
+    kIORangeSupportsSignal_0700_0300 0.700 - 0.300 V p-p.<br>
+    kIORangeSupportsSignal_0714_0286 0.714 - 0.286 V p-p.<br>
+    kIORangeSupportsSignal_1000_0400 1.000 - 0.400 V p-p.<br>
+    kIORangeSupportsSignal_0700_0000 0.700 - 0.000 V p-p.<br>
+ * @field __reservedC Set to zero.
+ * @field minFrameRate minimum frame rate (vertical refresh frequency) in range, in Hz.
+ * @field maxFrameRate maximum frame rate (vertical refresh frequency) in range, in Hz.
+ * @field minLineRate minimum line rate (horizontal refresh frequency) in range, in Hz.
+ * @field maxLineRate maximum line rate (horizontal refresh frequency) in range, in Hz.
+ * @field maxHorizontalTotal maximum clocks in horizontal line (active + blanking).
+ * @field maxVerticalTotal maximum lines in vertical frame (active + blanking).
+ * @field __reservedD Set to zero.
+ * @field charSizeHorizontalActive horizontalActive must be a multiple of charSizeHorizontalActive.
+ * @field charSizeHorizontalBlanking horizontalBlanking must be a multiple of charSizeHorizontalBlanking.
+ * @field charSizeHorizontalSyncOffset horizontalSyncOffset must be a multiple of charSizeHorizontalSyncOffset.
+ * @field charSizeHorizontalSyncPulse horizontalSyncPulse must be a multiple of charSizeHorizontalSyncPulse.
+ * @field charSizeVerticalActive verticalActive must be a multiple of charSizeVerticalActive.
+ * @field charSizeVerticalBlanking verticalBlanking must be a multiple of charSizeVerticalBlanking.
+ * @field charSizeVerticalSyncOffset verticalSyncOffset must be a multiple of charSizeVerticalSyncOffset.
+ * @field charSizeVerticalSyncPulse verticalSyncPulse must be a multiple of charSizeVerticalSyncPulse.
+ * @field charSizeHorizontalBorderLeft horizontalBorderLeft must be a multiple of charSizeHorizontalBorderLeft.
+ * @field charSizeHorizontalBorderRight horizontalBorderRight must be a multiple of charSizeHorizontalBorderRight.
+ * @field charSizeVerticalBorderTop verticalBorderTop must be a multiple of charSizeVerticalBorderTop.
+ * @field charSizeVerticalBorderBottom verticalBorderBottom must be a multiple of charSizeVerticalBorderBottom.
+ * @field charSizeHorizontalTotal (horizontalActive + horizontalBlanking) must be a multiple of charSizeHorizontalTotal.
+ * @field charSizeVerticalTotal (verticalActive + verticalBlanking) must be a multiple of charSizeVerticalTotal.
+ * @field __reservedE Set to zero.
+ * @field minHorizontalActiveClocks minimum value of horizontalActive.
+ * @field maxHorizontalActiveClocks maximum value of horizontalActive.
+ * @field minHorizontalBlankingClocks minimum value of horizontalBlanking.
+ * @field maxHorizontalBlankingClocks maximum value of horizontalBlanking.
+ * @field minHorizontalSyncOffsetClocks minimum value of horizontalSyncOffset.
+ * @field maxHorizontalSyncOffsetClocks maximum value of horizontalSyncOffset.
+ * @field minHorizontalPulseWidthClocks minimum value of horizontalPulseWidth.
+ * @field maxHorizontalPulseWidthClocks maximum value of horizontalPulseWidth.
+ * @field minVerticalActiveClocks minimum value of verticalActive.
+ * @field maxVerticalActiveClocks maximum value of verticalActive.
+ * @field minVerticalBlankingClocks minimum value of verticalBlanking.
+ * @field maxVerticalBlankingClocks maximum value of verticalBlanking.
+ * @field minVerticalSyncOffsetClocks minimum value of verticalSyncOffset.
+ * @field maxVerticalSyncOffsetClocks maximum value of verticalSyncOffset.
+ * @field minVerticalPulseWidthClocks minimum value of verticalPulseWidth.
+ * @field maxVerticalPulseWidthClocks maximum value of verticalPulseWidth.
+ * @field minHorizontalBorderLeft minimum value of horizontalBorderLeft.
+ * @field maxHorizontalBorderLeft maximum value of horizontalBorderLeft.
+ * @field minHorizontalBorderRight minimum value of horizontalBorderRight.
+ * @field maxHorizontalBorderRight maximum value of horizontalBorderRight.
+ * @field minVerticalBorderTop minimum value of verticalBorderTop.
+ * @field maxVerticalBorderTop maximum value of verticalBorderTop.
+ * @field minVerticalBorderBottom minimum value of verticalBorderBottom.
+ * @field maxVerticalBorderBottom maximum value of verticalBorderBottom.
+ * @field __reservedF Set to zero.
+ */
+
+struct IODisplayTimingRange
+{
+    UInt32	__reservedA[2];			// Init to 0
+    UInt32	version;			// Init to 0
+    UInt32	__reservedB[5];			// Init to 0
+
+    UInt64	minPixelClock;            	// Min dot clock in Hz
+    UInt64	maxPixelClock;            	// Max dot clock in Hz
+
+    UInt32	maxPixelError;            	// Max dot clock error
+    UInt32	supportedSyncFlags;
+    UInt32	supportedSignalLevels;
+    UInt32	__reservedC[1];			// Init to 0
+
+    UInt32	minFrameRate;             	// Hz
+    UInt32	maxFrameRate;             	// Hz
+    UInt32	minLineRate;              	// Hz
+    UInt32	maxLineRate;              	// Hz
+
+    UInt32	maxHorizontalTotal;       	// Clocks - Maximum total (active + blanking)
+    UInt32	maxVerticalTotal;         	// Clocks - Maximum total (active + blanking)
+    UInt32	__reservedD[2];			// Init to 0
+
+    UInt8	charSizeHorizontalActive;
+    UInt8	charSizeHorizontalBlanking; 	
+    UInt8	charSizeHorizontalSyncOffset; 
+    UInt8	charSizeHorizontalSyncPulse; 
+
+    UInt8	charSizeVerticalActive;   	
+    UInt8	charSizeVerticalBlanking; 	
+    UInt8	charSizeVerticalSyncOffset; 	
+    UInt8	charSizeVerticalSyncPulse; 	
+
+    UInt8	charSizeHorizontalBorderLeft; 
+    UInt8	charSizeHorizontalBorderRight; 
+    UInt8	charSizeVerticalBorderTop; 	
+    UInt8	charSizeVerticalBorderBottom; 
+
+    UInt8	charSizeHorizontalTotal;  		// Character size for active + blanking
+    UInt8	charSizeVerticalTotal;    		// Character size for active + blanking
+    UInt16	__reservedE;  		      		// Reserved (Init to 0)
+
+    UInt32	minHorizontalActiveClocks;
+    UInt32	maxHorizontalActiveClocks;
+    UInt32	minHorizontalBlankingClocks;
+    UInt32	maxHorizontalBlankingClocks;
+
+    UInt32	minHorizontalSyncOffsetClocks;
+    UInt32	maxHorizontalSyncOffsetClocks;
+    UInt32	minHorizontalPulseWidthClocks;
+    UInt32	maxHorizontalPulseWidthClocks;
+
+    UInt32	minVerticalActiveClocks;
+    UInt32	maxVerticalActiveClocks;
+    UInt32	minVerticalBlankingClocks;
+    UInt32	maxVerticalBlankingClocks;
+
+    UInt32	minVerticalSyncOffsetClocks;
+    UInt32	maxVerticalSyncOffsetClocks;
+    UInt32	minVerticalPulseWidthClocks;
+    UInt32	maxVerticalPulseWidthClocks;
+
+    UInt32	minHorizontalBorderLeft;
+    UInt32	maxHorizontalBorderLeft;
+    UInt32	minHorizontalBorderRight;
+    UInt32	maxHorizontalBorderRight;
+
+    UInt32	minVerticalBorderTop;
+    UInt32	maxVerticalBorderTop;
+    UInt32	minVerticalBorderBottom;
+    UInt32	maxVerticalBorderBottom;
+
+    UInt32	__reservedF[8];			// Init to 0
+};
+typedef struct IODisplayTimingRange  IODisplayTimingRange;
+
+enum {
+    // supportedSignalLevels
+    kIORangeSupportsSignal_0700_0300	= 0x00000001,
+    kIORangeSupportsSignal_0714_0286	= 0x00000002,
+    kIORangeSupportsSignal_1000_0400	= 0x00000004,
+    kIORangeSupportsSignal_0700_0000	= 0x00000008,
+};
+enum {
+    // supportedSyncFlags
+    kIORangeSupportsSeparateSyncs	 = 0x00000001,
+    kIORangeSupportsSyncOnGreen		 = 0x00000002,
+    kIORangeSupportsCompositeSync	 = 0x00000004,
+    kIORangeSupportsVSyncSerration	 = 0x00000008,
+};
+
+enum {
+    // signalConfig
+    // Do not set.  Mac OS does not currently support arbitrary digital timings
+    kIODigitalSignal          = 0x00000001,
+    kIOAnalogSetupExpected    = 0x00000002
+};
+
+enum {
+    // signalLevels for analog
+    kIOAnalogSignalLevel_0700_0300 = 0,
+    kIOAnalogSignalLevel_0714_0286 = 1,
+    kIOAnalogSignalLevel_1000_0400 = 2,
+    kIOAnalogSignalLevel_0700_0000 = 3
+};
+
+enum {
+    // horizontalSyncConfig and verticalSyncConfig
+    kIOSyncPositivePolarity     = 0x00000001
+};
+
+/*!
+ * @struct IODisplayScalerInformation
+ * @abstract A structure defining the scaling capabilities of a framebuffer.
+ * @discussion This structure is used to define the limits for modes programmed as detailed timings by the OS. A data property with this structure under the key kIOFBScalerInfoKey in a framebuffer will allow the OS to program detailed timings that are scaled to a displays native resolution.
+ * @field __reservedA Set to zero.
+ * @field version Set to zero.
+ * @field __reservedB Set to zero.
+ * @field scalerFeatures Mask of scaling features. The following are defined:<br>
+    kIOScaleStretchOnly If set the framebuffer can only provide stretched scaling with non-square pixels, without borders.<br>
+    kIOScaleCanUpSamplePixels If set framebuffer can scale up from a smaller number of source pixels to a larger native timing (eg. 640x480 pixels on a 1600x1200 timing).<br>
+    kIOScaleCanDownSamplePixels
+    kIOScaleCanDownSamplePixels If set framebuffer can scale down from a larger number of source pixels to a smaller native timing (eg. 1600x1200 pixels on a 640x480 timing).<br>
+ * @field maxHorizontalPixels Maximum number of horizontal source pixels (horizontalScaled).<br>
+ * @field maxVerticalPixels Maximum number of vertical source pixels (verticalScaled).<br>
+ * @field __reservedC Set to zero.
+ */
+
+struct IODisplayScalerInformation {
+    UInt32		__reservedA[1];		// Init to 0
+    UInt32		version;		// Init to 0
+    UInt32		__reservedB[2];		// Init to 0
+    
+    IOOptionBits	scalerFeatures;
+    UInt32		maxHorizontalPixels;
+    UInt32		maxVerticalPixels;
+    UInt32		__reservedC[5];		// Init to 0
+};
+typedef struct IODisplayScalerInformation IODisplayScalerInformation;
+
+enum {
+    /* scalerFeatures */
+    kIOScaleStretchOnly		  = 0x00000001,
+    kIOScaleCanUpSamplePixels	  = 0x00000002,
+    kIOScaleCanDownSamplePixels   = 0x00000004
+};
 
 //// Connections
 
@@ -379,7 +613,12 @@ enum {
     kConnectionSupportsHLDDCSense	= 'hddc',
     kConnectionEnable			= 'enab',
     kConnectionChanged			= 'chng',
-    kConnectionPower			= 'powr'
+    kConnectionPower			= 'powr',
+    kConnectionPostWake			= 'pwak',
+    kConnectionDisplayParameterCount	= 'pcnt',
+    kConnectionDisplayParameters	= 'parm',
+    kConnectionOverscan			= 'oscn',
+    kConnectionVideoBest		= 'vbst'
 };
 
 // kConnectionFlags values
@@ -526,6 +765,68 @@ enum {
     kIOFBOnlineInterruptType		= 'add '
 };
 
+// IOAppleTimingID's
+enum {
+    kIOTimingIDInvalid               = 0,	/*  Not a standard timing */
+    kIOTimingIDApple_FixedRateLCD    = 42,	/*  Lump all fixed-rate LCDs into one category.*/
+    kIOTimingIDApple_512x384_60hz    = 130,	/*  512x384  (60 Hz) Rubik timing. */
+    kIOTimingIDApple_560x384_60hz    = 135,	/*  560x384  (60 Hz) Rubik-560 timing. */
+    kIOTimingIDApple_640x480_67hz    = 140,	/*  640x480  (67 Hz) HR timing. */
+    kIOTimingIDApple_640x400_67hz    = 145,	/*  640x400  (67 Hz) HR-400 timing. */
+    kIOTimingIDVESA_640x480_60hz     = 150,	/*  640x480  (60 Hz) VGA timing. */
+    kIOTimingIDVESA_640x480_72hz     = 152,	/*  640x480  (72 Hz) VGA timing. */
+    kIOTimingIDVESA_640x480_75hz     = 154,	/*  640x480  (75 Hz) VGA timing. */
+    kIOTimingIDVESA_640x480_85hz     = 158,	/*  640x480  (85 Hz) VGA timing. */
+    kIOTimingIDGTF_640x480_120hz     = 159,	/*  640x480  (120 Hz) VESA Generalized Timing Formula */
+    kIOTimingIDApple_640x870_75hz    = 160,	/*  640x870  (75 Hz) FPD timing.*/
+    kIOTimingIDApple_640x818_75hz    = 165,	/*  640x818  (75 Hz) FPD-818 timing.*/
+    kIOTimingIDApple_832x624_75hz    = 170,	/*  832x624  (75 Hz) GoldFish timing.*/
+    kIOTimingIDVESA_800x600_56hz     = 180,	/*  800x600  (56 Hz) SVGA timing. */
+    kIOTimingIDVESA_800x600_60hz     = 182,	/*  800x600  (60 Hz) SVGA timing. */
+    kIOTimingIDVESA_800x600_72hz     = 184,	/*  800x600  (72 Hz) SVGA timing. */
+    kIOTimingIDVESA_800x600_75hz     = 186,	/*  800x600  (75 Hz) SVGA timing. */
+    kIOTimingIDVESA_800x600_85hz     = 188,	/*  800x600  (85 Hz) SVGA timing. */
+    kIOTimingIDVESA_1024x768_60hz    = 190,	/* 1024x768  (60 Hz) VESA 1K-60Hz timing. */
+    kIOTimingIDVESA_1024x768_70hz    = 200,	/* 1024x768  (70 Hz) VESA 1K-70Hz timing. */
+    kIOTimingIDVESA_1024x768_75hz    = 204,	/* 1024x768  (75 Hz) VESA 1K-75Hz timing (very similar to kIOTimingIDApple_1024x768_75hz). */
+    kIOTimingIDVESA_1024x768_85hz    = 208,	/* 1024x768  (85 Hz) VESA timing. */
+    kIOTimingIDApple_1024x768_75hz   = 210,	/* 1024x768  (75 Hz) Apple 19" RGB. */
+    kIOTimingIDApple_1152x870_75hz   = 220,	/* 1152x870  (75 Hz) Apple 21" RGB. */
+    kIOTimingIDAppleNTSC_ST          = 230,	/*  512x384  (60 Hz, interlaced, non-convolved). */
+    kIOTimingIDAppleNTSC_FF          = 232,	/*  640x480  (60 Hz, interlaced, non-convolved). */
+    kIOTimingIDAppleNTSC_STconv      = 234,	/*  512x384  (60 Hz, interlaced, convolved). */
+    kIOTimingIDAppleNTSC_FFconv      = 236,	/*  640x480  (60 Hz, interlaced, convolved). */
+    kIOTimingIDApplePAL_ST           = 238,	/*  640x480  (50 Hz, interlaced, non-convolved). */
+    kIOTimingIDApplePAL_FF           = 240,	/*  768x576  (50 Hz, interlaced, non-convolved). */
+    kIOTimingIDApplePAL_STconv       = 242,	/*  640x480  (50 Hz, interlaced, convolved). */
+    kIOTimingIDApplePAL_FFconv       = 244,	/*  768x576  (50 Hz, interlaced, convolved). */
+    kIOTimingIDVESA_1280x960_75hz    = 250,	/* 1280x960  (75 Hz) */
+    kIOTimingIDVESA_1280x960_60hz    = 252,	/* 1280x960  (60 Hz) */
+    kIOTimingIDVESA_1280x960_85hz    = 254,	/* 1280x960  (85 Hz) */
+    kIOTimingIDVESA_1280x1024_60hz   = 260,	/* 1280x1024 (60 Hz) */
+    kIOTimingIDVESA_1280x1024_75hz   = 262,	/* 1280x1024 (75 Hz) */
+    kIOTimingIDVESA_1280x1024_85hz   = 268,	/* 1280x1024 (85 Hz) */
+    kIOTimingIDVESA_1600x1200_60hz   = 280,	/* 1600x1200 (60 Hz) VESA timing. */
+    kIOTimingIDVESA_1600x1200_65hz   = 282,	/* 1600x1200 (65 Hz) VESA timing. */
+    kIOTimingIDVESA_1600x1200_70hz   = 284,	/* 1600x1200 (70 Hz) VESA timing. */
+    kIOTimingIDVESA_1600x1200_75hz   = 286,	/* 1600x1200 (75 Hz) VESA timing (pixel clock is 189.2 Mhz dot clock). */
+    kIOTimingIDVESA_1600x1200_80hz   = 288,	/* 1600x1200 (80 Hz) VESA timing (pixel clock is 216>? Mhz dot clock) - proposed only. */
+    kIOTimingIDVESA_1600x1200_85hz   = 289,	/* 1600x1200 (85 Hz) VESA timing (pixel clock is 229.5 Mhz dot clock). */
+    kIOTimingIDVESA_1792x1344_60hz   = 296,	/* 1792x1344 (60 Hz) VESA timing (204.75 Mhz dot clock). */
+    kIOTimingIDVESA_1792x1344_75hz   = 298,	/* 1792x1344 (75 Hz) VESA timing (261.75 Mhz dot clock). */
+    kIOTimingIDVESA_1856x1392_60hz   = 300,	/* 1856x1392 (60 Hz) VESA timing (218.25 Mhz dot clock). */
+    kIOTimingIDVESA_1856x1392_75hz   = 302,	/* 1856x1392 (75 Hz) VESA timing (288 Mhz dot clock). */
+    kIOTimingIDVESA_1920x1440_60hz   = 304,	/* 1920x1440 (60 Hz) VESA timing (234 Mhz dot clock). */
+    kIOTimingIDVESA_1920x1440_75hz   = 306,	/* 1920x1440 (75 Hz) VESA timing (297 Mhz dot clock). */
+    kIOTimingIDSMPTE240M_60hz        = 400,	/* 60Hz V, 33.75KHz H, interlaced timing, 16:9 aspect, typical resolution of 1920x1035. */
+    kIOTimingIDFilmRate_48hz         = 410,	/* 48Hz V, 25.20KHz H, non-interlaced timing, typical resolution of 640x480. */
+    kIOTimingIDSony_1600x1024_76hz   = 500,	/* 1600x1024 (76 Hz) Sony timing (pixel clock is 170.447 Mhz dot clock). */
+    kIOTimingIDSony_1920x1080_60hz   = 510,	/* 1920x1080 (60 Hz) Sony timing (pixel clock is 159.84 Mhz dot clock). */
+    kIOTimingIDSony_1920x1080_72hz   = 520,	/* 1920x1080 (72 Hz) Sony timing (pixel clock is 216.023 Mhz dot clock). */
+    kIOTimingIDSony_1920x1200_76hz   = 540,	/* 1900x1200 (76 Hz) Sony timing (pixel clock is 243.20 Mhz dot clock). */
+    kIOTimingIDApple_0x0_0hz_Offline = 550	/* Indicates that this timing will take the display off-line and remove it from the system. */
+};
+
 // framebuffer property keys
 
 #define kIOFramebufferInfoKey		"IOFramebufferInformation"
@@ -550,6 +851,10 @@ enum {
 #define kIOFBMemorySizeKey		"IOFBMemorySize"
 
 #define kIOFBProbeOptionsKey		"IOFBProbeOptions"
+
+#define kIOFBGammaWidthKey		"IOFBGammaWidth"
+#define kIOFBGammaCountKey		"IOFBGammaCount"
+#define kIOFBCLUTDeferKey		"IOFBCLUTDefer"
 
 // diagnostic keys
 
@@ -673,6 +978,8 @@ enum {
 #define kIODisplayRotationKey		"rotation"
 #define kIODisplayTheatreModeKey	"theatre-mode"
 #define kIODisplayTheatreModeWindowKey	"theatre-mode-window"
+#define kIODisplayOverscanKey		"oscn"
+#define kIODisplayVideoBestKey		"vbst"
 
 #define kIODisplayParametersCommitKey	"commit"
 #define kIODisplayParametersDefaultKey	"defaults"

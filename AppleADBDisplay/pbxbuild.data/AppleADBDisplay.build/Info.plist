@@ -15,17 +15,19 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.2</string>
+	<string>1.0.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.2d2</string>
+	<string>1.0.3d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleADBDisplay</key>
 		<dict>
 			<key>ADB Match</key>
 			<string>*-c0</string>
+			<key>ADB-KEXT-Obsolete</key>
+			<integer>1</integer>
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.driver.AppleADBDisplay</string>
 			<key>IOClass</key>
@@ -75,6 +77,6 @@
 		<string>1.0.0b1</string>
 	</dict>
 	<key>OSBundleRequired</key>
-	<string>Safe Boot</string>
+	<string>Root</string>
 </dict>
 </plist>

@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,21 +12,22 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
+   | Author: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                        |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_mail.h,v 1.1.1.4 2001/12/14 22:13:26 zarzycki Exp $ */
+/* $Id: php_mail.h,v 1.1.1.7 2003/07/18 18:07:44 zarzycki Exp $ */
 
 #ifndef PHP_MAIL_H
 #define PHP_MAIL_H
 
+PHP_FUNCTION(mail);
+PHP_MINFO_FUNCTION(mail);
+
 #if HAVE_SENDMAIL
 
-PHP_FUNCTION(mail);
 PHP_FUNCTION(ezmlm_hash);
-PHP_MINFO_FUNCTION(mail);
-PHPAPI extern int php_mail(char *to, char *subject, char *message, char *headers, char *extra_cmd);
+PHPAPI extern int php_mail(char *to, char *subject, char *message, char *headers, char *extra_cmd TSRMLS_DC);
 
 #endif
 

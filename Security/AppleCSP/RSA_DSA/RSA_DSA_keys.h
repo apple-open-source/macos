@@ -26,16 +26,17 @@
 #include <AppleCSP/AppleCSPContext.h>
 #include <AppleCSP/AppleCSPSession.h>
 #include <RSA_DSA/RSA_DSA_csp.h>
+#include "AppleCSPKeys.h"
+#include <opensslUtils/osKeyTemplates.h>
 #include <openssl/rsa.h>
 #include <openssl/dsa.h>
 #include <Security/context.h>
-#include <opensslUtils/openRsaSnacc.h>
-#include <Security/appleoids.h>
+#include <SecurityNssAsn1/SecNssCoder.h>
 
 #define RSA_PUB_KEY_FORMAT		CSSM_KEYBLOB_RAW_FORMAT_PKCS1
 #define RSA_PRIV_KEY_FORMAT		CSSM_KEYBLOB_RAW_FORMAT_PKCS8
 
-#define DSA_PUB_KEY_FORMAT		CSSM_KEYBLOB_RAW_FORMAT_FIPS186
+#define DSA_PUB_KEY_FORMAT		CSSM_KEYBLOB_RAW_FORMAT_X509
 #define DSA_PRIV_KEY_FORMAT		CSSM_KEYBLOB_RAW_FORMAT_FIPS186
 
 #define	DSA_MIN_KEY_SIZE		512
@@ -52,7 +53,10 @@ public:
 	void generateKeyBlob(
 		CssmAllocator 		&allocator,
 		CssmData			&blob,
-		CSSM_KEYBLOB_FORMAT	&format);
+		CSSM_KEYBLOB_FORMAT	&format,
+		AppleCSPSession		&session,
+		const CssmKey		*paramKey,		/* optional, unused here */
+		CSSM_KEYATTR_FLAGS	&attrFlags);	/* IN/OUT */
 
 	RSA						*mRsaKey;
 };
@@ -94,15 +98,23 @@ class RSAKeyInfoProvider : public CSPKeyInfoProvider
 {
 private:
 	RSAKeyInfoProvider(
-		const CssmKey		&cssmKey);
+		const CssmKey		&cssmKey,
+		AppleCSPSession		&session);
 public:
 	static CSPKeyInfoProvider *provider(
-		const CssmKey &cssmKey);
+		const CssmKey 		&cssmKey,
+		AppleCSPSession		&session);
+
 	~RSAKeyInfoProvider() { }
 	void CssmKeyToBinary(
+		CssmKey				*paramKey,	// optional
+		CSSM_KEYATTR_FLAGS	&attrFlags,	// IN/OUT
 		BinaryKey			**binKey);	// RETURNED
 	void QueryKeySizeInBits(
 		CSSM_KEY_SIZE		&keySize);	// RETURNED
+	bool getHashableBlob(
+		CssmAllocator 		&allocator,
+		CssmData			&hashBlob);
 };
 
 /*
@@ -115,7 +127,10 @@ public:
 	void generateKeyBlob(
 		CssmAllocator 		&allocator,
 		CssmData			&blob,
-		CSSM_KEYBLOB_FORMAT	&format);
+		CSSM_KEYBLOB_FORMAT	&format,
+		AppleCSPSession		&session,
+		const CssmKey		*paramKey,		/* optional */
+		CSSM_KEYATTR_FLAGS	&attrFlags);	/* IN/OUT */
 
 	DSA						*mDsaKey;
 };
@@ -167,7 +182,8 @@ public:
 		uint32			keySizeInBits,
 		const void		*inSeed,			// optional
 		unsigned		inSeedLen,
-		DSAAlgParams	&algParams);
+		NSS_DSAAlgParams &algParams,
+		SecNssCoder		&coder);
 	
 private:
 	/* gross hack to store attributes "returned" from GenParams */
@@ -182,15 +198,23 @@ class DSAKeyInfoProvider : public CSPKeyInfoProvider
 {
 private:
 	DSAKeyInfoProvider(
-		const CssmKey		&cssmKey);
+		const CssmKey		&cssmKey,
+		AppleCSPSession		&session);
 public:
 	static CSPKeyInfoProvider *provider(
-		const CssmKey &cssmKey);
+		const CssmKey 		&cssmKey,
+		AppleCSPSession		&session);
+		
 	~DSAKeyInfoProvider() { }
 	void CssmKeyToBinary(
+		CssmKey				*paramKey,	// optional
+		CSSM_KEYATTR_FLAGS	&attrFlags,	// IN/OUT
 		BinaryKey			**binKey);	// RETURNED
 	void QueryKeySizeInBits(
 		CSSM_KEY_SIZE		&keySize);	// RETURNED
+	bool getHashableBlob(
+		CssmAllocator 	&allocator,
+		CssmData		&hashBlob);
 };
 
 #endif	/* _RSA_DSA_KEYS_H_ */

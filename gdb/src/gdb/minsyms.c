@@ -1,5 +1,6 @@
 /* GDB routines for manipulating the minimal symbol tables.
-   Copyright 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001
+   Copyright 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
+   2002, 2003
    Free Software Foundation, Inc.
    Contributed by Cygnus Support, using pieces from other GDB modules.
 
@@ -91,7 +92,7 @@ msymbol_hash_iw (const char *string)
 	  ++string;
 	}
     }
-  return hash % MINIMAL_SYMBOL_HASH_SIZE;
+  return hash;
 }
 
 /* Compute a hash code for a string.  */
@@ -102,7 +103,7 @@ msymbol_hash (const char *string)
   unsigned int hash = 0;
   for (; *string; ++string)
     hash = hash * 67 + *string - 113;
-  return hash % MINIMAL_SYMBOL_HASH_SIZE;
+  return hash;
 }
 
 /* Add the minimal symbol SYM to an objfile's minsym hash table, TABLE.  */
@@ -112,7 +113,7 @@ add_minsym_to_hash_table (struct minimal_symbol *sym,
 {
   if (sym->hash_next == NULL)
     {
-      unsigned int hash = msymbol_hash (SYMBOL_NAME (sym));
+      unsigned int hash = msymbol_hash (SYMBOL_NAME (sym)) % MINIMAL_SYMBOL_HASH_SIZE;
       sym->hash_next = table[hash];
       table[hash] = sym;
     }
@@ -126,7 +127,7 @@ add_minsym_to_demangled_hash_table (struct minimal_symbol *sym,
 {
   if (sym->demangled_hash_next == NULL)
     {
-      unsigned int hash = msymbol_hash_iw (SYMBOL_DEMANGLED_NAME (sym));
+      unsigned int hash = msymbol_hash_iw (SYMBOL_DEMANGLED_NAME (sym)) % MINIMAL_SYMBOL_HASH_SIZE;
       sym->demangled_hash_next = table[hash];
       table[hash] = sym;
     }
@@ -135,14 +136,15 @@ add_minsym_to_demangled_hash_table (struct minimal_symbol *sym,
 
 /* Look through all the current minimal symbol tables and find the
    first minimal symbol that matches NAME.  If OBJF is non-NULL, limit
-   the search to that objfile.  If SFILE is non-NULL, limit the search
-   to that source file.  Returns a pointer to the minimal symbol that
+   the search to that objfile.  If SFILE is non-NULL, the only file-scope
+   symbols considered will be from that source file (global symbols are
+   still preferred).  Returns a pointer to the minimal symbol that
    matches, or NULL if no match is found.
 
    Note:  One instance where there may be duplicate minimal symbols with
    the same name is when the symbol tables for a shared library and the
    symbol tables for an executable contain global symbols with the same
-   names (the dynamic linker deals with the duplication). */
+   names (the dynamic linker deals with the duplication).  */
 
 struct minimal_symbol *
 lookup_minimal_symbol (register const char *name, const char *sfile,
@@ -154,8 +156,8 @@ lookup_minimal_symbol (register const char *name, const char *sfile,
   struct minimal_symbol *found_file_symbol = NULL;
   struct minimal_symbol *trampoline_symbol = NULL;
 
-  unsigned int hash = msymbol_hash (name);
-  unsigned int dem_hash = msymbol_hash_iw (name);
+  unsigned int hash = msymbol_hash (name) % MINIMAL_SYMBOL_HASH_SIZE;
+  unsigned int dem_hash = msymbol_hash_iw (name) % MINIMAL_SYMBOL_HASH_SIZE;
 
 #ifdef SOFUN_ADDRESS_MAYBE_MISSING
   if (sfile != NULL)
@@ -166,9 +168,9 @@ lookup_minimal_symbol (register const char *name, const char *sfile,
     }
 #endif
 
-  for (objfile = object_files;
+  for (objfile = objfile_get_first ();
        objfile != NULL && found_symbol == NULL;
-       objfile = objfile->next)
+       objfile = objfile_get_next (objfile))
     {
       if (objf == NULL || objf == objfile)
 	{
@@ -187,7 +189,9 @@ lookup_minimal_symbol (register const char *name, const char *sfile,
 
 	      while (msymbol != NULL && found_symbol == NULL)
 		{
-		  if (SYMBOL_MATCHES_NAME (msymbol, name))
+                  /* APPLE LOCAL fix-and-continue */
+		  if (SYMBOL_MATCHES_NAME (msymbol, name) && 
+                      !MSYMBOL_OBSOLETED (msymbol))
 		    {
 		      switch (MSYMBOL_TYPE (msymbol))
 			{
@@ -249,12 +253,13 @@ lookup_minimal_symbol (register const char *name, const char *sfile,
 }
 
 /* Look through all the current minimal symbol tables and find the
-   first minimal symbol that matches NAME and of text type.  
-   If OBJF is non-NULL, limit
-   the search to that objfile.  If SFILE is non-NULL, limit the search
-   to that source file.  Returns a pointer to the minimal symbol that
-   matches, or NULL if no match is found.
- */
+   first minimal symbol that matches NAME and has text type.  If OBJF
+   is non-NULL, limit the search to that objfile.  If SFILE is non-NULL,
+   the only file-scope symbols considered will be from that source file
+   (global symbols are still preferred).  Returns a pointer to the minimal
+   symbol that matches, or NULL if no match is found.
+
+   This function only searches the mangled (linkage) names.  */
 
 struct minimal_symbol *
 lookup_minimal_symbol_text (register const char *name, const char *sfile,
@@ -265,6 +270,8 @@ lookup_minimal_symbol_text (register const char *name, const char *sfile,
   struct minimal_symbol *found_symbol = NULL;
   struct minimal_symbol *found_file_symbol = NULL;
 
+  unsigned int hash = msymbol_hash (name) % MINIMAL_SYMBOL_HASH_SIZE;
+
 #ifdef SOFUN_ADDRESS_MAYBE_MISSING
   if (sfile != NULL)
     {
@@ -274,21 +281,22 @@ lookup_minimal_symbol_text (register const char *name, const char *sfile,
     }
 #endif
 
-  for (objfile = object_files;
+  for (objfile = objfile_get_first ();
        objfile != NULL && found_symbol == NULL;
-       objfile = objfile->next)
+       objfile = objfile_get_next (objfile))
     {
       objfile_demangle_msymbols (objfile);
       if (objf == NULL || objf == objfile)
 	{
-	  for (msymbol = objfile->msymbols;
-	       msymbol != NULL && SYMBOL_NAME (msymbol) != NULL &&
-	       found_symbol == NULL;
-	       msymbol++)
+	  for (msymbol = objfile->msymbol_hash[hash];
+	       msymbol != NULL && found_symbol == NULL;
+	       msymbol = msymbol->hash_next)
 	    {
+              /* APPLE LOCAL fix-and-continue */
 	      if (SYMBOL_MATCHES_NAME (msymbol, name) &&
 		  (MSYMBOL_TYPE (msymbol) == mst_text ||
-		   MSYMBOL_TYPE (msymbol) == mst_file_text))
+		   MSYMBOL_TYPE (msymbol) == mst_file_text) &&
+                  !MSYMBOL_OBSOLETED (msymbol))
 		{
 		  switch (MSYMBOL_TYPE (msymbol))
 		    {
@@ -325,12 +333,13 @@ lookup_minimal_symbol_text (register const char *name, const char *sfile,
 }
 
 /* Look through all the current minimal symbol tables and find the
-   first minimal symbol that matches NAME and of solib trampoline type.  
-   If OBJF is non-NULL, limit
-   the search to that objfile.  If SFILE is non-NULL, limit the search
-   to that source file.  Returns a pointer to the minimal symbol that
-   matches, or NULL if no match is found.
- */
+   first minimal symbol that matches NAME and is a solib trampoline.  If OBJF
+   is non-NULL, limit the search to that objfile.  If SFILE is non-NULL,
+   the only file-scope symbols considered will be from that source file
+   (global symbols are still preferred).  Returns a pointer to the minimal
+   symbol that matches, or NULL if no match is found.
+
+   This function only searches the mangled (linkage) names.  */
 
 struct minimal_symbol *
 lookup_minimal_symbol_solib_trampoline (register const char *name,
@@ -339,6 +348,8 @@ lookup_minimal_symbol_solib_trampoline (register const char *name,
   struct objfile *objfile;
   struct minimal_symbol *msymbol;
   struct minimal_symbol *found_symbol = NULL;
+
+  unsigned int hash = msymbol_hash (name) % MINIMAL_SYMBOL_HASH_SIZE;
 
 #ifdef SOFUN_ADDRESS_MAYBE_MISSING
   if (sfile != NULL)
@@ -355,13 +366,14 @@ lookup_minimal_symbol_solib_trampoline (register const char *name,
     {
       if (objf == NULL || objf == objfile)
 	{
-	  for (msymbol = objfile->msymbols;
-	       msymbol != NULL && SYMBOL_NAME (msymbol) != NULL &&
-	       found_symbol == NULL;
-	       msymbol++)
+	  for (msymbol = objfile->msymbol_hash[hash];
+	       msymbol != NULL && found_symbol == NULL;
+	       msymbol = msymbol->hash_next)
 	    {
+              /* APPLE LOCAL fix-and-continue */
 	      if (SYMBOL_MATCHES_NAME (msymbol, name) &&
-		  MSYMBOL_TYPE (msymbol) == mst_solib_trampoline)
+		  MSYMBOL_TYPE (msymbol) == mst_solib_trampoline &&
+                  !MSYMBOL_OBSOLETED (msymbol))
 		return msymbol;
 	    }
 	}
@@ -391,11 +403,13 @@ lookup_minimal_symbol_by_pc_section_from_objfile
   struct minimal_symbol *msymbol;
   struct minimal_symbol *best_symbol = NULL;
 
-  /* pc has to be in a known section. This ensures that anything beyond
-     the end of the last segment doesn't appear to be part of the last
-     function in the last segment.  */
-  if (find_pc_section (pc) == NULL)
-    return NULL;
+  /* APPLE LOCAL: We used to start this function by calling find_pc_section (pc)
+     just to make sure that the pc was not after the last section.  Since
+     this function often gets called in a loop, or with the ordered_sections
+     lookup after we had already determined that the pc WAS in some section,
+     I removed that call, and now require the caller to do that check.  See
+     for instance the use in lookup_minimal_symbol_by_pc_section (which is in
+     fact at present this functions only use.)  JCI 07/22/2003  */
 
   /* If this objfile has a minimal symbol table, go search it using
      a binary search.  Note that a minimal symbol table always consists
@@ -507,7 +521,31 @@ lookup_minimal_symbol_by_pc_section (pc, section)
 {
   register struct objfile *objfile;
   register struct minimal_symbol *best_symbol = NULL, *msymbol;
+  struct obj_section *s;
 
+  /* APPLE LOCAL: Although the objfiles can have discontiguous address
+     ranges, two objfiles can't have overlapping sections (or if they 
+     do, either the section will sort out which is the right one, or
+     the pc->symbol translation will be ambiguous anyway so we are
+     going to fail here.)  So find the obj_section that contains the
+     pc, and then use the objfile from that.  This is much faster.
+  */
+
+  s = find_pc_sect_in_ordered_sections (pc, section);
+  if (s)
+    best_symbol = lookup_minimal_symbol_by_pc_section_from_objfile
+      (pc, section, s->objfile);
+  
+  if (best_symbol != NULL)
+    return best_symbol;
+
+  /* pc has to be in a known section. This ensures that anything beyond
+     the end of the last segment doesn't appear to be part of the last
+     function in the last segment.  */
+  
+  if (find_pc_section (pc) == NULL)
+    return NULL;
+  
   for (objfile = object_files;
        objfile != NULL;
        objfile = objfile->next)
@@ -533,52 +571,6 @@ lookup_minimal_symbol_by_pc (CORE_ADDR pc)
 {
   return lookup_minimal_symbol_by_pc_section (pc, find_pc_mapped_section (pc));
 }
-
-#ifdef SOFUN_ADDRESS_MAYBE_MISSING
-CORE_ADDR
-find_stab_function_addr (char *namestring, char *filename,
-			 struct objfile *objfile)
-{
-  struct minimal_symbol *msym;
-  char *p;
-  int n;
-
-  p = strchr (namestring, ':');
-  if (p == NULL)
-    p = namestring;
-  n = p - namestring;
-  p = alloca (n + 2);
-  strncpy (p, namestring, n);
-  p[n] = 0;
-
-  msym = lookup_minimal_symbol (p, filename, objfile);
-  if (msym == NULL)
-    {
-      /* Sun Fortran appends an underscore to the minimal symbol name,
-         try again with an appended underscore if the minimal symbol
-         was not found.  */
-      p[n] = '_';
-      p[n + 1] = 0;
-      msym = lookup_minimal_symbol (p, filename, objfile);
-    }
-
-  if (msym == NULL && filename != NULL)
-    {
-      /* Try again without the filename. */
-      p[n] = 0;
-      msym = lookup_minimal_symbol (p, NULL, objfile);
-    }
-  if (msym == NULL && filename != NULL)
-    {
-      /* And try again for Sun Fortran, but without the filename. */
-      p[n] = '_';
-      p[n + 1] = 0;
-      msym = lookup_minimal_symbol (p, NULL, objfile);
-    }
-
-  return msym == NULL ? 0 : SYMBOL_VALUE_ADDRESS (msym);
-}
-#endif /* SOFUN_ADDRESS_MAYBE_MISSING */
 
 
 /* Return leading symbol character for a BFD. If BFD is NULL,
@@ -690,6 +682,8 @@ prim_record_minimal_symbol_and_info (const char *name, CORE_ADDR address,
   MSYMBOL_TYPE (msymbol) = ms_type;
   /* FIXME:  This info, if it remains, needs its own field.  */
   MSYMBOL_INFO (msymbol) = info;	/* FIXME! */
+  /* APPLE LOCAL fix-and-continue */
+  MSYMBOL_OBSOLETED (msymbol) = 0;
 
   /* The hash pointers must be cleared! If they're not,
      add_minsym_to_hash_table will NOT add this msymbol to the hash table. */
@@ -991,6 +985,8 @@ install_minimal_symbols (struct objfile *objfile)
       SYMBOL_NAME (&msymbols[mcount]) = NULL;
       SYMBOL_VALUE_ADDRESS (&msymbols[mcount]) = 0;
       MSYMBOL_INFO (&msymbols[mcount]) = NULL;
+      /* APPLE LOCAL fix-and-continue */
+      MSYMBOL_OBSOLETED (&msymbols[mcount]) = 0;
       MSYMBOL_TYPE (&msymbols[mcount]) = mst_unknown;
       SYMBOL_INIT_LANGUAGE_SPECIFIC (&msymbols[mcount], language_unknown);
 

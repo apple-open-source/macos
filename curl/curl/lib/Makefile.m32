@@ -1,5 +1,6 @@
 #############################################################
-## Makefile for building libcurl.a with MingW32 (GCC-2.95) and
+#
+## Makefile for building libcurl.a with MingW32 (GCC-3.2) and
 ## optionally OpenSSL (0.9.6)
 ## Use: make -f Makefile.m32
 ##
@@ -8,9 +9,11 @@
 
 CC = gcc
 AR = ar
+RM = rm -f 
 RANLIB = ranlib
 STRIP = strip -g
-OPENSSL_PATH = ../../openssl-0.9.6
+OPENSSL_PATH = ../../openssl-0.9.6g
+ZLIB_PATH = ../../zlib-1.1.3
 
 ########################################################
 ## Nothing more to do below this line!
@@ -20,7 +23,12 @@ CFLAGS = -g -O2 -DMINGW32
 ifdef SSL
   INCLUDES += -I"$(OPENSSL_PATH)/outinc" -I"$(OPENSSL_PATH)/outinc/openssl"
   CFLAGS += -DUSE_SSLEAY
-  DLL_LIBS = -leay32 -lssl32 -lRSAglue
+  DLL_LIBS = -L$(OPENSSL_PATH)/out -leay32 -lssl32 -lRSAglue
+endif
+ifdef ZLIB
+	INCLUDES += -I"$(ZLIB_PATH)"
+	CFLAGS += -DHAVE_ZLIB
+	DLL_LIBS += -L$(ZLIB_PATH) -lz
 endif
 COMPILE = $(CC) $(INCLUDES) $(CFLAGS)
 
@@ -33,13 +41,17 @@ libcurl_a_SOURCES = arpa_telnet.h file.c getpass.h netrc.h timeval.c base64.c \
 	urldata.h transfer.c getdate.h ldap.c ssluse.c version.c transfer.h getenv.c	\
 	ldap.h ssluse.h escape.c getenv.h mprintf.c telnet.c escape.h getpass.c netrc.c	\
 	telnet.h getinfo.c strequal.c strequal.h easy.c security.h		\
-	security.c krb4.h krb4.c memdebug.h memdebug.c inet_ntoa_r.h http_chunks.h http_chunks.c
+	security.c krb4.h krb4.c memdebug.h memdebug.c inet_ntoa_r.h http_chunks.h http_chunks.c \
+	strtok.c connect.c hash.c llist.c multi.c \
+	content_encoding.h content_encoding.c
 
 libcurl_a_OBJECTS =  file.o timeval.o base64.o hostip.o progress.o \
 	formdata.o cookie.o http.o sendf.o ftp.o url.o dict.o if2ip.o \
 	speedcheck.o getdate.o transfer.o ldap.o ssluse.o version.o \
 	getenv.o escape.o mprintf.o telnet.o getpass.o netrc.o getinfo.o \
-	strequal.o easy.o security.o krb4.o memdebug.o http_chunks.o
+	strequal.o easy.o security.o krb4.o memdebug.o http_chunks.o \
+	strtok.o connect.o hash.o llist.o multi.o \
+	content_encoding.o
 
 LIBRARIES =  $(libcurl_a_LIBRARIES)
 SOURCES = $(libcurl_a_SOURCES)
@@ -49,16 +61,18 @@ OBJECTS = $(libcurl_a_OBJECTS)
 all: libcurl.a libcurl.dll libcurldll.a
 
 libcurl.a: $(libcurl_a_OBJECTS) $(libcurl_a_DEPENDENCIES)
-	-@erase libcurl.a
+	$(RM) libcurl.a
 	$(AR) cru libcurl.a $(libcurl_a_OBJECTS)
 	$(RANLIB) libcurl.a
 	$(STRIP) $@
 
+DLLINITOBJ =
+
 # remove the last line above to keep debug info
 
-libcurl.dll libcurldll.a: libcurl.a libcurl.def dllinit.o
-	-@erase $@
-	dllwrap --dllname $@ --output-lib libcurldll.a --export-all --def libcurl.def $(libcurl_a_LIBRARIES) dllinit.o -L$(OPENSSL_PATH)/out $(DLL_LIBS) -lwsock32
+libcurl.dll libcurldll.a: libcurl.a libcurl.def $(DLLINITOBJ)
+	$(RM) $@
+	dllwrap --dllname $@ --output-lib libcurldll.a --export-all --def libcurl.def $(libcurl_a_LIBRARIES) $(DLLINITOBJ) $(DLL_LIBS) -lwsock32 -lws2_32 -lwinmm
 	$(STRIP) $@
 
 # remove the last line above to keep debug info
@@ -73,9 +87,9 @@ libcurl.dll libcurldll.a: libcurl.a libcurl.def dllinit.o
 	$(COMPILE) -c $<
 
 clean:
-	-@erase $(libcurl_a_OBJECTS)
+	$(RM) $(libcurl_a_OBJECTS)
 
 distrib: clean
 
-	-@erase $(libcurl_a_LIBRARIES)
+	$(RM) $(libcurl_a_LIBRARIES)
 

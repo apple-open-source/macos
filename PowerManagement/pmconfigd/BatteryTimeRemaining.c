@@ -43,63 +43,85 @@
 /**** PMUBattery configd plugin
   The functions in battery.c calculate the "meta-data" from the raw data available from the hardware. 
   We provide the following information in a convenient CFDictionary format:
+    Name
+    CurrentCapacity
+    MaxCapacity
     Remaining Time To Empty
     Remaining Time To Full Charge
     IsCharging
-    BatteryIsPresent
-    
- 
- Future work:
- - ApplePMU.kext should send notifications when the battery info has changed. This plugin should only
-   check the battery on each of those notifications. Right now the plugin checks the battery every second
-   so that we can observe AC plug/unplug events in "real time" and present them to the UI (in Battery Monitor).
-   
- - This plugin should also compare its new battery info to the most recently published battery info to avoid
-   unnecessarily duplicated work of clients. Note that whenever we publish a new battery state, every 
-   "interested client" of the PowerSource API receives a notification.
+    IsPresent
+    Type    
 ****/
 
-#define MAX_BATTERY_NUM		2
-#define kBATTERY_HISTORY	30
+#define MAX_BATTERY_NUM		        2
+#define kMaxBatterySamples          30
+#define kMINIMUM_TIME_SPAN          30.0
 
 // static global variables for tracking battery state
+    static int      _batCount;
     static int		_batLevel[MAX_BATTERY_NUM];
     static int		_flags[MAX_BATTERY_NUM];
     static int		_charge[MAX_BATTERY_NUM];
     static int		_capacity[MAX_BATTERY_NUM];
     static CFStringRef	_batName[MAX_BATTERY_NUM];
 
-    static double	_batteryHistory[MAX_BATTERY_NUM][kBATTERY_HISTORY];
-    static int		_historyCount,_historyLimit;
     static double	_hoursRemaining[MAX_BATTERY_NUM];
     static int		_state;
     static int		_pmExists;
-    static unsigned int	_avgCount;
-    static mach_port_t	_batteryPort;
     static int		_pluggedIn, _lastpluggedIn;
-    static int		_charging;
     static int		_impendingSleep = 0;
 
+    typedef struct {
+        CFAbsoluteTime          bTime;
+        long                    bLevel[MAX_BATTERY_NUM];
+    } batterySample;
+    
+    static CFAbsoluteTime       sample_time_span = 0.0;
+    static int                  samples_taken = 0;
+    static int                  battery_history_index = 0;
+    static int                  battery_history_start = 0;
+    static batterySample        battery_history[kMaxBatterySamples];
 
-static CFStringRef PMUBatteryDynamicStore[MAX_BATTERY_NUM];
+    static CFStringRef PMUBatteryDynamicStore[MAX_BATTERY_NUM];
 
-// These are defined below
-static void	    calculateTimeRemaining(void);
-static bool     _IOPMCalculateBatteryInfo(CFArrayRef, CFDictionaryRef *);
-static void     _IOPMCalculateBatterySetup(void);
+    
+// forward declarations
+    static void     _initializeBatteryCalculations(void);
+    static void     _stashBatteryInfo(CFArrayRef);
+    static bool     _calculateBatteryTimeRemaining(void);
+    static bool     _checkCalcsStillValid(int);
+    static void     _packageBatteryInfo(bool, CFDictionaryRef *);
+
+
+static int _isBatteryPresent(int i) {
+    return ((_flags[i] & kIOBatteryInstalled)?1:0);
+}
+
+static int _isACAdapterConnected(int i) {
+    return ((_flags[i] & kIOBatteryChargerConnect)?1:0);
+}
+
+static int _isChargingBit(int i) {
+    return ((_flags[i] & kIOBatteryCharge)?1:0);
+}
+
+// _isCharging does some magic to decide if the battery is REALLY charging
+static int _isCharging(int i) {
+    return ( _isChargingBit(i) && _isBatteryPresent(i) && _isACAdapterConnected(i) );
+}
 
 
 __private_extern__ void
 BatteryTimeRemaining_prime(void)
 {
-    // setup battery calculation global variables
-    _IOPMCalculateBatterySetup();
-    
     // Initialize SCDynamicStore battery key names
     PMUBatteryDynamicStore[0] = SCDynamicStoreKeyCreate(kCFAllocatorDefault, CFSTR("%@%@/%@"),
             kSCDynamicStoreDomainState, CFSTR(kIOPSDynamicStorePath), CFSTR("InternalBattery-0"));
     PMUBatteryDynamicStore[1] = SCDynamicStoreKeyCreate(kCFAllocatorDefault, CFSTR("%@%@/%@"),
             kSCDynamicStoreDomainState, CFSTR(kIOPSDynamicStorePath), CFSTR("InternalBattery-1"));
+
+    // setup battery calculation global variables
+    _initializeBatteryCalculations();
 
     return;
 }
@@ -121,23 +143,95 @@ BatteryTimeRemainingSleepWakeNotification(natural_t messageType)
     }
 }
 
-__private_extern__ void
-BatteryTimeRemainingBatteryPollingTimer(CFArrayRef battery_info)
-{
-    CFDictionaryRef	result[MAX_BATTERY_NUM];
-    int			i;
-    static SCDynamicStoreRef	store = NULL;
-    static CFDictionaryRef	old_battery[MAX_BATTERY_NUM] = {NULL, NULL};
-    
-    if(!battery_info) return;
-    
-    if(!store) 
-        store = SCDynamicStoreCreate(kCFAllocatorDefault, CFSTR("PMUBattery configd plugin"), NULL, NULL);
 
-    bzero(result, MAX_BATTERY_NUM*sizeof(CFDictionaryRef));
-    _IOPMCalculateBatteryInfo(battery_info, result);
+static void 	_initializeBatteryCalculations(void)
+{
+    io_connect_t		pm_tmp;
+    CFArrayRef          info;
+    int				    i;
     
+
+    for(i=0; i < kMaxBatterySamples; i++)
+    {
+        battery_history[i].bTime = 0;
+        battery_history[i].bLevel[0] = battery_history[i].bLevel[1] = 0;    
+    }
+
+    _batName[0] = CFSTR("InternalBattery-0");
+    _batName[1] = CFSTR("InternalBattery-1");
+    
+    if( (pm_tmp = IOPMFindPowerManagement(0)) ){
+        if((IOPMCopyBatteryInfo(0, &info) != 0) || !info ){
+            // no batteries detected
+            _pmExists = 0;
+            return;
+        }
+
+        // Batteries detected, get their initial state
+        _batCount = CFArrayGetCount(info);
+        for(i = 0;i < _batCount;i++){
+            CFNumberGetValue(CFDictionaryGetValue(CFArrayGetValueAtIndex((CFArrayRef)info,i),
+                CFSTR("Current")),kCFNumberSInt32Type,&_charge[i]);
+            _batLevel[i] = _charge[i];
+            CFNumberGetValue(CFDictionaryGetValue(CFArrayGetValueAtIndex((CFArrayRef)info,i),
+                CFSTR("Flags")),kCFNumberSInt32Type,&_flags[i]);
+            _flags[i] &= kIOBatteryInstalled;
+
+            if(_flags[i] & kIOBatteryChargerConnect)
+                _lastpluggedIn = _pluggedIn = TRUE;
+            else _lastpluggedIn = _pluggedIn = FALSE; 
+        }
+        _pmExists = 1;
+    
+        // make initial call to populate array and publish state
+        BatteryTimeRemainingBatteriesHaveChanged(info);
+
+        CFRelease(info);
+        IOObjectRelease(pm_tmp);
+    }
+
+    // _state tracks the battery/plug state. If it changes, we know to reset our calculations.
+    //  _state = 0 means there are no batteries
+    //  _state = 1 means we are hooked up to AC/charger power, but not necessarily charging
+    //  _state = 2 means we aren't hooked up to AC power, and are d_isCharging
+    if(_isACAdapterConnected(0))
+        _state = 1;
+	else if(!_isBatteryPresent(0) && !_isBatteryPresent(1))
+	    _state = 0;
+	else _state = 2;
+
+    samples_taken=0;
+
+    return;
+}
+
+
+__private_extern__ void
+BatteryTimeRemainingBatteriesHaveChanged(CFArrayRef battery_info)
+{
+    CFDictionaryRef             result[MAX_BATTERY_NUM] = {NULL, NULL};
+    int                         i;
+    int                         still_calculating;
+    int                         not_enough_samples;
+    static SCDynamicStoreRef    store = NULL;
+    static CFDictionaryRef      old_battery[MAX_BATTERY_NUM] = {NULL, NULL};
+
+    if(!battery_info) return;
+
+#if DEBUGLEVEL>50
+    printf("battery sample taken!\n"); fflush(stdout);
+#endif
+    
+    _stashBatteryInfo(battery_info);
+
+    not_enough_samples = !_calculateBatteryTimeRemaining();
+
+    still_calculating = !_checkCalcsStillValid(not_enough_samples);
+
+    _packageBatteryInfo(still_calculating, result);
+
     // Publish the results of calculation in the SCDynamicStore
+    if(!store) store = SCDynamicStoreCreate(kCFAllocatorDefault, CFSTR("PMUBattery configd plugin"), NULL, NULL);
     for(i=0; i<MAX_BATTERY_NUM; i++) {
         if(result[i]) {   
             // Determine if CFDictionary is new or has changed...
@@ -153,122 +247,33 @@ BatteryTimeRemainingBatteryPollingTimer(CFArrayRef battery_info)
             old_battery[i] = result[i];
         }
     }
-    
-}
-
-static void 	_IOPMCalculateBatterySetup(void)
-{
-    io_connect_t		pm_tmp;
-    int 			kr;
-    CFArrayRef		    	info;
-    int				count,i;
-    
-    // Initialize battery history to 3?
-    for(count = 0;count < kBATTERY_HISTORY;count++){
-        _batteryHistory[0][count] = 3;
-        _batteryHistory[1][count] = 3;
-    }
-     
-    _batName[0] = CFSTR("InternalBattery-0");
-    _batName[1] = CFSTR("InternalBattery-1");
-    
-
-    
-    kr = IOMasterPort(bootstrap_port,&_batteryPort);
-    if(kr == kIOReturnSuccess){
-        if( (pm_tmp = IOPMFindPowerManagement(_batteryPort)) ){
-            if((IOPMCopyBatteryInfo(_batteryPort,&info) != 0) || !info ){
-                // no batteries detected
-                _pmExists = 0;
-                return;
-            }
-
-            // Batteries detected, get their initial state
-            count = CFArrayGetCount(info);
-            for(i = 0;i < count;i++){
-                CFNumberGetValue(CFDictionaryGetValue(CFArrayGetValueAtIndex((CFArrayRef)info,i),
-                    CFSTR("Current")),kCFNumberSInt32Type,&_charge[i]);
-                _batLevel[i] = _charge[i];
-                CFNumberGetValue(CFDictionaryGetValue(CFArrayGetValueAtIndex((CFArrayRef)info,i),
-                    CFSTR("Flags")),kCFNumberSInt32Type,&_flags[i]);
-                _flags[i] &= kIOBatteryInstalled;
-
-                if(_flags[i] & kIOBatteryChargerConnect)
-                    _lastpluggedIn = _pluggedIn = TRUE;
-                else _lastpluggedIn = _pluggedIn = FALSE; 
-            }
-            _pmExists = 1;
-            CFRelease(info);
-            IOObjectRelease(pm_tmp);
-        }else
-            _pmExists = 0;            
-    }
-        
-    return;
 }
 
 
-// Local helper functions
-static int isBatteryPresent(int i)
+static void resetBatterySamples(void)
 {
-    return ((_flags[i] & kIOBatteryInstalled) ? 1:0);
+    sample_time_span = 0.0;
+    battery_history_index = 0;
+    battery_history_start = 0;
+    samples_taken = 0;
+
+    battery_history[0].bTime = CFAbsoluteTimeGetCurrent();
+    battery_history[0].bLevel[0] = _charge[0];
+    battery_history[0].bLevel[1] = _charge[1];
 }
 
-static int isACAdapterConnected(int i)
-{
-    return (_pluggedIn);
-}
 
-// Is Charging does some magic to decide if the battery is REALLY charging
-// The PowerBook G3 lies to us - even when the battery is fully charged the
-// "isCharging" bit is still true.
-static int isCharging(int i)
+void _stashBatteryInfo(CFArrayRef info)
 {
-    // Not charging if we're not plugged in
-    if(!isACAdapterConnected(i))
-        return false;
-
-    // We are plugged in, but are we at full capacity?
-    if(_capacity[i] == _charge[i])
-        return false;
+    int                     i;
     
-    // Plugged in, but not charging, so we'll fall back on the PMU's reported value
-    return ((_flags[i] & kIOBatteryCharge) ? 1:0);
-}
-
-
-/**** _IOPMCalculateBatteryInfo(CFArrayRef info, CFDictionaryRef *ret)
- Calculates remaining battery time and stuffs lots of battery status into a CFDictionary.
- Arguments: 
-    CFArrayRef info - The CFArrayRef of raw battery data returned by IOPMCopyBatteryInfo
-    CFDictionaryRef ret - A caller allocated array that the callee "stuffs" with battery data.
-        The array should be of size MAX_BATTERY_NUM = 2. 
-        On return from this function:
-            for a 2 battery system (PowerBook G3) both array entries are CFDictionaryRefs
-            for a 1 battery system the first array entry is a CFDictionaryRef, the second is NULL
-    The contents of each CFDictionaryRef are defined in IOKit.framework/ps/IOPSKeys.h
- Return: TRUE if no errors were encountered, FALSE otherwise.
-****/
-static bool 	
-_IOPMCalculateBatteryInfo(CFArrayRef info, CFDictionaryRef *ret)
-{
-    CFNumberRef			n, n0, nneg1;
-    CFMutableDictionaryRef 	mutDict = NULL;
-    int 			i,count;
-    int				temp;
-    int				minutes;
-    int				ehours = 0;
-    int				eminutes = 0;
-    int				stillCalc = 0;
-    int			percentRemaining = 0;
-        
-    if(info) count = CFArrayGetCount(info);
-    else return NULL;
+    if(info) _batCount = CFArrayGetCount(info);
+    else return;
     
+    // Unload battery state into our maze of global variables
     _pluggedIn = FALSE;
-    _charging = FALSE;
-    
-    for (i=0;i<count;i++) {        
+    _charge[0] = _charge[1] = 0;
+    for (i=0;i<_batCount;i++) {        
         // Grab Flags, Charge, and Capacity from the battery
         CFNumberGetValue(CFDictionaryGetValue(CFArrayGetValueAtIndex((CFArrayRef)info,i),
                 CFSTR("Flags")),kCFNumberSInt32Type,&_flags[i]);
@@ -278,71 +283,266 @@ _IOPMCalculateBatteryInfo(CFArrayRef info, CFDictionaryRef *ret)
                 CFSTR("Capacity")),kCFNumberSInt32Type,&_capacity[i]);
         
         // Determine plugged state
-        //CFDictionarySetValue(mutDict, CFSTR("Plugged"), (_flags[i]&0x1)?kCFBooleanTrue:kCFBooleanFalse);
         if (_flags[i]&kIOBatteryChargerConnect) {
             _pluggedIn = TRUE;
-        }
-
-        // Determine whether charging or not
-        //CFDictionarySetValue(mutDict, CFSTR("Charging"), (_flags[i]&0x2)?kCFBooleanTrue:kCFBooleanFalse);
-        if (_flags[i]&kIOBatteryCharge) {
-            _charging = TRUE;
         }
 
         // Cap the battery charge to its maximum capacity
         if(_charge[i] > _capacity[i]) _charge[i] = _capacity[i];
     }
-    
-    // Calculate time remaining per battery
-    if((_avgCount % 10) == 0){
-        calculateTimeRemaining();
-        ehours = (int)(_hoursRemaining[0] + _hoursRemaining[1]);
-        eminutes = (int)(60.0*(_hoursRemaining[0] + _hoursRemaining[1] - (double)ehours));
+
+    if (!_isBatteryPresent(0)) {
+        _charge[0] = 0;
+        _batLevel[0] = 0;
+    }    
+    if (!_isBatteryPresent(1)) {
+        _charge[1] = 0;
+        _batLevel[1] = 0;
     }
-    _avgCount++;
- 
+    
+    // Stash state into battery_history array
+    battery_history_index = (battery_history_index+1) % kMaxBatterySamples;
+    battery_history[battery_history_index].bTime = CFAbsoluteTimeGetCurrent();
+    battery_history[battery_history_index].bLevel[0] = _charge[0];
+    battery_history[battery_history_index].bLevel[1] = _charge[1];
+
+    if(samples_taken < kMaxBatterySamples) 
+    {
+        // expect battery_history_start == 0
+        samples_taken++;
+    } else {
+        // expect samples_taken == kMaxBatterySamples
+        battery_history_start = (battery_history_index+1)%kMaxBatterySamples;
+    }
+
+    sample_time_span = battery_history[battery_history_index].bTime -
+        battery_history[battery_history_start].bTime;
+}
+
+/* _calculateBatteryTimeRemaining
+ *   returns true if we reached a valid estimate
+ *   returns false if we're still calculating
+ */
+bool _calculateBatteryTimeRemaining(void)
+{
+    int                             i;
+    CFAbsoluteTime                  time_span = 0.0;
+    int                             samples_counted;
+    int                             early_index, late_index;
+    double                          discharge_rate[MAX_BATTERY_NUM];
+    long int                        batt_level_delta[MAX_BATTERY_NUM];
+
+    if(samples_taken <= 1) {
+        // Not enough data to go from. Return.
+        return false; // return "not enough data"
+    }
+    
+#if DEBUGLEVEL>50
+    syslog(LOG_INFO, "global_span=%d\n", lround(sample_time_span));
+    syslog(LOG_INFO, "samples_taken=%d, battery_history_start=%d, battery_history_index=%d\n", 
+            samples_taken, battery_history_start, battery_history_index);
+#endif
+
+    samples_counted = 0;
+    discharge_rate[0] = discharge_rate[1] = 0.0;
+    early_index = late_index = battery_history_index;
+
+    time_span = 0.0;
+    // Sum up the lats few samples to determine the battery discharge rate.
+    while( (time_span < 300.0) && (early_index != battery_history_start) )
+    {
+        // decrement early end of our range
+        early_index = (early_index - 1 + kMaxBatterySamples) % kMaxBatterySamples;
+        
+        time_span = battery_history[late_index].bTime - battery_history[early_index].bTime;
+
+        samples_counted++;
+    }
+    
+    if(time_span < kMINIMUM_TIME_SPAN)
+    {
+        // Not enough data to go from.
+        return false; // return "not enough data"    
+    }
+    
+#if DEBUGLEVEL>50
+    syslog(LOG_INFO, "loop exit conditions (time_span=%d<300.0)=%d, samples_counted=%d, samples_taken=%d\n",
+        lround(time_span), (time_span<300.0), samples_counted, samples_taken);
+    syslog(LOG_INFO, "early_index = %d, late_index = %d\n", early_index, late_index);
+#endif
+
+    for(i = 0; i<MAX_BATTERY_NUM; i++)
+    {
+#if DEBUGLEVEL>50
+    	syslog(LOG_INFO, "   (%d) starting level = %d, ending level = %d, over %d seconds\n",
+    		i, battery_history[early_index].bLevel[i], battery_history[late_index].bLevel[i], lround(time_span));
+#endif
+        batt_level_delta[i] = battery_history[early_index].bLevel[i] - battery_history[late_index].bLevel[i];
+        discharge_rate[i] = ((double)batt_level_delta[i])/(double)lround(time_span);
+    }
+
+#if DEBUGLEVEL>50
+    syslog(LOG_INFO, "discharge_rate = %ld/%d = %f\n", batt_level_delta[0], 
+        lround(time_span), discharge_rate[0]);
+#endif    
+    
+
+    // Use the charge or discharge rate calculated above, combined with the current battery
+    // level, to estimate the time remaining on this set of batteries.
+    if ((_flags[0] & kIOBatteryChargerConnect) || (_flags[1] & kIOBatteryChargerConnect)) {
+        double      discharge_rate_combined;
+        int         toCharge[MAX_BATTERY_NUM];
+                
+        toCharge[0] = (((_flags[0] & 0x4) == 4)?_capacity[0]:0) - _charge[0];
+        toCharge[1] = (((_flags[1] & 0x4) == 4)?_capacity[1]:0) - _charge[1];
+        
+        if (_state != 1) {
+            resetBatterySamples();
+        }
+        
+        _state = 1;
+        
+        if (discharge_rate[0] > 0) {	
+            discharge_rate[0] = 0;
+        }
+        
+        if (discharge_rate[1] > 0) {	
+            discharge_rate[1] = 0;
+        }
+        
+        discharge_rate_combined = ((double)discharge_rate[0]+(double)discharge_rate[1]);
+        
+        if(discharge_rate_combined != 0.0)
+        {
+            _hoursRemaining[0] = -1*(((double)toCharge[0])/discharge_rate_combined) / 3600;
+            _hoursRemaining[1] = -1*(((double)toCharge[1])/discharge_rate_combined) / 3600;
+        } else {
+            _hoursRemaining[0] = _hoursRemaining[1] = -1.0;
+        }
+
+    } else if (!_isBatteryPresent(0) && !_isBatteryPresent(1)) {
+        //When there are no batteries installed
+        //if there were batteries installed before hand, then reset the history (so we get
+        //a fresh buffer when a battery is installed)
+        if (_state) {
+            resetBatterySamples();
+        }
+        //_state == 0 means that there are no batteries
+        _state = 0;
+    } else {
+        double      discharge_rate_combined;
+    
+        if (discharge_rate[0] < 0) {	
+            discharge_rate[0] = 0;
+        }
+        if (discharge_rate[1] < 0) {	
+            discharge_rate[1] = 0;
+        }
+        
+        //if We just switched states (plugged to not), then start the charge array from scratch
+        if (_state != 2) {
+            resetBatterySamples();
+        }
+        
+        _state = 2;
+        
+        discharge_rate_combined = ((double)discharge_rate[0]+(double)discharge_rate[1]);
+
+        if(discharge_rate_combined != 0.0)
+        {
+            _hoursRemaining[0] = (((double)_charge[0])/discharge_rate_combined) / 3600;
+            _hoursRemaining[1] = (((double)_charge[1])/discharge_rate_combined) / 3600;
+        } else {
+            _hoursRemaining[0] = _hoursRemaining[1] = -1.0;
+        }
+    }
+    
+#if DEBUGLEVEL>50
+    syslog(LOG_INFO, "remaining [0] = %d:%2d, [1] = %d:%2d\n", 
+        lround(_hoursRemaining[0]*60.0), lround(_hoursRemaining[0]*60.0)%60, lround(_hoursRemaining[1]*60.0));
+#endif
+    
+    _batLevel[0]   = _charge[0];
+    _batLevel[1]   = _charge[1];
+    
+    return true;
+
+}
+
+/* _calculateBatteryTimeRemaining
+ *   returns true if we reached a valid estimate
+ *   returns false if we're still calculating
+ */
+bool _checkCalcsStillValid(int not_enough_battery_samples)
+{
+	static int      old_num_present = -1;
+    int             num_present = _isBatteryPresent(0) + _isBatteryPresent(1);
+    bool            calcsValid = true;
+    int				ehours = 0;
+    int				eminutes = 0;
+    int             i;
+
     // If power source has changed, reset history count and restart battery sampling
     // triggers stillCalc = 1
     if(_pluggedIn != _lastpluggedIn) {
-        _historyCount = 0;
-        _historyLimit = 0;
+        resetBatterySamples();
         _lastpluggedIn = _pluggedIn;
+        return false;
     }
     
     // System will sleep soon. Re-calculate time remaining from scratch.
     // Keep counts wired to 0 until _impendingSleep is non-NULL
     // We set _impendingSleep=0 when the system is fully awake.
     if(_impendingSleep) {
-        _historyCount = 0;
-        _historyLimit = 0;
+        resetBatterySamples();
         _state = -1;
+        return false;
     }
 
-    // Determine if we have a good time remaining calculation yet. If so, set stillCalc = 0
-    if(!_historyLimit && (_historyCount < 1)){
-        stillCalc = 1;
+     // is the calculated time reasonable? (0 <= hours < 10) && (
+    ehours = (int)(_hoursRemaining[0] + _hoursRemaining[1]);
+    eminutes = (int)(60.0*(_hoursRemaining[0] + _hoursRemaining[1] - (double)ehours));
+    if (!((ehours < 10) && (ehours >= 0)) && ((eminutes < 61) && (eminutes >= 0))) {
+        return false;
     }
     
-    // is the calculated time valid? (0 <= hours < 10) && (
-    if (!((ehours < 10) && (ehours >= 0)) && ((eminutes < 61) && (eminutes >= 0))) {
-        stillCalc = 1;
+    // 2 batteries to 1? or 1 to 2? or 0 to 1?
+    if(num_present != old_num_present) {
+        resetBatterySamples();
+        old_num_present = num_present;
+        return false;
     }
+    old_num_present = num_present;
     
     // If we're plugged-in but not charging, we're fully charged and there's nothing
     // to calculate. Set stillCalc to 0.
-    if(isACAdapterConnected(i) && !isCharging(i))
+    if( (_isACAdapterConnected(0) && !_isCharging(0)) ||
+        (_isACAdapterConnected(1) && !_isCharging(1)) );
     {
-        stillCalc = 0;
+        return true;
     }
+    
+    return !not_enough_battery_samples;
+}
+
+void _packageBatteryInfo(bool calc_still_calc, CFDictionaryRef *ret)
+{
+    CFNumberRef			n, n0, nneg1;
+    CFMutableDictionaryRef 	mutDict = NULL;
+    int             i;
+    int             temp;
+    int	            minutes;
+    int             set_capacity, set_charge;
+    bool            stillCalc = calc_still_calc;
 
     // Stuff battery info into CFDictionaries
-    for(i=0; i<count; i++) {
+    for(i=0; i<_batCount; i++) {
         
             // Create the battery info dictionary
             mutDict = NULL;
             mutDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                     &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-            if(!mutDict) return NULL;
+            if(!mutDict) return;
             
             // Set transport type to "Internal"
             CFDictionarySetValue(mutDict, CFSTR(kIOPSTransportTypeKey), CFSTR(kIOPSInternalType));
@@ -351,15 +551,25 @@ _IOPMCalculateBatteryInfo(CFArrayRef info, CFDictionaryRef *ret)
             CFDictionarySetValue(mutDict, CFSTR(kIOPSPowerSourceStateKey), 
                         _pluggedIn ? CFSTR(kIOPSACPowerValue):CFSTR(kIOPSBatteryPowerValue));
             
+            // round charge and capacity down to a % scale
+            if(0 != _capacity[i])
+            {
+                set_capacity = 100;
+                set_charge = (int)((double)_charge[i]*100.0/(double)_capacity[i]);
+            } else {
+                // Bad battery or bad reading => 0 capacity
+                set_capacity = set_charge = 0;
+            }
+
             // Set maximum capacity
-            n = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &(_capacity[i]));
+            n = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &set_capacity);
             if(n) {
                 CFDictionarySetValue(mutDict, CFSTR(kIOPSMaxCapacityKey), n);
                 CFRelease(n);
             }
             
             // Set current charge
-            n = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &(_charge[i]));
+            n = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &set_charge);
             if(n) {
                 CFDictionarySetValue(mutDict, CFSTR(kIOPSCurrentCapacityKey), n);
                 CFRelease(n);
@@ -367,34 +577,32 @@ _IOPMCalculateBatteryInfo(CFArrayRef info, CFDictionaryRef *ret)
             
             // Set isPresent flag
             CFDictionarySetValue(mutDict, CFSTR(kIOPSIsPresentKey), 
-                        (isBatteryPresent(i)) ? kCFBooleanTrue:kCFBooleanFalse);
+                        (_isBatteryPresent(i)) ? kCFBooleanTrue:kCFBooleanFalse);
             
-            // Set isCharging and time remaining
+            // Set _isCharging and time remaining
             minutes = (int)(60.0*_hoursRemaining[i]);
             temp = 0;
             n0 = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &temp);
             temp = -1;
             nneg1 = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &temp);
-            if( !isBatteryPresent(i) ) {
+            if( !_isBatteryPresent(i) ) {
                 // remaining time calculations only have meaning if the battery is present
                 CFDictionarySetValue(mutDict, CFSTR(kIOPSIsChargingKey), kCFBooleanFalse);
                 CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToFullChargeKey), n0);
                 CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToEmptyKey), n0);
             } else {
                 // A battery is installed
-                // Fully charged?
-                percentRemaining = (float)( ((float)_charge[i])/((float)_capacity[i]));
                 if(stillCalc) {
                     // If we are still calculating then our time remaining
                     // numbers aren't valid yet. Stuff with -1.
                     CFDictionarySetValue(mutDict, CFSTR(kIOPSIsChargingKey), 
-                            _charging ? kCFBooleanTrue : kCFBooleanFalse);
+                            _isCharging(i) ? kCFBooleanTrue : kCFBooleanFalse);
                     CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToFullChargeKey), nneg1);
                     CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToEmptyKey), nneg1);
                 } else {   
                     // else there IS a battery installed, and remaining time calculation makes sense
-                    if(isCharging(i)) {
-                        // Set isCharging to True
+                    if(_isCharging(i)) {
+                        // Set _isCharging to True
                         CFDictionarySetValue(mutDict, CFSTR(kIOPSIsChargingKey), kCFBooleanTrue);
                         n = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &minutes);
                         if(n) {
@@ -404,16 +612,16 @@ _IOPMCalculateBatteryInfo(CFArrayRef info, CFDictionaryRef *ret)
                         CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToEmptyKey), n0);
                     } else {
                         // Not Charging
-                        // Set isCharging to False
+                        // Set _isCharging to False
                         CFDictionarySetValue(mutDict, CFSTR(kIOPSIsChargingKey), kCFBooleanFalse);
                         // But are we plugged in?
-                        if(isACAdapterConnected(i))
+                        if(_isACAdapterConnected(i))
                         {
                             // plugged in but not charging == fully charged
                             CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToFullChargeKey), n0);
                             CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToEmptyKey), n0);
                         } else {
-                            // not charging, not plugged in == discharging
+                            // not charging, not plugged in == d_isCharging
                             n = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &minutes);
                             if(n) {
                                 CFDictionarySetValue(mutDict, CFSTR(kIOPSTimeToEmptyKey), n);
@@ -432,127 +640,5 @@ _IOPMCalculateBatteryInfo(CFArrayRef info, CFDictionaryRef *ret)
             ret[i] = mutDict;
     }
 
-    return TRUE;
-}
-
-static void	
-calculateTimeRemaining(void)
-{
-    int		cnt;
-    float		deltaAvg[2];
-    float       avg_sum;
-
-    if (!((_flags[0] & 0x4) == 4)) {
-        _charge[0] = 0;
-        _batLevel[0] = 0;
-    }
-    
-    if (!((_flags[1] & 0x4) == 4)) {
-        _charge[1] = 0;
-        _batLevel[1] = 0;
-    }
-    
-    //Put new level into history (both batteries)
-    _batteryHistory[0][_historyCount] = _batLevel[0] - _charge[0];
-    _batteryHistory[1][_historyCount] = _batLevel[1] - _charge[1];
-    
-    //Reset the delta values
-    deltaAvg[0] = deltaAvg[1] = 0;
-
-    //See if we have hit the historyLimit...basically, we want to make sure
-    //the whole array is filled, so we get an accurate avg
-    if (_historyLimit) {
-        for(cnt = 0;cnt < kBATTERY_HISTORY;cnt++) {
-            deltaAvg[0] += _batteryHistory[0][cnt];
-            deltaAvg[1] += _batteryHistory[1][cnt];
-        }
-        
-        deltaAvg[0]     = deltaAvg[0]/kBATTERY_HISTORY;
-        deltaAvg[1]     = deltaAvg[1]/kBATTERY_HISTORY;
-    } else {
-        for(cnt = 0;cnt <= _historyCount;cnt++) {
-            deltaAvg[0] += _batteryHistory[0][cnt];
-            deltaAvg[1] += _batteryHistory[1][cnt];
-        }
-        
-        deltaAvg[0]     = deltaAvg[0]/(_historyCount+1);
-        deltaAvg[1]     = deltaAvg[1]/(_historyCount+1);
-    }
-
-    //Reset the history counter (loop around in the buffer)
-    if (_historyCount >= kBATTERY_HISTORY-1) {
-        _historyCount = 0;
-        _historyLimit++;
-    } else {
-        //or just increment
-        _historyCount++;
-    }
-    
-
-    if ((_flags[0] & kIOBatteryChargerConnect) || (_flags[1] & kIOBatteryChargerConnect)) {
-        int toCharge[2];
-                
-        toCharge[0] = (((_flags[0] & 0x4) == 4)?_capacity[0]:0) - _charge[0];
-        toCharge[1] = (((_flags[1] & 0x4) == 4)?_capacity[1]:0) - _charge[1];
-                
-        if (_state != 1) {
-            _historyCount     = _historyLimit = 0;
-        }
-        
-        _state = 1;
-        
-        if (deltaAvg[0] > 0) {	
-            deltaAvg[0] = 0;
-        }
-        
-        if (deltaAvg[1] > 0) {	
-            deltaAvg[1] = 0;
-        }
-    
-        avg_sum = ((double)deltaAvg[0]+(double)deltaAvg[1]);
-        if(avg_sum != 0.0)
-        {
-            _hoursRemaining[0] = -1*((double)toCharge[0])/avg_sum/360;
-            _hoursRemaining[1] = -1*((double)toCharge[1])/avg_sum/360;        
-        } else {
-            _hoursRemaining[0] = _hoursRemaining[1] = -1.0;        
-        }
-    } else if (!isBatteryPresent(0) && !isBatteryPresent(1)) {
-        //When there are no batteries installed
-        //if there were batteries installed before hand, then reset the history (so we get
-        //a fresh buffer when a battery is installed)
-        if (_state) {
-            _historyCount = _historyLimit = 0;
-        }
-        //_state == 0 means that there are no batteries
-        _state = 0;
-    } else {
-    
-        if (deltaAvg[0] < 0) {	
-            deltaAvg[0] = 0;
-        }
-        if (deltaAvg[1] < 0) {	
-            deltaAvg[1] = 0;
-        }
-        
-        //if We just switched states (plugged to not), then start the charge array from scratch
-        if (_state != 2) {
-            _historyCount     = _historyLimit = 0;
-        }
-        
-        _state = 2;
-            
-        avg_sum = ((double)deltaAvg[0]+(double)deltaAvg[1]);
-        if(avg_sum != 0.0)
-        {
-            _hoursRemaining[0] = ((double)_charge[0])/avg_sum/360;
-            _hoursRemaining[1] = ((double)_charge[1])/avg_sum/360;
-        } else {
-            _hoursRemaining[0] = _hoursRemaining[1] = -1.0;        
-        }
-    }
-    
-    _batLevel[0]   = _charge[0];
-    _batLevel[1]   = _charge[1];
-            
+    return;
 }

@@ -1,0 +1,179 @@
+Title: Internationalization
+Links: links.h doco-links.h
+
+<h3>Internationalization</h3>
+
+Mailman 2.1 is fully internationalized.  This means you can add
+translations of all the email and web templates so that your users can
+interact with your mailing lists in their native language.
+Internationalization is handled as follows:
+
+<ul>
+    <li>Each Mailman installation has a server default language.
+    Mailman ships with US English as the server default.
+
+    <p><li>Mailman comes with many supported languages, and if your
+    language is on that list, it will just work.
+
+    <p><li>Individual list owners can choose which languages they'd
+    like their mailing list to support from the suite of site-enabled
+    languages.  The list owner can also select the list's default
+    language.  Mailing lists can thus be monolingual (with English or
+    any other installed language as the default), or they can be
+    multilingual.
+
+    <p><li>Individual users can choose what their preferred language
+    is, from the set of list-enabled languages.  Thus, if a list is
+    multilingual, the user can choose which language they'd prefer
+    when interacting with Mailman.
+</ul>
+
+It must be noted that Mailman never actually translates the messages
+that flow through its mailing lists.  It's up to the list members to
+adhere to their community's language conventions.
+
+<h3>Mailman Language Champions</h3>
+
+Each language translation has a champion who coordinates updates and
+submits them to the Mailman project.  If the language you are
+interested is listed here, please contact the champion for details.
+If your language is not listed here, or if you have general questions
+about I18N Mailman, please contact the
+<a href="http://mail.python.org/mailman/listinfo/mailman-i18n"
+>mailman-i18n@python.org</a> mailing list.
+
+<p>We are investigating using the
+<a href="http://www.iro.umontreal.ca/contrib/po/HTML/">Translation
+Project</a> for future language support.
+
+<dl>
+    <p><dt><b>Catalan</b></dt>
+    <dd><a href="mailto:toni.panades@partal.com">Toni Panades</a> is heading
+    up the Catalan translation effort.
+
+    <p><dt><b>Chinese</b> Simplified (GB), and Big5</dt>
+    <dd><a href="mailto:max.yu@turbolinux.com.cn">Max Yu</a> heads up
+    the Simplified Chinese translation effort.  Michael Fang
+    contributed a Big5 mailman.po file, but I've had some trouble
+    converting it to a .mo file with msgfmt.  Assistance would be
+    greatly appreciated!
+
+    <p><dt><b>Czech</b></dt>
+    <dd><a href="mailto:dan@ohnesorg.cz">Dan Ohnesorg</a> heads up
+    the Czech translation effort, which has been assisted by
+    <a href="mailto:stan@krnovsko.cz">V. Stanovsky</a>.</dd>
+
+    <p><dt><b>Danish</b></dt>
+    <dd><a href="mailto:t@garbage.dk">Thomas von Hassel</a> and
+    <a href="mailto:soren@ka-net.dk">Soren Bondrup</a> are heading up
+    the Danish translations.
+
+    <p><dt><b>Dutch</b></dt>
+    <dd><a href="mailto:danny@terweij.nl">Danny Terweij</a> and
+    <a href="mailto:sander@steffann.nl">Sander Steffann</a> head up
+    the Dutch translation.
+
+    <p><dt><b>Estonian</b></dt>
+    <dd><a href="mailto:duke@linux.ee">Anti Veeranna</a> heads up the
+    Estonian translation effort.
+
+    <p><dt><b>Finnish</b></dt>
+    <dd><a href="mailto:pekka.haavisto@mtt.fi">Pekka Haavisto</a>
+    heads up the Finnish translation effort.
+
+    <p><dt><b>French</b></dt>
+    <dd><a href="mailto:george@lyon.inserm.fr">Pascal GEORGE</a> and
+    <a href="mailto:wilane@yahoo.com">Ousmane Wilane</a> head up the
+    French translation effort, with a mailing list hosted by
+    <a href="mailto:Fil@rezo.net">Fil</a> at
+    <a href="http://listes.rezo.net/mailman/listinfo/mailman-fr"
+    >http://listes.rezo.net/mailman/listinfo/mailman-fr</a>.
+
+    <p><dt><b>German</b></dt>
+    <dd><a href="mailto:p.heinlein@jpberlin.de">Peer Heinlein</a> is
+    now the German translation champion.
+
+    <p><dt><b>Hungarian</b></dt>
+    <dd><a href="mailto:vizisz@freemail.hu">Vizi Szilard</a>
+    heads up the Hungarian translation effort, with
+    some help from Szabolcs Szigeti and
+    <a href="mailto:Funk.Gabor@hunetkft.hu">Gabor Funk</a>.
+
+    <p><dt><b>Italian</b></dt>
+    <dd><a href="mailto:pioppo@ferrara.linux.it">Simone Piunno</a> is
+    heading up the Italian translations, with help from many others.
+    Simone has created an Italian mailing list for those wishing to
+    help: <a href="http://mailman.ferrara.linux.it/listinfo/mailman-it/"
+    >http://mailman.ferrara.linux.it/listinfo/mailman-it/</a>
+
+    <p><dt><b>Japanese</b></dt>
+    <dd>Tokio Kikuchi maintains the
+    <a href="http://mm.tkikuchi.net/"><em>Japanized Mailman Page</em></a>
+    and also runs a mailing list for Japanese Mailman users, for which
+    the <a href="http://mm.tkikuchi.net/pipermail/mmjp-users/">archives</a>
+    are publically available.
+
+    <p><dt><b>Korean</b></dt>
+    <dd><a href="mailto:song@yaimma.co.kr">song@yaimma.co.kr</a> has
+    volunteered to head up the Korean translation effort.</dd>
+
+    <p><dt><b>Lithuanian</b></dt>
+    <dd><a href="mailto:mantas@akl.lt">Mantas Kriauciunas</a> has
+    contributed a Lithuanian translation.
+
+    <p><dt><b>Norwegian</b></dt>
+    <dd><a href="mailto:Daniel.Buchmann@bibsys.no">Daniel Buchmann</a>
+    heads up the Norwegian translation effort.  See also his
+    <a href="http://www.bibsys.no/~db/MM21">Norwegian Mailman Page</a>.
+    </dd>
+
+    <p><dt><b>Polish</b></dt>
+    <dd>Polish translations have been contributed by
+    <a href="mailto:sawickib@iem.pw.edu.pl">Bartosz Sawicki</a> with
+    help from the rest of the translation team:
+    <a href="mailto:Pawel.Kolodziejczyk@comarch.pl">Pawel
+    Kolodziejczyk</a>, <a href="mailto:wanted@mwd.pl">Marcin
+    Sochacki</a>, and
+    <a href="mailto:m.zaborowski@il.pw.edu.pl">Marcin Zaborowski</a>.
+
+    <p><dt><b>Portuguese</b></dt>
+    <dd>The following folks are working on the Portuguese
+    translations:
+    <ul>
+    <li><a href="mailto:gleydson.mazioli@ima.sp.gov.br">Gleydson
+        Mazioli da Silva</a>
+    <li><a href="mailto:samarta@ci.uc.pt">João Sá Marta</a>
+    <li><a href="mailto:queiroz@ccuec.unicamp.br">Rubens Queiroz de
+        Almeida</a>,
+    <li><a href="mailto:aleck@unesp.br">Aleck Zander</a>
+    <li><a href="mailto:joseroberto@dicaslinux.com.br">Jose Roberto Kerne</a>.
+    </ul>
+    They are working on both the Brazilian (pt_BR) and Portuguese (pt)
+    translations, with help from <a href="mailto:moitinho@civil.ist.utl.pt"
+    >Jose Paulo Moitinho de Almeida</a>.
+
+    <p><dt><b>Russian</b></dt>
+    <dd><a href="mailto:mss@mawhrin.net">Mikhail Sobolev</a>
+    has volunteered to head up the Russian translation effort.  There
+    is also a <a href="mailto:mailman-ru@only.mawhrin.net">Russian
+    Mailman list</a> for discussion of the Russian translation.
+
+    <p><dt><b>Spanish</b></dt>
+    <dd><a href="mailto:jcrey@uma.es">Juan Carlos Rey Anaya</a> heads
+    up the Spanish translations.
+
+    <p><dt><b>Swedish</b></dt>
+    <dd>We're looking for a Swedish champion to continue this effort.
+    Please contact <a href="mailto:Daniel.Buchmann@bibsys.no">Daniel
+    Buchmann</a> if you can volunteer.
+
+    <p><dt><b>Turkish</b></dt>
+    <dd><a href="mailto:eguler@aegee.metu.edu.tr">Erdinc Guler</a>
+    heads up the Turkish translation effort.
+
+    <p><dt><b>Ukrainian</b></dt>
+    <dd><a href="mailto:miroslav@ichistory.org">Miroslav Ris</a> heads
+    up the Ukrainian translations.
+
+</dl>
+

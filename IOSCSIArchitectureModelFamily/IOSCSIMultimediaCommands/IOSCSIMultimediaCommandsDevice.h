@@ -170,7 +170,7 @@ enum
 #include <IOKit/storage/IODVDTypes.h>
 
 // SCSI Architecture Model Family includes
-#include <IOKit/scsi-commands/IOSCSIPrimaryCommandsDevice.h>
+#include <IOKit/scsi/IOSCSIPrimaryCommandsDevice.h>
 
 // Forward definitions for internal use only classes
 class SCSIMultimediaCommands;
@@ -342,6 +342,7 @@ protected:
 
 
 public:
+	
 	virtual IOReturn	SyncReadWrite ( 	IOMemoryDescriptor *	buffer,
 											UInt64					startBlock,
 											UInt64					blockCount );

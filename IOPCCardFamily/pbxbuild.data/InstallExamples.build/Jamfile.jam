@@ -1,0 +1,83 @@
+# Jamfile for target "InstallExamples" of project "IOPCCardFamily"
+
+
+JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
+
+# Implicitly computed project-wide settings for project
+export deferred DEVELOPMENT_LANGUAGE = English ;
+export deferred PROJECT = $(PROJECT_NAME) ;
+export deferred PROJECT_NAME = IOPCCardFamily ;
+export deferred SRCROOT = /Volumes/home/sandbox/pccard/IOPCCardFamily ;
+
+# User-defined project-wide settings for project
+
+# Target "InstallExamples"
+
+# Implicitly computed build settings for target "InstallExamples"
+export deferred CLONE_HEADERS = NO ;
+export deferred SKIP_INSTALL = YES ;
+export deferred TARGETNAME = $(TARGET_NAME) ;
+export deferred TARGET_NAME = InstallExamples ;
+
+# User-defined build settings for target "InstallExamples"
+export deferred OTHER_CFLAGS =  ;
+export deferred OTHER_LDFLAGS =  ;
+export deferred OTHER_REZFLAGS =  ;
+export deferred PRODUCT_NAME = InstallExamples ;
+export deferred REZ_EXECUTABLE = YES ;
+export deferred SECTORDER_FLAGS =  ;
+export deferred WARNING_CFLAGS = -Wmost -Wno-four-char-constants -Wno-unknown-pragmas ;
+
+if "$(BUILD_STYLE)" = Development {
+	export deferred COPY_PHASE_STRIP = NO ;
+	export deferred OPTIMIZATION_CFLAGS = -O0 ;
+	export deferred OTHER_CFLAGS +=  -DPCMCIA_DEBUG=0 ;
+}
+
+if "$(BUILD_STYLE)" = Deployment {
+	export deferred COPY_PHASE_STRIP = YES ;
+}
+
+
+ConditionalDefinitions _ ;
+commitdeferred ;
+
+
+BeginTool "<InstallExamples>InstallExamples$(TOOL_SUFFIX)" ;
+
+# Headers
+HEADERS = ;
+ProcessHeaders "<InstallExamples>InstallExamples$(TOOL_SUFFIX)" : "$(HEADERS)" : "" : BPTag000 ;
+
+# Sources
+SOURCES = ;
+ProcessSources "<InstallExamples>InstallExamples$(TOOL_SUFFIX)" : "$(SOURCES)" : BPTag000 : BPTag001 ;
+
+# Frameworks & Libraries
+FRAMEWORKS_AND_LIBRARIES = ;
+ProcessFrameworksAndLibraries "<InstallExamples>InstallExamples$(TOOL_SUFFIX)" : "$(FRAMEWORKS_AND_LIBRARIES)" : BPTag001 : BPTag002 ;
+
+# Rez Files
+REZ_FILES = ;
+ProcessRezFiles "<InstallExamples>InstallExamples$(TOOL_SUFFIX)" : "$(REZ_FILES)" : BPTag002 : BPTag003 ;
+
+# Copy Files
+COPY_FILES =
+	doc/ApplePCCardSample
+	"doc/About PC Card Examples.rtf" ;
+COPYFILES_DESTINATION_PATH = "$(INSTALL_ROOT)/$(SYSTEM_DEVELOPER_DIR)/Examples/Kernel/IOKit/pccard" ;
+if $(DEPLOYMENT_POSTPROCESSING) = YES {
+	ProcessCopyFiles "<InstallExamples>InstallExamples$(TOOL_SUFFIX)" : "$(COPY_FILES)" : BPTag003 : BPTag004 ;
+}
+else {
+	NoOp "<InstallExamples>InstallExamples$(TOOL_SUFFIX)" : "$(COPY_FILES)" : BPTag003 : BPTag004 ;
+}
+
+rule DefineHeaderDependencies
+{
+}
+
+DefineHeaderDependencies "<InstallExamples>InstallExamples$(TOOL_SUFFIX)" ;
+
+EndTool "<InstallExamples>InstallExamples$(TOOL_SUFFIX)" ;
+

@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_lib.h,v 1.9 2002/05/03 17:20:37 lindak Exp $
+ * $Id: smb_lib.h,v 1.11 2003/09/08 23:45:25 lindak Exp $
  */
 #ifndef _NETSMB_SMB_LIB_H_
 #define _NETSMB_SMB_LIB_H_
@@ -127,11 +127,13 @@ struct smb_ctx {
 	struct nb_ctx *	ct_nb;
 	struct smbioc_ossn	ct_ssn;
 	struct smbioc_oshare	ct_sh;
+        char *		ct_origshare;
 #ifdef APPLE
 	/* temporary automount hack */
 	char	**ct_xxx;
 	int	ct_maxxxx;	/* max # to mount (-x arg) */
 #endif
+	size_t *	ct_secblob;
 };
 
 #define	SMBCF_NOPWD		0x0001	/* don't ask for a password */
@@ -139,12 +141,13 @@ struct smb_ctx {
 #define	SMBCF_LOCALE		0x0004	/* use current locale */
 #define	SMBCF_RESOLVED		0x8000	/* structure has been verified */
 #ifdef APPLE
-#define	SMBCF_KCFOUND		0x100000 /* password is from keychain */
-#define	SMBCF_BROWSEOK		0x200000 /* browser dialogue may be used */
-#define	SMBCF_AUTHREQ		0x400000 /* authentication dialogue requested */
-#define	SMBCF_KCSAVE		0x800000 /* add to keychain requested */
-#define	SMBCF_XXX		0x1000000 /* mount-all, a very bad thing */
+#define	SMBCF_KCFOUND		0x00100000 /* password is from keychain */
+#define	SMBCF_BROWSEOK		0x00200000 /* browser dialogue may be used */
+#define	SMBCF_AUTHREQ		0x00400000 /* authentication dialog requested */
+#define	SMBCF_KCSAVE		0x00800000 /* add to keychain requested */
+#define	SMBCF_XXX		0x01000000 /* mount-all, a very bad thing */
 #endif
+#define SMBCF_SSNACTIVE		0x02000000 /* session setup succeeded */
 
 /*
  * request handling structures
@@ -215,6 +218,8 @@ int  smb_ctx_setworkgroup(struct smb_ctx *, const char *);
 int  smb_ctx_setpassword(struct smb_ctx *, const char *);
 int  smb_ctx_setsrvaddr(struct smb_ctx *, const char *);
 int  smb_ctx_opt(struct smb_ctx *, int, const char *);
+int  smb_ctx_negotiate(struct smb_ctx *, int, int);
+int smb_ctx_tdis(struct smb_ctx *ctx);
 int  smb_ctx_lookup(struct smb_ctx *, int, int);
 int  smb_ctx_login(struct smb_ctx *);
 int  smb_ctx_readrc(struct smb_ctx *);

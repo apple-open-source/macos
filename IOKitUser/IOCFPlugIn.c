@@ -112,7 +112,7 @@ IOFindPlugIns( io_service_t service,
         if( onePlugin)
             *factories = CFPlugInFindFactoriesForPlugInTypeInPlugIn(pluginType, onePlugin);
         else
-            *factories = CFPlugInFindFactoriesForPlugInType(pluginType);
+            *factories = 0;//CFPlugInFindFactoriesForPlugInType(pluginType);
     } else
         *factories = 0;
 
@@ -159,49 +159,51 @@ IOCreatePlugInInterfaceForService(io_service_t service,
     scores = CFArrayCreateMutable(kCFAllocatorDefault, 0, NULL);
 
     // allocate and Probe all
-    if (candidates && scores) for( index = 0;
-         index < CFArrayGetCount(factories);
-         index++ ) {
-
-        IUnknownVTbl **				iunknown;
-
-        factoryID = (CFUUIDRef) CFArrayGetValueAtIndex(factories, index);
-        iunknown = (IUnknownVTbl **)
-            CFPlugInInstanceCreate(NULL, factoryID, pluginType);
-        if (!iunknown) {
-//            printf("Failed to create instance (link error?)\n");
-            continue;
-        }
-        (*iunknown)->QueryInterface(iunknown, CFUUIDGetUUIDBytes(interfaceType),
-                            (LPVOID *)&interface);
-
-        // Now we are done with IUnknown interface
-        (*iunknown)->Release(iunknown);
-
-        if (!interface) {
-//            printf("Failed to get interface.\n");
-            continue;
-        }
-        if (plists)
-            plist = (CFDictionaryRef) CFArrayGetValueAtIndex( plists, index );
-        score = 0;   // from property table
-        kr = (*interface)->Probe(interface, plist, service, &score);
-
-        if (kIOReturnSuccess == kr) {
-            for (insert = 0; insert < CFArrayGetCount(scores); insert++) {
-                if (score > ((SInt32) CFArrayGetValueAtIndex(scores, insert)))
-                    break;
+    if (candidates && scores) {
+        CFIndex numfactories = CFArrayGetCount(factories);
+        for ( index = 0; index < numfactories; index++ ) {
+            IUnknownVTbl **				iunknown;
+    
+            factoryID = (CFUUIDRef) CFArrayGetValueAtIndex(factories, index);
+            iunknown = (IUnknownVTbl **)
+                CFPlugInInstanceCreate(NULL, factoryID, pluginType);
+            if (!iunknown) {
+    //            printf("Failed to create instance (link error?)\n");
+                continue;
             }
-            CFArrayInsertValueAtIndex(candidates, insert, (void *) interface);
-            CFArrayInsertValueAtIndex(scores, insert, (void *) score);
-        } else
-            (*interface)->Release(interface);
+            (*iunknown)->QueryInterface(iunknown, CFUUIDGetUUIDBytes(interfaceType),
+                                (LPVOID *)&interface);
+    
+            // Now we are done with IUnknown interface
+            (*iunknown)->Release(iunknown);
+    
+            if (!interface) {
+    //            printf("Failed to get interface.\n");
+                continue;
+            }
+            if (plists)
+                plist = (CFDictionaryRef) CFArrayGetValueAtIndex( plists, index );
+            score = 0;   // from property table
+            kr = (*interface)->Probe(interface, plist, service, &score);
+    
+            if (kIOReturnSuccess == kr) {
+                CFIndex numscores = CFArrayGetCount(scores);
+                for (insert = 0; insert < numscores; insert++) {
+                    if (score > ((SInt32) CFArrayGetValueAtIndex(scores, insert)))
+                        break;
+                }
+                CFArrayInsertValueAtIndex(candidates, insert, (void *) interface);
+                CFArrayInsertValueAtIndex(scores, insert, (void *) score);
+            } else
+                (*interface)->Release(interface);
+        }
     }
 
 
     // Start in score order
+    CFIndex candidatecount = CFArrayGetCount(candidates);
     for (haveOne = false, index = 0;
-         index < CFArrayGetCount(candidates);
+         index < candidatecount;
          index++) {
 
         Boolean freeIt;

@@ -1,0 +1,30 @@
+Listi %(listname)s tellimuse kinnitus.
+
+Keegi - tõenäoliselt teie ise - soovib teie aadressile 
+"%(email)s" tellida listi %(listaddr)s.
+
+%(remote)s
+
+Kui soovite seda
+listi tellida, siis vastakse sellele kirjale jättes kirja
+teema ja sisu samaks (Re: võib teema alguses olla).
+
+Alternatiivina saab tellimust kinnitada ka veebilehel
+
+    %(confirmurl)s
+
+Kolmas võimalus on saata vastus sellele kirjale aadressile
+%(requestaddr)s, sel juhul peaks kirja sisu koosnema ühest
+reast:
+
+    confirm %(cookie)s
+
+Kui te ei soovi seda listi tellida, siis pole teil vaja
+midagi teha, selle kirja võib kustutada.
+
+Kui teil on põhjust arvata, et keegi üritab teile seda listi
+tellida ilma teie nõusolekuta, siis teatage sellest listi
+haldurile aadressil %(listadmin)s
+
+Listi halduri poole võib pöörduda ka teiste küsimustega,
+mis on seotud selle listiga.

@@ -72,6 +72,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include "ext.h"
 #include "fsutil.h"
 
 static const char *dev = NULL;
@@ -136,7 +137,8 @@ vmsg(fatal, fmt, ap)
 	if (!fatal && preen)
 		(void) printf("%s: ", dev);
 
-	(void) vprintf(fmt, ap);
+	if (!quiet)
+		(void) vprintf(fmt, ap);
 
 	if (fatal && preen)
 		(void) printf("\n");

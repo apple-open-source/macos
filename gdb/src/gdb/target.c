@@ -45,13 +45,13 @@ void cleanup_target (struct target_ops *);
 
 static void maybe_kill_then_create_inferior (char *, char *, char **);
 
-static void default_clone_and_follow_inferior (int, int *);
-
 static void maybe_kill_then_attach (char *, int);
 
 static void kill_or_be_killed (int);
 
 static void default_terminal_info (char *, int);
+
+static int default_region_size_ok_for_hw_watchpoint (int);
 
 static int nosymbol (char *, CORE_ADDR *);
 
@@ -62,6 +62,8 @@ static int nomemory (CORE_ADDR, char *, int, int, struct target_ops *);
 static int return_zero (void);
 
 static int return_one (void);
+
+static int return_minus_one (void);
 
 void target_ignore (void);
 
@@ -83,8 +85,8 @@ char *normal_pid_to_str (ptid_t pid);
    partial transfers, try either target_read_memory_partial or
    target_write_memory_partial).  */
 
-static int
-target_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int write);
+static int target_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len,
+			       int write);
 
 static void init_dummy_target (void);
 
@@ -106,9 +108,8 @@ static void debug_to_store_registers (int);
 
 static void debug_to_prepare_to_store (void);
 
-static int
-debug_to_xfer_memory (CORE_ADDR, char *, int, int, struct mem_attrib *, 
-		      struct target_ops *);
+static int debug_to_xfer_memory (CORE_ADDR, char *, int, int,
+				 struct mem_attrib *, struct target_ops *);
 
 static void debug_to_files_info (struct target_ops *);
 
@@ -116,11 +117,29 @@ static int debug_to_insert_breakpoint (CORE_ADDR, char *);
 
 static int debug_to_remove_breakpoint (CORE_ADDR, char *);
 
+static int debug_to_can_use_hw_breakpoint (int, int, int);
+
+static int debug_to_insert_hw_breakpoint (CORE_ADDR, char *);
+
+static int debug_to_remove_hw_breakpoint (CORE_ADDR, char *);
+
+static int debug_to_insert_watchpoint (CORE_ADDR, int, int);
+
+static int debug_to_remove_watchpoint (CORE_ADDR, int, int);
+
+static int debug_to_stopped_by_watchpoint (void);
+
+static CORE_ADDR debug_to_stopped_data_address (void);
+
+static int debug_to_region_size_ok_for_hw_watchpoint (int);
+
 static void debug_to_terminal_init (void);
 
 static void debug_to_terminal_inferior (void);
 
 static void debug_to_terminal_ours_for_output (void);
+
+static void debug_to_terminal_save_ours (void);
 
 static void debug_to_terminal_ours (void);
 
@@ -336,12 +355,6 @@ maybe_kill_then_create_inferior (char *exec, char *args, char **env)
   target_create_inferior (exec, args, env);
 }
 
-static void
-default_clone_and_follow_inferior (int child_pid, int *followed_child)
-{
-  target_clone_and_follow_inferior (child_pid, followed_child);
-}
-
 /* Clean up a target struct so it no longer has any zero pointers in it.
    We default entries, at least to stubs that print error messages.  */
 
@@ -364,13 +377,8 @@ cleanup_target (struct target_ops *t)
   de_fault (to_post_attach, 
 	    (void (*) (int)) 
 	    target_ignore);
-  de_fault (to_require_attach, 
-	    maybe_kill_then_attach);
   de_fault (to_detach, 
 	    (void (*) (char *, int)) 
-	    target_ignore);
-  de_fault (to_require_detach, 
-	    (void (*) (int, char *, int)) 
 	    target_ignore);
   de_fault (to_resume, 
 	    (void (*) (ptid_t, int, enum target_signal)) 
@@ -400,6 +408,29 @@ cleanup_target (struct target_ops *t)
 	    memory_insert_breakpoint);
   de_fault (to_remove_breakpoint, 
 	    memory_remove_breakpoint);
+  de_fault (to_can_use_hw_breakpoint,
+	    (int (*) (int, int, int))
+	    return_zero);
+  de_fault (to_insert_hw_breakpoint,
+	    (int (*) (CORE_ADDR, char *))
+	    return_minus_one);
+  de_fault (to_remove_hw_breakpoint,
+	    (int (*) (CORE_ADDR, char *))
+	    return_minus_one);
+  de_fault (to_insert_watchpoint,
+	    (int (*) (CORE_ADDR, int, int))
+	    return_minus_one);
+  de_fault (to_remove_watchpoint,
+	    (int (*) (CORE_ADDR, int, int))
+	    return_minus_one);
+  de_fault (to_stopped_by_watchpoint,
+	    (int (*) (void))
+	    return_zero);
+  de_fault (to_stopped_data_address,
+	    (CORE_ADDR (*) (void))
+	    return_zero);
+  de_fault (to_region_size_ok_for_hw_watchpoint,
+	    default_region_size_ok_for_hw_watchpoint);
   de_fault (to_terminal_init, 
 	    (void (*) (void)) 
 	    target_ignore);
@@ -410,6 +441,9 @@ cleanup_target (struct target_ops *t)
 	    (void (*) (void)) 
 	    target_ignore);
   de_fault (to_terminal_ours, 
+	    (void (*) (void)) 
+	    target_ignore);
+  de_fault (to_terminal_save_ours, 
 	    (void (*) (void)) 
 	    target_ignore);
   de_fault (to_terminal_info, 
@@ -431,11 +465,6 @@ cleanup_target (struct target_ops *t)
   de_fault (to_acknowledge_created_inferior, 
 	    (void (*) (int)) 
 	    target_ignore);
-  de_fault (to_clone_and_follow_inferior, 
-	    default_clone_and_follow_inferior);
-  de_fault (to_post_follow_inferior_by_clone, 
-	    (void (*) (void)) 
-	    target_ignore);
   de_fault (to_insert_fork_catchpoint, 
 	    (int (*) (int)) 
 	    tcomplain);
@@ -448,17 +477,8 @@ cleanup_target (struct target_ops *t)
   de_fault (to_remove_vfork_catchpoint, 
 	    (int (*) (int)) 
 	    tcomplain);
-  de_fault (to_has_forked, 
-	    (int (*) (int, int *)) 
-	    return_zero);
-  de_fault (to_has_vforked, 
-	    (int (*) (int, int *)) 
-	    return_zero);
-  de_fault (to_can_follow_vfork_prior_to_exec, 
-	    (int (*) (void)) 
-	    return_zero);
-  de_fault (to_post_follow_vfork, 
-	    (void (*) (int, int, int, int)) 
+  de_fault (to_follow_fork,
+	    (int (*) (int)) 
 	    target_ignore);
   de_fault (to_insert_exec_catchpoint, 
 	    (int (*) (int)) 
@@ -466,15 +486,9 @@ cleanup_target (struct target_ops *t)
   de_fault (to_remove_exec_catchpoint, 
 	    (int (*) (int)) 
 	    tcomplain);
-  de_fault (to_has_execd, 
-	    (int (*) (int, char **)) 
-	    return_zero);
   de_fault (to_reported_exec_events_per_exec_call, 
 	    (int (*) (void)) 
 	    return_one);
-  de_fault (to_has_syscall_event, 
-	    (int (*) (int, enum target_waitkind *, int *)) 
-	    return_zero);
   de_fault (to_has_exited, 
 	    (int (*) (int, int, int *)) 
 	    return_zero);
@@ -502,7 +516,11 @@ cleanup_target (struct target_ops *t)
 	    (void (*) (char *, struct ui_file *)) 
 	    tcomplain);
   de_fault (to_enable_exception_callback, 
-	    (struct symtab_and_line * (*) (enum exception_event_kind, int)) 
+	    (int (*) (enum exception_event_kind, int)) 
+	    nosupport_runtime);
+  de_fault (to_find_exception_catchpoints, 
+	    (struct symtab_and_line * (*) (enum exception_event_kind, 
+					   struct objfiles *)) 
 	    nosupport_runtime);
   de_fault (to_get_current_exception_event, 
 	    (struct exception_event_record * (*) (void)) 
@@ -555,9 +573,7 @@ update_current_target (void)
       INHERIT (to_close, t);
       INHERIT (to_attach, t);
       INHERIT (to_post_attach, t);
-      INHERIT (to_require_attach, t);
       INHERIT (to_detach, t);
-      INHERIT (to_require_detach, t);
       INHERIT (to_resume, t);
       INHERIT (to_wait, t);
       INHERIT (to_post_wait, t);
@@ -568,10 +584,19 @@ update_current_target (void)
       INHERIT (to_files_info, t);
       INHERIT (to_insert_breakpoint, t);
       INHERIT (to_remove_breakpoint, t);
+      INHERIT (to_can_use_hw_breakpoint, t);
+      INHERIT (to_insert_hw_breakpoint, t);
+      INHERIT (to_remove_hw_breakpoint, t);
+      INHERIT (to_insert_watchpoint, t);
+      INHERIT (to_remove_watchpoint, t);
+      INHERIT (to_stopped_data_address, t);
+      INHERIT (to_stopped_by_watchpoint, t);
+      INHERIT (to_region_size_ok_for_hw_watchpoint, t);
       INHERIT (to_terminal_init, t);
       INHERIT (to_terminal_inferior, t);
       INHERIT (to_terminal_ours_for_output, t);
       INHERIT (to_terminal_ours, t);
+      INHERIT (to_terminal_save_ours, t);
       INHERIT (to_terminal_info, t);
       INHERIT (to_kill, t);
       INHERIT (to_load, t);
@@ -579,21 +604,14 @@ update_current_target (void)
       INHERIT (to_create_inferior, t);
       INHERIT (to_post_startup_inferior, t);
       INHERIT (to_acknowledge_created_inferior, t);
-      INHERIT (to_clone_and_follow_inferior, t);
-      INHERIT (to_post_follow_inferior_by_clone, t);
       INHERIT (to_insert_fork_catchpoint, t);
       INHERIT (to_remove_fork_catchpoint, t);
       INHERIT (to_insert_vfork_catchpoint, t);
       INHERIT (to_remove_vfork_catchpoint, t);
-      INHERIT (to_has_forked, t);
-      INHERIT (to_has_vforked, t);
-      INHERIT (to_can_follow_vfork_prior_to_exec, t);
-      INHERIT (to_post_follow_vfork, t);
+      INHERIT (to_follow_fork, t);
       INHERIT (to_insert_exec_catchpoint, t);
       INHERIT (to_remove_exec_catchpoint, t);
-      INHERIT (to_has_execd, t);
       INHERIT (to_reported_exec_events_per_exec_call, t);
-      INHERIT (to_has_syscall_event, t);
       INHERIT (to_has_exited, t);
       INHERIT (to_mourn_inferior, t);
       INHERIT (to_can_run, t);
@@ -605,11 +623,11 @@ update_current_target (void)
       INHERIT (to_stop, t);
       INHERIT (to_query, t);
       INHERIT (to_rcmd, t);
+      INHERIT (to_find_exception_catchpoints, t);
       INHERIT (to_enable_exception_callback, t);
       INHERIT (to_get_current_exception_event, t);
       INHERIT (to_pid_to_exec_file, t);
       INHERIT (to_stratum, t);
-      INHERIT (DONT_USE, t);
       INHERIT (to_has_all_memory, t);
       INHERIT (to_has_memory, t);
       INHERIT (to_has_stack, t);
@@ -625,6 +643,7 @@ update_current_target (void)
       INHERIT (to_find_memory_regions, t);
       INHERIT (to_make_corefile_notes, t);
       INHERIT (to_bind_function, t);
+      INHERIT (to_get_thread_local_address, t);
       INHERIT (to_magic, t);
 
 #undef INHERIT
@@ -876,9 +895,9 @@ do_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int write,
 
   if (!write && trust_readonly)
     {
-      /* User-settable option, "trust-readonly".  If true, then
-	 memory from any SEC_READONLY bfd section may be read
-	 directly from the bfd file. */
+      /* User-settable option, "trust-readonly-sections".  If true,
+         then memory from any SEC_READONLY bfd section may be read
+         directly from the bfd file. */
 
       struct section_table *secp;
 
@@ -1088,7 +1107,10 @@ target_info (char *args, int from_tty)
 
   for (item = target_stack; item; item = item->next)
     {
-      t = item->target_ops;
+      if (item == target_stack) 
+	t = &current_target;
+      else
+	t = item->target_ops;
 
       if (!t->to_has_memory)
 	continue;
@@ -1217,26 +1239,6 @@ find_default_attach (char *args, int from_tty)
 }
 
 void
-find_default_require_attach (char *args, int from_tty)
-{
-  struct target_ops *t;
-
-  t = find_default_run_target ("require_attach");
-  (t->to_require_attach) (args, from_tty);
-  return;
-}
-
-void
-find_default_require_detach (int pid, char *args, int from_tty)
-{
-  struct target_ops *t;
-
-  t = find_default_run_target ("require_detach");
-  (t->to_require_detach) (pid, args, from_tty);
-  return;
-}
-
-void
 find_default_create_inferior (char *exec_file, char *allargs, char **env)
 {
   struct target_ops *t;
@@ -1246,14 +1248,10 @@ find_default_create_inferior (char *exec_file, char *allargs, char **env)
   return;
 }
 
-void
-find_default_clone_and_follow_inferior (int child_pid, int *followed_child)
+static int
+default_region_size_ok_for_hw_watchpoint (int byte_count)
 {
-  struct target_ops *t;
-
-  t = find_default_run_target ("run");
-  (t->to_clone_and_follow_inferior) (child_pid, followed_child);
-  return;
+  return (byte_count <= REGISTER_SIZE);
 }
 
 static int
@@ -1266,6 +1264,12 @@ static int
 return_one (void)
 {
   return 1;
+}
+
+static int
+return_minus_one (void)
+{
+  return -1;
 }
 
 /*
@@ -1311,6 +1315,11 @@ target_resize_to_sections (struct target_ops *target, int num_added)
 	      (*t)->to_sections = target->to_sections;
 	      (*t)->to_sections_end = target->to_sections_end;
 	    }
+	}
+      if (current_target.to_sections == old_value)
+	{
+	  current_target.to_sections = target->to_sections;
+	  current_target.to_sections_end = target->to_sections_end;
 	}
     }
   
@@ -1541,10 +1550,7 @@ init_dummy_target (void)
   dummy_target.to_longname = "None";
   dummy_target.to_doc = "";
   dummy_target.to_attach = find_default_attach;
-  dummy_target.to_require_attach = find_default_require_attach;
-  dummy_target.to_require_detach = find_default_require_detach;
   dummy_target.to_create_inferior = find_default_create_inferior;
-  dummy_target.to_clone_and_follow_inferior = find_default_clone_and_follow_inferior;
   dummy_target.to_pid_to_str = normal_pid_to_str;
   dummy_target.to_stratum = dummy_stratum;
   dummy_target.to_find_memory_regions = dummy_find_memory_regions;
@@ -1589,29 +1595,11 @@ debug_to_post_attach (int pid)
 }
 
 static void
-debug_to_require_attach (char *args, int from_tty)
-{
-  debug_target.to_require_attach (args, from_tty);
-
-  fprintf_unfiltered (gdb_stdlog,
-		      "target_require_attach (%s, %d)\n", args, from_tty);
-}
-
-static void
 debug_to_detach (char *args, int from_tty)
 {
   debug_target.to_detach (args, from_tty);
 
   fprintf_unfiltered (gdb_stdlog, "target_detach (%s, %d)\n", args, from_tty);
-}
-
-static void
-debug_to_require_detach (int pid, char *args, int from_tty)
-{
-  debug_target.to_require_detach (pid, args, from_tty);
-
-  fprintf_unfiltered (gdb_stdlog,
-	       "target_require_detach (%d, %s, %d)\n", pid, args, from_tty);
 }
 
 static void
@@ -1682,33 +1670,47 @@ debug_to_post_wait (ptid_t ptid, int status)
 }
 
 static void
+debug_print_register (const char * func, int regno)
+{
+  fprintf_unfiltered (gdb_stdlog, "%s ", func);
+  if (regno >= 0 && regno < NUM_REGS + NUM_PSEUDO_REGS
+      && REGISTER_NAME (regno) != NULL && REGISTER_NAME (regno)[0] != '\0')
+    fprintf_unfiltered (gdb_stdlog, "(%s)", REGISTER_NAME (regno));
+  else
+    fprintf_unfiltered (gdb_stdlog, "(%d)", regno);
+  if (regno >= 0)
+    {
+      int i;
+      unsigned char *buf = alloca (MAX_REGISTER_RAW_SIZE);
+      deprecated_read_register_gen (regno, buf);
+      fprintf_unfiltered (gdb_stdlog, " = ");
+      for (i = 0; i < REGISTER_RAW_SIZE (regno); i++)
+	{
+	  fprintf_unfiltered (gdb_stdlog, "%02x", buf[i]);
+	}
+      if (REGISTER_RAW_SIZE (regno) <= sizeof (LONGEST))
+	{
+	  fprintf_unfiltered (gdb_stdlog, " 0x%s %s",
+			      paddr_nz (read_register (regno)),
+			      paddr_d (read_register (regno)));
+	}
+    }
+  fprintf_unfiltered (gdb_stdlog, "\n");
+}
+
+static void
 debug_to_fetch_registers (int regno)
 {
   debug_target.to_fetch_registers (regno);
-
-  fprintf_unfiltered (gdb_stdlog, "target_fetch_registers (%s)",
-		      regno != -1 ? REGISTER_NAME (regno) : "-1");
-
-  /* FIXME-32x64 */
-  if (regno != -1)
-    fprintf_unfiltered (gdb_stdlog, " = 0x%lx %ld",
-			(unsigned long) read_register (regno),
-			(unsigned long) read_register (regno));
-  fprintf_unfiltered (gdb_stdlog, "\n");
+  debug_print_register ("target_fetch_registers", regno);
 }
 
 static void
 debug_to_store_registers (int regno)
 {
   debug_target.to_store_registers (regno);
-
-  if (regno >= 0 && regno < NUM_REGS)
-    fprintf_unfiltered (gdb_stdlog, "target_store_registers (%s) = 0x%lx %ld\n",
-			REGISTER_NAME (regno),
-			(unsigned long) read_register (regno),
-			(unsigned long) read_register (regno));
-  else
-    fprintf_unfiltered (gdb_stdlog, "target_store_registers (%d)\n", regno);
+  debug_print_register ("target_store_registers", regno);
+  fprintf_unfiltered (gdb_stdlog, "\n");
 }
 
 static void
@@ -1793,6 +1795,116 @@ debug_to_remove_breakpoint (CORE_ADDR addr, char *save)
   return retval;
 }
 
+static int
+debug_to_can_use_hw_breakpoint (int type, int cnt, int from_tty)
+{
+  int retval;
+
+  retval = debug_target.to_can_use_hw_breakpoint (type, cnt, from_tty);
+
+  fprintf_unfiltered (gdb_stdlog,
+		      "target_can_use_hw_breakpoint (%ld, %ld, %ld) = %ld\n",
+		      (unsigned long) type,
+		      (unsigned long) cnt,
+		      (unsigned long) from_tty,
+		      (unsigned long) retval);
+  return retval;
+}
+
+static int
+debug_to_region_size_ok_for_hw_watchpoint (int byte_count)
+{
+  CORE_ADDR retval;
+
+  retval = debug_target.to_region_size_ok_for_hw_watchpoint (byte_count);
+
+  fprintf_unfiltered (gdb_stdlog,
+		      "TARGET_REGION_SIZE_OK_FOR_HW_WATCHPOINT (%ld) = 0x%lx\n",
+		      (unsigned long) byte_count,
+		      (unsigned long) retval);
+  return retval;
+}
+
+static int
+debug_to_stopped_by_watchpoint (void)
+{
+  int retval;
+
+  retval = debug_target.to_stopped_by_watchpoint ();
+
+  fprintf_unfiltered (gdb_stdlog,
+		      "STOPPED_BY_WATCHPOINT () = %ld\n",
+		      (unsigned long) retval);
+  return retval;
+}
+
+static CORE_ADDR
+debug_to_stopped_data_address (void)
+{
+  CORE_ADDR retval;
+
+  retval = debug_target.to_stopped_data_address ();
+
+  fprintf_unfiltered (gdb_stdlog,
+		      "target_stopped_data_address () = 0x%lx\n",
+		      (unsigned long) retval);
+  return retval;
+}
+
+static int
+debug_to_insert_hw_breakpoint (CORE_ADDR addr, char *save)
+{
+  int retval;
+
+  retval = debug_target.to_insert_hw_breakpoint (addr, save);
+
+  fprintf_unfiltered (gdb_stdlog,
+		      "target_insert_hw_breakpoint (0x%lx, xxx) = %ld\n",
+		      (unsigned long) addr,
+		      (unsigned long) retval);
+  return retval;
+}
+
+static int
+debug_to_remove_hw_breakpoint (CORE_ADDR addr, char *save)
+{
+  int retval;
+
+  retval = debug_target.to_remove_hw_breakpoint (addr, save);
+
+  fprintf_unfiltered (gdb_stdlog,
+		      "target_remove_hw_breakpoint (0x%lx, xxx) = %ld\n",
+		      (unsigned long) addr,
+		      (unsigned long) retval);
+  return retval;
+}
+
+static int
+debug_to_insert_watchpoint (CORE_ADDR addr, int len, int type)
+{
+  int retval;
+
+  retval = debug_target.to_insert_watchpoint (addr, len, type);
+
+  fprintf_unfiltered (gdb_stdlog,
+		      "target_insert_watchpoint (0x%lx, %d, %d) = %ld\n",
+		      (unsigned long) addr, len, type, (unsigned long) retval);
+  return retval;
+}
+
+static int
+debug_to_remove_watchpoint (CORE_ADDR addr, int len, int type)
+{
+  int retval;
+
+  retval = debug_target.to_insert_watchpoint (addr, len, type);
+
+  fprintf_unfiltered (gdb_stdlog,
+		      "target_insert_watchpoint (0x%lx, %d, %d) = %ld\n",
+		      (unsigned long) addr, len, type, (unsigned long) retval);
+  return retval;
+}
+
 static void
 debug_to_terminal_init (void)
 {
@@ -1823,6 +1935,14 @@ debug_to_terminal_ours (void)
   debug_target.to_terminal_ours ();
 
   fprintf_unfiltered (gdb_stdlog, "target_terminal_ours ()\n");
+}
+
+static void
+debug_to_terminal_save_ours (void)
+{
+  debug_target.to_terminal_save_ours ();
+
+  fprintf_unfiltered (gdb_stdlog, "target_terminal_save_ours ()\n");
 }
 
 static void
@@ -1889,24 +2009,6 @@ debug_to_acknowledge_created_inferior (int pid)
 		      pid);
 }
 
-static void
-debug_to_clone_and_follow_inferior (int child_pid, int *followed_child)
-{
-  debug_target.to_clone_and_follow_inferior (child_pid, followed_child);
-
-  fprintf_unfiltered (gdb_stdlog,
-		      "target_clone_and_follow_inferior (%d, %d)\n",
-		      child_pid, *followed_child);
-}
-
-static void
-debug_to_post_follow_inferior_by_clone (void)
-{
-  debug_target.to_post_follow_inferior_by_clone ();
-
-  fprintf_unfiltered (gdb_stdlog, "target_post_follow_inferior_by_clone ()\n");
-}
-
 static int
 debug_to_insert_fork_catchpoint (int pid)
 {
@@ -1960,53 +2062,14 @@ debug_to_remove_vfork_catchpoint (int pid)
 }
 
 static int
-debug_to_has_forked (int pid, int *child_pid)
+debug_to_follow_fork (int follow_child)
 {
-  int has_forked;
+  int retval =  debug_target.to_follow_fork (follow_child);
 
-  has_forked = debug_target.to_has_forked (pid, child_pid);
+  fprintf_unfiltered (gdb_stdlog, "target_follow_fork (%d) = %d\n",
+		      follow_child, retval);
 
-  fprintf_unfiltered (gdb_stdlog, "target_has_forked (%d, %d) = %d\n",
-		      pid, *child_pid, has_forked);
-
-  return has_forked;
-}
-
-static int
-debug_to_has_vforked (int pid, int *child_pid)
-{
-  int has_vforked;
-
-  has_vforked = debug_target.to_has_vforked (pid, child_pid);
-
-  fprintf_unfiltered (gdb_stdlog, "target_has_vforked (%d, %d) = %d\n",
-		      pid, *child_pid, has_vforked);
-
-  return has_vforked;
-}
-
-static int
-debug_to_can_follow_vfork_prior_to_exec (void)
-{
-  int can_immediately_follow_vfork;
-
-  can_immediately_follow_vfork = debug_target.to_can_follow_vfork_prior_to_exec ();
-
-  fprintf_unfiltered (gdb_stdlog, "target_can_follow_vfork_prior_to_exec () = %d\n",
-		      can_immediately_follow_vfork);
-
-  return can_immediately_follow_vfork;
-}
-
-static void
-debug_to_post_follow_vfork (int parent_pid, int followed_parent, int child_pid,
-			    int followed_child)
-{
-  debug_target.to_post_follow_vfork (parent_pid, followed_parent, child_pid, followed_child);
-
-  fprintf_unfiltered (gdb_stdlog,
-		      "target_post_follow_vfork (%d, %d, %d, %d)\n",
-		    parent_pid, followed_parent, child_pid, followed_child);
+  return retval;
 }
 
 static int
@@ -2036,20 +2099,6 @@ debug_to_remove_exec_catchpoint (int pid)
 }
 
 static int
-debug_to_has_execd (int pid, char **execd_pathname)
-{
-  int has_execd;
-
-  has_execd = debug_target.to_has_execd (pid, execd_pathname);
-
-  fprintf_unfiltered (gdb_stdlog, "target_has_execd (%d, %s) = %d\n",
-		      pid, (*execd_pathname ? *execd_pathname : "<NULL>"),
-		      has_execd);
-
-  return has_execd;
-}
-
-static int
 debug_to_reported_exec_events_per_exec_call (void)
 {
   int reported_exec_events;
@@ -2061,36 +2110,6 @@ debug_to_reported_exec_events_per_exec_call (void)
 		      reported_exec_events);
 
   return reported_exec_events;
-}
-
-static int
-debug_to_has_syscall_event (int pid, enum target_waitkind *kind,
-			    int *syscall_id)
-{
-  int has_syscall_event;
-  char *kind_spelling = "??";
-
-  has_syscall_event = debug_target.to_has_syscall_event (pid, kind, syscall_id);
-  if (has_syscall_event)
-    {
-      switch (*kind)
-	{
-	case TARGET_WAITKIND_SYSCALL_ENTRY:
-	  kind_spelling = "SYSCALL_ENTRY";
-	  break;
-	case TARGET_WAITKIND_SYSCALL_RETURN:
-	  kind_spelling = "SYSCALL_RETURN";
-	  break;
-	default:
-	  break;
-	}
-    }
-
-  fprintf_unfiltered (gdb_stdlog,
-		      "target_has_syscall_event (%d, %s, %d) = %d\n",
-		      pid, kind_spelling, *syscall_id, has_syscall_event);
-
-  return has_syscall_event;
 }
 
 static int
@@ -2198,9 +2217,21 @@ debug_to_rcmd (char *command,
 }
 
 static struct symtab_and_line *
-debug_to_enable_exception_callback (enum exception_event_kind kind, int enable)
+debug_to_find_exception_catchpoints (enum exception_event_kind kind, 
+				     struct objfile *objfile)
 {
   struct symtab_and_line *result;
+  result = debug_target.to_find_exception_catchpoints (kind, objfile);
+  fprintf_unfiltered (gdb_stdlog,
+		      "target find_exception_catchpoints (%d, %d)\n",
+		      kind, objfile);
+  return result;
+}
+
+int
+debug_to_enable_exception_callback (enum exception_event_kind kind, int enable)
+{
+  int result;
   result = debug_target.to_enable_exception_callback (kind, enable);
   fprintf_unfiltered (gdb_stdlog,
 		      "target get_exception_callback_sal (%d, %d)\n",
@@ -2254,9 +2285,7 @@ setup_target_debug (void)
   current_target.to_close = debug_to_close;
   current_target.to_attach = debug_to_attach;
   current_target.to_post_attach = debug_to_post_attach;
-  current_target.to_require_attach = debug_to_require_attach;
   current_target.to_detach = debug_to_detach;
-  current_target.to_require_detach = debug_to_require_detach;
   current_target.to_resume = debug_to_resume;
   current_target.to_wait = debug_to_wait;
   current_target.to_post_wait = debug_to_post_wait;
@@ -2267,10 +2296,19 @@ setup_target_debug (void)
   current_target.to_files_info = debug_to_files_info;
   current_target.to_insert_breakpoint = debug_to_insert_breakpoint;
   current_target.to_remove_breakpoint = debug_to_remove_breakpoint;
+  current_target.to_can_use_hw_breakpoint = debug_to_can_use_hw_breakpoint;
+  current_target.to_insert_hw_breakpoint = debug_to_insert_hw_breakpoint;
+  current_target.to_remove_hw_breakpoint = debug_to_remove_hw_breakpoint;
+  current_target.to_insert_watchpoint = debug_to_insert_watchpoint;
+  current_target.to_remove_watchpoint = debug_to_remove_watchpoint;
+  current_target.to_stopped_by_watchpoint = debug_to_stopped_by_watchpoint;
+  current_target.to_stopped_data_address = debug_to_stopped_data_address;
+  current_target.to_region_size_ok_for_hw_watchpoint = debug_to_region_size_ok_for_hw_watchpoint;
   current_target.to_terminal_init = debug_to_terminal_init;
   current_target.to_terminal_inferior = debug_to_terminal_inferior;
   current_target.to_terminal_ours_for_output = debug_to_terminal_ours_for_output;
   current_target.to_terminal_ours = debug_to_terminal_ours;
+  current_target.to_terminal_save_ours = debug_to_terminal_save_ours;
   current_target.to_terminal_info = debug_to_terminal_info;
   current_target.to_kill = debug_to_kill;
   current_target.to_load = debug_to_load;
@@ -2278,21 +2316,14 @@ setup_target_debug (void)
   current_target.to_create_inferior = debug_to_create_inferior;
   current_target.to_post_startup_inferior = debug_to_post_startup_inferior;
   current_target.to_acknowledge_created_inferior = debug_to_acknowledge_created_inferior;
-  current_target.to_clone_and_follow_inferior = debug_to_clone_and_follow_inferior;
-  current_target.to_post_follow_inferior_by_clone = debug_to_post_follow_inferior_by_clone;
   current_target.to_insert_fork_catchpoint = debug_to_insert_fork_catchpoint;
   current_target.to_remove_fork_catchpoint = debug_to_remove_fork_catchpoint;
   current_target.to_insert_vfork_catchpoint = debug_to_insert_vfork_catchpoint;
   current_target.to_remove_vfork_catchpoint = debug_to_remove_vfork_catchpoint;
-  current_target.to_has_forked = debug_to_has_forked;
-  current_target.to_has_vforked = debug_to_has_vforked;
-  current_target.to_can_follow_vfork_prior_to_exec = debug_to_can_follow_vfork_prior_to_exec;
-  current_target.to_post_follow_vfork = debug_to_post_follow_vfork;
+  current_target.to_follow_fork = debug_to_follow_fork;
   current_target.to_insert_exec_catchpoint = debug_to_insert_exec_catchpoint;
   current_target.to_remove_exec_catchpoint = debug_to_remove_exec_catchpoint;
-  current_target.to_has_execd = debug_to_has_execd;
   current_target.to_reported_exec_events_per_exec_call = debug_to_reported_exec_events_per_exec_call;
-  current_target.to_has_syscall_event = debug_to_has_syscall_event;
   current_target.to_has_exited = debug_to_has_exited;
   current_target.to_mourn_inferior = debug_to_mourn_inferior;
   current_target.to_can_run = debug_to_can_run;
@@ -2303,8 +2334,12 @@ setup_target_debug (void)
   current_target.to_stop = debug_to_stop;
   current_target.to_query = debug_to_query;
   current_target.to_rcmd = debug_to_rcmd;
-  current_target.to_enable_exception_callback = debug_to_enable_exception_callback;
-  current_target.to_get_current_exception_event = debug_to_get_current_exception_event;
+  current_target.to_find_exception_catchpoints 
+    = debug_to_find_exception_catchpoints;
+  current_target.to_enable_exception_callback 
+    = debug_to_enable_exception_callback;
+  current_target.to_get_current_exception_event 
+    = debug_to_get_current_exception_event;
   current_target.to_pid_to_exec_file = debug_to_pid_to_exec_file;
 
 }
@@ -2346,16 +2381,15 @@ initialize_targets (void)
 When non-zero, target debugging is enabled.", &setdebuglist),
      &showdebuglist);
 
-  add_show_from_set 
-    (add_set_boolean_cmd 
-     ("trust-readonly-sections", class_support, 
-      &trust_readonly, 
-      "Set mode for reading from readonly sections.\n\
+  add_setshow_boolean_cmd ("trust-readonly-sections", class_support, 
+			   &trust_readonly, "\
+Set mode for reading from readonly sections.\n\
 When this mode is on, memory reads from readonly sections (such as .text)\n\
 will be read from the object file instead of from the target.  This will\n\
-result in significant performance improvement for remote targets.",
-      &setlist),
-     &showlist);
+result in significant performance improvement for remote targets.", "\
+Show mode for reading from readonly sections.\n",
+			   NULL, NULL,
+			   &setlist, &showlist);
 
   add_com ("monitor", class_obscure, do_monitor_command,
 	   "Send a command to the remote monitor (remote targets only).");

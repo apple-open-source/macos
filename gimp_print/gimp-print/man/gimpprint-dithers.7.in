@@ -1,0 +1,103 @@
+.\" t
+.\" $Id: gimpprint-dithers.7.in,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $
+.\" Copyright (C) 2000 Roger Leigh <roger@whinlatter.uklinux.net>
+.\"
+.\" This program is free software; you can redistribute it and/or modify
+.\" it under the terms of the GNU General Public License as published by
+.\" the Free Software Foundation; either version 2, or (at your option)
+.\" any later version.
+.\"
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public License
+.\" along with this program; if not, write to the Free Software
+.\" Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+.TH GIMPPRINT-DITHERS 7 "@RELEASE_DATE@" "Version @GIMPPRINT_VERSION@" "Gimp-Print Manual Pages"
+.SH NAME
+gimpprint-dithers \- Gimp-Print dither algorithms
+.SH DESCRIPTION
+Gimp-Print includes several dither algorithms.  Dithering attempts to reproduce
+various shades of gray (or all colors) from only a few different inks (black,
+cyan, magenta, yellow, and sometimes light cyan and light magenta).  The dots
+can't vary in darkness or size (except for certain special printers), and so we
+need to lay down a certain fraction of dots to represent each distinct level.
+Different dither algorithms are suited to different purposes, and some are
+significantly faster than others.
+.SH DITHER ALGORITHMS
+.TS
+li li
+lb l.
+Dither Algorithm	Description
+_
+Adaptive	Adaptive Hybrid
+EvenTone	EvenTone screening (experimental)  
+Ordered	Ordered 
+Fast	Fast
+VeryFast	Very Fast
+Floyd	Hybrid Floyd-Steinberg
+.TE
+.PP
+For the highest quality, we recommend use of \fIAdaptive Hybrid\fP dithering.
+For continuous tone images, \fIOrdered\fP works just as well and is somewhat
+faster.  Ordered dithering yields noticeably inferior results with text and
+intricate line art, particularly at high resolutions.
+.PP
+\fIEvenTone\fP dithering is a relatively new screening technology developed by
+Raph Levien.  It offers superior smoothness in highlights and midtones, and
+increased accuracy in shadows, resulting in significantly improved results
+overall.  The version of EvenTone dithering that we are using is enhanced with
+some additional improvements we have made.  It currently only operates with
+CMYK (4, 6, or 7 color output) with RGB input, and should be considered
+experimental.  Note that it is patented (see US patent 5917614), but it is
+licensed for use with GPL software.  See http://www.levien.com/patents.html for
+more information.
+.PP
+\fIFast\fP dithering, which is a simplified version of ordered dither, is
+significantly faster, but color accuracy is worse, particularly on six color
+printers and printer using variable dot sizes.  On simple four color printers,
+the quality is quite reasonable, although color printing will show more
+speckling in dark tones than Ordered dither.  For single dot size printers,
+printing grayscale, this algorithm yields almost identical results to Ordered
+with some performance improvement.  On three color printers, the results should
+be very similar to Ordered.
+.PP
+\fIVery Fast\fP is even faster than Fast, with even more loss of quality.  It
+shows even more speckling, and the output is heavily patterned.  On laser
+printers, and possibly on certain kinds of text and line art, Very Fast
+dithering may actually yield the best quality.
+.PP
+\fIError diffusion\fP algorithms (\fIHybrid Floyd-Steinberg\fP is such an
+algorithm) perform very well at high densities, and are capable of rendering
+very fine detail well, but they tend to exhibit artifacts in the form of
+"waves" or "worms" of dots which results in noticeable texturing in pale areas.
+Furthermore, pale areas immediately adjacent to white take a while to "build
+up" sufficient error to print at all.  This is sometimes called "tearing".  Its
+use is not recommended.
+.SH COPYRIGHT
+Copyright \(co 2001 Michael Sweet (mike@easysw.com) and Robert Krawitz
+(rlk@alum.mit.edu)
+.PP
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+.PP
+This manual page was written by Roger Leigh (roger@whinlatter.uklinux.net)
+.SH SEE ALSO
+.BR gimpprint-color (7),
+.BR gimpprint-imagetypes (7),
+.BR gimpprint-inktypes (7),
+.BR gimpprint-mediasizes (7),
+.BR gimpprint-mediasources (7),
+.BR gimpprint-mediatypes (7),
+.BR gimpprint-models (7),
+.BR gimpprint-resolutions (7).
+.\"#
+.\"# The following sets edit modes for GNU EMACS
+.\"# Local Variables:
+.\"# mode:nroff
+.\"# fill-column:79
+.\"# End:

@@ -1,7 +1,7 @@
 /* add.c - ldap BerkeleyDB back-end add routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/add.c,v 1.55 2002/02/11 20:07:55 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/add.c,v 1.55.2.9 2003/02/26 15:17:50 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -23,29 +23,46 @@ bdb_add(
 	struct bdb_info *bdb = (struct bdb_info *) be->be_private;
 	struct berval	pdn;
 	Entry		*p = NULL;
-	int			rc; 
+	int		rc; 
 	const char	*text;
 	char textbuf[SLAP_TEXT_BUFLEN];
 	size_t textlen = sizeof textbuf;
 	AttributeDescription *children = slap_schema.si_ad_children;
+	AttributeDescription *entry = slap_schema.si_ad_entry;
 	DB_TXN		*ltid = NULL;
 	struct bdb_op_info opinfo;
 #ifdef BDB_SUBENTRIES
 	int subentry;
 #endif
+	u_int32_t	locker = 0;
+	DB_LOCK		lock;
 #if 0
 	u_int32_t	lockid;
 	DB_LOCK		lock;
 #endif
+	int		noop = 0;
 
+#if defined(LDAP_CLIENT_UPDATE) || defined(LDAP_SYNC)
+	Operation* ps_list;
+#endif
+
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ARGS, "==> bdb_add: %s\n", e->e_dn, 0, 0 );
+#else
 	Debug(LDAP_DEBUG_ARGS, "==> bdb_add: %s\n", e->e_dn, 0, 0);
+#endif
 
 	/* check entry's schema */
 	rc = entry_schema_check( be, e, NULL, &text, textbuf, textlen );
 	if ( rc != LDAP_SUCCESS ) {
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ERR, 
+		"bdb_add: entry failed schema check: %s (%d)\n", text, rc, 0 );
+#else
 		Debug( LDAP_DEBUG_TRACE,
 			"bdb_add: entry failed schema check: %s (%d)\n",
 			text, rc, 0 );
+#endif
 		goto return_results;
 	}
 
@@ -59,9 +76,14 @@ bdb_add(
 	 */
 	rc = bdb_next_id( be, NULL, &e->e_id );
 	if( rc != 0 ) {
+#ifdef NEW_LOGGING
+		LDAP_LOG ( OPERATION, ERR, 
+			"bdb_add: next_id failed (%d)\n", rc, 0, 0 );
+#else
 		Debug( LDAP_DEBUG_TRACE,
 			"bdb_add: next_id failed (%d)\n",
 			rc, 0, 0 );
+#endif
 		rc = LDAP_OTHER;
 		text = "internal error";
 		goto return_results;
@@ -69,9 +91,15 @@ bdb_add(
 
 	if( 0 ) {
 retry:	/* transaction retry */
+		if( p ) {
+			/* free parent and reader lock */
+			bdb_unlocked_cache_return_entry_r( &bdb->bi_cache, p );
+			p = NULL;
+		}
 		rc = TXN_ABORT( ltid );
 		ltid = NULL;
 		op->o_private = NULL;
+		op->o_do_not_cache = opinfo.boi_acl_cache;
 		if( rc != 0 ) {
 			rc = LDAP_OTHER;
 			text = "internal error";
@@ -85,20 +113,29 @@ retry:	/* transaction retry */
 		bdb->bi_db_opflags );
 	text = NULL;
 	if( rc != 0 ) {
+#ifdef NEW_LOGGING
+		LDAP_LOG ( OPERATION, ERR, 
+			"bdb_add: txn_begin failed: %s (%d)\n", db_strerror(rc), rc, 0 );
+#else
 		Debug( LDAP_DEBUG_TRACE,
 			"bdb_add: txn_begin failed: %s (%d)\n",
 			db_strerror(rc), rc, 0 );
+#endif
 		rc = LDAP_OTHER;
 		text = "internal error";
 		goto return_results;
 	}
+
+	locker = TXN_ID ( ltid );
 #if 0
 	lockid = TXN_ID( ltid );
 #endif
 
 	opinfo.boi_bdb = be;
 	opinfo.boi_txn = ltid;
+	opinfo.boi_locker = locker;
 	opinfo.boi_err = 0;
+	opinfo.boi_acl_cache = op->o_do_not_cache;
 	op->o_private = &opinfo;
 	
 	/*
@@ -126,7 +163,7 @@ retry:	/* transaction retry */
 #endif
 
 		/* get parent */
-		rc = bdb_dn2entry_r( be, ltid, &pdn, &p, &matched, 0 );
+		rc = bdb_dn2entry_r( be, ltid, &pdn, &p, &matched, 0, locker, &lock );
 
 		switch( rc ) {
 		case 0:
@@ -135,6 +172,9 @@ retry:	/* transaction retry */
 		case DB_LOCK_DEADLOCK:
 		case DB_LOCK_NOTGRANTED:
 			goto retry;
+		case LDAP_BUSY:
+			text = "ldap server busy";
+			goto return_results;
 		default:
 			rc = LDAP_OTHER;
 			text = "internal error";
@@ -150,7 +190,7 @@ retry:	/* transaction retry */
 				refs = is_entry_referral( matched )
 					? get_entry_referrals( be, conn, op, matched )
 					: NULL;
-				bdb_cache_return_entry_r(&bdb->bi_cache, matched);
+				bdb_unlocked_cache_return_entry_r( &bdb->bi_cache, matched );
 				matched = NULL;
 
 			} else {
@@ -158,8 +198,13 @@ retry:	/* transaction retry */
 					NULL, &e->e_name, LDAP_SCOPE_DEFAULT );
 			}
 
+#ifdef NEW_LOGGING
+			LDAP_LOG ( OPERATION, DETAIL1, 
+				"bdb_add: parent does not exist\n", 0, 0, 0 );
+#else
 			Debug( LDAP_DEBUG_TRACE, "bdb_add: parent does not exist\n",
 				0, 0, 0 );
+#endif
 
 			send_ldap_result( conn, op, rc = LDAP_REFERRAL,
 				matched_dn, NULL, refs, NULL );
@@ -173,18 +218,20 @@ retry:	/* transaction retry */
 		rc = access_allowed( be, conn, op, p,
 			children, NULL, ACL_WRITE, NULL );
 
-		switch( opinfo.boi_err ) {
-		case DB_LOCK_DEADLOCK:
-		case DB_LOCK_NOTGRANTED:
-			/* free parent and reader lock */
-			bdb_cache_return_entry_r( &bdb->bi_cache, p );
-			p = NULL;
-			goto retry;
-		}
-
 		if ( ! rc ) {
+			switch( opinfo.boi_err ) {
+			case DB_LOCK_DEADLOCK:
+			case DB_LOCK_NOTGRANTED:
+				goto retry;
+			}
+
+#ifdef NEW_LOGGING
+			LDAP_LOG ( OPERATION, DETAIL1, 
+				"bdb_add: no write access to parent\n", 0, 0, 0 );
+#else
 			Debug( LDAP_DEBUG_TRACE, "bdb_add: no write access to parent\n",
 				0, 0, 0 );
+#endif
 			rc = LDAP_INSUFFICIENT_ACCESS;
 			text = "no write access to parent";
 			goto return_results;;
@@ -193,8 +240,13 @@ retry:	/* transaction retry */
 #ifdef BDB_SUBENTRIES
 		if ( is_entry_subentry( p ) ) {
 			/* parent is a subentry, don't allow add */
+#ifdef NEW_LOGGING
+			LDAP_LOG ( OPERATION, DETAIL1, 
+				"bdb_add: parent is subentry\n", 0, 0, 0 );
+#else
 			Debug( LDAP_DEBUG_TRACE, "bdb_add: parent is subentry\n",
 				0, 0, 0 );
+#endif
 			rc = LDAP_OBJECT_CLASS_VIOLATION;
 			text = "parent is a subentry";
 			goto return_results;;
@@ -203,8 +255,13 @@ retry:	/* transaction retry */
 #ifdef BDB_ALIASES
 		if ( is_entry_alias( p ) ) {
 			/* parent is an alias, don't allow add */
+#ifdef NEW_LOGGING
+			LDAP_LOG ( OPERATION, DETAIL1, 
+				"bdb_add: parent is alias\n", 0, 0, 0 );
+#else
 			Debug( LDAP_DEBUG_TRACE, "bdb_add: parent is alias\n",
 				0, 0, 0 );
+#endif
 			rc = LDAP_ALIAS_PROBLEM;
 			text = "parent is an alias";
 			goto return_results;;
@@ -216,14 +273,19 @@ retry:	/* transaction retry */
 			char *matched_dn = p->e_dn;
 			BerVarray refs = get_entry_referrals( be, conn, op, p );
 
+#ifdef NEW_LOGGING
+			LDAP_LOG ( OPERATION, DETAIL1, 
+				"bdb_add: parent is referral\n", 0, 0, 0 );
+#else
 			Debug( LDAP_DEBUG_TRACE, "bdb_add: parent is referral\n",
 				0, 0, 0 );
+#endif
 
 			send_ldap_result( conn, op, rc = LDAP_REFERRAL,
 				matched_dn, NULL, refs, NULL );
 
 			ber_bvarray_free( refs );
-			bdb_cache_return_entry_r( &bdb->bi_cache, p );
+			bdb_unlocked_cache_return_entry_r( &bdb->bi_cache, p );
 			p = NULL;
 			goto done;
 		}
@@ -236,7 +298,7 @@ retry:	/* transaction retry */
 #endif
 
 		/* free parent and reader lock */
-		bdb_cache_return_entry_r( &bdb->bi_cache, p );
+		bdb_unlocked_cache_return_entry_r( &bdb->bi_cache, p );
 		p = NULL;
 
 	} else {
@@ -246,33 +308,45 @@ retry:	/* transaction retry */
 		 */
 		if ( !be_isroot( be, &op->o_ndn )) {
 			if ( be_issuffix( be, (struct berval *)&slap_empty_bv )
-				|| be_isupdate( be, &op->o_ndn ) ) {
+				|| be_isupdate( be, &op->o_ndn ) )
+			{
 				p = (Entry *)&slap_entry_root;
 
 				/* check parent for "children" acl */
 				rc = access_allowed( be, conn, op, p,
 					children, NULL, ACL_WRITE, NULL );
+
 				p = NULL;
 
-				switch( opinfo.boi_err ) {
-				case DB_LOCK_DEADLOCK:
-				case DB_LOCK_NOTGRANTED:
-					goto retry;
-				}
-
 				if ( ! rc ) {
+					switch( opinfo.boi_err ) {
+					case DB_LOCK_DEADLOCK:
+					case DB_LOCK_NOTGRANTED:
+						goto retry;
+					}
+
+#ifdef NEW_LOGGING
+					LDAP_LOG ( OPERATION, DETAIL1, 
+						"bdb_add: no write access to parent\n", 0, 0, 0 );
+#else
 					Debug( LDAP_DEBUG_TRACE,
 						"bdb_add: no write access to parent\n",
 						0, 0, 0 );
+#endif
 					rc = LDAP_INSUFFICIENT_ACCESS;
 					text = "no write access to parent";
 					goto return_results;;
 				}
 
 			} else {
+#ifdef NEW_LOGGING
+				LDAP_LOG ( OPERATION, DETAIL1, "bdb_add: %s denied\n", 
+					pdn.bv_len == 0 ? "suffix" : "entry at root", 0, 0 );
+#else
 				Debug( LDAP_DEBUG_TRACE, "bdb_add: %s denied\n",
 					pdn.bv_len == 0 ? "suffix" : "entry at root",
 					0, 0 );
+#endif
 				rc = LDAP_INSUFFICIENT_ACCESS;
 				goto return_results;
 			}
@@ -280,9 +354,14 @@ retry:	/* transaction retry */
 
 #ifdef BDB_SUBENTRIES
 		if( subentry ) {
+#ifdef NEW_LOGGING
+			LDAP_LOG ( OPERATION, DETAIL1, 
+				"bdb_add: no parent, cannot add subentry\n", 0, 0, 0 );
+#else
 			Debug( LDAP_DEBUG_TRACE,
 				"bdb_add: no parent, cannot add subentry\n",
 				0, 0, 0 );
+#endif
 			rc = LDAP_INSUFFICIENT_ACCESS;
 			text = "no parent, cannot add subentry";
 			goto return_results;;
@@ -299,11 +378,38 @@ retry:	/* transaction retry */
 #endif
 	}
 
+	rc = access_allowed( be, conn, op, e,
+		entry, NULL, ACL_WRITE, NULL );
+
+	if ( ! rc ) {
+		switch( opinfo.boi_err ) {
+		case DB_LOCK_DEADLOCK:
+		case DB_LOCK_NOTGRANTED:
+			goto retry;
+		}
+
+#ifdef NEW_LOGGING
+		LDAP_LOG ( OPERATION, DETAIL1, 
+			"bdb_add: no write access to entry\n", 0, 0, 0 );
+#else
+		Debug( LDAP_DEBUG_TRACE, "bdb_add: no write access to entry\n",
+			0, 0, 0 );
+#endif
+		rc = LDAP_INSUFFICIENT_ACCESS;
+		text = "no write access to entry";
+		goto return_results;;
+	}
+
 	/* dn2id index */
 	rc = bdb_dn2id_add( be, ltid, &pdn, e );
 	if ( rc != 0 ) {
+#ifdef NEW_LOGGING
+		LDAP_LOG ( OPERATION, ERR, 
+			"bdb_add: dn2id_add failed: %s (%d)\n", db_strerror(rc), rc, 0 );
+#else
 		Debug( LDAP_DEBUG_TRACE, "bdb_add: dn2id_add failed: %s (%d)\n",
 			db_strerror(rc), rc, 0 );
+#endif
 
 		switch( rc ) {
 		case DB_LOCK_DEADLOCK:
@@ -321,8 +427,12 @@ retry:	/* transaction retry */
 	/* id2entry index */
 	rc = bdb_id2entry_add( be, ltid, e );
 	if ( rc != 0 ) {
+#ifdef NEW_LOGGING
+		LDAP_LOG ( OPERATION, ERR, "bdb_add: id2entry_add failed\n", 0, 0, 0 );
+#else
 		Debug( LDAP_DEBUG_TRACE, "bdb_add: id2entry_add failed\n",
 			0, 0, 0 );
+#endif
 		switch( rc ) {
 		case DB_LOCK_DEADLOCK:
 		case DB_LOCK_NOTGRANTED:
@@ -337,8 +447,13 @@ retry:	/* transaction retry */
 	/* attribute indexes */
 	rc = bdb_index_entry_add( be, ltid, e, e->e_attrs );
 	if ( rc != LDAP_SUCCESS ) {
+#ifdef NEW_LOGGING
+		LDAP_LOG ( OPERATION, ERR, 
+			"bdb_add: index_entry_add failed\n", 0, 0, 0 );
+#else
 		Debug( LDAP_DEBUG_TRACE, "bdb_add: index_entry_add failed\n",
 			0, 0, 0 );
+#endif
 		switch( rc ) {
 		case DB_LOCK_DEADLOCK:
 		case DB_LOCK_NOTGRANTED:
@@ -350,10 +465,12 @@ retry:	/* transaction retry */
 		goto return_results;
 	}
 
+
 	if( op->o_noop ) {
 		if (( rc=TXN_ABORT( ltid )) != 0 ) {
 			text = "txn_abort (no-op) failed";
 		} else {
+			noop = 1;
 			rc = LDAP_SUCCESS;
 		}
 
@@ -367,9 +484,24 @@ retry:	/* transaction retry */
 			text = "txn_prepare failed";
 
 		} else {
+			int ret = bdb_cache_add_entry_rw(bdb->bi_dbenv,
+					&bdb->bi_cache, e, CACHE_WRITE_LOCK,
+					locker, &lock);
+#if 0
 			if ( bdb_cache_add_entry_rw(&bdb->bi_cache,
 				e, CACHE_WRITE_LOCK) != 0 )
-			{
+#endif
+			switch ( ret ) {
+			case 0:
+				break;
+			case DB_LOCK_DEADLOCK:
+			case DB_LOCK_NOTGRANTED:
+				goto retry;
+			default:
+				ret = LDAP_OTHER;
+			}
+
+			if ( ret ) {
 				if(( rc=TXN_ABORT( ltid )) != 0 ) {
 					text = "cache add & txn_abort failed";
 				} else {
@@ -390,20 +522,41 @@ retry:	/* transaction retry */
 	op->o_private = NULL;
 
 	if (rc == LDAP_SUCCESS) {
+#ifdef NEW_LOGGING
+		LDAP_LOG ( OPERATION, RESULTS, 
+			"bdb_add: added%s id=%08lx dn=\"%s\"\n", 
+			op->o_noop ? " (no-op)" : "", e->e_id, e->e_dn );
+#else
 		Debug(LDAP_DEBUG_TRACE, "bdb_add: added%s id=%08lx dn=\"%s\"\n",
 			op->o_noop ? " (no-op)" : "", e->e_id, e->e_dn );
+#endif
 		text = NULL;
-		bdb_cache_entry_commit( e );
+		if ( !noop ) {
+			bdb_cache_entry_commit( e );
+		}
 	}
 	else {
+#ifdef NEW_LOGGING
+		LDAP_LOG ( OPERATION, ERR, 
+			"bdb_add: %s : %s (%d)\n",  text, db_strerror(rc), rc );
+#else
 		Debug( LDAP_DEBUG_TRACE, "bdb_add: %s : %s (%d)\n",
 			text, db_strerror(rc), rc );
+#endif
 		rc = LDAP_OTHER;
 	}
 
 return_results:
 	send_ldap_result( conn, op, rc,
 		NULL, text, NULL, NULL );
+
+#if defined(LDAP_CLIENT_UPDATE) || defined(LDAP_SYNC)
+	if ( rc == LDAP_SUCCESS && !noop ) {
+		LDAP_LIST_FOREACH ( ps_list, &bdb->psearch_list, link ) {
+			bdb_psearch( be, conn, op, ps_list, e, LDAP_PSEARCH_BY_ADD );
+		}
+	}
+#endif /* LDAP_CLIENT_UPDATE */
 
 	if( rc == LDAP_SUCCESS && bdb->bi_txn_cp ) {
 		ldap_pvt_thread_yield();
@@ -418,5 +571,6 @@ done:
 		op->o_private = NULL;
 	}
 
-	return rc;
+	return ( ( rc == LDAP_SUCCESS ) ? noop : rc );
 }
+

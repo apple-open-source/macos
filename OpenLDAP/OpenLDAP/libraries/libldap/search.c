@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/search.c,v 1.51 2002/01/04 20:17:40 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/search.c,v 1.51.2.3 2003/02/09 17:02:18 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*  Portions
@@ -21,7 +21,7 @@
 #include <ac/time.h>
 
 #include "ldap-int.h"
-
+#include "ldap_log.h"
 
 /*
  * ldap_search_ext - initiate an ldap search operation.
@@ -61,7 +61,11 @@ ldap_search_ext(
 	BerElement	*ber;
 	int timelimit;
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_search_ext\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_search_ext\n", 0, 0, 0 );
+#endif
 
 	assert( ld != NULL );
 	assert( LDAP_VALID( ld ) );
@@ -94,17 +98,6 @@ ldap_search_ext(
 		return ld->ld_errno;
 	}
 
-#ifndef LDAP_NOCACHE
-	if ( ld->ld_cache != NULL ) {
-		if ( ldap_check_cache( ld, LDAP_REQ_SEARCH, ber ) == 0 ) {
-			ber_free( ber, 1 );
-			ld->ld_errno = LDAP_SUCCESS;
-			*msgidp = ld->ld_msgid;
-			return ld->ld_errno;
-		}
-		ldap_add_request_to_cache( ld, LDAP_REQ_SEARCH, ber );
-	}
-#endif /* LDAP_NOCACHE */
 
 	/* send the message */
 	*msgidp = ldap_send_initial_request( ld, LDAP_REQ_SEARCH, base, ber );
@@ -179,7 +172,11 @@ ldap_search(
 {
 	BerElement	*ber;
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_search\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_search\n", 0, 0, 0 );
+#endif
 
 	assert( ld != NULL );
 	assert( LDAP_VALID( ld ) );
@@ -191,16 +188,6 @@ ldap_search(
 		return( -1 );
 	}
 
-#ifndef LDAP_NOCACHE
-	if ( ld->ld_cache != NULL ) {
-		if ( ldap_check_cache( ld, LDAP_REQ_SEARCH, ber ) == 0 ) {
-			ber_free( ber, 1 );
-			ld->ld_errno = LDAP_SUCCESS;
-			return( ld->ld_msgid );
-		}
-		ldap_add_request_to_cache( ld, LDAP_REQ_SEARCH, ber );
-	}
-#endif /* LDAP_NOCACHE */
 
 	/* send the message */
 	return ( ldap_send_initial_request( ld, LDAP_REQ_SEARCH, base, ber ));
@@ -295,7 +282,7 @@ ldap_build_search_req(
 		filter = "(objectclass=*)";
 	}
 
-	err = ldap_int_put_filter( ber, filter );
+	err = ldap_pvt_put_filter( ber, filter );
 
 	if ( err  == -1 ) {
 		ld->ld_errno = LDAP_FILTER_ERROR;

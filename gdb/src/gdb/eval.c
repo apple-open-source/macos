@@ -1,7 +1,8 @@
 /* Evaluate expressions for GDB.
-   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
-   1996, 1997, 1998, 1999, 2000, 2001, 2002
-   Free Software Foundation, Inc.
+
+   Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994,
+   1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003 Free Software
+   Foundation, Inc.
 
    This file is part of GDB.
 
@@ -82,7 +83,7 @@ parse_and_eval_address (char *exp)
   struct expression *expr = parse_expression (exp);
   register CORE_ADDR addr;
   register struct cleanup *old_chain =
-  make_cleanup (free_current_contents, &expr);
+    make_cleanup (free_current_contents, &expr);
 
   addr = value_as_address (evaluate_expression (expr));
   do_cleanups (old_chain);
@@ -98,7 +99,7 @@ parse_and_eval_address_1 (char **expptr)
   struct expression *expr = parse_exp_1 (expptr, (struct block *) 0, 0);
   register CORE_ADDR addr;
   register struct cleanup *old_chain =
-  make_cleanup (free_current_contents, &expr);
+    make_cleanup (free_current_contents, &expr);
 
   addr = value_as_address (evaluate_expression (expr));
   do_cleanups (old_chain);
@@ -125,8 +126,8 @@ parse_and_eval (char *exp)
 {
   struct expression *expr = parse_expression (exp);
   struct value *val;
-  register struct cleanup *old_chain
-  = make_cleanup (free_current_contents, &expr);
+  register struct cleanup *old_chain =
+    make_cleanup (free_current_contents, &expr);
 
   val = evaluate_expression (expr);
   do_cleanups (old_chain);
@@ -142,8 +143,8 @@ parse_to_comma_and_eval (char **expp)
 {
   struct expression *expr = parse_exp_1 (expp, (struct block *) 0, 1);
   struct value *val;
-  register struct cleanup *old_chain
-  = make_cleanup (free_current_contents, &expr);
+  register struct cleanup *old_chain =
+    make_cleanup (free_current_contents, &expr);
 
   val = evaluate_expression (expr);
   do_cleanups (old_chain);
@@ -190,8 +191,8 @@ get_label (register struct expression *exp, int *pos)
     return NULL;
 }
 
-/* This function evaluates tuples (in Chill) or brace-initializers
-   (in C/C++) for structure types.  */
+/* This function evaluates tuples (in (the deleted) Chill) or
+   brace-initializers (in C/C++) for structure types.  */
 
 static struct value *
 evaluate_struct_tuple (struct value *struct_val,
@@ -329,13 +330,12 @@ evaluate_struct_tuple (struct value *struct_val,
   return struct_val;
 }
 
-/* Recursive helper function for setting elements of array tuples for Chill.
-   The target is ARRAY (which has bounds LOW_BOUND to HIGH_BOUND);
-   the element value is ELEMENT;
-   EXP, POS and NOSIDE are as usual.
-   Evaluates index expresions and sets the specified element(s) of
-   ARRAY to ELEMENT.
-   Returns last index value.  */
+/* Recursive helper function for setting elements of array tuples for
+   (the deleted) Chill.  The target is ARRAY (which has bounds
+   LOW_BOUND to HIGH_BOUND); the element value is ELEMENT; EXP, POS
+   and NOSIDE are as usual.  Evaluates index expresions and sets the
+   specified element(s) of ARRAY to ELEMENT.  Returns last index
+   value.  */
 
 static LONGEST
 init_array_element (struct value *array, struct value *element,
@@ -451,10 +451,11 @@ evaluate_subexp_standard (struct type *expect_type,
     case OP_REGISTER:
       {
 	int regno = longest_to_int (exp->elts[pc + 1].longconst);
-	struct value *val = value_of_register (regno, selected_frame);
+	struct value *val = value_of_register (regno, deprecated_selected_frame);
 	(*pos) += 2;
 	if (val == NULL)
-	  error ("Value of register %s not available.", REGISTER_NAME (regno));
+	  error ("Value of register %s not available.",
+		 frame_map_regnum_to_name (regno));
 	else
 	  return val;
       }
@@ -478,7 +479,7 @@ evaluate_subexp_standard (struct type *expect_type,
          value_string (..., tem + 1);  I can't easily test it, since 
          while Fortran and Chill still use OP_STRING, C and C++ do not. */
 
-    case OP_NSSTRING:		/* Objective C Foundation Class NSString constant */
+    case OP_OBJC_NSSTRING: /* Objective C Foundation Class NSString constant */
       tem = longest_to_int (exp->elts[pc + 1].longconst);
       (*pos) += 3 + BYTES_TO_EXP_ELEM (tem + 1);
       if (noside == EVAL_SKIP)
@@ -683,7 +684,7 @@ evaluate_subexp_standard (struct type *expect_type,
 	  return arg2;
 	}
 
-    case OP_SELECTOR:
+    case OP_OBJC_SELECTOR:
       {				/* Objective C @selector operator */
 	char *sel = &exp->elts[pc + 2].string;
 	int len = longest_to_int (exp->elts[pc + 1].longconst);
@@ -698,7 +699,7 @@ evaluate_subexp_standard (struct type *expect_type,
 				   lookup_child_selector (sel));
       }
 
-    case OP_MSGCALL:
+    case OP_OBJC_MSGCALL:
       {				/* Objective C message (method) call */
 
 	extern unsigned int symbol_generation;
@@ -869,15 +870,15 @@ evaluate_subexp_standard (struct type *expect_type,
 	    CORE_ADDR funaddr;
 	    struct type *value_type;
 
+	    funaddr = find_function_addr (method, &value_type);
 	    b = block_for_pc (funaddr);
 
 	    /* If compiled without -g, assume GCC 2.  */
 	    using_gcc = (b == NULL ? 2 : BLOCK_GCC_COMPILED (b));
 
-	    funaddr = find_function_addr (method, &value_type);
 	    CHECK_TYPEDEF (value_type);
 	  
-	    if ((value_type == NULL) || (value_type->code == TYPE_CODE_ERROR))
+	    if ((value_type == NULL) || (TYPE_CODE (value_type) == TYPE_CODE_ERROR))
 	      {
 		if (expect_type != NULL)
 		  value_type = expect_type;
@@ -2065,7 +2066,7 @@ evaluate_subexp_standard (struct type *expect_type,
       (*pos) += 1;
       return value_of_local ("this", 1);
 
-    case OP_SELF:
+    case OP_OBJC_SELF:
       (*pos) += 1;
       return value_of_local ("self", 1);
 

@@ -877,12 +877,12 @@ Concept Index
 
 * Menu:
 
-* .emacs file <1>:                       MH-E with any Emacsen.
-* .emacs file <2>:                       Getting Connected.
-* .emacs file <3>:                       Emacs 19 MUAs.
+* .emacs file <1>:                       Overloading for Non-conforming MUAs.
+* .emacs file <2>:                       VM with any Emacsen.
+* .emacs file <3>:                       MH-E with any Emacsen.
 * .emacs file <4>:                       Emacs 18 MUAs.
-* .emacs file <5>:                       Overloading for Non-conforming MUAs.
-* .emacs file:                           VM with any Emacsen.
+* .emacs file <5>:                       Emacs 19 MUAs.
+* .emacs file:                           Getting Connected.
 * add-hook substitute:                   Emacs 18 MUAs.
 * attribute, attributing:                Usage Overview.
 * attribution info field (sc-):          Information Keys and the Info Alist.
@@ -908,8 +908,8 @@ Concept Index
 * firstname info field (sc-):            Information Keys and the Info Alist.
 * frames (Regi):                         Configuring the Citation Engine.
 * from-address info field (sc-):         Information Keys and the Info Alist.
-* gin-mode <1>:                          What Supercite Does.
-* gin-mode:                              Filling Cited Text.
+* gin-mode <1>:                          Filling Cited Text.
+* gin-mode:                              What Supercite Does.
 * header rewrite functions:              Reference Headers.
 * header rewrite functions, built-in:    The Built-in Header Rewrite Functions.
 * Hyperbole:                             Overloading for Non-conforming MUAs.
@@ -924,8 +924,8 @@ Concept Index
 * mailing list address:                  The Supercite Mailing List.
 * mark:                                  Getting Connected.
 * middlename-1 info field (sc-):         Information Keys and the Info Alist.
-* modeline <1>:                          What Supercite Does.
-* modeline:                              Reply Buffer Initialization.
+* modeline <1>:                          Reply Buffer Initialization.
+* modeline:                              What Supercite Does.
 * MUA:                                   Introduction.
 * nested citations:                      Citations.
 * non-nested citations:                  Citations.
@@ -954,8 +954,8 @@ Concept Index
 * sc-oloads.el:                          Overloading for Non-conforming MUAs.
 * sc-reply-address info field:           Information Keys and the Info Alist.
 * sc-sender-address info field:          Information Keys and the Info Alist.
-* sc-unsupp.el file <1>:                 Emacs 18 MUAs.
-* sc-unsupp.el file:                     Version 3 Changes.
+* sc-unsupp.el file <1>:                 Version 3 Changes.
+* sc-unsupp.el file:                     Emacs 18 MUAs.
 * sc.el from version 2:                  Version 3 Changes.
 * sender-address info field (sc-):       Information Keys and the Info Alist.
 * sendmail.el:                           Hints to MUA Authors.
@@ -1016,8 +1016,8 @@ each appears under its `sc-'COMMAND name and its COMMAND name.
 * perform-overloads (sc-):               GNEWS with any Emacsen.
 * recite-region (sc-):                   Citing Commands.
 * regi-interpret:                        Using Regi.
-* sc-cite-original <1>:                  Getting Connected.
-* sc-cite-original <2>:                  Reply Buffer Initialization.
+* sc-cite-original <1>:                  Reply Buffer Initialization.
+* sc-cite-original <2>:                  Getting Connected.
 * sc-cite-original:                      What Supercite Does.
 * sc-cite-region:                        Citing Commands.
 * sc-describe:                           Miscellaneous Commands.
@@ -1043,20 +1043,20 @@ each appears under its `sc-'COMMAND name and its COMMAND name.
 * sc-no-blank-line-or-header:            The Built-in Header Rewrite Functions.
 * sc-no-header:                          The Built-in Header Rewrite Functions.
 * sc-open-line:                          Miscellaneous Commands.
-* sc-perform-overloads <1>:              GNEWS with any Emacsen.
-* sc-perform-overloads:                  Overloading for Non-conforming MUAs.
+* sc-perform-overloads <1>:              Overloading for Non-conforming MUAs.
+* sc-perform-overloads:                  GNEWS with any Emacsen.
 * sc-recite-region:                      Citing Commands.
 * sc-setup-filladapt:                    Filling Cited Text.
-* sc-submit-bug-report <1>:              Getting Connected.
-* sc-submit-bug-report:                  Miscellaneous Commands.
+* sc-submit-bug-report <1>:              Miscellaneous Commands.
+* sc-submit-bug-report:                  Getting Connected.
 * sc-uncite-region:                      Citing Commands.
 * sc-version:                            Miscellaneous Commands.
 * set-variable:                          Variable Toggling Shortcuts.
 * setq:                                  Emacs 18 MUAs.
 * setup-filladapt (sc-):                 Filling Cited Text.
 * string-match:                          Frames You Can Customize.
-* submit-bug-report (sc-) <1>:           Getting Connected.
-* submit-bug-report (sc-):               Miscellaneous Commands.
+* submit-bug-report (sc-) <1>:           Miscellaneous Commands.
+* submit-bug-report (sc-):               Getting Connected.
 * uncite-region (sc-):                   Citing Commands.
 * version (sc-):                         Miscellaneous Commands.
 

@@ -14,17 +14,17 @@ PROJECT_TYPE = Component
 
 HFILES = ifaddrs.h
 
-CFILES = aliasdb.c ether_addr.c fstab.c getaddrinfo.c getgrent.c\
-         getifaddrs.c getnameinfo.c getproto.c getprotoent.c\
+CFILES = aliasdb.c ether_addr.c fstab.c getgrent.c\
+         getifaddrs.c getproto.c getprotoent.c\
          getprotoname.c getpwent.c getservbyname.c getservbyport.c\
          getservent.c if_indextoname.c if_nameindex.c if_nametoindex.c\
          inet_ntop.c inet_pton.c initgroups.c printerdb.c\
          map_v4v6.c ip6opt.c rthdr.c vars.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble getaddrinfo.3\
-            getifaddrs.3 if_indextoname.3 inet6_rthdr_space.3\
-            gethostbyname.3 getnameinfo.3 inet6_option_space.3\
-            linkaddr.3 getprotoent.3 gethostbyname.3 getipnodebyname.3\
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble\
+            ether_addr.3 getifaddrs.3 if_indextoname.3 inet6_rthdr_space.3\
+            gethostbyname.3 inet6_option_space.3\
+            getprotoent.3 gethostbyname.3 getipnodebyname.3\
             getnetent.3 getservent.3 inet6_option_space.3
 
 

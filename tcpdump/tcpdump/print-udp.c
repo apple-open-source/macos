@@ -21,17 +21,14 @@
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-udp.c,v 1.1.1.2 2002/05/29 00:05:44 landonf Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-udp.c,v 1.1.1.3 2003/03/17 18:42:20 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <sys/param.h>
-#include <sys/time.h>
-
-#include <netinet/in.h>
+#include <tcpdump-stdinc.h>
 
 #ifdef SEGSIZE
 #undef SEGSIZE
@@ -45,6 +42,7 @@ static const char rcsid[] =
 
 #include "interface.h"
 #include "addrtoname.h"
+#include "extract.h"
 #include "appletalk.h"
 
 #include "udp.h"
@@ -108,21 +106,21 @@ struct rtcp_rr {
 #define RTCP_PT_APP	204
 
 static void
-vat_print(const void *hdr, u_int len, register const struct udphdr *up)
+vat_print(const void *hdr, register const struct udphdr *up)
 {
 	/* vat/vt audio */
 	u_int ts = *(u_int16_t *)hdr;
 	if ((ts & 0xf060) != 0) {
 		/* probably vt */
 		(void)printf("udp/vt %u %d / %d",
-			     (u_int32_t)(ntohs(up->uh_ulen) - sizeof(*up)),
+			     (u_int32_t)(EXTRACT_16BITS(&up->uh_ulen) - sizeof(*up)),
 			     ts & 0x3ff, ts >> 10);
 	} else {
 		/* probably vat */
-		u_int32_t i0 = (u_int32_t)ntohl(((u_int *)hdr)[0]);
-		u_int32_t i1 = (u_int32_t)ntohl(((u_int *)hdr)[1]);
+		u_int32_t i0 = EXTRACT_32BITS(&((u_int *)hdr)[0]);
+		u_int32_t i1 = EXTRACT_32BITS(&((u_int *)hdr)[1]);
 		printf("udp/vat %u c%d %u%s",
-			(u_int32_t)(ntohs(up->uh_ulen) - sizeof(*up) - 8),
+			(u_int32_t)(EXTRACT_16BITS(&up->uh_ulen) - sizeof(*up) - 8),
 			i0 & 0xffff,
 			i1, i0 & 0x800000? "*" : "");
 		/* audio format */
@@ -139,9 +137,9 @@ rtp_print(const void *hdr, u_int len, register const struct udphdr *up)
 	/* rtp v1 or v2 */
 	u_int *ip = (u_int *)hdr;
 	u_int hasopt, hasext, contype, hasmarker;
-	u_int32_t i0 = (u_int32_t)ntohl(((u_int *)hdr)[0]);
-	u_int32_t i1 = (u_int32_t)ntohl(((u_int *)hdr)[1]);
-	u_int dlen = ntohs(up->uh_ulen) - sizeof(*up) - 8;
+	u_int32_t i0 = EXTRACT_32BITS(&((u_int *)hdr)[0]);
+	u_int32_t i1 = EXTRACT_32BITS(&((u_int *)hdr)[1]);
+	u_int dlen = EXTRACT_16BITS(&up->uh_ulen) - sizeof(*up) - 8;
 	const char * ptype;
 
 	ip += 2;
@@ -174,7 +172,7 @@ rtp_print(const void *hdr, u_int len, register const struct udphdr *up)
 		i0 & 0xffff,
 		i1);
 	if (vflag) {
-		printf(" %u", (u_int32_t)ntohl(((u_int *)hdr)[2]));
+		printf(" %u", EXTRACT_32BITS(&((u_int *)hdr)[2]));
 		if (hasopt) {
 			u_int i2, optlen;
 			do {
@@ -218,8 +216,8 @@ rtcp_print(const u_char *hdr, const u_char *ep)
 		printf(" [|rtcp]");
 		return (ep);
 	}
-	len = (ntohs(rh->rh_len) + 1) * 4;
-	flags = ntohs(rh->rh_flags);
+	len = (EXTRACT_16BITS(&rh->rh_len) + 1) * 4;
+	flags = EXTRACT_16BITS(&rh->rh_flags);
 	cnt = (flags >> 8) & 0x1f;
 	switch (flags & 0xff) {
 	case RTCP_PT_SR:
@@ -228,16 +226,16 @@ rtcp_print(const u_char *hdr, const u_char *ep)
 		if (len != cnt * sizeof(*rr) + sizeof(*sr) + sizeof(*rh))
 			printf(" [%d]", len);
 		if (vflag)
-			printf(" %u", (u_int32_t)ntohl(rh->rh_ssrc));
+			printf(" %u", EXTRACT_32BITS(&rh->rh_ssrc));
 		if ((u_char *)(sr + 1) > ep) {
 			printf(" [|rtcp]");
 			return (ep);
 		}
-		ts = (double)((u_int32_t)ntohl(sr->sr_ntp.upper)) +
-		    ((double)((u_int32_t)ntohl(sr->sr_ntp.lower)) /
+		ts = (double)(EXTRACT_32BITS(&sr->sr_ntp.upper)) +
+		    ((double)(EXTRACT_32BITS(&sr->sr_ntp.lower)) /
 		    4294967296.0);
-		printf(" @%.2f %u %up %ub", ts, (u_int32_t)ntohl(sr->sr_ts),
-		    (u_int32_t)ntohl(sr->sr_np), (u_int32_t)ntohl(sr->sr_nb));
+		printf(" @%.2f %u %up %ub", ts, EXTRACT_32BITS(&sr->sr_ts),
+		    EXTRACT_32BITS(&sr->sr_np), EXTRACT_32BITS(&sr->sr_nb));
 		rr = (struct rtcp_rr *)(sr + 1);
 		break;
 	case RTCP_PT_RR:
@@ -246,18 +244,18 @@ rtcp_print(const u_char *hdr, const u_char *ep)
 			printf(" [%d]", len);
 		rr = (struct rtcp_rr *)(rh + 1);
 		if (vflag)
-			printf(" %u", (u_int32_t)ntohl(rh->rh_ssrc));
+			printf(" %u", EXTRACT_32BITS(&rh->rh_ssrc));
 		break;
 	case RTCP_PT_SDES:
 		printf(" sdes %d", len);
 		if (vflag)
-			printf(" %u", (u_int32_t)ntohl(rh->rh_ssrc));
+			printf(" %u", EXTRACT_32BITS(&rh->rh_ssrc));
 		cnt = 0;
 		break;
 	case RTCP_PT_BYE:
 		printf(" bye %d", len);
 		if (vflag)
-			printf(" %u", (u_int32_t)ntohl(rh->rh_ssrc));
+			printf(" %u", EXTRACT_32BITS(&rh->rh_ssrc));
 		cnt = 0;
 		break;
 	default:
@@ -273,13 +271,13 @@ rtcp_print(const u_char *hdr, const u_char *ep)
 			return (ep);
 		}
 		if (vflag)
-			printf(" %u", (u_int32_t)ntohl(rr->rr_srcid));
-		ts = (double)((u_int32_t)ntohl(rr->rr_lsr)) / 65536.;
-		dts = (double)((u_int32_t)ntohl(rr->rr_dlsr)) / 65536.;
+			printf(" %u", EXTRACT_32BITS(&rr->rr_srcid));
+		ts = (double)(EXTRACT_32BITS(&rr->rr_lsr)) / 65536.;
+		dts = (double)(EXTRACT_32BITS(&rr->rr_dlsr)) / 65536.;
 		printf(" %ul %us %uj @%.2f+%.2f",
-		    (u_int32_t)ntohl(rr->rr_nl) & 0x00ffffff,
-		    (u_int32_t)ntohl(rr->rr_ls),
-		    (u_int32_t)ntohl(rr->rr_dv), ts, dts);
+		    EXTRACT_32BITS(&rr->rr_nl) & 0x00ffffff,
+		    EXTRACT_32BITS(&rr->rr_ls),
+		    EXTRACT_32BITS(&rr->rr_dv), ts, dts);
 	}
 	return (hdr + len);
 }
@@ -305,7 +303,10 @@ static int udp_cksum(register const struct ip *ip,
 	phu.ph.mbz = 0;
 	phu.ph.proto = IPPROTO_UDP;
 	memcpy(&phu.ph.src, &ip->ip_src.s_addr, sizeof(u_int32_t));
-	memcpy(&phu.ph.dst, &ip->ip_dst.s_addr, sizeof(u_int32_t));
+	if (IP_HL(ip) == 5)
+		memcpy(&phu.ph.dst, &ip->ip_dst.s_addr, sizeof(u_int32_t));
+	else
+		phu.ph.dst = ip_finddst(ip);
 
 	sp = &phu.pa[0];
 	return in_cksum((u_short *)up, len,
@@ -330,7 +331,7 @@ static int udp6_cksum(const struct ip6_hdr *ip6, const struct udphdr *up,
 		u_int16_t pa[20];
 	} phu;
 
-	tlen = ntohs(ip6->ip6_plen) + sizeof(struct ip6_hdr) -
+	tlen = EXTRACT_16BITS(&ip6->ip6_plen) + sizeof(struct ip6_hdr) -
 	    ((const char *)up - (const char*)ip6);
 
 	/* pseudo-header */
@@ -371,6 +372,7 @@ static int udp6_cksum(const struct ip6_hdr *ip6, const struct udphdr *up,
 #define ISAKMP_PORT 500		/*XXX*/
 #define TIMED_PORT 525		/*XXX*/
 #define RIP_PORT 520		/*XXX*/
+#define LDP_PORT 646
 #define KERBEROS_SEC_PORT 750	/*XXX*/
 #define L2TP_PORT 1701		/*XXX*/
 #define ISAKMP_PORT_USER1 7500	/*XXX - nonstandard*/
@@ -394,6 +396,44 @@ static int udp6_cksum(const struct ip6_hdr *ip6, const struct udphdr *up,
 #define DHCP6_SERV_PORT 546	/*XXX*/
 #define DHCP6_CLI_PORT 547	/*XXX*/
 #endif
+
+static void
+udpipaddr_print(const struct ip *ip, u_int16_t sport, u_int16_t dport)
+{
+#ifdef INET6
+	const struct ip6_hdr *ip6;
+
+	if (IP_V(ip) == 6)
+		ip6 = (const struct ip6_hdr *)ip;
+	else
+		ip6 = NULL;
+
+	if (ip6) {
+		if (ip6->ip6_nxt == IPPROTO_UDP) {
+			(void)printf("%s.%s > %s.%s: ",
+				ip6addr_string(&ip6->ip6_src),
+				udpport_string(sport),
+				ip6addr_string(&ip6->ip6_dst),
+				udpport_string(dport));
+		} else {
+			(void)printf("%s > %s: ",
+				udpport_string(sport), udpport_string(dport));
+		}
+	} else
+#endif /*INET6*/
+	{
+		if (ip->ip_p == IPPROTO_UDP) {
+			(void)printf("%s.%s > %s.%s: ",
+				ipaddr_string(&ip->ip_src),
+				udpport_string(sport),
+				ipaddr_string(&ip->ip_dst),
+				udpport_string(dport));
+		} else {
+			(void)printf("%s > %s: ",
+				udpport_string(sport), udpport_string(dport));
+		}
+	}
+}
 
 void
 udp_print(register const u_char *bp, u_int length,
@@ -432,9 +472,9 @@ udp_print(register const u_char *bp, u_int length,
 	}
 	length -= sizeof(struct udphdr);
 
-	sport = ntohs(up->uh_sport);
-	dport = ntohs(up->uh_dport);
-	ulen = ntohs(up->uh_ulen);
+	sport = EXTRACT_16BITS(&up->uh_sport);
+	dport = EXTRACT_16BITS(&up->uh_dport);
+	ulen = EXTRACT_16BITS(&up->uh_ulen);
 	if (ulen < 8) {
 		(void)printf("%s > %s: truncated-udplength %d",
 			     ipaddr_string(&ip->ip_src),
@@ -449,26 +489,18 @@ udp_print(register const u_char *bp, u_int length,
 		switch (packettype) {
 
 		case PT_VAT:
-			(void)printf("%s.%s > %s.%s: ",
-				ipaddr_string(&ip->ip_src),
-				udpport_string(sport),
-				ipaddr_string(&ip->ip_dst),
-				udpport_string(dport));
-			vat_print((void *)(up + 1), length, up);
+			udpipaddr_print(ip, sport, dport);
+			vat_print((void *)(up + 1), up);
 			break;
 
 		case PT_WB:
-			(void)printf("%s.%s > %s.%s: ",
-				ipaddr_string(&ip->ip_src),
-				udpport_string(sport),
-				ipaddr_string(&ip->ip_dst),
-				udpport_string(dport));
+			udpipaddr_print(ip, sport, dport);
 			wb_print((void *)(up + 1), length);
 			break;
 
 		case PT_RPC:
 			rp = (struct rpc_msg *)(up + 1);
-			direction = (enum msg_type)ntohl(rp->rm_direction);
+			direction = (enum msg_type)EXTRACT_32BITS(&rp->rm_direction);
 			if (direction == CALL)
 				sunrpcrequest_print((u_char *)rp, length,
 				    (u_char *)ip);
@@ -478,40 +510,24 @@ udp_print(register const u_char *bp, u_int length,
 			break;
 
 		case PT_RTP:
-			(void)printf("%s.%s > %s.%s: ",
-				ipaddr_string(&ip->ip_src),
-				udpport_string(sport),
-				ipaddr_string(&ip->ip_dst),
-				udpport_string(dport));
+			udpipaddr_print(ip, sport, dport);
 			rtp_print((void *)(up + 1), length, up);
 			break;
 
 		case PT_RTCP:
-			(void)printf("%s.%s > %s.%s:",
-				ipaddr_string(&ip->ip_src),
-				udpport_string(sport),
-				ipaddr_string(&ip->ip_dst),
-				udpport_string(dport));
+			udpipaddr_print(ip, sport, dport);
 			while (cp < ep)
 				cp = rtcp_print(cp, ep);
 			break;
 
 		case PT_SNMP:
-			(void)printf("%s.%s > %s.%s:",
-				ipaddr_string(&ip->ip_src),
-				udpport_string(sport),
-				ipaddr_string(&ip->ip_dst),
-				udpport_string(dport));
+			udpipaddr_print(ip, sport, dport);
 			snmp_print((const u_char *)(up + 1), length);
 			break;
 
 		case PT_CNFP:
-			(void)printf("%s.%s > %s.%s:",
-				ipaddr_string(&ip->ip_src),
-				udpport_string(sport),
-				ipaddr_string(&ip->ip_dst),
-				udpport_string(dport));
-			cnfp_print(cp, length, (const u_char *)ip);
+			udpipaddr_print(ip, sport, dport);
+			cnfp_print(cp, (const u_char *)ip);
 			break;
 		}
 		return;
@@ -523,7 +539,7 @@ udp_print(register const u_char *bp, u_int length,
 
 		rp = (struct rpc_msg *)(up + 1);
 		if (TTEST(rp->rm_direction)) {
-			direction = (enum msg_type)ntohl(rp->rm_direction);
+			direction = (enum msg_type)EXTRACT_32BITS(&rp->rm_direction);
 			if (dport == NFS_PORT && direction == CALL) {
 				nfsreq_print((u_char *)rp, length,
 				    (u_char *)ip);
@@ -550,32 +566,7 @@ udp_print(register const u_char *bp, u_int length,
 			return;
 		}
 	}
-#ifdef INET6
-	if (ip6) {
-		if (ip6->ip6_nxt == IPPROTO_UDP) {
-			(void)printf("%s.%s > %s.%s: ",
-				ip6addr_string(&ip6->ip6_src),
-				udpport_string(sport),
-				ip6addr_string(&ip6->ip6_dst),
-				udpport_string(dport));
-		} else {
-			(void)printf("%s > %s: ",
-				udpport_string(sport), udpport_string(dport));
-		}
-	} else
-#endif /*INET6*/
-	{
-		if (ip->ip_p == IPPROTO_UDP) {
-			(void)printf("%s.%s > %s.%s: ",
-				ipaddr_string(&ip->ip_src),
-				udpport_string(sport),
-				ipaddr_string(&ip->ip_dst),
-				udpport_string(dport));
-		} else {
-			(void)printf("%s > %s: ",
-				udpport_string(sport), udpport_string(dport));
-		}
-	}
+	udpipaddr_print(ip, sport, dport);
 
 	if (IP_V(ip) == 4 && vflag && !fragmented) {
 		int sum = up->uh_sum;
@@ -605,15 +596,14 @@ udp_print(register const u_char *bp, u_int length,
 
 	if (!qflag) {
 #define ISPORT(p) (dport == (p) || sport == (p))
-		if (ISPORT(NAMESERVER_PORT))
+		if (ISPORT(NAMESERVER_PORT) || ISPORT(MULTICASTDNS_PORT))
 			ns_print((const u_char *)(up + 1), length);
 		else if (ISPORT(TIMED_PORT))
-			timed_print((const u_char *)(up + 1), length);
+			timed_print((const u_char *)(up + 1));
 		else if (ISPORT(TFTP_PORT))
 			tftp_print((const u_char *)(up + 1), length);
 		else if (ISPORT(IPPORT_BOOTPC) || ISPORT(IPPORT_BOOTPS))
-			bootp_print((const u_char *)(up + 1), length,
-			    sport, dport);
+			bootp_print((const u_char *)(up + 1), sport, dport, length);
 		else if (ISPORT(RIP_PORT))
 			rip_print((const u_char *)(up + 1), length);
 		else if (ISPORT(ISAKMP_PORT))
@@ -627,27 +617,27 @@ udp_print(register const u_char *bp, u_int length,
 		else if (ISPORT(NTP_PORT))
 			ntp_print((const u_char *)(up + 1), length);
 		else if (ISPORT(KERBEROS_PORT) || ISPORT(KERBEROS_SEC_PORT))
-			krb_print((const void *)(up + 1), length);
+			krb_print((const void *)(up + 1));
 		else if (ISPORT(L2TP_PORT))
 			l2tp_print((const u_char *)(up + 1), length);
 #ifdef TCPDUMP_DO_SMB
- 		else if (ISPORT(NETBIOS_NS_PORT))
+		else if (ISPORT(NETBIOS_NS_PORT))
 			nbt_udp137_print((const u_char *)(up + 1), length);
- 		else if (ISPORT(NETBIOS_DGRAM_PORT))
- 			nbt_udp138_print((const u_char *)(up + 1), length);
+		else if (ISPORT(NETBIOS_DGRAM_PORT))
+			nbt_udp138_print((const u_char *)(up + 1), length);
 #endif
 		else if (dport == 3456)
-			vat_print((const void *)(up + 1), length, up);
+			vat_print((const void *)(up + 1), up);
 		else if (ISPORT(ZEPHYR_SRV_PORT) || ISPORT(ZEPHYR_CLT_PORT))
 			zephyr_print((const void *)(up + 1), length);
- 		/*
- 		 * Since there are 10 possible ports to check, I think
- 		 * a <> test would be more efficient
- 		 */
- 		else if ((sport >= RX_PORT_LOW && sport <= RX_PORT_HIGH) ||
- 			 (dport >= RX_PORT_LOW && dport <= RX_PORT_HIGH))
- 			rx_print((const void *)(up + 1), length, sport, dport,
- 				 (u_char *) ip);
+		/*
+		 * Since there are 10 possible ports to check, I think
+		 * a <> test would be more efficient
+		 */
+		else if ((sport >= RX_PORT_LOW && sport <= RX_PORT_HIGH) ||
+			 (dport >= RX_PORT_LOW && dport <= RX_PORT_HIGH))
+			rx_print((const void *)(up + 1), length, sport, dport,
+				 (u_char *) ip);
 #ifdef INET6
 		else if (ISPORT(RIPNG_PORT))
 			ripng_print((const u_char *)(up + 1), length);
@@ -665,13 +655,15 @@ udp_print(register const u_char *bp, u_int length,
 			cisco_autorp_print((const void *)(up + 1), length);
 		else if (ISPORT(RADIUS_PORT) ||
 			 ISPORT(RADIUS_NEW_PORT) ||
-			 ISPORT(RADIUS_ACCOUNTING_PORT) || 
+			 ISPORT(RADIUS_ACCOUNTING_PORT) ||
 			 ISPORT(RADIUS_NEW_ACCOUNTING_PORT) )
 			radius_print((const u_char *)(up+1), length);
 		else if (dport == HSRP_PORT)
- 			hsrp_print((const u_char *)(up + 1), length);
+			hsrp_print((const u_char *)(up + 1), length);
 		else if (ISPORT(LWRES_PORT))
 			lwres_print((const u_char *)(up + 1), length);
+                else if (ISPORT(LDP_PORT))
+			ldp_print((const u_char *)(up + 1), length);
 		else
 			(void)printf("udp %u",
 			    (u_int32_t)(ulen - sizeof(*up)));

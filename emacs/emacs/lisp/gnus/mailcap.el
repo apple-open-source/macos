@@ -1,5 +1,5 @@
 ;;; mailcap.el --- MIME media types configuration
-;; Copyright (C) 1998, 1999, 2000 Free Software Foundation, Inc.
+;; Copyright (C) 1998, 1999, 2000, 2002 Free Software Foundation, Inc.
 
 ;; Author: William M. Perry <wmperry@aventail.com>
 ;;	Lars Magne Ingebrigtsen <larsi@gnus.org>
@@ -274,7 +274,7 @@ to return a true or false shell value for the validity.")
 
 (defcustom mailcap-download-directory nil
   "*Directory to which `mailcap-save-binary-file' downloads files by default.
-Nil means your home directory."
+nil means your home directory."
   :type '(choice (const :tag "Home directory" nil)
 		 directory)
   :group 'mailcap)

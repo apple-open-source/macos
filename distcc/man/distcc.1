@@ -1,0 +1,55 @@
+.TH distcc 1 "2 July 2002"
+.SH NAME
+distcc \- distributed C/C++ compiler
+.SH SYNOPSIS
+.B distcc gcc 
+.I [OPTIONS] 
+.RI -o\  OBJECT\  -c\  SOURCE
+.SH DESCRIPTION
+.I distcc
+allows compilation of C code to be distributed across several machines
+on a network.  distcc should always generate the same results as a
+local compile, is simple to install and use, and is often
+significantly faster than a local compile.
+.PP
+Unlike other distributed build systems, 
+.I distcc 
+distcc does not require all machines to share a filesystem, or to have
+the same libraries or header files installed.  
+.I distcc
+sends the complete preprocessed source code across the network for
+each job.
+.PP
+Compilation is centrally controlled by a 
+.I client
+machine, which is
+typically the developer's workstation or laptop.  The 
+.I distcc
+client runs on this machine, as does \fImake\fP, the preprocessor, the
+linker, and other stages of the build process.  Any number of
+.I "volunteer" 
+machines help the client to build the program, by running
+the C compiler and assembler as required.  The volunteer machines run
+the 
+.I distccd
+daemon which listens on a network socket for connections.
+.PP
+For a brief summary of usage, type 
+.PP
+.I distcc --help
+.PP
+See the User Manual (available as HTML, Info, PS and PDF) for much
+more information.  The manual and other documentation is available
+from
+.I http://distcc.samba.org/
+.SH CREDITS
+distcc was inspired by Andrew Tridgell's ccache program.
+.SH AUTHOR
+distcc was written by Martin Pool <http://sourcefrog.net/mbp/>
+.SH LICENCE
+You are free to use distcc.  It may be copied, modified or distributed
+only under the terms of the GNU General Public Licence version 2 or
+later.  A copy of the GPL is included in the file COPYING.
+.SH SEE ALSO
+distccd(1), ccache(1), gcc(1), make(1)
+.I http://distcc.samba.org/

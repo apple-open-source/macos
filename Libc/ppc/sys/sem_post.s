@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(sem_post, 1)
-	blr
 

@@ -1,0 +1,37 @@
+--- euc.c.orig	Tue May 20 15:21:44 2003
++++ euc.c	Wed Jun 18 12:01:30 2003
+@@ -48,6 +48,7 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
++#include <ctype.h>
+ 
+ rune_t	_EUC_sgetrune(const char *, size_t, char const **);
+ int	_EUC_sputrune(rune_t, char *, size_t, char **);
+@@ -135,11 +136,10 @@
+ 	rune_t rune = 0;
+ 	int len, set;
+ 
+-	if (n < 1 || (len = CEI->count[set = _euc_set(*string)]) > n) {
+-		if (result)
+-			*result = string;
++	if (result)
++		*result = string;
++	if (n < 1 || (len = CEI->count[set = _euc_set(*string)]) > n)
+ 		return (_INVALID_RUNE);
+-	}
+ 	switch (set) {
+ 	case 3:
+ 	case 2:
+@@ -151,6 +151,11 @@
+ 		while (len-- > 0)
+ 			rune = (rune << 8) | ((u_int)(*string++) & 0xff);
+ 		break;
++	}
++	if (!isrune(rune)) {
++		if (result)
++			(*result)++;
++		return (_INVALID_RUNE);
+ 	}
+ 	if (result)
+ 		*result = string;

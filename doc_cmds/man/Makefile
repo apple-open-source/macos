@@ -16,10 +16,11 @@ HFILES = ndir.h version.h
 
 CFILES = glob.c man.c
 
-OTHERSRCS = Makefile Makefile.preamble Makefile.postamble man.1
+OTHERSRCS = Makefile Makefile.preamble Makefile.postamble man.1 intro.1
 
 NEXTSTEP_PB_CFLAGS += -I../lib -DMACHINE=\"powerpc\" -DSTDC_HEADERS -DPOSIX
 NEXTSTEP_PB_CFLAGS += -DHAS_TROFF -DHAVE_LIBZ=1 -I$(SRCROOT)/lib 
+NEXTSTEP_PB_CFLAGS += -DDO_COMPRESS -DCATMODE=0644
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

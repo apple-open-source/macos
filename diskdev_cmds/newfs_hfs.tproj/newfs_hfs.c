@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,19 +22,14 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * Copyright (c) 1998 Apple Computer, Inc. All Rights Reserved
- *
- *		MODIFICATION HISTORY (most recent first):
- *
- *	   20-Jul-1998	Don Brady		New today.
- */
 
 
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <grp.h>
 #include <paths.h>
+#include <pwd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -58,10 +53,17 @@
 #include <varargs.h>
 #endif
 
+#define	NOVAL       (-1)
+#define UMASK       (0755)
+#define	ACCESSMASK  (0777)
+
 #define ROUNDUP(x,y) (((x)+(y)-1)/(y)*(y))
 
 static void getnodeopts __P((char* optlist));
 static void getclumpopts __P((char* optlist));
+static gid_t a_gid __P((char *));
+static uid_t a_uid __P((char *));
+static mode_t a_mask __P((char *));
 static int hfs_newfs __P((char *device, int forceHFS, int isRaw));
 static void validate_hfsplus_block_size __P((UInt64 sectorCount, UInt32 sectorSize));
 static void hfsplus_params __P((UInt64 sectorCount, UInt32 sectorSize, hfsparams_t *defaults));
@@ -73,7 +75,7 @@ static void usage __P((void));
 
 
 char	*progname;
-char	gVolumeName[kHFSPlusMaxFileNameChars] = {kDefaultVolumeNameStr};
+char	gVolumeName[kHFSPlusMaxFileNameChars + 1] = {kDefaultVolumeNameStr};
 char	rawdevice[MAXPATHLEN];
 char	blkdevice[MAXPATHLEN];
 UInt32	gBlockSize = 0;
@@ -84,11 +86,16 @@ time_t  createtime;
 int	gNoCreate = FALSE;
 int	gWrapper = FALSE;
 int	gUserCatNodeSize = FALSE;
+int	gCaseSensitive = FALSE;
 
 #define JOURNAL_DEFAULT_SIZE (8*1024*1024)
 int     gJournaled = FALSE;
 char    *gJournalDevice = NULL;
 int     gJournalSize = JOURNAL_DEFAULT_SIZE;
+
+uid_t	gUserID = (uid_t)NOVAL;
+gid_t	gGroupID = (gid_t)NOVAL;
+mode_t	gModeMask = (mode_t)NOVAL;
 
 UInt32	catnodesiz = 8192;
 UInt32	extnodesiz = 4096;
@@ -100,7 +107,6 @@ UInt32	atrclumpblks = 0;
 UInt32	bmclumpblks = 0;
 UInt32	rsrclumpblks = 0;
 UInt32	datclumpblks = 0;
-UInt32	freewrapperblks = 0;  /* minimum free blocks to leave in wrapper */
 UInt32	hfsgrowblks = 0;      /* maximum growable size of wrapper */
 
 
@@ -145,8 +151,12 @@ main(argc, argv)
 
 	forceHFS = FALSE;
 
-	while ((ch = getopt(argc, argv, "J:hNwb:c:i:n:v:")) != EOF)
+	while ((ch = getopt(argc, argv, "G:J:M:NU:hswb:c:i:n:v:")) != EOF)
 		switch (ch) {
+		case 'G':
+			gGroupID = a_gid(optarg);
+			break;
+
 		case 'J':
 			gJournaled = TRUE;
 			if (isdigit(optarg[0])) {
@@ -164,6 +174,14 @@ main(argc, argv)
 			
 		case 'N':
 			gNoCreate = TRUE;
+			break;
+
+		case 'M':
+			gModeMask = a_mask(optarg);
+			break;
+
+		case 'U':
+			gUserID = a_uid(optarg);
 			break;
 
 		case 'b':
@@ -193,9 +211,18 @@ main(argc, argv)
 			getnodeopts(optarg);
 			break;
 
+		case 's':
+			gCaseSensitive = TRUE;
+			break;
+
 		case 'v':
-			if (strlen(optarg) > 0)
-				strcpy(gVolumeName, optarg);
+			n = strlen(optarg);
+			if (n > (int)(sizeof(gVolumeName) - 1))
+				fatal("\"%s\" is too long (%d byte maximum)",
+				      optarg, sizeof(gVolumeName) - 1);
+			if (n == 0)
+				fatal("name required with -v option");
+			strcpy(gVolumeName, optarg);
 			break;
 
 		case 'w':
@@ -226,12 +253,16 @@ main(argc, argv)
 		fprintf(stderr, "-h -J: incompatible options specified\n");
 		usage();
 	}
+	if (gCaseSensitive && (forceHFS || gWrapper)) {
+		fprintf(stderr, "-s: incompatible options specified\n");
+		usage();
+	}
 	if (gWrapper && forceHFS) {
 		fprintf(stderr, "-h -w: incompatible options specified\n");
 		usage();
 	}
-	if (!gWrapper && (freewrapperblks || hfsgrowblks)) {
-		fprintf(stderr, "f and g clump options require -w option\n");
+	if (!gWrapper && hfsgrowblks) {
+		fprintf(stderr, "g clump option requires -w option\n");
 		exit(1);
 	}
 
@@ -334,9 +365,6 @@ static void getclumpopts(char* optlist)
 		case 'e':
 			extclumpblks = clpblocks;
 			break;
-		case 'f':  /* free blocks to leave in wrapper */
-			freewrapperblks = clpblocks;
-			break;
 		case 'g':  /* maximum growable size of hfs wrapper */
 			hfsgrowblks = clpblocks;
 			break;
@@ -350,6 +378,60 @@ static void getclumpopts(char* optlist)
 	}
 }
 
+gid_t
+static a_gid(char *s)
+{
+	struct group *gr;
+	char *gname;
+	gid_t gid = 0;
+
+	if ((gr = getgrnam(s)) != NULL)
+		gid = gr->gr_gid;
+	else {
+		for (gname = s; *s && isdigit(*s); ++s);
+		if (!*s)
+			gid = atoi(gname);
+		else
+			errx(1, "unknown group id: %s", gname);
+	}
+	return (gid);
+}
+
+static uid_t
+a_uid(char *s)
+{
+	struct passwd *pw;
+	char *uname;
+	uid_t uid = 0;
+
+	if ((pw = getpwnam(s)) != NULL)
+		uid = pw->pw_uid;
+	else {
+		for (uname = s; *s && isdigit(*s); ++s);
+		if (!*s)
+			uid = atoi(uname);
+		else
+			errx(1, "unknown user id: %s", uname);
+	}
+	return (uid);
+}
+
+static mode_t
+a_mask(char *s)
+{
+	int done, rv;
+	char *ep;
+
+	done = 0;
+	rv = -1;
+	if (*s >= '0' && *s <= '7') {
+		done = 1;
+		rv = strtol(s, &ep, 8);
+	}
+	if (!done || rv < 0 || *ep)
+		errx(1, "invalid access mask: %s", s);
+	return (rv);
+}
 
 
 /*
@@ -414,8 +496,8 @@ hfs_newfs(char *device, int forceHFS, int isRaw)
 	if (ioctl(fso, DKIOCGETMAXBLOCKCOUNTWRITE, &maxSectorsPerIO) < 0)
 		dip.sectorsPerIO = (128 * 1024) / dip.sectorSize;  /* use 128K as default */
 	else
-		dip.sectorsPerIO = maxSectorsPerIO;
-	/*
+		dip.sectorsPerIO = MIN(maxSectorsPerIO, (1024 * 1024) / dip.sectorSize);
+        /*
          * The make_hfs code currentlydoes 512 byte sized I/O.
          * If the sector size is bigger than 512, start over
          * using the block device (to get de-blocking).
@@ -475,8 +557,8 @@ hfs_newfs(char *device, int forceHFS, int isRaw)
 	/* Make an HFS Plus disk */
 	if (gWrapper || !forceHFS) {
 		
-		if ((dip.totalSectors/2048) < MINHFSPLUSSIZEMB)
-			fatal("%s: partition is too small (minimum is %d MB)", device, MINHFSPLUSSIZEMB);
+		if ((dip.totalSectors * dip.sectorSize ) < kMinHFSPlusVolumeSize)
+			fatal("%s: partition is too small (minimum is %d KB)", device, kMinHFSPlusVolumeSize/1024);
 
 		/*
 		 * Above 512GB, enforce partition size to be a multiple of 4K.
@@ -492,15 +574,21 @@ hfs_newfs(char *device, int forceHFS, int isRaw)
 		if (gNoCreate == 0) {
 			retval = make_hfsplus(&dip, &defaults);
 			if (retval == 0) {
-				printf("Initialized %s as a %ld %s HFS Plus volume",
-					device, (dip.totalSectors > 0x2000000) ?
-					(long)((dip.totalSectors + (1024*1024))/(2048*1024)) :
-					(long)((dip.totalSectors + 1024)/2048),
-					(dip.totalSectors > 0x2000000) ? "GB" : "MB");
-				if (gJournaled)
-					printf(" with a %dk journal\n", (int)defaults.journalSize/1024);
+				printf("Initialized %s as a ", device);
+				if (dip.totalSectors > 0x2000000)
+					printf("%ld GB",
+						(long)((dip.totalSectors + (1024*1024))/(2048*1024)));
+				else if (dip.totalSectors > 2048)
+					printf("%ld MB",
+						(long)((dip.totalSectors + 1024)/2048));
 				else
-					printf("\n");
+					printf("%ld KB",
+						(long)((dip.totalSectors + 1)/2));
+				if (gJournaled)
+					printf(" HFS Plus volume with a %dk journal\n",
+						(int)defaults.journalSize/1024);
+				else
+					printf(" HFS Plus volume\n");
 			}
 		}
 	}
@@ -522,8 +610,8 @@ static void hfsplus_params (UInt64 sectorCount, UInt32 sectorSize, hfsparams_t *
 	UInt32	minClumpSize;
 	UInt32	clumpSize;
 	UInt32	oddBitmapBytes;
-
-	defaults->signature = kHFSPlusSigWord;
+	UInt32  jscale;
+	
 	defaults->flags = 0;
 	defaults->blockSize = gBlockSize;
 	defaults->nextFreeFileID = gNextCNID;
@@ -531,9 +619,42 @@ static void hfsplus_params (UInt64 sectorCount, UInt32 sectorSize, hfsparams_t *
 	defaults->hfsAlignment = 0;
 	defaults->journaledHFS = gJournaled;
 	defaults->journalDevice = gJournalDevice;
-	defaults->journalSize = gJournalSize;
+
+	/*
+	 * If any of the owner, group or mask are set then
+	 * make sure they're all valid and pass them down.
+	 */
+	if (gUserID != (uid_t)NOVAL  ||
+	    gGroupID != (gid_t)NOVAL ||
+	    gModeMask != (mode_t)NOVAL) {
+		defaults->owner = (gUserID == (uid_t)NOVAL) ? geteuid() : gUserID;
+		defaults->group = (gGroupID == (gid_t)NOVAL) ? getegid() : gGroupID;
+		defaults->mask = (gModeMask == (mode_t)NOVAL) ? UMASK : (gModeMask & ACCESSMASK);
+		
+		defaults->flags |= kUseAccessPerms;
+	}
+
+	//
+	// we want at least 8 megs of journal for each 100 gigs of
+	// disk space.  We cap the size at 512 megs though.
+	//
+	jscale = (sectorCount * sectorSize) / ((UInt64)100 * 1024 * 1024 * 1024);
+
+	//
+	// only scale if it's the default, otherwise just take what
+	// the user specified.
+	//
+	if (gJournalSize == JOURNAL_DEFAULT_SIZE) {
+	    defaults->journalSize = gJournalSize * (jscale + 1);
+	} else {
+	    defaults->journalSize = gJournalSize;
+	}
+	if (defaults->journalSize > 512 * 1024 * 1024) {
+	    defaults->journalSize = 512 * 1024 * 1024;
+	}
 
 	strncpy(defaults->volumeName, gVolumeName, sizeof(defaults->volumeName) - 1);
+	defaults->volumeName[sizeof(defaults->volumeName) - 1] = '\0';
 
 	if (rsrclumpblks == 0) {
 		if (gBlockSize > DFL_BLKSIZE)
@@ -629,6 +750,9 @@ static void hfsplus_params (UInt64 sectorCount, UInt32 sectorSize, hfsparams_t *
 	}
 	defaults->allocationClumpSize = clumpSize;
 
+	if (gCaseSensitive)
+		defaults->flags |= kMakeCaseSensitive;
+
 	if (gNoCreate) {
 		if (!gWrapper)
 			printf("%qd sectors (%lu bytes per sector)\n", sectorCount, sectorSize);
@@ -647,6 +771,11 @@ static void hfsplus_params (UInt64 sectorCount, UInt32 sectorSize, hfsparams_t *
 			defaults->allocationClumpSize, defaults->allocationClumpSize / gBlockSize);
 		printf("\tdata fork clump size: %lu\n", defaults->dataClumpSize);
 		printf("\tresource fork clump size: %lu\n", defaults->rsrcClumpSize);
+		if (defaults->flags & kUseAccessPerms) {
+			printf("\tuser ID: %d\n", (int)defaults->owner);
+			printf("\tgroup ID: %d\n", (int)defaults->group);
+			printf("\taccess mask: %o\n", (int)defaults->mask);
+		}
 	}
 }
 
@@ -657,8 +786,7 @@ static void hfs_params(UInt32 sectorCount, UInt32 sectorSize, hfsparams_t *defau
 	UInt32	vSectorCount;
 	UInt32	defaultBlockSize;
 	
-	defaults->signature = kHFSSigWord;
-	defaults->flags = 0;
+	defaults->flags = kMakeStandardHFS;
 	defaults->nextFreeFileID = gNextCNID;
 	defaults->createDate = createtime + MAC_GMT_FACTOR;     /* Mac OS GMT time */
 	defaults->catalogNodeSize = kHFSNodeSize;
@@ -667,6 +795,7 @@ static void hfs_params(UInt32 sectorCount, UInt32 sectorSize, hfsparams_t *defau
 	defaults->attributesClumpSize = 0;
 
 	strncpy(defaults->volumeName, gVolumeName, sizeof(defaults->volumeName) - 1);
+	defaults->volumeName[sizeof(defaults->volumeName) - 1] = '\0';
 
 	/* Compute the default allocation block size */
 	if (gWrapper && hfsgrowblks) {
@@ -695,10 +824,6 @@ static void hfs_params(UInt32 sectorCount, UInt32 sectorSize, hfsparams_t *defau
 	if ( alBlkSize == 0 || (alBlkSize & 0x1FF) != 0 || alBlkSize < defaultBlockSize)
 		alBlkSize = defaultBlockSize;
 
-	if ((alBlkSize & 0x0000FFFF) == 0)		/* we cannot allow the lower word to be zero! */
-		alBlkSize += sectorSize;		/* if it is, increase by one block */
-
-
 	defaults->blockSize = alBlkSize;
 
 	defaults->dataClumpSize = alBlkSize * 4;
@@ -718,10 +843,6 @@ static void hfs_params(UInt32 sectorCount, UInt32 sectorSize, hfsparams_t *defau
 		defaults->catalogClumpSize = CalcBTreeClumpSize(alBlkSize, sectorSize, sectorCount, TRUE);
 		defaults->extentsClumpSize = CalcBTreeClumpSize(alBlkSize, sectorSize, sectorCount, FALSE);
 	}
-
-	/* convert wrapper free blocks to an hfs allocation block count */
-	defaults->hfsWrapperFreeBlks =
-			((freewrapperblks * 512) + defaults->blockSize - 1) / defaults->blockSize;
 	
 	if (gNoCreate) {
 		printf("%ld sectors at %ld bytes per sector\n", sectorCount, sectorSize);
@@ -733,8 +854,6 @@ static void hfs_params(UInt32 sectorCount, UInt32 sectorSize, hfsparams_t *defau
 		printf("\tinitial catalog file size: %ld\n", defaults->catalogClumpSize);
 		printf("\tinitial extents file size: %ld\n", defaults->extentsClumpSize);
 		printf("\tfile clump size: %ld\n", defaults->dataClumpSize);
-		if (defaults->hfsWrapperFreeBlks)
-			printf("\twrapper free space: %ld\n", defaults->hfsWrapperFreeBlks * alBlkSize);
 		if (hfsgrowblks)
 			printf("\twrapper growable from %ld to %ld sectors\n", sectorCount, hfsgrowblks);
 	}
@@ -748,7 +867,7 @@ clumpsizecalc(UInt32 clumpblocks)
 
 	clumpsize = (UInt64)clumpblocks * (UInt64)gBlockSize;
 		
-	if (clumpsize & (UInt64)0xFFFFFFFF00000000)
+	if (clumpsize & (UInt64)(0xFFFFFFFF00000000ULL))
 		fatal("=%ld: too many blocks for clump size!", clumpblocks);
 
 	return ((UInt32)clumpsize);
@@ -889,6 +1008,8 @@ CalcHFSPlusBTreeClumpSize(UInt32 blockSize, UInt32 nodeSize, UInt64 sectors, int
 	 */
 	if (sectors < 0x200000) {
 		clumpSize = sectors << 2;	/*  0.8 %  */
+		if (clumpSize < (8 * nodeSize))
+			clumpSize = 8 * nodeSize;
 	} else {
 		/* turn exponent into table index... */
 		for (i = 0, sectors = sectors >> 22;
@@ -956,10 +1077,14 @@ void usage()
 	fprintf(stderr, "  options:\n");
 	fprintf(stderr, "\t-h create an HFS format filesystem (HFS Plus is the default)\n");
 	fprintf(stderr, "\t-N do not create file system, just print out parameters\n");
+	fprintf(stderr, "\t-s use case-sensitive filenames (default is case-insensitive)\n");
 	fprintf(stderr, "\t-w add a HFS wrapper (i.e. Native Mac OS 9 bootable)\n");
 
 	fprintf(stderr, "  where hfsplus-options are:\n");
 	fprintf(stderr, "\t-J [journal-size] make this HFS+ volume journaled\n");
+	fprintf(stderr, "\t-G group-id (for root directory)\n");
+	fprintf(stderr, "\t-U user-id (for root directory)\n");
+	fprintf(stderr, "\t-M access-mask (for root directory)\n");
 	fprintf(stderr, "\t-b allocation block size (4096 optimal)\n");
 	fprintf(stderr, "\t-c clump size list (comma separated)\n");
 	fprintf(stderr, "\t\te=blocks (extents file)\n");

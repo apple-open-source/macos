@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -449,14 +452,11 @@ tDirStatus	dsSetAttributeValue		(	tRecordReference		inRecordReference,
 										tDataNodePtr			inAttributeType,
 										tAttributeValueEntryPtr	inAttributeValuePtr			);
 										
-//-----------------------------------------------
-//
-//	Do an authentication session with the given authentication type
-//
-
 /*!
  * @function dsDoDirNodeAuth
- * @discussion When a authentication is successful the error code 'eDSNoErr' is returned
+ * @discussion
+ *		Do an authentication session with the given authentication type.
+ *		When a authentication is successful the error code 'eDSNoErr' is returned
  * 		and the outAuthStepDataResponse parameter will contain a correctly formed
  * 		kDS1AttrAuthCredential value.  This AuthCredential can be used for future
  * 		authentications for this and other directory nodes in the directory system.
@@ -494,6 +494,53 @@ tDirStatus dsDoDirNodeAuth			(	tDirNodeReference	inDirNodeReference,
 										tDataBufferPtr		inAuthStepData,
 										tDataBufferPtr		outAuthStepDataResponse,
 										tContextData		*inOutContinueData			);
+
+/*!
+ * @function dsDoDirNodeAuthOnRecordType
+ * @discussion
+ *		Do an authentication session with the given authentication type on the specified record type. 
+ *		When a authentication is successful the error code 'eDSNoErr' is returned
+ * 		and the outAuthStepDataResponse parameter will contain a correctly formed
+ * 		kDS1AttrAuthCredential value.  This AuthCredential can be used for future
+ * 		authentications for this and other directory nodes in the directory system.
+ * 		Not all directory nodes will support authenticating in this manner, but most
+ * 		should.  In addition the current kDS1AttrAuthCredential value can always be
+ * 		obtained via dsGetDirNodeInfo call with kDS1AttrAuthCredential as one of the
+ * 		requested attributes.  Directory Nodes that support using a kDS1AttrAuthCredential
+ * 		will list DSAuthCredential as a supported authentication method.  Support
+ * 		authentication methods can be determined by calling dsGetDirNodeInfo and requesting
+ * 		the kDSNAttrAuthMethod attribute for that directory node.
+ * 		NOTE: it is important to note that while some Directory Nodes may support
+ * 		the attempt of using a kDS1AttrAuthCredential to authenticate, when the Directory
+ * 		Node plug-in decodes the Credential the authentication attempt may still fail
+ * 		for plug-in specific reasons (the plug-in may find the level of original authentication
+ * 		insufficient for it's requirements or configuration, or the credential may have expired
+ * 		and is no longer valid).  In addition when using a kDS1AttrAuthCredential to authentication
+ * 		to a different directory node than the original kDS1AttrAuthCredential was generated, the
+ * 		level of access granted by the directory node plug-in may not match the level in the
+ * 		original directory node.  Access granted to the contents of a directory node is entirely
+ * 		at the descretion of the directory node plug-in and the directory system it represents.
+ * @param inDirNodeAuthOnlyFlag Indicates if the client wishes to use
+ * 		the results of this authentication process as their identity for this directory session
+ * 		(inDirNodeReference) for directory node access authorization.
+ * 		If the flag value is "false", then at the completion of the auth process both the
+ * 		Directory Services API and the Plug-in should use this "identity" to grant
+ * 		or deny access for all future directory service calls.
+ * 		If the flag value is "true", then at the completion of of the auth process no identity
+ * 		information will be used by the directory services or Plug-in for authorization purposes.
+ * 		A file server just wishing to authenticate a user, but not change how/who it is accessing
+ * 		the directory as would set this parameter to "true".
+ * @param inRecordType The record type to perform the auth against for the inDirNodeAuthName.
+ *		If this is passed in as NULL then call will be routed as dsDoDirNodeAuth() which assumes
+ *		a record type of kDSStdRecordTypeUsers.
+ */
+tDirStatus dsDoDirNodeAuthOnRecordType	(	tDirNodeReference	inDirNodeReference,
+											tDataNodePtr		inDirNodeAuthName,
+											dsBool				inDirNodeAuthOnlyFlag,
+											tDataBufferPtr		inAuthStepData,
+											tDataBufferPtr		outAuthStepDataResponse,
+											tContextData		*inOutContinueData,
+											tDataNodePtr		inRecordType			);
 
 /*!
  * @function dsDoAttributeValueSearch

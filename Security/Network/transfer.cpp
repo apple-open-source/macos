@@ -41,7 +41,7 @@ Transfer::Transfer(Protocol &proto, const Target &tgt, Operation op, IPPort defP
       mShareConnections(proto.manager.reuseConnections()),
       mErrorStatus(defaultOSStatusError)
 {
-    debug("netxfer", "%p created for protocol %p(%s) target %s operation %d",
+    secdebug("netxfer", "%p created for protocol %p(%s) target %s operation %d",
         this, &proto, proto.name(), target.urlForm().c_str(), mOperation);
 
     parameters(protocol.manager);	// inherit environment from manager object
@@ -50,7 +50,7 @@ Transfer::Transfer(Protocol &proto, const Target &tgt, Operation op, IPPort defP
 
 Transfer::~Transfer()
 {
-    debug("netxfer", "transfer %p destroyed", this);
+    secdebug("netxfer", "transfer %p destroyed", this);
 }
 
 
@@ -109,7 +109,7 @@ void Transfer::observe(Observer::Events events, const void *info)
 //
 void Transfer::finish()
 {
-    debug("xferengine", "transfer %p is finishing up", this);
+    secdebug("xferengine", "transfer %p is finishing up", this);
     mState = finished;
     if (isDocked())
         mConnection->undock();
@@ -123,7 +123,7 @@ void Transfer::finish()
 //
 void Transfer::fail()
 {
-    debug("xferengine", "transfer %p is failing", this);
+    secdebug("xferengine", "transfer %p is failing", this);
     mState = failed;
     if (isDocked())
         mConnection->undock();

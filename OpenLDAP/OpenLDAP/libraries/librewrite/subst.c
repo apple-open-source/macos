@@ -53,7 +53,7 @@ rewrite_subst_compile(
 	for ( p = begin = result, subs_len = 0; p[ 0 ] != '\0'; p++ ) {
 		
 		/*
-		 * Keep only single escapes '\'
+		 * Keep only single escapes '%'
 		 */
 		if ( p[ 0 ] != REWRITE_SUBMATCH_ESCAPE ) {
 			continue;
@@ -101,7 +101,7 @@ rewrite_subst_compile(
 		/*
 		 * Substitution pattern
 		 */
-		if ( isdigit( p[ 1 ] ) ) {
+		if ( isdigit( (unsigned char) p[ 1 ] ) ) {
 			int d = p[ 1 ] - '0';
 			struct rewrite_submatch **tmpsm;
 

@@ -32,6 +32,27 @@
  */
 /*
 	$Log: IOFireWireFamilyCommon.h,v $
+	Revision 1.46  2003/07/22 10:49:47  niels
+	*** empty log message ***
+	
+	Revision 1.45  2003/07/21 06:52:59  niels
+	merge isoch to TOT
+	
+	Revision 1.44.4.5  2003/07/21 06:44:44  niels
+	*** empty log message ***
+	
+	Revision 1.44.4.4  2003/07/18 00:17:42  niels
+	*** empty log message ***
+	
+	Revision 1.44.4.3  2003/07/14 22:08:53  niels
+	*** empty log message ***
+	
+	Revision 1.44.4.2  2003/07/09 21:24:01  niels
+	*** empty log message ***
+	
+	Revision 1.44.4.1  2003/07/01 20:54:07  niels
+	isoch merge
+	
 	Revision 1.44  2003/03/17 01:05:22  collin
 	*** empty log message ***
 	
@@ -180,9 +201,21 @@ in the kernel and in user space
 // e000800f
 #define kIOFireWireOutOfTLabels							iokit_fw_err(15)
 
+// NOTE: errors 16Ñ31 used for address space response codes.. (see above)
+
+// e0008101
+#define kIOFireWireBogusDCLProgram						iokit_fw_err(257)
+
+// e0008102		// let's resume here...
+ #define kIOFireWireTalkingAndListening					iokit_fw_err(258)
+
+// e0008103		// let's resume here...
+// #define ???											iokit_fw_err(259)
+
 // e00087d0
 #define kIOFWMessageServiceIsRequestingClose 			(UInt32)iokit_fw_err(2000)
 #define kIOFWMessagePowerStateChanged 					(UInt32)iokit_fw_err(2001)
+#define kIOFWMessageTopologyChanged						(UInt32)iofit_fw_err(2002)
 
 // =================================================================
 // Pseudo address space response codes
@@ -569,6 +602,22 @@ enum
 #define CHAN_BIT(x) 		(((UInt64)1) << (63 - (x))
 #define CHAN_MASK(x) 		(~CHAN_BIT(X))
 
+typedef enum
+{
+	kFWNeverMultiMode = 0,
+	kFWAllowMultiMode,
+	kFWSuggestMultiMode,
+	kFWAlwaysMultiMode,
+	
+	kFWDefaultIsochResourceFlags = kFWNeverMultiMode
+} IOFWIsochResourceFlags ;
+
+enum
+{
+	kFWIsochChannelDefaultFlags = 0,
+	kFWIsochChannelDoNotResumeOnWake = BIT(1)
+} ;
+
 // =================================================================
 // DCL opcode defs.
 // =================================================================
@@ -582,12 +631,15 @@ enum
 	kFWDCLSyBitsEvent					= 2
 };
 
-enum
+typedef enum
 {
-	kFWDCLInvalidNotification			= 0,
-	kFWDCLUpdateNotification			= 1,
-	kFWDCLModifyNotification			= 2
-};
+	kFWDCLInvalidNotification				= 0
+	, kFWDCLUpdateNotification				= 1
+	, kFWDCLModifyNotification				= 2
+	, kFWNuDCLModifyNotification			= 3
+	, kFWNuDCLModifyJumpNotification		= 4
+	, kFWNuDCLUpdateNotification			= 5
+} IOFWDCLNotificationType ;
 
 enum
 {
@@ -614,7 +666,11 @@ enum
 	kDCLUpdateDCLListOp					= 12,
 	kDCLTimeStampOp						= 13,
 	kDCLPtrTimeStampOp					= 14,
-	kDCLSkipCycleOp						= 15
+	kDCLSkipCycleOp						= 15,
+
+	kDCLNuDCLLeaderOp					= 20	// compilerData field contains NuDCLRef to start of NuDCL
+												// program.
+												// Should not need to use this directly.
 };
 
 #ifdef FW_OLD_DCL_DEFS
@@ -635,33 +691,19 @@ enum
 #pragma mark -
 #pragma mark DCL
 
-#ifdef FW_OLD_DCL_DEFS
-
 typedef struct DCLCommandStruct
 {
-	struct DCLCommandStruct*	pNextDCLCommand;		// Next DCL command.
+	struct DCLCommandStruct *	pNextDCLCommand;		// Next DCL command.
 	UInt32						compilerData;			// Data for use by DCL compiler.
 	UInt32						opcode;					// DCL opcode.
 	UInt32						operands[1];			// DCL operands (size varies)
-} DCLCommand ;
+} DCLCommand;
 
-#else
-
-typedef struct DCLCommand
-{
-	DCLCommand*				pNextDCLCommand;		// Next DCL command.
-	UInt32					compilerData;			// Data for use by DCL compiler.
-	UInt32					opcode;					// DCL opcode.
-	UInt32					operands[1];			// DCL operands (size varies)
-} DCLCommand ;
-
-#endif
-
-typedef void (DCLCallCommandProc)(DCLCommand* command);
+typedef void (DCLCallCommandProc)(DCLCommand * command);
 
 typedef struct DCLTransferPacketStruct
 {
-	DCLCommand*				pNextDCLCommand;		// Next DCL command.
+	DCLCommand *			pNextDCLCommand;		// Next DCL command.
 	UInt32					compilerData;			// Data for use by DCL compiler.
 	UInt32					opcode;					// DCL opcode.
 	void *					buffer;					// Packet buffer.
@@ -670,7 +712,7 @@ typedef struct DCLTransferPacketStruct
 
 typedef struct DCLTransferBufferStruct
 {
-	DCLCommand*				pNextDCLCommand;		// Next DCL command.
+	DCLCommand *			pNextDCLCommand;		// Next DCL command.
 	UInt32					compilerData;			// Data for use by DCL compiler.
 	UInt32					opcode;					// DCL opcode.
 	void *					buffer;					// Buffer.
@@ -682,61 +724,69 @@ typedef struct DCLTransferBufferStruct
 
 typedef struct DCLCallProcStruct
 {
-	DCLCommand*				pNextDCLCommand;	// Next DCL command.
+	DCLCommand *			pNextDCLCommand;	// Next DCL command.
 	UInt32					compilerData;		// Data for use by DCL compiler.
 	UInt32					opcode;				// DCL opcode.
-	DCLCallCommandProc*		proc;				// Procedure to call.
+	DCLCallCommandProc *	proc;				// Procedure to call.
 	UInt32					procData;			// Data for use by called procedure.
-} DCLCallProc ;
+} DCLCallProc;
 
 typedef struct DCLLabelStruct
 {
-	DCLCommand*				pNextDCLCommand;	// Next DCL command.
+	DCLCommand *			pNextDCLCommand;	// Next DCL command.
 	UInt32					compilerData;		// Data for use by DCL compiler.
 	UInt32					opcode;				// DCL opcode.
-} DCLLabel ;
+} DCLLabel;
 
 typedef struct DCLJumpStruct
 {
-	DCLCommand*				pNextDCLCommand;	// Next DCL command.
+	DCLCommand *			pNextDCLCommand;	// Next DCL command.
 	UInt32					compilerData;		// Data for use by DCL compiler.
 	UInt32					opcode;				// DCL opcode.
-	DCLLabel*				pJumpDCLLabel;		// DCL label to jump to.
-} DCLJump ;
+	DCLLabel *				pJumpDCLLabel;		// DCL label to jump to.
+} DCLJump;
 
 typedef struct DCLSetTagSyncBitsStruct
 {
-	DCLCommand*				pNextDCLCommand;	// Next DCL command.
+	DCLCommand *			pNextDCLCommand;	// Next DCL command.
 	UInt32					compilerData;		// Data for use by DCL compiler.
 	UInt32					opcode;				// DCL opcode.
 	UInt16					tagBits;			// Tag bits for following packets.
 	UInt16					syncBits;			// Sync bits for following packets.
-} DCLSetTagSyncBits ;
+} DCLSetTagSyncBits;
 
 typedef struct DCLUpdateDCLListStruct
 {
-	DCLCommand*				pNextDCLCommand;	// Next DCL command.
+	DCLCommand *			pNextDCLCommand;	// Next DCL command.
 	UInt32					compilerData;		// Data for use by DCL compiler.
 	UInt32					opcode;				// DCL opcode.
-	DCLCommand**			dclCommandList;		// List of DCL commands to update.
+	DCLCommand **			dclCommandList;		// List of DCL commands to update.
 	UInt32					numDCLCommands;		// Number of DCL commands in list.
-} DCLUpdateDCLList ;
+} DCLUpdateDCLList;
 
 typedef struct DCLTimeStampStruct
 {
-	DCLCommand*				pNextDCLCommand;	// Next DCL command.
+	DCLCommand *			pNextDCLCommand;	// Next DCL command.
 	UInt32					compilerData;		// Data for use by DCL compiler.
 	UInt32					opcode;				// DCL opcode.
 	UInt32					timeStamp;			// Time stamp.
-} DCLTimeStamp ;
+} DCLTimeStamp;
 
 typedef struct DCLPtrTimeStampStruct
 {
-	DCLCommand*				pNextDCLCommand;	// Next DCL command.
+	DCLCommand *			pNextDCLCommand;	// Next DCL command.
 	UInt32					compilerData;		// Data for use by DCL compiler.
 	UInt32					opcode;				// DCL opcode.
-	UInt32*					timeStampPtr;		// Where to store the time stamp.
+	UInt32 *				timeStampPtr;		// Where to store the time stamp.
 } DCLPtrTimeStamp ;
+
+typedef struct 
+{
+	DCLCommand *			pNextDCLCommand ;	// unused - always NULL
+	UInt32					compilerData;		// Data for use by DCL compiler.
+	UInt32					opcode ;			// must be kDCLNuDCLLeaderOp
+	void*				 	program ;			// NuDCL program here...
+} DCLNuDCLLeader ;
 
 #ifdef FW_OLD_DCL_DEFS
 
@@ -755,6 +805,26 @@ typedef DCLPtrTimeStamp*		DCLPtrTimeStampPtr ;
 typedef DCLCallCommandProc* 	DCLCallCommandProcPtr ;
 
 #endif
+
+// =================================================================
+// NuDCL
+// =================================================================
+#pragma mark -
+#pragma mark NUDCL
+
+typedef struct __NuDCL *	NuDCLRef ;
+typedef NuDCLRef			NuDCLSendPacketRef ;
+typedef NuDCLRef			NuDCLSkipCycleRef ;
+typedef NuDCLRef			NuDCLReceivePacketRef ;
+
+typedef void (*NuDCLCallback)( void* refcon, NuDCLRef dcl );
+
+typedef enum
+{
+	kNuDCLDynamic = BIT( 1 ),
+	kNuDCLUpdateBeforeCallback = BIT( 2 )
+
+} NuDCLFlags ;
 
 // =================================================================
 // Miscellaneous

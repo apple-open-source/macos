@@ -1,5 +1,3 @@
-.\"	$NetBSD: touch.1,v 1.13 1998/01/20 21:18:25 mycroft Exp $
-.\"
 .\" Copyright (c) 1991, 1993
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
@@ -35,6 +33,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)touch.1	8.3 (Berkeley) 4/28/95
+.\" $FreeBSD: src/usr.bin/touch/touch.1,v 1.11 2001/09/24 17:42:37 obrien Exp $
 .\"
 .Dd April 28, 1995
 .Dt TOUCH 1
@@ -47,7 +46,7 @@
 .Op Fl acfhm
 .Op Fl r Ar file
 .Op Fl t Ar [[CC]YY]MMDDhhmm[.SS]
-.Ar file ...
+.Ar
 .Sh DESCRIPTION
 The
 .Nm
@@ -72,11 +71,13 @@ No error messages are displayed and the exit value is not affected.
 Attempt to force the update, even if the file permissions do not
 currently permit it.
 .It Fl h
-If
-.Ar file
-is a symbolic link, access and/or modification time of the link is changed.
-This option implies
-.Fl c .
+If the file is a symbolic link, change the times of the link
+itself rather than the file that the link points to.
+Note that
+.Fl h
+implies
+.Fl c
+and thus will not create any new files.
 .It Fl m
 Change the modification time of the file.
 The access time of the file is not changed unless the
@@ -111,7 +112,7 @@ value of 20 is used.
 .It Ar MM
 The month of the year, from 1 to 12.
 .It Ar DD
-The day of the month, from 1 to 31.
+the day of the month, from 1 to 31.
 .It Ar hh
 The hour of the day, from 0 to 23.
 .It Ar mm
@@ -130,15 +131,13 @@ If the
 .Dq SS
 letter pair is not specified, the value defaults to 0.
 .El
-.Pp
-The
-.Nm
-utility exits 0 on success, and >0 if an error occurs.
+.Sh DIAGNOSTICS
+.Ex -std
 .Sh SEE ALSO
 .Xr utimes 2
 .Sh COMPATIBILITY
 The obsolescent form of
-.Nm touch,
+.Nm ,
 where a time format is specified as the first argument, is supported.
 When no
 .Fl r
@@ -160,18 +159,16 @@ letter pairs are treated as their counterparts specified to the
 option.
 If the
 .Dq YY
-letter pair is in the range 69 to 99, the year is set to 1969 to 1999,
-otherwise, the year is set in the 2000's.
+letter pair is in the range 39 to 99, the year is set to 1939 to 1999,
+otherwise, the year is set in the 21st century.
+.Sh HISTORY
+A
+.Nm
+utility appeared in
+.At v7 .
 .Sh STANDARDS
 The
 .Nm
 utility is expected to be a superset of the
 .St -p1003.2
 specification.
-.Sh HISTORY
-A
-.Nm
-utility appeared in
-.At v7 .
-.Sh BUGS
-A symbolic link can't be a reference file of access and/or modification time.

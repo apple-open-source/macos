@@ -1,4 +1,4 @@
-/* @(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/telnet.h,v 1.1.1.1 2002/05/29 00:05:47 landonf Exp $ (LBL) */
+/* @(#) $Header: /cvs/root/tcpdump/tcpdump/telnet.h,v 1.1.1.2 2003/03/17 18:42:20 rbraun Exp $ (LBL) */
 
 /*	$NetBSD: telnet.h,v 1.9 2001/06/11 01:50:50 wiz Exp $	*/
 
@@ -220,12 +220,12 @@ const char *telopts[NTELOPTS+1] = {
  * list of names if SLC_NAMES is not defined.
  */
 #define	SLC_NAMELIST	"0", "SYNCH", "BRK", "IP", "AO", "AYT", "EOR",	\
- 			"ABORT", "EOF", "SUSP", "EC", "EL", "EW", "RP",	\
- 			"LNEXT", "XON", "XOFF", "FORW1", "FORW2",	\
- 			"MCL", "MCR", "MCWL", "MCWR", "MCBOL",		\
- 			"MCEOL", "INSRT", "OVER", "ECR", "EWR",		\
- 			"EBOL", "EEOL",					\
- 			0,
+			"ABORT", "EOF", "SUSP", "EC", "EL", "EW", "RP",	\
+			"LNEXT", "XON", "XOFF", "FORW1", "FORW2",	\
+			"MCL", "MCR", "MCWL", "MCWR", "MCBOL",		\
+			"MCEOL", "INSRT", "OVER", "ECR", "EWR",		\
+			"EBOL", "EEOL",					\
+			0,
 
 #ifdef	SLC_NAMES
 const char *slc_names[] = {

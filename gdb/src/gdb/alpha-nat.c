@@ -20,10 +20,14 @@
    Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
+#include "gdb_string.h"
 #include "inferior.h"
 #include "gdbcore.h"
 #include "target.h"
 #include "regcache.h"
+
+#include "alpha-tdep.h"
+
 #include <sys/ptrace.h>
 #ifdef __linux__
 #include <asm/reg.h>
@@ -37,40 +41,6 @@
 
 static void fetch_osf_core_registers (char *, unsigned, int, CORE_ADDR);
 static void fetch_elf_core_registers (char *, unsigned, int, CORE_ADDR);
-
-/* Size of elements in jmpbuf */
-
-#define JB_ELEMENT_SIZE 8
-
-/* The definition for JB_PC in machine/reg.h is wrong.
-   And we can't get at the correct definition in setjmp.h as it is
-   not always available (eg. if _POSIX_SOURCE is defined which is the
-   default). As the defintion is unlikely to change (see comment
-   in <setjmp.h>, define the correct value here.  */
-
-#undef JB_PC
-#define JB_PC 2
-
-/* Figure out where the longjmp will land.
-   We expect the first arg to be a pointer to the jmp_buf structure from which
-   we extract the pc (JB_PC) that we will land at.  The pc is copied into PC.
-   This routine returns true on success. */
-
-int
-get_longjmp_target (CORE_ADDR *pc)
-{
-  CORE_ADDR jb_addr;
-  char raw_buffer[MAX_REGISTER_RAW_SIZE];
-
-  jb_addr = read_register (A0_REGNUM);
-
-  if (target_read_memory (jb_addr + JB_PC * JB_ELEMENT_SIZE, raw_buffer,
-			  sizeof (CORE_ADDR)))
-    return 0;
-
-  *pc = extract_address (raw_buffer, sizeof (CORE_ADDR));
-  return 1;
-}
 
 /* Extract the register values out of the core file and store
    them where `read_register' will find them.
@@ -98,7 +68,7 @@ fetch_osf_core_registers (char *core_reg_sect, unsigned core_reg_size,
      OSF/1.2 core files.  OSF5 uses different names for the register
      enum list, need to handle two cases.  The actual values are the
      same.  */
-  static int core_reg_mapping[NUM_REGS] =
+  static int core_reg_mapping[ALPHA_NUM_REGS] =
   {
 #ifdef NCF_REGS
 #define EFL NCF_REGS
@@ -124,7 +94,7 @@ fetch_osf_core_registers (char *core_reg_sect, unsigned core_reg_size,
     EF_PC, -1
 #endif
   };
-  static char zerobuf[MAX_REGISTER_RAW_SIZE] =
+  static char zerobuf[ALPHA_MAX_REGISTER_RAW_SIZE] =
   {0};
 
   for (regno = 0; regno < NUM_REGS; regno++)
@@ -164,18 +134,21 @@ fetch_elf_core_registers (char *core_reg_sect, unsigned core_reg_size,
   if (which == 2)
     {
       /* The FPU Registers.  */
-      memcpy (&registers[REGISTER_BYTE (FP0_REGNUM)], core_reg_sect, 31 * 8);
-      memset (&registers[REGISTER_BYTE (FP0_REGNUM + 31)], 0, 8);
-      memset (&register_valid[FP0_REGNUM], 1, 32);
+      memcpy (&deprecated_registers[REGISTER_BYTE (FP0_REGNUM)],
+	      core_reg_sect, 31 * 8);
+      memset (&deprecated_registers[REGISTER_BYTE (FP0_REGNUM + 31)], 0, 8);
+      memset (&deprecated_register_valid[FP0_REGNUM], 1, 32);
     }
   else
     {
       /* The General Registers.  */
-      memcpy (&registers[REGISTER_BYTE (V0_REGNUM)], core_reg_sect, 31 * 8);
-      memcpy (&registers[REGISTER_BYTE (PC_REGNUM)], core_reg_sect + 31 * 8, 8);
-      memset (&registers[REGISTER_BYTE (ZERO_REGNUM)], 0, 8);
-      memset (&register_valid[V0_REGNUM], 1, 32);
-      register_valid[PC_REGNUM] = 1;
+      memcpy (&deprecated_registers[REGISTER_BYTE (ALPHA_V0_REGNUM)],
+	      core_reg_sect, 31 * 8);
+      memcpy (&deprecated_registers[REGISTER_BYTE (PC_REGNUM)],
+	      core_reg_sect + 31 * 8, 8);
+      memset (&deprecated_registers[REGISTER_BYTE (ALPHA_ZERO_REGNUM)], 0, 8);
+      memset (&deprecated_register_valid[ALPHA_V0_REGNUM], 1, 32);
+      deprecated_register_valid[PC_REGNUM] = 1;
     }
 }
 
@@ -218,7 +191,7 @@ supply_gregset (gdb_gregset_t *gregsetp)
 {
   register int regi;
   register long *regp = ALPHA_REGSET_BASE (gregsetp);
-  static char zerobuf[MAX_REGISTER_RAW_SIZE] =
+  static char zerobuf[ALPHA_MAX_REGISTER_RAW_SIZE] =
   {0};
 
   for (regi = 0; regi < 31; regi++)
@@ -227,7 +200,7 @@ supply_gregset (gdb_gregset_t *gregsetp)
   supply_register (PC_REGNUM, (char *) (regp + 31));
 
   /* Fill inaccessible registers with zero.  */
-  supply_register (ZERO_REGNUM, zerobuf);
+  supply_register (ALPHA_ZERO_REGNUM, zerobuf);
   supply_register (FP_REGNUM, zerobuf);
 }
 
@@ -239,10 +212,10 @@ fill_gregset (gdb_gregset_t *gregsetp, int regno)
 
   for (regi = 0; regi < 31; regi++)
     if ((regno == -1) || (regno == regi))
-      *(regp + regi) = *(long *) &registers[REGISTER_BYTE (regi)];
+      *(regp + regi) = *(long *) &deprecated_registers[REGISTER_BYTE (regi)];
 
   if ((regno == -1) || (regno == PC_REGNUM))
-    *(regp + 31) = *(long *) &registers[REGISTER_BYTE (PC_REGNUM)];
+    *(regp + 31) = *(long *) &deprecated_registers[REGISTER_BYTE (PC_REGNUM)];
 }
 
 /*
@@ -271,7 +244,7 @@ fill_fpregset (gdb_fpregset_t *fpregsetp, int regno)
       if ((regno == -1) || (regno == regi))
 	{
 	  *(regp + regi - FP0_REGNUM) =
-	    *(long *) &registers[REGISTER_BYTE (regi)];
+	    *(long *) &deprecated_registers[REGISTER_BYTE (regi)];
 	}
     }
 }

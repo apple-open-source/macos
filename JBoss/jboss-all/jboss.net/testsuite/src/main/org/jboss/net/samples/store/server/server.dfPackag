@@ -1,0 +1,278 @@
+package id1bljucz90wf51cz90yoz8;
+
+/**
+@version 2.0
+@physicalPackage
+@__modelType diagram 
+*/
+class diagram {
+/**
+@__ref <oiref:java#Class#org.jboss.net.samples.store.server.ItemService:oiref><oihard>
+@__modelType reference
+@backgroundColor 204,204,255 
+*/
+class reference {
+}/**
+@__ref <oiref:java#Class#org.jboss.net.samples.store.server.Order:oiref><oihard>
+@__modelType reference
+@backgroundColor 255,255,153 
+*/
+class reference2 {
+}/**
+@__ref <oiref:java#Class#org.jboss.net.samples.store.server.BusinessPartner:oiref><oihard>
+@__modelType reference
+@backgroundColor 255,255,153 
+*/
+class reference3 {
+}/**
+@__ref <oiref:java#Class#org.jboss.net.samples.store.server.Item:oiref><oihard>
+@__modelType reference
+@backgroundColor 255,255,153 
+*/
+class reference4 {
+}/**
+@__ref <oiref:java#Class#org.jboss.net.samples.store.server.BusinessPartnerService:oiref><oihard>
+@__modelType reference
+@backgroundColor 204,204,255 
+*/
+class reference5 {
+}/**
+@__ref <oiref:java#Class#org.jboss.net.samples.store.server.Line:oiref><oihard>
+@__modelType reference
+@backgroundColor 255,255,153 
+*/
+class reference6 {
+}/**
+@__ref <oiref:java#Class#org.jboss.net.samples.store.Unit:oiref><oihard>
+@__modelType reference
+@__imported
+@hideAll
+@backgroundColor 204,255,204 
+*/
+class reference7 {
+}/**
+@__ref <oiref:java#Class#org.jboss.net.samples.store.Address:oiref><oihard>
+@__modelType reference
+@__imported
+@backgroundColor 255,102,102 
+*/
+class reference8 {
+}/**
+@__ref <oiref:java#Class#org.jboss.net.samples.store.Phone:oiref><oihard>
+@__modelType reference
+@__imported
+@backgroundColor 255,102,102 
+*/
+class reference9 {
+}/**
+@__ref <oiref:java#Class#org.jboss.net.samples.store.StateType:oiref><oihard>
+@__modelType reference
+@__imported
+@hideAll
+@backgroundColor 204,255,204 
+*/
+class reference10 {
+}/**
+@__ref <oiref:java#Class#org.jboss.net.samples.store.server.OrderService:oiref><oihard>
+@__modelType reference
+@backgroundColor 204,204,255 
+*/
+class reference11 {
+}/**
+@__ref <oiref:design#Class#id1bljucz90wf51cz90yoz8.node:oiref><oihard>
+@__modelType reference
+@backgroundColor 255,255,153 
+*/
+class reference12 {
+}/**
+@__ref <oiref:design#Class#id1bljucz90wf51cz90yoz8.node16:oiref><oihard>
+@__modelType reference
+@backgroundColor 204,204,255 
+*/
+class reference17 {
+}/**
+@__ref <oiref:design#Class#id1bljucz90wf51cz90yoz8.node19:oiref><oihard>
+@__modelType reference
+@backgroundColor 255,102,102 
+*/
+class reference20 {
+}/**
+@__ref <oiref:design#Class#id1bljucz90wf51cz90yoz8.node22:oiref><oihard>
+@__modelType reference
+@backgroundColor 204,255,204 
+*/
+class reference23 {
+}}/**
+@__tags
+@shapeType ClassDiagram 
+*/
+class __tags {
+}/**
+@__options 
+*/
+class __options {
+}/**
+@__positions <oigroup:Composite#clientCardinality#MemberLink#<oiref:java#Member#org.jboss.net.samples.store.Address#phoneNumber:oiref>=906,2,11,19,0:oigroup>
+<oigroup:Composite#label#MemberLink#<oiref:java#Member#org.jboss.net.samples.store.server.Line#getItem#(##)#:oiref>=910,679,46,17,0:oigroup>
+<oigroup:<oiref:design#Class#id1bljucz90wf51cz90yoz8.node:oiref>=692,490,141,56,1:oigroup>
+<oigroup:MemberLink#<oiref:java#Member#org.jboss.net.samples.store.server.OrderService#findAll#(##)#:oiref>=1292,446,1210,446:oigroup>
+<oigroup:<oiref:design#Class#id1bljucz90wf51cz90yoz8.node16:oiref>=283,494,188,40,1:oigroup>
+<oigroup:Composite#supplierCardinality#MemberLink#<oiref:java#Member#org.jboss.net.samples.store.server.Line#setUnit#(#org.jboss.net.samples.store.Unit#)#:oiref>=1286,794,7,17,0:oigroup>
+<oigroup:<oiref:design#Class#id1bljucz90wf51cz90yoz8.node.link15:oiref>=982,609,833,535:oigroup>
+<oigroup:MemberLink#<oiref:java#Member#org.jboss.net.samples.store.server.OrderService#createLine#(#java.lang.String#org.jboss.net.samples.store.server.Order#)#:oiref>=1292,599,1201,599:oigroup>
+<oigroup:Composite#supplierCardinality#MemberLink#<oiref:java#Member#org.jboss.net.samples.store.Address#state:oiref>=1263,119,26,19,0:oigroup>
+<oigroup:Composite#supplierCardinality#MemberLink#<oiref:java#Member#org.jboss.net.samples.store.Address#phoneNumber:oiref>=1006,1,26,19,0:oigroup>
+<oigroup:MemberLink#<oiref:java#Member#org.jboss.net.samples.store.StateType#OH:oiref>=623,35,623,55,653,55,653,25,633,25:oigroup>
+<oigroup:MemberLink#<oiref:java#Member#org.jboss.net.samples.store.server.Line#setUnit#(#org.jboss.net.samples.store.Unit#)#:oiref>=1201,815,1297,815:oigroup>
+<oigroup:MemberLink#<oiref:java#Member#org.jboss.net.samples.store.server.Line#getItem#(##)#:oiref>=982,700,884,700:oigroup>
+<oigroup:<oiref:design#Class#id1bljucz90wf51cz90yoz8.node16.link18:oiref>=456,616,456,534:oigroup>
+<oigroup:<oiref:java#Class#org.jboss.net.samples.store.server.Item:oiref>=677,613,207,175,1:oigroup>
+<oigroup:<oiref:design#Class#id1bljucz90wf51cz90yoz8.node22:oiref>=1323,-3,184,40,1:oigroup>
+<oigroup:MemberLink#<oiref:java#Member#org.jboss.net.samples.store.Unit#TN:oiref>=877,61,877,91,927,91,927,41,897,41:oigroup>
+<oigroup:MemberLink#<oiref:java#Member#org.jboss.net.samples.store.server.ItemService#lnkItem:oiref>=172,88,502,88:oigroup>
+<oigroup:Composite#supplierCardinality#MemberLink#<oiref:java#Member#org.jboss.net.samples.store.server.Order#getBusinessPartner#(##)#:oiref>=914,296,13,19,0:oigroup>
+<oigroup:Composite#clientCardinality#MemberLink#<oiref:java#Member#org.jboss.net.samples.store.server.BusinessPartner#getAddress#(##)#:oiref>=762,187,26,19,0:oigroup>
+<oigroup:Composite#clientCardinality#MemberLink#<oiref:java#Member#org.jboss.net.samples.store.server.Order#getLines#(##)#:oiref>=1085,501,13,19,0:oigroup>
+<oigroup:Composite#label#MemberLink#<oiref:java#Member#org.jboss.net.samples.store.Address#state:oiref>=1079,120,36,19,0:oigroup>
+<oigroup:Composite#clientCardinality#MemberLink#<oiref:java#Member#org.jboss.net.samples.store.server.Line#getItem#(##)#:oiref>=960,679,18,17,0:oigroup>
+<oigroup:<oiref:java#Class#org.jboss.net.samples.store.Address:oiref>=683,-40,219,194,1:oigroup>
+<oigroup:Composite#label#MemberLink#<oiref:java#Member#org.jboss.net.samples.store.Address#phoneNumber:oiref>=927,2,85,19,0:oigroup>
+<oigroup:Composite#label#MemberLink#<oiref:java#Member#org.jboss.net.samples.store.server.OrderService#findAll#(##)#:oiref>=1224,446,59,19,0:oigroup>
+<oigroup:<oiref:design#Class#id1bljucz90wf51cz90yoz8.node19:oiref>=878,-132,160,40,1:oigroup>
+<oigroup:Composite#clientCardinality#MemberLink#<oiref:java#Member#org.jboss.net.samples.store.server.Line#setUnit#(#org.jboss.net.samples.store.Unit#)#:oiref>=1205,794,5,17,0:oigroup>
+<oigroup:Composite#supplierCardinality#MemberLink#<oiref:java#Member#org.jboss.net.samples.store.server.Order#getLines#(##)#:oiref>=1087,545,11,19,0:oigroup>
+<oigroup:Composite#label#MemberLink#<oiref:java#Member#org.jboss.net.samples.store.server.BusinessPartnerService#create#(#java.lang.String#)#:oiref>=633,293,53,17,0:oigroup>
+<oigroup:<oiref:java#Class#org.jboss.net.samples.store.server.Line:oiref>=982,566,219,270,1:oigroup>
+<oigroup:MemberLink#<oiref:java#Member#org.jboss.net.samples.store.StateType#TX:oiref>=603,35,603,75,673,75,673,5,633,5:oigroup>
+<oigroup:<oiref:design#Class#id1bljucz90wf51cz90yoz8.node22.link:oiref>=1409,111,1409,37:oigroup>
+<oigroup:<oiref:java#Class#org.jboss.net.samples.store.server.BusinessPartner:oiref>=691,210,219,213,1:oigroup>
+<oigroup:<oiref:java#Class#org.jboss.net.samples.store.Unit:oiref>=1297,782,193,51,1:oigroup>
+<oigroup:<oiref:java#Class#org.jboss.net.samples.store.StateType:oiref>=1293,111,203,51,1:oigroup>
+<oigroup:<oiref:java#Class#org.jboss.net.samples.store.server.BusinessPartnerService:oiref>=408,206,219,213,1:oigroup>
+<oigroup:MemberLink#<oiref:java#Member#org.jboss.net.samples.store.server.ItemService#delete#(#org.jboss.net.samples.store.server.Item#)#:oiref>=620,702,677,702:oigroup>
+<oigroup:Composite#supplierCardinality#MemberLink#<oiref:java#Member#org.jboss.net.samples.store.server.BusinessPartner#getAddress#(##)#:oiref>=766,154,24,19,0:oigroup>
+<oigroup:<oiref:design#Class#id1bljucz90wf51cz90yoz8.node16.link:oiref>=439,419,439,494:oigroup>
+<oigroup:MemberLink#<oiref:java#Member#org.jboss.net.samples.store.Address#state:oiref>=902,143,1293,143:oigroup>
+<oigroup:MemberLink#<oiref:java#Member#org.jboss.net.samples.store.Unit#STCK:oiref>=887,61,887,81,917,81,917,51,897,51:oigroup>
+<oigroup:MemberLink#<oiref:java#Member#org.jboss.net.samples.store.server.Order#getLines#(##)#:oiref>=1096,501,1096,566:oigroup>
+<oigroup:Composite#label#MemberLink#<oiref:java#Member#org.jboss.net.samples.store.server.Order#getLines#(##)#:oiref>=1100,522,65,19,0:oigroup>
+<oigroup:Composite#supplierCardinality#MemberLink#<oiref:java#Member#org.jboss.net.samples.store.server.Line#getItem#(##)#:oiref>=888,679,7,17,0:oigroup>
+<oigroup:<oiref:java#Class#org.jboss.net.samples.store.server.ItemService:oiref>=441,616,179,175,1:oigroup>
+<oigroup:<oiref:design#Class#id1bljucz90wf51cz90yoz8.node19.link:oiref>=890,-40,890,-92:oigroup>
+<oigroup:Composite#clientCardinality#MemberLink#<oiref:java#Member#org.jboss.net.samples.store.Address#state:oiref>=906,120,11,19,0:oigroup>
+<oigroup:<oiref:java#Class#org.jboss.net.samples.store.Phone:oiref>=1036,-65,219,156,1:oigroup>
+<oigroup:MemberLink#<oiref:java#Member#org.jboss.net.samples.store.Address#phoneNumber:oiref>=902,25,1036,25:oigroup>
+<oigroup:<oiref:java#Class#org.jboss.net.samples.store.server.Order:oiref>=991,212,219,289,1:oigroup>
+<oigroup:Composite#label#MemberLink#<oiref:java#Member#org.jboss.net.samples.store.server.OrderService#createLine#(#java.lang.String#org.jboss.net.samples.store.server.Order#)#:oiref>=1220,578,53,17,0:oigroup>
+<oigroup:Composite#label#MemberLink#<oiref:java#Member#org.jboss.net.samples.store.server.ItemService#delete#(#org.jboss.net.samples.store.server.Item#)#:oiref>=622,681,53,17,0:oigroup>
+<oigroup:Composite#label#MemberLink#<oiref:java#Member#org.jboss.net.samples.store.server.Order#getBusinessPartner#(##)#:oiref>=925,296,56,19,0:oigroup>
+<oigroup:MemberLink#<oiref:java#Member#org.jboss.net.samples.store.Unit#KG:oiref>=867,61,867,101,937,101,937,31,897,31:oigroup>
+<oigroup:<oiref:design#Class#id1bljucz90wf51cz90yoz8.node19.link21:oiref>=1145,-65,964,-92:oigroup>
+<oigroup:Composite#clientCardinality#MemberLink#<oiref:java#Member#org.jboss.net.samples.store.server.Order#getBusinessPartner#(##)#:oiref>=982,296,11,19,0:oigroup>
+<oigroup:<oiref:design#Class#id1bljucz90wf51cz90yoz8.node.link:oiref>=991,491,833,500:oigroup>
+<oigroup:<oiref:design#Class#id1bljucz90wf51cz90yoz8.node.link13:oiref>=762,423,762,490:oigroup>
+<oigroup:<oiref:java#Class#org.jboss.net.samples.store.server.OrderService:oiref>=1292,419,219,213,1:oigroup>
+<oigroup:MemberLink#<oiref:java#Member#org.jboss.net.samples.store.server.BusinessPartner#getAddress#(##)#:oiref>=796,210,796,154:oigroup>
+<oigroup:MemberLink#<oiref:java#Member#org.jboss.net.samples.store.server.Order#getBusinessPartner#(##)#:oiref>=991,317,910,317:oigroup>
+<oigroup:<oiref:design#Class#id1bljucz90wf51cz90yoz8.node.link14:oiref>=762,613,762,546:oigroup>
+<oigroup:MemberLink#<oiref:java#Member#org.jboss.net.samples.store.StateType#IN:oiref>=613,35,613,65,663,65,663,15,633,15:oigroup>
+<oigroup:MemberLink#<oiref:java#Member#org.jboss.net.samples.store.server.BusinessPartnerService#create#(#java.lang.String#)#:oiref>=627,314,691,314:oigroup>
+*/
+class __positions {
+}/**
+@shapeType Note
+@__modelType node
+@name Note1
+@text Entity Beans usually
+get communicated as
+XMLstfructures. 
+*/
+class node {
+/**
+@shapeType NoteLink
+@__modelType link
+@__ref <oiref:java#Class#org.jboss.net.samples.store.server.Order:oiref><oihard>
+@__reversed 
+*/
+class link {
+}/**
+@shapeType NoteLink
+@__modelType link
+@__ref <oiref:java#Class#org.jboss.net.samples.store.server.BusinessPartner:oiref><oihard>
+@__reversed 
+*/
+class link13 {
+}/**
+@shapeType NoteLink
+@__modelType link
+@__ref <oiref:java#Class#org.jboss.net.samples.store.server.Item:oiref><oihard>
+@__reversed 
+*/
+class link14 {
+}/**
+@shapeType NoteLink
+@__modelType link
+@__ref <oiref:java#Class#org.jboss.net.samples.store.server.Line:oiref><oihard>
+@__reversed 
+*/
+class link15 {
+}}/**
+@shapeType Note
+@__modelType node
+@name Note2
+@text Session Beans usually get
+get exposed as Web-Services. 
+*/
+class node16 {
+/**
+@shapeType NoteLink
+@__modelType link
+@__ref <oiref:java#Class#org.jboss.net.samples.store.server.BusinessPartnerService:oiref><oihard>
+@__reversed 
+*/
+class link {
+}/**
+@shapeType NoteLink
+@__modelType link
+@__ref <oiref:java#Class#org.jboss.net.samples.store.server.ItemService:oiref><oihard>
+@__reversed 
+*/
+class link18 {
+}}/**
+@shapeType Note
+@__modelType node
+@name Note3
+@text JavaBeans are serialized
+per structure 
+*/
+class node19 {
+/**
+@shapeType NoteLink
+@__modelType link
+@__ref <oiref:java#Class#org.jboss.net.samples.store.Address:oiref><oihard>
+@__reversed 
+*/
+class link {
+}/**
+@shapeType NoteLink
+@__modelType link
+@__ref <oiref:java#Class#org.jboss.net.samples.store.Phone:oiref><oihard>
+@__reversed 
+*/
+class link21 {
+}}/**
+@shapeType Note
+@__modelType node
+@name Note4
+@text Typical Enumeration pattern
+maaped to xml-enumerations 
+*/
+class node22 {
+/**
+@shapeType NoteLink
+@__modelType link
+@__ref <oiref:java#Class#org.jboss.net.samples.store.StateType:oiref><oihard>
+@__reversed 
+*/
+class link {
+}}

@@ -135,11 +135,15 @@ public:
 	bool evaluate(const DbValue *value, const ReadSection &rs, CSSM_DB_OPERATOR op) const
 	{
 		uint32 offset, numValues;
-		unpackNumberOfValues(rs, numValues, offset);		
-		if (numValues == 0)
-			return false;
+		unpackNumberOfValues(rs, numValues, offset);
 
-		return (dynamic_cast<const T *>(value))->evaluate(T(rs, offset), op);
+		/* If any of the values for this attribute match we have a
+		   match.   This is the same behaviour that indexes have. */
+		for (uint32 ix = 0; ix < numValues; ++ix)
+			if (dynamic_cast<const T *>(value)->evaluate(T(rs, offset), op))
+				return true;
+
+		return false;
 	}
 
 	bool evaluate(const DbValue *value1, const DbValue *value2, CSSM_DB_OPERATOR op) const

@@ -12,8 +12,8 @@
 #include <Security/logging.h>
 #include <Security/cssmapple.h>
 
-#define abprintf(args...)	debug("ascBuf", ## args)		/* buffer sizes */
-#define aioprintf(args...)	debug("ascIo", ## args)		/* all I/O */
+#define abprintf(args...)	secdebug("ascBuf", ## args)		/* buffer sizes */
+#define aioprintf(args...)	secdebug("ascIo", ## args)		/* all I/O */
 
 static CssmAllocator *ascAllocator;
 

@@ -15,11 +15,10 @@
 	config_require(host/hr_filesys)
 	config_require(host/hr_swrun)
 	config_require(host/hr_swinst)
-	config_require(host/hr_utils)
 
 /* add the host resources mib to the default mibs to load */
-        config_add_mib(HOST-RESOURCES-MIB) 
-        config_add_mib(HOST-RESOURCES-TYPES) 
+config_add_mib(HOST-RESOURCES-MIB)
+config_add_mib(HOST-RESOURCES-TYPES)
 
 /*********************************************
  *

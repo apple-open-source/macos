@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors:                                                             |
+   | Author: Jan Borsodi                                                  |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: qtdom.c,v 1.1.1.3 2001/12/14 22:13:05 zarzycki Exp $ */
+/* $Id: qtdom.c,v 1.1.1.5 2003/07/18 18:07:40 zarzycki Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -127,7 +127,7 @@ static int qdom_find_attributes( zval **children, struct qdom_attribute *attr TS
 
         MAKE_STD_ZVAL(child);
         object_init_ex(child, qdomnode_class_entry_ptr);
-        zend_hash_next_index_insert((*children)->value.ht, &child, sizeof(zval *), NULL);
+        zend_hash_next_index_insert(Z_ARRVAL_PP(children), &child, sizeof(zval *), NULL);
         add_property_stringl(child, "name", (char *) node->Name, strlen(node->Name), 1);
         add_property_long(child, "type", node->Type);
         add_property_stringl(child, "content", (char *) node->Content, strlen(node->Content), 1);
@@ -166,7 +166,7 @@ static int qdom_find_children( zval **children, struct qdom_node *orig_node TSRM
 
         MAKE_STD_ZVAL(child);
         object_init_ex(child, qdomnode_class_entry_ptr);
-        zend_hash_next_index_insert((*children)->value.ht, &child, sizeof(zval *), NULL);
+        zend_hash_next_index_insert(Z_ARRVAL_PP(children), &child, sizeof(zval *), NULL);
         add_property_stringl(child, "name", (char *) node->Name, strlen(node->Name), 1);
         add_property_long(child, "type", node->Type);
         if ( node->Type == 2 || node->Type == 3 || node->Type == 4 )
@@ -230,7 +230,7 @@ PHP_FUNCTION(qdom_tree)
     object_init_ex(return_value, qdomdoc_class_entry_ptr);
 	add_property_stringl(return_value, "version", (char *) qt_ver, strlen(qt_ver), 1);
 
-    doc = qdom_do_init( arg->value.str.val );
+    doc = qdom_do_init( Z_STRVAL_P(arg) );
 
     qdom_do_doc_type( doc, &qdom_type_name );
 
@@ -267,6 +267,6 @@ PHP_FUNCTION(qdom_error)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

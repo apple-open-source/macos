@@ -1,5 +1,5 @@
 #
-# $Id: common.rb,v 1.1.1.1 2002/05/27 17:59:49 jkh Exp $
+# $Id: common.rb,v 1.1.1.2 2003/05/14 13:58:50 melville Exp $
 #
 # Copyright (c) 2001 akira yamada <akira@ruby-lang.org>
 # You can redistribute it and/or modify it under the same term as Ruby.
@@ -145,17 +145,19 @@ module URI
       X_ABS_URI = "
 	(#{PATTERN::SCHEME}):                     (?# 1: scheme)
 	(?:
-	   (?:
-	     //(?:
-		 (?:(?:(#{PATTERN::USERINFO})@)?  (?# 2: userinfo)
-		   (?:(#{PATTERN::HOST})(?::(\\d*))?))?(?# 3: host, 4: port)
-	       |
-		 (#{PATTERN::REG_NAME})           (?# 5: registry)
-	       )
-	       (#{PATTERN::ABS_PATH})?            (?# 6: path)
-	   )(?:\\?(#{PATTERN::QUERY}))?           (?# 7: query)
+	   (#{PATTERN::OPAQUE_PART})              (?# 2: opaque)
 	|
-	   (#{PATTERN::OPAQUE_PART})              (?# 8: opaque)
+	   (?:(?:
+	     //(?:
+		 (?:(?:(#{PATTERN::USERINFO})@)?  (?# 3: userinfo)
+		   (?:(#{PATTERN::HOST})(?::(\\d*))?))?(?# 4: host, 5: port)
+	       |
+		 (#{PATTERN::REG_NAME})           (?# 6: registry)
+	       )
+	     |
+	     (?!//))                              (?# XXX: '//' is the mark for hostport)
+	     (#{PATTERN::ABS_PATH})?              (?# 7: path)
+	   )(?:\\?(#{PATTERN::QUERY}))?           (?# 8: query)
 	)
 	(?:\\#(#{PATTERN::FRAGMENT}))?            (?# 9: fragment)
       "
@@ -231,7 +233,7 @@ module URI
 	end
       else
 	raise ArgumentError, 
-	  "expected Array of or Hash of compornents of #{klass.to_s} (#{klass.component[1..-1].join(', ')})"
+	  "expected Array of or Hash of components of #{klass.to_s} (#{klass.component[1..-1].join(', ')})"
       end
       tmp[:scheme] = klass.to_s.sub(/\A.*::/, '').downcase
 
@@ -290,8 +292,8 @@ module URI
       # null uri
 
     when ABS_URI
-      scheme, userinfo, host, port, 
-	registry, path, query, opaque, fragment = $~[1..-1]
+      scheme, opaque, userinfo, host, port, 
+	registry, path, query, fragment = $~[1..-1]
 
       # URI-reference = [ absoluteURI | relativeURI ] [ "#" fragment ]
 
@@ -396,31 +398,21 @@ module URI
 =end
   def self.extract(str, schemes = [])
     urls = []
-    if schemes.size > 0
-      tmp = Regexp.new('(?:' + schemes.collect{|s| 
-			 Regexp.quote(s + ':')
-		       }.join('|') + ')', 
-		       Regexp::IGNORECASE, 'N')
-      str.scan(tmp) {
-	tmp_str = $& + $'
-	if ABS_URI_REF =~ tmp_str
-	  if block_given?
-	    yield($&)
-	  else
-	    urls << $&
-	  end
-	end
-      }
-
-    else
-      str.scan(ABS_URI_REF) {
-	if block_given?
-	  yield($&)
-	else
-	  urls << $&
-	end
-      }
+    regexp = ABS_URI_REF
+    unless schemes.empty?
+      regexp = Regexp.new('(?=' + schemes.collect{|s| 
+			    Regexp.quote(s + ':')
+			  }.join('|') + ')' + PATTERN::X_ABS_URI, 
+			  Regexp::EXTENDED, 'N')
     end
+
+    str.scan(regexp) {
+      if block_given?
+	yield($&)
+      else
+	urls << $&
+      end
+    }
 
     if block_given?
       return nil

@@ -1,9 +1,9 @@
 /*
- * "$Id: ipp.c,v 1.1.1.6 2002/06/06 22:12:29 jlovell Exp $"
+ * "$Id: ipp.c,v 1.1.1.15 2003/08/03 06:18:38 jlovell Exp $"
  *
  *   IPP backend for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -29,6 +29,9 @@
  *   password_cb()          - Disable the password prompt for
  *                            cupsDoFileRequest().
  *   report_printer_state() - Report the printer state.
+ *   run_pictwps_filter()   - Convert PICT files to PostScript when printing
+ *                            remotely.
+ *   sigterm_handler()      - Handle 'terminate' signals that stop the backend.
  */
 
 /*
@@ -44,6 +47,50 @@
 #include <cups/language.h>
 #include <cups/string.h>
 #include <signal.h>
+#include <sys/wait.h>
+
+
+/*
+ * Globals...
+ */
+
+static char	tmpfilename[1024] = "";	/* Temporary spool file name */
+#ifdef __APPLE__
+static char	pstmpname[1024] = "";	/* Temporary PostScript file name */
+#endif /* __APPLE__ */
+
+
+/*
+ * Some OS's don't have hstrerror(), most notably Solaris...
+ */
+
+#ifndef HAVE_HSTRERROR
+#  define hstrerror cups_hstrerror
+
+const char *					/* O - Error string */
+cups_hstrerror(int error)			/* I - Error number */
+{
+  static const char * const errors[] =
+		{
+		  "OK",
+		  "Host not found.",
+		  "Try again.",
+		  "Unrecoverable lookup error.",
+		  "No data associated with name."
+		};
+
+
+  if (error < 0 || error > 4)
+    return ("Unknown hostname lookup error.");
+  else
+    return (errors[error]);
+}
+#elif defined(_AIX)
+/*
+ * AIX doesn't provide a prototype but does provide the function...
+ */
+extern const char *hstrerror(int);
+#endif /* !HAVE_HSTRERROR */
 
 
 /*
@@ -52,6 +99,11 @@
 
 const char	*password_cb(const char *);
 int		report_printer_state(ipp_t *ipp);
+
+#ifdef __APPLE__
+int		run_pictwps_filter(char **argv, const char *filename);
+#endif /* __APPLE__ */
+static void	sigterm_handler(int sig);
 
 
 /*
@@ -79,8 +131,8 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
   char		method[255],	/* Method in URI */
 		hostname[1024],	/* Hostname */
 		username[255],	/* Username info */
-		resource[1024],	/* Resource info (printer name) */
-		filename[1024];	/* File to print */
+		resource[1024];	/* Resource info (printer name) */
+  char		*filename;	/* File to print */
   int		port;		/* Port number (not used) */
   char		uri[HTTP_MAX_URI];/* Updated URI without user/pass */
   ipp_status_t	ipp_status;	/* Status of IPP request */
@@ -90,10 +142,15 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
 		*supported;	/* get-printer-attributes response */
   ipp_attribute_t *job_id_attr;	/* job-id attribute */
   int		job_id;		/* job-id value */
+  ipp_attribute_t *job_sheets;	/* job-media-sheets-completed attribute */
   ipp_attribute_t *job_state;	/* job-state attribute */
   ipp_attribute_t *copies_sup;	/* copies-supported attribute */
   ipp_attribute_t *charset_sup;	/* charset-supported attribute */
   ipp_attribute_t *format_sup;	/* document-format-supported attribute */
+  ipp_attribute_t *printer_state;
+  				/* printer-state attribute */
+  ipp_attribute_t *printer_accepting;
+  				/* printer-is-accepting-jobs attribute */
   const char	*charset;	/* Character set to use */
   cups_lang_t	*language;	/* Default language */
   int		copies;		/* Number of copies remaining */
@@ -103,6 +160,20 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
 #endif /* HAVE_SIGACTION && !HAVE_SIGSET */
   int		version;	/* IPP version */
   int		reasons;	/* Number of printer-state-reasons shown */
+  static const char * const pattrs[] =
+		{		/* Printer attributes we want */
+		  "copies-supported",
+		  "charset-supported",
+		  "document-format-supported",
+		  "printer-is-accepting-jobs",
+		  "printer-state",
+		  "printer-state-reasons",
+		};
+  static const char * const jattrs[] =
+		{		/* Job attributes we want */
+		  "job-media-sheets-completed",
+		  "job-state"
+		};
 
 
  /*
@@ -110,6 +181,27 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
   */
 
   setbuf(stderr, NULL);
+
+ /*
+  * Ignore SIGPIPE and catch SIGTERM signals...
+  */
+
+#ifdef HAVE_SIGSET
+  sigset(SIGPIPE, SIG_IGN);
+  sigset(SIGTERM, sigterm_handler);
+#elif defined(HAVE_SIGACTION)
+  memset(&action, 0, sizeof(action));
+  action.sa_handler = SIG_IGN;
+  sigaction(SIGPIPE, &action, NULL);
+
+  sigemptyset(&action.sa_mask);
+  sigaddset(&action.sa_mask, SIGTERM);
+  action.sa_handler = sigterm_handler;
+  sigaction(SIGTERM, &action, NULL);
+#else
+  signal(SIGPIPE, SIG_IGN);
+  signal(SIGTERM, sigterm_handler);
+#endif /* HAVE_SIGSET */
 
  /*
   * Check command-line...
@@ -135,6 +227,18 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
   }
 
  /*
+  * Get the content type...
+  */
+
+  if (argc > 6)
+    content_type = getenv("CONTENT_TYPE");
+  else
+    content_type = "application/vnd.cups-raw";
+
+  if (content_type == NULL)
+    content_type = "application/octet-stream";
+
+ /*
   * If we have 7 arguments, print the file named on the command-line.
   * Otherwise, copy stdin to a temporary file and print the temporary
   * file.
@@ -151,7 +255,7 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
     int  bytes;		/* Number of bytes read */
 
 
-    if ((fd = cupsTempFd(filename, sizeof(filename))) < 0)
+    if ((fd = cupsTempFd(tmpfilename, sizeof(tmpfilename))) < 0)
     {
       perror("ERROR: unable to create temporary file");
       return (1);
@@ -162,14 +266,15 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
       {
         perror("ERROR: unable to write to temporary file");
 	close(fd);
-	unlink(filename);
+	unlink(tmpfilename);
 	return (1);
       }
 
     close(fd);
+    filename = tmpfilename;
   }
   else
-    strlcpy(filename, argv[6], sizeof(filename));
+    filename = argv[6];
 
  /*
   * Extract the hostname and printer name from the URI...
@@ -199,13 +304,43 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
   {
     fprintf(stderr, "INFO: Connecting to %s on port %d...\n", hostname, port);
 
-    if ((http = httpConnect(hostname, port)) == NULL)
+    if ((http = httpConnectEncrypt(hostname, port, cupsEncryption())) == NULL)
     {
+      if (getenv("CLASS") != NULL)
+      {
+       /*
+        * If the CLASS environment variable is set, the job was submitted
+	* to a class and not to a specific queue.  In this case, we want
+	* to abort immediately so that the job can be requeued on the next
+	* available printer in the class.
+	*/
+
+        fprintf(stderr, "INFO: Unable to queue job on %s, queuing on next printer in class...\n",
+	        hostname);
+
+        if (argc == 6 || strcmp(filename, argv[6]))
+	  unlink(filename);
+
+       /*
+        * Sleep 5 seconds to keep the job from requeuing too rapidly...
+	*/
+
+	sleep(5);
+
+        return (1);
+      }
+
       if (errno == ECONNREFUSED || errno == EHOSTDOWN ||
           errno == EHOSTUNREACH)
       {
 	fprintf(stderr, "INFO: Network host \'%s\' is busy; will retry in 30 seconds...",
                 hostname);
+	sleep(30);
+      }
+      else if (h_errno)
+      {
+        fprintf(stderr, "INFO: Unable to lookup host \'%s\' - %s\n",
+	        hostname, hstrerror(h_errno));
 	sleep(30);
       }
       else
@@ -261,6 +396,10 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
     ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri",
         	 NULL, uri);
 
+    ippAddStrings(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD,
+                  "requested-attributes", sizeof(pattrs) / sizeof(pattrs[0]),
+		  NULL, pattrs);
+
    /*
     * Do the request...
     */
@@ -292,9 +431,21 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
 	version = 0;
 	httpReconnect(http);
       }
+      else if (ipp_status == IPP_NOT_FOUND)
+      {
+        fputs("ERROR: Destination printer does not exist!\n", stderr);
+
+	if (supported)
+          ippDelete(supported);
+
+	return (1);
+      }
       else
+      {
 	fprintf(stderr, "ERROR: Unable to get printer status (%s)!\n",
 	        ippErrorString(ipp_status));
+        sleep(10);
+      }
 
       if (supported)
         ippDelete(supported);
@@ -332,25 +483,46 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
   while (ipp_status > IPP_OK_CONFLICT);
 
  /*
-  * Now that we are "connected" to the port, ignore SIGTERM so that we
-  * can finish out any page data the driver sends (e.g. to eject the
-  * current page...  Only ignore SIGTERM if we are printing data from
-  * stdin (otherwise you can't cancel raw jobs...)
+  * See if the printer is accepting jobs and is not stopped; if either
+  * condition is true and we are printing to a class, requeue the job...
   */
 
-  if (argc < 7)
+  if (getenv("CLASS") != NULL)
   {
-#ifdef HAVE_SIGSET /* Use System V signals over POSIX to avoid bugs */
-    sigset(SIGTERM, SIG_IGN);
-#elif defined(HAVE_SIGACTION)
-    memset(&action, 0, sizeof(action));
+    printer_state     = ippFindAttribute(supported, "printer-state",
+                                	 IPP_TAG_ENUM);
+    printer_accepting = ippFindAttribute(supported, "printer-is-accepting-jobs",
+                                	 IPP_TAG_BOOLEAN);
 
-    sigemptyset(&action.sa_mask);
-    action.sa_handler = SIG_IGN;
-    sigaction(SIGTERM, &action, NULL);
-#else
-    signal(SIGTERM, SIG_IGN);
-#endif /* HAVE_SIGSET */
+    if (printer_state == NULL ||
+	printer_state->values[0].integer > IPP_PRINTER_PROCESSING ||
+	printer_accepting == NULL ||
+	!printer_accepting->values[0].boolean)
+    {
+     /*
+      * If the CLASS environment variable is set, the job was submitted
+      * to a class and not to a specific queue.  In this case, we want
+      * to abort immediately so that the job can be requeued on the next
+      * available printer in the class.
+      */
+
+      fprintf(stderr, "INFO: Unable to queue job on %s, queuing on next printer in class...\n",
+	      hostname);
+
+      ippDelete(supported);
+      httpClose(http);
+
+      if (argc == 6 || strcmp(filename, argv[6]))
+	unlink(filename);
+
+     /*
+      * Sleep 5 seconds to keep the job from requeuing too rapidly...
+      */
+
+      sleep(5);
+
+      return (1);
+    }
   }
 
  /*
@@ -447,10 +619,36 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
     options     = NULL;
     num_options = cupsParseOptions(argv[5], 0, &options);
 
-    if (argc > 6)
-      content_type = getenv("CONTENT_TYPE");
-    else
-      content_type = "application/vnd.cups-raw";
+#ifdef __APPLE__
+    if (content_type != NULL && strcasecmp(content_type, "application/pictwps") == 0)
+    {
+      if (format_sup != NULL)
+      {
+	for (i = 0; i < format_sup->num_values; i ++)
+	  if (strcasecmp(content_type, format_sup->values[i].string.text) == 0)
+	    break;
+      }
+
+      if (format_sup == NULL || i >= format_sup->num_values)
+      {
+       /*
+	* Remote doesn't support "application/pictwps" (i.e. it's not MacOS X)
+	* so convert the document to PostScript...
+	*/
+
+	if (run_pictwps_filter(argv, filename))
+	  return (1);
+
+        filename = pstmpname;
+
+       /*
+	* Change the MIME type to application/postscript...
+	*/
+
+	content_type = "application/postscript";
+      }
+    }
+#endif /* __APPLE__ */
 
     if (content_type != NULL && format_sup != NULL)
     {
@@ -575,8 +773,9 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
 	ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME, "requesting-user-name",
         	     NULL, argv[2]);
 
-      ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD,
-                   "requested-attributes", NULL, "job-state");
+      ippAddStrings(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD,
+                    "requested-attributes", sizeof(jattrs) / sizeof(jattrs[0]),
+		    NULL, jattrs);
 
      /*
       * Do the request...
@@ -615,17 +814,26 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
           break;
 	}
       }
-      else if ((job_state = ippFindAttribute(response, "job-state", IPP_TAG_ENUM)) != NULL)
-      {
-       /*
-        * Stop polling if the job is finished or pending-held...
-	*/
 
-        if (job_state->values[0].integer > IPP_JOB_PROCESSING ||
-	    job_state->values[0].integer == IPP_JOB_HELD)
+      if (response != NULL)
+      {
+	if ((job_sheets = ippFindAttribute(response, "job-media-sheets-completed",
+	                                   IPP_TAG_INTEGER)) != NULL)
+	  fprintf(stderr, "PAGE: total %d\n", job_sheets->values[0].integer);
+
+	if ((job_state = ippFindAttribute(response, "job-state",
+	                                  IPP_TAG_ENUM)) != NULL)
 	{
-	  ippDelete(response);
-	  break;
+	 /*
+          * Stop polling if the job is finished or pending-held...
+	  */
+
+          if (job_state->values[0].integer > IPP_JOB_PROCESSING ||
+	      job_state->values[0].integer == IPP_JOB_HELD)
+	  {
+	    ippDelete(response);
+	    break;
+	  }
 	}
       }
 
@@ -689,11 +897,16 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
     ippDelete(supported);
 
  /*
-  * Close and remove the temporary file if necessary...
+  * Remove the temporary file(s) if necessary...
   */
 
-  if (argc < 7)
-    unlink(filename);
+  if (tmpfilename[0])
+    unlink(tmpfilename);
+
+#ifdef __APPLE__
+  if (pstmpname[0])
+    unlink(pstmpname);
+#endif /* __APPLE__ */
 
  /*
   * Return the queue status...
@@ -729,74 +942,86 @@ report_printer_state(ipp_t *ipp)	/* I - IPP response */
   int			i;		/* Looping var */
   int			count;		/* Count of reasons shown... */
   ipp_attribute_t	*reasons;	/* printer-state-reasons */
+  const char		*reason;	/* Current reason */
   const char		*message;	/* Message to show */
   char			unknown[1024];	/* Unknown message string */
+  const char		*prefix;	/* Prefix for STATE: line */
+  char			state[1024];	/* State string */
 
 
   if ((reasons = ippFindAttribute(ipp, "printer-state-reasons",
                                   IPP_TAG_KEYWORD)) == NULL)
     return (0);
 
+  state[0] = '\0';
+  prefix   = "STATE: ";
+
   for (i = 0, count = 0; i < reasons->num_values; i ++)
   {
+    reason = reasons->values[i].string.text;
+
+    strlcat(state, prefix, sizeof(state));
+    strlcat(state, reason, sizeof(state));
+
+    prefix  = ",";
     message = NULL;
 
-    if (strncmp(reasons->values[i].string.text, "media-needed", 12) == 0)
+    if (strncmp(reason, "media-needed", 12) == 0)
       message = "Media tray needs to be filled.";
-    else if (strncmp(reasons->values[i].string.text, "media-jam", 9) == 0)
+    else if (strncmp(reason, "media-jam", 9) == 0)
       message = "Media jam!";
-    else if (strncmp(reasons->values[i].string.text, "moving-to-paused", 16) == 0 ||
-             strncmp(reasons->values[i].string.text, "paused", 6) == 0 ||
-	     strncmp(reasons->values[i].string.text, "shutdown", 8) == 0)
+    else if (strncmp(reason, "moving-to-paused", 16) == 0 ||
+             strncmp(reason, "paused", 6) == 0 ||
+	     strncmp(reason, "shutdown", 8) == 0)
       message = "Printer off-line.";
-    else if (strncmp(reasons->values[i].string.text, "toner-low", 9) == 0)
+    else if (strncmp(reason, "toner-low", 9) == 0)
       message = "Toner low.";
-    else if (strncmp(reasons->values[i].string.text, "toner-empty", 11) == 0)
+    else if (strncmp(reason, "toner-empty", 11) == 0)
       message = "Out of toner!";
-    else if (strncmp(reasons->values[i].string.text, "cover-open", 10) == 0)
+    else if (strncmp(reason, "cover-open", 10) == 0)
       message = "Cover open.";
-    else if (strncmp(reasons->values[i].string.text, "interlock-open", 14) == 0)
+    else if (strncmp(reason, "interlock-open", 14) == 0)
       message = "Interlock open.";
-    else if (strncmp(reasons->values[i].string.text, "door-open", 9) == 0)
+    else if (strncmp(reason, "door-open", 9) == 0)
       message = "Door open.";
-    else if (strncmp(reasons->values[i].string.text, "input-tray-missing", 18) == 0)
+    else if (strncmp(reason, "input-tray-missing", 18) == 0)
       message = "Media tray missing!";
-    else if (strncmp(reasons->values[i].string.text, "media-low", 9) == 0)
+    else if (strncmp(reason, "media-low", 9) == 0)
       message = "Media tray almost empty.";
-    else if (strncmp(reasons->values[i].string.text, "media-empty", 11) == 0)
+    else if (strncmp(reason, "media-empty", 11) == 0)
       message = "Media tray empty!";
-    else if (strncmp(reasons->values[i].string.text, "output-tray-missing", 19) == 0)
+    else if (strncmp(reason, "output-tray-missing", 19) == 0)
       message = "Output tray missing!";
-    else if (strncmp(reasons->values[i].string.text, "output-area-almost-full", 23) == 0)
+    else if (strncmp(reason, "output-area-almost-full", 23) == 0)
       message = "Output bin almost full.";
-    else if (strncmp(reasons->values[i].string.text, "output-area-full", 16) == 0)
+    else if (strncmp(reason, "output-area-full", 16) == 0)
       message = "Output bin full!";
-    else if (strncmp(reasons->values[i].string.text, "marker-supply-low", 17) == 0)
+    else if (strncmp(reason, "marker-supply-low", 17) == 0)
       message = "Ink/toner almost empty.";
-    else if (strncmp(reasons->values[i].string.text, "marker-supply-empty", 19) == 0)
+    else if (strncmp(reason, "marker-supply-empty", 19) == 0)
       message = "Ink/toner empty!";
-    else if (strncmp(reasons->values[i].string.text, "marker-waste-almost-full", 24) == 0)
+    else if (strncmp(reason, "marker-waste-almost-full", 24) == 0)
       message = "Ink/toner waste bin almost full.";
-    else if (strncmp(reasons->values[i].string.text, "marker-waste-full", 17) == 0)
+    else if (strncmp(reason, "marker-waste-full", 17) == 0)
       message = "Ink/toner waste bin full!";
-    else if (strncmp(reasons->values[i].string.text, "fuser-over-temp", 15) == 0)
+    else if (strncmp(reason, "fuser-over-temp", 15) == 0)
       message = "Fuser temperature high!";
-    else if (strncmp(reasons->values[i].string.text, "fuser-under-temp", 16) == 0)
+    else if (strncmp(reason, "fuser-under-temp", 16) == 0)
       message = "Fuser temperature low!";
-    else if (strncmp(reasons->values[i].string.text, "opc-near-eol", 12) == 0)
+    else if (strncmp(reason, "opc-near-eol", 12) == 0)
       message = "OPC almost at end-of-life.";
-    else if (strncmp(reasons->values[i].string.text, "opc-life-over", 13) == 0)
+    else if (strncmp(reason, "opc-life-over", 13) == 0)
       message = "OPC at end-of-life!";
-    else if (strncmp(reasons->values[i].string.text, "developer-low", 13) == 0)
+    else if (strncmp(reason, "developer-low", 13) == 0)
       message = "Developer almost empty.";
-    else if (strncmp(reasons->values[i].string.text, "developer-empty", 15) == 0)
+    else if (strncmp(reason, "developer-empty", 15) == 0)
       message = "Developer empty!";
-    else if (strstr(reasons->values[i].string.text, "error") != NULL)
+    else if (strstr(reason, "error") != NULL)
     {
       message = unknown;
 
       snprintf(unknown, sizeof(unknown), "Unknown printer error (%s)!",
-               reasons->values[i].string.text);
+               reason);
     }
 
     if (message)
@@ -811,11 +1036,208 @@ report_printer_state(ipp_t *ipp)	/* I - IPP response */
     }
   }
 
+  fprintf(stderr, "%s\n", state);
+
   return (count);
 }
 
 
+#ifdef __APPLE__
+/*
+ * 'run_pictwps_filter()' - Convert PICT files to PostScript when printing
+ *                          remotely.
+ *
+ * This step is required because the PICT format is not documented and
+ * subject to change, so developing a filter for other OS's is infeasible.
+ * Also, fonts required by the PICT file need to be embedded on the
+ * client side (which has the fonts), so we run the filter to get a
+ * PostScript file for printing...
+ */
+
+int						/* O - Exit status of filter */
+run_pictwps_filter(char       **argv,		/* I - Command-line arguments */
+                   const char *filename)	/* I - Filename */
+{
+  struct stat	fileinfo;			/* Print file information */
+  const char	*ppdfile;			/* PPD file for destination printer */
+  int		pid;				/* Child process ID */
+  int		fd;				/* Temporary file descriptor */
+  int		status;				/* Exit status of filter */
+  const char	*printer;			/* PRINTER env var */
+  static char	ppdenv[1024];			/* PPD environment variable */
+
+
+ /*
+  * First get the PPD file for the printer...
+  */
+
+  printer = getenv("PRINTER");
+  if (!printer)
+  {
+    fputs("ERROR: PRINTER environment variable not defined!\n", stderr);
+    return (-1);
+  }
+
+  if ((ppdfile = cupsGetPPD(printer)) == NULL)
+  {
+    fprintf(stderr, "ERROR: Unable to get PPD file for printer \"%s\" - %s.\n",
+            printer, ippErrorString(cupsLastError()));
+    /*return (-1);*/
+  }
+  else
+  {
+    snprintf(ppdenv, sizeof(ppdenv), "PPD=%s", ppdfile);
+    putenv(ppdenv);
+  }
+
+ /*
+  * Then create a temporary file for printing...
+  */
+
+  if ((fd = cupsTempFd(pstmpname, sizeof(pstmpname))) < 0)
+  {
+    fprintf(stderr, "ERROR: Unable to create temporary file - %s.\n",
+            strerror(errno));
+    if (ppdfile)
+      unlink(ppdfile);
+    return (-1);
+  }
+
+ /*
+  * Get the owner of the spool file - it is owned by the user we want to run
+  * as...
+  */
+
+  if (argv[6])
+    stat(argv[6], &fileinfo);
+  else
+  {
+   /*
+    * Use the OSX defaults, as an up-stream filter created the PICT
+    * file...
+    */
+
+    fileinfo.st_uid = 1;
+    fileinfo.st_gid = 80;
+  }
+
+  if (ppdfile)
+    chown(ppdfile, fileinfo.st_uid, fileinfo.st_gid);
+
+  fchown(fd, fileinfo.st_uid, fileinfo.st_gid);
+
+ /*
+  * Finally, run the filter to convert the file...
+  */
+
+  if ((pid = fork()) == 0)
+  {
+   /*
+    * Child process for pictwpstops...  Redirect output of pictwpstops to a
+    * file...
+    */
+
+    close(1);
+    dup(fd);
+    close(fd);
+
+    if (!getuid())
+    {
+     /*
+      * Change to an unpriviledged user...
+      */
+
+      setgid(fileinfo.st_gid);
+      setuid(fileinfo.st_uid);
+    }
+
+    execlp("pictwpstops", printer, argv[1], argv[2], argv[3], argv[4], argv[5],
+           filename, NULL);
+    perror("ERROR: Unable to exec pictwpstops");
+    return (errno);
+  }
+
+  close(fd);
+
+  if (pid < 0)
+  {
+   /*
+    * Error!
+    */
+
+    perror("ERROR: Unable to fork pictwpstops");
+    unlink(filename);
+    if (ppdfile)
+      unlink(ppdfile);
+    return (-1);
+  }
+
+ /*
+  * Now wait for the filter to complete...
+  */
+
+  if (wait(&status) < 0)
+  {
+    perror("ERROR: Unable to wait for pictwpstops");
+    close(fd);
+    unlink(filename);
+    if (ppdfile)
+      unlink(ppdfile);
+    return (-1);
+  }
+
+  if (ppdfile)
+    unlink(ppdfile);
+
+  close(fd);
+
+  if (status)
+  {
+    if (status >= 256)
+      fprintf(stderr, "ERROR: pictwpstops exited with status %d!\n",
+              status / 256);
+    else
+      fprintf(stderr, "ERROR: pictwpstops exited on signal %d!\n",
+              status);
+
+    unlink(filename);
+    return (status);
+  }
+
+ /*
+  * Return with no errors..
+  */
+
+  return (0);
+}
+#endif /* __APPLE__ */
+
 
 /*
- * End of "$Id: ipp.c,v 1.1.1.6 2002/06/06 22:12:29 jlovell Exp $".
+ * 'sigterm_handler()' - Handle 'terminate' signals that stop the backend.
+ */
+
+static void
+sigterm_handler(int sig)		/* I - Signal */
+{
+  (void)sig;	/* remove compiler warnings... */
+
+ /*
+  * Remove the temporary file(s) if necessary...
+  */
+
+  if (tmpfilename[0])
+    unlink(tmpfilename);
+
+#ifdef __APPLE__
+  if (pstmpname[0])
+    unlink(pstmpname);
+#endif /* __APPLE__ */
+
+  exit(1);
+}
+
+
+/*
+ * End of "$Id: ipp.c,v 1.1.1.15 2003/08/03 06:18:38 jlovell Exp $".
  */

@@ -21,3 +21,6 @@ _WebCoreUnicodeLowerFunction
 _WebCoreUnicodeMirroredCharFunction
 _WebCoreUnicodeMirroredFunction
 _WebCoreUnicodeUpperFunction
+_WebCoreInitializeTextRun
+_WebCoreInitializeEmptyTextStyle
+_WebCoreDirectionInfo

@@ -139,7 +139,62 @@ LINK32=link.exe
 # Name "ldappasswd - Win32 Single Release"
 # Begin Source File
 
+SOURCE=.\common.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\ldappasswd.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\ldpversion.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\build\version.h
+
+USERDEP__VERSI="common.c"	"ldappasswd.c"	"$(OUTDIR)\oldap32.lib"	"$(OUTDIR)\olber32.lib"	"$(OUTDIR)\olutil32.lib"
+InputDir=..\..\build
+InputPath=..\..\build\version.h
+
+!IF  "$(CFG)" == "ldappasswd - Win32 Single Debug"
+
+# Begin Custom Build
+
+"ldpversion.c" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	$(InputDir)\mkvers.bat $(InputPath) ldpversion.c ldappasswd /**/
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "ldappasswd - Win32 Single Release"
+
+# Begin Custom Build
+
+"ldpversion.c" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	$(InputDir)\mkvers.bat $(InputPath) ldpversion.c ldappasswd /**/
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "ldappasswd - Win32 Release"
+
+# Begin Custom Build
+
+"ldpversion.c" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	$(InputDir)\mkvers.bat $(InputPath) ldpversion.c ldappasswd /**/
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "ldappasswd - Win32 Debug"
+
+# Begin Custom Build
+
+"ldpversion.c" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	$(InputDir)\mkvers.bat $(InputPath) ldpversion.c ldappasswd /**/
+
+# End Custom Build
+
+!ENDIF 
+
 # End Source File
 # End Target
 # End Project

@@ -377,7 +377,7 @@ int main(int argc, char **argv)
 	{
 	    fprintf(stderr,GT_("fetchmail: %s fetchmail at %d killed.\n"),
 		    bkgd ? GT_("background") : GT_("foreground"), pid);
-	    lock_release();
+	    lock_do_release();
 	    if (argc == 2)
 		exit(0);
 	    else
@@ -1277,7 +1277,7 @@ static void terminate_run(int sig)
 	  memset(ctl->password, '\0', strlen(ctl->password));
 
 #if !defined(HAVE_ATEXIT) && !defined(HAVE_ON_EXIT)
-    lock_release();
+    lock_do_release();
 #endif
 
     if (activecount == 0)

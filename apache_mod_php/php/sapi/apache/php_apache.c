@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -13,37 +13,18 @@
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
-   |          Stig Sæther Bakken <ssb@guardian.no>                        |
+   |          Stig Sæther Bakken <ssb@fast.no>                            |
    |          David Sklar <sklar@student.net>                             |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_apache.c,v 1.1.1.5 2001/12/14 22:15:15 zarzycki Exp $ */
-
-#define NO_REGEX_EXTRA_H
-
-#ifdef WIN32
-#include <winsock2.h>
-#include <stddef.h>
-#endif
-
-#include "php.h"
-#include "ext/standard/head.h"
-#include "php_globals.h"
-#include "php_ini.h"
-#include "SAPI.h"
-#include "mod_php4.h"
-#include "ext/standard/info.h"
-
-#include <stdlib.h>
-#if HAVE_UNISTD_H
-#include <unistd.h>
-#endif
-#include <string.h>
-#include <errno.h>
-#include <ctype.h>
+/* $Id: php_apache.c,v 1.1.1.8 2003/07/18 18:07:50 zarzycki Exp $ */
 
 #include "php_apache_http.h"
-#include "http_request.h"
+
+#if defined(PHP_WIN32) || defined(NETWARE)
+#include "zend.h"
+#include "ap_compat.h"
+#endif
 
 #ifdef ZTS
 int php_apache_info_id;
@@ -51,32 +32,30 @@ int php_apache_info_id;
 php_apache_info_struct php_apache_info;
 #endif
 
-#ifdef PHP_WIN32
-#include "zend.h"
-#include "ap_compat.h"
-#else
-#include "build-defs.h"
-#endif
-
-#define SECTION(name)  PUTS("<H2 align=\"center\">" name "</H2>\n")
+#define SECTION(name)  PUTS("<h2>" name "</h2>\n")
 
 extern module *top_module;
 
 PHP_FUNCTION(virtual);
-PHP_FUNCTION(getallheaders);
+PHP_FUNCTION(apache_request_headers);
+PHP_FUNCTION(apache_response_headers);
 PHP_FUNCTION(apachelog);
 PHP_FUNCTION(apache_note);
 PHP_FUNCTION(apache_lookup_uri);
 PHP_FUNCTION(apache_child_terminate);
+PHP_FUNCTION(apache_setenv);
 
 PHP_MINFO_FUNCTION(apache);
 
 function_entry apache_functions[] = {
 	PHP_FE(virtual,									NULL)
-	PHP_FE(getallheaders,							NULL)
+	PHP_FE(apache_request_headers,					NULL)
 	PHP_FE(apache_note,								NULL)
 	PHP_FE(apache_lookup_uri,						NULL)
 	PHP_FE(apache_child_terminate,					NULL)
+	PHP_FE(apache_setenv,							NULL)
+	PHP_FE(apache_response_headers,					NULL)
+	PHP_FALIAS(getallheaders, apache_request_headers, NULL)
 	{NULL, NULL, NULL}
 };
 
@@ -99,7 +78,7 @@ static void php_apache_globals_ctor(php_apache_info_struct *apache_globals TSRML
 static PHP_MINIT_FUNCTION(apache)
 {
 #ifdef ZTS
-	ts_allocate_id(&php_apache_info_id, sizeof(php_apache_info_struct), php_apache_globals_ctor, NULL);
+	ts_allocate_id(&php_apache_info_id, sizeof(php_apache_info_struct), (ts_allocate_ctor) php_apache_globals_ctor, NULL);
 #else
 	php_apache_globals_ctor(&php_apache_info TSRMLS_CC);
 #endif
@@ -116,30 +95,32 @@ static PHP_MSHUTDOWN_FUNCTION(apache)
 
 zend_module_entry apache_module_entry = {
 	STANDARD_MODULE_HEADER,
-	"apache",
-	apache_functions,
-	PHP_MINIT(apache),
-	PHP_MSHUTDOWN(apache),
-	NULL,
-	NULL,
-	PHP_MINFO(apache),
+	"apache", 
+	apache_functions, 
+	PHP_MINIT(apache), 
+	PHP_MSHUTDOWN(apache), 
+	NULL, 
+	NULL, 
+	PHP_MINFO(apache), 
 	NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
 };
 
-
-/* {{{ proto string child_terminate()
-   Get and set Apache request notes */
+/* {{{ proto bool apache_child_terminate(void)
+   Terminate apache process after this request */
 PHP_FUNCTION(apache_child_terminate)
 {
 #ifndef MULTITHREAD
 	if (AP(terminate_child)) {
 		ap_child_terminate( ((request_rec *)SG(server_context)) );
+		RETURN_TRUE;
 	} else { /* tell them to get lost! */
-		php_error(E_WARNING, "apache.child_terminate is disabled");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "This function is disabled");
+		RETURN_FALSE;
 	}
 #else
-		php_error(E_WARNING, "apache_child_terminate() is not supported in this build");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "This function is not supported in this build");
+		RETURN_FALSE;
 #endif
 }
 /* }}} */
@@ -200,6 +181,10 @@ PHP_MINFO_FUNCTION(apache)
 	php_info_print_table_row(1, "Apache for Windows 95/NT");
 	php_info_print_table_end();
 	php_info_print_table_start();
+#elif defined(NETWARE)
+	php_info_print_table_row(1, "Apache for NetWare");
+	php_info_print_table_end();
+	php_info_print_table_start();
 #else
 	php_info_print_table_row(2, "APACHE_INCLUDE", PHP_APACHE_INCLUDE);
 	php_info_print_table_row(2, "APACHE_TARGET", PHP_APACHE_TARGET);
@@ -224,6 +209,10 @@ PHP_MINFO_FUNCTION(apache)
 	sprintf(output_buf, "Connection: %d - Keep-Alive: %d", serv->timeout, serv->keep_alive_timeout);
 	php_info_print_table_row(2, "Timeouts", output_buf);
 #if !defined(WIN32) && !defined(WINNT)
+/*
+	This block seems to be working on NetWare; But it seems to be showing
+	all modules instead of just the loaded ones
+*/
 	php_info_print_table_row(2, "Server Root", server_root);
 
 	strcpy(modulenames, "");
@@ -294,7 +283,7 @@ PHP_MINFO_FUNCTION(apache)
 }
 /* }}} */
 
-/* {{{ proto int virtual(string filename)
+/* {{{ proto bool virtual(string filename)
    Perform an Apache sub-request */
 /* This function is equivalent to <!--#include virtual...-->
  * in mod_include. It does an Apache sub-request. It is useful
@@ -315,13 +304,13 @@ PHP_FUNCTION(virtual)
 	convert_to_string_ex(filename);
 	
 	if (!(rr = sub_req_lookup_uri ((*filename)->value.str.val, ((request_rec *) SG(server_context))))) {
-		php_error(E_WARNING, "Unable to include '%s' - URI lookup failed", (*filename)->value.str.val);
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to include '%s' - URI lookup failed", (*filename)->value.str.val);
 		if (rr) destroy_sub_req (rr);
 		RETURN_FALSE;
 	}
 
 	if (rr->status != 200) {
-		php_error(E_WARNING, "Unable to include '%s' - error finding URI", (*filename)->value.str.val);
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to include '%s' - error finding URI", (*filename)->value.str.val);
 		if (rr) destroy_sub_req (rr);
 		RETURN_FALSE;
 	}
@@ -330,7 +319,7 @@ PHP_FUNCTION(virtual)
 	php_header();
 
 	if (run_sub_req(rr)) {
-		php_error(E_WARNING, "Unable to include '%s' - request execution failed", (*filename)->value.str.val);
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unable to include '%s' - request execution failed", (*filename)->value.str.val);
 		if (rr) destroy_sub_req (rr);
 		RETURN_FALSE;
 	} else {
@@ -341,8 +330,11 @@ PHP_FUNCTION(virtual)
 /* }}} */
 
 /* {{{ proto array getallheaders(void)
+   Alias for apache_request_headers() */
+/* }}} */
+/* {{{ proto array apache_request_headers(void)
    Fetch all HTTP request headers */
-PHP_FUNCTION(getallheaders)
+PHP_FUNCTION(apache_request_headers)
 {
     array_header *env_arr;
     table_entry *tenv;
@@ -366,7 +358,51 @@ PHP_FUNCTION(getallheaders)
 }
 /* }}} */
 
-/* {{{ proto class apache_lookup_uri(string URI)
+/* {{{ proto array apache_response_headers(void)
+   Fetch all HTTP response headers */
+PHP_FUNCTION(apache_response_headers)
+{
+    array_header *env_arr;
+    table_entry *tenv;
+    int i;
+
+    if (array_init(return_value) == FAILURE) {
+		RETURN_FALSE;
+    }
+    env_arr = table_elts(((request_rec *) SG(server_context))->headers_out);
+    tenv = (table_entry *)env_arr->elts;
+    for (i = 0; i < env_arr->nelts; ++i) {
+		if (!tenv[i].key) continue;
+		if (add_assoc_string(return_value, tenv[i].key, (tenv[i].val==NULL) ? "" : tenv[i].val, 1)==FAILURE) {
+			RETURN_FALSE;
+		}
+	}
+}
+/* }}} */
+
+/* {{{ proto bool apache_setenv(string variable, string value [, bool walk_to_top])
+   Set an Apache subprocess_env variable */
+PHP_FUNCTION(apache_setenv)
+{
+	int var_len, val_len, top=0;
+	char *var = NULL, *val = NULL;
+	request_rec *r = (request_rec *) SG(server_context);
+
+    if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ss|b", &var, &var_len, &val, &val_len, &top) == FAILURE) {
+        RETURN_FALSE;
+	}
+
+	while(top) {
+		if(r->prev) r = r->prev;
+		else break;
+	}
+
+	ap_table_setn(r->subprocess_env, ap_pstrndup(r->pool, var, var_len), ap_pstrndup(r->pool, val, val_len));
+	RETURN_TRUE;
+}
+/* }}} */
+
+/* {{{ proto object apache_lookup_uri(string URI)
    Perform a partial request of the given URI to obtain information about it */
 PHP_FUNCTION(apache_lookup_uri)
 {
@@ -379,7 +415,7 @@ PHP_FUNCTION(apache_lookup_uri)
 	convert_to_string_ex(filename);
 
 	if(!(rr = sub_req_lookup_uri((*filename)->value.str.val, ((request_rec *) SG(server_context))))) {
-		php_error(E_WARNING, "URI lookup failed", (*filename)->value.str.val);
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "URI lookup failed", (*filename)->value.str.val);
 		RETURN_FALSE;
 	}
 	object_init(return_value);
@@ -454,7 +490,7 @@ PHP_FUNCTION(apache_exec_uri)
 	convert_to_string_ex(filename);
 
 	if(!(rr = ap_sub_req_lookup_uri((*filename)->value.str.val, ((request_rec *) SG(server_context))))) {
-		php_error(E_WARNING, "URI lookup failed", (*filename)->value.str.val);
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "URI lookup failed", (*filename)->value.str.val);
 		RETURN_FALSE;
 	}
 	RETVAL_LONG(ap_run_sub_req(rr));
@@ -467,6 +503,6 @@ PHP_FUNCTION(apache_exec_uri)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

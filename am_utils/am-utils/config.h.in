@@ -412,6 +412,9 @@
 /* Define if you have the <lber.h> header file. */
 #undef HAVE_LBER_H
 
+/* Define if you have the `ldap_enable_cache' function. */
+#undef HAVE_LDAP_ENABLE_CACHE
+
 /* Define if you have the <ldap.h> header file. */
 #undef HAVE_LDAP_H
 
@@ -859,6 +862,9 @@
 
 /* Define if `f_fstypename' is member of `struct statfs'. */
 #undef HAVE_STRUCT_STATFS_F_FSTYPENAME
+
+/* Define if `devid' is member of `struct umntrequest'. */
+#undef HAVE_STRUCT_UMNTREQUEST_DEVID
 
 /* Define if you have the `svc_getreq' function. */
 #undef HAVE_SVC_GETREQ

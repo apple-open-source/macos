@@ -1,21 +1,23 @@
 --TEST--
-Testing $argc and $argv handling
+Testing $argc and $argv handling (GET)
 --SKIPIF--
-<?php if(ini_get('register_argc_argv') == '') echo 'skip'; ?>
---POST--
+<?php if (php_sapi_name()=='cli') echo 'skip'; ?>
+--INI--
+register_argc_argv=1
 --GET--
 ab+cd+ef+123+test
 --FILE--
 <?php 
-	if(ini_get('register_globals') != '') {
-		for($i=0;$i<$argc;$i++) {
-			echo "$i: ".$argv[$i]."\n";
-		}
-	} else {
-		for($i=0;$i<$_SERVER['argc'];$i++) {
-			echo "$i: ".$_SERVER['argv'][$i]."\n";
-		}
-	}
+
+if (!ini_get('register_globals')) {
+	$argc = $_SERVER['argc'];
+	$argv = $_SERVER['argv'];
+}
+
+for ($i=0; $i<$argc; $i++) {
+	echo "$i: ".$argv[$i]."\n";
+}
+
 ?>
 --EXPECT--
 0: ab

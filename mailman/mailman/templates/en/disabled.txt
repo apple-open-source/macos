@@ -1,0 +1,25 @@
+Your membership in the mailing list %(listname)s has been disabled
+%(reason)s.  You will not get any more messages from this
+list until you re-enable your membership.  You will receive
+%(noticesleft)s more reminders like this before your membership in the
+list is deleted.
+
+To re-enable your membership, you can simply respond to this message
+(leaving the Subject: line intact), or visit the confirmation page at
+
+    %(confirmurl)s
+
+You can also visit your membership page at
+
+    %(optionsurl)s
+
+On your membership page, you can change various delivery options such
+as your email address and whether you get digests or not.  As a
+reminder, your membership password is
+
+    %(password)s
+
+If you have any questions or problems, you can contact the list owner
+at
+
+    %(owneraddr)s

@@ -1,7 +1,7 @@
 /* Support for printing C values for GDB, the GNU debugger.
-   Copyright 1986, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001
-   Free Software Foundation, Inc.
+
+   Copyright 1986, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996,
+   1997, 1998, 1999, 2000, 2001, 2003 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -21,6 +21,7 @@
    Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
+#include "gdb_string.h"
 #include "symtab.h"
 #include "gdbtypes.h"
 #include "expression.h"
@@ -453,7 +454,7 @@ c_val_print (struct type *type, char *valaddr, int embedded_offset,
       break;
 
     case TYPE_CODE_ERROR:
-      fprintf_filtered (stream, "<error type>");
+      fprintf_filtered (stream, "<unknown type>");
       break;
 
     case TYPE_CODE_UNDEF:
@@ -514,7 +515,7 @@ c_value_print (struct value *val, struct ui_file *stream, int format,
       if (TYPE_CODE (type) == TYPE_CODE_PTR &&
 	  TYPE_NAME (type) == NULL &&
 	  TYPE_NAME (TYPE_TARGET_TYPE (type)) != NULL &&
-	  STREQ (TYPE_NAME (TYPE_TARGET_TYPE (type)), "char"))
+	  strcmp (TYPE_NAME (TYPE_TARGET_TYPE (type)), "char") == 0)
 	{
 	  /* Print nothing */
 	}

@@ -1,4 +1,4 @@
-This is automake.info, produced by makeinfo version 4.1 from
+This is automake.info, produced by makeinfo version 4.2 from
 automake.texi.
 
 INFO-DIR-SECTION GNU programming tools
@@ -11,7 +11,7 @@ START-INFO-DIR-ENTRY
 * aclocal: (automake)Invoking aclocal.          Generating aclocal.m4
 END-INFO-DIR-ENTRY
 
-   This file documents GNU automake 1.6.1
+   This file documents GNU automake 1.6.3
 
    Copyright 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002 Free
 Software Foundation, Inc.
@@ -29,6 +29,59 @@ permission notice identical to this one.
 manual into another language, under the above conditions for modified
 versions, except that this permission notice may be stated in a
 translation approved by the Foundation.
+
+
+File: automake.info,  Node: EXEEXT,  Prev: Dependencies,  Up: Programs
+
+Support for executable extensions
+=================================
+
+   On some platforms, such as Windows, executables are expected to have
+an extension such as `.exe'.  On these platforms, some compilers (GCC
+among them) will automatically generate `foo.exe' when asked to
+generate `foo'.
+
+   Automake provides mostly-transparent support for this.  Unfortunately
+_mostly_ doesn't yet mean _fully_.  Until the English dictionary is
+revised, you will have to assist Automake if your package must support
+those platforms.
+
+   One thing you must be aware of is that, internally, Automake rewrites
+something like this:
+
+     bin_PROGRAMS = liver
+
+   to this:
+
+     bin_PROGRAMS = liver$(EXEEXT)
+
+   The targets Automake generates are likewise given the `$(EXEEXT)'
+extension.  `EXEEXT'
+
+   However, Automake cannot apply this rewriting to `configure'
+substitutions.  This means that if you are conditionally building a
+program using such a substitution, then your `configure.in' must take
+care to add `$(EXEEXT)' when constructing the output variable.
+
+   With Autoconf 2.13 and earlier, you must explicitly use `AC_EXEEXT'
+to get this support.  With Autoconf 2.50, `AC_EXEEXT' is run
+automatically if you configure a compiler (say, through `AC_PROG_CC').
+
+   Sometimes maintainers like to write an explicit link rule for their
+program.  Without executable extension support, this is easy--you
+simply write a target with the same name as the program.  However, when
+executable extension support is enabled, you must instead add the
+`$(EXEEXT)' suffix.
+
+   Unfortunately, due to the change in Autoconf 2.50, this means you
+must always add this extension.  However, this is a problem for
+maintainers who know their package will never run on a platform that
+has executable extensions.  For those maintainers, the `no-exeext'
+option (*note Options::) will disable this feature.  This works in a
+fairly ugly way; if `no-exeext' is seen, then the presence of a target
+named `foo' in `Makefile.am' will override an automake-generated target
+of the form `foo$(EXEEXT)'.  Without the `no-exeext' option, this use
+will give an error.
 
 
 File: automake.info,  Node: Other objects,  Next: Other GNU Tools,  Prev: Programs,  Up: Top
@@ -800,11 +853,11 @@ To do this you would list its name in `TESTS' and also in
 DejaGNU Tests
 =============
 
-   If `dejagnu' (ftp://prep.ai.mit.edu/pub/gnu/dejagnu-1.3.tar.gz)
-appears in `AUTOMAKE_OPTIONS', then a `dejagnu'-based test suite is
-assumed.  The variable `DEJATOOL' is a list of names which are passed,
-one at a time, as the `--tool' argument to `runtest' invocations; it
-defaults to the name of the package.
+   If `dejagnu' (ftp://ftp.gnu.org/gnu/dejagnu/) appears in
+`AUTOMAKE_OPTIONS', then a `dejagnu'-based test suite is assumed.  The
+variable `DEJATOOL' is a list of names which are passed, one at a time,
+as the `--tool' argument to `runtest' invocations; it defaults to the
+name of the package.
 
    The variable `RUNTESTDEFAULTFLAGS' holds the `--tool' and `--srcdir'
 flags that are passed to dejagnu by default; this can be overridden if
@@ -819,6 +872,14 @@ values do not take into account host and target names.
 `runtest' invocation.  This is considered a "user variable" (*note User
 Variables::).  If you need to set `runtest' flags in `Makefile.am', you
 can use `AM_RUNTESTFLAGS' instead.
+
+   Automake will generate rules to create a local `site.exp' file,
+defining various variables detected by `./configure'.  This file is
+automatically read by DejaGnu.  It is ok for the user of a package to
+edit this file in order to tune the test suite.  However this is not
+the place where the test suite author should define new variables: this
+should be done elsewhere in the real test suite code.  Especially,
+`site.exp' should not be distributed.
 
    In either case, the testing is done via `make check'.
 
@@ -950,7 +1011,7 @@ VERSION
    Unrecognized options are diagnosed by `automake'.
 
    If you want an option to apply to all the files in the tree, you can
-use the `AM_AUTOMAKE_OPTIONS' macro in `configure.in'.  *Note Macros::.
+use the `AM_INIT_AUTOMAKE' macro in `configure.in'.  *Note Macros::.
 
 
 File: automake.info,  Node: Miscellaneous,  Next: Include,  Prev: Options,  Up: Top
@@ -1135,7 +1196,7 @@ conditional which is true if the user uses the `--enable-debug' option.
      noinst_PROGRAMS = $(DBG)
 
    This trivial example could also be handled using EXTRA_PROGRAMS
-(*note A Program::).
+(*note Conditional Programs::).
 
    You may only test a single variable in an `if' statement, possibly
 negated using `!'.  The `else' statement may be omitted.  Conditionals
@@ -1219,51 +1280,4 @@ the following as well:
      be included.
 
    * The file `THANKS' is required.
-
-
-File: automake.info,  Node: Cygnus,  Next: Extending,  Prev: Gnits,  Up: Top
-
-The effect of `--cygnus'
-************************
-
-   Some packages, notably GNU GCC and GNU gdb, have a build environment
-originally written at Cygnus Support (subsequently renamed Cygnus
-Solutions, and then later purchased by Red Hat).  Packages with this
-ancestry are sometimes referred to as "Cygnus" trees.
-
-   A Cygnus tree has slightly different rules for how a `Makefile.in'
-is to be constructed.  Passing `--cygnus' to `automake' will cause any
-generated `Makefile.in' to comply with Cygnus rules.
-
-   Here are the precise effects of `--cygnus':
-
-   * Info files are always created in the build directory, and not in
-     the source directory.
-
-   * `texinfo.tex' is not required if a Texinfo source file is
-     specified.  The assumption is that the file will be supplied, but
-     in a place that Automake cannot find.  This assumption is an
-     artifact of how Cygnus packages are typically bundled.
-
-   * `make dist' is not supported, and the rules for it are not
-     generated.  Cygnus-style trees use their own distribution
-     mechanism.
-
-   * Certain tools will be searched for in the build tree as well as in
-     the user's `PATH'.  These tools are `runtest', `expect',
-     `makeinfo' and `texi2dvi'.
-
-   * `--foreign' is implied.
-
-   * The options `no-installinfo' and `no-dependencies' are implied.
-
-   * The macros `AM_MAINTAINER_MODE' and `AM_CYGWIN32' are required.
-
-   * The `check' target doesn't depend on `all'.
-
-   GNU maintainers are advised to use `gnu' strictness in preference to
-the special Cygnus mode.  Some day, perhaps, the differences between
-Cygnus trees and GNU trees will disappear (for instance, as GCC is made
-more standards compliant).  At that time the special Cygnus mode will be
-removed.
 

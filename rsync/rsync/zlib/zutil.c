@@ -1,9 +1,9 @@
 /* zutil.c -- target dependent utility functions for the compression library
- * Copyright (C) 1995-1998 Jean-loup Gailly.
+ * Copyright (C) 1995-2002 Jean-loup Gailly.
  * For conditions of distribution and use, see copyright notice in zlib.h 
  */
 
-/* @(#) $Id: zutil.c,v 1.1.1.2 2001/05/04 18:44:59 wsanchez Exp $ */
+/* @(#) $Id: zutil.c,v 1.1.1.3 2003/03/17 23:00:02 rbraun Exp $ */
 
 #include "zutil.h"
 
@@ -60,7 +60,7 @@ const char * ZEXPORT zError(err)
 
 void zmemcpy(dest, source, len)
     Bytef* dest;
-    Bytef* source;
+    const Bytef* source;
     uInt  len;
 {
     if (len == 0) return;
@@ -70,8 +70,8 @@ void zmemcpy(dest, source, len)
 }
 
 int zmemcmp(s1, s2, len)
-    Bytef* s1;
-    Bytef* s2;
+    const Bytef* s1;
+    const Bytef* s2;
     uInt  len;
 {
     uInt j;
@@ -178,7 +178,7 @@ void  zcfree (voidpf opaque, voidpf ptr)
 
 #  define MY_ZCALLOC
 
-#if (!defined(_MSC_VER) || (_MSC_VER < 600))
+#if (!defined(_MSC_VER) || (_MSC_VER <= 600))
 #  define _halloc  halloc
 #  define _hfree   hfree
 #endif

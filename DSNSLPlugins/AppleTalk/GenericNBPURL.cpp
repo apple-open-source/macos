@@ -1,40 +1,39 @@
 /*
-	File:		GenericNBPURL.cp
-
-	Contains:	xxx put contents here xxx
-
-	Written by:	Kevin Arnold
-
-	Copyright:	© 1998 - 1999 by Apple Computer, Inc., all rights reserved.
-
-	Change History (most recent first):
-
-	<14>	05/28/99	KA		convert NewPtr to MMNew and DisposePtr to MMFree
-	<13>	05/05/99	KA		our return length was off by two!
-	<12>	04/29/99	KA		use new encode/decode calls
-	<11>	04/23/99	KA		fixed a bug in ParsingGenericNBPURL
-	<10>	04/11/99	KA		added MakeGenericNBPURL
-	<09>	04-07-99	sns		MemMgr.h -> NSLMemMgr.h
-	<08>	03-30-99	KA		incorporated changes for Steve
-	<07>	03/26/99	sns		explicit namespace (for carbon d9)
-	<06>	02/25/99	KA		call DecodeHTTPString when parsing out a url
-	<05>	01/26/98	KA		added checks for valid pointers in NewGenericNBPURL
-	<04>	11/09/98	KA		added IsValidATZone
-	<03>	11/06/98	KA		added some missing #includes
-	<02>	11/06/98	KA		moved EncodeHTTPString and DecodeHTTPString to URLUtilities.cp
-	<01>	11/06/98	KA		added EncodeHTTPString and DecodeHTTPString and converted to .cp file
-	<4>		10/15/98	KA		took out conversion of AFPServer to afp
-	<3>		7/27/98	 	KA		convert AFPServer to afp in url string
-	<2>		6/28/98	 	KA		Added new memmgr calls
-	 <1>	 3/25/98	KA		Initial checkin
-
-	To Do:
-*/
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+ 
+/*!
+ *  @header GenericNBPURL
+ */
+ 
 #include <stdio.h>
 #include <string.h>
 #include <CoreServices/CoreServices.h>
 #include "GenericNBPURL.h"
 #include "NSLDebugLog.h"
+
+OSStatus HexEncodeText( const char* rawText, UInt16 rawTextLen, char* newTextBuffer, UInt16* newTextBufferLen, Boolean* textChanged );
 
 void MakeGenericNBPURL(const char *entityType, const char *zoneName, const char *name, char* returnBuffer, UInt16* returnBufferLen )
 {
@@ -53,7 +52,7 @@ void MakeGenericNBPURL(const char *entityType, const char *zoneName, const char 
             UInt16 entityTypeLen = strlen(entityType);
             
             //entityType
-            status = NSLHexEncodeText( entityType, entityTypeLen, tempBuf, &bufLen, &textChanged );
+            status = HexEncodeText( entityType, entityTypeLen, tempBuf, &bufLen, &textChanged );
             
             if ( !status )
             {
@@ -63,14 +62,14 @@ void MakeGenericNBPURL(const char *entityType, const char *zoneName, const char 
             else
             {
                 safeEntityType[0] = '\0';
-                DBGLOG( "NSLHexEncodeText failed for entityType, status = %ld\n", status );
+                DBGLOG( "HexEncodeText failed for entityType, status = %ld\n", status );
             }
             
             // hex-encode zoneName 
             UInt16 zoneNameLen = strlen(zoneName);
             
             bufLen = 256;            
-            status = NSLHexEncodeText( zoneName, zoneNameLen, tempBuf, &bufLen, &textChanged );
+            status = HexEncodeText( zoneName, zoneNameLen, tempBuf, &bufLen, &textChanged );
             
             if ( !status )
             {
@@ -78,13 +77,13 @@ void MakeGenericNBPURL(const char *entityType, const char *zoneName, const char 
                 strcpy( safeZoneName, tempBuf );
             }
             else
-                DBGLOG( "NSLHexEncodeText failed, status = %ld\n", status );
+                DBGLOG( "HexEncodeText failed, status = %ld\n", status );
        
             // hex-encode name 
             UInt16 nameLen = strlen(name);
             
             bufLen = 256;
-            status = NSLHexEncodeText( (char*)name, nameLen, tempBuf, &bufLen, &textChanged );
+            status = HexEncodeText( (char*)name, nameLen, tempBuf, &bufLen, &textChanged );
             
             if ( !status )
             {
@@ -92,7 +91,7 @@ void MakeGenericNBPURL(const char *entityType, const char *zoneName, const char 
                 strcpy( safeName, tempBuf );
             }
             else
-                DBGLOG( "NSLHexEncodeText failed, status = %ld\n", status );
+                DBGLOG( "HexEncodeText failed, status = %ld\n", status );
         }
         
         // build URL
@@ -118,51 +117,132 @@ void MakeGenericNBPURL(const char *entityType, const char *zoneName, const char 
     }
 }
 
-#if 0
-
-OSStatus ParseGenericNBPURL(char* url, StringPtr entityType, StringPtr zoneName, StringPtr name)
+Boolean IsCharURLReservedOrIllegal( const char c )
 {
-	char*		curPtr1;
-	char*		curPtr2;
-	OSStatus	status = kNBPURLBadSyntaxErr;
+	Boolean 	isIllegal = false;
 	
-	if ( IsGenericNBPURL( url ) )
+	if ( c <= 0x1F || c == 0x7F || (unsigned char)c >= 0x80 )
+		isIllegal = true;
+	else
 	{
-		string	convertedURL = url;
-		DecodeHTTPString( convertedURL );
-				
-		curPtr1 = (Ptr)convertedURL.c_str();
-		curPtr2 = strstr( convertedURL.c_str(), kNBPDivider );
-		
-		if ( curPtr2 )
+		switch (c)
 		{
-            ::BlockMove( convertedURL.c_str(), &entityType[1], curPtr2-curPtr1 );
-			entityType[0] = curPtr2-curPtr1;
-			
-			curPtr1 = curPtr2+strlen(kNBPDivider);	// advance past ":/at/"
-			curPtr2 = strstr( curPtr1, kEntityZoneDelimiter );		// find ':' delimiter
-			
-			if ( curPtr2 )
-			{
-				::BlockMove( curPtr1, &name[1], curPtr2-curPtr1 );
-				name[0] = curPtr2-curPtr1;
-				
-				curPtr1 = curPtr2 + strlen(kEntityZoneDelimiter);	// advance past ":"
-				
-				strcpy( (char*)zoneName, curPtr1 );		// copy rest into name
-				c2pstr( (char*)zoneName );				// make a pstring
-				
-				if ( zoneName[zoneName[0]] == '/' )
-					zoneName[0]--;							// now discount the trailing '/'
-				
-				status = noErr;
-			}
+			case '<':
+			case '>':
+			case 0x22:	// double quote
+			case 0x5c:	// back slash
+			case '#':
+			case '{':
+			case '}':
+			case '|':
+			case '^':
+			case '~':
+			case '[':
+			case ']':
+			case '`':
+			case ';':
+			case '/':
+			case '?':
+			case ':':
+			case '@':
+			case '=':
+			case '&':
+			case ' ':
+			case ',':
+			case '%':
+				isIllegal = true;
+			break;
 		}
+	}
+	
+	return isIllegal;
+}
+
+void EncodeCharToHex( const char c, char* newHexChar )
+{
+	// Convert ascii to %xx equivalent
+	div_t			result;
+	short			hexValue = c;
+	char 			c1, c2;
+	
+	if ( hexValue < 0 )
+		hexValue -= 0xFF00;	// clear out the high byte
+	
+	result = div( hexValue, 16 );
+	
+	if ( result.quot < 0xA )
+		c1 = (char)result.quot + '0';
+	else
+		c1 = (char)result.quot + 'a' - 10;
+	
+	if ( result.rem < 0xA )
+		c2 = (char)result.rem + '0';
+	else
+		c2 = (char)result.rem + 'a' - 10;
+	
+	newHexChar[0] = '%';
+	newHexChar[1] = c1;
+	newHexChar[2] = c2;
+}
+/*****************
+ * HexEncodeText *
+ *****************
+ 
+ This function will change all code in rawText into URL acceptable format by encoding the text using
+ the US-ASCII coded character set.  The following are invalid characters: the octets 00-1F, 7F, and 
+ 80-FF hex.  Also called out are the chars "<", ">", """, "#", "{", "}", "|", "\", "^", "~", "[", "]",
+ "`".  The reserved characters for URL syntax are also to be encoded: (so don't pass in a full URL here!)
+ ";", "/", "?", ":", "@", "=", "%", and "&".
+ 
+*/
+
+OSStatus HexEncodeText( const char* rawText, UInt16 rawTextLen, char* newTextBuffer, UInt16* newTextBufferLen, Boolean* textChanged )
+{
+	OSStatus		status = noErr;
+	char*			curWritePtr = newTextBuffer;
+	UInt16			writeBufferMaxLen;
+
+	if ( !rawText || !newTextBuffer || !newTextBufferLen || !textChanged )
+		status = kNSLErrNullPtrError;
+	
+	writeBufferMaxLen = *newTextBufferLen;
+	*textChanged = false;
+		
+	for ( UInt16 i=0; !status && i<rawTextLen; i++ )
+	{
+		if ( IsCharURLReservedOrIllegal( rawText[i] ) )
+		{
+			if ( curWritePtr > newTextBuffer + writeBufferMaxLen + 2 )	// big enough to add two new chars?
+			{
+				status = kNSLBufferTooSmallForData;
+				break;
+			}
+		
+			EncodeCharToHex( rawText[i], curWritePtr );
+			curWritePtr += 3;
+		
+			*textChanged = true;
+		}
+		else
+		{
+			if ( curWritePtr > newTextBuffer + writeBufferMaxLen )
+			{
+				status = kNSLBufferTooSmallForData;
+				break;
+			}
+			
+			*curWritePtr = rawText[i];
+			curWritePtr++;
+		}
+	}
+	
+	if ( !status )
+		*newTextBufferLen = (curWritePtr - newTextBuffer);
+	else
+	{
+		*newTextBufferLen = 0;
+		*textChanged = false;
 	}
 	
 	return status;
 }
-
-#endif
-
-

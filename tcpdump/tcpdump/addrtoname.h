@@ -18,7 +18,7 @@
  * WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
  * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * @(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/addrtoname.h,v 1.1.1.2 2002/05/29 00:05:27 landonf Exp $ (LBL)
+ * @(#) $Header: /cvs/root/tcpdump/tcpdump/addrtoname.h,v 1.1.1.2 2002/05/29 00:05:27 landonf Exp $ (LBL)
  */
 
 /* Name to address translation routines. */

@@ -9,6 +9,9 @@
 #define kNetBootImageInfoBootFile	CFSTR("BootFile")	/* String */
 #define kNetBootImageInfoIsDefault	CFSTR("IsDefault")	/* Boolean */
 #define kNetBootImageInfoKind		CFSTR("Kind")		/* Number */
+#define kNetBootImageInfoSupportsDiskless CFSTR("SupportsDiskless") /* Boolean */
+#define kNetBootImageInfoEnabledSystemIdentifiers CFSTR("EnabledSystemIdentifiers") /* Array[String] */
+
 
 /* Type values */
 #define kNetBootImageInfoTypeClassic	CFSTR("Classic")

@@ -45,6 +45,7 @@ using namespace UnixPlusPlus;
 // Logging and verbosity levels
 //
 extern uint32 debugMode;
+extern const char *bootstrapName;
 
 } // end namespace Security
 

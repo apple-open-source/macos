@@ -5,7 +5,7 @@
 
 local linepath realpath donepath prepath testpath exppath skips skipped
 local tmp1 tmp2 tmp3 tmp4 i orig eorig pre suf tpre tsuf opre osuf cpre
-local pats haspats ignore pfxsfx sopt gopt opt sdirs ignpar cfopt listsfx
+local pats haspats ignore pfx pfxsfx sopt gopt opt sdirs ignpar cfopt listsfx
 local nm=$compstate[nmatches] menu matcher mopts sort match mid accex fake
 
 typeset -U prepaths exppaths
@@ -15,7 +15,7 @@ exppaths=()
 # Get the options.
 
 zparseopts -a mopts \
-    'P:=pfxsfx' 'S:=pfxsfx' 'q=pfxsfx' 'r:=pfxsfx' 'R:=pfxsfx' \
+    'P:=pfx' 'S:=pfxsfx' 'q=pfxsfx' 'r:=pfxsfx' 'R:=pfxsfx' \
     'W:=prepaths' 'F:=ignore' 'M+:=matcher' \
     J+: V+: X+: 1 2 n 'f=tmp1' '/=tmp1' 'g+:-=tmp1'
 
@@ -23,11 +23,17 @@ sopt="-${(@j::M)${(@)tmp1#-}#?}"
 (( $tmp1[(I)-[/g]*] )) && haspats=yes
 (( $tmp1[(I)-g*] )) && gopt=yes
 if (( $tmp1[(I)-/] )); then
-  pats=( '*(-/)' ${=${(M)tmp1:#-g*}#-g} )
+  pats="${(@)${(@M)tmp1:#-g*}#-g}"
+  pats=( '*(-/)' ${${(z):-x $pats}[2,-1]} )
 else
-  pats=( "${(@)=${(@M)tmp1:#-g*}#-g}" )
+  pats="${(@)${(@M)tmp1:#-g*}#-g}"
+  pats=( ${${(z):-x $pats}[2,-1]} )
 fi
 pats=( "${(@)pats:# #}" )
+
+if (( $#pfx )); then
+  compset -P "$pfx[2]" || pfxsfx=( "$pfx[@]" "$pfxsfx[@]" )
+fi
 
 if (( $#prepaths )); then
   tmp1="${prepaths[2]}"
@@ -190,7 +196,7 @@ eorig="$orig"
 
 # Now let's have a closer look at the string to complete.
 
-if [[ "$pre" = [^][*?#^\|\<\>]#(\`[^\`]#\`|\$)*/* && "$compstate[quote]" != \' ]]; then
+if [[ "$pre" = [^][*?#^\|\<\>\\]#(\`[^\`]#\`|\$)*/* && "$compstate[quote]" != \' ]]; then
 
   # If there is a parameter expansion in the word from the line, we try
   # to complete the beast by expanding the prefix and completing anything
@@ -202,7 +208,8 @@ if [[ "$pre" = [^][*?#^\|\<\>]#(\`[^\`]#\`|\$)*/* && "$compstate[quote]" != \' ]
   eval 'realpath=${(e)~linepath}' 2>/dev/null
   [[ -z "$realpath" || "$realpath" = "$linepath" ]] && return 1
   pre="${pre#${linepath}}"
-  i="${#linepath//[^\\/]}"
+  i='[^/]'
+  i="${#linepath//$i}"
   orig="${orig[1,(in:i:)/][1,-2]}"
   donepath=
   prepaths=( '' )
@@ -220,20 +227,15 @@ elif [[ "$pre[1]" = \~ && -z "$compstate[quote]" ]]; then
     realpath="${HOME%/}/"
   elif [[ "$linepath" = ([-+]|)[0-9]## ]]; then
     if [[ "$linepath" != [-+]* ]]; then
-      if [[ -o pushdminus ]]; then
-        tmp1="-$linepath"
-      else
-        tmp1="+$linepath"
-      fi
-    else
       tmp1="$linepath"
-    fi
-    if [[ "$linepath" = -* ]]; then
-      tmp1=$(( $#dirstack $tmp1 ))
     else
-      tmp1=$tmp1[2,-1]
+      if [[ "$linepath" = -* ]]; then
+        tmp1=$(( $#dirstack $linepath ))
+      else
+        tmp1=$linepath[2,-1]
+      fi
+      [[ -o pushdminus ]] && tmp1=$(( $#dirstack - $tmp1 ))
     fi
-    [[ -o pushdminus ]] && tmp1=$(( $#dirstack - $tmp1 ))
     if (( ! tmp1 )); then
       realpath=$PWD/
     elif [[ tmp1 -le $#dirstack ]]; then
@@ -323,43 +325,62 @@ for prepath in "$prepaths[@]"; do
     fi
 
     # Force auto-mounting. There might be a better way...
+    # Commented out in the hope that `pws non-canonical hack'
+    # down below does this for us.  Can be uncommented if it
+    # doesn't.
 
-    : ${^tmp1}/${PREFIX}${SUFFIX}/.(/)
+    # : ${^tmp1}/${PREFIX}${SUFFIX}/.(/)
 
     # Get the matching files by globbing.
 
     tmp2=( "$tmp1[@]" )
 
     if [[ "$tpre$tsuf" = */* ]]; then
-      compfiles -P$cfopt tmp1 accex "$skipped" "$_matcher" "$sdirs" fake
+      compfiles -P$cfopt tmp1 accex "$skipped" "$_matcher $matcher[2]" "$sdirs" fake
     elif [[ "$sopt" = *[/f]* ]]; then
-      compfiles -p$cfopt tmp1 accex "$skipped" "$_matcher" "$sdirs" fake "$pats[@]"
+      compfiles -p$cfopt tmp1 accex "$skipped" "$_matcher $matcher[2]" "$sdirs" fake "$pats[@]"
     else
-      compfiles -p$cfopt tmp1 accex "$skipped" "$_matcher" '' fake "$pats[@]"
+      compfiles -p$cfopt tmp1 accex "$skipped" "$_matcher $matcher[2]" '' fake "$pats[@]"
     fi
-    tmp1=( $~tmp1 )
+    tmp1=( $~tmp1 ) 2> /dev/null
 
     if [[ -n "$PREFIX$SUFFIX" ]]; then
       # See which of them match what's on the line.
+
+      # pws non-canonical hack which seems to work so far...
+      # if we didn't match by globbing, check that there is
+      # something to match by explicit name.  This is for
+      # `clever' filing systems where names pop into existence
+      # when referenced.
+      if (( ! $#tmp1 )); then
+	  for tmp3 in "$tmp2[@]"; do
+	      if [[ -n $tmp3 && $tmp3 != */ ]]; then
+		  tmp3+=/
+	      fi
+	      if [[ -e "$tmp3${(Q)PREFIX}${(Q)SUFFIX}" ]] then
+		  tmp1+=("$tmp3${(Q)PREFIX}${(Q)SUFFIX}")
+	      fi
+	  done
+      fi
 
       if (( ! $#tmp1 )); then
         tmp2=( ${^tmp2}/$PREFIX$SUFFIX )
       elif [[ "$tmp1[1]" = */* ]]; then
         if [[ -n "$_comp_correct" ]]; then
           tmp2=( "$tmp1[@]" )
-          builtin compadd -D tmp1 -F _comp_ignore "$matcher[@]" - "${(@)tmp1:t}"
+          builtin compadd -D tmp1 "$matcher[@]" - "${(@)tmp1:t}"
 
           if [[ $#tmp1 -eq 0 ]]; then
             tmp1=( "$tmp2[@]" )
-	    compadd -D tmp1 -F _comp_ignore "$matcher[@]" - "${(@)tmp2:t}"
+	    compadd -D tmp1 "$matcher[@]" - "${(@)tmp2:t}"
           fi
         else
           tmp2=( "$tmp1[@]" )
-          compadd -D tmp1 -F _comp_ignore "$matcher[@]" - "${(@)tmp1:t}"
+          compadd -D tmp1 "$matcher[@]" - "${(@)tmp1:t}"
         fi
       else
         tmp2=( '' )
-        compadd -D tmp1 -F _comp_ignore "$matcher[@]" -a tmp1
+        compadd -D tmp1 "$matcher[@]" -a tmp1
       fi
 
       # If no file matches, save the expanded path and continue with
@@ -463,7 +484,7 @@ for prepath in "$prepaths[@]"; do
     # names. This avoids having `foo' complete to `foo' and `foobar'.
     # The return value is non-zero if the component is ambiguous.
 
-    compfiles -r tmp1 "$tmp3"
+    compfiles -r tmp1 "${(Q)tmp3}"
     tmp4=$?
 
     if [[ "$tpre" = */* ]]; then
@@ -660,7 +681,7 @@ done
 if [[ _matcher_num -eq ${#_matchers} ]] &&
    zstyle -t ":completion:${curcontext}:paths" expand prefix &&
    [[ nm -eq compstate[nmatches] && $#exppaths -ne 0 &&
-      "$exppaths" != "$eorig" ]]; then
+      "$linepath$exppaths" != "$eorig" ]]; then
   PREFIX="${opre}"
   SUFFIX="${osuf}"
   compadd -Q "$mopts[@]" -S '' -M "r:|/=* r:|=*" -p "$linepath" -a exppaths

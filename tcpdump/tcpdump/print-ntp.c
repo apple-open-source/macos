@@ -25,25 +25,21 @@
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-ntp.c,v 1.1.1.2 2002/05/29 00:05:39 landonf Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-ntp.c,v 1.1.1.3 2003/03/17 18:42:18 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <sys/param.h>
-#include <sys/time.h>
-#include <sys/socket.h>
+#include <tcpdump-stdinc.h>
 
-#include <netinet/in.h>
-
-#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "interface.h"
 #include "addrtoname.h"
+#include "extract.h"
 #ifdef MODEMASK
 #undef MODEMASK					/* Solaris sucks */
 #endif
@@ -70,7 +66,7 @@ ntp_print(register const u_char *cp, u_int length)
 	TCHECK(bp->status);
 
 	version = (int)(bp->status & VERSIONMASK) >> 3;
-	printf(" v%d", version);
+	printf("NTPv%d", version);
 
 	leapind = bp->status & LEAPMASK;
 	switch (leapind) {
@@ -125,14 +121,14 @@ ntp_print(register const u_char *cp, u_int length)
 	}
 
 	TCHECK(bp->stratum);
-	printf(" strat %d", bp->stratum);
+	printf(", strat %d", bp->stratum);
 
 	TCHECK(bp->ppoll);
-	printf(" poll %d", bp->ppoll);
+	printf(", poll %d", bp->ppoll);
 
 	/* Can't TCHECK bp->precision bitfield so bp->distance + 0 instead */
 	TCHECK2(bp->distance, 0);
-	printf(" prec %d", bp->precision);
+	printf(", prec %d", bp->precision);
 
 	if (!vflag)
 		return;
@@ -142,11 +138,11 @@ ntp_print(register const u_char *cp, u_int length)
 	p_sfix(&bp->distance);
 
 	TCHECK(bp->dispersion);
-	fputs(" disp ", stdout);
+	fputs(", disp ", stdout);
 	p_sfix(&bp->dispersion);
 
 	TCHECK(bp->refid);
-	fputs(" ref ", stdout);
+	fputs(", ref ", stdout);
 	/* Interpretation depends on stratum */
 	switch (bp->stratum) {
 
@@ -155,7 +151,7 @@ ntp_print(register const u_char *cp, u_int length)
 		break;
 
 	case PRIM_REF:
-		fn_printn((char *)&(bp->refid), 4, NULL);
+		fn_printn((u_char *)&(bp->refid), 4, NULL);
 		break;
 
 	case INFO_QUERY:
@@ -202,8 +198,8 @@ p_sfix(register const struct s_fixedpt *sfp)
 	register int f;
 	register float ff;
 
-	i = ntohs(sfp->int_part);
-	f = ntohs(sfp->fraction);
+	i = EXTRACT_16BITS(&sfp->int_part);
+	f = EXTRACT_16BITS(&sfp->fraction);
 	ff = f / 65536.0;	/* shift radix point by 16 bits */
 	f = ff * 1000000.0;	/* Treat fraction as parts per million */
 	printf("%d.%06d", i, f);
@@ -219,8 +215,8 @@ p_ntp_time(register const struct l_fixedpt *lfp)
 	register u_int32_t f;
 	register float ff;
 
-	i = ntohl(lfp->int_part);
-	uf = ntohl(lfp->fraction);
+	i = EXTRACT_32BITS(&lfp->int_part);
+	uf = EXTRACT_32BITS(&lfp->fraction);
 	ff = uf;
 	if (ff < 0.0)		/* some compilers are buggy */
 		ff += FMAXINT;
@@ -241,10 +237,10 @@ p_ntp_delta(register const struct l_fixedpt *olfp,
 	register float ff;
 	int signbit;
 
-	i = ntohl(lfp->int_part) - ntohl(olfp->int_part);
+	i = EXTRACT_32BITS(&lfp->int_part) - EXTRACT_32BITS(&olfp->int_part);
 
-	uf = ntohl(lfp->fraction);
-	ouf = ntohl(olfp->fraction);
+	uf = EXTRACT_32BITS(&lfp->fraction);
+	ouf = EXTRACT_32BITS(&olfp->fraction);
 
 	if (i > 0) {		/* new is definitely greater than old */
 		signbit = 0;
@@ -278,3 +274,4 @@ p_ntp_delta(register const struct l_fixedpt *olfp,
 		putchar('+');
 	printf("%d.%09d", i, f);
 }
+

@@ -38,6 +38,7 @@
 #include <ctype.h>
 #include <assert.h>
 
+
 /* 
  * Our private per-extension info. One of these per (understood) extension per
  * cert. 
@@ -54,13 +55,14 @@ typedef struct {
  */
 typedef struct {
 
-	/* extensions pertinent to iSign */
+	/* extensions we're interested in */
 	iSignExtenInfo		authorityId;
 	iSignExtenInfo		subjectId;
 	iSignExtenInfo		keyUsage;
 	iSignExtenInfo		extendKeyUsage;
 	iSignExtenInfo		basicConstraints;
 	iSignExtenInfo		netscapeCertType;
+	iSignExtenInfo		subjectAltName;
 				
 	/* flag indicating presence of a critical extension we don't understand */
 	CSSM_BOOL			foundUnknownCritical;
@@ -78,7 +80,7 @@ static CSSM_RETURN tpSetupExtension(
 	iSignExtenInfo		*extnInfo)		// which component of certInfo
 {
 	if(extnData->Length != sizeof(CSSM_X509_EXTENSION)) {
-		errorLog0("tpSetupExtension: malformed CSSM_FIELD\n");
+		tpPolicyError("tpSetupExtension: malformed CSSM_FIELD");
 		return CSSMERR_TP_UNKNOWN_FORMAT;
 	}
 	CSSM_X509_EXTENSION *cssmExt = (CSSM_X509_EXTENSION *)extnData->Data;
@@ -147,7 +149,7 @@ static CSSM_RETURN iSignSearchUnknownExtensions(
 	}
 	
 	if(fieldValue->Length != sizeof(CSSM_X509_EXTENSION)) {
-		errorLog0("iSignSearchUnknownExtensions: malformed CSSM_FIELD\n");
+		tpPolicyError("iSignSearchUnknownExtensions: malformed CSSM_FIELD");
 		return CSSMERR_TP_UNKNOWN_FORMAT;
 	}
 	CSSM_X509_EXTENSION *cssmExt = (CSSM_X509_EXTENSION *)fieldValue->Data;
@@ -168,11 +170,13 @@ static CSSM_RETURN iSignSearchUnknownExtensions(
 			&fieldValue);
 		if(crtn) {
 			/* should never happen */
-			errorLog0("searchUnknownExtensions: GetNextCachedFieldValue error\n");
+			tpPolicyError("searchUnknownExtensions: GetNextCachedFieldValue"
+				"error");
 			break;
 		}
 		if(fieldValue->Length != sizeof(CSSM_X509_EXTENSION)) {
-			errorLog0("iSignSearchUnknownExtensions: malformed CSSM_FIELD\n");
+			tpPolicyError("iSignSearchUnknownExtensions: "
+				"malformed CSSM_FIELD");
 			crtn = CSSMERR_TP_UNKNOWN_FORMAT;
 			break;
 		}
@@ -253,6 +257,13 @@ static CSSM_RETURN iSignGetCertInfo(
 	if(crtn) {
 		return crtn;
 	}
+	crtn = iSignFetchExtension(alloc,
+		tpCert,
+		&CSSMOID_SubjectAltName,
+		&certInfo->subjectAltName);
+	if(crtn) {
+		return crtn;
+	}
 
 	/* now look for extensions we don't understand - the only thing we're interested
 	 * in is the critical flag. */
@@ -290,216 +301,58 @@ static void iSignFreeCertInfo(
 		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_NetscapeCertType, 
 			certInfo->netscapeCertType.valToFree);
 	}
+	if(certInfo->subjectAltName.present) {
+		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_SubjectAltName, 
+			certInfo->subjectAltName.valToFree);
+	}
 }
-
-#if 	TP_ROOT_CERT_ENABLE
-/*
- * Common code for comparing a root to a list of known embedded roots.
- */
-static CSSM_BOOL tp_isKnownRootCert(
-	TPCertInfo				*rootCert,		// raw cert to compare
-	const tpRootCert		*knownRoots,
-	unsigned				numKnownRoots)
-{
-	const CSSM_DATA		*subjectName = NULL;
-	CSSM_DATA_PTR		publicKey = NULL;
-	unsigned			dex;
-	CSSM_BOOL			brtn = CSSM_FALSE;
-	CSSM_DATA_PTR		valToFree = NULL;
-	
-	subjectName = rootCert->subjectName();
-	publicKey = tp_CertGetPublicKey(rootCert, &valToFree);	
-	if(publicKey == NULL) {
-		errorLog0("tp_isKnownRootCert: error retrieving public key info!\n");
-		goto errOut;
-	}
-	
-	/*
-	 * Grind thru the list of known certs, demanding perfect match of 
-	 * both fields 
-	 */
-	for(dex=0; dex<numKnownRoots; dex++) {
-		if(!tpCompareCssmData(subjectName, 
-	                          &knownRoots[dex].subjectName)) {
-	    	continue;
-	    }
-		if(!tpCompareCssmData(publicKey,
-	                          &knownRoots[dex].publicKey)) {
-	    	continue;
-	    }
-#if 	ENABLE_APPLE_DEBUG_ROOT
-	    if( dex == (knownRoots - 1) ){
-	    	brtn = CSSM_FALSE;
-	    	//tpSetError(CSSM_TP_DEBUG_CERT);
-	    	break;
-	    }
-#endif
-	    brtn = CSSM_TRUE;
-	    break;
-	}
-errOut:
-	tp_CertFreePublicKey(rootCert->clHand(), valToFree);
-	return brtn;
-}
-
-/*
- * See if specified root cert is a known (embedded) iSign root cert.
- * Returns CSSM_TRUE if the cert is a known root cert. 
- *
- * Note as of 6/12/02, we do not distinguish between internally 
- * cached iSign roots and SSL roots. Maybe someday we will do so again,
- * so let's leave these two functions separate.
- */
-static CSSM_BOOL tp_isIsignRootCert(
-	CSSM_CL_HANDLE			clHand,
-	TPCertInfo				*rootCert)		// raw cert from cert group
-{
-	const tpRootCert *roots;
-	unsigned numRoots;
-	roots = TPRootStore::tpGlobalRoots().rootCerts(clHand, numRoots);
-	return tp_isKnownRootCert(rootCert, roots, numRoots);
-}
-
-/*
- * See if specified root cert is a known (embedded) SSL root cert.
- * Returns CSSM_TRUE if the cert is a known root cert. 
- */
-static CSSM_BOOL tp_isSslRootCert(
-	CSSM_CL_HANDLE			clHand,
-	TPCertInfo				*rootCert)		// raw cert from cert group
-{
-	const tpRootCert *roots;
-	unsigned numRoots;
-	roots = TPRootStore::tpGlobalRoots().rootCerts(clHand, numRoots);
-	return tp_isKnownRootCert(rootCert, roots, numRoots);
-}
-
-/*
- * Attempt to verify specified cert (from the end of a chain) with one of
- * our known SSL roots. 
- */
-CSSM_BOOL tp_verifyWithSslRoots(
-	CSSM_CL_HANDLE	clHand, 
-	CSSM_CSP_HANDLE	cspHand, 
-	TPCertInfo		*certToVfy)			// last in chain, not root
-{
-	CSSM_KEY 		rootKey;			// pub key manufactured from tpRootCert info
-	CSSM_CC_HANDLE	ccHand;				// signature context
-	CSSM_RETURN		crtn;
-	unsigned 		dex;
-	const tpRootCert *rootInfo;
-	CSSM_BOOL		brtn = CSSM_FALSE;
-	CSSM_KEYHEADER	*hdr = &rootKey.KeyHeader;
-	CSSM_X509_ALGORITHM_IDENTIFIER_PTR algId;
-	CSSM_DATA_PTR	valToFree = NULL;
-	CSSM_ALGORITHMS	sigAlg;
-	const tpRootCert *rootCerts = NULL;
-	unsigned 		numRootCerts = 0;
-		
-	memset(&rootKey, 0, sizeof(CSSM_KEY));
-	
-	/*
-	 * Get signature algorithm from subject key
-	 */
-	algId = tp_CertGetAlgId(certToVfy, &valToFree);
-	if(algId == NULL) {
-		/* bad cert */
-		return CSSM_FALSE;
-	}
-	/* subsequest errors to errOut: */
-	
-	/* map to key and signature algorithm */
-	sigAlg = tpOidToAldId(&algId->algorithm, &hdr->AlgorithmId);
-	if(sigAlg == CSSM_ALGID_NONE) {
-		errorLog0("tp_verifyWithSslRoots: unknown sig alg\n");
-		goto errOut;
-	}
-	
-	/* Set up other constant key fields */
-	hdr->BlobType = CSSM_KEYBLOB_RAW;
-	switch(hdr->AlgorithmId) {
-		case CSSM_ALGID_RSA:
-			hdr->Format = CSSM_KEYBLOB_RAW_FORMAT_PKCS1;
-			break;
-		case CSSM_ALGID_DSA:
-			hdr->Format = CSSM_KEYBLOB_RAW_FORMAT_FIPS186;
-			break;
-		case CSSM_ALGID_FEE:
-			hdr->Format = CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING;
-			break;
-		default:
-			/* punt */
-			hdr->Format = CSSM_KEYBLOB_RAW_FORMAT_NONE;
-	}
-	hdr->KeyClass = CSSM_KEYCLASS_PUBLIC_KEY;
-	hdr->KeyAttr = CSSM_KEYATTR_MODIFIABLE | CSSM_KEYATTR_EXTRACTABLE;
-	hdr->KeyUsage = CSSM_KEYUSE_VERIFY;
-	
-	rootCerts = TPRootStore::tpGlobalRoots().rootCerts(clHand, numRootCerts);
-	for(dex=0; dex<numRootCerts; dex++) {
-		rootInfo = &rootCerts[dex];
-		if(!tpIsSameName(&rootInfo->subjectName, certToVfy->issuerName())) {
-			/* not this root */
-			continue;
-		}
-
-		/* only variation in key in the loop - raw key bits and size */
-		rootKey.KeyData = rootInfo->publicKey;
-		hdr->LogicalKeySizeInBits = rootInfo->keySize;
-		crtn = CSSM_CSP_CreateSignatureContext(cspHand,
-			sigAlg,
-			NULL,		// AcccedCred
-			&rootKey,
-			&ccHand);
-		if(crtn) {
-			errorLog0("tp_verifyWithSslRoots: CSSM_CSP_CreateSignatureContext err\n");
-			CssmError::throwMe(CSSMERR_TP_INTERNAL_ERROR);
-		}
-		crtn = CSSM_CL_CertVerify(clHand,
-			ccHand,
-			certToVfy->certData(),
-			NULL,			// no signer cert
-			NULL,			// VerifyScope
-			0);				// ScopeSize
-		CSSM_DeleteContext(ccHand);
-		if(crtn == CSSM_OK) {
-			/* success! */
-			brtn = CSSM_TRUE;
-			break;
-		}
-	}
-errOut:
-	if(valToFree != NULL) {
-		tp_CertFreeAlgId(clHand, valToFree);
-	}
-	return brtn;
-}
-#endif	/* TP_ROOT_CERT_ENABLE */
 
 /* 
- * See if cert's Subject.commonName matches caller-specified hostname.
- * Returns CSSM_TRUE if match, else returns CSSM_FALSE.
+ * See if cert's Subject.{commonName,EmailAddress} matches caller-specified 
+ * string. Returns CSSM_TRUE if match, else returns CSSM_FALSE. 
+ * Also indicates whether *any* of the specified fields were found, regardless
+ * of match state.
  */
-static CSSM_BOOL tpCompareCommonName(
-	TPCertInfo &cert,
-	const char *hostName,
-	uint32		hostNameLen)
+typedef enum {
+	SN_CommonName,			// CSSMOID_CommonName, host name format
+	SN_Email				// CSSMOID_EmailAddress
+} SubjSubjNameSearchType;
+
+static CSSM_BOOL tpCompareSubjectName(
+	TPCertInfo 				&cert,
+	SubjSubjNameSearchType	searchType,
+	const char 				*callerStr,			// already tpToLower'd
+	uint32					callerStrLen,
+	bool					&fieldFound)
 {
-	char 			*commonName = NULL;			// from cert's subject name
-	uint32 			commonNameLen = 0;
+	char 			*certName = NULL;			// from cert's subject name
+	uint32 			certNameLen = 0;
 	CSSM_DATA_PTR 	subjNameData = NULL;
 	CSSM_RETURN 	crtn;
 	CSSM_BOOL		ourRtn = CSSM_FALSE;
+	const CSSM_OID	*oidSrch;
 	
+	fieldFound = false;
+	switch(searchType) {
+		case SN_CommonName:
+			oidSrch = &CSSMOID_CommonName;
+			break;
+		case SN_Email:
+			oidSrch = &CSSMOID_EmailAddress;
+			break;
+		default:
+			assert(0);
+			return CSSM_FALSE;
+	}
 	crtn = cert.fetchField(&CSSMOID_X509V1SubjectNameCStruct, &subjNameData);
 	if(crtn) {
 		/* should never happen, we shouldn't be here if there is no subject */
-		errorLog0("tp_verifySslOpts: error retrieving subject name");
+		tpPolicyError("tp_verifySslOpts: error retrieving subject name");
 		return CSSM_FALSE;
 	}
 	CSSM_X509_NAME_PTR x509name = (CSSM_X509_NAME_PTR)subjNameData->Data;
 	if((x509name == NULL) || (subjNameData->Length != sizeof(CSSM_X509_NAME))) {
-		errorLog0("tp_verifySslOpts: malformed CSSM_X509_NAME");
+		tpPolicyError("tp_verifySslOpts: malformed CSSM_X509_NAME");
 		cert.freeField(&CSSMOID_X509V1SubjectNameCStruct, subjNameData);
 		return CSSM_FALSE;
 	}
@@ -514,11 +367,20 @@ static CSSM_BOOL tpCompareCommonName(
 		rdnp = &x509name->RelativeDistinguishedName[rdnDex];
 		for(pairDex=0; pairDex<rdnp->numberOfPairs; pairDex++) {
 			ptvp = &rdnp->AttributeTypeAndValue[pairDex];
-			if(tpCompareOids(&ptvp->type, &CSSMOID_CommonName)) {
-				commonName = (char *)ptvp->value.Data;
-				commonNameLen = ptvp->value.Length;
-				ourRtn = tpCompareHostNames(hostName, hostNameLen, 
-					commonName, commonNameLen);
+			if(tpCompareOids(&ptvp->type, oidSrch)) {
+				fieldFound = true;
+				certName = (char *)ptvp->value.Data;
+				certNameLen = ptvp->value.Length;
+				switch(searchType) {
+					case SN_CommonName:
+						ourRtn = tpCompareHostNames(callerStr, callerStrLen, 
+							certName, certNameLen);
+						break;
+					case SN_Email:
+						ourRtn = tpCompareEmailAddr(callerStr, callerStrLen,
+							certName, certNameLen);
+						break;
+				}
 				if(ourRtn) {
 					/* success */
 					break;
@@ -593,73 +455,104 @@ static CSSM_BOOL tpCompIpAddrStr(
 }
 
 /* 
- * See if cert's subjectAltName matches caller-specified hostname, either
- * as a dnsName or an iPAddress.
+ * See if cert's subjectAltName contains an element matching caller-specified 
+ * string, hostname, in the following forms:
  *
- * Returns CSSM_TRUE if match, else returns CSSM_FALSE. Also indicates
- * whether or not a dnsName was found (in which case the subject's
- * common name should NOT be a candidate for verification).
+ * SAN_HostName : dnsName, iPAddress
+ * SAN_Email    : RFC822Name
+ *
+ * Returns CSSM_TRUE if match, else returns CSSM_FALSE. 
+ *
+ * Also indicates whether or not a dnsName (search type HostName) or
+ * RFC822Name (search type SAM_Email) was found, regardless of result
+ * of comparison. 
+ *
+ * The appStr/appStrLen args are optional - if NULL/0, only the 
+ * search for dnsName/RFC822Name is done.
  */
+typedef enum {
+	SAN_HostName,
+	SAN_Email
+} SubjAltNameSearchType;
+
 static CSSM_BOOL tpCompareSubjectAltName(
-	TPCertInfo &cert,
-	const char *hostName,
-	uint32		hostNameLen,
-	bool		&dnsNameFound)		// RETURNED
+	const iSignExtenInfo	&subjAltNameInfo,
+	const char 				*appStr,			
+	uint32					appStrLen,
+	SubjAltNameSearchType 	searchType,
+	bool					&dnsNameFound,		// RETURNED, SAN_HostName case
+	bool					&emailFound)		// RETURNED, SAN_Email case
 {
-	CSSM_DATA_PTR 	subjAltNameData = NULL;
-	CSSM_RETURN 	crtn;
-	CSSM_BOOL		ourRtn = CSSM_FALSE;
-	
 	dnsNameFound = false;
-	crtn = cert.fetchField(&CSSMOID_SubjectAltName, &subjAltNameData);
-	if(crtn) {
+	emailFound = false;
+	if(!subjAltNameInfo.present) {
 		/* common failure, no subjectAltName found */
 		return CSSM_FALSE;
 	}
-	CSSM_X509_EXTENSION_PTR exten = 
-		(CSSM_X509_EXTENSION_PTR)subjAltNameData->Data;
-	/* Paranoid check of extension integrity */
-	if((exten == NULL) || 
-	   (subjAltNameData->Length != sizeof(CSSM_X509_EXTENSION)) ||
-	   (exten->format != CSSM_X509_DATAFORMAT_PARSED) ||
-	   (exten->value.parsedValue == NULL)) {
-		errorLog0("tpCompareSubjectAltName: malformed CSSM_X509_EXTENSION");
-		cert.freeField(&CSSMOID_SubjectAltName, subjAltNameData);
-		return CSSM_FALSE;
-	}
 
-	CE_GeneralNames *names = (CE_GeneralNames *)exten->value.parsedValue;
-	char 			*serverName;
-	unsigned 		serverNameLen;
+	CE_GeneralNames *names = &subjAltNameInfo.extnData->subjectAltName;
+	CSSM_BOOL		ourRtn = CSSM_FALSE;	
+	char 			*certName;
+	unsigned 		certNameLen;
 	
-	/* Search thru the CE_GeneralNames looking for a DNSName or IP Address */
+	/* Search thru the CE_GeneralNames looking for the appropriate attribute */
 	for(unsigned dex=0; dex<names->numNames; dex++) {
 		CE_GeneralName *name = &names->generalName[dex];
-		switch(name->nameType) {
-			case GNT_IPAddress:
-				ourRtn = tpCompIpAddrStr(hostName, hostNameLen, &name->name);
-				break;
-
-			case GNT_DNSName:
-				if(name->berEncoded) {
-					errorLog0("tpCompareSubjectAltName: malformed "
-						"CE_GeneralName (1)\n");
+		switch(searchType) {
+			case SAN_HostName:
+				switch(name->nameType) {
+					case GNT_IPAddress:
+						if(appStr == NULL) {
+							/* nothing to do here */
+							break;
+						}
+						ourRtn = tpCompIpAddrStr(appStr, appStrLen, &name->name);
+						break;
+						
+					case GNT_DNSName:
+						if(name->berEncoded) {
+							tpErrorLog("tpCompareSubjectAltName: malformed "
+								"CE_GeneralName (1)\n");
+							break;
+						}
+						certName = (char *)name->name.Data;
+						if(certName == NULL) {
+							tpErrorLog("tpCompareSubjectAltName: malformed "
+								"CE_GeneralName (2)\n");
+							break;
+						}
+						certNameLen = name->name.Length;
+						dnsNameFound = true;
+						if(appStr != NULL) {
+							/* skip if caller passed in NULL */
+							ourRtn = tpCompareHostNames(appStr, appStrLen, 
+								certName, certNameLen);
+						}
+						break;
+		
+					default:
+						/* not interested, proceed to next name */
+						break;
+				}
+				break;	/* from case HostName */
+				
+			case SAN_Email:
+				if(name->nameType != GNT_RFC822Name) {
+					/* not interested */
 					break;
 				}
-				serverName = (char *)name->name.Data;
-				if(serverName == NULL) {
-					errorLog0("tpCompareSubjectAltName: malformed "
-						"CE_GeneralName (2)\n");
+				certName = (char *)name->name.Data;
+				if(certName == NULL) {
+					tpErrorLog("tpCompareSubjectAltName: malformed "
+						"GNT_RFC822Name\n");
 					break;
 				}
-				serverNameLen = name->name.Length;
-				ourRtn = tpCompareHostNames(hostName, hostNameLen, 
-					serverName, serverNameLen);
-				dnsNameFound = true;
-				break;
-
-			default:
-				/* not interested, proceed to next name */
+				certNameLen = name->name.Length;
+				emailFound = true;
+				if(appStr != NULL) {
+					ourRtn = tpCompareEmailAddr(appStr, appStrLen, certName, 
+						certNameLen);
+				}
 				break;
 		}
 		if(ourRtn) {
@@ -667,7 +560,6 @@ static CSSM_BOOL tpCompareSubjectAltName(
 			break;
 		}
 	}
-	cert.freeField(&CSSMOID_SubjectAltName, subjAltNameData);
 	return ourRtn;
 }
 
@@ -699,11 +591,25 @@ static CSSM_BOOL tpIsNumeric(
  */
 static CSSM_RETURN tp_verifySslOpts(
 	TPCertGroup &certGroup,
-	const CSSM_APPLE_TP_SSL_OPTIONS *sslOpts)
+	const CSSM_DATA *sslFieldOpts,
+	const iSignCertInfo &leafCertInfo)
 {
-	if(sslOpts == NULL) {
+	/* first validate optional SSL options */
+	if((sslFieldOpts == NULL) || (sslFieldOpts->Data == NULL)) {
 		/* optional */
 		return CSSM_OK;
+	}
+	CSSM_APPLE_TP_SSL_OPTIONS *sslOpts;
+	sslOpts = (CSSM_APPLE_TP_SSL_OPTIONS *)sslFieldOpts->Data;
+	switch(sslOpts->Version) {
+		case CSSM_APPLE_TP_SSL_OPTS_VERSION:
+			if(sslFieldOpts->Length != sizeof(CSSM_APPLE_TP_SSL_OPTIONS)) {
+				return CSSMERR_TP_INVALID_POLICY_IDENTIFIERS;
+			}
+			break;
+		/* handle backwards compatibility here if necessary */
+		default:
+			return CSSMERR_TP_INVALID_POLICY_IDENTIFIERS;
 	}
 
 	unsigned hostNameLen = sslOpts->ServerNameLen;
@@ -728,8 +634,11 @@ static CSSM_RETURN tp_verifySslOpts(
 	
 	/* First check subjectAltName... */
 	bool dnsNameFound = false;
-	match = tpCompareSubjectAltName(*leaf, hostName, hostNameLen, 
-		dnsNameFound);
+	bool dummy;
+	match = tpCompareSubjectAltName(leafCertInfo.subjectAltName, 
+		hostName, hostNameLen, 
+		SAN_HostName, dnsNameFound, dummy);
+		
 	/* 
 	 * Then common name, if
 	 *  -- no match from subjectAltName, AND
@@ -737,7 +646,9 @@ static CSSM_RETURN tp_verifySslOpts(
 	 *  -- hostName is not strictly numeric form (1.2.3.4)
 	 */
 	if(!match && !dnsNameFound && !tpIsNumeric(hostName, hostNameLen)) {
-		match = tpCompareCommonName(*leaf, hostName, hostNameLen);
+		bool fieldFound;
+		match = tpCompareSubjectName(*leaf, SN_CommonName, hostName, hostNameLen,
+			fieldFound);
 	}
 	certGroup.alloc().free(hostName);	
 	if(match) {
@@ -747,6 +658,239 @@ static CSSM_RETURN tp_verifySslOpts(
 		leaf->addStatusCode(CSSMERR_APPLETP_HOSTNAME_MISMATCH);
 		return CSSMERR_TP_VERIFY_ACTION_FAILED;
 	}
+}
+
+/*
+ * Verify SMIME options. 
+ */
+#define CE_CIPHER_MASK	(~(CE_KU_EncipherOnly | CE_KU_DecipherOnly))
+
+static CSSM_RETURN tp_verifySmimeOpts(
+	TPCertGroup &certGroup,
+	const CSSM_DATA *smimeFieldOpts,
+	const iSignCertInfo &leafCertInfo)
+{
+	/* 
+	 * First validate optional S/MIME options.
+	 */
+	CSSM_APPLE_TP_SMIME_OPTIONS *smimeOpts = NULL;
+	if(smimeFieldOpts != NULL) {
+		smimeOpts = (CSSM_APPLE_TP_SMIME_OPTIONS *)smimeFieldOpts->Data;
+	}
+	if(smimeOpts != NULL) {
+		switch(smimeOpts->Version) {
+			case CSSM_APPLE_TP_SMIME_OPTS_VERSION:
+				if(smimeFieldOpts->Length != 
+						sizeof(CSSM_APPLE_TP_SMIME_OPTIONS)) {
+					return CSSMERR_TP_INVALID_POLICY_IDENTIFIERS;
+				}
+				break;
+			/* handle backwards compatibility here if necessary */
+			default:
+				return CSSMERR_TP_INVALID_POLICY_IDENTIFIERS;
+		}
+	}
+	
+	TPCertInfo *leaf = certGroup.certAtIndex(0);
+	assert(leaf != NULL);
+
+	/* Verify optional email address */
+	unsigned emailLen = 0;
+	if(smimeOpts != NULL) {
+		emailLen = smimeOpts->SenderEmailLen;
+	}
+	bool emailFoundInSAN = false;
+	if(emailLen != 0) {
+		if(smimeOpts->SenderEmail == NULL) {
+			return CSSMERR_TP_INVALID_POINTER;
+		}
+
+		/* normalize caller's email string */
+		char *email = (char *)certGroup.alloc().malloc(emailLen);
+		memmove(email, smimeOpts->SenderEmail, emailLen);
+		tpNormalizeAddrSpec(email, emailLen);
+		
+		CSSM_BOOL match = false;
+		
+		/* 
+		 * First check subjectAltName. The emailFound bool indicates
+		 * that *some* email address was found, regardless of a match
+		 * condition.
+		 */
+		bool dummy;
+		match = tpCompareSubjectAltName(leafCertInfo.subjectAltName, 
+			email, emailLen, 
+			SAN_Email, dummy, emailFoundInSAN);
+		
+		/* 
+		 * Then subject DN, CSSMOID_EmailAddress, if no match from 
+		 * subjectAltName
+		 */
+		bool emailFoundInDn = false;
+		if(!match) {
+			match = tpCompareSubjectName(*leaf, SN_Email, email, emailLen,
+				emailFoundInDn);
+		}
+		certGroup.alloc().free(email);	
+		
+		/*
+		 * Error here only if no match found but there was indeed *some*
+		 * email address in the cert.
+		 */
+		if(!match && (emailFoundInSAN || emailFoundInDn)) {
+			leaf->addStatusCode(CSSMERR_APPLETP_SMIME_EMAIL_ADDRS_NOT_FOUND);
+			tpPolicyError("SMIME email addrs in cert but no match");
+			return CSSMERR_TP_VERIFY_ACTION_FAILED;
+		}
+	}
+	
+	/*
+	 * Going by the letter of the law, here's what RFC 2632 has to say
+	 * about the legality of an empty Subject Name:
+	 *
+	 *    ...the subject DN in a user's (i.e. end-entity) certificate MAY 
+	 *    be an empty SEQUENCE in which case the subjectAltName extension 
+	 *    will include the subject's identifier and MUST be marked as 
+	 *    critical.
+	 *
+	 * OK, first examine the leaf cert's subject name.
+	 */
+	CSSM_RETURN crtn;
+	CSSM_DATA_PTR subjNameData = NULL;
+	crtn = leaf->fetchField(&CSSMOID_X509V1SubjectNameCStruct, &subjNameData);
+	if(crtn) {
+		/* This should really never happen */
+		tpPolicyError("SMIME policy: error fetching subjectName");
+		leaf->addStatusCode(CSSMERR_TP_INVALID_CERTIFICATE);
+		return CSSMERR_TP_INVALID_CERTIFICATE;
+	}
+	/* must do a leaf->freeField(&CSSMOID_X509V1SubjectNameCStruct on exit */
+	
+	const CSSM_X509_NAME *x509Name = (const CSSM_X509_NAME *)subjNameData->Data;
+	if(x509Name->numberOfRDNs == 0) {
+		/* 
+		 * Empty subject name. If we haven't already seen a valid 
+		 * email address in the subject alternate name (by looking
+		 * for a specific address specified by app), try to find 
+		 * one now.
+		 */
+		if(!emailFoundInSAN &&		// haven't found one, and
+		   (emailLen == 0)) {		// didn't even look yet
+			bool dummy;
+			tpCompareSubjectAltName(leafCertInfo.subjectAltName, 
+					NULL, 0,				// email, emailLen, 
+					SAN_Email, dummy, 
+					emailFoundInSAN);		// the variable we're updating
+		}
+		if(!emailFoundInSAN) {
+			tpPolicyError("SMIME policy fail: empty subject name and "
+				"no Email Addrs in SubjectAltName");
+			leaf->addStatusCode(CSSMERR_APPLETP_SMIME_NO_EMAIL_ADDRS);
+			leaf->freeField(&CSSMOID_X509V1SubjectNameCStruct, subjNameData);
+			return CSSMERR_TP_VERIFY_ACTION_FAILED;
+		}
+		
+		/*
+		 * One more thing: this leaf must indeed have a subjAltName
+		 * extension and it must be critical. We would not have gotten this
+		 * far if the subjAltName extension was not actually present....
+		 */
+		assert(leafCertInfo.subjectAltName.present);
+		if(!leafCertInfo.subjectAltName.critical) {
+			tpPolicyError("SMIME policy fail: empty subject name and "
+				"no Email Addrs in SubjectAltName");
+			leaf->addStatusCode(CSSMERR_APPLETP_SMIME_SUBJ_ALT_NAME_NOT_CRIT);
+			leaf->freeField(&CSSMOID_X509V1SubjectNameCStruct, subjNameData);
+			return CSSMERR_TP_VERIFY_ACTION_FAILED;
+		}
+	}
+	leaf->freeField(&CSSMOID_X509V1SubjectNameCStruct, subjNameData);
+	 
+	/*
+	 * Enforce the usage of the key associated with the leaf cert.
+	 * Cert's KeyUsage must be a superset of what the app is trying to do.
+	 * Note the {en,de}cipherONly flags are handledÊseparately....
+	 */
+	const iSignExtenInfo &kuInfo = leafCertInfo.keyUsage;
+	if(kuInfo.present) {
+		CE_KeyUsage certKu = *((CE_KeyUsage *)kuInfo.extnData);
+		CE_KeyUsage appKu = smimeOpts->IntendedUsage;
+		CE_KeyUsage intersection = certKu & appKu;
+		if((intersection & CE_CIPHER_MASK) != (appKu & CE_CIPHER_MASK)) {
+			tpPolicyError("SMIME KeyUsage err: appKu 0x%x  certKu 0x%x",
+				appKu, certKu);
+			leaf->addStatusCode(CSSMERR_APPLETP_SMIME_BAD_KEY_USE);
+			return CSSMERR_TP_VERIFY_ACTION_FAILED;
+		}
+		
+		/* Now the en/de cipher only bits - for keyAgreement only */
+		if(appKu & CE_KU_KeyAgreement) {
+			/* 
+			 * 1. App wants to use this for key agreement; it must
+			 *    say what it wants to do with the derived key.
+			 *    In this context, the app's XXXonly bit means that
+			 *    it wants to use the key for that op - not necessarliy
+			 *    "only". 
+			 */
+			if((appKu & (CE_KU_EncipherOnly | CE_KU_DecipherOnly)) == 0) {
+				tpPolicyError("SMIME KeyUsage err: KeyAgreement with "
+					"no Encipher or Decipher");
+				leaf->addStatusCode(CSSMERR_APPLETP_SMIME_BAD_KEY_USE);
+				return CSSMERR_TP_VERIFY_ACTION_FAILED;
+			}
+			
+			/*
+			 * 2. If cert restricts to encipher only make sure the
+			 *    app isn't trying to decipher.
+			 */
+			if((certKu & CE_KU_EncipherOnly) && 
+			   (appKu & CE_KU_DecipherOnly)) {
+				tpPolicyError("SMIME KeyUsage err: cert EncipherOnly, "
+					"app wants to decipher");
+				leaf->addStatusCode(CSSMERR_APPLETP_SMIME_BAD_KEY_USE);
+				return CSSMERR_TP_VERIFY_ACTION_FAILED;
+			}
+			
+			/*
+			 * 3. If cert restricts to decipher only make sure the
+			 *    app isn't trying to encipher.
+			 */
+			if((certKu & CE_KU_DecipherOnly) && 
+			   (appKu & CE_KU_EncipherOnly)) {
+				tpPolicyError("SMIME KeyUsage err: cert DecipherOnly, "
+					"app wants to encipher");
+				leaf->addStatusCode(CSSMERR_APPLETP_SMIME_BAD_KEY_USE);
+				return CSSMERR_TP_VERIFY_ACTION_FAILED;
+			}
+		}
+	}
+	
+	/*
+	 * Ensure that, if an extendedKeyUsage extension is present in the 
+	 * leaf, that either emailProtection or anyExtendedKeyUsage usages is present
+	 */
+	const iSignExtenInfo &ekuInfo = leafCertInfo.extendKeyUsage;
+	if(ekuInfo.present) {
+		bool foundGoodEku = false;
+		CE_ExtendedKeyUsage *eku = (CE_ExtendedKeyUsage *)ekuInfo.extnData;
+		assert(eku != NULL);
+		for(unsigned i=0; i<eku->numPurposes; i++) {
+			if(tpCompareOids(&eku->purposes[i], &CSSMOID_EmailProtection)) {
+				foundGoodEku = true;
+				break;
+			}
+			if(tpCompareOids(&eku->purposes[i], &CSSMOID_ExtendedKeyUsageAny)) {
+				foundGoodEku = true;
+				break;
+			}
+		}
+		if(!foundGoodEku) {
+			leaf->addStatusCode(CSSMERR_APPLETP_SMIME_BAD_EXT_KEY_USE);
+			return CSSMERR_TP_VERIFY_ACTION_FAILED;
+		}
+	}
+	 
+	return CSSM_OK;
 }
 
 /*
@@ -774,6 +918,14 @@ static CSSM_RETURN tp_verifySslOpts(
 #define KEY_USAGE_REQUIRED_FOR_ROOT				0
 
 /*
+ * RFC 2632, "S/MIME Version 3 Certificate Handling", section
+ * 4.4.2, says that KeyUsage extensions MUST be flagged critical, 
+ * but Thawte's intermediate cert (common namd "Thawte Personal 
+ * Freemail Issuing CA" does not meet this requirement.
+ */
+#define SMIME_KEY_USAGE_MUST_BE_CRITICAL		0
+
+/*
  * Public routine to perform TP verification on a constructed 
  * cert group.
  * Returns CSSM_TRUE on success.
@@ -792,9 +944,9 @@ CSSM_RETURN tp_policyVerify(
 	CSSM_CSP_HANDLE					cspHand,
 	TPCertGroup 					*certGroup,
 	CSSM_BOOL						verifiedToRoot,	// last cert is good root
-	const CSSM_APPLE_TP_ACTION_DATA	*actionData,
-	const CSSM_APPLE_TP_SSL_OPTIONS	*sslOpts,
-	void							*policyOpts)	// future options
+	CSSM_APPLE_TP_ACTION_FLAGS		actionFlags,
+	const CSSM_DATA					*policyFieldData,	// optional
+	void							*policyOpts)		// future options
 {
 	iSignCertInfo 			*certInfo = NULL;
 	uint32					numCerts;
@@ -803,8 +955,8 @@ CSSM_RETURN tp_policyVerify(
 	uint16					actUsage;
 	unsigned				certDex;
 	CSSM_BOOL				cA = CSSM_FALSE;		// init for compiler warning
-	CSSM_BOOL				isLeaf;					// end entity
-	CSSM_BOOL				isRoot;					// root cert
+	bool					isLeaf;					// end entity
+	bool					isRoot;					// root cert
 	CE_ExtendedKeyUsage		*extendUsage;
 	CE_AuthorityKeyID		*authorityId;
 	CSSM_RETURN				outErr = CSSM_OK;		// for gross, non-policy errors
@@ -825,11 +977,11 @@ CSSM_RETURN tp_policyVerify(
 	if(policy == kTPiSign) {
 		if(!verifiedToRoot) {
 			/* no way, this requires a root cert */
-			return CSSMERR_TP_INVALID_CERTGROUP;
+			return CSSMERR_TP_VERIFY_ACTION_FAILED;
 		}
 		if(numCerts <= 1) {
 			/* nope, not for iSign */
-			return CSSMERR_TP_INVALID_CERTGROUP;
+			return CSSMERR_TP_VERIFY_ACTION_FAILED;
 		}
 	}
 	
@@ -861,17 +1013,20 @@ CSSM_RETURN tp_policyVerify(
 		
 		if(thisCertInfo->foundUnknownCritical) {
 			/* illegal for all policies */
-			errorLog0("tp_policyVerify: critical flag in unknown extension\n");
+			tpPolicyError("tp_policyVerify: critical flag in unknown "
+				"extension");
 			thisTpCertInfo->addStatusCode(CSSMERR_APPLETP_UNKNOWN_CRITICAL_EXTEN);
 			policyFail = CSSM_TRUE;
 		}
 		
 		/* 
 		 * Note it's possible for both of these to be true, for a 
-		 * of length one (kTPx509Basic only!)
+		 * of length one (kTPx509Basic, kCrlPolicy only!)
+		 * FIXME: should this code work of the last cert in the chain is
+		 * NOT a root?
 		 */
-		isLeaf = (certDex == 0)              ? CSSM_TRUE : CSSM_FALSE;
-		isRoot = (certDex == (numCerts - 1)) ? CSSM_TRUE : CSSM_FALSE;
+		isLeaf = thisTpCertInfo->isLeaf();
+		isRoot = thisTpCertInfo->isSelfSigned();
 			
 		/*
 		 * BasicConstraints.cA
@@ -879,11 +1034,15 @@ CSSM_RETURN tp_policyVerify(
 		 *          	 for which it is optional (with default values of false
 		 *         	 	 for leaf and true for root).
 		 * kTPx509Basic,
-		 * kTP_SSL:      always optional, default of false for leaf and
+		 * kTP_SSL,
+		 * kTP_SMIME     always optional, default of false for leaf and
 		 *				 true for others
 		 * All:     	 cA must be false for leaf, true for others
 		 */
 		if(!thisCertInfo->basicConstraints.present) {
+			/*
+			 * No basicConstraints present; infer a cA value if appropriate.
+			 */
 			if(isLeaf) {
 				/* cool, use default; note that kTPx509Basic with
 				 * certGroup length of one may take this case */
@@ -897,21 +1056,25 @@ CSSM_RETURN tp_policyVerify(
 				switch(policy) {
 					case kTPx509Basic:
 					case kTP_SSL:
+					case kCrlPolicy:
+					case kTP_SMIME:
 						/* 
-						 * not present, not leaf, not root, kTPx509Basic 
+						 * not present, not leaf, not root.... 
 						 * ....RFC2459 says this can not be a CA 
 						 */
 						cA = CSSM_FALSE;
 						break;
 					case kTPiSign:
 						/* required for iSign in this position */
-						errorLog0("tp_policyVerify: no basicConstraints\n");
+						tpPolicyError("tp_policyVerify: no "
+								"basicConstraints");
 						policyFail = CSSM_TRUE;
 						thisTpCertInfo->addStatusCode(
 							CSSMERR_APPLETP_NO_BASIC_CONSTRAINTS);
 						break;
 					default:
 						/* not reached */
+						assert(0);
 						break;
 				}
 			}
@@ -922,7 +1085,8 @@ CSSM_RETURN tp_policyVerify(
 			/* disabled for verisign compatibility */
 			if(!thisCertInfo->basicConstraints.critical) {
 				/* per RFC 2459 */
-				errorLog0("tp_policyVerify: basicConstraints marked not critical\n");
+				tpPolicyError("tp_policyVerify: basicConstraints marked "
+					"not critical");
 				policyFail = CSSM_TRUE;
 				thisTpCertInfo->addStatusCode(CSSMERR_TP_VERIFY_ACTION_FAILED);
 			}
@@ -943,7 +1107,8 @@ CSSM_RETURN tp_policyVerify(
 				 * etc. 
 				 */ 
 				if(certDex > (bcp->pathLenConstraint + 1)) {
-					errorLog0("tp_policyVerify: pathLenConstraint exceeded\n");
+					tpPolicyError("tp_policyVerify: pathLenConstraint "
+						"exceeded");
 					policyFail = CSSM_TRUE;
 					thisTpCertInfo->addStatusCode(
 							CSSMERR_APPLETP_PATH_LEN_CONSTRAINT);
@@ -952,15 +1117,20 @@ CSSM_RETURN tp_policyVerify(
 		}
 		
 		if(isLeaf) {
-			/* special case to allow a chain of length 1, leaf and root 
-			 * both true (kTPx509Basic, kTP_SSL only) */
-			if(cA && !isRoot) {
-				errorLog0("tp_policyVerify: cA true for leaf\n");
+			/* 
+			 * Special cases to allow a chain of length 1, leaf and root 
+			 * both true, and for caller to override the "leaf can't be a CA"
+			 * requirement when a CA cert is explicitly being evaluated as the 
+			 * leaf.
+			 */
+			if(cA && !isRoot && 
+			   !(actionFlags & CSSM_TP_ACTION_LEAF_IS_CA)) {
+				tpPolicyError("tp_policyVerify: cA true for leaf");
 				policyFail = CSSM_TRUE;
 				thisTpCertInfo->addStatusCode(CSSMERR_APPLETP_INVALID_CA);
 			}
 		} else if(!cA) {
-			errorLog0("tp_policyVerify: cA false for non-leaf\n");
+			tpPolicyError("tp_policyVerify: cA false for non-leaf");
 			policyFail = CSSM_TRUE;
 			thisTpCertInfo->addStatusCode(CSSMERR_APPLETP_INVALID_CA);
 		}
@@ -969,18 +1139,20 @@ CSSM_RETURN tp_policyVerify(
 		 * Authority Key Identifier optional
 		 * iSign   		: only allowed in !root. 
 		 *           	  If present, must not be critical.
-		 * kTPx509Basic : 
-		 * kTP_SSL      : ignored (though used later for chain verification)
+		 * kTPx509Basic,
+		 * kTP_SSL,
+		 * kTP_SMIME    : ignored (though used later for chain verification)
 		 */ 
 		if((policy == kTPiSign) && thisCertInfo->authorityId.present) {
 			if(isRoot) {
-				errorLog0("tp_policyVerify: authorityId in root\n");
+				tpPolicyError("tp_policyVerify: authorityId in root");
 				policyFail = CSSM_TRUE;
 				thisTpCertInfo->addStatusCode(CSSMERR_APPLETP_INVALID_AUTHORITY_ID); 
 			}
 			if(thisCertInfo->authorityId.critical) {
 				/* illegal per RFC 2459 */
-				errorLog0("tp_policyVerify: authorityId marked critical\n");
+				tpPolicyError("tp_policyVerify: authorityId marked "
+					"critical");
 				policyFail = CSSM_TRUE;
 				thisTpCertInfo->addStatusCode(CSSMERR_APPLETP_INVALID_AUTHORITY_ID); 
 			}
@@ -990,11 +1162,12 @@ CSSM_RETURN tp_policyVerify(
 		 * Subject Key Identifier optional 
 		 * iSign   		 : can't be critical. 
 		 * kTPx509Basic,
-		 * kTP_SSL       : ignored (though used later for chain verification)
+		 * kTP_SSL,
+		 * kTP_SMIME     : ignored (though used later for chain verification)
 		 */ 
 		if(thisCertInfo->subjectId.present) {
 			if((policy == kTPiSign) && thisCertInfo->subjectId.critical) {
-				errorLog0("tp_policyVerify: subjectId marked critical\n");
+				tpPolicyError("tp_policyVerify: subjectId marked critical");
 				policyFail = CSSM_TRUE;
 				thisTpCertInfo->addStatusCode(CSSMERR_APPLETP_INVALID_SUBJECT_ID); 
 			}
@@ -1007,8 +1180,12 @@ CSSM_RETURN tp_policyVerify(
 		 *				  Exception : if leaf, and keyUsage not present, 
 		 *					          netscape-cert-type must be present, with
 		 *							  Object Signing bit set
-		 * kTPx509Basic : non-leaf  : usage = keyCertSign
+		 * kTPx509Basic,
+		 * kTP_SSL,
+		 * kTP_SMIME,   : non-leaf  : usage = keyCertSign
 		 *			  	  Leaf: don't care
+		 * kCrlPolicy   : Leaf: usage = CRLSign
+		 * kTP_SMIME   	: if present, must be critical
 		 */ 
 		if(thisCertInfo->keyUsage.present) {
 			/*
@@ -1017,12 +1194,18 @@ CSSM_RETURN tp_policyVerify(
 			 * We only require that one bit to be set, we ignore others. 
 			 */
 			if(isLeaf) {
-				if(policy == kTPiSign) {
-					expUsage = CE_KU_DigitalSignature;
-				}
-				else {
-					/* hack to accept whatever's there */
-					expUsage = thisCertInfo->keyUsage.extnData->keyUsage;
+				switch(policy) {
+					case kTPiSign:
+						expUsage = CE_KU_DigitalSignature;
+						break;
+					case kCrlPolicy:
+						/* if present, this bit must be set */
+						expUsage = CE_KU_CRLSign;
+						break;
+					default:
+						/* hack to accept whatever's there */
+						expUsage = thisCertInfo->keyUsage.extnData->keyUsage;
+						break;
 				}
 			}
 			else {
@@ -1031,11 +1214,24 @@ CSSM_RETURN tp_policyVerify(
 			}
 			actUsage = thisCertInfo->keyUsage.extnData->keyUsage;
 			if(!(actUsage & expUsage)) {
-				errorLog2("tp_policyVerify: bad keyUsage (leaf %s; usage 0x%x)\n",
+				tpPolicyError("tp_policyVerify: bad keyUsage (leaf %s; "
+					"usage 0x%x)",
 					(certDex == 0) ? "TRUE" : "FALSE", actUsage);
 				policyFail = CSSM_TRUE;
 				thisTpCertInfo->addStatusCode(CSSMERR_APPLETP_INVALID_KEY_USAGE); 
 			}
+			
+			if((policy == kTP_SMIME) && !thisCertInfo->keyUsage.critical) {
+				/*
+				 * Per Radar 3410245, allow this for intermediate certs.
+				 */
+				if(SMIME_KEY_USAGE_MUST_BE_CRITICAL || isLeaf || isRoot) {
+					tpPolicyError("tp_policyVerify: key usage, !critical, SMIME");
+					policyFail = CSSM_TRUE;
+					thisTpCertInfo->addStatusCode(CSSMERR_APPLETP_SMIME_KEYUSAGE_NOT_CRITICAL);
+				}
+			}
+			
 		}
 		else if(policy == kTPiSign) {
 			/* 
@@ -1047,13 +1243,15 @@ CSSM_RETURN tp_policyVerify(
 					thisCertInfo->netscapeCertType.extnData->netscapeCertType;
 					
 				if(!(ct & CE_NCT_ObjSign)) {
-					errorLog0("tp_policyVerify: netscape-cert-type, !ObjectSign\n");
+					tpPolicyError("tp_policyVerify: netscape-cert-type, "
+						"!ObjectSign");
 					policyFail = CSSM_TRUE;
 					thisTpCertInfo->addStatusCode(CSSMERR_APPLETP_INVALID_KEY_USAGE);
 				}
 			}
 			else if(!isRoot) {
-				errorLog0("tp_policyVerify: !isRoot, no keyUsage, !(leaf and netscapeCertType)\n");
+				tpPolicyError("tp_policyVerify: !isRoot, no keyUsage, "
+					"!(leaf and netscapeCertType)");
 				policyFail = CSSM_TRUE;
 				thisTpCertInfo->addStatusCode(CSSMERR_APPLETP_INVALID_KEY_USAGE); 
 			}
@@ -1069,7 +1267,8 @@ CSSM_RETURN tp_policyVerify(
 	if((policy == kTPiSign) && certInfo[0].extendKeyUsage.present) {
 		extendUsage = &certInfo[0].extendKeyUsage.extnData->extendedKeyUsage;
 		if(extendUsage->numPurposes != 1) {
-			errorLog1("tp_policyVerify: bad extendUsage->numPurposes (%d)\n",
+			tpPolicyError("tp_policyVerify: bad extendUsage->numPurposes "
+				"(%d)",
 				(int)extendUsage->numPurposes);
 			policyFail = CSSM_TRUE;
 			(certGroup->certAtIndex(0))->addStatusCode(
@@ -1077,7 +1276,7 @@ CSSM_RETURN tp_policyVerify(
 		}
 		if(!tpCompareOids(extendUsage->purposes,
 				&CSSMOID_ExtendedUseCodeSigning)) {
-			errorLog0("tp_policyVerify: bad extendKeyUsage\n");
+			tpPolicyError("tp_policyVerify: bad extendKeyUsage");
 			policyFail = CSSM_TRUE;
 			(certGroup->certAtIndex(0))->addStatusCode(
 				CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE); 
@@ -1101,7 +1300,7 @@ CSSM_RETURN tp_policyVerify(
 		}
 		if(!tpCompareCssmData(&authorityId->keyIdentifier,
 				&certInfo[certDex+1].subjectId.extnData->subjectKeyID)) {
-			errorLog0("tp_policyVerify: bad key ID linkage\n");
+			tpPolicyError("tp_policyVerify: bad key ID linkage");
 			policyFail = CSSM_TRUE;
 			(certGroup->certAtIndex(certDex))->addStatusCode(
 					CSSMERR_APPLETP_INVALID_ID_LINKAGE); 
@@ -1114,34 +1313,22 @@ CSSM_RETURN tp_policyVerify(
 	 * we return both errors?
 	 */
 	if(policy == kTP_SSL) {
-		CSSM_RETURN cerr = tp_verifySslOpts(*certGroup, sslOpts);
+		CSSM_RETURN cerr = tp_verifySslOpts(*certGroup, policyFieldData,
+			certInfo[0]);
 		if(cerr) {
 			policyFail = CSSM_TRUE;
 		}
 	}
 	
-	/* iSign, SSL: compare root against known root certs */
-	/* FIXME - this goes away soon */
-	#if		TP_ROOT_CERT_ENABLE
-	if((outErr == CSSM_OK) &&	// skip if we have a gross error (other than policy failure)
-	   (actionData != NULL) &&
-	   (actionData->ActionFlags & 0x80000000)) {	// The secret "enable root cert check" flag
-		TPCertInfo *lastCert = certGroup->lastCert();
-		if(policy == kTPiSign) {
-			bool brtn = tp_isIsignRootCert(clHand, lastCert);
-			if(!brtn) {
-				policyFail = CSSM_TRUE;
-			}
-		}
-		else if(verifiedToRoot && (policy == kTP_SSL)) {
-			/* note SSL doesn't require root here */
-			bool brtn = tp_isSslRootCert(clHand, lastCert);
-			if(!brtn) {
-				outErr = CSSMERR_TP_INVALID_ANCHOR_CERT;
-			}
+	/* S/MIME */
+	if(policy == kTP_SMIME) {
+		CSSM_RETURN cerr = tp_verifySmimeOpts(*certGroup, policyFieldData,
+			certInfo[0]);
+		if(cerr) {
+			policyFail = CSSM_TRUE;
 		}
 	}
-	#endif	/* TP_ROOT_CERT_ENABLE */
+	
 	if(policyFail && (outErr == CSSM_OK)) {
 		/* only error in this function was policy failure */
 		outErr = CSSMERR_TP_VERIFY_ACTION_FAILED;

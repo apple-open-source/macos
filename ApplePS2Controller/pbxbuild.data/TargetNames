@@ -1,2 +1,9 @@
-Targets='ApplePS2Controller Headers
+if [ "${Target}" = "ApplePS2Controller" ]; then
+	Targets='ApplePS2Controller Headers
 ApplePS2Controller'
+elif [ "${Target}" = "ApplePS2Controller Headers" ]; then
+	Targets='ApplePS2Controller Headers'
+else
+	Targets='ApplePS2Controller Headers
+ApplePS2Controller'
+fi

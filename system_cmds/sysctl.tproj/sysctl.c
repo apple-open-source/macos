@@ -149,7 +149,7 @@ struct list secondlevel[] = {
 	{ 0, 0 },			/* CTL_VFS */
 	{ 0, 0 },			/* CTL_NET */
 	{ 0, CTL_DEBUG_MAXID },		/* CTL_DEBUG */
-	{ 0,0 },			/* CTL_HW */
+	{ 0, 0 },			/* CTL_HW */
 #ifdef CTL_MACHDEP_NAMES
 	{ machdepname, CPU_MAXID },	/* CTL_MACHDEP */
 #else
@@ -939,10 +939,6 @@ show_var(int *oid, int nlen, int show_masked)
 	}
 
 	fmt = (char *)(buf + sizeof(u_int));
-	
-	/* XXX special-case hack for hw.physmem */
-	if ((oid[0] == CTL_HW) && (oid[1] == HW_PHYSMEM))
-		fmt = "IU";
 
 	p = val;
 	switch (*fmt) {

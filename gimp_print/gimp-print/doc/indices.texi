@@ -1,0 +1,14 @@
+@node Data Type and Variable Index, Function and Macro Index, Appendices, Top
+@unnumbered Data Type and Variable Index
+
+@printindex vr
+
+@node Function and Macro Index, Concept Index, Data Type and Variable Index, Top
+@unnumbered Function and Macro Index
+
+@printindex fn
+
+@node Concept Index, , Function and Macro Index, Top
+@unnumbered Concept Index
+
+@printindex cp

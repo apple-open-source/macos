@@ -1,0 +1,253 @@
+.\" Copyright (c) 2002 Apple Computer, Inc.  All rights reserved.
+.\"
+.\" @APPLE_LICENSE_HEADER_START@
+.\"
+.\" The contents of this file constitute Original Code as defined in and
+.\" are subject to the Apple Public Source License Version 1.1 (the
+.\" "License").  You may not use this file except in compliance with the
+.\" License.  Please obtain a copy of the License at
+.\" http://www.apple.com/publicsource and read it before using this file.
+.\"
+.\" This Original Code and all software distributed under the License are
+.\" distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+.\" EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+.\" INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+.\" FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+.\" License for the specific language governing rights and limitations
+.\" under the License.
+.\"
+.\" @APPLE_LICENSE_HEADER_END@
+.\"
+.Dd November 21, 2002
+.Dt MALLOC 3
+.Os
+.Sh NAME
+.Nm malloc , calloc , valloc , realloc , free , malloc_size , malloc_good_size
+.Nd memory allocation
+.Sh SYNOPSIS
+.In stdlib.h
+.Ft void *
+.Fn malloc "size_t size"
+.Ft void *
+.Fn calloc "size_t count" "size_t size"
+.Ft void *
+.Fn valloc "size_t size"
+.Ft void *
+.Fn realloc "void *ptr" "size_t size"
+.Ft void
+.Fn free "void *ptr"
+.Ft size_t
+.Fn malloc_size "void *ptr"
+.Ft size_t
+.Fn malloc_good_size "size_t size"
+.Sh DESCRIPTION
+The
+.Fn malloc ,
+.Fn calloc ,
+.Fn valloc ,
+and
+.Fn realloc
+functions allocate memory.
+The allocated memory is aligned such that it can be used for any data type,
+including AltiVec-related types.
+The
+.Fn free
+function frees allocations that were created via the preceding allocation
+functions.
+The
+.Fn malloc_size
+and
+.Fn malloc_good_size
+functions provide information related to the amount of padding space at the end
+of allocations.
+.Pp
+The
+.Fn malloc
+function allocates
+.Fa size
+bytes of memory and returns a pointer to the allocated memory.
+.Fn malloc
+returns a
+.Dv NULL
+pointer if there is an error.
+.Pp
+The
+.Fn calloc
+function contiguously allocates enough space for
+.Fa count
+objects that are
+.Fa size
+bytes of memory each and returns a pointer to the allocated memory.
+The allocated memory is filled with bytes of value zero.
+.Fn calloc
+returns a
+.Dv NULL
+pointer if there is an error.
+.Pp
+The
+.Fn valloc
+function allocates
+.Fa size
+bytes of memory and returns a pointer to the allocated memory.
+The allocated memory is aligned on a page boundary.
+.Fn valloc
+returns a
+.Dv NULL
+pointer if there is an error.
+.Pp
+The
+.Fn realloc
+function tries to change the size of the allocation pointed to by
+.Fa ptr
+to
+.Fa size ,
+and return
+.Fa ptr .
+If there is not enough room to enlarge the memory allocation pointed to by
+.Fa ptr ,
+.Fn realloc
+creates a new allocation, copies as much of the old data pointed to by
+.Fa ptr
+as will fit to the new allocation, frees the old allocation, and returns a
+pointer to the allocated memory.
+.Fn realloc
+returns a
+.Dv NULL
+pointer if there is an error, and the allocation pointed to by
+.Fa ptr
+is still valid.
+.Pp
+The
+.Fn free
+function deallocates the memory allocation pointed to by
+.Fa ptr .
+.Pp
+The
+.Fn malloc_size
+function
+returns the size of the memory block that backs the allocation pointed to by
+.Fa ptr .
+The memory block size is always at least as large as the allocation it backs,
+and may be larger.
+.Pp
+The
+.Fn malloc_good_size
+function rounds
+.Fa size
+up to a value that the allocator implementation can allocate without adding any
+padding and returns that rounded up value.
+.Sh RETURN VALUES
+If successful, the
+.Fn malloc ,
+.Fn calloc ,
+and
+.Fn valloc
+functions return a pointer to allocated memory.
+If there is an error, they return a
+.Dv NULL
+pointer and set
+.Va errno
+to
+.Er ENOMEM .
+.Pp
+If successful, the
+.Fn realloc
+function returns a pointer to allocated memory.
+If there is an error, it returns a
+.Dv NULL
+pointer and sets
+.Va errno
+to
+.Er ENOMEM .
+.Pp
+The
+.Fn free
+function does not return a value.
+.Sh DEBUGGING ALLOCATION ERRORS
+A number of facilities are provided to aid in debugging allocation errors in
+applications.
+These facilities are primarily controlled via environment variables.
+The recognized environment variables and their meanings are documented below.
+.Sh ENVIRONMENT
+The following environment variables change the behavior of the
+allocation-related functions.
+.Bl -tag -width ".Ev MallocStackLoggingNoCompact"
+.It Ev MallocLogFile <f>
+Create/append messages to the given file path
+.Fa <f>
+instead of writing to the standard error.
+.It Ev MallocGuardEdges
+If set, add a guard page before and after each large block.
+.It Ev MallocDoNotProtectPrelude
+If set, do not add a guard page before large blocks,
+even if the
+.Ev MallocGuardEdges
+environment variable is set.
+.It Ev MallocDoNotProtectPostlude
+If set, do not add a guard page after large blocks,
+even if the
+.Ev MallocGuardEdges
+environment variable is set.
+.It Ev MallocStackLogging
+If set, record all stacks, so that tools like
+.Nm leaks
+can be used.
+.It Ev MallocStackLoggingNoCompact
+If set, record all stacks in a manner that is compatible with the
+.Nm malloc_history
+program.
+.It Ev MallocScribble
+If set, fill memory that has been deallocated with 0x55 bytes.
+This increases the likelihood that a program will fail due to accessing memory
+that is no longer allocated.
+.It Ev MallocCheckHeapStart <s>
+If set, specifies the number of allocations
+.Fa <s>
+to wait before begining periodic heap checks every
+.Fa <n>
+as specified by 
+.Ev MallocCheckHeapEach .
+If
+.Ev MallocCheckHeapStart
+is set but 
+.Ev MallocCheckHeapEach
+is not specified, the default check repetition is 1000.
+.It Ev MallocCheckHeapEach <n>
+If set, run a consistency check on the heap every
+.Fa <n>
+operations.
+.Ev MallocCheckHeapEach
+is only meaningful if
+.Ev MallocCheckHeapStart
+is also set.
+.It Ev MallocCheckHeapSleep <t>
+Sets the number of seconds to sleep (waiting for a debugger to attach) when
+.Ev MallocCheckHeapStart
+is set and a heap corruption is detected.
+The default is 100 seconds.
+Setting this to zero means not to sleep at all.
+Setting this to a negative number means to sleep (for the positive number of
+seconds) only the very first time a heap corruption is detected.
+.It Ev MallocCheckHeapAbort <b>
+When
+.Ev MallocCheckHeapStart
+is set and this is set to a non-zero value, causes
+.Xr abort 3
+to be called if a heap corruption is detected, instead of any sleeping.
+.It Ev MallocBadFreeAbort <b>
+If set to a non-zero value, causes
+.Xr abort 3
+to be called if the pointer passed to
+.Xr free 3
+was previously freed, or is otherwise illegal.
+.It Ev MallocHelp
+If set, print a list of environment variables that are paid heed to by the
+allocation-related functions, along with short descriptions.
+The list should correspond to this documentation.
+.El
+.Sh DIAGNOSTIC MESSAGES
+.Sh SEE ALSO
+.Xr leaks 1 ,
+.Xr malloc_history 1 ,
+.Xr abort 3
+.Pa /Developer/Documentation/ReleaseNotes/MallocOptions.html

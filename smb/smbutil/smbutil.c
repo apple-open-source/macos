@@ -34,16 +34,20 @@ static struct commands {
 } commands[] = {
 	{"crypt",	cmd_crypt,	NULL, CMDFL_NO_KMOD},
 	{"help",	cmd_help,	help_usage, CMDFL_NO_KMOD},
-	{"lc",		cmd_dumptree,	NULL},
-	{"login",	cmd_login,	login_usage},
-	{"logout",	cmd_logout,	logout_usage},
-	{"lookup",	cmd_lookup,	lookup_usage, CMDFL_NO_KMOD},
-	{"print",	cmd_print,	print_usage},
-#ifdef APPLE
-	{"status",	cmd_status,	status_usage},
+#ifndef APPLE
+	{"lc",		cmd_dumptree,	NULL, 0},
+	{"login",	cmd_login,	login_usage, 0},
+	{"logout",	cmd_logout,	logout_usage, 0},
 #endif
-	{"view",	cmd_view,	view_usage},
-	{NULL, NULL}
+	{"lookup",	cmd_lookup,	lookup_usage, CMDFL_NO_KMOD},
+#ifndef APPLE
+	{"print",	cmd_print,	print_usage, 0},
+#endif
+#ifdef APPLE
+	{"status",	cmd_status,	status_usage, 0},
+#endif
+	{"view",	cmd_view,	view_usage, 0},
+	{NULL, NULL, NULL, 0}
 };
 
 static struct commands *

@@ -1,6 +1,6 @@
 ;;; gnus-art.el --- article mode commands for Gnus
 
-;; Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001
+;; Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002
 ;;   Free Software Foundation, Inc.
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
@@ -1667,6 +1667,7 @@ If FORCE, decode the article whether it is marked as base64 not."
 	  (narrow-to-region (point) (point-max))
 	  (mm-setup-w3)
 	  (let ((w3-strict-width (window-width))
+		(url-gateway-unplugged t)
 		(url-standalone-mode t))
 	    (condition-case var
 		(w3-region (point-min) (point-max))
@@ -1963,7 +1964,7 @@ Put point at the beginning of the signature separator."
 
 (defun gnus-article-check-hidden-text (type arg)
   "Return nil if hiding is necessary.
-Arg can be nil or a number.  Nil and positive means hide, negative
+Arg can be nil or a number.  nil and positive means hide, negative
 means show, 0 means toggle."
   (save-excursion
     (save-restriction
@@ -4184,9 +4185,9 @@ groups."
 (defun gnus-article-edit-done (&optional arg)
   "Update the article edits and exit."
   (interactive "P")
+  (widen)
   (save-excursion
     (save-restriction
-      (widen)
       (when (article-goto-body)
 	(let ((lines (count-lines (point) (point-max)))
 	      (length (- (point-max) (point)))

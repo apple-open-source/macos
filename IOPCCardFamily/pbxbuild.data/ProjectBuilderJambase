@@ -15,7 +15,7 @@ if OS != "" {
     include $(JAMBASE_DIR)/platform-$(OS).jam ;
 }
 
-# Copyright (c) 1999-2002 Apple Computer, Inc.
+# Copyright (c) 1999-2003 Apple Computer, Inc.
 # All rights reserved.
 
 # This file defines various functions for transforming text and
@@ -67,7 +67,7 @@ rule RemovePrefixPath
     }
     $(1) = $(newname) ;
 }
-# Copyright (c) 1999-2002 Apple Computer, Inc.
+# Copyright (c) 1999-2003 Apple Computer, Inc.
 # All rights reserved.
 
 # Built-in definitions of common build settings.  These can be
@@ -194,7 +194,7 @@ rule ConditionalDefinitions
         deferred BASE_PROJECT_HEADER_DIR = $(BUILD_ROOT)/ProjectHeaders ;
     }
 }
-# Copyright (c) 1999-2002 Apple Computer, Inc.
+# Copyright (c) 1999-2003 Apple Computer, Inc.
 # All rights reserved.
 
 # Maps legacy Makefile variables to modern Jambase variables
@@ -226,7 +226,7 @@ export deferred PRODUCT_SETTINGS_PATH = $(_INFO_PLIST_FILE_PATH) ;
 export deferred PKGINFO_FILE_PATH = $(_PKGINFO_FILE_PATH) ;
 export deferred VERSION_SETTINGS_PATH = $(_VERSION_PLIST_FILE_PATH) ;
 export deferred DEVELOPMENT_SETTINGS_PATH = $(_PBDEVELOPMENT_PLIST_FILE_PATH) ;
-# Copyright (c) 1999-2002 Apple Computer, Inc.
+# Copyright (c) 1999-2003 Apple Computer, Inc.
 # All rights reserved.
 
 # !!!cmolick:20000821 hardcoded tool paths because variables not set yet
@@ -1109,6 +1109,11 @@ rule InterfacerHeaders
         }
     }
 
+       # install .i files if requested
+    if $(FRAMEWORK_INTERFACES) {
+        INTERFACER_INSTALL_OPTIONS = -frameworkInterfaces $(SRCROOT)$(/)$(FRAMEWORK_INTERFACES)$(/) -installMasterInterfaces $(DSTROOT)/AppleInternal/Carbon/interfaces/ ;
+    }
+
     Interfacer.Headers $(INTERFACER_HEADERS) ;
     # Interfacer headers are required (ideally these should be phase products)
     DEPENDS $(1) : $(INTERFACER_HEADERS) ;
@@ -1116,7 +1121,7 @@ rule InterfacerHeaders
 
 actions Interfacer.Headers
 {
-    $(INTERFACER) -masterInterfaces "$(MASTER_INTERFACES)/" -cacheFolder "$(INTERFACER_CACHE)/" $(INTERFACER_HEADER_OPTIONS) -c -rez -framework "$(1:D=:S=:G=)" -p -generated "c=$(FULL_PUBLIC_HEADER_DIR:G=)/" -generatedPriv "c=$(FULL_PRIVATE_HEADER_DIR:G=)/" -generated "rez=$(FULL_PUBLIC_HEADER_DIR:G=)/" -generatedPriv "rez=$(FULL_PRIVATE_HEADER_DIR:G=)/"
+    $(INTERFACER) -masterInterfaces "$(MASTER_INTERFACES)/" -cacheFolder "$(INTERFACER_CACHE)/" $(INTERFACER_HEADER_OPTIONS) -c -rez -framework "$(1:D=:S=:G=)" -p -generated "c=$(FULL_PUBLIC_HEADER_DIR:G=)/" -generatedPriv "c=$(FULL_PRIVATE_HEADER_DIR:G=)/" -generated "rez=$(FULL_PUBLIC_HEADER_DIR:G=)/" -generatedPriv "rez=$(FULL_PRIVATE_HEADER_DIR:G=)/" $(INTERFACER_INSTALL_OPTIONS)
 }
 
 rule InterfacerExportSetsAndGlue
@@ -1171,7 +1176,7 @@ actions Interfacer.RawExportSetsAndGlue
 # then attempts to compile UPP glue and add resulting
 # object files to a list to use at link time.
 {
-    $(INTERFACER) -masterInterfaces "$(MASTER_INTERFACES)/" -cacheFolder "$(INTERFACER_CACHE)/" -uppGlueC "$(INTERFACER_FLAGS)" -framework "$(2[1]:G=:D=:S=)" -frameworkExports -p -generated "frameworkExports=$(EXPORT_SETS_DIR)/" -generatedPriv "frameworkExports=$(EXPORT_SETS_DIR)/" -generated "uppGlueC=$(UPP_GLUE_DIR)/" -generatedPriv "uppGlueC=$(UPP_GLUE_DIR)/" $(INTERFACER_COMPONENT_GLUE_FLAGS)
+    $(INTERFACER) -masterInterfaces "$(MASTER_INTERFACES)/" -cacheFolder "$(INTERFACER_CACHE)/" -uppGlueC "$(INTERFACER_FLAGS)" -framework "$(2[1]:G=:D=:S=)" -frameworkExports -p -generated "frameworkExports=$(EXPORT_SETS_DIR)/" -generatedPriv "frameworkExports=$(EXPORT_SETS_DIR)/" -generated "uppGlueC=$(UPP_GLUE_DIR)/" -generatedPriv "uppGlueC=$(UPP_GLUE_DIR)/" $(INTERFACER_COMPONENT_GLUE_FLAGS) $(INTERFACER_INSTALL_OPTIONS)
     if [ -e "$(UPP_GLUE_DIR)" ]; then
         _upp_glue_modules=`ls "$(UPP_GLUE_DIR)"`
         if [ ! "$_upp_glue_modules" = x"$_upp_glue_modules" ]; then
@@ -1771,7 +1776,7 @@ actions GenerateFrameworkStub
     $(_LD_FOR_LINKING) -dynamiclib $(INSTALLED_NAME_FLAG) $(DYLIB_VERSION_FLAGS:Q) -L$(LIBRARY_SEARCH_PATHS:Q) -F$(FRAMEWORK_SEARCH_PATHS:Q) $(DynamicLibrary.ARGUMENTS:Q) $(DERIVED_FILE_DIR:Q)/framework_stub.o -o $(1:Q)
     $(STRIP) $(STRIPFLAGS:Q) $(1:Q)
 }
-# Copyright (c) 1999-2002 Apple Computer, Inc.
+# Copyright (c) 1999-2003 Apple Computer, Inc.
 # All rights reserved.
 
 # Define reasonable base locations, to be overridden by default
@@ -1881,18 +1886,24 @@ rule BeginProduct
     HEADER_SUBDIRECTORY = $(1:B) ;
 
     # the following sequence of tests sets up CC, CPLUSPLUS, LD, and LDPLUSPLUS appropriately,
-    # depending on whether we're using GCC 2.95.2 or GCC 3.x (either explicitly or implicitly)
+    # depending on whether we're using GCC 2.95.2, 3.1, or 3.3 (either explicitly or implicitly)
 
     # a hack to detect attempt to use GCC 3, and to set the 'GCC_VERSION' build setting accordingly
     if $(USE_GCC3) = YES  ||  $(USE_GCC2) = NO  ||  $(CC) = "/usr/bin/gcc3" {
-        GCC_VERSION default = 3.x ;
+        # use either the default gcc version if available or default to 3.1
+        if $(_DEFAULT_GCC_VERSION) = 3.1 || $(_DEFAULT_GCC_VERSION) = 3.3 {
+            GCC_VERSION default = $(_DEFAULT_GCC_VERSION) ;
+        }
+        else {
+            GCC_VERSION default = 3.1 ;
+        }
     }
     else if $(USE_GCC2) = YES  ||  $(USE_GCC3) = NO  ||  $(CC) = "/usr/bin/gcc2" {
         GCC_VERSION default = 2.x ;
     }
     else {
-        if $(_DEFAULT_GCC_VERSION) = 3.1 {
-            GCC_VERSION default = 3.x ;
+        if $(_DEFAULT_GCC_VERSION) = 3.1 || $(_DEFAULT_GCC_VERSION) = 3.3 {
+            GCC_VERSION default = $(_DEFAULT_GCC_VERSION) ;
         }
         else if $(_DEFAULT_GCC_VERSION) = 2.95.2 {
             GCC_VERSION default = 2.x ;
@@ -1904,7 +1915,11 @@ rule BeginProduct
 
     # set up CC, CPLUSPLUS, LD, and LDPLUSPLUS appropriately (this logic is temporary, and is
     # expected to be phased out once we have per-build-phase compiler choices)
-    if $(GCC_VERSION) = 3.x {
+    if $(GCC_VERSION) = 3.3 {
+        CC default = /usr/bin/gcc-3.3 ;
+        CPLUSPLUS default = /usr/bin/g++-3.3 ;
+    }
+    else if $(GCC_VERSION) = 3.1 {
         CC default = /usr/bin/gcc3 ;
         CPLUSPLUS default = /usr/bin/g++3 ;
     }
@@ -1985,6 +2000,7 @@ rule BeginProduct
     }
     # asides
     if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
+        SEPARATE_STRIP = YES ;
         ASIDE_DIR default = $(BUILD_ROOT) ;
         Mkdir $(ASIDE_DIR) ;
         ProductFile $(ASIDE_DIR) ;
@@ -2110,10 +2126,22 @@ rule EndProduct
     # that for some reason require this post build processing.
     # !!!:cmolick:20021025 skip this if action is installhdrs since
     #  it is not relevant in that case and might even be impossible
+    if ( $(DEPLOYMENT_POSTPROCESSING) = YES && $(_INSTALLED_PRODUCT) ) {
+        DEPENDS $(_INSTALLED_PRODUCT:G=ModeOwnerGroup) : $(PRODUCT_FILES) ;
+    }
     if $(DEPLOYMENT_POSTPROCESSING) = YES && $(ACTION) != installhdrs {
+    PREVIOUS_PERMISSIONS_TARGET = ;
     for ALTERNATE_PERMISSIONS_FILE in $(ALTERNATE_PERMISSIONS_FILES) {
         ALTERNATE_PERMISSIONS_FILE_PATH = $(INSTALL_DIR)$(/)$(ALTERNATE_PERMISSIONS_FILE) ;
         ALTERNATE_PERMISSIONS_TARGET = $(ALTERNATE_PERMISSIONS_FILE:G=AlternatePermissions) ;
+        if $(PREVIOUS_PERMISSIONS_TARGET) {
+            DEPENDS $(ALTERNATE_PERMISSIONS_TARGET) : $(PREVIOUS_PERMISSIONS_TARGET) ;
+        }
+        else {
+            if ( $(DEPLOYMENT_POSTPROCESSING) = YES && $(_INSTALLED_PRODUCT) ) {
+                DEPENDS $(ALTERNATE_PERMISSIONS_TARGET) : $(_INSTALLED_PRODUCT:G=ModeOwnerGroup) ;
+            }
+        }
         NOTFILE $(ALTERNATE_PERMISSIONS_TARGET) ;
         DEPENDS $(1) : $(ALTERNATE_PERMISSIONS_TARGET) ;
         DEPENDS $(ALTERNATE_PERMISSIONS_TARGET) : $(_BUILD_PHASES) ;
@@ -2127,6 +2155,7 @@ rule EndProduct
             INSTALL_GROUP on $(ALTERNATE_PERMISSIONS_TARGET) = $(ALTERNATE_GROUP) ;
         }
         SetModeOwnerAndGroup $(ALTERNATE_PERMISSIONS_TARGET) : $(ALTERNATE_PERMISSIONS_FILE_PATH) ;
+        PREVIOUS_PERMISSIONS_TARGET = $(ALTERNATE_PERMISSIONS_TARGET) ;
     }
     }
     # Define actions for this target
@@ -2303,7 +2332,7 @@ rule EndWrappedProduct
     # wrapper logic complete, now handle final build issues
     EndProduct $(1) ;
 }
-# Copyright (c) 1999-2002 Apple Computer, Inc.
+# Copyright (c) 1999-2003 Apple Computer, Inc.
 # All rights reserved.
 
 # Rules for target types include Begin and End rules
@@ -2379,7 +2408,7 @@ rule EndFramework
 {
     EndWrappedProduct $(1) ;
 }
-# Copyright (c) 1999-2002 Apple Computer, Inc.
+# Copyright (c) 1999-2003 Apple Computer, Inc.
 # All rights reserved.
 
 # Variables referenced:
@@ -2666,10 +2695,11 @@ rule ProcessHeaders
     if headers in $(BUILD_COMPONENTS) && $(GENERATE_HEADERS) = YES {
         InterfacerHeaders $(1) ;
     }
-    # :mferris:20011107 Only do IMPLICITLY_INCLUDED_HEADERS business if we are actually building.  No need to do this for installhdrs, and currently, we cannot handle the precompiling aspect of this during installhdrs.  If we ever support building framework precomps (ie if we ever have to invoke the compiler during installhdrs), this needs to be revisited.
+    # Prepare to use prefix file, possibly starting with precompiling
+    # Prefix file preparation and precompling is done only when the build action is "build", but not "installhdrs"
     if ( build in $(BUILD_COMPONENTS) )
      && ( $(ARCHS) || $(NULL_BUILD_IF_NO_VALID_ARCH) != YES ) {
-        # if we have a prefix file, and if we're supposed to precompile it, we do so using either GCC 3's PFE mechanism or using cpp-precomp
+        # The prefix file may be compiled for use with cpp-precomp, PFE, or PCH mechanisms
         if ( $(PREFIX_HEADER) != ""  &&  $(PRECOMPILE_PREFIX_HEADER) = YES ) {
             PFE_FILE_C_DIALECTS default = "c" "objective-c" "c++" "objective-c++" ;
             PRECOMP_DESTINATION_DIR default = $(TEMP_DIR)$(/)PrefixHeaders ;
@@ -2678,29 +2708,14 @@ rule ProcessHeaders
             if $(_BUILD_PHASING) = YES {
                 BUILD_PHASE_PRODUCTS += $(PRECOMP_DESTINATION_DIR) ;
             }
-            if $(GCC_VERSION) = 3.x  &&  $(USE_GCC3_PFE_SUPPORT) = YES {
-                # We need to precompile the prefix file, and we're using GCC 3.  This means that we need to make an arbitrary number of PFE files, one per language-and-architecture combination.  PFE_FILE_C_DIALECTS gives the languages and ARCHS gives the architectures (although PFE_FILE_C_DIALECTS is only used _inside_ the action of MakePFEFile -- from Jam's perspective, we treat each architecture's PFE file as an atomic unit).  The "effective prefix file" is set to nothing, since we won't be passing a -include directive.  The "EFFECTIVE_PFE_FILE_$(ARCH)" is set to the produced PFE file.
-                for ARCH in $(ARCHS) {
-                    EFFECTIVE_PFE_FILE_$(ARCH) = $(PRECOMP_DESTINATION_DIR)$(/)$(PREFIX_HEADER:BS="-$(ARCH).pfe") ;
-                    if ( "c" in $(PFE_FILE_C_DIALECTS) )  ||  ( "objective-c" in $(PFE_FILE_C_DIALECTS) ) {
-                        MakePFEFile $(EFFECTIVE_PFE_FILE_$(ARCH)) : $(PREFIX_HEADER) ;
-                    }
-                    if ( "c++" in $(PFE_FILE_C_DIALECTS) )  ||  ( "objective-c++" in $(PFE_FILE_C_DIALECTS) ) {
-                        MakePFEFile++ $(EFFECTIVE_PFE_FILE_$(ARCH)) : $(PREFIX_HEADER) ;
-                    }
-                    PRODUCT_FILES += $(EFFECTIVE_PFE_FILE_$(ARCH)) ;
-                    if $(_BUILD_PHASING) = YES {
-                        BUILD_PHASE_PRODUCTS += $(EFFECTIVE_PFE_FILE_$(ARCH)) ;
-                    }
-                }
-                EFFECTIVE_PREFIX_HEADER = ;  # because with a PFE file, we don't actually pass a -include argument
-            }
-            else {
-                # We need to precompile the prefix file, and we're not using GCC 3.  This means that we create a header stub in a special directory under the TEMP_DIR, precompile that for both C and C++, and then pass the prefix file in the -include.  The "effective prefix file" is set to the prefix file stub.
+            if ( $(GCC_VERSION) = 2.x ) || ( $(GCC_VERSION) = 3.1 && $(USE_GCC3_PFE_SUPPORT) != YES ) {
+                # compile prefix file with cpp-precomp
+                # create header stub in subfolder of TEMP_DIR
                 local PREFIX_HEADER_STUB = $(PRECOMP_DESTINATION_DIR)$(/)$(PREFIX_HEADER:BS) ;
                 DEPENDS $(PREFIX_HEADER_STUB) : $(PRECOMP_DESTINATION_DIR) ;
                 AbsolutePathImportStub $(PREFIX_HEADER_STUB) : $(PREFIX_HEADER) ;
                 INCLUDES $(PREFIX_HEADER_STUB) : $(PREFIX_HEADER) ;
+                # recompile for C and C++
                 if ( "c" in $(PFE_FILE_C_DIALECTS) )  ||  ( "objective-c" in $(PFE_FILE_C_DIALECTS) ) {
                     C_PRECOMP_FILE_DESTINATION_PATH = $(PRECOMP_DESTINATION_DIR)$(/)$(PREFIX_HEADER_STUB:BS="-gcc3.p") ;
                     PrecompileHeader $(C_PRECOMP_FILE_DESTINATION_PATH) : $(PREFIX_HEADER_STUB) ;
@@ -2717,10 +2732,58 @@ rule ProcessHeaders
                         BUILD_PHASE_PRODUCTS += $(CPLUSPLUS_PRECOMP_FILE_DESTINATION_PATH) ;
                     }
                 }
+                # effective prefix header is now header stub
                 EFFECTIVE_PREFIX_HEADER = $(PREFIX_HEADER_STUB) ;
+                # prepare precompile option using -include
+                # set default flags for precompiled prefix header usage
+            }
+            else {
+                if $(GCC_VERSION) = 3.1 && $(USE_GCC3_PFE_SUPPORT) = YES {
+                    # prefix file precompiled with PFE support
+                    # precompile by dialect
+                    for ARCH in $(ARCHS) {
+                        EFFECTIVE_PFE_FILE_$(ARCH) = $(PRECOMP_DESTINATION_DIR)$(/)$(PREFIX_HEADER:BS="-$(ARCH).pfe") ;
+                        if ( "c" in $(PFE_FILE_C_DIALECTS) )  ||  ( "objective-c" in $(PFE_FILE_C_DIALECTS) ) {
+                            MakePFEFile $(EFFECTIVE_PFE_FILE_$(ARCH)) : $(PREFIX_HEADER) ;
+                        }
+                        if ( "c++" in $(PFE_FILE_C_DIALECTS) )  ||  ( "objective-c++" in $(PFE_FILE_C_DIALECTS) ) {
+                            MakePFEFile++ $(EFFECTIVE_PFE_FILE_$(ARCH)) : $(PREFIX_HEADER) ;
+                        }
+                        PRODUCT_FILES += $(EFFECTIVE_PFE_FILE_$(ARCH)) ;
+                        if $(_BUILD_PHASING) = YES {
+                            BUILD_PHASE_PRODUCTS += $(EFFECTIVE_PFE_FILE_$(ARCH)) ;
+                        }
+                    }
+                    # effective prefix header is empty because no -include flag is passed
+                    EFFECTIVE_PREFIX_HEADER = ;
+                    # use flag for picking up PFE
+                    PREFIX_HEADER_CFLAGS_BASE default = --load-pch ;
+                }
+                if $(GCC_VERSION) = 3.3 {
+                    # prefix file precompiled with PCH support
+                    # precompile by dialect
+                    for ARCH in $(ARCHS) {
+                        EFFECTIVE_PFE_FILE_$(ARCH) = $(PRECOMP_DESTINATION_DIR)$(/)$(PREFIX_HEADER:BS="-$(ARCH)").gch ;
+                        if ( "c" in $(PFE_FILE_C_DIALECTS) )  ||  ( "objective-c" in $(PFE_FILE_C_DIALECTS) ) {
+                            ProcessPCH $(EFFECTIVE_PFE_FILE_$(ARCH)) : $(PREFIX_HEADER) ;
+                        }
+                        if ( "c++" in $(PFE_FILE_C_DIALECTS) )  ||  ( "objective-c++" in $(PFE_FILE_C_DIALECTS) ) {
+                            ProcessPCH++ $(EFFECTIVE_PFE_FILE_$(ARCH)) : $(PREFIX_HEADER) ;
+                        }
+                        PRODUCT_FILES += $(EFFECTIVE_PFE_FILE_$(ARCH)) ;
+                        if $(_BUILD_PHASING) = YES {
+                            BUILD_PHASE_PRODUCTS += $(EFFECTIVE_PFE_FILE_$(ARCH)) ;
+                        }
+                    }
+                    # effective prefix header is empty because no -include flag is passed
+                    EFFECTIVE_PREFIX_HEADER = ;
+                    # use inclusion flag for PCH
+                    PREFIX_HEADER_CFLAGS_BASE default = -include ;
+                }
             }
         }
         else {
+            # In this case there may be a prefix header, but no precompile
             EFFECTIVE_PREFIX_HEADER = $(PREFIX_HEADER) ;
         }
     }
@@ -2898,14 +2961,14 @@ rule PrecompileHeader
         local KERNEL_INCLUDE_PATHS = $(KERNEL_HEADERS) $(KERNEL_HEADERS)/bsd $(KERNEL_FRAMEWORK)/PrivateHeaders ;
         local KERNEL_COMPILE_OPTIONS = -fno-builtin -finline -fno-keep-inline-functions -force_cpusubtype_ALL -msoft-float ;
         local KERNEL_DEFINITIONS = -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT ;
-        FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CFLAGS) -fno-common -nostdinc $(OPTIMIZATION_CFLAGS) $(WARNING_CFLAGS) -I$(KERNEL_INCLUDE_PATHS) -I$(PROJECT_HEADER_DIR) $(KERNEL_COMPILE_OPTIONS) -static $(KERNEL_DEFINITIONS) ;
+        FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CFLAGS_$(ARCH)) -fno-common -nostdinc $(OPTIMIZATION_CFLAGS) $(WARNING_CFLAGS) -I$(KERNEL_INCLUDE_PATHS) -I$(PROJECT_HEADER_DIR) $(KERNEL_COMPILE_OPTIONS) -static $(KERNEL_DEFINITIONS) ;
         GLOBAL_CFLAGS on $(1) = ;
         if $(ARCH) in ppc {
             KERNEL_COMPILE_OPTIONS += -mlong-branch ;
         }
     }
     else {
-        FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CFLAGS) -fno-common -fpascal-strings $(OPTIMIZATION_CFLAGS) $(WARNING_CFLAGS) ;    # We must compile with the extension-specific build flags
+        FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CFLAGS_$(ARCH)) -fno-common -fpascal-strings $(OPTIMIZATION_CFLAGS) $(WARNING_CFLAGS) ;    # We must compile with the extension-specific build flags
         if $(PRODUCT_TYPE) = Tool || $(PRODUCT_TYPE) = Application {
             USE_DYNAMIC_NO_PIC default = YES ;
         } else {
@@ -2916,7 +2979,7 @@ rule PrecompileHeader
         }
     }
     FLAGS on $(1) += -pipe ;
-    if $(GCC_VERSION) = 3.x {
+    if $(GCC_VERSION) != 2.x {
         FLAGS on $(1) += -fmessage-length=0 ;
     }
     if $(GCC_TREAT_WARNINGS_AS_ERRORS) = YES {
@@ -2935,7 +2998,7 @@ rule PrecompileHeader
     if $(PROFILING_CODE) = YES {
         FLAGS on $(1) += -pg ;
     }
-    if $(OS) in MACOS DARWIN {
+    if $(GCC_VERSION) != 3.3 && $(OS) in MACOS DARWIN {
         FLAGS on $(1) += -precomp-trustfile $(PRECOMP_TRUSTFILE) ;
     }
     if $(CPP_HEADERMAP_FILE) {
@@ -2969,11 +3032,11 @@ rule MakePFEFile
             KERNEL_COMPILE_OPTIONS += -mlong-branch ;
         }
         local KERNEL_DEFINITIONS = -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT ;
-        FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CFLAGS) -fno-common -nostdinc $(OPTIMIZATION_CFLAGS) $(WARNING_CFLAGS) -I$(KERNEL_INCLUDE_PATHS) -I$(PROJECT_HEADER_DIR) $(KERNEL_COMPILE_OPTIONS) -static $(KERNEL_DEFINITIONS) ;
+        FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CFLAGS_$(ARCH)) -fno-common -nostdinc $(OPTIMIZATION_CFLAGS) $(WARNING_CFLAGS) -I$(KERNEL_INCLUDE_PATHS) -I$(PROJECT_HEADER_DIR) $(KERNEL_COMPILE_OPTIONS) -static $(KERNEL_DEFINITIONS) ;
         GLOBAL_CFLAGS on $(1) = ;
     }
     else {
-        FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CFLAGS) -fno-common -fpascal-strings $(OPTIMIZATION_CFLAGS) $(WARNING_CFLAGS) ;    # We must compile with the extension-specific build flags
+        FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CFLAGS_$(ARCH)) -fno-common -fpascal-strings $(OPTIMIZATION_CFLAGS) $(WARNING_CFLAGS) ;    # We must compile with the extension-specific build flags
         if $(PRODUCT_TYPE) = Tool || $(PRODUCT_TYPE) = Application {
             USE_DYNAMIC_NO_PIC default = YES ;
         } else {
@@ -2984,7 +3047,7 @@ rule MakePFEFile
         }
     }
     FLAGS on $(1) += -pipe ;
-    if $(GCC_VERSION) = 3.x {
+    if $(GCC_VERSION) != 2.x {
         FLAGS on $(1) += -fmessage-length=0 ;
     }
     if $(GCC_TREAT_WARNINGS_AS_ERRORS) = YES {
@@ -3017,12 +3080,13 @@ rule MakePFEFile
 }
 actions MakePFEFile
 {
-    for _c_dialect in $(PFE_FILE_C_DIALECTS) ; do if [ ${_c_dialect} == c -o ${_c_dialect} == objective-c ] ; then dummy_file=`mktemp /tmp/.null-XXXXXXXX`; $(CC) -c -x ${_c_dialect} -F$(FRAMEWORK_SEARCH_PATHS:Q) -I$(HEADER_SEARCH_PATHS:Q) $(FLAGS:Q) $(GLOBAL_CFLAGS) -I$(DERIVED_PATHS:Q) -I$(SOURCE_ROOT:Q) $(PREFIX_HEADER_CFLAGS:Q) "$(OTHER_PRECOMP_CFLAGS)" "$(OTHER_CFLAGS)" $(2:Q) -o ${dummy_file} --dump-pch $(1:Q) ; exit_code=$? ; rm ${dummy_file} ; if [ ${exit_code} != 0 ] ; then rm -r $(1:Q) ; exit ${exit_code} ; fi ; fi ; done
+    for _c_dialect in $(PFE_FILE_C_DIALECTS) ; do if [ ${_c_dialect} == c -o ${_c_dialect} == objective-c ] ; then dummy_file=`mktemp /tmp/.null-XXXXXXXX`; $(CC) -c -x ${_c_dialect} -F$(FRAMEWORK_SEARCH_PATHS:Q) -I$(HEADER_SEARCH_PATHS:Q) $(FLAGS:Q) $(GLOBAL_CFLAGS) -I$(DERIVED_PATHS:Q) -I$(SOURCE_ROOT:Q) $(PREFIX_HEADER_CFLAGS:Q) "$(OTHER_PRECOMP_CFLAGS)" "$(OTHER_CFLAGS)" $(2:Q) -o ${dummy_file} --dump-pch $(1:Q) ; exit_code=$? ; rm ${dummy_file} ; if [ ${exit_code} != 0 ] ; then rm -rf $(1:Q) ; exit ${exit_code} ; fi ; fi ; done
 }
 
 rule MakePFEFile++
 {
     DEPENDS $(1) : $(2) ;
+    PER_ARCH_CPLUSPLUSFLAGS_$(ARCH) default = $(PER_ARCH_CFLAGS_$(ARCH)) ;
     if $(KERNEL_MODULE) = YES {
         local KERNEL_FRAMEWORK = $(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework ;
         local KERNEL_HEADERS = $(KERNEL_FRAMEWORK)/Headers ;
@@ -3033,11 +3097,11 @@ rule MakePFEFile++
         }
         KERNEL_COMPILE_OPTIONS += -fapple-kext ;
         local KERNEL_DEFINITIONS = -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT ;
-        FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CFLAGS) -fno-common -nostdinc $(OPTIMIZATION_CFLAGS) $(WARNING_CPLUSPLUSFLAGS) -I$(KERNEL_INCLUDE_PATHS) -I$(PROJECT_HEADER_DIR) $(KERNEL_COMPILE_OPTIONS) -static $(KERNEL_DEFINITIONS) ;
+        FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CPLUSPLUSFLAGS_$(ARCH)) -fno-common -nostdinc $(OPTIMIZATION_CFLAGS) $(WARNING_CPLUSPLUSFLAGS) -I$(KERNEL_INCLUDE_PATHS) -I$(PROJECT_HEADER_DIR) $(KERNEL_COMPILE_OPTIONS) -static $(KERNEL_DEFINITIONS) ;
         GLOBAL_CFLAGS on $(1) = ;
     }
     else {
-        FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CFLAGS) -fno-common -fpascal-strings $(OPTIMIZATION_CFLAGS) $(WARNING_CPLUSPLUSFLAGS) ;    # We must compile with the extension-specific build flags
+        FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CPLUSPLUSFLAGS_$(ARCH)) -fno-common -fpascal-strings $(OPTIMIZATION_CFLAGS) $(WARNING_CPLUSPLUSFLAGS) ;    # We must compile with the extension-specific build flags
         if $(PRODUCT_TYPE) = Tool || $(PRODUCT_TYPE) = Application {
             USE_DYNAMIC_NO_PIC default = YES ;
         } else {
@@ -3048,7 +3112,7 @@ rule MakePFEFile++
         }
     }
     FLAGS on $(1) += -pipe ;
-    if $(GCC_VERSION) = 3.x {
+    if $(GCC_VERSION) != 2.x {
         FLAGS on $(1) += -fmessage-length=0 ;
     }
     if $(GCC_TREAT_WARNINGS_AS_ERRORS) = YES {
@@ -3081,7 +3145,137 @@ rule MakePFEFile++
 }
 actions MakePFEFile++
 {
-    for _c_dialect in $(PFE_FILE_C_DIALECTS) ; do if [ ${_c_dialect} == c++ -o ${_c_dialect} == objective-c++ ] ; then dummy_file=`mktemp /tmp/.null-XXXXXXXX`; $(CC) -c -x ${_c_dialect} -F$(FRAMEWORK_SEARCH_PATHS:Q) -I$(HEADER_SEARCH_PATHS:Q) $(FLAGS:Q) $(GLOBAL_CFLAGS) -I$(DERIVED_PATHS:Q) -I$(SOURCE_ROOT:Q) $(PREFIX_HEADER_CFLAGS:Q) "$(OTHER_PRECOMP_CPLUSPLUSFLAGS)" "$(OTHER_CPLUSPLUSFLAGS)" $(2:Q) -o ${dummy_file} --dump-pch $(1:Q) ; exit_code=$? ; rm ${dummy_file} ; if [ ${exit_code} != 0 ] ; then rm -r $(1:Q) ; exit ${exit_code} ; fi ; fi ; done
+    for _c_dialect in $(PFE_FILE_C_DIALECTS) ; do if [ ${_c_dialect} == c++ -o ${_c_dialect} == objective-c++ ] ; then dummy_file=`mktemp /tmp/.null-XXXXXXXX`; $(CC) -c -x ${_c_dialect} -F$(FRAMEWORK_SEARCH_PATHS:Q) -I$(HEADER_SEARCH_PATHS:Q) $(FLAGS:Q) $(GLOBAL_CFLAGS) -I$(DERIVED_PATHS:Q) -I$(SOURCE_ROOT:Q) $(PREFIX_HEADER_CFLAGS:Q) "$(OTHER_PRECOMP_CPLUSPLUSFLAGS)" "$(OTHER_CPLUSPLUSFLAGS)" $(2:Q) -o ${dummy_file} --dump-pch $(1:Q) ; exit_code=$? ; rm ${dummy_file} ; if [ ${exit_code} != 0 ] ; then rm -rf $(1:Q) ; exit ${exit_code} ; fi ; fi ; done
+}
+
+rule ProcessPCH
+{
+    DEPENDS $(1) : $(2) ;
+    if $(KERNEL_MODULE) = YES {
+        local KERNEL_FRAMEWORK = $(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework ;
+        local KERNEL_HEADERS = $(KERNEL_FRAMEWORK)/Headers ;
+        local KERNEL_INCLUDE_PATHS = $(KERNEL_HEADERS) $(KERNEL_HEADERS)/bsd $(KERNEL_FRAMEWORK)/PrivateHeaders ;
+        local KERNEL_COMPILE_OPTIONS = -fno-builtin -finline -fno-keep-inline-functions -force_cpusubtype_ALL -msoft-float ;
+        if $(ARCH) in ppc {
+            KERNEL_COMPILE_OPTIONS += -mlong-branch ;
+        }
+        local KERNEL_DEFINITIONS = -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT ;
+        FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CFLAGS_$(ARCH)) -fno-common -nostdinc $(OPTIMIZATION_CFLAGS) $(WARNING_CFLAGS) -I$(KERNEL_INCLUDE_PATHS) -I$(PROJECT_HEADER_DIR) $(KERNEL_COMPILE_OPTIONS) -static $(KERNEL_DEFINITIONS) ;
+        GLOBAL_CFLAGS on $(1) = ;
+    }
+    else {
+        FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CFLAGS_$(ARCH)) -fno-common -fpascal-strings $(OPTIMIZATION_CFLAGS) $(WARNING_CFLAGS) ;    # We must compile with the extension-specific build flags
+        if $(PRODUCT_TYPE) = Tool || $(PRODUCT_TYPE) = Application {
+            USE_DYNAMIC_NO_PIC default = YES ;
+        } else {
+            USE_DYNAMIC_NO_PIC default = NO ;
+        }
+        if $(USE_DYNAMIC_NO_PIC) = YES {
+            FLAGS on $(1) += -mdynamic-no-pic ;
+        }
+    }
+    FLAGS on $(1) += -pipe ;
+    if $(GCC_VERSION) != 2.x {
+        FLAGS on $(1) += -fmessage-length=0 ;
+    }
+    if $(GCC_TREAT_WARNINGS_AS_ERRORS) = YES {
+        FLAGS on $(1) += -Werror ;
+    }
+    # seed search paths with target-wide values
+    HEADER_SEARCH_PATHS on $(1) = $(HEADER_SEARCH_PATHS) ;
+    FRAMEWORK_SEARCH_PATHS on $(1) = $(FRAMEWORK_SEARCH_PATHS) ;
+    # extension-specific build flags
+    FLAGS on $(1) += $($(2:S)_CFLAGS) ;
+    # Add debug flags, if appropriate.
+    if $(DEBUGGING_SYMBOLS) = YES {
+        FLAGS on $(1) += -g ;
+    }
+    # Add profiling flags, if appropriate.
+    if $(PROFILING_CODE) = YES {
+        FLAGS on $(1) += -pg ;
+    }
+    if $(CPP_HEADERMAP_FILE) {
+        FLAGS on $(1) += "-Wp,-header-mapfile,$(CPP_HEADERMAP_FILE)" ;
+    }
+    if YES in $(GENERATE_CPP_ILOG_FILES) {
+        local INCLUSION_LOG_FILE default = $(OBJECT_FILE_DIR)-$(VARIANT)$(/)$(ARCH)$(/)$(2:DB).ilog ;
+        FLAGS on $(1) += "-Wp,-inclusion-log-file,$(INCLUSION_LOG_FILE)" ;
+    }
+    ARCH on $(1) = $(ARCH) ;
+    Mkdir $(PRECOMP_DESTINATION_DIR) ;
+    DEPENDS $(1) : $(PRECOMP_DESTINATION_DIR) ;
+    SEARCH on $(2) = $(SOURCE_ROOT) ;
+}
+actions ProcessPCH
+{
+    mkdir -p $(1:Q)
+    for _c_dialect in $(PFE_FILE_C_DIALECTS) ; do if [ ${_c_dialect} == c -o ${_c_dialect} == objective-c ] ; then rm -f $(1:Q)$(/)${_c_dialect} ; $(CC) -c -x ${_c_dialect}-header -F$(FRAMEWORK_SEARCH_PATHS:Q) -I$(HEADER_SEARCH_PATHS:Q) $(FLAGS:Q) $(GLOBAL_CFLAGS) -I$(DERIVED_PATHS:Q) -I$(SOURCE_ROOT:Q) $(PREFIX_HEADER_CFLAGS:Q) "$(OTHER_PRECOMP_CFLAGS)" "$(OTHER_CFLAGS)" $(2:Q) -o $(1:Q)$(/)${_c_dialect} ; exit_code=$? ; if [ ${exit_code} != 0 ] ; then rm -rf $(1:Q)$(/)${_c_dialect} ; touch $(1:Q) ; exit ${exit_code} ; fi ; fi ; done
+}
+ 
+rule ProcessPCH++
+{
+    DEPENDS $(1) : $(2) ;
+    PER_ARCH_CPLUSPLUSFLAGS_$(ARCH) default = $(PER_ARCH_CFLAGS_$(ARCH)) ;
+    if $(KERNEL_MODULE) = YES {
+        local KERNEL_FRAMEWORK = $(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework ;
+        local KERNEL_HEADERS = $(KERNEL_FRAMEWORK)/Headers ;
+        local KERNEL_INCLUDE_PATHS = $(KERNEL_HEADERS) $(KERNEL_HEADERS)/bsd $(KERNEL_FRAMEWORK)/PrivateHeaders ;
+        local KERNEL_COMPILE_OPTIONS = -fno-builtin -finline -fno-keep-inline-functions -force_cpusubtype_ALL -msoft-float ;
+        if $(ARCH) in ppc {
+            KERNEL_COMPILE_OPTIONS += -mlong-branch ;
+        }
+        KERNEL_COMPILE_OPTIONS += -fapple-kext ;
+        local KERNEL_DEFINITIONS = -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT ;
+        FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CPLUSPLUSFLAGS_$(ARCH)) -fno-common -nostdinc $(OPTIMIZATION_CFLAGS) $(WARNING_CPLUSPLUSFLAGS) -I$(KERNEL_INCLUDE_PATHS) -I$(PROJECT_HEADER_DIR) $(KERNEL_COMPILE_OPTIONS) -static $(KERNEL_DEFINITIONS) ;
+        GLOBAL_CFLAGS on $(1) = ;
+    }
+    else {
+        FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CPLUSPLUSFLAGS_$(ARCH)) -fno-common -fpascal-strings $(OPTIMIZATION_CFLAGS) $(WARNING_CPLUSPLUSFLAGS) ;    # We must compile with the extension-specific build flags
+        if $(PRODUCT_TYPE) = Tool || $(PRODUCT_TYPE) = Application {
+            USE_DYNAMIC_NO_PIC default = YES ;
+        } else {
+            USE_DYNAMIC_NO_PIC default = NO ;
+        }
+        if $(USE_DYNAMIC_NO_PIC) = YES {
+            FLAGS on $(1) += -mdynamic-no-pic ;
+        }
+    }
+    FLAGS on $(1) += -pipe ;
+    if $(GCC_VERSION) != 2.x {
+        FLAGS on $(1) += -fmessage-length=0 ;
+    }
+    if $(GCC_TREAT_WARNINGS_AS_ERRORS) = YES {
+        FLAGS on $(1) += -Werror ;
+    }
+    # seed search paths with target-wide values
+    HEADER_SEARCH_PATHS on $(1) = $(HEADER_SEARCH_PATHS) ;
+    FRAMEWORK_SEARCH_PATHS on $(1) = $(FRAMEWORK_SEARCH_PATHS) ;
+    # extension-specific build flags
+    FLAGS on $(1) += $($(2:S)_CFLAGS) ;
+    # Add debug flags, if appropriate.
+    if $(DEBUGGING_SYMBOLS) = YES {
+        FLAGS on $(1) += -g ;
+    }
+    # Add profiling flags, if appropriate.
+    if $(PROFILING_CODE) = YES {
+        FLAGS on $(1) += -pg ;
+    }
+    if $(CPP_HEADERMAP_FILE) {
+        FLAGS on $(1) += "-Wp,-header-mapfile,$(CPP_HEADERMAP_FILE)" ;
+    }
+    if YES in $(GENERATE_CPP_ILOG_FILES) {
+        local INCLUSION_LOG_FILE default = $(OBJECT_FILE_DIR)-$(VARIANT)$(/)$(ARCH)$(/)$(2:DB).ilog ;
+        FLAGS on $(1) += "-Wp,-inclusion-log-file,$(INCLUSION_LOG_FILE)" ;
+    }
+    ARCH on $(1) = $(ARCH) ;
+    Mkdir $(PRECOMP_DESTINATION_DIR) ;
+    DEPENDS $(1) : $(PRECOMP_DESTINATION_DIR) ;
+    SEARCH on $(2) = $(SOURCE_ROOT) ;
+}
+actions ProcessPCH++
+{
+    mkdir -p $(1:Q)
+    for _c_dialect in $(PFE_FILE_C_DIALECTS) ; do if [ ${_c_dialect} == c++ -o ${_c_dialect} == objective-c++ ] ; then rm -f $(1:Q)$(/)${_c_dialect} ; $(CC) -c -x ${_c_dialect}-header -F$(FRAMEWORK_SEARCH_PATHS:Q) -I$(HEADER_SEARCH_PATHS:Q) $(FLAGS:Q) $(GLOBAL_CFLAGS) -I$(DERIVED_PATHS:Q) -I$(SOURCE_ROOT:Q) $(PREFIX_HEADER_CFLAGS:Q) "$(OTHER_PRECOMP_CFLAGS)" "$(OTHER_CPLUSPLUSFLAGS)" $(2:Q) -o $(1:Q)$(/)${_c_dialect} ; exit_code=$? ; if [ ${exit_code} != 0 ] ; then rm -f $(1:Q)$(/)${_c_dialect} ; touch $(1:Q) ; exit ${exit_code} ; fi ; fi ; done
 }
 
 
@@ -3666,7 +3860,7 @@ rule ProcessFrameworksAndLibraries
             # By default single module linking is done for all but static libraries.
             # If using Interfacer, then a master object file is generated instead.
             # Static libraries have ranlib run on them after all other steps are complete.
-            if $(GENERATE_HEADERS) = YES || $(GENERATE_EXPORT_SETS_AND_GLUE) = YES {
+            if $(GENERATE_HEADERS) = YES || $(GENERATE_EXPORT_SETS_AND_GLUE) = YES || $(CFM_BRIDGE) = YES {
                 GENERATE_MASTER_OBJECT_FILE default = YES ;
             }
             if $(GENERATE_MASTER_OBJECT_FILE) = YES {
@@ -3718,8 +3912,9 @@ rule ProcessFrameworksAndLibraries
                 STRIPPED_PRODUCT_$(VARIANT) default = $(INNER_PRODUCT_$(VARIANT):G=strip) ;
                 DEPENDS $(STRIPPED_PRODUCT_$(VARIANT)) : $(INNER_PRODUCT_$(VARIANT)) ;
                 if $(PRODUCT_TYPE) != Tool && $(PRODUCT_TYPE) != Application {
-                    if $(PRODUCT_TYPE) = Bundle
-                     || ( $(PRODUCT_TYPE) = Library && $(LIBRARY_STYLE) = BUNDLE ) {
+                    if ( $(PRODUCT_TYPE) = Bundle
+                     || ( $(PRODUCT_TYPE) = Library && $(LIBRARY_STYLE) = BUNDLE ) )
+                     && $(KERNEL_MODULE) != YES {
                         STRIPFLAGS default = -x ;
                     }
                     else {
@@ -4017,9 +4212,8 @@ rule ProcessFrameworksAndLibraries
                     }
                     # Make a link to the product without extension
                     # to allow for references missing extension.
-                    _SUFFIX_FREE_ARCHIVE_REFERENCE = $(CLASS_ARCHIVE:S=) ;
+                    _SUFFIX_FREE_ARCHIVE_REFERENCE = $(BUILT_PRODUCTS_DIR:G=SuffixFreeArchiveRef)$(/)$(CLASS_ARCHIVE:S=) ;
                     SymLink $(_SUFFIX_FREE_ARCHIVE_REFERENCE) : $(CLASS_ARCHIVE) ;
-                    LOCATE on $(_SUFFIX_FREE_ARCHIVE_REFERENCE) = $(BUILT_PRODUCTS_DIR) ;
                     DEPENDS $(_SUFFIX_FREE_ARCHIVE_REFERENCE) : $(BUILT_PRODUCTS_DIR) ;
                     DEPENDS $(1) : $(_SUFFIX_FREE_ARCHIVE_REFERENCE) ;
     	        }
@@ -4271,7 +4465,7 @@ rule ProcessRezFile
 
 rule ProcessScriptBuildPhaseFiles
 {
-    if build in $(BUILD_COMPONENTS) || source in $(BUILD_COMPONENTS) {
+    if source in $(BUILD_COMPONENTS) || headers in $(BUILD_COMPONENTS) || build in $(BUILD_COMPONENTS) {
         if $(_BUILD_PHASING) = YES {
             PhaseTarget BUILD_PHASE : $(1) : Script ;
             BuildPhase $(BUILD_PHASE) : $(1) : $(PREVIOUS_BUILD_PHASE) ;
@@ -4422,6 +4616,7 @@ rule ProcessJavaResourceFile
     ProductFile $(ARCHIVE_DESTINATION_DIR) ;
     PBXCp $(ARCHIVE_DESTINATION_FILE:G=populated) : $(2) ;
     ProductFile $(ARCHIVE_DESTINATION_FILE:G=populated) ;
+    DEPENDS $(ARCHIVE_DESTINATION_FILE:G=populated) : $(ARCHIVE_DESTINATION_DIR) ;
 
     # copied content depends on source
     DEPENDS $(ARCHIVE_DESTINATION_FILE) : $(2) ;
@@ -4789,7 +4984,7 @@ rule CompileC
         FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CFLAGS) -fno-common -fpascal-strings $(OPTIMIZATION_CFLAGS) $(WARNING_CFLAGS) ;
     }
     FLAGS on $(1) += -pipe ;
-    if $(GCC_VERSION) = 3.x {
+    if $(GCC_VERSION) != 2.x {
         FLAGS on $(1) += -fmessage-length=0 ;
         if $(PRODUCT_TYPE) = Tool || $(PRODUCT_TYPE) = Application {
             USE_DYNAMIC_NO_PIC default = YES ;
@@ -4824,7 +5019,7 @@ rule CompileC
     }
     # Pass the trusted-precomp file name to the compiler to keep track
     # of which precompiled headers it has already sanity checked.
-    if $(OS) in MACOS DARWIN  &&  $(EFFECTIVE_PFE_FILE_$(ARCH)) = "" {
+    if $(GCC_VERSION) != 3.3 && $(OS) in MACOS DARWIN  &&  $(EFFECTIVE_PFE_FILE_$(ARCH)) = "" {
         FLAGS on $(1) += -precomp-trustfile $(PRECOMP_TRUSTFILE) ;
     }
     if $(CPP_HEADERMAP_FILE) {
@@ -4838,15 +5033,35 @@ rule CompileC
         FLAGS on $(1) += "-fgen-index=$(INDEX_GENERATION_PIPE_NAME)" ;
     }
     if $(EFFECTIVE_PFE_FILE_$(ARCH)) != ""  &&  $(SUPPRESS_PREFIX_HEADER) != YES {
-        PREFIX_HEADER_CFLAGS on $(1) = --load-pch "$(EFFECTIVE_PFE_FILE_$(ARCH))" ;
-        if $(ENABLE_PREFIX_HEADER_DEPENDENCIES) != NO {
-            DEPENDS $(1) : $(EFFECTIVE_PFE_FILE_$(ARCH)) ;
+        if $($(2)_COMPILER_FLAGS) {
+            # When per-file flags are used the precompiled header is not valid
+            FLAGS on $(1) += -include "$(PREFIX_HEADER)" ;
+        }
+        else {
+            if $(PREFIX_HEADER_CFLAGS_BASE) = -include {
+                # GCC v3.3 PCH
+                PREFIX_HEADER_CFLAGS on $(1) = $(PREFIX_HEADER_CFLAGS_BASE) "$(EFFECTIVE_PFE_FILE_$(ARCH):S=)" ;            
+            }
+            else {
+                # GCC v3.1 PFE
+                PREFIX_HEADER_CFLAGS on $(1) = $(PREFIX_HEADER_CFLAGS_BASE) "$(EFFECTIVE_PFE_FILE_$(ARCH))" ;
+            }
+            if $(ENABLE_PREFIX_HEADER_DEPENDENCIES) != NO {
+                DEPENDS $(1) : $(EFFECTIVE_PFE_FILE_$(ARCH)) ;
+            }
         }
     }
     if $(EFFECTIVE_PREFIX_HEADER) != ""  &&  $(SUPPRESS_PREFIX_HEADER) != YES {
-        PREFIX_HEADER_CFLAGS on $(1) += -include "$(EFFECTIVE_PREFIX_HEADER)" ;
-        if $(ENABLE_PREFIX_HEADER_DEPENDENCIES) != NO {
-            DEPENDS $(1) : $(EFFECTIVE_PREFIX_HEADER) ;
+        if $($(2)_COMPILER_FLAGS) {
+            # When per-file flags are used the precompiled header is not valid
+            FLAGS on $(1) += -include "$(PREFIX_HEADER)" ;
+        }
+        else {
+            # GCC v2.95.2 cpp-precomp
+            PREFIX_HEADER_CFLAGS on $(1) += -include "$(EFFECTIVE_PREFIX_HEADER)" ;
+            if $(ENABLE_PREFIX_HEADER_DEPENDENCIES) != NO {
+                DEPENDS $(1) : $(EFFECTIVE_PREFIX_HEADER) ;
+            }
         }
     }
 }
@@ -4865,7 +5080,7 @@ rule CompileCplusplus
         local KERNEL_FRAMEWORK = $(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework ;
         local KERNEL_HEADERS = $(KERNEL_FRAMEWORK)/Headers ;
         local KERNEL_INCLUDE_PATHS = $(KERNEL_HEADERS) $(KERNEL_HEADERS)/bsd $(KERNEL_FRAMEWORK)/PrivateHeaders ;
-        if $(GCC_VERSION) = 3.x {
+        if $(GCC_VERSION) != 2.x {
             KERNEL_COMPILE_OPTIONS = -fno-builtin -finline -fno-keep-inline-functions -force_cpusubtype_ALL -fno-rtti -fno-exceptions -fcheck-new -msoft-float -fapple-kext ;
         }
         else {
@@ -4888,7 +5103,7 @@ rule CompileCplusplus
         }
     }
     FLAGS on $(1) += -pipe ;
-    if ( $(GCC_VERSION) = 3.x ) {
+    if ( $(GCC_VERSION) != 2.x ) {
         FLAGS on $(1) += -fmessage-length=0 ;
         if $(PRODUCT_TYPE) = Tool || $(PRODUCT_TYPE) = Application {
             USE_DYNAMIC_NO_PIC default = YES ;
@@ -4927,7 +5142,7 @@ rule CompileCplusplus
     }
     # Pass the trusted-precomp file name to the compiler to keep track
     # of which precompiled headers it has already sanity checked.
-    if $(OS) in MACOS DARWIN  &&  $(EFFECTIVE_PFE_FILE_$(ARCH)) = "" {
+    if $(GCC_VERSION) != 3.3 && $(OS) in MACOS DARWIN  &&  $(EFFECTIVE_PFE_FILE_$(ARCH)) = "" {
         FLAGS on $(1) += -precomp-trustfile $(PRECOMP_TRUSTFILE) ;
     }
     if $(CPP_HEADERMAP_FILE) {
@@ -4938,15 +5153,35 @@ rule CompileCplusplus
         FLAGS on $(1) += "-Wp,-inclusion-log-file,$(INCLUSION_LOG_FILE)" ;
     }
     if $(EFFECTIVE_PFE_FILE_$(ARCH)) != ""  &&  $(SUPPRESS_PREFIX_HEADER) != YES {
-        PREFIX_HEADER_CFLAGS on $(1) = --load-pch "$(EFFECTIVE_PFE_FILE_$(ARCH))" ;
-        if $(ENABLE_PREFIX_HEADER_DEPENDENCIES) != NO {
-            DEPENDS $(1) : $(EFFECTIVE_PFE_FILE_$(ARCH)) ;
+        if $($(2)_COMPILER_FLAGS) {
+            # When per-file flags are used the precompiled header is not valid
+            FLAGS on $(1) += -include "$(PREFIX_HEADER)" ;
+        }
+        else {
+            if $(PREFIX_HEADER_CFLAGS_BASE) = -include {
+                # GCC v3.3 PCH
+                PREFIX_HEADER_CFLAGS on $(1) = $(PREFIX_HEADER_CFLAGS_BASE) "$(EFFECTIVE_PFE_FILE_$(ARCH):S=)" ;            
+            }
+            else {
+                # GCC v3.1 PFE
+                PREFIX_HEADER_CFLAGS on $(1) = $(PREFIX_HEADER_CFLAGS_BASE) "$(EFFECTIVE_PFE_FILE_$(ARCH))" ;
+            }
+            if $(ENABLE_PREFIX_HEADER_DEPENDENCIES) != NO {
+                DEPENDS $(1) : $(EFFECTIVE_PFE_FILE_$(ARCH)) ;
+            }
         }
     }
     if $(EFFECTIVE_PREFIX_HEADER) != ""  &&  $(SUPPRESS_PREFIX_HEADER) != YES {
-        PREFIX_HEADER_CFLAGS on $(1) += -include "$(EFFECTIVE_PREFIX_HEADER)" ;
-        if $(ENABLE_PREFIX_HEADER_DEPENDENCIES) != NO {
-            DEPENDS $(1) : $(EFFECTIVE_PREFIX_HEADER) ;
+        if $($(2)_COMPILER_FLAGS) {
+            # When per-file flags are used the precompiled header is not valid
+            FLAGS on $(1) += -include "$(PREFIX_HEADER)" ;
+        }
+        else {
+            # GCC v2.95.2 cpp-precomp
+            PREFIX_HEADER_CFLAGS on $(1) += -include "$(EFFECTIVE_PREFIX_HEADER)" ;
+            if $(ENABLE_PREFIX_HEADER_DEPENDENCIES) != NO {
+                DEPENDS $(1) : $(EFFECTIVE_PREFIX_HEADER) ;
+            }
         }
     }
     _LD_FOR_LINKING = $(LDPLUSPLUS) ;
@@ -5032,7 +5267,7 @@ rule CompileAssembly
         FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_ASFLAGS) -fno-common -fpascal-strings $(OPTIMIZATION_ASFLAGS) $(WARNING_ASFLAGS) ;
     }
     FLAGS on $(1) += -pipe ;
-    if $(GCC_VERSION) = 3.x {
+    if $(GCC_VERSION) != 2.x {
         FLAGS on $(1) += -fmessage-length=0 ;
         if $(PRODUCT_TYPE) = Tool || $(PRODUCT_TYPE) = Application {
             USE_DYNAMIC_NO_PIC default = YES ;
@@ -5072,7 +5307,7 @@ rule CompileAssembly
     }
     # Pass the trusted-precomp file name to the compiler to keep track
     # of which precompiled headers it has already sanity checked.
-    if $(OS) in MACOS DARWIN  &&  $(EFFECTIVE_PFE_FILE_$(ARCH)) = "" {
+    if $(GCC_VERSION) != 3.3 && $(OS) in MACOS DARWIN  &&  $(EFFECTIVE_PFE_FILE_$(ARCH)) = "" {
         FLAGS on $(1) += -precomp-trustfile $(PRECOMP_TRUSTFILE) ;
     }
     if $(CPP_HEADERMAP_FILE) {
@@ -5086,15 +5321,35 @@ rule CompileAssembly
         FLAGS on $(1) += "-fgen-index=$(INDEX_GENERATION_PIPE_NAME)" ;
     }
     if $(EFFECTIVE_PFE_FILE_$(ARCH)) != ""  &&  $(SUPPRESS_PREFIX_HEADER) != YES {
-        PREFIX_HEADER_ASFLAGS on $(1) = --load-pch "$(EFFECTIVE_PFE_FILE_$(ARCH))" ;
-        if $(ENABLE_PREFIX_HEADER_DEPENDENCIES) != NO {
-            DEPENDS $(1) : $(EFFECTIVE_PFE_FILE_$(ARCH)) ;
+        if $($(2)_COMPILER_FLAGS) {
+            # When per-file flags are used the precompiled header is not valid
+            FLAGS on $(1) += -include "$(PREFIX_HEADER)" ;
+        }
+        else {
+            if $(PREFIX_HEADER_CFLAGS_BASE) = -include {
+                # GCC v3.3 PCH
+                PREFIX_HEADER_CFLAGS on $(1) = $(PREFIX_HEADER_CFLAGS_BASE) "$(EFFECTIVE_PFE_FILE_$(ARCH):S=)" ;            
+            }
+            else {
+                # GCC v3.1 PFE
+                PREFIX_HEADER_CFLAGS on $(1) = $(PREFIX_HEADER_CFLAGS_BASE) "$(EFFECTIVE_PFE_FILE_$(ARCH))" ;
+            }
+            if $(ENABLE_PREFIX_HEADER_DEPENDENCIES) != NO {
+                DEPENDS $(1) : $(EFFECTIVE_PFE_FILE_$(ARCH)) ;
+            }
         }
     }
     if $(EFFECTIVE_PREFIX_HEADER) != ""  &&  $(SUPPRESS_PREFIX_HEADER) != YES {
-        PREFIX_HEADER_ASFLAGS on $(1) += -include "$(EFFECTIVE_PREFIX_HEADER)" ;
-        if $(ENABLE_PREFIX_HEADER_DEPENDENCIES) != NO {
-            DEPENDS $(1) : $(EFFECTIVE_PREFIX_HEADER) ;
+        if $($(2)_COMPILER_FLAGS) {
+            # When per-file flags are used the precompiled header is not valid
+            FLAGS on $(1) += -include "$(PREFIX_HEADER)" ;
+        }
+        else {
+            # GCC v2.95.2 cpp-precomp
+            PREFIX_HEADER_CFLAGS on $(1) += -include "$(EFFECTIVE_PREFIX_HEADER)" ;
+            if $(ENABLE_PREFIX_HEADER_DEPENDENCIES) != NO {
+                DEPENDS $(1) : $(EFFECTIVE_PREFIX_HEADER) ;
+            }
         }
     }
 }
@@ -5180,7 +5435,7 @@ rule CompileFortran
         FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_FFLAGS) -fno-common -fpascal-strings $(OPTIMIZATION_FFLAGS) $(WARNING_FFLAGS) ;
     }
     FLAGS on $(1) += -pipe ;
-    if $(GCC_VERSION) = 3.x {
+    if $(GCC_VERSION) != 2.x {
         FLAGS on $(1) += -fmessage-length=0 ;
         if $(PRODUCT_TYPE) = Tool || $(PRODUCT_TYPE) = Application {
             USE_DYNAMIC_NO_PIC default = YES ;
@@ -5215,7 +5470,7 @@ rule CompileFortran
     }
     # Pass the trusted-precomp file name to the compiler to keep track
     # of which precompiled headers it has already sanity checked.
-    if $(OS) in MACOS DARWIN  &&  $(EFFECTIVE_PFE_FILE_$(ARCH)) = "" {
+    if $(GCC_VERSION) != 3.3 && $(OS) in MACOS DARWIN  &&  $(EFFECTIVE_PFE_FILE_$(ARCH)) = "" {
         FLAGS on $(1) += -precomp-trustfile $(PRECOMP_TRUSTFILE) ;
     }
     if $(CPP_HEADERMAP_FILE) {
@@ -5229,15 +5484,35 @@ rule CompileFortran
         FLAGS on $(1) += "-fgen-index=$(INDEX_GENERATION_PIPE_NAME)" ;
     }
     if $(EFFECTIVE_PFE_FILE_$(ARCH)) != ""  &&  $(SUPPRESS_PREFIX_HEADER) != YES {
-        PREFIX_HEADER_FFLAGS on $(1) = --load-pch "$(EFFECTIVE_PFE_FILE_$(ARCH))" ;
-        if $(ENABLE_PREFIX_HEADER_DEPENDENCIES) != NO {
-            DEPENDS $(1) : $(EFFECTIVE_PFE_FILE_$(ARCH)) ;
+        if $($(2)_COMPILER_FLAGS) {
+            # When per-file flags are used the precompiled header is not valid
+            FLAGS on $(1) += -include "$(PREFIX_HEADER)" ;
+        }
+        else {
+            if $(PREFIX_HEADER_CFLAGS_BASE) = -include {
+                # GCC v3.3 PCH
+                PREFIX_HEADER_CFLAGS on $(1) = $(PREFIX_HEADER_CFLAGS_BASE) "$(EFFECTIVE_PFE_FILE_$(ARCH):S=)" ;            
+            }
+            else {
+                # GCC v3.1 PFE
+                PREFIX_HEADER_CFLAGS on $(1) = $(PREFIX_HEADER_CFLAGS_BASE) "$(EFFECTIVE_PFE_FILE_$(ARCH))" ;
+            }
+            if $(ENABLE_PREFIX_HEADER_DEPENDENCIES) != NO {
+                DEPENDS $(1) : $(EFFECTIVE_PFE_FILE_$(ARCH)) ;
+            }
         }
     }
     if $(EFFECTIVE_PREFIX_HEADER) != ""  &&  $(SUPPRESS_PREFIX_HEADER) != YES {
-        PREFIX_HEADER_FFLAGS on $(1) += -include "$(EFFECTIVE_PREFIX_HEADER)" ;
-        if $(ENABLE_PREFIX_HEADER_DEPENDENCIES) != NO {
-            DEPENDS $(1) : $(EFFECTIVE_PREFIX_HEADER) ;
+        if $($(2)_COMPILER_FLAGS) {
+            # When per-file flags are used the precompiled header is not valid
+            FLAGS on $(1) += -include "$(PREFIX_HEADER)" ;
+        }
+        else {
+            # GCC v2.95.2 cpp-precomp
+            PREFIX_HEADER_CFLAGS on $(1) += -include "$(EFFECTIVE_PREFIX_HEADER)" ;
+            if $(ENABLE_PREFIX_HEADER_DEPENDENCIES) != NO {
+                DEPENDS $(1) : $(EFFECTIVE_PREFIX_HEADER) ;
+            }
         }
     }
 }
@@ -5367,7 +5642,7 @@ rule ProcessUsingBridget
 {
     Bridget $(1) : $(2) ;
 }
-# Copyright (c) 1999-2002 Apple Computer, Inc.
+# Copyright (c) 1999-2003 Apple Computer, Inc.
 # All rights reserved.
 
 # High level rules for build actions on targets
@@ -5464,7 +5739,7 @@ actions exportvars RunVariantHackScript
 {
     /bin/sh /AppleInternal/Developer/Tools/AppleInternalDebugAndProfileBuilder.sh $(INTERNAL_BUILD_VARIANTS)
 }
-# Copyright (c) 1999,2000 Apple Computer, Inc.
+# Copyright (c) 1999-2003 Apple Computer, Inc.
 # All rights reserved.
 
 include $(JAMFILE) ;

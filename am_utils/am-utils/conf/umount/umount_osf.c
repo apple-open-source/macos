@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: umount_osf.c,v 1.1.1.1 2002/05/15 01:22:13 jkh Exp $
+ * $Id: umount_osf.c,v 1.1.1.2 2002/07/15 19:42:56 zarzycki Exp $
  *
  */
 
@@ -53,7 +53,13 @@
 
 
 int
-umount_fs(char *fs_name, const char *mnttabname)
+umount_fs(char *mntdir, const char *mnttabname)
+{
+  return umount_fs2(mntdir, mntdir, mnttabname);
+}
+
+int
+umount_fs2(char *fs_name, char *unused, const char *mnttabname)
 {
   int error;
 
@@ -74,17 +80,13 @@ eintr:
     break;
 
   case EINTR:
-#ifdef DEBUG
     /* not sure why this happens, but it does.  ask kirk one day... */
     dlog("%s: unmount: %m", fs_name);
-#endif /* DEBUG */
     goto eintr;
 
-#ifdef DEBUG
   default:
     dlog("%s: unmount: %m", fs_name);
     break;
-#endif /* DEBUG */
   }
 
   return error;

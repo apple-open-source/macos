@@ -1,0 +1,54 @@
+#
+# Copyright (C) 1994-1996 NeXT Software Inc.
+# All Rights Reserved
+#
+
+#
+# These ROOTs will get overridden by RC
+#
+OBJROOT = `pwd`
+DSTROOT =
+SRCROOT = `pwd`
+
+GNUDIR = $(DSTROOT)/Developer/Source/cc
+ARCH = `$(NEXT_ROOT)/Developer/Executables/arch`
+
+all install:
+	@echo ==== Making $@, CWD=`pwd`, OBJROOT=$(OBJROOT) ====
+	make -w -f Makefile \
+	    ARCH=$(ARCH) \
+	    OBJROOT=$(OBJROOT) \
+	    DSTROOT=$(DSTROOT) \
+	    SRCROOT=$(SRCROOT) \
+	    RC_CFLAGS="$(RC_CFLAGS)" \
+	    `if [ $@ = install ]; then \
+		echo install_bison; \
+	     else echo build_bison; \
+	     fi`
+	make -w -f Makefile.cc \
+	    ARCH=$(ARCH) \
+	    OBJROOT=$(OBJROOT) \
+	    DSTROOT=$(DSTROOT) \
+	    SRCROOT=$(SRCROOT) \
+	    RC_CFLAGS="$(RC_CFLAGS)" $@
+	@if [ $@ = install ]; then \
+	    echo ==== Installing GNU Source, GNUDIR=$(GNUDIR) ==== ;\
+	    make SRCROOT=$(GNUDIR) installsrc ;\
+	    mv $(GNUDIR)/bison $(GNUDIR)/.. ;\
+	    mv $(GNUDIR)/cc $(GNUDIR)/../gcc ;\
+	    rm -rf $(GNUDIR) ;\
+	fi
+
+installhdrs:
+
+copy_source:
+	make installsrc SRCROOT=$(OBJROOT);
+
+installsrc:
+	@echo ==== Installing Source CWD=`pwd`, SRCROOT=$(SRCROOT) ====
+	-mkdirs $(SRCROOT)
+	tar cf - . | (cd $(SRCROOT); tar xf -)
+	-chmod -R a+r-w+X $(SRCROOT)
+
+clean:
+	rm -rf $(OBJROOT)/*_obj

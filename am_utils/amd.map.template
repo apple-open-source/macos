@@ -1,0 +1,2 @@
+/defaults       type:=host;fs:=${autodir}/${rhost}/host;rhost:=${key}
+*               opts:=rw,vers=2,proto=udp

@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -27,6 +25,7 @@
 #endif
 
 #include <mach/machine.h>
+#include <stuff/bool.h>
 
 /*
  * cpusubtype_findbestarch() is passed a cputype and cpusubtype and a set of
@@ -57,3 +56,17 @@ __private_extern__ cpu_subtype_t cpusubtype_combine(
     cpu_type_t cputype,
     cpu_subtype_t cpusubtype1,
     cpu_subtype_t cpusubtype2);
+
+/*
+ * cpusubtype_execute() returns TRUE if the exec_cpusubtype can be used for
+ * execution on the host_cpusubtype for the specified cputype.  If the
+ * exec_cpusubtype can't be run on the host_cpusubtype FALSE is returned
+ * indicating it is an error to combine them.  This can also return FALSE and
+ * if new cputypes or cpusubtypes are added and an old version of this routine
+ * is used.  But if the cpusubtypes are the same they can always be executed
+ * and this routine will return TRUE.
+ */
+__private_extern__ enum bool cpusubtype_execute(
+    cpu_type_t host_cputype,
+    cpu_subtype_t host_cpusubtype, /* can NOT be the ALL type */
+    cpu_subtype_t exec_cpusubtype);/* can be the ALL type */

@@ -85,7 +85,8 @@ typedef enum {
 	kSSLProtocol3Only,			/* use SSL 3.0 only, fail if peer tries to
 								 * negotiate 2.0 */
 	kTLSProtocol1,				/* TLS 1.0 preferred, lower versions OK */
-	kTLSProtocol1Only			/* TLS 1.0 only */
+	kTLSProtocol1Only,			/* TLS 1.0 only */
+	kSSLProtocolAll				/* all supported versions */
 } SSLProtocol;
 
 /* State of an SSLSession */
@@ -152,14 +153,20 @@ typedef OSStatus
 /*************************************************
  *** OSStatus values unique to SecureTransport ***
  *************************************************/
- 
+
+/*
+    Note: the comments that appear after these errors are used to create SecErrorMessages.strings.
+    The comments must not be multi-line, and should be in a form meaningful to an end user. If
+    a different or additional comment is needed, it can be put in the header doc format, or on a
+    line that does not start with errZZZ.
+*/
+
 enum {
 	errSSLProtocol				= -9800,	/* SSL protocol error */
 	errSSLNegotiation			= -9801,	/* Cipher Suite negotiation failure */
 	errSSLFatalAlert			= -9802,	/* Fatal alert */
 	errSSLWouldBlock			= -9803,	/* I/O would block (not fatal) */
-    errSSLSessionNotFound 		= -9804,	/* attempt to restore an unknown
-    										 *    session */
+    errSSLSessionNotFound 		= -9804,	/* attempt to restore an unknown session */
     errSSLClosedGraceful 		= -9805,	/* connection closed gracefully */
     errSSLClosedAbort 			= -9806,	/* connection closed via error */
     errSSLXCertChainInvalid 	= -9807,	/* Invalid certificate chain */
@@ -171,10 +178,39 @@ enum {
     errSSLNoRootCert			= -9813,	/* cert chain not verified by root */
 	errSSLCertExpired			= -9814,	/* chain had an expired cert */
 	errSSLCertNotYetValid		= -9815,	/* chain had a cert not yet valid */
-	errSSLClosedNoNotify		= -9816,	/* server closed session with no 
-											 *     notification */
+	errSSLClosedNoNotify		= -9816,	/* server closed session with no notification */
 	errSSLBufferOverflow		= -9817,	/* insufficient buffer provided */
 	errSSLBadCipherSuite		= -9818,	/* bad SSLCipherSuite */
+	
+	/* fatal errors detected by peer */
+	errSSLPeerUnexpectedMsg		= -9819,	/* unexpected message received */
+	errSSLPeerBadRecordMac		= -9820,	/* bad MAC */
+	errSSLPeerDecryptionFail	= -9821,	/* decryption failed */
+	errSSLPeerRecordOverflow	= -9822,	/* record overflow */
+	errSSLPeerDecompressFail	= -9823,	/* decompression failure */
+	errSSLPeerHandshakeFail		= -9824,	/* handshake failure */
+	errSSLPeerBadCert			= -9825,	/* misc. bad certificate */
+	errSSLPeerUnsupportedCert	= -9826,	/* bad unsupported cert format */
+	errSSLPeerCertRevoked		= -9827,	/* certificate revoked */
+	errSSLPeerCertExpired		= -9828,	/* certificate expired */
+	errSSLPeerCertUnknown		= -9829,	/* unknown certificate */
+	errSSLIllegalParam			= -9830,	/* illegal parameter */
+	errSSLPeerUnknownCA 		= -9831,	/* unknown Cert Authority */
+	errSSLPeerAccessDenied		= -9832,	/* access denied */
+	errSSLPeerDecodeError		= -9833,	/* decoding error */
+	errSSLPeerDecryptError		= -9834,	/* decryption error */
+	errSSLPeerExportRestriction	= -9835,	/* export restriction */
+	errSSLPeerProtocolVersion	= -9836,	/* bad protocol version */
+	errSSLPeerInsufficientSecurity = -9837,	/* insufficient security */
+	errSSLPeerInternalError		= -9838,	/* internal error */
+	errSSLPeerUserCancelled		= -9839,	/* user canceled */
+	errSSLPeerNoRenegotiation	= -9840,	/* no renegotiation allowed */
+
+	/* more errors detected by us */
+	errSSLDecryptionFail		= -9845,	/* decryption failure */
+	errSSLBadRecordMac			= -9846,	/* bad MAC */
+	errSSLRecordOverflow		= -9847,	/* Record Overflow */
+	errSSLBadConfiguration		= -9848,	/* configuration error */
 	errSSLLast					= -9849		/* end of range, to be deleted */
 };
 
@@ -217,18 +253,54 @@ OSStatus
 SSLSetIOFuncs				(SSLContextRef		context, 
 							 SSLReadFunc 		read,
 							 SSLWriteFunc		write);
+
+/*
+ * Set allowed SSL protocol versions. Optional. 
+ * Specifying kSSLProtocolAll for SSLSetProtocolVersionEnabled results in 
+ * specified 'enable' boolean to be applied to all supported protocols.
+ * The default is "all supported protocols are enabled". 
+ * This can only be called when no session is active.
+ *
+ * Legal values for protocol are :
+ *		kSSLProtocol2
+ *		kSSLProtocol3
+ * 		kTLSProtocol1
+ *		kSSLProtocolAll
+ */
+OSStatus 
+SSLSetProtocolVersionEnabled (SSLContextRef 	context,
+							 SSLProtocol		protocol,
+							 Boolean			enable);
 							 
+/*
+ * Obtain a value specified in SSLSetProtocolVersionEnabled.
+ */
+OSStatus 
+SSLGetProtocolVersionEnabled(SSLContextRef 		context,
+							 SSLProtocol		protocol,
+							 Boolean			*enable);		/* RETURNED */
+
 /* 
  * Get/set SSL protocol version; optional. Default is kSSLProtocolUnknown, 
  * in which case the highest possible version (currently kTLSProtocol1) 
  * is attempted, but a lower version is accepted if the peer requires it. 
  *
  * SSLSetProtocolVersion can not be called when a session is active. 
+ *
+ * This is deprecated in favor of SSLSetProtocolVersionEnabled.
  */
 OSStatus 
 SSLSetProtocolVersion		(SSLContextRef 		context,
 							 SSLProtocol		version);
 
+/*
+ * Obtain the protocol version specified in SSLSetProtocolVersion.
+ * This is deprecated in favor of SSLGetProtocolVersionEnabled. 
+ * If SSLSetProtocolVersionEnabled() has been called for this session,
+ * SSLGetProtocolVersion() may return paramErr if the protocol enable
+ * state can not be represented by the SSLProtocol enums (e.g.,
+ * SSL2 and TLS1 enabled, SSL3 disabled). 
+ */
 OSStatus 
 SSLGetProtocolVersion		(SSLContextRef		context,
 							 SSLProtocol		*protocol);		/* RETURNED */
@@ -275,6 +347,10 @@ OSStatus
 SSLSetConnection			(SSLContextRef		context,
 							 SSLConnectionRef	connection);
 
+OSStatus
+SSLGetConnection			(SSLContextRef		context,
+							 SSLConnectionRef	*connection);
+							 
 /* 
  * Specify the fully qualified doman name of the peer, e.g., "store.apple.com."
  * Optional; used to verify the common name field in peer's certificate. 
@@ -456,12 +532,12 @@ SSLGetTrustedRoots			(SSLContextRef 		context,
  * Request peer certificates. Valid anytime, subsequent to
  * a handshake attempt.
  *
- * The certs argument is a CFArray containing CFDataRefs, each
- * of which is one DER-encoded cert. The entire array is created
- * by the SecureTransport library and must be released by the caller. 
- * The cert at the end of the returned array is the subject (end 
- * entity) cert; the root cert (or the closest cert to it) is in 
- * index 0 of the returned array. 
+ * The certs argument is a CFArray containing SecCertificateRefs.
+ * The entire array is created by the SecureTransport library 
+ * and must be released by the caller. The cert at index 0 of 
+ * the returned array is the subject (end entity) cert; the 
+ * root cert (or the closest cert to it) is at the end of the 
+ * returned array. 
  */	
 OSStatus 
 SSLGetPeerCertificates		(SSLContextRef 		context, 
@@ -580,6 +656,35 @@ OSStatus
 SSLGetClientCertificateState	(SSLContextRef				context,
 								 SSLClientCertificateState	*clientState);
 
+/*
+ * Specify Diffie-Hellman parameters. Optional; if we are configured to allow
+ * for D-H ciphers and a D-H cipher is negotiated, and this function has not
+ * been called, a set of process-wide parameters will be calculated. However
+ * that can take a long time (30 seconds). 
+ */
+OSStatus SSLSetDiffieHellmanParams	(SSLContextRef			context,
+									 const void 			*dhParams,
+									 size_t					dhParamsLen);
+
+/*
+ * Return parameter block specified in SSLSetDiffieHellmanParams.
+ * Returned data is not copied and belongs to the SSLContextRef.
+ */
+OSStatus SSLGetDiffieHellmanParams	(SSLContextRef			context,
+									 const void 			**dhParams,
+									 size_t					*dhParamsLen);
+/*
+ * Enable/Disable RSA blinding. This feature thwarts a known timing
+ * attack to which RSA keys are vulnerable; enabling it is a tradeoff
+ * between performance and security. The default for RSA blinding is
+ * enabled. 
+ */
+OSStatus SSLSetRsaBlinding			(SSLContextRef			context,
+									 Boolean				blinding);
+									 
+OSStatus SSLGetRsaBlinding			(SSLContextRef			context,
+									 Boolean				*blinding);
+									 
 /*******************************
  ******** I/O Functions ********
  *******************************/

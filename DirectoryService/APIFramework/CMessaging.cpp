@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -30,15 +33,17 @@
 #include "CMessaging.h"
 #include "PrivateTypes.h"
 #include "DSMutexSemaphore.h"
-#include "DSCThread.h"
 #include "DSEncryptedEndpoint.h"
 
 #include "DirServicesTypes.h"
 #include "DirServicesPriv.h"
+#include "DirServicesConst.h"
 #include "DirServicesUtils.h"
 
 #ifdef SERVERINTERNAL
+#include "DSCThread.h"
 #include "CHandlers.h"
+#include "CInternalDispatchThread.h"
 #endif
 
 // Sys
@@ -51,7 +56,6 @@
 #include <syslog.h>		// for syslog()
 #include <ctype.h>		// for isalpha()
 
-extern DSMutexSemaphore	   *gLock;
 extern dsBool				gResetSession;
 extern sInt32				gProcessPID;
 
@@ -71,7 +75,6 @@ CMessaging::CMessaging ( void )
 		fMsgData->fDataSize		= kMsgBlockSize;
 		fMsgData->fDataLength	= 0;
 	}
-
 	fServerVersion = 1; //for internal dispatch and mach
 
 #ifndef SERVERINTERNAL
@@ -97,7 +100,6 @@ CMessaging::CMessaging ( Boolean inMachEndpoint )
 		fMsgData->fDataSize		= kMsgBlockSize;
 		fMsgData->fDataLength	= 0;
 	}
-
 	fServerVersion = 1; //for internal dispatch and mach
 
 #ifndef SERVERINTERNAL
@@ -166,10 +168,8 @@ sInt32 CMessaging::OpenCommPort ( void )
 	sInt32			siStatus	= eDSNoErr;
 #ifndef SERVERINTERNAL
 	siStatus	= eMemoryAllocError;
-	DSSemaphore		timedWait;
-	time_t			waitTime	= ::time( nil ) + 30;
 
-	fCommPort = new CClientEndPoint( "DirectoryService" );
+	fCommPort = new CClientEndPoint( kDSServiceName );
 	if ( fCommPort != nil )
 	{
 		siStatus = fCommPort->Initialize();
@@ -178,30 +178,10 @@ sInt32 CMessaging::OpenCommPort ( void )
 			siStatus = fCommPort->CheckForServer();
 			if (siStatus == BOOTSTRAP_UNKNOWN_SERVICE)
 			{
-				//looks like DirectoryService is not yet running
-				//use -appleframework argument for global mach port scope kick off of DirectoryService by configd
-				//KW do we need to ever retry this system call????
-				system( "/usr/sbin/DirectoryService -appleframework&" );
-				do
-				{
-					// Check every .5 seconds
-					timedWait.Wait( (uInt32)(.5 * kMilliSecsPerSec) );
+				// this is bad.  DirectoryService should always be available since mach_init should be launching it if needed.
+				syslog( LOG_ALERT, "Could not open connection to local DirectoryService daemon!\n" );
 
-					// Wait for 30 seconds MAX
-					if ( ::time( nil ) > waitTime )
-					{
-						siStatus = eServerNotRunning;
-						break;
-					}
-					siStatus = fCommPort->CheckForServer();
-				}
-				while (siStatus == BOOTSTRAP_UNKNOWN_SERVICE);
-				if (siStatus != eDSNoErr)
-				{
-					//again check for case of different error on either
-					//the bootstrap port retrieval or the bootstrap lookup
-					siStatus = eMemoryAllocError;
-				}
+				siStatus = eServerNotRunning;
 			}
 			else if ( siStatus != eDSNoErr )
 			{
@@ -343,7 +323,7 @@ sInt32 CMessaging::SendServerMessage ( void )
 sInt32 CMessaging::GetReplyMessage ( void )
 {
 #ifdef SERVERINTERNAL
-    return 0; // reply already got generated during call to SendInlineMessage
+    return eDSNoErr; // reply already got generated during call to SendInlineMessage
 #else
 	sInt32		result	= eDSDirSrvcNotOpened;
 
@@ -368,12 +348,8 @@ sInt32 CMessaging::GetReplyMessage ( void )
 		if (result == eDSCannotAccessSession)
 		{
 			syslog(LOG_INFO,"DirectoryService Framework::CMessaging::Mach msg receiver interrupt error = %d", result);
-	
-			gLock->Wait();
-	
+		
 			gResetSession = true;
-	
-			gLock->Signal();
 		}
 	}
 	else
@@ -403,17 +379,65 @@ sInt32 CMessaging::GetReplyMessage ( void )
 sInt32 CMessaging::SendInlineMessage ( uInt32 inMsgType )
 {
 #ifdef SERVERINTERNAL
-    CRequestHandler handler;
-		fMsgData->type.msgt_name		= inMsgType;
-		fMsgData->type.msgt_size		= 32;
-		fMsgData->type.msgt_number		= 0;
-		fMsgData->type.msgt_inline		= true;
-		fMsgData->type.msgt_longform	= false;
-		fMsgData->type.msgt_deallocate	= false;
-		fMsgData->type.msgt_unused		= 0;
+	sComData   *aMsgData		= nil;
+	sComData   *checkMsgData    = nil;
 
-    handler.HandleRequest(&fMsgData);
-    return 0;
+	//don't use the GetMsgData method here because of the wrapped #ifdef's?
+	//look at our own thread and then get the msg data block to use for internal dispatch
+	CInternalDispatchThread *thisThread = (CInternalDispatchThread *)DSLThread::GetCurrentThread();
+	if (thisThread != nil)
+	{
+		if ( IsThreadUsingInternalDispatchBuffering(thisThread->GetSignature()) )
+		{
+			aMsgData = thisThread->GetHandlerInternalMsgData();
+		}
+		else //we are not inside a handler thread
+		{
+			aMsgData = fMsgData;
+		}
+	}
+	else //we are not inside a handler thread
+	{
+		aMsgData = fMsgData;
+	}
+	if (aMsgData == nil) //recursion limit likely hit
+	{
+		return(eDSInvalidContext);
+	}
+	checkMsgData = aMsgData; //used to check if we grew this buffer below
+	
+    CRequestHandler handler;
+	aMsgData->type.msgt_name		= inMsgType;
+	aMsgData->type.msgt_size		= 32;
+	aMsgData->type.msgt_number		= 0;
+	aMsgData->type.msgt_inline		= true;
+	aMsgData->type.msgt_longform	= false;
+	aMsgData->type.msgt_deallocate	= false;
+	aMsgData->type.msgt_unused		= 0;
+
+    handler.HandleRequest(&aMsgData);
+	
+	//check to see if the msg data grew within the CSrvrMessaging class
+	//if so we need to update where we keep track of it
+	if (checkMsgData != aMsgData)
+	{
+		if (thisThread != nil)
+		{
+			if ( IsThreadUsingInternalDispatchBuffering(thisThread->GetSignature()) )
+			{
+				thisThread->UpdateHandlerInternalMsgData(checkMsgData, aMsgData);
+			}
+			else //we are not inside a handler thread
+			{
+				fMsgData = aMsgData;
+			}
+		}
+		else //we are not inside a handler thread
+		{
+			fMsgData = aMsgData;
+		}
+	}
+    return eDSNoErr;
 #else
 	sInt32			result	= eDSNoErr;
 
@@ -434,11 +458,7 @@ sInt32 CMessaging::SendInlineMessage ( uInt32 inMsgType )
 		{
 			syslog(LOG_INFO,"DirectoryService Framework::CMessaging::Mach msg send interrupt error = %d.",result);
 	
-			gLock->Wait();
-	
 			gResetSession = true;
-	
-			gLock->Signal();
 		}
 	}
 	else
@@ -465,8 +485,15 @@ sInt32 CMessaging::Add_tDataBuff_ToMsg ( tDataBuffer *inBuff, eValueType inType 
 	sObject			   *pObj			= nil;
 	uInt32				offset			= 0;
 	uInt32				length			= 0;
+	sComData		   *aMsgData		= nil;
 
-	result = GetEmptyObj( fMsgData, inType, &pObj );
+	aMsgData = GetMsgData();
+	if (aMsgData == nil) //recursion limit likely hit
+	{
+		return(eDSInvalidContext);
+	}
+
+	result = GetEmptyObj( aMsgData, inType, &pObj );
 	if ( result == eDSNoErr )
 	{
 		pObj->type		= inType; // == ktDataBuff
@@ -478,10 +505,12 @@ sInt32 CMessaging::Add_tDataBuff_ToMsg ( tDataBuffer *inBuff, eValueType inType 
 			offset		 = pObj->offset;
 			length		 = pObj->length;
 
-			Grow( offset, length );
-
-			::memcpy( (char *)fMsgData + offset, inBuff->fBufferData, inBuff->fBufferSize );
-			fMsgData->fDataLength += inBuff->fBufferSize;
+			if (Grow( offset, length ))
+			{
+				aMsgData = GetMsgData();
+			}
+			::memcpy( (char *)aMsgData + offset, inBuff->fBufferData, inBuff->fBufferSize );
+			aMsgData->fDataLength += inBuff->fBufferSize;
 		}
 		else
 		{
@@ -511,7 +540,15 @@ sInt32 CMessaging::Add_tDataList_ToMsg ( tDataList *inList, eValueType inType )
 
 	if ( inList != nil )
 	{
-		result = GetEmptyObj( fMsgData, inType, &pObj );
+		sComData		   *aMsgData		= nil;
+	
+		aMsgData = GetMsgData();
+		if (aMsgData == nil) //recursion limit likely hit
+		{
+			return(eDSInvalidContext);
+		}
+
+		result = GetEmptyObj( aMsgData, inType, &pObj );
 		if ( result == eDSNoErr )
 		{
 			pObj->type		= inType;	// == ktDataList
@@ -520,7 +557,10 @@ sInt32 CMessaging::Add_tDataList_ToMsg ( tDataList *inList, eValueType inType )
 			offset			= pObj->offset;
 			length			= pObj->length;
 
-			Grow( offset, length );
+			if (Grow( offset, length ))
+			{
+				aMsgData = GetMsgData();
+			}
 
 			pCurrNode = inList->fDataListHead;
 
@@ -529,12 +569,12 @@ sInt32 CMessaging::Add_tDataList_ToMsg ( tDataList *inList, eValueType inType )
 			{
 				pPrivData = (tDataBufferPriv *)pCurrNode;
 				len = pPrivData->fBufferLength;		// <- should use fBufferSize
-				::memcpy( (char *)fMsgData + offset, &len, 4 );
-				fMsgData->fDataLength += 4;
+				::memcpy( (char *)aMsgData + offset, &len, 4 );
+				aMsgData->fDataLength += 4;
 				offset += 4;
 
-				::memcpy( (char *)fMsgData + offset, pPrivData->fBufferData, len );
-				fMsgData->fDataLength += len;
+				::memcpy( (char *)aMsgData + offset, pPrivData->fBufferData, len );
+				aMsgData->fDataLength += len;
 				offset += len;
 
 				if ( pPrivData->fNextPtr == nil )
@@ -564,8 +604,15 @@ sInt32 CMessaging::Add_Value_ToMsg ( uInt32 inValue, eValueType inType )
 {
 	sInt32			result		= eDSNoErr;
 	sObject		   *pObj		= nil;
+	sComData	   *aMsgData	= nil;
 
-	result = GetEmptyObj( fMsgData, inType, &pObj );
+	aMsgData = GetMsgData();
+	if (aMsgData == nil) //recursion limit likely hit
+	{
+		return(eDSInvalidContext);
+	}
+
+	result = GetEmptyObj( aMsgData, inType, &pObj );
 	if ( result == eDSNoErr )
 	{
 		pObj->type		= inType;
@@ -587,8 +634,15 @@ sInt32 CMessaging::Add_tAttrEntry_ToMsg ( tAttributeEntry *inData )
 	sObject		   *pObj	= nil;
 	uInt32			offset	= 0;
 	uInt32			length	= 0;
+	sComData	   *aMsgData= nil;
 
-	result = GetEmptyObj( fMsgData, ktAttrValueEntry, &pObj );
+	aMsgData = GetMsgData();
+	if (aMsgData == nil) //recursion limit likely hit
+	{
+		return(eDSInvalidContext);
+	}
+
+	result = GetEmptyObj( aMsgData, ktAttrValueEntry, &pObj );
 	if ( result == eDSNoErr )
 	{
 		pObj->type		= ktAttrEntry;
@@ -601,10 +655,13 @@ sInt32 CMessaging::Add_tAttrEntry_ToMsg ( tAttributeEntry *inData )
 			offset = pObj->offset;
 			length = pObj->length;
 
-			Grow( offset, length );
+			if (Grow( offset, length ))
+			{
+				aMsgData = GetMsgData();
+			}
 
-			::memcpy( (char *)fMsgData + offset, inData, length );
-			fMsgData->fDataLength += length;
+			::memcpy( (char *)aMsgData + offset, inData, length );
+			aMsgData->fDataLength += length;
 		}
 		else
 		{
@@ -627,8 +684,15 @@ sInt32 CMessaging::Add_tAttrValueEntry_ToMsg ( tAttributeValueEntry *inData )
 	sObject		   *pObj	= nil;
 	uInt32			offset	= 0;
 	uInt32			length	= 0;
+	sComData	   *aMsgData= nil;
 
-	result = GetEmptyObj( fMsgData, ktAttrValueEntry, &pObj );
+	aMsgData = GetMsgData();
+	if (aMsgData == nil) //recursion limit likely hit
+	{
+		return(eDSInvalidContext);
+	}
+
+	result = GetEmptyObj( aMsgData, ktAttrValueEntry, &pObj );
 	if ( result == eDSNoErr )
 	{
 		pObj->type	= ktAttrValueEntry;
@@ -641,10 +705,13 @@ sInt32 CMessaging::Add_tAttrValueEntry_ToMsg ( tAttributeValueEntry *inData )
 			offset = pObj->offset;
 			length = pObj->length;
 
-			Grow( offset, length );
+			if (Grow( offset, length ))
+			{
+				aMsgData = GetMsgData();
+			}
 
-			::memcpy( (char *)fMsgData + offset, inData, length );
-			fMsgData->fDataLength += length;
+			::memcpy( (char *)aMsgData + offset, inData, length );
+			aMsgData->fDataLength += length;
 		}
 		else
 		{
@@ -668,8 +735,15 @@ sInt32 CMessaging::Add_tRecordEntry_ToMsg ( tRecordEntry *inData )
 	sObject		   *pObj	= nil;
 	uInt32			offset	= 0;
 	uInt32			length	= 0;
+	sComData	   *aMsgData= nil;
 
-	result = GetEmptyObj( fMsgData, ktRecordEntry, &pObj );
+	aMsgData = GetMsgData();
+	if (aMsgData == nil) //recursion limit likely hit
+	{
+		return(eDSInvalidContext);
+	}
+
+	result = GetEmptyObj( aMsgData, ktRecordEntry, &pObj );
 	if ( result == eDSNoErr )
 	{
 		pObj->type	= ktRecordEntry;
@@ -681,10 +755,13 @@ sInt32 CMessaging::Add_tRecordEntry_ToMsg ( tRecordEntry *inData )
 			offset = pObj->offset;
 			length = pObj->length;
 
-			Grow( offset, length );
+			if (Grow( offset, length ))
+			{
+				aMsgData = GetMsgData();
+			}
 
-			::memcpy( (char *)fMsgData + offset, inData, length );
-			fMsgData->fDataLength += length;
+			::memcpy( (char *)aMsgData + offset, inData, length );
+			aMsgData->fDataLength += length;
 		}
 		else
 		{
@@ -707,8 +784,15 @@ sInt32 CMessaging::Get_tDataBuff_FromMsg ( tDataBuffer **outBuff, eValueType inT
 	uInt32		offset		= 0;
 	uInt32		length		= 0;
 	sObject	   *pObj		= nil;
+	sComData   *aMsgData	= nil;
 
-	result = GetThisObj( fMsgData, inType, &pObj );
+	aMsgData = GetMsgData();
+	if (aMsgData == nil) //recursion limit likely hit
+	{
+		return(eDSInvalidContext);
+	}
+
+	result = GetThisObj( aMsgData, inType, &pObj );
 	if ( result == eDSNoErr )
 	{
 		offset = pObj->offset;
@@ -728,12 +812,12 @@ sInt32 CMessaging::Get_tDataBuff_FromMsg ( tDataBuffer **outBuff, eValueType inT
 
 				if ( (*outBuff)->fBufferSize >= pObj->length )
 				{
-					::memcpy( (*outBuff)->fBufferData, (char *)fMsgData + offset, length );
+					::memcpy( (*outBuff)->fBufferData, (char *)aMsgData + offset, length );
 					(*outBuff)->fBufferLength = pObj->used;
 				}
 				else
 				{//KW what is this for?
-					::memcpy( (*outBuff)->fBufferData, (char *)fMsgData + offset, (*outBuff)->fBufferSize );
+					::memcpy( (*outBuff)->fBufferData, (char *)aMsgData + offset, (*outBuff)->fBufferSize );
 					(*outBuff)->fBufferLength = pObj->used;
 					result = eDSBufferTooSmall;
 				}
@@ -764,10 +848,17 @@ sInt32 CMessaging::Get_tDataList_FromMsg ( tDataList **outList, eValueType inTyp
 	sObject	   *pObj		= nil;
 	tDataList  *pOutList	= nil;
 	char	   *tmpStr		= nil;
+	sComData   *aMsgData	= nil;
+
+	aMsgData = GetMsgData();
+	if (aMsgData == nil) //recursion limit likely hit
+	{
+		return(eDSInvalidContext);
+	}
 
 	try
 	{
-		siResult = GetThisObj( fMsgData, inType, &pObj );
+		siResult = GetThisObj( aMsgData, inType, &pObj );
 		if ( siResult == eDSNoErr )
 		{
 			if ( outList != nil )
@@ -780,12 +871,12 @@ sInt32 CMessaging::Get_tDataList_FromMsg ( tDataList **outList, eValueType inTyp
 
 					while ( cntr < count )
 					{
-						::memcpy( &length, (char *)fMsgData + offset, 4 );
+						::memcpy( &length, (char *)aMsgData + offset, 4 );
 						offset += 4;
 
 						tmpStr = (char *)calloc(1, length+1);
 						if (tmpStr == nil) throw((sInt32)eMemoryAllocError);
-						strncpy(tmpStr, (char *)fMsgData + offset, length);
+						strncpy(tmpStr, (char *)aMsgData + offset, length);
 						::dsAppendStringToListAlloc( 0x00F0F0F0, pOutList, tmpStr );
 						free(tmpStr);
 
@@ -830,8 +921,15 @@ sInt32 CMessaging::Get_Value_FromMsg ( uInt32 *outValue, eValueType inType )
 {
 	uInt32		result	= eDSNoErr;
 	sObject	   *pObj	= nil;
+	sComData   *aMsgData= nil;
 
-	result = GetThisObj( fMsgData, inType, &pObj );
+	aMsgData = GetMsgData();
+	if (aMsgData == nil) //recursion limit likely hit
+	{
+		return(eDSInvalidContext);
+	}
+
+	result = GetThisObj( aMsgData, inType, &pObj );
 	if ( result == eDSNoErr )
 	{
 		*outValue = pObj->count;
@@ -851,14 +949,21 @@ sInt32 CMessaging::Get_tAttrEntry_FromMsg ( tAttributeEntry **outAttrEntry, eVal
 	sInt32				result		= eDSNoErr;
 	sObject			   *pObj		= nil;
 	tAttributeEntry	   *pAttrEntry	= nil;
+	sComData		   *aMsgData	= nil;
 
-	result = GetThisObj( fMsgData, inType, &pObj );
+	aMsgData = GetMsgData();
+	if (aMsgData == nil) //recursion limit likely hit
+	{
+		return(eDSInvalidContext);
+	}
+
+	result = GetThisObj( aMsgData, inType, &pObj );
 	if ( result == eDSNoErr )
 	{
 		pAttrEntry = (tAttributeEntry *)::calloc( 1, pObj->length );
 		if ( pAttrEntry != nil )
 		{
-			::memcpy( pAttrEntry, (char *)fMsgData + pObj->offset, pObj->length );
+			::memcpy( pAttrEntry, (char *)aMsgData + pObj->offset, pObj->length );
 
 			*outAttrEntry = pAttrEntry;
 		}
@@ -884,15 +989,22 @@ sInt32 CMessaging::Get_tAttrValueEntry_FromMsg ( tAttributeValueEntry **outAttrV
 	sInt32						result			= eDSNoErr;
 	sObject					   *pObj			= nil;
 	tAttributeValueEntry	   *pAttrValueEntry	= nil;
+	sComData				   *aMsgData		= nil;
 
-	result = GetThisObj( fMsgData, inType, &pObj );
+	aMsgData = GetMsgData();
+	if (aMsgData == nil) //recursion limit likely hit
+	{
+		return(eDSInvalidContext);
+	}
+
+	result = GetThisObj( aMsgData, inType, &pObj );
 	if ( result == eDSNoErr )
 	{
 		pAttrValueEntry = (tAttributeValueEntry *)::calloc( 1, pObj->length );
 		if ( pAttrValueEntry != nil )
 		{
 			// Fill the struct
-			::memcpy( pAttrValueEntry, (char *)fMsgData + pObj->offset, pObj->length );
+			::memcpy( pAttrValueEntry, (char *)aMsgData + pObj->offset, pObj->length );
 
 			*outAttrValue = pAttrValueEntry;
 
@@ -917,15 +1029,22 @@ sInt32 CMessaging::Get_tRecordEntry_FromMsg ( tRecordEntry **outRecEntry, eValue
 	sInt32		   		result			= eDSNoErr;
 	sObject		   	   *pObj			= nil;
 	tRecordEntry	   *pRecordEntry	= nil;
+	sComData		   *aMsgData		= nil;
 
-	result = GetThisObj( fMsgData, inType, &pObj );
+	aMsgData = GetMsgData();
+	if (aMsgData == nil) //recursion limit likely hit
+	{
+		return(eDSInvalidContext);
+	}
+
+	result = GetThisObj( aMsgData, inType, &pObj );
 	if ( result == eDSNoErr )
 	{
 		pRecordEntry = (tRecordEntry *)::calloc( 1, pObj->length );
 		if ( pRecordEntry != nil )
 		{
 			// Fill the struct
-			::memcpy( pRecordEntry, (char *)fMsgData + pObj->offset, pObj->length );
+			::memcpy( pRecordEntry, (char *)aMsgData + pObj->offset, pObj->length );
 
 			*outRecEntry = pRecordEntry;
 
@@ -1012,51 +1131,80 @@ sInt32 CMessaging::GetThisObj ( sComData *inMsg, eValueType inType, sObject **ou
 //	* Grow
 //------------------------------------------------------------------------------------
 
-void CMessaging::Grow ( uInt32 inOffset, uInt32 inSize )
+bool CMessaging::Grow ( uInt32 inOffset, uInt32 inSize )
 {
 	uInt32		newSize		= 0;
 	char	   *pNewPtr		= nil;
 	uInt32		length		= 0;
+	sComData   *aMsgData	= nil;
+	bool		bGrown		= false;
 
 	// Is there anything to do
 	if ( inSize == 0 )
 	{
-		return;
+		return(bGrown);
 	}
 
-	// Do we need a bigger object
-	if ( (fMsgData->fDataLength + inSize) > fMsgData->fDataSize )
+	aMsgData = GetMsgData();
+	if (aMsgData != nil)
 	{
-		newSize = fMsgData->fDataSize;
-		//idea is to make the newSize a multiple of kMsgBlockSize
-		while( newSize < (fMsgData->fDataLength + inSize) )
+		// Do we need a bigger object
+		if ( (aMsgData->fDataLength + inSize) > aMsgData->fDataSize )
 		{
-			newSize += kMsgBlockSize;
+			newSize = aMsgData->fDataSize;
+			//idea is to make the newSize a multiple of kMsgBlockSize
+			while( newSize < (aMsgData->fDataLength + inSize) )
+			{
+				newSize += kMsgBlockSize;
+			}
+			length = aMsgData->fDataLength;
+			
+			// Create the new pointer
+			pNewPtr = (char *)::calloc( 1, sizeof( sComData ) + newSize );
+			if ( pNewPtr == nil )
+			{
+				throw( (sInt32)eMemoryAllocError );
+			}
+	
+			// Copy the old data to the new destination
+			::memcpy( pNewPtr, aMsgData, sizeof(sComData) + aMsgData->fDataLength );
+	
+#ifdef SERVERINTERNAL
+			//look at our own thread and then get the msg data block to use for internal dispatch
+			CInternalDispatchThread *ourThread = (CInternalDispatchThread *)DSLThread::GetCurrentThread();
+			if (ourThread != nil)
+			{
+				if ( IsThreadUsingInternalDispatchBuffering(ourThread->GetSignature()) )
+				{
+					ourThread->UpdateHandlerInternalMsgData(aMsgData, (sComData *)pNewPtr);
+				}
+				else //we are not inside a handler thread
+				{
+					fMsgData = (sComData *)pNewPtr;
+				}
+			}
+			else //we are not inside a handler thread
+			{
+				fMsgData = (sComData *)pNewPtr;
+			}
+#else
+			fMsgData = (sComData *)pNewPtr;
+#endif
+			// Dump the old data block
+			::free( aMsgData );
+			aMsgData = nil;
+	
+			// Assign the new data block
+			aMsgData = (sComData *)pNewPtr;
+			pNewPtr = nil;
+	
+			// Set the new data size
+			aMsgData->fDataSize		= newSize;
+			aMsgData->fDataLength	= length;
+			bGrown = true;
 		}
-		length = fMsgData->fDataLength;
-		
-		// Create the new pointer
-		pNewPtr = (char *)::calloc( 1, sizeof( sComData ) + newSize );
-		if ( pNewPtr == nil )
-		{
-			throw( (sInt32)eMemoryAllocError );
-		}
-
-		// Copy the old data to the new destination
-		::memcpy( pNewPtr, fMsgData, sizeof(sComData) + fMsgData->fDataLength );
-
-		// Dump the old data block
-		::free( fMsgData );
-		fMsgData = nil;
-
-		// Assign the new data block
-		fMsgData = (sComData *)pNewPtr;
-		pNewPtr = nil;
-
-		// Set the new data size
-		fMsgData->fDataSize		= newSize;
-		fMsgData->fDataLength	= length;
 	}
+	return(bGrown);
 } // Grow
 
 
@@ -1066,10 +1214,36 @@ void CMessaging::Grow ( uInt32 inOffset, uInt32 inSize )
 
 void CMessaging::Lock ( void )
 {
+#ifdef SERVERINTERNAL
+	//look at our own thread and then get the msg data block to use for internal dispatch
+	CInternalDispatchThread *thisThread = (CInternalDispatchThread *)DSLThread::GetCurrentThread();
+	if (thisThread != nil)
+	{
+		if ( IsThreadUsingInternalDispatchBuffering(thisThread->GetSignature()) )
+		{
+			thisThread->SetHandlerInternalMsgData();
+		}
+		else //we are not inside a handler thread
+		{
+			if ( fLock != nil )
+			{
+				fLock->Wait();
+			}
+		}
+	}
+	else //we are not inside a handler thread
+	{
+		if ( fLock != nil )
+		{
+			fLock->Wait();
+		}
+	}
+#else
 	if ( fLock != nil )
 	{
 		fLock->Wait();
 	}
+#endif
 } // Lock
 
 
@@ -1079,10 +1253,36 @@ void CMessaging::Lock ( void )
 
 void CMessaging::Unlock ( void )
 {
+#ifdef SERVERINTERNAL
+	//look at our own thread and then get the msg data block to use for internal dispatch
+	CInternalDispatchThread *thisThread = (CInternalDispatchThread *)DSLThread::GetCurrentThread();
+	if (thisThread != nil)
+	{
+		if ( IsThreadUsingInternalDispatchBuffering(thisThread->GetSignature()) )
+		{
+			thisThread->ResetHandlerInternalMsgData();
+		}
+		else //we are not inside a handler thread
+		{
+			if ( fLock != nil )
+			{
+				fLock->Signal();
+			}
+		}
+	}
+	else //we are not inside a handler thread
+	{
+		if ( fLock != nil )
+		{
+			fLock->Signal();
+		}
+	}
+#else
 	if ( fLock != nil )
 	{
 		fLock->Signal();
 	}
+#endif
 } // Unlock
 
 
@@ -1092,16 +1292,19 @@ void CMessaging::Unlock ( void )
 
 void CMessaging::ClearMessageBlock ( void )
 {
-	uInt32	size	= 0;
-	if ( fMsgData != nil )
-	{
-		size = fMsgData->fDataSize;
-		::memset( fMsgData, 0, sizeof( sComData ) );
-		fMsgData->fDataSize		= size;
-		fMsgData->fDataLength	= 0;
-	}
-} // ClearMessageBlock
+	uInt32		size		= 0;
+	sComData   *aMsgData	= nil;
 
+	aMsgData = GetMsgData();
+	if ( aMsgData != nil )
+	{
+		size = aMsgData->fDataSize;
+		::memset( aMsgData, 0, sizeof( sComData ) );
+		aMsgData->fDataSize		= size;
+		aMsgData->fDataLength	= 0;
+	}
+
+} // ClearMessageBlock
 
 //------------------------------------------------------------------------------------
 //	* GetServerVersion
@@ -1121,3 +1324,76 @@ void CMessaging::SetServerVersion ( uInt32 inServerVersion )
 	fServerVersion = inServerVersion;
 } // SetServerVersion
 
+//------------------------------------------------------------------------------------
+//	* GetProxyIPAddress
+//------------------------------------------------------------------------------------
+
+const char* CMessaging::GetProxyIPAddress ( void )
+{
+	const char	   *outIPAddress = nil;
+
+#ifndef SERVERINTERNAL
+	if ( (!bMachEndpoint) && (fTCPEndpoint != nil) )
+	{
+		outIPAddress = fTCPEndpoint->GetReverseAddressString();
+	}
+#endif
+
+	return(outIPAddress);
+} // GetProxyIPAddress
+
+
+//------------------------------------------------------------------------------------
+//	* GetMsgData
+//------------------------------------------------------------------------------------
+
+sComData* CMessaging::GetMsgData ( void )
+{
+	sComData	   *aMsgData = nil;
+
+#ifdef SERVERINTERNAL
+	//look at our own thread and then get the msg data block to use for internal dispatch
+	CInternalDispatchThread *thisThread = (CInternalDispatchThread *)DSLThread::GetCurrentThread();
+	if (thisThread != nil)
+	{
+		if ( IsThreadUsingInternalDispatchBuffering(thisThread->GetSignature()) )
+		{
+			aMsgData = thisThread->GetHandlerInternalMsgData();
+		}
+		else //we are not inside a handler thread
+		{
+			aMsgData = fMsgData;
+		}
+	}
+	else //we are not inside a handler thread
+	{
+		aMsgData = fMsgData;
+	}
+#else
+	aMsgData = fMsgData;
+#endif
+	return(aMsgData);
+} // GetMsgData
+
+#ifdef SERVERINTERNAL
+//------------------------------------------------------------------------------------
+//	* IsThreadUsingInternalDispatchBuffering
+//------------------------------------------------------------------------------------
+
+bool CMessaging::IsThreadUsingInternalDispatchBuffering( OSType inThreadSig )
+{
+	bool	isInternalDispatchThread = false;
+	
+	if (	(inThreadSig == DSCThread::kTSHandlerThread) ||
+			(inThreadSig == DSCThread::kTSInternalHandlerThread) ||
+			(inThreadSig == DSCThread::kTSCheckpwHandlerThread) ||
+			(inThreadSig == DSCThread::kTSTCPConnectionThread) ||
+			(inThreadSig == DSCThread::kTSLauncherThread) ||
+			(inThreadSig == DSCThread::kTSPlugInHndlrThread) )
+	{
+		isInternalDispatchThread = true;
+	}
+	
+	return(isInternalDispatchThread);
+} // IsThreadUsingInternalDispatchBuffering
+#endif

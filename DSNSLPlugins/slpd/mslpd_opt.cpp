@@ -1,3 +1,27 @@
+/*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 
 /*
  * mslpd_opt.c : Handles optional requests (ATTRRQST and SRVTYPERQST)
@@ -25,6 +49,9 @@
  *
  * (c) Sun Microsystems, 1998, All Rights Reserved.
  * Author: Erik Guttman
+ */
+ /*
+	Portions Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  */
 
 #ifdef EXTRA_MSGS
@@ -69,7 +96,7 @@ static SLPInternalError srvtyperqst_in(Slphdr *pslph, const char *pcInBuf, int i
   if (iNALen == 0xffff) {
     /* handle the case where there is a wild NA */
     *ppcNA = safe_malloc(2,"*",1);
-    assert( *ppcNA );
+    if( !*ppcNA ) return SLP_MEMORY_ALLOC_FAILED;
   } else {
     offset -= 2; /* move back before the string length */
     if ((err = get_string(pcInBuf, iInSz, &offset, ppcNA)) < 0) 
@@ -126,7 +153,7 @@ int opt_type_request(SAState *psa, Slphdr *pslphdr, const char *pcInBuf,
   char *pcPRList=NULL, *pcNA = NULL, *pcSList = NULL;
   const char *pcSrvtypes = SLPGetProperty("com.sun.slp.saSrvTypes");
   int err = 0;
-  assert( pcList && psa && pslphdr && pcInBuf && ppcOutBuf && piOutSz);
+  if( !pcList || !psa || !pslphdr || !pcInBuf || !ppcOutBuf || !piOutSz) return SLP_PARSE_ERROR;
   *ppcOutBuf = NULL;  /* for now, just drop the request! */
   *piOutSz   = 0;
   *piGot     = 0;
@@ -285,7 +312,7 @@ int opt_attr_request(SAState *psa, Slphdr *pslphdr, const char *pcInBuf,
   char *pcPRList=NULL, *pcSrv = NULL, *pcSList = NULL, *pcTagList = NULL;
   SLPInternalError err = SLP_OK;
   int result = 0;
-  assert(psa && pslphdr && pcInBuf && ppcOutBuf && piOutSz);
+  if (!psa || !pslphdr || !pcInBuf || !ppcOutBuf || !piOutSz) return SLP_PARSE_ERROR;
   *ppcOutBuf = NULL;  /* for now, just drop the request! */
   *piOutSz   = 0;
   *piGot     = 0;
@@ -318,7 +345,7 @@ int opt_attr_request(SAState *psa, Slphdr *pslphdr, const char *pcInBuf,
     int i, j;
     int iRetval;
  
-    assert( pcResult );
+    if( !pcResult ) return SLP_MEMORY_ALLOC_FAILED;
     
     for (i = 0; (err == SLP_OK) && (i < psa->store.size); i++) {
 
@@ -396,7 +423,7 @@ int opt_attr_request(SAState *psa, Slphdr *pslphdr, const char *pcInBuf,
 	} else { /* attributes with values */
 	  
 	  pcItem = safe_malloc(strlen(pb->pcKey) +strlen(pb->pcVal) +4, 0, 0);
-      assert( pcItem );
+      if( !pcItem ) return SLP_PARSE_ERROR;
       
 	  sprintf(pcItem,"(%s=%s)",pb->pcKey,pb->pcVal);
 	  list_merge(pcItem, &pcResult, &iSz, NO_CHECK);
@@ -425,7 +452,7 @@ static SLPInternalError optrply_out(Slphdr *pslphdr, int replytype, SLPInternalE
 			    const char *pcResult, int extra) {
   
   char*	endPtr = NULL;
-  int iMTU      = strtol(SLPGetProperty("net.slp.MTU"),&endPtr,10);
+  int iMTU      = (SLPGetProperty("net.slp.MTU"))?strtol(SLPGetProperty("net.slp.MTU"),&endPtr,10):1400;
   int iOverflow = 0;
   int iIsMcast  = (pslphdr->h_usFlags & MCASTFLAG)?1:0;
   int hdrsz     = HDRLEN + strlen(pslphdr->h_pcLangTag);
@@ -442,7 +469,7 @@ static SLPInternalError optrply_out(Slphdr *pslphdr, int replytype, SLPInternalE
     iOverflow = 1;
   } 
   *ppcOutBuf = safe_malloc(*piOutSz, 0, 0);  
-  assert( *ppcOutBuf );
+  if( !*ppcOutBuf ) return SLP_PARSE_ERROR;
   
   /* parse header out */
   SETVER(*ppcOutBuf,2);

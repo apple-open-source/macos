@@ -1,5 +1,7 @@
 /* System dependent definitions for GNU tar.
-   Copyright 1994, 1995, 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
+
+   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001 Free Software
+   Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -38,29 +40,35 @@ char *alloca ();
 # endif
 #endif
 
-#include <sys/types.h>
-
-/* Declare a generic pointer type.  */
-#if defined (__STDC__) || defined(__TURBOC__)
-# define voidstar void *
-#else
-# define voidstar char *
+#ifndef __attribute__
+/* This feature is available in gcc versions 2.5 and later.  */
+# if __GNUC__ < 2 || (__GNUC__ == 2 && __GNUC_MINOR__ < 5) || __STRICT_ANSI__
+#  define __attribute__(Spec) /* empty */
+# endif
 #endif
 
+#include <sys/types.h>
 #include <ctype.h>
 
-/* CTYPE_DOMAIN (C) is nonzero if the unsigned char C can safely be given
+#if HAVE_STDDEF_H
+# include <stddef.h>
+#endif
+#ifndef offsetof
+# define offsetof(type, ident) ((size_t) &((type *) 0)->ident)
+#endif
+
+/* IN_CTYPE_DOMAIN (C) is nonzero if the unsigned char C can safely be given
    as an argument to <ctype.h> macros like `isspace'.  */
 #if STDC_HEADERS
-# define CTYPE_DOMAIN(c) 1
+# define IN_CTYPE_DOMAIN(c) 1
 #else
-# define CTYPE_DOMAIN(c) ((unsigned) (c) <= 0177)
+# define IN_CTYPE_DOMAIN(c) ((unsigned) (c) <= 0177)
 #endif
 
 #define ISDIGIT(c) ((unsigned) (c) - '0' <= 9)
 #define ISODIGIT(c) ((unsigned) (c) - '0' <= 7)
-#define ISPRINT(c) (CTYPE_DOMAIN (c) && isprint (c))
-#define ISSPACE(c) (CTYPE_DOMAIN (c) && isspace (c))
+#define ISPRINT(c) (IN_CTYPE_DOMAIN (c) && isprint (c))
+#define ISSPACE(c) (IN_CTYPE_DOMAIN (c) && isspace (c))
 
 /* Declare string and memory handling routines.  Take care that an ANSI
    string.h and pre-ANSI memory.h might conflict, and that memory.h and
@@ -80,10 +88,10 @@ char *alloca ();
 #  define strrchr rindex
 # endif
 # ifndef memcpy
-#  define memcpy(Dst, Src, Num) bcopy (Src, Dst, Num)
+#  define memcpy(d, s, n) bcopy ((char const *) (s), (char *) (d), n)
 # endif
 # ifndef memcmp
-#  define memcmp(Src1, Src2, Num) bcmp (Src1, Src2, Num)
+#  define memcmp(a, b, n) bcmp ((char const *) (a), (char const *) (b), n)
 # endif
 #endif
 
@@ -111,10 +119,10 @@ extern int errno;
 #ifndef O_RDWR
 # define O_RDWR		2	/* both are allowed */
 #endif
-				/* The rest can be OR-ed in to the above: */
-#ifndef O_NDELAY
-# define O_NDELAY	4	/* don't block on opening devices */
+#ifndef O_ACCMODE
+# define O_ACCMODE (O_RDONLY | O_RDWR | O_WRONLY)
 #endif
+				/* The rest can be OR-ed in to the above: */
 #ifndef O_CREAT
 # define O_CREAT	8	/* create file if needed */
 #endif
@@ -124,35 +132,37 @@ extern int errno;
 #ifndef O_TRUNC
 # define O_TRUNC	32	/* truncate file on open */
 #endif
-#ifndef O_APPEND
-# define O_APPEND	64	/* always write at end of file */
-#endif
 				/* MS-DOG forever, with my love! */
 #ifndef	O_BINARY
 # define O_BINARY 0
-#endif
-				/* Emulate System V 3-argument open call */
-#if EMUL_OPEN3
-# define open open3
 #endif
 
 /* Declare file status routines and bits.  */
 
 #include <sys/stat.h>
 
-#ifndef S_ISLNK
+#if !HAVE_LSTAT && !defined lstat
 # define lstat stat
+#endif
+
+#if STX_HIDDEN && !_LARGE_FILES /* AIX */
+# ifdef stat
+#  undef stat
+# endif
+# define stat(path, buf) statx (path, buf, STATSIZE, STX_HIDDEN)
+# ifdef lstat
+#  undef lstat
+# endif
+# define lstat(path, buf) statx (path, buf, STATSIZE, STX_HIDDEN | STX_LINK)
 #endif
 
 #if STAT_MACROS_BROKEN
 # undef S_ISBLK
 # undef S_ISCHR
+# undef S_ISCTG
 # undef S_ISDIR
 # undef S_ISFIFO
 # undef S_ISLNK
-# undef S_ISMPB
-# undef S_ISMPC
-# undef S_ISNWK
 # undef S_ISREG
 # undef S_ISSOCK
 #endif
@@ -164,42 +174,63 @@ extern int errno;
 # define S_ISVTX 0
 #endif
 
-#if !defined(S_ISBLK) && defined(S_IFBLK)
-# define S_ISBLK(Mode) (((Mode) & S_IFMT) == S_IFBLK)
-#endif
-#if !defined(S_ISCHR) && defined(S_IFCHR)
-# define S_ISCHR(Mode) (((Mode) & S_IFMT) == S_IFCHR)
-#endif
-#if !defined(S_ISDIR) && defined(S_IFDIR)
+#ifndef S_ISDIR
 # define S_ISDIR(Mode) (((Mode) & S_IFMT) == S_IFDIR)
 #endif
-#if !defined(S_ISREG) && defined(S_IFREG)
+#ifndef S_ISREG
 # define S_ISREG(Mode) (((Mode) & S_IFMT) == S_IFREG)
 #endif
-#if !defined(S_ISFIFO) && defined(S_IFIFO)
-# define S_ISFIFO(Mode) (((Mode) & S_IFMT) == S_IFIFO)
+
+#ifndef S_ISBLK
+# ifdef S_IFBLK
+#  define S_ISBLK(Mode) (((Mode) & S_IFMT) == S_IFBLK)
+# else
+#  define S_ISBLK(Mode) 0
+# endif
 #endif
-#if !defined(S_ISLNK) && defined(S_IFLNK)
-# define S_ISLNK(Mode) (((Mode) & S_IFMT) == S_IFLNK)
+#ifndef S_ISCHR
+# ifdef S_IFCHR
+#  define S_ISCHR(Mode) (((Mode) & S_IFMT) == S_IFCHR)
+# else
+#  define S_ISCHR(Mode) 0
+# endif
 #endif
-#if !defined(S_ISSOCK) && defined(S_IFSOCK)
-# define S_ISSOCK(Mode) (((Mode) & S_IFMT) == S_IFSOCK)
+#ifndef S_ISCTG
+# ifdef S_IFCTG
+#  define S_ISCTG(Mode) (((Mode) & S_IFMT) == S_IFCTG)
+# else
+#  define S_ISCTG(Mode) 0
+# endif
 #endif
-#if !defined(S_ISMPB) && defined(S_IFMPB) /* V7 */
-# define S_ISMPB(Mode) (((Mode) & S_IFMT) == S_IFMPB)
-# define S_ISMPC(Mode) (((Mode) & S_IFMT) == S_IFMPC)
+#ifndef S_ISDOOR
+# define S_ISDOOR(Mode) 0
 #endif
-#if !defined(S_ISNWK) && defined(S_IFNWK) /* HP/UX */
-# define S_ISNWK(Mode) (((Mode) & S_IFMT) == S_IFNWK)
+#ifndef S_ISFIFO
+# ifdef S_IFIFO
+#  define S_ISFIFO(Mode) (((Mode) & S_IFMT) == S_IFIFO)
+# else
+#  define S_ISFIFO(Mode) 0
+# endif
+#endif
+#ifndef S_ISLNK
+# ifdef S_IFLNK
+#  define S_ISLNK(Mode) (((Mode) & S_IFMT) == S_IFLNK)
+# else
+#  define S_ISLNK(Mode) 0
+# endif
+#endif
+#ifndef S_ISSOCK
+# ifdef S_IFSOCK
+#  define S_ISSOCK(Mode) (((Mode) & S_IFMT) == S_IFSOCK)
+# else
+#  define S_ISSOCK(Mode) 0
+# endif
 #endif
 
-#if !HAVE_MKFIFO
+#if !HAVE_MKFIFO && !defined mkfifo && defined S_IFIFO
 # define mkfifo(Path, Mode) (mknod (Path, (Mode) | S_IFIFO, 0))
 #endif
 
-#if !defined(S_ISCTG) && defined(S_IFCTG) /* contiguous file */
-# define S_ISCTG(Mode) (((Mode) & S_IFMT) == S_IFCTG)
-#endif
 #ifndef S_ISUID
 # define S_ISUID 0004000
 #endif
@@ -316,68 +347,19 @@ extern int errno;
 
 #undef GOT_MAJOR
 
-/* Declare directory reading routines and structures.  */
-
-#if __TURBOC__
-# include "msd_dir.h"
-# define NAMLEN(dirent) ((dirent)->d_namlen)
-#else
-# if HAVE_DIRENT_H
-#  include <dirent.h>
-#  define NAMLEN(dirent) (strlen((dirent)->d_name))
-# else
-#  define dirent direct
-#  define NAMLEN(dirent) ((dirent)->d_namlen)
-#  if HAVE_SYS_NDIR_H
-#   include <sys/ndir.h>
-#  endif
-#  if HAVE_SYS_DIR_H
-#   include <sys/dir.h>
-#  endif
-#  if HAVE_NDIR_H
-#   include <ndir.h>
-#  endif
-# endif
-#endif
-
 /* Declare wait status.  */
 
 #if HAVE_SYS_WAIT_H
 # include <sys/wait.h>
 #endif
-
-#if HAVE_UNION_WAIT
-# define WAIT_T union wait
-# ifndef WTERMSIG
-#  define WTERMSIG(Status)     ((Status).w_termsig)
-# endif
-# ifndef WCOREDUMP
-#  define WCOREDUMP(Status)    ((Status).w_coredump)
-# endif
-# ifndef WEXITSTATUS
-#  define WEXITSTATUS(Status)  ((Status).w_retcode)
-# endif
-#else
-# define WAIT_T int
-# ifndef WTERMSIG
-#  define WTERMSIG(Status)     ((Status) & 0x7f)
-# endif
-# ifndef WCOREDUMP
-#  define WCOREDUMP(Status)    ((Status) & 0x80)
-# endif
-# ifndef WEXITSTATUS
-#  define WEXITSTATUS(Status)  (((Status) >> 8) & 0xff)
-# endif
-#endif
-
-#ifndef WIFSTOPPED
-# define WIFSTOPPED(Status)    (WTERMSIG(Status) == 0x7f)
+#ifndef WEXITSTATUS
+# define WEXITSTATUS(s)	(((s) >> 8) & 0xff)
 #endif
 #ifndef WIFSIGNALED
-# define WIFSIGNALED(Status)   (WTERMSIG(Status) != 0)
+# define WIFSIGNALED(s)	(((s) & 0xffff) - 1 < (unsigned) 0xff)
 #endif
-#ifndef WIFEXITED
-# define WIFEXITED(Status)     (WTERMSIG(Status) == 0)
+#ifndef WTERMSIG
+# define WTERMSIG(s)	((s) & 0x7f)
 #endif
 
 /* FIXME: It is wrong to use BLOCKSIZE for buffers when the logical block
@@ -475,12 +457,15 @@ extern int errno;
 #if STDC_HEADERS
 # include <stdlib.h>
 #else
-voidstar malloc ();
-voidstar realloc ();
-# if HAVE_GETCWD
-char *getcwd ();
-# endif
+void *malloc ();
+void *realloc ();
 char *getenv ();
+#endif
+
+#if HAVE_STDBOOL_H
+# include <stdbool.h>
+#else
+typedef enum {false = 0, true = 1} bool;
 #endif
 
 #include <stdio.h>
@@ -492,8 +477,6 @@ char *getenv ();
 off_t lseek ();
 # endif
 #endif
-
-#include <pathmax.h>
 
 #if WITH_DMALLOC
 # undef HAVE_VALLOC
@@ -513,8 +496,16 @@ off_t lseek ();
 # define CHAR_MAX TYPE_MAXIMUM (char)
 #endif
 
+#ifndef UCHAR_MAX
+# define UCHAR_MAX TYPE_MAXIMUM (unsigned char)
+#endif
+
 #ifndef LONG_MAX
 # define LONG_MAX TYPE_MAXIMUM (long)
+#endif
+
+#ifndef MB_LEN_MAX
+# define MB_LEN_MAX 1
 #endif
 
 #if HAVE_INTTYPES_H
@@ -527,7 +518,7 @@ off_t lseek ();
 #define TYPE_MINIMUM(t) (TYPE_SIGNED (t) \
 			 ? ~ (t) 0 << (sizeof (t) * CHAR_BIT - 1) \
 			 : (t) 0)
-#define TYPE_MAXIMUM(t) (~ (t) 0 - TYPE_MINIMUM (t))
+#define TYPE_MAXIMUM(t) ((t) (~ (t) 0 - TYPE_MINIMUM (t)))
 
 /* Bound on length of the string representing an integer value of type t.
    Subtract one for the sign bit if t is signed;
@@ -569,9 +560,17 @@ off_t lseek ();
 #endif
 #define N_(Text) Text
 
+#include <time.h>
+#ifndef time
+time_t time ();
+#endif
+
 /* Library modules.  */
 
-#include "error.h"
+#include <dirname.h>
+#include <error.h>
+#include <savedir.h>
+#include <xalloc.h>
 
 #if !HAVE_STRSTR
 char *strstr PARAMS ((const char *, const char *));
@@ -579,12 +578,10 @@ char *strstr PARAMS ((const char *, const char *));
 
 #if HAVE_VALLOC
 # ifndef valloc
-voidstar valloc PARAMS ((size_t));
+void *valloc ();
 # endif
 #else
 # define valloc(Size) malloc (Size)
 #endif
 
-voidstar xmalloc PARAMS ((size_t));
-voidstar xrealloc PARAMS ((voidstar, size_t));
-char *xstrdup PARAMS ((const char *));
+char *xstrdup PARAMS ((char const *));

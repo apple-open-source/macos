@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +21,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 #ifndef _IOKIT_APPLEUSBHUB_H
 #define _IOKIT_APPLEUSBHUB_H
 
@@ -88,6 +88,8 @@ class AppleUSBHub : public IOService
     UInt8			_readBytes;
     UInt8			_numCaptive;
     AppleUSBHubPort **	   	_ports;		// Allocated at runtime
+    bool			_multiTTs;	// Hub is multiTT capable, and configured.
+    bool			_hsHub;		// Hub is connected to a HS bus
     IOTimerEventSource *      	_timerSource;
     UInt32			_timeoutFlag;
     UInt32			_portTimeStamp[32];
@@ -150,6 +152,7 @@ class AppleUSBHub : public IOService
     void		StopWatchdogTimer();
     IOReturn		RearmInterruptRead();
     void		ResetMyPort();
+    void		CallCheckForDeadHub(void);
 
     IOUSBHubDescriptor 	GetCachedHubDescriptor() { return _hubDescriptor; }
     
@@ -170,6 +173,7 @@ public:
     virtual bool 	terminateClient( IOService * client, IOOptionBits options );
 
     virtual IOUSBDevice * GetDevice(void) { return _device; }
+
 };
 
 

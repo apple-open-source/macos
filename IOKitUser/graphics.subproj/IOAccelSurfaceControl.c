@@ -36,12 +36,12 @@ IOReturn IOAccelFindAccelerator( io_service_t framebuffer,
     IOReturn      kr;
     io_service_t  accelerator = MACH_PORT_NULL;
 
-    mach_port_t     masterPort;
-    CFDictionaryRef props = 0;
-    CFStringRef     cfStr;
-    CFNumberRef     cfNum;
-    const char *    cStr;
-    char *	    buffer = NULL;
+    mach_port_t     	   masterPort;
+    CFMutableDictionaryRef props = 0;
+    CFStringRef            cfStr;
+    CFNumberRef            cfNum;
+    const char *           cStr;
+    char *	           buffer = NULL;
 
     *pAccelerator = MACH_PORT_NULL;
     *pFramebufferIndex = 0;
@@ -101,25 +101,10 @@ IOReturn IOAccelCreateSurface( io_service_t accelerator, UInt32 wid, eIOAccelSur
 {
 	IOReturn	kr;
 	io_connect_t	window = MACH_PORT_NULL;
-	int		data[3];
+	int		data[2];
         int		countio = 0;
-        UInt32		framebufferIndex;
-        boolean_t	oldCG;
 
 	*connect = NULL;
-
-        oldCG = IOObjectConformsTo(accelerator, IOFRAMEBUFFER_CONFORMSTO);
-
-        if( oldCG)
-        {
-            kr = IOAccelFindAccelerator( accelerator, &accelerator, &framebufferIndex );
-            if( kr != kIOReturnSuccess)
-            {
-                    return kr;
-            }
-        }
-        else
-            framebufferIndex = 0;
 
         /* Create a context */
         kr = IOServiceOpen( accelerator,
@@ -127,30 +112,16 @@ IOReturn IOAccelCreateSurface( io_service_t accelerator, UInt32 wid, eIOAccelSur
                     kIOAccelSurfaceClientType,
                     &window );
 
-        if( oldCG)
-            IOObjectRelease(accelerator);
-
         if( kr != kIOReturnSuccess)
         {
-                window = MACH_PORT_NULL;
-        }
-
-
-	if( !window )
-	{
 		return kr;
-	}
+        }
 
 	/* Set the window id */
 	data[0] = wid;
 	data[1] = modebits;
-	data[2] = framebufferIndex;
 
-        if( oldCG)
-            kr = io_connect_method_scalarI_structureI(window, kIOAccelSurfaceSetIDModeOld,
-		data, 3, NULL, 0);
-        else
-            kr = io_connect_method_scalarI_scalarO(window, kIOAccelSurfaceSetIDMode,
+	kr = io_connect_method_scalarI_scalarO(window, kIOAccelSurfaceSetIDMode,
 		data, 2, NULL, &countio);
 	if(kr != kIOReturnSuccess)
 	{
@@ -175,40 +146,13 @@ IOReturn IOAccelDestroySurface( IOAccelConnect connect )
 	return kr;
 }
 
-
-#if 0
-IOReturn IOAccelSetSurfaceScale( IOAccelConnect connect, IOOptionBits options, UInt32 width, UInt32 height )
-{
-    int data[3];
-    int countio = 0;
-    
-    data[0] = options;
-    data[1] = width;
-    data[2] = height;
-    
-    return io_connect_method_scalarI_scalarO((io_connect_t) connect, kIOAccelSurfaceSetScale,
-            data, 3, NULL, &countio);
-}
-IOReturn IOAccelSetSurfaceScaling( IOAccelConnect connect, IOOptionBits options,
-                                    IOAccelSurfaceScaling * scaling, UInt32 scalingSize )
-#else
 IOReturn IOAccelSetSurfaceScale( IOAccelConnect connect, IOOptionBits options,
                                     IOAccelSurfaceScaling * scaling, UInt32 scalingSize )
-#endif
 {
 	return io_connect_method_scalarI_structureI((io_connect_t) connect,
                 kIOAccelSurfaceSetScale,
-                &options, 1,
+                (int *) &options, 1,
 		(char *) scaling, scalingSize);
-}
-
-
-
-IOReturn IOAccelSetSurfaceShape( IOAccelConnect connect, IOAccelDeviceRegion *rgn,
-                                            eIOAccelSurfaceShapeBits options )
-{
-	return io_connect_method_scalarI_structureI((io_connect_t) connect, kIOAccelSurfaceSetShapeOld,
-		(int *) &options, 1, (char *) rgn, IOACCEL_SIZEOF_DEVICE_REGION(rgn));
 }
 
 
@@ -224,22 +168,19 @@ IOReturn IOAccelSetSurfaceFramebufferShape( IOAccelConnect connect, IOAccelDevic
 		data, 2, (char *) rgn, IOACCEL_SIZEOF_DEVICE_REGION(rgn));
 }
 
-IOReturn IOAccelLockSurface( IOAccelConnect connect, IOAccelSurfaceInformation * info, UInt32 infoSize )
+IOReturn IOAccelSetSurfaceFramebufferShapeWithBacking( IOAccelConnect connect, IOAccelDeviceRegion *rgn,
+                                            eIOAccelSurfaceShapeBits options, UInt32 framebufferIndex,
+					    IOVirtualAddress backing, UInt32 rowbytes )
 {
-	IOReturn ret;
+	int data[4];
 
-	ret = io_connect_method_scalarI_structureO((io_connect_t) connect, kIOAccelSurfaceLock,
-		NULL, 0, (char *) info, (int *) &infoSize);
+	data[0] = options;
+        data[1] = framebufferIndex;
+        data[2] = backing;
+        data[3] = rowbytes;
 
-	return ret;
-}
-
-IOReturn IOAccelUnlockSurface( IOAccelConnect connect )
-{
-	int countio = 0;
-
-	return io_connect_method_scalarI_scalarO((io_connect_t) connect, kIOAccelSurfaceUnlock,
-		NULL, 0, NULL, &countio);
+	return io_connect_method_scalarI_structureI((io_connect_t) connect, kIOAccelSurfaceSetShapeBacking,
+		data, 4, (char *) rgn, IOACCEL_SIZEOF_DEVICE_REGION(rgn));
 }
 
 IOReturn IOAccelReadLockSurface( IOAccelConnect connect, IOAccelSurfaceInformation * info, UInt32 infoSize )
@@ -248,6 +189,17 @@ IOReturn IOAccelReadLockSurface( IOAccelConnect connect, IOAccelSurfaceInformati
 
 	ret = io_connect_method_scalarI_structureO((io_connect_t) connect, kIOAccelSurfaceReadLock,
 		NULL, 0, (char *) info, (int *) &infoSize);
+
+	return ret;
+}
+
+IOReturn IOAccelReadLockSurfaceWithOptions( IOAccelConnect connect, IOOptionBits options,
+					    IOAccelSurfaceInformation * info, UInt32 infoSize )
+{
+	IOReturn ret;
+
+	ret = io_connect_method_scalarI_structureO((io_connect_t) connect, kIOAccelSurfaceReadLockOptions,
+		 (int *) &options, 1, (char *) info, (int *) &infoSize);
 
 	return ret;
 }
@@ -262,12 +214,31 @@ IOReturn IOAccelWriteLockSurface( IOAccelConnect connect, IOAccelSurfaceInformat
 	return ret;
 }
 
+IOReturn IOAccelWriteLockSurfaceWithOptions( IOAccelConnect connect, IOOptionBits options,
+					     IOAccelSurfaceInformation * info, UInt32 infoSize )
+{
+	IOReturn ret;
+
+	ret = io_connect_method_scalarI_structureO((io_connect_t) connect, kIOAccelSurfaceWriteLockOptions,
+		(int *) &options, 1, (char *) info, (int *) &infoSize);
+
+	return ret;
+}
+
 IOReturn IOAccelReadUnlockSurface( IOAccelConnect connect )
 {
 	int countio = 0;
 
 	return io_connect_method_scalarI_scalarO((io_connect_t) connect, kIOAccelSurfaceReadUnlock,
 		NULL, 0, NULL, &countio);
+}
+
+IOReturn IOAccelReadUnlockSurfaceWithOptions( IOAccelConnect connect, IOOptionBits options )
+{
+	int countio = 0;
+
+	return io_connect_method_scalarI_scalarO((io_connect_t) connect, kIOAccelSurfaceReadUnlockOptions,
+		(int *) &options, 1, NULL, &countio);
 }
 
 IOReturn IOAccelWriteUnlockSurface( IOAccelConnect connect )
@@ -278,6 +249,13 @@ IOReturn IOAccelWriteUnlockSurface( IOAccelConnect connect )
 		NULL, 0, NULL, &countio);
 }
 
+IOReturn IOAccelWriteUnlockSurfaceWithOptions( IOAccelConnect connect, IOOptionBits options )
+{
+	int countio = 0;
+
+	return io_connect_method_scalarI_scalarO((io_connect_t) connect, kIOAccelSurfaceWriteUnlockOptions,
+		(int *) &options, 1, NULL, &countio);
+}
 
 IOReturn IOAccelWaitForSurface( IOAccelConnect connect )
 {
@@ -290,15 +268,6 @@ IOReturn IOAccelQueryLockSurface( IOAccelConnect connect )
 
 	return io_connect_method_scalarI_scalarO((io_connect_t) connect, kIOAccelSurfaceQueryLock,
 		NULL, 0, NULL, &countio);
-}
-
-/* Flush surface to visible region */
-IOReturn IOAccelFlushSurface( IOAccelConnect connect, IOOptionBits options )
-{
-	int countio = 0;
-
-	return io_connect_method_scalarI_scalarO((io_connect_t) connect, kIOAccelSurfaceFlushOld,
-		(int*) &options, 1, NULL, &countio);
 }
 
 /* Flush surface to visible region */

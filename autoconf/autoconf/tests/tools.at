@@ -1,10 +1,28 @@
-#							-*- autoconf -*-
+#							-*- Autotest -*-
 
 AT_BANNER([Executables (autoheader, autoupdate...).])
 
-## -------------------------------------------------------- ##
-## Check that the shell scripts are syntactically correct.  ##
-## -------------------------------------------------------- ##
+# Copyright 2000, 2001 Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+# 02111-1307, USA.
+
+
+## ----------------------------- ##
+## Syntax of the shell scripts.  ##
+## ----------------------------- ##
 
 # We use `/bin/sh -n script' to check that there are no syntax errors
 # in the scripts.  Although incredible, there are /bin/sh that go into
@@ -26,12 +44,12 @@ AT_BANNER([Executables (autoheader, autoupdate...).])
 # So before using `/bin/sh -n' to check our scripts, we first check
 # that `/bin/sh -n' is not broken to death.
 
-AT_SETUP([Syntax of the scripts])
+AT_SETUP([Syntax of the shell scripts])
 
 # A script that never returns.  We don't care that it never returns,
 # broken /bin/sh loop equally with `false', but it makes it easier to
-# test the robusteness in a good environment: just remove the `-n'.
-AT_DATA(endless.sh,
+# test the robustness in a good environment: just remove the `-n'.
+AT_DATA([endless.sh],
 [[while :
 do
   :
@@ -39,7 +57,7 @@ done
 ]])
 
 # A script in charge of testing `/bin/sh -n'.
-AT_DATA(syntax.sh,
+AT_DATA([syntax.sh],
 [[(/bin/sh -n endless.sh) &
 sleep 2
 if kill $! >/dev/null 2>&1; then
@@ -55,45 +73,74 @@ AT_CHECK([/bin/sh ./syntax.sh])
 # Specify the path to the tool, some shells don't honor PATH when
 # running `sh PROG'.
 
-AT_CHECK([/bin/sh -n ../autoconf],   0)
-AT_CHECK([/bin/sh -n ../autoreconf], 0)
-AT_CHECK([/bin/sh -n ../ifnames],    0)
+AT_CHECK([/bin/sh -n $abs_top_builddir/bin/autoconf],   0)
 
 # These are not built, they are in the src tree.
-AT_CHECK([/bin/sh -n $top_srcdir/config/install-sh], 0)
-AT_CHECK([/bin/sh -n $top_srcdir/config/mkinstalldirs], 0)
-AT_CHECK([/bin/sh -n $top_srcdir/config/missing], 0)
+AT_CHECK([/bin/sh -n $abs_top_srcdir/config/install-sh], 0)
+AT_CHECK([/bin/sh -n $abs_top_srcdir/config/mkinstalldirs], 0)
+AT_CHECK([/bin/sh -n $abs_top_srcdir/config/missing], 0)
 
 AT_CLEANUP
 
 
 
 
-## ----------------- ##
-## AWK portability.  ##
-## ----------------- ##
+## ---------------------------- ##
+## Syntax of the Perl scripts.  ##
+## ---------------------------- ##
 
-AT_SETUP([AWK portability])
+AT_SETUP([Syntax of the Perl scripts])
 
-AT_DATA([configure.ac],
-[])
+# Perl says things like:
+# | % perl -c ./autom4te
+# | ./autom4te syntax OK
+# Ignore it, it might change between releases.
+m4_define([AT_CHECK_PERL_SYNTAX],
+[AT_CHECK([autom4te_perllibdir=$abs_top_srcdir/lib $PERL -c $abs_top_builddir/bin/$1],
+          0, [], [ignore])])
 
-# Skip if we don't have GNU Awk.
-AT_CHECK([gawk --version || exit 77], 0, ignore, ignore)
+AT_CHECK_PERL_SYNTAX([autoheader])
+AT_CHECK_PERL_SYNTAX([autom4te])
+AT_CHECK_PERL_SYNTAX([autoreconf])
+AT_CHECK_PERL_SYNTAX([autoscan])
+AT_CHECK_PERL_SYNTAX([autoupdate])
+AT_CHECK_PERL_SYNTAX([ifnames])
 
-# Generation of the script.
-AT_CHECK([AWK='gawk --posix' autoconf --autoconf-dir .. -l $at_srcdir], 0,
-         [], [])
-# Tracing.
-AT_CHECK([AWK='gawk --posix' autoconf --autoconf-dir .. -l $at_srcdir -t AC_INIT], 0,
-         ignore, [])
-# Syntax correctness of ifnames.
-AT_CHECK([AWK='gawk --posix' ifnames /dev/null], 0,
-         [], [])
-
-AT_CLEANUP(configure)
+AT_CLEANUP
 
 
+
+
+## ------------------ ##
+## autom4te's cache.  ##
+## ------------------ ##
+
+AT_SETUP([autom4te cache])
+
+AT_DATA_M4SUGAR([[script.4s]],
+[[m4_include([foo])
+]])
+
+# Everything is OK.
+touch foo
+AT_CHECK_M4SUGAR
+
+# We moved a file: it should fail
+mkdir sub
+mv foo sub
+AT_CHECK_M4SUGAR([], [1], [],
+[m4: script.4s: 1: Cannot open foo: No such file or directory
+autom4te: m4 failed with exit status: 1
+])
+
+# But if we change the main file, then we should no longer complain of
+# missing files.
+AT_DATA_M4SUGAR([[script.4s]],
+[[m4_include([sub/foo])
+]])
+AT_CHECK_M4SUGAR
+
+AT_CLEANUP
 
 
 
@@ -107,37 +154,58 @@ AT_CLEANUP(configure)
 # -----------------------------
 AT_SETUP([autoconf --trace: user macros])
 
-AT_DATA(configure.ac,
+
+m4_pattern_allow([^m4_(define|shift)$])
+AT_DATA([configure.ac],
 [[m4_define([active], [ACTIVE])
 m4_define([TRACE1], [TRACE2(m4_shift($@))])
 m4_define([TRACE2], [[$2], $1])
-TRACE1(foo, bar, baz)
+
+# No arguments.
+TRACE1
+TRACE2
+
+# With arguments, single line.
+TRACE1(foo, @bar, @baz)
 TRACE1(foo, TRACE1(bar, baz))
 TRACE1(foo, active, baz)
 TRACE1(foo, [active], TRACE1(active, [active]))
+
+# With arguments, multiple lines.
+TRACE1(foo
+bar,
+bar
+foo)
 ]])
 
 # Several --traces.
-AT_CHECK([autoconf --autoconf-dir .. -l $at_srcdir -t TRACE1 -t TRACE2], 0,
-[[configure.ac:4:TRACE1:foo:bar:baz
-configure.ac:4:TRACE2:bar:baz
-configure.ac:5:TRACE1:bar:baz
-configure.ac:5:TRACE2:baz
-configure.ac:5:TRACE1:foo::baz
-configure.ac:5:TRACE2::baz
-configure.ac:6:TRACE1:foo:ACTIVE:baz
-configure.ac:6:TRACE2:ACTIVE:baz
-configure.ac:7:TRACE1:ACTIVE:active
-configure.ac:7:TRACE2:active
-configure.ac:7:TRACE1:foo:active::ACTIVE
-configure.ac:7:TRACE2:active::ACTIVE
+AT_CHECK_AUTOCONF([-t TRACE1 -t TRACE2], 0,
+[[configure.ac:6:TRACE1:
+configure.ac:6:TRACE2:
+configure.ac:7:TRACE2:
+configure.ac:10:TRACE1:foo:@bar:@baz
+configure.ac:10:TRACE2:@bar:@baz
+configure.ac:11:TRACE1:bar:baz
+configure.ac:11:TRACE2:baz
+configure.ac:11:TRACE1:foo::baz
+configure.ac:11:TRACE2::baz
+configure.ac:12:TRACE1:foo:ACTIVE:baz
+configure.ac:12:TRACE2:ACTIVE:baz
+configure.ac:13:TRACE1:ACTIVE:active
+configure.ac:13:TRACE2:active
+configure.ac:13:TRACE1:foo:active::ACTIVE
+configure.ac:13:TRACE2:active::ACTIVE
+configure.ac:19:TRACE1:foo bar:bar foo
+configure.ac:19:TRACE2:bar foo
 ]])
 
 # Several line requests.
-AT_CHECK([[autoconf --autoconf-dir .. -l $at_srcdir -t TRACE1:'
+AT_CHECK_AUTOCONF([[-t TRACE1:'
 [$1], [$2], [$3].']], 0,
 [[
-[foo], [bar], [baz].
+[], [], [].
+
+[foo], [@bar], [@baz].
 
 [bar], [baz], [].
 
@@ -148,16 +216,24 @@ AT_CHECK([[autoconf --autoconf-dir .. -l $at_srcdir -t TRACE1:'
 [ACTIVE], [active], [].
 
 [foo], [active], [].
+
+[foo
+bar], [bar
+foo], [].
 ]])
 
 # ${sep}@.
-AT_CHECK([autoconf --autoconf-dir .. -l $at_srcdir -t TRACE2:'${)===(}@'], 0,
-[[[bar])===([baz]
+AT_CHECK_AUTOCONF([-t TRACE2:'${)===(}@'], 0,
+[[[]
+[]
+[@bar])===([@baz]
 [baz]
 [])===([baz]
 [ACTIVE])===([baz]
 [active]
 [active])===([])===([ACTIVE]
+[bar
+foo]
 ]])
 
 AT_CLEANUP
@@ -167,12 +243,11 @@ AT_CLEANUP
 # --------------------------
 AT_SETUP([autoconf --trace: builtins])
 
-AT_DATA(configure.ac,
+AT_DATA([configure.ac],
 [[define([active], [ACTIVE])
 ]])
 
-AT_CHECK([[autoconf --autoconf-dir .. -l $at_srcdir -t define |
-            sed -n '$p']],
+AT_CHECK_AUTOCONF([[-t define | sed -n '$p']],
          0,
 [[configure.ac:1:define:active:ACTIVE
 ]])
@@ -181,8 +256,7 @@ AT_CHECK([[autoconf --autoconf-dir .. -l $at_srcdir -t define |
 # dive into obscure feature interaction...
 # Note that using `-i' means we need the *.m4 files, not the *.m4f files,
 # hence we need srcdir, not builddir.
-AT_CHECK([[autoconf --autoconf-dir $top_srcdir -l $at_srcdir -t define:'$1' -i|
-            sed -n '$p']],
+AT_CHECK_AUTOCONF([[-t define:'$1' -i| sed -n '$p']],
          0,
 [[active
 ]])
@@ -191,82 +265,78 @@ AT_CLEANUP
 
 
 
-
 ## ---------------------------- ##
 ## autoconf: forbidden tokens.  ##
 ## ---------------------------- ##
+
 
 # autoconf: forbidden tokens, basic
 # ---------------------------------
 AT_SETUP([autoconf: forbidden tokens, basic])
 
-AT_DATA([configure.ac],
-[[AC_PLAIN_SCRIPT()dnl
-AC_FOO
-_AC_BAR
+AT_DATA_M4SH([configure.ac],
+[[AS_INIT
 m4_foo
 _m4_bar
-BAC_FOO
-B_AC_FOO
 AS_FOO
 _AS_BAR
+[dnl]
 ]])
 
-AT_CHECK([autoconf --autoconf-dir .. -l $at_srcdir], 1, [], [stderr])
-# The output of autoconf is not deterministic here because it
-# uses `for (ind in array)'.  So be sure to have a unique representation.
-AT_CHECK([sort stderr], 0,
-[[configure.ac:2: error: possibly undefined macro: AC_FOO
-configure.ac:3: error: possibly undefined macro: _AC_BAR
-configure.ac:4: error: possibly undefined macro: m4_foo
-configure.ac:7: error: possibly undefined macro: B_AC_FOO
-configure.ac:8: error: possibly undefined macro: AS_FOO
-configure.ac:9: error: possibly undefined macro: _AS_BAR
+AT_DATA_M4SH([experr],
+[[configure.ac:2: error: possibly undefined macro: m4_foo
+      If this token and others are legitimate, please use m4_pattern_allow.
+      See the Autoconf documentation.
+configure.ac:3: error: possibly undefined macro: _m4_bar
+configure.ac:4: error: possibly undefined macro: AS_FOO
+configure.ac:5: error: possibly undefined macro: _AS_BAR
+configure.ac:6: error: possibly undefined macro: dnl
 ]])
 
-AT_CLEANUP(configure)
+AT_CHECK_AUTOCONF([], 1, [], experr)
+
+AT_CLEANUP
 
 
 # autoconf: forbidden tokens, exceptions
 # --------------------------------------
 AT_SETUP([autoconf: forbidden tokens, exceptions])
 
-AT_DATA([configure.ac],
-[[AC_PLAIN_SCRIPT()dnl
+AT_DATA_M4SH([configure.ac],
+[[AS_INIT
 
 # This is allowed in spite of the name.
 # It is on purpose that we check the case where there are several
 # tokens on the same line.
-m4_pattern_allow([^AC_ALLOWED$])
-NOT_AC_ALLOWED AC_ALLOWED AC_ALLOWED_NOT
+m4_pattern_allow([^AS_ALLOWED$])
+NOT_AS_ALLOWED AS_ALLOWED AS_ALLOWED_NOT
 
 # Test forbidding.
 m4_pattern_forbid([^FORBIDDEN$])
 NOT_FORBIDDEN FORBIDDEN FORBIDDEN_NOT
 
 # Test Autoconf's patterns.
-AC_THIS_IS_INVALID and _AC_THIS_IS_INVALID_TOO
-BUT_AZ_THIS_IS_NOT ALTHOUGH_AC_THIS_IS
-# This is legal, although there is `AC_DEFINE' in there.
-BAC_DEFINE
-# AC_THIS_IS_A_COMMENT so just shut up.
-It would be very bad if Autoconf forgot to expand [AC_]OUTPUT!
+AS_THIS_IS_INVALID and _AS_THIS_IS_INVALID_TOO
+BUT_AZ_THIS_IS_NOT ALTHOUGH_AS_THIS_IS
+# This is legal, although there is `AS_DEFINE' in there.
+BAS_DEFINE
+# AS_THIS_IS_A_COMMENT so just shut up.
+It would be very bad if Autoconf forgot to expand [AS_]INIT!
 ]])
 
-AT_CHECK([autoconf --autoconf-dir .. -l $at_srcdir], 1, [], [stderr])
-# The output of autoconf is not deterministic here because it
-# uses `for (ind in array)'.  So be sure to have a unique representation.
-AT_CHECK([sort stderr], 0,
-[[configure.ac:10: error: possibly undefined macro: FORBIDDEN
-configure.ac:14: error: possibly undefined macro: AC_THIS_IS_INVALID
-configure.ac:14: error: possibly undefined macro: _AC_THIS_IS_INVALID_TOO
-configure.ac:15: error: possibly undefined macro: ALTHOUGH_AC_THIS_IS
-configure.ac:7: error: possibly undefined macro: AC_ALLOWED_NOT
-configure.ac:7: error: possibly undefined macro: NOT_AC_ALLOWED
-configure:18: error: possibly undefined macro: AC_OUTPUT
+AT_DATA_M4SH([experr],
+[[configure.ac:1: error: possibly undefined macro: AS_INIT
+      If this token and others are legitimate, please use m4_pattern_allow.
+      See the Autoconf documentation.
+configure.ac:7: error: possibly undefined macro: AS_ALLOWED_NOT
+configure.ac:10: error: possibly undefined macro: FORBIDDEN
+configure.ac:14: error: possibly undefined macro: AS_THIS_IS_INVALID
+configure.ac:14: error: possibly undefined macro: _AS_THIS_IS_INVALID_TOO
 ]])
 
-AT_CLEANUP(configure err)
+AT_CHECK_AUTOCONF([], 1, [], [experr])
+
+AT_CLEANUP
 
 
 
@@ -320,46 +390,62 @@ AT_CLEANUP
 ## autoheader.  ##
 ## ------------ ##
 
-# autoheader is intensively used in its modern form throught this
+# autoheader is intensively used in its modern form throughout this
 # test suite.  But we also have to check that acconfig.h still works.
 # autoheader uses autoconf --trace, so traces first.
 
 AT_SETUP([autoheader])
 
-AT_DATA(acconfig.h,
+AT_DATA([acconfig.h],
 [[/* Define this to whatever you want. */
 #undef this
 ]])
 
 
 # 1. Check that `acconfig.h' is still honored.
-AT_DATA(configure.ac,
+AT_DATA([configure.ac],
 [[AC_INIT
-AC_CONFIG_HEADERS(config.h)
+AC_CONFIG_HEADERS(config.h:config.hin)
 AC_DEFINE(this, "whatever you want.")
 ]])
 
-AT_CHECK([autoheader --autoconf-dir .. -<configure.ac], 0,
-[[/* config.h.in.  Generated automatically from - by autoheader.  */
+AT_CHECK_AUTOHEADER([], [], [], [ignore])
+AT_CHECK([cat config.hin], 0,
+[[/* config.hin.  Generated from configure.ac by autoheader.  */
 /* Define this to whatever you want. */
 #undef this
-]], ignore)
+
+/* Define to the address where bug reports for this package should be sent. */
+#undef PACKAGE_BUGREPORT
+
+/* Define to the full name of this package. */
+#undef PACKAGE_NAME
+
+/* Define to the full name and version of this package. */
+#undef PACKAGE_STRING
+
+/* Define to the one symbol short name of this package. */
+#undef PACKAGE_TARNAME
+
+/* Define to the version of this package. */
+#undef PACKAGE_VERSION
+]])
 
 
 # 2. Check that missing templates are a fatal error.
-AT_DATA(configure.ac,
+AT_DATA([configure.ac],
 [[AC_INIT
-AC_CONFIG_HEADERS(config.h)
+AC_CONFIG_HEADERS(config.h:config.hin)
 AC_DEFINE(that, "whatever you want.")
 ]])
 
-AT_CHECK([autoheader --autoconf-dir .. -<configure.ac], 1, [],
-[autoheader: No template for symbol `that'
-])
+# The test suite goes too fast for the cache time stamps...
+# Pass --force.
+AT_CHECK_AUTOHEADER([--force], [1], [], [ignore])
 
 
 # 3. Check TOP and BOTTOM.
-AT_DATA(acconfig.h,
+AT_DATA([acconfig.h],
 [[/* Top from acconfig.h. */
 @TOP@
 /* Middle from acconfig.h. */
@@ -367,38 +453,68 @@ AT_DATA(acconfig.h,
 /* Bottom from acconfig.h. */
 ]])
 
-AT_DATA(configure.ac,
+AT_DATA([configure.ac],
 [[AC_INIT
-AC_CONFIG_HEADERS(config.h)
+AC_CONFIG_HEADERS(config.h:config.hin)
 AH_TOP([Top1 from configure.ac.])
 AH_TOP([Top2 from configure.ac.])
+AH_TOP([The Cat in a h@t.])
 AH_VERBATIM([Middle], [Middle from configure.ac.])
+AH_VERBATIM([Mouse],  [The Mouse in a h@t.])
 AH_BOTTOM([Bottom1 from configure.ac.])
 AH_BOTTOM([Bottom2 from configure.ac.])
+AH_BOTTOM([The Dog in a h@t.])
+
+AC_DEFINE([ANT], [@], [The Ant in a h@t.])
 ]])
 
 
 # Yes, that's right: the `middle' part of `acconfig.h' is still before
 # the AH_TOP part.  But so what, you're not supposed to use the two
 # together.
-AT_CHECK([autoheader --autoconf-dir .. -<configure.ac], 0,
-[[/* config.h.in.  Generated automatically from - by autoheader.  */
+# Ignore STDERR which is the longuish complaint against autoheader junk
+# files.
+AT_CHECK_AUTOHEADER([--force], [], [], [ignore])
+AT_CHECK([cat config.hin], 0,
+[[/* config.hin.  Generated from configure.ac by autoheader.  */
 /* Top from acconfig.h. */
-
 /* Middle from acconfig.h. */
 
 Top1 from configure.ac.
 
 Top2 from configure.ac.
 
+The Cat in a h@t.
+
+/* The Ant in a h@t. */
+#undef ANT
+
 Middle from configure.ac.
+
+The Mouse in a h@t.
+
+/* Define to the address where bug reports for this package should be sent. */
+#undef PACKAGE_BUGREPORT
+
+/* Define to the full name of this package. */
+#undef PACKAGE_NAME
+
+/* Define to the full name and version of this package. */
+#undef PACKAGE_STRING
+
+/* Define to the one symbol short name of this package. */
+#undef PACKAGE_TARNAME
+
+/* Define to the version of this package. */
+#undef PACKAGE_VERSION
 
 Bottom1 from configure.ac.
 
 Bottom2 from configure.ac.
-/* Bottom from acconfig.h. */
-]], [])
 
+The Dog in a h@t.
+/* Bottom from acconfig.h. */
+]])
 
 AT_CLEANUP
 
@@ -412,10 +528,10 @@ AT_CLEANUP
 # Check that AC_CANONICAL_SYSTEM and AC_OUTPUT are properly updated.
 AT_SETUP([autoupdate])
 
-AT_DATA(configure.ac,
+AT_DATA([configure.ac],
 [[AC_INIT(Test, 1.0)
 AC_CANONICAL_SYSTEM
-dnl The doc says 27 is a valid fubar.
+# The doc says 27 is a valid fubar.
 fubar=27
 AC_OUTPUT(Makefile, echo $fubar, fubar=$fubar)
 ]])
@@ -423,7 +539,7 @@ AC_OUTPUT(Makefile, echo $fubar, fubar=$fubar)
 AT_DATA([expout],
 [[AC_INIT([Test],[1.0])
 AC_CANONICAL_TARGET([])
-dnl The doc says 27 is a valid fubar.
+# The doc says 27 is a valid fubar.
 fubar=27
 AC_CONFIG_FILES([Makefile])
 AC_CONFIG_COMMANDS([default],[[echo $fubar]],[[fubar=$fubar]])
@@ -434,9 +550,7 @@ AC_OUTPUT
 AT_CHECK_AUTOUPDATE
 AT_CHECK([cat configure.ac], 0, [expout])
 # Checking that `autoupdate' is idempotent
-AT_CHECK([autoupdate --autoconf-dir $top_srcdir], 0, [],
-         [autoupdate: `configure.ac' is unchanged
-])
+AT_CHECK_AUTOUPDATE
 AT_CHECK([cat configure.ac], 0, [expout])
 
 AT_CLEANUP(configure.ac~)
@@ -446,15 +560,15 @@ AT_CLEANUP(configure.ac~)
 # --------------------------
 AT_SETUP([autoupdating AC_LINK_FILES])
 
-AT_DATA(configure.ac,
+AT_DATA([configure.ac],
 [[AC_INIT
 AC_LINK_FILES(dst1 dst2, src1 src2)
 AC_OUTPUT
 ]])
 
-AT_DATA(dst1, dst1
+AT_DATA([dst1], dst1
 )
-AT_DATA(dst2, dst2
+AT_DATA([dst2], dst2
 )
 
 # Checking `autoupdate'.
@@ -473,21 +587,18 @@ AT_CLEANUP(src1 src2 configure.ac~)
 # ----------------------
 AT_SETUP([autoupdating AC_PREREQ])
 
-cat >expout <<EOF
-AC_PREREQ($at_version)
-EOF
+# Produce `AC_PREREQ(<AUTOUPDATE VERSION>)'.
+AT_CHECK([autoupdate --version | sed 's/.*) //;q'], 0, [stdout])
+autoupdate_version=`cat stdout`
+echo "AC_PREREQ($autoupdate_version)" >expout
 
-AT_CHECK([autoupdate --version || exit 77], ignore, ignore, ignore)
-AT_CHECK([echo "AC_PREREQ(1.0)" |
-            autoupdate --autoconf-dir $top_srcdir -],
+AT_CHECK([echo "AC_PREREQ(1.0)" | autoupdate -],
          0, [expout], [])
 
-AT_CHECK([echo "AC_PREREQ($at_version)" |
-            autoupdate --autoconf-dir $top_srcdir -],
+AT_CHECK([echo "AC_PREREQ($autoupdate_version)" | autoupdate -],
          0, [expout], [])
 
-AT_CHECK([echo "AC_PREREQ(999.99)" |
-            autoupdate --autoconf-dir $top_srcdir -],
+AT_CHECK([echo "AC_PREREQ(999.99)" | autoupdate -],
          1, [], [ignore])
 
 AT_CLEANUP

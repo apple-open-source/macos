@@ -1,0 +1,33 @@
+#define	tINT	258
+#define	tDOUBLE	259
+#define	tSTRING	260
+#define	C_GAMMA	261
+#define	M_GAMMA	262
+#define	Y_GAMMA	263
+#define	K_GAMMA	264
+#define	GAMMA	265
+#define	C_LEVEL	266
+#define	M_LEVEL	267
+#define	Y_LEVEL	268
+#define	LEVELS	269
+#define	INK_LIMIT	270
+#define	INK	271
+#define	WIDTH	272
+#define	PRINTER	273
+#define	INK_TYPE	274
+#define	RESOLUTION	275
+#define	MEDIA_SOURCE	276
+#define	MEDIA_TYPE	277
+#define	MEDIA_SIZE	278
+#define	DITHER_ALGORITHM	279
+#define	DENSITY	280
+#define	TOP	281
+#define	LEFT	282
+#define	HSIZE	283
+#define	VSIZE	284
+#define	BLACKLINE	285
+#define	PATTERN	286
+#define	IMAGE	287
+
+
+extern YYSTYPE yylval;

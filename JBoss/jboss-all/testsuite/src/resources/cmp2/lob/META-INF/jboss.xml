@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<jboss>
+   <enterprise-beans>
+      <session>
+         <ejb-name>EJBTestRunnerEJB</ejb-name>
+         <jndi-name>ejb/EJBTestRunner</jndi-name>
+      </session>
+
+      <entity>
+         <ejb-name>LobEJB</ejb-name>
+         <jndi-name>cmp2/lob/Lob</jndi-name>
+      </entity>
+   </enterprise-beans>
+</jboss>

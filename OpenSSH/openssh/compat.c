@@ -23,7 +23,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: compat.c,v 1.63 2002/04/10 08:21:47 markus Exp $");
+RCSID("$OpenBSD: compat.c,v 1.66 2003/04/01 10:31:26 markus Exp $");
 
 #include "buffer.h"
 #include "packet.h"
@@ -39,13 +39,13 @@ int datafellows = 0;
 void
 enable_compat20(void)
 {
-	verbose("Enabling compatibility mode for protocol 2.0");
+	debug("Enabling compatibility mode for protocol 2.0");
 	compat20 = 1;
 }
 void
 enable_compat13(void)
 {
-	verbose("Enabling compatibility mode for protocol 1.3");
+	debug("Enabling compatibility mode for protocol 1.3");
 	compat13 = 1;
 }
 /* datafellows bug compatibility */
@@ -71,24 +71,32 @@ compat_datafellows(const char *version)
 		{ "OpenSSH_2.5.0p1*,"
 		  "OpenSSH_2.5.1p1*",
 					SSH_BUG_BIGENDIANAES|SSH_OLD_DHGEX|
-					SSH_BUG_NOREKEY|SSH_BUG_EXTEOF},
+					SSH_BUG_NOREKEY|SSH_BUG_EXTEOF|
+					SSH_OLD_GSSAPI},
 		{ "OpenSSH_2.5.0*,"
 		  "OpenSSH_2.5.1*,"
 		  "OpenSSH_2.5.2*",	SSH_OLD_DHGEX|SSH_BUG_NOREKEY|
 					SSH_BUG_EXTEOF},
 		{ "OpenSSH_2.5.3*",	SSH_BUG_NOREKEY|SSH_BUG_EXTEOF},
+		{ "OpenSSH_2.9p*",	SSH_BUG_EXTEOF|SSH_OLD_GSSAPI},
 		{ "OpenSSH_2.*,"
 		  "OpenSSH_3.0*,"
-		  "OpenSSH_3.1*",	SSH_BUG_EXTEOF},
+		  "OpenSSH_3.1*",	SSH_BUG_EXTEOF|SSH_BUG_GSSAPI_BER},
+		{ "OpenSSH_3.2*,"
+		  "OpenSSH_3.3*,"
+		  "OpenSSH_3.4*,"
+		  "OpenSSH_3.5*",	SSH_BUG_GSSAPI_BER},
 		{ "Sun_SSH_1.0*",	SSH_BUG_NOREKEY|SSH_BUG_EXTEOF},
 		{ "OpenSSH*",		0 },
 		{ "*MindTerm*",		0 },
 		{ "2.1.0*",		SSH_BUG_SIGBLOB|SSH_BUG_HMAC|
 					SSH_OLD_SESSIONID|SSH_BUG_DEBUG|
-					SSH_BUG_RSASIGMD5|SSH_BUG_HBSERVICE },
+					SSH_BUG_RSASIGMD5|SSH_BUG_HBSERVICE|
+					SSH_BUG_FIRSTKEX },
 		{ "2.1 *",		SSH_BUG_SIGBLOB|SSH_BUG_HMAC|
 					SSH_OLD_SESSIONID|SSH_BUG_DEBUG|
-					SSH_BUG_RSASIGMD5|SSH_BUG_HBSERVICE },
+					SSH_BUG_RSASIGMD5|SSH_BUG_HBSERVICE|
+					SSH_BUG_FIRSTKEX },
 		{ "2.0.13*,"
 		  "2.0.14*,"
 		  "2.0.15*,"
@@ -100,26 +108,28 @@ compat_datafellows(const char *version)
 					SSH_BUG_PKSERVICE|SSH_BUG_X11FWD|
 					SSH_BUG_PKOK|SSH_BUG_RSASIGMD5|
 					SSH_BUG_HBSERVICE|SSH_BUG_OPENFAILURE|
-					SSH_BUG_DUMMYCHAN },
+					SSH_BUG_DUMMYCHAN|SSH_BUG_FIRSTKEX },
 		{ "2.0.11*,"
 		  "2.0.12*",		SSH_BUG_SIGBLOB|SSH_BUG_HMAC|
 					SSH_OLD_SESSIONID|SSH_BUG_DEBUG|
 					SSH_BUG_PKSERVICE|SSH_BUG_X11FWD|
 					SSH_BUG_PKAUTH|SSH_BUG_PKOK|
 					SSH_BUG_RSASIGMD5|SSH_BUG_OPENFAILURE|
-					SSH_BUG_DUMMYCHAN },
+					SSH_BUG_DUMMYCHAN|SSH_BUG_FIRSTKEX },
 		{ "2.0.*",		SSH_BUG_SIGBLOB|SSH_BUG_HMAC|
 					SSH_OLD_SESSIONID|SSH_BUG_DEBUG|
 					SSH_BUG_PKSERVICE|SSH_BUG_X11FWD|
 					SSH_BUG_PKAUTH|SSH_BUG_PKOK|
 					SSH_BUG_RSASIGMD5|SSH_BUG_OPENFAILURE|
-					SSH_BUG_DERIVEKEY|SSH_BUG_DUMMYCHAN },
+					SSH_BUG_DERIVEKEY|SSH_BUG_DUMMYCHAN|
+					SSH_BUG_FIRSTKEX },
 		{ "2.2.0*,"
 		  "2.3.0*",		SSH_BUG_HMAC|SSH_BUG_DEBUG|
-					SSH_BUG_RSASIGMD5 },
-		{ "2.3.*",		SSH_BUG_DEBUG|SSH_BUG_RSASIGMD5 },
+					SSH_BUG_RSASIGMD5|SSH_BUG_FIRSTKEX },
+		{ "2.3.*",		SSH_BUG_DEBUG|SSH_BUG_RSASIGMD5|
+					SSH_BUG_FIRSTKEX },
 		{ "2.4",		SSH_OLD_SESSIONID },	/* Van Dyke */
-		{ "2.*",		SSH_BUG_DEBUG },
+		{ "2.*",		SSH_BUG_DEBUG|SSH_BUG_FIRSTKEX },
 		{ "3.0.*",		SSH_BUG_DEBUG },
 		{ "3.0 SecureCRT*",	SSH_OLD_SESSIONID },
 		{ "1.7 SecureFX*",	SSH_OLD_SESSIONID },
@@ -146,6 +156,8 @@ compat_datafellows(const char *version)
 		  "OSU_1.5alpha3*",	SSH_BUG_PASSWORDPAD },
 		{ "*SSH_Version_Mapper*",
 					SSH_BUG_SCANNER },
+		{ "Probe-*",
+					SSH_BUG_PROBE },
 		{ NULL,			0 }
 	};
 

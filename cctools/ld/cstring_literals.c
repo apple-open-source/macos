@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -24,7 +22,7 @@
  */
 #ifdef SHLIB
 #include "shlib.h"
-#endif SHLIB
+#endif /* SHLIB */
 /*
  * This file contains the routines that deal with literal 'C' string sections.
  * A string in this section must beable to me moved freely with respect to other
@@ -94,7 +92,7 @@ struct section_map *section_map)
 	data->nfiles++;
 	data->nbytes += s->size;
 	data->ninput_strings += ncstrings;
-#endif DEBUG
+#endif /* DEBUG */
 
 	fine_relocs = allocate(ncstrings * sizeof(struct fine_reloc));
 	memset(fine_relocs, '\0', ncstrings * sizeof(struct fine_reloc));
@@ -436,7 +434,7 @@ struct merged_section *ms)
 	    ms->s.size += len;
 #ifdef DEBUG
 	    data->noutput_strings++;
-#endif DEBUG
+#endif /* DEBUG */
 	    return(bp->offset);
 	}
 	*p = allocate(sizeof(struct cstring_block));
@@ -455,7 +453,7 @@ struct merged_section *ms)
 	ms->s.size += len;
 #ifdef DEBUG
 	data->noutput_strings++;
-#endif DEBUG
+#endif /* DEBUG */
 	return(bp->offset);
 }
 
@@ -489,7 +487,7 @@ struct merged_section *ms)
 	}
 #ifndef RLD
 	output_flush(ms->s.offset, offset - ms->s.offset);
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 	cstring_free(data);
 }
 
@@ -612,4 +610,4 @@ struct merged_section *ms)
 	    (double)((double)(data->nprobes) / (double)(data->ninput_strings)));
 	}
 }
-#endif DEBUG
+#endif /* DEBUG */

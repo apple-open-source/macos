@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -55,18 +56,21 @@
  */
 
 #include "libsaio.h"
+#include "bootstruct.h"
+
 
 struct devsw {
     const char *  name;
     unsigned char biosdev;
+    int type;
 };
 
 static struct devsw devsw[] =
 {
-    { "sd", 0x80 },  /* DEV_SD */
-    { "hd", 0x80 },  /* DEV_HD */
-    { "fd", 0x00 },  /* DEV_FD */
-    { "en", 0xE0 },  /* DEV_EN */
+    { "sd", 0x80, kBIOSDevTypeHardDrive },  /* DEV_SD */
+    { "hd", 0x80, kBIOSDevTypeHardDrive },  /* DEV_HD */
+    { "fd", 0x00, kBIOSDevTypeFloppy    },  /* DEV_FD */
+    { "en", 0xE0, kBIOSDevTypeNetwork   },  /* DEV_EN */
     { 0, 0 }
 };
 
@@ -85,6 +89,7 @@ static BVRef newBootVolumeRef( int biosdev, int partno );
 //==========================================================================
 // LoadFile - LOW-LEVEL FILESYSTEM FUNCTION.
 //            Load the specified file to the load buffer at LOAD_ADDR.
+//            If the file is fat, load only the i386 portion.
 
 long LoadFile(const char * fileSpec)
 {
@@ -136,11 +141,30 @@ long GetDirEntry(const char * dirSpec, long * dirIndex, const char ** name,
 // GetFileInfo - LOW-LEVEL FILESYSTEM FUNCTION.
 //               Get attributes for the specified file.
 
+static char gMakeDirSpec[1024];
+
 long GetFileInfo(const char * dirSpec, const char * name,
                  long * flags, long * time)
 {
     long         index = 0;
     const char * entryName;
+
+    if (!dirSpec) {
+        long       idx, len;
+
+        len = strlen(name);
+
+        for (idx = len; idx && (name[idx] != '/' && name[idx] != '\\'); idx--) {}
+        if (idx == 0) {
+            gMakeDirSpec[0] = '/';
+            gMakeDirSpec[1] = '\0';
+        } else {
+            idx++;
+            strncpy(gMakeDirSpec, name, idx);
+            name += idx;
+        }
+        dirSpec = gMakeDirSpec;
+    }
 
     while (GetDirEntry(dirSpec, &index, &entryName, flags, time) == 0)
     {
@@ -242,7 +266,9 @@ gotfile:
 
     gFSLoadAddress = io->i_buf;
     io->i_filesize = bvr->fs_loadfile(bvr, (char *)filePath);
-    if (io->i_filesize < 0) goto error;
+    if (io->i_filesize < 0) {
+	goto error;
+    }
 
     return fdesc;
 
@@ -306,7 +332,7 @@ int read(int fdesc, char * buf, int count)
     if ((io = iob_from_fdesc(fdesc)) == NULL)
         return (-1);
 
-    if (io->i_offset + count > io->i_filesize)
+    if ((io->i_offset + count) > (unsigned int)io->i_filesize)
         count = io->i_filesize - io->i_offset;
 
     if (count <= 0)
@@ -387,14 +413,14 @@ int readdir(struct dirstuff * dirp, const char ** name, long * flags,
 
 int currentdev()
 {
-    return kernBootStruct->kernDev;
+    return bootArgs->kernDev;
 }
 
 //==========================================================================
 
 int switchdev(int dev)
 {
-    kernBootStruct->kernDev = dev;
+    bootArgs->kernDev = dev;
     return dev;
 }
 
@@ -402,24 +428,36 @@ int switchdev(int dev)
 
 const char * usrDevices()
 {
-    return (B_TYPE(currentdev()) == DEV_EN) ? "" : "/private/Drivers/i386";
+    if (gBootFileType == kNetworkDeviceType)
+	return "";
+    return "/private/Drivers/i386";
 }
 
 //==========================================================================
+
+const char * systemConfigDir()
+{
+    if (gBootFileType == kNetworkDeviceType)
+	return "";
+    return "/Library/Preferences/SystemConfiguration";
+}
+
+//==========================================================================
+
+int gBootFileType;
 
 BVRef scanBootVolumes( int biosdev, int * count )
 {
     BVRef bvr = 0;
 
-    switch ( BIOS_DEV_TYPE( biosdev ) )
-    {
-        case kBIOSDevTypeFloppy:
-        case kBIOSDevTypeHardDrive:
-            bvr = diskScanBootVolumes( biosdev, count );
-            break;
-        case kBIOSDevTypeNetwork:
-            bvr = nbpScanBootVolumes( biosdev, count );
-            break;
+    bvr = diskScanBootVolumes(biosdev, count);
+    if (bvr == NULL) {
+	bvr = nbpScanBootVolumes(biosdev, count);
+	if (bvr != NULL) {
+	    gBootFileType = kNetworkDeviceType;
+	}
+    } else {
+	gBootFileType = kBlockDeviceType;
     }
     return bvr;
 }
@@ -443,8 +481,8 @@ BVRef selectBootVolume( BVRef chain )
         if ( bvr->flags & kBVFlagPrimary )    bvr2 = bvr;
     }
 
-    bvr = bvr1 ? bvr1 :
-          bvr2 ? bvr2 : chain;
+    bvr = bvr2 ? bvr2 :
+          bvr1 ? bvr1 : chain;
 
     return bvr;
 }
@@ -453,15 +491,15 @@ BVRef selectBootVolume( BVRef chain )
 
 #define LP '('
 #define RP ')'
-extern int gBIOSDev;
+int gBIOSDev;
 
 static BVRef getBootVolumeRef( const char * path, const char ** outPath )
 {
     const char * cp;
     BVRef        bvr;
-    int          type = B_TYPE( kernBootStruct->kernDev );
-    int          unit = B_UNIT( kernBootStruct->kernDev );
-    int          part = B_PARTITION( kernBootStruct->kernDev );
+    int          type = B_TYPE( bootArgs->kernDev );
+    int          unit = B_UNIT( bootArgs->kernDev );
+    int          part = B_PARTITION( bootArgs->kernDev );
     int          biosdev = gBIOSDev;
     static BVRef lastBVR = 0;
     static int   lastKernDev;
@@ -475,7 +513,7 @@ static BVRef getBootVolumeRef( const char * path, const char ** outPath )
     if (*cp != LP)  // no left paren found
     {
         cp = path;
-        if ( lastBVR && lastKernDev == kernBootStruct->kernDev )
+        if ( lastBVR && lastKernDev == bootArgs->kernDev )
         {
             bvr = lastBVR;
             goto quick_exit;
@@ -523,7 +561,7 @@ static BVRef getBootVolumeRef( const char * path, const char ** outPath )
         for ( ; *cp && *cp != RP; cp++) /* LOOP */;
         if (*cp == RP) cp++;
         
-        biosdev = dp->biosdev;
+        biosdev = dp->biosdev + unit;
     }
     else
     {
@@ -532,8 +570,6 @@ static BVRef getBootVolumeRef( const char * path, const char ** outPath )
         for ( cp++; *cp && *cp != RP; cp++) /* LOOP */;
         if (*cp == RP) cp++;
     }
-
-    biosdev += (unit & kBIOSDevUnitMask);
 
     if ((bvr = newBootVolumeRef(biosdev, part)) == NULL)
     {
@@ -544,10 +580,10 @@ static BVRef getBootVolumeRef( const char * path, const char ** outPath )
     // Record the most recent device parameters in the
     // KernBootStruct.
 
-    kernBootStruct->kernDev = MAKEKERNDEV(type, unit, bvr->part_no);
+    bootArgs->kernDev = biosdev;
 
     lastBVR = bvr;
-    lastKernDev = kernBootStruct->kernDev;
+    lastKernDev = bootArgs->kernDev;
 
 quick_exit:
     // Returns the file path following the device spec.

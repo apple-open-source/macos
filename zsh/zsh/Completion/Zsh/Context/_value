@@ -1,25 +1,37 @@
-#compdef -value- -array-value-
+#compdef -value- -array-value- -value-,-default-,-default-
 
-_value () {
-  # You can customize completion for different parameters by writing a
-  # function `_value:<name>', where <name> is the name of the parameter.
-  # When completing values of elements of associative arrays, we first
-  # search for a function `_value:<assoc>-<key>' and then for 
-  # `_value:<assoc>', so it's simple to define different functions
-  # for different keys or one function for a whole association.
+# You can customize completion for different parameters by writing
+# functions with the tag-line `#compdef -value-,<name>,<command>' where
+# <name> is the name of the parameter (or name-key when completing an
+# associative array value) and <command> is either `-default-' or the
+# name of the command from the command-line.
 
-  if (( $+functions[_value:$compstate[parameter]] )); then
-    "_value:$compstate[parameter]" "$@"
-  elif (( $+functions[_value:${compstate[parameter]%%-*}] )); then
-    "_value:${compstate[parameter]%%-*}" "$@"
-  elif [[ "$compstate[parameter]" != *-* &&
-          "${(Pt)${compstate[parameter]}}" = assoc* ]]; then
+if [[ "$service" != -value-,* ]]; then
+  local strs ctx=
+
+  strs=( -default- )
+
+  if [[ "$compstate[context]" != *value && -n "$_comp_command1" ]]; then
+    ctx="${_comp_command}"
+    strs=( "${_comp_command1}" "$strs[@]" )
+    [[ -n "$_comp_command2" ]] &&
+        strs=( "${_comp_command2}" "$strs[@]" )
+  fi
+
+  _dispatch -value-,${compstate[parameter]},$ctx \
+            -value-,{${compstate[parameter]},-default-},${^strs}
+else
+  if [[ "$compstate[parameter]" != *-* &&
+        "$compstate[context]" = *value &&
+        "${(Pt)${compstate[parameter]}}" = assoc* ]]; then
     if (( CURRENT & 1 )); then
       _wanted association-keys expl 'association key' \
           compadd -k "$compstate[parameter]"
     else
       compstate[parameter]="${compstate[parameter]}-${words[CURRENT-1]}"
-      _value "$@"
+
+      _dispatch -value-,${compstate[parameter]}, \
+                -value-,{${compstate[parameter]},-default-},-default-
     fi
   else
     local pats
@@ -34,30 +46,4 @@ _value () {
       _default "$@"
     fi
   fi
-}
-
-_value:CPPFLAGS () {
-  compset -q
-  if compset -P '-I'; then
-    _files -/ "$@"
-  else
-    _default "$@"
-  fi
-}
-
-_value:LDFLAGS () {
-  compset -q
-  if compset -P '-L'; then
-    _files -/ "$@"
-  elif compset -P '-R'; then
-    compset -P '*:'
-    compset -S ':*'
-    _files -/ -S/ -r '\n\t\- /:' "$@"
-  else
-    _default "$@"
-  fi
-}
-
-_value:DISPLAY() { _x_display "$@" }
-
-_value "$@"
+fi

@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = AppleIntel8255x ;
-export deferred SRCROOT = /tmp/AppleIntel8255x ;
+export deferred SRCROOT = /automount/Servers/riemann/homes/aragorn/jliu/Projects/AppleIntel8255x ;
 
 # User-defined project-wide settings for project
 
@@ -19,7 +19,7 @@ export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/Apple
 
 # Implicitly computed build settings for target "AppleIntel8255x"
 export deferred CLONE_HEADERS = NO ;
-export deferred PFE_FILE_C_DIALECTS = "c++" ;
+export deferred PFE_FILE_C_DIALECTS = c++ ;
 export deferred TARGETNAME = $(TARGET_NAME) ;
 export deferred TARGET_NAME = AppleIntel8255x ;
 
@@ -96,6 +96,12 @@ ProcessRezFiles "<AppleIntel8255x>AppleIntel8255x.kext" : "$(REZ_FILES)" : BPTag
 # Script Build Phase Files
 SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/AppleIntel8255x.build/BPTag006-script.sh" ;
 ProcessScriptBuildPhaseFiles "<AppleIntel8255x>AppleIntel8255x.kext" : "$(SCRIPT_BUILD_PHASE_FILES)" : BPTag005 : BPTag006 ;
+
+rule DefineHeaderDependencies
+{
+}
+
+DefineHeaderDependencies "<AppleIntel8255x>AppleIntel8255x.kext" ;
 
 EndBundle "<AppleIntel8255x>AppleIntel8255x.kext" ;
 

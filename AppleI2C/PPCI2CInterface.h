@@ -291,6 +291,10 @@ private:
     bool i2cUniN;
     bool i2cmacio;
     
+	// Loop timeout in waitForCompletion();  Defaults to 2 sec interrupt mode, defaults
+	//  to 15 secs on i2cmacio polling (for audio) and to 3 sec i2cUniN polling
+	UInt16 waitTime;
+	
     // Keeps track of the success (or failure) of the last transfer:
     bool transferWasSuccesful;
 
@@ -481,7 +485,7 @@ protected:
     // Waits for the completion of a read or write
     // operation:
     bool waitForCompletion();
-
+	
     // Each mode requires a specific interrupt handler (since the states are different for each mode)
     // so here it is the one for the Standard + SubAddress mode:
     bool i2cStandardSubModeInterrupts(UInt8 interruptStatus);
@@ -550,6 +554,7 @@ public:
                                            void *param1, void *param2,
                                            void *param3, void *param4 );
 
+	virtual bool setI2cTimeout(UInt16 i2cTimeout);
 };
 
 #endif //_PPCI2CINTERFACE_H

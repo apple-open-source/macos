@@ -1,25 +1,25 @@
-/*****************************************************************************
+/***************************************************************************
  *                                  _   _ ____  _     
  *  Project                     ___| | | |  _ \| |    
  *                             / __| | | | |_) | |    
  *                            | (__| |_| |  _ <| |___ 
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 2000, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2002, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
- * In order to be useful for every potential user, curl and libcurl are
- * dual-licensed under the MPL and the MIT/X-derivate licenses.
- *
+ * This software is licensed as described in the file COPYING, which
+ * you should have received as part of this distribution. The terms
+ * are also available at http://curl.haxx.se/docs/copyright.html.
+ * 
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
- * furnished to do so, under the terms of the MPL or the MIT/X-derivate
- * licenses. You may pick one of these licenses.
+ * furnished to do so, under the terms of the COPYING file.
  *
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: getinfo.c,v 1.1.1.2 2001/04/24 18:49:08 wsanchez Exp $
- *****************************************************************************/
+ * $Id: getinfo.c,v 1.1.1.3 2002/11/26 19:07:54 zarzycki Exp $
+ ***************************************************************************/
 
 #include "setup.h"
 
@@ -31,13 +31,50 @@
 #include <string.h>
 #include <stdarg.h>
 
-CURLcode Curl_getinfo(CURL *curl, CURLINFO info, ...)
+#ifdef	VMS
+#include	<stdlib.h>
+#endif
+
+/* Make this the last #include */
+#ifdef MALLOCDEBUG
+#include "memdebug.h"
+#endif
+
+/*
+ * This is supposed to be called in the beginning of a permform() session
+ * and should reset all session-info variables
+ */
+CURLcode Curl_initinfo(struct SessionHandle *data)
+{
+  struct Progress *pro = &data->progress;
+  struct PureInfo *info =&data->info;
+
+  pro->t_nslookup = 0;
+  pro->t_connect = 0;
+  pro->t_pretransfer = 0;
+  pro->t_starttransfer = 0;
+  pro->timespent = 0;
+  pro->t_redirect = 0;
+
+  info->httpcode = 0;
+  info->httpversion=0;
+  info->filetime=-1; /* -1 is an illegal time and thus means unknown */
+  
+  if (info->contenttype)
+    free(info->contenttype);
+  info->contenttype = NULL;
+
+  info->header_size = 0;
+  info->request_size = 0;
+  return CURLE_OK;
+}
+
+CURLcode Curl_getinfo(struct SessionHandle *data, CURLINFO info, ...)
 {
   va_list arg;
-  long *param_longp;
-  double *param_doublep;
-  char **param_charp;
-  struct UrlData *data = (struct UrlData *)curl;
+  long *param_longp=NULL;
+  double *param_doublep=NULL;
+  char **param_charp=NULL;
   va_start(arg, info);
 
   switch(info&CURLINFO_TYPEMASK) {
@@ -62,19 +99,19 @@ CURLcode Curl_getinfo(CURL *curl, CURLINFO info, ...)
   
   switch(info) {
   case CURLINFO_EFFECTIVE_URL:
-    *param_charp = data->url?data->url:"";
+    *param_charp = data->change.url?data->change.url:(char *)"";
     break;
   case CURLINFO_HTTP_CODE:
-    *param_longp = data->progress.httpcode;
+    *param_longp = data->info.httpcode;
     break;
   case CURLINFO_FILETIME:
-    *param_longp = data->progress.filetime;
+    *param_longp = data->info.filetime;
     break;
   case CURLINFO_HEADER_SIZE:
-    *param_longp = data->header_size;
+    *param_longp = data->info.header_size;
     break;
   case CURLINFO_REQUEST_SIZE:
-    *param_longp = data->request_size;
+    *param_longp = data->info.request_size;
     break;
   case CURLINFO_TOTAL_TIME:
     *param_doublep = data->progress.timespent;
@@ -87,6 +124,9 @@ CURLcode Curl_getinfo(CURL *curl, CURLINFO info, ...)
     break;
   case CURLINFO_PRETRANSFER_TIME:
     *param_doublep =  data->progress.t_pretransfer;
+    break;
+  case CURLINFO_STARTTRANSFER_TIME:
+    *param_doublep = data->progress.t_starttransfer;
     break;
   case CURLINFO_SIZE_UPLOAD:
     *param_doublep =  data->progress.uploaded;
@@ -101,7 +141,7 @@ CURLcode Curl_getinfo(CURL *curl, CURLINFO info, ...)
     *param_doublep = data->progress.ulspeed;
     break;
   case CURLINFO_SSL_VERIFYRESULT:
-    *param_longp = data->ssl.certverifyresult;
+    *param_longp = data->set.ssl.certverifyresult;
     break;
   case CURLINFO_CONTENT_LENGTH_DOWNLOAD:
     *param_doublep = data->progress.size_dl;
@@ -109,8 +149,25 @@ CURLcode Curl_getinfo(CURL *curl, CURLINFO info, ...)
   case CURLINFO_CONTENT_LENGTH_UPLOAD:
     *param_doublep = data->progress.size_ul;
     break;
+  case CURLINFO_REDIRECT_TIME:
+    *param_doublep =  data->progress.t_redirect;
+    break;
+  case CURLINFO_REDIRECT_COUNT:
+    *param_longp = data->set.followlocation;
+    break;
+  case CURLINFO_CONTENT_TYPE:
+    *param_charp = data->info.contenttype;
+    break;
   default:
     return CURLE_BAD_FUNCTION_ARGUMENT;
   }
   return CURLE_OK;
 }
+
+/*
+ * local variables:
+ * eval: (load-file "../curl-mode.el")
+ * end:
+ * vim600: fdm=marker
+ * vim: et sw=2 ts=2 sts=2 tw=78
+ */

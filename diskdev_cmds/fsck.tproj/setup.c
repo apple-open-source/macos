@@ -482,11 +482,14 @@ readsb(listerr)
 	altsblock.fs_rotdelay = sblock.fs_rotdelay;
 	altsblock.fs_maxbpg = sblock.fs_maxbpg;
 	memmove(altsblock.fs_ocsp, sblock.fs_ocsp, sizeof sblock.fs_ocsp);
+	altsblock.fs_contigdirs = sblock.fs_contigdirs;
 	altsblock.fs_csp = sblock.fs_csp;
 	altsblock.fs_maxcluster = sblock.fs_maxcluster;
 	memmove(altsblock.fs_fsmnt, sblock.fs_fsmnt, sizeof sblock.fs_fsmnt);
 	memmove(altsblock.fs_sparecon,
 		sblock.fs_sparecon, sizeof sblock.fs_sparecon);
+	altsblock.fs_avgfilesize = sblock.fs_avgfilesize;
+	altsblock.fs_avgfpdir = sblock.fs_avgfpdir;
 	/*
 	 * The following should not have to be copied.
 	 */

@@ -1,7 +1,7 @@
 /* ldbmcache.c - maintain a cache of open ldbm files */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/dbcache.c,v 1.47 2002/01/04 20:17:52 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/dbcache.c,v 1.47.2.4 2003/02/09 16:31:38 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -54,8 +54,8 @@ ldbm_cache_open(
 	}
 	
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "cache", LDAP_LEVEL_ENTRY,
-		   "ldbm_cache_open: \"%s\", %d, %o\n", buf, flags, li->li_mode ));
+	LDAP_LOG( CACHE, ENTRY, 
+		"ldbm_cache_open: \"%s\", %d, %o\n", buf, flags, li->li_mode );
 #else
 	Debug( LDAP_DEBUG_TRACE, "=> ldbm_cache_open( \"%s\", %d, %o )\n", buf,
 	    flags, li->li_mode );
@@ -101,8 +101,8 @@ ldbm_cache_open(
 				}
 				li->li_dbcache[i].dbc_refcnt++;
 #ifdef NEW_LOGGING
-				LDAP_LOG(( "cache", LDAP_LEVEL_DETAIL1,
-					   "ldbm_cache_open: cache %d\n", i ));
+				LDAP_LOG( CACHE, DETAIL1, 
+					"ldbm_cache_open: cache %d\n", i, 0, 0 );
 #else
 				Debug( LDAP_DEBUG_TRACE,
 				    "<= ldbm_cache_open (cache %d)\n", i, 0, 0 );
@@ -132,8 +132,9 @@ ldbm_cache_open(
 				li->li_dbcache[i].dbc_name = NULL;
 			} else {
 #ifdef NEW_LOGGING
-				LDAP_LOG(( "cache", LDAP_LEVEL_INFO,
-					   "ldbm_cache_open: no unused db to close - waiting\n" ));
+				LDAP_LOG( CACHE, INFO,
+					"ldbm_cache_open: no unused db to close - waiting\n", 
+					0, 0, 0 );
 #else
 				Debug( LDAP_DEBUG_ANY,
 				    "ldbm_cache_open no unused db to close - waiting\n",
@@ -155,10 +156,10 @@ ldbm_cache_open(
 	{
 		int err = errno;
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "cache", LDAP_LEVEL_ERR,
-			   "ldbm_cache_open: \"%s\" failed, errono=%d, reason=%s\n",
-			   buf, err, err > -1 && err < sys_nerr ? sys_errlist[err] :
-			   "unknown" ));
+		LDAP_LOG( CACHE, ERR, 
+			"ldbm_cache_open: \"%s\" failed, errono=%d, reason=%s\n",
+			buf, err, err > -1 && err < sys_nerr ? sys_errlist[err] :
+			"unknown" );
 #else
 		Debug( LDAP_DEBUG_TRACE,
 		    "<= ldbm_cache_open NULL \"%s\" errno=%d reason=\"%s\")\n",
@@ -190,10 +191,10 @@ ldbm_cache_open(
 	assert( li->li_dbcache[i].dbc_maxindirect < 256 );
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "cache", LDAP_LEVEL_ARGS,
+	LDAP_LOG( CACHE, ARGS, 
 		   "ldbm_cache_open: blksize:%ld  maxids:%d  maxindirect:%d\n",
 		   li->li_dbcache[i].dbc_blksize, li->li_dbcache[i].dbc_maxids,
-		   li->li_dbcache[i].dbc_maxindirect ));
+		   li->li_dbcache[i].dbc_maxindirect );
 #else
 	Debug( LDAP_DEBUG_ARGS,
 	    "ldbm_cache_open (blksize %ld) (maxids %d) (maxindirect %d)\n",
@@ -202,8 +203,7 @@ ldbm_cache_open(
 #endif
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "cache", LDAP_LEVEL_DETAIL1,
-		   "ldbm_cache_open: opened %d\n", i ));
+	LDAP_LOG( CACHE, DETAIL1, "<= ldbm_cache_open: (opened %d)\n", i, 0, 0 );
 #else
 	Debug( LDAP_DEBUG_TRACE, "<= ldbm_cache_open (opened %d)\n", i, 0, 0 );
 #endif
@@ -259,9 +259,9 @@ ldbm_cache_flush_all( Backend *be )
 	for ( i = 0; i < MAXDBCACHE; i++ ) {
 		if ( li->li_dbcache[i].dbc_name != NULL ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "cache", LDAP_LEVEL_DETAIL1,
+			LDAP_LOG( CACHE, DETAIL1, 
 				   "ldbm_cache_flush_all: flushing db (%s)\n",
-				   li->li_dbcache[i].dbc_name ));
+				   li->li_dbcache[i].dbc_name, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_TRACE, "ldbm flushing db (%s)\n",
 			    li->li_dbcache[i].dbc_name, 0, 0 );
@@ -271,9 +271,9 @@ ldbm_cache_flush_all( Backend *be )
 			li->li_dbcache[i].dbc_dirty = 0;
 			if ( li->li_dbcache[i].dbc_refcnt != 0 ) {
 #ifdef NEW_LOGGING
-				LDAP_LOG(( "cache", LDAP_LEVEL_INFO,
-					   "ldbm_cache_flush_all: couldn't close db (%s), refcnt=%d\n",
-					   li->li_dbcache[i].dbc_name, li->li_dbcache[i].dbc_refcnt ));
+				LDAP_LOG( CACHE, INFO, 
+					"ldbm_cache_flush_all: couldn't close db (%s), refcnt=%d\n",
+					li->li_dbcache[i].dbc_name, li->li_dbcache[i].dbc_refcnt,0);
 #else
 				Debug( LDAP_DEBUG_TRACE,
 				       "refcnt = %d, couldn't close db (%s)\n",
@@ -283,9 +283,9 @@ ldbm_cache_flush_all( Backend *be )
 
 			} else {
 #ifdef NEW_LOGGING
-				LDAP_LOG(( "cache", LDAP_LEVEL_DETAIL1,
+				LDAP_LOG( CACHE, DETAIL1, 
 					   "ldbm_cache_flush_all: ldbm closing db (%s)\n",
-					   li->li_dbcache[i].dbc_name ));
+					   li->li_dbcache[i].dbc_name, 0, 0 );
 #else
 				Debug( LDAP_DEBUG_TRACE,
 				       "ldbm closing db (%s)\n",
@@ -311,8 +311,13 @@ ldbm_cache_sync( Backend *be )
 	ldap_pvt_thread_mutex_lock( &li->li_dbcache_mutex );
 	for ( i = 0; i < MAXDBCACHE; i++ ) {
 		if ( li->li_dbcache[i].dbc_name != NULL && li->li_dbcache[i].dbc_dirty ) {
+#ifdef NEW_LOGGING
+			LDAP_LOG ( CACHE, DETAIL1, "ldbm_cache_sync: "
+				"ldbm syncing db (%s)\n", li->li_dbcache[i].dbc_name, 0, 0 );
+#else
 			Debug(	LDAP_DEBUG_TRACE, "ldbm syncing db (%s)\n",
 				li->li_dbcache[i].dbc_name, 0, 0 );
+#endif
 			ldbm_sync( li->li_dbcache[i].dbc_db );
 			li->li_dbcache[i].dbc_dirty = 0;
 		}
@@ -320,6 +325,7 @@ ldbm_cache_sync( Backend *be )
 	ldap_pvt_thread_mutex_unlock( &li->li_dbcache_mutex );
 }
 
+#if 0 /* macro in proto-back-ldbm.h */
 Datum
 ldbm_cache_fetch(
     DBCache	*db,
@@ -328,6 +334,7 @@ ldbm_cache_fetch(
 {
 	return ldbm_fetch( db->dbc_db, key );
 }
+#endif /* 0 */
 
 int
 ldbm_cache_store(
@@ -338,24 +345,6 @@ ldbm_cache_store(
 )
 {
 	int	rc;
-
-#ifdef LDBM_DEBUG
-	Statslog( LDAP_DEBUG_STATS,
-		"=> ldbm_cache_store(): key.dptr=%s, key.dsize=%d\n",
-		key.dptr, key.dsize, 0, 0, 0 );
-
-	Statslog( LDAP_DEBUG_STATS,
-		"=> ldbm_cache_store(): key.dptr=0x%08x, data.dptr=0x%0 8x\n",
-		key.dptr, data.dptr, 0, 0, 0 );
-
-	Statslog( LDAP_DEBUG_STATS,
-		"=> ldbm_cache_store(): data.dptr=%s, data.dsize=%d\n",
-		data.dptr, data.dsize, 0, 0, 0 );
-
-	Statslog( LDAP_DEBUG_STATS,
-		"=> ldbm_cache_store(): flags=0x%08x\n",
-		flags, 0, 0, 0, 0 );
-#endif /* LDBM_DEBUG */
 
 	db->dbc_dirty = 1;
 	rc = ldbm_store( db->dbc_db, key, data, flags );
@@ -385,7 +374,12 @@ ldbm_cache_sync_daemon(
 	Backend *be = (Backend *)be_ptr;
 	struct ldbminfo	*li = (struct ldbminfo *) be->be_private;
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( CACHE, ARGS, "ldbm_cache_sync_daemon:"
+		" synchronizer starting for %s\n", li->li_directory, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_ANY, "synchronizer starting for %s\n", li->li_directory, 0, 0 );
+#endif
   
 	while (!li->li_dbshutdown) {
 		int i = li->li_dbsyncwaitn;
@@ -393,18 +387,33 @@ ldbm_cache_sync_daemon(
 		sleep( li->li_dbsyncfreq );
 
 		while (i && ldap_pvt_thread_pool_backload(&connection_pool) != 0) {
+#ifdef NEW_LOGGING
+			LDAP_LOG ( CACHE, DETAIL1, "ldbm_cache_sync_daemon:"
+				" delay syncing %s\n", li->li_directory, 0, 0 );
+#else
 			Debug( LDAP_DEBUG_TRACE, "delay syncing %s\n", li->li_directory, 0, 0 );
+#endif
 			sleep(li->li_dbsyncwaitinterval);
 			i--;
 		}
 
 		if (!li->li_dbshutdown) {
+#ifdef NEW_LOGGING
+			LDAP_LOG ( CACHE, DETAIL1, "ldbm_cache_sync_daemon:"
+				" syncing %s\n", li->li_directory, 0, 0 );
+#else
 			Debug( LDAP_DEBUG_TRACE, "syncing %s\n", li->li_directory, 0, 0 );
+#endif
 			ldbm_cache_sync( be );
 		}
 	}
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( CACHE, DETAIL1, "ldbm_cache_sync_daemon:"
+				" synchronizer stopping\n", 0, 0, 0);
+#else
   	Debug( LDAP_DEBUG_ANY, "synchronizer stopping\n", 0, 0, 0 );
+#endif
   
 	return NULL;
 }

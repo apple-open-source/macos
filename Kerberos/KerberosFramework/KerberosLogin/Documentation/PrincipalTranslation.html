@@ -1,0 +1,262 @@
+<!-- #include "header.html"   #PAGETITLE#="Kerberos Login Principal Tranlation Plugin API"   #BASEHREF#=""  -->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML> 
+<HEAD>  
+	<TITLE> KerberosLogin Principal Translation Plugin API </TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#0000FF" VLINK="#663399">
+<CENTER>
+	<TABLE BORDER=0 CELLSPACING=8>
+		<TR> 
+			<TD><IMG SRC="http://web.mit.edu/macdev/www/is-logo.gif" ALT="MIT Information Systems"></TD>
+			<TD><BR><H1>Macintosh Development</H1></TD> 
+		</TR>
+	</TABLE> <P>
+	[<A HREF="http://web.mit.edu/macdev/www/macdev.html">Home</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/about.html">About Us</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/people.html">People</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/support.html">MIT Support Library</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/kerberos.html">MIT Kerberos for Macintosh</A>] <BR>
+	[<A HREF="http://web.mit.edu/macdev/www/applications.html">Applications</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/macosx.html">Mac OS X</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/documentation.html">Miscellaneous Documentation</A>]
+	[<A HREF="http://web.mit.edu/is/">Information Systems</A>] </P> 
+</CENTER> <HR>
+<!-- end include --><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD>
+         <P><IMG
+         SRC="../../../Common/Documentation/graphics/ThreeHeadsAndKey.gif"
+         WIDTH=32 HEIGHT=32 X-SAS-UseImageWidth X-SAS-UseImageHeight
+         ALIGN=bottom>
+      </TD><TD>
+         <P><B><FONT SIZE="+3">KerberosLogin Principal Translation Plugin API</FONT></B>
+      </TD></TR>
+</TABLE></P>
+
+<P>
+<B>This documentation applies to Mac OS X 10.2 and later.</B>
+</P>
+
+<H2><A NAME="Purpose"></A>Purpose of principal translation plugins</H2>
+
+<P>A principal translation plugin provides realm-specific principal translation. For example, if a realm allows the users to type their full names into the Kerberos Login dialog and looks up their Kerberos principals in an outside database (such as the Dartmouth Name Directory), then the administrators of that realm can provide a plugin to perform the translation.</P>
+
+<P>Principal translation plugins are invoked by the Kerberos Login API whenever a string needs to be converted to a Kerberos principal. For example, the translation is applied to the name, instance, and realm entered by the user into the Kerberos Login dialog.</P>
+
+<P>
+<HR>
+</P>
+
+<H2><A NAME="Configuration"></A>Configuration of principal translation plugins</H2>
+
+<P>In order to activate a principal translation plugin for a realm, the realm stanza in the <code>edu.mit.Kerberos</code> file has to include a <CODE>principal_translation</CODE> line:</P>
+
+<PRE><CODE>
+REALM.NOWHERE.EDU = {
+    ...
+    principal_translation = "PluginName"
+}
+</CODE></PRE>
+
+<P>On that line, <CODE>PluginName</CODE>, should be a unique string describing the plugin. The string must not be longer than 127 characters, and must end in "<CODE>.principalTranslator</CODE>".</P>
+
+<P>The plugin file itself has to be located in the directory <CODE>/Library/Kerberos Plug-Ins/</CODE> (note space and hyphen) - you may have to create this directory if it doesn't already exist.  
+
+<P>
+<HR>
+</P>
+
+<H2><A NAME="Format"></A>Format of principal translation plugins</H2>
+
+<P>A principal translation plugin must be a Mach-O bundle with a name ending in "<CODE>.principalTranslator</CODE>".<P>
+
+<P>The plugin must export three functions, which are detailed in the next section.</P>
+
+<P>The plugin can contain any other code, data, or resources, but be mindful that it can be executed by arbitrary applications, and therefore should be careful not to affect the application's resources or resource handling.</P>
+
+<P>
+<HR>
+</P>
+
+<H2><A NAME="Functions"></A>Functions exported by principal translation plugin</H2>
+
+<P>All three of these functions must be exported by every principal translation plugin. All functions use C linkage and standard Mach-O calling conventions.</P>
+
+<P>The functions and related type declarations are specified in the <CODE>/System/Library/Frameworks/Kerberos.framework/Headers/KLPrincipalTranslation.h</CODE> header file.</P>
+
+<H3>KerberosLoginPrincipalTranslation_InitializePlugin</H3>
+
+<PRE><CODE>
+OSErr KerberosLoginPrincipalTranslation_InitializePlugin (
+    KLPT_APIVersion          inAPIVersion);
+</CODE></PRE>
+
+<P>This function is called by the Kerberos Login API when the plugin is loaded. The function must return <CODE>noErr</CODE> only if the plugin understands the API version passed in <CODE>inAPIVersion</CODE>; otherwise, it should return <CODE>paramErr</CODE>.</P>
+
+<P>If this function returns anything but <CODE>noErr</CODE>, the other functions will not be called.</P>
+
+<P>For example, a plugin which only understands the version 1 of the API (which is the current version), would do this:<P>
+
+<PRE><CODE>
+KLStatus KerberosLoginPrincipalTranslation_InitializePlugin (
+    KLPT_APIVersion      inAPIVersion)
+{
+    if (inAPIVersion == kKLPT_APIVersion1) {
+        return noErr;
+    } else {
+        return paramErr;
+    }
+}
+</CODE></PRE>
+
+<H3>KerberosLoginPrincipalTranslation_TranslatePrincipal</H3>
+<PRE><CODE>
+KLStatus KerberosLoginPrincipalTranslation_TranslatePrincipal (
+	const char*     inName,
+	const char*     inInstance,
+	const char*     inRealm,
+	const char**    outName,
+	const char**    outInstance,
+	const char**    outRealm,
+	KLBoolean*      outChanged);
+</CODE></PRE>
+
+<P>This function performs principal translation. On input, <CODE>inName</CODE>, <CODE>inInstance</CODE>, and <CODE>inRealm</CODE> point to the components of the untranslated principal as C strings.</P>
+
+<P>The function translates the principal components, and returns the translated components as newly allocated C strings in <CODE>*outName</CODE>, <CODE>*outInstance</CODE>, <CODE>*outRealm</CODE>. The memory for the translated components is allocated by this function. </P>
+
+<P>The translation function must satisfy the following two constraints:
+
+<UL>
+<LI>The function must return a valid Kerberos principal triplet</LI>
+<LI>When called on a valid Kerberos principal, the function must return the principal unchanged
+</UL>
+
+In other words, if the function is called to translate a principal, it must return a valid Kerberos principal. If it is called again, this time with the principal it returned, it must return it again, unchanged.<P>
+
+<P>This property is also known as <EM>idempotency</EM>. When you are debugging your plugin, you should test it very carefully to make sure it behaves this way.</P>
+
+<P>If the principal translation is successful, the function sets <CODE>*outChanged</CODE> to true, and returns <CODE>noErr</CODE>.</P>
+
+<P>In case no translation is necessary, the function may return false in <CODE>*outChanged</CODE>, in which case the values returned in <CODE>*outName</CODE>, <CODE>*outInstance</CODE>, <CODE>*outRealm</CODE> will be ignored by the Kerberos Login library. The function is not obligated to take this shortcut -- it can also just copy the old components into new memory. It must not, however, just return pointers to the input components in the output components without allocating memory for them.</P>
+
+<P>If the functions fails to perform the translation, it should return an appropriate error code and leave all outputs unchanged. For more information on error handling in principal translation plugins and reporting error messages to the user, see the error handling section below.</P>
+
+<P>If an error occurs, the function should clean up after itself and leave all output components unchanged.</P>
+
+<P>For example, a plugin which removes trailing letters 'x' from a principal would work like this:</P>
+
+<PRE><CODE>
+OSErr KerberosLoginPrincipalTranslation_TranslatePrincipal (
+    const char*     inName,
+    const char*     inInstance,
+    const char*     inRealm,
+    const char**    outName,
+    const char**    outInstance,
+    const char**    outRealm,
+    KLBoolean*        outChanged)
+{
+    *outChanged = false;
+    
+    OSErr err = noErr;
+
+    UInt32  nameLength = strlen (inName);
+    UInt32  instanceLength = strlen (inInstance);
+    UInt32  realmLength = strlen (inRealm);
+
+    char*   newName = NewPtr (nameLength + 1);
+    char*   newInstance = NewPtr (instanceLength + 1);
+    char*   newRealm = NewPtr (realmLength + 1);
+
+    if ((newName == nil) || (newInstance == nil) || (newRealm == nil)) {
+        err = memFullErr;
+    }
+    
+    if (err == noErr) {
+        strcpy (newName, inName);
+        strcpy (newInstance, inInstance);
+        strcpy (newRealm, inRealm);
+
+        // Remove trailing 'x'
+        for (UInt32 i = 0; i < nameLength; i++) {
+        	if (newName [nameLength - i - 1] == 'x') {
+        		newName [nameLength - i - 1] = '\0';
+        	} else {
+        		break;
+        	}
+        }
+
+        *outName = newName;
+        *outInstance = inInstance;
+        *outRealm = inRealm;
+
+        *outChanged = true; 
+    } else {
+        if (newName != nil) {
+            DisposePtr (newName);
+        }
+
+        if (newInstance != nil) {
+            DisposePtr (newInstance);
+        }
+
+        if (newRealm != nil) {
+            DisposePtr (newRealm);
+        }
+    }   
+    
+    return err;
+}
+</CODE></PRE>
+
+<H3>KerberosLoginPrincipalTranslation_ReleasePrincipal</H3>
+
+<PRE><CODE>
+void KerberosLoginPrincipalTranslation_ReleasePrincipal (
+	const char*     inName,
+	const char*     inPrincipal,
+	const char*     inRealm);
+</CODE></PRE>
+
+<P>This function is called by the Kerberos Login API to release the memory allocated by the principal translation function. It is only called if the principal translation function returned <CODE>noErr</CODE>.</P>
+
+<P>For example, the plugin example above, which allocated all three components with <CODE>NewPtr()</CODE> would release them like this:</P>
+
+<PRE><CODE>
+void KerberosLoginPrincipalTranslation_ReleasePrincipal (
+    char*   inName,
+    char*   inInstance,
+    char*   inRealm)
+{
+    DisposePtr (inName);
+    DisposePtr (inInstance);
+    DisposePtr (inRealm);
+}
+</CODE></PRE>
+
+<P>
+<HR>
+</P>
+
+<H2><A NAME="Errors"></A>Error handling in principal translation plugins</H2>
+
+<P><CODE>KerberosLoginPrincipalTranslation_TranslatePrincipal()</CODE> is allowed to return private error codes. This error code will be propagated to the caller of the Kerberos Login API, which in turn calls <CODE>KLGetErrorString()</CODE> to translate the error into a message for the user. The private error codes must not conflict with any existing Mac OS error codes.<P>
+
+<P>In order to allow the Kerberos Login API to translate the plugin's error codes into user messages, the plugin should register its errors with the <A HREF="../../KerberosErrors/Documentation/index.html">KerberosErrors API</A>. After that, errors returned by the plugin will be mapped to the strings in the plugin's error table.</P>
+
+<P><!-- #include "footer.html" -->
+<HR> 
+<P> 
+	<FONT SIZE="+1"> <B> 
+		Questions or comments? Send mail to <A HREF="mailto:macdev@mit.edu">macdev@mit.edu</A> 
+	</B> </FONT> <BR>
+	Last updated on $Date: 2003/10/02 19:57:54 $ <BR> 
+	Last modified by $Author: smcguire $<BR>
+
+</P>
+<!-- Begin MIT-use only web reporting counter -->
+	<IMG SRC="//counter.mit.edu/tally" WIDTH=1 HEIGHT=1 ALT="">
+<!-- End MIT-use only web reporting counter -->
+</BODY> </HTML>
+<!-- end include -->

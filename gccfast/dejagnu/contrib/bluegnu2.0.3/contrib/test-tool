@@ -1,0 +1,346 @@
+#!/bin/sh
+# This script automatically test the given tool with the tool's test cases,
+# reporting anything of interest.
+
+# exits with 1 if there is nothing of interest
+# exits with 0 if there is something interesting
+# exits with 2 if an error occurred
+
+# Syntax: test-tool [-expectedpass] [-keepoutput] [-noupdate] g++|gcc|gdb|...
+#
+# -expectedpass: Turn XFAIL into "pass", XPASS into "fail".
+#		 The default is XFAIL->fail, XPASS->pass.
+# -keepoutput: Save "make check" output in test-$tool.log.
+# -noupdate: Don't update log files.
+
+# Limitations, don't run this multiple times in one day, unless the -noupdate
+# flag is given.
+
+# Written by Mike Stump <mrs@cygnus.com>
+
+expectedpass=no
+keepoutput=no
+update=yes
+tool=""
+
+for arg in $*
+do
+	case $arg in
+	-expectedpass) expectedpass=yes ;;
+	-keepoutput) keepoutput=yes ;;
+	-noupdate) update=no ;;
+	-*)
+		echo "Usage: [-expectedpass] [-keepoutput] [-noupdate] tool_name" >&2
+		exit 2
+		;;
+	*)
+		if [ "$tool" != "" ]; then
+			echo "Usage: [-expectedpass] [-keepoutput] [-noupdate] tool_name" >&2
+			exit 2
+		fi
+		tool=$arg
+		;;
+	esac
+done
+
+# FIXME: It sure would be nice if `testdir' wasn't necessary. :-(
+
+if [ "$tool" = g++ ]; then
+	devoname=gcc
+	checktarget=check-g++
+	testdir=.
+elif [ "$tool" = gcc ]; then
+	devoname=gcc
+	checktarget=check-gcc
+	testdir=.
+elif [ "$tool" = gdb ]; then
+	devoname=gdb
+	checktarget=check
+	testdir=testsuite
+elif [ "$tool" = gas ]; then
+	devoname=gas
+	checktarget=check
+	testdir=testsuite
+elif [ "$tool" = gld -o "$tool" = ld ]; then
+	devoname=ld
+	checktarget=check
+	testdir=.
+elif [ "$tool" = binutils ]; then
+	devoname=binutils
+	checktarget=check
+	testdir=.
+else
+	echo "Only gcc, g++, gdb, gas, gld, and binutils supported." >&2
+	exit 2
+fi
+
+# Default DEVOSRCDIR
+if [ "$DEVOSRCDIR" = "" ]; then
+	DEVOSRCDIR=$HOME/devo ; export DEVOSRCDIR
+fi
+
+# Check DEVOSRCDIR
+if [ ! -d "$DEVOSRCDIR" ]; then
+	echo "$0: no directory $DEVOSRCDIR" >&2
+	exit 2
+fi
+
+# Default DEVOBINDIR
+if [ "$DEVOBINDIR" = "" ]; then
+	CPU=`$DEVOSRCDIR/config.guess`
+	if [ $? != 0 ]; then
+		echo "$0: cannot run config.guess" >&2
+		exit 2
+	fi
+	DEVOBINDIR=$HOME/$CPU ; export DEVOBINDIR
+fi
+
+# Check DEVOBINDIR
+if [ ! -d "$DEVOBINDIR" ]; then
+	echo "$0: no directory $DEVOBINDIR" >&2
+	exit 2
+fi
+
+# Specialize DEVOSRCDIR
+if [ -d "$DEVOSRCDIR/$devoname" ]; then
+	DEVOSRCDIR=$DEVOSRCDIR/$devoname
+else
+	echo "$0: Cannot find source directory." >&2
+	exit 2
+fi
+
+# Default LOGDIR
+if [ "$LOGDIR" = "" ]; then
+	LOGDIR=$HOME/logs ; export LOGDIR
+fi
+
+# Check LOGDIR
+if [ ! -d "$LOGDIR" ]; then
+	echo "$0: no directory $LOGDIR" >&2
+	exit 2
+fi
+	
+# Specialize DEVOBINDIR
+if [ -d "$DEVOBINDIR/$devoname" ]; then
+	DEVOBINDIR=$DEVOBINDIR/$devoname
+else
+	echo "$0: Cannot find binary directory." >&2
+	exit 2
+fi
+
+# Binary directory
+cd $DEVOBINDIR || exit 2
+
+TMPDIR=${TMPDIR-/tmp}
+
+tmp=$TMPDIR/$tool-testing.$$a
+tmp1=$TMPDIR/$tool-testing.$$b
+tmp2=$TMPDIR/$tool-testing.$$c
+now_s=$TMPDIR/$tool-testing.$$d
+before_s=$TMPDIR/$tool-testing.$$e
+
+if [ "$keepoutput" = yes ]; then
+	rm -f test-$tool.log
+	make RUNTESTFLAGS="-v -v" $checktarget >test-$tool.log 2>&1
+else
+	make RUNTESTFLAGS="-v -v" $checktarget >/dev/null 2>&1
+fi
+
+# Check for DEJAGNU errors that prevented any output at all.
+if [ ! -f $testdir/$tool.sum ]; then
+	echo "Tests didn't run, probably because of a framework error."
+	if [ "$keepoutput" = yes ]; then
+		echo
+		tail -20 test-$tool.log
+	else
+		echo "Unable to determine why.  Rerun with -keepoutput."
+	fi
+	exit 2
+fi
+
+# Canonicalize XFAIL and XPASS so the rest of the script can ignore them.
+if [ "$expectedpass" = yes ]; then
+	sed 's/^XFAIL/PASS(XFAIL)/; s/^XPASS/FAIL(XPASS)/' <$testdir/$tool.sum >$testdir/$tool.1.sum || exit 2
+else
+	sed 's/^XFAIL/FAIL(XFAIL)/; s/^XPASS/PASS(XPASS)/' <$testdir/$tool.sum >$testdir/$tool.1.sum || exit 2
+fi
+mv $testdir/$tool.1.sum $testdir/$tool.sum
+
+todayname=`date '+%y%m%d'`
+if [ "$update" = no ]; then
+	now=$testdir/$tool.sum
+	before=`ls $LOGDIR/$tool-??????.sum | tail -1`
+else
+	mv -f $testdir/$tool.sum $LOGDIR/$tool-$todayname.sum || exit 2
+	mv -f $testdir/$tool.log $LOGDIR/$tool-$todayname.log || exit 2
+
+	now=`ls $LOGDIR/$tool-??????.sum | tail -1`
+	before=`ls $LOGDIR/$tool-??????.sum | tail -2 | sed 1q`
+fi
+trap "rm -f $tmp $tmp1 $tmp2 $now_s $before_s" 0 1 2 3 5 9 13 15
+
+if [ "$before" = "" ]; then
+	echo "Need previous summary to compare against." >&2
+	exit 2
+fi
+
+# Say where the logs are stored so they appear in email messages.
+echo
+echo "Log files: $LOGDIR/$tool-$todayname.*"
+echo
+
+grep '^[PFU][A-Z()]*:' | sort -t ':' +1 "$now" > "$now_s"
+grep '^[PFU][A-Z()]*:' | sort -t ':' +1 "$before" > "$before_s"
+
+grep '^FAIL:' "$now_s" | sed 's/^[^:]*:[ 	]*//' >$tmp1
+grep '^PASS' "$before_s" | sed 's/^[^:]*:[ 	]*//' | comm -12 $tmp1 - >$tmp2
+
+grep -s . $tmp2 >/dev/null
+if [ $? = 0 ]; then
+	echo "Tests that now unexpectedly fail, but worked before:"
+	echo
+	cat $tmp2
+	showchangelog=1
+	echo
+fi
+
+grep '^PASS' "$now_s" | sed 's/^[^:]*:[ 	]*//' >$tmp1
+grep '^FAIL' "$before_s" | sed 's/^[^:]*:[ 	]*//' | comm -12 $tmp1 - >$tmp2
+
+grep -s . $tmp2 >/dev/null
+if [ $? = 0 ]; then
+	echo "Tests that now work, but didn't before:"
+	echo
+	cat $tmp2
+	echo
+fi
+
+grep '^FAIL:' "$now_s" | sed 's/^[^:]*:[ 	]*//' >$tmp1
+grep '^[PFU][A-Z()]*:' "$before_s" | sed 's/^[^:]*:[ 	]*//' | comm -23 $tmp1 - >$tmp2
+
+grep -s . $tmp2 >/dev/null
+if [ $? = 0 ]; then
+	echo "New tests that unexpectedly FAIL:"
+	echo
+	cat $tmp2
+	echo
+fi
+
+grep '^PASS' "$now_s" | sed 's/^[^:]*:[ 	]*//' >$tmp1
+grep '^[PFU][A-Z()]*:' "$before_s" | sed 's/^[^:]*:[ 	]*//' | comm -23 $tmp1 - >$tmp2
+
+grep -s . $tmp2 >/dev/null
+if [ $? = 0 ]; then
+	echo "New tests that PASS:"
+	echo
+	cat $tmp2
+	echo
+fi
+
+grep '^[PFU][A-Z()]*:' "$now_s" | sed 's/^[^:]*:[ 	]*//' >$tmp1
+grep '^PASS' "$before_s" | sed 's/^[^:]*:[ 	]*//' | comm -13 $tmp1 - >$tmp2
+
+grep -s . $tmp2 >/dev/null
+if [ $? = 0 ]; then
+	echo "Old tests that passed, that have disappeared: (Eeek!)"
+	echo
+	cat $tmp2
+	echo
+fi
+
+grep '^[PFU][A-Z()]*:' "$now_s" | sed 's/^[^:]*:[ 	]*//' >$tmp1
+grep '^FAIL' "$before_s" | sed 's/^[^:]*:[ 	]*//' | comm -13 $tmp1 - >$tmp2
+
+grep -s . $tmp2 >/dev/null
+if [ $? = 0 ]; then
+	echo "Old tests that failed, that have disappeared: (Eeek!)"
+	echo
+	cat $tmp2
+	echo
+fi
+
+grep '^FAIL:' "$now_s" | sed 's/^[^:]*:[ 	]*//' >$tmp1
+grep '^FAIL' "$before_s" | sed 's/^[^:]*:[ 	]*//' | comm -12 $tmp1 - >$tmp2
+
+grep -s . $tmp2 >/dev/null
+if [ $? = 0 ]; then
+	echo "Tests that still don't work:"
+	echo
+	cat $tmp2
+	echo
+fi
+
+egrep '^(ERROR|WARNING):' "$now" >$tmp1
+
+if grep -s . $tmp1 > /dev/null; then
+	echo "Errors and warnings:"
+	echo
+	cat $tmp1
+	echo
+fi
+
+if [ "$tool" = g++ ]; then
+   if [ -f $DEVOBINDIR/libio/run-make-check ]; then
+    cd $DEVOBINDIR/libio
+    make check >$TMPDIR/clgpp$$ 2>&1
+    if [ $? != 0 ]; then
+	echo
+   	echo "libio fails to make check:"
+   	tail -20 $TMPDIR/clgpp$$
+    fi
+   fi
+   if [ -f $DEVOBINDIR/libstdc++/run-make-check ]; then
+    cd $DEVOBINDIR/libstdc++
+    make check >$TMPDIR/clgpp$$ 2>&1
+    if [ $? != 0 ]; then
+   	echo
+   	echo "libstdc++ fails to make check:"
+   	tail -20 $TMPDIR/clgpp$$
+    fi
+   fi
+   if [ -f $DEVOBINDIR/libg++/run-make-check ]; then
+    cd $DEVOBINDIR/libg++
+    make check >$TMPDIR/clgpp$$ 2>&1
+    if [ $? != 0 ]; then
+	echo
+ 	echo "libg++ fails to make check:"
+    	tail -20 $TMPDIR/clgpp$$
+    fi
+   fi
+   rm -f $TMPDIR/clgpp$$
+   cd $DEVOBINDIR
+fi
+
+if [ "$devoname" != "" ]; then
+	if [ "$showchangelog" = 1 ]; then
+		echo "Here is what's new in the ChangeLog:"
+		echo
+		diff -c $LOGDIR/$devoname.ChangeLog $DEVOSRCDIR/ChangeLog
+		echo
+		if [ "$tool" = g++ ]; then
+			echo "Here is what's new in the cp/ChangeLog:"
+			echo
+			diff -c $LOGDIR/g++.ChangeLog $DEVOSRCDIR/cp/ChangeLog
+		fi
+		echo
+	fi
+	if [ "$update" != no ]; then
+		# save the old ChangeLog as a reference for next time
+		rm -f $LOGDIR/$devoname.ChangeLog.BAK
+		mv $LOGDIR/$devoname.ChangeLog $LOGDIR/$devoname.ChangeLog.BAK 2>/dev/null
+		cp -p $DEVOSRCDIR/ChangeLog $LOGDIR/$devoname.ChangeLog
+		if [ "$tool" = g++ ]; then
+			rm -f $LOGDIR/g++.ChangeLog.BAK
+			mv $LOGDIR/g++.ChangeLog $LOGDIR/g++.ChangeLog.BAK 2>/dev/null
+			cp -p $DEVOSRCDIR/cp/ChangeLog $LOGDIR/g++.ChangeLog
+		fi
+	fi
+fi
+
+diff $before $now | grep -s . >/dev/null
+if [ $? = 0 ]; then
+	echo "Details:"
+	echo
+	diff $before $now
+	echo
+fi

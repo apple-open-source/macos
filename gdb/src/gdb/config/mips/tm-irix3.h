@@ -21,14 +21,8 @@
 
 #include "mips/tm-bigmips.h"
 
-/* SGI's assembler doesn't grok dollar signs in identifiers.
-   So we use dots instead.  This item must be coordinated with G++. */
-#undef CPLUS_MARKER
-#define CPLUS_MARKER '.'
-
 /* Redefine register numbers for SGI. */
 
-#undef NUM_REGS
 #undef MIPS_REGISTER_NAMES
 #undef FP0_REGNUM
 #undef PC_REGNUM
@@ -38,10 +32,6 @@
 #undef BADVADDR_REGNUM
 #undef FCRCS_REGNUM
 #undef FCRIR_REGNUM
-
-/* Number of machine registers */
-
-#define NUM_REGS 71
 
 /* Initializer for an array of names of registers.
    There should be NUM_REGS strings in this initializer.  */

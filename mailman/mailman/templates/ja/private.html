@@ -1,0 +1,41 @@
+<html>
+<head>
+    <title>%(realname)s 限定公開保存書庫 認証</title>
+</head>
+<body bgcolor="#ffffff">
+<FORM METHOD=POST ACTION="%(action)s/">
+%(message)s
+  <TABLE WIDTH="100%%" BORDER="0" CELLSPACING="4" CELLPADDING="5">
+    <TR>
+      <TD COLSPAN="2" WIDTH="100%%" BGCOLOR="#99CCFF" ALIGN="CENTER">
+	<B><FONT COLOR="#000000" SIZE="+1">%(realname)s 
+	    限定公開保存書庫 認証</FONT></B>
+      </TD>
+    </TR>
+    <tr>
+        <TD><div ALIGN="Right">電子メールアドレス:</div></TD>
+        <TD><INPUT TYPE="text" NAME="username" SIZE="30"></TD>
+    </tr>
+    <tr>
+      <TD><div ALIGN="Right">パスワード:</div></TD>
+      <TD><INPUT TYPE="password" NAME="password" SIZE="30"></TD>
+    </tr>
+    <tr>
+      <td colspan=2 align="middle"><INPUT type="SUBMIT"
+                                          name="submit"
+					  value="認証...">
+      </td>
+    </tr>
+  </TABLE>
+      <p><strong><em>重要:</em></strong>
+      ここから先はブラウザのクッキーを有効にする必要があります. 
+      でないと, パスワードによる認証がはたらきません.
+
+      <p>セッションクッキーは Mailman の限定公開保存書庫
+      インターフェースで 使用されます．
+      従って新しいドキュメントを開くたびに再認証をおこなう 必要がなくなります．
+      このクッキーはブラウザを終了した
+      時に自動的に無効になります．
+</FORM>
+</body>
+</html>

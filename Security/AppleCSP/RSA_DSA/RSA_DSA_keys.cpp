@@ -22,7 +22,7 @@
 
 #include "RSA_DSA_keys.h"
 #include <opensslUtils/opensslUtils.h>
-#include <opensslUtils/openRsaSnacc.h>
+#include <opensslUtils/opensslAsn1.h>
 #include <Security/cssmdata.h>
 #include <AppleCSP/AppleCSPSession.h>
 #include <AppleCSP/AppleCSPUtils.h>
@@ -30,12 +30,11 @@
 #include <Security/debugging.h>
 #include "RSA_DSA_utils.h"
 #include <AppleCSP/YarrowConnection.h>
-#include <Security/appleoids.h>
-#include <Security/cdsaUtils.h>
+#include <SecurityNssAsn1/SecNssCoder.h>
 
 #define RSA_PUB_EXPONENT	0x10001 	/* recommended by RSA */
 
-#define rsaKeyDebug(args...)	debug("rsaKey", ## args)
+#define rsaKeyDebug(args...)	secdebug("rsaKey", ## args)
 
 /***
  *** RSA-style BinaryKey
@@ -58,30 +57,64 @@ RSABinaryKey::~RSABinaryKey()
 void RSABinaryKey::generateKeyBlob(
 	CssmAllocator 		&allocator,
 	CssmData			&blob,
-	CSSM_KEYBLOB_FORMAT	&format)
+	CSSM_KEYBLOB_FORMAT	&format,	/* IN/OUT */
+	AppleCSPSession		&session,
+	const CssmKey		*paramKey,	/* optional, unused here */
+	CSSM_KEYATTR_FLAGS	&attrFlags)	/* IN/OUT */
 {
 	bool			isPub;
 	CSSM_RETURN		crtn;
 	
+	/* 
+	 * Here, the incoming default of CSSM_KEYBLOB_RAW_FORMAT_NONE
+	 * is translated to our AppleCSP-custom defaults. App can override.
+	 */
 	switch(mKeyHeader.KeyClass) {
 		case CSSM_KEYCLASS_PUBLIC_KEY:
 			isPub = true;
-			format = RSA_PUB_KEY_FORMAT;
+			switch(format) {
+				case CSSM_KEYBLOB_RAW_FORMAT_NONE:
+					format = RSA_PUB_KEY_FORMAT;	// default
+					break;
+				case CSSM_KEYBLOB_RAW_FORMAT_DIGEST:
+					/* calculate digest on PKCS1 blob */
+					format = CSSM_KEYBLOB_RAW_FORMAT_PKCS1;	
+					break;
+				case CSSM_KEYBLOB_RAW_FORMAT_PKCS1:
+				case CSSM_KEYBLOB_RAW_FORMAT_X509:
+					break;
+				default:
+					CssmError::throwMe(CSSMERR_CSP_UNSUPPORTED_KEY_FORMAT);
+			}
 			break;
 		case CSSM_KEYCLASS_PRIVATE_KEY:
 			isPub = false;
-			format = RSA_PRIV_KEY_FORMAT;
+			switch(format) {
+				case CSSM_KEYBLOB_RAW_FORMAT_NONE:	// default
+					format = RSA_PRIV_KEY_FORMAT;	
+					break;
+				case CSSM_KEYBLOB_RAW_FORMAT_DIGEST:
+					/* calculate digest on Public PKCS1 blob */
+					format = CSSM_KEYBLOB_RAW_FORMAT_PKCS1;	
+					isPub = true;
+					break;
+				case CSSM_KEYBLOB_RAW_FORMAT_PKCS1:
+				case CSSM_KEYBLOB_RAW_FORMAT_PKCS8:
+					break;
+				default:
+					CssmError::throwMe(CSSMERR_CSP_UNSUPPORTED_KEY_FORMAT);
+			}
 			break;
 		default:
 			CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
 	}
 
-	CssmAutoData 	encodedKey(allocator);
+	CssmAutoData encodedKey(allocator);
 	if(isPub) {
-		crtn = RSAPublicKeyEncode(mRsaKey, encodedKey);
+		crtn = RSAPublicKeyEncode(mRsaKey, format, encodedKey);
 	}
 	else {
-		crtn = RSAPrivateKeyEncode(mRsaKey, encodedKey);
+		crtn = RSAPrivateKeyEncode(mRsaKey, format, encodedKey);
 	}
 	if(crtn) {
 		CssmError::throwMe(crtn);
@@ -175,13 +208,15 @@ void RSAKeyPairGenContext::generate(
  *** RSA-style CSPKeyInfoProvider.
  ***/
 RSAKeyInfoProvider::RSAKeyInfoProvider(
-	const CssmKey &cssmKey) :
-		CSPKeyInfoProvider(cssmKey)
+	const CssmKey 	&cssmKey,
+	AppleCSPSession	&session) :
+		CSPKeyInfoProvider(cssmKey, session)
 {
 }
 
 CSPKeyInfoProvider *RSAKeyInfoProvider::provider(
-		const CssmKey &cssmKey)
+	const CssmKey 	&cssmKey,
+	AppleCSPSession	&session)
 {
 	switch(cssmKey.algorithm()) {
 		case CSSM_ALGID_RSA:
@@ -197,12 +232,14 @@ CSPKeyInfoProvider *RSAKeyInfoProvider::provider(
 			return NULL;
 	}
 	/* OK, we'll handle this one */
-	return new RSAKeyInfoProvider(cssmKey);
+	return new RSAKeyInfoProvider(cssmKey, session);
 }
 
 /* Given a raw key, cook up a Binary key */
 void RSAKeyInfoProvider::CssmKeyToBinary(
-	BinaryKey **binKey)
+	CssmKey				*paramKey,		// ignored
+	CSSM_KEYATTR_FLAGS	&attrFlags,		// IN/OUT, unused here
+	BinaryKey 			**binKey)
 {
 	*binKey = NULL;
 	RSA *rsaKey = NULL;
@@ -228,6 +265,44 @@ void RSAKeyInfoProvider::QueryKeySizeInBits(
 	keySize.LogicalKeySizeInBits = RSA_size(rsaKey) * 8;
 	keySize.EffectiveKeySizeInBits = keySize.LogicalKeySizeInBits;
 	RSA_free(rsaKey);
+}
+
+/* 
+ * Obtain blob suitable for hashing in CSSM_APPLECSP_KEYDIGEST 
+ * passthrough.
+ */
+bool RSAKeyInfoProvider::getHashableBlob(
+	CssmAllocator 	&allocator,
+	CssmData		&blob)			// blob to hash goes here
+{
+	/*
+	 * The optimized case, a raw key in the "proper" format already.
+	 * Only public keys in PKCS1 format fit this bill. 
+	 */
+	assert(mKey.blobType() == CSSM_KEYBLOB_RAW);
+	bool useAsIs = false;
+	
+	switch(mKey.keyClass()) {
+		case CSSM_KEYCLASS_PUBLIC_KEY:
+			if(mKey.blobFormat() == CSSM_KEYBLOB_RAW_FORMAT_PKCS1) {
+				useAsIs = true;
+			}
+			break;
+		case CSSM_KEYCLASS_PRIVATE_KEY:
+			break;
+		default:
+			/* shouldn't be here */
+			assert(0);
+			CssmError::throwMe(CSSMERR_CSP_INTERNAL_ERROR);
+	}
+	if(useAsIs) {
+		const CssmData &keyBlob = CssmData::overlay(mKey.KeyData);
+		copyCssmData(keyBlob, blob, allocator);
+		return true;
+	}
+	
+	/* caller converts to binary and proceeds */
+	return false;
 }
 
 /***
@@ -256,37 +331,103 @@ DSABinaryKey::~DSABinaryKey()
 void DSABinaryKey::generateKeyBlob(
 	CssmAllocator 		&allocator,
 	CssmData			&blob,
-	CSSM_KEYBLOB_FORMAT	&format)
+	CSSM_KEYBLOB_FORMAT	&format,
+	AppleCSPSession		&session,
+	const CssmKey		*paramKey,	/* optional */
+	CSSM_KEYATTR_FLAGS	&attrFlags)	/* IN/OUT */
 {
 	bool			isPub;
 	CSSM_RETURN		crtn;
 	
+	/* 
+	 * Here, the incoming default of CSSM_KEYBLOB_RAW_FORMAT_NONE
+	 * is translated to our AppleCSP-custom defaults. App can override.
+	 */
 	switch(mKeyHeader.KeyClass) {
 		case CSSM_KEYCLASS_PUBLIC_KEY:
 			isPub = true;
-			format = DSA_PUB_KEY_FORMAT;
+			switch(format) {
+				case CSSM_KEYBLOB_RAW_FORMAT_NONE:
+					format = DSA_PUB_KEY_FORMAT;	// default
+					break;
+				case CSSM_KEYBLOB_RAW_FORMAT_FIPS186:
+				case CSSM_KEYBLOB_RAW_FORMAT_X509:
+				case CSSM_KEYBLOB_RAW_FORMAT_DIGEST:
+					break;
+				default:
+					CssmError::throwMe(CSSMERR_CSP_UNSUPPORTED_KEY_FORMAT);
+			}
 			break;
 		case CSSM_KEYCLASS_PRIVATE_KEY:
 			isPub = false;
-			format = DSA_PRIV_KEY_FORMAT;
+			switch(format) {
+				case CSSM_KEYBLOB_RAW_FORMAT_NONE:
+					format = DSA_PRIV_KEY_FORMAT;	// default
+					break;
+				case CSSM_KEYBLOB_RAW_FORMAT_DIGEST:
+					/*
+					 * This is calculated on the public key, which 
+					 * is not part of a DSA private key's encoding...
+					 * so first calculate the public key. 
+					 */
+					dsaKeyPrivToPub(mDsaKey);
+					isPub = true;
+					break;
+				case CSSM_KEYBLOB_RAW_FORMAT_FIPS186:
+				case CSSM_KEYBLOB_RAW_FORMAT_PKCS8:
+				case CSSM_KEYBLOB_RAW_FORMAT_OPENSSL:
+					break;
+				default:
+					CssmError::throwMe(CSSMERR_CSP_UNSUPPORTED_KEY_FORMAT);
+			}
 			break;
 		default:
 			CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
 	}
 
+	/* possible conversion from partial binary key to fully 
+	 * formed blob */
+	DSA *dsaToEncode = mDsaKey;
+	DSA *dsaUpgrade = NULL;
+	if(isPub &&
+	   (mDsaKey->p == NULL) &&
+	   (paramKey != NULL)) {
+		/*
+		 * Don't modify BinaryKey; make a copy.
+		 */
+		dsaUpgrade = DSA_new();
+		if(dsaUpgrade == NULL) {
+			CssmError::throwMe(CSSMERR_CSP_MEMORY_ERROR);	
+		}
+		dsaUpgrade->pub_key = BN_dup(mDsaKey->pub_key);
+		crtn = dsaGetParamsFromKey(dsaUpgrade, *paramKey, session);
+		if(crtn) {
+			DSA_free(dsaUpgrade);
+			CssmError::throwMe(crtn);
+		}
+		
+		/* success - switch keys and inform caller of attr change */
+		dsaToEncode = dsaUpgrade;
+		attrFlags &= ~CSSM_KEYATTR_PARTIAL;
+	}
+	
 	CssmAutoData 	encodedKey(allocator);
 	if(isPub) {
-		crtn = DSAPublicKeyEncode(mDsaKey, encodedKey);
+		crtn = DSAPublicKeyEncode(dsaToEncode, format, encodedKey);
 	}
 	else {
-		crtn = DSAPrivateKeyEncode(mDsaKey, encodedKey);
+		crtn = DSAPrivateKeyEncode(dsaToEncode, format, encodedKey);
+	}
+	if(dsaUpgrade != NULL) {
+		/* temp key, get rid of it */
+		DSA_free(dsaUpgrade);
 	}
 	if(crtn) {
 		CssmError::throwMe(crtn);
 	}
 	blob = encodedKey.release();
 }
-		
+	
 /***
  *** DSA-style AppleKeyPairGenContext
  ***/
@@ -348,19 +489,19 @@ void DSAKeyPairGenContext::generate(
 				CSSMERR_CSP_MISSING_ATTR_KEY_LENGTH);
 	CssmData *paramData = context.get<CssmData>(CSSM_ATTRIBUTE_ALG_PARAMS);
 
-	DSAAlgParams algParams;
+	NSS_DSAAlgParams algParams;
+	SecNssCoder coder;			// generated algParams mallocd from here
 	if(paramData != NULL) {
-		/* this contains the DER encoding of a DSAAlgParams */
-		try {
-			SC_decodeAsnObj(*paramData, algParams);
-		}
-		catch(...) {
-			CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_ALG_PARAMS);
+		/* this contains the DER encoding of a NSS_DSAAlgParams */
+		CSSM_RETURN crtn = DSADecodeAlgParams(algParams, paramData->Data,
+			paramData->Length, coder);
+		if(crtn) {
+			CssmError::throwMe(crtn);
 		}
 	}
 	else {
 		/* no alg params specified; generate them now using null (random) seed */
-		dsaGenParams(keyBits, NULL, 0, algParams);
+		dsaGenParams(keyBits, NULL, 0, algParams, coder);
 	}
 					
 	/* create key, stuff params into it */
@@ -369,9 +510,9 @@ void DSAKeyPairGenContext::generate(
 		CssmError::throwMe(CSSMERR_CSP_MEMORY_ERROR);		
 	}
 	DSA *dsaKey = rPrivBinKey.mDsaKey;
-	dsaKey->p = bigIntStrToBn(algParams.p);
-	dsaKey->q = bigIntStrToBn(algParams.q);
-	dsaKey->g = bigIntStrToBn(algParams.g);
+	dsaKey->p = cssmDataToBn(algParams.p);
+	dsaKey->q = cssmDataToBn(algParams.q);
+	dsaKey->g = cssmDataToBn(algParams.g);
 	
 	/* generate the key (both public and private capabilities) */
 	int irtn = DSA_generate_key(dsaKey);
@@ -417,9 +558,10 @@ void DSAKeyPairGenContext::generate(
 		seedLen = seedData->length();
 	}
 
-	/* generate the params */
-	DSAAlgParams algParams;
-	dsaGenParams(bitSize, seed, seedLen, algParams);
+	/* generate the params, temp alloc from SecNssCoder  */
+	NSS_DSAAlgParams algParams;
+	SecNssCoder coder;
+	dsaGenParams(bitSize, seed, seedLen, algParams, coder);
 	
 	/*
 	 * Here comes the fun part. 
@@ -433,12 +575,8 @@ void DSAKeyPairGenContext::generate(
 	 *
 	 * First, DER encode.
 	 */
-	size_t maxSize = sizeofBigInt(algParams.p) + 
-					 sizeofBigInt(algParams.q) + 
-					 sizeofBigInt(algParams.g) +
-					 10;
 	CssmAutoData aDerData(session());
-	SC_encodeAsnObj(algParams, aDerData, maxSize);
+	DSAEncodeAlgParams(algParams, aDerData);
 
 	/* copy/release that into a mallocd CSSM_DATA. */
 	CSSM_DATA_PTR derData = (CSSM_DATA_PTR)session().malloc(sizeof(CSSM_DATA));
@@ -474,14 +612,15 @@ void DSAKeyPairGenContext::freeGenAttrs()
 
 /*
  * Generate DSA algorithm parameters from optional seed input, returning result
- * into DSAAlgParams.[pqg]. This is called from both GenerateParameters and from
+ * into NSS_DSAAlgParamss.[pqg]. This is called from both GenerateParameters and from
  * KeyPairGenerate (if no GenerateParameters has yet been called). 
  */
 void DSAKeyPairGenContext::dsaGenParams(
-	uint32			keySizeInBits,
-	const void		*inSeed,			// optional
-	unsigned		inSeedLen,
-	DSAAlgParams	&algParams)
+	uint32				keySizeInBits,
+	const void			*inSeed,		// optional
+	unsigned			inSeedLen,
+	NSS_DSAAlgParams 	&algParams,
+	SecNssCoder			&coder)			// contents of algParams mallocd from here
 {
 	unsigned char seedBuf[SHA1_DIGEST_SIZE];
 	void *seedPtr;
@@ -520,10 +659,10 @@ void DSAKeyPairGenContext::dsaGenParams(
 		throwRsaDsa("DSA_generate_parameters");
 	}
 	
-	/* stuff dsaKey->[pqg] into a caller's DSAAlgParams */
-	bnToBigIntStr(dsaKey->p, algParams.p);
-	bnToBigIntStr(dsaKey->q, algParams.q);
-	bnToBigIntStr(dsaKey->g, algParams.g);
+	/* stuff dsaKey->[pqg] into a caller's NSS_DSAAlgParams */
+	bnToCssmData(dsaKey->p, algParams.p, coder);
+	bnToCssmData(dsaKey->q, algParams.q, coder);
+	bnToCssmData(dsaKey->g, algParams.g, coder);
 	
 	DSA_free(dsaKey);
 }
@@ -532,13 +671,15 @@ void DSAKeyPairGenContext::dsaGenParams(
  *** DSA-style CSPKeyInfoProvider.
  ***/
 DSAKeyInfoProvider::DSAKeyInfoProvider(
-	const CssmKey &cssmKey) :
-		CSPKeyInfoProvider(cssmKey)
+	const CssmKey 	&cssmKey,
+	AppleCSPSession	&session) :
+		CSPKeyInfoProvider(cssmKey, session)
 {
 
 }
 CSPKeyInfoProvider *DSAKeyInfoProvider::provider(
-		const CssmKey &cssmKey)
+	const CssmKey 	&cssmKey,
+	AppleCSPSession	&session)
 {
 	switch(cssmKey.algorithm()) {
 		case CSSM_ALGID_DSA:
@@ -554,18 +695,26 @@ CSPKeyInfoProvider *DSAKeyInfoProvider::provider(
 			return NULL;
 	}
 	/* OK, we'll handle this one */
-	return new DSAKeyInfoProvider(cssmKey);
+	return new DSAKeyInfoProvider(cssmKey, session);
 }
 
 /* Given a raw key, cook up a Binary key */
 void DSAKeyInfoProvider::CssmKeyToBinary(
-	BinaryKey **binKey)
+	CssmKey				*paramKey,		// optional
+	CSSM_KEYATTR_FLAGS	&attrFlags,		// IN/OUT
+	BinaryKey 			**binKey)
 {
 	*binKey = NULL;
 	DSA *dsaKey = NULL;
 	
 	/* first cook up an DSA key, then drop that into a BinaryKey */
-	dsaKey = rawCssmKeyToDsa(mKey);
+	dsaKey = rawCssmKeyToDsa(mKey, mSession, paramKey);
+	if(dsaKey->p == NULL) {
+		attrFlags |= CSSM_KEYATTR_PARTIAL;
+	}
+	else {
+		attrFlags &= ~CSSM_KEYATTR_PARTIAL;
+	}
 	DSABinaryKey *dsaBinKey = new DSABinaryKey(dsaKey);
 	*binKey = dsaBinKey;
 }
@@ -581,8 +730,32 @@ void DSAKeyInfoProvider::QueryKeySizeInBits(
 	if(mKey.blobType() != CSSM_KEYBLOB_RAW) {
 		CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_FORMAT);
 	}
-	dsaKey = rawCssmKeyToDsa(mKey);
-	keySize.LogicalKeySizeInBits = BN_num_bits(dsaKey->p);
-	keySize.EffectiveKeySizeInBits = keySize.LogicalKeySizeInBits;
-	DSA_free(dsaKey);
+	dsaKey = rawCssmKeyToDsa(mKey,
+		mSession,
+		NULL);		// no param key allowed here
+	if(dsaKey->p != NULL) {
+		/* normal fully-formed key */
+		keySize.LogicalKeySizeInBits = BN_num_bits(dsaKey->p);
+		keySize.EffectiveKeySizeInBits = keySize.LogicalKeySizeInBits;
+		DSA_free(dsaKey);
+	}
+	else {
+		/* partial key, get an approximation from pub_key */
+		keySize.LogicalKeySizeInBits = BN_num_bits(dsaKey->pub_key);
+		DSA_free(dsaKey);
+		/* and indicate this anomaly like so */
+		CssmError::throwMe(CSSMERR_CSP_APPLE_PUBLIC_KEY_INCOMPLETE);
+	}
+}
+
+/* 
+ * Obtain blob suitable for hashing in CSSM_APPLECSP_KEYDIGEST 
+ * passthrough.
+ */
+bool DSAKeyInfoProvider::getHashableBlob(
+	CssmAllocator 	&allocator,
+	CssmData		&blob)			// blob to hash goes here
+{
+	/* No optimized case for DSA keys */
+	return false;
 }

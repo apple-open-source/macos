@@ -14,6 +14,7 @@ struct macosx_cfm_thread_status
   CORE_ADDR info_api_cookie;
   CORE_ADDR breakpoint_offset;
   struct cfm_parser parser;
+  struct breakpoint *cfm_breakpoint;
 };
 typedef struct macosx_cfm_thread_status macosx_cfm_thread_status;
 

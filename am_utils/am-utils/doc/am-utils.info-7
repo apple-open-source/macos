@@ -1,6 +1,7 @@
-This is am-utils.info, produced by makeinfo version 4.0b from
+This is am-utils.info, produced by makeinfo version 4.1 from
 am-utils.texi.
 
+INFO-DIR-SECTION Administration
 START-INFO-DIR-ENTRY
 * Am-utils: (am-utils).          The Amd automounter suite of utilities
 END-INFO-DIR-ENTRY
@@ -61,8 +62,6 @@ Index
 * auto_dir Parameter:                    auto_dir Parameter.
 * autodir Selector Variable:             autodir Selector Variable.
 * autodir, mount selector:               autodir Selector Variable.
-* Autofs filesystem:                     Autofs Filesystem.
-* autofs, filesystem type:               Autofs Filesystem.
 * Automatic generation of user maps:     Password maps.
 * Automount directory:                   -a Option.
 * Automount filesystem:                  Automount Filesystem.
@@ -88,7 +87,7 @@ Index
 * cdfs, filesystem type:                 CD-ROM Filesystem.
 * Centralized Mail Spool Directory:      Centralized Mail Spool Directory.
 * Changing the interval before a filesystem times out: -c Option.
-* chroot: /tftpboot example:             /tftpboot in a chroot-ed environment.
+* chroot; /tftpboot example:             /tftpboot in a chroot-ed environment.
 * Cluster names:                         -C-Option.
 * cluster Parameter:                     cluster Parameter.
 * cluster Selector Variable:             cluster Selector Variable.
@@ -160,7 +159,6 @@ Index
 * Filesystem:                            Filesystems and Volumes.
 * Filesystem info package:               FSinfo.
 * Filesystem type; auto:                 Automount Filesystem.
-* Filesystem type; autofs:               Autofs Filesystem.
 * Filesystem type; cachefs:              Caching Filesystem.
 * Filesystem type; cdfs:                 CD-ROM Filesystem.
 * Filesystem type; direct:               Direct Automount Filesystem.
@@ -234,7 +232,7 @@ Index
 * Help; showing from Amd:                -H Option.
 * Help; showing from Amq:                Amq -H-option.
 * Hesiod maps:                           Hesiod maps.
-* Hesiod: turning on RES_DEBUG:          -D-Option.
+* Hesiod; turning on RES_DEBUG:          -D-Option.
 * hesiod_base Parameter:                 hesiod_base Parameter.
 * History:                               History.
 * Hlfsd:                                 Hlfsd.
@@ -405,6 +403,7 @@ Index
 * Mount flags; utimeout=N:               opts Option.
 * Mount flags; vers:                     opts Option.
 * Mount flags; wsize:                    opts Option.
+* Mount flags; xlatecookie:              opts Option.
 * Mount home directories:                Home Directories.
 * Mount information:                     Mount Maps.
 * Mount map option; cache:               Automount Filesystem.
@@ -625,6 +624,7 @@ Index
 * Setting the local mount point:         fs Option.
 * Setting the log file:                  -l Option.
 * Setting the NIS (YP) domain name:      -y Option.
+* Setting the operating system architecture: -A-Option.
 * Setting the Operating System name:     -O-Option.
 * Setting the Operating System version:  -o Option.
 * Setting the sublink option:            sublink Option.

@@ -54,7 +54,7 @@ static struct afd {
 #endif
 	{PF_INET, sizeof(struct in_addr), sizeof(struct sockaddr_in),
 		offsetof(struct sockaddr_in, sin_addr)},
-	{0, 0, 0},
+	{0, 0, 0, 0},
 };
 
 struct sockinet {
@@ -89,7 +89,9 @@ getnameinfo(sa, salen, host, hostlen, serv, servlen, flags)
 	int family, i;
 	char *addr, *p;
 	u_long v4a;
+#ifdef INET6
 	u_char pfx;
+#endif
 	int h_error;
 	char numserv[512];
 	char numaddr[512];

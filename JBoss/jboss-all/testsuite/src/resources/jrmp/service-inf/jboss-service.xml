@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<server>
+
+  <mbean code="org.jboss.invocation.jrmp.server.JRMPInvoker" 
+         name="jboss:service=invoker,type=jrmp,socketType=CompressionSocketFactory">
+    <attribute name="RMIObjectPort">4445</attribute>
+    <attribute name="RMIClientSocketFactory">org.jboss.test.jrmp.ejb.CompressionClientSocketFactory</attribute>
+    <attribute name="RMIServerSocketFactory">org.jboss.test.jrmp.ejb.CompressionServerSocketFactory</attribute>
+  </mbean>
+
+</server>

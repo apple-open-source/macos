@@ -1,38 +1,39 @@
-/*****************************************************************************
+/***************************************************************************
  *                                  _   _ ____  _     
  *  Project                     ___| | | |  _ \| |    
  *                             / __| | | | |_) | |    
  *                            | (__| |_| |  _ <| |___ 
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 2000, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2002, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
- * In order to be useful for every potential user, curl and libcurl are
- * dual-licensed under the MPL and the MIT/X-derivate licenses.
- *
+ * This software is licensed as described in the file COPYING, which
+ * you should have received as part of this distribution. The terms
+ * are also available at http://curl.haxx.se/docs/copyright.html.
+ * 
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
- * furnished to do so, under the terms of the MPL or the MIT/X-derivate
- * licenses. You may pick one of these licenses.
+ * furnished to do so, under the terms of the COPYING file.
  *
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: strequal.c,v 1.1.1.2 2001/04/24 18:49:12 wsanchez Exp $
- *****************************************************************************/
+ * $Id: strequal.c,v 1.1.1.3 2002/11/26 19:08:00 zarzycki Exp $
+ ***************************************************************************/
 
 #include "setup.h"
 
 #include <string.h>
+#include <ctype.h>
 
 int curl_strequal(const char *first, const char *second)
 {
 #if defined(HAVE_STRCASECMP)
-  return !strcasecmp(first, second);
+  return !(strcasecmp)(first, second);
 #elif defined(HAVE_STRCMPI)
-  return !strcmpi(first, second);
+  return !(strcmpi)(first, second);
 #elif defined(HAVE_STRICMP)
-  return !stricmp(first, second);
+  return !(stricmp)(first, second);
 #else
   while (*first && *second) {
     if (toupper(*first) != toupper(*second)) {
@@ -62,6 +63,9 @@ int curl_strnequal(const char *first, const char *second, size_t max)
     first++;
     second++;
   }
+  if(0 == max)
+    return 1; /* they are equal this far */
+
   return toupper(*first) == toupper(*second);
 #endif
 }
@@ -80,7 +84,7 @@ int curl_strnequal(const char *first, const char *second, size_t max)
  *
  * 
  */
-size_t strlcat(char *dst, const char *src, size_t siz)
+size_t Curl_strlcat(char *dst, const char *src, size_t siz)
 {
   char *d = dst;
   const char *s = src;
@@ -107,3 +111,11 @@ size_t strlcat(char *dst, const char *src, size_t siz)
   return(dlen + (s - src));	/* count does not include NUL */
 }
 #endif
+
+/*
+ * local variables:
+ * eval: (load-file "../curl-mode.el")
+ * end:
+ * vim600: fdm=marker
+ * vim: et sw=2 ts=2 sts=2 tw=78
+ */

@@ -38,6 +38,7 @@
 
 #include <IOKit/IOEventSource.h>
 #include <IOKit/firewire/IOFireWireBus.h>
+#include <IOKit/firewire/IOFireWireFamilyCommon.h>
 
 class OSData;
 class IOWorkLoop;
@@ -54,8 +55,6 @@ class IOFireWireUnit;
 class IODCLProgram;
 class IOLocalConfigDirectory;
 class IOFireWireLink;
-class IOFireLog;
-class IOFireLogPublisher;
 class IOFireWireSBP2ORB;
 class IOFireWireSBP2Login;
 class IOFireWireROMCache;
@@ -63,6 +62,11 @@ class IOFireWireLocalNode;
 class IOFWWorkLoop;
 class IOFireWireIRM;
 class IOFireWirePowerManager;
+
+#if FIRELOGCORE
+class IOFireLog;
+class IOFireLogPublisher;
+#endif
 
 // Phy packet defs.
 
@@ -286,8 +290,11 @@ protected:
     
 	ExpansionData * reserved;
 
-    virtual bool init( IOFireWireController * primary );
-	virtual	void free();
+    virtual bool 									init ( 
+																IOFireWireController * 	primary );
+	virtual	void 									free ();
+	virtual IOFWDCLPool *							createDCLPool ( unsigned capacity ) const ;
+//	virtual IOFWBufferFillIsochPort *				createBufferFillIsochPort () const ;
 	
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireControllerAux, 0);
@@ -313,6 +320,7 @@ protected:
     enum busState {
         kStarting = 0,		
 		kAsleep,			// Link off, zzzzzz
+		kWaitingBusReset,
         kWaitingSelfIDs,	// Bus has been reset, no selfIDs yet
         kWaitingScan,		// Got selfIDs, waiting a bit before hitting lame devices
         kScanning,			// Reading node ROMs
@@ -360,91 +368,98 @@ protected:
 	friend class IOFireWireAVCLocalUnit;
 	friend class IOFireWireAVCUnit;
     friend class IOFireWireAVCCommand;
-    friend class IOFireLog;
 	friend class IOFireWirePowerManager;
 	friend class IOFWWriteQuadCommand;
 	friend class IOFWWriteCommand;
 	friend class IOFWCompareAndSwapCommand;
-	
-    IOFireWireLink *		fFWIM;
-    IOFWWorkLoop *	fWorkLoop;
-    IOTimerEventSource *fTimer;
-    OSSet *		fLocalAddresses;	// Collection of local adress spaces
-    OSIterator *	fSpaceIterator;		// Iterator over local addr spaces
 
-    OSSet *		fAllocatedChannels;	// Need to be informed of bus resets
-    OSIterator *	fAllocChannelIterator;	// Iterator over channels
+#if FIRELOGCORE
+	friend class IOFireLog;
+#endif
+
+    IOFireWireLink *			fFWIM;
+    IOFWWorkLoop *				fWorkLoop;
+    IOTimerEventSource *		fTimer;
+    OSSet *						fLocalAddresses;	// Collection of local adress spaces
+    OSIterator *				fSpaceIterator;		// Iterator over local addr spaces
+
+    OSSet *						fAllocatedChannels;	// Need to be informed of bus resets
+    OSIterator *				fAllocChannelIterator;	// Iterator over channels
 
     // Bus management variables (although we aren't a FireWire Bus Manager...)
-    AbsoluteTime	fResetTime;		// Time of last reset
-    UInt32		fBusGeneration;		// ID of current bus topology.
-    UInt16		fLocalNodeID;		// ID of local node, ie. this computer
-    UInt16		fRootNodeID;		// ID of root, ie. highest node id in use.
-    UInt16		fIRMNodeID;		// ID of Isochronous resource manager, or kFWBadNodeID
-    bool		fBusMgr;		// true if at least one node is bus manager capable
-    IORegistryEntry * 	fNodes[kFWMaxNodesPerBus];	// FireWire nodes on this bus
-    UInt32 *	 	fNodeIDs[kFWMaxNodesPerBus+1];	// Pointer to SelfID list for each node
+    AbsoluteTime				fResetTime;		// Time of last reset
+    UInt32						fBusGeneration;		// ID of current bus topology.
+    UInt16						fLocalNodeID;		// ID of local node, ie. this computer
+    UInt16						fRootNodeID;		// ID of root, ie. highest node id in use.
+    UInt16						fIRMNodeID;		// ID of Isochronous resource manager, or kFWBadNodeID
+    bool						fBusMgr;		// true if at least one node is bus manager capable
+    IORegistryEntry *			fNodes[kFWMaxNodesPerBus];	// FireWire nodes on this bus
+    UInt32 *					fNodeIDs[kFWMaxNodesPerBus+1];	// Pointer to SelfID list for each node
 							// +1 so we know how many selfIDs the last node has
-    UInt32		fGapCount;		// What we think the gap count should be
-    UInt8		fSpeedCodes[(kFWMaxNodesPerBus+1)*kFWMaxNodesPerBus];
+    UInt32						fGapCount;		// What we think the gap count should be
+    UInt8						fSpeedCodes[(kFWMaxNodesPerBus+1)*kFWMaxNodesPerBus];
 						// Max speed between two nodes
-    busState	fBusState;		// Which state are we in?
-    int			fNumROMReads;		// Number of device ROMs we are still reading
+    busState					fBusState;		// Which state are we in?
+    int							fNumROMReads;		// Number of device ROMs we are still reading
     // SelfIDs
-    int			fNumSelfIDs;		// Total number of SelfID packets
-    UInt32		fSelfIDs[kMaxSelfIDs*kFWMaxNodesPerBus];
+    int							fNumSelfIDs;		// Total number of SelfID packets
+    UInt32						fSelfIDs[kMaxSelfIDs*kFWMaxNodesPerBus];
 
     // The local device's Config ROM
-    UInt32 		fROMHeader[5];		// More or less fixed header and bus info block
-    IOLocalConfigDirectory *fRootDir;		// Local Config ROM root directory.
+    UInt32						fROMHeader[5];		// More or less fixed header and bus info block
+    IOLocalConfigDirectory *	fRootDir;		// Local Config ROM root directory.
 
     // log base 2 of maximum packet size the FWIM can send/receive
     // Normally calculated from bus info block.
     int	fMaxSendLog;
     int fMaxRecvLog;
     
-    IOFWAddressSpace *	fROMAddrSpace;
-    IOMemoryDescriptor *fBadReadResponse;	// Send back easily identified bad data to out of range addrs. 
+    IOFWAddressSpace *			fROMAddrSpace;
+    IOMemoryDescriptor *		fBadReadResponse;	// Send back easily identified bad data to out of range addrs. 
 
     // Array for outstanding requests (up to 64)
-    AsyncPendingTrans	fTrans[kMaxPendingTransfers];
-    int			fLastTrans;
+    AsyncPendingTrans			fTrans[kMaxPendingTransfers];
+    int							fLastTrans;
 
     // queue for executing commands that may timeout
-    timeoutQ		fTimeoutQ;
+    timeoutQ					fTimeoutQ;
 
     // queue for commands that can't execute yet
-    pendingQ		fPendingQ;
+    pendingQ					fPendingQ;
 
     // queue for async commands interrupted by bus reset
-    IOFWCmdQ		fAfterResetHandledQ;
+    IOFWCmdQ					fAfterResetHandledQ;
     
     // Command to change bus state after a delay.
-    IOFWDelayCommand *	fDelayedStateChangeCmd;
-    bool fDelayedStateChangeCmdNeedAbort;
+    IOFWDelayCommand *			fDelayedStateChangeCmd;
+    bool						fDelayedStateChangeCmdNeedAbort;
     
-	UInt32				fDelayedPhyPacket;
-	bool 				fBusResetScheduled;
-	ResetState			fBusResetState;
-	IOFWDelayCommand *	fBusResetStateChangeCmd;
-	UInt32 				fBusResetDisabledCount;
+	UInt32						fDelayedPhyPacket;
+	bool						fBusResetScheduled;
+	ResetState					fBusResetState;
+	IOFWDelayCommand *			fBusResetStateChangeCmd;
+	UInt32						fBusResetDisabledCount;
 
-    IOFireLogPublisher * fFireLogPublisher;
+#if FIRELOGCORE
+    IOFireLogPublisher *		fFireLogPublisher;
+#else
+    void *						fFireLogPublisher;
+#endif
 
-    OSData * fAllocatedAddresses;
+    OSData *					fAllocatedAddresses;
 
-	UInt32	fDevicePruneDelay;
+	UInt32						fDevicePruneDelay;
 	
-	IOFWPhysicalAccessMode	fPhysicalAccessMode;
-	IOFWSecurityMode 		fSecurityMode;
-	IONotifier * 		fKeyswitchNotifier;
+	IOFWPhysicalAccessMode		fPhysicalAccessMode;
+	IOFWSecurityMode			fSecurityMode;
+	IONotifier *				fKeyswitchNotifier;
 	
 	IOFireWireIRM *				fIRM;
 	IOFireWirePowerManager *	fBusPowerManager;
 	
-	bool 			fGapCountMismatch;
+	bool						fGapCountMismatch;
 	
-	UInt8		fHopCounts[(kFWMaxNodesPerBus+1)*kFWMaxNodesPerBus];
+	UInt8						fHopCounts[(kFWMaxNodesPerBus+1)*kFWMaxNodesPerBus];
 
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the class in the future.
@@ -752,7 +767,15 @@ protected:
 									int 					size, 
 									IOFWAsyncCommand *		cmd,
 									IOFWWriteFlags 			flags );
-											
+
+protected:
+	bool delayedStateCommandInUse() const;
+	void enterBusResetDisabledState( );
+												
+public:
+
+ 	IOReturn clipMaxRec2K(Boolean clipMaxRec );
+
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireController, 0);
     OSMetaClassDeclareReservedUnused(IOFireWireController, 1);

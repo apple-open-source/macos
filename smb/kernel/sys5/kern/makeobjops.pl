@@ -365,7 +365,7 @@ foreach $src ( @filenames ) {
    
    if ($cfile) {
        # Print out the method desc
-       print CFILE "struct kobjop_desc $mname\_desc = {\n";
+       print CFILE "PRIVSYM struct kobjop_desc $mname\_desc = {\n";
        print CFILE "\t0, (kobjop_t) $default\n";
        print CFILE "};\n\n";
    }

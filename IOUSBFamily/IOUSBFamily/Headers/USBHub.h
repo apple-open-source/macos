@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,141 +22,184 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 #ifndef _USBHUB_H
 #define _USBHUB_H
 
 #include <IOKit/usb/USB.h>
 #include <IOKit/usb/USBSpec.h>
 
-/* Hub defines*/
+    /*!
+    @header     USBHub.h
+     @abstract  Constants and definitions used with Hub devices.
+     @discussion    
+     */
 
-
+    /*!
+    @enum Hub Descriptor Type
+    @discussion
+    */
 enum {
-	kUSBHubDescriptorType		= 0x29
+    kUSBHubDescriptorType       = 0x29
 };
 
+    /*!
+    @enum HubFeatures
+    @discussion Used with SET_FEATURE to set hub and port features
+    */
 enum {
-      						
-	kUSBHubLocalPowerChangeFeature		= 0,	/* Hub features */
-	kUSBHubOverCurrentChangeFeature 	= 1,
+                            
+    kUSBHubLocalPowerChangeFeature      = 0,    /* Hub features */
+    kUSBHubOverCurrentChangeFeature     = 1,
 
-	kUSBHubPortConnectionFeature		= 0,	/* port features */
-	kUSBHubPortEnableFeature		= 1,
-	kUSBHubPortSuspendFeature		= 2,
-	kUSBHubPortOverCurrentFeature 		= 3,
-	kUSBHubPortResetFeature			= 4,
-	kUSBHubPortPowerFeature			= 8,
-	kUSBHubPortLowSpeedFeature		= 9,
-	kUSBHubPortConnectionChangeFeature	= 16,
-	kUSBHubPortEnableChangeFeature		= 17,
-	kUSBHubPortSuspendChangeFeature		= 18,
-	kUSBHubPortOverCurrentChangeFeature	= 19,
-	kUSBHubPortResetChangeFeature		= 20
+    kUSBHubPortConnectionFeature        = 0,    /* port features */
+    kUSBHubPortEnableFeature            = 1,
+    kUSBHubPortSuspendFeature           = 2,
+    kUSBHubPortOverCurrentFeature       = 3,
+    kUSBHubPortResetFeature             = 4,
+    kUSBHubPortPowerFeature             = 8,
+    kUSBHubPortLowSpeedFeature          = 9,
+    kUSBHubPortConnectionChangeFeature  = 16,
+    kUSBHubPortEnableChangeFeature      = 17,
+    kUSBHubPortSuspendChangeFeature     = 18,
+    kUSBHubPortOverCurrentChangeFeature = 19,
+    kUSBHubPortResetChangeFeature       = 20
 };
 
+    /*!
+    @enum HubPortStatus
+    @discussion Used to decode the Port Status and Change 
+    */
 enum {
-	kHubPortConnection		= 0x0001,
-	kHubPortEnabled			= 0x0002,
-	kHubPortSuspend			= 0x0004,
-	kHubPortOverCurrent		= 0x0008,
-	kHubPortBeingReset		= 0x0010,
-	kHubPortPower			= 0x0100,
-	kHubPortLowSpeed		= 0x0200,
-	kHubPortHighSpeed		= 0x0400,
-	kHubPortTestMode		= 0x0800,
-	kHubPortIndicator		= 0x1000,
-	// these are the bits which cause the hub port state machine to keep moving
-	kHubPortStateChangeMask		= kHubPortConnection | kHubPortEnabled | kHubPortSuspend | kHubPortOverCurrent | kHubPortBeingReset
+    kHubPortConnection		= 0x0001,
+    kHubPortEnabled		= 0x0002,
+    kHubPortSuspend		= 0x0004,
+    kHubPortOverCurrent		= 0x0008,
+    kHubPortBeingReset		= 0x0010,
+    kHubPortPower		= 0x0100,
+    kHubPortLowSpeed		= 0x0200,
+    kHubPortHighSpeed		= 0x0400,
+    kHubPortTestMode		= 0x0800,
+    kHubPortIndicator		= 0x1000,
+
+    // these are the bits which cause the hub port state machine to keep moving
+    kHubPortStateChangeMask		= kHubPortConnection | kHubPortEnabled | kHubPortSuspend | kHubPortOverCurrent | kHubPortBeingReset
 };
 
 
+    /*!
+    @enum HubStatus
+    @discussion Used to decode the Hub Status and Change 
+    */
 enum {
-	kHubLocalPowerStatus		= 1,
-	kHubOverCurrentIndicator	= 2,
-	kHubLocalPowerStatusChange	= 1,
-	kHubOverCurrentIndicatorChange	= 2
+    kHubLocalPowerStatus        = 1,
+    kHubOverCurrentIndicator    = 2,
+    kHubLocalPowerStatusChange  = 1,
+    kHubOverCurrentIndicatorChange  = 2
 };
 
-// hub characteristics
+    /*!
+    @enum HubCharacteristics
+    @discussion 
+    */
 enum {
-    kPerPortSwitchingBit 	= (1 << 0),
-    kNoPowerSwitchingBit       	= (1 << 1),
-    kCompoundDeviceBit 		= (1 << 2),
-    kPerPortOverCurrentBit	= (1 << 3),
-    kNoOverCurrentBit 		= (1 << 4)
+    kPerPortSwitchingBit    = (1 << 0),
+    kNoPowerSwitchingBit    = (1 << 1),
+    kCompoundDeviceBit      = (1 << 2),
+    kPerPortOverCurrentBit  = (1 << 3),
+    kNoOverCurrentBit       = (1 << 4)
 };
 
+/*!
+@enum Hub Device Requests
+@discussion  Encoding of the hub specific standard requests
+<tt>
+<pre><b>
+Request          bmRequestType bRequest       wValue  wIndex wLength Data</b>
+ClearHubFeature  0010 0000B    CLEAR_FEATURE  Feature Zero    Zero   None
+ClearPortFeature 0010 0011B                   Feature Port    Zero   None
+
+GetBusState      1010 0011B    GET_STATE      Zero    Port    One    Port Bus State
+
+GetHubDescriptor 1010 0000B    GET_DESCRIPTOR Type    Zero    Length Descriptor
+
+GetHubStatus     1010 0000B    GET_STATUS     Zero    Zero    Four   Hub Status
+GetPortStatus    1010 0011B                   Zero    Port    Four   Port Status
+
+SetHubDescriptor 0010 0000B    SET_DESCRIPTOR Type    Zero    Length Descriptor
+
+SetHubFeature    0010 0000B    SET_FEATURE    Feature Zero    Zero   None
+SetPortFeature   0010 0011B                   Feature Port    Zero   None
+</pre>
+</tt>
+    */
 enum {
-/*
- Class-specific Requests
+    kClearHubFeature  = EncodeRequest(kUSBRqClearFeature,  kUSBOut, kUSBClass, kUSBDevice),
+    kClearPortFeature = EncodeRequest(kUSBRqClearFeature,  kUSBOut, kUSBClass, kUSBOther),
+    kGetPortState     = EncodeRequest(kUSBRqGetState,      kUSBIn,  kUSBClass, kUSBOther),
+    kGetHubDescriptor = EncodeRequest(kUSBRqGetDescriptor, kUSBIn,  kUSBClass, kUSBDevice),
+    kGetHubStatus     = EncodeRequest(kUSBRqGetStatus,     kUSBIn,  kUSBClass, kUSBDevice),
+    kGetPortStatus    = EncodeRequest(kUSBRqGetStatus,     kUSBIn,  kUSBClass, kUSBOther),
+    kSetHubDescriptor = EncodeRequest(kUSBRqGetDescriptor, kUSBOut, kUSBClass, kUSBDevice),
+    kSetHubFeature    = EncodeRequest(kUSBRqSetFeature,    kUSBOut, kUSBClass, kUSBDevice),
+    kSetPortFeature   = EncodeRequest(kUSBRqSetFeature,    kUSBOut, kUSBClass, kUSBOther)
+};
 
-Request        bmRequestType bRequest      wValue  wIndex wLength Data
-ClearHubFeature  0010 0000B CLEAR_FEATURE  Feature Zero    Zero   None
-ClearPortFeature 0010 0011B                Feature Port    Zero   None
 
-GetBusState      1010 0011B GET_STATE      Zero    Port    One    Port Bus State
-
-GetHubDescriptor 1010 0000B GET_DESCRIPTOR Type    Zero    Length Descriptor
-
-GetHubStatus     1010 0000B GET_STATUS     Zero    Zero    Four   Hub Status
-GetPortStatus    1010 0011B                Zero    Port    Four   Port Status
-
-SetHubDescriptor 0010 0000B SET_DESCRIPTOR Type    Zero    Length Descriptor
-
-SetHubFeature    0010 0000B SET_FEATURE    Feature Zero    Zero   None
-SetPortFeature   0010 0011B                Feature Port    Zero   None
+/*!
+    @typedef IOUSBHubDescriptor
+    @discussion USB Hub Descriptor.  See the USB HID Specification at <a href="http://www.usb.org"TARGET="_blank">http://www.usb.org</a>.
 */
-    kClearHubFeature
-        = EncodeRequest(kUSBRqClearFeature,  kUSBOut, kUSBClass, kUSBDevice),
-    kClearPortFeature
-        = EncodeRequest(kUSBRqClearFeature,  kUSBOut, kUSBClass, kUSBOther),
-    kGetPortState
-        = EncodeRequest(kUSBRqGetState,      kUSBIn,  kUSBClass, kUSBOther),
-    kGetHubDescriptor
-        = EncodeRequest(kUSBRqGetDescriptor, kUSBIn,  kUSBClass, kUSBDevice),
-    kGetHubStatus
-        = EncodeRequest(kUSBRqGetStatus,     kUSBIn,  kUSBClass, kUSBDevice),
-    kGetPortStatus
-        = EncodeRequest(kUSBRqGetStatus,     kUSBIn,  kUSBClass, kUSBOther),
-    kSetHubDescriptor
-        = EncodeRequest(kUSBRqGetDescriptor, kUSBOut, kUSBClass, kUSBDevice),
-    kSetHubFeature
-        = EncodeRequest(kUSBRqSetFeature,    kUSBOut, kUSBClass, kUSBDevice),
-    kSetPortFeature
-        = EncodeRequest(kUSBRqSetFeature,    kUSBOut, kUSBClass, kUSBOther)
-};
-
-
 struct IOUSBHubDescriptor {
-	UInt8 	length;
-	UInt8 	hubType;
-	UInt8 	numPorts;
-        UInt16 	characteristics __attribute__((packed));
-	UInt8 	powerOnToGood;	/* Port settling time, in 2ms */
-	UInt8 	hubCurrent;
-
-	/* These are received packed, will have to be unpacked */
-	UInt8 	removablePortFlags[8];
-	UInt8 	pwrCtlPortFlags[8];
+    UInt8   length;
+    UInt8   hubType;
+    UInt8   numPorts;
+    UInt16  characteristics __attribute__((packed));
+    UInt8   powerOnToGood;  /* Port settling time, in 2ms */
+    UInt8   hubCurrent;
+    /* These are received packed, will have to be unpacked */
+    UInt8   removablePortFlags[8];
+    UInt8   pwrCtlPortFlags[8];
 };
 
 typedef struct IOUSBHubDescriptor IOUSBHubDescriptor;
 
+/*!
+    @typedef IOUSBHubStatus
+    @discussion Used to get the port status and change flags using GetPortStatus()
+*/
 struct IOUSBHubStatus {
-    UInt16 			statusFlags;	/* Port status flags */
-    UInt16 			changeFlags;	/* Port changed flags */
+    UInt16          statusFlags;
+    UInt16          changeFlags;
 };
-typedef struct IOUSBHubStatus	IOUSBHubStatus;
-typedef IOUSBHubStatus *	IOUSBHubStatusPtr;
+typedef struct IOUSBHubStatus   IOUSBHubStatus;
+typedef IOUSBHubStatus *    IOUSBHubStatusPtr;
 
-typedef struct IOUSBHubStatus	IOUSBHubPortStatus;
+typedef struct IOUSBHubStatus   IOUSBHubPortStatus;
 
 
+/*!
+    @typedef IOUSBHubPortReEnumerateParam
+    @discussion Used to specify the port that needs to be reenumerated
+*/
 typedef struct IOUSBHubPortReEnumerateParam IOUSBHubPortReEnumerateParam;
 
 struct IOUSBHubPortReEnumerateParam {
+    UInt32   portNumber;
+    UInt32   options;
+};
+
+typedef struct IOUSBHubPortClearTTParam IOUSBHubPortClearTTParam;
+
+struct IOUSBHubPortClearTTParam {
     UInt32	 portNumber;
-    UInt32 	 options;
+    UInt32	 options;
+#if 0
+    UInt8 	 deviceAddress;  <<0
+        UInt8	 endpointNum;    <<8
+            UInt8 	 endpointType;	 <<16 // As split transaction. 00 Control, 10 Bulk
+                UInt8 	 IN;		 <<24 // Direction, 1 = IN, 0 = OUT
+#endif
 };
 
 #endif /* _USBHUB_H */

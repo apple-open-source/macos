@@ -1,0 +1,24 @@
+<!--
+
+    Context configuration file for the Tomcat Administration Web App
+
+    $Id: admin.xml,v 1.3 2002/07/23 12:12:15 remm Exp $
+
+-->
+
+
+<Context path="/admin" docBase="../server/webapps/admin"
+        debug="0" privileged="true">
+
+  <!-- Uncomment this Valve to limit access to the Admin app to localhost
+   for obvious security reasons. Allow may be a comma-separated list of
+   hosts (or even regular expressions).
+  <Valve className="org.apache.catalina.valves.RemoteAddrValve"
+    allow="127.0.0.1"/>
+  -->
+
+  <Logger className="org.apache.catalina.logger.FileLogger"
+             prefix="localhost_admin_log." suffix=".txt"
+          timestamp="true"/>
+
+</Context>

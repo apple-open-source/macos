@@ -1,7 +1,7 @@
 /* echo-area.c -- how to read a line in the echo area.
-   $Id: echo-area.c,v 1.1.1.1 2002/04/19 01:00:24 jkh Exp $
+   $Id: echo-area.c,v 1.2 2003/07/25 18:37:06 jkh Exp $
 
-   Copyright (C) 1993, 97, 98, 99, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1997, 1998, 1999, 2001 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by

@@ -1,0 +1,3 @@
+%(member)s has been successfully subscribed to %(listname)s.
+
+

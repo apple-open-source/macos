@@ -1,11 +1,35 @@
 
 /*
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+ 
+/*
  * mslp_macosx.c : System dependent definitions for MacOS X.
  *
  * Version: 1.0
  * Date:    12/03/99
  *
- * Author: Kevin Arnold
  */
 
 #include <sys/utsname.h>
@@ -45,24 +69,17 @@ EXPORT long LinGetTime()
   /* normally time() returns time_t, which is defined in sys/types.h to be  */
   /* the time of day in seconds, and typedefed to a long                    */
   long lResult;
-/*  struct timeval tv;
-  struct timezone tz;
 
-  if (gettimeofday(&tv,&tz)<0) {
-    LOG(SLP_LOG_ERR,"LinGetTime: could not gettimeofday");
-    tv.tv_sec = 0;
-    tv.tv_usec = 0;
-  }
-*/
-//  lResult = 1000 * tv.tv_sec + tv.tv_usec / 1000;
     lResult = time(NULL);
     
     return lResult;
 }
 
 EXPORT int Linstrcasecmp(const char *pc1, const char *pc2) {
-  assert(pc1 && pc2);
-  return strcasecmp(pc1,pc2);
+	if(pc1 && pc2)
+		return strcasecmp(pc1,pc2);
+	else
+		return -1;
 }
 
 EXPORT int Linstrncasecmp(const char *pc1, const char *pc2, int i) {
@@ -82,51 +99,6 @@ EXPORT void Linatexit(void (*exit_handler)(int)) {
 }
 
 #ifdef EXTRA_MSGS
-
-#if 0
-EXPORT static int getfid(FILE *fp) {
-  return fileno(fp);
-}
-
-/*
- * LockExists
- * returns 1 if it does
- * returns 0 if it does not
- * returns -1 if an error occurred.
- */
-EXPORT static int LockFileExists() {
-  struct stat fileno;
-  int i = stat(LOCK_NAME,&fileno);
-  if (i < 0 && errno == ENOENT) return 0;
-  if (i == 0) return 1;
-  return i;
-}
-
-EXPORT static void * OpenLockFile(int iMode) {
-
-  FILE *fp;
-
-  int *pID = (int *) safe_malloc(sizeof(int),NULL,0);
-  if (iMode == MSLP_SERVER) {
-    if ((fp = fopen(LOCK_NAME,"w")) == NULL) {
-      mslplog(SLP_LOG_ERR,"OpenLockFile - fopen failed: ",
-              strerror(errno));
-      return NULL;
-    }
-    fprintf(fp," ");
-    *pID = getfid(fp);
-    return (void*) pID;
-  } else {
-    if ((fp = fopen(LOCK_NAME,"r")) == NULL) {
-      mslplog(SLP_LOG_ERR,"OpenLockFile - fopen failed: ",
-              strerror(errno));
-      return NULL;
-    }
-    *pID = getfid(fp);
-    return (void*) pID;
-  }
-}
-#endif
 
 /* as client, returns NULL unless file exists
  * as server, removes the file and creates it afresh
@@ -160,8 +132,7 @@ EXPORT void * LinGetMutex(int iMode)
     } else if (iMode == MSLP_SERVER) {
     
         if (iLockFileExists) {
-    //      LOG(SLP_LOG_ERR,"Warning:  Lock file exists - unlink/reinitialize it\n");
-        unlink(LOCK_NAME); /* remove old file */
+			unlink(LOCK_NAME); /* remove old file */
         }
     
         return OpenLockFile(MSLP_SERVER);

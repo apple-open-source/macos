@@ -1,0 +1,414 @@
+INSIGHT PLUG-INS HOW-TO
+=======================
+
+This text describes the technical aspects of adding a plug-in window
+to Insight, the graphical front-end to the GNU Debugger, GDB.
+
+
+1) INTRODUCTION
+
+The plug-in facility allows for the addition of custom windows to
+Insight.  These windows are not to become part of the Insight
+distribution, but rather to be distributed separately.  They can be
+downloaded from the author's web site, may accompany some development
+board or embedded OS, or come with anything else that can benefit from
+a custom window being added to the standard Insight.  Plug-ins
+will be loaded into Insight/GDB for execution, so the terms of the GPL
+also apply to the plug-in code.  Also, Red Hat provides this facility
+as-is and accepts no responsibility from its use.  Please refer to the
+text of the GPL for more details.
+
+The facilities described here provide support for custom
+visualizations (custom windows for displaying information retrieved
+from the target).  By writing a plug-in, it is possible to visualize
+target-specific data that is not shown in the standard Insight
+windows.
+
+The plug-in facility cannot be used to control target execution.  The
+current implementation of Insight assumes that only the Source Window
+issues commands related to target execution control.  There is no
+mechanism to prevent one to call the commands that control execution,
+but its use may result in inconsistent GUI states.  This restriction
+may be lifted in future versions of Insight.
+
+The facility works as follows: A plugins subdirectory is added under
+the "EXEC-PREFIX/lib" directory where Insight is installed.  The custom
+plug-in code will be installed in a subdirectory of this plugins
+directory.  The plug-in window will be written as an [incr Tcl/Tk]
+class which inherits from the provided PluginWindow class and
+implements the methods necessary to display the desired custom
+data. GDB will read plug-in files on start-up and add a menu item to
+the PlugIn menu of the Insight Source Window.  When the menu item is
+chosen, GDB instantiates the custom plug-in class.
+
+The PluginWindow base class constructor creates a toplevel window (an
+Insight ManagedWin) which contains a "childsite".  In this case, the
+"childsite" is a frame in which the derived class (the custom plug-in)
+can draw.  The PluginWindow class also provides facilities to add a
+menu and a toolbar.  Among the methods provided by this class, the
+"running" method is called every time the debugger starts the target
+and the "stopped" method is called every time the target stops. In the
+"stopped" method, information can be gathered from the target and
+displayed.  The "running" method indicates that GDB is busy running
+the target.  No activities should be initiated by any GUI component
+while in this state (except for the STOP button in the Source Window).
+
+The remainder of this document describes how to install a custom
+plug-in and some details of the PluginWindow class.  Writing Tcl
+extensions (technically what plug-ins are) is beyond the scope of
+this document, but a simple example is given and some documentation
+references are provided.
+
+Please see the file CONTRIBUTE in this directory for some
+administrative details before you start developing your plug-in.
+
+
+2) HOW TO ADD A PLUG-IN WINDOW TO INSIGHT
+
+Once you have your plug-in class ready, here is how to make it show up
+in the Insight Source Window "PlugIn" menu.  You may perform these
+steps manually, but if you are distributing your plug-in, it may be
+convenient to provide an installation script with it that automates
+this steps.
+
+The examples in this section refer to the sample plug-in code provided
+with the Insight sources, located in the
+$(SOURCE)/gdb/gdbtk/plugins and $(SOURCE)/gdb/gdbtk/plugins/rhabout
+directories.
+
+Custom plug-ins are provided as "packages" (see [Welch 2000] and
+[Smith 2000]).  The following setup will cause your plug-in package to
+be loaded. 
+
+** FIXME: don't need to create the directory -- install will do it **
+i) First, locate the $(EXEC-PREFIX)/lib/insight1.0 directory.  This is the
+directory which contains the plug-in code used by Insight.  Create a
+this directory if it does not exist yet (i.e., if your plug-in
+is the first to be installed).
+
+ii) Create a subdirectory for your plug-in code (named in accordance to
+the conventions set forth in the CONTRIBUTE file).  Add all your code
+to that directory.  Make sure you have a tclIndex file or use
+auto_mkindex to create it.  For instance, in the sample case we would
+have:
+
+   $(EXEC-PREFIX)/lib/insight1.0/rhabout
+
+** FIXME: this shows unix. show cygwin, too. **
+and it would contain:
+
+   rhabout.itcl  rhabout.so  rhabout.tcl pkgIndex.tcl tclIndex
+
+iii) In your plug-in's directory, create a file that will actually load your
+plug-in package (named accordingly to the CONTRIBUTE conventions).  In
+the provided sample, this file is "rhabout.tcl" and would contain the
+following lines:
+
+   package provide RHABOUT 1.0
+   set dirname [file dirname [info script]]
+   lappend auto_path [file join $dirname]
+   catch {load [file join $dirname rhabout@TCL_SHLIB_SUFFIX@]}
+
+The first line states what package the sample plug-in code is
+providing.  Note that the subdirectory "rhabout" which contains the
+sample plug-in is added to the auto_path in the third line and there
+is a tclIndex file in that directory (that is how plug-in classes and
+methods are found).
+
+The last line is only necessary if your plug-in contains Tcl command
+procedures written in C.  Loading Tcl libraries is described in [Welch
+2000] and the [incr Tcl/Tk] bits can be found in [Smith 2000].  It is
+recommended that the reader also refer to the "load" Tcl man page if
+these dynamic libraries are to be loaded.
+
+iv) Add a pkgIndex.tcl file to your plug-in's directory. Do not use
+Tcl to generate this file, since it will not work properly. Instead,
+just add a line like:
+
+   package ifneeded RHABOUT 1.0 [list source [file join $dir rhabout.tcl]]
+
+This roughly corresponds to what would be created by a pkg_mkIndex
+command with the "-direct" option.
+
+** FIXME: install will do this, too. ALL plugins should be mentioned
+   in the global plugins.tcl file **
+v) Create/append the file "plugins.tcl" in the plugins directory
+($(EXEC-PREFIX/lib/insight1.0) if it does not yet exist.  This is a file
+shared by all plug-ins so make sure your install script does not overwrite,
+but append to it.
+
+This is a Tcl code fragment that will be sourced by the Insight Source
+Window constructor to add menu entries to the "PlugIn" menu that will
+instantiate the plug-in classes.  If there is any error in this few
+lines of code Insight will not start and a Tcl stack trace will be
+shown.  So test it in your build directory before installing in a
+system shared by others.
+
+For the sample plug-in, this lines would be:
+
+   # Add your window to the PlugIn menu here
+   # Don't forget to add your packet as well
+
+   if {1} {  #test here if your target is configured
+     # Uncomment this when the PlugIn class is ready
+     #package require LIBGDB 1.0
+     package require RHABOUT 1.0
+     $Menu add command Other "About Red Hat" \
+       {ManagedWin::open RHAbout} \
+       -underline 0
+     # To activate the PlugIn sample, uncomment the next line
+     set plugins_available 1
+   }
+
+You can ignore the LIBGDB "package require" command for now.  LIBGDB
+is under construction and not yet available.  But do not forget to
+add a "package require" command for your plug-in package.  Otherwise,
+when someone choses your plug-in menu entry a stack trace will be
+produced.
+
+The Tcl command starting with "$Menu" is similar to the ones provided
+by the "menubar" component of the PluginWindow class (described later
+in this document), but all one needs to do is to copy the above
+replacing the menu entry text "About Red Hat", the plug-in class name
+"RHAbout" and the underline index with the appropriate values.
+
+The "set plugins_available 1" command is important.  If the variable
+"plugins_available" is not set to 1 by any of the plug-in code
+fragments, the Source Window will not have a "PlugIn" menu.
+
+This brings us to the "if" statement in the first line.  The sample
+plug-in is generic, it works with any target.  However, a custom
+plug-in may be written for a specific target and be of no generic
+use. Furthermore, a target-specific plug-in may not even work with
+other host and target configurations different from the one for which
+it was designed.
+
+The plugins.tcl file used by Insight is shared by all configurations on a
+given host, and adding a plug-in incorrectly could render Insight unusable.
+To avoid this, test for the right configuration before adding your plug-in
+to the plug-in menu entry (the "package require" must also be protected).
+
+Insight has a global variable which contains configuration
+information. The array "GDBStartup" has the elements:
+
+   host_name     - host configuration triplet
+   target_name   - target configuration triplet 
+
+Use the values $GDBStartup(host_name) and $GDBStartup(target_name)
+to verify that your plug-in code is supported. Since these are global
+variables, you must either add "global GDBStartup" somewhere before using
+it, or simply specify GDBStartup in the global space, e.g.,
+"$::GDBStartup(host_name)".
+
+For instance, if the sample code could only be used with Linux hosts,
+the sample code above would look like this:
+
+   # Add your window to the PlugIn menu here
+   # Don't forget to add your packet as well
+
+   global GDBStartup
+   if {[string first "linux" $GDBStartup(host_name)] != -1} {
+     #package require LIBGDB 1.0
+     package require RHABOUT 1.0
+     $Menu add command Other "About Red Hat" \
+       {ManagedWin::open RHAbout} \
+       -underline 0
+     set plugins_available 1
+   }
+
+
+3) DEVELOPING AN INSIGHT PLUG-IN
+
+Only itcl-based windows will work.  They must also be derived (i.e.,
+inherit) from the PluginWindow class described in the next section.
+You must also follow the name conventions described in the CONTRIBUTE
+file to avoid class name clashes.
+
+The PluginWindow base class has facilities for adding a menu and a
+toolbar.  It already provides the code to deactivate buttons and menu
+entries when GDB is busy (running the target) and reactivate them when
+the target stops.  Your job usually consists of calling a method to
+redraw your window with updated information when the target stops.
+You can do this simply by adding a call to this method inside the
+"stopped" method provided.
+
+The Insight Tcl source file gdb/gdbtk/library/interface.tcl and the C
+file gdb/gdbtk/generic/gdbtk-cmds.c contain a (quite volatile) set of
+Tcl commands that can be used to retrieve information from and about
+the target.  Examples of the use of such commands exist all around the
+Insight source code and details are usually given near the procedure
+or function definitions.  Please refrain from using commands that
+control the target execution or change the GDB state in any way, they
+are reserved for use by the Source Window only.  Remember, plug-ins are
+a visualization facility only.
+
+A special remark is necessary about the gdb_cmd and gdb_immediate
+commands.  These are deprecated and will disappear (stop working) soon.
+The GDB maintainers have asked the Insight maintainers to stop using
+the hooks in GDB code that make them possible.  Conversion is already
+under way.  You can use them for prototyping (for now), but be
+prepared to write Tcl command procedures instead of parsing console text
+output.  
+
+If you need to issue target-dependent commands to retrieve information
+from your target (that cannot be retrieved with the standard register
+and memory access operations), you can write Tcl command procedures
+and add them to your target dependent file enclosed in 
+   #ifdef GDBTK
+   #endif
+The target-dependent Tcl code will move to a subdirectory of gdbtk in
+the future, but for now, just add it to your existent target-dependent
+file.
+
+If you must access gdb functions that are not yet available in
+gdbtk-cmds.c (or in any of the spun-offs that will soon exist in the
+gdb/gdbtk/generic directory), consider writing to the Insight
+maintainers.  They will be able to tell you what command should be
+implemented and, if they have the time, add it to Insight.  As they
+may be busy, consider offering to write the code yourself and
+submitting it for approval (see CONTRIBUTE).  You can see how these
+Tcl command procedures in C are written by looking at what it is done
+in the gdbtk-cmds.c file and others in the gdb/gdbtk/generic
+subdirectory.  Again, you can use the gdb_cmd and gdb_immediate
+commands to invoke a GDB command line interface command, but they will
+not be available for long.
+
+Please refer to the sample source code located in the files:
+  gdb/gdbtk/library/plugins/rhabout/rhabout.itcl
+  gdb/gdbtk/library/plugins/rhabout/rhabout.c 
+
+The comments in these files provide a basic framework for a Insight
+plug-in.
+
+
+4) THE "PluginWindow" BASE CLASS
+
+The PluginWindow base class provides the following methods:
+
+childsite  -  returns the path of the frame component that can be used
+by the plug-in code to pack its custom display components.
+
+stopped  -  called when the target stops.  It should be overloaded and
+call the plug-in procedure that updates the display.  The child
+version must call the base class method implementation if it wants
+menu items and/or buttons to be automatically controlled.
+
+running  -  called when GDB becomes busy by running the target.  No
+commands shall be issued by a plug-in while GDB is busy.  The child
+version must call the base class method implementation if it wants
+menu items and/or buttons to be automatically controlled.
+
+no_inferior  -  called when GDB disconnects from the target.  The
+plug-in may want to forget some context information in this case,
+depending on the specifics of its implementation.  The child
+version must call the base class method implementation if it wants
+menu items and/or buttons to be automatically controlled.
+
+
+The PluginWindow base class contains two components which can be
+optionally used:
+
+menubar  -  allows a menu to be added to the plug-in window.  This
+facility is implemented by the GDBMenuBar class (gdbmenubar.itcl).
+
+toolbar  -  allows a toolbar to be added to the plug-in window.  This
+facility is implemented by the GDBToolBar class (gdbtoolbar.itcl).
+
+
+Both buttons and menu entries have "class" attributes.  Button classes
+and Menu entry classes are specified when they are created and are
+used for the automatic control of button and menu entry states.
+If the class is specified as "None", the menu entry or button will
+remain always active.  The classes "Control" and "Other" follow the
+following convention:
+
+   Control    Other     State
+     off       off      gdb is busy
+     on        on       gdb has inferior, and is idle
+     off       on       gdb has no inferior, and is idle
+
+
+The "menubutton" component offers the following supported commands:
+
+add menubutton  - add a menu button to the window menu bar.
+add command     - add an entry to the last menu created.
+add separator   - add a separator to the last menu created.
+show            - attach the created menu to the window.
+
+If the show command is not issued, the plug-in window will have no
+menu bar.  There are other methods and commands defined in the
+GDBMenuBar class.  They are for Insight internal use only and should
+not be used by plug-in windows.
+
+A menu named "help" will automatically be aligned to the right.
+
+The sample plug-in code creates a simple menu with the following commands:
+
+    $menubar add menubutton file "File" 0
+    $menubar add command None "Close" \
+      [code $this destroy_toplevel] \
+      -underline 1
+    $menubar add menubutton help "Help" 0
+    $menubar add command Other "Help Topics" \
+      {HtmlViewer::open_help index.html} \
+      -underline 0
+    $menubar add separator
+    $menubar add command Other "About GDB..." \
+      {ManagedWin::open About -transient} \
+      -underline 0
+
+    # The menu only shows up if you do this:
+    $menubar show
+
+
+The "toolbar" component offers the following supported commands:
+
+add button      - add a button to the window tool bar.
+add label       - add an label widget to the tool bar.
+add separator   - add a separator to the tool bar.
+itemconfigure   - configure a tool bar element.
+show            - make the toolbar visible.
+
+If the show command is not issued, the plug-in window will have no
+tool bar.  There are other methods and commands defined in the
+GDBToolBar class.  They are for Insight internal use only and should
+not be used by plug-in windows.
+
+Use the "itemconfigure" command to fill the label elements with the
+current data as necessary.
+
+The sample plug-in code creates a single button with the following commands:
+
+    $toolbar add button con Other {ManagedWin::open Console} \
+                           "Console (Ctrl+N)" -image console_img
+
+    # The toolbar will only show up if you do this:
+    $toolbar show
+
+
+The complete Tcl code of the sample plug-in can be found in the file
+   gdb/gdbtk/library/plugins/rhabout/rhabout.itcl
+and the PluginWindow class definition and implementation is in the file
+   gdb/gdbtk/library/pluginwin.itcl
+
+Please refer to the files
+   gdb/gdbtk/library/gdbmenubar.itcl
+and
+   gdb/gdbtk/library/gdbtoolbar.itcl
+for the current arguments accepted by the menubar and toolbar commands
+respectively.
+
+REQUIRED FILES
+gdbtk/plugins/PLUGIN
+gdbtk/plugins/PLGUIN/PLUGIN.tcl.in
+gdbtk/plugins/PLUGIN/Makefile.in
+gdbtk/plugins/PLUGIN/pkgIndex.tcl
+gdbtk/plugins/PLUGIN/tclIndex
+
+REFERENCES
+
+[Smith 2000] Chad Smith, "[incr Tcl/Tk] from the Ground Up".
+Chapters 9 and 10.  Osborne/McGraw-Hill, 2000. 
+
+[Welch 2000] Brent B. Welch, "Practical Programming in Tcl and Tk",
+3/e.  Chapters 12, 14, 44, 45, 46 and 47.  Prentice Hall PTR, 2000.

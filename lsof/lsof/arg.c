@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: arg.c,v 1.39 2001/10/20 17:39:13 abe Exp $";
+static char *rcsid = "$Id: arg.c,v 1.41 2002/12/05 12:21:18 abe Exp $";
 #endif
 
 
@@ -58,7 +58,7 @@ static int NCmdRxA = 0;			/* space allocated to CmdRx[] */
  */
 
 _PROTOTYPE(static int ckfd_range,(char *first, char *dash, char *last, int *lo, int *hi));
-_PROTOTYPE(static void enter_fd_lst,(char *nm, int lo, int hi));
+_PROTOTYPE(static int enter_fd_lst,(char *nm, int lo, int hi, int excl));
 _PROTOTYPE(static int enter_nwad,(struct nwad *n, int sp, int ep, char *s, struct hostent *he));
 _PROTOTYPE(static struct hostent *lkup_hostnm,(char *hn, struct nwad *n));
 
@@ -699,7 +699,7 @@ enter_fd(f)
 	char *f;			/* file descriptor list pointer */
 {
 	char c, *cp1, *cp2, *dash;
-	int err, hi, lo;
+	int err, excl, hi, lo;
 	char *fc;
 /*
  *  Check for non-empty list and make a copy.
@@ -720,8 +720,15 @@ enter_fd(f)
  *	[0-9]+-[0-9]+
  *
  * treat it as an ascending range of file descriptor numbers.
+ *
+ * Accept a leading '^' as an excusion on match.
  */
 	for (cp1 = fc, err = 0; *cp1;) {
+	    if (*cp1 == '^') {
+		excl = 1;
+		cp1++;
+	    } else
+		excl = 0;
 	    for (cp2 = cp1, dash = (char *)NULL; *cp2 && *cp2 != ','; cp2++) {
 		if (*cp2 == '-')
 		    dash = cp2;
@@ -732,10 +739,14 @@ enter_fd(f)
 		if (dash) {
 		    if (ckfd_range(cp1, dash, cp2, &lo, &hi))
 			err = 1;
-		    else
-			(void) enter_fd_lst((char *)NULL, lo, hi);
-		} else
-		    (void) enter_fd_lst(cp1, 0, 0);
+		    else {
+			if (enter_fd_lst((char *)NULL, lo, hi, excl))
+			    err = 1;
+		    }
+		} else {
+		    if (enter_fd_lst(cp1, 0, 0, excl))
+			err = 1;
+		}
 	    }
 	    if (c == '\0')
 		break;
@@ -750,15 +761,48 @@ enter_fd(f)
  * enter_fd_lst() - make an entry in the FD list, Fdl
  */
 
-static void
-enter_fd_lst(nm, lo, hi)
+static int
+enter_fd_lst(nm, lo, hi, excl)
 	char *nm;			/* FD name (none if NULL) */
 	int lo;				/* FD low boundary (if nm NULL) */
 	int hi;				/* FD high boundary (if nm NULL) */
+	int excl;			/* exclusion on match */
 {
-	char *cp;
-	struct fd_lst *f;
-	int n;
+	char buf[256], *cp;
+	int dup, n;
+	struct fd_lst *f, *ft;
+/*
+ * Don't allow a mixture of exclusions and inclusions.
+ */
+	if (FdlTy >= 0) {
+	    if (FdlTy != excl) {
+		if (!Fwarn) {
+
+		/*
+		 * If warnings are enabled, report a mixture.
+		 */
+		    if (nm) {
+			(void) snpf(buf, sizeof(buf) - 1, "%s%s",
+			    excl ? "^" : "", nm);
+		    } else {
+			if (lo != hi) {
+			    (void) snpf(buf, sizeof(buf) - 1, "%s%d-%d",
+				excl ? "^" : "", lo, hi);
+			} else {
+			    (void) snpf(buf, sizeof(buf) - 1, "%s%d",
+				excl ? "^" : "", lo);
+			}
+		    }
+		    buf[sizeof(buf) - 1] = '\0';
+		    (void) fprintf(stderr,
+		        "%s: %s in an %s -d list: %s\n", Pn,
+			excl ? "exclude" : "include",
+			FdlTy ? "exclude" : "include",
+			buf);
+		}
+		return(1);
+	    }
+	}
 /*
  * Allocate an fd_lst entry.
  */
@@ -795,10 +839,27 @@ enter_fd_lst(nm, lo, hi)
 	    }
 	} else
 	    f->nm = (char *)NULL;
+/*
+ * Skip duplicates.
+ */
+	for (ft = Fdl; ft; ft = ft->next) {
+	    if (f->nm) {
+		if (!ft->nm || strcmp(f->nm, ft->nm))
+		    continue;
+	    } else if ((lo != ft->lo) || (hi != ft->hi))
+		continue;
+	    (void) free((FREE_P *)f);
+	    return(0);
+	}
+/*
+ * Complete the fd_lst entry and link it to the head of the chain.
+ */
 	f->hi = hi;
 	f->lo = lo;
 	f->next = Fdl;
 	Fdl = f;
+	FdlTy = excl;
+	return(0);
 }
 
 
@@ -1843,11 +1904,12 @@ enter_uid(us)
 		    uid = pw->pw_uid;
 	    }
 
-#if	defined(HASSECURITY)
+#if	defined(HASSECURITY) && !defined(HASNOSOCKSECURITY)
 	/*
 	 * If the security mode is enabled, only the root user may list files
 	 * belonging to user IDs other than the real user ID of this lsof
-	 * process.
+	 * process.  If HASNOSOCKSECURITY is also defined, then anyone may
+	 * list anyone else's socket files.
 	 */
 	    if (Myuid && uid != Myuid) {
 		(void) fprintf(stderr,
@@ -1856,7 +1918,7 @@ enter_uid(us)
 		err = 1;
 		continue;
 	    }
-#endif	/* HASSECURITY */
+#endif	/* defined(HASSECURITY)  && !defined(HASNOSOCKSECURITY) */
 
 	/*
 	 * Avoid entering duplicates.

@@ -42,7 +42,7 @@
 #include <IOKit/storage/IOCDBlockStorageDevice.h>
 
 // SCSI Architecture Model Family includes
-#include <IOKit/scsi-commands/IOSCSIPeripheralDeviceType05.h>
+#include <IOKit/scsi/IOSCSIPeripheralDeviceType05.h>
 
 class IOMemoryDescriptor;
 
@@ -97,10 +97,6 @@ public:
 											UInt32					block,
 											UInt32					nblks,
 											IOStorageCompletion		completion );
-
-	virtual IOReturn	doSyncReadWrite ( 	IOMemoryDescriptor *	buffer,
-											UInt32					block,
-											UInt32					nblks );
 
     virtual IOReturn	doEjectMedia ( void );
 

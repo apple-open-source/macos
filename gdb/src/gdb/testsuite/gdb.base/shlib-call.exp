@@ -65,6 +65,9 @@ if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}.o" object {debug
 if {$gcc_compiled == 0} {
     if [istarget "hppa*-hp-hpux*"] then {
 	set additional_flags "additional_flags=+z"
+    } elseif { [istarget "mips-sgi-irix*"] } {
+	# Disable SGI compiler's implicit -Dsgi
+	set additional_flags "additional_flags=-Usgi"
     } else {
 	# don't know what the compiler is...
 	set additional_flags ""
@@ -72,7 +75,12 @@ if {$gcc_compiled == 0} {
 } elseif {[istarget "*-apple-darwin*"]} {
     set additional_flags "additional_flags=-dynamiclib"
 } else {
-    set additional_flags "additional_flags=-fpic"
+    if { ([istarget "powerpc*-*-aix*"]
+       || [istarget "rs6000*-*-aix*"]) } {
+	set additional_flags ""
+    } else {
+	set additional_flags "additional_flags=-fpic"
+    }
 }
 
 if {[gdb_compile "${srcdir}/${subdir}/${libfile}1.c" "${objdir}/${subdir}/${libfile}1.o" object [list debug $additional_flags]] != ""} {
@@ -99,7 +107,17 @@ if [istarget "hppa*-*-hpux*"] {
 	gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
     }
 }
-if {[gdb_compile "${objdir}/${subdir}/${testfile}.o ${objdir}/${subdir}/${libfile}1.sl ${objdir}/${subdir}/${libfile}2.sl" "${binfile}" executable {debug}] != ""} {
+
+if { ($gcc_compiled 
+      &&  ([istarget "powerpc*-*-aix*"]
+	|| [istarget "rs6000*-*-aix*"] )) } {
+    set additional_flags "additional_flags=-L${objdir}/${subdir}"
+} elseif { [istarget "mips-sgi-irix*"] } {
+    set additional_flags "additional_flags=-rpath ${objdir}/${subdir}"
+} else {
+    set additional_flags ""
+}
+if {[gdb_compile "${objdir}/${subdir}/${testfile}.o ${objdir}/${subdir}/${libfile}1.sl ${objdir}/${subdir}/${libfile}2.sl" "${binfile}" executable [list debug $additional_flags]] != ""} {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
 
@@ -234,11 +252,27 @@ gdb_expect {
     }
     
     send_gdb "step\n"
+    # A step at this point will either take us entirely out of
+    # the function or into the function's epilogue.  The exact
+    # behavior will differ depending upon upon whether or not
+    # the compiler emits line number information for the epilogue.
     gdb_expect {
-        -re "main \\(\\) at.*g = mainshr1\\(g\\);.*$gdb_prompt $" { pass "step out of shr2 to main"}
+        -re "main \\(\\) at.*g = mainshr1\\(g\\);.*$gdb_prompt $" { 
+	    pass "step out of shr2 to main"
+	}
+        -re ".*\\\}.*$gdb_prompt $" {
+	    pass "step out of shr2 to main (stopped in shr2 epilogue)"
+	    send_gdb "step\n"
+	    gdb_expect {
+		-re "main \\(\\) at.*g = mainshr1\\(g\\);.*$gdb_prompt $" { pass "step out of shr2 epilogue to main"}
+		-re ".*$gdb_prompt $" { fail "step out of shr2 epilogue to main" }
+		timeout { fail "step out of shr2 epilogue to main (timeout)" }
+	    }
+	}
         -re ".*$gdb_prompt $" { fail "step out of shr2 to main" }
         timeout { fail "step out of shr2 to main (timeout)" }
     }
+    
 
 #print mainshr1(1)
 send_gdb "print mainshr1(1)\n"
@@ -270,7 +304,20 @@ send_gdb "set width 0\n" ; gdb_expect -re "$gdb_prompt $"
 
 # PR's 16495, 18213
 # test that we can re-set breakpoints in shared libraries
-gdb_test "break shr1" "Breakpoint 1.*" "set bp in shared library"
+
+# APPLE LOCAL: The Apple model of breakpoints is a bit different than most
+# others.  On e.g. a Linux box, doing "break shr1" pre-execution will put
+# the breakpoint on the dyld trampoline address.  When the library is loaded
+# into memory at run-time, the bp address is updated.
+# On an Apple system, gdb loads the symbols for all shared libraries that
+# have specified load addresses when you do "file shmain", so it knows where
+# the breakpoints will really go.  shr1.sl and shr2.sl don't have specified 
+# load addresses, so their symbols aren't loaded until runtime.
+#
+# You could imagine a hybrid where Apple gdb would back off to setting the
+# bp on the dyld trampoline, but it's unlikely to happen any time soon.
+
+gdb_test "future-break shr1" "Breakpoint 1.*" "set bp in shared library"
 
 # FIXME: should not send "run" explicitly.  Non-portable.
 

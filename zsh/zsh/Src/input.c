@@ -67,6 +67,10 @@
  * PWS 1996/12/10
  */
 
+#ifdef HAVE_STDIO_H
+#include <stdio.h>
+#endif
+
 #include "zsh.mdh"
 #include "input.pro"
 
@@ -222,8 +226,11 @@ inputline(void)
 
     /* If reading code interactively, work out the prompts. */
     if (interact && isset(SHINSTDIN)) {
-	if (!isfirstln)
+	if (!isfirstln) {
 	    ingetcpmptl = prompt2;
+	    if (rprompt2)
+		ingetcpmptr = rprompt2;
+	}
 	else {
 	    ingetcpmptl = prompt;
 	    if (rprompt)
@@ -262,8 +269,10 @@ inputline(void)
 	 * typeahead when the terminal settings are altered.
 	 *                     pws 1998/03/12
 	 */
-	ingetcline = (char *)zleread(ingetcpmptl, ingetcpmptr,
-				     ZLRF_HISTORY|ZLRF_NOSETTY);
+	int flags = ZLRF_HISTORY|ZLRF_NOSETTY;
+	if (isset(IGNOREEOF))
+	    flags |= ZLRF_IGNOREEOF;
+	ingetcline = (char *)zleread(ingetcpmptl, ingetcpmptr, flags);
 	histdone |= HISTFLAG_SETTY;
     }
     if (!ingetcline) {

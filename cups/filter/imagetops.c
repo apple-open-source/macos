@@ -1,9 +1,9 @@
 /*
- * "$Id: imagetops.c,v 1.1.1.4 2002/06/06 22:13:02 jlovell Exp $"
+ * "$Id: imagetops.c,v 1.1.1.12 2003/04/18 19:52:30 jlovell Exp $"
  *
  *   Image file to PostScript filter for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1993-2002 by Easy Software Products.
+ *   Copyright 1993-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -171,7 +171,7 @@ main(int  argc,		/* I - Number of command-line arguments */
   options     = NULL;
   num_options = cupsParseOptions(argv[5], 0, &options);
 
-  ppd = SetCommonOptions(num_options, options, 1);
+  ppd = SetCommonOptions(num_options, options, 0);
 
   if ((val = cupsGetOption("multiple-document-handling", num_options, options)) != NULL)
   {
@@ -259,6 +259,10 @@ main(int  argc,		/* I - Number of command-line arguments */
   if ((val = cupsGetOption("hue", num_options, options)) != NULL)
     hue = atoi(val);
 
+  if ((val = cupsGetOption("mirror", num_options, options)) != NULL &&
+      strcasecmp(val, "True") == 0)
+    Flip = 1;
+
  /*
   * Open the input image to print...
   */
@@ -295,6 +299,9 @@ main(int  argc,		/* I - Number of command-line arguments */
   if (yppi == 0)
     yppi = xppi;
 
+  fprintf(stderr, "DEBUG: Before scaling: xprint=%.1f, yprint=%.1f, xppi=%d, yppi=%d, zoom=%.2f\n",
+          xprint, yprint, xppi, yppi, zoom);
+
   if (xppi > 0)
   {
    /*
@@ -303,6 +310,9 @@ main(int  argc,		/* I - Number of command-line arguments */
     
     xinches = (float)img->xsize / (float)xppi;
     yinches = (float)img->ysize / (float)yppi;
+
+    fprintf(stderr, "DEBUG: Image size is %.1f x %.1f inches...\n",
+            xinches, yinches);
 
     if ((val = cupsGetOption("natural-scaling", num_options, options)) != NULL)
     {
@@ -317,12 +327,16 @@ main(int  argc,		/* I - Number of command-line arguments */
       * Rotate the image if it will fit landscape but not portrait...
       */
 
+      fputs("DEBUG: Auto orientation...\n", stderr);
+
       if ((xinches > xprint || yinches > yprint) &&
           xinches <= yprint && yinches <= xprint)
       {
        /*
 	* Rotate the image as needed...
 	*/
+
+        fputs("DEBUG: Using landscape orientation...\n", stderr);
 
 	Orientation = (Orientation + 1) & 3;
 	xsize       = yprint;
@@ -370,8 +384,8 @@ main(int  argc,		/* I - Number of command-line arguments */
       xsize2 = ysize2 * img->xsize * aspect / img->ysize;
     }
 
-    fprintf(stderr, "DEBUG: xsize = %.0f, ysize = %.0f\n", xsize, ysize);
-    fprintf(stderr, "DEBUG: xsize2 = %.0f, ysize2 = %.0f\n", xsize2, ysize2);
+    fprintf(stderr, "DEBUG: Portrait size is %.2f x %.2f inches\n", xsize, ysize);
+    fprintf(stderr, "DEBUG: Landscape size is %.2f x %.2f inches\n", xsize2, ysize2);
 
     if (cupsGetOption("orientation-requested", num_options, options) == NULL &&
         cupsGetOption("landscape", num_options, options) == NULL)
@@ -381,33 +395,29 @@ main(int  argc,		/* I - Number of command-line arguments */
       * portrait if they are equal...
       */
 
+      fputs("DEBUG: Auto orientation...\n", stderr);
+
       if ((xsize * ysize) < (xsize2 * xsize2))
       {
        /*
 	* Do landscape orientation...
 	*/
 
+        fputs("DEBUG: Using landscape orientation...\n", stderr);
+
 	Orientation = 1;
 	xinches     = xsize2;
 	yinches     = ysize2;
 	xprint      = (PageTop - PageBottom) / 72.0;
 	yprint      = (PageRight - PageLeft) / 72.0;
-
-	xsize       = PageLeft;
-	PageLeft    = PageBottom;
-	PageBottom  = PageWidth - PageRight;
-	PageRight   = PageTop;
-	PageTop     = PageLength - xsize;
-
-	xsize       = PageWidth;
-	PageWidth   = PageLength;
-	PageLength  = xsize;
       }
       else
       {
        /*
 	* Do portrait orientation...
 	*/
+
+        fputs("DEBUG: Using portrait orientation...\n", stderr);
 
 	Orientation = 0;
 	xinches     = xsize;
@@ -416,23 +426,17 @@ main(int  argc,		/* I - Number of command-line arguments */
     }
     else if (Orientation & 1)
     {
+      fputs("DEBUG: Using landscape orientation...\n", stderr);
+
       xinches     = xsize2;
       yinches     = ysize2;
       xprint      = (PageTop - PageBottom) / 72.0;
       yprint      = (PageRight - PageLeft) / 72.0;
-
-      xsize       = PageLeft;
-      PageLeft    = PageBottom;
-      PageBottom  = PageWidth - PageRight;
-      PageRight   = PageTop;
-      PageTop     = PageLength - xsize;
-
-      xsize       = PageWidth;
-      PageWidth   = PageLength;
-      PageLength  = xsize;
     }
     else
     {
+      fputs("DEBUG: Using portrait orientation...\n", stderr);
+
       xinches     = xsize;
       yinches     = ysize;
       xprint      = (PageRight - PageLeft) / 72.0;
@@ -498,6 +502,9 @@ main(int  argc,		/* I - Number of command-line arguments */
     sprintf(s, "Custom.%.0fx%.0f", width, length);
     ppdMarkOption(ppd, "PageSize", s);
 
+    fprintf(stderr, "DEBUG: Updated custom page size to %.2f x %.2f inches...\n",
+            width / 72.0, length / 72.0);
+
    /*
     * Update page variables...
     */
@@ -562,6 +569,8 @@ main(int  argc,		/* I - Number of command-line arguments */
   printf("%%%%For: %s\n", argv[2]);
   if (Orientation & 1)
     puts("%%Orientation: Landscape");
+  else
+    puts("%%Orientation: Portrait");
   puts("%%EndComments");
   puts("%%BeginProlog");
 
@@ -576,6 +585,7 @@ main(int  argc,		/* I - Number of command-line arguments */
     printf("{ neg 1 add dup 0 lt { pop 1 } { %.3f exp neg 1 add } "
            "ifelse %.3f mul } bind settransfer\n", g, b);
 
+  WriteCommon();
   WriteLabelProlog(cupsGetOption("page-label", num_options, options),
                    PageBottom, PageTop, PageWidth);
 
@@ -594,6 +604,16 @@ main(int  argc,		/* I - Number of command-line arguments */
   */
 
   row = malloc(img->xsize * abs(colorspace) + 3);
+
+  UpdatePageVars();
+
+  fprintf(stderr, "DEBUG: XPosition=%d, YPosition=%d, Orientation=%d\n",
+          XPosition, YPosition, Orientation);
+  fprintf(stderr, "DEBUG: xprint=%.0f, yprint=%.0f\n", xprint, yprint);
+  fprintf(stderr, "DEBUG: PageLeft=%.0f, PageRight=%.0f, PageWidth=%.0f\n",
+          PageLeft, PageRight, PageWidth);
+  fprintf(stderr, "DEBUG: PageBottom=%.0f, PageTop=%.0f, PageLength=%.0f\n",
+          PageBottom, PageTop, PageLength);
 
   for (page = 1; Copies > 0; Copies --)
     for (xpage = 0; xpage < xpages; xpage ++)
@@ -634,10 +654,10 @@ main(int  argc,		/* I - Number of command-line arguments */
         switch (XPosition)
 	{
 	  case -1 :
-	      left = PageLeft;
+              left = PageLeft;
 	      break;
 	  default :
-	      left = (PageWidth - xprint * 72.0) * 0.5;
+	      left = (PageLeft + PageRight - xprint * 72.0) * 0.5;
 	      break;
 	  case 1 :
 	      left = PageRight - xprint * 72.0;
@@ -650,7 +670,7 @@ main(int  argc,		/* I - Number of command-line arguments */
 	      top = PageBottom + 72.0 * yprint;
 	      break;
 	  default :
-	      top = (PageLength + yprint * 72.0) * 0.5;
+	      top = (PageBottom + PageTop + yprint * 72.0) * 0.5;
 	      break;
 	  case 1 :
 	      top = PageTop;
@@ -882,5 +902,5 @@ ps_ascii85(ib_t *data,		/* I - Data to print */
 
 
 /*
- * End of "$Id: imagetops.c,v 1.1.1.4 2002/06/06 22:13:02 jlovell Exp $".
+ * End of "$Id: imagetops.c,v 1.1.1.12 2003/04/18 19:52:30 jlovell Exp $".
  */

@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +21,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
  
 #ifndef _APPLEUSBOHCIMEMORYBLOCKS_H_
 #define _APPLEUSBOHCIMEMORYBLOCKS_H_
@@ -116,4 +116,3 @@ public:
     AppleOHCIIsochTransferDescriptorPtr		GetITD(UInt32 index);
 };
 
-#endif

@@ -5,7 +5,7 @@
 # * and conditions for redistribution.
 # */
 
-# $RCSid = "$Id: xconv.pl,v 1.1.1.2 2002/06/17 22:51:29 zarzycki Exp $";
+# $RCSid = "$Id: xconv.pl,v 1.1.1.3 2003/05/22 01:16:36 rbraun Exp $";
 
 sub print_header;
 sub print_defaults;
@@ -91,7 +91,7 @@ sub print_defaults
 	print "\tlog_on_success = HOST PID\n";
 	print "\n";
 	print "\t# What to log when the connection fails.  Same options as above\n";
-	print "\tlog_on_failure = HOST RECORD\n";
+	print "\tlog_on_failure = HOST\n";
 	print "\n";
 	print "\t# The maximum number of connections a specific IP address can\n";
 	print "\t# have to a specific service.  \n";

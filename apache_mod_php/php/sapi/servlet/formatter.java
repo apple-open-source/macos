@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -16,7 +16,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: formatter.java,v 1.1.1.3 2001/07/19 00:21:02 zarzycki Exp $ */
+/* $Id: formatter.java,v 1.1.1.4 2002/07/22 18:16:04 zarzycki Exp $ */
 
 package net.php;
 
@@ -24,13 +24,8 @@ import javax.servlet.*;
 import javax.servlet.http.*;
 
 public class formatter extends servlet {
-
-    public void service(HttpServletRequest request,
-                        HttpServletResponse response) 
-       throws ServletException
-    {
-       display_source_mode = true;
-       super.service(request, response);
-    }
-
+  public void service(HttpServletRequest request, HttpServletResponse response) throws ServletException {
+    display_source_mode = true;
+    super.service(request, response);
+  }
 }

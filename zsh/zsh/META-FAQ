@@ -29,16 +29,12 @@ mirroring ftp.cs.elte.hu instead of the primary site.
       Australia
             ftp://ftp.zsh.org/pub/zsh/
             http://www.zsh.org/pub/zsh/
-            ftp://ftp.ips.gov.au/pub/packages/zsh/  (H)
 
       Denmark
             ftp://sunsite.dk/pub/unix/shells/zsh/
 
       Finland
             ftp://ftp.funet.fi/pub/unix/shells/zsh/
-
-      France
-            ftp://ftp.cenatls.cena.dgac.fr/shells/zsh/
 
       Germany
             ftp://ftp.fu-berlin.de/pub/unix/shells/zsh/  (H)
@@ -54,12 +50,15 @@ mirroring ftp.cs.elte.hu instead of the primary site.
             ftp://ftp.math.technion.ac.il/pub/zsh/
             http://www.math.technion.ac.il/pub/zsh/
 
-      Italy
-            ftp://ftp.unina.it/pub/Unix/pkgs/shell/zsh/
-
       Japan
-            ftp://ftp.nisiq.net/pub/shells/zsh/  (H)
             ftp://ftp.win.ne.jp/pub/shell/zsh/
+            ftp://ftp.ayamura.org/pub/zsh/
+
+      Korea
+            ftp://linux.sarang.net/mirror/system/shell/zsh/
+
+      Netherlands
+            ftp://ftp.demon.nl/pub/mirrors/zsh/
 
       Norway
             ftp://ftp.uit.no/pub/unix/shells/zsh/
@@ -82,10 +81,14 @@ mirroring ftp.cs.elte.hu instead of the primary site.
             ftp://sunsite.org.uk/packages/zsh/
 
       USA
-            ftp://uiarchive.uiuc.edu/pub/packages/shells/zsh/
+            ftp://uiarchive.uiuc.edu/mirrors/ftp/ftp.zsh.org/pub/
             ftp://ftp.rge.com/pub/shells/zsh/
-            ftp://foad.org/pub/zsh/
+            http://zsh.disillusion.org/
             http://foad.org/zsh/
+
+The up-to-date source code is available via anonymous CVS from Sourceforge.
+See http://sourceforge.net/projects/zsh/ for details.
+
 
 Mailing Lists
 -------------
@@ -154,3 +157,10 @@ cabbalistic, hierographic, or downright mystifying (for example, the word
 http://zsh.sunsite.dk/Guide/.  At the time of writing, chapters
 dealing with startup files and their contents and the new completion system
 were essentially complete.
+
+The Zsh Wiki
+------------
+
+A `wiki' website for zsh has been created at http://www.zshwiki.org/.
+This is a site which can be added to and modified directly by users without
+any special permission.  You can add your own zsh tips and configurations.

@@ -1,44 +1,52 @@
 /*
- *  CNSLPlugin.cpp
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
- *	This is a wrapper base class that is to be used by migrating plugins from NSL
- *
- *  Created by imlucid on Tue Aug 14 2001.
- *  Copyright (c) 2001 Apple Computer. All rights reserved.
- *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+ 
+/*!
+ *  @header CNSLPlugin
  */
 
-//#include <Carbon/Carbon.h>
-
-/*
-#include "DSUtils.h"
-#include "ServerModuleLib.h"
-#include "CDataBuff.h"
-#include "CPlugInRef.h"
-#include "UException.h"
-*/
-
-
 #include "CNSLHeaders.h"
+#include <mach/mach_time.h>	// for dsTimeStamp
+#include "CNSLTimingUtils.h"
 
 #ifndef kServerRunLoop
 #define kServerRunLoop (eDSPluginCalls)(kHandleNetworkTransition + 1)
 #endif
 
-//#define DONT_WAIT_FOR_NSL_TO_ACTIVATE_US
-//#define IDLE_CALL_IS_BUSTED
-#define kTaskInterval	2
+// since our plugins are now lazily loaded, we don't need to wait for NSL to activate us.
+#define DONT_WAIT_FOR_NSL_TO_ACTIVATE_US
 
 int LogHexDump(char *pktPtr, long pktLen);
 
 boolean_t NetworkChangeCallBack(SCDynamicStoreRef session, void *callback_argument);
 
 // These are the CFContainer callback protos
+void NSLReleaseNodeData( CFAllocatorRef allocator, const void* value );
 CFStringRef NSLNodeValueCopyDesctriptionCallback ( const void *item );
 Boolean NSLNodeValueEqualCallback ( const void *value1, const void *value2 );
 void NSLNodeHandlerFunction(const void *inKey, const void *inValue, void *inContext);
-//pthread_mutex_t	CNSLPlugin::mQueueLock;
-//pthread_mutex_t CNSLPlugin::mPluginLock;
 
 typedef struct AttrDataContext {
     sInt32		count;
@@ -69,20 +77,20 @@ void SearchCompleted( void )
     gOutstandingSearches--;
     
 	DBGLOG( "SearchCompleted, gOutstandingSearches=%d\n", gOutstandingSearches );
-#ifdef IDLE_CALL_IS_BUSTED
-    if ( CNSLPlugin::TheNSLPlugin()->NumOutstandingSearches() < kMaxNumOutstandingSearches )
-    	okToStartNextSearch = true;
-#endif    
     pthread_mutex_unlock(&gOutstandingSearchesLock);
 
     if ( okToStartNextSearch )
+	{
+		CNSLPlugin::TheNSLPlugin()->LockSearchQueue();
         CNSLPlugin::TheNSLPlugin()->StartNextQueuedSearch();		// just give this a chance to fire one off
+		CNSLPlugin::TheNSLPlugin()->UnlockSearchQueue();
+	}
 }
 
 #pragma mark -
 CFStringRef NSLQueuedSearchesCopyDesctriptionCallback ( const void *item )
 {
-    return CFSTR("DS NSL Queued Searche");
+    return kDSNSLQueuedSearchSAFE_CFSTR;
 }
 
 Boolean NSLQueuedSearchesEqualCallback ( const void *item1, const void *item2 )
@@ -145,9 +153,6 @@ CNSLPlugin::CNSLPlugin( void )
 	DBGLOG( "CNSLPlugin::CNSLPlugin\n" );
 	mPublishedNodes = NULL;
     mLastNodeLookupStartTime = 0;
-	mMinTimeBetweenNodeLookups = kMinTimeBetweenNodeLookups;
-    mTimeToClearOutStaleNodes = false;
-    mOurResources = NULL;
     mOpenRefTable = NULL;
     mActivatedByNSL = false;
     
@@ -156,8 +161,9 @@ CNSLPlugin::CNSLPlugin( void )
     mSearchQueue = NULL;
 	mRunLoopRef = NULL;
 	mTimerRef = NULL;
+	mNodeLookupTimerRef = NULL;
 	mSearchTicklerInstalled = false;
-	
+	mNodeLookupTimerInstalled = false;
 	mState		= kUnknownState;
     
     gsTheNSLPlugin = this;
@@ -171,6 +177,11 @@ CNSLPlugin::~CNSLPlugin( void )
 	if ( mTimerRef )
 	{
 		UnInstallSearchTickler();
+	}
+	
+	if ( mNodeLookupTimerRef )
+	{
+		UnInstallNodeLookupTimer();
 	}
 	
     if ( mPublishedNodes )
@@ -187,27 +198,10 @@ CNSLPlugin::~CNSLPlugin( void )
         ::CFRelease( mOpenRefTable );
         mOpenRefTable = NULL;
     }
-/*    
-    if ( mOpenRefTable )
-    {
-        ::CFRelease( mOpenRefTable );
-        mOpenRefTable = NULL;
-    }
-    
-    if ( mUnOpenedRecordRefList )
-    {
-        ::CFRelease( mUnOpenedRecordRefList );
-        mUnOpenedRecordRefList = NULL;
-    }
-*/    
-    if ( mOurResources )
-    {
-        delete mOurResources;
-        mOurResources = NULL;
-    }
-    
+
     if ( mSearchQueue )
         ::CFRelease( mSearchQueue );
+		
 } // ~CNSLPlugin
 
 // --------------------------------------------------------------------------------
@@ -238,11 +232,12 @@ sInt32 CNSLPlugin::Initialize( void )
     
     valueCallBack.version = 0;
     valueCallBack.retain = NULL;
-    valueCallBack.release = NULL;
+    valueCallBack.release = NSLReleaseNodeData;
     valueCallBack.copyDescription = NSLNodeValueCopyDesctriptionCallback;
     valueCallBack.equal = NSLNodeValueEqualCallback;
 
-    mPublishedNodes = ::CFDictionaryCreateMutable( NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &valueCallBack);
+	if ( !mPublishedNodes )
+		mPublishedNodes = ::CFDictionaryCreateMutable( NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &valueCallBack);
     
 	CFArrayCallBacks	callBack;
     
@@ -252,41 +247,40 @@ sInt32 CNSLPlugin::Initialize( void )
     callBack.copyDescription = NSLQueuedSearchesCopyDesctriptionCallback;
     callBack.equal = NSLQueuedSearchesEqualCallback;
     
-    mSearchQueue = ::CFArrayCreateMutable( NULL, 0, &callBack );
+    if ( !mSearchQueue )
+		mSearchQueue= ::CFArrayCreateMutable( NULL, 0, &callBack );
 
-    mOurResources = new TCFResources( GetBundleIdentifier() );
-    
     pthread_mutex_init( &mQueueLock, NULL );
-    pthread_mutex_init( &mPluginLock, NULL );
+	pthread_mutex_init( &mPluginLock, NULL );
+	pthread_mutex_init( &mOpenRefTableLock, NULL );
     pthread_mutex_init( &mSearchQueueLock, NULL );
-    
+    pthread_mutex_init( &mSearchLookupTimerLock, NULL );
+    pthread_mutex_init( &mNodeLookupTimerLock, NULL );
+	
     // use these for the reftable dictionary
     keyCallBack.version = 0;
     keyCallBack.retain = NULL;
     keyCallBack.release = NULL;
     keyCallBack.copyDescription = NULL;
     keyCallBack.equal = NULL;
-    keyCallBack.hash = NULL;		// this is fine
+    keyCallBack.hash = NULL;
 
     valueCallBack.release = NULL;
     valueCallBack.copyDescription = NULL;
     valueCallBack.equal = NULL;
     
-    mOpenRefTable = ::CFDictionaryCreateMutable( NULL, 0, &keyCallBack, &valueCallBack );
+    if ( !mOpenRefTable )
+		mOpenRefTable = ::CFDictionaryCreateMutable( NULL, 0, &keyCallBack, &valueCallBack );
+		
 	if ( !mOpenRefTable )
 		DBGLOG("************* mOpenRefTable is NULL ***************\n");
-/*
-    mOpenRefTable = ::CFDictionaryCreateMutable( NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
-    
-    mUnOpenedRecordRefList = ::CFArrayCreateMutable( NULL, 0, &kCFTypeArrayCallBacks );
-*/    
+
     if ( !siResult )
     {
-        // set the initted flags
-        mState = kInitalized | kInactive;
+        // set the init flags
+        mState = kInitialized | kInactive;
     
     // don't start a periodic task until we get activated
-//        siResult = NSLSearchTickler();		// get this fired off
     }
     
     if ( !siResult )
@@ -295,6 +289,38 @@ sInt32 CNSLPlugin::Initialize( void )
     return siResult;
 } // Initialize
 
+// ---------------------------------------------------------------------------
+//	* WaitForInit
+//
+// ---------------------------------------------------------------------------
+
+void CNSLPlugin::WaitForInit( void )
+{
+	volatile	uInt32		uiAttempts	= 0;
+
+	while ( !(mState & kInitialized) &&
+			!(mState & kFailedToInit) )
+	{
+		// Try for 2 minutes before giving up
+		if ( uiAttempts++ >= 240 )
+		{
+			return;
+		}
+		// Now wait until we are told that there is work to do or
+		//	we wake up on our own and we will look for ourselves
+
+		SmartSleep( (uInt32)(50000) );
+	}
+} // WaitForInit
+
+Boolean CNSLPlugin::IsActive( void )
+{
+	Boolean		isActive = ((mState & kActive) || !(mState & kInactive));
+	
+	return isActive; 
+}
+
+#pragma mark -
 void PeriodicTimerCallback( CFRunLoopTimerRef timer, void *info );
 void PeriodicTimerCallback( CFRunLoopTimerRef timer, void *info )
 {
@@ -307,7 +333,7 @@ void CNSLPlugin::InstallSearchTickler( void )
 {
 	if ( !mSearchTicklerInstalled && mRunLoopRef )
 	{
-		DBGLOG( "CNSLPlugin::InstallSearchTickler\n" );
+		DBGLOG( "CNSLPlugin::InstallSearchTickler (%s)\n", GetProtocolPrefixString() );
 		CFRunLoopTimerContext 	c = {0, this, NULL, NULL, NULL};
 	
 		if ( !mTimerRef )
@@ -323,7 +349,7 @@ void CNSLPlugin::UnInstallSearchTickler( void )
 {
 	if ( mSearchTicklerInstalled && mRunLoopRef )
 	{
-		DBGLOG( "CNSLPlugin::UnInstallSearchTickler\n" );
+		DBGLOG( "CNSLPlugin::UnInstallSearchTickler (%s)\n", GetProtocolPrefixString() );
 		if ( mTimerRef )
 		{
 			CFRunLoopRemoveTimer( mRunLoopRef, mTimerRef, kCFRunLoopDefaultMode );
@@ -339,10 +365,12 @@ sInt32 CNSLPlugin::NSLSearchTickler( void )
 {
     sInt32				siResult	= eDSNoErr;
 
-	DBGLOG( "CNSLPlugin::NSLSearchTickler, Outstanding Searches: %ld, queued Searches: %ld\n", NumOutstandingSearches(), (mSearchQueue)?CFArrayGetCount(mSearchQueue):-1 );
+	LockSearchQueue();
 
-    if ( mState & kActive && mActivatedByNSL )
+    if ( IsActive() && mActivatedByNSL )
     {
+		DBGLOG( "CNSLPlugin::NSLSearchTickler, Outstanding Searches: %ld, queued Searches: %ld\n", NumOutstandingSearches(), (mSearchQueue)?CFArrayGetCount(mSearchQueue):-1 );
+
 		while ( NumOutstandingSearches() < kMaxNumOutstandingSearches && mSearchQueue && CFArrayGetCount(mSearchQueue) > 0 )
 			StartNextQueuedSearch();		// just give this a chance to fire one off
 
@@ -355,35 +383,108 @@ sInt32 CNSLPlugin::NSLSearchTickler( void )
     else if ( mSearchTicklerInstalled )
 		UnInstallSearchTickler();
 
+	UnlockSearchQueue();
+
     return( siResult );
 } // NSLTickler
 
-sInt32 CNSLPlugin::PeriodicTask( void )
+void CNSLPlugin::CancelCurrentlyQueuedSearches( void )
 {
-    sInt32				siResult	= eDSNoErr;
+    LockSearchQueue();
 
-	DBGLOG( "CNSLPlugin::PeriodicTask, Outstanding Searches: %ld, queued Searches: %ld\n", NumOutstandingSearches(), (mSearchQueue)?CFArrayGetCount(mSearchQueue):-1 );
-
-    if ( mState & kActive && mActivatedByNSL )
+	while ( mSearchQueue && CFArrayGetCount(mSearchQueue) > 0 )
     {
-        if ( IsTimeForNewNeighborhoodLookup() )
-        {
-            StartNodeLookup();
-        }
-        
-        if ( IsTimeToClearOutStaleNodes() )
-        {
-            ClearOutStaleNodes();
-        }
-    }
+        CNSLServiceLookupThread*	newLookup = (CNSLServiceLookupThread*)::CFArrayGetValueAtIndex( mSearchQueue, 0 );
+        ::CFArrayRemoveValueAtIndex( mSearchQueue, 0 );
+		delete( newLookup );
+	}
 
-    return( siResult );
-} // PeriodicTask
+    UnlockSearchQueue();
+}
+
+#pragma mark -
+void NodeLookupTimerCallback( CFRunLoopTimerRef timer, void *info );
+void NodeLookupTimerCallback( CFRunLoopTimerRef timer, void *info )
+{
+	CNSLPlugin*		plugin = (CNSLPlugin*)info;
+	
+	plugin->PeriodicNodeLookupTask();
+}
+
+void CNSLPlugin::InstallNodeLookupTimer( void )
+{
+	LockNodeLookupTimer();
+	if ( !mNodeLookupTimerInstalled && mActivatedByNSL && mRunLoopRef )
+	{
+		DBGLOG( "CNSLPlugin::InstallNodeLookupTimer (%s) called\n", GetProtocolPrefixString() );
+
+		CFRunLoopTimerContext 	c = {0, this, NULL, NULL, NULL};
+	
+		if ( !mNodeLookupTimerRef )
+			mNodeLookupTimerRef = CFRunLoopTimerCreate(NULL, CFAbsoluteTimeGetCurrent()+kNodeTimerIntervalImmediate, kKeepTimerAroundAfterFiring, 0, 0, NodeLookupTimerCallback, (CFRunLoopTimerContext*)&c);
+
+		CFRunLoopAddTimer(mRunLoopRef, mNodeLookupTimerRef, kCFRunLoopDefaultMode);
+	}
+	
+	mNodeLookupTimerInstalled = true;
+	UnlockNodeLookupTimer();
+}
+
+void CNSLPlugin::UnInstallNodeLookupTimer( void )
+{
+	LockNodeLookupTimer();
+	if ( mNodeLookupTimerInstalled && mRunLoopRef )
+	{
+		DBGLOG( "CNSLPlugin::UnInstallNodeLookupTimer (%s)\n", GetProtocolPrefixString() );
+
+		if ( mNodeLookupTimerRef )
+		{
+			CFRunLoopRemoveTimer( mRunLoopRef, mNodeLookupTimerRef, kCFRunLoopDefaultMode );
+			CFRelease( mNodeLookupTimerRef );
+			mNodeLookupTimerRef = NULL;
+		}
+	}
+	
+	mNodeLookupTimerInstalled = false;
+	UnlockNodeLookupTimer();
+}
+
+void CNSLPlugin::ResetNodeLookupTimer( UInt32 timeTillNewLookup )
+{
+	LockNodeLookupTimer();
+	
+	if ( mNodeLookupTimerInstalled && mRunLoopRef )
+	{
+		DBGLOG( "CNSLPlugin::ResetNodeLookupTimer (%s) setting timer to fire %d seconds from now\n", GetProtocolPrefixString(), timeTillNewLookup );
+
+		CFRunLoopTimerSetNextFireDate( mNodeLookupTimerRef, CFAbsoluteTimeGetCurrent() + timeTillNewLookup );
+	}
+	
+	UnlockNodeLookupTimer();
+}
+
+void CNSLPlugin::PeriodicNodeLookupTask( void )
+{
+	if ( mActivatedByNSL && IsActive() )
+    {
+		DBGLOG( "CNSLPlugin::PeriodicNodeLookupTask (%s), time to start new node lookup\n", GetProtocolPrefixString() );
+
+		StartNodeLookup();
+	}
+	else
+	{
+		DBGLOG( "CNSLPlugin::PeriodicNodeLookupTask (%s), called but mActivatedByNSL== %d && IsActive() == %d!\n", GetProtocolPrefixString(), mActivatedByNSL, IsActive() );
+	}
+} // PeriodicNodeLookupTask
+
+#pragma mark -
 
 sInt32 CNSLPlugin::ProcessRequest ( void *inData )
 {
 	sInt32		siResult	= 0;
 
+	WaitForInit();
+	
 	if ( inData == nil )
 	{
         DBGLOG( "CNSLPlugin::ProcessRequest, inData is NULL!\n" );
@@ -401,25 +502,37 @@ sInt32 CNSLPlugin::ProcessRequest ( void *inData )
         DBGLOG( "CNSLPlugin::ProcessRequest, received a RunLoopRef, 0x%x\n",((sHeader *)inData)->fContextData );
 		return SetServerIdleRunLoopRef( (CFRunLoopRef)(((sHeader *)inData)->fContextData) );
 	}
-	else if ( ((mState & kInactive) || !(mState & kActive)) )
+	else if ( !IsActive() )
 	{
 		if ( ((sHeader *)inData)->fType == kOpenDirNode )
 		{
 			// these are ok when we are inactive if this is the top level
 			char			   *pathStr				= nil;
 			tDataListPtr		pNodeList			= nil;
+			char			   *protocolStr			= nil;
 
 			pNodeList	=	((sOpenDirNode *)inData)->fInDirNodeName;
 			pathStr = dsGetPathFromListPriv( pNodeList, (char *)"/" );
-			pathStr++;	// advance past first /
-			
-			if ( pathStr && GetProtocolPrefixString() && strcmp( pathStr, GetProtocolPrefixString() ) == 0 )
+			protocolStr = pathStr + 1;
+			        
+			if ( strstr( protocolStr, "NSLActivate" ) )
 			{
-				DBGLOG( "CNSLPlugin::ProcessRequest (kOpenDirNode), plugin not active, open on (%s) ok\n", pathStr );
+				// we have a directed open for our plugins, just set mActivated to true
+				mActivatedByNSL = true;
+
+				free( pathStr );
+				
+				return( ePlugInNotActive );
+			}
+			else if ( pathStr && GetProtocolPrefixString() && strcmp( protocolStr, GetProtocolPrefixString() ) == 0 )
+			{
+				DBGLOG( "CNSLPlugin::ProcessRequest (kOpenDirNode), plugin not active, open on (%s) ok\n", protocolStr );
+				free( pathStr );
 			}
 			else
 			{
-				DBGLOG( "CNSLPlugin::ProcessRequest (kOpenDirNode), plugin not active, returning ePlugInNotActive on open (%s)\n", pathStr );
+				DBGLOG( "CNSLPlugin::ProcessRequest (kOpenDirNode), plugin not active, returning ePlugInNotActive on open (%s)\n", protocolStr );
+				free( pathStr );
 				return( ePlugInNotActive );
 			}
 		}
@@ -440,6 +553,8 @@ sInt32 CNSLPlugin::ProcessRequest ( void *inData )
 
 } // ProcessRequest
 
+#pragma mark -
+
 sInt32 CNSLPlugin::SetServerIdleRunLoopRef( CFRunLoopRef idleRunLoopRef )
 {
 	mRunLoopRef = idleRunLoopRef;
@@ -454,9 +569,11 @@ sInt32 CNSLPlugin::SetServerIdleRunLoopRef( CFRunLoopRef idleRunLoopRef )
 sInt32 CNSLPlugin::SetPluginState ( const uInt32 inState )
 {
 // don't allow any changes other than active / in-active
+	WaitForInit();
+	
 	DBGLOG( "CNSLPlugin::SetPluginState(%s):", GetProtocolPrefixString() );
 
-	if (kActive & inState) //want to set to active
+	if ( (kActive & inState) && (mState & kInactive) ) // want to set to active only if currently inactive
     {
         DBGLOG( "kActive\n" );
         if ( mState & kInactive )
@@ -468,12 +585,11 @@ sInt32 CNSLPlugin::SetPluginState ( const uInt32 inState )
 #ifdef DONT_WAIT_FOR_NSL_TO_ACTIVATE_US				
 		mActivatedByNSL = true;	// for now we are activating ourselves
 #endif
-		
-		if ( mActivatedByNSL )
-			StartNodeLookup();		// get this fired off
+
+		ActivateSelf();
     }
 
-	if (kInactive & inState) //want to set to in-active
+	if ( (kInactive & inState) && (mState & kActive) ) // want to set to inactive only if currently active
     {
         DBGLOG( "kInactive\n" );
         if ( !(mState & kInactive) )
@@ -481,22 +597,38 @@ sInt32 CNSLPlugin::SetPluginState ( const uInt32 inState )
             
         if ( mState & kActive )
             mState -= kActive;
-        // we need to deregister all our nodes
 
-		if ( mSearchTicklerInstalled )
-			UnInstallSearchTickler();
-			
-        ClearOutAllNodes();
+		DeActivateSelf();
     }
 
 	return( eDSNoErr );
 
 } // SetPluginState
 
-#pragma mark - 
+void CNSLPlugin::ActivateSelf( void )
+{	
+	if ( mActivatedByNSL )
+	{
+		ZeroLastNodeLookupStartTime();
+
+		InstallNodeLookupTimer();
+	}
+}
+
+void CNSLPlugin::DeActivateSelf( void )
+{
+	// we need to deregister all our nodes
+
+	UnInstallSearchTickler();
+	UnInstallNodeLookupTimer();
+	
+	ClearOutAllNodes();
+}
+
+#pragma mark -
 void CNSLPlugin::AddNode( CFStringRef nodeNameRef, Boolean isLocalNode )
 {
-    if ( !nodeNameRef )
+    if ( !nodeNameRef || !IsActive() )
         return;
 
     char		nodeString[1024] = {0};
@@ -512,7 +644,7 @@ void CNSLPlugin::AddNode( CFStringRef nodeNameRef, Boolean isLocalNode )
 
 void CNSLPlugin::AddNode( const char* nodeName, Boolean isLocalNode )
 {
-    if ( !nodeName )
+    if ( !nodeName || !IsActive() )
         return;
         
     NodeData*		node = NULL;
@@ -522,16 +654,11 @@ void CNSLPlugin::AddNode( const char* nodeName, Boolean isLocalNode )
     
 	if ( nodeRef )
 	{
-		DBGLOG( "CNSLPlugin::AddNode called with %s\n", nodeName );
+		DBGLOG( "CNSLPlugin::AddNode (%s) called with %s\n", GetProtocolPrefixString(), nodeName );
 		LockPublishedNodes();
 		if ( ::CFDictionaryContainsKey( mPublishedNodes, nodeRef ) )
 			node = (NodeData*)::CFDictionaryGetValue( mPublishedNodes, nodeRef );
-	//    UnlockPublishedNodes();
 		
-		/*
-		if ( GetLocalNodeString() && strcmp( nodeName, GetLocalNodeString() ) == 0 )
-			isADefaultNode = true;
-		*/
 		if ( isLocalNode || IsLocalNode( nodeName ) )
 			isADefaultNode = true;
 		
@@ -541,14 +668,12 @@ void CNSLPlugin::AddNode( const char* nodeName, Boolean isLocalNode )
 		if ( node && isADefaultNode != node->fIsADefaultNode )
 		{
 			// this node is being republished and has a different default state.  We will deregister the old one and create a new one.
-fprintf( stderr, "CNSLPlugin::AddNode calling DSUnregisterNode (%s) as isADefaultNode:(%d), node->fIsADefaultNode:(%d)\n", nodeName, isADefaultNode, node->fIsADefaultNode );
-			DSUnregisterNode( mSignature, node->fDSName );
+//fprintf( stderr, "CNSLPlugin::AddNode calling DSUnregisterNode (%s) as isADefaultNode:(%d), node->fIsADefaultNode:(%d)\n", nodeName, isADefaultNode, node->fIsADefaultNode );
+//			DSUnregisterNode( mSignature, node->fDSName );	// now taken care of when the node is released
 			
-	//        LockPublishedNodes();
 			::CFDictionaryRemoveValue( mPublishedNodes, node->fNodeName );		// remove it from the dictionary
-	//        UnlockPublishedNodes();
 	
-			DeallocateNodeData( node );
+//			DeallocateNodeData( node );
 			
 			node = NULL;
 		}
@@ -559,8 +684,8 @@ fprintf( stderr, "CNSLPlugin::AddNode calling DSUnregisterNode (%s) as isADefaul
 		}
 		else
 		{
-			// ah, we have a new node
-			DBGLOG( "CNSLPlugin::AddNode Adding new node %s\n", nodeName );
+			// we have a new node
+			DBGLOG( "CNSLPlugin::AddNode(%s) Adding new %snode %s\n", GetProtocolPrefixString(), (isADefaultNode)?"local ":"", nodeName );
 			node = AllocateNodeData();
 			
 			node->fNodeName = nodeRef;
@@ -589,9 +714,7 @@ fprintf( stderr, "CNSLPlugin::AddNode calling DSUnregisterNode (%s) as isADefaul
 					DSRegisterNode( mSignature, node->fDSName, nodeTypeToRegister );
 			}
 			
-	//        LockPublishedNodes();
 			::CFDictionaryAddValue( mPublishedNodes, nodeRef, node );
-	//        UnlockPublishedNodes();
 		}
 		
 		CFRelease( nodeRef );
@@ -610,21 +733,18 @@ void CNSLPlugin::RemoveNode( CFStringRef nodeNameRef )
         
     LockPublishedNodes();
     Boolean		containsNode = ::CFDictionaryContainsKey( mPublishedNodes, nodeNameRef );
-//    UnlockPublishedNodes();
 
     if ( containsNode )
     {
-//        LockPublishedNodes();
         node = (NodeData*)::CFDictionaryGetValue( mPublishedNodes, nodeNameRef );
-//        UnlockPublishedNodes();
 
-        DSUnregisterNode( mSignature, node->fDSName );
+// now taken care of in the release
+//        DSUnregisterNode( mSignature, node->fDSName );
         
-//        LockPublishedNodes();
         ::CFDictionaryRemoveValue( mPublishedNodes, node->fNodeName );		// remove it from the dictionary
-//        UnlockPublishedNodes();
 
-        DeallocateNodeData( node );
+// now taken care of in the release
+//        DeallocateNodeData( node );
         node = NULL;
     }
 
@@ -634,7 +754,7 @@ void CNSLPlugin::RemoveNode( CFStringRef nodeNameRef )
 void CNSLPlugin::NodeLookupComplete( void )
 {
 	DBGLOG( "CNSLPlugin::NodeLookupComplete\n" );
-    SetTimeToClearOutStaleNodes( true );			// get rid of any that are old
+    ClearOutStaleNodes();			// get rid of any that are old
 } // NodeLookupComplete
 
 const char* CNSLPlugin::GetLocalNodeString( void )
@@ -656,6 +776,24 @@ Boolean CNSLPlugin::IsADefaultOnlyNode( const char *inNode )
     
     return false;			// plugin should override
 }
+
+#pragma mark -
+
+CFStringRef NetworkChangeNSLCopyStringCallback( const void *item );
+CFStringRef NetworkChangeNSLCopyStringCallback( const void *item )
+{
+	return kNetworkChangeNSLCopyStringCallbackSAFE_CFSTR;
+}
+
+static void DoNetworkTransition(CFRunLoopTimerRef timer, void *info);
+void DoNetworkTransition(CFRunLoopTimerRef timer, void *info)
+{
+	if ( info != nil )
+	{
+	//do something if the wait period has passed
+		((CNSLPlugin *)info)->HandleNetworkTransitionIfTime();
+	}
+}// DoNIPINetworkChange
 
 #pragma mark -
 // ---------------------------------------------------------------------------
@@ -808,7 +946,28 @@ sInt32 CNSLPlugin::HandleRequest( void *inData )
             
         case kHandleNetworkTransition:
             DBGLOG( "CNSLPlugin::HandleRequest, we have some sort of network transition\n" );
-			siResult = HandleNetworkTransition( (sHeader*)inData );
+			//let us be smart about doing the recheck
+			//we don't want to re-init multiple times during this wait period
+			//however we do go ahead and fire off timers each time
+			//each call in here we update the delay time by 5 seconds
+			mTransitionCheckTime = time(nil) + 5;
+		
+			if (mRunLoopRef != nil)
+			{
+				CFRunLoopTimerContext c = {0, (void*)this, NULL, NULL, NetworkChangeNSLCopyStringCallback};
+			
+				CFRunLoopTimerRef timer = CFRunLoopTimerCreate(	NULL,
+																CFAbsoluteTimeGetCurrent() + 5,
+																0,
+																0,
+																0,
+																DoNetworkTransition,
+																(CFRunLoopTimerContext*)&c);
+			
+				CFRunLoopAddTimer(mRunLoopRef, timer, kCFRunLoopDefaultMode);
+				if (timer) CFRelease(timer);
+			}
+//			siResult = HandleNetworkTransition( (sHeader*)inData );
 			break;
 
 			
@@ -837,6 +996,8 @@ sInt32 CNSLPlugin::GetDirNodeInfo( sGetDirNodeInfo *inData )
 {
     sInt32				siResult			= eNotHandledByThisNode;	// plugins can override
 	
+	DBGLOG( "CNSLPlugin::GetDirNodeInfo not handled by this plugin\n" );
+	
 	return siResult;		
 }
 
@@ -851,183 +1012,198 @@ sInt32 CNSLPlugin::OpenDirNode ( sOpenDirNode *inData )
     Boolean				weHandleThisNode	= false;
     
 	DBGLOG( "CNSLPlugin::OpenDirNode %lx\n", inData->fOutNodeRef );
-    mMinTimeBetweenNodeLookups = kMinTimeBetweenNodeLookups;			// reset this if someone is currently looking at us
 	
 	if ( inData != nil )
     {
-        pNodeList	=	inData->fInDirNodeName;
-        pathStr = dsGetPathFromListPriv( pNodeList, (char *)"/" );
-        protocolStr = pathStr + 1;	// advance past the '/'
-        
-        DBGLOG( "CNSLPlugin::OpenDirNode, ProtocolPrefixString is %s, pathStr is %s\n", GetProtocolPrefixString(), pathStr );
-        
-        if ( strstr( pathStr, "NSLActivate" ) )
-        {
-            // we have a directed open for our plugins, fire off our node searches if needed
-            if ( !mActivatedByNSL )
-            {
-                mActivatedByNSL = true;
-                StartNodeLookup();
-            }
-            
-			free( pathStr );
+		try {
+			pNodeList	=	inData->fInDirNodeName;
+			pathStr = dsGetPathFromListPriv( pNodeList, (char *)"/" );
+			protocolStr = pathStr + 1;	// advance past the '/'
 			
-            return eDSNoErr;
-        }
-/*        else if ( (strlen(pathStr) > strlen(GetProtocolPrefixString()+1)) && (::strncmp(protocolStr, GetProtocolPrefixString(), strlen(GetProtocolPrefixString())) == 0) && protocolStr[strlen(GetProtocolPrefixString())] == '/' )
-        {
-            DBGLOG( "CNSLPlugin::OpenDirNode, weHandleThisNode set to true\n" );
-            weHandleThisNode = true;
-        }
-*/        
-		else if ( strcmp( protocolStr, GetProtocolPrefixString() ) == 0 )
-		{
-			// they are opening this plugin at the top level so they'll probably be wanting to configure it
-			nodeName = new char[1+strlen(protocolStr)];
-			if ( !nodeName ) throw ( eDSNullNodeName );
-				
-			::strcpy(nodeName,protocolStr);
+			DBGLOG( "CNSLPlugin::OpenDirNode, ProtocolPrefixString is %s, pathStr is %s\n", GetProtocolPrefixString(), pathStr );
 			
-			if ( nodeName )
+			if ( strstr( pathStr, "NSLActivate" ) )
 			{
-				DBGLOG( "CNSLPlugin::OpenDirNode on %s\n", nodeName );
-				CNSLDirNodeRep*		newNodeRep = new CNSLDirNodeRep( this, (const void*)inData->fOutNodeRef );
-				
-				if (!newNodeRep) throw ( eDSNullNodeName );
-				
-				newNodeRep->Initialize( nodeName, inData->fInUID );
-	
-				// add the item to the reference table
-				::CFDictionaryAddValue( mOpenRefTable, (const void*)inData->fOutNodeRef, (const void*)newNodeRep );
-	
-				delete( nodeName );
-				nodeName = nil;
-			}
-            
-			free( pathStr );
-			
-			return eDSNoErr;
-		}
-		else if ( (strlen(pathStr) > strlen(GetProtocolPrefixString()+1)) && (::strncmp(protocolStr, GetProtocolPrefixString(), strlen(GetProtocolPrefixString())) == 0) && protocolStr[strlen(GetProtocolPrefixString())] == '/' )
-        {
-			// only work on nodes with our prefix
-            subStr = pathStr + strlen(GetProtocolPrefixString()) + 2;
-			
-			CFStringRef		nodeAsRef = ::CFStringCreateWithCString( NULL, subStr, kCFStringEncodingUTF8 );
-            
-            if ( nodeAsRef )
-            {
-                LockPublishedNodes();
-                weHandleThisNode = ::CFDictionaryContainsKey( mPublishedNodes, nodeAsRef );
-                UnlockPublishedNodes();
-                
-                if ( weHandleThisNode )
-                    DBGLOG( "CNSLPlugin::OpenDirNode, we will handle the request since we have this node (%s) already published\n", subStr );
-				else
+				// we have a directed open for our plugins, fire off our node searches if needed
+				if ( !mActivatedByNSL )
 				{
-					if ( getenv("NSLDEBUG") )
+					mActivatedByNSL = true;
+					
+					if ( IsActive() )		// only start lookups if we are currently active
 					{
-						DBGLOG( "CNSLPlugin::OpenDirNode, we don't handle this node, ref/publishedNodes\n" );
-						if ( nodeAsRef ) CFShow(nodeAsRef);
+						InstallNodeLookupTimer();
 					}
 				}
-
-                ::CFRelease( nodeAsRef );
 				
-                if ( !weHandleThisNode )
-				{
-                    weHandleThisNode = OKToOpenUnPublishedNode( subStr );		// allow plugin option of searching unpublished nodes
-                
-					if ( weHandleThisNode )
-					{
-						subStr = pathStr + strlen(GetProtocolPrefixString()) + 2;	// prefix plus pre and post '/'s
-
-						DBGLOG( "CNSLPlugin::OpenDirNode Adding new node %s\n", subStr );
-						CFStringRef		nodeRef = CFStringCreateWithCString( NULL, subStr, kCFStringEncodingUTF8 );
-						
-						if ( nodeRef )
-						{
-							NodeData*  node = AllocateNodeData();
-							
-							node->fNodeName = nodeRef;
-							CFRetain( node->fNodeName );
-							
-							node->fDSName = dsBuildListFromStringsPriv(GetProtocolPrefixString(), subStr, nil);
+				free( pathStr );
+				
+				return eDSNoErr;
+			}
+			else if ( strcmp( protocolStr, GetProtocolPrefixString() ) == 0 )
+			{
+				// they are opening this plugin at the top level so they'll probably be wanting to configure it
+				nodeName = new char[1+strlen(protocolStr)];
+				if ( !nodeName ) throw ( eDSNullNodeName );
 					
-							node->fTimeStamp = GetCurrentTime();
-							
-							node->fServicesRefTable = ::CFDictionaryCreateMutable( NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
-							node->fIsADefaultNode = IsLocalNode( subStr );
-							node->fSignature = mSignature;
-							
-							if ( node->fDSName )
-							{
-								eDirNodeType		nodeTypeToRegister = kUnknownNodeType;
-								
-								if ( IsLocalNode( subStr ) )
-									nodeTypeToRegister = kDefaultNetworkNodeType;
-								
-								nodeTypeToRegister = (eDirNodeType)( nodeTypeToRegister | kDirNodeType );
-								
-								if ( nodeTypeToRegister != kUnknownNodeType )
-									DSRegisterNode( mSignature, node->fDSName, nodeTypeToRegister );
-							}
-							
-							::CFDictionaryAddValue( mPublishedNodes, nodeRef, node );
-						
-							::CFRelease( nodeRef );
+				::strcpy(nodeName,protocolStr);
+				
+				if ( nodeName )
+				{
+					DBGLOG( "CNSLPlugin::OpenDirNode on %s\n", nodeName );
+					CNSLDirNodeRep*		newNodeRep = new CNSLDirNodeRep( this, (const void*)inData->fOutNodeRef );
+					
+					if (!newNodeRep) throw ( eDSNullNodeName );
+					
+					newNodeRep->Initialize( nodeName, inData->fInUID, true );
+					
+					newNodeRep->Retain();
+					// add the item to the reference table
+					LockOpenRefTable();
+	
+					::CFDictionaryAddValue( mOpenRefTable, (const void*)inData->fOutNodeRef, (const void*)newNodeRep );
+		
+					UnlockOpenRefTable();
+		
+					delete( nodeName );
+					nodeName = nil;
+				}
+				
+				free( pathStr );
+				
+				return eDSNoErr;
+			}
+			else if ( IsActive() && (strlen(pathStr) > strlen(GetProtocolPrefixString()+1)) && (::strncmp(protocolStr, GetProtocolPrefixString(), strlen(GetProtocolPrefixString())) == 0) && protocolStr[strlen(GetProtocolPrefixString())] == '/' )
+			{
+				// only work on nodes with our prefix
+				subStr = pathStr + strlen(GetProtocolPrefixString()) + 2;
+				
+				CFStringRef		nodeAsRef = ::CFStringCreateWithCString( NULL, subStr, kCFStringEncodingUTF8 );
+				
+				if ( nodeAsRef )
+				{
+					LockPublishedNodes();
+					weHandleThisNode = ::CFDictionaryContainsKey( mPublishedNodes, nodeAsRef );
+					UnlockPublishedNodes();
+					
+					if ( weHandleThisNode )
+						DBGLOG( "CNSLPlugin::OpenDirNode, we will handle the request since we have this node (%s) already published\n", subStr );
+					else
+					{
+						if ( getenv("NSLDEBUG") )
+						{
+							DBGLOG( "CNSLPlugin::OpenDirNode, we don't handle this node, ref/publishedNodes\n" );
+							if ( nodeAsRef ) CFShow(nodeAsRef);
 						}
 					}
-                }
+	
+					::CFRelease( nodeAsRef );
+					
+					if ( !weHandleThisNode )
+					{
+						weHandleThisNode = OKToOpenUnPublishedNode( subStr );		// allow plugin option of searching unpublished nodes
+					
+						if ( weHandleThisNode )
+						{
+							subStr = pathStr + strlen(GetProtocolPrefixString()) + 2;	// prefix plus pre and post '/'s
+	
+							DBGLOG( "CNSLPlugin::OpenDirNode Adding new node %s\n", subStr );
+							CFStringRef		nodeRef = CFStringCreateWithCString( NULL, subStr, kCFStringEncodingUTF8 );
+							
+							if ( nodeRef )
+							{
+								NodeData*  node = AllocateNodeData();
+								
+								node->fNodeName = nodeRef;
+								CFRetain( node->fNodeName );
+								
+								node->fDSName = dsBuildListFromStringsPriv(GetProtocolPrefixString(), subStr, nil);
+						
+								node->fTimeStamp = GetCurrentTime();
+								
+								node->fServicesRefTable = ::CFDictionaryCreateMutable( NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
+								node->fIsADefaultNode = IsLocalNode( subStr );
+								node->fSignature = mSignature;
+								
+								if ( node->fDSName )
+								{
+									eDirNodeType		nodeTypeToRegister = kUnknownNodeType;
+									
+									if ( IsLocalNode( subStr ) )
+										nodeTypeToRegister = kDefaultNetworkNodeType;
+									
+									nodeTypeToRegister = (eDirNodeType)( nodeTypeToRegister | kDirNodeType );
+									
+									if ( nodeTypeToRegister != kUnknownNodeType )
+										DSRegisterNode( mSignature, node->fDSName, nodeTypeToRegister );
+								}
+								
+								::CFDictionaryAddValue( mPublishedNodes, nodeRef, node );
+							
+								::CFRelease( nodeRef );
+							}
+						}
+					}
+					
+					if ( !weHandleThisNode )
+						DBGLOG( "CNSLPlugin::OpenDirNode, we won't handle the request on this node (%s)\n", pathStr );
+				}
+			}
+			
+			if ( weHandleThisNode )
+			{
+				if ( !subStr )
+					subStr = pathStr + strlen(GetProtocolPrefixString()) + 2;	// prefix plus pre and post '/'s
+	
+				if ( subStr )
+				{
+					DBGLOG( "CNSLPlugin::OpenDirNode subStr is %s\n", subStr );
+	
+					nodeName = new char[1+strlen(subStr)];
+					if( !nodeName ) throw ( eDSNullNodeName );
+					
+					::strcpy(nodeName,subStr);
+				}
 				
-				if ( !weHandleThisNode )
-                    DBGLOG( "CNSLPlugin::OpenDirNode, we won't handle the request on this node (%s)\n", pathStr );
-            }
-            
-        }
-        
-        if ( weHandleThisNode )
-        {
-            if ( !subStr )
-                subStr = pathStr + strlen(GetProtocolPrefixString()) + 2;	// prefix plus pre and post '/'s
-
-            if ( subStr )
-            {
-                DBGLOG( "CNSLPlugin::OpenDirNode subStr is %s\n", subStr );
-
-                nodeName = new char[1+strlen(subStr)];
-                ThrowThisIfNULL_( nodeName, eDSNullNodeName );
-                
-                ::strcpy(nodeName,subStr);
-            }
-            
-            if ( nodeName )
-            {
-                DBGLOG( "CNSLPlugin::OpenDirNode on %s\n", nodeName );
-                CNSLDirNodeRep*		newNodeRep = new CNSLDirNodeRep( this, (const void*)inData->fOutNodeRef );
-                
-                ThrowIfNULL_( newNodeRep );
-                
-                newNodeRep->Initialize( nodeName, inData->fInUID );
-
-                // add the item to the reference table
-                ::CFDictionaryAddValue( mOpenRefTable, (const void*)inData->fOutNodeRef, (const void*)newNodeRep );
-
-                delete( nodeName );
-                nodeName = nil;
-            }
-            else
-            {
-                inData->fOutNodeRef = 0;
-                DBGLOG( "CNSLPlugin::OpenDirNode nodeName is NULL!\n" );
-            }
-        }
-        else
-        {
-            siResult = eNotHandledByThisNode;
-            DBGLOG( "CNSLPlugin::OpenDirNode skipping cuz path is %s\n", pathStr );
-        }
-    }
+				if ( nodeName )
+				{
+					DBGLOG( "CNSLPlugin::OpenDirNode on %s\n", nodeName );
+					CNSLDirNodeRep*		newNodeRep = new CNSLDirNodeRep( this, (const void*)inData->fOutNodeRef );
+					
+					if( !newNodeRep ) throw (eMemoryAllocError);
+					
+					newNodeRep->Initialize( nodeName, inData->fInUID, false );
+	
+					newNodeRep->Retain();
+	
+					// add the item to the reference table
+					LockOpenRefTable();
+	
+					::CFDictionaryAddValue( mOpenRefTable, (const void*)inData->fOutNodeRef, (const void*)newNodeRep );
+	
+					UnlockOpenRefTable();
+	
+					delete( nodeName );
+					nodeName = nil;
+				}
+				else
+				{
+					inData->fOutNodeRef = 0;
+					DBGLOG( "CNSLPlugin::OpenDirNode nodeName is NULL!\n" );
+				}
+			}
+			else
+			{
+				siResult = eNotHandledByThisNode;
+				DBGLOG( "CNSLPlugin::OpenDirNode skipping cuz path is %s\n", pathStr );
+			}
+		}
+		
+		catch( int err )
+		{
+			siResult = err;
+			DBGLOG( "CNSLPlugin::CloseDirNode, Caught error:%li\n", siResult );
+		}
+	}
     else
     	DBGLOG( "CNSLPlugin::OpenDirNode inData is NULL!\n" );
 		
@@ -1037,6 +1213,12 @@ sInt32 CNSLPlugin::OpenDirNode ( sOpenDirNode *inData )
 		pathStr = NULL;
 	}
 
+	if ( nodeName )
+	{
+		delete( nodeName );
+		nodeName = nil;
+	}
+	
     return siResult;
 }
 
@@ -1046,13 +1228,13 @@ sInt32 CNSLPlugin::CloseDirNode ( sCloseDirNode *inData )
     sInt32				siResult			= eDSNoErr;
     
 	DBGLOG( "CNSLPlugin::CloseDirNode %lx\n", inData->fInNodeRef );
-    Try_
+    try
     {
         if ( inData != nil && inData->fInNodeRef && mOpenRefTable )
         {
             CNSLDirNodeRep*		nodeRep = NULL;
             
-            LockPlugin();
+			LockOpenRefTable();
 			
 			nodeRep = (CNSLDirNodeRep*)::CFDictionaryGetValue( mOpenRefTable, (const void*)inData->fInNodeRef );
 			
@@ -1062,20 +1244,19 @@ sInt32 CNSLPlugin::CloseDirNode ( sCloseDirNode *inData )
             {
                 ::CFDictionaryRemoveValue( mOpenRefTable, (void*)inData->fInNodeRef );
 
-                UnlockPlugin();
-
                 DBGLOG( "CNSLPlugin::CloseDirNode, delete nodeRep: 0x%x\n", (void*)nodeRep );
-                nodeRep->DeleteSelf();
+                nodeRep->Release();
             }
             else
             {
                 DBGLOG( "CNSLPlugin::CloseDirNode, nodeRef not found in our list\n" );
-                UnlockPlugin();
             }
+
+			UnlockOpenRefTable();
         }
     }
     
-    Catch_( err )
+    catch( int err )
     {
         siResult = err;
         DBGLOG( "CNSLPlugin::CloseDirNode, Caught error:%li\n", siResult );
@@ -1096,36 +1277,57 @@ sInt32 CNSLPlugin::GetRecordList ( sGetRecordList *inData )
     uInt32					countDownRecTypes	= 0;
     const void*				dictionaryResult	= NULL;
     CNSLDirNodeRep*			nodeDirRep			= NULL;
-    
+    unsigned long			incomingRecEntryCount = inData->fOutRecEntryCount;
+	
+	LockOpenRefTable();
 	DBGLOG( "CNSLPlugin::GetRecordList called\n" );
-//    if( !::CFDictionaryGetValueIfPresent( mOpenRefTable, (const void*)inData->fInNodeRef, &dictionaryResult ) )
 	dictionaryResult = ::CFDictionaryGetValue( mOpenRefTable, (const void*)inData->fInNodeRef );
-    if( !dictionaryResult )
-        DBGLOG( "CNSLPlugin::GetRecordList called but we couldn't find the nodeDirRep!\n" );
 
     nodeDirRep = (CNSLDirNodeRep*)dictionaryResult;
     
-    Try_
+    if( !nodeDirRep )
+	{
+        DBGLOG( "CNSLPlugin::GetRecordList called but we couldn't find the nodeDirRep!\n" );
+
+		UnlockOpenRefTable();
+		return eDSInvalidNodeRef;
+    }
+
+	if ( nodeDirRep->IsTopLevelNode() )
+	{
+        DBGLOG( "CNSLPlugin::GetRecordList called on a top level node, return no results\n" );
+
+		inData->fIOContinueData = NULL;
+		inData->fOutRecEntryCount = 0;			// no more entries to parse
+
+		UnlockOpenRefTable();
+		return eDSNoErr;
+	}
+	
+	nodeDirRep->Retain();
+	UnlockOpenRefTable();
+
+	inData->fOutRecEntryCount = 0;							// make sure to reset this!
+			
+    try
     {
         if ( nodeDirRep && !nodeDirRep->IsLookupStarted() )
         {
  DBGLOG( "CNSLPlugin::GetRecordList called, lookup hasn't been started yet.\n" );
            // ok, we need to initialize this nodeDirRep and start the searches...
             // Verify all the parameters
-            ThrowThisIfNULL_( inData , eMemoryError );
-            ThrowThisIfNULL_( inData->fInDataBuff , eDSEmptyBuffer );
-            ThrowThisIf_( (inData->fInDataBuff->fBufferSize == 0), eDSEmptyBuffer );
-            ThrowThisIfNULL_( inData->fInRecNameList , eDSEmptyRecordNameList );
-            ThrowThisIfNULL_( inData->fInRecTypeList , eDSEmptyRecordTypeList );
-            ThrowThisIfNULL_( inData->fInAttribTypeList , eDSEmptyAttributeTypeList );
+            if( !inData )  throw( eMemoryError );
+            if( !inData->fInDataBuff)  throw( eDSEmptyBuffer );
+            if( (inData->fInDataBuff->fBufferSize == 0) ) throw( eDSEmptyBuffer );
+            if( !inData->fInRecNameList )  throw( eDSEmptyRecordNameList );
+            if( !inData->fInRecTypeList )  throw( eDSEmptyRecordTypeList );
+            if( !inData->fInAttribTypeList )  throw( eDSEmptyAttributeTypeList );
     
-            inData->fOutRecEntryCount	= 0;
-			
             //check if the client has requested a limit on the number of records to return
 			//we only do this the first call into this context for pContext
-			if (inData->fOutRecEntryCount >= 0)
+			if (incomingRecEntryCount >= 0)
 			{
-				nodeDirRep->LimitRecSearch( inData->fOutRecEntryCount );
+				nodeDirRep->LimitRecSearch( incomingRecEntryCount );
 			}
                    
            // Node context data
@@ -1133,32 +1335,49 @@ sInt32 CNSLPlugin::GetRecordList ( sGetRecordList *inData )
             // Get the record type list
             cpRecTypeList = new CAttributeList( inData->fInRecTypeList );
     
-            ThrowThisIfNULL_( cpRecTypeList , eDSEmptyRecordTypeList );
+            if( !cpRecTypeList )  throw( eDSEmptyRecordTypeList );
             //save the number of rec types here to use in separating the buffer data
             countDownRecTypes = cpRecTypeList->GetCount();
     
-            ThrowThisIf_( (countDownRecTypes == 0), eDSEmptyRecordTypeList );
+            if( (countDownRecTypes == 0) ) throw( eDSEmptyRecordTypeList );
     
             sInt32		error = eDSNoErr;
             nodeDirRep->LookupHasStarted();
 
+			// performance hack...
+			Boolean		alreadyLookedupSMBType = false;
+			
             for ( uInt16 i=1; i<=countDownRecTypes; i++ )
             {
                 if ( (error = cpRecTypeList->GetAttribute( i, &pRecType )) == eDSNoErr )
                 {
                     DBGLOG( "CNSLPlugin::GetRecordList, GetAttribute returned pRecType:%s\n", pRecType );
                     
-                    pNSLRecType = CreateNSLTypeFromRecType( pRecType );
-                    
-                    if ( pNSLRecType )
-                    {
-                        DBGLOG( "CNSLPlugin::GetRecordList, CreateNSLTypeFromRecType returned pNSLRecType:%s\n", pNSLRecType );
-                        
-                        StartServicesLookup( pNSLRecType, nodeDirRep );
-                    
-                        free( pNSLRecType );
-                        inData->fIOContinueData = (void*)inData->fInNodeRef;	// just to show we have continueing data
-                    }
+					if ( pRecType )
+					{
+						if ( strcmp( pRecType, kDSStdRecordTypeSMBServer ) == 0 )
+						{
+							if ( alreadyLookedupSMBType )
+							{
+								free( pNSLRecType );
+								continue;				// already looked up one of these
+							}
+							
+							alreadyLookedupSMBType = true;
+						}
+
+						pNSLRecType = CreateNSLTypeFromRecType( pRecType );
+						
+						if ( pNSLRecType )
+						{
+							DBGLOG( "CNSLPlugin::GetRecordList, CreateNSLTypeFromRecType returned pNSLRecType:%s\n", pNSLRecType );
+							
+							StartServicesLookup( pNSLRecType, nodeDirRep );
+						
+							free( pNSLRecType );
+							inData->fIOContinueData = (void*)inData->fInNodeRef;	// just to show we have continuing data
+						}
+					}
                 }
                 else
                 {
@@ -1168,30 +1387,33 @@ sInt32 CNSLPlugin::GetRecordList ( sGetRecordList *inData )
         }
         else if ( nodeDirRep && nodeDirRep->HaveResults() )
         {
-            // cool, we have data waiting for us...
+			// cool, we have data waiting for us...
             // we already started a search, check for results.
             siResult = RetrieveResults( inData, nodeDirRep );
-            inData->fIOContinueData = (void*)inData->fInNodeRef;	// just to show we have continueing data
-            DBGLOG( "***Sending Back Results, fBufferSize = %ld, fBufferLength = %ld\n", inData->fInDataBuff->fBufferSize, inData->fInDataBuff->fBufferLength );
+            inData->fIOContinueData = (void*)inData->fInNodeRef;	// just to show we have continuing data
+            DBGLOG( "***Sending Back Results, fBufferSize = %ld, fBufferLength = %ld, inData->fOutRecEntryCount = %d\n", inData->fInDataBuff->fBufferSize, inData->fInDataBuff->fBufferLength, inData->fOutRecEntryCount );
         }
         else if ( nodeDirRep && nodeDirRep->LookupComplete() )
         {
 			DBGLOG( "CNSLPlugin::GetRecordList called and nodeDirRep->LookupComplete so setting inData->fIOContinueData to NULL\n" );
             inData->fIOContinueData = NULL;
-            inData->fOutRecEntryCount = 0;			// no more entries to parse
 			nodeDirRep->ResetLookupHasStarted();	// so users can start another search
         }
 		else
-			usleep( 100000 );		// sleep for a 10th of a second so the client can't spinlock
-			
+			SmartSleep( 100000 );		// sleep for a 10th of a second so the client can't spinlock
     } // try
     
-    Catch_( err )
+    catch ( int err )
     {
         siResult = err;
         DBGLOG( "CNSLPlugin::GetRecordList, Caught error:%li\n", siResult );
     }
 
+	LockOpenRefTable();
+	if ( nodeDirRep )
+		nodeDirRep->Release();
+	UnlockOpenRefTable();
+		
     if ( cpRecNameList != nil )
     {
         delete( cpRecNameList );
@@ -1224,93 +1446,123 @@ sInt32 CNSLPlugin::OpenRecord ( sOpenRecord *inData )
 {
     sInt32					siResult			= eDSRecordNotFound;		// by default we don't Open records
     const void*				dictionaryResult	= NULL;
-    CFStringRef		        recordNameRef		= ::CFStringCreateWithCString( kCFAllocatorDefault, (char*)inData->fInRecName->fBufferData, kCFStringEncodingUTF8 );
         
     DBGLOG( "CNSLPlugin::OpenRecord called on refNum:0x%x\n", inData->fOutRecRef );
-//    if( !::CFDictionaryGetValueIfPresent( mOpenRefTable, (const void*)inData->fInNodeRef, &dictionaryResult ) )
+
+	LockOpenRefTable();
+
 	dictionaryResult = ::CFDictionaryGetValue( mOpenRefTable, (const void*)inData->fInNodeRef );
     if ( !dictionaryResult )
 	{
+		UnlockOpenRefTable();
         DBGLOG( "CNSLPlugin::OpenRecord called but we couldn't find the nodeDirRep!\n" );
         return eDSInvalidNodeRef;
     }
     
-    CFMutableStringRef		serviceKeyRef = ::CFStringCreateMutable( NULL, 0 );			// we'll use this as a key
+	((CNSLDirNodeRep*)dictionaryResult)->Retain();
+	UnlockOpenRefTable();
+
     CFStringRef				nodeNameRef = ((CNSLDirNodeRep*)dictionaryResult)->GetNodeName();
 
     char*		    		pNSLRecType = CreateNSLTypeFromRecType( (char*)inData->fInRecType->fBufferData );
-	CFStringRef				recordTypeRef = ::CFStringCreateWithCString( kCFAllocatorDefault, pNSLRecType, kCFStringEncodingUTF8 );
-    
-    ::CFStringAppend( serviceKeyRef, recordNameRef );
-    ::CFStringAppend( serviceKeyRef, recordTypeRef );
-    
-    ::CFRelease( recordNameRef );
-    ::CFRelease( recordTypeRef );
-    free( pNSLRecType );
-    
-    LockPublishedNodes();
-    Boolean		nodeInPublishedNodes = ::CFDictionaryContainsKey( mPublishedNodes, nodeNameRef );
-    UnlockPublishedNodes();
-    
-    if ( nodeInPublishedNodes )
-    {
-        if ( getenv("NSLDEBUG") )
-        {
-            DBGLOG( "CNSLPlugin::OpenRecord, found the node in question\n" );
-            CFShow( nodeNameRef );
-            DBGLOG( "CNSLPlugin::OpenRecord, looking up record\n" );
-            CFShow( serviceKeyRef );
-        }
-        
-        LockPublishedNodes();
-        NodeData* node = (NodeData*)::CFDictionaryGetValue( mPublishedNodes, nodeNameRef );
-        UnlockPublishedNodes();
+	
+	if ( pNSLRecType )
+	{
+		CFMutableStringRef		serviceKeyRef = ::CFStringCreateMutable( NULL, 0 );			// we'll use this as a key
+		CFStringRef				recordTypeRef = ::CFStringCreateWithCString( kCFAllocatorDefault, pNSLRecType, kCFStringEncodingUTF8 );
+		CFStringRef		        recordNameRef = ::CFStringCreateWithCString( kCFAllocatorDefault, (char*)inData->fInRecName->fBufferData, kCFStringEncodingUTF8 );
+		
+		if ( serviceKeyRef && recordTypeRef && recordNameRef )
+		{
+			::CFStringAppend( serviceKeyRef, recordNameRef );
+			::CFStringAppend( serviceKeyRef, recordTypeRef );
+		}
+		
+		if ( recordNameRef )
+			CFRelease( recordNameRef );
+		
+		if ( recordTypeRef )
+			CFRelease( recordTypeRef );
 
-        CFDictionaryRef	recordRef = (CFDictionaryRef)::CFDictionaryGetValue( node->fServicesRefTable, serviceKeyRef );
+		free( pNSLRecType );
+    
+		LockPublishedNodes();
+		NodeData* node = (NodeData*)::CFDictionaryGetValue( mPublishedNodes, nodeNameRef );
+		
+		if ( node )
+		{
+			if ( getenv("NSLDEBUG") )
+			{
+				DBGLOG( "CNSLPlugin::OpenRecord, found the node in question\n" );
+				CFShow( nodeNameRef );
+				DBGLOG( "CNSLPlugin::OpenRecord, looking up record\n" );
+				CFShow( serviceKeyRef );
+			}
+			
+			CFDictionaryRef	recordRef = (CFDictionaryRef)::CFDictionaryGetValue( node->fServicesRefTable, serviceKeyRef );
+	
+			if ( recordRef )
+				CFRetain( recordRef );		// hold on to this while we manipulate it and release at the end.
+				
+			UnlockPublishedNodes();
 
-        if ( recordRef && CFGetTypeID(recordRef) == CFDictionaryGetTypeID() )
-        {
-            CFStringRef recordName = (CFStringRef)::CFDictionaryGetValue( recordRef, CFSTR(kDSNAttrRecordName) );
-            CFStringRef nodeName = (CFStringRef)::CFDictionaryGetValue( recordRef, CFSTR(kDS1AttrLocation) );
-            
-            if ( !recordName && !nodeName )
-            {
-                if ( getenv("NSLDEBUG") )
-                {
-                    DBGLOG( "CNSLPlugin::OpenRecord, the node->fServicesRefTable doesn't have both recordName and nodeName keys!\n" );
-                    if (recordName) CFShow( recordName ); else DBGLOG( "CNSLPlugin::OpenRecord, recordName is null\n" );
-                    if (nodeName) CFShow( nodeName ); else DBGLOG( "CNSLPlugin::OpenRecord, nodeName is null\n" );
-                }
-            }
-            else if ( CFGetTypeID(recordName) == CFStringGetTypeID() && CFGetTypeID(nodeName) == CFStringGetTypeID() )
-            {
-                // found it.
-                ::CFDictionaryAddValue( mOpenRefTable, (void*)inData->fOutRecRef, (void*)recordRef );
-                siResult = eDSNoErr;
-                
-                if ( getenv("NSLDEBUG") )
-                {
-                    DBGLOG( "CNSLPlugin::OpenRecord, found the record in question (ref:0x%x)\n", inData->fOutRecRef );
-                }
-            }
-            else
-                DBGLOG( "CNSLPlugin::OpenRecord, we just grabbed a name or node name that wasn't a CFString!\n" );
-        }
-        else if ( recordRef )
-            DBGLOG( "CNSLPlugin::OpenRecord, we just grabbed something out of our node->fServicesRefTable that wasn't a CFDictionary!\n" );
-        else
-            DBGLOG( "CNSLPlugin::OpenRecord, couldn't find previously created record\n" );
-    }
-    else
-    {
-        // do we want to allow two openings of a record?  Or is this not possible as we should be getting a unique
-        // ref assigned to this open?...
-        DBGLOG( "CNSLPlugin::OpenRecord this record already opened...\n" );
-        siResult = eDSNoErr;
-    }
+			if ( recordRef && CFGetTypeID(recordRef) == CFDictionaryGetTypeID() )
+			{
+				CFStringRef recordName = (CFStringRef)::CFDictionaryGetValue( recordRef, kDSNAttrRecordNameSAFE_CFSTR );
+				CFStringRef nodeName = (CFStringRef)::CFDictionaryGetValue( recordRef, kDS1AttrLocationSAFE_CFSTR );
+				
+				if ( !recordName && !nodeName )
+				{
+					if ( getenv("NSLDEBUG") )
+					{
+						DBGLOG( "CNSLPlugin::OpenRecord, the node->fServicesRefTable doesn't have both recordName and nodeName keys!\n" );
+						if (recordName) CFShow( recordName ); else DBGLOG( "CNSLPlugin::OpenRecord, recordName is null\n" );
+						if (nodeName) CFShow( nodeName ); else DBGLOG( "CNSLPlugin::OpenRecord, nodeName is null\n" );
+					}
+				}
+				else if ( CFGetTypeID(recordName) == CFStringGetTypeID() && CFGetTypeID(nodeName) == CFStringGetTypeID() )
+				{
+					CFRetain( recordRef );		// manually add retain when putting it into mOpenRefTable.
+
+					// found it.
+					LockOpenRefTable();
+	
+					::CFDictionaryAddValue( mOpenRefTable, (void*)inData->fOutRecRef, (void*)recordRef );
+					
+					UnlockOpenRefTable();
+
+					siResult = eDSNoErr;
+					
+					if ( getenv("NSLDEBUG") )
+					{
+						DBGLOG( "CNSLPlugin::OpenRecord, found the record in question (ref:0x%x)\n", inData->fOutRecRef );
+					}
+				}
+				else
+					DBGLOG( "CNSLPlugin::OpenRecord, we just grabbed a name or node name that wasn't a CFString!\n" );
+			}
+			else if ( recordRef )
+				DBGLOG( "CNSLPlugin::OpenRecord, we just grabbed something out of our node->fServicesRefTable that wasn't a CFDictionary!\n" );
+			else
+				DBGLOG( "CNSLPlugin::OpenRecord, couldn't find previously created record\n" );
+
+			if ( recordRef )
+				CFRelease( recordRef );		// ok, we're done with this now.
+		}
+		else
+		{				
+			UnlockPublishedNodes();
+			// do we want to allow two openings of a record?  Or is this not possible as we should be getting a unique
+			// ref assigned to this open?...
+			DBGLOG( "CNSLPlugin::OpenRecord this record already opened...\n" );
+			siResult = eDSNoErr;
+		}
     
-    ::CFRelease( serviceKeyRef );
-    
+		::CFRelease( serviceKeyRef );
+    }
+
+	((CNSLDirNodeRep*)dictionaryResult)->Release();
+	
     return( siResult );
 }	// OpenRecord
 
@@ -1320,16 +1572,23 @@ sInt32 CNSLPlugin::CloseRecord ( sCloseRecord *inData )
 
     DBGLOG( "CNSLPlugin::CloseRecord called on ref:%ld\n", inData->fInRecRef );
     
-    if ( ::CFDictionaryContainsKey( mOpenRefTable, (const void*)inData->fInRecRef ) )
+	LockOpenRefTable();
+
+	CFDictionaryRef	recordRef = (CFDictionaryRef)::CFDictionaryGetValue( mOpenRefTable, (const void*)inData->fInRecRef );
+
+    if ( recordRef )
     {
         ::CFDictionaryRemoveValue( mOpenRefTable, (const void*)inData->fInRecRef );
+		CFRelease( recordRef );
     }
     else
     {
         DBGLOG( "CNSLPlugin::CloseRecord called but the record wasn't found!\n" );
-        return eDSRecordNotFound;
+        siResult = eDSRecordNotFound;
     }
     
+	UnlockOpenRefTable();
+
     return( siResult );
 }	// CloseRecord
 
@@ -1359,30 +1618,35 @@ sInt32 CNSLPlugin::CreateRecord ( sCreateRecord *inData )
         return eDSPermissionError;
     }
     
-	Try_
+	try
 	{
-//        if( !::CFDictionaryGetValueIfPresent( mOpenRefTable, (const void*)inData->fInNodeRef, &dictionaryResult ) )
+		LockOpenRefTable();
 		dictionaryResult = ::CFDictionaryGetValue( mOpenRefTable, (const void*)inData->fInNodeRef );
         if ( !dictionaryResult )
 		{
+			UnlockOpenRefTable();
             DBGLOG( "CNSLPlugin::CreateRecord called but we couldn't find the nodeDirRep!\n" );
             return eDSInvalidNodeRef;
         }
+
+        nodeDirRep = (CNSLDirNodeRep*)dictionaryResult;
+        
+		nodeDirRep->Retain();
+
+		UnlockOpenRefTable();
 
         serviceKeyRef = ::CFStringCreateMutable( NULL, 0 );			// we'll use this as a key
         
         newService = ::CFDictionaryCreateMutable( NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
 
-        nodeDirRep = (CNSLDirNodeRep*)dictionaryResult;
-        
 		pRecType = inData->fInRecType;
-		ThrowThisIfNULL_( pRecType, eDSNullRecType );
+		if( !pRecType ) throw( eDSNullRecType );
 
 		pRecName = inData->fInRecName;
-		ThrowThisIfNULL_( pRecName, eDSNullRecName );
+		if( !pRecName ) throw( eDSNullRecName );
 
         pNSLRecType = CreateNSLTypeFromRecType( (char*)pRecType->fBufferData );
-		ThrowThisIfNULL_( pNSLRecType, eDSInvalidRecordType );
+		if( !pNSLRecType ) throw( eDSInvalidRecordType );
 
         if ( pNSLRecType )
         {
@@ -1462,11 +1726,15 @@ sInt32 CNSLPlugin::CreateRecord ( sCreateRecord *inData )
         }
 	}
 
-	Catch_ ( err )
+	catch ( int err )
 	{
 		siResult = err;
 	}
 		
+	LockOpenRefTable();
+	nodeDirRep->Release();
+	UnlockOpenRefTable();
+
 	if ( serviceKeyRef )
 		CFRelease( serviceKeyRef );
 		
@@ -1495,21 +1763,51 @@ sInt32 CNSLPlugin::CreateRecord ( sCreateRecord *inData )
 sInt32 CNSLPlugin::DeleteRecord ( sDeleteRecord *inData )
 {
     sInt32						siResult			= eDSNoErr;
-    
+	CFMutableDictionaryRef		serviceToDeregister	= NULL;
+	    
     DBGLOG( "CNSLPlugin::DeleteRecord called on refNum:%ld\n", inData->fInRecRef );
-    if ( inData->fInRecRef && ::CFDictionaryContainsKey( mOpenRefTable, (const void*)inData->fInRecRef ) )
+    if ( inData->fInRecRef )
     {
-        CFMutableDictionaryRef serviceToDeregister = (CFMutableDictionaryRef)::CFDictionaryGetValue( mOpenRefTable, (const void*)inData->fInRecRef );
+		LockOpenRefTable();
+        serviceToDeregister = (CFMutableDictionaryRef)::CFDictionaryGetValue( mOpenRefTable, (const void*)inData->fInRecRef );
 
         if ( serviceToDeregister )
-            siResult = DeregisterService( inData->fInRecRef, serviceToDeregister );
-        else
-            DBGLOG( "CNSLPlugin::DeleteRecord, couldn't find record to delete!\n" );
-    }
+            CFRetain( serviceToDeregister );
+			
+		UnlockOpenRefTable();
+
+        if ( serviceToDeregister )
+		{
+			siResult = DeregisterService( inData->fInRecRef, serviceToDeregister );
+
+			if ( siResult && siResult != eDSNullAttribute )
+			{
+				char				name[1024] = {0,};
+				char				type[256] = {0,};
+				
+				CFStringRef	nameOfService = (CFStringRef)::CFDictionaryGetValue( serviceToDeregister, kDSNAttrRecordNameSAFE_CFSTR );
+				if ( nameOfService )
+					CFStringGetCString( nameOfService, name, sizeof(name), kCFStringEncodingUTF8 );
+					
+				CFStringRef	typeOfService = (CFStringRef)::CFDictionaryGetValue( serviceToDeregister, kDS1AttrServiceTypeSAFE_CFSTR );
+				if ( !typeOfService )
+					typeOfService = (CFStringRef)::CFDictionaryGetValue( serviceToDeregister, kDSNAttrRecordTypeSAFE_CFSTR );
+			
+				if ( typeOfService )
+					CFStringGetCString( typeOfService, type, sizeof(type), kCFStringEncodingUTF8 );
+			
+				DBGLOG( "DS (%s) couldn't deregister %s (%s) due to an error: %d!\n", GetProtocolPrefixString(), name, type, siResult );
+			}
+			
+			CFRelease( serviceToDeregister );
+        }
+		else
+            syslog( LOG_ERR, "CNSLPlugin::DeleteRecord, couldn't find record to delete!\n" );
+	}
     else
     {
         siResult = eDSInvalidRecordRef;
-        DBGLOG( "CNSLPlugin::DeleteRecord called with invalid fInRecRef.\n" );
+        syslog( LOG_ERR, "CNSLPlugin::DeleteRecord called with invalid fInRecRef (0x%x)!\n", inData->fInRecRef );
     }
     
     return( siResult );
@@ -1518,23 +1816,52 @@ sInt32 CNSLPlugin::DeleteRecord ( sDeleteRecord *inData )
 sInt32 CNSLPlugin::FlushRecord ( sFlushRecord *inData )
 {
     sInt32						siResult = eDSNoErr;
-
+	CFMutableDictionaryRef		serviceToRegister = NULL;
+	
     DBGLOG( "CNSLPlugin::FlushRecord called on refNum:%ld\n", inData->fInRecRef );
-	Try_
+	try
 	{
-        if ( inData->fInRecRef && ::CFDictionaryContainsKey( mOpenRefTable, (const void*)inData->fInRecRef ) )
+        if ( inData->fInRecRef )
         {
-            CFMutableDictionaryRef		serviceToRegister = (CFMutableDictionaryRef)::CFDictionaryGetValue( mOpenRefTable, (const void*)inData->fInRecRef );
-
-            DBGLOG( "CNSLPlugin::FlushRecord calling RegisterService with the following service:\n" );
-            if ( getenv( "NSLDEBUG" ) )
-                ::CFShow( serviceToRegister );
+			LockOpenRefTable();
+            serviceToRegister = (CFMutableDictionaryRef)::CFDictionaryGetValue( mOpenRefTable, (const void*)inData->fInRecRef );
+			
+			if ( serviceToRegister )
+				CFRetain( serviceToRegister );
+				
+			UnlockOpenRefTable();
                 
             if ( serviceToRegister )
+			{
+				DBGLOG( "CNSLPlugin::FlushRecord calling RegisterService with the following service:\n" );
+				if ( getenv( "NSLDEBUG" ) )
+					::CFShow( serviceToRegister );
+	
                 siResult = RegisterService( inData->fInRecRef, serviceToRegister );
-            else
+
+				if ( siResult && siResult != eDSNullAttribute )
+				{
+					char				name[1024] = {0,};
+					char				type[256] = {0,};
+					
+					CFStringRef	nameOfService = (CFStringRef)::CFDictionaryGetValue( serviceToRegister, kDSNAttrRecordNameSAFE_CFSTR );
+					if ( nameOfService )
+						CFStringGetCString( nameOfService, name, sizeof(name), kCFStringEncodingUTF8 );
+						
+					CFStringRef	typeOfService = (CFStringRef)::CFDictionaryGetValue( serviceToRegister, kDS1AttrServiceTypeSAFE_CFSTR );
+					if ( !typeOfService )
+						typeOfService = (CFStringRef)::CFDictionaryGetValue( serviceToRegister, kDSNAttrRecordTypeSAFE_CFSTR );
+				
+					if ( typeOfService )
+						CFStringGetCString( typeOfService, type, sizeof(type), kCFStringEncodingUTF8 );
+				
+					syslog( LOG_ERR, "DS (%s) couldn't register %s (%s) due to an error: %d!\n", GetProtocolPrefixString(), name, type, siResult );
+				}
+				
+				CFRelease( serviceToRegister );
+            }
+			else
                 DBGLOG( "CNSLPlugin::FlushRecord, couldn't find service to register!\n" );
-//            ::CFRelease( serviceToRegister );
         }
         else
         {
@@ -1543,7 +1870,7 @@ sInt32 CNSLPlugin::FlushRecord ( sFlushRecord *inData )
         }
 	}
 
-	Catch_ ( err )
+	catch ( int err )
 	{
 		siResult = err;
 	}
@@ -1551,17 +1878,26 @@ sInt32 CNSLPlugin::FlushRecord ( sFlushRecord *inData )
     return( siResult );
 }	// DeleteRecord
 
+#pragma mark -
 sInt32 CNSLPlugin::AddAttributeValue ( sAddAttributeValue *inData )
 {
     sInt32						siResult = eDSNoErr;
-
+	CFMutableDictionaryRef		serviceToManipulate = NULL;
+	
     DBGLOG( "CNSLPlugin::AddAttributeValue called\n" );
-	Try_
+	try
 	{
-        if ( inData->fInRecRef && ::CFDictionaryContainsKey( mOpenRefTable, (const void*)inData->fInRecRef ) )
+        if ( inData->fInRecRef )
         {
-            CFMutableDictionaryRef		serviceToManipulate = (CFMutableDictionaryRef)::CFDictionaryGetValue( mOpenRefTable, (const void*)inData->fInRecRef );
+			LockOpenRefTable();
+            
+			serviceToManipulate = (CFMutableDictionaryRef)::CFDictionaryGetValue( mOpenRefTable, (const void*)inData->fInRecRef );
 			
+			if ( serviceToManipulate )
+				CFRetain( serviceToManipulate );
+				
+			UnlockOpenRefTable();
+
 			if ( serviceToManipulate && CFGetTypeID(serviceToManipulate) == CFDictionaryGetTypeID() )
 			{
 				CFStringRef		keyRef, valueRef;
@@ -1581,8 +1917,8 @@ sInt32 CNSLPlugin::AddAttributeValue ( sAddAttributeValue *inData )
 					}
 					else if ( existingValueRef && ::CFGetTypeID( existingValueRef ) == ::CFStringGetTypeID() )
 					{
-						// ahem, if this is the service type, then we want to ignore as this was already set...
-						if ( ::CFStringCompare( (CFStringRef)keyRef, CFSTR(kDS1AttrServiceType), 0 ) != kCFCompareEqualTo )
+						// if this is the service type, then we want to ignore as this was already set...
+						if ( ::CFStringCompare( (CFStringRef)keyRef, kDS1AttrServiceTypeSAFE_CFSTR, 0 ) != kCFCompareEqualTo )
 						{
 							// is this value the same as what we want to add?  If so skip, otherwise make it an array
 							if ( ::CFStringCompare( (CFStringRef)existingValueRef, valueRef, 0 ) != kCFCompareEqualTo )
@@ -1618,6 +1954,9 @@ sInt32 CNSLPlugin::AddAttributeValue ( sAddAttributeValue *inData )
 			}
 			else
 				siResult = eDSInvalidRecordRef;			
+
+			if ( serviceToManipulate )
+				CFRelease( serviceToManipulate );
         }
         else
         {
@@ -1626,7 +1965,7 @@ sInt32 CNSLPlugin::AddAttributeValue ( sAddAttributeValue *inData )
         }
 	}
 
-	Catch_ ( err )
+	catch ( int err )
 	{
 		siResult = err;
 	}
@@ -1637,19 +1976,27 @@ sInt32 CNSLPlugin::AddAttributeValue ( sAddAttributeValue *inData )
 sInt32 CNSLPlugin::RemoveAttribute ( sRemoveAttribute *inData )
 {
     sInt32						siResult = eDSNoErr;
+	CFMutableDictionaryRef		serviceToManipulate = NULL;
 
-	Try_
+	try
 	{
-        if ( inData->fInRecRef && ::CFDictionaryContainsKey( mOpenRefTable, (const void*)inData->fInRecRef ) )
+        if ( inData->fInRecRef )
         {
-            CFMutableDictionaryRef		serviceToManipulate = serviceToManipulate;
+			LockOpenRefTable();
+
+            serviceToManipulate = (CFMutableDictionaryRef)::CFDictionaryGetValue( mOpenRefTable, (const void*)inData->fInRecRef );
     
             CFStringRef		keyRef;
 
             keyRef = ::CFStringCreateWithCString( kCFAllocatorDefault, inData->fInAttribute->fBufferData, kCFStringEncodingUTF8 );
 
-            ::CFDictionaryRemoveValue( serviceToManipulate, keyRef );
-            ::CFRelease( keyRef );
+			if ( keyRef )
+			{
+				::CFDictionaryRemoveValue( serviceToManipulate, keyRef );
+				::CFRelease( keyRef );
+			}
+				
+			UnlockOpenRefTable();
         }
         else
         {
@@ -1658,7 +2005,7 @@ sInt32 CNSLPlugin::RemoveAttribute ( sRemoveAttribute *inData )
         }
 	}
 
-	Catch_ ( err )
+	catch ( int err )
 	{
 		siResult = err;
 	}
@@ -1669,39 +2016,52 @@ sInt32 CNSLPlugin::RemoveAttribute ( sRemoveAttribute *inData )
 sInt32 CNSLPlugin::RemoveAttributeValue ( sRemoveAttributeValue *inData )
 {
     sInt32						siResult = eDSNoErr;
-
-	Try_
+	CFMutableDictionaryRef		serviceToManipulate = NULL;
+	
+	try
 	{
-        if ( inData->fInRecRef && ::CFDictionaryContainsKey( mOpenRefTable, (const void*)inData->fInRecRef ) )
+        if ( inData->fInRecRef )
         {
-            CFMutableDictionaryRef		serviceToManipulate = (CFMutableDictionaryRef)::CFDictionaryGetValue( mOpenRefTable, (const void*)inData->fInRecRef );
+			LockOpenRefTable();
+
+            serviceToManipulate = (CFMutableDictionaryRef)::CFDictionaryGetValue( mOpenRefTable, (const void*)inData->fInRecRef );
     
-            CFStringRef			keyRef;
-            CFPropertyListRef	valueRef;
+			if ( serviceToManipulate )
+				CFRetain( serviceToManipulate );
+				
+			UnlockOpenRefTable();
 
-            keyRef = ::CFStringCreateWithCString( kCFAllocatorDefault, inData->fInAttrType->fBufferData, kCFStringEncodingUTF8 );
+			if ( serviceToManipulate )
+			{
+				CFStringRef			keyRef;
+				CFPropertyListRef	valueRef;
+	
+				keyRef = ::CFStringCreateWithCString( kCFAllocatorDefault, inData->fInAttrType->fBufferData, kCFStringEncodingUTF8 );
+	
+				valueRef = (CFPropertyListRef)::CFDictionaryGetValue( serviceToManipulate, keyRef );
+				
+				if ( valueRef && ::CFGetTypeID( valueRef ) == ::CFArrayGetTypeID() )
+				{
+					if ( (UInt32)::CFArrayGetCount( (CFMutableArrayRef)valueRef ) > inData->fInAttrValueID )
+						::CFArrayRemoveValueAtIndex( (CFMutableArrayRef)valueRef, inData->fInAttrValueID );
+					else
+						siResult = eDSIndexOutOfRange;
+				}
+				else if ( valueRef && ::CFGetTypeID( valueRef ) == ::CFStringGetTypeID() )
+				{
+					::CFDictionaryRemoveValue( serviceToManipulate, keyRef );
+				}
+				else
+					siResult = eDSInvalidAttrValueRef;
+					
+				if ( keyRef )
+					::CFRelease( keyRef );
+				
+				if ( valueRef )
+					::CFRelease( valueRef );
 
-            valueRef = (CFPropertyListRef)::CFDictionaryGetValue( serviceToManipulate, keyRef );
-            
-            if ( valueRef && ::CFGetTypeID( valueRef ) == ::CFArrayGetTypeID() )
-            {
-                if ( (UInt32)::CFArrayGetCount( (CFMutableArrayRef)valueRef ) > inData->fInAttrValueID )
-                    ::CFArrayRemoveValueAtIndex( (CFMutableArrayRef)valueRef, inData->fInAttrValueID );
-                else
-                    siResult = eDSIndexOutOfRange;
-            }
-            else if ( valueRef && ::CFGetTypeID( valueRef ) == ::CFStringGetTypeID() )
-            {
-                ::CFDictionaryRemoveValue( serviceToManipulate, keyRef );
-            }
-            else
-                siResult = eDSInvalidAttrValueRef;
-                
-            if ( keyRef )
-                ::CFRelease( keyRef );
-            
-            if ( valueRef )
-                ::CFRelease( valueRef );
+				CFRelease( serviceToManipulate );
+			}
         }
         else
         {
@@ -1710,7 +2070,7 @@ sInt32 CNSLPlugin::RemoveAttributeValue ( sRemoveAttributeValue *inData )
         }
 	}
 
-	Catch_ ( err )
+	catch ( int err )
 	{
 		siResult = err;
 	}
@@ -1721,39 +2081,55 @@ sInt32 CNSLPlugin::RemoveAttributeValue ( sRemoveAttributeValue *inData )
 sInt32 CNSLPlugin::SetAttributeValue ( sSetAttributeValue *inData )
 {
     sInt32						siResult = eDSNoErr;
-
-	Try_
+	CFMutableDictionaryRef		serviceToManipulate = NULL;
+	
+	try
 	{
-        if ( inData->fInRecRef && ::CFDictionaryContainsKey( mOpenRefTable, (const void*)inData->fInRecRef ) )
+        if ( inData->fInRecRef )
         {
-            CFMutableDictionaryRef		serviceToManipulate = (CFMutableDictionaryRef)::CFDictionaryGetValue( mOpenRefTable, (const void*)inData->fInRecRef );
-    
-            CFStringRef			keyRef, valueRef;
-            CFMutableArrayRef	attributeArrayRef;
+			LockOpenRefTable();
 
-            keyRef = ::CFStringCreateWithCString( kCFAllocatorDefault, inData->fInAttrType->fBufferData, kCFStringEncodingUTF8 );
-            valueRef = ::CFStringCreateWithCString( kCFAllocatorDefault, inData->fInAttrValueEntry->fAttributeValueData.fBufferData, kCFStringEncodingUTF8 );
+            serviceToManipulate = (CFMutableDictionaryRef)::CFDictionaryGetValue( mOpenRefTable, (const void*)inData->fInRecRef );
+			
+			if ( serviceToManipulate )
+				CFRetain( serviceToManipulate );
+	
+			UnlockOpenRefTable();
 
-            attributeArrayRef = (CFMutableArrayRef)::CFDictionaryGetValue( serviceToManipulate, keyRef );
-            
-            if ( attributeArrayRef && ::CFGetTypeID( attributeArrayRef ) == ::CFArrayGetTypeID() )
-            {
-                if ( (UInt32)::CFArrayGetCount( (CFMutableArrayRef)attributeArrayRef ) > inData->fInAttrValueEntry->fAttributeValueID )
-                    ::CFArraySetValueAtIndex( (CFMutableArrayRef)attributeArrayRef, inData->fInAttrValueEntry->fAttributeValueID, valueRef );
-                else
-                    siResult = eDSIndexOutOfRange;
-            }
-            else if ( attributeArrayRef && ::CFGetTypeID( attributeArrayRef ) == ::CFStringGetTypeID() )
-            {
-                ::CFDictionaryRemoveValue( serviceToManipulate, keyRef );
-                ::CFDictionarySetValue( serviceToManipulate, keyRef, valueRef );
-            }
-            else
-                siResult = eDSInvalidAttrValueRef;
+			if ( serviceToManipulate )
+			{
+				CFStringRef			keyRef = NULL, valueRef = NULL;
+				CFMutableArrayRef	attributeArrayRef = NULL;
+	
+				keyRef = ::CFStringCreateWithCString( kCFAllocatorDefault, inData->fInAttrType->fBufferData, kCFStringEncodingUTF8 );
+				valueRef = ::CFStringCreateWithCString( kCFAllocatorDefault, inData->fInAttrValueEntry->fAttributeValueData.fBufferData, kCFStringEncodingUTF8 );
+	
+				if ( keyRef )
+					attributeArrayRef = (CFMutableArrayRef)::CFDictionaryGetValue( serviceToManipulate, keyRef );
+				
+				if ( attributeArrayRef && ::CFGetTypeID( attributeArrayRef ) == ::CFArrayGetTypeID() )
+				{
+					if ( (UInt32)::CFArrayGetCount( (CFMutableArrayRef)attributeArrayRef ) > inData->fInAttrValueEntry->fAttributeValueID )
+						::CFArraySetValueAtIndex( (CFMutableArrayRef)attributeArrayRef, inData->fInAttrValueEntry->fAttributeValueID, valueRef );
+					else
+						siResult = eDSIndexOutOfRange;
+				}
+				else if ( attributeArrayRef && ::CFGetTypeID( attributeArrayRef ) == ::CFStringGetTypeID() )
+				{
+					::CFDictionaryRemoveValue( serviceToManipulate, keyRef );
+					::CFDictionarySetValue( serviceToManipulate, keyRef, valueRef );
+				}
+				else
+					siResult = eDSInvalidAttrValueRef;
+	
+				if ( keyRef )
+					CFRelease( keyRef );
 
-
-            ::CFRelease( keyRef );
-            ::CFRelease( valueRef );
+				if ( valueRef )
+					CFRelease( valueRef );
+				
+				CFRelease( serviceToManipulate );
+			}
         }
         else
         {
@@ -1762,7 +2138,7 @@ sInt32 CNSLPlugin::SetAttributeValue ( sSetAttributeValue *inData )
         }
 	}
 
-	Catch_ ( err )
+	catch ( int err )
 	{
 		siResult = err;
 	}
@@ -1780,22 +2156,29 @@ sInt32 CNSLPlugin::DeregisterService( tRecordReference recordRef, CFDictionaryRe
     return eDSReadOnly;
 }
 
+#pragma mark -
+void CNSLPlugin::HandleNetworkTransitionIfTime( void )
+{
+	if (time(nil) >= mTransitionCheckTime)
+		HandleNetworkTransition( NULL );
+}
+
 sInt32 CNSLPlugin::HandleNetworkTransition( sHeader *inData )
 {
     sInt32					siResult			= eDSNoErr;
     
-    if ( mActivatedByNSL )
+	DBGLOG( "CNSLPlugin::HandleNetworkTransition called (%s)\n", GetProtocolPrefixString() );
+	if ( mActivatedByNSL && IsActive() )
     {
-        ClearOutAllNodes();			// clear these out
-        StartNodeLookup();			// and then start all over
-    }
-    
-    return ( siResult );
-}
-
-Boolean CNSLPlugin::ReadOnlyPlugin( void )
-{
-    return true;		// by default we are read only
+		ClearOutAllNodes();
+		ResetNodeLookupTimer( kNodeTimerIntervalImmediate );
+	}
+	else
+	{
+		DBGLOG( "CNSLPlugin::HandleNetworkTransition called (%s) but mActivatedByNSL == %d && IsActive() == %d \n", GetProtocolPrefixString(), mActivatedByNSL, IsActive()  );
+	}
+	
+	return siResult;
 }
 
 Boolean CNSLPlugin::IsClientAuthorizedToCreateRecords( sCreateRecord *inData )
@@ -1813,7 +2196,7 @@ Boolean CNSLPlugin::ResultMatchesRequestCriteria( const CNSLResult* result, sGet
 	
 	Boolean			resultIsOK = false;
 	CAttributeList* cpRecNameList = new CAttributeList( request->fInRecNameList );
-	CFStringRef		resultRecordNameRef = result->GetAttributeRef( CFSTR(kDSNAttrRecordName) );
+	CFStringRef		resultRecordNameRef = result->GetAttributeRef( kDSNAttrRecordNameSAFE_CFSTR );
 	
 	if ( cpRecNameList )
 	{
@@ -1834,7 +2217,7 @@ Boolean CNSLPlugin::ResultMatchesRequestCriteria( const CNSLResult* result, sGet
 				}
 				else if ( pRecName && strcmp( pRecName, kDSRecordsStandardAll ) == 0 )
 				{
-					if ( result->GetAttributeRef( CFSTR(kDSNAttrRecordName) ) && CFStringHasPrefix( result->GetAttributeRef( CFSTR(kDSNAttrRecordType) ), CFSTR(kDSStdRecordTypePrefix) ) )
+					if ( result->GetAttributeRef( kDSNAttrRecordNameSAFE_CFSTR ) && CFStringHasPrefix( result->GetAttributeRef( kDSNAttrRecordTypeSAFE_CFSTR ), kDSStdRecordTypePrefixSAFE_CFSTR ) )
 					{
 						resultIsOK = true;
 						break;
@@ -1844,7 +2227,7 @@ Boolean CNSLPlugin::ResultMatchesRequestCriteria( const CNSLResult* result, sGet
 				}
 				else if ( pRecName && strcmp( pRecName, kDSRecordsNativeAll ) == 0 )
 				{
-					if ( result->GetAttributeRef( CFSTR(kDSNAttrRecordName) ) && CFStringHasPrefix( result->GetAttributeRef( CFSTR(kDSNAttrRecordType) ), CFSTR(kDSNativeRecordTypePrefix) ) )
+					if ( result->GetAttributeRef( kDSNAttrRecordNameSAFE_CFSTR ) && CFStringHasPrefix( result->GetAttributeRef( kDSNAttrRecordTypeSAFE_CFSTR ), kDSNativeRecordTypePrefixSAFE_CFSTR ) )
 					{
 						resultIsOK = true;
 						break;
@@ -1913,28 +2296,27 @@ sInt32 CNSLPlugin::RetrieveResults( sGetRecordList* inData, CNSLDirNodeRep* node
 		return eNotYetImplemented;
     }
 	
-	Try_
+	try
     {    	
 		aRecData = new CDataBuff();
-		ThrowThisIfNULL_( aRecData , eMemoryError );
+		if( !aRecData )  throw( eMemoryError );
 		aAttrData = new CDataBuff();
-		ThrowThisIfNULL_( aAttrData , eMemoryError );
+		if( !aAttrData )  throw( eMemoryError );
 		aTempData = new CDataBuff();
-		ThrowThisIfNULL_( aTempData , eMemoryError );
+		if( !aTempData )  throw( eMemoryError );
         
         // copy the buffer data into a more manageable form
         outBuff = new CBuff();
-        ThrowThisIfNULL_( outBuff , eMemoryError );
+        if( !outBuff )  throw( eMemoryError );
     
         siResult = outBuff->Initialize( inData->fInDataBuff, true );
-        ThrowIfOSErr_( siResult );
+        if( siResult ) throw ( siResult );
     
         siResult = outBuff->GetBuffStatus();
-        ThrowIfOSErr_( siResult );
+        if( siResult ) throw ( siResult );
     
-        //siResult = outBuff->SetBuffType( kRecordListType );
         siResult = outBuff->SetBuffType( kClientSideParsingBuff );
-        ThrowIfOSErr_( siResult );
+        if( siResult ) throw ( siResult );
         
         while ( nodeRep->HaveResults() && !siResult )
         {
@@ -1951,32 +2333,26 @@ sInt32 CNSLPlugin::RetrieveResults( sGetRecordList* inData, CNSLDirNodeRep* node
             
             if ( newResult )
             {
-                char*		curURL = NULL;
-//                CFIndex		curURLLength = 0;
-//                CFStringRef	urlRef = NULL;
+                char		stackBuf[1024];
+				char*		curURL = NULL;
                 char*		curServiceType = NULL;
                 CFIndex		curServiceTypeLength = 0;
                 CFStringRef	serviceTypeRef = NULL;
                 char*		recordName = NULL;
                 CFIndex		recordNameLength = 0;
 				CFStringRef	recordNameRef = NULL;
-                
-/*                urlRef = newResult->GetURLRef();
-                
-                if ( urlRef )
-                {
-                    curURLLength = ::CFStringGetLength( urlRef )*2;				// CFStringGetLength returns possibly 16 bit values!
-                    curURL = (char*)malloc( curURLLength+1 );
-                }
-*/                
+
                 serviceTypeRef = newResult->GetServiceTypeRef();
                 
 				if ( !serviceTypeRef )
 					continue;			// skip this result
 					
 				curServiceTypeLength = ::CFStringGetMaximumSizeForEncoding( CFStringGetLength(serviceTypeRef), kCFStringEncodingUTF8) +1;
-                curServiceType = (char*)malloc( curServiceTypeLength+1 );
-
+                if ( curServiceTypeLength > (CFIndex)sizeof(stackBuf) )
+					curServiceType = (char*)malloc( curServiceTypeLength+1 );
+				else
+					curServiceType = stackBuf;
+					
                 if ( !::CFStringGetCString( serviceTypeRef, curServiceType, curServiceTypeLength+1, kCFStringEncodingUTF8 ) )
                 {
                     DBGLOG( "CNSLPlugin::RetrieveResults couldn't convert serviceTypeRef CFString to char* in UTF8!\n" );
@@ -1985,200 +2361,204 @@ sInt32 CNSLPlugin::RetrieveResults( sGetRecordList* inData, CNSLDirNodeRep* node
                 else
                     DBGLOG( "CNSLPlugin::RetrieveResults curServiceType=%s\n", curServiceType );
                     
-//                if ( ::CFStringGetCString( urlRef, curURL, curURLLength+1, kCFStringEncodingUTF8 ) )
-                {
-                    char* recType = CreateRecTypeFromURL( curServiceType );
-                    
-                    if ( recType != nil )
-                    {
-						DBGLOG( "CNSLPlugin::RetrieveResults recType=%s\n", recType );
-                        aRecData->AppendShort( ::strlen( recType ) );
-                        aRecData->AppendString( recType );
-                        free(recType);
-                    } // what to do if the recType is nil? - never get here then
-                    else
-                    {
-                        aRecData->AppendShort( ::strlen( "Record Type Unknown" ) );
-                        aRecData->AppendString( "Record Type Unknown" );
-                    }
-                    
-                    // now the record name
-					recordNameRef = newResult->GetAttributeRef( CFSTR(kDSNAttrRecordName) );
-                
-					if ( !recordNameRef )
-					{
-						if ( curServiceType )
-							free( curServiceType );
-						curServiceType = NULL;
-						continue;			// skip this result
-					}
-					
-					recordNameLength = ::CFStringGetMaximumSizeForEncoding( CFStringGetLength(recordNameRef), kCFStringEncodingUTF8) +1;
+				char* recType = CreateRecTypeFromURL( curServiceType );
 
+				if ( curServiceType != stackBuf )
+					free( curServiceType );
+				curServiceType = NULL;
+
+				if ( recType != nil )
+				{
+					DBGLOG( "CNSLPlugin::RetrieveResults recType=%s\n", recType );
+					aRecData->AppendShort( ::strlen( recType ) );
+					aRecData->AppendString( recType );
+					free(recType);
+				} // what to do if the recType is nil? - never get here then
+				else
+				{
+					aRecData->AppendShort( ::strlen( "Record Type Unknown" ) );
+					aRecData->AppendString( "Record Type Unknown" );
+				}
+				
+				// now the record name
+				recordNameRef = newResult->GetAttributeRef( kDSNAttrRecordNameSAFE_CFSTR );
+			
+				if ( !recordNameRef )
+				{
+					continue;			// skip this result
+				}
+				
+				recordNameLength = ::CFStringGetMaximumSizeForEncoding( CFStringGetLength(recordNameRef), kCFStringEncodingUTF8) +1;
+			
+				if ( recordNameLength > (CFIndex)sizeof(stackBuf) )
 					recordName = (char*)malloc( recordNameLength );
-	
-					if ( !::CFStringGetCString( recordNameRef, recordName, recordNameLength, kCFStringEncodingUTF8 ) )
+				else
+					recordName = stackBuf;
+					
+				if ( !::CFStringGetCString( recordNameRef, recordName, recordNameLength, kCFStringEncodingUTF8 ) )
+				{
+					DBGLOG( "CNSLPlugin::RetrieveResults couldn't convert recordNameRef CFString to char* in UTF8!\n" );
+					recordName[0] = '\0';
+				}
+				else
+					DBGLOG( "CNSLPlugin::RetrieveResults recordName=%s\n", recordName );
+			
+				if ( recordNameRef != nil && recordName[0] != '\0' )
+				{
+					aRecData->AppendShort( ::strlen( recordName ) );
+					aRecData->AppendString( recordName );
+				}
+				else
+				{
+					aRecData->AppendShort( ::strlen( "Record Name Unknown" ) );
+					aRecData->AppendString( "Record Name Unknown" );
+				}
+				
+				if ( recordName != stackBuf )
+					free( recordName );
+				recordName = NULL;
+				
+				// now the attributes
+				AttrDataContext		context = {0,aAttrData,inData->fInAttribInfoOnly};
+					
+			
+				if ( newResult->GetAttributeDict() )
+				{
+					// we want to pull out the appropriate attributes that the client is searching for...
+					uInt32					numAttrTypes	= 0;
+					CAttributeList			cpAttributeList( inData->fInAttribTypeList );
+			
+					//save the number of rec types here to use in separating the buffer data
+					numAttrTypes = cpAttributeList.GetCount();
+			
+					if( (numAttrTypes == 0) ) throw( eDSEmptyRecordTypeList );
+			
+					sInt32					error = eDSNoErr;
+					char*				   	pAttrType = nil;
+					char*					valueBuf = NULL;
+					
+					DBGLOG( "CNSLPlugin::RetrieveResults, numAttrTypes:%ld\n", numAttrTypes );
+					for ( uInt32 i=1; i<=numAttrTypes; i++ )
 					{
-						DBGLOG( "CNSLPlugin::RetrieveResults couldn't convert recordNameRef CFString to char* in UTF8!\n" );
-						recordName[0] = '\0';
-					}
-					else
-						DBGLOG( "CNSLPlugin::RetrieveResults recordName=%s\n", curServiceType );
-	
-                    if ( recordNameRef != nil && recordName[0] != '\0' )
-                    {
-                        aRecData->AppendShort( ::strlen( recordName ) );
-                        aRecData->AppendString( recordName );
-                    }
-                    else
-                    {
-                        aRecData->AppendShort( ::strlen( "Record Name Unknown" ) );
-                        aRecData->AppendString( "Record Name Unknown" );
-                    }
-                    
-                    // now the attributes
-                    AttrDataContext		context = {0,aAttrData,inData->fInAttribInfoOnly};
-                        
-
-                    if ( newResult->GetAttributeDict() )
-                    {
-//                        ::CFDictionaryApplyFunction( newResult->GetAttributeDict(), AddToAttrData, &context );
-                        // we want to pull out the appropriate attributes that the client is searching for...
-                        uInt32					numAttrTypes	= 0;
-                        CAttributeList			cpAttributeList( inData->fInAttribTypeList );
-                
-                        //save the number of rec types here to use in separating the buffer data
-                        numAttrTypes = cpAttributeList.GetCount();
-                
-                        ThrowThisIf_( (numAttrTypes == 0), eDSEmptyRecordTypeList );
-                
-                        sInt32					error = eDSNoErr;
-                        char*				   	pAttrType = nil;
-                        char*					valueBuf = NULL;
-                        
-                        DBGLOG( "CNSLPlugin::RetrieveResults, numAttrTypes:%ld\n", numAttrTypes );
-                        for ( uInt32 i=1; i<=numAttrTypes; i++ )
-                        {
-                            if ( (error = cpAttributeList.GetAttribute( i, &pAttrType )) == eDSNoErr )
-                            {
-                                DBGLOG( "CNSLPlugin::RetrieveResults, GetAttribute returned pAttrType:%s\n", pAttrType );
-                                
-                                if ( strcmp( pAttrType, kDSAttributesAll ) == 0 )
-                                {
-                                    // we want to return everything
-                                    ::CFDictionaryApplyFunction( newResult->GetAttributeDict(), AddToAttrData, &context );
-                                }
-                                else
-                                {
-                                    CFStringRef		keyRef = ::CFStringCreateWithCString( NULL, pAttrType, kCFStringEncodingUTF8 );
-                                    CFStringRef		valueRef = NULL;
-                                    CFTypeRef		valueTypeRef = NULL;
-									CFArrayRef		valueArrayRef	= NULL;
-									
-									aTempData->Clear();
-									
-                                    if ( ::CFDictionaryContainsKey( newResult->GetAttributeDict(), keyRef ) )
-                                        valueTypeRef = (CFTypeRef)::CFDictionaryGetValue( newResult->GetAttributeDict(), keyRef );
-									
-									CFRelease( keyRef );
-									
-                                    if ( valueTypeRef )
-                                    {
-										if ( CFGetTypeID(valueTypeRef) == CFArrayGetTypeID() )
-										{
-											// just point our valueArrayRef at this
-											valueArrayRef = (CFArrayRef)valueTypeRef;
-											CFRetain( valueArrayRef );					// so we can release this
-										}
-										else 
-										if ( CFGetTypeID(valueTypeRef) == CFStringGetTypeID() )
-										{
-											valueRef = (CFStringRef)valueTypeRef;
-											valueArrayRef = CFArrayCreateMutable( NULL, 1, &kCFTypeArrayCallBacks );
+						if ( (error = cpAttributeList.GetAttribute( i, &pAttrType )) == eDSNoErr )
+						{
+							DBGLOG( "CNSLPlugin::RetrieveResults, GetAttribute returned pAttrType:%s\n", pAttrType );
+							
+							if ( strcmp( pAttrType, kDSAttributesAll ) == 0 )
+							{
+								// we want to return everything
+								::CFDictionaryApplyFunction( newResult->GetAttributeDict(), AddToAttrData, &context );
+							}
+							else
+							{
+								char			stackBuf[1024];
+								CFStringRef		keyRef = ::CFStringCreateWithCString( NULL, pAttrType, kCFStringEncodingUTF8 );
+								CFStringRef		valueRef = NULL;
+								CFTypeRef		valueTypeRef = NULL;
+								CFArrayRef		valueArrayRef	= NULL;
+								
+								aTempData->Clear();
+								
+								if ( ::CFDictionaryContainsKey( newResult->GetAttributeDict(), keyRef ) )
+									valueTypeRef = (CFTypeRef)::CFDictionaryGetValue( newResult->GetAttributeDict(), keyRef );
+								
+								CFRelease( keyRef );
+								
+								if ( valueTypeRef )
+								{
+									if ( CFGetTypeID(valueTypeRef) == CFArrayGetTypeID() )
+									{
+										// just point our valueArrayRef at this
+										valueArrayRef = (CFArrayRef)valueTypeRef;
+										CFRetain( valueArrayRef );					// so we can release this
+									}
+									else 
+									if ( CFGetTypeID(valueTypeRef) == CFStringGetTypeID() )
+									{
+										valueRef = (CFStringRef)valueTypeRef;
+										valueArrayRef = CFArrayCreateMutable( NULL, 1, &kCFTypeArrayCallBacks );
+										
+										if ( CFStringGetLength( valueRef ) > 0 )
 											CFArrayAppendValue( (CFMutableArrayRef)valueArrayRef, valueRef );
-										}
-										else
-											DBGLOG( "CNSLPlugin::RetrieveResults, got unknown value type (%ld), ignore\n", CFGetTypeID(valueTypeRef) );
-								
-										if ( valueArrayRef )
-										{								
-											aTempData->AppendShort( ::strlen( pAttrType ) );		// attrTypeLen
-											aTempData->AppendString( pAttrType );					// attrType
-                                        
-											DBGLOG( "CNSLPlugin::RetrieveResults, adding pAttrType: %s\n", pAttrType );
-
-											// Append the attribute value count
-											aTempData->AppendShort( CFArrayGetCount(valueArrayRef) );	// attrValueCnt
-								
-											for ( CFIndex i=0; i< CFArrayGetCount(valueArrayRef); i++ )
+									}
+									else
+										DBGLOG( "CNSLPlugin::RetrieveResults, got unknown value type (%ld), ignore\n", CFGetTypeID(valueTypeRef) );
+							
+									if ( valueArrayRef )
+									{								
+										aTempData->AppendShort( ::strlen( pAttrType ) );		// attrTypeLen
+										aTempData->AppendString( pAttrType );					// attrType
+									
+										DBGLOG( "CNSLPlugin::RetrieveResults, adding pAttrType: %s\n", pAttrType );
+			
+										// Append the attribute value count
+										aTempData->AppendShort( CFArrayGetCount(valueArrayRef) );	// attrValueCnt
+							
+										CFIndex		valueArrayCount = CFArrayGetCount(valueArrayRef);
+										for ( CFIndex i=0; i<valueArrayCount ; i++ )
+										{
+											valueRef = (CFStringRef)::CFArrayGetValueAtIndex( valueArrayRef, i );
+							
+											if ( !inData->fInAttribInfoOnly && valueRef && ::CFStringGetLength(valueRef) > 0 )
 											{
-												valueRef = (CFStringRef)::CFArrayGetValueAtIndex( valueArrayRef, i );
-								
-												if ( !inData->fInAttribInfoOnly && valueRef && ::CFStringGetLength(valueRef) > 0 )
+												CFIndex		maxValueEncodedSize = ::CFStringGetMaximumSizeForEncoding(CFStringGetLength(valueRef),kCFStringEncodingUTF8) + 1;
+												
+												if ( maxValueEncodedSize > (CFIndex)sizeof(stackBuf) )
+													valueBuf = (char*)malloc( maxValueEncodedSize );
+												else
+													valueBuf = stackBuf;
+													
+												if ( ::CFStringGetCString( valueRef, valueBuf, maxValueEncodedSize, kCFStringEncodingUTF8 ) )	
 												{
-													valueBuf = (char*)malloc( ::CFStringGetMaximumSizeForEncoding(CFStringGetLength(valueRef),kCFStringEncodingUTF8) + 1 );	                                            
-													if ( ::CFStringGetCString( valueRef, valueBuf, ::CFStringGetMaximumSizeForEncoding(CFStringGetLength(valueRef),kCFStringEncodingUTF8) + 1, kCFStringEncodingUTF8 ) )	
-													{
-														// Append attribute value
-														aTempData->AppendShort( ::strlen( valueBuf ) );
-														aTempData->AppendString( valueBuf );
-                                                
-														DBGLOG( "CNSLPlugin::RetrieveResults, adding valueBuf: %s\n", valueBuf );
-													}
-													else
-														DBGLOG( "CNSLPlugin::RetrieveResults, CFStringGetCString couldn't create a string for valueRef!\n" );
-                                                
-													delete( valueBuf );
-													valueBuf = NULL;
+													// Append attribute value
+													aTempData->AppendShort( ::strlen( valueBuf ) );
+													aTempData->AppendString( valueBuf );
+											
+													DBGLOG( "CNSLPlugin::RetrieveResults, adding valueBuf: %s\n", valueBuf );
 												}
+												else
+													DBGLOG( "CNSLPlugin::RetrieveResults, CFStringGetCString couldn't create a string for valueRef!\n" );
+											
+												if ( valueBuf != stackBuf )
+													delete( valueBuf );
+												valueBuf = NULL;
 											}
-										
-											CFRelease( valueArrayRef );		// now release
-											valueArrayRef = NULL;
 										}
-										else if ( valueRef && CFStringGetLength(valueRef) == 0 )
-											DBGLOG( "CNSLPlugin::RetrieveResults, CFStringGetLength(valueRef) == 0!\n" );
-										else if ( inData->fInAttribInfoOnly )
-											DBGLOG( "CNSLPlugin::RetrieveResults, inData->fInAttribInfoOnly\n" );
-										
-										context.count++;
-
-										aAttrData->AppendShort(aTempData->GetLength());
-										aAttrData->AppendBlock(aTempData->GetData(), aTempData->GetLength() );
-                                    }
-                                }
-                            }
-                            else
-                            {
-                                DBGLOG( "CNSLPlugin::RetrieveResults, GetAttribute returned error:%li\n", error );
-                            }
-                        }
-                    }
-
-                    
-                    // Attribute count
-                    aRecData->AppendShort( context.count );
-                    
-                    // now add the attributes to the record
-                    aRecData->AppendBlock( aAttrData->GetData(), aAttrData->GetLength() );
-                
-                    DBGLOG( "CNSLPlugin::RetrieveResults calling outBuff->AddData()\n" );
-                    siResult = outBuff->AddData( aRecData->GetData(), aRecData->GetLength() );
-                }
-//                else
-//                    DBGLOG( "CNSLPlugin::RetrieveResults couldn't convert CFString to char* in UTF8!\n" );
+									
+										CFRelease( valueArrayRef );		// now release
+										valueArrayRef = NULL;
+									}
+									else if ( valueRef && CFStringGetLength(valueRef) == 0 )
+										DBGLOG( "CNSLPlugin::RetrieveResults, CFStringGetLength(valueRef) == 0!\n" );
+									else if ( inData->fInAttribInfoOnly )
+										DBGLOG( "CNSLPlugin::RetrieveResults, inData->fInAttribInfoOnly\n" );
+									
+									context.count++;
+			
+									aAttrData->AppendShort(aTempData->GetLength());
+									aAttrData->AppendBlock(aTempData->GetData(), aTempData->GetLength() );
+								}
+							}
+						}
+						else
+						{
+							DBGLOG( "CNSLPlugin::RetrieveResults, GetAttribute returned error:%li\n", error );
+						}
+					}
+				}
+			
+				// Attribute count
+				aRecData->AppendShort( context.count );
+				
+				// now add the attributes to the record
+				aRecData->AppendBlock( aAttrData->GetData(), aAttrData->GetLength() );
+			
+				DBGLOG( "CNSLPlugin::RetrieveResults calling outBuff->AddData()\n" );
+				siResult = outBuff->AddData( aRecData->GetData(), aRecData->GetLength() );
                 
                 if ( curURL )
 					free( curURL );
                 curURL = NULL;
-				
-				if ( curServiceType )
-					free( curServiceType );
-				curServiceType = NULL;
-				
-                if ( recordName )
-					free( recordName );
-                recordName = NULL;
 				
                 if ( siResult == CBuff::kBuffFull )
                 {
@@ -2201,7 +2581,7 @@ sInt32 CNSLPlugin::RetrieveResults( sGetRecordList* inData, CNSLDirNodeRep* node
         outBuff->SetLengthToSize();
    }
 
-    Catch_ ( err )
+    catch ( int err )
     {
         siResult = err;
     }
@@ -2311,9 +2691,11 @@ char* CNSLPlugin::CreateNSLTypeFromRecType ( char *inRecType )
             }
             else if ( uiStrLen > uiStdLen )
             {
-                uiStrLen = uiStrLen - uiStdLen;
+				// don't return a result for standard types we don't support
+/*                uiStrLen = uiStrLen - uiStdLen;
                 outResult = new char[ uiStrLen + 2 ];
                 ::strcpy( outResult, inRecType + uiStdLen );
+*/
             }
             else
                 DBGLOG( "CNSLPlugin::CreateNSLTypeFromRecType, uiStrLen:%ld <= uiStdLen:%ld\n", uiStrLen, uiStdLen );
@@ -2399,27 +2781,27 @@ CFStringRef CNSLPlugin::CreateRecTypeFromNativeType ( char *inNativeType )
         
 		if ( ::strcmp( inNativeType, kAFPServiceType ) == 0 )
 		{
-			CFStringAppend( outResultRef, CFSTR(kDSStdRecordTypeAFPServer) );
+			CFStringAppend( outResultRef, kDSStdRecordTypeAFPServerSAFE_CFSTR );
 		}
 		else if ( ::strcmp( inNativeType, kSMBServiceType ) == 0 )
 		{
-			CFStringAppend( outResultRef, CFSTR(kDSStdRecordTypeSMBServer) );
+			CFStringAppend( outResultRef, kDSStdRecordTypeSMBServerSAFE_CFSTR );
 		}
 		else if ( ::strcmp( inNativeType, kNFSServiceType ) == 0 )
 		{
-			CFStringAppend( outResultRef, CFSTR(kDSStdRecordTypeNFS) );
+			CFStringAppend( outResultRef, kDSStdRecordTypeNFSSAFE_CFSTR );
 		}
 		else if ( ::strcmp( inNativeType, kDSStdRecordTypeFTPServer ) == 0 )
 		{
-			CFStringAppend( outResultRef, CFSTR(kDSStdRecordTypeFTPServer) );
+			CFStringAppend( outResultRef, kDSStdRecordTypeFTPServerSAFE_CFSTR );
 		}
 		else if ( ::strcmp( inNativeType, kDSStdRecordTypeWebServer ) == 0 )
 		{
-			CFStringAppend( outResultRef, CFSTR(kDSStdRecordTypeWebServer) );
+			CFStringAppend( outResultRef, kDSStdRecordTypeWebServerSAFE_CFSTR );
 		}
 		else if ( outResultRef )
 		{
-			CFStringAppend( outResultRef, CFSTR(kDSNativeRecordTypePrefix) );
+			CFStringAppend( outResultRef, kDSNativeRecordTypePrefixSAFE_CFSTR );
 			
 			CFStringRef	nativeStringRef = CFStringCreateWithCString( NULL, inNativeType, kCFStringEncodingUTF8 );
 			
@@ -2451,20 +2833,13 @@ CFStringRef CNSLPlugin::CreateRecTypeFromNativeType ( CFStringRef inNativeType )
 } // CreateNSLTypeFromRecType
 
 #pragma mark -
-Boolean CNSLPlugin::IsTimeForNewNeighborhoodLookup( void )
-{
-	DBGLOG( "CNSLPlugin::IsTimeForNewNeighborhoodLookup, mLastNodeLookupStartTime=%li, GetCurrentTime()=%li\n",mLastNodeLookupStartTime, GetCurrentTime() );
-    return ( mLastNodeLookupStartTime + mMinTimeBetweenNodeLookups < GetCurrentTime() );
-}
-
 void CNSLPlugin::StartNodeLookup( void )
 {
     mLastNodeLookupStartTime = GetCurrentTime();		// get current time
-    DBGLOG( "CNSLPlugin::StartNodeLookup called\n" );
+    DBGLOG( "CNSLPlugin::StartNodeLookup (%s), called\n", GetProtocolPrefixString() );
     
-	if ( mMinTimeBetweenNodeLookups < kMaxTimeBetweenNodeLookups )	// double the back off time
-		mMinTimeBetweenNodeLookups *= 2;
-		
+	ResetNodeLookupTimer( GetTimeBetweenNodeLookups() );	// This is how long before we fire another node lookup (barring network events)
+	
     NewNodeLookup();
 }
 
@@ -2501,12 +2876,26 @@ void CNSLPlugin::ClearOutStaleNodes( void )
 	DBGLOG( "CNSLPlugin::ClearOutStaleNodes\n" );
     // we want to look at each node we have registered and unregister any whose timestamp is older than
     // the start of our last node lookup search
-    NSLNodeHandlerContext	context = {mPublishedNodes, kClearOutStaleNodes, (void*)GetLastNodeLookupStartTime()};
-    
+    NSLNodeHandlerContext	context = {mPublishedNodes, kClearOutStaleNodes, (void*)GetLastNodeLookupStartTime(), NULL};
+    CFIndex arrayCount;
+	CFStringRef skeetString;
+	
     LockPublishedNodes();
     ::CFDictionaryApplyFunction( mPublishedNodes, NSLNodeHandlerFunction, &context );
-    
-    SetTimeToClearOutStaleNodes( false );
+
+	if ( context.fNodesToRemove )
+	{
+		arrayCount = CFArrayGetCount( context.fNodesToRemove );
+		for ( CFIndex i = 0; i < arrayCount; i++ )
+		{
+			skeetString = (CFStringRef)CFArrayGetValueAtIndex( context.fNodesToRemove, i );
+			if ( skeetString != NULL )
+				CFDictionaryRemoveValue( mPublishedNodes, skeetString );
+		}
+		
+		CFRelease( context.fNodesToRemove );
+    }
+	
     UnlockPublishedNodes();
 }
 
@@ -2514,15 +2903,11 @@ void CNSLPlugin::ClearOutStaleNodes( void )
 void CNSLPlugin::ClearOutAllNodes( void )
 {
 	DBGLOG( "CNSLPlugin::ClearOutAllNodes\n" );
-    // we want to look at each node we have registered and unregister any whose timestamp is older than
-    // the start of our last node lookup search
-    NSLNodeHandlerContext	context = {mPublishedNodes, kClearOutAllNodes, (void*)GetLastNodeLookupStartTime()};
-    
+
     LockPublishedNodes();
-    ::CFDictionaryApplyFunction( mPublishedNodes, NSLNodeHandlerFunction, &context );
-    
-    // may as well clear this since there will not be any nodes, let alone stale ones.
-    SetTimeToClearOutStaleNodes( false );
+
+	::CFDictionaryRemoveAllValues( mPublishedNodes );
+
     UnlockPublishedNodes();
 }
 
@@ -2543,7 +2928,6 @@ void CNSLPlugin::QueueNewSearch( CNSLServiceLookupThread* newLookup )
 #define DEQUEUE_LIFO 1
 void CNSLPlugin::StartNextQueuedSearch( void )
 {
-    LockSearchQueue();
     if ( mSearchQueue && ::CFArrayGetCount(mSearchQueue) > 0 )
     {
 #if DEQUEUE_LIFO
@@ -2553,7 +2937,13 @@ void CNSLPlugin::StartNextQueuedSearch( void )
         CNSLServiceLookupThread*	newLookup = (CNSLServiceLookupThread*)::CFArrayGetValueAtIndex( mSearchQueue, 0 );
         ::CFArrayRemoveValueAtIndex( mSearchQueue, 0 );
 #endif        
-        if ( ::CFDictionaryContainsValue( mOpenRefTable, newLookup->GetNodeToSearch() ) && !newLookup->AreWeCanceled() )
+		LockOpenRefTable();
+
+		Boolean		newLookupInRefTable = ::CFDictionaryContainsValue( mOpenRefTable, newLookup->GetNodeToSearch() );
+
+		UnlockOpenRefTable();
+
+        if ( newLookupInRefTable && !newLookup->AreWeCanceled() )
         {
             DBGLOG( "CNSLPlugin::StartNextQueuedSearch starting new search, %ld searches waiting to start\n", CFArrayGetCount(mSearchQueue) );
             newLookup->Resume();
@@ -2564,7 +2954,6 @@ void CNSLPlugin::StartNextQueuedSearch( void )
             delete newLookup;
         }
     }
-    UnlockSearchQueue();
 }
 
 void CNSLPlugin::StartServicesLookup( char* serviceType, CNSLDirNodeRep* nodeDirRep )
@@ -2575,6 +2964,17 @@ void CNSLPlugin::StartServicesLookup( char* serviceType, CNSLDirNodeRep* nodeDir
 
 #pragma mark -
 
+void NSLReleaseNodeData( CFAllocatorRef allocator, const void* value )
+{
+	NodeData*		nodeData = (NodeData*)value;
+	
+	if ( nodeData )
+	{
+		if ( nodeData->fDSName )
+			DSUnregisterNode( nodeData->fSignature, nodeData->fDSName );
+		DeallocateNodeData( nodeData );
+	}
+}
 
 CFStringRef NSLNodeValueCopyDesctriptionCallback ( const void *value )
 {
@@ -2607,23 +3007,21 @@ void NSLNodeHandlerFunction(const void *inKey, const void *inValue, void *inCont
     {
         case kClearOutStaleNodes:
         {
-            if ( curNodeData->fTimeStamp < (UInt32)(context->fDataPtr) )
+			if ( curNodeData->fTimeStamp < (UInt32)(context->fDataPtr) )
             {
                 // we need to delete this...
                 DBGLOG( "NSLNodeHandlerFunction, Removing Node from published list\n" );
-                DSUnregisterNode( curNodeData->fSignature, curNodeData->fDSName );
-                ::CFDictionaryRemoveValue( context->fDictionary, curNodeData->fNodeName );		// remove it from the dictionary
-				DeallocateNodeData( curNodeData );
+//                DSUnregisterNode( curNodeData->fSignature, curNodeData->fDSName );
+				
+				if ( !context->fNodesToRemove )
+					context->fNodesToRemove = CFArrayCreateMutable( NULL, 0, &kCFTypeArrayCallBacks );
+				
+				if ( curNodeData->fNodeName != NULL )
+					CFArrayAppendValue( context->fNodesToRemove, curNodeData->fNodeName );			// can't manipulate dictionary while iterating
             }
         }    
         break;
         
-        case kClearOutAllNodes:
-            DSUnregisterNode( curNodeData->fSignature, curNodeData->fDSName );
-            ::CFDictionaryRemoveValue( context->fDictionary, curNodeData->fNodeName );		// remove it from the dictionary
-            DeallocateNodeData( curNodeData );
-            break;
-			
         default:
             break;
     };
@@ -2648,6 +3046,7 @@ void AddToAttrData(const void *key, const void *value, void *context)
     CFStringRef			valueRef		= NULL;
 	CFArrayRef			valueArrayRef	= NULL;
     char				keyBuf[256] = {0};
+	char				stackBuf[1024];
     char*				valueBuf	= NULL;
 	CDataBuff*			aTmpData	= nil;
     AttrDataContext*	dataContext	= (AttrDataContext*)context;
@@ -2655,7 +3054,7 @@ void AddToAttrData(const void *key, const void *value, void *context)
     dataContext->count++;		// adding one more
     
     aTmpData = new CDataBuff();
-    ThrowThisIfNULL_( aTmpData , eMemoryError );
+    if( !aTmpData )  throw( eMemoryError );
     
     aTmpData->Clear();
     
@@ -2672,7 +3071,8 @@ void AddToAttrData(const void *key, const void *value, void *context)
 		{
 			valueRef = (CFStringRef)valueTypeRef;
 			valueArrayRef = CFArrayCreateMutable( NULL, 1, &kCFTypeArrayCallBacks );
-			CFArrayAppendValue( (CFMutableArrayRef)valueArrayRef, valueRef );
+			if ( CFStringGetLength( valueRef ) > 0 )
+				CFArrayAppendValue( (CFMutableArrayRef)valueArrayRef, valueRef );
 		}
 		else
             DBGLOG( "AddToAttrData, got unknown value type (%ld), ignore\n", CFGetTypeID(valueTypeRef) );
@@ -2687,15 +3087,21 @@ void AddToAttrData(const void *key, const void *value, void *context)
 			// Append the attribute value count
 			aTmpData->AppendShort( CFArrayGetCount(valueArrayRef) );	// attrValueCnt
 
-			for ( CFIndex i=0; i< CFArrayGetCount(valueArrayRef); i++ )
+			CFIndex		valueArrayCount = CFArrayGetCount(valueArrayRef);
+			for ( CFIndex i=0; i<valueArrayCount ; i++ )
 			{
 				valueRef = (CFStringRef)::CFArrayGetValueAtIndex( valueArrayRef, i );
 
 				if ( !dataContext->attrOnly && ::CFStringGetLength(valueRef) > 0 )
 				{
-					valueBuf = (char*)malloc( ::CFStringGetMaximumSizeForEncoding(CFStringGetLength(valueRef), kCFStringEncodingUTF8) + 1 );	// GetLength returns 16 bit value...
+					CFIndex		maxValueEncodedSize = ::CFStringGetMaximumSizeForEncoding(CFStringGetLength(valueRef), kCFStringEncodingUTF8) + 1;
+
+					if ( maxValueEncodedSize > (CFIndex)sizeof(stackBuf) )
+						valueBuf = (char*)malloc( maxValueEncodedSize );
+					else
+						valueBuf = stackBuf;
 					
-					if ( ::CFStringGetCString( valueRef, valueBuf, ::CFStringGetMaximumSizeForEncoding(CFStringGetLength(valueRef), kCFStringEncodingUTF8) + 1, kCFStringEncodingUTF8 ) )	
+					if ( ::CFStringGetCString( valueRef, valueBuf, maxValueEncodedSize, kCFStringEncodingUTF8 ) )	
 					{
 						// Append attribute value
 						aTmpData->AppendShort( ::strlen( valueBuf ) );	// valueLen
@@ -2710,7 +3116,9 @@ void AddToAttrData(const void *key, const void *value, void *context)
 							::CFShow( valueRef );
 					}
 						
-					delete( valueBuf );
+					if ( valueBuf != stackBuf )
+						delete( valueBuf );
+					valueBuf = NULL;
 				}
 			}
 				
@@ -2732,10 +3140,6 @@ void AddToAttrData(const void *key, const void *value, void *context)
 void AddToAttrData2(CFStringRef keyRef, CFStringRef valueRef, void *context)
 {	
 }
-
-
-
-
 
 
 /**************
@@ -2775,7 +3179,7 @@ int LogHexDump(char *pktPtr, long pktLen)
 	if ( pktLen == 0 )
     {
         DBGLOG( "LogHexDump was passed in a pktLen of zero!\n" );
-		return noErr;						// no data to log, just go back to Jamaica ;)
+		return noErr;						// no data to log
 	}
 
     if ( pktLen > kMaxPacketLen )
@@ -2797,8 +3201,8 @@ int LogHexDump(char *pktPtr, long pktLen)
 	
 	if (!buf) 
     {	
-        DBGLOG( "LogHexDump return memFullErr\n" );
-        return(memFullErr);
+        DBGLOG( "LogHexDump return eMemoryAllocError\n" );
+        return(eMemoryAllocError);
 	}
     
 	for (i=0; i<bufLen; i++) 				// initialize to all spaces
@@ -2845,7 +3249,7 @@ int LogHexDump(char *pktPtr, long pktLen)
 		offsetPtr = charPtr;			// and move to the next line in the dest buffer
 	}
 	*(charPtr++) = kLineEnding;
-	*charPtr = '\0';					// and a terminating NUL
+	*charPtr = '\0';					// and a terminating NULL
 	
 	DBGLOG( "%s\n",buf);
 	free(buf);
@@ -2893,5 +3297,3 @@ CFStringEncoding NSLGetSystemEncoding( void )
 	
 	return gsEncoding;
 }
-
-

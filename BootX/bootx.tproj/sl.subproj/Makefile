@@ -14,7 +14,7 @@ PROJECT_TYPE = Component
 
 HFILES = appleboot.h clut.h elf.h failedboot.h netboot.h
 
-CFILES = main.c macho.c device_tree.c display.c drivers.c elf.c
+CFILES = main.c macho.c device_tree.c display.c drivers.c elf.c lzss.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
 

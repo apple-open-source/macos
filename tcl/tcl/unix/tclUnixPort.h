@@ -19,7 +19,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclUnixPort.h,v 1.1.1.7 2002/04/05 16:14:09 jevans Exp $
+ * RCS: @(#) $Id: tclUnixPort.h,v 1.1.1.9 2003/07/09 01:34:07 landonf Exp $
  */
 
 #ifndef _TCLUNIXPORT
@@ -56,6 +56,42 @@
 #   include <dirent.h>
 #endif
 #endif
+
+#ifdef HAVE_STRUCT_DIRENT64
+typedef struct dirent64	Tcl_DirEntry;
+#   define TclOSreaddir		readdir64
+#   define TclOSreaddir_r	readdir64_r
+#else
+typedef struct dirent	Tcl_DirEntry;
+#   define TclOSreaddir		readdir
+#   define TclOSreaddir_r	readdir_r
+#endif
+
+#ifdef HAVE_TYPE_OFF64_T
+typedef off64_t		Tcl_SeekOffset;
+#   define TclOSseek		lseek64
+#   define TclOSopen		open64
+#else
+typedef off_t		Tcl_SeekOffset;
+#   define TclOSseek		lseek
+#   define TclOSopen		open
+#endif
+
+#ifdef HAVE_STRUCT_STAT64
+#   define TclOSstat		stat64
+#   define TclOSlstat		lstat64
+#else
+#   define TclOSstat		stat
+#   define TclOSlstat		lstat
+#endif
+
+#if !HAVE_STRTOLL && defined(TCL_WIDE_INT_TYPE) && !TCL_WIDE_INT_IS_LONG
+EXTERN Tcl_WideInt	strtoll _ANSI_ARGS_((CONST char *string,
+					     char **endPtr, int base));
+EXTERN Tcl_WideUInt	strtoull _ANSI_ARGS_((CONST char *string,
+					      char **endPtr, int base));
+#endif
+
 #include <sys/file.h>
 #ifdef HAVE_SYS_SELECT_H
 #   include <sys/select.h>
@@ -288,7 +324,10 @@ EXTERN int		gettimeofday _ANSI_ARGS_((struct timeval *tp,
  */
 
 #ifndef S_IFLNK
+#   undef TclOSlstat
 #   define lstat	stat
+#   define lstat64	stat64
+#   define TclOSlstat	TclOSstat
 #endif
 
 /*
@@ -302,52 +341,52 @@ EXTERN int		gettimeofday _ANSI_ARGS_((struct timeval *tp,
 #   else
 #       define S_ISREG(m) 0
 #   endif
-# endif
+#endif /* !S_ISREG */
 #ifndef S_ISDIR
 #   ifdef S_IFDIR
 #       define S_ISDIR(m) (((m) & S_IFMT) == S_IFDIR)
 #   else
 #       define S_ISDIR(m) 0
 #   endif
-# endif
+#endif /* !S_ISDIR */
 #ifndef S_ISCHR
 #   ifdef S_IFCHR
 #       define S_ISCHR(m) (((m) & S_IFMT) == S_IFCHR)
 #   else
 #       define S_ISCHR(m) 0
 #   endif
-# endif
+#endif /* !S_ISCHR */
 #ifndef S_ISBLK
 #   ifdef S_IFBLK
 #       define S_ISBLK(m) (((m) & S_IFMT) == S_IFBLK)
 #   else
 #       define S_ISBLK(m) 0
 #   endif
-# endif
+#endif /* !S_ISBLK */
 #ifndef S_ISFIFO
 #   ifdef S_IFIFO
 #       define S_ISFIFO(m) (((m) & S_IFMT) == S_IFIFO)
 #   else
 #       define S_ISFIFO(m) 0
 #   endif
-# endif
+#endif /* !S_ISFIFO */
 #ifndef S_ISLNK
 #   ifdef S_IFLNK
 #       define S_ISLNK(m) (((m) & S_IFMT) == S_IFLNK)
 #   else
 #       define S_ISLNK(m) 0
 #   endif
-# endif
+#endif /* !S_ISLNK */
 #ifndef S_ISSOCK
 #   ifdef S_IFSOCK
 #       define S_ISSOCK(m) (((m) & S_IFMT) == S_IFSOCK)
 #   else
 #       define S_ISSOCK(m) 0
 #   endif
-# endif
+#endif /* !S_ISSOCK */
 
 /*
- * Make sure that MAXPATHLEN is defined.
+ * Make sure that MAXPATHLEN and MAXNAMLEN are defined.
  */
 
 #ifndef MAXPATHLEN
@@ -355,6 +394,14 @@ EXTERN int		gettimeofday _ANSI_ARGS_((struct timeval *tp,
 #       define MAXPATHLEN PATH_MAX
 #   else
 #       define MAXPATHLEN 2048
+#   endif
+#endif
+
+#ifndef MAXNAMLEN
+#   ifdef NAME_MAX
+#	define MAXNAMLEN NAME_MAX
+#   else
+#	define MAXNAMLEN 255
 #   endif
 #endif
 
@@ -373,16 +420,16 @@ EXTERN int		gettimeofday _ANSI_ARGS_((struct timeval *tp,
 
 #ifndef NO_FD_SET
 #   define SELECT_MASK fd_set
-#else
+#else /* NO_FD_SET */
 #   ifndef _AIX
 	typedef long fd_mask;
-#   endif
+#   endif /* !AIX */
 #   if defined(_IBMR2)
 #	define SELECT_MASK void
-#   else
+#   else /* !defined(_IBMR2) */
 #	define SELECT_MASK int
-#   endif
-#endif
+#   endif /* defined(_IBMR2) */
+#endif /* !NO_FD_SET */
 
 /*
  * Define "NBBY" (number of bits per byte) if it's not already defined.
@@ -402,13 +449,13 @@ EXTERN int		gettimeofday _ANSI_ARGS_((struct timeval *tp,
 #   else
 #	define FD_SETSIZE 256
 #   endif
-#endif
+#endif /* FD_SETSIZE */
 #if !defined(howmany)
 #   define howmany(x, y) (((x)+((y)-1))/(y))
-#endif
+#endif /* !defined(howmany) */
 #ifndef NFDBITS
 #   define NFDBITS NBBY*sizeof(fd_mask)
-#endif
+#endif /* NFDBITS */
 #define MASK_SIZE howmany(FD_SETSIZE, NFDBITS)
 
 /*
@@ -418,6 +465,19 @@ EXTERN int		gettimeofday _ANSI_ARGS_((struct timeval *tp,
  */
 
 extern int errno;
+
+/*
+ * Not all systems declare all the errors that Tcl uses!  Provide some
+ * work-arounds...
+ */
+
+#ifndef EOVERFLOW
+#   ifdef EFBIG
+#	define EOVERFLOW EFBIG
+#   else /* !EFBIG */
+#	define EOVERFLOW EINVAL
+#   endif /* EFBIG */
+#endif /* EOVERFLOW */
 
 /*
  * Variables provided by the C library:
@@ -439,6 +499,12 @@ extern char **environ;
 extern double strtod();
 
 /*
+ * There is no platform-specific panic routine for Unix in the Tcl internals.
+ */
+
+#define TclpPanic ((Tcl_PanicProc *) NULL)
+
+/*
  *---------------------------------------------------------------------------
  * The following macros and declarations represent the interface between 
  * generic and unix-specific parts of Tcl.  Some of the macros may override 
@@ -450,7 +516,11 @@ extern double strtod();
  * The default platform eol translation on Unix is TCL_TRANSLATE_LF.
  */
 
+#ifdef DJGPP
+#define	TCL_PLATFORM_TRANSLATION	TCL_TRANSLATE_CRLF
+#else
 #define	TCL_PLATFORM_TRANSLATION	TCL_TRANSLATE_LF
+#endif
 
 /*
  * The following macros have trivial definitions, allowing generic code to 
@@ -478,15 +548,6 @@ extern double strtod();
 
 #define TclpExit		exit
 
-#ifdef TclpStat
-#undef TclpStat
-#endif
-
-EXTERN int		TclpLstat _ANSI_ARGS_((CONST char *path, 
-			    struct stat *buf));
-EXTERN int		TclpStat _ANSI_ARGS_((CONST char *path, 
-			    struct stat *buf));
-
 /*
  * Platform specific mutex definition used by memory allocators.
  * These mutexes are statically allocated and explicitly initialized.
@@ -500,6 +561,23 @@ typedef pthread_mutex_t TclpMutex;
 EXTERN void	TclpMutexInit _ANSI_ARGS_((TclpMutex *mPtr));
 EXTERN void	TclpMutexLock _ANSI_ARGS_((TclpMutex *mPtr));
 EXTERN void	TclpMutexUnlock _ANSI_ARGS_((TclpMutex *mPtr));
+EXTERN Tcl_DirEntry * 	TclpReaddir(DIR *);
+EXTERN struct tm *     	TclpLocaltime(time_t *);
+EXTERN struct tm *     	TclpGmtime(time_t *);
+EXTERN char *          	TclpInetNtoa(struct in_addr);
+#define readdir(x)	TclpReaddir(x)
+#define localtime(x)	TclpLocaltime(x)
+#define gmtime(x)	TclpGmtime(x)
+#define inet_ntoa(x)	TclpInetNtoa(x)
+#undef TclOSreaddir
+#define TclOSreaddir(x) TclpReaddir(x)
+#ifdef MAC_OSX_TCL
+/* 
+ * On Mac OS X, realpath is currently not
+ * thread safe, c.f. SF bug # 711232.
+ */
+#define NO_REALPATH
+#endif
 #else
 typedef int TclpMutex;
 #define	TclpMutexInit(a)

@@ -1,0 +1,10 @@
+Wymagana jest Twoje potwierdzenie nowej subskrybcji listy dyskusujnej:
+
+    Dla:   %(username)s
+    Lista: %(listname)s@%(hostname)s
+
+Wejd¼ na stronê:
+
+    %(admindb_url)s
+	
+¿eby zareagowaæ na t± pro¶bê.

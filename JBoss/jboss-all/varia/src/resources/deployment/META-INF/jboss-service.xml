@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE server>
+
+<!-- ===================================================================== -->
+<!--                                                                       -->
+<!--  WLARDeployer Service Configuration                                   -->
+<!--                                                                       -->
+<!-- ===================================================================== -->
+<server>
+
+   <!--
+      | Specify required libraries here.
+    -->
+
+   <classpath codebase="lib" archives="*"/>
+  
+   <!-- Foe Deployer -->
+   <mbean code="org.jboss.varia.deployment.FoeDeployer"
+          name="jboss:service=FoeDeployer">
+   </mbean>
+  
+   <!-- WebLogic Convertor -->
+   <mbean code="org.jboss.varia.deployment.convertor.WebLogicConvertor"
+          name="jboss:service=Convertor,type=WebLogic">
+
+      <depends>jboss:service=FoeDeployer</depends>
+
+      <attribute name="Deployer">jboss:service=FoeDeployer</attribute>
+
+      <!--
+         | The version of WL to port from
+      -->
+      <attribute name="WlVersion">6.1</attribute>
+
+      <!--
+         | available values are
+         |    true - remove tables,
+         |    false - don't remove table,
+         |    create-default-dbms-tables - use the create-table value
+      -->
+      <attribute name="RemoveTable">create-default-dbms-tables</attribute>
+
+      <!--
+         | if set to 'data-source-name' then the value of data-source-name
+         | element in weblogic-cmp-rdbms-jar.xml will be used;
+         | otherwise the specified value will be set.
+      -->
+      <attribute name="Datasource">java:/DefaultDS</attribute>
+
+      <!--
+         | if set to 'data-source-name' then the value of data-source-name
+         | element in weblogic-cmp-rdbms-jar.xml will be used;
+         | otherwise the specified value will be set.
+      -->
+      <attribute name="DatasourceMapping">Hypersonic SQL</attribute>
+   </mbean>
+</server>

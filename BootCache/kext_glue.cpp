@@ -27,14 +27,18 @@ com_apple_BootCache::start(IOService *provider)
 	bool	result;
 
 	result = IOService::start(provider);
-	if (result == true)
+	if (result == true) {
 		BC_start();
+		provider->retain();
+	}
 	return(result);
 }
 
 void
 com_apple_BootCache::stop(IOService *provider)
 {
-	if (BC_stop() == 0)
-		IOService::stop(provider);
+	if (BC_stop())
+		return;	// refuse unload?
+	provider->release();
+	IOService::stop(provider);
 }

@@ -1,4 +1,4 @@
-# Copyright (c) 1999-2002 Apple Computer, Inc.
+# Copyright (c) 1999-2003 Apple Computer, Inc.
 # All rights reserved.
 
 # !!!cmolick:20000821 hardcoded tool paths because variables not set yet
@@ -8,9 +8,7 @@ SYSTEM_DEVELOPER_TOOLS default = /Developer/Tools ;
 # except where built in shell functions should be used
 ASM		default = /usr/bin/as ;
 BRIDGET         default = /usr/bin/bridget ;
-# !!!:anders:20020110  The following has been moved to the BeginProduct rule, so that
-# definitions of USE_GCC3 in the target or build style can take effect.
-# CC           default = /usr/bin/cc ;
+# CC defined in BeginProduct rule based on value of GCC_VERSION and other settings
 CD		default = cd ;
 CHMOD		default = /bin/chmod ;
 CHOWN		default = /usr/sbin/chown ;
@@ -27,9 +25,7 @@ INTERFACER	default = $(APPLE_INTERNAL_TOOLS)/Interfacer ;
 JAR		default = /usr/bin/jar ;
 export JAVA_COMPILER	default = /usr/bin/javac ;
 export JAVACONFIG	default = /usr/bin/javaconfig ;
-# !!!:anders:20020110  The following has been moved to the BeginProduct rule, so that
-# definitions of USE_GCC3 in the target or build style can take effect.
-# LD           default = /usr/bin/cc ;
+# LD defined in BeginProduct rule based value of GCC_VERSION and other settings
 LEX		default = /usr/bin/lex ;
 LIBTOOL		default = /usr/bin/libtool ;
 LN		default = /bin/ln ;
@@ -43,7 +39,6 @@ NMEDIT		default = /usr/bin/nmedit ;
 OSAC		default = /usr/bin/osacompile ;
 OSAL		default = /usr/bin/osalang ;
 OSAS		default = /usr/bin/osascript ;
-PAX		default = /bin/pax ;
 PBXCP		default = $(SYSTEM_DEVELOPER_TOOLS)/pbxcp ;
 RANLIB		default = /usr/bin/ranlib ;
 REGGEN		default = reggen ;
@@ -69,14 +64,7 @@ ZIP		default = /usr/bin/zip ;
 # executed once, no matter how many times the rule is invoked.
 actions together piecemeal Rm
 {
-    $(RM) -r "$(1)"
-}
-
-# RelativeRm <files> : <location>
-# Removes <files> from <location> after removing grist.
-actions together piecemeal RelativeRm
-{
-    $(RM) -rf "$(2)$(/)$(1:G=)"
+    $(RM) -r $(1:Q)
 }
 
 # Mkdir <directory>
@@ -88,14 +76,14 @@ rule Mkdir
 }
 actions together piecemeal Mkdir
 {
-    $(MKDIR) -p "$(1)"
+    $(MKDIR) -p $(1:Q)
 }
 
 # MkEmptyDir <directory>
 # Makes a directory if necessary, and insures it is empty
 actions together MkEmptyDir
 {
-    ( $(MKDIR) -p "$(1)" && $(CD) "$(1)" && $(RM) -rf "*" )
+    ( $(MKDIR) -p $(1:Q) && $(CD) $(1:Q) && $(RM) -rf "*" )
 }
 
 # SymLink <link> : <to>
@@ -109,14 +97,14 @@ rule SymLink
 }
 actions SymLink
 {
-    $(LN) -sf "$(2)" "$(1)"
+    $(LN) -sf $(2:Q) $(1:Q)
 }
 
 # Touch <files>
 # Touches files in the filesystem.
 actions Touch
 {
-    $(TOUCH) "$(1)"
+    $(TOUCH) $(1:Q)
 }
 
 # TouchConditionally <fileToTouch> : <fileToCompareAgainst>
@@ -127,7 +115,7 @@ rule TouchConditionally
 }
 actions TouchConditionally
 {
-    $(TOUCH) "$(1:G=)"
+    $(TOUCH) $(1:G=:Q)
 }
 
 # Echo <file> : <text>
@@ -143,11 +131,11 @@ rule Echo
 }
 actions together piecemeal quietly Echo.remove
 {
-    $(RM) -rf "$(1)"
+    $(RM) -rf $(1:Q)
 }
 actions quietly Echo.append
 {
-    $(ECHO) "$(2)" >> "$(1)"
+    $(ECHO) $(2:Q) >> $(1:Q)
 }
 
 # ChangeOwnerAndGroup and ChangeMode to use when installing files
@@ -165,20 +153,20 @@ rule ChangeOwnerAndGroup
 }
 actions ChangeOwnerAndGroup.Action
 {
-    if [ -e "$(1)" ]
-      then $(CHOWN) -RH $(INSTALL_OWNER):$(INSTALL_GROUP) "$(1)"
+    if [ -e $(1:Q) ]
+      then $(CHOWN) -RH $(INSTALL_OWNER):$(INSTALL_GROUP) $(1:Q)
     fi
 }
 actions ChangeOwner.Action
 {
-    if [ -e "$(1)" ]
-      then $(CHOWN) -RH $(INSTALL_OWNER) "$(1)"
+    if [ -e $(1:Q) ]
+      then $(CHOWN) -RH $(INSTALL_OWNER) $(1:Q)
     fi
 }
 actions ChangeMode
 {
-    if [ -e "$(1)" ]
-      then $(CHMOD) -RH $(INSTALL_MODE_FLAG) "$(1)"
+    if [ -e $(1:Q) ]
+      then $(CHMOD) -RH $(INSTALL_MODE_FLAG) $(1:Q)
     fi
 }
 
@@ -186,7 +174,7 @@ actions ChangeMode
 # Runs strip to remove debugging symbols from the executable of the target
 actions Strip
 {
-    $(STRIP) $(STRIPFLAGS) "$(1)"
+    $(STRIP) $(STRIPFLAGS:Q) $(1:Q)
 }
 
 # SetFile <fork file>
@@ -201,11 +189,11 @@ rule SetFile
     if $(MACOS_CREATOR) {
         MACOS_CREATOR_ARG = -c '$(MACOS_CREATOR)' ;
     }
-    SETFILEFLAGS on $(1) = $(MACOS_TYPE_ARG) $(MACOS_CREATOR_ARG) "$(OTHER_SETFILEFLAGS)" ;
+    SETFILEFLAGS on $(1) = $(MACOS_TYPE_ARG) $(MACOS_CREATOR_ARG) ;
 }
 actions SetFile
 {
-    $(SETFILE) $(SETFILEFLAGS) "$(1)"
+    $(SETFILE) $(SETFILEFLAGS:Q) "$(OTHER_SETFILEFLAGS)" $(1:Q)
 }
 
 # Rez <fork file> : <target file>
@@ -221,7 +209,7 @@ rule Rez
     if $(MACOS_CREATOR) {
         MACOS_CREATOR_ARG = -c '$(MACOS_CREATOR)' ;
     }
-    REZFLAGS on $(1) = -append -d SystemSevenOrLater=1 $(MACOS_TYPE_ARG) $(MACOS_CREATOR_ARG) $(OTHER_REZFLAGS) ;
+    REZFLAGS on $(1) = -append -d SystemSevenOrLater=1 $(MACOS_TYPE_ARG) $(MACOS_CREATOR_ARG) "$(OTHER_REZFLAGS)" ;
     if ! $(REZ_EXECUTABLE) = "YES" {
         # by default use data forks
         REZFLAGS on $(1) += -useDF ;
@@ -229,11 +217,12 @@ rule Rez
 }
 actions Rez
 {
-    $(REZ) "$(2)" "$(REZFLAGS)" -o "$(1)"
+    $(REZ) $(2:Q) $(REZFLAGS) -o $(1:Q)
 }
 
 # ResMerge <fork file> : <rsrc file>
 # Merges the resources from binary resource file 'rsrc file' into 'fork file'
+# CAUTION: OTHER_RESMERGERFLAGS (with R) are used for RESMERGEFLAGS (no R)
 rule ResMerge
 {
     local MACOS_TYPE_ARG ;
@@ -245,7 +234,7 @@ rule ResMerge
     if $(MACOS_CREATOR) {
         MACOS_CREATOR_ARG = -fileCreator '$(MACOS_CREATOR)' ;
     }
-    RESMERGEFLAGS on $(1) = -append $(MACOS_TYPE_ARG) $(MACOS_CREATOR_ARG) $(OTHER_RESMERGERFLAGS) ;
+    RESMERGEFLAGS on $(1) = -append $(MACOS_TYPE_ARG) $(MACOS_CREATOR_ARG) "$(OTHER_RESMERGERFLAGS)" ;
     if ! $(REZ_EXECUTABLE) = "YES" {
         # by default use data forks
         RESMERGEFLAGS on $(1) += -dstIs DF ;
@@ -253,7 +242,7 @@ rule ResMerge
 }
 actions ResMerge
 {
-    $(RESMERGER) "$(2)" "$(RESMERGEFLAGS)" -o "$(1)"
+    $(RESMERGER) $(2:Q) $(RESMERGEFLAGS) -o $(1:Q)
 }
 
 # RezCollector and ResMergerCollector either compile
@@ -264,7 +253,11 @@ actions ResMerge
 rule RezCollector
 {
     DEPENDS $(1) : $(2) ;
-    REZFLAGS on $(1) = -d SystemSevenOrLater=1 -useDF $(OTHER_REZFLAGS) ;
+    REZFLAGS on $(1) = -d SystemSevenOrLater=1 -useDF ;
+    REZPATHFLAGS on $(1) = ;
+    for _REZ_PATH in $(REZ_SEARCH_PATHS) {
+        REZPATHFLAGS on $(1) += -i $(_REZ_PATH) ;
+    }
     if $(REZ_TOGETHER) = YES {
         RezCollector.together $(1) : $(2) ;
     }
@@ -279,25 +272,25 @@ rule RezCollector
 }
 actions together piecemeal RezCollector.together
 {
-    if [ -f "$(1)" ]; then
+    if [ -f $(1:Q) ]; then
         _appendoption=-append
     fi
-    $(REZ) -o "$(1)" $_appendoption "$(REZFLAGS)" "$(2)"
+    $(REZ) -o $(1:Q) $_appendoption $(REZFLAGS:Q) "$(OTHER_REZFLAGS)" $(REZPATHFLAGS:Q) $(2:Q)
 }
 actions RezCollector.initial
 {
-    $(RM) -f "$(1)" && \
-    $(REZ) -o "$(1)" "$(REZFLAGS)" "$(2)"
+    $(RM) -f $(1:Q) && \
+    $(REZ) -o $(1:Q) $(REZFLAGS:Q) "$(OTHER_REZFLAGS)" $(REZPATHFLAGS:Q) $(2:Q)
 }
 actions RezCollector.append
 {
-    $(REZ) -o "$(1)" -append "$(REZFLAGS)" "$(2)"
+    $(REZ) -o $(1:Q) -append $(REZFLAGS:Q) "$(OTHER_REZFLAGS)" $(REZPATHFLAGS:Q) $(2:Q)
 }
 
 rule ResMergerCollector
 {
     DEPENDS $(1) : $(2) ;
-    RESMERGEFLAGS on $(1) = -dstIs DF $(OTHER_RESMERGERFLAGS) ;
+    RESMERGEFLAGS on $(1) = -dstIs DF ;
     if $(REZ_TOGETHER) = YES {
         ResMergerCollector.together $(1) : $(2) ;
     }
@@ -312,19 +305,18 @@ rule ResMergerCollector
 }
 actions together piecemeal ResMergerCollector.together
 {
-    if [ -f "$(1)" ]; then
+    if [ -f $(1:Q) ]; then
         _appendoption=-append
     fi
-    $(RESMERGER) -o "$(1)" $_appendoption "$(RESMERGEFLAGS)" "$(2)"
+    $(RESMERGER) -o $(1:Q) $_appendoption $(RESMERGEFLAGS:Q) "$(OTHER_RESMERGERFLAGS)" $(2:Q)
 }
 actions ResMergerCollector.initial
 {
-    $(RM) -f "$(1)" && \
-    $(RESMERGER) -o "$(1)" "$(RESMERGEFLAGS)" "$(2)"
+    $(RM) -f $(1:Q) && $(RESMERGER) -o $(1:Q) $(RESMERGEFLAGS:Q) "$(OTHER_RESMERGERFLAGS)" $(2:Q)
 }
 actions ResMergerCollector.append
 {
-    $(RESMERGER) -o "$(1)" -append "$(RESMERGEFLAGS)" "$(2)"
+    $(RESMERGER) -o $(1:Q) -append $(RESMERGEFLAGS:Q) "$(OTHER_RESMERGERFLAGS)" $(2:Q)
 }
 
 # ResMergerProduct - used to transfer collector resources to final destination
@@ -339,7 +331,7 @@ rule ResMergerProduct
     if $(MACOS_CREATOR) {
         MACOS_CREATOR_ARG = -fileCreator '$(MACOS_CREATOR)' ;
     }
-    RESMERGEFLAGS on $(1) = $(MACOS_TYPE_ARG) $(MACOS_CREATOR_ARG) -srcIs DF $(OTHER_RESMERGERFLAGS) ;
+    RESMERGEFLAGS on $(1) = $(MACOS_TYPE_ARG) $(MACOS_CREATOR_ARG) -srcIs DF "$(OTHER_RESMERGERFLAGS)" ;
     if $(REZ_EXECUTABLE) = "YES" {
         ResMergerProductResourceFork $(1) : $(2) ;
     }
@@ -350,13 +342,13 @@ rule ResMergerProduct
 }
 actions ResMergerProductResourceFork
 {
-    $(REZ) -o "$(1)" < /dev/null && \
-    $(RESMERGER) "$(2)" $(RESMERGEFLAGS) -o "$(1)"
+    $(REZ) -o $(1:Q) < /dev/null && \
+    $(RESMERGER) $(2:Q) $(RESMERGEFLAGS) -o $(1:Q)
 }
 actions ResMergerProductDataFork
 {
-    $(RM) -f "$(1)" && \
-    $(RESMERGER) "$(2)" $(RESMERGEFLAGS) -o "$(1)"
+    $(RM) -f $(1:Q) && \
+    $(RESMERGER) $(2:Q) $(RESMERGEFLAGS) -o $(1:Q)
 }
 
 # Fixprecomps <precomp> : <header>
@@ -368,7 +360,7 @@ if $(FIXPRECOMPS) {
     }
     actions Fixprecomps
     {
-        $(FIXPRECOMPS) -precomps "$(1)"
+        $(FIXPRECOMPS) -precomps $(1:Q)
     }
 } else {
     rule Fixprecomps
@@ -389,11 +381,9 @@ rule Cp
 {
     DEPENDS $(1) : $(2) ;
 }
-# !!!:cmolick:20020130 use of lnresolve allows references to be symbolic links
 actions together piecemeal Cp
 {
-    _source=`$(LNRESOLVE) "$(2)"`
-    $(CP) "$(CPFLAGS)" "$_source" "$(1)"
+    $(CP) $(CPFLAGS:Q) $(2:Q) $(1:Q)
 }
 
 # PBXCp <destination-file> : <source-file>
@@ -422,10 +412,8 @@ rule PBXCp
     # in the form of a symlink to the actual content, it is necessary
     # to resolve one level of symbolic link for all sources copied.
     PBXCP_FLAGS on $(1) += -resolve-src-symlinks ;
-
-    PBXCp.CopyToDirectory $(1) : $(2) ;
 }
-actions together piecemeal updated PBXCp.CopyToDirectory
+actions together piecemeal PBXCp
 {
     $(PBXCP) $(PBXCP_FLAGS:Q) $(2:Q) $(1:DQ)
 }
@@ -462,27 +450,27 @@ rule RobustCp
 }
 actions RobustCp.CleanBeforeAndAfter
 {
-    if [ -d "$(1)" ]
-        then $(RM) -r "$(1)"
+    if [ -d $(1:Q) ]
+        then $(RM) -r $(1:Q)
     fi
-    if [ -e "$(2)" ]
+    if [ -e $(2:Q) ]
         then
-        _source=`$(LNRESOLVE) "$(2)"`
-        $(CP) -fRP "$_source" "$(1)"
+        _source=`$(LNRESOLVE) $(2:Q)`
+        $(CP) -fRP "$_source" $(1:Q)
         if [ -d "$_source" ]
             then
-            $(FIND) "$(1)" -name CVS -type d -prune -print0 | $(XARGS) -0 rm -r
+            $(FIND) $(1:Q) -name CVS -type d -prune -print0 | $(XARGS) -0 rm -r
         fi
     fi
 }
 actions RobustCp.CleanBefore
 {
-    if [ -d "$(1)" ]
-        then $(RM) -r "$(1)"
+    if [ -d $(1:Q) ]
+        then $(RM) -r $(1:Q)
     fi
-    if [ -e "$(2)" ]
-        then _source=`$(LNRESOLVE) "$(2)"`
-        $(CP) -fRP "$_source" "$(1)"
+    if [ -e $(2:Q) ]
+        then _source=`$(LNRESOLVE) $(2:Q)`
+        $(CP) -fRP "$_source" $(1:Q)
     fi
 }
 
@@ -490,8 +478,8 @@ actions RobustCp.CleanBefore
 # Uses find to run strip -s on all binaries starting from a file or directory
 actions StripBinaries
 {
-    if [ -f "$(1)" ]; then
-        filetype=`file "$(1)"`
+    if [ -f $(1:Q) ]; then
+        filetype=`file $(1:Q)`
         macho=`echo $filetype | fgrep Mach-O | sed 's/:.*//'`
         ararch=`echo $filetype | fgrep ar\ archive | sed 's/:.*//'`
         if [ "x$macho" != "x" ]; then
@@ -501,10 +489,10 @@ actions StripBinaries
             $(STRIP) -S "$ararch"
         fi
     else
-        machos=`cd "$(1)"; $(FIND) . -type f -print0 | xargs -0 file | fgrep Mach-O | sed 's/:.*//'`
-        ararchs=`cd "$(1)"; $(FIND) . -type f -print0 | xargs -0 file | fgrep ar\ archive | sed 's/:.*//'`
+        machos=`cd $(1:Q); $(FIND) . -type f -print0 | xargs -0 file | fgrep Mach-O | sed 's/:.*//'`
+        ararchs=`cd $(1:Q); $(FIND) . -type f -print0 | xargs -0 file | fgrep ar\ archive | sed 's/:.*//'`
         if [ "x$machos" != "x" ]; then
-            cd "$(1)"; 
+            cd $(1:Q); 
 	    origIFS=$IFS
 	    IFS="
 "
@@ -514,7 +502,7 @@ actions StripBinaries
 	    IFS=$oldIFS
         fi
         if [ "x$ararchs" != "x" ]; then
-            cd "$(1)"; 
+            cd $(1:Q); 
 	    origIFS=$IFS
 	    IFS="
 "
@@ -538,7 +526,7 @@ rule ResourcePreservingCp
 }
 actions together piecemeal ResourcePreservingCp
 {
-    $(RESOURCE_PRESERVING_CP) -r "$(2)" "$(1)"
+    $(RESOURCE_PRESERVING_CP) -r $(2:Q) $(1:Q)
 }
 
 # ResourcePreservingMv <destination> : <source> : <junk>
@@ -551,82 +539,15 @@ rule ResourcePreservingMv
 }
 actions together piecemeal ResourcePreservingMv
 {
-    $(RESOURCE_PRESERVING_CP) -r "$(2)" "$(1)"
-}
-
-# CloneHeader <primary target> : <header> : <target directory>
-# Writes in the target directory a stub clone of the header
-# which contains only an #import directive with the path
-# to the real header in quotes.
-# Individual header clones depend on the PROJECT_HEADER_CLONE
-# nonfile target which is depended on by the product and object files.
-rule CloneHeader
-{
-    # derive name of header clone and find full path to header
-    local HEADER_CLONE ;
-    if $(3) = $(PUBLIC_HEADER_CLONE_DIR) {
-        HEADER_CLONE = $(2:BSG=PublicHeaderClone) ;
-    }
-    else {
-        if $(3) = $(PRIVATE_HEADER_CLONE_DIR) {
-            HEADER_CLONE = $(2:BSG=PrivateHeaderClone) ;
-        }
-        else {
-            HEADER_CLONE = $(2:BSG=ProjectHeaderClone) ;
-        }
-    }
-    local HEADER_PATH ;
-    if AbsolutePath in $($(2:G=)_ATTRIBUTES) {
-        HEADER_PATH = $(2:G=) ;
-    } 
-    else {
-        HEADER_PATH = $(SOURCE_ROOT)$(/)$(2:G=) ;
-    } 
-    LOCATE on $(HEADER_CLONE) = $(3) ;
-    DEPENDS $(HEADER_CLONE) : $(3) ;
-    if ! $(3) in $(PRODUCT_FILES) {
-        Mkdir $(3) ;
-        ProductFile $(3) ;
-    }
-    if $(3) = $(PRIVATE_HEADER_CLONE_DIR) && $(PRIVATE_HEADER_CLONE_LINK) {
-        DEPENDS $(HEADER_CLONE) : $(PRIVATE_HEADER_CLONE_LINK) ;
-        if ! $(PRIVATE_HEADER_CLONE_LINK) in $(PRODUCT_FILES) {
-            SymLink $(PRIVATE_HEADER_CLONE_LINK) : $(PRIVATE_HEADER_CLONE_LINK_PATH) ;
-            ProductFile $(PRIVATE_HEADER_CLONE_LINK) ;
-        }
-    }
-    if $(3) = $(PUBLIC_HEADER_CLONE_DIR) && $(PUBLIC_HEADER_CLONE_LINK) {
-        DEPENDS $(HEADER_CLONE) : $(PUBLIC_HEADER_CLONE_LINK) ;
-        if ! $(PUBLIC_HEADER_CLONE_LINK) in $(PRODUCT_FILES) {
-            SymLink $(PUBLIC_HEADER_CLONE_LINK) : $(PUBLIC_HEADER_CLONE_LINK_PATH) ;
-            ProductFile $(PUBLIC_HEADER_CLONE_LINK) ;
-        }
-    }
-    # make clone and record as build phase product
-    ImportStub $(HEADER_CLONE) : $(HEADER_PATH) ;
-    ProductFile $(HEADER_CLONE) ;
-    LOCATE on $(HEADER_CLONE) = $(3) ;
-}
-
-# ImportStub <stub file> : <stub import file>
-# Generates a file with one line which is an #import directive
-# and the second parameter quoted which should be a full path
-# to the real file to be imported.
-rule ImportStub
-{
-    DEPENDS $(1) : $(2) ;
-    NOUPDATE $(1) ;
-}
-actions ImportStub
-{
-    echo "#import" \""$(2)"\" > "$(1)"
+    $(RESOURCE_PRESERVING_CP) -r $(2:Q) $(1:Q)
 }
 
 # AbsolutePathImportStub <stub file> : <stub import file>
 # Generates a file with one line which is an #import directive
 # and the second parameter quoted which should be a full path
-# to the real file to be imported.  
-# If $2 is not an absolute path, $(SRCROOT) will be prepended to make it absolute.
+# to the real file to be imported.
+# If $2 is not an absolute path, $(SRCROOT) will be prepended to make 
+# it absolute.
 rule AbsolutePathImportStub
 {
     DEPENDS $(1) : $(2) ;
@@ -650,7 +571,7 @@ rule HeaderDoc
 }
 actions HeaderDoc
 {
-    $(HEADERDOC2HTML) -o "$(HEADERDOC_DIR)" "$(2)"
+    $(HEADERDOC2HTML) -o $(HEADERDOC_DIR:Q) $(2:Q)
 }
 
 # GatheredHeaderDoc <gathered headerdoc target>
@@ -659,7 +580,7 @@ rule GatheredHeaderDoc
 }
 actions GatheredHeaderDoc
 {
-    $(GATHERHEADERDOC) "$(HEADERDOC_DIR)"
+    $(GATHERHEADERDOC) $(HEADERDOC_DIR:Q)
 }
 
 # Source derivation operations:
@@ -673,10 +594,10 @@ rule Lex
 
 actions Lex
 {
-    $(LEX) $(LEXFLAGS) "-o$(1)" "$(2)"
+    $(LEX) $(LEXFLAGS) "-o$(1)" $(2:Q)
 }
 
-# Yacc <file>.h <file>.{c|m} : <file>.y[m]
+# Yacc <file>.{c|m} <file>.h : <file>.y[m]
 # Uses yacc to generate parser from description
 rule Yacc
 {
@@ -687,10 +608,10 @@ actions Yacc
 # Generate result by noting location, going to derived source directory,
 # running yacc, then copying the results to what is desired.
 {
-    origin=`/bin/pwd` && $(CD) "$(1[1]:D)" && $(YACC) $(YACCFLAGS) -d "$origin/$(2)" && $(CP) y.tab.h "$(1[1])" && $(CP) y.tab.c "$(1[2])"
+    origin=`/bin/pwd` && $(CD) "$(1[1]:D)" && $(YACC) $(YACCFLAGS) -d "$origin/$(2)" && $(CP) y.tab.h "$(1[2])" && $(CP) y.tab.c "$(1[1])"
 }
 
-# RPCGen <proto>.h <proto>_xdr.c : <proto>.x
+# RPCGen <proto>_xdr.c <proto>.h : <proto>.x
 # Generates RPC stubs from specifications
 #
 rule RPCGen
@@ -701,17 +622,16 @@ rule RPCGen
 # Generate header and C code with two calls to rpcgen
 actions RPCGen
 {
-    $(RPCGEN) $(RPCGENFLAGS) -h -o "$(1[1])" "$(2)"
-    $(RPCGEN) $(RPCGENFLAGS) -c -o "$(1[2])" "$(2)"
+    $(RPCGEN) $(RPCGENFLAGS) -h -o "$(1[2])" $(2:Q)
+    $(RPCGEN) $(RPCGENFLAGS) -c -o "$(1[1])" $(2:Q)
 }
 
-# Mig <file>.h <file>User.c : <file>.defs OR
-# Mig <file>Server.h <file>Server.c : <file>.defs
+# Mig <file>User.c <file>.h : <file>.defs OR
+# Mig <file>Server.c <file>Server.h : <file>.defs
 # Runs mig to create client and server files from a definition file.
 rule Mig
 {
     DEPENDS $(1) : $(2) ;
-    # was: $(MACH_SERVER) = YES || $(MACH_CLIENT_AND_SERVER) = YES
     if Server in $($(2)_ATTRIBUTES) {
         Mig.server $(1) : $(2) ;
     }
@@ -721,11 +641,11 @@ rule Mig
 }
 actions Mig.client
 {
-    origin=`pwd` && $(CD) "$(1[1]:D)" && $(MIG) $(OTHER_MIGFLAGS) "$origin/$(2)"
+    origin=`pwd` && $(CD) "$(1[1]:D)" && $(MIG) "$(OTHER_MIGFLAGS)" "$origin/$(2)"
 }
 actions Mig.server
 {
-    origin=`pwd` && $(CD) "$(1[1]:D)" && $(MIG) $(OTHER_MIGFLAGS) -sheader "$(2:B)Server.h" "$origin/$(2)"
+    origin=`pwd` && $(CD) "$(1[1]:D)" && $(MIG) "$(OTHER_MIGFLAGS)" -sheader "$(2:B)Server.h" "$origin/$(2)"
 }
 
 # Bridget <primary target> : <jobs file>
@@ -890,8 +810,8 @@ rule GenerateVectorLibraryIntermediates
 }
 actions GenerateVectorLibraryIntermediates
 {
-    $(MAKEPSEUDOLIB) "$(2)" -p -strip -fragname "$(VECTOR_FRAGMENT_NAME)" -vector "$(VECTOR_STUB)" -dylibpath "$(DYLIB_INSTALLED_NAME)"
-    $(CC) -Wa,-L -c $(ARCH_FLAGS) -O -fno-common -no-cpp-precomp -dynamic "$(FLAGS)" $(GLOBAL_CFLAGS) -o "$(VECTOR_OBJECT_FILE)" "$(VECTOR_STUB)"
+    $(MAKEPSEUDOLIB) $(2:Q) -p -strip -fragname $(VECTOR_FRAGMENT_NAME:Q) -vector $(VECTOR_STUB:Q) -dylibpath "$(DYLIB_INSTALLED_NAME)"
+    $(CC) -Wa,-L -c $(ARCH_FLAGS) -O -fno-common -no-cpp-precomp -dynamic "$(FLAGS)" $(GLOBAL_CFLAGS) -o $(VECTOR_OBJECT_FILE:Q) $(VECTOR_STUB:Q)
 }
 
 MASTER_INTERFACES default = /AppleInternal/Carbon/interfaces ;
@@ -938,25 +858,6 @@ rule InterfacerHeaders
     if $(_BUILD_PHASING) = YES {
         BUILD_PHASE_PRODUCTS += $(INTERFACER_HEADERS) ;
     }
-
-#    Mkdir $(FULL_PUBLIC_HEADER_DIR) ;
-#    DEPENDS $(INTERFACER_HEADERS) : $(FULL_PUBLIC_HEADER_DIR) ;
-#    DEPENDS $(INTERFACER_HEADERS) : $(BUILD_DIR_AND_SEPARATOR)$(PUBLIC_HEADER_DIR:G=) ;
-#    if ! $(PUBLIC_HEADER_LINK) in $(PRODUCT_FILES) {
-#        SymLink $(BUILD_DIR_AND_SEPARATOR)$(PUBLIC_HEADER_LINK:G=) : $(PUBLIC_HEADER_LINK_PATH) ;
-#    }
-#    Mkdir $(FULL_PRIVATE_HEADER_DIR) ;
-#    DEPENDS $(INTERFACER_HEADERS) : $(FULL_PRIVATE_HEADER_DIR) ;
-#    DEPENDS $(INTERFACER_HEADERS) : $(BUILD_DIR_AND_SEPARATOR)$(PRIVATE_HEADER_DIR:G=) ;
-#    if ! $(PRIVATE_HEADER_LINK) in $(PRODUCT_FILES) {
-#        SymLink $(BUILD_DIR_AND_SEPARATOR)$(PRIVATE_HEADER_LINK:G=) : $(PRIVATE_HEADER_LINK_PATH) ;
-#    }
-#    if $(_BUILD_PHASING) = YES {
-#        BUILD_PHASE_PRODUCTS += $(FULL_PUBLIC_HEADER_DIR) ;
-#        BUILD_PHASE_PRODUCTS += $(FULL_PRIVATE_HEADER_DIR) ;
-#        BUILD_PHASE_PRODUCTS += $(BUILD_DIR_AND_SEPARATOR)$(PUBLIC_HEADER_LINK:G=) ;
-#        BUILD_PHASE_PRODUCTS += $(BUILD_DIR_AND_SEPARATOR)$(PRIVATE_HEADER_LINK:G=) ;
-#    }
     # Create a public header directory
     if ! $(PUBLIC_HEADER_DIR) in $(PRODUCT_FILES) {
         Mkdir $(PUBLIC_HEADER_DIR) ;
@@ -980,6 +881,11 @@ rule InterfacerHeaders
         }
     }
 
+       # install .i files if requested
+    if $(FRAMEWORK_INTERFACES) {
+        INTERFACER_INSTALL_OPTIONS = -frameworkInterfaces $(SRCROOT)$(/)$(FRAMEWORK_INTERFACES)$(/) -installMasterInterfaces $(DSTROOT)/AppleInternal/Carbon/interfaces/ ;
+    }
+
     Interfacer.Headers $(INTERFACER_HEADERS) ;
     # Interfacer headers are required (ideally these should be phase products)
     DEPENDS $(1) : $(INTERFACER_HEADERS) ;
@@ -987,7 +893,7 @@ rule InterfacerHeaders
 
 actions Interfacer.Headers
 {
-    $(INTERFACER) -masterInterfaces "$(MASTER_INTERFACES)/" -cacheFolder "$(INTERFACER_CACHE)/" $(INTERFACER_HEADER_OPTIONS) -c -rez -framework "$(1:D=:S=:G=)" -p -generated "c=$(FULL_PUBLIC_HEADER_DIR:G=)/" -generatedPriv "c=$(FULL_PRIVATE_HEADER_DIR:G=)/" -generated "rez=$(FULL_PUBLIC_HEADER_DIR:G=)/" -generatedPriv "rez=$(FULL_PRIVATE_HEADER_DIR:G=)/"
+    $(INTERFACER) -masterInterfaces "$(MASTER_INTERFACES)/" -cacheFolder "$(INTERFACER_CACHE)/" $(INTERFACER_HEADER_OPTIONS) -c -rez -framework "$(1:D=:S=:G=)" -p -generated "c=$(FULL_PUBLIC_HEADER_DIR:G=)/" -generatedPriv "c=$(FULL_PRIVATE_HEADER_DIR:G=)/" -generated "rez=$(FULL_PUBLIC_HEADER_DIR:G=)/" -generatedPriv "rez=$(FULL_PRIVATE_HEADER_DIR:G=)/" $(INTERFACER_INSTALL_OPTIONS)
 }
 
 rule InterfacerExportSetsAndGlue
@@ -1024,7 +930,6 @@ rule InterfacerExportSetsAndGlue
         DEPENDS $(PROCESSED_EXPORTS_FILE) : $(OBJECT_FILE_DIR_$(VARIANT)) ;
     }
     GLUE_FILE_LIST default = $(TEMP_DIR)$(/)GlueFileList ;
-    #!!!:cmolick:20020319 bad build_variants reference was here at one time
     Interfacer.RawExportSetsAndGlue $(RAW_GENERATED_EXPORTS_FILE) $(GLUE_FILE_LIST) : $(1) ;
     ProductFile $(RAW_GENERATED_EXPORTS_FILE) ;
     ProductFile $(GLUE_FILE_LIST) ;
@@ -1032,7 +937,7 @@ rule InterfacerExportSetsAndGlue
     ADDITIONAL_TRADITIONAL_EXPORTS_FILE on $(PROCESSED_EXPORTS_FILE) = $(ADDITIONAL_TRADITIONAL_EXPORTS_FILE) ;
     Interfacer.PrepareExportList $(PROCESSED_EXPORTS_FILE) : $(RAW_GENERATED_EXPORTS_FILE) ;
     ProductFile $(PROCESSED_EXPORTS_FILE) ;
-    #!!!:cmolick:200203019 this dependence seems necessary for correct order
+    #!!!:cmolick:200203019 this dependence is necessary to ensure correct order
     DEPENDS $(PROCESSED_EXPORTS_FILE) : $(RAW_GENERATED_EXPORTS_FILE) ;
     EXPORTED_SYMBOLS_FILE default = $(PROCESSED_EXPORTS_FILE) ;
     ProcessFile $(1) : $(EXPORTED_SYMBOLS_FILE) ;
@@ -1043,7 +948,7 @@ actions Interfacer.RawExportSetsAndGlue
 # then attempts to compile UPP glue and add resulting
 # object files to a list to use at link time.
 {
-    $(INTERFACER) -masterInterfaces "$(MASTER_INTERFACES)/" -cacheFolder "$(INTERFACER_CACHE)/" -exportset -uppGlueC "$(INTERFACER_FLAGS)" -framework "$(2[1]:G=:D=:S=)" -p -generated "exportset=$(EXPORT_SETS_DIR)/" -generatedPriv "exportset=$(EXPORT_SETS_DIR)/" -generated "uppGlueC=$(UPP_GLUE_DIR)/" -generatedPriv "uppGlueC=$(UPP_GLUE_DIR)/" $(INTERFACER_COMPONENT_GLUE_FLAGS)
+    $(INTERFACER) -masterInterfaces "$(MASTER_INTERFACES)/" -cacheFolder "$(INTERFACER_CACHE)/" -uppGlueC "$(INTERFACER_FLAGS)" -framework "$(2[1]:G=:D=:S=)" -frameworkExports -p -generated "frameworkExports=$(EXPORT_SETS_DIR)/" -generatedPriv "frameworkExports=$(EXPORT_SETS_DIR)/" -generated "uppGlueC=$(UPP_GLUE_DIR)/" -generatedPriv "uppGlueC=$(UPP_GLUE_DIR)/" $(INTERFACER_COMPONENT_GLUE_FLAGS) $(INTERFACER_INSTALL_OPTIONS)
     if [ -e "$(UPP_GLUE_DIR)" ]; then
         _upp_glue_modules=`ls "$(UPP_GLUE_DIR)"`
         if [ ! "$_upp_glue_modules" = x"$_upp_glue_modules" ]; then
@@ -1070,16 +975,11 @@ actions Interfacer.PrepareExportList
 # Translates PEF-oriented Interfacer export list output into
 # nmedit-compatible export lists for use with mach-o.
 {
-    _initial_working_dir=`pwd`
-    cd "$(EXPORT_SETS_DIR)"
-    ls | $(EGREP) '^fw_$(PRODUCT_NAME)(Priv)?_.+.exp$' > "$(EXPORT_SETS_DIR)$(/)_GeneratedExports"
-    cat `cat "$(EXPORT_SETS_DIR)$(/)_GeneratedExports"` > "$(EXPORT_SETS_DIR)$(/)_Generated.exp"
-    cat "$(EXPORT_SETS_DIR)$(/)_Generated.exp" | grep -v ^\* | grep -v ^# | grep -v ^\$ | sort | uniq -u | sed -e '1,$ s/^/_/' > "$(1)"
-    cd "$_initial_working_dir"
+    cat "$(EXPORT_SETS_DIR)$(/)$(PRODUCT_NAME).exp" "$(EXPORT_SETS_DIR)$(/)$(PRODUCT_NAME)Priv.exp" > $(1:Q)
     _additional_exports_file="$(ADDITIONAL_EXPORTS_FILE)"
     if [ "x$_additional_exports_file" != "x" ]; then
         if [ -f "$_additional_exports_file" ]; then
-            cat "$_additional_exports_file" >> "$(1)"
+            cat "$_additional_exports_file" >> $(1:Q)
         fi
     fi
     _additional_traditional_exports_file="$(ADDITIONAL_TRADITIONAL_EXPORTS_FILE)"
@@ -1133,18 +1033,12 @@ rule ClassArchive {
 # Use jar command to generate an archive
 # from the class file list after removing "./" from each file path
 actions ClassArchive.jarArchive {
-    cd "$(2)" && $(MKDIR) -p "$(1:D)" && $(JAR) $(JARFLAGS) $(OTHER_JARFLAGS) "$(JAVA_MANIFEST_FILE)" "$(1)" .
+    cd $(2:Q) && $(MKDIR) -p $(1:DQ) && $(JAR) $(JARFLAGS:Q) "$(OTHER_JARFLAGS)" $(JAVA_MANIFEST_FILE:Q) $(1:Q) .
 }
 # Use zip command to generate an archive
 # from the class file list after removing "./" from each file path
 actions ClassArchive.zipArchive {
-    cd "$(2)" && $(MKDIR) -p "$(1:D)" && $(ZIP) $(ZIPFLAGS) $(OTHER_ZIPFLAGS) "$(1)" .
-}
-
-# Bulk copy of class files
-# ClassCopy <product class file dir> : <compiled class file dir>
-actions ClassCopy {
-    $(MKDIR) -p "$(1:G=)" && cd "$(2:G=)" && $(PAX) -pe -rw . "$(1:G=)"
+    cd $(2:Q) && $(MKDIR) -p $(1:DQ) && $(ZIP) $(ZIPFLAGS:Q) "$(OTHER_ZIPFLAGS)" $(1:Q) .
 }
 
 # Unarchive <location> : <archive>
@@ -1166,12 +1060,12 @@ rule Unarchive
 # we use unzip to unarchive jars since it's much faster than jar, and we can exclude the manifest file
 actions UnarchiveJar
 {
-    $(UNZIP) -oq "$(2)" -x META-INF/MANIFEST.MF -d "$(1:G=)"
+    $(UNZIP) -oq $(2:Q) -x META-INF/MANIFEST.MF -d $(1:G=:Q)
 }
 
 actions UnarchiveZip
 {
-    $(UNZIP) -oq "$(2)" -d "$(1:G=)"
+    $(UNZIP) -oq $(2:Q) -d $(1:G=:Q)
 }
 
 # ProcessSingleObjectLink <executable> : <inputs> : <rule>
@@ -1199,6 +1093,7 @@ rule ProcessSingleObjectLink
 }
 
 # ProcessLinkWithArchitectureSpecificEditing <executable> : <inputs> : <rule>
+# !!!:cmolick:20021115 arch-specific editing is no longer used because symbols should uniform on all architectures
 rule ProcessLinkWithArchitectureSpecificEditing
 {
     for ARCH in $(ARCHS) {
@@ -1372,11 +1267,11 @@ actions together StaticLibrary
 }
 actions quietly together piecemeal StaticLibrary.Link bind StaticLibrary.ARGUMENTS
 {
-    ( $(LIBTOOL) -o "$(1)" "$(2)" "-L$(LIBRARY_SEARCH_PATHS)" "$(StaticLibrary.ARGUMENTS)" "$(FLAGS.o)" $(INSTALLED_NAME_FLAG) && $(RANLIB) "$(1)" )
+    ( $(LIBTOOL) -o $(1:Q) $(2:Q) "-L$(LIBRARY_SEARCH_PATHS)" "$(StaticLibrary.ARGUMENTS)" "$(FLAGS.o)" $(INSTALLED_NAME_FLAG) && $(RANLIB) $(1:Q) )
 }
 actions quietly together piecemeal StaticLibrary.LinkUsingFileList bind StaticLibrary.ARGUMENTS
 {
-    ( $(LIBTOOL) -o "$(1)" "-L$(LIBRARY_SEARCH_PATHS)" -filelist "$(2)" "$(StaticLibrary.ARGUMENTS)" "$(FLAGS.o)" $(INSTALLED_NAME_FLAG) && $(RANLIB) "$(1)" )
+    ( $(LIBTOOL) -o $(1:Q) "-L$(LIBRARY_SEARCH_PATHS)" -filelist $(2:Q) "$(StaticLibrary.ARGUMENTS)" "$(FLAGS.o)" $(INSTALLED_NAME_FLAG) && $(RANLIB) $(1:Q) )
 }
 StaticLibrary.FRAMEWORK_FLAG = ;
 StaticLibrary.LIBRARY_FLAG = ;
@@ -1404,11 +1299,11 @@ actions together StandaloneExecutable
 }
 actions quietly together StandaloneExecutable.Link bind StandaloneExecutable.ARGUMENTS
 {
-    $(_LD_FOR_LINKING) -o "$(1)" "-L$(LIBRARY_SEARCH_PATHS)" "-F$(FRAMEWORK_SEARCH_PATHS)" "$(FLAGS.o)" $(INSTALLED_NAME_FLAG) "$(StandaloneExecutable.ARGUMENTS)"
+    $(_LD_FOR_LINKING) -o $(1:Q) "-L$(LIBRARY_SEARCH_PATHS)" "-F$(FRAMEWORK_SEARCH_PATHS)" "$(FLAGS.o)" $(INSTALLED_NAME_FLAG) "$(StandaloneExecutable.ARGUMENTS)"
 }
 actions quietly together StandaloneExecutable.LinkUsingFileList bind StandaloneExecutable.ARGUMENTS
 {
-    $(_LD_FOR_LINKING) -o "$(1)" "-L$(LIBRARY_SEARCH_PATHS)" "-F$(FRAMEWORK_SEARCH_PATHS)" -filelist "$(2)" "$(FLAGS.o)" $(INSTALLED_NAME_FLAG) "$(StandaloneExecutable.ARGUMENTS)"
+    $(_LD_FOR_LINKING) -o $(1:Q) "-L$(LIBRARY_SEARCH_PATHS)" "-F$(FRAMEWORK_SEARCH_PATHS)" -filelist $(2:Q) "$(FLAGS.o)" $(INSTALLED_NAME_FLAG) "$(StandaloneExecutable.ARGUMENTS)"
 }
 
 
@@ -1429,11 +1324,11 @@ actions together DynamicLibrary
 }
 actions quietly together DynamicLibrary.Link bind DynamicLibrary.ARGUMENTS DynamicLibrary.DEFFILE
 {
-    $(_LD_FOR_LINKING) -o "$(1)" $(DynamicLibrary.DEFFILE_FLAG)"$(DynamicLibrary.DEFFILE)" "-L$(LIBRARY_SEARCH_PATHS)" "-F$(FRAMEWORK_SEARCH_PATHS)" "$(DynamicLibrary.ARGUMENTS)" "$(FLAGS.o)" $(INSTALLED_NAME_FLAG)
+    $(_LD_FOR_LINKING) -o $(1:Q) $(DynamicLibrary.DEFFILE_FLAG)"$(DynamicLibrary.DEFFILE)" "-L$(LIBRARY_SEARCH_PATHS)" "-F$(FRAMEWORK_SEARCH_PATHS)" "$(DynamicLibrary.ARGUMENTS)" "$(FLAGS.o)" $(INSTALLED_NAME_FLAG)
 }
 actions quietly together DynamicLibrary.LinkUsingFileList bind DynamicLibrary.ARGUMENTS DynamicLibrary.DEFFILE
 {
-    $(_LD_FOR_LINKING) -o "$(1)" $(DynamicLibrary.DEFFILE_FLAG)"$(DynamicLibrary.DEFFILE)" "-L$(LIBRARY_SEARCH_PATHS)" "-F$(FRAMEWORK_SEARCH_PATHS)" -filelist "$(2)" "$(DynamicLibrary.ARGUMENTS)" "$(FLAGS.o)" $(INSTALLED_NAME_FLAG)
+    $(_LD_FOR_LINKING) -o $(1:Q) $(DynamicLibrary.DEFFILE_FLAG)"$(DynamicLibrary.DEFFILE)" "-L$(LIBRARY_SEARCH_PATHS)" "-F$(FRAMEWORK_SEARCH_PATHS)" -filelist $(2:Q) "$(DynamicLibrary.ARGUMENTS)" "$(FLAGS.o)" $(INSTALLED_NAME_FLAG)
 }
 DynamicLibrary.DEFFILE_FLAG = "-Xlinker -DEF:" ;
 DynamicLibrary.FILELIST_FLAG = -filelist ;
@@ -1471,6 +1366,7 @@ rule MasterObjectFile
     }
     PRELINK_FLAGS on $(1) = $(PRELINK_FLAGS) ;
     PRELINK_LIBS on $(1) = $(PRELINK_LIBS) ;
+    # !!!:cmolick:20021021 provide an optional way for the target to depend on the PRELINK_LIBS?
     if $(_BUILD_PHASING) = YES {
         BUILD_PHASE_PRODUCTS += $(1) ;
     }
@@ -1482,18 +1378,29 @@ rule MasterObjectFile
 }
 actions MasterObjectFile.Combine
 {
-    $(_LD_FOR_LINKING) $(ARCH_FLAGS) $(KEEP_PRIVATE_EXTERNS_FLAG) $(GLOBAL_CFLAGS) "$(PRELINK_FLAGS)" -nostdlib -filelist "$(2)" -r -o "$(1)" "$(PRELINK_LIBS)"
+    $(_LD_FOR_LINKING) $(ARCH_FLAGS) $(KEEP_PRIVATE_EXTERNS_FLAG) $(GLOBAL_CFLAGS) -L$(LIBRARY_SEARCH_PATHS:Q) -F$(FRAMEWORK_SEARCH_PATHS:Q) $(PRELINK_FLAGS:Q) $(WARNING_LDFLAGS) -nostdlib -filelist $(2:Q) -r -o $(1:Q) $(PRELINK_LIBS:Q)
 }
 actions MasterObjectFile.EditExports
 {
-    $(NMEDIT) -s "$(2)" "$(1)" -o "$(1)"
+    $(NMEDIT) -s $(2:Q) $(1:Q) -o $(1:Q)
+}
+
+# EditSymbols <binary> : <symbols file>
+# !!!:cmolick:20021022 rule for invoking nmedit needed until exported symbols flags available for linker
+rule EditSymbols
+{
+    DEPENDS $(1) : $(2) ;
+}
+actions EditSymbols
+{
+    $(NMEDIT) -s $(2:Q) $(1:Q) -o $(1:Q)
 }
 
 # Ranlib <library>
 # Ranlib for static library
 actions Ranlib
 {
-    $(RANLIB) "$(1)"
+    $(RANLIB) $(1:Q)
 }
 
 # VersioningSystem_next-cvs <product>
@@ -1563,9 +1470,9 @@ rule VersioningSystem_apple-generic
 }
 actions VersioningSystem_apple-generic.Create
 {
-    raw_project_name="$(PROJECT)"
+    raw_project_name=$(PROJECT:Q)
     project_name=`echo $raw_project_name | sed 's/[^0-9A-Za-z]/_/g'`
-    raw_target_name="$(2:B)"
+    raw_target_name=$(2:BQ)
     target_name=`echo $raw_target_name | sed 's/[^0-9A-Za-z]/_/g'`
     project_vers="$(CURRENT_PROJECT_VERSION)"
     vers_info_export_decl="$(VERSION_INFO_EXPORT_DECL)"
@@ -1573,7 +1480,7 @@ actions VersioningSystem_apple-generic.Create
     vers_info_suffix="$(VERSION_INFO_SUFFIX)"
     vers_info_builder="$(VERSION_INFO_BUILDER)"
     echo ${vers_info_export_decl} " const unsigned char ${vers_info_prefix}${target_name}VersionString${vers_info_suffix}[] =  \"@(#)PROGRAM:${target_name}  PROJECT:${project_name}-${project_vers}  DEVELOPER:${vers_info_builder}  BUILT:\" __DATE__  \" \" __TIME__ \"\n\";" > "$(1)"
-    echo ${vers_info_export_decl} " const double ${vers_info_prefix}${target_name}VersionNumber${vers_info_suffix} = (double)${project_vers};" >> "$(1)"
+    echo ${vers_info_export_decl} " const double ${vers_info_prefix}${target_name}VersionNumber${vers_info_suffix} = (double)${project_vers};" >> $(1:Q)
 }
 
 # KernelModuleGeneratedSource
@@ -1609,21 +1516,21 @@ rule KernelModuleGeneratedSource
 }
 actions KernelModuleGeneratedSource.Create
 {
-    /bin/echo "#include <mach/mach_types.h>" > "$(1)"
-    /bin/echo " " >> "$(1)"
-    /bin/echo "extern kern_return_t _start(kmod_info_t *ki, void *data);" >> "$(1)"
-    /bin/echo "extern kern_return_t _stop(kmod_info_t *ki, void *data);" >> "$(1)"
+    /bin/echo "#include <mach/mach_types.h>" > $(1:Q)
+    /bin/echo " " >> $(1:Q)
+    /bin/echo "extern kern_return_t _start(kmod_info_t *ki, void *data);" >> $(1:Q)
+    /bin/echo "extern kern_return_t _stop(kmod_info_t *ki, void *data);" >> $(1:Q)
     if [ $(MODULE_START) != 0 ]; then
-        /bin/echo "__private_extern__ kern_return_t $(MODULE_START)(kmod_info_t *ki, void *data);" >> "$(1)"
+        /bin/echo "__private_extern__ kern_return_t $(MODULE_START)(kmod_info_t *ki, void *data);" >> $(1:Q)
     fi
     if [ $(MODULE_STOP) != 0 ]; then
-        /bin/echo "__private_extern__ kern_return_t $(MODULE_STOP)(kmod_info_t *ki, void *data);" >> "$(1)"
+        /bin/echo "__private_extern__ kern_return_t $(MODULE_STOP)(kmod_info_t *ki, void *data);" >> $(1:Q)
     fi
-    /bin/echo " " >> "$(1)"
-    /bin/echo "KMOD_EXPLICIT_DECL($(MODULE_NAME), \"$(MODULE_VERSION)\", _start, _stop)" >> "$(1)"
-    /bin/echo "__private_extern__ kmod_start_func_t *_realmain = $(MODULE_START);" >> "$(1)"
-    /bin/echo "__private_extern__ kmod_stop_func_t *_antimain = $(MODULE_STOP);" >> "$(1)"
-    /bin/echo "__private_extern__ int _kext_apple_cc = __APPLE_CC__ ;" >> "$(1)"
+    /bin/echo " " >> $(1:Q)
+    /bin/echo "KMOD_EXPLICIT_DECL($(MODULE_NAME), \"$(MODULE_VERSION)\", _start, _stop)" >> $(1:Q)
+    /bin/echo "__private_extern__ kmod_start_func_t *_realmain = $(MODULE_START);" >> $(1:Q)
+    /bin/echo "__private_extern__ kmod_stop_func_t *_antimain = $(MODULE_STOP);" >> $(1:Q)
+    /bin/echo "__private_extern__ int _kext_apple_cc = __APPLE_CC__ ;" >> $(1:Q)
 }
 
 # GenerateFrameworkStub <framework stub>
@@ -1631,13 +1538,13 @@ actions KernelModuleGeneratedSource.Create
 # Also be sure to the FRAMEWORK_INSTALL_NAME variable on the <framework stub>
 actions GenerateFrameworkStub
 {
-    $(MKDIR:Q) -p $(DERIVED_FILE_DIR:Q)
+    $(MKDIR) -p $(DERIVED_FILE_DIR:Q)
     dummy_class_name=`echo -n $(1:B) | tr -c '[:alnum:]' '_'`
-    $(ECHO:Q) "@interface NSFramework_${dummy_class_name}" > $(DERIVED_FILE_DIR:Q)/framework_stub.m
-    $(ECHO:Q) "@end" >> $(DERIVED_FILE_DIR:Q)/framework_stub.m
-    $(ECHO:Q) "@implementation NSFramework_${dummy_class_name}" >> $(DERIVED_FILE_DIR:Q)/framework_stub.m
-    $(ECHO:Q) "@end" >> $(DERIVED_FILE_DIR:Q)/framework_stub.m
-    $(CC:Q) -c $(DERIVED_FILE_DIR:Q)/framework_stub.m -o $(DERIVED_FILE_DIR:Q)/framework_stub.o
-    $(_LD_FOR_LINKING:Q) -dynamiclib $(INSTALLED_NAME_FLAG) $(DYLIB_VERSION_FLAGS:Q) -L$(LIBRARY_SEARCH_PATHS:Q) -F$(FRAMEWORK_SEARCH_PATHS:Q) $(DynamicLibrary.ARGUMENTS:Q) $(DERIVED_FILE_DIR:Q)/framework_stub.o -o $(1:Q)
-    $(STRIP:Q) $(STRIPFLAGS:Q) $(1:Q)
+    $(ECHO) "@interface NSFramework_${dummy_class_name}" > $(DERIVED_FILE_DIR:Q)/framework_stub.m
+    $(ECHO) "@end" >> $(DERIVED_FILE_DIR:Q)/framework_stub.m
+    $(ECHO) "@implementation NSFramework_${dummy_class_name}" >> $(DERIVED_FILE_DIR:Q)/framework_stub.m
+    $(ECHO) "@end" >> $(DERIVED_FILE_DIR:Q)/framework_stub.m
+    $(CC) -c $(DERIVED_FILE_DIR:Q)/framework_stub.m $(ARCH_FLAGS) -o $(DERIVED_FILE_DIR:Q)/framework_stub.o
+    $(_LD_FOR_LINKING) $(ARCH_FLAGS) -dynamiclib $(INSTALLED_NAME_FLAG) $(DYLIB_VERSION_FLAGS:Q) -L$(LIBRARY_SEARCH_PATHS:Q) -F$(FRAMEWORK_SEARCH_PATHS:Q) $(DynamicLibrary.ARGUMENTS:Q) $(DERIVED_FILE_DIR:Q)/framework_stub.o -o $(1:Q)
+    $(STRIP) $(STRIPFLAGS:Q) $(1:Q)
 }

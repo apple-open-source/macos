@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/servers/slurpd/re.c,v 1.26 2002/01/04 20:17:57 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slurpd/re.c,v 1.26.2.6 2003/03/03 17:10:11 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*
@@ -27,15 +27,16 @@
 
 #include <stdio.h>
 
+#include <ac/stdlib.h>
 #include <ac/errno.h>
 #include <ac/socket.h>
 #include <ac/string.h>
 #include <ac/ctype.h>
 
+#include "../slapd/slap.h"
+
 #include "slurp.h"
 #include "globals.h"
-
-#include "../slapd/slap.h"
 
 /* Forward references */
 static Rh 	*get_repl_hosts LDAP_P(( char *, int *, char ** ));
@@ -81,9 +82,14 @@ Re_free(
 	return 0;
     }
     if ( re->re_refcnt > 0 ) {
+#ifdef NEW_LOGGING
+	LDAP_LOG ( SLURPD, WARNING, "Re_free: "
+		"Warning: freeing re (dn: %s) with nonzero refcnt\n", re->re_dn, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_ANY,
 		"Warning: freeing re (dn: %s) with nonzero refcnt\n",
 		re->re_dn, 0, 0 );
+#endif
     }
 
     ldap_pvt_thread_mutex_destroy( &re->re_mutex );
@@ -135,11 +141,19 @@ Re_parse(
     int			nreplicas;
 
     if ( re == NULL ) {
+#ifdef NEW_LOGGING
+	LDAP_LOG ( SLURPD, ERR, "Re_parse: Error: re is NULL\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_ANY, "Re_parse: error: re is NULL\n", 0, 0, 0 );
+#endif
 	return -1;
     }
     if ( replbuf == NULL ) {
+#ifdef NEW_LOGGING
+	LDAP_LOG ( SLURPD, ERR, "Re_parse: Error: replbuf is NULL\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_ANY, "Re_parse: error: replbuf is NULL\n", 0, 0, 0 );
+#endif
 	return -1;
     }
 
@@ -164,9 +178,14 @@ Re_parse(
 	}
 	buflen = strlen( buf );
 	if ( ldif_parse_line( buf, &type, &value, &len ) < 0 ) {
+#ifdef NEW_LOGGING
+		LDAP_LOG ( SLURPD, ERR, 
+			"Re_parse: Error: malformed replog file\n", 0, 0, 0 );
+#else
 	    Debug( LDAP_DEBUG_ANY,
 		    "Error: Re_parse: malformed replog file\n",
 		    0, 0, 0 );
+#endif
 	    return -1;
 	}
 	switch ( gettype( type )) {
@@ -193,9 +212,14 @@ Re_parse(
 	    break;
 	default:
 	    if ( !( state == GOT_ALL )) {
+#ifdef NEW_LOGGING
+		LDAP_LOG ( SLURPD, ERR, 
+			"Re_parse: Error: bad type <%s>\n", type, 0, 0 );
+#else
 		Debug( LDAP_DEBUG_ANY,
 			"Error: Re_parse: bad type <%s>\n",
 			type, 0, 0 );
+#endif
 		free( type );
 		if ( value != NULL )
 			free( value );
@@ -208,9 +232,14 @@ Re_parse(
     }
 
     if ( state != GOT_ALL ) {
+#ifdef NEW_LOGGING
+	LDAP_LOG ( SLURPD, ERR, 
+		"Re_parse: Error: malformed replog file\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_ANY,
 		"Error: Re_parse: malformed replog file\n",
 		0, 0, 0 );
+#endif
 	return -1;
     }
 
@@ -226,9 +255,14 @@ Re_parse(
 	    value = NULL;
 	} else {
 	    if ( ldif_parse_line( buf, &type, &value, &len ) < 0 ) {
+#ifdef NEW_LOGGING
+		LDAP_LOG ( SLURPD, ERR, 
+			"Re_parse: Error: malformed replog line \"%s\"\n", buf, 0, 0 );
+#else
 		Debug( LDAP_DEBUG_ANY,
 			"Error: malformed replog line \"%s\"\n",
 			buf, 0, 0 );
+#endif
 		return -1;
 	    }
 	}
@@ -340,8 +374,13 @@ get_repl_hosts(
 
 	rh = (Rh *) ch_realloc((char *) rh, ( nreplicas + 2 ) * sizeof( Rh ));
 	if ( rh == NULL ) {
+#ifdef NEW_LOGGING
+		LDAP_LOG ( SLURPD, ERR, 
+			"get_repl_hosts: Out of memory\n", 0, 0, 0 );
+#else
 	    Debug( LDAP_DEBUG_ANY, "Out of memory in get_repl_hosts\n",
 		    0, 0, 0 );
+#endif
 	    return NULL;
 	}
 	rh[ nreplicas ].rh_hostname = strdup( value );
@@ -457,7 +496,11 @@ Re_dump(
     Mi *mi;
 
     if ( re == NULL ) {
+#ifdef NEW_LOGGING
+	LDAP_LOG ( SLURPD, ERR, "Re_dump: re is NULL\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "Re_dump: re is NULL\n", 0, 0, 0 );
+#endif
 	return;
     }
     fprintf( fp, "Re_dump: ******\n" );
@@ -523,8 +566,13 @@ Re_write(
     int		rc = 0;
 
     if ( re == NULL || fp == NULL ) {
+#ifdef NEW_LOGGING
+	LDAP_LOG ( SLURPD, ERR, 
+		"Re_write: Internal error: NULL argument\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_ANY, "Internal error: Re_write: NULL argument\n",
 		0, 0, 0 );
+#endif
 	return -1;
     }
 
@@ -539,7 +587,7 @@ Re_write(
 	    goto bad;
 	}
     } else {			/* write multiple "replica:" lines */
-	for ( i = 0; re->re_replicas[ i ].rh_hostname != NULL; i++ ) {
+	for ( i = 0; re->re_replicas && re->re_replicas[ i ].rh_hostname != NULL; i++ ) {
 	    if ( fprintf( fp, "replica: %s:%d\n",
 		    re->re_replicas[ i ].rh_hostname,
 		    re->re_replicas[ i ].rh_port ) < 0 ) {
@@ -612,8 +660,13 @@ Re_write(
     }
 bad:
     if ( rc != 0 ) {
+#ifdef NEW_LOGGING
+	LDAP_LOG ( SLURPD, ERR, 
+		"Re_write: Error while writing: %s\n", sys_errlist[ errno ], 0, 0 );
+#else
 	Debug( LDAP_DEBUG_ANY, "Error while writing: %s\n",
 		sys_errlist[ errno ], 0, 0 );
+#endif
     }
     return rc;
 }
@@ -750,9 +803,15 @@ warn_unknown_replica(
 	}
     }
     if ( !found ) {
+#ifdef NEW_LOGGING
+	LDAP_LOG ( SLURPD, WARNING, "warn_unknown_replica: "
+		"Warning: unknown replica %s:%d found in replication log\n",
+		host, port, 0 );
+#else
 	Debug( LDAP_DEBUG_ANY,
 		"Warning: unknown replica %s:%d found in replication log\n",
 		host, port, 0 );
+#endif
 	nur++;
 	ur = (Rh *) ch_realloc( (char *) ur, ( nur * sizeof( Rh )));
 	ur[ nur - 1 ].rh_hostname = strdup( host );

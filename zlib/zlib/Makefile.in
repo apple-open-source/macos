@@ -1,5 +1,5 @@
 # Makefile for zlib
-# Copyright (C) 1995-1998 Jean-loup Gailly.
+# Copyright (C) 1995-2002 Jean-loup Gailly.
 # For conditions of distribution and use, see copyright notice in zlib.h 
 
 # To compile and test, type:
@@ -24,7 +24,7 @@ LDFLAGS=
 LDSHARED=$(CC)
 CPP=$(CC) -E
 
-VER=1.1.3
+VER=1.1.4
 LIBS=libz.a
 SHAREDLIB=libz
 SHAREDEXT=.so
@@ -38,6 +38,7 @@ prefix = /usr/local
 exec_prefix = ${prefix}
 libdir = ${exec_prefix}/lib
 includedir = ${prefix}/include
+mandir = ${prefix}/share/man
 
 OBJS = adler32.o compress.o crc32.o gzio.o uncompr.o deflate.o trees.o \
        zutil.o inflate.o infblock.o inftrees.o infcodes.o infutil.o inffast.o
@@ -48,7 +49,8 @@ OBJA =
 TEST_OBJS = example.o minigzip.o
 
 DISTFILES = README FAQ INDEX ChangeLog configure Make*[a-z0-9] *.[ch] *.mms \
-  algorithm.txt zlib.3 msdos/Make*[a-z0-9] msdos/zlib.def msdos/zlib.rc \
+  algorithm.txt zlib.3 zlib.html \
+  msdos/Make*[a-z0-9] msdos/zlib.def msdos/zlib.rc \
   nt/Make*[a-z0-9] nt/zlib.dnt amiga/Make*.??? os2/M*.os2 os2/zlib.def \
   contrib/RE*.contrib contrib/*.txt contrib/asm386/*.asm contrib/asm386/*.c \
   contrib/asm386/*.bat contrib/asm386/zlibvc.d?? contrib/asm[56]86/*.?86 \
@@ -81,10 +83,9 @@ match.o: match.S
 	rm -f _match.s
 
 $(SHAREDLIB).$(VER)$(SHAREDEXT): $(OBJS)
-	$(LDSHARED) -o $@ $(OBJS)
-	rm -f $(SHAREDLIB)$(SHAREDEXT) $(SHAREDLIB).1$(SHAREDEXT)
+	$(LDSHARED) -sectorder __TEXT __text   /AppleInternal/OrderFiles/libz.order -exported_symbols_list "$(SRCROOT)/libz.exp" -o $@ $(OBJS)
+	rm -f $(SHAREDLIB)$(SHAREDEXT) 
 	ln -s $@ $(SHAREDLIB)$(SHAREDEXT)
-	ln -s $@ $(SHAREDLIB).1$(SHAREDEXT)
 
 example: example.o $(LIBS)
 	$(CC) $(CFLAGS) -o $@ example.o -L. -lz $(LDFLAGS)
@@ -95,15 +96,17 @@ minigzip: minigzip.o $(LIBS)
 install: $(LIBS)
 	-@if [ ! -d $(includedir)  ]; then mkdir -p $(includedir); fi
 	-@if [ ! -d $(libdir) ]; then mkdir -p $(libdir); fi
+	-@if [ ! -d $(mandir) ]; then mkdir -p $(mandir)/man3; fi
+	cp zlib.3 $(mandir)/man3/
+	chmod 644 $(mandir)/man3/zlib.3
 	cp zlib.h zconf.h $(includedir)
 	chmod 644 $(includedir)/zlib.h $(includedir)/zconf.h
 	cp $(LIBS) $(libdir)
 	cd $(libdir); chmod 755 $(LIBS)
 	-@(cd $(libdir); $(RANLIB) libz.a || true) >/dev/null 2>&1
 	cd $(libdir); if test -f $(SHAREDLIB).$(VER)$(SHAREDEXT); then \
-	  rm -f $(SHAREDLIB)$(SHAREDEXT) $(SHAREDLIB).1$(SHAREDEXT); \
+	  rm -f $(SHAREDLIB)$(SHAREDEXT); \
 	  ln -s $(SHAREDLIB).$(VER)$(SHAREDEXT) $(SHAREDLIB)$(SHAREDEXT); \
-	  ln -s $(SHAREDLIB).$(VER)$(SHAREDEXT) $(SHAREDLIB).1$(SHAREDEXT); \
 	  (ldconfig || true)  >/dev/null 2>&1; \
 	fi
 # The ranlib in install is needed on NeXTSTEP which checks file times

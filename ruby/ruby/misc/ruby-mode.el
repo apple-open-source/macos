@@ -1,12 +1,12 @@
 ;;;
 ;;;  ruby-mode.el -
 ;;;
-;;;  $Author: jkh $
-;;;  $Date: 2002/05/27 17:59:49 $
+;;;  $Author: melville $
+;;;  $Date: 2003/05/14 13:58:50 $
 ;;;  created at: Fri Feb  4 14:49:13 JST 1994
 ;;;
 
-(defconst ruby-mode-revision "$Revision: 1.1.1.1 $")
+(defconst ruby-mode-revision "$Revision: 1.1.1.2 $")
 
 (defconst ruby-mode-version
   (progn
@@ -175,6 +175,7 @@
   (make-local-variable 'paragraph-ignore-fill-prefix)
   (setq paragraph-ignore-fill-prefix t))
 
+;;;###autoload
 (defun ruby-mode ()
   "Major mode for editing ruby scripts.
 \\[ruby-indent-command] properly indents subexpressions of multi-line
@@ -832,7 +833,7 @@ An end of a defun is found by moving forward from the beginning of one."
      '("^\\s *def\\s +\\([^( ]+\\)"
        1 font-lock-function-name-face)
      ;; symbols
-     '("\\(^\\|[^:]\\)\\(:\\([-+/%&|^~`]\\|\\*\\*?\\|<\\(<\\|=>?\\)?\\|>[>=]?\\|===?\\|=~\\|\\[\\]\\|\\(\\w\\|_\\)+\\([!?=]\\|\\b\\)\\|#{[^}\n\\\\]*\\(\\\\.[^}\n\\\\]*\\)*}\\)\\)"
+     '("\\(^\\|[^:]\\)\\(:\\([-+~]@?\\|[/%&|^`]\\|\\*\\*?\\|<\\(<\\|=>?\\)?\\|>[>=]?\\|===?\\|=~\\|\\[\\]=?\\|\\(\\w\\|_\\)+\\([!?=]\\|\\b_*\\)\\|#{[^}\n\\\\]*\\(\\\\.[^}\n\\\\]*\\)*}\\)\\)"
        2 font-lock-reference-face)
      ;; expression expansion
      '("#\\({[^}\n\\\\]*\\(\\\\.[^}\n\\\\]*\\)*}\\|\\(\\$\\|@\\|@@\\)\\(\\w\\|_\\)+\\)"

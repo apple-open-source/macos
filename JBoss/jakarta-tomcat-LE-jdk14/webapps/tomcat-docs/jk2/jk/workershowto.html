@@ -1,0 +1,1320 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html xmlns="http://www.w3.org/TR/xhtml1/strict">
+<head>
+<title>Workers HowTo</title>
+<meta content="1999-2002 The Apache Software Foundation" name="copyright"/>
+<meta content="$Date$" name="last-changed"/>
+<meta content="Henri Gomez" name="author"/>
+<meta content="hgomez@apache.org" name="email"/>
+<meta content="Gal Shachor" name="author"/>
+<meta content="shachor@il.ibm.com" name="email"/>
+<link href="..//style.css" type="text/css" rel="stylesheet"/>
+<link href="../images/tomcat.ico" rel="shortcut icon"/>
+</head>
+<body link="#525D76" vlink="#525D76" alink="#525D76" text="#000000" bgcolor="#ffffff">
+<a name="TOP"/>
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr height="1">
+<td class="nil" height="1" bgcolor="#ffffff" width="150">
+<img hspace="0" vspace="0" height="1" width="150" border="0" src="../images/pixel.gif"/>
+</td>
+<td class="nil" height="1" bgcolor="#ffffff" width="*">
+<img hspace="0" vspace="0" height="1" width="370" border="0" src="../images/pixel.gif"/>
+</td>
+</tr>
+<tr>
+<td width="*" colspan="2" class="logo" bgcolor="#ffffff">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left">
+<img align="left" height="48" width="505" border="0" src="../images/jakarta.gif"/>
+</td>
+<td align="right">
+<img align="right" border="0" src="../images/mod_jk.jpg"/>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td colspan="2" width="*" align="right" class="head" bgcolor="#999999">
+<nobr>
+<a href="http://www.apache.org/" class="head">Apache Software Foundation</a> |
+                <a href="http://jakarta.apache.org/" class="head">Jakarta Project</a> |
+                <a href="http://jakarta.apache.org/tomcat/" class="head">Apache Tomcat</a>
+</nobr>
+</td>
+</tr>
+<tr>
+<td valign="top" width="150" bgcolor="#ffffff">
+<table class="menu" cellpadding="0" cellspacing="0" width="150" border="0">
+<tr height="1">
+<td class="nil" height="1" bgcolor="#cccccc" width="10">
+<img hspace="0" vspace="0" height="1" width="10" border="0" src="../images/pixel.gif"/>
+</td>
+<td class="nil" height="1" bgcolor="#cccccc" width="140">
+<img hspace="0" vspace="0" height="1" width="140" border="0" src="../images/pixel.gif"/>
+</td>
+</tr>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Presentation</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../index.html">Overview</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Commons</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../common/AJPv13.html">AJPv13</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../common/AJPv13-extensions-proposal.html">AJPv13 extensions Proposal</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../faq.html">FAQ</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">JK</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/quickhowto.html">Quick Start HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/aphowto.html">Apache HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/domhowto.html">Domino HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/iishowto.html">IIS HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/neshowto.html">Netscape/iPlanet HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/workershowto.html">Workers HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Introduction" class="menu">Introduction</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Defining Workers" class="menu">Defining Workers</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Setting Worker Properties" class="menu">Setting Worker Properties</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#A sample worker.properties" class="menu">A sample worker.properties</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">JK2</td>
+</tr>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Configuration in the Tomcat</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configtc.html">Configuration options</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configtcex.html">Examples</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Configuration in the Web Server</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configweb.html">Configuration file</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configwebcom.html">Components</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configwebex.html">Examples</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Installation</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/installhowto.html">Installation of jk2 in the Web Server</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Howto</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/confighowto.html">Quick Start JK2 Configuration Guide</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+</table>
+</td>
+<td class="body" valign="top" width="*" bgcolor="#ffffff">
+<a name="Introduction">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Introduction</td>
+</tr>
+</table>
+</a>
+<p class="section">
+A Tomcat worker is a Tomcat instance that is waiting to execute servlets on behalf of some web server. 
+For example, we can have a web server such as Apache forwarding servlet requests to a 
+Tomcat process (the worker) running behind it.
+</p>
+<p class="section">
+The scenario described above is a very simple one; 
+in fact one can configure multiple Tomcat workers to serve servlets on 
+behalf of a certain web server. 
+The reasons for such configuration can be:
+</p>
+<ul>
+<li>
+We want different contexts to be served by different Tomcat workers to provide a 
+development environment where all the developers share the same web server but own a Tomcat worker of their own.
+</li>
+<li>
+We want different virtual hosts served by different Tomcat processes to provide a 
+clear separation between sites belonging to different companies.
+</li>
+<li>
+We want to provide load balancing, meaning run multiple Tomcat workers each on a 
+machine of its own and distribute the requests between them.
+</li>
+</ul>
+<p class="section">
+There are probably more reasons for having multiple workers but I guess that this list is enough...
+Tomcat workers are defined in a properties file dubbed workers.properties and this tutorial 
+explains how to work with it.
+</p>
+<p class="section">
+This document was originally part of <b>
+<font color="#333333">Tomcat: A Minimalistic User's Guide</font>
+</b> written by Gal Shachor, 
+but has been split off for organizational reasons. 
+</p>
+<br/>
+<a name="Defining Workers">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Defining Workers</td>
+</tr>
+</table>
+</a>
+<p class="section">
+Defining workers to the Tomcat web server plugin can be done using a properties file 
+(a sample file named workers.properties is available in the conf/ directory).
+</p>
+<p class="section">
+the file contains entries of the following form:
+</p>
+<p class="section">
+<b>
+<font color="#333333">worker.list</font>
+</b>=&lt;a comma separated list of worker names&gt;
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen">the list of workers</div>
+<code class="screen">
+<nobr>worker.list= worker1, worker2</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<p class="section">
+When starting up, the web server plugin will instantiate the workers whose name appears in the 
+<b>
+<font color="#333333">worker.list</font>
+</b> property, these are also the workers to whom you can map requests.
+</p>
+<a name="sub_Workers Type">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Workers Type</td>
+</tr>
+</table>
+</a>
+<p class="section">
+Each named worker should also have a few entries to provide additional information on his behalf.
+This information includes the worker's type and other related worker information. 
+Currently the following worker types that exists are (JK 1.2.1):
+</p>
+<p class="section">
+Defining workers of a certain type should be done with the following property format:
+</p>
+<p class="section">
+<b>
+<font color="#333333">worker</font>
+</b>. <b>
+<font color="#333333">worker name</font>
+</b>.<b>
+<font color="#333333">type</font>
+</b>=&lt;worker type&gt;
+Where worker name is the name assigned to the worker and the worker type is one of the four types defined 
+in the table (a worker name may not contain any space (a good naming convention for queue named should 
+follow the Java variable naming rules).
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen">Defines a worker named "local" that uses the ajpv12 protocol to forward requests to a Tomcat process.</div>
+<code class="screen">
+<nobr>worker.local.type=ajp12</nobr>
+</code>
+<br/>
+<div class="screen">Defines a worker named "remote" that uses the ajpv13 protocol to forward requests to a Tomcat process.</div>
+<code class="screen">
+<nobr>worker.remote.type=ajp13</nobr>
+</code>
+<br/>
+<div class="screen">Defines a worker named "fast" that uses JNI to forward requests to a Tomcat process.</div>
+<code class="screen">
+<nobr>worker.fast.type=jni</nobr>
+</code>
+<br/>
+<div class="screen">Defines a worker named "loadbalancer" that loadbalances several Tomcat processes transparently.</div>
+<code class="screen">
+<nobr>worker.loadbalancer.type=lb</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<br/>
+<br/>
+<a name="Setting Worker Properties">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Setting Worker Properties</td>
+</tr>
+</table>
+</a>
+<p class="section">
+After defining the workers you can also specify properties for them. 
+Properties can be specified in the following manner:
+</p>
+<p class="section">
+worker.&lt;worker name&gt;.&lt;property&gt;=&lt;property value&gt;
+</p>
+<a name="sub_ajp12 Worker properties">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>ajp12 Worker properties</td>
+</tr>
+</table>
+</a>
+<p class="section">
+The ajp12 typed workers forward requests to out-of-process Tomcat workers 
+using the ajpv12 protocol over TCP/IP sockets.
+</p>
+<p class="section">
+the ajp12 worker properties are :
+</p>
+<p class="section">
+<b>
+<font color="#333333">host</font>
+</b> property set the host where the Tomcat worker is listening for ajp12 requests.
+</p>
+<p class="section">
+<b>
+<font color="#333333">port</font>
+</b> property set The port where the Tomcat worker is listening for ajp12 requests
+</p>
+<p class="section">
+<b>
+<font color="#333333">lbfactor</font>
+</b>property is used when working with a load balancer worker, this is the load-balancing factor for the worker.
+We'll see more on this in the lb worker section.
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen">worker "worker1" will talk to Tomcat listening on machine www.x.com at port 8007 using 2.5 lb factor</div>
+<code class="screen">
+<nobr>worker.worker1.host=www.x.com</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker1.port=8007</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker1.lbfactor=2.5</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<p class="section">
+Notes: In the ajpv12 protocol, connections are created, used and then closed at each request.
+The default port for ajp12 is 8007
+</p>
+<br/>
+<a name="sub_ajp13 Worker properties">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>ajp13 Worker properties</td>
+</tr>
+</table>
+</a>
+<p class="section">
+The ajp13 typed workers forward requests to out-of-process Tomcat workers using the ajpv13 protocol over TCP/IP sockets.
+The main difference between ajpv12 and ajpv13 are that:
+<ul>
+<li>
+ajpv13 is a more binary protocol and it try to compress some of the request data by coding 
+frequently used strings as small integers.
+</li>
+<li>
+ajpv13 reuse open sockets and leaves them open for future requests (remember when you've got a Firewall between your 
+WebServer and Tomcat).
+</li>
+<li>
+ajpv13 has special treatment for SSL information so that the container can implement 
+SSL related methods such as isSecure().
+</li>
+</ul>
+
+</p>
+<p class="section">
+You should note that Ajp13 is now the only out-process protocol supported by Tomcat 4.0.x, 4.1.x and 5.
+</p>
+<p class="section">
+The following table specifies properties that the ajp13 worker can accept:
+</p>
+<p class="section">
+<b>
+<font color="#333333">host</font>
+</b> property set the host where the Tomcat worker is listening for ajp13 requests.
+</p>
+<p class="section">
+<b>
+<font color="#333333">port</font>
+</b> property set The port where the Tomcat worker is listening for ajp13 requests
+</p>
+<p class="section">
+<b>
+<font color="#333333">lbfactor</font>
+</b> property is used when working with a load balancer worker, this is the load-balancing factor for the worker.
+We'll see more on this in the lb worker section.
+</p>
+<p class="section">
+<b>
+<font color="#333333">cachesize</font>
+</b> property is usefull when you're using JK in multithreaded 
+web servers such as Apache 2.0, IIS and Netscape. They will benefit the most by 
+setting this value to a higher level (such as the estimated average concurrent users for Tomcat).
+</p>
+<p class="section">
+<b>
+<font color="#333333">cache_timeout</font>
+</b> property should be used with <b>
+<font color="#333333">cachesize</font>
+</b> to specify how to time JK should keep
+an open socket in cache before closing it. This property should be used to reduce the number of threads 
+on the Tomcat WebServer.
+</p>
+<p class="section">
+You should know that under heavy load some WebServers, for example Apache's create many childs/threads
+to handle the load and they destroy the childs/threads only when the load decrease.
+</p>
+<p class="section"> 
+Each child could open an ajp13 connection if it have to forward a request to Tomcat, creating
+a new ajp13 thread on Tomcat side.
+</p>
+<p class="section">
+The problem is that after an ajp13 connection is created, the child won't drop it
+until killed. And since the webserver will keep its childs/threads running
+to handle high-load, even it the child/thread handle only static contents, you could
+finish having many unused ajp13 threads on the Tomcat side.
+</p>
+<p class="section">
+<b>
+<font color="#333333">socket_keepalive</font>
+</b> property should be used when you have a firewall between your webserver
+and the Tomcat engine, who tend to drop inactive connections. This flag will told Operating System
+to send <b class="code">KEEP_ALIVE</b> message on inactive connections (interval depend on global OS settings,
+generally 120mn), and sus prevent the firewall to cut the connection.
+</p>
+<p class="section">
+The problem with Firewall cutting inactive connections is that sometimes, neither webserver or tomcat
+have informations about the cut and couldn't handle it.
+</p>
+<p class="section">
+<b>
+<font color="#333333">socket_timeout</font>
+</b> property told webserver to cut an ajp13 connection after some time of 
+inactivity. When choosing an endpoint for a request and the assigned socket is open, it will be
+closed if it was not used for the configured time.
+It's a good way to ensure that there won't too old threads living on Tomcat side, 
+with the extra cost you need to reopen the socket next time a request be forwarded.
+This property is very similar to <b>
+<font color="#333333">cache_timeout</font>
+</b> but works also in non-cache mode.
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen">worker "worker2" will talk to Tomcat listening on machine www2.x.com at port 8009 using 3.5 lb factor</div>
+<code class="screen">
+<nobr>worker.worker2.host=www2.x.com</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker2.port=8009</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker2.lbfactor=3.5</nobr>
+</code>
+<br/>
+<div class="screen">worker "worker2" use up to 10 sockets, which will stay no more than 10mn in cache</div>
+<code class="screen">
+<nobr>worker.worker2.cachesize=10</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker2.cache_timeout=600</nobr>
+</code>
+<br/>
+<div class="screen">worker "worker2" ask operating system to send KEEP-ALIVE signal on the connection</div>
+<code class="screen">
+<nobr>worker.worker2.socket_keepalive=1</nobr>
+</code>
+<br/>
+<div class="screen">worker "worker2" want ajp13 connection to be dropped after 5mn (timeout)</div>
+<code class="screen">
+<nobr>worker.worker2.socket_timeout=300</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<p class="section">
+Notes: In the ajpv13 protocol, the default port is 8009
+</p>
+<br/>
+<a name="sub_lb Worker properties">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>lb Worker properties</td>
+</tr>
+</table>
+</a>
+<p class="section">
+The load-balancing worker does not really communicate with Tomcat workers.
+Instead it is responsible for the management of several "real" workers. 
+This management includes:
+</p>
+<ul>
+<li>
+Instantiating the workers in the web server.
+</li>
+<li>
+Using the worker's load-balancing factor, perform weighed-round-robin load balancing where 
+high lbfactor means stronger machine (that is going to handle more requests)
+</li>
+<li>
+Keeping requests belonging to the same session executing on the same Tomcat worker.
+</li>
+<li>
+Identifying failed Tomcat workers, suspending requests to them and instead fall-backing on 
+other workers managed by the lb worker.
+</li>
+</ul>
+<p class="section">
+The overall result is that workers managed by the same lb worker are load-balanced (based on their lbfactor and current user session) and also fall-backed so a single Tomcat process death will not "kill" the entire site.
+The following table specifies properties that the lb worker can accept:
+<ul>
+<li>
+<b>
+<font color="#333333">balanced_workers</font>
+</b> is a comma separated list of workers that the load balancer need to manage. 
+These workers should not appear in the worker.list property.</li>
+<li>
+<b>
+<font color="#333333">sticky_session</font>
+</b> specifies whether requests with SESSION ID's should be routed back to the same
+Tomcat worker. If sticky_session is an int and is not 0 it is set to JK_TRUE and sessions are sticky, otherwise
+sticky_session is set to false. Set sticky_session to JK_FALSE when Tomcat is using a Session Manager which
+can persist session data across multiple instances of Tomcat. By default sticky_session is set to JK_TRUE.</li>
+</ul>
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen"> The worker balance1 while use "real" workers worker1 and worker2</div>
+<code class="screen">
+<nobr>worker.balance1.balanced_workers=worker1, worker2</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<br/>
+<a name="sub_Advanced lb Worker properties">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Advanced lb Worker properties</td>
+</tr>
+</table>
+</a>
+<p class="section">
+With JK 1.2.x, new load-balancing and fault-tolerant support has been added via
+2 new properties, <b>
+<font color="#333333">local_worker_only</font>
+</b> and <b>
+<font color="#333333">local_worker</font>
+</b>.
+</p>
+<p class="section">
+Let's take an example environment:
+</p>
+<p class="section">
+A cluster with two nodes (worker1+worker2), running a webserver + tomcat tandem on each node and 
+a loadbalancer in front of the nodes.
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen">The advanced router LB worker</div>
+<code class="screen">
+<nobr>worker.list=router</nobr>
+</code>
+<br/>
+<div class="screen"># Define a 'local_worker' worker using ajp13</div>
+<code class="screen">
+<nobr>worker.worker1.port=8009</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker1.host=node1.domain.org</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker1.type=ajp13</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker1.lbfactor=1</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker1.local_worker=1</nobr>
+</code>
+<br/>
+<div class="screen"># Define another 'local_worker' worker using ajp13</div>
+<code class="screen">
+<nobr>worker.worker2.port=8009</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker2.host=node2.domain.org</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker2.type=ajp13</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker2.lbfactor=1</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker2.local_worker=0</nobr>
+</code>
+<br/>
+<div class="screen"># Define the LB worker</div>
+<code class="screen">
+<nobr>worker.router.type=lb</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.router.balanced_workers=worker1,worker2</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.router.local_worker_only=1</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<p class="section">
+The <b>
+<font color="#333333">local_worker</font>
+</b> flag on worker1 and worker2 tells the <b>
+<font color="#333333">lb_worker</font>
+</b> which connections are going 
+to the local worker. 
+</p>
+<p class="section">
+If local_worker is an int and is not 0 it is set to JK_TRUE and marked as local worker, JK_FALSE otherwise. 
+If in minimum one worker is marked as local worker, lb_worker is in local worker mode. 
+All local workers are moved to the beginning of the internal worker list in lb_worker during validation.
+</p>
+<p class="section">
+This means that if a request with a session id comes in it would be routed to the appropriate worker. 
+If this worker is down it will be send to the first local worker which is not in error state.
+</p>
+<p class="section">
+If a request without a session comes in, it would be routed to the first local worker. 
+If all local worker are in error state, then the 'local_worker_only' flag is important. 
+If it was set to an int and this wasn't 0 it is set to JK_TRUE, JK_FALSE otherwise. With set to JK_TRUE, this request gets an error response. If set to JK_FALSE lb_worker tries to route the request to another balanced worker.
+</p>
+<p class="section">
+If one of the worker was in error state and has recovered nothing changes. 
+The local worker will be check for requests without a session id (and with a session on himself) and 
+the other worker will only be checked if a request with a session id of this worker comes in.
+</p>
+<p class="section">
+Why do we need souch a complex behavior ?
+</p>
+<p class="section">
+We need a graceful shut down of a node for maintenance. The balancer in front asks a special port on each 
+node periodically. If we want to remove a node from the cluster, we switch off this port. 
+The loadbalancer can't connect to it and marks the node as down. 
+But we don't move the sessions to another node. In this environment it is an error if the balancer sends a request without a session to an apache+mod_jk+tomcat which port is switched off. And if the load balancer determines that a node is down no other node is allowed to send a request without a session to it. Only requests with old sessions on the switched off node would be routed to this node. After some time nobody uses the old sessions and the sessions will time out. Then nobody uses this node, because all session are gone and the node is unreachable without a session-id in the request. If someone uses a session which timed out, our servlet system sends a redirect response without a session id to the browser. This is necessary for me, because on a switched off node apache and tomcat can still be up and running, but they are in an old state and should only be asked for valid old sessions. After the last session timed out, I could update the node etc. without killing sessions or moving them to another node. Sometimes we have a lot of big objects in our sessions, so it would be really time consuming to move them.
+</p>
+<p class="section">
+The defaults are still local_worker: 0 and local_worker_only:0
+</p>
+<br/>
+<a name="sub_jni Worker properties">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>jni Worker properties</td>
+</tr>
+</table>
+</a>
+<p class="section">
+The jni worker opens a JVM inside the web server process and executes Tomcat within it (that is in-process). 
+Following that, messages to and from the JVM are passed using JNI method calls, this makes the jni worker faster 
+then the out-of-process workers that need to communicate to the Tomcat workers by writing AJP messages over 
+TCP/IP sockets.
+</p>
+<p class="section">
+Note: Since the JVM is multithreaded; the jni worker should be used only within multithreaded servers 
+such as AOLServer, IIS, Netscape and Apache 2.0.<br/> 
+You should also make sure that the threading scheme used by the web servers match the one 
+used to build the JK web server plugin.
+</p>
+<p class="section">
+Since the jni worker opens a JVM it can accept many properties that it forward to the JVM such as 
+the classpath etc. as we can see in the following table.
+</p>
+<p class="section">
+<b>
+<font color="#333333">class_path</font>
+</b> is the classpath as used by the in-process JVM. This should point to all Tomcats' 
+jar/file files as well as any class or other jar file that you want to add to the JVM.
+</p>
+<p class="section">
+To have JSP compile support, you should remember to also add Javac to the classpath. 
+This can be done in Java2 by adding tools.jar to the classpath. 
+In JDK1.xx you should just add classes.zip.
+</p>
+<p class="section">
+The <b>
+<font color="#333333">class_path</font>
+</b> property can be given in multiple lines. 
+In this case the JK environment will concatenate all the classpath entries together 
+by putting path delimiter (":"/";") between the entries.
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen">Set the classpath for worker "wrkjni"</div>
+<code class="screen">
+<nobr>worker.wrkjni.class_path=/var/tomcat3/lib/tomcat.jar</nobr>
+</code>
+<br/>
+<div class="screen">we don't forget to add JAVAC (tools.jar)</div>
+<code class="screen">
+<nobr>worker.wrkjni.class_path=/opt/IBMJava2-131/lib/tools.jar</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<p class="section">
+<b>
+<font color="#333333">bridge</font>
+</b> indicate the kind of Tomcat you'll use via JNI.
+</p>
+<p class="section">
+The bridge property could be for now <b>
+<font color="#333333">tomcat32</font>
+</b> or <b>
+<font color="#333333">tomcat33</font>
+</b>.
+Tomcat 3.2.x is deprecated but still present on some distribution like iSeries. 
+By default the bridge type is set tomcat33.
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen">Set bridge type for "wrkjni", we'll use tomcat 3.3</div>
+<code class="screen">
+<nobr>worker.wrkjni.bridge=tomcat33</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<p class="section">
+<b>
+<font color="#333333">cmd_line</font>
+</b> is the command line that is handed over to Tomcats' startup code.
+</p>
+<p class="section">
+The cmd_line property can be given in multiple lines. 
+In this case the JK environment will concatenate all the cmd_line entries together by putting spaces 
+between the entries.
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen">Set command line for "wrkjni"</div>
+<code class="screen">
+<nobr>worker.wrkjni.cmd_line=-config</nobr>
+</code>
+<br/>
+<div class="screen">Next arg</div>
+<code class="screen">
+<nobr>worker.wrkjni.cmd_line=/etc/tomcat3/conf/alt-server.xml</nobr>
+</code>
+<br/>
+<div class="screen">Very important tomcat.home</div>
+<code class="screen">
+<nobr>worker.wrkjni.cmd_line=-home</nobr>
+</code>
+<br/>
+<div class="screen">Location of tomcat.home</div>
+<code class="screen">
+<nobr>worker.wrkjni.cmd_line=/var/tomcat3</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<p class="section">
+<b>
+<font color="#333333">jvm_lib</font>
+</b> is the full path to the JVM implementation library. 
+The jni worker will use this path to load the JVM dynamically.
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen">Set full path for JVM shared lib (IBM SDK on Linux)</div>
+<code class="screen">
+<nobr>worker.wrkjni.jvm_lib=/opt/IBMJava2-131/jre/bin/classic/libjvm.so</nobr>
+</code>
+<br/>
+<div class="screen">Set full path for JVM shared lib (Sun SDK on Windows)</div>
+<code class="screen">
+<nobr>worker.wrkjni.jvm_lib=c:\JDK\1.3.1\jre\bin\classic</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<p class="section">
+<b>
+<font color="#333333">stdout</font>
+</b> is full path to where the JVM write its System.out
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen">Put logs in /var/log/http/jk-jvm-out.log</div>
+<code class="screen">
+<nobr>worker.wrkjni.stdout=/var/log/http/jk-jvm-out.log</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<p class="section">
+<b>
+<font color="#333333">stderr</font>
+</b> is full path to where the JVM write its System.err
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen">Put logs in /var/log/http/jk-jvm-err.log</div>
+<code class="screen">
+<nobr>worker.wrkjni.stderr=/var/log/http/jk-jvm-err.log</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<p class="section">
+<b>
+<font color="#333333">ms</font>
+</b> set initial HEAP size for the JVM
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen">Told JVM to use 64MB of initial heap size</div>
+<code class="screen">
+<nobr>worker.wrkjni.ms=64</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<p class="section">
+<b>
+<font color="#333333">mx</font>
+</b> set maximal HEAP size for the JVM
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen">Told JVM to not use more than 128MB for heap</div>
+<code class="screen">
+<nobr>worker.wrkjni.mx=128</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<p class="section">
+<b>
+<font color="#333333">sysprops</font>
+</b> set the system properties for the JVM
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen">Told JVM to use french language</div>
+<code class="screen">
+<nobr>worker.wrkjni.sysprops=-Duser.region=FR</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<p class="section">
+<b>
+<font color="#333333">ld_path</font>
+</b> set the additional dynamic libraries path (similar in nature to LD_LIBRARY_PATH)
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen">Told system which library path to be added to access Java Env</div>
+<code class="screen">
+<nobr>worker.wrkjni.ld_path=/opt/IBMJava2-131/jre/bin/</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.wrkjni.ld_path=/opt/IBMJava2-131/jre/bin/classic</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<p class="section">
+Notes: Under Linux it seems that processes can't update their own LD_LIBRARY_PATH,
+so you'll have to update it BEFORE launching the webserver...
+</p>
+<br/>
+<a name="sub_Property file macros">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Property file macros</td>
+</tr>
+</table>
+</a>
+<p class="section">
+You can define "macros" in the property files. 
+These macros let you define properties and later on use them while 
+constructing other properties and it's very usefull when you want to
+change your Java Home, Tomcat Home or OS path separator
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen">property example, don't hardcode path separator</div>
+<code class="screen">
+<nobr>workers.tomcat_home=d:\tomcat</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>workers.java_home=d:\sdk\jdk1.2.2</nobr>
+</code>
+<br/>
+<div class="screen">Using macros we'll have : worker.inprocess.class_path=d:\tomcat\classes</div>
+<code class="screen">
+<nobr>worker.inprocess.class_path=$(workers.tomcat_home)$(ps)classes</nobr>
+</code>
+<br/>
+<div class="screen">Using macros we'll have : worker.inprocess.class_path=d:\sdk\jdk1.2.2\lib\tools.jar</div>
+<code class="screen">
+<nobr>worker.inprocess.class_path=$(workers.java_home)$(ps)lib$(ps)tools.jar</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<br/>
+<br/>
+<a name="A sample worker.properties">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>A sample worker.properties</td>
+</tr>
+</table>
+</a>
+<p class="section">
+Since coping with worker.properties on your own is not an easy thing to do, 
+a sample worker.properties file is bundled along JK. 
+</p>
+<p class="section">
+You could also find here a sample workers.properties defining :
+</p>
+<ul>
+<li>
+An ajp12 worker that used the host localhost and the port 8007
+</li>
+<li>
+An ajp13 worker that used the host localhost and the port 8008
+</li>
+<li>
+A jni worker
+</li>
+<li>
+A lb worker that load balance the ajp12 and ajp13 workers
+</li>
+</ul>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen"># Define some properties</div>
+<code class="screen">
+<nobr>workers.apache_log=/var/log/httpd/</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>workers.tomcat_home=/var/tomcat3</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>workers.java_home=/opt/IBMJava2-131/</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>ps=/</nobr>
+</code>
+<br/>
+<div class="screen"># Define 4 workers, 3 real workers using ajp12, ajp13, jni, the last one being a loadbalancing worker</div>
+<code class="screen">
+<nobr>worker.list=worker1, worker2, worker3, worker4</nobr>
+</code>
+<br/>
+<div class="screen"># Set properties for worker1 (ajp12)</div>
+<code class="screen">
+<nobr>worker.worker1.type=ajp12</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker1.host=locahost</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker1.port=8007</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker1.lbfactor=5</nobr>
+</code>
+<br/>
+<div class="screen"># Set properties for worker2 (ajp13)</div>
+<code class="screen">
+<nobr>worker.worker2.type=ajp13</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker2.host=locahost</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker2.port=8009</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker2.lbfactor=50</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker2.cachesize=10</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker2.cache_timeout=600</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker2.socket_keepalive=1</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker2.socket_timeout=300</nobr>
+</code>
+<br/>
+<div class="screen"># Set properties for worker3 (jni)</div>
+<code class="screen">
+<nobr>worker.worker3.type=jni</nobr>
+</code>
+<br/>
+<div class="screen"># Set worker3 bridge type, here Tomcat 3.3</div>
+<code class="screen">
+<nobr>worker.worker3.bridge=tomcat33</nobr>
+</code>
+<br/>
+<div class="screen"># Set worker3 classpath</div>
+<code class="screen">
+<nobr>worker.worker3.class_path=$(workers.tomcat_home)$(ps)classes</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker3.class_path=$(workers.tomcat_home)$(ps)lib$(ps)tomcat.jar</nobr>
+</code>
+<br/>
+<div class="screen"># Set worker3 tomcat command line</div>
+<code class="screen">
+<nobr>worker.worker3.cmd_line=-home</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker3.cmd_line=$(workers.tomcat_home)</nobr>
+</code>
+<br/>
+<div class="screen"># Set worker3 Tomcat/JVM settings</div>
+<code class="screen">
+<nobr>worker.worker3.jvm_lib=$(workers.java_home)$(ps)jre$(ps)bin$(ps)classic$(ps)libjvm.so</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker3.stdout=$(workers.apache_log)$(ps)inprocess.stdout</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker3.stderr=$(workers.apache_log)$(ps)inprocess.stderr</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker3.sysprops=tomcat.home=$(workers.tomcat_home)</nobr>
+</code>
+<br/>
+<div class="screen"># Set properties for worker4 (lb) which use worker1 and worker2</div>
+<code class="screen">
+<nobr>worker.worker4.balanced_workers=worker1,worker2</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<br/>
+</td>
+</tr>
+</table>
+</body>
+</html>

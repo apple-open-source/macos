@@ -23,9 +23,7 @@
             "chkpasswd.tproj", 
             "chpass.tproj", 
             "dmesg.tproj", 
-            "fastboot.tproj", 
             "getty.tproj", 
-            "halt.tproj", 
             "hostinfo.tproj", 
             "init.tproj", 
             "iostat.tproj", 
@@ -50,11 +48,12 @@
             "zdump.tproj", 
             "vm_stat.tproj", 
             "zprint.tproj", 
-            "top.tproj", 
             "latency.tproj", 
             "sc_usage.tproj", 
             "fs_usage.tproj", 
-            "kdump.tproj"
+            "kdump.tproj", 
+            "sadc.tproj", 
+            "sar.tproj"
         ); 
     }; 
     LANGUAGE = English; 

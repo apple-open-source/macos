@@ -96,9 +96,8 @@ AtomicWord ModuleNexusCommon::create(void *(*make)())
                 void *singleton = make();
                 pointer = AtomicWord(singleton);
                 // we need a write barrier here, but the mutex->unlock below provides it for free
-                debug("nexus", "ModuleNexus %p constructed object 0x%x", this, pointer);
             } catch (...) {
-				debug("nexus", "ModuleNexus %p construction failed", this);
+				secdebug("nexus", "ModuleNexus %p construction failed", this);
                 mutex->unlock();
                 if (--sync == 0) {
                     delete mutex;

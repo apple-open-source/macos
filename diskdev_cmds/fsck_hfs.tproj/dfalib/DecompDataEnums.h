@@ -8,15 +8,9 @@
 	CVS change log:
 
 		$Log: DecompDataEnums.h,v $
-		Revision 1.2.14.1  2003/03/14 17:36:13  lindak
-		Merged PR-3146777 into ZZ202
+		Revision 1.2  2002/12/20 01:20:36  lindak
+		Merged PR-2937515-2 into ZZ100
 		Old HFS+ decompositions need to be repaired
-		
-		Revision 1.2.12.1  2003/03/14 17:13:43  jcotting
-		bring fix for 2937515 into Plaid
-		Bug #: 3146777
-		Submitted by: jerry cottingham
-		Reviewed by: don
 		
 		Revision 1.1.4.1  2002/12/16 18:55:22  jcotting
 		integrated code from text group (Peter Edberg) that will correct some

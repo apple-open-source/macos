@@ -1,0 +1,34 @@
+Vítejte v konferenci %(real_name)s@%(host_name)s!
+%(welcome)s
+Pøíspìvky zasílejte na adresu:
+
+  %(emailaddr)s
+
+V¹eobecné informace o konferenci naleznete na adrese:
+
+  %(listinfo_url)s
+
+Pokud se nìkdy budete chtít odhlásit, nebo zmìnit nìjaké nastavení svého
+úèastnického konta (zmìnit heslo, digest a podobnì..), nav¹tivte
+konfiguraèní stránku na adrese:
+
+  %(optionsurl)s
+%(umbrella)s
+Konfiguraci mù¾ete udìlat i pomocí e-mailového klienta, pokud za¹lete na
+adresu:
+
+  %(real_name)s-request@%(host_name)s
+
+slovo help v tìle dopisu, dostanete podrobnìj¹í informace.
+
+Pro zmìnu konfigurace, nebo pro odhlá¹ení, budete potøebovat zadat heslo.
+Teï máte nastavené heslo:
+
+  %(password)s
+
+Pokud své heslo zapomenete, nevadí, ka¾dý mìsíc dostanete dopis, ve kterém
+Vám pøipomeneme nejen heslo, ale i do kterých konferencí jste na serveru
+%(host_name)s pøihlá¹eni.
+
+Kromì toho si kdykoliv mù¾ete nechat heslo zaslat kliknutím na tlaèítko na
+konfiguraèní stránce.

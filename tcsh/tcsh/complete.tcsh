@@ -1,5 +1,5 @@
 #
-# $Id: complete.tcsh,v 1.1.1.2 2001/06/28 23:10:46 bbraun Exp $
+# $Id: complete.tcsh,v 1.1.1.3 2003/01/17 03:41:03 nicolai Exp $
 # example file using the new completion code
 #
 
@@ -14,21 +14,25 @@ if ($?tcsh) then
 	set rev=$rev:r
     endif
     if ($rev > 5 && $rel > 1) then
-	set complete=1
+	set _complete=1
     endif
     unset rev rel pat
 endif
 
-if ($?complete) then
+if ($?_complete) then
     set noglob
-    set hosts
+    if ( ! $?hosts ) set hosts
     foreach f ($HOME/.hosts /usr/local/etc/csh.hosts $HOME/.rhosts /etc/hosts.equiv)
         if ( -r $f ) then
-	    set hosts = ($hosts `grep -v "+" $f | tr -s " " "	" | cut -f 1`)
+	    set hosts = ($hosts `grep -v "+" $f | grep -E -v "^#" | tr -s " " "	" | cut -f 1`)
 	endif
     end
     if ( -r $HOME/.netrc ) then
 	set f=`awk '/machine/ { print $2 }' < $HOME/.netrc` >& /dev/null
+	set hosts=($hosts $f)
+    endif
+    if ( -r $HOME/.ssh/known_hosts ) then
+	set f=`cat $HOME/.ssh/known_hosts | cut -f 1 -d \ ` >& /dev/null
 	set hosts=($hosts $f)
     endif
     unset f
@@ -416,7 +420,7 @@ if ($?complete) then
     endif
 
     # from George Cox
-    complete acroread	'p/*/f:*.pdf/'
+    complete acroread	'p/*/f:*.{pdf,PDF}/'
     complete apachectl  'c/*/(start stop restart fullstatus status graceful \
 			configtest help)/'
     complete appletviewer	'p/*/f:*.class/'
@@ -623,11 +627,6 @@ if ($?complete) then
 			timestamping tries= user-agent= verbose version wait=)"/
 
     # these from Tom Warzeka <tom@waz.cc>
-    # you may need to set the following variables for your host
-    set _elispdir = /usr/local/share/emacs/20.7/lisp # GNU Emacs lisp directory
-    set _maildir = /var/spool/mail  # Post Office: /var/spool/mail or /usr/mail
-    set _ypdir  = /var/yp	# directory where NIS (YP) maps are kept
-    set _domain = "`domainname`"
 
     # this one works but is slow and doesn't descend into subdirectories
     # complete	cd	C@[./\$~]*@d@ \
@@ -640,6 +639,11 @@ if ($?complete) then
     endif
     complete unsetenv	n/*/e/
 
+    if (-r /var/spool/mail) then
+      set _maildir = /var/spool/mail
+    else
+      set _maildir = /usr/mail
+    endif
     if (-r $HOME/.mailrc) then
         complete mail	c/-/"(e i f n s u v)"/ c/*@/\$hosts/ \
 			c@+@F:$HOME/Mail@ C@[./\$~]@f@ n/-s/x:'<subject>'/ \
@@ -650,23 +654,38 @@ if ($?complete) then
 			c@+@F:$HOME/Mail@ C@[./\$~]@f@ n/-s/x:'<subject>'/ \
 			n@-u@T:$_maildir@ n/-f/f/ n/*/u/
     endif
+    unset _maildir
 
-    complete man	    n@1@'`\ls -1 /usr/man/man1 | sed s%\\.1.\*\$%%`'@ \
-			    n@2@'`\ls -1 /usr/man/man2 | sed s%\\.2.\*\$%%`'@ \
-			    n@3@'`\ls -1 /usr/man/man3 | sed s%\\.3.\*\$%%`'@ \
-			    n@4@'`\ls -1 /usr/man/man4 | sed s%\\.4.\*\$%%`'@ \
-			    n@5@'`\ls -1 /usr/man/man5 | sed s%\\.5.\*\$%%`'@ \
-			    n@6@'`\ls -1 /usr/man/man6 | sed s%\\.6.\*\$%%`'@ \
-			    n@7@'`\ls -1 /usr/man/man7 | sed s%\\.7.\*\$%%`'@ \
-			    n@8@'`\ls -1 /usr/man/man8 | sed s%\\.8.\*\$%%`'@ \
-    n@9@'`[ -r /usr/man/man9 ] && \ls -1 /usr/man/man9 | sed s%\\.9.\*\$%%`'@ \
-    n@0@'`[ -r /usr/man/man0 ] && \ls -1 /usr/man/man0 | sed s%\\.0.\*\$%%`'@ \
-  n@new@'`[ -r /usr/man/mann ] && \ls -1 /usr/man/mann | sed s%\\.n.\*\$%%`'@ \
-  n@old@'`[ -r /usr/man/mano ] && \ls -1 /usr/man/mano | sed s%\\.o.\*\$%%`'@ \
-n@local@'`[ -r /usr/man/manl ] && \ls -1 /usr/man/manl | sed s%\\.l.\*\$%%`'@ \
-n@public@'`[ -r /usr/man/manp ]&& \ls -1 /usr/man/manp | sed s%\\.p.\*\$%%`'@ \
-		c/-/"(- f k M P s t)"/ n/-f/c/ n/-k/x:'<keyword>'/ n/-[MP]/d/ \
-		N@-[MP]@'`\ls -1 $:-1/man? | sed s%\\..\*\$%%`'@ n/*/c/
+    if (! $?MANPATH) then
+	if (-r /usr/share/man) then
+	    setenv MANPATH /usr/share/man:
+	else
+	    setenv MANPATH /usr/man:
+	endif
+    endif
+
+    # use of $MANPATH from Dan Nicolaescu <dann@ics.uci.edu>
+    # use of 'find' adapted from Lubomir Host <host8@kepler.fmph.uniba.sk>
+    complete man \
+	    'n@1@`set q = "$MANPATH:as%:%/man1 %" ; \ls -1 $q |& sed -e s%^.\*:.\*\$%% -e s%\\.1.\*\$%%`@'\
+	    'n@2@`set q = "$MANPATH:as%:%/man2 %" ; \ls -1 $q |& sed -e s%^.\*:.\*\$%% -e s%\\.2.\*\$%%`@'\
+	    'n@3@`set q = "$MANPATH:as%:%/man3 %" ; \ls -1 $q |& sed -e s%^.\*:.\*\$%% -e s%\\.3.\*\$%%`@'\
+	    'n@4@`set q = "$MANPATH:as%:%/man4 %" ; \ls -1 $q |& sed -e s%^.\*:.\*\$%% -e s%\\.4.\*\$%%`@'\
+	    'n@5@`set q = "$MANPATH:as%:%/man5 %" ; \ls -1 $q |& sed -e s%^.\*:.\*\$%% -e s%\\.5.\*\$%%`@'\
+	    'n@6@`set q = "$MANPATH:as%:%/man6 %" ; \ls -1 $q |& sed -e s%^.\*:.\*\$%% -e s%\\.6.\*\$%%`@'\
+	    'n@7@`set q = "$MANPATH:as%:%/man7 %" ; \ls -1 $q |& sed -e s%^.\*:.\*\$%% -e s%\\.7.\*\$%%`@'\
+	    'n@8@`set q = "$MANPATH:as%:%/man8 %" ; \ls -1 $q |& sed -e s%^.\*:.\*\$%% -e s%\\.8.\*\$%%`@'\
+	    'n@9@`set q = "$MANPATH:as%:%/man9 %" ; \ls -1 $q |& sed -e s%^.\*:.\*\$%% -e s%\\.9.\*\$%%`@'\
+	    'n@0@`set q = "$MANPATH:as%:%/man0 %" ; \ls -1 $q |& sed -e s%^.\*:.\*\$%% -e s%\\.0.\*\$%%`@'\
+	    'n@n@`set q = "$MANPATH:as%:%/mann %" ; \ls -1 $q |& sed -e s%^.\*:.\*\$%% -e s%\\.n.\*\$%%`@'\
+	    'n@o@`set q = "$MANPATH:as%:%/mano %" ; \ls -1 $q |& sed -e s%^.\*:.\*\$%% -e s%\\.o.\*\$%%`@'\
+	    'n@l@`set q = "$MANPATH:as%:%/manl %" ; \ls -1 $q |& sed -e s%^.\*:.\*\$%% -e s%\\.l.\*\$%%`@'\
+	    'n@p@`set q = "$MANPATH:as%:%/manp %" ; \ls -1 $q |& sed -e s%^.\*:.\*\$%% -e s%\\.p.\*\$%%`@'\
+	    c@-@"(- f k M P s S t)"@ n@-f@c@ n@-k@x:'<keyword>'@ n@-[MP]@d@   \
+	    'N@-[MP]@`\ls -1 $:-1/man? |& sed -n s%\\..\\+\$%%p`@'            \
+	    'n@-[sS]@`\ls -1 $MANPATH:as%:% % |& sed -n s%^man%%p | sort -u`@'\
+	    'n@*@`find $MANPATH:as%:% % \( -type f -o -type l \) -printf "%f " |& sed -e "s%find: .*: No such file or directory%%" -e "s%\([^\.]\+\)\.\([^ ]*\) %\1 %g"`@'
+	    #n@*@c@ # old way -- commands only
 
     complete ps	        c/-t/x:'<tty>'/ c/-/"(a c C e g k l S t u v w x)"/ \
 			n/-k/x:'<kernel>'/ N/-k/x:'<core_file>'/ n/*/x:'<PID>'/
@@ -677,16 +696,40 @@ n@public@'`[ -r /usr/man/manp ]&& \ls -1 /usr/man/manp | sed s%\\.p.\*\$%%`'@ \
     complete uudecode	c/-/"(f)"/ n/-f/f:*.{uu,UU}/ p/1/f:*.{uu,UU}/ n/*/n/
 
     complete xhost	c/[+-]/\$hosts/ n/*/\$hosts/
+    complete xpdf	c/-/"(z g remote raise quit cmap rgb papercolor       \
+			      eucjp t1lib freetype ps paperw paperh level1    \
+			      upw fullscreen cmd q v h help)"/                \
+			n/-z/x:'<zoom (-5 .. +5) or "page" or "width">'/      \
+			n/-g/x:'<geometry>'/ n/-remote/x:'<name>'/            \
+			n/-rgb/x:'<number>'/ n/-papercolor/x:'<color>'/       \
+			n/-{t1lib,freetype}/x:'<font_type>'/                  \
+			n/-ps/x:'<PS_file>'/ n/-paperw/x:'<width>'/           \
+			n/-paperh/x:'<height>'/ n/-upw/x:'<password>'/        \
+			n/-/f:*.{pdf,PDF}/                                    \
+			N/-{z,g,remote,rgb,papercolor,t1lib,freetype,ps,paperw,paperh,upw}/f:*.{pdf,PDF}/ \
+			N/-/x:'<page>'/ p/1/f:*.{pdf,PDF}/ p/2/x:'<page>'/
 
     # these conform to the latest GNU versions available at press time ...
     # updates by John Gotts <jgotts@engin.umich.edu>
+    if (-X emacs) then
+      # TW note:  if your version of GNU Emacs supports the "--version" option,
+      #           uncomment this line and comment the next to automatically
+      #           detect the version, else replace "21.2" with your version.
+      #set _emacs_ver=`emacs --version | sed -e 's%GNU Emacs %%' -e q | cut -d . -f1-2`
+      set _emacs_ver=21.2
+      set _emacs_dir=`which emacs | sed s%/bin/emacs%%` 
+      complete emacs	c/--/"(batch terminal display no-windows no-init-file \
+                               user debug-init unibyte multibyte version help \
+                               no-site-file funcall load eval insert kill)"/ \
+                        c/-/"(t d nw q u f l -)"/ c/+/x:'<line_number>'/ \
+			n/{-t,--terminal}/x:'<terminal>'/ n/{-d,--display}/x:'<display>'/ \
+	                n/{-u,--user}/u/ n/{-f,--funcall}/x:'<lisp_function>'/ \
+			n@{-l,--load}@F:$_emacs_dir/share/emacs/$_emacs_ver/lisp@ \
+			n/--eval/x:'<expression>'/ n/--insert/f/ n/*/f:^*[\#~]/
+      unset _emacs_ver _emacs_dir
+    endif
 
-    complete emacs	c/-/"(batch d f funcall i insert kill l load \
-			no-init-file nw q t u user)"/ c/+/x:'<line_number>'/ \
-			n/-d/x:'<display>'/ n/-f/x:'<lisp_function>'/ n/-i/f/ \
-			n@-l@F:$_elispdir@ n/-t/x:'<terminal>'/ \
-			n/-u/u/ n/*/f:^*[\#~]/
-
+    # if your "zcat" is the GNU version, change "gzcat" below to just "zcat"
     complete gzcat	c/--/"(force help license quiet version)"/ \
 			c/-/"(f h L q V -)"/ n/*/f:*.{gz,Z,z,zip}/
     complete gzip	c/--/"(stdout to-stdout decompress uncompress \
@@ -756,6 +799,11 @@ n@public@'`[ -r /usr/man/manp ]&& \ls -1 /usr/man/manp | sed s%\\.p.\*\$%%`'@ \
 				v w x)"/ \
 			p/1/x:'<fixed_string>'/ N/-*e/f/ \
 			n/-*e/x:'<fixed_string>'/ n/-*f/f/ n/*/f/
+
+    complete sed	c/--/"(quiet silent version help expression file)"/   \
+			c/-/"(n V e f -)"/ n/{-e,--expression}/x:'<script>'/  \
+			n/{-f,--file}/f:*.sed/ N/-{e,f,-{file,expression}}/f/ \
+			n/-/x:'<script>'/ N/-/f/ p/1/x:'<script>'/ p/2/f/
 
     complete users	c/--/"(help version)"/ p/1/x:'<accounting_file>'/
     complete who	c/--/"(heading idle count mesg message writable help \
@@ -879,19 +927,23 @@ n@public@'`[ -r /usr/man/manp ]&& \ls -1 /usr/man/manp | sed s%\\.p.\*\$%%`'@ \
     #			n/*/'`mount | cut -d " " -f 3`'/
 
     # these deal with NIS (formerly YP); if it's not running you don't need 'em
-    complete domainname	p@1@D:$_ypdir@" " n@*@n@
-    complete ypcat	c@-@"(d k t x)"@ n@-x@n@ n@-d@D:$_ypdir@" " \
-	    N@-d@\`\\ls\ -1\ $_ypdir/\$:-1\ \|\ sed\ -n\ s%\\\\.pag\\\$%%p\`@ \
-	  n@*@\`\\ls\ -1\ $_ypdir/$_domain\ \|\ sed\ -n\ s%\\\\.pag\\\$%%p\`@
-    complete ypmatch	c@-@"(d k t x)"@ n@-x@n@ n@-d@D:$_ypdir@" " \
-	            N@-d@x:'<key ...>'@ n@-@x:'<key ...>'@ p@1@x:'<key ...>'@ \
-	  n@*@\`\\ls\ -1\ $_ypdir/$_domain\ \|\ sed\ -n\ s%\\\\.pag\\\$%%p\`@
-    complete ypwhich	c@-@"(d m t x V1 V2)"@ n@-x@n@ n@-d@D:$_ypdir@" " \
-	 n@-m@\`\\ls\ -1\ $_ypdir/$_domain\ \|\ sed\ -n\ s%\\\\.pag\\\$%%p\`@ \
-			N@-m@n@ n@*@\$hosts@
-
-    # there's no need to clutter the user's shell with these
-    unset _elispdir _maildir _ypdir _domain
+    if (-X domainname) then
+      set _domain = "`domainname`"
+      set _ypdir  = /var/yp	# directory where NIS (YP) maps are kept
+      if ("$_domain" != "" && "$_domain" != "noname") then
+        complete domainname p@1@D:$_ypdir@" " n@*@n@
+        complete ypcat	    c@-@"(d k t x)"@ n@-x@n@ n@-d@D:$_ypdir@" " \
+	                    N@-d@\`\\ls\ -1\ $_ypdir/\$:-1\ \|\ sed\ -n\ s%\\\\.pag\\\$%%p\`@ \
+	                    n@*@\`\\ls\ -1\ $_ypdir/$_domain\ \|\ sed\ -n\ s%\\\\.pag\\\$%%p\`@
+        complete ypmatch    c@-@"(d k t x)"@ n@-x@n@ n@-d@D:$_ypdir@" " \
+	                    N@-d@x:'<key ...>'@ n@-@x:'<key ...>'@ p@1@x:'<key ...>'@ \
+	                    n@*@\`\\ls\ -1\ $_ypdir/$_domain\ \|\ sed\ -n\ s%\\\\.pag\\\$%%p\`@
+        complete ypwhich    c@-@"(d m t x V1 V2)"@ n@-x@n@ n@-d@D:$_ypdir@" " \
+	                    n@-m@\`\\ls\ -1\ $_ypdir/$_domain\ \|\ sed\ -n\ s%\\\\.pag\\\$%%p\`@ \
+			    N@-m@n@ n@*@\$hosts@
+      endif
+      unset _domain _ypdir
+    endif
 
     complete make \
 	'n/-f/f/' \
@@ -910,7 +962,7 @@ n@public@'`[ -r /usr/man/manp ]&& \ls -1 /usr/man/manp | sed s%\\.p.\*\$%%`'@ \
     endif
 
     unset noglob
-    unset complete
+    unset _complete
 endif
 
 end:

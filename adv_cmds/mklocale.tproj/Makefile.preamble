@@ -1,5 +1,5 @@
 CLEAN_ALL_SUBPROJECTS = YES
-OTHER_CFLAGS =-I.
+OTHER_CFLAGS =-I. -include fbsdcompat.h
 OTHER_GARBAGE =
 OTHER_GENERATED_OFILES = $(VERS_OFILE)
 -include ../Makefile.include

@@ -1,7 +1,7 @@
 /*	$NetBSD: sha1.c,v 1.2 2001/03/22 09:51:48 agc Exp $	*/
 /*	$OpenBSD: sha1.c,v 1.9 1997/07/23 21:12:32 kstailey Exp $	*/
 /*	$RoughId: sha1.c,v 1.2 2001/07/13 19:49:10 knu Exp $	*/
-/*	$Id: sha1.c,v 1.1.1.1 2002/05/27 17:59:45 jkh Exp $	*/
+/*	$Id: sha1.c,v 1.2 2003/04/03 05:35:19 melville Exp $	*/
 
 /*
  * SHA-1 in C
@@ -20,6 +20,12 @@
 #include "sha1.h"
 
 #define SHA1HANDSOFF		/* Copies data before messing with it. */
+
+#ifdef __BIG_ENDIAN__
+#define WORDS_BIGENDIAN
+#else
+#undef WORDS_BIGENDIAN
+#endif
 
 #if defined(_KERNEL) || defined(_STANDALONE)
 #include <sys/param.h>

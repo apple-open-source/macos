@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -231,6 +234,9 @@
 #endif
 
 
+static int iChatAVHack = 1;
+
+
 /* Dummy port number codes used for FindLinkIn/Out() and AddLink().
    These constants can be anything except zero, which indicates an
    unknown port number. */
@@ -332,6 +338,7 @@ struct alias_link                /* Main data structure */
 #define LINK_PARTIALLY_SPECIFIED   0x03 /* logical-or of first two bits */
 #define LINK_UNFIREWALLED          0x08
 #define LINK_LAST_LINE_CRLF_TERMED 0x10
+#define LINK_CONE				   0x20
 
     int timestamp;               /* Time link was last accessed         */
     int expire_time;             /* Expire time for link                */
@@ -998,14 +1005,41 @@ DeleteLink(struct alias_link *link)
             break;
     }
 
+#ifdef DEBUG
+    if ((packetAliasMode & PKT_ALIAS_LOG) != 0 &&
+    	!IN_MULTICAST(link->src_addr.s_addr) &&
+    	!IN_MULTICAST(link->dst_addr.s_addr))
+    {
+    	char	src[16];
+    	char	dst[16];
+    	char	alias[16];
+    	char	*proto;
+    	switch(link->link_type)
+    	{
+    		case LINK_TCP:
+    			proto = " [TCP]";
+    			break;
+    		case LINK_UDP:
+    			proto = " [UDP]";
+    			break;
+    		default:
+    			proto = "";
+    	}
+    	fprintf(monitorFile, "Deleted%s %s:%d<->%s:%d to %s:%d<->%s:%d\n",
+    		proto,
+    		inet_ntop(AF_INET, &link->src_addr, src, sizeof(src)), link->src_port,
+    		inet_ntop(AF_INET, &link->dst_addr, dst, sizeof(dst)), link->dst_port,
+    		inet_ntop(AF_INET, &link->alias_addr, alias, sizeof(alias)), link->alias_port,
+    		dst, link->dst_port);
+		fflush(monitorFile);
+    }
+#else
+	if (packetAliasMode & PKT_ALIAS_LOG)
+		ShowAliasStats();
+#endif
+
 /* Free memory */
     free(link);
-
-/* Write statistics, if logging enabled */
-    if (packetAliasMode & PKT_ALIAS_LOG)
-    {
-        ShowAliasStats();
-    }
 }
 
 
@@ -1045,7 +1079,10 @@ AddLink(struct in_addr  src_addr,
             link->expire_time = ICMP_EXPIRE_TIME;
             break;
         case LINK_UDP:
-            link->expire_time = UDP_EXPIRE_TIME;
+        	if (dst_addr.s_addr == 0 && dst_port == 0)
+        		link->expire_time = UDP_EXPIRE_TIME * 5;
+        	else
+				link->expire_time = UDP_EXPIRE_TIME;
             break;
         case LINK_TCP:
             link->expire_time = TCP_EXPIRE_INITIAL;
@@ -1149,10 +1186,37 @@ AddLink(struct in_addr  src_addr,
 #endif
     }
 
-    if (packetAliasMode & PKT_ALIAS_LOG)
+#ifdef DEBUG
+    if ((packetAliasMode & PKT_ALIAS_LOG) != 0 &&
+    	!IN_MULTICAST(link->src_addr.s_addr) &&
+    	!IN_MULTICAST(link->dst_addr.s_addr))
     {
-        ShowAliasStats();
+    	char	src[16];
+    	char	dst[16];
+    	char	alias[16];
+    	char	*proto;
+    	switch(link->link_type)
+    	{
+    		case LINK_TCP:
+    			proto = " [TCP]";
+    			break;
+    		case LINK_UDP:
+    			proto = " [UDP]";
+    			break;
+    		default:
+    			proto = "";
+    	}
+    	fprintf(monitorFile, "Added  %s %s:%d<->%s:%d to %s:%d<->%s:%d\n",
+    		proto,
+    		inet_ntop(AF_INET, &link->src_addr, src, sizeof(src)), link->src_port,
+    		inet_ntop(AF_INET, &link->dst_addr, dst, sizeof(dst)), link->dst_port,
+    		inet_ntop(AF_INET, &link->alias_addr, alias, sizeof(alias)), link->alias_port,
+    		dst, link->dst_port);
     }
+#else
+	if (packetAliasMode & PKT_ALIAS_LOG)
+		ShowAliasStats();
+#endif
 
     return(link);
 }
@@ -1179,7 +1243,8 @@ ReLink(struct alias_link *old_link,
       PunchFWHole(new_link);
     }
 #endif
-    DeleteLink(old_link);
+	if ((old_link->flags & LINK_CONE) == 0)
+		DeleteLink(old_link);
     return new_link;
 }
 
@@ -1668,11 +1733,25 @@ FindUdpTcpOut(struct in_addr  src_addr,
     if (link == NULL && create)
     {
         struct in_addr alias_addr;
+        struct in_addr dst_addr2 = dst_addr;
+        u_short		dst_port2 = dst_port;
 
         alias_addr = FindAliasAddress(src_addr);
-        link = AddLink(src_addr, dst_addr, alias_addr,
-                       src_port, dst_port, GET_ALIAS_PORT,
+        
+        if (iChatAVHack && link_type == LINK_UDP && dst_port == htons(5678)) {
+        	dst_addr2.s_addr = 0;
+        	dst_port2 = 0;
+        }
+        link = AddLink(src_addr, dst_addr2, alias_addr,
+                       src_port, dst_port2, GET_ALIAS_PORT,
                        link_type);
+        if (link != NULL &&
+			(link->flags & (LINK_UNKNOWN_DEST_ADDR | LINK_UNKNOWN_DEST_PORT)) != 0)
+        {
+			link->flags |= LINK_CONE;
+			link = ReLink(link, link->src_addr, dst_addr, link->alias_addr,
+							link->src_port, dst_port, link->alias_port, link_type);
+        }
     }
 
     return(link);

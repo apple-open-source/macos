@@ -14,7 +14,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: proc-old.test,v 1.1.1.4 2000/12/06 23:04:16 wsanchez Exp $
+# RCS: @(#) $Id: proc-old.test,v 1.1.1.6 2003/07/09 01:33:57 landonf Exp $
 
 if {[lsearch [namespace children] ::tcltest] == -1} {
     package require tcltest
@@ -160,80 +160,80 @@ test proc-old-3.9 {local and global arrays} {
 } {{w t1}}
 catch {unset a}
 
-test proc-old-3.1 {arguments and defaults} {
+test proc-old-30.1 {arguments and defaults} {
     proc tproc {x y z} {
 	return [list $x $y $z]
     }
     tproc 11 12 13
 } {11 12 13}
-test proc-old-3.2 {arguments and defaults} {
+test proc-old-30.2 {arguments and defaults} {
     proc tproc {x y z} {
 	return [list $x $y $z]
     }
     list [catch {tproc 11 12} msg] $msg
-} {1 {no value given for parameter "z" to "tproc"}}
-test proc-old-3.3 {arguments and defaults} {
+} {1 {wrong # args: should be "tproc x y z"}}
+test proc-old-30.3 {arguments and defaults} {
     proc tproc {x y z} {
 	return [list $x $y $z]
     }
     list [catch {tproc 11 12 13 14} msg] $msg
-} {1 {called "tproc" with too many arguments}}
-test proc-old-3.4 {arguments and defaults} {
+} {1 {wrong # args: should be "tproc x y z"}}
+test proc-old-30.4 {arguments and defaults} {
     proc tproc {x {y y-default} {z z-default}} {
 	return [list $x $y $z]
     }
     tproc 11 12 13
 } {11 12 13}
-test proc-old-3.5 {arguments and defaults} {
+test proc-old-30.5 {arguments and defaults} {
     proc tproc {x {y y-default} {z z-default}} {
 	return [list $x $y $z]
     }
     tproc 11 12
 } {11 12 z-default}
-test proc-old-3.6 {arguments and defaults} {
+test proc-old-30.6 {arguments and defaults} {
     proc tproc {x {y y-default} {z z-default}} {
 	return [list $x $y $z]
     }
     tproc 11
 } {11 y-default z-default}
-test proc-old-3.7 {arguments and defaults} {
+test proc-old-30.7 {arguments and defaults} {
     proc tproc {x {y y-default} {z z-default}} {
 	return [list $x $y $z]
     }
     list [catch {tproc} msg] $msg
-} {1 {no value given for parameter "x" to "tproc"}}
-test proc-old-3.8 {arguments and defaults} {
+} {1 {wrong # args: should be "tproc x ?y? ?z?"}}
+test proc-old-30.8 {arguments and defaults} {
     list [catch {
 	proc tproc {x {y y-default} z} {
 	    return [list $x $y $z]
 	}
 	tproc 2 3
     } msg] $msg
-} {1 {no value given for parameter "z" to "tproc"}}
-test proc-old-3.9 {arguments and defaults} {
+} {1 {wrong # args: should be "tproc x ?y? z"}}
+test proc-old-30.9 {arguments and defaults} {
     proc tproc {x {y y-default} args} {
 	return [list $x $y $args]
     }
     tproc 2 3 4 5
 } {2 3 {4 5}}
-test proc-old-3.10 {arguments and defaults} {
+test proc-old-30.10 {arguments and defaults} {
     proc tproc {x {y y-default} args} {
 	return [list $x $y $args]
     }
     tproc 2 3
 } {2 3 {}}
-test proc-old-3.11 {arguments and defaults} {
+test proc-old-30.11 {arguments and defaults} {
     proc tproc {x {y y-default} args} {
 	return [list $x $y $args]
     }
     tproc 2
 } {2 y-default {}}
-test proc-old-3.12 {arguments and defaults} {
+test proc-old-30.12 {arguments and defaults} {
     proc tproc {x {y y-default} args} {
 	return [list $x $y $args]
     }
     list [catch {tproc} msg] $msg
-} {1 {no value given for parameter "x" to "tproc"}}
+} {1 {wrong # args: should be "tproc x ?y? args"}}
 
 test proc-old-4.1 {variable numbers of arguments} {
     proc tproc args {return $args}
@@ -258,7 +258,7 @@ test proc-old-4.5 {variable numbers of arguments} {
 test proc-old-4.6 {variable numbers of arguments} {
     proc tproc {x missing args} {return $args}
     list [catch {tproc 1} msg] $msg
-} {1 {no value given for parameter "missing" to "tproc"}}
+} {1 {wrong # args: should be "tproc x missing args"}}
 
 test proc-old-5.1 {error conditions} {
     list [catch {proc} msg] $msg
@@ -332,7 +332,8 @@ test proc-old-5.14 {error conditions} {
     catch tproc msg
     set errorInfo
 } {invoked "break" outside of a loop
-    while executing
+    (procedure "tproc" line 1)
+    invoked from within
 "tproc"}
 test proc-old-5.15 {error conditions} {
     proc tproc {} {
@@ -343,7 +344,8 @@ test proc-old-5.15 {error conditions} {
     catch tproc msg
     set errorInfo
 } {invoked "continue" outside of a loop
-    while executing
+    (procedure "tproc" line 1)
+    invoked from within
 "tproc"}
 test proc-old-5.16 {error conditions} {
     proc foo args {
@@ -433,7 +435,9 @@ test proc-old-7.11 {return with special completion code} {
 	catch {open _bad_file_name r} msg
 	return -code error -errorinfo $errorInfo -errorcode $errorCode $msg
     }
-    normalizeMsg [list [catch tproc2 msg] $msg $errorInfo $errorCode]
+    set msg [list [catch tproc2 msg] $msg $errorInfo $errorCode]
+    regsub -all [file join {} _bad_file_name] $msg "_bad_file_name" msg
+    normalizeMsg $msg
 } {1 {couldn't open "_bad_file_name": no such file or directory} {couldn't open "_bad_file_name": no such file or directory
     while executing
 "open _bad_file_name r"
@@ -445,7 +449,9 @@ test proc-old-7.12 {return with special completion code} {
 	catch {open _bad_file_name r} msg
 	return -code error -errorcode $errorCode $msg
     }
-    normalizeMsg [list [catch tproc2 msg] $msg $errorInfo $errorCode]
+    set msg [list [catch tproc2 msg] $msg $errorInfo $errorCode]
+    regsub -all [file join {} _bad_file_name] $msg "_bad_file_name" msg
+    normalizeMsg $msg
 } {1 {couldn't open "_bad_file_name": no such file or directory} {couldn't open "_bad_file_name": no such file or directory
     while executing
 "tproc2"} {posix enoent {no such file or directory}}}
@@ -455,7 +461,9 @@ test proc-old-7.13 {return with special completion code} {
 	catch {open _bad_file_name r} msg
 	return -code error -errorinfo $errorInfo $msg
     }
-    normalizeMsg [list [catch tproc2 msg] $msg $errorInfo $errorCode]
+    set msg [list [catch tproc2 msg] $msg $errorInfo $errorCode]
+    regsub -all [file join {} _bad_file_name] $msg "_bad_file_name" msg
+    normalizeMsg $msg
 } {1 {couldn't open "_bad_file_name": no such file or directory} {couldn't open "_bad_file_name": no such file or directory
     while executing
 "open _bad_file_name r"
@@ -467,11 +475,13 @@ test proc-old-7.14 {return with special completion code} {
 	catch {open _bad_file_name r} msg
 	return -code error $msg
     }
-    normalizeMsg [list [catch tproc2 msg] $msg $errorInfo $errorCode]
+    set msg [list [catch tproc2 msg] $msg $errorInfo $errorCode]
+    regsub -all [file join {} _bad_file_name] $msg "_bad_file_name" msg
+    normalizeMsg $msg
 } {1 {couldn't open "_bad_file_name": no such file or directory} {couldn't open "_bad_file_name": no such file or directory
     while executing
 "tproc2"} none}
-test proc-old-7.14 {return with special completion code} {
+test proc-old-7.15 {return with special completion code} {
     list [catch {return -badOption foo message} msg] $msg
 } {1 {bad option "-badOption": must be -code, -errorcode, or -errorinfo}}
 

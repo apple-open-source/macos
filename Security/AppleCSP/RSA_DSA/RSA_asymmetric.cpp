@@ -25,8 +25,8 @@
 #include <Security/debugging.h>
 #include <open_ssl/opensslUtils/opensslUtils.h>
 
-#define rsaCryptDebug(args...)	debug("rsaCrypt", ## args)
-#define rbprintf(args...)		debug("rsaBuf", ## args)
+#define rsaCryptDebug(args...)	secdebug("rsaCrypt", ## args)
+#define rbprintf(args...)		secdebug("rsaBuf", ## args)
 
 RSA_CryptContext::~RSA_CryptContext()
 {
@@ -39,7 +39,7 @@ RSA_CryptContext::~RSA_CryptContext()
 }
 	
 /* called by CSPFullPluginSession */
-void RSA_CryptContext::init(const Context &context, bool encoding = true)
+void RSA_CryptContext::init(const Context &context, bool encoding /*= true*/)
 {
 	if(mInitFlag && !opStarted()) {
 		/* reusing - e.g. query followed by encrypt */
@@ -94,6 +94,18 @@ void RSA_CryptContext::init(const Context &context, bool encoding = true)
 			CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_PADDING);
 	}
 	
+	/* optional blinding attribute */
+	uint32 blinding = context.getInt(CSSM_ATTRIBUTE_RSA_BLINDING);
+	if(blinding) {
+		if(RSA_blinding_on(mRsaKey, NULL) <= 0) {
+			/* actually no legit failures */
+			CssmError::throwMe(CSSMERR_CSP_INTERNAL_ERROR);
+		}
+	}
+	else {
+		RSA_blinding_off(mRsaKey);
+	}
+
 	/* finally, have BlockCryptor set up its stuff. */
 	setup(encoding ? plainBlockSize  : cipherBlockSize, // blockSizeIn
 		  encoding ? cipherBlockSize : plainBlockSize,	// blockSizeOut
@@ -172,7 +184,7 @@ void RSA_CryptContext::decryptBlock(
 
 size_t RSA_CryptContext::outputSize(
 	bool 			final,				// ignored
-	size_t 			inSize = 0) 		// output for given input size
+	size_t 			inSize /*= 0*/)		// output for given input size
 {
 	UInt32 rawBytes = inSize + inBufSize();
 	UInt32 rawBlocks = (rawBytes + inBlockSize() - 1) / inBlockSize();

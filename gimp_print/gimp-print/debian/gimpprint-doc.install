@@ -1,0 +1,11 @@
+debian/install/usr/share/gimp-print/doc/*.pdf               usr/share/doc/gimpprint-doc
+debian/install/usr/share/gimp-print/doc/html                usr/share/doc/gimpprint-doc
+debian/install/usr/share/man/man7/gimpprint-color.7         usr/share/man/man7
+debian/install/usr/share/man/man7/gimpprint-dithers.7       usr/share/man/man7
+debian/install/usr/share/man/man7/gimpprint-imagetypes.7    usr/share/man/man7
+debian/install/usr/share/man/man7/gimpprint-inktypes.7      usr/share/man/man7
+debian/install/usr/share/man/man7/gimpprint-mediasizes.7    usr/share/man/man7
+debian/install/usr/share/man/man7/gimpprint-mediasources.7  usr/share/man/man7
+debian/install/usr/share/man/man7/gimpprint-mediatypes.7    usr/share/man/man7
+debian/install/usr/share/man/man7/gimpprint-models.7        usr/share/man/man7
+debian/install/usr/share/man/man7/gimpprint-resolutions.7   usr/share/man/man7

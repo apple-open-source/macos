@@ -241,6 +241,7 @@ public:
 	virtual void create();
 	virtual void close();
 	virtual void deleteDb();
+	virtual void rename(const char *newName);
 	virtual void authenticate(CSSM_DB_ACCESS_TYPE inAccessRequest,
 								const CSSM_ACCESS_CREDENTIALS *inAccessCredentials);
 	virtual void name(char *&outName);	// CSSM_DL_GetDbNameFromHandle()
@@ -256,17 +257,6 @@ public:
 	virtual DbUniqueRecord insert(CSSM_DB_RECORDTYPE recordType,
 									const CSSM_DB_RECORD_ATTRIBUTE_DATA *attributes,
 									const CSSM_DATA *data);
-
-#if 0
-	// @@@ These methods have been moved to DbUniqueRecord.
-	virtual void deleteRecord(const DbUniqueRecord &uniqueId);
-	virtual void modify(CSSM_DB_RECORDTYPE recordType, DbUniqueRecord &uniqueId,
-						const CSSM_DB_RECORD_ATTRIBUTE_DATA *attributes,
-						const CSSM_DATA *data,
-						CSSM_DB_MODIFY_MODE modifyMode);
-	virtual void get(const DbUniqueRecord &uniqueId, DbAttributes *attributes,
-						::CssmDataContainer *data);
-#endif
 
 	const CSSM_DL_DB_HANDLE &handle() { activate(); return mHandle; }
 
@@ -292,10 +282,16 @@ public:
 	const CSSM_DBINFO *dbInfo() const { return mDbInfo; }
 	void dbInfo(const CSSM_DBINFO *inDbInfo) { mDbInfo = inDbInfo; }
 
-	const CSSM_RESOURCE_CONTROL_CONTEXT *resourceControlContext() const
+	const ResourceControlContext *resourceControlContext() const
 	{ return mResourceControlContext; }
 	void resourceControlContext(const CSSM_RESOURCE_CONTROL_CONTEXT *inResourceControlContext)
-	{ mResourceControlContext = inResourceControlContext; }
+	{ mResourceControlContext = ResourceControlContext::overlay(inResourceControlContext); }
+	
+	void passThrough(uint32 passThroughId, const void *in, void **out = NULL);
+	
+	template <class TIn, class TOut>
+	void passThrough(uint32 passThroughId, const TIn *in, TOut *out = NULL)
+	{ passThrough(passThroughId, (const void *)in, (void **)out); }
 
 	// Passthrough functions (only implemented by AppleCSPDL).
 	virtual void lock();
@@ -305,6 +301,7 @@ public:
 	virtual void setSettings(uint32 inIdleTimeout, bool inLockOnSleep);
 	virtual bool isLocked();
 	virtual void changePassphrase(const CSSM_ACCESS_CREDENTIALS *cred);
+	virtual bool getUnlockKeyIndex(CssmData &index);
 
 	// Utility methods
 	virtual DLDbIdentifier dlDbIdentifier() const;
@@ -330,7 +327,7 @@ private:
 
 	// Arguments to create
 	const CSSM_DBINFO *mDbInfo;
-	const CSSM_RESOURCE_CONTROL_CONTEXT *mResourceControlContext;
+	const ResourceControlContext *mResourceControlContext;
 };
 
 

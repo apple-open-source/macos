@@ -42,6 +42,21 @@ Package=<4>
 
 ###############################################################################
 
+Project: "php4activescript"="..\SAPI\activescript\php4activescript.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name php4dllts
+    End Project Dependency
+}}}
+
+###############################################################################
+
 Project: "php4aolserver"="..\sapi\aolserver\php4aolserver.dsp" - Package Owner=<4>
 
 Package=<5>
@@ -58,6 +73,21 @@ Package=<4>
 ###############################################################################
 
 Project: "php4apache"="..\sapi\apache\php4apache.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name php4dllts
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "php4apache2"="..\SAPI\APACHE2HANDLER\php4apache2.dsp" - Package Owner=<4>
 
 Package=<5>
 {{{
@@ -139,6 +169,21 @@ Package=<4>
 ###############################################################################
 
 Project: "php4ts"=".\php4ts.dsp" - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name php4dllts
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "php4ts_cli"=".\php4ts_cli.dsp" - Package Owner=<4>
 
 Package=<5>
 {{{

@@ -1,7 +1,7 @@
 /* compare.c - ldbm backend compare routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/compare.c,v 1.36 2002/02/09 04:14:18 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/compare.c,v 1.36.2.2 2003/03/03 17:10:09 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -69,8 +69,8 @@ ldbm_back_compare(
 			conn, op, e );
 
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_INFO,
-			"ldbm_back_compare: entry (%s) is a referral.\n", e->e_dn ));
+		LDAP_LOG( BACK_LDBM, INFO, 
+			"ldbm_back_compare: entry (%s) is a referral.\n", e->e_dn, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_TRACE, "entry is referral\n", 0,
 		    0, 0 );

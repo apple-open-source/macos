@@ -1,4 +1,4 @@
-/*	$KAME$	*/
+/*	$KAME: dnssec.h,v 1.1 2001/04/11 06:11:55 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.

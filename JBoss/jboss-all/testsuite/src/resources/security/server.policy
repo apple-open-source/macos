@@ -1,0 +1,16 @@
+grant codeBase "file:${jboss.home}/client/-" {
+	permission java.security.AllPermission;
+};
+grant codeBase "file:${jboss.home}/lib/ext/-" {
+	permission java.security.AllPermission;
+};
+grant codeBase "file:${jboss.home}/lib/*" {
+	permission java.security.AllPermission;
+};
+grant codeBase "file:${jboss.home}/bin/run.jar" {
+	permission java.security.AllPermission;
+};
+grant codeBase "file:${jboss.home}/tmp/deploy/-" {
+	permission javax.security.auth.AuthPermission "*";
+	permission java.lang.RuntimePermission "setContextClassLoader";
+};

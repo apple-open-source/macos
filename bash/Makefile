@@ -37,3 +37,4 @@ bashcleanup:
 	cp $(SRCROOT)/profile $(DSTROOT)/private/etc/profile
 	rm -rf $(DSTROOT)/usr/html
 	rm -f $(DSTROOT)/usr/share/info/dir
+	ln -s bash.1 $(DSTROOT)/usr/share/man/man1/sh.1

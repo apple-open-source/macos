@@ -9,6 +9,10 @@ dialects.  Use them to learn about processing field output, don't
 expect them to be ready for production, and expect to be required
 to modify them to make them work.
 
+If you want to do field output post-processing in a C program, take
+a look at the test suite C library in ../tests/LTlib.c.  You may
+be able to adapt it to your needs.
+
 The scripts are written in AWK, Perl 4 (4.036), and Perl 5 (5.001e
 through 5.006).  AWK scripts have a suffix of ``.awk''; Perl 4
 (which will work under Perl 5) scripts have a ``.perl4'' suffix;
@@ -39,11 +43,13 @@ command line -- e.g.,
 
 	lsof -F | /<path_to_your_perl_4> list_fields.perl
 
-The Perl scripts declare a path to lsof in the $LSOF variable,
-assuming you'll run them from the scripts subdirectory and that an
-lsof executable is in ``../lsof''.  If that assumption is incorrect
-for you, you'll have to change the variable.
+The Perl scripts attempt to establish a path to lsof, putting their
+result in the $LSOF variable.  Assuming you'll run them from the
+scripts subdirectory, they look there first, then in the directories
+of the PATH environment variable.  If that proves unsuitable, modify
+the &isexec() subroutine calls in the scripts to suit your lsof
+location.
 
 
 Vic Abell
-November 4, 2001
+April 4, 2002

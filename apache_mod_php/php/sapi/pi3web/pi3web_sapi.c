@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -21,11 +21,12 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: pi3web_sapi.c,v 1.1.1.5 2001/12/14 22:15:26 zarzycki Exp $ */
+/* $Id: pi3web_sapi.c,v 1.1.1.8 2003/07/18 18:07:51 zarzycki Exp $ */
 
 #include "pi3web_sapi.h"
 #include "php.h"
 #include "php_main.h"
+#include "php_variables.h"
 #include "SAPI.h"
 #include "php_globals.h"
 #include "ext/standard/info.h"
@@ -77,7 +78,7 @@ static void php_info_pi3web(ZEND_MODULE_INFO_FUNC_ARGS)
 	PUTS("<table border=0 cellpadding=3 cellspacing=1 width=600 align=center>\n");
 	PUTS("<tr><th colspan=2 bgcolor=\"" PHP_HEADER_COLOR "\">Pi3Web Server Information</th></tr>\n");
 	php_info_print_table_header(2, "Information Field", "Value");
-	php_info_print_table_row(2, "Pi3Web SAPI module version", "$Id: pi3web_sapi.c,v 1.1.1.5 2001/12/14 22:15:26 zarzycki Exp $");
+	php_info_print_table_row(2, "Pi3Web SAPI module version", "$Id: pi3web_sapi.c,v 1.1.1.8 2003/07/18 18:07:51 zarzycki Exp $");
 	php_info_print_table_row(2, "Server Name Stamp", HTTPCore_getServerStamp());
 	snprintf(variable_buf, 511, "%d", HTTPCore_debugEnabled());
 	php_info_print_table_row(2, "Debug Enabled", variable_buf);
@@ -91,7 +92,7 @@ static void php_info_pi3web(ZEND_MODULE_INFO_FUNC_ARGS)
 	php_info_print_table_row(2, "Server PID", variable_buf);
 	php_info_print_table_row(2, "Server Platform", PIPlatform_getDescription());
 
-	PUTS("</table><BR>");	
+	PUTS("</table><br />");	
 
 	PUTS("<table border=0 cellpadding=3 cellspacing=1 width=600 align=center>\n");
 	PUTS("<tr><th colspan=2 bgcolor=\"" PHP_HEADER_COLOR "\">HTTP Request Information</th></tr>\n");
@@ -156,7 +157,6 @@ static int sapi_pi3web_header_handler(sapi_header_struct *sapi_header, sapi_head
 }
 
 
-
 static void accumulate_header_length(sapi_header_struct *sapi_header, uint *total_length TSRMLS_DC)
 {
 	*total_length += sapi_header->header_len+2;
@@ -208,6 +208,7 @@ static int sapi_pi3web_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 	efree(combined_headers);
 	if (SG(sapi_headers).http_status_line) {
 		efree(SG(sapi_headers).http_status_line);
+		SG(sapi_headers).http_status_line = 0;
 	}
 	return SAPI_HEADER_SENT_SUCCESSFULLY;
 }
@@ -215,8 +216,7 @@ static int sapi_pi3web_send_headers(sapi_headers_struct *sapi_headers TSRMLS_DC)
 
 static int php_pi3web_startup(sapi_module_struct *sapi_module)
 {
-	if (php_module_startup(sapi_module)==FAILURE
-		|| zend_register_module(&php_pi3web_module)==FAILURE) {
+	if (php_module_startup(sapi_module, &php_pi3web_module, 1)==FAILURE) {
 		return FAILURE;
 	} else {
 		return SUCCESS;
@@ -276,37 +276,8 @@ static char *sapi_pi3web_read_cookies(TSRMLS_D)
 	return NULL;
 }
 
-static sapi_module_struct pi3web_sapi_module = {
-	"pi3web",				/* name */
-	"PI3WEB",				/* pretty name */
-
-	php_pi3web_startup,			/* startup */
-	php_module_shutdown_wrapper,		/* shutdown */
-	NULL,					/* activate */
-	NULL,					/* deactivate */
-	zend_pi3web_ub_write,			/* unbuffered write */
-	NULL,					/* flush */
-	NULL,					/* get uid */
-	NULL,					/* getenv */
-	php_error,				/* error handler */
-	sapi_pi3web_header_handler,		/* header handler */
-	sapi_pi3web_send_headers,		/* send headers handler */
-	NULL,					/* send header handler */
-	sapi_pi3web_read_post,			/* read POST data */
-	sapi_pi3web_read_cookies,		/* read Cookies */
-	NULL,					/* register server variables */
-	NULL,					/* Log message */
-	NULL,					/* Block interruptions */
-	NULL,					/* Unblock interruptions */	
-
-	STANDARD_SAPI_MODULE_PROPERTIES
-};
-
 static void init_request_info(LPCONTROL_BLOCK lpCB TSRMLS_DC)
 {
-	char *path_end = strrchr(lpCB->lpszFileName, PHP_DIR_SEPARATOR);
-	if ( path_end ) *path_end = PHP_DIR_SEPARATOR;
-
 	SG(server_context) = lpCB;
 	SG(request_info).request_method  = lpCB->lpszMethod;
 	SG(request_info).query_string    = lpCB->lpszQueryString;
@@ -319,18 +290,43 @@ static void init_request_info(LPCONTROL_BLOCK lpCB TSRMLS_DC)
 	SG(sapi_headers).http_response_code = 200;
 }
 
-static void hash_pi3web_variables(TSRMLS_D)
+static void sapi_pi3web_register_variables(zval *track_vars_array TSRMLS_DC)
 {
 	char static_variable_buf[PI3WEB_SERVER_VAR_BUF_SIZE];
 	char *variable_buf;
 	DWORD variable_len = PI3WEB_SERVER_VAR_BUF_SIZE;
 	char *variable;
 	char *strtok_buf = NULL;
-	LPCONTROL_BLOCK lpCB;
+	LPCONTROL_BLOCK lpCB = (LPCONTROL_BLOCK) SG(server_context);
+	char **p = pi3web_server_variables;
+	p++; // Jump over ALL_HTTP;
 
-	lpCB = (LPCONTROL_BLOCK) SG(server_context);
+	/* Register the standard server variables */
+	while (*p) {
+		variable_len = PI3WEB_SERVER_VAR_BUF_SIZE;
+		if (lpCB->GetServerVariable(lpCB->ConnID, *p, static_variable_buf, &variable_len)
+			&& (variable_len > 1)) {
+			php_register_variable(*p, static_variable_buf, track_vars_array TSRMLS_CC);
+		} else if (PIPlatform_getLastError()==PIAPI_EINVAL) {
+			variable_buf = (char *) emalloc(variable_len);
+			if (lpCB->GetServerVariable(lpCB->ConnID, *p, variable_buf, &variable_len)) {
+				php_register_variable(*p, variable_buf, track_vars_array TSRMLS_CC);
+			}
+			efree(variable_buf);
+		}
+		p++;
+	}
 
-	if (lpCB->GetServerVariable(lpCB->ConnID, "ALL_HTTP", static_variable_buf, &variable_len)) {
+	/* PHP_SELF support */
+	variable_len = PI3WEB_SERVER_VAR_BUF_SIZE;
+	if (lpCB->GetServerVariable(lpCB->ConnID, "SCRIPT_NAME", static_variable_buf, &variable_len)
+		&& (variable_len > 1)) {
+		php_register_variable("PHP_SELF", static_variable_buf, track_vars_array TSRMLS_CC);
+	}
+
+	variable_len = PI3WEB_SERVER_VAR_BUF_SIZE;
+	if (lpCB->GetServerVariable(lpCB->ConnID, "ALL_HTTP", static_variable_buf, &variable_len)
+		&& (variable_len > 1)) {
 		variable_buf = static_variable_buf;
 	} else {
 		if (PIPlatform_getLastError()==PIAPI_EINVAL) {
@@ -349,18 +345,11 @@ static void hash_pi3web_variables(TSRMLS_D)
 
 		if (colon) {
 			char *value = colon+1;
-			zval *entry;
-			ALLOC_ZVAL(entry);
-
 			while (*value==' ') {
 				value++;
 			}
 			*colon = 0;
-			INIT_PZVAL(entry);
-			entry->value.str.len = strlen(value);
-			entry->value.str.val = estrndup(value, entry->value.str.len);
-			entry->type = IS_STRING;
-			zend_hash_add(&EG(symbol_table), variable, strlen(variable)+1, &entry, sizeof(zval *), NULL);
+			php_register_variable(variable, value, track_vars_array TSRMLS_CC);
 			*colon = ':';
 		}
 		variable = php_strtok_r(NULL, "\r\n", &strtok_buf);
@@ -370,11 +359,35 @@ static void hash_pi3web_variables(TSRMLS_D)
 	}
 }
 
+static sapi_module_struct pi3web_sapi_module = {
+	"pi3web",				/* name */
+	"PI3WEB",				/* pretty name */
+
+	php_pi3web_startup,			/* startup */
+	php_module_shutdown_wrapper,		/* shutdown */
+	NULL,					/* activate */
+	NULL,					/* deactivate */
+	zend_pi3web_ub_write,			/* unbuffered write */
+	NULL,					/* flush */
+	NULL,					/* get uid */
+	NULL,					/* getenv */
+	php_error,				/* error handler */
+	sapi_pi3web_header_handler,		/* header handler */
+	sapi_pi3web_send_headers,		/* send headers handler */
+	NULL,					/* send header handler */
+	sapi_pi3web_read_post,			/* read POST data */
+	sapi_pi3web_read_cookies,		/* read Cookies */
+	sapi_pi3web_register_variables,	/* register server variables */
+	NULL,					/* Log message */
+	NULL,					/* Block interruptions */
+	NULL,					/* Unblock interruptions */	
+
+	STANDARD_SAPI_MODULE_PROPERTIES
+};
 
 DWORD PHP4_wrapper(LPCONTROL_BLOCK lpCB)
 {
 	zend_file_handle file_handle;
-	char *header_line;
 	int iRet = PIAPI_COMPLETED;
 	TSRMLS_FETCH();
 
@@ -384,15 +397,12 @@ DWORD PHP4_wrapper(LPCONTROL_BLOCK lpCB)
 		file_handle.type = ZEND_HANDLE_FILENAME;
 		file_handle.opened_path = NULL;
 
-		CG(extended_info) = 0;
 		init_request_info(lpCB TSRMLS_CC);
 		php_request_startup(TSRMLS_C);
 
-		hash_pi3web_variables(TSRMLS_C);
-
 		switch ( lpCB->dwBehavior ) {
 			case PHP_MODE_STANDARD:
-				iRet = ( php_execute_script( &file_handle TSRMLS_CC ) == SUCCESS ) ?
+				iRet = ( php_execute_script( &file_handle TSRMLS_CC ) ) ?
 					PIAPI_COMPLETED : PIAPI_ERROR;
 				break;
 			case PHP_MODE_HIGHLIGHT: {
@@ -408,9 +418,14 @@ DWORD PHP4_wrapper(LPCONTROL_BLOCK lpCB)
 					};
 				};
 				break;
-			case PHP_MODE_INDENT:
-				header_line = (char *)estrdup("Content-Type: text/plain");
-				sapi_add_header_ex(header_line, strlen(header_line), 1, 1 TSRMLS_CC);
+			case PHP_MODE_INDENT: {
+				sapi_header_line ctr = {0};
+
+				ctr.line = "Content-Type: text/plain";
+				ctr.line_len = strlen(ctr.line);
+				
+				sapi_header_op(SAPI_HEADER_REPLACE, &ctr TSRMLS_CC);
+			  }
 				if ( open_file_for_scanning( &file_handle TSRMLS_CC ) == SUCCESS )
 					{
 					zend_indent();
@@ -419,7 +434,6 @@ DWORD PHP4_wrapper(LPCONTROL_BLOCK lpCB)
 					{
 					iRet = PIAPI_ERROR;
 					};
-				efree(header_line);
 				break;
 			case PHP_MODE_LINT:
 				iRet = (php_lint_script(&file_handle TSRMLS_CC) == SUCCESS) ?

@@ -1,0 +1,1 @@
+Class-Path: ejbjar1.jar

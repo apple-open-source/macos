@@ -16,7 +16,7 @@ the functions are:
 int shmop_open(int key, string flags, int mode, int size)
 	
 	key 		- the key of/for the shared memory block
-	flags 		- 3 flags are avalible 
+	flags 		- 4 flags are avalible 
 				a for read only access (sets SHM_RDONLY)
 				w for read & write access
 				c create or open an existing segment (sets IPC_CREATE)

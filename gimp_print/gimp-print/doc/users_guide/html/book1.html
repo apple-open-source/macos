@@ -1,0 +1,483 @@
+<HTML
+><HEAD
+><TITLE
+>The User's Guide to the Gimp-Print Top Quality Printer Drivers</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.64
+"><LINK
+REL="NEXT"
+TITLE="Project History"
+HREF="c29.html"></HEAD
+><BODY
+CLASS="BOOK"
+><DIV
+CLASS="BOOK"
+><A
+NAME="AEN1"
+></A
+><DIV
+CLASS="TITLEPAGE"
+><H1
+CLASS="TITLE"
+><A
+NAME="AEN2"
+>The User's Guide to the Gimp-Print Top Quality Printer Drivers</A
+></H1
+><H3
+CLASS="AUTHOR"
+><A
+NAME="AEN6"
+>Andy Stewart</A
+></H3
+><P
+CLASS="COPYRIGHT"
+><A
+HREF="ln12.html"
+>Copyright</A
+> &copy; 2002 by Andy Stewart</P
+><DIV
+><DIV
+CLASS="ABSTRACT"
+><A
+NAME="AEN16"
+></A
+><P
+></P
+><P
+>    The Gimp-Print Top Quality Printer Drivers (hereafter
+called Gimp-Print) are a set of printer drivers written to
+take advantage of the full capabilities of a wide range of
+printers. These drivers should work on any POSIX compliant operating
+system (e.g. Linux, Solaris, IRIX, etc).  This document will explain how to
+use the Gimp-Print software to achieve high quality printouts from the
+<A
+HREF="http://www.gimp.org"
+TARGET="_top"
+>GIMP</A
+> (GNU Image
+Manipulation Program) and
+<A
+HREF="http://www.cups.org"
+TARGET="_top"
+>CUPS</A
+> (Common Unix Printing
+System).
+  </P
+><P
+>    Please note that in addition to using the Gimp-Print software as a
+print plugin for the GIMP, and as a set of printer drivers for CUPS, this
+software can also be compiled and used with the 
+<A
+HREF="http://www.ghostscript.com"
+TARGET="_top"
+>Ghostscript</A
+> software
+and with the 
+<A
+HREF="http://www.linuxprinting.org/foomatic.html"
+TARGET="_top"
+>Foomatic</A
+> 
+software.
+   </P
+><P
+>Regardless of whether the Gimp-Print software is used with the GIMP,
+CUPS, Ghostscript, or Foomatic, the print quality and printer settings
+remain the same.  However, use of the Gimp-Print with Ghostscript and
+Foomatic is not covered in this document.  These topics may be covered
+in a future revision of this document.
+  </P
+><P
+>  This document corresponds to version 4.2.0 and later of the Gimp-Print
+software. This document will serve as a guide to the user, and as such
+will not explain how to install Gimp-Print, CUPS, GIMP, Ghostscript,
+Foomatic, or any other related software.
+  </P
+><P
+>    Andy Stewart, the author, is the founder of the
+<A
+HREF="http://www.wlug.org"
+TARGET="_top"
+>Worcester Linux Users' Group</A
+> in
+Worcester, Massachusetts, USA.  The group was founded in July 1997 and has
+approximately 140 people on its mailing list.  Monthly meetings are
+held and all are invited.
+  </P
+><P
+>    In terms of "code", this is the author's first contribution to the
+open source community, and definitely his first experience with DocBook.
+Constructive comments, praise, words of encouragement, and the like
+will be most appreciated if e-mailed to the
+<A
+HREF="mailto:andystewart@attbi.com"
+TARGET="_top"
+>author</A
+>.
+  </P
+><P
+></P
+></DIV
+></DIV
+><HR></DIV
+><DIV
+CLASS="TOC"
+><DL
+><DT
+><B
+>Table of Contents</B
+></DT
+><DT
+>1. <A
+HREF="c29.html"
+>Project History</A
+></DT
+><DT
+>2. <A
+HREF="ch-gimp-and-gimp-print.html"
+>GIMP and Gimp-Print</A
+></DT
+><DD
+><DL
+><DT
+><A
+HREF="ch-gimp-and-gimp-print.html#AEN63"
+>Running the GIMP</A
+></DT
+><DT
+><A
+HREF="x85.html"
+>The Gimp-Print Graphical User Interface</A
+></DT
+><DD
+><DL
+><DT
+><A
+HREF="x85.html#AEN130"
+>Printer Settings</A
+></DT
+><DT
+><A
+HREF="x85.html#AEN234"
+>Preview</A
+></DT
+><DT
+><A
+HREF="x85.html#AEN258"
+>Position</A
+></DT
+><DT
+><A
+HREF="x85.html#AEN330"
+>Size</A
+></DT
+><DT
+><A
+HREF="x85.html#AEN357"
+>Image/Output Settings</A
+></DT
+><DT
+><A
+HREF="x85.html#AEN430"
+>Printing and Saving Settings</A
+></DT
+></DL
+></DD
+></DL
+></DD
+><DT
+>3. <A
+HREF="c447.html"
+>CUPS and Gimp-Print</A
+></DT
+><DD
+><DL
+><DT
+><A
+HREF="c447.html#AEN449"
+>Introduction</A
+></DT
+><DT
+><A
+HREF="x456.html"
+>CUPS Printer Installation</A
+></DT
+><DT
+><A
+HREF="x548.html"
+>Configuring your Printer in CUPS</A
+></DT
+><DT
+><A
+HREF="x562.html"
+>Using CUPS from the Command Line</A
+></DT
+></DL
+></DD
+><DT
+>4. <A
+HREF="c570.html"
+>Gimp-Print Utilities</A
+></DT
+><DD
+><DL
+><DT
+><A
+HREF="c570.html#AEN572"
+>escputil</A
+></DT
+><DD
+><DL
+><DT
+><A
+HREF="c570.html#AEN584"
+>Determining Ink Level</A
+></DT
+><DT
+><A
+HREF="c570.html#AEN593"
+>Error During Ink Level Determination</A
+></DT
+><DT
+><A
+HREF="c570.html#AEN597"
+>Nozzle Check</A
+></DT
+><DT
+><A
+HREF="c570.html#AEN602"
+>Clean the Print Head</A
+></DT
+><DT
+><A
+HREF="c570.html#AEN608"
+>Align the Print Head</A
+></DT
+><DT
+><A
+HREF="c570.html#AEN624"
+>Printer Identification</A
+></DT
+><DT
+><A
+HREF="c570.html#AEN628"
+>More Information</A
+></DT
+></DL
+></DD
+></DL
+></DD
+><DT
+>A. <A
+HREF="gfdl.html"
+>GNU Free Documentation License</A
+></DT
+><DD
+><DL
+><DT
+>0. <A
+HREF="gfdl.html#AEN637"
+>PREAMBLE</A
+></DT
+><DT
+>1. <A
+HREF="x642.html"
+>APPLICABILITY AND DEFINITIONS</A
+></DT
+><DT
+>2. <A
+HREF="x652.html"
+>VERBATIM COPYING</A
+></DT
+><DT
+>3. <A
+HREF="x656.html"
+>COPYING IN QUANTITY</A
+></DT
+><DT
+>4. <A
+HREF="x662.html"
+>MODIFICATIONS</A
+></DT
+><DT
+>5. <A
+HREF="x698.html"
+>COMBINING DOCUMENTS</A
+></DT
+><DT
+>6. <A
+HREF="x703.html"
+>COLLECTIONS OF DOCUMENTS</A
+></DT
+><DT
+>7. <A
+HREF="x707.html"
+>AGGREGATION WITH INDEPENDENT WORKS</A
+></DT
+><DT
+>8. <A
+HREF="x711.html"
+>TRANSLATION</A
+></DT
+><DT
+>9. <A
+HREF="x714.html"
+>TERMINATION</A
+></DT
+><DT
+>10. <A
+HREF="x717.html"
+>FUTURE REVISIONS OF THIS LICENSE</A
+></DT
+><DT
+><A
+HREF="x722.html"
+>How to use this License for your documents</A
+></DT
+></DL
+></DD
+></DL
+></DIV
+><DIV
+CLASS="LOT"
+><DL
+CLASS="LOT"
+><DT
+><B
+>List of Figures</B
+></DT
+><DT
+>2-1. <A
+HREF="ch-gimp-and-gimp-print.html#AEN67"
+>The Startup Window for The GIMP</A
+></DT
+><DT
+>2-2. <A
+HREF="ch-gimp-and-gimp-print.html#AEN78"
+>A Sample Image Displayed by The GIMP</A
+></DT
+><DT
+>2-3. <A
+HREF="x85.html#FIG-GIMP-PRINT-GUI"
+>The Gimp-Print Graphical User Interface 1 (GUI)</A
+></DT
+><DT
+>2-4. <A
+HREF="x85.html#FIG-GIMP-PRINT-GUI-1"
+>The Gimp-Print Graphical User Interface 2 (GUI)</A
+></DT
+><DT
+>2-5. <A
+HREF="x85.html#AEN153"
+>The Setup Printer Window</A
+></DT
+><DT
+>2-6. <A
+HREF="x85.html#AEN168"
+>The New Printer Window</A
+></DT
+><DT
+>2-7. <A
+HREF="x85.html#FIG-GIMP-PRINT-COLOR-ADJUST"
+>The Print Color Adjust Window</A
+></DT
+><DT
+>3-1. <A
+HREF="x456.html#AEN460"
+>The CUPS Startup Window</A
+></DT
+><DT
+>3-2. <A
+HREF="x456.html#AEN470"
+>The CUPS Printers Window</A
+></DT
+><DT
+>3-3. <A
+HREF="x456.html#AEN479"
+>The CUPS Admin Window</A
+></DT
+><DT
+>3-4. <A
+HREF="x456.html#FIG-CUPS-ADMIN-DEVICE"
+>The CUPS Admin Device Window</A
+></DT
+><DT
+>3-5. <A
+HREF="x456.html#AEN498"
+>The CUPS Admin Model/Driver Window</A
+></DT
+><DT
+>3-6. <A
+HREF="x456.html#FIG-CUPS-ADMIN-MODEL"
+>The 2nd CUPS Admin Model/Driver Window</A
+></DT
+><DT
+>3-7. <A
+HREF="x456.html#AEN530"
+>The CUPS Admin Success Window</A
+></DT
+><DT
+>3-8. <A
+HREF="x456.html#FIG-CUPS-MY-PRINTER"
+>The CUPS Window for Your Printer</A
+></DT
+><DT
+>3-9. <A
+HREF="x548.html#FIG-CUPS-PRINTER-CONFIG-WINDOW"
+>The CUPS Printer Cofiguration Window</A
+></DT
+></DL
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>&nbsp;</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+>&nbsp;</TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="c29.html"
+>Next</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>&nbsp;</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+>&nbsp;</TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>Project History</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

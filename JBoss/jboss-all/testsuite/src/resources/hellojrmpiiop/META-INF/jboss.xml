@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<jboss>
+  <enterprise-beans>
+    <session>
+      <ejb-name>HelloWorld</ejb-name>
+      <jndi-name>helloworld/Hello</jndi-name>
+      <configuration-name>Standard Stateless SessionBean</configuration-name>
+      <invoker-bindings>
+	   <invoker>
+	     <invoker-proxy-binding-name>stateless-rmi-invoker</invoker-proxy-binding-name>
+           </invoker>
+	   <invoker>
+	     <invoker-proxy-binding-name>iiop</invoker-proxy-binding-name>
+           </invoker>
+      </invoker-bindings>
+    </session>
+  </enterprise-beans>
+</jboss>

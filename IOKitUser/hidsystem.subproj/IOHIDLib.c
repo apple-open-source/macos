@@ -34,11 +34,16 @@
 #include <IOKit/iokitmig.h>
 
 kern_return_t
+IOFramebufferServerStart( void );
+
+kern_return_t
 IOHIDCreateSharedMemory( mach_port_t connect,
 	unsigned int version )
 {
     kern_return_t	err;
     unsigned int	len;
+
+    IOFramebufferServerStart();
 
     len = 0;
     err = io_connect_method_scalarI_scalarO( connect, 0, /*index*/
@@ -100,7 +105,7 @@ IOHIDPostEvent( io_connect_t        connect,
     event.location  = location;
     event.flags     = eventFlags;
     event.setFlags  = options & kIOHIDSetGlobalEventFlags;
-    event.setCursor = options & kIOHIDSetCursorPosition;
+    event.setCursor = options & (kIOHIDSetCursorPosition | kIOHIDSetRelativeCursorPosition);
 
     if ( eventDataVersion < 2 )
     {

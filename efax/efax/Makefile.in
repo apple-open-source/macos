@@ -1,0 +1,72 @@
+# Makefile for efax
+
+srcdir = @srcdir@
+VPATH = @srcdir@
+
+CC = @CC@
+INSTALL = @INSTALL@
+INSTALL_BIN    = $(INSTALL)  $(STRIP_FLAG) -m 755
+INSTALL_SCRIPT = $(INSTALL) -m 755
+INSTALL_MAN    = $(INSTALL) -m 644
+INSTALL_DATA   = $(INSTALL) -m 644
+INSTALL_DIR    = $(INSTALL) -d
+
+# Compile/load options. Add -DNO_STRERROR to CFLAGS if _strerror
+# is undefined
+
+CFLAGS = @CFLAGS@
+LDFLAGS = @LDFLAGS@
+
+# Change the following to the destination directories for
+# binaries and man pages. Probably /usr/bin and /usr/man on
+# Linux, /usr/local/{bin,man} on other systems.
+BINDIR = /usr/bin
+FAXBIN = /usr/libexec/fax
+MANDIR = /usr/share/man
+FAXDIR = /private/var/spool/fax
+LOGDIR = /private/var/log/fax
+CONFDIR= /private/etc
+
+.c.o:
+	$(CC) -c $(CFLAGS) $<
+
+all:	efax efix
+
+efax:	efax.o efaxlib.o efaxio.o efaxos.o efaxmsg.o
+	$(CC) -o efax $(LDFLAGS) efax.o efaxlib.o efaxio.o efaxos.o efaxmsg.o
+
+efix:	efix.o efaxlib.o efaxmsg.o
+	$(CC) -o efix $(LDFLAGS) efix.o efaxlib.o efaxmsg.o
+
+install:	all
+	$(INSTALL_DIR) $(DSTROOT)$(BINDIR)
+	$(INSTALL_DIR) $(DSTROOT)$(FAXBIN)
+	$(INSTALL_DIR) $(DSTROOT)$(CONFDIR)
+	$(INSTALL_DIR) $(DSTROOT)$(MANDIR)/man1
+	$(INSTALL_DIR) $(DSTROOT)$(FAXDIR)
+	$(INSTALL_DIR) $(DSTROOT)$(LOGDIR)
+	$(INSTALL_DIR) -m 775 $(DSTROOT)/Users
+	$(INSTALL_DIR) -m 777 $(DSTROOT)/Users/Shared
+	$(INSTALL_DIR) -m 775 $(DSTROOT)/Users/Shared/Faxes
+	$(INSTALL_BIN) efax efix $(DSTROOT)$(BINDIR)
+	$(INSTALL_SCRIPT) $(srcdir)/faxnotify $(srcdir)/imagestopdf $(DSTROOT)$(FAXBIN)
+	$(INSTALL_SCRIPT) $(srcdir)/fax $(DSTROOT)$(BINDIR)
+	$(INSTALL_DATA)   $(srcdir)/efax.rc $(DSTROOT)$(CONFDIR)
+	$(INSTALL_MAN)    $(srcdir)/fax.1 $(srcdir)/efax.1 $(srcdir)/efix.1 $(DSTROOT)$(MANDIR)/man1
+	if test "x$(SYMROOT)" != "x"; then \
+		$(INSTALL_DIR) $(SYMROOT); \
+		cp efax efix $(SYMROOT); \
+	fi
+
+install-strip:
+	$(MAKE) STRIP_FLAG='-s' install
+
+clean:	
+	rm -f efax efix efax.o efix.o efaxlib.o efaxio.o efaxos.o efaxmsg.o
+
+efax.o:		efax.c    efaxmsg.h efaxlib.h efaxio.h efaxos.h
+efaxio.o:	efaxio.c  efaxmsg.h           efaxio.h efaxos.h
+efaxos.o:	efaxos.c  efaxmsg.h efaxlib.h          efaxos.h
+efix.o:		efix.c    efaxmsg.h efaxlib.h           
+efaxlib.o:	efaxlib.c efaxmsg.h efaxlib.h           
+efaxmsg.o:	efaxmsg.c efaxmsg.h

@@ -41,6 +41,14 @@ int lastcol;
 /**/
 int histline;
 
+/* Previous search string use in an incremental search */
+
+/**/
+char *previous_search = NULL;
+
+/**/
+int previous_search_len = 0;
+
 #define ZLETEXT(X) ((X)->zle_text ? (X)->zle_text : (X)->text)
 
 /**/
@@ -48,7 +56,7 @@ void
 remember_edits(void)
 {
     Histent ent = quietgethist(histline);
-    if (metadiffer(ZLETEXT(ent), (char *) line, ll)) {
+    if (ent && metadiffer(ZLETEXT(ent), (char *) line, ll)) {
 	zsfree(ent->zle_text);
 	ent->zle_text = metafy((char *) line, ll, META_DUP);
     }
@@ -248,13 +256,13 @@ downlineorsearch(char **args)
 int
 acceptlineanddownhistory(char **args)
 {
-    Histent he;
+    Histent he = quietgethist(histline);
 
-    if (!(he = movehistent(quietgethist(histline), 1, HIST_FOREIGN)))
-	return 1;
-    zpushnode(bufstack, ztrdup(he->text));
+    if (he && (he = movehistent(he, 1, HIST_FOREIGN))) {
+	zpushnode(bufstack, ztrdup(he->text));
+	stackhist = he->histnum;
+    }
     done = 1;
-    stackhist = he->histnum;
     return 0;
 }
 
@@ -301,7 +309,8 @@ historysearchbackward(char **args)
 	str = srch_str;
 	hp = histpos;
     }
-    he = quietgethist(histline);
+    if (!(he = quietgethist(histline)))
+	return 1;
     while ((he = movehistent(he, -1, hist_skip_flags))) {
 	if (isset(HISTFINDNODUPS) && he->flags & HIST_DUP)
 	    continue;
@@ -349,7 +358,8 @@ historysearchforward(char **args)
 	str = srch_str;
 	hp = histpos;
     }
-    he = quietgethist(histline);
+    if (!(he = quietgethist(histline)))
+	return 1;
     while ((he = movehistent(he, 1, hist_skip_flags))) {
 	if (isset(HISTFINDNODUPS) && he->flags & HIST_DUP)
 	    continue;
@@ -410,46 +420,138 @@ endofhistory(char **args)
 int
 insertlastword(char **args)
 {
-    int n;
+    int n, nwords, histstep = -1, wordpos = 0, deleteword = 0;
     char *s, *t;
-    Histent he;
+    Histent he = NULL;
+    LinkList l = NULL;
+    LinkNode node;
 
-/* multiple calls will now search back through the history, pem */
     static char *lastinsert;
-    static int lasthist, lastpos;
-    int evhist = addhistnum(curhist, -1, HIST_FOREIGN), save;
+    static int lasthist, lastpos, lastlen;
+    int evhist, save;
 
-    if (lastinsert) {
-	int lastlen = ztrlen(lastinsert);
-	int pos = cs;
+    /*
+     * If we have at least one argument, the first is the history
+     * step.  The default is -1 (go back).  Repeated calls take
+     * a step in this direction.  A value of 0 is allowed and doesn't
+     * move the line.
+     *
+     * If we have two arguments, the second is the position of
+     * the word to extract, 1..N.  The default is to use the
+     * numeric argument, or the last word if that is not set.
+     *
+     * If we have three arguments, we reset the history pointer to
+     * the current history event before applying the history step.
+     */
+    if (*args)
+    {
+	histstep = (int)zstrtol(*args, NULL, 10);
+	if (*++args)
+	{
+	    wordpos = (int)zstrtol(*args, NULL, 10);
+	    if (*++args)
+		lasthist = curhist;
+	}
+    }
 
-	if (lastpos <= pos &&
-	    lastlen == pos - lastpos &&
-	    memcmp(lastinsert, (char *)&line[lastpos], lastlen) == 0) {
-	    evhist = addhistnum(lasthist, -1, HIST_FOREIGN);
+    if (lastinsert && lastlen &&
+	lastpos <= cs &&
+	lastlen == cs - lastpos &&
+	memcmp(lastinsert, (char *)&line[lastpos], lastlen) == 0)
+	deleteword = 1;
+    else
+	lasthist = curhist;
+    evhist = histstep ? addhistnum(lasthist, histstep, HIST_FOREIGN) :
+	lasthist;
+
+    if (evhist == curhist) {
+	/*
+	 * The line we are currently editing.  If we are going to
+	 * replace an existing word, delete the old one now to avoid
+	 * confusion.
+	 */
+	if (deleteword) {
+	    int pos = cs;
 	    cs = lastpos;
 	    foredel(pos - cs);
+	    /*
+	     * Mark that this has been deleted.
+	     * For consistency with history lines, we really ought to
+	     * insert it back if the current command later fails. But
+	     * - we can't be bothered
+	     * - the problem that this can screw up going to other
+	     *   lines in the history because we don't update
+	     *   the history line isn't really relevant
+	     * - you can see what you're copying, dammit, so you
+	     *   shouldn't make errors.
+	     * Of course, I could have implemented it in the time
+	     * it took to say why I haven't.
+	     */
+	    deleteword = 0;
 	}
-	zsfree(lastinsert);
-	lastinsert = NULL;
+	/*
+	 * Can only happen fail if the line is empty, I hope.
+	 * In that case, we don't need to worry about restoring
+	 * a deleted word, because that can only have come
+	 * from a non-empty line.  I think.
+	 */
+	if (!(l = bufferwords(NULL, NULL, NULL)))
+	    return 1;
+	nwords = countlinknodes(l);
+    } else {
+	/* Some stored line. */
+	if (!(he = quietgethist(evhist)) || !he->nwords)
+	    return 1;
+	nwords = he->nwords;
     }
-    if (!(he = quietgethist(evhist)) || !he->nwords)
-	return 1;
-    if (zmult > 0) {
-	n = he->nwords - (zmult - 1);
+    if (wordpos) {
+	n = (wordpos > 0) ? wordpos : nwords + wordpos + 1;
+    } else if (zmult > 0) {
+	n = nwords - (zmult - 1);
     } else {
 	n = 1 - zmult;
     }
-    if (n < 1 || n > he->nwords)
+    if (n < 1 || n > nwords) {
+	/*
+	 * We can't put in the requested word, but we did find the
+	 * history entry, so we remember the position in the history
+	 * list.  This avoids getting stuck on a history line with
+	 * fewer words than expected.  The cursor location cs
+	 * has not changed, and lastinsert is still valid.
+	 */
+	lasthist = evhist;
 	return 1;
-    s = he->text + he->words[2*n-2];
-    t = he->text + he->words[2*n-1];
+    }
+    /*
+     * Only remove the old word from the command line if we have
+     * successfully found a new one to insert.
+     */
+    if (deleteword > 0) {
+	int pos = cs;
+	cs = lastpos;
+	foredel(pos - cs);
+    }
+    if (lastinsert) {
+	zfree(lastinsert, lastlen);
+	lastinsert = NULL;
+    }
+    if (l) {
+	for (node = firstnode(l); --n; incnode(node))
+	    ;
+	s = (char *)getdata(node);
+	t = s + strlen(s);
+    } else {
+	s = he->text + he->words[2*n-2];
+	t = he->text + he->words[2*n-1];
+    }
+
     save = *t;
     *t = '\0';			/* ignore trailing whitespace */
-
     lasthist = evhist;
     lastpos = cs;
-    lastinsert = ztrdup(s);
+    lastlen = t - s;
+    lastinsert = zalloc(t - s);
+    memcpy(lastinsert, s, lastlen);
     n = zmult;
     zmult = 1;
     doinsert(s);
@@ -486,7 +588,9 @@ setlocalhistory(char **args)
 int
 zle_goto_hist(int ev, int n, int skipdups)
 {
-    Histent he = movehistent(quietgethist(ev), n, hist_skip_flags);
+    Histent he = quietgethist(ev);
+    if (!he || !(he = movehistent(he, n, hist_skip_flags)))
+	return 1;
     if (skipdups && n) {
 	n = n < 0? -1 : 1;
 	while (he && !metadiffer(ZLETEXT(he), (char *) line, ll))
@@ -660,10 +764,11 @@ doisearch(char **args, int dir)
     int odir = dir, sens = zmult == 1 ? 3 : 1;
     int hl = histline, savekeys = -1, feep = 0;
     Thingy cmd;
-    char *okeymap = curkeymapname;
-    static char *previous_search = NULL;
-    static int previous_search_len = 0;
+    char *okeymap;
     Histent he;
+
+    if (!(he = quietgethist(hl)))
+	return;
 
     clearlist = 1;
 
@@ -678,7 +783,7 @@ doisearch(char **args, int dir)
     strcpy(ibuf, ISEARCH_PROMPT);
     memcpy(ibuf + NORM_PROMPT_POS, (dir == 1) ? "fwd" : "bck", 3);
     remember_edits();
-    he = quietgethist(hl);
+    okeymap = ztrdup(curkeymapname);
     s = ZLETEXT(he);
     selectkeymap("main", 1);
     pos = metalen(s, cs);
@@ -884,6 +989,7 @@ doisearch(char **args, int dir)
     }
     statusline = NULL;
     selectkeymap(okeymap, 1);
+    zsfree(okeymap);
     /*
      * Don't allow unused characters provided as a string to the
      * widget to overflow and be used as separated commands.
@@ -921,9 +1027,9 @@ acceptandinfernexthistory(char **args)
 int
 infernexthistory(char **args)
 {
-    Histent he;
+    Histent he = quietgethist(histline);
 
-    if (!(he = infernexthist(quietgethist(histline), args)))
+    if (!he || !(he = infernexthist(he, args)))
 	return 1;
     zle_setline(he);
     return 0;
@@ -961,7 +1067,7 @@ getvisrchstr(void)
     char *sbuf = zhalloc(80);
     int sptr = 1, ret = 0, ssbuf = 80, feep = 0;
     Thingy cmd;
-    char *okeymap = curkeymapname;
+    char *okeymap = ztrdup(curkeymapname);
 
     if (vipenultsrchstr) {
 	zsfree(vipenultsrchstr);
@@ -1045,6 +1151,7 @@ getvisrchstr(void)
     }
     statusline = NULL;
     selectkeymap(okeymap, 1);
+    zsfree(okeymap);
     return ret;
 }
 
@@ -1106,7 +1213,8 @@ virepeatsearch(char **args)
 	visrchsense = -visrchsense;
     }
     t0 = strlen(visrchstr);
-    he = quietgethist(histline);
+    if (!(he = quietgethist(histline)))
+	return 1;
     while ((he = movehistent(he, visrchsense, hist_skip_flags))) {
 	if (isset(HISTFINDNODUPS) && he->flags & HIST_DUP)
 	    continue;
@@ -1154,7 +1262,8 @@ historybeginningsearchbackward(char **args)
 	zmult = n;
 	return ret;
     }
-    he = quietgethist(histline);
+    if (!(he = quietgethist(histline)))
+	return 1;
     while ((he = movehistent(he, -1, hist_skip_flags))) {
 	if (isset(HISTFINDNODUPS) && he->flags & HIST_DUP)
 	    continue;
@@ -1190,7 +1299,8 @@ historybeginningsearchforward(char **args)
 	zmult = n;
 	return ret;
     }
-    he = quietgethist(histline);
+    if (!(he = quietgethist(histline)))
+	return 1;
     while ((he = movehistent(he, 1, hist_skip_flags))) {
 	if (isset(HISTFINDNODUPS) && he->flags & HIST_DUP)
 	    continue;

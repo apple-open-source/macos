@@ -56,7 +56,7 @@ SSLProcessHandshakeRecord(SSLRecord rec, SSLContext *ctx)
     {   if ((err = SSLReallocBuffer(ctx->fragmentedMessageCache,
                     ctx->fragmentedMessageCache.length + rec.contents.length,
                     ctx)) != 0)
-        {   SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);
+        {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
             return err;
         }
         memcpy(ctx->fragmentedMessageCache.data + ctx->fragmentedMessageCache.length,
@@ -93,7 +93,7 @@ SSLProcessHandshakeRecord(SSLRecord rec, SSLContext *ctx)
         if (message.type != SSL_HdskHelloRequest)
         {   if ((err = SSLHashSHA1.update(ctx->shaState, messageData)) != 0 ||
                 (err = SSLHashMD5.update(ctx->md5State, messageData)) != 0)
-            {   SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);
+            {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
                 return err;
             }
         }
@@ -106,7 +106,7 @@ SSLProcessHandshakeRecord(SSLRecord rec, SSLContext *ctx)
     {   /* If there isn't a cache, allocate one */
         if (ctx->fragmentedMessageCache.data == 0)
         {   if ((err = SSLAllocBuffer(ctx->fragmentedMessageCache, remaining, ctx)) != 0)
-            {   SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);
+            {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
                 return err;
             }
         }
@@ -117,7 +117,7 @@ SSLProcessHandshakeRecord(SSLRecord rec, SSLContext *ctx)
     }
     else if (ctx->fragmentedMessageCache.data != 0)
     {   if ((err = SSLFreeBuffer(ctx->fragmentedMessageCache, ctx)) != 0)
-        {   SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);
+        {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
             return err;
         }
     }
@@ -156,7 +156,13 @@ SSLProcessHandshakeMessage(SSLHandshakeMsg message, SSLContext *ctx)
             err = SSLProcessCertificate(message.contents, ctx);
 			if(ctx->protocolSide == SSL_ServerSide) {
 				if(err) {
-					ctx->clientCertState = kSSLClientCertRejected;
+					/*
+					 * Error could be from no cert (when we require one) 
+					 * or invalid cert
+					 */
+					if(ctx->peerCert != NULL) {
+						ctx->clientCertState = kSSLClientCertRejected;
+					}
 				}
 				else if(ctx->peerCert != NULL) {
 					/* 
@@ -220,7 +226,7 @@ SSLProcessHandshakeMessage(SSLHandshakeMsg message, SSLContext *ctx)
             break;
     }
     
-    if (err)
+    if (err && !ctx->sentFatalAlert) 
     {   if (err == errSSLProtocol)
             SSLFatalSessionAlert(SSL_AlertIllegalParam, ctx);
         else if (err == errSSLNegotiation)
@@ -257,28 +263,38 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
             break;
         case SSL_HdskClientHello:
             assert(ctx->protocolSide == SSL_ServerSide);
+			ctx->sessionMatch = 0;
             if (ctx->sessionID.data != 0)   
 			/* If session ID != 0, client is trying to resume */
             {   if (ctx->resumableSession.data != 0)
-                {   if ((err = SSLRetrieveSessionID(ctx->resumableSession, 
+                {   
+					SSLProtocolVersion sessionProt;
+					if ((err = SSLRetrieveSessionID(ctx->resumableSession, 
 								&sessionIdentifier, ctx)) != 0)
                         return err;
-                    if (sessionIdentifier.length == ctx->sessionID.length &&
-                        memcmp(sessionIdentifier.data, ctx->sessionID.data, 
-										ctx->sessionID.length) == 0)
+					if ((err = SSLRetrieveSessionProtocolVersion(ctx->resumableSession, 
+							&sessionProt, ctx)) != 0)
+					{   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
+						return err;
+					}
+					if ((sessionIdentifier.length == ctx->sessionID.length) &&
+                        (memcmp(sessionIdentifier.data, ctx->sessionID.data, 
+							ctx->sessionID.length) == 0) &&
+					    (sessionProt == ctx->negProtocolVersion)) 
                     {   /* Everything matches; resume the session */
 						sslLogResumSessDebug("===RESUMING SSL3 server-side session");
                         if ((err = SSLInstallSessionFromData(ctx->resumableSession,
 								ctx)) != 0)
-                        {   SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);
+                        {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
                             return err;
                         }
+						ctx->sessionMatch = 1;
                         if ((err = SSLPrepareAndQueueMessage(SSLEncodeServerHello, 
 									ctx)) != 0)
                             return err;
                         if ((err = SSLInitPendingCiphers(ctx)) != 0 ||
                             (err = SSLFreeBuffer(sessionIdentifier, ctx)) != 0)
-                        {   SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);
+                        {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
                             return err;
                         }
                         if ((err = 
@@ -288,7 +304,7 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
                         /* Install new cipher spec on write side */
                         if ((err = SSLDisposeCipherSuite(&ctx->writeCipher, 
 								ctx)) != 0)
-                        {   SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);
+                        {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
                             return err;
                         }
                         ctx->writeCipher = ctx->writePending;
@@ -311,12 +327,12 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
 					}
                     if ((err = SSLFreeBuffer(sessionIdentifier, ctx)) != 0 ||
                         (err = SSLDeleteSessionData(ctx)) != 0)
-                    {   SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);
+                    {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
                         return err;
                     }
                 }
                 if ((err = SSLFreeBuffer(ctx->sessionID, ctx)) != 0)
-                {   SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);
+                {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
                     return err;
                 }
             }
@@ -332,7 +348,7 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
                 if (err == 0)
                 {   
                 	if((err = sslRand(ctx, &ctx->sessionID)) != 0)
-                    {   SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);
+                    {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
                         return err;
                     }
                 }
@@ -355,6 +371,12 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
                     break;
                 #endif	/* APPLE_DH */
                 default:        /* everything else */
+					if(ctx->localCert == NULL) {
+						/* no cert but configured for, and negotiated, a 
+						 * ciphersuite which requires one */
+						sslErrorLog("SSLAdvanceHandshake: No server key!\n");
+						return errSSLBadConfiguration;
+					}
                     if ((err = SSLPrepareAndQueueMessage(SSLEncodeCertificate, 
 							ctx)) != 0)
                         return err;
@@ -367,32 +389,36 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
 			 * private key), but conceptually in this code, we do it if 
 			 * enabled by the presence of encryptPrivKey. 
 			 */
-			#if		SSL_SERVER_KEYEXCH_HACK	
-				/*
-					* This is currently how we work with Netscape. It requires
-					* a CSP which can handle private keys which can both
-					* sign and decrypt. 
-					*/
-				if((ctx->selectedCipherSpec->keyExchangeMethod != SSL_RSA) &&
-					(ctx->encryptPrivKey != NULL)) {
+			{
+				bool doServerKeyExch = false;
+				switch(ctx->selectedCipherSpec->keyExchangeMethod) {
+					case SSL_RSA_EXPORT:
+					#if !SSL_SERVER_KEYEXCH_HACK
+					/* the "proper" way - app decides. */
+					case SSL_RSA:
+					#endif
+						if(ctx->encryptPrivKey != NULL) {
+							doServerKeyExch = true;
+						}
+						break;
+					case SSL_DH_anon:
+					case SSL_DH_anon_EXPORT:
+					case SSL_DHE_RSA:
+					case SSL_DHE_RSA_EXPORT:
+					case SSL_DHE_DSS:
+					case SSL_DHE_DSS_EXPORT:
+						doServerKeyExch = true;
+						break;
+					default:
+						break;
+				}
+				if(doServerKeyExch) {
 					err = SSLPrepareAndQueueMessage(SSLEncodeServerKeyExchange, ctx);
 					if(err) {
 						return err;
 					}
 				}
-			#else	/* !SSL_SERVER_KEYEXCH_HACK */
-				/*
-					* This is, I believe the "right" way, but Netscape doesn't
-					* work this way.
-					*/
-				if (ctx->encryptPrivKey != NULL) {
-					err = SSLPrepareAndQueueMessage(SSLEncodeServerKeyExchange, ctx);
-					if(err) {
-						return err;
-					}
-				}
-			#endif	/* SSL_SERVER_KEYEXCH_HACK */
-
+			}
             if (ctx->tryClientAuth)
             {   if ((err = SSLPrepareAndQueueMessage(SSLEncodeCertificateRequest, 
 						ctx)) != 0)
@@ -410,24 +436,34 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
             }
             break;
         case SSL_HdskServerHello:
+			ctx->sessionMatch = 0;
             if (ctx->resumableSession.data != 0 && ctx->sessionID.data != 0)
-            {   if ((err = SSLRetrieveSessionID(ctx->resumableSession, 
+            {   
+				SSLProtocolVersion sessionProt;
+				if ((err = SSLRetrieveSessionID(ctx->resumableSession, 
 						&sessionIdentifier, ctx)) != 0)
-                {   SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);
+                {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
                     return err;
                 }
-                if (sessionIdentifier.length == ctx->sessionID.length &&
-                    memcmp(sessionIdentifier.data, ctx->sessionID.data, 
-							ctx->sessionID.length) == 0)
+				if ((err = SSLRetrieveSessionProtocolVersion(ctx->resumableSession, 
+						&sessionProt, ctx)) != 0)
+                {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
+                    return err;
+                }
+                if ((sessionIdentifier.length == ctx->sessionID.length) &&
+                    (memcmp(sessionIdentifier.data, ctx->sessionID.data, 
+							ctx->sessionID.length) == 0) &&
+					(sessionProt == ctx->negProtocolVersion)) 
                 {   /* Everything matches; resume the session */
 					sslLogResumSessDebug("===RESUMING SSL3 client-side session");
                     if ((err = SSLInstallSessionFromData(ctx->resumableSession,
 							ctx)) != 0 ||
                         (err = SSLInitPendingCiphers(ctx)) != 0 ||
                         (err = SSLFreeBuffer(sessionIdentifier, ctx)) != 0)
-                    {   SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);
+                    {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
                         return err;
                     }
+					ctx->sessionMatch = 1;
                     SSLChangeHdskState(ctx, SSL_HdskStateChangeCipherSpec);
                     break;
                 }
@@ -436,7 +472,7 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
 							"session");
 				}
                 if ((err = SSLFreeBuffer(sessionIdentifier, ctx)) != 0)
-                {   SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);
+                {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
                     return err;
                 }
             }
@@ -549,7 +585,7 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
 			assert(ctx->sslTslCalls != NULL);
             if ((err = ctx->sslTslCalls->generateMasterSecret(ctx)) != 0 ||
                 (err = SSLInitPendingCiphers(ctx)) != 0)
-            {   SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);
+            {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
                 return err;
             }
 			memset(ctx->preMasterSecret.data, 0, ctx->preMasterSecret.length);
@@ -568,7 +604,7 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
 			}
             /* Install new cipher spec on write side */
             if ((err = SSLDisposeCipherSuite(&ctx->writeCipher, ctx)) != 0)
-            {   SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);
+            {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
                 return err;
             }
             ctx->writeCipher = ctx->writePending;
@@ -591,7 +627,7 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
  			assert(ctx->sslTslCalls != NULL);
 			if ((err = ctx->sslTslCalls->generateMasterSecret(ctx)) != 0 ||
                 (err = SSLInitPendingCiphers(ctx)) != 0)
-            {   SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);
+            {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
                 return err;
             }
 			memset(ctx->preMasterSecret.data, 0, ctx->preMasterSecret.length);
@@ -616,7 +652,7 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
                 
                 /* Install new cipher spec on write side */
                 if ((err = SSLDisposeCipherSuite(&ctx->writeCipher, ctx)) != 0)
-                {   SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);
+                {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
                     return err;
                 }
                 ctx->writeCipher = ctx->writePending;
@@ -630,10 +666,10 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
                 ctx->writeCipher.ready = 1;
             }
             if (ctx->protocolSide == SSL_ServerSide) {
-                SSLChangeHdskState(ctx, SSL2_HdskStateServerReady);
+                SSLChangeHdskState(ctx, SSL_HdskStateServerReady);
             }
             else {
-                SSLChangeHdskState(ctx, SSL2_HdskStateClientReady);
+                SSLChangeHdskState(ctx, SSL_HdskStateClientReady);
             }
             if (ctx->peerID.data != 0)
                 SSLAddSessionData(ctx);
@@ -659,7 +695,7 @@ SSLPrepareAndQueueMessage(EncodeMessageFunc msgFunc, SSLContext *ctx)
     if (rec.contentType == SSL_RecordTypeHandshake)
     {   if ((err = SSLHashSHA1.update(ctx->shaState, rec.contents)) != 0 ||
             (err = SSLHashMD5.update(ctx->md5State, rec.contents)) != 0)
-        {   SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);
+        {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
             goto fail;
         }
         SSLLogHdskMsg((SSLHandshakeType)rec.contents.data[0], 1);
@@ -685,7 +721,7 @@ SSL3ReceiveSSL2ClientHello(SSLRecord rec, SSLContext *ctx)
     
     if ((err = SSLHashSHA1.update(ctx->shaState, rec.contents)) != 0 ||
         (err = SSLHashMD5.update(ctx->md5State, rec.contents)) != 0)
-    {   SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);
+    {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
         return err;
     }
     
@@ -746,10 +782,10 @@ char *hdskStateToStr(SSLHandshakeState state)
 			return "SSL2_ServerVerify";	
 		case SSL2_HdskStateServerFinished:
 			return "SSL2_ServerFinished";	
-		case SSL2_HdskStateServerReady:
-			return "SSL2_ServerReady";	
-		case SSL2_HdskStateClientReady:
-			return "SSL2_ClientReady";
+		case SSL_HdskStateServerReady:
+			return "SSL_ServerReady";	
+		case SSL_HdskStateClientReady:
+			return "SSL_ClientReady";
 		default:
 			sprintf(badStr, "Unknown state (%d(d)", state);
 			return badStr;

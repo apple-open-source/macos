@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(sem_getvalue, 2)
-	blr
 

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE web-app
+    PUBLIC "-//Sun Microsystems, Inc.//DTD Web Application 2.2//EN"
+    "http://java.sun.com/j2ee/dtds/web-app_2_2.dtd">
+
+<web-app>
+<!-- ### Servlets -->
+    <servlet>
+        <servlet-name>BootServlet</servlet-name>
+        <servlet-class>org.jboss.boot.servlets.BootServlet</servlet-class>
+        <init-param>
+            <param-name>configBaseDir</param-name>
+            <param-value>G:/tmp/boot</param-value>
+        </init-param>
+        <init-param>
+            <param-name>transformBaseDir</param-name>
+            <param-value>G:/tmp/boot/transform</param-value>
+        </init-param>
+        <load-on-startup>1</load-on-startup>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>BootServlet</servlet-name>
+        <url-pattern>/BootServlet/*</url-pattern>
+    </servlet-mapping>
+
+    <!-- The Welcome File List -->
+    <welcome-file-list>
+        <welcome-file>index.html</welcome-file>
+    </welcome-file-list>
+
+</web-app>

@@ -1,0 +1,15 @@
+service microsoft-ds
+{
+	disable		= yes
+	socket_type	= stream
+	protocol	= tcp
+	wait		= no
+	user		= root
+	server		= /usr/sbin/smbd
+	groups		= yes
+	flags		= REUSE
+	log_on_success  =
+	log_on_failure  =
+	instances       = 60
+	cps             = 40 30
+}

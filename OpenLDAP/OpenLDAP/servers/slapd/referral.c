@@ -1,7 +1,7 @@
 /* referral.c - muck with referrals */
-/* $OpenLDAP: pkg/ldap/servers/slapd/referral.c,v 1.7 2002/01/16 02:01:19 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/referral.c,v 1.7.2.6 2003/03/03 17:10:07 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -11,7 +11,6 @@
 
 #include <ac/socket.h>
 #include <ac/errno.h>
-#include <ac/signal.h>
 #include <ac/string.h>
 #include <ac/ctype.h>
 #include <ac/time.h>
@@ -27,8 +26,8 @@
  */
 static char * referral_dn_muck(
 	const char * refDN,
-	const char * baseDN,
-	const char * targetDN )
+	struct berval * baseDN,
+	struct berval * targetDN )
 {
 	int rc;
 	struct berval bvin;
@@ -38,7 +37,7 @@ static char * referral_dn_muck(
 
 	if( !baseDN ) {
 		/* no base, return target */
-		return targetDN ? ch_strdup( targetDN ) : NULL;
+		return targetDN ? ch_strdup( targetDN->bv_val ) : NULL;
 	}
 
 	if( refDN ) {
@@ -57,13 +56,10 @@ static char * referral_dn_muck(
 		 *	if refDN present return refDN
 		 *  else return baseDN
 		 */
-		return nrefDN.bv_len ? nrefDN.bv_val : ch_strdup( baseDN );
+		return nrefDN.bv_len ? nrefDN.bv_val : ch_strdup( baseDN->bv_val );
 	}
 
-	bvin.bv_val = (char *)targetDN;
-	bvin.bv_len = strlen( targetDN );
-
-	rc = dnPretty2( NULL, &bvin, &ntargetDN );
+	rc = dnPretty2( NULL, targetDN, &ntargetDN );
 	if( rc != LDAP_SUCCESS ) {
 		/* Invalid targetDN */
 		ch_free( nrefDN.bv_val );
@@ -71,10 +67,7 @@ static char * referral_dn_muck(
 	}
 
 	if( nrefDN.bv_len ) {
-		bvin.bv_val = (char *)baseDN;
-		bvin.bv_len = strlen( baseDN );
-
-		rc = dnPretty2( NULL, &bvin, &nbaseDN );
+		rc = dnPretty2( NULL, baseDN, &nbaseDN );
 		if( rc != LDAP_SUCCESS ) {
 			/* Invalid baseDN */
 			ch_free( nrefDN.bv_val );
@@ -82,7 +75,7 @@ static char * referral_dn_muck(
 			return NULL;
 		}
 
-		if( dn_match( &nbaseDN, &nrefDN ) == 0 ) {
+		if( dn_match( &nbaseDN, &nrefDN ) ) {
 			ch_free( nrefDN.bv_val );
 			ch_free( nbaseDN.bv_val );
 			return ntargetDN.bv_val;
@@ -108,7 +101,17 @@ static char * referral_dn_muck(
 			}
 
 			muck.bv_len = ntargetDN.bv_len + nrefDN.bv_len - nbaseDN.bv_len;
-			muck.bv_val = ch_malloc( muck.bv_len + 1 );
+			muck.bv_val = SLAP_MALLOC( muck.bv_len + 1 );
+			if( muck.bv_val == NULL ) {
+#ifdef NEW_LOGGING
+				LDAP_LOG( OPERATION, CRIT, 
+					"referral_dn_muck: SLAP_MALLOC failed\n", 0, 0, 0 );
+#else
+				Debug( LDAP_DEBUG_ANY,
+					"referral_dn_muck: SLAP_MALLOC failed\n", 0, 0, 0 );
+#endif
+				return NULL;
+			}
 
 			strncpy( muck.bv_val, ntargetDN.bv_val,
 				ntargetDN.bv_len-nbaseDN.bv_len );
@@ -153,9 +156,9 @@ int validate_global_referral( const char *url )
 	default:
 		/* other error, bail */
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "config", LDAP_LEVEL_CRIT,
+		LDAP_LOG( CONFIG, CRIT, 
 			"referral: invalid URL (%s): %s (%d)\n",
-			url, "" /* ldap_url_error2str(rc) */, rc ));
+			url, "" /* ldap_url_error2str(rc) */, rc );
 #else
 		Debug( LDAP_DEBUG_ANY,
 			"referral: invalid URL (%s): %s (%d)\n",
@@ -168,9 +171,7 @@ int validate_global_referral( const char *url )
 
 	if( lurl->lud_dn && *lurl->lud_dn ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "config", LDAP_LEVEL_CRIT,
-			"referral: URL (%s): contains DN\n",
-			url ));
+		LDAP_LOG( CONFIG, CRIT, "referral: URL (%s): contains DN\n", url, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
 			"referral: URL (%s): contains DN\n",
@@ -180,9 +181,8 @@ int validate_global_referral( const char *url )
 
 	} else if( lurl->lud_attrs ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "config", LDAP_LEVEL_CRIT,
-			"referral: URL (%s): requests attributes\n",
-			url ));
+		LDAP_LOG( CONFIG, CRIT, 
+			"referral: URL (%s): requests attributes\n", url, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
 			"referral: URL (%s): requests attributes\n",
@@ -192,9 +192,8 @@ int validate_global_referral( const char *url )
 
 	} else if( lurl->lud_scope != LDAP_SCOPE_DEFAULT ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "config", LDAP_LEVEL_CRIT,
-			"referral: URL (%s): contains explicit scope\n",
-			url ));
+		LDAP_LOG( CONFIG, CRIT, 
+			"referral: URL (%s): contains explicit scope\n", url, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
 			"referral: URL (%s): contains explicit scope\n",
@@ -204,9 +203,8 @@ int validate_global_referral( const char *url )
 
 	} else if( lurl->lud_filter ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "config", LDAP_LEVEL_CRIT,
-			"referral: URL (%s): contains explicit filter\n",
-			url ));
+		LDAP_LOG( CONFIG, CRIT, 
+			"referral: URL (%s): contains explicit filter\n", url, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
 			"referral: URL (%s): contains explicit filter\n",
@@ -237,7 +235,17 @@ BerVarray referral_rewrite(
 
 	if( i < 1 ) return NULL;
 
-	refs = ch_malloc( (i+1) * sizeof( struct berval ) );
+	refs = SLAP_MALLOC( (i+1) * sizeof( struct berval ) );
+	if( refs == NULL ) {
+#ifdef NEW_LOGGING
+		LDAP_LOG( OPERATION, CRIT, 
+			"referral_rewrite: SLAP_MALLOC failed\n", 0, 0, 0 );
+#else
+		Debug( LDAP_DEBUG_ANY,
+			"referral_rewrite: SLAP_MALLOC failed\n", 0, 0, 0 );
+#endif
+		return NULL;
+	}
 
 	for( iv=in,jv=refs; iv->bv_val != NULL ; iv++ ) {
 		LDAPURLDesc *url;
@@ -255,8 +263,7 @@ BerVarray referral_rewrite(
 			char *dn = url->lud_dn;
 			url->lud_dn = referral_dn_muck(
 				( dn && *dn ) ? dn : NULL,
-				base ? base->bv_val : NULL,
-				target ? target->bv_val : NULL ); 
+				base, target );
 
 			ldap_memfree( dn );
 		}
@@ -307,7 +314,17 @@ BerVarray get_entry_referrals(
 
 	if( i < 1 ) return NULL;
 
-	refs = ch_malloc( (i + 1) * sizeof(struct berval));
+	refs = SLAP_MALLOC( (i + 1) * sizeof(struct berval));
+	if( refs == NULL ) {
+#ifdef NEW_LOGGING
+		LDAP_LOG( OPERATION, CRIT, 
+			"get_entry_referrals: SLAP_MALLOC failed\n", 0, 0, 0 );
+#else
+		Debug( LDAP_DEBUG_ANY,
+			"get_entry_referrals: SLAP_MALLOC failed\n", 0, 0, 0 );
+#endif
+		return NULL;
+	}
 
 	for( iv=attr->a_vals, jv=refs; iv->bv_val != NULL; iv++ ) {
 		unsigned k;
@@ -315,7 +332,7 @@ BerVarray get_entry_referrals(
 
 		/* trim the label */
 		for( k=0; k<jv->bv_len; k++ ) {
-			if( isspace(jv->bv_val[k]) ) {
+			if( isspace( (unsigned char) jv->bv_val[k] ) ) {
 				jv->bv_val[k] = '\0';
 				jv->bv_len = k;
 				break;

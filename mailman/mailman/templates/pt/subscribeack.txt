@@ -1,0 +1,34 @@
+Bem vindo à lista de discussão %(real_name)s@%(host_name)s!
+%(welcome)s
+Para enviar mensagens para esta lista, utilize:
+
+  %(emailaddr)s
+
+Informações gerais sobre esta lista de discussão podem ser encontradas em:
+
+  %(listinfo_url)s
+
+Se desejar anular a inscrição ou modificar as suas opções (por exemplo, mudar
+de/para modo digest, modificar a password, etc.), visite sua página de
+inscrição em:
+
+  %(optionsurl)s
+%(umbrella)s
+
+Pode também fazer tais ajustes via e-mail enviando uma mensagem para:
+
+  %(real_name)s-request@%(host_name)s
+
+com a palavra 'help' no assunto ou no corpo da mensagem (não inclua as
+aspas). Receberá uma mensagem com instruções. Tem de saber a sua
+password para modificar as suas opções (incluindo a própria password)
+ou para anular a inscrição. Ela é:
+
+  %(password)s
+
+Normalmente, o Mailman lembra-o das suas passwords em %(host_name)s uma
+vez por mês. Pode desactivar esta opção se preferir. Este lembrete
+também inclui instruções sobre como anular a inscrição ou modificar as
+suas opções de conta. Também existe um botão na sua página de opções
+que pode utilizar para pedir para lhe enviarmos a sua password por
+email.

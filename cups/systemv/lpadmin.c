@@ -1,9 +1,9 @@
 /*
- * "$Id: lpadmin.c,v 1.1.1.4 2002/06/06 22:13:20 jlovell Exp $"
+ * "$Id: lpadmin.c,v 1.1.1.10 2003/02/10 21:59:10 jlovell Exp $"
  *
  *   "lpadmin" command for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -36,7 +36,7 @@
  *   set_printer_model()         - Set the driver model file.
  *   set_printer_options()       - Set the printer options.
  *   validate_name()             - Make sure the printer name only contains
- *                                 letters, numbers, and the underscore...
+ *                                 valid chars...
  */
 
 /*
@@ -46,6 +46,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <errno.h>
 #include <cups/cups.h>
 #include <cups/string.h>
 #include <cups/language.h>
@@ -60,18 +61,18 @@
  * Local functions...
  */
 
-static void	add_printer_to_class(http_t *, char *, char *);
-static void	default_printer(http_t *, char *);
-static void	delete_printer(http_t *, char *);
-static void	delete_printer_from_class(http_t *, char *, char *);
-static void	enable_printer(http_t *, char *);
+static int	add_printer_to_class(http_t *, char *, char *);
+static int	default_printer(http_t *, char *);
+static int	delete_printer(http_t *, char *);
+static int	delete_printer_from_class(http_t *, char *, char *);
+static int	enable_printer(http_t *, char *);
 static char	*get_line(char *, int, FILE *fp);
-static void	set_printer_device(http_t *, char *, char *);
-static void	set_printer_file(http_t *, char *, char *);
-static void	set_printer_info(http_t *, char *, char *);
-static void	set_printer_location(http_t *, char *, char *);
-static void	set_printer_model(http_t *, char *, char *);
-static void	set_printer_options(http_t *, char *, int, cups_option_t *);
+static int	set_printer_device(http_t *, char *, char *);
+static int	set_printer_file(http_t *, char *, char *);
+static int	set_printer_info(http_t *, char *, char *);
+static int	set_printer_location(http_t *, char *, char *);
+static int	set_printer_model(http_t *, char *, char *);
+static int	set_printer_options(http_t *, char *, int, cups_option_t *);
 static int	validate_name(const char *);
 
 
@@ -90,14 +91,12 @@ main(int  argc,			/* I - Number of command-line arguments */
 		*val;		/* Pointer to allow/deny value */
   int		num_options;	/* Number of options */
   cups_option_t	*options;	/* Options */
-  http_encryption_t encryption;	/* Encryption? */
 
 
   http        = NULL;
   printer     = NULL;
   num_options = 0;
   options     = NULL;
-  encryption  = cupsEncryption();
 
   for (i = 1; i < argc; i ++)
     if (argv[i][0] == '-')
@@ -106,7 +105,8 @@ main(int  argc,			/* I - Number of command-line arguments */
         case 'c' : /* Add printer to class */
 	    if (!http)
 	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(), encryption);
+              http = httpConnectEncrypt(cupsServer(), ippPort(),
+	                                cupsEncryption());
 
 	      if (http == NULL)
 	      {
@@ -139,17 +139,19 @@ main(int  argc,			/* I - Number of command-line arguments */
 
             if (!validate_name(pclass))
 	    {
-	      fputs("lpadmin: Class name can only contain letters, numbers, and the underscore!\n", stderr);
+	      fputs("lpadmin: Class name can only contain printable characters!\n", stderr);
 	      return (1);
 	    }
 
-	    add_printer_to_class(http, printer, pclass);
+	    if (add_printer_to_class(http, printer, pclass))
+	      return (1);
 	    break;
 
         case 'd' : /* Set as default destination */
 	    if (!http)
 	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(), encryption);
+              http = httpConnectEncrypt(cupsServer(), ippPort(),
+	                                cupsEncryption());
 
 	      if (http == NULL)
 	      {
@@ -175,20 +177,25 @@ main(int  argc,			/* I - Number of command-line arguments */
 
             if (!validate_name(printer))
 	    {
-	      fputs("lpadmin: Printer name can only contain letters, numbers, and the underscore!\n", stderr);
+	      fputs("lpadmin: Printer name can only contain printable characters!\n", stderr);
 	      return (1);
 	    }
 
-            default_printer(http, printer);
+            if (default_printer(http, printer))
+	      return (1);
+
 	    i = argc;
 	    break;
 
         case 'h' : /* Connect to host */
 	    if (http)
+	    {
 	      httpClose(http);
+	      http = NULL;
+	    }
 
 	    if (argv[i][2] != '\0')
-	      http = httpConnectEncrypt(argv[i] + 2, ippPort(), encryption);
+	      cupsSetServer(argv[i] + 2);
 	    else
 	    {
 	      i ++;
@@ -198,23 +205,16 @@ main(int  argc,			/* I - Number of command-line arguments */
 	        fputs("lpadmin: Expected hostname after \'-h\' option!\n", stderr);
 		return (1);
               }
-	      else
-		http = httpConnectEncrypt(argv[i], ippPort(), encryption);
-	    }
 
-	    if (http == NULL)
-	    {
-	      perror("lpadmin: Unable to connect to server");
-	      return (1);
+              cupsSetServer(argv[i]);
 	    }
-	    else
-	      cupsSetServer(http->hostname);
 	    break;
 
         case 'i' : /* Use the specified interface script */
 	    if (!http)
 	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(), encryption);
+              http = httpConnectEncrypt(cupsServer(), ippPort(),
+	                                cupsEncryption());
 
 	      if (http == NULL)
 	      {
@@ -231,7 +231,10 @@ main(int  argc,			/* I - Number of command-line arguments */
 	    }
 
 	    if (argv[i][2])
-	      set_printer_file(http, printer, argv[i] + 2);
+	    {
+	      if (set_printer_file(http, printer, argv[i] + 2))
+	        return (1);
+            }
 	    else
 	    {
 	      i ++;
@@ -242,28 +245,30 @@ main(int  argc,			/* I - Number of command-line arguments */
 		return (1);
 	      }
 
-	      set_printer_file(http, printer, argv[i]);
+	      if (set_printer_file(http, printer, argv[i]))
+	        return (1);
 	    }
 	    break;
 
         case 'E' : /* Enable the printer */
 	    if (printer == NULL)
 	    {
-#ifdef HAVE_LIBSSL
-	      cupsSetEncryption(encryption = HTTP_ENCRYPT_REQUIRED);
+#ifdef HAVE_SSL
+	      cupsSetEncryption(HTTP_ENCRYPT_REQUIRED);
 
 	      if (http)
-		httpEncryption(http, encryption);
+		httpEncryption(http, HTTP_ENCRYPT_REQUIRED);
 #else
               fprintf(stderr, "%s: Sorry, no encryption support compiled in!\n",
 	              argv[0]);
-#endif /* HAVE_LIBSSL */
+#endif /* HAVE_SSL */
 	      break;
 	    }
 
 	    if (!http)
 	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(), encryption);
+              http = httpConnectEncrypt(cupsServer(), ippPort(),
+	                                cupsEncryption());
 
 	      if (http == NULL)
 	      {
@@ -272,13 +277,15 @@ main(int  argc,			/* I - Number of command-line arguments */
 	      }
             }
 
-            enable_printer(http, printer);
+            if (enable_printer(http, printer))
+	      return (1);
             break;
 
         case 'm' : /* Use the specified standard script/PPD file */
 	    if (!http)
 	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(), encryption);
+              http = httpConnectEncrypt(cupsServer(), ippPort(),
+	                                cupsEncryption());
 
 	      if (http == NULL)
 	      {
@@ -295,7 +302,10 @@ main(int  argc,			/* I - Number of command-line arguments */
 	    }
 
 	    if (argv[i][2])
-	      set_printer_model(http, printer, argv[i] + 2);
+	    {
+	      if (set_printer_model(http, printer, argv[i] + 2))
+	        return (1);
+	    }
 	    else
 	    {
 	      i ++;
@@ -306,7 +316,8 @@ main(int  argc,			/* I - Number of command-line arguments */
 		return (1);
 	      }
 
-	      set_printer_model(http, printer, argv[i]);
+	      if (set_printer_model(http, printer, argv[i]))
+	        return (1);
 	    }
 	    break;
 
@@ -330,7 +341,8 @@ main(int  argc,			/* I - Number of command-line arguments */
         case 'p' : /* Add/modify a printer */
 	    if (!http)
 	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(), encryption);
+              http = httpConnectEncrypt(cupsServer(), ippPort(),
+	                                cupsEncryption());
 
 	      if (http == NULL)
 	      {
@@ -356,7 +368,7 @@ main(int  argc,			/* I - Number of command-line arguments */
 
             if (!validate_name(printer))
 	    {
-	      fputs("lpadmin: Printer name can only contain letters, numbers, and the underscore!\n", stderr);
+	      fputs("lpadmin: Printer name can only contain printable characters!\n", stderr);
 	      return (1);
 	    }
 	    break;
@@ -364,7 +376,8 @@ main(int  argc,			/* I - Number of command-line arguments */
         case 'r' : /* Remove printer from class */
 	    if (!http)
 	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(), encryption);
+              http = httpConnectEncrypt(cupsServer(), ippPort(),
+	                                cupsEncryption());
 
 	      if (http == NULL)
 	      {
@@ -397,11 +410,12 @@ main(int  argc,			/* I - Number of command-line arguments */
 
             if (!validate_name(pclass))
 	    {
-	      fputs("lpadmin: Class name can only contain letters, numbers, and the underscore!\n", stderr);
+	      fputs("lpadmin: Class name can only contain printable characters!\n", stderr);
 	      return (1);
 	    }
 
-            delete_printer_from_class(http, printer, pclass);
+            if (delete_printer_from_class(http, printer, pclass))
+	      return (1);
 	    break;
 
         case 'u' : /* Allow/deny users */
@@ -437,7 +451,8 @@ main(int  argc,			/* I - Number of command-line arguments */
         case 'v' : /* Set the device-uri attribute */
 	    if (!http)
 	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(), encryption);
+              http = httpConnectEncrypt(cupsServer(), ippPort(),
+	                                cupsEncryption());
 
 	      if (http == NULL)
 	      {
@@ -454,7 +469,10 @@ main(int  argc,			/* I - Number of command-line arguments */
 	    }
 
 	    if (argv[i][2])
-	      set_printer_device(http, printer, argv[i] + 2);
+	    {
+	      if (set_printer_device(http, printer, argv[i] + 2))
+	        return (1);
+            }
 	    else
 	    {
 	      i ++;
@@ -465,14 +483,16 @@ main(int  argc,			/* I - Number of command-line arguments */
 		return (1);
 	      }
 
-	      set_printer_device(http, printer, argv[i]);
+	      if (set_printer_device(http, printer, argv[i]))
+	        return (1);
 	    }
 	    break;
 
         case 'x' : /* Delete a printer */
 	    if (!http)
 	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(), encryption);
+              http = httpConnectEncrypt(cupsServer(), ippPort(),
+	                                cupsEncryption());
 
 	      if (http == NULL)
 	      {
@@ -498,18 +518,21 @@ main(int  argc,			/* I - Number of command-line arguments */
 
             if (!validate_name(printer))
 	    {
-	      fputs("lpadmin: Printer name can only contain letters, numbers, and the underscore!\n", stderr);
+	      fputs("lpadmin: Printer name can only contain printable characters!\n", stderr);
 	      return (1);
 	    }
 
-            delete_printer(http, printer);
+            if (delete_printer(http, printer))
+	      return (1);
+
 	    i = argc;
 	    break;
 
         case 'D' : /* Set the printer-info attribute */
 	    if (!http)
 	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(), encryption);
+              http = httpConnectEncrypt(cupsServer(), ippPort(),
+	                                cupsEncryption());
 
 	      if (http == NULL)
 	      {
@@ -526,7 +549,10 @@ main(int  argc,			/* I - Number of command-line arguments */
 	    }
 
 	    if (argv[i][2])
-	      set_printer_info(http, printer, argv[i] + 2);
+	    {
+	      if (set_printer_info(http, printer, argv[i] + 2))
+	        return (1);
+	    }
 	    else
 	    {
 	      i ++;
@@ -537,7 +563,8 @@ main(int  argc,			/* I - Number of command-line arguments */
 		return (1);
 	      }
 
-	      set_printer_info(http, printer, argv[i]);
+	      if (set_printer_info(http, printer, argv[i]))
+	        return (1);
 	    }
 	    break;
 
@@ -556,7 +583,8 @@ main(int  argc,			/* I - Number of command-line arguments */
         case 'L' : /* Set the printer-location attribute */
 	    if (!http)
 	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(), encryption);
+              http = httpConnectEncrypt(cupsServer(), ippPort(),
+	                                cupsEncryption());
 
 	      if (http == NULL)
 	      {
@@ -573,7 +601,10 @@ main(int  argc,			/* I - Number of command-line arguments */
 	    }
 
 	    if (argv[i][2])
-	      set_printer_location(http, printer, argv[i] + 2);
+	    {
+	      if (set_printer_location(http, printer, argv[i] + 2))
+	        return (1);
+            }
 	    else
 	    {
 	      i ++;
@@ -584,14 +615,16 @@ main(int  argc,			/* I - Number of command-line arguments */
 		return (1);
 	      }
 
-	      set_printer_location(http, printer, argv[i]);
+	      if (set_printer_location(http, printer, argv[i]))
+	        return (1);
 	    }
 	    break;
 
         case 'P' : /* Use the specified PPD file */
 	    if (!http)
 	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(), encryption);
+              http = httpConnectEncrypt(cupsServer(), ippPort(),
+	                                cupsEncryption());
 
 	      if (http == NULL)
 	      {
@@ -608,7 +641,10 @@ main(int  argc,			/* I - Number of command-line arguments */
 	    }
 
 	    if (argv[i][2])
-	      set_printer_file(http, printer, argv[i] + 2);
+	    {
+	      if (set_printer_file(http, printer, argv[i] + 2))
+	        return (1);
+	    }
 	    else
 	    {
 	      i ++;
@@ -619,7 +655,8 @@ main(int  argc,			/* I - Number of command-line arguments */
 		return (1);
 	      }
 
-	      set_printer_file(http, printer, argv[i]);
+	      if (set_printer_file(http, printer, argv[i]))
+	        return (1);
 	    }
 	    break;
 
@@ -641,7 +678,7 @@ main(int  argc,			/* I - Number of command-line arguments */
   {
     if (!http)
     {
-      http = httpConnectEncrypt(cupsServer(), ippPort(), encryption);
+      http = httpConnectEncrypt(cupsServer(), ippPort(), cupsEncryption());
 
       if (http == NULL)
       {
@@ -657,7 +694,8 @@ main(int  argc,			/* I - Number of command-line arguments */
       return (1);
     }
 
-    set_printer_options(http, printer, num_options, options);
+    if (set_printer_options(http, printer, num_options, options))
+      return (1);
   }
 
   if (printer == NULL)
@@ -684,7 +722,7 @@ main(int  argc,			/* I - Number of command-line arguments */
  * 'add_printer_to_class()' - Add a printer to a class.
  */
 
-static void
+static int				/* O - 0 on success, 1 on fail */
 add_printer_to_class(http_t *http,	/* I - Server connection */
                      char   *printer,	/* I - Printer to add */
 		     char   *pclass)	/* I - Class to add to */
@@ -773,7 +811,7 @@ add_printer_to_class(http_t *http,	/* I - Server connection */
 	        printer, pclass);
         ippDelete(request);
 	ippDelete(response);
-	return;
+	return (0);
       }
 
  /*
@@ -806,15 +844,26 @@ add_printer_to_class(http_t *http,	/* I - Server connection */
   ippDelete(response);
 
   if ((response = cupsDoRequest(http, request, "/admin/")) == NULL)
+  {
     fprintf(stderr, "lpadmin: add-class failed: %s\n",
             ippErrorString(cupsLastError()));
-  else
+
+    return (1);
+  }
+  else if (response->request.status.status_code > IPP_OK_CONFLICT)
   {
-    if (response->request.status.status_code > IPP_OK_CONFLICT)
-      fprintf(stderr, "lpadmin: add-class failed: %s\n",
-              ippErrorString(response->request.status.status_code));
+    fprintf(stderr, "lpadmin: add-class failed: %s\n",
+            ippErrorString(response->request.status.status_code));
 
     ippDelete(response);
+
+    return (1);
+  }
+  else
+  {
+    ippDelete(response);
+
+    return (0);
   }
 }
 
@@ -823,7 +872,7 @@ add_printer_to_class(http_t *http,	/* I - Server connection */
  * 'default_printer()' - Set the default printing destination.
  */
 
-static void
+static int				/* O - 0 on success, 1 on fail */
 default_printer(http_t *http,		/* I - Server connection */
                 char   *printer)	/* I - Printer name */
 {
@@ -867,15 +916,26 @@ default_printer(http_t *http,		/* I - Server connection */
   */
 
   if ((response = cupsDoRequest(http, request, "/admin/")) == NULL)
+  {
     fprintf(stderr, "lpadmin: set-default failed: %s\n",
             ippErrorString(cupsLastError()));
-  else
+
+    return (1);
+  }
+  else if (response->request.status.status_code > IPP_OK_CONFLICT)
   {
-    if (response->request.status.status_code > IPP_OK_CONFLICT)
-      fprintf(stderr, "lpadmin: set-default failed: %s\n",
-              ippErrorString(response->request.status.status_code));
+    fprintf(stderr, "lpadmin: set-default failed: %s\n",
+            ippErrorString(response->request.status.status_code));
 
     ippDelete(response);
+
+    return (1);
+  }
+  else
+  {
+    ippDelete(response);
+
+    return (0);
   }
 }
 
@@ -884,7 +944,7 @@ default_printer(http_t *http,		/* I - Server connection */
  * 'delete_printer()' - Delete a printer from the system...
  */
 
-static void
+static int				/* O - 0 on success, 1 on fail */
 delete_printer(http_t *http,		/* I - Server connection */
                char   *printer)		/* I - Printer to delete */
 {
@@ -928,15 +988,26 @@ delete_printer(http_t *http,		/* I - Server connection */
   */
 
   if ((response = cupsDoRequest(http, request, "/admin/")) == NULL)
+  {
     fprintf(stderr, "lpadmin: delete-printer failed: %s\n",
             ippErrorString(cupsLastError()));
-  else
+
+    return (1);
+  }
+  else if (response->request.status.status_code > IPP_OK_CONFLICT)
   {
-    if (response->request.status.status_code > IPP_OK_CONFLICT)
-      fprintf(stderr, "lpadmin: delete-printer failed: %s\n",
-              ippErrorString(response->request.status.status_code));
+    fprintf(stderr, "lpadmin: delete-printer failed: %s\n",
+            ippErrorString(response->request.status.status_code));
 
     ippDelete(response);
+
+    return (1);
+  }
+  else
+  {
+    ippDelete(response);
+
+    return (0);
   }
 }
 
@@ -945,10 +1016,12 @@ delete_printer(http_t *http,		/* I - Server connection */
  * 'delete_printer_from_class()' - Delete a printer from a class.
  */
 
-static void
-delete_printer_from_class(http_t *http,		/* I - Server connection */
-                          char   *printer,	/* I - Printer to remove */
-			  char   *pclass)	/* I - Class to remove from */
+static int				/* O - 0 on success, 1 on fail */
+delete_printer_from_class(http_t *http,	/* I - Server connection */
+                          char   *printer,
+			  		/* I - Printer to remove */
+			  char   *pclass)
+			  		/* I - Class to remove from */
 {
   int		i, j, k;		/* Looping vars */
   ipp_t		*request,		/* IPP Request */
@@ -998,7 +1071,7 @@ delete_printer_from_class(http_t *http,		/* I - Server connection */
   {
     ippDelete(response);
     fprintf(stderr, "lpadmin: Class %s does not exist!\n", pclass);
-    return;
+    return (1);
   }
 
  /*
@@ -1009,7 +1082,7 @@ delete_printer_from_class(http_t *http,		/* I - Server connection */
   {
     ippDelete(response);
     fputs("lpadmin: No member names were seen!\n", stderr);
-    return;
+    return (1);
   }
 
   for (i = 0; i < members->num_values; i ++)
@@ -1021,7 +1094,7 @@ delete_printer_from_class(http_t *http,		/* I - Server connection */
     fprintf(stderr, "lpadmin: Printer %s is not a member of class %s.\n",
 	    printer, pclass);
     ippDelete(response);
-    return;
+    return (1);
   }
 
   if (members->num_values == 1)
@@ -1099,15 +1172,25 @@ delete_printer_from_class(http_t *http,		/* I - Server connection */
   ippDelete(response);
 
   if ((response = cupsDoRequest(http, request, "/admin/")) == NULL)
+  {
     fprintf(stderr, "lpadmin: add/delete-class failed: %s\n",
             ippErrorString(cupsLastError()));
-  else
+    return (1);
+  }
+  else if (response->request.status.status_code > IPP_OK_CONFLICT)
   {
-    if (response->request.status.status_code > IPP_OK_CONFLICT)
-      fprintf(stderr, "lpadmin: add/delete-class failed: %s\n",
-              ippErrorString(response->request.status.status_code));
+    fprintf(stderr, "lpadmin: add/delete-class failed: %s\n",
+            ippErrorString(response->request.status.status_code));
 
     ippDelete(response);
+
+    return (1);
+  }
+  else
+  {
+    ippDelete(response);
+
+    return (0);
   }
 }
 
@@ -1116,7 +1199,7 @@ delete_printer_from_class(http_t *http,		/* I - Server connection */
  * 'enable_printer()' - Enable a printer...
  */
 
-static void
+static int				/* O - 0 on success, 1 on fail */
 enable_printer(http_t *http,		/* I - Server connection */
                char   *printer)		/* I - Printer to enable */
 {
@@ -1167,15 +1250,25 @@ enable_printer(http_t *http,		/* I - Server connection */
   */
 
   if ((response = cupsDoRequest(http, request, "/admin/")) == NULL)
-    fprintf(stderr, "lpadmin: add-printer failed: %s\n",
-            ippErrorString(cupsLastError()));
-  else
   {
-    if (response->request.status.status_code > IPP_OK_CONFLICT)
-      fprintf(stderr, "lpadmin: add-printer failed: %s\n",
-              ippErrorString(response->request.status.status_code));
+    fprintf(stderr, "lpadmin: add-printer (enable) failed: %s\n",
+            ippErrorString(cupsLastError()));
+    return (1);
+  }
+  else if (response->request.status.status_code > IPP_OK_CONFLICT)
+  {
+    fprintf(stderr, "lpadmin: add-printer (enable) failed: %s\n",
+            ippErrorString(response->request.status.status_code));
 
     ippDelete(response);
+
+    return (1);
+  }
+  else
+  {
+    ippDelete(response);
+
+    return (0);
   }
 }
 
@@ -1184,13 +1277,13 @@ enable_printer(http_t *http,		/* I - Server connection */
  * 'get_line()' - Get a line that is terminated by a LF, CR, or CR LF.
  */
 
-static char *		/* O - Pointer to buf or NULL on EOF */
-get_line(char *buf,	/* I - Line buffer */
-         int  length,	/* I - Length of buffer */
-	 FILE *fp)	/* I - File to read from */
+static char *				/* O - Pointer to buf or NULL on EOF */
+get_line(char *buf,			/* I - Line buffer */
+         int  length,			/* I - Length of buffer */
+	 FILE *fp)			/* I - File to read from */
 {
-  char	*bufptr;	/* Pointer into buffer */
-  int	ch;		/* Character from file */
+  char	*bufptr;			/* Pointer into buffer */
+  int	ch;				/* Character from file */
 
 
   length --;
@@ -1232,7 +1325,7 @@ get_line(char *buf,	/* I - Line buffer */
  * 'set_printer_device()' - Set the device-uri attribute.
  */
 
-static void
+static int				/* O - 0 on success, 1 on fail */
 set_printer_device(http_t *http,	/* I - Server connection */
                    char   *printer,	/* I - Printer */
 		   char   *device)	/* I - New device URI */
@@ -1296,15 +1389,25 @@ set_printer_device(http_t *http,	/* I - Server connection */
   */
 
   if ((response = cupsDoRequest(http, request, "/admin/")) == NULL)
-    fprintf(stderr, "lpadmin: add-printer failed: %s\n",
-            ippErrorString(cupsLastError()));
-  else
   {
-    if (response->request.status.status_code > IPP_OK_CONFLICT)
-      fprintf(stderr, "lpadmin: add-printer failed: %s\n",
-              ippErrorString(response->request.status.status_code));
+    fprintf(stderr, "lpadmin: add-printer (set device) failed: %s\n",
+            ippErrorString(cupsLastError()));
+    return (1);
+  }
+  else if (response->request.status.status_code > IPP_OK_CONFLICT)
+  {
+    fprintf(stderr, "lpadmin: add-printer (set device) failed: %s\n",
+            ippErrorString(response->request.status.status_code));
 
     ippDelete(response);
+
+    return (1);
+  }
+  else
+  {
+    ippDelete(response);
+
+    return (0);
   }
 }
 
@@ -1313,11 +1416,12 @@ set_printer_device(http_t *http,	/* I - Server connection */
  * 'set_printer_file()' - Set the interface script or PPD file.
  */
 
-static void
+static int				/* O - 0 on success, 1 on fail */
 set_printer_file(http_t *http,		/* I - Server connection */
                  char   *printer,	/* I - Printer */
 		 char   *file)		/* I - PPD file or interface script */
 {
+  ipp_status_t	status;			/* IPP status code */
   ipp_t		*request,		/* IPP Request */
 		*response;		/* IPP Response */
   cups_lang_t	*language;		/* Default language */
@@ -1347,7 +1451,7 @@ set_printer_file(http_t *http,		/* I - Server connection */
     if ((fd = cupsTempFd(tempfile, sizeof(tempfile))) < 0)
     {
       perror("lpadmin: Unable to create temporary file");
-      return;
+      return (1);
     }
 
     if ((gz = gzopen(file, "rb")) == NULL)
@@ -1355,7 +1459,7 @@ set_printer_file(http_t *http,		/* I - Server connection */
       perror("lpadmin: Unable to open file");
       close(fd);
       unlink(tempfile);
-      return;
+      return (1);
     }
 
     while ((bytes = gzread(gz, buffer, sizeof(buffer))) > 0)
@@ -1400,14 +1504,10 @@ set_printer_file(http_t *http,		/* I - Server connection */
   */
 
   if ((response = cupsDoFileRequest(http, request, "/admin/", file)) == NULL)
-    fprintf(stderr, "lpadmin: add-printer failed: %s\n",
-            ippErrorString(cupsLastError()));
+    status = cupsLastError();
   else
   {
-    if (response->request.status.status_code > IPP_OK_CONFLICT)
-      fprintf(stderr, "lpadmin: add-printer failed: %s\n",
-              ippErrorString(response->request.status.status_code));
-
+    status = response->request.status.status_code;
     ippDelete(response);
   }
 
@@ -1419,6 +1519,16 @@ set_printer_file(http_t *http,		/* I - Server connection */
   if (file == tempfile)
     unlink(tempfile);
 #endif /* HAVE_LIBZ */
+
+  if (status > IPP_OK_CONFLICT)
+  {
+    fprintf(stderr, "lpadmin: add-printer (set model) failed: %s\n",
+            ippErrorString(status));
+
+    return (1);
+  }
+  else
+    return (0);
 }
 
 
@@ -1426,7 +1536,7 @@ set_printer_file(http_t *http,		/* I - Server connection */
  * 'set_printer_info()' - Set the printer description string.
  */
 
-static void
+static int				/* O - 0 on success, 1 on fail */
 set_printer_info(http_t *http,		/* I - Server connection */
                  char   *printer,	/* I - Printer */
 		 char   *info)		/* I - New description string */
@@ -1479,15 +1589,25 @@ set_printer_info(http_t *http,		/* I - Server connection */
   */
 
   if ((response = cupsDoRequest(http, request, "/admin/")) == NULL)
-    fprintf(stderr, "lpadmin: add-printer failed: %s\n",
-            ippErrorString(cupsLastError()));
-  else
   {
-    if (response->request.status.status_code > IPP_OK_CONFLICT)
-      fprintf(stderr, "lpadmin: add-printer failed: %s\n",
-              ippErrorString(response->request.status.status_code));
+    fprintf(stderr, "lpadmin: add-printer (set description) failed: %s\n",
+            ippErrorString(cupsLastError()));
+    return (1);
+  }
+  else if (response->request.status.status_code > IPP_OK_CONFLICT)
+  {
+    fprintf(stderr, "lpadmin: add-printer (set description) failed: %s\n",
+            ippErrorString(response->request.status.status_code));
 
     ippDelete(response);
+
+    return (1);
+  }
+  else
+  {
+    ippDelete(response);
+
+    return (0);
   }
 }
 
@@ -1496,7 +1616,7 @@ set_printer_info(http_t *http,		/* I - Server connection */
  * 'set_printer_location()' - Set the printer location string.
  */
 
-static void
+static int				/* O - 0 on success, 1 on fail */
 set_printer_location(http_t *http,	/* I - Server connection */
                      char   *printer,	/* I - Printer */
 		     char   *location)	/* I - New location string */
@@ -1549,15 +1669,26 @@ set_printer_location(http_t *http,	/* I - Server connection */
   */
 
   if ((response = cupsDoRequest(http, request, "/admin/")) == NULL)
-    fprintf(stderr, "lpadmin: add-printer failed: %s\n",
-            ippErrorString(cupsLastError()));
-  else
   {
-    if (response->request.status.status_code > IPP_OK_CONFLICT)
-      fprintf(stderr, "lpadmin: add-printer failed: %s\n",
-              ippErrorString(response->request.status.status_code));
+    fprintf(stderr, "lpadmin: add-printer (set location) failed: %s\n",
+            ippErrorString(cupsLastError()));
+
+    return (1);
+  }
+  else if (response->request.status.status_code > IPP_OK_CONFLICT)
+  {
+    fprintf(stderr, "lpadmin: add-printer (set location) failed: %s\n",
+            ippErrorString(response->request.status.status_code));
 
     ippDelete(response);
+
+    return (1);
+  }
+  else
+  {
+    ippDelete(response);
+
+    return (0);
   }
 }
 
@@ -1566,7 +1697,7 @@ set_printer_location(http_t *http,	/* I - Server connection */
  * 'set_printer_model()' - Set the driver model file.
  */
 
-static void
+static int				/* O - 0 on success, 1 on fail */
 set_printer_model(http_t *http,		/* I - Server connection */
                   char   *printer,	/* I - Printer */
 		  char   *model)	/* I - Driver model file */
@@ -1613,15 +1744,26 @@ set_printer_model(http_t *http,		/* I - Server connection */
   */
 
   if ((response = cupsDoRequest(http, request, "/admin/")) == NULL)
-    fprintf(stderr, "lpadmin: add-printer failed: %s\n",
-            ippErrorString(cupsLastError()));
-  else
   {
-    if (response->request.status.status_code > IPP_OK_CONFLICT)
-      fprintf(stderr, "lpadmin: add-printer failed: %s\n",
-              ippErrorString(response->request.status.status_code));
+    fprintf(stderr, "lpadmin: add-printer (set model) failed: %s\n",
+            ippErrorString(cupsLastError()));
+
+    return (1);
+  }
+  else if (response->request.status.status_code > IPP_OK_CONFLICT)
+  {
+    fprintf(stderr, "lpadmin: add-printer (set model) failed: %s\n",
+            ippErrorString(response->request.status.status_code));
 
     ippDelete(response);
+
+    return (1);
+  }
+  else
+  {
+    ippDelete(response);
+
+    return (0);
   }
 }
 
@@ -1630,11 +1772,14 @@ set_printer_model(http_t *http,		/* I - Server connection */
  * 'set_printer_options()' - Set the printer options.
  */
 
-static void
-set_printer_options(http_t        *http,	/* I - Server connection */
-                    char          *printer,	/* I - Printer */
-		    int           num_options,	/* I - Number of options */
-		    cups_option_t *options)	/* I - Options */
+static int				/* O - 0 on success, 1 on fail */
+set_printer_options(http_t        *http,/* I - Server connection */
+                    char          *printer,
+		    			/* I - Printer */
+		    int           num_options,
+		    			/* I - Number of options */
+		    cups_option_t *options)
+		    			/* I - Options */
 {
   ipp_t		*request,		/* IPP Request */
 		*response;		/* IPP Response */
@@ -1651,6 +1796,7 @@ set_printer_options(http_t        *http,	/* I - Server connection */
   FILE		*in,			/* PPD file */
 		*out;			/* Temporary file */
   int		outfd;			/* Temporary file descriptor */
+  const char	*protocol;		/* Protocol */
 
 
   DEBUG_printf(("set_printer_options(%p, \"%s\", %d, %p)\n", http, printer,
@@ -1702,7 +1848,10 @@ set_printer_options(http_t        *http,	/* I - Server connection */
     if ((attr = ippFindAttribute(response, "printer-type", IPP_TAG_ENUM)) != NULL)
     {
       if (attr->values[0].integer & (CUPS_PRINTER_CLASS | CUPS_PRINTER_IMPLICIT))
+      {
         op = CUPS_ADD_CLASS;
+        snprintf(uri, sizeof(uri), "ipp://localhost/classes/%s", printer);
+      }
     }
 
     ippDelete(response);
@@ -1749,14 +1898,40 @@ set_printer_options(http_t        *http,	/* I - Server connection */
     * Set default options in the PPD file...
     */
 
-    outfd = cupsTempFd(tempfile, sizeof(tempfile));
+    if ((outfd = cupsTempFd(tempfile, sizeof(tempfile))) < 0)
+    {
+      fprintf(stderr, "lpadmin: Unable to create temporary file - %s\n",
+              strerror(errno));
+      ippDelete(request);
+      unlink(ppdfile);
+      return (1);
+    }
 
-    in  = fopen(ppdfile, "rb");
-    out = fdopen(outfd, "wb");
+    if ((in = fopen(ppdfile, "rb")) == NULL)
+    {
+      fprintf(stderr, "lpadmin: Unable to open PPD file \"%s\" - %s\n",
+              ppdfile, strerror(errno));
+      ippDelete(request);
+      unlink(ppdfile);
+      close(outfd);
+      unlink(tempfile);
+      return (1);
+    }
+
+    out      = fdopen(outfd, "wb");
+    protocol = cupsGetOption("protocol", num_options, options);    
 
     while (get_line(line, sizeof(line), in) != NULL)
     {
-      if (strncmp(line, "*Default", 8) != 0)
+      if (!strncmp(line, "*cupsProtocol:", 14) && protocol)
+      {
+       /*
+        * Set a new output protocol (BCP or TBCP) below...
+	*/
+
+        continue;
+      }
+      else if (strncmp(line, "*Default", 8))
         fprintf(out, "%s\n", line);
       else
       {
@@ -1783,6 +1958,9 @@ set_printer_options(http_t        *http,	/* I - Server connection */
 	  fprintf(out, "%s\n", line);
       }
     }
+
+    if (protocol)
+      fprintf(out, "*cupsProtocol: \"%s\"\n", protocol);
 
     fclose(in);
     fclose(out);
@@ -1816,52 +1994,60 @@ set_printer_options(http_t        *http,	/* I - Server connection */
   */
 
   if (response == NULL)
+  {
     fprintf(stderr, "lpadmin: %s failed: %s\n",
             op == CUPS_ADD_PRINTER ? "add-printer" : "add-class",
             ippErrorString(cupsLastError()));
-  else
+
+    return (1);
+  }
+  else if (response->request.status.status_code > IPP_OK_CONFLICT)
   {
-    if (response->request.status.status_code > IPP_OK_CONFLICT)
-      fprintf(stderr, "lpadmin: %s failed: %s\n",
-              op == CUPS_ADD_PRINTER ? "add-printer" : "add-class",
-              ippErrorString(response->request.status.status_code));
+    fprintf(stderr, "lpadmin: %s failed: %s\n",
+            op == CUPS_ADD_PRINTER ? "add-printer" : "add-class",
+            ippErrorString(response->request.status.status_code));
 
     ippDelete(response);
+
+    return (1);
+  }
+  else
+  {
+    ippDelete(response);
+
+    return (0);
   }
 }
 
 
 /*
- * 'validate_name()' - Make sure the printer name only contains letters,
- *                     numbers, and the underscore...
+ * 'validate_name()' - Make sure the printer name only contains valid chars.
  */
 
 static int			/* O - 0 if name is no good, 1 if name is good */
 validate_name(const char *name)	/* I - Name to check */
 {
- /*
-  * Don't allow names to start with a digit...
-  */
+  const char	*ptr;		/* Pointer into name */
 
-  if (isdigit(*name))
-    return (0);
 
  /*
   * Scan the whole name...
   */
 
-  while (*name)
-    if (*name == '@')
-      return (1);
-    else if (!isalnum(*name) && *name != '_')
+  for (ptr = name; *ptr; ptr ++)
+    if (*ptr == '@')
+      break;
+    else if ((*ptr >= 0 && *ptr <= ' ') || *ptr == 127 || *ptr == '/')
       return (0);
-    else
-      name ++;
 
-  return (1);
+ /*
+  * All the characters are good; validate the length, too...
+  */
+
+  return ((ptr - name) < 128);
 }
 
 
 /*
- * End of "$Id: lpadmin.c,v 1.1.1.4 2002/06/06 22:13:20 jlovell Exp $".
+ * End of "$Id: lpadmin.c,v 1.1.1.10 2003/02/10 21:59:10 jlovell Exp $".
  */

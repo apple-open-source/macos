@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE jboss PUBLIC
+   "-//JBoss//DTD JBOSS 3.2//EN"
+   "http://www.jboss.org/j2ee/dtd/jboss_3_2.dtd">
+
+<jboss>
+   <enterprise-beans>
+      <session>
+         <ejb-name>HelloWorld</ejb-name>
+         <jndi-name>helloworld/Hello</jndi-name>
+      </session>
+      <session>
+         <ejb-name>HelloWorldCached</ejb-name>
+         <jndi-name>helloworld/HelloCached</jndi-name>
+         <invoker-bindings>
+            <invoker>
+               <invoker-proxy-binding-name>stateless-cached-rmi-invoker</invoker-proxy-binding-name>
+            </invoker>
+         </invoker-bindings>
+      </session>
+      <session>
+         <ejb-name>HelloWorldViaHTTP</ejb-name>
+         <jndi-name>helloworld/HelloHTTP</jndi-name>
+         <invoker-bindings>
+            <invoker>
+               <invoker-proxy-binding-name>stateless-http-invoker</invoker-proxy-binding-name>
+            </invoker>
+         </invoker-bindings>
+      </session>
+      <session>
+         <ejb-name>HelloWorldViaClusteredHTTP</ejb-name>
+         <jndi-name>helloworld/HelloHA-HTTP</jndi-name>
+         <invoker-bindings>
+            <invoker>
+               <invoker-proxy-binding-name>stateless-httpHA-invoker</invoker-proxy-binding-name>
+            </invoker>
+         </invoker-bindings>
+         <clustered>true</clustered>
+      </session>
+
+      <entity>
+         <ejb-name>HelloLogViaHTTP</ejb-name>
+         <jndi-name>helloworld/HelloLogHTTP</jndi-name>
+         <invoker-bindings>
+            <invoker>
+               <invoker-proxy-binding-name>entity-http-invoker</invoker-proxy-binding-name>
+            </invoker>
+         </invoker-bindings>
+      </entity>
+   </enterprise-beans>
+
+   <invoker-proxy-bindings>
+      <!-- A custom proxy for RMI that caches the bean proxy in the home -->
+      <invoker-proxy-binding>
+         <name>stateless-cached-rmi-invoker</name>
+         <invoker-mbean>jboss:service=invoker,type=jrmp</invoker-mbean>
+         <proxy-factory>org.jboss.proxy.ejb.ProxyFactory</proxy-factory>
+         <proxy-factory-config>
+            <client-interceptors>
+
+               <home>
+                  <interceptor>org.jboss.proxy.ejb.StatelessSessionHomeInterceptor</interceptor>
+                  <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+                  <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+                  <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+               </home>
+               <bean>
+                  <interceptor>org.jboss.proxy.ejb.StatelessSessionInterceptor</interceptor>
+                  <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+                  <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+                  <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+               </bean>
+            </client-interceptors>
+         </proxy-factory-config>
+      </invoker-proxy-binding>
+
+      <!-- A custom invoker for RMI/HTTP -->
+      <invoker-proxy-binding>
+         <name>stateless-http-invoker</name>
+         <invoker-mbean>jboss:service=invoker,type=http</invoker-mbean>
+         <proxy-factory>org.jboss.proxy.ejb.ProxyFactory</proxy-factory>
+         <proxy-factory-config>
+            <client-interceptors>
+               <home>
+                  <interceptor>org.jboss.proxy.ejb.HomeInterceptor</interceptor>
+                  <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+                  <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+                  <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+               </home>
+               <bean>
+                  <interceptor>org.jboss.proxy.ejb.StatelessSessionInterceptor</interceptor>
+                  <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+                  <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+                  <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+               </bean>
+            </client-interceptors>
+         </proxy-factory-config>
+      </invoker-proxy-binding>
+
+      <invoker-proxy-binding>
+         <name>stateless-httpHA-invoker</name>
+         <invoker-mbean>jboss:service=invoker,type=httpHA</invoker-mbean>
+         <proxy-factory>org.jboss.proxy.ejb.ProxyFactoryHA</proxy-factory>
+         <proxy-factory-config>
+            <client-interceptors>
+               <home>
+                  <interceptor>org.jboss.proxy.ejb.HomeInterceptor</interceptor>
+                  <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+                  <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+                  <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+               </home>
+               <bean>
+                  <interceptor>org.jboss.proxy.ejb.StatelessSessionInterceptor</interceptor>
+                  <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+                  <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+                  <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+               </bean>
+            </client-interceptors>
+         </proxy-factory-config>
+      </invoker-proxy-binding>
+
+      <invoker-proxy-binding>
+         <name>entity-http-invoker</name>
+         <invoker-mbean>jboss:service=invoker,type=http</invoker-mbean>
+         <proxy-factory>org.jboss.proxy.ejb.ProxyFactory</proxy-factory>
+         <proxy-factory-config>
+            <client-interceptors>
+               <home>
+                  <interceptor>org.jboss.proxy.ejb.HomeInterceptor</interceptor>
+                  <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+                  <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+                  <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+               </home>
+               <bean>
+                  <interceptor>org.jboss.proxy.ejb.EntityInterceptor</interceptor>
+                  <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+                  <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+                  <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+               </bean>
+               <list-entity>
+                  <interceptor>org.jboss.proxy.ejb.ListEntityInterceptor</interceptor>
+                  <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+                  <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+                  <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+               </list-entity>
+            </client-interceptors>
+         </proxy-factory-config>
+      </invoker-proxy-binding>
+   </invoker-proxy-bindings>
+</jboss>

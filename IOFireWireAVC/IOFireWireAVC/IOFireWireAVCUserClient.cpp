@@ -25,11 +25,13 @@
 
 #include "IOFireWireAVCUserClient.h"
 #include <IOKit/IOLib.h>
+#include <IOKit/IOMessage.h>
 #include <IOKit/firewire/IOFireWireUnit.h>
 #include <IOKit/firewire/IOFireWireController.h>
 
-#define FWKLOG
+#define FWKLOG(arg)
 
+OSDefineMetaClassAndStructors(IOFireWireAVCConnection, OSObject)
 OSDefineMetaClassAndStructors(IOFireWireAVCUserClient, IOUserClient)
 
 IOExternalMethod IOFireWireAVCUserClient::sMethods[kIOFWAVCUserClientNumCommands] =
@@ -82,6 +84,34 @@ IOExternalMethod IOFireWireAVCUserClient::sMethods[kIOFWAVCUserClientNumCommands
         kIOUCScalarIScalarO,
         0,
         0
+    },
+	{ //    kIOFWAVCUserClientMakeP2PInputConnection
+        0,
+        (IOMethod) &IOFireWireAVCUserClient::makeP2PInputConnection,
+        kIOUCScalarIScalarO,
+        2,
+        0
+    },
+	{ //    kIOFWAVCUserClientBreakP2PInputConnection
+        0,
+        (IOMethod) &IOFireWireAVCUserClient::breakP2PInputConnection,
+        kIOUCScalarIScalarO,
+        1,
+        0
+    },
+	{ //    kIOFWAVCUserClientMakeP2POutputConnection
+        0,
+        (IOMethod) &IOFireWireAVCUserClient::makeP2POutputConnection,
+        kIOUCScalarIScalarO,
+        3,
+        0
+    },
+	{ //    kIOFWAVCUserClientBreakP2POutputConnection
+        0,
+        (IOMethod) &IOFireWireAVCUserClient::breakP2POutputConnection,
+        kIOUCScalarIScalarO,
+        1,
+        0
     }
 
 };
@@ -98,7 +128,7 @@ IOFireWireAVCUserClient *IOFireWireAVCUserClient::withTask(task_t owningTask)
 
     if( me )
     {
-        if( !me->init() )
+        if( !me->init(NULL) )
         {
             me->release();
             return NULL;
@@ -115,8 +145,25 @@ bool IOFireWireAVCUserClient::init( OSDictionary * dictionary )
 
     fOpened = false;
 	fStarted = false;
-	
     return res;
+}
+
+void IOFireWireAVCUserClient::free()
+{
+    if(fConnections) {
+        UInt32 i;
+        
+        if(fUnit) {
+            for(i=0; i<fConnections->getCount(); i++) {
+                IOFireWireAVCConnection *connection;
+                connection = (IOFireWireAVCConnection *)fConnections->getObject(i);
+                //IOLog("Cleaning up connection %d %p\n", i, connection);
+                updateP2PCount(connection->fPlugAddr, -1, false, 0xFFFFFFFF, kFWSpeedInvalid);
+            }
+        }
+        fConnections->release();
+    }
+    IOService::free();
 }
 
 void IOFireWireAVCUserClient::stop( IOService * provider )
@@ -127,6 +174,7 @@ void IOFireWireAVCUserClient::stop( IOService * provider )
     
     IOService::stop(provider);
 }
+
 
 bool IOFireWireAVCUserClient::start( IOService * provider )
 {
@@ -139,10 +187,12 @@ bool IOFireWireAVCUserClient::start( IOService * provider )
     if (fUnit == NULL)
         return false;
 
-     if( !IOUserClient::start(provider) )
-         return false;
-  
-	 fStarted = true;
+	fConnections = OSArray::withCapacity(1);
+
+    if( !IOUserClient::start(provider) )
+        return false;
+
+    fStarted = true;
 
     do {
     
@@ -328,9 +378,9 @@ IOReturn IOFireWireAVCUserClient::AVCCommand(UInt8 * cmd, UInt8 * response,
 {
     IOReturn res;
 
-	if(!fStarted )
-		return kIOReturnNoDevice;
-	
+    if(!fStarted )
+	return kIOReturnNoDevice;
+
     res = fUnit->AVCCommand(cmd,len,response,size);
     IOSleep(8);	// Throttle iMovie
     return res;
@@ -344,10 +394,10 @@ IOReturn IOFireWireAVCUserClient::AVCCommandInGen(UInt8 * cmd, UInt8 * response,
     generation = *(UInt32 *)cmd;
     cmd += sizeof(UInt32);
     len -= sizeof(UInt32);
-	
-	if(!fStarted )
-		return kIOReturnNoDevice;
-	
+    
+    if(!fStarted )
+	return kIOReturnNoDevice;
+    
     res = fUnit->AVCCommandInGeneration(generation,cmd,len,response,size);
     IOSleep(8);	// Throttle iMovie
     return res;
@@ -358,11 +408,170 @@ IOReturn IOFireWireAVCUserClient::updateAVCCommandTimeout
 {
     //IOLog("IOFireWireAVCUserClient : updateAVCCommandTimeout\n");
     
-	if(!fStarted )
-		return kIOReturnNoDevice;
-	
+    if(!fStarted )
+	return kIOReturnNoDevice;
+    
     fUnit->updateAVCCommandTimeout();
 
     return kIOReturnSuccess;
+}
+
+IOReturn IOFireWireAVCUserClient::updateP2PCount(UInt32 addr, SInt32 inc, bool failOnBusReset, UInt32 chan, IOFWSpeed speed)
+{
+    if(!fStarted )
+	return kIOReturnNoDevice;
+
+    IOFireWireNub *device = fUnit->getDevice();
+    FWAddress plugAddr(kCSRRegisterSpaceBaseAddressHi, addr);
+    IOFWReadQuadCommand *readCmd;
+    IOFWCompareAndSwapCommand *lockCmd;
+    UInt32 plugVal, newVal;
+	UInt32 curCount;
+	UInt32 curChan;
+	IOFWSpeed curSpeed;
+    IOReturn res;
+    
+    readCmd = device->createReadQuadCommand(plugAddr, &plugVal, 1, NULL, NULL, failOnBusReset);
+    res = readCmd->submit();
+    readCmd->release();
+    if(res != kIOReturnSuccess)
+        return res;
+        
+    for(int i=0; i<4; i++) {
+        bool success;
+
+		// Parse current plug value
+		curCount = ((plugVal & kIOFWPCRP2PCount) >> 24);
+		curChan = ((plugVal & kIOFWPCRChannel) >> 16);
+		curSpeed = (IOFWSpeed)((plugVal & kIOFWPCROutputDataRate) >> 14);
+		newVal = plugVal;
+
+		// If requested, modify channel
+		if (chan != 0xFFFFFFFF)
+		{
+			if ((curCount != 0) && (chan != curChan))
+				return kIOReturnError;
+
+			newVal &= ~kIOFWPCRChannel;
+			newVal |= ((chan & 0x3F) << 16);
+		}
+
+		// If requested, modify speed
+		if (speed != kFWSpeedInvalid)
+		{
+			if ((curCount != 0) && (speed != curSpeed))
+				return kIOReturnError;
+
+			newVal &= ~kIOFWPCROutputDataRate;
+			newVal |= ((speed & 0x03) << 14);
+		}
+
+		// Modify P2P count
+		newVal &= ~kIOFWPCRP2PCount;
+		if (inc > 0)
+		{
+			if (curCount == 0x3F)
+				return kIOReturnError;
+			newVal |= ((curCount+1) << 24);
+		}
+		else
+		{
+			if (curCount == 0)
+				return kIOReturnError;
+			newVal |= ((curCount-1) << 24);
+		}
+		
+        lockCmd = device->createCompareAndSwapCommand(plugAddr, &plugVal, &newVal, 1);
+        res = lockCmd->submit();
+        success = lockCmd->locked(&plugVal);
+        lockCmd->release();
+        if(res != kIOReturnSuccess)
+            break;
+        if(success)
+            break;
+    }
+    return res;
+}
+
+IOReturn IOFireWireAVCUserClient::makeConnection(UInt32 addr, UInt32 chan, IOFWSpeed speed)
+{
+    IOReturn err;
+    IOFireWireAVCConnection *connection;
+    connection = new IOFireWireAVCConnection;
+    if(!connection)
+        return kIOReturnNoMemory;
+        
+    err = updateP2PCount(addr, 1, false, chan, speed);
+    if(kIOReturnSuccess == err) {
+        connection->fPlugAddr = addr;
+        connection->fChannel = chan;
+        fConnections->setObject(connection);
+    }
+    connection->release();
+    return err;
+}
+
+void IOFireWireAVCUserClient::breakConnection(UInt32 addr)
+{
+    UInt32 i;
+    
+    for(i=0; i<fConnections->getCount(); i++) {
+        IOFireWireAVCConnection *connection;
+        connection = (IOFireWireAVCConnection *)fConnections->getObject(i);
+         if(connection->fPlugAddr == addr) {
+            updateP2PCount(addr, -1, false, 0xFFFFFFFF, kFWSpeedInvalid);
+            fConnections->removeObject(i);
+            break;
+        }
+    }
+}
+
+IOReturn IOFireWireAVCUserClient::makeP2PInputConnection( UInt32 plugNo, UInt32 chan, void *, void *, void *, void *)
+{
+    return makeConnection(kPCRBaseAddress+0x84+4*plugNo, chan, kFWSpeedInvalid);
+}
+
+IOReturn IOFireWireAVCUserClient::breakP2PInputConnection( UInt32 plugNo, void *, void *, void *, void *, void *)
+{
+    breakConnection(kPCRBaseAddress+0x84+4*plugNo);
+	return kIOReturnSuccess;
+}
+
+IOReturn IOFireWireAVCUserClient::makeP2POutputConnection( UInt32 plugNo, UInt32 chan, IOFWSpeed speed, void *, void *, void *)
+{
+    return makeConnection(kPCRBaseAddress+4+4*plugNo, chan, speed);
+}
+
+IOReturn IOFireWireAVCUserClient::breakP2POutputConnection( UInt32 plugNo, void *, void *, void *, void *, void *)
+{
+    breakConnection(kPCRBaseAddress+4+4*plugNo);
+	return kIOReturnSuccess;
+}
+
+IOReturn IOFireWireAVCUserClient::message(UInt32 type, IOService *provider, void *argument)
+{
+    if( fStarted == true && type == kIOMessageServiceIsResumed ) {
+        retain();	// Make sure we don't get deleted with the thread running
+        IOCreateThread(remakeConnections, this);
+    }
+    
+    return kIOReturnSuccess;
+}
+
+void IOFireWireAVCUserClient::remakeConnections(void *arg)
+{
+    IOFireWireAVCUserClient *me = (IOFireWireAVCUserClient *)arg;
+    UInt32 i;
+    IOReturn res;
+    for(i=0; i<me->fConnections->getCount(); i++) {
+        IOFireWireAVCConnection *connection;
+        connection = (IOFireWireAVCConnection *)me->fConnections->getObject(i);
+        //IOLog("Remaking connection %d %p\n", i, connection);
+        res = me->updateP2PCount(connection->fPlugAddr, 1, true, connection->fChannel, kFWSpeedInvalid);
+        if(res == kIOFireWireBusReset)
+            break;
+    }
+    
+    me->release();
 }
 

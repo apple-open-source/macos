@@ -24,7 +24,7 @@ MAKEFILE = tool.make
 NEXTSTEP_INSTALLDIR = /usr/sbin
 WINDOWS_INSTALLDIR = /Library/Executables
 PDO_UNIX_INSTALLDIR = /bin
-LIBS = 
+LIBS = -lcrypto
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 

@@ -15,7 +15,7 @@ else
 NEXTSTEP_PB_CFLAGS += -DHAVE_CFPLUGIN
 endif
 
-OTHER_CCFLAGS += -x c++ -fno-rtti -fno-exceptions -fcheck-new -fvtable-thunks
+OTHER_CCFLAGS += -x c++ -fno-rtti -fno-exceptions -fcheck-new -fvtable-thunks -fpascal-strings
 
 ORDERFILE = $(NEXT_ROOT)/usr/local/lib/OrderFiles/$(NAME).order
 SECTORDER_FLAGS = -sectorder __TEXT __text $(ORDERFILE)
@@ -24,3 +24,4 @@ SECTORDER_FLAGS = -sectorder __TEXT __text $(ORDERFILE)
 override DUMMY_SYMBOL_FILE =
 override DUMMY_SYMBOL_INFO_FILE =
 
+HEADER_PATHS = -I/System/Library/Frameworks/System.framework/PrivateHeaders -F/System/Library/PrivateFrameworks 

@@ -4,7 +4,7 @@
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" RCS: @(#) $Id: WrongNumArgs.3,v 1.1.1.2 2000/04/12 02:01:57 wsanchez Exp $
+'\" RCS: @(#) $Id: WrongNumArgs.3,v 1.1.1.3 2003/03/06 00:09:46 landonf Exp $
 '\" 
 .so man.macros
 .TH Tcl_WrongNumArgs 3 8.0 Tcl "Tcl Library Procedures"
@@ -26,7 +26,7 @@ Number of leading arguments from \fIobjv\fR to include in error
 message.
 .AP Tcl_Obj "*CONST\ objv[]" in
 Arguments to command that had the wrong number of arguments.
-.AP char *message in
+.AP "CONST char" *message in
 Additional error information to print after leading arguments
 from \fIobjv\fR.  This typically gives the acceptable syntax
 of the command.  This argument may be NULL.
@@ -63,9 +63,9 @@ subcommand we would like to use the full subcommand name rather than
 the abbreviation.  If the \fBTcl_WrongNumArgs\fR command finds any
 \fIindexObjects\fR in the \fIobjv\fR array it will use the full subcommand
 name in the error message instead of the abbreviated name that was
-origionally passed in.  Using the above example, lets assume that
+originally passed in.  Using the above example, lets assume that
 \fIbar\fR is actually an abbreviation for \fIbarfly\fR and the object
-is now an indexObject becasue it was passed to
+is now an indexObject because it was passed to
 \fBTcl_GetIndexFromObj\fR.  In this case the error message would be:
 .CS
 wrong # args: should be "foo barfly fileName count"

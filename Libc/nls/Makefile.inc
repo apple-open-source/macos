@@ -1,10 +1,18 @@
 #	from $NetBSD: Makefile.inc,v 1.7 1995/02/27 13:06:20 cgd Exp $
-# $FreeBSD: src/lib/libc/nls/Makefile.inc,v 1.7 2001/03/27 17:26:48 ru Exp $
+# $FreeBSD: src/lib/libc/nls/Makefile.inc,v 1.5.2.2 2001/04/25 10:04:07 ru Exp $
 
-.PATH: ${.CURDIR}/../libc/nls
+.PATH: ${.CURDIR}/nls
 
-SRCS+=	msgcat.c
+.include "Makefile.fbsd_begin"
+FBSDSRCS= msgcat.c
+FBSDORIGHDRS= msgcat.h
+.include "Makefile.fbsd_end"
+
+# Install msgcat.h for usage by gencat (in adv_cmds)
+LOCALHDRS+=	msgcat.h
 
 .if ${LIB} == "c"
-MAN+=	catclose.3 catgets.3 catopen.3
+.include "Makefile.fbsd_begin"
+FBSDMAN3= catclose.3 catgets.3 catopen.3
+.include "Makefile.fbsd_end"
 .endif

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE ejb-jar PUBLIC
+   "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 2.0//EN"
+   "http://java.sun.com/dtd/ejb-jar_2_0.dtd">
+
+<ejb-jar>
+   <description>Second CTS application</description>
+   <display-name>jBoss CTS</display-name>
+   <enterprise-beans>
+
+      <session>
+         <description>Independent deployment interaction tests, Callee</description>
+         <ejb-name>CalleeSessionBean</ejb-name>
+         <home>org.jboss.test.cts.interfaces.CallerSessionHome</home>
+         <remote>org.jboss.test.cts.interfaces.CallerSession</remote>
+         <ejb-class>org.jboss.test.cts.ejb.CallerSessionBean</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Container</transaction-type>
+      </session>
+
+   </enterprise-beans>
+</ejb-jar>

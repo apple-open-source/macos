@@ -9,7 +9,7 @@ installsrc:
 installhdrs:
 	(cd $(SRCROOT)/lib; /bin/chmod +w .; bsdmake)
 
-install:
+install: all
 	# nothing
 
 all:

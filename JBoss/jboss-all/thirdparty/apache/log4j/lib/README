@@ -1,0 +1,8 @@
+This is a list of the files and versions in this directory.  Please keep it up
+to date:
+
+log4j.jar: The 1.2.8 release of Log4j obtained from
+http://jakarta.apache.org/log4j/docs/download.html
+
+snmpTrapAppender.jar: The 1.2.8 release of SNMPTrapAppender obtained from
+http://www.m2technologies.net/asp/snmpTrapAppender.asp

@@ -1,0 +1,316 @@
+
+ <chapter><title>CUPS and Gimp-Print</title>
+   <sect1><title>Introduction</title>
+     <para>
+       CUPS is an acronym which stands for <emphasis>C</emphasis>ommon
+<emphasis>U</emphasis>nix <emphasis>P</emphasis>rinting
+<emphasis>S</emphasis>ystem.  It is assumed that the reader has
+properly installed the CUPS software and the Gimp-Print software.
+This section will discuss adding a printer to CUPS that uses a
+Gimp-Print printer driver, as well as how to modify the various
+settings supplied by Gimp-Print. This will be a rather quick
+explanation, as the CUPS software is quite well documented, and it is
+not my intention to attempt to duplicate the CUPS documentation here.
+     </para>
+   </sect1>
+
+   <sect1><title>CUPS Printer Installation</title>
+     <para>
+This explanation will use the web interface provided by CUPS. First,
+aim your favorite web browser at
+<ulink url="http://localhost:631">the CUPS server</ulink>.  The
+following screen should appear within your browser.
+    </para>
+
+   <figure><title>The CUPS Startup Window</title>
+   <mediaobject>
+   <imageobject>
+   <imagedata scale="45" fileref="figures/cups_startup.png" FORMAT="PNG">
+   </imageobject>
+   <textobject>
+   <phrase>The CUPS Startup Window</phrase>
+   </textobject>
+   </mediaobject>
+   </figure>
+
+   <para>
+Now, you may click on either the word <guilabel>Printers</guilabel> in the bar at the top
+of the page, or you may click on the <guilabel>Manage Printers</guilabel> text.  In
+either case, the next screen you see will look like this one if you
+have not yet configured any printers.
+   </para>
+
+   <figure><title>The CUPS Printers Window</title>
+   <mediaobject>
+   <imageobject>
+   <imagedata scale="45" fileref="figures/cups_printers.png" FORMAT="PNG">
+   </imageobject>
+   <textobject>
+   <phrase>The CUPS Printers Window</phrase>
+   </textobject>
+   </mediaobject>
+   </figure>
+
+    <para>
+At this time, click on the <guibutton>Add Printer</guibutton> button.
+You will then see the Admin screen (shown below).
+    </para>
+
+   <figure><title>The CUPS Admin Window</title>
+   <mediaobject>
+   <imageobject>
+   <imagedata scale="45" fileref="figures/cups_admin.png" FORMAT="PNG">
+   </imageobject>
+   <textobject>
+   <phrase>The CUPS Admin Window</phrase>
+   </textobject>
+   </mediaobject>
+   </figure>
+
+   <para>
+Notice in the screenshot that the three boxes are shown after the
+author filled them in for his printer at home.  You will need to fill
+in an appropriate name of your printer, its location, and a
+description which meets your own needs.  Once this is done, click on
+the <guibutton>Continue</guibutton> button, and then this screen will appear.
+   </para>
+
+   <figure id="fig-cups-admin-device"><title>The CUPS Admin Device Window</title>
+   <mediaobject>
+   <imageobject>
+   <imagedata scale="35" fileref="figures/cups_admin_device.png" FORMAT="PNG">
+   </imageobject>
+   <textobject>
+   <phrase>The CUPS Admin Device Window</phrase>
+   </textobject>
+   </mediaobject>
+   </figure>
+
+   <para>
+Click on the drop down menu next to the word
+<guilabel>Device</guilabel> and a list of possible printer devices
+appears.  Select the device appropriate for your printer.  Note that
+there are a range of serial, parallel, USB, and other devices from
+which to choose.  Once the selection is made, click the
+<guibutton>Continue</guibutton> button.  Now, this screen appears.
+   </para>
+
+   <figure><title>The CUPS Admin Model/Driver Window</title>
+   <mediaobject>
+   <imageobject>
+   <imagedata scale="35" fileref="figures/cups_admin_make.png" FORMAT="PNG">
+   </imageobject>
+   <textobject>
+   <phrase>The CUPS Admin Model/Driver Window</phrase>
+   </textobject>
+   </mediaobject>
+   </figure>
+
+   <caution>
+   <title>Caution Regarding USB Printers</title>
+
+   <para>
+CUPS versions 1.1.11 and later <emphasis>REQUIRE</emphasis>
+the user to insure that the desired USB printer is powered on
+<emphasis>AND</emphasis> physically connected to the USB bus
+<emphasis>BEFORE</emphasis> starting the CUPS software.  
+   </para>
+   <para>
+CUPS must see the USB printer when the software starts.  The CUPS software
+is typically started when the computer boots.  Note that one cannot
+simply plug in the USB printer and power it on after CUPS has started.
+(Note that this does not apply to parallel port printers).
+   </para>
+   <para>
+If the USB printer was not connected and powered on at the time CUPS was
+started, there will not be a USB printer shown in the
+list of devices on the CUPS Admin Device Window (see 
+<xref linkend="fig-cups-admin-device">).  In this event, stop the CUPS
+software, properly connect and power on the USB printer, and restart
+the CUPS software.
+   </para>
+   <para>
+From the list of devices shown in the CUPS Admin Device Window
+(see <xref linkend="fig-cups-admin-device">), a clever user might
+attempt to avoid this issue by selecting 
+<guimenuitem>Internet Printing Protocol</guimenuitem> 
+and then enter something similar to 'usb:/dev/usblp0' in the next
+screen.  However, this fails later in the configuration process with a
+"client_error_not_possible" error message with no other explanation.
+Note that entering 'file:/dev/usblp0' will not work either. While CUPS
+will allow this, printing will not actually work in some situations.
+   </para>
+   <para>
+CUPS versions 1.1.10 and earlier exhibit similar behavior with regard
+to not displaying the USB printer if it was not connected to the USB
+bus and powered up prior to starting the CUPS software.  However,
+these versions of CUPS will indeed allow the user to enter the name of
+the USB connection, unlike versions 1.1.11 and later.
+   </para>
+   </caution>
+
+   <para>
+Select the manufacturer of your printer and click the
+<guibutton>Continue</guibutton> button.  A window will appear which
+asks you to select the specific model number for your printer.
+   </para>
+
+   <para>
+Scroll through the long list and find the model number for your
+printer.  Notice carefully that there are many different languages
+supported for each printer, as denoted by the initials in parenthesis.
+(en) would be for English, (da) for Danish, (sv) for Swedish, (fr) for
+French, (no) for Norwegian, (pl) for Polish, and (en_GB) for British
+English (see <xref linkend="fig-cups-admin-model">).  Also take note
+of the Gimp-Print revision for the driver, and ensure that it is
+indeed the version of Gimp-Print which you have most recently
+installed.  Once you have made the proper selection, click on the
+<guibutton>Continue</guibutton> button. 
+   </para>
+
+   <figure id="fig-cups-admin-model"><title>The 2nd CUPS Admin Model/Driver Window</title>
+   <mediaobject>
+   <imageobject>
+   <imagedata scale="55" fileref="figures/cups_admin_model.png" FORMAT="PNG">
+   </imageobject>
+   <textobject>
+   <phrase>The 2nd CUPS Admin Model/Driver Window</phrase>
+   </textobject>
+   </mediaobject>
+   </figure>
+
+   <figure><title>The CUPS Admin Success Window</title>
+   <mediaobject>
+   <imageobject>
+   <imagedata scale="39" fileref="figures/cups_admin_success.png" FORMAT="PNG">
+   </imageobject>
+   <textobject>
+   <phrase>The CUPS Admin Success Window</phrase>
+   </textobject>
+   </mediaobject>
+   </figure>
+
+   <para>
+Congratulations!  You should now see the CUPS window indicating that
+your printer was successfully installed.  Notice the sentence which
+reads "Printer your_printer has been added successfully".  Click on
+your_printer, which will be the underlined name for your printer.
+   </para>
+
+   <figure id="fig-cups-my-printer"><title>The CUPS Window for Your Printer</title>
+   <mediaobject>
+   <imageobject>
+   <imagedata scale="65" fileref="figures/cups_my_printer.png" FORMAT="PNG">
+   </imageobject>
+   <textobject>
+   <phrase>The CUPS Window for Your Printer</phrase>
+   </textobject>
+   </mediaobject>
+   </figure>
+
+   <para>
+After clicking on your_printer (epson_870 in this example), a window
+will appear similar to that shown in <xref linkend="fig-cups-my-printer">.
+It would probably be a good idea at this point to click on the
+<guibutton>Print Test Page</guibutton> button to ensure that
+everything is working properly.  Take note of the Gimp-Print revision
+printed on this screen and confirm once again that it is the expected
+revision.
+   </para>
+
+   </sect1>
+
+   <sect1><title>Configuring your Printer in CUPS</title>
+
+     <para>
+With reference to <xref linkend="fig-cups-my-printer">, click
+on the <guibutton>Configure Printer</guibutton> button.  A partial
+screenshot of the printer configuration window appears in
+<xref linkend="fig-cups-printer-config-window">.
+The contents of this window will vary depending on precisely which
+printer you selected when you configured CUPS for your printer.  The
+screenshot shows the selections made by the author for his printer.
+The individual selections will not be explained in detail here, as
+they are the same selections which are available when using the
+Gimp-Print plugin to the GIMP.  These selections are explained in
+detail in various sections of <xref linkend="ch-gimp-and-gimp-print">.
+   </para>
+
+   <figure id="fig-cups-printer-config-window"><title>The CUPS Printer Cofiguration Window</title>
+   <mediaobject>
+   <imageobject>
+   <imagedata scale="30" fileref="figures/cups_config_printer.png" FORMAT="PNG">
+   </imageobject>
+   <textobject>
+   <phrase>The CUPS Printer Configuration Window</phrase>
+   </textobject>
+   </mediaobject>
+   </figure>
+
+
+   </sect1>
+
+   <sect1><title>Using CUPS from the Command Line</title>
+
+   <para>
+    It is possible to use the CUPS printing system from the command
+line.  While this document will not delve into all of the specifics of
+the CUPS command line interface, there are portions of this interface
+which are specific to the Gimp-Print software.
+   </para>
+
+   <para>
+The command line is in some cases a more convenient way to generate
+printed output (e.g. when printing from a script).  However, most
+people (including the author) cannot easily predict what a command
+line option of "-o stpCyan=1350" will do to the output.  It is
+therefore a good idea to use the GIMP to view the image and the
+Gimp-Print plugin to preview these settings before relying on the
+command line.
+   </para>
+
+   <para>
+When using CUPS from the command line, the command will have this
+general format:
+
+   <programlisting>
+   <![ CDATA [
+     lpr -P my_printer_name \
+         -o option1=<choice1> \
+         -o option2=<choice2> \
+         /path/to/printfile
+     ]]>
+   </programlisting>
+
+When typing the command directly onto the command line, put all of the
+command line options on one line, and do not type the "\" characters.
+The list of possible options which are specific to Gimp-Print,
+followed by some of the supported choices, are shown below:
+
+   <programlisting>
+   <![ CDATA [
+   -o PageSize=<...| A3 | A4 | A4 | ...>
+   -o InputSlot=<Roll | Standard>
+   -o MediaType=< ..| Inkjet | Plain | GlossyPaper | ...>
+   -o Resolution=<360sw | 360swuni ...| 1440x720 >
+   -o ColorModel=<Black | RGB | Gray | CMYK>
+   -o stpBrightness=<0...2000>
+   -o stpContrast=<0...2000>
+   -o stpCyan=<0...4000>
+   -o stpDensity=<0...2000>
+   -o stpDither=<0...4000>
+   -o stpGamma=<0...4000>
+   -o stpImageType=<LineArt | Continuous | SolidTone>
+   -o stpInkType=<PhotoCMY | CMYK | PhotoCMYK | RGB>
+   -o stpMagenta=<0...4000>
+   -o stpSaturation=<0...9000>
+   -o stpYellow=<0...4000>
+   ]]>
+   </programlisting>
+
+For more detailed information, consult the appropriate sections of <xref linkend="ch-gimp-and-gimp-print">.
+   </para>
+
+   </sect1>
+
+ </chapter>

@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -73,13 +76,13 @@ bool AppleIntelAC97Controller::start( IOService * provider )
         goto fail;
 
     if ( gAppleIntelAC97ControllerGlobals.isValid() == false )
-    	goto fail;
+        goto fail;
 
     funcStr = OSDynamicCast(OSString, getProperty(kControllerFunctionKey));
     if ( funcStr == 0 )
         goto fail;
 
-	funcSym = OSSymbol::withString(funcStr);
+    funcSym = OSSymbol::withString(funcStr);
     if (!funcSym || !setProperty(kControllerFunctionKey, (OSObject *)funcSym))
         goto fail;
 
@@ -119,7 +122,7 @@ bool AppleIntelAC97Controller::start( IOService * provider )
 
     // Publish codecs, and trigger client matching.
 
-	publishCodecs();
+    publishCodecs();
 
     return (codecCount > 0);
 
@@ -135,7 +138,7 @@ void AppleIntelAC97Controller::free()
 
     RELEASE( _provider );
 
-	for ( int codecID = 0; codecID < kMaxCodecCount; codecID++ )
+    for ( int codecID = 0; codecID < kMaxCodecCount; codecID++ )
     {
         RELEASE( _codecs[codecID] );
     }
@@ -149,7 +152,7 @@ UInt32 AppleIntelAC97Controller::attachCodecs()
 {
     int count = 0;
 
-	for ( int codecID = 0; codecID < kMaxCodecCount; codecID++ )
+    for ( int codecID = 0; codecID < kMaxCodecCount; codecID++ )
     {
         AppleIntelAC97Codec * codec = createCodec(codecID);
         if ( codec )
@@ -170,7 +173,7 @@ UInt32 AppleIntelAC97Controller::attachCodecs()
 
 void AppleIntelAC97Controller::publishCodecs()
 {
-	for ( int codecID = 0; codecID < kMaxCodecCount; codecID++ )
+    for ( int codecID = 0; codecID < kMaxCodecCount; codecID++ )
         if ( _codecs[codecID] ) _codecs[codecID]->registerService();
 }
 
@@ -235,7 +238,7 @@ bool AppleIntelAC97Controller::handleIsOpen( const IOService * client ) const
     if ( client )
     {
         AppleIntelAC97Codec * codec
-	           = OSDynamicCast( AppleIntelAC97Codec, client );
+               = OSDynamicCast( AppleIntelAC97Codec, client );
         isOpen = ( codec && (_openMask & (1 << codec->getCodecID())) );
     }
     else
@@ -262,18 +265,18 @@ IOReturn AppleIntelAC97Controller::reserveACLink()
 
 void AppleIntelAC97Controller::releaseACLink()
 {
-	bmWrite8( kCodecAccessSemaphore, 0 );
+    bmWrite8( kCodecAccessSemaphore, 0 );
 }
 
 //---------------------------------------------------------------------------
 
 void AppleIntelAC97Controller::coldReset()
 {
-	DebugLog("%s::%s\n", getName(), __FUNCTION__);
+    DebugLog("%s::%s\n", getName(), __FUNCTION__);
 
     // Issue a cold reset throughout the AC97 circuitry.
 
-	bmWrite32( kGlobalControl, 0 );
+    bmWrite32( kGlobalControl, 0 );
     IOSleep( 20 );
 
     // Remove reset, and configure Output PCM for 2 channel mode.
@@ -285,7 +288,7 @@ void AppleIntelAC97Controller::coldReset()
 
 void AppleIntelAC97Controller::warmReset()
 {
-	DebugLog("%s::%s\n", getName(), __FUNCTION__);
+    DebugLog("%s::%s\n", getName(), __FUNCTION__);
 }
 
 //---------------------------------------------------------------------------
@@ -295,8 +298,8 @@ AppleIntelAC97Controller::setDescriptorBaseAddress( DMAChannel        channel,
                                                     IOPhysicalAddress base )
 {
     DebugLog("%s::%s (%ld, %lx)\n", getName(), __FUNCTION__, channel, base);
-	bmWrite32( kBMBufferDescBaseAddress, base, channel );
-	return kIOReturnSuccess;
+    bmWrite32( kBMBufferDescBaseAddress, base, channel );
+    return kIOReturnSuccess;
 }
 
 //---------------------------------------------------------------------------
@@ -304,7 +307,7 @@ AppleIntelAC97Controller::setDescriptorBaseAddress( DMAChannel        channel,
 void
 AppleIntelAC97Controller::setLastValidIndex( DMAChannel channel, UInt8 index )
 {
-	bmWrite8( kBMLastValidIndex, index, channel );
+    bmWrite8( kBMLastValidIndex, index, channel );
 }
 
 //---------------------------------------------------------------------------
@@ -312,7 +315,7 @@ AppleIntelAC97Controller::setLastValidIndex( DMAChannel channel, UInt8 index )
 UInt8
 AppleIntelAC97Controller::getCurrentIndexValue( DMAChannel channel ) const
 {
-	return bmRead8( kBMCurrentIndex, channel );
+    return bmRead8( kBMCurrentIndex, channel );
 }
 
 //---------------------------------------------------------------------------
@@ -352,7 +355,7 @@ IOReturn AppleIntelAC97Controller::startDMAChannel( DMAChannel channel )
              channel, bmRead16(kBMStatus, channel),
              bmRead32(kGlobalStatus), bmRead32(kGlobalControl));
 
-	bmWrite8( kBMControl,
+    bmWrite8( kBMControl,
               kInterruptOnCompletionEnable | kRunBusMaster, channel );
 
 #if 0 // adverse effect on clock calibration with slow console
@@ -374,7 +377,7 @@ void AppleIntelAC97Controller::stopDMAChannel( DMAChannel channel )
 
     // Stop the DMA engine, and wait for halt completion.
 
-	bmWrite8(kBMControl, 0, channel);
+    bmWrite8(kBMControl, 0, channel);
     for ( limit = 1000; limit; limit-- )
     {
         if (bmRead16(kBMStatus, channel) & kDMAControllerHalted) break;
@@ -386,10 +389,10 @@ void AppleIntelAC97Controller::stopDMAChannel( DMAChannel channel )
     // According to Intel, setting the reset registers bit while the engine
     // is running may cause undefined consequences.
 
-	bmWrite8(kBMControl, kResetRegisters, channel);
+    bmWrite8(kBMControl, kResetRegisters, channel);
     for ( limit = 1000; limit; limit-- )
     {
-    	if ((bmRead8(kBMControl, channel) & kResetRegisters) == 0) break;
+        if ((bmRead8(kBMControl, channel) & kResetRegisters) == 0) break;
         IOSleep(1);
     }
     if (limit == 0) IOLog("%s: reset registers timeout\n", getName());
@@ -414,7 +417,7 @@ bool AppleIntelAC97Controller::serviceChannelInterrupt( DMAChannel channel )
               | kLastValidBufferInterrupt
               | kFIFOError );
 
-	bmWrite16( kBMStatus, status, channel );
+    bmWrite16( kBMStatus, status, channel );
 
     return interrupted;
 }

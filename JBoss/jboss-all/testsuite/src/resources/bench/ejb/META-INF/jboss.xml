@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<jboss>
+    <enterprise-beans>
+      <entity>
+        <ejb-name>NonOptSimpleEntity</ejb-name>
+        <configuration-name>Non Optimized CMP EntityBean</configuration-name>  
+      </entity>
+
+      <entity>
+        <ejb-name>NonOptComplexEntity</ejb-name>
+        <configuration-name>Non Optimized CMP EntityBean</configuration-name>  
+      </entity>
+
+    </enterprise-beans>
+
+    <container-configurations>
+        <container-configuration extends="Standard CMP EntityBean">
+            <container-name>Non Optimized CMP EntityBean</container-name>
+        </container-configuration>
+    </container-configurations>
+
+</jboss>

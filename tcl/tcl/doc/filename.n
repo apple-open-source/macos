@@ -4,7 +4,7 @@
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" RCS: @(#) $Id: filename.n,v 1.1.1.3 2002/04/05 16:12:58 jevans Exp $
+'\" RCS: @(#) $Id: filename.n,v 1.1.1.4 2003/03/06 00:09:25 landonf Exp $
 '\" 
 .so man.macros
 .TH filename n 7.5 Tcl "Tcl Built-In Commands"
@@ -136,7 +136,9 @@ On Microsoft Windows platforms, Tcl supports both drive-relative and UNC
 style names.  Both \fB/\fR and \fB\e\fR may be used as directory separators
 in either type of name.  Drive-relative names consist of an optional drive
 specifier followed by an absolute or relative path.  UNC paths follow the
-general form \fB\e\eservername\esharename\epath\efile\fR.  In both forms,
+general form \fB\e\eservername\esharename\epath\efile\fR, but must at
+the very least contain the server and share components, i.e. 
+\fB\e\eservername\esharename\fR.  In both forms,
 the file names \fB.\fR and \fB..\fR are special and refer to the current
 directory and the parent of the current directory respectively.  The
 following examples illustrate various forms of path names:
@@ -144,7 +146,9 @@ following examples illustrate various forms of path names:
 .TP 15
 \fB\&\e\eHost\eshare/file\fR
 Absolute UNC path to a file called \fBfile\fR in the root directory of
-the export point \fBshare\fR on the host \fBHost\fR.
+the export point \fBshare\fR on the host \fBHost\fR.  Note that
+repeated use of \fBfile dirname\fR on this path will give
+\fB//Host/share\fR, and will never give just /fB//Host/fR.
 .TP 15
 \fBc:foo\fR
 Volume-relative path to a file \fBfoo\fR in the current directory on drive
@@ -161,6 +165,11 @@ directory on the current volume.
 \fB\&\efoo\fR
 Volume-relative path to a file \fBfoo\fR in the root directory of the current
 volume.
+.TP 15
+\fB\&\e\efoo\fR
+Volume-relative path to a file \fBfoo\fR in the root directory of the current
+volume.  This is not a valid UNC path, so the assumption is that the
+extra backslashes are superfluous.
 .RE
 
 .SH "TILDE SUBSTITUTION"
@@ -177,9 +186,13 @@ substitution.
 .PP
 The Macintosh and Windows platforms do not support tilde substitution
 when a user name follows the tilde.  On these platforms, attempts to
-use a tilde followed by a user name will generate an error.  File
-names that have a tilde without a user name will be substituted using
-the \fB$HOME\fR environment variable, just like for Unix.
+use a tilde followed by a user name will generate an error that the
+user does not exist when Tcl attempts to interpret that part of the
+path or otherwise access the file.  The behaviour of these paths
+when not trying to interpret them is the same as on Unix.  File
+names that have a tilde without a user name will be correctly
+substituted using the \fB$HOME\fR environment variable, just like 
+for Unix.
 
 .SH "PORTABILITY ISSUES"
 .PP
@@ -191,6 +204,10 @@ should choose file names that do not contain special characters like:
 alphanumeric characters only.  Also Windows 3.1 only supports file
 names with a root of no more than 8 characters and an extension of no
 more than 3 characters.
+.PP
+On Windows platforms there are file and path length restrictions. 
+Complete paths or filenames longer than about 260 characters will lead
+to errors in most file operations.
 
 .SH KEYWORDS
 current directory, absolute file name, relative file name,

@@ -19,8 +19,7 @@ CFILES = ar_io.c ar_subs.c buf_subs.c cache.c cpio.c file_subs.c\
          ftree.c gen_subs.c getoldopt.c options.c pat_rep.c pax.c\
          sel_subs.c tables.c tar.c tty_subs.c
 
-OTHERSRCS = Makefile Makefile.preamble Makefile.postamble pax.1 cpio.1\
-            tar.1
+OTHERSRCS = Makefile Makefile.preamble Makefile.postamble pax.1 cpio.1
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

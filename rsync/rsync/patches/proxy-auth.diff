@@ -1,0 +1,168 @@
+Hi all,
+
+I have put together a patch for supporting "Basic" HTTP
+Proxy Authentication. The patch changes the interpretation
+of the RSYNC_PROXY environment variable so that the syntax
+
+   user:pass@proxy.foo:port
+
+may be used instead of just
+
+   proxy.foo:port
+
+(the old syntax is of course still supported).  
+The patch has only been tested lightly, but it should(TM)
+work.
+
+The patch (and future versions of it) is available at:
+
+    http://www.imada.sdu.dk/~bardur/personal/patches.html
+
+(and i've attached the rsync-2.5.5 version). Any comments
+and suggestions are welcome, but please CC them to my
+email, as I am not a member of the list.
+
+-- 
+Bardur Arantsson
+<bardur@imada.sdu.dk>
+<bardur@odense.kollegienet.dk>
+
+- "Information wants to be tied up and spanked..."
+                  - Faulty Dreamer on kuro5hin.org
+diff -u rsync-2.5.5.orig/authenticate.c rsync-2.5.5/authenticate.c
+--- rsync-2.5.5.orig/authenticate.c	2002-01-24 03:33:45.000000000 +0100
++++ rsync-2.5.5/authenticate.c	2002-04-04 12:32:58.000000000 +0200
+@@ -24,7 +24,7 @@
+ encode a buffer using base64 - simple and slow algorithm. null terminates
+ the result.
+   ***************************************************************************/
+-static void base64_encode(char *buf, int len, char *out)
++void base64_encode(char *buf, int len, char *out)
+ {
+ 	char *b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+ 	int bit_offset, byte_offset, idx, i;
+diff -u rsync-2.5.5.orig/socket.c rsync-2.5.5/socket.c
+--- rsync-2.5.5.orig/socket.c	2002-03-16 10:00:44.000000000 +0100
++++ rsync-2.5.5/socket.c	2002-04-04 12:32:58.000000000 +0200
+@@ -33,15 +33,52 @@
+ 
+ #include "rsync.h"
+ 
++/* declare the base64_encode function from authenticate.c */
++void base64_encode(char *buf, int len, char *out);
+ 
+-/* Establish a proxy connection on an open socket to a web roxy by
+- * using the CONNECT method. */
+-static int establish_proxy_connection(int fd, char *host, int port)
++/* Establish a proxy connection on an open socket to a web proxy by
++ * using the CONNECT method. If proxy_user and proxy_pass are not NULL,
++ * they are used to authenticate to the proxy using the "Basic"
++ * proxy authorization protocol */
++static int establish_proxy_connection(int fd, char *host, int port, 
++				      char *proxy_user, char *proxy_pass)
+ {
+ 	char buffer[1024];
++	char authbuf[1024];
++	size_t authlen;
+ 	char *cp;
+ 
+-	snprintf(buffer, sizeof(buffer), "CONNECT %s:%d HTTP/1.0\r\n\r\n", host, port);
++	/* use the proxy_user and proxy_pass
++	 * variables to determine authentication string */
++	if ((proxy_user != NULL) &&
++	    (proxy_pass != NULL)) {
++		/* copy "user:pass" into buffer */
++		strlcpy(buffer, proxy_user, sizeof(buffer));
++		strlcat(buffer, ":", sizeof(buffer));
++		strlcat(buffer, proxy_pass, sizeof(buffer));
++		
++		/* how long will the base64 encoded string be? */
++		authlen = (strlen(buffer)*8 + 5)/6;
++		if (authlen>sizeof(authbuf)+1) {
++			rprintf(FERROR,
++				"authentication information too long\n");
++			return -1;
++		}
++		
++		/* encode in base64 into authbuf */
++		base64_encode(buffer, strlen(buffer), authbuf);
++		
++		/* request */
++		snprintf(buffer, sizeof(buffer), 
++			 "CONNECT %s:%d HTTP/1.0\r\n"
++			 "Proxy-Authorization: Basic %s\r\n\r\n", 
++			 host, port, authbuf);
++	} else {
++		/* request */
++		snprintf(buffer, sizeof(buffer), 
++			 "CONNECT %s:%d HTTP/1.0\r\n\r\n", host, port);
++	}
++
+ 	if (write(fd, buffer, strlen(buffer)) != (int) strlen(buffer)) {
+ 		rprintf(FERROR, "failed to write to proxy: %s\n",
+ 			strerror(errno));
+@@ -166,6 +203,9 @@
+ 	int proxied = 0;
+ 	char buffer[1024];
+ 	char *cp;
++	char *proxy_user = NULL;
++	char *proxy_pass = NULL;
++	char *buffer_hostpart;
+ 
+ 	/* if we have a RSYNC_PROXY env variable then redirect our
+ 	 * connetcion via a web proxy at the given address. The format
+@@ -175,7 +215,34 @@
+ 
+ 	if (proxied) {
+ 		strlcpy(buffer, h, sizeof(buffer));
+-		cp = strchr(buffer, ':');
++
++		/* authentication information present? */
++		cp = strchr(buffer, '@');
++		if (cp != NULL) {
++			/* rest of buffer points past the '@' */ 
++			buffer_hostpart = cp+1;
++			/* null separate auth portion from host:port */
++			*cp = '\0';
++			/* find a ':' in the auth portion */
++			cp = strchr(buffer, ':');
++			if (cp == NULL) {
++				rprintf(FERROR,
++					"invalid proxy specification: should be USER:PASS@HOST:PORT\n");
++				return -1;
++			};
++
++			/* null separate USER from PASS */
++		        *cp++ = '\0';
++			
++			/* set up pointers to USER and PASS */
++			proxy_user = buffer;
++			proxy_pass = cp;
++		} else {
++			/* whole buffer is the host part */
++			buffer_hostpart = buffer;
++		}
++
++		cp = strchr(buffer_hostpart, ':');
+ 		if (cp == NULL) {
+ 			rprintf(FERROR,
+ 				"invalid proxy specification: should be HOST:PORT\n");
+@@ -183,7 +250,7 @@
+ 		}
+ 		*cp++ = '\0';
+ 		strcpy(portbuf, cp);
+-		h = buffer;
++		h = buffer_hostpart;
+ 		if (verbose >= 2) {
+ 			rprintf(FINFO, "connection via http proxy %s port %s\n",
+ 				h, portbuf);
+@@ -227,7 +294,8 @@
+ 			continue;
+ 		}
+ 		if (proxied &&
+-		    establish_proxy_connection(s, host, port) != 0) {
++		    establish_proxy_connection(s, host, port, 
++					       proxy_user, proxy_pass) != 0) {
+ 			close(s);
+ 			s = -1;
+ 			continue;

@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = whois.c
 
-OTHERSRCS = Makefile.preamble Makefile whois.1
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble whois.1
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

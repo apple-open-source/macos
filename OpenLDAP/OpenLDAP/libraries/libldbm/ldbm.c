@@ -1,7 +1,7 @@
 /* ldbm.c - ldap dbm compatibility routines */
-/* $OpenLDAP: pkg/ldap/libraries/libldbm/ldbm.c,v 1.72 2002/01/04 20:17:41 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldbm/ldbm.c,v 1.72.2.4 2003/03/03 17:10:06 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -89,6 +89,12 @@ static ldap_pvt_thread_mutex_t ldbm_big_mutex;
 #if !defined( HAVE_BERKELEY_DB ) || (DB_VERSION_MAJOR < 3)
 	/*  a dbEnv for BERKELEYv2  */
 DB_ENV *ldbm_Env = NULL;	/* real or fake, depending on db and version */
+#endif
+
+/* Let's make the version comparisons a little easier... */
+#undef DB_VERSION_X
+#ifdef HAVE_BERKELEY_DB
+#define	DB_VERSION_X	((DB_VERSION_MAJOR<<16)|(DB_VERSION_MINOR<<8)|DB_VERSION_PATCH)
 #endif
 
 /*******************************************************************
@@ -231,7 +237,7 @@ DB_ENV *ldbm_initialize_env(const char *home, int dbcachesize, int *envdirok)
 		return NULL;
 	}
 
-#if DB_VERSION_MAJOR > 3 || DB_VERSION_MINOR >= 3
+#if DB_VERSION_X >= 0x030300
 	/* This interface appeared in 3.3 */
 	env->set_alloc( env, ldbm_malloc, NULL, NULL );
 #endif
@@ -253,7 +259,7 @@ DB_ENV *ldbm_initialize_env(const char *home, int dbcachesize, int *envdirok)
 	envFlags |= DB_THREAD;
 #endif
 
-#if DB_VERSION_MAJOR > 3 || DB_VERSION_MINOR > 0
+#if DB_VERSION_X >= 0x030100
 	err = env->open( env, home, envFlags, 0 );
 #else
 	/* 3.0.x requires an extra argument */
@@ -304,6 +310,9 @@ LDBM
 ldbm_open( DB_ENV *env, char *name, int rw, int mode, int dbcachesize )
 {
 	LDBM		ret = NULL;
+#ifdef HAVE_EBCDIC
+	char n2[2048];
+#endif
 
 #if DB_VERSION_MAJOR >= 3
 	int err;
@@ -318,7 +327,7 @@ ldbm_open( DB_ENV *env, char *name, int rw, int mode, int dbcachesize )
 		return NULL;
 	}
 
-#if DB_VERSION_MAJOR == 3 && DB_VERSION_MINOR < 3
+#if DB_VERSION_X < 0x030300
 	ret->set_malloc( ret, ldbm_malloc );
 #endif
 
@@ -326,7 +335,17 @@ ldbm_open( DB_ENV *env, char *name, int rw, int mode, int dbcachesize )
 
 	/* likely should use ber_mem* routines */
 
+#ifdef HAVE_EBCDIC
+	strncpy(n2, name, sizeof(n2)-1);
+	n2[sizeof(n2)-1] = '\0';
+	__atoe(n2);
+	name = n2;
+#endif
+#if DB_VERSION_X >= 0x040111
+	err = ret->open( ret, NULL, name, NULL, DB_TYPE, rw, mode);
+#else
 	err = ret->open( ret, name, NULL, DB_TYPE, rw, mode);
+#endif
 
 	if ( err != 0 ) {
 		int tmp = errno;
@@ -501,7 +520,7 @@ ldbm_firstkey( LDBM ldbm, LDBMCursor **dbch )
 	LDBM_RLOCK;
 
 	/* acquire a cursor for the DB */
-# if DB_VERSION_MAJOR >= 3 || (DB_VERSION_MAJOR == 2 && DB_VERSION_MINOR > 5)
+# if DB_VERSION_X >= 0x020600
 	rc = ldbm->cursor( ldbm, NULL, &dbci, 0 );
 # else
 	rc = ldbm->cursor( ldbm, NULL, &dbci );
@@ -603,6 +622,14 @@ ldbm_open( DB_ENV *env, char *name, int rw, int mode, int dbcachesize )
 	LDBM		db;
 #ifdef HAVE_ST_BLKSIZE
 		struct stat	st;
+#endif
+#ifdef HAVE_EBCDIC
+	char n2[2048];
+
+	strncpy(n2, name, sizeof(n2)-1);
+	n2[sizeof(n2)-1] = '\0';
+	__atoe(n2);
+	name = n2;
 #endif
 
 	LDBM_WLOCK;

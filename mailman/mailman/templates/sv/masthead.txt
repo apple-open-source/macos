@@ -1,0 +1,15 @@
+Skicka meddelanden som ska distribueras till %(real_name)s till:
+	%(got_list_email)s
+
+För att anmäla dig till eller avanmäla dig från listan via Internet, gå in på:
+	%(got_listinfo_url)s
+eller skicka ett e-postbrev till
+	%(got_request_email)s
+med ordet 'help' i ämnesfältet eller som innehåll.
+
+Du kan nå ansvarig(a) person(er) för listan på
+	%(got_owner_email)s
+
+När du svarar på e-postbrev till listan, var vänlig och ändra ämnesfältet så 
+att det är lite mer beskrivande än bara
+"Re: Innehåll av %(real_name)s sammandrag..."

@@ -1,0 +1,45 @@
+
+JBoss-Jetty.
+-----------
+
+This is a module that integrates intra-vm JBoss CVS with Jetty3 CVS
+(jetty.mortbay.com).
+
+Jetty is then able to provide JBoss with the services of Servlet
+Container and HTTP Server.
+
+To INSTALL : (I'm assuming Un*x - Windows later..)
+
+cd contrib/jetty/src/build
+(set up JBOSS_HOME and JETTY_HOME)
+sh ./build.sh install (installs jetty-service.jar in jboss tree)
+sh ./build.sh client  (builds contrib/jetty/tomcat-test.ear)
+
+Uncomment the necessary Jetty stuff in
+$JBOSS_HOME/conf/default/jboss.conf and jboss.jcml - ensuring that you
+set up a ClassPathExtension pointing to Jetty's lib directory,
+org.jboss.deployment.J2eeDeployer's WarDeployerName Arg is changed to
+: :service=Jetty and that you set the Attribute url for JettyService
+as suggested in the comment.
+
+To TEST :
+
+Follow the instructions in contrib/tomcat to deploy and run the
+tomcat-test.ear (WebApp and EJBs).
+
+To further test Jetty try hitting <jboss-host>:8080/ (If you haven't
+altered the port Jetty is configured to run on). This will run the
+Jetty web-application, giving you access to the Jetty demo test-suite.
+
+PROBLEMS :
+
+Jetty questions should be directed to jetty-discuss@egroups.com
+JBoss questions should be directed to jboss-user@list.working-dogs.com
+I shall be happy to answer questions about the integration.
+
+
+Enjoy.
+
+
+Jules (Jules_Gosnell@yahoo.com) - 11/11/2000
+

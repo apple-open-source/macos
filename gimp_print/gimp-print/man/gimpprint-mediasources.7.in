@@ -1,0 +1,104 @@
+.\" t
+.\" $Id: gimpprint-mediasources.7.in,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $
+.\" Copyright (C) 2000 Roger Leigh <roger@whinlatter.uklinux.net>
+.\"
+.\" This program is free software; you can redistribute it and/or modify
+.\" it under the terms of the GNU General Public License as published by
+.\" the Free Software Foundation; either version 2, or (at your option)
+.\" any later version.
+.\"
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public License
+.\" along with this program; if not, write to the Free Software
+.\" Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+.TH GIMPPRINT-MEDIASOURCES 7 "@RELEASE_DATE@" "Version @GIMPPRINT_VERSION@" "Gimp-Print Manual Pages"
+.SH NAME
+gimpprint-mediasources \- Gimp-Print media sources
+.SH DESCRIPTION
+Gimp-Print supports many different media sources, which vary according to the
+specific capabilities of each printer model.  The available media sources are
+listed below.
+.SH MEDIA SOURCES
+.SS Epson printers
+.TS
+li li
+lb lw(4i).
+Media Source	Description
+_
+Standard	Standard
+Roll	T{
+.na
+Roll Feed (for certain Stylus Photo and Stylus Pro models only)
+.ad
+T}
+.TE
+.SS Canon printers
+.TS
+li li
+lb l.
+Media Source	Description
+_
+Auto	Auto Sheet Feeder
+Manual	Manual with Pause
+ManualNP	Manual without Pause
+.TE
+.SS PCL (Hewlett-Packard and Lexmark 4076) printers
+Different printers allow different choices out of this set.
+.PP
+.TS
+li li
+lb l.
+Media Source	Description
+_
+Standard	Standard (Feed from printer defined source)
+Manual	Manual
+MultiPurpose	Tray 1
+Upper	Tray 2
+Lower	Tray 3
+LargeCapacity	Tray 4
+Portable	Portable Sheet Feeder
+Desktop	Desktop Sheet Feeder
+Tray	Tray
+Tray2	Tray 2
+Optional	Optional Source
+Auto	Autoselect
+.TE
+.SS Lexmark printers (other than the 4076)
+.TS
+li li
+lb l.
+Media Source	Description
+_
+Auto	Auto Sheet Feeder
+Manual	Manual with Pause
+ManualNP	Manual without Pause
+.TE
+.SH COPYRIGHT
+Copyright \(co 2001 Michael Sweet (mike@easysw.com) and Robert Krawitz
+(rlk@alum.mit.edu)
+.PP
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+.PP
+This manual page was written by Roger Leigh (roger@whinlatter.uklinux.net)
+.SH SEE ALSO
+.BR gimpprint-color (7),
+.BR gimpprint-dithers (7),
+.BR gimpprint-imagetypes (7),
+.BR gimpprint-inktypes (7),
+.BR gimpprint-mediasizes (7),
+.BR gimpprint-mediatypes (7),
+.BR gimpprint-models (7),
+.BR gimpprint-resolutions (7).
+.\"#
+.\"# The following sets edit modes for GNU EMACS
+.\"# Local Variables:
+.\"# mode:nroff
+.\"# fill-column:79
+.\"# End:

@@ -1,4 +1,28 @@
 /*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * utils.c - various utility functions used in pppd.
  *
  * Copyright (c) 1999 The Australian National University.
@@ -17,7 +41,7 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#define RCSID	"$Id: utils.c,v 1.2 2002/03/13 22:45:10 callie Exp $"
+#define RCSID	"$Id: utils.c,v 1.5 2003/08/14 00:00:31 callie Exp $"
 
 #include <stdio.h>
 #include <ctype.h>
@@ -29,6 +53,7 @@
 #include <fcntl.h>
 #include <syslog.h>
 #include <netdb.h>
+#include <time.h>
 #include <utmp.h>
 #include <pwd.h>
 #include <sys/param.h>
@@ -44,6 +69,8 @@
 #endif
 
 #include "pppd.h"
+#include "fsm.h"
+#include "lcp.h"
 
 static const char rcsid[] = RCSID;
 
@@ -51,8 +78,8 @@ static const char rcsid[] = RCSID;
 extern char *strerror();
 #endif
 
-static void pr_log __P((void *, char *, ...));
 static void logit __P((int, char *, va_list));
+static void log_write __P((int, char *));
 static void vslp_printer __P((void *, char *, ...));
 static void format_packet __P((u_char *, int, void (*) (void *, char *, ...),
 			       void *));
@@ -206,6 +233,28 @@ vslprintf(buf, buflen, fmt, args)
 	neg = 0;
 	++fmt;
 	switch (c) {
+	case 'l':
+	    c = *fmt++;
+	    switch (c) {
+	    case 'd':
+		val = va_arg(args, long);
+		if (val < 0) {
+		    neg = 1;
+		    val = -val;
+		}
+		base = 10;
+		break;
+	    case 'u':
+		val = va_arg(args, unsigned long);
+		base = 10;
+		break;
+	    default:
+		*buf++ = '%'; --buflen;
+		*buf++ = 'l'; --buflen;
+		--fmt;		/* so %lz outputs %lz etc. */
+		continue;
+	    }
+	    break;
 	case 'd':
 	    i = va_arg(args, int);
 	    if (i < 0) {
@@ -213,6 +262,10 @@ vslprintf(buf, buflen, fmt, args)
 		val = -i;
 	    } else
 		val = i;
+	    base = 10;
+	    break;
+	case 'u':
+	    val = va_arg(args, unsigned int);
 	    base = 10;
 	    break;
 	case 'o':
@@ -407,12 +460,10 @@ vslp_printer __V((void *arg, char *fmt, ...))
     bi->len -= n;
 }
 
+#ifdef unused
 /*
  * log_packet - format a packet and log it.
  */
-
-char line[256];			/* line to be logged accumulated here */
-char *linep;
 
 void
 log_packet(p, len, prefix, level)
@@ -421,12 +472,11 @@ log_packet(p, len, prefix, level)
     char *prefix;
     int level;
 {
-    strlcpy(line, prefix, sizeof(line));
-    linep = line + strlen(line);
-    format_packet(p, len, pr_log, NULL);
-    if (linep != line)
-	syslog(level, "%s", line);
+	init_pr_log(prefix, level);
+	format_packet(p, len, pr_log, &level);
+	end_pr_log();
 }
+#endif /* unused */
 
 /*
  * format_packet - make a readable representation of a packet,
@@ -502,32 +552,92 @@ format_packet(p, len, printer, arg)
 	printer(arg, "%.*B", len, p);
 }
 
-static void
+/*
+ * init_pr_log, end_pr_log - initialize and finish use of pr_log.
+ */
+
+static char line[256];		/* line to be logged accumulated here */
+static char *linep;		/* current pointer within line */
+static int llevel;		/* level for logging */
+
+void
+init_pr_log(prefix, level)
+     char *prefix;
+     int level;
+{
+	linep = line;
+	if (prefix != NULL) {
+		strlcpy(line, prefix, sizeof(line));
+		linep = line + strlen(line);
+	}
+	llevel = level;
+}
+
+void
+end_pr_log()
+{
+	if (linep != line) {
+		*linep = 0;
+		log_write(llevel, line);
+	}
+}
+
+/*
+ * pr_log - printer routine for outputting to syslog
+ */
+void
 pr_log __V((void *arg, char *fmt, ...))
 {
-    int n;
-    va_list pvar;
-    char buf[256];
+	int l, n;
+	va_list pvar;
+	char *p, *eol;
+	char buf[256];
 
 #if defined(__STDC__)
-    va_start(pvar, fmt);
+	va_start(pvar, fmt);
 #else
-    void *arg;
-    char *fmt;
-    va_start(pvar);
-    arg = va_arg(pvar, void *);
-    fmt = va_arg(pvar, char *);
+	void *arg;
+	char *fmt;
+	va_start(pvar);
+	arg = va_arg(pvar, void *);
+	fmt = va_arg(pvar, char *);
 #endif
 
-    n = vslprintf(buf, sizeof(buf), fmt, pvar);
-    va_end(pvar);
+	n = vslprintf(buf, sizeof(buf), fmt, pvar);
+	va_end(pvar);
 
-    if (linep + n + 1 > line + sizeof(line)) {
-	syslog(LOG_DEBUG, "%s", line);
-	linep = line;
-    }
-    strlcpy(linep, buf, line + sizeof(line) - linep);
-    linep += n;
+	p = buf;
+	eol = strchr(buf, '\n');
+	if (linep != line) {
+		l = (eol == NULL)? n: eol - buf;
+		if (linep + l < line + sizeof(line)) {
+			if (l > 0) {
+				memcpy(linep, buf, l);
+				linep += l;
+			}
+			if (eol == NULL)
+				return;
+			p = eol + 1;
+			eol = strchr(p, '\n');
+		}
+		*linep = 0;
+		log_write(llevel, line);
+		linep = line;
+	}
+
+	while (eol != NULL) {
+		*eol = 0;
+		log_write(llevel, p);
+		p = eol + 1;
+		eol = strchr(p, '\n');
+	}
+
+	/* assumes sizeof(buf) <= sizeof(line) */
+	l = buf + n - p;
+	if (l > 0) {
+		memcpy(line, p, n);
+		linep = line + l;
+	}
 }
 
 /*
@@ -580,24 +690,37 @@ logit(level, fmt, args)
 {
     int n;
     char buf[1024];
+
+    n = vslprintf(buf, sizeof(buf), fmt, args);
+    log_write(level, buf);
+}
+
+static void
+log_write(level, buf)
+    int level;
+    char *buf;
+{
 #ifdef __APPLE__
     time_t t;
     int ns;
     char s[64];
 #endif
 
-    n = vslprintf(buf, sizeof(buf), fmt, args);
     syslog(level, "%s", buf);
     if (log_to_fd >= 0 && (level != LOG_DEBUG || debug)) {
-	if (buf[n-1] != '\n')
-	    buf[n++] = '\n';
+	int n = strlen(buf);
+
 #ifdef __APPLE__
 	time(&t);
 	ns = strftime(s, sizeof(s), "%c : ", localtime(&t));
         if (write(log_to_fd, s, ns) != ns)
             log_to_fd = -1;
 #endif
-	if (write(log_to_fd, buf, n) != n)
+
+	if (n > 0 && buf[n-1] == '\n')
+	    --n;
+	if (write(log_to_fd, buf, n) != n
+	    || write(log_to_fd, "\n", 1) != 1)
 	    log_to_fd = -1;
     }
 }
@@ -645,13 +768,15 @@ error __V((char *fmt, ...))
 }
 
 /*
- * warning - log a warning message.
- */
+ * warn - log a warning message.
+ */ 
+void
 #ifdef __APPLE__
-__private_extern__
+warning
+#else 
+warn
 #endif
-void 
-warning (char *fmt, ...)
+ __V((char *fmt, ...))
 {
     va_list pvar;
 
@@ -666,6 +791,7 @@ warning (char *fmt, ...)
     logit(LOG_WARNING, fmt, pvar);
     va_end(pvar);
 }
+
 /*
  * notice - log a notice-level message.
  */
@@ -726,6 +852,39 @@ dbglog __V((char *fmt, ...))
     va_end(pvar);
 }
 
+/*
+ * dump_packet - print out a packet in readable form if it is interesting.
+ * Assumes len >= PPP_HDRLEN.
+ */
+void
+dump_packet(const char *tag, unsigned char *p, int len)
+{
+    int proto;
+
+    if (!debug)
+	return;
+
+    /*
+     * don't print LCP echo request/reply packets if debug <= 1
+     * and the link is up.
+     */
+    proto = (p[2] << 8) + p[3];
+    if (debug <= 1 && unsuccess == 0 && proto == PPP_LCP
+	&& len >= PPP_HDRLEN + HEADERLEN) {
+	unsigned char *lcp = p + PPP_HDRLEN;
+	int l = (lcp[2] << 8) + lcp[3];
+	if ((lcp[0] == ECHOREQ || lcp[0] == ECHOREP
+#ifdef __APPLE__
+            || lcp[0] == TIMEREMAINING
+#endif
+        )
+	    && l >= HEADERLEN && l <= len - PPP_HDRLEN)
+	    return;
+    }
+
+    dbglog("%s %P", tag, p, len);
+}
+
 /* Procedures for locking the serial device using a lock file. */
 #ifndef LOCK_DIR
 #ifdef _linux_
@@ -753,7 +912,7 @@ lock(dev)
 
     result = mklock (dev, (void *) 0);
     if (result == 0) {
-	strlcpy(lock_file, sizeof(lock_file), dev);
+	strlcpy(lock_file, dev, sizeof(lock_file));
 	return 0;
     }
 
@@ -784,9 +943,20 @@ lock(dev)
 	     major(sbuf.st_rdev), minor(sbuf.st_rdev));
 #else
     char *p;
+    char lockdev[MAXPATHLEN];
 
-    if ((p = strrchr(dev, '/')) != NULL)
-	dev = p + 1;
+    if ((p = strstr(dev, "dev/")) != NULL) {
+	dev = p + 4;
+	strncpy(lockdev, dev, MAXPATHLEN-1);
+	lockdev[MAXPATHLEN-1] = 0;
+	while ((p = strrchr(lockdev, '/')) != NULL) {
+	    *p = '_';
+	}
+	dev = lockdev;
+    } else
+	if ((p = strrchr(dev, '/')) != NULL)
+	    dev = p + 1;
+
     slprintf(lock_file, sizeof(lock_file), "%s/LCK..%s", LOCK_DIR, dev);
 #endif
 

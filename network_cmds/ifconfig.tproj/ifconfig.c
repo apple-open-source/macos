@@ -42,7 +42,7 @@ static const char copyright[] =
 static char sccsid[] = "@(#)ifconfig.c	8.2 (Berkeley) 2/16/94";
 #endif
 static const char rcsid[] =
-	"$Id: ifconfig.c,v 1.4 2002/03/05 20:35:12 lindak Exp $";
+	"$Id: ifconfig.c,v 1.5 2003/07/02 01:22:29 lindak Exp $";
 #endif /* not lint */
 
 #include <sys/param.h>
@@ -360,7 +360,6 @@ usage()
 	fprintf(stderr, "%s\n%s\n%s\n%s\n%s\n%s\n%s\n",
 	"usage: ifconfig interface address_family [address [dest_address]]",
 	"                [parameters]",
-	"       ifconfig -C",
 	"       ifconfig interface create",
 	"       ifconfig -a [-d] [-m] [-u] [address_family]",
 	"       ifconfig -l [-d] [-u] [address_family]",
@@ -369,7 +368,6 @@ usage()
 	fprintf(stderr, "%s\n%s\n%s\n%s\n%s\n%s\n%s\n",
 	"usage: ifconfig [-L] interface address_family [address [dest_address]]",
 	"                [parameters]",
-	"       ifconfig -C",
 	"       ifconfig interface create",
 	"       ifconfig -a [-L] [-d] [-m] [-u] [address_family]",
 	"       ifconfig -l [-d] [-u] [address_family]",

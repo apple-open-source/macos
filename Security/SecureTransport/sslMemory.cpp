@@ -138,14 +138,23 @@ OSStatus SSLAllocCopyBuffer(
 	return serr;
 }
 
+OSStatus SSLCopyBufferFromData(
+	const void *src,
+	UInt32 len,
+	SSLBuffer &dst)		// data mallocd and returned 
+{   
+	dst.data = sslAllocCopy((const UInt8 *)src, len);
+	if(dst.data == NULL) {
+		return memFullErr;
+	}
+    dst.length = len;
+    return noErr;
+}
+
 OSStatus SSLCopyBuffer(
 	const SSLBuffer &src, 
 	SSLBuffer &dst)		// data mallocd and returned 
 {   
-	dst.data = sslAllocCopy(src.data, src.length);
-	if(dst.data == NULL) {
-		return memFullErr;
-	}
-    dst.length = src.length;
-    return noErr;
+	return SSLCopyBufferFromData(src.data, src.length, dst);
 }
+

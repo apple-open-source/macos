@@ -37,7 +37,7 @@
 # if	!defined(lint)
 static char copyright[] =
 "@(#) Copyright 1997 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: rdev.c,v 1.9 100/01/14 08:58:41 abe Exp $";
+static char *rcsid = "$Id: rdev.c,v 1.10 2002/04/19 11:57:19 abe Exp $";
 # endif	/* !defined(lint) */
 
 #include "../lsof.h"
@@ -275,7 +275,8 @@ readdev(skip)
 		    Devtp[i].v = 0;
 
 # if	defined(HAS_STD_CLONE) && HAS_STD_CLONE==1
-		    if (HAVECLONEMAJ && major(Devtp[i].rdev) == CLONEMAJ) {
+		    if (HAVECLONEMAJ && GET_MAJ_DEV(Devtp[i].rdev) == CLONEMAJ)
+		    {
 
 		    /*
 		     * Record clone device information.

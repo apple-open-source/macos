@@ -90,7 +90,7 @@ void ScheduleQueue<Time>::Event::unschedule()
 	assert(mScheduled);
 	back->fwd = fwd; fwd->back = back; 
 	mScheduled = false;
-	debug("schedq", "event %p unscheduled", this);
+	secdebug("schedq", "event %p unscheduled", this);
 }
 
 template <class Time>
@@ -113,7 +113,7 @@ inline void ScheduleQueue<Time>::schedule(Event *event, Time when)
 		}
 	// hit the end-of-queue; put at end
 	event->putBefore(&first);
-	debug("schedq", "event %p set for %.3f", event, double(when));
+	secdebug("schedq", "event %p set for %.3f", event, double(when));
 }
 
 template <class Time>
@@ -123,7 +123,7 @@ inline typename ScheduleQueue<Time>::Event *ScheduleQueue<Time>::pop(Time now)
 		Event *top = first.fwd;
 		if (top->fireTime <= now) {
 			top->unschedule();
-			debug("schedq", "event %p delivered at %.3f", top, double(now));
+			secdebug("schedq", "event %p delivered at %.3f", top, double(now));
 			return top;
 		}
 	}

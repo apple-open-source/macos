@@ -1,6 +1,5 @@
-	      The Perl5 'SNMP' Extension Module v4.2.0
+	      The Perl5 'SNMP' Extension Module v5.0
 		      for the Net-SNMP Library
-	       G.S. Marzot (gmarzot@nortelnetworks.com)
 
 Contents:
    Introduction:
@@ -16,6 +15,24 @@ Contents:
    Copyright:
 
 Introduction:
+
+******************************NOTE NOTE NOTE**************************
+  This module now relies on many other modules.  Do not try to build
+  it independently, as it won't work.  Instead of running "perl
+  Makefile.PL" in this directory, run it in the net-snmp/perl
+  directory instead which has a global makefile used to build all the
+  sub-modules in their proper order.
+******************************NOTE NOTE NOTE**************************
+
+Note: The perl SNMP 5.0module which comes with net-snmp 5.0 and
+higher is different than previous versions in a number of ways.  Most
+importantly, it behaves like a proper net-snmp application and calls
+init_snmp properly, which means it will read configuration files and
+use those defaults where appropriate automatically parse MIB files,
+etc.  This will likely affect your perl applications if you have, for
+instance, default values set up in your snmp.conf file (as the perl
+module will now make use of those defaults).  The docmuentation,
+however, has sadly not been updated yet (aside from this note).
 
 This is the Perl5 'SNMP' extension module. The SNMP module provides a
 full featured, tri-lingual SNMP (SNMPv3, SNMPv2c, SNMPv1) API. The
@@ -52,9 +69,8 @@ Contact:
 	the following forums may be helpful:
 
 	comp.lang.perl.modules
-	net-snmp-coders@lists.sourceforge.net mail list
-	(see http://sourceforge.net/projects/net-snmp to subscribe)
-        gmarzot@nortelnetworks.com (last resort)
+	net-snmp-users@lists.sourceforge.net mail list
+	(see http://www.net-snmp.org/lists/users/ to subscribe)
 
 Supported Platforms:
 	Linux 1.2.x, 2.x
@@ -64,16 +80,12 @@ Supported Platforms:
 
 Release Notes:
 
-SNMP module version 4.2.0 is being developed against NET-SNMP-4.2.0
+SNMP module version 5.0 is being developed against NET-SNMP-5.0
 see http://sourceforge.net/projects/net-snmp for details.
 
 Compatibility with earlier or later versions of Net-SNMP or UCD-SNMP
 is not guaranteed due to the dynamic nature of open software
 development :).
-
-the previous stable release is SNMP-3.1.0 and ucd-snmp-4.1.2.
-
-Yes, I skipped some versions, do not be alarmed.
 
 KNOWN BUGS:
 
@@ -86,11 +98,17 @@ INSTALL docs.
 
 (Note: To ensure that any previous Net-SNMP, ucd-snmp or cmu snmp
 installation's library or headers are not used by mistake, use the
--NET-SNMP-PATH directive to explicitly set the default path)
+-NET-SNMP-CONFIG directive to explicitly set the path to the
+net-snmp-config command that knows about the net-snmp installation you
+want to use.)
+
+NOTE: build all the perl modules at once using the Makefile.PL in the
+net-snmp/perl directory rather than the one in this directory.
 
 Unix:
 
-perl Makefile.PL [-NET-SNMP-PATH=/usr/local]
+cd net-snmp/perl
+perl Makefile.PL [-NET-SNMP-CONFIG="sh ../../net-snmp-config"] [-NET-SNMP-IN-SOURCE=true]
 make
 make test
 make install
@@ -102,9 +120,9 @@ fo VC++ 5.0-6.0 (I will be interested to hear of success with cygwin).
 
 First  run vcvars32.bat
 
-for ActiveState Perl  (tested with AS Perl5.005_03 (515))
+for ActiveState Perl  (not tested with the latest net-snmp 5.0 code)
 
-perl Makefile.PL CAPI=TRUE [-NET-SNMP-PATH=/usr]
+perl net-snmp/Makefile.PL CAPI=TRUE [-NET-SNMP-PATH=/usr]
 nmake
 nmake test
 nmake install
@@ -201,13 +219,6 @@ public:
                creation. set to non-zero to have <tags> returned by the 'get'
                methods untranslated (i.e. dotted-decimal).  Setting the
                UseLongNames value for the session is highly recommended.
- TimeStamp   - defaults to the value of SNMP::timestamp_vars at time of
-               session creation. set to non-zero to add an additional element
-               to each Varbind, containing a time(2) timestamp.  Reference
-               the Varbind timestamp through the $varbind_ref->stamp() method.
-	       Do not modify a timestamp value -- it is shared between all
-	       variables that were received at the same time.
-
  ErrorStr    - read-only, holds the error message assoc. w/ last request
  ErrorNum    - read-only, holds the snmp_err or status of last request
  ErrorInd    - read-only, holds the snmp_err_index when appropriate
@@ -407,12 +418,6 @@ SNMP package variables and functions:
                         OID's, instead of translating them.  Also setting
                         $SNMP::use_long_names to non-zero is highly recommended.
 
- $SNMP::timestamp_vars - default '0', set to non-zero to add an additional
-			time(2)-style timestamp element to each returned
-			Varbind (as array element 4).  Do not modify a
-			timestamp value -- it is shared between all variables
-			that were received at the same time.
-
  $SNMP::save_descriptions - default '0',set non-zero to have mib parser save
                         attribute descriptions. must be set prior to mib
                         initialization
@@ -582,7 +587,7 @@ Sometimes compiling the Net-SNMP library with
 'position-independent-code' enabled is required (HPUX specifically).
 
 If you cannot resolve the problem you can post to
-comp.lang.perl.modules or email net-snmp-coders@lists.sourceforge.net.
+comp.lang.perl.modules or email net-snmp-users@lists.sourceforge.net.
 
 please give sufficient information to analyze the problem (OS type,
 versions for OS/Perl/net-SNMP/compiler, complete error output, etc.)
@@ -773,3 +778,8 @@ Copyright:
      Copyright (c) 1995-2000 G. S. Marzot. All rights reserved.
      This program is free software; you can redistribute it and/or
      modify it under the same terms as Perl itself.
+
+     Copyright (c) 2001-2002 Networks Associates Technology, Inc.  All
+     Rights Reserved.  This program is free software; you can
+     redistribute it and/or modify it under the same terms as Perl
+     itself.

@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: nfs_prot_freebsd3.h,v 1.1.1.1 2002/05/15 01:22:09 jkh Exp $
+ * $Id: nfs_prot_freebsd3.h,v 1.1.1.2 2002/07/15 19:42:53 zarzycki Exp $
  *
  */
 
@@ -82,6 +82,7 @@
 #define na_nlink	nlink
 #define na_size		size
 #define na_type		type
+#define na_uid		uid
 #define ne_cookie	cookie
 #define ne_fileid	fileid
 #define ne_name		name

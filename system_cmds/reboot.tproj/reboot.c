@@ -1,30 +1,6 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
  * Copyright (c) 1980, 1986, 1993
- *      The Regents of the University of California.  All rights reserved.
+ *	The Regents of the University of California.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,8 +12,8 @@
  *    documentation and/or other materials provided with the distribution.
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
- *      This product includes software developed by the University of
- *      California, Berkeley and its contributors.
+ *	This product includes software developed by the University of
+ *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -55,46 +31,84 @@
  * SUCH DAMAGE.
  */
 
+#ifndef lint
+static const char copyright[] =
+"@(#) Copyright (c) 1980, 1986, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
+#endif /* not lint */
+
+#ifndef lint
+#if 0
+static char sccsid[] = "@(#)reboot.c	8.1 (Berkeley) 6/5/93";
+#endif
+static const char rcsid[] =
+  "$FreeBSD: src/sbin/reboot/reboot.c,v 1.17 2002/10/06 16:24:36 thomas Exp $";
+#endif /* not lint */
+
 #include <sys/reboot.h>
+#include <sys/types.h>
+#include <sys/sysctl.h>
 #include <signal.h>
-#include <pwd.h>
+#include <err.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <util.h>
+#include <pwd.h>
 #include <syslog.h>
-#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
-void err __P((const char *fmt, ...));
-void usage __P((void));
+void usage(void);
+u_int get_pageins(void);
 
 int dohalt;
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
-	register int i;
 	struct passwd *pw;
-	int ch, howto, lflag, nflag, qflag, sverrno;
-	char *p, *user;
+	int ch, howto, i, fd, kflag, lflag, nflag, qflag, pflag, sverrno;
+	u_int pageins;
+	char *kernel, *p;
+	const char *user;
 
-	if (!strcmp((p = rindex(*argv, '/')) ? p + 1 : *argv, "halt")) {
+	if (strstr((p = rindex(*argv, '/')) ? p + 1 : *argv, "halt")) {
 		dohalt = 1;
 		howto = RB_HALT;
 	} else
 		howto = 0;
-	lflag = nflag = qflag = 0;
-	while ((ch = getopt(argc, argv, "lnq")) != EOF)
+	kflag = lflag = nflag = qflag = 0;
+#ifndef __APPLE__
+	while ((ch = getopt(argc, argv, "dk:lnpq")) != -1)
+#else
+	while ((ch = getopt(argc, argv, "k:lnq")) != -1)
+#endif
 		switch(ch) {
-		case 'l':		/* Undocumented; used by shutdown. */
+#ifndef __APPLE__
+		case 'd':
+			howto |= RB_DUMP;
+			break;
+#endif
+		case 'k':
+			kflag = 1;
+			kernel = optarg;
+			break;
+		case 'l':
 			lflag = 1;
 			break;
 		case 'n':
 			nflag = 1;
 			howto |= RB_NOSYNC;
 			break;
+/* -p is irrelevant on OS X.  It does that anyway. */
+#ifndef __APPLE__
+		case 'p':
+			pflag = 1;
+			howto |= RB_POWEROFF;
+			break;
+#endif
 		case 'q':
 			qflag = 1;
 			break;
@@ -105,12 +119,29 @@ main(argc, argv)
 	argc -= optind;
 	argv += optind;
 
-	if (geteuid())
-		err("%s", strerror(EPERM));
+#ifndef __APPLE__
+	if ((howto & (RB_DUMP | RB_HALT)) == (RB_DUMP | RB_HALT))
+		errx(1, "cannot dump (-d) when halting; must reboot instead");
+#endif
+	if (geteuid()) {
+		errno = EPERM;
+		err(1, NULL);
+	}
 
 	if (qflag) {
 		reboot(howto);
-		err("%s", strerror(errno));
+		err(1, NULL);
+	}
+
+	if (kflag) {
+		fd = open("/boot/nextboot.conf", O_WRONLY | O_CREAT, 0444);
+		if (fd > -1) {
+			(void)write(fd, "nextboot_enable=\"YES\"\n", 22);
+			(void)write(fd, "kernel=\"", 8L);
+			(void)write(fd, kernel, strlen(kernel));
+			(void)write(fd, "\"\n", 2);
+			close(fd);
+		}
 	}
 
 	/* Log the reboot. */
@@ -138,25 +169,32 @@ main(argc, argv)
 
 	/* Just stop init -- if we fail, we'll restart it. */
 	if (kill(1, SIGTSTP) == -1)
-		err("SIGTSTP init: %s", strerror(errno));
+		err(1, "SIGTSTP init");
 
 	/* Ignore the SIGHUP we get when our parent shell dies. */
 	(void)signal(SIGHUP, SIG_IGN);
 
-#if 0
+#ifndef __APPLE__
 	/* Send a SIGTERM first, a chance to save the buffers. */
 	if (kill(-1, SIGTERM) == -1)
-		err("SIGTERM processes: %s", strerror(errno));
+		err(1, "SIGTERM processes");
 
 	/*
 	 * After the processes receive the signal, start the rest of the
 	 * buffers on their way.  Wait 5 seconds between the SIGTERM and
-	 * the SIGKILL to give everybody a chance.
+	 * the SIGKILL to give everybody a chance. If there is a lot of
+	 * paging activity then wait longer, up to a maximum of approx
+	 * 60 seconds.
 	 */
 	sleep(2);
-	if (!nflag)
-		sync();
-	sleep(3);
+	for (i = 0; i < 20; i++) {
+		pageins = get_pageins();
+		if (!nflag)
+			sync();
+		sleep(3);
+		if (get_pageins() == pageins)
+			break;
+	}
 
 	for (i = 1;; ++i) {
 		if (kill(-1, SIGKILL) == -1) {
@@ -172,12 +210,13 @@ main(argc, argv)
 		(void)sleep(2 * i);
 	}
 #endif
+
 	reboot(howto);
 	/* FALLTHROUGH */
 
 restart:
 	sverrno = errno;
-	err("%s%s", kill(1, SIGHUP) == -1 ? "(can't restart init): " : "",
+	errx(1, "%s%s", kill(1, SIGHUP) == -1 ? "(can't restart init): " : "",
 	    strerror(sverrno));
 	/* NOTREACHED */
 }
@@ -185,35 +224,22 @@ restart:
 void
 usage()
 {
-	(void)fprintf(stderr, "usage: %s [-nq]\n", dohalt ? "halt" : "reboot");
+	(void)fprintf(stderr, "usage: %s [-dnpq] [-k kernel]\n",
+	    dohalt ? "halt" : "reboot");
 	exit(1);
 }
 
-#if __STDC__
-#include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
-
-void
-#if __STDC__
-err(const char *fmt, ...)
-#else
-err(fmt, va_alist)
-	char *fmt;
-        va_dcl
-#endif
+u_int
+get_pageins()
 {
-	va_list ap;
-#if __STDC__
-	va_start(ap, fmt);
-#else
-	va_start(ap);
-#endif
-	(void)fprintf(stderr, "%s: ", dohalt ? "halt" : "reboot");
-	(void)vfprintf(stderr, fmt, ap);
-	va_end(ap);
-	(void)fprintf(stderr, "\n");
-	exit(1);
-	/* NOTREACHED */
+	u_int pageins;
+	size_t len;
+
+	len = sizeof(pageins);
+	if (sysctlbyname("vm.stats.vm.v_swappgsin", &pageins, &len, NULL, 0)
+	    != 0) {
+		warnx("v_swappgsin");
+		return (0);
+	}
+	return pageins;
 }

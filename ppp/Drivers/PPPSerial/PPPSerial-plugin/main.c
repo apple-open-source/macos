@@ -2,21 +2,24 @@
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -98,13 +101,14 @@
 #define EXIT_PPPSERIAL_NOANSWER	  	6
 #define EXIT_PPPSERIAL_HANGUP	  	7
 #define EXIT_PPPSERIAL_MODEMSCRIPTNOTFOUND  	8
+#define EXIT_PPPSERIAL_BADSCRIPT  	9
 
 /* -----------------------------------------------------------------------------
  Forward declarations
 ----------------------------------------------------------------------------- */
 void serial_check_options();
 int serial_connect(int *errorcode);
-void serial_device_check();
+void serial_process_extra_options();
 void serial_connect_notifier(void *param, int code);
 void serial_lcpdown_notifier(void *param, int code);
 int serial_terminal_window(char *script, int infd, int outfd);
@@ -116,7 +120,6 @@ int serial_terminal_window(char *script, int infd, int outfd);
 
 extern char *serviceid; 	/* configuration service ID to publish */
 extern int	kill_link;
-
 
 static CFBundleRef 	bundle = 0;		/* our bundle ref */
 
@@ -137,9 +140,9 @@ static u_char	iconstr[1024];
 static u_char	*modemscript = NULL;	
 static u_char	*terminalscript = NULL;	
 static bool 	terminalwindow = 0;
-void (*old_check_options_hook) __P((void));
-int (*old_connect_hook) __P((int *));
-void (*old_dev_device_check_hook) __P((void));
+void (*old_check_options) __P((void));
+int (*old_connect) __P((int *));
+void (*old_process_extra_options) __P((void));
 
 
 /* option descriptors */
@@ -186,12 +189,14 @@ int start(CFBundleRef ref)
     CFRetain(bundle);
     
     // hookup our handlers
-    old_check_options_hook = dev_check_options_hook;
-    dev_check_options_hook = serial_check_options;
-    old_connect_hook = dev_connect_hook;
-    dev_connect_hook = serial_connect;
-    old_dev_device_check_hook = dev_device_check_hook;
-    dev_device_check_hook = serial_device_check;
+    old_check_options = the_channel->check_options;
+    the_channel->check_options = serial_check_options;
+    
+    old_connect = the_channel->connect;
+    the_channel->connect = serial_connect;
+    
+    old_process_extra_options = the_channel->process_extra_options;
+    the_channel->process_extra_options = serial_process_extra_options;
 
     add_notifier(&connect_fail_notify, serial_connect_notifier, 0);
     add_notifier(&lcp_lowerdown_notify, serial_lcpdown_notifier, 0);
@@ -219,7 +224,7 @@ int start(CFBundleRef ref)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-void serial_device_check()
+void serial_process_extra_options()
 {
     char str[MAXPATHLEN];
     struct stat statbuf;
@@ -251,8 +256,8 @@ void serial_device_check()
         }
     }
     
-    if (old_dev_device_check_hook)
-        (*old_dev_device_check_hook)();
+    if (old_process_extra_options)
+        (*old_process_extra_options)();
 }
 
 /* -----------------------------------------------------------------------------
@@ -280,8 +285,8 @@ void serial_check_options()
         terminal_script = terminalcommand;
     }
 
-    if (old_check_options_hook)
-        (*old_check_options_hook)();
+    if (old_check_options)
+        (*old_check_options)();
 }
 
 /* -----------------------------------------------------------------------------
@@ -319,7 +324,7 @@ int serial_connect(int *errorcode)
             sprintf(connectcommand, "%s -l %s -f '%s' -s %d -e %d -c %d -p %d -d %d %s %s -S %d -I '%s' -i '%s' -C '%s' ", 
             PATH_CCL, serviceid, fullmodemscript, 
             modemsound, modemreliable, modemcompress, modempulse, modemdialmode, 
-            debug ? "-v" : "", log_to_file ? "-E" : "", LOG_INFO | LOG_LOCAL2, 
+            debug ? "-v" : "", (log_to_fd >= 0) ? "-E" : "", LOG_INFO | LOG_LOCAL2, 
             icstr, iconstr, cancelstr);
         
         // duplicate that into the alternate script
@@ -345,7 +350,7 @@ int serial_connect(int *errorcode)
         
     if (terminalwindow) {
         
-        dev_terminal_window_hook = serial_terminal_window;
+        terminal_window_hook = serial_terminal_window;
         strcpy(terminalcommand, PATH_MINITERM);
     }
 
@@ -367,8 +372,8 @@ int serial_connect(int *errorcode)
         } 
     }
     
-    if (old_connect_hook)
-        return (*old_connect_hook)(errorcode);
+    if (old_connect)
+        return (*old_connect)(errorcode);
 
     return 0;
 }
@@ -379,6 +384,10 @@ void serial_connect_notifier(void *param, int code)
 {
     
     switch (code) {
+        // cclErr_BadScriptErr = -6028  	// Incorrect script for the modem.
+        case 116:
+            devstatus = EXIT_PPPSERIAL_BADSCRIPT;
+            break;
         // cclErr_NoNumberErr = -6027  	// Can't connect because number is empty.
         case 117:
             devstatus = EXIT_PPPSERIAL_NONUMBER;

@@ -1,0 +1,5 @@
+Package: appleps2controller
+Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
+Description: PS2 controller driver
+Version: 2
+Build-Depends: cctools, libsystem, gcc, zsh, files, file-cmds, text-cmds, system-cmds, shell-cmds, jam, xnu, grep

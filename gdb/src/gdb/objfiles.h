@@ -1,6 +1,7 @@
 /* Definitions for symbol file management in GDB.
-   Copyright 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001
-   Free Software Foundation, Inc.
+
+   Copyright 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
+   2001, 2002 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -21,6 +22,11 @@
 
 #if !defined (OBJFILES_H)
 #define OBJFILES_H
+
+#include "gdb_obstack.h"	/* For obstack internals.  */
+#include "symfile.h"		/* For struct psymbol_allocation_list */
+
+struct bcache;
 
 /* This structure maintains information on a per-objfile basis about the
    "entry point" of the objfile, and the scope within which the entry point
@@ -284,7 +290,8 @@ struct objfile
     /* A byte cache where we can stash arbitrary "chunks" of bytes that
        will not change. */
 
-    struct bcache psymbol_cache;	/* Byte cache for partial syms */
+    struct bcache *psymbol_cache;	/* Byte cache for partial syms */
+    struct bcache *macro_cache;          /* Byte cache for macros */
 
     /* Vectors of all partial symbols read in from file.  The actual data
        is stored in the psymbol_obstack. */
@@ -331,7 +338,7 @@ struct objfile
        the memory mapped malloc() package to manage storage for this objfile's
        data.  NULL if we are not. */
 
-    PTR md;
+    void *md;
 
     /* The file descriptor that was used to obtain the mmalloc descriptor
        for this objfile.  If we call mmalloc_detach with the malloc descriptor
@@ -362,14 +369,14 @@ struct objfile
        typically a pointer to malloc'd memory.  The symbol reader's finish
        function is responsible for freeing the memory thusly allocated.  */
 
-    PTR sym_private;
+    void *sym_private;
 
     /* Hook for target-architecture-specific information.  This must
        point to memory allocated on one of the obstacks in this objfile,
        so that it gets freed automatically when reading a new object
        file. */
 
-    PTR obj_private;
+    void *obj_private;
 
     /* Set of relocation offsets to apply to each section.
        Currently on the psymbol_obstack (which makes no sense, but I'm
@@ -417,6 +424,15 @@ struct objfile
     ExportEntry *export_list;
     int export_list_size;
 
+    /* Link to objfile that contains the debug symbols for this one.
+       One is loaded if this file has an debug link to an existing
+       debug file with the right checksum */
+    struct objfile *separate_debug_objfile;
+
+    /* If this is a separate debug object, this is used as a link to the
+       actual executable objfile. */
+    struct objfile *separate_debug_objfile_backlink;
+    
     /* Place to stash various statistics about this objfile */
       OBJSTATS;
   };
@@ -512,11 +528,13 @@ extern struct objfile *object_files;
 
 extern void objfile_to_front (struct objfile *);
 
+extern void put_objfile_before (struct objfile *, struct objfile *);
+
+extern void link_objfile (struct objfile *);
+
 extern void unlink_objfile (struct objfile *);
 
 extern void free_objfile (struct objfile *);
-
-extern void update_section_tables (struct target_ops *target);
 
 extern struct cleanup *make_cleanup_free_objfile (struct objfile *);
 
@@ -548,11 +566,45 @@ extern int in_plt_section (CORE_ADDR, char *);
 
 extern int is_in_import_list (char *, struct objfile *);
 
+/* A convenience routine for demangling the msymbols in an objfile.
+   FIXME: We added this, and I don't think it is needed in all the 
+   places we are using it. */
+extern void objfile_demangle_msymbols (struct objfile *);
+
 /* Traverse all object files.  ALL_OBJFILES_SAFE works even if you delete
    the objfile during the traversal.  */
 
+struct objfile_list {
+  struct objfile *objfile;
+  struct objfile_list *next;
+};
+
+extern struct objfile_list *objfile_list;
+
+struct objfile *objfile_get_first ();
+struct objfile *objfile_get_next (struct objfile *);
+void objfile_restrict_search (int);
+void objfile_add_to_restrict_list (struct objfile *objfile);
+void objfile_clear_restrict_list ();
+
+/* APPLE LOCAL: These manage & look up obj_sections in the ordered_sections
+   array.  */
+void objfile_add_to_ordered_sections (struct objfile *objfile);
+void objfile_delete_from_ordered_sections (struct objfile *objfile);
+struct obj_section *find_pc_sect_in_ordered_sections (CORE_ADDR addr, 
+					      struct sec *bfd_section);
+
+/* APPLE LOCAL begin fix-and-continue */
+struct symtab *symtab_get_first (struct objfile *, int );
+struct symtab *symtab_get_next (struct symtab *, int );
+struct partial_symtab *psymtab_get_first (struct objfile *, int );
+struct partial_symtab *psymtab_get_next (struct partial_symtab *, int );
+/* APPLE LOCAL end fix-and-continue */
+
 #define	ALL_OBJFILES(obj) \
-  for ((obj) = object_files; (obj) != NULL; (obj) = (obj)->next)
+  for ((obj) = objfile_get_first (); \
+       (obj) != NULL; \
+       (obj) = objfile_get_next (obj))
 
 #define	ALL_OBJFILES_SAFE(obj,nxt) \
   for ((obj) = object_files; 	   \
@@ -561,13 +613,30 @@ extern int is_in_import_list (char *, struct objfile *);
 
 /* Traverse all symtabs in one objfile.  */
 
+/* APPLE LOCAL fix-and-continue */
 #define	ALL_OBJFILE_SYMTABS(objfile, s) \
-    for ((s) = (objfile) -> symtabs; (s) != NULL; (s) = (s) -> next)
+    for ((s) = symtab_get_first (objfile, 1);  \
+         (s) != NULL; \
+         (s) = symtab_get_next (s, 1))
+
+#define	ALL_OBJFILE_SYMTABS_INCL_OBSOLETED(objfile, s) \
+    for ((s) = symtab_get_first (objfile, 0);  \
+         (s) != NULL; \
+         (s) = symtab_get_next (s, 0))
 
 /* Traverse all psymtabs in one objfile.  */
 
+/* APPLE LOCAL fix-and-continue */
 #define	ALL_OBJFILE_PSYMTABS(objfile, p) \
-    for ((p) = (objfile) -> psymtabs; (p) != NULL; (p) = (p) -> next)
+    for ((p) = psymtab_get_first (objfile, 1); \
+         (p) != NULL; \
+         (p) = psymtab_get_next (p, 1))
+
+/* APPLE LOCAL fix-and-continue */
+#define	ALL_OBJFILE_PSYMTABS_INCL_OBSOLETED(objfile, p) \
+    for ((p) = psymtab_get_first (objfile, 0); \
+         (p) != NULL; \
+         (p) = psymtab_get_next (p, 0))
 
 /* Traverse all minimal symbols in one objfile.  */
 
@@ -580,6 +649,10 @@ extern int is_in_import_list (char *, struct objfile *);
 #define	ALL_SYMTABS(objfile, s) \
   ALL_OBJFILES (objfile)	 \
     ALL_OBJFILE_SYMTABS (objfile, s)
+
+#define	ALL_SYMTABS_INCL_OBSOLETED(objfile, s) \
+  ALL_OBJFILES (objfile)	 \
+    ALL_OBJFILE_SYMTABS_INCL_OBSOLETED (objfile, s)
 
 /* Traverse all psymtabs in all objfiles.  */
 

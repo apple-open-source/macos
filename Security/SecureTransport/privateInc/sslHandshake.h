@@ -80,8 +80,8 @@ typedef enum
     SSL2_HdskStateServerHello,
     SSL2_HdskStateServerVerify,
     SSL2_HdskStateServerFinished,
-    SSL2_HdskStateServerReady,          /* ready for I/O; server side */
-    SSL2_HdskStateClientReady           /* ready for I/O; client side */
+    SSL_HdskStateServerReady,          /* ready for I/O; server side */
+    SSL_HdskStateClientReady           /* ready for I/O; client side */
 } SSLHandshakeState;
     
 typedef struct
@@ -118,15 +118,13 @@ OSStatus SSLProcessServerHello(SSLBuffer message, SSLContext *ctx);
 OSStatus SSLEncodeClientHello(SSLRecord &clientHello, SSLContext *ctx);
 OSStatus SSLProcessClientHello(SSLBuffer message, SSLContext *ctx);
 OSStatus SSLInitMessageHashes(SSLContext *ctx);
-OSStatus SSLEncodeRSAPremasterSecret(SSLContext *ctx);
-OSStatus SSLEncodeDHPremasterSecret(SSLContext *ctx);
-OSStatus SSLInitPendingCiphers(SSLContext *ctx);
 
 /** sslKeyExchange.c **/
 OSStatus SSLEncodeServerKeyExchange(SSLRecord &keyExch, SSLContext *ctx);
 OSStatus SSLProcessServerKeyExchange(SSLBuffer message, SSLContext *ctx);
 OSStatus SSLEncodeKeyExchange(SSLRecord &keyExchange, SSLContext *ctx);
 OSStatus SSLProcessKeyExchange(SSLBuffer keyExchange, SSLContext *ctx);
+OSStatus SSLInitPendingCiphers(SSLContext *ctx);
 
 /** sslHandshakeFinish.c **/
 OSStatus SSLEncodeFinishedMessage(SSLRecord &finished, SSLContext *ctx);

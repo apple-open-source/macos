@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -100,7 +98,7 @@ int argc,
 char **argv,
 char **envp)
 {
-    unsigned long i;
+    int i;
     struct arch *archs;
     unsigned long narchs;
     char *input;
@@ -215,6 +213,9 @@ unsigned long narchs)
 	for(i = 0; i < narchs; i++){
 	    if(archs[i].type == OFILE_Mach_O){
 		object = archs[i].object;
+		if(object->mh->filetype == MH_DYLIB_STUB)
+		    fatal("input file: %s is Mach-O dynamic shared library stub"
+			  " file and can't be changed", archs[i].file_name);
 		setup_object_symbolic_info(object);
 		update_load_commands(archs + i, arch_header_sizes + i);
 	    }
@@ -282,7 +283,7 @@ char *input)
 		if(swap_object_headers(mh, lc) == FALSE)
 		    fatal("internal error: swap_object_headers() failed");
 
-	    if(write(fd, headers, size) != size)
+	    if(write(fd, headers, size) != (int)size)
 		system_error("can't write new headers in file: %s", input);
 
 	    free(headers);
@@ -596,7 +597,7 @@ unsigned long *header_size)
 	*header_size = sizeof(struct mach_header) +
 		       arch->object->mh->sizeofcmds;
 	if(new_sizeofcmds < arch->object->mh->sizeofcmds){
-	    memset(arch->object->load_commands + new_sizeofcmds, '\0',
+	    memset(((char *)arch->object->load_commands) + new_sizeofcmds, '\0',
 		   arch->object->mh->sizeofcmds - new_sizeofcmds);
 	}
 	memcpy(arch->object->load_commands, new_load_commands, new_sizeofcmds);

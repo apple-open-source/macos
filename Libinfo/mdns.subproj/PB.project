@@ -2,8 +2,8 @@
     DYNAMIC_CODE_GEN = YES; 
     English_RESOURCES = {}; 
     FILESTABLE = {
-        H_FILES = (DNSServiceDiscoveryDefines.h, DNSServiceDiscovery.h); 
-        OTHER_LINKED = (DNSServiceDiscovery.c); 
+        H_FILES = (DNSServiceDiscoveryDefines.h, DNSServiceDiscovery.h, dns_sd.h, dnssd_ipc.h); 
+        OTHER_LINKED = (DNSServiceDiscovery.c, dnssd_clientstub.c, dnssd_ipc.c); 
         OTHER_RESOURCES = (); 
         OTHER_SOURCES = (
             Makefile.preamble, 
@@ -12,7 +12,7 @@
             DNSServiceDiscoveryReply.defs, 
             DNSServiceDiscoveryRequest.defs
         ); 
-        PUBLIC_HEADERS = (); 
+        PUBLIC_HEADERS = (dns_sd.h); 
         SUBPROJECTS = (); 
     }; 
     LANGUAGE = English; 

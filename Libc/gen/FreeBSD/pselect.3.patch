@@ -1,0 +1,11 @@
+--- pselect.3.orig	Wed Dec 18 02:13:54 2002
++++ pselect.3	Fri May  2 16:46:17 2003
+@@ -37,7 +37,7 @@
+ .Sh LIBRARY
+ .Lb libc
+ .Sh SYNOPSIS
+-.In sys/select.h
++.In unistd.h
+ .Ft int
+ .Fo pselect
+ .Fa "int nfds"

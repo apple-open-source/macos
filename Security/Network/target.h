@@ -98,4 +98,4 @@ public:
 }	// end namespace Security
 
 
-#endif _H_TARGET
+#endif /* _H_TARGET */

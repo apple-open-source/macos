@@ -1,4 +1,4 @@
-/* Copyright (c) 1993-2000
+/* Copyright (c) 1993-2002
  *      Juergen Weigert (jnweiger@immd4.informatik.uni-erlangen.de)
  *      Michael Schroeder (mlschroe@immd4.informatik.uni-erlangen.de)
  * Copyright (c) 1987 Oliver Laumann
@@ -22,7 +22,7 @@
  */
 
 #include "rcs.h"
-RCS_ID("$Id: search.c,v 1.1.1.1 2001/12/14 22:08:29 bbraun Exp $ FAU")
+RCS_ID("$Id: search.c,v 1.1.1.2 2003/03/19 21:16:19 landonf Exp $ FAU")
 
 #include <sys/types.h>
 
@@ -37,6 +37,8 @@ extern struct layer *flayer;
 extern struct win *fore;
 
 #ifdef COPY_PASTE
+
+int search_ic;
 
 /********************************************************************
  *  VI style Search
@@ -133,7 +135,7 @@ matchword(pattern, y, sx, ex)
 char *pattern;
 int y, sx, ex;
 {
-  char *ip, *ipe, *cp, *pp;
+  unsigned char *ip, *ipe, *cp, *pp;
   struct mline *ml;
 
   /* *sigh* to make WIN work */
@@ -145,12 +147,19 @@ int y, sx, ex;
   for (;sx <= ex; sx++)
     {
       cp = ip++;
-      pp = pattern;
-      while (*cp++ == *pp++)
-	if (*pp == 0)
-	  return sx;
-	else if (cp == ipe)
-	  break;
+      pp = (unsigned char *)pattern;
+      for (;;)
+	{
+	  if (*cp != *pp)
+	    if (!search_ic || ((*cp ^ *pp) & 0xdf) || (*cp | 0x20) < 'a' || (*cp | 0x20) > 'z')
+	      break;
+	  cp++;
+	  pp++;
+	  if (*pp == 0)
+	    return sx;
+	  if (cp == ipe)
+	    break;
+	}
     }
   return -1;
 }
@@ -178,7 +187,7 @@ int l, p, end, dir;
 {
   int tab[256];
   int i, q;
-  char *s, c;
+  unsigned char *s, c;
   int w = flayer->l_width;
 
   /* *sigh* to make WIN work */
@@ -194,21 +203,27 @@ int l, p, end, dir;
   for (i = 0; i < 256; i++)
     tab[i] = l * dir;
   for (i = 0; i < l - 1; i++, str += dir)
-    tab[(int)(unsigned char) *str] = (l - 1 - i) * dir;
+    {
+      q = *(unsigned char *)str;
+      tab[q] = (l - 1 - i) * dir;
+      if (search_ic && (q | 0x20) >= 'a' && ((q | 0x20) <= 'z'))
+        tab[q ^ 0x20] = (l - 1 - i) * dir;
+    }
   if (dir > 0)
     p += l - 1;
   debug1("first char to match: %c\n", *str);
   while (p >= 0 && p < end)
     {
       q = p;
-      s = str;
+      s = (unsigned char *)str;
       for (i = 0;;)
 	{
           c = (WIN(q / w))->image[q % w];
 	  if (i == 0)
             p += tab[(int)(unsigned char) c];
 	  if (c != *s)
-	    break;
+	    if (!search_ic || ((c ^ *s) & 0xdf) || (c | 0x20) < 'a' || (c | 0x20) > 'z')
+	      break;
 	  q -= dir;
 	  s -= dir;
 	  if (++i == l)

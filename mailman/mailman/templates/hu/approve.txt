@@ -1,0 +1,15 @@
+Feliratkozási kérelmed a(z) %(requestaddr)s listára:
+
+    %(cmd)s
+
+a lista üzemeltetõjéhez lett továbbítva.
+
+Ez valószínûleg annak a következménye, hogy egy 'zártkörû' listára
+próbáltál meg feliratkozni.
+
+A lista üzemeltetõjének döntésérõl a feliratkozási kérelmeddel 
+kapcsolatban e-mailben értesítést fogsz kapni.
+
+Észrevételeidet a lista politikájáról a következõ címen tedd meg:
+
+    %(adminaddr)s

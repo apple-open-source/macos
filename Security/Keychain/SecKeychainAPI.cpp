@@ -29,7 +29,18 @@
 	NOTE: Any function with Create or Copy in the name returns an object that must be released.
 */
 
+#if !defined(SECURITY_USE_LEGACY_HEADER)
+#define SECURITY_USE_LEGACY_HEADER
+#define UNDEFINE_SECURITY_USE_LEGACY_HEADER
+#endif
+
 #include <Security/SecKeychainAPI.h>
+
+#ifdef UNDEFINE_SECURITY_USE_LEGACY_HEADER
+#undef SECURITY_USE_LEGACY_HEADER
+#undef UNDEFINE_SECURITY_USE_LEGACY_HEADER
+#endif
+
 #include <Security/SecKeychainSearch.h>
 #include <Security/logging.h>
 
@@ -71,3 +82,4 @@ OSStatus SecKeychainCopySearchNextItem(SecKeychainSearchRef searchRef, SecKeycha
 
 	return SecKeychainSearchCopyNext(searchRef, itemRef);
 }
+

@@ -3,29 +3,26 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1999-2000 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All rights reserved.
  *
- *  DRI: Josh de Cesare
+ *  DRI: Dave Radcliffe
  */
 
 
@@ -69,6 +66,15 @@ bool AppleMPICInterruptController::start(IOService *provider)
   interruptControllerName = OSDynamicCast(OSSymbol, tmpObject);
   if (interruptControllerName == 0) return false;
   
+  // Set the interrupt controller name so it can be matched by others.
+  setProperty("InterruptControllerName", interruptControllerName);
+  
+  // Host MPIC doesn't have "interrupts" property
+  isHostMPIC = (provider->getProperty("interrupts") == NULL);
+  
+  // Check if MPIC requires big-endian access
+  accessBigEndian = (provider->getProperty("big-endian") != NULL);
+
   // Map the MPIC's memory.
   mpicMemoryMap = provider->mapDeviceMemoryWithIndex(0);
   
@@ -78,7 +84,7 @@ bool AppleMPICInterruptController::start(IOService *provider)
   mpicBaseAddress = mpicMemoryMap->getVirtualAddress();
   
   // Read the Feature Reporting Register
-  regTemp = lwbrx(mpicBaseAddress + kFeatureOffset);
+  regTemp = LWBRX(mpicBaseAddress + kFeatureOffset);
   numCPUs =    ((regTemp & kFRRNumCPUMask) >> kFRRNumCPUShift) + 1;
   numVectors = ((regTemp & kFRRNumIRQsMask) >> kFRRNumIRQsShift) + 1;
   
@@ -107,30 +113,30 @@ bool AppleMPICInterruptController::start(IOService *provider)
   }
   
   // Reset the MPIC.
-  stwbrx(kGCR0Reset, mpicBaseAddress + kGlobal0Offset);
+  STWBRX(kGCR0Reset, mpicBaseAddress + kGlobal0Offset);
   eieio();
   
   // Wait for the reset to complete.
   do {
-    regTemp = lwbrx(mpicBaseAddress + kGlobal0Offset);
+    regTemp = LWBRX(mpicBaseAddress + kGlobal0Offset);
     eieio();
   }  while (regTemp & kGCR0Reset);
   
   // Clear and mask all the interrupt vectors.
   for (cnt = 0; cnt < (numVectors + numCPUs); cnt++) {
-    stwbrx(kIntnVPRMask, mpicBaseAddress+kIntnVecPriOffset+kIntnStride*cnt);
+    STWBRX(kIntnVPRMask, mpicBaseAddress+kIntnVecPriOffset+kIntnStride*cnt);
   }
   eieio();
   
   // Set the Spurious Vector Register.
-  stwbrx(kSpuriousVectorNumber, mpicBaseAddress + kSpurVectOffset);
+  STWBRX(kSpuriousVectorNumber, mpicBaseAddress + kSpurVectOffset);
   
   // Set 8259 Cascade Mode.
-  stwbrx(kGCR0Cascade, mpicBaseAddress + kGlobal0Offset);
+  STWBRX(kGCR0Cascade, mpicBaseAddress + kGlobal0Offset);
   
   // Set the all CPUs Current Task Priority to zero.
   for(cnt = 0; cnt < numCPUs; cnt++) {
-    stwbrx(0, mpicBaseAddress + kPnCurrTskPriOffset + (kPnStride * cnt));
+    STWBRX(0, mpicBaseAddress + kPnCurrTskPriOffset + (kPnStride * cnt));
     eieio();
   }
 
@@ -153,9 +159,8 @@ bool AppleMPICInterruptController::start(IOService *provider)
 
   registerService();  
   
-  tmpObject = provider->getProperty("interrupts");
   handler = getInterruptHandlerAddress();
-  if (0 == tmpObject) {
+  if (isHostMPIC) {
 
      // host MPIC - set up CPU interrupts
      // only set CPU interrupt properties for the host MPIC (which has no interrupts property)
@@ -249,7 +254,7 @@ IOReturn AppleMPICInterruptController::handleInterrupt(void */*refCon*/,
   IOInterruptVector *vector;
   
   do {
-    vectorNumber = lwbrx(mpicBaseAddress + source*kPnStride + kPnIntAckOffset);
+    vectorNumber = LWBRX(mpicBaseAddress + source*kPnStride + kPnIntAckOffset);
     eieio();
     
     if (vectorNumber == kSpuriousVectorNumber) break;
@@ -257,7 +262,7 @@ IOReturn AppleMPICInterruptController::handleInterrupt(void */*refCon*/,
     level = senses[vectorNumber / 32] & (1 << (vectorNumber & 31));    
     
     if (!level) {
-      stwbrx(0, mpicBaseAddress + source * kPnStride + kPnEOIOffset);
+      STWBRX(0, mpicBaseAddress + source * kPnStride + kPnEOIOffset);
       eieio();
     }
     
@@ -287,7 +292,7 @@ IOReturn AppleMPICInterruptController::handleInterrupt(void */*refCon*/,
     }
     
     if (level) {
-      stwbrx(0, mpicBaseAddress + source * kPnStride + kPnEOIOffset);
+      STWBRX(0, mpicBaseAddress + source * kPnStride + kPnEOIOffset);
       eieio();
     }
     
@@ -326,14 +331,14 @@ void AppleMPICInterruptController::initVector(long vectorNumber, IOInterruptVect
     vectorBase = mpicBaseAddress + kIntnStride * vectorNumber;
     
     regTemp = 0x1; // CPU 0 only.
-    stwbrx(regTemp, vectorBase + kIntnDestOffset);
+    STWBRX(regTemp, vectorBase + kIntnDestOffset);
     eieio();
     
     // Vectors start masked with priority 8.
     regTemp  = kIntnVPRMask | (8 << kIntnVPRPriorityShift);
     regTemp |= (vectorType == kIOInterruptTypeLevel) ? kIntnVPRSense : 0;
     regTemp |= vectorNumber << kIntnVPRVectorShift;
-    stwbrx(regTemp, vectorBase + kIntnVecPriOffset);
+    STWBRX(regTemp, vectorBase + kIntnVecPriOffset);
     eieio();
   } else {
     vectorBase = mpicBaseAddress + kIPInVecPriStride*(vectorNumber-numVectors);
@@ -341,7 +346,7 @@ void AppleMPICInterruptController::initVector(long vectorNumber, IOInterruptVect
     // IPI Vectors start masked with priority 14.
     regTemp  = kIntnVPRMask | (14 << kIntnVPRPriorityShift);
     regTemp |= vectorNumber << kIntnVPRVectorShift;
-    stwbrx(regTemp, vectorBase + kIPInVecPriOffset);
+    STWBRX(regTemp, vectorBase + kIPInVecPriOffset);
     eieio();
   }
 }
@@ -358,10 +363,10 @@ void AppleMPICInterruptController::disableVectorHard(long vectorNumber, IOInterr
 		kIPInVecPriStride * (vectorNumber - numVectors);
 	}
 
-	regTemp = lwbrx(vectorBase);
+	regTemp = LWBRX(vectorBase);
 	if (!(regTemp & kIntnVPRMask)) {
 		regTemp |= kIntnVPRMask;
-		stwbrx(regTemp, vectorBase);
+		STWBRX(regTemp, vectorBase);
 	}
 
 	return;
@@ -380,10 +385,10 @@ void AppleMPICInterruptController::enableVector(long vectorNumber,
 				kIPInVecPriStride * (vectorNumber - numVectors);
 	}
   
-	regTemp = lwbrx(vectorBase);
+	regTemp = LWBRX(vectorBase);
     if (regTemp & kIntnVPRMask) {
 		regTemp &= ~kIntnVPRMask;
-		stwbrx(regTemp, vectorBase);
+		STWBRX(regTemp, vectorBase);
 	}
 	
 	return;
@@ -412,7 +417,7 @@ void AppleMPICInterruptController::dispatchIPI(long source, long targetMask)
   
   for (cnt = 0; cnt < numCPUs; cnt++) {
     if (targetMask & (1 << cnt)) {
-      stwbrx((1 << cnt), ipiBase + kPnIPImDispStride * cnt);
+      STWBRX((1 << cnt), ipiBase + kPnIPImDispStride * cnt);
       eieio();
     }
   }
@@ -424,7 +429,7 @@ void AppleMPICInterruptController::setCurrentTaskPriority(long priority)
   
   // Set the all CPUs Current Task Priority.
   for(cnt = 0; cnt < numCPUs; cnt++) {
-    stwbrx(priority, mpicBaseAddress + kPnCurrTskPriOffset + (kPnStride*cnt));
+    STWBRX(priority, mpicBaseAddress + kPnCurrTskPriOffset + (kPnStride*cnt));
     eieio();
   }
 }
@@ -467,5 +472,21 @@ void AppleMPICInterruptController::setUpForSleep(bool goingToSleep, int cpu)
 
         *currentTaskPri =  (0x00000000 << 24); // originalCurrentTaskPris[cpu];
         eieio();
+
+		// Set 8259 Cascade Mode - this is needed on K2 machines.
+		STWBRX(kGCR0Cascade, mpicBaseAddress + kGlobal0Offset);
+        eieio();
     }
+	
+	return;
+}
+
+
+bool AppleMPICInterruptController::matchPropertyTable(OSDictionary * table)
+{
+    // We return success if the following expression is true -- individual
+    // comparisions evaluate to truth if the named property is not present
+    // in the supplied matching dictionary.
+
+    return compareProperty(table, "InterruptControllerName");
 }

@@ -17,7 +17,6 @@ SUBDIRS =		\
 	mk-amd-map	\
 	wire-test	\
 	\
-	scripts		\
 	doc
 
 # temporary tests override SUBDIRS
@@ -27,6 +26,7 @@ SUBDIRS =		\
 #	aux/aclocal
 EXTRA_DIST_AUX =			\
 	aux/GNUmakefile			\
+	aux/amdgrep			\
 	aux/amindent			\
 	aux/autopat			\
 	aux/chop-aclocal.pl		\
@@ -193,6 +193,7 @@ EXTRA_DIST_CONF =			\
 	conf/nfs_prot/nfs_prot_aix4.h		\
 	conf/nfs_prot/nfs_prot_aix4_2.h		\
 	conf/nfs_prot/nfs_prot_aix4_3.h		\
+	conf/nfs_prot/nfs_prot_aix5_1.h		\
 	conf/nfs_prot/nfs_prot_bsdi2.h		\
 	conf/nfs_prot/nfs_prot_bsdi3.h		\
 	conf/nfs_prot/nfs_prot_darwin.h		\
@@ -282,6 +283,7 @@ EXTRA_DIST =			\
 	depcomp			\
 	ldap-id.ms		\
 	ldap-id.txt		\
+	stamp-h.in		\
 	tasks
 
 DISTCLEANFILES = amu_nfs_prot.h config.cache.old dbgcf.h

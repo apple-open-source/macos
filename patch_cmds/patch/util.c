@@ -1,9 +1,11 @@
 /* utility functions for `patch' */
 
-/* $Id: util.c,v 1.1.1.2 2000/05/06 22:44:53 wsanchez Exp $ */
+/* $Id: util.c,v 1.1.1.3 2003/05/08 18:38:04 rbraun Exp $ */
 
-/* Copyright 1986 Larry Wall
-   Copyright 1992, 1993, 1997-1998, 1999 Free Software Foundation, Inc.
+/* Copyright (C) 1986 Larry Wall
+
+   Copyright (C) 1992, 1993, 1997, 1998, 1999, 2001, 2002 Free
+   Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -23,7 +25,7 @@
 #define XTERN extern
 #include <common.h>
 #include <backupfile.h>
-#include <basename.h>
+#include <dirname.h>
 #include <quotearg.h>
 #include <quotesys.h>
 #include <version.h>
@@ -43,23 +45,9 @@
 # define raise(sig) kill (getpid (), sig)
 #endif
 
-#ifdef __STDC__
-# include <stdarg.h>
-# define vararg_start va_start
-#else
-# define vararg_start(ap,p) va_start (ap)
-# if HAVE_VARARGS_H
-#  include <varargs.h>
-# else
-   typedef char *va_list;
-#  define va_dcl int va_alist;
-#  define va_start(ap) ((ap) = (va_list) &va_alist)
-#  define va_arg(ap, t) (((t *) ((ap) += sizeof (t)))  [-1])
-#  define va_end(ap)
-# endif
-#endif
+#include <stdarg.h>
 
-static void makedirs PARAMS ((char *));
+static void makedirs (char *);
 
 /* Move a file FROM (where *FROM_NEEDS_REMOVAL is nonzero if FROM
    needs removal when cleaning up at the end of execution)
@@ -255,9 +243,13 @@ static char const SCCSDIFF2[] = "|diff - %s";
 
 static char const CLEARTOOL_CO[] = "cleartool co -unr -nc ";
 
+static char const PERFORCE_CO[] = "p4 edit ";
+
 /* Return "RCS" if FILENAME is controlled by RCS,
    "SCCS" if it is controlled by SCCS,
-   "ClearCase" if it is controlled by Clearcase, and 0 otherwise.
+   "ClearCase" if it is controlled by Clearcase,
+   "Perforce" if it is controlled by Perforce,
+   and 0 otherwise.
    READONLY is nonzero if we desire only readonly access to FILENAME.
    FILESTAT describes FILENAME's status or is 0 if FILENAME does not exist.
    If successful and if GETBUF is nonzero, set *GETBUF to a command
@@ -271,7 +263,7 @@ version_controller (char const *filename, int readonly,
   struct stat cstat;
   char const *filebase = base_name (filename);
   char const *dotslash = *filename == '-' ? "./" : "";
-  size_t dir_len = filebase - filename;
+  size_t dirlen = filebase - filename;
   size_t filenamelen = strlen (filename);
   size_t maxfixlen = sizeof "SCCS/" - 1 + sizeof SCCSPREFIX - 1;
   size_t maxtrysize = filenamelen + maxfixlen + 1;
@@ -285,8 +277,8 @@ version_controller (char const *filename, int readonly,
 
   strcpy (trybuf, filename);
 
-#define try1(f,a1)    (sprintf (trybuf + dir_len, f, a1),    stat (trybuf, &cstat) == 0)
-#define try2(f,a1,a2) (sprintf (trybuf + dir_len, f, a1,a2), stat (trybuf, &cstat) == 0)
+#define try1(f,a1)    (sprintf (trybuf + dirlen, f, a1),    stat (trybuf, &cstat) == 0)
+#define try2(f,a1,a2) (sprintf (trybuf + dirlen, f, a1,a2), stat (trybuf, &cstat) == 0)
 
   /* Check that RCS file is not working file.
      Some hosts don't report file name length errors.  */
@@ -362,6 +354,23 @@ version_controller (char const *filename, int readonly,
 	*diffbuf = 0;
 
       r = "ClearCase";
+     }
+  else if (!readonly && filestat &&
+           (getenv("P4PORT") || getenv("P4USER") || getenv("P4CONFIG")))
+    {
+      if (getbuf)
+	{
+	  char *p = *getbuf = xmalloc (maxgetsize);
+	  strcpy (p, PERFORCE_CO);
+	  p += sizeof PERFORCE_CO - 1;
+	  p += quote_system_arg (p, filename);
+	  *p = '\0';
+	}
+
+      if (diffbuf)
+	*diffbuf = 0;
+
+      r = "Perforce";
     }
 
   free (trybuf);
@@ -460,7 +469,7 @@ format_linenum (char numbuf[LINENUM_LENGTH_BOUND + 1], LINENUM n)
 	*--p = '0' + (int) (n % 10);
       while ((n /= 10) != 0);
     }
-	   
+
   return p;
 }
 
@@ -490,7 +499,7 @@ fatal (char const *format, ...)
 {
   va_list args;
   fprintf (stderr, "%s: **** ", program_name);
-  vararg_start (args, format);
+  va_start (args, format);
   vfprintf (stderr, format, args);
   va_end (args);
   putc ('\n', stderr);
@@ -524,7 +533,7 @@ pfatal (char const *format, ...)
   int errnum = errno;
   va_list args;
   fprintf (stderr, "%s: **** ", program_name);
-  vararg_start (args, format);
+  va_start (args, format);
   vfprintf (stderr, format, args);
   va_end (args);
   fflush (stderr); /* perror bypasses stdio on some hosts.  */
@@ -540,7 +549,7 @@ void
 say (char const *format, ...)
 {
   va_list args;
-  vararg_start (args, format);
+  va_start (args, format);
   vfprintf (stdout, format, args);
   va_end (args);
   fflush (stdout);
@@ -555,7 +564,7 @@ ask (char const *format, ...)
   int r;
   va_list args;
 
-  vararg_start (args, format);
+  va_start (args, format);
   vfprintf (stdout, format, args);
   va_end (args);
   fflush (stdout);
@@ -566,7 +575,8 @@ ask (char const *format, ...)
 	 since it's unlikely that stdout will be seen by the tty user.
 	 The isatty test also works around a bug in GNU Emacs 19.34 under Linux
 	 which makes a call-process `patch' hang when it reads from /dev/tty.
-	 POSIX.2 requires that we read /dev/tty, though.  */
+	 POSIX.1-2001 XCU line 26599 requires that we read /dev/tty,
+	 though.  */
       ttyfd = (posixly_correct || isatty (STDOUT_FILENO)
 	       ? open (TTY_DEVICE, O_RDONLY)
 	       : -1);
@@ -615,7 +625,7 @@ ok_to_reverse (char const *format, ...)
   if (noreverse || ! (force && verbosity == SILENT))
     {
       va_list args;
-      vararg_start (args, format);
+      va_start (args, format);
       vfprintf (stdout, format, args);
       va_end (args);
     }
@@ -711,7 +721,7 @@ static sigset_t initial_signal_mask;
 static sigset_t signals_to_block;
 
 #if ! HAVE_SIGACTION
-static RETSIGTYPE fatal_exit_handler PARAMS ((int)) __attribute__ ((noreturn));
+static RETSIGTYPE fatal_exit_handler (int) __attribute__ ((noreturn));
 static RETSIGTYPE
 fatal_exit_handler (int sig)
 {
@@ -937,7 +947,10 @@ fetchname (char *at, int strip_leading, time_t *pstamp)
 	    if (strip_leading < 0 || --sleading >= 0)
 		name = t+1;
 	  }
-	else if (ISSPACE ((unsigned char) *t))
+	/* Allow file names with internal spaces,
+	   but only if a tab separates the file name from the date.  */
+	else if (*t == '\t'
+		 || (ISSPACE ((unsigned char) *t) && ! strchr (t + 1, '\t')))
 	  {
 	    char const *u = t;
 

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<jboss>
+  <container-configurations>
+    <container-configuration extends="Standard BMP EntityBean">
+      <container-name>My BMP EntityBean</container-name>
+    </container-configuration>
+  </container-configurations>
+
+  <enterprise-beans>
+    <session>
+      <ejb-name>bmp.BMPHelperSession</ejb-name>
+      <resource-ref>
+         <res-ref-name>datasource</res-ref-name>
+         <resource-name>mydatabase</resource-name>
+      </resource-ref>
+    </session>
+    <entity>
+      <ejb-name>bmp.SimpleBMP</ejb-name>
+      <configuration-name>My BMP EntityBean</configuration-name>
+      <resource-ref>
+         <res-ref-name>datasource</res-ref-name>
+         <resource-name>mydatabase</resource-name>
+      </resource-ref>
+    </entity>
+    
+  </enterprise-beans>
+
+   <resource-managers>
+    
+     <resource-manager>
+        <res-name>mydatabase</res-name>
+        <res-jndi-name>java:/DefaultDS</res-jndi-name>
+     </resource-manager>
+
+   </resource-managers>
+
+</jboss>

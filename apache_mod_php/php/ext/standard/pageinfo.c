@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Jim Winstead <jimw@php.net>                                 |
+   | Author: Jim Winstead <jimw@php.net>                                  |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: pageinfo.c,v 1.1.1.4 2001/12/14 22:13:25 zarzycki Exp $ */
+/* $Id: pageinfo.c,v 1.1.1.7 2003/07/18 18:07:43 zarzycki Exp $ */
 
 #include "php.h"
 #include "pageinfo.h"
@@ -27,14 +27,33 @@
 #if HAVE_PWD_H
 #ifdef PHP_WIN32
 #include "win32/pwd.h"
+#elif defined(NETWARE)
+#ifdef ZTS
+extern int basic_globals_id;
+#endif
+#include "netware/pwd.h"
 #else
 #include <pwd.h>
 #endif
+#endif
+#if HAVE_GRP_H
+# ifdef PHP_WIN32
+#  include "win32/grp.h"
+# else
+#  include <grp.h>
+# endif
+#endif
+#ifdef PHP_WIN32
+#undef getgid
+#define getgroups(a, b) 0
+#define getgid() 1
+#define getuid() 1
 #endif
 #if HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 #include <sys/stat.h>
+#include <sys/types.h>
 #ifdef PHP_WIN32
 #include <process.h>
 #endif
@@ -43,9 +62,13 @@
 
 /* {{{ php_statpage
  */
-static void php_statpage(TSRMLS_D)
+PHPAPI void php_statpage(TSRMLS_D)
 {
+#if defined(NETWARE) && defined(CLIB_STAT_PATCH)
+	struct stat_libc *pstat;
+#else
 	struct stat *pstat;
+#endif
 
 	pstat = sapi_get_stat(TSRMLS_C);
 
@@ -54,8 +77,15 @@ static void php_statpage(TSRMLS_D)
 			BG(page_uid)   = pstat->st_uid;
 			BG(page_gid)   = pstat->st_gid;
 			BG(page_inode) = pstat->st_ino;
+#if defined(NETWARE) && defined(NEW_LIBC)
+			BG(page_mtime) = (pstat->st_mtime).tv_nsec;
+#else
 			BG(page_mtime) = pstat->st_mtime;
-		} 
+#endif
+		} else { /* handler for situations where there is no source file, ex. php -r */
+			BG(page_uid) = getuid();
+			BG(page_gid) = getgid();
+		}
 	}
 }
 /* }}} */
@@ -137,15 +167,21 @@ PHP_FUNCTION(getmyinode)
 }
 /* }}} */
 
+PHPAPI long php_getlastmod(TSRMLS_D)
+{
+	php_statpage(TSRMLS_C);
+	return BG(page_mtime);
+}
+
 /* {{{ proto int getlastmod(void)
    Get time of last page modification */
 PHP_FUNCTION(getlastmod)
 {
-	php_statpage(TSRMLS_C);
-	if (BG(page_mtime) < 0) {
+	long lm = php_getlastmod(TSRMLS_C);
+	if (lm < 0) {
 		RETURN_FALSE;
 	} else {
-		RETURN_LONG(BG(page_mtime));
+		RETURN_LONG(lm);
 	}
 }
 /* }}} */
@@ -155,6 +191,6 @@ PHP_FUNCTION(getlastmod)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

@@ -31,7 +31,7 @@ static void filelog_fini(xlog_s *) ;
 static int filelog_control(xlog_s *, xlog_cmd_e, va_list) ;
 static int filelog_write(xlog_s *, const char buf[], int, int, va_list) ;
 static int filelog_parms(xlog_e, va_list) ;
-static int limit_checks(xlog_s *) ;
+static int limit_checks(const xlog_s *) ;
 
 struct xlog_ops __xlog_filelog_ops = 
 	{
@@ -46,14 +46,14 @@ struct xlog_ops __xlog_filelog_ops =
 static int filelog_init( xlog_s *xp, va_list ap )
 {
 	int				fd ;
-	struct filelog *flp ;
+	struct filelog_s		*flp ;
 	char				*filename;
 	int				flags;
 
 	filename = va_arg(ap, char *);
 	flags = va_arg(ap, int);
 
-	flp = NEW( struct filelog ) ;
+	flp = NEW( struct filelog_s ) ;
 	if ( flp == NULL )
 		return( XLOG_ENOMEM ) ;
 
@@ -79,11 +79,11 @@ static int filelog_init( xlog_s *xp, va_list ap )
 
 static void filelog_fini( xlog_s *xp )
 {
-	struct filelog *flp = FILELOG( xp ) ;
+	struct filelog_s *flp = FILELOG( xp ) ;
 
 	if ( flp->fl_state != FL_CLOSED )
 	{
-		(void) close( flp->fl_fd ) ;
+		(void) Sclose( flp->fl_fd ) ;
 		flp->fl_state = FL_CLOSED ;
 	}
 	free( flp ) ;
@@ -91,11 +91,10 @@ static void filelog_fini( xlog_s *xp )
 }
 
 
-
 static int filelog_control( xlog_s *xp, xlog_cmd_e cmd, va_list ap )
 {
 	struct stat		st ;
-	struct filelog *flp	= FILELOG( xp ) ;
+	struct filelog_s *flp	= FILELOG( xp ) ;
 	int		status	= XLOG_ENOERROR ;
 
 	if ( flp->fl_state == FL_ERROR )
@@ -148,9 +147,9 @@ static int filelog_control( xlog_s *xp, xlog_cmd_e cmd, va_list ap )
 }
 
 
-static int limit_checks( xlog_s *xp )
+static int limit_checks( const xlog_s *xp )
 {
-	struct filelog *flp = FILELOG( xp ) ;
+	struct filelog_s *flp = FILELOG( xp ) ;
 	char buf[ 100 ] ;
 
 	if ( ! flp->fl_issued_warning )
@@ -176,9 +175,10 @@ static int limit_checks( xlog_s *xp )
 }
 
 
-static int filelog_write( xlog_s *xp, const char buf[], int len, int flags, va_list ap )
+static int filelog_write( xlog_s *xp, const char buf[], int len, int flags, 
+	va_list ap )
 {
-	struct filelog	*flp	= FILELOG( xp ) ;
+	struct filelog_s *flp	= FILELOG( xp ) ;
 	int 	action_flags	= ( xp->xl_flags | flags ) ;
 	int	msglen		= 0 ;
 	int	percent_m_pos   = 0 ;
@@ -195,27 +195,46 @@ static int filelog_write( xlog_s *xp, const char buf[], int len, int flags, va_l
 	cc = Sprint( flp->fl_fd, "%02d/%d/%d@%02d:%02d:%02d",
 		tmp->tm_year%100, tmp->tm_mon+1, tmp->tm_mday,
 		tmp->tm_hour, tmp->tm_min, tmp->tm_sec ) ;
+	if ( cc == SIO_ERR ) 
+		return XLOG_EWRITE;
+	
 	msglen += cc ;
 
 	if ( action_flags & XLOG_PRINT_ID )
 	{
 		cc = Sprint( flp->fl_fd, " %s", xp->xl_id ) ;
+		if ( cc == SIO_ERR ) {
+			flp->fl_size += msglen ;
+			return XLOG_EWRITE;
+		}
 		msglen += cc ;
 	}
 
 	if ( action_flags & XLOG_PRINT_PID )
 	{
 		cc = Sprint( flp->fl_fd, "[%d]", getpid() ) ;
+		if ( cc == SIO_ERR ) { 
+			flp->fl_size += msglen ;
+			return XLOG_EWRITE;
+		}
 		msglen += cc ;
 	}
 
 	cc = Sprint( flp->fl_fd, ": " ) ;
+	if ( cc == SIO_ERR ) { 
+		flp->fl_size += msglen ;
+		return XLOG_EWRITE;
+	}
 	msglen += cc ;
 
 	if ( ( action_flags & XLOG_NO_ERRNO ) ||
 		( percent_m_pos = __xlog_add_errno( buf, len ) ) == -1 )
 	{
 		cc = Swrite( flp->fl_fd, buf, len ) ;
+		if ( cc == SIO_ERR ) { 
+			flp->fl_size += msglen ;
+			return XLOG_EWRITE;
+		}
 		msglen += cc ;
 	}
 	else
@@ -230,18 +249,31 @@ static int filelog_write( xlog_s *xp, const char buf[], int len, int flags, va_l
 		 */
 		ep = __xlog_explain_errno( errno_buf, &size ) ;
 		cc = Swrite( flp->fl_fd, buf, percent_m_pos ) ;
+		if ( cc == SIO_ERR ) { 
+			flp->fl_size += msglen ;
+			return XLOG_EWRITE;
+		}
 		msglen += cc ;
 		cc = Swrite( flp->fl_fd, ep, size ) ;
+		if ( cc == SIO_ERR ) { 
+			flp->fl_size += msglen ;
+			return XLOG_EWRITE;
+		}
 		msglen += cc ;
-		cc = Swrite( flp->fl_fd, buf+percent_m_pos+2, len-percent_m_pos-2 ) ;
+		cc = Swrite( flp->fl_fd, buf+percent_m_pos+2, 
+				len-percent_m_pos-2 ) ;
+		if ( cc == SIO_ERR ) { 
+			flp->fl_size += msglen ;
+			return XLOG_EWRITE;
+		}
 		msglen += cc ;
 	}
 	/*
 	 * Writing a newline will cause a buffer flush since we asked for
 	 * line-buffered output
 	 */
-	Sputchar( flp->fl_fd, '\n' ) ;
-	msglen++ ;
+	if ( Sputchar( flp->fl_fd, '\n' ) != SIO_ERR )
+		msglen++ ;
 
 	/*
 	 * NOTE: we don't check if XLOG_NO_SIZECHECK is set in xp->xl_flags

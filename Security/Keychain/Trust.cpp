@@ -35,12 +35,22 @@ ModuleNexus<TrustStore> Trust::gStore;
 
 
 //
+// @@@ For some reason, the C++ type system won't resolve an operator from Security namespace.
+// Drag it in here explicitly (the hard way). Someone bored might want to investigate which
+// language rules ambiguates the Security::operator == inside the Security::KeychainCore namespace.
+//
+inline bool operator == (const CSSM_DL_DB_HANDLE &h1, const CSSM_DL_DB_HANDLE &h2)
+{
+	return Security::operator == (h1, h2);
+}
+
+
+//
 // Construct a Trust object with suitable defaults.
 // Use setters for additional arguments before calling evaluate().
 //
 Trust::Trust(CFTypeRef certificates, CFTypeRef policies)
     : mTP(gGuidAppleX509TP), mAction(CSSM_TP_ACTION_DEFAULT),
-      mVerifyTime(NULL),
       mCerts(cfArrayize(certificates)), mPolicies(cfArrayize(policies)),
       mResult(kSecTrustResultInvalid)
 {
@@ -52,7 +62,7 @@ Trust::Trust(CFTypeRef certificates, CFTypeRef policies)
 //
 // Clean up a Trust object
 //
-Trust::~Trust()
+Trust::~Trust() throw()
 {
 	clearResults();
 }
@@ -64,7 +74,7 @@ Trust::~Trust()
 CSSM_TP_VERIFY_CONTEXT_RESULT_PTR Trust::cssmResult()
 {
 	if (mResult == kSecTrustResultInvalid)
-		MacOSError::throwMe(errSecNotAvailable);
+		MacOSError::throwMe(errSecTrustNotAvailable);
     return &mTpResult;
 }
 
@@ -72,20 +82,20 @@ CSSM_TP_VERIFY_CONTEXT_RESULT_PTR Trust::cssmResult()
 // SecCertificateRef -> CssmData
 CssmData cfCertificateData(SecCertificateRef certificate)
 {
-    return gTypes().certificate.required(certificate)->data();
+    return Certificate::required(certificate)->data();
 }
 
 // SecPolicyRef -> CssmField (CFDataRef/NULL or oid/value of a SecPolicy)
 CssmField cfField(SecPolicyRef item)
 {
-	RefPointer<Policy> policy = gTypes().policy.required(SecPolicyRef(item));
+	SecPointer<Policy> policy = Policy::required(SecPolicyRef(item));
     return CssmField(policy->oid(), policy->value());
 }
 
 // SecKeychain -> CssmDlDbHandle
 CSSM_DL_DB_HANDLE cfKeychain(SecKeychainRef ref)
 {
-	Keychain keychain = gTypes().keychain.required(ref);
+	Keychain keychain = KeychainImpl::required(ref);
 	return keychain->database()->handle();
 }
 
@@ -132,13 +142,22 @@ void Trust::evaluate()
 	vector<CSSM_DL_DB_HANDLE> dlDbList;
 	for (StorageManager::KeychainList::const_iterator it = mSearchLibs.begin();
 			it != mSearchLibs.end(); it++)
-		dlDbList.push_back((*it)->database()->handle());
+	{
+		try
+		{
+			dlDbList.push_back((*it)->database()->handle());
+		}
+		catch (...)
+		{
+		}
+	}
 	context.setDlDbList(dlDbList.size(), &dlDbList[0]);
 
     // verification time
     char timeString[15];
     if (mVerifyTime) {
-        CssmUniformDate(mVerifyTime).convertTo(timeString, sizeof(timeString));
+        CssmUniformDate(static_cast<CFDateRef>(mVerifyTime)).convertTo(
+			timeString, sizeof(timeString));
         context.time(timeString);
     }
 
@@ -159,10 +178,10 @@ void Trust::evaluate()
             && mTpResult[1].form() == CSSM_EVIDENCE_FORM_APPLE_CERTGROUP
             && mTpResult[2].form() == CSSM_EVIDENCE_FORM_APPLE_CERT_INFO) {
         evaluateUserTrust(*mTpResult[1].as<CertGroup>(),
-            mTpResult[2].as<CSSM_TP_APPLE_EVIDENCE_INFO>());
+            mTpResult[2].as<CSSM_TP_APPLE_EVIDENCE_INFO>(), anchors);
     } else {
         // unexpected evidence information. Can't use it
-        debug("trusteval", "unexpected evidence ignored");
+        secdebug("trusteval", "unexpected evidence ignored");
     }
 }
 
@@ -195,31 +214,34 @@ SecTrustResultType Trust::diagnoseOutcome()
 // settings and set mResult accordingly.
 //
 void Trust::evaluateUserTrust(const CertGroup &chain,
-    const CSSM_TP_APPLE_EVIDENCE_INFO *infoList)
+    const CSSM_TP_APPLE_EVIDENCE_INFO *infoList, CFCopyRef<CFArrayRef> anchors)
 {
     // extract cert chain as Certificate objects
-    //@@@ once new Evidence is in, use it to build the Certificates
     mCertChain.resize(chain.count());
     for (uint32 n = 0; n < mCertChain.size(); n++) {
         const TPEvidenceInfo &info = TPEvidenceInfo::overlay(infoList[n]);
         if (info.recordId()) {
-            debug("trusteval", "evidence %ld from DLDB source", n);
-            assert(false);	// from DL/DB search - not yet implemented
+			Keychain keychain = keychainByDLDb(info.DlDbHandle);
+			DbUniqueRecord uniqueId(keychain->database()->newDbUniqueRecord());
+			secdebug("trusteval", "evidence #%ld from keychain \"%s\"", n, keychain->name());
+			*static_cast<CSSM_DB_UNIQUE_RECORD_PTR *>(uniqueId) = info.UniqueRecord;
+			uniqueId->activate(); // transfers ownership
+			mCertChain[n] = safe_cast<Certificate *>(keychain->item(CSSM_DL_DB_RECORD_X509_CERTIFICATE, uniqueId).get());
         } else if (info.status(CSSM_CERT_STATUS_IS_IN_INPUT_CERTS)) {
-            debug("trusteval", "evidence %ld from input cert %ld", n, info.index());
+            secdebug("trusteval", "evidence %ld from input cert %ld", n, info.index());
             assert(info.index() < uint32(CFArrayGetCount(mCerts)));
             SecCertificateRef cert = SecCertificateRef(CFArrayGetValueAtIndex(mCerts,
                 info.index()));
-            mCertChain[n] = gTypes().certificate.required(cert);
+            mCertChain[n] = Certificate::required(cert);
         } else if (info.status(CSSM_CERT_STATUS_IS_IN_ANCHORS)) {
-            debug("trusteval", "evidence %ld from anchor cert %ld", n, info.index());
-            assert(info.index() < uint32(CFArrayGetCount(mAnchors)));
-            SecCertificateRef cert = SecCertificateRef(CFArrayGetValueAtIndex(mAnchors,
+            secdebug("trusteval", "evidence %ld from anchor cert %ld", n, info.index());
+            assert(info.index() < uint32(CFArrayGetCount(anchors)));
+            SecCertificateRef cert = SecCertificateRef(CFArrayGetValueAtIndex(anchors,
                 info.index()));
-            mCertChain[n] = gTypes().certificate.required(cert);
+            mCertChain[n] = Certificate::required(cert);
         } else {
             // unknown source; make a new Certificate for it
-            debug("trusteval", "evidence %ld from unknown source", n);
+            secdebug("trusteval", "evidence %ld from unknown source", n);
             mCertChain[n] =
                 new Certificate(chain.blobCerts()[n],
 					CSSM_CERT_X_509v3, CSSM_CERT_ENCODING_BER);
@@ -228,12 +250,19 @@ void Trust::evaluateUserTrust(const CertGroup &chain,
     
     // now walk the chain, leaf-to-root, checking for user settings
     TrustStore &store = gStore();
-    RefPointer<Policy> policy =
-        gTypes().policy.required(SecPolicyRef(CFArrayGetValueAtIndex(mPolicies, 0)));
+    SecPointer<Policy> policy =
+        Policy::required(SecPolicyRef(CFArrayGetValueAtIndex(mPolicies, 0)));
     for (mResultIndex = 0;
             mResult == kSecTrustResultUnspecified && mResultIndex < mCertChain.size();
             mResultIndex++)
-        mResult = store.find(mCertChain[mResultIndex], policy);
+    {
+		if (!mCertChain[mResultIndex])
+		{
+        	assert(false);
+            continue;
+        }
+	    mResult = store.find(mCertChain[mResultIndex], policy);
+	}
 }
 
 
@@ -255,20 +284,29 @@ void Trust::releaseTPEvidence(TPVerifyResult &result, CssmAllocator &allocator)
 				&& result[1].form() == CSSM_EVIDENCE_FORM_APPLE_CERTGROUP
 				&& result[2].form() == CSSM_EVIDENCE_FORM_APPLE_CERT_INFO) {
 				// proper format
+				CertGroup& certs = *result[1].as<CertGroup>();
+				CSSM_TP_APPLE_EVIDENCE_INFO *evidence = result[2].as<CSSM_TP_APPLE_EVIDENCE_INFO>();
+				uint32 count = certs.count();
 				allocator.free(result[0].data());	// just a struct
-				result[1].as<CertGroup>()->destroy(allocator); // CertGroup contents
+				certs.destroy(allocator);		// certgroup contents
 				allocator.free(result[1].data());	// the CertGroup itself
+				for (uint32 n = 0; n < count; n++)
+					allocator.free(evidence[n].StatusCodes);
 				allocator.free(result[2].data());	// array of (flat) info structs
 			} else {
-				debug("trusteval", "unrecognized Apple TP evidence format");
+				secdebug("trusteval", "unrecognized Apple TP evidence format");
 				// drop it -- better leak than kill
 			}
 		} else {
 			// unknown format -- blindly assume flat blobs
-			debug("trusteval", "destroying unknown TP evidence format");
+			secdebug("trusteval", "destroying unknown TP evidence format");
 			for (uint32 n = 0; n < result.count(); n++)
+			{
 				allocator.free(result[n].data());
+			}
 		}
+		
+		allocator.free (result.Evidence);
 	}
 }
 
@@ -285,14 +323,45 @@ void Trust::clearResults()
 }
 
 
+// Convert a SecPointer to a CF object.
+static SecCertificateRef
+convert(const SecPointer<Certificate> &certificate)
+{
+	return *certificate;
+}
+
 //
 // Build evidence information
 //
 void Trust::buildEvidence(CFArrayRef &certChain, TPEvidenceInfo * &statusChain)
 {
 	if (mResult == kSecTrustResultInvalid)
-		MacOSError::throwMe(errSecNotAvailable);
+		MacOSError::throwMe(errSecTrustNotAvailable);
     certChain = mEvidenceReturned =
-        makeCFArray(gTypes().certificate, mCertChain);
+        makeCFArray(convert, mCertChain);
     statusChain = mTpResult[2].as<TPEvidenceInfo>();
+}
+
+
+//
+// Given a DL_DB_HANDLE, locate the Keychain object (from the search list)
+//
+Keychain Trust::keychainByDLDb(const CSSM_DL_DB_HANDLE &handle) const
+{
+	for (StorageManager::KeychainList::const_iterator it = mSearchLibs.begin();
+			it != mSearchLibs.end(); it++)
+	{
+		try
+		{
+			if ((*it)->database()->handle() == handle)
+				return *it;
+		}
+		catch (...)
+		{
+		}
+	}
+
+	// could not find in search list - internal error
+	assert(false);
+	return Keychain();
 }

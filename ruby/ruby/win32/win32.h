@@ -1,5 +1,5 @@
-#ifndef EXT_NT_H
-#define EXT_NT_H
+#ifndef RUBY_WIN32_H
+#define RUBY_WIN32_H
 
 /*
  *  Copyright (c) 1993, Intergraph Corporation
@@ -119,7 +119,8 @@ extern "C++" {
 #define access	   _access
 #define chmod	   _chmod
 #define chsize	   _chsize
-#define close	   _close
+#define close	   win32_close
+#define fclose	   win32_fclose
 #define creat	   _creat
 #define dup	   _dup
 #define dup2	   _dup2
@@ -183,8 +184,6 @@ extern char *NtGetBin(void);
 extern FILE *mypopen(char *, char *);
 extern int   mypclose(FILE *);
 extern int  flock(int fd, int oper);
-extern int  myfddup(int);
-extern void  myfdclose(FILE *);
 extern SOCKET  myaccept(SOCKET, struct sockaddr *, int *);
 extern int  mybind(SOCKET, struct sockaddr *, int);
 extern int  myconnect(SOCKET, struct sockaddr *, int);
@@ -226,6 +225,36 @@ extern int kill(int, int);
 extern int isinf(double);
 extern int isnan(double);
 
+
+#if !defined S_IRUSR && !defined __MINGW32__
+#define S_IRUSR 0400
+#endif
+#ifndef S_IRGRP
+#define S_IRGRP 0040
+#endif
+#ifndef S_IROTH
+#define S_IROTH 0004
+#endif
+
+#if !defined S_IWUSR && !defined __MINGW32__
+#define S_IWUSR 0200
+#endif
+#ifndef S_IWGRP
+#define S_IWGRP 0020
+#endif
+#ifndef S_IWOTH
+#define S_IWOTH 0002
+#endif
+
+#if !defined S_IXUSR && !defined __MINGW32__
+#define S_IXUSR 0100
+#endif
+#ifndef S_IXGRP
+#define S_IXGRP 0010
+#endif
+#ifndef S_IXOTH
+#define S_IXOTH 0001
+#endif
 
 //
 // define this so we can do inplace editing
@@ -439,6 +468,8 @@ void win32_enter_syscall(void);
 void win32_leave_syscall(void);
 void win32_disable_interrupt(void);
 void win32_enable_interrupt(void);
+int  win32_close(int);
+int  win32_fclose(FILE*);
 #define Sleep(msec) (void)win32_sleep(msec)
 
 /*

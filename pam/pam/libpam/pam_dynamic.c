@@ -74,6 +74,7 @@ servicefn _pam_dlsym(void *handle, const char *symbol)
 	nsSymbol = NSLookupSymbolInModule(handle, _symbol);
 	if( nsSymbol == NULL )
 		return NULL;
+	free(_symbol);
 
 	return (servicefn)NSAddressOfSymbol(nsSymbol);
 #else

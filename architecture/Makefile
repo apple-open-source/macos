@@ -4,7 +4,7 @@
 EXPORT_DSTDIR=/usr/include/architecture
 LOCAL_DSTDIR=/System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/architecture
 ANSI_DSTDIR=/usr/include
-INSTALL_FLAGS= -c -m 444
+INSTALL_FLAGS= -p -m 444
 ANSI_HDRS = ansi.h limits.h
 
 # -- Compatible paths --

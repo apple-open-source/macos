@@ -1,0 +1,24 @@
+Uw lidmaatschap van de mailinglijst %(listname)s is stopgezet. Dit i.v.m.
+teveel bounces.U ontvangt geen berichten meer van deze lijst totdat u uw
+lidmaatschap heeft hersteld. U ontvangt nog %(noticesleft)s herinneringen als
+deze, voordat uw lidmaatschap wordt opgeheven.
+
+Om uw lidmaatschap te herstellen kunt u simpelweg op dit bericht reageren
+(laat de onderwerp:/subject: regel staan), of bezoek de bevestigingspagina op:
+
+    %(confirmurl)s
+
+U kunt ook uw lidmaatschapspagina bezoeken
+
+    %(optionsurl)s
+
+Op uw lidmaatschapspagina kunt u enkele bezorg opties wijzigen.
+Bijvoorbeeld uw e-mail adres wijzigen, aangeven of u dagelijks een overzicht van
+berichten wilt ontvangen (digest).
+Als extra herinnering, uw paswoord is:
+
+    %(password)s
+
+Heeft u nog vragen of problemen, neem dan contact op met de list owner op
+
+    %(owneraddr)s

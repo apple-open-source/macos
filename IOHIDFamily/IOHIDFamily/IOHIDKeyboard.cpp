@@ -1,21 +1,23 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -68,16 +70,14 @@ IOHIDKeyboard::init(OSDictionary *properties)
     _asyncLEDThread = 0;
     _ledState = 0;
     _numLeds = 0;
-    
-    _keyCodeArrayElementCount = 0;
-    _keyCodeArrayElementBitSize = 0;
-    _keyCodeArrayValuePtr = 0;
-    
+        
+    _keyCodeArrayValuePtrArray = 0;
+        
     _ledCookies[0] = -1;
     _ledCookies[1] = -1;
     
     bzero(_modifierValuePtrs, sizeof(UInt32*)*8);
-    bzero(_ledValuePtrs, sizeof(UInt32*)*2);
+    bzero(_ledValuePtrs, sizeof(UInt32*)*8);
     
     //This makes separate copy of ADB translation table.  Needed to allow ISO
     //  keyboards to swap two keys without affecting non-ISO keys that are
@@ -93,6 +93,7 @@ bool
 IOHIDKeyboard::start(IOService *provider)
 {
     OSNumber *xml_swap_CTRL_CAPSLOCK;
+    OSNumber *xml_swap_CMD_ALT;
     OSNumber *productIDNumber;
     OSNumber *vendorIDNumber;
 
@@ -111,8 +112,8 @@ IOHIDKeyboard::start(IOService *provider)
     
     // Fix hardware bug in iMac USB keyboard mapping for ISO keyboards
     // This should really be done in personalities.
-    if ( ((_productID == kprodUSBAndyISOKbd) || (_productID == kprodUSBCosmoISOKbd) ||
-            (_productID == kprodQ6ISOKbd) || (_productID == kprodQ30ISOKbd)) 
+    if ( ((_productID == kprodUSBAndyISOKbd) || (_productID == kprodUSBCosmoISOKbd) || 
+            (_productID == kprodQ6ISOKbd) || (_productID == kprodQ30ISOKbd))
             && (_vendorID == kIOUSBVendorIDAppleComputer))
     {
             _usb_2_adb_keymap[0x35] = 0x0a;  //Cosmo key18 swaps with key74, 0a is ADB keycode
@@ -130,6 +131,24 @@ IOHIDKeyboard::start(IOService *provider)
 	    temp = _usb_2_adb_keymap[0x39];  //Caps lock
             _usb_2_adb_keymap[0x39] = _usb_2_adb_keymap[0xe0];  //Left CONTROL modifier
             _usb_2_adb_keymap[0xe0] = temp;
+	}
+    }
+
+    xml_swap_CMD_ALT = OSDynamicCast( OSNumber, provider->getProperty("Swap command and alt"));
+    if (xml_swap_CMD_ALT)
+    {
+	if ( xml_swap_CMD_ALT->unsigned32BitValue())
+	{
+	    char temp;
+	    
+	    temp = _usb_2_adb_keymap[0xe2];  //left alt
+            _usb_2_adb_keymap[0xe2] = _usb_2_adb_keymap[0xe3];  //Left command modifier
+            _usb_2_adb_keymap[0xe3] = temp;
+            
+            temp = _usb_2_adb_keymap[0xe6];  //right alt
+            _usb_2_adb_keymap[0xe6] = _usb_2_adb_keymap[0xe7];  //right command modifier
+            _usb_2_adb_keymap[0xe7] = temp;
+
 	}
     }
 
@@ -157,7 +176,16 @@ void
 IOHIDKeyboard::free()
 {
     if (_oldArraySelectors)
-        IOFree(_oldArraySelectors, sizeof(UInt32) * _keyCodeArrayElementCount);
+    {
+        IOFree(_oldArraySelectors, sizeof(UInt32) * _keyCodeArrayValuePtrArray->getCount());
+        _oldArraySelectors = 0;
+    }
+
+    if (_keyCodeArrayValuePtrArray) 
+    {
+        _keyCodeArrayValuePtrArray->release();
+        _keyCodeArrayValuePtrArray = 0;
+    }
     
     super::free();
 }
@@ -167,52 +195,74 @@ bool
 IOHIDKeyboard::findDesiredElements(OSArray *elements)
 {
     IOHIDElement 	*element;
-    UInt32		usage;
+    UInt32		usage, usagePage;
+    UInt32		count;
+    bool		isKeyboard = false;
     
     if (!elements)
         return false;
     
-    for (int i=0; i<elements->getCount(); i++)
+    if (!(_keyCodeArrayValuePtrArray = OSArray::withCapacity(6)))
+        return false;
+    
+    count = elements->getCount();
+    for (int i=0; i<count; i++)
     {
-        element = elements->getObject(i);
-        usage = element->getUsage();
-        if (element->getUsagePage() == kHIDPage_KeyboardOrKeypad)
+        element		= elements->getObject(i);
+        usagePage	= element->getUsagePage();
+        usage		= element->getUsage();
+        
+        switch (usagePage)
         {
-            // Modifier Elements
-            if ((usage >= kHIDUsage_KeyboardLeftControl) &&
-                (usage <= kHIDUsage_KeyboardRightGUI) && 
-                (_modifierValuePtrs[usage - kHIDUsage_KeyboardLeftControl] == 0))
-            {
-                _modifierValuePtrs[usage - kHIDUsage_KeyboardLeftControl] = 
-                                                element->getElementValue()->value;
-            }
-            // Key Array Element
-            else if (element->getUsage() == 0xffffffff) 
-            {
-                _keyCodeArrayValuePtr = element->getElementValue()->value;
-                _keyCodeArrayElementBitSize = element->getReportBits();
-                _keyCodeArrayElementCount = element->getReportCount();
+            case kHIDPage_GenericDesktop:
+                if ((element->getElementType() == kIOHIDElementTypeCollection) &&
+                    (element->getElementCollectionType() == kIOHIDElementCollectionTypeApplication) &&
+                    ((usage == kHIDUsage_GD_Keyboard) || (usage == kHIDUsage_GD_Keypad)))
+                {
+                    isKeyboard = true;
+                }
+                break;
+            case kHIDPage_KeyboardOrKeypad:
+                // Modifier Elements
+                if ((usage >= kHIDUsage_KeyboardLeftControl) &&
+                    (usage <= kHIDUsage_KeyboardRightGUI) && 
+                    (_modifierValuePtrs[usage - kHIDUsage_KeyboardLeftControl] == 0))
+                {
+                    _modifierValuePtrs[usage - kHIDUsage_KeyboardLeftControl] = 
+                                                    element->getElementValue()->value;
+                }
+                // Key Array Element
+                else if ((element->getUsage() == 0xffffffff) && (element->getReportCount() == 1)) 
+                {
+                    _keyCodeArrayValuePtrArray->setObject(element);
+                }
+                break;
                 
-                _oldArraySelectors = (UInt32 *)IOMalloc
-                                (sizeof(UInt32) * _keyCodeArrayElementCount);
-                                
-                bzero(_oldArraySelectors, sizeof(UInt32) * _keyCodeArrayElementCount);
-            }
-        }
-        else if (element->getUsagePage() == kHIDPage_LEDs)
-        {
-            if (((usage == kHIDUsage_LED_NumLock) || 
-                (usage == kHIDUsage_LED_CapsLock)) &&
-                (_ledValuePtrs[usage - kHIDUsage_LED_NumLock] == 0))
-            {
-                _ledValuePtrs[usage - kHIDUsage_LED_NumLock] = element->getElementValue()->value;
-                _ledCookies[usage - kHIDUsage_LED_NumLock] = element->getElementCookie();
-                _numLeds++;
-            }
+            case kHIDPage_LEDs:
+                if (((usage == kHIDUsage_LED_NumLock) || 
+                    (usage == kHIDUsage_LED_CapsLock)) &&
+                    (_ledValuePtrs[usage - kHIDUsage_LED_NumLock] == 0))
+                {
+                    _ledValuePtrs[usage - kHIDUsage_LED_NumLock] = element->getElementValue()->value;
+                    _ledCookies[usage - kHIDUsage_LED_NumLock] = element->getElementCookie();
+                    _numLeds++;
+                }
+                break;
         }
     }
     
-    return _keyCodeArrayValuePtr;
+    UInt32 keyCount = _keyCodeArrayValuePtrArray->getCount();
+    if (keyCount)
+    {
+        _oldArraySelectors = (UInt32 *)IOMalloc(sizeof(UInt32) * keyCount);
+                        
+        if ( !_oldArraySelectors )
+            return false;
+                        
+        bzero(_oldArraySelectors, sizeof(UInt32) * keyCount);    
+    }
+    
+    return (isKeyboard && keyCount);
 }
 
 extern "C" { 
@@ -222,59 +272,23 @@ extern "C" {
 
 }
 
-#define BIT_MASK(bits)  ((1 << (bits)) - 1)
-
-#define UpdateWordOffsetAndShift(bits, offset, shift)  \
-    do { offset = bits >> 5; shift = bits & 0x1f; } while (0)
-
-static void getSelectors( const UInt32 * src,
-                           UInt32 *       dst,
-                           UInt32	  reportCount,
-                           UInt32         bitSize)
-{
-    UInt32 dstOffset   = 0;
-    UInt32 srcShift    = 0;
-    UInt32 srcStartBit = 0;
-    UInt32 srcOffset   = 0;
-    UInt8  bitsProcessed;
-    UInt32 tmp;
-    UInt32 totalBits = bitSize * reportCount;
-
-    while ( totalBits )
-    {
-        bitsProcessed = min( totalBits, bitSize );
-
-        dst[dstOffset++] = (src[srcOffset] >> srcShift) & BIT_MASK(bitsProcessed);
-
-        srcStartBit += bitsProcessed;
-        totalBits  -= bitsProcessed;
-
-        UpdateWordOffsetAndShift( srcStartBit, srcOffset, srcShift );
-    }
-}
-
 void 
 IOHIDKeyboard::handleReport()
 {
     UInt8		modifier=0;
     UInt32		alpha = 0;
-    UInt32		newArray[_keyCodeArrayElementCount];
     bool		found;
     AbsoluteTime	now;
     UInt8		seq_key, i;//counter for alpha keys pressed.
+    IOHIDElement *	element;
 
 
-    // RY: We parse the report here to pick off the individual array
-    // selector.  Since a arraySel can be as big as UInt32 we should
-    // pick them off one at a time with getSelectors.
-    bzero(newArray, (_keyCodeArrayElementCount * sizeof(UInt32)));
-
-    getSelectors(_keyCodeArrayValuePtr, newArray, _keyCodeArrayElementCount, _keyCodeArrayElementBitSize);
-    
     // Test for the keyboard bug where all the keys are 0x01. JDC.
     found = true;
-    for (seq_key = 0; seq_key < _keyCodeArrayElementCount; seq_key++) {
-      if (newArray[seq_key] != 1) found = false;
+    for (seq_key = 0; seq_key < _keyCodeArrayValuePtrArray->getCount(); seq_key++) {
+      if ((element = _keyCodeArrayValuePtrArray->getObject(seq_key)) &&
+            (element->getElementValue()->value[0] != 1))
+            found = false;
     }
     if (found) return;
 
@@ -327,8 +341,7 @@ IOHIDKeyboard::handleReport()
             dispatchKeyboardEvent(_usb_2_adb_keymap[0xe4], true, now);  //right-hand CONTROL
 	    _control_key = true;	//determine if we reboot CPU.  Is instance variable.
         }
-	else if ((_oldmodifier & kUSB_RIGHT_CONTROL_BIT) && !(modifier & kUSB_RIGHT_CONTROL_BIT)
-	    && !(modifier & kUSB_LEFT_CONTROL_BIT))
+	else if ((_oldmodifier & kUSB_RIGHT_CONTROL_BIT) && !(modifier & kUSB_RIGHT_CONTROL_BIT))
 	{
 	    dispatchKeyboardEvent(_usb_2_adb_keymap[0xe4], false, now); 
 	    _control_key = false;	
@@ -339,8 +352,7 @@ IOHIDKeyboard::handleReport()
         {
             dispatchKeyboardEvent(_usb_2_adb_keymap[0xe1], true, now);
         }
-	else if ((_oldmodifier & kUSB_LEFT_SHIFT_BIT) && !(modifier & kUSB_LEFT_SHIFT_BIT)
-	    && !(modifier & kUSB_RIGHT_SHIFT_BIT))
+	else if ((_oldmodifier & kUSB_LEFT_SHIFT_BIT) && !(modifier & kUSB_LEFT_SHIFT_BIT))
 	{
 	    dispatchKeyboardEvent(_usb_2_adb_keymap[0xe1], false, now); 
 	}
@@ -350,8 +362,7 @@ IOHIDKeyboard::handleReport()
         {
             dispatchKeyboardEvent(_usb_2_adb_keymap[0xe5], true, now);
         }
-	else if ((_oldmodifier & kUSB_RIGHT_SHIFT_BIT) && !(modifier & kUSB_RIGHT_SHIFT_BIT)
-	    && !(modifier & kUSB_LEFT_SHIFT_BIT))
+	else if ((_oldmodifier & kUSB_RIGHT_SHIFT_BIT) && !(modifier & kUSB_RIGHT_SHIFT_BIT))
 	{
 	    dispatchKeyboardEvent(_usb_2_adb_keymap[0xe5], false, now); 
 	}
@@ -360,8 +371,7 @@ IOHIDKeyboard::handleReport()
         {
             dispatchKeyboardEvent(_usb_2_adb_keymap[0xe2], true, now);
         }
-	else if ((_oldmodifier & kUSB_LEFT_ALT_BIT) && !(modifier & kUSB_LEFT_ALT_BIT)
-	    && !(modifier & kUSB_RIGHT_ALT_BIT))
+	else if ((_oldmodifier & kUSB_LEFT_ALT_BIT) && !(modifier & kUSB_LEFT_ALT_BIT))
 	{
 	    dispatchKeyboardEvent(_usb_2_adb_keymap[0xe2], false, now); 
 	}
@@ -370,8 +380,7 @@ IOHIDKeyboard::handleReport()
         {
             dispatchKeyboardEvent(_usb_2_adb_keymap[0xe6], true, now);
         }
-	else if ((_oldmodifier & kUSB_RIGHT_ALT_BIT) && !(modifier & kUSB_RIGHT_ALT_BIT)
-	    && !(modifier & kUSB_LEFT_ALT_BIT))
+	else if ((_oldmodifier & kUSB_RIGHT_ALT_BIT) && !(modifier & kUSB_RIGHT_ALT_BIT))
 	{
 	    dispatchKeyboardEvent(_usb_2_adb_keymap[0xe6], false, now); 
 	}
@@ -381,8 +390,7 @@ IOHIDKeyboard::handleReport()
             dispatchKeyboardEvent(_usb_2_adb_keymap[0xe3], true, now);
 	    _flower_key = true;	//determine if we go into kernel debugger, or reboot CPU
         }
-	else if ((_oldmodifier & kUSB_LEFT_FLOWER_BIT) && !(modifier & kUSB_LEFT_FLOWER_BIT)
-	    && !(modifier & kUSB_RIGHT_FLOWER_BIT))
+	else if ((_oldmodifier & kUSB_LEFT_FLOWER_BIT) && !(modifier & kUSB_LEFT_FLOWER_BIT))
 	{
 	    dispatchKeyboardEvent(_usb_2_adb_keymap[0xe3], false, now); 
 	    _flower_key = false;
@@ -396,8 +404,7 @@ IOHIDKeyboard::handleReport()
 	    dispatchKeyboardEvent(_usb_2_adb_keymap[0xe7], true, now);
 	    _flower_key = true;	
         }
-	else if ((_oldmodifier & kUSB_RIGHT_FLOWER_BIT) && !(modifier & kUSB_RIGHT_FLOWER_BIT)
-	    && !(modifier & kUSB_LEFT_FLOWER_BIT))
+	else if ((_oldmodifier & kUSB_RIGHT_FLOWER_BIT) && !(modifier & kUSB_RIGHT_FLOWER_BIT))
 	{
 	    dispatchKeyboardEvent(_usb_2_adb_keymap[0xe7], false, now); 
 	    _flower_key = false;
@@ -408,7 +415,7 @@ IOHIDKeyboard::handleReport()
     //SECTION 2. Handle regular alphanumeric keys now.  Look first at previous keystrokes.
     //  Alphanumeric portion of HID report starts at byte +2.
 
-    for (seq_key = 0; seq_key < _keyCodeArrayElementCount; seq_key++)
+    for (seq_key = 0; seq_key < _keyCodeArrayValuePtrArray->getCount(); seq_key++)
     {
         alpha = _oldArraySelectors[seq_key];
 	if (alpha == 0) //No keys pressed
@@ -416,9 +423,10 @@ IOHIDKeyboard::handleReport()
 	    continue;
 	}
 	found = false;
-	for (i = 0; i < _keyCodeArrayElementCount; i++)  //Look through current keypresses
+	for (i = 0; i < _keyCodeArrayValuePtrArray->getCount(); i++)  //Look through current keypresses
 	{
-            if (alpha == newArray[i])
+            if ((element = _keyCodeArrayValuePtrArray->getObject(i)) &&
+                (element->getElementValue()->value[0] == alpha))
 	    {
 		found = true;	//This key has been held down for a while, so do nothing.
 		break;		//   Autorepeat is taken care of by IOKit.
@@ -436,9 +444,13 @@ IOHIDKeyboard::handleReport()
     }
 
     //Now take care of KEY DOWN.  
-    for (seq_key = 0; seq_key < _keyCodeArrayElementCount; seq_key++)
+    for (seq_key = 0; seq_key < _keyCodeArrayValuePtrArray->getCount(); seq_key++)
     {
-        alpha = newArray[seq_key];
+        if (!(element = _keyCodeArrayValuePtrArray->getObject(seq_key)))
+            continue;
+            
+        alpha = element->getElementValue()->value[0];
+        
 	if (alpha == 0) //No keys pressed
 	{
 	    continue;
@@ -461,7 +473,7 @@ IOHIDKeyboard::handleReport()
 
 	//Don't dispatch the same key again which was held down previously
 	found = false;
-	for (i = 0; i < _keyCodeArrayElementCount; i++)
+	for (i = 0; i < _keyCodeArrayValuePtrArray->getCount(); i++)
 	{
             if (alpha == _oldArraySelectors[i])
 	    {
@@ -481,11 +493,17 @@ IOHIDKeyboard::handleReport()
 
     //Save the history for next time
     _oldmodifier = modifier;
-    bcopy(newArray, _oldArraySelectors, sizeof(UInt32) * _keyCodeArrayElementCount);
+    for (i = 0; i < _keyCodeArrayValuePtrArray->getCount(); i++)
+    {
+        if (!(element = _keyCodeArrayValuePtrArray->getObject(i)))
+            continue;
+            
+        _oldArraySelectors[i] = element->getElementValue()->value[0];
+    }
 }
 
 
-// ***************************************************************************
+// **************************************************************************
 // AsyncLED
 //
 // Called asynchronously to turn on/off the keyboard LED
@@ -652,49 +670,49 @@ IOHIDKeyboard::handlerID ( void )
 
     //New feature for hardware identification using Gestalt.h values
     if (_vendorID == kIOUSBVendorIDAppleComputer)
-    switch (_productID)
-    {
-	case kprodUSBCosmoANSIKbd:  //Cosmo ANSI is 0x201
-		ret_id = kgestUSBCosmoANSIKbd; //0xc6
-		break;
-	case kprodUSBCosmoISOKbd:  //Cosmo ISO
-		ret_id = kgestUSBCosmoISOKbd; //0xc7
-		break;
-	case kprodUSBCosmoJISKbd:  //Cosmo JIS
-		ret_id = kgestUSBCosmoJISKbd;  //0xc8
-		break;
-	case kprodUSBAndyANSIKbd:  //Andy ANSI is 0x204
-		ret_id = kgestUSBAndyANSIKbd; //0xcc
-		break;
-	case kprodUSBAndyISOKbd:  //Andy ISO
-		ret_id = kgestUSBAndyISOKbd; //0xcd
-		break;
-	case kprodUSBAndyJISKbd:  //Andy JIS is 0x206
-		ret_id = kgestUSBAndyJISKbd; //0xce
-		break;
-        case kprodQ6ANSIKbd:  //Q6 ANSI
-		ret_id = kgestQ6ANSIKbd;
-		break;
-	case kprodQ6ISOKbd:  //Q6 ISO
-		ret_id = kgestQ6ISOKbd;
-		break;
-	case kprodQ6JISKbd:  //Q6 JIS
-		ret_id = kgestQ6JISKbd;
-                break;
-        case kprodQ30ANSIKbd:  //Q30 ANSI
-		ret_id = kgestQ30ANSIKbd;
-		break;
-	case kprodQ30ISOKbd:  //Q30 ISO
-		ret_id = kgestQ30ISOKbd;
-		break;
-	case kprodQ30JISKbd:  //Q30 JIS
-		ret_id = kgestQ30JISKbd;
-                break;
-	default:  // No Gestalt.h values, but still is Apple keyboard,
-		  //   so return a generic Cosmo ANSI
-		ret_id = kgestUSBCosmoANSIKbd;  
-		break;
-    }
+        switch (_productID)
+        {
+            case kprodUSBCosmoANSIKbd:  //Cosmo ANSI is 0x201
+                    ret_id = kgestUSBCosmoANSIKbd; //0xc6
+                    break;
+            case kprodUSBCosmoISOKbd:  //Cosmo ISO
+                    ret_id = kgestUSBCosmoISOKbd; //0xc7
+                    break;
+            case kprodUSBCosmoJISKbd:  //Cosmo JIS
+                    ret_id = kgestUSBCosmoJISKbd;  //0xc8
+                    break;
+            case kprodUSBAndyANSIKbd:  //Andy ANSI is 0x204
+                    ret_id = kgestUSBAndyANSIKbd; //0xcc
+                    break;
+            case kprodUSBAndyISOKbd:  //Andy ISO
+                    ret_id = kgestUSBAndyISOKbd; //0xcd
+                    break;
+            case kprodUSBAndyJISKbd:  //Andy JIS is 0x206
+                    ret_id = kgestUSBAndyJISKbd; //0xce
+                    break;
+            case kprodQ6ANSIKbd:  //Q6 ANSI
+                    ret_id = kgestQ6ANSIKbd;
+                    break;
+            case kprodQ6ISOKbd:  //Q6 ISO
+                    ret_id = kgestQ6ISOKbd;
+                    break;
+            case kprodQ6JISKbd:  //Q6 JIS
+                    ret_id = kgestQ6JISKbd;
+                    break;
+            case kprodQ30ANSIKbd:  //Q30 ANSI
+                    ret_id = kgestQ30ANSIKbd;
+                    break;
+            case kprodQ30ISOKbd:  //Q30 ISO
+                    ret_id = kgestQ30ISOKbd;
+                    break;
+            case kprodQ30JISKbd:  //Q30 JIS
+                    ret_id = kgestQ30JISKbd;
+                    break;
+            default:  // No Gestalt.h values, but still is Apple keyboard,
+                    //   so return a generic Cosmo ANSI
+                    ret_id = kgestUSBCosmoANSIKbd;  
+                    break;
+        }
 
     return ret_id;  //non-Apple USB keyboards should all return "2"
 }
@@ -724,12 +742,24 @@ IOHIDKeyboard::defaultKeymapOfLength (UInt32 * length )
 {
     static const unsigned char appleUSAKeyMap[] = {
         0x00,0x00,
-	0x06,   //Number of modifier keys.  Was 7
+        
+        // Modifier Defs
+	0x0a,   //Number of modifier keys.  Was 7
         //0x00,0x01,0x39,  //CAPSLOCK, uses one byte.
         0x01,0x01,0x38,
-        0x02,0x01,0x3b,0x03,0x01,0x3a,0x04,
-        0x01,0x37,0x05,0x15,0x52,0x41,0x4c,0x53,0x54,0x55,0x45,0x58,0x57,0x56,0x5b,0x5c,
-        0x43,0x4b,0x51,0x7b,0x7d,0x7e,0x7c,0x4e,0x59,0x06,0x01,0x72,0x7f,0x0d,0x00,0x61,
+        0x02,0x01,0x3b,
+        0x03,0x01,0x3a,
+        0x04,0x01,0x37,
+        0x05,0x15,0x52,0x41,0x4c,0x53,0x54,0x55,0x45,0x58,0x57,0x56,0x5b,0x5c,
+        0x43,0x4b,0x51,0x7b,0x7d,0x7e,0x7c,0x4e,0x59,
+        0x06,0x01,0x72,
+        0x09,0x01,0x3c, //Right shift
+        0x0a,0x01,0x3e, //Right control
+        0x0b,0x01,0x3d, //Right Option
+        0x0c,0x01,0x36, //Right Command
+        
+        // key deffs
+        0x7f,0x0d,0x00,0x61,
         0x00,0x41,0x00,0x01,0x00,0x01,0x00,0xca,0x00,0xc7,0x00,0x01,0x00,0x01,0x0d,0x00,
         0x73,0x00,0x53,0x00,0x13,0x00,0x13,0x00,0xfb,0x00,0xa7,0x00,0x13,0x00,0x13,0x0d,
         0x00,0x64,0x00,0x44,0x00,0x04,0x00,0x04,0x01,0x44,0x01,0xb6,0x00,0x04,0x00,0x04,
@@ -796,11 +826,13 @@ IOHIDKeyboard::defaultKeymapOfLength (UInt32 * length )
             0x02,0xff,0x04,0x00,0x38,0x02,0xff,0x04,0x00,0x39,0x02,0xff,0x04,0x00,0x30,0x02,
             0xff,0x04,0x00,0x2d,0x02,0xff,0x04,0x00,0x3d,0x02,0xff,0x04,0x00,0x70,0x02,0xff,
             0x04,0x00,0x5d,0x02,0xff,0x04,0x00,0x5b,
-0x05, // following are 7 special keys
+0x07, // following are 7 special keys
 0x04,0x39,  //caps lock
 0x05,0x72,  //NX_KEYTYPE_HELP is 5, ADB code is 0x72
 0x06,0x7f,  //NX_POWER_KEY is 6, ADB code is 0x7f
 0x07,0x4a,  //NX_KEYTYPE_MUTE is 7, ADB code is 0x4a
+0x00,0x48,  //NX_KEYTYPE_SOUND_UP is 0, ADB code is 0x48
+0x01,0x49,  //NX_KEYTYPE_SOUND_DOWN is 1, ADB code is 0x49
 // remove arrow keys as special keys. They are generating double up/down scroll events
 // in both carbon and coco apps.
 //0x08,0x7e,  //NX_UP_ARROW_KEY is 8, ADB is 3e raw, 7e virtual (KMAP)

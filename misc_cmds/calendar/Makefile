@@ -12,9 +12,9 @@ NAME = calendar
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-HFILES = pathnames.h
+HFILES = pathnames.h calendar.h
 
-CFILES = calendar.c
+CFILES = calendar.c io.c day.c ostern.c paskha.c
 
 OTHERSRCS = Makefile Makefile.preamble Makefile.postamble calendar.1
 

@@ -168,9 +168,12 @@ const char *const sys_errlist[] = {
 	"Bad executable (or shared library)",   /* 85 - EBADEXEC */
 	"Bad CPU type in executable",		/* 86 - EBADARCH */
 	"Shared library version mismatch",	/* 87 - ESHLIBVERS */
-	"Malformed Mach-o file"			/* 88 - EBADMACHO */
+	"Malformed Mach-o file",		/* 88 - EBADMACHO */
+	"Operation canceled",			/* 89 - ECANCELED */
+	"Identifier removed",			/* 90 - EIDRM */
+	"No message of desired type",		/* 91 - ENOMSG */
+	"Illegal byte sequence",		/* 92 - EILSEQ */
+	"Attribute not found",			/* 93 - ENOATTR */
 };
-
-int errno;
 
 const int sys_nerr = sizeof(sys_errlist) / sizeof(sys_errlist[0]);

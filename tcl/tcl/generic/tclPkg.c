@@ -9,7 +9,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclPkg.c,v 1.1.1.4 2002/04/05 16:13:25 jevans Exp $
+ * RCS: @(#) $Id: tclPkg.c,v 1.1.1.5 2003/03/06 00:10:55 landonf Exp $
  */
 
 #include "tclInt.h"
@@ -51,11 +51,12 @@ typedef struct Package {
  */
 
 static int		CheckVersion _ANSI_ARGS_((Tcl_Interp *interp,
-			    char *string));
-static int		ComparePkgVersions _ANSI_ARGS_((char *v1, char *v2,
+			    CONST char *string));
+static int		ComparePkgVersions _ANSI_ARGS_((CONST char *v1, 
+                            CONST char *v2,
 			    int *satPtr));
 static Package *	FindPackage _ANSI_ARGS_((Tcl_Interp *interp,
-			    char *name));
+			    CONST char *name));
 
 /*
  *----------------------------------------------------------------------
@@ -84,8 +85,8 @@ int
 Tcl_PkgProvide(interp, name, version)
     Tcl_Interp *interp;		/* Interpreter in which package is now
 				 * available. */
-    char *name;			/* Name of package. */
-    char *version;		/* Version string for package. */
+    CONST char *name;		/* Name of package. */
+    CONST char *version;	/* Version string for package. */
 {
     return Tcl_PkgProvideEx(interp, name, version, (ClientData) NULL);
 }
@@ -94,8 +95,8 @@ int
 Tcl_PkgProvideEx(interp, name, version, clientData)
     Tcl_Interp *interp;		/* Interpreter in which package is now
 				 * available. */
-    char *name;			/* Name of package. */
-    char *version;		/* Version string for package. */
+    CONST char *name;		/* Name of package. */
+    CONST char *version;	/* Version string for package. */
     ClientData clientData;      /* clientdata for this package (normally
                                  * used for C callback function table) */
 {
@@ -148,12 +149,12 @@ Tcl_PkgProvideEx(interp, name, version, clientData)
  *----------------------------------------------------------------------
  */
 
-char *
+CONST char *
 Tcl_PkgRequire(interp, name, version, exact)
     Tcl_Interp *interp;		/* Interpreter in which package is now
 				 * available. */
-    char *name;			/* Name of desired package. */
-    char *version;		/* Version string for desired version;
+    CONST char *name;		/* Name of desired package. */
+    CONST char *version;	/* Version string for desired version;
 				 * NULL means use the latest version
 				 * available. */
     int exact;			/* Non-zero means that only the particular
@@ -163,12 +164,12 @@ Tcl_PkgRequire(interp, name, version, exact)
     return Tcl_PkgRequireEx(interp, name, version, exact, (ClientData *) NULL);
 }
 
-char *
+CONST char *
 Tcl_PkgRequireEx(interp, name, version, exact, clientDataPtr)
     Tcl_Interp *interp;		/* Interpreter in which package is now
 				 * available. */
-    char *name;			/* Name of desired package. */
-    char *version;		/* Version string for desired version;
+    CONST char *name;		/* Name of desired package. */
+    CONST char *version;	/* Version string for desired version;
 				 * NULL means use the latest version
 				 * available. */
     int exact;			/* Non-zero means that only the particular
@@ -186,7 +187,7 @@ Tcl_PkgRequireEx(interp, name, version, exact, clientDataPtr)
     Tcl_DString command;
 
     /*
-     * If an attempt is being made to load this into a standalong executable
+     * If an attempt is being made to load this into a standalone executable
      * on a platform where backlinking is not supported then this must be
      * a shared version of Tcl (Otherwise the load would have failed).
      * Detect this situation by checking that this library has been correctly
@@ -194,7 +195,67 @@ Tcl_PkgRequireEx(interp, name, version, exact, clientDataPtr)
      * work.
      */
     
-    if (!tclEmptyStringRep) {
+    if (tclEmptyStringRep == NULL) {
+
+	/*
+	 * OK, so what's going on here?
+	 *
+	 * First, what are we doing?  We are performing a check on behalf of
+	 * one particular caller, Tcl_InitStubs().  When a package is
+	 * stub-enabled, it is statically linked to libtclstub.a, which
+	 * contains a copy of Tcl_InitStubs().  When a stub-enabled package
+	 * is loaded, its *_Init() function is supposed to call
+	 * Tcl_InitStubs() before calling any other functions in the Tcl
+	 * library.  The first Tcl function called by Tcl_InitStubs() through
+	 * the stub table is Tcl_PkgRequireEx(), so this code right here is
+	 * the first code that is part of the original Tcl library in the
+	 * executable that gets executed on behalf of a newly loaded
+	 * stub-enabled package.
+	 *
+	 * One easy error for the developer/builder of a stub-enabled package
+	 * to make is to forget to define USE_TCL_STUBS when compiling the
+	 * package.  When that happens, the package will contain symbols
+	 * that are references to the Tcl library, rather than function
+	 * pointers referencing the stub table.  On platforms that lack
+	 * backlinking, those unresolved references may cause the loading
+	 * of the package to also load a second copy of the Tcl library,
+	 * leading to all kinds of trouble.  We would like to catch that
+	 * error and report a useful message back to the user.  That's
+	 * what we're doing.
+	 *
+	 * Second, how does this work?  If we reach this point, then the
+	 * global variable tclEmptyStringRep has the value NULL.  Compare
+	 * that with the definition of tclEmptyStringRep near the top of
+	 * the file generic/tclObj.c.  It clearly should not have the value
+	 * NULL; it should point to the char tclEmptyString.  If we see it
+	 * having the value NULL, then somehow we are seeing a Tcl library
+	 * that isn't completely initialized, and that's an indicator for the
+	 * error condition described above.  (Further explanation is welcome.)
+	 *
+	 * Third, so what do we do about it?  This situation indicates
+	 * the package we just loaded wasn't properly compiled to be
+	 * stub-enabled, yet it thinks it is stub-enabled (it called
+	 * Tcl_InitStubs()).  We want to report that the package just
+	 * loaded is broken, so we want to place an error message in
+	 * the interpreter result and return NULL to indicate failure
+	 * to Tcl_InitStubs() so that it will also fail.  (Further
+	 * explanation why we don't want to Tcl_Panic() is welcome.
+	 * After all, two Tcl libraries can't be a good thing!)
+	 *
+	 * Trouble is that's going to be tricky.  We're now using a Tcl
+	 * library that's not fully initialized.  In particular, it 
+	 * doesn't have a proper value for tclEmptyStringRep.  The
+	 * Tcl_Obj system heavily depends on the value of tclEmptyStringRep
+	 * and all of Tcl depends (increasingly) on the Tcl_Obj system, we
+	 * need to correct that flaw before making the calls to set the 
+	 * interpreter result to the error message.  That's the only flaw
+	 * corrected; other problems with initialization of the Tcl library
+	 * are not remedied, so be very careful about adding any other calls
+	 * here without checking how they behave when initialization is
+	 * incomplete.
+	 */
+
+	tclEmptyStringRep = &tclEmptyString;
         Tcl_AppendResult(interp, "Cannot load package \"", name, 
                 "\" in standalone executable: This package is not ",
                 "compiled with stub support", NULL);
@@ -350,12 +411,12 @@ Tcl_PkgRequireEx(interp, name, version, exact, clientDataPtr)
  *----------------------------------------------------------------------
  */
 
-char *
+CONST char *
 Tcl_PkgPresent(interp, name, version, exact)
     Tcl_Interp *interp;		/* Interpreter in which package is now
 				 * available. */
-    char *name;			/* Name of desired package. */
-    char *version;		/* Version string for desired version;
+    CONST char *name;		/* Name of desired package. */
+    CONST char *version;	/* Version string for desired version;
 				 * NULL means use the latest version
 				 * available. */
     int exact;			/* Non-zero means that only the particular
@@ -365,12 +426,12 @@ Tcl_PkgPresent(interp, name, version, exact)
     return Tcl_PkgPresentEx(interp, name, version, exact, (ClientData *) NULL);
 }
 
-char *
+CONST char *
 Tcl_PkgPresentEx(interp, name, version, exact, clientDataPtr)
     Tcl_Interp *interp;		/* Interpreter in which package is now
 				 * available. */
-    char *name;			/* Name of desired package. */
-    char *version;		/* Version string for desired version;
+    CONST char *name;		/* Name of desired package. */
+    CONST char *version;	/* Version string for desired version;
 				 * NULL means use the latest version
 				 * available. */
     int exact;			/* Non-zero means that only the particular
@@ -385,22 +446,6 @@ Tcl_PkgPresentEx(interp, name, version, exact, clientDataPtr)
     Tcl_HashEntry *hPtr;
     Package *pkgPtr;
     int satisfies, result;
-
-    /*
-     * If an attempt is being made to load this into a standalone executable
-     * on a platform where backlinking is not supported then this must be
-     * a shared version of Tcl (Otherwise the load would have failed).
-     * Detect this situation by checking that this library has been correctly
-     * initialised. If it has not been then return immediately as nothing will
-     * work.
-     */
-    
-    if (!tclEmptyStringRep) {
-        Tcl_AppendResult(interp, "Cannot load package \"", name, 
-                "\" in standalone executable: This package is not ",
-                "compiled with stub support", NULL);
-        return NULL;
-    }
 
     hPtr = Tcl_FindHashEntry(&iPtr->packageTable, name);
     if (hPtr) {
@@ -469,7 +514,7 @@ Tcl_PackageObjCmd(dummy, interp, objc, objv)
     int objc;				/* Number of arguments. */
     Tcl_Obj *CONST objv[];	/* Argument objects. */
 {
-    static char *pkgOptions[] = {
+    static CONST char *pkgOptions[] = {
 	"forget", "ifneeded", "names", "present", "provide", "require",
 	"unknown", "vcompare", "versions", "vsatisfies", (char *) NULL
     };
@@ -485,7 +530,8 @@ Tcl_PackageObjCmd(dummy, interp, objc, objv)
     Tcl_HashEntry *hPtr;
     Tcl_HashSearch search;
     Tcl_HashTable *tablePtr;
-    char *version, *argv2, *argv3, *argv4;
+    CONST char *version;
+    char *argv2, *argv3, *argv4;
 
     if (objc < 2) {
         Tcl_WrongNumArgs(interp, 1, objv, "option ?arg arg ...?");
@@ -619,7 +665,7 @@ Tcl_PackageObjCmd(dummy, interp, objc, objv)
 	    if (version == NULL) {
 		return TCL_ERROR;
 	    }
-	    Tcl_SetResult(interp, version, TCL_VOLATILE);
+	    Tcl_SetObjResult( interp, Tcl_NewStringObj( version, -1 ) );
 	    break;
 	}
 	case PKG_PROVIDE: {
@@ -674,7 +720,7 @@ Tcl_PackageObjCmd(dummy, interp, objc, objv)
 	    if (version == NULL) {
 		return TCL_ERROR;
 	    }
-	    Tcl_SetResult(interp, version, TCL_VOLATILE);
+	    Tcl_SetObjResult( interp, Tcl_NewStringObj( version, -1 ) );
 	    break;
 	}
 	case PKG_UNKNOWN: {
@@ -776,7 +822,7 @@ Tcl_PackageObjCmd(dummy, interp, objc, objv)
 static Package *
 FindPackage(interp, name)
     Tcl_Interp *interp;		/* Interpreter to use for package lookup. */
-    char *name;			/* Name of package to fine. */
+    CONST char *name;		/* Name of package to fine. */
 {
     Interp *iPtr = (Interp *) interp;
     Tcl_HashEntry *hPtr;
@@ -866,11 +912,11 @@ TclFreePackageInfo(iPtr)
 static int
 CheckVersion(interp, string)
     Tcl_Interp *interp;		/* Used for error reporting. */
-    char *string;		/* Supposedly a version number, which is
+    CONST char *string;		/* Supposedly a version number, which is
 				 * groups of decimal digits separated
 				 * by dots. */
 {
-    char *p = string;
+    CONST char *p = string;
     char prevChar;
     
     if (!isdigit(UCHAR(*p))) {	/* INTL: digit */
@@ -915,7 +961,8 @@ CheckVersion(interp, string)
 
 static int
 ComparePkgVersions(v1, v2, satPtr)
-    char *v1, *v2;		/* Versions strings, of form 2.1.3 (any
+    CONST char *v1;
+    CONST char *v2;		/* Versions strings, of form 2.1.3 (any
 				 * number of version numbers). */
     int *satPtr;		/* If non-null, the word pointed to is
 				 * filled in with a 0/1 value.  1 means

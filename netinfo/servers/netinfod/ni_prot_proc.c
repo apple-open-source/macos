@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -35,7 +36,7 @@
 #include <NetInfo/network.h>
 #include <NetInfo/systhread.h>
 #include "ni_globals.h"
-#include "notify.h"
+#include "ni_notify.h"
 #include "ni_dir.h"
 #include <NetInfo/socket_lock.h>
 #include "alert.h"
@@ -45,6 +46,7 @@
 #include "sanitycheck.h"
 #include "multi_call.h"
 #include "psauth.h"
+#include "shauth.h"
 #include <sys/time.h>
 #include <stdio.h>
 #include <string.h>
@@ -129,8 +131,10 @@ CLIENT *svctcp_getclnt(SVCXPRT *xprt);
 #define PING_CALL_USEC 0
 
 /* Number of minutes to force between attempts to see if we are still root */
+#define NETROOT_TIMEOUT_MINS 10
 
-#define NETROOT_TIMEOUT_MINS	10
+/* Number of times to retry binding after catching a sighup */
+#define MAX_REBIND_ATTEMPTS 2
 
 extern bool_t readall();
 static int ni_ping(u_long, ni_name);
@@ -263,12 +267,12 @@ authenticate(void *ni, struct svc_req *req)
 	struct sockaddr_in *sin = svc_getcaller(req->rq_xprt);
 	struct authunix_parms *aup;
 	char *p;
-	ni_namelist nl, name_nl;
+	ni_namelist nl, name_nl, nl2;
 	ni_status status;
 	ni_id id;
 	ni_idlist idl;
 	char uidstr[MAXINTSTRSIZE];
-	int u, found, try_crypt;
+	int u, found, try_crypt, hash_check;
 
 	/*
 	 * Root on the local machine can do anything
@@ -357,14 +361,39 @@ authenticate(void *ni, struct svc_req *req)
 				status = ni_lookupprop(ni, &id, NAME_NAME, &name_nl);
 				if ((status == NI_OK) && (name_nl.ni_namelist_len > 0))
 				{
-					if (DoPSAuth(name_nl.ni_namelist_val[0], aup->aup_machname, nl.ni_namelist_val[0]) == 0)
+					if (CheckAuthType(nl.ni_namelist_val[0], SHADOWHASH_AUTH_TYPE))
 					{
-						found = 1;
+						NI_INIT(&nl2);
+						status = ni_lookupprop(ni, &id, NAME_GUID, &nl2);
+						if ((status == NI_OK) && (nl2.ni_namelist_len > 0))
+						{
+							hash_check = DoSHAuth(name_nl.ni_namelist_val[0], aup->aup_machname, nl2.ni_namelist_val[0]);
+							ni_namelist_free(&nl2);
+						}
+						else
+						{
+							hash_check = DoSHAuth(name_nl.ni_namelist_val[0], aup->aup_machname, NULL);
+						}
+						if (hash_check == 0)
+						{
+							found = 1;
+							ni_namelist_free(&name_nl);
+							ni_namelist_free(&nl);
+							break;
+						}
 						ni_namelist_free(&name_nl);
-						ni_namelist_free(&nl);
-						break;
 					}
-					ni_namelist_free(&name_nl);
+					else
+					{
+						if (DoPSAuth(name_nl.ni_namelist_val[0], aup->aup_machname, nl.ni_namelist_val[0]) == 0)
+						{
+							found = 1;
+							ni_namelist_free(&name_nl);
+							ni_namelist_free(&nl);
+							break;
+						}
+						ni_namelist_free(&name_nl);
+					}
 				}
 			}
 			ni_namelist_free(&nl);
@@ -2011,6 +2040,7 @@ pl_createprop(ni_proplist *l, char *n)
 	p->nip_val.ni_namelist_val = NULL;
 	ni_proplist_insert(l, *p, NI_INDEX_NULL);
 	ni_prop_free(p);
+	free(p);
 
 	where = ni_proplist_match(*l, n, NULL);
 	return &(l->nipl_val[where]);
@@ -2115,6 +2145,14 @@ fread_plist(FILE *fp)
 static void
 add_parent_server(struct in_addr server_addr, ni_name server_tag, ni_name client_tag, struct in_addr **addrs, ni_rparent_stuff *stuff, unsigned int *naddrs)
 {
+	if (server_addr.s_addr == 0) return;
+	if ((server_tag == NULL) || (client_tag == NULL)) return;
+	
+	/*
+	 * Filter out self-binding.
+	 */
+	if ((!strcmp(server_tag, client_tag)) && (sys_is_my_address(&server_addr))) return;
+
 	/*
 	 * If the address is a general broadcast address (0xffffffff)
 	 * we substitute the network-specific broadcast addresss for
@@ -2127,8 +2165,7 @@ add_parent_server(struct in_addr server_addr, ni_name server_tag, ni_name client
 	 * and even allows us to "bind" to a parent that doesn't know
 	 * this server.  This is called "Anonymous Binding".
 	 */
-	if (server_addr.s_addr == 0) return;
-	
+
 	if (sys_is_general_broadcast(&server_addr))
 	{
 		/*
@@ -2180,6 +2217,7 @@ get_parents_from_file(void *ni, struct in_addr **addrs, ni_rparent_stuff *stuff,
 		|| (pl->ni_proplist_val[where_tag].nip_val.ni_namelist_len == 0))
 	{
 		ni_proplist_free(pl);
+		free(pl);
 		return NI_OK;
 	}
 
@@ -2198,6 +2236,7 @@ get_parents_from_file(void *ni, struct in_addr **addrs, ni_rparent_stuff *stuff,
 	}
 
 	ni_proplist_free(pl);
+	free(pl);
 	return NI_OK;
 }
 
@@ -2279,13 +2318,14 @@ static ni_status
 bind_to_parent(struct in_addr *addrs, ni_rparent_stuff *stuff, unsigned int naddrs, ni_rparent_res *res)
 {
 	int i, j;
-	unsigned int nlocal;
-	unsigned int nnetwork;
+	unsigned int nlocal, nnetwork;
+	unsigned int nbcast;
 	enum clnt_stat stat;
 	static ni_rparent_res old_res = { NI_NOTMASTER };
 	static struct in_addr old_binding;
 	static struct in_addr new_binding;
 	int *shuffle, temp;
+	static int fix3408166 = NI_OK;
 	unsigned int rentry;
 
 	if (naddrs == 0) return NI_NETROOT;
@@ -2318,6 +2358,13 @@ bind_to_parent(struct in_addr *addrs, ni_rparent_stuff *stuff, unsigned int nadd
 
 	free(shuffle);
 
+	/* Abort if we got a SIGHUP (unbind) */
+	if (get_binding_status() == NI_FAILED)
+	{
+		system_log(LOG_DEBUG, "bind_to_parent aborted");
+		return NI_NORESPONSE;
+	}
+
 	/*
 	 * move local servers to the head of the list
 	 */
@@ -2335,10 +2382,12 @@ bind_to_parent(struct in_addr *addrs, ni_rparent_stuff *stuff, unsigned int nadd
 	 * move servers on this network to follow local servers
 	 */
 	nnetwork = nlocal;
+	nbcast = 0;
 	for (i = nnetwork; i < naddrs; i++)
 	{
 		if (sys_is_on_attached_network(&(addrs[i])))
 		{
+			if (sys_is_my_broadcast(&(addrs[i]))) nbcast++;
 			swap_addrs(addrs, stuff, nnetwork, i);
 			nnetwork++;
 		}
@@ -2351,6 +2400,13 @@ bind_to_parent(struct in_addr *addrs, ni_rparent_stuff *stuff, unsigned int nadd
 	 
 	for (i = 0; i < naddrs; i++)
 	{
+		/* Abort if we got a SIGHUP (unbind) */
+		if (get_binding_status() == NI_FAILED)
+		{
+			system_log(LOG_DEBUG, "bind_to_parent aborted");
+			return NI_NORESPONSE;
+		}
+
 		if (sys_is_my_broadcast(&(addrs[i]))) continue;
 
 		if (ni_ping(addrs[i].s_addr, stuff->bindings[i].server_tag))
@@ -2377,13 +2433,20 @@ bind_to_parent(struct in_addr *addrs, ni_rparent_stuff *stuff, unsigned int nadd
 	 * Try binding to a server on this host,
 	 * if that fails,
 	 *		try binding to a server on this host or on an attached subnet,
-	 * if that fails,
+	 * if that fails and there are any non-broadcast addresses,
 	 *		try all servers.
 	 */
 	stat = RPC_TIMEDOUT; /* start with stat != RPC_SUCCESS */
 
 	if ((stat != RPC_SUCCESS) && (nlocal > 0))
 	{
+		/* Abort if we got a SIGHUP (unbind) */
+		if (get_binding_status() == NI_FAILED)
+		{
+			system_log(LOG_DEBUG, "bind_to_parent aborted");
+			return NI_NORESPONSE;
+		}
+
 		for (i = 0; i < nlocal; i++)
 		{
 			system_log(LOG_INFO, "local bind try %d: %s/%s",
@@ -2401,6 +2464,13 @@ bind_to_parent(struct in_addr *addrs, ni_rparent_stuff *stuff, unsigned int nadd
 
 	if (stat != RPC_SUCCESS && nnetwork > 0)
 	{
+		/* Abort if we got a SIGHUP (unbind) */
+		if (get_binding_status() == NI_FAILED)
+		{
+			system_log(LOG_DEBUG, "bind_to_parent aborted");
+			return NI_NORESPONSE;
+		}
+
 		for (i = 0; i < nnetwork; i++)
 		{
 			system_log(LOG_INFO, "network bind try %d: %s/%s",
@@ -2416,8 +2486,15 @@ bind_to_parent(struct in_addr *addrs, ni_rparent_stuff *stuff, unsigned int nadd
 			catch, -1);
 	}
 
-	if (stat != RPC_SUCCESS)
+	if (stat != RPC_SUCCESS && ((naddrs - nbcast) > 0))
 	{
+		/* Abort if we got a SIGHUP (unbind) */
+		if (get_binding_status() == NI_FAILED)
+		{
+			system_log(LOG_DEBUG, "bind_to_parent aborted");
+			return NI_NORESPONSE;
+		}
+
 		for (i = 0; i < naddrs; i++)
 		{
 			system_log(LOG_INFO, "world bind try %d: %s/%s",
@@ -2435,6 +2512,13 @@ bind_to_parent(struct in_addr *addrs, ni_rparent_stuff *stuff, unsigned int nadd
 
 binding_done:
 
+	/* Abort if we got a SIGHUP (unbind) */
+	if (get_binding_status() == NI_FAILED)
+	{
+		system_log(LOG_DEBUG, "bind_to_parent aborted");
+		return NI_NORESPONSE;
+	}
+
 	if (stat != RPC_SUCCESS)
 	{
 		alert_open("English");
@@ -2451,6 +2535,7 @@ binding_done:
 	if (NI_OK == res->status)
 	{
 		/* Successfully bound */
+		fix3408166 = NI_OK;
 		new_binding.s_addr = res->ni_rparent_res_u.binding.addr;
 		switch (old_res.status)
 		{
@@ -2491,18 +2576,22 @@ binding_done:
 	else
 	{
 		/* Binding failed (!) */
-		switch (old_res.status)
+		if (fix3408166 == NI_OK)
 		{
-			case NI_NOTMASTER:
-				system_log(LOG_ERR, "unable to bind to parent - %s", 
-					clnt_sperrno(stat));
-				break;
-			default:
-				system_log(LOG_ERR, "unable to rebind from %s/%s - %s",
-					inet_ntoa(old_binding), old_res.ni_rparent_res_u.binding.tag,
-					clnt_sperrno(stat));
-				break;
+			switch (old_res.status)
+			{
+				case NI_NOTMASTER:
+					system_log(LOG_ERR, "unable to bind to parent - %s", 
+						clnt_sperrno(stat));
+					break;
+				default:
+					system_log(LOG_ERR, "unable to rebind from %s/%s - %s",
+						inet_ntoa(old_binding), old_res.ni_rparent_res_u.binding.tag,
+						clnt_sperrno(stat));
+					break;
+			}
 		}
+		fix3408166 = old_res.status;
 	}
 
 	return res->status;
@@ -2519,9 +2608,9 @@ _ni_rparent_2_svc(void *arg, struct svc_req *req)
 	static unsigned long paddr = -1;
 	long now;
 	struct in_addr *addrs;
-	unsigned int i, naddrs;
+	unsigned int i, naddrs, j;
 	ni_rparent_stuff stuff;
-	ni_status status;
+	ni_status status, binding_status;
 
 	if (req == NULL) return NULL;
 
@@ -2563,7 +2652,7 @@ _ni_rparent_2_svc(void *arg, struct svc_req *req)
 			return (&res);
 		}
 	}
-	
+
 	/*
 	 * If we were the network root before, we probably still are.
 	 * Throttle back attempts to find the parent domain.
@@ -2575,31 +2664,55 @@ _ni_rparent_2_svc(void *arg, struct svc_req *req)
 		if ((now - root_time) < (NETROOT_TIMEOUT_MINS * 60)) return (&res);
 	}
 
-	addrs = NULL;
-	naddrs = 0;
-	stuff.bindings = NULL;
-
-	/*
-	 * If there is a binding file, get potential parent servers from it.
-	 * Otherwise, look in the database.
-	 */
-	status = get_parents_from_file(db_ni, &addrs, &stuff, &naddrs);
-	if (status != NI_OK)
-		status = get_parents_from_db(db_ni, &addrs, &stuff, &naddrs);
-
-	if (status != NI_OK)
-	{
-		/* Can't get any potential parents! */
-		set_binding_status(NI_NETROOT);
-		return &res;
-	}
-
-	system_log(LOG_DEBUG, "Rebinding");
-
 	/*
 	 * Attempt to bind.
 	 */
-	if (bind_to_parent(addrs, &stuff, naddrs, &res) == NI_OK)
+	binding_status = NI_NORESPONSE;
+	for (j = 0; (j < MAX_REBIND_ATTEMPTS) && (binding_status == NI_NORESPONSE); j++)
+	{
+		addrs = NULL;
+		naddrs = 0;
+		stuff.bindings = NULL;
+
+		/*
+		 * Set status to NI_NORESPONSE while we are trying to bind. 
+		 */
+		set_binding_status(NI_NORESPONSE);
+
+		/*
+		 * If there is a binding file, get potential parent servers from it.
+		 * Otherwise, look in the database.
+		 */
+		status = get_parents_from_file(db_ni, &addrs, &stuff, &naddrs);
+		if (status != NI_OK)
+		{
+			status = get_parents_from_db(db_ni, &addrs, &stuff, &naddrs);
+		}
+
+		if (status != NI_OK)
+		{
+			/* Can't get any potential parents! */
+			res.status = NI_NETROOT;
+			set_binding_status(NI_NETROOT);
+			return &res;
+		}
+
+		system_log(LOG_DEBUG, "Rebinding");
+
+		binding_status = bind_to_parent(addrs, &stuff, naddrs, &res);
+
+		MM_FREE_ARRAY(addrs, naddrs);
+
+		for (i = 0; i < naddrs; i++)
+		{
+			ni_name_free(&stuff.bindings[i].client_tag);
+			ni_name_free(&stuff.bindings[i].server_tag);
+		}
+
+		MM_FREE_ARRAY(stuff.bindings, naddrs);
+	}
+
+	if (binding_status == NI_OK)
 	{
 		paddr = res.ni_rparent_res_u.binding.addr;
 		/* Byte-swap the result so XDR does the "right thing" */
@@ -2612,16 +2725,6 @@ _ni_rparent_2_svc(void *arg, struct svc_req *req)
 	}
 
 	set_binding_status(res.status);
-
-	MM_FREE_ARRAY(addrs, naddrs);
-
-	for (i = 0; i < naddrs; i++)
-	{
-		ni_name_free(&stuff.bindings[i].client_tag);
-		ni_name_free(&stuff.bindings[i].server_tag);
-	}
-
-	MM_FREE_ARRAY(stuff.bindings, naddrs);
 
 	return (&res);
 }

@@ -62,7 +62,7 @@ if test -f core*; then
   echo "  retry 'make' now and only remove offending lines from osdef.h later."
   exit 1
 fi
-if eval test "`diff osdef.h osdef.h.in | wc -l`" -eq 4; then
+if eval test "`diff osdef.h $srcdir/osdef.h.in | wc -l`" -eq 4; then
   echo "  Hmm, sed is very pessimistic about your system header files."
   echo "  But it did not dump core -- strange! Let's continue carefully..."
   echo "  If this fails, you may want to remove offending lines from osdef.h"

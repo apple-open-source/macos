@@ -31,14 +31,15 @@ _perl () {
     "-V-[print perl configuration information]:configuration keys:_perl_config_vars" \
     '-w[TURN WARNINGS ON FOR COMPILATION OF YOUR SCRIPT. Recommended.]' \
     '-x-[strip off text before #!perl line and perhaps cd to directory]:directory to cd to:_files -/' \
-    '*:Perl script:_files -/ -g \*.p\[ml\]'
+    '1:Perl script:_files -/ -g \*.p\[ml\]' \
+    '*::args: _normal' 
 }
 
 _perl_m_opt () {
   compset -P '-'
 
   if compset -P '*='; then
-    _message 'module arguments, comma separated'
+    _message -e module-arguments 'module arguments, comma separated'
   else
     _perl_modules -S= -q
   fi

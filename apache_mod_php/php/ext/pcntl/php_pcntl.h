@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000, 2001 The PHP Group             |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,18 +12,18 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors:  Jason Greene <jason@inetgurus.net>                         |
+   | Author: Jason Greene <jason@inetgurus.net>                           |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_pcntl.h,v 1.1.1.1 2001/12/14 22:12:56 zarzycki Exp $ */
+/* $Id: php_pcntl.h,v 1.1.1.4 2003/07/18 18:07:39 zarzycki Exp $ */
 
 #ifndef PHP_PCNTL_H
 #define PHP_PCNTL_H
 
 #include <sys/wait.h>
 #include "php_signal.h"
-#include "zend_extensions.h"
+#include "php_ticks.h"
 extern zend_module_entry pcntl_module_entry;
 #define phpext_pcntl_ptr &pcntl_module_entry
 
@@ -39,7 +39,8 @@ PHP_RINIT_FUNCTION(pcntl);
 PHP_RSHUTDOWN_FUNCTION(pcntl);
 PHP_MINFO_FUNCTION(pcntl);
 
-PHP_FUNCTION(pcntl_fork);	
+PHP_FUNCTION(pcntl_alarm);
+PHP_FUNCTION(pcntl_fork);
 PHP_FUNCTION(pcntl_waitpid);
 PHP_FUNCTION(pcntl_wifexited);
 PHP_FUNCTION(pcntl_wifstopped);
@@ -48,15 +49,10 @@ PHP_FUNCTION(pcntl_wexitstatus);
 PHP_FUNCTION(pcntl_wtermsig);
 PHP_FUNCTION(pcntl_wstopsig);
 PHP_FUNCTION(pcntl_signal);
+PHP_FUNCTION(pcntl_exec);
 
 static void pcntl_signal_handler(int);
-
-/* Zend extension prototypes */ 
-int pcntl_zend_extension_startup(zend_extension *extension);
-void pcntl_zend_extension_shutdown(zend_extension *extension);
-void pcntl_zend_extension_activate(void);
-void pcntl_zend_extension_deactivate(void);
-void pcntl_zend_extension_statement_handler(zend_op_array *op_array);
+static void pcntl_tick_handler();
 
 
 ZEND_BEGIN_MODULE_GLOBALS(pcntl)

@@ -4,6 +4,7 @@
 #include "ruby.h"
 
 #if defined _WIN32 || defined __CYGWIN__
+# include "util.h"
 # include <windows.h>
   typedef HINSTANCE DL_HANDLE;
 # define DL_OPEN LoadLibrary
@@ -34,12 +35,15 @@ ruby_tcltk_stubs()
     int (*p_Tk_Init) _((Tcl_Interp *));
     Tcl_Interp *tcl_ip;
     int n;
-    char *ruby_tcl_dll;
-    char *ruby_tk_dll;
+    char *ruby_tcl_dll = 0;
+    char *ruby_tk_dll = 0;
     char tcl_name[20];
     char tk_name[20];
 
     ruby_tcl_dll = getenv("RUBY_TCL_DLL");
+#if defined NT
+    if (ruby_tcl_dll) ruby_tcl_dll = ruby_strdup(ruby_tcl_dll);
+#endif
     ruby_tk_dll = getenv("RUBY_TK_DLL");
     if (ruby_tcl_dll && ruby_tk_dll) {
 	tcl_dll = (DL_HANDLE)DL_OPEN(ruby_tcl_dll);
@@ -57,6 +61,10 @@ ruby_tcltk_stubs()
 		break;
 	}
     }
+
+#if defined NT
+    if (ruby_tcl_dll) ruby_xfree(ruby_tcl_dll);
+#endif
 
     if (!tcl_dll || !tk_dll)
 	return -1;

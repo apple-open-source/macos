@@ -1,13 +1,14 @@
-.TH SLAPADD 8C "2 October 2001" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man8/slapadd.8,v 1.11 2002/01/04 20:17:35 kurt Exp $
-.\" Copyright 1998-2002 The OpenLDAP Foundation All Rights Reserved.
+.TH SLAPADD 8C "RELEASEDATE" "OpenLDAP LDVERSION"
+.\" $OpenLDAP: pkg/ldap/doc/man/man8/slapadd.8,v 1.11.2.4 2003/03/24 03:37:43 kurt Exp $
+.\" Copyright 1998-2003 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 slapadd \- Add entries to a SLAPD database
 .SH SYNOPSIS
-.B SBINDIR/slapadd
+.B /usr/sbin/slapadd
 .B [\-v]
 .B [\-c]
+.B [\-u]
 .B [\-d level]
 .B [\-b suffix]
 .B [\-n dbnum]
@@ -32,7 +33,9 @@ As
 is designed to accept LDIF in database order, as produced by
 .BR slapcat (8),
 it does not verify that superior entries exist before
-adding an entry. 
+adding an entry, does not perform all user and system
+schema checks, and does not maintain operational
+attributes (such as createTimeStamp and modifiersName). 
 .SH OPTIONS
 .TP
 .B \-v
@@ -40,6 +43,9 @@ enable verbose mode.
 .TP
 .B \-c
 enable continue (ignore errors) mode.
+.TP
+.B \-u
+enable dry-run (don't write to backend) mode.
 .TP
 .BI \-d " level"
 enable debugging messages as defined by the specified
@@ -87,7 +93,7 @@ database give the command:
 .LP
 .nf
 .ft tt
-	SBINDIR/slapadd -l ldif
+	/usr/sbin/slapadd -l ldif
 .ft
 .fi
 .SH "SEE ALSO"

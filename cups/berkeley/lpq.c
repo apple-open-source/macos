@@ -1,9 +1,9 @@
 /*
- * "$Id: lpq.c,v 1.1.1.4 2002/06/06 22:12:31 jlovell Exp $"
+ * "$Id: lpq.c,v 1.1.1.11 2003/05/28 06:02:05 jlovell Exp $"
  *
  *   "lpq" command for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -26,6 +26,7 @@
  *   main()         - Parse options and commands.
  *   show_jobs()    - Show jobs.
  *   show_printer() - Show printer status.
+ *   usage()        - Show program usage.
  */
 
 /*
@@ -51,6 +52,7 @@
 static int	show_jobs(http_t *, const char *, const char *, const int,
 		          const int);
 static void	show_printer(http_t *, const char *);
+static void	usage(void);
 
 
 /*
@@ -71,9 +73,9 @@ main(int  argc,		/* I - Number of command-line arguments */
 		longstatus;	/* Show file details */
   int		num_dests;	/* Number of destinations */
   cups_dest_t	*dests;		/* Destinations */
-#ifdef HAVE_LIBSSL
+#ifdef HAVE_SSL
   http_encryption_t encryption;	/* Encryption? */
-#endif /* HAVE_LIBSSL */
+#endif /* HAVE_SSL */
 
 
  /*
@@ -111,7 +113,7 @@ main(int  argc,		/* I - Number of command-line arguments */
       switch (argv[i][1])
       {
         case 'E' : /* Encrypt */
-#ifdef HAVE_LIBSSL
+#ifdef HAVE_SSL
 	    encryption = HTTP_ENCRYPT_REQUIRED;
 
 	    if (http)
@@ -119,7 +121,7 @@ main(int  argc,		/* I - Number of command-line arguments */
 #else
             fprintf(stderr, "%s: Sorry, no encryption support compiled in!\n",
 	            argv[0]);
-#endif /* HAVE_LIBSSL */
+#endif /* HAVE_SSL */
 	    break;
 
         case 'P' : /* Printer */
@@ -128,11 +130,31 @@ main(int  argc,		/* I - Number of command-line arguments */
 	    else
 	    {
 	      i ++;
+
+	      if (i >= argc)
+	      {
+		httpClose(http);
+		cupsFreeDests(num_dests, dests);
+	        
+	        usage();
+	      }
+
 	      dest = argv[i];
 	    }
 
 	    if ((instance = strchr(dest, '/')) != NULL)
-	      *instance = '\0';
+	      *instance++ = '\0';
+
+            if (cupsGetDest(dest, instance, num_dests, dests) == NULL)
+	    {
+	      if (instance)
+		fprintf(stderr, "lpq: Unknown destination \"%s/%s\"!\n",
+		        dest, instance);
+              else
+		fprintf(stderr, "lpq: Unknown destination \"%s\"!\n", dest);
+
+	      return (1);
+	    }
 	    break;
 
 	case 'a' : /* All printers */
@@ -144,10 +166,11 @@ main(int  argc,		/* I - Number of command-line arguments */
 	    break;
 
 	default :
-	    fputs("Usage: lpq [-P dest] [-l] [+interval]\n", stderr);
 	    httpClose(http);
-            cupsFreeDests(num_dests, dests);
-	    return (1);
+	    cupsFreeDests(num_dests, dests);
+
+	    usage();
+	    break;
       }
     }
     else if (isdigit(argv[i][0]))
@@ -416,15 +439,15 @@ show_jobs(http_t     *http,	/* I - HTTP connection to server */
 	else
 	  strlcpy(namestr, jobname, sizeof(namestr));
 
-        printf("%s: %-34.34s[job %d localhost]\n", jobuser, rankstr, jobid);
-        printf("        %-40.40s%d bytes\n", namestr, jobsize);
+        printf("%s: %-33.33s [job %d localhost]\n", jobuser, rankstr, jobid);
+        printf("        %-39.39s %d bytes\n", namestr, jobsize);
       }
       else
 #ifdef __osf__
         printf("%-6s %-10.10s %-4d %-10d %-27.27s %d bytes\n", rankstr, jobuser,
 	       jobpriority, jobid, jobname, jobsize);
 #else
-        printf("%-7s %-8.8s%-8d%-32.32s%d bytes\n", rankstr, jobuser,
+        printf("%-7s %-7.7s %-7d %-31.31s %d bytes\n", rankstr, jobuser,
 	       jobid, jobname, jobsize);
 #endif /* __osf */
 
@@ -534,5 +557,17 @@ show_printer(http_t     *http,	/* I - HTTP connection to server */
 
 
 /*
- * End of "$Id: lpq.c,v 1.1.1.4 2002/06/06 22:12:31 jlovell Exp $".
+ * 'usage()' - Show program usage.
+ */
+
+static void
+usage(void)
+{
+  fputs("Usage: lpq [-P dest] [-l] [+interval]\n", stderr);
+  exit(1);
+}
+
+
+/*
+ * End of "$Id: lpq.c,v 1.1.1.11 2003/05/28 06:02:05 jlovell Exp $".
  */

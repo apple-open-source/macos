@@ -181,7 +181,7 @@ void AESContext::init(
 	/* common standard path */
 	mEncryptFcn = rijndaelBlockEncrypt;
 	mDecryptFcn = rijndaelBlockDecrypt;
-#endif		!GLADMAN_AES_128_ENABLE
+#endif /* !GLADMAN_AES_128_ENABLE */
 	
 	/* Finally, have BlockCryptor do its setup */
 	setup(mBlockSize, context);

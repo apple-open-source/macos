@@ -1,3 +1,27 @@
+/*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 
 /*
  * mslplib_int.c : Minimal SLP v2 User Agent API implementation.
@@ -25,6 +49,9 @@
  * (c) Sun Microsystems, 1998, All Rights Reserved.
  * Author: Erik Guttman
  */
+ /*
+	Portions Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ */
 
 #include <stdio.h>
 #include <time.h>
@@ -38,6 +65,7 @@
 #include "mslp_dat.h"    /* Definitions for mslp_dat             */
 #include "mslplib.h"     /* Definitions specific to the mslplib  */
 #include "mslplib_opt.h" /* Definitions for optional msg support */
+#include "CNSLTimingUtils.h"
 
 /*
  * ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! !
@@ -71,7 +99,6 @@ EXPORT SLPInternalError SLPOpen(const char *pcLang, SLPBoolean isAsync, SLPHandl
     
 
     int piTimes[5] = { 3000, 3000, 3000, 3000, 3000 };
-    //  int piTimes[5] = { 1000, 1250, 1500, 2000, 4000 };		// go for the more aggressive
 
     *phSLP = NULL;
     
@@ -89,11 +116,8 @@ EXPORT SLPInternalError SLPOpen(const char *pcLang, SLPBoolean isAsync, SLPHandl
         SLPSetProperty("com.sun.slp.tempfile",SDDefaultTempfile());
     #endif /* EXTRA_MSGS */
     
-//        SLPSetProperty("net.slp.useScopes",SLP_DEFAULT_SCOPE);
-    //  SLPSetProperty("net.slp.useScopes","default");
     if (!SLPGetProperty("net.slp.multicastMaximumWait"))
-        SLPSetProperty("net.slp.multicastMaximumWait","20000");	// default is supposed to be 15 sec!
-    //  SLPSetProperty("net.slp.multicastMaximumWait","3000");
+        SLPSetProperty("net.slp.multicastMaximumWait","15000");	// default is supposed to be 15 sec!
     if (!SLPGetProperty("net.slp.multicastTTL"))
         SLPSetProperty("net.slp.multicastTTL",MCAST_TTL);
     if (!SLPGetProperty("net.slp.MTU"))
@@ -109,19 +133,6 @@ EXPORT SLPInternalError SLPOpen(const char *pcLang, SLPBoolean isAsync, SLPHandl
         else
             SLPSetProperty("net.slp.locale","en");
     }
-    
-/*    if (!SLPGetProperty("com.apple.slp.identity"))
-        SLPSetProperty("com.apple.slp.identity", "slp");
-*/        
-    if (!SLPGetProperty("net.slp.useScopes"))
-    {
-//        if ( GetEncodedScopeToRegisterIn() )
-//            SLPSetProperty("net.slp.useScopes", GetEncodedScopeToRegisterIn());
-//        if ( SLPGetProperty("com.apple.slp.defaultRegistrationScope") )
-//            SLPSetProperty("net.slp.useScopes",SLPGetProperty("com.apple.slp.defaultRegistrationScope"));
-//        else
-//            SLPSetProperty("net.slp.useScopes",SLP_DEFAULT_SCOPE);
-    }
 
     if (getenv("SLP_CONF_FILE") != NULL)
         mslp_hash_read(pmhConfig,getenv("SLP_CONF_FILE"));
@@ -131,13 +142,10 @@ EXPORT SLPInternalError SLPOpen(const char *pcLang, SLPBoolean isAsync, SLPHandl
     
 	char*	endPtr = NULL;
     puas->pcSendBuf = safe_malloc(strtol(SLPGetProperty("net.slp.MTU"),&endPtr,10),NULL,0);
-//    puas->pcSendBuf = safe_malloc(atoi(SLPGetProperty("net.slp.MTU")),NULL,0);
     assert( puas->pcSendBuf );
     
     puas->pcRecvBuf = safe_malloc(RECVMTU, NULL, 0);
     puas->iRecvSz   = RECVMTU;
-//    puas->pdat      = dat_init();
-//    puas->pdat		= GetGlobalDATable();
     
     /* set up base configuration */
     
@@ -164,7 +172,6 @@ EXPORT SLPInternalError SLPOpen(const char *pcLang, SLPBoolean isAsync, SLPHandl
             {
                 err = SLP_NETWORK_INIT_FAILED;
                 mslplog(SLP_LOG_DEBUG,"SLPOpen could not set broadcast interface",strerror(errno));
-    //            mslplog(SLP_LOG_ERR,"SLPOpen could not set broadcast interface", slperror(err));
             }
             
             puas->sinSendTo.sin_addr.s_addr = BROADCAST;
@@ -175,26 +182,8 @@ EXPORT SLPInternalError SLPOpen(const char *pcLang, SLPBoolean isAsync, SLPHandl
             
             if ( err ) 
             {
-//                int i = 1;
-//                int iErr;            /* WHY DOES THIS FAIL ON NT 4 AND NOT UNIX? */
-            
                 SLP_LOG( SLP_LOG_DROP,"SLPOpen could not set multicast interface: %s", strerror(errno) );
-    //            SLPSetProperty("net.slp.isBroadcastOnly", "true");	// change this here so that we will only use broadcast?
-                                                                    // or should we just keep trying each place and use broadcast as failsafe?
-                
-/*                iErr = setsockopt( puas->sdSend, SOL_SOCKET, SO_BROADCAST, (char*)&i, sizeof(int) );
-                
-                if (iErr) 
-                {
-                    err = SLP_NETWORK_INIT_FAILED;
-                    mslplog(SLP_LOG_DEBUG,"SLPOpen could not set broadcast interface",strerror(errno));
-                    //mslplog(SLP_LOG_ERR,"SLPOpen could not set broadcast interface", slperror(err));
-                }
-                else
-                    err = SLP_OK;
-                    
-                puas->sinSendTo.sin_addr.s_addr = BROADCAST;
-*/            }
+            }
             else
                 puas->sinSendTo.sin_addr.s_addr = SLP_MCAST;
         }
@@ -208,8 +197,8 @@ EXPORT SLPInternalError SLPOpen(const char *pcLang, SLPBoolean isAsync, SLPHandl
         puas->tv.tv_sec  = WAIT_MSEC;
         puas->tv.tv_usec = (WAIT_MSEC % 1000) * 1000;
 
-        if (err == SLP_OK ) 
-            err = StartSLPDALocator( (void*)mslplib_daadvert_callback, NULL );			// this will fire off a DA Discovery thread
+        if (err == SLP_OK && runLoopRef) 
+            err = StartSLPDALocator( (void*)mslplib_daadvert_callback, runLoopRef, NULL );			// this will fire off a DA Discovery thread
     
         #ifdef EXTRA_MSGS
         /* Initialize client lock for reg file unless this library is
@@ -244,7 +233,6 @@ EXPORT void SLPClose(SLPHandle slpc) {
       free(puas->config.pc_net_slp_locale);
     CLOSESOCKET(puas->sdSend);
     CLOSESOCKET(puas->sdTCP);
-//    dat_delete(puas->pdat);		// this is taken care of by the SLPDALocator
     free(puas);
   }
   CLOSE_NETWORKING;
@@ -278,8 +266,7 @@ EXPORT SLPInternalError SLPFindSrvs(SLPHandle hSLP,
     UA_State *puas = (UA_State*) hSLP;
 	char*	endPtr = NULL;
 	
-    int iSize = strtol(SLPGetProperty("net.slp.MTU"),&endPtr,10);
-//    int iSize = atoi(SLPGetProperty("net.slp.MTU"));
+    int iSize = (SLPGetProperty("net.slp.MTU"))?strtol(SLPGetProperty("net.slp.MTU"),&endPtr,10):1400;
     const char *pcLocale = SLPGetProperty("net.slp.locale");
     char *pcTCPbuf = NULL;  /* this is only used if a request is > the MTU */
     
@@ -321,8 +308,6 @@ EXPORT SLPInternalError SLPFindSrvs(SLPHandle hSLP,
     }
     #endif
         
- //   if ( !puas->pdat )
-//        puas->pdat = GetGlobalDATable();
     if ( strcmp( pcScope, SLP_DEFAULT_SA_ONLY_SCOPE ) != 0 )
         GetGlobalDATableForRequester();			// we are ignoring the return value because we don't care - just want to make sure
                                                 // the DA Search is far enough along
@@ -342,7 +327,6 @@ EXPORT SLPInternalError SLPFindScopesAsync(SLPHandle hSLP,
 	SLPInternalError 		err = SLP_OK;
     DATable*		pdat = NULL;
     
-//    LockGlobalDATable();
     pdat = GetGlobalDATableForRequester();
     
     if ( pdat && pdat->iSize > 0 && !GlobalDATableCreationCompleted() )
@@ -353,10 +337,10 @@ EXPORT SLPInternalError SLPFindScopesAsync(SLPHandle hSLP,
 
         SLP_LOG( SLP_LOG_DEBUG, "SLPFindScopesAsync is getting scopelist from the currently running DA Discovery" );        
         do {
-            sleep(2);		// sleep a couple of secs
+            SmartSleep(2*USEC_PER_SEC);		// sleep a couple of secs
             
             LockGlobalDATable();
-            if ( pdat->iSize > lastCheckedSize )
+            if ( pdat->iSize > lastCheckedSize && pdat->pDAE[lastCheckedSize].pcScopeList != NULL )
             {
                 int 			iListLen = LISTINCR, i, offset=0;
                 char 			*pcList=NULL, *pcScan=NULL, *pcScope=NULL, c;
@@ -388,7 +372,7 @@ EXPORT SLPInternalError SLPFindScopesAsync(SLPHandle hSLP,
             
         } while ( !GlobalDATableCreationCompleted() );
     }
-    else if ( pdat && pdat->iSize > 0)
+    else if ( pdat && pdat->iSize > 0 && pdat->pDAE[0].pcScopeList != NULL )
     {
         // just send a merged list of scopes from the DATable
         int 			iListLen = LISTINCR, i, offset=0;
@@ -433,7 +417,6 @@ EXPORT SLPInternalError SLPFindScopesAsync(SLPHandle hSLP,
         err = active_sa_async_discovery( hSLP, callback, pvUser, pcTypeHint );
     }
     
-//    UnlockGlobalDATable();
     SLP_LOG( SLP_LOG_DEBUG, "SLPFindScopesAsync is finished" );
     
 	return err;
@@ -443,7 +426,6 @@ EXPORT SLPInternalError SLPFindScopesAsync(SLPHandle hSLP,
 EXPORT SLPInternalError SLPFindScopes(SLPHandle       hSLP      ,
                               char **         ppcScopeList) {
 
- // UA_State *puas = (UA_State*) hSLP;
   const char *pcTypeHint = SLPGetProperty("net.slp.typeHint");
 
   if (!hSLP || !ppcScopeList) return SLP_PARAMETER_BAD;
@@ -611,7 +593,7 @@ EXPORT SLPInternalError SLPFindAttrs(SLPHandle        hSLP      ,
   SLPInternalError err = SLP_OK;
   UA_State *puas = (UA_State*) hSLP;
   char*	endPtr = NULL;
-  int iSize = strtol(SLPGetProperty("net.slp.MTU"),&endPtr,10);
+  int iSize = (SLPGetProperty("net.slp.MTU"))?strtol(SLPGetProperty("net.slp.MTU"),&endPtr,10):1400;
   const char *pcLocale = SLPGetProperty("net.slp.locale");
   char *pcTCPbuf = NULL;  /* this is only used if a request is > the MTU */
   char *pcUseBuf = NULL;
@@ -676,7 +658,7 @@ EXPORT SLPInternalError SLPFindSrvTypes(SLPHandle      hSLP              ,
   SLPInternalError err = SLP_OK;
   UA_State *puas = (UA_State*) hSLP;
   char* 	endPtr = NULL;
-  int iSize = strtol(SLPGetProperty("net.slp.MTU"),&endPtr,10);
+  int iSize = (SLPGetProperty("net.slp.MTU"))?strtol(SLPGetProperty("net.slp.MTU"),&endPtr,10):1400;
   const char *pcLocale = SLPGetProperty("net.slp.locale");
 
   if (hSLP == NULL || !callback) {
@@ -964,9 +946,11 @@ static SLPInternalError get_reply(	char*		pcSend,
     struct sockaddr_in	sin;          /* the address of the DA to use */
     SLPInternalError				err    = SLP_OK;
 	char*				endPtr = NULL;
-    int					iMTU   = strtol(SLPGetProperty("net.slp.MTU"),&endPtr,10);
+    int					iMTU   = (SLPGetProperty("net.slp.MTU"))?strtol(SLPGetProperty("net.slp.MTU"),&endPtr,10):1400;
     int					len    = 0;   /* This records the reply length. */
-    unsigned char		ttl    = (unsigned char) strtol(SLPGetProperty("net.slp.multicastTTL"), &endPtr, 10);
+    unsigned char		ttl    = (SLPGetProperty("net.slp.multicastTTL"))?(unsigned char) strtol(SLPGetProperty("net.slp.multicastTTL"), &endPtr, 10):255;
+	int					multicastMaximumWait = (SLPGetProperty("net.slp.multicastMaximumWait"))?strtol(SLPGetProperty("net.slp.multicastMaximumWait"), &endPtr, 10):15000;
+
 	
 	if ( strcmp( pcScope, SLP_DEFAULT_SA_ONLY_SCOPE ) == 0 ) 
 		ttl = 1;
@@ -1035,9 +1019,6 @@ static SLPInternalError get_reply(	char*		pcSend,
                                             &len, 
                                             sin)) != SLP_OK) 
             {
-    //            iLast = 1;
-    //            last_one(err, ALL_DONE,pvUser,(SLPHandle)puas,pvCallback,cbt);      
-                
                 SLP_LOG( SLP_LOG_DA, "get_reply could not get_da_results from [%s]...: %s",inet_ntoa(sin.sin_addr), slperror(err) );
                 
                 dat_strike_da( NULL, sin );		// this DA was bad, give them a strike and when we return an error, the caller can try again
@@ -1064,7 +1045,7 @@ static SLPInternalError get_reply(	char*		pcSend,
                     {
                         SLPFree(pcRecvBuf);
                         pcRecvBuf = NULL;
-    //                    last_one(err, ALL_DONE,pvUser,(SLPHandle)puas,pvCallback,cbt);	  
+
                         SLP_LOG(SLP_LOG_DEBUG, "get_reply overflow, tcp failed from [%s] when getting a reply...: %s",inet_ntoa(sin.sin_addr), slperror(err));
                 
                         dat_strike_da( NULL, sin );		// this DA was bad, give them a strike and when we return an error, the caller can try again
@@ -1098,10 +1079,10 @@ static SLPInternalError get_reply(	char*		pcSend,
         else 
         { 
             SETFLAGS( pcSend,(unsigned char) MCASTFLAG);
-        
+
             /* will evoke the callback repeatedly, via process_reply */
             err = get_converge_result(
-                                        strtol(SLPGetProperty("net.slp.multicastMaximumWait"),&endPtr,10),
+                                        multicastMaximumWait,
                                         puas->sdSend, 
                                         puas->pcSendBuf, 
                                         iSize, 

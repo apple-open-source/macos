@@ -108,3 +108,6 @@
 # owned by the top-level Makefile API and no context has been set up for where 
 # derived files should go.
 
+after_install:
+	/usr/bin/install -m 755 -d "$(DSTROOT)/usr/share/man/man1"
+	install -c -m 644 fingerd.8 "$(DSTROOT)/usr/share/man/man1/fingerd.8"

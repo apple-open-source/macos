@@ -24,9 +24,9 @@
 
 #include "securityserver.h"
 #include "SecurityAgentClient.h"
-#include <Security/osxsigning.h>
 #include <Security/refcount.h>
 #include "key.h"
+#include "codesigdb.h"
 #include "notifications.h"
 #include <string>
 
@@ -41,28 +41,28 @@ class AuthorizationToken;
 // A Process object represents a UNIX process (and associated Mach Task) that has
 // had contact with us and may have some state associated with it.
 //
-class Process {
+class Process : public CodeSignatures::Identity {
 public:
-	Process(Port servicePort, TaskPort tPort, const char *identity, uid_t uid, gid_t gid);
-#if 0
-    Process(Process &prior);	// specialized reclone facility
-#endif
+	Process(Port servicePort, TaskPort tPort,
+		const ClientSetupInfo *info, const char *identity,
+		uid_t uid, gid_t gid);
 	virtual ~Process();
     
     uid_t uid() const			{ return mUid; }
     gid_t gid() const			{ return mGid; }
     pid_t pid() const			{ return mPid; }
     TaskPort taskPort() const	{ return mTaskPort; }
+	bool byteFlipped() const	{ return mByteFlipped; }
 	
-	CodeSigning::OSXCode *clientCode() const	{ return mClientCode; }
-	bool verifyCodeSignature(const CodeSigning::Signature *signature);
+	CodeSigning::OSXCode *clientCode() const { return (mClientIdent == unknown) ? NULL : mClientCode; }
 	
 	void addAuthorization(AuthorizationToken *auth);
+	void checkAuthorization(AuthorizationToken *auth);
 	bool removeAuthorization(AuthorizationToken *auth);
 	
 	void beginConnection(Connection &);
 	bool endConnection(Connection &);
-	bool kill();
+	bool kill(bool keepTaskPort = false);
     
     void addDatabase(Database *database);
     void removeDatabase(Database *database);
@@ -72,6 +72,13 @@ public:
     void postNotification(Listener::Domain domain, Listener::Event event, const CssmData &data);
     
     Session &session;
+
+	// aclSequence is taken to serialize ACL validations to pick up mutual changes
+	Mutex aclSequence;
+	
+protected:
+	std::string getPath() const;
+	const CssmData getHash(CodeSigning::OSXSigner &signer) const;
 	
 private:
 	Mutex mLock;						// object lock
@@ -80,11 +87,14 @@ private:
 
 	// peer state: established during connection startup; fixed thereafter
     TaskPort mTaskPort;					// task port
+	bool mByteFlipped;					// client's byte order is reverse of ours
     pid_t mPid;							// process id
     uid_t mUid;							// UNIX uid credential
     gid_t mGid;							// primary UNIX gid credential
 	
-	RefPointer<CodeSigning::OSXCode> mClientCode;	// code object for client
+	RefPointer<CodeSigning::OSXCode> mClientCode; // code object for client (NULL if unknown)
+	mutable enum { deferred, known, unknown } mClientIdent; // state of client identity
+	mutable auto_ptr<CodeSigning::Signature> mCachedSignature; // cached signature (if already known)
 	
 	// authorization dictionary
 	typedef multiset<AuthorizationToken *> AuthorizationSet;

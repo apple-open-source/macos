@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Frank M. Kromann frank@frontbase.com>                       |
+   | Author: Frank M. Kromann <frank@frontbase.com>                       |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_fbsql.h,v 1.1.1.2 2001/12/14 22:12:17 zarzycki Exp $ */
+/* $Id: php_fbsql.h,v 1.1.1.5 2003/07/18 18:07:32 zarzycki Exp $ */
 
 #define HAVE_FBSQL 1
 
@@ -76,9 +76,21 @@ PHP_FUNCTION(fbsql_field_table);
 PHP_FUNCTION(fbsql_field_len);
 PHP_FUNCTION(fbsql_field_type);
 PHP_FUNCTION(fbsql_field_flags);
+PHP_FUNCTION(fbsql_table_name);
+
+PHP_FUNCTION(fbsql_set_transaction);
 PHP_FUNCTION(fbsql_autocommit);
 PHP_FUNCTION(fbsql_commit);
 PHP_FUNCTION(fbsql_rollback);
+
+PHP_FUNCTION(fbsql_create_blob);
+PHP_FUNCTION(fbsql_create_clob);
+PHP_FUNCTION(fbsql_set_lob_mode);
+PHP_FUNCTION(fbsql_read_blob);
+PHP_FUNCTION(fbsql_read_clob);
+PHP_FUNCTION(fbsql_blob_size);
+PHP_FUNCTION(fbsql_clob_size);
+
 PHP_FUNCTION(fbsql_hostname);
 PHP_FUNCTION(fbsql_database);
 PHP_FUNCTION(fbsql_database_password);
@@ -87,16 +99,16 @@ PHP_FUNCTION(fbsql_password);
 PHP_FUNCTION(fbsql_warnings);
 
 PHP_FUNCTION(fbsql_get_autostart_info);
-//PHP_FUNCTION(fbsql_set_autostart_info);
+/* PHP_FUNCTION(fbsql_set_autostart_info); */
 
 static void php_fbsql_fetch_hash(INTERNAL_FUNCTION_PARAMETERS, int result_type);
-static void php_fbsql_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistant);
+static void php_fbsql_do_connect(INTERNAL_FUNCTION_PARAMETERS, int persistent);
 
 ZEND_BEGIN_MODULE_GLOBALS(fbsql)
-   long allowPersistent;
-   long generateWarnings;
-   long autoCommit;
-   long maxPersistant;
+   zend_bool allowPersistent;
+   zend_bool generateWarnings;
+   zend_bool autoCommit;
+   long maxPersistent;
    long maxLinks;
    long maxConnections;
    long maxResults;
@@ -106,7 +118,7 @@ ZEND_BEGIN_MODULE_GLOBALS(fbsql)
    char *databasePassword;
    char *userName;
    char *userPassword;
-   long persistantCount;
+   long persistentCount;
    long linkCount;
    long linkIndex;
 
@@ -118,17 +130,15 @@ ZEND_END_MODULE_GLOBALS(fbsql)
 # define FB_SQL_G(v)	(fbsql_globals.v)
 #endif
 
+/*#ifndef ZTS  /* No need for external definitions */
+/*extern fbsql_module* phpfbModule; */
+/*#endif */
 
-
-//#ifndef ZTS  // No need for external definitions
-//extern fbsql_module* phpfbModule;
-//#endif
-
-#else  //  HAVE_FBSQL
+#else  /*  HAVE_FBSQL */
 
 #define fbsql_module_ptr NULL
 #error not ok
-#endif //  HAVE_FBSQL
+#endif /*  HAVE_FBSQL */
 
 #define phpext_fbsql_ptr fbsql_module_ptr
 

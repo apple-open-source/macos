@@ -1,3 +1,404 @@
+2003-08-06  Klee Dienes  <kdienes@apple.com>
+
+	* bfdio.c (bfd_get_mtime): When BFD_IN_MEMORY is set, don't try to
+	provide a valid mtime (since none exists).
+
+2003-07-22  Klee Dienes  <kdienes@apple.com>
+
+	* mach-o.c (bfd_mach_o_scan_read_symtab_symbol): Don't subtract 1
+	from section, when looking it up in the section array, since we
+	already subtracted 1 when reading in the number in the first
+	place.
+
+2003-05-11  Klee Dienes  <kdienes@apple.com>
+
+	* archures.c (bfd_mach_ppc_970): New value.
+	* cpu-powerpc.c (bfd_powerpc_archs): New field for bfd_mach_ppc_970.
+	* mach-o.h (bfd_mach_o_section_type): Add
+	BFD_MACH_O_S_MOD_TERM_FUNC_POINTERS and BFD_MACH_O_S_COALESCED.
+	Also add BFD_MACH_O_SECTION_TYPE_MASK and
+	BFD_MACH_O_SECTION_ATTRIBUTES_MASK.
+
+2003-04-25  Klee Dienes  <kdienes@apple.com>
+
+	* config.in: Regenerate.
+	* configure: Regenerate.
+	* po/Make-in: Regenerate.
+
+2003-04-21  Klee Dienes  <kdienes@apple.com>
+
+	* opncls.c (bfd_mmap_file): Don't mark the mtime as cached.
+
+2003-01-13  Klee Dienes  <kdienes@apple.com>
+
+	* bfd-in2.h: Regenerate.
+
+2003-01-07  Klee Dienes  <kdienes@apple.com>
+
+	* Makefile.am (ALL_MACHINES): Use cpu-msp430.lo, not cpu-msp430.c.
+	(BFD32_BACKENDS): Use elf32-msp430.lo, not elf32-msp430.c.
+	* Makefile.in: Regenerate.
+	* doc/Makefile.in: Regenerate.
+
+2002-12-17  Klee Dienes  <kdienes@apple.com>
+
+	* opncls.c (bfd_close): Propagate return values from
+	sub-calls.
+
+2002-12-07  Klee Dienes  <kdienes@apple.com>
+
+	* opncls.c: Replace true with TRUE, false with FALSE.
+
+2002-11-18  Klee Dienes  <kdienes@apple.com>
+
+	* Makefile.am (INCLUDES): Remove true/false/free/strdup
+	definitions.
+	* Makefile.in: Regenerate.
+	* aout-arm.c: Remove libbfd.h (revert to FSF sources).
+	* aout-ns32k.c: Remove libbfd.h (revert to FSF sources).
+	* bfd-in2.h: Regenerate.
+	* bfd.c: Remove whitespace diff.
+	* bfdio.c: Update copyright header.
+	* bfdwin.c: Update copyright header.
+	* libbfd.h: Regenerate.
+	* doc/Makefile.am: Remove duplicate entries for bfdio.c and
+	bfdwin.c
+	* po/SRC-POTFILES.in: Ditto (and also sym.c).
+	
+2002-11-16  Klee Dienes  <kdienes@apple.com>
+
+	* Makefile.am (INCLUDES): Define true and false here, to
+	minimize source diffs.
+	* bfd-in2.h: Regenerate.
+	* bfd.c (bfd_assert): Revert to FSF sources.
+	* bfdwin.c (_bfd_window_internal): Convert to INTERNAL_DEFINITION.
+	* cache.c (ALL_BFD_CACHE): Revert to BFD_CACHE_ITERATOR;
+	convert to exported definition.
+	* config.bfd: Remove whitespace diff.
+	* configure.in: Remove tekhex_vec (revert to FSF sources).
+	* libbfd-in.h: Remove definitions of true, false.  Revert
+	BFD_ASSERT and bfd_assert to FSF sources.
+	* libbfd.c: Remove ARGSUSED (revert to FSF sources).
+	* targets.c: Revert to old usage of bfd_assert in BFD_SEND and
+	BFD_SEND_FMT.
+
+2002-11-16  Klee Dienes  <kdienes@apple.com>
+
+	* Makefile.am: Define strdup=xstrdup in the Makefile, rather than
+	in the sources.
+	* bfdio.c: Fix whitespace diffs from the FSF sources.
+	* bfdwin.c (_bfd_generic_get_section_contents_in_window): Move
+	back to libbfd.c.
+	* coff-ppc.c: Revert change from strdup to xstrdup.
+	* versados.c: Revert change from strdup to xstrdup.
+	* libbfd.c (_bfd_generic_get_section_contents_in_window): Move
+	from bfdwin.c.
+	* opncls.c: Convert CONST declarations to const.
+	* bfd-in2.h: Regenerate.
+
+2002-11-12  Klee Dienes  <kdienes@apple.com>
+
+        * bfd.c (bfd_preserve_save): Preserve BFD_IN_MEMORY and
+	BFD_IO_FUNCS in the flags, if set.
+
+2002-11-11  Klee Dienes  <kdienes@apple.com>
+
+	* mach-o.c: Various whitespace fixes.
+	* pef.c: Various whitespace fixes.
+	* xsym.c: Various whitespace fixes.
+
+2002-11-11  Klee Dienes  <kdienes@apple.com>
+
+	* mach-o.c (bfd_preserve): New structure.  Stores previous bfd
+	state in case our parse fails and we need to revert to the
+	previous contents.
+	(bfd_preserve_save): New function.  Saves the existing bfd state;
+	creates a new tdata pointer of the specified size.  Returns true
+	on success.
+	(bfd_preserve_restore): New function.  Restores the previous bfd
+	state, freeing all memory allocated since bfd_save was called.
+	(bfd_preserve_finish): New function.  Frees any memory that may
+	have been allocated by a bfd_preserve, or by the bfd by targets
+	prior to the one currently being called.  To be used when a target
+	is planning to return and replace the previous contents of
+	abfd->xvec.
+	(bfd_mach_o_object_p): Use bfd_preserve_save/restore/finish to
+	preserve the previous contents of the bfd.
+	(bfd_mach_o_core_p): Ditto.
+
+	* pef.c (bfd_preserve, bfd_preserve_save,
+	bfd_preserve_restore, bfd_preserve_finish): See comments for
+	mach-o.c.
+	(bfd_pef_object_p): See comment for bfd_mach_o_object_p.
+	(bfd_pef_xlib_object_p): Ditto.
+
+	* xsym.c (bfd_preserve, bfd_preserve_save,
+	bfd_preserve_restore, bfd_preserve_finish): See comments for
+	mach-o.c.
+	(bfd_sym_object_p): See comment for bfd_mach_o_object_p.
+
+2002-11-11  Klee Dienes  <kdienes@apple.com>
+
+	* mach-o.c (bfd_mach_o_scan_read_symtab_symbol): Desc should be
+	signed, but value should not, to match the declarations in the bfd
+	headers.
+
+2002-11-11  Klee Dienes  <kdienes@apple.com>
+
+	* mach-o.c (bfd_mach_o_scan_read_thread): Don't re-use 'i' when
+	looking for an unused section name; we'll need its original value
+	later.
+
+2002-11-10  Klee Dienes  <kdienes@apple.com>
+
+	* pef.c: Move version check out of bfd_pef_scan and into
+	bfd_pef_object_p.  Only modify tdata if we have already recognized
+	the file correctly.  Ditto for bfd_pef_xlib_scan and
+	bfd_pef_xlib_object_p.
+	* xsym.c (bfd_sym_scan): New function.  Does the real work of
+	parsing an already-recognized xSYM file (moved from
+	bfd_sym_object_p).
+	(bfd_sym_object_p): Only modify tdata if we have already
+	recognized the file correctly.
+	* xsym.h (bfd_sym_scan): Add prototype.
+	
+2002-11-08  Klee Dienes  <kdienes@apple.com>
+
+	* opncls.c (_bfd_delete_bfd): Clear the bfd structure before freeing.
+	* cache.c (ALL_BFD_CACHE): New macro.  Iterates through all
+	the entries in the BFD cache, from least-recent to most-recent.
+	(close_one): Use ALL_BFD_CACHE.
+
+2002-11-05  Klee Dienes  <kdienes@apple.com>
+
+	* doc/Make-in: Re-add support for @USE_NLS@ (to match FSF
+	sources).
+	* doc/Makefile.am: Remove definition of MAKEINFO, to match FSF
+	sources.
+	* aoutx.h (translate_to_native_sym_flags): Re-add
+	commented-out code (it used to cause compiler crashes).
+	* Makefile.am: Remove old rule for po/POTFILES.in (replaced by
+	SRC_POTFILES and BLD_POTFILES) in the FSF sources.
+	* targets.c: Revert several target vector discrepancies to FSF
+	sources.
+	* section.c (STD_SECTION): Remove whitespace diff from FSF
+	sources.
+	* cpu-i960.c: Revert to FSF sources.
+	* elf-eh-frame.c: Revert to FSF sources.
+	* elf32-fr30.c: Revert to FSF sources.
+	* elf32-sh.c: Revert to FSF sources.
+	* coffcode.h: Remove stray '\'.
+	* libcoff.h: Regenerate.
+	* cache.c: Remove a parenthesization diff from the FSF
+	sources.
+	* coff-ppc.c: Remove initializers for globals (we now compile
+	with -fcommon for shared libraries).
+	* config.bfd: Remove obsolete Apple/NeXT BFD targets.
+	* elf-eh-frame.c (_bfd_elf_discard_section_eh_frame): Revert
+	to FSF sources.
+
+2002-11-02  Klee Dienes  <kdienes@apple.com>
+
+	* mach-o-target.c: Update copyright header.
+	* sym.h: Update copyright header.
+	* sym.c: Update copyright header.
+	* pef.h: Update copyright header.
+	* pef.c: Update copyright header. Define BFD_IO_FUNCS to 0 if
+	not already defined
+	(allows to compile on a FSF tree with BFD_IO_FUNCS support).
+	* pef-traceback.h: Update copyright header.
+	* mach-o.h: Update copyright header.
+	* mach-o.c: Update copyright header. Define BFD_IO_FUNCS to 0
+	if not already defined
+	(allows to compile on a FSF tree with BFD_IO_FUNCS support).
+	(bfd_mach_o_scan_read_symtab_symbol): Desc and value are both
+	signed, not unsigned.
+	(bfd_mach_o_i386_flavour_string): Convert 'flavour' to an
+	'int' before comparing to possibly signed enums.
+	(bfd_mach_o_ppc_flavour_string): Convert 'flavour' to an
+	'int' before comparing to possibly signed enums.
+	(bfd_mach_o_object_p): Ensure that abfd->tdata.mach_o_data is
+	restored to NULL in case of error.
+	(bfd_mach_o_core_p): Ditto.
+	
+
+2002-11-02  Klee Dienes  <kdienes@apple.com>
+	
+	* pef.c (bfd_print_symbol): Print traceback table information for
+	"__traceback_X" symbols.
+	(bfd_pef_convert_architecture): New function.  Converts a
+	PEF-style architecture 4-char 'm68k' or 'pwpc' to a
+	bfd_architecture.
+	(bfd_pef_parse_traceback_table): Add a 'file' argument.  If
+	non-NULL, print the parsed traceback information to that file.
+	Correctly add the length of the name string to the returned
+	traceback table length.  Store the length of the traceback table
+	in the user-data field of the parsed symbol.
+	(bfd_pef_section_flags): New function.  Select appropriate section
+	flags based on the PEF 'kind' of the section.
+	(bfd_pef_make_bfd_section): Use bfd_pef_section_flags to set the
+	section flags.
+	(bfd_pef_print_loader_header): New function.  Print a dump of
+	'header' to 'file'.
+	(bfd_pef_print_loader_section): New function.  Print a dump of the
+	loader section for 'abfd' to 'file'.
+	(bfd_pef_scan_start_address): New function.  Fetch the PEF start
+	address from the loader section and set it in 'abfd'.
+	(bfd_pef_scan): Call bfd_pef_convert_architecture to set the
+	architecture.  Call bfd_pef_scan_start_address to set the start
+	address.
+	* pef.h: Add prototypes for new functions.
+	
+2002-11-02  Klee Dienes  <kdienes@apple.com>
+
+	* mach-o.c (bfd_mach_o_scan_read_dylib): Add
+	LC_LOAD_WEAK_DYLIB.
+	(bfd_mach_o_write_content): Ditto.
+	(bfd_mach_o_scan_read_command): Ditto.
+
+2002-11-01  Klee Dienes  <kdienes@apple.com>
+
+	* sym.c (bfd_sym_object_p): Call bfd_set_error and clear the
+	private data if the file does not match.
+
+2002-11-01  Klee Dienes  <kdienes@apple.com>
+	
+	* mach-o.h (bfd_mach_o_load_comamnd): Add new field
+	'type_required', to indicate if the load-command type had the
+	LC_REQ_DYLD flag set.
+	(BFD_MACH_O_LC_REQ_DYLD): Define.
+	* mach-o.c (bfd_mach_o_scan_read_command): Set type_required; mask
+	out LC_REQ_DYLD from the type field.
+	(bfd_mach_o_scan_write_command): Output the type_required bit as
+	LC_REQ_DYLD, if set.
+	
+2002-11-01  Klee Dienes  <kdienes@apple.com>
+
+	* bfd-in.h: Remove PDO-specific header includes.
+	* format.c: Clean up formatting to match FSF sources.
+	* hpux-core.c: Remove spurious diff from FSF sources.
+	* libbfd-in.h: Remove whitespace diff from FSF sources.
+	* libbfd.c: Remove whitespace diff from FSF sources.
+	* som.c: Remove HPPA_R_ARG_RELOC, HPPA_R_ADDEND (spurious
+	diffs from FSF sources).
+
+2002-10-28  Klee Dienes  <kdienes@apple.com>
+
+	* bfd-in.h: Add declaration for struct stat.
+	(bfd_io_functions): Add new method 'stat_func', to implement bfd_stat.
+	* bfd-in2.h: Regenerate.
+	* bfdio.c (bfd_stat): Instead of returning an error for
+	in-memory BFDs, return a zeroed-out stat, with st_size set to the size
+	of the in-memory buffer.  For an iofuncs BFD, pass to the
+	stat_func method.
+
+2002-10-28  Klee Dienes  <kdienes@apple.com>
+
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+	* libbfd-in.h: Include stdio.h, not sysdep.h (sysdep.h brings in too much).
+	* libbfd.h: Regenerate.
+
+2002-10-26  Klee Dienes  <kdienes@apple.com>
+
+	* archures.c: Remove PIC support.
+	* bfd-in2.h: Remove PIC support.	
+	* po/SRC-POTFILES.in: Remove PIC support.
+	* cpu-pic.c: Remove.
+
+2002-10-12  Klee Dienes  <kdienes@apple.com>
+
+	* mach-o.c (bfd_mach_o_scan_read_symtab_symbol): Desc and value
+	must be unsigned, or they'll get sign-extension mauled when
+	building with 64-bit BFD.
+
+2002-10-02  Klee Dienes  <kdienes@apple.com>
+
+	* format.c (bfd_check_format_matches): Check that matching is
+	non-NULL before using it to return a list of matching targets.
+
+2002-10-01  Klee Dienes  <kdienes@apple.com>
+
+	* libbfd-in.h: Add prototype for _bfd_io_close.
+	* libbfd.c: Include "libiberty.h" (for xmalloc).
+	* mach-o.c: No longer #define bfd_mach_o_core_file_* (we implement
+	them; the #defines were just causing them to have unfortunate
+	names).
+	(bfd_mach_o_convert_architecture): Subtype is an unsigned long,
+	not an enum bfd_architecture
+
+	* bfdio.c: Rename bfd_io_close to _bfd_io_close.
+	(bfd_bwrite): Actually write the data for the
+	BFD_IN_MEMORY case.
+
+	* bfd-in.h: (_bfd_get_file_window): Takes a ufile_ptr, not file_ptr.
+	* bfdwin.c (_bfd_get_file_window): Ditto.
+	(_bfd_get_file_window_mmap): Ditto.
+	(_bfd_get_file_window_mmalloc): Ditto.
+
+	* bfdwin.c: Fix compiler warnings.
+	* bfdwin.c: Fix compiler warnings.
+	* cache.c: Fix compiler warnings.
+	* bfdio.c: Fix compiler warnings
+	* mach-o.c,h: Fix compiler warnings.
+	* pef.c,h: Fix compiler warnings.  Replace calls of xmalloc and
+	xfree with bfd_malloc and free, respectively.
+	* sym.c,h: Fix compiler warnings.  Convert to K&R-style
+	function declarations.
+
+	* Makefile.am: Add bfdio.c, bfdwin.c and cache.c to the
+	appropriate Makes variable for automatic header and documentation
+	generation.
+	* Makefile.in: Regenerate.
+	* bfd-in2.h: Regenerate.
+	
+2002-09-29  Klee Dienes  <kdienes@apple.com>
+
+	* mach-o.c: Update prototypes for static functions.  K&R-ize
+	function declarations.
+	(bfd_mach_o_write_contents): No longer need to copy sections from
+	input file; they're already written by the time this function is
+	called.
+	(bfd_mach_o_scan_write_segment): Just read section information
+	from the output file, no need to use a "fake" file specified in
+	the header.
+	(bfd_mach_o_scan_read_thread): Check for already-loaded threads;
+	generate thread names of the form LC_THREAD.FLAVOR.THREADNO.
+	(bfd_mach_o_core_fetch_environment): Fix off-by-one error in the
+	search for the start of the environment region; need to check all
+	the way back to (buff + size - offset), so we use '<='.  Terminate
+	search when the entire region has been checked, even if no
+	terminator is found at the start of the buffer.
+	* mach-o.h: Update prototyles for global functions.		 
+	* mach-o-target.c: Update the write vectors in the target
+	struction to support core files, not just object files.
+	
+2002-09-28  Klee Dienes  <kdienes@apple.com>
+
+	* mach-o.c (bfd_mach_o_core_fetch_environment): Add.
+	(bfd_mach_o_stack_addr): Add.
+	(bfd_mach_o_core_file_failing_command): Update to use
+	bfd_mach_o_core_fetch_environment.
+
+2002-09-24  Klee Dienes  <kdienes@apple.com>
+
+	* mach-o.c: Add bfd_mach_o_core_file_{failing_command,
+	failing_signal, matches_executable_p}.
+
+2002-08-30  Klee Dienes  <kdienes@apple.com>
+
+	* config.bfd: Change powerpc-apple-darwin* to i386-apple-darwin*
+	in the recognizer checks for i386 build (fixes typo).
+
+	* configure: Regenerate.
+	
+2002-07-08  Jim Ingham <jingham@apple.com>
+
+	* pef.c (bfd_pef_parse_traceback_tables): Don't malloc space
+	for the name field if you are only counting symbols.
+	(bfd_pef_parse_symbols): Initialize codebuf to NULL so we don't
+	try to free it.
+
 2002-02-20  Jim Ingham <jingham@apple.com>
 
 	* config.bfd: The i386 architecture has to be the FIRST target

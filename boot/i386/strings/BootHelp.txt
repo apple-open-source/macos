@@ -1,6 +1,6 @@
 
 The boot: prompt waits ten seconds for you to type advanced startup options.
-If you don't type anything, the computer continues starting up normally: It
+If you don't type anything, the computer continues starting up normally. It
 uses the kernel and configuration files on the startup device, which it also
 uses as the root device.  Advanced startup options use the following syntax:
 
@@ -13,7 +13,7 @@ For example, to start up from:
     fd()mach_kernel rootdev=sd0a
 
 If the computer won't start up properly, you may be able to start it up using
-the drivers you used to install Rhapsody. Type: config=Default
+safe mode.  Type: -f
 
 To continue starting up using standard options, press Return.
 

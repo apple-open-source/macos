@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000, 2001 The PHP Group             |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,7 +12,7 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Sterling Hughes <sterling@php.net>                          |
+   | Author: Sterling Hughes <sterling@php.net>                           |
    +----------------------------------------------------------------------+
  */
 
@@ -41,12 +41,17 @@ extern zend_module_entry xslt_module_entry;
 #define XSLT_ERROR(handle)     ((handle)->handlers->error)
 
 #define XSLT_PROCESSOR(handle) ((handle)->processor.ptr)
+#define XSLT_SITUATION(handle)  ((handle)->processor.sit)
 
 #define XSLT_ERRNO(handle)     ((handle)->err->no)
 #define XSLT_ERRSTR(handle)    ((handle)->err->str)
 #define XSLT_LOG(handle)       ((handle)->err->log)
+#define XSLT_BASE_ISSET(handle) ((handle)->base_isset)
 
 #define XSLT_FUNCH_FREE(__var) if (__var) zval_ptr_dtor(&(__var)); 
+#define XSLT_REG_ERRMSG(msg, handle)	if (XSLT_ERRSTR(handle)) efree(XSLT_ERRSTR(handle)); \
+					XSLT_ERRSTR(handle) = estrdup(msg);
+#define XSLT_NO_INFO   "No information available."
 
 PHP_MINIT_FUNCTION(xslt);
 PHP_MINFO_FUNCTION(xslt);
@@ -62,13 +67,21 @@ PHP_FUNCTION(xslt_process);
 PHP_FUNCTION(xslt_error);
 PHP_FUNCTION(xslt_errno);
 PHP_FUNCTION(xslt_free);
+PHP_FUNCTION(xslt_set_object);
+PHP_FUNCTION(xslt_setopt);
+#ifdef HAVE_SABLOT_GET_OPTIONS
+PHP_FUNCTION(xslt_getopt);
+#endif
+PHP_FUNCTION(xslt_backend_version);
+PHP_FUNCTION(xslt_backend_name);
+PHP_FUNCTION(xslt_backend_info);
 
 struct scheme_handlers {
-	zval *get_all;
-	zval *open;
-	zval *get;
-	zval *put;
-	zval *close;
+	zval *sh_get_all;
+	zval *sh_open;
+	zval *sh_get;
+	zval *sh_put;
+	zval *sh_close;
 };
 
 struct sax_handlers {
@@ -91,6 +104,7 @@ struct xslt_handlers {
 
 struct xslt_processor {
 	SablotHandle ptr;
+	SablotSituation sit;
 	long         idx;
 };
 
@@ -110,6 +124,8 @@ typedef struct {
 	struct xslt_handlers  *handlers;
 	struct xslt_processor  processor;
 	struct xslt_error     *err;
+	zval                  *object;
+	unsigned short         base_isset;
 } php_xslt;
 
 #else

@@ -26,12 +26,7 @@
 #include <Security/cssmlist.h>
 #include <Security/cssmalloc.h>
 
-#ifdef _CPP_CSSMACLPOD
-#pragma export on
-#endif
-
-namespace Security
-{
+namespace Security {
 
 // a nicer name for an authorization tag
 typedef CSSM_ACL_AUTHORIZATION_TAG AclAuthorization;
@@ -94,8 +89,8 @@ public:
 class AclEntryInfo : public PodWrapper<AclEntryInfo, CSSM_ACL_ENTRY_INFO> {
 public:
 	AclEntryPrototype &proto() { return AclEntryPrototype::overlay(EntryPublicInfo); }
-	const AclEntryPrototype &proto()
-	const { return AclEntryPrototype::overlay(EntryPublicInfo); }
+	const AclEntryPrototype &proto() const
+	{ return AclEntryPrototype::overlay(EntryPublicInfo); }
 	
 	operator AclEntryPrototype &() { return proto(); }
 	operator const AclEntryPrototype &() const { return proto(); }
@@ -164,7 +159,8 @@ public:
     : mAclEntryInfo(NULL), mNumberOfAclEntries(0), mAllocator(allocator) { }
 	~AutoAclEntryInfoList();
 
-	operator CSSM_ACL_ENTRY_INFO_PTR *() { return &CSSM_ACL_ENTRY_INFO_PTR(mAclEntryInfo); }
+	operator CSSM_ACL_ENTRY_INFO_PTR *()
+	{ return reinterpret_cast<CSSM_ACL_ENTRY_INFO_PTR *>(&mAclEntryInfo); }
 	operator uint32 *() { return &mNumberOfAclEntries; }
 
 	void allocator(CssmAllocator &allocator);
@@ -206,38 +202,65 @@ template <class Action>
 AclEntryInput *walk(Action &operate, AclEntryInput * &input)
 {
 	operate(input);
-	walk(operate, *input);
+	walk(operate, input->proto());
 	return input;
 }
 
 template <class Action>
 void walk(Action &operate, AclEntryInput &input)
-{ walk(operate, input.proto()); }
+{
+	operate(input);
+	walk(operate, input.proto());
+}
 
 // AclEntryInfo
 template <class Action>
 void walk(Action &operate, AclEntryInfo &info)
-{ walk(operate, info.proto()); }
+{
+	operate(info);
+	walk(operate, info.proto());
+}
 
 template <class Action>
 void walk(Action &operate, const AclEntryInfo &info)
 { walk(operate, const_cast<AclEntryInfo &>(info)); }
 
+// AuthorizationGroup
+template <class Action>
+void walk(Action &operate, AuthorizationGroup &auth)
+{
+	operate(auth);
+	uint32 count = auth.count();
+	operate.blob(auth.AuthTags, count * sizeof(AclAuthorization));
+	for (uint32 n = 0; n < count; n++)
+		walk(operate, auth.AuthTags[n]);
+}
+
+template <class Action>
+void walk(Action &operate, CSSM_AUTHORIZATIONGROUP &auth)
+{ walk(operate, static_cast<CSSM_AUTHORIZATIONGROUP &>(auth)); }
+
 // AclEntryPrototype
+template <class Action>
+void enumerate(Action &operate, AclEntryPrototype &proto)
+{
+	walk(operate, proto.subject());
+	walk(operate, proto.authorization());
+	//@@@ ignoring validity period
+}
+
 template <class Action>
 void walk(Action &operate, AclEntryPrototype &proto)
 {
-	walk(operate, proto.subject());
-	operate(proto.Authorization.AuthTags,
-		sizeof(CSSM_ACL_AUTHORIZATION_TAG) * proto.Authorization.NumberOfAuthTags);
-	//@@@ ignoring validity period
+	operate(proto);
+	enumerate(operate, proto);
 }
 
 template <class Action>
 AclEntryPrototype *walk(Action &operate, AclEntryPrototype * &proto)
 {
 	operate(proto);
-	walk(operate, *proto);
+	enumerate(operate, *proto);
 	return proto;
 }
 
@@ -245,6 +268,7 @@ AclEntryPrototype *walk(Action &operate, AclEntryPrototype * &proto)
 template <class Action>
 void walk(Action &operate, AclOwnerPrototype &proto)
 {
+	operate(proto);
 	walk(operate, proto.subject());
 }
 
@@ -252,7 +276,7 @@ template <class Action>
 AclOwnerPrototype *walk(Action &operate, AclOwnerPrototype * &proto)
 {
 	operate(proto);
-	walk(operate, *proto);
+	walk(operate, proto->subject());
 	return proto;
 }
 
@@ -260,10 +284,6 @@ AclOwnerPrototype *walk(Action &operate, AclOwnerPrototype * &proto)
 } // end namespace DataWalkers
 
 } // end namespace Security
-
-#ifdef _CPP_CSSMACLPOD
-#pragma export off
-#endif
 
 
 #endif //_CSSMACLPOD

@@ -1,0 +1,64 @@
+#
+#
+
+namespace eval ::tc002 {
+    if {[::itcl::find classes Benchmark] != "Benchmark"} {
+	class Benchmark {
+	    inherit ::BlueGnu::Benchmark
+
+	    public constructor {args} {
+	    }
+
+	    public method benchmark {benchmarkFunction args} {
+		verbose {******* ${this}::benchmark\
+			$benchmarkFunction $args}
+		verbose "Length Args is >[llength $args]<" 2
+		set bResult 0
+		switch -exact $benchmarkFunction {
+		    English {
+			set bResult 1
+		    }
+		    Dutch {
+			set bResult 1
+		    }
+		}
+		if $bResult {
+		    pass "[info class]::benchmark\
+			    $benchmarkFunction $args"
+		} else {
+		    fail "[info class]::benchmark\
+			    $benchmarkFunction $args"
+		}
+		return $bResult
+	    }
+	}
+
+	class English {
+	    inherit ::tc002::Benchmark
+
+	    public constructor {args} {
+		eval ::BlueGnu::Benchmark::constructor $args
+		::tc002::Benchmark::constructor
+	    } {
+		verbose "******* Initialize Priority Benchmark Values"
+		foreach i [lsort [array names ARG]] {
+		    verbose {        ARG($i): >$ARG($i)<} 2
+		}
+	    }
+	}
+
+	class Dutch {
+	    inherit ::tc002::Benchmark
+
+	    public constructor {args} {
+		eval ::BlueGnu::Benchmark::constructor $args
+		::tc002::Benchmark::constructor
+	    } {
+		verbose "******* Initialize Priority Benchmark Values"
+		foreach i [lsort [array names ARG]] {
+		    verbose {        ARG($i): >$ARG($i)<} 2
+		}
+	    }
+	}
+    }
+}

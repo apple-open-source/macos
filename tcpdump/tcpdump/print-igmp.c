@@ -21,19 +21,14 @@
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-igmp.c,v 1.1.1.2 2002/05/29 00:05:37 landonf Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-igmp.c,v 1.1.1.3 2003/03/17 18:42:17 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <sys/param.h>
-#include <sys/socket.h>
-
-#include <netinet/in.h>
-#include <netinet/in_systm.h>
-#include <netinet/ip.h>
+#include <tcpdump-stdinc.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -52,10 +47,10 @@ static const char rcsid[] =
  * The packet format for a traceroute request.
  */
 struct tr_query {
-    u_int  tr_src;          /* traceroute source */
-    u_int  tr_dst;          /* traceroute destination */
-    u_int  tr_raddr;        /* traceroute response address */
-    u_int  tr_rttlqid;      /* response ttl and qid */
+    u_int32_t  tr_src;          /* traceroute source */
+    u_int32_t  tr_dst;          /* traceroute destination */
+    u_int32_t  tr_raddr;        /* traceroute response address */
+    u_int32_t  tr_rttlqid;      /* response ttl and qid */
 };
 
 #define TR_GETTTL(x)        (int)(((x) >> 24) & 0xff)
@@ -66,17 +61,17 @@ struct tr_query {
  * beginning, followed by one tr_resp for each hop taken.
  */
 struct tr_resp {
-    u_int tr_qarr;          /* query arrival time */
-    u_int tr_inaddr;        /* incoming interface address */
-    u_int tr_outaddr;       /* outgoing interface address */
-    u_int tr_rmtaddr;       /* parent address in source tree */
-    u_int tr_vifin;         /* input packet count on interface */
-    u_int tr_vifout;        /* output packet count on interface */
-    u_int tr_pktcnt;        /* total incoming packets for src-grp */
-    u_char  tr_rproto;      /* routing proto deployed on router */
-    u_char  tr_fttl;        /* ttl required to forward on outvif */
-    u_char  tr_smask;       /* subnet mask for src addr */
-    u_char  tr_rflags;      /* forwarding error codes */
+    u_int32_t tr_qarr;          /* query arrival time */
+    u_int32_t tr_inaddr;        /* incoming interface address */
+    u_int32_t tr_outaddr;       /* outgoing interface address */
+    u_int32_t tr_rmtaddr;       /* parent address in source tree */
+    u_int32_t tr_vifin;         /* input packet count on interface */
+    u_int32_t tr_vifout;        /* output packet count on interface */
+    u_int32_t tr_pktcnt;        /* total incoming packets for src-grp */
+    u_int8_t  tr_rproto;      /* routing proto deployed on router */
+    u_int8_t  tr_fttl;        /* ttl required to forward on outvif */
+    u_int8_t  tr_smask;       /* subnet mask for src addr */
+    u_int8_t  tr_rflags;      /* forwarding error codes */
 };
 
 /* defs within mtrace */
@@ -111,33 +106,51 @@ static struct tok igmpv3report2str[] = {
 	{ 0,	NULL }
 };
 
-static void 
+static void
 print_mtrace(register const u_char *bp, register u_int len)
 {
     register const struct tr_query *tr = (const struct tr_query *)(bp + 8);
 
-    printf("mtrace %lu: %s to %s reply-to %s",
-        (u_long)TR_GETQID(ntohl(tr->tr_rttlqid)),
+    TCHECK(*tr);
+    if (len < 8 + sizeof (struct tr_query)) {
+	(void)printf(" [invalid len %d]", len);
+	return;
+    }
+    printf("mtrace %u: %s to %s reply-to %s",
+        TR_GETQID(EXTRACT_32BITS(&tr->tr_rttlqid)),
         ipaddr_string(&tr->tr_src), ipaddr_string(&tr->tr_dst),
         ipaddr_string(&tr->tr_raddr));
-    if (IN_CLASSD(ntohl(tr->tr_raddr)))
-        printf(" with-ttl %d", TR_GETTTL(ntohl(tr->tr_rttlqid)));
+    if (IN_CLASSD(EXTRACT_32BITS(&tr->tr_raddr)))
+        printf(" with-ttl %d", TR_GETTTL(EXTRACT_32BITS(&tr->tr_rttlqid)));
+    return;
+trunc:
+    (void)printf("[|igmp]");
+    return;
 }
 
-static void 
+static void
 print_mresp(register const u_char *bp, register u_int len)
 {
     register const struct tr_query *tr = (const struct tr_query *)(bp + 8);
 
+    TCHECK(*tr);
+    if (len < 8 + sizeof (struct tr_query)) {
+	(void)printf(" [invalid len %d]", len);
+	return;
+    }
     printf("mresp %lu: %s to %s reply-to %s",
-        (u_long)TR_GETQID(ntohl(tr->tr_rttlqid)),
+        (u_long)TR_GETQID(EXTRACT_32BITS(&tr->tr_rttlqid)),
         ipaddr_string(&tr->tr_src), ipaddr_string(&tr->tr_dst),
         ipaddr_string(&tr->tr_raddr));
-    if (IN_CLASSD(ntohl(tr->tr_raddr)))
-        printf(" with-ttl %d", TR_GETTTL(ntohl(tr->tr_rttlqid)));
+    if (IN_CLASSD(EXTRACT_32BITS(&tr->tr_raddr)))
+        printf(" with-ttl %d", TR_GETTTL(EXTRACT_32BITS(&tr->tr_rttlqid)));
+    return;
+trunc:
+    (void)printf("[|igmp]");
+    return;
 }
 
-static void 
+static void
 print_igmpv3_report(register const u_char *bp, register u_int len)
 {
     u_int group, nsrcs, ngroups;
@@ -145,15 +158,15 @@ print_igmpv3_report(register const u_char *bp, register u_int len)
 
     /* Minimum len is 16, and should be a multiple of 4 */
     if (len < 16 || len & 0x03) {
-    	(void)printf(" [invalid len %d]", len);
-    	return;
+	(void)printf(" [invalid len %d]", len);
+	return;
     }
     TCHECK2(bp[6], 2);
     ngroups = EXTRACT_16BITS(&bp[6]);
-    (void)printf(", %d group record(s)", ngroups); 
+    (void)printf(", %d group record(s)", ngroups);
     if (vflag > 0) {
 	/* Print the group records */
-    	group = 8;
+	group = 8;
         for (i=0; i<ngroups; i++) {
 	    if (len < group+8) {
 		(void)printf(" [invalid number of groups]");
@@ -202,8 +215,8 @@ print_igmpv3_query(register const u_char *bp, register u_int len)
     (void)printf(" v3");
     /* Minimum len is 12, and should be a multiple of 4 */
     if (len < 12 || len & 0x03) {
-    	(void)printf(" [invalid len %d]", len);
-    	return;
+	(void)printf(" [invalid len %d]", len);
+	return;
     }
     mrc = bp[1];
     if (mrc < 128) {
@@ -263,7 +276,7 @@ igmp_print(register const u_char *bp, register u_int len)
 		    (void)printf(" [max resp time %d]", bp[1]);
 	    } else
 		(void)printf(" v1");
-       	    if (EXTRACT_32BITS(&bp[4]))
+	    if (EXTRACT_32BITS(&bp[4]))
                 (void)printf(" [gaddr %s]", ipaddr_string(&bp[4]));
             if (len != 8)
                 (void)printf(" [len %d]", len);

@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(getpgid, 1)
-	blr
 

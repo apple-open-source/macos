@@ -1,4 +1,6 @@
-dnl $Id: config.m4,v 1.4 2002/03/21 09:17:10 zarzycki Exp $
+dnl
+dnl $Id: config.m4,v 1.6 2003/07/22 19:56:26 zarzycki Exp $
+dnl
 
 PHP_ARG_WITH(informix,for Informix support,
 [  --with-informix[=DIR]   Include Informix support.  DIR is the Informix base
@@ -6,22 +8,19 @@ PHP_ARG_WITH(informix,for Informix support,
 
 if test "$PHP_INFORMIX" != "no"; then
 
-  PHP_EXTENSION(informix, $ext_shared)
-  PHP_SUBST(INFORMIX_SHARED_LIBADD)
-
   if test "$INFORMIXDIR" = ""; then
     AC_MSG_ERROR([INFORMIXDIR environment variable is not set.])
   fi
 
   if test "$PHP_INFORMIX" = "yes"; then
-    PHP_ADD_INCLUDE($INFORMIXDIR/incl/esql)
+    IFX_INCLUDE=-I$INFORMIXDIR/incl/esql
     PHP_ADD_LIBPATH($INFORMIXDIR/lib, INFORMIX_SHARED_LIBADD)
     PHP_ADD_LIBPATH($INFORMIXDIR/lib/esql, INFORMIX_SHARED_LIBADD)
   else
     if test "$PHP_INFORMIX" != "$INFORMIXDIR"; then
       AC_MSG_ERROR([Specified Informix base install directory is different than your INFORMIXDIR environment variable.])
     fi
-    PHP_ADD_INCLUDE($PHP_INFORMIX/incl/esql)
+    IFX_INCLUDE=-I$PHP_INFORMIX/incl/esql
     PHP_ADD_LIBPATH($PHP_INFORMIX/lib, INFORMIX_SHARED_LIBADD)
     PHP_ADD_LIBPATH($PHP_INFORMIX/lib/esql, INFORMIX_SHARED_LIBADD)
   fi
@@ -45,7 +44,7 @@ if test "$PHP_INFORMIX" != "no"; then
   esac
 
   AC_MSG_CHECKING([Informix version])
-  IFX_VERSION=[`$INFORMIXDIR/bin/esql -V | sed -ne '1 s/^[^0-9]*\([0-9]\)\.\([0-9]*\).*/\1\2/p'`]
+  IFX_VERSION=[`$INFORMIXDIR/bin/esql -V | grep "ESQL Version" | sed -ne '1 s/\(.*\)ESQL Version \([0-9]*\)\.\([0-9]*\).*/\2\3/p'`]
   AC_MSG_RESULT($IFX_VERSION)
   AC_DEFINE_UNQUOTED(IFX_VERSION, $IFX_VERSION, [ ])
 
@@ -55,7 +54,9 @@ if test "$PHP_INFORMIX" != "no"; then
   else
     IFX_ESQL_FLAGS="$IFX_ESQL_FLAGS -EUHAVE_IFX_IUS"
   fi
-  PHP_SUBST(IFX_ESQL_FLAGS)
+
+  PHP_NEW_EXTENSION(informix, ifx.c, $ext_shared,, $IFX_INCLUDE)
+  PHP_ADD_MAKEFILE_FRAGMENT
 
   for i in $IFX_LIBS; do
     case "$i" in
@@ -87,7 +88,9 @@ if test "$PHP_INFORMIX" != "no"; then
     esac
   done
 
-  AC_DEFINE(HAVE_IFX,1,[ ])
+  PHP_SUBST(INFORMIX_SHARED_LIBADD)
   PHP_SUBST(INFORMIXDIR)
   PHP_SUBST(IFX_LIBOBJS)
+  PHP_SUBST(IFX_ESQL_FLAGS)
+  AC_DEFINE(HAVE_IFX,1,[ ])
 fi

@@ -1,0 +1,115 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from .././gimpprint.texi on 22 January 2003 -->
+
+<TITLE>GIMP-Print - ESC/P2 Appropriate Remote Commands</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_37.html">previous</A>, <A HREF="gimpprint_39.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H2><A NAME="SEC53" HREF="gimpprint_toc.html#TOC53">C.4  Appropriate Remote Commands</A></H2>
+
+<P>
+All of the remote commands described above are wrapped up with the usual
+boilerplate.  The files always start with <SAMP>`00 00 00'</SAMP> and the
+"magic" command described above, then two <SAMP>`ESC @'</SAMP>s to reset the
+printer.  The remote command sequences come next; if they print anything
+that is usually followed by a <SAMP>`FF'</SAMP> (0C hex) character to feed the
+page, then the file ends with another two <SAMP>`ESC @'</SAMP>s to get back to
+the ground state.
+
+</P>
+<P>
+An alignment sequence goes like this:
+
+</P>
+
+<OL>
+<LI>Host uses <SAMP>`DT'</SAMP> to print an alignment sheet
+
+<LI>User eyeballs the sheet to see which is the best aligned pattern.
+
+<LI>Host sends a <SAMP>`DA'</SAMP> command indicating which pattern the user chose
+
+<LI>If the user said "realign", meaning he isn't done yet, go to step 1
+
+<LI>We are done: host sends a <SAMP>`SV'</SAMP> command and exits
+
+</OL>
+
+<P>
+The sequence used (by the STC 3000, at least) to print from the roll
+feed is (with byte count omitted)
+
+</P>
+
+<PRE>
+     PM 00 00
+     SN 00 00 00
+     EX 00 00 00 00 05 01
+     ST 00 01
+     SM 00 02
+</PRE>
+
+<P>
+The sequence used by the STP 870 to print on plain paper is
+
+</P>
+
+<PRE>
+     PM 00 00
+     IR 00 03
+     SN 00 00 01
+     SN 00 01 00
+     SN 00 02 01
+     EX 00 00 00 00 05 00
+     FP 00 00 00
+</PRE>
+
+<P>
+and the job finishes with
+
+</P>
+
+<PRE>
+     IR 00 02
+     LD
+</PRE>
+
+<P>
+For different paper type settings on the STP 870, the arguments to
+<SAMP>`SN'</SAMP> vary.  The arguments to the first and third <SAMP>`SN'</SAMP> commands
+are as outlined in the description of the <SAMP>`SN'</SAMP> command above; the
+arguments to the second ("platen gap") are <SAMP>`00 01 01'</SAMP> for thick
+papers ("matte paper--heavyweight", "photo paper" and "premium
+glossy photo paper") and <SAMP>`00 01 00'</SAMP> for all others.
+
+</P>
+<P>
+For roll-mode printing, the STP 870's sequence changes as follows.
+<SAMP>`IR'</SAMP>'s arguments become <SAMP>`00 01'</SAMP> in the header, and <SAMP>`00
+00'</SAMP> after the job, and <SAMP>`EX'</SAMP>'s last argument changes from <SAMP>`00'</SAMP>
+to <SAMP>`01'</SAMP>.
+
+</P>
+<P>
+For zero-margin printing on the STP 870, the arguments to <SAMP>`FP'</SAMP> become
+<SAMP>`00 0xb0 0xff'</SAMP>.  This moves the origin about 5.5mm to the left, to a
+point one tenth of an inch to the left of the left-hand edge of the
+paper, allowing printing right up to (and beyond) the edge of the
+paper.  Some printers (at least the STP 870) include white absorbent
+pads at the left margin position and other positions (89mm and 100mm
+on the STP 870) to soak up ink which misses the edge of the paper.
+Printing off the edge of paper of a width not aligned with a pad could
+result in making a mess of the inside of the printer and ink getting
+on the reverse of the paper.
+
+</P>
+
+<P><HR><P>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_37.html">previous</A>, <A HREF="gimpprint_39.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+</BODY>
+</HTML>

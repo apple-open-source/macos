@@ -1,0 +1,5 @@
+LOCALEDIR=	${DESTDIR}/usr/share/locale
+
+SUBDIR=		colldef mklocale monetdef msgdef numericdef timedef utf8locale-1.5
+
+.include <bsd.subdir.mk>

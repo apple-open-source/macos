@@ -1,7 +1,7 @@
 /* Core dump and executable file functions above target vector, for GDB.
-   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1996, 1997, 1998,
-   1999, 2000, 2001
-   Free Software Foundation, Inc.
+
+   Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1996, 1997,
+   1998, 1999, 2000, 2001, 2003 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -182,11 +182,16 @@ reopen_exec_file (void)
   struct stat st;
   long mtime;
 
+  /* Don't do any of this if we are quitting.  */
+  if (gdb_quitting)
+    return;
+
   /* Don't do anything if the current target isn't exec. */
   if (exec_bfd == NULL || strcmp (target_shortname, "exec") != 0)
     return;
 
-  /* If the timestamp of the exec file has changed, reopen it. */
+  /* If the timestamp of the exec file has changed, reopen it. 
+     The whole world may have changed, so just unset all breakpoints.*/
   filename = xstrdup (bfd_get_filename (exec_bfd));
   make_cleanup (xfree, filename);
   mtime = bfd_get_mtime (exec_bfd);
@@ -195,6 +200,7 @@ reopen_exec_file (void)
   if (mtime && mtime != st.st_mtime)
     {
       exec_open (filename, 0);
+      tell_breakpoints_objfile_changed (NULL);
     }
 #endif
 }
@@ -296,7 +302,10 @@ dis_asm_print_address (bfd_vma addr, struct disassemble_info *info)
   print_address (addr, info->stream);
 }
 
-/* Read an integer from debugged memory, given address and number of bytes.  */
+/* Argument / return result struct for use with
+   do_captured_read_memory_integer().  MEMADDR and LEN are filled in
+   by gdb_read_memory_integer().  RESULT is the contents that were
+   successfully read from MEMADDR of length LEN.  */
 
 struct captured_read_memory_integer_arguments
 {
@@ -304,6 +313,13 @@ struct captured_read_memory_integer_arguments
   int len;
   LONGEST result;
 };
+
+/* Helper function for gdb_read_memory_integer().  DATA must be a
+   pointer to a captured_read_memory_integer_arguments struct. 
+   Return 1 if successful.  Note that the catch_errors() interface
+   will return 0 if an error occurred while reading memory.  This
+   choice of return code is so that we can distinguish between
+   success and failure.  */
 
 static int
 do_captured_read_memory_integer (void *data)
@@ -314,8 +330,12 @@ do_captured_read_memory_integer (void *data)
 
   args->result = read_memory_integer (memaddr, len);
 
-  return 0;
+  return 1;
 }
+
+/* Read memory at MEMADDR of length LEN and put the contents in
+   RETURN_VALUE.  Return 0 if MEMADDR couldn't be read and non-zero
+   if successful.  */
 
 int
 safe_read_memory_integer (CORE_ADDR memaddr, int len, LONGEST *return_value)
@@ -327,7 +347,7 @@ safe_read_memory_integer (CORE_ADDR memaddr, int len, LONGEST *return_value)
 
   status = catch_errors (do_captured_read_memory_integer, &args,
                         "", RETURN_MASK_ALL);
-  if (!status)
+  if (status)
     *return_value = args.result;
 
   return status;
@@ -376,6 +396,14 @@ read_memory_string (CORE_ADDR memaddr, char *buffer, int max_len)
       if (i < cnt && !*cp)
 	break;
     }
+}
+
+CORE_ADDR
+read_memory_typed_address (CORE_ADDR addr, struct type *type)
+{
+  char *buf = alloca (TYPE_LENGTH (type));
+  read_memory (addr, buf, TYPE_LENGTH (type));
+  return extract_typed_address (buf, type);
 }
 
 /* Same as target_write_memory, but report an error if can't write.  */
@@ -453,7 +481,7 @@ static void set_gnutarget_command (char *, int, struct cmd_list_element *);
 static void
 set_gnutarget_command (char *ignore, int from_tty, struct cmd_list_element *c)
 {
-  if (STREQ (gnutarget_string, "auto"))
+  if (strcmp (gnutarget_string, "auto") == 0)
     gnutarget = NULL;
   else
     gnutarget = gnutarget_string;

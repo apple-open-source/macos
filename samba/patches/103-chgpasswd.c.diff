@@ -1,0 +1,51 @@
+--- samba/source/smbd/chgpasswd.c.orig	Mon Aug 18 22:18:28 2003
++++ samba/source/smbd/chgpasswd.c	Fri Aug 29 14:40:38 2003
+@@ -49,6 +49,12 @@
+ 
+ #include "includes.h"
+ 
++#ifdef WITH_OPENDIRECTORY
++#include <DirectoryService/DirServices.h>
++#include <DirectoryService/DirServicesConst.h>
++#include <DirectoryService/DirServicesUtils.h>
++#endif
++
+ extern struct passdb_ops pdb_ops;
+ 
+ static NTSTATUS check_oem_password(const char *user,
+@@ -747,7 +753,24 @@ NTSTATUS pass_oem_change(char *user,
+ {
+ 	fstring new_passwd;
+ 	SAM_ACCOUNT *sampass = NULL;
+-	NTSTATUS nt_status = check_oem_password(user, lmdata, lmhash, ntdata, nthash,
++
++	NTSTATUS nt_status = NT_STATUS_WRONG_PASSWORD;
++#ifdef WITH_OPENDIRECTORY
++	tDirStatus	dir_status = eDSNullParameter;
++	u_int8_t passwordFormat = 0;
++	
++	if (lp_opendirectory()) {
++		if(ntdata != NULL && nthash != NULL)
++			passwordFormat = 1; /* 0 - UTF8 | 1 - UCS2 Unicode, >1 == codepage */
++		become_root();
++		dir_status = opendirectory_lmchap2changepasswd(user, lmdata, lmhash, passwordFormat, NULL);
++		unbecome_root();
++		DEBUG(3, ("pass_oem_change: [%d]opendirectory_lmchap2changepasswd passwordFormat(%d)\n", dir_status, passwordFormat));
++		if (eDSNoErr == dir_status)
++			nt_status = NT_STATUS_OK;
++	} else {
++#endif
++		nt_status = check_oem_password(user, lmdata, lmhash, ntdata, nthash,
+ 				     &sampass, new_passwd, sizeof(new_passwd));
+ 
+ 	if (!NT_STATUS_IS_OK(nt_status))
+@@ -761,6 +784,9 @@ NTSTATUS pass_oem_change(char *user,
+ 	memset(new_passwd, 0, sizeof(new_passwd));
+ 
+ 	pdb_free_sam(&sampass);
++#ifdef WITH_OPENDIRECTORY
++	}
++#endif
+ 
+ 	return nt_status;
+ }

@@ -21,6 +21,7 @@ VERSION = @VERSION@
 SCREEN = screen-$(VERSION)
 
 ETCSCREENRC = `sed < config.h -n -e '/define ETCSCREENRC/s/^.*"\([^"]*\)"/\1/p'`
+SCREENENCODINGS = `sed < config.h -n -e '/define SCREENENCODINGS/s/^.*"\([^"]*\)"/\1/p'`
 
 CC = @CC@
 CFLAGS = @CFLAGS@
@@ -54,12 +55,12 @@ CFILES=	screen.c ansi.c fileio.c mark.c misc.c resize.c socket.c \
 	search.c tty.c term.c window.c utmp.c loadav.c putenv.c help.c \
 	termcap.c input.c attacher.c pty.c process.c display.c comm.c \
 	kmapdef.c acls.c braille.c braille_tsi.c logfile.c layer.c \
-	sched.c teln.c nethack.c utf8.c
+	sched.c teln.c nethack.c encoding.c
 OFILES=	screen.o ansi.o fileio.o mark.o misc.o resize.o socket.o \
 	search.o tty.o term.o window.o utmp.o loadav.o putenv.o help.o \
 	termcap.o input.o attacher.o pty.o process.o display.o comm.o \
 	kmapdef.o acls.o braille.o braille_tsi.o logfile.o layer.o \
-	sched.o teln.o nethack.o utf8.o
+	sched.o teln.o nethack.o encoding.o
 
 all:	screen
 
@@ -77,7 +78,8 @@ install_bin: .version screen
 # This doesn't work if $(bindir)/screen is a symlink
 	-if [ -f $(DESTDIR)$(bindir)/screen ] && [ ! -f $(DESTDIR)$(bindir)/screen.old ]; then mv $(DESTDIR)$(bindir)/screen $(DESTDIR)$(bindir)/screen.old; fi
 	rm -f $(DESTDIR)$(bindir)/screen
-	cd $(DESTDIR)$(bindir) && ln -sf $(SCREEN) screen
+	(cd $(DESTDIR)$(bindir) && ln -sf $(SCREEN) screen)
+	cp $(srcdir)/utf8encodings/?? $(DESTDIR)$(SCREENENCODINGS)
 
 ###############################################################################
 install: installdirs install_bin
@@ -93,7 +95,7 @@ install: installdirs install_bin
 
 installdirs:
 # Path leading to ETCSCREENRC and Socketdirectory not checked.
-	$(srcdir)/etc/mkinstalldirs $(DESTDIR)$(bindir)
+	$(srcdir)/etc/mkinstalldirs $(DESTDIR)$(bindir) $(DESTDIR)$(SCREENENCODINGS)
 	cd doc ; $(MAKE) installdirs
 
 uninstall: .version
@@ -192,6 +194,8 @@ $(SCREEN).tar: .version term.h comm.h tty.c kmapdef.c
 	  ../dist/$(SCREEN)/terminfo
 	mkdir dist/$(SCREEN)/etc
 	cd etc; ln * ../dist/$(SCREEN)/etc
+	mkdir dist/$(SCREEN)/utf8encodings
+	cd utf8encodings; ln * ../dist/$(SCREEN)/utf8encodings
 	# sed -e 's/^startup/#startup/' -e 's/^autodetach/#autodetach/' < $(ETCSCREENRC) > dist/$(SCREEN)/etc/etcscreenrc 
 	cp $(HOME)/.screenrc dist/$(SCREEN)/etc/screenrc
 	mkdir dist/$(SCREEN)/doc
@@ -244,7 +248,7 @@ mdepend: $(CFILES) term.h
 	  echo `echo "$$i" | sed -e 's/.c$$/.o/'`": $$i" `\
             cc -E $$i |\
             grep '^# .*"\./.*\.h"' |\
-            sort -t'"' -u +1 -2 |\
+            (sort -t'"' -u -k 2,2 2>/dev/null || sort -t'"' -u +1 -2) |\
             sed -e 's/.*"\.\/\(.*\)".*/\1/'\
           ` >> DEPEND ; \
 	done
@@ -323,5 +327,5 @@ teln.o: teln.c rcs.h config.h screen.h os.h osdef.h ansi.h acls.h \
  comm.h layer.h term.h image.h display.h window.h extern.h
 nethack.o: nethack.c rcs.h config.h screen.h os.h osdef.h ansi.h acls.h \
  comm.h layer.h term.h image.h display.h window.h extern.h
-utf8.o: utf8.c rcs.h config.h screen.h os.h osdef.h ansi.h acls.h \
+encoding.o: encoding.c rcs.h config.h screen.h os.h osdef.h ansi.h acls.h \
  comm.h layer.h term.h image.h display.h window.h extern.h

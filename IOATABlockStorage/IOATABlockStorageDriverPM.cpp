@@ -1,34 +1,28 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
  
-/*
- * Copyright (c) 2000-2001 Apple Computer, Inc.  All rights reserved. 
- *
- * IOATABlockStorageDevicePM.cpp - Power management support.
- *
- * HISTORY
- * 	2000.12.11	CJS  	Added power management to IOATABlockStorage driver
- */
-
 /*
  *	ATA power management as defined in T13:1321-D Revision 3 2000.02.29,
  *	AT Attachment with Packet Interface - 5 (ATA/ATAPI-5), states that there
@@ -37,6 +31,9 @@
  *	Management modes defined in the ATA-5 specification.
  *
  */
+
+// IOKit Power Management headers
+#include <IOKit/pwr_mgt/RootDomain.h>
 
 #include "IOATABlockStorageDriver.h"
 #define	super IOService
@@ -113,6 +110,63 @@ static const char * sPowerStateNames[] =
 #endif	/* ATA_MASS_STORAGE_DEBUG */
 
 
+// Static prototypes
+static IOReturn
+IOATABlockStorageDriverPowerDownHandler ( void * 			target,
+											void * 			refCon,
+											UInt32 			messageType,
+											IOService * 	provider,
+											void * 			messageArgument,
+											vm_size_t 		argSize );
+
+
+//---------------------------------------------------------------------------
+// ¥ IOATABlockStorageDriverPowerDownHandler - C->C++ Glue code for Power
+//												 Down Notifications.
+//---------------------------------------------------------------------------
+
+
+static IOReturn
+IOATABlockStorageDriverPowerDownHandler ( void * 			target,
+											void * 			refCon,
+											UInt32 			messageType,
+											IOService * 	provider,
+											void * 			messageArgument,
+											vm_size_t 		argSize )
+{
+	
+	return ( ( IOATABlockStorageDriver * ) target )->powerDownHandler (
+														refCon,
+														messageType,
+														provider,
+														messageArgument,
+														argSize );
+	
+}
+
+
+//---------------------------------------------------------------------------
+// ¥ PowerDownHandler - Method called at sleep/restart/shutdown time.
+//---------------------------------------------------------------------------
+
+IOReturn
+IOATABlockStorageDriver::powerDownHandler (	void * 			refCon,
+											UInt32 			messageType,
+											IOService * 	provider,
+											void * 			messageArgument,
+											vm_size_t 		argSize )
+{
+	
+	IOReturn	status = kIOReturnSuccess;
+	
+	if ( messageType == kIOMessageSystemWillPowerOff )
+		setProperty ( "Power Off", true );
+	
+	return status;
+	
+}
+
+
 //---------------------------------------------------------------------------
 // ¥ initialPowerStateForDomainState - 	Returns to the power manager what
 //										initial state the device should be in.
@@ -143,6 +197,11 @@ IOATABlockStorageDriver::initForPM ( void )
 	
 	registerPowerDriver ( this, sPowerStates, kIOATAPowerStates );
 	SERIAL_STATUS_LOG ( ( "registerPowerDriver\n" ) );
+	
+	// Install handler for shutdown notifications
+	fPowerDownNotifier = registerPrioritySleepWakeInterest (
+					( IOServiceInterestHandler ) IOATABlockStorageDriverPowerDownHandler,
+					this );
 	
 	changePowerStateTo ( kIOATAPowerStateSleep );
 	SERIAL_STATUS_LOG ( ( "changePowerStateTo\n" ) );
@@ -185,6 +244,7 @@ IOATABlockStorageDriver::checkPowerState ( void )
 {
 	
 	SERIAL_STATUS_LOG ( ( "IOATABlockStorageDriver::checkPowerState called\n" ) );
+	
 	
 	activityTickle ( kIOPMSuperclassPolicy1, ( UInt32 ) kIOATAPowerStateActive );
 	
@@ -241,7 +301,7 @@ IOATABlockStorageDriver::setPowerState (
 	
 	SERIAL_STATUS_LOG ( ( "IOATABlockStorageDriver::setPowerState called\n" ) );
 	SERIAL_STATUS_LOG ( ( "powerStateOrdinal = %ld\n", powerStateOrdinal ) );
-		
+	
 	fCommandGate->runAction ( ( IOCommandGate::Action )
 								&IOATABlockStorageDriver::sHandleSetPowerState,
 								( void * ) powerStateOrdinal );
@@ -418,8 +478,10 @@ IOATABlockStorageDriver::handlePowerChange ( void )
 				else if ( fCurrentPowerState != kIOATAPowerStateStandby )
 				{
 					
-					// Issue a STANDBY IMMED command to the drive
-					( void ) issuePowerTransition ( kATAStandbyDevice );
+					// We have found several drives that will hang the bus when going from
+					// kATAStandbyDevice or kATAIdleDevice to kATASleepDevice. For now
+					// to be safe we are going to simplify power transitions to kATASleepDevice
+					// ( void ) issuePowerTransition ( kATAStandbyDevice );
 					fCurrentPowerState = kIOATAPowerStateStandby;
 					
 				}
@@ -442,10 +504,12 @@ IOATABlockStorageDriver::handlePowerChange ( void )
 				if ( fCurrentPowerState != kIOATAPowerStateIdle )
 				{
 					
-					// Issue an IDLE IMMED command to the drive
-					( void ) issuePowerTransition ( kATAIdleDevice );
+					// We have found several drives that will hang the bus when going from
+					// kATAStandbyDevice or kATAIdleDevice to kATASleepDevice. For now
+					// to be safe we are going to simplify power transitions to kATASleepDevice
+					// ( void ) issuePowerTransition ( kATAIdleDevice );
 					fCurrentPowerState = kIOATAPowerStateIdle;
-										
+					
 				}
 			
 			}
@@ -511,7 +575,7 @@ IOATABlockStorageDriver::issuePowerTransition ( UInt32 function )
 	
 	IOReturn	status = kIOReturnSuccess;
 	IOSyncer *	syncer;
-
+	
 	// Check if the device is CompactFlash. We wonÕt do power transitions for
 	// CF since they don't seem to like them.
 	if ( fATASocketType == kPCCardSocket )
@@ -519,16 +583,6 @@ IOATABlockStorageDriver::issuePowerTransition ( UInt32 function )
 		return status;
 		
 	}	
-	
-	// We have found several drives that will hang the bus when going from
-	// kATAStandbyDevice or kATAIdleDevice to kATASleepDevice. For now
-	// to be safe we are going to simplify power transitions to kATASleepDevice
-	if ( ( function == kATAStandbyDevice ) || ( function == kATAIdleDevice ) )
-	{
-		
-		return status;
-		
-	}
 	
 	syncer = ( IOSyncer * ) fPowerManagementCommand->refCon;
 	

@@ -88,12 +88,12 @@ extern OSStatus sslPubKeyFromCert(
 extern OSStatus sslVerifyCertChain(
 	SSLContext				*ctx,
 	const SSLCertificate	&certChain,
-	bool					verifyHostName = true); 
+	bool					arePeerCerts = true); 
 
 /*
- * Raw RSA sign/verify.
+ * Raw RSA/DSA sign/verify.
  */
-OSStatus sslRsaRawSign(
+OSStatus sslRawSign(
 	SSLContext			*ctx,
 	const CSSM_KEY		*privKey,
 	CSSM_CSP_HANDLE		cspHand,
@@ -103,7 +103,7 @@ OSStatus sslRsaRawSign(
 	UInt32				sigLen,			// available
 	UInt32				*actualBytes);	// RETURNED
 	
-OSStatus sslRsaRawVerify(
+OSStatus sslRawVerify(
 	SSLContext			*ctx,
 	const CSSM_KEY		*pubKey,
 	CSSM_CSP_HANDLE		cspHand,
@@ -139,6 +139,11 @@ OSStatus sslRsaDecrypt(
  */
 extern UInt32 sslKeyLengthInBytes(
 	const CSSM_KEY	*key);
+
+/* Obtain max signature size in bytes. */
+extern OSStatus sslGetMaxSigSize(
+	const CSSM_KEY	*privKey,
+	UInt32			&maxSigSize);
 
 /*
  * Get raw key bits from an RSA public key.
@@ -178,6 +183,25 @@ void * stAppMalloc (uint32 size, void *allocRef);
 void stAppFree (void *mem_ptr, void *allocRef);
 void * stAppRealloc (void *ptr, uint32 size, void *allocRef);
 void * stAppCalloc (uint32 num, uint32 size, void *allocRef);
+
+OSStatus sslDhGenKeyPairClient(
+	SSLContext		*ctx,
+	const SSLBuffer	&prime,
+	const SSLBuffer	&generator,
+	CSSM_KEY_PTR	publicKey,			// RETURNED
+	CSSM_KEY_PTR	privateKey);		// RETURNED
+OSStatus sslDhGenerateKeyPair(
+	SSLContext		*ctx,
+	const SSLBuffer	&paramBlob,
+	UInt32			keySizeInBits,
+	CSSM_KEY_PTR	publicKey,			// RETURNED
+	CSSM_KEY_PTR	privateKey);		// RETURNED
+OSStatus sslDhKeyExchange(
+	SSLContext		*ctx,
+	uint32			deriveSizeInBits,
+	SSLBuffer		*exchanged);
+OSStatus sslVerifyNegotiatedCipher(
+	SSLContext 		*ctx);
 
 /* 
  * Convert between SSLBuffer and CSSM_DATA, which are after all identical.

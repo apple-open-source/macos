@@ -222,19 +222,21 @@ IOReturn AppleUniN::setupUATAforSleep ()
     IOService		*uATANub;
 	bool			result;
 	
-	result = kIOReturnUnsupported;
-	
 	// For Intrepid notebooks, locate ultra-ata entry so we can reset the ATA bus at sleep
 	// This is a gross, disgusting hack because I don't have time to figure out a better way
-	if ((uniNVersion == kUniNVersionIntrepid) && hostIsMobile) {
+	if ((!uATABaseAddress) && (uniNVersion == kUniNVersionIntrepid) && hostIsMobile) {
 		uATANub = OSDynamicCast (IOService, provider->fromPath("/pci@F4000000/ata-6@D", gIODTPlane));
 		if (uATANub) {
 			if (uATABaseAddressMap = uATANub->mapDeviceMemoryWithIndex(0)) {
 				uATABaseAddress = (volatile UInt32 *) uATABaseAddressMap->getVirtualAddress();
-				result = kIOReturnSuccess;
 			}
 		}
 	}
+	
+	if (uATABaseAddress)
+		result = kIOReturnSuccess;
+	else
+		result = kIOReturnUnsupported;
 	
 	return result;
 }

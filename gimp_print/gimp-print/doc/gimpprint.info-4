@@ -1,0 +1,1151 @@
+This is gimpprint.info, produced by makeinfo version 4.0 from
+gimpprint.texi.
+
+INFO-DIR-SECTION Libraries
+START-INFO-DIR-ENTRY
+* GIMP-Print: (gimpprint).      print plugin for the GIMP, and printing library
+END-INFO-DIR-ENTRY
+
+   This file documents the gimpprint library and associated programs
+used for high quality printing.
+
+   Copyright (C) 2001 Michael Sweet (<mike@easysw.com>) and Robert
+Krawitz (<rlk@alum.mit.edu>)
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided that
+the entire resulting derived work is distributed under the terms of a
+permission notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that this permission notice may be stated in a
+translation approved by the Foundation.
+
+
+File: gimpprint.info,  Node: Oversampling,  Prev: What is perfect weaving?,  Up: Weaving algorithms
+
+Oversampling
+------------
+
+   By oversampling, we mean printing on the same row more than once.
+There are two reasons for oversampling: to increase the horizontal
+resolution of the printout and to reduce banding.
+
+   Oversampling to increase horizontal resolution is necessary because,
+although the printer might be able to position an ink drop to, for
+example, 1/1440" horizontally, it may not be able to lay down two such
+drops 1/1440" apart.  If it can print two drops 1/720" apart, 2x
+oversampling will be necessary to get a 1/1440" horizontal resolution.
+If it can only print two drops 1/360" apart, 4x oversampling will be
+necessary for a 1/1440" horizontal resolution.  The printer enforces
+this "drop spacing" by only accepting raster passes with a horizontal
+resolution matching the spacing with which it can print dots, so we
+must print passes at different horizontal positions if we are to obtain
+a higher horizontal resolution.  (Another reason it does this may be to
+reduce the amount of memory needed in the printer.)
+
+   Oversampling can also be done to decrease the banding apparent in an
+image.  By splitting a row into two or more sets of dots ("lines") and
+printing each line on the same row, but with a different nozzle for
+each line, we can get a smoother print.
+
+   To quantify these two kinds of oversampling, we'll introduce two new
+constants: H shows how many different horizontal offsets we want to
+print at (the "horizontal oversampling") while O shows how many times
+we want to print each row, over and above the number of times necessary
+for horizontal oversampling (the "extra oversampling").
+
+   It is necessary for all the lines printed by a given pass to have the
+same horizontal offset, but there need not be any relation between them
+in terms of extra oversampling.  For the moment, however, we will treat
+all oversampling as potentially requiring this alignment; all lines in
+one pass must be derived from the original row data in the same way.
+Thus, we'll assume O=1 for now.
+
+   So, how do we do this oversampling?  In fact, it can be done easily:
+advance the paper by a factor of H less between each pass.  We'll
+define a new variable, A, to show how much we advance the paper between
+passes.  Previously, we'd have defined A=J; we now let A=J/H.  This
+also affects our pass blocks.  Printing one pass block used to involve
+advancing the paper S*J rows; it now advances the paper S*J/H rows.  We
+therefore name a group of H pass blocks a "band".  Printing one band
+involves advancing the paper S*J rows, as a pass block did before.
+
+   To keep our weave pattern working correctly, so that overprinting
+does not occur within a pass block, we also have to redefine G as
+GCD(S,A).  Here's an example of an oversampled weave pattern:
+
+S=4, J=10, H=2, A=J/H=10/2=5, G=GCD(4,5)=1,
+passesperblock=S=4,
+passespersubblock=S/G=4/1=4:
+
+     0 *---*---*---*---*---*---*---*---*---*
+     1      *---*---*---*---*---*---*---*---*---*
+     2           *---*---*---*---*---*---*---*---*---*
+     3                *---*---*---*---*---*---*---*---*---*
+     4                     *---*---*---*---*---*---*---*---*---*
+     5                          *---*---*---*---*---*---*---*---*---*
+     6                               *---*---*---*---*---*---*---*---*---*
+     7                                    *---*---*---*---*---*---*---*---*---*
+     8                                         *---*---*---*---*---*---*---*---*---*
+     9                                              *---*---*---*---*---*---*---*---*
+     10                                                  *---*---*---*---*---*---*---
+     11                                                       *---*---*---*---*---*--
+     12                                                            *---*---*---*---*-
+     13                                                                 *---*---*---*
+     14                                                                      *---*---
+     15                                                                           *--
+
+   Now we have to determine which line is printed by each jet on each
+pass.  If we number each line generated as we split up a row, we can
+use these numbers.  We'll number the lines in our diagram by replacing
+the `*'s with integers in the range [0...H-1].
+
+   Overprinting occurs once per pass block, so we can simply print pass
+block 0 with line 0, pass block 1 with line 1, pass block 2 with line
+2, etc, wrapping to 0 when we've run out of lines:
+
+     0 0---0---0---0---0---0---0---0---0---0
+     1      0---0---0---0---0---0---0---0---0---0
+     2           0---0---0---0---0---0---0---0---0---0
+     3                0---0---0---0---0---0---0---0---0---0
+     4                     1---1---1---1---1---1---1---1---1---1
+     5                          1---1---1---1---1---1---1---1---1---1
+     6                               1---1---1---1---1---1---1---1---1---1
+     7                                    1---1---1---1---1---1---1---1---1---1
+     8                                         0---0---0---0---0---0---0---0---0---0
+     9                                              0---0---0---0---0---0---0---0---0
+     10                                                  0---0---0---0---0---0---0---
+     11                                                       0---0---0---0---0---0--
+     12                                                            1---1---1---1---1-
+     13                                                                 1---1---1---1
+     14                                                                      1---1---
+     15                                                                           1--
+
+S=4,  J=12,  H=2,  A=J/H=12/2=6,  G=GCD(4,6)=2,
+passesperblock=S=4,
+passespersubblock=S/G=4/2=2:
+
+     0 0---0---0---0---0---0---0---0---0---0---0---0
+     1       0---0---0---0---0---0---0---0---0---0---0---0
+     2              0---0---0---0---0---0---0---0---0---0---0---0
+     3                    0---0---0---0---0---0---0---0---0---0---0---0
+     4                         1---1---1---1---1---1---1---1---1---1---1---1
+     5                               1---1---1---1---1---1---1---1---1---1---1---1
+     6                                      1---1---1---1---1---1---1---1---1---1---1
+     7                                            1---1---1---1---1---1---1---1---1--
+     8                                                 0---0---0---0---0---0---0---0-
+     9                                                       0---0---0---0---0---0---
+     10                                                             0---0---0---0---0
+     11                                                                   0---0---0--
+     12                                                                        1---1-
+
+   But what do we do if J is not an exact multiple of H?  This is a
+difficult problem, which I struggled with for quite a few days before
+giving in and taking the easy (but less elegant) way out.  The easy
+solution is to round J/H down, then add on the accumulated error at the
+end of each band.
+
+S=4,  J=11,  H=2  A=floor(J/H)=floor(11/2)=5,  G=GCD(4,5),
+passesperblock=S=4,
+passespersubblock=S/G=4/1=4
+
+     Band 0:
+     0 0---0---0---0---0---0---0---0---0---0---0
+     1      0---0---0---0---0---0---0---0---0---0---0
+     2           0---0---0---0---0---0---0---0---0---0---0
+     3                0---0---0---0---0---0---0---0---0---0---0
+     4                     1---1---1---1---1---1---1---1---1---1---1
+     5                          1---1---1---1---1---1---1---1---1---1---1
+     6                               1---1---1---1---1---1---1---1---1---1---1
+     7                                    1---1---1---1---1---1---1---1---1---1---
+     
+     Band 1:
+     8 |                                           0---0---0---0---0---0---0---0---0-
+     9  \-----------------------------------------/     0---0---0---0---0---0---0---0
+     10                   S*J rows                           0---0---0---0---0---0---
+     11                                                           0---0---0---0---0--
+     12                                                                1---1---1---1-
+     13                                                                     1---1---1
+     14                                                                          1---
+
+   We can calculate the starting row and subpass number of a given pass
+in this scheme as follows:
+
+     A = floor(J / H)
+     subblocksperblock = gcd(S, A)
+     subpassblock = floor((p % S) * subblocksperblock / S)
+     if subpassblock * 2 < subblocksperblock
+         subblockoffset = 2*subpassblock
+     else
+         subblockoffset = 2*(subblocksperblock-subpassblock)-1
+     band = floor(P / (S * H))
+     passinband = P % (S * H)
+     startingrow = band * S * J + passinband * A + subblockoffset
+     subpass = passinband / S
+
+   So the row number of jet j of pass p is
+
+     A = floor(J / H)
+     subblocksperblock = gcd(S, A)
+     
+     subblockoffset(p)
+         = 2*subpassblock       , if subpassblock * 2 < subblocksperblock
+         = 2*(subblocksperblock-subpassblock)-1      , otherwise
+           where
+           subpassblock = floor((p % S) * subblocksperblock / S)
+     
+     band(p) = floor(p / (S * H))
+     passinband(p) = p % (S * H)
+     
+     row(j, p) = band(p) * S * J + passinband(p) * A + subblockoffset(p) + j * S
+     row(j, p) = p * J + subblockoffset(p) + j * S
+
+   To be continued....
+
+
+File: gimpprint.info,  Node: ESC/P2,  Next: New Printer,  Prev: Weaving,  Up: Appendices
+
+ESC/P2
+******
+
+* Menu:
+
+* ESC/P2 Introduction::                What is ESC/P2
+* ESC/P2 Standard Commands::           Normal ESC/P2 commands
+* ESC/P2 Remote Mode Commands::        Exotic ESC/P2 commands
+* ESC/P2 Appropriate Remote Commands:: Useful remote command sequences
+
+
+File: gimpprint.info,  Node: ESC/P2 Introduction,  Next: ESC/P2 Standard Commands,  Up: ESC/P2
+
+Introduction to ESC/P2
+======================
+
+   This is a description of the ESC/P2 raster commands used by the
+gimp-print plugin and Ghostscript driver, which is a subset of the
+complete command set.  The full documents are found on
+<http://www.ercipd.com/isv/edr_docs.htm>.  Note that these are *not*
+always correct, and are certainly not complete.
+
+   All ESCP/2 raster commands begin with the `ESC' character (1b hex),
+followed by either one or two command characters and arguments where
+applicable.  Older commands generally have one command character.  Newer
+commands usually have a `(' (left parenthesis) followed by a command
+character and a byte count for the arguments that follow.  The byte
+count is a 16-bit (2 byte) binary integer, in little endian order.
+
+   All arguments listed here are of the form `name[bytes]' where
+`[bytes]' is the number of bytes that comprise the argument.  The
+arguments themselves are usually one, two, or four byte integers, always
+little endian (the least significant bits come first).  Presumably this
+is to match Intel processors.
+
+   In some cases, the same command sequence identifies different
+versions of the same command, depending upon the number of bytes of
+arguments.
+
+
+File: gimpprint.info,  Node: ESC/P2 Standard Commands,  Next: ESC/P2 Remote Mode Commands,  Prev: ESC/P2 Introduction,  Up: ESC/P2
+
+Standard commands
+=================
+
+ - ESC/P2 command: `ESC @'
+     Reset the printer.  Discards any output, ejects the existing page,
+     returns all settings to their default.  Always use this before
+     printing a page.
+
+ - ESC/P2 command: `ESC (G BC=1 ON1'
+     Turn on graphics mode.  ON should be `1' (turn on graphics mode).
+
+ - ESC/P2 command: `ESC (U BC=1 UNIT1'
+     Set basic unit of measurement used by printer.  This is expressed
+     in multiples of 1/3600".  At 720 DPI, UNIT is `5'; at 360 DPI,
+     UNIT is `10'.
+
+ - ESC/P2 command: `ESC (U BC=5 PAGEUNITS1 VUNIT1 HUNIT1 BASEUNIT2'
+     Set basic units of measurement used by the printer.  PAGEUNIT is
+     the unit of page measurement (for commands that set page
+     dimensions and the like).  VUNIT is the unit of vertical
+     measurement (for vertical movement commands).  HUNIT is the unit
+     of horizontal movement (for horizontal positioning commands).  All
+     of these units are expressed in BASEUNIT, which is in reciprocal
+     inches.  Typically, BASEUNIT is `1440'.  In 720 DPI mode, PAGEUNIT,
+     VUNIT, and HUNIT are all `2'; in 1440x720 DPI mode, PAGEUNIT and
+     VUNIT are normally set to `2'; HUNIT is set to `1'.
+
+ - ESC/P2 command: `ESC (K BC=2 ZERO1 GRAYMODE1'
+     Set color or grayscale mode, on printers supporting an explicit
+     grayscale mode.  These printers can be identified because they are
+     advertised as having more black nozzles than nozzles of individual
+     colors.  Setting grayscale mode allows use of these extra nozzles
+     for faster printing.  GRAYMODE should be `0' or `2' for color, `1'
+     for grayscale.  ZERO should always be `0'.
+
+ - ESC/P2 command: `ESC (i BC=1 MICROWEAVE1'
+     If MICROWEAVE is `1', use microweave mode.  On older printers,
+     this is used to turn on microweave; on newer printers, it prints
+     one row at a time.  All printers support this mode.  It should
+     only be used at 720 (or 1440x720) DPI.  The Epson Stylus Pro series
+     indicates additional modes:
+
+    `2'
+          "Full-overlap"
+
+    `3'
+          "Four-pass"
+
+    `4'
+          "Full-overlap 2"
+
+     Any of these commands can be used with the high four bits set to
+     either `3' or `0'.
+
+ - ESC/P2 command: `ESC U DIRECTION1'
+     If DIRECTION is `1', print unidirectionally; if `0', print
+     bidirectionally.
+
+ - ESC/P2 command: `ESC (s BC=1 SPEED1'
+     On some older printers, this controls the print head speed.  SPEED
+     of `2' is 10 inches/sec; SPEED of `0' or 1 is 20.
+
+ - ESC/P2 command: `ESC (e BC=2 ZERO1 DOTSIZE1'
+     Choose print dotsize.  DOTSIZE can take on various values,
+     depending upon the printer.  Almost all printers support `0' and
+     `2'.  Variable dot size printers allow a value of 16.  Other than
+     the value of 16, this appears to be ignored at resolutions of 720
+     DPI and above.
+
+ - ESC/P2 command: `ESC (C BC=2 PAGELENGTH2'
+ - ESC/P2 command: `ESC (C BC=4 PAGELENGTH4'
+     Set the length of the page in "pageunits" (see `ESC (U' above).
+     The second form of the command allows setting of longer page
+     lengths on new printers (these happen to be the printers that
+     support variable dot size).
+
+ - ESC/P2 command: `ESC (c BC=4 TOP2 LENGTH2'
+ - ESC/P2 command: `ESC (c BC=8 TOP4 LENGTH4'
+     Set the vertical page margins of the page in "pageunits" (see `ESC
+     (U' above).  The margins are specified as the top of the page and
+     the length of the page.  The second form of the command allows
+     setting of longer page lengths on new printers (these happen to be
+     the printers that support variable dot size).
+
+ - ESC/P2 command: `ESC (S BC=8 WIDTH4 LENGTH4'
+     Set the width and length of the printed page region in "pageunits"
+     (see `ESC (U' above).
+
+ - ESC/P2 command: `ESC (v BC=2 ADVANCE2'
+ - ESC/P2 command: `ESC (v BC=4 ADVANCE4'
+     Feed vertically ADVANCE "vertical units" (see `ESC (U' above) from
+     the current print head position.
+
+ - ESC/P2 command: `ESC (V BC=2 ADVANCE2'
+ - ESC/P2 command: `ESC (V BC=4 ADVANCE4'
+     Feed vertically ADVANCE "vertical units" (see `ESC (U' above) from
+     the top margin.
+
+ - ESC/P2 command: `ESC ($ BC=4 OFFSET4'
+     Set horizontal position to OFFSET from the left margin.  This
+     command operates on printers of the 740 class and newer (all
+     printers with variable dot size).
+
+ - ESC/P2 command: `ESC $ OFFSET2'
+     Set horizontal position to OFFSET from the left margin.  This
+     command operates on printers of the 740 class and newer (all
+     printers with variable dot size).
+
+ - ESC/P2 command: `ESC (\ BC=4 UNITS2 OFFSET2'
+     Set horizontal position to OFFSET from the previous print head
+     position, measured in UNITS.  UNITS is measured in inverse inches,
+     and should be set to 1440 in all cases.  This operates on all 1440
+     dpi printers that do not support variable dot size.
+
+ - ESC/P2 command: `ESC (/ BC=4 OFFSET4'
+     Set horizontal position to OFFSET from the previous print head
+     position, measured in "horizontal units" (see `ESC (U' above).
+     This operates on all variable dot size printers.
+
+ - ESC/P2 command: `ESC \ OFFSET2'
+     Set horizontal position to OFFSET from the previous print head
+     position, measured in basic unit of measurement (see `ESC (U'
+     above). This is used on all 720 dpi printers, and can also be used
+     on 1440 dpi printers in lower resolutions to save a few bytes.
+     Note that OFFSET may be negative.  The range of values for this
+     command is between `-16384' and `16383'.
+
+ - ESC/P2 command: `ESC r COLOR1'
+ - ESC/P2 command: `ESC (r BC=2 DENSITY1 COLOR1'
+     Set the ink color.  The first form is used on four-color printers;
+     the second on six-color printers.  DENSITY is `0' for dark inks,
+     `1' for light.  COLOR is
+
+    `0'
+          black
+
+    `1'
+          magenta
+
+    `2'
+          cyan
+
+    `4'
+          yellow
+
+     This command is not used on variable dot size printers in softweave
+     mode.
+
+ - ESC/P2 command: `ESC . COMPRESS1 VSEP1 HSEP1 LINES1 WIDTH2 DATA...'
+     	Print data.  COMPRESS signifies the compression mode:
+
+    `0'
+          no compression
+
+    `1'
+          TIFF compression (incorrectly documented as "run length
+          encoded")
+
+    `2'
+          TIFF compression with a special command set.
+
+     VSEP depends upon resolution and printer type.  At 360 DPI, it is
+     always `10'.  At 720 DPI, it is normally `5'5.  On the ESC 600, it
+     is `40' (8 * 5).  On some other printers, it varies.
+
+     HSEP1 is `10' at 360 DPI and `5' at 720 or 1440 DPI (1440 DPI
+     cannot be printed in one pass; it is printed in two passes, with
+     the dots separated in each pass by 1/720").
+
+     LINES is the number of lines to be printed.  It should be `1' in
+     microweave and 360 DPI.  At 720 DPI softweave, it should be the
+     number of lines to be actually printed.
+
+     WIDTH is the number of pixels to be printed in each row.
+     Following this command, a carriage return (`13' decimal, `0A' hex)
+     should be output to return the print head position to the left
+     margin.
+
+     The basic data format is a string of bytes, with data from left to
+     right on the page.  Within each byte, the highest bit is first.
+
+     The TIFF compression is implemented as one count byte followed by
+     one or more data bytes.  There are two cases:
+
+       1. If the count byte is `128' or less, it is followed by [count]
+          + 1 data bytes.  So if the count byte is `0', it is followed
+          by 1 data byte; if it is `128', it is followed by 129 data
+          bytes.
+
+       2. If the count byte is greater than 128, it is followed by one
+          byte.  This byte is repeated (257 - [count]) times.  So if
+          [count] is 129, the next byte is treated as though it were
+          repeated 128 times; if [count] is 255, it is treated as
+          though it were repeated twice.
+
+ - ESC/P2 command: `ESC i COLOR1 COMPRESS1 BITS1 BYTES2 LINES2 DATA...'
+     Print data in the newer printers (that support variable dot size),
+     and Stylus Pro models.
+
+     COLOR is the color:
+
+    `0'
+          black
+
+    `1'
+          magenta
+
+    `2'
+          cyan
+
+    `4'
+          yellow
+
+    `17'
+          light magenta
+
+    `18'
+          light cyan
+
+     COMPRESS signifies the compression mode:
+
+    `0'
+          no compression
+
+    `1'
+          TIFF compression (incorrectly documented as "run length
+          encoded")
+
+    `2'
+          TIFF compression with a special command set.
+
+     BITS is the number of bits per pixel.
+
+     BYTES is the number of bytes wide for each row (ceiling(BITS *
+     width_of_row, 8)). Note that this is different from the `ESC .'
+     command above.
+
+     LINES is the number of lines to be printed.  This command is the
+     only way to get variable dot size printing.  In variable dot mode,
+     the size of the dots increases as the value (`1', `2', or `3')
+     increases.
+
+ - ESC/P2 command: `ESC (D BC=4 BASE2 VERTICAL1 HORIZONTAL1'
+     Set printer horizontal and vertical spacing.  It only applies to
+     variable dot size printers in softweave mode (and possibly other
+     high end printers).
+
+     BASE is the base unit for this command; it must be `14400'.
+
+     VERTICAL is the distance in these units between printed rows; it
+     should be (separation_in_nozzles * BASE / 720).
+
+     HORIZONTAL is the horizontal separation between dots in a row.
+     Depending upon the printer, this should be either (14400 / 720) or
+     (14400 / 360).  The Stylus Pro 9000 manual suggests that the
+     settings should match the chosen resolution, but that is
+     apparently not the case (or not always the case) on other printers.
+
+ - ESC/P2 command: `ESC (R BC=8 00 R E M O T E 1'
+     Enters "remote mode".  This is a special, undocumented command set
+     that is used to set up various printer options, such as paper feed
+     tray, and perform utility functions such as head cleaning and
+     alignment.  It does not appear that anything here is actually
+     required to make the printer print.  Our best understanding of
+     what is in a remote command sequence is described in a separate
+     section below.
+
+ - ESC/P2 command: `ESC 01 @EJL [sp] ID\r\n'
+     Return the printer ID.  This is considered a remote mode command,
+     although the syntax is that of a conventional command.  This
+     returns the following information:
+
+          @EJL ID\r
+          MFG:EPSON;
+          CMD:ESCPL2,BDC;
+          MDL:[printer model];
+          CLS:PRINTER;
+          DES:EPSON [printer model];
+          \f
+
+   After all data has been sent, a form feed byte should be sent.
+
+   All newer Epson printers (STC 440, STP 750) require the following
+command to be sent at least once to enable printing at all.  This
+command specifically takes the printer out of the Epson packet mode
+communication protocol (whatever that is) and enables normal data
+transfer.  Sending it multiple times is is not harmful, so it is
+normally sent at the beginning of each job:
+
+     ESC 01@EJL[space]1284.4[newline]@EJL[space][space][space][space]
+     [space][newline]ESC@
+
+   The proper sequence of initialization commands is:
+
+     magic command
+     ESC  remote mode if needed
+     ESC (G
+     ESC (U
+     ESC (K (if appropriate)
+     ESC (i
+     ESC U (if needed)
+     ESC (s (if appropriate)
+     ESC (e
+     ESC (C
+     ESC (c
+     ESC (S
+     ESC (D (if needed)
+     ESC (V (optional -- this can be accomplished with ESC (v)
+
+   For printing, the proper sequence is:
+
+     ESC (v
+
+and repeat for each color:
+
+     ESC ($ or ESC (\ or ESC \
+     ESC (r or ESC r (if needed--not used with `ESC i' and not needed if the color
+     has not changed from the previous printed line)
+     ESC . or ESC i  ...data... [return] (0A hex)
+
+   To terminate a page:
+
+     [formfeed] (0C hex)
+     ESC @
+
+
+File: gimpprint.info,  Node: ESC/P2 Remote Mode Commands,  Next: ESC/P2 Appropriate Remote Commands,  Prev: ESC/P2 Standard Commands,  Up: ESC/P2
+
+Remote Mode Commands
+====================
+
+   The following description of remote commands comes out of an
+examination of the sequences used by the printer utilities bundled with
+the Windows drivers for the ESC740, and from other sources (some Epson
+manuals, experimentation, analysis of print files).  It is largely
+speculative as these commands are not all documented in the Epson
+documentation we have access to.  Generally, newer manuals provide more
+thorough documentation.
+
+   Remote command mode is entered when the printer is sent the following
+sequence:
+
+     ESC (R BC=8 00 R E M O T E 1
+
+   Remote mode commands are then sent, and terminated with the following
+sequence:
+
+     ESC 00 00 00
+
+   All remote mode commands must be sent before the initial `ESC (G'
+command is sent.
+
+   This introductory sequence is then followed by a sequence of
+commands.  Each command is constructed as follows:
+
+   * Two ASCII bytes indicating the function
+
+   * A byte count (two bytes, little-endian) for the parameters
+
+   * Binary parameters, if any
+
+   This is a list of all remote commands we have seen:
+
+ - ESC/P2 remote command: `NC BC=2 00 00'
+     Print a nozzle check pattern
+
+ - ESC/P2 remote command: `VI BC=2 00 00'
+     on my 740, prints the following:
+
+          W01286 I02382\r\n
+
+     probably "version information"
+
+ - ESC/P2 remote command: `* AI BC=3 00 00 00'
+     Prints a "printer ID".  On one 870, prints the following:
+          51-51-50-51-49-48\r\n
+
+     The Windows driver has a text entry field where this number can be
+     entered, but its purpose is unknown.
+
+ - ESC/P2 remote command: `* LD BC=0'
+     Load printer defaults from NVRAM, DIP switches, and/or ROM. This
+     apparently does not load factory defaults per se, but any settings
+     that are saved.  This is commonly used right at the end of each
+     print job after the `ESC @' printer reset command.
+
+ - ESC/P2 remote command: `* CH BC=2 00 XX'
+     Perform a head cleaning cycle.  The heads to clean are determined
+     by parameter XX:
+
+    `00'
+          clean all heads
+
+    `01'
+          clean black head
+
+    `02'
+          clean color heads
+
+     While XX = `00' is probably supported by all printers, XX = `01'
+     and `02' may well not be.
+
+ - ESC/P2 remote command: `* DT BC=3 00 XX 00'
+     Print an alignment pattern.  There are three patterns, which are
+     picked via the choice of XX.  Pattern `0' is coarse, pattern `1'
+     is medium, and pattern `2' is fine.
+
+ - ESC/P2 remote command: `* DU BC=6 00 XX 00 09 00 YY'
+     Print another alignment pattern.  It isn't entirely clear what XX
+     and YY are, but it appears that XX takes on the values `1' and `2'
+     , and YY takes on the values `0' and 1.  This may only work on the
+     580 and/or 480.
+
+ - ESC/P2 remote command: `* DA BC=4 00 XX 00 YY'
+     Set results for the first alignment pattern.  XX is the pattern
+     (`1'-`3'); YY is the best choice from the set (`1'-`7' or
+     `1'-`15').  This does not save to NVRAM, so when the printer is
+     powered off, the setting will be lost.
+
+ - ESC/P2 remote command: `* DA BC=6 00 XX 00 YY 09 00'
+     Set results for alternate alignment pattern.  XX appears to be the
+     pass, and YY appears to be the optimum pattern.  This does not
+     save to NVRAM, so when the printer is powered off, the setting
+     will be lost.
+
+ - ESC/P2 remote command: `* SV BC=0'
+     Save the current settings to NVRAM.
+
+ - ESC/P2 remote command: `* RS BC=1 01'
+     Reset the printer.
+
+ - ESC/P2 remote command: `* IQ BC=1 01'
+     Get ink quantity.  This requires direct access to the printer
+     port.  The return looks like
+
+          IQ:KKCCMMYY
+
+     or
+
+          IQ:KKCCMMYYccmm
+
+     (for 4-color and 6-color printers respectively), where each pair of
+     digits are hexadecimal representations of percent.
+
+   The following two commands have been observed on an STP 870.
+
+ - ESC/P2 remote command: `* IR BC=2 00 XX'
+     *Function unknown*. This command has been observed on an STP 870
+     with XX=`03' at the start of a job and XX=`02' at the end of a job
+     (where it is followed by an `LD' command).  When in roll mode, the
+     values change to XX=`01' at the start of a job and XX=`00' at the
+     end of a job.
+
+ - ESC/P2 remote command: `* FP BC=3 00 XX YY'
+     XX=`00' and YY=`00' selects the printer's normal left margin
+     (about 3mm).  XX=`0xb0' and YY=`0xff' selects zero-margin mode,
+     where the left-most print position is shifted to a point about
+     0.1" to the left of the left-hand edge of the paper, allowing
+     printing up to (and off) the left-hand edge of the paper.
+
+   The commands below are partially documented in the Stylus Pro 9000
+manual.  Much of this information is interpreted; none is tested.
+
+ - ESC/P2 remote command: `* SN BC=3 00 XX YY'
+     Select Mechanism Sequence.  XX controls which sub-operation is
+     performed.  XX=`00' selects the "Feed paper sequence setting".  YY
+     can take on the following values (on the STP 870, at any rate):
+
+    `0'
+          default
+
+    `1'
+          plain paper
+
+    `2'
+          postcards
+
+    `3'
+          film (photo quality glossy film, transparencies)
+
+    `4'
+          envelopes
+
+    `5'
+          plain paper (fast load)
+
+    `6'
+          back light film (although this has been observed with
+          heavyweight matte paper)
+
+    `7'
+          matte paper (observed with 360 dpi inkjet paper, and photo
+          quality inkjet paper)
+
+    `8'
+          photo paper
+
+     Experimentation suggests that this setting changes details of how
+     the printers' cut sheet feeder works, presumably to tune it for
+     different types of paper.
+
+     XX=`01' controls the platen gap setting; YY=`00' is the default,
+     YY=`1' or `2' are higher settings.
+
+     XX=`02' controls paper loading speed (YY=`0' is normal, `1' is
+     fast, `2' is slow).  It appears that `1' is used when printing on
+     "plain paper", "360dpi ink jet paper" or "ink jet transparencies",
+     and YY=`00' for all other paper type settings.
+
+     XX=`07' controls duplex printing for printers with that capability
+     (YY=0 is default, for non-duplex printing; `1' is front side of
+     the paper, and 2 is back side).
+
+     XX=`09' controls zero margin printing on the printers with the
+     capability of printing zero-margin on all sides (Stylus Photo
+     780/790, 890, and 1280/1290).  YY=`0' is the default; `1' enables
+     zero margin printing.
+
+ - ESC/P2 remote command: `* PP BC=3 00 XX YY'
+     Set Paper Path.  XX=`2' indicates manual feed, XX=`3' is for roll
+     paper.  YY selects "paper path number".
+
+ - ESC/P2 remote command: `* AC BC=2 00 XX'
+     Set Auto Cutting State.  XX=`0' selects auto cutting off, XX=`1'
+     selects auto cutting on, and XX=`2' indicates horizontal print
+     page line on.  It appears that with auto cutting on, roll paper is
+     cut automatically at the point a formfeed character is sent.  The
+     formfeed character is normally used to eject a page; with this
+     turned on, it also cuts the roll paper.  Horizontal print page
+     line on prints a narrow line of black dots at the position the
+     paper should be cut manually.
+
+ - ESC/P2 remote command: `* DR BC=4 00 xx DT2'
+     Set Drying Time.  XX=`00' sets the drying time "per scan" (per
+     pass?); XX=`01' sets the drying time per page. DT indicates the
+     drying time, which is in seconds if page mode is used and in
+     milliseconds if scan mode is used.  DT must not exceed 3600
+     seconds in per-page mode and 10000 milliseconds in per-scan mode.
+
+ - ESC/P2 remote command: `* IK BC=2 00 XX'
+     Select Ink Type.  XX=`00' selects dye ink.  Pigment ink is
+     apparently selected by XX=`01'.  This probably does not apply to
+     the consumer-grade printers.
+
+ - ESC/P2 remote command: `* PZ BC=2 00 xx'
+     Set Pause After Printing.  XX=`00' selects no pause after
+     printing; XX=`01' selects pause after printing.  If turned on, the
+     printer is paused after the page is ejected (by the FF byte).  If
+     cutting is turned on, the printer is paused *after* the cutting or
+     printing of the horizontal cut line.
+
+ - ESC/P2 remote command: `* EX BC=6 00 00 00 00 0x14 XX'
+     Set Vertical Print Page Line Mode.  XX=`00' is off, XX=`01' is on.
+     If turned on, this prints vertical trim lines at the left and
+     right margins.
+
+ - ESC/P2 remote command: `* EX BC=6 00 00 00 00 0x05 XX'
+     Set Roll Paper Mode.  If XX is `0', roll paper mode is off; if XX
+     is `1', roll paper mode is on.
+
+ - ESC/P2 remote command: `* EX BC=3 00 XX YY'
+     Appears to be a synonym for the `SN' command described above.
+
+ - ESC/P2 remote command: `* PH BC=2 00 XX'
+     Select Paper Thickness.  Set the paper thickness XX in .1 mm
+     units.  This must not exceed 0x10 (1.6 mm).  If the thickness is
+     set "more than" .6 mm (which probably means "at least" .6 mm,
+     since the other case reads "less than 0.5 mm"), the platen gap is
+     set high irrespective of the `SN' command.
+
+ - ESC/P2 remote command: `* PM BC=2 00 00'
+     *Function unknown*. Used on the STC 3000 at least when using roll
+     feed, and on the STP 870 in all print files analysed to date.
+
+ - ESC/P2 remote command: `* ST BC=2 00 XX'
+     Epson's STP 750/1200 programming guide refers to the `ST' command
+     as "Set printer state reply".  If XX is `0' or `2', the printer
+     will not send status replies.  If XX is `1' or `3', the printer
+     will send status replies.  The status replies consist of state,
+     error codes, ink leve, firmware version, and warning status.
+
+     The actual reply is documented as
+
+          @BDC ST\r
+          ST: xx;
+          [ER: yy;]
+          IQ: n1n2n3n4;
+          [WR: w1,w2...;]
+          RV: zz;
+          AI:CW:02kkccmmyy, MI:mm
+          [TC:tttt;]
+          INK:...;
+          \f
+
+     (`\r' is carriage return; `\n' is newline; `\f' is formfeed.)
+
+     `ST' is the printer status:
+
+    `00'
+          Error
+
+    `01'
+          Self-test
+
+    `02'
+          Busy
+
+    `03'
+          Waiting while printing
+
+    `04'
+          Idle
+
+    `07'
+          Cleaning/filling ink heads
+
+    `08'
+          Not yet initialized/filling heads
+
+     `ER', if provided, is the error status:
+
+    `00'
+          Fatal error
+
+    `01'
+          Interface not selected
+
+    `04'
+          Paper jam
+
+    `05'
+          Out of ink
+
+    `06'
+          Paper out
+
+     `IQ' is the amount of ink left, as a (decimal!) percentage
+     expressed in hexadecimal.  The values are black, cyan, magenta, and
+     yellow (presumably 6-color printers supply light cyan and light
+     magenta inks as additional parameters).
+
+     `WR', if provided, is the warning status:
+
+    `10'
+          Black ink low
+
+    `11'
+          Cyan
+
+    `12'
+          Magenta
+
+    `13'
+          Yellow
+
+    `14'
+          Light cyan (presumably)
+
+    `15'
+          Light magenta (presumably)
+
+     `RV' is the firmware revision (one byte ASCII).
+
+     `AI' is actuator information.  These are two byte ASCII codes that
+     indicate "ink weight rank ID" of KCMY, respectively.
+
+     `TC', if provided, is the total time of cleaning or ink filling
+     (?).
+
+     `INK:' and `MI' are *not documented*.
+
+ - ESC/P2 remote command: `* SM BC=2 00 XX'
+     Set Status Reply Rate.  XX is the repeat interval in seconds.  If
+     XX is `0', the status is returned only when the printer's state
+     changes.
+
+ - ESC/P2 remote command: `* ST BC=1 01'
+     Reply Printer Status.  The reply is formatted as
+
+          @BDC PS\r\nST:XX;\f
+
+     (`\r' is carriage return; `\n' is newline; `\f' is formfeed).  If
+     XX (the reply value) is `0' or `2', automatic status update is
+     disabled; if `1' or `3', it is enabled.
+
+ - ESC/P2 remote command: `* SM BC=1 01'
+     Reply Printer Status Rate.  The reply is formatted as
+
+          @BDC PS\r\nST:xx;\f
+
+     (`\r' is carriage return; `\n' is newline; `\f' is formfeed).  See
+     `SM BC=2' above for the meaning of the return value.
+
+ - ESC/P2 remote command: `* ?? BC=XX Y[1] ... Y[xx]'
+     Echo Parameters (perhaps better described as Echo Commands).  The
+     command string is executed (it would appear from the
+     documentation), and the string sent is returned using a sequence
+     similar to that described in the `ST BC=1' and `SM BC=1' commands.
+     Note that in this case the number of bytes is variable!
+
+ - ESC/P2 remote command: `* SM BC=2 00 02'
+     *Function unknown*.  Used on the STC 3000 at least when using roll
+     feed.
+
+
+File: gimpprint.info,  Node: ESC/P2 Appropriate Remote Commands,  Prev: ESC/P2 Remote Mode Commands,  Up: ESC/P2
+
+Appropriate Remote Commands
+===========================
+
+   All of the remote commands described above are wrapped up with the
+usual boilerplate.  The files always start with `00 00 00' and the
+"magic" command described above, then two `ESC @'s to reset the
+printer.  The remote command sequences come next; if they print anything
+that is usually followed by a `FF' (0C hex) character to feed the page,
+then the file ends with another two `ESC @'s to get back to the ground
+state.
+
+   An alignment sequence goes like this:
+
+  1. Host uses `DT' to print an alignment sheet
+
+  2. User eyeballs the sheet to see which is the best aligned pattern.
+
+  3. Host sends a `DA' command indicating which pattern the user chose
+
+  4. If the user said "realign", meaning he isn't done yet, go to step 1
+
+  5. We are done: host sends a `SV' command and exits
+
+   The sequence used (by the STC 3000, at least) to print from the roll
+feed is (with byte count omitted)
+
+          PM 00 00
+          SN 00 00 00
+          EX 00 00 00 00 05 01
+          ST 00 01
+          SM 00 02
+
+   The sequence used by the STP 870 to print on plain paper is
+
+          PM 00 00
+          IR 00 03
+          SN 00 00 01
+          SN 00 01 00
+          SN 00 02 01
+          EX 00 00 00 00 05 00
+          FP 00 00 00
+
+and the job finishes with
+
+          IR 00 02
+          LD
+
+   For different paper type settings on the STP 870, the arguments to
+`SN' vary.  The arguments to the first and third `SN' commands are as
+outlined in the description of the `SN' command above; the arguments to
+the second ("platen gap") are `00 01 01' for thick papers ("matte
+paper--heavyweight", "photo paper" and "premium glossy photo paper")
+and `00 01 00' for all others.
+
+   For roll-mode printing, the STP 870's sequence changes as follows.
+`IR''s arguments become `00 01' in the header, and `00 00' after the
+job, and `EX''s last argument changes from `00' to `01'.
+
+   For zero-margin printing on the STP 870, the arguments to `FP' become
+`00 0xb0 0xff'.  This moves the origin about 5.5mm to the left, to a
+point one tenth of an inch to the left of the left-hand edge of the
+paper, allowing printing right up to (and beyond) the edge of the
+paper.  Some printers (at least the STP 870) include white absorbent
+pads at the left margin position and other positions (89mm and 100mm on
+the STP 870) to soak up ink which misses the edge of the paper.
+Printing off the edge of paper of a width not aligned with a pad could
+result in making a mess of the inside of the printer and ink getting on
+the reverse of the paper.
+
+
+File: gimpprint.info,  Node: New Printer,  Prev: ESC/P2,  Up: Appendices
+
+Adding a new printer
+********************
+
+   This appendix covers adding a new ESCP/2, PCL, or Canon printer.
+Writing a new driver module is not covered.
+
+   The three steps to adding a printer are:
+
+  1. Add an entry to `printers.xml'
+
+  2. Add the appropriate code and data to the appropriate driver module
+
+  3. Tune the printer
+
+   Printer information is stored in two places: in `printers.xml'
+(which contains the list of printer models available to the the
+upper-level application), and in the appropriate driver file
+(`print-escp2.c', `print-pcl.c', or `print-canon.c').
+
+* Menu:
+
+* printers.xml::                File format description.
+* Driver file::                 Data structures to use.
+* Epson inkjet printers::       Adding an Epson printer.
+* Tuning Epson printers::       Tweaking settings.
+* Canon inkjet printers::       Adding a Canon printer.
+
+
+File: gimpprint.info,  Node: printers.xml,  Next: Driver file,  Up: New Printer
+
+`printers.xml'
+==============
+
+   `printers.xml' is an XML-like file (there's no formal DTD) that
+contains very simple printer definitions.  A typical definition follows:
+
+     <printer name="EPSON Stylus Color 1500" driver="escp2-1500">
+     <color>
+     <model value=2>
+     <gamma value=0.597>
+     <density value=1.0>
+     <language value=escp2>
+     </printer>
+
+   There are other tags that may be present.  The only ones that are
+mandatory are `<printer>', `<color>', `<model>', and `<language>'.  The
+other optional parameters (gamma and density in this case) can be used
+to adjust control settings.  This is probably not the right place for
+them; the printer drivers themselves should contain this information.
+There's probably no good reason for anything but gamma and density to
+be in here.  Gamma refers to the printer's gamma factor; density is the
+desired base ink density for the printer.  The Epson driver contains
+the density information for each printer at each resolution internally.
+An even better driver would adjust density and possibly even gamma for
+paper type.  All the more reason not to have that information here.
+
+   If you really are curious about what tags are permitted, please see
+`printdefl.l'.  I deliberately want to make this obscure.
+
+   Anyway, here's the definition of the tags that do matter:
+
+ - `printers.xml' tag: `<printer name="LONGNAME" driver="DRIVERNAME">'
+     This starts the definition of a printer.  The LONGNAME should be
+     something human readable; the DRIVERNAME should consist of
+     alphanumerics and hyphens, and be fairly short.  The LONGNAME is
+     what will appear in the GUI listing of printers; the DRIVERNAME is
+     what is actually used to key into the list of printers.  It is
+     legal to have multiple printers with the same driver name.
+
+ - `printers.xml' tag: `<color>'
+ - `printers.xml' tag: `<nocolor>'
+     Indicates that this printer is capable of color, or is not capable
+     of color respectively
+
+ - `printers.xml' tag: `<model value=INT>'
+     This defines a model number.  This is passed into the driver,
+     which may do whatever it cares to with it--index into a table,
+     compute on, or whatever.  This need not be unique.
+
+ - `printers.xml' tag: `<language value=TYPE>'
+     This defines what driver module this printer uses.  TYPE should be
+     `escp2', `pcl', `canon', or `ps'.
+
+ - `printers.xml' tag: `</printer>'
+     This, of course, closes off a printer definition.
+
+   This is handled very ad-hoc.  It's ugly.  But it's reasonably easy to
+extend, and it's buzzword-compliant.
+
+
+File: gimpprint.info,  Node: Driver file,  Next: Epson inkjet printers,  Prev: printers.xml,  Up: New Printer
+
+The driver file
+===============
+
+   Adding a new printer to a driver module (`print-escp2.c',
+`print-pcl.c', or `print-canon.c'--`print-ps.c' is really ad hoc)
+requires a bit more planning.  Each driver is somewhat different, but
+they all generally have a vector of printer definitions, and the code
+does some special casing based on particular printer capabilities.  The
+PCL and Canon drivers are quite similar; the Canon driver was actually
+cribbed from the PCL driver, but it then returned the favor.
+
+   The Epson driver is a little bit different.  Canon and PCL printers
+have some amount of intelligence; a lot of them have specific ink
+options, and know about specific paper sizes and types, and must be
+told the right thing.  Epson printers have somewhat less intelligence
+and will more or less do exactly what the host tells it to do in a
+fairly regular fashion.  I actually prefer this; it isn't materially
+more work for the host to compute things like exact paper sizes and
+such, it allows a lot more tweaking, and it may be why Epson has been
+more open with information - the communication protocol doesn't really
+contain very much IP, so they have less reason to keep it secret.
+
+   Someone else will have to fill in the sections about PCL and Canon
+printers.
+

@@ -6,6 +6,7 @@
 *-src
 *-stamp-*
 *-tagged
+autom4te.cache
 blockit
 cfg-paper.info
 config.status

@@ -223,7 +223,7 @@ SUBDIR_MAKEFILES = lib-src/Makefile man/Makefile src/Makefile oldXMenu/Makefile 
 COPYDIR = ${srcdir}/etc ${srcdir}/lisp
 COPYDESTS = ${etcdir} ${lispdir}
 
-all: ${SUBDIR} leim
+all: maybe_bootstrap ${SUBDIR} leim
 
 removenullpaths=sed -e 's/^://g' -e 's/:$$//g' -e 's/::/:/g'
 
@@ -272,9 +272,6 @@ Makefile: $(srcdir)/Makefile.in config.status
 
 config.status: ${srcdir}/configure
 	./config.status --recheck
-
-${srcdir}/configure: configure.in aclocal.m4
-	cd ${srcdir} && autoconf
 
 src/Makefile: $(srcdir)/src/Makefile.in config.status
 	./config.status
@@ -328,7 +325,11 @@ install-arch-dep: mkdir
 	    exec_prefix=${exec_prefix} bindir=${bindir} \
 	    libexecdir=${libexecdir} archlibdir=${archlibdir} \
 	    INSTALL_STRIP=${INSTALL_STRIP})
-	${INSTALL_PROGRAM} $(INSTALL_STRIP) src/emacs ${bindir}/emacs-${version}
+	if [ -f src/emacs-undumped ]; then \
+		${INSTALL_PROGRAM} $(INSTALL_STRIP) src/emacs-undumped ${bindir}/; \
+	else \
+	        ${INSTALL_PROGRAM} $(INSTALL_STRIP) src/emacs ${bindir}/emacs-${version}; \
+	fi
 	rm -f ${bindir}/$(EMACS)
 	-ln ${bindir}/emacs-${version} ${bindir}/$(EMACS)
 	-unset CDPATH; \
@@ -363,7 +364,7 @@ install-arch-indep: mkdir info
 	  [ -d $${dir} ] \
 	  && [ `(cd $${dir} && /bin/pwd)` != `(cd $${dest} && /bin/pwd)` ] \
 	  && (echo "Copying $${dir} to $${dest}..." ; \
-	      (cd $${dir}; tar -cf - . ) \
+	      (cd $${dir}; tar -chf - . ) \
 		| (cd $${dest}; umask 022; \
                    tar -xvf - && cat > /dev/null) || exit 1; \
 	      for subdir in `find $${dest} -type d ! -name RCS ! -name CVS -print` ; do \
@@ -402,7 +403,7 @@ install-arch-indep: mkdir info
 	if [ `(cd ./etc; /bin/pwd)` != `(cd ${docdir}; /bin/pwd)` ]; \
 	then \
 	   echo "Copying etc/DOC-* to ${docdir} ..." ; \
-	   (cd ./etc; tar -cf - DOC*) \
+	   (cd ./etc; tar -chf - DOC*) \
 	     |(cd ${docdir}; umask 0; tar -xvf - && cat > /dev/null) || exit 1; \
 	   (cd $(docdir); chmod a+r DOC*; rm DOC); \
 	else true; fi
@@ -413,7 +414,7 @@ install-arch-indep: mkdir info
 	   && [ x`(cd ${srcdir}/lisp; /bin/pwd)` != x`(cd ./lisp; /bin/pwd)` ]; \
 	then \
 	   echo "Copying lisp/*.el and lisp/*.elc to ${lispdir} ..." ; \
-	   (cd lisp; tar -cf - *.el *.elc) \
+	   (cd lisp; tar -chf - *.el *.elc) \
 	     |(cd ${lispdir}; umask 0; tar -xvf - && cat > /dev/null) || exit 1; \
 	else true; fi
 	-unset CDPATH; \
@@ -604,7 +605,7 @@ extraclean:
 ### Note: it's no disaster if these productions miss a file or two; tar
 ### and VC will swiftly let you know if this happens, and it is easily
 ### corrected.
-SOURCES = ChangeLog GETTING.GNU.SOFTWARE INSTALL Makefile.in \
+SOURCES = ChangeLog FTP INSTALL Makefile.in \
 	README configure make-dist move-if-change
 
 .PHONY: unlock relock
@@ -662,6 +663,12 @@ dvi:
 ### used to compile Lisp files.  The last step is a "normal" make.
 
 .PHONY: bootstrap bootstrap-lisp-1 boostrap-src bootstrap-lisp bootstrap-clean
+.PHONY: maybe_bootstrap
+
+maybe_bootstrap:
+	if [ ! -f $(srcdir)/lisp/abbrev.elc ]; then \
+	  $(MAKE) $(MFLAGS) bootstrap; \
+	fi
 
 bootstrap: clean bootstrap-lisp-1 bootstrap-src bootstrap-lisp bootstrap-clean all info
 

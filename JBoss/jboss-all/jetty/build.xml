@@ -1,0 +1,904 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE project [
+   <!ENTITY buildmagic SYSTEM "../tools/etc/buildmagic/buildmagic.ent">
+]>
+
+<!-- ====================================================================== -->
+<!--                                                                        -->
+<!--  JBoss, the OpenSource J2EE webOS                                      -->
+<!--                                                                        -->
+<!--  Distributable under LGPL license.                                     -->
+<!--  See terms of license at http://www.gnu.org.                           -->
+<!--                                                                        -->
+<!-- ====================================================================== -->
+
+<!-- $Id$ -->
+
+<project default="main" name="JBoss/Jetty">
+
+  <!-- ================================================================== -->
+  <!-- Setup                                                              -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Include the common Buildmagic elements.
+     |
+     | This defines several different targets, properties and paths.
+     | It also sets up the basic extention tasks amoung other things.
+   -->
+
+  &buildmagic;
+
+
+  <!-- ================================================================== -->
+  <!-- Initialization                                                     -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Initialize the build system.  Must depend on '_buildmagic:init'.
+     | Other targets should depend on 'init' or things will mysteriously fail.
+   -->
+
+  <target name="init" unless="init.disable" depends="_buildmagic:init">
+  </target>
+
+
+  <!-- ================================================================== -->
+  <!-- Configuration                                                      -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Configure the build system.
+     |
+     | This target is invoked by the Buildmagic initialization logic and
+     | should contain module specific configuration elements.
+   -->
+
+  <target name="configure" unless="configure.disable">
+
+    <!-- =================== -->
+    <!-- Basic Configuration -->
+    <!-- =================== -->
+
+    <!-- Module name(s) & version -->
+    <property name="module.name" value="jetty-plugin"/>
+    <property name="module.Name" value="JBoss Jetty"/>
+    <property name="module.version" value="3.2.2RC2"/>
+
+    <property name="RELEASE.MAJOR"  value="4.2" />
+    <property name="RELEASE.MAJOR.MINOR"  value="4.2.11" />
+
+    <!-- ========= -->
+    <!-- Libraries -->
+    <!-- ========= -->
+
+    <!-- Java Secure Socket Extension (JSSE) -->
+    <property name="sun.jsse.root" value="${project.thirdparty}/sun/jsse"/>
+    <property name="sun.jsse.lib" value="${sun.jsse.root}/lib"/>
+    <path id="sun.jsse.classpath">
+      <fileset dir="${sun.jsse.lib}">
+        <include name="*.jar"/>
+      </fileset>
+    </path>
+
+    <!-- Apache Crimson (XML/DOM) -->
+    <property name="apache.crimson.root" value="${project.thirdparty}/apache/crimson"/>
+    <property name="apache.crimson.lib" value="${apache.crimson.root}/lib"/>
+    <path id="apache.crimson.classpath">
+      <pathelement path="${apache.crimson.lib}/crimson.jar"/>
+    </path>
+
+    <!-- Apache Xalan/Xerces -->
+    <property name="apache.xalan.root" value="${project.thirdparty}/apache/xalan"/>
+    <property name="apache.xalan.lib" value="${apache.xalan.root}/lib"/>
+    <path id="apache.xalan.classpath">
+      <pathelement path="${apache.xalan.lib}/xml-apis.jar"/>
+    </path>
+
+    <!-- Apache Commons -->
+    <property name="apache.commons.root" value="${project.thirdparty}/apache/commons"/>
+    <property name="apache.commons.lib" value="${apache.commons.root}/lib"/>
+    <path id="apache.commons.classpath">
+      <pathelement path="${apache.commons.lib}/commons-collections.jar"/>
+      <pathelement path="${apache.commons.lib}/commons-logging.jar"/>
+    </path>
+
+    <!-- Log4j -->
+    <property name="apache.log4j.root" value="${project.thirdparty}/apache/log4j"/>
+    <property name="apache.log4j.lib" value="${apache.log4j.root}/lib"/>
+    <path id="apache.log4j.classpath">
+      <pathelement path="${apache.log4j.lib}/log4j.jar"/>
+    </path>
+
+    <!-- JUnit -->
+    <property name="junit.junit.root" value="${project.thirdparty}/junit/junit"/>
+    <property name="junit.junit.lib" value="${junit.junit.root}/lib"/>
+    <path id="junit.junit.classpath">
+      <pathelement path="${junit.junit.lib}/junit.jar"/>
+    </path>
+
+    <!-- JavaGroups -->
+    <property name="javagroups.javagroups.root" value="${project.thirdparty}/javagroups/javagroups"/>
+    <property name="javagroups.javagroups.lib" value="${javagroups.javagroups.root}/lib"/>
+    <path id="javagroups.javagroups.classpath">
+      <pathelement path="${javagroups.javagroups.lib}/javagroups-2.0.jar"/>
+    </path>
+
+    <!-- Ant -->
+    <property name="apache.ant.root" value="${project.tools}"/>
+    <property name="apache.ant.lib" value="${apache.ant.root}/lib"/>
+    <path id="apache.ant.classpath">
+      <pathelement path="${apache.ant.lib}/ant.jar"/>
+    </path>
+
+    <!-- Jetty -->
+    <property name="module.ext" value="${module.root}/ext"/>
+    <property name="mortbay.jetty.cvs" value="${module.root}/mortbay-cvs"/>
+    <property name="mortbay.jetty.cvs.tag" value="Jetty_4_2_0"/>
+    <property name="mortbay.jettyextra.cvs.tag" value="Jetty_4_2_0"/>
+    <property name="jetty.jar" value="org.mortbay.jetty.jar"/>
+    <property name="jmx.jar" value="org.mortbay.jmx.jar"/>
+    <property name="j2ee.jar" value="org.mortbay.j2ee.jar"/>
+    <property name="jetty.ejb.jar" value="org.mortbay.j2ee.session.ejb.jar"/>
+    <property name="servlet.jar" value="javax.servlet.jar"/>
+    <property name="jboss.jetty.jar" value="org.jboss.jetty.jar"/>
+
+    <!-- Java Compiler -->
+    <path id="javac.jar.classpath">
+    </path>
+
+    <!-- The combined library classpath -->
+    <path id="library.classpath">
+      <path refid="sun.jsse.classpath"/>
+      <path refid="apache.crimson.classpath"/>
+      <path refid="apache.xalan.classpath"/>
+      <path refid="apache.log4j.classpath"/>
+      <path refid="apache.commons.classpath"/>
+      <path refid="junit.junit.classpath"/>
+      <path refid="javagroups.javagroups.classpath"/>
+      <path refid="apache.ant.classpath"/>
+    </path>
+
+    <!-- ======= -->
+    <!-- Modules -->
+    <!-- ======= -->
+
+    <!-- J2EE -->
+    <property name="jboss.j2ee.root" value="${project.root}/j2ee/output"/>
+    <property name="jboss.j2ee.lib" value="${jboss.j2ee.root}/lib"/>
+    <path id="jboss.j2ee.classpath">
+      <pathelement path="${jboss.j2ee.lib}/jboss-j2ee.jar"/>
+    </path>
+
+    <!-- Common -->
+    <property name="jboss.common.root" value="${project.root}/common/output"/>
+    <property name="jboss.common.lib" value="${jboss.common.root}/lib"/>
+    <path id="jboss.common.classpath">
+      <pathelement path="${jboss.common.lib}/jboss-common.jar"/>
+    </path>
+
+    <!-- System -->
+    <property name="jboss.system.root" value="${project.root}/system/output"/>
+    <property name="jboss.system.lib" value="${jboss.system.root}/lib"/>
+    <path id="jboss.system.classpath">
+      <pathelement path="${jboss.system.lib}/jboss-system.jar"/>
+    </path>
+
+    <!-- Server -->
+    <property name="jboss.server.root" value="${project.root}/server/output"/>
+    <property name="jboss.server.lib" value="${jboss.server.root}/lib"/>
+    <path id="jboss.server.classpath">
+      <pathelement path="${jboss.server.lib}/jboss.jar"/>
+    </path>
+
+    <!-- JMX -->
+    <property name="jboss.jmx.root" value="${project.root}/jmx/output"/>
+    <property name="jboss.jmx.lib" value="${jboss.jmx.root}/lib"/>
+    <path id="jboss.jmx.classpath">
+      <pathelement path="${jboss.jmx.lib}/jboss-jmx.jar"/>
+    </path>
+
+    <!-- Security -->
+    <property name="jboss.security.root" value="${project.root}/security/output"/>
+    <property name="jboss.security.lib" value="${jboss.security.root}/lib"/>
+    <path id="jboss.security.classpath">
+      <pathelement path="${jboss.security.lib}/jboss-jaas.jar"/>
+      <pathelement path="${jboss.security.lib}/jbosssx.jar"/>
+    </path>
+
+     <!-- Cluster -->
+     <property name="jboss.cluster.root" value="${project.root}/cluster/output"/>
+     <property name="jboss.cluster.lib" value="${jboss.cluster.root}/lib"/>
+     <property name="jboss.cluster.classes" value="${jboss.cluster.root}/classes"/>
+     <path id="jboss.cluster.classpath">
+<!--
+       <pathelement path="${jboss.cluster.lib}/jbossha-httpsession.sar"/>
+ -->
+       <pathelement path="${jboss.cluster.classes}"/>
+     </path>
+
+    <!-- The combined dependent module classpath -->
+    <path id="dependentmodule.classpath">
+      <path refid="jboss.j2ee.classpath"/>
+      <path refid="jboss.common.classpath"/>
+      <path refid="jboss.system.classpath"/>
+      <path refid="jboss.server.classpath"/>
+      <path refid="jboss.security.classpath"/>
+      <path refid="jboss.jmx.classpath"/>
+      <path refid="jboss.cluster.classpath"/>
+    </path>
+
+    <!-- ===== -->
+    <!-- Tasks -->
+    <!-- ===== -->
+
+    <!-- Where source files live -->
+    <property name="source.java" value="${module.source}/main"/>
+    <property name="source.etc" value="${module.source}/etc"/>
+    <property name="source.resources" value="${module.source}/resources"/>
+
+    <!-- Where build generated files will go -->
+    <property name="build.classes" value="${module.output}/classes"/>
+    <property name="build.lib" value="${module.output}/lib"/>
+    <property name="build.api" value="${module.output}/api"/>
+    <property name="build.todo" value="${module.output}/todo"/>
+    <property name="build.etc" value="${module.output}/etc"/>
+    <property name="build.ejb" value="${module.output}/ejb"/>
+    <property name="build.src" value="${module.output}/src"/>
+    <property name="build.metadata" value="${module.output}/META-INF"/>
+    <property name="build.reports" value="${module.output}/reports"/>
+    <property name="build.resources" value="${module.output}/resources"/>
+
+    <!-- Install/Release structure -->
+    <property name="install.id" value="${module.name}-${module.version}"/>
+    <property name="release.id" value="${install.id}"/>
+    <property name="install.root" value="${module.output}/${install.id}"/>
+
+    <!-- The combined thirdparty classpath -->
+    <path id="thirdparty.classpath">
+      <path refid="library.classpath"/>
+      <path refid="dependentmodule.classpath"/>
+    </path>
+
+    <!-- This module is based on Java 1.2 -->
+    <property name="javac.target" value="1.2"/>
+
+    <!-- classpath and local.classpath must have a value using with a path -->
+    <property name="classpath" value=""/>
+    <property name="local.classpath" value=""/>
+
+    <!-- The classpath required to build classes. -->
+    <path id="javac.classpath">
+      <pathelement path="${classpath}"/>
+      <pathelement path="${local.classpath}"/>
+      <path refid="thirdparty.classpath"/>
+    </path>
+
+    <!-- The classpath required to build javadocs. -->
+    <path id="javadoc.classpath">
+      <path refid="javac.classpath"/>
+    </path>
+
+    <!-- Packages to include when generating api documentation -->
+    <property name="javadoc.packages" value="org.*"/>
+
+    <!-- Override JUnit defaults -->
+    <property name="junit.timeout" value="240000"/> <!-- 4 minutes -->
+    <property name="junit.batchtest.todir" value="${build.reports}"/>
+    <property name="junit.jvm.options" value="-Ddummy"/>
+
+    <!-- xdoclet -->
+    <path id="xdoclet.task.classpath">
+      <path refid="javac.classpath"/>
+      <fileset dir="${project.thirdparty}/xdoclet/xdoclet/lib">
+        <include name="**/*.jar"/>
+      </fileset>
+    </path>
+
+  <taskdef
+   name="docdoclet"
+   classname="xdoclet.modules.doc.DocumentDocletTask"
+   classpathref="xdoclet.task.classpath"
+  />
+  <taskdef
+   name="jmxdoclet"
+   classname="xdoclet.modules.jmx.JMXDocletTask"
+   classpathref="xdoclet.task.classpath"
+  />
+  <taskdef
+   name="webdoclet"
+   classname="xdoclet.modules.web.WebDocletTask"
+   classpathref="xdoclet.task.classpath"
+  />
+  <taskdef
+   name="ejbdoclet"
+   classname="xdoclet.modules.ejb.EjbDocletTask"
+   classpathref="xdoclet.task.classpath"
+  />
+
+  </target>
+
+
+
+  <!-- ====================================================================== -->
+  <!-- Merge Jetty CVS and JBoss/Jetty                                        -->
+  <!-- Note: all modified Jetty files must be listed below in the "copy" task -->
+  <!-- ====================================================================== -->
+
+  <target name="merge-mortbay-cvs" depends="init">
+    <mkdir dir="${mortbay.jetty.cvs}"/>
+
+    <!-- Checkout from Jetty CVS (actually this is necessary on the first run only) -->
+    <cvs command="-r checkout"
+         cvsRoot=":pserver:anonymous@cvs.jetty.sourceforge.net:/cvsroot/jetty"
+         package="Jetty"
+         tag="${mortbay.jetty.cvs.tag}"
+         quiet="true"
+         dest="${mortbay.jetty.cvs}"/>
+    <cvs command="-r checkout"
+         cvsRoot=":pserver:anonymous@cvs.jetty.sourceforge.net:/cvsroot/jetty"
+         package="JettyExtra"
+         tag="${mortbay.jettyextra.cvs.tag}"
+         quiet="true"
+         dest="${mortbay.jetty.cvs}"/>
+    <!-- Copy modified files JBoss CVS tree -> Jetty CVS tree -->
+    <copy todir="${mortbay.jetty.cvs}/Jetty/src"
+          overwrite="yes">
+      <fileset dir="${source.java}">
+         <!-- include files that was modified in JBoss/Jetty -->
+         <include name=""/>
+      </fileset>
+    </copy>
+         <!-- include files that was modified in JBoss/Jetty -->
+<!--
+    <copy todir="${mortbay.jetty.cvs}/JettyExtra/jmx/src"
+          overwrite="yes">
+      <fileset dir="${source.java}">
+         <include name=""/>
+      </fileset>
+    </copy>
+-->
+    <!-- Update from Jetty CVS to merge changes -->
+    <cvs command="-r update -d"
+         cvsRoot=":pserver:anonymous@cvs.jetty.sourceforge.net:/cvsroot/jetty"
+         package="Jetty"
+         tag="${mortbay.jetty.cvs.tag}"
+         quiet="true"
+         dest="${mortbay.jetty.cvs}"/>
+    <cvs command="-r update -d"
+         cvsRoot=":pserver:anonymous@cvs.jetty.sourceforge.net:/cvsroot/jetty"
+         package="JettyExtra"
+         tag="${mortbay.jettyextra.cvs.tag}"
+         quiet="true"
+         dest="${mortbay.jetty.cvs}"/>
+
+    <!-- Delete all Jetty files from JBoss CVS tree -->
+    <delete>
+      <fileset dir="${source.java}">
+         <include name="javax/servlet/**"/>
+         <include name="org/mortbay/**"/>
+      </fileset>
+    </delete>
+
+    <!-- Copy all files Jetty CVS tree -> JBoss CVS tree -->
+    <copy todir="${source.java}">
+      <fileset dir="${mortbay.jetty.cvs}/Jetty/src">
+         <include name="javax/servlet/**"/>
+         <include name="org/mortbay/**"/>
+      </fileset>
+    </copy>
+    <!-- Copy all files JettyExtra CVS tree -> JBoss CVS tree -->
+    <copy todir="${source.java}">
+      <fileset dir="${mortbay.jetty.cvs}/JettyExtra/j2ee/src">
+         <include name="org/mortbay/**"/>
+      </fileset>
+    </copy>
+  </target>
+
+
+  <!-- ================================================================== -->
+  <!-- Compile                                                            -->
+  <!-- ================================================================== -->
+
+  <!--
+     |  Compile everything.
+     |
+     |  This target should depend on other compile-* targets for each
+     |  different type of compile that needs to be performed, short of
+     |  documentation compiles.
+    -->
+  <target name="compile"
+	  depends="compile-bean-sources, compile-classes, compile-etc, compile-resources"
+	  description="Compile all source files."/>
+
+  <!-- Compile EJB with XDoclet -->
+  <target name="compile-bean-sources" depends="init">
+
+    <!-- generate MBean interface -->
+    <mkdir dir="${build.src}"/>
+    <jmxdoclet
+     destdir="${build.src}"
+     excludedtags="@version,@author,@todo"
+    >
+    <fileset dir="${source.java}">
+     <include name="**/*Service.java"/>
+    </fileset>
+    <mbeaninterface mergedir="${project.tools}/etc/xdoclet/templates"/>
+  <!-- not yet much use - use a static copy instead
+    <jbossxmlservicetemplate destdir="${output.dds}" servicefile="jboss-service.xml"/>
+  -->
+  </jmxdoclet>
+
+    <mkdir dir="${build.ejb}"/>
+    <mkdir dir="${build.metadata}"/>
+
+    <ejbdoclet
+	     destdir="${build.ejb}"
+	     ejbspec="2.0"
+	     excludedtags="@version,@author">
+      <fileset dir="${source.java}">
+        <include name="org/mortbay/j2ee/session/ejb/CMP*Bean.java" />
+      </fileset>
+      <packageSubstitution packages="ejb" substituteWith="interfaces"/>
+<!--
+      <session/>
+      <dataobject/>
+-->
+      <localinterface/>
+      <localhomeinterface/>
+      <remoteinterface/>
+      <homeinterface/>
+      <entitypk/>
+      <entitycmp/>
+      <deploymentdescriptor xmlencoding ="UTF-8"
+			    destdir="${build.metadata}"/>
+      <jboss version="3.0"
+             xmlencoding="UTF-8"
+	     typemapping="Hypersonic SQL"
+	     datasource="java:/DefaultDS"
+	     destdir="${build.metadata}"
+             mergedir="${source.resources}/org.mortbay.j2ee"
+      />
+    </ejbdoclet>
+
+    <ejbdoclet
+	     destdir="${build.ejb}"
+	     ejbspec="2.0"
+	     excludedtags="@version,@author">
+      <fileset dir="${source.java}">
+        <include name="org/mortbay/j2ee/session/ejb/CMR*Bean.java" />
+      </fileset>
+
+      <packageSubstitution packages="ejb" substituteWith="interfaces"/>
+<!--
+      <session/>
+      <dataobject/>
+-->
+      <localinterface/>
+      <localhomeinterface/>
+      <remoteinterface/>
+      <homeinterface/>
+      <entitypk/>
+      <entitycmp/>
+<!-- we need the classes to compile, but the dds are still broken -->
+<!--
+      <deploymentdescriptor xmlencoding ="UTF-8"
+			    destdir="${build.metadata}"/>
+      <jboss version="3.0"
+             xmlencoding="UTF-8"
+	     typemapping="Hypersonic SQL"
+	     datasource="java:/DefaultDS"
+	     destdir="${build.metadata}"
+             mergedir="${source.resources}/org.mortbay.j2ee"
+      />
+-->
+    </ejbdoclet>
+  </target>
+
+  <!-- Compile all class files -->
+  <target name="compile-classes" depends="init">
+    <mkdir dir="${build.classes}"/>
+    <javac destdir="${build.classes}"
+           optimize="${javac.optimize}"
+	   target="${javac.target}"
+           debug="${javac.debug}"
+	   depend="${javac.depend}"
+	   verbose="${javac.verbose}"
+	   deprecation="${javac.deprecation}"
+	   includeAntRuntime="${javac.include.ant.runtime}"
+	   includeJavaRuntime="${javac.include.java.runtime}"
+	   failonerror="${javac.fail.onerror}">
+       <src path="${build.src}"/>
+       <src path="${source.java}"/>
+       <src path="${build.ejb}"/>
+       <classpath refid="javac.classpath"/>
+       <include name="${javac.includes}"/>
+       <exclude name="org/mortbay/util/LoggerLogSink.java"/>
+    </javac>
+
+    <!-- these are for Jetty jars -->
+    <copy todir="${build.classes}">
+      <fileset dir="${source.java}">
+         <include name="**/*.properties"/>
+         <include name="**/*.dtd"/>
+         <include name="**/*.xml"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <!-- Compile etc files (manifests and such) -->
+  <target name="compile-etc" depends="init">
+    <mkdir dir="${build.etc}"/>
+    <copy todir="${build.etc}" filtering="yes">
+      <fileset dir="${source.etc}">
+         <include name="**/*"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <!-- Compile resource files -->
+  <target name="compile-resources" depends="init">
+    <mkdir dir="${build.resources}"/>
+    <copy todir="${build.resources}" filtering="yes">
+      <fileset dir="${source.resources}">
+         <include name="**/*"/>
+      </fileset>
+    </copy>
+  </target>
+
+
+  <!-- ================================================================== -->
+  <!-- Archives                                                           -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Build all jar files.
+   -->
+
+  <target name="jars"
+	  description="Build the Service Archive"
+	  depends="compile">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- Build Jetty and JettyExtra jars -->
+
+    <jar jarfile="${build.lib}/${servlet.jar}">
+      <fileset dir="${build.classes}">
+        <include name="javax/servlet/**"/>
+      </fileset>
+    </jar>
+    <jar jarfile="${build.lib}/${jetty.jar}">
+       <manifest>
+         <attribute name="Sealed" value="true"/>
+         <attribute name="Built-By" value="${user.name}"/>
+         <attribute name="Specification-Version" value="${RELEASE.MAJOR}"/>
+         <attribute name="Implementation-Version" value="${RELEASE.MAJOR.MINOR}"/>
+         <attribute name="Package-Title" value="org.mortbay.http"/>
+         <attribute name="Implementation-Vendor" value="Mort Bay Consulting, Pty. Ltd."/>
+         <attribute name="Implementation-URL" value="http://jetty.mortbay.org"/>
+         <attribute name="Main-Class" value="org.mortbay.http.HttpServer"/>
+
+         <section name="org/mortbay/jetty/">
+           <attribute name="Specification-Title" value="Servlet/2.3"/>
+           <attribute name="Implementation-Title" value="Jetty/${RELEASE.MAJOR}"/>
+         </section>
+
+         <section name="org/mortbay/http/">
+           <attribute name="Implementation-Title" value="Mort Bay HTTP Server"/>
+         </section>
+
+         <section name="org/mortbay/util/">
+           <attribute name="Implementation-Title" value="Mort Bay Misc. Utilities"/>
+         </section>
+
+       </manifest>
+      <fileset dir="${build.classes}">
+       <include name="org/mortbay/**"/>
+       <exclude name="org/mortbay/start/**" />
+       <exclude name="org/mortbay/stop/**" />
+       <exclude name="**/jmx/**" />
+       <exclude name="org/mortbay/j2ee/**"/>
+       <exclude name="**/webdefault.xml" />
+      </fileset>
+    </jar>
+    <jar jarfile="${build.lib}/${jmx.jar}">
+       <manifest>
+         <attribute name="Main-Class" value="org.mortbay.util.jmx.Main"/>
+<!--
+         <attribute name="Class-Path" value="org.mortbay.jetty.jar org.mortbay.jetty.jar ../ext/jmxri.jar ../ext/jmxtools.jar"/>
+-->
+       </manifest>
+      <fileset dir="${build.classes}">
+       <include name="org/mortbay/**/jmx/**"/>
+      </fileset>
+    </jar>
+
+    <jar jarfile="${build.lib}/${j2ee.jar}">
+      <fileset dir="${build.classes}">
+       <include name="org/mortbay/j2ee/**"/>
+<!--
+       <exclude name="org/mortbay/j2ee/session/interfaces/**" />
+-->
+       <exclude name="org/mortbay/j2ee/session/ejb/**" />
+      </fileset>
+    </jar>
+    <!-- Build ${jboss.jetty.jar} -->
+    <jar jarfile="${build.lib}/${jboss.jetty.jar}">
+      <fileset dir="${build.classes}">
+       <include name="org/jboss/**"/>
+      </fileset>
+    </jar>
+    <!-- Build ${jetty.ejb.jar} -->
+    <jar jarfile="${build.lib}/${jetty.ejb.jar}">
+      <fileset dir="${build.classes}">
+        <include name="org/mortbay/j2ee/session/ejb/*.class"/>
+<!--
+        <include name="org/mortbay/j2ee/session/interfaces/*.class"/>
+-->
+      </fileset>
+      <fileset dir="${module.output}">
+        <include name="META-INF/*.xml"/>
+      </fileset>
+    </jar>
+    <jar jarfile="${build.lib}/${module.name}.sar" manifest="${build.etc}/default.mf">
+      <!-- Jetty plugin classes -->
+
+      <fileset dir="${source.java}/org/mortbay/jetty/servlet/">
+        <include name="webdefault.xml"/>
+      </fileset>
+
+      <!-- jboss-service.xml for jetty plugin -->
+      <fileset dir="${build.resources}/jetty-plugin">
+        <include name="**/*"/>
+      </fileset>
+      <!--include jars in sar-->
+      <fileset dir="${build.lib}">
+        <!-- For some reason jasper doesn't work if servlet and jasper are in the sar -->
+        <!--include name="${servlet.jar}"/-->
+        <include name="${jetty.jar}"/>
+        <include name="${jmx.jar}"/>
+        <include name="${j2ee.jar}"/>
+        <!--
+        <include name="${jetty.ejb.jar}"/>
+          -->
+        <include name="${jboss.jetty.jar}"/>
+      </fileset>
+      <fileset dir="${module.ext}">
+       <include name="*.jar"/>
+       <!-- Do not include the JSSE classes as this conflicts with the jsse.jar -->
+       <exclude name="com.sun.net.ssl.jar" />
+      </fileset>
+      <fileset dir="${project.tools}/lib/">
+       <include name="ant.jar"/>
+      </fileset>
+    </jar>
+
+  </target>
+
+<target name="devel" depends="jars"
+	description="Deploy and Test the Jetty plugin">
+
+    <property name="jboss.version"
+	      value="jboss-3.2.2beta"/>
+    <property name="hack.project.deploy"
+	      value="${project.root}/build/output/${jboss.version}/server/default/deploy"/>
+    <property name="hack.project.lib.ext"
+	      value="${project.root}/build/output/${jboss.version}/lib/ext"/>
+
+<!--
+    <delete>
+      <fileset dir="${project.root}/build/output">
+         <include name="**/deploy/jbosstest-web.ear"/>
+      </fileset>
+    </delete>
+ -->
+
+    <echo>Undeploying old Jetty plugin...</echo>
+    <delete>
+      <fileset dir="${project.root}/build/output">
+         <include name="**/deploy/${module.name}.sar"/>
+         <include name="**/deploy/${jetty.ejb.jar}"/>
+      </fileset>
+    </delete>
+
+    <echo>Deploying new Jetty plugin...</echo>
+
+    <copy todir="${hack.project.lib.ext}" filtering="no">
+      <fileset dir="${build.lib}">
+         <include name="${servlet.jar}"/>
+      </fileset>
+    </copy>
+
+    <copy file="${build.lib}/${jetty.ejb.jar}" tofile="${hack.project.deploy}/jbossweb-ejb.jar" filtering="no"/>
+
+    <delete dir="${hack.project.deploy}/jbossweb-jetty.sar"/>
+    <mkdir dir="${hack.project.deploy}/jbossweb-jetty.sar"/>
+    <unjar src="${build.lib}/${module.name}.sar"
+           dest="${hack.project.deploy}/jbossweb-jetty.sar"/>
+    <touch file="${hack.project.deploy}/jbossweb-jetty.sar/META-INF/jboss-service.xml"/>
+
+
+<!--
+    <sleep seconds="5"/>
+    <antcall target="testsuite"/>
+ -->
+
+<!--
+    <copy file="../../testsuite/output/lib/jbosstest-web.ear"
+          todir="${hack.project.deploy}"
+          filtering="no"/>
+ -->
+
+</target>
+
+<target name="testsuite">
+    <exec dir="../testsuite/"
+	  executable="/bin/sh"
+	  >
+      <arg value="./build.sh"/>
+      <arg value="-emacs"/>
+      <arg value="-Djavac.debug=true"/>
+      <arg value="-Dtest=org.jboss.test.web.test.WebIntegrationUnitTestCase"/>
+      <arg value="one-test"/>
+    </exec>
+</target>
+
+  <!-- Generate Javadoc if we are out of date -->
+  <target name="docs-javadocs-local" depends="docs-javadocs-check,compile-bean-sources" unless="docs-javadocs.disable">
+    <mkdir dir="${build.api}"/>
+    <javadoc packagenames="${javadoc.packages}"
+             destdir="${build.api}"
+             classpathref="javadoc.classpath"
+             windowtitle="${javadoc.windowtitle}"
+	     splitindex="${javadoc.splitindex}"
+             doctitle="${javadoc.doctitle}"
+             author="${javadoc.author}"
+             version="${javadoc.version}"
+             public="${javadoc.public}"
+             package="${javadoc.package}"
+             protected="${javadoc.protected}"
+             private="${javadoc.private}"
+             use="${javadoc.use}"
+	     verbose="${javadoc.verbose}">
+      <group title="JDBC Extension" packages="javax.sql*"/>
+      <group title="J2EE" packages="javax*"/>
+      <fileset dir="${source.java}">
+       <include name="**/*.java"/>
+      </fileset>
+      <fileset dir="${build.ejb}">
+       <include name="**/*.java"/>
+      </fileset>
+      <fileset dir="${build.src}">
+       <include name="**/*.java"/>
+      </fileset>
+    </javadoc>
+  <!-- generate todo docs -->
+    <mkdir dir="${build.todo}"/>
+    <docdoclet
+     destdir="${build.todo}">
+     <fileset dir="${source.java}">
+      <include name="org/mortbay/j2ee/**"/>
+      <include name="org/jboss/jetty/**"/>
+     </fileset>
+     <fileset dir="${build.ejb}">
+      <include name="**/*.java"/>
+     </fileset>
+     <fileset dir="${build.src}">
+      <include name="**/*.java"/>
+     </fileset>
+     <info/>
+    </docdoclet>
+  </target>
+
+  <target name="javadocs-local" depends="docs-javadocs-local"/>
+
+
+  <!-- ================================================================== -->
+  <!-- Install & Release                                                  -->
+  <!-- ================================================================== -->
+
+  <!-- The standard build must have been performed before this can be run -->
+  <target name="bundle"
+     description="Builds the jetty service and creates a bundled dist"
+     depends="jars">
+    <property name="jboss-dist" value="jboss-${module.version}" />
+    <property name="jboss-bundle" value="output/jboss-${module.version}_jetty-${RELEASE.MAJOR.MINOR}" />
+    <property name="jboss-all" value="${jboss-bundle}/server/all" />
+    <property name="jboss-default" value="${jboss-bundle}/server/default" />
+
+    <!-- Copy the jboss dist to the bundle directory and exclude the default
+      jbossweb* servlet container
+    -->
+    <copy todir="${jboss-bundle}" filtering="no">
+       <fileset dir="${project.root}/build/output/${jboss-dist}">
+         <exclude name="**/jbossweb*.sar/**" />
+			<exclude name="**/data/**" />
+			<exclude name="**/log/**" />
+			<exclude name="**/tmp/**" />
+       </fileset>
+    </copy>
+    <!-- Install the emedded jetty service into the all and default configs -->
+	 <unzip src="output/lib/jetty-plugin.sar"
+	 	dest="${jboss-all}/deploy/jbossweb-jetty.sar" />
+    <copy file="output/lib/org.mortbay.j2ee.session.ejb.jar"
+          tofile="${jboss-all}/deploy/jbossweb-ejb.jar"
+          filtering="no"
+    />
+	 <unzip src="output/lib/jetty-plugin.sar"
+	 	dest="${jboss-default}/deploy/jbossweb-jetty.sar" />
+    <copy file="output/lib/org.mortbay.j2ee.session.ejb.jar"
+          tofile="${jboss-default}/deploy/jbossweb-ejb.jar"
+          filtering="no"
+    />
+    <!-- Copy examples to docs -->
+    <mkdir dir="${jboss-bundle}/docs/examples/jbossweb"/>
+    <copy file="docs/jetty-web.xml"
+          todir="${jboss-bundle}/docs/examples/jbossweb"
+          filtering="no"
+    />
+    <copy file="FAQ"
+          todir="${jboss-bundle}/docs/examples/jbossweb"
+          filtering="no"
+    />
+  </target>
+
+  <target name="install"
+	  description="Install the structure for a release."
+	  depends="all, _buildmagic:install:default"/>
+
+  <target name="release" depends="install"/>
+
+  <target name="release-zip"
+	  description="Builds a ZIP distribution."
+	  depends="release, _buildmagic:release:zip"/>
+
+  <target name="release-tar"
+	  description="Builds a TAR distribution."
+	  depends="release, _buildmagic:release:tar"/>
+
+  <target name="release-tgz"
+	  description="Builds a TAR-GZ distribution."
+	  depends="release, _buildmagic:release:tgz"/>
+
+  <target name="release-all"
+	  description="Builds a distribution for each archive type."
+	  depends="release-zip, release-tgz"/>
+
+
+  <!-- ================================================================== -->
+  <!-- Cleaning                                                           -->
+  <!-- ================================================================== -->
+
+  <!-- Clean up all build output -->
+  <target name="clean"
+	  description="Cleans up most generated files."
+	  depends="_buildmagic:clean">
+  </target>
+
+  <!-- Clean up all generated files -->
+  <target name="clobber"
+	  description="Cleans up all generated files."
+	  depends="_buildmagic:clobber, clean">
+  </target>
+
+  <!-- ================================================================== -->
+  <!-- Misc.                                                              -->
+  <!-- ================================================================== -->
+
+  <target name="main"
+	  description="Executes the default target (most)."
+	  depends="most"/>
+
+  <target name="all"
+	  description="Builds everything."
+	  depends="jars, docs"/>
+
+  <target name="most"
+	  description="Builds almost everything."
+	  depends="jars"/>
+
+  <target name="help"
+          description="Show this help message."
+	  depends="_buildmagic:help:standard"/>
+
+</project>

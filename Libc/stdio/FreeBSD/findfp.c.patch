@@ -1,0 +1,60 @@
+--- findfp.c.orig	Tue May 20 15:22:41 2003
++++ findfp.c	Sun Jul 20 18:50:26 2003
+@@ -47,6 +47,7 @@
+ #include <stdlib.h>
+ #include <string.h>
+ 
++#include <pthread.h>
+ #include <spinlock.h>
+ 
+ #include "libc_private.h"
+@@ -62,12 +63,13 @@
+ 	 {0}, __sFX + file}
+   /*	 p r w flags file _bf z  cookie      close    read    seek    write */
+   /*     _ub _extra */
++#define	__sFXInit	{0, PTHREAD_MUTEX_INITIALIZER}
+ 				/* the usual - (stdin + stdout + stderr) */
+ static FILE usual[FOPEN_MAX - 3];
+ static struct __sFILEX usual_extra[FOPEN_MAX - 3];
+ static struct glue uglue = { NULL, FOPEN_MAX - 3, usual };
+ 
+-static struct __sFILEX __sFX[3];
++static struct __sFILEX __sFX[3] = {__sFXInit, __sFXInit, __sFXInit};
+ 
+ /*
+  * We can't make this 'static' until 6.0-current due to binary
+@@ -81,17 +83,6 @@
+ 	std(__SWR|__SNBF, STDERR_FILENO)
+ };
+ 
+-/*
+- * The following kludge is done to ensure enough binary compatibility
+- * with future versions of libc.  Or rather it allows us to work with
+- * libraries that have been built with a newer libc that defines these
+- * symbols and expects libc to provide them.  We only have need to support
+- * i386 and alpha because they are the only "old" systems we have deployed.
+- */
+-FILE *__stdinp = &__sF[0];
+-FILE *__stdoutp = &__sF[1];
+-FILE *__stderrp = &__sF[2];
+-
+ struct glue __sglue = { &uglue, 3, __sF };
+ static struct glue *lastglue = &uglue;
+ 
+@@ -113,7 +104,7 @@
+ {
+ 	struct glue *g;
+ 	static FILE empty;
+-	static struct __sFILEX emptyx;
++	static struct __sFILEX emptyx = __sFXInit;
+ 	FILE *p;
+ 	struct __sFILEX *fx;
+ 
+@@ -179,6 +170,7 @@
+ 	fp->_lb._base = NULL;	/* no line buffer */
+ 	fp->_lb._size = 0;
+ /*	fp->_lock = NULL; */	/* once set always set (reused) */
++	fp->_extra->fl_mutex = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
+ 	fp->_extra->orientation = 0;
+ #ifdef notdef
+ 	/* Stateful encoding/decoding is not yet supported. */

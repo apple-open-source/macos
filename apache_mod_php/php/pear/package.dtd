@@ -1,12 +1,12 @@
 <!--
-     $Id: package.dtd,v 1.1.1.3 2001/12/14 22:14:01 zarzycki Exp $
+     $Id: package.dtd,v 1.1.1.6 2003/07/18 18:07:49 zarzycki Exp $
 
-     This is the PEAR package description, version 1.1b1.
+     This is the PEAR package description, version 1.0.
      It should be used with the informal public identifier:
 
-         "-//PHP Group//DTD PEAR Package 1.1b1//EN//XML"
+         "-//PHP Group//DTD PEAR Package 1.0//EN//XML"
 
-     Copyright (c) 1997-2001 The PHP Group             
+     Copyright (c) 1997-2002 The PHP Group             
 
      This source file is subject to version 2.02 of the PHP license,
      that is bundled with this package in the file LICENSE, and is
@@ -17,114 +17,92 @@
      license@php.net so we can mail you a copy immediately.
 
      Authors:
-         Stig S. Bakken <ssb@fast.no>
+         Stig S. Bakken <ssb@php.net>
 
   -->
-<!--============== attributes present in all elements ======================-->
-<!ENTITY % global.atts "id		ID	#IMPLIED">
-<!--============== attributes common to several elements ===================-->
-<!ENTITY % role.atts "role		(php|ext|test|doc) 'php'">
-<!ENTITY % extension.atts "debug	(on|off) 'off'
-			   threadsafe	(on|off) 'off'">
-<!ENTITY % format.atts "format		CDATA	#IMPLIED">
-<!--=============== ELEMENT: package =======================================-->
-<!ELEMENT package (name, summary, maintainer, release)>
-<!ATTLIST package
-	%global.atts; 
-	type (source | binary | empty) "empty"
->
-<!--=============== ELEMENT: name ==========================================-->
+
+<!ELEMENT package (name|summary|description|license|maintainers|release|changelog)+>
+<!ATTLIST package type    (source|binary|empty) "empty"
+                  version CDATA                 #REQUIRED>
+
 <!ELEMENT name (#PCDATA)>
-<!ATTLIST name
-	%global.atts; 
->
-<!--=============== ELEMENT: summary =======================================-->
+
 <!ELEMENT summary (#PCDATA)>
-<!ATTLIST summary
-	%global.atts; 
->
-<!--=============== ELEMENT: maintainer ====================================-->
-<!ELEMENT maintainer (user, name, email)>
-<!ATTLIST maintainer
-	%global.atts; 
->
-<!--=============== ELEMENT: user ==========================================-->
+
+<!ELEMENT description (#PCDATA)>
+
+<!ELEMENT license (#PCDATA)>
+
+<!ELEMENT maintainers (maintainer)+>
+
+<!ELEMENT maintainer (user|role|name|email)+>
+
 <!ELEMENT user (#PCDATA)>
-<!ATTLIST user
-	%global.atts; 
->
-<!--=============== ELEMENT: email =========================================-->
+
+<!ELEMENT role (#PCDATA)>
+
 <!ELEMENT email (#PCDATA)>
-<!ATTLIST email
-	%global.atts; 
->
-<!--=============== ELEMENT: release =======================================-->
-<!ELEMENT release (version?, state?, date, notes?, filelist)>
-<!ATTLIST release
-	%global.atts; 
->
-<!--=============== ELEMENT: version =======================================-->
+
+<!ELEMENT changelog (release)+>
+
+<!ELEMENT release (version|license|state|date|notes|filelist|deps|provides|script|configureoptions)+>
+
 <!ELEMENT version (#PCDATA)>
-<!ATTLIST version
-	%global.atts; 
->
-<!--=============== ELEMENT: state =========================================-->
+
 <!ELEMENT state (#PCDATA)>
-<!ATTLIST state
-	%global.atts; 
->
-<!--=============== ELEMENT: date =========================================-->
+
 <!ELEMENT date (#PCDATA)>
-<!ATTLIST date
-	%global.atts; 
->
-<!--=============== ELEMENT: notes =========================================-->
+
 <!ELEMENT notes (#PCDATA)>
-<!ATTLIST notes
-	%global.atts; 
->
-<!--=============== ELEMENT: filelist ======================================-->
-<!ELEMENT filelist (dir | file | libfile)*>
-<!ATTLIST filelist
-	%global.atts; 
->
-<!--=============== ELEMENT: dir ===========================================-->
-<!ELEMENT dir (#PCDATA)>
-<!ATTLIST dir
-	%global.atts; 
->
-<!--=============== ELEMENT: file ==========================================-->
-<!ELEMENT file (#PCDATA)>
-<!ATTLIST file
-	%global.atts; 
-	%role.atts; 
-	%extension.atts; 
-	%format.atts; 
->
-<!--=============== ELEMENT: libfile =======================================-->
-<!ELEMENT libfile (libname,sources,includes?,libadd?)>
-<!ATTLIST libfile
-	%global.atts; 
-	%role.atts; 
->
-<!--=============== ELEMENT: libfile =======================================-->
-<!ELEMENT libfile (libname,sources,includes?,libadd?)>
-<!ATTLIST libfile
-	%global.atts; 
-	%role.atts; 
->
-<!--=============== ELEMENT: libname =======================================-->
-<!ELEMENT libname (#PCDATA)>
-<!ATTLIST libname
-	%global.atts; 
->
-<!--=============== ELEMENT: sources =======================================-->
-<!ELEMENT sources (#PCDATA)>
-<!ATTLIST sources
-	%global.atts; 
->
-<!--=============== ELEMENT: libadd ========================================-->
-<!ELEMENT libadd (#PCDATA)>
-<!ATTLIST libadd
-	%global.atts; 
->
+
+<!ELEMENT filelist (dir|file)+>
+
+<!ELEMENT dir (dir|file)+>
+<!ATTLIST dir name           CDATA #REQUIRED
+              baseinstalldir CDATA #IMPLIED>
+
+<!ELEMENT file (replace*)>
+<!ATTLIST file role           (php|ext|src|test|doc|data|script) 'php'
+               debug          (na|on|off)        'na'
+               zts            (na|on|off)        'na'
+               phpapi         NUMBER             #IMPLIED
+               zendapi        NUMBER             #IMPLIED
+               format         CDATA              #IMPLIED
+               baseinstalldir CDATA              #IMPLIED
+               platform       CDATA              #IMPLIED
+               md5sum         CDATA              #IMPLIED
+               name           CDATA              #REQUIRED
+               install-as     CDATA              #IMPLIED>
+
+<!ELEMENT replace EMPTY>
+<!ATTLIST replace from        CDATA              #REQUIRED
+                  to          CDATA              #REQUIRED
+                  type        CDATA              #REQUIRED>
+
+<!ELEMENT deps (dep)+>
+
+<!ELEMENT dep (#PCDATA)>
+<!ATTLIST dep
+	type    (pkg|ext|php|prog|ldlib|rtlib|os|websrv|sapi|zend) #REQUIRED
+	rel     (has|eq|lt|le|gt|ge) 'has'
+	version CDATA                #IMPLIED>
+
+<!ELEMENT provides (#PCDATA)>
+<!ATTLIST provides
+	type    (ext|prog|class|function|feature|api)  #REQUIRED
+        name    CDATA                                  #REQUIRED>
+
+<!ELEMENT script (#PCDATA)>
+<!ATTLIST script
+        phase   (pre-install  |post-install  |
+                 pre-uninstall|post-uninstall|
+                 pre-build    |post-build    |
+                 pre-setup    |post-setup    )         #REQUIRED>
+
+<!ELEMENT configureoptions (configureoption*)>
+
+<!ELEMENT configureoption EMPTY>
+<!ATTLIST configureoption
+        name     CDATA      #REQUIRED
+        default  CDATA      #IMPLIED
+        prompt   CDATA      #REQUIRED>

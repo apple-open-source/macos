@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: ops_lofs.c,v 1.1.1.1 2002/05/15 01:21:55 jkh Exp $
+ * $Id: ops_lofs.c,v 1.1.1.2 2002/07/15 19:42:39 zarzycki Exp $
  *
  */
 
@@ -55,7 +55,7 @@
 static char *lofs_match(am_opts *fo);
 static int lofs_mount(am_node *am, mntfs *mf);
 static int lofs_umount(am_node *am, mntfs *mf);
-static int mount_lofs(char *dir, char *fs_name, char *opts, int on_autofs);
+static int mount_lofs(char *mntdir, char *real_mntdir, char *fs_name, char *opts, int on_autofs);
 
 
 /*
@@ -76,7 +76,9 @@ am_ops lofs_ops =
   0,				/* lofs_umounted */
   find_amfs_auto_srvr,
   FS_MKMNT | FS_NOTIMEOUT | FS_UBACKGROUND | FS_AMQINFO, /* nfs_fs_flags */
-  FS_MKMNT | FS_NOTIMEOUT | FS_UBACKGROUND | FS_AMQINFO	 /* autofs_fs_flags */
+#ifdef HAVE_FS_AUTOFS
+  AUTOFS_LOFS_FS_FLAGS,
+#endif /* HAVE_FS_AUTOFS */
 };
 
 
@@ -101,7 +103,7 @@ lofs_match(am_opts *fo)
 
 
 static int
-mount_lofs(char *dir, char *fs_name, char *opts, int on_autofs)
+mount_lofs(char *mntdir, char *real_mntdir, char *fs_name, char *opts, int on_autofs)
 {
   mntent_t mnt;
   int flags;
@@ -115,7 +117,7 @@ mount_lofs(char *dir, char *fs_name, char *opts, int on_autofs)
    * Fill in the mount structure
    */
   memset((voidp) &mnt, 0, sizeof(mnt));
-  mnt.mnt_dir = dir;
+  mnt.mnt_dir = mntdir;
   mnt.mnt_fsname = fs_name;
   mnt.mnt_type = MNTTAB_TYPE_LOFS;
   mnt.mnt_opts = opts;
@@ -129,7 +131,7 @@ mount_lofs(char *dir, char *fs_name, char *opts, int on_autofs)
   /*
    * Call generic mount routine
    */
-  return mount_fs(&mnt, flags, NULL, 0, type, 0, NULL, mnttab_file_name);
+  return mount_fs2(&mnt, real_mntdir, flags, NULL, 0, type, 0, NULL, mnttab_file_name);
 }
 
 
@@ -138,7 +140,7 @@ lofs_mount(am_node *am, mntfs *mf)
 {
   int error;
 
-  error = mount_lofs(mf->mf_mount, mf->mf_info, mf->mf_mopts,
+  error = mount_lofs(mf->mf_mount, mf->mf_real_mount, mf->mf_info, mf->mf_mopts,
 		     am->am_flags & AMF_AUTOFS);
   if (error) {
     errno = error;
@@ -152,5 +154,5 @@ lofs_mount(am_node *am, mntfs *mf)
 static int
 lofs_umount(am_node *am, mntfs *mf)
 {
-  return UMOUNT_FS(mf->mf_mount, mnttab_file_name);
+  return UMOUNT_FS(mf->mf_mount, mf->mf_real_mount, mnttab_file_name);
 }

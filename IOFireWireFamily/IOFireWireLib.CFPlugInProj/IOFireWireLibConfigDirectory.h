@@ -31,18 +31,20 @@
  *
  */
 
+#import "IOFireWireLibIUnknown.h"
 #import "IOFireWireLibPriv.h"
 
 namespace IOFireWireLib {
 
+	class Device ;
 	class ConfigDirectory: public IOFireWireIUnknown
 	{
 		protected:
 			typedef ::IOFireWireLibConfigDirectoryRef 	DirRef ;
 	
 		public:
-			ConfigDirectory( IUnknownVTbl* interface, Device& inUserClient, KernConfigDirectoryRef inDirRef ) ;
-			ConfigDirectory( IUnknownVTbl* interface, Device& inUserClient ) ;
+			ConfigDirectory( const IUnknownVTbl & interface, Device& inUserClient, UserObjectHandle inDirRef ) ;
+			ConfigDirectory( const IUnknownVTbl & interface, Device& inUserClient ) ;
 			virtual ~ConfigDirectory() ;
 			
 			/*!
@@ -77,7 +79,7 @@ namespace IOFireWireLib {
 			IOReturn GetKeyValue(int key, CFDataRef* value, CFStringRef*& text);
 			IOReturn GetKeyValue(int key, DirRef& value, REFIID iid, CFStringRef*& text);
 			IOReturn GetKeyOffset(int key, FWAddress& value, CFStringRef*& text);
-			IOReturn GetKeyValue(int key, KernConfigDirectoryRef& value) ;
+			IOReturn GetKeyValue(int key, UserObjectHandle& value) ;
 		
 			/*!
 				@function getIndexType
@@ -106,7 +108,7 @@ namespace IOFireWireLib {
 			IOReturn GetIndexValue(int index, UInt32& value);
 			IOReturn GetIndexValue(int index, CFDataRef* value);
 			IOReturn GetIndexValue(int index, CFStringRef* value);
-			IOReturn GetIndexValue(int index, KernConfigDirectoryRef& value) ;
+			IOReturn GetIndexValue(int index, UserObjectHandle& value) ;
 			IOReturn GetIndexValue(int index, DirRef& value, REFIID iid);
 		
 			IOReturn GetIndexOffset(int index, FWAddress& value);
@@ -143,7 +145,7 @@ namespace IOFireWireLib {
 		
 		protected:
 			Device&						mUserClient ;
-			KernConfigDirectoryRef	mKernConfigDirectoryRef ;			
+			UserObjectHandle	mKernConfigDirectoryRef ;			
 	} ;
 	
 	class ConfigDirectoryCOM: public ConfigDirectory
@@ -153,7 +155,7 @@ namespace IOFireWireLib {
 	
 		public:
 			ConfigDirectoryCOM(Device& inUserClient) ;
-			ConfigDirectoryCOM(Device& inUserClient, KernConfigDirectoryRef inDirRef) ;
+			ConfigDirectoryCOM(Device& inUserClient, UserObjectHandle inDirRef) ;
 			virtual ~ConfigDirectoryCOM() ;
 
 		private:
@@ -161,7 +163,7 @@ namespace IOFireWireLib {
 
 		public:
 			// --- IUNKNOWN support ----------------
-			static IUnknownVTbl**	Alloc(Device& inUserClient, KernConfigDirectoryRef inDirRef) ;
+			static IUnknownVTbl**	Alloc(Device& inUserClient, UserObjectHandle inDirRef) ;
 			static IUnknownVTbl**	Alloc(Device& inUserClient) ;
 			virtual HRESULT			QueryInterface(REFIID iid, void ** ppv ) ;
 		

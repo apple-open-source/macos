@@ -1,9 +1,9 @@
 /*
- * "$Id: quotas.c,v 1.1.1.3 2002/06/06 22:13:19 jlovell Exp $"
+ * "$Id: quotas.c,v 1.1.1.8 2003/02/10 21:59:00 jlovell Exp $"
  *
  *   Quota routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -157,6 +157,9 @@ UpdateQuota(printer_t  *p,		/* I - Printer */
   if ((q = FindQuota(p, username)) == NULL)
     return (NULL);
 
+  LogMessage(L_DEBUG, "UpdateQuota: p=%s username=%s pages=%d k=%d",
+             p->name, username, pages, k);
+
   curtime = time(NULL);
 
   if (curtime < q->next_update)
@@ -231,5 +234,5 @@ compare(const quota_t *q1,		/* I - First quota record */
 
 
 /*
- * End of "$Id: quotas.c,v 1.1.1.3 2002/06/06 22:13:19 jlovell Exp $".
+ * End of "$Id: quotas.c,v 1.1.1.8 2003/02/10 21:59:00 jlovell Exp $".
  */

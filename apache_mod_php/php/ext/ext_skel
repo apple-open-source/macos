@@ -7,12 +7,13 @@ givup() {
 
 usage() {
 echo "$0 --extname=module [--proto=file] [--stubs=file] [--xml[=file]]"
-echo "           [--full-xml] [--no-help]"
+echo "           [--skel=dir] [--full-xml] [--no-help]"
 echo ""
 echo "  --extname=module   module is the name of your extension"
 echo "  --proto=file       file contains prototypes of functions to create"
 echo "  --stubs=file       generate only function stubs in file"
 echo "  --xml              generate xml documentation to be added to phpdoc-cvs"
+echo "  --skel=dir         path to the skeleton directory"
 echo "  --full-xml         generate xml documentation for a self-contained extension"
 echo "                     (not yet implemented)"
 echo "  --no-help          don't try to be nice and create comments in the code"
@@ -33,7 +34,7 @@ while test $# -gt 0; do
   case $1 in
     --extname=?*)
 	extname=$optarg
-	EXTNAME=`echo $extname | tr [a-z] [A-Z]`
+	EXTNAME=`echo $extname | tr "[:lower:]" "[:upper:]"`
 	;;
     --proto=?*)
 	proto=$optarg
@@ -54,6 +55,9 @@ while test $# -gt 0; do
     --no-help)
 	no_help="yes"
 	;;
+    --skel=?*)
+	skel_dir=$optarg
+	;;
     *)
 	usage
 	;;
@@ -65,8 +69,14 @@ if test -d "$extname" ; then
   givup "Directory $extname already exists."
 fi
 
-test -f ext_skel || givup "ext_skel must be in the current directory"
-test -d skeleton || givup "subdirectory skeleton does not exist or is not directory"
+if test -z "$skel_dir"; then
+  skel_dir="skeleton"
+fi
+
+## convert skel_dir to full path
+skel_dir=`cd $skel_dir && pwd`
+
+test -d $skel_dir || givup "directory $skel_dir does not exist or is not directory"
 
 if echo '\c' | grep -s c >/dev/null 2>&1
 then
@@ -84,7 +94,7 @@ if test -z "$stubs"; then
 fi
 
 if test -n "$proto"; then
-  cat $proto | awk -v extname=$extname -v stubs=$stubs -v stubfile=$stubfile -v xml=$xml -v full_xml=$full_xml -v i_know_what_to_do_shut_up_i_dont_need_your_help_mode=$no_help -f ./skeleton/create_stubs
+  cat $proto | awk -v extname=$extname -v stubs=$stubs -v stubfile=$stubfile -v xml=$xml -v full_xml=$full_xml -v i_know_what_to_do_shut_up_i_dont_need_your_help_mode=$no_help -f $skel_dir/create_stubs
 fi
 
 if test -z "$stubs"; then
@@ -118,12 +128,12 @@ if test "\$PHP_$EXTNAME" != "no"; then
   dnl Write more examples of tests here...
 
   dnl # --with-$extname -> check with-path
-	dnl SEARCH_PATH="/usr/local /usr"     # you might want to change this
+  dnl SEARCH_PATH="/usr/local /usr"     # you might want to change this
   dnl SEARCH_FOR="/include/$extname.h"  # you most likely want to change this
   dnl if test -r \$PHP_$EXTNAME/$SEARCH_FOR; then # path given as parameter
   dnl   ${EXTNAME}_DIR=\$PHP_$EXTNAME
   dnl else # search default path list
-  dnl   AC_MSG_CHECKING(for $extname files in default path)
+  dnl   AC_MSG_CHECKING([for $extname files in default path])
   dnl   for i in \$SEARCH_PATH ; do
   dnl     if test -r \$i/\$SEARCH_FOR; then
   dnl       ${EXTNAME}_DIR=\$i
@@ -133,8 +143,8 @@ if test "\$PHP_$EXTNAME" != "no"; then
   dnl fi
   dnl
   dnl if test -z "\$${EXTNAME}_DIR"; then
-  dnl   AC_MSG_RESULT(not found)
-  dnl   AC_MSG_ERROR(Please reinstall the $extname distribution)
+  dnl   AC_MSG_RESULT([not found])
+  dnl   AC_MSG_ERROR([Please reinstall the $extname distribution])
   dnl fi
 
   dnl # --with-$extname -> add include path
@@ -143,40 +153,29 @@ if test "\$PHP_$EXTNAME" != "no"; then
   dnl # --with-$extname -> chech for lib and symbol presence
   dnl LIBNAME=$extname # you may want to change this
   dnl LIBSYMBOL=$extname # you most likely want to change this 
-  dnl old_LIBS=\$LIBS
-  dnl LIBS="\$LIBS -L\$${EXTNAME}_DIR/lib -lm -ldl"
-  dnl AC_CHECK_LIB(\$LIBNAME, \$LIBSYMBOL, [AC_DEFINE(HAVE_${EXTNAME}LIB,1,[ ])],
-	dnl			[AC_MSG_ERROR(wrong $extname lib version or lib not found)])
-  dnl LIBS=\$old_LIBS
+
+  dnl PHP_CHECK_LIBRARY(\$LIBNAME,\$LIBSYMBOL,
+  dnl [
+  dnl   PHP_ADD_LIBRARY_WITH_PATH(\$LIBNAME, \$${EXTNAME}_DIR/lib, ${EXTNAME}_SHARED_LIBADD)
+  dnl   AC_DEFINE(HAVE_${EXTNAME}LIB,1,[ ])
+  dnl ],[
+  dnl   AC_MSG_ERROR([wrong $extname lib version or lib not found])
+  dnl ],[
+  dnl   -L\$${EXTNAME}_DIR/lib -lm -ldl
+  dnl ])
   dnl
   dnl PHP_SUBST(${EXTNAME}_SHARED_LIBADD)
-  dnl PHP_ADD_LIBRARY_WITH_PATH(\$LIBNAME, \$${EXTNAME}_DIR/lib, ${EXTNAME}_SHARED_LIBADD)
 
-  PHP_EXTENSION($extname, \$ext_shared)
+  PHP_NEW_EXTENSION($extname, $extname.c, \$ext_shared)
 fi
-eof
-
-$ECHO_N " Makefile.in$ECHO_C"
-cat >Makefile.in <<eof
-# \$Id\$
-
-LTLIBRARY_NAME        = lib$extname.la
-LTLIBRARY_SOURCES     = $extname.c
-LTLIBRARY_SHARED_NAME = $extname.la
-LTLIBRARY_SHARED_LIBADD  = \$(${EXTNAME}_SHARED_LIBADD)
-
-include \$(top_srcdir)/build/dynlib.mk
 eof
 
 
 $ECHO_N " .cvsignore$ECHO_C"
 cat >.cvsignore <<eof
 .deps
-Makefile
 *.lo
 *.la
-.libs
-libs.mk
 eof
 
 $ECHO_N " $extname.c$ECHO_C"
@@ -198,7 +197,7 @@ if [ ! -z "$no_help" ]; then
     echo '/^[[:space:]]*\/\*/,/^[[:space:]]*\*\//D' >> sedscript
 fi
 
-sed -f sedscript <../skeleton/skeleton.c > $extname.c
+sed -f sedscript < $skel_dir/skeleton.c > $extname.c
 
 
 $ECHO_N " php_$extname.h$ECHO_C"
@@ -216,26 +215,26 @@ if [ ! -z "$no_help" ]; then
     echo 's/^\/\*.*\*\/$//' >> sedscript
     echo '/^[[:space:]]*\/\*/,/^[[:space:]]*\*\//D' >> sedscript
 fi
-sed -f sedscript <../skeleton/php_skeleton.h > php_$extname.h
+sed -f sedscript <$skel_dir/php_skeleton.h > php_$extname.h
 
 $ECHO_N " CREDITS$ECHO_C"
 echo "s/extname/$extname/g" > sedscript
-sed -f sedscript <../skeleton/CREDITS > CREDITS
+sed -f sedscript <$skel_dir/CREDITS > CREDITS
 
 $ECHO_N " EXPERIMENTAL$ECHO_C"
 echo "s/extname/$extname/g" > sedscript
-sed -f sedscript <../skeleton/EXPERIMENTAL > EXPERIMENTAL
+sed -f sedscript <$skel_dir/EXPERIMENTAL > EXPERIMENTAL
 
 $ECHO_N " tests/001.phpt$ECHO_C"
 mkdir tests || givup "Cannot create tests directory"
 chmod 755 tests
-sed -f sedscript <../skeleton/tests/001.phpt > tests/001.phpt
+sed -f sedscript <$skel_dir/tests/001.phpt > tests/001.phpt
 
 if test -z "$stubs" && test -z "$no_help"; then
   $ECHO_N " $extname.php$ECHO_C"
   sed \
     -e "s/extname/$extname/g" \
-    <../skeleton/skeleton.php \
+    <$skel_dir/skeleton.php \
     > $extname.php
 fi
 

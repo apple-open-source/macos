@@ -1,0 +1,22 @@
+Pro¶ba o potwierdzenie zapisania siê na listê dyskusyjn± %(listname)s.
+
+Otrzymano pro¶be%(remote)s o zapisanie Twojego adresu na listê dyskusyjn±,
+"%(email)s" na listê %(listaddr)s. ¯eby potwierdziæ chêæ zapisania siê
+proszê odpowiedzieæ na t± wiadomo¶æ nie zmieniaj±c jej Tematu. To
+samo mo¿esz zrobiæ wchodz±c na stronê:
+
+    %(confirmurl)s
+
+albo wysy³aj±c now± wiadomo¶æ na adres %(requestaddr)s, która bêdzie
+zawiera³a tylko jedn± liniê:
+
+    confirm %(cookie)s
+
+Wys³anie zwyk³ej odpowiedzi powinno zadzia³aæ w wiêkszo¶ci programów
+pocztowych, pod warunkiem, ¿e nie zmieniaj± one za bardzo pola 
+Subject: (dodanie "Re:" jest akceptowalne). 
+ 
+Je¶li nie chcia³e¶ zapisaæ siê, po prostu zignoruj t± wiadomo¶æ.
+W przypadku jakichkolwiek w±tpliwo¶ci lub pytañ proszê skontaktowaæ siê z
+administratorem listy %(listadmin)s.
+

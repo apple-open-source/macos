@@ -64,6 +64,7 @@
 			buildStyles = (
 				06AA1265FFB2107B11CA28AA,
 				06AA1266FFB2107B11CA28AA,
+				4D537F06039BEFC400CE20D6,
 			);
 			isa = PBXProject;
 			mainGroup = 089C166AFE841209C02AAC07;
@@ -79,6 +80,7 @@
 				8C29B9A4019B12E704CE206E,
 				8C7A0D96019B097604CE206E,
 				247142CAFF3F8F9811CA285C,
+				F5B0423F04210C6F01A80366,
 				089C167CFE841241C02AAC07,
 				19C28FB6FE9D52B211CA2CBB,
 			);
@@ -106,7 +108,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireAVC;
-				MODULE_VERSION = 1.2.7;
+				MODULE_VERSION = 1.5.2;
 				OTHER_CFLAGS = "-DFIREWIREPRIVATE";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -132,7 +134,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireAVC</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOFireWireAVC version 1.2.7, Copyright 2003 Apple Computer, Inc.</string>
+	<string>IOFireWireAVC version 1.5.2, Copyright 2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -144,11 +146,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.7</string>
+	<string>1.5.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.7</string>
+	<string>1.5.2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOFireWireAVC</key>
@@ -158,7 +160,7 @@
 			<key>IOCFPlugInTypes</key>
 			<dict>
 				<key>6AAF2EF7-D476-11D5-B57C-0003934B81A0</key>
-				<string>IOFireWireAVCLib.plugin</string>
+				<string>IOFireWireAVC.kext/Contents/PlugIns/IOFireWireAVCLib.plugin</string>
 			</dict>
 			<key>IOClass</key>
 			<string>IOFireWireAVCUnit</string>
@@ -173,6 +175,17 @@
 			<key>Unit_Spec_ID</key>
 			<integer>41005</integer>
 		</dict>
+		<key>IOFireWireAVCLocalNode</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOFireWireAVC</string>
+			<key>IOClass</key>
+			<string>IOFireWireAVCLocalNode</string>
+			<key>IOMatchCategory</key>
+			<string>IOFireWireAVCLocalNodeMatchCategory</string>
+			<key>IOProviderClass</key>
+			<string>IOFireWireLocalNode</string>
+		</dict>
 		<key>IOFireWireAVCOld</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
@@ -180,7 +193,7 @@
 			<key>IOCFPlugInTypes</key>
 			<dict>
 				<key>6AAF2EF7-D476-11D5-B57C-0003934B81A0</key>
-				<string>IOFireWireAVCLib.plugin</string>
+				<string>IOFireWireAVC.kext/Contents/PlugIns/IOFireWireAVCLib.plugin</string>
 			</dict>
 			<key>IOClass</key>
 			<string>IOFireWireAVCUnit</string>
@@ -210,7 +223,7 @@
 				<key>IOCFPlugInTypes</key>
 				<dict>
 					<key>B54BC8F8-D53B-11D5-A1A1-0003934B81A0</key>
-					<string>IOFireWireAVCLib.plugin</string>
+					<string>IOFireWireAVC.kext/Contents/PlugIns/IOFireWireAVCLib.plugin</string>
 				</dict>
 			</dict>
 		</dict>
@@ -247,6 +260,8 @@
 				8C29B9A8019B162504CE206E,
 				8C29B9AD019B181104CE206E,
 				8C2DA8C9019C864904CE206E,
+				F5AE806C041815BC01A80366,
+				F5E9F029044C767601CD2849,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -254,7 +269,6 @@
 		089C1675FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
-				089C1680FE841241C02AAC07,
 			);
 			isa = PBXResourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -268,6 +282,8 @@
 				8C2A8E8E0190D8BB04CE206D,
 				8C29B9AB019B17B304CE206E,
 				8C2DA8CA019C864904CE206E,
+				F5AE806B041815BB01A80366,
+				F5E9F028044C767601CD2849,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -288,32 +304,10 @@
 		};
 		089C167CFE841241C02AAC07 = {
 			children = (
-				089C167DFE841241C02AAC07,
 			);
 			isa = PBXGroup;
 			name = Resources;
 			refType = 4;
-		};
-		089C167DFE841241C02AAC07 = {
-			children = (
-				089C167EFE841241C02AAC07,
-			);
-			isa = PBXVariantGroup;
-			name = InfoPlist.strings;
-			refType = 4;
-		};
-		089C167EFE841241C02AAC07 = {
-			fileEncoding = 10;
-			isa = PBXFileReference;
-			name = English;
-			path = English.lproj/InfoPlist.strings;
-			refType = 4;
-		};
-		089C1680FE841241C02AAC07 = {
-			fileRef = 089C167DFE841241C02AAC07;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 //080
 //081
@@ -413,6 +407,10 @@
 				8C274CA1018F448104CE206D,
 				8C2DA8C7019C864904CE206E,
 				8C2DA8C8019C864904CE206E,
+				F5AE80690418130E01A80366,
+				F5AE806A0418130E01A80366,
+				F5EE79F6044C6ED201CD2849,
+				F5EE79F7044C6ED201CD2849,
 			);
 			isa = PBXGroup;
 			name = Kernel;
@@ -424,6 +422,26 @@
 //242
 //243
 //244
+//4D0
+//4D1
+//4D2
+//4D3
+//4D4
+		4D537F06039BEFC400CE20D6 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
+			};
+			isa = PBXBuildStyle;
+			name = FireLog;
+		};
+//4D0
+//4D1
+//4D2
+//4D3
+//4D4
 //8C0
 //8C1
 //8C2
@@ -462,8 +480,11 @@
 			files = (
 				8C296EA201877BB704CE206D,
 				8C296EA301877BB704CE206D,
+				F529FBD1045731AA01CD2849,
 				8C2A8E8D0190D8BB04CE206D,
+				F529FBD0045731A101CD2849,
 				8C296EA401877BB704CE206D,
+				F57B14EF046732E001CD2849,
 				8C274CA2018F448104CE206D,
 			);
 			isa = PBXCopyFilesBuildPhase;
@@ -489,8 +510,8 @@
 		};
 		8C29B9A4019B12E704CE206E = {
 			children = (
-				8C35357D0180A4C604CE206D,
 				8C29B9A7019B162504CE206E,
+				8C35357D0180A4C604CE206D,
 			);
 			isa = PBXGroup;
 			name = Common;
@@ -677,7 +698,7 @@
 			);
 			buildSettings = {
 				INSTALLHDRS_COPY_PHASE = YES;
-				INSTALL_PATH = /System/Library/Extensions;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOFireWireAVC.kext/Contents/PlugIns/";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "-bundle -undefined error";
 				OTHER_REZFLAGS = "";
@@ -702,7 +723,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireAVCLib</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOFireWireAVC version 1.2.7, Copyright 2003 Apple Computer, Inc.</string>
+	<string>IOFireWireAVC version 1.5.2, Copyright 2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -714,11 +735,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.7</string>
+	<string>1.5.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.7</string>
+	<string>1.5.2</string>
 	<key>CFPlugInFactories</key>
 	<dict>
 		<key>3F4057BC-D479-11D5-9F05-0003934B81A0</key>
@@ -810,8 +831,6 @@
 				F6F8ECA502342C4001298369,
 				F6F8ECA602342C4001298369,
 				8C2D18F7019C8DB604CE206E,
-				8C7A0D97019B09B804CE206E,
-				8C7A0D98019B09B804CE206E,
 			);
 			isa = PBXGroup;
 			name = Library;
@@ -892,6 +911,102 @@
 //8C2
 //8C3
 //8C4
+//F50
+//F51
+//F52
+//F53
+//F54
+		F529FBD0045731A101CD2849 = {
+			fileRef = F5AE806A0418130E01A80366;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F529FBD1045731AA01CD2849 = {
+			fileRef = F5EE79F7044C6ED201CD2849;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F57B14EF046732E001CD2849 = {
+			fileRef = 8C29B9A7019B162504CE206E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5AE80690418130E01A80366 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = IOFireWireAVCTargetSpace.cpp;
+			path = IOFireWireAVC/IOFireWireAVCTargetSpace.cpp;
+			refType = 4;
+		};
+		F5AE806A0418130E01A80366 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = IOFireWireAVCTargetSpace.h;
+			path = IOFireWireAVC/IOFireWireAVCTargetSpace.h;
+			refType = 4;
+		};
+		F5AE806B041815BB01A80366 = {
+			fileRef = F5AE80690418130E01A80366;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5AE806C041815BC01A80366 = {
+			fileRef = F5AE806A0418130E01A80366;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5B0423F04210C6F01A80366 = {
+			children = (
+				8C7A0D97019B09B804CE206E,
+				8C7A0D98019B09B804CE206E,
+				F5B0424304210C9A01A80366,
+			);
+			isa = PBXGroup;
+			name = FrameWorks;
+			refType = 4;
+		};
+		F5B0424304210C9A01A80366 = {
+			isa = PBXFrameworkReference;
+			name = Kernel.framework;
+			path = /System/Library/Frameworks/Kernel.framework;
+			refType = 0;
+		};
+		F5E9F028044C767601CD2849 = {
+			fileRef = F5EE79F6044C6ED201CD2849;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5E9F029044C767601CD2849 = {
+			fileRef = F5EE79F7044C6ED201CD2849;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5EE79F6044C6ED201CD2849 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = IOFireWireAVCLocalNode.cpp;
+			path = IOFireWireAVC/IOFireWireAVCLocalNode.cpp;
+			refType = 4;
+		};
+		F5EE79F7044C6ED201CD2849 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = IOFireWireAVCLocalNode.h;
+			path = IOFireWireAVC/IOFireWireAVCLocalNode.h;
+			refType = 4;
+		};
+//F50
+//F51
+//F52
+//F53
+//F54
 //F60
 //F61
 //F62

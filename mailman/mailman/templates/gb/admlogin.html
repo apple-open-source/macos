@@ -1,0 +1,31 @@
+<html>
+<head>
+  <title>%(listname)s 列表 管理员验证</title>
+</head>
+<body bgcolor="#ffffff">
+<FORM METHOD=POST ACTION="%(path)s">
+%(message)s
+  <TABLE WIDTH="100%%" BORDER="0" CELLSPACING="4" CELLPADDING="5">
+    <TR>
+      <TD COLSPAN="2" WIDTH="100%%" BGCOLOR="#99CCFF" ALIGN="CENTER">
+	<B><FONT COLOR="#000000" SIZE="+1">%(listname)s 列表 管理员验证</FONT></B>
+      </TD>
+    </TR>
+    <tr>
+      <TD> <div ALIGN="Right"> 管理员密码: </div> </TD>
+      <TD> <INPUT TYPE=password NAME=adminpw SIZE=30></TD>
+    </tr>
+    <tr>
+      <td colspan=2 align=middle> <INPUT TYPE=SUBMIT name="request_login"
+						     value="我填好了...">
+      </td>
+    </tr>
+  </TABLE>
+      <p><strong><em>重点:</em></strong> 从现在开始， 您必须
+      将浏览器的 cookie 功能打开，否则您所作的改动将不会发生效用。
+
+      <p>Mailman 的管理介面使用了 Session cookies ， 因此您不需要在每次
+      改动资料时重新验证密码。此cookie 在您关闭浏览器时自动失效，
+      或者您按下在 <em>Other Administrative Activities</em> 网页中     
+      <em>Logout</em> 的链接 (一旦您成功的登录之后，您就可以看到)。
+</FORM>

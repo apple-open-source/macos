@@ -1,7 +1,7 @@
 /* extended.c - ldbm backend extended routines */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/extended.c,v 1.11 2002/01/28 19:25:32 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/extended.c,v 1.11.2.2 2003/03/03 17:10:10 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -51,6 +51,6 @@ ldbm_back_extended(
 	}
 
 	*text = "not supported within naming context";
-	return LDAP_OPERATIONS_ERROR;
+	return LDAP_UNWILLING_TO_PERFORM;
 }
 

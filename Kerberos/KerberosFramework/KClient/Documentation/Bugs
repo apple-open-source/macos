@@ -1,0 +1,90 @@
+==============================================================================
+KClient bug list
+==============================================================================
+Version:    3.3fc1
+Date:       July 16, 2003
+Author:     meeroh@mit.edu, lxs@mit.edu
+==============================================================================
+
+[RT 1468]   KClient should have error strings for remapped v4 errors    3.3a2
+[BZ 547]	K5Client still crashes with no tickets						3.1a2
+[BZ 463]	Addresses lost in NewSessionCompat							3.1d6
+[BZ 464]	Addresses mangled on Mac OS X								3.1d6
+[BZ 426]	Unhandled error when launching MZ							3.1d3
+[BZ 427] 	Crash in ~UCCache when running MZ							3.1d3
+[BZ 412]	K5Client crashes with no tickets in the cache				3.1d1
+[BZ 395]	KClientEncrypt et al require a source address				
+[BZ   1] 	Documentation incomplete									3.0
+[BZ 365]	Moved strings into code section								3.0fc3
+[BZ 377]	Assertions under low-mem conditions							3.0fc3
+[BZ 378]	Mutual auth broken for KClient 1.5 clients					3.0fc3
+[BZ 379]	Error codes for v4 errors wrong								3.0fc3
+[BZ 364]	GetLocalRealm does not convert v5 realm to v4				3.0fc2
+[BZ 352]	Assertion when Decrypt/Encrypt called and tickets destroyed	3.0fc1
+[BZ 351]	Assertion when ASIP UAM called with login dialog up			3.0fc1
+[BZ 170]	Session not reset after compat calls 						3.0fc1
+[BZ 335]	Crash in AcquireTicketsWithPassword							3.0b2
+[BZ 336]	SetPassword uses wrong password								3.0b2
+[BZ 337]	SetUsername uses wrong username								3.0b2
+[BZ 338]	PasswordLogin fails with CCache error						3.0b2
+[BZ 339]	Preferences errors come as unknown errors					3.0b2
+[BZ 322]	Do not try to find ccache when setting principal			3.0b1
+[BZ 321]	Use PreferencesLib for K5Client support						3.0b1
+[BZ 320]	Need workaround for Eudora poassing "justjunk" in 
+			protocol name												3.0b1
+[BZ 187]	K5ClientGetTicketForService leaks memory 					3.0b1
+[BZ 269]	KClientSeUserName not implemented							3.0a2
+[BZ 289]	Default ticket lifetime for key login not from login lib	3.0a2
+[BZ 291]	KServeRVerifyReplyTicket unimplemented						3.0a2
+[BZ 292]	KClientSetKeyFile not honored by KClientVerifyAuthenticator	3.0a2
+[BZ 185]	GetExpirationTime unimplemented for server sessions 		3.0a1
+[BZ 226]	Uncaught exceptions when Prefs file is removed while
+			MacZephyr is running										3.0a1
+[BZ 239]	KClientNewServerSession generates bogus sessions 			3.0a1
+[BZ 240]	Support KClientCacheInitialTicket for TGTs 					3.0a1
+[BZ 241]	KClientKerberosInterface::VerifyAuthenticator crashes 		3.0a1
+[BZ 242]	KClientKerberosInterface::GetServiceKey crashes 			3.0a1
+[BZ 243]	Bad opaque pointer handling in KClientNewSessionCompat 		3.0a1
+[BZ 244]	Bad opaque pointer handling in KServerNewSessionCompat 		3.0a1
+[BZ 245]	Bad default key file handling in KServerVerifyTicketCompat 	3.0a1
+[BZ 246]	Bad default key file handling in KServerAddKeyCompat 		3.0a1
+[BZ 247]	Bad default key file handling in KServerGetKeyCompat 		3.0a1
+[BZ 248]	Get default realm from config file for GetUserNameCompat 	3.0a1
+[BZ 249]	KClientNewServerSession creates client sessions 			3.0a1
+[BZ 250]	KClientNewServerSession destroys input principal 			3.0a1
+[BZ 251]	KClientVerifyAuthenticator does not remember
+			the client principal										3.0a1
+[BZ 238]	Add KClientKeyFileLogin to get service tickets from srvtab 	3.0a1
+[BZ 185]	GetExpirationTime unimplemented for server sessions 		3.0a1
+[BZ 186]	KClientGetServiceKey does not return key version 			3.0d7
+[BZ 188]	cKrbCacheInitialTicket unimplemented 						3.0d7
+[BZ 189]	cKrbServerVerifyTicket unimplemented 						3.0d7
+[BZ 190]	cKrbGetServiceKey unimplemented 							3.0d7
+[BZ 191]	cKrbAddServiceKey unimplemented 							3.0d7
+[BZ 192]	cKrbSetPassword unimplemented (KClientPasswordLogin does not work)
+																		3.0d7
+[BZ 193]	cKrbSetKey unimplemented (KClientKeyLogin does not work) 	3.0d7
+[BZ   3]	Unhandled errors from Login Lib cause unhandle exceptions 	3.0d6
+[BZ  85]	KClientGetTicketForService leaks a KClientPrincipal 		3.0d5
+[BZ  86]	KClientGetTicketForServiceWithChecksumCompat leaks a		3.0d5
+			KClientPrincipal
+[BZ  87]	KServerNewSessionCompat leaks a KClientPrincipal 			3.0d5
+[BZ  88]	KServerAddKeyCompat leaks a KClientPrincipal 				3.0d5
+[BZ  89]	KClientGetKeyCompat leaks a KClientPrincipal 				3.0d5
+[BZ  90]	KClientMakeSendAuthCompat leaks a KClientPrincipal			3.0d5
+[BZ  61]	Fixed handling of the ccache being deleted under us			3.0d4
+[BZ  62]	Added workaround for Eudora 4.1.x passing in checksum to 
+			GetTicketsForService selector								3.0d4
+[BZ  48]	Fixed LoginCompat to ignore v5 creds						3.0d4
+[BZ  52]	
+[BZ  53]	
+[BZ  54]	Enabled traceback tables									3.0d4
+[BZ  60]	Fixed KLPrincipal leak in LoginIntf::AcquireTickets			3.0d4
+[BZ  12]	Crashes on MZ startup										3.0d3
+[     5]	Crashes when quitting apps									3.0d2
+[     4]	Punts the current app when it encounters v5-only ccache		3.0d2
+[     3]	Expired service tickets not destroyed when renewing			3.0d3
+			Fixed in ccache
+[     2]	Logout throws exceptions
+[     1]	Crashes when tickets expire and are renewed; crashes when IP addr
+			changed. Both possibly ccache?								3.0d2

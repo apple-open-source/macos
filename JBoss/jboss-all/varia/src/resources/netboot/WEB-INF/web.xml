@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<!DOCTYPE web-app PUBLIC
+   "-//Sun Microsystems, Inc.//DTD Web Application 2.3//EN"
+   "http://java.sun.com/dtd/web-app_2_3.dtd">
+
+<web-app>
+  <description>JBoss NetBoot host application</description>
+
+  <!-- DAV configuration for Tomcat 4.1.X
+  <servlet>
+    <servlet-name>webdav</servlet-name>
+    <servlet-class>org.apache.catalina.servlets.WebdavServlet</servlet-class>
+    <init-param>
+      <param-name>debug</param-name>
+      <param-value>0</param-value>
+    </init-param>
+    <init-param>
+      <param-name>listings</param-name>
+      <param-value>true</param-value>
+    </init-param>
+    <init-param>
+     <param-name>readonly</param-name>
+     <param-value>true</param-value>
+    </init-param>
+  </servlet>
+
+  <servlet-mapping>
+    <servlet-name>webdav</servlet-name>
+    <url-pattern>/</url-pattern>
+  </servlet-mapping>
+  -->
+
+  <!--
+     | Filter that provides just enough DAV support for the netboot client
+     | This can (should) be commented out if the hosting web container has
+     | native DAV support.
+  -->
+  <filter>
+    <filter-name>DavFilter</filter-name>
+    <filter-class>org.jboss.netboot.TrivialDavFilter</filter-class>
+  </filter>
+  <filter-mapping>
+    <filter-name>DavFilter</filter-name>
+    <url-pattern>/*</url-pattern>
+  </filter-mapping>
+
+</web-app>

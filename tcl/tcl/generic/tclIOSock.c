@@ -8,7 +8,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclIOSock.c,v 1.1.1.4 2000/12/06 23:03:27 wsanchez Exp $
+ * RCS: @(#) $Id: tclIOSock.c,v 1.1.1.5 2003/03/06 00:10:39 landonf Exp $
  */
 
 #include "tclInt.h"
@@ -43,7 +43,7 @@ TclSockGetPort(interp, string, proto, portPtr)
 {
     struct servent *sp;		/* Protocol info for named services */
     Tcl_DString ds;
-    char *native;
+    CONST char *native;
 
     if (Tcl_GetInt(NULL, string, portPtr) != TCL_OK) {
 	/*
@@ -91,10 +91,7 @@ TclSockMinimumBuffers(sock, size)
     int size;			/* Minimum buffer size */
 {
     int current;
-    /*
-     * Should be socklen_t, but HP10.20 (g)cc chokes
-     */
-    size_t len;
+    socklen_t len;
 
     len = sizeof(int);
     getsockopt(sock, SOL_SOCKET, SO_SNDBUF, (char *)&current, &len);

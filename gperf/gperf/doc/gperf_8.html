@@ -1,0 +1,54 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from gperf.texi on 26 September 2000 -->
+
+<TITLE>Perfect Hash Function Generator - 6  Things Still Left to Do</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gperf_1.html">first</A>, <A HREF="gperf_7.html">previous</A>, <A HREF="gperf_9.html">next</A>, <A HREF="gperf_11.html">last</A> section, <A HREF="gperf_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H1><A NAME="SEC21" HREF="gperf_toc.html#TOC21">6  Things Still Left to Do</A></H1>
+
+<P>
+It should be "relatively" easy to replace the current perfect hash
+function algorithm with a more exhaustive approach; the perfect hash
+module is essential independent from other program modules.  Additional
+worthwhile improvements include:
+
+</P>
+
+<UL>
+<LI>
+
+Make the algorithm more robust.  At present, the program halts with an
+error diagnostic if it can't find a direct solution and the <SAMP>`-D'</SAMP>
+option is not enabled.  A more comprehensive, albeit computationally
+expensive, approach would employ backtracking or enable alternative
+options and retry.  It's not clear how helpful this would be, in
+general, since most search sets are rather small in practice.
+
+<LI>
+
+Another useful extension involves modifying the program to generate
+"minimal" perfect hash functions (under certain circumstances, the
+current version can be rather extravagant in the generated table size).
+Again, this is mostly of theoretical interest, since a sparse table
+often produces faster lookups, and use of the <SAMP>`-S'</SAMP> <CODE>switch</CODE>
+option can minimize the data size, at the expense of slightly longer
+lookups (note that the gcc compiler generally produces good code for
+<CODE>switch</CODE> statements, reducing the need for more complex schemes).
+
+<LI>
+
+In addition to improving the algorithm, it would also be useful to
+generate a C++ class or Ada package as the code output, in addition to
+the current C routines.
+</UL>
+
+<P><HR><P>
+Go to the <A HREF="gperf_1.html">first</A>, <A HREF="gperf_7.html">previous</A>, <A HREF="gperf_9.html">next</A>, <A HREF="gperf_11.html">last</A> section, <A HREF="gperf_toc.html">table of contents</A>.
+</BODY>
+</HTML>

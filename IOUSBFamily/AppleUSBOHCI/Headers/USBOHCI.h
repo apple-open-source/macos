@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +21,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 
 #ifndef _USBOHCI_H_
 #define _USBOHCI_H_
@@ -551,4 +551,3 @@ struct OHCIIsochTransferDescriptorShared
 #define kOHCIPageOffsetMask	( kOHCIPageSize - 1 )		// mask off just the offset bits (low 12)
 #define kOHCIPageMask 		(~(kOHCIPageOffsetMask))	// mask off just the page number (high 20)
 
-#endif

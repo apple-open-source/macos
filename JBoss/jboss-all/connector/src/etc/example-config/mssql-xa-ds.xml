@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- ===================================================================== -->
+<!--                                                                       -->
+<!--  JBoss Server Configuration                                           -->
+<!--                                                                       -->
+<!-- ===================================================================== -->
+
+<!-- $Id: mssql-xa-ds.xml,v 1.1.2.1 2003/04/01 05:30:25 d_jencks Exp $ -->
+  <!-- ==================================================================== -->
+  <!-- ConnectionManager setup for xa Microsoft SQL Server 2000, using      -->
+  <!-- Microsoft's JDBC driver.                                             -->
+  <!-- Thanks to Benjamin Geer  <benjamin.geer@misys.com>                   -->
+  <!-- Be sure to set the JndiName property to the name you want to look up -->
+  <!-- the datasource under and set the location of your database in        -->
+  <!-- the xa-datasource-property section.                                  -->
+  <!-- ==================================================================== -->
+
+
+<datasources>
+  <xa-datasource>
+    <jndi-name>MSSQLXADS</jndi-name>
+    <xa-datasource-class>com.microsoft.jdbcx.sqlserver.SQLServerDataSource</xa-datasource-class>
+    <xa-datasource-property name="ServerName">myserver</xa-datasource-property>
+    <xa-datasource-property name="DatabaseName">mydatabase</xa-datasource-property>
+    <xa-datasource-property name="SelectMethod">cursor</xa-datasource-property>
+<!-- not sure if these should be here-->
+    <user-name>x</user-name>
+    <password>y</password>
+  </xa-datasource>
+
+</datasources>

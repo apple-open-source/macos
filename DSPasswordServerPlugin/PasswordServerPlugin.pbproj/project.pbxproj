@@ -3,19 +3,27 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 38;
+	objectVersion = 39;
 	objects = {
 		014CEA3E0018CDD111CA2923 = {
+			expectedFileType = folder;
+			fallbackIsa = PBXFileReference;
 			isa = PBXBundleReference;
 			path = PasswordServer.dsplug;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		014CEA3F0018CDD111CA2923 = {
 			buildRules = (
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
 				OPTIMIZATION_CFLAGS = "-O0";
+				ZERO_LINK = YES;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
@@ -25,6 +33,10 @@
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				DEPLOYMENT_LOCATION = YES;
+				DEPLOYMENT_POSTPROCESSING = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
@@ -40,15 +52,20 @@
 //083
 //084
 		089C1669FE841209C02AAC07 = {
+			buildSettings = {
+			};
 			buildStyles = (
 				014CEA3F0018CDD111CA2923,
 				014CEA400018CDD111CA2923,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 089C166AFE841209C02AAC07;
 			projectDirPath = "";
 			targets = (
+				84D007C004A0E2A90071FD08,
 				089C1673FE841209C02AAC07,
+				84BB54F604B109BF0073079A,
 			);
 		};
 		089C166AFE841209C02AAC07 = {
@@ -61,11 +78,11 @@
 			isa = PBXGroup;
 			name = PasswordServerPlugin;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C1671FE841209C02AAC07 = {
 			children = (
 				F56C1E240294335201DD284B,
-				F56C1E260294336701DD284B,
 				0AA1909FFE8422F4C02AAC07,
 				F56C17D1029432F801DD284B,
 				F56C19ED0294331B01DD284B,
@@ -75,10 +92,12 @@
 				F56C1E2D029433D801DD284B,
 				F56C1E2F0294343A01DD284B,
 				F56C1E41029436AB01DD284B,
+				849837DA04B2284200EEF145,
 			);
 			isa = PBXGroup;
 			name = "External Frameworks and Libraries";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C1673FE841209C02AAC07 = {
 			buildPhases = (
@@ -89,13 +108,13 @@
 				089C1679FE841209C02AAC07,
 			);
 			buildSettings = {
-				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\" \"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources\"";
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\" \"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources\" \"${DSTROOT}\"";
 				HEADER_SEARCH_PATHS = "\"$(APPLE_INTERNAL_DEVELOPER_DIR)/Headers/sasl\" \"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Headers\" \"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DirectoryServiceCore.framework/Versions/A/Headers\"";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources/Plugins";
 				LIBRARY_SEARCH_PATHS = "\"$(APPLE_INTERNAL_DIR)/Developer/libs\"";
 				OPTIMIZATION_CFLAGS = "-Os";
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "-bundle -twolevel_namespace";
+				OTHER_CFLAGS = "-DCOMPILE_WITH_RSA_LOAD=1";
+				OTHER_LDFLAGS = "-bundle -twolevel_namespace -lcrypto";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PasswordServer;
 				SECTORDER_FLAGS = "";
@@ -134,11 +153,11 @@
 	<key>CFBundlePackageType</key>
 	<string>dspi</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3</string>
+	<string>2.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3</string>
+	<string>1.0</string>
 	<key>CFPlugInDynamicRegisterFunction</key>
 	<string></string>
 	<key>CFPlugInDynamicRegistration</key>
@@ -159,31 +178,16 @@
 	<string></string>
 	<key>CFPluginNameString</key>
 	<string>PasswordServer</string>
+	<key>DSOKToLoadLazily</key>
+	<string>YES</string>
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 				F56C1799029431B901DD284B,
-				F5E060C9029593D701DD284B,
-				F5E060CB029593D701DD284B,
-				F5E060CD029593D701DD284B,
-				F5E060CF029593D701DD284B,
-				F5E060D0029593D701DD284B,
-				F5E060D2029593D701DD284B,
-				F5E060D4029593D701DD284B,
-				F5E060D5029593D701DD284B,
-				F5E060D6029593D701DD284B,
-				F5E060D7029593D701DD284B,
-				F5E060D9029593D701DD284B,
-				F5E060DA029593D701DD284B,
-				F5E060DC029593D701DD284B,
-				F5E060DD029593D701DD284B,
-				F5E060DF029593D701DD284B,
-				F5E060E1029593D701DD284B,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -191,7 +195,6 @@
 		089C1675FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
-				089C1680FE841241C02AAC07,
 			);
 			isa = PBXResourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -200,17 +203,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				F56C1798029431B901DD284B,
-				F5E060C7029593D701DD284B,
-				F5E060C8029593D701DD284B,
-				F5E060CA029593D701DD284B,
-				F5E060CC029593D701DD284B,
-				F5E060CE029593D701DD284B,
-				F5E060D1029593D701DD284B,
-				F5E060D3029593D701DD284B,
-				F5E060D8029593D701DD284B,
-				F5E060DB029593D701DD284B,
-				F5E060DE029593D701DD284B,
-				F5E060E0029593D701DD284B,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -225,10 +217,10 @@
 				F56C1E1B0294331C01DD284B,
 				F56C1E230294333301DD284B,
 				F56C1E250294335201DD284B,
-				F56C1E270294336701DD284B,
 				F56C1E2E029433D801DD284B,
 				F56C1E380294343A01DD284B,
 				F56C1E5F029436AB01DD284B,
+				849837DB04B2284200EEF145,
 			);
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -242,42 +234,21 @@
 		};
 		089C167CFE841241C02AAC07 = {
 			children = (
-				089C167DFE841241C02AAC07,
 			);
 			isa = PBXGroup;
 			name = Resources;
 			refType = 4;
-		};
-		089C167DFE841241C02AAC07 = {
-			children = (
-				089C167EFE841241C02AAC07,
-			);
-			isa = PBXVariantGroup;
-			name = InfoPlist.strings;
-			refType = 4;
-		};
-		089C167EFE841241C02AAC07 = {
-			fileEncoding = 10;
-			isa = PBXFileReference;
-			name = English;
-			path = English.lproj/InfoPlist.strings;
-			refType = 4;
-		};
-		089C1680FE841241C02AAC07 = {
-			fileRef = 089C167DFE841241C02AAC07;
-			isa = PBXBuildFile;
-			settings = {
-			};
+			sourceTree = "<group>";
 		};
 		08FB77AFFE84173DC02AAC07 = {
 			children = (
-				F56C179A029431BE01DD284B,
-				F56C1796029431B901DD284B,
-				F56C1797029431B901DD284B,
+				84A3782E04CC515300FAC35E,
+				84A3782D04CC514300FAC35E,
 			);
 			isa = PBXGroup;
 			name = Source;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 //080
 //081
@@ -290,10 +261,13 @@
 //0A3
 //0A4
 		0AA1909FFE8422F4C02AAC07 = {
+			expectedFileType = wrapper.framework;
+			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
 			name = CoreFoundation.framework;
 			path = /System/Library/Frameworks/CoreFoundation.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		0AA190A0FE8422F4C02AAC07 = {
 			fileRef = 0AA1909FFE8422F4C02AAC07;
@@ -314,32 +288,741 @@
 		19C28FB6FE9D52B211CA2CBB = {
 			children = (
 				014CEA3E0018CDD111CA2923,
+				84BB54F704B109BF0073079A,
 			);
 			isa = PBXGroup;
 			name = Products;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 //190
 //191
 //192
 //193
 //194
+//840
+//841
+//842
+//843
+//844
+		842E228903DFC6B800DD284B = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AuthFile.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		842E802004B4CCF100EE46D9 = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = CPSPluginDefines.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		842E802204B4CCF100EE46D9 = {
+			fileRef = 842E802004B4CCF100EE46D9;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		842E802504B4E53100EE46D9 = {
+			fileRef = 84F0E0A503E6A96C00DD284B;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		842E802604B4E53100EE46D9 = {
+			fileRef = 84F0E0A603E6A96C00DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		8448FC9C040187B200DD284C = {
+			expectedFileType = sourcecode.cpp.cpp;
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = CAuthFileBase.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8448FC9D040187B200DD284C = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = CAuthFileBase.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8448FC9E040187B200DD284C = {
+			expectedFileType = sourcecode.cpp.cpp;
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = CAuthFileUtils.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8448FC9F040187B200DD284C = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = CAuthFileUtils.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8448FCA40401954E00DD284C = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = DES.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8448FCA50401954E00DD284C = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = DES.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8448FCAA0401988000DD284C = {
+			expectedFileType = sourcecode.cpp.cpp;
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AuthFile.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		844EFA0803DEC6CE00DD284B = {
+			expectedFileType = sourcecode.cpp.cpp;
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = CReplicaFile.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		844EFA0903DEC6CE00DD284B = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = CReplicaFile.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		849837DA04B2284200EEF145 = {
+			expectedFileType = wrapper.framework;
+			fallbackIsa = PBXFileReference;
+			isa = PBXFrameworkReference;
+			name = PasswordServer.framework;
+			path = /System/Library/PrivateFrameworks/PasswordServer.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		849837DB04B2284200EEF145 = {
+			fileRef = 849837DA04B2284200EEF145;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84A3782D04CC514300FAC35E = {
+			children = (
+				F56C1796029431B901DD284B,
+				F56C1797029431B901DD284B,
+			);
+			isa = PBXGroup;
+			name = "Plug-in";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84A3782E04CC515300FAC35E = {
+			children = (
+				F56C179A029431BE01DD284B,
+				8448FCAA0401988000DD284C,
+				842E228903DFC6B800DD284B,
+				8448FC9C040187B200DD284C,
+				8448FC9D040187B200DD284C,
+				8448FC9E040187B200DD284C,
+				8448FC9F040187B200DD284C,
+				842E802004B4CCF100EE46D9,
+				84F0E0A603E6A96C00DD284B,
+				84F0E0A503E6A96C00DD284B,
+				844EFA0803DEC6CE00DD284B,
+				844EFA0903DEC6CE00DD284B,
+				8448FCA40401954E00DD284C,
+				8448FCA50401954E00DD284C,
+				F54CAA5303562D7B01DD284B,
+				F54CAA5403562D7B01DD284B,
+			);
+			isa = PBXGroup;
+			name = Framework;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84BB54F104B109BF0073079A = {
+			buildActionMask = 2147483647;
+			files = (
+				84BB54F804B109D50073079A,
+				84BB54FA04B109D60073079A,
+				84BB54FC04B109D70073079A,
+				84BB54FE04B109D90073079A,
+				84BB550204B109DB0073079A,
+				84BB550404B109DC0073079A,
+				84BB550604B109DD0073079A,
+				84BB550904B109E80073079A,
+				84BB550B04B109E90073079A,
+				84BB550D04B109EA0073079A,
+				84BB550F04B109EB0073079A,
+				84BB551004B109EC0073079A,
+				84BB551204B109ED0073079A,
+				84BB551404B109EE0073079A,
+				84BB551504B109EF0073079A,
+				84BB551604B109F00073079A,
+				84BB551704B109F00073079A,
+				84BB551904B109F10073079A,
+				84BB551A04B109F20073079A,
+				84BB551C04B109F30073079A,
+				84BB551D04B109F30073079A,
+				84BB551F04B109F50073079A,
+				84BB552104B109F60073079A,
+				842E802204B4CCF100EE46D9,
+				842E802504B4E53100EE46D9,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84BB54F204B109BF0073079A = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84BB54F304B109BF0073079A = {
+			buildActionMask = 2147483647;
+			files = (
+				84BB54F904B109D60073079A,
+				84BB54FB04B109D70073079A,
+				84BB54FD04B109D80073079A,
+				84BB550104B109DA0073079A,
+				84BB550304B109DB0073079A,
+				84BB550504B109DD0073079A,
+				84BB550704B109E70073079A,
+				84BB550804B109E70073079A,
+				84BB550A04B109E80073079A,
+				84BB550C04B109EA0073079A,
+				84BB550E04B109EB0073079A,
+				84BB551104B109ED0073079A,
+				84BB551304B109EE0073079A,
+				84BB551804B109F10073079A,
+				84BB551B04B109F20073079A,
+				84BB551E04B109F40073079A,
+				84BB552004B109F50073079A,
+				842E802604B4E53100EE46D9,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84BB54F404B109BF0073079A = {
+			buildActionMask = 2147483647;
+			files = (
+				84BB552304B10AF50073079A,
+				84BB552604B10B110073079A,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84BB54F504B109BF0073079A = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		84BB54F604B109BF0073079A = {
+			buildPhases = (
+				84BB54F104B109BF0073079A,
+				84BB54F204B109BF0073079A,
+				84BB54F304B109BF0073079A,
+				84BB54F404B109BF0073079A,
+				84BB54F504B109BF0073079A,
+			);
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\" \"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Resources\"";
+				FRAMEWORK_VERSION = A;
+				HEADER_SEARCH_PATHS = "\"$(APPLE_INTERNAL_DEVELOPER_DIR)/Headers/sasl\" \"$(SYSTEM_LIBRARY_DIR)/Frameworks/DirectoryService.framework/Versions/A/Headers\" \"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DirectoryServiceCore.framework/Versions/A/Headers\"";
+				INSTALL_PATH = /System/Library/PrivateFrameworks;
+				LIBRARY_SEARCH_PATHS = "\"$(APPLE_INTERNAL_DIR)/Developer/libs\"";
+				OPTIMIZATION_CFLAGS = "-Os";
+				OTHER_CFLAGS = "-DCOMPILE_WITH_RSA_LOAD=1";
+				OTHER_LDFLAGS = "-lcrypto";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRINCIPAL_CLASS = "";
+				PRODUCT_NAME = PasswordServer;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = framework;
+			};
+			dependencies = (
+			);
+			isa = PBXFrameworkTarget;
+			name = PasswordServerFramework;
+			productInstallPath = /System/Library/PrivateFrameworks;
+			productName = PasswordServerFramework;
+			productReference = 84BB54F704B109BF0073079A;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>PasswordServer</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.DirectoryService.PasswordServerFramework</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>DirectoryServicePasswordServerFramework</string>
+	<key>CFBundlePackageType</key>
+	<string>FMWK</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>0.0.1d1</string>
+</dict>
+</plist>
+";
+		};
+		84BB54F704B109BF0073079A = {
+			expectedFileType = wrapper.framework;
+			fallbackIsa = PBXFileReference;
+			isa = PBXFrameworkReference;
+			path = PasswordServer.framework;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		84BB54F804B109D50073079A = {
+			fileRef = F56C1797029431B901DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84BB54F904B109D60073079A = {
+			fileRef = F54CAA5303562D7B01DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84BB54FA04B109D60073079A = {
+			fileRef = F54CAA5403562D7B01DD284B;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		84BB54FB04B109D70073079A = {
+			fileRef = 844EFA0803DEC6CE00DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84BB54FC04B109D70073079A = {
+			fileRef = 844EFA0903DEC6CE00DD284B;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		84BB54FD04B109D80073079A = {
+			fileRef = 8448FCAA0401988000DD284C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84BB54FE04B109D90073079A = {
+			fileRef = 842E228903DFC6B800DD284B;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		84BB550104B109DA0073079A = {
+			fileRef = 8448FC9C040187B200DD284C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84BB550204B109DB0073079A = {
+			fileRef = 8448FC9D040187B200DD284C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		84BB550304B109DB0073079A = {
+			fileRef = 8448FC9E040187B200DD284C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84BB550404B109DC0073079A = {
+			fileRef = 8448FC9F040187B200DD284C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		84BB550504B109DD0073079A = {
+			fileRef = 8448FCA40401954E00DD284C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84BB550604B109DD0073079A = {
+			fileRef = 8448FCA50401954E00DD284C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		84BB550704B109E70073079A = {
+			fileRef = F5E060AC029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84BB550804B109E70073079A = {
+			fileRef = F5E060AD029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84BB550904B109E80073079A = {
+			fileRef = F5E060AE029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		84BB550A04B109E80073079A = {
+			fileRef = F5E060AF029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84BB550B04B109E90073079A = {
+			fileRef = F5E060B0029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		84BB550C04B109EA0073079A = {
+			fileRef = F5E060B1029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84BB550D04B109EA0073079A = {
+			fileRef = F5E060B2029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		84BB550E04B109EB0073079A = {
+			fileRef = F5E060B3029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84BB550F04B109EB0073079A = {
+			fileRef = F5E060B4029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		84BB551004B109EC0073079A = {
+			fileRef = F5E060B5029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		84BB551104B109ED0073079A = {
+			fileRef = F5E060B6029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84BB551204B109ED0073079A = {
+			fileRef = F5E060B7029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		84BB551304B109EE0073079A = {
+			fileRef = F5E060B8029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84BB551404B109EE0073079A = {
+			fileRef = F5E060B9029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		84BB551504B109EF0073079A = {
+			fileRef = F5E060BA029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		84BB551604B109F00073079A = {
+			fileRef = F5E060BB029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		84BB551704B109F00073079A = {
+			fileRef = F5E060BC029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		84BB551804B109F10073079A = {
+			fileRef = F5E060BD029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84BB551904B109F10073079A = {
+			fileRef = F5E060BE029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		84BB551A04B109F20073079A = {
+			fileRef = F5E060BF029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		84BB551B04B109F20073079A = {
+			fileRef = F5E060C0029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84BB551C04B109F30073079A = {
+			fileRef = F5E060C1029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		84BB551D04B109F30073079A = {
+			fileRef = F5E060C2029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		84BB551E04B109F40073079A = {
+			fileRef = F5E060C3029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84BB551F04B109F50073079A = {
+			fileRef = F5E060C4029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		84BB552004B109F50073079A = {
+			fileRef = F5E060C5029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84BB552104B109F60073079A = {
+			fileRef = F5E060C6029593D701DD284B;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		84BB552304B10AF50073079A = {
+			fileRef = 0AA1909FFE8422F4C02AAC07;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84BB552604B10B110073079A = {
+			fileRef = F56C1E240294335201DD284B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		84D007C004A0E2A90071FD08 = {
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = ALL;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				84D007C104A0E2AE0071FD08,
+			);
+			isa = PBXAggregateTarget;
+			name = ALL;
+			productName = ALL;
+		};
+		84D007C104A0E2AE0071FD08 = {
+			isa = PBXTargetDependency;
+			target = 089C1673FE841209C02AAC07;
+			targetProxy = 84F64BAF04CDBA9A009610BC;
+		};
+		84F0E0A503E6A96C00DD284B = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = CPSUtilities.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84F0E0A603E6A96C00DD284B = {
+			expectedFileType = sourcecode.cpp.cpp;
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = CPSUtilities.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		84F64BAF04CDBA9A009610BC = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 089C1673FE841209C02AAC07;
+			remoteInfo = PasswordServerPlugin;
+		};
+//840
+//841
+//842
+//843
+//844
 //F50
 //F51
 //F52
 //F53
 //F54
+		F54CAA5303562D7B01DD284B = {
+			expectedFileType = sourcecode.cpp.cpp;
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = SASLCode.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		F54CAA5403562D7B01DD284B = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = SASLCode.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
 		F56C1796029431B901DD284B = {
+			expectedFileType = sourcecode.cpp.cpp;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = CPSPlugIn.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F56C1797029431B901DD284B = {
+			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = CPSPlugIn.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F56C1798029431B901DD284B = {
 			fileRef = F56C1796029431B901DD284B;
@@ -385,13 +1068,18 @@
 			);
 			isa = PBXGroup;
 			name = OpenSSH;
+			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F56C17D1029432F801DD284B = {
+			expectedFileType = wrapper.framework;
+			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
 			name = IOKit.framework;
 			path = /System/Library/Frameworks/IOKit.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		F56C19EC029432F901DD284B = {
 			fileRef = F56C17D1029432F801DD284B;
@@ -400,22 +1088,31 @@
 			};
 		};
 		F56C19ED0294331B01DD284B = {
+			expectedFileType = wrapper.framework;
+			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
 			name = Security.framework;
 			path = /System/Library/Frameworks/Security.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		F56C19EE0294331B01DD284B = {
+			expectedFileType = wrapper.framework;
+			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
 			name = System.framework;
 			path = /System/Library/Frameworks/System.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		F56C19EF0294331B01DD284B = {
+			expectedFileType = wrapper.framework;
+			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
 			name = SystemConfiguration.framework;
 			path = /System/Library/Frameworks/SystemConfiguration.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		F56C1E190294331C01DD284B = {
 			fileRef = F56C19ED0294331B01DD284B;
@@ -436,10 +1133,13 @@
 			};
 		};
 		F56C1E1C0294333301DD284B = {
+			expectedFileType = wrapper.framework;
+			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
 			name = TimClient.framework;
 			path = /System/Library/PrivateFrameworks/TimClient.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		F56C1E230294333301DD284B = {
 			fileRef = F56C1E1C0294333301DD284B;
@@ -448,10 +1148,13 @@
 			};
 		};
 		F56C1E240294335201DD284B = {
+			expectedFileType = "compiled.mach-o.dylib";
+			fallbackIsa = PBXFileReference;
 			isa = PBXExecutableFileReference;
 			name = libsasl2.2.0.1.dylib;
 			path = /usr/lib/libsasl2.2.0.1.dylib;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		F56C1E250294335201DD284B = {
 			fileRef = F56C1E240294335201DD284B;
@@ -459,23 +1162,13 @@
 			settings = {
 			};
 		};
-		F56C1E260294336701DD284B = {
-			isa = PBXExecutableFileReference;
-			name = libcrypto.dylib;
-			path = /usr/lib/libcrypto.0.9.dylib;
-			refType = 0;
-		};
-		F56C1E270294336701DD284B = {
-			fileRef = F56C1E260294336701DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		F56C1E2D029433D801DD284B = {
+			expectedFileType = archive.ar;
 			isa = PBXFileReference;
 			name = libDSPlugInCommon.a;
 			path = /AppleInternal/Developer/libs/libDSPlugInCommon.a;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		F56C1E2E029433D801DD284B = {
 			fileRef = F56C1E2D029433D801DD284B;
@@ -484,10 +1177,13 @@
 			};
 		};
 		F56C1E2F0294343A01DD284B = {
+			expectedFileType = wrapper.framework;
+			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
 			name = DirectoryService.framework;
 			path = /System/Library/Frameworks/DirectoryService.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		F56C1E380294343A01DD284B = {
 			fileRef = F56C1E2F0294343A01DD284B;
@@ -496,10 +1192,13 @@
 			};
 		};
 		F56C1E41029436AB01DD284B = {
+			expectedFileType = wrapper.framework;
+			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
 			name = DirectoryServiceCore.framework;
 			path = /System/Library/PrivateFrameworks/DirectoryServiceCore.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		F56C1E5F029436AB01DD284B = {
 			fileRef = F56C1E41029436AB01DD284B;
@@ -508,355 +1207,247 @@
 			};
 		};
 		F5E060AC029593D701DD284B = {
+			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = atomicio.c;
 			path = OpenSSH/atomicio.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E060AD029593D701DD284B = {
+			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = "bsd-base64.c";
 			path = "OpenSSH/bsd-base64.c";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E060AE029593D701DD284B = {
+			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = "bsd-base64.h";
 			path = "OpenSSH/bsd-base64.h";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E060AF029593D701DD284B = {
+			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = bufaux.c;
 			path = OpenSSH/bufaux.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E060B0029593D701DD284B = {
+			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = bufaux.h;
 			path = OpenSSH/bufaux.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E060B1029593D701DD284B = {
+			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = buffer.c;
 			path = OpenSSH/buffer.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E060B2029593D701DD284B = {
+			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = buffer.h;
 			path = OpenSSH/buffer.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E060B3029593D701DD284B = {
+			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = cipher.c;
 			path = OpenSSH/cipher.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E060B4029593D701DD284B = {
+			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = cipher.h;
 			path = OpenSSH/cipher.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E060B5029593D701DD284B = {
+			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = compat.h;
 			path = OpenSSH/compat.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E060B6029593D701DD284B = {
+			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = dsa.c;
 			path = OpenSSH/dsa.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E060B7029593D701DD284B = {
+			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = dsa.h;
 			path = OpenSSH/dsa.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E060B8029593D701DD284B = {
+			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = entropy.c;
 			path = OpenSSH/entropy.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E060B9029593D701DD284B = {
+			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = entropy.h;
 			path = OpenSSH/entropy.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E060BA029593D701DD284B = {
+			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = "fake-socket.h";
 			path = "OpenSSH/fake-socket.h";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E060BB029593D701DD284B = {
+			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = getput.h;
 			path = OpenSSH/getput.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E060BC029593D701DD284B = {
+			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = kex.h;
 			path = OpenSSH/kex.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E060BD029593D701DD284B = {
+			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = key.c;
 			path = OpenSSH/key.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E060BE029593D701DD284B = {
+			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = key.h;
 			path = OpenSSH/key.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E060BF029593D701DD284B = {
+			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = readconf.h;
 			path = OpenSSH/readconf.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E060C0029593D701DD284B = {
+			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = rsa.c;
 			path = OpenSSH/rsa.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E060C1029593D701DD284B = {
+			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = rsa.h;
 			path = OpenSSH/rsa.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E060C2029593D701DD284B = {
+			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = ssh.h;
 			path = OpenSSH/ssh.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E060C3029593D701DD284B = {
+			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = uuencode.c;
 			path = OpenSSH/uuencode.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E060C4029593D701DD284B = {
+			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = uuencode.h;
 			path = OpenSSH/uuencode.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E060C5029593D701DD284B = {
+			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = xmalloc.c;
 			path = OpenSSH/xmalloc.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F5E060C6029593D701DD284B = {
+			expectedFileType = sourcecode.c.h;
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = xmalloc.h;
 			path = OpenSSH/xmalloc.h;
 			refType = 4;
-		};
-		F5E060C7029593D701DD284B = {
-			fileRef = F5E060AC029593D701DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5E060C8029593D701DD284B = {
-			fileRef = F5E060AD029593D701DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5E060C9029593D701DD284B = {
-			fileRef = F5E060AE029593D701DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5E060CA029593D701DD284B = {
-			fileRef = F5E060AF029593D701DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5E060CB029593D701DD284B = {
-			fileRef = F5E060B0029593D701DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5E060CC029593D701DD284B = {
-			fileRef = F5E060B1029593D701DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5E060CD029593D701DD284B = {
-			fileRef = F5E060B2029593D701DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5E060CE029593D701DD284B = {
-			fileRef = F5E060B3029593D701DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5E060CF029593D701DD284B = {
-			fileRef = F5E060B4029593D701DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5E060D0029593D701DD284B = {
-			fileRef = F5E060B5029593D701DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5E060D1029593D701DD284B = {
-			fileRef = F5E060B6029593D701DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5E060D2029593D701DD284B = {
-			fileRef = F5E060B7029593D701DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5E060D3029593D701DD284B = {
-			fileRef = F5E060B8029593D701DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5E060D4029593D701DD284B = {
-			fileRef = F5E060B9029593D701DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5E060D5029593D701DD284B = {
-			fileRef = F5E060BA029593D701DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5E060D6029593D701DD284B = {
-			fileRef = F5E060BB029593D701DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5E060D7029593D701DD284B = {
-			fileRef = F5E060BC029593D701DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5E060D8029593D701DD284B = {
-			fileRef = F5E060BD029593D701DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5E060D9029593D701DD284B = {
-			fileRef = F5E060BE029593D701DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5E060DA029593D701DD284B = {
-			fileRef = F5E060BF029593D701DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5E060DB029593D701DD284B = {
-			fileRef = F5E060C0029593D701DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5E060DC029593D701DD284B = {
-			fileRef = F5E060C1029593D701DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5E060DD029593D701DD284B = {
-			fileRef = F5E060C2029593D701DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5E060DE029593D701DD284B = {
-			fileRef = F5E060C3029593D701DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5E060DF029593D701DD284B = {
-			fileRef = F5E060C4029593D701DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5E060E0029593D701DD284B = {
-			fileRef = F5E060C5029593D701DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5E060E1029593D701DD284B = {
-			fileRef = F5E060C6029593D701DD284B;
-			isa = PBXBuildFile;
-			settings = {
-			};
+			sourceTree = "<group>";
 		};
 	};
 	rootObject = 089C1669FE841209C02AAC07;

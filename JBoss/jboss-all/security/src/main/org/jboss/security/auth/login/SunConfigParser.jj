@@ -1,0 +1,265 @@
+/* JBoss, the OpenSource J2EE WebOS
+ *
+ * Distributable under LGPL license.
+ * See terms of license at gnu.org.
+ */
+
+options {
+   LOOKAHEAD=1;
+   DEBUG_PARSER=true;
+   DEBUG_LOOKAHEAD=true;
+   DEBUG_TOKEN_MANAGER=false;
+}
+
+PARSER_BEGIN(SunConfigParser)
+
+package org.jboss.security.auth.login;
+
+import java.io.Reader;
+import java.io.StringReader;
+import java.util.ArrayList;
+import java.util.HashMap;
+import javax.security.auth.login.AppConfigurationEntry;
+import javax.security.auth.login.AppConfigurationEntry.LoginModuleControlFlag;
+
+/**
+ * A JavaCC 2.1 grammar for the default JAAS configuration file provided by Sun.
+ * The format of an entry is:
+ Application {
+	      ModuleClass  Flag    ModuleOptions;
+	      ModuleClass  Flag    ModuleOptions;
+	      ModuleClass  Flag    ModuleOptions;
+      };
+
+ * @see http://www.webgain.com/products/metamata/java_doc.html
+ *
+ * @author Scott.Stark@jboss.org
+ * @version $Revision: 1.1.4.4 $
+ */
+public class SunConfigParser
+{
+   private XMLLoginConfigImpl loginConfig;
+
+   public SunConfigParser()
+   {
+      // keep the parser from feaking out, init using one of
+      // the JavaCC generated constructor
+      this(new StringReader(""));
+   }
+
+   public void parse(Reader configFile, XMLLoginConfigImpl loginConfig)
+      throws ParseException
+   {
+      parse(configFile, loginConfig, false);
+   }
+
+   public void parse(Reader configFile, XMLLoginConfigImpl loginConfig, boolean trace)
+      throws ParseException
+   {
+      ReInit(configFile);
+
+      // This will have no effect unless the debugging options are true
+      if (trace)
+      {
+         this.enable_tracing();
+      }
+      else
+      {
+         this.disable_tracing();
+      }
+
+      this.loginConfig = loginConfig;
+      this.config();
+   }
+
+   /**
+    * Strip off the leading and trailing (quote) chars from the given string
+    * and return it.  Does not actually check to make sure they are '\'' chars.
+    */
+   private String stripQuotes(String image)
+   {
+      return image.substring(1, image.length() - 1);
+   }
+
+   public static void doParse(Reader configFile, XMLLoginConfigImpl loginConfig)
+      throws ParseException
+   {
+      doParse(configFile, loginConfig, false);
+   }
+
+   public static void doParse(Reader configFile, XMLLoginConfigImpl loginConfig, boolean trace)
+      throws ParseException
+   {
+      SunConfigParser parser = new SunConfigParser();
+      parser.parse(configFile, loginConfig, trace);
+   }
+}
+
+PARSER_END(SunConfigParser)
+
+/* IGNORE WHITESPACE */
+
+SKIP :
+{
+    " "
+  | "\r"
+  | "\t"
+  | "\n"
+}
+
+
+SPECIAL_TOKEN : /* COMMENTS */
+{
+  <SINGLE_LINE_COMMENT: ("//"|"#") (~["\n","\r"])* ("\n"|"\r"|"\r\n")>
+| <MULTI_LINE_COMMENT: "/*" (~["*"])* "*" ("*" | (~["*","/"] (~["*"])* "*"))* "/">
+}
+
+TOKEN :
+{
+  < OPEN_BKT:    "{" >
+  | < CLOSE_BKT:    "}" >
+  | < SEMI_COLON: ";" >
+  | < EQUALS:    "=" >
+
+}
+
+/* Literals */
+
+TOKEN :
+{
+    < LONG: ( ["0" - "9"] )+ >
+  | < DOUBLE: <FLOAT>
+	    | <FLOAT> ( ["e","E"] ([ "-","+"])? <LONG> )?
+    >
+  | < #FLOAT: <LONG> ( "." (<LONG>)? )
+	    | "." <LONG>
+    >
+  | < STRING:
+      (
+         "'"
+         (   (~["'","\n","\r"])
+           | ("''")
+         )*
+         "'"
+      )
+      |
+      (
+         "\""
+         (   (~["\"","\n","\r"])
+           | ("\"\"")
+         )*
+         "\""
+      ) >
+}
+
+TOKEN [IGNORE_CASE]:
+{
+  <CONTROL_FLAG: "required" | "requisite" | "sufficient" | "optional">
+|
+  <IDENTIFIER: <LETTER> (<LETTER>|<DIGIT>|"-"|"_")* >
+|
+  <CLASSNAME: <LETTER> (<LETTER>|<DIGIT>)* ("." <LETTER> (<LETTER>|<DIGIT>)*)* >
+|
+  <#LETTER: [ "_","$", "a"-"z", "A"-"Z" ] >
+|
+  <#DIGIT: ["0" - "9"] >
+|
+  <ANY: (<NOTSPACE_EQUALS>)+ >
+|
+  <#NOTSPACE_EQUALS: (~[" ","\t","\n","\r","=",";"]) >
+}
+
+/** Start of the grammar */
+
+void config() :
+{
+}
+{
+   ( appConfig() )* <EOF>
+}
+
+void appConfig() :
+{
+   Token t = null;
+   String appName;
+   AppConfigurationEntry entry;
+   ArrayList entries = new ArrayList();
+}
+{
+   t=<IDENTIFIER> { appName = t.image; } <OPEN_BKT>
+   (
+      entry = loginModuleConfig()
+      {
+         entries.add(entry);
+      }
+   ) +
+   <CLOSE_BKT> <SEMI_COLON>
+   {
+      AppConfigurationEntry[] appConfig = new AppConfigurationEntry[entries.size()];
+      entries.toArray(appConfig);
+      loginConfig.addAppConfig(appName, appConfig);
+   }
+}
+
+AppConfigurationEntry loginModuleConfig() :
+{
+   Token t = null;
+   String loginModuleClassName;
+   HashMap options = new HashMap();
+   LoginModuleControlFlag controlFlag;
+   AppConfigurationEntry entry;
+}
+{
+   t=<CLASSNAME> { loginModuleClassName = t.image; }
+      controlFlag = controlFlag()
+      ( moduleOptions(options) )*
+      <SEMI_COLON>
+      {
+         entry = new AppConfigurationEntry(loginModuleClassName, controlFlag, options);
+         return entry;
+      }
+}
+
+LoginModuleControlFlag controlFlag() :
+{
+   Token t;
+   LoginModuleControlFlag flag = null;
+}
+{
+   t=<CONTROL_FLAG>
+   {
+      if( LoginModuleControlFlag.REQUIRED.toString().indexOf(t.image) > 0 )
+         flag = LoginModuleControlFlag.REQUIRED;
+      else if( LoginModuleControlFlag.REQUISITE.toString().indexOf(t.image) > 0 )
+         flag = LoginModuleControlFlag.REQUISITE;
+      else if( LoginModuleControlFlag.SUFFICIENT.toString().indexOf(t.image) > 0 )
+         flag = LoginModuleControlFlag.SUFFICIENT;
+      else if( LoginModuleControlFlag.OPTIONAL.toString().indexOf(t.image) > 0 )
+         flag = LoginModuleControlFlag.OPTIONAL;
+      return flag;
+   }
+}
+
+void moduleOptions(HashMap options) :
+{
+   Token t;
+   String name, value;
+}
+{
+   ( t=<IDENTIFIER> | t=<CLASSNAME> )
+   { name = t.image; }
+   <EQUALS>
+   (
+      ( t=<IDENTIFIER> | t=<CLASSNAME> | t=<DOUBLE> | t=<LONG> | t=<ANY> )
+      {
+         value = t.image;
+         options.put(name, value);
+      }
+      | t=<STRING>
+      {
+         value = stripQuotes(t.image);
+         options.put(name, value);
+      }
+   )
+}
+

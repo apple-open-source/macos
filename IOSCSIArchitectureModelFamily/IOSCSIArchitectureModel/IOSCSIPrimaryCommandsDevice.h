@@ -42,9 +42,9 @@
 #include <IOKit/IOSyncer.h>
 
 // SCSI Architecture Model Family includes
-#include <IOKit/scsi-commands/SCSICommandDefinitions.h>
-#include <IOKit/scsi-commands/SCSICmds_INQUIRY_Definitions.h>
-#include <IOKit/scsi-commands/IOSCSIProtocolInterface.h>
+#include <IOKit/scsi/SCSICommandDefinitions.h>
+#include <IOKit/scsi/SCSICmds_INQUIRY_Definitions.h>
+#include <IOKit/scsi/IOSCSIProtocolInterface.h>
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -119,10 +119,18 @@ protected:
 	// Reserve space for future expansion.
 	struct IOSCSIPrimaryCommandsDeviceExpansionData
 	{
-		IONotifier *		fKeySwitchNotifier;
-		UInt8				fANSIVersion;
+		IONotifier *				fKeySwitchNotifier;
+		UInt8						fANSIVersion;
+		UInt32						fReadTimeoutDuration;
+		UInt32						fWriteTimeoutDuration;
+		bool						fCMDQUE;
+		SCSITaggedTaskIdentifier	fTaskID;
+		IOSimpleLock *				fTaskIDLock;
 	};
 	IOSCSIPrimaryCommandsDeviceExpansionData * fIOSCSIPrimaryCommandsDeviceReserved;
+	
+	#define	fReadTimeoutDuration	fIOSCSIPrimaryCommandsDeviceReserved->fReadTimeoutDuration
+	#define	fWriteTimeoutDuration	fIOSCSIPrimaryCommandsDeviceReserved->fWriteTimeoutDuration
 	
 	UInt8							fDefaultInquiryCount;
 	OSDictionary *					fDeviceCharacteristicsDictionary;
@@ -130,6 +138,7 @@ protected:
 	
 	virtual void 					free ( void );
 	void							SetANSIVersion ( UInt8 );
+	void							SetCMDQUE ( bool value );
 	IOReturn						GetModeSense ( 
 										IOMemoryDescriptor *		dataBuffer,
 										SCSICmdField6Bit 			PAGE_CODE,
@@ -173,6 +182,9 @@ protected:
 	// This will release a SCSITask (eventually return it to a pool)
 	virtual void					ReleaseSCSITask ( SCSITaskIdentifier request );
 	
+	// This will return a unique value for the tagged task identifier
+	SCSITaggedTaskIdentifier		GetUniqueTagID ( void );
+	
 	// Call for executing the command synchronously	
 	SCSIServiceResponse 			SendCommand ( 	
 										SCSITaskIdentifier 	request,
@@ -209,6 +221,11 @@ protected:
 										SCSITaskIdentifier 		request, 
 										SCSITaskAttribute 		newAttribute );
 	SCSITaskAttribute				GetTaskAttribute ( 
+										SCSITaskIdentifier 		request );
+	bool							SetTaggedTaskIdentifier ( 
+										SCSITaskIdentifier 			request, 
+										SCSITaggedTaskIdentifier	taggedTaskIdentifier );
+	SCSITaggedTaskIdentifier		GetTaggedTaskIdentifier ( 
 										SCSITaskIdentifier 		request );
 	bool							SetTaskState ( 	
 										SCSITaskIdentifier 		request,
@@ -369,6 +386,7 @@ public:
 	OSDictionary *		GetProtocolCharacteristicsDictionary ( void );
 	OSDictionary *		GetDeviceCharacteristicsDictionary ( void );	
 	UInt8				GetANSIVersion ( void );
+	bool				GetCMDQUE ( void );
 	
 	// -- SCSI Protocol Interface Methods	--
 	// The ExecuteCommand method will take a SCSI Task and transport

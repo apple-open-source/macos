@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/tw.parse.c,v 1.1.1.2 2001/06/28 23:10:57 bbraun Exp $ */
+/* $Header: /cvs/root/tcsh/tcsh/tw.parse.c,v 1.1.1.3 2003/01/17 03:41:29 nicolai Exp $ */
 /*
  * tw.parse.c: Everyone has taken a shot in this futile effort to
  *	       lexically analyze a csh line... Well we cannot good
@@ -17,11 +17,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -39,7 +35,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: tw.parse.c,v 1.1.1.2 2001/06/28 23:10:57 bbraun Exp $")
+RCSID("$Id: tw.parse.c,v 1.1.1.3 2003/01/17 03:41:29 nicolai Exp $")
 
 #include "tw.h"
 #include "ed.h"
@@ -827,7 +823,7 @@ recognize(exp_name, item, name_length, numitems, enhanced)
 #ifdef WINNT_NATIVE
     struct varent *vp;
     int igncase;
-    igncase = (vp = adrof(STRcomplete)) != NULL &&
+    igncase = (vp = adrof(STRcomplete)) != NULL && vp->vec != NULL &&
 	Strcmp(*(vp->vec), STRigncase) == 0;
 #endif /* WINNT_NATIVE */
 
@@ -993,7 +989,7 @@ tw_collect_items(command, looking, exp_dir, exp_name, target, pat, flags)
 	case RECOGNIZE_SCROLL:
 
 #ifdef WINNT_NATIVE
- 	    igncase = (vp = adrof(STRcomplete)) != NULL && 
+ 	    igncase = (vp = adrof(STRcomplete)) != NULL && vp->vec != NULL &&
 		Strcmp(*(vp->vec), STRigncase) == 0;
 #endif /* WINNT_NATIVE */
 	    enhanced = (vp = adrof(STRcomplete)) != NULL && !Strcmp(*(vp->vec),STRenhance);
@@ -1147,7 +1143,7 @@ tw_suffix(looking, exp_dir, exp_name, target, name)
 	/*
 	 * Don't consider array variables or empty variables
 	 */
-	if ((vp = adrof(exp_name)) != NULL) {
+	if ((vp = adrof(exp_name)) != NULL && vp->vec != NULL) {
 	    if ((ptr = vp->vec[0]) == NULL || *ptr == '\0' ||
 		vp->vec[1] != NULL) 
 		return ' ';
@@ -1317,6 +1313,9 @@ tw_list_items(looking, numitems, list_max)
     Char *ptr;
     int max_items = 0;
     int max_rows = 0;
+
+    if (numitems == 0)
+	return;
 
     if ((ptr = varval(STRlistmax)) != STRNULL) {
 	while (*ptr) {
@@ -1594,7 +1593,12 @@ t_search(word, wp, command, max_word_length, looking, list_max, pat, suf)
     case TW_PATH | TW_DIRECTORY:
     case TW_PATH | TW_COMMAND:
 	if ((dir_fd = opendir(short2str(exp_dir))) == NULL) {
-	    xprintf("%S: %s\n", exp_dir, strerror(errno));
+ 	    if (command == RECOGNIZE)
+ 		xprintf("\n");
+ 	    xprintf("%S: %s", exp_dir, strerror(errno));
+ 	    if (command != RECOGNIZE)
+ 		xprintf("\n");
+ 	    NeedsRedraw = 1;
 	    return -1;
 	}
 	if (exp_dir[Strlen(exp_dir) - 1] != '/')
@@ -1779,6 +1783,13 @@ tilde(new, old)
 	    new[0] = '\0';
 	    return NULL;
 	}
+#ifdef apollo
+	/* Special case: if the home directory expands to "/", we do
+	 * not want to create "//" by appending a slash from o.
+	 */
+	if (new[0] == '/' && new[1] == '\0' && *o == '/')
+	    ++o;
+#endif /* apollo */
 	(void) Strcat(new, o);
 	return new;
 

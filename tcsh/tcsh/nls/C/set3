@@ -1,4 +1,4 @@
-$ $Id: set3,v 1.1.1.2 2001/06/28 23:11:06 bbraun Exp $
+$ $Id: set3,v 1.1.1.3 2003/01/17 03:41:53 nicolai Exp $
 $ Editor function descriptions
 $set 3 
 1 Move back a character
@@ -115,3 +115,10 @@ $set 3
 112 Vi goto the beginning of line
 113 Perform which of current command
 114 Paste cut buffer at cursor position
+115 Replace just-yanked text with yank from earlier kill
+116 (WIN32 only) Copy cut buffer to system clipboard
+117 (WIN32 only) Paste clipboard buffer at cursor position
+118 (WIN32 only) Convert each '/' in next word to '\\\\'
+119 (WIN32 only) Convert each '/' in previous word to '\\\\'
+120 (WIN32 only) Page visible console window up
+121 (WIN32 only) Page visible console window down

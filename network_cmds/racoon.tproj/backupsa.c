@@ -1,4 +1,4 @@
-/*	$KAME: backupsa.c,v 1.15 2001/11/16 04:08:10 sakane Exp $	*/
+/*	$KAME: backupsa.c,v 1.16 2001/12/31 20:13:40 thorpej Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -329,7 +329,7 @@ do { \
 				wsize,
 				keymat,
 				e_type, e_keylen, a_type, a_keylen, flags,
-				0, l_bytes, l_addtime, 0, seq) < 0) {
+				0, l_bytes, l_addtime, 0, seq, 0) < 0) {
 			plog(LLV_ERROR, LOCATION, NULL,
 				"restore SA filed line#%d in %s: %s\n",
 				line, lcconf->pathinfo[LC_PATHTYPE_BACKUPSA], ipsec_strerror());

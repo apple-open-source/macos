@@ -140,7 +140,7 @@
 *     Coefficients for P in gamma approximation over [1,2] in decreasing order.*
 *******************************************************************************/
 
-static double p[8] = { -1.71618513886549492533811e+0,
+static const double p[8] = { -1.71618513886549492533811e+0,
                         2.47656508055759199108314e+1,
                        -3.79804256470945635097577e+2,
                         6.29331155312818442661052e+2,
@@ -153,7 +153,7 @@ static double p[8] = { -1.71618513886549492533811e+0,
 *     Coefficients for Q in gamma approximation over [1,2] in decreasing order.*
 *******************************************************************************/
 
-static double q[8] = { -3.08402300119738975254353e+1,
+static const double q[8] = { -3.08402300119738975254353e+1,
                         3.15350626979604161529144e+2,
                        -1.01515636749021914166146e+3,
                        -3.10777167157231109440444e+3,
@@ -166,7 +166,7 @@ static double q[8] = { -3.08402300119738975254353e+1,
 *     Coefficients for minimax approximation over [12, INF].                   *
 *******************************************************************************/
 
-static double c[7] = { -1.910444077728e-03,
+static const double c[7] = { -1.910444077728e-03,
                         8.4171387781295e-04,
                        -5.952379913043012e-04,
                         7.93650793500350248e-04,
@@ -174,12 +174,12 @@ static double c[7] = { -1.910444077728e-03,
                         8.333333333333333331554247e-02,
                         5.7083835261e-03 };
 
-static double LogSqrt2pi = 0.9189385332046727417803297e+0;
-static double pi         = 3.1415926535897932384626434e+0;
-static double xbig       = 171.624e+0;
-static double MinimumX   = 2.23e-308;
-static double eps        = 2.22e-16;
-static hexdouble Huge    = HEXDOUBLE(0x7FF00000, 0x00000000);
+static const double LogSqrt2pi = 0.9189385332046727417803297e+0;
+static const double pi         = 3.1415926535897932384626434e+0;
+static const double xbig       = 171.624e+0;
+static const double MinimumX   = 2.23e-308;
+static const double eps        = 2.22e-16;
+static const hexdouble Huge    = HEXDOUBLE(0x7FF00000, 0x00000000);
 
 #define      GAMMA_NAN      "42"
 #define      SET_INVALID    0x01000000
@@ -193,8 +193,8 @@ double tgamma ( double x )
 	                denominator, ysquared, sum; 
       hexdouble OldEnvironment;
     
-      fegetenvd( OldEnvironment.d );               // save environment, set default
-      fesetenvd( 0.0 );
+      FEGETENVD( OldEnvironment.d );               // save environment, set default
+      FESETENVD( 0.0 );
 	
 /*******************************************************************************
 *     The next switch will decipher what sort of argument we have. If argument *
@@ -205,12 +205,12 @@ double tgamma ( double x )
             {
             case FP_NAN:
                   x *= 2.0;                  /* quiets NaN */
-                  fesetenvd( OldEnvironment.d ); //   restore caller's environment
+                  FESETENVD( OldEnvironment.d ); //   restore caller's environment
                   return x;
                   
             case FP_ZERO:
                   OldEnvironment.i.lo |= FE_DIVBYZERO;
-                  fesetenvd( OldEnvironment.d );
+                  FESETENVD( OldEnvironment.d );
                   return copysign( Huge.d, x);
 
              case FP_INFINITE:
@@ -222,7 +222,7 @@ double tgamma ( double x )
                         OldEnvironment.i.lo |= SET_INVALID;
                         }
 
-                  fesetenvd( OldEnvironment.d );
+                  FESETENVD( OldEnvironment.d );
                   return x;
                   
             default:                  /*      NORMALNUM and DENORMALNUM      */
@@ -252,7 +252,7 @@ double tgamma ( double x )
             else
                   {
                   OldEnvironment.i.lo |= SET_INVALID;
-                  fesetenvd( OldEnvironment.d );
+                  FESETENVD( OldEnvironment.d );
                   return nan ( GAMMA_NAN );
                   }
             }
@@ -268,7 +268,7 @@ double tgamma ( double x )
             else                          /* othewise, x is in [0,MinimumX).  */
                   {
                   OldEnvironment.i.lo |= FE_OVERFLOW;
-                  fesetenvd( OldEnvironment.d );
+                  FESETENVD( OldEnvironment.d );
                   return Huge.d;
                   }
             }
@@ -320,23 +320,16 @@ double tgamma ( double x )
             else
                   {
                   OldEnvironment.i.lo |= FE_OVERFLOW;
-                  fesetenvd( OldEnvironment.d );         //   restore caller's environment
+                  FESETENVD( OldEnvironment.d );         //   restore caller's environment
                   return Huge.d;
                   }
             }
       if ( parity ) result = - result;
       if ( fact != 1.0 ) result = fact / result;
-      fesetenvd( OldEnvironment.d );         //   restore caller's environment
+      FESETENVD( OldEnvironment.d );         //   restore caller's environment
       return result;
       }
       
-#ifdef notdef
-float tgammaf ( float x )
-{
-    return (float)tgamma ( x );
-}
-#endif
-
 #else       /* __APPLE_CC__ version */
 #error Version gcc-932 or higher required.  Compilation terminated.
 #endif      /* __APPLE_CC__ version */

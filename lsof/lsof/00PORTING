@@ -3,7 +3,8 @@
 
 **********************************************************************
 | The latest release of lsof is always available via anonymous ftp   |
-| from vic.cc.purdue.edu.  Look in pub/lsof.README for its location. |
+| from lsof.itap.purdue.edu.  Look in pub/lsof.README for its        |
+| location.                                                          |
 **********************************************************************
 
 			    Contents
@@ -24,7 +25,7 @@
 	The Makefile
 	The Mksrc Shell Script
 	The MkKernOpts Shell Script
-	Testing
+	Testing and the lsof Test Suite
 	Where Next?
 
 
@@ -126,8 +127,7 @@ project has so far generated only two kernel modification:
     *  A modification to /usr/src/linux/net/ipx/af_ipx.c adds the
        inode number to the entries of /proc/net/ipx.
 
-       Jonathan Sergent <sergent@purdue.edu> did this kernel
-       modification.
+       Jonathan Sergent did this kernel modification.
 
        It may be found in the .../dialects/linux/proc/patches
        subdirectory of the lsof distribution.
@@ -391,7 +391,7 @@ to be compiled and archived to liblsof.a.
 
     pdvn.c		print device name functions
 
-			HASBLKDEV and USE_LIB_PRINTCHDEVNAME select them.
+			HASBLKDEV and USE_LIB_PRINTDEVNAME select them.
 
     prfp.c		process_file() function
 
@@ -648,6 +648,9 @@ possibilities
 
     AFS_VICE		See 00XCONFIG.
 
+    AIX_KERNBITS	specifies the kernel bit size, 32 or 64, of the Power
+			architecture AIX 5.x kernel for which lsof was built.
+
     CAN_USE_CLNT_CREATE	is defined for dialects where the more modern
 			RPC function clnt_create() can be used in
 			place of the deprecated clnttcp_create().
@@ -768,6 +771,8 @@ possibilities
 			name cache.  See dialects/osr/dproc.c for
 			an example.
 
+    HAS_JFS2		The AIX >= 5.0 system has jfs2 support.
+
     HASFSTRUCT		indicates the dialect has a file structure
 			the listing of whose element values can be
 			enabled with +f[cfn].  FSV_DEFAULT defines
@@ -783,6 +788,9 @@ possibilities
 			See also the RMNT_EXPDEV and RMNT_FSTYPE
 			documentation in lib/rmnt.c
 
+    HASGETBOOTFILE	indicates the NetBSD or OpenBSD system has
+			a getbootfile() function.
+
     HASGNODE		enables/disables readgnode() in node.c.
 
     HASHASHPID		is defined when the Linux version (probably
@@ -791,11 +799,14 @@ possibilities
 
     HASHSNODE		enables/disables readhsnode() in node.c.
 
-    HASI_E2FS           indicates the BSD dialect has i_e2fs_size
-			in <ufs/ufs/inode.h>.
+    HASI_E2FS_PTR	indicates the BSD dialect has a pointer in
+			its inode to the EXTFS dinode.
 
     HASI_FFS            indicates the BSD dialect has i_ffs_size
 			in <ufs/ufs/inode.h>.
+
+    HASI_FFS1		indicates the BSD dialect supports the fast
+			UFS1 and UFS2 file systems.
 
     HASINODE		enables/disables readinode() in node.c.
 
@@ -842,15 +853,27 @@ possibilities
 			kernel's name list from a file -- e.g., from
 			a crash dump file.
 
+    HASKQUEUE           indicates the dialect supports the kqueue
+			file type.
+
     HASLFILEADD		defines additional, dialect-specific elements
     SETLFILEADD		in the lfile structure (defined in lsof.h).
 			HASLFILEADD is a macro. The accompanying SETFILEADD
 			macro is used in the alloc_lfile() function of
 			proc.c to preset the additional elements.
 
+    HAS_LF_LWP          is defined for BSD dialects where the lockf
+			structure has an lf_lwp member.
+
+    HAS_LWP_H		is defined for BSD dialects that have the
+			<sys/lwp.h> header file.
+
     HASMOPT		enables/disables the ability to read kernel
 			memory from a file -- e.g., from a crash
 			dump file.
+
+    HASMSDOSFS		indicates the NetBSD or OpenBSD system has
+			MS-DOS file system support.
 
     HASNAMECACHE	indicates the FreeBSD system has a namecache
 			structure definition in <sys/namei.h>.
@@ -884,6 +907,17 @@ possibilities
     HAS_NO_LONG_LONG	indicates the dialect has no support for the C
 			long long type.  This definition is used by
 			the built-in snprintf() support of lib/snpf.c.
+
+    HASNOSOCKSECURITY   enables the listing of open socket files,
+			even when HASSECURITY restricts listing of
+			open files to the UID of the user who is
+			running lsof, provided socket file listing
+			is selected with the "-i" option.  This
+			definition is only effective when HASSECURITY
+			is also defined.
+
+    HASNULLFS           indicates the system (usually *BSD) has a
+			null file system.
 
     HASOBJFS            indicates the Pyramid version has OBJFS
 			support.
@@ -987,6 +1021,9 @@ possibilities
     HASPROCFS		defines the name (if any) of the process file
 			system -- e.g., /proc.
 
+    HASPSEUDOFS         indicates the FreeBSD system has pseudofs
+			file system support.
+
     HASRNODE		enables/disables readrnode() in node.c.
 
     HASRNODE3		indicates the HPUX 10.20 or lower system has NFS3
@@ -994,8 +1031,8 @@ possibilities
 
     HASRPCV2H		The FreeBSD system has <nfs/rpcv2.h>.
 
-    HASSECURITY		enables/disables restricting open file
-			information access.
+    HASSECURITY         enables/disables restricting open file
+			information access.  (Also see HASNOSOCKSECURITY.)
 
     HASSETLOCALE	is defined if the dialect has <locale.h> and
 			setlocale().
@@ -1034,6 +1071,9 @@ possibilities
 			00DCACHE file of the lsof distribution for
 			more information on the system-wide device
 			cache file path option.
+
+    HAS_SYS_PIPEH	indicates the dialect has a <sys/pipe.h>
+			header file.
 
     HASTAGTOPATH        indicates the DEC OSF/1, Digital UNIX, or
 			Tru64 UNIX system has a libmsfs.so,
@@ -1121,7 +1161,7 @@ possibilities
 			is available in CLONEMAJ.  (Also see CLONEMAJ
 			and HAS_STD_CLONE.)
 
-    HPUXKERNBITS	defines the number of bits in the HP-UX 10.30
+    HPUX_KERNBITS	defines the number of bits in the HP-UX 10.30
 			and above kernel "basic" word: 32 or 64.
 
     KA_T		defines the type cast required to assign
@@ -1233,8 +1273,8 @@ possibilities
 
 			Note: HASBLKDEV selects the lkupbdev() function.
 
-    USE_LIB_PRINTCHDEVNAME
-			selects the use of the printchdevname() function
+    USE_LIB_PRINTDEVNAME
+			selects the use of the printdevname() function
 			in lsof4/lib/pdvn.c.
 
 			Note: HASBLKDEV selects the printbdevname()
@@ -1268,6 +1308,9 @@ possibilities
 			use the stat(2) function instead of lstat(2)
 			to scan /dev -- i.e., in the readdev()
 			function.
+
+    VNODE_VFLAG		is an alternate name for the vnode structure's
+			v_flag member.
 
     WARNDEVACCESS	enables the issuing of a warning message when
 			lsof is unable to access /dev (or /device)
@@ -1456,11 +1499,17 @@ and the user structure from <sys/user.h> -- check the MkKernOpts
 in lsof4/dialects/irix for a comprehensive example.
 
 
-Testing
--------
+Testing and the Lsof Test Suite
+-------------------------------
 
 Once you have managed to create a port, here are some tips for
 testing it.
+
+*  First look at the test suite in the tests/ sub-directory of the
+   lsof distribution.  While it will need to be customized to be
+   usable with a new port, it should provide ideas on things to
+   test.  Look for more information about the test suite in the
+   00TEST file.
 
 *  Pick a simple process whose open files you are likely to
    know and see if the lsof output agrees with what you know.
@@ -1562,4 +1611,4 @@ keep in mind the private, one-man nature of current lsof support.
 
 
 Vic Abell <abe@purdue.edu>
-November 1, 2001
+June 11, 2003

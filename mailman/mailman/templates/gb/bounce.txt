@@ -1,0 +1,12 @@
+这是一封 Mailman 电子邮件列表退信通知 :
+
+    List(列表):       %(listname)s
+    Member(成员):       %(addr)s
+    Action(动作):       订阅 %(negative)s%(did)s.
+    Reason(理由):       退信次数太多.
+    %(but)s
+
+%(reenable)s
+退信的通知内容如下.
+
+有任何疑问请直接联系 Mailman 总管理员 %(owneraddr)s.

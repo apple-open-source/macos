@@ -1,0 +1,5 @@
+<!DOCTYPE equation PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
+<equation><title>Fermat's Last Theorum</title>
+  <alt>x^n + y^n &ne; z^n &forall; n &ne; 2</alt>
+  <graphic fileref="figures/fermat"></graphic>
+</equation>

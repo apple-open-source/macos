@@ -1,0 +1,64 @@
+--- utf8.c.orig	Tue May 20 15:21:44 2003
++++ utf8.c	Wed Jun 18 12:07:28 2003
+@@ -53,11 +53,10 @@
+ 	int ch, len, mask;
+ 	rune_t lbound, wch;
+ 
+-	if (n < 1) {
+-		if (result != NULL)
+-			*result = string;
++	if (result != NULL)
++		*result = string;
++	if (n < 1)
+ 		return (_INVALID_RUNE);
+-	}
+ 
+ 	/*
+ 	 * Determine the number of octets that make up this character from
+@@ -100,18 +99,15 @@
+ 		 * Malformed input; input is not UTF-8.
+ 		 */
+ 		if (result != NULL)
+-			*result = string + 1;
++			(*result)++;
+ 		return (_INVALID_RUNE);
+ 	}
+ 
+-	if (n < len) {
++	if (n < len)
+ 		/*
+ 		 * Truncated or partial input.
+ 		 */
+-		if (result != NULL)
+-			*result = string;
+ 		return (_INVALID_RUNE);
+-	}
+ 
+ 	/*
+ 	 * Decode the octet sequence representing the character in chunks
+@@ -124,19 +120,21 @@
+ 			 * Malformed input; bad characters in the middle
+ 			 * of a character.
+ 			 */
+-			wch = _INVALID_RUNE;
+ 			if (result != NULL)
+-				*result = string + 1;
++				(*result)++;
+ 			return (_INVALID_RUNE);
+ 		}
+ 		wch <<= 6;
+ 		wch |= *string++ & 0x3f;
+ 	}
+-	if (wch != _INVALID_RUNE && wch < lbound)
++	if (wch < lbound) {
+ 		/*
+ 		 * Malformed input; redundant encoding.
+ 		 */
+-		wch = _INVALID_RUNE;
++		if (result != NULL)
++			(*result)++;
++		return (_INVALID_RUNE);
++	}
+ 	if (result != NULL)
+ 		*result = string;
+ 	return (wch);

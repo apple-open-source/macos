@@ -14,7 +14,7 @@
     <dahinds@users.sourceforge.net>.  Portions created by David A. Hinds
     are Copyright (C) 1999 David A. Hinds.  All Rights Reserved.
 
-    Contributor:  Apple Computer, Inc.  Portions © 2000 Apple Computer, 
+    Contributor:  Apple Computer, Inc.  Portions © 2003 Apple Computer, 
     Inc. All rights reserved.
 
     Alternatively, the contents of this file may be used under the
@@ -123,13 +123,13 @@ IOCardBusDevice::setProperties(OSObject * properties)
     OSDictionary * dict;
     int rc;
 
-//    if (IOUserClient::clientHasPrivilege(current_task(), kIOClientPrivilegeLocalUser)) {
-//	IOLog("IOCardBusDevice::setProperties: failed, the user has insufficient privileges");
-//	return kIOReturnNotPrivileged;
-//    }
-
     dict = OSDynamicCast(OSDictionary, properties);
     if (dict) {
+
+	if (IOUserClient::clientHasPrivilege(current_task(), kIOClientPrivilegeLocalUser)) {
+	    IOLog("IOCardBusDevice::setProperties: failed, the user has insufficient privileges");
+	    return kIOReturnNotPrivileged;
+	}
 
 	if (dict->getObject("eject request")) {
 	    rc = IOPCCardBridge::requestCardEjection(parent->getProvider());
@@ -159,6 +159,8 @@ IOCardBusDevice::getCardServicesHandle(void)
 int
 IOCardBusDevice::cardServices(int func, void * arg1 /* = 0 */, void * arg2 /* = 0 */, void * arg3 /* = 0*/)
 {
+    if (func < 0) return CS_UNSUPPORTED_FUNCTION;
+
     return gIOPCCardWorkLoop->runAction((IOWorkLoop::Action)gCardServicesGate, NULL,
 					(void *)func, arg1, arg2, arg3);
 }
@@ -555,15 +557,16 @@ IOPCCard16Device::setProperties(OSObject * properties)
     OSDictionary * dict;
     int rc;
 
-//    if (IOUserClient::clientHasPrivilege(current_task(), kIOClientPrivilegeLocalUser)) {
-//	IOLog("IOCardBusDevice::setProperties: failed, the user has insufficient privileges");
-//	return kIOReturnNotPrivileged;
-//    }
-
     dict = OSDynamicCast(OSDictionary, properties);
     if (dict) {
 
 	if (dict->getObject("eject request")) {
+
+	    if (IOUserClient::clientHasPrivilege(current_task(), kIOClientPrivilegeLocalUser)) {
+		IOLog("IOCardBusDevice::setProperties: failed, the user has insufficient privileges");
+		return kIOReturnNotPrivileged;
+	    }
+
 	    rc = IOPCCardBridge::requestCardEjection(bridge->getProvider());
 	    if (rc) {
 		IOLog("IOPCCard16Device::setProperties(eject request) failed with error = %d\n", rc);
@@ -593,6 +596,8 @@ IOPCCard16Device::getCardServicesHandle(void)
 int
 IOPCCard16Device::cardServices(int func, void * arg1 /* = 0 */, void * arg2 /* = 0 */, void * arg3 /* = 0 */)
 {
+    if (func < 0) return CS_UNSUPPORTED_FUNCTION;
+    
     return gIOPCCardWorkLoop->runAction((IOWorkLoop::Action)gCardServicesGate, NULL,
 					(void *)func, arg1, arg2, arg3);
 }
@@ -601,6 +606,8 @@ int
 IOPCCard16Device::eventHandler(cs_event_t event, int priority,
 			       event_callback_args_t *args)
 {
+    IOReturn ret;
+
     DEBUG(1, "IOPCCard16Device::eventHandler(0x%06x, %d, 0x%p, 0x%p)\n",
 	  event, priority, args->client_handle, args->client_data);
 
@@ -612,10 +619,11 @@ IOPCCard16Device::eventHandler(cs_event_t event, int priority,
 
     // let the enabler take a first crack at looking at this event
     if (nub->enabler) {
-	nub->enabler->eventHandler(event, priority, args);
+	ret = nub->enabler->eventHandler(event, priority, args);
+	if (ret) return 0;
     }
 
-    IOReturn ret = nub->messageClients(kIOPCCardCSEventMessage, (void *)event);
+    ret = nub->messageClients(kIOPCCardCSEventMessage, (void *)event);
     if (ret && ret != kIOReturnUnsupported) {
 	IOLog("IOPCCard16Device::eventHandler: messageClients returned %d\n", ret);
 	return ret;

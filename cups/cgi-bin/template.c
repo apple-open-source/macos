@@ -1,9 +1,9 @@
 /*
- * "$Id: template.c,v 1.1.1.3 2002/06/06 22:12:33 jlovell Exp $"
+ * "$Id: template.c,v 1.1.1.8 2003/07/23 02:33:32 jlovell Exp $"
  *
  *   CGI template function.
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   This program is free software; you can redistribute it and/or modify it
  *   under the terms of the GNU General Public License as published by the Free
@@ -222,7 +222,7 @@ cgi_copy(FILE *out,		/* I - Output file */
 	    outptr    = outval;
 	  }
 	}
-        if ((value = cgiGetArray(name + 1, element)) != NULL)
+        else if ((value = cgiGetArray(name + 1, element)) != NULL)
 	  outptr = value;
 	else
 	{
@@ -332,7 +332,7 @@ cgi_copy(FILE *out,		/* I - Output file */
         * Test for existance...
 	*/
 
-        result = cgiGetArray(name, element) != NULL && outval[0];
+        result = cgiGetArray(name, element) != NULL && outptr[0];
       }
       else
       {
@@ -488,5 +488,5 @@ cgi_puts(const char *s,
 
 
 /*
- * End of "$Id: template.c,v 1.1.1.3 2002/06/06 22:12:33 jlovell Exp $".
+ * End of "$Id: template.c,v 1.1.1.8 2003/07/23 02:33:32 jlovell Exp $".
  */

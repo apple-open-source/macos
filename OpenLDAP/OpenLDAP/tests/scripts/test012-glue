@@ -1,13 +1,17 @@
 #! /bin/sh
-# $OpenLDAP: pkg/ldap/tests/scripts/test012-glue,v 1.5 2002/01/31 21:54:13 kurt Exp $
+# $OpenLDAP: pkg/ldap/tests/scripts/test012-glue,v 1.5.2.3 2002/09/01 22:02:30 kurt Exp $
 
 SRCDIR="."
 if test $# -ge 1 ; then
 	SRCDIR=$1; shift
 fi
-BACKEND=ldbm
+BACKEND=bdb
 if test $# -ge 1 ; then
 	BACKEND=$1; shift
+fi
+MONITORDB=no
+if test $# -ge 1 ; then
+	MONITORDB=$1; shift
 fi
 WAIT=0
 if test $# -ge 1 ; then
@@ -24,7 +28,7 @@ mkdir $DBDIR/C_db1 $DBDIR/C_db2 $DBDIR/C_db3
 rm -f $DBDIR/[!C]* $DBDIR/C_db?/*
 
 echo "Running slapadd to build glued slapd databases..."
-. $CONFFILTER $BACKEND < $GLUECONF > $DBCONF
+. $CONFFILTER $BACKEND $MONITORDB < $GLUECONF > $DBCONF
 $SLAPADD -d $LVL -f $DBCONF -l $LDIFORDERED > $DBDIR/slapadd.log 2>&1
 RC=$?
 if test $RC != 0 ; then
@@ -45,10 +49,11 @@ cd test-db
 for i in 0 1 2 3 4 5; do
 	../$LDAPSEARCH -b "$BASEDN" -h $LOCALHOST -p $PORT > ../$SEARCHOUT 2>&1
 	RC=$?
-	if test $RC = 1 ; then
-		echo "Waiting 5 seconds for slapd to start..."
-		sleep 5
+	if test $RC = 0 ; then
+		break
 	fi
+	echo "Waiting 5 seconds for slapd to start..."
+	sleep 5
 done
 cd ..
 
@@ -92,10 +97,11 @@ for i in 0 1 2 3 4 5; do
 	$LDAPSEARCH -s base -b "$MONITOR" -h $LOCALHOST -p $PORT \
 		'objectclass=*' > /dev/null 2>&1
 	RC=$?
-	if test $RC = 1 ; then
-		echo "Waiting 5 seconds for slapd to start..."
-		sleep 5
+	if test $RC = 0 ; then
+		break
 	fi
+	echo "Waiting 5 seconds for slapd to start..."
+	sleep 5
 done
 
 echo "Using ldapadd to populate the glued database..."
@@ -111,6 +117,7 @@ fi
 echo "Using ldapsearch to read all the entries..."
 $LDAPSEARCH -b "$BASEDN" -h $LOCALHOST -p $PORT \
 	'objectclass=*' > $SEARCHOUT 2>&1
+RC=$?
 
 kill -HUP $PID
 

@@ -77,7 +77,7 @@ SSLProcessChangeCipherSpec(SSLRecord rec, SSLContext *ctx)
     
     /* Install new cipher spec on read side */
     if ((err = SSLDisposeCipherSuite(&ctx->readCipher, ctx)) != 0)
-    {   SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);
+    {   SSLFatalSessionAlert(SSL_AlertInternalError, ctx);
         return err;
     }
     ctx->readCipher = ctx->readPending;

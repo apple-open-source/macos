@@ -1,23 +1,53 @@
-/* 
- * Copyright (c) 1995 NeXT Computer, Inc. All Rights Reserved
- *
+/*-
  * Copyright (c) 1991, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
- * The NEXTSTEP Software License Agreement specifies the terms
- * and conditions for redistribution.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. All advertising materials mentioning features or use of this software
+ *    must display the following acknowledgement:
+ *	This product includes software developed by the University of
+ *	California, Berkeley and its contributors.
+ * 4. Neither the name of the University nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
  *
- *	@(#)modes.c	8.3 (Berkeley) 4/2/94
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
  */
 
+#ifndef lint
+#if 0
+static char sccsid[] = "@(#)modes.c	8.3 (Berkeley) 4/2/94";
+#endif
+#endif /* not lint */
+#include <sys/cdefs.h>
+__RCSID("$FreeBSD: src/bin/stty/modes.c,v 1.12 2002/06/30 05:15:04 obrien Exp $");
 
 #include <sys/types.h>
 #include <stddef.h>
 #include <string.h>
 #include "stty.h"
 
+int msearch(char ***, struct info *);
+
 struct modes {
-	char *name;
+	const char *name;
 	long set;
 	long unset;
 };
@@ -55,9 +85,17 @@ struct modes cmodes[] = {
 	{ "-clocal",	0, CLOCAL },
 	{ "crtscts",	CRTSCTS, 0 },
 	{ "-crtscts",	0, CRTSCTS },
+	{ "ctsflow",	CCTS_OFLOW, 0 },
+	{ "-ctsflow",	0, CCTS_OFLOW },
+	{ "dsrflow",	CDSR_OFLOW, 0 },
+	{ "-dsrflow",	0, CDSR_OFLOW },
+	{ "dtrflow",	CDTR_IFLOW, 0 },
+	{ "-dtrflow",	0, CDTR_IFLOW },
+	{ "rtsflow",	CRTS_IFLOW, 0 },
+	{ "-rtsflow",	0, CRTS_IFLOW },
 	{ "mdmbuf",	MDMBUF, 0 },
 	{ "-mdmbuf",	0, MDMBUF },
-	{ NULL },
+	{ NULL,		0, 0 },
 };
 
 struct modes imodes[] = {
@@ -93,7 +131,7 @@ struct modes imodes[] = {
 	{ "-decctlq",	IXANY, 0 },
 	{ "imaxbel",	IMAXBEL, 0 },
 	{ "-imaxbel",	0, IMAXBEL },
-	{ NULL },
+	{ NULL,		0, 0 },
 };
 
 struct modes lmodes[] = {
@@ -145,7 +183,7 @@ struct modes lmodes[] = {
 	{ "-nokerninfo",0, NOKERNINFO },
 	{ "kerninfo",	0, NOKERNINFO },
 	{ "-kerninfo",	NOKERNINFO, 0 },
-	{ NULL },
+	{ NULL,		0, 0 },
 };
 
 struct modes omodes[] = {
@@ -155,19 +193,27 @@ struct modes omodes[] = {
 	{ "-litout",	OPOST, 0 },
 	{ "onlcr",	ONLCR, 0 },
 	{ "-onlcr",	0, ONLCR },
+#ifndef __APPLE__
+	{ "ocrnl",	OCRNL, 0 },
+	{ "-ocrnl",	0, OCRNL },
+#endif
 	{ "tabs",	0, OXTABS },		/* "preserve" tabs */
 	{ "-tabs",	OXTABS, 0 },
 	{ "oxtabs",	OXTABS, 0 },
 	{ "-oxtabs",	0, OXTABS },
-	{ NULL },
+#ifndef __APPLE__
+	{ "onocr",	ONOCR, 0 },
+	{ "-onocr",	0, ONOCR },
+	{ "onlret",	ONLRET, 0 },
+	{ "-onlret",	0, ONLRET },
+#endif
+	{ NULL,		0, 0 },
 };
 
 #define	CHK(s)	(*name == s[0] && !strcmp(name, s))
 
 int
-msearch(argvp, ip)
-	char ***argvp;
-	struct info *ip;
+msearch(char ***argvp, struct info *ip)
 {
 	struct modes *mp;
 	char *name;

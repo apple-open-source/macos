@@ -1,0 +1,21 @@
+Il tuo indirizzo "%(email)s" è stato invitato ad iscriversi 
+alla lista %(listname)s presso %(hostname)s dall'amministratore
+della stessa.
+
+Per accettare questo invito è sufficiente rispondere a questo
+messaggio, mantenendo la riga dell'oggetto intatta.
+
+Oppure puoi visitare questa pagina web:
+
+    %(confirmurl)s
+
+Oppure includi solo ed esclusivamente la linea seguente in un
+messaggio da spedire a %(requestaddr)s:
+
+    confirm %(cookie)s
+
+Tieni presente che una semplice risposta a questo messaggio dovrebbe
+essere sufficiente con la maggior parte dei programmi di posta.
+
+Se vuoi rifiutare l'invito, semplicemente ignora questo messaggio.
+Se hai domande, puoi scrivere a %(listowner)s.

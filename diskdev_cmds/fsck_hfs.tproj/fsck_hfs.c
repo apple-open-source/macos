@@ -27,7 +27,7 @@
 #include <sys/param.h>
 #include <sys/mount.h>
 #include <sys/ioctl.h>
-#include <dev/disk.h>
+#include <sys/disk.h>
 
 #include <hfs/hfs_mount.h>
 
@@ -202,8 +202,7 @@ checkfilesys(char * filesys)
 		chkLev = kNeverCheck;
 		repLev = kNeverRepair;
 		logLev = kFatalLog;
-	}
-	if (force) {
+	} else if (force) {
 		chkLev = kForceCheck;
 	}
 	if (preen) {
@@ -346,7 +345,7 @@ setup( char *dev, int *blockDevice_fdPtr, int *canWritePtr )
 		printf("\n");
 
 	/* Initialize the cache */
-	ioctl(fsreadfd, DKIOCBLKSIZE, &devBlockSize);
+	ioctl(fsreadfd, DKIOCGETBLOCKSIZE, &devBlockSize);
 	if (CacheInit (&fscache, fsreadfd, fswritefd, devBlockSize,
 			CACHE_IOSIZE, CACHE_BLOCKS, CACHE_HASHSIZE) != EOK) {
 		pfatal("Can't initialize disk cache\n");
@@ -393,7 +392,7 @@ static void getWriteAccess( char *dev, int *blockDevice_fdPtr, int *canWritePtr 
 	}
 	
 	// get count of mounts then get the info for each 
-	myMountsCount = getfsstat( NULL, 0, MNT_WAIT );
+	myMountsCount = getfsstat( NULL, 0, MNT_NOWAIT );
 	if ( myMountsCount < 0 )
 		goto ExitThisRoutine;
 
@@ -402,7 +401,7 @@ static void getWriteAccess( char *dev, int *blockDevice_fdPtr, int *canWritePtr 
 		goto ExitThisRoutine;
 	myMountsCount = getfsstat( 	myPtr, 
 								(sizeof(struct statfs) * myMountsCount), 
-								MNT_WAIT );
+								MNT_NOWAIT );
 	if ( myMountsCount < 0 )
 		goto ExitThisRoutine;
 

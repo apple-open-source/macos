@@ -774,10 +774,11 @@ main(int argc, char *argv[])
 			(bpb.bkbs != MAXU16 &&
 			 lsn == bpb.bkbs + bpb.infs))) {
 		mk4(img, 0x41615252);
-		mk4(img + bpb.bps - 28, 0x61417272);
-		mk4(img + bpb.bps - 24, 0xffffffff);
-		mk4(img + bpb.bps - 20, bpb.rdcl);
-		mk2(img + bpb.bps - 2, DOSMAGIC);
+		mk4(img + 484, 0x61417272);
+		mk4(img + 488, 0xffffffff);
+		mk4(img + 492, bpb.rdcl+1);
+		/* Offsets 508-509 remain zero */
+		mk2(img + 510, DOSMAGIC);
 	    } else if (lsn >= bpb.res && lsn < dir &&
 		       !((lsn - bpb.res) %
 			 (bpb.spf ? bpb.spf : bpb.bspf))) {

@@ -1,0 +1,16 @@
+To build the JBoss/Tomcat-4.1.x bundle do the following:
+
+1. Build the source tree from the jboss-3.2/build directory as ususal
+
+2. Change the location of the tomcat.server.root by creating
+a local.properties file in jboss-3.2/tomcat41 with the property
+tomcat.server.root=/path/to/tomcat setting.  For example:
+
+   /usr/local/jboss-3.2/tomcat41> cat local.properties
+   tomcat.server.root=/usr/local/Java/servlets/jakarta-tomcat-4.1.24-LE-jdk14
+
+3. Run 'build bundle-release' from the tomcat41 directory using the build.sh or
+build.bat as approriate.
+
+4. The resulting output/jboss-* is the JBoss/Tomcat bundle as available
+from the SourceForge site.

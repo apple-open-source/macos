@@ -70,13 +70,17 @@
 			mainGroup = 089C166AFE841209C02AAC07;
 			projectDirPath = "";
 			targets = (
+				595E0FFD049EE31D0091C909,
 				089C1673FE841209C02AAC07,
+				595E0E26049D77220091C909,
 			);
 		};
 		089C166AFE841209C02AAC07 = {
 			children = (
 				247142CAFF3F8F9811CA285C,
+				595E0E2B049D77D40091C909,
 				089C167CFE841241C02AAC07,
+				595E1000049EE41C0091C909,
 				19C28FB6FE9D52B211CA2CBB,
 			);
 			isa = PBXGroup;
@@ -319,6 +323,7 @@
 		19C28FB6FE9D52B211CA2CBB = {
 			children = (
 				0B81C263FFB7832611CA28AA,
+				595E0E27049D77220091C909,
 			);
 			isa = PBXGroup;
 			name = Products;
@@ -363,8 +368,173 @@
 				1A224C3FFF42367911CA2CB7,
 			);
 			isa = PBXGroup;
-			name = Source;
+			name = SampleDriver;
 			path = "";
+			refType = 4;
+		};
+//240
+//241
+//242
+//243
+//244
+//590
+//591
+//592
+//593
+//594
+		595E0E22049D77220091C909 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		595E0E23049D77220091C909 = {
+			buildActionMask = 2147483647;
+			files = (
+				595E0E2A049D77670091C909,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		595E0E24049D77220091C909 = {
+			buildActionMask = 2147483647;
+			files = (
+				595E0E2F049D78BE0091C909,
+				595E0E31049D78DA0091C909,
+				595E0F9D049D86DA0091C909,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		595E0E25049D77220091C909 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		595E0E26049D77220091C909 = {
+			buildPhases = (
+				595E0E22049D77220091C909,
+				595E0E23049D77220091C909,
+				595E0E24049D77220091C909,
+				595E0E25049D77220091C909,
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = dump_cisreg;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = dump_cisreg;
+			productInstallPath = /usr/local/bin;
+			productName = dump_cisreg;
+			productReference = 595E0E27049D77220091C909;
+		};
+		595E0E27049D77220091C909 = {
+			isa = PBXExecutableFileReference;
+			path = dump_cisreg;
+			refType = 3;
+		};
+		595E0E29049D77670091C909 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = dump_cisreg.c;
+			refType = 4;
+		};
+		595E0E2A049D77670091C909 = {
+			fileRef = 595E0E29049D77670091C909;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		595E0E2B049D77D40091C909 = {
+			children = (
+				595E0E29049D77670091C909,
+			);
+			isa = PBXGroup;
+			name = dump_cisreg;
+			path = "";
+			refType = 4;
+		};
+		595E0E2E049D78BE0091C909 = {
+			isa = PBXFrameworkReference;
+			name = System.framework;
+			path = /System/Library/Frameworks/System.framework;
+			refType = 0;
+		};
+		595E0E2F049D78BE0091C909 = {
+			fileRef = 595E0E2E049D78BE0091C909;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		595E0E30049D78DA0091C909 = {
+			isa = PBXFrameworkReference;
+			name = IOKit.framework;
+			path = /System/Library/Frameworks/IOKit.framework;
+			refType = 0;
+		};
+		595E0E31049D78DA0091C909 = {
+			fileRef = 595E0E30049D78DA0091C909;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		595E0F9C049D86DA0091C909 = {
+			isa = PBXFrameworkReference;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+		};
+		595E0F9D049D86DA0091C909 = {
+			fileRef = 595E0F9C049D86DA0091C909;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		595E0FFD049EE31D0091C909 = {
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = Everything;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				595E0FFE049EE3410091C909,
+				595E0FFF049EE34B0091C909,
+			);
+			isa = PBXAggregateTarget;
+			name = Everything;
+			productName = Everything;
+		};
+		595E0FFE049EE3410091C909 = {
+			isa = PBXTargetDependency;
+			target = 089C1673FE841209C02AAC07;
+		};
+		595E0FFF049EE34B0091C909 = {
+			isa = PBXTargetDependency;
+			target = 595E0E26049D77220091C909;
+		};
+		595E1000049EE41C0091C909 = {
+			children = (
+				595E0E30049D78DA0091C909,
+				595E0F9C049D86DA0091C909,
+				595E0E2E049D78BE0091C909,
+			);
+			isa = PBXGroup;
+			name = Frameworks;
 			refType = 4;
 		};
 	};

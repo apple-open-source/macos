@@ -58,9 +58,12 @@ public:
 public:
 	// new item constructor
     UserTrustItem(Certificate *cert, Policy *policy, const TrustData &trust);
-    virtual ~UserTrustItem();
+    virtual ~UserTrustItem() throw();
 
 	TrustData trust();
+	
+public:
+	static void makeCertIndex(Certificate *cert, CssmOwnedData &index);
 
 protected:
 	virtual PrimaryKey add(Keychain &keychain);
@@ -68,8 +71,8 @@ protected:
 	void populateAttributes();
 
 private:
-	RefPointer<Certificate> mCertificate;
-	RefPointer<Policy> mPolicy;
+	SecPointer<Certificate> mCertificate;
+	SecPointer<Policy> mPolicy;
 };
 
 

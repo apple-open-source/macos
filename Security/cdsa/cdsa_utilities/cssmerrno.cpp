@@ -19,10 +19,9 @@
 //
 // cssmerrno - number-to-string translation for CSSM error codes
 //
-#ifdef __MWERKS__
-#define _CPP_CSSMERRNO
-#endif
 #include <Security/cssmerrno.h>
+#include <Security/SecBase.h>
+#include <Security/Authorization.h>
 #include <Security/globalizer.h>
 #include <stdio.h>
 #include <map>
@@ -71,21 +70,29 @@ void cssmPerror(const char *how, CSSM_RETURN error)
 
 
 //
-// Produce a diagnostic string from a CSSM error number or exception
+// Produce a diagnostic string from a CSSM error number or exception.
+// Small numbers are tried as convertible errors first.
+// Unknown errors are output numerically with a note.
 //
 string cssmErrorString(CSSM_RETURN error)
 {
     if (error == CSSM_OK) {
     	return "[ok]";
+	} else if (error >= errSecErrnoBase && error <= errSecErrnoLimit) {
+		return string("UNIX[") + strerror(error - errSecErrnoBase) + "]";
     } else if (error > 0 &&
-               int(error) < int(sizeof(convErrorList) / sizeof(convErrorList[0]))) {
+               int(error) < int(sizeof(convErrorList) / sizeof(convErrorList[0])) &&
+			   convErrorList[error]) {
         return string("COMMON[") + convErrorList[error] + "]";
     } else {
         ErrorMap::const_iterator it = errorMap().find(error);
-        if (it == errorMap().end())
-            return "[UNKNOWN]";
-        else
+        if (it == errorMap().end()) {
+			char msg[80];
+			snprintf(msg, sizeof(msg), "[UNKNOWN:0x%lx=%ld]", error, error);
+            return msg;
+        } else {
             return it->second;
+		}
     }
 }
 

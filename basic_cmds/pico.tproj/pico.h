@@ -1,5 +1,5 @@
 /*
- * $Id: pico.h,v 1.2 2002/01/03 22:16:42 jevans Exp $
+ * $Id: pico.h,v 1.3 2003/01/12 01:48:11 bbraun Exp $
  *
  * Program:	pico.h - definitions for Pine's composer library
  *

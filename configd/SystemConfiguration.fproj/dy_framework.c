@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -32,7 +35,6 @@
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <mach-o/dyld.h>
-#include <CoreFoundation/CoreFoundation.h>
 
 #include "dy_framework.h"
 
@@ -175,4 +177,58 @@ _IOServiceMatching(const char *name)
 		if (image) dyfunc = NSAddressOfSymbol(NSLookupSymbolInImage(image, "_IOServiceMatching", NSLOOKUPSYMBOLINIMAGE_OPTION_BIND));
 	}
 	return dyfunc ? dyfunc(name) : NULL;
+}
+
+static void *
+__loadSecurity(void) {
+	static const void *image = NULL;
+	if (NULL == image) {
+		const char	*framework		= "/System/Library/Frameworks/Security.framework/Security";
+		struct stat	statbuf;
+		const char	*suffix			= getenv("DYLD_IMAGE_SUFFIX");
+		char		path[MAXPATHLEN];
+
+		strcpy(path, framework);
+		if (suffix) strcat(path, suffix);
+		if (0 <= stat(path, &statbuf)) {
+			image = NSAddImage(path, NSADDIMAGE_OPTION_NONE);
+		} else {
+			image = NSAddImage(framework, NSADDIMAGE_OPTION_NONE);
+		}
+	}
+	return (void *)image;
+}
+
+
+__private_extern__ OSStatus
+_SecKeychainItemCopyContent(SecKeychainItemRef itemRef, SecItemClass *itemClass, SecKeychainAttributeList *attrList, UInt32 *length, void **outData)
+{
+	static OSStatus (*dyfunc)(SecKeychainItemRef, SecItemClass *, SecKeychainAttributeList *, UInt32 *, void **) = NULL;
+	if (!dyfunc) {
+		void *image = __loadSecurity();
+		if (image) dyfunc = NSAddressOfSymbol(NSLookupSymbolInImage(image, "_SecKeychainItemCopyContent", NSLOOKUPSYMBOLINIMAGE_OPTION_BIND));
+	}
+	return dyfunc ? dyfunc(itemRef, itemClass, attrList, length, outData) : -1;
+}
+
+__private_extern__ OSStatus
+_SecKeychainSearchCopyNext(SecKeychainSearchRef searchRef, SecKeychainItemRef *itemRef)
+{
+	static OSStatus (*dyfunc)(SecKeychainSearchRef, SecKeychainItemRef *) = NULL;
+	if (!dyfunc) {
+		void *image = __loadSecurity();
+		if (image) dyfunc = NSAddressOfSymbol(NSLookupSymbolInImage(image, "_SecKeychainSearchCopyNext", NSLOOKUPSYMBOLINIMAGE_OPTION_BIND));
+	}
+	return dyfunc ? dyfunc(searchRef, itemRef) : -1;
+}
+
+__private_extern__ OSStatus
+_SecKeychainSearchCreateFromAttributes(CFTypeRef keychainOrArray, SecItemClass itemClass, const SecKeychainAttributeList *attrList, SecKeychainSearchRef *searchRef)
+{
+	static OSStatus (*dyfunc)(CFTypeRef, SecItemClass, const SecKeychainAttributeList *, SecKeychainSearchRef *) = NULL;
+	if (!dyfunc) {
+		void *image = __loadSecurity();
+		if (image) dyfunc = NSAddressOfSymbol(NSLookupSymbolInImage(image, "_SecKeychainSearchCreateFromAttributes", NSLOOKUPSYMBOLINIMAGE_OPTION_BIND));
+	}
+	return dyfunc ? dyfunc(keychainOrArray, itemClass, attrList, searchRef) : -1;
 }

@@ -27,7 +27,9 @@
  *	queueHelpers.cpp
  *
  */
-#include <IOKit/scsi/IOSCSIParallelInterface.h>
+
+#include "IOSCSIParallelDevice.h"
+#include "IOSCSIParallelCommand.h"
 
 void IOSCSIParallelDevice::addCommand( queue_head_t *list, IOSCSIParallelCommand *scsiCmd )
 {

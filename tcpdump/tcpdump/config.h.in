@@ -5,9 +5,6 @@
 /* Define to empty if the keyword does not work.  */
 #undef const
 
-/* Define as __inline if that's what the C compiler calls it.  */
-#undef inline
-
 /* Define as the return type of signal handlers (int or void).  */
 #undef RETSIGTYPE
 
@@ -59,6 +56,24 @@
 /* define if you have ether_ntohost() and it works */
 #undef USE_ETHER_NTOHOST
 
+/* define if libpcap has pcap_version */
+#undef HAVE_PCAP_VERSION
+
+/* define if libpcap has pcap_debug */
+#undef HAVE_PCAP_DEBUG
+
+/* define if libpcap has yydebug */
+#undef HAVE_YYDEBUG
+
+/* define if libpcap has pcap_list_datalinks() */
+#undef HAVE_PCAP_LIST_DATALINKS
+
+/* define if libpcap has pcap_set_datalink() */
+#undef HAVE_PCAP_SET_DATALINK
+
+/* define if libpcap has pcap_datalink_name_to_val() */
+#undef HAVE_PCAP_DATALINK_NAME_TO_VAL
+
 /* define if unaligned memory accesses fail */
 #undef LBL_ALIGN
 
@@ -76,6 +91,7 @@
 
 /* Workaround for missing sized types */
 /* XXX this should move to the more standard uint*_t */
+#undef int8_t
 #undef int16_t
 #undef int32_t
 #undef u_int16_t
@@ -92,6 +108,12 @@
  * in config.h but that should be OK since they're the same.
  */
 #undef const
+
+/* Define if you have the dnet_htoa function.  */
+#undef HAVE_DNET_HTOA
+
+/* Define if you have a dnet_htoa declaration in <netdnet/dnetdb.h>.  */
+#undef HAVE_NETDNET_DNETDB_H_DNET_HTOA
 
 /* The number of bytes in a char.  */
 #undef SIZEOF_CHAR
@@ -126,6 +148,15 @@
 /* Define if you have the inet_pton function.  */
 #undef HAVE_INET_PTON
 
+/* Define if you have the pcap_dump_flush function.  */
+#undef HAVE_PCAP_DUMP_FLUSH
+
+/* Define if you have the pcap_findalldevs function.  */
+#undef HAVE_PCAP_FINDALLDEVS
+
+/* Define if you have the pcap_lib_version function.  */
+#undef HAVE_PCAP_LIB_VERSION
+
 /* Define if you have the pfopen function.  */
 #undef HAVE_PFOPEN
 
@@ -153,23 +184,32 @@
 /* Define if you have the strlcpy function.  */
 #undef HAVE_STRLCPY
 
+/* Define if you have the strsep function.  */
+#undef HAVE_STRSEP
+
 /* Define if you have the vfprintf function.  */
 #undef HAVE_VFPRINTF
 
 /* Define if you have the vsnprintf function.  */
 #undef HAVE_VSNPRINTF
 
-/* Define if you have the <cast.h> header file.  */
-#undef HAVE_CAST_H
-
 /* Define if you have the <fcntl.h> header file.  */
 #undef HAVE_FCNTL_H
+
+/* Define if you have the <netdnet/dnetdb.h> header file.  */
+#undef HAVE_NETDNET_DNETDB_H
+
+/* Define if you have the <netinet/ether.h> header file.  */
+#undef HAVE_NETINET_ETHER_H
 
 /* Define if you have the <netinet/if_ether.h> header file.  */
 #undef HAVE_NETINET_IF_ETHER_H
 
-/* Define if you have the <rc5.h> header file.  */
-#undef HAVE_RC5_H
+/* Define if you have the <openssl/cast.h> header file.  */
+#undef HAVE_OPENSSL_CAST_H
+
+/* Define if you have the <openssl/rc5.h> header file.  */
+#undef HAVE_OPENSSL_RC5_H
 
 /* Define if you have the <rpc/rpcent.h> header file.  */
 #undef HAVE_RPC_RPCENT_H
@@ -180,14 +220,14 @@
 /* Define if you have the crypto library (-lcrypto).  */
 #undef HAVE_LIBCRYPTO
 
-/* Define if you have the dnet library (-ldnet).  */
-#undef HAVE_LIBDNET
-
 /* Define if you have the rpc library (-lrpc).  */
 #undef HAVE_LIBRPC
 
 /* Define if you have the smi library (-lsmi).  */
 #undef HAVE_LIBSMI
+
+/* Define as token for inline if inlining supported */
+#undef inline
 
 /* define if your compiler has __attribute__ */
 #undef HAVE___ATTRIBUTE__

@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_trantcp.c,v 1.22 2002/05/14 22:19:59 lindak Exp $
+ * $Id: smb_trantcp.c,v 1.25 2003/09/06 20:27:15 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -64,6 +64,9 @@
 #include <netsmb/smb_tran.h>
 #include <netsmb/smb_trantcp.h>
 #include <netsmb/smb_subr.h>
+
+extern unsigned int wait_queue_set_size(void);
+extern unsigned int wait_queue_link_size(void);
 
 #define M_NBDATA	M_PCB
 
@@ -107,6 +110,7 @@ static __inline int
 nb_poll(struct nbpcb *nbp, int events, struct proc *p)
 {
 #ifdef APPLE
+	#pragma unused(p)
 	struct uthread *uth;
 	thread_act_t th_act;
 	struct _select *sel;
@@ -130,9 +134,9 @@ nbssn_rselect(struct nbpcb *nbp, struct timeval *tv, int events, struct proc *p)
 	struct timeval atv, rtv, ttv;
 	int s, timo, error;
 #ifdef APPLE
-	struct uthread *uth;
+	struct uthread *uth = NULL;
 	thread_act_t th_act;
-	struct _select *sel;
+	struct _select *sel = NULL;
 	char mywq[SIZEOF_WAITQUEUE_SUB + SIZEOF_WAITQUEUE_LINK];
 	int wqsetup = 0;
 #endif
@@ -217,6 +221,7 @@ done:
 static int
 nb_intr(struct nbpcb *nbp, struct proc *p)
 {
+	#pragma unused(nbp, p)
 	return 0;
 }
 
@@ -227,7 +232,8 @@ nb_upcall(struct socket *so, caddr_t arg, int waitflag)
 nb_upcall(struct socket *so, void *arg, int waitflag)
 #endif
 {
-	struct nbpcb *nbp = arg;
+	#pragma unused(so, waitflag)
+	struct nbpcb *nbp = (struct nbpcb *)arg;
 
 	/*
 	 * careful: this upcall is run on the network funnel
@@ -302,8 +308,8 @@ nb_connect_in(struct nbpcb *nbp, struct sockaddr_in *to, struct proc *p)
 	so->so_upcallarg = (caddr_t)nbp;
 	so->so_upcall = nb_upcall;
 	so->so_rcv.sb_flags |= SB_UPCALL;
-	so->so_rcv.sb_timeo = (5 * hz);
-	so->so_snd.sb_timeo = (5 * hz);
+	so->so_rcv.sb_timeo = (SMBSBTIMO * hz);
+	so->so_snd.sb_timeo = (SMBSBTIMO * hz);
 	error = soreserve(so, nbp->nbp_sndbuf, nbp->nbp_rcvbuf);
 	if (error)
 		goto bad;
@@ -581,11 +587,12 @@ out:
 static int
 smb_nbst_create(struct smb_vc *vcp, struct proc *p)
 {
+	#pragma unused(p)
 	struct nbpcb *nbp;
 
 	MALLOC(nbp, struct nbpcb *, sizeof *nbp, M_NBDATA, M_WAITOK);
 	bzero(nbp, sizeof *nbp);
-	nbp->nbp_timo.tv_sec = 15;	/* XXX: sysctl ? */
+	nbp->nbp_timo.tv_sec = SMB_NBTIMO;
 	nbp->nbp_state = NBST_CLOSED;
 	nbp->nbp_vc = vcp;
 	nbp->nbp_sndbuf = smb_tcpsndbuf;
@@ -613,6 +620,7 @@ smb_nbst_done(struct smb_vc *vcp, struct proc *p)
 static int
 smb_nbst_bind(struct smb_vc *vcp, struct sockaddr *sap, struct proc *p)
 {
+	#pragma unused(p)
 	struct nbpcb *nbp = vcp->vc_tdata;
 	struct sockaddr_nb *snb;
 	int error, slen;
@@ -629,7 +637,7 @@ smb_nbst_bind(struct smb_vc *vcp, struct sockaddr *sap, struct proc *p)
 		if (sap == NULL)
 			break;
 		slen = sap->sa_len;
-		if (slen < NB_MINSALEN)
+		if (slen < (int)NB_MINSALEN)
 			break;
 		snb = (struct sockaddr_nb*)dup_sockaddr(sap, 1);
 		if (snb == NULL) {
@@ -658,7 +666,7 @@ smb_nbst_connect(struct smb_vc *vcp, struct sockaddr *sap, struct proc *p)
 	if (nbp->nbp_laddr == NULL)
 		return EINVAL;
 	slen = sap->sa_len;
-	if (slen < NB_MINSALEN)
+	if (slen < (int)NB_MINSALEN)
 		return EINVAL;
 	if (nbp->nbp_paddr) {
 		free(nbp->nbp_paddr, M_SONAME);
@@ -669,18 +677,24 @@ smb_nbst_connect(struct smb_vc *vcp, struct sockaddr *sap, struct proc *p)
 		return ENOMEM;
 	nbp->nbp_paddr = snb;
 	sin = snb->snb_addrin;
+	/*
+	 * For our general timeout we use the greater of
+	 * the default (15 sec) and 4 times the time it
+	 * took for the first round trip.  We used to use
+	 * just the latter, but sometimes if the first 
+	 * round trip is very fast the subsequent 4 sec
+	 * timeouts are simply too short.
+	 */
 	getnanotime(&ts1);
 	error = nb_connect_in(nbp, &sin, p);
 	if (error)
 		return error;
 	getnanotime(&ts2);
 	timespecsub(&ts2, &ts1);
-	if (ts2.tv_sec == 0 && ts2.tv_sec == 0)
-		ts2.tv_sec = 1;
-	nbp->nbp_timo = ts2;
-	timespecadd(&nbp->nbp_timo, &ts2);
-	timespecadd(&nbp->nbp_timo, &ts2);
-	timespecadd(&nbp->nbp_timo, &ts2);	/*  * 4 */
+	timespecadd(&ts2, &ts2);
+	timespecadd(&ts2, &ts2);	/*  * 4 */
+	if (timespeccmp(&ts2, &nbp->nbp_timo, >))
+		nbp->nbp_timo = ts2;
 	error = nbssn_rq_request(nbp, p);
 	if (error)
 		smb_nbst_disconnect(vcp, p);
@@ -690,6 +704,7 @@ smb_nbst_connect(struct smb_vc *vcp, struct sockaddr *sap, struct proc *p)
 static int
 smb_nbst_disconnect(struct smb_vc *vcp, struct proc *p)
 {
+	#pragma unused(p)
 	struct nbpcb *nbp = vcp->vc_tdata;
 	struct socket *so;
 
@@ -710,6 +725,7 @@ smb_nbst_disconnect(struct smb_vc *vcp, struct proc *p)
 static int
 smb_nbst_send(struct smb_vc *vcp, struct mbuf *m0, struct proc *p)
 {
+	#pragma unused(p)
 	struct nbpcb *nbp = vcp->vc_tdata;
 	int error;
 
@@ -737,6 +753,10 @@ smb_nbst_recv(struct smb_vc *vcp, struct mbuf **mpp, struct proc *p)
 	u_int8_t rpcode;
 	int error, rplen;
 
+	if (nbp->nbp_flags & NBF_RECVLOCK) {
+		SMBERROR("attempt to reenter session layer!");
+		return (EWOULDBLOCK);
+	}
 	nbp->nbp_flags |= NBF_RECVLOCK;
 	error = nbssn_recv(nbp, mpp, &rplen, &rpcode, p);
 	nbp->nbp_flags &= ~NBF_RECVLOCK;
@@ -746,6 +766,7 @@ smb_nbst_recv(struct smb_vc *vcp, struct mbuf **mpp, struct proc *p)
 static void
 smb_nbst_timo(struct smb_vc *vcp)
 {
+	#pragma unused(vcp)
 	return;
 }
 
@@ -814,6 +835,7 @@ smb_nbst_setparam(struct smb_vc *vcp, int param, void *data)
 static int
 smb_nbst_fatal(struct smb_vc *vcp, int error)
 {
+	#pragma unused(vcp)
 	switch (error) {
 	    case ENOTCONN:
 	    case ENETRESET:
@@ -972,14 +994,15 @@ struct smb_tran_desc smb_tran_nbtcp_desc = {
 	smb_nbst_send0, smb_nbst_recv0,
 	smb_nbst_timo0, smb_nbst_intr0,
 	smb_nbst_getparam0, smb_nbst_setparam0,
-	smb_nbst_fatal0
+	smb_nbst_fatal0,
 #else /* APPLE */
 	smb_nbst_create, smb_nbst_done,
 	smb_nbst_bind, smb_nbst_connect, smb_nbst_disconnect,
 	smb_nbst_send, smb_nbst_recv,
 	smb_nbst_timo, smb_nbst_intr,
 	smb_nbst_getparam, smb_nbst_setparam,
-	smb_nbst_fatal
+	smb_nbst_fatal,
 #endif /* APPLE */
+	{NULL, NULL}
 };
 

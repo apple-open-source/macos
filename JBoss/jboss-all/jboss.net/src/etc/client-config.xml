@@ -1,0 +1,20 @@
+<!-- a barebone jboss.net/axis client configuration which includes some basic typemappings related to jboss -->
+
+<deployment 
+	name="JBoss.net"
+	targetNameSpace="http://net.jboss.org/client"
+	xmlns:jbnet="http://net.jboss.org/client"
+	xmlns:jmx="http://net.jboss.org/jmx"
+	xmlns="http://xml.apache.org/axis/wsdd/"
+	xmlns:java="http://xml.apache.org/axis/wsdd/providers/java">
+
+  <transport name="http" pivot="java:org.apache.axis.transport.http.HTTPSender">
+  </transport>
+
+  <typeMapping qname="jmx:ObjectNameType" 
+	type="java:javax.management.ObjectName"
+	serializer="org.jboss.net.jmx.adaptor.ObjectNameSerializerFactory" 
+	deserializer="org.jboss.net.jmx.adaptor.ObjectNameDeserializerFactory"
+        encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"/>
+
+</deployment>

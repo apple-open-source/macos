@@ -1,5 +1,5 @@
 mailto(rsync-bugs@samba.org)
-manpage(rsyncd.conf)(5)(12 Feb 1999)()()
+manpage(rsyncd.conf)(5)(26 Jan 2003)()()
 manpagename(rsyncd.conf)(configuration file for rsync server)
 manpagesynopsis()
 
@@ -8,9 +8,7 @@ rsyncd.conf
 manpagedescription()
 
 The rsyncd.conf file is the runtime configuration file for rsync when
-run with the --daemon option. When run in this way rsync becomes a
-rsync server listening on TCP port 873. Connections from rsync clients
-are accepted for either anonymous or authenticated rsync sessions. 
+run as an rsync server. 
 
 The rsyncd.conf file controls authentication, access, logging and
 available modules.
@@ -51,9 +49,12 @@ bind to a port numbered under 1024 (as is the default 873), or to set
 file ownership.  Otherwise, it must just have permission to read and
 write the appropriate data, log, and lock files.
 
-You can launch it either via inetd or as a stand-alone daemon. If run
-as a daemon then just run the command "rsync --daemon" from a suitable
-startup script.
+You can launch it either via inetd, as a stand-alone daemon, or from
+an rsync client via a remote shell.  If run as a stand-alone daemon then
+just run the command "rsync --daemon" from a suitable startup script.
+If run from an rsync client via a remote shell (by specifying both the
+"-e/--rsh" option and server mode with "::" or "rsync://"), the --daemon
+option is automatically passed to the remote side.
 
 When run via inetd you should add a line like this to /etc/services:
 
@@ -68,7 +69,7 @@ your system.  You will then need to send inetd a HUP signal to tell it to
 reread its config file.
 
 Note that you should not send the rsync server a HUP signal to force
-it to reread the tt(/etc/rsyncd.conf). The file is re-read on each client
+it to reread the tt(rsyncd.conf) file. The file is re-read on each client
 connection. 
 
 manpagesection(GLOBAL OPTIONS)
@@ -127,28 +128,30 @@ of available modules. The default is no comment.
 
 dit(bf(path)) The "path" option specifies the directory in the servers
 filesystem to make available in this module.  You must specify this option
-for each module in tt(/etc/rsyncd.conf).
+for each module in tt(rsyncd.conf).
 
 dit(bf(use chroot)) If "use chroot" is true, the rsync server will chroot
 to the "path" before starting the file transfer with the client.  This has
 the advantage of extra protection against possible implementation security
-holes, but it has the disadvantages of requiring super-user privileges and
+holes, but it has the disadvantages of requiring super-user privileges, 
 of not being able to follow symbolic links outside of the new root path
-when reading.  When "use chroot" is false, for security reasons
-symlinks may only be relative paths pointing to other files within the
-root path, and leading slashes are removed from absolute paths.  The
-default for "use chroot" is true.
+when reading, and of implying the --numeric-ids option because /etc/passwd
+becomes inaccessible.  When "use chroot" is false, for security reasons
+symlinks may only be relative paths pointing to other files within the root
+path, and leading slashes are removed from absolute paths.  The default for
+"use chroot" is true.
 
 dit(bf(max connections)) The "max connections" option allows you to
-specify the maximum number of simultaneous connections you will allow
-to this module of your rsync server. Any clients connecting when the
-maximum has been reached will receive a message telling them to try
-later.  The default is 0 which means no limit.
+specify the maximum number of simultaneous connections you will allow.
+Any clients connecting when the maximum has been reached will receive a
+message telling them to try later.  The default is 0 which means no limit.
+See also the "lock file" option.
 
 dit(bf(lock file)) The "lock file" option specifies the file to use to
 support the "max connections" option. The rsync server uses record
 locking on this file to ensure that the max connections limit is not
-exceeded. The default is tt(/var/run/rsyncd.lock).
+exceeded for the modules sharing the lock file. 
+The default is tt(/var/run/rsyncd.lock).
 
 dit(bf(read only)) The "read only" option determines whether clients
 will be able to upload files or not. If "read only" is true then any
@@ -173,12 +176,15 @@ was run as root. This complements the "uid" option. The default is gid -2,
 which is normally the group "nobody".
 
 dit(bf(exclude)) The "exclude" option allows you to specify a space
-separated list of patterns to add to the exclude list. This is
-equivalent to the client specifying these patterns with the --exclude
-option except that the exclude list is not passed to the client and
-thus only apply on the server.  Only one "exclude" option may be
-specified, but you can use "-" and "+" before patterns to specify
-exclude/include.
+separated list of patterns to add to the exclude list. This is equivalent
+to the client specifying these patterns with the --exclude option, except
+that the exclude list is not passed to the client and thus only applies on
+the server: that is, it excludes files received by a client when receiving
+from a server and files deleted on a server when sending to a server, but
+it doesn't exclude files sent from a client when sending to a server or
+files deleted on a client when receiving from a server.  
+Only one "exclude" option may be specified, but
+you can use "-" and "+" before patterns to specify exclude/include.
 
 Note that this option is not designed with strong security in
 mind, it is quite possible that a client may find a way to bypass this
@@ -189,24 +195,22 @@ file permissions.
 dit(bf(exclude from)) The "exclude from" option specifies a filename
 on the server that contains exclude patterns, one per line. This is
 equivalent to the client specifying the --exclude-from option with a
-equivalent file except that the resulting exclude patterns are not
-passed to the client and thus only apply on the server. See also the
-note about security for the exclude option above.
+equivalent file except that it applies only on the server.  See also
+the "exclude" option above.
 
 dit(bf(include)) The "include" option allows you to specify a space
 separated list of patterns which rsync should not exclude. This is
 equivalent to the client specifying these patterns with the --include
-option.  This is useful as it allows you to build up quite complex
-exclude/include rules.  Only one "include" option may be specified, but you
-can use "+" and "-" before patterns to switch include/exclude.
-
-See the section of exclude patterns in the rsync man page for information
-on the syntax of this option.
+option except that it applies only on the server.  This is useful as it
+allows you to build up quite complex exclude/include rules.  Only one
+"include" option may be specified, but you can use "+" and "-" before
+patterns to switch include/exclude.  See also the "exclude" option above.
 
 dit(bf(include from)) The "include from" option specifies a filename
 on the server that contains include patterns, one per line. This is
 equivalent to the client specifying the --include-from option with a
-equivalent file.
+equivalent file except that it applies only on the server.  See also
+the "exclude" option above.
 
 dit(bf(auth users)) The "auth users" option specifies a comma and
 space separated list of usernames that will be allowed to connect to
@@ -218,6 +222,11 @@ authentication protocol is used for this exchange. The plain text
 usernames are passwords are stored in the file specified by the
 "secrets file" option. The default is for all users to be able to
 connect without a password (this is called "anonymous rsync").
+
+See also the bf(CONNECTING TO AN RSYNC SERVER OVER A REMOTE SHELL
+PROGRAM) section in rsync(1) for information on how handle an
+rsyncd.conf-level username that differs from the remote-shell-level
+username when using a remote shell to connect to a rsync server.
 
 dit(bf(secrets file)) The "secrets file" option specifies the name of
 a file that contains the username:password pairs used for
@@ -248,16 +257,18 @@ connection is rejected.
 Each pattern can be in one of five forms:
 
 itemize(
-  it() a dotted decimal IP address. In this case the incoming machines
-  IP address must match exactly.
+  it() a dotted decimal IPv4 address of the form a.b.c.d, or an IPv6 address
+  of the form a:b:c::d:e:f. In this case the incoming machine's IP address
+  must match exactly.
 
-  it() a address/mask in the form a.b.c.d/n were n is the number of
-  one bits in in the netmask. All IP addresses which match the masked
-  IP address will be allowed in.
+  it() an address/mask in the form ipaddr/n where ipaddr is the IP address
+  and n is the number of one bits in the netmask.  All IP addresses which
+  match the masked IP address will be allowed in.
 
-  it() a address/mask in the form a.b.c.d/e.f.g.h where e.f.g.h is a
-  netmask in dotted decimal notation. All IP addresses which match the masked
-  IP address will be allowed in.
+  it() an address/mask in the form ipaddr/maskaddr where ipaddr is the
+  IP address and maskaddr is the netmask in dotted decimal notation for IPv4,
+  or similar for IPv6, e.g. ffff:ffff:ffff:ffff:: instead of /64. All IP
+  addresses which match the masked IP address will be allowed in.
 
   it() a hostname. The hostname as determined by a reverse lookup will
   be matched (case insensitive) against the pattern. Only an exact
@@ -267,6 +278,12 @@ itemize(
   same rules as normal unix filename matching. If the pattern matches
   then the client is allowed in.
 )
+
+Note IPv6 link-local addresses can have a scope in the address specification:
+
+quote(fe80::1%link1)
+quote(fe80::%link1/64)
+quote(fe80::%link1/ffff:ffff:ffff:ffff::)
 
 You can also combine "hosts allow" with a separate "hosts deny"
 option. If both options are specified then the "hosts allow" option s
@@ -430,7 +447,7 @@ susan:herpass
 
 manpagefiles()
 
-/etc/rsyncd.conf
+/etc/rsyncd.conf or rsyncd.conf
 
 manpageseealso()
 

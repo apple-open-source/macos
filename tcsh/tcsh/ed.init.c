@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/ed.init.c,v 1.1.1.2 2001/06/28 23:10:47 bbraun Exp $ */
+/* $Header: /cvs/root/tcsh/tcsh/ed.init.c,v 1.1.1.3 2003/01/17 03:41:06 nicolai Exp $ */
 /*
  * ed.init.c: Editor initializations
  */
@@ -14,11 +14,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -36,10 +32,9 @@
  */
 #include "sh.h"
 
-RCSID("$Id: ed.init.c,v 1.1.1.2 2001/06/28 23:10:47 bbraun Exp $")
+RCSID("$Id: ed.init.c,v 1.1.1.3 2003/01/17 03:41:06 nicolai Exp $")
 
 #include "ed.h"
-#include "ed.term.h"
 #include "tc.h"
 #include "ed.defns.h"
 
@@ -145,7 +140,7 @@ int snum;
     if (snum > 0)
       sigset(snum, window_change);
 #endif /* UNRELSIGS */
-    check_window_size(0);
+    windowchg = 1;
 #ifndef SIGVOID
     return (snum);
 #endif 
@@ -197,7 +192,7 @@ ed_Setup(rst)
     vdisable = (unsigned char) _POSIX_VDISABLE;
 #endif /* POSIX && _PC_VDISABLE && !BSD4_4 && !WINNT_NATIVE */
 	
-    if ((imode = adrof(STRinputmode)) != NULL) {
+    if ((imode = adrof(STRinputmode)) != NULL && imode->vec != NULL) {
 	if (!Strcmp(*(imode->vec), STRinsert))
 	    inputmode = MODE_INSERT;
 	else if (!Strcmp(*(imode->vec), STRoverwrite))
@@ -208,6 +203,7 @@ ed_Setup(rst)
     ed_InitMaps();
     Hist_num = 0;
     Expand = 0;
+    SetKillRing(getn(varval(STRkillring)));
 
 #ifndef WINNT_NATIVE
     if (tty_getty(SHTTY, &extty) == -1) {
@@ -303,7 +299,27 @@ ed_Init()
 {
     ResetInLine(1);		/* reset the input pointers */
     GettingInput = 0;		/* just in case */
-    LastKill = KillBuf;		/* no kill buffer */
+#ifdef notdef
+    /* XXX This code was here before the kill ring:
+    LastKill = KillBuf;		/ * no kill buffer * /
+       If there was any reason for that other than to make sure LastKill
+       was initialized, the code below should go in here instead - but
+       it doesn't seem reasonable to lose the entire kill ring (which is
+       "self-initializing") just because you set $term or whatever, so
+       presumably this whole '#ifdef notdef' should just be taken out.  */
+
+    {				/* no kill ring - why? */
+	int i;
+	for (i = 0; i < KillRingMax; i++) {
+	    if (KillRing[i].buf != NULL)
+		xfree((ptr_t) KillRing[i].buf);
+	    KillRing[i].buf = NULL;
+	    KillRing[i].len = 0;
+	}
+	YankPos = KillPos = 0;
+	KillRingLen = 0;
+    }
+#endif
 
 #ifdef DEBUG_EDIT
     CheckMaps();		/* do a little error checking on key maps */
@@ -623,9 +639,6 @@ ResetInLine(macro)
     Hist_num = 0;
     DoingArg = 0;
     Argument = 1;
-#ifdef notdef
-    LastKill = KillBuf;		/* no kill buffer */
-#endif 
     LastCmd = F_UNASSIGNED;	/* previous command executed */
     if (macro)
 	MacroLvl = -1;		/* no currently active macros */

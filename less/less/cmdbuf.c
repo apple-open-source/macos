@@ -1,27 +1,11 @@
 /*
- * Copyright (c) 1984,1985,1989,1994,1995,1996,1999  Mark Nudelman
- * All rights reserved.
+ * Copyright (C) 1984-2002  Mark Nudelman
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice in the documentation and/or other materials provided with 
- *    the distribution.
+ * You may distribute under the terms of either the GNU General Public
+ * License or the Less License, as specified in the README file.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT 
- * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR 
- * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE 
- * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN 
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * For more information about less, or for information on how to 
+ * contact the author, see the README file.
  */
 
 
@@ -80,25 +64,25 @@ struct mlist
  */
 struct mlist mlist_search =  
 	{ &mlist_search,  &mlist_search,  &mlist_search,  NULL };
-public void constant *ml_search = (void *) &mlist_search;
+public void * constant ml_search = (void *) &mlist_search;
 
 struct mlist mlist_examine = 
 	{ &mlist_examine, &mlist_examine, &mlist_examine, NULL };
-public void constant *ml_examine = (void *) &mlist_examine;
+public void * constant ml_examine = (void *) &mlist_examine;
 
 #if SHELL_ESCAPE || PIPEC
 struct mlist mlist_shell =   
 	{ &mlist_shell,   &mlist_shell,   &mlist_shell,   NULL };
-public void constant *ml_shell = (void *) &mlist_shell;
+public void * constant ml_shell = (void *) &mlist_shell;
 #endif
 
 #else /* CMD_HISTORY */
 
 /* If CMD_HISTORY is off, these are just flags. */
-public void constant *ml_search = (void *)1;
-public void constant *ml_examine = (void *)2;
+public void * constant ml_search = (void *)1;
+public void * constant ml_examine = (void *)2;
 #if SHELL_ESCAPE || PIPEC
-public void constant *ml_shell = (void *)3;
+public void * constant ml_shell = (void *)3;
 #endif
 
 #endif /* CMD_HISTORY */
@@ -171,7 +155,7 @@ cmd_repaint(old_cp)
 	for ( ;  *cp != '\0';  cp++)
 	{
 		p = prchar(*cp);
-		if (cmd_col + strlen(p) >= sc_width)
+		if (cmd_col + (int)strlen(p) >= sc_width)
 			break;
 		putstr(p);
 		cmd_col += strlen(p);
@@ -271,9 +255,9 @@ cmd_right()
 		return (CC_OK);
 	}
 	p = prchar(*cp);
-	if (cmd_col + strlen(p) >= sc_width)
+	if (cmd_col + (int)strlen(p) >= sc_width)
 		cmd_lshift();
-	else if (cmd_col + strlen(p) == sc_width - 1 && cp[1] != '\0')
+	else if (cmd_col + (int)strlen(p) == sc_width - 1 && cp[1] != '\0')
 		cmd_lshift();
 	cp++;
 	putstr(p);
@@ -295,7 +279,7 @@ cmd_left()
 		return (CC_OK);
 	}
 	p = prchar(cp[-1]);
-	if (cmd_col < prompt_col + strlen(p))
+	if (cmd_col < prompt_col + (int)strlen(p))
 		cmd_rshift();
 	cp--;
 	cmd_col -= strlen(p);
@@ -746,7 +730,10 @@ delimit_word()
 	char *word;
 #if SPACES_IN_FILENAMES
 	char *p;
-	int quoted;
+	int delim_quoted = 0;
+	int meta_quoted = 0;
+	char *esc = get_meta_escape();
+	int esclen = strlen(esc);
 #endif
 	
 	/*
@@ -767,6 +754,7 @@ delimit_word()
 		 * We're already at the end of the word.
 		 */
 		;
+#if 0
 	} else
 	{
 		/*
@@ -774,9 +762,10 @@ delimit_word()
 		 * Huh? There's no word here.
 		 */
 		return (NULL);
+#endif
 	}
 	/*
-	 * Search backwards for beginning of the word.
+	 * Find the beginning of the word which the cursor is in.
 	 */
 	if (cp == cmdbuf)
 		return (NULL);
@@ -786,24 +775,34 @@ delimit_word()
 	 * without a corresponding close quote), we return everything
 	 * from the open quote, including spaces.
 	 */
-	quoted = 0;
+	for (word = cmdbuf;  word < cp;  word++)
+		if (*word != ' ')
+			break;
+	if (word >= cp)
+		return (cp);
 	for (p = cmdbuf;  p < cp;  p++)
 	{
-		if (!quoted && *p == openquote)
+		if (meta_quoted)
 		{
-			quoted = 1;
-			word = p;
-		} else if (quoted && *p == closequote)
+			meta_quoted = 0;
+		} else if (esclen > 0 && p + esclen < cp &&
+		           strncmp(p, esc, esclen) == 0)
 		{
-			quoted = 0;
+			meta_quoted = 1;
+			p += esclen - 1;
+		} else if (delim_quoted)
+		{
+			if (*p == closequote)
+				delim_quoted = 0;
+		} else /* (!delim_quoted) */
+		{
+			if (*p == openquote)
+				delim_quoted = 1;
+			else if (*p == ' ')
+				word = p+1;
 		}
 	}
-	if (quoted)
-		return (word);
 #endif
-	for (word = cp-1;  word > cmdbuf;  word--)
-		if (word[-1] == ' ')
-			break;
 	return (word);
 }
 
@@ -851,11 +850,20 @@ init_compl()
 	 */
 	c = *cp;
 	*cp = '\0';
-#if SPACES_IN_FILENAMES
-	if (*word == openquote)
-		word++;
-#endif
-	tk_text = fcomplete(word);
+	if (*word != openquote)
+	{
+		tk_text = fcomplete(word);
+	} else
+	{
+		char *qword = shell_quote(word+1);
+		if (qword == NULL)
+			tk_text = fcomplete(word+1);
+		else
+		{
+			tk_text = fcomplete(qword);
+			free(qword);
+		}
+	}
 	*cp = c;
 }
 

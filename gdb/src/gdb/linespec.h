@@ -24,4 +24,10 @@ extern struct symtabs_and_lines
 		       struct symtab *default_symtab, int default_line,
 		       char ***canonical);
 
+/* APPLE LOCAL: A flag to control whether decode_line_1* will look for
+   ObjC selectors in the expression, and a function to reset that
+   value (normally added to a cleanup chain). */
+extern int allow_objc_selectors_flag;
+extern void reset_allow_objc_selectors_flag (PTR dummy);
+
 #endif /* defined (LINESPEC_H) */

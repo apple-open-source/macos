@@ -1,4 +1,4 @@
-/*	$KAME: misc.c,v 1.22 2001/07/14 05:48:33 sakane Exp $	*/
+/*	$KAME: misc.c,v 1.23 2001/08/16 14:37:29 itojun Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.

@@ -140,7 +140,7 @@ main(argc, argv)
 	struct stat st;
 	struct timeval tp;
 	struct utmp utmp;
-	int ask, ch, cnt, fflag, hflag, pflag, quietlog, rootlogin = 0, rval;
+	int ask, ch, cnt, oflag = 0, fflag, hflag, pflag, quietlog, rootlogin = 0, rval;
 	uid_t uid;
 	uid_t euid;
 	gid_t egid;
@@ -179,8 +179,11 @@ main(argc, argv)
 
 	fflag = hflag = pflag = 0;
 	uid = getuid();
-	while ((ch = getopt(argc, argv, "fh:p")) != EOF)
+	while ((ch = getopt(argc, argv, "1fh:p")) != EOF)
 		switch (ch) {
+		case '1':
+			oflag = 1;
+			break;
 		case 'f':
 			fflag = 1;
 			break;
@@ -262,7 +265,7 @@ main(argc, argv)
 	} else {
 
 		rval = pam_authenticate(pamh, 0);
-		while( (cnt++ < 10) && ((rval == PAM_AUTH_ERR) ||
+		while( (!oflag) && (cnt++ < 10) && ((rval == PAM_AUTH_ERR) ||
 				(rval == PAM_USER_UNKNOWN) ||
 				(rval == PAM_CRED_INSUFFICIENT) ||
 				(rval == PAM_AUTHINFO_UNAVAIL))) {
@@ -650,6 +653,16 @@ dolastlog(quiet)
 {
 	struct lastlog ll;
 	int fd;
+
+	/* HACK HACK HACK: This is because HFS doesn't support sparse files
+	 * and seeking into the file too far is too slow.  The "solution"
+	 * is to just bail if the seek time for a large uid would be too
+	 * slow.
+	 */
+	if(pwd->pw_uid > 100000) {
+		syslog(LOG_NOTICE, "User login %s (%d) not logged in lastlog.  UID too large.", pwd->pw_name, pwd->pw_uid);
+		return;
+	}
 
 	if ((fd = open(_PATH_LASTLOG, O_RDWR, 0)) >= 0) {
 		(void)lseek(fd, (off_t)pwd->pw_uid * sizeof(ll), L_SET);

@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(new_system_shared_regions, 0)
-	blr
 

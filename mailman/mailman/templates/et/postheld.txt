@@ -1,0 +1,15 @@
+Teie kiri listi '%(listname)s' teemal 
+
+    %(subject)s
+
+edastati listi moderaatorile üle vaatamiseks.
+
+Põhjus:
+
+    %(reason)s
+
+Sõltuvalt moderaatori otsusest kiri kas postitakse listi või
+teavitatakse teid moderaatori otsusest. Kui soovite seda postitust
+katkestada, külastage veebilehte
+
+    %(confirmurl)s

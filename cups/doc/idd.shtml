@@ -1,6 +1,6 @@
 <HTML>
 <HEAD>
-	<META NAME="COPYRIGHT" CONTENT="Copyright 1997-2002, All Rights Reserved">
+	<META NAME="COPYRIGHT" CONTENT="Copyright 1997-2003, All Rights Reserved">
 	<META NAME="DOCNUMBER" CONTENT="CUPS-IDD-1.1">
 	<META NAME="Author" CONTENT="Easy Software Products">
 	<TITLE>CUPS Interface Design Description</TITLE>
@@ -274,6 +274,12 @@ source/type cost program
 supports the source type directly the special filter program "-" may be
 specified.
 
+<H4>cupsFlipDuplex</H4>
+
+<P>This boolean attribute notifies the RIP filters that the
+destination printer requires an upside-down image for the back
+page. The default value is false.
+
 <H4>cupsManualCopies</H4>
 
 <P>This boolean attribute notifies the RIP filters that the destination printer
@@ -307,6 +313,13 @@ f(x) = density * x<SUP>gamma</SUP>
 <P>The <I>m00</I> through <I>m22</I> values define a 3x3 transformation
 matrix for the CMY color values. The density function is applied <I>after</I>
 the CMY transformation.
+
+<H4>cupsProtocol</H4>
+
+<P>This optional attribute describes which binary communication
+protocol to use when printing binary PostScript data. The
+strings "None", "BCP", and "TBCP" are recognized, corresponding
+to no encoding, BCP, and TBCP respectively.
 
 <H4>cupsVersion</H4>
 
@@ -1298,7 +1311,30 @@ raster data for that page.
 	6 = CMYK<BR>
 	7 = YMCK<BR>
 	8 = KCMY<BR>
-	9 = KCMYcm</TD>
+	9 = KCMYcm<BR>
+	10 = GMCK<BR>
+	11 = GMCS<BR>
+	12 = WHITE<BR>
+	13 = GOLD<BR>
+	14 = SILVER<BR>
+	15 = CIE XYZ<BR>
+	16 = CIE Lab<BR>
+	32 = ICC1<BR>
+	33 = ICC2<BR>
+	34 = ICC3<BR>
+	35 = ICC4<BR>
+	36 = ICC5<BR>
+	37 = ICC6<BR>
+	38 = ICC7<BR>
+	39 = ICC8<BR>
+	40 = ICC9<BR>
+	41 = ICCA (10)<BR>
+	42 = ICCB (11)<BR>
+	43 = ICCC (12)<BR>
+	44 = ICCD (13)<BR>
+	45 = ICCE (14)<BR>
+	46 = ICCF (15)<BR>
+	</TD>
 </TR>
 <TR>
 	<TD>404-407</TD>

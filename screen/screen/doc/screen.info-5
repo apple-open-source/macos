@@ -1,13 +1,14 @@
-This is screen.info, produced by makeinfo version 4.0 from
+This is screen.info, produced by makeinfo version 4.2 from
 ./screen.texinfo.
 
+INFO-DIR-SECTION General Commands
 START-INFO-DIR-ENTRY
 * Screen: (screen).             Full-screen window manager.
 END-INFO-DIR-ENTRY
 
    This file documents the `Screen' virtual terminal manager.
 
-   Copyright (c) 1993-1995 Free Software Foundation, Inc.
+   Copyright (c) 1993-2003 Free Software Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of this
 manual provided the copyright notice and this permission notice are
@@ -24,6 +25,187 @@ versions, except that this permission notice may be stated in a
 translation approved by the Foundation.
 
 
+File: screen.info,  Node: Command Index,  Next: Keystroke Index,  Prev: Concept Index,  Up: Top
+
+Command Index
+*************
+
+   This is a list of all the commands supported by `screen'.
+
+* Menu:
+
+* acladd:                                Acladd.
+* aclchg:                                Aclchg.
+* acldel:                                Acldel.
+* aclgrp:                                Aclgrp.
+* aclumask:                              Umask.
+* activity:                              Monitor.
+* addacl:                                Acladd.
+* allpartial:                            Redisplay.
+* altscreen:                             Redisplay.
+* at:                                    At.
+* attrcolor:                             Attrcolor.
+* autodetach:                            Detach.
+* autonuke:                              Autonuke.
+* backtick:                              Backtick.
+* bce:                                   Character Processing.
+* bell_msg:                              Bell.
+* bind:                                  Bind.
+* bindkey:                               Bindkey.
+* break:                                 Break.
+* breaktype:                             Break.
+* bufferfile:                            Screen Exchange.
+* c1:                                    Character Processing.
+* caption:                               Caption.
+* chacl:                                 Aclchg.
+* charset:                               Character Processing.
+* chdir:                                 Chdir.
+* clear:                                 Clear.
+* colon:                                 Colon.
+* command:                               Command Character.
+* compacthist:                           Scrollback.
+* console:                               Console.
+* copy:                                  Copy.
+* copy_reg:                              Registers.
+* crlf:                                  Line Termination.
+* debug:                                 Debug.
+* defautonuke:                           Autonuke.
+* defbce:                                Character Processing.
+* defbreaktype:                          Break.
+* defc1:                                 Character Processing.
+* defcharset:                            Character Processing.
+* defencoding:                           Character Processing.
+* defescape:                             Command Character.
+* defflow:                               Flow.
+* defgr:                                 Character Processing.
+* defhstatus:                            Hardstatus.
+* deflog:                                Log.
+* deflogin:                              Login.
+* defmode:                               Mode.
+* defmonitor:                            Monitor.
+* defobuflimit:                          Obuflimit.
+* defscrollback:                         Scrollback.
+* defshell:                              Shell.
+* defsilence:                            Silence.
+* defslowpaste:                          Paste.
+* defutf8:                               Character Processing.
+* defwrap:                               Wrap.
+* defwritelock:                          Writelock.
+* defzombie:                             Zombie.
+* detach:                                Detach.
+* digraph:                               Digraph.
+* dinfo:                                 Info.
+* displays:                              Displays.
+* dumptermcap:                           Dump Termcap.
+* echo:                                  echo.
+* encoding:                              Character Processing.
+* escape:                                Command Character.
+* eval:                                  Eval.
+* exec:                                  Exec.
+* fit:                                   Fit.
+* flow:                                  Flow.
+* focus:                                 Focus.
+* gr:                                    Character Processing.
+* hardcopy:                              Hardcopy.
+* hardcopy_append:                       Hardcopy.
+* hardcopydir:                           Hardcopy.
+* hardstatus:                            Hardware Status Line.
+* height:                                Window Size.
+* help:                                  Help.
+* history:                               History.
+* hstatus:                               Hardstatus.
+* ignorecase:                            Searching.
+* info:                                  Info.
+* ins_reg:                               Registers.
+* kill:                                  Kill.
+* lastmsg:                               Last Message.
+* license:                               License.
+* lockscreen:                            Lock.
+* log:                                   Log.
+* logfile:                               Log.
+* login:                                 Login.
+* logtstamp:                             Log.
+* mapdefault:                            Bindkey Control.
+* mapnotnext:                            Bindkey Control.
+* maptimeout:                            Bindkey Control.
+* markkeys:                              Copy Mode Keys.
+* maxwin:                                Maxwin.
+* meta:                                  Command Character.
+* monitor:                               Monitor.
+* msgminwait:                            Message Wait.
+* msgwait:                               Message Wait.
+* multiuser:                             Multiuser.
+* nethack:                               Nethack.
+* next:                                  Next and Previous.
+* nonblock:                              Nonblock.
+* number:                                Number.
+* obuflimit:                             Obuflimit.
+* only:                                  Only.
+* other:                                 Other Window.
+* partial:                               Redisplay.
+* password:                              Detach.
+* paste:                                 Paste.
+* pastefont:                             Paste.
+* pow_break:                             Break.
+* pow_detach:                            Power Detach.
+* pow_detach_msg:                        Power Detach.
+* prev:                                  Next and Previous.
+* printcmd:                              Printcmd.
+* process:                               Registers.
+* quit:                                  Quit.
+* readbuf:                               Screen Exchange.
+* readreg:                               Paste.
+* redisplay:                             Redisplay.
+* register:                              Registers.
+* remove:                                Remove.
+* removebuf:                             Screen Exchange.
+* reset:                                 Reset.
+* resize:                                Resize.
+* screen:                                Screen Command.
+* scrollback:                            Scrollback.
+* select:                                Select.
+* sessionname:                           Session Name.
+* setenv:                                Setenv.
+* setsid:                                Setsid.
+* shell:                                 Shell.
+* shelltitle:                            Shell.
+* silence:                               Silence.
+* silencewait:                           Silence.
+* sleep:                                 sleep.
+* slowpaste:                             Paste.
+* sorendition:                           Sorendition.
+* source:                                Source.
+* split:                                 Split.
+* startup_message:                       Startup Message.
+* stuff:                                 Paste.
+* su:                                    Su.
+* suspend:                               Suspend.
+* term:                                  Term.
+* termcap:                               Termcap Syntax.
+* termcapinfo:                           Termcap Syntax.
+* terminfo:                              Termcap Syntax.
+* time:                                  Time.
+* title:                                 Title Command.
+* umask:                                 Umask.
+* unsetenv:                              Setenv.
+* utf8:                                  Character Processing.
+* vbell:                                 Bell.
+* vbell_msg:                             Bell.
+* vbellwait:                             Bell.
+* verbose:                               Verbose.
+* version:                               Version.
+* wall:                                  Wall.
+* width:                                 Window Size.
+* windowlist:                            Windowlist.
+* windows:                               Windows.
+* wrap:                                  Wrap.
+* writebuf:                              Screen Exchange.
+* writelock:                             Writelock.
+* xoff:                                  XON/XOFF.
+* xon:                                   XON/XOFF.
+* zombie:                                Zombie.
+
+
 File: screen.info,  Node: Keystroke Index,  Prev: Command Index,  Up: Top
 
 Keystroke Index
@@ -36,15 +218,15 @@ omitted from the key sequences, since it is the same for all bindings.
 
 * Menu:
 
-* ":                                     Select.
+* ":                                     Windowlist.
 * ':                                     Select.
 * *:                                     Displays.
 * .:                                     Dump Termcap.
 * 0...9:                                 Select.
 * ::                                     Colon.
-* <:                                     Screen-Exchange.
-* =:                                     Screen-Exchange.
-* >:                                     Screen-Exchange.
+* <:                                     Screen Exchange.
+* =:                                     Screen Exchange.
+* >:                                     Screen Exchange.
 * ?:                                     Help.
 * [:                                     Copy.
 * ]:                                     Paste.

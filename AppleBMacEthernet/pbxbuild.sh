@@ -23,24 +23,24 @@ IFS='
 
 while [ $# -gt 0 ] ; do
 	case ${1} in
-		-h | -help)
+		-h | -help | -usage)
 			echo "$USAGE_TEXT"
 			exit 0
 			;;
-#		-target)
-#			shift
-#			if [ ! -z ${1} ]; then
-#				Target="${1}"
-#			fi
-#			shift
-#			;;
-#		-buildstyle)
-#			shift
-#			if [ ! -z ${1} ]; then
-#				BuildStyle="${1}"
-#			fi
-#			shift
-#			;;
+		-target)
+			shift
+			if [ ! -z ${1} ]; then
+				Target="${1}"
+			fi
+			shift
+			;;
+		-buildstyle)
+			shift
+			if [ ! -z ${1} ]; then
+				BuildStyle="${1}"
+			fi
+			shift
+			;;
 		-*)
 			echo "pbxbuild: invalid option '"${1}"'"
 			echo "$USAGE_TEXT"
@@ -81,10 +81,16 @@ for Action in ${Actions}; do
 		TargetPath="${DataPath}/${Target}.build"
 		echo
 		echo "*** ${Action} ${Target} ***"
-		echo jam -d2 ${Action} JAMFILE=\"${TargetPath}/Jamfile.jam\" JAMBASE=pbxbuild.data/ProjectBuilderJambase TARGETNAME=\"${Target}\" ACTION=${Action} OS=darwin NATIVE_ARCH=`arch` SRCROOT=\"`pwd`\" OBJROOT=\"`pwd`/obj\" SYMROOT=\"`pwd`/sym\" DSTROOT=\"`pwd`/dst\" ${Assignments}
-		jam -d2 ${Action} JAMFILE="${TargetPath}/Jamfile.jam" JAMBASE=pbxbuild.data/ProjectBuilderJambase TARGETNAME="${Target}" ACTION=${Action} OS=darwin NATIVE_ARCH=`arch` SRCROOT="`pwd`" OBJROOT="`pwd`/obj" SYMROOT="`pwd`/sym" DSTROOT="`pwd`/dst" ${Assignments}
-		[ $? != 0 ] && exit 1
+		echo jam -d2 ${Action} JAMFILE=\"${TargetPath}/Jamfile.jam\" JAMBASE=pbxbuild.data/ProjectBuilderJambase TARGETNAME=\"${Target}\" BUILD_STYLE="${BuildStyle}" ACTION=${Action} OS=darwin NATIVE_ARCH=`arch` SRCROOT=\"`pwd`\" OBJROOT=\"`pwd`/obj\" SYMROOT=\"`pwd`/sym\" DSTROOT=\"`pwd`/dst\" ${Assignments}
+		jam -d2 ${Action} JAMFILE="${TargetPath}/Jamfile.jam" JAMBASE=pbxbuild.data/ProjectBuilderJambase TARGETNAME="${Target}" BUILD_STYLE="${BuildStyle}" ACTION=${Action} OS=darwin NATIVE_ARCH=`arch` SRCROOT="`pwd`" OBJROOT="`pwd`/obj" SYMROOT="`pwd`/sym" DSTROOT="`pwd`/dst" ${Assignments}
+		if [ $? != 0 ]; then
+			echo "*** ${Action} ${Target} FAILED ***"
+			exit 1
+		fi
 	done
 done
+
+echo
+echo "*** BUILD SUCCEEDED ***"
 
 exit 0

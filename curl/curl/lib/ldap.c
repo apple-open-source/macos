@@ -1,28 +1,29 @@
-/*****************************************************************************
+/***************************************************************************
  *                                  _   _ ____  _     
  *  Project                     ___| | | |  _ \| |    
  *                             / __| | | | |_) | |    
  *                            | (__| |_| |  _ <| |___ 
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 2000, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2002, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
- * In order to be useful for every potential user, curl and libcurl are
- * dual-licensed under the MPL and the MIT/X-derivate licenses.
- *
+ * This software is licensed as described in the file COPYING, which
+ * you should have received as part of this distribution. The terms
+ * are also available at http://curl.haxx.se/docs/copyright.html.
+ * 
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
- * furnished to do so, under the terms of the MPL or the MIT/X-derivate
- * licenses. You may pick one of these licenses.
+ * furnished to do so, under the terms of the COPYING file.
  *
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: ldap.c,v 1.1.1.2 2001/04/24 18:49:10 wsanchez Exp $
- *****************************************************************************/
+ * $Id: ldap.c,v 1.1.1.3 2002/11/26 19:07:56 zarzycki Exp $
+ ***************************************************************************/
 
 #include "setup.h"
 
+#ifndef CURL_DISABLE_LDAP
 /* -- WIN32 approved -- */
 #include <stdio.h>
 #include <string.h>
@@ -47,6 +48,7 @@
 #include <curl/curl.h>
 #include "sendf.h"
 #include "escape.h"
+#include "transfer.h"
 
 #define _MPRINTF_REPLACE /* use our functions only */
 #include <curl/mprintf.h>
@@ -94,14 +96,16 @@ static void DynaClose(void)
 #if defined(HAVE_DLOPEN) || defined(HAVE_LIBDL)
   if (libldap) {
     dlclose(libldap);
+    libldap=NULL;
   }
   if (liblber) {
     dlclose(liblber);
+    liblber=NULL;
   }
 #endif
 }
 
-static void * DynaGetFunction(char *name)
+static void * DynaGetFunction(const char *name)
 {
   void *func = NULL;
 
@@ -116,14 +120,10 @@ static void * DynaGetFunction(char *name)
 
 static int WriteProc(void *param, char *text, int len)
 {
-  struct UrlData *data = (struct UrlData *)param;
+  struct SessionHandle *data = (struct SessionHandle *)param;
+  len = 0; /* prevent compiler warning */
   Curl_client_write(data, CLIENTWRITE_BODY, text, 0);
   return 0;
-}
-
-CURLcode Curl_ldap_done(struct connectdata *conn)
-{
-  return CURLE_OK;
 }
 
 /***********************************************************************
@@ -146,9 +146,9 @@ CURLcode Curl_ldap(struct connectdata *conn)
   void *entryIterator;
 
   int ldaptext;
-  struct UrlData *data=conn->data;
+  struct SessionHandle *data=conn->data;
   
-  infof(data, "LDAP: %s %s\n", data->url);
+  infof(data, "LDAP: %s\n", data->change.url);
 
   DynaOpen();
   if (libldap == NULL) {
@@ -156,7 +156,7 @@ CURLcode Curl_ldap(struct connectdata *conn)
     return CURLE_LIBRARY_NOT_FOUND;
   }
 
-  ldaptext = data->bits.ftp_ascii; /* This is a dirty hack */
+  ldaptext = data->set.ftp_ascii; /* This is a dirty hack */
   
   /* The types are needed because ANSI C distinguishes between
    * pointer-to-object (data) and pointer-to-function.
@@ -177,12 +177,14 @@ CURLcode Curl_ldap(struct connectdata *conn)
 	  conn->hostname, conn->port);
     status = CURLE_COULDNT_CONNECT;
   } else {
-    rc = ldap_simple_bind_s(server, data->user, data->passwd);
+    rc = ldap_simple_bind_s(server,
+                            conn->bits.user_passwd?data->state.user:NULL,
+                            conn->bits.user_passwd?data->state.passwd:NULL);
     if (rc != 0) {
       failf(data, "LDAP: %s", ldap_err2string(rc));
       status = CURLE_LDAP_CANNOT_BIND;
     } else {
-      rc = ldap_url_search_s(server, data->url, 0, &result);
+      rc = ldap_url_search_s(server, data->change.url, 0, &result);
       if (rc != 0) {
 	failf(data, "LDAP: %s", ldap_err2string(rc));
 	status = CURLE_LDAP_SEARCH_FAILED;
@@ -194,7 +196,7 @@ CURLcode Curl_ldap(struct connectdata *conn)
 	    if (ldaptext) {
 	      rc = ldap_entry2text(server, NULL, entryIterator, NULL,
 				   NULL, NULL, WriteProc, data,
-				   "", 0, 0);
+				   (char *)"", 0, 0);
 	      if (rc != 0) {
 		failf(data, "LDAP: %s", ldap_err2string(rc));
 		status = CURLE_LDAP_SEARCH_FAILED;
@@ -202,7 +204,7 @@ CURLcode Curl_ldap(struct connectdata *conn)
 	    } else {
 	      rc = ldap_entry2html(server, NULL, entryIterator, NULL,
 				   NULL, NULL, WriteProc, data,
-				   "", 0, 0, NULL, NULL);
+				   (char *)"", 0, 0, NULL, NULL);
 	      if (rc != 0) {
 		failf(data, "LDAP: %s", ldap_err2string(rc));
 		status = CURLE_LDAP_SEARCH_FAILED;
@@ -214,6 +216,18 @@ CURLcode Curl_ldap(struct connectdata *conn)
     }
   }
   DynaClose();
+
+  /* no data to transfer */
+  Curl_Transfer(conn, -1, -1, FALSE, NULL, -1, NULL);
   
   return status;
 }
+
+/*
+ * local variables:
+ * eval: (load-file "../curl-mode.el")
+ * end:
+ * vim600: fdm=marker
+ * vim: et sw=2 ts=2 sts=2 tw=78
+ */
+#endif

@@ -1,5 +1,5 @@
 
-/* $Header: /cvs/Darwin/src/live/emacs/emacs/oldXMenu/XMenuInt.h,v 1.1.1.3 2001/10/31 17:59:57 jevans Exp $ */
+/* $Header: /cvs/root/emacs/emacs/oldXMenu/XMenuInt.h,v 1.1.1.4 2002/09/10 23:34:47 jevans Exp $ */
 /* Copyright    Massachusetts Institute of Technology    1985	*/
 
 /*

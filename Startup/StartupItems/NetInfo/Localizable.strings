@@ -2,6 +2,8 @@
 <!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
 <plist version="0.9">
 <dict>
+	<key>NetInfo</key>
+	<string>NetInfo</string>
 	<key>Starting NetInfo</key>
 	<string>Starting NetInfo</string>
 	<key>Creating local NetInfo database</key>

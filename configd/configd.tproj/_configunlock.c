@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -34,29 +37,38 @@
 #include "configd.h"
 #include "configd_server.h"
 #include "session.h"
+#include "pattern.h"
+
+
+#define N_QUICK	32
 
 
 static void
 _notifyWatchers()
 {
 	CFIndex			keyCnt;
-	const void		**keys;
+	const void *		keys_q[N_QUICK];
+	const void **		keys	= keys_q;
 
 	keyCnt = CFSetGetCount(changedKeys);
 	if (keyCnt == 0)
 		return;		/* if nothing to do */
 
-	keys = CFAllocatorAllocate(NULL, keyCnt * sizeof(CFStringRef), 0);
+	if (keyCnt > (CFIndex)(sizeof(keys_q) / sizeof(CFStringRef)))
+		keys = CFAllocatorAllocate(NULL, keyCnt * sizeof(CFStringRef), 0);
+
 	CFSetGetValues(changedKeys, keys);
+
 	while (--keyCnt >= 0) {
+		CFArrayRef		changes;
 		CFDictionaryRef		dict;
-		CFArrayRef		sessionsWatchingKey;
-		CFIndex			watcherCnt;
-		const void		**watchers;
 		CFDictionaryRef		info;
 		CFMutableDictionaryRef	newInfo;
-		CFArrayRef		changes;
 		CFMutableArrayRef	newChanges;
+		CFArrayRef		sessionsWatchingKey;
+		CFIndex			watcherCnt;
+		const void *		watchers_q[N_QUICK];
+		const void **		watchers	= watchers_q;
 
 		dict = CFDictionaryGetValue(storeData, (CFStringRef)keys[keyCnt]);
 		if ((dict == NULL) || (CFDictionaryContainsKey(dict, kSCDWatchers) == FALSE)) {
@@ -70,56 +82,62 @@ _notifyWatchers()
 		 */
 		sessionsWatchingKey = CFDictionaryGetValue(dict, kSCDWatchers);
 		watcherCnt = CFArrayGetCount(sessionsWatchingKey);
-		if (watcherCnt > 0) {
-			watchers   = CFAllocatorAllocate(NULL, watcherCnt * sizeof(CFNumberRef), 0);
-			CFArrayGetValues(sessionsWatchingKey,
-					 CFRangeMake(0, CFArrayGetCount(sessionsWatchingKey)),
-					 watchers);
-			while (--watcherCnt >= 0) {
-				CFStringRef	sessionKey;
-
-				sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@"), watchers[watcherCnt]);
-				info = CFDictionaryGetValue(sessionData, sessionKey);
-				if (info) {
-					newInfo = CFDictionaryCreateMutableCopy(NULL, 0, info);
-				} else {
-					newInfo = CFDictionaryCreateMutable(NULL,
-									    0,
-									    &kCFTypeDictionaryKeyCallBacks,
-									    &kCFTypeDictionaryValueCallBacks);
-				}
-
-				changes = CFDictionaryGetValue(newInfo, kSCDChangedKeys);
-				if (changes) {
-					newChanges = CFArrayCreateMutableCopy(NULL, 0, changes);
-				} else {
-					newChanges = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-				}
-
-				if (CFArrayContainsValue(newChanges,
-							 CFRangeMake(0, CFArrayGetCount(newChanges)),
-							 (CFStringRef)keys[keyCnt]) == FALSE) {
-					CFArrayAppendValue(newChanges, (CFStringRef)keys[keyCnt]);
-				}
-				CFDictionarySetValue(newInfo, kSCDChangedKeys, newChanges);
-				CFRelease(newChanges);
-				CFDictionarySetValue(sessionData, sessionKey, newInfo);
-				CFRelease(newInfo);
-				CFRelease(sessionKey);
-
-				/*
-				 * flag this session as needing a kick
-				 */
-				if (needsNotification == NULL)
-					needsNotification = CFSetCreateMutable(NULL,
-									       0,
-									       &kCFTypeSetCallBacks);
-				CFSetAddValue(needsNotification, watchers[watcherCnt]);
-			}
-			CFAllocatorDeallocate(NULL, watchers);
+		if (watcherCnt == 0) {
+			/* if no watchers */
+			continue;
 		}
+
+		if (watcherCnt > (CFIndex)(sizeof(watchers_q) / sizeof(CFNumberRef)))
+			watchers = CFAllocatorAllocate(NULL, watcherCnt * sizeof(CFNumberRef), 0);
+
+		CFArrayGetValues(sessionsWatchingKey, CFRangeMake(0, watcherCnt), watchers);
+
+		while (--watcherCnt >= 0) {
+			CFStringRef	sessionKey;
+
+			sessionKey = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@"), watchers[watcherCnt]);
+			info = CFDictionaryGetValue(sessionData, sessionKey);
+			if (info) {
+				newInfo = CFDictionaryCreateMutableCopy(NULL, 0, info);
+			} else {
+				newInfo = CFDictionaryCreateMutable(NULL,
+								    0,
+								    &kCFTypeDictionaryKeyCallBacks,
+								    &kCFTypeDictionaryValueCallBacks);
+			}
+
+			changes = CFDictionaryGetValue(newInfo, kSCDChangedKeys);
+			if (changes) {
+				newChanges = CFArrayCreateMutableCopy(NULL, 0, changes);
+			} else {
+				newChanges = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+			}
+
+			if (CFArrayContainsValue(newChanges,
+						 CFRangeMake(0, CFArrayGetCount(newChanges)),
+						 (CFStringRef)keys[keyCnt]) == FALSE) {
+				CFArrayAppendValue(newChanges, (CFStringRef)keys[keyCnt]);
+			}
+			CFDictionarySetValue(newInfo, kSCDChangedKeys, newChanges);
+			CFRelease(newChanges);
+			CFDictionarySetValue(sessionData, sessionKey, newInfo);
+			CFRelease(newInfo);
+			CFRelease(sessionKey);
+
+			/*
+			 * flag this session as needing a kick
+			 */
+			if (needsNotification == NULL)
+				needsNotification = CFSetCreateMutable(NULL,
+								       0,
+								       &kCFTypeSetCallBacks);
+			CFSetAddValue(needsNotification, watchers[watcherCnt]);
+		}
+
+		if (watchers != watchers_q) CFAllocatorDeallocate(NULL, watchers);
 	}
-	CFAllocatorDeallocate(NULL, keys);
+
+	if (keys != keys_q) CFAllocatorDeallocate(NULL, keys);
 
 	/*
 	 * The list of changed keys have been updated for any sessions
@@ -135,20 +153,23 @@ static void
 _processDeferredRemovals()
 {
 	CFIndex			keyCnt;
-	const void		**keys;
+	const void *		keys_q[N_QUICK];
+	const void **		keys	= keys_q;
 
 	keyCnt = CFSetGetCount(deferredRemovals);
 	if (keyCnt == 0)
 		return;		/* if nothing to do */
 
-	keys = CFAllocatorAllocate(NULL, keyCnt * sizeof(CFStringRef), 0);
+	if (keyCnt > (CFIndex)(sizeof(keys_q) / sizeof(CFStringRef)))
+		keys = CFAllocatorAllocate(NULL, keyCnt * sizeof(CFStringRef), 0);
+
 	CFSetGetValues(deferredRemovals, keys);
+
 	while (--keyCnt >= 0) {
-		CFDictionaryApplyFunction(sessionData,
-					  (CFDictionaryApplierFunction)_removeRegexWatchersBySession,
-					  (void *)keys[keyCnt]);
+		patternRemoveKey((CFStringRef)keys[keyCnt]);
 	}
-	CFAllocatorDeallocate(NULL, keys);
+
+	if (keys != keys_q) CFAllocatorDeallocate(NULL, keys);
 
 	/*
 	 * All regex keys associated with removed store dictionary keys have
@@ -229,6 +250,7 @@ _cleanupRemovedSessionKeys(const void *value, void *context)
 }
 
 
+__private_extern__
 int
 __SCDynamicStoreUnlock(SCDynamicStoreRef store, Boolean recursive)
 {
@@ -251,10 +273,15 @@ __SCDynamicStoreUnlock(SCDynamicStoreRef store, Boolean recursive)
 		return kSCStatusOK;
 	}
 
+	if (!recursive && _configd_trace) {
+		SCTrace(TRUE, _configd_trace, CFSTR("unlock  : %5d\n"), storePrivate->server);
+	}
+
 	/*
 	 * all of the changes can be committed to the (real) store.
 	 */
 	CFDictionaryRemoveAllValues(storeData_s);
+	CFDictionaryRemoveAllValues(patternData_s);
 	CFSetRemoveAllValues       (changedKeys_s);
 	CFSetRemoveAllValues       (deferredRemovals_s);
 	CFSetRemoveAllValues       (removedSessionKeys_s);
@@ -263,7 +290,7 @@ __SCDynamicStoreUnlock(SCDynamicStoreRef store, Boolean recursive)
 	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("keys I changed           = %@"), changedKeys);
 	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("keys flagged for removal = %@"), deferredRemovals);
 	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("keys I'm watching        = %@"), storePrivate->keys);
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("regex keys I'm watching  = %@"), storePrivate->reKeys);
+	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("patterns I'm watching    = %@"), storePrivate->patterns);
 #endif	/* DEBUG */
 
 	/*
@@ -298,13 +325,21 @@ __SCDynamicStoreUnlock(SCDynamicStoreRef store, Boolean recursive)
 }
 
 
+__private_extern__
 kern_return_t
 _configunlock(mach_port_t server, int *sc_status)
 {
 	serverSessionRef	mySession = getSession(server);
 
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Unlock configuration database."));
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  server = %d"), server);
+	if (_configd_verbose) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("Unlock configuration database."));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  server = %d"), server);
+	}
+
+	if (!mySession) {
+		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
+		return KERN_SUCCESS;
+	}
 
 	*sc_status = __SCDynamicStoreUnlock(mySession->store, FALSE);
 	if (*sc_status != kSCStatusOK) {

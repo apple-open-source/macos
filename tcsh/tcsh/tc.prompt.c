@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/tc.prompt.c,v 1.1.1.2 2001/06/28 23:10:54 bbraun Exp $ */
+/* $Header: /cvs/root/tcsh/tcsh/tc.prompt.c,v 1.2 2003/01/17 05:53:53 nicolai Exp $ */
 /*
  * tc.prompt.c: Prompt printing stuff
  */
@@ -14,11 +14,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -36,10 +32,12 @@
  */
 #include "sh.h"
 
-RCSID("$Id: tc.prompt.c,v 1.1.1.2 2001/06/28 23:10:54 bbraun Exp $")
+RCSID("$Id: tc.prompt.c,v 1.2 2003/01/17 05:53:53 nicolai Exp $")
 
 #include "ed.h"
 #include "tw.h"
+
+#include <utmp.h>
 
 /*
  * kfk 21oct1983 -- add @ (time) and / ($cwd) in prompt.
@@ -200,8 +198,8 @@ tprintf(what, buf, fmt, siz, str, tim, info)
 			/* prompt stuff */
     static Char *olddir = NULL, *olduser = NULL;
     extern int tlength;	/* cache cleared */
-    int updirs, sz;
-    size_t pdirs;
+    int updirs;
+    size_t pdirs, sz;
 
     for (; *cp; cp++) {
 	if (p >= ep)
@@ -424,7 +422,7 @@ tprintf(what, buf, fmt, siz, str, tim, info)
 			    *p++ = attributes | '+';
 			} else
 			    *p++ = attributes | ('0' + updirs);
-			*p++ = attributes | tcsh ? '>' : '%';
+			*p++ = attributes | '>';
 		    }
 		}
 		
@@ -444,8 +442,12 @@ tprintf(what, buf, fmt, siz, str, tim, info)
 		else  
 #endif /* HAVENOUTMP */
 		{
+		    int len;
 		    if ((z = varval(STRuser)) != STRNULL)
-			for (; *z; *p++ = attributes | *z++)
+			/* PR-2926863 prompt shouldn't have the username in tcsh
+			 *  truncate username at UT_NAMESIZE in the prompt
+			 */
+			for (len = 0; *z && len < UT_NAMESIZE; *p++ = attributes | *z++, len++)
 			    if (p >= ep) break;
 		}
 		break;
@@ -513,14 +515,30 @@ tprintf(what, buf, fmt, siz, str, tim, info)
 	    case 'L':
 		ClearToBottom();
 		break;
+
+	    case 'j':
+		{
+		    Char buf[128], *ebuf, *q;
+		    int njobs = -1;
+		    struct process *pp;
+		    for (pp = proclist.p_next; pp; pp = pp->p_next)
+			njobs++;
+		    /* make sure we have space */
+		    ebuf = Itoa(njobs, buf, 1, attributes);
+		    for (q = buf; q < ebuf; *p++ = *q++)
+			if (p >= ep) break;
+		    break;
+		}
 	    case '?':
 		if ((z = varval(STRstatus)) != STRNULL)
 		    for (; *z; *p++ = attributes | *z++)
 			if (p >= ep) break;
 		break;
 	    case '$':
-		sz = (int) (ep - p);
+		sz = ep - p;
 		(void) expdollar(&p, &cp, &sz, attributes);
+		/* cp should point the last char of currnet % sequence */
+		cp--;
 		break;
 	    case '%':
 		*p++ = attributes | '%';
@@ -604,7 +622,7 @@ expdollar(dstp, srcp, spp, attr)
 
     vp = adrof(var);
     val = (!vp) ? tgetenv(var) : NULL;
-    if (vp) {
+    if (vp && vp->vec) {
 	for (i = 0; vp->vec[i] != NULL; i++) {
 	    for (val = vp->vec[i]; *spp > 0 && *val; (*spp)--)
 		*dst++ = *val++ | attr;

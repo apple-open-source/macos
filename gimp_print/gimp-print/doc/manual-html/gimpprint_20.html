@@ -1,0 +1,315 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from .././gimpprint.texi on 22 January 2003 -->
+
+<TITLE>GIMP-Print - The GIMP plugin</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_19.html">previous</A>, <A HREF="gimpprint_21.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H2><A NAME="SEC27" HREF="gimpprint_toc.html#TOC27">5.1  The GIMP Print plugin</A></H2>
+<P>
+<A NAME="IDX175"></A>
+<A NAME="IDX176"></A>
+
+</P>
+<P>
+The GIMP Print plugin is the printing facility for the GNU Image
+Manipulation Program<A NAME="DOCF1" HREF="gimpprint_foot.html#FOOT1">(1)</A>}.  This section
+examines the features offered by the Print plugin.
+
+</P>
+<P>
+The main window is divided into five panes:
+
+</P>
+
+
+
+<H3><A NAME="SEC28" HREF="gimpprint_toc.html#TOC28">5.1.1  Preview</A></H3>
+
+<P>
+The Preview pane contains a positioning widget that allows interactively
+positioning the output on the page.  It contains an outer border,
+representing the sheet of paper; an inner border, representing the
+printable area of the printer; an arrow, pointing to the top of the page
+(the end that's fed into the printer); and a black rectangle,
+representing the position of the image on the page.  The image can be
+moved around on the paper.  When the first (left) button is used, the
+image is moved in screen pixels; when any other button is used, the
+image is moved in points<A NAME="DOCF2" HREF="gimpprint_foot.html#FOOT2">(2)</A>.
+The arrow resizes depending upon the media size chosen; the shaft of the
+arrow is always equal to one inch on the output.
+
+</P>
+<P>
+@image{print-main,,4in}
+
+</P>
+
+
+
+<H3><A NAME="SEC29" HREF="gimpprint_toc.html#TOC29">5.1.2  Printer Settings</A></H3>
+
+<P>
+The Printer Settings pane contains a dropdown menu for selecting a
+printer to print to.  There is a special `printer' named <SAMP>`File'</SAMP>
+that allows you to choose a file to print to, rather than a printer
+queue.  The Setup box to the right allows specification of a printer
+type, a PPD file<A NAME="DOCF3" HREF="gimpprint_foot.html#FOOT3">(3)</A>, and the command to
+be used to print.  Each distinct printer in the Printer list can have
+different settings applied to it.  Below that is a combo box allowing
+choice of media size.  The choices are constrained to those that the
+printer supports.  Below that are dropdown menus for choosing media type
+(what kind of paper), media source (what input tray), ink type, and
+resolution.  All of these settings are printer-specific.
+
+</P>
+<P>
+@image{print-setup,,2in}
+
+</P>
+
+
+
+<H3><A NAME="SEC30" HREF="gimpprint_toc.html#TOC30">5.1.3  Position</A></H3>
+
+<P>
+The Position pane contains various widgets to place the image on the
+paper.  These widgets work in conjunction with the Preview pane.  At the
+top of the pane is a button to center the image on the paper (not on the
+printable area), and on either side buttons to center vertically and
+horizontally.  Below these are four boxes that allow entry of the left,
+top, right, and bottom of the image.  These positions are relative to
+the top left of the paper<A NAME="DOCF4" HREF="gimpprint_foot.html#FOOT4">(4)</A>.  There are
+two additional boxes that allow specification of the right margin and
+bottom margin if you prefer; these are relative to the bottom right
+corner of the paper.  Any of these may have values entered into them;
+the preview image will be moved appropriately.
+
+</P>
+<P>
+<STRONG>Note</STRONG>: These entries do not resize the image.
+
+</P>
+<P>
+Finally, there is a pick box for orientation (landscape or portrait).
+There is an <SAMP>`Auto'</SAMP> mode that picks the orientation that yields the
+orientation that best matches that of the image to be printed.
+
+</P>
+
+
+<H3><A NAME="SEC31" HREF="gimpprint_toc.html#TOC31">5.1.4  Scaling</A></H3>
+
+<P>
+The Scaling pane contains a slider that allows scaling of the image.
+The image can be scaled in either percent of the printable area
+(<STRONG>not</STRONG> the page in this case) or pixels per inch (PPI) via a
+radio button below the slider.  PPI allows matching image resolution to
+printer resolution.  The image may be scaled using either method to
+between 5 and 100% of the imageable area.  It is not possible to crop
+with the Print plugin.  In Percent mode, the image is scaled so that
+neither axis will be longer than the percent of the printable area
+specified.  For example, if you print an image at 20%, it will be
+possible to tile the image 5 times on one axis and at least 5 times on
+the other.  To the right of the radio button is a button called Set
+Image Scale.  This sets the scaling to PPI, and sets the resolution as
+closely as possible to the resolution stored in the image.  To the right
+of the Set Image Scale button are two boxes that allow entry of width
+and height of the image.  These set the scaling mode to PPI.  Specifying
+one automatically sets the other, and the image is repositioned as
+needed to prevent it from falling off the edge of the page.
+
+</P>
+<P>
+To its right is a button group that allows choosing English (inch)
+units or metric (centimeter) units.
+
+</P>
+
+
+<H3><A NAME="SEC32" HREF="gimpprint_toc.html#TOC32">5.1.5  Image Settings</A></H3>
+
+<P>
+The Image Settings pane allows choice of Line Art, Solid Colors, or
+Photograph image type.  Line art or Solid Colors should be used for
+graphics containing mostly solid areas of color.  They're very similar
+to each other.  Photograph mode dithers more slowly, but produces more
+accurate colors.  To the right of these three radio buttons is a button
+called Adjust Color.  This pops up a new window that controls various
+output quality settings.  That will be described separately.  Finally,
+there is a choice of Black and White, Color and Monochrome output.
+Monochrome output can be used to print absolute black and white very
+quickly.
+
+</P>
+
+
+
+<H4><A NAME="SEC33" HREF="gimpprint_toc.html#TOC33">5.1.5.1  Adjust Output</A></H4>
+
+<P>
+The Adjust Output button button pops up a non-modal dialog that allows
+adjustment of various parameters related to the print quality.  These
+are independent of the controls within the GIMP itself and only affect
+the print.
+
+</P>
+<P>
+@image{print-color,,2in}
+
+</P>
+<P>
+At the top of the window is a thumbnail of the image that changes to
+reflect the color settings of the image.  This enables you to get an
+idea of how the image will print out as you adjust settings.
+
+</P>
+<P>
+Below that there are eight sliders:
+
+</P>
+<DL COMPACT>
+
+<DT><EM>Brightness</EM>
+<DD>
+(0--2.0, default 1.0) Adjust the brightness of the image.
+
+<DT><EM>Contrast</EM>
+<DD>
+(0--4.0, default 1.0) Adjust the output contrast.
+
+<DT><EM>Cyan, Magenta, Yellow</EM>
+<DD>
+(0--4.0, default 1.0) Adjust the cyan, magenta, and yellow in the
+output.  These should not normally need to be adjusted very much; even
+very small adjustments can go quite a long way to restoring color
+balance.
+
+<DT><EM>Saturation</EM>
+<DD>
+(0--9.0, default 1.0) Adjust the color brilliance (saturation) of the
+output.  Saturation of 0 means pure gray scale, with no color.
+Saturation of 9.0 will make just about anything but pure grays
+brilliantly colored.
+
+<DT><EM>Density</EM>
+<DD>
+(0.1--2.0, default 1.0) Adjust the density (amount of ink) in the print.
+The density is automatically corrected for the particular printer,
+resolution, and in some cases paper choices.  If solid black in the
+input is not solid in the print, the density needs to be increased; if
+there is excessive ink bleed-through and muddy dark colors, the density
+should be decreased.
+
+<STRONG>Note</STRONG>: the density will not increase beyond a certain amount no
+matter what the slider is set to.
+
+<DT><EM>Gamma</EM>
+<DD>
+(0.1--4.0, default 1.0) Adjust the output gamma.  The gamma value is
+automatically corrected for the choice of printer; this is used if you
+believe the automatic setting is incorrect.
+</DL>
+
+
+
+<H4><A NAME="SEC34" HREF="gimpprint_toc.html#TOC34">5.1.5.2  Dither Algorithm</A></H4>
+<P>
+There is also a selection box for the dither algorithm to be used in the
+pop-up dialog.  There are currently seven choices:
+
+</P>
+<DL COMPACT>
+
+<DT><EM>Adaptive Hybrid</EM>
+<DD>
+Adaptive Hybrid usually yields the best output quality; it chooses a
+modified Floyd-Steinberg error diffusion algorithm or ordered dithering
+depending upon the image characteristics.
+
+<DT><EM>Ordered</EM>
+<DD>
+Ordered uses a pure ordered dither.  It generally yields excellent
+quality for simple black and white or four color printers without
+variable drop size or drop modulation; it is not recommended if high
+quality is desired on six color printers.  It is considerably faster
+than Adaptive Hybrid.
+
+<DT><EM>Fast</EM>
+<DD>
+Fast also uses a pure ordered dither, but uses a very simple black model
+and makes no attempt to handle multi-level (6-color, variable drop size,
+or drop modulation) at all cleanly.  It is substantially faster than
+Ordered dither.  The quality tends to be quite poor except on simple
+four color printers.  On three color printers, quality is probably
+competitive with anything else.
+
+<DT><EM>Very Fast</EM>
+<DD>
+Very Fast is similar to Fast, except that it uses a very simple dither
+matrix that can be looked up much more quickly than the matrix used in
+the Fast dither.  For simple pure black and white images dominated by
+horizontal and vertical lines, this may actually yield the best results;
+for other types of image, the quality will be poor.
+
+<DT><EM>Adaptive Random</EM>
+<DD>
+Adaptive Random is similar to Adaptive Hybrid, except that the
+modifications to the Floyd-Steinberg algorithm are slightly different.
+This is slower than Adaptive Hybrid on most systems.  For some images
+the quality may be better than Adaptive Hybrid, but generally Adaptive
+Hybrid should yield slightly superior images.
+
+<DT><EM>Hybrid Floyd-Steinberg</EM>
+<DD>
+Hybrid Floyd-Steinberg uses the modified Floyd-Steinberg algorithm of
+Adaptive Hybrid on the entire image.  Generally, the results are poor in
+pale regions.
+
+<DT><EM>Random Floyd-Steinberg</EM>
+<DD>
+Random Floyd-Steinberg uses the modified Floyd-Steinberg algorithm of
+Adaptive Random on the entire image.  Generally, the results are poor in
+pale regions.
+</DL>
+
+
+
+<H3><A NAME="SEC35" HREF="gimpprint_toc.html#TOC35">5.1.6  Action Buttons</A></H3>
+
+<P>
+The last pane contains four action buttons:
+
+</P>
+<DL COMPACT>
+
+<DT><EM>Print and Save Settings</EM>
+<DD>
+Immediately print the image (or, if the File printer is chosen, display
+a file selection window to pick the output file), and save all current
+settings for all printers.
+
+<DT><EM>Save Settings</EM>
+<DD>
+Immediately save the settings, and continue working in the Print plugin.
+
+<DT><EM>Print</EM>
+<DD>
+Immediately print the image (or, if the <SAMP>`File'</SAMP> printer is chosen,
+display a file selection window to pick the output file), but do not
+save settings.
+
+<DT><EM>Cancel</EM>
+<DD>
+Immediately quit without saving settings or printing.
+</DL>
+
+<P><HR><P>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_19.html">previous</A>, <A HREF="gimpprint_21.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+</BODY>
+</HTML>

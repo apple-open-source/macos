@@ -1,0 +1,29 @@
+<?xml version='1.0'?>
+<!DOCTYPE policy PUBLIC
+      "-//JBoss//DTD JBOSS Security Config 3.0//EN"
+      "http://www.jboss.org/j2ee/dtd/security_config.dtd">
+
+<!-- The JAAS login configuration file for the java:/jaas/spec-test
+security domain used by the security-spec test case
+-->
+<policy>
+
+    <application-policy name = "spec-test">
+       <authentication>
+          <login-module code = "org.jboss.security.auth.spi.UsersRolesLoginModule"
+             flag = "required">
+             <module-option name = "unauthenticatedIdentity">anonymous</module-option>
+          </login-module>
+       </authentication>
+    </application-policy>
+
+    <application-policy name = "spec-test-domain">
+       <authentication>
+          <login-module code = "org.jboss.security.auth.spi.UsersRolesLoginModule"
+             flag = "required">
+             <module-option name = "unauthenticatedIdentity">anonymous</module-option>
+          </login-module>
+       </authentication>
+    </application-policy>
+
+</policy>

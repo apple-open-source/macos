@@ -1,0 +1,83 @@
+From ayamura@ayamura.org  Wed Feb 20 08:48:40 2002
+Return-Path: <ayamura@ayamura.org>
+Delivered-To: rsync@samba.org
+Received: from sea.ayamura.org (sea.ayamura.org [61.199.236.10])
+	by lists.samba.org (Postfix) with ESMTP id 075604919
+	for <rsync@samba.org>; Wed, 20 Feb 2002 08:48:39 -0800 (PST)
+Received: (from ayamura@localhost)
+	by sea.ayamura.org (8.12.2/8.12.2) id g1KGhHvt011659
+	for rsync@samba.org; Thu, 21 Feb 2002 01:43:17 +0900 (JST)
+	env-from (ayamura)
+Date: Thu, 21 Feb 2002 01:43:17 +0900 (JST)
+Message-Id: <200202201643.g1KGhHvt011659@sea.ayamura.org>
+From: Ayamura KIKUCHI <ayamura@ayamura.org>
+To: rsync@samba.org
+Subject: [patch] configurable RSYNCD_CONF
+MIME-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Sender: rsync-admin@lists.samba.org
+Errors-To: rsync-admin@lists.samba.org
+X-BeenThere: rsync@lists.samba.org
+X-Mailman-Version: 2.0.8
+Precedence: bulk
+List-Help: <mailto:rsync-request@lists.samba.org?subject=help>
+List-Post: <mailto:rsync@lists.samba.org>
+List-Subscribe: <http://lists.samba.org/mailman/listinfo/rsync>,
+	<mailto:rsync-request@lists.samba.org?subject=subscribe>
+List-Id: Rsync user list <rsync.lists.samba.org>
+List-Unsubscribe: <http://lists.samba.org/mailman/listinfo/rsync>,
+	<mailto:rsync-request@lists.samba.org?subject=unsubscribe>
+List-Archive: <http://lists.samba.org/pipermail/rsync/>
+
+I prefer configurable RSYNCD_CONF by autoconf to RSYNCD_CONF in rsync.h.
+
+--- rsync.h.orig	Tue Feb 19 06:46:49 2002
++++ rsync.h	Thu Feb 21 00:59:11 2002
+@@ -26,7 +26,8 @@
+ #define RSYNC_RSH_ENV "RSYNC_RSH"
+ 
+ #define RSYNC_NAME "rsync"
+-#define RSYNCD_CONF "/etc/rsyncd.conf"
++
++/* RSYNCD_CONF is always set in config.h */
+ 
+ #define DEFAULT_LOCK_FILE "/var/run/rsyncd.lock"
+ #define URL_PREFIX "rsync://"
+--- configure.in.orig	Wed Feb 20 08:40:47 2002
++++ configure.in	Thu Feb 21 01:26:47 2002
+@@ -85,6 +85,30 @@
+ 
+ AC_DEFINE_UNQUOTED(RSYNC_PATH, "$RSYNC_PATH", [location of rsync on remote machine])
+ 
++AC_ARG_WITH(rsyncd-conf,
++	AC_HELP_STRING([--with-rsyncd-conf=PATH], [set configuration file for rsync server to PATH (default: /etc/rsyncd.conf)]),
++	[ if test ! -z "$with_rsyncd_conf" ; then
++		case $with_rsyncd_conf in
++			yes)
++				RSYNCD_CONF="/etc/rsyncd.conf"
++				;;
++			no)
++				RSYNCD_CONF="/etc/rsyncd.conf"
++				;;
++			/*)
++				RSYNCD_CONF="$with_rsyncd_conf"
++				;;
++			*)
++                                AC_MSG_ERROR(You must specify an absolute path to --with-rsyncd-conf=PATH)
++				;;
++		esac
++	else
++		RSYNCD_CONF="/etc/rsyncd.conf"
++	fi ],
++	[ RSYNCD_CONF="/etc/rsyncd.conf" ])
++
++AC_DEFINE_UNQUOTED(RSYNCD_CONF, "$RSYNCD_CONF", [location of configuration file for rsync server])
++
+ AC_ARG_WITH(rsh,
+ 	AC_HELP_STRING([--with-rsh=CMD], [set rsh command to CMD (default: \"remsh\" or \"rsh\")]))
+ 
+
+-- ayamura
+Ayamura KIKUCHI, M.D., Ph.D.
+
+

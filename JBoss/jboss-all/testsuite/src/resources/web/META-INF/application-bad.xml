@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<application>
+    <display-name>JBossTest Web Container Testsuite</display-name>
+
+    <module>
+       <web>
+           <description>Another war to test redployment</description>
+           <web-uri>bad-web.war</web-uri>
+           <context-root>/redeploy</context-root>
+       </web>
+    </module>
+
+</application>
+

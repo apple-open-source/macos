@@ -1,0 +1,82 @@
+2003-05-20 Klee Dienes   <kdienes@apple.com>
+
+        * po/Make-in: Don't error out if unable to write .po files to
+	the source directory.
+
+2003-05-11 Klee Dienes   <kdienes@apple.com>
+
+	* ppc-dis.c (powerpc_dialect): Add GPUL support.
+	* ppc-opc.c (powerpc_operands): Add support for the 'attn'
+	instruction.
+	(powerpc_opcodes): Add GPUL instructions, ++/-- branch predictors.
+	
+2003-04-24 Klee Dienes   <kdienes@apple.com>
+
+	* config.in: Regenerate.
+	* configure: Regenerate.
+	* po/opcodes.pot: Regenerate.
+
+2003-01-07  Klee Dienes  <kdienes@apple.com>
+
+	* Makefile.am (ALL_MACHINES): Add msp430-dis.lo.
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+
+2002-12-06  Klee Dienes  <kdienes@apple.com>
+
+	* tic30-dis.c: Revert to FSF sources.
+
+2002-11-18  Klee Dienes  <kdienes@apple.com>
+
+	* Makefile.am: Remove dependency on mmalloc.
+	(INCLUDES): Remove free=xfree.
+	(headers): Remove.
+	* Makefile.in: Regenerate.
+	* aclocal.m4: Regenerate.
+	* config.in: Regenerate.
+	* configure: Regenerate.
+	* sparc-dis.c: Revert from free to xfree.
+	* sysdep.h: Remove definitions of true/false.
+
+2002-11-11  Klee Dienes  <kdienes@apple.com>
+
+	These were all submitted to the FSF, but in substantially modified
+	form.  They're not currently needed by our builds; I'm removing
+	them and will expect to merge them in once they are accepted by
+	the FSF.
+	
+	* arc-opc.c: Revert to FSF sources.
+	* avr-dis.c: Revert to FSF sources.
+	* cgen-opc.c: Revert to FSF sources.
+	* h8500-opc.h: Revert to FSF sources.
+	* m32r-desc.c: Revert to FSF sources.
+
+2002-11-05  Klee Dienes  <kdienes@apple.com>
+
+	* po/Make-in: Update to use @USE_NLS@ (revert to FSF sources).
+
+2002-11-01  Klee Dienes  <kdienes@apple.com>
+
+	* arc-ext.c (arc_ext_operand_value): Remove (unused, moved to arc-opc.c).
+	* arc-opc.c (arc_ext_operand_value): Add.  Remove initializer; rely on 
+	being compiled with -fno-common when building a dylib.
+	(ls_operand): Remove initializer.
+	(arc_operand_map): Remove initializer.
+	* or32-opc.c: Remove initializers for automata, nuncovered, ti,
+	op_data, and op_start.
+
+2002-10-28  Klee Dienes  <kdienes@apple.com>
+
+	* Makefile.am: Remove PIC support.
+	* Makefile.in: Regenerate.
+
+2002-10-26  Klee Dienes  <kdienes@apple.com>
+
+	* po/POTFILES.in: Remove PIC support.
+	* disassemble.c: Remove PIC support.
+	* pic-dis.c: Remove.
+	* pic-opc.h: Remove.
+
+2002-10-06  Klee Dienes  <kdienes@apple.com>
+
+	* ppc-opc.c: Revert to Cygnus sources.

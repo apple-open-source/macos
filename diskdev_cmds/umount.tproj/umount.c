@@ -83,20 +83,18 @@ char	*nfshost;
 
 uid_t real_uid, eff_uid;
 
-int	 checkvfsname __P((const char *, char **));
-char	*getmntname __P((char *, mntwhat, char **));
-char	**makevfslist __P((char *));
-int	 selected __P((int));
-int	 namematch __P((struct hostent *));
-int	 umountall __P((char **));
-int	 umountfs __P((char *, char **));
-void	 usage __P((void));
-int	 xdr_dir __P((XDR *, char *));
+int	 checkvfsname(const char *, char **);
+char	*getmntname(char *, mntwhat, char **);
+char	**makevfslist(char *);
+int	 selected(int);
+int	 namematch(struct hostent *);
+int	 umountall(char **);
+int	 umountfs(char *, char **);
+void	 usage(void);
+int	 xdr_dir(XDR *, char *);
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	int all, ch, errs, mnts;
 	char **typelist = NULL;
@@ -150,7 +148,8 @@ main(argc, argv)
 	/* -h implies "-t nfs" if no -t flag. */
 	if ((nfshost != NULL) && (typelist == NULL))
 		typelist = makevfslist("nfs");
-		
+
+	errs = EXIT_SUCCESS;
 	switch (all) {
 	case 2:
 		if ((mnts = getmntinfo(&mntbuf, MNT_NOWAIT)) == 0) {
@@ -180,11 +179,10 @@ main(argc, argv)
 }
 
 int
-umountall(typelist)
-	char **typelist;
+umountall(char **typelist)
 {
 	struct fstab *fs;
-	int rval, type;
+	int rval;
 	char *cp;
 	struct vfsconf vfc;
 
@@ -223,9 +221,7 @@ umountall(typelist)
 }
 
 int
-umountfs(name, typelist)
-	char *name;
-	char **typelist;
+umountfs(char *name, char **typelist)
 {
 	enum clnt_stat clnt_stat;
 	struct hostent *hp;
@@ -233,8 +229,16 @@ umountfs(name, typelist)
 	struct stat sb;
 	struct timeval pertry, try;
 	CLIENT *clp;
-	int so;
+	int so, isftpfs;
 	char *type, *delimp, *hostp, *mntpt, rname[MAXPATHLEN];
+
+	if (!fake && (fflag & MNT_FORCE)) {
+		if (unmount(name, fflag) < 0) {
+			warn("%s", name);
+			return (1);
+		}
+		return (0);
+	}
 
 	if (realpath(name, rname) == NULL) {
 		warn("%s", rname);
@@ -268,8 +272,14 @@ umountfs(name, typelist)
 	if (checkvfsname(type, typelist))
 		return (1);
 
+	if (!strncmp("ftp://", name, 6))
+		isftpfs = 1;
+	else
+		isftpfs = 0;
+
 	hp = NULL;
-	if (!strcmp(type, "nfs")) {
+	delimp = NULL;
+	if (!strcmp(type, "nfs") && !isftpfs) {
 		if ((delimp = strchr(name, '@')) != NULL) {
 			hostp = delimp + 1;
 			*delimp = '\0';
@@ -315,7 +325,8 @@ umountfs(name, typelist)
 		    RPCPROG_MNT, RPCMNT_VER1, pertry, &so)) == NULL) {
 			clnt_pcreateerror("Cannot MNT PRC");
 			seteuid(real_uid);
-			return (1);
+			/* unmount succeeded above, so don't actually return error */
+			return (0);
 		}
 		clp->cl_auth = authunix_create_default();
 		seteuid(real_uid);
@@ -325,7 +336,8 @@ umountfs(name, typelist)
 		    RPCMNT_UMOUNT, xdr_dir, name, xdr_void, (caddr_t)0, try);
 		if (clnt_stat != RPC_SUCCESS) {
 			clnt_perror(clp, "Bad MNT RPC");
-			return (1);
+			/* unmount succeeded above, so don't actually return error */
+			return (0);
 		}
 		auth_destroy(clp->cl_auth);
 		clnt_destroy(clp);
@@ -334,10 +346,7 @@ umountfs(name, typelist)
 }
 
 char *
-getmntname(name, what, type)
-	char *name;
-	mntwhat what;
-	char **type;
+getmntname(char *name, mntwhat what, char **type)
 {
 	static struct statfs *mntbuf;
 	static int mntsize;
@@ -364,8 +373,7 @@ getmntname(name, what, type)
 }
 
 int
-namematch(hp)
-	struct hostent *hp;
+namematch(struct hostent *hp)
 {
 	char *cp, **np;
 
@@ -396,9 +404,7 @@ namematch(hp)
  * xdr routines for mount rpc's
  */
 int
-xdr_dir(xdrsp, dirp)
-	XDR *xdrsp;
-	char *dirp;
+xdr_dir(XDR *xdrsp, char *dirp)
 {
 	return (xdr_string(xdrsp, &dirp, RPCMNT_PATHLEN));
 }

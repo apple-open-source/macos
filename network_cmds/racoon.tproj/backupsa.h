@@ -1,4 +1,4 @@
-/*	$KAME: backupsa.h,v 1.1 2001/01/31 05:32:55 sakane Exp $	*/
+/*	$KAME: backupsa.h,v 1.2 2001/01/31 05:38:44 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.

@@ -292,23 +292,23 @@ _bfd_vms_get_record (abfd)
 
   if (PRIV (buf_size) == 0)
     {
+      bfd_size_type amt;
+
       if (PRIV (is_vax))
 	{
-	  PRIV (vms_buf) = (unsigned char *) bfd_malloc (OBJ_S_C_MAXRECSIZ);
-	  PRIV (buf_size) = OBJ_S_C_MAXRECSIZ;
+	  amt = OBJ_S_C_MAXRECSIZ;
 	  PRIV (file_format) = FF_VAX;
 	}
       else
-	PRIV (vms_buf) = (unsigned char *) bfd_malloc (6);
+	amt = 6;
+      PRIV (vms_buf) = (unsigned char *) bfd_malloc (amt);
+      PRIV (buf_size) = amt;
     }
 
   vms_buf = PRIV (vms_buf);
 
   if (vms_buf == 0)
-    {
-      bfd_set_error (bfd_error_no_memory);
-      return -1;
-    }
+    return -1;
 
   switch (PRIV (file_format))
     {
@@ -355,8 +355,8 @@ _bfd_vms_get_record (abfd)
 
   if (PRIV (file_format) == FF_UNKNOWN)
     {						/* record length repeats ? */
-      if ( (vms_buf[0] == vms_buf[4])
-        && (vms_buf[1] == vms_buf[5]))
+      if (vms_buf[0] == vms_buf[4]
+	  && vms_buf[1] == vms_buf[5])
 	{
 	  PRIV (file_format) = FF_FOREIGN;	/* Y: foreign environment */
 	  test_start = 2;
@@ -371,7 +371,7 @@ _bfd_vms_get_record (abfd)
   if (PRIV (is_vax))
     {
       PRIV (rec_length) = bfd_bread (vms_buf, (bfd_size_type) PRIV (buf_size),
-				    abfd);
+				     abfd);
       if (PRIV (rec_length) <= 0)
 	{
 	  bfd_set_error (bfd_error_file_truncated);
@@ -383,7 +383,7 @@ _bfd_vms_get_record (abfd)
     {
       /* extract vms record length  */
 
-      _bfd_vms_get_header_values (abfd, vms_buf+test_start, NULL,
+      _bfd_vms_get_header_values (abfd, vms_buf + test_start, NULL,
 				  &PRIV (rec_length));
 
       if (PRIV (rec_length) <= 0)
@@ -405,13 +405,11 @@ _bfd_vms_get_record (abfd)
       if (PRIV (rec_length) > PRIV (buf_size))
 	{
 	  PRIV (vms_buf) = ((unsigned char *)
-			    xrealloc (vms_buf, (size_t) PRIV (rec_length)));
+			    bfd_realloc (vms_buf,
+					 (bfd_size_type) PRIV (rec_length)));
 	  vms_buf = PRIV (vms_buf);
 	  if (vms_buf == 0)
-	    {
-	      bfd_set_error (bfd_error_no_memory);
-	      return -1;
-	    }
+	    return -1;
 	  PRIV (buf_size) = PRIV (rec_length);
 	}
 
@@ -593,7 +591,8 @@ add_new_contents (abfd, section)
   if (sptr != NULL)
     return sptr;
 
-  newptr = (vms_section *) bfd_malloc ((bfd_size_type) sizeof (vms_section));
+  newptr = (vms_section *) bfd_alloc (abfd,
+				      (bfd_size_type) sizeof (vms_section));
   if (newptr == (vms_section *) NULL)
     return NULL;
   newptr->contents = (unsigned char *) bfd_alloc (abfd, section->_raw_size);
@@ -606,10 +605,10 @@ add_new_contents (abfd, section)
   return newptr;
 }
 
-/* Save section data & offset to an vms_section structure
-   vms_section_table[] holds the vms_section chain  */
+/* Save section data & offset to a vms_section structure
+   vms_section_table[] holds the vms_section chain.  */
 
-boolean
+bfd_boolean
 _bfd_save_vms_section (abfd, section, data, offset, count)
      bfd *abfd;
      sec_ptr section;
@@ -622,16 +621,16 @@ _bfd_save_vms_section (abfd, section, data, offset, count)
   if (section->index >= VMS_SECTION_COUNT)
     {
       bfd_set_error (bfd_error_nonrepresentable_section);
-      return false;
+      return FALSE;
     }
   if (count == (bfd_size_type)0)
-    return true;
+    return TRUE;
   sptr = add_new_contents (abfd, section);
   if (sptr == NULL)
-    return false;
+    return FALSE;
   memcpy (sptr->contents + offset, data, (size_t) count);
 
-  return true;
+  return TRUE;
 }
 
 /* Get vms_section pointer to saved contents for section # index  */
@@ -1093,13 +1092,14 @@ _bfd_vms_enter_symbol (abfd, name)
 #endif
 
   entry = (vms_symbol_entry *)
-	  bfd_hash_lookup (PRIV (vms_symbol_table), name, false, false);
+	  bfd_hash_lookup (PRIV (vms_symbol_table), name, FALSE, FALSE);
   if (entry == 0)
     {
 #if VMS_DEBUG
       _bfd_vms_debug (8,  "creating hash entry for %s\n", name);
 #endif
-      entry = (vms_symbol_entry *)bfd_hash_lookup (PRIV (vms_symbol_table), name, true, false);
+      entry = (vms_symbol_entry *) bfd_hash_lookup (PRIV (vms_symbol_table),
+						    name, TRUE, FALSE);
       if (entry != 0)
 	{
 	  asymbol *symbol;

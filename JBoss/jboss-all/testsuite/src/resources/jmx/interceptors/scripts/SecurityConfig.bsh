@@ -1,0 +1,48 @@
+/** A BeanShell script service to configure a deployment specific
+security domain using the XMLLogin MBean service
+*/
+import java.net.URL;
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
+import org.jboss.system.ServiceMBeanSupport;
+import org.w3c.dom.Element;
+
+ServiceMBeanSupport ctx = null;
+String[] configNames = null;
+
+void setCtx(ServiceMBeanSupport wrapper)
+{
+   global.ctx = wrapper;
+   System.out.println("setCtx: "+ctx);
+}
+
+void create()
+{
+   ClassLoader loader = Thread.currentThread().getContextClassLoader();
+   URL configURL = loader.getResource("jmx/interceptors/security-config.xml");
+   ctx.log.info("configURL: "+configURL);
+   ObjectName xmlConfig = new ObjectName("jboss.security:service=XMLLoginConfig");
+   ctx.log.info("XMLLoginConfig isRegistered: "+ctx.server.isRegistered(xmlConfig));
+   Object[] args = {configURL};
+   String[] sig = {"java.net.URL"};
+   global.configNames = ctx.server.invoke(xmlConfig, "loadConfig", args, sig);
+   for(int n = 0; n < configNames.length; n ++)
+      ctx.log.info("Added config: "+configNames[n]);
+}
+
+void start()
+{
+}
+
+void stop()
+{
+}
+
+void destroy()
+{
+   ctx.log.info("Removing configs");
+   ObjectName xmlConfig = new ObjectName("jboss.security:service=XMLLoginConfig");
+   Object[] args = {global.configNames};
+   String[] sig = {"[Ljava.lang.String;"};
+   ctx.server.invoke(xmlConfig, "removeConfigs", args, sig);
+}

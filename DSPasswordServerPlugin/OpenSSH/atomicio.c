@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Theo de Raadt
+ * Copyright (c) 1995,1999 Theo de Raadt.  All rights reserved.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -21,6 +21,10 @@
  * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/*
+ * Portions Copyright (c) 2002 Apple Computer, Inc.
  */
 
 //#include "includes.h"

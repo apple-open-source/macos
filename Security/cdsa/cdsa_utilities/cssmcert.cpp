@@ -63,10 +63,12 @@ void CertGroup::destroy(CssmAllocator &allocator)
 		// array of CSSM_DATA elements
 		for (uint32 n = 0; n < count(); n++)
 			allocator.free(blobCerts()[n].data());
+		allocator.free (blobCerts ());
 		break;
 	case CSSM_CERTGROUP_ENCODED_CERT:
 		for (uint32 n = 0; n < count(); n++)
 			allocator.free(encodedCerts()[n].data());
+		allocator.free (blobCerts ());
 		break;
 	case CSSM_CERTGROUP_PARSED_CERT:
 		// CSSM_PARSED_CERTS array -- unimplemented

@@ -30,7 +30,9 @@
 #include <sys/socketvar.h>
 #include <sys/protosw.h>
 #include <sys/domain.h>
+#include <sys/stat.h>
 #include <sys/un.h>
+#include <sys/sysctl.h>
 /* To get funnel prototypes */
 #include <kern/thread.h>
 
@@ -67,9 +69,9 @@ extern struct vnodeopv_desc webdav_vnodeop_opv_desc;
 
 /*****************************************************************************/
 
-int webdav_init(vfsp)
-	struct vfsconf *vfsp;
+static int webdav_init(struct vfsconf *vfsp)
 {
+	#pragma unused(vfsp)
 	webdav_hashinit();
 	return (0);
 }
@@ -79,13 +81,10 @@ int webdav_init(vfsp)
 /*
  * Mount the per-process file descriptors (/dev/fd)
  */
-int webdav_mount(mp, path, data, ndp, p)
-	struct mount *mp;
-	char *path;
-	caddr_t data;
-	struct nameidata *ndp;
-	struct proc *p;
+static int webdav_mount(struct mount *mp, char *path, caddr_t data,
+	struct nameidata *ndp, struct proc *p)
 {
+	#pragma unused(ndp)
 	struct file *fp;
 	struct webdav_args args;
 	struct webdavnode *pt;
@@ -154,6 +153,7 @@ int webdav_mount(mp, path, data, ndp, p)
 
 	fmp->pm_root = rvp;
 	fmp->pm_server = fp;
+	fmp->pm_mountp = mp;
 	fmp->status = WEBDAV_MOUNT_SUPPORTS_STATFS;	/* assume yes until told no */
 	fref(fp);
 
@@ -228,30 +228,26 @@ bad:
 
 /*****************************************************************************/
 
-int webdav_start(mp, flags, p)
-	struct mount *mp;
-	int flags;
-	struct proc *p;
+static int webdav_start(struct mount *mp, int flags, struct proc *p)
 {
-
+	#pragma unused(mp, flags, p)
 	return (0);
 }
 
 /*****************************************************************************/
 
-int webdav_unmount(mp, mntflags, p)
-	struct mount *mp;
-	int mntflags;
-	struct proc *p;
+static int webdav_unmount(struct mount *mp, int mntflags, struct proc *p)
 {
+	#pragma unused(p)
 	struct vnode *rootvp = VFSTOWEBDAV(mp)->pm_root;
 	int error = 0;
 	int flags = 0;
-
+	struct file *pm_server;
 
 	if (mntflags & MNT_FORCE)
 	{
 		flags |= FORCECLOSE;
+		VFSTOWEBDAV(mp)->status |= WEBDAV_MOUNT_FORCE;
 	}
 
 	/*
@@ -267,15 +263,15 @@ int webdav_unmount(mp, mntflags, p)
 	}
 #endif
 
-	if (rootvp->v_usecount > 1 && !(flags & FORCECLOSE))
-	{
-		return (EBUSY);
-	}
-
 	error = vflush(mp, rootvp, flags);
 	if (error)
 	{
 		return (error);
+	}
+
+	if (rootvp->v_usecount > 1 && !(flags & FORCECLOSE))
+	{
+		return (EBUSY);
 	}
 
 	/*
@@ -294,16 +290,24 @@ int webdav_unmount(mp, mntflags, p)
 	thread_funnel_switch(KERNEL_FUNNEL, NETWORK_FUNNEL);
 	error = soshutdown((struct socket *)VFSTOWEBDAV(mp)->pm_server->f_data, 2);
 	thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);
-	/*
-	 * Discard reference to underlying file.  Must call closef because
-	 * this may be the last reference.
+	
+	/* Get fd to socket used to communicate with mount_webdav daemon before
+	 * disposal of webdavmount structure
 	 */
-	closef(VFSTOWEBDAV(mp)->pm_server, (struct proc *)0);
+	pm_server = VFSTOWEBDAV(mp)->pm_server;
+	
 	/*
-	 * Finally, throw away the webdavmount structure
+	 * Throw away the webdavmount structure
 	 */
 	_FREE(mp->mnt_data, M_UFSMNT);				/* XXX */
-	mp->mnt_data = 0;
+	mp->mnt_data = 0; /* clear this so anyone looking at it will see it's gone */
+	
+	/*
+	 * Discard reference to underlying file. Must call closef because
+	 * this may be the last reference. If the daemon is still running, it's
+	 * select loop will wake up and exit.
+	 */
+	closef(pm_server, (struct proc *)0);
 
 	--webdav_mnt_cnt;
 	return (error);
@@ -312,9 +316,7 @@ int webdav_unmount(mp, mntflags, p)
 
 /*****************************************************************************/
 
-int webdav_root(mp, vpp)
-	struct mount *mp;
-	struct vnode **vpp;
+static int webdav_root(struct mount *mp, struct vnode **vpp)
 {
 	struct proc *p = current_proc();			/* XXX */
 	struct vnode *vp;
@@ -331,10 +333,7 @@ int webdav_root(mp, vpp)
 
 /*****************************************************************************/
 
-int webdav_statfs(mp, sbp, p)
-	struct mount *mp;
-	struct statfs *sbp;
-	struct proc *p;
+static int webdav_statfs(struct mount *mp, struct statfs *sbp, struct proc *p)
 {
 
 	struct vnode *rootvp;
@@ -374,7 +373,7 @@ int webdav_statfs(mp, sbp, p)
 		bcopy(p->p_ucred->cr_groups, pcred.pcr_groups, NGROUPS * sizeof(gid_t));
 
 		error = webdav_sendmsg(vnop, WEBDAV_USE_URL, pt, &pcred, fmp, p, (void *)NULL, 0,
-			&server_error, (void *) & server_sbp, sizeof(server_sbp));
+			&server_error, (void *) & server_sbp, sizeof(server_sbp), rootvp);
 
 		/* XXX - When this WEBDAV_CHECK_VNODE and goto is removed, the code below
 		 * that calls wakeup can be moved up here. */
@@ -397,7 +396,7 @@ int webdav_statfs(mp, sbp, p)
 	sbp->f_flags = 0;
 	if (!server_sbp.f_bsize)
 	{
-		sbp->f_bsize = DEV_BSIZE;
+		sbp->f_bsize = S_BLKSIZE;
 	}
 	else
 	{
@@ -415,8 +414,12 @@ int webdav_statfs(mp, sbp, p)
 	
 	if (!server_sbp.f_blocks)
 	{
-		/* server must not support getting quotas so stop trying */
-		fmp->status &= ~WEBDAV_MOUNT_SUPPORTS_STATFS;
+		/* Did we actually get f_blocks back from the WebDAV server? */
+		if ( error == 0 && server_error == 0 )
+		{
+			/* server must not support getting quotas so stop trying */
+			fmp->status &= ~WEBDAV_MOUNT_SUPPORTS_STATFS;
+		}
 		sbp->f_blocks = WEBDAV_NUM_BLOCKS;
 		sbp->f_bfree = sbp->f_bavail = WEBDAV_FREE_BLOCKS;
 	}
@@ -477,14 +480,72 @@ bad:
 
 /*****************************************************************************/
 
+/*
+ * webdav_sysctl handles the VFS_CTL_QUERY request which tells interested
+ * parties if the connection with the remote server is up or down.
+ */
+static int webdav_sysctl(int *name, u_int namelen, void *oldp, size_t *oldlenp,
+	void *newp, size_t newlen, struct proc *p)
+{
+	#pragma unused(oldlenp, newp, newlen, p)
+	int error;
+	struct sysctl_req *req;
+	struct vfsidctl vc;
+	struct mount *mp;
+	struct webdavmount *fmp;
+	struct vfsquery vq;
+
+	/*
+	 * All names at this level are terminal.
+	 */
+	if ( namelen > 1 )
+	{
+		error = ENOTDIR;	/* overloaded */
+	}
+	else
+	{
+		switch ( name[0] )
+		{
+			case VFS_CTL_QUERY:
+				req = oldp;	/* we're new style vfs sysctl. */
+				error = SYSCTL_IN(req, &vc, sizeof(vc));
+				if ( !error )
+				{
+					mp = vfs_getvfs(&vc.vc_fsid);
+					if ( mp == NULL )
+					{
+						error = ENOENT;
+					}
+					else
+					{
+						fmp = VFSTOWEBDAV(mp);
+						bzero(&vq, sizeof(vq));
+						if ( (fmp != NULL) && (fmp->status & WEBDAV_MOUNT_TIMEO) )
+						{
+							vq.vq_flags |= VQ_NOTRESP;
+						}
+						error = SYSCTL_OUT(req, &vq, sizeof(vq));
+					}
+				}
+				break;
+				
+			default:
+				error = EOPNOTSUPP;
+				break;
+		}
+	}
+
+	return ( error );
+}
+
+/*****************************************************************************/
+
 #define webdav_fhtovp ((int (*) __P((struct mount *, struct fid *, \
 		struct mbuf *, struct vnode **, int *, struct ucred **)))eopnotsupp)
 #define webdav_quotactl ((int (*) __P((struct mount *, int, uid_t, caddr_t, \
 		struct proc *)))eopnotsupp)
 #define webdav_sync ((int (*) __P((struct mount *, int, struct ucred *, \
 		struct proc *)))nullop)
-#define webdav_sysctl ((int (*) __P((int *, u_int, void *, size_t *, void *, \
-		size_t, struct proc *)))eopnotsupp)
 #define webdav_vget	((int (*) __P((struct mount *, void *, struct vnode **))) \
 		eopnotsupp)
 #define webdav_vptofh ((int (*) __P((struct vnode *, struct fid *)))eopnotsupp)
@@ -508,26 +569,23 @@ struct vfsops webdav_vfsops = {
 
 /*****************************************************************************/
 
-int webdav_fs_module_start(int loadArgument)
+__private_extern__
+kern_return_t webdav_fs_module_start(struct kmod_info *ki, void *data)
 {
+	#pragma unused(ki, data)
 	struct vfsconf         *newvfsconf = NULL;
 	int j;
 	int( ***opv_desc_vector_p)();
 	int( **opv_desc_vector)();
 	struct vnodeopv_entry_desc *opve_descp;
-	int error = 0;
+	int error;
 	boolean_t funnel_state;
-
-#pragma unused(loadArgument)
 
 	/*
 	 * This routine is responsible for all the initialization that would
 	 * ordinarily be done as part of the system startup;	  */
 
 	funnel_state = thread_funnel_set(kernel_flock, TRUE);
-#if DEBUG
-	/* Debugger(); */
-#endif
 
 	kprintf("load_webdavfs: Starting...\n");
 
@@ -617,27 +675,20 @@ int webdav_fs_module_start(int loadArgument)
 
 	/* Ok, vnode vectors are set up, vfs vectors are set up, add it in */
 	error = vfsconf_add(newvfsconf);
-	if (error)
-	{
-		goto done;
-	}
 
-
-done:
-	
-	if (newvfsconf)
-	{
-		FREE(newvfsconf, M_TEMP);
-	}
+	FREE(newvfsconf, M_TEMP);
 
 	thread_funnel_set(kernel_flock, funnel_state);
-	return (error);
+
+	return (error ? KERN_FAILURE : KERN_SUCCESS);
 }
 
 /*****************************************************************************/
 
-int webdav_fs_module_stop(int unloadArgument)
+__private_extern__
+kern_return_t webdav_fs_module_stop(struct kmod_info *ki, void *data)
 {
+	#pragma unused(ki, data)
 	boolean_t funnel_state;
 
 	funnel_state = thread_funnel_set(kernel_flock, TRUE);
@@ -654,7 +705,7 @@ int webdav_fs_module_stop(int unloadArgument)
 	webdav_hashdestroy();
 
 	thread_funnel_set(kernel_flock, funnel_state);
-	return (0);
+	return (KERN_SUCCESS);
 }
 
 /*****************************************************************************/

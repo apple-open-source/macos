@@ -30,19 +30,11 @@
 #include <Security/cssmapple.h>
 
 #include "certGroupUtils.h" 
-#include "cldebugging.h"
+#include "tpdebugging.h"
 #include "tpTime.h"
 
 #include <string.h>				/* for memcmp */
 
-#if 0
-void *tpCalloc(CssmAllocator &alloc, uint32 num, uint32 size)
-{
-	void *p = alloc.malloc(num * size);
-	memset(p, 0, num* size);
-	return p;
-}  
-#endif
 
 /*
  * Copy one CSSM_DATA to another, mallocing destination. 
@@ -116,17 +108,20 @@ CSSM_BOOL tpCompareCssmData(
 }
 
 /*
- * Compare two OIDs, return CSSM_TRUE if identical.
+ * Free memory via specified plugin's app-level allocator
  */
-CSSM_BOOL tpCompareOids(
-	const CSSM_OID *oid1,
-	const CSSM_OID *oid2)
-{	
-	/*
-	 * This should break if/when CSSM_OID is not the same as
-	 * CSSM_DATA, which is exactly what we want.
-	 */
-	return tpCompareCssmData(oid1, oid2);
+void tpFreePluginMemory(
+	CSSM_HANDLE	hand,
+	void 		*p)
+{
+	CSSM_API_MEMORY_FUNCS memFuncs;
+	CSSM_RETURN crtn = CSSM_GetAPIMemoryFunctions(hand, &memFuncs);
+	if(crtn) {
+		tpErrorLog("CSSM_GetAPIMemoryFunctions failure\n");
+		/* oh well, leak and continue */
+		return;
+	}
+	memFuncs.free_func(p, memFuncs.AllocRef);
 }
 
 /*
@@ -143,7 +138,7 @@ CSSM_DATA_PTR tp_CertGetPublicKey(
 	*valueToFree = NULL;
 	crtn = cert->fetchField(&CSSMOID_X509V1SubjectPublicKeyCStruct, &val);
 	if(crtn) {
-		errorLog0("Error on CSSM_CL_CertGetFirstFieldValue(PublicKeyCStruct)\n");
+		tpErrorLog("Error on CSSM_CL_CertGetFirstFieldValue(PublicKeyCStruct)\n");
 		return NULL;
 	}
 	*valueToFree = val;
@@ -171,7 +166,7 @@ CSSM_X509_ALGORITHM_IDENTIFIER_PTR tp_CertGetAlgId(
 	*valueToFree = NULL;
 	crtn = cert->fetchField(&CSSMOID_X509V1SignatureAlgorithm, &val);
 	if(crtn) {
-		errorLog0("Error on fetchField(CSSMOID_X509V1SignatureAlgorithm)\n");
+		tpErrorLog("Error on fetchField(CSSMOID_X509V1SignatureAlgorithm)\n");
 		return NULL;
 	}
 	*valueToFree = val;
@@ -185,61 +180,6 @@ void tp_CertFreeAlgId(
   	CSSM_CL_FreeFieldValue(clHand, &CSSMOID_X509V1SignatureAlgorithm, value);
 }
 
-/* 
- * Compare two DER-encoded normalized names.
- */
-CSSM_BOOL tpIsSameName( 
-	const CSSM_DATA *name1,
-	const CSSM_DATA *name2)
-{
-	return tpCompareCssmData(name1, name2);
-}
-
-
-/*
- * Given a TP handle, a CSP handle, a CL handle, and two certs, verify
- * subjectCert with issuerCert. If checkIssuerExpired is CSSM_TRUE, 
- * we'll do a not before/after check of the issuer only if the 
- * signature verify  passes. The rationale is that we're not interested 
- * in this condition for potential issuers which fail the sig verify. 
- *
- * Returns:
- *		CSSM_OK
- *		CSSMERR_TP_VERIFICATION_FAILURE		-- sig verify failure
- *		CSSMERR_TP_CERT_EXPIRED
- *		CSSMERR_TP_CERT_NOT_VALID_YET
- */
-CSSM_RETURN tp_VerifyCert(
-	CSSM_CL_HANDLE			clHand,
-	CSSM_CSP_HANDLE			cspHand,
-	TPCertInfo				*subjectCert,
-	TPCertInfo				*issuerCert,
-	CSSM_BOOL				checkIssuerCurrent,
-	CSSM_BOOL				allowExpired)			// to be deleted
-{
-	CSSM_RETURN			crtn;
-
-	crtn = CSSM_CL_CertVerify(clHand, 
-    	CSSM_INVALID_HANDLE, 
-    	subjectCert->certData(),
-    	issuerCert->certData(),
-    	NULL,				// VerifyScope
-    	0);					// ScopeSize
-	if(crtn == CSSM_OK) {
-		#if TP_CERT_CURRENT_CHECK_INLINE
-		if(checkIssuerCurrent) {
-			/* also verify validity of issuer */
-			crtn = issuerCert->isCurrent(allowExpired);
-		}
-		#endif
-	}
-	else {
-		/* general cert verify failure */
-		crtn = CSSMERR_TP_VERIFICATION_FAILURE;
-	}
-	return crtn;
-}
-
 /*
  * Determine if two certs - passed in encoded form - are equivalent. 
  */
@@ -250,164 +190,6 @@ CSSM_BOOL tp_CompareCerts(
 	return tpCompareCssmData(cert1, cert2);
 }
 
-#if		TP_DL_ENABLE
-/*
- * Given a DL/DB, look up cert by subject name. Subsequent
- * certs can be found using the returned result handle. 
- */
-static CSSM_DB_UNIQUE_RECORD_PTR tpCertLookup(
-	CSSM_DL_DB_HANDLE	dlDb,
-	const CSSM_DATA		*subjectName,	// DER-encoded
-	CSSM_HANDLE_PTR		resultHand,
-	CSSM_DATA_PTR		cert)			// RETURNED
-{
-	CSSM_QUERY						query;
-	CSSM_SELECTION_PREDICATE		predicate;	
-	CSSM_DB_UNIQUE_RECORD_PTR		record = NULL;
-	
-	cert->Data = NULL;
-	cert->Length = 0;
-	
-	/* SWAG until cert schema nailed down */
-	predicate.DbOperator = CSSM_DB_EQUAL;
-	predicate.Attribute.Info.AttributeNameFormat = 
-		CSSM_DB_ATTRIBUTE_NAME_AS_STRING;
-	predicate.Attribute.Info.Label.AttributeName = "Subject";
-	predicate.Attribute.Info.AttributeFormat = CSSM_DB_ATTRIBUTE_FORMAT_BLOB;
-	predicate.Attribute.Value = const_cast<CSSM_DATA_PTR>(subjectName);
-	predicate.Attribute.NumberOfValues = 1;
-	
-	query.RecordType = CSSM_DL_DB_RECORD_X509_CERTIFICATE;
-	query.Conjunctive = CSSM_DB_NONE;
-	query.NumSelectionPredicates = 1;
-	query.SelectionPredicate = &predicate;
-	query.QueryLimits.TimeLimit = 0;	// FIXME - meaningful?
-	query.QueryLimits.SizeLimit = 1;	// FIXME - meaningful?
-	query.QueryFlags = 0;				// FIXME - used?
-	
-	CSSM_DL_DataGetFirst(dlDb,
-		&query,
-		resultHand,
-		NULL,				// don't fetch attributes
-		cert,
-		&record);
-	return record;
-}
-
-/*
- * Search a list of DBs for a cert which verifies specified subject cert. 
- * Just a boolean return - we found it, or not. If we did, we return
- * TPCertInfo associated with the raw cert. 
- *
- * Special case of subject cert expired indicated by *subjectExpired 
- * returned as something other than CSSM_OK.
- */
-TPCertInfo *tpFindIssuer(
-	CssmAllocator 			&alloc,
-	CSSM_CL_HANDLE			clHand,
-	CSSM_CSP_HANDLE			cspHand,
-	TPCertInfo				*subjectCert,
-	const CSSM_DATA			*issuerName,		// TBD - passed for convenience
-	const CSSM_DL_DB_LIST	*dbList,
-	const char 				*cssmTimeStr,		// may be NULL
-	CSSM_RETURN				*issuerExpired)		// RETURNED
-{
-	uint32						dbDex;
-	CSSM_HANDLE					resultHand;
-	CSSM_DATA_PTR				cert;					// we malloc
-	CSSM_DL_DB_HANDLE			dlDb;
-	CSSM_DB_UNIQUE_RECORD_PTR	record;
-	TPCertInfo 					*issuerCert = NULL;
-	
-	*issuerExpired = CSSM_OK;
-	if(dbList == NULL) {
-		return NULL;
-	}
-	cert = (CSSM_DATA_PTR)alloc.malloc(sizeof(CSSM_DATA));
-	cert->Data = NULL;
-	cert->Length = 0;
-	
-	for(dbDex=0; dbDex<dbList->NumHandles; dbDex++) {
-		dlDb = dbList->DLDBHandle[dbDex];
-		record = tpCertLookup(dlDb,
-			issuerName,
-			&resultHand,
-			cert);
-		/* remember we have to abort this query regardless...*/
-		if(record != NULL) {
-			/* Found one. Does it verify the subject cert? */
-			issuerCert = new TPCertInfo(cert, clHand, cssmTimeStr, CSSM_TRUE);
-			if(tp_VerifyCert(clHand,
-					cspHand,
-					subjectCert,
-					issuerCert,
-					CSSM_FALSE,				// check current, ignored 
-					CSSM_FALSE)) {			// allowExpired, ignored
-					
-				delete issuerCert;
-				issuerCert = NULL;
-				
-				/* special case - abort immediately if issuerExpired has expired */
-				if((*issuerExpired) != CSSM_OK) {
-					CSSM_DL_DataAbortQuery(dlDb, resultHand);
-					goto abort;
-				}
-				
-				/*
-				 * Verify fail. Continue searching this DB. Break on 
-				 * finding the holy grail or no more records found. 
-				 */
-				for(;;) {
-					tpFreeCssmData(alloc, cert, CSSM_FALSE);
-					CSSM_RETURN crtn = CSSM_DL_DataGetNext(dlDb, 
-						resultHand,
-						NULL,		// no attrs 
-						cert,
-						&record);
-					if(crtn) {
-						/* no more, done with this DB */
-						break;
-					}
-					
-					/* found one - does it verify subject? */
-					issuerCert = new TPCertInfo(cert, clHand, cssmTimeStr, 
-							CSSM_TRUE);
-					if(tp_VerifyCert(clHand,
-							cspHand,
-							subjectCert,
-							issuerCert,
-							CSSM_FALSE,
-							CSSM_FALSE)) {
-						/* yes! */
-						break;
-					}
-					delete issuerCert;
-					issuerCert = NULL;
-				} /* searching subsequent records */
-			}	/* verify fail */
-			/* else success! */
-
-			if(issuerCert != NULL) {
-				/* successful return */
-				CSSM_DL_DataAbortQuery(dlDb, resultHand);
-				issuerCert->dlDbHandle(dlDb);
-				issuerCert->uniqueRecord(record);
-				return issuerCert;
-			}
-		}	/* tpCertLookup, i.e., CSSM_DL_DataGetFirst, succeeded */
-		
-		/* in any case, abort the query for this db */
-		CSSM_DL_DataAbortQuery(dlDb, resultHand);
-		
-	}	/* main loop searching dbList */
-
-abort:
-	/* issuer not found */
-	tpFreeCssmData(alloc, cert, CSSM_TRUE);
-	return NULL;
-}
-
-#endif	/* TP_DL_ENABLE */
 
 /*
  * Given a aignature OID, return the corresponding CSSM_ALGID for the 
@@ -425,6 +207,9 @@ CSSM_ALGORITHMS tpOidToAldId(
 		return CSSM_ALGID_MD5WithRSA;
 	}
 	else if(tpCompareOids(oid, &CSSMOID_SHA1WithRSA)) {
+		return CSSM_ALGID_SHA1WithRSA;
+	}
+	else if(tpCompareOids(oid, &CSSMOID_SHA1WithRSA_OIW)) {
 		return CSSM_ALGID_SHA1WithRSA;
 	}
 	else if(tpCompareOids(oid, &CSSMOID_SHA1WithDSA)) {
@@ -457,10 +242,217 @@ void tpToLower(
 	unsigned strLen)
 {
 	for(unsigned i=0; i<strLen; i++) {
-		*str++ = tolower(*str);
+		*str = tolower(*str);
+		str++;
 	}
 }
 
+/*
+ * Normalize an RFC822 addr-spec. This consists of converting
+ * all characters following the '@' character to lower case.
+ */
+void tpNormalizeAddrSpec(
+	char		*addr,
+	unsigned	addrLen)
+{
+	while((*addr != '@') && (addrLen != 0)) {
+		addr++;
+		addrLen--;
+	}
+	if(addrLen == 0) {
+		tpPolicyError("tpNormalizeAddrSpec: bad addr-spec");
+		return;
+	}
+	tpToLower(addr, addrLen);
+}
+
+/***
+ *** dnsName compare support.
+ *** Please do not make any changes to this code without talking to 
+ *** dmitch about updating (if necessary) and running (always)
+ *** regression tests which specifically test this logic.
+ ***/
+ 
+/*
+ * Max length of a distinguished name component (label) we handle.
+ * Various RFCs spec this out at 63 bytes; we're just allocating space
+ * for these on the stack, so why not cut some slack. 
+ */
+#define MAX_DNS_COMP_LEN	128
+
+/*
+ * Obtain the next component from a DNS Name.
+ * Caller mallocs outBuf, size >= MAX_DNS_COMP_LEN.
+ * Returns true if a component was found.
+ */
+static bool tpNextDnsComp(
+	const char 	*inBuf,
+	uint32		&inBufLen,		// IN/OUT
+	char		*outBuf,		// component RETURNED here
+	uint32		&outBufLen)		// RETURNED length of component
+{
+	outBufLen = 0;
+	if(inBufLen == 0) {
+		return false;
+	}
+	
+	/* skip over leading '.' */
+	if(*inBuf == '.') {
+		inBuf++;
+		if(--inBufLen == 0) {
+			return false;
+		}
+	}
+	
+	/* copy chars until out of data or next '.' found */
+	do {
+		if(*inBuf == '.') {
+			break;
+		}
+		*outBuf++ = *inBuf++;
+		inBufLen--;
+		outBufLen++;
+		if(outBufLen >= MAX_DNS_COMP_LEN) {
+			/* abort */
+			break;
+		}
+	} while(inBufLen != 0);
+	if(outBufLen) {
+		return true;
+	}
+	else {
+		return false;
+	}
+}
+
+/*
+ * Find location of specified substring in given bigstring. Returns
+ * pointer to start of substring in bigstring, else returns NULL.
+ */
+static const char *tpSubStr(
+	const char 	*bigstr,
+	uint32 		bigstrLen,
+	const char 	*substr,
+	uint32		substrLen)
+{
+	/* stop searching substrLen chars before end of bigstr */
+	const char *endBigStr = bigstr + bigstrLen - substrLen;
+	for( ; bigstr <= endBigStr; ) {
+		if(*bigstr == *substr) {
+			/* first char match - remainder? */
+			if(substrLen == 1) {
+				/* don't count on memcmp(a,b,0) */
+				return bigstr;
+			}
+			if(!memcmp(bigstr+1, substr+1, substrLen - 1)) {
+				return bigstr;
+			} 
+		}
+		bigstr++;
+	} 
+	return NULL;
+}
+
+/*
+ * Compare two DNS components, with full wildcard check. We assume
+ * that no '.' chars exist (per the processing performed in 
+ * tpNextDnsComp()). Returns CSSM_TRUE on match, else CSSM_FALSE.
+ */
+static CSSM_BOOL tpCompareComps(
+	const char 	*hostComp, 			// no wildcards
+	uint32 		hostCompLen, 
+	const char 	*certComp, 			// wildcards OK here
+	uint32		certCompLen)
+{
+	const char *endCertComp = certComp + certCompLen;
+	const char *endHostComp = hostComp + hostCompLen;
+	do {
+		/* wild card in cert name? */
+		const char *wildCard = tpSubStr(certComp, certCompLen,
+			"*", 1);
+		if(wildCard == NULL) {
+			/* no, require perfect literal match right now */
+			if((hostCompLen == certCompLen) &&
+					!memcmp(hostComp, certComp, certCompLen)) {
+				return CSSM_TRUE;
+			}
+			else {
+				return CSSM_FALSE;
+			}
+		}
+		
+		if(wildCard != certComp) {
+			/* 
+			 * Require literal match of hostComp with certComp
+			 * up until (but not including) the wildcard
+			 */
+			uint32 subStrLen = wildCard - certComp;
+			if(subStrLen > hostCompLen) {
+				/* out of host name chars */
+				return CSSM_FALSE;
+			}
+			if(memcmp(certComp, hostComp, subStrLen)) {
+				return CSSM_FALSE;
+			}
+			/* OK, skip over substring */
+			hostComp    += subStrLen;
+			hostCompLen -= subStrLen;
+			/* start parsing at the wildcard itself */
+			certComp     = wildCard;
+			certCompLen -= subStrLen;
+			continue;
+		}
+		
+		/*
+		 * Currently looking at a wildcard.
+		 *
+		 * Find substring in hostComp which matches from the char after
+		 * the wildcard up to whichever of these comes next:
+		 *
+		 *  -- end of certComp 
+		 *  -- another wildcard
+		 */
+		wildCard++;		
+		if(wildCard == endCertComp) {
+			/* 
+			 * -- Wild card at end of cert's DNS
+			 * -- nothing else to match - rest of hostComp is the wildcard
+			 *    match
+			 * -- done, success 
+			 */
+			return CSSM_TRUE;
+		}
+		
+		const char *afterSubStr;		// in certComp
+		afterSubStr = tpSubStr(wildCard, endCertComp - wildCard,
+			"*", 1);
+		if(afterSubStr == NULL) {
+			/* no more wildcards - use end of certComp */
+			afterSubStr = endCertComp;
+		}
+		uint32 subStrLen = afterSubStr - wildCard;
+		const char *foundSub = tpSubStr(hostComp, hostCompLen,
+			wildCard, subStrLen);
+		if(foundSub == NULL) {
+			/* No match of explicit chars */
+			return CSSM_FALSE;
+		}
+		
+		/* found it - skip past this substring */
+		hostComp    = foundSub + subStrLen;
+		hostCompLen = endHostComp - hostComp;
+		certComp    = afterSubStr;
+		certCompLen = endCertComp - afterSubStr;
+		
+	} while((hostCompLen != 0) || (certCompLen != 0));
+	if((hostCompLen == 0) && (certCompLen == 0)) {
+		return CSSM_TRUE;
+	}
+	else {
+		/* end of one but not the other */
+		return CSSM_FALSE;
+	}
+}
 
 /*
  * Compare hostname, is presented to the TP in 
@@ -469,56 +461,106 @@ void tpToLower(
  * Limited wildcard checking is performed here. 
  *
  * The incoming hostname is assumed to have been processed by tpToLower();
- * we'll perform that processing on serverName here. 
+ * we'll perform that processing on certName here. 
  *
  * Returns CSSM_TRUE on match, else CSSM_FALSE.
  */
 CSSM_BOOL tpCompareHostNames(
 	const char	 	*hostName,		// spec'd by app, tpToLower'd
 	uint32			hostNameLen,
-	char			*serverName,	// from cert, we tpToLower
-	uint32			serverNameLen)
+	char			*certName,		// from cert, we tpToLower
+	uint32			certNameLen)
 {
-	tpToLower(serverName, serverNameLen);
+	tpToLower(certName, certNameLen);
 
 	/* tolerate optional NULL terminators for both */
 	if(hostName[hostNameLen - 1] == '\0') {
 		hostNameLen--;
 	}
-	if(serverName[serverNameLen - 1] == '\0') {
-		serverNameLen--;
+	if(certName[certNameLen - 1] == '\0') {
+		certNameLen--;
 	}
 	
 	/* case 1: exact match */
-	if((serverNameLen == hostNameLen) &&
-	    !memcmp(serverName, hostName, serverNameLen)) {
+	if((certNameLen == hostNameLen) &&
+	    !memcmp(certName, hostName, certNameLen)) {
 		return CSSM_TRUE;
 	}
 	
-	/* case 2: handle optional '*' in cert's server name */
-	if(serverName[0] == '*') {
-		/* last (serverNameLen - 1) chars have to match */
-		unsigned effectLen = serverNameLen - 1;		// skip '*' 
-		if(serverNameLen < effectLen) {
-			errorLog0("tp_verifySslOpts: subject/server name wildcard "
-				"mismatch (1)");
+	/* 
+	 * Case 2: Compare one component at a time, handling wildcards in
+	 * cert's server name. The characters implicitly matched by a 
+	 * wildcard span only one component of a dnsName.
+	 */
+	do {
+		/* get next component from each dnsName */
+		char hostComp[MAX_DNS_COMP_LEN];
+		char certComp[MAX_DNS_COMP_LEN];
+		uint32 hostCompLen;
+		uint32 certCompLen;
+		
+		bool foundHost = tpNextDnsComp(hostName, hostNameLen,
+				hostComp, hostCompLen);
+		bool foundCert = tpNextDnsComp(certName, certNameLen,
+				certComp, certCompLen);
+		if(foundHost != foundCert) {
+			/* unequal number of components */
+			tpPolicyError("tpCompareHostNames: wildcard  mismatch (1)");
 			return CSSM_FALSE;
 		}
-		else if(memcmp(serverName+1,		// skip '*'
-		         hostName + hostNameLen - effectLen,
-				 effectLen)) {
-			errorLog0("tp_verifySslOpts: subject/server name wildcard "
-				"mismatch (2)");
-			return CSSM_FALSE;
-		}
-		else {
-			/* wildcard match */
+		if(!foundHost) {
+			/* normal successful termination */
 			return CSSM_TRUE;
 		}
+		
+		/* compare individual components */
+		if(!tpCompareComps(hostComp, hostCompLen, 
+				certComp, certCompLen)) {
+			tpPolicyError("tpCompareHostNames: wildcard  mismatch (2)");
+			return CSSM_FALSE;
+		}
+		
+		/* skip over this component */
+		hostName    += hostCompLen;
+		certName    += certCompLen;
+	} while(1);
+	/* NOT REACHED */
+	//assert(0):
+	return CSSM_FALSE;
+}
+
+/*
+ * Compare email address, is presented to the TP in 
+ * CSSM_APPLE_TP_SMIME_OPTIONS.SenderEmail, to a string obtained
+ * from the sender's cert (i.e., from subjectAltName or Subject DN).
+ *
+ * Returns CSSM_TRUE on match, else CSSM_FALSE.
+ *
+ * Incomiong appEmail string has already been tpNormalizeAddrSpec'd.
+ * We do that for certEmail string here. 
+ */
+CSSM_BOOL tpCompareEmailAddr(
+	const char	 	*appEmail,		// spec'd by app, normalized
+	uint32			appEmailLen,
+	char			*certEmail,		// from cert, we normalize
+	uint32			certEmailLen)
+{
+	tpNormalizeAddrSpec(certEmail, certEmailLen);
+
+	/* tolerate optional NULL terminators for both */
+	if(appEmail[appEmailLen - 1] == '\0') {
+		appEmailLen--;
+	}
+	if(certEmail[certEmailLen - 1] == '\0') {
+		certEmailLen--;
+	}
+	if((certEmailLen == appEmailLen) &&
+	    !memcmp(certEmail, appEmail, certEmailLen)) {
+		return CSSM_TRUE;
 	}
 	else {
 		/* mismatch */
-		errorLog0("tp_verifySslOpts: subject/server name mismatch");
+		tpPolicyError("tpCompareEmailAddr: app/cert email addrs mismatch");
 		return CSSM_FALSE;
 	}
 }

@@ -60,9 +60,10 @@ L_setjmp:
 	stw r31, JMP_r31(r3)
 	stw r0, JMP_lr(r3)
 	mr r31, r3
-	li r3, 0				; get the previous signal mask
-	CALL_EXTERN(_sigblock)
-	stw r3, JMP_sig(r31)	; save the previous mask
+	li r3, 1				; get the previous signal mask
+	li r4, 0
+	la r5, JMP_sig(r31)	; get address where previous mask needs to be
+	CALL_EXTERN(_sigprocmask)
 	mr r3, r31
 	lwz r0, JMP_lr(r3)
 	mtlr r0

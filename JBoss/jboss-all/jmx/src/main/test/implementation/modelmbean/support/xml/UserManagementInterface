@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mbean SYSTEM "file:./src/main/test/implementation/modelmbean/support/xml/xmbean.dtd">
+
+<mbean>
+   <constructor>
+      <name>Default Constructor</name>
+   </constructor>
+
+   <attribute>
+      <name>ID</name>
+      <type>java.lang.String</type>
+      <access>read-only</access>
+   </attribute>
+
+   <attribute setMethod="setName" getMethod="getName">
+      <name>Name</name>
+      <type>java.lang.String</type>
+      <access>read-write</access>
+   </attribute>
+
+   <attribute>
+      <name>Address</name>
+      <type>java.lang.String</type>
+      <access>read-write</access>
+   </attribute>
+
+   <attribute>
+      <name>PhoneNumbers</name>
+      <type>[Ljava.lang.String;</type>
+      <access>read-write</access>
+   </attribute>
+
+   <attribute>
+      <name>Password</name>
+      <type>java.lang.String</type>
+      <access>write-only</access>
+   </attribute>
+
+   <operation>
+      <name>printInfo</name>
+      <return-type>java.lang.String</return-type>
+      <impact>INFO</impact>
+   </operation>
+
+   <operation>
+      <name>addPhoneNumber</name>
+      <parameter>
+         <name>number</name>
+         <type>java.lang.String</type>
+      </parameter>
+      <return-type>void</return-type>
+      <impact>ACTION</impact>
+   </operation>
+
+   <operation>
+      <name>removePhoneNumber</name>
+      <parameter>
+         <name>index</name>
+         <type>int</type>
+      </parameter>
+      <return-type>void</return-type>
+      <impact>ACTION</impact>
+   </operation>
+
+   <operation>
+      <name>setName</name>
+      <parameter>
+        <name>name</name>
+        <type>java.lang.String</type>
+      </parameter>
+      <return-type>void</return-type>
+      <impact>ACTION</impact>
+    </operation>
+    
+    <operation>
+      <name>getName</name>
+      <return-type>java.lang.String</return-type>
+      <impact>INFO</impact>
+    </operation>
+    
+</mbean>
+
+

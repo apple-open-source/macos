@@ -22,7 +22,8 @@ typedef struct __env env_s ;
 
 int env_errno ;
 
-static char **lookup( env_h env, const char *var, register int len );
+static char **lookup( const env_h env, const char *var, 
+	register unsigned int len );
 
 static env_s *alloc_env( unsigned max_vars )
 {
@@ -46,7 +47,7 @@ static env_s *alloc_env( unsigned max_vars )
       env_errno = ENV_ENOMEM ;
       return( ENV_NULL ) ;
    }
-   (void) memset( (char *)pointers, 0, (int) size ) ;
+   (void) memset( (char *)pointers, 0, size ) ;
 
    ep->vars = pointers ;
    ep->max_vars = max_vars ;
@@ -55,7 +56,7 @@ static env_s *alloc_env( unsigned max_vars )
 }
 
 
-env_h env_create( env_h init_env )
+env_h env_create( const env_h init_env )
 {
    unsigned u ;
    env_s *ep ;
@@ -139,7 +140,8 @@ char *env_lookup( env_h env, const char *var )
 }
 
 
-static char **lookup( env_h env, const char * var, register int len )
+static char **lookup( const env_h env, const char * var, 
+	register unsigned int len )
 {
    char **pp ;
 
@@ -172,7 +174,7 @@ static int grow( env_s *ep )
 /*
  * Add the variable string to the given environment.
  */
-static int addstring( env_s *ep, char *var_string, int len )
+static int addstring( env_s *ep, const char *var_string, unsigned int len )
 {
    char **pp ;
    char *p ;
@@ -226,7 +228,7 @@ int env_addstr( env_h env, char *var_string )
       return( ENV_ERR ) ;
    }
 
-   return( addstring( env, var_string, p-var_string ) ) ;
+   return( addstring( env, var_string, (unsigned int)(p-var_string) ) ) ;
 }
 
 

@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = IOSerialFamily ;
-export deferred SRCROOT = /Volumes/Music/SandBox/gvdl/IOSerialFamily-19 ;
+export deferred SRCROOT = /Volumes/-/SandBox/gvdl/bugfest/IOSerialFamily-19 ;
 
 # User-defined project-wide settings for project
 
@@ -57,7 +57,7 @@ COPY_FILES =
 	IOSerialFamily.kmodproj/IORS232SerialStreamSync.h
 	IOSerialFamily.kmodproj/IOModemSerialStreamSync.h ;
 COPYFILES_DESTINATION_PATH = "$(INSTALL_ROOT)/$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/serial" ;
-if $(ACTION) in installdebugonly installsrc installhdrs installdebugprofileonly installprofileonly install {
+if $(DEPLOYMENT_POSTPROCESSING) = YES {
 	ProcessCopyFiles "<installhdrs>installhdrs$(TOOL_SUFFIX)" : "$(COPY_FILES)" : BPTag000 : BPTag001 ;
 }
 else {
@@ -65,36 +65,28 @@ else {
 }
 
 # Copy Files
-COPY_FILES = IOSerialFamily.kmodproj/IOSerialKeys.h ;
+COPY_FILES =
+	IOSerialFamily.kmodproj/ioss.h
+	IOSerialFamily.kmodproj/IOSerialKeys.h ;
 COPYFILES_DESTINATION_PATH = "$(INSTALL_ROOT)/$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/serial" ;
-if $(ACTION) in installdebugonly installsrc installhdrs installdebugprofileonly installprofileonly install {
+if $(DEPLOYMENT_POSTPROCESSING) = YES {
 	ProcessCopyFiles "<installhdrs>installhdrs$(TOOL_SUFFIX)" : "$(COPY_FILES)" : BPTag001 : BPTag002 ;
 }
 else {
 	NoOp "<installhdrs>installhdrs$(TOOL_SUFFIX)" : "$(COPY_FILES)" : BPTag001 : BPTag002 ;
 }
 
-# Copy Files
-COPY_FILES = IOSerialFamily.kmodproj/ioss.h ;
-COPYFILES_DESTINATION_PATH = "$(INSTALL_ROOT)/$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/serial" ;
-if $(ACTION) in installdebugonly installsrc installhdrs installdebugprofileonly installprofileonly install {
-	ProcessCopyFiles "<installhdrs>installhdrs$(TOOL_SUFFIX)" : "$(COPY_FILES)" : BPTag002 : BPTag003 ;
-}
-else {
-	NoOp "<installhdrs>installhdrs$(TOOL_SUFFIX)" : "$(COPY_FILES)" : BPTag002 : BPTag003 ;
-}
-
 # Sources
 SOURCES = ;
-ProcessSources "<installhdrs>installhdrs$(TOOL_SUFFIX)" : "$(SOURCES)" : BPTag003 : BPTag004 ;
+ProcessSources "<installhdrs>installhdrs$(TOOL_SUFFIX)" : "$(SOURCES)" : BPTag002 : BPTag003 ;
 
 # Frameworks & Libraries
 FRAMEWORKS_AND_LIBRARIES = ;
-ProcessFrameworksAndLibraries "<installhdrs>installhdrs$(TOOL_SUFFIX)" : "$(FRAMEWORKS_AND_LIBRARIES)" : BPTag004 : BPTag005 ;
+ProcessFrameworksAndLibraries "<installhdrs>installhdrs$(TOOL_SUFFIX)" : "$(FRAMEWORKS_AND_LIBRARIES)" : BPTag003 : BPTag004 ;
 
 # Rez Files
 REZ_FILES = ;
-ProcessRezFiles "<installhdrs>installhdrs$(TOOL_SUFFIX)" : "$(REZ_FILES)" : BPTag005 : BPTag006 ;
+ProcessRezFiles "<installhdrs>installhdrs$(TOOL_SUFFIX)" : "$(REZ_FILES)" : BPTag004 : BPTag005 ;
 
 EndTool "<installhdrs>installhdrs$(TOOL_SUFFIX)" ;
 

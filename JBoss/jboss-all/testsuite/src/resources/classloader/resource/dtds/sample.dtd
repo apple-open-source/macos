@@ -1,0 +1,3 @@
+<!ELEMENT sample (entry+)>
+
+<!ELEMENT entry (#PCDATA)>

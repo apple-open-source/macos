@@ -92,14 +92,3 @@ G =  3.57142857142857150787e-01; /* 5/14      = 0x3FD6DB6D, 0xB6DB6DB7 */
 	return(t);
 }
 
-#ifdef notdef
-#ifdef __STDC__
-	float cbrtf(float x) 
-#else
-	float cbrtf(x) 
-	float x;
-#endif
-{
-    return (float)cbrt( x );
-}
-#endif /* notdef */

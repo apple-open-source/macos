@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/sh.func.c,v 1.1.1.2 2001/06/28 23:10:51 bbraun Exp $ */
+/* $Header: /cvs/root/tcsh/tcsh/sh.func.c,v 1.1.1.3 2003/01/17 03:41:13 nicolai Exp $ */
 /*
  * sh.func.c: csh builtin functions
  */
@@ -14,11 +14,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -36,7 +32,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: sh.func.c,v 1.1.1.2 2001/06/28 23:10:51 bbraun Exp $")
+RCSID("$Id: sh.func.c,v 1.1.1.3 2003/01/17 03:41:13 nicolai Exp $")
 
 #include "ed.h"
 #include "tw.h"
@@ -304,7 +300,7 @@ doalias(v, c)
 	plist(&aliases, VAR_ALL);
     else if (*v == 0) {
 	vp = adrof1(strip(p), &aliases);
-	if (vp)
+	if (vp && vp->vec)
 	    blkpr(vp->vec), xputchar('\n');
     }
     else {
@@ -446,7 +442,7 @@ reexecute(kp)
      * pgrp's as the jobs would then have no way to get the tty (we can't give
      * it to them, and our parent wouldn't know their pgrp, etc.
      */
-    execute(kp, (tpgrp > 0 ? tpgrp : -1), NULL, NULL);
+    execute(kp, (tpgrp > 0 ? tpgrp : -1), NULL, NULL, TRUE);
 }
 
 /*ARGSUSED*/
@@ -731,21 +727,23 @@ dorepeat(v, kp)
     Char  **v;
     struct command *kp;
 {
-    register int i;
+    int i = 1;
 
 #ifdef BSDSIGS
     register sigmask_t omask = 0;
-
 #endif /* BSDSIGS */
 
-    i = getn(v[1]);
+    do {
+	i *= getn(v[1]);
+	lshift(v, 2);
+    } while (v[0] != NULL && Strcmp(v[0], STRrepeat) == 0);
+
     if (setintr)
 #ifdef BSDSIGS
 	omask = sigblock(sigmask(SIGINT)) & ~sigmask(SIGINT);
 #else /* !BSDSIGS */
 	(void) sighold(SIGINT);
 #endif /* BSDSIGS */
-    lshift(v, 2);
     while (i > 0) {
 	if (setintr)
 #ifdef BSDSIGS
@@ -1147,7 +1145,7 @@ xecho(sep, v)
 #endif /* BSDSIGS */
     v++;
     if (*v == 0)
-	return;
+	goto done;
     gflag = 0, tglob(v);
     if (gflag) {
 	v = globall(v);
@@ -1313,6 +1311,16 @@ dosetenv(v, c)
 
     vp = *v++;
 
+    lp = vp;
+    if (!letter(*lp))
+        stderror(ERR_NAME | ERR_VARBEGIN);
+
+    for (; alnum(*lp); lp++)
+        continue;
+
+    if (*lp != '\0')
+	stderror(ERR_NAME | ERR_SYNTAX);
+ 
     if ((lp = *v++) == 0)
 	lp = STRNULL;
 
@@ -1381,6 +1389,13 @@ dosetenv(v, c)
 	xfree((ptr_t) lp);
 	return;
     }
+
+#ifdef NLS_CATALOGS
+    if (eq(vp, STRNLSPATH)) {
+	(void) catclose(catd);
+	nlsinit();
+    }
+#endif
 
     if (eq(vp, STRNOREBIND)) {
 	NoNLSRebind = 1;
@@ -1576,6 +1591,12 @@ dounsetenv(v, c)
 		else if (eq(name, STRLS_COLORS))
 		    parseLS_COLORS(n);
 #endif /* COLOR_LS_F */
+#ifdef NLS_CATALOGS
+		else if (eq(name, STRNLSPATH)) {
+		    (void) catclose(catd);
+		    nlsinit();
+		}
+#endif
 		/*
 		 * start again cause the environment changes
 		 */
@@ -1711,15 +1732,15 @@ doumask(v, c)
 #   define toset(a) ((a) + 1)
 #  endif /* aiws */
 # else /* BSDLIMIT */
-#  if defined(BSD4_4) && !defined(__386BSD__)
-    typedef quad_t RLIM_TYPE;
+#  if (defined(BSD4_4) || defined(__linux__)) && !defined(__386BSD__)
+    typedef rlim_t RLIM_TYPE;
 #  else
 #   if defined(SOLARIS2) || (defined(sgi) && SYSVREL > 3)
      typedef rlim_t RLIM_TYPE;
 #   else
 #    if defined(_SX)
       typedef long long RLIM_TYPE;
-#    else /* _SX */
+#    else /* !_SX */
       typedef unsigned long RLIM_TYPE;
 #    endif /* _SX */
 #   endif /* SOLARIS2 || (sgi && SYSVREL > 3) */
@@ -1753,6 +1774,8 @@ doumask(v, c)
 /* In order to use rusage, we included "/usr/ucbinclude/sys/resource.h" in */
 /* sh.h.  However, some SVR4 limits are defined in <sys/resource.h>.  Rather */
 /* than include both and get warnings, we define the extra SVR4 limits here. */
+/* XXX: I don't understand if RLIMIT_AS is defined, why don't we define */
+/* RLIMIT_VMEM based on it? */
 #  ifndef RLIMIT_VMEM
 #   define RLIMIT_VMEM	6
 #  endif
@@ -1760,6 +1783,10 @@ doumask(v, c)
 #   define RLIMIT_AS	RLIMIT_VMEM
 #  endif
 # endif /* SYSVREL > 3 && BSDLIMIT */
+
+# if defined(__linux__) && defined(RLIMIT_AS) && !defined(RLIMIT_VMEM)
+#  define RLIMIT_VMEM	RLIMIT_AS
+# endif
 
 struct limits limits[] = 
 {
@@ -1819,9 +1846,13 @@ struct limits limits[] =
     { RLIMIT_NPROC,	"maxproc",	1,	""		},
 # endif /* RLIMIT_NPROC */
 
-# ifdef RLIMIT_OFILE
+# if defined(RLIMIT_OFILE) && !defined(RLIMIT_NOFILE)
     { RLIMIT_OFILE,	"openfiles",	1,	""		},
-# endif /* RLIMIT_OFILE */
+# endif /* RLIMIT_OFILE && !defined(RLIMIT_NOFILE) */
+
+# ifdef RLIMIT_SBSIZE
+    { RLIMIT_SBSIZE,	"sbsize",	1,	""		},
+# endif /* RLIMIT_SBSIZE */
 
     { -1, 		NULL, 		0, 	NULL		}
 };
@@ -2137,6 +2168,9 @@ setlim(lp, hard, limit)
     else
 	rlim.rlim_cur = limit;
 
+    if (rlim.rlim_cur > rlim.rlim_max)
+	rlim.rlim_max = rlim.rlim_cur;
+
     if (setrlimit(lp->limconst, &rlim) < 0) {
 # else /* BSDLIMIT */
     if (limit != RLIM_INFINITY && lp->limconst == RLIMIT_FSIZE)
@@ -2147,10 +2181,10 @@ setlim(lp, hard, limit)
 # endif /* aiws */
     if (ulimit(toset(lp->limconst), limit) < 0) {
 # endif /* BSDLIMIT */
-	xprintf(CGETS(15, 1, "%s: %s: Can't %s%s limit\n"), bname, lp->limname,
-		limit == RLIM_INFINITY ? CGETS(15, 2, "remove") :
-		CGETS(15, 3, "set"),
-		hard ? CGETS(14, 4, " hard") : "");
+	xprintf(CGETS(15, 1, "%s: %s: Can't %s%s limit (%s)\n"), bname,
+	    lp->limname, limit == RLIM_INFINITY ? CGETS(15, 2, "remove") :
+	    CGETS(15, 3, "set"), hard ? CGETS(14, 4, " hard") : "",
+	    strerror(errno));
 	return (-1);
     }
     return (0);

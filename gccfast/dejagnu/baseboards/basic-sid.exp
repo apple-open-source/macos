@@ -1,0 +1,58 @@
+# find_sid -- find a usable SID simulator.
+# This proc is local to this file and is used to locate a SID to use.
+# Search the build tree, then $PATH.
+#
+# Written by Ben Elliston (bje@redhat.com).
+
+proc find_sid { target_alias } {
+    global env
+    global tool_root_dir
+
+    set try [lookfor_file ${tool_root_dir} sid/bsp/${target_alias}-sid]
+    if { $try != "" } {
+	set sid_build [lookfor_file ${tool_root_dir} sid/main/dynamic/sid]
+	if { $sid_build != "" } { set env(SID) $sid_build }
+	return $try
+    }
+
+    # In this case, the bsp script must be available on the PATH.
+    # Just hope for the best!
+    return ${target_alias}-sid
+}
+
+# find_sid_conf -- find a usable pre-generated SID config file.
+
+proc find_sid_conf { config } {
+    global env
+    global srcdir
+
+    set try [lookfor_file ${srcdir} sid/bsp/pregen/${config}.conf]
+    if { $try == "" } then { return ${config}.conf } else { return $try }
+}
+
+# find_rawsid -- find a usable SID simulator.
+# This proc is local to this file and is used to locate a SID to use.
+# Search the build tree, then $PATH.
+
+proc find_rawsid { } {
+    global env
+    global tool_root_dir
+    global srcdir
+
+    set try [lookfor_file ${tool_root_dir} sid/main/dynamic/sid]
+    if { $try == "" } {
+	set try "sid"
+    } else {
+	# testing build tree
+	set env(SID_LIBRARY_PATH) [join [glob "${tool_root_dir}/sid/component/*" "$srcdir/sid/component/*"] ":"]
+	# srcdir=/..../sid/component/testsuite
+	set tcl_library "$srcdir/tcl/library"
+        global host_os
+	switch -glob $host_os {
+	  {cygwin*} { set tcl_library [exec cygpath -w $tcl_library] }
+        }
+	set env(TCL_LIBRARY) $tcl_library
+    }
+
+    return $try
+}

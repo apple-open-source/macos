@@ -12,6 +12,7 @@
 	public void home ();
 	public void add_line ();
 	public void remove_top ();
+	public void win32_scroll_up ();
 	public void lower_left ();
 	public void check_winch ();
 	public void goto_line ();
@@ -42,7 +43,7 @@
 	public POSITION ch_tell ();
 	public int ch_forw_get ();
 	public int ch_back_get ();
-	public int ch_nbuf ();
+	public void ch_setbufspace ();
 	public void ch_flush ();
 	public int seekable ();
 	public void ch_init ();
@@ -72,8 +73,6 @@
 	public void init_cmds ();
 	public void add_fcmd_table ();
 	public void add_ecmd_table ();
-	public void add_var_table ();
-	public int cmd_search ();
 	public int fcmd_decode ();
 	public int ecmd_decode ();
 	public char * lgetenv ();
@@ -97,7 +96,9 @@
 	public int edit_stdin ();
 	public void cat_file ();
 	public void use_logfile ();
-	public char * unquote_file ();
+	public char * shell_unquote ();
+	public char * get_meta_escape ();
+	public char * shell_quote ();
 	public char * homefile ();
 	public char * fexpand ();
 	public char * fcomplete ();
@@ -108,6 +109,7 @@
 	public int is_dir ();
 	public char * bad_file ();
 	public POSITION filesize ();
+	public char * shell_coption ();
 	public void forw ();
 	public void back ();
 	public void forward ();
@@ -139,8 +141,10 @@
 	public void jump_percent ();
 	public void jump_line_loc ();
 	public void jump_loc ();
+	public void init_line ();
 	public void prewind ();
 	public void plinenum ();
+	public int is_ansi_end ();
 	public int pappend ();
 	public void pdone ();
 	public int gline ();
@@ -161,6 +165,7 @@
 	public void lastmark ();
 	public void gomark ();
 	public POSITION markpos ();
+	public void unmark ();
 	public void opt_o ();
 	public void opt__O ();
 	public void opt_l ();
@@ -173,6 +178,7 @@
 	public void opt_i ();
 	public void opt__V ();
 	public void opt_D ();
+	public void opt_x ();
 	public void opt_quote ();
 	public void opt_query ();
 	public int get_swindow ();
@@ -184,8 +190,8 @@
 	public void nopendopt ();
 	public int getnum ();
 	public void init_option ();
-	public struct option * findopt ();
-	public struct option * findopt_name ();
+	public struct loption * findopt ();
+	public struct loption * findopt_name ();
 	public int iread ();
 	public void intread ();
 	public long get_time ();
@@ -193,7 +199,6 @@
 	public int percentage ();
 	public POSITION percent_pos ();
 	public int  os9_signal ();
-	public int  isatty ();
 	public void put_line ();
 	public void flush ();
 	public int putchr ();
@@ -216,6 +221,7 @@
 	public char * pr_expand ();
 	public char * eq_message ();
 	public char * pr_string ();
+	public char * wait_message ();
 	public void repaint_hilite ();
 	public void clear_attn ();
 	public void undo_search ();
@@ -229,9 +235,15 @@
 	public RETSIGTYPE winch ();
 	public void init_signals ();
 	public void psignals ();
+	public void cleantags ();
+	public int gettagtype ();
 	public void findtag ();
-	public int edit_tagfile ();
 	public POSITION tagsearch ();
+	public char * nexttag ();
+	public char * prevtag ();
+	public int ntags ();
+	public int curr_tag ();
+	public int edit_tagfile ();
 	public void open_getchr ();
 	public void close_getchr ();
 	public int getchr ();

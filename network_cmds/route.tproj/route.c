@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -65,7 +66,7 @@ static const char copyright[] =
 static char sccsid[] = "@(#)route.c	8.3 (Berkeley) 3/19/94";
 #endif
 static const char rcsid[] =
-	"$Id: route.c,v 1.2 2002/03/05 20:35:16 lindak Exp $";
+	"$Id: route.c,v 1.3 2003/01/07 21:03:05 bbraun Exp $";
 #endif /* not lint */
 
 #include <sys/param.h>
@@ -790,6 +791,16 @@ newroute(argc, argv)
 		flags |= RTF_HOST;
 	if (iflag == 0)
 		flags |= RTF_GATEWAY;
+	if (so_mask.sin.sin_family == AF_INET) {
+		// make sure the mask is contiguous
+		long i;
+		for (i = 0; i < 32; i++)
+			if (((so_mask.sin.sin_addr.s_addr) & ntohl((1 << i))) != 0)
+				break;
+		for (; i < 32; i++)
+			if (((so_mask.sin.sin_addr.s_addr) & ntohl((1 << i))) == 0)
+				errx(EX_NOHOST, "invalid mask: %s", inet_ntoa(so_mask.sin.sin_addr));
+	}
 	for (attempts = 1; ; attempts++) {
 		errno = 0;
 		if ((ret = rtmsg(*cmd, flags)) == 0)

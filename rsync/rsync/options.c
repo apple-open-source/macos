@@ -1,28 +1,40 @@
 /*  -*- c-file-style: "linux" -*-
-    
-    Copyright (C) 1998-2001 by Andrew Tridgell <tridge@samba.org>
-    Copyright (C) 2000, 2001, 2002 by Martin Pool <mbp@samba.org>
-   
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2 of the License, or
-   (at your option) any later version.
-   
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-   
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-*/
+ * 
+ * Copyright (C) 1998-2001 by Andrew Tridgell <tridge@samba.org>
+ * Copyright (C) 2000, 2001, 2002 by Martin Pool <mbp@samba.org>
+ * 
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
 
 #include "rsync.h"
 #include "popt.h"
 
 int make_backups = 0;
+
+/**
+ * If True, send the whole file as literal data rather than trying to
+ * create an incremental diff.
+ *
+ * If both are 0, then look at whether we're local or remote and go by
+ * that.
+ *
+ * @sa disable_deltas_p()
+ **/
 int whole_file = 0;
+int no_whole_file = 0;
+
 int copy_links = 0;
 int preserve_links = 0;
 int preserve_hard_links = 0;
@@ -54,7 +66,8 @@ int module_id = -1;
 int am_server = 0;
 int am_sender = 0;
 int recurse = 0;
-int am_daemon=0;
+int am_daemon = 0;
+int daemon_over_rsh = 0;
 int do_stats=0;
 int do_progress=0;
 int keep_partial=0;
@@ -68,12 +81,9 @@ int only_existing=0;
 int opt_ignore_existing=0;
 int max_delete=0;
 int ignore_errors=0;
-#ifdef _WIN32
-int modify_window=2;
-#else
 int modify_window=0;
-#endif
-int blocking_io=0;
+int blocking_io=-1;
+
 
 /** Network address family. **/
 #ifdef INET6
@@ -87,27 +97,28 @@ int default_af_hint = AF_INET;	/* Must use IPv4 */
  * or under Unix process-monitors. **/
 int no_detach = 0;
 
-
-int read_batch=0;
-int write_batch=0;
+int write_batch = 0;
+int read_batch = 0;
+int suffix_specified = 0;
 
 char *backup_suffix = BACKUP_SUFFIX;
 char *tmpdir = NULL;
 char *compare_dest = NULL;
-char *config_file = RSYNCD_CONF;
+char *config_file = NULL;
 char *shell_cmd = NULL;
 char *log_format = NULL;
 char *password_file = NULL;
 char *rsync_path = RSYNC_PATH;
 char *backup_dir = NULL;
 int rsync_port = RSYNC_PORT;
+int link_dest = 0;
 
 int verbose = 0;
 int quiet = 0;
 int always_checksum = 0;
 int list_only = 0;
 
-char *batch_ext = NULL;
+char *batch_prefix = NULL;
 
 static int modify_window_set;
 
@@ -147,20 +158,32 @@ static void print_rsync_version(enum logcode f)
                 "Copyright (C) 1996-2002 by Andrew Tridgell and others\n");
 	rprintf(f, "<http://rsync.samba.org/>\n");
         rprintf(f, "Capabilities: %d-bit files, %ssocketpairs, "
-                "%shard links, %ssymlinks, batchfiles, %sIPv6,\n",
+                "%shard links, %ssymlinks, batchfiles, \n",
                 (int) (sizeof(OFF_T) * 8),
-                got_socketpair, hardlinks, links, ipv6);
+                got_socketpair, hardlinks, links);
 
 	/* Note that this field may not have type ino_t.  It depends
 	 * on the complicated interaction between largefile feature
 	 * macros. */
-	rprintf(f, "              %d-bit system inums, %d-bit internal inums\n",
+	rprintf(f, "              %sIPv6, %d-bit system inums, %d-bit internal inums\n",
+		ipv6, 
 		(int) (sizeof(dumstat->st_ino) * 8),
 		(int) (sizeof(INO64_T) * 8));
+#ifdef MAINTAINER_MODE
+	rprintf(f, "              panic action: \"%s\"\n",
+		get_panic_action());
+#endif
 
 #ifdef NO_INT64
         rprintf(f, "WARNING: no 64-bit integers on this platform!\n");
 #endif
+
+	rprintf(f,
+"\n"
+"rsync comes with ABSOLUTELY NO WARRANTY.  This is free software, and you\n"
+"are welcome to redistribute it under certain conditions.  See the GNU\n"
+"General Public Licence for details.\n"
+		);
 }
 
 
@@ -168,7 +191,7 @@ void usage(enum logcode F)
 {
   print_rsync_version(F);
 
-  rprintf(F,"rsync is a file transfer program capable of efficient remote update\nvia a fast differencing algorithm.\n\n");
+  rprintf(F,"\nrsync is a file transfer program capable of efficient remote update\nvia a fast differencing algorithm.\n\n");
 
   rprintf(F,"Usage: rsync [OPTION]... SRC [SRC]... [USER@]HOST:DEST\n");
   rprintf(F,"  or   rsync [OPTION]... [USER@]HOST:SRC DEST\n");
@@ -176,6 +199,7 @@ void usage(enum logcode F)
   rprintf(F,"  or   rsync [OPTION]... [USER@]HOST::SRC [DEST]\n");
   rprintf(F,"  or   rsync [OPTION]... SRC [SRC]... [USER@]HOST::DEST\n");
   rprintf(F,"  or   rsync [OPTION]... rsync://[USER@]HOST[:PORT]/SRC [DEST]\n");
+  rprintf(F,"  or   rsync [OPTION]... SRC [SRC]... rsync://[USER@]HOST[:PORT]/DEST\n");
   rprintf(F,"SRC on single-colon remote HOST will be expanded by remote shell\n");
   rprintf(F,"SRC on server remote HOST may contain shell wildcards or multiple\n");
   rprintf(F,"  sources separated by space as long as they have same top-level\n");
@@ -183,7 +207,7 @@ void usage(enum logcode F)
   rprintf(F," -v, --verbose               increase verbosity\n");
   rprintf(F," -q, --quiet                 decrease verbosity\n");
   rprintf(F," -c, --checksum              always checksum\n");
-  rprintf(F," -a, --archive               archive mode\n");
+  rprintf(F," -a, --archive               archive mode, equivalent to -rlptgoD\n");
   rprintf(F," -r, --recursive             recurse into directories\n");
   rprintf(F," -R, --relative              use relative path names\n");
   rprintf(F," -b, --backup                make backups (default %s suffix)\n",BACKUP_SUFFIX);
@@ -203,9 +227,10 @@ void usage(enum logcode F)
   rprintf(F," -S, --sparse                handle sparse files efficiently\n");
   rprintf(F," -n, --dry-run               show what would have been transferred\n");
   rprintf(F," -W, --whole-file            copy whole files, no incremental checks\n");
+  rprintf(F,"     --no-whole-file         turn off --whole-file\n");
   rprintf(F," -x, --one-file-system       don't cross filesystem boundaries\n");
   rprintf(F," -B, --block-size=SIZE       checksum blocking size (default %d)\n",BLOCK_SIZE);  
-  rprintf(F," -e, --rsh=COMMAND           specify rsh replacement\n");
+  rprintf(F," -e, --rsh=COMMAND           specify the remote shell\n");
   rprintf(F,"     --rsync-path=PATH       specify path to rsync on the remote machine\n");
   rprintf(F," -C, --cvs-exclude           auto ignore files in the same way CVS does\n");
   rprintf(F,"     --existing              only update files that already exist\n");
@@ -237,13 +262,14 @@ void usage(enum logcode F)
   rprintf(F,"     --config=FILE           specify alternate rsyncd.conf file\n");  
   rprintf(F,"     --port=PORT             specify alternate rsyncd port number\n");
   rprintf(F,"     --blocking-io           use blocking IO for the remote shell\n");  
+  rprintf(F,"     --no-blocking-io        turn off --blocking-io\n");  
   rprintf(F,"     --stats                 give some file transfer stats\n");  
   rprintf(F,"     --progress              show progress during transfer\n");  
   rprintf(F,"     --log-format=FORMAT     log file transfers using specified format\n");  
   rprintf(F,"     --password-file=FILE    get password from FILE\n");
   rprintf(F,"     --bwlimit=KBPS          limit I/O bandwidth, KBytes per second\n");
-  rprintf(F,"     --read-batch=EXT        read batch file\n");
-  rprintf(F,"     --write-batch           write batch file\n");
+  rprintf(F,"     --write-batch=PREFIX    write batch fileset starting with PREFIX\n");
+  rprintf(F,"     --read-batch=PREFIX     read batch fileset starting with PREFIX\n");
   rprintf(F," -h, --help                  show this help screen\n");
 #ifdef INET6
   rprintf(F," -4                          prefer IPv4\n");
@@ -260,96 +286,102 @@ enum {OPT_VERSION = 1000, OPT_SUFFIX, OPT_SENDER, OPT_SERVER, OPT_EXCLUDE,
       OPT_EXCLUDE_FROM, OPT_DELETE, OPT_DELETE_EXCLUDED, OPT_NUMERIC_IDS,
       OPT_RSYNC_PATH, OPT_FORCE, OPT_TIMEOUT, OPT_DAEMON, OPT_CONFIG, OPT_PORT,
       OPT_INCLUDE, OPT_INCLUDE_FROM, OPT_STATS, OPT_PARTIAL, OPT_PROGRESS,
-      OPT_COPY_UNSAFE_LINKS, OPT_SAFE_LINKS, OPT_COMPARE_DEST,
+      OPT_COPY_UNSAFE_LINKS, OPT_SAFE_LINKS, OPT_COMPARE_DEST, OPT_LINK_DEST,
       OPT_LOG_FORMAT, OPT_PASSWORD_FILE, OPT_SIZE_ONLY, OPT_ADDRESS,
       OPT_DELETE_AFTER, OPT_EXISTING, OPT_MAX_DELETE, OPT_BACKUP_DIR, 
       OPT_IGNORE_ERRORS, OPT_BWLIMIT, OPT_BLOCKING_IO,
+      OPT_NO_BLOCKING_IO, OPT_WHOLE_FILE, OPT_NO_WHOLE_FILE,
       OPT_MODIFY_WINDOW, OPT_READ_BATCH, OPT_WRITE_BATCH, OPT_IGNORE_EXISTING};
 
 static struct poptOption long_options[] = {
   /* longName, shortName, argInfo, argPtr, value, descrip, argDesc */
-  {"version",          0,  POPT_ARG_NONE,   0,             OPT_VERSION},
-  {"suffix",           0,  POPT_ARG_STRING, &backup_suffix},
-  {"rsync-path",       0,  POPT_ARG_STRING, &rsync_path},
-  {"password-file",    0,  POPT_ARG_STRING, &password_file},
-  {"ignore-times",    'I', POPT_ARG_NONE,   &ignore_times},
-  {"size-only",        0,  POPT_ARG_NONE,   &size_only},
-  {"modify-window",    0,  POPT_ARG_INT,    &modify_window, OPT_MODIFY_WINDOW},
-  {"one-file-system", 'x', POPT_ARG_NONE,   &one_file_system},
-  {"delete",           0,  POPT_ARG_NONE,   &delete_mode},
-  {"existing",         0,  POPT_ARG_NONE,   &only_existing},
-  {"ignore-existing",  0,  POPT_ARG_NONE,   &opt_ignore_existing},
-  {"delete-after",     0,  POPT_ARG_NONE,   &delete_after},
-  {"delete-excluded",  0,  POPT_ARG_NONE,   0,              OPT_DELETE_EXCLUDED},
-  {"force",            0,  POPT_ARG_NONE,   &force_delete},
-  {"numeric-ids",      0,  POPT_ARG_NONE,   &numeric_ids},
-  {"exclude",          0,  POPT_ARG_STRING, 0,              OPT_EXCLUDE},
-  {"include",          0,  POPT_ARG_STRING, 0,              OPT_INCLUDE},
-  {"exclude-from",     0,  POPT_ARG_STRING, 0,              OPT_EXCLUDE_FROM},
-  {"include-from",     0,  POPT_ARG_STRING, 0,              OPT_INCLUDE_FROM},
-  {"safe-links",       0,  POPT_ARG_NONE,   &safe_symlinks},
-  {"help",            'h', POPT_ARG_NONE,   0,              'h'},
-  {"backup",          'b', POPT_ARG_NONE,   &make_backups},
-  {"dry-run",         'n', POPT_ARG_NONE,   &dry_run},
-  {"sparse",          'S', POPT_ARG_NONE,   &sparse_files},
-  {"cvs-exclude",     'C', POPT_ARG_NONE,   &cvs_exclude},
-  {"update",          'u', POPT_ARG_NONE,   &update_only},
-  {"links",           'l', POPT_ARG_NONE,   &preserve_links},
-  {"copy-links",      'L', POPT_ARG_NONE,   &copy_links},
-  {"whole-file",      'W', POPT_ARG_NONE,   &whole_file},
-  {"copy-unsafe-links", 0, POPT_ARG_NONE,   &copy_unsafe_links},
-  {"perms",           'p', POPT_ARG_NONE,   &preserve_perms},
-  {"owner",           'o', POPT_ARG_NONE,   &preserve_uid},
-  {"group",           'g', POPT_ARG_NONE,   &preserve_gid},
-  {"devices",         'D', POPT_ARG_NONE,   &preserve_devices},
-  {"times",           't', POPT_ARG_NONE,   &preserve_times},
-  {"checksum",        'c', POPT_ARG_NONE,   &always_checksum},
-  {"verbose",         'v', POPT_ARG_NONE,   0,               'v'},
-  {"quiet",           'q', POPT_ARG_NONE,   0,               'q'},
-  {"archive",         'a', POPT_ARG_NONE,   0,               'a'}, 
-  {"server",           0,  POPT_ARG_NONE,   &am_server},
-  {"sender",           0,  POPT_ARG_NONE,   0,               OPT_SENDER},
-  {"recursive",       'r', POPT_ARG_NONE,   &recurse},
-  {"relative",        'R', POPT_ARG_NONE,   &relative_paths},
-  {"rsh",             'e', POPT_ARG_STRING, &shell_cmd},
-  {"block-size",      'B', POPT_ARG_INT,    &block_size},
-  {"max-delete",       0,  POPT_ARG_INT,    &max_delete},
-  {"timeout",          0,  POPT_ARG_INT,    &io_timeout},
-  {"temp-dir",        'T', POPT_ARG_STRING, &tmpdir},
-  {"compare-dest",     0,  POPT_ARG_STRING, &compare_dest},
+  {"version",          0,  POPT_ARG_NONE,   0,             OPT_VERSION, 0, 0},
+  {"suffix",           0,  POPT_ARG_STRING, &backup_suffix,	OPT_SUFFIX, 0, 0 },
+  {"rsync-path",       0,  POPT_ARG_STRING, &rsync_path,	0, 0, 0 },
+  {"password-file",    0,  POPT_ARG_STRING, &password_file,	0, 0, 0 },
+  {"ignore-times",    'I', POPT_ARG_NONE,   &ignore_times , 0, 0, 0 },
+  {"size-only",        0,  POPT_ARG_NONE,   &size_only , 0, 0, 0 },
+  {"modify-window",    0,  POPT_ARG_INT,    &modify_window, OPT_MODIFY_WINDOW, 0, 0 },
+  {"one-file-system", 'x', POPT_ARG_NONE,   &one_file_system , 0, 0, 0 },
+  {"delete",           0,  POPT_ARG_NONE,   &delete_mode , 0, 0, 0 },
+  {"existing",         0,  POPT_ARG_NONE,   &only_existing , 0, 0, 0 },
+  {"ignore-existing",  0,  POPT_ARG_NONE,   &opt_ignore_existing , 0, 0, 0 },
+  {"delete-after",     0,  POPT_ARG_NONE,   0,              OPT_DELETE_AFTER, 0, 0 },
+  {"delete-excluded",  0,  POPT_ARG_NONE,   0,              OPT_DELETE_EXCLUDED, 0, 0 },
+  {"force",            0,  POPT_ARG_NONE,   &force_delete , 0, 0, 0 },
+  {"numeric-ids",      0,  POPT_ARG_NONE,   &numeric_ids , 0, 0, 0 },
+  {"exclude",          0,  POPT_ARG_STRING, 0,              OPT_EXCLUDE, 0, 0 },
+  {"include",          0,  POPT_ARG_STRING, 0,              OPT_INCLUDE, 0, 0 },
+  {"exclude-from",     0,  POPT_ARG_STRING, 0,              OPT_EXCLUDE_FROM, 0, 0 },
+  {"include-from",     0,  POPT_ARG_STRING, 0,              OPT_INCLUDE_FROM, 0, 0 },
+  {"safe-links",       0,  POPT_ARG_NONE,   &safe_symlinks , 0, 0, 0 },
+  {"help",            'h', POPT_ARG_NONE,   0,              'h', 0, 0 },
+  {"backup",          'b', POPT_ARG_NONE,   &make_backups , 0, 0, 0 },
+  {"dry-run",         'n', POPT_ARG_NONE,   &dry_run , 0, 0, 0 },
+  {"sparse",          'S', POPT_ARG_NONE,   &sparse_files , 0, 0, 0 },
+  {"cvs-exclude",     'C', POPT_ARG_NONE,   &cvs_exclude , 0, 0, 0 },
+  {"update",          'u', POPT_ARG_NONE,   &update_only , 0, 0, 0 },
+  {"links",           'l', POPT_ARG_NONE,   &preserve_links , 0, 0, 0 },
+  {"copy-links",      'L', POPT_ARG_NONE,   &copy_links , 0, 0, 0 },
+  {"whole-file",      'W', POPT_ARG_NONE,   0,              OPT_WHOLE_FILE, 0, 0 },
+  {"no-whole-file",    0,  POPT_ARG_NONE,   0,              OPT_NO_WHOLE_FILE, 0, 0 },
+  {"copy-unsafe-links", 0, POPT_ARG_NONE,   &copy_unsafe_links , 0, 0, 0 },
+  {"perms",           'p', POPT_ARG_NONE,   &preserve_perms , 0, 0, 0 },
+  {"owner",           'o', POPT_ARG_NONE,   &preserve_uid , 0, 0, 0 },
+  {"group",           'g', POPT_ARG_NONE,   &preserve_gid , 0, 0, 0 },
+  {"devices",         'D', POPT_ARG_NONE,   &preserve_devices , 0, 0, 0 },
+  {"times",           't', POPT_ARG_NONE,   &preserve_times , 0, 0, 0 },
+  {"checksum",        'c', POPT_ARG_NONE,   &always_checksum , 0, 0, 0 },
+  {"verbose",         'v', POPT_ARG_NONE,   0,               'v', 0, 0 },
+  {"quiet",           'q', POPT_ARG_NONE,   0,               'q', 0, 0 },
+  {"archive",         'a', POPT_ARG_NONE,   0,               'a', 0, 0 }, 
+  {"server",           0,  POPT_ARG_NONE,   &am_server , 0, 0, 0 },
+  {"sender",           0,  POPT_ARG_NONE,   0,               OPT_SENDER, 0, 0 },
+  {"recursive",       'r', POPT_ARG_NONE,   &recurse , 0, 0, 0 },
+  {"relative",        'R', POPT_ARG_NONE,   &relative_paths , 0, 0, 0 },
+  {"rsh",             'e', POPT_ARG_STRING, &shell_cmd , 0, 0, 0 },
+  {"block-size",      'B', POPT_ARG_INT,    &block_size , 0, 0, 0 },
+  {"max-delete",       0,  POPT_ARG_INT,    &max_delete , 0, 0, 0 },
+  {"timeout",          0,  POPT_ARG_INT,    &io_timeout , 0, 0, 0 },
+  {"temp-dir",        'T', POPT_ARG_STRING, &tmpdir , 0, 0, 0 },
+  {"compare-dest",     0,  POPT_ARG_STRING, &compare_dest , 0, 0, 0 },
+  {"link-dest",        0,  POPT_ARG_STRING, 0,               OPT_LINK_DEST, 0, 0 },
   /* TODO: Should this take an optional int giving the compression level? */
-  {"compress",        'z', POPT_ARG_NONE,   &do_compression},
-  {"daemon",           0,  POPT_ARG_NONE,   &am_daemon},
-  {"no-detach",        0,  POPT_ARG_NONE,   &no_detach},
-  {"stats",            0,  POPT_ARG_NONE,   &do_stats},
-  {"progress",         0,  POPT_ARG_NONE,   &do_progress},
-  {"partial",          0,  POPT_ARG_NONE,   &keep_partial},
-  {"ignore-errors",    0,  POPT_ARG_NONE,   &ignore_errors},
-  {"blocking-io",      0,  POPT_ARG_NONE,   &blocking_io},
-  {0,                 'P', POPT_ARG_NONE,   0,               'P'},
-  {"config",           0,  POPT_ARG_STRING, &config_file},
-  {"port",             0,  POPT_ARG_INT,    &rsync_port},
-  {"log-format",       0,  POPT_ARG_STRING, &log_format},
-  {"bwlimit",          0,  POPT_ARG_INT,    &bwlimit},
-  {"address",          0,  POPT_ARG_STRING, &bind_address, 0},
-  {"backup-dir",       0,  POPT_ARG_STRING, &backup_dir},
-  {"hard-links",      'H', POPT_ARG_NONE,   &preserve_hard_links},
-  {"read-batch",       0,  POPT_ARG_STRING, &batch_ext, OPT_READ_BATCH},
-  {"write-batch",      0,  POPT_ARG_NONE,   &write_batch},
+  {"compress",        'z', POPT_ARG_NONE,   &do_compression , 0, 0, 0 },
+  {"daemon",           0,  POPT_ARG_NONE,   &am_daemon , 0, 0, 0 },
+  {"no-detach",        0,  POPT_ARG_NONE,   &no_detach , 0, 0, 0 },
+  {"stats",            0,  POPT_ARG_NONE,   &do_stats , 0, 0, 0 },
+  {"progress",         0,  POPT_ARG_NONE,   &do_progress , 0, 0, 0 },
+  {"partial",          0,  POPT_ARG_NONE,   &keep_partial , 0, 0, 0 },
+  {"ignore-errors",    0,  POPT_ARG_NONE,   &ignore_errors , 0, 0, 0 },
+  {"blocking-io",      0,  POPT_ARG_NONE,   &blocking_io , 0, 0, 0 },
+  {"no-blocking-io",   0,  POPT_ARG_NONE,   0, 		     OPT_NO_BLOCKING_IO, 0, 0 },
+  {0,                 'P', POPT_ARG_NONE,   0,               'P', 0, 0 },
+  {"config",           0,  POPT_ARG_STRING, &config_file , 0, 0, 0 },
+  {"port",             0,  POPT_ARG_INT,    &rsync_port , 0, 0, 0 },
+  {"log-format",       0,  POPT_ARG_STRING, &log_format , 0, 0, 0 },
+  {"bwlimit",          0,  POPT_ARG_INT,    &bwlimit , 0, 0, 0 },
+  {"address",          0,  POPT_ARG_STRING, &bind_address, 0, 0, 0 },
+  {"backup-dir",       0,  POPT_ARG_STRING, &backup_dir , 0, 0, 0 },
+  {"hard-links",      'H', POPT_ARG_NONE,   &preserve_hard_links , 0, 0, 0 },
+  {"read-batch",       0,  POPT_ARG_STRING, &batch_prefix, OPT_READ_BATCH, 0, 0 },
+  {"write-batch",      0,  POPT_ARG_STRING, &batch_prefix, OPT_WRITE_BATCH, 0, 0 },
 #ifdef INET6
-  {0,		      '4', POPT_ARG_VAL,    &default_af_hint,   AF_INET },
-  {0,		      '6', POPT_ARG_VAL,    &default_af_hint,   AF_INET6 },
+  {0,		      '4', POPT_ARG_VAL,    &default_af_hint,   AF_INET , 0, 0 },
+  {0,		      '6', POPT_ARG_VAL,    &default_af_hint,   AF_INET6 , 0, 0 },
 #endif
-  {0,0,0,0}
+  {0,0,0,0, 0, 0, 0}
 };
 
 
 static char err_buf[100];
 
 
-/* We store the option error message, if any, so that we can log the
-   connection attempt (which requires parsing the options), and then
-   show the error later on. */
+/**
+ * Store the option error message, if any, so that we can log the
+ * connection attempt (which requires parsing the options), and then
+ * show the error later on.
+ **/
 void option_error(void)
 {
 	if (err_buf[0]) {
@@ -363,7 +395,10 @@ void option_error(void)
 	}
 }
 
-/* check to see if we should refuse this option */
+
+/**
+ * Check to see if we should refuse this option
+ **/
 static int check_refuse_options(char *ref, int opt)
 {
 	int i, len;
@@ -403,9 +438,14 @@ static int count_args(char const **argv)
 }
 
 
-/* Process command line arguments.  Called on both local and remote.
- * Returns if all options are OK, otherwise fills in err_buf and
- * returns 0. */
+/**
+ * Process command line arguments.  Called on both local and remote.
+ *
+ * @retval 1 if all options are OK; with globals set to appropriate
+ * values
+ *
+ * @retval 0 on error, with err_buf containing an explanation
+ **/
 int parse_arguments(int *argc, const char ***argv, int frommain)
 {
 	int opt;
@@ -431,13 +471,25 @@ int parse_arguments(int *argc, const char ***argv, int frommain)
                         print_rsync_version(FINFO);
 			exit_cleanup(0);
 			
+		case OPT_SUFFIX:
+                        /* The value has already been set by popt, but
+                         * we need to remember that a suffix was specified
+                         * in case a backup-directory is used. */
+                        suffix_specified = 1;
+			break;
+			
 		case OPT_MODIFY_WINDOW:
                         /* The value has already been set by popt, but
                          * we need to remember that we're using a
                          * non-default setting. */
 			modify_window_set = 1;
 			break;
-			
+
+		case OPT_DELETE_AFTER:
+			delete_after = 1;
+			delete_mode = 1;
+			break;
+
 		case OPT_DELETE_EXCLUDED:
 			delete_excluded = 1;
 			delete_mode = 1;
@@ -457,6 +509,20 @@ int parse_arguments(int *argc, const char ***argv, int frommain)
 
 		case OPT_INCLUDE_FROM:
 			add_exclude_file(poptGetOptArg(pc), 1, 1);
+			break;
+
+		case OPT_WHOLE_FILE:
+			whole_file = 1;
+			no_whole_file = 0;
+			break;
+
+		case OPT_NO_WHOLE_FILE:
+			no_whole_file = 1;
+			whole_file = 0;
+			break;
+
+		case OPT_NO_BLOCKING_IO:
+			blocking_io = 0;
 			break;
 
 		case 'h':
@@ -514,10 +580,28 @@ int parse_arguments(int *argc, const char ***argv, int frommain)
 			keep_partial = 1;
 			break;
 
+		case OPT_WRITE_BATCH:
+			/* popt stores the filename in batch_prefix for us */
+			write_batch = 1;
+			break;
+
 		case OPT_READ_BATCH:
-			/* The filename is stored in batch_ext for us by popt */
+			/* popt stores the filename in batch_prefix for us */
 			read_batch = 1;
 			break;
+		case OPT_LINK_DEST:
+#if HAVE_LINK
+			compare_dest = (char *)poptGetOptArg(pc);
+			link_dest = 1;
+			break;
+#else
+			snprintf(err_buf,sizeof(err_buf),
+                                 "hard links are not supported on this %s\n",
+				 am_server ? "server" : "client");
+			rprintf(FERROR,"ERROR: hard links not supported on this platform\n");
+			return 0;
+#endif
+
 
 		default:
                         /* FIXME: If --daemon is specified, then errors for later
@@ -531,6 +615,22 @@ int parse_arguments(int *argc, const char ***argv, int frommain)
 		}
 	}
 
+	if (write_batch && read_batch) {
+	    snprintf(err_buf,sizeof(err_buf),
+		"write-batch and read-batch can not be used together\n");
+	    rprintf(FERROR,"ERROR: write-batch and read-batch"
+		" can not be used together\n");
+	    return 0;
+	}
+
+	if (do_compression && (write_batch || read_batch)) {
+	    snprintf(err_buf,sizeof(err_buf),
+		"compress can not be used with write-batch or read-batch\n");
+	    rprintf(FERROR,"ERROR: compress can not be used with"
+		"  write-batch or read-batch\n");
+	    return 0;
+	}
+
         *argv = poptGetArgs(pc);
         if (*argv)
                 *argc = count_args(*argv);
@@ -541,8 +641,14 @@ int parse_arguments(int *argc, const char ***argv, int frommain)
 }
 
 
-/* Construct a filtered list of options to pass through from the
- * client to the server */
+/**
+ * Construct a filtered list of options to pass through from the
+ * client to the server.
+ *
+ * This involves setting options that will tell the server how to
+ * behave, and also filtering out options that are processed only
+ * locally.
+ **/
 void server_options(char **args,int *argc)
 {
 	int ac = *argc;
@@ -552,12 +658,22 @@ void server_options(char **args,int *argc)
 	static char mdelete[30];
 	static char mwindow[30];
 	static char bw[50];
-	static char fext[20];
-	static char wbatch[14];
+	/* Leave room for ``--(write|read)-batch='' */
+	static char fext[MAXPATHLEN + 15];
 
 	int i, x;
 
+	if (blocking_io == -1)
+		blocking_io = 0;
+
 	args[ac++] = "--server";
+
+	if (daemon_over_rsh) {
+		args[ac++] = "--daemon";
+		*argc = ac;
+		/* if we're passing --daemon, we're done */
+		return;
+	}
 
 	if (!am_sender)
 		args[ac++] = "--sender";
@@ -578,8 +694,14 @@ void server_options(char **args,int *argc)
 		argstr[x++] = 'l';
 	if (copy_links)
 		argstr[x++] = 'L';
+
+	assert(whole_file == 0 || whole_file == 1);
 	if (whole_file)
 		argstr[x++] = 'W';
+	/* We don't need to send --no-whole-file, because it's the
+	 * default for remote transfers, and in any case old versions
+	 * of rsync will not understand it. */
+	
 	if (preserve_hard_links)
 		argstr[x++] = 'H';
 	if (preserve_uid)
@@ -630,13 +752,14 @@ void server_options(char **args,int *argc)
 		args[ac++] = mdelete;
 	}    
 	
-	if (write_batch) {
-		snprintf(wbatch,sizeof(wbatch),"--write-batch");
-		args[ac++] = wbatch;
-	}
-
-	if (batch_ext != NULL) {
-		snprintf(fext,sizeof(fext),"--read-batch=%s",batch_ext);
+	if (batch_prefix != NULL) {
+		char *fmt = "";
+		if (write_batch)
+		    fmt = "--write-batch=%s";
+		else
+		if (read_batch)
+		    fmt = "--read-batch=%s";
+		snprintf(fext,sizeof(fext),fmt,batch_prefix);
 		args[ac++] = fext;
 	}
 
@@ -715,10 +838,9 @@ void server_options(char **args,int *argc)
 		 *   and it may be an older version that doesn't know this
 		 *   option, so don't send it if client is the sender.
 		 */
-		args[ac++] = "--compare-dest";
+		args[ac++] = link_dest ? "--link-dest" : "--compare-dest";
 		args[ac++] = compare_dest;
 	}
-
 
 	*argc = ac;
 }

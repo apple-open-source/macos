@@ -25,6 +25,7 @@
 
 #include <Security/acl_threshold.h>
 #include <algorithm>
+#include <Security/endian.h>
 
 
 //
@@ -108,14 +109,14 @@ ThresholdAclSubject *ThresholdAclSubject::Maker::make(const TypedList &list) con
     AclSubjectVector elements(totalSubjects);
     const ListElement *subSubject = &list[3];
     for (uint32 n = 0; n < totalSubjects; n++, subSubject = subSubject->next())
-        elements[n] = ObjectAcl::make(*subSubject);
+        elements[n] = ObjectAcl::make(subSubject->typedList());
 	return new ThresholdAclSubject(totalSubjects, minimumNeeded, elements);
 }
 
 ThresholdAclSubject *ThresholdAclSubject::Maker::make(Version, Reader &pub, Reader &priv) const
 {
-    uint32 totalSubjects; pub(totalSubjects);
-    uint32 minimumNeeded; pub(minimumNeeded);
+    Endian<uint32> totalSubjects; pub(totalSubjects);
+    Endian<uint32> minimumNeeded; pub(minimumNeeded);
     AclSubjectVector subSubjects(totalSubjects);
     for (uint32 n = 0; n < totalSubjects; n++)
 		subSubjects[n] = ObjectAcl::importSubject(pub, priv);
@@ -136,8 +137,8 @@ ThresholdAclSubject::ThresholdAclSubject(uint32 n, uint32 k,
 template <class Action>
 void ThresholdAclSubject::exportBlobForm(Action &pub, Action &priv)
 {
-    pub(totalSubjects);
-    pub(minimumNeeded);
+    pub(h2n(totalSubjects));
+    pub(h2n(minimumNeeded));
     for (uint32 n = 0; n < totalSubjects; n++)
 		ObjectAcl::exportSubject(elements[n], pub, priv);
 }

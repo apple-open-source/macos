@@ -1,0 +1,7 @@
+Vi har mottatt en forespørsel fra din adresse '%(sender)s', som krever et
+automatisk svar fra epostlisten %(listname)s. Vi har allerede fått %(num)s
+forespørsler fra deg idag. For å unngå problemer som f.eks. epost i uendelig
+løkke, vil vi ikke sende deg flere svar idag. Vennligst prøv igjen i morgen.
+
+Hvis du mener at dette kan ikke stemme, eller du har noen spørsmål,
+vennligst kontakt eieren av epostlisten på %(owneremail)s.

@@ -182,7 +182,7 @@ class IORangeAllocator;
 
 class AppleMacRiscAGP : public AppleMacRiscPCI
 {
-    OSDeclareDefaultStructors(AppleMacRiscAGP)
+    OSDeclareDefaultStructors(AppleMacRiscAGP);
 
 protected:
     IORangeAllocator *	agpRange;
@@ -198,13 +198,17 @@ protected:
     UInt8		isU3;
     UInt8		isU32;
     IOBufferMemoryDescriptor * dummyPage;
+    addr64_t		dummyPhys;
+    OSData *		gartHandle;	// Handle returned by IOMapper
 
 private:
     virtual IOReturn setAGPEnable( IOAGPDevice * master, bool enable,
 					IOOptionBits options = 0 );
 
-public:
+    inline void configSetClearMask( IOPCIAddressSpace space,
+					  UInt8 offset, UInt32 data, UInt32 mask );
 
+public:
     virtual bool configure( IOService * provider );
 
     virtual IOPCIDevice * createNub( OSDictionary * from );
@@ -241,6 +245,7 @@ public:
 				       IOMemoryDescriptor * memory,
 				       IOByteCount agpOffset,
 				       IOOptionBits options = 0 );
+
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

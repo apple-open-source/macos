@@ -1,0 +1,22 @@
+========================================================================
+kswitch Version History
+========================================================================
+Current version:	1.0a1
+Date:				June 10, 2002
+Author:				lxs@mit.edu
+========================================================================
+
+kswitch 1.0
+Not Released
+
+First Public Release
+
+========================================================================
+
+	kswitch 1.0a1
+	June 10, 2002
+
+	[BZ 731]	Use KLL and CCAPI to switch between caches
+	[BZ 757]	Bad error message when edu.mit.Kerberos is missing
+	
+	========================================================================

@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/dnssrv.c,v 1.15 2002/01/07 19:18:38 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/dnssrv.c,v 1.15.2.9 2003/03/03 17:10:04 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -37,153 +37,134 @@ int ldap_dn2domain(
 	LDAP_CONST char *dn_in,
 	char **domainp)
 {
-	int i;
-	char *domain = NULL;
-	char **dn;
+	int i, j;
+	char *ndomain;
+	LDAPDN *dn = NULL;
+	LDAPRDN *rdn = NULL;
+	LDAPAVA *ava = NULL;
+	struct berval domain = { 0, NULL };
+	static const struct berval DC = BER_BVC("DC");
+	static const struct berval DCOID = BER_BVC("0.9.2342.19200300.100.1.25");
 
-	if( dn_in == NULL || domainp == NULL ) {
-		return -1;
-	}
+	assert( dn_in != NULL );
+	assert( domainp != NULL );
 
-	dn = ldap_explode_dn( dn_in, 0 );
-
-	if( dn == NULL ) {
+	if ( ldap_str2dn( dn_in, &dn, LDAP_DN_FORMAT_LDAP ) != LDAP_SUCCESS ) {
 		return -2;
 	}
 
-	for( i=0; dn[i] != NULL; i++ ) {
-		char ** rdn = ldap_explode_rdn( dn[i], 0 );
+	if( dn ) for( i=0; (*dn)[i] != NULL; i++ ) {
+		rdn = (*dn)[i];
 
-		if( rdn == NULL || *rdn == NULL ) {
-			LDAP_FREE( rdn );
-			LDAP_FREE( domain );
-			LDAP_VFREE( dn );
-			return -3;
-		}
+		for( j=0; (*rdn)[j] != NULL; j++ ) {
+			ava = (*rdn)[j];
 
-
-		if( rdn[1] == NULL ) {
-			/*
-			 * single-valued RDN
-			 */
-			char *dc;
-
-#define LDAP_DC "dc="
-#define LDAP_DCOID "0.9.2342.19200300.100.1.25="
-
-			if( strncasecmp( rdn[0],
-				LDAP_DC, sizeof(LDAP_DC)-1 ) == 0 )
+			if( (*dn)[i][j][1] == NULL &&
+				!ava->la_flags && ava->la_value.bv_len &&
+				( ber_bvstrcasecmp( &ava->la_attr, &DC ) == 0
+				|| ber_bvstrcasecmp( &ava->la_attr, &DCOID ) == 0 ) )
 			{
-				dc = &rdn[0][sizeof(LDAP_DC)-1];
+				if( domain.bv_len == 0 ) {
+					ndomain = LDAP_REALLOC( domain.bv_val,
+						ava->la_value.bv_len + 1);
 
-			} else if( strncmp( rdn[0],
-				LDAP_DCOID, sizeof(LDAP_DCOID)-1 ) == 0 )
-			{
-				dc = &rdn[0][sizeof(LDAP_DCOID)-1];
+					if( ndomain == NULL ) {
+						goto return_error;
+					}
 
-			} else {
-				dc = NULL;
-			}
+					domain.bv_val = ndomain;
 
-			if( dc != NULL ) {
-				char *ndomain;
+					AC_MEMCPY( domain.bv_val, ava->la_value.bv_val,
+						ava->la_value.bv_len );
 
-				if( *dc == '\0' ) {
-					/* dc value is empty! */
-					LDAP_FREE( rdn );
-					LDAP_FREE( domain );
-					LDAP_VFREE( dn );
-					LDAP_VFREE( rdn );
-					return -4;
-				}
+					domain.bv_len = ava->la_value.bv_len;
+					domain.bv_val[domain.bv_len] = '\0';
 
-				ndomain = LDAP_REALLOC( domain,
-					( domain == NULL ? 0 : strlen(domain) )
-					+ strlen(dc) + sizeof(".") );
-
-				if( ndomain == NULL ) {
-					LDAP_FREE( rdn );
-					LDAP_FREE( domain );
-					LDAP_VFREE( dn );
-					LDAP_VFREE( rdn );
-					return -5;
-				}
-
-				if( domain == NULL ) {
-					ndomain[0] = '\0';
 				} else {
-					strcat( ndomain, "." );
+					ndomain = LDAP_REALLOC( domain.bv_val,
+						ava->la_value.bv_len + sizeof(".") + domain.bv_len );
+
+					if( ndomain == NULL ) {
+						goto return_error;
+					}
+
+					domain.bv_val = ndomain;
+					domain.bv_val[domain.bv_len++] = '.';
+					AC_MEMCPY( &domain.bv_val[domain.bv_len],
+						ava->la_value.bv_val, ava->la_value.bv_len );
+					domain.bv_len += ava->la_value.bv_len;
+					domain.bv_val[domain.bv_len] = '\0';
 				}
-
-				strcat( ndomain, dc );
-
-				domain = ndomain;
-				continue;
+			} else {
+				domain.bv_len = 0;
 			}
-		}
-
-		/*
-		 * multi-valued RDN or fall thru
-		 */
-
-		LDAP_VFREE( rdn );
-		LDAP_FREE( domain );
-		domain = NULL;
-	} 
-
-	if( domain != NULL &&  *domain == '\0' ) {
-		LDAP_FREE( domain );
-		domain = NULL;
+		} 
 	}
 
-	*domainp = domain;
+
+	if( domain.bv_len == 0 && domain.bv_val != NULL ) {
+		LDAP_FREE( domain.bv_val );
+		domain.bv_val = NULL;
+	}
+
+	ldap_dnfree( dn );
+	*domainp = domain.bv_val;
 	return 0;
+
+return_error:
+	ldap_dnfree( dn );
+	LDAP_FREE( domain.bv_val );
+	return -1;
 }
 
 int ldap_domain2dn(
 	LDAP_CONST char *domain_in,
 	char **dnp)
 {
-    char *domain, *s, *tok_r, *dn;
-    size_t loc;
+	char *domain, *s, *tok_r, *dn, *dntmp;
+	size_t loc;
 
-    if (domain_in == NULL || dnp == NULL) {
-	return LDAP_NO_MEMORY;
-    }
-    domain = LDAP_STRDUP(domain_in);
-    if (domain == NULL) {
-	return LDAP_NO_MEMORY;
-    }
-    dn = NULL;
-    loc = 0;
+	assert( domain_in != NULL );
+	assert( dnp != NULL );
 
-    for (s = ldap_pvt_strtok(domain, ".", &tok_r);
-	 s != NULL;
-	 s = ldap_pvt_strtok(NULL, ".", &tok_r)) {
-	size_t len = strlen(s);
-
-	dn = (char *) LDAP_REALLOC(dn, loc + sizeof(",dc=") + len );
-	if (dn == NULL) {
-	    LDAP_FREE(domain);
-	    return LDAP_NO_MEMORY;
+	domain = LDAP_STRDUP(domain_in);
+	if (domain == NULL) {
+		return LDAP_NO_MEMORY;
 	}
-	if (loc > 0) {
-	    /* not first time. */
-	    strcpy(dn + loc, ",");
-	    loc++;
-	}
-	strcpy(dn + loc, "dc=");
-	loc += sizeof("dc=")-1;
+	dn = NULL;
+	loc = 0;
 
-	strcpy(dn + loc, s);
-	loc += len;
+	for (s = ldap_pvt_strtok(domain, ".", &tok_r);
+		s != NULL;
+		s = ldap_pvt_strtok(NULL, ".", &tok_r))
+	{
+		size_t len = strlen(s);
+
+		dntmp = (char *) LDAP_REALLOC(dn, loc + sizeof(",dc=") + len );
+		if (dntmp == NULL) {
+		    if (dn != NULL)
+			LDAP_FREE(dn);
+		    LDAP_FREE(domain);
+		    return LDAP_NO_MEMORY;
+		}
+
+		dn = dntmp;
+
+		if (loc > 0) {
+		    /* not first time. */
+		    strcpy(dn + loc, ",");
+		    loc++;
+		}
+		strcpy(dn + loc, "dc=");
+		loc += sizeof("dc=")-1;
+
+		strcpy(dn + loc, s);
+		loc += len;
     }
 
-    LDAP_FREE(domain);
-
-    *dnp = dn;
-
-    return LDAP_SUCCESS;
+	LDAP_FREE(domain);
+	*dnp = dn;
+	return LDAP_SUCCESS;
 }
 
 /*
@@ -195,16 +176,16 @@ int ldap_domain2hostlist(
 	char **list )
 {
 #ifdef HAVE_RES_QUERY
+#define DNSBUFSIZ (64*1024)
     char *request;
     char *hostlist = NULL;
     int rc, len, cur = 0;
-    unsigned char reply[1024];
+    unsigned char reply[DNSBUFSIZ];
 
-	if( domain == NULL || *domain == '\0' ) {
-		return LDAP_PARAM_ERROR;
-	}
+	assert( domain != NULL );
+	assert( list != NULL );
 
-	if( list == NULL ) {
+	if( *domain == '\0' ) {
 		return LDAP_PARAM_ERROR;
 	}
 
@@ -219,17 +200,17 @@ int ldap_domain2hostlist(
 #endif
 
     rc = LDAP_UNAVAILABLE;
-    len = res_query(request, C_IN, T_SRV, reply, sizeof(reply));
+    len = res_query(request, ns_c_in, ns_t_srv, reply, sizeof(reply));
     if (len >= 0) {
 	unsigned char *p;
-	char host[1024];
+	char host[DNSBUFSIZ];
 	int status;
 	u_short port;
 	/* int priority, weight; */
 
 	/* Parse out query */
 	p = reply;
-	p += sizeof(HEADER);
+	p += NS_HFIXEDSZ;
 	status = dn_expand(reply, reply + len, p, host, sizeof(host));
 	if (status < 0) {
 	    goto out;
@@ -263,7 +244,7 @@ int ldap_domain2hostlist(
 		/* weight = (p[2] << 8) | p[3]; */
 		port = (p[4] << 8) | p[5];
 
-		buflen = strlen(host) + sizeof(":65355");
+		buflen = strlen(host) + sizeof(":65355 ");
 		hostlist = (char *) LDAP_REALLOC(hostlist, cur + buflen);
 		if (hostlist == NULL) {
 		    rc = LDAP_NO_MEMORY;

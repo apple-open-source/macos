@@ -1,5 +1,5 @@
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /* Adapted for inclusion into OpenLDAP by Kurt D. Zeilenga */
@@ -16,6 +16,10 @@
  * THE PERPETRATOR TO CRIMINAL AND CIVIL LIABILITY.
  *
  *---*/
+/* Note: A verbatim copy of version 2.0.1 of the OpenLDAP Public License 
+ * can be found in the file "build/LICENSE-2.0.1" in this distribution
+ * of OpenLDAP Software.
+ */
 
 #include "portable.h"
 
@@ -177,9 +181,9 @@ ldap_create_sort_keylist ( LDAPSortKey ***sortKeyList, char *keyString )
 	char        *nextKey;
 	LDAPSortKey **keyList = NULL;
 
-	if (( sortKeyList == NULL ) || ( keyString == NULL )) {
-		return LDAP_PARAM_ERROR;
-	}
+	assert( sortKeyList != NULL );
+	assert( keyString != NULL );
+
 	*sortKeyList = NULL;
 
 	/* Determine the number of sort keys so we can allocate memory. */

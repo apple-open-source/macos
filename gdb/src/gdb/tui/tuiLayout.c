@@ -43,6 +43,7 @@
 #include "command.h"
 #include "symtab.h"
 #include "frame.h"
+#include "source.h"
 #include <ctype.h>
 
 #include "tui.h"
@@ -58,7 +59,7 @@
 /*******************************
 ** Static Local Decls
 ********************************/
-
+static void showLayout (TuiLayoutType);
 static void _initGenWinInfo (TuiGenWinInfoPtr, TuiWinType, int, int, int, int);
 static void _initAndMakeWin (Opaque *, TuiWinType, int, int, int, int, int);
 static void _showSourceOrDisassemAndCommand (TuiLayoutType);
@@ -86,20 +87,8 @@ static void _tuiHandleXDBLayout (TuiLayoutDefPtr);
 
 #define LAYOUT_USAGE     "Usage: layout prev | next | <layout_name> \n"
 
-/***************************************
-** Static Local Data
-***************************************/
-static TuiLayoutType lastLayout = UNDEFINED_LAYOUT;
-
-/***************************************
-** PUBLIC FUNCTIONS
-***************************************/
-
-/*
-   ** showLayout().
-   **        Show the screen layout defined
- */
-void
+/* Show the screen layout defined.  */
+static void
 showLayout (TuiLayoutType layout)
 {
   TuiLayoutType curLayout = currentLayout ();
@@ -111,7 +100,6 @@ showLayout (TuiLayoutType layout)
          ** should free the content and reallocate on next display of
          ** source/asm
        */
-      tuiClearAllSourceWinsContent (NO_EMPTY_SOURCE_PROMPT);
       freeAllSourceWinsContent ();
       clearSourceWindows ();
       if (layout == SRC_DATA_COMMAND || layout == DISASSEM_DATA_COMMAND)
@@ -146,9 +134,7 @@ showLayout (TuiLayoutType layout)
 	    }
 	}
     }
-
-  return;
-}				/* showLayout */
+}
 
 
 /*
@@ -195,8 +181,6 @@ tuiSetLayout (TuiLayoutType layoutType,
 	{
 	  if (newLayout != curLayout)
 	    {
-	      if (winWithFocus != cmdWin)
-		tuiClearWinFocus ();
 	      showLayout (newLayout);
 	      /*
 	         ** Now determine where focus should be
@@ -291,7 +275,7 @@ tuiSetLayout (TuiLayoutType layoutType,
     status = TUI_FAILURE;
 
   return status;
-}				/* tuiSetLayout */
+}
 
 /*
    ** tuiAddWinToLayout().
@@ -563,12 +547,13 @@ _extractDisplayStartAddr (void)
   TuiLayoutType curLayout = currentLayout ();
   CORE_ADDR addr;
   CORE_ADDR pc;
+  struct symtab_and_line cursal = get_current_source_symtab_and_line ();
 
   switch (curLayout)
     {
     case SRC_COMMAND:
     case SRC_DATA_COMMAND:
-      find_line_pc (current_source_symtab,
+      find_line_pc (cursal.symtab,
 		    srcWin->detail.sourceInfo.startLineOrAddr.lineNo,
 		    &pc);
       addr = pc;
@@ -794,8 +779,6 @@ _showDisassemCommand (void)
 static void
 _showSourceDisassemCommand (void)
 {
-  TuiGenWinInfoPtr locator = locatorWinInfoPtr ();
-
   if (currentLayout () != SRC_DISASSEM_COMMAND)
     {
       int cmdHeight, srcHeight, asmHeight;
@@ -1033,13 +1016,9 @@ _initAndMakeWin (Opaque * winInfoPtr, TuiWinType winType,
 	    ((TuiWinInfoPtr) opaqueWinInfo)->canHighlight = TRUE;
 	}
       makeWindow (generic, boxIt);
-      if (winType == LOCATOR_WIN)
-	tuiClearLocatorDisplay ();
     }
   *winInfoPtr = opaqueWinInfo;
-
-  return;
-}				/* _initAndMakeWin */
+}
 
 
 /*
@@ -1092,7 +1071,6 @@ _showSourceOrDisassemAndCommand (TuiLayoutType layoutType)
   if (currentLayout () != layoutType)
     {
       TuiWinInfoPtr *winInfoPtr;
-      int areaLeft;
       int srcHeight, cmdHeight;
       TuiGenWinInfoPtr locator = locatorWinInfoPtr ();
 

@@ -1,4 +1,4 @@
-// $Header: /cvs/Darwin/apache_mod_php/php/Zend/FlexLexer.h,v 1.1.1.2 2000/09/07 00:06:45 wsanchez Exp $
+// $Header: /cvs/root/apache_mod_php/php/Zend/FlexLexer.h,v 1.1.1.2 2000/09/07 00:06:45 wsanchez Exp $
 
 // FlexLexer.h -- define interfaces for lexical analyzer classes generated
 //		  by flex

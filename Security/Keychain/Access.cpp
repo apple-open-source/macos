@@ -23,9 +23,11 @@
 #include "SecBridge.h"
 #include <Security/devrandom.h>
 #include <Security/uniformrandom.h>
+#include <Security/aclclient.h>
 #include <vector>
 
 using namespace KeychainCore;
+using namespace CssmClient;
 
 
 //
@@ -35,11 +37,11 @@ using namespace KeychainCore;
 //
 Access::Access()
 {
-	RefPointer<ACL> owner = new ACL(*this);
+	SecPointer<ACL> owner = new ACL(*this);
 	owner->setAuthorization(CSSM_ACL_AUTHORIZATION_CHANGE_ACL);
 	addOwner(owner);
 	
-	RefPointer<ACL> any = new ACL(*this);
+	SecPointer<ACL> any = new ACL(*this);
 	add(any);
 }
 
@@ -71,12 +73,12 @@ void Access::makeStandard(const string &descriptor, const ACL::ApplicationList &
 	const AclAuthorizationSet &limitedRights, const AclAuthorizationSet &freeRights)
 {
 	// owner "entry"
-	RefPointer<ACL> owner = new ACL(*this, descriptor, ACL::defaultSelector);
+	SecPointer<ACL> owner = new ACL(*this, descriptor, ACL::defaultSelector);
 	owner->setAuthorization(CSSM_ACL_AUTHORIZATION_CHANGE_ACL);
 	addOwner(owner);
 
 	// unlimited entry
-	RefPointer<ACL> unlimited = new ACL(*this, descriptor, ACL::defaultSelector);
+	SecPointer<ACL> unlimited = new ACL(*this, descriptor, ACL::defaultSelector);
 	if (freeRights.empty()) {
 		unlimited->authorizations().clear();
 		unlimited->authorizations().insert(CSSM_ACL_AUTHORIZATION_ENCRYPT);
@@ -86,7 +88,7 @@ void Access::makeStandard(const string &descriptor, const ACL::ApplicationList &
 	add(unlimited);
 
 	// limited entry
-	RefPointer<ACL> limited = new ACL(*this, descriptor, ACL::defaultSelector);
+	SecPointer<ACL> limited = new ACL(*this, descriptor, ACL::defaultSelector);
 	if (limitedRights.empty()) {
 		limited->authorizations().clear();
 		limited->authorizations().insert(CSSM_ACL_AUTHORIZATION_DECRYPT);
@@ -127,17 +129,24 @@ Access::Access(const CSSM_ACL_OWNER_PROTOTYPE &owner,
 }
 
 
-Access::~Access()
+Access::~Access() throw()
 {
 }
 
+
+// Convert a SecPointer to a SecACLRef.
+static SecACLRef
+convert(const SecPointer<ACL> &acl)
+{
+	return *acl;
+}
 
 //
 // Return all ACL components in a newly-made CFArray.
 //
 CFArrayRef Access::copySecACLs() const
 {
-	return makeCFArray(gTypes().acl, mAcls);
+	return makeCFArray(convert, mAcls);
 }
 
 CFArrayRef Access::copySecACLs(CSSM_ACL_AUTHORIZATION_TAG action) const
@@ -146,7 +155,7 @@ CFArrayRef Access::copySecACLs(CSSM_ACL_AUTHORIZATION_TAG action) const
 	for (Map::const_iterator it = mAcls.begin(); it != mAcls.end(); it++)
 		if (it->second->authorizes(action))
 			choices.push_back(it->second);
-	return choices.empty() ? NULL : makeCFArray(gTypes().acl, choices);
+	return choices.empty() ? NULL : makeCFArray(convert, choices);
 }
 
 
@@ -197,6 +206,38 @@ void Access::addApplicationToRight(AclAuthorization right, TrustedApplication *a
 	if (acls.size() != 1)
 		MacOSError::throwMe(errSecACLNotSimple);	// let's not guess here...
 	(*acls.begin())->addApplication(app);
+}
+
+
+//
+// Yield new (copied) CSSM level owner and acls values, presumably
+// for use at CSSM layer operations.
+// Caller is responsible for releasing the beasties when done.
+//
+void Access::copyOwnerAndAcl(CSSM_ACL_OWNER_PROTOTYPE * &ownerResult,
+	uint32 &aclCount, CSSM_ACL_ENTRY_INFO * &aclsResult)
+{
+	CssmAllocator& alloc = CssmAllocator::standard();
+	int count = mAcls.size() - 1;	// one will be owner, others are acls
+	AclOwnerPrototype owner;
+	CssmAutoPtr<AclEntryInfo> acls = new(alloc) AclEntryInfo[count];
+	AclEntryInfo *aclp = acls;	// -> next unfilled acl element
+	for (Map::const_iterator it = mAcls.begin(); it != mAcls.end(); it++) {
+		SecPointer<ACL> acl = it->second;
+		if (acl->isOwner()) {
+			acl->copyAclOwner(owner, alloc);
+		} else {
+			aclp->handle() = acl->entryHandle();
+			acl->copyAclEntry(*aclp, alloc);
+			++aclp;
+		}
+	}
+	assert((aclp - acls) == count);	// all ACL elements filled
+
+	// commit output
+	ownerResult = new(alloc) AclOwnerPrototype(owner);
+	aclCount = count;
+	aclsResult = acls.release();
 }
 
 
@@ -265,10 +306,10 @@ void Access::compile(const CSSM_ACL_OWNER_PROTOTYPE &owner,
 	// add acl entries
 	const AclEntryInfo *acl = AclEntryInfo::overlay(acls);
 	for (uint32 n = 0; n < aclCount; n++) {
-		debug("SecAccess", "%p compiling entry %ld", this, acl[n].handle());
+		secdebug("SecAccess", "%p compiling entry %ld", this, acl[n].handle());
 		mAcls[acl[n].handle()] = new ACL(*this, acl[n]);
 	}
-	debug("SecAccess", "%p %ld entries compiled", this, mAcls.size());
+	secdebug("SecAccess", "%p %ld entries compiled", this, mAcls.size());
 }
 
 

@@ -1,0 +1,2 @@
+debian/install/usr/lib/libgimpprint.so.*  usr/lib
+debian/install/usr/lib/libgimpprint-*     usr/lib

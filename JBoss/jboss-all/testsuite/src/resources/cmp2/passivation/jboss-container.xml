@@ -1,0 +1,47 @@
+   <container-configurations>
+
+      <container-configuration>
+         <container-name>Short lived CMP 2.0 Entity Bean</container-name>
+         <call-logging>false</call-logging>
+         <invoker-proxy-binding-name>entity-rmi-invoker</invoker-proxy-binding-name>
+         <sync-on-commit-only>false</sync-on-commit-only>
+         <container-interceptors>
+            <interceptor>org.jboss.ejb.plugins.ProxyFactoryFinderInterceptor</interceptor>
+            <interceptor>org.jboss.ejb.plugins.LogInterceptor</interceptor>
+            <interceptor>org.jboss.ejb.plugins.SecurityInterceptor</interceptor>
+            <interceptor>org.jboss.ejb.plugins.TxInterceptorCMT</interceptor>
+            <interceptor metricsEnabled="true">org.jboss.ejb.plugins.MetricsInterceptor</interceptor>
+            <interceptor>org.jboss.ejb.plugins.EntityCreationInterceptor</interceptor>
+            <interceptor>org.jboss.ejb.plugins.EntityLockInterceptor</interceptor>
+            <interceptor>org.jboss.ejb.plugins.EntityInstanceInterceptor</interceptor>
+            <interceptor>org.jboss.ejb.plugins.EntityReentranceInterceptor</interceptor>
+            <interceptor>org.jboss.resource.connectionmanager.CachedConnectionInterceptor</interceptor>
+            <interceptor>org.jboss.ejb.plugins.EntitySynchronizationInterceptor</interceptor>
+            <interceptor>org.jboss.ejb.plugins.cmp.jdbc.JDBCRelationInterceptor</interceptor>
+         </container-interceptors>
+         <instance-pool>org.jboss.ejb.plugins.EntityInstancePool</instance-pool>
+         <instance-cache>org.jboss.ejb.plugins.InvalidableEntityInstanceCache</instance-cache>
+         <persistence-manager>org.jboss.ejb.plugins.cmp.jdbc.JDBCStoreManager</persistence-manager>
+         <locking-policy>org.jboss.ejb.plugins.lock.QueuedPessimisticEJBLock</locking-policy>
+         <container-cache-conf>
+            <cache-policy>org.jboss.ejb.plugins.LRUEnterpriseContextCachePolicy</cache-policy>
+            <cache-policy-conf>
+               <min-capacity>5</min-capacity>
+               <max-capacity>10</max-capacity>
+               <overager-period>5</overager-period>
+               <max-bean-age>8</max-bean-age>
+               <resizer-period>7</resizer-period>
+               <max-cache-miss-period>60</max-cache-miss-period>
+               <min-cache-miss-period>1</min-cache-miss-period>
+               <cache-load-factor>0.75</cache-load-factor>
+            </cache-policy-conf>
+         </container-cache-conf>
+         <container-pool-conf>
+            <MaximumSize>100</MaximumSize>
+         </container-pool-conf>
+         <commit-option>B</commit-option>
+      </container-configuration>
+
+   </container-configurations>
+
+	

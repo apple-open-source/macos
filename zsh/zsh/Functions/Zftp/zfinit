@@ -1,6 +1,9 @@
 emulate -L zsh
 
-[[ $1 = -n ]] || zmodload -e zsh/zftp || zmodload -ia zsh/zftp zftp || return 1
+if [[ $1 != -n ]]; then
+   zmodload -i zsh/net/tcp || return 1
+   zmodload -ia zsh/zftp zftp || return 1
+fi
 
 if zmodload -i zsh/zutil; then
   local arr

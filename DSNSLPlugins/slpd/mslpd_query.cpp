@@ -1,3 +1,27 @@
+/*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 
 /*
  * mslpd_query.c : Handles service requests coming in to the mini SLPv2 SA.
@@ -25,6 +49,9 @@
  * (c) Sun Microsystems, 1998, All Rights Reserved.
  * Author: Erik Guttman
  */
+ /*
+	Portions Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ */
 
 #include <stdio.h>
 #include <string.h>
@@ -43,6 +70,8 @@
 #include "mslpd_parse.h"
 #include "mslplib.h"  /* mslplib defs local to the library */
 
+const CFStringRef	kProductBuildVersionSAFE_CFSTR = CFSTR("ProductBuildVersion");
+const CFStringRef	kProductVersionSAFE_CFSTR = CFSTR("ProductVersion");
 /* ------------------------------------------------------------------------- */
 
 typedef enum { BOOL_TOK = TYPE_BOOL, INT_TOK = TYPE_INT, STR_TOK = TYPE_STR,
@@ -145,85 +174,89 @@ int store_request(SAState *psa, SLPBoolean viaTCP, Slphdr *pslphdr, const char *
     char *pcPRList=NULL, *pcSrvtype = NULL, *pcSList = NULL, *pcPred = NULL;
     int err;
     int result = 0;
-    assert(psa && pslphdr && pcInBuf && ppcOutBuf && piOutSz);
     *ppcOutBuf = NULL;  /* for now, just drop the request! */
     *piOutSz   = 0;
     *piGot     = 0;
 
-	if ((err = srvrqst_in(pslphdr,pcInBuf,iInSz,&pcPRList, &pcSrvtype,&pcSList,&pcPred))<0)
-    {
-        SLP_LOG( SLP_LOG_DROP,"store_request: drop request due to parse in error" );
-    }
-    else if (on_PRList(psa,pcPRList))
-    {
-        SLP_LOG( SLP_LOG_DROP,"store_request: drop request which is on my PRList" );
-        result = -1;
-    }
-    else
-    { /* not on PRList */
-        if ( !SDstrcasecmp(pcSrvtype,"service:directory-agent") )
-        {
-            if ( pcPRList && pcPRList[0] != '\0' )
-                CheckPRListAgainstOurKnownDAs( pcPRList );
-    #ifdef MAC_OS_X
-            if ( AreWeADirectoryAgent() )	/* if we are running as a DA, then we need to return our DAAdvert */
-            {
-                LOG( SLP_LOG_DA,"handling a service:directory-agent type request" );
-                err = daadvert_out( psa, viaTCP, pslphdr, ppcOutBuf, piOutSz );
-
-                if (err == SLP_OK)
-                    *piGot = 1;
-            }
-            else
-            {
-                result = -1;		// don't just return, fall out and free our memory!
-            }
-    #else
-            return -1; /* drop DADiscovery requests */
-    #endif	/*  MAC_OS_X */
-
-        }
-        else if ( !SDstrcasecmp(pcSrvtype,"service:service-agent") )
-        {
-        #ifdef EXTRA_MSGS
-            LOG(SLP_LOG_SA,"store_request: handling a service:service-agent type request");
-            /* handle a sa discovery request here */
-            err = saadvert_out(psa,pslphdr,ppcOutBuf, piOutSz);
-    
-            if (err == SLP_OK)
-            {
-                *piGot = 1;
-            }
-        #else
-    
-            result = -1; /* sa disc is not supported, no result! */
-
-        #endif /* EXTRA_MSGS */
-    
-        }
-        else if ( !SDstrcasecmp(pcSrvtype,"service:service-agent") )
-        {
-        }
-        else
-        {
-            Mask *pmask;
-            SLPInternalError serr =
-                handle_query(&(psa->store), SLPGetProperty("net.slp.useScopes"),
-                    pcSList,pcSrvtype,pslphdr->h_pcLangTag,pcPred, &pmask);
-        
-            /* it is ok to generate a reply if the above had an error -
-                this is how the error result gets propogated back to the
-                requester */
-            err = srvrply_out(&(psa->store), serr, pmask, pslphdr, ppcOutBuf, 
-                piOutSz, piGot);
-        
-                if (err != SLP_OK) 
-                    result = -1; 
-            
-            mask_delete(pmask);
-        }
-    }
-    
+    if( psa && pslphdr && pcInBuf && ppcOutBuf && piOutSz )
+	{
+		if ((err = srvrqst_in(pslphdr,pcInBuf,iInSz,&pcPRList, &pcSrvtype,&pcSList,&pcPred))<0)
+		{
+			SLP_LOG( SLP_LOG_DROP,"store_request: drop request due to parse in error" );
+		}
+		else if (on_PRList(psa,pcPRList))
+		{
+			SLP_LOG( SLP_LOG_DROP,"store_request: drop request which is on my PRList" );
+			result = -1;
+		}
+		else
+		{ /* not on PRList */
+			if ( !SDstrcasecmp(pcSrvtype,"service:directory-agent") )
+			{
+				if ( pcPRList && pcPRList[0] != '\0' )
+					CheckPRListAgainstOurKnownDAs( pcPRList );
+		#ifdef MAC_OS_X
+				if ( AreWeADirectoryAgent() )	/* if we are running as a DA, then we need to return our DAAdvert */
+				{
+					LOG( SLP_LOG_DA,"handling a service:directory-agent type request" );
+					err = daadvert_out( psa, viaTCP, pslphdr, ppcOutBuf, piOutSz );
+	
+					if (err == SLP_OK)
+						*piGot = 1;
+				}
+				else
+				{
+					result = -1;		// don't just return, fall out and free our memory!
+				}
+		#else
+				return -1; /* drop DADiscovery requests */
+		#endif	/*  MAC_OS_X */
+	
+			}
+			else if ( !SDstrcasecmp(pcSrvtype,"service:service-agent") )
+			{
+			#ifdef EXTRA_MSGS
+				LOG(SLP_LOG_SA,"store_request: handling a service:service-agent type request");
+				/* handle a sa discovery request here */
+				err = saadvert_out(psa,pslphdr,ppcOutBuf, piOutSz);
+		
+				if (err == SLP_OK)
+				{
+					*piGot = 1;
+				}
+			#else
+		
+				result = -1; /* sa disc is not supported, no result! */
+	
+			#endif /* EXTRA_MSGS */
+		
+			}
+			else if ( !SDstrcasecmp(pcSrvtype,"service:service-agent") )
+			{
+			}
+			else
+			{
+				Mask *pmask;
+				SLPInternalError serr =
+					handle_query(&(psa->store), SLPGetProperty("net.slp.useScopes"),
+						pcSList,pcSrvtype,pslphdr->h_pcLangTag,pcPred, &pmask);
+			
+				/* it is ok to generate a reply if the above had an error -
+					this is how the error result gets propogated back to the
+					requester */
+				err = srvrply_out(&(psa->store), serr, pmask, pslphdr, ppcOutBuf, 
+					piOutSz, piGot);
+			
+					if (err != SLP_OK) 
+						result = -1; 
+				
+				mask_delete(pmask);
+			}
+		}
+	}
+	else
+		result = SLP_PARAMETER_BAD;
+		
     if (pcSrvtype) 
         SLPFree((void*)pcSrvtype);
     
@@ -255,7 +288,6 @@ SLPInternalError HandlePluginInfoRequest( SAState* psa, const char* buffer, int 
 	if ( error == SLP_OK )
 	{
     	*reply = serviceReply;
-//        *replySize = GETLEN( *reply ); 
         *replySize = GETLEN( (*reply) );	// Need ()'s around this MACRO!!!
     }
     
@@ -294,9 +326,6 @@ void CheckPRListAgainstOurKnownDAs( const char* prList )
     {
         globalDAList = (char*)malloc( strlen(prList) + 1 );
         strcpy( globalDAList, prList );
-        
-//        sprintf( msg, "Create new globalDAList: %s", globalDAList );
-//        SLP_LOG( SLP_LOG_ERR, msg );
     }
     else
     {
@@ -328,9 +357,6 @@ void CheckPRListAgainstOurKnownDAs( const char* prList )
             
             globalDAList = newList;
             free( oldList );
-            
-//            sprintf( msg, "removed element %s from our globalDAList", inet_ntoa(pdat->pDAE[i].sin.sin_addr) );
-//            SLP_LOG( SLP_LOG_ERR, msg );
         }
     }
     
@@ -374,7 +400,70 @@ SLPInternalError CheckIfRequestAlreadyHandled( const char* buffer, int length, c
 	
 	return error;
 }
+
+char*	gProductBuildVersion = NULL;
+char*	gProductVersion = NULL;
+
+void GetSystemVersion( void )
+{
+	size_t			xmlLen;
+	CFDataRef		xmlRef = NULL;
+    FILE*			xmlFP = NULL;
+	CFStringRef		errorString					= NULL;
+
+	xmlFP = fopen("/System/Library/CoreServices/SystemVersion.plist","r");
+
+	if ( xmlFP )
+	{
+		char			xmlBuffer[4*1024];
+		xmlLen = fread( xmlBuffer, sizeof(xmlBuffer), 1, xmlFP );
+		
+		if ( xmlLen || feof(xmlFP) )
+			xmlRef = CFDataCreate( NULL, (const UInt8*)xmlBuffer, strlen(xmlBuffer) );
 	
+		fclose( xmlFP );
+	}
+
+	if ( xmlRef )
+	{
+		CFDictionaryRef systemInfoRef = (CFDictionaryRef)CFPropertyListCreateFromXMLData(	NULL,
+																							xmlRef,
+																							kCFPropertyListImmutable,
+																							&errorString);
+		
+		if ( systemInfoRef )
+		{
+			CFStringRef		buildVersionRef = (CFStringRef)CFDictionaryGetValue( systemInfoRef, kProductBuildVersionSAFE_CFSTR );
+			CFStringRef		productVersionRef = (CFStringRef)CFDictionaryGetValue( systemInfoRef, kProductVersionSAFE_CFSTR );
+			char			tempBuf[1024];
+			
+			if ( buildVersionRef && CFGetTypeID(buildVersionRef) == CFStringGetTypeID() )
+			{
+				CFStringGetCString( buildVersionRef, tempBuf, sizeof(tempBuf), kCFStringEncodingUTF8 );
+				gProductBuildVersion = (char*)malloc( strlen(tempBuf)+1 );
+				strcpy( gProductBuildVersion, tempBuf );
+			}
+
+			if ( productVersionRef && CFGetTypeID(productVersionRef) == CFStringGetTypeID() )
+			{
+				CFStringGetCString( productVersionRef, tempBuf, sizeof(tempBuf), kCFStringEncodingUTF8 );
+				gProductVersion = (char*)malloc( strlen(tempBuf)+1 );
+				strcpy( gProductVersion, tempBuf );
+			}
+		
+			CFRelease( systemInfoRef );
+		}
+	
+		CFRelease( xmlRef );
+	}
+	
+	if ( !gProductVersion )
+		gProductVersion = "X";
+	
+	if ( !gProductBuildVersion )
+		gProductBuildVersion = "??";
+}
+
 char* MakePluginInfoMessage( SAState* psa, const char* buffer )
 {
 	char	siURL[1024];
@@ -399,8 +488,10 @@ char* MakePluginInfoMessage( SAState* psa, const char* buffer )
 
 	replyLength = GETLEN( replyPtr );
 	
-//	serviceInfo->GetURL( siURL );
-	sprintf( siURL, "service:x-MacSLPInfo://%s/Version=%s;OSVersion=X;NumRegServices=%d", psa->pcSANumAddr, SLPD_VERSION, psa->store.size );
+	if ( !gProductVersion || !gProductBuildVersion )
+		GetSystemVersion();
+	
+	sprintf( siURL, "service:x-MacSLPInfo://%s/Version=%s;OSVersion=%s(%s);NumRegServices=%d", psa->pcSANumAddr, SLPD_VERSION, gProductVersion, gProductBuildVersion, psa->store.size );
 	
 	urlEntryLength = 1 + 2 + 2 + strlen(siURL) + 1;				// reserved, lifetime, url len, url, # url authentication blocks
 	
@@ -510,8 +601,8 @@ int match_langtag(const char *pc1, const char *pc2)
 */
 int match_srvtype(const char *pcstRqst, const char *pcstStore) {
   int retval = 0;
-  assert(pcstStore);
-  if (!pcstRqst) retval = SLP_PARSE_ERROR;
+
+  if (!pcstRqst || !pcstStore) retval = SLP_PARSE_ERROR;
   else if (!SDstrcasecmp(pcstRqst,pcstStore)) retval = 1;
   else {
     int iLen = strlen(pcstRqst);
@@ -1085,7 +1176,7 @@ int isWildMatch(const char *pcQuery, const char *pcString) {
     }
 
     if (found == 0) return 0; /* could not find substring match */
-    assert(iSOffset <= iStrLen); /* assure iSOffset never > iStrLen */
+    if(iSOffset > iStrLen) return SLP_PARSE_ERROR; /* assure iSOffset never > iStrLen */
 
     if (cDelim == '*') {
       retval = skipWild(pcQuery, iQOffset, pcString, &iSOffset,iStrLen);
@@ -1119,8 +1210,8 @@ static int op(SAStore *ps,int i,char *pcTag,MSLPQToktype ttOp,MSLPQToken tok) {
   
   int j,k,cmp;
   
-  assert(ps && pcTag);
-  assert(i>=0 && i<ps->size); /* make sure index is in range of store */
+  if ( !ps || !pcTag) return SLP_PARSE_ERROR;
+  if(i<0 || i>ps->size) return SLP_PARSE_ERROR; /* make sure index is in range of store */
   
   if (ps->tag[i] == NULL) {
     
@@ -1228,7 +1319,7 @@ static SLPInternalError handle_term( SAStore *ps, MSLPQState state, Mask *pmUseM
   int i;
   
   /* parameter checking */
-  assert(ps && pmUseMask && pmResultMask );
+  if(!ps || !pmUseMask || !pmResultMask ) return SLP_PARSE_ERROR;
   if (tagtok.type != TAG_TOK) {
     LOG_SLP_ERROR_AND_RETURN(SLP_LOG_DROP,"handle_term: expected tag_tok",SLP_PARSE_ERROR);
   }

@@ -1,0 +1,153 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+ <META NAME="GENERATOR" CONTENT="LinuxDoc-Tools 0.9.21">
+ <TITLE>distcc User Manual: distcc Compatibility</TITLE>
+ <LINK HREF="distcc-4.html" REL=next>
+ <LINK HREF="distcc-2.html" REL=previous>
+ <LINK HREF="distcc.html#toc3" REL=contents>
+</HEAD>
+<BODY>
+<A HREF="distcc-4.html">Next</A>
+<A HREF="distcc-2.html">Previous</A>
+<A HREF="distcc.html#toc3">Contents</A>
+<HR>
+<H2><A NAME="s3">3.</A> <A HREF="distcc.html#toc3">distcc Compatibility</A></H2>
+
+<H2><A NAME="ss3.1">3.1</A> <A HREF="distcc.html#toc3.1">distcc with ccache</A>
+</H2>
+
+<P>distcc works well with the 
+<A HREF="http://ccache.samba.org/">ccache</A> tool for
+caching compilation results.  The best way to use the two of
+them together is to create a masquerade dir for ccache and a
+masquerade dir for distcc, and update your path to have the
+ccache-in-disguise links be found first, followed by the
+distcc-in-disguise links, and finally the real compiler.
+For instance:
+<BLOCKQUOTE><CODE>
+<PRE>
+PATH="/usr/lib/ccache/bin:/usr/lib/distcc/bin:$PATH"
+export PATH
+</PRE>
+</CODE></BLOCKQUOTE>
+</P>
+<P>Another alternative is to munge CC and/or CXX to mention both
+commands:
+<BLOCKQUOTE><CODE>
+<PRE>
+CC='ccache distcc'
+CXX='ccache distcc g++'
+</PRE>
+</CODE></BLOCKQUOTE>
+</P>
+<H2><A NAME="ss3.2">3.2</A> <A HREF="distcc.html#toc3.2">distcc with autoconf</A>
+</H2>
+
+<P>distcc works quite well with autoconf.</P>
+<P><CODE>DISTCC_VERBOSE</CODE> can give autoconf trouble because
+autoconf tries to parse error messages from the compiler.
+If you redirect distcc's diagnostics using
+<CODE>DISTCC_LOG</CODE> then it seems to be fine.</P>
+<P>Some autoconf-based systems "freeze" the compiler name
+used for configure into their Makefiles.  To make them use
+distcc, you should either set the PATH to include the distcc
+masquerade dir or set <CODE>$CC</CODE> prior to running
+<CODE>./configure</CODE>, and/or override <CODE>$CC</CODE> on the
+right-hand-side of the Make command line.</P>
+<P>Some poorly-written shell scripts may assume that
+<CODE>$CC</CODE> is a single word.  Using a masquerade dir
+avoids this problem.</P>
+<H2><A NAME="ss3.3">3.3</A> <A HREF="distcc.html#toc3.3">distcc with libtool</A>
+</H2>
+
+<P>Some versions of libtool seem not to cope well when CC is
+set to more than one word, such as <CODE>"distcc gcc"</CODE>.
+Setting <CODE>CC=distcc</CODE>, which is supported in 0.10 and
+later, seems to work well.  Using a masquerade dir, which
+was first supported in 2.0, is even better (since it avoids
+problems with C++ programs too).</P>
+<H2><A NAME="ss3.4">3.4</A> <A HREF="distcc.html#toc3.4">distcc with Gentoo Linux</A>
+</H2>
+
+<P>Gentoo is a "ports"-based free software distribution, in
+which packages are always built from source on
+installation.  distcc works well with Gentoo to speed
+installation.</P>
+<P>You can install distcc either using the upstream tarball
+from <CODE>distcc.samba.org</CODE> (which may be newer), or
+using <CODE>emerge distcc</CODE> to get the Gentoo port, which
+may be better integrated.  You can also get ccache with
+<CODE>emerge ccache</CODE>.</P>
+<P>Using distcc (and ccache) to speed your "emerge" commands is
+simplicity itself since full support for these packages is
+already built into portage.  The two items you need to customize
+for your system are the MAKEOPTS value and the DISTCC_HOSTS
+value.  You can either set these in the /etc/make.conf file, or
+you can export them from your local environment.  Then, simply
+/etc/make.conf to add the "distcc" (and "ccache") features to the
+"FEATURE" setting (uncommenting the line, if needed), start up
+any missing remote distccd servers, and portage will take care
+of munging the PATH that the ebuild uses in an appropriate
+manner (note that the Gentoo version of distcc comes with a
+masquerade dir as a part of the standard installation, and has
+had this since distcc-1.1-r8 (when it was first patched into
+the ebuild).  For example, if you wanted 9 parallel compiles
+and you had 4 remote systems, you might run something like this:
+<BLOCKQUOTE><CODE>
+<PRE>
+export MAKEOPTS=-j9
+export DISTCC_HOSTS='local larry moe curly shemp'
+emerge 
+</PRE>
+<EM>packagename</EM>
+</CODE></BLOCKQUOTE>
+</P>
+<P>To use distcc for compilations outside of an emerge/ebuild
+command, include the /usr/lib/distcc/bin dir early on your
+PATH before configuring/compiling the package.</P>
+<H2><A NAME="ss3.5">3.5</A> <A HREF="distcc.html#toc3.5">distcc with gcc dependency computation</A>
+</H2>
+
+<P>gcc has the ability to produce information about header
+dependencies as a side-effect of preprocessing.  These can
+be included in Makefiles in various ways to make sure that
+files are up-to-date.</P>
+<P>This feature is enabled using <CODE>-MD</CODE>, <CODE>-M</CODE>
+and related options.</P>
+<P>Unfortunately, gcc changed the behaviour of this feature
+between gcc 2.95 and 3.x in such a way that it seems
+properly for distcc to generally support it.  The
+difficulty is that the filename to which dependencies are
+written depends in a very complicated way on the gcc
+command line.  distcc needs to change the command line to
+run the preprocessor locally and the compiler remotely,
+and this can sometimes cause problems.  (This also causes
+problems for Makefiles that are supposed to work with both
+versions of the compiler.)</P>
+
+<P><CODE>-M</CODE> causes gcc to produce dependency information
+instead of compiling.  distcc understands this and passes
+the option straight through to gcc.  It should work correctly.</P>
+
+<P>With gcc 2.95, <CODE>-MD</CODE> always writes dependencies
+into the preprocessor's working directory.  distcc should
+work fine.</P>
+
+<P>With gcc 3.2, <CODE>-MD</CODE> writes the output into either
+the source directory or output directory, depending on the
+presence of the <CODE>-o</CODE> option.   However, gcc 3.2
+also has a <CODE>-MF</CODE> option  that can be used to
+explicitly set the dependency output file, and this works
+well with distcc.</P>
+
+
+<P>In summary: for gcc 2.95, no changes are required.  For
+gcc 3.2, <CODE>-MF</CODE> should be used to specify the file
+to write dependencies to.</P>
+<HR>
+<A HREF="distcc-4.html">Next</A>
+<A HREF="distcc-2.html">Previous</A>
+<A HREF="distcc.html#toc3">Contents</A>
+</BODY>
+</HTML>

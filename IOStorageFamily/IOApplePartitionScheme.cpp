@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -57,7 +57,7 @@ OSDefineMetaClassAndStructors(IOApplePartitionScheme, IOPartitionScheme);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-bool IOApplePartitionScheme::init(OSDictionary * properties = 0)
+bool IOApplePartitionScheme::init(OSDictionary * properties)
 {
     //
     // Initialize this object's minimal state.
@@ -473,10 +473,16 @@ IOMedia * IOApplePartitionScheme::instantiateMediaObject(
     IOMedia * media               = getProvider();
     UInt64    mediaBlockSize      = media->getPreferredBlockSize();
     UInt64    partitionBase       = 0;
-    char *    partitionHint       = partition->dpme_type;
+    char      partitionHint[DPISTRLEN + 1];
     bool      partitionIsWritable = media->isWritable();
-    char *    partitionName       = partition->dpme_name;
+    char      partitionName[DPISTRLEN + 1];
     UInt64    partitionSize       = 0;
+
+    strncpy(partitionHint, partition->dpme_type, DPISTRLEN);
+    strncpy(partitionName, partition->dpme_name, DPISTRLEN);
+
+    partitionHint[DPISTRLEN] = 0;
+    partitionName[DPISTRLEN] = 0;
 
     // Compute the relative byte position and size of the new partition.
 
@@ -504,14 +510,11 @@ IOMedia * IOApplePartitionScheme::instantiateMediaObject(
                        /* type     */ OSString,
                        /* instance */ hintTable->getObject(partitionHint) );
 
-        if ( hintValue ) partitionHint = (char *) hintValue->getCStringNoCopy();
+        if ( hintValue )
+        {
+            strncmp(partitionHint, hintValue->getCStringNoCopy(), DPISTRLEN);
+        }
     }
-
-    // Look up a name for the new partition.
-
-    while ( *partitionName == ' ' )  { partitionName++; }
-
-    if ( *partitionName == 0 )  partitionName = 0;
 
     // Determine whether the new partition type is Apple_Free, which we choose
     // not to publish because it is an internal concept to the partition map.
@@ -554,7 +557,7 @@ IOMedia * IOApplePartitionScheme::instantiateMediaObject(
 
             char name[24];
             sprintf(name, "Untitled %ld", partitionID);
-            newMedia->setName(partitionName ? partitionName : name);
+            newMedia->setName(partitionName[0] ? partitionName : name);
 
             // Set a location value (the partition number) for this partition.
 
@@ -598,56 +601,33 @@ bool IOApplePartitionScheme::attachMediaObjectToDeviceTree( IOMedia * media )
     // Attach the given media object to the device tree plane.
     //
 
-    IOService * service;
-    SInt32      unit = -1;
+    IORegistryEntry * parent = this;
 
-    for ( service = this; service; service = service->getProvider() )
+    while ( (parent = parent->getParentEntry(gIOServicePlane)) )
     {
-        OSNumber * number;
-
-        if ( (number = OSDynamicCast(OSNumber, service->getProperty("IOUnit"))))
+        if ( parent->inPlane(gIODTPlane) )
         {
-            unit = number->unsigned32BitValue();
-        }
+            char         location[ 32 ];
+            const char * locationOfParent = parent->getLocation(gIODTPlane);
+            const char * nameOfParent     = parent->getName(gIODTPlane);
 
-        if ( service->inPlane(gIODTPlane) )
-        {
-            IORegistryEntry *    child;
-            IORegistryIterator * children;
+            if ( locationOfParent == 0 )  break;
 
-            if ( unit == -1 || service->getProvider() == 0 )  break;
+            if ( OSDynamicCast(IOMedia, parent) == 0 )  break;
 
-            children = IORegistryIterator::iterateOver(service, gIODTPlane);
+            parent = parent->getParentEntry(gIODTPlane);
 
-            if ( children == 0 )  break;
+            if ( parent == 0 )  break;
 
-            while ( (child = children->getNextObject()) )
-            {
-                const char * location = child->getLocation(gIODTPlane);
-                const char * name     = child->getName(gIODTPlane);
+            if ( media->attachToParent(parent, gIODTPlane) == false )  break;
 
-                if ( name     == 0 || strcmp(name,     "" ) != 0 ||
-                     location == 0 || strchr(location, ':') == 0 )
-                {
-                    child->detachAll(gIODTPlane);
-                }
-            }
+            strcpy(location, locationOfParent);
+            if ( strchr(location, ':') )  *(strchr(location, ':') + 1) = 0;
+            strcat(location, media->getLocation());
+            media->setLocation(location, gIODTPlane);
+            media->setName(nameOfParent, gIODTPlane);
 
-            children->release();
-
-            if ( media->attachToParent(service, gIODTPlane) )
-            {
-                char location[ sizeof("hhhhhhhh:dddddddddd") ];
-
-                sprintf(location, "%lx:", unit);
-                strcat(location, media->getLocation());
-                media->setLocation(location, gIODTPlane);
-                media->setName("", gIODTPlane);
-
-                return true;
-            }
-
-            break;
+            return true;
         }
     }
 

@@ -3,30 +3,33 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
 #import "AMString.h"
+#import <pthread.h>
 #import <string.h>
 #import <stdlib.h>
 #import <stdio.h>
 #import <stdarg.h>
 
+static pthread_mutex_t _stringarray_mutex = PTHREAD_MUTEX_INITIALIZER;
 static String **_strings;
 static int _nstrings;
 
@@ -36,15 +39,19 @@ static int _nstrings;
 {
 	unsigned int top, bot, mid, range;
 	int comp, i;
+	String *result;
 
 	if (s == NULL) return NULL;
 
+	pthread_mutex_lock(&_stringarray_mutex);
+	
 	if (_nstrings == 0)
 	{
 		_strings = (String **)malloc(sizeof(String *));
 		_strings[_nstrings] = [[String alloc] initWithChars:s];
 		_nstrings++;
-		return _strings[_nstrings - 1];
+		result = _strings[_nstrings - 1];
+		goto Std_return;
 	}
 
 	top = _nstrings - 1;
@@ -55,16 +62,24 @@ static int _nstrings;
 	while (range > 1)
 	{
 		comp = strcmp(s, [_strings[mid] value]);
-		if (comp == 0) return [_strings[mid] retain];
-		else if (comp < 0) top = mid;
+		if (comp == 0) {
+			result = [_strings[mid] retain];
+			goto Std_return;
+		};
+		if (comp < 0) top = mid;
 		else bot = mid;
 
 		range = top - bot;
 		mid = bot + (range / 2);
 	}
 
-	if (strcmp(s, [_strings[top] value]) == 0) return [_strings[top] retain];
-	if (strcmp(s, [_strings[bot] value]) == 0) return [_strings[bot] retain];
+	if (strcmp(s, [_strings[top] value]) == 0) {
+		result = [_strings[top] retain];
+		goto Std_return;
+	} else if (strcmp(s, [_strings[bot] value]) == 0) {
+		result = [_strings[bot] retain];
+		goto Std_return;
+	};
 
 	if (strcmp(s, [_strings[bot] value]) < 0) mid = bot;
 	else if (strcmp(s, [_strings[top] value]) > 0) mid = top + 1;
@@ -74,7 +89,11 @@ static int _nstrings;
 	_strings = (String **)realloc(_strings, sizeof(String *) * _nstrings);
 	for (i = _nstrings - 1; i > mid; i--) _strings[i] = _strings[i - 1];
 	_strings[mid] = [[String alloc] initWithChars:s];
-	return _strings[mid];
+	result = _strings[mid];
+
+Std_return:
+	pthread_mutex_unlock(&_stringarray_mutex);
+	return result;
 }
 
 - (String *)initWithChars:(char *)s
@@ -112,6 +131,7 @@ static int _nstrings;
 	return [String uniqueString:s];
 }
 
+/* 'uniqueStringIndex' must be called with _stringarray_mutex already locked... */
 static unsigned int uniqueStringIndex(char *s)
 {
 	unsigned int top, bot, mid, range;
@@ -143,10 +163,15 @@ static unsigned int uniqueStringIndex(char *s)
 {
 	unsigned int i, where;
 
+	pthread_mutex_lock(&_stringarray_mutex);
+
 	where = uniqueStringIndex(val);
 	free(val);
 
-	if (where == IndexNull) return;
+	if (where == IndexNull) {
+		pthread_mutex_unlock(&_stringarray_mutex);
+		return;
+	};
 
 	for (i = where + 1; i < _nstrings; i++) _strings[i-1] = _strings[i];
 	_nstrings--;
@@ -160,6 +185,8 @@ static unsigned int uniqueStringIndex(char *s)
 		_strings = (String **)realloc(_strings, sizeof(String *) * _nstrings);
 	}
 
+	pthread_mutex_unlock(&_stringarray_mutex);
+	
 	[super dealloc];
 }
 

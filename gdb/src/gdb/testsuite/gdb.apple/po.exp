@@ -1,0 +1,170 @@
+# Copyright 2002 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+
+# This file was written by Jason Molenda (jmolenda@apple.com)
+
+# This file tests the print-object command, ObjC syntax parsing, and
+# inferior function calls.  All in one nifty package!
+
+
+if $tracelevel then {
+	strace $tracelevel
+}
+
+set prms_id 0
+set bug_id 0
+
+set testfile "objc-prog"
+set srcfile ${testfile}.m
+set binfile ${objdir}/${subdir}/${testfile}
+
+if  { [gdb_compile "${srcdir}/${subdir}/$srcfile" "${binfile}" executable {debug additional_flags=-framework\ Foundation}] != "" } {
+     gdb_suppress_entire_file "Testcase compile failed, so all tests in this fil
+e will automatically fail."
+}
+
+# Start with a fresh gdb
+
+gdb_exit
+gdb_start
+gdb_reinitialize_dir $srcdir/$subdir
+gdb_load ${binfile}
+
+if ![runto_main] then { 
+  fail "po tests suppressed"
+  return -1
+}
+
+gdb_test "break stringmaker" ".*Breakpoint.*"
+gdb_test "continue" ".*Continuing.*Breakpoint 2, stringmaker.*"
+gdb_test "next" ""
+
+
+
+
+#
+# The following decode_line_1 parsing tests inspired by radar 3106132, 
+# "Unmatched single quote."
+#
+
+gdb_test "break '\[NSException raise\]'" \
+         "Breakpoint \[0-9\] at $hex" \
+         "breakpoint on class member function with apostrophy, no dash"
+
+gdb_test "break '-\[NSException raise\]'" \
+         "Note: breakpoint.* also set at pc $hex.\[\r\n\]+Breakpoint \[0-9\] at $hex" \
+         "breakpoint on class member function with apostrophy, dash"
+
+gdb_test "break \[NSException raise\]" \
+         "Note: breakpoint.* also set at pc $hex.\[\r\n\]+Breakpoint \[0-9\] at $hex" \
+         "breakpoint on class member function without apostrophy, no dash"
+
+gdb_test "break -\[NSException raise\]" \
+         "Note: breakpoint.* also set at pc $hex.\[\r\n\]+Breakpoint \[0-9\] at $hex" \
+         "breakpoint on class member function without apostrophy, dash"
+
+
+
+
+# Simple print objects involving an object in the program.
+
+gdb_test "po mystr" "Hello, World!"
+gdb_test "p (char) \[mystr characterAtIndex:2\]" " = 108 'l'"
+gdb_test "p (char) \[mystr characterAtIndex:3\] == (char) \[mystr characterAtIndex:2\]" " = 1"
+gdb_test "p (char) \[mystr characterAtIndex:4\] == (char) \[mystr characterAtIndex:2\]" " = 0"
+
+# Print objects involving objects created at gdb-run-time.
+
+gdb_test "print-object \[NSString stringWithCString:\"hi\"\]" "hi"
+gdb_test "po \[NSString stringWithCString:\"hi there this\" length:5\]" "hi th"
+gdb_test "po \[NSString stringWithString:(NSString *)\[NSString stringWithCString:\"hi there\"\]\]" "hi there"
+gdb_test "p (unsigned int) \[\[NSString stringWithCString:\"hi there\"\] length\]" "8"
+gdb_test "p (unsigned int) \[\[NSString stringWithString:(NSString *)\[NSString stringWithCString:\"hi there\"\]\] length\]" "8"
+
+gdb_test "po \[NSNumber numberWithInt:10\]" "10"
+gdb_test "po \[NSNumber numberWithChar:'a'\]" "97"
+gdb_test "po \[NSNumber numberWithFloat:83.2090\]" "83.209"
+gdb_test "p (int) \[\[NSNumber numberWithInt:42\] intValue\]" " = 42"
+gdb_test "p (char) \[\[NSNumber numberWithInt:65\] intValue\]" " = 65 'A'"
+gdb_test "po \[\[NSString stringWithCString:\"booga booga\"\] substringToIndex:(int) \[\[NSNumber numberWithInt:5\] intValue\]\]" "booga"
+gdb_test "po \[\[NSString stringWithCString:\"booga booga\"\] substringToIndex:return_5()\]" "booga"
+
+gdb_test "po \[NSArray arrayWithObjects: \
+   (NSString *)\[NSString stringWithCString:\"hi\"\], \
+   (NSString *)\[NSString stringWithCString:\"there\"\], \
+   (NSNumber *)\[NSNumber numberWithInt:99\], 0\]" ".*hi,.*there,.*99.*"
+
+gdb_test "po \[NSArray arrayWithObjects: \
+   (NSString *)\[NSString stringWithCString:\"hi\"\], \
+   mystr, \
+   (NSString *)\[NSString stringWithCString:\"there\"\], \
+   (NSNumber *)\[NSNumber numberWithInt:99\], \
+   return_nsnumber_5(), 0\]" \
+   ".*hi,.*Hello, World!,.*there,.*99,.*5.*"
+
+
+
+# The follow 7 tests are from radar 3053944.  That radar concerns the
+# lack of quoting of the MI magic char "^", but the tests cases had
+# some nice print-object examples, so I'm pulling them in here.
+# Notice that I've hardcoded the $8 and $9 convenience variable #'s.
+# If tests are added above that cause the result # to be higher, these
+# need to be adjusted.
+# I really need to figure out how to get that number dynamically from
+# the result messages in tcl...
+
+gdb_test "p (id)\[NSMutableDictionary dictionaryWithObject:@\"55\" forKey:@\"CANREADTHIS\"\]" "\\\$8 = .*$hex"
+gdb_test "print-object \$8" ".*CANREADTHIS = 55;.*"
+gdb_test "p (id)\[NSMutableDictionary dictionaryWithObject:@\"55\" forKey:@\"\^INVISIBLE!\"\]" "\\\$9 = .*$hex"
+gdb_test "print-object \$9" ".*\\\^INVISIBLE! = 55;.*"
+gdb_test "p (int)NSLog(@\"%@\", \$9)" ".*200\[0-9\]-\[0-9\]\[0-9\]-\[0-9\]\[0-9\] \[0-9\]\[0-9\]:\[0-9\]\[0-9\]:\[0-9\]\[0-9\].*type = mutable, count = 1,.*contents = \"\\\^INVISIBLE!\".*contents = \"55\".*"
+gdb_test "p (int)CFShow(\$9)" ".*type = mutable, count = 1,.*pairs =.*\\\^INVISIBLE!.*"
+gdb_test "po \[\$9 description\]" "\{\"\\\^INVISIBLE!\" = 55; \}"
+
+
+
+
+# Try to print an object that doesn't have any meaningful printForDebugger
+# method.  (should just be the addr of the object, right?)
+
+gdb_test "po \[NSProcessInfo processInfo\]" "<NSProcessInfo: $hex>"
+
+# Test some things that should elicit errors and the like.
+
+gdb_test "po \[NSString stringWithString:\[NSString stringWithCString:\"hi there\"\]\]" "Unable to call function.*no return type information available.*To call this function anyway. you can cast the return type.*"
+
+gdb_test "set unwindonsignal on" ""
+send_gdb "po \[NSString stringWithCString:32\]\n"
+gdb_expect {
+    -re ".*Program received signal.*The program being debugged was signaled while in a function called from GDB.*To change this behavior use \"set unwindonsignal off\".*Evaluation of the expression.*will be abandoned.*$gdb_prompt $" {
+        pass "print-object of invalid object, proper message"
+        gdb_test "bt" ".*#0 *stringmaker.*objc-prog.m.*" "print-object of invalid object, proper backtrace"
+      }
+    -re ".*$gdb_prompt $" { fail "print-object of invalid object" }
+    timeout           { fail "(timeout) print-object of invalid object" }    
+  }
+
+
+# Help messages and stuff
+
+gdb_test "help po" "Ask an Objective-C object to print itself.*"
+gdb_test "help print-object" "Ask an Objective-C object to print itself.*"
+
+gdb_test "po" "The 'print-object' command requires an argument \\\(an Objective-C object\\\).*"
+gdb_test "print-object" "The 'print-object' command requires an argument \\\(an Objective-C object\\\).*"
+
+gdb_exit
+return 0

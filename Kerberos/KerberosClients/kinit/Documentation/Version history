@@ -1,0 +1,40 @@
+========================================================================
+kinit Version History
+========================================================================
+Current version:	1.1a1
+Date:				March 11, 2003
+Author:				lxs@mit.edu
+========================================================================
+
+	kinit 1.1a2
+	March 11, 2003
+
+	[RT 1359] Usage message for kinit lists -A twice and not -a
+	[RT 1360] kinit should default to the principal in the default cache
+	
+	========================================================================
+
+kinit 1.0
+
+First Public Release
+
+========================================================================
+
+	kinit 1.0a2
+	March 11, 2003
+
+	[BZ 726]	Use KLL to get tickets
+	[BZ 742]	kinit returns a bad error for expired credentials
+	[BZ 755]	Bad error message when edu.mit.Kerberos is missing
+	[BZ 763]	-s option should take an absolute time
+	
+	========================================================================
+	kinit 1.0a1
+	June 10, 2002
+
+	[BZ 726]	Use KLL to get tickets
+	[BZ 742]	kinit returns a bad error for expired credentials
+	[BZ 755]	Bad error message when edu.mit.Kerberos is missing
+	[BZ 763]	-s option should take an absolute time
+	
+	========================================================================

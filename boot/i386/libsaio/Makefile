@@ -9,11 +9,13 @@ SYMROOT=
 
 OPTIM = -Os
 CFLAGS	= $(RC_CFLAGS) $(OPTIM) $(MORECPP) -arch i386 -g -Wmost -Werror \
-    -D__ARCHITECTURE__=\"i386\" -DSAIO_INTERNAL_USER -fno-builtin -static \
-	 -DRCZ_COMPRESSED_FILE_SUPPORT
+    -D__ARCHITECTURE__=\"i386\" -DSAIO_INTERNAL_USER \
+    -DRCZ_COMPRESSED_FILE_SUPPORT \
+    -fno-builtin -static -fomit-frame-pointer \
+    -mpreferred-stack-boundary=2 -fno-align-functions
 DEFINES=
 CONFIG = hd
-INC = -I../rcz -I. -I$(SYMROOT) -I$(UTILDIR) -I$(LIBSADIR) -I/System/Library/Frameworks/System.framework/PrivateHeaders
+INC = -I../rcz -I. -I$(SYMROOT) -I$(UTILDIR) -I$(LIBSADIR)
 ifneq "" "$(wildcard /bin/mkdirs)"
   MKDIRS = /bin/mkdirs
 else
@@ -29,8 +31,9 @@ VPATH = $(OBJROOT):$(SYMROOT)
 SAIO_OBJS = table.o asm.o bios.o biosfn.o \
 	disk.o sys.o cache.o bootstruct.o \
 	ufs.o ufs_byteorder.o \
-	stringTable.o load.o misc.o \
-	vbe.o nbp.o hfs.o hfs_compare.o
+	stringTable.o load.o memory.o misc.o \
+	vbe.o nbp.o hfs.o hfs_compare.o \
+	xml.o
 
 SAIO_EXTERN_OBJS = console.o
 

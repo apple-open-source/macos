@@ -35,6 +35,8 @@
 #ifndef _IOCDBDEVICE_H
 #define _IOCDBDEVICE_H
 
+#include <IOKit/IOService.h>
+
 class IOCDBCommand;
 
 class IOCDBDevice : public IOService

@@ -64,6 +64,7 @@
 #define DISABLE( sp )          (sp)->svc_state = SVC_DISABLED
 
 static void deactivate( const struct service *sp );
+static int banner_always( const struct service *sp, const connection_s *cp );
 
 static const struct name_value service_states[] =
    {
@@ -151,7 +152,7 @@ static status_e set_fd_modes( struct service *sp )
    /*
     * Always set the close-on-exec flag
     */
-   if ( fcntl( sd, F_SETFD, 1 ) == -1 )
+   if ( fcntl( sd, F_SETFD, FD_CLOEXEC ) == -1 )
    {
       msg( LOG_ERR, func,
          "fcntl failed (%m) for close-on-exec. service = %s", SVC_ID( sp ) ) ;
@@ -166,7 +167,7 @@ static status_e set_fd_modes( struct service *sp )
 static status_e activate_rpc( struct service *sp )
 {
    union xsockaddr        tsin;
-   int                    sin_len = sizeof(tsin);
+   unsigned int           sin_len = sizeof(tsin);
    unsigned long          vers ;
    struct service_config *scp = SVC_CONF( sp ) ;
    struct rpc_data       *rdp = SC_RPCDATA( scp ) ;
@@ -215,9 +216,10 @@ static status_e activate_rpc( struct service *sp )
    for ( vers = RD_MINVERS( rdp ) ; vers <= RD_MAXVERS( rdp ) ; vers++ ) {
 /*      Is this right?  For instance, if we have both tcp and udp services,
  *      this will unregister the previously registered protocol.
-      pmap_unset(RD_PROGNUM(rdp), vers);
-*/
-      if ( pmap_set( RD_PROGNUM( rdp ), vers, SC_PROTOVAL( scp ), SC_PORT( scp ) ) )
+ *      pmap_unset(RD_PROGNUM(rdp), vers);
+ */
+      if ( pmap_set( RD_PROGNUM( rdp ), vers, SC_PROTOVAL( scp ), 
+			      SC_PORT( scp ) ) )
          registered_versions++ ;
       else
          msg( LOG_ERR, func,
@@ -250,8 +252,11 @@ static status_e activate_normal( struct service *sp )
    uint16_t                service_port   = SC_PORT( scp ) ;
    char                   *sid            = SC_ID( scp ) ;
    const char             *func           = "activate_normal" ;
-   int                     sin_len        = sizeof(tsin);
+   unsigned int            sin_len        = sizeof(tsin);
    int                     on             = 1;
+#ifdef IPV6_V6ONLY
+   int                     v6on           = 0;
+#endif
 
    if( scp->sc_bind_addr != NULL )
       memcpy(&tsin, scp->sc_bind_addr, sin_len);
@@ -267,6 +272,19 @@ static status_e activate_normal( struct service *sp )
       tsin.sa_in6.sin6_port = htons( service_port );
       sin_len = sizeof(struct sockaddr_in6);
    }
+
+#ifdef IPV6_V6ONLY
+   if( SC_IPV6(scp) ) {
+      if( SC_SPECIFIED(scp, A_V6ONLY) ) {
+         v6on = 1;
+      } else {
+         v6on = 0;
+      }
+      if( setsockopt(sd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&v6on, sizeof(v6on)) < 0 ) {
+         msg( LOG_ERR, func, "Setting IPV6_V6ONLY option failed (%m)" );
+      }
+   }
+#endif
 
    if ( setsockopt( sd, SOL_SOCKET, SO_REUSEADDR, 
                     (char *) &on, sizeof( on ) ) == -1 )
@@ -333,7 +351,7 @@ status_e svc_activate( struct service *sp )
 
    if ( set_fd_modes( sp ) == FAILED )
    {
-      (void) close( sp->svc_fd ) ;
+      (void) Sclose( sp->svc_fd ) ;
       return( FAILED ) ;
    }
 
@@ -346,15 +364,25 @@ status_e svc_activate( struct service *sp )
    
    if ( status == FAILED )
    {
-      (void) close( sp->svc_fd ) ;
+      (void) Sclose( sp->svc_fd ) ;
       return( FAILED ) ;
    }
 
 #ifdef HAVE_DNSREGISTRATION
-   char *srvname;
+   if ( (scp->sc_mdns == YES) && (!SVC_CONF(sp)->sc_mdnscon) )
+   {
+      if( scp->sc_mdns_name )
+         free(scp->sc_mdns_name);
+      if( asprintf(&scp->sc_mdns_name, "_%s._%s", scp->sc_name, scp->sc_protocol.name) < 0 ) 
+      {
+          deactivate( sp );
+          return( FAILED );
+      }
 
-   asprintf(&srvname, "_%s._%s", scp->sc_name, scp->sc_protocol.name);
-   scp->sc_mdnscon = DNSServiceRegistrationCreate("", srvname, "", htons(scp->sc_port), "", mdns_callback, NULL);
+      usleep(500);
+      scp->sc_mdnscon = DNSServiceRegistrationCreate("", scp->sc_mdns_name, "", 
+		   htons(scp->sc_port), "", mdns_callback, NULL);
+   }
 #endif
 
    if ( log_start( sp, &sp->svc_log ) == FAILED )
@@ -388,12 +416,7 @@ status_e svc_activate( struct service *sp )
 
 static void deactivate( const struct service *sp )
 {
-   (void) close( SVC_FD( sp ) ) ;
-
-#ifdef HAVE_DNSREGISTRATION
-   if( SVC_CONF(sp)->sc_mdnscon )
-      DNSServiceDiscoveryDeallocate(SVC_CONF(sp)->sc_mdnscon);
-#endif
+   (void) Sclose( SVC_FD( sp ) ) ;
 
    if (debug.on)
       msg(LOG_DEBUG, "deactivate", "%d Service %s deactivated", 
@@ -420,6 +443,14 @@ static void deactivate( const struct service *sp )
  */
 void svc_deactivate( struct service *sp )
 {
+#ifdef HAVE_DNSREGISTRATION
+   if( SVC_CONF(sp)->sc_mdnscon ) {
+      DNSServiceDiscoveryDeallocate( SVC_CONF(sp)->sc_mdnscon );
+      SVC_CONF(sp)->sc_mdnscon = 0;
+      usleep(500);
+   }
+#endif
+
    if ( ! SVC_IS_AVAILABLE( sp ) )
       return ;
 
@@ -547,20 +578,42 @@ void svc_request( struct service *sp )
    cp = conn_new( sp ) ;
    if ( cp == CONN_NULL )
       return ;
-   if (sp->svc_not_generic)
-	   ret_code = spec_service_handler(sp, cp);
-   else
-	   ret_code = svc_generic_handler(sp, cp);
 
+   /*
+    * Output the banner now that the connection is established. The
+    * other banners come later.
+    */
+   banner_always(sp, cp);
+
+   if (sp->svc_not_generic)
+      ret_code = spec_service_handler(sp, cp);
+   else 
+      ret_code = svc_generic_handler(sp, cp);
+
+   if( (SVC_SOCKET_TYPE( sp ) == SOCK_DGRAM) && (SVC_IS_ACTIVE( sp )) ) 
+      drain( cp->co_descriptor ) ; /* Prevents looping next time */
+   
    if ( ret_code != OK ) 
    {
-      if ( SVC_LOGS_USERID_ON_FAILURE( sp ) )
-         if( spec_service_handler( LOG_SERVICE( ps ), cp ) == FAILED ) {
-            conn_free( cp, 1 );
-            return;
-         }
-      CONN_CLOSE(cp);
+      if ( SVC_LOGS_USERID_ON_FAILURE( sp ) ) {
+         if( spec_service_handler( LOG_SERVICE( ps ), cp ) == FAILED ) 
+	    conn_free( cp, 1 ) ;
+         else if (!SC_WAITS( SVC_CONF( sp ) ) ) {
+	 /* The logging service will gen SIGCHLD thus freeing connection */
+	    CONN_CLOSE(cp) ; 
+	 }
+	 return;
+      }
+      if (!SC_WAITS( SVC_CONF( sp ) )) 
+	 conn_free( cp, 1 );
+      else { 
+         if( (SVC_SOCKET_TYPE( sp ) == SOCK_DGRAM) && (SVC_IS_ACTIVE( sp )) ) 
+            drain( cp->co_descriptor ) ; /* Prevents looping next time */
+	 free( cp );
+      }
    }
+   else if ((sp->svc_not_generic) || (!SC_FORKS( SVC_CONF( sp ) ) ) )
+     free( cp );
 }
 
 
@@ -587,7 +640,8 @@ static int banner_always( const struct service *sp, const connection_s *cp )
       int bannerfd = open(scp->sc_banner, O_RDONLY);
 
       if( bannerfd < 0 ) {
-         msg( LOG_ERR, func, "service = %s, open of banner %s failed", SVC_ID( sp ), scp->sc_banner);
+         msg( LOG_ERR, func, "service = %s, open of banner %s failed", 
+			 SVC_ID( sp ), scp->sc_banner);
          return(-1);
       }
 
@@ -598,7 +652,8 @@ static int banner_always( const struct service *sp, const connection_s *cp )
                continue;
             else
             {
-               msg(LOG_ERR, func, "service %s, Error %m reading banner %s", SVC_ID( sp ), scp->sc_banner);
+               msg(LOG_ERR, func, "service %s, Error %m reading banner %s", 
+			       SVC_ID( sp ), scp->sc_banner);
                break;
             }
          }
@@ -606,7 +661,7 @@ static int banner_always( const struct service *sp, const connection_s *cp )
          Sflush(cp->co_descriptor);
       }
 
-      close(bannerfd);
+      Sclose(bannerfd);
    }
 
    return(0);
@@ -638,7 +693,8 @@ static int banner_fail( const struct service *sp, const connection_s *cp )
                continue;
             else
             {
-               msg(LOG_ERR, func, "service %s, Error %m reading banner %s", SVC_ID( sp ), scp->sc_banner);
+               msg(LOG_ERR, func, "service %s, Error %m reading banner %s", 
+			       SVC_ID( sp ), scp->sc_banner);
                break;
             }
          }
@@ -646,7 +702,7 @@ static int banner_fail( const struct service *sp, const connection_s *cp )
          Sflush(cp->co_descriptor);
       }
 
-      close(bannerfd);
+      Sclose(bannerfd);
    }
 
    return(0);
@@ -664,7 +720,8 @@ static int banner_success( const struct service *sp, const connection_s *cp )
       int bannerfd = open(scp->sc_banner_success, O_RDONLY);
 
       if( bannerfd < 0 ) {
-         msg( LOG_ERR, func, "service = %s, open of banner %s failed", SVC_ID( sp ), scp->sc_banner_success);
+         msg( LOG_ERR, func, "service = %s, open of banner %s failed", 
+			 SVC_ID( sp ), scp->sc_banner_success);
          return(-1);
       }
 
@@ -675,7 +732,8 @@ static int banner_success( const struct service *sp, const connection_s *cp )
                continue;
             else
             {
-               msg(LOG_ERR, func, "service %s, Error %m reading banner %s", SVC_ID( sp ), scp->sc_banner);
+               msg(LOG_ERR, func, "service %s, Error %m reading banner %s", 
+			       SVC_ID( sp ), scp->sc_banner);
                break;
             }
          }
@@ -683,7 +741,7 @@ static int banner_success( const struct service *sp, const connection_s *cp )
          Sflush(cp->co_descriptor);
       }
 
-      close(bannerfd);
+      Sclose(bannerfd);
    }
    return(0);
 }
@@ -731,7 +789,7 @@ static status_e failed_service(struct service *sp,
             }
             else
             {
-               memcpy(sp->svc_last_dgram_addr, sinp, sizeof(struct sockaddr_in));
+               memcpy(sp->svc_last_dgram_addr, sinp,sizeof(struct sockaddr_in));
                sp->svc_last_dgram_time = current_time ;
             }
          } else if( SC_IPV6( scp ) ) {
@@ -758,7 +816,7 @@ static status_e failed_service(struct service *sp,
             }
             else
             {
-               memcpy(sp->svc_last_dgram_addr, sinp, sizeof(struct sockaddr_in6));
+               memcpy(sp->svc_last_dgram_addr,sinp,sizeof(struct sockaddr_in6));
                sp->svc_last_dgram_time = current_time ;
             }
          }
@@ -791,9 +849,6 @@ status_e svc_child_access_control( struct service *sp, connection_s *cp )
 {
    access_e result ;
 
-   if( banner_always(sp, cp) < 0 )
-      return FAILED;
-
    result = access_control( sp, cp, MASK_NULL ) ;
    if( failed_service(sp, cp, result) == FAILED )
       return(FAILED);
@@ -810,7 +865,7 @@ void svc_postmortem( struct service *sp, struct server *serp )
 {
    struct service  *co_sp   = SERVER_CONNSERVICE( serp ) ;
    connection_s    *cp      = SERVER_CONNECTION( serp ) ;
-   char            *func    = "svc_postmortem" ;
+   const char      *func    = "svc_postmortem" ;
 
    SVC_DEC_RUNNING_SERVERS( sp ) ;
 
@@ -839,7 +894,38 @@ void svc_postmortem( struct service *sp, struct server *serp )
    if (!SVC_WAITS(sp)) {
       conn_free( cp, 1 ) ;
       cp = NULL;
-   } else
+   } else {
+      if (cp) {
+         if ( SVC_SOCKET_TYPE( sp ) == SOCK_DGRAM )
+            drain( cp->co_descriptor ) ;
+         free(cp);
+	 cp = NULL;
+         SVC_RELE(sp);
+      }
       svc_resume(sp);
+   }
+}
+
+/*
+ * This function closes all service descriptors. This should be called 
+ * for all child processes that fork, but do not exec. This includes
+ * redirect, builtins, and tcpmux. The close on exec flag takes care of
+ * child processes that call exec. Without calling this, the listening 
+ * fd's are not closed and reconfig will fail.
+ */
+void close_all_svc_descriptors(void)
+{
+   psi_h                     iter ;
+   struct service            *osp ;
+
+   /* Have to close all other descriptors here */
+   iter = psi_create( SERVICES( ps ) ) ;
+   if ( iter == NULL )
+        out_of_memory( "close_all_svc_descriptors" ) ;
+
+   for ( osp = SP( psi_start( iter ) ) ; osp ; osp = SP( psi_next( iter ) ) )
+        (void) Sclose( SVC_FD( osp ) ) ;
+  
+   psi_destroy( iter ) ;
 }
 

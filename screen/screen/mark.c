@@ -1,4 +1,4 @@
-/* Copyright (c) 1993-2000
+/* Copyright (c) 1993-2002
  *      Juergen Weigert (jnweiger@immd4.informatik.uni-erlangen.de)
  *      Michael Schroeder (mlschroe@immd4.informatik.uni-erlangen.de)
  * Copyright (c) 1987 Oliver Laumann
@@ -22,7 +22,7 @@
  */
 
 #include "rcs.h"
-RCS_ID("$Id: mark.c,v 1.1.1.1 2001/12/14 22:08:29 bbraun Exp $ FAU")
+RCS_ID("$Id: mark.c,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU")
 
 #include <sys/types.h>
 
@@ -59,7 +59,6 @@ static int  MarkRewrite __P((int, int, int, struct mchar *, int));
 extern struct layer *flayer;
 extern struct display *display, *displays;
 extern struct win *fore;
-extern char *null, *blank;
 extern struct mline mline_blank, mline_null;
 extern struct mchar mchar_so;
 
@@ -113,7 +112,7 @@ linestart(y)
 int y;
 {
   register int x;
-  register char *i;
+  register unsigned char *i;
 
   for (x = markdata->left_mar, i = WIN(y)->image + x; x < fore->w_width - 1; x++)
     if (*i++ != ' ')
@@ -128,7 +127,7 @@ lineend(y)
 int y;
 {
   register int x;
-  register char *i;
+  register unsigned char *i;
 
   for (x = markdata->right_mar, i = WIN(y)->image + x; x >= 0; x--)
     if (*i-- != ' ')
@@ -145,11 +144,13 @@ int y;
  *  NW_BACK:		search backward
  *  NW_ENDOFWORD:	find the end of the word
  *  NW_MUSTMOVE:	move at least one char
+ *  NW_BIG:             match WORDs not words
  */
 
 #define NW_BACK		(1<<0)
 #define NW_ENDOFWORD	(1<<1)
 #define NW_MUSTMOVE	(1<<2)
+#define NW_BIG		(1<<3)
 
 static void
 nextword(xp, yp, flags, num)
@@ -169,6 +170,8 @@ int *xp, *yp, flags, num;
     {
       if (x >= xx || x < 0)
 	q = 0;
+      else if (flags & NW_BIG)
+        q = ml->image[x] == ' ';
       else
         q = is_letter(ml->image[x]);
       if (oq >= 0 && oq != q)
@@ -218,11 +221,11 @@ char *pt;
 {
   int i, j, from, to, ry, c;
   int l = 0;
-  char *im;
+  unsigned char *im;
   struct mline *ml;
 #ifdef FONT
   int cf, font;
-  char *fo;
+  unsigned char *fo;
 #endif
 
   markdata->second = 0;
@@ -263,8 +266,8 @@ char *pt;
       if (redisplay != 2 && pt == 0)	/* don't count/copy */
 	continue;
       j = from;
-#ifdef KANJI
-      if (badkanji(ml->font, j))
+#ifdef DW_CHARS
+      if (dw_right(ml, j, fore->w_encoding))
 	j--;
 #endif
       im = ml->image + j;
@@ -274,97 +277,37 @@ char *pt;
 #endif
       for (; j <= to; j++)
 	{
-	  c = *im++;
+	  c = (unsigned char)*im++;
 #ifdef FONT
-	  cf = *fo++;
+	  cf = (unsigned char)*fo++;
 # ifdef UTF8
-	  if (fore->w_utf8)
+	  if (fore->w_encoding == UTF8)
 	    {
-	      c = (c & 255) | (unsigned char)cf << 8;
-	      c = ToUtf8(pt, c);
+	      c |= cf << 8;
+	      if (c == UCS_HIDDEN)
+		continue;
+	      c = ToUtf8_comb(pt, c);
 	      l += c;
 	      if (pt)
 	        pt += c;
 	      continue;
 	    }
 # endif
-# ifdef KANJI
-	  if (cf == KANJI)
+# ifdef DW_CHARS
+	  if (is_dw_font(cf))
 	    {
-	      int t;
-	      t = *im++;
+	      c = c << 8 | (unsigned char)*im++;
 	      fo++;
 	      j++;
-	      if (pastefont)
-		{
-		  if (fore->w_kanji == EUC)
-		    {
-		      c |= 0x80;
-		      t |= 0x80;
-		    }
-		  else if (fore->w_kanji == SJIS)
-		    {
-		      t += (c & 1) ? ((t <= 0x5f) ? 0x1f : 0x20) : 0x7e;
-		      c = (c - 0x21) / 2 + ((c < 0x5f) ? 0x81 : 0xc1);
-		    }
-		  else
-		    {
-		      if (pt)
-			{
-			  strcpy(pt, "\033$B");
-			  pt += 3;
-			}
-		      l += 3;
-		      font = KANJI;
-		    }
-		}
-	      if (pt)
-		*pt++ = c;
-	      l++;
-	      c = t;
 	    }
-	  else
-# endif /* KANJI */
+# endif
 	  if (pastefont)
 	    {
-# ifdef KANJI
-	      if (cf == KANA)
-		{
-		  if (fore->w_kanji == EUC)
-		    {
-		      if (pt)
-			*pt++ = 0x8e;
-		      l++;
-		      c |= 0x80;
-		    }
-		  else if (fore->w_kanji == SJIS)
-		    c |= 0x80;
-		  else if (font != KANA)
-		    {
-		      if (pt)
-			{
-			  strcpy(pt, "\033(I");
-			  pt += 3;
-			}
-		      l += 3;
-		      font = KANA;
-		    }
-		}
-	      else
-#endif /* KANJI */
-		{
-		  if (cf != font)
-		    {
-		      if (pt)
-			{
-			  strcpy(pt, "\033(");
-			  pt[2] = (cf == ASCII) ? 'B' : cf;
-			  pt += 3;
-			}
-		      l += 3;
-		      font = cf;
-		    }
-		}
+	      c = EncodeChar(pt, c | cf << 16, fore->w_encoding, &font);
+	      l += c;
+	      if (pt)
+		pt += c;
+	      continue;
 	    }
 #endif /* FONT */
 	  if (pt)
@@ -439,10 +382,10 @@ int a, b;
 /**********************************************************************/
 
 int
-GetHistory()	/* return value 1 if u_copybuffer changed */
+GetHistory()	/* return value 1 if copybuffer changed */
 {
   int i = 0, q = 0, xx, yy, x, y;
-  char *linep;
+  unsigned char *linep;
   struct mline *ml;
 
   ASSERT(display && fore);
@@ -471,15 +414,18 @@ GetHistory()	/* return value 1 if u_copybuffer changed */
     }
   if (yy < 0)
     return 0;
-  if (D_user->u_copybuffer != NULL)
+  if (D_user->u_plop.buf)
     UserFreeCopyBuffer(D_user);
-  if ((D_user->u_copybuffer = malloc((unsigned) (i - x + 2))) == NULL)
+  if ((D_user->u_plop.buf = (char *)malloc((unsigned) (i - x + 2))) == NULL)
     {
       LMsg(0, "Not enough memory... Sorry.");
       return 0;
     }
-  bcopy(linep - i + x + 1, D_user->u_copybuffer, i - x + 1);
-  D_user->u_copylen = i - x + 1;
+  bcopy((char *)linep - i + x + 1, D_user->u_plop.buf, i - x + 1);
+  D_user->u_plop.len = i - x + 1;
+#ifdef ENCODINGS
+  D_user->u_plop.enc = fore->w_encoding;
+#endif
   return 1;
 }
 
@@ -498,9 +444,7 @@ MarkRoutine()
 
   if (InitOverlayPage(sizeof(*markdata), &MarkLf, 1))
     return;
-#ifdef UTF8
-  flayer->l_utf8 = fore->w_utf8;
-#endif
+  flayer->l_encoding = fore->w_encoding;
   markdata = (struct markdata *)flayer->l_data;
   markdata->md_user = D_user;	/* XXX: Correct? */
   markdata->md_window = fore;
@@ -763,15 +707,17 @@ int *inlenp;
 	  revto(cx, cy);
 	  break;
 	case 'e':
+	case 'E':
 	  if (rep_cnt == 0)
 	    rep_cnt = 1;
-	  nextword(&cx, &cy, NW_ENDOFWORD|NW_MUSTMOVE, rep_cnt);
+	  nextword(&cx, &cy, NW_ENDOFWORD|NW_MUSTMOVE | (od == 'E' ? NW_BIG : 0), rep_cnt);
 	  revto(cx, cy);
 	  break;
 	case 'b':
+	case 'B':
 	  if (rep_cnt == 0)
 	    rep_cnt = 1;
-	  nextword(&cx, &cy, NW_BACK|NW_ENDOFWORD|NW_MUSTMOVE, rep_cnt);
+	  nextword(&cx, &cy, NW_BACK|NW_ENDOFWORD|NW_MUSTMOVE | (od == 'B' ? NW_BIG : 0), rep_cnt);
 	  revto(cx, cy);
 	  break;
 	case 'a':
@@ -912,7 +858,7 @@ int *inlenp;
 	      x2 = cx;
 	      y2 = cy;
 	      newcopylen = rem(markdata->x1, markdata->y1, x2, y2, 2, (char *)0, 0); /* count */
-	      if (md_user->u_copybuffer != NULL && !append_mode)
+	      if (md_user->u_plop.buf && !append_mode)
 		UserFreeCopyBuffer(md_user);
 	      yend = fore->w_height - 1;
 	      if (fore->w_histheight - markdata->hist_offset < fore->w_height)
@@ -923,21 +869,21 @@ int *inlenp;
 	      if (newcopylen > 0)
 		{
 		  /* the +3 below is for : cr + lf + \0 */
-		  if (md_user->u_copybuffer != NULL)
-		    md_user->u_copybuffer = realloc(md_user->u_copybuffer,
-			(unsigned) (md_user->u_copylen + newcopylen + 3));
+		  if (md_user->u_plop.buf)
+		    md_user->u_plop.buf = realloc(md_user->u_plop.buf,
+			(unsigned) (md_user->u_plop.len + newcopylen + 3));
 		  else
 		    {
-		      md_user->u_copylen = 0;
-		      md_user->u_copybuffer = malloc((unsigned) (newcopylen + 3));
+		      md_user->u_plop.len = 0;
+		      md_user->u_plop.buf = malloc((unsigned) (newcopylen + 3));
 		    }
-		  if (md_user->u_copybuffer == NULL)
+		  if (!md_user->u_plop.buf)
 		    {
 		      MarkAbort();
 		      in_mark = 0;
 		      LMsg(0, "Not enough memory... Sorry.");
-		      md_user->u_copylen = 0;
-		      md_user->u_copybuffer = NULL;
+		      md_user->u_plop.len = 0;
+		      md_user->u_plop.buf = 0;
 		      break;
 		    }
 		  if (append_mode)
@@ -950,27 +896,30 @@ int *inlenp;
 			case 0:
 			  if (join_with_cr)
 			    {
-			      md_user->u_copybuffer[md_user->u_copylen] = '\r';
-			      md_user->u_copylen++;
+			      md_user->u_plop.buf[md_user->u_plop.len] = '\r';
+			      md_user->u_plop.len++;
 			    }
-			  md_user->u_copybuffer[md_user->u_copylen] = '\n';
-			  md_user->u_copylen++;
+			  md_user->u_plop.buf[md_user->u_plop.len] = '\n';
+			  md_user->u_plop.len++;
 			  break;
 			case 1:
 			  break;
 			case 2:
-			  md_user->u_copybuffer[md_user->u_copylen] = ' ';
-			  md_user->u_copylen++;
+			  md_user->u_plop.buf[md_user->u_plop.len] = ' ';
+			  md_user->u_plop.len++;
 			  break;
 			case 3:
-			  md_user->u_copybuffer[md_user->u_copylen] = ',';
-			  md_user->u_copylen++;
+			  md_user->u_plop.buf[md_user->u_plop.len] = ',';
+			  md_user->u_plop.len++;
 			  break;
 			}
 		    }
-		  md_user->u_copylen += rem(markdata->x1, markdata->y1, x2, y2,
+		  md_user->u_plop.len += rem(markdata->x1, markdata->y1, x2, y2,
 		    markdata->hist_offset == fore->w_histheight,
-		    md_user->u_copybuffer + md_user->u_copylen, yend);
+		    md_user->u_plop.buf + md_user->u_plop.len, yend);
+#ifdef ENCODINGS
+		  md_user->u_plop.enc = fore->w_encoding;
+#endif
 		}
 	      if (markdata->hist_offset != fore->w_histheight)
 		{
@@ -981,7 +930,7 @@ int *inlenp;
 		LMsg(0, "Appended %d characters to buffer",
 		    newcopylen);
 	      else
-		LMsg(0, "Copied %d characters into buffer", md_user->u_copylen);
+		LMsg(0, "Copied %d characters into buffer", md_user->u_plop.len);
 	      if (write_buffer)
 		WriteFile(md_user, (char *)0, DUMP_EXCHANGE);
 	      in_mark = 0;
@@ -1019,7 +968,7 @@ int tx, ty, line;
   int x, y, t, revst, reven, qq, ff, tt, st, en, ce = 0;
   int ystart = 0, yend = fore->w_height-1;
   int i, ry;
-  char *wi;
+  unsigned char *wi;
   struct mline *ml;
   struct mchar mc;
 
@@ -1034,12 +983,12 @@ int tx, ty, line;
 
   fx = markdata->cx; fy = markdata->cy;
 
-#ifdef KANJI
+#ifdef DW_CHARS
   /* don't just move inside of a kanji, the user wants to see something */
   ml = WIN(ty);
-  if (ty == fy && fx + 1 == tx && badkanji(ml->font, tx) && tx < D_width - 1)
+  if (ty == fy && fx + 1 == tx && dw_right(ml, tx, fore->w_encoding) && tx < D_width - 1)
     tx++;
-  if (ty == fy && fx - 1 == tx && badkanji(ml->font, fx) && tx)
+  if (ty == fy && fx - 1 == tx && dw_right(ml, fx, fore->w_encoding) && tx)
     tx--;
 #endif
 
@@ -1124,18 +1073,16 @@ int tx, ty, line;
 	}
       if (x <= ce && x >= markdata->left_mar && x <= markdata->right_mar)
 	{
-#ifdef KANJI
-	  if (badkanji(ml->font, x))
+#ifdef DW_CHARS
+	  if (dw_right(ml, x, fore->w_encoding))
 	      {
+		if (t == revst)
+		  revst--;
 	        t--;
 		x--;
 	      }
 #endif
-#ifdef KANJI
-	  if (t >= revst - (ml->font[x] == KANJI) && t <= reven)
-#else
 	  if (t >= revst && t <= reven)
-#endif
 	    {
 	      mc = mchar_so;
 #ifdef FONT
@@ -1146,16 +1093,17 @@ int tx, ty, line;
 	    }
 	  else
 	    copy_mline2mchar(&mc, ml, x);
-#ifdef KANJI
-	  if (ml->font[x] == KANJI)
+#ifdef DW_CHARS
+	  if (dw_left(ml, x, fore->w_encoding))
 	    {
 	      mc.mbcs = ml->image[x + 1];
+	      LPutChar(flayer, &mc, x, W2D(y));
 	      t++;
 	    }
 #endif
 	  LPutChar(flayer, &mc, x, W2D(y));
-#ifdef KANJI
-	  if (ml->font[x] == KANJI)
+#ifdef DW_CHARS
+	  if (dw_left(ml, x, fore->w_encoding))
 	    x++;
 #endif
 	}
@@ -1198,7 +1146,7 @@ int isblank;
 {
   int wy, x, i, rm;
   int sta, sto, cp;	/* NOTE: these 3 are in WINDOW coords system */
-  char *wi;
+  unsigned char *wi;
   struct mline *ml;
   struct mchar mchar_marked;
 
@@ -1215,14 +1163,14 @@ int isblank;
 
   if (markdata->second == 0)
     {
+      if (dw_right(ml, xs, fore->w_encoding) && xs > 0)
+	xs--;
+      if (dw_left(ml, xe, fore->w_encoding) && xe < fore->w_width - 1)
+	xe++;
       if (xs == 0 && y > 0 && wy > 0 && WIN(wy - 1)->image[flayer->l_width] == 0)
-	{
-	  struct mchar nc;
-	  copy_mline2mchar(&nc, ml, 0);
-	  LWrapChar(flayer, &nc, y - 1, -1, -1, 0);
-	  xs++;
-	}
-      LCDisplayLine(flayer, ml, y, xs, xe, isblank);
+        LCDisplayLineWrap(flayer, ml, y, xs, xe, isblank);
+      else
+        LCDisplayLine(flayer, ml, y, xs, xe, isblank);
       return;
     }
 
@@ -1244,8 +1192,8 @@ int isblank;
   for (x = xs; x <= xe; x++, cp++)
     if (cp >= sta && x >= markdata->left_mar)
       break;
-#ifdef KANJI
-  if (badkanji(ml->font, x))
+#ifdef DW_CHARS
+  if (dw_right(ml, x, fore->w_encoding))
     x--;
 #endif
   if (x > xs)
@@ -1259,17 +1207,17 @@ int isblank;
 	mchar_marked.font = ml->font[x];
 #endif
       mchar_marked.image = ml->image[x];
-#ifdef KANJI
+#ifdef DW_CHARS
       mchar_marked.mbcs = 0;
-      if (ml->font[x] == KANJI)
+      if (dw_left(ml, x, fore->w_encoding))
 	{
 	  mchar_marked.mbcs = ml->image[x + 1];
 	  cp++;
 	}
 #endif
       LPutChar(flayer, &mchar_marked, x, y);
-#ifdef KANJI
-      if (ml->font[x] == KANJI)
+#ifdef DW_CHARS
+      if (dw_left(ml, x, fore->w_encoding))
 	x++;
 #endif
     }
@@ -1287,7 +1235,7 @@ int ry, xs, xe, doit;
 struct mchar *rend;
 {
   int dx, x, y, st, en, t, rm;
-  char *i;
+  unsigned char *i;
   struct mline *ml;
   struct mchar mchar_marked;
 
@@ -1298,6 +1246,10 @@ struct mchar *rend;
   fore = markdata->md_window;
   y = D2W(ry);
   ml = WIN(y);
+#ifdef UTF8
+  if (fore->w_encoding && fore->w_encoding != UTF8 && D_encoding == UTF8 && ContainsSpecialDeffont(ml, xs, xe, fore->w_encoding))
+    return EXPENSIVE;
+#endif
   dx = xe - xs + 1;
   if (doit)
     {

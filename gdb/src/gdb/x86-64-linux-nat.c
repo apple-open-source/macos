@@ -1,6 +1,6 @@
 /* Native-dependent code for GNU/Linux x86-64.
 
-   Copyright 2001, 2002 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003 Free Software Foundation, Inc.
 
    Contributed by Jiri Smid, SuSE Labs.
 
@@ -25,8 +25,8 @@
 #include "inferior.h"
 #include "gdbcore.h"
 #include "regcache.h"
-#include "i387-nat.h"
 #include "gdb_assert.h"
+#include "gdb_string.h"
 #include "x86-64-tdep.h"
 
 #include <sys/ptrace.h>
@@ -43,7 +43,7 @@ static int x86_64_regmap[] = {
   RSI, RDI, RBP, RSP,
   R8, R9, R10, R11,
   R12, R13, R14, R15,
-  RIP, EFLAGS,
+  RIP, EFLAGS, CS, SS, 
   DS, ES, FS, GS
 };
 
@@ -128,8 +128,6 @@ x86_64_linux_dr_get_status (void)
   (0 <= (regno) && (regno) < x86_64_num_gregs)
 #define GETFPREGS_SUPPLIES(regno) \
   (FP0_REGNUM <= (regno) && (regno) <= MXCSR_REGNUM)
-
-#define PTRACE_XFER_TYPE unsigned long
 
 
 /* Transfering the general-purpose registers between GDB, inferiors
@@ -160,7 +158,7 @@ fill_gregset (elf_gregset_t * gregsetp, int regno)
 
   for (i = 0; i < x86_64_num_gregs; i++)
     if ((regno == -1 || regno == i))
-      read_register_gen (i, regp + x86_64_regmap[i]);
+      deprecated_read_register_gen (i, (char *) (regp + x86_64_regmap[i]));
 }
 
 /* Fetch all general-purpose registers from process/thread TID and
@@ -197,23 +195,73 @@ store_regs (int tid, int regno)
 
 /* Transfering floating-point registers between GDB, inferiors and cores.  */
 
-/* Fill GDB's register array with the floating-point register values in
-   *FPREGSETP.  */
-
-void
-supply_fpregset (elf_fpregset_t * fpregsetp)
+static void *
+x86_64_fxsave_offset (elf_fpregset_t * fxsave, int regnum)
 {
-  i387_supply_fxsave ((char *) fpregsetp);
+  const char *reg_name;
+  int reg_index;
+
+  gdb_assert (x86_64_num_gregs - 1 < regnum && regnum < x86_64_num_regs);
+
+  reg_name = x86_64_register_name (regnum);
+
+  if (reg_name[0] == 's' && reg_name[1] == 't')
+    {
+      reg_index = reg_name[2] - '0';
+      return &fxsave->st_space[reg_index * 2];
+    }
+
+  if (reg_name[0] == 'x' && reg_name[1] == 'm' && reg_name[2] == 'm')
+    {
+      reg_index = reg_name[3] - '0';
+      return &fxsave->xmm_space[reg_index * 4];
+    }
+
+  if (strcmp (reg_name, "mxcsr") == 0)
+    return &fxsave->mxcsr;
+
+  return NULL;
 }
 
-/* Fill register REGNO (if it is a floating-point register) in
-   *FPREGSETP with the value in GDB's register array.  If REGNO is -1,
-   do this for all registers.  */
+/* Fill GDB's register array with the floating-point and SSE register
+   values in *FXSAVE.  This function masks off any of the reserved
+   bits in *FXSAVE.  */
 
 void
-fill_fpregset (elf_fpregset_t * fpregsetp, int regno)
+supply_fpregset (elf_fpregset_t * fxsave)
 {
-  i387_fill_fxsave ((char *) fpregsetp, regno);
+  int i, reg_st0, reg_mxcsr;
+
+  reg_st0 = x86_64_register_number ("st0");
+  reg_mxcsr = x86_64_register_number ("mxcsr");
+
+  gdb_assert (reg_st0 > 0 && reg_mxcsr > reg_st0);
+
+  for (i = reg_st0; i <= reg_mxcsr; i++)
+    supply_register (i, x86_64_fxsave_offset (fxsave, i));
+}
+
+/* Fill register REGNUM (if it is a floating-point or SSE register) in
+   *FXSAVE with the value in GDB's register array.  If REGNUM is -1, do
+   this for all registers.  This function doesn't touch any of the
+   reserved bits in *FXSAVE.  */
+
+void
+fill_fpregset (elf_fpregset_t * fxsave, int regnum)
+{
+  int i, last_regnum = MXCSR_REGNUM;
+  void *ptr;
+
+  if (gdbarch_tdep (current_gdbarch)->num_xmm_regs == 0)
+    last_regnum = FOP_REGNUM;
+
+  for (i = FP0_REGNUM; i <= last_regnum; i++)
+    if (regnum == -1 || regnum == i)
+      {
+	ptr = x86_64_fxsave_offset (fxsave, i);
+	if (ptr)
+	  regcache_collect (i, ptr);
+      }
 }
 
 /* Fetch all floating-point registers from process/thread TID and store
@@ -344,164 +392,7 @@ static const unsigned char linux_syscall[] = { 0x0f, 0x05 };
 /* Offset to saved processor registers from <asm/ucontext.h> */
 #define LINUX_UCONTEXT_SIGCONTEXT_OFFSET (36)
 
-/* Resume execution of the inferior process.
-   If STEP is nonzero, single-step it.
-   If SIGNAL is nonzero, give it that signal.  */
-
-void
-child_resume (ptid_t ptid, int step, enum target_signal signal)
-{
-  int pid = PIDGET (ptid);
-  int request = PTRACE_CONT;
-
-  if (pid == -1)
-    /* Resume all threads.  */
-    /* I think this only gets used in the non-threaded case, where "resume
-       all threads" and "resume inferior_ptid" are the same.  */
-    pid = PIDGET (inferior_ptid);
-
-  if (step)
-    {
-      CORE_ADDR pc = read_pc_pid (pid_to_ptid (pid));
-      unsigned char buf[LINUX_SYSCALL_LEN];
-
-      request = PTRACE_SINGLESTEP;
-
-      /* Returning from a signal trampoline is done by calling a
-         special system call (sigreturn or rt_sigreturn, see
-         i386-linux-tdep.c for more information).  This system call
-         restores the registers that were saved when the signal was
-         raised, including %eflags.  That means that single-stepping
-         won't work.  Instead, we'll have to modify the signal context
-         that's about to be restored, and set the trace flag there.  */
-
-      /* First check if PC is at a system call.  */
-      if (read_memory_nobpt (pc, (char *) buf, LINUX_SYSCALL_LEN) == 0
-	  && memcmp (buf, linux_syscall, LINUX_SYSCALL_LEN) == 0)
-	{
-	  int syscall =
-	    read_register_pid (LINUX_SYSCALL_REGNUM, pid_to_ptid (pid));
-
-	  /* Then check the system call number.  */
-	  if (syscall == SYS_rt_sigreturn)
-	    {
-	      CORE_ADDR sp = read_register (SP_REGNUM);
-	      CORE_ADDR addr = sp;
-	      unsigned long int eflags;
-
-	      addr +=
-		sizeof (struct siginfo) + LINUX_UCONTEXT_SIGCONTEXT_OFFSET;
-
-	      /* Set the trace flag in the context that's about to be
-	         restored.  */
-	      addr += LINUX_SIGCONTEXT_EFLAGS_OFFSET;
-	      read_memory (addr, (char *) &eflags, 8);
-	      eflags |= 0x0100;
-	      write_memory (addr, (char *) &eflags, 8);
-	    }
-	}
-    }
-
-  if (ptrace (request, pid, 0, target_signal_to_host (signal)) == -1)
-    perror_with_name ("ptrace");
-}
-
-
-/* Copy LEN bytes to or from inferior's memory starting at MEMADDR
-   to debugger memory starting at MYADDR.   Copy to inferior if
-   WRITE is nonzero.  TARGET is ignored.
-
-   Returns the length copied, which is either the LEN argument or zero.
-   This xfer function does not do partial moves, since child_ops
-   doesn't allow memory operations to cross below us in the target stack
-   anyway.  */
-
-int
-child_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int write,
-		   struct mem_attrib *attrib, struct target_ops *target)
-{
-  register int i;
-  /* Round starting address down to longword boundary.  */
-  register CORE_ADDR addr = memaddr & -sizeof (PTRACE_XFER_TYPE);
-  /* Round ending address up; get number of longwords that makes.  */
-  register int count
-    = (((memaddr + len) - addr) + sizeof (PTRACE_XFER_TYPE) - 1)
-    / sizeof (PTRACE_XFER_TYPE);
-  /* Allocate buffer of that many longwords.  */
-  /* FIXME (alloca): This code, cloned from infptrace.c, is unsafe
-     because it uses alloca to allocate a buffer of arbitrary size.
-     For very large xfers, this could crash GDB's stack.  */
-  register PTRACE_XFER_TYPE *buffer
-    = (PTRACE_XFER_TYPE *) alloca (count * sizeof (PTRACE_XFER_TYPE));
-
-  if (write)
-    {
-      /* Fill start and end extra bytes of buffer with existing memory data.  */
-      if (addr != memaddr || len < (int) sizeof (PTRACE_XFER_TYPE))
-	{
-	  /* Need part of initial word -- fetch it.  */
-	  buffer[0] = ptrace (PT_READ_I, PIDGET (inferior_ptid),
-			      (PTRACE_ARG3_TYPE) addr, 0);
-	}
-
-      if (count > 1)		/* FIXME, avoid if even boundary */
-	{
-	  buffer[count - 1] = ptrace (PT_READ_I, PIDGET (inferior_ptid),
-				      ((PTRACE_ARG3_TYPE)
-				       (addr +
-					(count -
-					 1) * sizeof (PTRACE_XFER_TYPE))), 0);
-	}
-
-      /* Copy data to be written over corresponding part of buffer */
-
-      memcpy ((char *) buffer + (memaddr & (sizeof (PTRACE_XFER_TYPE) - 1)),
-	      myaddr, len);
-
-      /* Write the entire buffer.  */
-
-      for (i = 0; i < count; i++, addr += sizeof (PTRACE_XFER_TYPE))
-	{
-	  errno = 0;
-	  ptrace (PT_WRITE_D, PIDGET (inferior_ptid),
-		  (PTRACE_ARG3_TYPE) addr, buffer[i]);
-	  if (errno)
-	    {
-	      /* Using the appropriate one (I or D) is necessary for
-	         Gould NP1, at least.  */
-	      errno = 0;
-	      ptrace (PT_WRITE_I, PIDGET (inferior_ptid),
-		      (PTRACE_ARG3_TYPE) addr, buffer[i]);
-	    }
-	  if (errno)
-	    return 0;
-	}
-#ifdef CLEAR_INSN_CACHE
-      CLEAR_INSN_CACHE ();
-#endif
-    }
-  else
-    {
-      /* Read all the longwords */
-      for (i = 0; i < count; i++, addr += sizeof (PTRACE_XFER_TYPE))
-	{
-	  errno = 0;
-	  buffer[i] = ptrace (PT_READ_I, PIDGET (inferior_ptid),
-			      (PTRACE_ARG3_TYPE) addr, 0);
-	  if (errno)
-	    return 0;
-	}
-
-      /* Copy appropriate bytes out of the buffer.  */
-      memcpy (myaddr,
-	      (char *) buffer + (memaddr & (sizeof (PTRACE_XFER_TYPE) - 1)),
-	      len);
-    }
-  return len;
-}
-
 /* Interpreting register set info found in core files.  */
-
 /* Provide registers to GDB from a core file.
 
    CORE_REG_SECT points to an array of bytes, which are the contents
@@ -565,12 +456,6 @@ static struct core_fns linux_elf_core_fns = {
 #define offsetof(TYPE, MEMBER) ((unsigned long) &((TYPE *)0)->MEMBER)
 #endif
 
-/* Record the value of the debug control register.  */
-static long debug_control_mirror;
-
-/* Record which address associates with which register.  */
-static CORE_ADDR address_lookup[DR_LASTADDR - DR_FIRSTADDR + 1];
-
 /* Return the address of register REGNUM.  BLOCKEND is the value of
    u.u_ar0, which should point to the registers.  */
 CORE_ADDR
@@ -598,4 +483,10 @@ void
 _initialize_x86_64_linux_nat (void)
 {
   add_core_fns (&linux_elf_core_fns);
+}
+
+int
+kernel_u_size (void)
+{
+  return (sizeof (struct user));
 }

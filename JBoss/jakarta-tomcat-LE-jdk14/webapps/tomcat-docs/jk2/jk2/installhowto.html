@@ -1,0 +1,459 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html xmlns="http://www.w3.org/TR/xhtml1/strict">
+<head>
+<title>Installation of jk2 in the Web Server</title>
+<meta content="1999-2002 The Apache Software Foundation" name="copyright"/>
+<meta content="$Date: 2002/10/07 07:48:42 $" name="last-changed"/>
+<meta content="Jean-Frederic Clere" name="author"/>
+<meta content="jfrederic.clere@fujitsu-siemens.com" name="email"/>
+<link href="..//style.css" type="text/css" rel="stylesheet"/>
+<link href="../images/tomcat.ico" rel="shortcut icon"/>
+</head>
+<body link="#525D76" vlink="#525D76" alink="#525D76" text="#000000" bgcolor="#ffffff">
+<a name="TOP"/>
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr height="1">
+<td class="nil" height="1" bgcolor="#ffffff" width="150">
+<img hspace="0" vspace="0" height="1" width="150" border="0" src="../images/pixel.gif"/>
+</td>
+<td class="nil" height="1" bgcolor="#ffffff" width="*">
+<img hspace="0" vspace="0" height="1" width="370" border="0" src="../images/pixel.gif"/>
+</td>
+</tr>
+<tr>
+<td width="*" colspan="2" class="logo" bgcolor="#ffffff">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left">
+<img align="left" height="48" width="505" border="0" src="../images/jakarta.gif"/>
+</td>
+<td align="right">
+<img align="right" border="0" src="../images/mod_jk.jpg"/>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td colspan="2" width="*" align="right" class="head" bgcolor="#999999">
+<nobr>
+<a href="http://www.apache.org/" class="head">Apache Software Foundation</a> |
+                <a href="http://jakarta.apache.org/" class="head">Jakarta Project</a> |
+                <a href="http://jakarta.apache.org/tomcat/" class="head">Apache Tomcat</a>
+</nobr>
+</td>
+</tr>
+<tr>
+<td valign="top" width="150" bgcolor="#ffffff">
+<table class="menu" cellpadding="0" cellspacing="0" width="150" border="0">
+<tr height="1">
+<td class="nil" height="1" bgcolor="#cccccc" width="10">
+<img hspace="0" vspace="0" height="1" width="10" border="0" src="../images/pixel.gif"/>
+</td>
+<td class="nil" height="1" bgcolor="#cccccc" width="140">
+<img hspace="0" vspace="0" height="1" width="140" border="0" src="../images/pixel.gif"/>
+</td>
+</tr>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Presentation</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../index.html">Overview</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Commons</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../common/AJPv13.html">AJPv13</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../common/AJPv13-extensions-proposal.html">AJPv13 extensions Proposal</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../faq.html">FAQ</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">JK</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/quickhowto.html">Quick Start HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/aphowto.html">Apache HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/domhowto.html">Domino HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/iishowto.html">IIS HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/neshowto.html">Netscape/iPlanet HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/workershowto.html">Workers HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">JK2</td>
+</tr>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Configuration in the Tomcat</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configtc.html">Configuration options</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configtcex.html">Examples</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Configuration in the Web Server</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configweb.html">Configuration file</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configwebcom.html">Components</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configwebex.html">Examples</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Installation</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/installhowto.html">Installation of jk2 in the Web Server</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Installation" class="menu">Installation</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Howto</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/confighowto.html">Quick Start JK2 Configuration Guide</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+</table>
+</td>
+<td class="body" valign="top" width="*" bgcolor="#ffffff">
+<a name="Installation">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Installation</td>
+</tr>
+</table>
+</a>
+<p class="section">
+      The actual build mechanism creates the dso files in the
+      build/jk2/${servername} subdirectory of the jakarta-tomcat-connectors/jk.
+      When configure --with-jni is used 2 dso files are created.
+      These files have to be copied in the right location of the web server
+      installation.
+    </p>
+<p class="section">
+      JNI support in JK2 require APR, which is provded in Apache 2.0, and is
+      available for many platforms, so Apache 1.3, IIS and NES/iPlanet should be
+      able to use it
+    </p>
+<a name="sub_Apache 1.3">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Apache 1.3</td>
+</tr>
+</table>
+</a>
+<p class="section">
+        In the following example Apache-1.3 is installed in
+        /home/apache13/ and the commands are executed in
+        the jakarta-tomcat-connectors directory.
+      </p>
+<p class="section">
+        Apache 1.3 require APR, and if APR has been built with pthread support
+        and your Apache 1.3 wasn't (general case in Unix platforms) you should :
+        <ul>
+<li>
+        Rebuild Apache 1.3 with pthread support (recommanded)
+        </li>
+<li>
+        Add the LoadFile /usr/lib/pthread.so in beginning of your httpd.conf
+        </li>
+</ul>
+      </p>
+<p class="section">
+        You should also ensure that the linker will be able to locate the apr shared libraries,
+        <b class="code">libapr.so</b>, and <b class="code">libaprutil.so</b>, make sure they have been installed
+        in linker search locations.
+      </p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen">Copy the dso files in the modules location:</div>
+<code>
+<nobr>
+<em class="screen">[user@host] ~ $ </em>
+<b class="screen">cp jk/build/jk2/apache13/mod_jk2.so /home/apache13/modules</b>
+</nobr>
+</code>
+<br/>
+<div class="screen">Copy jkjni.so if you're using JNI</div>
+<code>
+<nobr>
+<em class="screen">[user@host] ~ $ </em>
+<b class="screen">cp jk/build/jk2/apache13/jkjni.so /home/apache13/modules</b>
+</nobr>
+</code>
+<br/>
+<div class="screen">You may have to add pthread library in the httpd.conf:</div>
+<code class="screen">
+<nobr>LoadFile /usr/lib/pthread.so</nobr>
+</code>
+<br/>
+<div class="screen">Add mod_jk2 loading in the httpd.conf</div>
+<code class="screen">
+<nobr>LoadModule jk2_module modules/mod_jk2.so</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<br/>
+<a name="sub_Apache 2">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Apache 2</td>
+</tr>
+</table>
+</a>
+<p class="section">
+        In the following example Apache-2.0 is installed in
+        /home/apache20/apache40 and the commands are executed in
+        the jakarta-tomcat-connectors directory.
+      </p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen">Copy the dso files in the modules location:</div>
+<code>
+<nobr>
+<em class="screen">[user@host] ~ $ </em>
+<b class="screen">cp jk/build/jk2/apache2/mod_jk2.so /home/apache20/apache40/modules</b>
+</nobr>
+</code>
+<br/>
+<div class="screen">Copy jkjni.so if you're using JNI</div>
+<code>
+<nobr>
+<em class="screen">[user@host] ~ $ </em>
+<b class="screen">cp jk/build/jk2/apache2/jkjni.so /home/apache20/apache40/modules</b>
+</nobr>
+</code>
+<br/>
+<div class="screen">Add mod_jk2 loading in the httpd.conf:</div>
+<code class="screen">
+<nobr>LoadModule jk2_module modules/mod_jk2.so</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<br/>
+<a name="sub_IIS">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>IIS</td>
+</tr>
+</table>
+</a>
+<p class="section">A pre-built version of the ISAPI redirector server plugin, isapi_redirector2.dll,
+        is available under the win32/i386 directory of jakarta-tomcat-connectors distribution.
+        You can also build a copy locally from the source present in jakarta-tomcat-connectors
+        distribution.<br/>The Tomcat redirector requires three entities:
+            <ul>
+<li>
+            <b>
+<font color="#333333">isapi_redirector2.dll</font>
+</b> - The IIS server plugin, either obtain a pre-built DLL or build it yourself (see the build section).
+            </li>
+<li>
+            <b>
+<font color="#333333">workers2.properties</font>
+</b> - A file that describes the host(s) and port(s) used by the workers (Tomcat processes). 
+                A sample workers2.properties can be found under the conf directory.
+            </li>
+<li>
+            <b>
+<font color="#333333">jk2.properties</font>
+</b> - A configuration file used by mod_jk2 on the Tomcat side.
+            </li>
+</ul>
+        </p>
+<p class="section">
+            <ol>
+<li>In the registry, create a new registry key named
+            <b>
+<font color="#333333">"HKEY_LOCAL_MACHINE\SOFTWARE\Apache Software Foundation\Jakarta Isapi Redirector\2.0"</font>
+</b>
+            </li>
+<li>
+            Add a string value with the name <b>
+<font color="#333333">serverRoot</font>
+</b> and a value which is a full path
+            to your Tomcat installation (for example <b>
+<font color="#333333">c:\jakarta-tomcat</font>
+</b>)
+            </li>
+<li>
+            Add a string value with the name <b>
+<font color="#333333">extensionUri</font>
+</b> and a value of <b>
+<font color="#333333">/jakarta/isapi_redirector2.dll</font>
+</b>
+            </li>
+<li>
+            Add a string value with the name <b>
+<font color="#333333">workersFile</font>
+</b> and a value which is the full path 
+            to your workers2.properties file (for example <b>
+<font color="#333333">c:\jakarta-tomcat\conf\workers2.properties</font>
+</b>)
+            </li>
+<li>
+            Add a string value with the name <b>
+<font color="#333333">logLevel</font>
+</b> and a value for your log level 
+            (can be DEBUG, INFO or ERROR).
+            </li>
+<li>Using the IIS management console, add a new virtual directory to your IIS web site.
+            The name of the virtual directory must be jakarta. 
+            Its physical path should be the directory where you placed isapi_redirector2.dll 
+            While creating this new virtual directory assign it with execute access.
+            </li>
+<li>
+            Using the IIS management console, add isapi_redirector2.dll as a filter in your IIS web site. 
+            The name of the filter should reflect its task (I use the name jakarta), 
+            its executable must full path to the isapi_redirector2.dll. 
+            </li>
+</ol>        
+        </p>
+<p class="section">
+        That's all, you should now start Tomcat and ask IIS to serve you the /examples context. 
+        Try <b>
+<a href="http://localhost/examples/jsp/index.html">http://localhost/examples/jsp/index.html</a>
+</b> for example and 
+        execute some of the JSP examples. 
+        </p>
+<br/>
+<br/>
+</td>
+</tr>
+</table>
+</body>
+</html>

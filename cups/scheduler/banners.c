@@ -1,9 +1,9 @@
 /*
- * "$Id: banners.c,v 1.1.1.3 2002/06/06 22:13:14 jlovell Exp $"
+ * "$Id: banners.c,v 1.1.1.9 2003/07/16 17:22:01 jlovell Exp $"
  *
  *   Banner routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -59,7 +59,7 @@ AddBanner(const char *name,	/* I - Name of banner */
   * See what the filetype is...
   */
 
-  if ((filetype = mimeFileType(MimeDatabase, filename)) == NULL)
+  if ((filetype = mimeFileType(MimeDatabase, filename, NULL)) == NULL)
   {
     LogMessage(L_WARN, "AddBanner: Banner \"%s\" is of an unknown file type - skipping!",
                name);
@@ -162,7 +162,7 @@ LoadBanners(const char *d)	/* I - Directory to search */
 
     if (stat(filename, &fileinfo))
     {
-      LogMessage(L_WARN, "LoadBanners: Unable to state \"%s\" banner: %s",
+      LogMessage(L_WARN, "LoadBanners: Unable to stat \"%s\" banner: %s",
                  dent->d_name, strerror(errno));
       continue;
     }
@@ -211,5 +211,5 @@ compare(const banner_t *b0,	/* I - First banner */
 
 
 /*
- * End of "$Id: banners.c,v 1.1.1.3 2002/06/06 22:13:14 jlovell Exp $".
+ * End of "$Id: banners.c,v 1.1.1.9 2003/07/16 17:22:01 jlovell Exp $".
  */

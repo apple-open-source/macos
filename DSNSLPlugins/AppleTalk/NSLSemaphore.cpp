@@ -1,55 +1,37 @@
-/******************************************************************************
-	File:		NSLSemaphore.cpp
-
-	Contains:	Implementation of the NSLSemaphore (lock) base class.
-				IMPORTANT:
-				* This is an independently derived implementation,
-				* OPTIMIZED FOR MAC OS X'S POSIX THREADS,
-				* of Metrowerks' PowerPlant Thread classes, which likely
-				* makes the class and method names in this header file also
-				* copyright Metrowerks.
-
-	Version:	$Revision: 1.2 $
-
-	Copyright:	© 1998-1999 by Apple Computer, Inc., all rights reserved.
-
-	File Ownership:
-		DRI:				Chris Jalbert
-		Other Contact:		Michael Dasenbrock
-		Technology:			RAdmin, AppleShare X; Directory Services, Mac OS X
-
-	Writers:
-		(cpj)	Chris Jalbert
-
-	Change History (most recent first):
-
-		 <6>	 09/16/99	cpj		Rolled in Andrea's timeout fixes.
-									Stripped out cthread (Hera) version.
-		 <5>	 09/04/99	cpj		Added namespace qualifiers.
-		 <4>	 06/26/99	cpj		Ported to Beaker. Code compiles.
-		 <1>	 07/13/98	cpj		Initial checkin.
-		 <0>	 02/10/98	cpj		Initial creation.
- *****************************************************************************/
-
-
+/*
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+ 
+/*!
+ *  @header NSLSemaphore
+ */
+ 
 // ANSI / POSIX Headers
 #include <sys/time.h>	// for struct timespec and gettimeofday()
 
 // Project Headers
 #include "NSLSemaphore.h"
-
-#if 0
-#if !(TARGET_OS_MAC && TARGET_API_MAC_OSX)
-#error "This is implementation is only for Mac OS X!"
-#endif	/* !(TARGET_OS_UNIX && TARGET_API_MAC_OSX) */
-
-#ifndef _POSIX_THREADS
-#error "pthread implementation not available!"
-#endif	/* _POSIX_THREADS */
-#endif
-
-//using namespace PowerPlant ;
-
 
 /******************************************************************************
 	==>  NSLSemaphore class implementation  <==

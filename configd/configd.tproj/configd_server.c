@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -43,67 +46,67 @@
 extern struct rpc_subsystem	_config_subsystem;
 extern boolean_t		config_server(mach_msg_header_t *, mach_msg_header_t *);
 
-/* server state information */
-CFMachPortRef			configd_port;		/* configd server port (for new session requests) */
+/* configd server port (for new session requests) */
+static CFMachPortRef		configd_port		= NULL;
 
+/* priviledged bootstrap port (for registering/unregistering w/mach_init) */
+static mach_port_t		priv_bootstrap_port	= MACH_PORT_NULL;
 
+__private_extern__
 boolean_t
 config_demux(mach_msg_header_t *request, mach_msg_header_t *reply)
 {
 	Boolean				processed = FALSE;
+	serverSessionRef		thisSession;
 	mach_msg_format_0_trailer_t	*trailer;
 
-	/* Feed the request into the ("MiG" generated) server */
-	if (!processed &&
-	    (request->msgh_id >= _config_subsystem.start && request->msgh_id < _config_subsystem.end)) {
-		serverSessionRef	thisSession;
-
-		thisSession = getSession(request->msgh_local_port);
-		if (thisSession) {
-			/*
-			 * Get the caller's credentials (eUID/eGID) from the message trailer.
-			 */
-			trailer = (mach_msg_security_trailer_t *)((vm_offset_t)request +
-								  round_msg(request->msgh_size));
-
-			if ((trailer->msgh_trailer_type == MACH_MSG_TRAILER_FORMAT_0) &&
-			    (trailer->msgh_trailer_size >= MACH_MSG_TRAILER_FORMAT_0_SIZE)) {
-				thisSession->callerEUID = trailer->msgh_sender.val[0];
-				thisSession->callerEGID = trailer->msgh_sender.val[1];
-				SCLog(_configd_verbose, LOG_DEBUG, CFSTR("caller has eUID = %d, eGID = %d"),
-				       thisSession->callerEUID,
-				       thisSession->callerEGID);
-			} else {
-				static Boolean warned	= FALSE;
-
-				if (!warned) {
-					SCLog(_configd_verbose, LOG_WARNING, CFSTR("caller's credentials not available."));
-					warned = TRUE;
-				}
-				thisSession->callerEUID = 0;
-				thisSession->callerEGID = 0;
-			}
-	       }
-
+	thisSession = getSession(request->msgh_local_port);
+	if (thisSession) {
 		/*
-		 * Process configd requests.
+		 * Get the caller's credentials (eUID/eGID) from the message trailer.
 		 */
-		processed = config_server(request, reply);
+		trailer = (mach_msg_security_trailer_t *)((vm_offset_t)request +
+							  round_msg(request->msgh_size));
+
+		if ((trailer->msgh_trailer_type == MACH_MSG_TRAILER_FORMAT_0) &&
+		    (trailer->msgh_trailer_size >= MACH_MSG_TRAILER_FORMAT_0_SIZE)) {
+			thisSession->callerEUID = trailer->msgh_sender.val[0];
+			thisSession->callerEGID = trailer->msgh_sender.val[1];
+			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("caller has eUID = %d, eGID = %d"),
+			       thisSession->callerEUID,
+			       thisSession->callerEGID);
+		} else {
+			static Boolean warned	= FALSE;
+
+			if (!warned) {
+				SCLog(_configd_verbose, LOG_WARNING, CFSTR("caller's credentials not available."));
+				warned = TRUE;
+			}
+			thisSession->callerEUID = 0;
+			thisSession->callerEGID = 0;
+		}
 	}
 
-	if (!processed &&
-	    (request->msgh_id >= MACH_NOTIFY_FIRST && request->msgh_id < MACH_NOTIFY_LAST)) {
+	/*
+	 * (attemp to) process configd requests.
+	 */
+	processed = config_server(request, reply);
+
+	if (!processed) {
+		/*
+		 * (attempt to) process (NO MORE SENDERS) notification messages.
+		 */
 		processed = notify_server(request, reply);
 	}
 
 	if (!processed) {
 		SCLog(TRUE, LOG_ERR, CFSTR("unknown message ID (%d) received"), request->msgh_id);
 
-		reply->msgh_bits = MACH_MSGH_BITS(MACH_MSGH_BITS_REMOTE(request->msgh_bits), 0);
+		reply->msgh_bits        = MACH_MSGH_BITS(MACH_MSGH_BITS_REMOTE(request->msgh_bits), 0);
 		reply->msgh_remote_port = request->msgh_remote_port;
-		reply->msgh_size = sizeof(mig_reply_error_t);	/* Minimal size */
-		reply->msgh_local_port = MACH_PORT_NULL;
-		reply->msgh_id = request->msgh_id;
+		reply->msgh_size        = sizeof(mig_reply_error_t);	/* Minimal size */
+		reply->msgh_local_port  = MACH_PORT_NULL;
+		reply->msgh_id          = request->msgh_id + 100;
 		((mig_reply_error_t *)reply)->NDR = NDR_record;
 		((mig_reply_error_t *)reply)->RetCode = MIG_BAD_ID;
 	}
@@ -112,101 +115,106 @@ config_demux(mach_msg_header_t *request, mach_msg_header_t *reply)
 }
 
 
+#define	MACH_MSG_BUFFER_SIZE	128
+
+
+__private_extern__
 void
 configdCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 {
-	mig_reply_error_t	*bufRequest = msg;
-	mig_reply_error_t	*bufReply   = CFAllocatorAllocate(NULL, _config_subsystem.maxsize, 0);
+	mig_reply_error_t *	bufRequest	= msg;
+	uint32_t		bufReply_q[MACH_MSG_BUFFER_SIZE/sizeof(uint32_t)];
+	mig_reply_error_t *	bufReply	= (mig_reply_error_t *)bufReply_q;
 	mach_msg_return_t	mr;
 	int			options;
+
+	if (_config_subsystem.maxsize > sizeof(bufReply_q)) {
+		static Boolean warned = FALSE;
+
+		if (!warned) {
+			SCLog(_configd_verbose, LOG_NOTICE,
+			      CFSTR("configdCallback(): buffer size should be increased > %d"),
+			      _config_subsystem.maxsize);
+			warned = TRUE;
+		}
+		bufReply = CFAllocatorAllocate(NULL, _config_subsystem.maxsize, 0);
+	}
 
 	/* we have a request message */
 	(void) config_demux(&bufRequest->Head, &bufReply->Head);
 
-	if (!(bufReply->Head.msgh_bits & MACH_MSGH_BITS_COMPLEX) && (bufReply->RetCode != KERN_SUCCESS)) {
-
+	if (!(bufReply->Head.msgh_bits & MACH_MSGH_BITS_COMPLEX)) {
 		if (bufReply->RetCode == MIG_NO_REPLY) {
+			bufReply->Head.msgh_remote_port = MACH_PORT_NULL;
+		} else if ((bufReply->RetCode != KERN_SUCCESS) &&
+			   (bufRequest->Head.msgh_bits & MACH_MSGH_BITS_COMPLEX)) {
 			/*
-			 * This return code is a little tricky -- it appears that the
-			 * demux routine found an error of some sort, but since that
-			 * error would not normally get returned either to the local
-			 * user or the remote one, we pretend it's ok.
+			 * destroy the request - but not the reply port
 			 */
-			CFAllocatorDeallocate(NULL, bufReply);
-			return;
+			bufRequest->Head.msgh_remote_port = MACH_PORT_NULL;
+			mach_msg_destroy(&bufRequest->Head);
 		}
+	}
 
+	if (bufReply->Head.msgh_remote_port != MACH_PORT_NULL) {
 		/*
-		 * destroy any out-of-line data in the request buffer but don't destroy
-		 * the reply port right (since we need that to send an error message).
+		 * send reply.
+		 *
+		 * We don't want to block indefinitely because the client
+		 * isn't receiving messages from the reply port.
+		 * If we have a send-once right for the reply port, then
+		 * this isn't a concern because the send won't block.
+		 * If we have a send right, we need to use MACH_SEND_TIMEOUT.
+		 * To avoid falling off the kernel's fast RPC path unnecessarily,
+		 * we only supply MACH_SEND_TIMEOUT when absolutely necessary.
 		 */
-		bufRequest->Head.msgh_remote_port = MACH_PORT_NULL;
-		mach_msg_destroy(&bufRequest->Head);
-	}
 
-	if (bufReply->Head.msgh_remote_port == MACH_PORT_NULL) {
-		/* no reply port, so destroy the reply */
-		if (bufReply->Head.msgh_bits & MACH_MSGH_BITS_COMPLEX) {
-			mach_msg_destroy(&bufReply->Head);
+		options = MACH_SEND_MSG;
+		if (MACH_MSGH_BITS_REMOTE(bufReply->Head.msgh_bits) != MACH_MSG_TYPE_MOVE_SEND_ONCE) {
+			options |= MACH_SEND_TIMEOUT;
 		}
+		mr = mach_msg(&bufReply->Head,		/* msg */
+			      options,			/* option */
+			      bufReply->Head.msgh_size,	/* send_size */
+			      0,			/* rcv_size */
+			      MACH_PORT_NULL,		/* rcv_name */
+			      MACH_MSG_TIMEOUT_NONE,	/* timeout */
+			      MACH_PORT_NULL);		/* notify */
+
+		/* Has a message error occurred? */
+		switch (mr) {
+			case MACH_SEND_INVALID_DEST:
+			case MACH_SEND_TIMED_OUT:
+				break;
+			default :
+				/* Includes success case.  */
+				goto done;
+		}
+	}
+
+	if (bufReply->Head.msgh_bits & MACH_MSGH_BITS_COMPLEX) {
+		mach_msg_destroy(&bufReply->Head);
+	}
+
+    done :
+
+	if (bufReply != (mig_reply_error_t *)bufReply_q)
 		CFAllocatorDeallocate(NULL, bufReply);
-		return;
-	}
-
-	/*
-	 * send reply.
-	 *
-	 * We don't want to block indefinitely because the client
-	 * isn't receiving messages from the reply port.
-	 * If we have a send-once right for the reply port, then
-	 * this isn't a concern because the send won't block.
-	 * If we have a send right, we need to use MACH_SEND_TIMEOUT.
-	 * To avoid falling off the kernel's fast RPC path unnecessarily,
-	 * we only supply MACH_SEND_TIMEOUT when absolutely necessary.
-	 */
-
-	options = MACH_SEND_MSG;
-	if (MACH_MSGH_BITS_REMOTE(bufReply->Head.msgh_bits) == MACH_MSG_TYPE_MOVE_SEND_ONCE) {
-		options |= MACH_SEND_TIMEOUT;
-	}
-	mr = mach_msg(&bufReply->Head,		/* msg */
-		      options,			/* option */
-		      bufReply->Head.msgh_size,	/* send_size */
-		      0,			/* rcv_size */
-		      MACH_PORT_NULL,		/* rcv_name */
-		      MACH_MSG_TIMEOUT_NONE,	/* timeout */
-		      MACH_PORT_NULL);		/* notify */
-
-
-	/* Has a message error occurred? */
-	switch (mr) {
-		case MACH_SEND_INVALID_DEST:
-		case MACH_SEND_TIMED_OUT:
-			/* the reply can't be delivered, so destroy it */
-			mach_msg_destroy(&bufReply->Head);
-			break;
-
-		default :
-			/* Includes success case.  */
-			break;
-	}
-
-	CFAllocatorDeallocate(NULL, bufReply);
 	return;
 }
 
 
+__private_extern__
 boolean_t
-server_active()
+server_active(mach_port_t *restart_service_port)
 {
-	boolean_t		active;
 	mach_port_t		bootstrap_port;
-	char			*server_name;
+	char			*service_name;
 	kern_return_t 		status;
 
-	server_name = getenv("SCD_SERVER");
-	if (!server_name) {
-		server_name = SCD_SERVER;
+	service_name = getenv("SCD_SERVER");
+	if (!service_name) {
+		service_name = SCD_SERVER;
 	}
 
 	/* Getting bootstrap server port */
@@ -218,65 +226,122 @@ server_active()
 	}
 
 	/* Check "configd" server status */
-	status = bootstrap_status(bootstrap_port, server_name, &active);
+	status = bootstrap_check_in(bootstrap_port, service_name, restart_service_port);
 	switch (status) {
 		case BOOTSTRAP_SUCCESS :
-			if (active) {
-				fprintf(stderr, "configd: '%s' server already active\n",
-					server_name);
-				return TRUE;
-			}
+			/* if we are being restarted by mach_init */
+			priv_bootstrap_port = bootstrap_port;
 			break;
+		case BOOTSTRAP_SERVICE_ACTIVE :
+		case BOOTSTRAP_NOT_PRIVILEGED :
+			/* if another instance of the server is active (or starting) */
+			fprintf(stderr, "'%s' server already active\n",
+				service_name);
+			return TRUE;
 		case BOOTSTRAP_UNKNOWN_SERVICE :
+			/* if the server is not currently registered/active */
+			*restart_service_port = MACH_PORT_NULL;
 			break;
 		default :
-			fprintf(stderr, "bootstrap_status(): %s\n",
-				mach_error_string(status));
+			fprintf(stderr, "bootstrap_check_in() failed: status=%d\n", status);
 			exit (EX_UNAVAILABLE);
 	}
+
 	return FALSE;
 }
 
+
+__private_extern__
 void
-server_init()
+server_init(mach_port_t	restart_service_port, Boolean enableRestart)
 {
-	boolean_t		active;
 	mach_port_t		bootstrap_port;
 	CFRunLoopSourceRef	rls;
-	char			*server_name;
+	char			*service_name;
+	mach_port_t		service_port	= restart_service_port;
 	kern_return_t 		status;
 
-	server_name = getenv("SCD_SERVER");
-	if (!server_name) {
-		server_name = SCD_SERVER;
+	service_name = getenv("SCD_SERVER");
+	if (!service_name) {
+		service_name = SCD_SERVER;
 	}
 
 	/* Getting bootstrap server port */
 	status = task_get_bootstrap_port(mach_task_self(), &bootstrap_port);
 	if (status != KERN_SUCCESS) {
-		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("task_get_bootstrap_port(): %s"), mach_error_string(status));
+		SCLog(TRUE, LOG_ERR, CFSTR("task_get_bootstrap_port(): %s"), mach_error_string(status));
 		exit (EX_UNAVAILABLE);
 	}
 
-	/* Check "configd" server status */
-	status = bootstrap_status(bootstrap_port, server_name, &active);
-	switch (status) {
-		case BOOTSTRAP_SUCCESS :
-			if (active) {
-				SCLog(_configd_verbose, LOG_DEBUG, CFSTR("\"%s\" is currently active, exiting."), server_name);
+	if (service_port == MACH_PORT_NULL) {
+		mach_port_t	service_send_port;
+
+		/* Check "configd" server status */
+		status = bootstrap_check_in(bootstrap_port, service_name, &service_port);
+		switch (status) {
+			case BOOTSTRAP_SUCCESS :
+				/* if we are being restarted by mach_init */
+				priv_bootstrap_port = bootstrap_port;
+				break;
+			case BOOTSTRAP_NOT_PRIVILEGED :
+				/* if another instance of the server is starting */
+				SCLog(TRUE, LOG_ERR, CFSTR("'%s' server already starting"), service_name);
 				exit (EX_UNAVAILABLE);
-			}
-			break;
-		case BOOTSTRAP_UNKNOWN_SERVICE :
-			/* service not currently registered, "a good thing" (tm) */
-			break;
-		default :
-			fprintf(stderr, "bootstrap_status(): %s\n", mach_error_string(status));
-			exit (EX_UNAVAILABLE);
+			case BOOTSTRAP_UNKNOWN_SERVICE :
+				/* service not currently registered, "a good thing" (tm) */
+				if (enableRestart) {
+					status = bootstrap_create_server(bootstrap_port,
+									 "/usr/sbin/configd",
+									 geteuid(),
+									 FALSE,		/* not onDemand == restart now */
+									 &priv_bootstrap_port);
+					if (status != BOOTSTRAP_SUCCESS) {
+						SCLog(TRUE, LOG_ERR, CFSTR("bootstrap_create_server() failed: status=%d"), status);
+						exit (EX_UNAVAILABLE);
+					}
+				} else {
+					priv_bootstrap_port = bootstrap_port;
+				}
+
+				status = bootstrap_create_service(priv_bootstrap_port, service_name, &service_send_port);
+				if (status != BOOTSTRAP_SUCCESS) {
+					SCLog(TRUE, LOG_ERR, CFSTR("bootstrap_create_service() failed: status=%d"), status);
+					exit (EX_UNAVAILABLE);
+				}
+
+				status = bootstrap_check_in(priv_bootstrap_port, service_name, &service_port);
+				if (status != BOOTSTRAP_SUCCESS) {
+					SCLog(TRUE, LOG_ERR, CFSTR("bootstrap_check_in() failed: status=%d"), status);
+					exit (EX_UNAVAILABLE);
+				}
+				break;
+			case BOOTSTRAP_SERVICE_ACTIVE :
+				/* if another instance of the server is active */
+				SCLog(TRUE, LOG_ERR, CFSTR("'%s' server already active"), service_name);
+				exit (EX_UNAVAILABLE);
+			default :
+				SCLog(TRUE, LOG_ERR, CFSTR("bootstrap_check_in() failed: status=%d"), status);
+				exit (EX_UNAVAILABLE);
+		}
+
+	}
+
+	/* we don't want to pass our priviledged bootstrap port along to any spawned helpers so... */
+	status = bootstrap_unprivileged(priv_bootstrap_port, &bootstrap_port);
+	if (status != BOOTSTRAP_SUCCESS) {
+		SCLog(TRUE, LOG_ERR, CFSTR("bootstrap_unprivileged() failed: status=%d"), status);
+		exit (EX_UNAVAILABLE);
+	}
+
+	status = task_set_bootstrap_port(mach_task_self(), bootstrap_port);
+	if (status != BOOTSTRAP_SUCCESS) {
+		SCLog(TRUE, LOG_ERR, CFSTR("task_set_bootstrap_port(): %s"),
+			mach_error_string(status));
+		exit (EX_UNAVAILABLE);
 	}
 
 	/* Create the primary / new connection port */
-	configd_port = CFMachPortCreate(NULL, configdCallback, NULL, NULL);
+	configd_port = CFMachPortCreateWithPort(NULL, service_port, configdCallback, NULL, NULL);
 
 	/*
 	 * Create and add a run loop source for the port and add this source
@@ -293,27 +358,59 @@ server_init()
 	/* Create a session for the primary / new connection port */
 	(void) addSession(configd_port);
 
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Registering service \"%s\""), server_name);
-	status = bootstrap_register(bootstrap_port, server_name, CFMachPortGetPort(configd_port));
-	switch (status) {
-		case BOOTSTRAP_SUCCESS :
-			/* service not currently registered, "a good thing" (tm) */
-			break;
-		case BOOTSTRAP_NOT_PRIVILEGED :
-			SCLog(_configd_verbose, LOG_ERR, CFSTR("bootstrap_register(): bootstrap not privileged"));
-			exit (EX_OSERR);
-		case BOOTSTRAP_SERVICE_ACTIVE :
-			SCLog(_configd_verbose, LOG_ERR, CFSTR("bootstrap_register(): bootstrap service active"));
-			exit (EX_OSERR);
-		default :
-			SCLog(_configd_verbose, LOG_ERR, CFSTR("bootstrap_register(): %s"), mach_error_string(status));
-			exit (EX_OSERR);
-	}
-
 	return;
 }
 
 
+__private_extern__
+void
+server_shutdown()
+{
+	char		*service_name;
+	mach_port_t	service_port;
+	kern_return_t 	status;
+
+	/*
+	 * Note: we can't use SCLog() since the signal may be received while the
+	 *       logging thread lock is held.
+	 */
+	if ((priv_bootstrap_port == MACH_PORT_NULL) || (configd_port == NULL)) {
+		return;
+	}
+
+	service_name = getenv("SCD_SERVER");
+	if (!service_name) {
+		service_name = SCD_SERVER;
+	}
+
+	service_port = CFMachPortGetPort(configd_port);
+	if (service_port != MACH_PORT_NULL) {
+		(void) mach_port_destroy(mach_task_self(), service_port);
+	}
+
+	status = bootstrap_register(priv_bootstrap_port, service_name, MACH_PORT_NULL);
+	switch (status) {
+		case BOOTSTRAP_SUCCESS :
+			break;
+		case MACH_SEND_INVALID_DEST :
+		case MIG_SERVER_DIED :
+			/* something happened to mach_init */
+			break;
+		default :
+			if (_configd_verbose) {
+				syslog (LOG_ERR, "bootstrap_register() failed: status=%d"  , status);
+			} else {
+				fprintf(stderr,  "bootstrap_register() failed: status=%d\n", status);
+				fflush (stderr);
+			}
+			exit (EX_UNAVAILABLE);
+	}
+
+	exit(EX_OK);
+}
+
+
+__private_extern__
 void
 server_loop()
 {

@@ -12,7 +12,7 @@
 # GNU General Public License for more details.
 
 
-class EmbeddedWin {
+itcl::class EmbeddedWin {
   inherit ManagedWin
 
   constructor {args} {

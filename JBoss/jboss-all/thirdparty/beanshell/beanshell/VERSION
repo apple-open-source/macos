@@ -1,0 +1,8 @@
+Version: bsh-core-1.2b7.jar
+Website: http://www.beanshell.org/
+
+Last version update in JBoss: 23.12.2002.
+
+BeanShell is licensed under both LGPL (http://www.gnu.org/copyleft/lesser.html) and Sun Public License (http://www.sun.com/developers/spl.html). It is integrated as part of JBoss under the LGPL only.
+
+BeanShell is developped and maintained by Pat Niemeyer <pat@pat.net>

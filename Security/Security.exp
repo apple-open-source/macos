@@ -6,6 +6,11 @@ _gGuidAppleFileDL
 _gGuidAppleX509CL
 _gGuidAppleX509TP
 _cssmPerror
+_cssmOidToAlg
+_cssmAlgToOid
+_security_ktrace
+___security_debug
+___security_debugging
 _MDS_Initialize
 _MDS_Terminate
 _MDS_Install
@@ -16,8 +21,11 @@ _SSLGetSessionState
 _SSLSetIOFuncs
 _SSLSetProtocolVersion
 _SSLGetProtocolVersion
+_SSLSetProtocolVersionEnabled
+_SSLGetProtocolVersionEnabled
 _SSLSetCertificate
 _SSLSetConnection
+_SSLGetConnection
 _SSLGetNegotiatedProtocolVersion
 _SSLGetNumberSupportedCiphers
 _SSLGetSupportedCiphers
@@ -31,6 +39,7 @@ _SSLGetAllowsExpiredRoots
 _SSLSetEnableCertVerify
 _SSLGetEnableCertVerify
 _SSLGetPeerCertificates
+_SSLGetPeerSecTrust
 _SSLSetTrustedRoots
 _SSLGetTrustedRoots
 _SSLSetPeerID
@@ -49,6 +58,8 @@ _SSLSetAllowsAnyRoot
 _SSLGetAllowsAnyRoot
 _SSLAddDistinguishedName
 _SSLSetClientSideAuthenticate
+_SSLSetRsaBlinding
+_SSLGetRsaBlinding
 _SessionGetInfo
 _SessionCreate
 _checkpw
@@ -58,4 +69,11 @@ _SSLInternalServerRandom
 _SSLInternalClientRandom
 _SSLInternal_PRF
 _SSLGetClientCertificateState
+_SSLSetDiffieHellmanParams
+_SSLGetDiffieHellmanParams
+_SSLGetResumableSessionInfo
+_NSS_DSAPublicKeyX509Template
 _SecKeyImportPair
+___authorization_bind
+_SecCopyErrorMessageString
+

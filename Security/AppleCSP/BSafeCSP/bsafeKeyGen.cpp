@@ -79,7 +79,10 @@ BSafe::BSafeBinaryKey::~BSafeBinaryKey()
 void BSafe::BSafeBinaryKey::generateKeyBlob(
 		CssmAllocator 		&allocator,
 		CssmData			&blob,
-		CSSM_KEYBLOB_FORMAT	&format)		// input val ignored for now
+		CSSM_KEYBLOB_FORMAT	&format,		// input val ignored for now
+		AppleCSPSession		&session,
+		const CssmKey		*paramKey,		// optional, unused here
+		CSSM_KEYATTR_FLAGS 	&attrFlags)		// IN/OUT 
 {
  	assert(mBsKey != NULL);
 
@@ -273,13 +276,15 @@ void BSafe::BSafeKeyPairGenContext::generate(
  * CSPKeyInfoProvider for asymmetric BSAFE keys. 
  */
 BSafe::BSafeKeyInfoProvider::BSafeKeyInfoProvider(
-	const CssmKey &cssmKey) :
-		CSPKeyInfoProvider(cssmKey)
+	const CssmKey 	&cssmKey,
+	AppleCSPSession	&session) :
+		CSPKeyInfoProvider(cssmKey, session)
 {
 }
 
 CSPKeyInfoProvider *BSafe::BSafeKeyInfoProvider::provider(
-	const CssmKey &cssmKey)
+	const CssmKey 	&cssmKey,
+	AppleCSPSession	&session)
 {
 	switch(cssmKey.keyClass()) {
 		case CSSM_KEYCLASS_PUBLIC_KEY:
@@ -296,12 +301,14 @@ CSPKeyInfoProvider *BSafe::BSafeKeyInfoProvider::provider(
 			return NULL;
 	}
 	/* OK, we'll handle this one */
-	return new BSafeKeyInfoProvider(cssmKey);
+	return new BSafeKeyInfoProvider(cssmKey, session);
 }
 
 /* cook up a Binary key */
 void BSafe::BSafeKeyInfoProvider::CssmKeyToBinary(
-	BinaryKey **binKey)
+	CssmKey				*paramKey,		// optional, ignored
+	CSSM_KEYATTR_FLAGS	&attrFlags,		// IN/OUT
+	BinaryKey 			**binKey)
 {
 	*binKey = NULL;
 	

@@ -1,0 +1,6 @@
+$ $Id$
+$ tc.sig.c
+$set 25 
+1 our wait %d\n
+2 viga: bsd_signal(%d) pole signaal\n
+3 viga: bsd_signal(%d) - sigaction ebaõnnestus, errno = %d\n

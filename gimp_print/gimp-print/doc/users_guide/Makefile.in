@@ -1,0 +1,528 @@
+# Makefile.in generated automatically by automake 1.4 from Makefile.am
+
+# Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
+# This Makefile.in is free software; the Free Software Foundation
+# gives unlimited permission to copy and/or distribute it,
+# with or without modifications, as long as this notice is preserved.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY, to the extent permitted by law; without
+# even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+# PARTICULAR PURPOSE.
+
+
+SHELL = @SHELL@
+
+srcdir = @srcdir@
+top_srcdir = @top_srcdir@
+VPATH = @srcdir@
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+
+bindir = @bindir@
+sbindir = @sbindir@
+libexecdir = @libexecdir@
+datadir = @datadir@
+sysconfdir = @sysconfdir@
+sharedstatedir = @sharedstatedir@
+localstatedir = @localstatedir@
+libdir = @libdir@
+infodir = @infodir@
+mandir = @mandir@
+includedir = @includedir@
+oldincludedir = /usr/include
+
+DESTDIR =
+
+pkgdatadir = $(datadir)/@PACKAGE@
+pkglibdir = $(libdir)/@PACKAGE@
+pkgincludedir = $(includedir)/@PACKAGE@
+
+top_builddir = ../..
+
+ACLOCAL = @ACLOCAL@
+AUTOCONF = @AUTOCONF@
+AUTOMAKE = @AUTOMAKE@
+AUTOHEADER = @AUTOHEADER@
+
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@ $(AM_INSTALL_PROGRAM_FLAGS)
+INSTALL_DATA = @INSTALL_DATA@
+INSTALL_SCRIPT = @INSTALL_SCRIPT@
+transform = @program_transform_name@
+
+NORMAL_INSTALL = :
+PRE_INSTALL = :
+POST_INSTALL = :
+NORMAL_UNINSTALL = :
+PRE_UNINSTALL = :
+POST_UNINSTALL = :
+host_alias = @host_alias@
+host_triplet = @host@
+ALL_LINGUAS = @ALL_LINGUAS@
+AS = @AS@
+AWK = @AWK@
+BISON_PROG = @BISON_PROG@
+BUILD_INCLUDED_LIBINTL = @BUILD_INCLUDED_LIBINTL@
+CATALOGS = @CATALOGS@
+CATOBJEXT = @CATOBJEXT@
+CC = @CC@
+CONVERT = @CONVERT@
+CUPS_BACKEND_BIN = @CUPS_BACKEND_BIN@
+CUPS_BIN = @CUPS_BIN@
+CUPS_CFLAGS = @CUPS_CFLAGS@
+CUPS_CONF = @CUPS_CONF@
+CUPS_CONFIG = @CUPS_CONFIG@
+CUPS_FILTER_BIN = @CUPS_FILTER_BIN@
+CUPS_INSTALL = @CUPS_INSTALL@
+CUPS_LIBS = @CUPS_LIBS@
+CUPS_MAN = @CUPS_MAN@
+CUPS_NOINST_BIN = @CUPS_NOINST_BIN@
+CUPS_PKG = @CUPS_PKG@
+CUPS_PPD_PS_LEVEL = @CUPS_PPD_PS_LEVEL@
+DATADIRNAME = @DATADIRNAME@
+DB2HTML = @DB2HTML@
+DB2PDF = @DB2PDF@
+DB2PS = @DB2PS@
+DLLTOOL = @DLLTOOL@
+DVIPDF = @DVIPDF@
+DVIPS = @DVIPS@
+ECHO = @ECHO@
+ESCPUTIL_BIN = @ESCPUTIL_BIN@
+ESCPUTIL_MAN = @ESCPUTIL_MAN@
+EXEEXT = @EXEEXT@
+FOOMATIC_3_NOINST_BIN = @FOOMATIC_3_NOINST_BIN@
+FOOMATIC_CONFIGURE = @FOOMATIC_CONFIGURE@
+FOOMATIC_INSTALL = @FOOMATIC_INSTALL@
+FOOMATIC_KITLOAD = @FOOMATIC_KITLOAD@
+FOOMATIC_NOINST_BIN = @FOOMATIC_NOINST_BIN@
+FOOMATIC_PPDFILE = @FOOMATIC_PPDFILE@
+GENCAT = @GENCAT@
+GIMPPRINT_BINARY_AGE = @GIMPPRINT_BINARY_AGE@
+GIMPPRINT_CFLAGS = @GIMPPRINT_CFLAGS@
+GIMPPRINT_CONFIG = @GIMPPRINT_CONFIG@
+GIMPPRINT_CURRENT_INTERFACE = @GIMPPRINT_CURRENT_INTERFACE@
+GIMPPRINT_DEPLIBS = @GIMPPRINT_DEPLIBS@
+GIMPPRINT_INTERFACE_AGE = @GIMPPRINT_INTERFACE_AGE@
+GIMPPRINT_LIBS = @GIMPPRINT_LIBS@
+GIMPPRINT_MAJOR_VERSION = @GIMPPRINT_MAJOR_VERSION@
+GIMPPRINT_MICRO_VERSION = @GIMPPRINT_MICRO_VERSION@
+GIMPPRINT_MINOR_VERSION = @GIMPPRINT_MINOR_VERSION@
+GIMPPRINT_VERSION = @GIMPPRINT_VERSION@
+GIMPTOOL = @GIMPTOOL@
+GIMP_BIN = @GIMP_BIN@
+GIMP_CFLAGS = @GIMP_CFLAGS@
+GIMP_CFLAGS_NOUI = @GIMP_CFLAGS_NOUI@
+GIMP_CONFIG = @GIMP_CONFIG@
+GIMP_DATA_DIR = @GIMP_DATA_DIR@
+GIMP_LIBS = @GIMP_LIBS@
+GIMP_LIBS_NOUI = @GIMP_LIBS_NOUI@
+GIMP_PLUGIN_DIR = @GIMP_PLUGIN_DIR@
+GIMP_PRINT_H = @GIMP_PRINT_H@
+GLIBC21 = @GLIBC21@
+GLIB_CFLAGS = @GLIB_CFLAGS@
+GLIB_CONFIG = @GLIB_CONFIG@
+GLIB_LIBS = @GLIB_LIBS@
+GMOFILES = @GMOFILES@
+GMSGFMT = @GMSGFMT@
+GNUCFLAGS = @GNUCFLAGS@
+GTK_CFLAGS = @GTK_CFLAGS@
+GTK_CONFIG = @GTK_CONFIG@
+GTK_LIBS = @GTK_LIBS@
+IJS_BIN = @IJS_BIN@
+IJS_CFLAGS = @IJS_CFLAGS@
+IJS_CONFIG = @IJS_CONFIG@
+IJS_INSTALL = @IJS_INSTALL@
+IJS_LIBS = @IJS_LIBS@
+INCLUDES = @INCLUDES@
+INSTOBJEXT = @INSTOBJEXT@
+INTLBISON = @INTLBISON@
+INTLLIBS = @INTLLIBS@
+INTLOBJS = @INTLOBJS@
+INTL_LIBTOOL_SUFFIX_PREFIX = @INTL_LIBTOOL_SUFFIX_PREFIX@
+LEX = @LEX@
+LIBGIMPPRINT_LIBS = @LIBGIMPPRINT_LIBS@
+LIBICONV = @LIBICONV@
+LIBREADLINE_DEPS = @LIBREADLINE_DEPS@
+LIBTOOL = @LIBTOOL@
+LIBTOOL_DEPS = @LIBTOOL_DEPS@
+LN_S = @LN_S@
+LTALLOCA = @LTALLOCA@
+LTLIBOBJS = @LTLIBOBJS@
+LT_AGE = @LT_AGE@
+LT_CURRENT = @LT_CURRENT@
+LT_RELEASE = @LT_RELEASE@
+LT_REVISION = @LT_REVISION@
+MAINT = @MAINT@
+MAINTAINER_CFLAGS = @MAINTAINER_CFLAGS@
+MAIN_BIN = @MAIN_BIN@
+MAIN_DAT = @MAIN_DAT@
+MAIN_MAN = @MAIN_MAN@
+MAIN_SCR = @MAIN_SCR@
+MAKEINFO = @MAKEINFO@
+MKINSTALLDIRS = @MKINSTALLDIRS@
+MSGFMT = @MSGFMT@
+OBJDUMP = @OBJDUMP@
+OBJEXT = @OBJEXT@
+PACKAGE = @PACKAGE@
+PERL = @PERL@
+PLUG_IN_PATH = @PLUG_IN_PATH@
+POFILES = @POFILES@
+POSUB = @POSUB@
+PRINT_VASPRINTF = @PRINT_VASPRINTF@
+RANLIB = @RANLIB@
+RELEASE_DATE = @RELEASE_DATE@
+RM = @RM@
+SAMPLE_IMAGES = @SAMPLE_IMAGES@
+STRIP = @STRIP@
+TESTPATTERN_BIN = @TESTPATTERN_BIN@
+TEST_BIN = @TEST_BIN@
+TEXI2HTML = @TEXI2HTML@
+USE_INCLUDED_LIBINTL = @USE_INCLUDED_LIBINTL@
+USE_NLS = @USE_NLS@
+VERSION = @VERSION@
+YACC = @YACC@
+YACC_PROG = @YACC_PROG@
+cups_bindir = @cups_bindir@
+cups_conf_datadir = @cups_conf_datadir@
+cups_conf_serverbin = @cups_conf_serverbin@
+cups_conf_serverroot = @cups_conf_serverroot@
+cups_exec_prefix = @cups_exec_prefix@
+cups_prefix = @cups_prefix@
+gimp_plug_indir = @gimp_plug_indir@
+gimpprint_cflags = @gimpprint_cflags@
+gimpprint_libs = @gimpprint_libs@
+
+AUTOMAKE_OPTIONS = 1.4 gnu
+
+MAINT_CHARSET = latin1
+
+MANUAL = users-guide
+MANUAL_SRC_FILES = $(srcdir)/$(MANUAL).sgml 	$(srcdir)/title.sgml 	$(srcdir)/history.sgml 	$(srcdir)/gimp.sgml 	$(srcdir)/cups.sgml 	$(srcdir)/utils.sgml 	$(srcdir)/gfdl.sgml
+
+HTMLDIR = html
+
+OUTPUTS =   $(MANUAL).pdf  $(MANUAL).ps  html
+
+
+USER_GUIDE = $(MANUAL).pdf html $(MANUAL).ps
+
+STANDARD_TARGETS = @USER_GUIDE@
+
+DISTHOOKDIRS = figures $(HTMLDIR)
+DISTHOOKFILES = $(STANDARD_TARGETS)
+
+PNG_IMAGES = figures/cups_admin.png				figures/cups_admin_device.png				figures/cups_admin_make.png				figures/cups_admin_model.png				figures/cups_admin_success.png				figures/cups_config_printer.png				figures/cups_my_printer.png				figures/cups_printers.png				figures/cups_startup.png				figures/gimp-print-gui-1.png				figures/gimp-print-gui.png				figures/gimp-print-new-printer.png			figures/gimp-print-print-color-adjust.png		figures/gimp-print-setup.png				figures/gimp_image.png					figures/gimp_startup.png
+
+
+EPS_IMAGES = $(addsuffix .eps,$(basename $(PNG_IMAGES)))
+@MAINTAINER_MODE_TRUE@MAINT_MODE = true
+@MAINTAINER_MODE_FALSE@MAINT_MODE = false
+@MAINTAINER_MODE_TRUE@ALL_LOCAL_TARGETS = docs
+@MAINTAINER_MODE_FALSE@ALL_LOCAL_TARGETS = $(STANDARD_TARGETS)
+
+CLEAN_MANUALS =  	$(RM) -f $(MANUAL).pdf $(MANUAL).ps ;		$(RM) -rf html-stamp $(HTMLDIR) ;		$(RM) -f $(EPS_IMAGES)
+
+
+MAINTAINERCLEANFILES = Makefile.in html-stamp
+
+EXTRA_DIST = README $(MANUAL_SRC_FILES) html-stamp
+mkinstalldirs = $(SHELL) $(top_srcdir)/scripts/mkinstalldirs
+CONFIG_HEADER = ../../config.h
+CONFIG_CLEAN_FILES = 
+DIST_COMMON =  README Makefile.am Makefile.in
+
+
+DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
+
+TAR = tar
+GZIP_ENV = --best
+all: all-redirect
+.SUFFIXES:
+$(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ Makefile.am $(top_srcdir)/configure.in $(ACLOCAL_M4) 
+	cd $(top_srcdir) && $(AUTOMAKE) --gnu --include-deps doc/users_guide/Makefile
+
+Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
+	cd $(top_builddir) \
+	  && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
+
+tags: TAGS
+TAGS:
+
+
+distdir = $(top_builddir)/$(PACKAGE)-$(VERSION)/$(subdir)
+
+subdir = doc/users_guide
+
+distdir: $(DISTFILES)
+	$(mkinstalldirs) $(distdir)/$(srcdir)
+	@for file in $(DISTFILES); do \
+	  d=$(srcdir); \
+	  if test -d $$d/$$file; then \
+	    cp -pr $$/$$file $(distdir)/$$file; \
+	  else \
+	    test -f $(distdir)/$$file \
+	    || ln $$d/$$file $(distdir)/$$file 2> /dev/null \
+	    || cp -p $$d/$$file $(distdir)/$$file || :; \
+	  fi; \
+	done
+	$(MAKE) $(AM_MAKEFLAGS) top_distdir="$(top_distdir)" distdir="$(distdir)" dist-hook
+info-am:
+info: info-am
+dvi-am:
+dvi: dvi-am
+check-am: all-am
+check: check-am
+installcheck-am:
+installcheck: installcheck-am
+install-exec-am:
+install-exec: install-exec-am
+
+install-data-am: install-data-local
+install-data: install-data-am
+
+install-am: all-am
+	@$(MAKE) $(AM_MAKEFLAGS) install-exec-am install-data-am
+install: install-am
+uninstall-am: uninstall-local
+uninstall: uninstall-am
+all-am: Makefile all-local
+all-redirect: all-am
+install-strip:
+	$(MAKE) $(AM_MAKEFLAGS) AM_INSTALL_PROGRAM_FLAGS=-s install
+installdirs:
+
+
+mostlyclean-generic:
+
+clean-generic:
+
+distclean-generic:
+	-rm -f Makefile $(CONFIG_CLEAN_FILES)
+	-rm -f config.cache config.log stamp-h stamp-h[0-9]*
+
+maintainer-clean-generic:
+	-test -z "$(MAINTAINERCLEANFILES)" || rm -f $(MAINTAINERCLEANFILES)
+mostlyclean-am:  mostlyclean-generic
+
+mostlyclean: mostlyclean-am
+
+clean-am:  clean-generic mostlyclean-am clean-local
+
+clean: clean-am
+
+distclean-am:  distclean-generic clean-am
+	-rm -f libtool
+
+distclean: distclean-am
+
+maintainer-clean-am:  maintainer-clean-generic distclean-am \
+		maintainer-clean-local
+	@echo "This command is intended for maintainers to use;"
+	@echo "it deletes files that may require special tools to rebuild."
+
+maintainer-clean: maintainer-clean-am
+
+.PHONY: tags distdir info-am info dvi-am dvi check check-am \
+installcheck-am installcheck install-exec-am install-exec \
+install-data-local install-data-am install-data install-am install \
+uninstall-local uninstall-am uninstall all-local all-redirect all-am \
+all installdirs mostlyclean-generic distclean-generic clean-generic \
+maintainer-clean-generic clean mostlyclean distclean maintainer-clean
+
+
+@SET_MAKE@
+
+dist-hook: $(USER_GUIDE)
+	for dir in $(DISTHOOKDIRS) ; do \
+	  if test -d $(srcdir)/$$dir ; then \
+	    mkdir $(distdir)/$$dir; \
+	    for dirfile in $(srcdir)/$$dir/*; do \
+	      if test -f $$dirfile ; then \
+	        cp -p $$dirfile $(distdir)/$$dir ; \
+	      fi ; \
+	      if test -d $$dirfile ; then \
+	        cp -pR $$dirfile $(distdir)/$$dir ; \
+	      fi ; \
+	    done \
+	  fi \
+	done
+	for file in $(DISTHOOKFILES) ; do \
+	  if test -f $$file ; then \
+	    cp -p $$file $(distdir) ; \
+	fi ; \
+	done
+
+$(MANUAL).pdf:  $(MANUAL_SRC_FILES)
+	if test $(srcdir) = '.' ; then \
+	  : ; \
+	else \
+	  if test -L $(notdir $<) ; then \
+	    $(RM) $(notdir $<) ; \
+	  fi ; \
+	  $(LN_S) $< $(notdir $<) ; \
+	  if test -d figures ; then \
+	    : ; \
+	  else \
+	    mkdir figures ; \
+	  fi ; \
+	  for image in $(addprefix $(srcdir)/, $(PNG_IMAGES)) ; do \
+	    cp -p $$image figures/`basename $$image` ; \
+	  done ; \
+	fi ; \
+	$(DB2PDF) $(MANUAL).sgml
+
+docs: html ps pdf
+
+all-local: $(ALL_LOCAL_TARGETS)
+
+pdf: $(MANUAL).pdf
+
+ps: $(MANUAL).ps
+
+$(MANUAL).ps:  $(MANUAL_SRC_FILES) $(EPS_IMAGES)
+	for i in $(MANUAL_SRC_FILES); do \
+		j=`basename $$i .sgml`; \
+		sed -e 's/\.png"/.eps"/g' \
+		    -e 's/FORMAT="PNG"/FORMAT="EPS"/g' $$i > $$j-eps.sgml; \
+	done
+	cat $(MANUAL).sgml | sed -e 's/\.sgml"/-eps.sgml"/g' > $(MANUAL)-eps.sgml	
+	$(DB2PS) $(MANUAL)-eps.sgml
+	mv $(MANUAL)-eps.ps $(MANUAL).ps
+	for i in $(MANUAL_SRC_FILES); do \
+		j=`basename $$i .sgml`; \
+		$(RM) -f $${j}-eps.*; \
+	done
+
+%.eps:
+	if test ! -d figures ; then mkdir figures ; fi
+	$(CONVERT) $(srcdir)/$(basename $@).png EPS2:$@
+
+html: html-stamp
+
+# This ugly workaround with SOURCE is because db2html doesn't seem to like
+# "./users-guide.sgml".  Note that db2ps does not have the same limitation.
+# html-stamp should *only* be called by html--it's just a timestamp!
+html-stamp: $(srcdir)/$(MANUAL).sgml $(PNG_IMAGES)
+	if test $(srcdir) = '.' ; then \
+	  : ; \
+	else \
+	  if test -L $(notdir $<) ; then \
+	    $(RM) $(notdir $<) ; \
+	  fi ; \
+	  $(LN_S) $< $(notdir $<) ; \
+	fi
+	$(DB2HTML) $(MANUAL).sgml
+	-mkdir $(MANUAL)/figures
+	for image in $(addprefix $(srcdir)/, $(PNG_IMAGES)) ; do \
+	  cp -p $$image $(MANUAL)/figures/`basename $$image` ; \
+	done
+	-$(RM) -rf $(HTMLDIR)
+	mv $(MANUAL) $(HTMLDIR)
+	chmod a+rx $(HTMLDIR)
+	touch html-stamp
+
+install-data-local: $(STANDARD_TARGETS)
+	if test -n '$(STANDARD_TARGETS)' ; then \
+	  $(mkinstalldirs) $(DESTDIR)$(datadir)/$(PACKAGE)/doc/html/figures ; \
+	  $(mkinstalldirs) $(DESTDIR)$(datadir)/$(PACKAGE)/doc/html/stylesheet-images ; \
+	  if test -f $(MANUAL).pdf ; then \
+	    $(INSTALL_DATA) $(MANUAL).pdf $(DESTDIR)$(datadir)/$(PACKAGE)/doc ; \
+	  elif test -f $(srcdir)/$(MANUAL).pdf ; then \
+	    $(INSTALL_DATA) $(srcdir)/$(MANUAL).pdf $(DESTDIR)$(datadir)/$(PACKAGE)/doc ; \
+	  fi ; \
+	  if test -d $(HTMLDIR) ; then \
+	    cd $(HTMLDIR) ; \
+	  elif test -d $(srcdir)/$(HTMLDIR) ; then \
+	    cd $(srcdir)/$(HTMLDIR) ; \
+	  else \
+	    exit 1 ; \
+	  fi ; \
+	  for file in *.html *.css ; do \
+	    if test -f $$file ; then \
+	      $(INSTALL_DATA) $$file $(DESTDIR)$(datadir)/$(PACKAGE)/doc/html ; \
+	    fi ; \
+	  done ; \
+	  cd figures ; \
+	  for file in *.png ; do \
+	    if test -f $$file ; then \
+	      $(INSTALL_DATA) $$file $(DESTDIR)$(datadir)/$(PACKAGE)/doc/html/figures ; \
+	    fi ; \
+	  done ; \
+	  if test -d ../stylesheet-images ; then \
+	    cd ../stylesheet-images ; \
+	    for file in * ; do \
+	      if test -f $$file ; then \
+	        $(INSTALL_DATA) $$file $(DESTDIR)$(datadir)/$(PACKAGE)/doc/html/stylesheet-images ; \
+	      fi ; \
+	    done ; \
+	  fi ; \
+	fi
+
+uninstall-local:
+	-$(RM) -r $(DESTDIR)$(datadir)/$(PACKAGE)/doc
+
+clean-local:
+	if test $(srcdir) = "." -a $(MAINT_MODE) = false ; then \
+	  echo "clean-local: Not removing $(HTMLDIR)" ; \
+	  echo 'clean-local: Not removing $(MANUAL).pdf' ; \
+	  echo 'clean-local: Not removing $(MANUAL).ps' ; \
+	  echo 'clean-local: Not removing EPS figures' ; \
+	else \
+	  $(CLEAN_MANUALS) ; \
+	fi
+	if test $(srcdir) = "." ; then \
+	  : ; \
+	else \
+	  $(RM) -f $(MANUAL_SRC_FILES); \
+	  $(RM) -rf figures ; \
+	fi
+	-$(RM) -rf *.tex *.log *.aux *.dvi *.gz *.out *.junk *.out *.fot
+	-$(RM) -rf db2html* DB2HTML*
+
+veryclean:
+	$(MAKE) MAINT_MODE=true clean
+
+maintainer-clean-local:
+	$(CLEAN_MANUALS)
+
+#
+# This is my (so far failed) attempt to create an index for this documentation.
+#
+#
+#index.sgml:
+#	$(PERL) /usr/share/sgml/docbook/docbook-dsssl-stylesheets-1.64/bin/collateindex.pl -N -o index.sgml
+#
+#	$(JADE)	-V html-index \
+#		-t sgml \
+#		-c /usr/share/sgml/CATALOG.jade_dsl \
+#		-c /usr/share/sgml/CATALOG.docbook-dsssl-stylesheets \
+#		-c /usr/share/sgml/CATALOG.gnome \
+#		-c /usr/share/sgml/CATALOG.docbook_4 \
+#		-c /usr/share/sgml/CATALOG.docbook_3  \
+#		-D /usr/share/sgml/docbook/docbook-dsssl-stylesheets-1.64 \
+#		-d /usr/share/sgml/docbook-toys/suse-both.dsl \
+#		-o index.sgml \
+#		gimp-print-users-guide-4.1.99-b3.sgml
+#
+#
+# END failed attempt at index creation.
+#
+
+help:
+	@echo "  "
+	@echo "Supported targets in this Makefile:"
+	@echo "    docs      - creates PS, PDF, and HTML documentation files"
+	@echo "    ps        - creates PostScript documentation"
+	@echo "    pdf       - creates PDF documentation"
+	@echo "    html      - creates HTML documentation"
+	@echo "    clean     - deletes machine generated files, but not outputs"
+	@echo "    veryclean - deletes output files in addition"
+	@echo "    help      - prints this help text"
+	@echo "  "
+
+.PHONY: docs html ps pdf help
+
+# Tell versions [3.59,3.63) of GNU make to not export all variables.
+# Otherwise a system limit (for SysV at least) may be exceeded.
+.NOEXPORT:

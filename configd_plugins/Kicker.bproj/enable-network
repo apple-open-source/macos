@@ -1,26 +1,15 @@
 #!/bin/sh
 #
-# restart-automount
-#
-
-AUTOMOUNT_PIDFILE="/var/run/automount.pid"
-
-#
 # network configuration has changed
 #
-logger -i -p daemon.debug -t enable-network "process network configuration changed"
+logger -i -p daemon.debug -t enable-network "process network configuration change"
 
 . /etc/rc.common
 CheckForNetwork
 if [ "${NETWORKUP}" = "-NO-" ]; then exit 0; fi
 
-#
-# if not running, start the automount daemon
-#
-if [ "${AUTOMOUNT:=-YES-}" = "-YES-" ]; then
-    if [ ! -f "${AUTOMOUNT_PIDFILE}" ]; then
-	automount -m /Network/Servers -fstab -m /automount -static
-    fi
-fi
+/System/Library/StartupItems/NetworkTime/NetworkTime start
+/System/Library/StartupItems/NIS/NIS start
+/System/Library/StartupItems/NFS/NFS start
 
 exit 1

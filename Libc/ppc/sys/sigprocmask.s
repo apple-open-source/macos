@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(sigprocmask, 3)
-	blr
 

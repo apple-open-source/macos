@@ -1,22 +1,25 @@
 /*
- * Copyright(c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright(c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1(the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -31,8 +34,8 @@
  */
 
 #include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/SCValidation.h>
+#include <SystemConfiguration/SCPrivate.h>
 #include "SCPreferencesInternal.h"
 
 #include <fcntl.h>
@@ -65,6 +68,7 @@ __SCPreferencesDeallocate(CFTypeRef cf)
 	if (sessionPrivate->prefsID)		CFRelease(sessionPrivate->prefsID);
 	if (sessionPrivate->user)		CFRelease(sessionPrivate->user);
 	if (sessionPrivate->path)		CFAllocatorDeallocate(NULL, sessionPrivate->path);
+	if (sessionPrivate->newPath)		CFAllocatorDeallocate(NULL, sessionPrivate->newPath);
 	if (sessionPrivate->signature)		CFRelease(sessionPrivate->signature);
 	if (sessionPrivate->session)		CFRelease(sessionPrivate->session);
 	if (sessionPrivate->sessionKeyLock)	CFRelease(sessionPrivate->sessionKeyLock);
@@ -76,7 +80,7 @@ __SCPreferencesDeallocate(CFTypeRef cf)
 }
 
 
-static CFTypeID __kSCPreferencesTypeID = _kCFRuntimeNotATypeID;
+static CFTypeID __kSCPreferencesTypeID	= _kCFRuntimeNotATypeID;
 
 
 static const CFRuntimeClass __SCPreferencesClass = {
@@ -94,7 +98,6 @@ static const CFRuntimeClass __SCPreferencesClass = {
 
 static pthread_once_t initialized	= PTHREAD_ONCE_INIT;
 
-
 static void
 __SCPreferencesInitialize(void) {
 	__kSCPreferencesTypeID = _CFRuntimeRegisterClass(&__SCPreferencesClass);
@@ -102,42 +105,43 @@ __SCPreferencesInitialize(void) {
 }
 
 
-SCPreferencesRef
+static SCPreferencesPrivateRef
 __SCPreferencesCreatePrivate(CFAllocatorRef	allocator)
 {
-	SCPreferencesPrivateRef	prefs;
-	UInt32				size;
+	SCPreferencesPrivateRef	prefsPrivate;
+	uint32_t		size;
 
 	/* initialize runtime */
 	pthread_once(&initialized, __SCPreferencesInitialize);
 
 	/* allocate session */
 	size  = sizeof(SCPreferencesPrivate) - sizeof(CFRuntimeBase);
-	prefs = (SCPreferencesPrivateRef)_CFRuntimeCreateInstance(allocator,
+	prefsPrivate = (SCPreferencesPrivateRef)_CFRuntimeCreateInstance(allocator,
 									 __kSCPreferencesTypeID,
 									 size,
 									 NULL);
-	if (!prefs) {
+	if (!prefsPrivate) {
 		return NULL;
 	}
 
-	prefs->name		= NULL;
-	prefs->prefsID		= NULL;
-	prefs->perUser		= FALSE;
-	prefs->user		= NULL;
-	prefs->path		= NULL;
-	prefs->signature	= NULL;
-	prefs->session		= NULL;
-	prefs->sessionKeyLock	= NULL;
-	prefs->sessionKeyCommit	= NULL;
-	prefs->sessionKeyApply	= NULL;
-	prefs->prefs		= NULL;
-	prefs->accessed		= FALSE;
-	prefs->changed		= FALSE;
-	prefs->locked		= FALSE;
-	prefs->isRoot		= (geteuid() == 0);
+	prefsPrivate->name		= NULL;
+	prefsPrivate->prefsID		= NULL;
+	prefsPrivate->perUser		= FALSE;
+	prefsPrivate->user		= NULL;
+	prefsPrivate->path		= NULL;
+	prefsPrivate->newPath		= NULL;		// new prefs path
+	prefsPrivate->signature		= NULL;
+	prefsPrivate->session		= NULL;
+	prefsPrivate->sessionKeyLock	= NULL;
+	prefsPrivate->sessionKeyCommit	= NULL;
+	prefsPrivate->sessionKeyApply	= NULL;
+	prefsPrivate->prefs		= NULL;
+	prefsPrivate->accessed		= FALSE;
+	prefsPrivate->changed		= FALSE;
+	prefsPrivate->locked		= FALSE;
+	prefsPrivate->isRoot		= (geteuid() == 0);
 
-	return (SCPreferencesRef)prefs;
+	return prefsPrivate;
 }
 
 
@@ -149,7 +153,6 @@ __SCPreferencesCreate(CFAllocatorRef	allocator,
 		      CFStringRef	user)
 {
 	int				fd		= -1;
-	SCPreferencesRef		prefs;
 	SCPreferencesPrivateRef		prefsPrivate;
 	int				sc_status	= kSCStatusOK;
 	struct stat			statBuf;
@@ -159,16 +162,21 @@ __SCPreferencesCreate(CFAllocatorRef	allocator,
 	/*
 	 * allocate and initialize a new session
 	 */
-	prefs = __SCPreferencesCreatePrivate(allocator);
-	if (!prefs) {
+	prefsPrivate = __SCPreferencesCreatePrivate(allocator);
+	if (!prefsPrivate) {
 		return NULL;
 	}
-	prefsPrivate = (SCPreferencesPrivateRef)prefs;
+
+    retry :
 
 	/*
 	 * convert prefsID to path
 	 */
-	prefsPrivate->path = __SCPreferencesPath(NULL, prefsID, perUser, user);
+	prefsPrivate->path = __SCPreferencesPath(allocator,
+						 prefsID,
+						 perUser,
+						 user,
+						 (prefsPrivate->newPath == NULL));
 	if (prefsPrivate->path == NULL) {
 		sc_status = kSCStatusFailed;
 		goto error;
@@ -181,7 +189,31 @@ __SCPreferencesCreate(CFAllocatorRef	allocator,
 	if (fd == -1) {
 		switch (errno) {
 			case ENOENT :
-				/* no prefs file, start fresh */
+				/* no prefs file */
+				if (!perUser &&
+				    ((prefsID == NULL) || !CFStringHasPrefix(prefsID, CFSTR("/")))) {
+					/* if default preference ID or relative path */
+					if (prefsPrivate->newPath == NULL) {
+						/*
+						 * we've looked in the "new" prefs directory
+						 * without success.  Save the "new" path and
+						 * look in the "old" prefs directory.
+						 */
+						prefsPrivate->newPath = prefsPrivate->path;
+						goto retry;
+					} else {
+						/*
+						 * we've looked in both the "new" and "old"
+						 * prefs directories without success.  USe
+						 * the "new" path.
+						 */
+						CFAllocatorDeallocate(NULL, prefsPrivate->path);
+						prefsPrivate->path = prefsPrivate->newPath;
+						prefsPrivate->newPath = NULL;
+					}
+				}
+
+				/* start fresh */
 				bzero(&statBuf, sizeof(statBuf));
 				goto create_1;
 			case EACCES :
@@ -214,7 +246,7 @@ __SCPreferencesCreate(CFAllocatorRef	allocator,
 		/*
 		 * extract property list
 		 */
-		xmlData = CFDataCreateMutable(NULL, statBuf.st_size);
+		xmlData = CFDataCreateMutable(allocator, statBuf.st_size);
 		CFDataSetLength(xmlData, statBuf.st_size);
 		if (read(fd, (void *)CFDataGetBytePtr(xmlData), statBuf.st_size) != statBuf.st_size) {
 			/* corrupt prefs file, start fresh */
@@ -227,7 +259,7 @@ __SCPreferencesCreate(CFAllocatorRef	allocator,
 		/*
 		 * load preferences
 		 */
-		dict = CFPropertyListCreateFromXMLData(NULL,
+		dict = CFPropertyListCreateFromXMLData(allocator,
 						       xmlData,
 						       kCFPropertyListImmutable,
 						       &xmlError);
@@ -253,7 +285,7 @@ __SCPreferencesCreate(CFAllocatorRef	allocator,
 			goto create_2;
 		}
 
-		prefsPrivate->prefs = CFDictionaryCreateMutableCopy(NULL, 0, dict);
+		prefsPrivate->prefs = CFDictionaryCreateMutableCopy(allocator, 0, dict);
 		CFRelease(dict);
 	}
 
@@ -269,7 +301,7 @@ __SCPreferencesCreate(CFAllocatorRef	allocator,
 		 * new file, create empty preferences
 		 */
 		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("_SCPOpen(): creating new dictionary."));
-		prefsPrivate->prefs = CFDictionaryCreateMutable(NULL,
+		prefsPrivate->prefs = CFDictionaryCreateMutable(allocator,
 								0,
 								&kCFTypeDictionaryKeyCallBacks,
 								&kCFTypeDictionaryValueCallBacks);
@@ -279,22 +311,16 @@ __SCPreferencesCreate(CFAllocatorRef	allocator,
 	/*
 	 * all OK
 	 */
-	prefsPrivate->name = CFRetain(name);
-	if (prefsID) {
-		prefsPrivate->prefsID = CFRetain(prefsID);
-	}
+	prefsPrivate->name = CFStringCreateCopy(allocator, name);
+	if (prefsID)	prefsPrivate->prefsID = CFStringCreateCopy(allocator, prefsID);
 	prefsPrivate->perUser = perUser;
-	if (user) {
-		prefsPrivate->user = CFRetain(user);
-	}
-	return prefs;
+	if (user)	prefsPrivate->user    = CFStringCreateCopy(allocator, user);
+	return (SCPreferencesRef)prefsPrivate;
 
     error :
 
-	if (fd != -1) {
-		(void) close(fd);
-	}
-	CFRelease(prefs);
+	if (fd != -1) 	(void) close(fd);
+	CFRelease(prefsPrivate);
 	_SCErrorSet(sc_status);
 	return NULL;
 }
@@ -305,9 +331,11 @@ SCPreferencesCreate(CFAllocatorRef		allocator,
 		    CFStringRef			name,
 		    CFStringRef			prefsID)
 {
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCPreferencesCreate:"));
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  name    = %@"), name);
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  prefsID = %@"), prefsID);
+	if (_sc_verbose) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCPreferencesCreate:"));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  name    = %@"), name);
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  prefsID = %@"), prefsID);
+	}
 
 	return __SCPreferencesCreate(allocator, name, prefsID, FALSE, NULL);
 }
@@ -319,10 +347,12 @@ SCUserPreferencesCreate(CFAllocatorRef			allocator,
 			CFStringRef			prefsID,
 			CFStringRef			user)
 {
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCUserPreferencesCreate:"));
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  name    = %@"), name);
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  prefsID = %@"), prefsID);
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  user    = %@"), user);
+	if (_sc_verbose) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCUserPreferencesCreate:"));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  name    = %@"), name);
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  prefsID = %@"), prefsID);
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  user    = %@"), user);
+	}
 
 	return __SCPreferencesCreate(allocator, name, prefsID, TRUE, user);
 }
@@ -330,5 +360,6 @@ SCUserPreferencesCreate(CFAllocatorRef			allocator,
 
 CFTypeID
 SCPreferencesGetTypeID(void) {
+	pthread_once(&initialized, __SCPreferencesInitialize);	/* initialize runtime */
 	return __kSCPreferencesTypeID;
 }

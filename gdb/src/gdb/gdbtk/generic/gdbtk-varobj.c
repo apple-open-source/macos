@@ -19,7 +19,7 @@
 
 #include "defs.h"
 #include "value.h"
-
+#include "gdb_string.h"
 #include "varobj.h"
 
 #include <tcl.h>
@@ -70,13 +70,9 @@ static void install_variable (Tcl_Interp *, char *);
 static void uninstall_variable (Tcl_Interp *, char *);
 
 /* String representations of gdb's format codes */
-char *format_string[] =
+static char *format_string[] =
   {"natural", "binary", "decimal", "hexadecimal", "octal"};
 
-#if defined(FREEIF)
-#undef FREEIF
-#endif
-#define FREEIF(x) if (x != NULL) free((char *) (x))
 
 /* Initialize the variable code. This function should be called once
    to install and initialize the variable code into the interpreter. */
@@ -259,13 +255,13 @@ variable_obj_command (ClientData clientData, Tcl_Interp *interp,
       {
 	char *name = varobj_get_expression (var);
 	Tcl_SetObjResult (interp, Tcl_NewStringObj (name, -1));
-	FREEIF (name);
+	xfree (name);
       }
       break;
 
     case VARIABLE_EDITABLE:
-      Tcl_SetObjResult (interp, Tcl_NewIntObj (
-					       varobj_get_attributes (var) & 0x00000001 /* Editable? */ ));
+      Tcl_SetObjResult (interp, 
+			Tcl_NewIntObj (varobj_get_attributes (var) & 0x00000001 /* Editable? */ ));
       break;
 
     case VARIABLE_UPDATE:
@@ -337,7 +333,7 @@ variable_create (Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
       if (Tcl_GetIndexFromObj (interp, objv[0], create_options, "options",
 			       0, &index) != TCL_OK)
 	{
-	  free (obj_name);
+	  xfree (obj_name);
 	  result_ptr->flags |= GDBTK_IN_TCL_RESULT;
 	  return TCL_ERROR;
 	}
@@ -380,11 +376,11 @@ variable_create (Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])
       Tcl_SetObjResult (interp, Tcl_NewStringObj (obj_name, -1));
       result_ptr->flags |= GDBTK_IN_TCL_RESULT;
 
-      free (obj_name);
+      xfree (obj_name);
       return TCL_OK;
     }
 
-  free (obj_name);
+  xfree (obj_name);
   return TCL_ERROR;
 }
 
@@ -403,11 +399,11 @@ variable_delete (Tcl_Interp *interp, struct varobj *var,
   while (*vc != NULL)
     {
       uninstall_variable (interp, *vc);
-      free (*vc);
+      xfree (*vc);
       vc++;
     }
 
-  FREEIF (dellist);
+  xfree (dellist);
 }
 
 /* Return a list of all the children of VAR, creating them if necessary. */
@@ -434,7 +430,7 @@ variable_children (Tcl_Interp *interp, struct varobj *var)
       vc++;
     }
 
-  FREEIF (childlist);
+  xfree (childlist);
   return list;
 }
 
@@ -448,13 +444,12 @@ variable_update (Tcl_Interp *interp, struct varobj **var)
   struct varobj **changelist;
   struct varobj **vc;
 
-  changed = Tcl_NewListObj (0, NULL);
-
   /* varobj_update() can return -1 if the variable is no longer around,
      i.e. we stepped out of the frame in which a local existed. */
   if (varobj_update (var, &changelist) == -1)
-    return changed;
+    return Tcl_NewStringObj ("-1", -1);
 
+  changed = Tcl_NewListObj (0, NULL);  
   vc = changelist;
   while (*vc != NULL)
     {
@@ -464,7 +459,7 @@ variable_update (Tcl_Interp *interp, struct varobj **var)
       vc++;
     }
 
-  FREEIF (changelist);
+  xfree (changelist);
   return changed;
 }
 
@@ -545,7 +540,7 @@ variable_type (Tcl_Interp *interp, int objc,
     }
 
   Tcl_SetObjResult (interp, Tcl_NewStringObj (string, -1));
-  FREEIF (string);
+  xfree (string);
   return TCL_OK;
 }
 
@@ -593,7 +588,7 @@ variable_value (Tcl_Interp *interp, int objc,
   else
     {
       Tcl_SetObjResult (interp, Tcl_NewStringObj (r, -1));
-      FREEIF (r);
+      xfree (r);
       return TCL_OK;
     }
 }

@@ -9,7 +9,6 @@
 		<h2>HeaderDoc Class Hierarchy</h2>
 		<address>
         author: Matt Morse (matt@apple.com)<br>
-		last updated: 11/29/2001
 		</address>
 <pre>
 HeaderElement                              (Root Class--any header entity that's significant)
@@ -21,6 +20,8 @@ HeaderElement                              (Root Class--any header entity that's
         |               |-------Header     (Owner for header-wide API)
         |               |                
         |               |-------CPPClass   (Owner for C++ class API)
+        |               |                
+        |               |-------CClass     (Owner for C pseudoclass API)
         |               |                
         |               |-------ObjCContainer
         |                           |

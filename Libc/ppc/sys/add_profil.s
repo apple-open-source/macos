@@ -25,4 +25,3 @@
 #include "SYS.h"
 
 SYSCALL(add_profil, 4)
-	blr

@@ -32,16 +32,21 @@ namespace SecurityServer {
 void CommonBlob::initialize(uint32 version)
 {
     magic = magicNumber;
-    this->version = version;
+    this->blobVersion = version;
 }
 
 
 //
 // Verify the blob header for basic sane-ness.
-// Version is checked (for equality) if non-zero.
+//
+bool CommonBlob::isValid() const
+{
+	return magic == magicNumber;
+}
+
 void CommonBlob::validate(CSSM_RETURN failureCode) const
 {
-    if (magic != magicNumber)
+    if (!isValid())
         CssmError::throwMe(failureCode);
 }
 

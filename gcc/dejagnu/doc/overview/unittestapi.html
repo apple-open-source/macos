@@ -1,0 +1,316 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML
+><HEAD
+><TITLE
+>Unit Testing API</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.64
+"><LINK
+REL="HOME"
+TITLE="DejaGnu"
+HREF="book1.html"><LINK
+REL="PREVIOUS"
+TITLE="File Map"
+HREF="filemap.html"><LINK
+REL="NEXT"
+TITLE="C++ Unit Testing API"
+HREF="cppunit.html"></HEAD
+><BODY
+CLASS="CHAPTER"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+>DejaGnu: The GNU Testing Framework</TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="filemap.html"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+></TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+><A
+HREF="cppunit.html"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="CHAPTER"
+><H1
+><A
+NAME="UNITTESTAPI"
+>Unit Testing API</A
+></H1
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="CUNIT"
+>C Unit Testing API</A
+></H1
+><P
+>All of the functions that take a
+    <TT
+CLASS="PARAMETER"
+><I
+>msg</I
+></TT
+> parameter use a C char * that is
+    the message to be dislayed. There currently is no support for
+    variable length arguments.</P
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="PASSFUNC"
+>Pass Function</A
+></H2
+><P
+>This prints a message for a successful test
+	  completion.</P
+><DIV
+CLASS="FUNCSYNOPSIS"
+><A
+NAME="AEN5121"
+></A
+><P
+></P
+><CODE
+CLASS="FUNCDEF"
+><TT
+CLASS="FUNCTION"
+>pass</TT
+></CODE
+>(<TT
+CLASS="PARAMETER"
+><I
+>msg</I
+></TT
+>);<P
+></P
+></DIV
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="FAILFUNC"
+>Fail Function</A
+></H2
+><P
+>This prints a message for an unsuccessful test
+	  completion.</P
+><DIV
+CLASS="FUNCSYNOPSIS"
+><A
+NAME="AEN5129"
+></A
+><P
+></P
+><CODE
+CLASS="FUNCDEF"
+><TT
+CLASS="FUNCTION"
+>fail</TT
+></CODE
+>(<TT
+CLASS="PARAMETER"
+><I
+>msg</I
+></TT
+>);<P
+></P
+></DIV
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="UNTESTEDFUNC"
+>Untested Function</A
+></H2
+><P
+>This prints a message for an test case that isn't run
+	  for some technical reason.</P
+><DIV
+CLASS="FUNCSYNOPSIS"
+><A
+NAME="AEN5137"
+></A
+><P
+></P
+><CODE
+CLASS="FUNCDEF"
+><TT
+CLASS="FUNCTION"
+>untested</TT
+></CODE
+>(<TT
+CLASS="PARAMETER"
+><I
+>msg</I
+></TT
+>);<P
+></P
+></DIV
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="UNRESOLVEDFUNC"
+>Unresolved Function</A
+></H2
+><P
+>This prints a message for an test case that is run,
+	  but there is no clear result. These output states require a
+	  human to look over the results to determine what happened.
+	  </P
+><DIV
+CLASS="FUNCSYNOPSIS"
+><A
+NAME="AEN5145"
+></A
+><P
+></P
+><CODE
+CLASS="FUNCDEF"
+><TT
+CLASS="FUNCTION"
+>unresolved</TT
+></CODE
+>(<TT
+CLASS="PARAMETER"
+><I
+>msg</I
+></TT
+>);<P
+></P
+></DIV
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="TOTALSFUNC"
+>Totals Function</A
+></H2
+><P
+>This prints out the total numbers of all the test
+	  state outputs.</P
+><DIV
+CLASS="FUNCSYNOPSIS"
+><A
+NAME="AEN5153"
+></A
+><P
+></P
+><CODE
+CLASS="FUNCDEF"
+><TT
+CLASS="FUNCTION"
+>totals</TT
+></CODE
+>(<TT
+CLASS="PARAMETER"
+><I
+></I
+></TT
+>);<P
+></P
+></DIV
+></DIV
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="filemap.html"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="book1.html"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="cppunit.html"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>File Map</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+>&nbsp;</TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>C++ Unit Testing API</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

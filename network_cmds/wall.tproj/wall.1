@@ -30,19 +30,22 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)wall.1	8.1 (Berkeley) 6/6/93
+.\" $FreeBSD: src/usr.bin/wall/wall.1,v 1.8 2002/06/10 22:59:59 jmallett Exp $
 .\"
 .Dd June 6, 1993
 .Dt WALL 1
-.Os BSD 4
+.Os
 .Sh NAME
 .Nm wall
 .Nd write a message to users
 .Sh SYNOPSIS
-.Nm wall
+.Nm
+.Op Fl g Ar group
 .Op Ar file
 .Sh DESCRIPTION
-.Nm Wall
-displays the contents of
+The
+.Nm
+utility displays the contents of
 .Ar file
 or, by default, its standard input, on the terminals of all
 currently logged in users.
@@ -51,6 +54,12 @@ Only the super-user can write on the
 terminals of users who have chosen
 to deny messages or are using a program which
 automatically denies messages.
+.Bl -tag -width indent
+.It Fl g
+Send messages to users in this group.  This option may be specified
+multiple times, and any user in any of the specified groups will
+receive the message.
+.El
 .Sh SEE ALSO
 .Xr mesg 1 ,
 .Xr talk 1 ,
@@ -59,5 +68,4 @@ automatically denies messages.
 .Sh HISTORY
 A
 .Nm
-command appeared in
-.At v7 .
+command appeared in PWB UNIX.

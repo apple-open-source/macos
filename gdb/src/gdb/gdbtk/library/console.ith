@@ -17,7 +17,7 @@
 # blocks.  
 # ----------------------------------------------------------------------
 
-class Console {
+itcl::class Console {
   inherit EmbeddedWin GDBEventHandler
 
   public {
@@ -27,10 +27,11 @@ class Console {
     method constructor {args}
     method destructor {}   
     method insert {line {tag ""}}
-    method invoke {}
+    method invoke {{controld 0}}
     method _insertion {args}
     method activate {{prompt {}}}
     method test {args}
+    method gets {}
 
     #
     # GDB Events
@@ -50,8 +51,12 @@ class Console {
     variable _running 0
     variable _saw_tab 0
     variable _pendingHistElement -1
+    variable _input_mode 0
+    variable _input_result ""
+    variable _input_error 0
 
     method _build_win {}
+    method _cancel {}
     method _complete {}
     method _delete {{left 0}}
     method _find_completion {cmd completions}

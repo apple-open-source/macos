@@ -271,10 +271,15 @@ exits 0 on success, 1 on failure.
 .Sh STANDARDS
 The
 .Nm
-utility conforms to 
+utility mostly conforms to 
 .St -p1003.2-92 .
 .Sh BUGS
 Since the floating point numbers are translated from
 .Tn ASCII
 to floating-point and
 then back again, floating-point precision may be lost.
+.Pp
+Parsing of - arguments is also somewhat different from
+.Xr printf 3 ,
+where unknown arguments are simply printed instead of being
+flagged as errors.

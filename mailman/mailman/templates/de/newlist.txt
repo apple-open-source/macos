@@ -1,0 +1,38 @@
+Die Mailing-Liste `%(listname)s' wurde soeben fuer Sie angelegt. Hier nun
+ein paar grundlegende Informationen ueber Ihre neue Liste.
+
+Ihr Mailing-Listen Passwort lautet:
+
+    %(password)s
+
+Sie benoetigen dieses Passwort um die Liste zu konfigurieren. Darueberhinaus
+wird es zur Bearbeitung von administrativen Anfragen (z.B. Genehmigung von
+Emails an die Liste) benoetigt.
+
+Sie koennen Ihre Mailing-Liste unter der folgenden Adresse administrieren:
+
+    %(admin_url)s
+
+Die Webseite fuer Benutzer Ihrer Mailing-Liste ist:
+
+    %(listinfo_url)s
+
+Sie koennen sogar diese Webseiten individuell gestalten. Allerding muessen
+sie HTML-Kenntnisse besitzen um dies zu bewerkstelligen.
+
+Es gibt eine Email-basierte Schnittstelle fuer die Abonennten (nicht aber
+fuer den Administrator!) Ihrer Liste; Informationen darueber erhalten Sie,
+indem Sie einem Email mit nur dem Wort `help' im Betreff/Subject oder im
+Text der Email an die Adresse:
+
+    %(requestaddr)s
+
+schicken.
+
+Um einem Abonnenten zu kuendigen: Klicken Sie auf der 'listinfo' Webseite
+auf die Email-Adresse des Abonnenten (oder geben Sie die Adresse ein) als ob
+Sie dieser Abonnent waeren.
+Anstelle des Passworts des Abonnenten geben Sie allerdings Ihr
+Adminsitrationspasswort ein.
+
+Bitte richten Sie alle Fragen an %(siteowner)s.

@@ -1,21 +1,24 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -79,41 +82,45 @@ public:
     virtual IOReturn message 			( UInt32 type, IOService * provider, void * arg );
 	
     virtual IOReturn clientClose 		( void );
-    virtual IOReturn clientDied 		( void );
-		
-	virtual IOReturn	EnableDisableOperations ( UInt32 enable );
-	virtual IOReturn	EnableDisableAutoSave 	( UInt32 enable );
-	virtual IOReturn	ReturnStatus		 	( UInt32 * exceedsCondition );
-	virtual IOReturn	ExecuteOfflineImmediate	( UInt32 extendedTest );
-	virtual IOReturn	ReadData				( vm_address_t data );
-	virtual IOReturn	ReadDataThresholds		( vm_address_t data );
-	virtual IOReturn	ReadLogAtAddress		( ATASMARTReadLogStruct *	readLogData,
-												  UInt32					inStructSize );
-	virtual IOReturn	WriteLogAtAddress		( ATASMARTWriteLogStruct *	writeLogData,
-												  UInt32					inStructSize );
+	
+	IOReturn	EnableDisableOperations ( UInt32 enable );
+	IOReturn	EnableDisableAutoSave 	( UInt32 enable );
+	IOReturn	ReturnStatus		 	( UInt32 * exceedsCondition );
+	IOReturn	ExecuteOfflineImmediate	( UInt32 extendedTest );
+	IOReturn	ReadData				( vm_address_t data );
+	IOReturn	ReadDataThresholds		( vm_address_t data );
+	IOReturn	ReadLogAtAddress		( ATASMARTReadLogStruct *		readLogData,
+										  UInt32						inStructSize );
+	IOReturn	WriteLogAtAddress		( ATASMARTWriteLogStruct *		writeLogData,
+										  UInt32						inStructSize );
+	IOReturn	GetIdentifyData			( ATAGetIdentifyDataStruct *	identifyData,
+										  UInt32 *						bytesTransferred,
+										  UInt32						inStructSize,
+										  UInt32 *						outStructSize );
 	
 protected:
 	
-	static IOExternalMethod					sMethods[kIOATASMARTMethodCount];
-
+	static IOExternalMethod				sMethods[kIOATASMARTMethodCount];
+	
 	static IOReturn		sWaitForCommand 	( void * userClient, IOATACommand * command );
 	static void 		sCommandCallback	( IOATACommand * command );
 	
-	virtual IOReturn 	GatedWaitForCommand	( IOATACommand * command );
-	virtual void	 	CommandCallback		( IOATACommand * command );
+	IOReturn 			GatedWaitForCommand	( IOATACommand * command );
+	void	 			CommandCallback		( IOATACommand * command );
 	
-	task_t									fTask;
-	IOATABlockStorageDevice *				fProvider;
-	IOCommandGate *							fCommandGate;
-	UInt32									fOutstandingCommands;
+	task_t								fTask;
+	IOATABlockStorageDevice *			fProvider;
+	IOCommandGate *						fCommandGate;
+	IOWorkLoop *						fWorkLoop;
+	UInt32								fOutstandingCommands;
 	
-	virtual IOExternalMethod *				getTargetAndMethodForIndex ( IOService **	target,
-																		 UInt32			index );
+	virtual IOExternalMethod *			getTargetAndMethodForIndex ( IOService **	target,
+																	 UInt32			index );
 	
-	virtual IOReturn 		HandleTerminate		( IOService * provider );
-	virtual IOReturn		SendSMARTCommand	( IOATACommand * command );
-	virtual IOATACommand *	AllocateCommand		( void );
-	virtual void			DeallocateCommand	( IOATACommand * command );
+	IOReturn 		HandleTerminate		( IOService * provider );
+	IOReturn		SendSMARTCommand	( IOATACommand * command );
+	IOATACommand *	AllocateCommand		( void );
+	void			DeallocateCommand	( IOATACommand * command );
 
 };
 

@@ -1,7 +1,7 @@
 #! /usr/local/bin/ruby
 # -*- ruby -*-
 
-$".push 'mkmf.rb'
+$".push 'mkmf.rb' # "
 ORIG_LIBPATH = ENV['LIB']
 
 if ARGV[0] == 'static'
@@ -39,6 +39,7 @@ $topdir = File.expand_path("..")
 $:.replace [$top_srcdir, $top_srcdir+"/lib", "."]
 
 require 'find'
+require 'shellwords'
 
 def rm_f(*files)
   targets = []
@@ -74,21 +75,24 @@ if /mswin32/ =~ RUBY_PLATFORM
 else
   OUTFLAG = '-o '
 end
-LINK = "@CC@ #{OUTFLAG}conftest -I#$topdir -I#$top_srcdir #{CFLAGS} -I#$includedir -L#$libdir @LDFLAGS@ %s %s %s conftest.c %s %s @LIBS@"
-CPP = "@CPP@ @CPPFLAGS@ -I#$topdir -I#$top_srcdir #{CFLAGS} -I#$includedir %s %s %s conftest.c"
+LINK = "@CC@ #{OUTFLAG}conftest -I#$topdir -I#$top_srcdir #{CFLAGS} @LDFLAGS@ %s %s %s conftest.c %s %s @LIBS@"
+CPP = "@CPP@ @CPPFLAGS@ -I#$topdir -I#$top_srcdir #{CFLAGS} %s %s %s conftest.c"
 
-$log = open('extmk.log', 'w')
-
+$log = nil
 $orgerr = $stderr.dup
 $orgout = $stdout.dup
+
 def xsystem command
   if $DEBUG
     puts command
+    $stdout.flush
     return system(command)
   end
+  $log ||= open(File.join($topdir, 'ext', 'extmk.log'), 'w')
   $stderr.reopen($log) 
   $stdout.reopen($log) 
   puts command
+  $stdout.flush
   r = system(command)
   $stderr.reopen($orgerr)
   $stdout.reopen($orgout)
@@ -297,13 +301,10 @@ def arg_config(config, default=nil)
     if /mswin32|mingw/ =~ RUBY_PLATFORM and ENV["CONFIGURE_ARGS"]
       args << " " << ENV["CONFIGURE_ARGS"]
     end
-    for arg in args.split
+    for arg in Shellwords::shellwords(args)
       next unless /^--/ =~ arg
-      if /=/ =~ arg
-	$configure_args[$`] = $'
-      else
-	$configure_args[arg] = true
-      end
+      arg, val = arg.split('=', 2)
+      $configure_args[arg] = val || true
     end
   end
   $configure_args.fetch(config, default)
@@ -317,9 +318,9 @@ def with_config(config, default=nil)
 end
 
 def enable_config(config, default=nil)
-  if arg_config("--enable-"+config, default)
+  if arg_config("--enable-"+config)
     true
-  elsif arg_config("--disable-"+config, false)
+  elsif arg_config("--disable-"+config)
     false
   else
     default
@@ -338,21 +339,13 @@ def create_header()
 end
 
 def dir_config(target, idefault=nil, ldefault=nil)
-  if idefault && ldefault == nil
-    default = idefault
-    idefault = default + "/include"
-    ldefault = default + "/lib"
+  if dir = with_config(target + "-dir", (idefault unless ldefault))
+    idefault = dir + "/include"
+    ldefault = dir + "/lib"
   end
 
-  dir = with_config(target + "-dir", default)
-
-  idir, ldir = if dir then [
-      dir + "/include",
-      dir + "/lib"
-    ] else [
-      with_config(target + "-include", idefault),
-      with_config(target + "-lib", ldefault)
-    ] end
+  idir = with_config(target + "-include", idefault)
+  ldir = with_config(target + "-lib", ldefault)
 
   if idir
     idircflag = "-I" + idir
@@ -384,6 +377,9 @@ def create_makefile(target)
   end
 
   $DLDFLAGS = '@DLDFLAGS@'
+#  if /linux/ =~ RUBY_PLATFORM and $configure_args['--enable-shared'] and "@GNU_LD@" == "yes"
+#    $DLDFLAGS << " -Wl,--no-undefined"
+#  end
 
   if $configure_args['--enable-shared'] or "@LIBRUBY@" != "@LIBRUBY_A@"
     $libs = "@LIBRUBYARG@ " + $libs
@@ -426,7 +422,7 @@ hdrdir = #{$top_srcdir}
 CC = @CC@
 
 CFLAGS   = %s #{CFLAGS} #$CFLAGS
-CPPFLAGS = -I$(topdir) -I$(hdrdir) -I@includedir@ %s #$CPPFLAGS
+CPPFLAGS = -I$(topdir) -I$(hdrdir) %s #$CPPFLAGS
 DLDFLAGS = #$DLDFLAGS #$LDFLAGS
 LDSHARED = @LDSHARED@ #{defflag}
 ", if $static then "" else "@CCDLFLAGS@" end, $defs.join(" ")
@@ -452,7 +448,7 @@ target_prefix = #{target_prefix}
 
 "
   mfile.printf "LOCAL_LIBS = %s %s\n", $LOCAL_LIBS, $local_flags
-  mfile.printf "LIBS = -L%s %s\n", $libdir, $libs
+  mfile.printf "LIBS = %s\n", $libs
   mfile.printf "OBJS = "
   if !$objs then
     $objs = []
@@ -482,7 +478,7 @@ TARGET = #{target}
 DLLIB = $(TARGET).#{$static ? $LIBEXT : "@DLEXT@"}
 
 RUBY = #{ruby_interpreter} -I$(topdir) -I$(hdrdir)/lib
-RM = $(RUBY) -rftools -e "File::rm_f(*ARGV.map{|x|Dir[x]}.flatten.uniq)"
+RM = $(RUBY) -rftools -e "File::rm_f(*ARGV.map do|x|Dir[x]end.flatten.uniq)"
 
 EXEEXT = @EXEEXT@
 
@@ -593,7 +589,7 @@ $(DLLIB): $(OBJS)
     mfile.printf "###\n"
     while line = dfile.gets()
       line.gsub!(/\.o\b/, ".#{$OBJEXT}")
-      line.gsub!(/(\s)([^\s\/]+\.[ch])/, '\1$(srcdir)/\2') if /nmake/i =~ $make
+      line.gsub!(/(\s)([^\s\/]+\.[ch])/, '\1{$(srcdir)}\2') if /nmake/i =~ $make
       mfile.printf "%s", line.gsub('\$\(hdrdir\)/config.h', '$(topdir)/config.h')
     end
     dfile.close
@@ -625,7 +621,7 @@ def extmake(target)
   $CFLAGS = ""
   $CPPFLAGS = ""
   $LDFLAGS = ""
-  $LIBPATH = []
+  $LIBPATH = [$libdir]
 
   dir_config("opt")
 
@@ -638,7 +634,7 @@ def extmake(target)
     unless $install or $clean
       if $static_ext.size > 0 ||
 	!File.exist?("./Makefile") ||
-	older("./Makefile", "#{$top_srcdir}/ext/@setup@") ||
+	older("./Makefile", $setup) ||
 	older("./Makefile", "#{$topdir}/ext/extmk.rb") ||
 	older("./Makefile", "#{$top_srcdir}/ext/#{target}/makefile.rb") ||
 	older("./Makefile", "#{$top_srcdir}/ext/#{target}/extconf.rb")
@@ -653,9 +649,10 @@ def extmake(target)
 	end
       end
     end
+    $static = $target if $static
     if File.exist?("./Makefile")
       if $static
- 	$extlist.push [$static, File.basename($target)]
+ 	$extlist.push [$static, $target, File.basename($target)]
       end
       if $install
 	system "#{$make} install DESTDIR=#{$destdir}"
@@ -701,6 +698,7 @@ for setup in ["@setup@", "#{$top_srcdir}/ext/@setup@"]
       target = target.downcase if /mswin32/ =~ RUBY_PLATFORM
       $static_ext[target] = true
     end
+    $setup = setup
     f.close
     break
   end
@@ -722,6 +720,7 @@ for d in Dir["#{ext_prefix}/**/*"]
       load "#{$top_srcdir}/ext/aix_mksym.rb"
     end
   end
+  $stdout.flush
   extmake(d)
 end
 
@@ -736,13 +735,13 @@ miniruby = "miniruby@EXEEXT@"
 
 $extobjs = "" unless $extobjs
 if $extlist.size > 0
-  for s,t in $extlist
-    f = format("%s/%s.%s", s, t, $LIBEXT)
+  for s,t,i in $extlist
+    f = format("%s/%s.%s", s, i, $LIBEXT)
     if File.exist?(f)
       $extinit += format("\
 \tInit_%s();\n\
 \trb_provide(\"%s.so\");\n\
-", t, s)
+", i, t)
       $extobjs += "ext/"
       $extobjs += f
       $extobjs += " "
@@ -751,7 +750,7 @@ if $extlist.size > 0
     end
   end
 
-  if older("extinit.c", "#{$top_srcdir}/ext/@setup@")
+  if older("extinit.c", $setup) || older("extinit.c", "#{$topdir}/ext/extmk.rb")
     f = open("extinit.c", "w")
     f.printf "void Init_ext() {\n"
     f.printf $extinit
@@ -766,7 +765,7 @@ if $extlist.size > 0
 
   Dir.chdir ".."
 
-  if older(ruby, "#{$top_srcdir}/ext/@setup@") or older(ruby, miniruby)
+  if older(ruby, $setup) or older(ruby, miniruby)
     rm_f ruby
   end
 

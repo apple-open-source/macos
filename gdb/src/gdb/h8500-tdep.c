@@ -1,6 +1,7 @@
 /* Target-dependent code for Hitachi H8/500, for GDB.
-   Copyright 1993, 1994, 1995, 1998, 2000, 2001
-   Free Software Foundation, Inc.
+
+   Copyright 1993, 1994, 1995, 1998, 2000, 2001, 2002 Free Software
+   Foundation, Inc.
 
    This file is part of GDB.
 
@@ -26,7 +27,6 @@
 
 #include "defs.h"
 #include "frame.h"
-#include "obstack.h"
 #include "symtab.h"
 #include "gdbtypes.h"
 #include "gdbcmd.h"
@@ -106,9 +106,10 @@ h8500_addr_bits_remove (CORE_ADDR addr)
   return ((addr) & 0xffffff);
 }
 
-/* Given a GDB frame, determine the address of the calling function's frame.
-   This will be used to create a new GDB frame struct, and then
-   INIT_EXTRA_FRAME_INFO and INIT_FRAME_PC will be called for the new frame.
+/* Given a GDB frame, determine the address of the calling function's
+   frame.  This will be used to create a new GDB frame struct, and
+   then INIT_EXTRA_FRAME_INFO and DEPRECATED_INIT_FRAME_PC will be
+   called for the new frame.
 
    For us, the frame address is its stack pointer value, so we look up
    the function prologue to determine the caller's sp value, and return it.  */
@@ -117,7 +118,7 @@ CORE_ADDR
 h8500_frame_chain (struct frame_info *thisframe)
 {
   if (!inside_entry_file (thisframe->pc))
-    return (read_memory_integer (FRAME_FP (thisframe), PTR_SIZE));
+    return (read_memory_integer (get_frame_base (thisframe), PTR_SIZE));
   else
     return 0;
 }
@@ -154,7 +155,7 @@ NEXT_PROLOGUE_INSN (CORE_ADDR addr, CORE_ADDR lim, char *pword1)
 CORE_ADDR
 frame_saved_pc (struct frame_info *frame)
 {
-  return read_memory_integer (FRAME_FP (frame) + 2, PTR_SIZE);
+  return read_memory_integer (get_frame_base (frame) + 2, PTR_SIZE);
 }
 
 void
@@ -164,7 +165,7 @@ h8500_pop_frame (void)
   struct frame_saved_regs fsr;
   struct frame_info *frame = get_current_frame ();
 
-  get_frame_saved_regs (frame, &fsr);
+  deprecated_get_frame_saved_regs (frame, &fsr);
 
   for (regnum = 0; regnum < 8; regnum++)
     {
@@ -175,8 +176,8 @@ h8500_pop_frame (void)
     }
 }
 
-void
-print_register_hook (int regno)
+static void
+h8500_print_register_hook (int regno)
 {
   if (regno == CCR_REGNUM)
     {
@@ -186,7 +187,7 @@ print_register_hook (int regno)
       unsigned char b[2];
       unsigned char l;
 
-      read_relative_register_raw_bytes (regno, b);
+      frame_register_read (deprecated_selected_frame, regno, b);
       l = b[1];
       printf_unfiltered ("\t");
       printf_unfiltered ("I-%d - ", (l & 0x80) != 0);
@@ -219,6 +220,117 @@ print_register_hook (int regno)
       if ((Z | (N ^ V)) == 1)
 	printf_unfiltered ("<= ");
     }
+}
+
+static void
+h8500_print_registers_info (struct gdbarch *gdbarch,
+			    struct ui_file *file,
+			    struct frame_info *frame,
+			    int regnum, int print_all)
+{
+  int i;
+  const int numregs = NUM_REGS + NUM_PSEUDO_REGS;
+  char *raw_buffer = alloca (MAX_REGISTER_RAW_SIZE);
+  char *virtual_buffer = alloca (MAX_REGISTER_VIRTUAL_SIZE);
+
+  for (i = 0; i < numregs; i++)
+    {
+      /* Decide between printing all regs, non-float / vector regs, or
+         specific reg.  */
+      if (regnum == -1)
+	{
+	  if (!print_all)
+	    {
+	      if (TYPE_CODE (REGISTER_VIRTUAL_TYPE (i)) == TYPE_CODE_FLT)
+		continue;
+	      if (TYPE_VECTOR (REGISTER_VIRTUAL_TYPE (i)))
+		continue;
+	    }
+	}
+      else
+	{
+	  if (i != regnum)
+	    continue;
+	}
+
+      /* If the register name is empty, it is undefined for this
+         processor, so don't display anything.  */
+      if (REGISTER_NAME (i) == NULL || *(REGISTER_NAME (i)) == '\0')
+	continue;
+
+      fputs_filtered (REGISTER_NAME (i), file);
+      print_spaces_filtered (15 - strlen (REGISTER_NAME (i)), file);
+
+      /* Get the data in raw format.  */
+      if (! frame_register_read (frame, i, raw_buffer))
+	{
+	  fprintf_filtered (file, "*value not available*\n");
+	  continue;
+	}
+
+      /* FIXME: cagney/2002-08-03: This code shouldn't be necessary.
+         The function frame_register_read() should have returned the
+         pre-cooked register so no conversion is necessary.  */
+      /* Convert raw data to virtual format if necessary.  */
+      if (REGISTER_CONVERTIBLE (i))
+	{
+	  REGISTER_CONVERT_TO_VIRTUAL (i, REGISTER_VIRTUAL_TYPE (i),
+				       raw_buffer, virtual_buffer);
+	}
+      else
+	{
+	  memcpy (virtual_buffer, raw_buffer,
+		  REGISTER_VIRTUAL_SIZE (i));
+	}
+
+      /* If virtual format is floating, print it that way, and in raw
+         hex.  */
+      if (TYPE_CODE (REGISTER_VIRTUAL_TYPE (i)) == TYPE_CODE_FLT)
+	{
+	  int j;
+
+	  val_print (REGISTER_VIRTUAL_TYPE (i), virtual_buffer, 0, 0,
+		     file, 0, 1, 0, Val_pretty_default);
+
+	  fprintf_filtered (file, "\t(raw 0x");
+	  for (j = 0; j < REGISTER_RAW_SIZE (i); j++)
+	    {
+	      int idx;
+	      if (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG)
+		idx = j;
+	      else
+		idx = REGISTER_RAW_SIZE (i) - 1 - j;
+	      fprintf_filtered (file, "%02x", (unsigned char) raw_buffer[idx]);
+	    }
+	  fprintf_filtered (file, ")");
+	}
+      else
+	{
+	  /* Print the register in hex.  */
+	  val_print (REGISTER_VIRTUAL_TYPE (i), virtual_buffer, 0, 0,
+		     file, 'x', 1, 0, Val_pretty_default);
+          /* If not a vector register, print it also according to its
+             natural format.  */
+	  if (TYPE_VECTOR (REGISTER_VIRTUAL_TYPE (i)) == 0)
+	    {
+	      fprintf_filtered (file, "\t");
+	      val_print (REGISTER_VIRTUAL_TYPE (i), virtual_buffer, 0, 0,
+			 file, 0, 1, 0, Val_pretty_default);
+	    }
+	}
+
+      /* Some h8500 specific info.  */
+      h8500_print_register_hook (i);
+
+      fprintf_filtered (file, "\n");
+    }
+}
+
+void
+h8500_do_registers_info (int regnum, int all)
+{
+  h8500_print_registers_info (current_gdbarch, gdb_stdout, deprecated_selected_frame,
+			      regnum, all);
 }
 
 int
@@ -506,10 +618,10 @@ h8500_value_of_trapped_internalvar (struct internalvar *var)
       break;
     }
 
-  get_saved_register (regbuf, NULL, NULL, selected_frame, page_regnum, NULL);
+  get_saved_register (regbuf, NULL, NULL, deprecated_selected_frame, page_regnum, NULL);
   regval = regbuf[0] << 16;
 
-  get_saved_register (regbuf, NULL, NULL, selected_frame, regnum, NULL);
+  get_saved_register (regbuf, NULL, NULL, deprecated_selected_frame, regnum, NULL);
   regval |= regbuf[0] << 8 | regbuf[1];		/* XXX host/target byte order */
 
   xfree (var->value);		/* Free up old value */

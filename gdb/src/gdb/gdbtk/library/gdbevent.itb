@@ -14,7 +14,7 @@
 # ------------------------------------------------------------
 #  PUBLIC METHOD:  get - Retrieve data about the event
 # ------------------------------------------------------------
-body BreakpointEvent::get {what} {
+itcl::body BreakpointEvent::get {what} {
 
   switch $what {
     action       { return $action }
@@ -40,7 +40,7 @@ body BreakpointEvent::get {what} {
 # ------------------------------------------------------------
 #  PRIVATE METHOD:  _init - Initialize all private data
 # ------------------------------------------------------------
-body BreakpointEvent::_init {} {
+itcl::body BreakpointEvent::_init {} {
   if {[catch {gdb_get_breakpoint_info $number} bpinfo]} {
     set _file         {}
     set _function     {}
@@ -75,14 +75,14 @@ body BreakpointEvent::_init {} {
 
 # When the breakpoint number for the event changes,
 # update the private data in the event.
-configbody BreakpointEvent::number {
+itcl::configbody BreakpointEvent::number {
   _init
 }
 
 # ------------------------------------------------------------
 #  PUBLIC METHOD:  get - Retrieve data about the event
 # ------------------------------------------------------------
-body TracepointEvent::get {what} {
+itcl::body TracepointEvent::get {what} {
 
   switch $what {
     action     { return $action }
@@ -105,7 +105,7 @@ body TracepointEvent::get {what} {
 # ------------------------------------------------------------
 #  PRIVATE METHOD:  _init - Initialize all private data
 # ------------------------------------------------------------
-body TracepointEvent::_init {} {
+itcl::body TracepointEvent::_init {} {
   if {[catch {gdb_get_tracepoint_info $number} tpinfo]} {
     set _file         {}
     set _function     {}
@@ -134,14 +134,14 @@ body TracepointEvent::_init {} {
 
 # When the tracepoint number for the event changes,
 # update the private data in the event.
-configbody TracepointEvent::number {
+itcl::configbody TracepointEvent::number {
   _init
 }
 
 # ------------------------------------------------------------
 #  PUBLIC METHOD:  get - Retrieve data about the event
 # ------------------------------------------------------------
-body TracepointEvent::get {what} {
+itcl::body TracepointEvent::get {what} {
 
   switch $what {
     action     { return $action }
@@ -164,7 +164,7 @@ body TracepointEvent::get {what} {
 # ------------------------------------------------------------
 #  PUBLIC METHOD:  get - Retrieve data about the event
 # ------------------------------------------------------------
-body SetVariableEvent::get {what} {
+itcl::body SetVariableEvent::get {what} {
 
   switch $what {
     variable { return $variable }
@@ -177,7 +177,7 @@ body SetVariableEvent::get {what} {
 # ------------------------------------------------------------
 #  CONSTRUCTOR: Create an UpdateEvent
 # ------------------------------------------------------------
-body UpdateEvent::constructor {args} {
+itcl::body UpdateEvent::constructor {args} {
   if {[catch {gdb_loc} loc]} {
     dbug E "could not get current location: $loc"
   } else {
@@ -189,7 +189,7 @@ body UpdateEvent::constructor {args} {
 # ------------------------------------------------------------
 #  PUBLIC METHOD:  get - Retrieve data about the event
 # ------------------------------------------------------------
-body UpdateEvent::get {what} {
+itcl::body UpdateEvent::get {what} {
 
   switch $what {
     compile_filename { return $_compile_filename }

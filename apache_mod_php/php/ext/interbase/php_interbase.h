@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_interbase.h,v 1.1.1.5 2001/12/14 22:12:29 zarzycki Exp $ */
+/* $Id: php_interbase.h,v 1.1.1.8 2003/07/18 18:07:34 zarzycki Exp $ */
 
 #ifndef PHP_INTERBASE_H
 #define PHP_INTERBASE_H
@@ -30,9 +30,16 @@ extern zend_module_entry ibase_module_entry;
 
 #ifdef PHP_WIN32
 #define PHP_IBASE_API __declspec(dllexport)
+#ifndef ISC_INT64_FORMAT
+ #define ISC_INT64_FORMAT "I64"
+#endif
 #else
 #define PHP_IBASE_API
+#ifndef ISC_INT64_FORMAT
+ #define ISC_INT64_FORMAT "ll"
 #endif
+#endif
+
 
 PHP_MINIT_FUNCTION(ibase);
 PHP_RINIT_FUNCTION(ibase);
@@ -45,12 +52,15 @@ PHP_FUNCTION(ibase_pconnect);
 PHP_FUNCTION(ibase_close);
 PHP_FUNCTION(ibase_query);
 PHP_FUNCTION(ibase_fetch_row);
+PHP_FUNCTION(ibase_fetch_assoc);
 PHP_FUNCTION(ibase_fetch_object);
 PHP_FUNCTION(ibase_free_result);
 PHP_FUNCTION(ibase_prepare);
 PHP_FUNCTION(ibase_execute);
 PHP_FUNCTION(ibase_free_query);
+#if HAVE_STRFTIME
 PHP_FUNCTION(ibase_timefmt);
+#endif
 
 PHP_FUNCTION(ibase_num_fields);
 PHP_FUNCTION(ibase_field_info);
@@ -68,7 +78,11 @@ PHP_FUNCTION(ibase_blob_close);
 PHP_FUNCTION(ibase_blob_echo);
 PHP_FUNCTION(ibase_blob_info);
 PHP_FUNCTION(ibase_blob_import);
-
+#ifdef SQL_DIALECT_V6
+PHP_FUNCTION(ibase_add_user);
+PHP_FUNCTION(ibase_modify_user);
+PHP_FUNCTION(ibase_delete_user);
+#endif
 PHP_FUNCTION(ibase_errmsg);
 
 #define IBASE_MSGSIZE 256

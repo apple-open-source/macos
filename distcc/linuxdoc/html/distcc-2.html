@@ -1,0 +1,440 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+ <META NAME="GENERATOR" CONTENT="LinuxDoc-Tools 0.9.21">
+ <TITLE>distcc User Manual: Using distcc</TITLE>
+ <LINK HREF="distcc-3.html" REL=next>
+ <LINK HREF="distcc-1.html" REL=previous>
+ <LINK HREF="distcc.html#toc2" REL=contents>
+</HEAD>
+<BODY>
+<A HREF="distcc-3.html">Next</A>
+<A HREF="distcc-1.html">Previous</A>
+<A HREF="distcc.html#toc2">Contents</A>
+<HR>
+<H2><A NAME="s2">2.</A> <A HREF="distcc.html#toc2">Using distcc</A></H2>
+
+<H2><A NAME="ss2.1">2.1</A> <A HREF="distcc.html#toc2.1">Invoking distcc</A>
+</H2>
+
+<P>To setup distcc to be compatible with the widest range of
+existing software, create a "masquerade dir" of compiler
+links that will invoke distcc.  When the distcc-in-disguise
+gets invoked, it invokes the real compiler of the same name
+either on the local client machine, or on a remote volunteer
+host.</P>
+<P>For instance, you could create the directory named
+/usr/lib/distcc/bin and populate it links (symlinks are
+slightly easier to maintain in the long run, but use hard
+links if you prefer them):
+<BLOCKQUOTE><CODE>
+<PRE>
+$ mkdir /usr/lib/distcc/bin
+$ cd /usr/lib/distcc/bin
+$ ln -s ../../../bin/distcc gcc
+$ ln -s ../../../bin/distcc cc
+$ ln -s ../../../bin/distcc g++
+$ ln -s ../../../bin/distcc c++
+</PRE>
+</CODE></BLOCKQUOTE>
+</P>
+<P>Then, to use distcc, a user just needs to put the directory
+/usr/lib/distcc/bin early in the PATH (and have set the
+DISTCC_HOSTS environment variable) and distcc will handle the
+rest.  Note that this masquerade dir must occur on the PATH
+earlier than the directory that contains the actual compilers
+of the same names, and that any auxiliary programs that these
+compilers call (such as "as" or "ld") must also be found on the
+PATH in a dir after the masquerade dir (since distcc calls out
+to the real compiler with a PATH value that has all dirs up to
+and including the masquerade dir trimmed off).</P>
+<P>An alternate setup is to prefix the distcc command to compiler
+command lines so that it is called explicitly.  This allows you
+to more easily control which things use distcc and which things
+don't, but can be more problematical when trying to use distcc
+with existing projects.</P>
+<P>For example, to compile the standard application program:
+<BLOCKQUOTE><CODE>
+<PRE>
+distcc gcc -o hello.o -c hello.c
+</PRE>
+</CODE></BLOCKQUOTE>
+</P>
+<P>Standard Makefiles, including those using the GNU
+autoconf/automake system use the <B>$CC</B> variable as
+the name of the C compiler to run and the <B>$CXX</B> variable
+as the name of the C++ compiler to run.  In many cases, it is
+sufficient to just override one or both of these variables,
+either from the command line, or perhaps from your login script
+(if you wish to use distcc for all compilations).  The following
+example sets both variables and takes advantage of the fact that
+distcc defaults to calling "gcc" if no other compiler name is
+provided:
+<BLOCKQUOTE><CODE>
+<PRE>
+make CC=distcc CXX='distcc g++'
+</PRE>
+</CODE></BLOCKQUOTE>
+</P>
+<P>Unfortunately, this setup sometimes leads to incompatibilities
+with packages that don't expect the compiler name to contain
+spaces or to projects that don't honor the above variables when
+deciding what compiler to use.  For instance, the KDE package
+will fail to compile using the above CXX-munging idiom, but will
+compile just fine if you use a masquerade dir (which causes all
+executions of "g++" to really run distcc).</P>
+<H2><A NAME="ss2.2">2.2</A> <A HREF="distcc.html#toc2.2">Options</A>
+</H2>
+
+<P>Options to distcc must precede the compiler name.  Any
+arguments or options following the name of the compiler are
+passed through to the compiler.</P>
+<P>
+<DL>
+<DT><B><CODE>-</CODE><CODE>-help</CODE></B><DD>
+<P>Print a detailed usage message and exit.</P>
+
+<DT><B><CODE>-</CODE><CODE>-version</CODE></B><DD>
+<P>Show distcc version and exit.</P>
+</DL>
+</P>
+<H2><A NAME="ss2.3">2.3</A> <A HREF="distcc.html#toc2.3">Environment Variables</A>
+</H2>
+
+<P>The way in which distcc runs the compiler is controlled by a
+few environment variables.</P>
+<P><B>NOTE:</B> Some versions of make do not export Make
+variables as environment variables by default.  Also,
+assignments to variables within the Makefile may override
+their definitions in the environment that calls make.  The
+most reliable method seems to be to set <CODE>DISTCC_*</CODE>
+variables in the environment of Make, and to set <CODE>CC</CODE>
+on the right-hand-side of the Make command line.  For
+example:</P>
+<P>
+<BLOCKQUOTE><CODE>
+<PRE>
+$ DISTCC_HOSTS='localhost wistful toey'
+$ PATH="/usr/lib/distcc/bin:$PATH"
+$ export DISTCC_HOSTS PATH
+$ ./configure
+$ make all
+</PRE>
+</CODE></BLOCKQUOTE>
+</P>
+
+<P>or:</P>
+<P>
+<BLOCKQUOTE><CODE>
+<PRE>
+$ DISTCC_HOSTS='localhost wistful toey'
+$ export DISTCC_HOSTS
+$ CC='distcc' ./configure
+$ make CC='distcc' all
+</PRE>
+</CODE></BLOCKQUOTE>
+</P>
+<P>Some Makefiles may, contrary to convention, explicitly call
+<CODE>gcc</CODE> or some other compiler, in which case
+overriding <CODE>$CC</CODE> will not be enough to call distcc.
+While this is harmless (but suboptimal), using a masquerade
+dir of distcc links will avoid this.</P>
+<P>Remember that you should not use both methods for calling
+distcc at the same time.  If you are using a masquerade dir,
+don't munge CC and/or CXX (just put the dir early on your
+PATH).  If you're not using a masquerade dir, you'll need to
+either change CC and/or CXX, or modify the Makefile(s) to
+call distcc explicitly.</P>
+<P>
+<DL>
+<DT><B><CODE>DISTCC_HOSTS</CODE></B><DD><P>Space-separated list of volunteer host specifications.</P>
+
+<DT><B><CODE>DISTCC_VERBOSE</CODE></B><DD><P>If set to <CODE>1</CODE>, distcc produces explanatory messages on the
+standard error stream.  This can be helpful in debugging
+problems.  Bug reports should include verbose output.</P>
+
+<DT><B><CODE>DISTCC_LOG</CODE></B><DD><P>Log file to receive messages from distcc itself, rather
+than stderr.</P>
+
+<DT><B><CODE>DISTCC_SAVE_TEMPS</CODE></B><DD><P>If set to <CODE>1</CODE>, temporary files are not deleted
+after use.  Good for debugging, or if your disks are too
+empty.</P>
+
+<DT><B><CODE>DISTCC_TCP_CORK</CODE></B><DD><P>If set to <CODE>0</CODE>, 
+disable use of "TCP corks", even if they're present on
+this system.  Using corks normally helps pack requests into
+fewer packets and aids performance.</P>
+</DL>
+</P>
+<H2><A NAME="ss2.4">2.4</A> <A HREF="distcc.html#toc2.4">Which Jobs are Distributed?</A>
+</H2>
+
+<P>Building a C or C++ program on Unix involves several phases:</P>
+<P>
+<UL>
+<LI>Preprocessing source (<CODE>.c</CODE>) and headers (<CODE>.h</CODE>) to
+a preprocessed file (<CODE>.i</CODE>)</LI>
+<LI>Compiling preprocessed source (<CODE>.i</CODE>) to assembly
+instructions (<CODE>.s</CODE>)</LI>
+<LI>Assembling to an object file (<CODE>.o</CODE>)</LI>
+<LI>Linking object files and libraries to form an
+executable, library, or shared library.</LI>
+</UL>
+</P>
+<P>distcc only ever runs the compiler and assembler remotely.
+The preprocessor must always run locally because it needs to
+access various header files on the local machine which may
+not be present, or may not be the same, on the volunteer.
+The linker similarly needs to examine libraries and object
+files, and so must run locally.</P>
+<P>The compiler and assembler take only a single input file,
+the preprocessed source, produce a single output, the object
+file.  distcc ships these two files across the network and
+can therefore run the compiler/assembler remotely.</P>
+<P>Fortunately, for most programs running the preprocessor is
+relatively cheap, and the linker is called relatively
+infrequent, so most of the work can be distributed.</P>
+<P>distcc examines its command line to determine which of these
+phases are being invoked, and whether the job can be
+distributed.  Here is an example of a typical command that
+can be preprocessed locally and compiled remotely:
+<BLOCKQUOTE><CODE>
+<PRE>
+distcc gcc -o hello.o -DGREETING="hello" -c hello.c
+</PRE>
+</CODE></BLOCKQUOTE>
+</P>
+<P>The command-line scanner is intended to behave in the same
+way as gcc.  In case of doubt, distcc runs the job locally.</P>
+<P>In particular, this means that commands that compile and
+link in one go cannot be distributed.  These are quite rare
+in realistic projects.  Here is one example of a command
+that could not be distributed, because it calls the compiler
+and linker</P>
+<P>
+<BLOCKQUOTE><CODE>
+<PRE>
+distcc gcc -o hello hello.c
+</PRE>
+</CODE></BLOCKQUOTE>
+</P>
+<H2><A NAME="ss2.5">2.5</A> <A HREF="distcc.html#toc2.5">Running Jobs in Parallel</A>
+</H2>
+
+<P>Moving source across the network is less efficient to
+compiling it locally.  If you have access to a machine much
+faster than your workstation, the performance gain may
+overwhelm the cost of transferring the source code and it
+may be quicker to ship all your source across the network to
+compile it there.</P>
+
+<P>In general, it is even better to compile on two or machines
+in parallel.  Any number of invocations of distcc can run at
+the same time, and they will distribute their work across
+the available hosts.</P>
+
+<P>distcc does not manage parallelization, but relies on Make
+or some other build system to invoke compiles in parallel.</P>
+
+<P>With GNU Make, you should use the <CODE>-j</CODE> option to specify
+a number of parallel tasks slightly higher than the number
+of available hosts.  For example:</P>
+<P>
+<BLOCKQUOTE><CODE>
+<PRE>
+$ export DISTCC_HOSTS='angry toey wistful localhost'
+$ make -j5
+</PRE>
+</CODE></BLOCKQUOTE>
+</P>
+<H2><A NAME="ss2.6">2.6</A> <A HREF="distcc.html#toc2.6">Choosing a Host</A>
+</H2>
+
+<P>The <CODE>$DISTCC_HOSTS</CODE> variable tells distcc which
+volunteer machines are available to run jobs.  This is a
+space-separated list of host specifications, each of which
+has the syntax:
+<BLOCKQUOTE><CODE>
+<PRE>
+HOSTNAME[/MAX_JOBS][:PORT]
+</PRE>
+</CODE></BLOCKQUOTE>
+</P>
+
+<P>You can specify the maximum number of jobs that the host
+should receive by affixing a number after a slash (e.g.
+"localhost/2").</P>
+
+<P>A numeric TCP port may optionally be specified after a
+colon.  If no port is specified, it uses the default, which
+is currently 3632.</P>
+
+<P>If only one invocation of distcc runs at a time, it will
+always execute on the first host in the list.  (This
+behaviour is not absolutely guaranteed, however, and may
+change in future versions.)</P>
+
+<P>The name <CODE>localhost</CODE> is handled specially by running
+the compiler in place.</P>
+
+<P>The daemon may be tested on localhost by setting </P>
+<P>
+<BLOCKQUOTE><CODE>
+<PRE>
+DISTCC_HOSTS=127.0.0.1
+</PRE>
+</CODE></BLOCKQUOTE>
+</P>
+<P>Although <CODE>localhost</CODE> causes distcc to execute the job
+directly, using an IP address will cause it to make a TCP
+connection to a daemon on localhost.  This is slower, but
+useful for testing.</P>
+<H2><A NAME="ss2.7">2.7</A> <A HREF="distcc.html#toc2.7">Load Distribution Algorithm</A>
+</H2>
+
+<P>When distcc is invoked, it needs to decide which of the
+volunteers in <CODE>DISTCC_HOSTS</CODE> should be used to
+compile a job.  It uses a simple heuristic to try to spread
+load across machines appropriately.</P>
+<P>You can imagine all of the compile machines as being leaky
+buckets, some with larger holes (faster CPUs) than others.
+The distcc client tries to keep water at the same level on
+each one (the same number of jobs running), preferring hosts
+occurring earlier in DISTCC_HOSTS.  Over the course of a
+build, the faster machines will complete jobs more quickly,
+and therefore be topped up more quickly and do more work
+overall, but without the client ever actually needing to
+know which one is fastest.</P>
+<P>This design has the advantage of not requiring the client to
+know in advance the speeds of the volunteers, and being
+quite simple to implement.  It copes quite well with
+machines that are temporarily slowed down: they are just
+topped-up more slowly in the future.</P>
+<P>Scheduling is coordinated between different invocations of
+the <CODE>distcc</CODE> client by lockfiles in the temporary
+directory.  There is no coordination between clients running
+as different users, on different hosts, or with different
+<CODE>TMPDIR</CODE> paths.</P>
+<P>On Linux, scheduling slightly too many jobs on any machine
+is quite harmless, as long as the number is not so high that
+the machine begins thrashing.  So it's OK to provide a
+<CODE>-j</CODE> number substantially higher than the number of
+available processors.</P>
+<P>The biggest problem with this design is that it handles
+multiprocessor machines poorly: they probably ought to have
+jobs scheduled proportional to the number of processors.  At
+the moment, the best thing is to run with a <CODE>-j</CODE>
+factor equal to the product of the maximum number of CPUs in
+any machine (<CODE>MAX_CPUS</CODE>) and the number of machines.
+This should make sure that roughly <CODE>MAX_CPUS</CODE> tasks
+run on every machine at all times, and will therefore keep
+all CPUs loaded, but will cause excessive task-switching on
+machines with fewer CPUs.  Task switching is not very
+expensive on Linux so it is not a big problem, but it does
+lose a few percentage points of speed.  This should be fixed
+in a future release.</P>
+<H2><A NAME="ss2.8">2.8</A> <A HREF="distcc.html#toc2.8">Diagnostic Messages</A>
+</H2>
+
+<P>Error messages or warnings from local or remote compilers
+are passed through to diagnostic output on the client.  The
+compiler takes all file names and line numbers from pragmas
+in the preprocessed output, so error messages will always
+have the correct pathnames for files on the client.</P>
+
+<P>distcc can supply extensive debugging information when the
+verbose option is used.  This is controlled by the 
+<CODE>$DISTCC_VERBOSE</CODE> environment variable on the client,
+and the <CODE>-</CODE><CODE>-verbose</CODE> option on the server.</P>
+<P>By default, distcc prints diagnostic messages to stderr.
+Sometimes these are too intrusive into the output of the
+regular compiler, and so they may be selectively redirected
+by setting the <CODE>$DISTCC_LOG</CODE> environment variable to a
+filename.</P>
+<P>Error messages from the daemon are sent to both the log file
+on the volunteer, and also back to the client's diagnostic
+output.  (By default, it uses the syslog <CODE>daemon</CODE>
+channel.)  If compilation is failing, please examine the log
+file on the relevant volunteer machine.</P>
+<H2><A NAME="exit"></A> <A NAME="ss2.9">2.9</A> <A HREF="distcc.html#toc2.9">distcc Exit Codes</A>
+</H2>
+
+<P>The exit code of distcc is normally that of the compiler:
+zero for successful compilation and non-zero otherwise.</P>
+<P>If distcc fails to distribute a job to a selected volunteer machine,
+it will try to run the compiler locally on the client.  distcc only
+tries a single remote machine for each job.</P>
+<P>distcc tries to distinguish between a failure to distribute
+the job, and a "genuine" failure of the compiler on the
+remote machine, for example because of a syntax error in the
+program.  In the second case, distcc does not re-run the
+compiler locally, and returns the same exit code as the
+remote compiler.</P>
+<P>If the compiler exits with a signal, distcc returns an exit
+code of 128 plus the signal number, following Unix
+convention.</P>
+<P>If distcc fails to run the compiler, it may return one one
+of the following error codes.  These are also used by
+distccd.</P>
+<P>
+<DL>
+<DT><B>100 <CODE>EXIT_DISTCC_FAILED</CODE></B><DD><P>Generic or unspecified failure in distcc.</P>
+
+<DT><B>102 <CODE>EXIT_BIND_FAILED</CODE></B><DD><P>Failed to bind and listen on network socket.  Port may
+already be in use.</P>
+
+<DT><B>103 <CODE>EXIT_CONNECT_FAILED</CODE></B><DD><P>Failed to establish network connection or listen on
+socket.  The host may be invalid or unreachable, or
+there may be no daemon listening.</P>
+
+<DT><B>104 <CODE>EXIT_COMPILER_CRASHED</CODE></B><DD>
+<P>The underlying compiler exited because of a signal.
+This probably indicates a compiler bug, or a problem
+with the hardware or OS on the server.  (Obsolete in 0.13.)</P>
+
+<DT><B>105 <CODE>EXIT_OUT_OF_MEMORY</CODE></B><DD><P>Obvious.</P>
+
+<DT><B>106 <CODE>EXIT_BAD_HOSTSPEC</CODE></B><DD><P><CODE>$DISTCC_HOSTS</CODE> was undefined, empty, or
+syntactically invalid.  (At the moment, you should never
+see this code because distcc will fall back to building
+locally.  Let me know if you would prefer a hard error.)</P>
+
+<DT><B>107 <CODE>EXIT_IO_ERROR</CODE></B><DD><P>There was a disk or network IO error while distributing
+the job.  For example, the network may be failing, or a
+disk on either end may be out of space.</P>
+
+<DT><B>108 <CODE>EXIT_TRUNCATED</CODE></B><DD><P>The network socket was closed unexpectedly.  This
+probably indicates a network problem or distcc bug.</P>
+
+<DT><B>109 <CODE>EXIT_PROTOCOL_ERROR</CODE></B><DD><P>The distcc internal network protocol was not followed by
+the remote program.  This probably indicates a network
+problem or distcc bug.</P>
+
+<DT><B>110 <CODE>EXIT_COMPILER_MISSING</CODE></B><DD><P>The specified compiler was not found in the path of the
+server.</P>
+
+<DT><B>111 <CODE>EXIT_RECURSION</CODE></B><DD><P>distcc ended up invoking itself recursively.  This is
+caught as an error to prevent unbounded recursion or
+inefficiency.  For example, this error may occur if
+distcc is called by the <CODE>cc</CODE> command in the
+daemon's path.</P>
+</DL>
+</P>
+<H2><A NAME="ss2.10">2.10</A> <A HREF="distcc.html#toc2.10">File Metadata</A>
+</H2>
+
+<P>distcc transfers only the binary contents of source, error,
+and object files, without any concern for metadata,
+attributes, character sets or end-of-line conventions.</P>
+<P>distcc never transmits file times across the network or
+modifies them, and so should not care whether the clocks on
+the client and volunteer machines are synchronized or not.
+When an object file is received onto the client, its
+modification time will be the current time on the client
+machine.</P>
+<HR>
+<A HREF="distcc-3.html">Next</A>
+<A HREF="distcc-1.html">Previous</A>
+<A HREF="distcc.html#toc2">Contents</A>
+</BODY>
+</HTML>

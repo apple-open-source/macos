@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/tests/progs/slapd-read.c,v 1.16 2002/01/19 05:04:38 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/tests/progs/slapd-read.c,v 1.16.2.2 2003/03/03 17:10:12 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 #include "portable.h"
@@ -21,7 +21,7 @@
 #define LOOPS	100
 
 static void
-do_read( char *host, int port, char *entry, int maxloop );
+do_read( char *uri, char *host, int port, char *entry, int maxloop );
 
 static void
 usage( char *name )
@@ -35,13 +35,17 @@ int
 main( int argc, char **argv )
 {
 	int		i;
+	char		*uri = NULL;
 	char        *host = "localhost";
 	int			port = -1;
 	char		*entry = NULL;
 	int			loops = LOOPS;
 
-	while ( (i = getopt( argc, argv, "h:p:e:l:" )) != EOF ) {
+	while ( (i = getopt( argc, argv, "H:h:p:e:l:" )) != EOF ) {
 		switch( i ) {
+			case 'H':		/* the server uri */
+				uri = strdup( optarg );
+			break;
 			case 'h':		/* the servers host */
 				host = strdup( optarg );
 			break;
@@ -64,7 +68,7 @@ main( int argc, char **argv )
 		}
 	}
 
-	if (( entry == NULL ) || ( port == -1 ))
+	if (( entry == NULL ) || ( port == -1 && uri == NULL ))
 		usage( argv[0] );
 
 	if ( *entry == '\0' ) {
@@ -75,20 +79,25 @@ main( int argc, char **argv )
 
 	}
 
-	do_read( host, port, entry, ( 20 * loops ));
+	do_read( uri, host, port, entry, ( 20 * loops ));
 	exit( EXIT_SUCCESS );
 }
 
 
 static void
-do_read( char *host, int port, char *entry, int maxloop )
+do_read( char *uri, char *host, int port, char *entry, int maxloop )
 {
-	LDAP	*ld;
+	LDAP	*ld = NULL;
 	int  	i;
 	char	*attrs[] = { "1.1", NULL };
 	pid_t	pid = getpid();
 
-	if (( ld = ldap_init( host, port )) == NULL ) {
+	if ( uri ) {
+		ldap_initialize( &ld, uri );
+	} else {
+		ld = ldap_init( host, port );
+	}
+	if ( ld == NULL ) {
 		perror( "ldap_init" );
 		exit( EXIT_FAILURE );
 	}

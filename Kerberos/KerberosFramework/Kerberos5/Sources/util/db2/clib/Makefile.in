@@ -1,0 +1,11 @@
+thisconfigdir=./..
+myfulldir=util/db2/clib
+mydir=clib
+BUILDTOP=$(REL)..$(S)..$(S)..
+STLIBOBJS=@MEMMOVE_OBJ@ @MKSTEMP_OBJ@ @STRERROR_OBJ@
+
+LOCALINCLUDES=-I../include
+
+all-unix:: all-libobjs
+clean-unix:: clean-libobjs
+# @libobj_frag@

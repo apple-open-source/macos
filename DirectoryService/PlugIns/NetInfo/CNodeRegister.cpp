@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -38,12 +41,13 @@
 
 #include "CNodeRegister.h"
 #include "CNiNodeList.h"
-#include "CNetInfoPI.h"
+#include "CNetInfoPlugin.h"
 #include "ServerModuleLib.h"
 #include "CSharedData.h"
 #include "PrivateTypes.h"
 #include "CString.h"
 #include "DSSemaphore.h"
+#include "CLog.h"
 
 #include "DSUtils.h"
 #include "NiLib2.h"
@@ -61,7 +65,7 @@ static const sInt32		kCatchErr	= -80128;
 //
 //--------------------------------------------------------------------------------------------------
 
-CNodeRegister::CNodeRegister ( uInt32 inToken, CNiNodeList *inNodeList, bool inbReInit, CNetInfoPI *parentClass )
+CNodeRegister::CNodeRegister ( uInt32 inToken, CNiNodeList *inNodeList, bool inbReInit, CNetInfoPlugin *parentClass )
 	: DSCThread( kTSNodeRegisterThread )
 {
 	fThreadSignature = kTSNodeRegisterThread;
@@ -99,9 +103,6 @@ void CNodeRegister::StartThread ( void )
 	if ( this == nil ) throw((sInt32)eMemoryError);
 
 	this->Resume();
-
-	SetThreadRunState( kThreadRun );		// Tell our thread it's running
-
 } // StartThread
 
 
@@ -130,7 +131,7 @@ long CNodeRegister::ThreadMain ( void )
 #ifdef DEBUG
 	fMutex.Wait( 60 * kMilliSecsPerSec );
 #endif
-	CShared::LogIt( 0x0F, "Begin registering NetInfo nodes..." );
+	DBGLOG( kLogPlugin, "Begin registering NetInfo nodes..." );
 
 	nibind_registration *reg;
 	ni_status			status				= NI_FAILED;
@@ -144,6 +145,10 @@ long CNodeRegister::ThreadMain ( void )
 	struct stat			statResult;
 	bool				bSetLocallyHosted	= false;
 	time_t				delayedNI			= 0;
+
+// here we need to check if netinfod is even running before we continue
+// this has become an issue since we are now started with mach_init
+// TODO KW
 
 	while (bRestart)
 	{
@@ -177,7 +182,11 @@ long CNodeRegister::ThreadMain ( void )
 								status = ::my_ni_pwdomain( domain, &dname );
 								if ( delayedNI < time(nil) )
 								{
-									syslog(LOG_INFO,"CNodeRegister:ThreadMain::Call to my_ni_pwdomain was with argument domain name: %s and lasted %d seconds.", domain, (uInt32)(2 + time(nil) - delayedNI));
+									syslog(LOG_INFO,"CNodeRegister:ThreadMain::Call to my_ni_pwdomain was with argument domain name: %s and lasted %d seconds.", tmpName.GetData(), (uInt32)(2 + time(nil) - delayedNI));
+									if (dname != nil)
+									{
+										syslog(LOG_INFO,"CNodeRegister:ThreadMain::Call to my_ni_pwdomain returned domain name: %s.", dname);
+									}
 								}
 								if ( status == NI_OK )
 								{
@@ -192,7 +201,7 @@ long CNodeRegister::ThreadMain ( void )
 									pDataList = ::dsBuildFromPathPriv( tmpName.GetData(), (char *)"/" );
 									if ( pDataList != nil )
 									{
-										DSRegisterNode( fToken, pDataList, kLocalHostedType );
+										CServerPlugin::_RegisterNode( fToken, pDataList, kLocalHostedType );
 										fTotal++;
 										::dsDataListDeallocatePriv( pDataList );
 										free( pDataList );
@@ -239,7 +248,7 @@ long CNodeRegister::ThreadMain ( void )
 		
 				if (pthread_setschedparam( pthread_self(), myPolicy, &myStruct) == 0)
 				{
-					CShared::LogIt( 0x0F, "Thread priority set to the maximum for registering NetInfo local hierarchy nodes." );
+					DBGLOG( kLogPlugin, "Thread priority set to the maximum for registering NetInfo local hierarchy nodes." );
 				}
 			}
 
@@ -256,6 +265,7 @@ long CNodeRegister::ThreadMain ( void )
 		if (!bRestart)
 		{
 			//For desktop Mac OS X we don't register the world but we do on Server
+			//if ever made a static plugin use gServerOS here
 			if (stat( "/System/Library/CoreServices/ServerVersion.plist", &statResult ) == eDSNoErr)
 			{
 				//would like to minimize the priority of this thread here down to the minimum now
@@ -269,7 +279,7 @@ long CNodeRegister::ThreadMain ( void )
 			
 					if (pthread_setschedparam( pthread_self(), myPolicy, &myStruct) == 0)
 					{
-						CShared::LogIt( 0x0F, "Thread priority set to the minimum for registering NetInfo non-local hierarchy nodes." );
+						DBGLOG( kLogPlugin, "Thread priority set to the minimum for registering NetInfo non-local hierarchy nodes." );
 					}
 				}
 				
@@ -280,8 +290,8 @@ long CNodeRegister::ThreadMain ( void )
 				//register all the other nodes that this local NetInfo hierarchy serves
 				RegisterNodes( (char *)"/" );
 			}
-			CShared::LogIt( 0x0F, "Finished register NetInfo nodes." );
-			CShared::LogIt( 0x0F, "NetInfo nodes registered = %l.", fTotal );
+			DBGLOG( kLogPlugin, "Finished register NetInfo nodes." );
+			DBGLOG1( kLogPlugin, "NetInfo nodes registered = %l.", fTotal );
 		} //if !bRestart
 	
 		if (bRestart) //KW allow the network transition to occur ie. 2 secs?
@@ -320,6 +330,7 @@ sInt32 CNodeRegister::RegisterLocalNetInfoHierarchy ( bool inSetLocallyHosted )
 	uInt16		retryCount		= 0;
 	DSSemaphore	timedWait;
 	time_t		delayedNI		= 0;
+	int			numLocalRetries	= 0;
 
 	try
 	{
@@ -339,8 +350,33 @@ sInt32 CNodeRegister::RegisterLocalNetInfoHierarchy ( bool inSetLocallyHosted )
 		
 		do
 		{
-			// Open the local node to get the domain
-			siResult = CNetInfoPI::SafeOpen( ".", timeOutSecs, &niRootDir, &domain, &domainName );
+			//Need to retry SafeOpen since this is a boot issue and it needs to succeed
+			//however, there may be a initialization problem with netinfod and RPC that makes it fail first few times
+			//eventually there will be code added above that can handle the notifications from netinfod to detect it is running
+			numLocalRetries = 0;
+			do
+			{
+				// Open the local node to get the domain
+				siResult = CNetInfoPlugin::SafeOpen( ".", timeOutSecs, &niRootDir, &domain, &domainName );
+				if (siResult == eDSOpenNodeFailed)
+				{
+					if (numLocalRetries == 0)
+					{
+						syslog(LOG_INFO,"RegisterLocalNetInfoHierarchy::netinfod likely not yet initialized - Error is %d.", siResult);
+					}
+					fMutex.Wait( 2 * kMilliSecsPerSec );
+					numLocalRetries++;
+				}
+
+				if (numLocalRetries >= 60) //60 * 2sec = 2 minutes but expect netinfod to start much quicker
+				{
+					syslog(LOG_INFO,"RegisterLocalNetInfoHierarchy::netinfod not reachable for the local domain after two minutes of trying.");
+					//not clear how to recover from this right now but a later network transition may obviously help
+					break;
+				}
+
+			} while ( (siResult != eDSNoErr) && !(bReInit) );
+			
 			if (domainName != nil) free(domainName);
 
 			if (siResult == eDSNoErr)
@@ -351,13 +387,17 @@ sInt32 CNodeRegister::RegisterLocalNetInfoHierarchy ( bool inSetLocallyHosted )
 				siResult = ::my_ni_pwdomain( domain, &cpDomName );
 				if ( delayedNI < time(nil) )
 				{
-					syslog(LOG_INFO,"CNodeRegister:RegisterLocalNetInfoHierarchy::Call to my_ni_pwdomain was with argument domain name: %s and lasted %d seconds.", domain, (uInt32)(2 + time(nil) - delayedNI));
+					syslog(LOG_INFO,"CNodeRegister:RegisterLocalNetInfoHierarchy::Call to my_ni_pwdomain for local domain name lasted %d seconds.", (uInt32)(2 + time(nil) - delayedNI));
+					if (cpDomName != nil)
+					{
+						syslog(LOG_INFO,"CNodeRegister:RegisterLocalNetInfoHierarchy::Call to my_ni_pwdomain returned domain name: %s.", cpDomName);
+					}
 				}
 				gNetInfoMutex->Signal();
 				
 				if ( (siResult != eDSNoErr) || (cpDomName == nil) )
 				{
-					CShared::LogIt( 0x0F, "RegisterLocalNetInfoHierarchy: my_ni_pwdomain call # %u failed", retryCount+1 );
+					DBGLOG1( kLogPlugin, "RegisterLocalNetInfoHierarchy: my_ni_pwdomain call # %u failed", retryCount+1 );
 					//2 second wait here
 					timedWait.Wait( 2 * kMilliSecsPerSec );
 
@@ -365,7 +405,7 @@ sInt32 CNodeRegister::RegisterLocalNetInfoHierarchy ( bool inSetLocallyHosted )
 				}
 				
 				//close out "." domain if able to open it in order to drop the refCount
-				siResult = CNetInfoPI::SafeClose( "." );
+				siResult = CNetInfoPlugin::SafeClose( "." );
 			}
 		} while ( (siResult != eDSNoErr) && (retryCount < 3) ); // only retry three times
 
@@ -392,7 +432,7 @@ sInt32 CNodeRegister::RegisterLocalNetInfoHierarchy ( bool inSetLocallyHosted )
 					if ( pDataList == nil ) throw( (sInt32)eMemoryAllocError );
 					if ( qDataList == nil ) throw( (sInt32)eMemoryAllocError );
 
-					CShared::LogIt( 0x0F, "Registering node %s.", domName );
+					DBGLOG1( kLogPlugin, "Registering node %s.", domName );
 
 					// Register the node
 					// first node parsed out is the local node but will be registered same as others
@@ -411,7 +451,7 @@ sInt32 CNodeRegister::RegisterLocalNetInfoHierarchy ( bool inSetLocallyHosted )
 					}
 					//pDataList is consumed above by AddNode
 					pDataList = nil;
-					if ( DSRegisterNode( fToken, qDataList, kDirNodeType ) == eDSNoErr )
+					if ( CServerPlugin::_RegisterNode( fToken, qDataList, kDirNodeType ) == eDSNoErr )
 					{
 						fTotal++;
 					}
@@ -427,7 +467,7 @@ sInt32 CNodeRegister::RegisterLocalNetInfoHierarchy ( bool inSetLocallyHosted )
 						aDataList = ::dsBuildFromPathPriv( kstrDefaultLocalNodeName, "/" );
 						if (aDataList != nil)
 						{
-							DSRegisterNode( fToken, aDataList, kLocalHostedType );
+							CServerPlugin::_RegisterNode( fToken, aDataList, kLocalHostedType );
 							::dsDataListDeallocatePriv( aDataList );
 							free( aDataList );
 							aDataList = nil;
@@ -463,12 +503,12 @@ sInt32 CNodeRegister::RegisterLocalNetInfoHierarchy ( bool inSetLocallyHosted )
 		qDataList = ::dsBuildFromPathPriv( kstrRootNodeName, "/" );
 		if ( ( pDataList != nil ) && ( qDataList != nil ) )
 		{
-			CShared::LogIt( 0x0F, "Registering node %s.", kstrRootNodeName );
+			DBGLOG1( kLogPlugin, "Registering node %s.", kstrRootNodeName );
 
 			// AddNode consumes the tDataList, but not the char *
 			fNiNodeList->AddNode( "/", pDataList, true );
 			pDataList = nil;
-			if ( DSRegisterNode( fToken, qDataList, kDirNodeType ) == eDSNoErr )
+			if ( CServerPlugin::_RegisterNode( fToken, qDataList, kDirNodeType ) == eDSNoErr )
 			{
 				fTotal++;
 			}
@@ -483,7 +523,7 @@ sInt32 CNodeRegister::RegisterLocalNetInfoHierarchy ( bool inSetLocallyHosted )
 				aDataList = ::dsBuildFromPathPriv( kstrDefaultLocalNodeName, "/" );
 				if (aDataList != nil)
 				{
-					DSRegisterNode( fToken, aDataList, kLocalHostedType );
+					CServerPlugin::_RegisterNode( fToken, aDataList, kLocalHostedType );
 					::dsDataListDeallocatePriv( aDataList );
 					free( aDataList );
 					aDataList = nil;
@@ -543,14 +583,14 @@ sInt32 CNodeRegister::RegisterNodes ( char *inDomainName )
 	{
 		if ( fNiNodeList == nil ) throw( (sInt32)ePlugInError );
 
-		CShared::LogIt( 0x0F, "Registering nodes in domain = %s", inDomainName );
+		DBGLOG1( kLogPlugin, "Registering nodes in domain = %s", inDomainName );
 		
 		//no way can we use this member var properly in a recursive function but we try
 		fCount = 0;
 
 		domain = nil;
 		NI_INIT( &niDirID );
-		siResult = CNetInfoPI::SafeOpen( inDomainName, timeOutSecs, &niDirID, &domain, &unused );
+		siResult = CNetInfoPlugin::SafeOpen( inDomainName, timeOutSecs, &niDirID, &domain, &unused );
 		if (unused != nil) free(unused);
 		//don't free domain since node list owns it if the SafeOpen succeeded
 		//However, let's call SafeClose below since likely these registered nodes will NEVER be used
@@ -700,7 +740,7 @@ sInt32 CNodeRegister::RegisterNodes ( char *inDomainName )
 					{
 						if (isLocal == false)
 						{
-							if ( DSRegisterNode( fToken, pDataList, kDirNodeType ) == eDSNoErr )
+							if ( CServerPlugin::_RegisterNode( fToken, pDataList, kDirNodeType ) == eDSNoErr )
 							{
 								// AddNode consumes the tDataList, but not the char *
 								fNiNodeList->AddNode( domName, pDataList, true ); //registered node
@@ -715,7 +755,7 @@ sInt32 CNodeRegister::RegisterNodes ( char *inDomainName )
 								pDataList = nil;
 							}
 							
-							CShared::LogIt( 0x0F, "Nodes registered for domain %s = %l.", domName, fCount );
+							DBGLOG2( kLogPlugin, "Nodes registered for domain %s = %l.", domName, fCount );
 
 							siResult = this->RegisterNodes( domName );
 							if ( siResult != 0 )
@@ -750,7 +790,7 @@ sInt32 CNodeRegister::RegisterNodes ( char *inDomainName )
 		//close out domain since we can easily reopen during a dsOpenDirNode
 		if (inDomainName != nil)
 		{
-			siResult = CNetInfoPI::SafeClose( inDomainName );
+			siResult = CNetInfoPlugin::SafeClose( inDomainName );
 		}
 
 		::ni_entrylist_free(&niEntryList);

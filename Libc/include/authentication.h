@@ -26,9 +26,13 @@
 #ifndef __AUTHENTICATION_H__
 #define __AUTHENTICATION_H__
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 extern char *groupNameForTask(int taskNum);
 extern int isAuthenticatedAsAdministrator(void);
 extern int isAuthenticatedAsAdministratorForTask(int taskNum);
 extern int isAuthenticatedAsRoot(void);
+__END_DECLS
 
 #endif /* __AUTHENTICATION_H__ */

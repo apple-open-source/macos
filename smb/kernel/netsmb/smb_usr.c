@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_usr.c,v 1.6 2002/03/12 22:06:10 lindak Exp $
+ * $Id: smb_usr.c,v 1.10 2003/06/25 23:00:20 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/malloc.h>
@@ -63,6 +63,7 @@ static int
 smb_usr_vc2spec(struct smbioc_ossn *dp, struct smb_vcspec *spec)
 {
 	int flags = 0;
+	int error;
 
 	bzero(spec, sizeof(*spec));
 #ifndef APPLE	/* permit anon access */
@@ -75,7 +76,6 @@ smb_usr_vc2spec(struct smbioc_ossn *dp, struct smb_vcspec *spec)
 		SMBERROR("no local charset ?\n");
 		return EINVAL;
 	}
-
 	spec->sap = smb_memdupin(dp->ioc_server, dp->ioc_svlen);
 	if (spec->sap == NULL)
 		return ENOMEM;
@@ -84,6 +84,22 @@ smb_usr_vc2spec(struct smbioc_ossn *dp, struct smb_vcspec *spec)
 		if (spec->lap == NULL) {
 			smb_usr_vcspec_free(spec);
 			return ENOMEM;
+		}
+	}
+	if (dp->ioc_intok) {
+		if ((error = copyin(dp->ioc_intok, &spec->toklen,
+				    sizeof spec->toklen))) {
+			smb_usr_vcspec_free(spec);
+			return error;
+		}
+		if (spec->toklen) {
+			spec->tok = malloc(spec->toklen, M_SMBSTR, M_WAITOK);
+			if ((error = copyin((char *)dp->ioc_intok +
+						    sizeof spec->toklen,
+					    spec->tok, spec->toklen))) {
+				smb_usr_vcspec_free(spec);
+				return error;
+			}
 		}
 	}
 	spec->srvname = dp->ioc_srvname;
@@ -100,6 +116,8 @@ smb_usr_vc2spec(struct smbioc_ossn *dp, struct smb_vcspec *spec)
 		flags |= SMBV_PRIVATE;
 	if (dp->ioc_opt & SMBVOPT_SINGLESHARE)
 		flags |= SMBV_PRIVATE | SMBV_SINGLESHARE;
+	if (dp->ioc_opt & SMBVOPT_EXT_SEC)
+		flags |= SMBV_EXT_SEC;
 	spec->flags = flags;
 	return 0;
 }
@@ -109,8 +127,13 @@ smb_usr_vcspec_free(struct smb_vcspec *spec)
 {
 	if (spec->sap)
 		smb_memfree(spec->sap);
+	spec->sap = NULL;
 	if (spec->lap)
 		smb_memfree(spec->lap);
+	spec->lap = NULL;
+	if (spec->tok)
+		smb_memfree(spec->tok);
+	spec->tok = NULL;
 }
 
 static int
@@ -127,6 +150,7 @@ smb_usr_share2spec(struct smbioc_oshare *dp, struct smb_sharespec *spec)
 	return 0;
 }
 
+#ifndef APPLE
 int
 smb_usr_lookup(struct smbioc_lookup *dp, struct smb_cred *scred,
 	struct smb_vc **vcpp, struct smb_share **sspp)
@@ -159,16 +183,145 @@ out:
 	smb_usr_vcspec_free(&vspec);
 	return error;
 }
+#endif
+
+int
+smb_usr_negotiate(struct smbioc_lookup *dp, struct smb_cred *scred,
+		  struct smb_vc **vcpp, struct smb_share **sspp)
+{
+	struct smb_vc *vcp = NULL;
+	struct smb_vcspec vspec;
+	struct smb_sharespec sspec, *sspecp = NULL;
+	int error;
+	size_t t;
+
+	if (dp->ioc_level < SMBL_VC || dp->ioc_level > SMBL_SHARE)
+		return EINVAL;
+	error = smb_usr_vc2spec(&dp->ioc_ssn, &vspec);
+	if (error)
+		return error;
+	if (dp->ioc_flags & SMBLK_CREATE)
+		vspec.flags |= SMBV_CREATE;
+	if (dp->ioc_level >= SMBL_SHARE) {
+		error = smb_usr_share2spec(&dp->ioc_sh, &sspec);
+		if (error)
+			goto out;
+		sspecp = &sspec;
+	}
+	error = smb_sm_negotiate(&vspec, sspecp, scred, &vcp);
+	if (error == 0) {
+		*vcpp = vcp;
+		*sspp = vspec.ssp;
+		if (dp->ioc_ssn.ioc_outtok &&
+		    !(error = copyin(dp->ioc_ssn.ioc_outtok, &t, sizeof t)) &&
+		    !(error = copyout(&vcp->vc_outtoklen,
+				      dp->ioc_ssn.ioc_outtok,
+				      sizeof(size_t))) &&
+		    vcp->vc_outtoklen && vcp->vc_outtoklen <= t &&
+		    !(error = copyout(vcp->vc_outtok,
+				      (char *)dp->ioc_ssn.ioc_outtok +
+							 sizeof(size_t),
+				      vcp->vc_outtoklen))) {
+			/*
+			 * Save this blob in vc_negtok.  We need it in
+			 * case we have to reconnect
+			 */
+			if (vcp->vc_negtok)
+				free(vcp->vc_negtok, M_SMBTEMP);
+			vcp->vc_negtok = vcp->vc_outtok;
+			vcp->vc_outtok = NULL;
+			vcp->vc_negtoklen = vcp->vc_outtoklen;
+			vcp->vc_outtoklen = 0;
+		}
+	}
+out:
+	smb_usr_vcspec_free(&vspec);
+	return error;
+}
+
+int
+smb_usr_ssnsetup(struct smbioc_lookup *dp, struct smb_cred *scred,
+	struct smb_vc *vcp, struct smb_share **sspp)
+{
+	struct smb_vcspec vspec;
+	struct smb_sharespec sspec, *sspecp = NULL;
+	int error;
+	size_t t;
+
+	if (dp->ioc_level < SMBL_VC || dp->ioc_level > SMBL_SHARE)
+		return EINVAL;
+	error = smb_usr_vc2spec(&dp->ioc_ssn, &vspec);
+	if (error)
+		return error;
+	if (dp->ioc_level >= SMBL_SHARE) {
+		error = smb_usr_share2spec(&dp->ioc_sh, &sspec);
+		if (error)
+			goto out;
+		sspecp = &sspec;
+	}
+	error = smb_sm_ssnsetup(&vspec, sspecp, scred, vcp);
+	if (error == 0) {
+		*sspp = vspec.ssp;
+		if (vcp->vc_outtoklen &&
+		    !(error = copyin(dp->ioc_ssn.ioc_outtok, &t, sizeof t)) &&
+		    !(error = copyout(&vcp->vc_outtoklen,
+				      dp->ioc_ssn.ioc_outtok,
+				      sizeof(size_t))) &&
+		    vcp->vc_outtoklen <= t &&
+		    !(error = copyout(vcp->vc_outtok,
+				      (char *)dp->ioc_ssn.ioc_outtok +
+							 sizeof(size_t),
+				      vcp->vc_outtoklen))) {
+			vcp->vc_outtoklen = 0;
+			free(vcp->vc_outtok, M_SMBTEMP);
+			vcp->vc_outtok = NULL;
+		}
+	}
+out:
+	smb_usr_vcspec_free(&vspec);
+	return error;
+}
+
+
+int
+smb_usr_tcon(struct smbioc_lookup *dp, struct smb_cred *scred,
+	struct smb_vc *vcp, struct smb_share **sspp)
+{
+	struct smb_vcspec vspec;
+	struct smb_sharespec sspec, *sspecp = NULL;
+	int error;
+
+	if (dp->ioc_level < SMBL_VC || dp->ioc_level > SMBL_SHARE)
+		return EINVAL;
+	error = smb_usr_vc2spec(&dp->ioc_ssn, &vspec);
+	if (error)
+		return error;
+	if (dp->ioc_level >= SMBL_SHARE) {
+		error = smb_usr_share2spec(&dp->ioc_sh, &sspec);
+		if (error)
+			goto out;
+		sspecp = &sspec;
+	}
+	error = smb_sm_tcon(&vspec, sspecp, scred, vcp);
+	if (error == 0) {
+		*sspp = vspec.ssp;
+	}
+out:
+	smb_usr_vcspec_free(&vspec);
+	return error;
+}
 
 /*
  * Connect to the resource specified by smbioc_ossn structure.
  * It may either find an existing connection or try to establish a new one.
  * If no errors occured smb_vc returned locked and referenced.
  */
+#ifndef APPLE
 int
 smb_usr_opensession(struct smbioc_ossn *dp, struct smb_cred *scred,
 	struct smb_vc **vcpp)
 {
+	#pragma unused(vcpp)
 	struct smb_vc *vcp = NULL;
 	struct smb_vcspec vspec;
 	int error;
@@ -180,6 +333,9 @@ smb_usr_opensession(struct smbioc_ossn *dp, struct smb_cred *scred,
 		vspec.flags |= SMBV_CREATE;
 
 	error = smb_sm_lookup(&vspec, NULL, scred, &vcp);
+	if (!error && spec->tok)
+		error = copyout(spec->tok, dp->ioc_tok,
+				dp->ioc_toksize);
 	smb_usr_vcspec_free(&vspec);
 	return error;
 }
@@ -212,6 +368,7 @@ smb_usr_openshare(struct smb_vc *vcp, struct smbioc_oshare *dp,
 		*sspp = ssp;
 	return error;
 }
+#endif /* !APPLE */
 
 int
 smb_usr_simplerequest(struct smb_share *ssp, struct smbioc_rq *dp,
@@ -301,8 +458,7 @@ smb_usr_t2request(struct smb_share *ssp, struct smbioc_t2rq *dp,
 	struct mdchain *mdp;
 	int error, len;
 
-	if (dp->ioc_tparamcnt > 0xffff || dp->ioc_tdatacnt > 0xffff ||
-	    dp->ioc_setupcnt > 3)
+	if (dp->ioc_setupcnt > 3)
 		return EINVAL;
 	error = smb_t2_init(t2p, SSTOCP(ssp), dp->ioc_setup[0], scred);
 	if (error)

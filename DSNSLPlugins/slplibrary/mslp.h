@@ -1,3 +1,27 @@
+/*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 
 /*
  * mslp.h : Minimal SLP v2 definitions.
@@ -25,6 +49,9 @@
  * (c) Sun Microsystems, 1998, All Rights Reserved.
  * Author: Erik Guttman
  */
+ /*
+	Portions Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ */
 
 #ifndef _MSLP_
 #define _MSLP_
@@ -47,14 +74,7 @@
 
 #include <assert.h>
 
-//#define SLP_PORT            427
-#ifdef	__cplusplus
-//extern "C" {
-#endif
 extern EXPORT int GetSLPPort(void);
-#ifdef	__cplusplus
-//}
-#endif
 
 #ifndef Boolean
 typedef unsigned char                   Boolean;
@@ -97,7 +117,7 @@ typedef unsigned char                   Boolean;
 /*
  * Error codes to be returned via SLP protocol
  */
-#if 1
+
 // these are errors we return over the wire in response to requests/reg/dereg etc.
 typedef enum {
     NO_ERROR					= 0x0000,
@@ -119,25 +139,6 @@ typedef enum {
 
 extern EXPORT SLPReturnError InternalToReturnError( SLPInternalError iErr );
 
-#else 
-#define LANGUAGE_NOT_SUPPORTED 1
-#define PARSE_ERROR            2
-#define INVALID_REGISTRATION   3
-#define SCOPE_NOT_SUPPORTED    4
-#define AUTHENTICATION_UNSUPP  5
-#define AUTHENTICATION_ABSENT  6
-#define AUTHENTICATION_FAILED  7
-#define VER_NOT_SUPPORTED      9
-#define INTERNAL_ERROR        10
-#define DA_BUSY_NOW           11
-#define OPTION_NOT_UNDERSTOOD 12
-#define INVALID_UPDATE        13
-#define RQST_NOT_SUPPORTED    14
-#define REFRESH_REJECTED      15
-//#define REQUEST_ALREADY_HANDLED 16
-//#define REPLY_DOESNT_MATCH_REQUEST 17
-#define REQUEST_CANCELED_BY_USER      18
-#endif
 /*
  * flags
  */
@@ -233,18 +234,10 @@ struct in_pktinfo {
     int					ipi_ifindex;			// received interface index
 };
 
-#ifdef	__cplusplus
-//extern "C" {
-#endif
-
 char* 				sock_ntop( const struct sockaddr* sa, u_char salen );
 const char* 		slp_inet_ntop( int family, const void* addrptr, char* strptr, size_t len );
 struct ifi_info*	get_ifi_info(int family, int doalises);
 void				free_ifi_info( struct ifi_info* ifihead);
-
-#ifdef	__cplusplus
-//}
-#endif
 
 /*
  * CONFIGURATION
@@ -295,14 +288,10 @@ typedef struct mslphashtable {
 /*
  * LOG DEFINITIONS
  */
-#ifdef	__cplusplus
-//extern "C" {
-#endif
 
 /* the following macro makes mini slp compatible with a SLPv2 test harness */
 #define slperror             slp_strerror
 
-//typedef enum {
 typedef enum LogLevel{
   SLP_LOG_DROP			=	0x0001, 
   SLP_LOG_REG			=	0x0002, 
@@ -360,8 +349,6 @@ typedef enum LogLevel{
 #endif
 
 #define LOG(lev,pc)         mslplog(lev,pc,NULL)
-//#define FAIL(pc)            { mslplog(SLP_LOG_FAIL,pc,NULL); exit(-1); }
-//#define FAILERR(pc,e)       { mslplog(SLP_LOG_FAIL,pc,strerror(e)); exit(-1); }
 #define FAILERR(pc,e)       { SLP_LOG(SLP_LOG_FAIL,"%s: %s",pc,strerror(e)); return e; } 
 #define LOG_STD_ERROR_AND_RETURN(lev,pc,e)    { SLP_LOG(lev,"%s: %s",pc,strerror(e)); return e; }
 #define LOG_SLP_ERROR_AND_RETURN(lev,pc,e) { SLP_LOG(lev,"%s: %s",pc,slperror(e)); return e; }
@@ -420,9 +407,6 @@ extern EXPORT char*				safe_malloc(int s, const char *pbuf, int iCpybuf);
 extern EXPORT SLPInternalError	add_header(const char *pcLangTag, char *pcSndBuf, int iSendSz, int iFun, int iLen, int *piLen);                    
 extern EXPORT SLPInternalError	add_string(char *pcBuf,int iMax,const char *pc, int *piLen);
 extern EXPORT SLPInternalError	add_sht(char *pcBuf, int iBufSz, int iVal, int *piLen);
-#if 0
-extern EXPORT SLPInternalError	add_long(char *pcBuf, int iBufSz, long iVal, int *piLen);
-#endif /* MAC_OS_X */
 extern EXPORT SLPInternalError	get_string(const char *pcBuf, int iMaxLen, int *piOffset, char **pcString);
 extern EXPORT SLPInternalError	get_header(const char *pcSend, const char *pcRcv, int len, Slphdr *pslph, int *piLen);
 extern EXPORT SLPInternalError	get_sht(const char *pcBuf, int maxlen, int *piOffset, int *piOut);
@@ -448,24 +432,12 @@ extern EXPORT SLPInternalError	isURLEscapedOK(const char *pcVal);
    
 #define NO_CHECK 0
 #define CHECK    1
-
-#ifdef MAC_OS_X
-#ifdef	__cplusplus
-//extern "C" {
-#endif
-#endif /* MAC_OS_X */
     
 extern EXPORT int      list_intersection(const char *pcL1, const char *pcL2);
 extern EXPORT char*    list_pack(const char *pc);
 extern EXPORT void     list_merge(const char *pc, char **ppc, int *piLen,int);
 extern EXPORT int      list_subset(const char *pc1, const char *pc2);
 extern EXPORT char * list_remove_element(const char *list, const char *element); 
-
-#ifdef MAC_OS_X
-#ifdef	__cplusplus
-//}
-#endif
-#endif /* MAC_OS_X */
 
 /* ------- system configuration -------- */
 extern EXPORT const char*	GetEncodedScopeToRegisterIn( void );
@@ -493,7 +465,7 @@ extern EXPORT unsigned int utf8_convert(const char*,int*,int,unsigned int*);
 extern EXPORT SLPInternalError active_da_discovery(SLPHandle, time_t, SOCKET, int, struct sockaddr_in, const char *pcScopeList, void*, void*, CBType);
 extern EXPORT SLPInternalError handle_daadvert_in(const char *, const char *, int, void *, SLPHandle, void *, CBType);
 
-extern EXPORT SLPInternalError StartSLPDALocator( void* daadvert_callback, SLPHandle serverState );
+extern EXPORT SLPInternalError StartSLPDALocator( void* daadvert_callback, CFRunLoopRef runLoop, SLPHandle serverState );
 extern EXPORT void StopSLPDALocator( void );
 extern EXPORT void KickSLPDALocator( void );
 extern EXPORT int GlobalDATableCreationCompleted( void );		/* to check to see if our initial DA lookup has finished */

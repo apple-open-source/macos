@@ -9,7 +9,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: winDde.test,v 1.1.1.3 2000/12/06 23:04:22 wsanchez Exp $
+# RCS: @(#) $Id: winDde.test,v 1.1.1.4 2003/03/06 00:13:19 landonf Exp $
 
 if {[lsearch [namespace children] ::tcltest] == -1} {
     package require tcltest
@@ -18,11 +18,11 @@ if {[lsearch [namespace children] ::tcltest] == -1} {
 
 if {$tcl_platform(platform) == "windows"} {
     if [catch {
-	set lib [lindex [glob [file join [pwd] [file dirname \
-		[info nameofexecutable]] tcldde*.dll]] 0]
+	set lib [lindex [glob -directory [file join [pwd] [file dirname \
+		[info nameofexecutable]]] tcldde*.dll] 0]
 	load $lib dde
     }] {
-	puts "Unable to find the dde package. Skipping registry tests."
+	puts "WARNING: Unable to find the dde package. Skipping dde tests."
 	::tcltest::cleanupTests
 	return
     }
@@ -30,24 +30,27 @@ if {$tcl_platform(platform) == "windows"} {
 
 set scriptName script1.tcl
 
-
 proc createChildProcess { ddeServerName } {
-    
     file delete -force $::scriptName
-    
+
     set f [open $::scriptName w+]
     puts $f {
+	if {[lsearch [namespace children] ::tcltest] == -1} {
+	    package require tcltest
+	    namespace import -force ::tcltest::*
+	}
 	if [catch {
-	    set lib [lindex [glob [file join [pwd] [file dirname \
-		    [info nameofexecutable]] tcldde*.dll]] 0]
+	    set lib [lindex [glob -directory \
+		    [file join [pwd] [file dirname [info nameofexecutable]]] \
+		    tcldde*.dll] 0]
 	    load $lib dde
 	}] {
-	    puts "Unable to find the dde package. Skipping registry tests."
+	    puts "Unable to find the dde package. Skipping dde tests."
 	    ::tcltest::cleanupTests
 	    return
 	}
     }
-    puts $f "dde servername $ddeServerName"
+    puts $f [list dde servername $ddeServerName]
     puts $f {
 	puts ready
 	vwait done
@@ -56,7 +59,7 @@ proc createChildProcess { ddeServerName } {
     }
     close $f
     
-    set f [open "|$tcltest::tcltest $::scriptName" r]
+    set f [open |[list [interpreter] $::scriptName] r]
     gets $f
     return $f
 }
@@ -103,43 +106,44 @@ test winDde-3.4 {DDE eval locally} {pcOnly} {
     dde eval self set a "foo"
 } foo
 
-test winDde-4.1 {DDE execute remotely} {pcOnly} {
+test winDde-3.5 {DDE request locally} {pcOnly} {
+    set a ""
+    dde execute TclEval self {set a "foo"}
+    dde request -binary TclEval self a
+} "foo\x00"
+
+test winDde-4.1 {DDE execute remotely} {stdio pcOnly} {
     set a ""
     set child [createChildProcess child]
     dde execute TclEval child {set a "foo"}
-
     dde execute TclEval child {set done 1}
 
     set a
 } ""
 
-test winDde-4.2 {DDE execute remotely} {pcOnly} {
+test winDde-4.2 {DDE execute remotely} {stdio pcOnly} {
     set a ""
     set child [createChildProcess child]
     dde execute -async TclEval child {set a "foo"}
-
     dde execute TclEval child {set done 1}
 
     set a
 } ""
 
-test winDde-4.3 {DDE request locally} {pcOnly} {
+test winDde-4.3 {DDE request locally} {stdio pcOnly} {
     set a ""
     set child [createChildProcess child]
     dde execute TclEval child {set a "foo"}
     set a [dde request TclEval child a]
-
-    
     dde execute TclEval child {set done 1}
 
     set a
 } foo
 
-test winDde-4.4 {DDE eval locally} {pcOnly} {
+test winDde-4.4 {DDE eval locally} {stdio pcOnly} {
     set a ""
     set child [createChildProcess child]
     set a [dde eval child set a "foo"]
-
     dde execute TclEval child {set done 1}
 
     set a
@@ -160,9 +164,11 @@ test winDde-5.3 {check for bad arguments} {pcOnly} {
     set result
 } {wrong # args: should be "dde execute ?-async? serviceName topicName value"}
 
+test winDde-5.4 {DDE eval bad arguments} {pcOnly} {
+    list [catch {dde eval "" "foo"} msg] $msg
+} {1 {invalid service name ""}}
 
 #cleanup
 file delete -force $::scriptName
 ::tcltest::cleanupTests
 return
-

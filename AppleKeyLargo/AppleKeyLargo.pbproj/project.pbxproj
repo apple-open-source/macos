@@ -9,11 +9,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -23,7 +19,12 @@
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
 				OPTIMIZATION_CFLAGS = "-O0";
+				ZERO_LINK = YES;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
@@ -33,6 +34,8 @@
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
@@ -41,11 +44,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -107,7 +106,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleKeyLargo;
-				MODULE_VERSION = 1.4.0d19;
+				MODULE_VERSION = 1.4.1d1;
 				OTHER_CFLAGS = "-fpermissive -D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -133,7 +132,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleKeyLargo</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleKeyLargo version 1.4.0, Copyright 2002 Apple Computer, Inc.</string>
+	<string>AppleKeyLargo version 1.4.1, Copyright 2002 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -145,11 +144,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.0</string>
+	<string>1.4.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.0d19</string>
+	<string>1.4.1d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleKeyLargo</key>
@@ -182,7 +181,7 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
+			shouldUseHeadermap = 0;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -326,6 +325,7 @@
 //733
 //734
 		73D52285FFE5D05111CA2A1B = {
+			fileEncoding = 30;
 			indentWidth = 4;
 			isa = PBXFileReference;
 			path = KeyLargo.cpp;
@@ -334,11 +334,13 @@
 			usesTabs = 1;
 		};
 		73D52286FFE5D05111CA2A1B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = KeyLargo.h;
 			refType = 4;
 		};
 		73D52287FFE5D05111CA2A1B = {
+			fileEncoding = 30;
 			indentWidth = 4;
 			isa = PBXFileReference;
 			path = USBKeyLargo.cpp;
@@ -347,6 +349,7 @@
 			usesTabs = 1;
 		};
 		73D52288FFE5D05111CA2A1B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = USBKeyLargo.h;
 			refType = 4;
@@ -387,11 +390,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -435,11 +434,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -461,7 +456,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOKeyLargo;
-				MODULE_VERSION = 1.4.0d19;
+				MODULE_VERSION = 1.4.1d1;
 				OTHER_CFLAGS = "-D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -499,11 +494,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.0</string>
+	<string>1.4.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.0d19</string>
+	<string>1.4.1d1</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0</string>
 	<key>OSBundleLibraries</key>
@@ -528,6 +523,7 @@
 			refType = 3;
 		};
 		8C228A2D03B7C0AC04CE206E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AppleKeyLargo.cpp;
 			refType = 4;
@@ -539,6 +535,7 @@
 			};
 		};
 		8C228A2F03B7C0CE04CE206E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AppleKeyLargo.h;
 			refType = 4;
@@ -629,11 +626,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -672,11 +665,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -698,7 +687,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleK2Driver;
-				MODULE_VERSION = 1.4.0d19;
+				MODULE_VERSION = 1.4.1d1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -723,7 +712,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleK2Driver</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleK2Driver version 1.4.0, Copyright Apple Computer, Inc.</string>
+	<string>AppleK2Driver version 1.4.1, Copyright Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -735,11 +724,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.0</string>
+	<string>1.4.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.0d19</string>
+	<string>1.4.1d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleK2Driver</key>
@@ -768,6 +757,8 @@
 		<key>com.apple.kernel.mach</key>
 		<string>1.1</string>
 	</dict>
+	<key>OSBundleRequired</key>
+	<string>Safe Boot</string>
 </dict>
 </plist>
 ";
@@ -805,6 +796,7 @@
 			};
 		};
 		8C489A210415330504CE206E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPlatformFunction.h;
 			refType = 4;
@@ -827,11 +819,13 @@
 			refType = 4;
 		};
 		8C50542F03AE4C0804CE206E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AppleK2.cpp;
 			refType = 4;
 		};
 		8C50543003AE4C0804CE206E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AppleK2.h;
 			refType = 4;
@@ -840,11 +834,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -887,11 +877,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -913,7 +899,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleK2;
-				MODULE_VERSION = 1.4.0d19;
+				MODULE_VERSION = 1.4.1d1;
 				OTHER_CFLAGS = "-D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -939,7 +925,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleK2</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleK2 version 1.4.0, Copyright Apple Computer, Inc.</string>
+	<string>AppleK2 version 1.4.1, Copyright Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -951,11 +937,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.0</string>
+	<string>1.4.1</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.0d19</string>
+	<string>1.4.1d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleK2</key>
@@ -1033,11 +1019,13 @@
 			};
 		};
 		8C9E0B0003D5F77504CE206E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AppleK2Driver.cpp;
 			refType = 4;
 		};
 		8C9E0B0103D5F77504CE206E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = AppleK2Driver.h;
 			refType = 4;
@@ -1053,16 +1041,19 @@
 //B03
 //B04
 		B03E150701778A6305CE0D9E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = BusTimings.s;
 			refType = 4;
 		};
 		B05AB278018A0F5D05CE0D9E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = KeyLargoWatchDogTimer.cpp;
 			refType = 4;
 		};
 		B05AB279018A0F5D05CE0D9E = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = KeyLargoWatchDogTimer.h;
 			refType = 4;

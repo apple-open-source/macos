@@ -41,7 +41,7 @@
 #include <IOKit/storage/IOBlockStorageDevice.h>
 
 // SCSI Architecture Model Family includes
-#include <IOKit/scsi-commands/IOSCSIBlockCommandsDevice.h>
+#include <IOKit/scsi/IOSCSIBlockCommandsDevice.h>
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -85,10 +85,6 @@ public:
 											UInt32					nblks,
 											IOStorageCompletion		completion );
 	
-	virtual IOReturn	doSyncReadWrite ( 	IOMemoryDescriptor *	buffer,
-											UInt32					block,
-											UInt32					nblks );
-	
     virtual IOReturn	doEjectMedia ( void );
 	
     virtual IOReturn	doFormatMedia ( UInt64 byteCapacity );
@@ -128,6 +124,10 @@ public:
     virtual IOReturn	reportRemovability ( bool * isRemovable );
     
     virtual IOReturn	reportWriteProtection ( bool * isWriteProtected );
+	
+	virtual IOReturn	getWriteCacheState ( bool * enabled );
+	
+	virtual IOReturn	setWriteCacheState ( bool enabled );
 	
 	// Space reserved for future expansion.
     OSMetaClassDeclareReservedUnused ( IOBlockStorageServices, 1 );

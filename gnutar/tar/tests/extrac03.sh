@@ -6,9 +6,9 @@
 
 set -e
 mkdir directory
-tar cfv archive directory/../directory
+tar -cPvf archive directory/../directory
 echo -----
-tar xfv archive
+tar -xPvf archive
 
 out="\
 directory/../directory/

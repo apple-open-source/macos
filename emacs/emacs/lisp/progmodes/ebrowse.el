@@ -1,6 +1,7 @@
 ;;; ebrowse.el --- Emacs C++ class browser & tags facility
 
-;; Copyright (C) 1992, 93, 94, 95, 96, 97, 98, 99, 2000 Free Software Foundation Inc.
+;; Copyright (C) 1992, 93, 94, 95, 96, 97, 98, 99, 2000, 2001, 2002
+;;  Free Software Foundation Inc.
 
 ;; Author: Gerd Moellmann <gerd@gnu.org>
 ;; Maintainer: FSF
@@ -1675,7 +1676,7 @@ specifies where to find/view the result."
   (setf file (ebrowse-find-source-file file tags-file-name))
   ;; If current window is dedicated, use another frame.
   (when (window-dedicated-p (selected-window))
-    (setf where 'other-frame))
+    (setf where 'other-window))
   (cond (view
 	 (setf ebrowse-temp-position-to-view struc
 	       ebrowse-temp-info-to-view info)
@@ -3818,7 +3819,7 @@ With prefix arg, process files of marked classes only."
   (setq ebrowse-tags-loop-form
 	(list 'and (list 'save-excursion
 			 (list 're-search-forward from nil t))
-	      (list 'not (list 'perform-replace from to nil nil t t nil))))
+	      (list 'not (list 'perform-replace from to t t nil))))
   (ebrowse-tags-loop-continue 'first-time))
 
 

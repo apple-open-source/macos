@@ -1,0 +1,115 @@
+.\" t
+.\" $Id: gimpprint-mediatypes.7.in,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $
+.\" Copyright (C) 2000 Roger Leigh <roger@whinlatter.uklinux.net>
+.\"
+.\" This program is free software; you can redistribute it and/or modify
+.\" it under the terms of the GNU General Public License as published by
+.\" the Free Software Foundation; either version 2, or (at your option)
+.\" any later version.
+.\"
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public License
+.\" along with this program; if not, write to the Free Software
+.\" Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+.TH GIMPPRINT-MEDIATYPES 7 "@RELEASE_DATE@" "Version @GIMPPRINT_VERSION@" "Gimp-Print Manual Pages"
+.SH NAME
+gimpprint-mediatypes \- Gimp-Print media types
+.SH DESCRIPTION
+Gimp-Print supports many different media types, which are printer type
+specific.  The option names are case sensitive.  Two names are listed for each
+resolution; the first (short) name is the \fImediatype\fP, and the second
+(long) name is descriptive.  Not all media types are supported on all printers.
+.SH MEDIA TYPES
+.SS Epson and Lexmark (other than the 4076) inkjet printers
+.TS
+li li
+lb l.
+Media Type	Description
+_
+Plain	Plain Paper
+PlainFast	Plain Paper Fast Load
+Postcard	Postcard
+GlossyFilm	Glossy Film
+Transparency	Transparencies
+Envelope	Envelopes
+BackFilm	Back Light Film
+Matte	Matte Paper
+Inkjet	Inkjet Paper
+Coated	Photo Quality Inkjet Paper
+GlossyPhoto	Premium Glossy Photo Paper
+Luster	Premium Luster Photo Paper
+Photo	Photo Paper
+Glossy	Photo Quality Glossy Paper
+Ilford	Ilford Heavy Paper
+Other	Other
+.TE
+.PP
+We have found that glossy photo papers not specifically designed for Epson
+printers generally perform poorly in Epson printers.  The ink tends to pool on
+the paper, causing muddy shadows and possibly leaving ink on the printer
+rollers.  Use of the highest quality printing modes (1440x720 highest quality
+and 2880x720 unidirectional) produces the best result on such papers, probably
+because printing is slower and there is more time for the ink to dry.
+.SS Canon printers
+.TS
+li li
+lb l.
+Media Type	Description
+_
+Plain	Plain Paper
+Transparency	Transparencies
+BackFilm	Back Print Film
+Fabric	Fabric Sheets
+Envelope	Envelope
+Coated	High Resolution Paper
+TShirt	T-Shirt Transfers
+GlossyFilm	High Gloss Film
+GlossyPaper	Glossy Photo Paper
+GlossyCards	Glossy Photo Cards
+GlossyPro	Photo Paper Pro
+.TE
+.SS PCL (Hewlett-Packard and Lexmark 4076) inkjet printers
+.TS
+li li
+lb l.
+Media Type	Description
+_
+Plain	Plain
+Bond	Bond
+Premium	Premium
+Glossy	Glossy/Photo
+Transparency	Transparency
+GlossyQD	Quick-dry Photo
+TransparencyQD	Quick-dry Transparency
+.TE
+.PP
+PCL laser printers do not allow specification of any media type.
+.SH COPYRIGHT
+Copyright \(co 2001 Michael Sweet (mike@easysw.com) and Robert Krawitz
+(rlk@alum.mit.edu)
+.PP
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+.PP
+This manual page was written by Roger Leigh (roger@whinlatter.uklinux.net)
+.SH SEE ALSO
+.BR gimpprint-color (7),
+.BR gimpprint-dithers (7),
+.BR gimpprint-imagetypes (7),
+.BR gimpprint-inktypes (7),
+.BR gimpprint-mediasizes (7),
+.BR gimpprint-mediasources (7),
+.BR gimpprint-models (7),
+.BR gimpprint-resolutions (7).
+.\"#
+.\"# The following sets edit modes for GNU EMACS
+.\"# Local Variables:
+.\"# mode:nroff
+.\"# fill-column:79
+.\"# End:

@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/external.h,v 1.11 2002/01/04 20:17:49 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/external.h,v 1.11.2.3 2003/02/09 16:31:37 kurt Exp $ */
 /*
- * Copyright 2000-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 2000-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -30,6 +30,10 @@ extern BI_op_search	bdb_search;
 extern BI_op_extended	bdb_extended;
 
 extern BI_chk_referrals	bdb_referrals;
+
+extern BI_operational	bdb_operational;
+
+extern BI_has_subordinates bdb_hasSubordinates;
 
 /* tools.c */
 extern BI_tool_entry_open	bdb_tool_entry_open;

@@ -900,8 +900,12 @@ If you quit, the process is killed with SIGINT, or SIGKILL if you quit again.")
 	   but not past 64k.  */
 	if (bufsize < 64 * 1024 && total_read > 32 * bufsize)
 	  {
+	    char *tempptr;
 	    bufsize *= 2;
-	    bufptr = (char *) alloca (bufsize);
+
+	    tempptr = (char *) alloca (bufsize);
+	    bcopy (bufptr, tempptr, bufsize / 2);
+	    bufptr = tempptr;
 	  }
 
 	if (!NILP (display) && INTERACTIVE)
@@ -1516,7 +1520,7 @@ init_callproc ()
       if (NILP (tem1))
 	{
 	  newdir = Fexpand_file_name (build_string ("../etc/"),
-				      build_string (PATH_DUMPLOADSEARCH));
+				      build_string (PATH_DUMPLOADSEARCH ":" PATH_LOADSEARCH));
 	  tem = Fexpand_file_name (build_string ("GNU"), newdir);
 	  tem1 = Ffile_exists_p (tem);
 	  if (!NILP (tem1))

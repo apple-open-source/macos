@@ -1,0 +1,35 @@
+#
+# /etc/efax.rc
+#
+# Configuration file for fax(1)
+#
+
+DEV=cu.modem
+PAGE=letter
+PRTYPE=ps
+PRCMD="lpr"
+DIALPREFIX="T"
+DIALSUFFIX=""
+LOCK='-x /var/spool/lock/LCK..$DEV'
+OWNER=
+MODE=
+UMASK=077
+DCMD=
+VCMD=
+
+FROM=`defaults read /Library/Preferences/com.apple.print.FaxPrefs FaxNumber`
+if [ $? -ne 0 ]; then
+	echo "$0: can't read FaxPrefs FaxNumber" >&2
+fi
+
+ANSRINGS=`defaults read /Library/Preferences/com.apple.print.FaxPrefs RingCount`
+if [ "x$ANSRINGS" = "x" ]; then
+	echo "$0: can't read FaxPrefs RingCount" >&2
+fi
+
+# HOME must be defined to get sites.py to add /Library... to sitedirs
+if [ "x$HOME" = "x" ]; then
+	export HOME=/tmp
+fi
+
+NOTIFY='/usr/libexec/fax/faxnotify $f $FILES 2>/dev/console'

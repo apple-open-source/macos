@@ -1,0 +1,11 @@
+--- msgcat.c.orig	Sun Oct 27 09:44:33 2002
++++ msgcat.c	Sat May  3 14:19:40 2003
+@@ -54,7 +54,7 @@
+ #include "un-namespace.h"
+ 
+ #include "msgcat.h"
+-#include "../locale/setlocale.h"        /* for ENCODING_LEN */
++#include "setlocale.h"        /* for ENCODING_LEN */
+ 
+ #define _DEFAULT_NLS_PATH "/usr/share/nls/%L/%N.cat:/usr/share/nls/%N/%L:/usr/local/share/nls/%L/%N.cat:/usr/local/share/nls/%N/%L"
+ 

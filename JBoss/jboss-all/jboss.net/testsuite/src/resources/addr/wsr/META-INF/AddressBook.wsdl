@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<wsdl:definitions 
+        targetNamespace="http://net.jboss.org/samples/AddressBook"
+        xmlns="http://schemas.xmlsoap.org/wsdl/"
+        xmlns:tns="http://net.jboss.org/samples/AddressBook"
+        xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+        xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+        xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/"
+        xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/">
+        <wsdl:types>
+          <xsd:schema xmlns="http://www.w3.org/2001/XMLSchema"
+                  targetNamespace="http://net.jboss.org/samples/AddressBook">
+                    <xsd:simpleType name="StateType">
+        
+						<xsd:restriction base="xsd:string">
+							<xsd:enumeration value="TX"/>                      
+							<xsd:enumeration value="IN"/>                    
+							<xsd:enumeration value="OH"/>                    
+						</xsd:restriction>
+					</xsd:simpleType>
+
+					<xsd:complexType name="Phone">
+						<xsd:all>
+							<xsd:element name="areaCode" type="xsd:int"/>
+							<xsd:element name="exchange" type="xsd:string"/>
+							<xsd:element name="number" type="xsd:string"/>
+						</xsd:all>
+					</xsd:complexType>
+      
+       				<xsd:complexType name="Address">
+						<xsd:all>
+							<xsd:element name="streetNum" type="xsd:int"/>
+							<xsd:element name="streetName" type="xsd:string"/>
+							<xsd:element name="city" type="xsd:string"/>
+							<xsd:element name="state" type="tns:StateType"/>
+							<xsd:element name="zip" type="xsd:int"/>
+							<xsd:element name="phoneNumber" type="tns:Phone"/>
+						</xsd:all>
+					</xsd:complexType>
+		  </xsd:schema>
+        </wsdl:types>
+        
+  <wsdl:message name="AddEntryRequest">
+    <wsdl:part name="name" type="xsd:string"/>
+    <wsdl:part name="address" type="tns:Address"/> 
+  </wsdl:message>
+  <wsdl:message name="GetAddressFromNameRequest">
+    <wsdl:part name="name" type="xsd:string"/>
+  </wsdl:message>
+  <wsdl:message name="GetAddressFromNameResponse">
+    <wsdl:part name="address" type="tns:Address"/>
+  </wsdl:message>
+  <wsdl:portType name="AddressBook">
+    <wsdl:operation name="addEntry">
+      <wsdl:input message="tns:AddEntryRequest"/>
+    </wsdl:operation>
+    <wsdl:operation name="getAddressFromName">
+      <wsdl:input message="tns:GetAddressFromNameRequest"/>
+      <wsdl:output message="tns:GetAddressFromNameResponse"/>
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="AddressBookSOAPBinding" type="tns:AddressBook">
+    <soap:binding style="rpc" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <wsdl:operation name="addEntry" >
+      <soap:operation soapAction="" style="rpc"/>
+      <wsdl:input>
+        <soap:body use="encoded"
+                   namespace="http://net.jboss.org/samples/AddressBook"
+                   encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"/>
+      </wsdl:input>
+    </wsdl:operation> 
+    <wsdl:operation name="getAddressFromName">
+      <soap:operation soapAction="" style="rpc"/>
+      <wsdl:input>
+        <soap:body use="encoded"
+                   namespace="http://net.jboss.org/samples/AddressBook"
+                   encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"/>
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="encoded"
+                   namespace="http://net.jboss.org/samples/AddressBook"
+                   encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"/>
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="AddressBookService">
+    <wsdl:port name="AddressBook" binding="tns:AddressBookSOAPBinding">
+      <soap:address location="http://localhost:8080/axis/services/AddressBook"/>
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>

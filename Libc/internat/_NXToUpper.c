@@ -29,6 +29,7 @@
 #include "NXCType.h"
 #define FIXSIGNEDCHAR(i) if ((i & 0xFFFFFF80) == 0xFFFFFF80) i &= 0x000000FF
 
+int
 _NXToUpper(c)
 	unsigned int c;
 {

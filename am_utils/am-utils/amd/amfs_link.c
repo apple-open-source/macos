@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: amfs_link.c,v 1.1.1.1 2002/05/15 01:21:53 jkh Exp $
+ * $Id: amfs_link.c,v 1.1.1.2 2002/07/15 19:42:35 zarzycki Exp $
  *
  */
 
@@ -70,7 +70,9 @@ am_ops amfs_link_ops =
   0,				/* amfs_link_umounted */
   find_amfs_auto_srvr,
   0,				/* nfs_fs_flags */
-  0				/* autofs_fs_flags */
+#ifdef HAVE_FS_AUTOFS
+  AUTOFS_LINK_FS_FLAGS,
+#endif /* HAVE_FS_AUTOFS */
 };
 
 

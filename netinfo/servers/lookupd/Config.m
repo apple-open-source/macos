@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -34,7 +35,6 @@
 #import "Thread.h"
 #import "sys.h"
 #import <NetInfo/dsutil.h>
-#import <netinfo/ni.h>
 #import <NetInfo/nilib2.h>
 #import <string.h>
 #import <stdlib.h>
@@ -168,12 +168,6 @@
 	[super dealloc];
 }
 
-- (BOOL)loadFromConfigd
-{
-	/* XXX */
-	return NO;
-}
-
 - (void)readDict:(LUDictionary *)c fromNetInfo:(unsigned long)d
 {
 	ni_id dir;
@@ -186,7 +180,7 @@
 	NI_INIT(&pl);
 
 	syslock_lock(rpcLock);
-	status = ni_read(sourceDomain, &dir, &pl);
+	status = sa_read(sourceDomain, &dir, &pl);
 	syslock_unlock(rpcLock);
 
 	if (status != NI_OK) return;
@@ -254,12 +248,12 @@
 	NI_INIT(&el);
 
 	syslock_lock(rpcLock);
-	status = ni_list(sourceDomain, &dir, "name", &el);
+	status = sa_list(sourceDomain, &dir, "name", &el);
 	syslock_unlock(rpcLock);
 
 	if (status != NI_OK)
 	{
-		ni_free(sourceDomain);
+		ni_shared_release(sourceDomain);
 		sourceDomain = NULL;
 		return;
 	}
@@ -320,19 +314,19 @@
 	if (sourceDomain == NULL) return NO;
 	if (sourcePath == NULL)
 	{
-		ni_free(sourceDomain);
+		ni_shared_release(sourceDomain);
 		sourceDomain = NULL;
 		return NO;
 	}
 
 	/* Load global config from source dir */
 	syslock_lock(rpcLock);
-	status = ni_pathsearch(sourceDomain, &dir, sourcePath);
+	status = sa_pathsearch(sourceDomain, &dir, sourcePath);
 	syslock_unlock(rpcLock);
 
 	if (status != NI_OK)
 	{
-		ni_free(sourceDomain);
+		ni_shared_release(sourceDomain);
 		sourceDomain = NULL;
 		return NO;
 	}
@@ -340,7 +334,7 @@
 	[self loadAgent:NULL fromNetInfo:dir.nii_object];
 
 	syslock_lock(rpcLock);
-	status = ni_addrtag(sourceDomain, &serveraddr, &servertag);
+	status = sa_addrtag(sourceDomain, &serveraddr, &servertag);
 	syslock_unlock(rpcLock);
 
 	c = [self dictForAgent:NULL category:LUCategoryNull fromConfig:cdict];
@@ -349,14 +343,15 @@
 	free(servertag);
 
 	sprintf(str, "%s/agents", sourcePath);
+	sprintf(str, "%s/agents", sourcePath);
 
 	syslock_lock(rpcLock);
-	status = ni_pathsearch(sourceDomain, &dir, str);
+	status = sa_pathsearch(sourceDomain, &dir, str);
 	syslock_unlock(rpcLock);
 
 	if (status != NI_OK)
 	{
-		ni_free(sourceDomain);
+		ni_shared_release(sourceDomain);
 		sourceDomain = NULL;
 		if (status == NI_NODIR) return YES;
 		return NO;
@@ -365,12 +360,12 @@
 	NI_INIT(&el);
 
 	syslock_lock(rpcLock);
-	status = ni_list(sourceDomain, &dir, "name", &el);
+	status = sa_list(sourceDomain, &dir, "name", &el);
 	syslock_unlock(rpcLock);
 
 	if (status != NI_OK)
 	{
-		ni_free(sourceDomain);
+		ni_shared_release(sourceDomain);
 		sourceDomain = NULL;
 		return YES;
 	}
@@ -386,7 +381,7 @@
 
 	ni_entrylist_free(&el);
 
-	if (sourceDomain != NULL) ni_free(sourceDomain);
+	if (sourceDomain != NULL) ni_shared_release(sourceDomain);
 	sourceDomain = NULL;
 
 	return YES;
@@ -609,8 +604,6 @@
 {
 	if (source == configSourceDefault)
 		return YES;
-	else if (source == configSourceConfigd)
-		return [self loadFromConfigd];
 	else if (source == configSourceFile)
 		return [self loadFromFile];
 	else if (source == configSourceNetInfo)
@@ -636,7 +629,7 @@
 	source = configSourceDefault;
 	if (sourcePath != NULL) freeString(sourcePath);
 	sourcePath = NULL;
-	if (sourceDomain != NULL) ni_free(sourceDomain);
+	if (sourceDomain != NULL) ni_shared_release(sourceDomain);
 	sourceDomain = NULL;
 
 	/* Check file:/etc/lookupd */
@@ -652,7 +645,7 @@
 
 	/* Check netinfo:/config/lookupd */
 	syslock_lock(rpcLock);
-	status = ni_find(&sourceDomain, &nid, "/config/lookupd", 30);
+	status = sa_find(&sourceDomain, &nid, "/config/lookupd", 30);
 	syslock_unlock(rpcLock);
 	if (status == NI_OK)
 	{
@@ -663,7 +656,7 @@
 
 	/* Check netinfo:/locations/lookupd */
 	syslock_lock(rpcLock);
-	status = ni_find(&sourceDomain, &nid, "/locations/lookupd", 30);
+	status = sa_find(&sourceDomain, &nid, "/locations/lookupd", 30);
 	syslock_unlock(rpcLock);
 	if (status == NI_OK)
 	{
@@ -675,8 +668,6 @@
 
 - (BOOL)setConfigSource:(int)src path:(char *)path domain:(char *)domain
 {
-	ni_status status; 
-
 	if (didSetConfig) return NO;
 
 	didSetConfig = YES;
@@ -702,7 +693,7 @@
 		if (domain != NULL)
 		{
 			syslock_lock(rpcLock);
-			status = ni_open(NULL, domain, &sourceDomain);
+			sourceDomain = ni_shared_open(NULL, domain);
 			syslock_unlock(rpcLock);
 		}
 	}

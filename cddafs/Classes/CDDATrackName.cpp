@@ -1,3 +1,29 @@
+/*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
+
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Includes
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -6,7 +32,6 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <sys/param.h>
 #include <sys/types.h>
-#include <unistd.h>
 
 // private includes
 #include "CDDATrackName.h"
@@ -24,21 +49,81 @@
 #define PRINT(x)
 #endif
 
+#define kCDDAFSUtilBundlePath	"/System/Library/Filesystems/cddafs.fs"
+#define kArtistString			"Artist"
+#define kTitleString			"Title"
+#define kTrackNameString		"Audio Track"
+#define kSeparatorString		"Separator"
+
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	¥ Constructor													[PUBLIC]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-CDDATrackName::CDDATrackName ( void )
+CDDATrackName::CDDATrackName ( void ) :
+	fBundle ( NULL ),
+	fTrackNameStringRef ( NULL ),
+	fAlbumStringRef ( NULL ),
+	fArtistStringRef ( NULL ),
+	fSeparatorStringRef ( NULL )
 {
+	
+	CFURLRef	urlRef		= NULL;
+	CFBundleRef	bundleRef	= NULL;
 	
 	PRINT ( ( "CDDATrackName constructor called\n" ) );
 	
-	fCFBundleRef = CFBundleGetBundleWithIdentifier ( CFSTR ( "com.apple.filesystems.util.cddafs" ) );	
+	urlRef = CFURLCreateWithFileSystemPath ( kCFAllocatorDefault,
+											 CFSTR ( kCDDAFSUtilBundlePath ),
+											 kCFURLPOSIXPathStyle,
+											 true );
 	
-	#if DEBUG
-	CFShow ( fCFBundleRef );
-	#endif
+	if ( urlRef != NULL )
+	{
+		
+		#if DEBUG
+		CFShow ( urlRef );
+		#endif
+		
+		bundleRef = CFBundleCreate ( kCFAllocatorDefault, urlRef );
+		CFRelease ( urlRef );
+		urlRef = 0;
+		
+	}
+	
+	if ( bundleRef != NULL )
+	{
+		
+		#if DEBUG
+		CFShow ( bundleRef );
+		#endif
+		
+		fBundle = new TBundle ( bundleRef );
+				
+		fArtistStringRef = fBundle->CopyLocalizedStringForKey (
+									CFSTR ( kArtistString ),
+									CFSTR ( kArtistString ),
+									NULL ); // defaults to Localizable.strings
+	
+		fAlbumStringRef = fBundle->CopyLocalizedStringForKey (
+									CFSTR ( kTitleString ),
+									CFSTR ( kTitleString ),
+									NULL ); // defaults to Localizable.strings
+		
+		fTrackNameStringRef = fBundle->CopyLocalizedStringForKey (
+									CFSTR ( kTrackNameString ),
+									CFSTR ( kTrackNameString ),
+									NULL ); // defaults to Localizable.strings
+	
+		fSeparatorStringRef = fBundle->CopyLocalizedStringForKey (
+									CFSTR ( kSeparatorString ),
+									CFSTR ( kSeparatorString ),
+									NULL ); // defaults to Localizable.strings
+		
+		CFRelease ( bundleRef );
+		bundleRef = NULL;
+		
+	}
 	
 }
 
@@ -53,10 +138,31 @@ CDDATrackName::~CDDATrackName ( void )
 	PRINT ( ( "CDDATrackName destructor called\n" ) );	
 	
 	#if DEBUG
-	CFShow ( fCFBundleRef );
+
+	CFShow ( fArtistStringRef );
+	CFShow ( fAlbumStringRef );
+	CFShow ( fTrackNameStringRef );
+	CFShow ( fSeparatorStringRef );
+
 	#endif
 	
-	fCFBundleRef = 0;
+	CFRelease ( fArtistStringRef );
+	CFRelease ( fAlbumStringRef );
+	CFRelease ( fTrackNameStringRef );
+	CFRelease ( fSeparatorStringRef );
+	
+	fArtistStringRef 	= 0;
+	fAlbumStringRef		= 0;
+	fTrackNameStringRef	= 0;
+	fSeparatorStringRef	= 0;
+	
+	if ( fBundle != NULL )
+	{
+		
+		delete fBundle;
+		fBundle = NULL;
+		
+	}
 	
 }
 
@@ -79,22 +185,8 @@ CDDATrackName::Init ( const char * bsdDevNode, const void * TOCData )
 CFStringRef
 CDDATrackName::GetArtistName ( void )
 {
-	
-	CFStringRef		artistString = 0;
-
-	PRINT ( ( "CDDATrackName::GetArtistName\n" ) );
-	
-	artistString = CFCopyLocalizedStringFromTableInBundle ( CFSTR ( "Artist" ),
-															CFSTR ( "Localizable" ),
-															fCFBundleRef,
-															CFSTR ( "Artist" ) );
-	
-	#if DEBUG
-	CFShow ( artistString );
-	#endif
-	
-	return artistString;
-	
+	CFRetain ( fArtistStringRef );
+	return fArtistStringRef;
 }
 
 
@@ -105,20 +197,8 @@ CDDATrackName::GetArtistName ( void )
 CFStringRef
 CDDATrackName::GetAlbumName ( void )
 {
-	
-	CFStringRef		albumString = 0;
-	
-	albumString = CFCopyLocalizedStringFromTableInBundle ( 	CFSTR ( "Title" ),
-															CFSTR ( "Localizable" ),
-															fCFBundleRef,
-															CFSTR ( "Title" ) );
-	
-	#if DEBUG
-	CFShow (  albumString );
-	#endif
-	
-	return albumString;
-	
+	CFRetain ( fAlbumStringRef );
+	return fAlbumStringRef;
 }
 
 
@@ -129,20 +209,8 @@ CDDATrackName::GetAlbumName ( void )
 CFStringRef
 CDDATrackName::GetTrackName ( UInt8 trackNumber )
 {
-	
-	CFStringRef		trackString = 0;
-	
-	trackString = CFCopyLocalizedStringFromTableInBundle ( 	CFSTR ( "Audio Track" ),
-															CFSTR ( "Localizable" ),
-															fCFBundleRef,
-															CFSTR ( "Audio Track" ) );
-	
-	#if DEBUG
-	CFShow (  trackString );
-	#endif
-	
-	return trackString;
-	
+	CFRetain ( fTrackNameStringRef );
+	return fTrackNameStringRef;
 }
 
 
@@ -153,16 +221,8 @@ CDDATrackName::GetTrackName ( UInt8 trackNumber )
 CFStringRef
 CDDATrackName::GetSeparatorString ( void )
 {
-	
-	CFStringRef		sepString = 0;
-	
-	sepString = CFCopyLocalizedStringFromTableInBundle ( 	CFSTR ( "Separator" ),
-															CFSTR ( "Localizable" ),
-															fCFBundleRef,
-															CFSTR ( "Separator" ) );
-	
-	return sepString;
-	
+	CFRetain ( fSeparatorStringRef );
+	return fSeparatorStringRef;
 }
 
 

@@ -9,7 +9,7 @@ AC_CHECK_FUNCS(alarm bmove \
  getrusage getpwuid getcwd getrlimit getwd index locking longjmp \
  perror pread realpath rename \
  socket strnlen madvise \
- strtoul strtoull snprintf tempnam thr_setconcurrency \
+ strtoll strtoul strtoull snprintf tempnam thr_setconcurrency \
  gethostbyaddr_r gethostbyname_r getpwnam \
  bfill bzero bcmp strstr strpbrk strerror\
  tell atod memcpy memmove \
@@ -227,7 +227,8 @@ dnl Find type of qsort
 AC_DEFUN(MYSQL_TYPE_QSORT,
 [AC_CACHE_CHECK([return type of qsort], mysql_cv_type_qsort,
 [AC_TRY_COMPILE([#include <stdlib.h>
-#ifdef __cplusplus                                                              extern "C"
+#ifdef __cplusplus
+extern "C"
 #endif
 void qsort(void *base, size_t nel, size_t width,
  int (*compar) (const void *, const void *));
@@ -237,7 +238,8 @@ AC_DEFINE_UNQUOTED(RETQSORTTYPE, $mysql_cv_type_qsort, [ ])
 if test "$mysql_cv_type_qsort" = "void"
 then
  AC_DEFINE_UNQUOTED(QSORT_TYPE_IS_VOID, 1, [ ])
-fi                                                                              ])
+fi
+])
 
 
 #---START: Used in for client configure
@@ -295,9 +297,28 @@ then
 fi
 ])
 
+AC_DEFUN(MYSQL_CHECK_USHORT,
+[AC_MSG_CHECKING(for type ushort)
+AC_CACHE_VAL(ac_cv_ushort,
+[AC_TRY_RUN([#include <stdio.h>
+#include <sys/types.h>
+main()
+{
+  ushort foo;
+  foo++;
+  exit(0);
+}], ac_cv_ushort=yes, ac_cv_ushort=no, ac_cv_ushort=no)])
+AC_MSG_RESULT($ac_cv_ushort)
+if test "$ac_cv_ushort" = "yes"
+then
+  AC_DEFINE(HAVE_USHORT,,[ ])
+fi
+])
+
 AC_DEFUN(MYSQL_CHECK_INT_8_16_32,
 [AC_MSG_CHECKING([for int8])
-AC_TRY_RUN([
+AC_CACHE_VAL(ac_cv_int8,
+[AC_TRY_RUN([
 #ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
@@ -315,9 +336,14 @@ int main()
     int8 i;
     return 0;
 }
-], AC_DEFINE(HAVE_INT_8_16_32, , [ ]) AC_MSG_RESULT([yes]), AC_MSG_RESULT([no])
-)
+], ac_cv_int8=yes, ac_cv_int8=no, ac_cv_int8=no)])
+AC_MSG_RESULT($ac_cv_int8)
+if test "$ac_cv_int8" = "yes"
+then
+  AC_DEFINE(HAVE_INT_8_16_32,,[ ])
+fi
 ])
+
 
 AC_DEFUN(MYSQL_HEADER_CHECKS,[
 AC_HEADER_STDC
@@ -346,6 +372,7 @@ AC_TYPE_UID_T
 MYSQL_CHECK_ULONG
 MYSQL_CHECK_UCHAR
 MYSQL_CHECK_UINT
+MYSQL_CHECK_USHORT
 MYSQL_CHECK_INT_8_16_32
 
 MYSQL_TYPE_ACCEPT

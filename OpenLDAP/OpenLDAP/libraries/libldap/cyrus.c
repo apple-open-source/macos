@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/cyrus.c,v 1.45 2002/02/11 17:18:34 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/cyrus.c,v 1.45.2.20 2003/05/24 23:10:36 kurt Exp $ */
 /*
- * Copyright 1999-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1999-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -19,14 +19,6 @@
 
 #ifdef HAVE_CYRUS_SASL
 
-#ifdef __APPLE__
-#include <pthread.h>
-static pthread_mutex_t _sasl_lock_data_ = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t _sasl_lock_main_ = PTHREAD_MUTEX_INITIALIZER;
-static int _sasl_lock_count_ = 0;
-static unsigned int _sasl_thread_ = (unsigned int)-1;
-#endif
-
 #ifdef LDAP_R_COMPILE
 ldap_pvt_thread_mutex_t ldap_int_sasl_mutex;
 #endif
@@ -43,56 +35,13 @@ ldap_pvt_thread_mutex_t ldap_int_sasl_mutex;
 #define SASL_CONST
 #endif
 
-#ifdef __APPLE__
-void _lock_sasl(void)
-{
-	unsigned int t;
-
-	t = (unsigned int)pthread_self();
-
-	pthread_mutex_lock(&_sasl_lock_data_);
-	if ((_sasl_lock_count_ > 0) && (_sasl_thread_ == t))
-	{
-		/* Recursive lock: just increment the locked counter */
-		_sasl_lock_count_++;
-		pthread_mutex_unlock(&_sasl_lock_data_);
-		return;
-	}
-	pthread_mutex_unlock(&_sasl_lock_data_);
-
-	pthread_mutex_lock(&_sasl_lock_main_);
-
-	pthread_mutex_lock(&_sasl_lock_data_);
-	_sasl_lock_count_ = 1;
-	_sasl_thread_ = t;
-	pthread_mutex_unlock(&_sasl_lock_data_);
-}
-
-void _unlock_sasl(void)
-{
-	int unlock_me;
-
-	unlock_me = 0;
-
-	pthread_mutex_lock(&_sasl_lock_data_);
-	if (_sasl_lock_count_ > 0) _sasl_lock_count_--;
-	if (_sasl_lock_count_ == 0)
-	{
-		_sasl_thread_ = (unsigned int)-1;
-		unlock_me = 1;
-	}
-	pthread_mutex_unlock(&_sasl_lock_data_);
-
-	if (unlock_me == 1) pthread_mutex_unlock(&_sasl_lock_main_);
-}
-#endif
-
 /*
 * Various Cyrus SASL related stuff.
 */
 
 int ldap_int_sasl_init( void )
 {
+	/* XXX not threadsafe */
 	static int sasl_initialized = 0;
 
 	static sasl_callback_t client_callbacks[] = {
@@ -107,18 +56,34 @@ int ldap_int_sasl_init( void )
 		{ SASL_CB_LIST_END, NULL, NULL }
 	};
 
-#ifdef __APPLE__
-	_lock_sasl();
-#endif
+#ifdef HAVE_SASL_VERSION
+#define SASL_BUILD_VERSION ((SASL_VERSION_MAJOR << 24) |\
+	(SASL_VERSION_MINOR << 16) | SASL_VERSION_STEP)
 
-	if ( sasl_initialized ) {
-#ifdef __APPLE__
-		_unlock_sasl();
+	{ int rc;
+	sasl_version( NULL, &rc );
+	if ( ((rc >> 16) != ((SASL_VERSION_MAJOR << 8)|SASL_VERSION_MINOR)) ||
+		(rc & 0xffff) < SASL_VERSION_STEP) {
+
+#ifdef NEW_LOGGING
+		LDAP_LOG( TRANSPORT, INFO,
+		"ldap_int_sasl_init: SASL version mismatch, got %x, wanted %x.\n",
+			rc, SASL_BUILD_VERSION, 0 );
+#else
+		Debug( LDAP_DEBUG_ANY,
+		"ldap_int_sasl_init: SASL version mismatch, got %x, wanted %x.\n",
+			rc, SASL_BUILD_VERSION, 0 );
 #endif
+		return -1;
+	}
+	}
+#endif
+	if ( sasl_initialized ) {
 		return 0;
 	}
 
-#ifndef CSRIMALLOC
+/* SASL 2 takes care of its own memory completely internally */
+#if SASL_VERSION_MAJOR < 2 && !defined(CSRIMALLOC)
 	sasl_set_alloc(
 		ber_memalloc,
 		ber_memcalloc,
@@ -138,14 +103,12 @@ int ldap_int_sasl_init( void )
 
 	if ( sasl_client_init( client_callbacks ) == SASL_OK ) {
 		sasl_initialized = 1;
-#ifdef __APPLE__
-		_unlock_sasl();
-#endif
 		return 0;
 	}
 
-#ifdef __APPLE__
-	_unlock_sasl();
+#if SASL_VERSION_MAJOR < 2
+	/* A no-op to make sure we link with Cyrus 1.5 */
+	sasl_client_auth( NULL, NULL, NULL, 0, NULL, NULL );
 #endif
 	return -1;
 }
@@ -156,6 +119,7 @@ int ldap_int_sasl_init( void )
 
 struct sb_sasl_data {
 	sasl_conn_t		*sasl_context;
+	unsigned		*sasl_maxbuf;
 	Sockbuf_Buf		sec_buf_in;
 	Sockbuf_Buf		buf_in;
 	Sockbuf_Buf		buf_out;
@@ -166,38 +130,25 @@ sb_sasl_setup( Sockbuf_IO_Desc *sbiod, void *arg )
 {
 	struct sb_sasl_data	*p;
 
-#ifdef __APPLE__
-	_lock_sasl();
-#endif
-
 	assert( sbiod != NULL );
 
 	p = LBER_MALLOC( sizeof( *p ) );
 	if ( p == NULL )
-	{
-#ifdef __APPLE__
-		_unlock_sasl();
-#endif
 		return -1;
-	}
-
 	p->sasl_context = (sasl_conn_t *)arg;
 	ber_pvt_sb_buf_init( &p->sec_buf_in );
 	ber_pvt_sb_buf_init( &p->buf_in );
 	ber_pvt_sb_buf_init( &p->buf_out );
 	if ( ber_pvt_sb_grow_buffer( &p->sec_buf_in, SASL_MIN_BUFF_SIZE ) < 0 ) {
+		LBER_FREE( p );
 		errno = ENOMEM;
-#ifdef __APPLE__
-		_unlock_sasl();
-#endif
 		return -1;
 	}
+	sasl_getprop( p->sasl_context, SASL_MAXOUTBUF,
+		(SASL_CONST void **) &p->sasl_maxbuf );
 
 	sbiod->sbiod_pvt = p;
 
-#ifdef __APPLE__
-	_unlock_sasl();
-#endif
 	return 0;
 }
 
@@ -205,10 +156,6 @@ static int
 sb_sasl_remove( Sockbuf_IO_Desc *sbiod )
 {
 	struct sb_sasl_data	*p;
-
-#ifdef __APPLE__
-	_lock_sasl();
-#endif
 
 	assert( sbiod != NULL );
 	
@@ -226,22 +173,13 @@ sb_sasl_remove( Sockbuf_IO_Desc *sbiod )
 	ber_pvt_sb_buf_destroy( &p->buf_out );
 	LBER_FREE( p );
 	sbiod->sbiod_pvt = NULL;
-
-#ifdef __APPLE__
-	_unlock_sasl();
-#endif
-
 	return 0;
 }
 
 static ber_len_t
-sb_sasl_pkt_length( const unsigned char *buf, int debuglevel )
+sb_sasl_pkt_length( const unsigned char *buf, unsigned max, int debuglevel )
 {
 	ber_len_t		size;
-
-#ifdef __APPLE__
-	_lock_sasl();
-#endif
 
 	assert( buf != NULL );
 
@@ -250,9 +188,6 @@ sb_sasl_pkt_length( const unsigned char *buf, int debuglevel )
 		| buf[2] << 8
 		| buf[3];
    
-	/* we really should check against actual buffer size set
-	 * in the secopts.
-	 */
 	if ( size > SASL_MAX_BUFF_SIZE ) {
 		/* somebody is trying to mess me up. */
 		ber_log_printf( LDAP_DEBUG_ANY, debuglevel,
@@ -261,22 +196,14 @@ sb_sasl_pkt_length( const unsigned char *buf, int debuglevel )
 		size = 16; /* this should lead to an error. */
 	}
 
-#ifdef __APPLE__
-	_unlock_sasl();
-#endif
-
 	return size + 4; /* include the size !!! */
 }
 
 /* Drop a processed packet from the input buffer */
 static void
-sb_sasl_drop_packet ( Sockbuf_Buf *sec_buf_in, int debuglevel )
+sb_sasl_drop_packet ( Sockbuf_Buf *sec_buf_in, unsigned max, int debuglevel )
 {
 	ber_slen_t			len;
-
-#ifdef __APPLE__
-	_lock_sasl();
-#endif
 
 	len = sec_buf_in->buf_ptr - sec_buf_in->buf_end;
 	if ( len > 0 )
@@ -285,16 +212,12 @@ sb_sasl_drop_packet ( Sockbuf_Buf *sec_buf_in, int debuglevel )
    
 	if ( len >= 4 ) {
 		sec_buf_in->buf_end = sb_sasl_pkt_length( sec_buf_in->buf_base,
-			debuglevel);
+			max, debuglevel);
 	}
 	else {
 		sec_buf_in->buf_end = 0;
 	}
 	sec_buf_in->buf_ptr = len;
-
-#ifdef __APPLE__
-	_unlock_sasl();
-#endif
 }
 
 static ber_slen_t
@@ -303,10 +226,6 @@ sb_sasl_read( Sockbuf_IO_Desc *sbiod, void *buf, ber_len_t len)
 	struct sb_sasl_data	*p;
 	ber_slen_t		ret, bufptr;
    
-#ifdef __APPLE__
-	_lock_sasl();
-#endif
-
 	assert( sbiod != NULL );
 	assert( SOCKBUF_VALID( sbiod->sbiod_sb ) );
 
@@ -318,12 +237,7 @@ sb_sasl_read( Sockbuf_IO_Desc *sbiod, void *buf, ber_len_t len)
 	len -= ret;
 
 	if ( len == 0 )
-	{
-#ifdef __APPLE__
-		_unlock_sasl();
-#endif
 		return bufptr;
-	}
 
 #if SASL_VERSION_MAJOR >= 2
 	ber_pvt_sb_buf_init( &p->buf_in );
@@ -340,28 +254,20 @@ sb_sasl_read( Sockbuf_IO_Desc *sbiod, void *buf, ber_len_t len)
 			continue;
 #endif
 		if ( ret <= 0 )
-		{
-#ifdef __APPLE__
-			_unlock_sasl();
-#endif
-			return ret;
-		}
+			return bufptr ? bufptr : ret;
 
 		p->sec_buf_in.buf_ptr += ret;
 	}
 
 	/* The new packet always starts at p->sec_buf_in.buf_base */
 	ret = sb_sasl_pkt_length( p->sec_buf_in.buf_base,
-		sbiod->sbiod_sb->sb_debug );
+		*p->sasl_maxbuf, sbiod->sbiod_sb->sb_debug );
 
 	/* Grow the packet buffer if neccessary */
 	if ( ( p->sec_buf_in.buf_size < (ber_len_t) ret ) && 
 		ber_pvt_sb_grow_buffer( &p->sec_buf_in, ret ) < 0 )
 	{
 		errno = ENOMEM;
-#ifdef __APPLE__
-		_unlock_sasl();
-#endif
 		return -1;
 	}
 	p->sec_buf_in.buf_end = ret;
@@ -378,12 +284,8 @@ sb_sasl_read( Sockbuf_IO_Desc *sbiod, void *buf, ber_len_t len)
 			continue;
 #endif
 		if ( ret <= 0 )
-		{
-#ifdef __APPLE__
-			_unlock_sasl();
-#endif
-			return ret;
-		}
+			return bufptr ? bufptr : ret;
+
 		p->sec_buf_in.buf_ptr += ret;
    	}
 
@@ -392,29 +294,23 @@ sb_sasl_read( Sockbuf_IO_Desc *sbiod, void *buf, ber_len_t len)
 		p->sec_buf_in.buf_end,
 		(SASL_CONST char **)&p->buf_in.buf_base,
 		(unsigned *)&p->buf_in.buf_end );
+
+	/* Drop the packet from the input buffer */
+	sb_sasl_drop_packet( &p->sec_buf_in,
+			*p->sasl_maxbuf, sbiod->sbiod_sb->sb_debug );
+
 	if ( ret != SASL_OK ) {
 		ber_log_printf( LDAP_DEBUG_ANY, sbiod->sbiod_sb->sb_debug,
 			"sb_sasl_read: failed to decode packet: %s\n",
 			sasl_errstring( ret, NULL, NULL ) );
-		sb_sasl_drop_packet( &p->sec_buf_in,
-			sbiod->sbiod_sb->sb_debug );
 		errno = EIO;
-#ifdef __APPLE__
-		_unlock_sasl();
-#endif
 		return -1;
 	}
 	
-	/* Drop the packet from the input buffer */
-	sb_sasl_drop_packet( &p->sec_buf_in, sbiod->sbiod_sb->sb_debug );
-
 	p->buf_in.buf_size = p->buf_in.buf_end;
 
 	bufptr += ber_pvt_sb_copy_out( &p->buf_in, (char*) buf + bufptr, len );
 
-#ifdef __APPLE__
-	_unlock_sasl();
-#endif
 	return bufptr;
 }
 
@@ -424,10 +320,6 @@ sb_sasl_write( Sockbuf_IO_Desc *sbiod, void *buf, ber_len_t len)
 	struct sb_sasl_data	*p;
 	int			ret;
 
-#ifdef __APPLE__
-	_lock_sasl();
-#endif
-
 	assert( sbiod != NULL );
 	assert( SOCKBUF_VALID( sbiod->sbiod_sb ) );
 
@@ -436,20 +328,25 @@ sb_sasl_write( Sockbuf_IO_Desc *sbiod, void *buf, ber_len_t len)
 	/* Are there anything left in the buffer? */
 	if ( p->buf_out.buf_ptr != p->buf_out.buf_end ) {
 		ret = ber_pvt_sb_do_write( sbiod, &p->buf_out );
-		if ( ret <= 0 )
-		{
-#ifdef __APPLE__
-			_unlock_sasl();
-#endif
+		if ( ret < 0 )
 			return ret;
+		/* Still have something left?? */
+		if ( p->buf_out.buf_ptr != p->buf_out.buf_end ) {
+			errno = EAGAIN;
+			return 0;
 		}
 	}
 
 	/* now encode the next packet. */
 #if SASL_VERSION_MAJOR >= 2
 	ber_pvt_sb_buf_init( &p->buf_out );
+	/* sasl v2 makes sure this number is correct */
+	if ( len > *p->sasl_maxbuf )
+		len = *p->sasl_maxbuf;
 #else
 	ber_pvt_sb_buf_destroy( &p->buf_out );
+	if ( len > *p->sasl_maxbuf - 100 )
+		len = *p->sasl_maxbuf - 100;	/* For safety margin */
 #endif
 	ret = sasl_encode( p->sasl_context, buf, len,
 		(SASL_CONST char **)&p->buf_out.buf_base,
@@ -458,25 +355,13 @@ sb_sasl_write( Sockbuf_IO_Desc *sbiod, void *buf, ber_len_t len)
 		ber_log_printf( LDAP_DEBUG_ANY, sbiod->sbiod_sb->sb_debug,
 			"sb_sasl_write: failed to encode packet: %s\n",
 			sasl_errstring( ret, NULL, NULL ) );
-#ifdef __APPLE__
-		_unlock_sasl();
-#endif
 		return -1;
 	}
 	p->buf_out.buf_end = p->buf_out.buf_size;
 
 	ret = ber_pvt_sb_do_write( sbiod, &p->buf_out );
 	if ( ret <= 0 )
-	{
-#ifdef __APPLE__
-		_unlock_sasl();
-#endif
 		return ret;
-	}
-
-#ifdef __APPLE__
-	_unlock_sasl();
-#endif
 	return len;
 }
 
@@ -484,30 +369,15 @@ static int
 sb_sasl_ctrl( Sockbuf_IO_Desc *sbiod, int opt, void *arg )
 {
 	struct sb_sasl_data	*p;
-	int rc;
 
-#ifdef __APPLE__
-	_lock_sasl();
-#endif
 	p = (struct sb_sasl_data *)sbiod->sbiod_pvt;
 
 	if ( opt == LBER_SB_OPT_DATA_READY ) {
 		if ( p->buf_in.buf_ptr != p->buf_in.buf_end )
-		{
-#ifdef __APPLE__
-			_unlock_sasl();
-#endif
 			return 1;
-		}
 	}
-
-	rc = LBER_SBIOD_CTRL_NEXT( sbiod, opt, arg );
-
-#ifdef __APPLE__
-	_unlock_sasl();
-#endif
-
-	return rc;
+	
+	return LBER_SBIOD_CTRL_NEXT( sbiod, opt, arg );
 }
 
 Sockbuf_IO ldap_pvt_sockbuf_io_sasl = {
@@ -521,12 +391,12 @@ Sockbuf_IO ldap_pvt_sockbuf_io_sasl = {
 
 int ldap_pvt_sasl_install( Sockbuf *sb, void *ctx_arg )
 {
-#ifdef __APPLE__
-	_lock_sasl();
-#endif
-
+#ifdef NEW_LOGGING
+	LDAP_LOG ( TRANSPORT, ENTRY, "ldap_pvt_sasl_install\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_pvt_sasl_install\n",
 		0, 0, 0 );
+#endif
 
 	/* don't install the stuff unless security has been negotiated */
 
@@ -541,10 +411,6 @@ int ldap_pvt_sasl_install( Sockbuf *sb, void *ctx_arg )
 			LBER_SBIOD_LEVEL_APPLICATION, ctx_arg );
 	}
 
-#ifdef __APPLE__
-	_unlock_sasl();
-#endif
-
 	return LDAP_SUCCESS;
 }
 
@@ -552,10 +418,6 @@ static int
 sasl_err2ldap( int saslerr )
 {
 	int rc;
-
-#ifdef __APPLE__
-	_lock_sasl();
-#endif
 
 	switch (saslerr) {
 		case SASL_CONTINUE:
@@ -592,11 +454,6 @@ sasl_err2ldap( int saslerr )
 	}
 
 	assert( rc == LDAP_SUCCESS || LDAP_API_ERROR( rc ) );
-
-#ifdef __APPLE__
-	_unlock_sasl();
-#endif
-
 	return rc;
 }
 
@@ -604,86 +461,41 @@ int
 ldap_int_sasl_open(
 	LDAP *ld, 
 	LDAPConn *lc,
-	const char * host,
-	ber_len_t ssf )
+	const char * host )
 {
 	int rc;
 	sasl_conn_t *ctx;
-	sasl_callback_t *session_callbacks;
-
-#ifdef __APPLE__
-	_lock_sasl();
-#endif
-
-	session_callbacks = LDAP_CALLOC( 2, sizeof( sasl_callback_t ) );
-
-	if( session_callbacks == NULL ) 
-	{
-#ifdef __APPLE__
-		_unlock_sasl();
-#endif
-		return LDAP_NO_MEMORY;
-	}
-
-	session_callbacks[0].id = SASL_CB_USER;
-	session_callbacks[0].proc = NULL;
-	session_callbacks[0].context = ld;
-
-	session_callbacks[1].id = SASL_CB_LIST_END;
-	session_callbacks[1].proc = NULL;
-	session_callbacks[1].context = NULL;
 
 	assert( lc->lconn_sasl_ctx == NULL );
 
 	if ( host == NULL ) {
 		ld->ld_errno = LDAP_LOCAL_ERROR;
-#ifdef __APPLE__
-		_unlock_sasl();
-#endif
 		return ld->ld_errno;
 	}
 
 #if SASL_VERSION_MAJOR >= 2
 	rc = sasl_client_new( "ldap", host, NULL, NULL,
-		session_callbacks, 0, &ctx );
+		NULL, 0, &ctx );
 #else
-	rc = sasl_client_new( "ldap", host, session_callbacks,
+	rc = sasl_client_new( "ldap", host, NULL,
 		SASL_SECURITY_LAYER, &ctx );
 #endif
-	LDAP_FREE( session_callbacks );
 
 	if ( rc != SASL_OK ) {
 		ld->ld_errno = sasl_err2ldap( rc );
-#ifdef __APPLE__
-		_unlock_sasl();
-#endif
 		return ld->ld_errno;
 	}
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( TRANSPORT, DETAIL1, "ldap_int_sasl_open: host=%s\n", 
+		host, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_int_sasl_open: host=%s\n",
 		host, 0, 0 );
+#endif
 
 	lc->lconn_sasl_ctx = ctx;
 
-	if( ssf ) {
-#if SASL_VERSION_MAJOR >= 2
-		(void) sasl_setprop( ctx, SASL_SSF_EXTERNAL,
-			(void *) &ssf );
-#else
-		sasl_external_properties_t extprops;
-		memset(&extprops, 0L, sizeof(extprops));
-		extprops.ssf = ssf;
-
-		(void) sasl_setprop( ctx, SASL_SSF_EXTERNAL,
-			(void *) &extprops );
-#endif
-		Debug( LDAP_DEBUG_TRACE, "ldap_int_sasl_open: ssf=%ld\n",
-			(long) ssf, 0, 0 );
-	}
-
-#ifdef __APPLE__
-	_unlock_sasl();
-#endif
 	return LDAP_SUCCESS;
 }
 
@@ -691,18 +503,11 @@ int ldap_int_sasl_close( LDAP *ld, LDAPConn *lc )
 {
 	sasl_conn_t *ctx = lc->lconn_sasl_ctx;
 
-#ifdef __APPLE__
-	_lock_sasl();
-#endif
-
 	if( ctx != NULL ) {
 		sasl_dispose( &ctx );
 		lc->lconn_sasl_ctx = NULL;
 	}
 
-#ifdef __APPLE__
-	_unlock_sasl();
-#endif
 	return LDAP_SUCCESS;
 }
 
@@ -728,19 +533,17 @@ ldap_int_sasl_bind(
 	struct berval ccred;
 	ber_socket_t		sd;
 
-#ifdef __APPLE__
-	_lock_sasl();
-#endif
-
+#ifdef NEW_LOGGING
+	LDAP_LOG ( TRANSPORT, ARGS, "ldap_int_sasl_bind: %s\n", 
+		mechs ? mechs : "<null>", 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_int_sasl_bind: %s\n",
 		mechs ? mechs : "<null>", 0, 0 );
+#endif
 
 	/* do a quick !LDAPv3 check... ldap_sasl_bind will do the rest. */
 	if (ld->ld_version < LDAP_VERSION3) {
 		ld->ld_errno = LDAP_NOT_SUPPORTED;
-#ifdef __APPLE__
-		_unlock_sasl();
-#endif
 		return ld->ld_errno;
 	}
 
@@ -751,21 +554,12 @@ ldap_int_sasl_bind(
  		int rc;
 
 		rc = ldap_open_defconn( ld );
-		if( rc < 0 )
-		{
-#ifdef __APPLE__
-			_unlock_sasl();
-#endif
-			return ld->ld_errno;
-		}
+		if( rc < 0 ) return ld->ld_errno;
 
 		ber_sockbuf_ctrl( ld->ld_sb, LBER_SB_OPT_GET_FD, &sd );
 
 		if( sd == AC_SOCKET_INVALID ) {
 			ld->ld_errno = LDAP_LOCAL_ERROR;
-#ifdef __APPLE__
-			_unlock_sasl();
-#endif
 			return ld->ld_errno;
 		}
 	}   
@@ -774,9 +568,6 @@ ldap_int_sasl_bind(
 
 	if( ctx == NULL ) {
 		ld->ld_errno = LDAP_LOCAL_ERROR;
-#ifdef __APPLE__
-		_unlock_sasl();
-#endif
 		return ld->ld_errno;
 	}
 
@@ -808,32 +599,23 @@ ldap_int_sasl_bind(
 			}
 		}
 
-#if SASL_VERSION_MAJOR >= 2
-		/* XXX the application should free interact results. */
-		if ( prompts != NULL && prompts->result != NULL ) {
-			LDAP_FREE( (void *)prompts->result );
-			prompts->result = NULL;
-		}
-#endif
-
 		if( saslrc == SASL_INTERACT ) {
 			int res;
 			if( !interact ) break;
 			res = (interact)( ld, flags, defaults, prompts );
-			if( res != LDAP_SUCCESS ) {
-				break;
-			}
+
+			if( res != LDAP_SUCCESS ) break;
 		}
 	} while ( saslrc == SASL_INTERACT );
 
 	ccred.bv_len = credlen;
 
 	if ( (saslrc != SASL_OK) && (saslrc != SASL_CONTINUE) ) {
-		ld->ld_errno = sasl_err2ldap( saslrc );
-#ifdef __APPLE__
-		_unlock_sasl();
+		rc = ld->ld_errno = sasl_err2ldap( saslrc );
+#if SASL_VERSION_MAJOR >= 2
+		ld->ld_error = LDAP_STRDUP( sasl_errdetail( ctx ) );
 #endif
-		return ld->ld_errno;
+		goto done;
 	}
 
 	do {
@@ -854,30 +636,37 @@ ldap_int_sasl_bind(
 		if ( rc != LDAP_SUCCESS && rc != LDAP_SASL_BIND_IN_PROGRESS ) {
 			if( scred && scred->bv_len ) {
 				/* and server provided us with data? */
+#ifdef NEW_LOGGING
+				LDAP_LOG ( TRANSPORT, DETAIL1, 
+					"ldap_int_sasl_bind: rc=%d sasl=%d len=%ld\n", 
+					rc, saslrc, scred->bv_len );
+#else
 				Debug( LDAP_DEBUG_TRACE,
 					"ldap_int_sasl_bind: rc=%d sasl=%d len=%ld\n",
 					rc, saslrc, scred->bv_len );
+#endif
 				ber_bvfree( scred );
 			}
-#ifdef __APPLE__
-			_unlock_sasl();
-#endif
-			return ld->ld_errno;
+			rc = ld->ld_errno;
+			goto done;
 		}
 
 		if( rc == LDAP_SUCCESS && saslrc == SASL_OK ) {
 			/* we're done, no need to step */
 			if( scred && scred->bv_len ) {
 				/* but server provided us with data! */
+#ifdef NEW_LOGGING
+				LDAP_LOG ( TRANSPORT, DETAIL1, 
+					"ldap_int_sasl_bind: rc=%d sasl=%d len=%ld\n", 
+					rc, saslrc, scred->bv_len );
+#else
 				Debug( LDAP_DEBUG_TRACE,
 					"ldap_int_sasl_bind: rc=%d sasl=%d len=%ld\n",
 					rc, saslrc, scred->bv_len );
-				ber_bvfree( scred );
-				ld->ld_errno = LDAP_LOCAL_ERROR;
-#ifdef __APPLE__
-				_unlock_sasl();
 #endif
-				return ld->ld_errno;
+				ber_bvfree( scred );
+				rc = ld->ld_errno = LDAP_LOCAL_ERROR;
+				goto done;
 			}
 			break;
 		}
@@ -890,24 +679,19 @@ ldap_int_sasl_bind(
 				(SASL_CONST char **)&ccred.bv_val,
 				&credlen );
 
+#ifdef NEW_LOGGING
+				LDAP_LOG ( TRANSPORT, DETAIL1, 
+					"ldap_int_sasl_bind: sasl_client_step: %d\n", saslrc,0,0 );
+#else
 			Debug( LDAP_DEBUG_TRACE, "sasl_client_step: %d\n",
 				saslrc, 0, 0 );
-
-#if SASL_VERSION_MAJOR >= 2
-			/* XXX the application should free interact results. */
-			if ( prompts != NULL && prompts->result != NULL ) {
-				LDAP_FREE( (void *)prompts->result );
-				prompts->result = NULL;
-			}
 #endif
 
 			if( saslrc == SASL_INTERACT ) {
 				int res;
 				if( !interact ) break;
 				res = (interact)( ld, flags, defaults, prompts );
-				if( res != LDAP_SUCCESS ) {
-					break;
-				}
+				if( res != LDAP_SUCCESS ) break;
 			}
 		} while ( saslrc == SASL_INTERACT );
 
@@ -916,26 +700,22 @@ ldap_int_sasl_bind(
 
 		if ( (saslrc != SASL_OK) && (saslrc != SASL_CONTINUE) ) {
 			ld->ld_errno = sasl_err2ldap( saslrc );
-#ifdef __APPLE__
-			_unlock_sasl();
+#if SASL_VERSION_MAJOR >= 2
+			ld->ld_error = LDAP_STRDUP( sasl_errdetail( ctx ) );
 #endif
-			return ld->ld_errno;
+			rc = ld->ld_errno;
+			goto done;
 		}
 	} while ( rc == LDAP_SASL_BIND_IN_PROGRESS );
 
-	if ( rc != LDAP_SUCCESS ) {
-#ifdef __APPLE__
-		_unlock_sasl();
-#endif
-		return rc;
-	}
+	if ( rc != LDAP_SUCCESS ) goto done;
 
 	if ( saslrc != SASL_OK ) {
-		ld->ld_errno = sasl_err2ldap( saslrc );
-#ifdef __APPLE__
-		_unlock_sasl();
+#if SASL_VERSION_MAJOR >= 2
+		ld->ld_error = LDAP_STRDUP( sasl_errdetail( ctx ) );
 #endif
-		return ld->ld_errno;
+		rc = ld->ld_errno = sasl_err2ldap( saslrc );
+		goto done;
 	}
 
 	if( flags != LDAP_SASL_QUIET ) {
@@ -944,14 +724,12 @@ ldap_int_sasl_bind(
 			fprintf( stderr, "SASL username: %s\n", data );
 		}
 
-#if SASL_VERSION_MAJOR >= 2
-		saslrc = sasl_getprop( ctx, SASL_DEFUSERREALM, (SASL_CONST void **) &data );
-#else
+#if SASL_VERSION_MAJOR < 2
 		saslrc = sasl_getprop( ctx, SASL_REALM, (SASL_CONST void **) &data );
-#endif
 		if( saslrc == SASL_OK && data && *data ) {
 			fprintf( stderr, "SASL realm: %s\n", data );
 		}
+#endif
 	}
 
 	saslrc = sasl_getprop( ctx, SASL_SSF, (SASL_CONST void **) &ssf );
@@ -969,9 +747,7 @@ ldap_int_sasl_bind(
 		}
 	}
 
-#ifdef __APPLE__
-	_unlock_sasl();
-#endif
+done:
 	return rc;
 }
 
@@ -988,21 +764,16 @@ ldap_int_sasl_external(
 	sasl_external_properties_t extprops;
 #endif
 
-#ifdef __APPLE__
-	_lock_sasl();
-#endif
-
 	ctx = conn->lconn_sasl_ctx;
 
 	if ( ctx == NULL ) {
-#ifdef __APPLE__
-		_unlock_sasl();
-#endif
 		return LDAP_LOCAL_ERROR;
 	}
    
 #if SASL_VERSION_MAJOR >= 2
 	sc = sasl_setprop( ctx, SASL_SSF_EXTERNAL, &ssf );
+	if ( sc == SASL_OK )
+		sc = sasl_setprop( ctx, SASL_AUTH_EXTERNAL, authid );
 #else
 	memset( &extprops, '\0', sizeof(extprops) );
 	extprops.ssf = ssf;
@@ -1013,15 +784,9 @@ ldap_int_sasl_external(
 #endif
 
 	if ( sc != SASL_OK ) {
-#ifdef __APPLE__
-		_unlock_sasl();
-#endif
 		return LDAP_LOCAL_ERROR;
 	}
 
-#ifdef __APPLE__
-	_unlock_sasl();
-#endif
 	return LDAP_SUCCESS;
 }
 
@@ -1041,14 +806,7 @@ int ldap_pvt_sasl_secprops(
 	unsigned maxbufsize = 0;
 	int got_maxbufsize = 0;
 
-#ifdef __APPLE__
-	_lock_sasl();
-#endif
-
 	if( props == NULL || secprops == NULL ) {
-#ifdef __APPLE__
-		_unlock_sasl();
-#endif
 		return LDAP_PARAM_ERROR;
 	}
 
@@ -1083,39 +841,30 @@ int ldap_pvt_sasl_secprops(
 		} else if( !strncasecmp(props[i],
 			"minssf=", sizeof("minssf")) )
 		{
-			if( isdigit( props[i][sizeof("minssf")] ) ) {
+			if( isdigit( (unsigned char) props[i][sizeof("minssf")] ) ) {
 				got_min_ssf++;
 				min_ssf = atoi( &props[i][sizeof("minssf")] );
 			} else {
-#ifdef __APPLE__
-				_unlock_sasl();
-#endif
 				return LDAP_NOT_SUPPORTED;
 			}
 
 		} else if( !strncasecmp(props[i],
 			"maxssf=", sizeof("maxssf")) )
 		{
-			if( isdigit( props[i][sizeof("maxssf")] ) ) {
+			if( isdigit( (unsigned char) props[i][sizeof("maxssf")] ) ) {
 				got_max_ssf++;
 				max_ssf = atoi( &props[i][sizeof("maxssf")] );
 			} else {
-#ifdef __APPLE__
-				_unlock_sasl();
-#endif
 				return LDAP_NOT_SUPPORTED;
 			}
 
 		} else if( !strncasecmp(props[i],
 			"maxbufsize=", sizeof("maxbufsize")) )
 		{
-			if( isdigit( props[i][sizeof("maxbufsize")] ) ) {
+			if( isdigit( (unsigned char) props[i][sizeof("maxbufsize")] ) ) {
 				got_maxbufsize++;
 				maxbufsize = atoi( &props[i][sizeof("maxbufsize")] );
 			} else {
-#ifdef __APPLE__
-				_unlock_sasl();
-#endif
 				return LDAP_NOT_SUPPORTED;
 			}
 
@@ -1123,16 +872,10 @@ int ldap_pvt_sasl_secprops(
 				|| (maxbufsize > SASL_MAX_BUFF_SIZE )))
 			{
 				/* bad maxbufsize */
-#ifdef __APPLE__
-				_unlock_sasl();
-#endif
 				return LDAP_PARAM_ERROR;
 			}
 
 		} else {
-#ifdef __APPLE__
-			_unlock_sasl();
-#endif
 			return LDAP_NOT_SUPPORTED;
 		}
 	}
@@ -1151,9 +894,6 @@ int ldap_pvt_sasl_secprops(
 	}
 
 	ldap_charray_free( props );
-#ifdef __APPLE__
-	_unlock_sasl();
-#endif
 	return LDAP_SUCCESS;
 }
 
@@ -1162,42 +902,20 @@ ldap_int_sasl_config( struct ldapoptions *lo, int option, const char *arg )
 {
 	int rc;
 
-#ifdef __APPLE__
-	_lock_sasl();
-#endif
-
 	switch( option ) {
 	case LDAP_OPT_X_SASL_SECPROPS:
 		rc = ldap_pvt_sasl_secprops( arg, &lo->ldo_sasl_secprops );
-		if( rc == LDAP_SUCCESS )
-		{
-#ifdef __APPLE__
-			_unlock_sasl();
-#endif
-			return 0;
-		}
+		if( rc == LDAP_SUCCESS ) return 0;
 	}
 
-#ifdef __APPLE__
-	_unlock_sasl();
-#endif
 	return -1;
 }
 
 int
 ldap_int_sasl_get_option( LDAP *ld, int option, void *arg )
 {
-#ifdef __APPLE__
-	_lock_sasl();
-#endif
-
 	if ( ld == NULL )
-	{
-#ifdef __APPLE__
-		_unlock_sasl();
-#endif
 		return -1;
-	}
 
 	switch ( option ) {
 		case LDAP_OPT_X_SASL_MECH: {
@@ -1223,18 +941,12 @@ ldap_int_sasl_get_option( LDAP *ld, int option, void *arg )
 			sasl_conn_t *ctx;
 
 			if( ld->ld_defconn == NULL ) {
-#ifdef __APPLE__
-				_unlock_sasl();
-#endif
 				return -1;
 			}
 
 			ctx = ld->ld_defconn->lconn_sasl_ctx;
 
 			if ( ctx == NULL ) {
-#ifdef __APPLE__
-				_unlock_sasl();
-#endif
 				return -1;
 			}
 
@@ -1242,9 +954,6 @@ ldap_int_sasl_get_option( LDAP *ld, int option, void *arg )
 				(SASL_CONST void **) &ssf );
 
 			if ( sc != SASL_OK ) {
-#ifdef __APPLE__
-				_unlock_sasl();
-#endif
 				return -1;
 			}
 
@@ -1253,9 +962,6 @@ ldap_int_sasl_get_option( LDAP *ld, int option, void *arg )
 
 		case LDAP_OPT_X_SASL_SSF_EXTERNAL:
 			/* this option is write only */
-#ifdef __APPLE__
-			_unlock_sasl();
-#endif
 			return -1;
 
 		case LDAP_OPT_X_SASL_SSF_MIN:
@@ -1270,45 +976,23 @@ ldap_int_sasl_get_option( LDAP *ld, int option, void *arg )
 
 		case LDAP_OPT_X_SASL_SECPROPS:
 			/* this option is write only */
-#ifdef __APPLE__
-			_unlock_sasl();
-#endif
 			return -1;
 
 		default:
-#ifdef __APPLE__
-			_unlock_sasl();
-#endif
 			return -1;
 	}
-
-#ifdef __APPLE__
-	_unlock_sasl();
-#endif
 	return 0;
 }
 
 int
 ldap_int_sasl_set_option( LDAP *ld, int option, void *arg )
 {
-#ifdef __APPLE__
-	_lock_sasl();
-#endif
-
 	if ( ld == NULL )
-	{
-#ifdef __APPLE__
-		_unlock_sasl();
-#endif
 		return -1;
-	}
 
 	switch ( option ) {
 	case LDAP_OPT_X_SASL_SSF:
 		/* This option is read-only */
-#ifdef __APPLE__
-		_unlock_sasl();
-#endif
 		return -1;
 
 	case LDAP_OPT_X_SASL_SSF_EXTERNAL: {
@@ -1319,18 +1003,12 @@ ldap_int_sasl_set_option( LDAP *ld, int option, void *arg )
 		sasl_conn_t *ctx;
 
 		if( ld->ld_defconn == NULL ) {
-#ifdef __APPLE__
-			_unlock_sasl();
-#endif
 			return -1;
 		}
 
 		ctx = ld->ld_defconn->lconn_sasl_ctx;
 
 		if ( ctx == NULL ) {
-#ifdef __APPLE__
-			_unlock_sasl();
-#endif
 			return -1;
 		}
 
@@ -1346,9 +1024,6 @@ ldap_int_sasl_set_option( LDAP *ld, int option, void *arg )
 #endif
 
 		if ( sc != SASL_OK ) {
-#ifdef __APPLE__
-			_unlock_sasl();
-#endif
 			return -1;
 		}
 		} break;
@@ -1368,98 +1043,70 @@ ldap_int_sasl_set_option( LDAP *ld, int option, void *arg )
 		sc = ldap_pvt_sasl_secprops( (char *) arg,
 			&ld->ld_options.ldo_sasl_secprops );
 
-#ifdef __APPLE__
-		_unlock_sasl();
-#endif
 		return sc == LDAP_SUCCESS ? 0 : -1;
 		}
 
 	default:
-#ifdef __APPLE__
-		_unlock_sasl();
-#endif
 		return -1;
 	}
-
-#ifdef __APPLE__
-	_unlock_sasl();
-#endif
 	return 0;
 }
 
 #ifdef LDAP_R_COMPILE
+#define LDAP_DEBUG_R_SASL
 void *ldap_pvt_sasl_mutex_new(void)
 {
 	ldap_pvt_thread_mutex_t *mutex;
-
-#ifdef __APPLE__
-	_lock_sasl();
-#endif
 
 	mutex = (ldap_pvt_thread_mutex_t *) LDAP_MALLOC(
 		sizeof(ldap_pvt_thread_mutex_t) );
 
 	if ( ldap_pvt_thread_mutex_init( mutex ) == 0 ) {
-#ifdef __APPLE__
-		_unlock_sasl();
-#endif
 		return mutex;
 	}
-
-#ifdef __APPLE__
-	_unlock_sasl();
-#endif
+#ifndef LDAP_DEBUG_R_SASL
+	assert( 0 );
+#endif /* !LDAP_DEBUG_R_SASL */
 	return NULL;
 }
 
 int ldap_pvt_sasl_mutex_lock(void *mutex)
 {
-	int rc;
-
-#ifdef __APPLE__
-	_lock_sasl();
-#endif
-
-	rc = ldap_pvt_thread_mutex_lock( (ldap_pvt_thread_mutex_t *)mutex )
+#ifdef LDAP_DEBUG_R_SASL
+	if ( mutex == NULL ) {
+		return SASL_OK;
+	}
+#else /* !LDAP_DEBUG_R_SASL */
+	assert( mutex );
+#endif /* !LDAP_DEBUG_R_SASL */
+	return ldap_pvt_thread_mutex_lock( (ldap_pvt_thread_mutex_t *)mutex )
 		? SASL_FAIL : SASL_OK;
-
-#ifdef __APPLE__
-	_unlock_sasl();
-#endif
-	return rc;
 }
 
 int ldap_pvt_sasl_mutex_unlock(void *mutex)
 {
-	int rc;
-
-#ifdef __APPLE__
-	_lock_sasl();
-#endif
-
-	rc = ldap_pvt_thread_mutex_unlock( (ldap_pvt_thread_mutex_t *)mutex )
+#ifdef LDAP_DEBUG_R_SASL
+	if ( mutex == NULL ) {
+		return SASL_OK;
+	}
+#else /* !LDAP_DEBUG_R_SASL */
+	assert( mutex );
+#endif /* !LDAP_DEBUG_R_SASL */
+	return ldap_pvt_thread_mutex_unlock( (ldap_pvt_thread_mutex_t *)mutex )
 		? SASL_FAIL : SASL_OK;
-
-#ifdef __APPLE__
-	_unlock_sasl();
-#endif
-	return rc;
 }
 
 void ldap_pvt_sasl_mutex_dispose(void *mutex)
 {
-#ifdef __APPLE__
-	_lock_sasl();
-#endif
-
-#ifdef NOTDEF
+#ifdef LDAP_DEBUG_R_SASL
+	if ( mutex == NULL ) {
+		return;
+	}
+#else /* !LDAP_DEBUG_R_SASL */
+	assert( mutex );
+#endif /* !LDAP_DEBUG_R_SASL */
 	(void) ldap_pvt_thread_mutex_destroy( (ldap_pvt_thread_mutex_t *)mutex );
 	LDAP_FREE( mutex );
-#endif
-
-#ifdef __APPLE__
-	_unlock_sasl();
-#endif
 }
 #endif
 

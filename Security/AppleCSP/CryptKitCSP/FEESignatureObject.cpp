@@ -32,7 +32,7 @@
 #include <assert.h>
 #include <Security/debugging.h>
 
-#define feeSigObjDebug(args...)		debug("feeSig", ##args)
+#define feeSigObjDebug(args...)		secdebug("feeSig", ##args)
 
 CryptKit::FEESigner::~FEESigner()
 {

@@ -1,4 +1,4 @@
-/* Copyright (c) 1993-2001
+/* Copyright (c) 1993-2002
  *      Juergen Weigert (jnweiger@immd4.informatik.uni-erlangen.de)
  *      Michael Schroeder (mlschroe@immd4.informatik.uni-erlangen.de)
  * Copyright (c) 1987 Oliver Laumann
@@ -19,7 +19,7 @@
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA
  *
  ****************************************************************
- * $Id: patchlevel.h,v 1.1.1.1 2001/12/14 22:08:29 bbraun Exp $ FAU
+ * $Id: patchlevel.h,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU
  */
 
 /****************************************************************
@@ -466,11 +466,52 @@
  *                     -- DISTRIBUTED
  *  4.09.01 -- 3.09.10 '-R' security fix. Fixed array in MScrollV().
  *                     -- DISTRIBUTED
+ *                     Reset charset after 'me'.
+ * 14.02.02 -- 3.09.11 Support for other encodings. Double width
+ *                     utf-8 chars. 'L' modifier for %D, %M, %w
+ *                     and %W. New %= (hfill), %H (hostname),
+ *                     %f (flags), %F (focus) escapes. New commands
+ *                     source, windowlist, deflog. Command key classes.
+ *                     New login state: always. Time format
+ *                     changeable. 256 color support.
+ *                     Updated digraph table. Ignorecase.
+ *                     Windowlist resizeable on blank window.
+ *                     Added encoding to paste buffers.
+ *                     Hpux loadtype detection fixed.
+ *                     Disabled im/ic warning. Fixed a bug that
+ *                     could cause window lockups in rare
+ *                     circumstances. Made hangup signal to the
+ *                     backend process detach all displays.
+ *                     New escapes %< %>, + and - flag for %w.
+ *                     Added eval command, added -h option to detach.
+ *                     Also set flayer when processing -X commands.
+ *                     use getpt() on linux systems. doc patches from
+ *                     Adam Lazur. tty flow/intr cleanup.
+ *                     -- DISTRIBUTED
+ * 29.08.2002  3.09.12 Port to POSIX 1003.1-2001 hosts (Paul Eggert).
+ *                     Fixed encoding for reattach password test.
+ *                     Fixed NUL characters when encodings are active.
+ *                     Fixed silly encodings bugs. Fixed bogus
+ *                     oldflayer when a window gets freed.
+ *                     Altscreen support by Gurusamy Sarathy.
+ *                     Reuse old password in builtin_screenlock.
+ *                     -- DISTRIBUTED
+ * 05.09.2002  3.09.13 added missing break statement that broke
+ *                     the eval command.
+ *                     -- DISTRIBUTED
+ * 13.03.2003  3.09.15 Console workaround for linux. Scrolling-region
+ *                     reset fix. GBK encoding added.
+ *                     support for unicode combining characters added.
+ *                     openpty() support added (thomas@xs4all.nl).
+ *                     preselect of blank window ('-') or window
+ *                     list ('=') added. Added %` string escape
+ *                     and backtick command.
+ *                     -- DISTRIBUTED
  */
 
 #define ORIGIN "FAU"
 #define REV 3
 #define VERS 9
-#define PATCHLEVEL 10
-#define DATE "4-Sep-01"
-#define STATE "" 
+#define PATCHLEVEL 15
+#define DATE "13-Mar-03"
+#define STATE ""

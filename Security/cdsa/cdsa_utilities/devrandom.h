@@ -35,6 +35,14 @@ namespace Security {
 // It is not repeatable. AddEntropy() contributes random entropy to a global pool (only).
 //
 class DevRandomGenerator {
+	struct Readonly : public UnixPlusPlus::FileDesc {
+		Readonly() { open("/dev/random", O_RDONLY); }
+	};
+	
+	struct Writable : public UnixPlusPlus::FileDesc {
+		Writable() { open("/dev/random", O_RDWR); }
+	};
+
 public:
     DevRandomGenerator(bool writable = false);
     
@@ -42,7 +50,8 @@ public:
     void addEntropy(const void *data, size_t length);
 
 private:
-    static ModuleNexus<UnixPlusPlus::FileDesc> mDevRandom;
+    static ModuleNexus<Readonly> mReader;
+	static ModuleNexus<Writable> mWriter;
 };
 
 

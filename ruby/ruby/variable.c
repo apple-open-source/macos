@@ -2,8 +2,8 @@
 
   variable.c -
 
-  $Author: jkh $
-  $Date: 2002/05/27 17:59:44 $
+  $Author: melville $
+  $Date: 2003/05/14 13:58:45 $
   created at: Tue Apr 19 23:55:15 JST 1994
 
   Copyright (C) 1993-2000 Yukihiro Matsumoto
@@ -221,19 +221,40 @@ VALUE
 rb_path2class(path)
     const char *path;
 {
-    VALUE c;
+    const char *pbeg, *p;
+    ID id;
+    VALUE c = rb_cObject;
 
     if (path[0] == '#') {
 	rb_raise(rb_eArgError, "can't retrieve anonymous class %s", path);
     }
-    c = rb_eval_string(path);
-    switch (TYPE(c)) {
-      case T_MODULE:
-      case T_CLASS:
-	break;
-      default:
-	rb_raise(rb_eTypeError, "class path %s does not point class", path);
+    pbeg = p = path;
+    while (*p) {
+	VALUE str;
+
+	while (*p && *p != ':') p++;
+	str = rb_str_new(pbeg, p-pbeg);
+	id = rb_intern(RSTRING(str)->ptr);
+	if (p[0] == ':') {
+	    if (p[1] != ':') goto undefined_class;
+	    p += 2;
+	    pbeg = p;
+	}
+	if (!rb_const_defined(c, id)) {
+	  undefined_class:
+	    rb_raise(rb_eArgError, "undefined class/module %s", rb_id2name(id));
+	    rb_raise(rb_eArgError, "undefined class/module %s", path);
+	}
+	c = rb_const_get_at(c, id);
+	switch (TYPE(c)) {
+	  case T_MODULE:
+	  case T_CLASS:
+	    break;
+	  default:
+	    rb_raise(rb_eTypeError, "%s does not refer class/module %d", path, TYPE(c));
+	}
     }
+
     return c;
 }
 
@@ -254,8 +275,7 @@ rb_autoload_id(id, filename)
 {
     rb_secure(4);
     if (!rb_is_const_id(id)) {
-	rb_raise(rb_eNameError, "autoload must be constant name",
-		 rb_id2name(id));
+	rb_raise(rb_eNameError, "autoload must be constant name");
     }
 
     if (!autoload_tbl) {
@@ -343,9 +363,8 @@ static VALUE
 undef_getter(id)
     ID id;
 {
-    if (ruby_verbose) {
-	rb_warning("global variable `%s' not initialized", rb_id2name(id));
-    }
+    rb_warning("global variable `%s' not initialized", rb_id2name(id));
+
     return Qnil;
 }
 
@@ -390,7 +409,7 @@ static void
 val_marker(data)
     void *data;
 {
-    if (data) rb_gc_mark_maybe(data);
+    if (data) rb_gc_mark_maybe((VALUE)data);
 }
 
 static VALUE
@@ -413,7 +432,7 @@ var_setter(val, id, var)
 
 static void
 var_marker(var)
-    VALUE **var;
+    VALUE *var;
 {
     if (var) rb_gc_mark_maybe(*var);
 }
@@ -437,7 +456,7 @@ mark_global_entry(key, entry)
     (*entry->marker)(entry->data);
     trace = entry->trace;
     while (trace) {
-	if (trace->data) rb_gc_mark_maybe(trace->data);
+	if (trace->data) rb_gc_mark_maybe((VALUE)trace->data);
 	trace = trace->next;
     }
     return ST_CONTINUE;
@@ -763,11 +782,15 @@ generic_ivar_get(obj, id)
     st_table *tbl;
     VALUE val;
 
-    if (!generic_iv_tbl) return Qnil;
-    if (!st_lookup(generic_iv_tbl, obj, &tbl)) return Qnil;
-    if (st_lookup(tbl, id, &val)) {
-	return val;
+    if (generic_iv_tbl) {
+      if (st_lookup(generic_iv_tbl, obj, &tbl)) {
+	if (st_lookup(tbl, id, &val)) {
+	  return val;
+	}
+      }
     }
+
+    rb_warning("instance variable %s not initialized", rb_id2name(id));
     return Qnil;
 }
 
@@ -812,22 +835,23 @@ generic_ivar_defined(obj, id)
     return Qfalse;
 }
 
-static VALUE
-generic_ivar_remove(obj, id)
+static int
+generic_ivar_remove(obj, id, valp)
     VALUE obj;
     ID id;
+    VALUE *valp;
 {
     st_table *tbl;
-    VALUE val;
+    int status;
 
-    if (!generic_iv_tbl) return Qnil;
-    if (!st_lookup(generic_iv_tbl, obj, &tbl)) return Qnil;
-    st_delete(tbl, &id, &val);
+    if (!generic_iv_tbl) return 0;
+    if (!st_lookup(generic_iv_tbl, obj, &tbl)) return 0;
+    status = st_delete(tbl, &id, valp);
     if (tbl->num_entries == 0) {
 	st_delete(generic_iv_tbl, &obj, &tbl);
 	st_free_table(tbl);
     }
-    return val;
+    return status;
 }
 
 void
@@ -911,9 +935,8 @@ rb_ivar_get(obj, id)
 	    return generic_ivar_get(obj, id);
 	break;
     }
-    if (ruby_verbose) {
-	rb_warning("instance variable %s not initialized", rb_id2name(id));
-    }
+    rb_warning("instance variable %s not initialized", rb_id2name(id));
+
     return Qnil;
 }
 
@@ -1020,16 +1043,20 @@ rb_obj_remove_instance_variable(obj, name)
       case T_OBJECT:
       case T_CLASS:
       case T_MODULE:
-	if (ROBJECT(obj)->iv_tbl) {
-	    st_delete(ROBJECT(obj)->iv_tbl, &id, &val);
+	if (ROBJECT(obj)->iv_tbl && st_delete(ROBJECT(obj)->iv_tbl, &id, &val)) {
+	    return val;
 	}
 	break;
       default:
-	if (FL_TEST(obj, FL_EXIVAR) || rb_special_const_p(obj))
-	    return generic_ivar_remove(obj, id);
+	if (FL_TEST(obj, FL_EXIVAR) || rb_special_const_p(obj)) {
+	    if (generic_ivar_remove(obj, id, &val)) {
+		return val;
+	    }
+	}
 	break;
     }
-    return val;
+    rb_raise(rb_eNameError, "instance variable %s not defined", rb_id2name(id));
+    return Qnil;		/* not reached */
 }
 
 static int
@@ -1372,7 +1399,7 @@ cvar_set(klass, id, val, warn)
 	    if (OBJ_FROZEN(tmp)) rb_error_frozen("class/module");
 	    if (!OBJ_TAINTED(tmp) && rb_safe_level() >= 4)
 		rb_raise(rb_eSecurityError, "Insecure: can't modify class variable");
-	    if (warn && ruby_verbose && klass != tmp) {
+	    if (warn && RTEST(ruby_verbose) && klass != tmp) {
 		rb_warning("already initialized class variable %s", rb_id2name(id));
 	    }
 	    st_insert(RCLASS(tmp)->iv_tbl,id,val);

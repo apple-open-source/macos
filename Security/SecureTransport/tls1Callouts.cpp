@@ -275,8 +275,8 @@ static OSStatus tls1DecryptRecord(
     
     if ((ctx->readCipher.symCipher->blockSize > 0) &&
         ((payload->length % ctx->readCipher.symCipher->blockSize) != 0)) {
-		SSLFatalSessionAlert(SSL_AlertUnexpectedMsg, ctx);
-        return errSSLProtocol;
+		SSLFatalSessionAlert(SSL_AlertRecordOverflow, ctx);
+        return errSSLRecordOverflow;
     }
 
     /* Decrypt in place */
@@ -284,8 +284,8 @@ static OSStatus tls1DecryptRecord(
     		*payload, 
     		&ctx->readCipher, 
     		ctx)) != 0)
-    {   SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);
-        return err;
+    {   SSLFatalSessionAlert(SSL_AlertDecryptError, ctx);
+        return errSSLDecryptionFail;
     }
     
 	/* Locate content within decrypted payload */
@@ -300,17 +300,17 @@ static OSStatus tls1DecryptRecord(
 		 * has a special case here dealing with some kind of bug related to
 		 * even size packets...beware... */
 		if(padSize > payload->length) {
-			SSLFatalSessionAlert(SSL_AlertUnexpectedMsg, ctx);
+			SSLFatalSessionAlert(SSL_AlertDecodeError, ctx);
         	sslErrorLog("tls1DecryptRecord: bad padding length (%d)\n", 
         		(unsigned)payload->data[payload->length - 1]);
-            return errSSLProtocol;
+            return errSSLDecryptionFail;
 		}
 		padChars = payload->data + payload->length - padSize;
 		while(padChars < (payload->data + payload->length)) {
 			if(*padChars++ != padSize) {
-				SSLFatalSessionAlert(SSL_AlertUnexpectedMsg, ctx);
+				SSLFatalSessionAlert(SSL_AlertDecodeError, ctx);
 				sslErrorLog("tls1DecryptRecord: bad padding value\n");
-				return errSSLProtocol;
+				return errSSLDecryptionFail;
 			}
 		}
 		/* Remove block size padding and its one-byte length */
@@ -323,7 +323,7 @@ static OSStatus tls1DecryptRecord(
         if ((err = SSLVerifyMac(type, content, 
 				payload->data + content.length, ctx)) != 0)
         {   SSLFatalSessionAlert(SSL_AlertBadRecordMac, ctx);
-            return err;
+            return errSSLBadRecordMac;
         }
     
     *payload = content;     /* Modify payload buffer to indicate content length */

@@ -1,0 +1,13 @@
+Din förfrågan till listan %(listname)s:
+
+    %(request)s
+
+avslogs av listmoderatorn. Moderatorn har följande bevekelsegrund
+för detta beslut:
+
+"%(reason)s"
+
+Frågor, kommentarer eller klagomål som rör detta beslut ska skickas
+till listadministratören på följande e-postadress:
+
+    %(adminaddr)s

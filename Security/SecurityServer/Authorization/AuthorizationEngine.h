@@ -30,22 +30,20 @@
 #include <Security/Authorization.h>
 #include <Security/AuthorizationPlugin.h>
 #include "AuthorizationData.h"
+#include "AuthorizationDBPlist.h"
 
-#include <Security/refcount.h>
 #include <Security/threading.h>
 #include <Security/osxsigning.h>
-#include "agentquery.h"
 
 #include <CoreFoundation/CFDate.h>
 #include <CoreFoundation/CFDictionary.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include <map>
-#include <set>
-#include <string>
 
 class AuthorizationToken;
+
+using Authorization::AuthorizationDBPlist;
 
 namespace Authorization
 {
@@ -60,122 +58,6 @@ public:
     virtual const char *what () const throw();
 	// @@@ Default value should be internal error.
     static void throwMe(int err = -1) __attribute((noreturn));
-};
-
-
-/* Credentials are less than comparable so they can be put in sets or maps. */
-class CredentialImpl : public RefCount
-{
-public:
-	CredentialImpl(const string &username, const uid_t uid, gid_t gid, bool shared);
-	CredentialImpl(const string &username, const string &password, bool shared);
-	~CredentialImpl();
-
-	bool operator < (const CredentialImpl &other) const;
-
-	// Returns true if this credential should be shared.
-	bool isShared() const;
-
-	// Merge with other
-	void merge(const CredentialImpl &other);
-
-	// The time at which this credential was obtained.
-	CFAbsoluteTime creationTime() const;
-
-	// Return true iff this credential is valid.
-	bool isValid() const;
-
-	// Make this credential invalid.
-	void invalidate();
-
-	// We could make Rule a friend but instead we just expose this for now
-	inline const string& username() const { return mUsername; }
-	inline const uid_t uid() const { return mUid; }
-	inline const gid_t gid() const { return mGid; }
-
-
-private:
-	// The username of the user that provided his password.
-	// This and mShared are what make this credential unique.
-	// @@@ We do not deal with the domain as of yet.
-	string mUsername;
-
-	// True iff this credential is shared.
-	bool mShared;
-
-	// Fields below are not used by less than operator
-
-	// cached pw-data as returned by getpwnam(mUsername)
-	uid_t mUid;
-	gid_t mGid;
-
-	CFAbsoluteTime mCreationTime;
-	bool mValid;
-};
-
-
-/* Credentials are less than comparable so they can be put in sets or maps. */
-class Credential : public RefPointer<CredentialImpl>
-{
-public:
-	Credential();
-	Credential(CredentialImpl *impl);
-	Credential(const string &username, const uid_t uid, gid_t gid, bool shared);
-	Credential(const string &username, const string &password, bool shared);
-	~Credential();
-
-	bool operator < (const Credential &other) const;
-};
-
-
-typedef set<Credential> CredentialSet;
-
-
-class Rule
-{
-public:
-	Rule();
-	Rule(CFTypeRef cfRule);
-	Rule(const Rule &other);
-	Rule &operator = (const Rule &other);
-	~Rule();
-
-	OSStatus evaluate(const Right &inRight, const AuthorizationEnvironment *environment,
-		AuthorizationFlags flags, CFAbsoluteTime now,
-		const CredentialSet *inCredentials, CredentialSet &credentials,
-		AuthorizationToken &auth);
-
-private:
-	OSStatus evaluate(const Right &inRight, const AuthorizationEnvironment *environment,
-		CFAbsoluteTime now, const Credential &credential, bool ignoreShared);
-	OSStatus obtainCredential(QueryAuthorizeByGroup &client, const Right &inRight,
-		const AuthorizationEnvironment *environment, const char *usernameHint,
-		Credential &outCredential, SecurityAgent::Reason reason);
-    OSStatus evaluateMechanism(const AuthorizationEnvironment *environment, AuthorizationToken &auth, CredentialSet &outCredentials);
-
-
-	enum Type
-	{
-		kDeny,
-		kAllow,
-		kUserInGroup,
-        kEvalMech
-	} mType;
-
-	string mGroupName;
-	CFTimeInterval mMaxCredentialAge;
-	bool mShared;
-	bool mAllowRoot;
-	string mEvalDef;
-
-	static CFStringRef kUserInGroupID;
-	static CFStringRef kTimeoutID;
-	static CFStringRef kSharedID;
-	static CFStringRef kAllowRootID;
-	static CFStringRef kDenyID;
-	static CFStringRef kAllowID;
-	static CFStringRef kEvalMechID;
-
 };
 
 
@@ -203,25 +85,18 @@ public:
 	Engine(const char *configFile);
 	~Engine();
 
-	OSStatus authorize(const RightSet &inRights, const AuthorizationEnvironment *environment,
+	OSStatus authorize(const AuthItemSet &inRights, const AuthItemSet &environment,
 		AuthorizationFlags flags, const CredentialSet *inCredentials, CredentialSet *outCredentials,
-		MutableRightSet *outRights, AuthorizationToken &auth);
+		AuthItemSet &outRights, AuthorizationToken &auth);
+	OSStatus getRule(string &inRightName, CFDictionaryRef *outRuleDefinition);
+	OSStatus setRule(const char *inRightName, CFDictionaryRef inRuleDefinition, const CredentialSet *inCredentials, CredentialSet *outCredentials, AuthorizationToken &auth);
+	OSStatus removeRule(const char *inRightName, const CredentialSet *inCredentials, CredentialSet *outCredentials, AuthorizationToken &auth);
+
 private:
-	void updateRules(CFAbsoluteTime now);
-	void readRules();
-	void parseRules(CFDictionaryRef rules);
-	static void parseRuleCallback(const void *key, const void *value, void *context);
-	void parseRule(CFStringRef right, CFTypeRef rule);
+	OSStatus verifyModification(string inRightName, bool remove,
+	const CredentialSet *inCredentials, CredentialSet *outCredentials, AuthorizationToken &auth);
 
-	Rule getRule(const Right &inRight) const;
-
-	char *mRulesFileName;
-	CFAbsoluteTime mLastChecked;
-	struct timespec mRulesFileMtimespec;
-
-	typedef map<string, Rule> RuleMap;
-
-	RuleMap mRules;
+	AuthorizationDBPlist mAuthdb;
     mutable Mutex mLock;
 };
 

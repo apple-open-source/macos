@@ -1,13 +1,16 @@
-dnl $Id: config.m4,v 1.1.1.1 2001/12/14 22:12:51 zarzycki Exp $
-dnl config.m4 for extension ncurses
+dnl
+dnl $Id: config.m4,v 1.1.1.3 2003/03/11 01:09:27 zarzycki Exp $
+dnl
 
 PHP_ARG_WITH(ncurses, for ncurses support,
-[  --with-ncurses             Include ncurses support])
+[  --with-ncurses[=DIR]    Include ncurses support (CLI/CGI only).])
 
 if test "$PHP_NCURSES" != "no"; then
+
    # --with-ncurses -> check with-path
-	 SEARCH_PATH="/usr/local /usr"     
+   SEARCH_PATH="/usr/local /usr"     
    SEARCH_FOR="/include/curses.h"
+
    if test -r $PHP_NCURSES/; then # path given as parameter
      NCURSES_DIR=$PHP_NCURSES
    else # search default path list
@@ -31,14 +34,32 @@ if test "$PHP_NCURSES" != "no"; then
    # --with-ncurses -> chech for lib and symbol presence
    LIBNAME=ncurses 
    LIBSYMBOL=initscr 
-   old_LIBS=$LIBS
-   LIBS="$LIBS -L$NCURSES_DIR/lib -lm"
-   AC_CHECK_LIB($LIBNAME, $LIBSYMBOL, [AC_DEFINE(HAVE_NCURSESLIB,1,[ ])],
-				[AC_MSG_ERROR(wrong ncurses lib version or lib not found)])
-   LIBS=$old_LIBS
-  
-   PHP_SUBST(NCURSES_SHARED_LIBADD)
-   PHP_ADD_LIBRARY_WITH_PATH($LIBNAME, $NCURSES_DIR/lib, SAPRFC_SHARED_LIBADD)
 
-  PHP_EXTENSION(ncurses, $ext_shared)
+   PHP_CHECK_LIBRARY($LIBNAME, $LIBSYMBOL, [
+     AC_DEFINE(HAVE_NCURSESLIB,1,[ ])
+	 
+	 PHP_ADD_LIBRARY_WITH_PATH($LIBNAME, $NCURSES_DIR/lib, NCURSES_SHARED_LIBADD)
+
+     PHP_CHECK_LIBRARY(panel, new_panel, [
+   	   AC_DEFINE(HAVE_NCURSES_PANEL,1,[ ])
+	   PHP_ADD_LIBRARY_WITH_PATH(panel, $NCURSES_DIR/lib, NCURSES_SHARED_LIBADD)
+     ], [
+     ], [ -L$NCURSES_DIR/lib -l$LIBNAME -lm
+     ])
+	
+
+   ], [
+     AC_MSG_ERROR(Wrong ncurses lib version or lib not found)
+   ], [
+     -L$NCURSES_DIR/lib -lm
+   ])
+ 
+   AC_CHECK_LIB($LIBNAME, color_set,   [AC_DEFINE(HAVE_NCURSES_COLOR_SET,  1, [ ])])
+   AC_CHECK_LIB($LIBNAME, slk_color,   [AC_DEFINE(HAVE_NCURSES_SLK_COLOR,  1, [ ])])
+   AC_CHECK_LIB($LIBNAME, asume_default_colors,   [AC_DEFINE(HAVE_NCURSES_ASSUME_DEFAULT_COLORS,  1, [ ])])
+   AC_CHECK_LIB($LIBNAME, use_extended_names,   [AC_DEFINE(HAVE_NCURSES_USE_EXTENDED_NAMES,  1, [ ])])
+
+   PHP_NEW_EXTENSION(ncurses, ncurses.c ncurses_fe.c ncurses_functions.c, $ext_shared, cli)
+   PHP_SUBST(NCURSES_SHARED_LIBADD)
+
 fi

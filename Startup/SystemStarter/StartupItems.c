@@ -47,16 +47,7 @@
 
 #define kStartupItemsPath "/StartupItems"
 #define kParametersFile   "StartupParameters.plist"
-#define kDescriptionKey   CFSTR("Description")
 #define kLocalizedDescriptionKey CFSTR("_LocalizedDescription")
-#define kProvidesKey      CFSTR("Provides")
-#define kRequiresKey      CFSTR("Requires")
-#define kUsesKey          CFSTR("Uses")
-#define kPriorityKey      CFSTR("OrderPreference")
-#define kBundlePathKey    CFSTR("PathToBundle")
-#define kPIDKey           CFSTR("ProcessID")
-#define kDomainKey        CFSTR("Domain")
-#define kLoginService     CFSTR("Multiuser Login Prompt")
 
 #define kRunSuccess CFSTR("success")
 #define kRunFailure CFSTR("failure")
@@ -115,6 +106,46 @@ static int StartupItemValidate (CFDictionaryRef aConfig)
     return FALSE;
 }
 
+/*
+ *	remove item from waiting list
+ */
+void RemoveItemFromWaitingList(StartupContext aStartupContext, CFMutableDictionaryRef anItem)
+{
+    /* Remove the item from the waiting list. */
+    if (aStartupContext && anItem && aStartupContext->aWaitingList)
+      {
+        CFRange aRange  = {0, CFArrayGetCount(aStartupContext->aWaitingList)};
+        CFIndex anIndex = CFArrayGetFirstIndexOfValue(aStartupContext->aWaitingList, aRange, anItem);
+
+        if (anIndex >= 0)
+          {
+            CFArrayRemoveValueAtIndex(aStartupContext->aWaitingList, anIndex);
+          }
+      }
+}
+
+/*
+ *	add item to failed list, create list if it doesn't exist
+ *	return and fail quietly if it can't create list
+ */
+void AddItemToFailedList(StartupContext aStartupContext, CFMutableDictionaryRef anItem)
+{
+    if (aStartupContext && anItem)
+      {
+        /* create the failed list if it doesn't exist */
+        if (!aStartupContext->aFailedList)
+          {
+            aStartupContext->aFailedList = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+          }
+
+        if (aStartupContext->aFailedList)
+          {
+            CFArrayAppendValue(aStartupContext->aFailedList, anItem);
+          }
+      }
+}
+
+
 /**
  * startupItemListGetMatches returns an array of items which contain the string aService in the key aKey
  **/
@@ -164,8 +195,7 @@ void SpecialCasesStartupItemHandler(CFMutableDictionaryRef aConfig)
         CFIndex aProvidesCount = CFArrayGetCount(aProvidesList);
 
         /* special case for Norton Firewall */
-        if (CFArrayContainsValue(aProvidesList, CFRangeMake(0, aProvidesCount), kNortonFirewall) ||
-            CFArrayContainsValue(aProvidesList, CFRangeMake(0, aProvidesCount), kNetBarrierFirewall) )
+        if (CFArrayContainsValue(aProvidesList, CFRangeMake(0, aProvidesCount), kNetBarrierFirewall))
           {
             aRequiresList = (CFMutableArrayRef) CFDictionaryGetValue(aConfig, kRequiresKey);
             if (!aRequiresList)
@@ -232,7 +262,7 @@ CFMutableArrayRef StartupItemListCreateWithMask (NSSearchPathDomainMask aMask)
 
     NSSearchPathEnumerationState aState = NSStartSearchPathEnumeration(NSLibraryDirectory, aMask);
 
-    if (gSafeBootFlag)
+    if (gSafeBootFlag)	
       {
         /*    let's see if the BOM API is available, if so, let's set it up */
         aSafeBootContext = InitSafeBoot();
@@ -858,10 +888,15 @@ CFMutableDictionaryRef StartupItemWithPID (CFArrayRef anItemList, pid_t aPID)
     return NULL;
 }
 
-void StartupItemRun (CFMutableDictionaryRef aStatusDict, CFMutableDictionaryRef anItem, Action anAction)
+int StartupItemRun (CFMutableDictionaryRef aStatusDict, CFMutableDictionaryRef anItem, Action anAction)
 {
+  	int anError = -1;
+
     if (anAction == kActionNone)
-      StartupItemExit(aStatusDict, anItem, TRUE);
+      {
+        StartupItemExit(aStatusDict, anItem, TRUE);
+        anError = 0;
+      }
     else
       {
         CFStringRef aBundlePathString = CFDictionaryGetValue(anItem, kBundlePathKey);
@@ -873,13 +908,13 @@ void StartupItemRun (CFMutableDictionaryRef aStatusDict, CFMutableDictionaryRef 
         if (! aBundlePath)
           {
             emergency(CFSTR("malloc() failed; out of memory while running item %s"), aBundlePathString);
-            return;
+            return (anError);
           }
 
         if (! CFStringGetCString(aBundlePathString, aBundlePath, aBundlePathCLength, kCFStringEncodingUTF8))
           {
             emergency(CFSTR("Internal error while running item %@"), aBundlePathString);
-            return;
+            return (anError);
           }
 
         /* Compute path to excecutable */
@@ -905,6 +940,7 @@ void StartupItemRun (CFMutableDictionaryRef aStatusDict, CFMutableDictionaryRef 
             CFDictionarySetValue(anItem, kPIDKey, aProcessNumber);
             CFRelease(aProcessNumber);
 
+            CFDictionarySetValue(anItem, kErrorKey, kErrorPermissions);
             StartupItemExit(aStatusDict, anItem, FALSE);
             error(CFSTR("No executable file %s\n"), anExecutable);
           }
@@ -915,6 +951,7 @@ void StartupItemRun (CFMutableDictionaryRef aStatusDict, CFMutableDictionaryRef 
             switch (aProccessID)
               {
               case -1: /* SystemStarter (fork failed) */
+                CFDictionarySetValue(anItem, kErrorKey, kErrorFork);
                 StartupItemExit(aStatusDict, anItem, FALSE);
 
                 error(CFSTR("Failed to fork for item %@: %s\n"),
@@ -933,6 +970,7 @@ void StartupItemRun (CFMutableDictionaryRef aStatusDict, CFMutableDictionaryRef 
                   if (gDebugFlag)
                     message(CFSTR("Running command (%d): %s %s\n"),
                             aProccessID, anExecutable, argumentForAction(anAction));
+                  anError = 0;
                 }
                 break;
 
@@ -946,7 +984,6 @@ void StartupItemRun (CFMutableDictionaryRef aStatusDict, CFMutableDictionaryRef 
                 else
                   {
                     char *const aNullEnvironment[] = { NULL };
-                    int anError;
 
                     if (setsid() == -1)
                       warning(CFSTR("Unable to create session for item %@: %s\n"),
@@ -973,7 +1010,7 @@ void StartupItemRun (CFMutableDictionaryRef aStatusDict, CFMutableDictionaryRef 
           }
       }
 
-    return;
+    return (anError);
 }
 
 void StartupItemSetStatus(CFMutableDictionaryRef aStatusDict, CFMutableDictionaryRef anItem, CFStringRef aServiceName, Boolean aSuccess, Boolean aReplaceFlag)
@@ -1098,7 +1135,7 @@ CFStringRef StartupItemCreateLocalizedStringWithPath (CFStringRef aBundlePath, C
         if(!aLocURL)
           {
             /* no localizable strings anywhere */
-            warning(CFSTR("Unable to load localization strings for %@\n"), aBundlePath);
+            if (gDebugFlag) debug(CFSTR("Unable to load localization strings for %@\n"), aBundlePath);
             CFRelease(aBundleRef);
             return CFRetain(aString);
           }
@@ -1113,7 +1150,7 @@ CFStringRef StartupItemCreateLocalizedStringWithPath (CFStringRef aBundlePath, C
         warning(CFSTR("Bad localization strings file at %@\n"), aLocURL);
         CFRelease(aLocURL);
         return CFRetain(aString);
-      }  
+      }
 
     aStringsDict =  (CFMutableDictionaryRef)
     CFPropertyListCreateFromXMLData(NULL,

@@ -83,7 +83,15 @@ enum {
     kIOAGPDisablePCIReads	= 0x00000008,
 
     // the AGP target cannot handle master -> target PCI writes
-    kIOAGPDisablePCIWrites	= 0x00000010
+    kIOAGPDisablePCIWrites	= 0x00000010,
+
+    // the AGP target cannot handle all unaligned transactions 
+    kIOAGPDisableUnaligned	= 0x00000020,
+
+    kIOAGPDisableFeature6	= 0x00000040,
+    kIOAGPDisableFeature7	= 0x00000080,
+    kIOAGPDisableFeature8	= 0x00000100,
+    kIOAGPDisableFeature9	= 0x00000200
 };
 
 // masterState

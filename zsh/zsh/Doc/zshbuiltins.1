@@ -1,4 +1,4 @@
-.TH "ZSHBUILTINS" "1" "October 26, 2001" "zsh 4\&.0\&.4"
+.TH "ZSHBUILTINS" "1" "June 18, 2003" "zsh 4\&.1\&.1"
 .SH "NAME"
 zshbuiltins \- zsh built\-in commands
 .\" Yodl file: Zsh/builtins.yo
@@ -204,15 +204,35 @@ Resume the next iteration of the enclosing
 \fBdeclare\fP
 Same as \fBtypeset\fP\&.
 .TP
-\fBdirs\fP [ \fB\-v\fP ] [ \fIarg\fP \&.\&.\&. ]
+.PD 0
+\fBdirs\fP [ \fB\-c\fP ] [ \fIarg\fP \&.\&.\&. ]
+.TP
+.PD
+\fBdirs\fP [ \fB\-lpv\fP ]
 With no arguments, print the contents of the directory stack\&.
-If the \fB\-v\fP option is given, number the directories
-in the stack when printing\&.
 Directories are added to this stack with the \fBpushd\fP command,
 and removed with the \fBcd\fP or \fBpopd\fP commands\&.
 If arguments are specified, load them onto the directory stack,
 replacing anything that was there, and push the current directory
 onto the stack\&.
+.RS
+.PP
+.PD 0
+.TP
+.PD
+\fB\-c\fP
+clear the directory stack\&.
+.TP
+\fB\-l\fP
+print directory names in full instead of using of using \fB~\fP expressions\&.
+.TP
+\fB\-p\fP
+print directory entries one per line\&.
+.TP
+\fB\-v\fP
+number the directories in the stack when printing\&.
+.PP
+.RE
 .TP
 \fBdisable\fP [ \fB\-afmr\fP ] \fIname\fP \&.\&.\&.
 Temporarily disable the \fIname\fPd hash table elements\&.  The default
@@ -240,6 +260,14 @@ Remove the specified \fIjob\fPs from the job table; the shell will
 no longer report their status, and will not complain if you
 try to exit an interactive shell with them running or stopped\&.
 If no \fIjob\fP is specified, disown the current job\&.
+.RS
+.PP
+If the \fIjob\fPs are currently stopped and the \fBAUTO_CONTINUE\fP option
+is not set, a warning is printed containing information about how to
+make them running after they have been disowned\&.  If one of the latter
+two forms is used, the \fIjob\fPs will automatically be made running,
+independent of the setting of the \fBAUTO_CONTINUE\fP option\&.
+.RE
 .TP
 \fBecho\fP [ \fB\-neE\fP ] [ \fIarg\fP \&.\&.\&. ]
 Write each \fIarg\fP on the standard output, with a space separating
@@ -285,6 +313,12 @@ character code in octal
 .TP
 \fB\ex\fP\fINN\fP
 character code in hexadecimal
+.TP
+\fB\eu\fP\fINNNN\fP
+unicode character code in hexadecimal
+.TP
+\fB\eU\fP\fINNNNNNNN\fP
+unicode character code in hexadecimal
 .PD
 .PP
 The \fB\-E\fP flag, or the \fBBSD_ECHO\fP option, can be used to disable
@@ -414,7 +448,7 @@ entries\&.
 Bring each specified \fIjob\fP in turn to the foreground\&.
 If no \fIjob\fP is specified, resume the current job\&.
 .TP
-\fBfloat\fP [ {\fB+\fP|\fB\-\fP}\fBEFghlrtux\fP ] [ \fIname\fP[\fB=\fP\fIvalue\fP] \&.\&.\&. ]
+\fBfloat\fP [ {\fB+\fP|\fB\-\fP}\fBEFHghlprtux\fP ] [ \fIname\fP[\fB=\fP\fIvalue\fP] \&.\&.\&. ]
 Equivalent to \fBtypeset \-E\fP, except that options irrelevant to floating
 point numbers are not permitted\&.
 .TP
@@ -434,6 +468,7 @@ Checks the \fIarg\fPs for legal options\&.  If the \fIarg\fPs are omitted,
 use the positional parameters\&.  A valid option argument
 begins with a `\fB+\fP' or a `\fB\-\fP'\&.  An argument not beginning with
 a `\fB+\fP' or a `\fB\-\fP', or the argument `\fB\-\-\fP', ends the options\&.
+Note that a single `\fB\-\fP' is not considered a valid option argument\&.
 \fIoptstring\fP contains the letters that \fBgetopts\fP
 recognizes\&.  If a letter is followed by a `\fB:\fP', that option
 is expected to have an argument\&.  The options can be
@@ -513,7 +548,7 @@ the form of a call to hash\&.
 \fBhistory\fP
 Same as \fBfc \-l\fP\&.
 .TP
-\fBinteger\fP [ {\fB+\fP|\fB\-\fP}\fBghilrtux\fP ] [ \fIname\fP[\fB=\fP\fIvalue\fP] \&.\&.\&. ]
+\fBinteger\fP [ {\fB+\fP|\fB\-\fP}\fBHghilprtux\fP ] [ \fIname\fP[\fB=\fP\fIvalue\fP] \&.\&.\&. ]
 Equivalent to \fBtypeset \-i\fP, except that options irrelevant to
 integers are not permitted\&.
 .TP
@@ -539,21 +574,19 @@ used by daemons, to indicate their state\&.
 .RE
 .TP
 .PD 0
-\fBkill\fP [ \fB\-s\fP \fIsignal_name\fP ] \fIjob\fP \&.\&.\&.
-.TP
-.PD 0
-\fBkill\fP [ \fB\-\fP\fIsig\fP ] \fIjob\fP \&.\&.\&.
+\fBkill\fP [ \fB\-s\fP \fIsignal_name\fP | \fB\-n\fP \fIsignal_number\fP | \fB\-\fP\fIsig\fP ] \fIjob\fP \&.\&.\&.
 .TP
 .PD
 \fBkill\fP \fB\-l\fP [ \fIsig\fP \&.\&.\&. ]
 Sends either \fBSIGTERM\fP or the specified signal to the given
 jobs or processes\&.
-Signals are given by number or by names, without the `\fBSIG\fP' prefix\&.
+Signals are given by number or by names, with or without the `\fBSIG\fP'
+prefix\&.
 If the signal being sent is not `\fBKILL\fP' or `\fBCONT\fP', then the job
 will be sent a `\fBCONT\fP' signal if it is stopped\&.
 The argument \fIjob\fP can be the process ID of a job
 not in the job list\&.
-In the third form, \fBkill \-l\fP, if \fIsig\fP is not
+In the second form, \fBkill \-l\fP, if \fIsig\fP is not
 specified the signal names are listed\&.  Otherwise, for each
 \fIsig\fP that is a name, the corresponding signal number is
 listed\&.  For each \fIsig\fP that is a signal number or a number
@@ -656,7 +689,7 @@ minutes and seconds
 .PD
 .RE
 .TP
-\fBlocal\fP [ {\fB+\fP|\fB\-\fP}\fBAEFLRUZahilrtux\fP [\fIn\fP]] [ \fIname\fP[\fB=\fP\fIvalue\fP] ] \&.\&.\&.
+\fBlocal\fP [ {\fB+\fP|\fB\-\fP}\fBAEFHLRUZahilprtux\fP [\fIn\fP]] [ \fIname\fP[\fB=\fP\fIvalue\fP] ] \&.\&.\&.
 Same as \fBtypeset\fP, except that the options \fB\-g\fP, and
 \fB\-f\fP are not permitted\&.  In this case the \fB\-x\fP option does not force
 the use of \fB\-g\fP, i\&.e\&. exported variables will be local to functions\&.
@@ -680,8 +713,13 @@ starting with zero\&.  An argument of the form \fB\-n\fP counts from the right\&
 If the \fBPUSHD_MINUS\fP option is set, the meanings of `\fB+\fP' and
 `\fB\-\fP' in this context are swapped\&.
 .TP
-\fBprint\fP [ \fB\-bnrslzpNDPoOicm\fP ] [ \fB\-u\fP\fIn\fP ] [ \fB\-R\fP [ \fB\-en\fP ]] [ \fIarg\fP \&.\&.\&. ]
-With no flags or with flag `\fB\-\fP', the arguments are printed on
+.PD 0
+\fBprint\fP [ \fB\-abcDilmnNoOpPrsz\fP ] [ \fB\-u\fP\fIn\fP ] [ \fB\-f\fP \fIformat\fP ] [ \fB\-C\fP \fIcols\fP ]
+.TP
+.PD
+  [ \fB\-R\fP [ \fB\-en\fP ]] [ \fIarg\fP \&.\&.\&. ]
+With the `\fB\-f\fP' option the arguments are printed as described by \fBprintf\fP\&.
+With no flags or with the flag `\fB\-\fP', the arguments are printed on
 the standard output as described by \fBecho\fP, with the following differences:
 the escape sequence `\fB\eM\-\fP\fIx\fP' metafies the character
 \fIx\fP (sets the highest bit),
@@ -694,33 +732,41 @@ sequence, `\fB\e\fP' escapes the following character and is not printed\&.
 .PD 0
 .TP
 .PD
-\fB\-r\fP
-Ignore the escape conventions of \fBecho\fP\&.
-.TP
-\fB\-R\fP
-Emulate the BSD \fBecho\fP command, which does not process escape sequences
-unless the \fB\-e\fP flag is given\&.  The \fB\-n\fP flag suppresses the trailing
-newline\&.  Only the \fB\-e\fP and \fB\-n\fP flags are recognized after
-\fB\-R\fP; all other arguments and options are printed\&.
+\fB\-a\fP
+Print arguments with the column incrementing first\&.  Only useful with the
+\fB\-c\fP and \fB\-C\fP options\&.
 .TP
 \fB\-b\fP
 Recognize all the escape sequences defined for the \fBbindkey\fP command,
 see 
 \fIzshzle\fP(1)\&.
 .TP
+\fB\-c\fP
+Print the arguments in columns\&.  Unless \fB\-a\fP is also given, arguments are
+printed with the row incrementing first\&.
+.TP
+\fB\-C\fP \fIcols\fP
+Print the arguments in \fIcols\fP columns\&.  Unless \fB\-a\fP is also given,
+arguments are printed with the row incrementing first\&.
+.TP
+\fB\-D\fP
+Treat the arguments as directory names, replacing prefixes with \fB~\fP
+expressions, as appropriate\&.
+.TP
+\fB\-i\fP
+If given together with \fB\-o\fP or \fB\-O\fP, sorting is performed
+case\-independently\&.
+.TP
+\fB\-l\fP
+Print the arguments separated by newlines instead of spaces\&.
+.TP
 \fB\-m\fP
 Take the first argument as a pattern (should be quoted), and remove
 it from the argument list together with subsequent arguments that
 do not match this pattern\&.
 .TP
-\fB\-s\fP
-Place the results in the history list instead of on the standard output\&.
-.TP
 \fB\-n\fP
 Do not add a newline to the output\&.
-.TP
-\fB\-l\fP
-Print the arguments separated by newlines instead of spaces\&.
 .TP
 \fB\-N\fP
 Print the arguments separated and terminated by nulls\&.
@@ -731,39 +777,74 @@ Print the arguments sorted in ascending order\&.
 \fB\-O\fP
 Print the arguments sorted in descending order\&.
 .TP
-\fB\-i\fP
-If given together with \fB\-o\fP or \fB\-O\fP, sorting is performed
-case\-independently\&.
-.TP
-\fB\-c\fP
-Print the arguments in columns\&.
-.TP
-\fB\-u\fP\fIn\fP
-Print the arguments to file descriptor \fIn\fP\&.
-.TP
 \fB\-p\fP
 Print the arguments to the input of the coprocess\&.
-.TP
-\fB\-z\fP
-Push the arguments onto the editing buffer stack, separated by spaces\&.
-.TP
-\fB\-D\fP
-Treat the arguments as directory names, replacing prefixes with \fB~\fP
-expressions, as appropriate\&.
 .TP
 \fB\-P\fP
 Perform prompt expansion (see
 \fIzshmisc\fP(1))\&.
+.TP
+\fB\-r\fP
+Ignore the escape conventions of \fBecho\fP\&.
+.TP
+\fB\-R\fP
+Emulate the BSD \fBecho\fP command, which does not process escape sequences
+unless the \fB\-e\fP flag is given\&.  The \fB\-n\fP flag suppresses the trailing
+newline\&.  Only the \fB\-e\fP and \fB\-n\fP flags are recognized after
+\fB\-R\fP; all other arguments and options are printed\&.
+.TP
+\fB\-s\fP
+Place the results in the history list instead of on the standard output\&.
+.TP
+\fB\-u\fP\fIn\fP
+Print the arguments to file descriptor \fIn\fP\&.
+.TP
+\fB\-z\fP
+Push the arguments onto the editing buffer stack, separated by spaces\&.
+.PP
+If any of `\fB\-m\fP', `\fB\-o\fP' or `\fB\-O\fP' are used in combination with
+`\fB\-f\fP' and there are no arguments (after the removal process in the
+case of `\fB\-m\fP') then nothing is printed\&.
+.RE
+.TP
+\fBprintf\fP \fIformat\fP [ \fIarg\fP \&.\&.\&. ]
+Print the arguments according to the format specification\&. Formatting
+rules are the same as used in C\&. The same escape sequences as for \fBecho\fP
+are recognised in the format\&. All C conversion specifications ending in
+one of csdiouxXeEfgGn are handled\&. In addition to this, `\fB%b\fP' can be
+used instead of `\fB%s\fP' to cause escape sequences in the argument to be
+recognised and `\fB%q\fP' can be used to quote the argument in such a way
+that allows it to be reused as shell input\&. With the numeric format
+specifiers, if the corresponding argument starts with a quote character,
+the numeric value of the following character is used as the number to
+print otherwise the argument is evaluated as an arithmetic expression\&. See
+the section `Arithmetic Evaluation' for a description of arithmetic
+expressions\&. With `\fB%n\fP', the corresponding argument is taken as an
+identifier which is created as an integer parameter\&.
+.RS
+.PP
+Normally, conversion specifications are applied to each argument in order
+but they can explicitly specify the \fIn\fPth argument is to be used by
+replacing `\fB%\fP' by `\fB%\fP\fIn\fP\fB$\fP' and `\fB*\fP' by `\fB*\fP\fIn\fP\fB$\fP'\&.
+It is recommended that you do not mix references of this explicit style
+with the normal style and the handling of such mixed styles may be subject
+to future change\&.
+.PP
+If arguments remain unused after formatting, the format string is reused
+until all arguments have been consumed\&. With the \fBprint\fP builtin, this
+can be suppressed by using the \fB\-r\fP option\&. If more arguments are
+required by the format than have been specified, the behaviour is as if
+zero or an empty string had been specified as the argument\&.
 .RE
 .TP
 .PD 0
-\fBpushd\fP [ \fIarg\fP ]
+\fBpushd\fP [ \fB\-sLP\fP ] [ \fIarg\fP ]
 .TP
 .PD 0
-\fBpushd\fP \fIold\fP \fInew\fP
+\fBpushd\fP [ \fB\-sLP\fP ] \fIold\fP \fInew\fP
 .TP
 .PD
-\fBpushd\fP {\fB+\fP|\fB\-\fP}\fIn\fP
+\fBpushd\fP [ \fB\-sLP\fP ] {\fB+\fP|\fB\-\fP}\fIn\fP
 Change the current directory, and push the old current directory
 onto the directory stack\&.  In the first form, change the
 current directory to \fIarg\fP\&.
@@ -785,6 +866,9 @@ of `\fB+\fP' and `\fB\-\fP' in this context are swapped\&.
 .PP
 If the option \fBPUSHD_SILENT\fP is not set, the directory
 stack will be printed after a \fBpushd\fP is performed\&.
+.PP
+The options \fB\-s\fP, \fB\-L\fP and \fB\-P\fP have the same meanings as for the
+\fBcd\fP builtin\&.
 .RE
 .TP
 \fBpushln\fP [ \fIarg\fP \&.\&.\&. ]
@@ -800,7 +884,7 @@ contain symbolic links\&.
 Same as \fBfc \-e \-\fP\&.
 .TP
 .PD 0
-\fBread\fP [ \fB\-rzpqAclneEt\fP ] [ \fB\-k\fP [ \fInum\fP ] ]
+\fBread\fP [ \fB\-rszpqAclneE\fP ] [ \fB\-t\fP [ \fInum\fP ] ] [ \fB\-k\fP [ \fInum\fP ] ] [ \fB\-d\fP \fIdelim\fP ]
 .TP
 .PD
  [ \fB\-u\fP\fIn\fP ] [ \fIname\fP[\fB?\fP\fIprompt\fP] ] [ \fIname\fP \&.\&.\&.  ]
@@ -821,6 +905,10 @@ Raw mode: a `\fB\e\fP' at the end of a line does not signify line
 continuation and backslashes in the line don't quote the following
 character and are not removed\&.
 .TP
+\fB\-s\fP
+Don't echo back characters if reading from the terminal\&.  Currently does
+not work with the \fB\-q\fP option\&.
+.TP
 \fB\-q\fP
 Read only one character from the terminal and set \fIname\fP to
 `\fBy\fP' if this character was `\fBy\fP' or `\fBY\fP' and to `\fBn\fP' otherwise\&.
@@ -834,11 +922,6 @@ Read only one (or \fInum\fP) characters\&.  All are assigned to the first
 \fIname\fP, without word splitting\&.  This flag is ignored when \fB\-q\fP is
 present\&.  Input is read from the terminal unless one of \fB\-u\fP or \fB\-p\fP
 is present\&.  This option may also be used within zle widgets\&.
-.RS
-.PP
-Note that \fInum\fP must be in the argument word that follows \fB\-k\fP, not
-in the same word\&.  See \fB\-u\fP\&.
-.RE
 .TP
 \fB\-z\fP
 Read one entry from the editor buffer stack and assign it to the first
@@ -878,27 +961,37 @@ and that when the cursor is at the end of the line, its character
 index is the length of the line plus one\&.
 .TP
 \fB\-u\fP\fIn\fP
-Input is read from file descriptor \fIn\fP, where \fIn\fP is a single
-digit and must \fInot\fP be separated from \fB\-u\fP by any whitespace\&.
+Input is read from file descriptor \fIn\fP\&.
 .TP
 \fB\-p\fP
 Input is read from the coprocess\&.
 .TP
-\fB\-t\fP
-Test if input is available before attempting to read; if none is, return
-status 1 and do not set any variables\&.  This is not available when reading
-from the editor buffer with \fB\-z\fP, when called from within completion
-with \fB\-c\fP or \fB\-l\fP, with \fB\-q\fP which clears the input queue before
-reading, or within zle where other mechanisms should be used to test for
-input\&.
+\fB\-d\fP \fIdelim\fP
+Input is terminated by the first character of \fIdelim\fP instead of
+by newline\&.
+.TP
+\fB\-t\fP [ \fInum\fP ]
+Test if input is available before attempting to read\&.  If \fInum\fP
+is present, it must begin with a digit and will be evaluated
+to give a number of seconds, which may be a floating point number;
+in this case the read times out if input is not available within this
+time\&.  If \fInum\fP is not present, it is taken to be zero, so that
+\fBread\fP returns immediately if no input is available\&.
+If no input is available, return status 1 and do not set any variables\&.
+ 
+This option is not available when reading from the editor buffer with
+\fB\-z\fP, when called from within completion with \fB\-c\fP or \fB\-l\fP, with
+\fB\-q\fP which clears the input queue before reading, or within zle where
+other mechanisms should be used to test for input\&.
  
 Note that read does not attempt to alter the input processing mode\&.  The
 default mode is canonical input, in which an entire line is read at a time,
 so usually `\fBread \-t\fP' will not read anything until an entire line has
 been typed\&.  However, when reading from the terminal with \fB\-k\fP
-this is automatically handled; note that only availability of the first
-character is tested, so that e\&.g\&. `\fBread \-t \-k 2\fP' can still block on the
-second character\&.
+input is processed one key at a time; in this case, only availability of
+the first character is tested, so that e\&.g\&. `\fBread \-t \-k 2\fP' can still
+block on the second character\&.  Use two instances of `\fBread \-t \-k\fP' if
+this is not what is wanted\&.
 If the first argument contains a `\fB?\fP', the remainder of this
 word is used as a \fIprompt\fP on standard error when the shell
 is interactive\&.
@@ -943,23 +1036,50 @@ had not been trapped\&.
 \fBsched\fP
 See the section `The zsh/sched Module' in \fIzshmodules\fP(1)\&.
 .TP
-\fBset\fP [ {\fB+\fP|\fB\-\fP}\fIoptions\fP | {\fB+\fP|\fB\-\fP}\fBo\fP \fIoption_name\fP ] \&.\&.\&. [ {\fB+\fP|\fB\-\fP}\fBA\fP [ \fIname\fP ] ] [ \fIarg\fP \&.\&.\&. ]
+\fBset\fP [ {\fB+\fP|\fB\-\fP}\fIoptions\fP | {\fB+\fP|\fB\-\fP}\fBo\fP [ \fIoption_name\fP ] ] \&.\&.\&. [ {\fB+\fP|\fB\-\fP}\fBA\fP [ \fIname\fP ] ] [ \fIarg\fP \&.\&.\&. ]
 Set the options for the shell and/or set the positional parameters, or
 declare and set an array\&.  If the \fB\-s\fP option is given, it causes the
 specified arguments to be sorted before assigning them to the positional
 parameters (or to the array \fIname\fP if \fB\-A\fP is used)\&.  With \fB+s\fP
 sort arguments in descending order\&.  For the meaning of the other flags, see
-\fIzshoptions\fP(1)\&.  Flags may be specified by name using the \fB\-o\fP option\&.
+\fIzshoptions\fP(1)\&.  Flags may be specified by name using the \fB\-o\fP option\&. If no option
+name is supplied with \fB\-o\fP, the current option states are printed\&.
+With \fB+o\fP they are printed in a form that can be used as input
+to the shell\&.
 .RS
 .PP
-If the \fB\-A\fP flag is specified, \fIname\fP is
-set to an array containing the given \fIarg\fPs\&. if \fB+A\fP is used and
-\fIname\fP is an array, the given arguments will replace the initial
-elements of that array; if no \fIname\fP is specified, all arrays are
-printed\&.  Otherwise the positional parameters are set\&.  If no arguments are
-given, then the names and values of all parameters are printed on the
-standard output\&.  If the only argument is `\fB+\fP',
-the names of all parameters are printed\&.
+If the \fB\-A\fP flag is specified, \fIname\fP is set to an array containing
+the given \fIarg\fPs; if no \fIname\fP is specified, all arrays are printed
+together with their values\&.
+.PP
+If \fB+A\fP is used and \fIname\fP is an array, the
+given arguments will replace the initial elements of that array; if no
+\fIname\fP is specified, all arrays are printed without their values\&.
+.PP
+The behaviour of arguments after \fB\-A\fP \fIname\fP or \fB+A\fP \fIname\fP
+depends on whether the option \fBKSH_ARRAYS\fP is set\&.  If it is not set, all
+arguments following \fIname\fP are treated as values for the array,
+regardless of their form\&.  If the option is set, normal option processing
+continues at that point; only regular arguments are treated as values for
+the array\&.  This means that
+.PP
+.RS
+.nf
+\fBset \-A array \-x \-\- foo\fP
+.fi
+.RE
+.PP
+sets \fBarray\fP to `\fB\-x \-\- foo\fP' if \fBKSH_ARRAYS\fP is not set, but sets
+the array to \fBfoo\fP and turns on the option `\fB\-x\fP' if it is set\&.
+.PP
+If the \fB\-A\fP flag is not present, but there are arguments beyond the
+options, the positional parameters are set\&.  If the option list (if any)
+is terminated by `\fB\-\fP\fB\-\fP', and there are no further arguments, the
+positional parameters will be unset\&.
+.PP
+If no arguments and no `\fB\-\fP\fB\-\fP' are given, then the names and values of
+all parameters are printed on the standard output\&.  If the only argument is
+`\fB+\fP', the names of all parameters are printed\&.
 .RE
 .TP
 \fBsetcap\fP
@@ -1068,7 +1188,7 @@ terminal is frozen or not\&.
 Equivalent to \fBwhence \-v\fP\&.
 .TP
 .PD 0
-\fBtypeset\fP [ {\fB+\fP|\fB\-\fP}\fBAEFLRUZafghilrtuxm\fP [\fIn\fP]] [ \fIname\fP[\fB=\fP\fIvalue\fP] \&.\&.\&. ]
+\fBtypeset\fP [ {\fB+\fP|\fB\-\fP}\fBAEFHLRUZafghilprtuxm\fP [\fIn\fP]] [ \fIname\fP[\fB=\fP\fIvalue\fP] \&.\&.\&. ]
 .TP
 .PD
 \fBtypeset\fP \-T [ {\fB+|\fB\-\fP\fP}\fBLRUZrux\fP ] \fISCALAR\fP[\fB=\fP\fIvalue\fP] \fIarray\fP
@@ -1086,11 +1206,18 @@ For each \fIname\fP\fB=\fP\fIvalue\fP assignment, the parameter
 \fIname\fP is set to \fIvalue\fP\&.  Note that arrays currently cannot be
 assigned in \fBtypeset\fP expressions, only scalars and integers\&.
 .PP
-For each remaining \fIname\fP that refers to a parameter that is set, the
-name and value of the parameter are printed in the form of an assignment\&.
-Nothing is printed for newly\-created parameters, or when any attribute
-flags listed below are given along with the \fIname\fP\&.  Using `\fB+\fP'
-instead of minus to introduce an attribute turns it off\&.
+If the shell option \fBTYPESET_SILENT\fP is not set, for each remaining
+\fIname\fP that refers to a parameter that is set, the name and value of the
+parameter are printed in the form of an assignment\&.  Nothing is printed for
+newly\-created parameters, or when any attribute flags listed below are
+given along with the \fIname\fP\&.  Using `\fB+\fP' instead of minus to
+introduce an attribute turns it off\&.
+.PP
+If the \fB\-p\fP option is given, parameters and values are printed in the
+form of a typeset comand and an assignment (which will be printed
+separately for arrays and associative arrays), regardless of other flags
+and options\&.  Note that the \fB\-h\fP flag on parameters is respected; no
+value will be shown for these parameters\&.
 .PP
 If the \fB\-T\fP option is given, exactly two (or zero) \fIname\fP
 arguments must be present\&.  They represent a scalar and an array (in
@@ -1124,10 +1251,11 @@ is the word `\fB+\fP', then names are printed but values are not\&.
 .PP
 If the \fB\-m\fP flag is given the \fIname\fP arguments are taken as patterns
 (which should be quoted)\&.  With no attribute flags, all parameters (or
-functions with the \fB\-f\fP flag) with matching names are printed\&.  Note that
-\fB\-m\fP is ignored if no patterns are given\&.  If the \fB+g\fP flag is combined
-with \fB\-m\fP, a new local parameter is created for every matching parameter
-that is not already local\&.  Otherwise \fB\-m\fP applies all other flags or
+functions with the \fB\-f\fP flag) with matching names are printed (the shell
+option \fBTYPESET_SILENT\fP is not used in this case)\&.  Note that \fB\-m\fP is
+ignored if no patterns are given\&.  If the \fB+g\fP flag is combined with
+\fB\-m\fP, a new local parameter is created for every matching parameter that
+is not already local\&.  Otherwise \fB\-m\fP applies all other flags or
 assignments to the existing parameters\&.  Except when assignments are made
 with \fIname\fP\fB=\fP\fIvalue\fP, using \fB+m\fP forces the matching parameters
 to be printed, even inside a function\&.
@@ -1242,7 +1370,9 @@ Convert the result to lower case whenever the parameter is expanded\&.
 The value is \fInot\fP converted when assigned\&.
 .TP
 \fB\-r\fP
-The given \fIname\fPs are marked readonly\&.
+The given \fIname\fPs are marked readonly\&.  Note that if \fIname\fP is a
+special parameter, the readonly attribute can be turned on, but cannot then
+be turned off\&.
 .TP
 \fB\-t\fP
 Tags the named parameters\&.  Tags have no special meaning to the shell\&.
@@ -1264,7 +1394,8 @@ compatibility with previous versions of zsh\&.
 \fBulimit\fP [ \fB\-SHacdflmnpstv\fP [ \fIlimit\fP ] \&.\&.\&. ]
 Set or display resource limits of the shell and the processes started by
 the shell\&.  The value of \fIlimit\fP can be a number in the unit specified
-below or the value `\fBunlimited\fP'\&.  If the \fB\-H\fP flag is given use
+below or the value `\fBunlimited\fP'\&.  By default, only soft limits are
+manipulated\&. If the \fB\-H\fP flag is given use
 hard limits instead of soft limits\&.  If the \fB\-S\fP flag is given
 together with the \fB\-H\fP flag set both hard and soft limits\&.  If no
 options are used, the file size limit (\fB\-f\fP) is assumed\&.  If
@@ -1306,7 +1437,8 @@ CPU seconds to be used\&.
 processes available to the user\&.
 .TP
 \fB\-v\fP
-K\-bytes on the size of virtual memory\&.
+K\-bytes on the size of virtual memory\&.  On some systems this
+refers to the limit called `address space'\&.
 .PD
 .RE
 .TP
@@ -1341,7 +1473,7 @@ the hard resource limit for each \fIresource\fP is removed\&.
 The resources of the shell process are only changed if the \fB\-s\fP
 flag is given\&.
 .TP
-\fBunset\fP [ \fB\-fm\fP ] \fIname\fP \&.\&.\&.
+\fBunset\fP [ \fB\-fmv\fP ] \fIname\fP \&.\&.\&.
 Each named parameter is unset\&.
 Local parameters remain local even if unset; they appear unset within scope,
 but the previous value will still reappear when the scope ends\&.
@@ -1355,6 +1487,9 @@ If the \fB\-m\fP flag is specified the arguments are taken as patterns (should
 be quoted) and all parameters with matching names are unset\&.  Note that this
 cannot be used when unsetting associative array elements, as the subscript
 will be treated as part of the pattern\&.
+.PP
+The \fB\-v\fP flag specifies that \fIname\fP refers to parameters\&. This is the
+default behaviour\&.
 .PP
 \fBunset \-f\fP is equivalent to \fBunfunction\fP\&.
 .RE
@@ -1790,5 +1925,11 @@ See the section `The zsh/zpty Module' in \fIzshmodules\fP(1)\&.
 \fBzregexparse\fP
 See the section `The zsh/zutil Module' in \fIzshmodules\fP(1)\&.
 .TP
+\fBzsocket\fP
+See the section `The zsh/net/socket Module' in \fIzshmodules\fP(1)\&.
+.TP
 \fBzstyle\fP
 See the section `The zsh/zutil Module' in \fIzshmodules\fP(1)\&.
+.TP
+\fBztcp\fP
+See the section `The zsh/net/tcp Module' in \fIzshmodules\fP(1)\&.

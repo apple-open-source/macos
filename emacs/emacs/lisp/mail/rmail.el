@@ -420,6 +420,9 @@ until a user explicitly requires it."
 		 (other :tag "when asked" ask))
   :group 'rmail)
 
+(defvar rmail-enable-mime-composing nil
+  "*If non-nil, RMAIL uses `rmail-insert-mime-forwarded-message-function' to forward.")
+
 ;;;###autoload
 (defvar rmail-show-mime-function nil
   "Function to show MIME decoded message of RMAIL file.
@@ -429,7 +432,8 @@ It is called with no argument.")
 ;;;###autoload
 (defvar rmail-insert-mime-forwarded-message-function nil
   "Function to insert a message in MIME format so it can be forwarded.
-This function is called if `rmail-enable-mime' is non-nil.
+This function is called if `rmail-enable-mime' or 
+`rmail-enable-mime-composing' is non-nil.
 It is called with one argument FORWARD-BUFFER, which is a
 buffer containing the message to forward.  The current buffer
 is the outgoing mail buffer.")
@@ -621,7 +625,9 @@ If `rmail-display-summary' is non-nil, make a summary for this RMAIL file."
 		   (list (read-file-name "Run rmail on RMAIL file: "))))
   (rmail-require-mime-maybe)
   (let* ((file-name (expand-file-name (or file-name-arg rmail-file-name)))
-	 (existed (get-file-buffer file-name))
+	 ;; Use find-buffer-visiting, not get-file-buffer, for those users
+	 ;; who have find-file-visit-truename set to t.
+	 (existed (find-buffer-visiting file-name))
 	 ;; This binding is necessary because we must decide if we
 	 ;; need code conversion while the buffer is unibyte
 	 ;; (i.e. enable-multibyte-characters is nil).
@@ -2449,43 +2455,51 @@ iso-8859, koi8-r, etc."
     (or (eq major-mode 'rmail-mode)
 	(switch-to-buffer rmail-buffer))
     (save-excursion
-      (unwind-protect
-	  (let ((msgbeg (rmail-msgbeg rmail-current-message))
-		(msgend (rmail-msgend rmail-current-message))
-		x-coding-header)
-	    (narrow-to-region msgbeg msgend)
-	    (goto-char (point-min))
-	    (when (search-forward "\n*** EOOH ***\n" (point-max) t)
-	      (narrow-to-region msgbeg (point)))
-	    (goto-char (point-min))
-	    (if (re-search-forward "^X-Coding-System: *\\(.*\\)$" nil t)
-		(let ((old-coding (intern (match-string 1)))
-		      (buffer-read-only nil))
-		  (check-coding-system old-coding)
-		  ;; Make sure the new coding system uses the same EOL
-		  ;; conversion, to prevent ^M characters from popping
-		  ;; up all over the place.
-		  (setq coding
-			(coding-system-change-eol-conversion
-			 coding
-			 (coding-system-eol-type old-coding)))
-		  (setq x-coding-header (point-marker))
-		  (narrow-to-region msgbeg msgend)
-		  (encode-coding-region (point) msgend old-coding)
-		  (decode-coding-region (point) msgend coding)
-		  (setq last-coding-system-used coding)
-		  ;; Rewrite the coding-system header according
-		  ;; to what we did.
- 		  (goto-char x-coding-header)
-		  (delete-region (point)
-				 (save-excursion
-				   (beginning-of-line)
-				   (point)))
-		  (insert "X-Coding-System: "
-			  (symbol-name last-coding-system-used))
-		  (set-marker x-coding-header nil)
-		  (rmail-show-message))
-	      (error "No X-Coding-System header found")))))))
+      (let ((pruned (rmail-msg-is-pruned)))
+	(unwind-protect
+	    (let ((msgbeg (rmail-msgbeg rmail-current-message))
+		  (msgend (rmail-msgend rmail-current-message))
+		  x-coding-header)
+	      ;; We need the message headers pruned (we later restore
+	      ;; the pruned stat to what it was, see the end of
+	      ;; unwind-protect form).
+	      (or pruned
+		  (rmail-toggle-header 1))
+	      (narrow-to-region msgbeg msgend)
+	      (goto-char (point-min))
+	      (when (search-forward "\n*** EOOH ***\n" (point-max) t)
+		(narrow-to-region msgbeg (point)))
+	      (goto-char (point-min))
+	      (if (re-search-forward "^X-Coding-System: *\\(.*\\)$" nil t)
+		  (let ((old-coding (intern (match-string 1)))
+			(buffer-read-only nil))
+		    (check-coding-system old-coding)
+		    ;; Make sure the new coding system uses the same EOL
+		    ;; conversion, to prevent ^M characters from popping
+		    ;; up all over the place.
+		    (setq coding
+			  (coding-system-change-eol-conversion
+			   coding
+			   (coding-system-eol-type old-coding)))
+		    (setq x-coding-header (point-marker))
+		    (narrow-to-region msgbeg msgend)
+		    (encode-coding-region (point) msgend old-coding)
+		    (decode-coding-region (point) msgend coding)
+		    (setq last-coding-system-used coding)
+		    ;; Rewrite the coding-system header according
+		    ;; to what we did.
+		    (goto-char x-coding-header)
+		    (delete-region (point)
+				   (save-excursion
+				     (beginning-of-line)
+				     (point)))
+		    (insert "X-Coding-System: "
+			    (symbol-name last-coding-system-used))
+		    (set-marker x-coding-header nil)
+		    (rmail-show-message))
+		(error "No X-Coding-System header found")))
+	  (or pruned
+	      (rmail-toggle-header 0)))))))
 
 ;; Find all occurrences of certain fields, and highlight them.
 (defun rmail-highlight-headers ()
@@ -3253,7 +3267,7 @@ see the documentation of `rmail-resend'."
 	  (save-excursion
 	    ;; Insert after header separator--before signature if any.
 	    (goto-char (mail-text-start))
-	    (if rmail-enable-mime
+	    (if (or rmail-enable-mime rmail-enable-mime-composing)
 		(funcall rmail-insert-mime-forwarded-message-function
 			 forward-buffer)
 	      (insert "------- Start of forwarded message -------\n")

@@ -1,7 +1,7 @@
 /* ====================================================================
  * The Apache Software License, Version 1.1
  *
- * Copyright (c) 2000-2002 The Apache Software Foundation.  All rights
+ * Copyright (c) 2000-2003 The Apache Software Foundation.  All rights
  * reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -142,11 +142,12 @@ extern "C" {
 #define DEFAULT_HTTPS_PORT	443
 #define ap_is_default_port(port,r)	((port) == ap_default_port(r))
 #ifdef NETWARE
-#define ap_http_method(r) ap_os_http_method(r)
+#define ap_http_method(r) ap_os_http_method((void*)r)
+#define ap_default_port(r) ap_os_default_port((void*)r)
 #else
 #define ap_http_method(r)	"http"
-#endif
 #define ap_default_port(r)	DEFAULT_HTTP_PORT
+#endif
 
 /* --------- Default user name and group name running standalone ---------- */
 /* --- These may be specified as numbers by placing a # before a number --- */
@@ -427,7 +428,7 @@ extern "C" {
 
 #define SERVER_BASEVENDOR   "Apache Group"
 #define SERVER_BASEPRODUCT  "Apache"
-#define SERVER_BASEREVISION "1.3.27"
+#define SERVER_BASEREVISION "1.3.28"
 #define SERVER_BASEVERSION  SERVER_BASEPRODUCT "/" SERVER_BASEREVISION
 
 #define SERVER_PRODUCT  SERVER_BASEPRODUCT
@@ -448,7 +449,7 @@ API_EXPORT(const char *) ap_get_server_built(void);
  * Always increases along the same track as the source branch.
  * For example, Apache 1.4.2 would be '10402100', 2.5b7 would be '20500007'.
  */
-#define APACHE_RELEASE 10327100
+#define APACHE_RELEASE 10328100
 
 #define SERVER_PROTOCOL "HTTP/1.1"
 #ifndef SERVER_SUPPORT

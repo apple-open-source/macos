@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -38,12 +41,12 @@
 	@constant kSCPreferencesKeyApply Key used when new preferences are
 		to be applied to the active system configuration.
  */
-typedef enum {
+enum {
 	kSCPreferencesKeyLock	= 1,
 	kSCPreferencesKeyCommit	= 2,
-	kSCPreferencesKeyApply	= 3,
-} SCPreferencesKeyType;
-
+	kSCPreferencesKeyApply	= 3
+};
+typedef	int32_t	SCPreferencesKeyType;
 
 __BEGIN_DECLS
 
@@ -60,21 +63,27 @@ __BEGIN_DECLS
 	@result A notification string for the specified preference identifier.
  */
 CFStringRef
-SCDynamicStoreKeyCreatePreferences	(CFAllocatorRef		allocator,
-					 CFStringRef		prefsID,
-					 int			keyType);
+SCDynamicStoreKeyCreatePreferences	(
+					CFAllocatorRef		allocator,
+					CFStringRef		prefsID,
+					SCPreferencesKeyType	keyType
+					);
 
 SCPreferencesRef
-SCUserPreferencesCreate			(CFAllocatorRef		allocator,
-					 CFStringRef		name,
-					 CFStringRef		prefsID,
-					 CFStringRef		user);
+SCUserPreferencesCreate			(
+					CFAllocatorRef		allocator,
+					CFStringRef		name,
+					CFStringRef		prefsID,
+					CFStringRef		user
+					);
 
 CFStringRef
-SCDynamicStoreKeyCreateUserPreferences	(CFAllocatorRef		allocator,
-					 CFStringRef		prefsID,
-					 CFStringRef		user,
-					 int			keyType);
+SCDynamicStoreKeyCreateUserPreferences	(
+					CFAllocatorRef		allocator,
+					CFStringRef		prefsID,
+					CFStringRef		user,
+					SCPreferencesKeyType	keyType
+					);
 
 __END_DECLS
 

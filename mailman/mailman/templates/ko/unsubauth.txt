@@ -1,0 +1,10 @@
+Your authorization is required for a mailing list unsubscription
+request approval:
+메일링 리스트 탈퇴 요청에 당신의 인증이 필요합니다.
+
+    보낸이:   %(username)s
+    보낸곳: %(listname)s@%(hostname)s
+
+웹을 통해 하시면 처리를 편리하게 하실 수 있습니다.
+
+    %(admindb_url)s

@@ -115,7 +115,11 @@ main(int ac, char **av)
 	int		mflag = 0;
 	uid_t		uid = 0;
 	dev_t		tdev = 0;
-	char		thiscmd[MAXCOMLEN + 1];
+#ifdef OLD_STYLE
+	char		thiscmd[MAXCOMLEN+1];
+#else
+	char		*thiscmd;
+#endif
 	pid_t		thispid;
 	uid_t		thisuid;
 	dev_t		thistdev;
@@ -286,9 +290,64 @@ main(int ac, char **av)
 		printf("nprocs %d\n", nprocs);
 
 	for (i = 0; i < nprocs; i++) {
-		thispid = procs[i].kp_proc.p_pid;
-		strncpy(thiscmd, procs[i].kp_proc.p_comm, MAXCOMLEN);
+#ifndef OLD_STYLE
+		int mib[3], argmax;
+		size_t syssize;
+		char *procargs, *cp;
+
+		mib[0] = CTL_KERN;
+		mib[1] = KERN_ARGMAX;
+
+		syssize = sizeof(argmax);
+		if (sysctl(mib, 2, &argmax, &syssize, NULL, 0) == -1) 
+			continue;
+
+		procargs = malloc(argmax);
+		if (procargs == NULL)
+			continue;
+
+		mib[0] = CTL_KERN;
+		mib[1] = KERN_PROCARGS;
+		mib[2] = procs[i].kp_proc.p_pid;
+		
+		syssize = (size_t)argmax;
+		if (sysctl(mib, 3, procargs, &syssize, NULL, 0) == -1) {
+			free(procargs);
+			continue;
+		}
+
+		for (cp = procargs; cp < &procargs[syssize]; cp++) {
+			if (*cp == '\0') {
+				break;
+			}
+		}
+		if (cp == &procargs[syssize]) {
+			free(procargs);
+			continue;
+		}
+
+		for (; cp < &procargs[syssize]; cp++) {
+			if (*cp != '\0') {
+				break;
+			}
+		}
+
+		if (cp == &procargs[syssize]) {
+			free(procargs);
+			continue;
+		}
+
+		/* Strip off any path that was specified */
+		for (thiscmd = cp; (cp < &procargs[syssize]) && (*cp != '\0'); cp++) {
+			if( *cp == '/' ) {
+				thiscmd = cp+1;
+			}
+		}
+#else
 		thiscmd[MAXCOMLEN] = '\0';
+#endif
+		thispid = procs[i].kp_proc.p_pid;
+
 		thistdev = procs[i].kp_eproc.e_tdev;
 		thisuid = procs[i].kp_eproc.e_pcred.p_ruid;	/* real uid */
 
@@ -321,8 +380,12 @@ main(int ac, char **av)
 					matched = 0;
 			}
 		}
-		if (matched == 0)
+		if (matched == 0) {
+#ifndef OLD_STYLE
+			free(procargs);
+#endif
 			continue;
+		}
 		if (ac > 0)
 			matched = 0;
 		for (j = 0; j < ac; j++) {
@@ -347,8 +410,12 @@ main(int ac, char **av)
 			if (matched)
 				break;
 		}
-		if (matched == 0)
+		if (matched == 0) {
+#ifndef OLD_STYLE
+			free(procargs);
+#endif
 			continue;
+		}
 		if (dflag)
 			printf("sig:%d, cmd:%s, pid:%d, dev:0x%x uid:%d\n", sig,
 			    thiscmd, thispid, thistdev, thisuid);

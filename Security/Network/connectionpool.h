@@ -56,4 +56,4 @@ private:
 }	// end namespace Security
 
 
-#endif _H_CONNECTIONPOOL
+#endif /* _H_CONNECTIONPOOL */

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- erroroneous mbean - no such attribute -->
+
+<server>
+
+  <mbean code="org.jboss.test.jmx.mbean.TestDeployer"
+	 name="test:name=TestConfigError">
+    <attribute name="NoSuchAttribute">Hi, Im not here</attribute>
+  </mbean>
+</server>

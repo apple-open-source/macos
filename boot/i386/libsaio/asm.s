@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -31,6 +32,17 @@
 /*
  * HISTORY
  * $Log: asm.s,v $
+ * Revision 1.5  2002/11/05 20:34:26  jliu
+ * Integrating:
+ * 3051234 boot shouldnt require Graphics = Yes
+ * 3091627 Need support for refresh rate adjustment
+ *
+ * Revision 1.4  2002/10/02 00:06:18  curtisg
+ * Integrating PR-3032510.
+ *
+ * Revision 1.3.6.1  2002/08/30 21:16:29  curtisg
+ * KERNBOOTSTRUCT is going away in favor of KernelBootArgs_t in <pexpert/i386/boot.h>.
+ *
  * Revision 1.3  2002/07/09 14:06:21  jliu
  * Merging changes from PR-2954224 branch in boot/i386.
  *
@@ -98,7 +110,7 @@
     .file "asm.s"
 
 CR0_PE_ON  = 0x1
-CR0_PE_OFF = 0x7ffffffe
+CR0_PE_OFF = 0x7ffffff0
 
 STACK32_BASE = ADDR32(STACK_SEG, 0)
 STACK16_SEG  = STACK_SEG
@@ -268,13 +280,15 @@ LABEL(_halt)
     jmp     _halt
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-// startprog(phyaddr)
+// startprog(phyaddr, arg)
 // Start the program on protected mode where phyaddr is the entry point.
+// Passes arg to the program in %eax.
 //
 LABEL(_startprog)
     push    %ebp
     mov     %esp, %ebp
 
+    mov     0xc(%ebp), %eax  // argument to program
     mov     0x8(%ebp), %ecx  // entry offset 
     mov     $0x28, %ebx      // segment
     push    %ebx

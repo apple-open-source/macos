@@ -247,3 +247,6 @@ IOReturn IOI2CInterfaceUserClient::extIO(
     return (err);
 }
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+

@@ -30,59 +30,70 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)reboot.8	8.1 (Berkeley) 6/9/93
+.\" $FreeBSD: src/sbin/reboot/reboot.8,v 1.21 2002/12/27 12:15:33 schweikh Exp $
 .\"
 .Dd June 9, 1993
 .Dt REBOOT 8
 .Os
 .Sh NAME
 .Nm reboot ,
-.Nm halt
-.Nd
-stopping and restarting the system
+.Nm halt 
+.Nd stopping and restarting the system
 .Sh SYNOPSIS
 .Nm halt
-.Op Fl nq
-.Nm reboot
-.Op Fl nq
+.Op Fl lnq
+.Nm
+.Op Fl lnq
 .Sh DESCRIPTION
 The
 .Nm halt
 and
-.Nm reboot
+.Nm
 utilities flush the file system cache to disk, send all running processes
-a SIGTERM (and subsequently a SIGKILL) and, respectively, halt or restart
-the system.
-The action is logged, including entering a shutdown record into the login
-accounting file.
+a
+.Dv SIGTERM
+(and subsequently a
+.Dv SIGKILL )
+and, respectively, halt or restart the system.
+The action is logged, including entering a shutdown record into the
+.Xr wtmp 5
+file.
 .Pp
 The options are as follows:
-.Bl -tag -width Ds
+.Bl -tag -width indent
+.It Fl l
+The halt or reboot is
+.Em not
+logged to the system log.
+This option is intended for applications such as
+.Xr shutdown 8 ,
+that call
+.Nm
+or
+.Nm halt
+and log this themselves.
 .It Fl n
-If the
-.Fl n
-option is specified,
-the file system cache is not flushed.
+The file system cache is not flushed.
 This option should probably not be used.
 .It Fl q
-If the
-.Fl q
-option is specified,
-the system is halted or restarted quickly and ungracefully, and only
-the flushing of the file system cache is performed.
+The system is halted or restarted quickly and ungracefully, and only
+the flushing of the file system cache is performed (if the
+.Fl n
+option is not specified).
 This option should probably not be used.
 .El
 .Pp
 Normally, the
 .Xr shutdown 8
 utility is used when the system needs to be halted or restarted, giving
-users advance warning of their impending doom.
+users advance warning of their impending doom and cleanly terminating
+specific programs.
 .Sh SEE ALSO
-.Xr sync 1 ,
-.Xr utmp 5 ,
-.Xr boot 8 ,
-.Xr shutdown 8
+.Xr wtmp 5 ,
+.Xr shutdown 8 ,
+.Xr sync 8
 .Sh HISTORY
 A
-.Nm reboot
-command appeared in
+.Nm
+utility appeared in
 .At v6 .

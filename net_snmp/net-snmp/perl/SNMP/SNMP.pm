@@ -1,4 +1,4 @@
-# SNMP.pm -- Perl 5 interface to the UCD SNMP toolkit
+# SNMP.pm -- Perl 5 interface to the net-snmp toolkit
 #
 # written by G. S. Marzot (gmarzot@nortelnetworks.com)
 #
@@ -7,11 +7,13 @@
 #     modify it under the same terms as Perl itself.
 
 package SNMP;
-$VERSION = '4.2.3';   # current release version number
+$VERSION = '5.0.8';   # current release version number
 
 require Exporter;
 require DynaLoader;
 require AutoLoader;
+
+use NetSNMP::default_store (':all');
 
 @SNMP::ISA = qw(Exporter AutoLoader DynaLoader);
 # Items to export into callers namespace by default. Note: do not export
@@ -77,6 +79,7 @@ tie $SNMP::debug_internals, SNMP::DEBUG_INTERNALS;
 tie $SNMP::dump_packet, SNMP::DUMP_PACKET;
 tie %SNMP::MIB, SNMP::MIB;
 tie $SNMP::save_descriptions, SNMP::MIB::SAVE_DESCR;
+tie $SNMP::replace_newer, SNMP::MIB::REPLACE_NEWER;
 
 %SNMP::V3_SEC_LEVEL_MAP = (noAuthNoPriv => 1, authNoPriv => 2, authPriv =>3);
 
@@ -85,7 +88,7 @@ $use_long_names = 0; # non-zero to prefer longer mib textual identifiers rather
                    # than just leaf indentifiers (see translateObj)
                    # may also be set on a per session basis(see UseLongNames)
 $use_sprint_value = 0; # non-zero to enable formatting of response values
-                   # using the snmp libraries "sprint_value"
+                   # using the snmp libraries "snprint_value"
                    # may also be set on a per session basis(see UseSprintValue)
                    # note: returned values not suitable for 'set' operations
 $use_enums = 0; # non-zero to return integers as enums and allow sets
@@ -95,8 +98,8 @@ $use_enums = 0; # non-zero to return integers as enums and allow sets
 $use_numeric = 0; # non-zero to return object tags as numeric OID's instead
                   # of converting to textual representations.  use_long_names,
                   # if non-zero, returns the entire OID, otherwise, return just
-                  # the label portion.  Probably want to use_long_names in most
-                  # cases.
+                  # the label portion.  use_long_names is also set if the
+		  # use_numeric variable is set.
 %MIB = ();      # tied hash to access libraries internal mib tree structure
                 # parsed in from mib files
 $verbose = 0;   # controls warning/info output of SNMP module,
@@ -111,7 +114,9 @@ $save_descriptions = 0; #tied scalar to control saving descriptions during
                # mib parsing - must be set prior to mib loading
 $best_guess = 0;  # determine whether or not to enable best-guess regular
                   # expression object name translation
-$timestamp_vars = 0; # Add a timestamp to each Varbind
+$replace_newer = 0; # determine whether or not to tell the parser to replace
+                    # older MIB modules with newer ones when loading MIBs.
+                    # WARNING: This can cause an incorrect hierarchy.
 
 sub setMib {
 # loads mib from file name provided
@@ -129,6 +134,11 @@ sub initMib {
 # if Mib is already loaded this function does nothing
 # Pass a zero valued argument to get minimal mib tree initialzation
 # If non zero agrgument or no argument then full mib initialization
+
+  SNMP::init_snmp("perl");
+  return;
+
+
   if (defined $_[0] and $_[0] == 0) {
     SNMP::_init_mib_internals();
   } else {
@@ -138,6 +148,7 @@ sub initMib {
 
 sub addMibDirs {
 # adds directories to search path when a module is requested to be loaded
+  SNMP::init_snmp("perl");
   foreach (@_) {
     SNMP::_add_mib_dir($_) or return undef;
   }
@@ -147,6 +158,7 @@ sub addMibDirs {
 sub addMibFiles {
 # adds mib definitions to currently loaded mib database from
 # file(s) supplied
+  SNMP::init_snmp("perl");
   foreach (@_) {
     SNMP::_read_mib($_) or return undef;
   }
@@ -157,6 +169,7 @@ sub loadModules {
 # adds mib module definitions to currently loaded mib database.
 # Modules will be searched from previously defined mib search dirs
 # Passing and arg of 'ALL' will cause all known modules to be loaded
+   SNMP::init_snmp("perl");
    foreach (@_) {
      SNMP::_read_module($_) or return undef;
    }
@@ -176,6 +189,7 @@ sub translateObj {
 # return longer textual identifiers (e.g., system.sysDescr)
 # if Mib is not loaded and $SNMP::auto_init_mib is enabled Mib will be loaded
 # returns 'undef' upon failure
+   SNMP::init_snmp("perl");
    my $obj = shift;
    my $long_names = shift || $SNMP::use_long_names;
    return undef if not defined $obj;
@@ -229,7 +243,8 @@ sub mapEnum {
 		   Version => 1,
 		   Timeout => 1,
 		   Retries => 1,
-		   RemotePort => 1);
+		   RemotePort => 1,
+                   LocalPort => 1);
 
 sub strip_session_params {
     my @params;
@@ -364,22 +379,32 @@ sub new {
    my $this = {};
    my ($name, $aliases, $host_type, $len, $thisaddr);
 
+   SNMP::init_snmp("perl");
+
    %$this = @_;
 
    $this->{ErrorStr} = ''; # if methods return undef check for expln.
    $this->{ErrorNum} = 0;  # contains SNMP error return
 
-   # v1 or v2, defaults to v1
-   $this->{Version} ||= 1;
+   $this->{Version} ||= 
+     NetSNMP::default_store::netsnmp_ds_get_int(NetSNMP::default_store::NETSNMP_DS_LIBRARY_ID, 
+				      NetSNMP::default_store::NETSNMP_DS_LIB_SNMPVERSION) ||
+					SNMP::SNMP_DEFAULT_VERSION();
 
-   # allow override of remote SNMP port
-   $this->{RemotePort} ||= 161;
+   if ($this->{Version} eq 128) {
+       # special handling of the bogus v1 definition.
+       $this->{Version} = 1;
+   }
+
+   # allow override of local SNMP port
+   $this->{LocalPort} ||= 0;
 
    # destination host defaults to localhost
    $this->{DestHost} ||= 'localhost';
 
    # community defaults to public
-   $this->{Community} ||= 'public';
+   $this->{Community} ||= NetSNMP::default_store::netsnmp_ds_get_string(NetSNMP::default_store::NETSNMP_DS_LIBRARY_ID(), 
+				        NetSNMP::default_store::NETSNMP_DS_LIB_COMMUNITY()) || 'public';
 
    # number of retries before giving up, defaults to SNMP_DEFAULT_RETRIES
    $this->{Retries} = SNMP::SNMP_DEFAULT_RETRIES() unless defined($this->{Retries});
@@ -389,47 +414,55 @@ sub new {
    # flag to enable fixing pdu and retrying with a NoSuch error
    $this->{RetryNoSuch} ||= 0;
 
-   # convert to dotted ip addr if needed
-   if ($this->{DestHost} =~ /\d+\.\d+\.\d+\.\d+/) {
-     $this->{DestAddr} = $this->{DestHost};
-   } else {
-     if (($name, $aliases, $host_type, $len, $thisaddr) =
-	 gethostbyname($this->{DestHost})) {
-	 $this->{DestAddr} = join('.', unpack("C4", $thisaddr));
-     } else {
-	 warn("unable to resolve destination address($this->{DestHost}!")
-	     if $SNMP::verbose;
-	 return undef;
-     }
+   # backwards compatibility.  Make host = host:port
+   if ($this->{RemotePort} && $this->{DestHost} !~ /:/) {
+       $this->{DestHost} = $this->{DestHost} . ":" . $this->{RemotePort};
    }
 
    if ($this->{Version} eq '1' or $this->{Version} eq '2'
        or $this->{Version} eq '2c') {
        $this->{SessPtr} = SNMP::_new_session($this->{Version},
 					     $this->{Community},
-					     $this->{DestAddr},
-					     $this->{RemotePort},
+					     $this->{DestHost},
+					     $this->{LocalPort},
 					     $this->{Retries},
 					     $this->{Timeout},
 					     );
    } elsif ($this->{Version} eq '3' ) {
-       $this->{SecName} ||= 'initial';
-       $this->{SecLevel} ||= 'noAuthNoPriv';
-       $this->{SecLevel} = $SNMP::V3_SEC_LEVEL_MAP{$this->{SecLevel}}
-          if $this->{SecLevel} !~ /^\d+$/;
+       $this->{SecName} ||= 
+	   NetSNMP::default_store::netsnmp_ds_get_string(NetSNMP::default_store::NETSNMP_DS_LIBRARY_ID(), 
+		         NetSNMP::default_store::NETSNMP_DS_LIB_SECNAME()) || 
+			   'initial';
+       if (!$this->{SecLevel}) {
+	   $this->{SecLevel} = 
+	       NetSNMP::default_store::netsnmp_ds_get_int(NetSNMP::default_store::NETSNMP_DS_LIBRARY_ID(), 
+			  NetSNMP::default_store::NETSNMP_DS_LIB_SECLEVEL()) || 
+			      $SNMP::V3_SEC_LEVEL_MAP{'noAuthNoPriv'};
+       } elsif ($this->{SecLevel} !~ /^\d+$/) {
+	   $this->{SecLevel} = $SNMP::V3_SEC_LEVEL_MAP{$this->{SecLevel}};
+       }
        $this->{SecEngineId} ||= '';
        $this->{ContextEngineId} ||= $this->{SecEngineId};
-       $this->{Context} ||= '';
-       $this->{AuthProto} ||= 'MD5';
-       $this->{AuthPass} ||= '';
-       $this->{PrivProto} ||= 'DES';
-       $this->{PrivPass} ||= '';
+       $this->{Context} ||= 
+	   NetSNMP::default_store::netsnmp_ds_get_string(NetSNMP::default_store::NETSNMP_DS_LIBRARY_ID(), 
+		         NetSNMP::default_store::NETSNMP_DS_LIB_CONTEXT()) || '';
+       $this->{AuthProto} ||= 'MD5'; # defaults XXX
+       $this->{AuthPass} ||=
+       NetSNMP::default_store::netsnmp_ds_get_string(NetSNMP::default_store::NETSNMP_DS_LIBRARY_ID(), 
+		     NetSNMP::default_store::NETSNMP_DS_LIB_AUTHPASSPHRASE()) ||
+       NetSNMP::default_store::netsnmp_ds_get_string(NetSNMP::default_store::NETSNMP_DS_LIBRARY_ID(), 
+		     NetSNMP::default_store::NETSNMP_DS_LIB_PASSPHRASE()) || '';
+       $this->{PrivProto} ||= 'DES';  # defaults XXX
+       $this->{PrivPass} ||=
+       NetSNMP::default_store::netsnmp_ds_get_string(NetSNMP::default_store::NETSNMP_DS_LIBRARY_ID(), 
+		     NetSNMP::default_store::NETSNMP_DS_LIB_PRIVPASSPHRASE()) ||
+       NetSNMP::default_store::netsnmp_ds_get_string(NetSNMP::default_store::NETSNMP_DS_LIBRARY_ID(), 
+		     NetSNMP::default_store::NETSNMP_DS_LIB_PASSPHRASE()) || '';
        $this->{EngineBoots} = 0 if not defined $this->{EngineBoots};
        $this->{EngineTime} = 0 if not defined $this->{EngineTime};
 
        $this->{SessPtr} = SNMP::_new_v3_session($this->{Version},
-						$this->{DestAddr},
-						$this->{RemotePort},
+						$this->{DestHost},
 						$this->{Retries},
 						$this->{Timeout},
 						$this->{SecName},
@@ -456,14 +489,16 @@ sub new {
    $this->{UseSprintValue} ||= $SNMP::use_sprint_value;
    $this->{UseEnums} ||= $SNMP::use_enums;
    $this->{UseNumeric} ||= $SNMP::use_numeric;
-   $this->{TimeStamp} ||= $SNMP::timestamp_vars;
+
+   # Force UseLongNames if UseNumeric is in use.
+   $this->{UseLongNames}++  if $this->{UseNumeric};
 
    bless $this, $type;
 }
 
 sub update {
 # *Not Implemented*
-# designed to update the fields of session to allow retargettinf to different
+# designed to update the fields of session to allow retargetting to different
 # host, community name change, timeout, retry changes etc. Unfortunately not
 # working yet because some updates (the address in particular) need to be
 # done on the internal session pointer which cannot be fetched w/o touching
@@ -475,32 +510,19 @@ sub update {
 
    @$this{keys %new_fields} = values %new_fields;
 
-   # convert to dotted ip addr if needed
-   if (exists $new_fields{DestHost}) {
-      if ($this->{DestHost} =~ /\d+\.\d+\.\d+\.\d+/) {
-        $this->{DestAddr} = $this->{DestHost};
-      } else {
-        if (($name, $aliases, $host_type, $len, $thisaddr) =
-           gethostbyname($this->{DestHost})) {
-           $this->{DestAddr} = join('.', unpack("C4", $thisaddr));
-        } else {
-           warn("unable to resolve destination address($this->{DestHost}!")
-              if $SNMP::verbose;
-           return undef;
-        }
-      }
-   }
-
    $this->{UseLongNames} ||= $SNMP::use_long_names;
    $this->{UseSprintValue} ||= $SNMP::use_sprint_value;
    $this->{UseEnums} ||= $SNMP::use_enums;
    $this->{UseNumeric} ||= $SNMP::use_numeric;
-   $this->{TimeStamp} ||= $SNMP::timestamp_vars;
+
+   # Force UseLongNames if UseNumeric is in use.
+   $this->{UseLongNames}++  if $this->{UseNumeric};
 
    SNMP::_update_session($this->{Version},
 		 $this->{Community},
-		 $this->{DestAddr},
+		 $this->{DestHost},
 		 $this->{RemotePort},
+		 $this->{LocalPort},
 		 $this->{Retries},
 		 $this->{Timeout},
 		);
@@ -855,10 +877,6 @@ sub name {
    return $_[0]->[$tag_f];
 }
 
-sub stamp {
-   $_[0]->[$time_f];
-}
-
 sub fmt {
     my $self = shift;
     return $self->name . " = \"" . $self->val . "\" (" . $self->type . ")";
@@ -1033,6 +1051,22 @@ sub STORE { SNMP::_set_save_descriptions($_[1]); ${$_[0]} = $_[1]; }
 
 sub DELETE { SNMP::_set_save_descriptions(0); ${$_[0]} = 0; }
 
+package SNMP::MIB::REPLACE_NEWER;               # Controls MIB parsing
+
+sub TIESCALAR { my $class = shift; my $val; bless \$val, $class; }
+
+sub FETCH { ${$_[0]}; }
+
+sub STORE {
+    SNMP::_set_replace_newer($_[1]);
+    ${$_[0]} = $_[1];
+}
+
+sub DELETE {
+    SNMP::_set_replace_newer(0);
+    ${$_[0]} = 0;
+}
+
 package SNMP;
 END{SNMP::_sock_cleanup() if defined &SNMP::_sock_cleanup;}
 # Autoload methods go after __END__, and are processed by the autosplit prog.
@@ -1065,6 +1099,18 @@ SNMP - The Perl5 'SNMP' Extension Module v3.1.0 for the UCD SNMPv3 Library
  print "$SNMP::MIB{sysDescr}{description}\n";
 
 =head1 DESCRIPTION
+
+
+Note: The perl SNMP 5.0 module which comes with net-snmp 5.0 and
+higher is different than previous versions in a number of ways.  Most
+importantly, it behaves like a proper net-snmp application and calls
+init_snmp properly, which means it will read configuration files and
+use those defaults where appropriate automatically parse MIB files,
+etc.  This will likely affect your perl applications if you have, for
+instance, default values set up in your snmp.conf file (as the perl
+module will now make use of those defaults).  The docmuentation,
+however, has sadly not been updated yet (aside from this note), nor is
+the read_config default usage implementation fully complete.
 
 The basic operations of the SNMP protocol are provided by this module
 through an object oriented interface for modularity and ease of use.
@@ -1188,7 +1234,7 @@ convention (e.g., system.sysDescr vs just sysDescr)
 defaults to the value of SNMP::use_sprint_value at time
 of session creation. set to non-zero to have return values
 for 'get' and 'getnext' methods formatted with the libraries
-sprint_value function. This will result in certain data types
+snprint_value function. This will result in certain data types
 being returned in non-canonical format Note: values returned
 with this option set may not be appropriate for 'set' operations
 (see discussion of value formats in <vars> description section)
@@ -1204,18 +1250,8 @@ will also be acceptable when supplied to 'set' operations
 
 defaults to the value of SNMP::use_numeric at time of session
 creation. set to non-zero to have <tags> for get methods returned
-as numeric OID's rather than descriptions.  if UseLongNames is
-set, returns the entire OID as given, otherwise just the last two
-octets.
-
-=item TimeStamp
-
-defaults to the value of SNMP::timestamp_vars at time of session
-creation. set to non-zero to have an additional element added to
-each Varbind containing the time(2) timestamp.  Reference this
-timestamp through the $varbind_ref->stamp() method.  Do not modify
-the value of a timestamp -- it is shared between all variables
-received at the same time.
+as numeric OID's rather than descriptions.  UseLongNames will be
+set so that the full OID is returned to the caller.
 
 =item ErrorStr
 
@@ -1608,7 +1644,7 @@ basis (UseLongNames)
 =item $SNMP::use_sprint_value
 
 default '0', set to non-zero to enable formatting of
-response values using the snmp libraries sprint_value
+response values using the snmp libraries snprint_value
 function. can also be set on a per session basis (see
 UseSprintValue) Note: returned values may not be
 suitable for 'set' operations
@@ -1624,17 +1660,8 @@ set on a per session basis (see UseEnums)
 
 default to '0',set to non-zero to have <tags> for 'get'
 methods returned as numeric OID's rather than descriptions.
-if UseLongNames is set, returns the entire OID as given,
-otherwise just the last two octets. setting 'UseLongNames'
-is highly recommended.  Set on a per-session basis (see
-UseNumeric).
-
-=item $SNMP::timestamp_vars
-
-defaults to 0, set to non-zero to have an additional element
-added to each Varbind containing the time(2) timestamp.
-Reference the timestamps through the $varbind_ref->stamp()
-object method.
+UseLongNames will be set so that the entire OID will be
+returned.  Set on a per-session basis (see UseNumeric).
 
 =item $SNMP::save_descriptions
 
@@ -1908,8 +1935,8 @@ Sometimes compiling the UCD SNMP library with
 'position-independent-code' enabled is required (HPUX specifically).
 
 If you cannot resolve the problem you can post to
-comp.lang.perl.modules or email me at gmarzot@nortelnetworks.com
-and/or ucd-snmp-coders@ucd-snmp.ucdavis.edu.
+comp.lang.perl.modules or
+net-snmp-users@net-snmp-users@lists.sourceforge.net
 
 please give sufficient information to analyze the problem (OS type,
 versions for OS/Perl/UCD/compiler, complete error output, etc.)
@@ -1919,7 +1946,8 @@ versions for OS/Perl/UCD/compiler, complete error output, etc.)
 Many thanks to all those who supplied patches, suggestions and
 feedback.
 
- Wes Hardaker and the ucd-coders
+ Joe Marzot (the original author)
+ Wes Hardaker and the net-snmp-coders
  Dave Perkins
  Marcel Wiget
  David Blackburn
@@ -1943,7 +1971,7 @@ the fact that I have more time to work on it than in the past.
 
 =head1 AUTHOR
 
-bugs, comments, questions to gmarzot@nortelnetworks.com
+bugs, comments, questions to net-snmp-users@lists.sourceforge.net
 
 =head1 Copyright
 
@@ -1951,4 +1979,8 @@ bugs, comments, questions to gmarzot@nortelnetworks.com
      This program is free software; you can redistribute it and/or
      modify it under the same terms as Perl itself.
 
+     Copyright (c) 2001-2002 Networks Associates Technology, Inc.  All
+     Rights Reserved.  This program is free software; you can
+     redistribute it and/or modify it under the same terms as Perl
+     itself.
 =cut

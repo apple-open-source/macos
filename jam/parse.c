@@ -9,6 +9,9 @@
 # include "parse.h"
 # include "scan.h"
 # include "newstr.h"
+#ifdef APPLE_EXTENSIONS
+# include "timingdata.h"
+#endif
 
 /*
  * parse.c - make and destroy parse trees as driven by the parser
@@ -45,6 +48,24 @@ char *f;
 
 	    parse_free( p );
 	}
+
+#ifdef APPLE_EXTENSIONS
+	if( globs.enable_timings )
+	{
+	    char *jamfile_name;
+	    
+	    if ( strcmp( f, "-" ) == 0 ) {
+		jamfile_name = "stdin";
+	    } else if ( strcmp( f, "+" ) == 0 ) {
+		jamfile_name = "top-level internal";
+	    } else {
+		jamfile_name = f;
+	    }
+
+	    append_timing_entry( globs.timing_entry, 0, "jam internals: parsing of jamfile", NULL, jamfile_name );
+	    globs.timing_entry = create_timing_entry();
+	}
+#endif
 }
 
 void

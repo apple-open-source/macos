@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+  <!-- ==================================================================== -->
+  <!-- New ConnectionManager setup for firebird dbs using jca-jdbc xa driver-->
+  <!-- Build jmx-api (build/build.sh all) and view for config documentation -->
+  <!-- ==================================================================== -->
+
+<connection-factories>
+
+  <!--FBManager can be used to create and drop databases.  
+    Drop is especially useful during testing, since it 
+    assures a clean start next time. -->
+  <mbean code="org.firebirdsql.management.FBManager" name="jboss.jca:service=FirebirdManager">
+    <attribute name="FileName">/Users/david/jboss/head/jboss-head/build/output/jboss-4.0.0alpha/server/default/data/fbtest.gdb</attribute>
+    <attribute name="UserName">sysdba</attribute>
+    <attribute name="Password">masterkey</attribute>
+    <attribute name="CreateOnStart">true</attribute>
+    <attribute name="DropOnStop">false</attribute>
+  </mbean>
+
+  <tx-connection-factory>
+
+    <jndi-name>FIrebirdDS</jndi-name>
+
+    <xa-transaction/>
+
+    <adapter-display-name>Firebird Database Connector</adapter-display-name>
+
+    <config-property name="Database" type="java.lang.String">localhost/3050:/Users/david/jboss/head/jboss-head/build/output/jboss-4.0.0alpha/server/default/data/fbtest.gdb</config-property>
+
+    <user-name>sysdba</user-name>
+
+    <password>masterkey</password>
+
+    <!--additional properties. only use one way of setting tx isolation, please
+    <config-property name="TransactionIsolation"></config-property>
+    <config-property name="TransactionIsolationName">TRANSACTION_READ_COMMITTED</config-property>
+    <config-property name="BlobBufferLength"></config-property>
+    <config-property name="Encoding">UNICODE_FSS</config-property>
+    -->
+
+    <min-pool-size>0</min-pool-size>
+  </tx-connection-factory>
+
+</connection-factories>

@@ -1,6 +1,6 @@
-$ $Id: set25,v 1.1.1.1 2001/06/28 23:11:25 bbraun Exp $
+$ $Id: set25,v 1.1.1.2 2003/01/17 03:42:14 nicolai Exp $
 $ tc.sig.c
 $set 25 
 1 our wait %d\n
-2 error: bsd_signal(%d) signal out of range\n
-3 error: bsd_signal(%d) - sigaction failed, errno %d\n
+2 помилка: bsd_signal(%d) сигнал за межами ╕нтервалу\n
+3 помилка: bsd_signal(%d) - невдача sigaction, код помилки %d\n

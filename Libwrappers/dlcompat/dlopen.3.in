@@ -1,0 +1,344 @@
+.\" This source code is a product of Sun Microsystems, Inc. and is provided
+.\" for unrestricted use provided that this legend is included on all tape
+.\" media and as a part of the software program in whole or part.  Users
+.\" may copy or modify this source code without charge, but are not authorized
+.\" to license or distribute it to anyone else except as part of a product or
+.\" program developed by the user.
+.\"
+.\" THIS PROGRAM CONTAINS SOURCE CODE COPYRIGHTED BY SUN MICROSYSTEMS, INC.
+.\" SUN MICROSYSTEMS, INC., MAKES NO REPRESENTATIONS ABOUT THE SUITABLITY
+.\" OF SUCH SOURCE CODE FOR ANY PURPOSE.  IT IS PROVIDED "AS IS" WITHOUT
+.\" EXPRESS OR IMPLIED WARRANTY OF ANY KIND.  SUN MICROSYSTEMS, INC. DISCLAIMS
+.\" ALL WARRANTIES WITH REGARD TO SUCH SOURCE CODE, INCLUDING ALL IMPLIED
+.\" WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.  IN
+.\" NO EVENT SHALL SUN MICROSYSTEMS, INC. BE LIABLE FOR ANY SPECIAL, INDIRECT,
+.\" INCIDENTAL, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING
+.\" FROM USE OF SUCH SOURCE CODE, REGARDLESS OF THE THEORY OF LIABILITY.
+.\"
+.\" This source code is provided with no support and without any obligation on
+.\" the part of Sun Microsystems, Inc. to assist in its use, correction,
+.\" modification or enhancement.
+.\"
+.\" SUN MICROSYSTEMS, INC. SHALL HAVE NO LIABILITY WITH RESPECT TO THE
+.\" INFRINGEMENT OF COPYRIGHTS, TRADE SECRETS OR ANY PATENTS BY THIS
+.\" SOURCE CODE OR ANY PART THEREOF.
+.\"
+.\" Sun Microsystems, Inc.
+.\" 2550 Garcia Avenue
+.\" Mountain View, California 94043
+.\"
+.\" Copyright (c) 1991 Sun Microsystems, Inc.
+.\"
+.\" @(#) dlopen.3 1.6 90/01/31 SMI
+.\" $FreeBSD: src/lib/libc/gen/dlopen.3,v 1.21 2002/05/29 19:35:13 wollman Exp $
+.\"
+.Dd June 8, 2003
+.Os
+.Dt DLOPEN 3
+.Sh NAME
+.Nm dlopen ,
+.Nm dlsym ,
+.\" .Nm dlfunc ,
+.Nm dlerror ,
+.Nm dlclose
+.Nd programmatic interface to the dynamic linker
+.Sh SYNOPSIS
+.In dlfcn.h
+.Ft void *
+.Fn dlopen "const char *path" "int mode"
+.Ft void *
+.Fn dlsym "void * restrict handle" "const char * restrict symbol"
+.\" .Ft dlfunc_t
+.\" .Fn dlfunc "void * restrict handle" "const char * restrict symbol"
+.Ft const char *
+.Fn dlerror "void"
+.Ft int
+.Fn dlclose "void *handle"
+.Sh DESCRIPTION
+These functions provide a simple programmatic interface to the services of the
+dynamic linker.
+Operations are provided to add new shared objects to a
+program's address space, to obtain the address bindings of symbols
+defined by such
+objects, and to remove such objects when their use is no longer required.
+All these functions use the native
+.Xr dyld 3 , 
+.Xr NSModule 3 ,
+and
+.Xr NSObjectFileImage 3
+functions to provide a compatibility library so that common unix source code may be
+easily compiled.
+.Pp
+New code should use the native functions, not this compatibility layer, see the above
+manual pages for usage.
+.Pp
+.Fn dlopen
+provides access to the shared object in
+.Fa path ,
+returning a descriptor that can be used for later
+references to the object in calls to
+.Fn dlsym
+and
+.Fn dlclose .
+If
+.Fa path
+was not in the address space prior to the call to
+.Fn dlopen ,
+it is placed in the address space.
+When an object is first loaded into the address space in this way, its
+function
+.Fn _init ,
+if any, is called.
+If
+.Fa path
+has already been placed in the address space in a previous call to
+.Fn dlopen ,
+it is not added a second time, although a reference count of
+.Fn dlopen
+operations on
+.Fa path
+is maintained.
+A null pointer supplied for
+.Fa path
+is interpreted as a reference to the main
+executable of the process.
+.Fa mode
+controls the way in which external function references from the
+loaded object are bound to their referents.
+It must contain one of the following values, possibly ORed with
+additional flags which will be described subsequently:
+.Bl -tag -width RTLD_LAZYX
+.It Dv RTLD_LAZY
+Each external function reference is resolved when the function is first
+called.
+.It Dv RTLD_NOW
+All external function references are bound immediately by
+.Fn dlopen .
+.El
+.Pp
+.Dv RTLD_LAZY
+is normally preferred, for reasons of efficiency.
+However,
+.Dv RTLD_NOW
+is useful to ensure that any undefined symbols are discovered during the
+call to
+.Fn dlopen .
+.Pp
+One of the following flags may be ORed into the
+.Fa mode
+argument:
+.Bl -tag -width RTLD_GLOBALX
+.It Dv RTLD_GLOBAL
+Symbols from this shared object and its directed acyclic graph (DAG)
+of needed objects will be available for resolving undefined references
+from all other shared objects. This is the only opion available for objects
+linked with the -dylib flag to
+.Xr ld 1
+.It Dv RTLD_LOCAL
+Symbols in this shared object and its DAG of needed objects will be
+available for resolving undefined references only from other objects
+in the same DAG.  This is the default for objects linked with the -bundle
+flag to
+.Xr ld 1
+but it may be set explicitly with this flag.
+.El
+.Pp
+If
+.Fn dlopen
+fails, it returns a null pointer, and sets an error condition which may
+be interrogated with
+.Fn dlerror .
+.Pp
+The
+.Fn dlsym
+returns the address binding of the symbol described in the null-terminated
+character string
+.Fa symbol ,
+as it occurs in the shared object identified by
+.Fa handle .
+The symbols exported by objects added to the address space by
+.Fn dlopen
+can be accessed only through calls to
+.Fn dlsym .
+Such symbols do not supersede any definition of those symbols already present
+in the address space when the object is loaded, nor are they available to
+satisfy normal dynamic linking references.
+.Pp
+See the note about underscores and C symbols,
+.Fn dlsym
+.\" and
+.\" .Fn dlfunc
+may or may not need to be called with an underscore prepended to the C function
+name, depending upon how this package was configured.
+.Pp
+If
+.Fn dlsym
+is called with the special
+.Fa handle
+.Dv RTLD_NEXT ,
+then the search for the symbol is limited to the shared objects
+which were loaded after the one issuing the call to
+.Fn dlsym .
+Thus, if the function is called from the main program, all
+the shared libraries are searched.
+If it is called from a shared library, all subsequent shared
+libraries are searched.
+.Dv RTLD_NEXT
+is useful for implementing wrappers around library functions.
+For example, a wrapper function
+.Fn getpid
+could access the
+.Dq real
+.Fn getpid
+with
+.Li dlsym(RTLD_NEXT, \&"getpid\&") .
+.\" (Actually, the
+.\" .Fn dlfunc
+.\" interface, below, should be used, since
+.\" .Fn getpid
+.\" is a function and not a data object.)
+.Pp
+If
+.Fn dlsym
+is called with the special
+.Fa handle
+.Dv RTLD_SELF ,
+then the search for the symbol is limited to the shared object
+issuing the call to
+.Fn dlsym
+and those shared objects which were loaded after it.
+.Pp
+The
+.Fn dlsym
+function
+returns a null pointer if the symbol cannot be found, and sets an error
+condition which may be queried with
+.Fn dlerror .
+.Pp
+.\" The
+.\" .Fn dlfunc
+.\" function
+.\" implements all of the behavior of
+.\" .Fn dlsym ,
+.\" but has a return type which can be cast to a function pointer without
+.\" triggering compiler diagnostics.
+.\" (The
+.\" .Fn dlsym
+.\" function
+.\" returns a data pointer; in the C standard, conversions between
+.\" data and function pointer types are undefined.
+.\" Some compilers and
+.\" .Xr lint 1
+.\" utilities warn about such casts.)
+.\" The precise return type of
+.\" .Fn dlfunc
+.\" is unspecified; applications must cast it to an appropriate function pointer
+.\" type.
+.Pp
+The
+.Fn dlerror
+returns a null-terminated character string describing the last error that
+occurred during a call to
+.Fn dlopen ,
+.Fn dlsym ,
+or
+.Fn dlclose .
+If no such error has occurred,
+.Fn dlerror
+returns a null pointer.
+At each call to
+.Fn dlerror ,
+the error indication is reset.  Thus in the case of two calls
+to
+.Fn dlerror ,
+where the second call follows the first immediately, the second call
+will always return a null pointer.
+.Pp
+.Fn dlclose
+deletes a reference to the shared object referenced by
+.Fa handle .
+If the reference count drops to 0, the object is removed from the
+address space, and
+.Fa handle
+is rendered invalid.
+Just before removing a shared object in this way, the object's
+.Fn _fini
+function is called, if such a function is defined by the object.
+If
+.Fn dlclose
+is successful, it returns a value of 0.
+Otherwise it returns -1, and sets an error condition that can be
+interrogated with
+.Fn dlerror .
+.Pp
+The object-intrinsic functions
+.Fn _init
+and
+.Fn _fini
+are called with no arguments, and are not expected to return values.
+.Sh NOTES
+In darwin objects, C symbols have an underscore prepended to the symbol name.
+So, the function 
+.Fn getpid
+ends up in the object file as _getpid
+Most code assumes that there is no underscore and calls
+.Fn dlsym
+with
+.Fa symbol
+as \&"getpid\&" which would fail to find the symbol.
+.Pp
+Depending on how the dlcompat package was built, the
+.Fn dlsym
+function may, or may not, automatically prepend an underscore to the passed
+.Fa symbol  
+to compensate for this.
+In this case calling
+.Fn dlsym
+with
+.Fa symbol
+as \&"getpid\&"
+does %%NOTPREPEND%% find the _getpid symbol.
+.Sh ERRORS
+.Fn dlopen
+and
+.Fn dlsym
+return a null pointer in the event of errors.
+.Fn dlclose
+returns 0 on success, or -1 if an error occurred.
+Whenever an error has been detected, a message detailing it can be
+retrieved via a call to
+.Fn dlerror .
+.Sh AUTHORS
+The dlcompat package was written by Jorge Acereda 
+<jacereda@users.sourceforge.net> and
+Peter O'Gorman <ogorman@users.sourceforge.net>
+.Pp
+This man page was borrowed from FreeBSD and modified,
+it originally came from Sun Microsystems, Inc.
+.Sh BUGS
+.Bl -bullet
+.It
+None of these rountines should be expected to work as advertised with MH_DYLIB files.
+They are always opened globally and may not be closed, RTLD_NOW is ignored for them.
+.It
+The search for symbols in objects which were loaded as a result of loading handle terminates
+too soon.
+.It
+None of the functions work as advertised for executables linked with the
+.Xr ld 1
+flag -force_flat_namespace, or when the
+.Xr dyld 1
+DYLD_FORCE_FLAT_NAMESPACE environment variable is set. This is because the
+.Fn NSLookupSymbolInImage
+function ignores the passed in mach_header in this case.
+.It
+The underscore or not issue is unnecessarily confusing.
+.El
+.Pp
+If you find any more, please contact Peter O'Gorman <ogorman@users.sourceforge.net>
+.Sh SEE ALSO
+.Xr ld 1
+.Xr cc 1
+.Xr NSModule 3
+.Xr NSObjectFileImage 3
+.Xr dyld 3

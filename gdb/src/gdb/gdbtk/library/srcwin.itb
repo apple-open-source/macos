@@ -1,5 +1,5 @@
 # Source window for Insight.
-# Copyright 1997, 1998, 1999, 2000, 2001, 2002 Red Hat, Inc.
+# Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -15,7 +15,7 @@
 # ------------------------------------------------------------------
 #  CONSTRUCTOR - create new source window
 # ------------------------------------------------------------------
-body SrcWin::constructor {args} {
+itcl::body SrcWin::constructor {args} {
   debug "$args"
   eval itk_initialize $args
   set top [winfo toplevel $itk_interior]
@@ -24,7 +24,7 @@ body SrcWin::constructor {args} {
 
   # On Windows, create a sizebox.
   if {$::tcl_platform(platform) == "windows"} {
-    ide_sizebox $itk_interior.sizebox
+#    ide_sizebox $itk_interior.sizebox
   }
 
   set Tracing [pref get gdb/mode]
@@ -52,7 +52,7 @@ body SrcWin::constructor {args} {
 # ------------------------------------------------------------------
 #  DESTRUCTOR - destroy window containing widget
 # ------------------------------------------------------------------
-body SrcWin::destructor {} {
+itcl::body SrcWin::destructor {} {
   debug
   remove_hook gdb_no_inferior_hook "$this no_inferior"
   remove_hook download_progress_hook "$this download_progress"
@@ -67,7 +67,7 @@ body SrcWin::destructor {} {
 # ------------------------------------------------------------------
 #  PRIVATE METHOD:  _build_win - build the main source window
 # ------------------------------------------------------------------
-body SrcWin::_build_win {} {
+itcl::body SrcWin::_build_win {} {
   global gdb_downloading gdb_running gdb_loaded
 
   # build source toolbar
@@ -126,7 +126,8 @@ body SrcWin::_build_win {} {
     set _status [conAdd status -resizable 0]
     set _statusframe [frame $_status]
     set _status $_statusframe.con
-    label $_status -relief sunken -bd 3 -font global/status -height 1
+    label $_status -relief sunken -bd 3 -font global/status -height 1 \
+      -anchor w
 
     # add download progress meter
     canvas $_statusframe.progress -relief sunken -borderwidth 2 \
@@ -184,7 +185,7 @@ body SrcWin::_build_win {} {
 # ------------------------------------------------------------------
 #  PUBLIC METHOD:  _set_state - do things when program state changes
 # ------------------------------------------------------------------
-body SrcWin::_set_state {varname} {
+itcl::body SrcWin::_set_state {varname} {
   global gdb_running gdb_downloading gdb_loaded gdb_program_has_run
   debug "$varname l=$gdb_loaded d=$gdb_downloading r=$gdb_running"
 
@@ -208,7 +209,7 @@ body SrcWin::_set_state {varname} {
 # ------------------------------------------------------------------
 #  PUBLIC METHOD:  download_progress - update the progress meter when downloading
 # ------------------------------------------------------------------
-body SrcWin::download_progress { section num tot {msg ""} } {
+itcl::body SrcWin::download_progress { section num tot {msg ""} } {
   global download_start_time download_cancel_ok gdb_loaded
 
   #debug "$section $num $tot $msg"
@@ -276,7 +277,7 @@ body SrcWin::download_progress { section num tot {msg ""} } {
 # ------------------------------------------------------------------
 #  PUBLIC METHOD:  reconfig - used when preferences change
 # ------------------------------------------------------------------
-body SrcWin::reconfig {} {
+itcl::body SrcWin::reconfig {} {
   debug
   $_toolbar reconfig
   $twin reconfig
@@ -289,7 +290,7 @@ body SrcWin::reconfig {} {
 #  It is the only way that files can be inserted into the file list
 #  once the debugger is started. 
 # ------------------------------------------------------------------
-body SrcWin::_name {w {val ""}} {
+itcl::body SrcWin::_name {w {val ""}} {
   global _files
   debug "$w $val"
   if {$val != ""} {
@@ -321,7 +322,7 @@ body SrcWin::_name {w {val ""}} {
 # ------------------------------------------------------------------
 #  PRIVATE PUBLIC METHOD:  toggle_updates - update toggle callback
 # ------------------------------------------------------------------
-body SrcWin::toggle_updates {value} {
+itcl::body SrcWin::toggle_updates {value} {
   # save state in do_updates so it will be preserved
   # in window reconfigs
   set do_updates $value
@@ -330,7 +331,7 @@ body SrcWin::toggle_updates {value} {
 # ------------------------------------------------------------------
 #  PRIVATE PUBLIC METHOD:  goto_func - function combobox callback
 # ------------------------------------------------------------------
-body SrcWin::goto_func {w {val ""}} {
+itcl::body SrcWin::goto_func {w {val ""}} {
   if {$val != ""} {
     set mang 0
     if {[info exists _mangled_func($val)]} {
@@ -361,7 +362,7 @@ body SrcWin::goto_func {w {val ""}} {
 #         This method needs to be public, since other parts of
 #         the gui can cause new symbols to be read.
 # ------------------------------------------------------------------
-body SrcWin::fillNameCB {} {
+itcl::body SrcWin::fillNameCB {} {
   global _files
   set allfiles [gdb_listfiles]
   foreach f $allfiles {
@@ -382,13 +383,13 @@ body SrcWin::fillNameCB {} {
 #         This method needs to be public, since other parts of
 #         the gui can cause new symbols to be read.
 # ------------------------------------------------------------------
-body SrcWin::fillFuncCB {name} {
+itcl::body SrcWin::fillFuncCB {name} {
   $_statbar.func list delete 0 end
   if {$name != ""} {
     set maxlen 10
     if {[catch {gdb_listfuncs $name} listfuncs]} {
       tk_messageBox -icon error -default ok \
-	-title "GDB" -type ok -modal system \
+	-title "GDB" -type ok \
 	-message "This file can not be found or does not contain\ndebugging information."
       _set_name ""
       return
@@ -420,7 +421,7 @@ body SrcWin::fillFuncCB {name} {
 #
 # linespec will be "{} {} {} 0 0x0 0x0" when GDB has not started debugging.
 # ------------------------------------------------------------------
-body SrcWin::location {tag linespec} {
+itcl::body SrcWin::location {tag linespec} {
   global gdb_running gdb_exe_name _files tcl_platform
 
   # We need to keep track of changes to the line, filename, function name
@@ -487,7 +488,7 @@ body SrcWin::location {tag linespec} {
 # ------------------------------------------------------------------
 #  PUBLIC METHOD:  stack - handle stack commands
 # ------------------------------------------------------------------
-body SrcWin::stack {cmd} {
+itcl::body SrcWin::stack {cmd} {
   if {$cmd == "bottom"} {
     set cmd "frame 0"
   }
@@ -502,7 +503,7 @@ body SrcWin::stack {cmd} {
 # ------------------------------------------------------------------
 #  METHOD:  _update - update widget when PC changes
 # ------------------------------------------------------------------
-body SrcWin::_update {loc} {
+itcl::body SrcWin::_update {loc} {
   debug "loc=$loc"
   # See if name combobox needs filled.
   if {$need_files} {
@@ -515,7 +516,7 @@ body SrcWin::_update {loc} {
 #  PUBLIC METHOD:  idle - callback for gdbtk_idle
 #  Called when the target is idle, so enable all buttons.
 # ------------------------------------------------------------------
-body SrcWin::idle {event} {
+itcl::body SrcWin::idle {event} {
   $_toolbar configure -runstop normal
   enable_ui 1
 }
@@ -523,7 +524,7 @@ body SrcWin::idle {event} {
 # ------------------------------------------------------------------
 #  PUBLIC METHOD:  mode - set mode to SOURCE, ASSEMBLY, MIXED, SRC+ASM
 # ------------------------------------------------------------------
-body SrcWin::mode {w new_mode {go 1}} {
+itcl::body SrcWin::mode {w new_mode {go 1}} {
   gdbtk_busy
   $_statbar.mode entryset $new_mode
   catch {$twin mode_set $new_mode $go} errorVal
@@ -534,7 +535,7 @@ body SrcWin::mode {w new_mode {go 1}} {
 # ------------------------------------------------------------------
 #  PRIVATE METHOD:  _update_title - update title bar
 # ------------------------------------------------------------------
-body SrcWin::_update_title {name} {
+itcl::body SrcWin::_update_title {name} {
   set fn [lindex [::file split $name] end]
   if {$fn == ""} {
     set prefix ""
@@ -547,7 +548,7 @@ body SrcWin::_update_title {name} {
 # ------------------------------------------------------------------
 #  PUBLIC METHOD:  busy - disable things when gdb is busy
 # ------------------------------------------------------------------
-body SrcWin::busy {event} {
+itcl::body SrcWin::busy {event} {
   global gdb_loaded gdb_target_name
 #  debug "gdb_loaded=$gdb_loaded, gdb_target_name=$gdb_target_name"
 
@@ -568,7 +569,7 @@ body SrcWin::busy {event} {
 # ------------------------------------------------------------------
 #   PUBLIC METHOD:  update - The inferior's state has changed.
 # ------------------------------------------------------------------
-body SrcWin::update {event} {
+itcl::body SrcWin::update {event} {
 
   # FIXME: This is kinda lame. We need to run this only once
   # as it is now written, so only the first window in the list
@@ -584,7 +585,7 @@ body SrcWin::update {event} {
 # ------------------------------------------------------------------
 #  PRIVATE METHOD:  _set_name - set the name in the name combobox and in the title
 # ------------------------------------------------------------------
-body SrcWin::_set_name { val {found 1} } {
+itcl::body SrcWin::_set_name { val {found 1} } {
   global _files
   _update_title $val
   if {![info exists _files(short,$val)]} {
@@ -608,7 +609,7 @@ body SrcWin::_set_name { val {found 1} } {
 #  If "tmp" is set, the status change will not be saved.
 # ------------------------------------------------------------------
 
-body SrcWin::set_status { {msg ""} {tmp 0} } {
+itcl::body SrcWin::set_status { {msg ""} {tmp 0} } {
   set msg [lindex [split $msg \n] 0]
   if {$tmp} {
     $_status configure -text $msg
@@ -624,7 +625,7 @@ body SrcWin::set_status { {msg ""} {tmp 0} } {
 #  PUBLIC METHOD:  set_execution_status - write the current execution state 
 #  to the status line
 # ------------------------------------------------------------------
-body SrcWin::set_execution_status { {line ""} {pc ""}} {
+itcl::body SrcWin::set_execution_status { {line ""} {pc ""}} {
   global gdb_running gdb_loaded gdb_program_has_run gdb_target_changed
   #debug "line=$line pc=$pc [gdb_target_has_execution] running=$gdb_running loaded=$gdb_loaded"
   set message ""
@@ -698,7 +699,7 @@ body SrcWin::set_execution_status { {line ""} {pc ""}} {
 # ------------------------------------------------------------------
 #  PUBLIC METHOD:  edit - invoke external editor
 # ------------------------------------------------------------------
-body SrcWin::edit {} {
+itcl::body SrcWin::edit {} {
   global external_editor_command
   # If external editor is enabled, pass the file to the specified command
 
@@ -718,7 +719,7 @@ body SrcWin::edit {} {
 # ------------------------------------------------------------------
 #  PUBLIC METHOD:  print - print the contents of the text widget
 # ------------------------------------------------------------------
-body SrcWin::print {} {
+itcl::body SrcWin::print {} {
   # Call the SrcTextWin's print public method
   $twin print $top
 }
@@ -727,7 +728,7 @@ body SrcWin::print {} {
 # PUBLIC METHOD:   enable_ui
 #              Enable all UI elements for user interaction.
 # ------------------------------------------------------------------
-body SrcWin::enable_ui { on } {
+itcl::body SrcWin::enable_ui { on } {
   #debug "$on"
   if {$on} {
     set Running 0
@@ -763,7 +764,7 @@ body SrcWin::enable_ui { on } {
 # 
 # Change mouse pointer to normal
 # ------------------------------------------------------------------
-body SrcWin::no_inferior {} {
+itcl::body SrcWin::no_inferior {} {
   #debug
   set_execution_status
   enable_ui 1
@@ -772,7 +773,7 @@ body SrcWin::no_inferior {} {
 # ------------------------------------------------------------------
 #   PUBLIC METHOD: reset - reset the source window
 # ------------------------------------------------------------------  
-body SrcWin::reset {} {
+itcl::body SrcWin::reset {} {
   set current(filename) ""
   set need_files 1
   set do_updates 1
@@ -794,7 +795,7 @@ body SrcWin::reset {} {
 #  PUBLIC METHOD:  search - search for a STRING or jump to a specific line
 #           in source window, going in the specified DIRECTION.
 # ------------------------------------------------------------------
-body SrcWin::search {direction string} {
+itcl::body SrcWin::search {direction string} {
   set_status
   set_status [$twin search $string $direction] 1
 }
@@ -804,7 +805,7 @@ body SrcWin::search {direction string} {
 #         Proc that may be called to point some source window to
 #         main (or an entry point?). (see gdbtk_tcl_exec_file_changed)
 # ------------------------------------------------------------------
-body SrcWin::point_to_main {} {
+itcl::body SrcWin::point_to_main {} {
   # We need to force this to some default location. Assume main and
   # if that fails, let the source window guess (via gdb_loc using stop_pc).
   set src [lindex [ManagedWin::find SrcWin] 0]
@@ -816,7 +817,7 @@ body SrcWin::point_to_main {} {
   }
 }
 
-body SrcWin::_exit {} {
+itcl::body SrcWin::_exit {} {
   debug
   if {[llength [ManagedWin::find SrcWin]] == 1} {
     if {![gdbtk_quit_check]} {
@@ -827,7 +828,7 @@ body SrcWin::_exit {} {
 }
 
 # public method for testing use only!
-body SrcWin::test_get {var {private_func 0}} {
+itcl::body SrcWin::test_get {var {private_func 0}} {
   debug $var
   if {$private_func} {
     return [code $this $var]
@@ -847,7 +848,7 @@ body SrcWin::test_get {var {private_func 0}} {
 #  running     - Stop button appears, allowing user to stop executing target
 #  downloading - Stop button appears, allowing user to interrupt downloading
 #  normal      - Run button appears, allowing user to run/re-run exe
-body SrcWin::toolbar {state} {
+itcl::body SrcWin::toolbar {state} {
   $_toolbar configure -runstop $state
 }
 
@@ -867,7 +868,7 @@ body SrcWin::toolbar {state} {
 #
 # FIXME: This should really be in an object which describes gdb's state.
 # Unfortunately, this doesn't exist, so it's here for now.
-body SrcWin::inferior {action} {
+itcl::body SrcWin::inferior {action} {
 
   switch $action {
     step { gdbtk_step }
@@ -898,7 +899,7 @@ body SrcWin::inferior {action} {
 # - clear status (done by no_inferior)
 # - allow SrcTextWin to clear_file
 # ------------------------------------------------------------------
-body SrcWin::clear_file {} {
+itcl::body SrcWin::clear_file {} {
 
   # Reset to Source mode
   if {[$twin mode_get] != "SOURCE"} {
@@ -916,7 +917,7 @@ body SrcWin::clear_file {} {
 #  METHOD:  get_file
 #  Return name of displayed file, or empty string if no file.
 # ------------------------------------------------------------------
-body SrcWin::get_file {} {
+itcl::body SrcWin::get_file {} {
   if {$twin == ""} {
     return ""
   } else {
@@ -928,7 +929,7 @@ body SrcWin::get_file {} {
 #  METHOD:  is_fixed
 #  Return boolean indicating whether this window is fixed.
 # ------------------------------------------------------------------
-body SrcWin::is_fixed {} {
+itcl::body SrcWin::is_fixed {} {
   return 0
 }
 
@@ -936,7 +937,7 @@ body SrcWin::is_fixed {} {
 #  METHOD:  get_top
 #  Return toplevel
 # ------------------------------------------------------------------
-body SrcWin::get_top {} {
+itcl::body SrcWin::get_top {} {
   return $top
 }
 
@@ -944,7 +945,7 @@ body SrcWin::get_top {} {
 #  METHOD:  _set_tag_to_stack
 #  Set tag to `stack' and update the underlying window.
 # ------------------------------------------------------------------
-body SrcWin::_set_tag_to_stack {} {
+itcl::body SrcWin::_set_tag_to_stack {} {
   set tag STACK_TAG
   if {$twin != ""} then {
     $twin set_tag_to_stack
@@ -955,7 +956,7 @@ body SrcWin::_set_tag_to_stack {} {
 #  METHOD:  _choose_window
 #  Choose the right source window.
 # ------------------------------------------------------------------
-body SrcWin::_choose_window {file} {
+itcl::body SrcWin::_choose_window {file} {
   # Find the next available source window.  The rules are:
   # 1. LRU overall
   # 2. Skip iconified windows
@@ -998,7 +999,7 @@ body SrcWin::_choose_window {file} {
 #  METHOD:  choose_and_update
 #  Choose the right source window and then cause it to be updated
 # ------------------------------------------------------------------
-body SrcWin::choose_and_update {} {
+itcl::body SrcWin::choose_and_update {} {
   if {$pc_window == ""} then {
     set pc_window [lindex $window_list 0]
   }
@@ -1024,7 +1025,7 @@ body SrcWin::choose_and_update {} {
 #  METHOD:  choose_and_display
 #  Choose the right source window for a given file
 # ------------------------------------------------------------------
-body SrcWin::choose_and_display {tag linespec} {
+itcl::body SrcWin::choose_and_display {tag linespec} {
   set file [lindex $linespec 2]
   set window [_choose_window $file]
   $window location $tag $linespec

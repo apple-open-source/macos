@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mbean PUBLIC
+   "-//JBoss//DTD JBOSS XMBEAN 1.0//EN"
+   "http://www.jboss.org/j2ee/dtd/jboss_xmbean_1_0.dtd"
+[
+   <!ATTLIST interceptor securityDomain CDATA #IMPLIED>
+]>
+
+<mbean>
+   <description>An XMBean testcase with custom interceptors</description>
+
+   <descriptors>
+      <interceptors>
+         <interceptor code="org.jboss.test.jmx.interceptors.SecurityInterceptor"
+            securityDomain="java:/jaas/secured-xmbean"/>
+         <interceptor code="org.jboss.mx.interceptor.PersistenceInterceptor2" />
+         <interceptor code="org.jboss.mx.interceptor.ModelMBeanInterceptor" /> 
+         <interceptor code="org.jboss.mx.interceptor.ObjectReferenceInterceptor" />
+      </interceptors>
+   </descriptors>
+   <class>org.jboss.test.jmx.interceptors.SecuredService</class>
+
+   <!-- Operations -->
+
+   <operation>
+      <description>The start lifecycle operation</description>
+      <name>start</name>
+   </operation>
+   <operation>
+      <description>The stop lifecycle operation</description>
+      <name>stop</name>
+   </operation>
+
+   <operation>
+      <description>A public echo operation</description>
+      <name>echo</name>
+      <parameter>
+         <description>The argument to echo as the return value</description>
+         <name>arg</name>
+         <type>java.lang.String</type>
+      </parameter>
+      <return-type>java.lang.String</return-type>
+   </operation>
+   <operation>
+      <description>A secret echo operation that should not be accessible</description>
+      <name>secretEcho</name>
+      <parameter>
+         <description>The argument to echo as the return value</description>
+         <name>arg</name>
+         <type>java.lang.String</type>
+      </parameter>
+      <return-type>java.lang.String</return-type>
+   </operation>
+
+</mbean>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,8 +22,8 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * Copyright (c) 1990, 1993
+/*-
+ * Copyright (c) 1990, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
  * This code is derived from software contributed to Berkeley by
@@ -58,6 +58,10 @@
  * SUCH DAMAGE.
  */
 
+#if defined(LIBC_SCCS) && !defined(lint)
+static char sccsid[] = "@(#)bt_split.c	8.9 (Berkeley) 7/26/94";
+#endif /* LIBC_SCCS and not lint */
+#include <sys/cdefs.h>
 
 #include <sys/types.h>
 
@@ -69,16 +73,13 @@
 #include <db.h>
 #include "btree.h"
 
-static int	 bt_broot __P((BTREE *, PAGE *, PAGE *, PAGE *));
-static PAGE	*bt_page
-		    __P((BTREE *, PAGE *, PAGE **, PAGE **, indx_t *, size_t));
-static int	 bt_preserve __P((BTREE *, pgno_t));
-static PAGE	*bt_psplit
-		    __P((BTREE *, PAGE *, PAGE *, PAGE *, indx_t *, size_t));
-static PAGE	*bt_root
-		    __P((BTREE *, PAGE *, PAGE **, PAGE **, indx_t *, size_t));
-static int	 bt_rroot __P((BTREE *, PAGE *, PAGE *, PAGE *));
-static recno_t	 rec_total __P((PAGE *));
+static int	 bt_broot(BTREE *, PAGE *, PAGE *, PAGE *);
+static PAGE	*bt_page (BTREE *, PAGE *, PAGE **, PAGE **, indx_t *, size_t);
+static int	 bt_preserve(BTREE *, pgno_t);
+static PAGE	*bt_psplit (BTREE *, PAGE *, PAGE *, PAGE *, indx_t *, size_t);
+static PAGE	*bt_root (BTREE *, PAGE *, PAGE **, PAGE **, indx_t *, size_t);
+static int	 bt_rroot(BTREE *, PAGE *, PAGE *, PAGE *);
+static recno_t	 rec_total(PAGE *);
 
 #ifdef STATISTICS
 u_long	bt_rootsplit, bt_split, bt_sortsplit, bt_pfxsaved;
@@ -100,13 +101,13 @@ u_long	bt_rootsplit, bt_split, bt_sortsplit, bt_pfxsaved;
  *	RET_ERROR, RET_SUCCESS
  */
 int
-__bt_split(t, sp, key, data, flags, ilen, skip)
+__bt_split(t, sp, key, data, flags, ilen, argskip)
 	BTREE *t;
 	PAGE *sp;
 	const DBT *key, *data;
 	int flags;
 	size_t ilen;
-	indx_t skip;
+	u_int32_t argskip;
 {
 	BINTERNAL *bi;
 	BLEAF *bl, *tbl;
@@ -114,7 +115,8 @@ __bt_split(t, sp, key, data, flags, ilen, skip)
 	EPGNO *parent;
 	PAGE *h, *l, *r, *lchild, *rchild;
 	indx_t nxtindex;
-	size_t n, nbytes, nksize;
+	u_int16_t skip;
+	u_int32_t n, nbytes, nksize;
 	int parentsplit;
 	char *dest;
 
@@ -124,6 +126,7 @@ __bt_split(t, sp, key, data, flags, ilen, skip)
 	 * skip set to the offset which should be used.  Additionally, l and r
 	 * are pinned.
 	 */
+	skip = argskip;
 	h = sp->pgno == P_ROOT ?
 	    bt_root(t, sp, &l, &r, &skip, ilen) :
 	    bt_page(t, sp, &l, &r, &skip, ilen);
@@ -136,14 +139,14 @@ __bt_split(t, sp, key, data, flags, ilen, skip)
 	 */
 	h->linp[skip] = h->upper -= ilen;
 	dest = (char *)h + h->upper;
-	if (ISSET(t, R_RECNO))
+	if (F_ISSET(t, R_RECNO))
 		WR_RLEAF(dest, data, flags)
 	else
 		WR_BLEAF(dest, key, data, flags)
 
 	/* If the root page was split, make it look right. */
 	if (sp->pgno == P_ROOT &&
-	    (ISSET(t, R_RECNO) ?
+	    (F_ISSET(t, R_RECNO) ?
 	    bt_rroot(t, sp, l, r) : bt_broot(t, sp, l, r)) == RET_ERROR)
 		goto err2;
 
@@ -251,7 +254,7 @@ __bt_split(t, sp, key, data, flags, ilen, skip)
 		}
 
 		/* Insert the key into the parent page. */
-		switch(rchild->flags & P_TYPE) {
+		switch (rchild->flags & P_TYPE) {
 		case P_BINTERNAL:
 			h->linp[skip] = h->upper -= nbytes;
 			dest = (char *)h + h->linp[skip];
@@ -316,7 +319,7 @@ __bt_split(t, sp, key, data, flags, ilen, skip)
 
 		/* If the root page was split, make it look right. */
 		if (sp->pgno == P_ROOT &&
-		    (ISSET(t, R_RECNO) ?
+		    (F_ISSET(t, R_RECNO) ?
 		    bt_rroot(t, sp, l, r) : bt_broot(t, sp, l, r)) == RET_ERROR)
 			goto err1;
 
@@ -409,6 +412,9 @@ bt_page(t, h, lp, rp, skip, ilen)
 		mpool_put(t->bt_mp, r, 0);
 		return (NULL);
 	}
+#ifdef PURIFY
+	memset(l, 0xff, t->bt_psize);
+#endif
 	l->pgno = h->pgno;
 	l->nextpg = r->pgno;
 	l->prevpg = h->prevpg;
@@ -424,7 +430,7 @@ bt_page(t, h, lp, rp, skip, ilen)
 			return (NULL);
 		}
 		tp->prevpg = r->pgno;
-		mpool_put(t->bt_mp, tp, 0);
+		mpool_put(t->bt_mp, tp, MPOOL_DIRTY);
 	}
 
 	/*
@@ -555,7 +561,7 @@ bt_broot(t, h, l, r)
 {
 	BINTERNAL *bi;
 	BLEAF *bl;
-	size_t nbytes;
+	u_int32_t nbytes;
 	char *dest;
 
 	/*
@@ -571,7 +577,7 @@ bt_broot(t, h, l, r)
 	dest = (char *)h + h->upper;
 	WR_BINTERNAL(dest, 0, l->pgno, 0);
 
-	switch(h->flags & P_TYPE) {
+	switch (h->flags & P_TYPE) {
 	case P_BLEAF:
 		bl = GETBLEAF(r, 0);
 		nbytes = NBINTERNAL(bl->ksize);
@@ -634,12 +640,12 @@ bt_psplit(t, h, l, r, pskip, ilen)
 {
 	BINTERNAL *bi;
 	BLEAF *bl;
+	CURSOR *c;
 	RLEAF *rl;
-	EPGNO *c;
 	PAGE *rval;
 	void *src;
 	indx_t full, half, nxt, off, skip, top, used;
-	size_t nbytes;
+	u_int32_t nbytes;
 	int bigkeycnt, isbigkey;
 
 	/*
@@ -689,7 +695,8 @@ bt_psplit(t, h, l, r, pskip, ilen)
 		 * where we decide to try and copy too much onto the left page.
 		 * Make sure that doesn't happen.
 		 */
-		if (skip <= off && used + nbytes >= full) {
+		if ((skip <= off && used + nbytes + sizeof(indx_t) >= full)
+		    || nxt == top - 1) {
 			--off;
 			break;
 		}
@@ -702,7 +709,7 @@ bt_psplit(t, h, l, r, pskip, ilen)
 			memmove((char *)l + l->upper, src, nbytes);
 		}
 
-		used += nbytes;
+		used += nbytes + sizeof(indx_t);
 		if (used >= half) {
 			if (!isbigkey || bigkeycnt == 3)
 				break;
@@ -723,19 +730,16 @@ bt_psplit(t, h, l, r, pskip, ilen)
 	 * cursor is at or past the skipped slot, the cursor is incremented by
 	 * one.  If the cursor is on the right page, it is decremented by the
 	 * number of records split to the left page.
-	 *
-	 * Don't bother checking for the B_SEQINIT flag, the page number will
-	 * be P_INVALID.
 	 */
-	c = &t->bt_bcursor;
-	if (c->pgno == h->pgno) {
-		if (c->index >= skip)
-			++c->index;
-		if (c->index < nxt)			/* Left page. */
-			c->pgno = l->pgno;
+	c = &t->bt_cursor;
+	if (F_ISSET(c, CURS_INIT) && c->pg.pgno == h->pgno) {
+		if (c->pg.index >= skip)
+			++c->pg.index;
+		if (c->pg.index < nxt)			/* Left page. */
+			c->pg.pgno = l->pgno;
 		else {					/* Right page. */
-			c->pgno = r->pgno;
-			c->index -= nxt;
+			c->pg.pgno = r->pgno;
+			c->pg.index -= nxt;
 		}
 	}
 

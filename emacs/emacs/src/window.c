@@ -3521,11 +3521,36 @@ enlarge_window (window, delta, widthflag)
       register int delta1;
       register int opht = (*sizefun) (parent);
 
-      /* If trying to grow this window to or beyond size of the parent,
-	 make delta1 so big that, on shrinking back down,
-	 all the siblings end up with less than one line and are deleted.  */
       if (opht <= XINT (*sizep) + delta)
-	delta1 = opht * opht * 2;
+	{
+	  /* If trying to grow this window to or beyond size of the parent,
+	     just delete all the sibling windows.  */
+	  Lisp_Object start, tem, next;
+
+	  start = XWINDOW (parent)->vchild;
+	  if (NILP (start))
+	    start = XWINDOW (parent)->hchild;
+
+	  /* Delete any siblings that come after WINDOW.  */
+	  tem = XWINDOW (window)->next;
+	  while (! NILP (tem))
+	    {
+	      next = XWINDOW (tem)->next;
+	      delete_window (tem);
+	      tem = next;
+	    }
+
+	  /* Delete any siblings that come after WINDOW.
+	     Note that if START is not WINDOW, then WINDOW still
+	     Fhas siblings, so WINDOW has not yet replaced its parent.  */
+	  tem = start;
+	  while (! EQ (tem, window))
+	    {
+	      next = XWINDOW (tem)->next;
+	      delete_window (tem);
+	      tem = next;
+	    }
+	}
       else
 	{
 	  /* Otherwise, make delta1 just right so that if we add
@@ -3568,19 +3593,20 @@ enlarge_window (window, delta, widthflag)
 	      ++n;
 
 	  delta1 = n * delta;
+
+	  /* Add delta1 lines or columns to this window, and to the parent,
+	     keeping things consistent while not affecting siblings.  */
+	  XSETINT (CURSIZE (parent), opht + delta1);
+	  (*setsizefun) (window, XINT (*sizep) + delta1, 0);
+
+	  /* Squeeze out delta1 lines or columns from our parent,
+	     shriking this window and siblings proportionately.
+	     This brings parent back to correct size.
+	     Delta1 was calculated so this makes this window the desired size,
+	     taking it all out of the siblings.  */
+	  (*setsizefun) (parent, opht, 0);
+
 	}
-
-      /* Add delta1 lines or columns to this window, and to the parent,
-	 keeping things consistent while not affecting siblings.  */
-      XSETINT (CURSIZE (parent), opht + delta1);
-      (*setsizefun) (window, XINT (*sizep) + delta1, 0);
-
-      /* Squeeze out delta1 lines or columns from our parent,
-	 shriking this window and siblings proportionately.
-	 This brings parent back to correct size.
-	 Delta1 was calculated so this makes this window the desired size,
-	 taking it all out of the siblings.  */
-      (*setsizefun) (parent, opht, 0);
     }
 
   XSETFASTINT (p->last_modified, 0);
@@ -3777,7 +3803,9 @@ grow_mini_window (w, delta)
     {
       int min_height = window_min_size (root, 0, 0, 0);
       if (XFASTINT (root->height) - delta < min_height)
-	delta = XFASTINT (root->height) - min_height;
+	/* Note that the roor window may already be smaller than
+	   min_height.  */
+	delta = max (0, XFASTINT (root->height) - min_height);
     }
     
   if (delta)
@@ -4430,7 +4458,13 @@ showing that buffer, popping the buffer up if necessary.")
 
 DEFUN ("scroll-left", Fscroll_left, Sscroll_left, 0, 1, "P",
   "Scroll selected window display ARG columns left.\n\
-Default for ARG is window width minus 2.")
+Default for ARG is window width minus 2.\n\
+Value is the total amount of leftward horizontal scrolling in\n\
+effect after the change.\n\
+If `automatic-hscrolling' is non-nil, the argument ARG modifies\n\
+a lower bound for automatic scrolling, i.e. automatic scrolling\n\
+will not scroll a window to a column less than the value returned\n\
+by this function.")
   (arg)
      register Lisp_Object arg;
 {
@@ -4454,7 +4488,13 @@ Default for ARG is window width minus 2.")
 
 DEFUN ("scroll-right", Fscroll_right, Sscroll_right, 0, 1, "P",
   "Scroll selected window display ARG columns right.\n\
-Default for ARG is window width minus 2.")
+Default for ARG is window width minus 2.\n\
+Value is the total amount of leftward horizontal scrolling in\n\
+effect after the change.\n\
+If `automatic-hscrolling' is non-nil, the argument ARG modifies\n\
+a lower bound for automatic scrolling, i.e. automatic scrolling\n\
+will not scroll a window to a column less than the value returned\n\
+by this function.")
   (arg)
      register Lisp_Object arg;
 {
@@ -4598,18 +4638,17 @@ and redisplay normally--don't erase and redraw the frame.")
 	  nlines = - XINT (arg) - 1;
 	  move_it_by_lines (&it, nlines, 1);
 
-	  y1 = it.current_y - y0;
-	  h = line_bottom_y (&it) - y1;
+	  y1 = line_bottom_y (&it);
 
 	  /* If we can't move down NLINES lines because we hit
 	     the end of the buffer, count in some empty lines.  */
 	  if (it.vpos < nlines)
 	    y1 += (nlines - it.vpos) * CANON_Y_UNIT (it.f);
 	  
-	  y0 = it.last_visible_y - y1 - h;
-	  
+	  h = window_box_height (w) - (y1 - y0);
+
 	  start_display (&it, w, pt);
-	  move_it_vertically (&it, - y0);
+	  move_it_vertically (&it, - h);
 	  charpos = IT_CHARPOS (it);
 	  bytepos = IT_BYTEPOS (it);
 	}
@@ -5427,8 +5466,8 @@ Value is a multiple of the canonical character height of WINDOW.")
 DEFUN ("set-window-vscroll", Fset_window_vscroll, Sset_window_vscroll,
        2, 2, 0,
   "Set amount by which WINDOW should be scrolled vertically to VSCROLL.\n\
-WINDOW nil or omitted means use the selected window.  VSCROLL is a\n\
-non-negative multiple of the canonical character height of WINDOW.")
+WINDOW nil means use the selected window.  VSCROLL is a non-negative\n\
+multiple of the canonical character height of WINDOW.")
   (window, vscroll)
      Lisp_Object window, vscroll;
 {

@@ -155,6 +155,10 @@ void HTMLElementImpl::parseAttribute(AttributeImpl *attr)
 	setHTMLEventListener(EventImpl::KHTML_CLICK_EVENT,
 	    getDocument()->createHTMLEventListener(attr->value().string()));
         break;
+    case ATTR_ONCONTEXTMENU:
+	setHTMLEventListener(EventImpl::CONTEXTMENU_EVENT,
+	    getDocument()->createHTMLEventListener(attr->value().string()));
+        break;
     case ATTR_ONDBLCLICK:
 	setHTMLEventListener(EventImpl::KHTML_DBLCLICK_EVENT,
 	    getDocument()->createHTMLEventListener(attr->value().string()));
@@ -538,7 +542,7 @@ void HTMLElementImpl::addHTMLAlignment( DOMString alignment )
     } else if ( strcasecmp( alignment, "top" ) == 0 ) {
 	propvalign = CSS_VAL_TOP;
     } else if ( strcasecmp( alignment, "middle" ) == 0 ) {
-	propvalign = CSS_VAL__KONQ_BASELINE_MIDDLE;
+	propvalign = CSS_VAL__KHTML_BASELINE_MIDDLE;
     } else if ( strcasecmp( alignment, "center" ) == 0 ) {
 	propvalign = CSS_VAL_MIDDLE;
     } else if ( strcasecmp( alignment, "bottom" ) == 0 ) {

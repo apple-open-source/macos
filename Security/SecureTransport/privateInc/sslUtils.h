@@ -79,7 +79,15 @@ OSStatus sslRand(
 	SSLContext 		*ctx, 
 	SSLBuffer 		*buf);
 	
-	
+OSStatus sslVerifyProtVersion(
+	SSLContext 			*ctx,
+	SSLProtocolVersion	peerVersion,
+	SSLProtocolVersion 	*negVersion);
+
+OSStatus sslGetMaxProtVersion(
+	SSLContext 			*ctx,
+	SSLProtocolVersion	*version);	// RETURNED
+
 #define SET_SSL_BUFFER(buf, d, l)   do { (buf).data = (d); (buf).length = (l); } while (0)
 
 #ifdef	__cplusplus

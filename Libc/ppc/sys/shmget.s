@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(shmget, 3)
-	blr
 

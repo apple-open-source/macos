@@ -1,0 +1,184 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from .././gimpprint.texi on 22 January 2003 -->
+
+<TITLE>GIMP-Print - Printer functions</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_15.html">previous</A>, <A HREF="gimpprint_17.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H2><A NAME="SEC21" HREF="gimpprint_toc.html#TOC21">4.6  Printer functions</A></H2>
+<P>
+<A NAME="IDX139"></A>
+
+</P>
+<P>
+<DL>
+<DT><U>Data type:</U> void * <B>stp_printer_t</B>
+<DD><A NAME="IDX140"></A>
+This is an opaque data type, whose structure is not visible to the
+user.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> int <B>stp_known_printers</B> <I>(void)</I>
+<DD><A NAME="IDX141"></A>
+
+</P>
+</DL>
+
+<P>
+<DL>
+<DT><U>Function:</U> const stp_printer_t <B>stp_get_printer_by_index</B> <I>(int <VAR>idx</VAR>)</I>
+<DD><A NAME="IDX142"></A>
+
+</P>
+</DL>
+
+<P>
+<DL>
+<DT><U>Function:</U> const char * <B>stp_printer_get_long_name</B> <I>(const stp_printer_t <VAR>p</VAR>)</I>
+<DD><A NAME="IDX143"></A>
+
+</P>
+</DL>
+
+<P>
+<DL>
+<DT><U>Function:</U> const stp_printer_t <B>stp_get_printer_by_long_name</B> <I>(const char *<VAR>long_name</VAR>)</I>
+<DD><A NAME="IDX144"></A>
+
+</P>
+</DL>
+
+<P>
+<DL>
+<DT><U>Function:</U> const stp_printer_t <B>stp_get_printer_by_driver</B> <I>(const char *<VAR>driver</VAR>)</I>
+<DD><A NAME="IDX145"></A>
+
+</P>
+</DL>
+
+<P>
+<DL>
+<DT><U>Function:</U> int <B>stp_get_printer_index_by_driver</B> <I>(const char *<VAR>driver</VAR>)</I>
+<DD><A NAME="IDX146"></A>
+
+</P>
+</DL>
+
+<P>
+<DL>
+<DT><U>Function:</U> const char * <B>stp_printer_get_driver</B> <I>(const stp_printer_t <VAR>p</VAR>)</I>
+<DD><A NAME="IDX147"></A>
+
+</P>
+</DL>
+
+<P>
+<DL>
+<DT><U>Function:</U> int <B>stp_printer_get_model</B> <I>(const stp_printer_t <VAR>p</VAR>)</I>
+<DD><A NAME="IDX148"></A>
+
+</P>
+</DL>
+
+<P>
+<DL>
+<DT><U>Function:</U> const stp_printfuncs_t * <B>stp_printer_get_printfuncs</B> <I>(const stp_printer_t <VAR>p</VAR>)</I>
+<DD><A NAME="IDX149"></A>
+
+</P>
+</DL>
+
+<P>
+<DL>
+<DT><U>Data type:</U>  <B>stp_printfuncs_t</B>
+<DD><A NAME="IDX150"></A>
+
+<PRE>
+typedef struct
+{
+  char  **(*parameters)(const stp_printer_t printer,
+                        const char *ppd_file,
+                        const char *name, int *count);
+  void  (*media_size)(const stp_printer_t printer,
+                      const stp_vars_t v, int *width,
+                      int *height);
+  void  (*imageable_area)(const stp_printer_t printer,
+                          const stp_vars_t v,
+                          int *left, int *right,
+                          int *bottom, int *top);
+  void  (*limit)(const stp_printer_t printer,
+                 const stp_vars_t v,
+                 int *width, int *height);
+  void  (*print)(const stp_printer_t printer,
+                 stp_image_t *image, const stp_vars_t v);
+  const char *(*default_parameters)(const stp_printer_t printer,
+                                    const char *ppd_file,
+                                    const char *name);
+  void  (*describe_resolution)(const stp_printer_t printer,
+                               const char *resolution,
+                               int *x, int *y);
+  int   (*verify)(const stp_printer_t p, const stp_vars_t v);
+} stp_printfuncs_t;
+</PRE>
+
+</DL>
+
+<P>
+<DL>
+<DT><U>Data type:</U>  <B>stp_image_t</B>
+<DD><A NAME="IDX151"></A>
+
+<PRE>
+typedef struct stp_image
+{
+  void (*init)(struct stp_image *image);
+  void (*reset)(struct stp_image *image);
+  void (*transpose)(struct stp_image *image);
+  void (*hflip)(struct stp_image *image);
+  void (*vflip)(struct stp_image *image);
+  void (*crop)(struct stp_image *image,
+               int left, int top, int right,
+               int bottom);
+  void (*rotate_ccw)(struct stp_image *image);
+  void (*rotate_cw)(struct stp_image *image);
+  void (*rotate_180)(struct stp_image *image);
+  int  (*bpp)(struct stp_image *image);
+  int  (*width)(struct stp_image *image);
+  int  (*height)(struct stp_image *image);
+  void (*get_row)(struct stp_image *image,
+        unsigned char *data, int row);
+  const char *(*get_appname)(struct stp_image *image);
+  void (*progress_init)(struct stp_image *image);
+  void (*note_progress)(struct stp_image *image,
+        double current, double total);
+  void (*progress_conclude)(struct stp_image *image);
+  void *rep;
+} stp_image_t;
+</PRE>
+
+<P>
+This is an abstract data type for interfacing with the program which
+created the image.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> const stp_vars_t <B>stp_printer_get_printvars</B> <I>(const stp_printer_t <VAR>p</VAR>)</I>
+<DD><A NAME="IDX152"></A>
+
+</P>
+</DL>
+
+<P><HR><P>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_15.html">previous</A>, <A HREF="gimpprint_17.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+</BODY>
+</HTML>

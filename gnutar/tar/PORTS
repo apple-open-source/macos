@@ -1,9 +1,35 @@
-* Ports of GNU tar and other micro-tars			-*- outline -*-
+* Ports of GNU tar and other tars			-*- outline -*-
 
-  Please write tar-bugs@gnu.org if you are aware of various ports
-  of GNU tar to non-Unix systems not listed here, or for corrections.
+  Please write bug-tar@gnu.org if you are aware of various ports of GNU tar
+  to non-GNU and non-Unix systems not listed here, or for corrections.
   Please provide the goal system, a complete and stable URL, the maintainer
   name and address, the tar version used as a base, and your comments.
+
+.* Copyright notice
+
+  Copyright (C) 1999, 2001 Free Software Foundation, Inc.
+
+  This file is part of GNU tar.
+
+  GNU tar is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2, or (at your option)
+  any later version.
+
+  GNU tar is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with GNU tar; see the file COPYING.  If not, write to
+  the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+  Boston, MA 02111-1307, USA.
+
+.* GNU/Linux and Unix
+
+. + Star <ftp://ftp.fokus.gmd.de/pub/unix/star> is a tape archiver
+    similar to tar.
 
 .* Amiga
 

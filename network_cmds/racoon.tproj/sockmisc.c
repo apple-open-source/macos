@@ -1,4 +1,4 @@
-/*	$KAME: sockmisc.c,v 1.34 2001/12/07 21:35:46 sakane Exp $	*/
+/*	$KAME: sockmisc.c,v 1.36 2002/04/15 06:20:08 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -531,6 +531,7 @@ sendfromto(s, buf, buflen, src, dst, cnt)
 				       (void *)&yes, sizeof(yes)) < 0) {
 				plog(LLV_ERROR, LOCATION, NULL,
 					"setsockopt (%s)\n", strerror(errno));
+				close(sendsock);
 				return -1;
 			}
 #ifdef IPV6_USE_MIN_MTU
@@ -539,15 +540,19 @@ sendfromto(s, buf, buflen, src, dst, cnt)
 			    (void *)&yes, sizeof(yes)) < 0) {
 				plog(LLV_ERROR, LOCATION, NULL,
 					"setsockopt (%s)\n", strerror(errno));
+				close(sendsock);
 				return -1;
 			}
 #endif
-			if (setsockopt_bypass(sendsock, src->sa_family) < 0)
+			if (setsockopt_bypass(sendsock, src->sa_family) < 0) {
+				close(sendsock);
 				return -1;
+			}
 
 			if (bind(sendsock, (struct sockaddr *)src, src->sa_len) < 0) {
 				plog(LLV_ERROR, LOCATION, NULL,
 					"bind 1 (%s)\n", strerror(errno));
+				close(sendsock);
 				return -1;
 			}
 			needclose = 1;
@@ -558,6 +563,8 @@ sendfromto(s, buf, buflen, src, dst, cnt)
 			if (len < 0) {
 				plog(LLV_ERROR, LOCATION, NULL,
 					"sendto (%s)\n", strerror(errno));
+				if (needclose)
+					close(sendsock);
 				return len;
 			}
 			plog(LLV_DEBUG, LOCATION, NULL,
@@ -742,6 +749,7 @@ str2saddr(host, port)
 		return NULL;
 	}
 	memcpy(saddr, res->ai_addr, res->ai_addrlen);
+	freeaddrinfo(res);
 
 	return saddr;
 }

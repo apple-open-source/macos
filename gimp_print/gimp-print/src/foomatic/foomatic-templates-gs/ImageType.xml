@@ -1,0 +1,63 @@
+<option type="enum" id="opt/@@DRVNAME@@-imagetype">
+  <!-- A multilingual <comments> block can appear here, too;
+       it should be treated as documentation for the user. -->
+  <arg_longname>
+   <en>Image Type</en>
+  </arg_longname>
+  <arg_shortname>
+   <en>ImageType</en><!-- backends only know <en> shortnames! -->
+  </arg_shortname>
+  <arg_execution>@@GROUP@@
+   <arg_order>100</arg_order>
+   <arg_spot>A</arg_spot>
+   <arg_postscript />
+   <arg_proto>&lt;&lt;/ImageType %s&gt;&gt;setpagedevice</arg_proto>
+  </arg_execution>
+  <constraints>
+     <constraint sense="true">
+      <driver>@@DRVNAME@@</driver>
+      <arg_defval>@@DRVNAME@@-LineArt</arg_defval>
+     </constraint>
+  </constraints>
+  <enum_vals>
+   <enum_val id="@@DRVNAME@@-LineArt">
+    <ev_longname>
+     <en>Line art</en>
+    </ev_longname>
+    <!-- A multilingual <comments> block can appear here, too;
+         it should be treated as documentation for the user. -->
+    <ev_shortname>
+     <en>LineArt</en>
+     <!-- Until someone tells me how to learn the user locale in
+          backends, the shortname must be monolingual in <en>! -->
+    </ev_shortname>
+    <ev_driverval>0</ev_driverval>
+   </enum_val>
+   <enum_val id="@@DRVNAME@@-SolidColors">
+    <ev_longname>
+     <en>Primarily solid colors or smooth gradients</en>
+    </ev_longname>
+    <!-- A multilingual <comments> block can appear here, too;
+         it should be treated as documentation for the user. -->
+    <ev_shortname>
+     <en>Solids</en>
+     <!-- Until someone tells me how to learn the user locale in
+          backends, the shortname must be monolingual in <en>! -->
+    </ev_shortname>
+    <ev_driverval>1</ev_driverval>
+   </enum_val>
+   <enum_val id="@@DRVNAME@@-Photographs">
+    <ev_longname>
+     <en>Continuous-tone photographs</en>
+    </ev_longname>
+    <!-- A multilingual <comments> block can appear here, too;
+         it should be treated as documentation for the user. -->
+    <ev_shortname>
+     <en>Photographs</en>
+     <!-- Until someone tells me how to learn the user locale in
+          backends, the shortname must be monolingual in <en>! -->
+    </ev_shortname>
+    <ev_driverval>2</ev_driverval>
+   </enum_val>
+  </enum_vals>
+</option>

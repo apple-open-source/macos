@@ -1,6 +1,26 @@
 /* utility functions for `patch' */
 
-/* $Id: util.h,v 1.1.1.2 2000/05/06 22:44:56 wsanchez Exp $ */
+/* $Id: util.h,v 1.1.1.3 2003/05/08 18:38:04 rbraun Exp $ */
+
+/* Copyright (C) 1986 Larry Wall
+
+   Copyright (C) 1992, 1993, 1997, 1998, 1999, 2001, 2002 Free
+   Software Foundation, Inc.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; see the file COPYING.
+   If not, write to the Free Software Foundation,
+   59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 /* An upper bound on the print length of a signed decimal line number.
    Add one for the sign.  */
@@ -8,32 +28,32 @@
 
 XTERN enum backup_type backup_type;
 
-int ok_to_reverse PARAMS ((char const *, ...)) __attribute__ ((format (printf, 1, 2)));
-void ask PARAMS ((char const *, ...)) __attribute__ ((format (printf, 1, 2)));
-void say PARAMS ((char const *, ...)) __attribute__ ((format (printf, 1, 2)));
+int ok_to_reverse (char const *, ...) __attribute__ ((format (printf, 1, 2)));
+void ask (char const *, ...) __attribute__ ((format (printf, 1, 2)));
+void say (char const *, ...) __attribute__ ((format (printf, 1, 2)));
 
-void fatal PARAMS ((char const *, ...))
+void fatal (char const *, ...)
 	__attribute__ ((noreturn, format (printf, 1, 2)));
-void pfatal PARAMS ((char const *, ...))
+void pfatal (char const *, ...)
 	__attribute__ ((noreturn, format (printf, 1, 2)));
 
-char *fetchname PARAMS ((char *, int, time_t *));
-char *savebuf PARAMS ((char const *, size_t));
-char *savestr PARAMS ((char const *));
-char const *version_controller PARAMS ((char const *, int, struct stat const *, char **, char **));
-int version_get PARAMS ((char const *, char const *, int, int, char const *, struct stat *));
-int create_file PARAMS ((char const *, int, mode_t));
-int systemic PARAMS ((char const *));
-char *format_linenum PARAMS ((char[LINENUM_LENGTH_BOUND + 1], LINENUM));
-void Fseek PARAMS ((FILE *, file_offset, int));
-void copy_file PARAMS ((char const *, char const *, int, mode_t));
-void exit_with_signal PARAMS ((int)) __attribute__ ((noreturn));
-void ignore_signals PARAMS ((void));
-void init_time PARAMS ((void));
-void memory_fatal PARAMS ((void)) __attribute__ ((noreturn));
-void move_file PARAMS ((char const *, int volatile *, char *, mode_t, int));
-void read_fatal PARAMS ((void)) __attribute__ ((noreturn));
-void remove_prefix PARAMS ((char *, size_t));
-void removedirs PARAMS ((char *));
-void set_signals PARAMS ((int));
-void write_fatal PARAMS ((void)) __attribute__ ((noreturn));
+char *fetchname (char *, int, time_t *);
+char *savebuf (char const *, size_t);
+char *savestr (char const *);
+char const *version_controller (char const *, int, struct stat const *, char **, char **);
+int version_get (char const *, char const *, int, int, char const *, struct stat *);
+int create_file (char const *, int, mode_t);
+int systemic (char const *);
+char *format_linenum (char[LINENUM_LENGTH_BOUND + 1], LINENUM);
+void Fseek (FILE *, file_offset, int);
+void copy_file (char const *, char const *, int, mode_t);
+void exit_with_signal (int) __attribute__ ((noreturn));
+void ignore_signals (void);
+void init_time (void);
+void memory_fatal (void) __attribute__ ((noreturn));
+void move_file (char const *, int volatile *, char *, mode_t, int);
+void read_fatal (void) __attribute__ ((noreturn));
+void remove_prefix (char *, size_t);
+void removedirs (char *);
+void set_signals (int);
+void write_fatal (void) __attribute__ ((noreturn));

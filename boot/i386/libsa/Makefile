@@ -8,7 +8,8 @@ INSTALL_MD_DIR = $(DSTROOT)/System/Library/Frameworks/System.framework/Versions/
 
 OPTIM = -Os
 CFLAGS	= $(RC_CFLAGS) $(OPTIM) $(MORECPP) -arch i386 -g -Wmost -Werror \
-	      -fno-builtin -static
+	      -fno-builtin -static -fomit-frame-pointer \
+	      -mpreferred-stack-boundary=2 -fno-align-functions
 
 INC = -I. -I$(SYMROOT) -I$(UTILDIR)
 ifneq "" "$(wildcard /bin/mkdirs)"
@@ -32,9 +33,8 @@ CFILES = prf.c printf.c zalloc.c \
 	string.c strtol.c error.c \
 	qsort.c
 HFILES = memory.h
-EXPORTED_HFILES = libsa.h kernBootStruct.h memory.h
+EXPORTED_HFILES = libsa.h memory.h
 INSTALLED_SA_HFILES = libsa.h
-INSTALLED_MD_HFILES = kernBootStruct.h
 OTHERFILES = Makefile
 ALLSRC =  $(SFILES) $(CFILES) $(HFILES) $(OTHERFILES)
 LIBS = libsa.a
@@ -55,7 +55,6 @@ $(INSTALL_SA_DIR) $(INSTALL_MD_DIR):
 
 installhdrs:: $(INSTALL_SA_DIR) $(INSTALL_MD_DIR)
 	cp $(INSTALLED_SA_HFILES) $(INSTALL_SA_DIR)
-	cp $(INSTALLED_MD_HFILES) $(INSTALL_MD_DIR)
 
 include ../MakeInc.dir
 

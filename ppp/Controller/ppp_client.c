@@ -2,21 +2,24 @@
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -79,20 +82,36 @@ void client_dispose (struct client *client)
     struct client_opts	*opts;
     
     TAILQ_REMOVE(&client_head, client, next);
+    
+    ppp_clientgone(client);
 
     while (opts = TAILQ_FIRST(&(client->opts_head))) {
         
         TAILQ_REMOVE(&(client->opts_head), opts, next);
+        CFRelease(opts->serviceid);
         free(opts);
     }
 
+    client->notify_link = 0;    
+    client->notify_useserviceid = 0;    
+    if (client->notify_serviceid) {
+        free(client->notify_serviceid);
+        client->notify_serviceid = 0;
+    }
+    
+    if (client->msg) {
+        CFAllocatorDeallocate(NULL, client->msg);
+        client->msg = 0;
+    }
+    client->msglen = 0;
+    client->msgtotallen = 0;
     CFRelease(client->ref);
     free(client);
 }
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-struct options *client_newoptset (struct client *client, u_long link)
+CFMutableDictionaryRef client_newoptset (struct client *client, CFStringRef serviceid)
 {
     struct client_opts	*opts;
 
@@ -102,28 +121,35 @@ struct options *client_newoptset (struct client *client, u_long link)
 
     bzero(opts, sizeof(struct client_opts));
 
-    opts->link = link;
+    opts->opts = CFDictionaryCreateMutable(NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if (opts->opts == 0) {
+        free(opts);
+        return 0;	// very bad...
+    }
+        
+    opts->serviceid = serviceid;
+    CFRetain(opts->serviceid);
     TAILQ_INSERT_TAIL(&(client->opts_head), opts, next);
 
-    return &opts->opts;
+    return opts->opts;
 }
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-struct options *client_findoptset (struct client *client, u_long link)
+CFMutableDictionaryRef client_findoptset (struct client *client, CFStringRef serviceid)
 {
     struct client_opts	*opts;
     
     TAILQ_FOREACH(opts, &(client->opts_head), next) 
-        if (opts->link == link)
-            return &opts->opts;
+        if (CFStringCompare(opts->serviceid, serviceid, 0) == kCFCompareEqualTo)
+            return opts->opts;
     
     return 0;
 }
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-u_long client_notify (u_char *serviceid, u_long link, u_long state, u_long error)
+u_long client_notify (u_char* sid, u_int32_t link, u_long event, u_long error, int notification)
 {
     struct ppp_msg_hdr	msg;
     struct client	*client;
@@ -132,11 +158,10 @@ u_long client_notify (u_char *serviceid, u_long link, u_long state, u_long error
     TAILQ_FOREACH(client, &client_head, next) {
         doit = 0;
         
-        if (client->notify) {
-            if (client->notify_useservice) {
-                doit = (serviceid
-                        && ((client->notify_service == 0)
-                            || !strcmp(serviceid, client->notify_service)));
+        if (client->notify & notification) {
+            if (client->notify_useserviceid) {
+                doit = ((client->notify_serviceid == 0)	// any service
+                        || !strcmp(client->notify_serviceid, sid));
             }
             else { 
                 doit = ((client->notify_link == link)			// exact same link
@@ -150,18 +175,18 @@ u_long client_notify (u_char *serviceid, u_long link, u_long state, u_long error
             bzero(&msg, sizeof(msg));
             msg.m_type = PPP_EVENT;
             msg.m_link = link;
-            msg.m_result = state;
+            msg.m_result = event;
             msg.m_cookie = error;
-            if (client->notify_useservice) {
+            if (client->notify_useserviceid) {
                 msg.m_flags |= USE_SERVICEID;
-                msg.m_link = strlen(serviceid);
+                msg.m_link = strlen(sid);
             }
             
-            if (write(CFSocketGetNative(client->ref), &msg, sizeof(msg)) != sizeof(msg))
+            if (writen(CFSocketGetNative(client->ref), &msg, sizeof(msg)) != sizeof(msg))
                 continue;
 
-            if (client->notify_useservice) {
-                if (write(CFSocketGetNative(client->ref), serviceid, msg.m_link) != msg.m_link)
+            if (client->notify_useserviceid) {
+                if (writen(CFSocketGetNative(client->ref), sid, msg.m_link) != msg.m_link)
                     continue;
             }
         }

@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -30,15 +33,14 @@
  * - initial revision
  */
 
+#include <pthread.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
 
 #include "scutil.h"
-
-#include <SystemConfiguration/SCPrivate.h>
-#include "v1Compatibility.h"
+#include "notify.h"
 
 
 static int			osig;
@@ -63,7 +65,7 @@ storeCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 
 	n = CFArrayGetCount(changedKeys);
 	if (n > 0) {
-		for (i=0; i<n; i++) {
+		for (i = 0; i < n; i++) {
 			SCPrint(TRUE,
 				stdout,
 				CFSTR("  changed key [%d] = %@\n"),
@@ -87,32 +89,32 @@ do_notify_list(int argc, char **argv)
 	Boolean			isRegex = FALSE;
 	CFMutableArrayRef	sortedList;
 
+	if (!store) {
+		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(kSCStatusNoStoreSession));
+		return;
+	}
+
 	if (argc == 1)
 		isRegex = TRUE;
 
-	list = SCDynamicStoreCopyWatchedKeyList(store, isRegex);
+	list = isRegex ? watchedPatterns : watchedKeys;
 	if (!list) {
-		if (SCError() != kSCStatusOK) {
-			SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
-		} else {
-			SCPrint(TRUE,
-				stdout,
-				CFSTR("  no notifier %s.\n"),
-				isRegex ? "patterns" : "keys");
-		}
+		SCPrint(TRUE,
+			stdout,
+			CFSTR("  no notifier %s.\n"),
+			isRegex ? "patterns" : "keys");
 		return;
 	}
 
 	listCnt = CFArrayGetCount(list);
 	sortedList = CFArrayCreateMutableCopy(NULL, listCnt, list);
-	CFRelease(list);
 	CFArraySortValues(sortedList,
 			  CFRangeMake(0, listCnt),
 			  sort_keys,
 			  NULL);
 
 	if (listCnt > 0) {
-		for (i=0; i<listCnt; i++) {
+		for (i = 0; i < listCnt; i++) {
 			SCPrint(TRUE,
 				stdout,
 				CFSTR("  notifier %s [%d] = %@\n"),
@@ -135,18 +137,34 @@ do_notify_list(int argc, char **argv)
 void
 do_notify_add(int argc, char **argv)
 {
-	CFStringRef	key;
-	Boolean		isRegex = FALSE;
+	CFStringRef		key;
+	CFMutableArrayRef	keys;
+	Boolean			isRegex = FALSE;
+
+	if (!store) {
+		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(kSCStatusNoStoreSession));
+		return;
+	}
 
 	key = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingMacRoman);
 
 	if (argc == 2)
 		isRegex = TRUE;
 
-	if (!SCDynamicStoreAddWatchedKey(store, key, isRegex)) {
+	keys = isRegex ? watchedPatterns : watchedKeys;
+	if (CFArrayContainsValue(keys, CFRangeMake(0, CFArrayGetCount(keys)), key)) {
+		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(kSCStatusKeyExists));
+		CFRelease(key);
+		return;
+	}
+
+	CFArrayAppendValue(keys, key);
+	CFRelease(key);
+
+	if (!SCDynamicStoreSetNotificationKeys(store, watchedKeys, watchedPatterns)) {
 		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
 	}
-	CFRelease(key);
+
 	return;
 }
 
@@ -154,18 +172,36 @@ do_notify_add(int argc, char **argv)
 void
 do_notify_remove(int argc, char **argv)
 {
-	CFStringRef	key;
-	Boolean		isRegex = FALSE;
+	CFStringRef		key;
+	CFMutableArrayRef	keys;
+	CFIndex			i;
+	Boolean			isRegex = FALSE;
+
+	if (!store) {
+		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(kSCStatusNoStoreSession));
+		return;
+	}
 
 	key   = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingMacRoman);
 
 	if (argc == 2)
 		isRegex = TRUE;
 
-	if (!SCDynamicStoreRemoveWatchedKey(store, key, isRegex)) {
+	keys = isRegex ? watchedPatterns : watchedKeys;
+	i = CFArrayGetFirstIndexOfValue(keys, CFRangeMake(0, CFArrayGetCount(keys)), key);
+	CFRelease(key);
+
+	if (i == kCFNotFound) {
+		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(kSCStatusNoKey));
+		return;
+	}
+
+	CFArrayRemoveValueAtIndex(keys, i);
+
+	if (!SCDynamicStoreSetNotificationKeys(store, watchedKeys, watchedPatterns)) {
 		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
 	}
-	CFRelease(key);
+
 	return;
 }
 
@@ -185,7 +221,7 @@ do_notify_changes(int argc, char **argv)
 
 	listCnt = CFArrayGetCount(list);
 	if (listCnt > 0) {
-		for (i=0; i<listCnt; i++) {
+		for (i = 0; i < listCnt; i++) {
 			SCPrint(TRUE,
 				stdout,
 				CFSTR("  changedKey [%d] = %@\n"),
@@ -201,16 +237,43 @@ do_notify_changes(int argc, char **argv)
 }
 
 
-void
-do_notify_watch(int argc, char **argv)
+static void *
+_watcher(void *arg)
 {
+	notifyRl = CFRunLoopGetCurrent();
+	if (!notifyRl) {
+		SCPrint(TRUE, stdout, CFSTR("  CFRunLoopGetCurrent() failed\n"));
+		return NULL;
+	}
+
 	notifyRls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
 	if (!notifyRls) {
 		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
+		return NULL;
+	}
+	CFRunLoopAddSource(notifyRl, notifyRls, kCFRunLoopDefaultMode);
+
+	CFRunLoopRun();
+	return NULL;
+}
+
+void
+do_notify_watch(int argc, char **argv)
+{
+	pthread_attr_t	tattr;
+	pthread_t	tid;
+
+	if (notifyRl) {
 		return;
 	}
 
-	CFRunLoopAddSource(CFRunLoopGetCurrent(), notifyRls, kCFRunLoopDefaultMode);
+	pthread_attr_init(&tattr);
+	pthread_attr_setscope(&tattr, PTHREAD_SCOPE_SYSTEM);
+	pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_DETACHED);
+//      pthread_attr_setstacksize(&tattr, 96 * 1024); // each thread gets a 96K stack
+	pthread_create(&tid, &tattr, _watcher, NULL);
+	pthread_attr_destroy(&tattr);
+
 	return;
 }
 
@@ -349,7 +412,7 @@ do_notify_signal(int argc, char **argv)
 			return;
 		}
 	} else {
-		for (sig=1; sig<NSIG; sig++) {
+		for (sig = 1; sig < NSIG; sig++) {
 			if (strcasecmp(argv[0], sys_signame[sig]) == 0)
 				break;
 		}
@@ -359,7 +422,7 @@ do_notify_signal(int argc, char **argv)
 			SCPrint(TRUE, stdout, CFSTR("Signal must be one of the following:\n"));
 
 			str = CFStringCreateMutable(NULL, 0);
-			for (sig=1; sig<NSIG; sig++) {
+			for (sig = 1; sig < NSIG; sig++) {
 				CFStringAppendFormat(str, NULL, CFSTR(" %-6s"), sys_signame[sig]);
 				if ((sig % 10) == 0) {
 					CFStringAppendFormat(str, NULL, CFSTR("\n"));
@@ -407,9 +470,14 @@ do_notify_cancel(int argc, char **argv)
 	int			ret;
 
 	if (notifyRls) {
-		CFRunLoopRemoveSource(CFRunLoopGetCurrent(), notifyRls, kCFRunLoopDefaultMode);
+		CFRunLoopRemoveSource(notifyRl, notifyRls, kCFRunLoopDefaultMode);
 		CFRelease(notifyRls);
 		notifyRls = NULL;
+	}
+
+	if (notifyRl) {
+		CFRunLoopStop(notifyRl);
+		notifyRl  = NULL;
 	}
 
 	if (!SCDynamicStoreNotifyCancel(store)) {

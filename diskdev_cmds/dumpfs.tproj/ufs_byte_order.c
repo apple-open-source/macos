@@ -90,8 +90,12 @@ byte_swap_sbin(struct fs *sb)
 	byte_swap_ints(((int32_t *)&sb->fs_firstfield), 52);
 	byte_swap_int(sb->fs_cgrotor);
 	byte_swap_int(sb->fs_cpc);
-	byte_swap_shorts((int16_t *)sb->fs_opostbl, 16 * 8); 
-	byte_swap_ints((int32_t *)sb->fs_sparecon, 50);
+        byte_swap_shorts((int16_t *)sb->fs_opostbl,
+                         sizeof(sb->fs_opostbl) / sizeof(int16_t));
+        byte_swap_int(sb->fs_avgfilesize);
+        byte_swap_int(sb->fs_avgfpdir);
+        byte_swap_ints((int32_t *)sb->fs_sparecon,
+                       sizeof(sb->fs_sparecon) / sizeof(int32_t));
 	byte_swap_ints((int32_t *)&sb->fs_contigsumsize, 3);
 	byte_swap_longlongs((u_int64_t *)&sb->fs_maxfilesize,3);
 	byte_swap_ints((int32_t *)&sb->fs_state, 6);
@@ -119,8 +123,12 @@ byte_swap_sbout(struct fs *sb)
 	byte_swap_ints(((int32_t *)&sb->fs_firstfield), 52);
 	byte_swap_int(sb->fs_cgrotor);
 	byte_swap_int(sb->fs_cpc);
-	byte_swap_shorts((int16_t *)sb->fs_opostbl, 16 * 8); 
-	byte_swap_ints((int32_t *)sb->fs_sparecon, 50);
+        byte_swap_shorts((int16_t *)sb->fs_opostbl,
+                         sizeof(sb->fs_opostbl) / sizeof(int16_t));
+        byte_swap_int(sb->fs_avgfilesize);
+        byte_swap_int(sb->fs_avgfpdir);
+        byte_swap_ints((int32_t *)sb->fs_sparecon,
+                       sizeof(sb->fs_sparecon) / sizeof(int32_t));
 	byte_swap_ints((int32_t *)&sb->fs_contigsumsize, 3);
 	byte_swap_longlongs((u_int64_t *)&sb->fs_maxfilesize,3);
 	byte_swap_ints((int32_t *)&sb->fs_state, 6);

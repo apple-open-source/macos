@@ -1,4 +1,4 @@
-# @(#) $Header: /cvs/Darwin/flex/flex/MISC/Amiga/SMakefile,v 1.1.1.1 1999/04/23 00:46:31 wsanchez Exp $ (LBL)
+# @(#) $Header: /cvs/root/flex/flex/MISC/Amiga/SMakefile,v 1.1.1.1 1999/04/23 00:46:31 wsanchez Exp $ (LBL)
 
 # If your version of "make" does not define $(MAKE), comment in the
 # definition of "MAKE" below.  (You only need to do this if you intend

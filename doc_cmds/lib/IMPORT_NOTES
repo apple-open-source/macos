@@ -1,0 +1,7 @@
+config.h_dist - stock FreeBSD file
+gripes.c - stock FreeBSD file
+gripes.h - stock FreeBSD file
+util.c - stock FreeBSD file
+
+config.h - generated from config.h_dst as part of the import instead of build
+GNUmakefile - created by hand to force bsdmake to build the library

@@ -112,4 +112,5 @@ OTHER_HELP_DIRS =
 
 OTHER_GENERATED_OFILES = $(VERS_OFILE)
 
-
+# to make it install the man page
+AFTER_INSTALL += install-man-page

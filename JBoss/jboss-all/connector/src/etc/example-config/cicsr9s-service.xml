@@ -1,0 +1,67 @@
+  <!-- ==================================================================== -->
+  <!-- ConnectionManager setup for CICS ECI Resource Adapter                -->
+  <!-- Add cicseci.rar to the deploy folder                                 -->
+  <!-- Configuration supplied by marchri@cad.it, tested with 4.0.2          -->
+  <!-- ==================================================================== -->
+
+<server>
+  <mbean code="org.jboss.resource.connectionmanager.LocalTxConnectionManager"
+    name="jboss.jca:service=LocalTxCM,name=cicsr9s">
+    <attribute name="JndiName">ra/cicsr9s</attribute>
+    <depends optional-attribute-name="TransactionManagerService">jboss:service=TransactionManager</depends>
+    <depends>jboss.jca:service=RARDeployer</depends>
+
+    <depends optional-attribute-name="ManagedConnectionPool">
+      <mbean code="org.jboss.resource.connectionmanager.JBossManagedConnectionPool"
+      name="jboss.jca:service=LocalTxPool,name=cicsr9s">
+      <depends optional-attribute-name="ManagedConnectionFactoryName">
+        <mbean code="org.jboss.resource.connectionmanager.RARDeployment"
+          name="jboss.jca:service=LocalTxPF,name=cicsr9s">
+  
+          <depends optional-attribute-name="OldRarDeployment">
+          jboss.jca:service=RARDeployment,name=ECIResourceAdapter
+          </depends>
+  
+  
+          <attribute name="ManagedConnectionFactoryProperties">
+               <properties>
+                  <config-property>
+                     <config-property-name>ConnectionURL</config-property-name>
+                     <config-property-type>java.lang.String</config-property-type>
+                     <config-property-value>tcp://arno</config-property-value>
+                  </config-property>
+                  <config-property>
+                     <config-property-name>PortNumber</config-property-name>
+                     <config-property-type>java.lang.String</config-property-type>
+                     <config-property-value>2006</config-property-value>
+                  </config-property>
+                  <config-property>
+                     <config-property-name>ServerName</config-property-name>
+                     <config-property-type>java.lang.String</config-property-type>
+                     <config-property-value>CICSR9S</config-property-value>
+                  </config-property>
+                  <config-property>
+                     <config-property-name>UserName</config-property-name>
+                     <config-property-type>java.lang.String</config-property-type>
+                     <config-property-value>CICSUSER</config-property-value>
+                  </config-property>
+               </properties>
+          </attribute>
+  
+        </mbean>
+      </depends>
+      <attribute name="MinSize">0</attribute>
+      <attribute name="MaxSize">50</attribute>
+      <attribute name="BlockingTimeoutMillis">5000</attribute>
+      <attribute name="IdleTimeoutMinutes">1</attribute>
+      <attribute name="Criteria">ByContainer</attribute>
+      </mbean>
+    </depends>
+    <depends optional-attribute-name="CachedConnectionManager">
+    jboss.jca:service=CachedConnectionManager
+    </depends>
+    <depends optional-attribute-name="JaasSecurityManagerService">
+    jboss.security:service=JaasSecurityManager
+    </depends>
+  </mbean>
+</server>

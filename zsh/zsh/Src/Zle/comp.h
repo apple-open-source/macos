@@ -38,6 +38,7 @@ typedef struct cmatch *Cmatch;
 /* This is for explantion strings. */
 
 struct cexpl {
+    int always;                 /* display even without matches */
     char *str;			/* the string */
     int count;			/* the number of matches */
     int fcount;			/* number of matches with fignore ignored */
@@ -85,11 +86,13 @@ struct cmgroup {
 #define CGF_UNIQCON 16		/* remove consecutive duplicates */
 #define CGF_PACKED  32		/* LIST_PACKED for this group */
 #define CGF_ROWS    64		/* LIST_ROWS_FIRST for this group */
+#define CGF_FILES   128		/* contains file names */
 
 /* This is the struct used to hold matches. */
 
 struct cmatch {
     char *str;			/* the match itself */
+    char *orig;                 /* the match string unquoted */
     char *ipre;			/* ignored prefix, has to be re-inserted */
     char *ripre;		/* ignored prefix, unquoted */
     char *isuf;			/* ignored suffix */
@@ -109,6 +112,8 @@ struct cmatch {
     int qisl;			/* length of quote-suffix */
     int rnum;			/* group relative number */
     int gnum;			/* global number */
+    mode_t mode;                /* mode field of a stat */
+    char modec;                 /* LIST_TYPE-character for mode or nul */
 };
 
 #define CMF_FILE     (1<< 0)	/* this is a file */
@@ -125,6 +130,7 @@ struct cmatch {
 #define CMF_MULT     (1<<11)	/* string appears more than once */
 #define CMF_FMULT    (1<<12)	/* first of multiple equal strings */
 #define CMF_ALL      (1<<13)	/* a match representing all other matches */
+#define CMF_DUMMY    (1<<14)	/* unselectable dummy match */
 
 /* Stuff for completion matcher control. */
 
@@ -264,6 +270,7 @@ struct cadata {
     char *dpar;			/* array to delete non-matches in (-D) */
     char *disp;			/* array with display lists (-d) */
     char *mesg;			/* message to show unconditionally (-x) */
+    int dummies;               /* add that many dummy matches */
 };
 
 /* List data. */
@@ -282,8 +289,7 @@ struct cldata {
     int showall;		/* != 0 if hidden matches should be shown */
 };
 
-typedef void (*CLPrintFunc)(Cmgroup, Cmatch *, int, int, int, int,
-			    char *, struct stat *);
+typedef void (*CLPrintFunc)(Cmgroup, Cmatch *, int, int, int, int);
 
 /* Flags for fromcomp. */
 
@@ -294,25 +300,27 @@ typedef void (*CLPrintFunc)(Cmgroup, Cmatch *, int, int, int, int,
 
 #define CPN_WORDS      0
 #define CP_WORDS       (1 <<  CPN_WORDS)
-#define CPN_CURRENT    1
+#define CPN_REDIRS     1
+#define CP_REDIRS      (1 <<  CPN_REDIRS)
+#define CPN_CURRENT    2
 #define CP_CURRENT     (1 <<  CPN_CURRENT)
-#define CPN_PREFIX     2
+#define CPN_PREFIX     3
 #define CP_PREFIX      (1 <<  CPN_PREFIX)
-#define CPN_SUFFIX     3
+#define CPN_SUFFIX     4
 #define CP_SUFFIX      (1 <<  CPN_SUFFIX)
-#define CPN_IPREFIX    4
+#define CPN_IPREFIX    5
 #define CP_IPREFIX     (1 <<  CPN_IPREFIX)
-#define CPN_ISUFFIX    5
+#define CPN_ISUFFIX    6
 #define CP_ISUFFIX     (1 <<  CPN_ISUFFIX)
-#define CPN_QIPREFIX   6
+#define CPN_QIPREFIX   7
 #define CP_QIPREFIX    (1 <<  CPN_QIPREFIX)
-#define CPN_QISUFFIX   7
+#define CPN_QISUFFIX   8
 #define CP_QISUFFIX    (1 <<  CPN_QISUFFIX)
-#define CPN_COMPSTATE  8
+#define CPN_COMPSTATE  9
 #define CP_COMPSTATE   (1 <<  CPN_COMPSTATE)
 
-#define CP_REALPARAMS  9
-#define CP_ALLREALS    ((unsigned int) 0x1ff)
+#define CP_REALPARAMS  10
+#define CP_ALLREALS    ((unsigned int) 0x3ff)
 
 
 #define CPN_NMATCHES   0

@@ -1,4 +1,4 @@
-/*	$KAME: netdb_dnssec.h,v 1.1 2001/04/11 06:11:55 sakane Exp $	*/
+/*	$KAME: netdb_dnssec.h,v 1.2 2001/04/11 09:52:00 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.

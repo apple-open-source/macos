@@ -12,16 +12,23 @@
 LIB=c
 SHLIB_MAJOR= 1
 SHLIB_MINOR= 0
+CC_3_3_OR_GREATER != ${.CURDIR}/cc-3.3-or-greater
+.if (${CC_3_3_OR_GREATER} != YES)
+CC = gcc-3.3
+.endif
 .if (${MACHINE_ARCH} == unknown)
-MACHINE_ARCH = ppc
+MACHINE_ARCH != /usr/bin/arch
 .endif 
 .if (${MACHINE_ARCH} == ppc)
 CFLAGS += -faltivec -DALTIVEC
 .endif
-CFLAGS += -DNOID -DALL_STATE -I${.CURDIR}/include  -I${.CURDIR}/include/objc
+CFLAGS += -DNOID -I${.CURDIR}/include  -I${.CURDIR}/include/objc
+PRIVINC = ${NEXT_ROOT}/System/Library/Frameworks/System.framework/PrivateHeaders
+CFLAGS += -I${PRIVINC}
 CFLAGS += -DLIBC_MAJOR=${SHLIB_MAJOR} -no-cpp-precomp -force_cpusubtype_ALL
 CFLAGS += -arch ${MACHINE_ARCH} -fno-common -pipe -Wmost -g
-CFLAGS += -finline-limit=5000
+CFLAGS += -finline-limit=5000 -D__FBSDID=__RCSID -Wno-long-double
+CFLAGS += -D__APPLE_PR3275149_HACK__
 AINC=	-I${.CURDIR}/${MACHINE_ARCH} -no-cpp-precomp -force_cpusubtype_ALL
 AINC+=-arch ${MACHINE_ARCH} -g
 CLEANFILES+=tags

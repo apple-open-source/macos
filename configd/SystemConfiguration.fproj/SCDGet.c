@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -55,11 +58,14 @@ SCDynamicStoreCopyMultiple(SCDynamicStoreRef	store,
 	xmlDataOut_t			xmlDictRef;		/* dict (serialized) */
 	CFIndex				xmlDictLen;
 	CFDictionaryRef			dict		= NULL;	/* dict (un-serialized) */
+	CFDictionaryRef			expDict		= NULL;	/* dict (un-serialized / expanded) */
 	int				sc_status;
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreCopyMultiple:"));
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  keys     = %@"), keys);
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  patterns = %@"), patterns);
+	if (_sc_verbose) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreCopyMultiple:"));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  keys     = %@"), keys);
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  patterns = %@"), patterns);
+	}
 
 	if (!store) {
 		/* sorry, you must provide a session */
@@ -123,14 +129,17 @@ SCDynamicStoreCopyMultiple(SCDynamicStoreRef	store,
 	}
 
 	/* un-serialize the dictionary */
-	if (!_SCUnserialize((CFPropertyListRef *)&dict, xmlDictRef, xmlDictLen)) {
+	if (!_SCUnserialize((CFPropertyListRef *)&dict, NULL, xmlDictRef, xmlDictLen)) {
 		_SCErrorSet(kSCStatusFailed);
 		return NULL;
 	}
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  value    = %@"), dict);
+	expDict = _SCUnserializeMultiple(dict);
+	CFRelease(dict);
 
-	return dict;
+	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  value    = %@"), expDict);
+
+	return expDict;
 }
 
 
@@ -139,7 +148,7 @@ SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key)
 {
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 	kern_return_t			status;
-	CFDataRef			xmlKey;		/* key (XML serialized) */
+	CFDataRef			utfKey;		/* key (XML serialized) */
 	xmlData_t			myKeyRef;	/* key (serialized) */
 	CFIndex				myKeyLen;
 	xmlDataOut_t			xmlDataRef;	/* data (serialized) */
@@ -148,8 +157,10 @@ SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key)
 	int				newInstance;
 	int				sc_status;
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreCopyValue:"));
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  key      = %@"), key);
+	if (_sc_verbose) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreCopyValue:"));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  key      = %@"), key);
+	}
 
 	if (!store) {
 		/* sorry, you must provide a session */
@@ -163,7 +174,7 @@ SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key)
 	}
 
 	/* serialize the key */
-	if (!_SCSerialize(key, &xmlKey, (void **)&myKeyRef, &myKeyLen)) {
+	if (!_SCSerializeString(key, &utfKey, (void **)&myKeyRef, &myKeyLen)) {
 		_SCErrorSet(kSCStatusFailed);
 		return NULL;
 	}
@@ -178,7 +189,7 @@ SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key)
 			   (int *)&sc_status);
 
 	/* clean up */
-	CFRelease(xmlKey);
+	CFRelease(utfKey);
 
 	if (status != KERN_SUCCESS) {
 		if (status != MACH_SEND_INVALID_DEST)
@@ -200,7 +211,7 @@ SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key)
 	}
 
 	/* un-serialize the data */
-	if (!_SCUnserialize(&data, xmlDataRef, xmlDataLen)) {
+	if (!_SCUnserialize(&data, NULL, xmlDataRef, xmlDataLen)) {
 		_SCErrorSet(kSCStatusFailed);
 		return NULL;
 	}

@@ -74,7 +74,10 @@ private:
 		void generateKeyBlob(
 			CssmAllocator 		&allocator,
 			CssmData			&blob,
-			CSSM_KEYBLOB_FORMAT	&format);
+			CSSM_KEYBLOB_FORMAT	&format,
+			AppleCSPSession		&session,
+			const CssmKey		*paramKey,		/* optional, unused here */
+			CSSM_KEYATTR_FLAGS 	&attrFlags);	/* IN/OUT */
 			
 		bool			isPublic() 	{ return mIsPublic; }
 		uint32			alg()		{ return mAlg; }
@@ -417,12 +420,16 @@ private:
 	{
 private:
 		BSafeKeyInfoProvider(
-			const CssmKey		&cssmKey);
+			const CssmKey		&cssmKey,
+			AppleCSPSession		&session);
 	public:
 		static CSPKeyInfoProvider *provider(
-		const CssmKey &cssmKey);
+		const CssmKey 			&cssmKey,
+		AppleCSPSession			&session);
 		~BSafeKeyInfoProvider() { }
 		void CssmKeyToBinary(
+			CssmKey				*paramKey,	// optional
+			CSSM_KEYATTR_FLAGS	&attrFlags,	// IN/OUT
 			BinaryKey			**binKey);	// RETURNED
 		void QueryKeySizeInBits(
 			CSSM_KEY_SIZE		&keySize);	// RETURNED

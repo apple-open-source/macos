@@ -17,74 +17,76 @@
 
 
 /*
- * DecodedCert.cpp - object representing a snacc-decoded cert, with extensions
- * parsed and decoded (still in snacc format).
+ * DecodedCert.cpp - object representing a decoded cert, in NSS
+ * format, with extensions parsed and decoded (still in NSS format).
  *
  * Created 9/1/2000 by Doug Mitchell. 
  * Copyright (c) 2000 by Apple Computer. 
  */
 
 #include "DecodedCert.h"
-#include "SnaccUtils.h"
+#include "clNssUtils.h"
 #include "cldebugging.h"
 #include "AppleX509CLSession.h"
 #include "CSPAttacher.h"
-#include <Security/cdsaUtils.h>
 #include <Security/cssmapple.h>
+#include <Security/oidscert.h>
+// ??? #include "clExtensionTemplates.h"
 
 DecodedCert::DecodedCert(
 	AppleX509CLSession	&session)
-	: alloc(session),
-	  mSession(session)
+	: DecodedItem(session)
 {
-	certificateToSign = new CertificateToSign;
-	reset();
+	memset(&mCert, 0, sizeof(mCert));
 }
 
 /* one-shot constructor, decoding from DER-encoded data */
 DecodedCert::DecodedCert(
 	AppleX509CLSession	&session,
 	const CssmData 	&encodedCert)
-	: alloc(session),
-	  mSession(session)
+	: DecodedItem(session)
 {
-	reset();
-	SC_decodeAsnObj(encodedCert, *this);
-	decodeExtensions();
-	mState = CS_DecodedCert;
+	memset(&mCert, 0, sizeof(mCert));
+	PRErrorCode prtn = mCoder.decode(encodedCert.data(), encodedCert.length(), 
+		NSS_SignedCertTemplate, &mCert);
+	if(prtn) {
+		CssmError::throwMe(CSSMERR_CL_UNKNOWN_FORMAT);
+	}
+	mDecodedExtensions.decodeFromNss(mCert.tbs.extensions);
+	mState = IS_DecodedAll;
 }
 		
 DecodedCert::~DecodedCert()
 {
-	/* free all extensions */
-	unsigned dex;
-	
-	for(dex=0; dex<mNumExtensions; dex++) {
-		DecodedExten *exten = &mExtensions[dex];
-		delete exten->extnId;
-		delete exten->snaccObj;
-	}
-	alloc.free(mExtensions);
-	reset();
 }
 	
 /* decode TBSCert and its extensions */
 void DecodedCert::decodeTbs(
 	const CssmData	&encodedTbs)
 {
-	CASSERT(mState == CS_Empty);
-	CASSERT(certificateToSign != NULL);
-	try {
-		SC_decodeAsnObj(encodedTbs, *certificateToSign);
+	assert(mState == IS_Empty);
+	
+	memset(&mCert, 0, sizeof(mCert));
+	PRErrorCode prtn = mCoder.decode(encodedTbs.data(), encodedTbs.length(), 
+		NSS_TBSCertificateTemplate, &mCert.tbs);
+	if(prtn) {
+		CssmError::throwMe(CSSMERR_CL_UNKNOWN_FORMAT);
 	}
-	catch (...) {
-		errorLog0("decodeTbs: tbs.BDec failure\n");
-		/* FIXME - leave in bad state? delete and clear? let's be cautious...*/
-		delete certificateToSign;
-		certificateToSign = new CertificateToSign;
+	mDecodedExtensions.decodeFromNss(mCert.tbs.extensions);
+	mState = IS_DecodedTBS;
+}
+
+void DecodedCert::encodeExtensions()
+{
+	NSS_TBSCertificate &tbs = mCert.tbs;
+	assert(mState == IS_Building);
+	assert(tbs.extensions == NULL);
+
+	if(mDecodedExtensions.numExtensions() == 0) {
+		/* no extensions, no error */
+		return;
 	}
-	decodeExtensions();
-	mState = CS_DecodedTBS;
+	mDecodedExtensions.encodeToNss(tbs.extensions);
 }
 
 /*
@@ -97,23 +99,25 @@ void DecodedCert::encodeTbs(
 	CssmOwnedData	&encodedTbs)
 {
 	encodeExtensions();
-	CASSERT(mState == CS_Building);
-	if(certificateToSign == NULL) {
-		errorLog0("DecodedCert::encodeTbs: no TBS\n");
-		CssmError::throwMe(CSSMERR_CL_INTERNAL_ERROR);
-	}
-	
+	assert(mState == IS_Building);
+
 	/* enforce required fields - could go deeper, maybe we should */
-	if((certificateToSign->signature == NULL) ||
-	   (certificateToSign->issuer == NULL) ||
-	   (certificateToSign->validity == NULL) ||
-	   (certificateToSign->subject == NULL) ||
-	   (certificateToSign->subjectPublicKeyInfo == NULL)) {
-		errorLog0("DecodedCert::encodeTbs: incomplete TBS\n");
+	NSS_TBSCertificate &tbs = mCert.tbs;
+	if((tbs.signature.algorithm.Data == NULL) ||
+	   (tbs.issuer.rdns == NULL) ||
+	   (tbs.subject.rdns == NULL) ||
+	   (tbs.subjectPublicKeyInfo.subjectPublicKey.Data == NULL)) {
+		clErrorLog("DecodedCert::encodeTbs: incomplete TBS");
 		/* an odd, undocumented error return */
 		CssmError::throwMe(CSSMERR_CL_NO_FIELD_VALUES);
 	}
-	SC_encodeAsnObj(*certificateToSign, encodedTbs, MAX_TEMPLATE_SIZE);
+	
+	PRErrorCode prtn;
+	prtn = SecNssEncodeItemOdata(&tbs, NSS_TBSCertificateTemplate,
+		encodedTbs);
+	if(prtn) {
+		CssmError::throwMe(CSSMERR_CL_MEMORY_ERROR);
+	}
 }
 
 /*
@@ -127,56 +131,72 @@ void DecodedCert::encodeTbs(
 CSSM_KEYUSE DecodedCert::inferKeyUsage() const
 {
 	CSSM_KEYUSE keyUse = 0;
-	DecodedExten *decodedExten;
+	const DecodedExten *decodedExten;
 	uint32 numFields;
 	
-	decodedExten = findDecodedExt(id_ce_keyUsage, false, 0, numFields);
+	/* Basic KeyUsage */
+	decodedExten = DecodedItem::findDecodedExt(CSSMOID_KeyUsage, false, 
+		0, numFields);
 	if(decodedExten) {
-		KeyUsage *ku = dynamic_cast<KeyUsage *>(decodedExten->snaccObj);
-		if(ku == NULL) {
-			errorLog0("inferKeyUsage: dynamic_cast failure(1)\n");
-			CssmError::throwMe(CSSMERR_CL_INTERNAL_ERROR);
-		}
-		if(ku->GetBit(KeyUsage::digitalSignature)) {
+		CSSM_DATA *ku = (CSSM_DATA *)decodedExten->nssObj();
+		assert(ku != NULL);
+		CE_KeyUsage kuse = clBitStringToKeyUsage(*ku);
+		if(kuse & CE_KU_DigitalSignature) {
 			keyUse |= CSSM_KEYUSE_VERIFY;
 		}
-		if(ku->GetBit(KeyUsage::nonRepudiation)) {
+		if(kuse & CE_KU_NonRepudiation) {
 			keyUse |= CSSM_KEYUSE_VERIFY;
 		}
-		if(ku->GetBit(KeyUsage::keyEncipherment)) {
+		if(kuse & CE_KU_KeyEncipherment) {
 			keyUse |= CSSM_KEYUSE_WRAP;
 		}
-		if(ku->GetBit(KeyUsage::keyAgreement)) {
+		if(kuse & CE_KU_KeyAgreement) {
 			keyUse |= CSSM_KEYUSE_DERIVE;
 		}
-		if(ku->GetBit(KeyUsage::keyCertSign)) {
+		if(kuse & CE_KU_KeyCertSign) {
 			keyUse |= CSSM_KEYUSE_VERIFY;
 		}
-		if(ku->GetBit(KeyUsage::cRLSign)) {
+		if(kuse & CE_KU_CRLSign) {
 			keyUse |= CSSM_KEYUSE_VERIFY;
 		}
-		if(ku->GetBit(KeyUsage::dataEncipherment)) {
+		if(kuse & CE_KU_DataEncipherment) {
 			keyUse |= CSSM_KEYUSE_ENCRYPT;
 		}
 	}
-	decodedExten = findDecodedExt(id_ce_extKeyUsage, false, 0, numFields);
+	
+	/* Extended key usage */
+	decodedExten = DecodedItem::findDecodedExt(CSSMOID_ExtendedKeyUsage, 
+			false, 0, numFields);
 	if(decodedExten) {
-		ExtKeyUsageSyntax *eku = 
-			dynamic_cast<ExtKeyUsageSyntax *>(decodedExten->snaccObj);
-		if(eku == NULL) {
-			errorLog0("inferKeyUsage: dynamic_cast failure(2)\n");
-			CssmError::throwMe(CSSMERR_CL_INTERNAL_ERROR);
-		}
-		unsigned numOids = eku->Count();
-		eku->SetCurrToFirst();
-		unsigned oidDex;
-		for(oidDex=0; oidDex<numOids; oidDex++) {
-			KeyPurposeId *purp = eku->Curr();
-			if(*purp == id_kp_codeSigning) {
-				keyUse |= CSSM_KEYUSE_VERIFY;
+		NSS_ExtKeyUsage *euse = (NSS_ExtKeyUsage *)decodedExten->nssObj();
+		assert(euse != NULL);
+		unsigned numUses = clNssArraySize((const void **)euse->purposes);
+		for(unsigned dex=0; dex<numUses; dex++) {
+		const CSSM_OID *thisUse = euse->purposes[dex];
+			if(clCompareCssmData(thisUse, &CSSMOID_ExtendedKeyUsageAny)) {
+				/* we're done */
+				keyUse = CSSM_KEYUSE_ANY;	
+				break;
 			}
-			/* I don't think the other purposes are useful... */
-			eku->GoNext();
+			else if(clCompareCssmData(thisUse, &CSSMOID_ServerAuth)) {
+				keyUse |= (CSSM_KEYUSE_VERIFY | CSSM_KEYUSE_ENCRYPT);	
+			}
+			else if(clCompareCssmData(thisUse, &CSSMOID_ClientAuth)) {
+				keyUse |= (CSSM_KEYUSE_VERIFY | CSSM_KEYUSE_ENCRYPT);	
+			}
+			else if(clCompareCssmData(thisUse, &CSSMOID_ExtendedUseCodeSigning)) {
+				keyUse |= CSSM_KEYUSE_VERIFY;	
+			}
+			else if(clCompareCssmData(thisUse, &CSSMOID_EmailProtection)) {
+				keyUse |= 
+					(CSSM_KEYUSE_VERIFY | CSSM_KEYUSE_WRAP | CSSM_KEYUSE_DERIVE);
+			}
+			else if(clCompareCssmData(thisUse, &CSSMOID_TimeStamping)) {
+				keyUse |= CSSM_KEYUSE_VERIFY;	
+			}
+			else if(clCompareCssmData(thisUse, &CSSMOID_OCSPSigning)) {
+				keyUse |= CSSM_KEYUSE_VERIFY;	
+			}
 		}
 	}
 	if(keyUse == 0) {
@@ -194,12 +214,8 @@ CSSM_KEYUSE DecodedCert::inferKeyUsage() const
 CSSM_KEY_PTR DecodedCert::extractCSSMKey(
 	CssmAllocator		&alloc)	const
 {
-	CASSERT(certificateToSign != NULL);
-	SubjectPublicKeyInfo *snaccKeyInfo = certificateToSign->subjectPublicKeyInfo;
-	if((snaccKeyInfo == NULL) ||
-	   (snaccKeyInfo->algorithm == NULL)) {
-		CssmError::throwMe(CSSMERR_CL_NO_FIELD_VALUES);
-	}
-	return CL_extractCSSMKey(*snaccKeyInfo, alloc, this);
+	const CSSM_X509_SUBJECT_PUBLIC_KEY_INFO &keyInfo = 
+		mCert.tbs.subjectPublicKeyInfo;
+	return CL_extractCSSMKeyNSS(keyInfo, alloc, this);
 }
 

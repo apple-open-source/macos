@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(sem_destroy, 1)
-	blr
 

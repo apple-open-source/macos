@@ -1,0 +1,5 @@
+<!DOCTYPE para PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
+<para>
+Selecting <guimenuitem>Close</> closes the file and automatically
+runs <action>end of job cleanup</>.
+</para>

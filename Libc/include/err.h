@@ -71,14 +71,21 @@
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
-__dead void	err __P((int, const char *, ...)) __attribute__((__noreturn__));
-__dead void	verr __P((int, const char *, _BSD_VA_LIST_)) __attribute__((__noreturn__));
-__dead void	errx __P((int, const char *, ...)) __attribute__((__noreturn__));
-__dead void	verrx __P((int, const char *, _BSD_VA_LIST_)) __attribute__((__noreturn__));
-void		warn __P((const char *, ...));
-void		vwarn __P((const char *, _BSD_VA_LIST_));
-void		warnx __P((const char *, ...));
-void		vwarnx __P((const char *, _BSD_VA_LIST_));
+void	err(int, const char *, ...) __dead2;
+void	verr(int, const char *, _BSD_VA_LIST_) __dead2;
+void	errc(int, int, const char *, ...) __dead2;
+void	verrc(int, int, const char *, _BSD_VA_LIST_) __dead2;
+void	errx(int, const char *, ...) __dead2;
+void	verrx(int, const char *, _BSD_VA_LIST_) __dead2;
+void	warn(const char *, ...);
+void	vwarn(const char *, _BSD_VA_LIST_);
+void	warnc(int, const char *, ...);
+void	vwarnc(int, const char *, _BSD_VA_LIST_);
+void	warnx(const char *, ...);
+void	vwarnx(const char *, _BSD_VA_LIST_);
+void	err_set_file(void *);
+void	err_set_exit(void (*)(int));
+
 __END_DECLS
 
 #endif /* !_ERR_H_ */

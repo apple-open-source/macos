@@ -1,0 +1,7 @@
+%(real_name)s@%(host_name)s levelezési listáról %(count)d 
+kérelem vár a megerõsítésedre a következõ címen:
+
+	%(adminDB)s
+
+Minél hamarabb látogasd meg a címet. A megerõsítendõ kérelmekrõl,
+ha vannak egyáltalán, minden nap értesítést küldünk.

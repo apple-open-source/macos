@@ -192,9 +192,9 @@ void skip_entry( int fd )
  * Returns TRUE if the given line contains a single instance of the
  * specified character and no other non-space characters
  */
-int line_has_only_1_char( char *line, char ch )
+int line_has_only_1_char( const char *line, char ch )
 {
-   char *p ;
+   const char *p ;
    char target_char = ch ;
 
    for ( p = line ; *p ; p++ )

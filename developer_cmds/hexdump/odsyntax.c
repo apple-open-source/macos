@@ -218,7 +218,7 @@ odoffset(argc, argvp)
 		base = 10;
 	}
 
-	skip = strtol(num, &end, base ? base : 8);
+	skip = strtoll(num, &end, base ? base : 8);
 
 	/* if end isn't the same as p, we got a non-octal digit */
 	if (end != p) {

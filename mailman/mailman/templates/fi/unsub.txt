@@ -1,0 +1,25 @@
+Vahvistuspyyntö postituslistalta %(listname)s poistamiseksi
+
+Olemme saaneet pyynnön%(remote)s poistaa sähköpostiosoitteenne, 
+"%(email)s" %(listaddr)s postituslistalta. Vahvistaaksenne, 
+että haluatte erota tältä postituslistalta, vastatkaa 
+tähän viestiin muuttamatta otsikkoa. Tai käväiskää www-sivulla:
+
+   %(confirmurl)s
+
+Tai sisällyttäkään seuraava rivi -- ja vain seuraava rivi -- viestiin
+%(requestaddr)s:
+
+    vahvista %(cookie)s
+
+Huomioi, että asian pitäisi hoitua, useimmilla sähköpostiohjelmilla 
+pelkästään vastaamalla tähän viestiin, koska se tavallisesti 
+jättää Otsikko-rivin oikeaan muotoon 
+(lisäksi "Re: "teksti otsikossa on ok). 
+
+Ellet halua itseäsi poistettavaksi tältä listalta, 
+hävitä tämä viesti. Jos epäilet, että sinua yritetään 
+pahansuovasti irtisanoa listalta tai sinulla
+on muita kysymyksiä, lähetä ne osoitteeseen
+%(listadmin)s.
+

@@ -1,4 +1,4 @@
-/* Copyright (c) 1993-2000
+/* Copyright (c) 1993-2002
  *      Juergen Weigert (jnweiger@immd4.informatik.uni-erlangen.de)
  *      Michael Schroeder (mlschroe@immd4.informatik.uni-erlangen.de)
  * Copyright (c) 1987 Oliver Laumann
@@ -19,7 +19,7 @@
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA
  *
  ****************************************************************
- * $Id: screen.h,v 1.1.1.1 2001/12/14 22:08:29 bbraun Exp $ FAU
+ * $Id: screen.h,v 1.1.1.2 2003/03/19 21:16:19 landonf Exp $ FAU
  */
 
 #include "os.h"
@@ -98,7 +98,7 @@
  */
 #define MAXHISTHEIGHT		3000
 #define DEFAULTHISTHEIGHT	100
-#ifdef NAME_MAX
+#if defined(NAME_MAX) && NAME_MAX < 16
 # define DEFAULT_BUFFERFILE     "/tmp/screen-xchg"
 #else
 # define DEFAULT_BUFFERFILE	"/tmp/screen-exchange"
@@ -203,7 +203,7 @@ struct msg
 	  int esc;		/* his new escape character unless -1 */
 	  int meta_esc;		/* his new meta esc character unless -1 */
 	  char envterm[20 + 1];	/* terminal type */
-	  int utf8;		/* display understands utf8 */
+	  int encoding;		/* encoding of display */
 	}
       attach;
       struct 
@@ -217,6 +217,8 @@ struct msg
 	  char auser[20 + 1];	/* username */
 	  int nargs;
 	  char cmd[MAXPATHLEN];	/* command */
+	  int apid;		/* pid of frontend */
+	  char preselect[20];
 	}
       command;
       char message[MAXPATHLEN * 2];
@@ -252,6 +254,7 @@ struct msg
 #define DUMP_TERMCAP	0 /* WriteFile() options */
 #define DUMP_HARDCOPY	1
 #define DUMP_EXCHANGE	2
+#define DUMP_SCROLLBACK 3
 
 #define SILENCE_OFF	0
 #define SILENCE_ON	1
@@ -277,11 +280,6 @@ struct acl
 
 /* register list */
 #define MAX_PLOP_DEFS 256
-struct plop
-{
-  char *buf;
-  int len;
-};
 
 struct baud_values
 {

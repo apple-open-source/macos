@@ -30,7 +30,7 @@ int ival2 = -1;
 int ival3 = -1;
 int ival4 = -1;
 int ival5 = -1;
-char buf[10];
+char buf[10] = { 0 };
 struct foo
 {
   int val;
@@ -117,6 +117,7 @@ int main ()
   ival1 = count; /* Outside loop */
   ival2 = count;
   ival3 = count; ival4 = count;
+  buf[7] = 4;
   marker2 ();
   if (doread)
     {

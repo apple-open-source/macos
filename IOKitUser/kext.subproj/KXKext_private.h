@@ -9,6 +9,7 @@ extern "C" {
 #include "KXKextManager_private.h"
 #include "KXKextRepository_private.h"
 #include "dgraph.h"
+#include "vers_rsrc.h"
 
 /*******************************************************************************
 * This file is for declaring private  API used by code other than kext.c,
@@ -55,8 +56,14 @@ KXKextManagerError _KXKextInitWithCacheDictionaryInRepository(
 const char * _KXKextCopyCanonicalPathnameAsCString(KXKextRef aKext);
 const char * _KXKextCopyBundlePathInRepositoryAsCString(KXKextRef aKext);
 
-UInt32 _KXKextGetVersion(KXKextRef aKext);
-UInt32 _KXKextGetCompatibleVersion(KXKextRef aKext);
+KXKextManagerLogLevel _KXKextGetLogLevel(KXKextRef aKext);
+
+VERS_version _KXKextGetVersion(KXKextRef aKext);
+VERS_version _KXKextGetCompatibleVersion(KXKextRef aKext);
+
+Boolean _KXKextIsCompatibleWithVersionNumber(
+    KXKextRef aKext,
+    VERS_version version);
 
 void _KXKextClearVersionRelationships(KXKextRef aKext);
 void _KXKextClearDependencies(KXKextRef aKext);
@@ -88,6 +95,9 @@ dgraph_t * _KXKextCreateDgraph(KXKextRef aKext);
 CFDictionaryRef _KXKextCopyCacheDictionary(KXKextRef aKext);
 
 KXKextManagerError _KXKextMakeSecure(KXKextRef aKext);
+
+KXKextManagerError _KXKextCheckIntegrity(KXKextRef aKext, CFMutableArrayRef bomArray);
+void _KXKextSetStartAddress(KXKextRef aKext, vm_address_t newAddr);
 
 #ifdef __cplusplus
 }

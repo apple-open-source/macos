@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE server>
+<!-- $Id: mail-service.xml,v 1.4.2.1 2003/05/23 14:42:25 starksm Exp $ -->
+
+<server>
+
+  <!-- ==================================================================== -->
+  <!-- Mail Connection Factory                                              -->
+  <!-- ==================================================================== -->
+
+  <mbean code="org.jboss.mail.MailService"
+         name="jboss:service=Mail">
+    <attribute name="JNDIName">java:/Mail</attribute>
+    <attribute name="User">nobody</attribute>
+    <attribute name="Password">password</attribute>
+    <attribute name="Configuration">
+       <!-- Test -->
+       <configuration>
+          <!-- Change to your mail server prototocol -->
+          <property name="mail.store.protocol" value="pop3"/>
+          <property name="mail.transport.protocol" value="smtp"/>
+
+          <!-- Change to the user who will receive mail  -->
+          <property name="mail.user" value="nobody"/>
+
+          <!-- Change to the mail server  -->
+          <property name="mail.pop3.host" value="pop3.nosuchhost.nosuchdomain.com"/>
+
+          <!-- Change to the SMTP gateway server -->
+          <property name="mail.smtp.host" value="smtp.nosuchhost.nosuchdomain.com"/>
+
+          <!-- Change to the address mail will be from  -->
+          <property name="mail.from" value="nobody@nosuchhost.nosuchdomain.com"/>
+
+          <!-- Enable debugging output from the javamail classes -->
+          <property name="mail.debug" value="false"/>
+       </configuration>
+    </attribute>
+  </mbean>
+
+</server>

@@ -76,7 +76,8 @@ if test "$gcc" -eq 1 && ($cc -c $cflags $test.c) 2>/dev/null; then
   Darwin*)   SFLAGS=${CFLAGS-"-O3"}
 	     CFLAGS=${CFLAGS-"-O3"}
 	     SHAREDEXT='.dylib'
-	     LDSHARED=${LDSHARED-'$(CC) $(CFLAGS) -dynamiclib -install_name "$(libdir)/$(SHAREDLIB).$(VER)$(SHAREDEXT)" -current_version $(VER) -compatibility_version 1'}
+             VER=1
+	     LDSHARED=${LDSHARED-'$(CC) $(CFLAGS) -dynamiclib -install_name "$(libdir)/$(SHAREDLIB).1$(SHAREDEXT)" -current_version 1 -compatibility_version 1'}
 	     LDTEST=NO;;
   *)             LDSHARED=${LDSHARED-"gcc -shared"};;
   esac

@@ -70,7 +70,6 @@ if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {deb
     gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
 
-
 gdb_exit
 gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
@@ -230,9 +229,9 @@ gdb_expect  {
         timeout         { fail "(timeout) maint print psymbols w/o args" }
         }
 
-send_gdb "maint print psymbols psymbols_output\n"
+send_gdb "maint print psymbols psymbols_output ${srcdir}/${subdir}/${srcfile}\n"
 gdb_expect  {
-        -re "^maint print psymbols psymbols_output\r\n$gdb_prompt $"\
+        -re "^maint print psymbols psymbols_output \[^\n\]*\r\n$gdb_prompt $"\
          {
           send_gdb "shell ls psymbols_output\n"
           gdb_expect {
@@ -272,9 +271,9 @@ gdb_expect  {
         timeout         { fail "(timeout) maint print msymbols w/o args" }
         }
 
-send_gdb "maint print msymbols msymbols_output\n"
+send_gdb "maint print msymbols msymbols_output ${binfile}\n"
 gdb_expect  {
-        -re "^maint print msymbols msymbols_output\r\n$gdb_prompt $"\
+        -re "^maint print msymbols msymbols_output \[^\n\]*\r\n$gdb_prompt $"\
          {
           send_gdb "shell ls msymbols_output\n"
           gdb_expect {
@@ -307,16 +306,13 @@ gdb_expect  {
         timeout         { fail "(timeout) maint print symbols w/o args" }
         }
 
-# This command can legitimately take many minutes to execute.  If the
-# executable is dynamically linked, then you get all the debugging
-# info for the entire library --- 89Mb on my system.  -jimb
+# Request symbols for one particular source file so that we don't try to
+# dump the symbol information for the entire C library - over 500MB nowadays
+# for GNU libc.
 
-set old_timeout $timeout
-set timeout 600
-
-send_gdb "maint print symbols symbols_output\n"
+send_gdb "maint print symbols symbols_output ${srcdir}/${subdir}/${srcfile}\n"
 gdb_expect  {
-        -re "^maint print symbols symbols_output\r\n$gdb_prompt $"\
+        -re "^maint print symbols symbols_output \[^\n\]*\r\n$gdb_prompt $"\
          {
           send_gdb "shell ls symbols_output\n"
           gdb_expect {
@@ -341,11 +337,9 @@ gdb_expect  {
         timeout         { fail "(timeout) maint print symbols" }
         }
 
-set timeout $old_timeout
-
 send_gdb "maint print type argc\n"
 gdb_expect  {
-        -re "type node $hex\r\nname .int. \\($hex\\)\r\ntagname .<NULL>. \\($hex\\)\r\ncode $hex \\(TYPE_CODE_INT\\)\r\nlength \[24\]\r\nupper_bound_type $hex \\(BOUND_SIMPLE\\)\r\nlower_bound_type $hex \\(BOUND_SIMPLE\\)\r\nobjfile $hex\r\ntarget_type $hex\r\npointer_type $hex\r\nreference_type $hex\r\ncv_type $hex\r\nas_type $hex\r\nflags $hex\r\nnfields 0 $hex\r\nvptr_basetype $hex\r\nvptr_fieldno -1\r\ntype_specific $hex\r\n$gdb_prompt $"\
+        -re "type node $hex\r\nname .int. \\($hex\\)\r\ntagname .<NULL>. \\($hex\\)\r\ncode $hex \\(TYPE_CODE_INT\\)\r\nlength \[24\]\r\nupper_bound_type $hex \\(BOUND_SIMPLE\\)\r\nlower_bound_type $hex \\(BOUND_SIMPLE\\)\r\nobjfile $hex\r\ntarget_type $hex\r\npointer_type $hex\r\nreference_type $hex\r\ntype_chain $hex\r\ninstance_flags $hex\r\nflags $hex\r\nnfields 0 $hex\r\nvptr_basetype $hex\r\nvptr_fieldno -1\r\ntype_specific $hex\r\n$gdb_prompt $"\
                         { pass "maint print type" }
         -re ".*$gdb_prompt $"       { fail "maint print type" }
         timeout         { fail "(timeout) maint print type" }
@@ -385,22 +379,29 @@ gdb_expect  {
         timeout         { fail "(timeout) maint info sections" }
         }
 
+# APPLE LOCAL:
+# Our section names are pretty different from ELF/a.out/COFF systems.
+
 # Test for new option: maint info sections <section name>
 # If you don't have a .text section, this will require tweaking.
-send_gdb "maint info sections .text\n"
+send_gdb "maint info sections LC_SEGMENT.__TEXT\n"
 gdb_expect {
     -re ".*bss.*$gdb_prompt $"      { fail "maint info sections .text" }
     -re ".*data.*$gdb_prompt $"     { fail "maint info sections .text" }
-    -re ".* .text .*$gdb_prompt $"  { pass "maint info sections .text" }
+    -re ".*__TEXT.*$gdb_prompt $"   { pass "maint info sections .text" }
+    -re ".*$gdb_prompt $"	    { fail "maint info sections .text" }
     timeout               { fail "(timeout) maint info sections .text" }
 }
+
+# APPLE LOCAL: Our text segment is "__TEXT"; our data segment is
+# "__DATA" for the next two tests.
 
 # Test for new option: CODE section flag
 # If your data section is tagged CODE, xfail this test.
 send_gdb "maint info sections CODE\n"
 gdb_expect {
-    -re ".* .data .*$gdb_prompt $" { fail "maint info sections CODE" }
-    -re ".* .text .*$gdb_prompt $" { pass "maint info sections CODE" }
+    -re ".* LC_SEGMENT.__DATA .*$gdb_prompt $" { fail "maint info sections CODE" }
+    -re ".* LC_SEGMENT.__TEXT .*$gdb_prompt $" { pass "maint info sections CODE" }
     timeout              { fail "(timeout) maint info sections CODE" }
 }
 
@@ -408,14 +409,15 @@ gdb_expect {
 # If your text section is tagged DATA, xfail this test.
 send_gdb "maint info sections DATA\n"
 gdb_expect {
-    -re ".* .text .*$gdb_prompt $" { fail "maint info sections DATA" }
-    -re ".* .data .*$gdb_prompt $" { pass "maint info sections DATA" }
+    -re ".* LC_SEGMENT.__TEXT .*$gdb_prompt $" { fail "maint info sections DATA" }
+    -re ".* LC_SEGMENT.__DATA .*$gdb_prompt $" { pass "maint info sections DATA" }
+    -re "Exec file:\[\r\n\]+ *`.*break', file type \[^.\]*.\[\r\n\]+$gdb_prompt $" { fail "maint info sections DATA" }
     timeout              { fail "(timeout) maint info sections DATA" }
 }
 
 send_gdb "maint info breakpoints\n"
 gdb_expect {
-	-re "Num\[ \t\]+Type\[ \t\]+Disp\[ \t\]+Enb\[ \t\]+Address\[ \t\]+What\r\n1\[ \t\]+breakpoint\[ \t\]+keep\[ \t\]+y\[ \t\]+$hex in main at.*break.c:75\r\n\[ \t\]+breakpoint already hit 1 time\r\n.*$gdb_prompt $"\
+    -re "Num\[ \t\]+Type\[ \t\]+Disp\[ \t\]+Enb\[ \t\]+Address\[ \t\]+What\r\n1\[ \t\]+breakpoint\[ \t\]+keep\[ \t\]+y\[ \t\]+$hex\[ \t\]+in main at.*break.c:75\r\n\[ \t\]+breakpoint already hit 1 time\r\n.*$gdb_prompt $"\
 		{ pass "maint info breakpoints" }
 	-re "Num\[ \t\]+Type\[ \t\]+Disp\[ \t\]+Enb\[ \t\]+Address\[ \t\]+What\r\n1\[ \t\]+breakpoint\[ \t\]+keep\[ \t\]+y\[ \t\]+$hex in main at.*break.c:75\r\n\[ \t\]+breakpoint already hit 1 time\r\n-1\[ \t\]+shlib events\[ \t\]+keep\[ \t\]+y\[ \t\]+$hex.*breakpoint already hit.*$gdb_prompt $"\
 		{ pass "maint info breakpoints (with shlib events)" }
@@ -454,7 +456,7 @@ set timeout $oldtimeout
 
 send_gdb "help maint\n"
 gdb_expect  {
-        -re "Commands for use by GDB maintainers\\..*Includes commands to dump specific internal GDB structures in.*a human readable form, to cause GDB to deliberately dump core,.*to test internal functions such as the C.. demangler, etc\\..*List of maintenance subcommands:.*maintenance check-symtabs.*maintenance demangle.*(maintenance dump-me.*)?maintenance info.*maintenance internal-error.*maintenance print.*maintenance set.*maintenance show.*maintenance space.*maintenance time.*Type.*help maintenance.*followed by maintenance subcommand name for full documentation\\..*Command name abbreviations are allowed if unambiguous\\..*$gdb_prompt $"\
+        -re "Commands for use by GDB maintainers\\..*Includes commands to dump specific internal GDB structures in.*a human readable form, to cause GDB to deliberately dump core,.*to test internal functions such as the C../ObjC demangler, etc\\..*List of maintenance subcommands:.*maintenance check-symtabs.*maintenance demangle.*(maintenance dump-me.*)?maintenance info.*maintenance internal-error.*maintenance print.*maintenance set.*maintenance show.*maintenance space.*maintenance time.*Type.*help maintenance.*followed by maintenance subcommand name for full documentation\\..*Command name abbreviations are allowed if unambiguous\\..*$gdb_prompt $"\
  { pass "help maint" }
         -re ".*$gdb_prompt $"       { fail "help maint" }
         timeout         { fail "(timeout) help maint" }
@@ -487,7 +489,7 @@ gdb_expect  {
 
 send_gdb "help maint demangle\n"
 gdb_expect  {
-        -re "Demangle a C\\+\\+ mangled name\\.\r\nCall internal GDB demangler routine to demangle a C\\+\\+ link name\r\nand prints the result\\..*$gdb_prompt $"\
+        -re "Demangle a C\\+\\+/ObjC mangled name\\.\r\nCall internal GDB demangler routine to demangle a C\\+\\+ link name\r\nand prints the result\\..*$gdb_prompt $"\
                         { pass "help maint demangle" }
         -re ".*$gdb_prompt $"       { fail "help maint demangle" }
         timeout         { fail "(timeout) help maint demangle" }
@@ -499,7 +501,7 @@ if [ishost *cygwin*] {
 }
 send_gdb "help maint dump-me\n"
 gdb_expect  {
-        -re "Get fatal error; make debugger dump its core\\.\r\nGDB sets it's handling of SIGQUIT back to SIG_DFL and then sends\r\nitself a SIGQUIT signal\\..*$gdb_prompt $"\
+        -re "Get fatal error; make debugger dump its core\\.\r\nGDB sets its handling of SIGQUIT back to SIG_DFL and then sends\r\nitself a SIGQUIT signal\\..*$gdb_prompt $"\
                         { pass "help maint dump-me" }
         -re ".*$gdb_prompt $"       { fail "help maint dump-me" }
         timeout         { fail "(timeout) help maint dump-me" }
@@ -511,6 +513,14 @@ gdb_expect  {
                         { pass "help maint internal-error" }
         -re ".*$gdb_prompt $"       { fail "help maint internal-error" }
         timeout         { fail "(timeout) help maint internal-error" }
+        }
+
+send_gdb "help maint internal-warning\n"
+gdb_expect  {
+        -re "Give GDB an internal warning\\.\r\nCause GDB to behave as if an internal warning was reported\\..*$gdb_prompt $"\
+                        { pass "help maint internal-warning" }
+        -re ".*$gdb_prompt $"       { fail "help maint internal-warning" }
+        timeout         { fail "(timeout) help maint internal-warning" }
         }
 
 send_gdb "help maint print statistics\n"
@@ -614,7 +624,7 @@ gdb_expect  {
 
 send_gdb "help maint\n"
 gdb_expect  {
-        -re "Commands for use by GDB maintainers\\.\[\r\n\]+Includes commands to dump specific internal GDB structures in\[\r\n\]+a human readable form, to cause GDB to deliberately dump core,\[\r\n\]+to test internal functions such as the C\\+\\+ demangler, etc\\..*Type.*help maintenance.*followed by maintenance subcommand name for full documentation\\.\[\r\n\]+Command name abbreviations are allowed if unambiguous\\..*$gdb_prompt $"\
+        -re "Commands for use by GDB maintainers\\.\[\r\n\]+Includes commands to dump specific internal GDB structures in\[\r\n\]+a human readable form, to cause GDB to deliberately dump core,\[\r\n\]+to test internal functions such as the C\\+\\+/ObjC demangler, etc\\..*Type.*help maintenance.*followed by maintenance subcommand name for full documentation\\.\[\r\n\]+Command name abbreviations are allowed if unambiguous\\..*$gdb_prompt $"\
                         { pass "help maint" }
         -re ".*$gdb_prompt $"       { fail "help maint" }
         timeout         { fail "(timeout) help maint" }

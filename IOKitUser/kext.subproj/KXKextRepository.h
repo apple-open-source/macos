@@ -53,6 +53,7 @@ KXKextManagerError KXKextRepositoryReset(
 void KXKextRepositoryAuthenticateKexts(KXKextRepositoryRef aRepository);
 void KXKextRepositoryMarkKextsAuthentic(KXKextRepositoryRef aRepository);
 Boolean KXKextRepositoryHasAuthenticated(KXKextRepositoryRef aRepository);
+void KXKextRepositoryCheckIntegrityOfKexts(KXKextRepositoryRef aRepository, CFMutableArrayRef bomArray);
 
 CFArrayRef KXKextRepositoryCopyCandidateKexts(KXKextRepositoryRef aRepository);
 CFArrayRef KXKextRepositoryCopyBadKexts(KXKextRepositoryRef aRepository);

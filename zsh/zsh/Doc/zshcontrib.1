@@ -1,4 +1,4 @@
-.TH "ZSHCONTRIB" "1" "October 26, 2001" "zsh 4\&.0\&.4"
+.TH "ZSHCONTRIB" "1" "June 18, 2003" "zsh 4\&.1\&.1"
 .SH "NAME"
 zshcontrib \- user contributions to zsh
 .\" Yodl file: Zsh/contrib.yo
@@ -44,7 +44,7 @@ distribution in your home directory, you would use the commands:
 \fBmkdir ~/zsh_help
 cd ~/zsh_help
 man zshall | colcrt \- | \e 
-perl ~/zsh\-4\&.0\&.4/Util/helpfiles\fP
+perl ~/zsh\-4\&.1\&.1/Util/helpfiles\fP
 .fi
 .RE
 .PP
@@ -179,7 +179,7 @@ Run \fBzkbd\fP either as an autoloaded function, or as a shell script:
 .PP
 .RS
 .nf
-\fBzsh \-f ~/zsh\-4\&.0\&.4/Functions/Misc/zkbd\fP
+\fBzsh \-f ~/zsh\-4\&.1\&.1/Functions/Misc/zkbd\fP
 .fi
 .RE
 .PP
@@ -235,7 +235,7 @@ command and redirect the output into a file:
 .PP
 .RS
 .nf
-\fB\&. ~/zsh\-4\&.0\&.4/Util/reporter > zsh\&.report\fP
+\fB\&. ~/zsh\-4\&.1\&.1/Util/reporter > zsh\&.report\fP
 .fi
 .RE
 .PP
@@ -414,6 +414,170 @@ with a key sequence\&.  Suggested bindings are described below\&.
 .PD 0
 .TP
 .PD
+bash\-style word functions
+If you are looking for functions to implement moving over and editing
+words in the manner of bash, where only alphanumeric characters are
+considered word characters, you can use the functions described in
+the next section\&.  The following is sufficient:
+.RS
+.PP
+.RS
+.nf
+\fBautoload \-U select\-word\-style
+select\-word\-style bash\fP
+.fi
+.RE
+.PP
+.RE
+.TP
+.PD 0
+\fBforward\-word\-match\fP, \fBbackward\-word\-match\fP
+.TP
+.PD 0
+\fBkill\-word\-match\fP, \fBbackward\-kill\-word\-match\fP
+.TP
+.PD 0
+\fBtranspose\-words\-match\fP, \fBcapitalize\-word\-match\fP
+.TP
+.PD 0
+\fBup\-case\-word\-match\fP, \fBdown\-case\-word\-match\fP
+.TP
+.PD
+\fBselect\-word\-style\fP, \fBmatch\-word\-by\-style\fP
+The eight `\fB\-match\fP' functions are drop\-in replacements for the
+builtin widgets without the suffix\&.  By default they behave in a similar
+way\&.  However, by the use of styles and the function \fBselect\-word\-style\fP,
+the way words are matched can be altered\&.
+.RS
+.PP
+The simplest way of configuring the functions is to use
+\fBselect\-word\-style\fP, which can either be called as a normal function with
+the appropriate argument, or invoked as a user\-defined widget that will
+prompt for the first character of the word style to be used\&.  The first
+time it is invoked, the eight \fB\-match\fP functions will automatically
+replace the builtin versions, so they do not need to be loaded explicitly\&.
+.PP
+The word styles available are as follows\&.  Only the first character
+is examined\&.
+.PP
+.PD 0
+.TP
+.PD
+\fBbash\fP
+Word characters are alphanumeric characters only\&.
+.TP
+\fBnormal\fP
+As in normal shell operation:  word characters are alphanumeric characters
+plus any characters present in the string given by the parameter
+\fB$WORDCHARS\fP\&.
+.TP
+\fBshell\fP
+Words are complete shell command arguments, possibly including complete
+quoted strings, or any tokens special to the shell\&.
+.TP
+\fBwhitespace\fP
+Words are any set of characters delimited by whitespace\&.
+.TP
+\fBdefault\fP
+Restore the default settings; this is usually the same as `\fBnormal\fP'\&.
+.PP
+More control can be obtained using the \fBzstyle\fP command, as described in
+\fIzshmodules\fP(1)\&.  Each style is looked up in the
+context \fB:zle:\fP\fIwidget\fP where \fIwidget\fP is the name of the
+user\-defined widget, not the name of the function implementing it, so in
+the case of the definitions supplied by \fBselect\-word\-style\fP the
+appropriate contexts are \fB:zle:forward\-word\fP, and so on\&.  The function
+\fBselect\-word\-style\fP itself always defines styles for the context
+`\fB:zle:*\fP' which can be overridden by more specific (longer) patterns as
+well as explicit contexts\&.
+.PP
+The style \fBword\-style\fP specifies the rules to use\&.  This may have the
+following values\&.
+.PP
+.PD 0
+.TP
+.PD
+\fBnormal\fP
+Use the standard shell rules, i\&.e\&. alphanumerics and \fB$WORDCHARS\fP, unless
+overridden by the styles \fBword\-chars\fP or \fBword\-class\fP\&.
+.TP
+\fBspecified\fP
+Similar to \fBnormal\fP, but \fIonly\fP the specified characters, and not also
+alphanumerics, are considered word characters\&.
+.TP
+\fBunspecified\fP
+The negation of specified\&.  The given characters are those which will
+\fInot\fP be considered part of a word\&.
+.TP
+\fBshell\fP
+Words are obtained by using the syntactic rules for generating shell
+command arguments\&.  In addition, special tokens which are never command
+arguments such as `\fB()\fP' are also treated as words\&.
+.TP
+\fBwhitespace\fP
+Words are whitespace\-delimited strings of characters\&.
+.PP
+The first three of those styles usually use \fB$WORDCHARS\fP, but the value
+in the parameter can be overridden by the style \fBword\-chars\fP, which works
+in exactly the same way as \fB$WORDCHARS\fP\&.  In addition, the style
+\fBword\-class\fP uses character class syntax to group characters and takes
+precedence over \fBword\-chars\fP if both are set\&.  The \fBword\-class\fP style
+does not include the surrounding brackets of the character class; for
+example, `\fB\-:[:alnum:]\fP' is a valid \fBword\-class\fP to include all
+alphanumerics plus the characters `\fB\-\fP' and `\fB:\fP'\&.  Be careful
+including `\fB]\fP', `\fB^\fP' and `\fB\-\fP' as these are special inside
+character classes\&.
+.PP
+The final style is \fBskip\-chars\fP\&.  This is mostly useful for
+\fBtranspose\-words\fP and similar functions\&.  If set, it gives a count of
+characters starting at the cursor position which will not be considered
+part of the word and are treated as space, regardless of what they actually
+are\&.  For example, if
+.PP
+.RS
+.nf
+\fBzstyle ':zle:transpose\-words' skip\-chars 1\fP
+.fi
+.RE
+.PP
+has been set, and \fBtranspose\-words\-match\fP is called with the cursor on
+the \fIX\fP of \fBfoo\fP\fIX\fP\fBbar\fP, where \fIX\fP can be any character, then
+the resulting expression is \fBbar\fP\fIX\fP\fBfoo\fP\&.
+.PP
+The word matching and all the handling of \fBzstyle\fP settings is actually
+implemented by the function \fBmatch\-word\-by\-style\fP\&.  This can be used to
+create new user\-defined widgets\&.  The calling function should set the local
+parameter \fBcurcontext\fP to \fB:zle:\fP\fIwidget\fP, create the local
+parameter \fBmatched_words\fP and call \fBmatch\-word\-by\-style\fP with no
+arguments\&.  On return, \fBmatched_words\fP will be set to an array with the
+elements: (1) the start of the line (2) the word before the cursor (3) any
+non\-word characters between that word and the cursor (4) any non\-word
+character at the cursor position plus any remaining non\-word characters
+before the next word, including all characters specified by the
+\fBskip\-chars\fP style, (5) the word at or following the cursor (6) any
+non\-word characters following that word (7) the remainder of the line\&.  Any
+of the elements may be an empty string; the calling function should test
+for this to decide whether it can perform its function\&.
+.RE
+.TP
+\fBcopy\-earlier\-word\fP
+This widget works like a combination of \fBinsert\-last\-word\fP and
+\fBcopy\-prev\-shell\-word\fP\&.  Repeated invocations of the widget retrieve
+earlier words on the relevant history line\&.  With a numeric argument
+\fIN\fP, insert the \fIN\fPth word from the history line; \fIN\fP may be
+negative to count from the end of the line\&.
+.RS
+.PP
+If \fBinsert\-last\-word\fP has been used to retrieve the last word on a
+previous history line, repeated invocations will replace that word with
+earlier words from the same line\&.
+.PP
+Otherwise, the widget applies to words on the line currently being edited\&.
+The \fBwidget\fP style can be set to the name of another widget that should
+be called to retrieve words\&.  This widget must accept the same three
+arguments as \fBinsert\-last\-word\fP\&.
+.RE
+.TP
 \fBcycle\-completion\-positions\fP
 After inserting an unambiguous string into the command line, the new
 function based completion system may know about multiple places in
@@ -466,6 +630,15 @@ bindkey '\ee^N' history\-beginning\-search\-forward\-end\fP
 .RE
 .RE
 .TP
+\fBup\-line\-or\-beginning\-search\fP, \fBdown\-line\-or\-beginning\-search\fP
+These widgets are similar to the builtin functions \fBup\-line\-or\-search\fP
+and \fBdown\-line\-or\-search\fP:  if in a multiline buffer they move up or
+down within the buffer, otherwise they search for a history line matching
+the start of the current line\&.  In this case, however, they search for
+a line which matches the current line up to the current cursor position, in
+the manner of \fBhistory\-beginning\-search\-backward\fP and \fB\-forward\fP, rather
+than the first word on the line\&.
+.TP
 \fBincarg\fP
 Typing the keystrokes for this widget with the cursor placed on or to the
 left of an integer causes that integer to be incremented by one\&.  With a
@@ -510,6 +683,72 @@ into the command line\&.
 .RS
 .nf
 \fBbindkey '^Xf' insert\-files\fP
+.fi
+.RE
+.RE
+.TP
+.PD 0
+\fBnarrow\-to\-region [ \-p\fP \fIpre\fP \fB] [ \-P\fP \fIpost\fP \fB]\fP
+.TP
+.PD 0
+    \fB[ \-S\fP \fIstatepm\fP \fB| \-R\fP \fIstatepm\fP \fB] [ \-n ] [\fP \fIstart\fP \fIend\fP \fB]\fP)
+.TP
+.PD
+\fBnarrow\-to\-region\-invisible\fP
+Narrow the editable portion of the buffer to the region between the cursor
+and the mark, which may be in either order\&.  The region may not be empty\&.
+.RS
+.PP
+\fBnarrow\-to\-region\fP may be used as a widget or called as a function from a
+user\-defined widget; by default, the text outside the editable area remains
+visible\&.  A \fBrecursive\-edit\fP is performed and the original widening
+status is then restored\&.  Various options and arguments are available when
+it is called as a function\&.
+.PP
+The options \fB\-p\fP \fIpretext\fP and \fB\-P\fP \fIposttext\fP may be
+used to replace the text before and after the display for the duration of
+the function; either or both may be an empty string\&.
+.PP
+If the option \fB\-n\fP is also given, \fIpretext\fP or \fIposttext\fP will only
+be inserted if there is text before or after the region respectively which
+will be made invisible\&.
+.PP
+Two numeric arguments may be given which will be used instead of the cursor
+and mark positions\&.
+.PP
+The option \fB\-S\fP \fIstatepm\fP is used to narrow according to the other
+options while saving the original state in the parameter with name
+\fIstatepm\fP, while the option \fB\-R\fP \fIstatepm\fP is used to restore the
+state from the parameter; note in both cases the \fIname\fP of the parameter
+is required\&.  In the second case, other options and arguments are
+irrelevant\&.  When this method is used, no \fBrecursive\-edit\fP is performed;
+the calling widget should call this function with the option \fB\-S\fP,
+perform its own editing on the command line or pass control to the user
+via `\fBzle recursive\-edit\fP', then call this function with the option
+\fB\-R\fP\&.  The argument \fIstatepm\fP must be a suitable name for an ordinary
+parameter, except that parameters beginning with the prefix \fB_ntr_\fP are
+reserved for use within \fBnarrow\-to\-region\fP\&.  Typically the parameter will
+be local to the calling function\&.
+.PP
+\fBnarrow\-to\-region\-invisible\fP is a simple widget which calls
+\fBnarrow\-to\-region\fP with arguments which replace any text outside the
+region with `\fB\&.\&.\&.\fP'\&.
+.PP
+The display is restored (and the widget returns) upon any zle command
+which would usually cause the line to be accepted or aborted\&.  Hence an
+additional such command is required to accept or abort the current line\&.
+.PP
+The return status of both widgets is zero if the line was accepted, else
+non\-zero\&.
+.PP
+Here is a trivial example of a widget using this feature\&.
+.RS
+.nf
+\fBlocal state
+narrow\-to\-region \-p $'Editing restricted region\en' \e 
+  \-P '' \-S state
+zle recursive\-edit
+narrow\-to\-region \-R state\fP
 .fi
 .RE
 .RE
@@ -563,6 +802,72 @@ bindkey '^Z' predict\-off\fP
 .RE
 .RE
 .TP
+\fBread\-from\-minibuffer\fP
+This is most useful when called as a function from inside a widget, but will
+work correctly as a widget in its own right\&.  It prompts for a value
+below the current command line; a value may be input using all of the
+standard zle operations (and not merely the restricted set available
+when executing, for example, \fBexecute\-named\-cmd\fP)\&.  The value is then
+returned to the calling function in the parameter \fB$REPLY\fP and the
+editing buffer restored to its previous state\&.  If the read was aborted
+by a keyboard break (typically \fB^G\fP), the function returns status 1
+and \fB$REPLY\fP is not set\&.  If an argument is supplied to the function
+it is taken as a prompt, otherwise `\fB? \fP' is used\&.
+.RS
+.PP
+One option is available: `\fB\-k\fP \fInum\fP' specifies that \fInum\fP
+characters are to be read instead of a whole line\&.  The line editor is not
+invoked recursively in this case\&.  Note that unlike the \fBread\fP builtin
+\fInum\fP must be given; there is no default\&.
+.PP
+The name is a slight misnomer, as in fact the shell's own minibuffer is
+not used\&.  Hence it is still possible to call \fBexecuted\-named\-cmd\fP and
+similar functions while reading a value\&.
+.RE
+.TP
+\fBreplace\-string\fP, \fBreplace\-pattern\fP
+The function \fBreplace\-string\fP implements two widgets\&.
+If defined under the same name as the function, it prompts for two
+strings; the first (source) string will be replaced by the second
+everywhere it occurs in the line editing buffer\&.
+.RS
+.PP
+If the widget name contains the word `\fBpattern\fP', for example by
+defining the widget using the command `\fBzle \-N replace\-pattern
+replace\-string\fP', then the replacement is done by pattern matching\&.  All
+zsh extended globbing patterns can be used in the source string; note
+that unlike filename generation the pattern does not need to match an
+entire word, nor do glob qualifiers have any effect\&.  In addition, the
+replacement string can contain parameter or command substitutions\&.
+Furthermore, a `\fB&\fP' in the replacement string will be replaced with
+the matched source string, and a backquoted digit `\fB\e\fP\fIN\fP' will be
+replaced by the \fIN\fPth parenthesised expression matched\&.  The form
+`\fB\e{\fP\fIN\fP\fB}\fP' may be used to protect the digit from following
+digits\&.
+.PP
+For example, starting from the line:
+.PP
+.RS
+.nf
+\fBprint This line contains fan and fond\fP
+.fi
+.RE
+.PP
+and invoking \fBreplace\-pattern\fP with the source string `\fBf(?)n\fP' and
+the replacment string `\fBc\e1r\fP' produces the not very useful line:
+.PP
+.RS
+.nf
+\fBprint This line contains car and cord\fP
+.fi
+.RE
+.PP
+The range of the replacement string can be limited by using the
+\fBnarrow\-to\-region\-invisible\fP widget\&.  One limitation of the current
+version is that \fBundo\fP will cycle through changes to the replacement
+and source strings before undoing the replacement itself\&.
+.RE
+.TP
 \fBsmart\-insert\-last\-word\fP
 This function may replace the \fBinsert\-last\-word\fP widget, like so:
 .RS
@@ -573,7 +878,8 @@ This function may replace the \fBinsert\-last\-word\fP widget, like so:
 .fi
 .RE
 .PP
-With a numeric prefix, it behaves like \fBinsert\-last\-word\fP, except that
+With a numeric prefix, or when passed command line arguments in a call
+from another widget, it behaves like \fBinsert\-last\-word\fP, except that
 words in comments are ignored when \fBINTERACTIVE_COMMENTS\fP is set\&.
 .PP
 Otherwise, the rightmost ``interesting'' word from the previous command is
@@ -771,6 +1077,25 @@ the context `\fB:predict\fP'\&.  If set to one of the standard `true' values,
 these widgets display a message below the prompt when the predictive state
 is toggled\&.  This is most useful in combination with the \fBtoggle\fP style\&.
 The default does not display these messages\&.
+.TP
+\fBwidget\fP
+This style is similar to the \fBcommand\fP style: For widget functions that
+use \fBzle\fP to call other widgets, this style can sometimes be used to
+override the widget which is called\&.  The context for this style is the
+name of the calling widget (\fInot\fP the name of the calling function,
+because one function may be bound to multiple widget names)\&.
+.RS
+.PP
+.RS
+.nf
+\fBzstyle :copy\-earlier\-word widget smart\-insert\-last\-word\fP
+.fi
+.RE
+.PP
+Check the documentation for the calling widget or function to determine
+whether the \fBwidget\fP style is used\&.
+.RE
+.RE
 .PP
 .SH "OTHER FUNCTIONS"
 .PP
@@ -893,6 +1218,78 @@ See also the \fBpager\fP, \fBprompt\fP and \fBrprompt\fP styles below\&.
 See `Accessing On\-Line Help'
 above\&.
 .TP
+\fBtetris\fP
+Zsh was once accused of not being as complete as Emacs,
+because it lacked a Tetris game\&.  This function was written to
+refute this vicious slander\&.
+.RS
+.PP
+This function must be used as a ZLE widget:
+.PP
+.RS
+.nf
+\fBautoload \-U tetris
+zle \-N tetris
+bindkey \fIkeys\fP tetris\fP
+.fi
+.RE
+.PP
+To start a game, execute the widget by typing the \fIkeys\fP\&.  Whatever command
+line you were editing disappears temporarily, and your keymap is also
+temporarily replaced by the Tetris control keys\&.  The previous editor state
+is restored when you quit the game (by pressing `\fBq\fP') or when you lose\&.
+.PP
+If you quit in the middle of a game, the next invocation of the \fBtetris\fP
+widget will continue where you left off\&.  If you lost, it will start a new
+game\&.
+.RE
+.TP
+\fBzcalc\fP [ \fIexpression\fP \&.\&.\&. ]
+A reasonably powerful calculator based on zsh's arithmetic evaluation
+facility\&.  The syntax is similar to that of formulae in most programming
+languages; see
+the section `Arithmetic Evaluation' in \fIzshmisc\fP(1) for details\&.  The mathematical
+library \fBzsh/mathfunc\fP will be loaded if it is available; see
+the section `The zsh/mathfunc Module' in \fIzshmodules\fP(1)\&.  The mathematical functions
+correspond to the raw system libraries, so trigonometric functions are
+evaluated using radians, and so on\&.
+.RS
+.PP
+Each line typed is evaluated as an expression\&.  The prompt shows a number,
+which corresponds to a positional parameter where the result of that
+calculation is stored\&.  For example, the result of the calculation on the
+line preceded by `\fB4> \fP' is available as \fB$4\fP\&.  Full command line
+editing, including the history of previous calculations, is available; the
+history is saved in the file \fB~/\&.zcalc_history\fP\&.  To exit, enter a blank
+line or type `\fBq\fP' on its own\&.
+.PP
+If arguments are given to \fBzcalc\fP on start up, they are used to prime the
+first few positional parameters\&.  A visual indication of this is given when
+the calculator starts\&.
+.PP
+The constants \fBPI\fP (3\&.14159\&.\&.\&.) and \fBE\fP (2\&.71828\&.\&.\&.) are provided\&.
+Parameter assignment is possible, but note that all parameters will be put
+into the global namespace\&.
+.PP
+An extra facility is provided for changing the default output base\&.  Use,
+for example, `\fB[#16]\fP' to display hexadecimal output preceded by an
+indication of the base, or `\fB[##16]\fP' just to display the raw number in
+the given base\&.  Bases themselves are always specified in decimal\&.
+`\fB[#]\fP' restores the normal output format\&.
+.PP
+The output base can be initialised by passing the option `\fB\-#\fP\fIbase\fP',
+for example `\fBzcalc \-#16\fP' (the `\fB#\fP' may have to be quoted, depending
+on the globbing options set)\&.
+.PP
+The prompt is configurable via the parameter \fBZCALCPROMPT\fP, which
+undergoes standard prompt expansion\&.  The index of the current entry is
+stored locally in the first element of the array \fBpsvar\fP, which can be
+referred to in \fBZCALCPROMPT\fP as `\fB%1v\fP'\&.  The default prompt is
+`\fB%1v> \fP'\&.
+.PP
+See the comments in the function for a few extra tips\&.
+.RE
+.TP
 \fBzed\fP [ \fB\-f\fP ] \fIname\fP
 This function uses the ZLE editor to edit a file or function\&.  It rebinds
 the return key to insert a line break, and adds bindings for `\fB^X^W\fP' in
@@ -914,10 +1311,10 @@ not exist; it is created on write, if necessary\&.
 .RE
 .TP
 .PD 0
-\fBzcp\fP [ \fB\-finqQvw\fP ] \fIsrcpat\fP \fIdest\fP
+\fBzcp\fP [ \fB\-finqQvwW\fP ] \fIsrcpat\fP \fIdest\fP
 .TP
 .PD
-\fBzln\fP [ \fB\-finqQsvw\fP ] \fIsrcpat\fP \fIdest\fP
+\fBzln\fP [ \fB\-finqQsvwW\fP ] \fIsrcpat\fP \fIdest\fP
 Same as \fBzmv \-C\fP and \fBzmv \-L\fP, respectively\&.  These functions do not
 appear in the zsh distribution, but can be created by linking \fBzmv\fP to
 the names \fBzcp\fP and \fBzln\fP in some directory in your \fBfpath\fP\&.
@@ -926,7 +1323,7 @@ the names \fBzcp\fP and \fBzln\fP in some directory in your \fBfpath\fP\&.
 See `Keyboard Definition'
 above\&.
 .TP
-\fBzmv\fP [ \fB\-finqQsvw\fP ] [ \-C | \-L | \-M | \-p \fIprogram\fP ] [ \-o \fIoptstring\fP ] \fIsrcpat\fP \fIdest\fP 
+\fBzmv\fP [ \fB\-finqQsvwW\fP ] [ \-C | \-L | \-M | \-p \fIprogram\fP ] [ \-o \fIoptstring\fP ] \fIsrcpat\fP \fIdest\fP 
 Move (usually, rename) files matching the pattern \fIsrcpat\fP to
 corresponding files having names of the form given by \fIdest\fP, where
 \fIsrcpat\fP contains parentheses surrounding patterns which will be
@@ -982,6 +1379,10 @@ Verbose: print each command as it's being executed\&.
 \fB\-w\fP
 Pick out wildcard parts of the pattern, as described above,
 and implicitly add parentheses for referring to them\&.
+.TP
+\fB\-W\fP
+Just like \fB\-w\fP, with the addition of turning wildcards in
+the replacement pattern into sequential ${1} \&.\&. ${N} references\&.
 .TP
 \fB\-C\fP
 .TP

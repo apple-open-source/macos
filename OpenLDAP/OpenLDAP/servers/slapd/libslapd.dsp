@@ -176,10 +176,6 @@ SOURCE=.\ch_malloc.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\charray.c
-# End Source File
-# Begin Source File
-
 SOURCE=.\compare.c
 # End Source File
 # Begin Source File
@@ -193,6 +189,10 @@ SOURCE=.\connection.c
 # Begin Source File
 
 SOURCE=.\controls.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\cr.c
 # End Source File
 # Begin Source File
 
@@ -241,6 +241,10 @@ SOURCE=.\limits.c
 # Begin Source File
 
 SOURCE=.\lock.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\matchedValues.c
 # End Source File
 # Begin Source File
 
@@ -349,10 +353,6 @@ SOURCE=.\starttls.c
 # Begin Source File
 
 SOURCE=.\str2filter.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\suffixalias.c
 # End Source File
 # Begin Source File
 

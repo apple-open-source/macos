@@ -10,6 +10,7 @@ ifndef RC_i386
 RC_ppc = 1
 endif
 endif
+BSDMAKE = bsdmake -j 2
 
 # Remove the arch stuff, since we know better here.  
 LOCAL_CFLAGS = $(filter-out -arch ppc -arch i386,$(RC_CFLAGS))
@@ -47,7 +48,7 @@ endif
 
 build-man:
 	MAKEOBJDIR="$(OBJROOT)" MACHINE_ARCH="$(shell arch)" \
-		MAKEFLAGS="" bsdmake buildman
+		MAKEFLAGS="" $(BSDMAKE) buildman
 build-static: build-ppc-static build-i386-static
 	@echo "Checking for libc_static.a"
 	@if [ -f "$(OBJROOT)/obj.ppc/libc_static.a" -a -f "$(OBJROOT)/obj.i386/libc_static.a" ]; then\
@@ -98,68 +99,79 @@ build-ppc-static:
 	@if [ ! -z "$(RC_ppc)" ]; then \
 		mkdir -p $(OBJROOT)/obj.ppc ; \
 		MAKEOBJDIR="$(OBJROOT)/obj.ppc" MACHINE_ARCH="ppc" \
-			MAKEFLAGS="" CFLAGS="-arch ppc $(LOCAL_CFLAGS)" bsdmake libc_static.a;\
+			MAKEFLAGS="" CFLAGS="-arch ppc $(LOCAL_CFLAGS)" $(BSDMAKE) libc_static.a;\
 	fi
 build-i386-static:
 	@if [ ! -z "$(RC_i386)" ]; then \
 		mkdir -p $(OBJROOT)/obj.i386 ; \
 		MAKEOBJDIR="$(OBJROOT)/obj.i386" MACHINE_ARCH="i386" \
-			MAKEFLAGS="" CFLAGS="-arch i386 $(LOCAL_CFLAGS)" bsdmake libc_static.a;\
+			MAKEFLAGS="" CFLAGS="-arch i386 $(LOCAL_CFLAGS)" $(BSDMAKE) libc_static.a;\
 	fi
 build-ppc-profile:
 	@if [ ! -z "$(RC_ppc)" ]; then \
 		mkdir -p $(OBJROOT)/obj.ppc ; \
 		MAKEOBJDIR="$(OBJROOT)/obj.ppc" MACHINE_ARCH="ppc" \
-			MAKEFLAGS="" CFLAGS="-arch ppc $(LOCAL_CFLAGS)" bsdmake libc_profile.a;\
+			MAKEFLAGS="" CFLAGS="-arch ppc $(LOCAL_CFLAGS)" $(BSDMAKE) libc_profile.a;\
 	fi
 build-i386-profile:
 	@if [ ! -z "$(RC_i386)" ]; then \
 		mkdir -p $(OBJROOT)/obj.i386 ; \
 		MAKEOBJDIR="$(OBJROOT)/obj.i386" MACHINE_ARCH="i386" \
-			MAKEFLAGS="" CFLAGS="-arch i386 $(LOCAL_CFLAGS)" bsdmake libc_profile.a;\
+			MAKEFLAGS="" CFLAGS="-arch i386 $(LOCAL_CFLAGS)" $(BSDMAKE) libc_profile.a;\
 	fi
 build-ppc-debug:
 	@if [ ! -z "$(RC_ppc)" ]; then \
 		mkdir -p $(OBJROOT)/obj.ppc ; \
 		MAKEOBJDIR="$(OBJROOT)/obj.ppc" MACHINE_ARCH="ppc" \
-			MAKEFLAGS="" CFLAGS="-arch ppc $(LOCAL_CFLAGS)" bsdmake libc_debug.a;\
+			MAKEFLAGS="" CFLAGS="-arch ppc $(LOCAL_CFLAGS)" $(BSDMAKE) libc_debug.a;\
 	fi
 build-i386-debug:
 	@if [ ! -z "$(RC_i386)" ]; then \
 		mkdir -p $(OBJROOT)/obj.i386 ; \
 		MAKEOBJDIR="$(OBJROOT)/obj.i386" MACHINE_ARCH="i386" \
-			MAKEFLAGS="" CFLAGS="-arch i386 $(LOCAL_CFLAGS)" bsdmake libc_debug.a;\
+			MAKEFLAGS="" CFLAGS="-arch i386 $(LOCAL_CFLAGS)" $(BSDMAKE) libc_debug.a;\
 	fi
 build-ppc-dynamic:
 	@if [ ! -z "$(RC_ppc)" ]; then \
 		mkdir -p $(OBJROOT)/obj.ppc ; \
 		MAKEOBJDIR="$(OBJROOT)/obj.ppc" MACHINE_ARCH="ppc" \
-			MAKEFLAGS="" CFLAGS="-arch ppc $(LOCAL_CFLAGS)" bsdmake libc.a;\
+			MAKEFLAGS="" CFLAGS="-arch ppc $(LOCAL_CFLAGS)" $(BSDMAKE) libc.a;\
 	fi
 build-i386-dynamic:
 	@if [ ! -z "$(RC_i386)" ]; then \
 		mkdir -p $(OBJROOT)/obj.i386 ; \
 		MAKEOBJDIR="$(OBJROOT)/obj.i386" MACHINE_ARCH="i386" \
-			MAKEFLAGS="" CFLAGS="-arch i386 $(LOCAL_CFLAGS)" bsdmake libc.a;\
+			MAKEFLAGS="" CFLAGS="-arch i386 $(LOCAL_CFLAGS)" $(BSDMAKE) libc.a;\
 	fi
 
 build-ppc:
 	@if [ ! -z "$(RC_ppc)" ]; then \
 		mkdir -p $(OBJROOT)/obj.ppc ; \
 		MAKEOBJDIR="$(OBJROOT)/obj.ppc" MACHINE_ARCH="ppc" \
-			MAKEFLAGS="" CFLAGS="-arch ppc $(LOCAL_CFLAGS)" bsdmake build;\
+			MAKEFLAGS="" CFLAGS="-arch ppc $(LOCAL_CFLAGS)" $(BSDMAKE) build;\
 	fi
 build-i386:
 	@if [ ! -z "$(RC_i386)" ]; then \
 		mkdir -p $(OBJROOT)/obj.i386 ; \
 		MAKEOBJDIR="$(OBJROOT)/obj.i386" MACHINE_ARCH="i386" \
-			MAKEFLAGS="" CFLAGS="-arch i386 $(LOCAL_CFLAGS)" bsdmake build;\
+			MAKEFLAGS="" CFLAGS="-arch i386 $(LOCAL_CFLAGS)" $(BSDMAKE) build;\
 	fi
 installsrc:
 	$(_v) pax -rw . "$(SRCROOT)"
+
 installhdrs-real:
-	MAKEOBJDIR="$(OBJROOT)" DESTDIR="$(DSTROOT)" \
-	MACHINE_ARCH="$(shell arch)" MAKEFLAGS="" bsdmake installhdrs
+	MAKEOBJDIR="$(OBJROOT)" DESTDIR="$(DSTROOT)" MAKEFLAGS="" \
+		$(BSDMAKE) installhdrs
+	@if [ ! -z "$(RC_i386)" ]; then \
+		mkdir -p "$(OBJROOT)/obj.i386" ; \
+		MAKEOBJDIR="$(OBJROOT)/obj.i386" MACHINE_ARCH="i386" \
+		MAKEFLAGS="" $(BSDMAKE) installhdrs-md ; \
+	fi
+	@if [ ! -z "$(RC_ppc)" ]; then \
+		mkdir -p "$(OBJROOT)/obj.ppc" ; \
+		MAKEOBJDIR="$(OBJROOT)/obj.ppc" MACHINE_ARCH="ppc" \
+		MAKEFLAGS="" $(BSDMAKE) installhdrs-md ; \
+	fi
 
 BI-install-static: build-static
 	mkdir -p $(DSTROOT)/usr/local/lib/system
@@ -194,6 +206,7 @@ BI-install-dynamic: build-dynamic
 		ranlib "$(DSTROOT)/usr/local/lib/system/libc.a"; \
 	fi
 
+# Don't use -j here; it may try to make links before the files are copied
 install-man:
 	mkdir -p $(DSTROOT)/usr/share/man/man2
 	mkdir -p $(DSTROOT)/usr/share/man/man3
@@ -201,7 +214,7 @@ install-man:
 	mkdir -p $(DSTROOT)/usr/share/man/man5
 	mkdir -p $(DSTROOT)/usr/share/man/man7
 	MAKEOBJDIR="$(OBJROOT)" DESTDIR="$(DSTROOT)" NOMANCOMPRESS=1 \
-		MACHINE_ARCH="$(shell arch)" MAKEFLAGS="" bsdmake maninstall
+		MACHINE_ARCH="$(shell arch)" MAKEFLAGS="" bsdmake fbsdman maninstall
 
 install-all: build install-man BI-install-dynamic BI-install-static BI-install-profile
 

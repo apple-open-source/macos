@@ -41,6 +41,7 @@ extern "C" {
 #include <sys/queue.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
+#include <sys/attr.h>
 #include <libkern/OSTypes.h>
 
 #if KERNEL
@@ -70,7 +71,7 @@ enum cddaNodeType
 {
 	kAppleCDDADirectoryType 	= 1,
 	kAppleCDDATrackType			= 2,
-	kAppleCDDXMLFileType 		= 3
+	kAppleCDDAXMLFileType 		= 3
 };
 
 
@@ -113,7 +114,6 @@ enum
 	kCDDAMaxFileNameBytes = 3 * 255
 };
 
-extern char gFileSuffix[];
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	FinderInfo flags and structures
@@ -168,6 +168,71 @@ struct FinderInfo
 	UInt16		reserved;
 };
 typedef struct FinderInfo FinderInfo;
+
+
+// For pre-Panther systems
+#ifndef VOL_CAP_FMT_JOURNAL
+#define VOL_CAP_FMT_JOURNAL			0x00000008
+#define VOL_CAP_FMT_JOURNAL_ACTIVE	0x00000010
+#define VOL_CAP_FMT_NO_ROOT_TIMES	0x00000020
+#define VOL_CAP_FMT_SPARSE_FILES	0x00000040
+#define VOL_CAP_FMT_ZERO_RUNS		0x00000080
+#define VOL_CAP_FMT_CASE_SENSITIVE	0x00000100
+#define VOL_CAP_FMT_CASE_PRESERVING 0x00000200
+#define VOL_CAP_FMT_FAST_STATFS		0x00000400
+#endif
+
+#ifndef VOL_CAP_INT_EXCHANGEDATA
+#define VOL_CAP_INT_EXCHANGEDATA	0x00000010
+#define VOL_CAP_INT_COPYFILE		0x00000020
+#define VOL_CAP_INT_ALLOCATE		0x00000040
+#define VOL_CAP_INT_VOL_RENAME		0x00000080
+#define VOL_CAP_INT_ADVLOCK			0x00000100
+#define VOL_CAP_INT_FLOCK			0x00000200
+#endif
+
+#ifndef	ATTR_VOL_VCBFSID
+#define ATTR_VOL_VCBFSID			0x00040000
+#endif
+
+
+enum
+{
+	
+	kAppleCDDACommonAttributesValidMask = 	ATTR_CMN_NAME | ATTR_CMN_DEVID | ATTR_CMN_FSID |
+											ATTR_CMN_OBJTYPE | ATTR_CMN_OBJTAG | ATTR_CMN_OBJID	|
+											ATTR_CMN_OBJPERMANENTID | ATTR_CMN_PAROBJID | ATTR_CMN_SCRIPT |
+											ATTR_CMN_CRTIME | ATTR_CMN_MODTIME | ATTR_CMN_CHGTIME |
+											ATTR_CMN_ACCTIME | ATTR_CMN_BKUPTIME | ATTR_CMN_FNDRINFO |
+											ATTR_CMN_OWNERID | ATTR_CMN_GRPID | ATTR_CMN_ACCESSMASK |
+											ATTR_CMN_FLAGS | ATTR_CMN_USERACCESS,
+	
+	kAppleCDDAVolumeAttributesValidMask	=	ATTR_VOL_FSTYPE | ATTR_VOL_SIGNATURE | ATTR_VOL_SIZE |
+											ATTR_VOL_SPACEFREE | ATTR_VOL_SPACEAVAIL |
+											ATTR_VOL_MINALLOCATION | ATTR_VOL_ALLOCATIONCLUMP |
+											ATTR_VOL_IOBLOCKSIZE | ATTR_VOL_OBJCOUNT | ATTR_VOL_FILECOUNT |
+											ATTR_VOL_DIRCOUNT | ATTR_VOL_MAXOBJCOUNT |
+											ATTR_VOL_MOUNTPOINT | ATTR_VOL_NAME | ATTR_VOL_MOUNTFLAGS |
+											ATTR_VOL_MOUNTEDDEVICE | ATTR_VOL_ENCODINGSUSED |
+											ATTR_VOL_CAPABILITIES | ATTR_VOL_VCBFSID |
+											ATTR_VOL_ATTRIBUTES | ATTR_VOL_INFO,
+	
+	kAppleCDDADirectoryAttributesValidMask = ATTR_DIR_LINKCOUNT | ATTR_DIR_ENTRYCOUNT | ATTR_DIR_MOUNTSTATUS,
+	
+	kAppleCDDAFileAttributesValidMask	=	ATTR_FILE_LINKCOUNT | ATTR_FILE_TOTALSIZE | ATTR_FILE_ALLOCSIZE |
+											ATTR_FILE_IOBLOCKSIZE | ATTR_FILE_CLUMPSIZE | ATTR_FILE_DEVTYPE |
+											ATTR_FILE_DATALENGTH | ATTR_FILE_DATAALLOCSIZE |
+											ATTR_FILE_RSRCLENGTH | ATTR_FILE_RSRCALLOCSIZE,
+	
+	kAppleCDDAForkAttributesValidMask	=	0x00000000
+	
+};
+
+enum
+{
+	kAppleCDDAFileSystemVolumeSignature = 0x4244,	// 'BD'
+	kAppleCDDAFileSystemVCBFSID			= 0x4A48	// 'JH'
+};
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -391,6 +456,7 @@ typedef struct AppleCDDANode * AppleCDDANodePtr;
 #define CDDATOV(cddaNodePtr) 		((cddaNodePtr)->vNodePtr)
 #define CDDATONODEINFO(cddaNodePtr)	((cddaNodePtr)->nodeInfoPtr)
 #define VFSTONODEINFO(mp)			((AppleCDDANodeInfoPtr)((AppleCDDAMountPtr)((mp)->mnt_data))->nodeInfoArrayPtr)
+#define VFSTONAMEINFO(mp)			((UInt8 *)((AppleCDDAMountPtr)((mp)->mnt_data))->nameData)
 
 #endif	/* KERNEL */
 

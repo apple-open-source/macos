@@ -1,0 +1,106 @@
+.\" t
+.\" $Id: gimpprint-color.7.in,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $
+.\" Copyright (C) 2000 Roger Leigh <roger@whinlatter.uklinux.net>
+.\"
+.\" This program is free software; you can redistribute it and/or modify
+.\" it under the terms of the GNU General Public License as published by
+.\" the Free Software Foundation; either version 2, or (at your option)
+.\" any later version.
+.\"
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public License
+.\" along with this program; if not, write to the Free Software
+.\" Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+.TH GIMPPRINT-COLOR 7 "@RELEASE_DATE@" "Version @GIMPPRINT_VERSION@" "Gimp-Print Manual Pages"
+.SH NAME
+gimpprint-color \- Gimp-Print color balancing
+.SH DESCRIPTION
+Gimp-Print includes several color balancing controls.  These may be
+used to adjust the original image's brightness and contrast and gamma,
+and the density and saturation of the output, as well as the
+individual cyan, magenta and yellow levels.
+.SH COLOR BALANCING
+.TP
+.B Cyan
+.TP
+.B Magenta
+.TP
+.B Yellow
+The range of values is 0.0 \- 4.0, and defaults to 1.0.  These three
+options allow specification of the cyan, magenta, and yellow levels
+independently, for rebalancing the levels.  Normally, these should be
+adjusted to yield neutral gray, but they can be used for other
+effects.
+.TP
+.B Brightness
+The range of values is 0.0 \- 2.0, and defaults to 1.0.  This adjusts
+the brightness of the image.  0.0 gives a fully black image; 2.0 gives
+a fully white image.  Values greater than 1 will result in black not
+being solid and highlights turning white; values less than 1 will
+result in white not being perfectly clear and shadows turning black.
+.TP
+.B Contrast
+The range of values is 0.0 \- 4.0, and defaults to 1.0.  Adjust the
+contrast of the image.  0.0 gives a solid gray for the entire image,
+the exact gray depending upon the brightness chosen.
+.TP
+.B Gamma
+The range of values is 0.1 \- 4.0, and defaults to 1.0.  Adjust the
+gamma of the image, over and above the printer-specific correction.
+Gamma less than 1.0 will result in a darker image; gamma greater than
+1.0 will result in a lighter image.  Unlike brightness, gamma
+adjustment does not change the endpoints; it merely changes the shape
+of the input\(->output curve.
+.TP
+.B Density
+The range of values is 0.1 \- 2.0, and defaults to 1.0.  Adjust the
+amount of ink deposited on the paper.  If you've chosen the correct
+paper type and you're getting ink bleeding through the paper or
+puddling, try reducing the density to the lowest value you can while
+still achieving solid black.  If you're not getting solid black, even
+with the contrast and brightness at 1.0, try increasing the density.
+.IP
+All of the printers supported here actually need less than 100% ink density in
+most cases, so the actual density is something other than the nominal density
+setting.  The effective density setting cannot go above 100%, so if a value
+specified will result in an excessively high density level, it will be silently
+limited to 1.0.
+.TP
+.B Saturation
+The range of values is 0.0 \- 9.0, and defaults to 1.0.  Adjust the
+brilliance of colors.  0.0 results in pure grayscale; using this with
+Color=1 is one way of getting grayscale (see below under "Color" for a
+full discussion).  Saturation of less than 1.0 results in more muted
+colors; saturation of greater than 1.0 results in more vibrant colors.
+Very high saturation often results in very strange effects, including
+posterization and banding that might not be expected.  For normal
+purposes, the saturation should generally be less than 1.5.
+.SH COPYRIGHT
+Copyright \(co 2001 Michael Sweet (mike@easysw.com) and Robert Krawitz
+(rlk@alum.mit.edu)
+.PP
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+.PP
+This manual page was written by Roger Leigh (roger@whinlatter.uklinux.net)
+.SH SEE ALSO
+.BR gimpprint-dithers (7),
+.BR gimpprint-imagetypes (7),
+.BR gimpprint-inktypes (7),
+.BR gimpprint-mediasizes (7),
+.BR gimpprint-mediasources (7),
+.BR gimpprint-mediatypes (7),
+.BR gimpprint-models (7),
+.BR gimpprint-resolutions (7).
+.\"#
+.\"# The following sets edit modes for GNU EMACS
+.\"# Local Variables:
+.\"# mode:nroff
+.\"# fill-column:79
+.\"# End:

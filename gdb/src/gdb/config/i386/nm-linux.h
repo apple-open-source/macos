@@ -27,10 +27,7 @@
 #define I386_USE_GENERIC_WATCHPOINTS
 
 #include "i386/nm-i386.h"
-#include "nm-linux.h"
-
-#include <sys/ptrace.h>
-#include <asm/ptrace.h>
+#include "config/nm-linux.h"
 
 /* Support for the user area.  */
 
@@ -41,9 +38,6 @@ extern int kernel_u_size (void);
 /* This is the amount to substract from u.u_ar0 to get the offset in
    the core file of the register values.  */
 #define KERNEL_U_ADDR 0
-
-/* Offset of the registers within the user area.  */
-#define U_REGS_OFFSET 0
 
 extern CORE_ADDR register_u_addr (CORE_ADDR blockend, int regnum);
 #define REGISTER_U_ADDR(addr, blockend, regnum) \
@@ -79,6 +73,11 @@ extern int cannot_fetch_register (int regno);
 extern int cannot_store_register (int regno);
 #define CANNOT_FETCH_REGISTER(regno) cannot_fetch_register (regno)
 #define CANNOT_STORE_REGISTER(regno) cannot_store_register (regno)
+
+#ifdef HAVE_PTRACE_GETFPXREGS
+/* Include register set support for the SSE registers.  */
+#define FILL_FPXREGSET
+#endif
 
 /* Override child_resume in `infptrace.c'.  */
 #define CHILD_RESUME

@@ -1,7 +1,8 @@
-This is ../info/emacs, produced by makeinfo version 4.0 from emacs.texi.
+This is ../info/emacs, produced by makeinfo version 4.0f from
+emacs.texi.
 
    This is the Fourteenth edition of the `GNU Emacs Manual', updated
-for Emacs version 21.1.
+for Emacs version 21.2.
 
 INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
@@ -11,9 +12,9 @@ END-INFO-DIR-ENTRY
    Published by the Free Software Foundation 59 Temple Place, Suite 330
 Boston, MA  02111-1307 USA
 
-   Copyright (C) 1985,
-1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001    Free Software
-Foundation, Inc.
+   Copyright (C)
+1985,1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001,2002
+Free Software Foundation, Inc.
 
    Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.1 or
@@ -27,37 +28,6 @@ License."
    (a) The FSF's Back-Cover Text is: "You have freedom to copy and
 modify this GNU Manual, like GNU software.  Copies published by the Free
 Software Foundation raise funds for GNU development."
-
-
-File: emacs,  Node: Rmail Editing,  Next: Rmail Digest,  Prev: Rmail Coding,  Up: Rmail
-
-Editing Within a Message
-========================
-
-   Most of the usual Emacs commands are available in Rmail mode, though
-a few, such as `C-M-n' and `C-M-h', are redefined by Rmail for other
-purposes.  However, the Rmail buffer is normally read only, and most of
-the letters are redefined as Rmail commands.  If you want to edit the
-text of a message, you must use the Rmail command `e'.
-
-`e'
-     Edit the current message as ordinary text.
-
-   The `e' command (`rmail-edit-current-message') switches from Rmail
-mode into Rmail Edit mode, another major mode which is nearly the same
-as Text mode.  The mode line indicates this change.
-
-   In Rmail Edit mode, letters insert themselves as usual and the Rmail
-commands are not available.  When you are finished editing the message
-and are ready to go back to Rmail, type `C-c C-c', which switches back
-to Rmail mode.  Alternatively, you can return to Rmail mode but cancel
-all the editing that you have done, by typing `C-c C-]'.
-
-   Entering Rmail Edit mode runs the hook `text-mode-hook'; then it
-runs the hook `rmail-edit-mode-hook' (*note Hooks::).  It adds the
-attribute `edited' to the message.  It also displays the full headers
-of the message, so that you can edit the headers as well as the body of
-the message, and your changes in the headers will be permanent.
 
 
 File: emacs,  Node: Rmail Digest,  Next: Out of Rmail,  Prev: Rmail Editing,  Up: Rmail
@@ -212,7 +182,7 @@ for special Dired commands.  Some Dired commands "mark" or "flag" the
 operate on the marked files or on the flagged files.
 
    The Dired-X package provides various extra features for Dired mode.
-*Note Dired-X: (dired-x)Dired-X.
+*Note Dired-X: (dired-x)Top.
 
 * Menu:
 
@@ -1240,4 +1210,50 @@ the year in its entirety; that is, type `1990', not `90'.
 centers the three-month calendar around that month.
 
    You can return to today's date with `.' (`calendar-goto-today').
+
+
+File: emacs,  Node: Scroll Calendar,  Next: Counting Days,  Prev: Calendar Motion,  Up: Calendar/Diary
+
+Scrolling in the Calendar
+=========================
+
+   The calendar display scrolls automatically through time when you
+move out of the visible portion.  You can also scroll it manually.
+Imagine that the calendar window contains a long strip of paper with
+the months on it.  Scrolling the calendar means moving the strip
+horizontally, so that new months become visible in the window.
+
+`C-x <'
+     Scroll calendar one month forward (`scroll-calendar-left').
+
+`C-x >'
+     Scroll calendar one month backward (`scroll-calendar-right').
+
+`C-v'
+`<NEXT>'
+     Scroll calendar three months forward
+     (`scroll-calendar-left-three-months').
+
+`M-v'
+`<PRIOR>'
+     Scroll calendar three months backward
+     (`scroll-calendar-right-three-months').
+
+   The most basic calendar scroll commands scroll by one month at a
+time.  This means that there are two months of overlap between the
+display before the command and the display after.  `C-x <' scrolls the
+calendar contents one month to the left; that is, it moves the display
+forward in time.  `C-x >' scrolls the contents to the right, which
+moves backwards in time.
+
+   The commands `C-v' and `M-v' scroll the calendar by an entire
+"screenful"--three months--in analogy with the usual meaning of these
+commands.  `C-v' makes later dates visible and `M-v' makes earlier
+dates visible.  These commands take a numeric argument as a repeat
+count; in particular, since `C-u' multiplies the next command by four,
+typing `C-u C-v' scrolls the calendar forward by a year and typing `C-u
+M-v' scrolls the calendar backward by a year.
+
+   The function keys <NEXT> and <PRIOR> are equivalent to `C-v' and
+`M-v', just as they are in other modes.
 

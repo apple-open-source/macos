@@ -1,9 +1,9 @@
 /*
- * "$Id: scsi-irix.c,v 1.1 2002/05/24 21:04:47 mike Exp $"
+ * "$Id$"
  *
  *   IRIX SCSI printer support for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2002 by Easy Software Products, all rights reserved.
+ *   Copyright 2003 by Easy Software Products, all rights reserved.
  *
  *   Redistribution and use in source and binary forms, with or
  *   without modification, are permitted provided that the
@@ -83,8 +83,7 @@ print_device(const char *resource,	/* I - SCSI device */
   int		bytes;			/* Number of bytes */
   int		try;			/* Current try */
   dsreq_t	scsi_req;		/* SCSI request */
-  char		scsi_cmd[6],		/* SCSI command data */
-		scsi_sense[32];		/* SCSI sense data */
+  char		scsi_cmd[6];		/* SCSI command data */
 #if defined(HAVE_SIGACTION) && !defined(HAVE_SIGSET)
   struct sigaction action;		/* Actions for POSIX signals */
 #endif /* HAVE_SIGACTION && !HAVE_SIGSET */
@@ -207,5 +206,5 @@ print_device(const char *resource,	/* I - SCSI device */
 
 
 /*
- * End of "$Id: scsi-irix.c,v 1.1 2002/05/24 21:04:47 mike Exp $".
+ * End of "$Id$".
  */

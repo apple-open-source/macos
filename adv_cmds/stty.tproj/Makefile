@@ -16,7 +16,7 @@ HFILES = extern.h stty.h
 
 CFILES = cchar.c gfmt.c key.c modes.c print.c stty.c util.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.dist stty.1
+OTHERSRCS = Makefile.preamble Makefile.postamble Makefile Makefile.dist stty.1
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

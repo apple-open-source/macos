@@ -16,7 +16,7 @@ HFILES = IOAudioLib.h
 
 CFILES = IOAudioLib.c
 
-OTHERSRCS = Makefile.preamble Makefile audiotest.c
+OTHERSRCS = Makefile.preamble Makefile
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

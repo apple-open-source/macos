@@ -1,27 +1,11 @@
 /*
- * Copyright (c) 1984,1985,1989,1994,1995,1996,1999  Mark Nudelman
- * All rights reserved.
+ * Copyright (C) 1984-2002  Mark Nudelman
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice in the documentation and/or other materials provided with 
- *    the distribution.
+ * You may distribute under the terms of either the GNU General Public
+ * License or the Less License, as specified in the README file.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT 
- * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR 
- * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE 
- * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN 
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * For more information about less, or for information on how to 
+ * contact the author, see the README file.
  */
 
 
@@ -86,19 +70,30 @@
 #if HAVE_CTYPE_H
 #include <ctype.h>
 #endif
-#if STDC_HEADERS
+#if HAVE_LIMITS_H
+#include <limits.h>
+#endif
+#if HAVE_STDLIB_H
 #include <stdlib.h>
+#endif
+#if HAVE_STRING_H
 #include <string.h>
 #endif
 #ifdef _OSK
 #include <modes.h>
 #include <strings.h>
 #endif
-#if MSDOS_COMPILER==WIN32C || MSDOS_COMPILER==DJGPPC
+#if MSDOS_COMPILER==WIN32C || OS2
 #include <io.h>
 #endif
+#if MSDOS_COMPILER==DJGPPC
+#include <io.h>
+#include <sys/exceptn.h>
+#include <conio.h>
+#include <pc.h>
+#endif
 
-#if !STDC_HEADERS
+#if !HAVE_STDLIB_H
 char *getenv();
 off_t lseek();
 VOID_POINTER calloc();
@@ -144,13 +139,21 @@ void free();
 
 #define	BAD_LSEEK	((off_t)-1)
 
+#ifndef CHAR_BIT
+#define CHAR_BIT 8
+#endif
+
+/*
+ * Upper bound on the string length of an integer converted to string.
+ * 302 / 1000 is ceil (log10 (2.0)).  Subtract 1 for the sign bit;
+ * add 1 for integer division truncation; add 1 more for a minus sign.
+ */
+#define INT_STRLEN_BOUND(t) ((sizeof(t) * CHAR_BIT - 1) * 302 / 1000 + 1 + 1)
+
 /*
  * Special types and constants.
  */
-typedef long		POSITION;
-#define PR_POSITION	"%ld"
-#define MAX_PRINT_POSITION 20
-#define MAX_PRINT_INT      10
+typedef off_t		POSITION;
 
 #define	NULL_POSITION	((POSITION)(-1))
 
@@ -187,7 +190,7 @@ typedef long		POSITION;
 #if MSDOS_COMPILER==MSOFTC
 #define	SET_BINARY(f)	_setmode(f, _O_BINARY);
 #else
-#if MSDOS_COMPILER
+#if MSDOS_COMPILER || OS2
 #define	SET_BINARY(f)	setmode(f, O_BINARY)
 #else
 #define	SET_BINARY(f)
@@ -291,6 +294,10 @@ struct textlist
 #define	AT_INVIS	(4)
 #define	AT_STANDOUT	(5)
 
+#if '0' == 240
+#define IS_EBCDIC_HOST 1
+#endif
+
 #if IS_EBCDIC_HOST
 /*
  * Long definition for EBCDIC.
@@ -365,6 +372,20 @@ struct textlist
 #define	LSIGNAL(sig,func)	os9_signal(sig,func)
 #else
 #define	LSIGNAL(sig,func)	signal(sig,func)
+#endif
+
+#if HAVE_SIGPROCMASK
+#if HAVE_SIGSET_T
+#else
+#undef HAVE_SIGPROCMASK
+#endif
+#endif
+#if HAVE_SIGPROCMASK
+#if HAVE_SIGEMPTYSET
+#else
+#undef  sigemptyset
+#define sigemptyset(mp) *(mp) = 0
+#endif
 #endif
 
 #define	S_INTERRUPT	01

@@ -24,7 +24,7 @@
     id			updatePrefsMatrix;
 
     id			objectDescription;
-
+    id			objectState;
 
     NSDictionary 	*currentSelectedItemDict;
     NSDictionary 	*aboutBoxOptions;

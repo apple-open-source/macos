@@ -1,0 +1,80 @@
+<html>
+<head>
+<title>J2EE Deployer read me</title>
+</head>
+<body bgcolor="#ffffff">
+   <h1>J2EE Deployer</h1>
+   <div align="right"><font size="-3" color="#555555"> by <A href="mailto:daniel.schulze@telkel.com"> Daniel Schulze </A> </font></div>
+   <hr>
+
+   <h3>The idea</h3>
+   <p> The j2ee deployer is made to delpoy j2ee compilant applications which means .ear,
+       ejb.jar and web.war files as well.
+   </p>
+
+   <p> This MBean references the <code><b>org.jboss.ejb.ContainerFactoryBMBean</b></code> and
+       <code><b>org.jboss.tomcat.EmbededTomcatServiceMBean</b></code>. Both beans have to run
+       in the same server and since the deployer in his start service method tries to deploy
+       all apps that were deployed before shutdown, these both services must be started before
+       the j2ee deployer! To make this sure, there must be a service entry for the j2ee deployer
+       in the jboss.dependencies file.
+   </p>
+
+   <hr>
+
+   <h3>How it works</h3>
+   <p> <dl>
+       <dt><b>deploy ()</b></dt>
+       <dd> The deployer takes the given url and tries to determine the type of the given file
+       (this is done by seeking one of the possible deployment descriptors in this file
+       (application.xml, ejb-jar.xml, web.xml)). If a valid file type was determined, all
+       for the deployment needed files (modules, libs, alternative DDs, ...) are downloaded
+       to a local directory of the app server. Once this is done the ejb and war deployers
+       (ContainerFactory and EmbeddedTomcat) are called to deploy the single modules. <br>
+       If this was successful, the current url is stored to the deployments collection. If
+       one of the ejb/war deployer calls fails, the deployment becomes canceled and all
+       downloaded files are deleted.</dd>
+       <dt><b>isDeployed ()</b></dt>
+       <dd> Looks in the collection of deployments for the given url. If the url is found, the
+       ejb/war deployer for each module of this app is asked for isDeployed () and only
+       if all modules are correct deployed, the method returns true. If there is an
+       inconsistence in the deployments an exception is thrown.</dd>
+       <dt><b>undeploy ()</b></dt>
+       <dd>Undeployes all modules of this application,removes all server local files of this
+       app and removes this url from the collection of deployed urls. (This method should
+       always succeed).</dd>
+       </dl>
+   </p>
+
+   <hr>
+
+   <h3>What is done</h3>
+   <p><ul>
+      <li> download of ejb.jar and web.war modules</li>
+      <li> deployment of these modules </li>
+      <li> <code>isDeployed ()</code> - method added to ContainerFactory
+      <li> extracting web.wars on download </li>
+      </ul>
+   </p>
+
+   <hr>
+
+   <h3>What is to do</h3>
+   <p><ul>
+      <li> replacing module DDs with alternative DDs </li>
+      <li> integrity check in case of ear files
+           <ul>
+           <li> unify security roles </li>
+           <li> <i>things I ve missed ... </i></li>
+           </ul>
+      </li>
+      <li> find common libraries, download them and add them to the classpath(s)
+           of the modules </li>
+      <li> move the verification stuff from the ContainerFactory to here?
+      </ul>
+   </p>
+
+
+
+</body>
+</html>

@@ -1,5 +1,5 @@
 /* xgetcwd.c -- return current directory with unlimited length
-   Copyright (C) 1992, 1996 Free Software Foundation, Inc.
+   Copyright (C) 1992, 1996, 2000, 2001 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -28,21 +28,24 @@ extern int errno;
 #endif
 
 #include <sys/types.h>
-#include "pathmax.h"
+
+#if HAVE_STDLIB_H
+# include <stdlib.h>
+#endif
+#if HAVE_UNISTD_H
+# include <unistd.h>
+#endif
 
 #if HAVE_GETCWD
 char *getcwd ();
 #else
+# include "pathmax.h"
+# define INITIAL_BUFFER_SIZE (PATH_MAX + 1)
 char *getwd ();
 # define getcwd(Buf, Max) getwd (Buf)
 #endif
 
-/* Amount to increase buffer size by in each try. */
-#define PATH_INCR 32
-
-char *xmalloc ();
-char *xrealloc ();
-void free ();
+#include "xalloc.h"
 
 /* Return the current directory, newly allocated, arbitrarily long.
    Return NULL and set errno on error. */
@@ -50,30 +53,35 @@ void free ();
 char *
 xgetcwd ()
 {
-  char *cwd;
-  char *ret;
-  unsigned path_max;
-
-  errno = 0;
-  path_max = (unsigned) PATH_MAX;
-  path_max += 2;		/* The getcwd docs say to do this. */
-
-  cwd = xmalloc (path_max);
-
-  errno = 0;
-  while ((ret = getcwd (cwd, path_max)) == NULL && errno == ERANGE)
-    {
-      path_max += PATH_INCR;
-      cwd = xrealloc (cwd, path_max);
-      errno = 0;
-    }
-
-  if (ret == NULL)
-    {
-      int save_errno = errno;
-      free (cwd);
-      errno = save_errno;
-      return NULL;
-    }
+#if HAVE_GETCWD_NULL
+  char *cwd = getcwd (NULL, 0);
+  if (! cwd && errno == ENOMEM)
+    xalloc_die ();
   return cwd;
+#else
+
+  /* The initial buffer size for the working directory.  A power of 2
+     detects arithmetic overflow earlier, but is not required.  */
+# ifndef INITIAL_BUFFER_SIZE
+#  define INITIAL_BUFFER_SIZE 128
+# endif
+
+  size_t buf_size = INITIAL_BUFFER_SIZE;
+
+  while (1)
+    {
+      char *buf = xmalloc (buf_size);
+      char *cwd = getcwd (buf, buf_size);
+      int saved_errno;
+      if (cwd)
+	return cwd;
+      saved_errno = errno;
+      free (buf);
+      if (saved_errno != ERANGE)
+	return NULL;
+      buf_size *= 2;
+      if (buf_size == 0)
+	xalloc_die ();
+    }
+#endif
 }

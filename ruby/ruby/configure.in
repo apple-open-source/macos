@@ -1,6 +1,51 @@
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT(ruby.h)
 
+dnl workaround for autoconf 2.53
+: '
+m4_pattern_allow([^[L]IBOBJS$])
+'
+
+AC_DEFUN(RUBY_MINGW32,
+[case "$host_os" in
+cygwin*)
+AC_CACHE_CHECK(for mingw32 environment, rb_cv_mingw32,
+[AC_TRY_CPP([
+#ifndef __MINGW32__
+# error
+#endif
+], rb_cv_mingw32=yes,rb_cv_mingw32=no)
+rm -f conftest*])
+test "$rb_cv_mingw32" = yes && target_os="mingw32"
+  ;;
+esac])
+
+AC_DEFUN(RUBY_CPPOUTFILE,
+[AC_CACHE_CHECK(whether ${CPP} accepts -o, rb_cv_cppoutfile,
+[cppflags=$CPPFLAGS
+CPPFLAGS='-o conftest.i'
+AC_TRY_CPP([], rb_cv_cppoutfile=yes, rb_cv_cppoutfile=no)
+if test "$rb_cv_cppoutfile" = yes; then
+  CPPOUTFILE=$CPPFLAGS
+else
+  CPPOUTFILE='> conftest.i'
+fi
+CPPFLAGS=$cppflags
+AC_SUBST(CPPOUTFILE)
+rm -f conftest*])
+])
+
+AC_DEFUN(RUBY_PROG_GNU_LD,
+[AC_CACHE_CHECK(whether the linker is GNU ld, rb_cv_prog_gnu_ld,
+[if `$CC --print-prog-name=ld` -v 2>&1 | grep "GNU ld" > /dev/null; then
+  rb_cv_prog_gnu_ld=yes
+else
+  rb_cv_prog_gnu_ld=no
+fi
+])
+GNU_LD=$rb_cv_prog_gnu_ld
+AC_SUBST(GNU_LD)])
+
 rb_version=`grep RUBY_VERSION $srcdir/version.h`
 MAJOR=`expr "$rb_version" : '#define RUBY_VERSION "\([0-9][0-9]*\)\.[0-9][0-9]*\.[0-9][0-9]*"'`
 MINOR=`expr "$rb_version" : '#define RUBY_VERSION "[0-9][0-9]*\.\([0-9][0-9]*\)\.[0-9][0-9]*"'`
@@ -86,6 +131,14 @@ fi
 AC_PROG_CC
 AC_PROG_GCC_TRADITIONAL
 
+RUBY_PROG_GNU_LD
+RUBY_CPPOUTFILE
+
+OUTFLAG='-o '
+AC_SUBST(OUTFLAG)
+
+RUBY_MINGW32
+
 AC_PROG_YACC
 AC_CHECK_TOOL(RANLIB, ranlib, :)
 AC_CHECK_TOOL(AR, ar)
@@ -98,6 +151,13 @@ cygwin*|mingw*)
     AC_CHECK_TOOL(AS, as)
     AC_CHECK_TOOL(DLLTOOL, dlltool)
     AC_CHECK_TOOL(WINDRES, windres)
+    ;;
+esac
+
+# by TOYODA Eizi <toyoda@npd.kishou.go.jp>
+case "$target_os" in
+hiuxmpp*)
+    AC_DEFINE(__HIUX_MPP__)
     ;;
 esac
 
@@ -182,7 +242,9 @@ darwin*)	LIBS="-lobjc $LIBS";;
 human*)		ac_cv_func_getpgrp_void=yes;;
 beos*)		;;
 cygwin*)	rb_cv_have_daylight=no
-		ac_cv_var_tzname=no;;
+		ac_cv_var_tzname=no
+		ac_cv_func_setitimer=no
+		;;
 mingw*)		LIBS="-lwsock32 -lmsvcrt $LIBS"
 		ac_cv_header_a_out_h=no
 		ac_cv_header_pwd_h=no
@@ -193,7 +255,11 @@ mingw*)		LIBS="-lwsock32 -lmsvcrt $LIBS"
 		ac_cv_header_sys_select_h=no
 		ac_cv_header_sys_times_h=no
 		ac_cv_func_times=yes
-		ac_cv_func_waitpid=yes;;
+		ac_cv_func_waitpid=yes
+		ac_cv_func_vsnprintf=yes
+		ac_cv_func_seekdir=yes
+		ac_cv_func_telldir=yes
+		;;
 os2_emx*)	LIBS="-lm $LIBS"
 		ac_cv_lib_dir_opendir=no;;
 msdosdjgpp*)	LIBS="-lm $LIBS"
@@ -281,7 +347,8 @@ AC_CHECK_FUNCS(fmod killpg drand48 random wait4 waitpid syscall getcwd chroot\
 	      truncate chsize times utimes fcntl lockf lstat symlink readlink\
 	      setitimer setruid seteuid setreuid setrgid setegid setregid pause\
 	      getpgrp setpgrp getpgid setpgid getgroups getpriority getrlimit\
-	      dlopen sigprocmask sigaction _setjmp setsid telldir seekdir fchmod)
+	      dlopen sigprocmask sigaction _setjmp setsid telldir seekdir \
+	      fchmod initstate)
 AC_STRUCT_TIMEZONE
 AC_CACHE_CHECK(for struct tm.tm_gmtoff, rb_cv_member_struct_tm_tm_gmtoff,
   [AC_TRY_COMPILE([#include <time.h>],
@@ -334,36 +401,6 @@ fi
 
 AC_FUNC_GETPGRP
 AC_FUNC_SETPGRP  
-
-AC_CACHE_CHECK(for working strtod, rb_cv_func_strtod,
-[AC_TRY_RUN([
-double strtod ();
-int
-main()
-{
-  {
-    /* Some versions of Linux strtod mis-parse strings with leading '+'.  */
-    char *string = " +69";
-    char *term;
-    double value;
-    value = strtod(string, &term);
-    if (value != 69 || term != (string + 4))
-      exit(1);
-  }
-
-  {
-    /* Under Solaris 2.4, strtod returns the wrong value for the
-       terminating character under some conditions.  */
-    char *string = "NaN";
-    char *term;
-    strtod(string, &term);
-    if (term != string && *(term - 1) == 0)
-      exit(1);
-  }
-  exit(0);
-}
-], rb_cv_func_strtod=yes, rb_cv_func_strtod=no, rb_cv_func_strtod=no)])
-test $rb_cv_func_strtod = no && LIBOBJS="$LIBOBJS strtod.o"
 
 AC_C_BIGENDIAN
 AC_C_CONST
@@ -531,7 +568,7 @@ if test "$with_dln_a_out" != yes; then
 			rb_cv_dlopen=yes;;
 	solaris*) 	if test "$GCC" = yes; then
 			   LDSHARED='$(CC) -Wl,-G'
-			   if `$CC --print-prog-name=ld` -v 2>&1 | grep "GNU ld" > /dev/null; then
+			   if test "$rb_cv_prog_gnu_ld" = yes; then
 	 		       LDFLAGS="-Wl,-E"
 			       LDSHARED="$LDSHARED -shared"
 			   fi
@@ -558,7 +595,7 @@ if test "$with_dln_a_out" != yes; then
 			    LDFLAGS="-rdynamic"
 			    DLDFLAGS='-Wl,-soname,$(.TARGET)'
 			else
-			  test "$GCC" = yes && `$CC --print-prog-name=ld` -v 2>&1 | grep "GNU ld" > /dev/null || LDSHARED="ld -Bshareable"
+			  test "$GCC" = yes && test "$rb_cv_prog_gnu_ld" = yes || LDSHARED="ld -Bshareable"
 			fi
 			rb_cv_dlopen=yes ;;
 	netbsd*)	LDSHARED='${CC} -shared'
@@ -613,7 +650,9 @@ if test "$with_dln_a_out" != yes; then
 			esac
 			rb_cv_dlopen=yes ;;
 	cygwin*|mingw*)	: ${LDSHARED="${DLLWRAP} --target=${target_os} --as=${AS} --dlltool-name=${DLLTOOL} --driver-name=${CC} --export-all -s"}
+			LDFLAGS='-Wl,--stack,0x02000000'
 			rb_cv_dlopen=yes ;;
+	hiuxmpp)	LDSHARED='ld -r' ;;
 	*) 		LDSHARED='ld' ;;
   esac
   AC_MSG_RESULT($rb_cv_dlopen)
@@ -872,7 +911,7 @@ if test "$enable_shared" = 'yes'; then
     darwin*)
 	LIBRUBY_SO='lib$(RUBY_INSTALL_NAME).$(MAJOR).$(MINOR).$(TEENY).dylib'
 	LIBRUBY_LDSHARED='cc -dynamiclib -undefined suppress -flat_namespace'
-	LIBRUBY_DLDFLAGS='-install_name lib$(RUBY_INSTALL_NAME).dylib -current_version $(MAJOR).$(MINOR).$(TEENY) -compatibility_version $(MAJOR).$(MINOR)'
+	LIBRUBY_DLDFLAGS='-install_name $(prefix)/lib/lib$(RUBY_INSTALL_NAME).dylib -current_version $(MAJOR).$(MINOR).$(TEENY) -compatibility_version $(MAJOR).$(MINOR)'
 	LIBRUBY_ALIASES='lib$(RUBY_INSTALL_NAME).$(MAJOR).$(MINOR).dylib lib$(RUBY_INSTALL_NAME).dylib'
 	;;
     *)
@@ -894,7 +933,7 @@ case "$target_os" in
     	CFLAGS="$CFLAGS -pipe -no-precomp"
 	;;
     darwin*)
-    	CFLAGS="$CFLAGS -pipe -no-precomp"
+    	CFLAGS="$CFLAGS -pipe"
 	;;
     os2_emx)
     	CFLAGS="$CFLAGS -DOS2"
@@ -943,7 +982,7 @@ case "$target_os" in
 	    CCDLFLAGS=-DUSEIMPORTLIB ;;
 	mingw*)
 	    LIBOBJS="$LIBOBJS win32.o"
-	    CFLAGS="-DNT -D__MSVCRT__ $CFLAGS"
+	    CFLAGS="-DNT -D__NO_ISOCEXT $CFLAGS"
 	    CCDLFLAGS=-DIMPORT ;;
 	esac
 	;;

@@ -2,6 +2,8 @@
 <!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
 <plist version="0.9">
 <dict>
+	<key>system error/notice log</key>
+	<string>system error/notice log</string>
 	<key>Starting system log</key>
 	<string>Starting system log</string>
 	<key>Stopping system log</key>

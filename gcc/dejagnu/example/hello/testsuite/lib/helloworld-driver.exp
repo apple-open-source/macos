@@ -1,0 +1,2 @@
+
+puts "DEBUG: lib/helloworld-driver.exp is being loaded"

@@ -1,0 +1,53 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+ <HEAD>
+   <TITLE> %(title)s
+   </TITLE>
+   <LINK REL="Index" HREF="index.html" >
+   <LINK REL="made" HREF="mailto:%(email_url)s">
+   <META NAME="robots" CONTENT="index,nofollow">
+   %(encoding)s
+   %(prev)s
+   %(next)s
+ </HEAD>
+ <BODY BGCOLOR="#ffffff"><font face="Arial" size="4">
+   <H1><font color="#0000FF"><i>Onderwerp : </i> %(subject_html)s </font>
+   </H1>
+       <span style="background-color: #FFFFCC">
+       <i>Auteur :</i>
+       <B>%(author_html)s</B></span><br>
+       <span style="background-color: #CCFFFF">
+       <i>E-mail :</i>
+       <A HREF="mailto:%(email_url)s"
+       TITLE="%(subject_html)s">%(email_html)s
+       </A></span><br>
+       <span style="background-color: #FFCCFF">
+       <I>Datum :</I></td>
+       <I>%(datestr_html)s</I></td> </span>
+      </FONT><P><UL>
+        %(prev_wsubj)s
+        %(next_wsubj)s
+         <LI> <B>Berichten gesorteerd op:</B> 
+              <a href="date.html#%(sequence)s">[ datum ]</a>
+              <a href="thread.html#%(sequence)s">[ draad ]</a>
+              <a href="subject.html#%(sequence)s">[ onderwerp ]</a>
+              <a href="author.html#%(sequence)s">[ auteur ]</a>
+         </LI>
+       </UL>
+    <HR>  
+<!--beginarticle-->
+%(body)s
+<!--endarticle-->
+    <HR>
+    <P><UL>
+        <!--threads-->
+	%(prev_wsubj)s
+	%(next_wsubj)s
+         <LI> <B>Berichten gesorteerd op:</B> 
+              <a href="date.html#%(sequence)s">[ datum ]</a>
+              <a href="thread.html#%(sequence)s">[ draad ]</a>
+              <a href="subject.html#%(sequence)s">[ onderwerp ]</a>
+              <a href="author.html#%(sequence)s">[ auteur ]</a>
+         </LI>
+       </UL>
+</body></html>

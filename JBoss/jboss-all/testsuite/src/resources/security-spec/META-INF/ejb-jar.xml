@@ -1,0 +1,548 @@
+<?xml version="1.0"?>
+<!DOCTYPE ejb-jar PUBLIC
+      "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 2.0//EN"
+      "http://java.sun.com/dtd/ejb-jar_2_0.dtd">
+
+<ejb-jar>
+   <display-name>SecurityTests</display-name>
+   <enterprise-beans>
+      <session>
+         <description>A secured project repository stateful session bean</description>
+         <ejb-name>ProjRepository</ejb-name>
+         <home>org.jboss.test.security.interfaces.ProjRepositoryHome</home>
+         <remote>org.jboss.test.security.interfaces.ProjRepository</remote>
+         <ejb-class>org.jboss.test.security.ejb.project.ProjRepositoryBean</ejb-class>
+         <session-type>Stateful</session-type>
+         <transaction-type>Container</transaction-type>
+      </session>
+      <session>
+         <description>A secured project repository stateful session bean</description>
+         <ejb-name>StatefulSession</ejb-name>
+         <home>org.jboss.test.security.interfaces.StatefulSessionHome</home>
+         <remote>org.jboss.test.security.interfaces.StatefulSession</remote>
+         <ejb-class>org.jboss.test.security.ejb.StatefulSessionBean</ejb-class>
+         <session-type>Stateful</session-type>
+         <transaction-type>Container</transaction-type>
+      </session>
+
+      <session>
+         <description>A secured trival echo session bean</description>
+         <ejb-name>UncheckedSession</ejb-name>
+         <home>org.jboss.test.security.interfaces.StatelessSessionHome</home>
+         <remote>org.jboss.test.security.interfaces.StatelessSession</remote>
+         <local-home>org.jboss.test.security.interfaces.StatelessSessionLocalHome</local-home>
+         <local>org.jboss.test.security.interfaces.StatelessSessionLocal</local>
+         <ejb-class>org.jboss.test.security.ejb.UncheckedSessionBean</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Container</transaction-type>
+         <security-role-ref>
+            <role-name>EchoCaller</role-name>
+            <role-link>Echo</role-link>
+         </security-role-ref>
+      </session>
+      <session>
+         <description>A deployment of UncheckedSessionBean that requires the Echo
+         security role for the echo method and unchecked for the rest. Its method
+         permission for the echo method is defined before the unchecked methods. 
+         </description>
+         <ejb-name>UncheckedSessionRemoteFirst</ejb-name>
+         <home>org.jboss.test.security.interfaces.StatelessSessionHome</home>
+         <remote>org.jboss.test.security.interfaces.StatelessSession</remote>
+         <local-home>org.jboss.test.security.interfaces.StatelessSessionLocalHome</local-home>
+         <local>org.jboss.test.security.interfaces.StatelessSessionLocal</local>
+         <ejb-class>org.jboss.test.security.ejb.UncheckedSessionBean</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Container</transaction-type>
+         <security-role-ref>
+            <role-name>EchoCaller</role-name>
+            <role-link>Echo</role-link>
+         </security-role-ref>
+      </session>
+      <session>
+         <description>A deployment of UncheckedSessionBean that requires the Echo
+         security role for the echo method and unchecked for the rest. Its method
+         permission for the echo method is defined after the unchecked methods. 
+         </description>
+         <ejb-name>UncheckedSessionRemoteLast</ejb-name>
+         <home>org.jboss.test.security.interfaces.StatelessSessionHome</home>
+         <remote>org.jboss.test.security.interfaces.StatelessSession</remote>
+         <local-home>org.jboss.test.security.interfaces.StatelessSessionLocalHome</local-home>
+         <local>org.jboss.test.security.interfaces.StatelessSessionLocal</local>
+         <ejb-class>org.jboss.test.security.ejb.UncheckedSessionBean</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Container</transaction-type>
+         <security-role-ref>
+            <role-name>EchoCaller</role-name>
+            <role-link>Echo</role-link>
+         </security-role-ref>
+      </session>
+
+      <session>
+         <description>A secured trival echo session bean</description>
+         <ejb-name>StatelessSession</ejb-name>
+         <home>org.jboss.test.security.interfaces.StatelessSessionHome</home>
+         <remote>org.jboss.test.security.interfaces.StatelessSession</remote>
+         <local-home>org.jboss.test.security.interfaces.StatelessSessionLocalHome</local-home>
+         <local>org.jboss.test.security.interfaces.StatelessSessionLocal</local>
+         <ejb-class>org.jboss.test.security.ejb.StatelessSessionBean</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Container</transaction-type>
+         <!-- Use the 'EchoCaller' role name in the bean code to test role linking
+         with use of isCallerInRole().
+         -->
+         <security-role-ref>
+            <role-name>EchoCaller</role-name>
+            <role-link>Echo</role-link>
+         </security-role-ref>
+      </session>
+      <session>
+         <description>A secured trival echo session bean</description>
+         <ejb-name>StatelessSessionInDomain</ejb-name>
+         <home>org.jboss.test.security.interfaces.StatelessSessionHome</home>
+         <remote>org.jboss.test.security.interfaces.StatelessSession</remote>
+         <local-home>org.jboss.test.security.interfaces.StatelessSessionLocalHome</local-home>
+         <local>org.jboss.test.security.interfaces.StatelessSessionLocal</local>
+         <ejb-class>org.jboss.test.security.ejb.StatelessSessionBean</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Container</transaction-type>
+         <!-- Use the 'EchoCaller' role name in the bean code to test role linking
+         with use of isCallerInRole().
+         -->
+         <security-role-ref>
+            <role-name>EchoCaller</role-name>
+            <role-link>Echo</role-link>
+         </security-role-ref>
+      </session>
+
+      <session>
+         <description>A secured echo session bean that calls another session
+            through its local interface</description>
+         <ejb-name>CallerBean</ejb-name>
+         <home>org.jboss.test.security.interfaces.CalledSessionHome</home>
+         <remote>org.jboss.test.security.interfaces.CalledSession</remote>
+         <ejb-class>org.jboss.test.security.ejb.CallerBean</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Container</transaction-type>
+         <ejb-local-ref>
+            <ejb-ref-name>ejb/local/CalleeHome</ejb-ref-name>
+            <ejb-ref-type>Session</ejb-ref-type>
+            <local-home>org.jboss.test.security.interfaces.StatelessSessionLocalHome</local-home>
+            <local>org.jboss.test.security.interfaces.StatelessSessionLocal</local>
+            <ejb-link>CalleeBean</ejb-link>
+         </ejb-local-ref>
+         <security-role-ref>
+            <role-name>EchoCaller</role-name>
+            <role-link>Echo</role-link>
+         </security-role-ref>
+      </session>
+      <session>
+         <description>A secured echo session bean that is called by CallerBean
+         </description>
+         <ejb-name>CalleeBean</ejb-name>
+         <local-home>org.jboss.test.security.interfaces.StatelessSessionLocalHome</local-home>
+         <local>org.jboss.test.security.interfaces.StatelessSessionLocal</local>
+         <ejb-class>org.jboss.test.security.ejb.CalleeBean</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Container</transaction-type>
+         <security-role-ref>
+            <role-name>EchoCaller</role-name>
+            <role-link>Echo</role-link>
+         </security-role-ref>
+      </session>
+
+      <session>
+         <description>A secured trival echo session bean that calls
+            getCallerPrincpal in ejbCreate</description>
+         <ejb-name>SecureCreateSession</ejb-name>
+         <home>org.jboss.test.security.interfaces.StatelessSessionHome</home>
+         <remote>org.jboss.test.security.interfaces.StatelessSession</remote>
+         <ejb-class>org.jboss.test.security.ejb.StatelessSessionBean4</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Container</transaction-type>
+      </session>
+
+      <session>
+         <description>A secured trival echo session bean</description>
+         <ejb-name>org/jboss/test/security/ejb/StatelessSession_test</ejb-name>
+         <home>org.jboss.test.security.interfaces.StatelessSessionHome</home>
+         <remote>org.jboss.test.security.interfaces.StatelessSession</remote>
+         <ejb-class>org.jboss.test.security.ejb.StatelessSessionBean</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Container</transaction-type>
+         <!-- Use the 'EchoCaller' role name in the bean code to test role linking
+         with use of isCallerInRole().
+         -->
+         <security-role-ref>
+            <role-name>EchoCaller</role-name>
+            <role-link>Echo</role-link>
+         </security-role-ref>
+      </session>
+
+      <session>
+         <description>A secured trival echo session bean that uses Entity</description>
+         <ejb-name>StatelessSession2</ejb-name>
+         <home>org.jboss.test.security.interfaces.StatelessSessionHome</home>
+         <remote>org.jboss.test.security.interfaces.StatelessSession</remote>
+         <ejb-class>org.jboss.test.security.ejb.StatelessSessionBean2</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Container</transaction-type>
+         <ejb-ref>
+            <ejb-ref-name>ejb/Entity</ejb-ref-name>
+            <ejb-ref-type>Entity</ejb-ref-type>
+            <home>org.jboss.test.security.interfaces.EntityHome</home>
+            <remote>org.jboss.test.security.interfaces.Entity</remote>
+            <ejb-link>Entity</ejb-link>
+         </ejb-ref>
+         <ejb-ref>
+            <ejb-ref-name>ejb/Session</ejb-ref-name>
+            <ejb-ref-type>Session</ejb-ref-type>
+            <home>org.jboss.test.security.interfaces.StatelessSessionHome</home>
+            <remote>org.jboss.test.security.interfaces.StatelessSession</remote>
+            <ejb-link>StatelessSession</ejb-link>
+         </ejb-ref>
+      </session>
+
+      <session>
+         <description>A secured trival echo session bean that uses PrivateEntity,
+            StatelessSession and itself via a runAs identity</description>
+         <ejb-name>RunAsStatelessSession</ejb-name>
+         <home>org.jboss.test.security.interfaces.StatelessSessionHome</home>
+         <remote>org.jboss.test.security.interfaces.StatelessSession</remote>
+         <ejb-class>org.jboss.test.security.ejb.StatelessSessionBean3</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Container</transaction-type>
+         <ejb-ref>
+            <ejb-ref-name>ejb/Entity</ejb-ref-name>
+            <ejb-ref-type>Entity</ejb-ref-type>
+            <home>org.jboss.test.security.interfaces.EntityHome</home>
+            <remote>org.jboss.test.security.interfaces.Entity</remote>
+            <ejb-link>PrivateEntity</ejb-link>
+         </ejb-ref>
+         <ejb-ref>
+            <ejb-ref-name>ejb/Session</ejb-ref-name>
+            <ejb-ref-type>Session</ejb-ref-type>
+            <home>org.jboss.test.security.interfaces.StatelessSessionHome</home>
+            <remote>org.jboss.test.security.interfaces.StatelessSession</remote>
+            <ejb-link>StatelessSession</ejb-link>
+         </ejb-ref>
+         <security-identity>
+            <description>Use a role that is not assigned to any users to
+               access restricted server side functionallity</description>
+            <run-as>
+               <role-name>InternalRole</role-name>
+            </run-as>
+         </security-identity>
+      </session>
+
+      <session>
+         <description>An unsecured trival echo session bean</description>
+         <ejb-name>UnsecureStatelessSession</ejb-name>
+         <home>org.jboss.test.security.interfaces.StatelessSessionHome</home>
+         <remote>org.jboss.test.security.interfaces.StatelessSession</remote>
+         <ejb-class>org.jboss.test.security.ejb.StatelessSessionBean</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Container</transaction-type>
+      </session>
+      <session>
+         <description>An unsecured trival echo session bean type 2</description>
+         <ejb-name>UnsecureStatelessSession2</ejb-name>
+         <home>org.jboss.test.security.interfaces.StatelessSessionHome</home>
+         <remote>org.jboss.test.security.interfaces.StatelessSession</remote>
+         <ejb-class>org.jboss.test.security.ejb.StatelessSessionBean2</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Container</transaction-type>
+         <ejb-ref>
+            <ejb-ref-name>ejb/Entity</ejb-ref-name>
+            <ejb-ref-type>Entity</ejb-ref-type>
+            <home>org.jboss.test.security.interfaces.EntityHome</home>
+            <remote>org.jboss.test.security.interfaces.Entity</remote>
+            <ejb-link>Entity</ejb-link>
+         </ejb-ref>
+         <ejb-ref>
+            <ejb-ref-name>ejb/Session</ejb-ref-name>
+            <ejb-ref-type>Session</ejb-ref-type>
+            <home>org.jboss.test.security.interfaces.StatelessSessionHome</home>
+            <remote>org.jboss.test.security.interfaces.StatelessSession</remote>
+            <ejb-link>StatelessSession</ejb-link>
+         </ejb-ref>
+      </session>
+
+      <entity>
+         <description>A trival echo entity bean</description>
+         <ejb-name>Entity</ejb-name>
+         <home>org.jboss.test.security.interfaces.EntityHome</home>
+         <remote>org.jboss.test.security.interfaces.Entity</remote>
+         <ejb-class>org.jboss.test.security.ejb.EntityBeanImpl</ejb-class>
+         <persistence-type>Bean</persistence-type>
+         <prim-key-class>java.lang.String</prim-key-class>
+         <reentrant>False</reentrant>
+      </entity>
+      <entity>
+         <description>A trival echo entity bean that should only be
+            accessible via other beans</description>
+         <ejb-name>PrivateEntity</ejb-name>
+         <home>org.jboss.test.security.interfaces.EntityHome</home>
+         <remote>org.jboss.test.security.interfaces.Entity</remote>
+         <ejb-class>org.jboss.test.security.ejb.EntityBeanImpl</ejb-class>
+         <persistence-type>Bean</persistence-type>
+         <prim-key-class>java.lang.String</prim-key-class>
+         <reentrant>False</reentrant>
+         <security-role-ref>
+            <role-name>InternalRole</role-name>
+            <role-link>InternalRole</role-link>
+         </security-role-ref>
+      </entity>
+
+      <message-driven>
+         <description>A trival echo entity bean</description>
+         <ejb-name>RunAsMDB</ejb-name>
+         <ejb-class>org.jboss.test.security.ejb.RunAsMDB</ejb-class>
+         <transaction-type>Container</transaction-type>
+         <message-driven-destination>
+            <destination-type>javax.jms.Queue</destination-type>
+            <subscription-durability>NonDurable</subscription-durability>
+         </message-driven-destination>
+         <ejb-ref>
+            <ejb-ref-name>ejb/Entity</ejb-ref-name>
+            <ejb-ref-type>Entity</ejb-ref-type>
+            <home>org.jboss.test.security.interfaces.EntityHome</home>
+            <remote>org.jboss.test.security.interfaces.Entity</remote>
+            <ejb-link>PrivateEntity</ejb-link>
+         </ejb-ref>
+         <security-identity>
+            <description>Use a role that is not assigned to any users to
+               access restricted server side functionallity</description>
+            <run-as>
+               <role-name>InternalRole</role-name>
+            </run-as>
+         </security-identity>
+         <resource-ref>
+            <description>Default QueueFactory</description>
+            <res-ref-name>jms/QueFactory</res-ref-name>
+            <res-type>javax.jms.QueueConnectionFactory</res-type>
+            <res-auth>Container</res-auth>
+         </resource-ref>
+      </message-driven>
+   </enterprise-beans>
+
+   <assembly-descriptor>
+      <security-role>
+         <description>The role required to invoke the echo method</description>
+         <role-name>Echo</role-name>
+      </security-role>
+      <security-role>
+         <description>The role required to invoke the echo method using the
+            StatelessSessionLocal interface</description>
+         <role-name>EchoLocal</role-name>
+      </security-role>
+      <security-role>
+         <description>The role used to prevent access to the PrivateEntity
+            bean from external users.
+         </description>
+         <role-name>InternalRole</role-name>
+      </security-role>
+
+      <!-- Define remote interface methods before the unchecked methods -->
+      <method-permission>
+         <role-name>Echo</role-name>
+         <method>
+            <ejb-name>UncheckedSessionRemoteFirst</ejb-name>
+            <method-intf>Remote</method-intf>
+            <method-name>echo</method-name>
+         </method>
+      </method-permission>
+      <method-permission>
+         <role-name>InternalRole</role-name>
+         <method>
+            <ejb-name>UncheckedSessionRemoteFirst</ejb-name>
+            <method-intf>Remote</method-intf>
+            <method-name>excluded</method-name>
+         </method>
+      </method-permission>
+      <method-permission>
+         <unchecked/>
+         <method>
+            <ejb-name>UncheckedSessionRemoteFirst</ejb-name>
+            <method-name>*</method-name>
+         </method>
+      </method-permission>
+
+      <!-- Define unchecked methods before the remote interface methods -->
+      <method-permission>
+         <unchecked/>
+         <method>
+            <ejb-name>UncheckedSessionRemoteLast</ejb-name>
+            <method-name>*</method-name>
+         </method>
+      </method-permission>
+      <method-permission>
+         <role-name>Echo</role-name>
+         <method>
+            <ejb-name>UncheckedSessionRemoteLast</ejb-name>
+            <method-intf>Remote</method-intf>
+            <method-name>echo</method-name>
+         </method>
+      </method-permission>
+      <method-permission>
+         <role-name>InternalRole</role-name>
+         <method>
+            <ejb-name>UncheckedSessionRemoteLast</ejb-name>
+            <method-intf>Remote</method-intf>
+            <method-name>excluded</method-name>
+         </method>
+      </method-permission>
+
+      <!-- Anyone can access the unchecked() method of the StatelessSession bean -->
+      <method-permission>
+         <unchecked/>
+         <method>
+            <ejb-name>StatelessSession</ejb-name>
+            <method-name>unchecked</method-name>
+         </method>
+
+         <method>
+            <ejb-name>UncheckedSession</ejb-name>
+            <method-name>create</method-name>
+         </method>
+         <method>
+            <ejb-name>UncheckedSession</ejb-name>
+            <method-name>unchecked</method-name>
+         </method>
+      </method-permission>
+
+      <!-- The methods the Echo role can access -->
+      <method-permission>
+         <role-name>Echo</role-name>
+
+         <method>
+            <ejb-name>StatelessSession</ejb-name>
+            <method-name>create</method-name>
+         </method>
+         <method>
+            <ejb-name>StatelessSession</ejb-name>
+            <method-name>remove</method-name>
+         </method>
+         <method>
+            <ejb-name>StatelessSession</ejb-name>
+            <method-name>echo</method-name>
+         </method>
+         <method>
+            <ejb-name>StatelessSession</ejb-name>
+            <method-name>npeError</method-name>
+         </method>
+
+         <method>
+            <ejb-name>StatefulSession</ejb-name>
+            <method-name>*</method-name>
+         </method>
+         <method>
+            <ejb-name>CallerBean</ejb-name>
+            <method-name>*</method-name>
+         </method>
+
+         <method>
+            <ejb-name>org/jboss/test/security/ejb/StatelessSession_test</ejb-name>
+            <method-name>*</method-name>
+         </method>
+
+         <method>
+            <ejb-name>SecureCreateSession</ejb-name>
+            <method-name>*</method-name>
+         </method>
+
+         <method>
+            <ejb-name>StatelessSession2</ejb-name>
+            <method-name>*</method-name>
+         </method>
+
+         <method>
+            <ejb-name>Entity</ejb-name>
+            <method-name>*</method-name>
+         </method>
+
+         <method>
+            <ejb-name>RunAsStatelessSession</ejb-name>
+            <method-name>create</method-name>
+         </method>
+         <method>
+            <ejb-name>RunAsStatelessSession</ejb-name>
+            <method-name>remove</method-name>
+         </method>
+         <method>
+            <ejb-name>RunAsStatelessSession</ejb-name>
+            <method-name>echo</method-name>
+         </method>
+         <method>
+            <ejb-name>RunAsStatelessSession</ejb-name>
+            <method-name>forward</method-name>
+         </method>
+         <method>
+            <ejb-name>RunAsStatelessSession</ejb-name>
+            <method-name>noop</method-name>
+         </method>
+         <method>
+            <ejb-name>StatelessSessionInDomain</ejb-name>
+            <method-name>*</method-name>
+         </method>
+      </method-permission>
+
+      <!-- The methods the EchoLocal role can access -->
+      <method-permission>
+         <role-name>EchoLocal</role-name>
+
+         <method>
+            <ejb-name>CalleeBean</ejb-name>
+            <method-intf>LocalHome</method-intf>
+            <method-name>create</method-name>
+         </method>
+         <method>
+            <ejb-name>CalleeBean</ejb-name>
+            <method-intf>Local</method-intf>
+            <method-name>echo</method-name>
+         </method>
+      </method-permission>
+
+      <!-- The methods the InternalRole role can access -->
+      <method-permission>
+         <role-name>InternalRole</role-name>
+
+         <method>
+            <ejb-name>PrivateEntity</ejb-name>
+            <method-name>*</method-name>
+         </method>
+
+         <method>
+            <ejb-name>RunAsStatelessSession</ejb-name>
+            <method-name>excluded</method-name>
+         </method>
+      </method-permission>
+
+      <method-permission>
+         <role-name>ProjectUser</role-name>
+         <method>
+            <ejb-name>ProjRepository</ejb-name>
+            <method-name>*</method-name>
+         </method>
+      </method-permission>
+
+      <!-- No one can access the excluded() method of the
+          StatelessSession and StatelessSession2 beans -->
+      <exclude-list>
+         <description>A method that no one can access in this deployment</description>
+         <method>
+            <ejb-name>StatelessSession</ejb-name>
+            <method-name>excluded</method-name>
+         </method>
+         <method>
+            <ejb-name>StatelessSession2</ejb-name>
+            <method-name>excluded</method-name>
+         </method>
+         <method>
+            <ejb-name>StatelessSessionInDomain</ejb-name>
+            <method-name>excluded</method-name>
+         </method>
+      </exclude-list>
+
+   </assembly-descriptor>
+
+</ejb-jar>

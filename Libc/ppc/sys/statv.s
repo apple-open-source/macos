@@ -27,4 +27,3 @@
 #include "SYS.h"
 
 SYSCALL(statv, 0)
-	blr

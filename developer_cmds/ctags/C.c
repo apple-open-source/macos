@@ -309,7 +309,7 @@ fnd:
 		} else {
 			if (intoken(c)) {
 				if (anext - maybe_attribute 
-				 < sizeof attribute - 1)
+				 < (int)(sizeof attribute - 1))
 					*anext++ = c;
 				else	break;
 				continue;

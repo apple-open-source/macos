@@ -31,7 +31,7 @@ PROF_LIBS = $(LIBS)
 
 HEADER_PATHS = -I$(SRCROOT)/bootx.tproj/include.subproj
 NEXTSTEP_PB_CFLAGS = -static
-NEXTSTEP_PB_LDFLAGS = -nostdlib -e _StartTVector -seg1addr 01C00000
+NEXTSTEP_PB_LDFLAGS = -nostdlib -e _StartTVector -seg1addr 05600000
 
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc

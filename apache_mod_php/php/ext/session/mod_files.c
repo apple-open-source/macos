@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Sascha Schumann <sascha@schumann.cx>                        |
+   | Author: Sascha Schumann <sascha@schumann.cx>                         |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mod_files.c,v 1.1.1.5 2001/12/14 22:13:11 zarzycki Exp $ */
+/* $Id: mod_files.c,v 1.1.1.8 2003/07/18 18:07:41 zarzycki Exp $ */
 
 #include "php.h"
 
@@ -39,6 +39,10 @@
 #include <fcntl.h>
 #include <errno.h>
 
+#if HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+
 #include "php_session.h"
 #include "mod_files.h"
 #include "ext/standard/flock_compat.h"
@@ -58,6 +62,8 @@ ps_module ps_mod_files = {
 	PS_MOD(files)
 };
 
+/* If you change the logic here, please also update the error message in
+ * ps_files_open() appropriately */
 static int ps_files_valid_key(const char *key)
 {
 	size_t len;
@@ -123,10 +129,9 @@ static void ps_files_close(ps_files *data)
 	}
 }
 
-static void ps_files_open(ps_files *data, const char *key)
+static void ps_files_open(ps_files *data, const char *key TSRMLS_DC)
 {
 	char buf[MAXPATHLEN];
-	TSRMLS_FETCH();
 
 	if (data->fd < 0 || !data->lastkey || strcmp(key, data->lastkey)) {
 		if (data->lastkey) {
@@ -136,30 +141,33 @@ static void ps_files_open(ps_files *data, const char *key)
 
 		ps_files_close(data);
 		
-		if (!ps_files_valid_key(key) || 
-				!ps_files_path_create(buf, sizeof(buf), data, key))
+		if (!ps_files_valid_key(key)) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "The session id contains invalid characters, valid characters are only a-z, A-Z and 0-9");
+			return;
+		}
+		if (!ps_files_path_create(buf, sizeof(buf), data, key))
 			return;
 		
 		data->lastkey = estrdup(key);
 		
-#ifdef O_EXCL
-		data->fd = VCWD_OPEN(buf, O_RDWR | O_BINARY);
-		
-		if (data->fd == -1 && errno == ENOENT) 
-			data->fd = VCWD_OPEN_MODE(buf, O_EXCL | O_RDWR | O_CREAT | O_BINARY, 0600);
-#else
 		data->fd = VCWD_OPEN_MODE(buf, O_CREAT | O_RDWR | O_BINARY, 0600);
-#endif
-		if (data->fd != -1) 
+		
+		if (data->fd != -1) {
 			flock(data->fd, LOCK_EX);
 
-		if (data->fd == -1)
-			php_error(E_WARNING, "open(%s, O_RDWR) failed: %s (%d)", buf, 
+#ifdef F_SETFD
+			if (fcntl(data->fd, F_SETFD, 1)) {
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "fcntl(%d, F_SETFD, 1) failed: %s (%d)", data->fd, strerror(errno), errno);
+			}
+#endif
+		} else {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "open(%s, O_RDWR) failed: %s (%d)", buf, 
 					strerror(errno), errno);
+		}
 	}
 }
 
-static int ps_files_cleanup_dir(const char *dirname, int maxlifetime)
+static int ps_files_cleanup_dir(const char *dirname, int maxlifetime TSRMLS_DC)
 {
 	DIR *dir;
 	char dentry[sizeof(struct dirent) + MAXPATHLEN];
@@ -169,11 +177,10 @@ static int ps_files_cleanup_dir(const char *dirname, int maxlifetime)
 	time_t now;
 	int nrdels = 0;
 	size_t dirname_len;
-	TSRMLS_FETCH();
 
 	dir = opendir(dirname);
 	if (!dir) {
-		php_error(E_NOTICE, "ps_files_cleanup_dir: opendir(%s) failed: %s (%d)\n", dirname, strerror(errno), errno);
+		php_error_docref(NULL TSRMLS_CC, E_NOTICE, "ps_files_cleanup_dir: opendir(%s) failed: %s (%d)\n", dirname, strerror(errno), errno);
 		return (0);
 	}
 
@@ -199,7 +206,7 @@ static int ps_files_cleanup_dir(const char *dirname, int maxlifetime)
 				buf[dirname_len + entry_len + 1] = '\0';
 				/* check whether its last access was more than maxlifet ago */
 				if (VCWD_STAT(buf, &sbuf) == 0 && 
-						(now - sbuf.st_atime) > maxlifetime) {
+						(now - sbuf.st_mtime) > maxlifetime) {
 					VCWD_UNLINK(buf);
 					nrdels++;
 				}
@@ -224,7 +231,13 @@ PS_OPEN_FUNC(files)
 
 	data->fd = -1;
 	if ((p = strchr(save_path, ';'))) {
+		errno = 0;
 		data->dirdepth = (size_t) strtol(save_path, NULL, 10);
+		if (errno == ERANGE) {
+			efree(data);
+			PS_SET_MOD_DATA(0);
+			return FAILURE;
+		}
 		save_path = p + 1;
 	}
 	data->basedir_len = strlen(save_path);
@@ -237,6 +250,8 @@ PS_CLOSE_FUNC(files)
 {
 	PS_FILES_DATA;
 
+	if (!data) return FAILURE;
+	
 	ps_files_close(data);
 
 	if (data->lastkey) 
@@ -253,8 +268,10 @@ PS_READ_FUNC(files)
 	long n;
 	struct stat sbuf;
 	PS_FILES_DATA;
+	
+	if (!data) return FAILURE;
 
-	ps_files_open(data, key);
+	ps_files_open(data, key TSRMLS_CC);
 	if (data->fd < 0)
 		return FAILURE;
 	
@@ -264,13 +281,18 @@ PS_READ_FUNC(files)
 	data->st_size = *vallen = sbuf.st_size;
 	*val = emalloc(sbuf.st_size);
 
-#ifdef HAVE_PREAD
+#if defined(HAVE_PREAD)
 	n = pread(data->fd, *val, sbuf.st_size, 0);
 #else
 	lseek(data->fd, 0, SEEK_SET);
 	n = read(data->fd, *val, sbuf.st_size);
 #endif
+
 	if (n != sbuf.st_size) {
+		if (n == -1)
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "read failed: %s (%d)", strerror(errno), errno);
+		else
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "read returned less bytes than requested");
 		efree(*val);
 		return FAILURE;
 	}
@@ -282,8 +304,10 @@ PS_WRITE_FUNC(files)
 {
 	long n;
 	PS_FILES_DATA;
+	
+	if (!data) return FAILURE;
 
-	ps_files_open(data, key);
+	ps_files_open(data, key TSRMLS_CC);
 	if (data->fd < 0)
 		return FAILURE;
 
@@ -295,7 +319,7 @@ PS_WRITE_FUNC(files)
 	if (vallen < (int)data->st_size)
 		ftruncate(data->fd, 0);
 
-#ifdef HAVE_PWRITE
+#if defined(HAVE_PWRITE)
 	n = pwrite(data->fd, val, vallen, 0);
 #else
 	lseek(data->fd, 0, SEEK_SET);
@@ -303,7 +327,10 @@ PS_WRITE_FUNC(files)
 #endif
 
 	if (n != vallen) {
-		php_error(E_WARNING, "write failed: %s (%d)", strerror(errno), errno);
+		if (n == -1)
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "write failed: %s (%d)", strerror(errno), errno);
+		else
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "write wrote less bytes than requested");
 		return FAILURE;
 	}
 
@@ -314,7 +341,8 @@ PS_DESTROY_FUNC(files)
 {
 	char buf[MAXPATHLEN];
 	PS_FILES_DATA;
-	TSRMLS_FETCH();
+	
+	if (!data) return FAILURE;
 
 	if (!ps_files_path_create(buf, sizeof(buf), data, key))
 		return FAILURE;
@@ -332,12 +360,14 @@ PS_GC_FUNC(files)
 {
 	PS_FILES_DATA;
 	
+	if (!data) return FAILURE;
+	
 	/* we don't perform any cleanup, if dirdepth is larger than 0.
 	   we return SUCCESS, since all cleanup should be handled by
 	   an external entity (i.e. find -ctime x | xargs rm) */
 	   
 	if (data->dirdepth == 0)
-		*nrdels = ps_files_cleanup_dir(data->basedir, maxlifetime);
+		*nrdels = ps_files_cleanup_dir(data->basedir, maxlifetime TSRMLS_CC);
 	
 	return SUCCESS;
 }
@@ -347,6 +377,6 @@ PS_GC_FUNC(files)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="ISO-8859-1" standalone="yes"?>
+<!DOCTYPE ejb-jar PUBLIC
+   "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 2.0//EN"
+   "http://java.sun.com/dtd/ejb-jar_2_0.dtd">
+
+<ejb-jar>
+  <description>Test ENC</description>
+  <enterprise-beans>
+    <session>
+      <description>Session Bean</description>
+      <ejb-name>SessionA</ejb-name>
+      <home>org.jboss.test.naming.interfaces.TestEjbLinkHome</home>
+      <remote>org.jboss.test.naming.interfaces.TestEjbLink</remote> 
+      <local-home>org.jboss.test.naming.interfaces.TestEjbLinkLocalHome</local-home>
+      <local>org.jboss.test.naming.interfaces.TestEjbLinkLocal</local> 
+      <ejb-class>org.jboss.test.naming.ejb.TestEjbLinkBean</ejb-class> 
+      <session-type>Stateless</session-type>
+      <transaction-type>Container</transaction-type>
+    </session>
+  </enterprise-beans>
+</ejb-jar>

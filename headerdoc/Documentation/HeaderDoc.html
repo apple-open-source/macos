@@ -2,7 +2,6 @@
 
 	<head>
 		<title>HeaderDoc</title>
-		<meta http-equiv="expires" content="Sun, 31 Dec 2000 00:00:00 GMT">
 	</head>
 
 	<body bgcolor="white">
@@ -11,7 +10,7 @@
 		<hr>
 		</h1>
 		<address>Author: Matt Morse (matt@apple.com)</address>
-		<address>Last modified: 11/30/2001</address>
+		<address>Last modified: 07/23/2003</address>
 		<address>&nbsp;</address>
 		<h2>Table of Contents</h2>
 		<ul>
@@ -32,6 +31,7 @@
 				<li><a href="CPPTags.html">Tags for C++ headers</a> 
 			</ul>
 			<li><a href="HeaderDocClassHierarchy.html">HeaderDoc's Class Hierarchy</a> 
+			<li><a href="ReleaseNotes.html">Release Notes</a> 
 		</ul>
 		<h2><a name="Anchor-Purpose-58644"></a>Purpose</h2>
 		<p>HeaderDoc is a system for embedding structured commentary in C and C++ header files and producing rich HTML output from that commentary. HeaderDoc comments are similar in appearance to JavaDoc comments in a Java source file, but there are differences related to handling specifics of C and C++ and to providing a slightly more formal tag set to simplify parsing.</p>
@@ -96,6 +96,21 @@ When converted to HTML (by <b>headerDoc2HTML</b>, described below), the tagged c
 		<pre>
         &gt; headerDoc2HTML.pl -o /tmp MyHeader.h&nbsp;</pre>
 		<p>
+<p><font color="black">HeaderDoc normally lists the name of each file it processes to the Terminal. The &quot;-q&quot; switch makes HeaderDoc operate silently:</font></p>
+		<pre>
+        &gt; headerDoc2HTML.pl  -q MyHeader.h
+        &gt; headerDoc2HTML.pl  -qo /tmp MyHeader.h&nbsp;</pre>
+		<p>
+<font color="black">The &quot;-H&quot; switch turns on inclusion of the htmlHeader line, as specified in the config file.</font></p>
+		<p>
+<font color="black">The &quot;-X&quot; switch causes headerdoc to output XML content instead of HTML.</font></p>
+		<p>
+<font color="black">The &quot;-d&quot; switch turns on extra debugging output.</font></p>
+		<p>
+<font color="black">The &quot;-h&quot; switch causes HeaderDoc to output an XML file containing metadata about the headerdoc output.</font></p>
+		<p>
+<font color="black">The &quot;-u&quot; switch disables sorting of functions, data types, and so on.</font></p>
+		<p>
 <font color="black">You can use the &quot;-v&quot; switch to make HeaderDoc report the versions of all its constituent modules. This can be useful for bug reporting purposes.</font></p>
 		<pre>
         &gt; headerDoc2HTML.pl -v&nbsp;</pre>
@@ -135,7 +150,10 @@ HeaderDoc runs on Mac OS 9 and earlier assuming MacPerl is installed. (You can g
         <dt><b>defaultFrameName</b></dt><dd>The name of the file containing the frameset instructions (by default, <tt>index.html</tt>).</dd>
         <dt><b>compositePageName</b></dt><dd>The name of the file containing the printable HTML page (by default, <tt>CompositePage.html</tt>).</dd>
         <dt><b>masterTOCName</b></dt><dd>The name of the file containing the master table of contents for a series of headers (by default, <tt>MasterTOC.html</tt>). (This variable is used by the gatherHeaderDoc script.)</dd>
-		<dt><b>apiUIDPrefix</b></dt><dd>The prefix for named anchors in the HTML (by default, <tt>apple_ref</tt>). (In the HTML, HeaderDoc adds a self-describing named anchor near each API declaration -- for example &lt;a name="//apple_ref/c/func/CFArrayAppendValue"&gt;. These can be useful for index generation and other purposes. See <a href="APIAnchors.html">Symbol Markers for HTML-based Documentation</a> for more information.)</dd>        </dl>
+		<dt><b>apiUIDPrefix</b></dt><dd>The prefix for named anchors in the HTML (by default, <tt>apple_ref</tt>). (In the HTML, HeaderDoc adds a self-describing named anchor near each API declaration -- for example &lt;a name="//apple_ref/c/func/CFArrayAppendValue"&gt;. These can be useful for index generation and other purposes. See <a href="APIAnchors.html">Symbol Markers for HTML-based Documentation</a> for more information.)</dd>
+		<dt><b>ignorePrefixes</b></dt><dd>A list of tokens to leave out of the final output if they occur at the start of a line (before any other non-whitespace characters).</dd> 
+		<dt><b>htmlHeader</b></dt><dd>A string (generally a server-side include directive) that headerdoc will insert into the top of each right-side and composite HTML page if you specify the -H flag on the command line.</dd>
+        </dl>
         </blockquote>
         
 <p><font color="black">HeaderDoc looks in three places for values for these variables, in this order:</font></p>
@@ -160,7 +178,7 @@ HeaderDoc runs on Mac OS 9 and earlier assuming MacPerl is installed. (You can g
 		<pre>
   /*!
     @function FunctionName
-    @discussion This is a comment about FunctionName.
+    This is a comment about FunctionName.
   */</pre>
 		<p>
 In their simplest form (as above) they differ from standard C comments in only two ways:</p>
@@ -259,6 +277,42 @@ If you want to specify a line break in the HTML version of a comment, use two ca
 						1</center>
 				</td>
 			</tr>
+			<tr>
+				<td><b>@copyright</b></td>
+				<td width="200"><tt>@copyright Apple</tt></td>
+				<td>Copyright info to be added to each page.  This overrides the config file value and may not span multiple lines.</td>
+				<td>
+					<center>
+						1</center>
+				</td>
+			</tr>
+			<tr>
+				<td><b>@meta</b></td>
+				<td width="200"><tt>@meta robots index,nofollow</tt><br><tt>@meta http-equiv="refresh" content="0;http://www.apple.com"</tt></td>
+				<td>Meta tag info to be added to each page.  This can be either in the form "@meta &lt;name&gt; &lt;content&gt;" or "@meta &lt;complete tag contents&gt;", and may not span multiple lines.</td>
+				<td>
+					<center>
+						1</center>
+				</td>
+			</tr>
+			<tr>
+				<td><b>@availability</b></td>
+				<td width="200"><tt>@availability 10.3 and later</tt></td>
+				<td>A string that describes the availability of a function, class, and so on.</td>
+				<td>
+					<center>
+						1</center>
+				</td>
+			</tr>
+			<tr>
+				<td><b>@updated</b></td>
+				<td width="200"><tt>@updated 2003-03-14</tt></td>
+				<td>The date at which the header was last updated.</td>
+				<td>
+					<center>
+						1</center>
+				</td>
+			</tr>
 		</table></p>
 		<p><b>Example: </b></p>
 		<pre>
@@ -266,6 +320,9 @@ If you want to specify a line break in the HTML version of a comment, use two ca
   @header Repast Manager
   The Repast Manager provides a functional interface to the repast driver. 
   Use the functions declared here to generate, distribute, and consume meals.
+  @copyright Dave's Burger Palace
+  @updated 2003-03-14
+  @meta http-equiv="refresh" content="0;http://www.apple.com"
 */</pre>
 		<h2>
 <a name="Anchor-Tags-35882"></a>Tags By Language Type</h2>

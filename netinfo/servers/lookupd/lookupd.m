@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -50,7 +51,6 @@
 #import "LUDictionary.h"
 #import "MemoryWatchdog.h"
 #import "sys.h"
-#import <NetInfo/dns.h>
 #import <NetInfo/dsutil.h>
 #import <sys/file.h>
 #import <sys/types.h>
@@ -64,6 +64,7 @@
 #import <sys/time.h>
 #import <sys/resource.h>
 #import <signal.h>
+#import <notify.h>
 #import <mach/mig_errors.h>
 #import "_lu_types.h"
 
@@ -98,7 +99,9 @@ syslock *rpcLock = NULL;
 syslock *statsLock = NULL;
 char *portName = NULL;
 sys_port_type server_port = SYS_PORT_NULL;
+BOOL debug_enabled = NO;
 BOOL statistics_enabled = NO;
+BOOL coredump_enabled = NO;
 
 /* Controller.m uses this global */
 BOOL shutting_down = NO;
@@ -169,24 +172,30 @@ goodbye(int x)
 	_exit(0);
 }
 
-void
-handleSIGHUP()
-{
-	_exit(0);
-}
-
 static void
 lookupd_startup()
 {
 	Thread *t;
 	BOOL status;
-	struct timeval tv;
 	char *name;
 	LUArray *config;
 	LUDictionary *cglobal;
+	int rf, nctoken;
+	uint32_t x;
 
-	gettimeofday(&tv, NULL);
-	srandom((getpid() << 10) + tv.tv_usec);
+	rf = open("/dev/random", O_RDONLY, 0);
+	if (rf >= 0)
+	{
+		read(rf, &x, sizeof(uint32_t));
+		close(rf);
+	}
+	else
+	{
+		x = (getpid() << 10) + time(NULL);
+	}
+
+	srandom(x);
+
 
 	rover = [[MemoryWatchdog alloc] init];
 
@@ -235,7 +244,10 @@ lookupd_startup()
 
 	controller = [[Controller alloc] initWithName:portName];
 
-	signal(SIGHUP, handleSIGHUP);
+	signal(SIGHUP, SIG_DFL);
+
+	nctoken = -1;
+	notify_register_signal(NETWORK_CHANGE_NOTIFICATION, SIGHUP, &nctoken);
 
 	if (!status)
 	{
@@ -258,8 +270,6 @@ lookupd_shutdown(int status)
 
 	[cacheAgent release];
 	cacheAgent = nil;
-
-	dns_shutdown();
 
 	[configManager release];
 	configManager = nil;
@@ -512,15 +522,22 @@ query_query(int argc, char *argv[])
 	char databuf[_LU_MAXLUSTRLEN * BYTES_PER_XDR_UNIT];
 	int n, i, j, na, cat;
 	kern_return_t status;
-	char *k, str[16];
+	char *k, str[16], *procname;
+
+	procname = "query";
 
 	/* check category */
-	cat = [LUAgent categoryWithName:argv[1]];
-	if ((cat < 0) || (cat > NCATEGORIES))
+	cat = -1;
+	if (argv[1][0] != '-')
 	{
-		fprintf(stderr, "invalid category %s\n", argv[1]);
-		return;
+		cat = [LUAgent categoryWithName:argv[1]];
+		if ((cat < 0) || (cat > NCATEGORIES))
+		{
+			fprintf(stderr, "invalid category %s\n", argv[1]);
+			return;
+		}
 	}
+	else procname = argv[1] + 1;
 
 	/* check the "-a" options */
 
@@ -557,14 +574,16 @@ query_query(int argc, char *argv[])
 	}
 
 	server_port = lookupd_port(portName);
-	status = _lookup_link(server_port, "query", &proc);
+	status = _lookup_link(server_port, procname, &proc);
 	if (status != KERN_SUCCESS)
 	{
-		fprintf(stderr, "can't find query procedure\n");
+		fprintf(stderr, "can't find %s procedure\n", procname);
 		return;
 	}
 
 	xdrmem_create(&outxdr, databuf, sizeof(databuf), XDR_ENCODE);
+
+	if (cat == -1) na--;
 
 	/* Encode attribute count */
 	if (!xdr_int(&outxdr, &na))
@@ -574,33 +593,36 @@ query_query(int argc, char *argv[])
 		return;
 	}
 
-	/* Encode "_lookup_category" attribute */
-	k = copyString("_lookup_category");
-	if (!xdr__lu_string(&outxdr, &k))
-	{
-		xdr_destroy(&outxdr);
-		fprintf(stderr, "xdr encoding error!\n");
+	if (cat != -1)
+	{ 
+		/* Encode "_lookup_category" attribute */
+		k = copyString("_lookup_category");
+		if (!xdr__lu_string(&outxdr, &k))
+		{
+			xdr_destroy(&outxdr);
+			fprintf(stderr, "xdr encoding error!\n");
+			free(k);
+			return;
+		}
+
 		free(k);
-		return;
-	}
 
-	free(k);
+		n = 1;
+		if (!xdr_int(&outxdr, &n))
+		{
+			xdr_destroy(&outxdr);
+			fprintf(stderr, "xdr encoding error!\n");
+			return;
+		}
 
-	n = 1;
-	if (!xdr_int(&outxdr, &n))
-	{
-		xdr_destroy(&outxdr);
-		fprintf(stderr, "xdr encoding error!\n");
-		return;
-	}
-
-	sprintf(str, "%d", cat);
-	k = str;
-	if (!xdr__lu_string(&outxdr, &k))
-	{
-		xdr_destroy(&outxdr);
-		fprintf(stderr, "xdr encoding error!\n");
-		return;
+		sprintf(str, "%d", cat);
+		k = str;
+		if (!xdr__lu_string(&outxdr, &k))
+		{
+			xdr_destroy(&outxdr);
+			fprintf(stderr, "xdr encoding error!\n");
+			return;
+		}
 	}
 
 	for (i = 2; i < argc; i++)
@@ -977,8 +999,11 @@ main(int argc, char *argv[])
 
 	if (!debugMode) writepid();
 
-	rlim.rlim_cur = rlim.rlim_max = RLIM_INFINITY;
-	setrlimit(RLIMIT_CORE, &rlim);
+	if (coredump_enabled)
+	{
+		rlim.rlim_cur = rlim.rlim_max = RLIM_INFINITY;
+		setrlimit(RLIMIT_CORE, &rlim);
+	}
 
 	lookupd_startup();
 	if (controller == nil)

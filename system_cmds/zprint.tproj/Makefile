@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = zprint.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble zprint.1
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

@@ -37,8 +37,8 @@ Key Index
 
 * Menu:
 
-* C-c C-p <1>:                           Reply Buffer Initialization.
-* C-c C-p:                               Post-yank Formatting Commands.
+* C-c C-p <1>:                           Post-yank Formatting Commands.
+* C-c C-p:                               Reply Buffer Initialization.
 * C-c C-p ?:                             Miscellaneous Commands.
 * C-c C-p c:                             Citing Commands.
 * C-c C-p C-b:                           Miscellaneous Commands.
@@ -97,8 +97,8 @@ each appears under its `sc-'VARIABLE name and its VARIABLE name.
 * cite-region-limit:                     Version 3 Changes.
 * cite-region-limit (sc-)b:              Reply Buffer Initialization.
 * confirm-always-p:                      Citing Commands.
-* confirm-always-p (sc-) <1>:            Anonymous Attributions.
-* confirm-always-p (sc-) <2>:            Citing Commands.
+* confirm-always-p (sc-) <1>:            Citing Commands.
+* confirm-always-p (sc-) <2>:            Anonymous Attributions.
 * confirm-always-p (sc-):                Reply Buffer Initialization.
 * default-attribution (sc-):             Anonymous Attributions.
 * default-author-name (sc-):             Anonymous Attributions.
@@ -113,9 +113,9 @@ each appears under its `sc-'VARIABLE name and its VARIABLE name.
 * hyperb:version:                        Overloading for Non-conforming MUAs.
 * load-hook (sc-) <1>:                   Filling Cited Text.
 * load-hook (sc-):                       Getting Connected.
-* mail-citation-hook <1>:                VM with any Emacsen.
-* mail-citation-hook <2>:                Hints to MUA Authors.
-* mail-citation-hook <3>:                Overloading for Non-conforming MUAs.
+* mail-citation-hook <1>:                Hints to MUA Authors.
+* mail-citation-hook <2>:                Overloading for Non-conforming MUAs.
+* mail-citation-hook <3>:                VM with any Emacsen.
 * mail-citation-hook <4>:                Emacs 18 MUAs.
 * mail-citation-hook:                    Emacs 19 MUAs.
 * mail-header-separator:                 What Supercite Does Not Do.
@@ -124,22 +124,22 @@ each appears under its `sc-'VARIABLE name and its VARIABLE name.
 * mail-yank-hooks:                       VM with any Emacsen.
 * mh-yank-from-start-of-msg:             MH-E with any Emacsen.
 * mh-yank-hooks:                         MH-E with any Emacsen.
-* mode-map-prefix (sc-) <1>:             Reply Buffer Initialization.
-* mode-map-prefix (sc-):                 Post-yank Formatting Commands.
+* mode-map-prefix (sc-) <1>:             Post-yank Formatting Commands.
+* mode-map-prefix (sc-):                 Reply Buffer Initialization.
 * mumble (sc-):                          Information Keys and the Info Alist.
 * name-filter-alist (sc-):               Author Names.
 * nested-citation-p (sc-):               Citations.
-* news-reply-mode-hook <1>:              GNEWS with any Emacsen.
-* news-reply-mode-hook:                  Overloading for Non-conforming MUAs.
+* news-reply-mode-hook <1>:              Overloading for Non-conforming MUAs.
+* news-reply-mode-hook:                  GNEWS with any Emacsen.
 * nuke-mail-header-list (sc-):           Reply Buffer Initialization.
 * nuke-mail-headers (sc-):               Reply Buffer Initialization.
 * post-hook (sc-):                       Reply Buffer Initialization.
 * pre-cite-hook (sc-):                   Citing Commands.
-* pre-hook (sc-) <1>:                    Getting Connected.
-* pre-hook (sc-):                        Reply Buffer Initialization.
+* pre-hook (sc-) <1>:                    Reply Buffer Initialization.
+* pre-hook (sc-):                        Getting Connected.
 * preferred-attribution-list (sc-):      Selecting an Attribution.
-* preferred-header-style (sc-) <1>:      Reference Headers.
-* preferred-header-style (sc-):          Insertion Commands.
+* preferred-header-style (sc-) <1>:      Insertion Commands.
+* preferred-header-style (sc-):          Reference Headers.
 * reference-tag-string (sc-):            The Built-in Header Rewrite Functions.
 * rewrite-header-list (sc-):             Reference Headers.
 * sc-attrib-selection-list <1>:          Version 3 Changes.
@@ -158,13 +158,12 @@ each appears under its `sc-'VARIABLE name and its VARIABLE name.
 * sc-citation-separator-regexp:          Recognizing Citations.
 * sc-cite-blank-lines-p:                 Reply Buffer Initialization.
 * sc-cite-frame-alist:                   Frames You Can Customize.
-* sc-cite-region-limit <1>:              Citing Commands.
-* sc-cite-region-limit <2>:              Reply Buffer Initialization.
-* sc-cite-region-limit:                  Version 3 Changes.
+* sc-cite-region-limit <1>:              Version 3 Changes.
+* sc-cite-region-limit <2>:              Citing Commands.
+* sc-cite-region-limit:                  Reply Buffer Initialization.
 * sc-confirm-always-p <1>:               Citing Commands.
 * sc-confirm-always-p <2>:               Anonymous Attributions.
-* sc-confirm-always-p <3>:               Reply Buffer Initialization.
-* sc-confirm-always-p:                   Citing Commands.
+* sc-confirm-always-p:                   Reply Buffer Initialization.
 * sc-default-attribution:                Anonymous Attributions.
 * sc-default-author-name:                Anonymous Attributions.
 * sc-default-cite-frame:                 Frames You Can Customize.
@@ -175,12 +174,12 @@ each appears under its `sc-'VARIABLE name and its VARIABLE name.
 * sc-electric-mode-hook:                 Electric References.
 * sc-electric-references-p:              Electric References.
 * sc-fixup-whitespace-p:                 Filling Cited Text.
-* sc-load-hook <1>:                      Getting Connected.
-* sc-load-hook:                          Filling Cited Text.
+* sc-load-hook <1>:                      Filling Cited Text.
+* sc-load-hook:                          Getting Connected.
 * sc-mail-field:                         Frames You Can Customize.
 * sc-mail-warn-if-non-rfc822-p:          Reply Buffer Initialization.
-* sc-mode-map-prefix <1>:                Reply Buffer Initialization.
-* sc-mode-map-prefix:                    Post-yank Formatting Commands.
+* sc-mode-map-prefix <1>:                Post-yank Formatting Commands.
+* sc-mode-map-prefix:                    Reply Buffer Initialization.
 * sc-mumble:                             Information Keys and the Info Alist.
 * sc-name-filter-alist:                  Author Names.
 * sc-nested-citation-p:                  Citations.
@@ -192,8 +191,8 @@ each appears under its `sc-'VARIABLE name and its VARIABLE name.
 * sc-pre-hook <1>:                       Reply Buffer Initialization.
 * sc-pre-hook:                           Getting Connected.
 * sc-preferred-attribution-list:         Selecting an Attribution.
-* sc-preferred-header-style <1>:         Reference Headers.
-* sc-preferred-header-style:             Insertion Commands.
+* sc-preferred-header-style <1>:         Insertion Commands.
+* sc-preferred-header-style:             Reference Headers.
 * sc-recite-frame-alist:                 Frames You Can Customize.
 * sc-reference-tag-string:               The Built-in Header Rewrite Functions.
 * sc-rewrite-header-list:                Reference Headers.

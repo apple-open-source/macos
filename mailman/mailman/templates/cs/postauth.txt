@@ -1,0 +1,13 @@
+Proto¾e jste správcem konference, je po¾adován Vá¹ souhlas s distribucí
+následujícího pøíspìvku:
+
+    Konference:    %(listname)s@%(hostname)s
+    Od:            %(sender)s
+    Vìc:           %(subject)s
+    Dùvod:         %(reason)s
+
+Nav¹tivte, dle Va¹ich mo¾ností, následující adresu:
+
+    %(admindb_url)s
+        
+pro povolení nebo zamítnutí po¾adavku.

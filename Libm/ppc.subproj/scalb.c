@@ -113,6 +113,22 @@ double scalbn ( double x, int n  )
               }
        }
 
+       if ( -127 < n && n < 128 )
+       {
+/*******************************************************************************
+*      -126 <= n <= -127; convert n to single scale factor.                    *
+*	Allows a store-forward to execute successfully 			       *
+*******************************************************************************/
+            hexsingle XInHex;
+            
+            XInHex.lval = ( ( unsigned long ) ( n + 127 ) ) << 23;
+            
+            __ORI_NOOP;
+            __ORI_NOOP;
+            __ORI_NOOP;
+            return ( x * XInHex.fval );
+       }
+       
 /*******************************************************************************
 *      -1022 <= n <= 1023; convert n to double scale factor.                   *
 *******************************************************************************/
@@ -167,6 +183,12 @@ float scalbnf ( float x, int n  )
 *******************************************************************************/
 
       xInHex.lval = ( ( unsigned long ) ( n + 127 ) ) << 23;
+      
+      // Force the fetch for xInHex.fval to the next cycle to avoid Store/Load hazard.
+      __ORI_NOOP;
+      __ORI_NOOP;
+      __ORI_NOOP;
+
       return ( x * xInHex.fval );
 }
 

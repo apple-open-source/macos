@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,31 +17,26 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: pfpro.c,v 1.1.1.4 2001/12/14 22:13:02 zarzycki Exp $ */
-
-/* {{{ includes */
+/* $Id: pfpro.c,v 1.1.1.7 2003/07/18 18:07:40 zarzycki Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
 #include "php.h"
-#include "php_ini.h"
 #include "php_pfpro.h"
-
-#include "pfpro.h"
 
 #if HAVE_PFPRO
 
+/* {{{ includes */
+#include "php_ini.h"
+#include "ext/standard/info.h"
 #include "ext/standard/php_string.h"
+#include <pfpro.h>
 /* }}} */
 
 /* {{{ zts */
-#ifdef ZTS
-int pfpro_globals_id;
-#else
-php_pfpro_globals pfpro_globals;
-#endif
+ZEND_DECLARE_MODULE_GLOBALS(pfpro)
 /* }}} */
 
 /* {{{ Function table */
@@ -65,7 +60,7 @@ zend_module_entry pfpro_module_entry = {
 	PHP_RINIT(pfpro),					/* request start */
 	PHP_RSHUTDOWN(pfpro),				/* request end */
 	PHP_MINFO(pfpro),
-    NO_VERSION_YET,
+	NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
 };
 /* }}} */
@@ -78,24 +73,33 @@ ZEND_GET_MODULE(pfpro)
 
 /* {{{ initialization defaults */
 PHP_INI_BEGIN()
-#if PFPRO_VERSION < 3
-	STD_PHP_INI_ENTRY("pfpro.defaulthost",		"test.signio.com",
-	PHP_INI_ALL, OnUpdateString,	defaulthost, php_pfpro_globals,	pfpro_globals) 
-#else
-	STD_PHP_INI_ENTRY("pfpro.defaulthost",		"test-payflow.verisign.com",
-	PHP_INI_ALL, OnUpdateString,	defaulthost, php_pfpro_globals,	pfpro_globals)
-#endif
-	STD_PHP_INI_ENTRY("pfpro.defaultport",			"443",			PHP_INI_ALL, OnUpdateInt,		defaultport,			php_pfpro_globals,	pfpro_globals)
-	STD_PHP_INI_ENTRY("pfpro.defaulttimeout",		"30",			PHP_INI_ALL, OnUpdateInt,		defaulttimeout,			php_pfpro_globals,	pfpro_globals)
-	STD_PHP_INI_ENTRY("pfpro.proxyaddress",			"",				PHP_INI_ALL, OnUpdateString,	proxyaddress,			php_pfpro_globals,	pfpro_globals)
-	STD_PHP_INI_ENTRY("pfpro.proxyport",			"",				PHP_INI_ALL, OnUpdateInt,		proxyport,			php_pfpro_globals,	pfpro_globals)
-	STD_PHP_INI_ENTRY("pfpro.proxylogon",			"",				PHP_INI_ALL, OnUpdateString,	proxylogon,			php_pfpro_globals,	pfpro_globals)
-	STD_PHP_INI_ENTRY("pfpro.proxypassword",		"",				PHP_INI_ALL, OnUpdateString,	proxypassword,			php_pfpro_globals,	pfpro_globals)
+	STD_PHP_INI_ENTRY("pfpro.defaulthost",    "test-payflow.verisign.com", PHP_INI_ALL, OnUpdateString,	defaulthost, zend_pfpro_globals, pfpro_globals)
+	STD_PHP_INI_ENTRY("pfpro.defaultport",    "443", PHP_INI_ALL, OnUpdateInt,    defaultport,    zend_pfpro_globals, pfpro_globals)
+	STD_PHP_INI_ENTRY("pfpro.defaulttimeout", "30",  PHP_INI_ALL, OnUpdateInt,    defaulttimeout, zend_pfpro_globals, pfpro_globals)
+	STD_PHP_INI_ENTRY("pfpro.proxyaddress",   "",    PHP_INI_ALL, OnUpdateString, proxyaddress,   zend_pfpro_globals, pfpro_globals)
+	STD_PHP_INI_ENTRY("pfpro.proxyport",      "",    PHP_INI_ALL, OnUpdateInt,    proxyport,      zend_pfpro_globals, pfpro_globals)
+	STD_PHP_INI_ENTRY("pfpro.proxylogon",     "",    PHP_INI_ALL, OnUpdateString, proxylogon,     zend_pfpro_globals, pfpro_globals)
+	STD_PHP_INI_ENTRY("pfpro.proxypassword",  "",    PHP_INI_ALL, OnUpdateString, proxypassword,  zend_pfpro_globals, pfpro_globals)
 PHP_INI_END()
 
+/* {{{ php_extname_init_globals
+ */
+static void php_pfpro_init_globals(zend_pfpro_globals *pfpro_globals)
+{
+	pfpro_globals->initialized    = 0;
+	pfpro_globals->defaulthost    = NULL;
+	pfpro_globals->defaultport    = 0;
+	pfpro_globals->defaulttimeout = 0;
+	pfpro_globals->proxyaddress   = NULL;
+	pfpro_globals->proxyport      = 0;
+	pfpro_globals->proxylogon     = NULL;
+	pfpro_globals->proxypassword  = NULL;
+}
+/* }}} */
 
 PHP_MINIT_FUNCTION(pfpro)
 {
+	ZEND_INIT_MODULE_GLOBALS(pfpro, php_pfpro_init_globals, NULL);
 	REGISTER_INI_ENTRIES();
 	return SUCCESS;
 }
@@ -110,7 +114,7 @@ PHP_RINIT_FUNCTION(pfpro)
 {
 	PFPROG(initialized) = 0;
 
-    return SUCCESS;
+	return SUCCESS;
 }
 
 PHP_RSHUTDOWN_FUNCTION(pfpro)
@@ -119,7 +123,7 @@ PHP_RSHUTDOWN_FUNCTION(pfpro)
 		pfproCleanup();
 	}
 
-    return SUCCESS;
+	return SUCCESS;
 }
 /* }}} */
 
@@ -127,7 +131,7 @@ PHP_RSHUTDOWN_FUNCTION(pfpro)
 PHP_MINFO_FUNCTION(pfpro)
 {
 	php_info_print_table_start();
-	php_info_print_table_header(2, "Verisign Payflow Pro support", "enabled");
+	php_info_print_table_row(2, "Verisign Payflow Pro support", "enabled");
 	php_info_print_table_row(2, "libpfpro version", pfproVersion());
 	php_info_print_table_end();
 
@@ -184,7 +188,6 @@ PHP_FUNCTION(pfpro_cleanup)
 PHP_FUNCTION(pfpro_process_raw)
 {
 	zval ***args;
-
 	char *parmlist = NULL;
 	char *address = NULL;
 	int port = PFPROG(defaultport);
@@ -193,9 +196,7 @@ PHP_FUNCTION(pfpro_process_raw)
 	int proxyPort = PFPROG(proxyport);
 	char *proxyLogon = PFPROG(proxylogon);
 	char *proxyPassword = PFPROG(proxypassword);
-
 	int freeaddress = 0;
-
 #if PFPRO_VERSION < 3
 	char response[512] = "";
 #else
@@ -210,7 +211,7 @@ PHP_FUNCTION(pfpro_process_raw)
 	args = (zval ***) emalloc(sizeof(zval **) * ZEND_NUM_ARGS());
 
 	if (zend_get_parameters_array_ex(ZEND_NUM_ARGS(), args) == FAILURE) {
-        php_error(E_WARNING, "Unable to read parameters in pfpro_process_raw()");
+		php_error(E_WARNING, "Unable to read parameters in pfpro_process_raw()");
 		efree(args);
 		RETURN_FALSE;
 	}
@@ -218,45 +219,43 @@ PHP_FUNCTION(pfpro_process_raw)
 	switch (ZEND_NUM_ARGS()) {
 		case 8:
 			convert_to_string_ex(args[7]);
-			proxyPassword = (*args[7])->value.str.val;
+			proxyPassword = Z_STRVAL_PP(args[7]);
 			/* fall through */
 
 		case 7:
 			convert_to_string_ex(args[6]);
-			proxyLogon = (*args[6])->value.str.val;
+			proxyLogon = Z_STRVAL_PP(args[6]);
 			/* fall through */
 
 		case 6:
 			convert_to_long_ex(args[5]);
-			proxyPort = (*args[5])->value.lval;
+			proxyPort = Z_LVAL_PP(args[5]);
 			/* fall through */
 
 		case 5:
 			convert_to_string_ex(args[4]);
-			proxyAddress = (*args[4])->value.str.val;
+			proxyAddress = Z_STRVAL_PP(args[4]);
 			/* fall through */
 
 		case 4:
 			convert_to_long_ex(args[3]);
-			timeout = (*args[3])->value.lval;
+			timeout = Z_LVAL_PP(args[3]);
 			/* fall through */
 
 		case 3:
 			convert_to_long_ex(args[2]);
-			port = (*args[2])->value.lval;
+			port = Z_LVAL_PP(args[2]);
 			/* fall through */
 
 		case 2:
 			convert_to_string_ex(args[1]);
-			address = (*args[1])->value.str.val;
+			address = Z_STRVAL_PP(args[1]);
 	}
 
 	convert_to_string_ex(args[0]);
-	parmlist = (*args[0])->value.str.val;
+	parmlist = Z_STRVAL_PP(args[0]);
 
 	efree(args);
-
-	/* Default to signio's test server */
 
 	if (address == NULL) {
 		address = estrdup(PFPROG(defaulthost));
@@ -298,13 +297,11 @@ PHP_FUNCTION(pfpro_process_raw)
 PHP_FUNCTION(pfpro_process)
 {
 	zval ***args;
-
 	HashTable *target_hash;
 	ulong num_key;
 	char *string_key;
 	zval **entry;
 	int pass;
-
 	char *parmlist = NULL;
 	char *address = NULL;
 	int port = PFPROG(defaultport);
@@ -313,23 +310,16 @@ PHP_FUNCTION(pfpro_process)
 	int proxyPort = PFPROG(proxyport);
 	char *proxyLogon = PFPROG(proxylogon);
 	char *proxyPassword = PFPROG(proxypassword);
-
 	int parmlength = 0;
 	int freeaddress = 0;
-
 #if PFPRO_VERSION < 3
 	char response[512] = "";
 #else
 	int context;
 	char *response;
 #endif
-
 	char tmpbuf[128];
-
-    char buf[128], sbuf[128];
-    char *p1, *p2, *p_end,          /* Pointers for string manipulation */
-        *sp1, *sp2,
-        *pdelim1="&", *pdelim2="=";
+	char *var,*val,*strtok_buf=NULL; /* Pointers for string manipulation */
 
 	if (ZEND_NUM_ARGS() < 1 || ZEND_NUM_ARGS() > 8) {
 		WRONG_PARAM_COUNT;
@@ -338,12 +328,12 @@ PHP_FUNCTION(pfpro_process)
 	args = (zval ***) emalloc(sizeof(zval **) * ZEND_NUM_ARGS());
 
 	if (zend_get_parameters_array_ex(ZEND_NUM_ARGS(), args) == FAILURE) {
-        php_error(E_ERROR, "Unable to read parameters in pfpro_process()");
+		php_error(E_ERROR, "Unable to read parameters in pfpro_process()");
  		efree(args);
 		RETURN_FALSE;
 	}
 
-	if ((*args[0])->type != IS_ARRAY) {
+	if (Z_TYPE_PP(args[0]) != IS_ARRAY) {
 		php_error(E_ERROR, "First parameter to pfpro_process() must be an array");
  		efree(args);
 		RETURN_FALSE;
@@ -352,37 +342,37 @@ PHP_FUNCTION(pfpro_process)
 	switch (ZEND_NUM_ARGS()) {
 		case 8:
 			convert_to_string_ex(args[7]);
-			proxyPassword = (*args[7])->value.str.val;
+			proxyPassword = Z_STRVAL_PP(args[7]);
 			/* fall through */
 
 		case 7:
 			convert_to_string_ex(args[6]);
-			proxyLogon = (*args[6])->value.str.val;
+			proxyLogon = Z_STRVAL_PP(args[6]);
 			/* fall through */
 
 		case 6:
 			convert_to_long_ex(args[5]);
-			proxyPort = (*args[5])->value.lval;
+			proxyPort = Z_LVAL_PP(args[5]);
 			/* fall through */
 
 		case 5:
 			convert_to_string_ex(args[4]);
-			proxyAddress = (*args[4])->value.str.val;
+			proxyAddress = Z_STRVAL_PP(args[4]);
 			/* fall through */
 
 		case 4:
 			convert_to_long_ex(args[3]);
-			timeout = (*args[3])->value.lval;
+			timeout = Z_LVAL_PP(args[3]);
 			/* fall through */
 
 		case 3:
 			convert_to_long_ex(args[2]);
-			port = (*args[2])->value.lval;
+			port = Z_LVAL_PP(args[2]);
 			/* fall through */
 
 		case 2:
 			convert_to_string_ex(args[1]);
-			address = (*args[1])->value.str.val;
+			address = Z_STRVAL_PP(args[1]);
 	}
 
 	/* Concatenate the passed array as specified by Verisign.
@@ -420,7 +410,7 @@ PHP_FUNCTION(pfpro_process)
 
 				case HASH_KEY_IS_LONG:
 
-					sprintf(tmpbuf, "%d", num_key);
+					sprintf(tmpbuf, "%ld", num_key);
 					if (pass == 1)
 						strcpy(parmlist + parmlength, tmpbuf);
 					parmlength += strlen(tmpbuf);
@@ -429,34 +419,36 @@ PHP_FUNCTION(pfpro_process)
 
 				default:
 					php_error(E_ERROR, "pfpro_process() array keys must be strings or integers");
+					if (parmlist) {
+						efree(parmlist);
+					}
 					efree(args);
 					RETURN_FALSE;
 			}
 
 
-			switch ((*entry)->type) {
+			switch (Z_TYPE_PP(entry)) {
 				case IS_STRING:
-					if (strchr((*entry)->value.str.val, '&')
-						|| strchr((*entry)->value.str.val, '=')) {
-						sprintf(tmpbuf, "[%d]=", (*entry)->value.str.len);
+					if (strchr(Z_STRVAL_PP(entry), '&')
+						|| strchr(Z_STRVAL_PP(entry), '=')) {
+						sprintf(tmpbuf, "[%d]=", Z_STRLEN_PP(entry));
 						if (pass == 1)
 							strcpy(parmlist + parmlength, tmpbuf);
 						parmlength += strlen(tmpbuf);
-					}
-					else {
+					} else {
 						if (pass == 1)
 							strcpy(parmlist + parmlength, "=");
 						parmlength += 1;
 					}
 
 					if (pass == 1)
-						strcpy(parmlist + parmlength, (*entry)->value.str.val);
-					parmlength += (*entry)->value.str.len;
+						strcpy(parmlist + parmlength, Z_STRVAL_PP(entry));
+					parmlength += Z_STRLEN_PP(entry);
 
 					break;
 
 				case IS_LONG:
-					sprintf(tmpbuf, "=%d", (*entry)->value.lval);
+					sprintf(tmpbuf, "=%ld", Z_LVAL_PP(entry));
 					if (pass == 1)
 						strcpy(parmlist + parmlength, tmpbuf);
 					parmlength += strlen(tmpbuf);
@@ -464,7 +456,7 @@ PHP_FUNCTION(pfpro_process)
 					break;
 
 				case IS_DOUBLE:
-					sprintf(tmpbuf, "=%.2f", (*entry)->value.dval);
+					sprintf(tmpbuf, "=%.2f", Z_DVAL_PP(entry));
 					if (pass == 1)
 						strcpy(parmlist + parmlength, tmpbuf);
 					parmlength += strlen(tmpbuf);
@@ -473,6 +465,9 @@ PHP_FUNCTION(pfpro_process)
 
 				default:
 					php_error(E_ERROR, "pfpro_process() array values must be strings, ints or floats");
+					if (parmlist) {
+						efree(parmlist);
+					}
 					efree(args);
 					RETURN_FALSE;
 			}
@@ -486,10 +481,7 @@ PHP_FUNCTION(pfpro_process)
 
 	efree(args);
 
-	/* Default to signio's test server */
-
 	if (address == NULL) {
-		/* is it safe to just do address = "test.signio.com"; here? */
 		address = estrdup(PFPROG(defaulthost));
 		freeaddress = 1;
 	}
@@ -497,10 +489,7 @@ PHP_FUNCTION(pfpro_process)
 	/* Allocate the array for the response now - so we catch any errors
 	   from this BEFORE we knock it off to the bank */
 
-	if (array_init(return_value) == FAILURE) {
-		php_error(E_ERROR, "pfpro_process() unable to create array");
-		RETURN_FALSE;
-	}
+	array_init(return_value);
 
 #if PFPRO_VERSION < 3
 	/* Blank the response buffer */
@@ -528,63 +517,23 @@ PHP_FUNCTION(pfpro_process)
 		efree(address);
 	}
 
-
-	/* This final chunk of code is to walk the string returned by Signio
-	   and build a string array to return to the user */
-
-	/* John, I suspect this code will fall over if there are less than
-	   3 items in the response string -- david */
-
-	/* Clean our str[n]cpy buffers */
-	memset(buf, 0, sizeof(buf));
-	memset(sbuf, 0, sizeof(sbuf));
-
-	p_end = response + strlen(response);
-	p1 = response;
-	p2 = (char*)php_memnstr(response, pdelim1, 1, p_end);
-
-	sp1 = (char*)php_memnstr(response, pdelim2, 1, p2);
-	strncpy(buf, p1, sp1-p1);
-
-	sp1++;
-	strncpy(sbuf, sp1, p2-sp1);
-
-	add_assoc_string(return_value, &buf[0], &sbuf[0], 1);
-
-	do {
-		memset(buf, 0, sizeof(buf));
-		memset(sbuf, 0, sizeof(sbuf));
-
-		p1 = p2+1;
-
-		if ((sp2 = (char*)php_memnstr(p1, pdelim1, 1, p_end)) != NULL) {
-			sp1 = (char*)php_memnstr(p1, pdelim2, 1, sp2);
-			strncpy(buf, p1, sp1-p1);
-
-			sp1++;
-
-			strncpy(sbuf, sp1, sp2-sp1);
-
-			add_assoc_string(return_value, &buf[0], &sbuf[0], 1);
-		}
-
-
-	} while ((p2 = (char*)php_memnstr(p1, pdelim1, 1, p_end)) != NULL);
-
-	if (p1 <= p_end) {
-		memset(buf, 0, sizeof(buf));
-		memset(sbuf, 0, sizeof(sbuf));
-
-		sp1 = (char*)php_memnstr(p1, pdelim2, 1, p_end);
-		strncpy(buf, p1, sp1-p1);
-
-		sp1++;
-		strncpy(sbuf, sp1, p_end-sp1);
-
-		add_assoc_string(return_value, &buf[0], &sbuf[0], 1);
+	if (parmlist) {
+		efree(parmlist);
 	}
 
+	/* This final chunk of code is to walk the returned string
+	 * and build the return array to the user.
+     */
+	var = php_strtok_r(response, "&", &strtok_buf);
 
+	while (var) {
+		val = strchr(var, '=');
+		if (val) { /* have a value */
+			*val++ = '\0';
+			add_assoc_string(return_value, var, val, 1);
+		}
+		var = php_strtok_r(NULL, "&", &strtok_buf);
+	}
 }
 /* }}} */
 
@@ -595,6 +544,6 @@ PHP_FUNCTION(pfpro_process)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

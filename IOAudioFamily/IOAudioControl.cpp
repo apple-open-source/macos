@@ -38,8 +38,8 @@
 
 OSDefineMetaClassAndStructors(IOAudioControl, IOService)
 OSMetaClassDefineReservedUsed(IOAudioControl, 0);
+OSMetaClassDefineReservedUsed(IOAudioControl, 1);
 
-OSMetaClassDefineReservedUnused(IOAudioControl, 1);
 OSMetaClassDefineReservedUnused(IOAudioControl, 2);
 OSMetaClassDefineReservedUnused(IOAudioControl, 3);
 OSMetaClassDefineReservedUnused(IOAudioControl, 4);
@@ -181,6 +181,11 @@ void IOAudioControl::setCoreAudioPropertyID(UInt32 propertyID)
 {
     setProperty(kIOAudioControlCoreAudioPropertyIDKey, propertyID, sizeof(UInt32)*8);
     setUsage(kIOAudioControlUsageCoreAudioProperty);
+}
+
+void IOAudioControl::setReadOnlyFlag()
+{
+    setProperty(kIOAudioControlValueIsReadOnlyKey, (bool)true);
 }
 
 UInt32 IOAudioControl::getType()

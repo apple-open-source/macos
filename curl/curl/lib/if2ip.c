@@ -1,25 +1,25 @@
-/*****************************************************************************
+/***************************************************************************
  *                                  _   _ ____  _     
  *  Project                     ___| | | |  _ \| |    
  *                             / __| | | | |_) | |    
  *                            | (__| |_| |  _ <| |___ 
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 2000, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2002, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
- * In order to be useful for every potential user, curl and libcurl are
- * dual-licensed under the MPL and the MIT/X-derivate licenses.
- *
+ * This software is licensed as described in the file COPYING, which
+ * you should have received as part of this distribution. The terms
+ * are also available at http://curl.haxx.se/docs/copyright.html.
+ * 
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
- * furnished to do so, under the terms of the MPL or the MIT/X-derivate
- * licenses. You may pick one of these licenses.
+ * furnished to do so, under the terms of the COPYING file.
  *
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: if2ip.c,v 1.1.1.2 2001/04/24 18:49:09 wsanchez Exp $
- *****************************************************************************/
+ * $Id: if2ip.c,v 1.1.1.3 2002/11/26 19:07:56 zarzycki Exp $
+ ***************************************************************************/
 
 #include "setup.h"
 
@@ -33,10 +33,6 @@
 #endif
 
 #if ! defined(WIN32) && ! defined(__BEOS__) && !defined(__CYGWIN32__)
-
-#ifdef NEED_REENTRANT
-#define _REENTRANT
-#endif
 
 #ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
@@ -70,6 +66,11 @@
 #include "inet_ntoa_r.h"
 #endif
 
+#ifdef	VMS
+#define	IOCTL_3_ARGS
+#include <inet.h>
+#endif
+
 /* The last #include file should be: */
 #ifdef MALLOCDEBUG
 #include "memdebug.h"
@@ -94,7 +95,11 @@ char *Curl_if2ip(char *interface, char *buf, int buf_size)
     memset(&req, 0, sizeof(req));
     strcpy(req.ifr_name, interface);
     req.ifr_addr.sa_family = AF_INET;
+#ifdef	IOCTL_3_ARGS
+    if (SYS_ERROR == ioctl(dummy, SIOCGIFADDR, &req)) {
+#else
     if (SYS_ERROR == ioctl(dummy, SIOCGIFADDR, &req, sizeof(req))) {
+#endif
       sclose(dummy);
       return NULL;
     }
@@ -119,3 +124,11 @@ char *Curl_if2ip(char *interface, char *buf, int buf_size)
 #else
 #define if2ip(x) NULL
 #endif
+
+/*
+ * local variables:
+ * eval: (load-file "../curl-mode.el")
+ * end:
+ * vim600: fdm=marker
+ * vim: et sw=2 ts=2 sts=2 tw=78
+ */

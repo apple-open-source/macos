@@ -28,7 +28,7 @@
 
 #include <IOKit/graphics/IOAccelSurfaceConnect.h>
 
-#define IOACCEL_SURFACE_CONTROL_REV	5
+#define IOACCEL_SURFACE_CONTROL_REV	6
 
 typedef struct IOAccelConnectStruct *IOAccelConnect;
 
@@ -44,7 +44,10 @@ IOReturn IOAccelSetSurfaceScale( IOAccelConnect connect, IOOptionBits options,
 IOReturn IOAccelDestroySurface( IOAccelConnect connect );
 
 /* Change the visible region of the accelerated surface */
-IOReturn IOAccelSetSurfaceShape( IOAccelConnect connect, IOAccelDeviceRegion *region, eIOAccelSurfaceShapeBits options );
+IOReturn IOAccelSetSurfaceFramebufferShapeWithBacking( IOAccelConnect connect, IOAccelDeviceRegion *rgn,
+                                            eIOAccelSurfaceShapeBits options, UInt32 framebufferIndex,
+					    IOVirtualAddress backing, UInt32 rowbytes );
+
 IOReturn IOAccelSetSurfaceFramebufferShape( IOAccelConnect connect, IOAccelDeviceRegion *rgn,
                                             eIOAccelSurfaceShapeBits options, UInt32 framebufferIndex );
 
@@ -52,10 +55,13 @@ IOReturn IOAccelSetSurfaceFramebufferShape( IOAccelConnect connect, IOAccelDevic
 IOReturn IOAccelWaitForSurface( IOAccelConnect connect );
 
 /* Get the back buffer of the surface.  Supplies client virtual address. */
-IOReturn IOAccelLockSurface( IOAccelConnect connect, IOAccelSurfaceInformation * info, UInt32 infoSize );
 
-/* Release the lock on the surface's vram */
-IOReturn IOAccelUnlockSurface( IOAccelConnect connect );
+IOReturn IOAccelWriteLockSurfaceWithOptions( IOAccelConnect connect, IOOptionBits options,
+					     IOAccelSurfaceInformation * info, UInt32 infoSize );
+IOReturn IOAccelWriteUnlockSurfaceWithOptions( IOAccelConnect connect, IOOptionBits options );
+IOReturn IOAccelReadLockSurfaceWithOptions( IOAccelConnect connect, IOOptionBits options,
+					    IOAccelSurfaceInformation * info, UInt32 infoSize );
+IOReturn IOAccelReadUnlockSurfaceWithOptions( IOAccelConnect connect, IOOptionBits options );
 
 IOReturn IOAccelQueryLockSurface( IOAccelConnect connect );
 IOReturn IOAccelWriteLockSurface( IOAccelConnect connect, IOAccelSurfaceInformation * info, UInt32 infoSize );
@@ -64,7 +70,6 @@ IOReturn IOAccelReadLockSurface( IOAccelConnect connect, IOAccelSurfaceInformati
 IOReturn IOAccelReadUnlockSurface( IOAccelConnect connect );
 
 /* Flush surface to visible region */
-IOReturn IOAccelFlushSurface( IOAccelConnect connect, IOOptionBits options );
 IOReturn IOAccelFlushSurfaceOnFramebuffers( IOAccelConnect connect, IOOptionBits options, UInt32 framebufferMask );
 
 

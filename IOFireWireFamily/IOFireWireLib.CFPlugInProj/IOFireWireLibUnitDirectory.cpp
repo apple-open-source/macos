@@ -32,7 +32,7 @@
  */
 
 #import "IOFireWireLibUnitDirectory.h"
-#import <CoreFoundation/CoreFoundation.h>
+#import "IOFireWireLibDevice.h"
 
 namespace IOFireWireLib {
 
@@ -53,12 +53,12 @@ namespace IOFireWireLib {
 	// ============================================================
 	
 	LocalUnitDirectory::LocalUnitDirectory( Device& userclient )
-	: IOFireWireIUnknown( reinterpret_cast<IUnknownVTbl*>(& sInterface) ),
+	: IOFireWireIUnknown( reinterpret_cast<const IUnknownVTbl &>( sInterface) ),
 	  mUserClient(userclient), 
 	  mPublished(false)
 	{
-		IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kUnitDirCreate, 
-				0, 1, & mKernUnitDirRef ) ;
+		IOConnectMethodScalarIScalarO(  mUserClient.GetUserClientConnection(), kLocalConfigDirectory_Create, 
+										0, 1, & mKernUnitDirRef ) ;
 	}
 	
 	LocalUnitDirectory::~LocalUnitDirectory()
@@ -101,29 +101,63 @@ namespace IOFireWireLib {
 		return result ;
 	}
 
-	IOReturn
-	LocalUnitDirectory::AddEntry( int key, void* inBuffer, size_t inLen, CFStringRef )
+	inline const char *
+	CFStringGetChars( CFStringRef string, unsigned & outLen )
 	{
-		if (inLen > 0xC00)
+		CFIndex stringLength = ::CFStringGetLength( string ) ;
+	
+		const char * result = ::CFStringGetCStringPtr( string, kCFStringEncodingUTF8 ) ;
+		if ( result )
 		{
-			IOFireWireLibLog_(("LocalUnitDirectory::AddEntry: entry too large\n")) ;
-			return kIOReturnBadArgument ;
+			outLen = (unsigned)stringLength ;
+			return result ;
 		}
 		
-		return IOConnectMethodScalarIStructureI( mUserClient.GetUserClientConnection(), kUnitDirAddEntry_Buffer, 2, 
-					inLen, mKernUnitDirRef, key, inBuffer ) ;
+		CFIndex bufferSize = ::CFStringGetBytes( string, ::CFRangeMake( 0, stringLength ), kCFStringEncodingUTF8, 
+				0xFF, false, NULL, 0, NULL ) ;
+		
+		UInt8 inlineBuffer[ bufferSize ] ;
+		result = (char*)inlineBuffer ;
+
+		::CFStringGetBytes( string, ::CFRangeMake( 0, stringLength ), kCFStringEncodingUTF8, 0xFF, false, inlineBuffer, bufferSize, NULL ) ;
+		
+		outLen = bufferSize ;
+		return result ;
+	}
+	
+	IOReturn
+	LocalUnitDirectory::AddEntry( int key, void* buffer, size_t len, CFStringRef desc )
+	{
+		unsigned descLen = 0;
+		const char * descCString = NULL;
+		
+		if( desc )
+		{
+			descCString = CFStringGetChars( desc, descLen ) ;
+		}
+	
+		return ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kLocalConfigDirectory_AddEntry_Buffer, 6, 0,
+				mKernUnitDirRef, key, buffer, len, descCString, descLen ) ;
 	}
 	
 	IOReturn
 	LocalUnitDirectory::AddEntry(
 		int			key,
 		UInt32		value,
-		CFStringRef	/*inDesc = NULL*/)	// zzz don't know what to do with this yet...
-										// zzz should probably go into kernel
+		CFStringRef desc )
 	{
-		IOReturn err = IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kUnitDirAddEntry_UInt32, 3, 0, mKernUnitDirRef, key, value ) ;
+		unsigned descLen = 0;
+		const char * descCString = NULL;
+		
+		if( desc )
+		{
+			descCString = CFStringGetChars( desc, descLen ) ;
+		}
+		
+		IOReturn err = IOConnectMethodScalarIScalarO(   mUserClient.GetUserClientConnection(), 
+														kLocalConfigDirectory_AddEntry_UInt32, 5, 0, mKernUnitDirRef, key, value, descCString, descLen ) ;
 	
-		IOFireWireLibLogIfErr_(err, "LocalUnitDirectory::AddEntry[UInt32](): result = 0x%08x\n", err) ;
+		DebugLogCond( err, "LocalUnitDirectory::AddEntry[UInt32](): result = 0x%08x\n", err ) ;
 	
 		return err ;
 	}
@@ -132,11 +166,19 @@ namespace IOFireWireLib {
 	LocalUnitDirectory::AddEntry(
 		int					key,
 		const FWAddress &	value,
-		CFStringRef	/*inDesc = NULL*/)	// zzz don't know what to do with this yet...
-										// zzz should probably go into kernel
+		CFStringRef			desc )
 	{
-		return IOConnectMethodScalarIStructureI( mUserClient.GetUserClientConnection(), kUnitDirAddEntry_FWAddr, 
-					2, sizeof(value), mKernUnitDirRef, key, & value ) ;
+		unsigned descLen = 0;
+		const char * descCString = NULL;
+		
+		if( desc )
+		{
+			descCString = CFStringGetChars( desc, descLen ) ;
+		}
+
+		return IOConnectMethodScalarIStructureI(	mUserClient.GetUserClientConnection(), 
+													kLocalConfigDirectory_AddEntry_FWAddr, 
+													4, sizeof(value), mKernUnitDirRef, key, descCString, descLen, & value) ;
 	}
 	
 	IOReturn
@@ -145,7 +187,9 @@ namespace IOFireWireLib {
 		if (mPublished)
 			return kIOReturnSuccess ;
 	
-		IOReturn err = IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kUnitDirPublish, 1, 0, mKernUnitDirRef ) ;
+		IOReturn err = IOConnectMethodScalarIScalarO(   mUserClient.GetUserClientConnection(), 
+														kLocalConfigDirectory_Publish, 
+														1, 0, mKernUnitDirRef ) ;
 	
 		mPublished = ( kIOReturnSuccess == err ) ;
 	
@@ -158,10 +202,10 @@ namespace IOFireWireLib {
 		if (!mPublished)
 			return kIOReturnSuccess ;
 			
-		IOReturn err = IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), kUnitDirUnpublish, 1, 0, mKernUnitDirRef) ;
+		IOReturn err = IOConnectMethodScalarIScalarO(   mUserClient.GetUserClientConnection(), 
+														kLocalConfigDirectory_Unpublish, 1, 0, mKernUnitDirRef) ;
 			
-		if ( kIOReturnSuccess == err )
-				mPublished = false ;
+		mPublished = (!err) ;
 		
 		return err ;
 	}

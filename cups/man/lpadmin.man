@@ -1,9 +1,9 @@
 .\"
-.\" "$Id: lpadmin.man,v 1.1.1.3 2002/03/02 18:28:42 jlovell Exp $"
+.\" "$Id: lpadmin.man,v 1.1.1.9 2003/04/11 21:07:47 jlovell Exp $"
 .\"
 .\"   lpadmin man page for the Common UNIX Printing System (CUPS).
 .\"
-.\"   Copyright 1997-2002 by Easy Software Products.
+.\"   Copyright 1997-2003 by Easy Software Products.
 .\"
 .\"   These coded instructions, statements, and computer programs are the
 .\"   property of Easy Software Products and are protected by Federal
@@ -21,7 +21,7 @@
 .\"       EMail: cups-info@cups.org
 .\"         WWW: http://www.cups.org
 .\"
-.TH lpadmin 8 "Common UNIX Printing System" "23 January 2001" "Easy Software Products"
+.TH lpadmin 8 "Common UNIX Printing System" "21 October 2002" "Easy Software Products"
 .SH NAME
 lpadmin \- configure cups printers and classes
 .SH SYNOPSIS
@@ -44,8 +44,9 @@ lpadmin \- configure cups printers and classes
 ] \-x
 .I destination
 .SH DESCRIPTION
-\fIlpadmin\fR configures printer and class queues provided by CUPS. It can also
-be used to set the system default printer or class.
+\fIlpadmin\fR configures printer and class queues provided by
+CUPS. It can also be used to set the server default printer or
+class.
 .LP
 When specified before the \fI-d\fR, \fI-p\fR, or \fI-x\fR options,
 the \fI-E\fR option forces encryption when connecting to the server.
@@ -53,7 +54,7 @@ the \fI-E\fR option forces encryption when connecting to the server.
 The first form of the command sets the default printer or class to
 \fIdestination\fR.  Subsequent print jobs submitted via the \fIlp(1)\fR or
 \fIlpr(1)\fR commands will use this destination unless the user specifies
-otherwise.
+otherwise with the \fIlpoptions(1)\fR command.
 .LP
 The second form of the command configures the named printer.  The additional
 options are described below.
@@ -100,17 +101,23 @@ pages that can be printed; double-sided pages are counted as two pages.
 Sets the accounting period for per-user quotas. The value is an integer number
 of seconds; 86,400 seconds are in one day.
 .TP 5
+\-o \fIprotocol=name\fR
+.br
+Sets the binary communications protocol to use when printing,
+None, BCP, or TBCP. The default protocol is None.
+.TP 5
 \-r \fIclass\fR
 .br
 Removes the named \fIprinter\fR from \fIclass\fR.  If the resulting class
 becomes empty it is removed.
 .TP 5
-\-u \fIallow:user,user\fR
-\-u \fIdeny:user,user\fR
+\-u \fIallow:user,user,@group\fR
+\-u \fIdeny:user,user,@group\fR
 \-u \fIallow:all\fR
 \-u \fIdeny:none\fR
 .br
-Sets user-level access control on a printer. The latter two forms turn
+Sets user-level access control on a printer. Names starting with
+"@" are interpreted as UNIX groups. The latter two forms turn
 user-level access control off.
 .TP 5
 \-v \fIdevice-uri\fR
@@ -150,7 +157,7 @@ accept(8), cancel(1), disable(8), enable(8), lp(1), lpstat(1), reject(8),
 CUPS Software Administrators Manual,
 http://localhost:631/documentation.html
 .SH COPYRIGHT
-Copyright 1993-2002 by Easy Software Products, All Rights Reserved.
+Copyright 1993-2003 by Easy Software Products, All Rights Reserved.
 .\"
-.\" End of "$Id: lpadmin.man,v 1.1.1.3 2002/03/02 18:28:42 jlovell Exp $".
+.\" End of "$Id: lpadmin.man,v 1.1.1.9 2003/04/11 21:07:47 jlovell Exp $".
 .\"

@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 0.92 of the Zend license,     |
+   | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
    | available at through the world-wide-web at                           |
-   | http://www.zend.com/license/0_92.txt.                                |
+   | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
    | license@zend.com so we can mail you a copy immediately.              |
@@ -46,8 +46,13 @@ typedef unsigned int uint;
 #define HAVE_SNPRINTF	1
 #define HAVE_VSNPRINTF	1
 
+#define snprintf _snprintf
+#define strcasecmp(s1, s2) stricmp(s1, s2)
+#define strncasecmp(s1, s2, n) strnicmp(s1, s2, n)
 #define vsnprintf _vsnprintf
-#define zend_isinf(a)	0
+#define zend_isinf(a)	((_fpclass(a) == _FPCLASS_PINF) || (_fpclass(a) == _FPCLASS_NINF))
+#define zend_finite(x)	_finite(x)
+#define zend_isnan(x)	_isnan(x)
 
 #define zend_sprintf sprintf
 
@@ -60,9 +65,6 @@ typedef unsigned int uint;
 #else
 # define inline
 #endif
-
-#define zend_finite(A) _finite(A)
-#define zend_isnan(A) _isnan(A)
 
 #ifdef LIBZEND_EXPORTS
 #	define ZEND_API __declspec(dllexport)

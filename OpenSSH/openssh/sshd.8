@@ -34,7 +34,7 @@
 .\" (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 .\" THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .\"
-.\" $OpenBSD: sshd.8,v 1.186 2002/06/22 16:45:29 stevesk Exp $
+.\" $OpenBSD: sshd.8,v 1.194 2003/01/31 21:54:40 jmc Exp $
 .Dd September 25, 1999
 .Dt SSHD 8
 .Os
@@ -43,6 +43,7 @@
 .Nd OpenSSH SSH daemon
 .Sh SYNOPSIS
 .Nm sshd
+.Bk -words
 .Op Fl deiqtD46
 .Op Fl b Ar bits
 .Op Fl f Ar config_file
@@ -52,6 +53,7 @@
 .Op Fl o Ar option
 .Op Fl p Ar port
 .Op Fl u Ar len
+.Ek
 .Sh DESCRIPTION
 .Nm
 (SSH Daemon) is the daemon program for
@@ -75,7 +77,7 @@ This implementation of
 .Nm
 supports both SSH protocol version 1 and 2 simultaneously.
 .Nm
-works as follows.
+works as follows:
 .Pp
 .Ss SSH protocol version 1
 .Pp
@@ -86,7 +88,7 @@ the daemon starts, it generates a server RSA key (normally 768 bits).
 This key is normally regenerated every hour if it has been used, and
 is never stored on disk.
 .Pp
-Whenever a client connects the daemon responds with its public
+Whenever a client connects, the daemon responds with its public
 host and server keys.
 The client compares the
 RSA host key against its own database to verify that it has not changed.
@@ -119,7 +121,7 @@ System security is not improved unless
 .Nm rshd ,
 .Nm rlogind ,
 and
-.Xr rexecd
+.Nm rexecd
 are disabled (thus completely disabling
 .Xr rlogin
 and
@@ -189,7 +191,9 @@ The server sends verbose debug output to the system
 log, and does not put itself in the background.
 The server also will not fork and will only process one connection.
 This option is only intended for debugging for the server.
-Multiple -d options increase the debugging level.
+Multiple
+.Fl d
+options increase the debugging level.
 Maximum is 3.
 .It Fl e
 When this option is specified,
@@ -203,7 +207,7 @@ The default is
 refuses to start if there is no configuration file.
 .It Fl g Ar login_grace_time
 Gives the grace time for clients to authenticate themselves (default
-600 seconds).
+120 seconds).
 If the client fails to authenticate the user within
 this many seconds, the server disconnects and exits.
 A value of zero indicates no limit.
@@ -225,7 +229,8 @@ the different protocol versions and host key algorithms.
 .It Fl i
 Specifies that
 .Nm
-is being run from inetd.
+is being run from
+.Xr inetd 8 .
 .Nm
 is normally not run
 from inetd because it needs to generate the server key before it can
@@ -282,7 +287,7 @@ should be put into the
 .Pa utmp
 file.
 .Fl u0
-is also be used to prevent
+may also be used to prevent
 .Nm
 from making DNS requests unless the authentication
 mechanism or configuration requires it.
@@ -350,7 +355,11 @@ Sets up basic environment.
 .It
 Reads
 .Pa $HOME/.ssh/environment
-if it exists.
+if it exists and users are allowed to change their environment.
+See the
+.Cm PermitUserEnvironment
+option in
+.Xr sshd_config 5 .
 .It
 Changes to user's home directory.
 .It
@@ -385,9 +394,9 @@ Each RSA public key consists of the following fields, separated by
 spaces: options, bits, exponent, modulus, comment.
 Each protocol version 2 public key consists of:
 options, keytype, base64 encoded key, comment.
-The options fields
-are optional; its presence is determined by whether the line starts
-with a number or not (the option field never starts with a number).
+The options field
+is optional; its presence is determined by whether the line starts
+with a number or not (the options field never starts with a number).
 The bits, exponent, modulus and comment fields give the RSA key for
 protocol version 1; the
 comment field is not used for anything (but may be convenient for the
@@ -398,7 +407,7 @@ or
 .Dq ssh-rsa .
 .Pp
 Note that lines in this file are usually several hundred bytes long
-(because of the size of the RSA key modulus).
+(because of the size of the public key encoding).
 You don't want to type them in; instead, copy the
 .Pa identity.pub ,
 .Pa id_dsa.pub
@@ -417,7 +426,7 @@ The following option specifications are supported (note
 that option keywords are case-insensitive):
 .Bl -tag -width Ds
 .It Cm from="pattern-list"
-Specifies that in addition to RSA authentication, the canonical name
+Specifies that in addition to public key authentication, the canonical name
 of the remote host must be present in the comma-separated list of
 patterns
 .Pf ( Ql *
@@ -429,7 +438,7 @@ patterns negated by prefixing them with
 .Ql ! ;
 if the canonical host name matches a negated pattern, the key is not accepted.
 The purpose
-of this option is to optionally increase security: RSA authentication
+of this option is to optionally increase security: public key authentication
 by itself does not trust the network or name servers or anything (but
 the key); however, if somebody somehow steals the key, the key
 permits an intruder to log in from anywhere in the world.
@@ -442,12 +451,12 @@ authentication.
 The command supplied by the user (if any) is ignored.
 The command is run on a pty if the client requests a pty;
 otherwise it is run without a tty.
-If a 8-bit clean channel is required,
+If an 8-bit clean channel is required,
 one must not request a pty or should specify
 .Cm no-pty .
 A quote may be included in the command by quoting it with a backslash.
 This option might be useful
-to restrict certain RSA keys to perform just a specific operation.
+to restrict certain public keys to perform just a specific operation.
 An example might be a key that permits remote backups but nothing else.
 Note that the client may specify TCP/IP and/or X11
 forwarding unless they are explicitly prohibited.
@@ -458,6 +467,10 @@ logging in using this key.
 Environment variables set this way
 override other default environment values.
 Multiple options of this type are permitted.
+Environment processing is disabled by default and is
+controlled via the
+.Cm PermitUserEnvironment
+option.
 This option is automatically disabled if
 .Cm UseLogin
 is enabled.
@@ -498,7 +511,7 @@ command="dump /home",no-pty,no-port-forwarding 1024 33 23.\|.\|.\|2323 backup.hu
 permitopen="10.2.1.55:80",permitopen="10.2.1.56:25" 1024 33 23.\|.\|.\|2323
 .Sh SSH_KNOWN_HOSTS FILE FORMAT
 The
-.Pa /etc/ssh/ssh_known_hosts ,
+.Pa /etc/ssh/ssh_known_hosts
 and
 .Pa $HOME/.ssh/known_hosts
 files contain host public keys for all known hosts.
@@ -578,6 +591,8 @@ These files are created using
 .Xr ssh-keygen 1 .
 .It Pa /etc/moduli
 Contains Diffie-Hellman groups used for the "Diffie-Hellman Group Exchange".
+The file format is described in
+.Xr moduli 5 .
 .It Pa /var/empty
 .Xr chroot 2
 directory used by
@@ -617,7 +632,7 @@ These files should be writable only by root/the owner.
 .Pa /etc/ssh/ssh_known_hosts
 should be world-readable, and
 .Pa $HOME/.ssh/known_hosts
-can but need not be world-readable.
+can, but need not be, world-readable.
 .It Pa /etc/nologin
 If this file exists,
 .Nm
@@ -634,7 +649,7 @@ Further details are described in
 This file contains host-username pairs, separated by a space, one per
 line.
 The given user on the corresponding host is permitted to log in
-without password.
+without a password.
 The same file is used by rlogind and rshd.
 The file must
 be writable only by the user; it is recommended that it not be
@@ -698,8 +713,14 @@ It can only contain empty lines, comment lines (that start with
 and assignment lines of the form name=value.
 The file should be writable
 only by the user; it need not be readable by anyone else.
+Environment processing is disabled by default and is
+controlled via the
+.Cm PermitUserEnvironment
+option.
 .It Pa $HOME/.ssh/rc
-If this file exists, it is run with /bin/sh after reading the
+If this file exists, it is run with
+.Pa /bin/sh
+after reading the
 environment files but before starting the user's shell or command.
 It must not produce any output on stdout; stderr must be used
 instead.
@@ -723,12 +744,12 @@ something similar to:
 if read proto cookie && [ -n "$DISPLAY" ]; then
 	if [ `echo $DISPLAY | cut -c1-10` = 'localhost:' ]; then
 		# X11UseLocalhost=yes
-		xauth add unix:`echo $DISPLAY |
+		echo add unix:`echo $DISPLAY |
 		    cut -c11-` $proto $cookie
 	else
 		# X11UseLocalhost=no
-		xauth add $DISPLAY $proto $cookie
-	fi
+		echo add $DISPLAY $proto $cookie
+	fi | xauth -q -
 fi
 .Ed
 .Pp

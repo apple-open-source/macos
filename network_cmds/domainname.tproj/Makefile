@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = domainname.c
 
-OTHERSRCS = Makefile.dist domainname.1
+OTHERSRCS = Makefile.dist Makefile.postamble domainname.1
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

@@ -1,0 +1,323 @@
+<!-- $Id: common.xml,v 1.2.6.1 2003/05/18 06:24:13 starksm Exp $ -->
+
+<!-- ================================================================== -->
+<!-- Initialization                                                     -->
+<!-- ================================================================== -->
+
+<!-- Load Buildmagic extention tasks. -->
+<taskdef resource="org/jboss/tools/buildmagic/task/autoload.properties"/>
+<taskdef name="property" classname="org.jboss.tools.buildmagic.task.Property"/>
+
+<!-- Initialize the build system. -->
+<target name="_buildmagic:init">
+  <!-- fail unless we have been started from the build script -->
+  <require property="build.script">
+
+    The build system MUST be executed with one of the provided build scripts.
+
+  </require>
+
+  <!-- JDK Detection -->
+  <available classname="java.lang.Void" property="HAVE_JDK_1.1"/>
+  <available classname="java.lang.ThreadLocal" property="HAVE_JDK_1.2"/>
+  <available classname="java.lang.StrictMath" property="HAVE_JDK_1.3"/>
+  <available classname="java.lang.StackTraceElement" property="HAVE_JDK_1.4"/>
+
+  <!-- Setup the basic project roots. -->
+  <property name="_project.root" value=".."/>
+  <path id="project.root"><pathelement location="${_project.root}"/></path>
+  <property name="project.root" refid="project.root"/> 
+  <property name="project.build" value="${project.root}/build"/>
+
+  <!-- Include user and project property overrides. -->
+  <property file="${user.home}/.buildmagic.properties"/>
+  <property file="${user.home}/.ant.properties"/>
+
+  <!-- Setup the project environment. -->
+  <property file="${project.build}/local.properties"/>
+  <property name="project.tools" value="${project.root}/tools"/>
+  <property name="project.thirdparty" value="${project.root}/thirdparty"/>
+
+  <!-- Setup the module environment. -->
+  <property name="module.root" value="${basedir}"/>
+
+  <available file="${module.root}/etc/local.properties-example"
+        property="init.have-local-properties"/>
+  <call target="_buildmagic:init:local-properties" if="init.have-local-properties"/>
+
+  <property file="${module.root}/local.properties"/>
+  <property name="module.source" value="${module.root}/src"/>
+  <property name="module.output" value="${module.root}/output"/>
+  <property name="module.tools" value="${module.root}/tools"/>
+  <property name="module.thirdparty" value="${module.root}/thirdparty"/>
+
+  <!-- Setup the build.log -->
+  <call target="_buildmagic:init:buildlog" unless="init-buildlog.disable"/>
+
+  <!-- Load common properties -->
+  <property resource="org/jboss/tools/buildmagic/common.properties"/>
+
+  <!-- Setup the build timestamp & build identifer properties -->
+  <tstamp>
+    <format property="build.number" pattern="yyyyMMddHHmm"/>
+    <format property="YEAR" pattern="yyyy"/>
+  </tstamp>
+  <property name="build.id" value="${build.number}"/>
+
+  <!-- Invoke the configure task -->
+  <call target="configure" unless="configure.disable"/>
+
+  <!-- Load common task properties -->
+  <property resource="org/jboss/tools/buildmagic/task.properties"/>
+
+  <!-- Late bind properties & install filters -->
+  <resolver force="${buildmagic.resolveproperties.force}"/>
+  <propertyfilter all="${buildmagic.propertyfilter.all}"/>
+
+  <call target="_buildmagic:init:show-environment" if="init.verbose"/>
+
+  <!-- Finish up -->
+  <property name="init.disable" value="true"/>
+</target>
+
+<!-- Install the local.properties example if it is there -->
+<target name="_buildmagic:init:local-properties">
+  <!-- Setup the local.properties file as needed -->
+  <copy file="${module.root}/etc/local.properties-example"
+        tofile="${module.root}/local.properties" filtering="yes"/>
+  <property file="${module.root}/local.properties"/>
+</target>
+
+<!-- Initialize the build.log -->
+<target name="_buildmagic:init:buildlog">
+  <record name="${basedir}/build.log" append="no"/>
+  <property name="init-buildlog.disable" value="true" system="true"/>
+</target>
+
+<!-- Show the running environment if -Dinit.verbose=true -->
+<target name="_buildmagic:init:show-environment">
+  <echo><![CDATA[
+project.root:    ${project.root}
+module.root:     ${module.root}
+user.home:       ${user.home}
+build.compiler:  ${build.compiler}
+java.home:       ${java.home}
+java.class.path: ${java.class.path}
+java.version:    ${java.version}
+java.vendor:     ${java.vendor}
+java.vm.version: ${java.vm.version}
+java.vm.name:    ${java.vm.name}
+java.vm.info:    ${java.vm.info}
+os.name:         ${os.name}
+os.arch:         ${os.arch}
+os.version:      ${os.version}
+]]></echo>
+</target>
+
+
+<!-- ================================================================== -->
+<!-- Cleaning                                                           -->
+<!-- ================================================================== -->
+
+<!-- Clean up all build output -->
+<target name="_buildmagic:clean" depends="init">
+  <delete dir="${module.output}"/>
+</target>
+
+<!-- Clean up all generated files -->
+<target name="_buildmagic:clobber" depends="init">
+  <delete file="${module.root}/local.properties"/>
+
+  <!-- 
+     | Try to stop the build log before we delete the file.
+   -->
+  <record name="${module.root}/build.log" action="stop"/>
+
+  <!-- 
+     | This file may be opened still due and fail to be removed on win32
+     | systems, so lets just ignore those errors for now.
+   -->
+  <delete file="${module.root}/build.log" quiet="true" failonerror="false"/>
+</target>
+
+
+<!-- ================================================================== -->
+<!-- Help                                                               -->
+<!-- ================================================================== -->
+
+<target name="_buildmagic:help:standard" depends="init">
+  <projecthelp taskname="help">
+    <header><![CDATA[
+  The ${module.Name} module.
+]]></header>
+      <footer><![CDATA[
+    -projecthelp for all targets
+    -help for full options
+]]></footer>
+  </projecthelp>
+</target>
+
+<target name="_buildmagic:help:build" depends="init">
+  <projecthelp taskname="help">
+      <header><![CDATA[
+  The ${module.Name} module.
+]]></header>
+      <footer><![CDATA[
+    -Dgroups=<group>[(,<group>)*]      Specify the module groups.
+    -Dmodules=<module>[(,<module>)*]   Specify the modules.
+                                       (overrides groups).
+    -projecthelp for all targets
+    -help for full options
+]]></footer>
+  </projecthelp>
+</target>
+
+
+<!-- ================================================================== -->
+<!-- Release                                                            -->
+<!-- ================================================================== -->
+
+<target name="_buildmagic:release:zip" depends="init">
+  <zip zipfile="${module.output}/${release.id}.zip">
+    <fileset dir="${module.output}">
+      <include name="${release.id}/**"/>
+    </fileset>
+  </zip>
+</target>
+
+<target name="_buildmagic:release:tar" depends="init">
+  <tar tarfile="${module.output}/${release.id}.tar" longfile="gnu"
+       basedir="${module.output}"
+       includes="${release.id}/**">
+  </tar>
+</target>
+
+<target name="_buildmagic:release:tgz" depends="_buildmagic:release:tar">
+  <gzip src="${module.output}/${release.id}.tar"
+   zipfile="${module.output}/${release.id}.tgz"/>
+</target>
+
+
+<!-- ================================================================== -->
+<!-- Install                                                            -->
+<!-- ================================================================== -->
+
+<target name="_buildmagic:install:default" depends="init">
+  <!-- Copy the output directory to the install directory -->
+  <mkdir dir="${install.root}"/>
+  <copy todir="${install.root}" filtering="no">
+    <fileset dir="${module.output}">
+       <include name="**/*"/>
+       <exclude name="${install.id}/**"/>
+    </fileset>
+  </copy>
+</target>
+
+
+<!-- ================================================================== -->
+<!-- Module Pass-through Targets                                        -->
+<!-- ================================================================== -->
+
+<!-- Invoke the 'all' on all configured modules -->
+<target name="_buildmagic:modules:all" depends="init">
+  <execmodules target="all" 
+       modules="${modules}" 
+       root="${project.root}/${module}"
+       skipmissing="${executemodules.skipmissing}"
+                 exportproperties="${executemodules.exportproperties}">
+    <before target="_module-${module}-${target}-prepare"/>
+    <header message="${executemodules.header}"/>
+    <footer message="${executemodules.footer}"/>
+    <after target="_module-${module}-${target}"/>
+    <property name="init.have-parent" value="true"/>
+  </execmodules>
+</target>
+
+<!-- Invoke the 'most' on all configured modules -->
+<target name="_buildmagic:modules:most" depends="init">
+  <execmodules target="most" 
+          modules="${modules}" 
+          root="${project.root}/${module}"
+          skipmissing="${executemodules.skipmissing}"
+          exportproperties="${executemodules.exportproperties}">
+    <header message="${executemodules.header}"/>
+    <footer message="${executemodules.footer}"/>
+    <before target="_module-${module}-${target}-prepare"/>
+    <after target="_module-${module}-${target}"/>
+    <property name="init.have-parent" value="true"/>
+  </execmodules>
+</target>
+
+<!-- Invoke the 'main' on all configured modules -->
+<target name="_buildmagic:modules:main" depends="init">
+  <execmodules target="main" 
+          modules="${modules}" 
+          root="${project.root}/${module}"
+          skipmissing="${executemodules.skipmissing}"
+          exportproperties="${executemodules.exportproperties}">
+    <header message="${executemodules.header}"/>
+    <footer message="${executemodules.footer}"/>
+    <before target="_module-${module}-${target}-prepare"/>
+    <after target="_module-${module}-${target}"/>
+    <property name="init.have-parent" value="true"/>
+  </execmodules>
+</target>
+
+<!-- Invoke the 'release' on all configured modules -->
+<target name="_buildmagic:modules:release" depends="init">
+  <execmodules target="release" 
+          modules="${modules}" 
+          root="${project.root}/${module}"
+          skipmissing="${executemodules.skipmissing}"
+          exportproperties="${executemodules.exportproperties}">
+    <before target="_module-${module}-${target}-prepare"/>
+    <header message="${executemodules.header}"/>
+    <footer message="${executemodules.footer}"/>
+    <after target="_module-${module}-${target}"/>
+    <property name="init.have-parent" value="true"/>
+  </execmodules>
+</target>
+
+<!-- Invoke the 'tests' on all configured modules -->
+<target name="_buildmagic:modules:tests" depends="init">
+  <execmodules target="tests" 
+          modules="${modules}" 
+          root="${project.root}/${module}"
+          skipmissing="${executemodules.skipmissing}"
+          exportproperties="${executemodules.exportproperties}">
+    <before target="_module-${module}-${target}-prepare"/>
+    <header message="${executemodules.header}"/>
+    <footer message="${executemodules.footer}"/>
+    <after target="_module-${module}-${target}"/>
+    <property name="init.have-parent" value="true"/>
+  </execmodules>
+</target>
+
+<!-- Invoke the 'clean' on all configured modules -->
+<target name="_buildmagic:modules:clean" depends="init">
+  <execmodules target="clean" 
+       modules="${modules}" 
+       root="${project.root}/${module}"
+       skipmissing="${executemodules.skipmissing}">
+    <before target="_module-${module}-${target}-prepare"/>
+    <header message="${executemodules.header}"/>
+    <footer message="${executemodules.footer}"/>
+    <after target="_module-${module}-${target}"/>
+    <property name="init.have-parent" value="true"/>
+  </execmodules>
+</target>
+
+<!-- Invoke the 'clobber' on all configured modules -->
+<target name="_buildmagic:modules:clobber" depends="init">
+  <execmodules target="clobber" 
+       modules="${modules}" 
+       root="${project.root}/${module}"
+       skipmissing="${executemodules.skipmissing}">
+    <before target="_module-${module}-${target}-prepare"/>
+    <header message="${executemodules.header}"/>
+    <footer message="${executemodules.footer}"/>
+    <after target="_module-${module}-${target}"/>
+    <property name="init.have-parent" value="true"/>
+  </execmodules>
+</target>
+

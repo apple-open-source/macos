@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -117,7 +115,8 @@ void)
  */
 __private_extern__
 void
-merge_dylibs(void)
+merge_dylibs(
+enum bool force_weak)
 {
     unsigned long i;
     struct mach_header *mh;
@@ -143,7 +142,9 @@ merge_dylibs(void)
 		 * file.  Only record the library itself.
 		 */
 		if((lc->cmd != LC_LOAD_DYLIB &&
-		    lc->cmd != LC_LOAD_WEAK_DYLIB) || mh->filetype != MH_DYLIB){
+		    lc->cmd != LC_LOAD_WEAK_DYLIB) ||
+		   (mh->filetype != MH_DYLIB &&
+		    mh->filetype != MH_DYLIB_STUB) ){
 		    dl = (struct dylib_command *)lc;
 		    mdl = lookup_merged_dylib(dl);
 		    if(filetype == MH_DYLIB && dylib_install_name != NULL &&
@@ -152,6 +153,7 @@ merge_dylibs(void)
 			   "same install_name (%s) as the output", 
 			   dylib_install_name);
 		    p = add_dynamic_lib(DYLIB, dl, cur_obj);
+		    p->force_weak_dylib = force_weak;
 		    mdl->dynamic_library = p;
 		}
 	    }

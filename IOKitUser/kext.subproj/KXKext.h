@@ -5,6 +5,11 @@
 extern "C" {
 #endif
 
+#include <mach/mach.h>
+#include <mach/kmod.h>
+#include <mach-o/kld.h>
+#include <mach-o/fat.h>
+
 #include <CoreFoundation/CoreFoundation.h>
 
 typedef struct __KXKext * KXKextRef;
@@ -18,6 +23,12 @@ typedef enum {
     kKXKextLogLevelDetails = 2
 } KXKextLogLevel;
 
+typedef enum {
+    kKXKextIntegrityUnknown = 0,
+    kKXKextIntegrityCorrect,
+    kKXKextIntegrityKextIsModified,
+    kKXKextIntegrityNoReceipt
+} KXKextIntegrityState;
 
 /*******************************************************************************
 *
@@ -57,9 +68,6 @@ Boolean                KXKextIsEnabled(KXKextRef aKext);
 CFStringRef            KXKextGetBundleIdentifier(KXKextRef aKext);
 
 CFDictionaryRef        KXKextGetBundleLibraryVersions(KXKextRef aKext);
-Boolean KXKextIsCompatibleWithVersionNumber(
-    KXKextRef aKext,
-    UInt32 version);
 Boolean KXKextIsCompatibleWithVersionString(
     KXKextRef aKext,
     CFStringRef aVersionString);
@@ -67,6 +75,8 @@ Boolean KXKextIsCompatibleWithVersionString(
 Boolean         KXKextHasPersonalities(KXKextRef aKext);
 CFDictionaryRef KXKextCopyPersonalities(KXKextRef aKext);
 CFArrayRef      KXKextCopyPersonalitiesArray(KXKextRef aKext);
+
+KXKextIntegrityState KXKextGetIntegrityState(KXKextRef aKext);
 
 Boolean            KXKextHasBeenAuthenticated(KXKextRef aKext);
 KXKextManagerError KXKextAuthenticate(KXKextRef aKext);
@@ -101,6 +111,8 @@ Boolean KXKextIsLoadable(KXKextRef aKext, Boolean safeBoot);
 // all duplicates as loaded.
 Boolean KXKextIsLoaded(KXKextRef aKext);
 Boolean KXKextOtherVersionIsLoaded(KXKextRef aKext);
+
+vm_address_t KXKextGetStartAddress(KXKextRef aKext);
 
 Boolean KXKextGetLoadFailed(KXKextRef aKext);
 void KXKextSetLoadFailed(KXKextRef aKext, Boolean flag);

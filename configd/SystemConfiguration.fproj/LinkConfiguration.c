@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -46,46 +49,17 @@
 #include "dy_framework.h"
 
 
-static struct ifmedia_description ifm_subtype_shared_descriptions[] =
+static const struct ifmedia_description ifm_subtype_shared_descriptions[] =
     IFM_SUBTYPE_SHARED_DESCRIPTIONS;
 
-static struct ifmedia_description ifm_subtype_ethernet_descriptions[] =
+static const struct ifmedia_description ifm_subtype_ethernet_descriptions[] =
     IFM_SUBTYPE_ETHERNET_DESCRIPTIONS;
 
-static struct ifmedia_description ifm_shared_option_descriptions[] =
+static const struct ifmedia_description ifm_shared_option_descriptions[] =
     IFM_SHARED_OPTION_DESCRIPTIONS;
 
-static struct ifmedia_description ifm_subtype_ethernet_option_descriptions[] =
+static const struct ifmedia_description ifm_subtype_ethernet_option_descriptions[] =
     IFM_SUBTYPE_ETHERNET_OPTION_DESCRIPTIONS;
-
-
-static char *
-cfstring_to_cstring(CFStringRef cfstr, char *buf, int bufLen)
-{
-	CFIndex	len	= CFStringGetLength(cfstr);
-
-	if (!buf) {
-		bufLen = len + 1;
-		buf = CFAllocatorAllocate(NULL, bufLen, 0);
-	}
-
-	if (len >= bufLen) {
-		len = bufLen - 1;
-	}
-
-	(void)CFStringGetBytes(cfstr,
-			       CFRangeMake(0, len),
-			       kCFStringEncodingASCII,
-			       0,
-			       FALSE,
-			       buf,
-			       bufLen,
-			       NULL);
-	buf[len] = '\0';
-
-	return buf;
-}
-
 
 
 static CFDictionaryRef
@@ -112,7 +86,7 @@ __createMediaDictionary(int media_options, Boolean filter)
 	/* subtype */
 
 	val = NULL;
-	for (i=0; !val && ifm_subtype_shared_descriptions[i].ifmt_string; i++) {
+	for (i = 0; !val && ifm_subtype_shared_descriptions[i].ifmt_string; i++) {
 		if (IFM_SUBTYPE(media_options) == ifm_subtype_shared_descriptions[i].ifmt_word) {
 			val = CFStringCreateWithCString(NULL,
 							ifm_subtype_shared_descriptions[i].ifmt_string,
@@ -121,7 +95,7 @@ __createMediaDictionary(int media_options, Boolean filter)
 		}
 	}
 
-	for (i=0; !val && ifm_subtype_ethernet_descriptions[i].ifmt_string; i++) {
+	for (i = 0; !val && ifm_subtype_ethernet_descriptions[i].ifmt_string; i++) {
 		if (IFM_SUBTYPE(media_options) == ifm_subtype_ethernet_descriptions[i].ifmt_word) {
 			val = CFStringCreateWithCString(NULL,
 							ifm_subtype_ethernet_descriptions[i].ifmt_string,
@@ -146,7 +120,7 @@ __createMediaDictionary(int media_options, Boolean filter)
 		}
 
 		val = NULL;
-		for (i=0; !val && ifm_shared_option_descriptions[i].ifmt_string; i++) {
+		for (i = 0; !val && ifm_shared_option_descriptions[i].ifmt_string; i++) {
 			if (IFM_OPTIONS(media_options) & ifm_shared_option_descriptions[i].ifmt_word) {
 				val = CFStringCreateWithCString(NULL,
 								ifm_shared_option_descriptions[i].ifmt_string,
@@ -156,7 +130,7 @@ __createMediaDictionary(int media_options, Boolean filter)
 			}
 		}
 
-		for (i=0; !val && ifm_subtype_ethernet_option_descriptions[i].ifmt_string; i++) {
+		for (i = 0; !val && ifm_subtype_ethernet_option_descriptions[i].ifmt_string; i++) {
 			if (IFM_OPTIONS(media_options) & ifm_subtype_ethernet_option_descriptions[i].ifmt_word) {
 				val = CFStringCreateWithCString(NULL,
 								ifm_subtype_ethernet_option_descriptions[i].ifmt_string,
@@ -185,6 +159,7 @@ __createMediaOptions(CFDictionaryRef media_options)
 	CFIndex		i;
 	Boolean		match;
 	int		ifm_new	= IFM_ETHER;
+	CFIndex		n;
 	CFArrayRef	options;
 	char		*str;
 	CFStringRef	val;
@@ -196,13 +171,13 @@ __createMediaOptions(CFDictionaryRef media_options)
 		return -1;
 	}
 
-	str = cfstring_to_cstring(val, NULL, 0);
-	if (!str) {
+	str = _SC_cfstring_to_cstring(val, NULL, 0, kCFStringEncodingASCII);
+	if (str == NULL) {
 		return -1;
 	}
 
 	match = FALSE;
-	for (i=0; !match && ifm_subtype_shared_descriptions[i].ifmt_string; i++) {
+	for (i = 0; !match && ifm_subtype_shared_descriptions[i].ifmt_string; i++) {
 		if (strcasecmp(str, ifm_subtype_shared_descriptions[i].ifmt_string) == 0) {
 			ifm_new |= ifm_subtype_shared_descriptions[i].ifmt_word;
 			match = TRUE;
@@ -210,7 +185,7 @@ __createMediaOptions(CFDictionaryRef media_options)
 		}
 	}
 
-	for (i=0; !match && ifm_subtype_ethernet_descriptions[i].ifmt_string; i++) {
+	for (i = 0; !match && ifm_subtype_ethernet_descriptions[i].ifmt_string; i++) {
 		if (strcasecmp(str, ifm_subtype_ethernet_descriptions[i].ifmt_string) == 0) {
 			ifm_new |= ifm_subtype_ethernet_descriptions[i].ifmt_word;
 			match = TRUE;
@@ -231,7 +206,8 @@ __createMediaOptions(CFDictionaryRef media_options)
 		return -1;
 	}
 
-	for (i=0; i<CFArrayGetCount(options); i++) {
+	n = CFArrayGetCount(options);
+	for (i = 0; i < n; i++) {
 		CFIndex		j;
 
 		val = CFArrayGetValueAtIndex(options, i);
@@ -239,14 +215,14 @@ __createMediaOptions(CFDictionaryRef media_options)
 			return -1;
 		}
 
-		str = cfstring_to_cstring(val, NULL, 0);
-		if (!str) {
+		str = _SC_cfstring_to_cstring(val, NULL, 0, kCFStringEncodingASCII);
+		if (str == NULL) {
 			return -1;
 		}
 
 
 		match = FALSE;
-		for (j=0; !match && ifm_shared_option_descriptions[j].ifmt_string; j++) {
+		for (j = 0; !match && ifm_shared_option_descriptions[j].ifmt_string; j++) {
 			if (strcasecmp(str, ifm_shared_option_descriptions[j].ifmt_string) == 0) {
 				ifm_new |= ifm_shared_option_descriptions[j].ifmt_word;
 				match = TRUE;
@@ -254,7 +230,7 @@ __createMediaOptions(CFDictionaryRef media_options)
 			}
 		}
 
-		for (j=0; !match && ifm_subtype_ethernet_option_descriptions[j].ifmt_string; j++) {
+		for (j = 0; !match && ifm_subtype_ethernet_option_descriptions[j].ifmt_string; j++) {
 			if (strcasecmp(str, ifm_subtype_ethernet_option_descriptions[j].ifmt_string) == 0) {
 				ifm_new |= ifm_subtype_ethernet_option_descriptions[j].ifmt_word;
 				match = TRUE;
@@ -286,9 +262,12 @@ NetworkInterfaceCopyMediaOptions(CFStringRef		interface,
 	Boolean			ok		= FALSE;
 	int			sock		= -1;
 
-	bzero((char *)&ifm, sizeof(ifm));
+	bzero((void *)&ifm, sizeof(ifm));
 
-	(void)cfstring_to_cstring(interface, ifm.ifm_name, sizeof(ifm.ifm_name));
+	if (_SC_cfstring_to_cstring(interface, ifm.ifm_name, sizeof(ifm.ifm_name), kCFStringEncodingASCII) == NULL) {
+		SCLog(TRUE, LOG_ERR, CFSTR("could not convert inteface name"));
+		goto done;
+	}
 
 	sock = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sock < 0) {
@@ -316,7 +295,7 @@ NetworkInterfaceCopyMediaOptions(CFStringRef		interface,
 		CFMutableArrayRef	media_options;
 
 		media_options = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-		for (i=0; i<ifm.ifm_count; i++) {
+		for (i = 0; i < ifm.ifm_count; i++) {
 			CFDictionaryRef	options;
 
 			options = __createMediaDictionary(media_list[i], filter);
@@ -368,6 +347,7 @@ CFArrayRef
 NetworkInterfaceCopyMediaSubTypes(CFArrayRef	available)
 {
 	CFIndex			i;
+	CFIndex			n;
 	CFMutableArrayRef	subTypes;
 
 	if (!isA_CFArray(available)) {
@@ -375,7 +355,9 @@ NetworkInterfaceCopyMediaSubTypes(CFArrayRef	available)
 	}
 
 	subTypes = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-	for (i=0; i<CFArrayGetCount(available); i++) {
+
+	n = CFArrayGetCount(available);
+	for (i = 0; i < n; i++) {
 		CFDictionaryRef	options;
 		CFStringRef	subType;
 
@@ -408,6 +390,7 @@ NetworkInterfaceCopyMediaSubTypeOptions(CFArrayRef	available,
 					CFStringRef	subType)
 {
 	CFIndex			i;
+	CFIndex			n;
 	CFMutableArrayRef	subTypeOptions;
 
 	if (!isA_CFArray(available)) {
@@ -415,7 +398,9 @@ NetworkInterfaceCopyMediaSubTypeOptions(CFArrayRef	available,
 	}
 
 	subTypeOptions = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-	for (i=0; i<CFArrayGetCount(available); i++) {
+
+	n = CFArrayGetCount(available);
+	for (i = 0; i < n; i++) {
 		CFDictionaryRef	options;
 		CFArrayRef	mediaOptions;
 		CFStringRef	mediaSubType;
@@ -459,8 +444,11 @@ NetworkInterfaceCopyMTU(CFStringRef	interface,
 	Boolean		ok	= FALSE;
 	int		sock	= -1;
 
-	bzero((char *)&ifr, sizeof(ifr));
-	(void)cfstring_to_cstring(interface, ifr.ifr_name, sizeof(ifr.ifr_name));
+	bzero((void *)&ifr, sizeof(ifr));
+	if (_SC_cfstring_to_cstring(interface, ifr.ifr_name, sizeof(ifr.ifr_name), kCFStringEncodingASCII) == NULL) {
+		SCLog(TRUE, LOG_ERR, CFSTR("could not convert inteface name"));
+		goto done;
+	}
 
 	sock = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sock < 0) {
@@ -478,7 +466,6 @@ NetworkInterfaceCopyMTU(CFStringRef	interface,
 	/* get valid MTU range */
 
 	if (mtu_min || mtu_max) {
-		char			ifName[IFNAMSIZ+1];
 		int			ifType		= 0;
 		io_iterator_t		io_iter		= 0;
 		io_registry_entry_t	io_interface	= 0;
@@ -494,8 +481,7 @@ NetworkInterfaceCopyMTU(CFStringRef	interface,
 
 		/* look for a matching interface in the IORegistry */
 
-		(void)cfstring_to_cstring(interface, ifName, sizeof(ifName));
-		matchingDict = IOBSDNameMatching(masterPort, 0, ifName);
+		matchingDict = IOBSDNameMatching(masterPort, 0, ifr.ifr_name);
 		if (matchingDict) {
 			/* Note: IOServiceGetMatchingServices consumes a reference on the 'matchingDict' */
 			kr = IOServiceGetMatchingServices(masterPort, matchingDict, &io_iter);

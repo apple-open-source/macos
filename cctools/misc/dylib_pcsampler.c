@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -144,7 +142,7 @@ char *gmon_out)
 	phdr->ncnt = (int)size;
 	if((fd = open(gmon_out, O_WRONLY | O_CREAT | O_TRUNC, 0777)) == -1)
 	    system_fatal("can't create gmon.out file: %s", gmon_out);
-	if(write(fd, pcsample_buffer, size) != size)
+	if(write(fd, pcsample_buffer, size) != (int)size)
 	    system_fatal("can't write gmon.out file: %s", gmon_out);
 	if(close(fd) == -1)
 	    system_fatal("can't close gmon.out file: %s", gmon_out);

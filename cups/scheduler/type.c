@@ -1,9 +1,9 @@
 /*
- * "$Id: type.c,v 1.5 2002/06/10 23:47:32 jlovell Exp $"
+ * "$Id: type.c,v 1.1.1.10 2003/04/11 21:07:49 jlovell Exp $"
  *
  *   MIME typing routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -51,7 +51,7 @@
  */
 
 static int	compare(mime_type_t **, mime_type_t **);
-static int	checkrules(const char *, FILE *, mime_magic_t *);
+static int	checkrules(const char *, cups_file_t *, mime_magic_t *);
 static int	patmatch(const char *, const char *);
 
 
@@ -397,6 +397,8 @@ mimeAddTypeRule(mime_type_t *mt,	/* I - Type to add to */
 	  op = MIME_MAGIC_PRINTABLE;
 	else if (strcmp(name, "string") == 0)
 	  op = MIME_MAGIC_STRING;
+	else if (strcmp(name, "istring") == 0)
+	  op = MIME_MAGIC_ISTRING;
 	else if (strcmp(name, "char") == 0)
 	  op = MIME_MAGIC_CHAR;
 	else if (strcmp(name, "short") == 0)
@@ -485,6 +487,7 @@ mimeAddTypeRule(mime_type_t *mt,	/* I - Type to add to */
 	      temp->length = MIME_MAX_BUFFER;
 	    break;
 	case MIME_MAGIC_STRING :
+	case MIME_MAGIC_ISTRING :
 	    temp->offset = strtol(value[0], NULL, 0);
 	    if (length[1] > sizeof(temp->value.stringv))
 	      return (-1);
@@ -536,12 +539,13 @@ mimeAddTypeRule(mime_type_t *mt,	/* I - Type to add to */
 
 mime_type_t *				/* O - Type of file */
 mimeFileType(mime_t     *mime,		/* I - MIME database */
-             const char *pathname)	/* I - Name of file to check */
+             const char *pathname,	/* I - Name of file to check */
+	     int        *compression)	/* O - Is the file compressed? */
 {
-  int		i;		/* Looping var */
-  FILE		*fp;		/* File pointer */
-  mime_type_t	**types;	/* File types */
-  const char	*filename;	/* Base filename of file */
+  int		i;			/* Looping var */
+  cups_file_t	*fp;			/* File pointer */
+  mime_type_t	**types;		/* File types */
+  const char	*filename;		/* Base filename of file */
 
 
  /*
@@ -555,7 +559,7 @@ mimeFileType(mime_t     *mime,		/* I - MIME database */
   * Try to open the file...
   */
 
-  if ((fp = fopen(pathname, "r")) == NULL)
+  if ((fp = cupsFileOpen(pathname, "r")) == NULL)
     return (NULL);
 
  /*
@@ -579,7 +583,10 @@ mimeFileType(mime_t     *mime,		/* I - MIME database */
   * Finally, close the file and return a match (if any)...
   */
 
-  fclose(fp);
+  if (compression)
+    *compression = cupsFileCompression(fp);
+
+  cupsFileClose(fp);
 
   if (i > 0)
     return (*types);
@@ -659,7 +666,7 @@ compare(mime_type_t **t0,	/* I - First type */
 
 static int				/* O - 1 if match, 0 if no match */
 checkrules(const char   *filename,	/* I - Filename */
-           FILE         *fp,		/* I - File to check */
+           cups_file_t  *fp,		/* I - File to check */
            mime_magic_t *rules)		/* I - Rules to check */
 {
   int		n;			/* Looping var */
@@ -710,8 +717,8 @@ checkrules(const char   *filename,	/* I - Filename */
 	    * Reload file buffer...
 	    */
 
-            fseek(fp, rules->offset, SEEK_SET);
-	    buflength = fread(buffer, 1, sizeof(buffer), fp);
+            cupsFileSeek(fp, rules->offset);
+	    buflength = cupsFileRead(fp, buffer, sizeof(buffer));
 	    bufoffset = rules->offset;
 	  }
 
@@ -751,8 +758,8 @@ checkrules(const char   *filename,	/* I - Filename */
 	    * Reload file buffer...
 	    */
 
-            fseek(fp, rules->offset, SEEK_SET);
-	    buflength = fread(buffer, 1, sizeof(buffer), fp);
+            cupsFileSeek(fp, rules->offset);
+	    buflength = cupsFileRead(fp, buffer, sizeof(buffer));
 	    bufoffset = rules->offset;
 	  }
 
@@ -794,8 +801,8 @@ checkrules(const char   *filename,	/* I - Filename */
 	    * Reload file buffer...
 	    */
 
-            fseek(fp, rules->offset, SEEK_SET);
-	    buflength = fread(buffer, 1, sizeof(buffer), fp);
+            cupsFileSeek(fp, rules->offset);
+	    buflength = cupsFileRead(fp, buffer, sizeof(buffer));
 	    bufoffset = rules->offset;
 	  }
 
@@ -811,6 +818,35 @@ checkrules(const char   *filename,	/* I - Filename */
 	                     rules->value.stringv, rules->length) == 0);
 	  break;
 
+      case MIME_MAGIC_ISTRING :
+         /*
+	  * Load the buffer if necessary...
+	  */
+
+          if (bufoffset < 0 || rules->offset < bufoffset ||
+	      (rules->offset + rules->length) > (bufoffset + buflength))
+	  {
+	   /*
+	    * Reload file buffer...
+	    */
+
+            cupsFileSeek(fp, rules->offset);
+	    buflength = cupsFileRead(fp, buffer, sizeof(buffer));
+	    bufoffset = rules->offset;
+	  }
+
+         /*
+	  * Compare the buffer against the string.  If the file is too
+	  * short then don't compare - it can't match...
+	  */
+
+	  if ((rules->offset + rules->length) > (bufoffset + buflength))
+	    result = 0;
+	  else
+            result = (strncasecmp(buffer + rules->offset - bufoffset,
+	                          rules->value.stringv, rules->length) == 0);
+	  break;
+
       case MIME_MAGIC_CHAR :
          /*
 	  * Load the buffer if necessary...
@@ -822,8 +858,8 @@ checkrules(const char   *filename,	/* I - Filename */
 	    * Reload file buffer...
 	    */
 
-            fseek(fp, rules->offset, SEEK_SET);
-	    buflength = fread(buffer, 1, sizeof(buffer), fp);
+            cupsFileSeek(fp, rules->offset);
+	    buflength = cupsFileRead(fp, buffer, sizeof(buffer));
 	    bufoffset = rules->offset;
 	  }
 
@@ -850,8 +886,8 @@ checkrules(const char   *filename,	/* I - Filename */
 	    * Reload file buffer...
 	    */
 
-            fseek(fp, rules->offset, SEEK_SET);
-	    buflength = fread(buffer, 1, sizeof(buffer), fp);
+            cupsFileSeek(fp, rules->offset);
+	    buflength = cupsFileRead(fp, buffer, sizeof(buffer));
 	    bufoffset = rules->offset;
 	  }
 
@@ -882,8 +918,8 @@ checkrules(const char   *filename,	/* I - Filename */
 	    * Reload file buffer...
 	    */
 
-            fseek(fp, rules->offset, SEEK_SET);
-	    buflength = fread(buffer, 1, sizeof(buffer), fp);
+            cupsFileSeek(fp, rules->offset);
+	    buflength = cupsFileRead(fp, buffer, sizeof(buffer));
 	    bufoffset = rules->offset;
 	  }
 
@@ -904,10 +940,10 @@ checkrules(const char   *filename,	/* I - Filename */
 	  break;
 
       case MIME_MAGIC_LOCALE :
-#ifdef __APPLE__
-          result = (strcmp(rules->value.localev, setlocale(LC_ALL, NULL)) == 0);
+#if defined(WIN32) || defined(__EMX__) || defined(__APPLE__)
+          result = (strcmp(rules->value.localev, setlocale(LC_ALL, "")) == 0);
 #else
-          result = (strcmp(rules->value.localev, setlocale(LC_MESSAGES, NULL)) == 0);
+          result = (strcmp(rules->value.localev, setlocale(LC_MESSAGES, "")) == 0);
 #endif /* __APPLE__ */
 	  break;
 
@@ -923,8 +959,8 @@ checkrules(const char   *filename,	/* I - Filename */
 	    * Reload file buffer...
 	    */
 
-            fseek(fp, rules->offset, SEEK_SET);
-	    buflength = fread(buffer, 1, sizeof(buffer), fp);
+            cupsFileSeek(fp, rules->offset);
+	    buflength = cupsFileRead(fp, buffer, sizeof(buffer));
 	    bufoffset = rules->offset;
 	  }
 
@@ -1092,5 +1128,5 @@ patmatch(const char *s,		/* I - String to match against */
 
 
 /*
- * End of "$Id: type.c,v 1.5 2002/06/10 23:47:32 jlovell Exp $".
+ * End of "$Id: type.c,v 1.1.1.10 2003/04/11 21:07:49 jlovell Exp $".
  */

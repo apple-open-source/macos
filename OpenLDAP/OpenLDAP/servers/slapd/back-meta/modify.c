@@ -1,5 +1,5 @@
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  *
  * Copyright 2001, Pierangelo Masarati, All rights reserved. <ando@sys-net.it>
@@ -96,9 +96,10 @@ meta_back_modify(
 
 	lc = meta_back_getconn( li, conn, op, META_OP_REQUIRE_SINGLE,
 			ndn, &candidate );
-	if ( !lc || !meta_back_dobind( lc, op ) || !meta_back_is_valid( lc, candidate ) ) {
-		send_ldap_result( conn, op, LDAP_OPERATIONS_ERROR,
-				NULL, NULL, NULL, NULL );
+	if ( !lc || !meta_back_dobind( lc, op )
+			|| !meta_back_is_valid( lc, candidate ) ) {
+ 		send_ldap_result( conn, op, LDAP_OTHER,
+ 				NULL, NULL, NULL, NULL );
 		return -1;
 	}
 
@@ -112,9 +113,8 @@ meta_back_modify(
 			mdn = ( char * )dn->bv_val;
 		}
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
-				"[rw] modifyDn: \"%s\" -> \"%s\"\n",
-				dn->bv_val, mdn ));
+		LDAP_LOG( BACK_META, DETAIL1,
+			"[rw] modifyDn: \"%s\" -> \"%s\"\n", dn->bv_val, mdn, 0 );
 #else /* !NEW_LOGGING */
 		Debug( LDAP_DEBUG_ARGS, "rw> modifyDn: \"%s\" -> \"%s\"\n%s",
 				dn->bv_val, mdn, "" );
@@ -123,12 +123,12 @@ meta_back_modify(
 		
 	case REWRITE_REGEXEC_UNWILLING:
 		send_ldap_result( conn, op, LDAP_UNWILLING_TO_PERFORM,
-				NULL, NULL, NULL, NULL );
+				NULL, "Operation not allowed", NULL, NULL );
 		return -1;
 
 	case REWRITE_REGEXEC_ERR:
-		send_ldap_result( conn, op, LDAP_OPERATIONS_ERROR,
-				NULL, NULL, NULL, NULL );
+		send_ldap_result( conn, op, LDAP_OTHER,
+				NULL, "Rewrite error", NULL, NULL );
 		return -1;
 	}
 
@@ -153,25 +153,15 @@ meta_back_modify(
 
 	for ( i = 0, ml = modlist; ml; ml = ml->sml_next ) {
 		int j;
-		/*
-		 * lastmod should always be <off>
-		 */
-#if 0
-		if ( !strcasecmp( a->a_desc->ad_cname.bv_val,
-			slap_schema.si_ad_creatorsName->ad_cname.bv_val )
-			|| !strcasecmp( a->a_desc->ad_cname.bv_val,
-			slap_schema.si_ad_createTimestamp->ad_cname.bv_val )
-			|| !strcasecmp( a->a_desc->ad_cname.bv_val,
-			slap_schema.si_ad_modifiersName->ad_cname.bv_val )
-			|| !strcasecmp( a->a_desc->ad_cname.bv_val,
-			slap_schema.si_ad_modifyTimestamp->ad_cname.bv_val ) ) {
+
+		if ( ml->sml_desc->ad_type->sat_no_user_mod  ) {
 			continue;
 		}
-#endif
 
 		ldap_back_map( &li->targets[ candidate ]->at_map,
-				&ml->sml_desc->ad_cname, &mapped, 0 );
-		if ( mapped.bv_val == NULL ) {
+				&ml->sml_desc->ad_cname, &mapped,
+				BACKLDAP_MAP );
+		if ( mapped.bv_val == NULL || mapped.bv_val[0] == '\0' ) {
 			continue;
 		}
 
@@ -191,17 +181,23 @@ meta_back_modify(
 				ml->sml_bvalues, conn );
 		}
 
-		for (j = 0; ml->sml_bvalues[ j ].bv_val; j++);
-		mods[ i ].mod_bvalues = (struct berval **)ch_malloc((j+1) *
-			sizeof(struct berval *));
-		for (j = 0; ml->sml_bvalues[ j ].bv_val; j++)
-			mods[ i ].mod_bvalues[ j ] = &ml->sml_bvalues[j];
-		mods[ i ].mod_bvalues[ j ] = NULL;
+		if ( ml->sml_bvalues != NULL ){
+			for (j = 0; ml->sml_bvalues[ j ].bv_val; j++);
+			mods[ i ].mod_bvalues = (struct berval **)ch_malloc((j+1) *
+				sizeof(struct berval *));
+			for (j = 0; ml->sml_bvalues[ j ].bv_val; j++)
+				mods[ i ].mod_bvalues[ j ] = &ml->sml_bvalues[j];
+			mods[ i ].mod_bvalues[ j ] = NULL;
+
+		} else {
+			mods[ i ].mod_bvalues = NULL;
+		}
+
 		i++;
 	}
 	modv[ i ] = 0;
 
-	ldap_modify_s( lc->conns[ candidate ]->ld, mdn, modv );
+	ldap_modify_s( lc->conns[ candidate ].ld, mdn, modv );
 
 	if ( mdn != dn->bv_val ) {
 		free( mdn );

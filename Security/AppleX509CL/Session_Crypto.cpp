@@ -25,14 +25,14 @@
 
 #include "AppleX509CLSession.h"
 #include "DecodedCert.h"
-#include "SnaccUtils.h"
 #include "cldebugging.h"
 #include "CSPAttacher.h"
-#include "CertBuilder.h"
+#include "clNssUtils.h"
+#include <SecurityNssAsn1/keyTemplates.h>
+#include <SecurityNssAsn1/nssUtils.h>
 #include <Security/oidscert.h>
 #include <Security/cssmapple.h>
 #include <Security/cssmerrno.h>
-#include <Security/cdsaUtils.h>
 
 /*
  * Given a DER-encoded cert, obtain a fully usable CSSM_KEY representing
@@ -59,7 +59,7 @@ AppleX509CLSession::CertVerifyWithKey(
 	CssmAutoData tbs(*this);
 	CssmAutoData algId(*this);
 	CssmAutoData sig(*this);
-	CL_certDecodeComponents(CertToBeVerified, tbs, algId, sig);
+	CL_certCrlDecodeComponents(CertToBeVerified, tbs, algId, sig);
 	verifyData(CCHandle, tbs, sig);
 }
 
@@ -87,7 +87,7 @@ AppleX509CLSession::CertVerify(
 	CssmAutoData tbs(*this);		// in DER format
 	CssmAutoData algId(*this);		// in DER format
 	CssmAutoData sig(*this);		// in DER format
-	CL_certDecodeComponents(CertToBeVerified, tbs, algId, sig);
+	CL_certCrlDecodeComponents(CertToBeVerified, tbs, algId, sig);
 
 	/* these must be explicitly freed upon exit */
 	CSSM_KEY_PTR signerPubKey = NULL;
@@ -120,15 +120,15 @@ AppleX509CLSession::CertVerify(
 					CSSM_ATTRIBUTE_KEY,
 					&attr);
 				if(crtn) {
-					errorLog0("CertVerify: valid CCHandle but no key!\n");
+					clErrorLog("CertVerify: valid CCHandle but no key!\n");
 					CssmError::throwMe(CSSMERR_CL_INVALID_CONTEXT_HANDLE);
 				}
 				/* require match */
-				CASSERT(signerPubKey != NULL);
+				assert(signerPubKey != NULL);
 				CSSM_KEY_PTR contextPubKey = attr->Attribute.Key;
 				if(contextPubKey->KeyHeader.AlgorithmId != 
 				   signerPubKey->KeyHeader.AlgorithmId) {
-					errorLog0("CertVerify: AlgorithmId mismatch!\n");
+					clErrorLog("CertVerify: AlgorithmId mismatch!\n");
 					CssmError::throwMe(CSSMERR_CL_INVALID_CONTEXT_HANDLE);
 				}
 				
@@ -140,16 +140,25 @@ AppleX509CLSession::CertVerify(
 		else {
 			/* 
 			 * All we have is signer cert. We already have its public key;
-			 * get signature alg from CertToBeVerified's Cert.algID (which 
-			 * we currently have in DER form).
+			 * get signature alg from CertToBeVerified's Cert.algID, which 
+			 * we currently have in DER form. Decode it into temp memory.
 			 */
-			CASSERT(SignerCert != NULL);
-			CASSERT(signerPubKey != NULL);
+			assert(SignerCert != NULL);
+			assert(signerPubKey != NULL);
 			
-			AlgorithmIdentifier snaccAlgId;
-			//CL_decodeAlgId(algId, snaccAlgId);
-			SC_decodeAsnObj(algId, snaccAlgId);
-			CSSM_ALGORITHMS vfyAlg = CL_snaccOidToCssmAlg(snaccAlgId.algorithm);
+			CSSM_X509_ALGORITHM_IDENTIFIER cssmAlgId;
+			SecNssCoder coder;
+			PRErrorCode prtn;
+			
+			CssmData &algIdData = algId.get();
+			memset(&cssmAlgId, 0, sizeof(cssmAlgId));
+			prtn = coder.decode(algIdData.data(), algIdData.length(),
+				NSS_AlgorithmIDTemplate, &cssmAlgId);
+			if(prtn) {
+				CssmError::throwMe(CSSMERR_CL_UNKNOWN_FORMAT);
+			}
+
+			CSSM_ALGORITHMS vfyAlg = CL_oidToAlg(cssmAlgId.algorithm);
 			
 			/* attach to CSP, cook up a context */
 			cspHand = getGlobalCspHand(true);
@@ -216,28 +225,51 @@ AppleX509CLSession::CertSign(
 		CSSM_ATTRIBUTE_KEY,
 		&attr);
 	if(crtn) {
-		errorLog0("CertSign: valid CCHandle but no signing key!\n");
+		clErrorLog("CertSign: valid CCHandle but no signing key!\n");
 		CssmError::throwMe(CSSMERR_CL_INVALID_CONTEXT_HANDLE);
 	}
 	CSSM_KEY_PTR signingKey = attr->Attribute.Key;
 	if(signingKey == NULL) {
-		errorLog0("CertSign: valid CCHandle, NULL signing key!\n");
+		clErrorLog("CertSign: valid CCHandle, NULL signing key!\n");
 		CssmError::throwMe(CSSMERR_CL_INVALID_CONTEXT_HANDLE);
 	}
 
-	AlgorithmIdentifier snaccAlgId;
 	CssmAutoData encAlgId(*this);
 	CssmAutoData rawSig(*this);
 	CssmAutoData fullCert(*this);
 	try {
-		/* CSSM alg --> snacc-style AlgorithmIdentifier object */
-		CL_cssmAlgToSnaccOid(context->AlgorithmType,
-				snaccAlgId.algorithm);
+		/*
+		 * FIXME: we really should break up the template and ensure that its
+		 * signature algId matches the one we're signing with, or just use
+		 * that algId here....for now, this is up to the app to make sure.
+		 */
+		
+		/* temp allocs/encode into here */
+		SecNssCoder coder;
+		
+		/* CSSM alg --> CSSM_X509_ALGORITHM_IDENTIFIER */
+		CSSM_X509_ALGORITHM_IDENTIFIER algId;
+		memset(&algId, 0, sizeof(algId));
+		const CSSM_OID *oid = cssmAlgToOid(context->AlgorithmType);
+
+		if(oid == NULL) {
+			clErrorLog("CertSIgn: unknown alg (%u)\n", 
+				(unsigned)context->AlgorithmType);
+			CssmError::throwMe(CSSMERR_CL_UNKNOWN_FORMAT);		
+		}
+		algId.algorithm = *oid;
+
 		/* NULL params - FIXME - is this OK? */
-		CL_nullAlgParams(snaccAlgId);
+		CL_nullAlgParams(algId);
 		/* DER-encode the algID */
-		SC_encodeAsnObj(snaccAlgId, encAlgId, 128);
-		/* sign TBS --> sig */
+		PRErrorCode prtn;
+		prtn = SecNssEncodeItemOdata(&algId, NSS_AlgorithmIDTemplate, 
+			encAlgId);
+		if(prtn) {
+			CssmError::throwMe(CSSMERR_CL_MEMORY_ERROR);
+		}
+
+		/* sign TBS --> rawSig */
 		signData(CCHandle, CertTemplate, rawSig);
 		/* put it all together */
 		CL_certEncodeComponents(CertTemplate, encAlgId, rawSig, fullCert);
@@ -273,7 +305,7 @@ AppleX509CLSession::signData(
 		CSSM_ALGID_NONE,	// DigestAlgorithm,
 		&cSig);
 	if(crtn) {
-		errorLog1("AppleX509CLSession::CSSM_SignData: %s\n", 
+		clErrorLog("AppleX509CLSession::CSSM_SignData: %s\n", 
 			cssmErrorString(crtn).c_str());
 		CssmError::throwMe(crtn);
 	}
@@ -298,8 +330,6 @@ void AppleX509CLSession::verifyData(
 		CSSM_ALGID_NONE,		// Digest alg
 		&sig);
 	if(crtn) {
-		// errorLog1("AppleX509CLSession::verifyData: %s\n", 
-		//	cssmErrorString(crtn).c_str());
 		if(crtn == CSSMERR_CSP_VERIFY_FAILED) {
 			/* CSP and CL report this differently */
 			CssmError::throwMe(CSSMERR_CL_VERIFICATION_FAILURE);

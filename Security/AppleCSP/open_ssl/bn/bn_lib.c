@@ -536,7 +536,8 @@ void BN_clear(BIGNUM *a)
 
 BN_ULONG BN_get_word(BIGNUM *a)
 	{
-	int i,n;
+	int i;
+	unsigned n;
 	BN_ULONG ret=0;
 
 	n=BN_num_bytes(a);
@@ -558,7 +559,8 @@ BN_ULONG BN_get_word(BIGNUM *a)
 int BN_set_word(BIGNUM *a, BN_ULONG w)
 	{
 	int i,n;
-	if (bn_expand(a,sizeof(BN_ULONG)*8) == NULL) return(0);
+	
+	if (bn_expand(a,(int)(sizeof(BN_ULONG)*8)) == NULL) return(0);
 
 	n=sizeof(BN_ULONG)/BN_BYTES;
 	a->neg=0;

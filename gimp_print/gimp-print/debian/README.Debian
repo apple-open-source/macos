@@ -1,0 +1,20 @@
+Gimp-Print for Debian
+---------------------
+
+This is Gimp-Print version 4.2.5, a stable release in the 4.2 series.
+Gimp-Print is a suite of printer drivers that may be used with common
+UNIX spooling systems using Ghostscript or CUPS.  These drivers
+provide printing quality for UNIX/Linux in many cases equal to or
+better than proprietary vendor-supplied drivers, and can be used for
+many of the most demanding printing tasks.
+
+A complete list of supported printers may be found in the NEWS file.
+On Debian GNU/Linux, the NEWS file is called `changelog.gz'.
+
+Gimp-Print also includes the printing facility for the GIMP.
+
+Documentation can be found in the gimpprint-doc package, which covers
+the use of libgimpprint-based programs, and the libgimpprint-doc
+package, which covers developing programs using libgimpprint.
+
+ -- Roger Leigh <roger@whinlatter.uklinux.net>,  Wed,  9 Oct 2002 21:19:59 +0100

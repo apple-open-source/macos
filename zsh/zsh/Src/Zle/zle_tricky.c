@@ -104,10 +104,6 @@ mod_export int validlist;
 /**/
 mod_export int showagain = 0;
 
-/* This holds the word we are completing in quoted from. */
-
-static char *qword;
-
 /* This holds the word we are working on without braces removed. */
 
 static char *origword;
@@ -149,6 +145,11 @@ mod_export int cfret;
 
 /**/
 mod_export int comprecursive;
+
+/* != 0 if there are any defined completion widgets. */
+
+/**/
+int hascompwidgets;
 
 /* Find out if we have to insert a tab (instead of trying to complete). */
 
@@ -345,6 +346,13 @@ mod_export int lincmd, linredir, linarr;
 
 /**/
 mod_export char *rdstr;
+
+static char rdstrbuf[20];
+
+/* The list of redirections on the line. */
+
+/**/
+mod_export LinkList rdstrs;
 
 /* This holds the name of the current command (used to find the right *
  * compctl).                                                          */
@@ -554,7 +562,11 @@ docomplete(int lst)
     if (undoing)
 	setlastline();
 
-    if (!module_loaded("zsh/complete"))
+    /* From the C-code's point of view, we can only use compctl as a default
+     * type of completion. Load it if it hasn't been loaded already and
+     * no completion widgets are defined. */
+
+    if (!module_loaded("zsh/compctl") && !hascompwidgets)
 	load_module("zsh/compctl");
 
     if (runhookdef(BEFORECOMPLETEHOOK, (void *) &lst)) {
@@ -589,7 +601,6 @@ docomplete(int lst)
     } else
 	ol = NULL;
     inwhat = IN_NOTHING;
-    qword = NULL;
     zsfree(qipre);
     qipre = ztrdup("");
     zsfree(qisuf);
@@ -622,7 +633,6 @@ docomplete(int lst)
 	    popheap();
 	    unmetafy_line();
 	    zsfree(s);
-	    zsfree(qword);
 	    active = 0;
 	    return 1;
 	}
@@ -807,7 +817,6 @@ docomplete(int lst)
     /* Reset the lexer state, pop the heap. */
     lexrestore();
     popheap();
-    zsfree(qword);
     unmetafy_line();
 
     dat[0] = lst;
@@ -849,6 +858,7 @@ addx(char **ptmp)
 	(iblank(line[cs]) && (!cs || line[cs-1] != '\\')) ||
 	line[cs] == ')' || line[cs] == '`' || line[cs] == '}' ||
 	line[cs] == ';' || line[cs] == '|' || line[cs] == '&' ||
+	line[cs] == '>' || line[cs] == '<' ||
 	(instring && (line[cs] == '"' || line[cs] == '\'')) ||
 	(addspace = (comppref && !iblank(line[cs])))) {
 	*ptmp = (char *)line;
@@ -977,8 +987,8 @@ static char *
 get_comp_string(void)
 {
     int t0, tt0, i, j, k, cp, rd, sl, ocs, ins, oins, ia, parct, varq = 0;
-    int ona = noaliases;
-    char *s = NULL, *linptr, *tmp, *p, *tt = NULL;
+    int ona = noaliases, qsub;
+    char *s = NULL, *linptr, *tmp, *p, *tt = NULL, rdop[20];
 
     freebrinfo(brbeg);
     freebrinfo(brend);
@@ -987,6 +997,11 @@ get_comp_string(void)
     zsfree(lastprebr);
     zsfree(lastpostbr);
     lastprebr = lastpostbr = NULL;
+    if (rdstrs)
+        freelinklist(rdstrs, freestr);
+    rdstrs = znewlinklist();
+    rdop[0] = '\0';
+    rdstr = NULL;
 
     /* This global flag is used to signal the lexer code if it should *
      * expand aliases or not.                                         */
@@ -1038,6 +1053,8 @@ get_comp_string(void)
     * and whatnot. */
 
     do {
+        qsub = 0;
+
 	lincmd = ((incmdpos && !ins && !incond) || (oins == 2 && i == 2) ||
 		  (ins == 3 && i == 1));
 	linredir = (inredir && !ins);
@@ -1074,8 +1091,14 @@ get_comp_string(void)
 	    else
 		linarr = 0;
 	}
-	if (inredir)
-	    rdstr = tokstrings[tok];
+	if (inredir && IS_REDIROP(tok)) {
+            rdstr = rdstrbuf;
+            if (tokfd >= 0)
+                sprintf(rdop, "%d%s", tokfd, tokstrings[tok]);
+            else
+                strcpy(rdop, tokstrings[tok]);
+            strcpy(rdstr, rdop);
+        }
 	if (tok == DINPAR)
 	    tokstr = NULL;
 
@@ -1107,9 +1130,16 @@ get_comp_string(void)
 	if (!zleparse && !tt0) {
 	    /* This is done when the lexer reached the word the cursor is on. */
 	    tt = tokstr ? dupstring(tokstr) : NULL;
+
+            if (isset(RCQUOTES) && *tt == Snull) {
+                char *p, *e = tt + cs - wb;
+                for (p = tt; *p && p < e; p++)
+                    if (*p == '\'')
+                        qsub++;
+            }
 	    /* If we added a `x', remove it. */
 	    if (addedx && tt)
-		chuck(tt + cs - wb);
+		chuck(tt + cs - wb - qsub);
 	    tt0 = tok;
 	    /* Store the number of this word. */
 	    clwpos = i;
@@ -1118,8 +1148,11 @@ get_comp_string(void)
 	    ia = linarr;
 	    if (inwhat == IN_NOTHING && incond)
 		inwhat = IN_COND;
-	} else if (linredir)
+	} else if (linredir) {
+            if (rdop[0] && tokstr)
+                zaddlinknode(rdstrs, tricat(rdop, ":", tokstr));
 	    continue;
+        }
 	if (incond) {
 	    if (tok == DBAR)
 		tokstr = "||";
@@ -1154,8 +1187,8 @@ get_comp_string(void)
 	/* If this is the word the cursor is in and we added a `x', *
 	 * remove it.                                               */
 	if (clwpos == i++ && addedx)
-	    chuck(&clwords[i - 1][((cs - wb) >= sl) ?
-				 (sl - 1) : (cs - wb)]);
+	    chuck(&clwords[i - 1][((cs - wb - qsub) >= sl) ?
+				 (sl - 1) : (cs - wb - qsub)]);
     } while (tok != LEXERR && tok != ENDINPUT &&
 	     (tok != SEPER || (zleparse && !tt0)));
     /* Calculate the number of words stored in the clwords array. */
@@ -1215,6 +1248,8 @@ get_comp_string(void)
 	zsfree(varname);
 	varname = ztrdup(tt);
 	*s = sav;
+        if (*s == '+')
+            s++;
 	if (skipparens(Inbrack, Outbrack, &s) > 0 || s > tt + cs - wb) {
 	    s = NULL;
 	    inwhat = IN_MATH;
@@ -1223,12 +1258,25 @@ get_comp_string(void)
 		insubscr = 2;
 	    else
 		insubscr = 1;
-	} else if (*s == '=' && cs > wb + (s - tt)) {
-	    s++;
-	    wb += s - tt;
-	    t0 = STRING;
-	    s = ztrdup(s);
-	    inwhat = IN_ENV;
+	} else if (*s == '=') {
+            if (cs > wb + (s - tt)) {
+                s++;
+                wb += s - tt;
+                s = ztrdup(s);
+                inwhat = IN_ENV;
+            } else {
+                char *p = s;
+
+                if (p[-1] == '+')
+                    p--;
+                sav = *p;
+                *p = '\0';
+                inwhat = IN_PAR;
+                s = ztrdup(tt);
+                *p = sav;
+                we = wb + p - tt;
+            }
+            t0 = STRING;
 	}
 	lincmd = 1;
     }
@@ -1345,7 +1393,6 @@ get_comp_string(void)
 	parse_subst_string(s);
     }
     /* This variable will hold the current word in quoted form. */
-    qword = ztrdup(s);
     offs = cs - wb;
     if ((p = parambeg(s))) {
 	for (p = s; *p; p++)
@@ -1380,9 +1427,15 @@ get_comp_string(void)
 	    qisuf = n;
 	}
 	autoq = ztrdup(q);
+
+        if (instring == 2) {
+            for (q = s; *q; q++)
+                if (*q == '\\' && q[1] == '!')
+                    *q = Bnull;
+        }
     }
     /* While building the quoted form, we also clean up the command line. */
-    for (p = s, tt = qword, i = wb, j = 0; *p; p++, tt++, i++)
+    for (p = s, i = wb, j = 0; *p; p++, i++)
 	if (INULL(*p)) {
 	    if (i < cs)
 		offs--;
@@ -1390,21 +1443,18 @@ get_comp_string(void)
 		j = 1-j;
 	    if (p[1] || *p != Bnull) {
 		if (*p == Bnull) {
-		    *tt = '\\';
 		    if (cs == i + 1)
 			cs++, offs++;
 		} else {
 		    ocs = cs;
 		    cs = i;
 		    foredel(1);
-		    chuck(tt--);
 		    if ((cs = ocs) > i--)
 			cs--;
 		    we--;
 		}
 	    } else {
 		ocs = cs;
-		*tt = '\0';
 		cs = we;
 		backdel(1);
 		if (ocs == we)
@@ -2242,9 +2292,13 @@ doexpandhist(void)
 int
 magicspace(char **args)
 {
+    char *bangq;
     int ret;
     c = ' ';
-    if (!(ret = selfinsert(args)))
+    for (bangq = (char *)line; (bangq = strchr(bangq, bangchar)); bangq += 2)
+	if (bangq[1] == '"' && (bangq == (char *)line || bangq[-1] != '\\'))
+	    break;
+    if (!(ret = selfinsert(args)) && (!bangq || bangq + 2 > (char *)line + cs))
 	doexpandhist();
     return ret;
 }

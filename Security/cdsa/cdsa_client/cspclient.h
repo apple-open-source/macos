@@ -136,6 +136,14 @@ public:
 
 public:
 	void operator () (uint32 passThroughId, const void *inData, void **outData);
+	
+	template <class TIn, class TOut>
+	void operator () (uint32 passThroughId, const TIn *inData, TOut **outData)
+	{ operator () (passThroughId, (const void *)inData, (void **)outData); }
+	
+	template <class TIn>
+	void operator () (uint32 passThroughId, const TIn *inData)
+	{ operator () (passThroughId, (const void *)inData, NULL); }
 
 	const CSSM_KEY *key() const { return mKey; }
 	void key(const CSSM_KEY *k) { mKey = k; set(CSSM_ATTRIBUTE_KEY, k); }

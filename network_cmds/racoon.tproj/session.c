@@ -1,4 +1,4 @@
-/*	$KAME: session.c,v 1.27 2001/11/16 04:34:57 sakane Exp $	*/
+/*	$KAME: session.c,v 1.31 2002/11/20 02:06:18 itojun Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -156,12 +156,16 @@ session(void)
 				continue;
 			if (FD_ISSET(p->sock, &rfds))
 				isakmp_handler(p->sock);
+#ifdef IKE_NAT_T
+			if (p->nattsock >= 0 && FD_ISSET(p->nattsock, &rfds))
+				isakmp_natt_handler(p->nattsock);
+#endif
 		}
 
 		if (FD_ISSET(lcconf->sock_pfkey, &rfds))
 			pfkey_handler();
 
-		if (FD_ISSET(lcconf->rtsock, &rfds)) {
+		if (lcconf->rtsock >= 0 && FD_ISSET(lcconf->rtsock, &rfds)) {
 			if (update_myaddrs() && lcconf->autograbaddr)
 				sched_new(5, check_rtsock, NULL);
 			initfds();
@@ -204,19 +208,47 @@ initfds()
 	FD_ZERO(&mask0);
 
 #ifdef ENABLE_ADMINPORT
+	if (lcconf->sock_admin >= FD_SETSIZE) {
+		plog(LLV_ERROR, LOCATION, NULL, "fd_set overrun\n");
+		exit(1);
+	}
 	FD_SET(lcconf->sock_admin, &mask0);
 	nfds = (nfds > lcconf->sock_admin ? nfds : lcconf->sock_admin);
 #endif
+	if (lcconf->sock_pfkey >= FD_SETSIZE) {
+		plog(LLV_ERROR, LOCATION, NULL, "fd_set overrun\n");
+		exit(1);
+	}
 	FD_SET(lcconf->sock_pfkey, &mask0);
 	nfds = (nfds > lcconf->sock_pfkey ? nfds : lcconf->sock_pfkey);
-	FD_SET(lcconf->rtsock, &mask0);
-	nfds = (nfds > lcconf->rtsock ? nfds : lcconf->rtsock);
+	if (lcconf->rtsock >= 0) {
+		if (lcconf->rtsock >= FD_SETSIZE) {
+			plog(LLV_ERROR, LOCATION, NULL, "fd_set overrun\n");
+			exit(1);
+		}
+		FD_SET(lcconf->rtsock, &mask0);
+		nfds = (nfds > lcconf->rtsock ? nfds : lcconf->rtsock);
+	}
 
 	for (p = lcconf->myaddrs; p; p = p->next) {
 		if (!p->addr)
 			continue;
+		if (p->sock >= FD_SETSIZE) {
+			plog(LLV_ERROR, LOCATION, NULL, "fd_set overrun\n");
+			exit(1);
+		}
 		FD_SET(p->sock, &mask0);
 		nfds = (nfds > p->sock ? nfds : p->sock);
+#ifdef IKE_NAT_T
+		if (p->nattsock >= 0) {
+			if (p-> nattsock >= FD_SETSIZE) {
+				plog(LLV_ERROR, LOCATION, NULL, "fd_set overrun\n");
+				exit(1);
+			}
+			FD_SET(p->nattsock, &mask0);
+			nfds = (nfds > p->nattsock ? nfds : p->nattsock);
+		}
+#endif
 	}
 	nfds++;
 }
@@ -260,6 +292,8 @@ signal_handler(sig)
 		break;
 	}
 }
+
+extern int cfreparse(void);
 
 static void
 check_sigreq()
@@ -344,6 +378,8 @@ check_flushsa()
 
 		msg = next;
 	}
+	
+	if (buf) vfree(buf);
 
 	if (n) {
 		sched_new(1, check_flushsa_stub, NULL);

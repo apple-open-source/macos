@@ -22,6 +22,10 @@
 #include <Security/Schema.h>
 #include <Security/SecCFTypes.h>
 
+#include <SecurityNssAsn1/secasn1.h>
+#include <SecurityNssAsn1/SecNssCoder.h>
+#include <Security/oidscert.h>
+
 
 namespace Security {
 namespace KeychainCore {
@@ -37,16 +41,16 @@ UserTrustItem::UserTrustItem(Certificate *cert, Policy *policy, const TrustData 
 		reinterpret_cast<const void *>(&trustData)),
 	mCertificate(cert), mPolicy(policy)
 {
-	debug("usertrust", "create %p (%p,%p) = %d", this, cert, policy, trustData.trust);
+	secdebug("usertrust", "create %p (%p,%p) = %d", this, cert, policy, trustData.trust);
 }
 
 
 //
 // Destroy it
 //
-UserTrustItem::~UserTrustItem()
+UserTrustItem::~UserTrustItem() throw()
 {
-	debug("usertrust", "destroy %p", this);
+	secdebug("usertrust", "destroy %p", this);
 }
 
 
@@ -81,7 +85,7 @@ PrimaryKey UserTrustItem::add(Keychain &keychain)
 	try
 	{
 		mUniqueId = db->insert(recordType, mDbAttributes.get(), mData.get());
-		debug("usertrust", "%p inserted", this);
+		secdebug("usertrust", "%p inserted", this);
 	}
 	catch (const CssmError &e)
 	{
@@ -89,30 +93,82 @@ PrimaryKey UserTrustItem::add(Keychain &keychain)
 			throw;
 
 		// Create the cert relation and try again.
-		debug("usertrust", "adding schema relation for user trusts");
+		secdebug("usertrust", "adding schema relation for user trusts");
 		db->createRelation(CSSM_DL_DB_RECORD_USER_TRUST, "CSSM_DL_DB_RECORD_USER_TRUST",
 			Schema::UserTrustSchemaAttributeCount,
 			Schema::UserTrustSchemaAttributeList,
 			Schema::UserTrustSchemaIndexCount,
 			Schema::UserTrustSchemaIndexList);
+		keychain->resetSchema();
 
 		mUniqueId = db->insert(recordType, mDbAttributes.get(), mData.get());
-		debug("usertrust", "%p inserted now", this);
+		secdebug("usertrust", "%p inserted now", this);
 	}
 
 	mPrimaryKey = keychain->makePrimaryKey(recordType, mUniqueId);
     mKeychain = keychain;
-
 	return mPrimaryKey;
 }
 
 
 void UserTrustItem::populateAttributes()
 {
-	const CssmData &certData = mCertificate->data();
+	CssmAutoData encodedIndex(CssmAllocator::standard());
+	makeCertIndex(mCertificate, encodedIndex);
 	const CssmOid &policyOid = mPolicy->oid();
-	mDbAttributes->add(Schema::attributeInfo(kSecTrustCertAttr), certData);
+
+	mDbAttributes->add(Schema::attributeInfo(kSecTrustCertAttr), encodedIndex.get());
 	mDbAttributes->add(Schema::attributeInfo(kSecTrustPolicyAttr), policyOid);
+}
+
+
+//
+// An ad-hoc hold-and-destroy accessor for a single-valued certificate field
+//
+class CertField {
+public:
+	CertField(Certificate *cert, const CSSM_OID &inField)
+		: certificate(cert), field(inField)
+	{ mData = certificate->copyFirstFieldValue(field); }
+		
+	~CertField() { certificate->releaseFieldValue(field, mData); }
+	
+	Certificate * const certificate;
+	const CSSM_OID &field;
+	
+	operator bool () const { return mData && mData->Data; }
+	CssmData &data() const { return CssmData::overlay(*mData); }
+
+private:
+	CSSM_DATA_PTR mData;
+};
+
+
+//
+// Construct a trust item index.
+// This is an ASN.1 sequence of issuer and serial number.
+//
+struct IssuerAndSN {
+    CSSM_DATA issuer;
+    CSSM_DATA serial;
+};
+
+static const SEC_ASN1Template issuerAndSNTemplate[] = {
+	{ SEC_ASN1_SEQUENCE, 0, NULL, sizeof(IssuerAndSN) },
+	{ SEC_ASN1_OCTET_STRING, offsetof(IssuerAndSN, issuer) },
+	{ SEC_ASN1_OCTET_STRING, offsetof(IssuerAndSN, serial) },
+	{ 0 }
+};
+
+void UserTrustItem::makeCertIndex(Certificate *cert, CssmOwnedData &encodedIndex)
+{
+	CertField issuer(cert, CSSMOID_X509V1IssuerName);
+	CertField serial(cert, CSSMOID_X509V1SerialNumber);
+	IssuerAndSN index;
+	index.issuer = issuer.data();
+	index.serial = serial.data();
+	if (SecNssEncodeItemOdata(&index, issuerAndSNTemplate, encodedIndex))
+		CssmError::throwMe(CSSMERR_CSP_MEMORY_ERROR);
 }
 
 

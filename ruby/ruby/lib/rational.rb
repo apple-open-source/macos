@@ -1,14 +1,14 @@
 #
 #   rational.rb - 
 #   	$Release Version: 0.5 $
-#   	$Revision: 1.1.1.1 $
-#   	$Date: 2002/05/27 17:59:48 $
+#   	$Revision: 1.1.1.2 $
+#   	$Date: 2003/05/14 13:58:49 $
 #   	by Keiju ISHITSUKA(SHL Japan Inc.)
 #
 # --
 #   Usage:
 #   class Rational < Numeric
-#      (include Compareable)
+#      (include Comparable)
 #
 #   Rational(a, b) --> a/b
 #
@@ -44,10 +44,10 @@ def Rational(a, b = 1)
 end
   
 class Rational < Numeric
-  @RCS_ID='-$Id: rational.rb,v 1.1.1.1 2002/05/27 17:59:48 jkh Exp $-'
+  @RCS_ID='-$Id: rational.rb,v 1.1.1.2 2003/05/14 13:58:49 melville Exp $-'
 
   def Rational.reduce(num, den = 1)
-    raise ZeroDivisionError, "denometor is 0" if den == 0
+    raise ZeroDivisionError, "denominator is 0" if den == 0
 
     if den < 0
       num = -num
@@ -132,7 +132,7 @@ class Rational < Numeric
       den = @denominator * a.numerator
       Rational(num, den)
     elsif a.kind_of?(Integer)
-      raise ZeroDivisionError, "devided by 0" if a == 0
+      raise ZeroDivisionError, "divided by 0" if a == 0
       self / Rational.new!(a, 1)
     elsif a.kind_of?(Float)
       Float(self) / a
@@ -240,7 +240,7 @@ class Rational < Numeric
   end
   
   def hash
-    @numerator ^ @denominator
+    @numerator.hash ^ @denominator.hash
   end
   
   attr :numerator

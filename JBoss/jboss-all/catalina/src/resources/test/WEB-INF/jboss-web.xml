@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE jboss-web>
+
+<jboss-web>
+    <ejb-ref>
+        <ejb-ref-name>ejb/Optimized</ejb-ref-name>
+        <jndi-name>tomcat-test/Optimized</jndi-name>
+    </ejb-ref>
+    <ejb-ref>
+        <ejb-ref-name>ejb/NonOptimized</ejb-ref-name>
+        <jndi-name>tomcat-test/NonOptimized</jndi-name>
+    </ejb-ref>
+</jboss-web>

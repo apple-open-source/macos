@@ -549,9 +549,10 @@ IOSCSIParallelInterfaceController::CreateWorkLoop ( IOService * provider )
 	status = fWorkLoop->addEventSource ( fTimerEvent );
 	require_success ( status, ADD_TES_FAILURE );
 	
-	fDispatchEvent = IOInterruptEventSource::interruptEventSource (
+	fDispatchEvent = IOFilterInterruptEventSource::filterInterruptEventSource (
 						this,
 						&IOSCSIParallelInterfaceController::ServiceInterrupt,
+						&IOSCSIParallelInterfaceController::FilterInterrupt,
 						provider,
 						0 );
 	
@@ -849,13 +850,17 @@ IOSCSIParallelInterfaceController::CompleteParallelTask (
 	
 	STATUS_LOG ( ( "+IOSCSIParallelInterfaceController::CompleteParallelTask\n" ) );
 	
+	// Remove the task from the timeout list.
+	( ( SCSIParallelTimer * ) fTimerEvent )->RemoveTask ( parallelRequest );
+	
 	target = GetTargetForID ( GetTargetIdentifier ( parallelRequest ) );
-	require_nonzero ( target, Exit );	
+	require_nonzero ( target, Exit );
 	
 	// Complete the command
 	target->CompleteSCSITask (	parallelRequest, 
 								serviceResponse, 
 								completionStatus );
+	
 	
 Exit:
 	
@@ -1022,6 +1027,30 @@ IOSCSIParallelInterfaceController::ServiceInterrupt (
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	FilterInterrupt - Calls the registered interrupt filter. 		  [PRIVATE]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSIParallelInterfaceController::FilterInterrupt ( 
+							OSObject *						theObject, 
+							IOFilterInterruptEventSource *	theSource  )
+{
+	( ( IOSCSIParallelInterfaceController * ) theObject )->FilterInterruptRequest ( );
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	FilterInterruptRequest - Default filter routine. 				[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+bool
+IOSCSIParallelInterfaceController::FilterInterruptRequest ( void )
+{
+	return true;
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	EnableInterrupt - Enables the interrupt event source.	  		[PROTECTED]
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
@@ -1076,9 +1105,10 @@ IOSCSIParallelInterfaceController::TimeoutOccurred (
 							IOTimerEventSource * 		theSender )
 {
 	
-	SCSIParallelTimer *		timer		= OSDynamicCast ( SCSIParallelTimer, theSender );
-	SCSIParallelTask *		expiredTask	= NULL;
+	SCSIParallelTimer *			timer		= NULL;
+	SCSIParallelTaskIdentifier	expiredTask	= NULL;
 	
+	timer = OSDynamicCast ( SCSIParallelTimer, theSender );
 	if ( timer != NULL )
 	{
 		
@@ -2181,8 +2211,8 @@ OSMetaClassDefineReservedUnused ( IOSCSIParallelInterfaceController,  7 );
 OSMetaClassDefineReservedUnused ( IOSCSIParallelInterfaceController,  8 );
 
 OSMetaClassDefineReservedUsed ( IOSCSIParallelInterfaceController,  9 );		// Used for HandleTimeout
+OSMetaClassDefineReservedUsed ( IOSCSIParallelInterfaceController, 10 );		// Used for FilterInterruptRequest
 
-OSMetaClassDefineReservedUnused ( IOSCSIParallelInterfaceController, 10 );
 OSMetaClassDefineReservedUnused ( IOSCSIParallelInterfaceController, 11 );
 OSMetaClassDefineReservedUnused ( IOSCSIParallelInterfaceController, 12 );
 OSMetaClassDefineReservedUnused ( IOSCSIParallelInterfaceController, 13 );

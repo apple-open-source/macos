@@ -1,5 +1,5 @@
 #! /bin/sh
-# $OpenLDAP: pkg/ldap/tests/scripts/test006-acls,v 1.31 2002/01/21 05:35:04 kurt Exp $
+# $OpenLDAP: pkg/ldap/tests/scripts/test006-acls,v 1.31.2.5 2003/02/17 20:41:16 kurt Exp $
 
 SRCDIR="."
 if test $# -ge 1 ; then
@@ -8,6 +8,10 @@ fi
 BACKEND=bdb
 if test $# -ge 1 ; then
 	BACKEND=$1; shift
+fi
+MONITORDB=no
+if test $# -ge 1 ; then
+	MONITORDB=$1; shift
 fi
 WAIT=0
 if test $# -ge 1 ; then
@@ -22,7 +26,7 @@ echo "Cleaning up in $DBDIR..."
 rm -f $DBDIR/[!C]*
 
 echo "Running slapadd to build slapd database..."
-. $CONFFILTER $BACKEND < $ACLCONF > $DBCONF
+. $CONFFILTER $BACKEND $MONITORDB < $ACLCONF > $DBCONF
 $SLAPADD -f $DBCONF -l $LDIFORDERED
 RC=$?
 if test $RC != 0 ; then
@@ -43,10 +47,11 @@ for i in 0 1 2 3 4 5; do
 	$LDAPSEARCH -s base -b "$MONITOR" -h $LOCALHOST -p $PORT \
 		'objectclass=*' > /dev/null 2>&1
 	RC=$?
-	if test $RC = 1 ; then
-		echo "Waiting 5 seconds for slapd to start..."
-		sleep 5
+	if test $RC = 0 ; then
+		break
 	fi
+	echo "Waiting 5 seconds for slapd to start..."
+	sleep 5
 done
 
 if test $RC != 0 ; then
@@ -68,6 +73,29 @@ $LDAPSEARCH -b "$JAJDN" -h $LOCALHOST -p $PORT "objectclass=*" \
 $LDAPSEARCH -b "$JAJDN" -h $LOCALHOST -p $PORT \
 	-D "$BABSDN" -w bjensen "objectclass=*"  >> $SEARCHOUT 2>&1
 
+#
+# Check group access. Try to modify Babs' entry. Two attempts:
+# 1) bound as "James A Jones 1" - should fail
+# 2) bound as "Bjorn Jensen" - should succeed
+
+$LDAPMODIFY -D "$JAJDN" -h $LOCALHOST -p $PORT -w jaj >> \
+	$TESTOUT 2>&1 << EOMODS5
+dn: $BABSDN
+changetype: modify
+replace: drink
+drink: wine
+
+EOMODS5
+
+
+$LDAPMODIFY -D "$BJORNSDN" -h $LOCALHOST -p $PORT -w bjorn >> \
+	$TESTOUT 2>&1 << EOMODS6
+dn: $BABSDN
+changetype: modify
+add: homephone
+homephone: +1 313 555 5444
+
+EOMODS6
 
 #
 # Try to add a "member" attribute to the "All Staff" group.  It should
@@ -104,7 +132,7 @@ $LDAPMODIFY -D "$JAJDN" -h $LOCALHOST -p $PORT -w jaj >> \
 
 dn: cn=ITD Staff, ou=Groups, o=University of Michigan, c=US
 changetype: modify
-delete: member
+delete: description
 
 EOMODS3
 
@@ -125,7 +153,7 @@ EOMODS4
 
 echo "Using ldapsearch to retrieve all the entries..."
 $LDAPSEARCH -S "" -b "$BASEDN" -h $LOCALHOST -p $PORT \
-	    'objectClass=*' | . $LDIFFILTER >> $SEARCHOUT 2>&1
+	    'objectClass=*' >> $SEARCHOUT 2>&1
 RC=$?
 kill -HUP $PID
 if test $RC != 0 ; then

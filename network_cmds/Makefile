@@ -14,7 +14,8 @@ PROJECT_TYPE = Aggregate
 
 SUBPROJECTS = timed.tproj bootparams
 
-TOOLS = arp.tproj domainname.tproj identd.tproj\
+TOOLS = arp.tproj domainname.tproj \
+	rpc_lockd.tproj rpc_statd.tproj \
         ifconfig.tproj inetd.tproj logger.tproj netstat.tproj\
         nfsd.tproj nfsiod.tproj nfsstat.tproj ping.tproj rarpd.tproj\
         rcp.tproj rexecd.tproj rlogin.tproj rlogind.tproj\
@@ -27,9 +28,9 @@ TOOLS = arp.tproj domainname.tproj identd.tproj\
         yppush.tproj ypserv.tproj ypset.tproj ypwhich.tproj\
         ypxfr.tproj makedbm.tproj revnetgroup.tproj rpc_yppasswdd.tproj\
         stdethers.tproj stdhosts.tproj natd.tproj ipfw.tproj\
-        setkey.tproj racoon.tproj racoonctl.tproj eaytest.tproj\
+        setkey.tproj racoon.tproj eaytest.tproj\
         ping6.tproj traceroute6.tproj rtsol.tproj ndp.tproj rtadvd.tproj\
-	ip6conf.tproj
+	ip6conf.tproj ip6fw.tproj kdumpd.tproj
 
 LIBRARIES = alias ipsec
 

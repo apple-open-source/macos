@@ -12,7 +12,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: ssh-keygen.c,v 1.101 2002/06/23 09:39:55 deraadt Exp $");
+RCSID("$OpenBSD: ssh-keygen.c,v 1.102 2002/11/26 00:45:03 wcobb Exp $");
 
 #include <openssl/evp.h>
 #include <openssl/pem.h>
@@ -109,7 +109,6 @@ ask_filename(struct passwd *pw, const char *prompt)
 
 	snprintf(identity_file, sizeof(identity_file), "%s/%s", pw->pw_dir, name);
 	fprintf(stderr, "%s (%s): ", prompt, identity_file);
-	fflush(stderr);
 	if (fgets(buf, sizeof(buf), stdin) == NULL)
 		exit(1);
 	if (strchr(buf, '\n'))
@@ -761,6 +760,8 @@ main(int ac, char **av)
 	__progname = get_progname(av[0]);
 
 	SSLeay_add_all_algorithms();
+	init_rng();
+	seed_rng();
 
 	/* we need this for the home * directory.  */
 	pw = getpwuid(getuid());
@@ -855,10 +856,12 @@ main(int ac, char **av)
 		do_fingerprint(pw);
 	if (change_passphrase)
 		do_change_passphrase(pw);
-	if (convert_to_ssh2)
-		do_convert_to_ssh2(pw);
 	if (change_comment)
 		do_change_comment(pw);
+	if (convert_to_ssh2)
+		do_convert_to_ssh2(pw);
+	if (convert_from_ssh2)
+		do_convert_from_ssh2(pw);
 	if (print_public)
 		do_print_public(pw);
 	if (reader_id != NULL) {
@@ -872,12 +875,7 @@ main(int ac, char **av)
 #endif /* SMARTCARD */
 	}
 
-	init_rng();
-	seed_rng();
 	arc4random_stir();
-
-	if (convert_from_ssh2)
-		do_convert_from_ssh2(pw);
 
 	if (key_type_name == NULL) {
 		printf("You must specify a key type (-t).\n");

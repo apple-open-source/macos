@@ -534,11 +534,11 @@ IOUSBMassStorageUFIDevice::DetermineDeviceCharacteristics( void )
     UInt8							inquiryBufferCount = sizeof( SCSICmd_INQUIRY_StandardData );
 	bool							succeeded = false;
 	int								loopCount;
-	char							tempString[17]; // Maximum + 1 for null char
+	char							tempString[kINQUIRY_VENDOR_IDENTIFICATION_Length + 1]; // Maximum + 1 for null char
 	OSString *						string;
 
 	STATUS_LOG( ( "IOUSBMassStorageUFIDevice::DetermineDeviceCharacteristics called\n" ) );
-
+	
 	inquiryBuffer = ( SCSICmd_INQUIRY_StandardData * ) IOMalloc( inquiryBufferCount );
 	if( inquiryBuffer == NULL )
 	{
@@ -579,7 +579,7 @@ IOUSBMassStorageUFIDevice::DetermineDeviceCharacteristics( void )
 		ERROR_LOG ( ( "%s: Inquiry completed with an error: ", getName ( ) ) );
 		goto ErrorExit;
 	}
-
+	
    	// Set the Vendor Identification property for the device.
    	for( loopCount = 0; loopCount < kINQUIRY_VENDOR_IDENTIFICATION_Length; loopCount++ )
    	{
@@ -608,7 +608,7 @@ IOUSBMassStorageUFIDevice::DetermineDeviceCharacteristics( void )
    	// Set the Product Indentification property for the device.
    	for( loopCount = 0; loopCount < kINQUIRY_PRODUCT_IDENTIFICATION_Length; loopCount++ )
    	{
-   		tempString[loopCount] = inquiryBuffer->PRODUCT_INDENTIFICATION[loopCount];
+   		tempString[loopCount] = inquiryBuffer->PRODUCT_IDENTIFICATION[loopCount];
    	}
    	tempString[loopCount] = 0;
 	

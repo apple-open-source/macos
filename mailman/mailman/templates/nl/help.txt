@@ -1,0 +1,24 @@
+Help voor %(listname)s mailinglijsten:
+
+Dit is e-mail commando help voor versie %(version)s van de "Mailman"
+lijst manager.
+De Commando's kun je plaatsen in het onderwerp veld of in de body van een bericht.
+
+TIP: het beste is om dit in plaintekst mail te doen (geen HTML mail dus).
+
+
+De e-mail commando's kun je ook grafish instellen op de volgende website:
+
+    %(listinfo_url)s
+
+Woorden tussen "<>"s Zijn verplicht.
+Woorden tussen "[]" Zijn optionele commando's.
+De commando's invullen zonder <> en [].
+
+De lijst met commando's:
+
+    %(commands)s
+
+De commando's stuur je naar: %(requestaddr)s
+
+Voor vragen mail : %(adminaddr)s

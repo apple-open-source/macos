@@ -1,4 +1,4 @@
-/* Copyright (c) 1993-2000
+/* Copyright (c) 1993-2002
  *      Juergen Weigert (jnweiger@immd4.informatik.uni-erlangen.de)
  *      Michael Schroeder (mlschroe@immd4.informatik.uni-erlangen.de)
  * Copyright (c) 1987 Oliver Laumann
@@ -19,7 +19,7 @@
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA
  *
  ****************************************************************
- * $Id: ansi.h,v 1.1.1.1 2001/12/14 22:08:28 bbraun Exp $ FAU
+ * $Id: ansi.h,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU
  */
 
 #define NATTR		6
@@ -42,6 +42,14 @@
 #define ATYP_M		(1<<0)
 #define ATYP_S		(1<<1)
 #define ATYP_U		(1<<2)
+
+#ifdef COLORS16
+/* pseudo attributes */
+# define ATTR_BFG	6	/* bright foreground */
+# define ATTR_BBG	7	/* bright background */
+# define A_BFG	(1<<ATTR_BFG)
+# define A_BBG	(1<<ATTR_BBG)
+#endif
 
 /*
  *  Parser state
@@ -106,17 +114,57 @@ enum move_t {
 #define STATLINE	 (D_height-1)
 #endif
 
-#ifdef KANJI
+#ifdef ENCODINGS
 
-#undef KANJI
-#define KANJI	('B' & 037)
+#define KANJI		('B' & 037)
+#define KANJI0212	('D' & 037)
 #define KANA    'I'
 
-#define EUC	1
+#define EUC_JP	1
 #define SJIS	2
+#define EUC_KR	3
+#define EUC_CN	4
+#define BIG5	5
+#define KOI8R	6
+#define CP1251	7
+#define GBK	20
+
+#define EUC	EUC_JP
 
 #endif
 
 #ifdef UTF8
-# define UCS_REPL 0xfffd  /* replacement character for illegal codes */
+#undef UTF8
+#define UTF8	8
+#endif
+
+#ifdef UTF8
+# define UCS_REPL    0xfffd  /* character for illegal codes */
+# define UCS_REPL_DW 0xff1f  /* character for illegal codes */
+# define UCS_HIDDEN 0xffff
+#endif
+
+#ifdef DW_CHARS
+# define is_dw_font(f) ((f) && ((f) & 0x60) == 0)
+
+# ifdef UTF8
+#  define dw_left(ml, x, enc) ((enc == UTF8) ? \
+	(unsigned char)(ml)->font[(x) + 1] == 0xff && (unsigned char)(ml)->image[(x) + 1] == 0xff : \
+	((unsigned char)(ml)->font[x] & 0x1f) != 0 && ((unsigned char)(ml)->font[x] & 0xe0) == 0 \
+	)
+#  define dw_right(ml, x, enc) ((enc == UTF8) ? \
+	(unsigned char)(ml)->font[x] == 0xff && (unsigned char)(ml)->image[x] == 0xff : \
+	((unsigned char)(ml)->font[x] & 0xe0) == 0x80 \
+	)
+# else
+#  define dw_left(ml, x, enc) ( \
+	((unsigned char)(ml)->font[x] & 0x1f) != 0 && ((unsigned char)(ml)->font[x] & 0xe0) == 0 \
+	)
+#  define dw_right(ml, x, enc) ( \
+	((unsigned char)(ml)->font[x] & 0xe0) == 0x80 \
+	)
+# endif /* UTF8 */
+#else
+# define dw_left(ml, x, enc) 0
+# define dw_right(ml, x, enc) 0
 #endif

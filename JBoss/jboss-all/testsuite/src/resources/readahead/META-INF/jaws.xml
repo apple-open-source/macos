@@ -1,0 +1,32 @@
+<jaws>
+   <enterprise-beans>
+      <entity>
+         <ejb-name>CMPFindTestEntity</ejb-name>
+         <tuned-updates>true</tuned-updates>
+         <pk-constraint>true</pk-constraint>
+         <finder>
+            <name>findAll</name>
+            <query />
+            <order />
+            <read-ahead>true</read-ahead>
+         </finder>
+         <finder>
+            <name>findByCity</name>
+            <query>, address where CMPFindTestEntity.key = address.key AND address.city = {0}</query>
+            <order />
+            <read-ahead>true</read-ahead>
+         </finder>
+      </entity>
+      <entity>
+         <ejb-name>Address</ejb-name>
+         <tuned-updates>true</tuned-updates>
+         <pk-constraint>true</pk-constraint>
+         <finder>
+            <name>findByCity</name>
+            <query>address.city = {0}</query>
+            <order />
+            <read-ahead>true</read-ahead>
+         </finder>
+      </entity>
+   </enterprise-beans>
+</jaws>

@@ -105,25 +105,62 @@ IPSockAddress IPSockAddress::defaults(IPPort defaultPort) const
 
 
 //
+// UNSockAddress
+//
+UNSockAddress::UNSockAddress()
+{
+	sun_family = AF_UNIX;
+}
+
+UNSockAddress::UNSockAddress(const char *path)
+{
+	sun_family = AF_UNIX;
+	size_t length = strlen(path);
+	if (length >= sizeof(sun_path))	// won't fit into struct sockaddr_un
+		UnixError::throwMe(EINVAL);
+	memcpy(sun_path, path, length + 1);
+}
+
+UNSockAddress::UNSockAddress(const string &path)
+{
+	sun_family = AF_UNIX;
+	if (path.length() >= sizeof(sun_path))	// won't fit into struct sockaddr_un
+		UnixError::throwMe(EINVAL);
+	memcpy(sun_path, path.c_str(), path.length() + 1);
+}
+
+
+string UNSockAddress::path() const
+{
+	return sun_path;
+}
+
+
+//
 // Sockets
 //
-Socket::Socket(int type, int protocol)
+Socket::Socket(int type)
 {
-    open(type, protocol);
+    open(type);
 }
 
-void Socket::open(int type, int protocol)
+Socket::Socket(int domain, int type, int protocol)
 {
-    checkSetFd(::socket(AF_INET, type, protocol));
+	open(domain, type, protocol);
+}
+
+void Socket::open(int domain, int type, int protocol)
+{
+    checkSetFd(::socket(domain, type, protocol));
     mAtEnd = false;
-    debug("sockio", "socket(%d,%d) -> %d", type, protocol, fd());
+    secdebug("sockio", "socket(%d,%d) -> %d", type, protocol, fd());
 }
 
-void Socket::prepare(int fdFlags, int type, int protocol)
+void Socket::prepare(int fdFlags, int domain, int type, int protocol)
 {
     // if file descriptor is closed, open it - otherwise take what's there
     if (!isOpen())
-        open(type, protocol);
+        open(domain, type, protocol);
         
     // if flags were passed in, set them on the file descriptor now
     if (fdFlags)
@@ -139,7 +176,13 @@ void Socket::bind(const IPAddress &addr, IPPort port)
 void Socket::bind(const IPSockAddress &local)
 {
     checkError(::bind(fd(), local, sizeof(local)));
-    IFDEBUG(debug("sockio", "%d bind to %s", fd(), string(local).c_str()));
+    secdebug("sockio", "%d bind to %s", fd(), string(local).c_str());
+}
+
+void Socket::bind(const UNSockAddress &local)
+{
+    checkError(::bind(fd(), local, sizeof(local)));
+    secdebug("sockio", "%d bind to %s", fd(), string(local).c_str());
 }
 
 
@@ -162,23 +205,30 @@ void Socket::accept(Socket &s, IPSockAddress &peer)
     assert(length == sizeof(IPSockAddress));
 }
 
+void Socket::accept(Socket &s, UNSockAddress &peer)
+{
+    int length = sizeof(UNSockAddress);
+    s.checkSetFd(::accept(fd(), peer, &length));
+    assert(length == sizeof(UNSockAddress));
+}
+
 
 bool Socket::connect(const IPSockAddress &peer)
 {
     if (::connect(fd(), peer, sizeof(peer))) {
         switch (errno) {
         case EINPROGRESS:
-            IFDEBUG(debug("sockio", "%d connecting to %s", fd(), string(peer).c_str()));
+            secdebug("sockio", "%d connecting to %s", fd(), string(peer).c_str());
             return false;
         case EALREADY:
             if (int err = error())		// connect failed
                 UnixError::throwMe(err);
             // just keep trying
-            IFDEBUG(debug("sockio", "%d still trying to connect", fd()));
+            secdebug("sockio", "%d still trying to connect", fd());
             return false;
         case EISCONN:
             if (flags() & O_NONBLOCK) {
-                debug("sockio", "%d now connected", fd());
+                secdebug("sockio", "%d now connected", fd());
                 return true;
             } else {
                 UnixError::throwMe();
@@ -187,7 +237,7 @@ bool Socket::connect(const IPSockAddress &peer)
             UnixError::throwMe();
         }
     } else {
-        IFDEBUG(debug("sockio", "%d connect to %s", fd(), string(peer).c_str()));
+        secdebug("sockio", "%d connect to %s", fd(), string(peer).c_str());
         return true;
     }
 }
@@ -195,6 +245,14 @@ bool Socket::connect(const IPSockAddress &peer)
 bool Socket::connect(const IPAddress &addr, IPPort port)
 {
     return connect(IPSockAddress(addr, port));
+}
+
+bool Socket::connect(const UNSockAddress &peer)
+{
+	// no nice async support here: local operation (but keep the niceties)
+	checkError(::connect(fd(), peer, sizeof(peer)));
+	secdebug("sockio", "%d connect to %s", fd(), string(peer).c_str());
+	return true;
 }
 
 // void Socket::connect(const Host &host, ...): see below.
@@ -225,12 +283,12 @@ IPSockAddress Socket::peerAddress() const
     return addr;
 }
 
-void Socket::getOption(void *value, int &length, int name, int level = SOL_SOCKET) const
+void Socket::getOption(void *value, int &length, int name, int level /*= SOL_SOCKET*/) const
 {
     UnixError::check(::getsockopt(fd(), level, name, value, &length));
 }
 
-void Socket::setOption(const void *value, int length, int name, int level = SOL_SOCKET) const
+void Socket::setOption(const void *value, int length, int name, int level /*= SOL_SOCKET*/) const
 {
     UnixError::check(::setsockopt(fd(), level, name, value, length));
 }
@@ -250,7 +308,7 @@ void Socket::connect(const Host &host, IPPort port)
     for (set<IPAddress>::const_iterator it = addrs.begin(); it != addrs.end(); it++) {
         const IPSockAddress address(*it, port);
         if (::connect(fd(), address, sizeof(IPSockAddress)) == 0) {
-            IFDEBUG(debug("sockio", "%d connect to %s", fd(), string(address).c_str()));
+            secdebug("sockio", "%d connect to %s", fd(), string(address).c_str());
             return;
         }
     }
@@ -267,19 +325,19 @@ void Socket::connect(const Host &host, IPPort port)
 //
 void TCPClientSocket::open(const IPSockAddress &peer, int fdFlags)
 {
-    prepare(fdFlags, SOCK_STREAM);
+    prepare(fdFlags, AF_INET, SOCK_STREAM);
     connect(peer);
 }
 
 void TCPClientSocket::open(const IPAddress &addr, IPPort port, int fdFlags)
 {
-    prepare(fdFlags, SOCK_STREAM);
+    prepare(fdFlags, AF_INET, SOCK_STREAM);
     connect(addr, port);
 }
 
 void TCPClientSocket::open(const Host &host, IPPort port, int fdFlags)
 {
-    prepare(fdFlags, SOCK_STREAM);
+    prepare(fdFlags, AF_INET, SOCK_STREAM);
     connect(host, port);
 }
 
@@ -291,7 +349,7 @@ TCPClientSocket::~TCPClientSocket()
 
 void TCPServerSocket::open(const IPSockAddress &addr, int depth)
 {
-    prepare(0, SOCK_STREAM);
+    prepare(0, AF_INET, SOCK_STREAM);
     bind(addr);
     listen(depth);
 }

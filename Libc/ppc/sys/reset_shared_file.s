@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(reset_shared_file, 3)
-	blr
 

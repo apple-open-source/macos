@@ -7,7 +7,7 @@
 #include <IOKit/IOEventSource.h>
 
 /*!
-     @class IOCommandGate : public IOEventSource
+     @class IOCommandGate
      @abstract Single-threaded work-loop client request mechanism.
      @discussion An IOCommandGate instance is an extremely light way mechanism
 that executes an action on the driver's work-loop.  'On the work-loop' is

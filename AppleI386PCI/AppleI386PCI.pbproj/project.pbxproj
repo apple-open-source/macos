@@ -3,8 +3,40 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 32;
+	objectVersion = 38;
 	objects = {
+		03F25FD10327DF0703CA2A5F = {
+			isa = PBXFileReference;
+			path = AppleI386AGP.cpp;
+			refType = 4;
+		};
+		03F25FD20327DF0703CA2A5F = {
+			fileRef = 03F25FD10327DF0703CA2A5F;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		03F25FD30327DF1703CA2A5F = {
+			isa = PBXFileReference;
+			path = AppleI386AGP.h;
+			refType = 4;
+		};
+		03F25FD40327DF1703CA2A5F = {
+			fileRef = 03F25FD30327DF1703CA2A5F;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//030
+//031
+//032
+//033
+//034
+//060
+//061
+//062
+//063
+//064
 		06AA1264FFB2107B11CA28AA = {
 			buildActionMask = 2147483647;
 			files = (
@@ -12,9 +44,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -43,9 +75,9 @@
 			generatedFileNames = (
 			);
 			isa = PBXShellScriptBuildPhase;
-			name = "Shell Script";
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -99,7 +131,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleI386PCI;
-				MODULE_VERSION = 1.1;
+				MODULE_VERSION = 1.3;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -118,15 +150,15 @@
 			productName = AppleI386PCI;
 			productReference = 0B81C263FFB7832611CA28AA;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist SYSTEM \"file://localhost/System/Library/DTDs/PropertyList.dtd\">
-<plist version=\"0.9\">
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
 	<string>AppleI386PCI</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.1, Copyright Apple Computer, Inc. 2000-2001</string>
+	<string>1.3, Copyright Apple Computer, Inc. 2000-2002</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -138,13 +170,31 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>1.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.1</string>
+	<string>1.3</string>
 	<key>IOKitPersonalities</key>
 	<dict>
+		<key>AppleI386AGP</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleI386PCI</string>
+			<key>IOAGPFlags</key>
+			<integer>65537</integer>
+			<key>IOClass</key>
+			<string>AppleI386AGP</string>
+			<key>IONameMatch</key>
+			<array>
+				<string>pci8086,2532</string>
+				<string>pci8086,2561</string>
+			</array>
+			<key>IOProbeScore</key>
+			<integer>80000</integer>
+			<key>IOProviderClass</key>
+			<string>IOPCIDevice</string>
+		</dict>
 		<key>AppleI386PCI</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
@@ -158,7 +208,7 @@
 		</dict>
 	</dict>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright Apple Computer, Inc. 2000-2001</string>
+	<string>Copyright Apple Computer, Inc. 2000-2002</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.0</string>
 	<key>OSBundleLibraries</key>
@@ -181,68 +231,47 @@
 			buildActionMask = 2147483647;
 			files = (
 				4056CE1300B0A47E0ACA2928,
+				03F25FD40327DF1703CA2A5F,
 			);
 			isa = PBXHeadersBuildPhase;
-			name = Headers;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1675FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
-				089C1680FE841241C02AAC07,
 			);
 			isa = PBXResourcesBuildPhase;
-			name = "Bundle Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1676FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 				4056CE1400B0A47E0ACA2928,
+				03F25FD20327DF0703CA2A5F,
 			);
 			isa = PBXSourcesBuildPhase;
-			name = Sources;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1677FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
-			name = "Frameworks & Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C1679FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
-			name = "ResourceManager Resources";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		089C167CFE841241C02AAC07 = {
 			children = (
-				089C167DFE841241C02AAC07,
 			);
 			isa = PBXGroup;
 			name = Resources;
 			refType = 4;
-		};
-		089C167DFE841241C02AAC07 = {
-			children = (
-				089C167EFE841241C02AAC07,
-			);
-			isa = PBXVariantGroup;
-			name = InfoPlist.strings;
-			refType = 4;
-		};
-		089C167EFE841241C02AAC07 = {
-			fileEncoding = 10;
-			isa = PBXFileReference;
-			name = English;
-			path = English.lproj/InfoPlist.strings;
-			refType = 4;
-		};
-		089C1680FE841241C02AAC07 = {
-			fileRef = 089C167DFE841241C02AAC07;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 //080
 //081
@@ -289,8 +318,10 @@
 //244
 		247142CAFF3F8F9811CA285C = {
 			children = (
+				03F25FD10327DF0703CA2A5F,
 				4056CE1100B0A47E0ACA2928,
 				4056CE1200B0A47E0ACA2928,
+				03F25FD30327DF1703CA2A5F,
 			);
 			isa = PBXGroup;
 			name = Source;

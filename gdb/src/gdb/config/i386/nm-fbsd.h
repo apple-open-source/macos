@@ -28,6 +28,10 @@
 
 #include "i386/nm-i386.h"
 
+#ifdef HAVE_SYS_PARAM_H
+#include <sys/param.h>
+#endif
+
 /* Provide access to the i386 hardware debugging registers.  */
 
 #define I386_DR_LOW_SET_CONTROL(control) \
@@ -94,8 +98,6 @@ extern CORE_ADDR register_u_addr (CORE_ADDR blockend, int regno);
 #include "elf/common.h"		/* Additional ELF shared library info. */
 #endif
 
-extern int i386_register_u_addr (int, int);
-
 #ifndef SVR4_SHARED_LIBS
 
 /* Make structure definitions match up with those expected in `solib.c'.  */
@@ -151,11 +153,6 @@ extern int i386_register_u_addr (int, int);
 #define ldd		d_debug
 #define ld_un		d_un
 #define ld_2		d_sdt
-
-/* Return sizeof user struct to callers in less machine dependent routines */
-
-#define KERNEL_U_SIZE kernel_u_size()
-extern int kernel_u_size (void);
 
 #endif /* !SVR4_SHARED_LIBS */
 

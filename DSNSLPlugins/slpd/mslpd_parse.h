@@ -1,4 +1,28 @@
 /*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * mslpd_parse.h : Definition for parsing messages in and out of
  *            the mini slpv2 SA.
  * Version: 1.4
@@ -24,10 +48,9 @@
  * (c) Sun Microsystems, 1998, All Rights Reserved.
  * Author: Erik Guttman
  */
-
-#ifdef __cplusplus
-//extern "C" {
-#endif
+ /*
+	Portions Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ */
 
 extern SLPInternalError srvrqst_in(Slphdr *pslphdr, const char *pcInBuf, int iInSz,
   char **ppcPRList, char **ppcSrvType, char **ppcScopes, char **ppcPredicate);
@@ -44,10 +67,6 @@ extern int saadvert_out(SAState *ps, Slphdr *pslph, char **ppc, int *piOutSz);
 #ifdef MAC_OS_X
 extern int daadvert_out(SAState *ps, SLPBoolean viaTCP, Slphdr *pslph, char **ppc, int *piOutSz);
 #endif /* MAC_OS_X */
-
-#ifdef __cplusplus
-//}
-#endif
 
 
 

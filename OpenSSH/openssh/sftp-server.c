@@ -22,7 +22,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "includes.h"
-RCSID("$OpenBSD: sftp-server.c,v 1.37 2002/06/24 17:57:20 deraadt Exp $");
+RCSID("$OpenBSD: sftp-server.c,v 1.41 2003/03/26 04:02:51 deraadt Exp $");
 
 #include "buffer.h"
 #include "bufaux.h"
@@ -158,7 +158,7 @@ handle_new(int use, char *name, int fd, DIR *dirp)
 			handles[i].use = use;
 			handles[i].dirp = dirp;
 			handles[i].fd = fd;
-			handles[i].name = name;
+			handles[i].name = xstrdup(name);
 			return i;
 		}
 	}
@@ -230,9 +230,11 @@ handle_close(int handle)
 	if (handle_is_ok(handle, HANDLE_FILE)) {
 		ret = close(handles[handle].fd);
 		handles[handle].use = HANDLE_UNUSED;
+		xfree(handles[handle].name);
 	} else if (handle_is_ok(handle, HANDLE_DIR)) {
 		ret = closedir(handles[handle].dirp);
 		handles[handle].use = HANDLE_UNUSED;
+		xfree(handles[handle].name);
 	} else {
 		errno = ENOENT;
 	}
@@ -396,7 +398,7 @@ process_open(void)
 	if (fd < 0) {
 		status = errno_to_portable(errno);
 	} else {
-		handle = handle_new(HANDLE_FILE, xstrdup(name), fd, NULL);
+		handle = handle_new(HANDLE_FILE, name, fd, NULL);
 		if (handle < 0) {
 			close(fd);
 		} else {
@@ -681,7 +683,7 @@ process_opendir(void)
 	if (dirp == NULL) {
 		status = errno_to_portable(errno);
 	} else {
-		handle = handle_new(HANDLE_DIR, xstrdup(path), 0, dirp);
+		handle = handle_new(HANDLE_DIR, path, 0, dirp);
 		if (handle < 0) {
 			closedir(dirp);
 		} else {
@@ -693,48 +695,6 @@ process_opendir(void)
 	if (status != SSH2_FX_OK)
 		send_status(id, status);
 	xfree(path);
-}
-
-/*
- * drwxr-xr-x    5 markus   markus       1024 Jan 13 18:39 .ssh
- */
-static char *
-ls_file(char *name, struct stat *st)
-{
-	int ulen, glen, sz = 0;
-	struct passwd *pw;
-	struct group *gr;
-	struct tm *ltime = localtime(&st->st_mtime);
-	char *user, *group;
-	char buf[1024], mode[11+1], tbuf[12+1], ubuf[11+1], gbuf[11+1];
-
-	strmode(st->st_mode, mode);
-	if ((pw = getpwuid(st->st_uid)) != NULL) {
-		user = pw->pw_name;
-	} else {
-		snprintf(ubuf, sizeof ubuf, "%u", (u_int)st->st_uid);
-		user = ubuf;
-	}
-	if ((gr = getgrgid(st->st_gid)) != NULL) {
-		group = gr->gr_name;
-	} else {
-		snprintf(gbuf, sizeof gbuf, "%u", (u_int)st->st_gid);
-		group = gbuf;
-	}
-	if (ltime != NULL) {
-		if (time(NULL) - st->st_mtime < (365*24*60*60)/2)
-			sz = strftime(tbuf, sizeof tbuf, "%b %e %H:%M", ltime);
-		else
-			sz = strftime(tbuf, sizeof tbuf, "%b %e  %Y", ltime);
-	}
-	if (sz == 0)
-		tbuf[0] = '\0';
-	ulen = MAX(strlen(user), 8);
-	glen = MAX(strlen(group), 8);
-	snprintf(buf, sizeof buf, "%s %3d %-*s %-*s %8llu %s %s", mode,
-	    st->st_nlink, ulen, user, glen, group,
-	    (u_int64_t)st->st_size, tbuf, name);
-	return xstrdup(buf);
 }
 
 static void
@@ -772,7 +732,7 @@ process_readdir(void)
 				continue;
 			stat_to_attrib(&st, &(stats[count].attrib));
 			stats[count].name = xstrdup(dp->d_name);
-			stats[count].long_name = ls_file(dp->d_name, &st);
+			stats[count].long_name = ls_file(dp->d_name, &st, 0);
 			count++;
 			/* send up to 100 entries in one message */
 			/* XXX check packet size instead */
@@ -874,18 +834,32 @@ static void
 process_rename(void)
 {
 	u_int32_t id;
-	struct stat st;
 	char *oldpath, *newpath;
-	int ret, status = SSH2_FX_FAILURE;
+	int status;
+	struct stat sb;
 
 	id = get_int();
 	oldpath = get_string(NULL);
 	newpath = get_string(NULL);
 	TRACE("rename id %u old %s new %s", id, oldpath, newpath);
-	/* fail if 'newpath' exists */
-	if (stat(newpath, &st) == -1) {
-		ret = rename(oldpath, newpath);
-		status = (ret == -1) ? errno_to_portable(errno) : SSH2_FX_OK;
+	status = SSH2_FX_FAILURE;
+	if (lstat(oldpath, &sb) == -1)
+		status = errno_to_portable(errno);
+	else if (S_ISREG(sb.st_mode)) {
+		/* Race-free rename of regular files */
+		if (link(oldpath, newpath) == -1)
+			status = errno_to_portable(errno);
+		else if (unlink(oldpath) == -1) {
+			status = errno_to_portable(errno);
+			/* clean spare link */
+			unlink(newpath);
+		} else
+			status = SSH2_FX_OK;
+	} else if (stat(newpath, &sb) == -1) {
+		if (rename(oldpath, newpath) == -1)
+			status = errno_to_portable(errno);
+		else
+			status = SSH2_FX_OK;
 	}
 	send_status(id, status);
 	xfree(oldpath);
@@ -920,19 +894,16 @@ static void
 process_symlink(void)
 {
 	u_int32_t id;
-	struct stat st;
 	char *oldpath, *newpath;
-	int ret, status = SSH2_FX_FAILURE;
+	int ret, status;
 
 	id = get_int();
 	oldpath = get_string(NULL);
 	newpath = get_string(NULL);
 	TRACE("symlink id %u old %s new %s", id, oldpath, newpath);
-	/* fail if 'newpath' exists */
-	if (stat(newpath, &st) == -1) {
-		ret = symlink(oldpath, newpath);
-		status = (ret == -1) ? errno_to_portable(errno) : SSH2_FX_OK;
-	}
+	/* this will fail if 'newpath' exists */
+	ret = symlink(oldpath, newpath);
+	status = (ret == -1) ? errno_to_portable(errno) : SSH2_FX_OK;
 	send_status(id, status);
 	xfree(oldpath);
 	xfree(newpath);

@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -27,7 +30,7 @@
 #ifndef __CHandlers_h__
 #define __CHandlers_h__ 1
 
-#include "DSCThread.h"
+#include "CInternalDispatchThread.h"
 #include "CSrvrEndPoint.h"
 #include "DSTCPEndpoint.h"
 #include "PrivateTypes.h"
@@ -45,7 +48,7 @@ extern DSMutexSemaphore	   *gCheckpwHandlerLock;
 
 struct sRefEntry;
 
-class CHandlerThread : public DSCThread
+class CHandlerThread : public CInternalDispatchThread
 {
 public:
 					CHandlerThread			( void );
@@ -56,7 +59,7 @@ public:
 	virtual	void	StartThread			( void );
 	virtual	void	StopThread			( void );
 			uInt32	GetOurThreadRunState( void );
-	static	sInt32	RefDeallocProc		( uInt32 inRefNum, sRefEntry *entry );
+	static	sInt32	RefDeallocProc		( uInt32 inRefNum, uInt32 inRefType, CServerPlugin *inPluginPtr );
 
 protected:
 	virtual	void	LastChance			( void );
@@ -131,9 +134,10 @@ private:
 		void*	DoRemoveAttributeValue			( sComData *inRequest, sInt32 *outStatus );
 		void*	DoSetAttributeValue				( sComData *inRequest, sInt32 *outStatus );
 		void*	DoAuthentication				( sComData *inRequest, sInt32 *outStatus );
+		void*	DoAuthenticationOnRecordType	( sComData *inRequest, sInt32 *outStatus );
 
 		void*	GetNodeList						( sComData *inRequest, sInt32 *outStatus );
-		void*	FindDirNodes					( sComData *inRequest, sInt32 *outStatus );
+		void*	FindDirNodes					( sComData *inRequest, sInt32 *outStatus, char *inDebugDataTag );
 		sInt32	DoCheckUserNameAndPassword		( const char *userName, const char *password,
 												  tDirPatternMatch inPatternMatch,
 												  uid_t *outUID, char **outShortName );
@@ -141,7 +145,19 @@ private:
 		bool	UserIsMemberOfGroup				( tDirReference inDirRef, tDirNodeReference inDirNodeRef,
 												  const char* shortName, const char* groupName );
 		void	GetUIDsForProcessID				( pid_t inPID, uid_t *outUID, uid_t *outEUID );
-
+		char*	GetNameForProcessID				( pid_t inPID );
+		void	LogAPICall						(	double			inTime,
+													char		   *inDebugDataTag,
+													sInt32			inResult);
+		char*	BuildAPICallDebugDataTag		(	uInt32			inIPAddress,
+													sInt32			inClientPID,
+													char		   *inCallName,
+													char		   *inName);
+		void	DebugAPIPluginCall				(	void		   *inData,
+													char		   *inDebugDataTag );
+		void	DebugAPIPluginResponse			(	void		   *inData,
+													char		   *inDebugDataTag,
+													sInt32			inResult);
 
 	CServerPlugin	   *fPluginPtr;
 	bool				bClosePort;

@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -113,23 +114,6 @@ WriteETAPDefines(file)
 }
 
 static void
-WriteDefines(file)
-    FILE *file;
-{
-}
-
-static void
-WriteMigExternal(file)
-    FILE *file;
-{
-    fprintf(file, "#ifdef\tmig_external\n");
-    fprintf(file, "mig_external\n");
-    fprintf(file, "#else\n");
-    fprintf(file, "extern\n");
-    fprintf(file, "#endif\t/* mig_external */\n");
-}
-
-static void
 WriteProlog(file, protect, more, isuser)
     FILE *file;
     char *protect;
@@ -146,7 +130,6 @@ WriteProlog(file, protect, more, isuser)
 
     if (more) {
 	WriteIncludes(file, isuser, UseSplitHeaders);
-	WriteDefines(file);
     }
     fprintf(file, "#ifdef AUTOTEST\n");
     fprintf(file, "#ifndef FUNCTION_PTR_T\n");
@@ -297,17 +280,40 @@ WriteUserHeader(file, stats)
 	    fatal("WriteHeader(): bad statement_kind_t (%d)",
 		  (int) stat->stKind);
 	}
-    fprintf(file, "\n#ifdef __BeforeMigUserHeader\n");
+    fprintf(file, "\n");
+    fprintf(file, "#ifdef __BeforeMigUserHeader\n");
     fprintf(file, "__BeforeMigUserHeader\n");
-    fprintf(file, "#endif /* __BeforeMigUserHeader */\n\n");
+    fprintf(file, "#endif /* __BeforeMigUserHeader */\n");
+    fprintf(file, "\n");
+    fprintf(file, "#include <sys/cdefs.h>\n");
+    fprintf(file, "__BEGIN_DECLS\n");
+    fprintf(file, "\n");
     for (stat = stats; stat != stNULL; stat = stat->stNext) {
 	if (stat->stKind == skRoutine)
 	    WriteUserRoutine(file, stat->stRoutine);
     }
+    fprintf(file, "\n");
+    fprintf(file, "__END_DECLS\n");
+
+    fprintf(file, "\n");
+    fprintf(file, "/********************** Caution **************************/\n");
+    fprintf(file, "/* The following data types should be used to calculate  */\n");
+    fprintf(file, "/* maximum message sizes only. The actual message may be */\n");
+    fprintf(file, "/* smaller, and the position of the arguments within the */\n");
+    fprintf(file, "/* message layout may vary from what is presented here.  */\n");
+    fprintf(file, "/* For example, if any of the arguments are variable-    */\n");
+    fprintf(file, "/* sized, and less than the maximum is sent, the data    */\n");
+    fprintf(file, "/* will be packed tight in the actual message to reduce  */\n");
+    fprintf(file, "/* the presence of holes.                                */\n");
+    fprintf(file, "/********************** Caution **************************/\n");
+    fprintf(file, "\n");
+    
     WriteRequestTypes(file, stats);
     WriteUserRequestUnion(file, stats);
+
     WriteReplyTypes(file, stats);
     WriteUserReplyUnion(file, stats);
+
     WriteEpilog(file, protect, TRUE);
 }
 
@@ -446,15 +452,19 @@ WriteServerHeader(file, stats)
     fprintf(file, "\n#ifdef __BeforeMigServerHeader\n");
     fprintf(file, "__BeforeMigServerHeader\n");
     fprintf(file, "#endif /* __BeforeMigServerHeader */\n\n"); 
-    WriteRequestTypes(file, stats);
-    WriteServerRequestUnion(file, stats);
-    WriteReplyTypes(file, stats);
-    WriteServerReplyUnion(file, stats);
+
     for (stat = stats; stat != stNULL; stat = stat->stNext) {
 	if (stat->stKind == skRoutine)
 	    WriteServerRoutine(file, stat->stRoutine);
     }
     WriteDispatcher(file);
+
+    WriteRequestTypes(file, stats);
+    WriteServerRequestUnion(file, stats);
+
+    WriteReplyTypes(file, stats);
+    WriteServerReplyUnion(file, stats);
+
     WriteEpilog(file, protect, FALSE);
 }
 

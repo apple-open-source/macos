@@ -3,23 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
- * 
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ *  
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -906,9 +903,6 @@ IOATAController::handleDeviceInterrupt(void)
  * 
  *
  ---------------------------------------------------------------------------*/
-// BUG intercept reset commands and execute device diagnostic commands 
-// which are masqerading as IO commands. We'll lose the state 
-// machine otherwise.
 
 IOReturn
 IOATAController::handleExecIO( void )
@@ -922,9 +916,17 @@ IOATAController::handleExecIO( void )
 	err = selectDevice( _currentCommand->getUnit() );
 	if( err )
 	{	
+		IOLog("IOATAController device blocking bus.\n");
 		_currentCommand->state = IOATAController::kATAComplete;
-		completeIO( err );
-		return err;
+
+		if( _currentCommand->getFlags() & mATAFlagUseNoIRQ )
+		{
+			completeIO( kIOReturnOffline );	
+			return kIOReturnOffline;	
+		}
+		
+		startTimer( 1000 );  // start a 1 second timeout so that we can unwind the stack if the bus is stuck.
+		return kATANoErr;  // defer error handling to the timer thread. 
 	}
 
 	// start the IO Timer
@@ -2197,7 +2199,7 @@ IOATAController::scanForDrives( void )
 	}
 
 	// spun on BSY for too long, declare bus empty
-	if( ! (milsSpent < 31000) )
+	if( ! (milsSpent < 3100) )
 		goto AllDone;
 		
 	

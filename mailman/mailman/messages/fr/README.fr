@@ -1,0 +1,7 @@
+
+Notes de traduction :
+
+La francisation de Mailman 2.1 est actuellement tenue à jour par Pascal GEORGE, à partir du travail préalable d'Ousmane Wilane.
+Cette traduction n'est qu'une base de travail, en constante évolution, de nombreuses coquilles/erreurs ou traductions "bancales" sont encore présentes. Veuillez faire parvenir vos remarques/suggestions à p.george@laposte.net (en précisant MailmanFR dans le sujet) ou sur la liste francophone de Mailman : mailman-fr@rezo.net (inscription à l'URL http://listes.rezo.net/mailman/listinfo/mailman-fr)
+
+Janvier 2003

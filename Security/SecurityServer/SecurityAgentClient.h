@@ -31,6 +31,10 @@
 #include <Security/Authorization.h>
 #include <Security/AuthorizationPlugin.h>
 #include <Security/AuthorizationWalkers.h>
+#include <Security/AuthorizationData.h>
+
+using Authorization::AuthItemSet;
+using Authorization::AuthValueVector;
 
 namespace Security {
 
@@ -47,6 +51,8 @@ namespace SecurityAgent {
 
 static const unsigned int maxPassphraseLength = 1024;
 static const unsigned int maxUsernameLength = 80;
+
+#define kMaximumAuthorizationTries 3
 
 //
 // Unified reason codes transmitted to SecurityAgent (and internationalized there)
@@ -67,6 +73,7 @@ enum Reason {
 	passphraseTooSimple,	// passphrase is not complex enough
 	passphraseRepeated,		// passphrase was used before (must use new one)
 	passphraseUnacceptable, // passphrase unacceptable for some other reason
+	oldPassphraseWrong,		// the old passphrase given is wrong
 	
 	// reasons for retrying an authorization query
 	userNotInGroup = 41,	// authenticated user not in needed group
@@ -79,6 +86,31 @@ enum Reason {
 	generalErrorCancel		// something went wrong so we have to give up now
 };
 
+#define AGENT_HINT_SUGGESTED_USER "suggestedUser"
+#define AGENT_HINT_REQUIRE_USER_IN_GROUP "requireUserInGroup"
+#define AGENT_HINT_CUSTOM_PROMPT "prompt"
+#define AGENT_HINT_AUTHORIZE_RIGHT "authorizeRight"
+#define AGENT_HINT_CLIENT_PID "clientPid"
+#define AGENT_HINT_CLIENT_UID "clientUid"
+#define AGENT_HINT_CREATOR_PID "creatorPid"
+#define AGENT_HINT_CLIENT_TYPE "clientType"
+#define AGENT_HINT_CLIENT_PATH "clientPath"
+#define AGENT_HINT_TRIES "tries"
+#define AGENT_HINT_RETRY_REASON "reason"
+#define AGENT_HINT_AUTHORIZE_RULE "authorizeRule"
+//
+// "Login Keychain Creation" Right: Hint and context keys
+//
+#define AGENT_HINT_ATTR_NAME "loginKCCreate:attributeName"
+#define AGENT_HINT_LOGIN_KC_NAME "loginKCCreate:pathName"
+#define AGENT_HINT_LOGIN_KC_EXISTS_IN_KC_FOLDER "loginKCCreate:exists"
+#define AGENT_HINT_LOGIN_KC_USER_NAME "loginKCCreate:userName"
+#define AGENT_HINT_LOGIN_KC_CUST_STR1 "loginKCCreate:customStr1"
+#define AGENT_HINT_LOGIN_KC_CUST_STR2 "loginKCCreate:customStr2"
+#define AGENT_HINT_LOGIN_KC_USER_HAS_OTHER_KCS_STR "loginKCCreate:moreThanOneKeychainExists"
+
+#define LOGIN_KC_CREATION_RIGHT	"system.keychain.create.loginkc"
+
 #if defined(__cplusplus)
 
 
@@ -88,10 +120,10 @@ enum Reason {
 class Client {
 public:
 	Client();
-    Client(uid_t clientUID, Bootstrap clientBootstrap);
+    Client(uid_t clientUID, Bootstrap clientBootstrap, const char *agentName);
 	virtual ~Client();
 
-	virtual void activate(const char *bootstrapName = NULL);
+	virtual void activate();
 	virtual void terminate();
 	bool isActive() const { return mActive; }
 
@@ -116,8 +148,8 @@ public:
 	
 	// ask for a new passphrase for a database. Not yet staged
 	void queryNewPassphrase(const OSXCode *requestor, pid_t requestPid,
-        const char *database, Reason reason, char passphrase[maxPassphraseLength]);
-	void retryNewPassphrase(Reason reason, char passphrase[maxPassphraseLength]);
+        const char *database, Reason reason, char passphrase[maxPassphraseLength], char oldPassphrase[maxPassphraseLength]);
+	void retryNewPassphrase(Reason reason, char passphrase[maxPassphraseLength], char oldPassphrase[maxPassphraseLength]);
 	
 	// ask permission to use an item in a database
     struct KeychainChoice {
@@ -128,6 +160,11 @@ public:
     void queryKeychainAccess(const OSXCode *requestor, pid_t requestPid,
         const char *database, const char *itemName, AclAuthorization action,
 		bool needPassphrase, KeychainChoice &choice);
+	void retryQueryKeychainAccess (Reason reason, KeychainChoice &choice);
+    
+	// one-shot code-identity confirmation query
+	void queryCodeIdentity(const OSXCode *requestor, pid_t requestPid,
+		const char *aclPath, KeychainChoice &choice);
         
     // generic old passphrase query
     void queryOldGenericPassphrase(const OSXCode *requestor, pid_t requestPid,
@@ -150,7 +187,7 @@ public:
 	bool retryAuthorizationAuthenticate(Reason reason,
                 char username[maxUsernameLength], char passphrase[maxPassphraseLength]);
 
-    bool invokeMechanism(const string &inPluginId, const string &inMechanismId, const AuthorizationValueVector *inArguments, const AuthorizationItemSet *inHints, const AuthorizationItemSet *inContext, AuthorizationResult *outResult, AuthorizationItemSet *&outHintsPtr, AuthorizationItemSet *&outContextPtr);
+    bool invokeMechanism(const string &inPluginId, const string &inMechanismId, const AuthValueVector &inArguments, AuthItemSet &inHints,  AuthItemSet &inContext, AuthorizationResult *outResult);
 
     void terminateAgent();
     
@@ -167,10 +204,7 @@ private:
     Port mClientPort;
 	bool mActive;
     uid_t desktopUid;
-    gid_t desktopGid;
-    bool mUsePBS;
     Bootstrap mClientBootstrap;
-    mach_port_t pbsBootstrap;
 	bool mKeepAlive;
 
 	enum Stage {
@@ -180,13 +214,14 @@ private:
         newGenericPassphraseStage, // in get-new-generic-passphrase sub-protocol
         oldGenericPassphraseStage, // in get-old-generic-passphrase sub-protocol
 		authorizeStage,			// in authorize-by-group-membership sub-protocol
+        queryKeychainAccessStage,
        invokeMechanismStage   // in invoke mechanism sub-protocol
 	} stage;
 	Port mStagePort;
+	string mAgentName;
 
-	void setClientGroupID(const char *grpName = NULL);
 	void locateDesktop();
-    void establishServer(const char *name);
+	void establishServer();
 	void check(kern_return_t error);
 	void unstage();
 	

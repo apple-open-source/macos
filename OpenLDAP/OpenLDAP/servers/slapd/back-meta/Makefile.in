@@ -1,4 +1,4 @@
-# $OpenLDAP: pkg/ldap/servers/slapd/back-meta/Makefile.in,v 1.2 2001/12/07 03:03:39 hyc Exp $
+# $OpenLDAP: pkg/ldap/servers/slapd/back-meta/Makefile.in,v 1.2.2.1 2002/06/21 01:15:08 kurt Exp $
 
 SRCS	= init.c config.c search.c bind.c unbind.c add.c compare.c \
 		delete.c modify.c modrdn.c group.c attribute.c \
@@ -17,8 +17,9 @@ BUILD_MOD_DYNAMIC = @BUILD_META_DYNAMIC@
 mod_DEFS = -DSLAPD_IMPORT
 MOD_DEFS = $(@BUILD_META@_DEFS)
 
-shared_LDAP_LIBS = $(LDAP_LIBPATH) -lldap_r -llber
+shared_LDAP_LIBS = $(LDAP_LIBLDAP_R_LA) $(LDAP_LIBLBER_LA)
 NT_LINK_LIBS = -L.. -lslapd $(@BUILD_LIBS_DYNAMIC@_LDAP_LIBS)
+UNIX_LINK_LIBS = $(@BUILD_LIBS_DYNAMIC@_LDAP_LIBS)
 
 LIBBASE = back_meta
 

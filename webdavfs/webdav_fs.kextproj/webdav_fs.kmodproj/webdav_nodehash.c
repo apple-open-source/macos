@@ -47,7 +47,7 @@ struct slock webdav_hash_slock;
 /*
  * Initialize webdav hash table.
  */
-void webdav_hashinit()
+void webdav_hashinit(void)
 {
 	webdav_hashtbl = hashinit(desiredvnodes, M_TEMP, &webdavhash);
 	simple_lock_init(&webdav_hash_slock);
@@ -56,7 +56,7 @@ void webdav_hashinit()
 /*****************************************************************************/
 
 /* Free webdav hash table. */
-void webdav_hashdestroy()
+void webdav_hashdestroy(void)
 {
 	if (webdav_hashtbl)
 	{

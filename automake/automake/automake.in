@@ -2,11 +2,11 @@
 # -*- perl -*-
 # @configure_input@
 
-eval 'exec @PERL@ -S $0 ${1+"$@"}'
+eval 'case $# in 0) exec @PERL@ -S "$0";; *) exec @PERL@ -S "$0" "$@";; esac'
     if 0;
 
 # automake - create Makefile.in from Makefile.am
-# Copyright 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
+# Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
 # Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
@@ -369,6 +369,8 @@ my $config_aux_dir_set_in_configure_in = 0;
 
 # Whether AM_GNU_GETTEXT has been seen in configure.ac.
 my $seen_gettext = 0;
+# Whether AM_GNU_GETTEXT([external]) is used.
+my $seen_gettext_external = 0;
 # Where AM_GNU_GETTEXT appears.
 my $ac_gettext_location;
 
@@ -470,6 +472,10 @@ my $automake_needs_to_reprocess_all_files = 0;
 # Options set via AM_INIT_AUTOMAKE.
 my $global_options = '';
 
+# If a file name appears as a key in this hash, then it has already
+# been checked for.  This variable is local to the "require file"
+# functions.
+my %require_file_found = ();
 
 
 ################################################################
@@ -654,10 +660,11 @@ my @substfroms;
 # force.
 my @substtos;
 
-# Associates a variable name, together with a list of substitutions to be
-# performed on it, with a number.  Used to provide unique names for generated
-# variables.
-my %substnums = ();
+# This keeps track of all variables defined by subobjname.
+# The value stored is the variable names.
+# The key has the form "(COND1)VAL1(COND2)VAL2..." where VAL1 and VAL2
+# are the values of the variable for condition COND1 and COND2.
+my %subobjvar = ();
 
 ## --------------------------------- ##
 ## Forward subroutine declarations.  ##
@@ -793,6 +800,8 @@ sub initialize_per_input ()
 
     # We always include `.'.  This isn't strictly correct.
     %libtool_clean_directories = ('.' => 1);
+
+    %subobjvar = ();
 }
 
 
@@ -893,7 +902,8 @@ register_language ('name' => 'lex',
 		   'compile' => '$(LEX) $(LFLAGS) $(AM_LFLAGS)',
 		   'compiler' => 'LEXCOMPILE',
 		   'extensions' => ['.l'],
-		   '_finish' => \&lang_lex_finish);
+		   '_finish' => \&lang_lex_finish,
+		   '_target_hook' => \&lang_lex_target_hook);
 register_language ('name' => 'lexxx',
 		   'Name' => 'Lex (C++)',
 		   'config_vars' => ['LEX'],
@@ -903,7 +913,8 @@ register_language ('name' => 'lexxx',
 		   'compile' => '$(LEX) $(LFLAGS) $(AM_LFLAGS)',
 		   'compiler' => 'LEXCOMPILE',
 		   'extensions' => ['.l++', '.ll', '.lxx', '.lpp'],
-		   '_finish' => \&lang_lex_finish);
+		   '_finish' => \&lang_lex_finish,
+		   '_target_hook' => \&lang_lex_target_hook);
 
 # Assembler.
 register_language ('name' => 'asm',
@@ -1017,7 +1028,7 @@ do
 {
     if ($automake_has_run)
     {
-	print "$me: processing Makefiles another time to fix them up.\n";
+	verbose "processing Makefiles another time to fix them up.\n";
 	&prog_error ("running more than two times should never be needed.")
 	    if $automake_has_run >= 2;
     }
@@ -1043,9 +1054,6 @@ do
 while ($automake_needs_to_reprocess_all_files);
 
 exit $exit_status;
-
-# FIXME: This should be `my'ed next to its subs.
-use vars '%require_file_found';
 
 ################################################################
 
@@ -1467,7 +1475,7 @@ sub version_check ($)
     return 1
 	if ($required[4] ne '' && $required[4] ne $version[4]);
 
-    return 0 >= version_compare @version, @required;
+    return 0 > version_compare @version, @required;
 }
 
 # $BOOL
@@ -2110,7 +2118,7 @@ sub handle_single_transform_list ($$$$@)
 	    # Distribute derived sources unless the source they are
 	    # derived from is not.
 	    &push_dist_common ($object)
-		unless ($topparent =~ /^(:?nobase_)?nodist_/);
+		unless ($topparent =~ /^(?:nobase_)?nodist_/);
 	    next;
 	}
 
@@ -2185,7 +2193,7 @@ sub handle_single_transform_list ($$$$@)
     return @result;
 }
 
-# $BOOL
+# ($LINKER, $OBJVAR)
 # define_objects_from_sources ($VAR, $OBJVAR, $NODEFINE, $ONE_FILE,
 #                              $OBJ, $PARENT, $TOPPARENT)
 # ---------------------------------------------------------------------
@@ -2193,15 +2201,18 @@ sub handle_single_transform_list ($$$$@)
 #
 # Arguments are:
 #   $VAR is the name of the _SOURCES variable
-#   $OBJVAR is the name of the _OBJECTS
+#   $OBJVAR is the name of the _OBJECTS variable if known (otherwise
+#     it will be generated and returned).
 #   $NODEFINE is a boolean: if true, $OBJVAR will not be defined (but
-#   work done to determine the linker will be).
+#     work done to determine the linker will be).
 #   $ONE_FILE is the canonical (transformed) name of object to build
 #   $OBJ is the object extension (ie either `.o' or `.lo').
 #   $PARENT is the variable in which $VAR is used, or $VAR if not applicable.
 #   $TOPPARENT is the _SOURCES variable being processed.
 #
-# Result is a boolean, true if a linker is needed to deal with the objects.
+# Result is a pair ($LINKER, $OBJVAR):
+#    $LINKER is a boolean, true if a linker is needed to deal with the objects,
+#    $OBJVAR is the name of the variable defined to hold the objects.
 #
 # %linkers_used, %vars_scanned, @substfroms and @substtos should be cleared
 # before use:
@@ -2222,6 +2233,7 @@ sub define_objects_from_sources ($$$$$$$)
     $vars_scanned{$var} = 1;
 
     my $needlinker = "";
+    my @allresults = ();
     foreach my $cond (variable_conditions ($var))
     {
 	my @result;
@@ -2249,12 +2261,12 @@ sub define_objects_from_sources ($$$$$$$)
 		push @substfroms, $from;
 		push @substtos, $to;
 
-		my $subobjvar = subobjname ($subvar);
-		push (@result, '$('. $subobjvar . ')');
+		my ($temp, $varname)
+		    = define_objects_from_sources ($subvar, undef,
+						   $nodefine, $one_file,
+						   $obj, $var, $topparent);
 
-		my $temp = define_objects_from_sources ($subvar, $subobjvar,
-						        $nodefine, $one_file,
-						        $obj, $var, $topparent);
+		push (@result, '$('. $varname . ')');
 		$needlinker ||= $temp;
 
 		pop @substfroms;
@@ -2276,54 +2288,74 @@ sub define_objects_from_sources ($$$$$$$)
 		$needlinker = "true" if @transformed;
 	    }
 	}
-
-	# Define _OBJECTS conditionally.
-	define_pretty_variable ($objvar, $cond, (@result))
-		unless $nodefine;
+	push (@allresults, [$cond, @result]);
+    }
+    # Find a name for the variable, unless imposed.
+    $objvar = subobjname (@allresults) unless defined $objvar;
+    # Define _OBJECTS conditionally
+    unless ($nodefine)
+    {
+	foreach my $pair (@allresults)
+	{
+	    my ($cond, @result) = @$pair;
+	    define_pretty_variable ($objvar, $cond, @result);
+	}
     }
 
     delete $vars_scanned{$var};
-    return $needlinker;
+    return ($needlinker, $objvar);
 }
 
 
-# $OBJNAME
-# subobjname ($VARNAME)
-# ---------------------
-# Return a name for an object variable.
+# $VARNAME
+# subobjname (@DEFINITIONS)
+# -------------------------
+# Return a name for an object variable that with definitions @DEFINITIONS.
+# @DEFINITIONS is a list of pair [$COND, @OBJECTS].
 #
-# Arguments are:
-#   $VARNAME is the name of the variable the object variable is being
-#   generated from.
+# If we already have an object variable containing @DEFINITIONS, reuse it.
+# This way, we avoid combinatorial explosion of the generated
+# variables.  Especially, in a Makefile such as:
 #
-# This function also looks at @substfroms and @substtos to determine any
-# substitutions to be performed on the object variable.
+# | if FOO1
+# | A1=1
+# | endif
+# |
+# | if FOO2
+# | A2=2
+# | endif
+# |
+# | ...
+# |
+# | if FOON
+# | AN=N
+# | endif
+# |
+# | B=$(A1) $(A2) ... $(AN)
+# |
+# | c_SOURCES=$(B)
+# | d_SOURCES=$(B)
 #
-# The name returned is unique for the combination of $varname and
-# substitutions to be performed.
-sub subobjname ($)
+# The generated c_OBJECTS and d_OBJECTS will share the same variable
+# definitions.
+#
+# This setup can be the case of a testsuite containing lots (>100) of
+# small C programs, all testing the same set of source files.
+sub subobjname (@)
 {
-    my ($varname) = @_;
-    my $key = $varname;
-    my $substnum=$#substfroms;
-    while ($substnum >= 0)
+    my $key = '';
+    foreach my $pair (@_)
     {
-	if (defined $substfroms[$substnum] &&
-	    ($substfroms[$substnum] || $substtos[$substnum]))
-	{
-	    $key .= ":" . $substfroms[$substnum] . "=" . $substtos[$substnum];
-	}
-	$substnum -= 1;
+	my ($cond, @values) = @$pair;
+	$key .= "($cond)@values";
     }
 
-    my $num = $substnums{$key};
-    if (! $num)
-    {
-	$num = keys(%substnums) + 1;
-	$substnums{$key} = $num;
-    }
+    return $subobjvar{$key} if exists $subobjvar{$key};
 
-    return "am__objects_$num";
+    my $num = 1 + keys (%subobjvar);
+    my $name = "am__objects_${num}";
+    $subobjvar{$key} = $name;
+    return $name;
 }
 
 
@@ -2376,10 +2408,11 @@ sub handle_source_transform
 	@substfroms = ();
 	@substtos = ();
 	%vars_scanned = ();
-	my $temp = define_objects_from_sources ($var,
-					        $xpfx . $one_file . '_OBJECTS',
-					        $prefix =~ /EXTRA_/,
-					        $one_file, $obj, $var, $var);
+	my ($temp, $objvar) =
+	    define_objects_from_sources ($var,
+					 $xpfx . $one_file . '_OBJECTS',
+					 $prefix =~ /EXTRA_/,
+					 $one_file, $obj, $var, $var);
 	$needlinker ||= $temp;
     }
     if ($needlinker)
@@ -3116,7 +3149,9 @@ sub scan_texinfo_file
     my ($filename) = @_;
 
     # These are always created, no matter whether indexes are used or not.
-    my @clean_suffixes = qw(aux dvi log ps toc
+    # (Actually tmp is only created if an @macro is used and a certain e-TeX
+    # feature is not available.)
+    my @clean_suffixes = qw(aux dvi log ps toc tmp
 			    cp fn ky vr tp pg); # grep new.*index texinfo.tex
 
     # There are predefined indexes which don't follow the regular rules.
@@ -3981,7 +4016,7 @@ sub handle_configure
 			      'CONFIG_H_PATH' => $config_h_path,
 			      'STAMP'         => "$stamp"));
 
-	    push @distclean_config, $cn_sans_dir;
+	    push @distclean_config, $cn_sans_dir, $stamp;
 	}
     }
 
@@ -4070,17 +4105,6 @@ sub handle_configure
 	    }
 	}
 
-	# Some users have been tempted to put `stamp-h' in the
-	# AC_OUTPUT line.  This won't do the right thing, so we
-	# explicitly fail here.
-	if ($local eq 'stamp-h')
-	{
-	    # FIXME: allow real filename.
-	    file_error ($ac_config_files_location,
-			'stamp-h should not appear in AC_OUTPUT');
-	    next;
-	}
-
 	my @rewritten_inputs = rewrite_inputs_into_dependencies (1, @inputs);
 	$output_rules .= ($local . ': '
 			  . '$(top_builddir)/config.status '
@@ -4128,10 +4152,14 @@ sub handle_gettext
     my @subdirs = &variable_value_as_list_recursive ('SUBDIRS', 'all');
     macro_error ('SUBDIRS',
 		 "AM_GNU_GETTEXT used but `po' not in SUBDIRS")
-	if ! grep ('po', @subdirs);
+	if ! grep ($_ eq 'po', @subdirs);
+
+    # intl/ is not required when AM_GNU_GETTEXT is called with
+    # the `external' option.
     macro_error ('SUBDIRS',
 		 "AM_GNU_GETTEXT used but `intl' not in SUBDIRS")
-	if ! grep ('intl', @subdirs);
+	if (! $seen_gettext_external
+	    && ! grep ($_ eq 'intl', @subdirs));
 
     require_file ($ac_gettext_location, GNU, 'ABOUT-NLS');
 }
@@ -4732,6 +4760,7 @@ sub scan_autoconf_traces ($)
 	{
 	  $seen_gettext = $here;
 	  $ac_gettext_location = $here;
+	  $seen_gettext_external = grep ($_ eq 'external', @args);
 	}
       elsif ($macro eq 'AM_INIT_AUTOMAKE')
 	{
@@ -4811,13 +4840,13 @@ sub scan_one_autoconf_file
 
 	# Follow includes.  This is a weirdness commonly in use at
 	# Cygnus and hopefully nowhere else.
-	if (/sinclude\((.*)\)/ && -f $1)
+	if (/\b(?:m4_)?s?include\((.*)\)/ && -f $1)
 	{
 	    # $_ being local, if we don't preserve it, when coming
 	    # back we will have $_ undefined, which is bad for the
 	    # the rest of this routine.
 	    my $underscore = $_;
-	    &scan_one_autoconf_file ($1);
+	    &scan_one_autoconf_file (unquote_m4_arg ($1));
 	    $_ = $underscore;
 	}
 
@@ -4927,10 +4956,12 @@ sub scan_one_autoconf_file
 	$seen_cc_c_o = $here if /AM_PROG_CC_C_O/;
 
 	# Check for NLS support.
-	if (/AM_GNU_GETTEXT/)
+	if (/\bAM_GNU_GETTEXT\b/)
 	{
 	    $seen_gettext = $here;
 	    $ac_gettext_location = $here;
+	    $seen_gettext_external = 1
+	        if /\bAM_GNU_GETTEXT\([^\)]*\bexternal\b/;
 	}
 
 	# Handle configuration headers.  A config header of `[$1]'
@@ -5470,7 +5501,12 @@ sub lang_yacc_target_hook
 	# Add a dependency for the generated header file, and arrange
 	# for that file to be included in the distribution.
 	# FIXME: this fails for `nodist_*_SOURCES'.
-	$output_rules .= "${header}: $output\n";
+	$output_rules .= ("${header}: $output\n"
+			  # Recover from removal of $header
+			  . "\t\@if test ! -f \$@; then \\\n"
+			  . "\t  rm -f $output; \\\n"
+			  . "\t  \$(MAKE) $output; \\\n"
+			  . "\telse :; fi\n");
 	&push_dist_common ($header);
 	# If the files are built in the build directory, then we want
 	# to remove them with `make clean'.  If they are in srcdir
@@ -5480,6 +5516,22 @@ sub lang_yacc_target_hook
 	# do.
 	push (@maintainer_clean_files, $header);
     }
+    # Erase $OUTPUT on `make maintainer-clean' (by GNU standards).
+    # See the comment above for $HEADER.
+    push (@maintainer_clean_files, $output);
+}
+
+# This is a lex helper which is called whenever we have decided to
+# compile a lex file.
+sub lang_lex_target_hook
+{
+    my ($self, $aggregate, $output, $input) = @_;
+    # If the files are built in the build directory, then we want to
+    # remove them with `make clean'.  If they are in srcdir they
+    # shouldn't be touched.  However, we can't determine this
+    # statically, and the GNU rules say that yacc/lex output files
+    # should be removed by maintainer-clean.  So that's what we do.
+    push (@maintainer_clean_files, $output);
 }
 
 # This is a helper for both lex and yacc.
@@ -6090,10 +6142,12 @@ sub macro_define ($$$$$$)
       else
 	{
 	  # There must be no previous value unless the user is redefining
-	  # an Automake variable or an AC_SUBST variable.
+	  # an Automake variable or an AC_SUBST variable for an existing
+	  # condition.
 	  check_ambiguous_conditional ($var, $cond)
-	    unless ($var_is_am{$var} && !$var_is_am
-		    || exists $configure_vars{$var});
+	    unless (($var_is_am{$var} && !$var_is_am
+		     || exists $configure_vars{$var})
+		    && exists $var_value{$var}{$cond});
 
 	  $var_value{$var}{$cond} = $value;
 	}
@@ -7001,6 +7055,11 @@ sub read_am_file ($)
     my $blank = 0;
     my $saw_bk = 0;
 
+    use constant IN_VAR_DEF => 0;
+    use constant IN_RULE_DEF => 1;
+    use constant IN_COMMENT => 2;
+    my $prev_state = IN_RULE_DEF;
+
     while ($_ = $am_file->getline)
     {
 	if (/$IGNORE_PATTERN/o)
@@ -7030,6 +7089,7 @@ sub read_am_file ($)
 	    $blank = 1;
 	    $comment .= $spacing . $_;
 	    $spacing = '';
+	    $prev_state = IN_COMMENT;
 	}
 	else
 	{
@@ -7044,7 +7104,6 @@ sub read_am_file ($)
     my @saved_cond_stack = @cond_stack;
     my $cond = conditional_string (@cond_stack);
 
-    my $was_rule = 0;
     my $last_var_name = '';
     my $last_var_type = '';
     my $last_var_value = '';
@@ -7082,15 +7141,28 @@ sub read_am_file ($)
 	    $spacing = '';
 	    file_error ($here, "comment following trailing backslash")
 		if $saw_bk && $comment eq '';
+	    $prev_state = IN_COMMENT;
 	}
 	elsif ($saw_bk)
 	{
-	    if ($was_rule)
+	    if ($prev_state == IN_RULE_DEF)
 	    {
 	        $output_trailer .= &make_condition (@cond_stack);
 		$output_trailer .= $_;
 	    }
-	    else
+	    elsif ($prev_state == IN_COMMENT)
+	    {
+		# If the line doesn't start with a `#', add it.
+		# We do this because a continuated comment like
+		#   # A = foo \
+		#         bar \
+		#         baz
+		# is not portable.  BSD make doesn't honor
+		# escaped newlines in comments.
+		s/^#?/#/;
+		$comment .= $spacing . $_;
+	    }
+	    else # $prev_state == IN_VAR_DEF
 	    {
 	      $last_var_value .= ' '
 		unless $last_var_value =~ /\s$/;
@@ -7125,7 +7197,7 @@ sub read_am_file ($)
 	elsif (/$RULE_PATTERN/o)
 	{
 	    # Found a rule.
-	    $was_rule = 1;
+	    $prev_state = IN_RULE_DEF;
 
 	    rule_define ($1, 0, $cond, $here);
 
@@ -7137,7 +7209,7 @@ sub read_am_file ($)
 	elsif (/$ASSIGNMENT_PATTERN/o)
 	{
 	    # Found a macro definition.
-	    $was_rule = 0;
+	    $prev_state = IN_VAR_DEF;
 	    $last_var_name = $1;
 	    $last_var_type = $2;
 	    $last_var_value = $3;
@@ -7185,7 +7257,7 @@ sub read_am_file ($)
         {
 	    # This isn't an error; it is probably a continued rule.
 	    # In fact, this is what we assume.
-	    $was_rule = 1;
+	    $prev_state = IN_RULE_DEF;
 	    $output_trailer .= $comment . $spacing;
 	    $output_trailer .= &make_condition  (@cond_stack);
 	    $output_trailer .= $_;
@@ -8007,11 +8079,6 @@ sub is_make_dir
 # This variable is local to the "require file" set of functions.
 my @require_file_paths = ();
 
-# If a file name appears as a key in this hash, then it has already
-# been checked for.  This variable is local to the "require file"
-# functions.
-%require_file_found = ();
-
 
 # &maybe_push_required_file ($DIR, $FILE, $FULLFILE)
 # --------------------------------------------------
@@ -8100,8 +8167,8 @@ sub require_file_internal ($$@)
 	    # DIST_COMMON.
 	    if (! $found_it)
 	    {
-		next if defined $require_file_found{$file};
-		$require_file_found{$file} = 1;
+		next if defined $require_file_found{$fullfile};
+		$require_file_found{$fullfile} = 1;
 	    }
 
 	    if ($strictness >= $mystrict)
@@ -8310,17 +8377,6 @@ sub set_strictness
 
 
 ################################################################
-
-# Ensure a file exists.
-sub create
-{
-    use IO::File;
-    my ($file) = @_;
-
-    my $touch = new IO::File (">> $file");
-    $touch->close;
-}
-
 
 # Glob something.  Do this to avoid indentation screwups everywhere we
 # want to glob.  Gross!

@@ -1,0 +1,16 @@
+#! /bin/sh
+
+# Make sure the current version can be required.
+
+. $srcdir/defs || exit 1
+
+set -e
+
+amver=`$AUTOMAKE --version | sed -e 's/.* //;1q'`
+
+cat > Makefile.am << END
+AUTOMAKE_OPTIONS = $amver
+END
+
+$ACLOCAL
+$AUTOMAKE

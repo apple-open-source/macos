@@ -111,18 +111,12 @@ install:: ${DSTROOT}
 # Check for and remove any core files.
 	# find /${MANDIR} -name 'core' -exec rm -rf {} \;
 
-# Create a link that points to /usr/share/man
-# 10/97 MR
-# For developer documentation directory *only*
-# 4/00 MR
-	mkdir -p ${DSTROOT}/Developer/Documentation
-	ln -s /usr/share/man ${DSTROOT}/Developer/Documentation/ManPages
 
 #####
 # Copy this directory to SRCROOT.
 #
 installsrc:: ${SRCROOT}
-	gnutar cf - . | (cd ${SRCROOT}; tar xvfp -)
+	gnutar cf - . | (cd ${SRCROOT}; tar xvf -)
 
 #####
 # Since man_proj has no headers, the "installhdrs" target does nothing.

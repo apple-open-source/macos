@@ -1,0 +1,11 @@
+--- regexec.c.orig	Sun Feb 16 09:29:10 2003
++++ regexec.c	Sat May  3 14:21:16 2003
+@@ -137,6 +137,8 @@
+ /* function names */
+ #define	LNAMES			/* flag */
+ 
++#undef __FBSDID
++#define __FBSDID(x)
+ #include "engine.c"
+ 
+ /*

@@ -1,0 +1,13 @@
+Aviso de devolução numa lista do Mailman:
+
+    Lista:       %(listname)s
+    Membro:     %(addr)s
+    Acção:      Inscrição %(negative)s%(did)s.
+    Razão:      Devoluções excessivas ou fatais.
+    %(but)s
+
+%(reenable)s
+A notificação de devolução que motivou a decisão encontra-se anexa.
+
+Perguntas?  
+Contacte o administrador Mailman do site em %(owneraddr)s.

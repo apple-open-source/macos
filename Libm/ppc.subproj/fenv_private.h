@@ -37,8 +37,8 @@
 #include <fenv.h>
 
 /*  Macros to get or set environment flags doubleword  */
-#define      fegetenvd(x)         asm volatile ("mffs %0" : "=f" (x));
-#define      fesetenvd(x)         asm volatile ("mtfsf 255,%0" : : "f" (x));
+#define      FEGETENVD(x)         asm volatile ("mffs %0" : "=f" (x));
+#define      FESETENVD(x)         asm volatile ("mtfsf 255,%0" : : "f" (x));
 
 /*  exception flags  */
 #define      FE_SET_FX            0x80000000     /*  floating-point exception summary (FX) bit  */
@@ -49,16 +49,16 @@
 #define      FE_NO_EXCEPT         0xc1ffffff
 
 /*  the bitwise OR of all of the separate exception bits in the FPSCR  */
-#define      FE_ALL_FLAGS         0xfff80100
+#define      FE_ALL_FLAGS         0xfff80300
 
 /*  the bitwise negation (one's complement) of the previous macro  */
-#define      FE_NO_FLAGS          0x0007feff
+#define      FE_NO_FLAGS          0x0007fcff
 
 /*  the bitwise OR of all of the separate invalid stickies in the FPSCR  */
-#define      FE_ALL_INVALID       0x01f80100
+#define      FE_ALL_INVALID       0x01f80300
 
 /*  the bitwise negation (one's complement) of the previous macro  */
-#define      FE_NO_INVALID        0xfe07feff
+#define      FE_NO_INVALID        0xfe07fcff
 
 /* an AND mask to disable all floating-point exception enables in the FPSCR  */
 #define      FE_NO_ENABLES        0xffffff07

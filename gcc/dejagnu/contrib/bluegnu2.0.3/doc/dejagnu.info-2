@@ -1,0 +1,1137 @@
+This is Info file dejagnu.info, produced by Makeinfo version 1.68 from
+the input file ./dejagnu.texi.
+
+START-INFO-DIR-ENTRY
+* DejaGnu: (dejagnu).            The GNU testing framework.
+END-INFO-DIR-ENTRY
+
+   Copyright (C) 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided also
+that the entire resulting derived work is distributed under the terms
+of a permission notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions.
+
+
+File: dejagnu.info,  Node: Names,  Next: Init Module,  Up: Internals
+
+Conventions for using tool names
+================================
+
+   DejaGnu uses `$tool', the name of the tool under test, to tie
+together the testing configuration in a straightforward but flexible
+way. If there is only one testsuite for a particular application, then
+`$tool' is optional.
+
+   `$tool' is *not* used to invoke the tool, since sites that run
+multiple configurations of a particular tool often call each
+configuration by a different name.  `runtest' uses the
+configuration-dependent variables captured in `site.exp' to determine
+how to call each tool.
+
+   `runtest' uses tool names to find directories containing tests.
+`runtest' scans the source directory (specified with `--srcdir') for
+all directories whose names start with the tool name. It is a common
+practice to put a period after the tool part of the name. For instance,
+directories that start with `g++.' contain G++ tests.  To add a new
+test, just put it in any directory (create an entirely new directory,
+if you wish) whose name follows this convention.
+
+   A test is any file in an appropriately named subdirectory whose name
+ends in `.exp' (the conventional way of naming `expect' scripts).
+These simple naming conventions make it as simple as possible to
+install new tests: all you must do is put the test in the right
+directory.
+
+   `runtest' sorts the tests in each subdirectory by name (using the
+Tcl `lsort' command) and runs them in the resulting order.
+
+
+File: dejagnu.info,  Node: Init Module,  Next: DejaGnu Builtins,  Prev: Names,  Up: Internals
+
+Initialization module
+=====================
+
+   The initialization module (or "init file") has two purposes: to
+provide tool and target dependent procedures, and to start up an
+interactive tool to the point where it is ready to operate.  The latter
+includes establishing communications with the target.  All the tests for
+interactive programs assume that the tool is already running and
+communicating.  Initialization modules for non-interactive programs may
+only need to supply the support functions.
+
+   Each test suite directory must contain (in its `config'
+subdirectory) a separate initialization module for each target.  The
+appropriate init file is can be named several ways. The prefered name is
+the *os* part of the canonical configuration name with `.exp' as the
+suffix. An example would be that for an `m68k-coff' system, the
+`target_os' part would be `coff'. The next way is for system where
+there are short filenames, or a shortcut is desired to refer to the OS
+name for that target. This is uses the value of `$target_abbrev' rather
+than the `target_os'.
+
+   The final file looked for is simply `default.exp'. If there is only
+one operating system to support, then this file can be used. It's main
+purpose is to offer some support for new operating systems, or for
+unsupported cross targets. The last file looked for is `unknown.exp'.
+This is usually limited to error handling for unsupported targets. It's
+whole contents is typically.
+
+     perror "Sorry, there is no support for this target"
+     exit 1
+
+   At the beginning of the init file, you must first determine the
+proper executable name of the tool to execute, since the actual name of
+the tool to be tested my vary from system to system. Here's an example
+for the GNU C compiler.
+
+     global AR
+     # look for the archiver ar
+     if ![info exists AR] {
+         set AR [findfile $base_dir/../../binutils/ar $base_dir/../../binutils/ar [tr
+     ansform ar]]
+         verbose "AR defaulting to $AR" 2
+     }
+     }
+     
+     global CFLAGS
+     if ![info exists CFLAGS] then {
+         set CFLAGS ""
+     }
+
+   It is always a good idea to first check the variable, and only set
+it if it has not yet been defined.  Often the proper value of `AR' is
+set on the command line that invokes `runtest'.
+
+   The `findfile' procedure takes as it's first argument a file name to
+look for. The second argument is returned if the file is found, and the
+third argument is returned if the file is not found. `base_dir' is set
+internally by DejaGnu to the top level directory of the object tree.
+
+   The `transform' procedure takes as its argument the native name of a
+tool (such as `gcc' for the compiler), and returns the name as
+configured for that tool in the current installation.  (For example, a
+cross-compiling version of GNU CC that generates MIPS code may be
+installed with a name like `mips-idt-ecoff-gcc'.)
+
+   In a test running native, writing the Tcl code for initialization is
+usually quite simple.  For cross configurations, however, more elaborate
+instructions are usually needed to describe how to talk to a remote
+target.
+
+   Each initialization module defines up to four procedures with
+standard names and purposes.  The names of these procedures begin with
+`$tool', the string that identifies tests for a particular tool:
+`$tool_start', `$tool_load', `$tool_exit', and `$tool_version'.  For
+example, the start procedure for GDB is called `gdb_start'.  (Since
+start procedures are used differently for batch and interactive tools,
+however, `runtest' itself never calls the start procedure.  Init files
+for interactive tools are expected to end by running the start
+procedure.)
+
+   The initialization module is also a good place to call `load_lib' to
+get any collections of utility procedures meant for a family of test
+cases, and to set up default values for any additional Tcl variables
+needed for a specific set of tests.
+
+   *Note Target dependent procedures: Target Dependent, for full
+descriptions of these procedures.
+
+
+File: dejagnu.info,  Node: DejaGnu Builtins,  Next: Target Dependent,  Prev: Init Module,  Up: Internals
+
+DejaGnu procedures
+==================
+
+   DejaGnu provides these Tcl procedures for use in test scripts.  You
+can also use any standard `expect' or Tcl function. These procedures
+are stored in libraries, which DejaGnu loads at runtime. Here's
+explanation of the library procedures that get loaded at runtime. All
+other librarys are optional, and need to be loaded by the testsuite.
+
+* Menu:
+
+* framework.exp::               Core Internal Procedures.
+* remote.exp::                  Procedures for remote communication.
+* utils.exp::                   Utility procedures.
+* target.exp::                  Cross target procedures.
+* debugger.exp::                Procedures for debugging your Tcl code.
+
+
+File: dejagnu.info,  Node: framework.exp,  Next: remote.exp,  Up: DejaGnu Builtins
+
+Core Internal Procedures
+------------------------
+
+   *Note A POSIX conforming test framework: Posix, for more detailed
+explanations of the test outcomes (`FAIL', `PASS', `UNTESTED',
+`UNRESOLVED', `UNSUPPORTED').
+
+`perror "STRING NUMBER"'
+     Declares a severe error in the testing framework itself.  `perror'
+     writes in the log files a message beginning with `ERROR',
+     appending the argument STRING. If the optional NUMBER is supplied,
+     then this is used to set the internal count of errors to that
+     value.
+
+     As a side effect, `perror' also changes the effect of the next
+     `pass' or `fail' command: the test outcome becomes `UNRESOLVED',
+     since an automatic `PASS' or `FAIL' cannot be trusted after a
+     severe error in the test framework.  If the optional numeric value
+     is `0', then there are no further side effects to calling this
+     function, and the following test outcome doesn't become
+     `UNRESOLVED'. This can be used for errors with no known side
+     effects.
+
+`warning "STRING NUMBER"'
+     Declares detection of a minor error in the test case itself.
+     `warning' writes in the log files a message beginning with
+     `WARNING', appending the argument STRING.  Use `warning' rather
+     than `error' for cases (such as communication failure to be
+     followed by a retry) where the test case can recover from the
+     error.  If the optional NUMBER is supplied, then this is used to
+     set the internal count of warnings to that value.
+
+     As a side effect, `warning_threshold' or more calls to `warning'
+     in a single test case also changes the effect of the next `pass'
+     or `fail' command: the test outcome becomes `UNRESOLVED' since an
+     automatic `PASS' or `FAIL' may not be trustworthy after many
+     warnings.  If the optional numeric value is `0', then there are no
+     further side effects to calling this function, and the following
+     test outcome doesn't become `UNRESOLVED'. This can be used for
+     errors with no known side effects.
+
+`note "STRING"'
+     Appends an informational message to the log file.  `note' writes
+     in the log files a message beginning with `NOTE', appending the
+     argument STRING.  Use `note' sparingly.  `verbose' should be used
+     for most such messages, but in cases where a message is needed in
+     the log file regardless of the verbosity level use `note'.
+
+`pass "STRING"'
+     Declares a test to have passed.  `pass' writes in the log files a
+     message beginning with `PASS' (or `XPASS', if failure was
+     expected), appending the argument STRING.
+
+`fail "STRING"'
+     Declares a test to have failed.  `fail' writes in the log files a
+     message beginning with `FAIL' (or `XFAIL', if failure was
+     expected), appending the argument STRING.
+
+`unresolved "STRING"'
+     Declares a test to have an unresolved outcome.  `unresolved' writes
+     in the log file a message beginning with `UNRESOLVED', appending
+     the argument STRING.  This usually means the test did not execute
+     as expected, and a human being must go over results to determine
+     if it passed or failed (and to improve the test case).
+
+`untested "STRING"'
+     Declares a test was not run.  `untested' writes in the log file a
+     message beginning with `UNTESTED', appending the argument STRING.
+     For example, you might use this in a dummy test whose only role is
+     to record that a test does not yet exist for some feature.
+
+`unsupported "STRING"'
+     Declares that a test case depends on some facility that does not
+     exist in the testing environment.  `unsupported' writes in the log
+     file a message beginning with `UNSUPPORTED', appending the argument
+     STRING.
+
+`get_warning_threshold'
+     Returns the current value of `warning_threshold'.  The default
+     value is 3.
+
+`set_warning_threshold THRESHOLD'
+     Sets the value of `warning_threshold'.  A value of `0' disables
+     it: calls to `warning' will not turn a `PASS' or `FAIL' into an
+     `UNRESOLVED'.
+
+`transform "TOOLNAME"'
+     Generates a string for the name of a tool as it was configured and
+     installed, given its native name (as the argument TOOLNAME).  This
+     makes the assumption that all tools are installed using the same
+     naming conventions: it extrapolates from the invocation name for
+     `runtest'.  For example, if you call `runtest' as
+     `m68k-vxworks-runtest', the result of ` transform "gcc" ' is
+     `m68k-vxworks-gcc'.
+
+`ishost "HOST"'
+     Tests for a particular *host* environment.  If the currently
+     configured host matches the argument string, the result is `1';
+     otherwise the result is `0'.  HOST must be a full three-part
+     `configure' host name; in particular, you may not use the shorter
+     nicknames supported by `configure' (but you can use wildcard
+     characters, using shell syntax, to specify sets of names).
+
+`istarget "TARGET"'
+     Tests for a particular *target* environment.  If the currently
+     configured target matches the argument string, the result is `1';
+     otherwise the result is `0'.  TARGET must be a full three-part
+     `configure' target name; in particular, you may not use the
+     shorter nicknames supported by `configure' (but you can use
+     wildcard characters, using shell syntax, to specify sets of
+     names). If it is passed a `NULL' string, then it returns the name
+     of the build canonical configuration.
+
+`isbuild "HOST"'
+     Tests for a particular *build host* environment.  If the currently
+     configured host matches the argument string, the result is `1';
+     otherwise the result is `0'.  HOST must be a full three-part
+     `configure' host name; in particular, you may not use the shorter
+     nicknames supported by `configure' (but you can use wildcard
+     characters, using shell syntax, to specify sets of names). If it is
+     passed a `NULL' string, then it returns the name of the build
+     canonical configuration.
+
+     item is3way "HOST" Tests for a canadian cross. This is when the
+     tests will be run on a remotly hosted cross compiler. If it is a
+     canadian cross, then the result is `1'; otherwise the result is
+     `0'.
+
+`isnative'
+     Tests whether the current configuration has the same host and
+     target.  When it runs in a *native* configuration this procedure
+     returns a `1'; otherwise it returns a `0'.
+
+`load_lib "LIBRARY-FILE"'
+     Loads the file LIBRARY-FILE by searching a fixed path built into
+     `runtest'.  If DejaGnu has been installed, it looks in a path
+     starting with the installed library directory.  If you are running
+     DejaGnu directly from a source directory, without first running
+     `make install', this path defaults to the current directory.  In
+     either case, it then looks in the current directory for a directory
+     called `lib'.  If there are duplicate definitions, the last one
+     loaded takes precedence over the earlier ones.
+
+`setup_xfail "CONFIG  [BUGID]"'
+     Declares that the test is expected to fail on a particular set of
+     configurations.  The CONFIG argument must be a list of full
+     three-part `configure' target name; in particular, you may not use
+     the shorter nicknames supported by `configure' (but you can use the
+     common shell wildcard characters to specify sets of names).  The
+     BUGID argument is optional, and used only in the logging file
+     output; use it as a link to a bug-tracking system such as GNATS
+     (*note Overview: (gnats.info)Overview.).
+
+     Once you use `setup_xfail', the `fail' and `pass' procedures
+     produce the messages `XFAIL' and `XPASS' respectively, allowing
+     you to distinguish expected failures (and unexpected success!)
+     from other test outcomes.
+
+     *Warning:* you must clear the expected failure after using
+     `setup_xfail' in a test case.  Any call to `pass' or `fail' clears
+     the expected failure implicitly; if the test has some other
+     outcome, e.g. an error, you can call `clear_xfail' to clear the
+     expected failure explicitly.  Otherwise, the expected-failure
+     declaration applies to whatever test runs next, leading to
+     surprising results.
+
+`clear_xfail CONFIG'
+     Cancel an expected failure (previously declared with `setup_xfail')
+     for a particular set of configurations.  The CONFIG argument is a
+     list of configuration target names.  It is only necessary to call
+     `clear_xfail' if a test case ends without calling either `pass' or
+     `fail', after calling `setup_xfail'.
+
+`verbose [-log] [-n] [--] "STRING" NUMBER'
+     Test cases can use this function to issue helpful messages
+     depending on the number of `--verbose' options on the `runtest'
+     command line.  It prints STRING if the value of the variable
+     `verbose' is higher than or equal to the optional NUMBER. The
+     default value for NUMBER is 1.  Use the optional `-log' argument
+     to cause STRING to always be added to the log file, even if it
+     won't be printed.  Use the optional `-n' argument to print STRING
+     without a trailing newline.  Use the optional `--' argument if
+     STRING begins with "-".
+
+
+File: dejagnu.info,  Node: remote.exp,  Next: utils.exp,  Prev: framework.exp,  Up: DejaGnu Builtins
+
+Remote Communication Procedures
+-------------------------------
+
+`lib/remote.exp' defines these functions, for establishing and managing
+communications:
+
+   *Procedures to establish a connection:* Each of these procedures
+tries to establish the connection up to three times before returning.
+Warnings (if retries will continue) or errors (if the attempt is
+abandoned) report on communication failures.  The result for any of
+these procedures is either `-1', when the connection cannot be
+established, or the spawn ID returned by the `expect' command `spawn'.
+
+   It use the value of the `connect' field in the `target_info' array
+(was `connectmode' as the type of connection to make. Current supported
+connection types are tip, kermit, telnet, rsh, rlogin, and netdata. If
+the `--reboot' option was used on the runtest command line, then the
+target is rebooted before the connection is made.
+
+`remote_open TYPE'
+     *Remote Connection Procedure.* This is passed *host* or *target*.
+     Host or target refers to whether it is a connection to a remote
+     target, or a remote host. This opens the connection to the desired
+     target or host using the default values in the configuration
+     system. It returns that `spawn_id' of the process that manages the
+     connection. This value can be used in `expect' or `exp_send'
+     statements, or passed to other procedures that need the connection
+     process's id. This also sets the `fileid' field in the
+     `target_info' array.
+
+`remote_close SHELLID'
+     *shellid* is value returned by a call to `remote_open'. This
+     closes the connection to the target so resources can be used by
+     others. This parameter can be left off if the `fileid' field in the
+     `target_info' array is set.
+
+`telnet HOSTNAME PORT'
+`rlogin HOSTNAME'
+`rsh HOSTNAME'
+     *IP network procedures.* HOSTNAME refers to the IP address or name
+     (for example, an entry in `/etc/hosts') for this target.  The
+     procedure names reflect the Unix utility used to establish a
+     connection. The optional PORT is used to specify the IP port
+     number. The value of the `netport' field in the `target_info'
+     array is used. (was `$netport') This value has two parts, the
+     hostname and the port number, seperated by a *:*. If `host' or
+     `target' is used in the `hostname' field, than the config array is
+     used for all information.
+
+`tip PORT'
+     *Serial line procedure.* Connect using the Unix utility `tip'.
+     PORT must be a name from the `tip' configuration file
+     `/etc/remote'.  Often, this is called `hardwire', or something
+     like `ttya'. This file holds all the configuration data for the
+     serial port. The value of the `serial' field in the `target_info'
+     array is used. (was `$serialport') If `host' or `target' is used
+     in the `port' field, than the config array is used for all
+     information.
+
+`kermit PORT BPS'
+     *Serial line procedure.*  Connect using the program `kermit'.
+     PORT is the device name, e.g. `/dev/ttyb'.  BPS is the line speed
+     to use (in bits per second) for the connection. The value of the
+     `serial' field in the `target_info' array is used. (was
+     `$serialport') If `host' or `target' is used in the `port' field,
+     than the config array is used for all information.
+
+*Procedures to manage a connection:*
+
+`tip_download SPAWNID FILE'
+     Download `FILE' to the process SPAWNID (the value returned when
+     the connection was established), using the `~put' command under
+     `tip'.  Most often used for single board computers that require
+     downloading programs in ASCII S-records.  Returns `1' if an error
+     occurs, `0' otherwise.
+
+`exit_remote_shell SPAWNID'
+     Exits a remote process started by any of the connection procedures.
+     SPAWNID is the result of the connection procedure that started the
+     remote process.
+
+`download FILE [ SPAWNID ]'
+     After you establish a connection to a target, you can download
+     programs using this command.  `download' reads in FILE (object
+     code in S-record format) and writes it to the device controlling
+     this SPAWNID.  (From the point of view of the target, the S-record
+     file comes in via standard input.)
+
+     If you have more than one target active, you can use the optional
+     argument SPAWNID to specify an alternative target (the default is
+     the most recently established SPAWNID.)
+
+
+File: dejagnu.info,  Node: utils.exp,  Next: target.exp,  Prev: remote.exp,  Up: DejaGnu Builtins
+
+Utility Procedures
+------------------
+
+`lib/utils.exp' defines these utility procedures:
+
+`getdirs DIR'
+`getdirs DIR PATTERN'
+     Returns a list of all the directories in the single directory DIR
+     that match PATTERN.  If you do not specify PATTERN, `getdirs'
+     assumes `*'.  You may use the common shell wildcard characters in
+     PATTERN. If no directories match the pattern, then a `NULL' string
+     is returned.
+
+`find DIR PATTERN'
+     Search for files whose names match PATTERN (using shell wildcard
+     characters for filename expansion).  Search subdirectories
+     recursively, starting at DIR.  The result is the list of files
+     whose names match; if no files match, the result is empty.
+     Filenames in the result include all intervening subdirectory
+     names. If no files match the pattern, then a `NULL' string is
+     returned.
+
+`which BINARY'
+     Searches the execution path for an executable file BINARY, like
+     the the BSD `which' utility.  This procedure uses the shell
+     environment variable `PATH'. It returns `0' if the binary is not
+     in the path, or if there is no `PATH' environment variable. If
+     BINARY is in the path, it returns the full path to BINARY.
+
+`grep FILENAME REGEXP'
+
+`grep FILENAME REGEXP line'
+     Search the file called FILENAME (a fully specified path) for lines
+     that contain a match for regular expression REGEXP.  The result is
+     a list of all the lines that match.  If no lines match, the result
+     is an empty string.  Specify REGEXP using the standard regular
+     expression style used by the Unix utility program `grep'.
+
+     Use the optional third argument `line' to start lines in the result
+     with the line number in FILENAME.  (This argument is simply an
+     option flag; type it just as shown--`line'.)
+
+`diff FILENAME FILENAME'
+     Compares the two files and returns a 1 if they match, or a 0 if
+     they don't. If `verbose' is set, then it'll print the differences
+     to the screen.
+
+`slay NAME'
+     This look in the process tabel for NAME and send it a unix
+     `SIGINT', killing the process.
+
+`absolute PATH'
+     This procedure takes the relative PATH, and converts it to an
+     absolute path.
+
+`psource FILENAME'
+     This sources the file FILENAME, and traps all errors. It also
+     ignores all extraneous output. If there was an error it returns a
+     1, otherwise it returns a 0.
+
+`prune LIST PATTERN'
+     Remove elements of the Tcl list LIST.  Elements are fields
+     delimited by spaces.  The result is a copy of LIST, without any
+     elements that match PATTERN.  You can use the common shell
+     wildcard characters to specify PATTERN.
+
+`setenv VAR VAL'
+     Sets the variable VAR to the value VAL.
+
+`unsetenv VAR'
+     Unsets the environment variable VAR
+
+`getenv VAR'
+     returns the value of VAR in the environment if it exists,
+     otherwise it returns `NULL'.
+
+`runtest_file_p RUNTESTS TESTCASE'
+     Search RUNTESTS for TESTCASE and return 1 if found, 0 if not.
+     RUNTESTS is a list of two elements.  The first is the pathname of
+     the testsuite expect script running.  The second is a copy of what
+     was on the right side of the `=' if `foo.exp="..."' was specified,
+     or an empty string if no such argument is present.  This is used
+     by tools like compilers where each testcase is a file.
+
+`prune_system_crud SYSTEM TEXT'
+     For system SYSTEM, delete text the host or target operating system
+     might issue that will interfere with pattern matching of program
+     output in TEXT.  An example is the message that is printed if a
+     shared library is out of date.
+
+
+File: dejagnu.info,  Node: target.exp,  Next: debugger.exp,  Prev: utils.exp,  Up: DejaGnu Builtins
+
+Cross target procedure
+----------------------
+
+`lib/target.exp' defines these utility procedures:
+
+`push_target *name*'
+     This makes the target named *name* be the current target
+     connection. The value of *name* is an index into the `target_info'
+     array and is set in the global config file.
+
+`pop_target'
+     This unsets the current target connection.
+
+`list_targets'
+     This lists all the supported targets for this architecture.
+
+`push_host *name*'
+     This makes the host named *name* be the current remote host
+     connection. The value of *name* is an index into the `target_info'
+     array and is set in the global config file.
+
+`pop_host'
+     This unsets the current host connection.
+
+     This invokes the compiler as set by `CC' to compile the file
+     *file*. The default options for many cross compilation targets are
+     *guessed* by DejaGnu, and these options can be added to by passing
+     in more parameters as arguments to `compile'. Optionally, this will
+     also use the value of the `cflags' field in the target config
+     array. If the host is not the same as the build machines, then then
+     compiler is run on the remote host using `execute_anywhere'.
+
+     This produces an archive file. Any parameters passed to `archive'
+     are used in addition to the default flags. Optionally, this will
+     also use the value of the `arflags' field in the target config
+     array. If the host is not the same as the build machines, then then
+     archiver is run on the remote host using `execute_anywhere'.
+
+     This generates an index for the archive file for systems that
+     aren't POSIX yet. Any parameters passed to `ranlib' are used in
+     for the flags.
+
+`execute_anywhere *cmdline*'
+     This executes the *cmdline* on the proper host. This should be used
+     as a replacement for the Tcl command `exec' as this version
+     utilizes the target config info to execute this command on the
+     build machine or a remote host. All config information for the
+     remote host must be setup to have this command work. If this is a
+     canadian cross, (where we test a cross compiler that runs on a
+     different host then where DejaGnu is running) then a connection is
+     made to the remote host and the command is executed there. It
+     returns either *REMOTERROR* (for an error) or the output produced
+     when the command was executed. This is used for running the tool
+     to be tested, not a test case.
+
+
+File: dejagnu.info,  Node: debugger.exp,  Prev: target.exp,  Up: DejaGnu Builtins
+
+Debugging Procedures
+--------------------
+
+   `lib/debugger.exp' defines these utility procedures:
+
+`dumpvars *expr*'
+     This takes a csh style regular expression (glob rules) and prints
+     the values of the global variable names that match.  It is
+     abbreviated as `dv'
+
+`dumplocals *expr*'
+     This takes a csh style regular expression (glob rules) and prints
+     the values of the local variable names that match. It is
+     abbreviated as `dl'.
+
+`dumprocs *expr*'
+     This takes a csh style regular expression (glob rules) and prints
+     the body of all procs that match. It is abbreviated as `dp'
+
+`dumpwatch *expr*'
+     This takes a csh style regular expression (glob rules) and prints
+     all the watchpoints. It is abbreviated as `dw'.
+
+`watchunset *var*'
+     This breaks program execution when the variable *var* is unset. It
+     is abbreviated as `wu'.
+
+`watchwrite *var*'
+     This breaks program execution when the variable *var* is written.
+     It is abbreviated as `ww'.
+
+`watchread *var*'
+     This breaks program execution when the variable *var* is read. It
+     is abbreviated as `wr'.
+
+`watchdel *watch*'
+     This deletes a the watchpoint for *watch*. It is abbreviated as
+     `wd'.
+
+`print *var*'
+     This prints the value of the variable *var*. It is abbreviated as
+     `p'.
+
+`quit'
+     This makes runtest exit. It is abbreviated as `q'.
+
+`bt'
+     This prints a backtrace of the executed Tcl commands.
+
+
+File: dejagnu.info,  Node: Target Dependent,  Next: Cross Targets,  Prev: DejaGnu Builtins,  Up: Internals
+
+Target dependent procedures
+===========================
+
+   Each combination of target and tool requires some target-dependent
+procedures.  The names of these procedures have a common form: the tool
+name, followed by an underbar `_', and finally a suffix describing the
+procedure's purpose.  For example, a procedure to extract the version
+from GDB is called `gdb_version'.  *Note Initialization Module: Init
+Module, for a discussion of how DejaGnu arranges to find the right
+procedures for each target.
+
+   `runtest' itself calls only two of these procedures, `TOOL_exit' and
+`TOOL_version'; these procedures use no arguments.
+
+   The other two procedures, `TOOL_start' and `TOOL_load', are only
+called by the test suites themselves (or by testsuite-specific
+initialization code); they may take arguments or not, depending on the
+conventions used within each test suite.
+
+`TOOL_start'
+     Starts a particular tool.  For an interactive tool, `TOOL_start'
+     starts and initializes the tool, leaving the tool up and running
+     for the test cases; an example is `gdb_start', the start function
+     for GDB.  For a batch oriented tool, `TOOL_start' is optional; the
+     recommended convention is to let `TOOL_start' run the tool,
+     leaving the output in a variable called `comp_output'.  Test
+     scripts can then analyze `$comp_output' to determine the test
+     results.  An example of this second kind of start function is
+     `gcc_start', the start function for GCC.
+
+     `runtest' itself *does not call* `TOOL_start'.  The initialization
+     module `TOOL_init.exp' must call `TOOL_start' for interactive
+     tools; for batch-oriented tools, each individual test script calls
+     `TOOL_start' (or makes other arrangements to run the tool).
+
+`TOOL_load'
+     Loads something into a tool. For an interactive tool, this
+     conditions the tool for a particular test case; for example,
+     `gdb_load' loads a new executable file into the debugger. For
+     batch oriented tools, `TOOL_load' may do nothing--though, for
+     example, the GCC support uses `gcc_load' to load and run a binary
+     on the target environment.  Conventionally, `TOOL_load' leaves the
+     output of any program it runs in a variable called `exec_output'.
+     Writing `TOOL_load' can be the most complex part of extending
+     DejaGnu to a new tool or a new target, if it requires much
+     communication coding or file downloading.
+
+     Test scripts call `TOOL_load'.
+
+`TOOL_exit'
+     Cleans up (if necessary) before `runtest' exits. For interactive
+     tools, this usually ends the interactive session.  You can also use
+     `TOOL_exit' to remove any temporary files left over from the tests.
+
+     `runtest' calls `TOOL_exit'.
+
+`TOOL_version'
+     Prints the version label and number for TOOL.  This is called by
+     the DejaGnu procedure that prints the final summary report.  The
+     output should consist of the full path name used for the tested
+     tool, and its version number.
+
+     `runtest' calls `TOOL_version'.
+
+   The usual convention for return codes from any of these procedures
+(although it is not required by `runtest') is to return `0' if the
+procedure succeeded, `1' if it failed, and `-1' if there was a
+communication error.
+
+
+File: dejagnu.info,  Node: Cross Targets,  Next: Input Files,  Prev: Target Dependent,  Up: Internals
+
+Remote targets supported
+========================
+
+   The DejaGnu distribution includes support for the following remote
+targets.  You can set the target name and the connect mode in the
+`site.exp' file (using the Tcl variables `targetname' and
+`connectmode', respectively), or on the `runtest' command line (using
+`--name' and `--connect').
+
+*AMD 29000, with UDI protocol*
+     Configure DejaGnu for target `a29k-amd-udi'.  (Cygnus `configure'
+     also recognizes the abbreviation `udi29k'.)  Then, to run tests,
+     use the `runtest' target name to specify whether you want to use a
+     simulator, or a particular hardware board.  The particular string
+     to use with `--name' will depend on your UDI setup file, `udi_soc'
+     (if `udi_soc' is not in your working directory, the environment
+     variable `UDICONF' should contain a path to this file).  For
+     example, if your UDI setup file includes these lines:
+
+     iss   AF_UNIX  *   isstip -r /home/gnu/29k/src/osboot/sim/osboot
+     mon   AF_UNIX  *   montip -t serial -baud 9600 -com /dev/ttyb
+
+* *
+     You can use `--name iss' to run tests on the simulator, and
+     `--name mon' to run tests on the 29K hardware.  See the
+     manufacturer's manuals for more information on UDI and `udi_soc'.
+
+     The default connect protocol is `mondfe' with either back end.
+     `mondfe' is the only shell DejaGnu supports for UDI targets.
+     `mondfe' is an AMD specific monitor program freely available from
+     AMD.
+
+     *Warning:* This target requires GDB version 4.7.2 (or greater).
+     Earlier versions of GDB do not fully support the `load' command on
+     this target, so DejaGnu has no way to load executable files from
+     the debugger.
+
+*Motorola 680x0 boards, a.out or COFF object format*
+     Configure DejaGnu for any remote target matching `m68k-*'.
+
+     *Warning:* Most `m68k-*' configurations run all tests only for
+     native testing (when the target is the same as the host).  When you
+     specify most of these targets for a cross configuration, you will
+     only be able to use tests that run completely within the host (for
+     example, tests of the binary utilities such as the archiver; or
+     compiler tests that only generate code rather than running it).
+
+     To run a.out or COFF binaries on a remote M68K, you must configure
+     DejaGnu for a particular target board.  `m68k-abug' is an example.
+     (In general for an embedded environment, because it does not have
+     absolute addresses, a.out is not a good choice for output format
+     in any case; most often S-records or Hex-32 are used instead.)
+
+*Motorola 68K MVME 135 board running ABug boot monitor*
+     Configure for `m68k-abug-aout' or `m68k-abug-coff' (as a target).
+     This boot monitor can only download S-records; therefore, the
+     DejaGnu tests for this environment require a linker command script
+     to convert either output format to S-records, setting the default
+     addresses for `.text', `.bss', and `.data'.
+
+     With this configuration, the default for `--connect' is `tip'.
+     `tip' is the only communications protocol supported for connecting
+     to `m68k-abug-*' targets.  `tip' uses an ASCII downloader (the
+     `~put' command) to load S-records into the target board.  The
+     `--name' string must be a machine name that `tip' understands (for
+     example, on some `tip' implementations it must be an entry from
+     the initialization file for `tip'; this file is sometimes called
+     `/etc/remote').
+
+     See your system documentation for information on how to create new
+     entries in `/etc/remote'.  (Some UNIX systems are distributed with
+     at least one default entry with a name resembling `hardwire'; if
+     your system has one, you can edit it, or make a modified copy with
+     a new name.)  When you have a working `/etc/remote' entry
+     ABUGTARGET, you should be able to type `tip ABUGTARGET', and get
+     the prompt `135ABUG>' from the board.  Use the same ABUGTARGET
+     string with `runtest --name'.
+
+*Motorola IDP board running the rom68k boot monitor*
+     This is the same in functionality as the MVME board running the
+     `BUG' boot monitor. Only the monitor commands and the addresses are
+     different.
+
+*VxWorks (Motorola 68K or Intel 960)*
+     Configure DejaGnu for either `m68k-wrs-vxworks' (abbreviated
+     `vxworks68') or `i960-wrs-vxworks' (abbreviated `vxworks960').
+     Since both targets support IP addressing, specify the network
+     address (for example, a host name from `/etc/hosts') with `--name'.
+
+     The default connect protocol is `rlogin', but you can use any of
+     `--connect rlogin', `--connect telnet', or `--connect rsh'.
+
+     Test scripts need no special code to load programs into these
+     targets; since VxWorks supports NFS, all you must do is ensure
+     test programs are on an exported filesystem.
+
+     When you compile for VxWorks, use the linker `-r' option to make
+     the linker output relocatable--at least if you want to use library
+     routines. Many standard C routines are included in VxWorks; often
+     no additional libraries are needed.  See your VxWorks system
+     documentation for additional details.
+
+
+File: dejagnu.info,  Node: Input Files,  Next: Output Files,  Prev: Cross Targets,  Up: Internals
+
+The files DejaGnu reads
+=======================
+
+   The `runtest' program used to invoke DejaGnu is a short shell script
+generated by `make' during the configuration process.  Its main task is
+to read the main test framework driver, `runtest.exp'.
+
+   `runtest.exp', in turn, reads `expect' code from certain other
+files, in this order:
+
+  1. Each of the `site.exp' local definition files available.  *Note
+     Setting `runtest' defaults: Customizing, for details.
+
+  2. `lib/utils.exp', a collection of utility procedures.  *Note
+     DejaGnu Builtins: DejaGnu Builtins, for descriptions of these
+     procedures.
+
+  3. `lib/framework.exp', a file of subroutines meant for `runtest'
+     itself rather than for general-purpose use in both `runtest' and
+     test suites.
+
+  4. `debugger.exp', Don Libes' Tcl Debugger.  (See `A Debugger for Tcl
+     Applications' by Don Libes. This paper is distributed with
+     `expect' in PostScript form as the file `expect/tcl-debug.ps'.)
+
+  5. `lib/remote.exp', a collection of subroutines meant for connecting
+     to remote machines.
+
+  6. `lib/target.exp', a collection of subroutines used for the
+     configuration systems in DejaGnu. These procedures typically
+     manipulate or utilize the configuration system.
+
+  7. An initialization file `TOOL_init.exp'.  *Note Initialization
+     module: Init Module, for more discussion of init files.
+
+
+File: dejagnu.info,  Node: Output Files,  Prev: Input Files,  Up: Internals
+
+The files DejaGnu writes
+========================
+
+   `runtest' always writes two kinds of output files: summary logs and
+detailed logs.  The contents of both of these are determined by your
+tests.
+
+   For troubleshooting, a third kind of output file is useful: use
+`--debug' to request an output file showing details of what `expect' is
+doing internally.
+
+* Menu:
+
+* Summary::             Files that summarize tests
+* Detail::              Files that contain complete test results
+* Debug::               Logging expect internal actions
+
+
+File: dejagnu.info,  Node: Summary,  Next: Detail,  Up: Output Files
+
+Summary log
+-----------
+
+   `runtest' always produces a summary output file `TOOL.sum'.  This
+summary shows the names of all test files run; for each test file, one
+line of output from each `pass' command (showing status `PASS' or
+`XPASS') or `fail' command (status `FAIL' or `XFAIL'); trailing summary
+statistics that count passing and failing tests (expected and
+unexpected); and the full pathname and version number of the tool
+tested.  (All possible outcomes, and all errors, are always reflected in
+the summary output file, regardless of whether or not you specify
+`--all'.)
+
+   If any of your tests use the procedures `unresolved', `unsupported',
+or `untested', the summary output also tabulates the corresponding
+outcomes.
+
+   For example, after `runtest --tool binutils', look for a summary log
+in `binutils.sum'.  Normally, `runtest' writes this file in your
+current working directory; use the `--outdir' option to select a
+different directory.
+
+Here is a short sample summary log:
+
+     Test Run By rob on Mon May 25 21:40:57 PDT 1992
+                     === gdb tests ===
+     Running ./gdb.t00/echo.exp ...
+     PASS:   Echo test
+     Running ./gdb.all/help.exp ...
+     PASS:   help add-symbol-file
+     PASS:   help aliases
+     PASS:   help breakpoint "bre" abbreviation
+     FAIL:   help run "r" abbreviation
+     Running ./gdb.t10/crossload.exp ...
+     PASS:   m68k-elf (elf-big) explicit format; loaded
+     XFAIL:  mips-ecoff (ecoff-bigmips) "ptype v_signed_char" signed
+     C types
+                     === gdb Summary ===
+     # of expected passes 5
+     # of expected failures 1
+     # of unexpected failures 1
+     /usr/latest/bin/gdb version 4.6.5 -q
+
+
+File: dejagnu.info,  Node: Detail,  Next: Debug,  Prev: Summary,  Up: Output Files
+
+Detailed log
+------------
+
+   `runtest' also saves a detailed log file `TOOL.log', showing any
+output generated by tests as well as the summary output.  For example,
+after `runtest --tool binutils', look for a detailed log in
+`binutils.log'.  Normally, `runtest' writes this file in your current
+working directory; use the `--outdir' option to select a different
+directory.
+
+Here is a brief example showing a detailed log for G++ tests:
+
+     Test Run By rob on Mon May 25 21:40:43 PDT 1992
+     
+                     === g++ tests ===
+     
+     --- Running ./g++.other/t01-1.exp ---
+             PASS:   operate delete
+     
+     --- Running ./g++.other/t01-2.exp ---
+             FAIL:   i960 bug EOF
+     p0000646.C: In function `int  warn_return_1 ()':
+     p0000646.C:109: warning: control reaches end of non-void function
+     p0000646.C: In function `int  warn_return_arg (int)':
+     p0000646.C:117: warning: control reaches end of non-void function
+     p0000646.C: In function `int  warn_return_sum (int, int)':
+     p0000646.C:125: warning: control reaches end of non-void function
+     p0000646.C: In function `struct foo warn_return_foo ()':
+     p0000646.C:132: warning: control reaches end of non-void function
+     
+     --- Running ./g++.other/t01-4.exp ---
+             FAIL:   abort
+     900403_04.C:8: zero width for bit-field `foo'
+     --- Running ./g++.other/t01-3.exp ---
+             FAIL:   segment violation
+     900519_12.C:9: parse error before `;'
+     900519_12.C:12: Segmentation violation
+     /usr/latest/bin/gcc: Internal compiler error: program cc1plus got
+     fatal signal
+     
+                     === g++ Summary ===
+     
+     # of expected passes 1
+     # of expected failures 3
+     /usr/ps/bin/g++ version cygnus-2.0.1
+
+
+File: dejagnu.info,  Node: Debug,  Prev: Detail,  Up: Output Files
+
+Logging `expect' internal actions
+---------------------------------
+
+   With the `--debug' option, you can request a log file showing the
+output from `expect' itself, running in debugging mode. This file
+(`dbg.log', in the directory where you start `runtest') shows each
+pattern `expect' considers in analyzing test output.
+
+   This file reflects each `send' command, showing the string sent as
+input to the tool under test; and each `expect' command, showing each
+pattern it compares with the tool output.
+
+   The log messages for `expect' begin with a message of the form
+
+     expect: does {TOOL OUTPUT} (spawn_id N) match pattern
+     {EXPECTED PATTERN}?
+
+For every unsuccessful match, `expect' issues a `no' after this
+message; if other patterns are specified for the same `expect' command,
+they are reflected also, but without the first part of the message
+(`expect...match pattern').
+
+   When `expect' finds a match, the log for the successful match ends
+with `yes', followed by a record of the `expect' variables set to
+describe a successful match.  Here is an excerpt from the debugging log
+for a GDB test:
+
+     send: sent {break gdbme.c:34\n} to spawn id 6
+     expect: does {} (spawn_id 6) match pattern {Breakpoint.*at.* file
+      gdbme.c, line 34.*\(gdb\) $}? no
+     {.*\(gdb\) $}? no
+     expect: does {} (spawn_id 0) match pattern {<return>}? no
+     {\(y or n\) }? no
+     {buffer_full}? no
+     {virtual}? no
+     {memory}? no
+     {exhausted}? no
+     {Undefined}? no
+     {command}? no
+     break gdbme.c:34
+     Breakpoint 8 at 0x23d8: file gdbme.c, line 34.
+     (gdb) expect: does {break gdbme.c:34\r\nBreakpoint 8 at 0x23d8:
+     file gdbme.c, line 34.\r\n(gdb) } (spawn_id 6) match pattern
+     {Breakpoint.*at.* file gdbme.c, line 34.*\(gdb\) $}? yes
+     expect: set expect_out(0,start) {18}
+     expect: set expect_out(0,end) {71}
+     expect: set expect_out(0,string) {Breakpoint 8 at 0x23d8: file
+     gdbme.c, line 34.\r\n(gdb) }
+     expect: set expect_out(spawn_id) {6}
+     expect: set expect_out(buffer) {break gdbme.c:34\r\nBreakpoint 8
+     at 0x23d8: file gdbme.c, line 34.\r\n(gdb) }
+             PASS:   70      0       breakpoint line number in file
+
+This example exhibits three properties of `expect' and DejaGnu that
+might be surprising at first glance:
+
+   * Empty output for the first attempted match.  The first set of
+     attempted matches shown ran against the output `{}'--that is, no
+     output.  `expect' begins attempting to match the patterns supplied
+     immediately; often, the first pass is against incomplete output (or
+     completely before all output, as in this case).
+
+   * Interspersed tool output.  The beginning of the log entry for the
+     second attempted match may be hard to spot: this is because the
+     prompt `(gdb) ' appears on the same line, just before the `expect:'
+     that marks the beginning of the log entry.
+
+   * Fail-safe patterns.  Many of the patterns tested are fail-safe
+     patterns provided by GDB testing utilities, to reduce possible
+     indeterminacy.  It is useful to anticipate potential variations
+     caused by extreme system conditions (GDB might issue the message
+     `virtual memory exhausted' in rare circumstances), or by changes in
+     the tested program (`Undefined command' is the likeliest outcome if
+     the name of a tested command changes).
+
+     The pattern `{<return>}' is a particularly interesting fail-safe
+     to notice; it checks for an unexpected <RET> prompt.  This may
+     happen, for example, if the tested tool can filter output through a
+     pager.
+
+     These fail-safe patterns (like the debugging log itself) are
+     primarily useful while developing test scripts.  Use the `error'
+     procedure to make the actions for fail-safe patterns produce
+     messages starting with `ERROR' on the `runtest' standard output,
+     and in the detailed log file.
+
+
+File: dejagnu.info,  Node: Tests,  Next: Extending,  Prev: Internals,  Up: Top
+
+How To Write a Test Case
+************************
+
+* Menu:
+
+* Writing::                     Writing a test case
+* Debugging::                   Debugging a test case
+* Adding::                      Adding a test case to a test suite
+* Hints::                       Hints on writing a test case
+* Variables::                   Special variables used by test cases
+
+
+File: dejagnu.info,  Node: Writing,  Next: Debugging,  Up: Tests
+
+Writing a test case
+===================
+
+   The easiest way to prepare a new test case is to base it on an
+existing one for a similar situation.  There are two major categories
+of tests: batch or interactive.  Batch oriented tests are usually
+easier to write.
+
+   The GCC tests are a good example of batch oriented tests.  All GCC
+tests consist primarily of a call to a single common procedure, since
+all the tests either have no output, or only have a few warning
+messages when successfully compiled.  Any non-warning output is a test
+failure.  All the C code needed is kept in the test directory.  The test
+driver, written in `expect', need only get a listing of all the C files
+in the directory, and compile them all using a generic procedure.  This
+procedure and a few others supporting for these tests are kept in the
+library module `lib/c-torture.exp' in the GCC test suite.  Most tests
+of this kind use very few `expect' features, and are coded almost
+purely in Tcl.
+
+Writing the complete suite of C tests, then, consisted of these steps:
+
+  1. Copying all the C code into the test directory.  These tests were
+     based on the C-torture test created by Torbjorn Granlund (on
+     behalf of the Free Software Foundation) for GCC development.
+
+  2. Writing (and debugging) the generic `expect' procedures for
+     compilation.
+
+  3. Writing the simple test driver: its main task is to search the
+     directory (using the Tcl procedure `glob' for filename expansion
+     with wildcards) and call a Tcl procedure with each filename.  It
+     also checks for a few errors from the testing procedure.
+
+   Testing interactive programs is intrinsically more complex.  Tests
+for most interactive programs require some trial and error before they
+are complete.
+
+   However, some interactive programs can be tested in a simple fashion
+reminiscent of batch tests.  For example, prior to the creation of
+DejaGnu, the GDB distribution already included a wide-ranging testing
+procedure.  This procedure was very robust, and had already undergone
+much more debugging and error checking than many recent DejaGnu test
+cases.  Accordingly, the best approach was simply to encapsulate the
+existing GDB tests, for reporting purposes.  Thereafter, new GDB tests
+built up a family of `expect' procedures specialized for GDB testing.
+
+   `gdb.t10/crossload.exp' is a good example of an interactive test.
+

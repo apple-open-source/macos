@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblutil/entropy.c,v 1.21 2002/01/04 20:17:43 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblutil/entropy.c,v 1.21.2.3 2003/03/03 17:10:06 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -36,21 +36,27 @@ int lutil_entropy( unsigned char *buf, ber_len_t nbytes )
 	if( nbytes == 0 ) return 0;
 
 #ifdef URANDOM_DEVICE
+#define URANDOM_NREADS 4
 	/* Linux and *BSD offer a urandom device */
 	{
-		int rc, fd;
+		int rc, fd, n=0;
 
 		fd = open( URANDOM_DEVICE, O_RDONLY );
 
 		if( fd < 0 ) return -1;
 
-		rc = read( fd, buf, nbytes );
+		do {
+			rc = read( fd, buf, nbytes );
+			if( rc <= 0 ) break;
+
+			buf+=rc;
+			nbytes-=rc;
+
+			if( ++n >= URANDOM_NREADS ) break;
+		} while( nbytes > 0 );
+
 		close(fd);
-
-		/* should return nbytes */
-		if( rc < nbytes ) return -1;
-
-		return 0;
+		return nbytes > 0 ? -1 : 0;
 	}
 #elif PROV_RSA_FULL
 	{

@@ -52,11 +52,11 @@ private:
 		Reserved for future use.  (Internal use only)  */
 	ExpansionData *reserved;
 
-    static UInt32 						fHasUCIniter; // zzz why not boolean?
-    static IOFireWireUserClientIniter*	fUCIniter;
-    static OSDictionary*				fProviderMergeProperties;
-	static OSDictionary*				fPropTable ;
-	static IOService*					fProvider ;
+    UInt32 							fHasUCIniter; // zzz why not boolean?
+    IOFireWireUserClientIniter*		fUCIniter;
+    OSDictionary*					fProviderMergeProperties;
+	OSDictionary*					fPropTable ;
+	IOService*						fProvider ;
 
 public:
 	virtual bool					start(IOService*	provider) ;

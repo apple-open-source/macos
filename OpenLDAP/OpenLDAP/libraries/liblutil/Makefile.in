@@ -1,5 +1,5 @@
-# $OpenLDAP: pkg/ldap/libraries/liblutil/Makefile.in,v 1.26 2002/01/04 20:17:43 kurt Exp $
-## Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+# $OpenLDAP: pkg/ldap/libraries/liblutil/Makefile.in,v 1.26.2.3 2003/03/03 17:10:06 kurt Exp $
+## Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
 ## COPYING RESTRICTIONS APPLY, see COPYRIGHT file
 ##
 ## Makefile for -llutil
@@ -13,11 +13,11 @@ NT_OBJS = ntservice.o slapdmsg.res
 UNIX_SRCS = detach.c
 UNIX_OBJS = detach.o
 
-SRCS	= base64.c csn.c debug.c entropy.c sasl.c signal.c hash.c \
+SRCS	= base64.c csn.c entropy.c sasl.c signal.c hash.c passfile.c \
 	md5.c passwd.c sha1.c getpass.c lockf.c utils.c uuid.c sockpair.c \
 	@LIBSRCS@ $(@PLAT@_SRCS)
 
-OBJS	= base64.o csn.o debug.o entropy.o sasl.o signal.o hash.o \
+OBJS	= base64.o csn.o entropy.o sasl.o signal.o hash.o passfile.o \
 	md5.o passwd.o sha1.o getpass.o lockf.o utils.o uuid.o sockpair.o \
 	@LIBOBJS@ $(@PLAT@_OBJS)
 

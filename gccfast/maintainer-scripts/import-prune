@@ -1,0 +1,24 @@
+#!/bin/sh
+# APPLE LOCAL file maintenance
+# Use in directory to prune, argument is corresponding mainline source dir.
+# Output is list of commands to execute; save into file and review before
+# executing.
+
+diff -r --exclude CVS --exclude '*~' --exclude '*.#*' --brief $1 . \
+  | grep '^Only in \.' \
+  | sed -e 's,Only in \([^:]*\): \(.*\)$,\1/\2,' \
+  | sed -e 's,\./,,g' > /tmp/prunes
+
+for fname in `cat /tmp/prunes`; do
+  if head -3 $fname |grep -q 'APPLE *LOCAL' || test -d $fname; then :
+    echo "# keeping $fname"
+  else
+    echo "rm $fname; cvs remove $fname"
+  fi
+done
+
+
+
+
+
+

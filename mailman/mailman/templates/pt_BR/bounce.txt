@@ -1,0 +1,14 @@
+Esta é a notificação de ação de retorno da lista de 
+discussão gerenciada pelo Mailman:
+
+    Lista:       %(listname)s
+    Membro:     %(addr)s
+    Ação:     Subscription %(negative)s%(did)s.
+    Razão:     Excessive or fatal bounces.
+    %(but)s
+
+%(reenable)s
+A notificação da devolução está em anexo abaixo.
+
+Questões?
+Contacte o administrador Mailman do site em %(owneraddr)s.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,7 +22,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-
 #include <libkern/OSByteOrder.h>
 
 #include <IOKit/assert.h>
@@ -2524,10 +2523,7 @@ IOUSBInterfaceUserClient::free()
             fWorkLoop->release();
             fWorkLoop = NULL;
         }
-        else
-        {
-            USBError(1, "%s[%p]::free - have gate, but no valid workloop (%p)!", getName(), this, fWorkLoop);
-        }
+
         fGate->release();
         fGate = NULL;
     }
@@ -2553,11 +2549,44 @@ IOUSBInterfaceUserClient::finalize( IOOptionBits options )
 bool
 IOUSBInterfaceUserClient::willTerminate( IOService * provider, IOOptionBits options )
 {
-    // this method is intended to be used to stop any pending I/O and to make sure that 
-    // we have begun getting our callbacks in order. by the time we get here, the 
+    IOUSBPipe 		*pipe = NULL;
+    IOReturn		ret;
+
+    // this method is intended to be used to stop any pending I/O and to make sure that
+    // we have begun getting our callbacks in order. by the time we get here, the
     // isInactive flag is set, so we really are marked as being done. we will do in here
     // what we used to do in the message method (this happens first)
     USBLog(3, "%s[%p]::willTerminate isInactive = %d", getName(), this, isInactive());
+
+    //  We have seen cases where our fOwner is not valid at this point.  This is strange
+    //  but we'll code defensively and only execute if our provider (fOwner) is still around
+    //
+    if ( fOwner )
+    {
+        IncrementOutstandingIO();
+
+        if ( (GetOutstandingIO() > 1) && fOwner )
+        {
+            int		i;
+
+            USBLog(4, "%s[%p]::willTerminate - outstanding IO, aborting pipes", getName(), this);
+            for (i=1; i <= kUSBMaxPipes; i++)
+            {
+                pipe = fOwner->GetPipeObj(i-1);
+
+                if(pipe)
+                {
+                    pipe->retain();
+                    ret =  pipe->Abort();
+                    pipe->release();
+                }
+            }
+
+        }
+        
+        DecrementOutstandingIO();
+    }
+
     return super::willTerminate(provider, options);
 }
 
@@ -2570,10 +2599,13 @@ IOUSBInterfaceUserClient::didTerminate( IOService * provider, IOOptionBits optio
     // hold on to the device and IOKit will terminate us when we close it later
    USBLog(3, "%s[%p]::didTerminate isInactive = %d, outstandingIO = %d", getName(), this, isInactive(), fOutstandingIO);
 
-    if ( fOutstandingIO == 0 )
-        fOwner->close(this);
-    else
-        fNeedToClose = true;
+    if ( fOwner )
+    {
+        if ( fOutstandingIO == 0 )
+            fOwner->close(this);
+        else
+            fNeedToClose = true;
+    }
     
     return super::didTerminate(provider, options, defer);
 }

@@ -8,7 +8,7 @@
 @c  @ifinfo
 @c  This file documents GDB/MI, a Machine Interface to GDB.
 
-@c  Copyright 2000, 2001 Free Software Foundation, Inc.
+@c  Copyright 2000, 2001, 2002 Free Software Foundation, Inc.
 @c  Contributed by Cygnus Solutions.
 
 @c  Permission is granted to copy, distribute and/or modify this document
@@ -36,7 +36,7 @@
 @c  @page
 @c  @vskip 0pt plus 1filll
 
-@c  Copyright @copyright{} 2000, 2001 Free Software Foundation, Inc.
+@c  Copyright @copyright{} 2000, 2001, 2002 Free Software Foundation, Inc.
 
 @c  Permission is granted to copy, distribute and/or modify this document
 @c  under the terms of the GNU Free Documentation License, Version 1.1 or
@@ -355,7 +355,7 @@ following line is passed to @sc{gdb/mi} as input, while @samp{<-} means
 the output received from @sc{gdb/mi}.
 
 @subsubheading Target Stop
-
+@c Ummm... There is no "-stop" command. This assumes async, no?
 Here's an example of stopping the inferior process:
 
 @example
@@ -378,7 +378,9 @@ Here's an example of a simple CLI command being passed through
 
 @example
 -> print 1+2
-<- ~3\n
+<- &"print 1+2\n"
+<- ~"$1 = 3\n"
+<- ^done
 <- (@value{GDBP})
 @end example
 
@@ -396,7 +398,7 @@ Here's what happens if you pass a non-existent command:
 
 @example
 -> -rubbish
-<- error,"Rubbish not found"
+<- ^error,msg="Undefined MI command: rubbish"
 <- (@value{GDBP})
 @end example
 
@@ -1663,10 +1665,25 @@ The corresponding @value{GDBN} command is @samp{cd}.
 @subsubheading Synopsis
 
 @example
- -environment-directory @var{pathdir}
+ -environment-directory [ -r ] [ @var{pathdir} ]+
 @end example
 
-Add directory @var{pathdir} to beginning of search path for source files.
+Add directories @var{pathdir} to beginning of search path for source files.
+If the @samp{-r} option is used, the search path is reset to the default
+search path.  If directories @var{pathdir} are supplied in addition to the 
+@samp{-r} option, the search path is first reset and then addition
+occurs as normal.
+Multiple directories may be specified, separated by blanks.  Specifying 
+multiple directories in a single command
+results in the directories added to the beginning of the
+search path in the same order they were presented in the command.
+If blanks are needed as
+part of a directory name, double-quotes should be used around
+the name.  In the command output, the path will show up separated
+by the system directory-separator character.  The directory-seperator 
+character must not be used
+in any directory name.
+If no directories are specified, the current search path is displayed.
 
 @subsubheading @value{GDBN} Command
 
@@ -1677,7 +1694,16 @@ The corresponding @value{GDBN} command is @samp{dir}.
 @smallexample
 (@value{GDBP})
 -environment-directory /kwikemart/marge/ezannoni/flathead-dev/devo/gdb
-^done
+^done,source-path="/kwikemart/marge/ezannoni/flathead-dev/devo/gdb:$cdir:$cwd"
+(@value{GDBP})
+-environment-directory ""
+^done,source-path="/kwikemart/marge/ezannoni/flathead-dev/devo/gdb:$cdir:$cwd"
+(@value{GDBP})
+-environment-directory -r /home/jjohnstn/src/gdb /usr/src
+^done,source-path="/home/jjohnstn/src/gdb:/usr/src:$cdir:$cwd"
+(@value{GDBP})
+-environment-directory -r
+^done,source-path="$cdir:$cwd"
 (@value{GDBP})
 @end smallexample
 
@@ -1688,10 +1714,27 @@ The corresponding @value{GDBN} command is @samp{dir}.
 @subsubheading Synopsis
 
 @example
- -environment-path ( @var{pathdir} )+
+ -environment-path [ -r ] [ @var{pathdir} ]+
 @end example
 
 Add directories @var{pathdir} to beginning of search path for object files.
+If the @samp{-r} option is used, the search path is reset to the original
+search path that existed at gdb start-up.  If directories @var{pathdir} are 
+supplied in addition to the 
+@samp{-r} option, the search path is first reset and then addition
+occurs as normal.
+Multiple directories may be specified, separated by blanks.  Specifying 
+multiple directories in a single command
+results in the directories added to the beginning of the
+search path in the same order they were presented in the command.
+If blanks are needed as
+part of a directory name, double-quotes should be used around
+the name.  In the command output, the path will show up separated
+by the system directory-separator character.  The directory-seperator 
+character must not be used
+in any directory name.
+If no directories are specified, the current path is displayed.
+
 
 @subsubheading @value{GDBN} Command
 
@@ -1701,8 +1744,14 @@ The corresponding @value{GDBN} command is @samp{path}.
 
 @smallexample
 (@value{GDBP})
--environment-path /kwikemart/marge/ezannoni/flathead-dev/ppc-eabi/gdb
-^done
+-environment-path 
+^done,path="/usr/bin"
+(@value{GDBP})
+-environment-path /kwikemart/marge/ezannoni/flathead-dev/ppc-eabi/gdb /bin
+^done,path="/kwikemart/marge/ezannoni/flathead-dev/ppc-eabi/gdb:/bin:/usr/bin"
+(@value{GDBP})
+-environment-path -r /usr/local/bin
+^done,path="/usr/local/bin:/usr/bin"
 (@value{GDBP})
 @end smallexample
 
@@ -1727,8 +1776,7 @@ The corresponding @value{GDBN} command is @samp{pwd}.
 @smallexample
 (@value{GDBP})
 -environment-pwd
-~Working directory /kwikemart/marge/ezannoni/flathead-dev/devo/gdb.
-^done
+^done,cwd="/kwikemart/marge/ezannoni/flathead-dev/devo/gdb"
 (@value{GDBP})
 @end smallexample
 
@@ -2032,7 +2080,7 @@ file="../../../devo/gdb/testsuite/gdb.mi/basics.c",line="8"@}
 205^done
 (@value{GDBP})
 111-exec-return
-111^done,frame=@{level="0 ",func="callee3",
+111^done,frame=@{level="0",func="callee3",
 args=[@{name="strarg",
 value="0x11940 \"A string argument.\""@}],
 file="../../../devo/gdb/testsuite/gdb.mi/basics.c",line="18"@}
@@ -2639,15 +2687,15 @@ functionality of @samp{-stack-list-arguments}.
 -stack-list-frames
 ^done,
 stack=[
-frame=@{level="0 ",addr="0x00010734",func="callee4",
+frame=@{level="0",addr="0x00010734",func="callee4",
 file="../../../devo/gdb/testsuite/gdb.mi/basics.c",line="8"@},
-frame=@{level="1 ",addr="0x0001076c",func="callee3",
+frame=@{level="1",addr="0x0001076c",func="callee3",
 file="../../../devo/gdb/testsuite/gdb.mi/basics.c",line="17"@},
-frame=@{level="2 ",addr="0x0001078c",func="callee2",
+frame=@{level="2",addr="0x0001078c",func="callee2",
 file="../../../devo/gdb/testsuite/gdb.mi/basics.c",line="22"@},
-frame=@{level="3 ",addr="0x000107b4",func="callee1",
+frame=@{level="3",addr="0x000107b4",func="callee1",
 file="../../../devo/gdb/testsuite/gdb.mi/basics.c",line="27"@},
-frame=@{level="4 ",addr="0x000107e0",func="main",
+frame=@{level="4",addr="0x000107e0",func="main",
 file="../../../devo/gdb/testsuite/gdb.mi/basics.c",line="32"@}]
 (@value{GDBP})
 -stack-list-arguments 0
@@ -2729,25 +2777,25 @@ Full stack backtrace:
 (@value{GDBP})
 -stack-list-frames
 ^done,stack=
-[frame=@{level="0 ",addr="0x0001076c",func="foo",
+[frame=@{level="0",addr="0x0001076c",func="foo",
   file="recursive2.c",line="11"@},
-frame=@{level="1 ",addr="0x000107a4",func="foo",
+frame=@{level="1",addr="0x000107a4",func="foo",
   file="recursive2.c",line="14"@},
-frame=@{level="2 ",addr="0x000107a4",func="foo",
+frame=@{level="2",addr="0x000107a4",func="foo",
   file="recursive2.c",line="14"@},
-frame=@{level="3 ",addr="0x000107a4",func="foo",
+frame=@{level="3",addr="0x000107a4",func="foo",
   file="recursive2.c",line="14"@},
-frame=@{level="4 ",addr="0x000107a4",func="foo",
+frame=@{level="4",addr="0x000107a4",func="foo",
   file="recursive2.c",line="14"@},
-frame=@{level="5 ",addr="0x000107a4",func="foo",
+frame=@{level="5",addr="0x000107a4",func="foo",
   file="recursive2.c",line="14"@},
-frame=@{level="6 ",addr="0x000107a4",func="foo",
+frame=@{level="6",addr="0x000107a4",func="foo",
   file="recursive2.c",line="14"@},
-frame=@{level="7 ",addr="0x000107a4",func="foo",
+frame=@{level="7",addr="0x000107a4",func="foo",
   file="recursive2.c",line="14"@},
-frame=@{level="8 ",addr="0x000107a4",func="foo",
+frame=@{level="8",addr="0x000107a4",func="foo",
   file="recursive2.c",line="14"@},
-frame=@{level="9 ",addr="0x000107a4",func="foo",
+frame=@{level="9",addr="0x000107a4",func="foo",
   file="recursive2.c",line="14"@},
 frame=@{level="10",addr="0x000107a4",func="foo",
   file="recursive2.c",line="14"@},
@@ -2762,11 +2810,11 @@ Show frames between @var{low_frame} and @var{high_frame}:
 (@value{GDBP})
 -stack-list-frames 3 5
 ^done,stack=
-[frame=@{level="3 ",addr="0x000107a4",func="foo",
+[frame=@{level="3",addr="0x000107a4",func="foo",
   file="recursive2.c",line="14"@},
-frame=@{level="4 ",addr="0x000107a4",func="foo",
+frame=@{level="4",addr="0x000107a4",func="foo",
   file="recursive2.c",line="14"@},
-frame=@{level="5 ",addr="0x000107a4",func="foo",
+frame=@{level="5",addr="0x000107a4",func="foo",
   file="recursive2.c",line="14"@}]
 (@value{GDBP})
 @end smallexample
@@ -2777,7 +2825,7 @@ Show a single frame:
 (@value{GDBP})
 -stack-list-frames 3 3
 ^done,stack=
-[frame=@{level="3 ",addr="0x000107a4",func="foo",
+[frame=@{level="3",addr="0x000107a4",func="foo",
   file="recursive2.c",line="14"@}]
 (@value{GDBP})
 @end smallexample
@@ -3440,7 +3488,7 @@ number-of-threads="3"
 (@value{GDBP})
 -thread-select 3
 ^done,new-thread-id="3",
-frame=@{level="0 ",func="vprintf",
+frame=@{level="0",func="vprintf",
 args=[@{name="format",value="0x8048e9c \"%*s%c %d %c\\n\""@},
 @{name="arg",value="0x2"@}],file="vprintf.c",line="31"@}
 (@value{GDBP})
@@ -3784,6 +3832,9 @@ for the object:
  value=@var{value}
 @end example
 
+Note that one must invoke @code{-var-list-children} for a variable
+before the value of a child variable can be evaluated.
+
 @subheading The @code{-var-assign} Command
 @findex -var-assign
 
@@ -3794,7 +3845,21 @@ for the object:
 @end example
 
 Assigns the value of @var{expression} to the variable object specified
-by @var{name}.  The object must be @samp{editable}.
+by @var{name}.  The object must be @samp{editable}.  If the variable's
+value is altered by the assign, the variable will show up in any 
+subsequent @code{-var-update} list.
+
+@subsubheading Example
+
+@example
+(@value{GDBP})
+-var-assign var1 3
+^done,value="3"
+(@value{GDBP})
+-var-update *
+^done,changelist=[@{name="var1",in_scope="true",type_changed="false"@}]
+(@value{GDBP})
+@end example
 
 @subheading The @code{-var-update} Command
 @findex -var-update

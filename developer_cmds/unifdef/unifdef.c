@@ -378,7 +378,8 @@ checkline(cursym)
 		return LT_LEOF;
 
 	retval = LT_PLAIN;
-	if (*(cp = tline) != '#'
+	cp = skipcomment((cp = tline));
+	if (*cp != '#'
 	    || incomment
 	    || inquote == QUOTE_SINGLE
 	    || inquote == QUOTE_DOUBLE
@@ -598,8 +599,13 @@ getlin(line, maxline, inp, expandtabs)
 		} else
 			switch (chr) {
 			case EOF:
-				return EOF;
-
+				if (!num) {
+					return EOF;
+				} else {
+					*line = '\n';
+					num++;
+					goto end;
+				}
 			case '\t':
 				if (expandtabs) {
 					num += tmp = 8 - (num & 7);

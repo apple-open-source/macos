@@ -39,6 +39,10 @@ public:
 
     virtual const char *renderName() const;
 
+    // These two functions are overridden for inline-block.
+    virtual short lineHeight(bool b, bool isRootLineBox=false) const;
+    virtual short baselinePosition(bool b, bool isRootLineBox=false) const;
+    
     virtual bool isRenderBlock() const { return true; }
     virtual bool isBlockFlow() const { return !isInline() && !isTable(); }
     virtual bool isInlineFlow() const { return isInline() && !isReplaced(); }
@@ -58,7 +62,7 @@ public:
     virtual void setOverflowHeight(int h) { m_overflowHeight = h; }
     virtual void setOverflowWidth(int w) { m_overflowWidth = w; }
 
-    virtual bool isSelfCollapsingBlock() const { return m_height == 0; }
+    virtual bool isSelfCollapsingBlock() const;
     virtual bool isTopMarginQuirk() const { return m_topMarginQuirk; }
     virtual bool isBottomMarginQuirk() const { return m_bottomMarginQuirk; }
 
@@ -92,7 +96,7 @@ public:
     virtual void setStyle(RenderStyle* _style);
 
     virtual void layout();
-    void layoutBlock( bool relayoutChildren );
+    virtual void layoutBlock( bool relayoutChildren );
     void layoutBlockChildren( bool relayoutChildren );
     void layoutInlineChildren( bool relayoutChildren );
 
@@ -126,7 +130,7 @@ public:
     // called from lineWidth, to position the floats added in the last line.
     void positionNewFloats();
     void clearFloats();
-    bool checkClear(RenderObject *child);
+    int getClearDelta(RenderObject *child);
     virtual void markAllDescendantsWithFloatsForLayout(RenderObject* floatToRemove = 0);
     
     virtual bool containsFloats() { return m_floatingObjects!=0; }
@@ -145,12 +149,14 @@ public:
     virtual int rightmostPosition(bool includeOverflowInterior=true) const;
 
     int rightOffset() const;
-    int rightRelOffset(int y, int fixedOffset, int *heightRemaining = 0) const;
-    int rightOffset(int y) const { return rightRelOffset(y, rightOffset()); }
+    int rightRelOffset(int y, int fixedOffset, bool applyTextIndent = true,
+                       int *heightRemaining = 0) const;
+    int rightOffset(int y) const { return rightRelOffset(y, rightOffset(), true); }
 
     int leftOffset() const;
-    int leftRelOffset(int y, int fixedOffset, int *heightRemaining = 0) const;
-    int leftOffset(int y) const { return leftRelOffset(y, leftOffset()); }
+    int leftRelOffset(int y, int fixedOffset, bool applyTextIndent = true,
+                      int *heightRemaining = 0) const;
+    int leftOffset(int y) const { return leftRelOffset(y, leftOffset(), true); }
 
     virtual bool nodeAtPoint(NodeInfo& info, int x, int y, int tx, int ty, bool inside=false);
 
@@ -166,8 +172,12 @@ public:
     virtual InlineFlowBox* getFirstLineBox();
     
     // overrides RenderObject
-    virtual bool requiresLayer() { return isRoot() || (!isTableCell() &&
-        (isPositioned() || isRelPositioned() || style()->hidesOverflow())); }
+    // FIXME: The bogus table cell check is only here until we figure out how to position
+    // table cells properly when they have layers.
+    // Note that we also restrict overflow to blocks for now.  
+    virtual bool requiresLayer() { 
+        return !isTableCell() && (RenderObject::requiresLayer() || style()->hidesOverflow());
+    }
     
 #ifndef NDEBUG
     virtual void printTree(int indent=0) const;
@@ -223,7 +233,7 @@ protected:
     // for now is spillage out of the bottom and the right, which are the common cases).
     // XXX Generalize to work with top and left as well.
     int m_overflowHeight;
-    int m_overflowWidth;    
+    int m_overflowWidth;
 };
 
 }; // namespace

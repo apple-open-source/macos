@@ -42,9 +42,12 @@ static int RedirServerFd = -1;
  * longer available for reading or writing.
  * So, we send a HUP to the child process, wait(), then exit.
  */
+#ifdef __GNUC__
+__attribute__ ((noreturn))
+#endif
 static void redir_sigpipe( int signum ) 
 {
-   close(RedirServerFd);
+   Sclose(RedirServerFd);
    _exit(0);
 }
 
@@ -55,27 +58,30 @@ void redir_handler( struct server *serp )
    struct service *sp = SERVER_SERVICE( serp );
    struct service_config *scp = SVC_CONF( sp );
    int RedirDescrip = SERVER_FD( serp );
-   int maxfd, num_read, num_wrote=0, ret=0, sin_len = 0;
+   int maxfd, num_read, num_wrote=0, ret=0;
+   unsigned int sin_len = 0;
+   unsigned long bytes_in = 0, bytes_out = 0;
    int no_to_nagle = 1;
-   int on = 1;
+   int on = 1, v6on;
    char buff[NET_BUFFER];
    fd_set rdfd, msfd;
    struct timeval *timep = NULL;
    const char *func = "redir_handler";
    union xsockaddr serveraddr ;
 
-   if( signal(SIGPIPE, redir_sigpipe) == SIG_ERR ) {
+   if( signal(SIGPIPE, redir_sigpipe) == SIG_ERR ) 
       msg(LOG_ERR, func, "unable to setup signal handler");
-   }
+
+   close_all_svc_descriptors();
 
    /* If it's a tcp service we are redirecting */
    if( scp->sc_protocol.value == IPPROTO_TCP )
    {
-      char *foo = NULL;
-      if( SC_IPV4(scp) ) {
+      memcpy(&serveraddr, scp->sc_redir_addr, sizeof(serveraddr));
+      if( serveraddr.sa_in.sin_family == AF_INET ) {
          sin_len = sizeof( struct sockaddr_in );
          RedirServerFd = socket(AF_INET, SOCK_STREAM, 0);
-      } else if( SC_IPV6(scp) ) {
+       } else if( serveraddr.sa_in.sin_family == AF_INET6 ) {
          sin_len = sizeof( struct sockaddr_in6 );
          RedirServerFd = socket(AF_INET6, SOCK_STREAM, 0);
       } else {
@@ -89,22 +95,34 @@ void redir_handler( struct server *serp )
          exit(0);
       }
 
+      if( SC_IPV6( scp ) ) {
+         if( SC_V6ONLY( scp ) ) {
+            v6on = 1;
+         } else {
+            v6on = 0;
+         }
+#ifdef IPV6_V6ONLY
+         if( setsockopt(RedirServerFd, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&v6on, sizeof(v6on)) < 0 ) { 
+            msg( LOG_ERR, func, "Setting IPV6_V6ONLY option failed (%m)" );
+         }
+#endif
+
+      }
       if( SC_KEEPALIVE( scp ) )
          if (setsockopt(RedirServerFd, SOL_SOCKET, SO_KEEPALIVE, 
                         (char *)&on, sizeof( on ) ) < 0 )
             msg(LOG_ERR, func, 
                 "setsockopt SO_KEEPALIVE RedirServerFd failed: %m");
       
-      memcpy(&serveraddr, scp->sc_redir_addr, sizeof(serveraddr));
-      if( SC_IPV4(scp) )
+      if( serveraddr.sa_in.sin_family == AF_INET )
          serveraddr.sa_in.sin_port = htons(serveraddr.sa_in.sin_port);
-      if( SC_IPV6(scp) )
+      if( serveraddr.sa_in.sin_family == AF_INET6 )
          serveraddr.sa_in6.sin6_port = htons(serveraddr.sa_in6.sin6_port);
 
       if( connect(RedirServerFd, &serveraddr.sa, sin_len) < 0 )
       {
-         foo = xaddrname( &serveraddr );
-         msg(LOG_ERR, func, "can't connect to remote host %s: %m", foo);
+         msg(LOG_ERR, func, "can't connect to remote host %s: %m",
+            xaddrname( &serveraddr ) );
          exit(0);
       }
 
@@ -142,6 +160,7 @@ void redir_handler( struct server *serp )
                   continue;
                if (num_read <= 0)
                   goto REDIROUT;
+               bytes_in += num_read;
             } while (num_read < 0);
 
             /* Loop until we have written everything
@@ -167,6 +186,7 @@ void redir_handler( struct server *serp )
                   continue;
                if (num_read <= 0)
                   goto REDIROUT;
+               bytes_out += num_read;
             } while (num_read < 0);
 
             /* Loop until we have written everything
@@ -185,6 +205,11 @@ void redir_handler( struct server *serp )
          }
       }
 REDIROUT:
+      if( M_IS_SET( (scp)->sc_log_on_success, LO_TRAFFIC ) ) {
+         svc_logprint( SERVER_CONNSERVICE( serp ), "TRAFFIC",
+                       "in=%lu(bytes) out=%lu(bytes)", bytes_in, bytes_out );
+      }
+
       exit(0);
    }
 

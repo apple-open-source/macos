@@ -1,7 +1,7 @@
 /* unbind.c - ldap backend unbind function */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/unbind.c,v 1.12 2002/01/12 16:35:01 ando Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/unbind.c,v 1.12.2.4 2003/02/09 16:31:38 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /* This is an altered version */
@@ -55,9 +55,8 @@ ldap_back_conn_destroy(
 	struct ldapconn *lc, lc_curr;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_INFO,
-			"ldap_back_conn_destroy: fetching conn %ld\n",
-			conn->c_connid ));
+	LDAP_LOG( BACK_LDAP, INFO,
+		"ldap_back_conn_destroy: fetching conn %ld\n", conn->c_connid, 0, 0 );
 #else /* !NEW_LOGGING */
 	Debug( LDAP_DEBUG_TRACE,
 		"=>ldap_back_conn_destroy: fetching conn %ld\n",
@@ -71,9 +70,15 @@ ldap_back_conn_destroy(
 	ldap_pvt_thread_mutex_unlock( &li->conn_mutex );
 
 	if (lc) {
+#ifdef NEW_LOGGING
+		LDAP_LOG( BACK_LDAP, DETAIL1, 
+			"ldap_back_conn_destroy: destroying conn %ld\n", 
+			conn->c_connid, 0, 0 );
+#else /* !NEW_LOGGING */
 		Debug( LDAP_DEBUG_TRACE,
 			"=>ldap_back_conn_destroy: destroying conn %ld\n",
 			lc->conn->c_connid, 0, 0 );
+#endif
 
 #ifdef ENABLE_REWRITE
 		/*
@@ -90,6 +95,9 @@ ldap_back_conn_destroy(
 		ldap_unbind(lc->ld);
 		if ( lc->bound_dn.bv_val ) {
 			ch_free( lc->bound_dn.bv_val );
+		}
+		if ( lc->cred.bv_val ) {
+			ch_free( lc->cred.bv_val );
 		}
 		ch_free( lc );
 	}

@@ -1,0 +1,1341 @@
+#
+# This [incr Tcl] source file contains the class specifications
+# for the testSession of BlueGnu
+#
+namespace eval ::BlueGnu {
+    variable lArgs {}
+
+    variable errcnt 0
+    variable errno "NONE"
+    variable warncnt 0
+    variable xfail_flag 0
+
+    class Common {
+	# arguments passed to the constructor are always in the form:
+	#    <variable>=<value>
+	#
+	constructor {args} {
+	    debug {Constructor for >$this< [info level] [info class]} 9
+	    foreach varval $args {
+		set varval [split $varval "="]
+		if {[llength $varval] != 2} {
+		    error "Missing <variable>=<value> pair"
+		}
+		set var [lindex $varval 0]
+		set val [lindex $varval 1]
+		set variables {}
+		foreach v [lsort [info variable]] {
+		    regexp {[^:]+$} $v v
+		    lappend variables $v
+		}
+		if {[lsearch -exact $variables $var] >= 0} {
+		    set $var $val
+		} else {
+		    perror "variable >$var< does not exists in Class\
+			    [info class]\n      \
+			    (was passed as argument and is ignored!)"
+		}
+	    }
+	}
+
+	public method << {} {
+	    set lResult {}
+	    foreach var [lsort [info variable]] {
+		regexp {[^:]+$} $var v
+		debug {Found variable: >$v<} 9
+		if [array exists $v] {
+		    debug {   is an array} 9
+		    foreach index [lsort [array names $v]] {
+			lappend lResult "${v}($index)=[set ${v}($index)]"
+		    }
+		} else {
+		    debug {   is simple variable} 9
+		    if {[string compare [set value [info variable $var -value]] \
+			    "<undefined>"] != 0} {
+			switch $v {
+			    this -
+			    text {}
+			    default {
+				lappend lResult [list $v $value]
+			    }
+			}
+		    }
+		}
+	    }
+	    set lResult
+	}
+    }
+
+    class Test {
+	inherit Common
+
+	protected variable szID
+	protected variable bTestCase
+	protected variable szTestCase
+	protected variable szTestCaseID
+	protected variable szTestCaseArgs
+	protected variable szName
+	protected variable szTool
+	protected variable eType
+	protected variable eResult
+	protected variable szScriptName
+	protected variable lArguments
+	protected variable szHostName
+	protected variable iPassed
+	protected variable iFailed
+	protected variable iXPassed
+	protected variable iXFailed
+	protected variable iCrashed
+	protected variable iError
+	protected variable iWarning
+	protected variable iUnresolved
+	protected variable iUntested
+	protected variable iUnsupported
+	protected variable i
+	protected variable benchmarkObject
+	protected variable benchmarkClassName
+
+	constructor testScript {
+	    set szTool [uplevel #0 set szCurrentTestDirectory]
+	    debug {======= Global Default Test Directory is\
+		    >$szTool<} 5
+
+	    set lArguments {}
+	    # remove all multiple spaces/tabs into one space
+	    # and parse the argument list
+	    # <testScript> ::= <szScriptName>?[test case ID]?=<argument list>
+	    # <argument list> ::= <argument> <argument list>
+	    # <argument> ::= <variable name> | <variable name>=<value>
+	    debug {   testScript(1) is >$testScript<} 5
+	    regsub -all "(\[ \t\]+)" [string trim $testScript] " " testScript
+	    debug {   testScript(2) is >$testScript<} 5
+	    #
+	    # Split testScript into script, test case ID, and arguments
+	    regexp {^([^[=]+)([[]([^]]+)[]])?(=(.*))?$} $testScript dummy \
+		    script tc tcID argT argL
+	    debug {    script: >$script<} 5
+	    debug {        tc: >$tc<} 5
+	    debug {      tcID: >$tcID<} 5
+	    debug {      argT: >$argT<} 5
+	    debug {      argL: >$argL<} 5
+	    if {[set i [string first {=} $testScript]] >= 0} {
+		set testScriptArgs [string range $testScript \
+			[expr $i + 1] end]
+		set testScript [string range $testScript 0 [expr $i - 1]]
+	    } else {
+		set testScriptArgs {}
+	    }
+	    set testScript $script
+	    set szTestCase $tcID
+	    if {[string length $szTestCase] > 0} {
+		set bTestCase 1
+	    } else {
+		set bTestCase 0
+	    }
+	    set szTestCaseID [lindex [split $szTestCase "="] 0]
+	    set szTestCaseArgs [join [lrange [split $szTestCase "="] 1 end] \
+		    "="]
+	    debug {szTestCase == >$szTestCase<} 5
+	    debug {szTestCaseID == >$szTestCaseID<} 5
+	    debug {szTestCaseArgs == >$szTestCaseArgs<} 5
+	    set testScriptArgs $argL
+	    debug {testScript(3) is >$testScript<} 5
+	    debug {testScriptArgs(1) is >$testScriptArgs<} 5
+	    set lArguments [eval list $testScriptArgs]
+	    set i 0
+	    foreach arg $lArguments {
+		debug {arg($i) is >$arg<} 5
+		set lArguments [lreplace $lArguments $i $i [split $arg "="]]
+		incr i
+	    }
+	    debug {Test script >$testScript<, test case >$szTestCase<} 3
+	    debug {     pathtype is [file pathtype $testScript]} 3
+	    switch [file pathtype $testScript] {
+		relative {
+		    error "Test Script name >$testScript<\
+			    should not be relative"
+		}
+		absolute {
+		    debug {Absolute reference in $this to Test Script\
+			    >$testScript<} 3
+		    set szScriptName $testScript
+		}
+	    }
+	    debug {Default Test Directory is >$szTool<}
+	    if {[file exists $testScript]} {
+		debug {Test script >$testScript< exists!}
+		set szName [file tail $testScript]
+		set szID [file rootname $szName]
+		set szPWD [pwd]
+		set szTool [file dirname $testScript]
+		cd $szTool
+		set szTool [pwd]
+		cd $szPWD
+		set szScriptName [file join $szTool [file tail $testScript]]
+		regsub {.} [string toupper [file extension $szName]] {} eType
+		set eResult INITIALIZED
+	    } else {
+		debug {Test script >$testScript< does NOT exists!}
+		set szRoot ""
+		set szID ""
+		set szName ""
+		set szTool ""
+		uplevel #0 set szCurrentTestDirectory "\"$szTool\""
+		set eType "NONE"
+		set szScriptName "$testScript"
+		set lArguments {}
+		set eResult EMPTY
+	    }
+	    set szHostName [info host]
+	    set iPassed 0
+	    set iFailed 0
+	    set iXPassed 0
+	    set iXFailed 0
+	    set iCrashed 0
+	    set iError 0
+	    set iWarning 0
+	    set iUnresolved 0
+	    set iUntested 0
+	    set iUnsupported 0
+	    debug {Default Test Directory is >$szTool<}
+	    debug {Global Default Test Directory is\
+		    >[uplevel #0 set szCurrentTestDirectory]<}
+
+	    debug {Target: >[[uplevel #0 set objCurrentTarget] <<]<}
+
+	    while {1} {
+		# Create Benchmark Class Object
+		#
+		# First initialize
+		#
+		set szTargetID [[uplevel #0 set objCurrentTarget] ID]
+		regsub -all {[^a-zA-Z0-9_]} $szTargetID "_" szTargetID
+		regsub -all {[^a-zA-Z0-9_]} $szID "_" szTmpID
+		regsub -all {[^a-zA-Z0-9_]} $szTestCaseID "_" szTmpTestCaseID
+		#
+		# First try Benchmark Class in namespace for Target
+		# and test case ID if exists otherwise test script ID
+		#
+		set benchmarkClassName ::$szTargetID
+		if {$bTestCase} {
+		    append benchmarkClassName ::$szTmpTestCaseID
+		} else {
+		    append benchmarkClassName ::$szTmpID
+		}
+		debug {=== Trying benchmark: $benchmarkClassName} 3
+		if [catch {
+		    set benchmarkObject \
+			    [eval $benchmarkClassName #auto $szTestCaseArgs]
+		    if {! [string match ::* $benchmarkObject]} {
+			set benchmarkObject \
+				[namespace current]::$benchmarkObject
+		    }
+		    debug {benchmarkObject: >$benchmarkObject<} 3
+		} errMsg] {
+		    debug {Error Msg: >>>$errMsg<<<} 3
+		    debug {     info: >>>[uplevel #0 set errorInfo]<<<} 4
+		} else {
+		    break
+		}
+		#
+		# Now try Benchmark class for test script name
+		# with test case ID or Benchmark
+		#
+		set benchmarkClassName ::$szTmpID
+		if {$bTestCase} {
+		    append benchmarkClassName ::$szTmpTestCaseID
+		} else {
+		    append benchmarkClassName ::Benchmark
+		}
+		debug {=== Trying benchmark: $benchmarkClassName} 3
+		if [catch {
+		    set benchmarkObject [infoWhich \
+			    [eval $benchmarkClassName #auto $szTestCaseArgs]]
+		} errMsg] {
+		    debug {Error Msg: >>>$errMsg<<<} 3
+		    debug {     info: >>>[uplevel #0 set errorInfo]<<<} 4
+		} else {
+		    break
+		}
+		#
+		# Now try target ID and benchmark
+		#
+		set benchmarkClassName ::${szTargetID}::Benchmark
+		debug {=== Trying benchmark: $benchmarkClassName} 3
+		debug {           namespace: >[namespace current]<} 3
+		if [catch {
+		    set benchmarkObject [infoWhich \
+			    [eval $benchmarkClassName #auto $szTestCaseArgs] \
+			    [namespace current]]
+		} errMsg] {
+		    debug {Error Msg: >>>$errMsg<<<} 3
+		    debug {     info: >>>[uplevel #0 set errorInfo]<<<} 4
+		} else {
+		    break
+		}
+		#
+		# Now try the generic BlueGnu benchmark function
+		#
+		set benchmarkClassName ::BlueGnu::Benchmark
+		debug {=== Trying benchmark: $benchmarkClassName} 3
+		if [catch {
+		    set benchmarkObject [infoWhich \
+			    [eval $benchmarkClassName #auto $szTestCaseArgs]]
+		    debug {[warning "Default Benchmark Class\
+			    is being used!"]}
+		} errMsg] {
+		    warning "NO Benchmark Class >$benchmarkClassName<\
+			    defined"
+		    debug {[warning "Class: >$benchmarkClassName<\
+			    has not been defined.\n     ### Error Msg:\
+			    $errMsg"]}
+		    set benchmarkObject ""
+		    break
+		}
+		debug {        benchmark: $benchmarkClassName\
+			($benchmarkObject)} 3
+		uplevel #0 {
+		    set errorInfo NONE
+		}
+		break
+	    }
+	}
+
+	destructor {
+	    setResult
+	    switch $eResult {
+		PASSED {
+		    printResult
+		    if {! $bTestCase} {
+			::BlueGnu::clone_output "        Statistics        :\
+				$iPassed (PASS),\
+				$iXFailed (XFAIL)"
+		    }
+		}
+		FAILED {
+		    printResult
+		    if {! $bTestCase} {
+			::BlueGnu::clone_output "        Statistics        :\
+				$iPassed (PASS),\
+				$iXFailed (XFAIL)"
+			::BlueGnu::clone_output "                          :\
+				$iFailed (FAIL),\
+				$iXPassed (XPASS)"
+		    }
+		}
+		UNKNOWN {
+		}
+		default {
+		    printResult
+		    if {! $bTestCase} {
+			::BlueGnu::clone_output "        Statistics        :\
+				$iPassed (PASS),\
+				$iXFailed (XFAIL)"
+			::BlueGnu::clone_output "                          :\
+				$iFailed (FAIL),\
+				$iXPassed (XPASS)"
+			if {$iUntested} {
+			    ::BlueGnu::clone_output "                          :\
+				    $iUntested (UNTESTED)"
+			}
+			if {$iUnresolved} {
+			    ::BlueGnu::clone_output "                          :\
+				    $iUnresolved (UNRESOLVED)"
+			}
+			if {$iUnsupported} {
+			    ::BlueGnu::clone_output "                          :\
+				    $iUnsupported (UNSUPPORTED)"
+			}
+			if {$iCrashed} {
+			    ::BlueGnu::clone_output "                          :\
+				    $iCrashed (CRASHED)"
+			}
+			if {$iError} {
+			    ::BlueGnu::clone_output "                          :\
+				    $iError (ERROR)"
+			}
+			if {$iWarning} {
+			    ::BlueGnu::clone_output "                          :\
+				    $iWarning (WARNING)"
+			}
+		    }
+		}
+	    }
+	    # remove benchmark Class Object
+	    #
+	    if {$benchmarkObject != ""} {
+		debug {#### Benchmark Object: >$benchmarkObject<\
+			([catch {$benchmarkObject info class}])} 3
+		debug {#### Benchmark Class : >$benchmarkClassName<} 3
+		catch {delete object $benchmarkObject}
+		if {$benchmarkClassName != "::BlueGnu::Benchmark"} {
+		    catch {delete class $benchmarkClassName}
+		}
+	    }
+	    ::BlueGnu::clone_output ""
+	}
+
+	private method printResult {} {
+	    if {$bTestCase} {
+		::BlueGnu::clone_output "******* Result            :\
+			[format "%-12s" $eResult] for test case    :\
+			>$szTestCase<"
+	    } else { 
+		::BlueGnu::clone_output "******* Result            :\
+			[format "%-12s" $eResult] for test script  :\
+			>$szID<"
+	    }
+	}
+
+	public method ID {} {
+	    return $szID
+	}
+
+	public method testCase {} {
+	    return $szTestCase
+	}
+
+	public method testCaseID {} {
+	    return $szTestCaseID
+	}
+
+	public method testCaseArgs {} {
+	    return $szTestCaseArgs
+	}
+
+	public method benchmarkObject {} {
+	    return $benchmarkObject
+	}
+
+	public method benchmarkClassName {} {
+	    return $benchmarkClassName
+	}
+
+	public method name {args} {
+	    if {[llength $args] == 1} {
+		set szName [lindex $args 0]
+	    }
+	    return $szName
+	}
+
+	public method result {} {
+	    return $eResult
+	}
+
+	public method arguments {} {
+	    return $lArguments
+	}
+
+	public method pass {szMsg} {
+	    global objCurrentEnvironment
+	    if {[namespace eval ::BlueGnu {set xfail_flag}]} {
+		incr iXPassed
+		$objCurrentEnvironment record_test XPASS $szMsg
+	    } else {
+		incr iPassed
+		$objCurrentEnvironment record_test PASS $szMsg
+	    }
+	    setResult
+	}
+	public method fail {szMsg} {
+	    global objCurrentEnvironment
+	    if {[namespace eval ::BlueGnu {set xfail_flag}]} {
+		incr iXFailed
+		$objCurrentEnvironment record_test XFAIL $szMsg
+	    } else {
+		incr iFailed
+		$objCurrentEnvironment record_test FAIL $szMsg
+	    }
+	    setResult
+	}
+
+	public method perror {szMsg} {
+	    global objCurrentEnvironment
+	    incr iError
+	    $objCurrentEnvironment record_test ERROR $szMsg
+	    setResult
+	}
+
+	public method crashed {szMsg} {
+	    global objCurrentEnvironment
+	    incr iCrashed
+	    $objCurrentEnvironment record_test CRASHED $szMsg
+	    setResult
+	}
+
+	public method warning {szMsg} {
+	    global objCurrentEnvironment
+	    incr iWarning
+	    $objCurrentEnvironment record_test WARNING $szMsg
+	    setResult
+	}
+
+	public method note {szMsg} {
+	    global objCurrentEnvironment
+	    $objCurrentEnvironment record_test NOTE $szMsg
+	}
+
+	public method unresolved {szMsg} {
+	    global objCurrentEnvironment
+	    incr iUnresolved
+	    $objCurrentEnvironment record_test UNRESOLVED $szMsg
+	}
+	public method untested {szMsg} {
+	    global objCurrentEnvironment
+	    incr iUntested
+	    $objCurrentEnvironment record_test UNTESTED $szMsg
+	}
+	public method unsupported {szMsg} {
+	    global objCurrentEnvironment
+	    incr iUnsupported
+	    $objCurrentEnvironment record_test UNSUPPORTED $szMsg
+	}
+
+	private method setResult {} {
+	    if {$iUnresolved || \
+		    $iError || $iCrashed || \
+		    ($iWarning > [namespace eval ::BlueGnu { \
+		    set warning_threshold}] && \
+		    0 < [namespace eval ::BlueGnu { \
+		    set warning_threshold}])} {
+		set eResult UNRESOLVED
+	    } elseif {$iUntested} {
+		set eResult UNTESTED
+	    } elseif {$iUnsupported} {
+		set eResult UNSUPPORTED
+	    } elseif {($iPassed > 0 || $iXFailed > 0) && \
+		    $iFailed == 0 && $iXPassed == 0} {
+		set eResult "PASSED"
+	    } elseif {$iFailed || $iXPassed} {
+		set eResult "FAILED"
+	    } elseif {$iPassed == 0 && $iXPassed && \
+		    $iFailed == 0 && $iXFailed && $iCrashed == 0 && \
+		    $iError == 0 && $iWarning == 0} {
+		set eResult ACTIVATED
+	    } else {
+		set eResult UNKNOWN
+	    }
+	}
+
+	public method getResult {} {
+	    setResult
+	    return $eResult
+	}
+
+	public method tool {} {
+	    return $szTool
+	}
+
+	public method scriptName {} {
+	    return $szScriptName
+	}
+
+	public method << {} {
+	    if 0 {
+		lappend lResult [list ID $szID]
+		lappend lResult [list name $szName]
+		lappend lResult [list tool $szTool]
+		lappend lResult [list type $eType]
+		lappend lResult [list result $eResult]
+		lappend lResult [list root $szRoot]
+		lappend lResult [list script $szScriptName]
+		lappend lResult [list arguments $lArguments]
+		lappend lResult [list host $szHostName]
+
+		return $lResult
+	    } else {
+		eval [info function Common::<< -body]
+	    }
+	}
+
+	public method runtest {} {
+	    global objCurrentEnvironment
+	    setResult
+
+	    if {$bTestCase} {
+		::BlueGnu::clone_output "####### Begin test case   :\
+			>$szTestCase<"
+		debug {        [scriptName]\n       \
+			[name]=[arguments]}
+	    } else {
+		::BlueGnu::clone_output "####### Begin test script :\
+			>$szID<"
+		debug {        [scriptName]\n       \
+			[name]=[arguments]}
+	    }
+	    verbose {        Full Pathname     : $szScriptName} 1
+	    debug {=== Running test in $this: $szScriptName} 3
+	    debug {[join [<<] "\n"]} 9
+	    catch {debug {Global Default Test Directory is\
+		    >[uplevel #0 set szCurrentTestDirectory]<}}
+	    catch {debug {Default Test Directory is >$szTool<}}
+
+	    if [catch {
+		uplevel #0 set szCurrentTestDirectory "$szTool"
+		uplevel #0 lappend lTool {$szCurrentTestDirectory}
+		uplevel #0 set objCurrentTest $this
+		uplevel #0 lappend lTestName {$objCurrentTest}
+		uplevel 1 variable bTestCase $bTestCase
+		uplevel 1 variable szTestCase \"$szTestCase\"
+		uplevel 1 variable szTestCaseID \"$szTestCaseID\"
+		uplevel 1 variable szTestCaseArgs \"$szTestCaseArgs\"
+		uplevel 1 variable iArgs [llength $lArguments]
+		uplevel 1 variable lArgs [concat {[list} $lArguments {]}]
+		uplevel 1 variable szID $szID
+		uplevel 1 variable szScriptName $szScriptName
+		uplevel 1 variable szName $szName
+		uplevel 1 variable szTool $szTool
+	    } szErrMsg] {
+		debug {Error Msg:>>>$szErrmsg<<<} 0
+	    }
+	    if {[catch {uplevel 1 source $szScriptName} szErrMsg]} {
+		global errorInfo errorCode
+		crashed ">$szErrMsg<\
+			\n  in script: >$szScriptName<\
+			\n  errorInfo: >$errorInfo<\
+			\n  errorCode: >$errorCode<"
+	    }
+	    setResult
+	    $objCurrentEnvironment reportTestResult $eResult
+
+	    uplevel #0 {set lTestName [lreplace $lTestName end end]}
+	    uplevel #0 {set objCurrentTest [lrange $lTestName end end]}
+	    uplevel #0 {set lTool [lreplace $lTool end end]}
+	    uplevel #0 {set szCurrentTestDirectory [lrange $lTool end end]}
+
+	    catch {debug {Default Test Directory is >$szTool<} 3}
+	    catch {debug {Global Default Test Directory is\
+		    >[uplevel #0 set szCurrentTestDirectory]<} 3}
+	    debug {=== Done with test in $this: $szScriptName ($bTestCase)} 3
+	    if {$bTestCase} {
+		::BlueGnu::clone_output "####### End test case     :\
+			>$szTestCase<"
+	    } else {
+		::BlueGnu::clone_output "####### End test script   :\
+			>$szID<"
+	    }
+	    return $this
+	}
+    }
+
+    class Queue {
+	inherit Common
+
+	protected variable lTestNames
+
+	constructor {} {
+	    set lTestNames {}
+	}
+
+	public method append args {
+	    set testName [join $args]
+	    debug {  queue appending >$testName<} 3
+	    lappend lTestNames $testName
+	    debug {        DONE} 3
+	}
+
+	public method prepend args {
+	    #set testName [join $args]
+	    debug {Queue::prepend $args} 3
+	    foreach arg $args {
+		debug {   append >$arg< to comList} 3
+		lappend comList $arg
+	    }
+	    debug {  queue prepending comList: >$comList<} 3
+	    debug {  [llength $comList] elements in comList} 3
+	    #set lTestNames [linsert $lTestNames 0 "$testName"]
+	    debug {  [llength $lTestNames] elements in lTestNames} 3
+	    set lTestNames [concat $comList $lTestNames]
+	    debug {  [llength $lTestNames] elements in lTestNames} 3
+	    debug {        DONE} 3
+	}
+
+	public method pop {} {
+	    if {[llength $lTestNames] == 0} {
+		return -code error -errorinfo "Empty Queue" {}
+	    }
+	    if {[llength $lTestNames] == 1} {
+		set testName [lindex $lTestNames 0]
+		set lTestNames {}
+		return $testName
+		#return -code error $testName
+	    }
+	    set testName [lindex $lTestNames 0]
+	    set lTestNames [lrange $lTestNames 1 end]
+	    return $testName
+	}
+
+	public method << {} {
+	    #lappend lResult [list tests $lTestNames]
+
+	    #return $lResult
+	    eval [info function Common::<< -body]
+	}
+    }
+
+    class Environment {
+	inherit Common
+
+	protected variable szName "Default"
+
+	protected variable iPassCnt 0
+	protected variable iFailCnt 0
+	protected variable iXPassCnt 0
+	protected variable iXFailCnt 0
+	protected variable iUntestedCnt 0
+	protected variable iUnresolvedCnt 0
+	protected variable iUnsupportedCnt 0
+	protected variable iCrashedCnt 0
+	protected variable iErrorCnt 0
+	protected variable iWarningCnt 0
+	protected variable iCnt 0
+
+	protected variable iWarningThreshold 0
+	protected variable iErrorThreshold 0
+
+	protected variable bXFailFlag 0
+	protected variable bExitStatus 0
+
+	protected variable eResult UNKNOWN
+	protected variable iUntested 0
+	protected variable iUnsupported 0
+	protected variable iUnresolved 0
+	protected variable iPassed 0
+	protected variable iFailed 0
+
+
+	protected variable ENV
+	protected variable bSaved 0
+	common defaultEnvironment [list PATH FPATH \
+		BLUEGNULIB TESTSUITEROOT TESTSETS TMPDIR \
+		DISPLAY EDITOR EMACSFONT HOME LANG LOGIN LOGNAME SHELL \
+		TERM USER WINDOWID DEBUG LPDEST \
+		ORGANIZATION OSTYPE PAGER \
+		PARM_SEARCH_PATH \
+		]
+
+	constructor {args} {
+	    debug {Level in Constructor:   [info level]} 9
+	    eval [info function Common::constructor -body]
+	    setResult
+	}
+
+	destructor {
+	    global objCurrentTarget
+	    debug {******* [info class]::destructor} 3
+
+	    ::BlueGnu::clone_output "******* Result            :\
+		    [format "%-12s" $eResult]\
+		    for test session : >$szName<"
+	    switch $eResult {
+		PASSED {
+		    ::BlueGnu::clone_output "        Statistics        :\
+			    $iPassed (PASS)"
+		    ::BlueGnu::clone_output "******* Cumulative statistics\
+			    for all test script!"
+		    ::BlueGnu::clone_output "        Statistics Totals :\
+				$iPassCnt (PASS),\
+				$iXFailCnt (XFAIL)"
+		    if {$iUntested} {
+			::BlueGnu::clone_output "                          :\
+				$iUntested (UNTESTED)"
+		    }
+		    if {$iWarningCnt} {
+			::BlueGnu::clone_output "                          :\
+				$iWarningCnt (WARNING)"
+		    }
+		}
+		UNKNOWN -
+		default {
+		    ::BlueGnu::clone_output "        Statistics        :\
+			    $iPassed (PASS)"
+		    ::BlueGnu::clone_output "                          :\
+			    $iFailed (FAIL)"
+		    if {$iUntested} {
+			::BlueGnu::clone_output "                          :\
+				$iUntested (UNTESTED)"
+		    }
+		    if {$iUnresolved} {
+			::BlueGnu::clone_output "                          :\
+				$iUnresolved (UNRESOLVED)"
+		    }
+		    if {$iUnsupported} {
+			::BlueGnu::clone_output "                          :\
+				$iUnsupported (UNSUPPORTED)"
+		    }
+		    ::BlueGnu::clone_output "******* Cumulative statistics\
+			    for all test script!"
+		    ::BlueGnu::clone_output "        Statistics Totals :\
+				$iPassCnt (PASS),\
+				$iXFailCnt (XFAIL)"
+		    ::BlueGnu::clone_output "                          :\
+				$iFailCnt (FAIL),\
+				$iXPassCnt (XPASS)"
+		    if {$iUntestedCnt} {
+			::BlueGnu::clone_output "                          :\
+				$iUntestedCnt (UNTESTED)"
+		    }
+		    if {$iUnresolvedCnt} {
+			::BlueGnu::clone_output "                          :\
+				$iUnresolvedCnt (UNRESOLVED)"
+		    }
+		    if {$iUnsupportedCnt} {
+			::BlueGnu::clone_output "                          :\
+				$iUnsupportedCnt (UNSUPPORTED)"
+		    }
+		    if {$iCrashedCnt} {
+			::BlueGnu::clone_output "                          :\
+				$iCrashedCnt (CRASHED)"
+		    }
+		    if {$iErrorCnt} {
+			::BlueGnu::clone_output "                          :\
+				$iErrorCnt (ERROR)"
+		    }
+		    if {$iWarningCnt} {
+			::BlueGnu::clone_output "                          :\
+				$iWarningCnt (WARNING)"
+		    }
+		}
+	    }
+	    if {$::BlueGnu::errcnt} {
+		::BlueGnu::clone_output "####### Encountered\
+			$::BlueGnu::errcnt System Errors!"
+	    }
+	    ::BlueGnu::clone_output "###########################\n"
+	}
+
+	public method name {} {
+	    return $szName
+	}
+
+	public method record_test {type message} {
+	    debug {******* ${this}::record_test \n              \
+		    $type $message} 3
+	    if {$iWarningThreshold > 0 && \
+		    $iWarningCnt >= $iWarningThreshold \
+		    || \
+		    $iErrorThreshold > 0 && \
+		    $iErrorCnt >= $iErrorThreshold} {
+		# Reset these first to prevent infinite recursion.
+		set iWarningCnt 0
+		set iErrorCnt 0
+		::unresolved $message
+		return
+	    }
+
+	    debug {   switching on type >$type<}
+	    switch $type {
+		PASS {
+		    incr iPassCnt
+		}
+		FAIL {
+		    incr iFailCnt
+		    set bExitStatus 1
+		}
+		XPASS {
+		    incr iXPassCnt
+		}
+		XFAIL {
+		    incr iXFailCnt
+		}
+		UNTESTED {
+		    incr iUntestedCnt
+		}
+		UNRESOLVED {
+		    incr iUnresolvedCnt
+		}
+		UNSUPPORTED {
+		    incr iUnsupportedCnt
+		}
+		ERROR {
+		    incr iErrorCnt
+		}
+		CRASHED {
+		    incr iCrashedCnt
+		}
+		NOTE {
+		}
+		WARNING {
+		    incr iWarningCnt
+		}
+		default {
+		    debug {record_test called with bad type >$type<} -1
+		    set iErrorCnt 0
+		    return
+		}
+	    }
+
+	    ::BlueGnu::clone_output "$type: $message"
+
+	    # reset variables here
+	    namespace eval ::BlueGnu {
+		set xfail_flag 0
+		set xfail_prms {}
+	    }
+	}
+
+	private method setResult {} {
+	    if {$iUnresolved} {
+		set eResult UNRESOLVED
+	    } elseif {$iPassed > 0 && $iFailed == 0} {
+		set eResult "PASSED"
+	    } elseif {$iFailed} {
+		set eResult "FAILED"
+	    } elseif {$iPassed == 0 && $iFailed == 0 && \
+		    $iUntested && $iUnsupported == 0 && \
+		    $iUnresolved == 0} {
+		set eResult ACTIVATED
+	    } else {
+		set eResult UNKNOWN
+	    }
+	}
+
+	public method reportTestResult {eTestResult} {
+	    switch $eTestResult {
+		"PASSED" {
+		    incr iPassed
+		}
+		"FAILED" {
+		    incr iFailed
+		}
+		"UNSUPPORTED" {
+		    incr iUnsupported
+		}
+		"UNTESTED" {
+		    incr iUntested
+		}
+		"UNRESOLVED" {
+		    incr iUnresolved
+		}
+	    }
+	    setResult
+	}
+
+	public method saveEnv {} {
+	    global env
+
+	    set bSaved 1
+	    foreach index [lsort [array names env]] {
+		debug {ENV($index) := $env($index)} 5
+		#set ENV($index) $env($index)
+		array set ENV [list $index $env($index)]
+	    }
+	}
+
+	public method clearEnv {} {
+	    global env
+
+	    set bSaved 1
+	    #debug {removing ENV} 5
+	    #catch {unset ENV}
+	    foreach index [array names env] {
+		debug {removing env($index) := $env($index)} 5
+		if {0 > [lsearch -exact $defaultEnvironment $index]} {
+		    debug {   removed} 5
+		    unset env($index)
+		} else {
+		    debug {   kept} 5
+		    if {[string compare $index PATH] == 0} {
+			# Do not touch PATH
+			#set env(PATH) \
+				"/etc:/usr/lib:/usr/ucb:/bin:/usr/bin:/usr/bin/X11:/usr/lpp/X11/Xamples/bin:/usr/local/bin"
+                    }
+		    #set ENV($index) $env($index)
+		}
+	    }
+	}
+
+	public method restoreEnv {} {
+	    global env
+
+	    if {$bSaved} {
+		catch {unset env}
+		foreach index [array names ENV] {
+		    debug {env($index) := $ENV($index)} 5
+		    #set ENV($index) $env($index)
+		    array set env [list $index $ENV($index)]
+		}
+	    } else {
+		debug {Environment had not been saved!}
+	    }
+	}
+
+	public method runTest args {
+	    global nspTestSuite
+	    debug {======= runTest $args} 3
+
+	    set iRuntest 0
+	    set elResult [list]
+
+	    set iRun 0
+	    foreach arg $args {
+		debug {======= runTest $arg} 3
+		incr iRun
+
+		# Create name for namespace for the test
+		# and check if already exist
+		#
+		set szRuntest runtest$iRuntest
+		set namespaceCurrent [namespace current]
+		debug {        szRuntest: >$szRuntest<} 4
+		debug {        namespace current    : >$namespaceCurrent<} 4
+		debug {        namespace current children:\
+			>[namespace children $namespaceCurrent]<} 4
+		while {[string compare \
+			[namespace children $namespaceCurrent \
+			${namespaceCurrent}::$szRuntest] ""] != 0} {
+		    incr iRuntest
+		    set szRuntest runtest$iRuntest
+		}
+		# now we have a unique namespace name for the running
+		# of the test
+		#
+		debug {        runTest namespace: >$szRuntest<} 4
+		set szScript $arg
+		# create a Test Class object
+		if {! [catch {::BlueGnu::Test [${nspTestSuite}::autoTest] \
+			$szScript} testObject]} {
+		    if [catch {
+			uplevel #0 set objCurrentTest \
+				[namespace current]::$testObject
+			debug {[join [$testObject <<] "\n"]} 9
+			namespace eval $szRuntest {
+			    if [catch {[uplevel set testObject] runtest} \
+				    szErrMsg] {
+				uplevel set szErrMsg "\{$szErrMsg\}"
+				uplevel {
+				    global errorInfo errorCode
+				    record_test CRASHED ">$szErrMsg<\
+					    \n  in script: >$szScript<\
+					    \n  errorInfo: >$errorInfo<\
+					    \n  errorCode: >$errorCode<"
+				}
+			    }
+			}
+			debug {[join [$testObject <<] "\n"]} 9
+			uplevel "lappend elResult [$testObject getResult]"
+			delete object $testObject
+		    } szErrMsg] {
+			global errorInfo errorCode
+			record_test CRASHED ">$szErrMsg<\
+				\n  in script: >$szScript<\
+				\n  errorInfo: >$errorInfo<\
+				\n  errorCode: >$errorCode<"
+		    }
+		} else {
+		    global errorInfo errorCode
+		    record_test CRASHED ">$testObject<\
+			    \n  in script: >$szScript<\
+			    \n  errorInfo: >$errorInfo<\
+			    \n  errorCode: >$errorCode<"
+		}
+		namespace delete $szRuntest
+		uplevel #0 {debug {argv: [set argv]} 3}
+	    }
+	    if {$iRun == 0} {
+		warning "No tests have been passed to runTest method!"
+	    }
+	    return $elResult
+	}
+
+	public method << {} {
+	    debug {in $this method} 5
+	    eval [info function Common::<< -body]
+	    #lappend lResult [list ENV [array get ENV]]
+	}
+    }
+
+    # The following is a class definition for the target implementation
+    # in DejaGnu (see lib/target.exp for more detail)
+    #
+    class Target {
+	inherit Common
+
+	protected variable szID
+	protected variable szName
+	protected variable szApplication
+	protected variable objEnvironment
+	protected variable objQueue
+
+	protected variable connect
+	protected variable target
+	protected variable serial
+	protected variable netport
+	protected variable baud
+	protected variable X10
+	protected variable ioport
+
+	protected variable fileid
+	protected variable prompt
+	protected variable abbrev
+	protected variable config
+	protected variable cflags
+	protected variable ldflags
+
+	protected variable X
+
+	# a hairy pattern to recognize text
+	common text "\[- A-Za-z0-9\.\;\"\_\:\'\`\(\)\!\#\=\+\?\&\*]"
+
+
+	constructor {args} {
+	    eval [info function Common::constructor -body]
+	}
+
+	destructor {
+	    delete object $objQueue
+	}
+
+	public method name {args} {
+	    if {[llength $args] == 0} {
+		return $szName
+	    } else {
+		set szName [lindex $args 0]
+	    }
+	}
+
+	public method ID {args} {
+	    if {[llength $args] == 0} {
+		return $szID
+	    } else {
+		set szID [lindex $args 0]
+	    }
+	}
+
+	public method << {} {
+	    eval [info function Common::<< -body]
+	}
+
+	public method environment {} {
+	    return $objEnvironment
+	}
+
+	public method start {} {
+	    if {[string length [uplevel #0 info procs ${szID}_start]] != 0} {
+		uplevel #0 ${szID}_start
+	    }
+	}
+
+	public method load {args} {
+	    if {[string length [uplevel #0 info procs ${szID}_load]] != 0} {
+		eval uplevel #0 ${szID}_load $args
+	    }
+	}
+
+	public method exit {} {
+	    if {[string length [uplevel #0 info procs ${szID}_exit]] != 0} {
+		uplevel #0 ${szID}_exit
+	    }
+	}
+
+	public method version {} {
+	    if {[string length [uplevel #0 info procs ${szID}_version]] != 0} {
+		uplevel #0 ${szID}_version
+	    }
+	}
+
+	public method runTests {} {
+	    debug {======= ${this}::runTest} 3
+	    set elResult [list]
+	    # if an application has been defined we run all the test
+	    # inside that application
+	    #
+	    if {[string compare [info variable szApplication] ""] != 0 && \
+		    [string compare [info variable szApplication -value] \
+		    "<undefined>"] != 0} {
+		debug {Application specified >[info variable \
+			szApplication -value]<}
+		# build argument list
+		debug {>>[<<]<<}
+	    } else {
+		# We just run all the tests in the currently running
+		# [incr Tcl/?Expect?] interpreter.
+		#
+		# set the current Queue and Environment
+		#
+		uplevel #0 set objCurrentQueue [infoWhich $objQueue]
+		uplevel #0 set objCurrentEnvironment \
+			[infoWhich $objEnvironment]
+		#
+		# Pop a test from the queue and run it in the environment
+		::BlueGnu::clone_output "###########################"
+		::BlueGnu::clone_output "####### Begin test session:\
+			[[infoWhich $objEnvironment] name] >$objEnvironment<"
+		while {! [catch {$objQueue pop} T]} {
+		    debug {test: $T} 3
+		    set elResult [$objEnvironment runTest $T]
+		}
+		::BlueGnu::clone_output "####### End test session  :\
+			[[infoWhich $objEnvironment] name]"
+	    }
+	    return $elResult
+	}
+
+	public method queue {function element} {
+	    switch $function {
+		append {
+		    $objQueue append $element
+		}
+		prepend {
+		    $objQueue prepend $element
+		}
+	    }
+	}
+    }
+
+    class Target2 {
+	inherit Target
+
+	protected variable XYZ
+
+	constructor {args} {
+	    eval [info function Common::constructor -body]
+	}
+
+	public method << {} {
+	    eval [info function Common::<< -body]
+	}
+    }
+
+
+    class DejaGnu {
+	inherit Environment
+
+	constructor {} {
+	    debug {Level in Constructor DejaGnu:   [info level]} 9
+	    uplevel #0 {debug {argc = $argc: $argv} 9}
+	    # source always in global space
+	    #
+	    uplevel #0 source {$env(BLUEGNULIBS)/dejagnu.tcl}
+	}
+
+	destructor {
+	    #####################################################################
+	    # This comes from the original runtest
+	    # all done, cleanup
+	    #
+	    uplevel #0 {
+		if { [info procs ${tool}_exit] != "" } {
+		    if {[catch "${tool}_exit" tmp]} {
+			# ??? We can get away with calling `warning'
+			# here without ensuring
+			# `warncnt' isn't changed because we're about to exit.
+			warning "${tool}_exit failed:\n$tmp"
+		    }
+		}
+		log_summary
+	    }
+	}
+
+
+	public method runTest {args} {
+	    global nspTestSuite
+
+	    foreach arg $args {
+		debug {******* DejaGnu running test: >$arg<}
+		debug {set szTestName \[Test \[${nspTestSuite}::autoTest\] $arg\]} 3
+		debug {set testName >[${nspTestSuite}::autoTest]<} 3
+		uplevel #0 set szTestName [Test [${nspTestSuite}::autoTest] $arg]
+		uplevel #0 {
+		    debug $szTestName 3
+		    debug [join [$szTestName <<] "\n"] 5
+		    set test_name {[$szTestName scriptName]}
+		    catch {unset tmp}; set tmp {}
+		    foreach arg [$szTestName arguments] {
+			lappend tmp [join $arg "="]
+		    }
+		    set runtests [list [$szTestName name] $tmp]
+		    debug {args = >[$szTestName arguments]<} 3
+		    source [$szTestName scriptName]
+		    catch {eval unset [info vars __*]}
+		}
+	    }
+	}
+    }
+
+    class DejaGnu2 {
+	inherit DejaGnu
+
+	protected variable currentTool
+
+	constructor {} {
+	    debug {Level in Constructor DejaGnu2:   [info level]} 9
+	    set currentTool {}
+	    uplevel #0 {debug {argc = $argc: $argv} 9}
+	    # source always in global space
+	    #
+	    uplevel #0 source {$env(BLUEGNULIBS)/dejagnu2.tcl}
+	}
+
+	public method tool {args} {
+	    if {[llength $args] == 1} {
+		set currentTool [lindex $args 0]
+	    }
+	    return $currentTool
+	}
+    }
+
+    class Benchmark {
+	protected variable bResult 0
+	protected variable DATA
+	protected variable FORMAT
+	protected variable ARG
+
+	protected constructor {args} {
+	    debug {=======   Constructing class [info class]   =======} 3
+	    debug {======= ::BlueGnu::Benchmark::constructor $args} 4
+	    set i 0
+	    foreach arg $args {
+		debug {   ARG($i): >$arg<} 5
+		set ARG($i) [split $arg "="]
+		incr i
+	    }
+	}
+	protected destructor {
+	    debug {======= [info class]::destructor} 3
+	}
+
+	protected method benchmark {benchmarkFunction args} {
+	    warning "Method >benchmark< has not been implemented for\
+		    Class >[info class]<"
+	    return $bResult
+	}
+
+	protected method warningNoBenchmarkArguments {} {
+	    warning "NO argument have been supplies for\n   the benchmark\
+		    method in class [info class]"
+	}
+	protected method warningNoBenchmarkFunction {} {
+	    warning "NO benchmark function >[uplevel set benchmarkFunction]<\
+		    defined for\n   the benchmark method in class [info class]"
+	}
+    }
+
+    class Error {
+	private variable _errorCode
+	private variable _errorMsg
+	private variable _errorInfo
+
+	public constructor {errorCode errorMsg errorInfo} {
+	    set _errorCode $errorCode
+	    set _errorMsg $errorMsg
+	    set _errorInfo $errorInfo
+	}
+
+	public method errorCode {} {
+	    return $_errorCode
+	}
+	public method errorMsg {} {
+	    return $_errorMsg
+	}
+	public method errorInfo {} {
+	    return $_errorInfo
+	}
+	public method why {} {
+	    return $_errorMsg
+	}
+	public method verboseWhy {} {
+	    return $_errorInfo
+	}
+    }
+}

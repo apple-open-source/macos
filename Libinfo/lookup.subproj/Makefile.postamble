@@ -7,8 +7,15 @@ async_hdrs: $(DSTROOT)$(PRIVATE_HDR_INSTALLDIR)$(ASYNC_HEADER_DIR_SUFFIX)
 $(DSTROOT)$(PRIVATE_HDR_INSTALLDIR)$(ASYNC_HEADER_DIR_SUFFIX):
 	$(MKDIRS) $@
 
-netinfo_hdrs: $(DSTROOT)$(PUBLIC_HDR_INSTALLDIR)$(NETINFO_HEADER_DIR_SUFFIX)
-	$(SILENT) $(FASTCP) $(NETINFO_HDRS) $(DSTROOT)$(PUBLIC_HDR_INSTALLDIR)$(NETINFO_HEADER_DIR_SUFFIX)
+netinfo_hdrs: $(DSTROOT)$(PRIVATE_HDR_INSTALLDIR)$(NETINFO_HEADER_DIR_SUFFIX)
+	$(SILENT) $(FASTCP) $(NETINFO_HDRS) $(DSTROOT)$(PRIVATE_HDR_INSTALLDIR)$(NETINFO_HEADER_DIR_SUFFIX)
 
-$(DSTROOT)$(PUBLIC_HDR_INSTALLDIR)$(NETINFO_HEADER_DIR_SUFFIX):
+$(DSTROOT)$(PRIVATE_HDR_INSTALLDIR)$(NETINFO_HEADER_DIR_SUFFIX):
 	$(MKDIRS) $@
+
+install-man-page:
+	mkdir -p "$(DSTROOT)/usr/share/man/man3"
+	install -c -m 644 getaddrinfo.3 "$(DSTROOT)/usr/share/man/man3"
+	install -c -m 644 getnameinfo.3 "$(DSTROOT)/usr/share/man/man3"
+	$(LN) -f "$(DSTROOT)/usr/share/man/man3/getaddrinfo.3" "$(DSTROOT)/usr/share/man/man3/freeaddrinfo.3"
+	$(LN) -f "$(DSTROOT)/usr/share/man/man3/getaddrinfo.3" "$(DSTROOT)/usr/share/man/man3/gai_strerror.3"

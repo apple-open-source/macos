@@ -1,0 +1,246 @@
+#
+# Makefile for tcl debugger
+#
+
+VERSION_FULL = \"@DBG_VERSION_FULL@\"
+VERSION = @DBG_VERSION@
+
+# Compatible with Tcl version 7.5
+# Compatible with Tk version 4.1
+
+srcdir 	= @srcdir@
+VPATH = @srcdir@
+
+######################################################################
+# The following lines are things you are likely to want to change
+######################################################################
+
+# Tcl include files.  (If you haven't installed Tcl yet, read the README file).
+# This must point to the directory that contains ALL of Tcl's include
+# files, not just the public ones.
+TCLHDIR = @TCLHDIRDASHI@
+
+# flags to pass to cc
+# You should be able to leave this just the way it is.  However, here are some
+# note if you run into problems:
+#
+# Avoid -O (optimize) unless you are convinced your optimizer is flawless
+# (hint: not a chance).  I have heard many reports of -O causing Expect to
+# misbehave.
+# I encourage you to use -g (debugging).  While it is unlikely you will
+# encounter an internal error in Expect, should this happen, I may just need
+# the -g information and then you will need to recompile Expect.  As an aside,
+# Expect is not a space or time pig, so this won't affect the performance of
+# your Expect scripts.
+# Note: On Linux systems which only have dynamic X libraries, the -g prevents
+# the linker from using them.  So do not use -g on such systems.
+CFLAGS = @DBG_CFLAGS@ @DBG_SHLIB_CFLAGS@
+
+# Tcl libraries built with optimization switches have this additional extension
+TCL_DBGX =              @TCL_DBGX@
+
+# which C compiler to use
+CC = @CC@
+
+# By default, `make install' will install the appropriate files in
+# /usr/local/bin, /usr/local/lib, /usr/local/man, etc.  You can specify
+# an installation prefix other than /usr/local here:
+prefix = @prefix@
+
+# You can specify a separate installation prefix for architecture-specific
+# files such as binaries and libraries.
+exec_prefix = @exec_prefix@
+
+# If you have ranlib but it should be avoided, change this from "ranlib" #
+# to something innocuous like "echo".  Known systems with this problem:
+# older SCO boxes.
+UNSHARED_RANLIB = @UNSHARED_RANLIB@
+
+######################################################################
+# End of things you are likely to want to change
+######################################################################
+
+tcl_libdir = @libdir@
+libdir     = @libdir@/tcldbg$(VERSION)
+# datadir	= $(prefix)/lib
+
+mandir 	= @mandir@
+man1dir = $(mandir)/man1
+includedir = $(prefix)/include
+
+# Where to store utility scripts.  This corresponds to the variable
+# "dbg_library".
+# DBG_SCRIPTDIR	= $(datadir)/tcldbg
+
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA = @INSTALL_DATA@
+
+AR = ar
+ARFLAGS = cr
+
+# TCLHDIR includes "-I"
+CPPFLAGS =	-I. -I$(srcdir) $(TCLHDIR) \
+		-DDBG_VERSION=$(VERSION_FULL) \
+		-DDBG_SCRIPTDIR=\"$(DBG_SCRIPTDIR)\"
+
+CFLAGS_INT = $(MH_CFLAGS) $(CPPFLAGS) $(CFLAGS)
+
+.c.o:
+	$(CC) -c $(CFLAGS_INT) $(HDEFS) $<
+
+CFILES = Dbg.c Dbg_cmd.c
+OFILES = Dbg.o Dbg_cmd.o
+
+# libraries (both .a and shared)
+DBG_LIB_FILES = @DBG_LIB_FILES@
+# default Dbg library (shared if possible, otherwise static)
+DBG_LIB_FILE = @DBG_LIB_FILE@
+# Dbg object library (.a)
+DBG_UNSHARED_LIB_FILE = @DBG_UNSHARED_LIB_FILE@
+# Dbg object library (shared, if possible)
+DBG_SHARED_LIB_FILE = @DBG_SHARED_LIB_FILE@
+
+all: $(DBG_LIB_FILES)
+
+$(DBG_UNSHARED_LIB_FILE): $(OFILES)
+	-rm -f $(DBG_UNSHARED_LIB_FILE)
+	$(AR) $(ARFLAGS) $(DBG_UNSHARED_LIB_FILE) $(OFILES)
+	-$(UNSHARED_RANLIB) $(DBG_UNSHARED_LIB_FILE)
+
+$(DBG_SHARED_LIB_FILE): $(OFILES)
+	-rm -f $(DBG_SHARED_LIB_FILE)
+	@TCL_SHLIB_LD@ -o $(DBG_SHARED_LIB_FILE) $(OFILES)
+
+# Delete all the installed files that the `install' target creates
+# (but not the noninstalled files such as `make all' creates)
+uninstall:
+	-rm -f	$(man1dir)/tcldbg.1 \
+		$(libdir)/$(DBG_SHARED_LIB_FILE) \
+		$(tcl_libdir)/$(DBG_SHARED_LIB_FILE) \
+		$(libdir)/$(DBG_UNSHARED_LIB_FILE) \
+		$(tcl_libdir)/$(DBG_UNSHARED_LIB_FILE) \
+		$(libdir)/pkgIndex.tcl \
+		$(includedir)/tcldbg.h
+
+# Can't seem to embed shell comments in backslashed lines, so comments here:
+#   Local copy is pkgIndex rather than pkgIndex.tcl because pkgIndex.tcl.in
+#   is too long for some filesystems, sigh.
+install: $(DBG_LIB_FILES)
+	${srcdir}/mkinstalldirs $(man1dir) $(libdir) $(includedir) $(DBG_SCRIPTDIR)
+	$(INSTALL_DATA) $(srcdir)/tcldbg.man $(man1dir)/tcldbg.1
+	if [ -s $(DBG_UNSHARED_LIB_FILE) ] ; then \
+	  $(INSTALL_DATA) $(DBG_UNSHARED_LIB_FILE) $(libdir)/$(DBG_UNSHARED_LIB_FILE) ; \
+	  $(UNSHARED_RANLIB) $(libdir)/$(DBG_UNSHARED_LIB_FILE) ; \
+	fi
+	if [ -s $(DBG_SHARED_LIB_FILE) ] ; then \
+	  $(INSTALL_PROGRAM) $(DBG_SHARED_LIB_FILE) $(tcl_libdir)/$(DBG_SHARED_LIB_FILE) ; \
+	  $(INSTALL_PROGRAM) pkgIndex $(libdir)/pkgIndex.tcl ; \
+	fi
+	$(INSTALL_DATA) $(srcdir)/tcldbg.h $(includedir)
+# create utility-script directory
+#	$(INSTALL_DATA) $(srcdir)/tcldbglib.tcl $(DBG_SCRIPTDIR)
+#	$(INSTALL_DATA) $(srcdir)/tclIndex $(DBG_SCRIPTDIR)
+
+
+###################################
+# Targets for Makefile and configure
+###################################
+
+Makefile: $(srcdir)/Makefile.in $(host_makefile_frag) config.status
+	@echo "Rebuilding the Makefile..."
+	$(SHELL) config.status
+
+configure: $(srcdir)/configure.in $(srcdir)/Makefile.in $(srcdir)/aclocal.m4
+	autoconf configure.in > configure
+	-@chmod a+x configure
+	-rm -f config.cache
+     
+config.status: $(srcdir)/configure
+	@echo "Rebuilding config.status..."
+	$(SHELL) ./config.status --recheck
+
+################################################
+# Various "clean" targets follow GNU conventions
+################################################
+
+clean:
+	-rm -f *~ *.o core \
+		$(DBG_UNSHARED_LIB_FILE) $(DBG_SHARED_LIB_FILE)
+
+# like "clean", but also delete files created by "configure"
+distclean: clean
+	-rm -f Makefile config.status config.cache config.log tcldbgcf.h
+
+# like "clean", but doesn't delete test utilities or massaged scripts
+# because most people don't have to worry about them
+mostlyclean:
+	-rm -f *~ *.o core \
+		$(DBG_UNSHARED_LIB_FILE) $(DBG_SHARED_LIB_FILE)
+
+# delete everything from current directory that can be reconstructed
+# except for configure
+realclean:	distclean
+
+#tclIndex: tcldbglib.tcl
+#	expect -c "auto_mkindex . *.tcl;exit"
+
+LINTFLAGS = -h -q -x 
+
+lint:
+	lint $(LINTFLAGS) $(CPPFLAGS) $(CFILES) $(TCLLINTLIB) | tee debug.lint
+
+##################################
+# Targets for development at NIST
+##################################
+
+nist:
+	configure --verbose --prefix=/depot/tcl --exec-prefix=/depot/tcl/arch
+
+# report globals that shouldn't be public but are
+bad_globals:
+	nm $(DBG_UNSHARED_LIB_FILE) | egrep -v " [a-zU] | _Dbg"
+
+# after copying source directory, restablish all links
+symlink:
+	rm -f aclocal.m4
+	ln -s ../expect/aclocal.m4
+
+######################################
+# Targets for pushing out releases
+######################################
+
+FTPDIR = /proj/itl/www/div826/subject/expect/tcl-debug
+
+# make a private tar file for myself
+tar:	tcl-debug-$(VERSION).tar
+	mv tcl-debug-$(VERSION).tar tcl-debug.tar
+
+ftp:	tcl-debug-$(VERSION).tar.Z tcl-debug-$(VERSION).tar.gz
+	cp tcl-debug-$(VERSION).tar.Z $(FTPDIR)/tcl-debug.tar.Z
+	cp tcl-debug-$(VERSION).tar.gz $(FTPDIR)/tcl-debug.tar.gz
+	cp HISTORY $(FTPDIR)
+	cp README $(FTPDIR)/README.distribution
+	rm tcl-debug-$(VERSION).tar*
+	ls -l $(FTPDIR)/tcl-debug.tar*
+
+# make an alpha relase and install it on ftp server
+alpha:	tcl-debug-$(VERSION).tar.Z tcl-debug-$(VERSION).tar.gz
+	cp tcl-debug-$(VERSION).tar.Z $(FTPDIR)/tcl-debug-alpha.tar.Z
+	cp tcl-debug-$(VERSION).tar.gz $(FTPDIR)/tcl-debug-alpha.tar.gz
+	rm tcl-debug-$(VERSION).tar*
+	ls -l $(FTPDIR)/tcl-debug-alpha.tar*
+
+tcl-debug-$(VERSION).tar:
+	rm -f ../tcl-debug-$(VERSION)
+	ln -s `pwd` ../tcl-debug-$(VERSION)
+	cd ..;tar cvfh $@ `pubfile tcl-debug-$(VERSION)`
+	mv ../$@ .
+
+tcl-debug-$(VERSION).tar.Z:	tcl-debug-$(VERSION).tar
+	compress -fc tcl-debug-$(VERSION).tar > $@
+
+tcl-debug-$(VERSION).tar.gz:	tcl-debug-$(VERSION).tar
+	gzip -fc tcl-debug-$(VERSION).tar > $@
+
+Dbg.o: $(srcdir)/Dbg.c $(srcdir)/tcldbg.h

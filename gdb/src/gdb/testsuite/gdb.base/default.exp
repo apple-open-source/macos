@@ -1,5 +1,5 @@
 #   Copyright 1988, 1990, 1991, 1992, 1994, 1995, 1996, 1997, 1998, 1999,
-#   2000, 2001, 2002
+#   2000, 2001, 2002, 2003
 #   Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
@@ -32,7 +32,9 @@ set timeout 60
 
 #load_lib gdb.exp
 
-gdb_test "add-symbol-file" "add-symbol-file takes a file name and an address" "add-symbol-file"
+# APPLE LOCAL: Our add-symbol-file usage message differs.
+
+gdb_test "add-symbol-file" {USAGE: add-symbol-file <filename> \[-mapped\] \[-readnow\] \[-s <secname> <addr>\]\*} "add-symbol-file"
 
 # test append
 gdb_test "append" "\"append\" must be followed by a subcommand\.\[\r\n\]+List of append subcommands:.*" 
@@ -61,12 +63,6 @@ gdb_expect {
     timeout { fail "(timeout) attach" }
 }
 
-# OBSOLETE # FIXME: attach kills the udi connection
-# OBSOLETE if { [istarget "a29k-*-udi"] } {
-# OBSOLETE     gdb_exit
-# OBSOLETE     gdb_start
-# OBSOLETE }
-
 if ![target_info exists use_gdb_stub] {
     gdb_test "break" "No default breakpoint address now." "break"
     foreach i "b br bre brea" {
@@ -75,7 +71,6 @@ if ![target_info exists use_gdb_stub] {
 
     
     setup_xfail "mips-idt-*"
-    # OBSOLETE setup_xfail "a29k-*-udi"
     gdb_test "backtrace" "No stack."
 
     # ba and bac are no longer unique command prefixes. So these tests
@@ -84,7 +79,6 @@ if ![target_info exists use_gdb_stub] {
     #
     foreach i "bt ba bac" {
 	setup_xfail "mips-idt-*"
-	# OBSOLETE setup_xfail "a29k-*-udi"
 	gdb_test $i "No stack." "backtrace \"$i\" abbreviation"
     }
 } else {
@@ -93,17 +87,9 @@ if ![target_info exists use_gdb_stub] {
 
 # This works on the MIPS IDT board, but confuses future tests.
 if ![istarget "mips-idt-*"] then {
-    # OBSOLETE setup_xfail "a29k-*-udi"
     gdb_test "continue" "The program is not being run." "continue"
-    # OBSOLETE setup_xfail "a29k-*-udi"
     gdb_test "c" "The program is not being run." "continue \"c\" abbreviation"
 }
-
-# OBSOLETE # FIXME: continue kills the udi connection
-# OBSOLETE if [istarget "a29k-*-udi"] then {
-# OBSOLETE     gdb_exit
-# OBSOLETE     gdb_start
-# OBSOLETE }
 
 #test call
 gdb_test "call" "The history is empty..*" "call"
@@ -152,11 +138,6 @@ gdb_expect {
 #test detach
 gdb_test "detach" "" "detach"
 
-# OBSOLETE # FIXME: continue kills the udi connection
-# OBSOLETE if [istarget "a29k-*-udi"] then {
-# OBSOLETE     gdb_exit
-# OBSOLETE     gdb_start
-# OBSOLETE }
 if [istarget "h8300-*-hms"] then {
     gdb_exit
     gdb_start
@@ -250,13 +231,10 @@ gdb_expect {
 }
 
 #test frame "f" abbreviation
-# OBSOLETE setup_xfail "a29k-*-udi"
 gdb_test "f" "No stack." "frame \"f\" abbreviation"
 #test frame
-# OBSOLETE setup_xfail "a29k-*-udi"
 gdb_test "frame" "No stack." "frame"
 #test fg
-# OBSOLETE setup_xfail "a29k-*-udi"
 gdb_test "fg" "The program is not being run." "fg"
 # FIXME: fg kills the udi connection
 #test file
@@ -277,7 +255,6 @@ gdb_expect {
 }
 
 #test finish
-# OBSOLETE setup_xfail "a29k-*-udi"
 gdb_test "finish" "The program is not running." "finish"
 #test forward-search
 # The message here comes from the regexp library, not gdb, and so can
@@ -319,7 +296,6 @@ gdb_test "ignore" "Argument required .a breakpoint number.*" "ignore"
 #test info address
 gdb_test "info address" "Argument required." "info address"
 #test info all-registers
-# OBSOLETE setup_xfail "a29k-*-udi"
 gdb_test "info all-registers" "The program has no registers now." "info all-registers"
 #test info args
 gdb_test "info args" "No frame selected." "info args"
@@ -346,38 +322,33 @@ gdb_test "info frame" "No stack.|No selected frame." "info frame"
 #test info files
 gdb_test "info files" "" "info files"
 #test info float
-if [istarget "arm*-*-*"] then {
-    gdb_test "info float" "Software FPU type.*mask:.*flags:.*" "info float"
-} elseif [istarget "thumb*-*-*"] then {
-    gdb_test "info float" "Software FPU type.*mask:.*flags:.*" "info float"
-} elseif [istarget "strongarm*-*-*"] then {
-    gdb_test "info float" "Software FPU type.*mask:.*flags:.*" "info float"
-} elseif [istarget "i\[3456\]86-*-*"] then {
-    gdb_test "info float" "R7:.*Status Word:.*Opcode:.*" "info float"
-} else {
-    gdb_test "info float" "No floating point info available for this processor." "info float"
-}
+gdb_test "info float" "The program has no registers now." "info float"
 #test info functions
 gdb_test "info functions" "All defined functions:" "info functions"
 #test info locals
 gdb_test "info locals" "No frame selected." "info locals"
 #test info program
-# OBSOLETE setup_xfail "a29k-*-udi"
 gdb_test "info program" "The program being debugged is not being run." "info program"
 #test info registers
-# OBSOLETE setup_xfail "a29k-*-udi"
 gdb_test "info registers" "The program has no registers now." "info registers"
 #test info stack "s" abbreviation
-# OBSOLETE setup_xfail "a29k-*-udi"
 gdb_test "info s" "No stack." "info stack \"s\" abbreviation"
 #test info stack
-# OBSOLETE setup_xfail "a29k-*-udi"
 gdb_test "info stack" "No stack." "info stack"
 #test info set
 # FIXME -- needs to match the entire output
 # FIXME -- on native solaris 2.8, this test fails due to this line:
 #  prompt:  Gdb's prompt is "(gdb) ".^M
+
+# APPLE LOCAL: I'm not saying that MacOS X is slow, but this test can time
+# out if you're doing something resource-intensive in another window..
+set prev_timeout $timeout
+set timeout 300
+verbose "Timeout now $timeout sec."
 gdb_test "info set" "confirm:  Whether to confirm potentially dangerous operations is o\[a-z\]*.(\[^\r\n\]*\[\r\n\])+history filename:  The filename in which to record the command history is (\[^\r\n\]*\[\r\n\])+listsize:  Number of source lines gdb will list by default is 10.*" "info set"
+set timeout $prev_timeout
+verbose "Timeout now $timeout sec."
+
 gdb_test "info symbol" "Argument required .address.."
 #test info source
 gdb_test  "info source" "No current source file..*" "info source"
@@ -391,6 +362,8 @@ gdb_test "info terminal" "No saved terminal information." "info terminal"
 gdb_test "info types" "All defined types:" "info types"
 #test info variables
 gdb_test "info variables" "All defined variables:" "info variables"
+#test info vector
+gdb_test "info vector" "The program has no registers now." "info vector"
 #test info warranty
 gdb_test "info warranty" "NO WARRANTY(\[^\r\n\]*\[\r\n\])+  *11.  *BECAUSE THE PROGRAM IS LICENSED FREE OF CHARGE, THERE IS NO WARRANTY(\[^\r\n\]*\[\r\n\])+FOR THE PROGRAM, TO THE EXTENT PERMITTED BY APPLICABLE LAW.  EXCEPT WHEN(\[^\r\n\]*\[\r\n\])+OTHERWISE STATED IN WRITING THE COPYRIGHT HOLDERS AND/OR OTHER PARTIES(\[^\r\n\]*\[\r\n\])+PROVIDE THE PROGRAM \"AS IS\" WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED(\[^\r\n\]*\[\r\n\])+OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF(\[^\r\n\]*\[\r\n\])+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.  THE ENTIRE RISK AS(\[^\r\n\]*\[\r\n\])+TO THE QUALITY AND PERFORMANCE OF THE PROGRAM IS WITH YOU.  SHOULD THE(\[^\r\n\]*\[\r\n\])+PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF ALL NECESSARY SERVICING,(\[^\r\n\]*\[\r\n\])+REPAIR OR CORRECTION.(\[^\r\n\]*\[\r\n\])+  *12.  *IN NO EVENT UNLESS REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING(\[^\r\n\]*\[\r\n\])+WILL ANY COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MAY MODIFY AND/OR(\[^\r\n\]*\[\r\n\])+REDISTRIBUTE THE PROGRAM AS PERMITTED ABOVE, BE LIABLE TO YOU FOR DAMAGES,(\[^\r\n\]*\[\r\n\])+INCLUDING ANY GENERAL, SPECIAL, INCIDENTAL OR CONSEQUENTIAL DAMAGES ARISING(\[^\r\n\]*\[\r\n\])+OUT OF THE USE OR INABILITY TO USE THE PROGRAM .INCLUDING BUT NOT LIMITED(\[^\r\n\]*\[\r\n\])+TO LOSS OF DATA OR DATA BEING RENDERED INACCURATE OR LOSSES SUSTAINED BY(\[^\r\n\]*\[\r\n\])+YOU OR THIRD PARTIES OR A FAILURE OF THE PROGRAM TO OPERATE WITH ANY OTHER(\[^\r\n\]*\[\r\n\])+PROGRAMS., EVEN IF SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE(\[^\r\n\]*\[\r\n\])+POSSIBILITY OF SUCH DAMAGES.*" "info warranty"
 #test info watchpoints
@@ -398,7 +371,6 @@ gdb_test "info watchpoints" "No breakpoints or watchpoints." "info watchpoints"
 #test inspect
 gdb_test "inspect" "The history is empty." "inspect"
 #test jump
-# OBSOLETE setup_xfail "a29k-*-udi"
 gdb_test "jump" "The program is not being run." "jump"
 #test kill
 gdb_test "kill" "The program is not being run." "kill"
@@ -412,16 +384,12 @@ gdb_test "list" "No symbol table is loaded.  Use the \"file\" command.*" "list"
 # to deduce the filename from the exec file.
 gdb_test "load" "You can't do that when your target is `None'.*|The load command takes a file name.*|Must specify at least a file name with the load command.*|.*Use the .file. or .exec-file. command.*" "load"
 #test next "n" abbreviation
-# OBSOLETE setup_xfail "a29k-*-udi"
 gdb_test "n" "The program is not being run." "next \"n\" abbreviation"
 #test next
-# OBSOLETE setup_xfail "a29k-*-udi"
 gdb_test "next" "The program is not being run." "next"
 #test nexti "ni" abbreviation
-# OBSOLETE setup_xfail "a29k-*-udi"
 gdb_test "ni" "The program is not being run." "nexti \"ni\" abbreviation"
 #test nexti
-# OBSOLETE setup_xfail "a29k-*-udi"
 gdb_test "nexti" "The program is not being run." "nexti"
 #test output
 gdb_test "output" "Argument required .expression to compute.*" "output"
@@ -519,7 +487,7 @@ gdb_test "rbreak" "" "rbreak"
 gdb_test "restore" "You can't do that without a process to debug\."
 
 #test return
-# The middle case accomodated the OBSOLETE a29k, where doing the "ni"
+# The middle case accomodated the obsolete a29k, where doing the "ni"
 # above causes an initial stack to be created.
 gdb_test "return" "No selected frame..*" "return"  "Make .* return now.*y or n. $" "y"
 
@@ -527,10 +495,8 @@ gdb_test "return" "No selected frame..*" "return"  "Make .* return now.*y or n. 
 #test reverse-search
 gdb_test "reverse-search" "No previous regular expression.*|There is no previous regular expression.*" "reverse-search"
 #test step "s" abbreviation
-# OBSOLETE setup_xfail "a29k-*-udi"
 gdb_test "s" "The program is not being run." "step \"s\" abbreviation #1"
 #test step
-# OBSOLETE setup_xfail "a29k-*-udi"
 gdb_test "step" "The program is not being run." "step #1"
 #test search
 gdb_test "search" "No previous regular expression.*|There is no previous regular expression.*" "search"
@@ -640,6 +606,14 @@ gdb_test "show commands" "" "show commands"
 gdb_test "show complaints" "Max number of complaints about incorrect symbols is 0." "show complaints"
 #test show confirm
 gdb_test "show confirm" "Whether to confirm potentially dangerous operations is o\[a-z\]*." "show confirm"
+
+# APPLE LOCAL: The 'set radix' above sets $input_radix and $output_radix
+# convenience vars in our gdb (normally the 'file' command towards the
+# beginning would have cleared out all convenience variables), so sneak in
+# another 'file' cmd to clear out the convenience vars again.
+gdb_test "show convenience" "\\\$input_radix = 10\[\r\n\]+\\\$output_radix = 10" "show convenience (APPLE LOCAL)"
+gdb_test "file" "No executable file now.*No symbol file now." "file (APPLE LOCAL)"
+
 #test show convenience
 gdb_test "show convenience" "No debugger convenience variables now defined.(\[^\r\n\]*\[\r\n\])+Convenience variables have names starting with \".\";(\[^\r\n\]*\[\r\n\])+use \"set\" as in \"set .foo = 5\" to define them." "show convenience"
 #test show directories
@@ -713,23 +687,27 @@ gdb_test "show width" "Number of characters gdb thinks are in a line is.*" "show
 # This is only supported on targets which use exec.o.
 gdb_test "show write" "Writing into executable and core files is o.*" "show write"
 #test show
+
+# APPLE LOCAL: I'm not saying that MacOS X is slow, but this test can time
+# out if you're doing something resource-intensive in another window..
+set prev_timeout $timeout
+set timeout 300
+verbose "Timeout now $timeout sec."
 gdb_test "show" "confirm:  *Whether to confirm potentially dangerous operations is on.(\[^\r\n\]*\[\r\n\])+history filename:  *The filename in which to record the command history is (\[^\r\n\]*\[\r\n\])+history save:  *Saving of the history record on exit is on.(\[^\r\n\]*\[\r\n\])+history size:  *The size of the command history is(\[^\r\n\]*\[\r\n\])+listsize:  *Number of source lines gdb will list by default is 10(\[^\r\n]*\[\r\n\])+print elements:  *Limit on string chars or array elements to print is 200..*" "show"
+set timeout $prev_timeout
+verbose "Timeout now $timeout sec."
+
 #test stepi "si" abbreviation
-# OBSOLETE setup_xfail "a29k-*-udi"
 gdb_test  "si" "The program is not being run." "stepi \"si\" abbreviation"
 #test stepi
-# OBSOLETE setup_xfail "a29k-*-udi"
 gdb_test "stepi" "The program is not being run." "stepi"
 #test signal
-# OBSOLETE setup_xfail "a29k-*-udi"
 gdb_test "signal" "The program is not being run." "signal"
 #test source
 gdb_test "source" "source command requires pathname of file to source..*|No such file or directory.*" "source"
 #test step "s" abbreviation
-# OBSOLETE setup_xfail "a29k-*-udi"
 gdb_test "s" "The program is not being run." "step \"s\" abbreviation #2"
 #test step
-# OBSOLETE setup_xfail "a29k-*-udi"
 gdb_test "step" "The program is not being run." "step #2"
 #test symbol-file
 gdb_test "symbol-file" "" "symbol-file"
@@ -800,10 +778,8 @@ gdb_test "tbreak" "No default breakpoint address now." "tbreak"
 #test tty
 gdb_test "tty" "Argument required .terminal name for running target process.*" "tty"
 #test until "u" abbreviation
-# OBSOLETE setup_xfail "a29k-*-udi"
 gdb_test "u" "The program is not running." "until \"u\" abbreviation"
 #test until
-# OBSOLETE setup_xfail "a29k-*-udi"
 gdb_test "until" "The program is not running." "until"
 #test undisplay
 # FIXME -- need to dump full output to detailed log
@@ -846,7 +822,6 @@ gdb_test "watch" "Argument required .expression to compute.*" "watch"
 #test whatis
 gdb_test "whatis" "The history is empty." "whatis"
 #test where
-# OBSOLETE setup_xfail "a29k-*-udi"
 gdb_test "where" "No stack." "where"
 #test x
 #The case in which it prints a number is for vxgdb.

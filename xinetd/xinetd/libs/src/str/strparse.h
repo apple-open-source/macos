@@ -8,7 +8,7 @@
 #define __STRPARSE_H
 
 /*
- * $Id: strparse.h,v 1.1.1.1 2002/01/31 07:09:04 zarzycki Exp $
+ * $Id: strparse.h,v 1.1.1.2 2003/05/22 01:16:36 rbraun Exp $
  */
 
 struct str_handle

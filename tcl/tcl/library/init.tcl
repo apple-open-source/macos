@@ -3,7 +3,7 @@
 # Default system startup file for Tcl-based applications.  Defines
 # "unknown" procedure and auto-load facilities.
 #
-# RCS: @(#) $Id: init.tcl,v 1.1.1.5 2002/04/05 16:13:28 jevans Exp $
+# RCS: @(#) $Id: init.tcl,v 1.1.1.7 2003/07/22 23:11:09 landonf Exp $
 #
 # Copyright (c) 1991-1993 The Regents of the University of California.
 # Copyright (c) 1994-1996 Sun Microsystems, Inc.
@@ -16,7 +16,7 @@
 if {[info commands package] == ""} {
     error "version mismatch: library\nscripts expect Tcl version 7.5b1 or later but the loaded version is\nonly [info patchlevel]"
 }
-package require -exact Tcl 8.3
+package require -exact Tcl 8.4
 
 # Compute the auto path to use in this interpreter.
 # The values on the path come from several locations:
@@ -30,8 +30,9 @@ package require -exact Tcl 8.3
 # The parent directory of tcl_library. Adding the parent
 # means that packages in peer directories will be found automatically.
 #
-# Also add the directory where the executable is located, plus ../lib
-# relative to that path.
+# Also add the directory ../lib relative to the directory where the
+# executable is located.  This is meant to find binary packages for the
+# same architecture as the current executable.
 #
 # tcl_pkgPath, which is set by the platform-specific initialization routines
 #	On UNIX it is compiled in
@@ -39,78 +40,89 @@ package require -exact Tcl 8.3
 #	On Macintosh it is "Tool Command Language" in the Extensions folder
 
 if {![info exists auto_path]} {
-    if {[info exist env(TCLLIBPATH)]} {
+    if {[info exists env(TCLLIBPATH)]} {
 	set auto_path $env(TCLLIBPATH)
     } else {
 	set auto_path ""
     }
 }
-if {[string compare [info library] {}]} {
-    foreach __dir [list [info library] [file dirname [info library]]] {
-	if {[lsearch -exact $auto_path $__dir] < 0} {
-	    lappend auto_path $__dir
+namespace eval tcl {
+    variable Dir
+    if {[info library] != ""} {
+	foreach Dir [list [info library] [file dirname [info library]]] {
+	    if {[lsearch -exact $::auto_path $Dir] < 0} {
+		lappend ::auto_path $Dir
+	    }
 	}
     }
-}
-set __dir [file join [file dirname [file dirname \
-	[info nameofexecutable]]] lib]
-if {[lsearch -exact $auto_path $__dir] < 0} {
-    lappend auto_path $__dir
-}
-if {[info exist tcl_pkgPath]} {
-    foreach __dir $tcl_pkgPath {
-	if {[lsearch -exact $auto_path $__dir] < 0} {
-	    lappend auto_path $__dir
+    set Dir [file join [file dirname [file dirname \
+	    [info nameofexecutable]]] lib]
+    if {[lsearch -exact $::auto_path $Dir] < 0} {
+	lappend ::auto_path $Dir
+    }
+    if {[info exists ::tcl_pkgPath]} {
+	foreach Dir $::tcl_pkgPath {
+	    if {[lsearch -exact $::auto_path $Dir] < 0} {
+		lappend ::auto_path $Dir
+	    }
 	}
     }
-}
-if {[info exists __dir]} {
-    unset __dir
 }
   
 # Windows specific end of initialization
 
 if {(![interp issafe]) && [string equal $tcl_platform(platform) "windows"]} {
     namespace eval tcl {
-	proc envTraceProc {lo n1 n2 op} {
+	proc EnvTraceProc {lo n1 n2 op} {
 	    set x $::env($n2)
 	    set ::env($lo) $x
 	    set ::env([string toupper $lo]) $x
 	}
-    }
-    foreach p [array names env] {
-	set u [string toupper $p]
-	if {[string compare $u $p]} {
-	    switch -- $u {
-		COMSPEC -
-		PATH {
-		    if {![info exists env($u)]} {
-			set env($u) $env($p)
+	proc InitWinEnv {} {
+	    global env tcl_platform
+	    foreach p [array names env] {
+		set u [string toupper $p]
+		if {![string equal $u $p]} {
+		    switch -- $u {
+			COMSPEC -
+			PATH {
+			    if {![info exists env($u)]} {
+				set env($u) $env($p)
+			    }
+			    trace variable env($p) w \
+				    [namespace code [list EnvTraceProc $p]]
+			    trace variable env($u) w \
+				    [namespace code [list EnvTraceProc $p]]
+			}
 		    }
-		    trace variable env($p) w [list tcl::envTraceProc $p]
-		    trace variable env($u) w [list tcl::envTraceProc $p]
+		}
+	    }
+	    if {![info exists env(COMSPEC)]} {
+		if {[string equal $tcl_platform(os) "Windows NT"]} {
+		    set env(COMSPEC) cmd.exe
+		} else {
+		    set env(COMSPEC) command.com
 		}
 	    }
 	}
-    }
-    if {[info exists p]} {
-	unset p
-    }
-    if {[info exists u]} {
-	unset u
-    }
-    if {![info exists env(COMSPEC)]} {
-	if {[string equal $tcl_platform(os) "Windows NT"]} {
-	    set env(COMSPEC) cmd.exe
-	} else {
-	    set env(COMSPEC) command.com
-	}
+	InitWinEnv
     }
 }
 
 # Setup the unknown package handler
 
 package unknown tclPkgUnknown
+
+if {![interp issafe]} {
+    # setup platform specific unknown package handlers
+    if {[string equal $::tcl_platform(platform) "unix"] && \
+	    [string equal $::tcl_platform(os) "Darwin"]} {
+	package unknown [list tcl::MacOSXPkgUnknown [package unknown]]
+    }
+    if {[string equal $::tcl_platform(platform) "macintosh"]} {
+	package unknown [list tcl::MacPkgUnknown [package unknown]]
+    }
+}
 
 # Conditionalize for presence of exec.
 
@@ -163,7 +175,7 @@ proc unknown args {
     # then concatenate its arguments onto the end and evaluate it.
 
     set cmd [lindex $args 0]
-    if {[regexp "^namespace\[ \t\n\]+inscope" $cmd] && [llength $cmd] == 4} {
+    if {[regexp "^:*namespace\[ \t\n\]+inscope" $cmd] && [llength $cmd] == 4} {
         set arglist [lrange $args 1 end]
 	set ret [catch {uplevel 1 ::$cmd $arglist} result]
         if {$ret == 0} {
@@ -203,14 +215,50 @@ proc unknown args {
 	    set code [catch {uplevel 1 $args} msg]
 	    if {$code ==  1} {
 		#
-		# Strip the last five lines off the error stack (they're
-		# from the "uplevel" command).
+		# Compute stack trace contribution from the [uplevel].
+		# Note the dependence on how Tcl_AddErrorInfo, etc. 
+		# construct the stack trace.
 		#
-
-		set new [split $errorInfo \n]
-		set new [join [lrange $new 0 [expr {[llength $new] - 6}]] \n]
+		set cinfo $args
+		set ellipsis ""
+		while {[string bytelength $cinfo] > 150} {
+		    set cinfo [string range $cinfo 0 end-1]
+		    set ellipsis "..."
+		}
+		append cinfo $ellipsis "\"\n    (\"uplevel\" body line 1)"
+		append cinfo "\n    invoked from within"
+		append cinfo "\n\"uplevel 1 \$args\""
+		#
+		# Try each possible form of the stack trace
+		# and trim the extra contribution from the matching case
+		#
+		set expect "$msg\n    while executing\n\"$cinfo"
+		if {$errorInfo eq $expect} {
+		    #
+		    # The stack has only the eval from the expanded command
+		    # Do not generate any stack trace here.
+		    #
+		    return -code error -errorcode $errorCode $msg
+		}
+		#
+		# Stack trace is nested, trim off just the contribution
+		# from the extra "eval" of $args due to the "catch" above.
+		#
+		set expect "\n    invoked from within\n\"$cinfo"
+		set exlen [string length $expect]
+		set eilen [string length $errorInfo]
+		set i [expr {$eilen - $exlen - 1}]
+		set einfo [string range $errorInfo 0 $i]
+		#
+		# For now verify that $errorInfo consists of what we are about
+		# to return plus what we expected to trim off.
+		#
+		if {$errorInfo ne "$einfo$expect"} {
+		    error "Tcl bug: unexpected stack trace in \"unknown\"" {} \
+			[list CORE UNKNOWN BADTRACE $expect $errorInfo]
+		}
 		return -code error -errorcode $errorCode \
-			-errorinfo $new $msg
+			-errorinfo $einfo $msg
 	    } else {
 		return -code $code $msg
 	    }
@@ -221,7 +269,7 @@ proc unknown args {
 	    && [info exists tcl_interactive] && $tcl_interactive} {
 	if {![info exists auto_noexec]} {
 	    set new [auto_execok $name]
-	    if {[string compare {} $new]} {
+	    if {$new != ""} {
 		set errorCode $savedErrorCode
 		set errorInfo $savedErrorInfo
 		set redir ""
@@ -372,7 +420,7 @@ proc auto_load_index {} {
 		    error "[file join $dir tclIndex] isn't a proper Tcl index file"
 		}
 	    } msg]
-	    if {[string compare $f ""]} {
+	    if {$f != ""} {
 		close $f
 	    }
 	    if {$error} {
@@ -518,7 +566,14 @@ proc auto_execok name {
     }
 
     if {[lsearch -exact $shellBuiltins $name] != -1} {
-	return [set auto_execs($name) [list $env(COMSPEC) /c $name]]
+	# When this is command.com for some reason on Win2K, Tcl won't
+	# exec it unless the case is right, which this corrects.  COMSPEC
+	# may not point to a real file, so do the check.
+	set cmd $env(COMSPEC)
+	if {[file exists $cmd]} {
+	    set cmd [file attributes $cmd -shortname]
+	}
+	return [set auto_execs($name) [list $cmd /c $name]]
     }
 
     if {[llength [file split $name]] != 1} {
@@ -591,4 +646,83 @@ proc auto_execok name {
     return ""
 }
 
+}
+
+# ::tcl::CopyDirectory --
+#
+# This procedure is called by Tcl's core when attempts to call the
+# filesystem's copydirectory function fail.  The semantics of the call
+# are that 'dest' does not yet exist, i.e. dest should become the exact
+# image of src.  If dest does exist, we throw an error.  
+# 
+# Note that making changes to this procedure can change the results
+# of running Tcl's tests.
+#
+# Arguments: 
+# action -              "renaming" or "copying" 
+# src -			source directory
+# dest -		destination directory
+proc tcl::CopyDirectory {action src dest} {
+    set nsrc [file normalize $src]
+    set ndest [file normalize $dest]
+    if {[string equal $action "renaming"]} {
+	# Can't rename volumes.  We could give a more precise
+	# error message here, but that would break the test suite.
+	if {[lsearch -exact [file volumes] $nsrc] != -1} {
+	    return -code error "error $action \"$src\" to\
+	      \"$dest\": trying to rename a volume or move a directory\
+	      into itself"
+	}
+    }
+    if {[file exists $dest]} {
+	if {$nsrc == $ndest} {
+	    return -code error "error $action \"$src\" to\
+	      \"$dest\": trying to rename a volume or move a directory\
+	      into itself"
+	}
+	if {[string equal $action "copying"]} {
+	    return -code error "error $action \"$src\" to\
+	      \"$dest\": file already exists"
+	} else {
+	    # Depending on the platform, and on the current
+	    # working directory, the directories '.', '..'
+	    # can be returned in various combinations.  Anyway,
+	    # if any other file is returned, we must signal an error.
+	    set existing [glob -nocomplain -directory $dest * .*]
+	    eval [list lappend existing] \
+	      [glob -nocomplain -directory $dest -type hidden * .*]
+	    foreach s $existing {
+		if {([file tail $s] != ".") && ([file tail $s] != "..")} {
+		    return -code error "error $action \"$src\" to\
+		      \"$dest\": file already exists"
+		}
+	    }
+	}
+    } else {
+	if {[string first $nsrc $ndest] != -1} {
+	    set srclen [expr {[llength [file split $nsrc]] -1}]
+	    set ndest [lindex [file split $ndest] $srclen]
+	    if {$ndest == [file tail $nsrc]} {
+		return -code error "error $action \"$src\" to\
+		  \"$dest\": trying to rename a volume or move a directory\
+		  into itself"
+	    }
+	}
+	file mkdir $dest
+    }
+    # Have to be careful to capture both visible and hidden files.
+    # We will also be more generous to the file system and not
+    # assume the hidden and non-hidden lists are non-overlapping.
+    # 
+    # On Unix 'hidden' files begin with '.'.  On other platforms
+    # or filesystems hidden files may have other interpretations.
+    set filelist [concat [glob -nocomplain -directory $src *] \
+      [glob -nocomplain -directory $src -types hidden *]]
+    
+    foreach s [lsort -unique $filelist] {
+	if {([file tail $s] != ".") && ([file tail $s] != "..")} {
+	    file copy $s [file join $dest [file tail $s]]
+	}
+    }
+    return
 }

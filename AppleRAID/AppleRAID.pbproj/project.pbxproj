@@ -101,7 +101,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleRAID;
-				MODULE_VERSION = 1.3.3;
+				MODULE_VERSION = 1.3.4;
 				OTHER_CFLAGS = "-fpermissive";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -126,7 +126,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleRAID</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleRAID 1.3.3, , Copyright 2000-2003 Apple Computer, Inc.</string>
+	<string>AppleRAID 1.3.4, Copyright 2000-2003 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -138,11 +138,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.3</string>
+	<string>1.3.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.3</string>
+	<string>1.3.4</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleRAID</key>

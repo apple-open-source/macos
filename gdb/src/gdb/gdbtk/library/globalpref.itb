@@ -20,7 +20,7 @@
 # ------------------------------------------------------------------
 #  METHOD:  _init - set up the tracing labels info
 # ------------------------------------------------------------------
-body GlobalPref::_init {} {
+itcl::body GlobalPref::_init {} {
   if {$inited} {
     return
   }
@@ -43,9 +43,8 @@ body GlobalPref::_init {} {
 # ------------------------------------------------------------------
 #  METHOD:  init_var - initialize preference variables
 # ------------------------------------------------------------------
-body GlobalPref::_init_var {} {
-  set vlist {gdb/ImageDir gdb/console/wrap gdb/mode
-    gdb/help/browser gdb/use_icons}
+itcl::body GlobalPref::_init_var {} {
+  set vlist {gdb/ImageDir gdb/console/wrap gdb/mode gdb/use_icons gdb/compat}
 
   foreach var $vlist {
     set _saved($var) [pref get $var]
@@ -56,7 +55,7 @@ body GlobalPref::_init_var {} {
 # ------------------------------------------------------------------
 #  METHOD:  constructor - create the Global Preferences object
 # ------------------------------------------------------------------
-body GlobalPref::constructor {args} {    
+itcl::body GlobalPref::constructor {args} {    
   window_name "Global Preferences"
   _init
   _init_var
@@ -67,7 +66,7 @@ body GlobalPref::constructor {args} {
 # ------------------------------------------------------------------
 #  METHOD:  destructor - destroy the Global Preferences object
 # ------------------------------------------------------------------
-body GlobalPref::destructor {} {
+itcl::body GlobalPref::destructor {} {
   foreach thunk $_fonts {
     font delete test-$thunk-font
   }
@@ -76,7 +75,7 @@ body GlobalPref::destructor {} {
 # ------------------------------------------------------------------
 #  METHOD:  _build_win - build the dialog
 # ------------------------------------------------------------------
-body GlobalPref::_build_win {} {
+itcl::body GlobalPref::_build_win {} {
   global tcl_platform GDBTK_LIBRARY
   debug
   frame $itk_interior.f
@@ -187,6 +186,10 @@ body GlobalPref::_build_win {} {
   _make_font_item $f default "Default Font:" $fam
   _make_font_item $f status  "Status Bar Font:" $fam
 
+
+  iwidgets::Labeledframe $frame.misc -labelpos nw -labeltext "Misc"
+  set f [$frame.misc childsite]
+
   # This is the tracing preference
   set tracing_cb [pref get gdb/mode]
   if { ![info exists tracing_labels($tracing_cb)]} {
@@ -194,47 +197,50 @@ body GlobalPref::_build_win {} {
     set tracing_labels($tracing_cb) "Unknown gdb mode..."
   }
 
-  frame $frame.tracing
-  checkbutton $frame.tracing.cb -variable [scope _new(gdb/mode)] \
+  checkbutton $f.tracing -variable [scope _new(gdb/mode)] \
     -text $tracing_labels($tracing_cb) \
-    -command [code $this _toggle_tracing $frame.tracing.cb] \
+    -command [code $this _toggle_tracing $f.tracing] \
     -width $tracing_labels(max_len) -anchor w
-    pack $frame.tracing.cb -pady 10 -side left -fill none 
-
-  # help browser preferences
-  if {$tcl_platform(platform) == "windows"} {
-    set help_text "Use Internet Browser to View Help Files"
-  } else {
-    set help_text "Use Netscape to View Help Files"
-  }
-  frame $frame.browser
-  checkbutton $frame.browser.cb  \
-    -text $help_text -variable [scope _new(gdb/help/browser)]
-  pack $frame.browser.cb -pady 10 -side left -fill none 
 
   # use_icons
   if {$tcl_platform(platform) == "unix"} {
-    frame $frame.use_icons
-    checkbutton $frame.use_icons.cb  \
+    checkbutton $f.use_icons  \
       -text "Use builtin image as icon." -variable [scope _new(gdb/use_icons)]
-    pack $frame.use_icons.cb -pady 10 -side left -fill none 
   }
 
   # console wrap
-  frame $frame.consolewrap
-  checkbutton $frame.consolewrap.cw -text "wrap text in console window" \
+  checkbutton $f.consolewrap -text "wrap text in console window" \
     -variable [scope _new(gdb/console/wrap)]
-  pack $frame.consolewrap.cw -pady 10 -side left -fill none
 
-  pack $frame.icons.lab $frame.icons.cb -side left
-  pack $frame.icons -side top -padx 10 -pady 10
-  pack $frame.tracing -side top -fill x -expand 0 -side bottom
-  pack $frame.browser -side top -fill x -expand 0 -side bottom
+  grid $f.tracing -sticky w -padx 5 -pady 5
+
   if {$tcl_platform(platform) == "unix"} {
-    pack $frame.use_icons -side top -fill x -expand 0 -side bottom
+    grid $f.use_icons -sticky w -padx 5 -pady 5
   }
-  pack $frame.consolewrap -side top -fill x -expand 0 -side bottom
-  pack $frame.d -side top -fill both -expand yes
+  grid $f.consolewrap -sticky w -padx 5 -pady 5
+
+  if {$tcl_platform(platform) == "unix"} {
+    # Compatibility frame
+    iwidgets::Labeledframe $frame.compat -labelpos nw -labeltext "OS Compatibility"
+    set fc [$frame.compat childsite]
+    radiobutton $fc.0 -text "GNOME" -value "GNOME" -variable [scope _new(gdb/compat)]
+    radiobutton $fc.1 -text "KDE" -value "KDE" -variable [scope _new(gdb/compat)]
+    radiobutton $fc.2 -text "default" -value "default" -variable [scope _new(gdb/compat)]
+    grid $fc.0 -sticky w -padx 5 -pady 5
+    grid $fc.1 -sticky w -padx 5 -pady 5
+    grid $fc.2 -sticky w -padx 5 -pady 5
+    grid [label $fc.warn -text "Restart required for all\nchanges to take effect"] -sticky w
+  }
+
+  # pack it all
+  pack $frame.icons.lab $frame.icons.cb -side left
+  grid $frame.icons x -sticky w -pady 10
+  grid $frame.d -columnspan 2 -sticky w
+  if {$tcl_platform(platform) == "unix"} {
+    grid $frame.compat $frame.misc -sticky we
+  } else {
+    grid $frame.misc x -sticky we
+  }
 
   # make buttons
   button $itk_interior.x.ok -text OK -underline 0 -width 7 -command [code $this _ok]
@@ -242,10 +248,9 @@ body GlobalPref::_build_win {} {
   button $itk_interior.x.cancel -text Cancel -width 7 -underline 0 -command [code $this _cancel]
   pack $itk_interior.x.ok $itk_interior.x.apply $itk_interior.x.cancel -side left
   standard_button_box $itk_interior.x
+
   pack $itk_interior.x -fill x -padx 5 -pady 5 -side bottom
-
-
-  pack $itk_interior.f -fill both -expand yes -padx 10 -pady 5
+  pack $itk_interior.f -fill both -expand yes -padx 5 -pady 5
 
   bind $itk_interior.x.ok <Return> \
     "$itk_interior.x.ok flash; $itk_interior.x.ok invoke"
@@ -262,7 +267,7 @@ body GlobalPref::_build_win {} {
 # ------------------------------------------------------------------
 #  PRIVATE METHOD:  _make_font_item
 # ------------------------------------------------------------------
-body GlobalPref::_make_font_item {f name label font_list} {
+itcl::body GlobalPref::_make_font_item {f name label font_list} {
   
   # create ComboBox with font name
   lappend _fonts $name
@@ -284,7 +289,8 @@ body GlobalPref::_make_font_item {f name label font_list} {
     iwidgets::spinint $f.${name}s -labeltext "Size:" -range {6 18} -step 1 \
       -fixed 2 -width 2 -textvariable [scope _size($name)] -wrap 0 \
       -increment [code $this _change_size up $name] \
-      -decrement [code $this _change_size down $name]
+      -decrement [code $this _change_size down $name] \
+      -textbackground $::Colors(textbg)
   } {}
   label $f.${name}l -text ABCDEFabcdef0123456789 -font test-$name-font
   set _size($name) $_original($name,size)
@@ -296,7 +302,7 @@ body GlobalPref::_make_font_item {f name label font_list} {
 # ------------------------------------------------------------------
 #  PRIVATE METHOD:  _resize_font_item_height
 # ------------------------------------------------------------------
-body GlobalPref::_resize_font_item_height {} {
+itcl::body GlobalPref::_resize_font_item_height {} {
   foreach font $_fonts {
     set master [$itk_interior.f.d get_frame]
     set row [gridCGet $master.${font}l -row]
@@ -307,7 +313,7 @@ body GlobalPref::_resize_font_item_height {} {
 # ------------------------------------------------------------------
 #  PRIVATE METHOD:  _change_icons
 # ------------------------------------------------------------------
-body GlobalPref::_change_icons {w args} {
+itcl::body GlobalPref::_change_icons {w args} {
   debug
   set index [$w list curselection]
   if {$index != ""} {
@@ -329,7 +335,7 @@ body GlobalPref::_change_icons {w args} {
 #  NOTES:        The combobox has a really non-standard callback
 #                mechanism: it always adds two args to the callback.
 # ------------------------------------------------------------------
-body GlobalPref::_change_font {font stupid implementation} {
+itcl::body GlobalPref::_change_font {font stupid implementation} {
   font configure test-$font-font -family $implementation
 }
 
@@ -344,7 +350,7 @@ body GlobalPref::_change_font {font stupid implementation} {
 #
 #  NOTES:        See comments for purpose of "direction". Sigh.
 # ------------------------------------------------------------------
-body GlobalPref::_change_size {direction font} {
+itcl::body GlobalPref::_change_size {direction font} {
 
   # Almost as stupid as the comobox, the iwidgets::spinint class
   # will not treat its -increment and -decrement commands
@@ -355,7 +361,7 @@ body GlobalPref::_change_size {direction font} {
 }
 
 
-body GlobalPref::_toggle_tracing {win} {
+itcl::body GlobalPref::_toggle_tracing {win} {
   debug
   $win configure -text $tracing_labels($_new(gdb/mode))
 }
@@ -363,14 +369,14 @@ body GlobalPref::_toggle_tracing {win} {
 # ------------------------------------------------------------------
 #  METHOD:  _ok - called to accept settings and close dialog
 # ------------------------------------------------------------------
-body GlobalPref::_ok {} {
+itcl::body GlobalPref::_ok {} {
   _apply 1
 }
 
 # ------------------------------------------------------------------
 #  METHOD:  _apply - apply current settings to the screen
 # ------------------------------------------------------------------
-body GlobalPref::_apply {{deleteMe 0}} {
+itcl::body GlobalPref::_apply {{deleteMe 0}} {
   debug
   set changed_something 0
 
@@ -424,7 +430,7 @@ body GlobalPref::_apply {{deleteMe 0}} {
 #  METHOD:  _cancel - forget current settings -- reset to original
 #                    state and close preferences
 # ------------------------------------------------------------------
-body GlobalPref::_cancel {} {
+itcl::body GlobalPref::_cancel {} {
   debug
   set changed_something 0
 
@@ -464,7 +470,7 @@ body GlobalPref::_cancel {} {
 #                    The cancel method is actually called when
 #		     the window is closed. Name needs fixed.
 # ------------------------------------------------------------------
-body GlobalPref::cancel {} {
+itcl::body GlobalPref::cancel {} {
   # when the window is closed, we want the preferences selected to
   # be applied.
   _apply 1

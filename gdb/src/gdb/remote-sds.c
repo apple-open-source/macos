@@ -66,7 +66,7 @@ static void sds_fetch_registers (int);
 
 static void sds_resume (ptid_t, int, enum target_signal);
 
-static int sds_start_remote (PTR);
+static int sds_start_remote (void *);
 
 static void sds_open (char *, int);
 
@@ -160,7 +160,7 @@ sds_close (int quitting)
 /* Stub for catch_errors.  */
 
 static int
-sds_start_remote (PTR dummy)
+sds_start_remote (void *dummy)
 {
   int c;
   unsigned char buf[200];
@@ -509,7 +509,7 @@ static void
 sds_prepare_to_store (void)
 {
   /* Make sure the entire registers array is valid.  */
-  read_register_bytes (0, (char *) NULL, REGISTER_BYTES);
+  deprecated_read_register_bytes (0, (char *) NULL, REGISTER_BYTES);
 }
 
 /* Store register REGNO, or all registers if REGNO == -1, from the contents
@@ -528,7 +528,7 @@ sds_store_registers (int regno)
   *p++ = 0;
   *p++ = 0;
   for (i = 0; i < 4 * 6; i++)
-    *p++ = registers[i + 4 * 32 + 8 * 32];
+    *p++ = deprecated_registers[i + 4 * 32 + 8 * 32];
   for (i = 0; i < 4 * 1; i++)
     *p++ = 0;
   for (i = 0; i < 4 * 4; i++)
@@ -543,7 +543,7 @@ sds_store_registers (int regno)
   *p++ = 0;
   *p++ = 0;
   for (i = 0; i < 4 * 32; i++)
-    *p++ = registers[i];
+    *p++ = deprecated_registers[i];
 
   sds_send (buf, p - buf);
 
@@ -978,6 +978,7 @@ getmessage (unsigned char *buf, int forever)
       /* Try the whole thing again.  */
     retry:
       /* need to do something here */
+      ;
     }
 
   /* We have tried hard enough, and just can't receive the packet.  Give up. */

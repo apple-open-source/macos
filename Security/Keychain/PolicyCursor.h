@@ -22,7 +22,7 @@
 #define _SECURITY_POLICYCURSOR_H_
 
 #include <Security/SecRuntime.h>
-#include <Security/Policies.h>
+#include <Security/SecPolicySearch.h>
 #include <Security/cssmdata.h>
 #include <Security/mds.h>
 #include <Security/mds_schema.h>
@@ -39,9 +39,11 @@ class PolicyCursor : public SecCFObject
 {
     NOCOPY(PolicyCursor)
 public:
+	SECCFFUNCTIONS(PolicyCursor, SecPolicySearchRef, errSecInvalidSearchRef)
+
     PolicyCursor(const CSSM_OID* oid, const CSSM_DATA* value);
-	virtual ~PolicyCursor();
-	bool next(RefPointer<Policy> &policy);
+	virtual ~PolicyCursor() throw();
+	bool next(SecPointer<Policy> &policy);
 
 private:
     //CFArrayRef	 mKeychainSearchList;

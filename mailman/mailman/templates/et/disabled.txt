@@ -1,0 +1,26 @@
+Teie %(listname)s listi tellimus on katkestatud järgnetavel
+põhjustel:
+%(reason)s
+Te ei saa listist rohkem kirju enne, kui olete oma tellimust
+uuendanud. Te saate veel %(noticesleft)s sellist meeldetuletust, enne
+kui teie tellimus lõplikult tühistatakse.
+
+Tellimuse uuendamiseks lihtsalt vastake sellele kirjale (jättes
+teema samaks), või külastage aadressi:
+
+    %(confirmurl)s
+
+Alternatiivina võite külastada ka oma tellimisinfo lehte aadressil
+
+    %(optionsurl)s
+
+Tellimisinfo lehel on teil võimalik muuta kirjade kättetoimetamise
+seadistusi või muuta meiliaadressi, millele kirju saadetakse.
+
+Meeldetuletuseks, teie parool on
+    
+    %(password)s
+
+Probleemide ja küsimustega pöörduge listi halduri poole aadressil
+
+    %(owneraddr)s

@@ -1,0 +1,35 @@
+Witamy na li¶cie dyskusyjnej %(real_name)s@%(host_name)s!
+%(welcome)s
+Wiadomo¶ci skierowane na listê wysy³aj na adres:
+
+  %(emailaddr)s
+
+Ogóln± stronê informacyjn± listy najdziesz pod adresem:
+
+  %(listinfo_url)s
+
+Gdyby¶ kiedykolwiek chcia³ siê wypisaæ lub zmieniæ opcje
+swojej subskrybcji (np. zmiana trybu, lub has³a), mo¿esz to zrobiæ przez
+stronê:
+
+  %(optionsurl)s
+%(umbrella)s
+Wszystko to mo¿na równie¿ zrobiæ za pomoc± maila. Wy¶lij wiadomo¶æ
+za s³owem 'help' w temacie lub tre¶ci na adres:
+
+  %(real_name)s-request@%(host_name)s
+
+W odpowiedzi dostaniesz dalsze wskazówki.
+
+Pamiêtaj, ¿e do wszystkich zmian (w tym równie¿ wypisania siê) potrzebne
+bêdzie Twoje has³o. Brzmi ono:
+
+  %(password)s
+
+Mailman bêdzie co miesi±c przysy³a³ Ci wiadomo¶æ przypominaj±c± o tym 
+na jakie listy dyskusyjne jeste¶ zapisany na serwerze %(host_name)s i 
+jakie jest Twoje has³o. Mo¿na zrezygnowaæ z przypomnieñ zmieniaj±c 
+opcje subscrybcji. Przypomnienie zawieraæ bêdzie równie¿ instrukcje w 
+jaki sposób wypisaæ siê z listy i korzystaæ z Mailmana. Wchodz±c na 
+stronê swojej subscrybcji mo¿esz, w ka¿dej chwili, poprosiæ o 
+przes³anie has³a emailem.

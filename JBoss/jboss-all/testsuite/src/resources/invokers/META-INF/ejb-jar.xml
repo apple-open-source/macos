@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<!DOCTYPE ejb-jar PUBLIC "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 1.1//EN"
+    "http://java.sun.com/j2ee/dtds/ejb-jar_1_1.dtd">
+
+<ejb-jar>
+  <display-name>JRMP Custom Socket Tests</display-name>
+  <enterprise-beans>
+
+    <entity>
+            <description>a simple bean managed entity bean</description>
+            <ejb-name>SimpleBMP</ejb-name>
+            <home>org.jboss.test.invokers.interfaces.SimpleBMPHome</home>
+            <remote>org.jboss.test.invokers.interfaces.SimpleBMP</remote>
+            <ejb-class>org.jboss.test.invokers.ejb.SimpleBMPBean</ejb-class>
+            <prim-key-class>java.lang.Integer</prim-key-class>
+            <persistence-type>Bean</persistence-type>
+            <transaction-type>Container</transaction-type>
+            <reentrant>false</reentrant>
+    </entity>
+
+    <session>
+      <description>A trival echo stateless session bean</description>
+      <ejb-name>StatelessSession</ejb-name>
+      <home>org.jboss.test.invokers.interfaces.StatelessSessionHome</home>
+      <remote>org.jboss.test.invokers.interfaces.StatelessSession</remote>
+      <ejb-class>org.jboss.test.invokers.ejb.StatelessSessionBean</ejb-class>
+      <session-type>Stateless</session-type>
+      <transaction-type>Container</transaction-type>
+      <ejb-ref>
+        <ejb-ref-name>ejb/SimpleBMP</ejb-ref-name>  
+        <ejb-ref-type>Entity</ejb-ref-type>
+        <home>org.jboss.test.invokers.interfaces.SimpleBMPHome</home>
+        <remote>org.jboss.test.invokers.interfaces.SimpleBMP</remote>
+      </ejb-ref>
+    </session>
+
+
+    
+  </enterprise-beans>
+
+</ejb-jar>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
-<plist version="0.9">
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
 <dict>
 	<key>CurrentSet</key>
 	<string>/Sets/0</string>
@@ -18,12 +18,16 @@
 			<key>DNS</key>
 			<dict/>
 			<key>Ethernet</key>
-			<dict>
-			</dict>
+			<dict/>
 			<key>IPv4</key>
 			<dict>
 				<key>ConfigMethod</key>
 				<string>DHCP</string>
+			</dict>
+			<key>IPv6</key>
+			<dict>
+				<key>ConfigMethod</key>
+				<string>Automatic</string>
 			</dict>
 			<key>Interface</key>
 			<dict>
@@ -133,7 +137,6 @@
 		</dict>
 	</dict>
 	<key>System</key>
-	<dict>
-	</dict>
+	<dict/>
 </dict>
 </plist>

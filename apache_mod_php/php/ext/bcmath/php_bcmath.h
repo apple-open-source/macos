@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,23 +12,43 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Andi Gutmans <andi@zend.com>                                |
+   | Author: Andi Gutmans <andi@zend.com>                                 |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_bcmath.h,v 1.1.1.4 2001/07/19 00:18:53 zarzycki Exp $ */
+/* $Id: php_bcmath.h,v 1.1.1.7 2003/07/18 18:07:29 zarzycki Exp $ */
 
 #ifndef PHP_BCMATH_H
 #define PHP_BCMATH_H
 
 #if WITH_BCMATH
 
+#include "libbcmath/src/bcmath.h"
+
+ZEND_BEGIN_MODULE_GLOBALS(bcmath)
+	bc_num _zero_;
+	bc_num _one_;
+	bc_num _two_;
+ZEND_END_MODULE_GLOBALS(bcmath)
+	
+#if ZTS
+# define BCG(v) TSRMG(bcmath_globals_id, zend_bcmath_globals *, v)
+extern int bcmath_globals_id;
+#else
+# define BCG(v) (bcmath_globals.v)
+extern zend_bcmath_globals bcmath_globals;
+#endif
+
+#define BC
+
 extern zend_module_entry bcmath_module_entry;
 #define phpext_bcmath_ptr &bcmath_module_entry
 
+#if ZTS
 PHP_MINIT_FUNCTION(bcmath);
-PHP_MSHUTDOWN_FUNCTION(bcmath);
+#endif
 PHP_RINIT_FUNCTION(bcmath);
+PHP_RSHUTDOWN_FUNCTION(bcmath);
 PHP_MINFO_FUNCTION(bcmath);
 
 PHP_FUNCTION(bcadd);

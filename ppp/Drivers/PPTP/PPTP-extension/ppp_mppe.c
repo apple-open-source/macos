@@ -1,4 +1,28 @@
 /*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * ppp_mppe.c - MPPE "compressor/decompressor" module.
  *
  * Copyright (c) 1994 Árpád Magosányi <mag@bunuel.tii.matav.hu>
@@ -58,12 +82,9 @@
  */
 struct ppp_mppe_state {
     unsigned int	ccount; /*coherency count */
-    struct rc4_state	rc4_send_state;
-    struct rc4_state	rc4_recv_state;
-    unsigned char	session_send_key[16];
-    unsigned char	session_recv_key[16];
-    unsigned char	master_send_key[16];
-    unsigned char	master_recv_key[16];
+    struct rc4_state	rc4_state;
+    unsigned char	session_key[MPPE_MAX_KEY_LEN];
+    unsigned char	master_key[MPPE_MAX_KEY_LEN];
     int			keylen;
     int                 stateless;
     int                 decomp_error;
@@ -83,8 +104,6 @@ struct ppp_mppe_state {
 static void	*mppe_comp_alloc __P((unsigned char *, int));
 static void	mppe_comp_free __P((void *));
 static int	mppe_comp_init __P((void *, unsigned char *,
-					int, int, int, int, int));
-static int	mppe_decomp_init __P((void *, unsigned char *,
 					int, int, int, int, int));
 static int	mppe_compress __P((void *, struct mbuf **));
 static void	mppe_incomp __P((void *, struct mbuf *));
@@ -113,7 +132,7 @@ ppp_mppe_init(void)
         mppe_comp_stats,		/* comp_stat */
         mppe_comp_alloc,		/* decomp_alloc */
         mppe_comp_free,			/* decomp_free */
-        mppe_decomp_init,		/* decomp_init */
+        mppe_comp_init,			/* decomp_init */
         mppe_comp_reset,		/* decomp_reset */
         mppe_decompress,		/* decompress */
         mppe_incomp,			/* incomp */
@@ -175,8 +194,7 @@ mppe_synchronize_key(struct ppp_mppe_state *state)
 {
 
     /* get new keys and flag our state as such */
-    rc4_init(&(state->rc4_send_state), state->session_send_key, state->keylen);
-    rc4_init(&(state->rc4_recv_state), state->session_recv_key, state->keylen);
+    rc4_init(&(state->rc4_state), state->session_key, state->keylen);
 
     state->bits=MPPE_BIT_FLUSHED|MPPE_BIT_ENCRYPTED;
 }
@@ -188,16 +206,13 @@ mppe_initialize_key(struct ppp_mppe_state *state)
 {
 
     /* generate new session keys */
-    GetNewKeyFromSHA(state->master_send_key, state->master_send_key,
-	state->keylen, state->session_send_key);
-    GetNewKeyFromSHA(state->master_recv_key, state->master_recv_key,
-	state->keylen, state->session_recv_key);
+    GetNewKeyFromSHA(state->master_key, state->master_key, state->keylen, state->session_key);
 
     if(state->keylen == 8) {
 	/* cripple them from 64bit->40bit */
-        state->session_send_key[0]=state->session_recv_key[0] = MPPE_40_SALT0;
-        state->session_send_key[1]=state->session_recv_key[1] = MPPE_40_SALT1;
-        state->session_send_key[2]=state->session_recv_key[2] = MPPE_40_SALT2;
+        state->session_key[0] = MPPE_40_SALT0;
+        state->session_key[1] = MPPE_40_SALT1;
+        state->session_key[2] = MPPE_40_SALT2;
     }
 
     mppe_synchronize_key(state);
@@ -208,36 +223,28 @@ mppe_initialize_key(struct ppp_mppe_state *state)
 static void
 mppe_change_key(struct ppp_mppe_state *state)
 {
-    unsigned char InterimSendKey[16];
-    unsigned char InterimRecvKey[16];
+    unsigned char InterimKey[16];
 
     /* get temp keys */
-    GetNewKeyFromSHA(state->master_send_key, state->session_send_key,
-	state->keylen, InterimSendKey);
-    GetNewKeyFromSHA(state->master_recv_key, state->session_recv_key,
-	state->keylen, InterimRecvKey);
+    GetNewKeyFromSHA(state->master_key, state->session_key,
+	state->keylen, InterimKey);
 
     /* build RC4 keys from the temp keys */
-    rc4_init(&(state->rc4_send_state), InterimSendKey, state->keylen);
-    rc4_init(&(state->rc4_recv_state), InterimRecvKey, state->keylen);
+    rc4_init(&(state->rc4_state), InterimKey, state->keylen);
 
     /* make new session keys */
-    rc4_crypt(&(state->rc4_send_state), InterimSendKey,
-	state->session_send_key, state->keylen);
-    rc4_crypt(&(state->rc4_recv_state), InterimRecvKey,
-	state->session_recv_key, state->keylen);
+    rc4_crypt(&(state->rc4_state), InterimKey, state->session_key, state->keylen);
 
     if(state->keylen == 8)
     {
 	/* cripple them from 64->40 bits*/
-        state->session_send_key[0]=state->session_recv_key[0] = MPPE_40_SALT0;
-        state->session_send_key[1]=state->session_recv_key[1] = MPPE_40_SALT1;
-        state->session_send_key[2]=state->session_recv_key[2] = MPPE_40_SALT2;
+        state->session_key[0] = MPPE_40_SALT0;
+        state->session_key[1] = MPPE_40_SALT1;
+        state->session_key[2] = MPPE_40_SALT2;
     }
 
     /* make the final rc4 keys */
-    rc4_init(&(state->rc4_send_state), state->session_send_key, state->keylen);
-    rc4_init(&(state->rc4_recv_state), state->session_recv_key, state->keylen);
+    rc4_init(&(state->rc4_state), state->session_key, state->keylen);
 
     state->bits |= MPPE_BIT_FLUSHED;
 }
@@ -316,7 +323,6 @@ mppe_comp_free(void *arg)
 
     if (state) {
 	    FREE(state, M_TEMP);
-	    //MOD_DEC_USE_COUNT;
     }
 }
 
@@ -328,7 +334,7 @@ mppe_comp_alloc(unsigned char *options, int opt_len)
 {
     struct ppp_mppe_state *state;
 
-    if (((2*8)+3 != opt_len && (2*16)+3 != opt_len) /* 2 keys + 3 */ 
+    if ((opt_len > (CILEN_MPPE + MPPE_MAX_KEY_LEN))
        || options[0] != CI_MPPE || options[1] != CILEN_MPPE) {
 	    log(LOG_DEBUG, "compress rejected: opt_len=%u,o[0]=%x,o[1]=%x\n",
 		opt_len,options[0],options[1]);
@@ -339,18 +345,11 @@ mppe_comp_alloc(unsigned char *options, int opt_len)
     if (state == NULL)
 	return NULL;
 
-    //MOD_INC_USE_COUNT;
-
     memset (state, 0, sizeof (struct ppp_mppe_state));
 
-    /* write the data in options to the right places */
-    state->stateless = options[2];
-
-    state->keylen = (opt_len-3)/2;
-    memcpy(state->master_send_key,options+3,state->keylen);
-    memcpy(state->master_recv_key,options+3+state->keylen,state->keylen);
-
-    mppe_initialize_key(state);
+    /* just copy the keys */
+    memcpy(state->master_key, options + CILEN_MPPE, MPPE_MAX_KEY_LEN);
+    memcpy(state->session_key, options + CILEN_MPPE, MPPE_MAX_KEY_LEN);
 
     return (void *) state;
 }
@@ -363,59 +362,31 @@ mppe_comp_init(void *arg, unsigned char *options, int opt_len, int unit,
 		int hdrlen, int mtu, int debug)
 {
     struct ppp_mppe_state *state = (struct ppp_mppe_state *)arg;
+    unsigned char mppe_opts;
 
-    if (options[0] != CI_MPPE || options[1] != CILEN_MPPE) {
-    	log(LOG_DEBUG, "compress rejected: opt_len=%u,o[0]=%x,o[1]=%x\n",
-	    opt_len,options[0],options[1]);
+    if (opt_len != CILEN_MPPE
+       || options[0] != CI_MPPE || options[1] != CILEN_MPPE) {
+    	log(LOG_DEBUG, "mppe compress rejected: opt_len=%u,o[0]=%x,o[1]=%x\n",
+	    opt_len, options[0], options[1]);
+	return 0;
+    }
+
+    MPPE_CI_TO_OPTS(&options[2], mppe_opts);
+    if (mppe_opts & MPPE_OPT_40)
+	state->keylen = 8;
+    else if (mppe_opts & MPPE_OPT_128)
+	state->keylen = 16;
+    else {
+	log(LOG_DEBUG, "mppe compress rejected, unknown key length\n");
 	return 0;
     }
 
     state->ccount = 0;
     state->unit  = unit;
     state->debug = debug;
+    state->stateless = mppe_opts & MPPE_OPT_STATEFUL ? 0 : 1;
 
-    /* 19 is the min (2*keylen) + 3 */
-    if(opt_len >= 19) {
-        state->stateless = options[2];
-
-    	state->keylen = (opt_len-3)/2;
-    	memcpy(state->master_send_key,options+3,state->keylen);
-    	memcpy(state->master_recv_key,options+3+state->keylen,state->keylen);
-
-    	mppe_initialize_key(state);
-    }
-
-    return 1;
-}
-
-/* -----------------------------------------------------------------------------
------------------------------------------------------------------------------ */
-static int
-mppe_decomp_init(void *arg, unsigned char *options, int opt_len, int unit,
-		int hdrlen, int mru, int debug)
-{
-    struct ppp_mppe_state *state = (struct ppp_mppe_state *)arg;
-
-    if (options[0] != CI_MPPE || options[1] != CILEN_MPPE) {
-	log(LOG_DEBUG, "options are bad: %x %x\n",options[0],options[1]);
-	return 0;
-    }
-
-    state->ccount = 0;
-    state->unit  = unit;
-    state->debug = debug;
-    state->mru = mru;
-
-    /* 19 is the min (2*keylen)+3 */
-    if(opt_len >= 19) {
-        state->stateless = options[2];
-
-	state->keylen = (opt_len-3)/2;
-	memcpy(state->master_send_key,options+3,state->keylen);
-	memcpy(state->master_recv_key,options+3+state->keylen,state->keylen);
-
-	mppe_initialize_key(state);
-    }
+    mppe_initialize_key(state);
 
     return 1;
 }
@@ -464,25 +435,6 @@ mppe_update_count(struct ppp_mppe_state *state)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-static struct mbuf *getcluster()
-{
-    struct mbuf *m;
-    
-    MGETHDR(m, M_DONTWAIT, MT_DATA);
-    if (m == 0)
-        return 0;
-    
-    MCLGET(m, M_DONTWAIT);
-    if (!(m->m_flags & M_EXT)) {
-        m_freem(m);
-        return 0;
-    }
-
-    return m;
-}
-
-/* -----------------------------------------------------------------------------
------------------------------------------------------------------------------ */
 int
 mppe_compress(void *arg, struct mbuf **m)
 {
@@ -498,7 +450,7 @@ mppe_compress(void *arg, struct mbuf **m)
     for (m1 = *m, isize = 0; m1 ; m1 = m1->m_next)
         isize += m1->m_len;
 
-    if ((m1 = getcluster()) == 0) {
+    if ((m1 = m_getpacket()) == 0) {
 	log(LOG_DEBUG, "mppe_compress: no mbuf available\n");
         return COMP_NOTDONE;
     }
@@ -518,7 +470,7 @@ mppe_compress(void *arg, struct mbuf **m)
     mppe_update_count(state);
 
     /* read from rptr, write to wptr */
-    rc4_crypt(&(state->rc4_send_state), ppp_mppe_tmp, p + 2, isize);
+    rc4_crypt(&(state->rc4_state), ppp_mppe_tmp, p + 2, isize);
 
     m_freem(*m);
     m1->m_len = isize + 2;
@@ -615,13 +567,13 @@ mppe_decompress(void *arg, struct mbuf **m)
 	    mppe_synchronize_key(state);
 	mppe_update_count(state);
 
-        if ((m1 = getcluster()) == 0) {
+        if ((m1 = m_getpacket()) == 0) {
             log(LOG_DEBUG, "mppe_decompress: no mbuf available\n");
             return DECOMP_ERROR;
         }
         
 	/* decrypt - adjust for MPPE_OVHD - mru should be OK */
-	rc4_crypt(&(state->rc4_recv_state), ppp_mppe_tmp + 2, mtod(m1, u_char *), isize - 2);
+	rc4_crypt(&(state->rc4_state), ppp_mppe_tmp + 2, mtod(m1, u_char *), isize - 2);
 
         m_freem(*m);
         m1->m_len = isize - 2;

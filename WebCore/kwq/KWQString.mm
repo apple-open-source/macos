@@ -221,6 +221,8 @@ static void freeHandle(void *free);
 
 static const int caseDelta = ('a' - 'A');
 
+const char * const QString::null = 0;
+
 KWQStringData *QString::shared_null = 0;
 KWQStringData **QString::shared_null_handle = 0;
 
@@ -2304,7 +2306,7 @@ QString &QString::replace(const QRegExp &qre, const QString &str)
     int slen  = str.dataHandle[0]->_length;
     int len;
     while ( index < (int)dataHandle[0]->_length ) {
-	index = qre.match( *this, index, &len, FALSE );
+	index = qre.match( *this, index, &len);
 	if ( index >= 0 ) {
 	    replace( index, len, str );
 	    index += slen;

@@ -1,0 +1,150 @@
+<!--                                                               -->
+<!-- DTD for externalizing the definition of the                   -->
+<!-- JMX management interfaces.                                    -->
+<!--                                                               -->
+<!-- Author: Juha Lindfors                                         -->
+<!-- Author: David Jencks                                          -->
+<!--This is the XML DTD for the JBoss 3.0 EJB deployment descriptor.
+The DOCTYPE is:
+  <!DOCTYPE mbean PUBLIC
+      "-//JBoss//DTD JBOSS XMBEAN 1.0//EN"
+      "http://www.jboss.org/j2ee/dtd/jboss_xmbean_1_0.dtd">
+-->
+<!--                                                               -->
+
+<!-- 
+  The <mbean> element is the root element of the document containing the
+  required elements for describing the management interface of one
+  MBean (constructors, attributes, operations and notifications). It
+  also includes an optional description element that can be used to
+  describe the purpose of the MBean and attributes for persistence
+  policy and attribute caching.
+-->  
+<!ELEMENT mbean (description?, descriptors?, class, constructor*, attribute*, operation*,
+         notification*)>
+                
+<!--
+  The constructor element describes the constructors of an MBean
+  that are exposed to the management application. The optional
+  description element can be used to to describe the use of the
+  constructor.  
+-->
+<!ELEMENT constructor (description?, name, parameter*, descriptors?)>
+
+<!-- 
+  The <attribute> element describes the management attributes of an
+  MBean. The <name> element contains the attribute's name and the <type>
+  element contains a fully qualified class name of the attribute's
+  type.
+  
+-->
+<!ELEMENT attribute (description?, name, type, descriptors?)>
+<!--         access     read/write access to attribute             -->
+<!ATTLIST attribute access     (READ | WRITE | READ_WRITE)         "READ_WRITE"
+                    getMethod         CDATA #IMPLIED
+                    setMethod         CDATA #IMPLIED
+ >
+                    
+<!-- 
+  The <operation> element describes a management operation of an MBean.
+  The <name> element contains the operation's name and the <parameter>
+  elements describe the operation's signature. The <return-type> element
+  must contain a fully qualified class name of the return type from
+  this operation.
+  
+  If <return-type> is not specified, void is assumed.
+  
+-->
+<!ELEMENT operation (description?, name, parameter*, return-type?)>
+
+<!--         impact     Impact of operation                        -->
+<!ATTLIST  operation
+             impact     (ACTION | INFO | ACTION_INFO)      "ACTION_INFO" >
+
+<!--                    descriptors                                -->
+<!--                    The <descriptors> element contains all the
+                        descriptors for a containing element, as
+                        subelements.  The descriptors suggested in
+                        the jmx spec have predefined elements,
+                        whereas custom descriptors have a generic
+                        element.                                   -->
+<!ELEMENT  descriptors   (persistence?, currencyTimeLimit?, state-action-on-update?, descriptor*)>
+
+<!--                    persistence                                -->
+<!--                    The <persistence> element contains
+                        descriptors for the persistPolicy,
+                        persistPeriod, persistLocation, and
+                        persistName properties suggested by the
+                        spec.                                      -->
+<!ELEMENT  persistence   EMPTY                                    >
+
+<!--         persistPolicy
+                        persistPolicy as suggested by jmx spec
+             persistPeriod
+                        persistPeriod as suggested by jmx spec
+             persistLocation
+                        location of persistence store.
+             persistNameName of persistent data in datastore for this
+                        mbean                                      -->
+<!ATTLIST  persistence
+             persistPolicy
+                        (NEVER | ONUPDATE | NOMOREOFTENTHAN | ONTIMER)
+                                                           #IMPLIED
+             persistPeriod
+                        CDATA                              #IMPLIED
+             persistLocation
+                        CDATA                              #IMPLIED
+             persistName
+                        CDATA                              #IMPLIED  >
+
+
+<!--                    currency-time-limit                        -->
+<!--                    Time that a cached value of an attribute
+                        remains valid.                             -->
+<!ELEMENT  currency-time-limit
+                         EMPTY                                    >
+
+<!--         value      Value for currencyTimeLimit                -->
+<!ATTLIST  currency-time-limit
+             value      CDATA                              #IMPLIED  >
+
+<!--                    state-action-on-update                     -->
+<!--                    When an attribute is updated, how much
+                        does the service need to be stopped?       -->
+<!ELEMENT  state-action-on-update
+                         EMPTY                                    >
+
+
+<!--         value      how much the service needs to be stopped when
+                        this attribute is updated                  -->
+<!ATTLIST  state-action-on-update
+             value      (KEEP_RUNNING | RESTART | REINSTANTIATE) #IMPLIED>
+
+<!--                    descriptor                                 -->
+<!--                    Custom descriptor element                  -->
+<!ELEMENT  descriptor    EMPTY                                    >
+<!--         name       Name of descriptor
+             value      value of descriptor                        -->
+<!ATTLIST  descriptor
+             name       CDATA                              #REQUIRED
+             value      CDATA                              #REQUIRED >
+
+<!--
+  The <notification> element describes a management notification. The <name>
+  element contains the fully qualified name of the notification class and
+  the <notification-type> element contains the dot-separated notification
+  type string.
+-->
+<!ELEMENT notification (description?, name, notification-type+, descriptors?)>
+
+<!ELEMENT parameter (description?, name, type)>
+
+<!ELEMENT class              (#PCDATA)>
+<!ELEMENT name               (#PCDATA)>
+<!ELEMENT description        (#PCDATA)>
+<!ELEMENT type               (#PCDATA)>
+<!ELEMENT return-type        (#PCDATA)>
+<!ELEMENT notification-type  (#PCDATA)>
+
+
+

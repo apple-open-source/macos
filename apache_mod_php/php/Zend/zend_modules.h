@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 0.92 of the Zend license,     |
+   | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
    | available at through the world-wide-web at                           |
-   | http://www.zend.com/license/0_92.txt.                                |
+   | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
    | license@zend.com so we can mail you a copy immediately.              |
@@ -29,14 +29,12 @@
 #define SHUTDOWN_FUNC_ARGS_PASSTHRU type, module_number TSRMLS_CC
 #define ZEND_MODULE_INFO_FUNC_ARGS zend_module_entry *zend_module TSRMLS_DC
 #define ZEND_MODULE_INFO_FUNC_ARGS_PASSTHRU zend_module TSRMLS_CC
-#define GINIT_FUNC_ARGS		void
-#define GINIT_FUNC_ARGS_PASSTHRU
 
 ZEND_API extern unsigned char first_arg_force_ref[];
 ZEND_API extern unsigned char second_arg_force_ref[];
 ZEND_API extern unsigned char third_arg_force_ref[];
 
-#define ZEND_MODULE_API_NO 20010901
+#define ZEND_MODULE_API_NO 20020429
 #ifdef ZTS
 #define USING_ZTS 1
 #else

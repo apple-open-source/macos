@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/ed.defns.c,v 1.1.1.2 2001/06/28 23:10:47 bbraun Exp $ */
+/* $Header: /cvs/root/tcsh/tcsh/ed.defns.c,v 1.1.1.3 2003/01/17 03:41:05 nicolai Exp $ */
 /*
  * ed.defns.c: Editor function definitions and initialization
  */
@@ -14,11 +14,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -36,7 +32,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: ed.defns.c,v 1.1.1.2 2001/06/28 23:10:47 bbraun Exp $")
+RCSID("$Id: ed.defns.c,v 1.1.1.3 2003/01/17 03:41:05 nicolai Exp $")
 
 #include "ed.h"
 
@@ -269,20 +265,22 @@ PFCmd   CcFuncTbl[] = {		/* table of available commands */
 #define		F_COMMAND_NORM	111
     e_dabbrev_expand,
 #define		F_DABBREV_EXPAND	112
-	e_copy_to_clipboard,
-#define		F_COPY_CLIP		113
-	e_paste_from_clipboard,
+    e_copy_to_clipboard,
+#define		F_COPY_CLIP	113
+    e_paste_from_clipboard,
 #define		F_PASTE_CLIP	114
-	e_dosify_next,
+    e_dosify_next,
 #define		F_DOSIFY_NEXT	115
-	e_dosify_prev,
+    e_dosify_prev,
 #define		F_DOSIFY_PREV	116
-	e_page_up,
-#define		F_PAGE_UP		117
-	e_page_down,
-#define		F_PAGE_DOWN		118
+    e_page_up,
+#define		F_PAGE_UP	117
+    e_page_down,
+#define		F_PAGE_DOWN	118
+    e_yank_pop,
+#define		F_YANK_POP	119
     0				/* DUMMY VALUE */
-#define		F_NUM_FNS	119
+#define		F_NUM_FNS	120
 
 };
 
@@ -519,7 +517,7 @@ KEYCMD  CcEmacsMap[] = {
     F_UNASSIGNED,		/* M-V */
     F_COPYREGION,		/* M-W */
     F_UNASSIGNED,		/* M-X */
-    F_UNASSIGNED,		/* M-Y */
+    F_YANK_POP,			/* M-Y */
     F_UNASSIGNED,		/* M-Z */
     F_XKEY,			/* M-[ *//* extended key esc -mf Oct 87 */
     F_UNASSIGNED,		/* M-\ */
@@ -551,7 +549,7 @@ KEYCMD  CcEmacsMap[] = {
     F_UNASSIGNED,		/* M-v */
     F_COPYREGION,		/* M-w */
     F_UNASSIGNED,		/* M-x */
-    F_UNASSIGNED,		/* M-y */
+    F_YANK_POP,			/* M-y */
     F_UNASSIGNED,		/* M-z */
     F_UNASSIGNED,		/* M-{ */
     F_UNASSIGNED,		/* M-| */
@@ -1736,30 +1734,44 @@ editinit()
     f->desc = CSAVS(3, 114, "Paste cut buffer at cursor position");
 
     f++;
+    f->name = "yank-pop";
+    f->func = F_YANK_POP;
+    f->desc = CSAVS(3, 115,
+	"Replace just-yanked text with yank from earlier kill");
+
+    f++;
     f->name = "e_copy_to_clipboard";
     f->func = F_COPY_CLIP;
-    f->desc = CSAVS(3, 115, "(win32 only)Copy cut buffer to system clipboard");
+    f->desc = CSAVS(3, 116,
+	"(WIN32 only) Copy cut buffer to system clipboard");
+
     f++;
     f->name = "e_paste_from_clipboard";
     f->func = F_PASTE_CLIP;
-    f->desc = CSAVS(3, 116, "(win32 only)Paste clipboard buffer at cursor position");
+    f->desc = CSAVS(3, 117,
+	"(WIN32 only) Paste clipboard buffer at cursor position");
+
     f++;
     f->name = "e_dosify_next";
     f->func = F_DOSIFY_NEXT;
-    f->desc = CSAVS(3, 117, "(win32 only)Convert each '/' in next word to '\\\\'");
+    f->desc = CSAVS(3, 118,
+	"(WIN32 only) Convert each '/' in next word to '\\\\'");
+
     f++;
     f->name = "e_dosify_prev";
     f->func = F_DOSIFY_PREV;
-    f->desc = CSAVS(3, 118, "(win32 only)Convert each '/' in previous word to '\\\\'");
+    f->desc = CSAVS(3, 119,
+	"(WIN32 only) Convert each '/' in previous word to '\\\\'");
+
     f++;
     f->name = "e_page_up";
     f->func = F_PAGE_UP;
-    f->desc = CSAVS(3, 118, "(win32 only)Page visible console window up");
+    f->desc = CSAVS(3, 120, "(WIN32 only) Page visible console window up");
+
     f++;
     f->name = "e_page_down";
     f->func = F_PAGE_DOWN;
-    f->desc = CSAVS(3, 118, "(win32 only)Page visible console window down");
-
+    f->desc = CSAVS(3, 121, "(WIN32 only) Page visible console window down");
 
     f++;
     f->name = NULL;

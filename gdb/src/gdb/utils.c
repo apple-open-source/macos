@@ -1,7 +1,8 @@
 /* General utility routines for GDB, the GNU debugger.
+
    Copyright 1986, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
-   1996, 1997, 1998, 1999, 2000, 2001, 2002
-   Free Software Foundation, Inc.
+   1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003 Free Software
+   Foundation, Inc.
 
    This file is part of GDB.
 
@@ -19,23 +20,6 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
-
-/* FIXME: cagney/2002-02-28: The GDB coding standard indicates that
-   "defs.h" should be included first.  Unfortunatly some systems
-   (currently Debian GNU/Linux) include the <stdbool.h> via <curses.h>
-   and they clash with "bfd.h"'s definiton of true/false.  The correct
-   fix is to remove true/false from "bfd.h", however, until that
-   happens, hack around it by including "config.h" and <curses.h>
-   first.  */
-
-#include "config.h"
-
-#ifdef HAVE_CURSES_H
-#include <curses.h>
-#endif
-#ifdef HAVE_TERM_H
-#include <term.h>
-#endif
 
 #include "defs.h"
 #include "gdb_assert.h"
@@ -60,12 +44,20 @@
 #include "demangle.h"
 #include "expression.h"
 #include "language.h"
+#include "charset.h"
 #include "annotate.h"
 #include "filenames.h"
 
 #include "inferior.h" /* for signed_pointer_to_address */
 
 #include <sys/param.h>		/* For MAXPATHLEN */
+
+#ifdef HAVE_CURSES_H
+#include <curses.h>
+#endif
+#ifdef HAVE_TERM_H
+#include <term.h>
+#endif
 
 #include <readline/readline.h>
 
@@ -91,10 +83,6 @@ extern char *canonicalize_file_name (const char *);
 /* readline defines this.  */
 #undef savestring
 
-#if defined (NeXT_PDO) && defined(__WIN32__)
-#include <process.h>		/* for #define of getpid */
-#endif /* NeXT_PDO */
-
 void (*error_begin_hook) (void);
 
 /* Holds the last error message issued by gdb */
@@ -117,10 +105,6 @@ static void prompt_for_continue (void);
 static void set_width_command (char *, int, struct cmd_list_element *);
 
 void update_width (void);
-
-#ifndef GDB_FILE_ISATTY
-#define GDB_FILE_ISATTY(GDB_FILE_PTR)   (gdb_file_isatty(GDB_FILE_PTR))
-#endif
 
 /* Chain of cleanup actions established with make_cleanup,
    to be executed if an error happens.  */
@@ -291,6 +275,33 @@ make_cleanup_ui_out_delete (struct ui_out *arg)
   return make_my_cleanup (&cleanup_chain, do_ui_out_delete, arg); 
 } 
 
+static void
+do_restore_uiout_cleanup (void *arg)
+{
+  uiout = (struct ui_out *) arg;
+}
+
+struct cleanup *
+make_cleanup_restore_uiout (struct ui_out *old_uiout)
+{
+  return make_my_cleanup (&cleanup_chain, do_restore_uiout_cleanup, old_uiout);
+}
+
+
+static void
+do_set_schedlock_mode (void *in_mode)
+{
+  enum scheduler_locking_mode mode = (enum scheduler_locking_mode) in_mode;
+  set_scheduler_locking_mode (mode);
+}
+
+struct cleanup *
+make_cleanup_set_restore_scheduler_locking_mode (enum scheduler_locking_mode new_mode)
+{
+  enum scheduler_locking_mode old_mode = set_scheduler_locking_mode (new_mode);
+  return make_my_cleanup (&cleanup_chain, do_set_schedlock_mode, (void *) old_mode);
+}
+
 struct cleanup *
 make_my_cleanup (struct cleanup **pmy_chain, make_cleanup_ftype *function,
 		 void *arg)
@@ -387,7 +398,7 @@ discard_my_cleanups (register struct cleanup **pmy_chain,
   while ((ptr = *pmy_chain) != old_chain)
     {
       *pmy_chain = ptr->next;
-      xfree ((PTR) ptr);
+      xfree (ptr);
     }
 }
 
@@ -463,8 +474,7 @@ free_current_contents (void *ptr)
 
 /* ARGSUSED */
 void
-null_cleanup (arg)
-     PTR arg;
+null_cleanup (void *arg)
 {
 }
 
@@ -706,19 +716,34 @@ error_init (void)
   gdb_lasterr = mem_fileopen ();
 }
 
-/* Print a message reporting an internal error. Ask the user if they
-   want to continue, dump core, or just exit. */
+/* Print a message reporting an internal error/warning. Ask the user
+   if they want to continue, dump core, or just exit.  Return
+   something to indicate a quit.  */
 
-NORETURN void
-internal_verror (const char *file, int line,
-		 const char *fmt, va_list ap)
+struct internal_problem
 {
-  static char msg[] = "Internal GDB error: recursive internal error.\n";
-  static int dejavu = 0;
+  const char *name;
+  /* FIXME: cagney/2002-08-15: There should be ``maint set/show''
+     commands available for controlling these variables.  */
+  enum auto_boolean should_quit;
+  enum auto_boolean should_dump_core;
+};
+
+/* Report a problem, internal to GDB, to the user.  Once the problem
+   has been reported, and assuming GDB didn't quit, the caller can
+   either allow execution to resume or throw an error.  */
+
+static void
+internal_vproblem (struct internal_problem *problem,
+const char *file, int line,
+		  const char *fmt, va_list ap)
+{
+  static char msg[] = "Recursive internal problem.\n";
+  static int dejavu;
   int quit_p;
   int dump_core_p;
 
-  /* don't allow infinite error recursion. */
+  /* Don't allow infinite error/warning recursion.  */
   switch (dejavu)
     {
     case 0:
@@ -741,23 +766,58 @@ internal_verror (const char *file, int line,
     abort ();
   }    
 
-  /* Try to get the message out */
+  /* Try to get the message out and at the start of a new line.  */
   target_terminal_ours ();
-  fprintf_unfiltered (gdb_stderr, "%s:%d: gdb-internal-error: ", file, line);
+  begin_line ();
+
+  /* The error/warning message.  Format using a style similar to a
+     compiler error message.  */
+  fprintf_unfiltered (gdb_stderr, "%s:%d: %s: ", file, line, problem->name);
   vfprintf_unfiltered (gdb_stderr, fmt, ap);
   fputs_unfiltered ("\n", gdb_stderr);
 
-  /* Default (yes/batch case) is to quit GDB.  When in batch mode this
-     lessens the likelhood of GDB going into an infinate loop. */
-  quit_p = query ("\
-An internal GDB error was detected.  This may make further\n\
-debugging unreliable.  Quit this debugging session? ");
+  /* Provide more details so that the user knows that they are living
+     on the edge.  */
+  fprintf_unfiltered (gdb_stderr, "\
+A problem internal to GDB has been detected.  Further\n\
+debugging may prove unreliable.\n");
 
-  /* Default (yes/batch case) is to dump core.  This leaves a GDB
-     dropping so that it is easier to see that something went wrong to
-     GDB. */
-  dump_core_p = query ("\
-Create a core file containing the current state of GDB? ");
+  switch (problem->should_quit)
+    {
+    case AUTO_BOOLEAN_AUTO:
+      /* Default (yes/batch case) is to quit GDB.  When in batch mode
+	 this lessens the likelhood of GDB going into an infinate
+	 loop.  */
+      quit_p = query ("Quit this debugging session? ");
+      break;
+    case AUTO_BOOLEAN_TRUE:
+      quit_p = 1;
+      break;
+    case AUTO_BOOLEAN_FALSE:
+      quit_p = 0;
+      break;
+    default:
+      internal_error (__FILE__, __LINE__, "bad switch");
+    }
+
+  switch (problem->should_dump_core)
+    {
+    case AUTO_BOOLEAN_AUTO:
+      /* Default (yes/batch case) is to dump core.  This leaves a GDB
+	 `dropping' so that it is easier to see that something went
+	 wrong in GDB.  */
+      dump_core_p = query ("Create a core file of GDB? ");
+      break;
+      break;
+    case AUTO_BOOLEAN_TRUE:
+      dump_core_p = 1;
+      break;
+    case AUTO_BOOLEAN_FALSE:
+      dump_core_p = 0;
+      break;
+    default:
+      internal_error (__FILE__, __LINE__, "bad switch");
+    }
 
   if (quit_p)
     {
@@ -776,6 +836,17 @@ Create a core file containing the current state of GDB? ");
     }
 
   dejavu = 0;
+}
+
+static struct internal_problem internal_error_problem = {
+  "internal-error", AUTO_BOOLEAN_AUTO, AUTO_BOOLEAN_AUTO
+};
+
+NORETURN void
+internal_verror (const char *file, int line,
+		 const char *fmt, va_list ap)
+{
+  internal_vproblem (&internal_error_problem, file, line, fmt, ap);
   throw_exception (RETURN_ERROR);
 }
 
@@ -784,8 +855,27 @@ internal_error (const char *file, int line, const char *string, ...)
 {
   va_list ap;
   va_start (ap, string);
-
   internal_verror (file, line, string, ap);
+  va_end (ap);
+}
+
+static struct internal_problem internal_warning_problem = {
+  "internal-error", AUTO_BOOLEAN_AUTO, AUTO_BOOLEAN_AUTO
+};
+
+void
+internal_vwarning (const char *file, int line,
+		   const char *fmt, va_list ap)
+{
+  internal_vproblem (&internal_warning_problem, file, line, fmt, ap);
+}
+
+void
+internal_warning (const char *file, int line, const char *string, ...)
+{
+  va_list ap;
+  va_start (ap, string);
+  internal_vwarning (file, line, string, ap);
   va_end (ap);
 }
 
@@ -925,65 +1015,214 @@ request_quit (int signo)
 
 /* Memory management stuff (malloc friends).  */
 
-/* Make a substitute size_t for non-ANSI compilers. */ 
- 
-#ifndef HAVE_STDDEF_H 
-#ifndef size_t 
-#define size_t unsigned int 
-#endif 
-#endif 
- 
-/* Called when a memory allocation fails, with the number of bytes of 
-   memory requested in SIZE. */ 
- 
-NORETURN void 
-nomem (long size) 
-{ 
-  if (size > 0) 
-    { 
-      internal_error (__FILE__, __LINE__, "virtual memory exhausted: can't allocate %ld bytes.", size); 
-    } 
-  else 
-    { 
-      internal_error (__FILE__, __LINE__, "virtual memory exhausted."); 
-    } 
-} 
+#if !defined (USE_MMALLOC)
 
-#if !defined (USE_MMALLOC) 
-   
-PTR 
-init_malloc (PTR md) 
-{ 
+/* NOTE: These must use PTR so that their definition matches the
+   declaration found in "mmalloc.h". */
+
+static void *
+mmalloc (void *md, size_t size)
+{
+  return malloc (size); /* NOTE: GDB's only call to malloc() */
+}
+
+static void *
+mrealloc (void *md, void *ptr, size_t size)
+{
+  if (ptr == 0)			/* Guard against old realloc's */
+    return mmalloc (md, size);
+  else
+    return realloc (ptr, size); /* NOTE: GDB's only call to ralloc() */
+}
+
+static void *
+mcalloc (void *md, size_t number, size_t size)
+{
+  return calloc (number, size); /* NOTE: GDB's only call to calloc() */
+}
+
+static void
+mfree (void *md, void *ptr)
+{
+  free (ptr); /* NOTE: GDB's only call to free() */
+}
+
+#endif /* USE_MMALLOC */
+
+#if !defined (USE_MMALLOC)
+
+void *
+init_malloc (void *md)
+{
   return md;
-} 
- 
-#else /* Have mmalloc and want corruption checking */ 
- 
-PTR
-init_malloc (md)
-     PTR md;
+}
+
+#else /* Have mmalloc and want corruption checking */
+
+void *
+init_malloc (void *md)
 {
   return mmalloc_check_create (md);
 }
 
 void
-init_mmalloc_default_pool (PTR md)
+init_mmalloc_default_pool (void *md)
 {
-  md = mmalloc_malloc_create ();
+  char *s;
+
+  /* xmalloc_set_malloc_hooks (gxmalloc, gxcalloc, gxrealloc, gxfree); */
+
+  s = getenv ("GDB_ENABLE_PAGECHECK");
+  if (s != NULL)
+    md = mmalloc_pagecheck_create ();
+  else
+    md = mmalloc_malloc_create ();
+
   if (md == NULL)
     internal_error (__FILE__, __LINE__, "unable to create default mmalloc allocator");
- 
-#if 0
-  md = mmalloc_check_create (md);
-  if (md == NULL)
-    internal_error (__FILE__, __LINE__, "unable to add error-checking to default mmalloc allocator");
-#endif
+
+  s = getenv ("GDB_ENABLE_MMALLOC_CHECK");
+  if (s != NULL)
+    {
+      md = mmalloc_check_create (md);
+      if (md == NULL)
+	internal_error (__FILE__, __LINE__, "unable to add error-checking to default mmalloc allocator");
+    }
 
   mmalloc_set_default_allocator (md);
 }
- 
+
 #endif /* Have mmalloc and want corruption checking  */
 
+/* Called when a memory allocation fails, with the number of bytes of
+   memory requested in SIZE. */
+ 
+NORETURN void 
+nomem (long size) 
+{
+  if (size > 0)
+    {
+      internal_error (__FILE__, __LINE__, "virtual memory exhausted: can't allocate %ld bytes.", size);
+    }
+  else
+    {
+      internal_error (__FILE__, __LINE__, "virtual memory exhausted.");
+    }
+}
+
+/* The xmmalloc() family of memory management routines.
+
+   These are are like the mmalloc() family except that they implement
+   consistent semantics and guard against typical memory management
+   problems: if a malloc fails, an internal error is thrown; if
+   free(NULL) is called, it is ignored; if *alloc(0) is called, NULL
+   is returned.
+
+   All these routines are implemented using the mmalloc() family. */
+
+void *
+xmmalloc (void *md, size_t size)
+{
+  void *val;
+
+  if (size == 0)
+    {
+      val = NULL;
+    }
+  else
+    {
+      val = mmalloc (md, size);
+      if (val == NULL)
+	nomem (size);
+    }
+  return (val);
+}
+
+void *
+xmrealloc (void *md, void *ptr, size_t size)
+{
+  void *val;
+
+  if (size == 0)
+    {
+      if (ptr != NULL)
+	mfree (md, ptr);
+      val = NULL;
+    }
+  else
+    {
+      if (ptr != NULL)
+	{
+	  val = mrealloc (md, ptr, size);
+	}
+      else
+	{
+	  val = mmalloc (md, size);
+	}
+      if (val == NULL)
+	{
+	  nomem (size);
+	}
+    }
+  return (val);
+}
+
+void *
+xmcalloc (void *md, size_t number, size_t size)
+{
+  void *mem;
+  if (number == 0 || size == 0)
+    mem = NULL;
+  else
+    {
+      mem = mcalloc (md, number, size);
+      if (mem == NULL)
+	nomem (number * size);
+    }
+  return mem;
+}
+
+void
+xmfree (void *md, void *ptr)
+{
+  if (ptr != NULL)
+    mfree (md, ptr);
+}
+
+/* The xmalloc() (libiberty.h) family of memory management routines.
+
+   These are like the ISO-C malloc() family except that they implement
+   consistent semantics and guard against typical memory management
+   problems.  See xmmalloc() above for further information.
+
+   All these routines are wrappers to the xmmalloc() family. */
+
+/* NOTE: These are declared using PTR to ensure consistency with
+   "libiberty.h".  xfree() is GDB local.  */
+
+PTR
+gmalloc (size_t size)
+{
+  return xmmalloc (NULL, size);
+}
+
+PTR
+grealloc (PTR ptr, size_t size)
+{
+  return xmrealloc (NULL, ptr, size);
+}
+
+PTR
+gcalloc (size_t number, size_t size)
+{
+  return xmcalloc (NULL, number, size);
+}
+
+void
+gfree (void *ptr)
+{
+  xmfree (NULL, ptr);
+}
 
 
 /* Like asprintf/vasprintf but get an internal_error if the call
@@ -1019,6 +1258,7 @@ xvasprintf (char **ret, const char *format, va_list ap)
   *ret = xstrdup (tmp);
   free (tmp);
 }
+
 
 /* My replacement for the read system call.
    Used like `read' but keeps going if `read' returns too soon.  */
@@ -1064,19 +1304,8 @@ msavestring (void *md, const char *ptr, size_t size)
   return p;
 }
 
-/* The "const" is so it compiles under DGUX (which prototypes strsave
-   in <string.h>.  FIXME: This should be named "xstrsave", shouldn't it?
-   Doesn't real strsave return NULL if out of memory?  */
 char *
-strsave (const char *ptr)
-{
-  return savestring (ptr, strlen (ptr));
-}
-
-char *
-mstrsave (md, ptr)
-     PTR md;
-     const char *ptr;
+mstrsave (void *md, const char *ptr)
 {
   return (msavestring (md, ptr, strlen (ptr)));
 }
@@ -1179,6 +1408,23 @@ query (const char *ctlstr,...)
 }
 
 
+/* Print an error message saying that we couldn't make sense of a
+   \^mumble sequence in a string or character constant.  START and END
+   indicate a substring of some larger string that contains the
+   erroneous backslash sequence, missing the initial backslash.  */
+static NORETURN int
+no_control_char_error (const char *start, const char *end)
+{
+  int len = end - start;
+  char *copy = alloca (end - start + 1);
+
+  memcpy (copy, start, len);
+  copy[len] = '\0';
+
+  error ("There is no control character `\\%s' in the `%s' character set.",
+         copy, target_charset ());
+}
+
 /* Parse a C escape sequence.  STRING_PTR points to a variable
    containing a pointer to the string to parse.  That pointer
    should point to the character after the \.  That pointer
@@ -1197,37 +1443,55 @@ query (const char *ctlstr,...)
 int
 parse_escape (char **string_ptr)
 {
+  int target_char;
   register int c = *(*string_ptr)++;
-  switch (c)
+  if (c_parse_backslash (c, &target_char))
+    return target_char;
+  else switch (c)
     {
-    case 'a':
-      return 007;		/* Bell (alert) char */
-    case 'b':
-      return '\b';
-    case 'e':			/* Escape character */
-      return 033;
-    case 'f':
-      return '\f';
-    case 'n':
-      return '\n';
-    case 'r':
-      return '\r';
-    case 't':
-      return '\t';
-    case 'v':
-      return '\v';
     case '\n':
       return -2;
     case 0:
       (*string_ptr)--;
       return 0;
     case '^':
-      c = *(*string_ptr)++;
-      if (c == '\\')
-	c = parse_escape (string_ptr);
-      if (c == '?')
-	return 0177;
-      return (c & 0200) | (c & 037);
+      {
+        /* Remember where this escape sequence started, for reporting
+           errors.  */
+        char *sequence_start_pos = *string_ptr - 1;
+
+        c = *(*string_ptr)++;
+
+        if (c == '?')
+          {
+            /* XXXCHARSET: What is `delete' in the host character set?  */
+            c = 0177;
+
+            if (! host_char_to_target (c, &target_char))
+              error ("There is no character corresponding to `Delete' "
+                     "in the target character set `%s'.",
+                     host_charset ());
+
+            return target_char;
+          }
+        else if (c == '\\')
+          target_char = parse_escape (string_ptr);
+        else
+          {
+            if (! host_char_to_target (c, &target_char))
+              no_control_char_error (sequence_start_pos, *string_ptr);
+          }          
+
+        /* Now target_char is something like `c', and we want to find
+           its control-character equivalent.  */
+        if (! target_char_to_control_char (target_char, &target_char))
+          no_control_char_error (sequence_start_pos, *string_ptr);
+
+        return target_char;
+      }
+
+      /* XXXCHARSET: we need to use isdigit and value-of-digit
+         methods of the host character set here.  */
 
     case '0':
     case '1':
@@ -1256,7 +1520,12 @@ parse_escape (char **string_ptr)
 	return i;
       }
     default:
-      return c;
+      if (! host_char_to_target (c, &target_char))
+        error ("The escape sequence `\%c' is equivalent to plain `%c', which"
+               " has no equivalent\n"
+               "in the `%s' character set.",
+               c, c, target_charset ());
+      return target_char;
     }
 }
 
@@ -1441,7 +1710,6 @@ init_page_info (void)
       if (!ui_file_isatty (gdb_stdout))
 	lines_per_page = UINT_MAX;
     }				/* the command_line_version */
-
   update_width ();
 }
 
@@ -1504,7 +1772,7 @@ prompt_for_continue (void)
   /* Call readline, not gdb_readline, because GO32 readline handles control-C
      whereas control-C to gdb_readline will cause the user to get dumped
      out to DOS.  */
-  ignore = readline (cont_prompt);
+  ignore = gdb_readline_wrapper (cont_prompt);
 
   if (annotation_level > 1)
     printf_unfiltered ("\n\032\032post-prompt-for-continue\n");
@@ -1605,10 +1873,7 @@ wrap_here (char *indent)
    command, which currently doesn't tabulate very well */
 
 void
-puts_filtered_tabular (string, width, right)
-     char *string;		/* stuff to print */
-     int width;			/* width of tabular columns */
-     int right;			/* right/left justify */
+puts_filtered_tabular (char *string, int width, int right)
 {
   int spaces = 0;
   int stringlen;
@@ -1919,7 +2184,7 @@ puts_debug (char *prefix, char *string, char *suffix)
 
 static void
 vfprintf_maybe_filtered (struct ui_file *stream, const char *format,
-                         va_list args, int filter)
+			 va_list args, int filter)
 {
   char *linebuffer;
   struct cleanup *old_cleanups;
@@ -2103,13 +2368,14 @@ fprintf_symbol_filtered (struct ui_file *stream, char *name, enum language lang,
 	    case language_java:
 	      demangled = cplus_demangle (name, arg_mode | DMGL_JAVA);
 	      break;
-	    case language_chill:
-	      demangled = chill_demangle (name);
-	      break;
-	    case language_objc:
-	    case language_objcplus:
-	      demangled = objc_demangle (name);
-	      break;
+  	    case language_objc:
+ 	      demangled = objc_demangle (name);
+ 	      break;
+  	    case language_objcplus:
+ 	      demangled = cplus_demangle (name, arg_mode);
+ 	      if (demangled == NULL)
+  		demangled = objc_demangle (name);
+  	      break;
 	    default:
 	      demangled = NULL;
 	      break;
@@ -2427,9 +2693,7 @@ void gdb_check_fatal (const char *str, const char *file, unsigned int line, cons
 CORE_ADDR
 host_pointer_to_address (void *ptr)
 {
-  if (sizeof (ptr) != TYPE_LENGTH (builtin_type_void_data_ptr))
-    internal_error (__FILE__, __LINE__,
-		    "core_addr_to_void_ptr: bad cast");
+  gdb_assert (sizeof (ptr) == TYPE_LENGTH (builtin_type_void_data_ptr));
   return POINTER_TO_ADDRESS (builtin_type_void_data_ptr, &ptr);
 }
 
@@ -2437,9 +2701,8 @@ void *
 address_to_host_pointer (CORE_ADDR addr)
 {
   void *ptr;
-  if (sizeof (ptr) != TYPE_LENGTH (builtin_type_void_data_ptr))
-    internal_error (__FILE__, __LINE__,
-		    "core_addr_to_void_ptr: bad cast");
+
+  gdb_assert (sizeof (ptr) == TYPE_LENGTH (builtin_type_void_data_ptr));
   ADDRESS_TO_POINTER (builtin_type_void_data_ptr, &ptr, addr);
   return ptr;
 }
@@ -2500,31 +2763,73 @@ string_to_core_addr (const char *my_string)
 char *
 gdb_realpath (const char *filename)
 {
+  /* Method 1: The system has a compile time upper bound on a filename
+     path.  Use that and realpath() to canonicalize the name.  This is
+     the most common case.  Note that, if there isn't a compile time
+     upper bound, you want to avoid realpath() at all costs.  */
 #if defined(HAVE_REALPATH)
+  {
 # if defined (PATH_MAX)
-  char buf[PATH_MAX];
+    char buf[PATH_MAX];
 #  define USE_REALPATH
 # elif defined (MAXPATHLEN)
-  char buf[MAXPATHLEN];
+    char buf[MAXPATHLEN];
 #  define USE_REALPATH
-# elif defined (HAVE_UNISTD_H) && defined(HAVE_ALLOCA)
-  char *buf = alloca ((size_t)pathconf ("/", _PC_PATH_MAX));
-#  define USE_REALPATH
+# endif
+# if defined (USE_REALPATH)
+    const char *rp = realpath (filename, buf);
+    if (rp == NULL)
+      rp = filename;
+    return xstrdup (rp);
+  }
 # endif
 #endif /* HAVE_REALPATH */
 
-#if defined(USE_REALPATH)
-  char *rp = realpath (filename, buf);
-  return xstrdup (rp ? rp : filename);
-#elif defined(HAVE_CANONICALIZE_FILE_NAME)
-  char *rp = canonicalize_file_name (filename);
-  if (rp == NULL)
-    return xstrdup (filename);
-  else
-    return rp;
-#else
-  return xstrdup (filename);
+  /* Method 2: The host system (i.e., GNU) has the function
+     canonicalize_file_name() which malloc's a chunk of memory and
+     returns that, use that.  */
+#if defined(HAVE_CANONICALIZE_FILE_NAME)
+  {
+    char *rp = canonicalize_file_name (filename);
+    if (rp == NULL)
+      return xstrdup (filename);
+    else
+      return rp;
+  }
 #endif
+
+  /* FIXME: cagney/2002-11-13:
+
+     Method 2a: Use realpath() with a NULL buffer.  Some systems, due
+     to the problems described in in method 3, have modified their
+     realpath() implementation so that it will allocate a buffer when
+     NULL is passed in.  Before this can be used, though, some sort of
+     configure time test would need to be added.  Otherwize the code
+     will likely core dump.  */
+
+  /* Method 3: Now we're getting desperate!  The system doesn't have a
+     compile time buffer size and no alternative function.  Query the
+     OS, using pathconf(), for the buffer limit.  Care is needed
+     though, some systems do not limit PATH_MAX (return -1 for
+     pathconf()) making it impossible to pass a correctly sized buffer
+     to realpath() (it could always overflow).  On those systems, we
+     skip this.  */
+#if defined (HAVE_REALPATH) && defined (HAVE_UNISTD_H) && defined(HAVE_ALLOCA)
+  {
+    /* Find out the max path size.  */
+    long path_max = pathconf ("/", _PC_PATH_MAX);
+    if (path_max > 0)
+      {
+	/* PATH_MAX is bounded.  */
+	char *buf = alloca (path_max);
+	char *rp = realpath (filename, buf);
+	return xstrdup (rp ? rp : filename);
+      }
+  }
+#endif
+
+  /* This system is a lost cause, just dup the buffer.  */
+  return xstrdup (filename);
 }
 
 /* Return a copy of FILENAME, with its directory prefix canonicalized
@@ -2572,4 +2877,76 @@ xfullpath (const char *filename)
 
   xfree (real_path);
   return result;
+}
+
+
+/* This is the 32-bit CRC function used by the GNU separate debug
+   facility.  An executable may contain a section named
+   .gnu_debuglink, which holds the name of a separate executable file
+   containing its debug info, and a checksum of that file's contents,
+   computed using this function.  */
+unsigned long
+gnu_debuglink_crc32 (unsigned long crc, unsigned char *buf, size_t len)
+{
+  static const unsigned long crc32_table[256] =
+    {
+      0x00000000, 0x77073096, 0xee0e612c, 0x990951ba, 0x076dc419,
+      0x706af48f, 0xe963a535, 0x9e6495a3, 0x0edb8832, 0x79dcb8a4,
+      0xe0d5e91e, 0x97d2d988, 0x09b64c2b, 0x7eb17cbd, 0xe7b82d07,
+      0x90bf1d91, 0x1db71064, 0x6ab020f2, 0xf3b97148, 0x84be41de,
+      0x1adad47d, 0x6ddde4eb, 0xf4d4b551, 0x83d385c7, 0x136c9856,
+      0x646ba8c0, 0xfd62f97a, 0x8a65c9ec, 0x14015c4f, 0x63066cd9,
+      0xfa0f3d63, 0x8d080df5, 0x3b6e20c8, 0x4c69105e, 0xd56041e4,
+      0xa2677172, 0x3c03e4d1, 0x4b04d447, 0xd20d85fd, 0xa50ab56b,
+      0x35b5a8fa, 0x42b2986c, 0xdbbbc9d6, 0xacbcf940, 0x32d86ce3,
+      0x45df5c75, 0xdcd60dcf, 0xabd13d59, 0x26d930ac, 0x51de003a,
+      0xc8d75180, 0xbfd06116, 0x21b4f4b5, 0x56b3c423, 0xcfba9599,
+      0xb8bda50f, 0x2802b89e, 0x5f058808, 0xc60cd9b2, 0xb10be924,
+      0x2f6f7c87, 0x58684c11, 0xc1611dab, 0xb6662d3d, 0x76dc4190,
+      0x01db7106, 0x98d220bc, 0xefd5102a, 0x71b18589, 0x06b6b51f,
+      0x9fbfe4a5, 0xe8b8d433, 0x7807c9a2, 0x0f00f934, 0x9609a88e,
+      0xe10e9818, 0x7f6a0dbb, 0x086d3d2d, 0x91646c97, 0xe6635c01,
+      0x6b6b51f4, 0x1c6c6162, 0x856530d8, 0xf262004e, 0x6c0695ed,
+      0x1b01a57b, 0x8208f4c1, 0xf50fc457, 0x65b0d9c6, 0x12b7e950,
+      0x8bbeb8ea, 0xfcb9887c, 0x62dd1ddf, 0x15da2d49, 0x8cd37cf3,
+      0xfbd44c65, 0x4db26158, 0x3ab551ce, 0xa3bc0074, 0xd4bb30e2,
+      0x4adfa541, 0x3dd895d7, 0xa4d1c46d, 0xd3d6f4fb, 0x4369e96a,
+      0x346ed9fc, 0xad678846, 0xda60b8d0, 0x44042d73, 0x33031de5,
+      0xaa0a4c5f, 0xdd0d7cc9, 0x5005713c, 0x270241aa, 0xbe0b1010,
+      0xc90c2086, 0x5768b525, 0x206f85b3, 0xb966d409, 0xce61e49f,
+      0x5edef90e, 0x29d9c998, 0xb0d09822, 0xc7d7a8b4, 0x59b33d17,
+      0x2eb40d81, 0xb7bd5c3b, 0xc0ba6cad, 0xedb88320, 0x9abfb3b6,
+      0x03b6e20c, 0x74b1d29a, 0xead54739, 0x9dd277af, 0x04db2615,
+      0x73dc1683, 0xe3630b12, 0x94643b84, 0x0d6d6a3e, 0x7a6a5aa8,
+      0xe40ecf0b, 0x9309ff9d, 0x0a00ae27, 0x7d079eb1, 0xf00f9344,
+      0x8708a3d2, 0x1e01f268, 0x6906c2fe, 0xf762575d, 0x806567cb,
+      0x196c3671, 0x6e6b06e7, 0xfed41b76, 0x89d32be0, 0x10da7a5a,
+      0x67dd4acc, 0xf9b9df6f, 0x8ebeeff9, 0x17b7be43, 0x60b08ed5,
+      0xd6d6a3e8, 0xa1d1937e, 0x38d8c2c4, 0x4fdff252, 0xd1bb67f1,
+      0xa6bc5767, 0x3fb506dd, 0x48b2364b, 0xd80d2bda, 0xaf0a1b4c,
+      0x36034af6, 0x41047a60, 0xdf60efc3, 0xa867df55, 0x316e8eef,
+      0x4669be79, 0xcb61b38c, 0xbc66831a, 0x256fd2a0, 0x5268e236,
+      0xcc0c7795, 0xbb0b4703, 0x220216b9, 0x5505262f, 0xc5ba3bbe,
+      0xb2bd0b28, 0x2bb45a92, 0x5cb36a04, 0xc2d7ffa7, 0xb5d0cf31,
+      0x2cd99e8b, 0x5bdeae1d, 0x9b64c2b0, 0xec63f226, 0x756aa39c,
+      0x026d930a, 0x9c0906a9, 0xeb0e363f, 0x72076785, 0x05005713,
+      0x95bf4a82, 0xe2b87a14, 0x7bb12bae, 0x0cb61b38, 0x92d28e9b,
+      0xe5d5be0d, 0x7cdcefb7, 0x0bdbdf21, 0x86d3d2d4, 0xf1d4e242,
+      0x68ddb3f8, 0x1fda836e, 0x81be16cd, 0xf6b9265b, 0x6fb077e1,
+      0x18b74777, 0x88085ae6, 0xff0f6a70, 0x66063bca, 0x11010b5c,
+      0x8f659eff, 0xf862ae69, 0x616bffd3, 0x166ccf45, 0xa00ae278,
+      0xd70dd2ee, 0x4e048354, 0x3903b3c2, 0xa7672661, 0xd06016f7,
+      0x4969474d, 0x3e6e77db, 0xaed16a4a, 0xd9d65adc, 0x40df0b66,
+      0x37d83bf0, 0xa9bcae53, 0xdebb9ec5, 0x47b2cf7f, 0x30b5ffe9,
+      0xbdbdf21c, 0xcabac28a, 0x53b39330, 0x24b4a3a6, 0xbad03605,
+      0xcdd70693, 0x54de5729, 0x23d967bf, 0xb3667a2e, 0xc4614ab8,
+      0x5d681b02, 0x2a6f2b94, 0xb40bbe37, 0xc30c8ea1, 0x5a05df1b,
+      0x2d02ef8d
+    };
+  unsigned char *end;
+
+  crc = ~crc & 0xffffffff;
+  for (end = buf + len; buf < end; ++buf)
+    crc = crc32_table[(crc ^ *buf) & 0xff] ^ (crc >> 8);
+  return ~crc & 0xffffffff;;
 }

@@ -128,7 +128,7 @@ public:
 //
 // An AclValidationEnvironment can be subclassed to add context access to ACL subject
 // validation. If you use ACL subject classes that need context beyond the credential
-// structure itself, add that context to (a subclass of) CredentialsContext, pass that
+// structure itself, add that context to (a subclass of) AclValidationContext, pass that
 // to ObjectAcl::validate() along with the credentials, and have the Subject implementation
 // access validationContext.environment().
 //
@@ -200,9 +200,9 @@ public:
 
     // access control validation: succeed or throw exception
     void validate(AclAuthorization auth, const AccessCredentials *cred,
-        AclValidationEnvironment *env = NULL) const;
+        AclValidationEnvironment *env = NULL);
     void validateOwner(AclAuthorization authorizationHint, const AccessCredentials *cred,
-		AclValidationEnvironment *env = NULL) const;
+		AclValidationEnvironment *env = NULL);
 
     // CSSM-style ACL access operations
 	// (Gets are not const because underlying implementations usually want them writable) 
@@ -220,7 +220,11 @@ public:
     void exportBlob(CssmData &publicBlob, CssmData &privateBlob);
     void importBlob(const void *publicBlob, const void *privateBlob);
 	
-	// debugging support (always there but stubbed out unless DEBUGDUMP)
+	// setup hooks (called to delayed-construct the contents before use) - empty defaults
+	virtual void instantiateAcl();	// called before ACL contents are used by external calls
+	virtual void changedAcl();		// called after an ACL has been (possibly) changed
+	
+	// debug dump support (always there but stubbed out unless DEBUGDUMP)
 	virtual void debugDump(const char *what = NULL) const;
 
 public:
@@ -240,7 +244,7 @@ public:
 		template <class Action>
 		void ObjectAcl::Entry::exportBlob(Action &pub, Action &priv)
 		{
-			uint32 del = delegate; pub(del);	// 4 bytes delegate flag
+			Endian<uint32> del = delegate; pub(del);	// 4 bytes delegate flag
 			exportSubject(subject, pub, priv);	// subject itself (polymorphic)
 		}
         void importBlob(Reader &pub, Reader &priv);
@@ -294,10 +298,10 @@ public:
             const char *s = tag.c_str(); pub(s);
             uint32 aa = authorizesAnything; pub(aa);
             if (!authorizesAnything) {
-                uint32 count = authorizations.size(); pub(count);
+                Endian<uint32> count = authorizations.size(); pub(count);
                 for (AclAuthorizationSet::iterator it = authorizations.begin();
                     it != authorizations.end(); it++) {
-                    AclAuthorization auth = *it; pub(auth);
+                    Endian<AclAuthorization> auth = *it; pub(auth);
                 }
             }
             //@@@ export time range
@@ -313,7 +317,7 @@ public:
 	template <class Action>
 	static void ObjectAcl::exportSubject(AclSubject *subject, Action &pub, Action &priv)
 	{
-		uint32 typeAndVersion = subject->type() | subject->version() << AclSubject::versionShift;
+		Endian<uint32> typeAndVersion = subject->type() | subject->version() << AclSubject::versionShift;
 		pub(typeAndVersion);
 		subject->exportBlob(pub, priv);
 	}
@@ -356,7 +360,7 @@ private:
 //
 class ResourceControlContext : public PodWrapper<ResourceControlContext, CSSM_RESOURCE_CONTROL_CONTEXT> {
 public:
-    ResourceControlContext() { }
+    ResourceControlContext() { clearPod(); }
     ResourceControlContext(const AclEntryInput &initial, AccessCredentials *cred = NULL)
     { InitialAclEntry = initial; AccessCred = cred; }
     

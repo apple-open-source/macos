@@ -1,0 +1,15 @@
+<!DOCTYPE informalexample PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
+<informalexample>
+<programlisting>
+sub print_content_model {
+    my($self) = shift;
+    local($_) = shift;
+    local(*FILE) = shift;
+
+    my(@cm) = $self->format_content_model2($_);
+    foreach $_ (@cm) {
+        print FILE $self->make_links($_, 1, 1), "\n";
+    }
+}
+</programlisting>
+</informalexample>

@@ -91,7 +91,7 @@ static inline void dumpCtx(struct MD5Context *ctx, char *label)
 
 static void MD5Transform(uint32 buf[4], uint32 const in[16]);
 
-#if __LITTLE_ENDIAN__
+#ifdef __LITTLE_ENDIAN__
 #define byteReverse(buf, len)	/* Nothing */
 #else
 static void byteReverse(unsigned char *buf, unsigned longs);
@@ -224,40 +224,37 @@ void MD5Final(struct MD5Context *ctx, unsigned char *digest)
     /* Pad out to 56 mod 64 */
     dumpCtx(ctx, "final, before pad");
     if (count < 8) {
-	/* Two lots of padding:  Pad the first block to 64 bytes */
-	bzero(p, count);
-	byteReverse(ctx->in, 16);
-	MD5Transform(ctx->buf, (uint32 *) ctx->in);
-
-	/* Now fill the next block with 56 bytes */
-	bzero(ctx->in, 56);
+		/* Two lots of padding:  Pad the first block to 64 bytes */
+		bzero(p, count);
+		byteReverse(ctx->in, 16);
+		MD5Transform(ctx->buf, (uint32 *) ctx->in);
+	
+		/* Now fill the next block with 56 bytes */
+		bzero(ctx->in, 56);
     } else {
 	/* Pad block to 56 bytes */
-	bzero(p, count - 8);
+		bzero(p, count - 8);
     }
     byteReverse(ctx->in, 14);
 
     /* Append length in bits and transform */
-    #if		old_way
-     /*
-     * On a little endian machine, this writes the l.s. byte of
-     * the bit count to ctx->in[56] and the m.s byte of the bit count to
-     * ctx->in[63].
-     */
+	#ifdef	__LITTLE_ENDIAN__
+	/* l.s. byte of bits[0] --> in[56] */
     ((uint32 *) ctx->in)[14] = ctx->bits[0];
     ((uint32 *) ctx->in)[15] = ctx->bits[1];
-    #else	// new_way
+    #else
+	/* l.s. byte of bits[0] --> in[60] */
     intToByteRep(ctx->bits[0], &ctx->in[56]);
     intToByteRep(ctx->bits[1], &ctx->in[60]);
-    #endif	// new_way
-
+	#endif
+	
     dumpCtx(ctx, "last transform");
     MD5Transform(ctx->buf, (uint32 *) ctx->in);
     byteReverse((unsigned char *) ctx->buf, 4);
     memcpy(digest, ctx->buf, MD5_DIGEST_SIZE);
     dumpCtx(ctx, "final end");
 
-    bzero(ctx, sizeof(ctx));	/* In case it's sensitive */
+    bzero(ctx, sizeof(*ctx));	/* In case it's sensitive */
 }
 
 #ifndef ASM_MD5

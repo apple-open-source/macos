@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/modrdn.c,v 1.18 2002/01/04 20:17:39 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/modrdn.c,v 1.18.2.3 2003/03/03 17:10:05 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*  Portions
@@ -68,7 +68,11 @@ ldap_rename(
 	BerElement	*ber;
 	int rc;
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_rename\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_rename\n", 0, 0, 0 );
+#endif
 
 	/* check client controls */
 	rc = ldap_int_client_controls( ld, cctrls );
@@ -151,7 +155,11 @@ ldap_rename2(
 	int msgid;
 	int rc;
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_rename2\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_rename2\n", 0, 0, 0 );
+#endif
 
 	rc = ldap_rename( ld, dn, newrdn, newSuperior,
 		deleteoldrdn, NULL, NULL, &msgid );

@@ -2,23 +2,24 @@
  * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').	You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- *
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 /*		@(#)webdav_parse.c		*
@@ -36,8 +37,8 @@
 #include <sys/vnode.h>
 #include <sys/syslog.h>
 #include <sys/time.h>
+#include "webdavd.h"
 #include "webdav_parse.h"
-#include "webdav_allocator.h"
 #include "webdav_memcache.h"
 #include "webdav_inode.h"
 #include "fetch.h"
@@ -48,13 +49,30 @@
 /*****************************************************************************/
 
 extern time_t parse_http_date(char *string);
-extern webdav_memcache_header_t gmemcache_header;
-extern void percent_decode_in_place (char *uri);
 
 /*****************************************************************************/
 
-void *parser_lookup_create(CFXMLParserRef parser, CFXMLNodeRef node, void *context)
+/* local function prototypes */
+
+static void *parser_lookup_create(CFXMLParserRef parser, CFXMLNodeRef node, void *context);
+static void *parser_opendir_create(CFXMLParserRef parser, CFXMLNodeRef node, void *context);
+static void *parser_file_count_create(CFXMLParserRef parser, CFXMLNodeRef node, void *context);
+static void *parser_stat_create(CFXMLParserRef parser, CFXMLNodeRef node, void *context);
+static void *parser_statfs_create(CFXMLParserRef parser, CFXMLNodeRef node, void *context);
+static void *parser_lock_create(CFXMLParserRef parser, CFXMLNodeRef node, void *context);
+static void parser_add(CFXMLParserRef parser, void *parent, void *child, void *context);
+static void parser_opendir_add(CFXMLParserRef parser, void *parent, void *child, void *context);
+static void parser_stat_add(CFXMLParserRef parser, void *parent, void *child, void *context);
+static void parser_statfs_add(CFXMLParserRef parser, void *parent, void *child, void *context);
+static void parser_end(CFXMLParserRef parser, void *xml_type, void *context);
+static void parser_opendir_end(CFXMLParserRef parser, void *my_element, void *context);
+static CFDataRef parser_resolve(CFXMLParserRef parser, CFXMLExternalID *extID, void *context);
+
+/*****************************************************************************/
+
+static void *parser_lookup_create(CFXMLParserRef parser, CFXMLNodeRef node, void *context)
 {
+	#pragma unused(parser)
 	webdav_parse_lookup_element_t * element_ptr = NULL;
 	webdav_parse_lookup_element_t * list_ptr;
 	webdav_parse_lookup_struct_t * struct_ptr = (webdav_parse_lookup_struct_t *)context;
@@ -114,6 +132,7 @@ void *parser_lookup_create(CFXMLParserRef parser, CFXMLNodeRef node, void *conte
 			/* Got no storage, return null so that ultimately parse lookup will barf */
 			if (!element_ptr)
 			{
+				syslog(LOG_ERR, "parser_lookup_create: element_ptr could not be allocated");
 				return (NULL);
 			}
 
@@ -148,6 +167,7 @@ void *parser_lookup_create(CFXMLParserRef parser, CFXMLNodeRef node, void *conte
 				}
 				else
 				{
+					syslog(LOG_ERR, "parser_lookup_create: element_ptr was NULL");
 					return (NULL);
 				}
 			}
@@ -188,8 +208,9 @@ void *parser_lookup_create(CFXMLParserRef parser, CFXMLNodeRef node, void *conte
 		} \
 	}
 
-void *parser_opendir_create(CFXMLParserRef parser, CFXMLNodeRef node, void *context)
+static void *parser_opendir_create(CFXMLParserRef parser, CFXMLNodeRef node, void *context)
 {
+	#pragma unused(parser)
 	webdav_parse_opendir_element_t * element_ptr = NULL;
 	webdav_parse_opendir_element_t * list_ptr;
 	webdav_parse_opendir_struct_t * struct_ptr = (webdav_parse_opendir_struct_t *)context;
@@ -215,7 +236,7 @@ void *parser_opendir_create(CFXMLParserRef parser, CFXMLNodeRef node, void *cont
 			fprintf(stderr, "WhiteSpace");
 			break;
 			
-		case kCFXMLNOdeTypeText:
+		case kCFXMLNodeTypeText:
 			fprintf(stderr, "TextType");
 			break;
 			
@@ -239,6 +260,7 @@ void *parser_opendir_create(CFXMLParserRef parser, CFXMLNodeRef node, void *cont
 
 	if (!return_ptr)
 	{
+		syslog(LOG_ERR, "parser_opendir_create: return_ptr could not be allocated");
 		struct_ptr->error = ENOMEM;
 		return (NULL);
 	}
@@ -271,7 +293,7 @@ void *parser_opendir_create(CFXMLParserRef parser, CFXMLNodeRef node, void *cont
 						"parser_opendir_create: free return_ptr on failed element_ptr malloc %d\n",
 						(int)return_ptr);
 #endif
-
+					syslog(LOG_ERR, "parser_opendir_create: element_ptr could not be allocated");
 					free(return_ptr);
 					struct_ptr->error = ENOMEM;
 					return (NULL);
@@ -296,70 +318,74 @@ void *parser_opendir_create(CFXMLParserRef parser, CFXMLNodeRef node, void *cont
 				}
 				struct_ptr->tail = element_ptr;
 				element_ptr->next = NULL;
-			}
-			else
-			{
-				if (((CFStringCompareWithOptions(nodeString, CFSTR("collection"),
+			}	/* end if href */
+			else if (((CFStringCompareWithOptions(nodeString, CFSTR("collection"),
 					comparison_range, kCFCompareCaseInsensitive)) == kCFCompareEqualTo))
+			{
+				/* If we have a collection property, we should have an
+					* element ptr in the context already.	If not, its
+					* an error and we should barf. Since we are parsing an
+					* xml tree, we can rest assured that the last element
+					* found (href) is the one have just seen a resource type
+					* on and hence the one where collection is found and
+					* trapped here */
+
+				element_ptr = struct_ptr->tail;
+				if (element_ptr)
 				{
-					/* If we have a collection property, we should have an
-					 * element ptr in the context already.	If not, its
-					 * an error and we should barf. Since we are parsing an
-					 * xml tree, we can rest assured that the last element
-					 * found (href) is the one have just seen a resource type
-					 * on and hence the one where collection is found and
-					 * trapped here */
+					element_ptr->dir_data.d_type = DT_DIR;
 
-					element_ptr = struct_ptr->tail;
-					if (element_ptr)
-					{
-						element_ptr->dir_data.d_type = DT_DIR;
+					/* not interested in child of collection element. We can 
+						* can and should free the return_ptr in this case.*/
 
-						/* not interested in child of collection element. We can 
-						 * can and should free the return_ptr in this case.*/
-
-						return_value = NULL;
+					return_value = NULL;
 #ifdef DEBUG_PARSE
-						fprintf(stderr, "parser_opendir_create: free return_ptr on collection %d\n",
-							(int)return_ptr);
+					fprintf(stderr, "parser_opendir_create: free return_ptr on collection %d\n",
+						(int)return_ptr);
 #endif
 
-						free(return_ptr);
-					}
+					free(return_ptr);
 				}
-				else
+			}	/* end if collection */
+			else if (((CFStringCompareWithOptions(nodeString, CFSTR("getcontentlength"),
+					comparison_range, kCFCompareCaseInsensitive)) == kCFCompareEqualTo))
+			{
+				/* If we have size then mark up the element pointer so that the
+					* child will know to parse the upcoming text size and store it.
+					*/
+				element_ptr = struct_ptr->tail;
+				if (element_ptr)
 				{
-					if (((CFStringCompareWithOptions(nodeString, CFSTR("getcontentlength"),
-						comparison_range, kCFCompareCaseInsensitive)) == kCFCompareEqualTo))
-					{
-						/* If we have size then mark up the element pointer so that the
-						 * child will know to parse the upcoming text size and store it.
-						 */
-						element_ptr = struct_ptr->tail;
-						if (element_ptr)
-						{
-							return_ptr->id = WEBDAV_OPENDIR_ELEMENT_LENGTH;
-							return_ptr->data_ptr = (void *)element_ptr;
-						}
-					}
-					else
-					{
-						if (((CFStringCompareWithOptions(nodeString, CFSTR("getlastmodified"),
-							comparison_range, kCFCompareCaseInsensitive)) == kCFCompareEqualTo))
-						{
-							/* If we have size then mark up the element pointer so that the
-							 * child will know to parse the upcoming text size and store it.
-							 */
-							element_ptr = struct_ptr->tail;
-							if (element_ptr)
-							{
-								return_ptr->id = WEBDAV_OPENDIR_ELEMENT_MODDATE;
-								return_ptr->data_ptr = (void *)element_ptr;
-							}
-						}	/* end if modified */
-					}	/* end if length */
-				}	/* end if collection */
-			}	/* end if href */
+					return_ptr->id = WEBDAV_OPENDIR_ELEMENT_LENGTH;
+					return_ptr->data_ptr = (void *)element_ptr;
+				}
+			}	/* end if length */
+			else if (((CFStringCompareWithOptions(nodeString, CFSTR("getlastmodified"),
+					comparison_range, kCFCompareCaseInsensitive)) == kCFCompareEqualTo))
+			{
+				/* If we have size then mark up the element pointer so that the
+					* child will know to parse the upcoming text size and store it.
+					*/
+				element_ptr = struct_ptr->tail;
+				if (element_ptr)
+				{
+					return_ptr->id = WEBDAV_OPENDIR_ELEMENT_MODDATE;
+					return_ptr->data_ptr = (void *)element_ptr;
+				}
+			}	/* end if modified */
+			else if (((CFStringCompareWithOptions(nodeString, CFSTR("appledoubleheader"),
+					comparison_range, kCFCompareCaseInsensitive)) == kCFCompareEqualTo))
+			{
+				/* If we have size then mark up the element pointer so that the
+					* child will know to parse the upcoming text size and store it.
+					*/
+				element_ptr = struct_ptr->tail;
+				if (element_ptr)
+				{
+					return_ptr->id = WEBDAV_OPENDIR_APPLEDOUBLEHEADER;
+					return_ptr->data_ptr = (void *)element_ptr;
+				}
+			}	/* end if appledoubleheader */
 			break;
 			
 		case kCFXMLNodeTypeEntityReference:
@@ -386,6 +412,7 @@ void *parser_opendir_create(CFXMLParserRef parser, CFXMLNodeRef node, void *cont
 					(int)return_ptr);
 #endif
 
+				syslog(LOG_ERR, "parser_opendir_create: text_ptr could not be allocated");
 				free(return_ptr);
 				struct_ptr->error = ENOMEM;
 				return (NULL);
@@ -401,12 +428,12 @@ void *parser_opendir_create(CFXMLParserRef parser, CFXMLNodeRef node, void *cont
 				fprintf(stderr, "Get Length Says %d\n", (int)CFStringGetLength(nodeString));
 				fprintf(stderr, "Get Bytes Says %d\n",
 					(int)CFStringGetBytes(nodeString, CFRangeMake(0,
-						CFStringGetLength(desc->dataString)), kCFStringEncodingUTF8, 0, 0,
+						CFStringGetLength(nodeString)), kCFStringEncodingUTF8, 0, 0,
 							text_ptr->name, sizeof(text_ptr->name) - 1, &text_ptr->size));
 				fprintf(stderr, "parser_opendir_create: free return ptr on name too long %d\n",
 					(int)return_ptr);
 #endif
-
+				syslog(LOG_ERR, "parser_opendir_create: name too long");
 				free(return_ptr);
 				struct_ptr->error = ENAMETOOLONG;
 				return (NULL);
@@ -431,27 +458,28 @@ void *parser_opendir_create(CFXMLParserRef parser, CFXMLNodeRef node, void *cont
 
 /*****************************************************************************/
 
-void *parser_file_count_create(CFXMLParserRef parser, CFXMLNodeRef node, void *context)
+static void *parser_file_count_create(CFXMLParserRef parser, CFXMLNodeRef node, void *context)
 {
+	#pragma unused(parser)
 	CFRange comparison_range;
 
 #ifdef DEBUG_PARSE
 	char buffer[257];
 	switch (CFXMLNodeGetTypeCode(node))
 	{
-		case kCFXMLDataTypeElement:
+		case kCFXMLNodeTypeElement:
 			fprintf(stderr, "Element Type");
 			break;
 			
-		case kCFXMLDataTypeDocument:
+		case kCFXMLNodeTypeDocument:
 			fprintf(stderr, "Document Type");
 			break;
 			
-		case kCFXMLDataTypeWhitespace:
+		case kCFXMLNodeTypeWhitespace:
 			fprintf(stderr, "WhiteSpace");
 			break;
 			
-		case kCFXMLDataTypeText:
+		case kCFXMLNodeTypeText:
 			fprintf(stderr, "TextType");
 			break;
 			
@@ -493,9 +521,9 @@ void *parser_file_count_create(CFXMLParserRef parser, CFXMLNodeRef node, void *c
 
 /*****************************************************************************/
 
-void *parser_stat_create(CFXMLParserRef parser, CFXMLNodeRef node, void *context)
+static void *parser_stat_create(CFXMLParserRef parser, CFXMLNodeRef node, void *context)
 {
-
+	#pragma unused(parser)
 	void *return_val = (void *)WEBDAV_STAT_IGNORE;
 	char *text_ptr;
 	size_t size;
@@ -545,8 +573,10 @@ void *parser_stat_create(CFXMLParserRef parser, CFXMLNodeRef node, void *context
 				kCFStringEncodingUTF8, /*stop on loss */ 0,/*not ext*/  0, text_ptr,
 				WEBDAV_MAX_STAT_SIZE - 1, &size) != CFStringGetLength(nodeString))
 			{
-				/* we could not get the name in the buffer so return nothing */
-
+				/* we could not get the name in the buffer (possibly because the server spewed
+				 * crap xpl at us) so return nothing
+				 */
+				syslog(LOG_ERR, "parser_stat_create: name too long or malformed");
 				free(text_ptr);
 				return_val = NULL;
 			}
@@ -571,9 +601,9 @@ void *parser_stat_create(CFXMLParserRef parser, CFXMLNodeRef node, void *context
 
 /*****************************************************************************/
 
-void *parser_statfs_create(CFXMLParserRef parser, CFXMLNodeRef node, void *context)
+static void *parser_statfs_create(CFXMLParserRef parser, CFXMLNodeRef node, void *context)
 {
-
+	#pragma unused(parser, context)
 	void *return_val = (void *)WEBDAV_STATFS_IGNORE;
 	char *text_ptr;
 	size_t size;
@@ -617,7 +647,7 @@ void *parser_statfs_create(CFXMLParserRef parser, CFXMLNodeRef node, void *conte
 			{
 				/* we could not get the name in the buffer so return
 				  nothing */
-
+				syslog(LOG_ERR, "parser_statfs_create: name too long");
 				free(text_ptr);
 				return_val = NULL;
 			}
@@ -643,9 +673,9 @@ void *parser_statfs_create(CFXMLParserRef parser, CFXMLNodeRef node, void *conte
 
 /*****************************************************************************/
 
-void *parser_lock_create(CFXMLParserRef parser, CFXMLNodeRef node, void *context)
+static void *parser_lock_create(CFXMLParserRef parser, CFXMLNodeRef node, void *context)
 {
-
+	#pragma unused(parser)
 	void *return_val = (void *)WEBDAV_LOCK_CONTINUE;
 	char *text_ptr;
 	size_t text_size, string_size;
@@ -698,13 +728,13 @@ void *parser_lock_create(CFXMLParserRef parser, CFXMLNodeRef node, void *context
 				text_ptr = malloc(text_size + 1);
 				/* Get the bytes out in UTF8 form */
 
-				if (CFStringGetBytes(nodeString, CFRangeMake(0, text_size), kCFStringEncodingUTF8,
+				if ((size_t)CFStringGetBytes(nodeString, CFRangeMake(0, text_size), kCFStringEncodingUTF8,
 					/*stop on loss */ 0,/*not ext*/  0, text_ptr, WEBDAV_MAX_STAT_SIZE - 1,
 					&string_size) != text_size)
 				{
 					/* we could not get the name in the buffer so return
 					  nothing */
-
+					syslog(LOG_ERR, "parser_lock_create: name too long");
 					free(text_ptr);
 					return_val = NULL;
 				}
@@ -736,21 +766,89 @@ void *parser_lock_create(CFXMLParserRef parser, CFXMLNodeRef node, void *context
 
 /*****************************************************************************/
 
-void parser_add(CFXMLParserRef parser, void *parent, void *child, void *context)
+static void *parser_getlastmodified_create(CFXMLParserRef parser, CFXMLNodeRef node, void *context)
 {
+	#pragma unused(parser, context)
+	void *return_val = (void *)WEBDAV_GETLASTMODIFIED_IGNORE;
+	char *text_ptr;
+	size_t text_size;
+	size_t size;
+	CFRange comparison_range;
+	CFStringRef nodeString = CFXMLNodeGetString(node);
+	
+	/* See if this is a type we are interested in  If it is, we'll return
+	  the appropriate constant */
+	switch (CFXMLNodeGetTypeCode(node))
+	{
+		case kCFXMLNodeTypeElement:
+			comparison_range = CFStringFind(nodeString, CFSTR(":"), 0);
+			comparison_range.location++;
+			comparison_range.length = CFStringGetLength(nodeString) - comparison_range.location;
+
+			if (((CFStringCompareWithOptions(nodeString, CFSTR("getlastmodified"),
+				comparison_range, kCFCompareCaseInsensitive)) == kCFCompareEqualTo))
+			{
+				return_val = (void *)WEBDAV_GETLASTMODIFIED_MODDATE;
+			}
+			break;
+
+		case kCFXMLNodeTypeEntityReference:
+		case kCFXMLNodeTypeText:
+		case kCFXMLNodeTypeCDATASection:
+			text_size = CFStringGetLength(nodeString);
+			text_ptr = malloc(text_size + 1);
+			
+			/* Get the bytes out in UTF8 form */
+			if ((size_t)CFStringGetBytes(nodeString, CFRangeMake(0, text_size),
+				kCFStringEncodingUTF8, /*stop on loss */ 0,/*not ext*/  0, text_ptr,
+				text_size, &size) != text_size)
+			{
+				/* we could not get the name in the buffer (possibly because the server spewed
+				 * crap xpl at us) so return nothing
+				 */
+				syslog(LOG_ERR, "parser_getlastmodified_create: name too long or malformed");
+				free(text_ptr);
+				return_val = NULL;
+			}
+			else
+			{
+				/* null terminate the string */
+				text_ptr[size] = '\0';
+
+				/* Workaround for lack of support for kCFXMLParserReplacePhysicalEntities option *** */
+				SUBSTITUTE_PHYSICAL_ENTITY(node, text_ptr, size);
+
+				return_val = (void *)text_ptr;
+			}
+
+		default:
+			break;
+
+	}	/* end switch */
+
+	return (return_val);
+}
+
+/*****************************************************************************/
+
+static void parser_add(CFXMLParserRef parser, void *parent, void *child, void *context)
+{
+	#pragma unused(parser, parent, child, context)
 	/* Add nothing and do nothing.	We are not actually creating the tree */
 	return;
 }
 
 /*****************************************************************************/
 
-void parser_opendir_add(CFXMLParserRef parser, void *parent, void *child, void *context)
+static void parser_opendir_add(CFXMLParserRef parser, void *parent, void *child, void *context)
 {
+	#pragma unused(parser)
 	webdav_parse_opendir_element_t * element_ptr;
 	webdav_parse_opendir_return_t * parent_ptr = (webdav_parse_opendir_return_t *)parent;
 	webdav_parse_opendir_return_t * child_ptr = (webdav_parse_opendir_return_t *)child;
 	webdav_parse_opendir_text_t * text_ptr;
 	webdav_parse_opendir_struct_t * struct_ptr = (webdav_parse_opendir_struct_t *)context;
+	char *ep;
 
 	/* If the parent is one of our returned directory elements, and if this is a
 	 * text element, than copy the text into the name buffer provided we have room */
@@ -775,13 +873,14 @@ void parser_opendir_add(CFXMLParserRef parser, void *parent, void *child, void *
 				}
 				else
 				{
+					syslog(LOG_ERR, "parser_opendir_add: URI too long");
 					struct_ptr->error = ENAMETOOLONG;
 				}
 				break;
 
 			case WEBDAV_OPENDIR_ELEMENT_LENGTH:
 				element_ptr = (webdav_parse_opendir_element_t *)parent_ptr->data_ptr;
-				element_ptr->statsize = atol(text_ptr->name);
+				element_ptr->statsize = strtoq(text_ptr->name, &ep, 10);
 				break;
 
 			case WEBDAV_OPENDIR_ELEMENT_MODDATE:
@@ -792,6 +891,19 @@ void parser_opendir_add(CFXMLParserRef parser, void *parent, void *child, void *
 				if (element_ptr->stattime.tv_sec == -1)
 				{
 					element_ptr->stattime.tv_sec = 0;
+				}
+				break;
+
+			case WEBDAV_OPENDIR_APPLEDOUBLEHEADER:
+				{
+					size_t	len = APPLEDOUBLEHEADER_LENGTH;
+
+					element_ptr = (webdav_parse_opendir_element_t *)parent_ptr->data_ptr;
+					from_base64(text_ptr->name, element_ptr->appledoubleheader, &len);
+					if (len == APPLEDOUBLEHEADER_LENGTH)
+					{
+						element_ptr->appledoubleheadervalid = TRUE;
+					}
 				}
 				break;
 
@@ -811,10 +923,12 @@ void parser_opendir_add(CFXMLParserRef parser, void *parent, void *child, void *
 
 /*****************************************************************************/
 
-void parser_stat_add(CFXMLParserRef parser, void *parent, void *child, void *context)
+static void parser_stat_add(CFXMLParserRef parser, void *parent, void *child, void *context)
 {
+	#pragma unused(parser)
 	char *text_ptr = (char *)child;
 	struct vattr	  *statbuf = (struct vattr *)context;
+	char *ep;
 
 	/* If the parent reflects one of our properties than the child must
 	  be the text pointer with the data we want */
@@ -826,7 +940,7 @@ void parser_stat_add(CFXMLParserRef parser, void *parent, void *child, void *con
 			  in in the stat buffer */
 			if (text_ptr && (text_ptr != (char *)WEBDAV_STAT_IGNORE))
 			{
-				statbuf->va_size = atol(text_ptr);
+				statbuf->va_size = strtoq(text_ptr, &ep, 10);
 				free(text_ptr);
 			}
 			else
@@ -836,7 +950,7 @@ void parser_stat_add(CFXMLParserRef parser, void *parent, void *child, void *con
 				  the value to -1 then.
 				*/
 
-				statbuf->va_size = (u_quad_t) - 1;
+				statbuf->va_size = -1LL;
 			}
 			break;
 
@@ -884,10 +998,12 @@ void parser_stat_add(CFXMLParserRef parser, void *parent, void *child, void *con
 
 /*****************************************************************************/
 
-void parser_statfs_add(CFXMLParserRef parser, void *parent, void *child, void *context)
+static void parser_statfs_add(CFXMLParserRef parser, void *parent, void *child, void *context)
 {
+	#pragma unused(parser)
 	char *text_ptr = (char *)child;
 	struct statfs	  *statfsbuf = (struct statfs *)context;
+	char *ep;
 
 	/* If the parent reflects one of our properties than the child must
 	  be the text pointer with the data we want */
@@ -899,7 +1015,7 @@ void parser_statfs_add(CFXMLParserRef parser, void *parent, void *child, void *c
 			  in in the stat buffer */
 			if (text_ptr && (text_ptr != (char *)WEBDAV_STATFS_IGNORE))
 			{
-				statfsbuf->f_blocks = atol(text_ptr);
+				statfsbuf->f_blocks = strtoq(text_ptr, &ep, 10);
 				free(text_ptr);
 			}
 			else
@@ -919,7 +1035,7 @@ void parser_statfs_add(CFXMLParserRef parser, void *parent, void *child, void *c
 
 			if (text_ptr && (text_ptr != (char *)WEBDAV_STATFS_IGNORE))
 			{
-				statfsbuf->f_bavail = statfsbuf->f_bfree = atol(text_ptr);
+				statfsbuf->f_bavail = statfsbuf->f_bfree = strtoq(text_ptr, &ep, 10);
 				free(text_ptr);
 			}
 			else
@@ -951,15 +1067,61 @@ void parser_statfs_add(CFXMLParserRef parser, void *parent, void *child, void *c
 
 /*****************************************************************************/
 
-void parser_end(CFXMLParserRef parser, void *xml_type, void *context)
+static void parser_getlastmodified_add(CFXMLParserRef parser, void *parent, void *child, void *context)
 {
+	#pragma unused(parser)
+	char *text_ptr = (char *)child;
+	time_t *last_modified = (time_t *)context;
+
+	/* If the parent reflects one of our properties than the child must
+	  be the text pointer with the data we want */
+	switch ((int)parent)
+	{
+		case WEBDAV_GETLASTMODIFIED_MODDATE:
+			/* the text pointer is the date so translate it and
+			  get it into the stat buffer */
+			if (text_ptr && (text_ptr != (char *)WEBDAV_GETLASTMODIFIED_IGNORE))
+			{
+				*last_modified = parse_http_date(text_ptr);
+				free(text_ptr);
+			}
+			else
+			{
+				/* If we got a string set to null we could not fit the value
+				  in our buffer leave it blank and the kernel will fill in
+				  to the best of its ability */
+			}
+			break;
+
+		default:
+			/* if it is ignore or something else, check the child.	If
+			  it is not a return value and isn't null, it's a text ptr
+			  so free it */
+			if (text_ptr &&
+				text_ptr != (char *)WEBDAV_GETLASTMODIFIED_IGNORE &&
+				text_ptr != (char *)WEBDAV_GETLASTMODIFIED_MODDATE)
+			{
+				free(text_ptr);
+			}
+			break;
+	}
+
+	return;
+}
+
+/*****************************************************************************/
+
+static void parser_end(CFXMLParserRef parser, void *xml_type, void *context)
+{
+	#pragma unused(parser, xml_type, context)
 	return;										/* deallocate the tree ? */
 }
 
 /*****************************************************************************/
 
-void parser_opendir_end(CFXMLParserRef parser, void *my_element, void *context)
+static void parser_opendir_end(CFXMLParserRef parser, void *my_element, void *context)
 {
+	#pragma unused(parser, context)
 	if (my_element)
 	{
 #ifdef DEBUG_PARSE
@@ -973,8 +1135,9 @@ void parser_opendir_end(CFXMLParserRef parser, void *my_element, void *context)
 
 /*****************************************************************************/
 
-CFDataRef parser_resolve(CFXMLParserRef parser, CFXMLExternalID *extID, void *context)
+static CFDataRef parser_resolve(CFXMLParserRef parser, CFXMLExternalID *extID, void *context)
 {
+	#pragma unused(parser, extID, context)
 	return (NULL);
 }
 
@@ -1024,6 +1187,7 @@ int parse_lookup(char *xmlp, int xmlp_len, webdav_filetype_t *a_file_type)
 	element_ptr = lookup_struct.head;
 	if (!element_ptr)
 	{
+		syslog(LOG_ERR, "parser_lookup: element_ptr is NULL");
 		error = EFTYPE;
 		*a_file_type = 0;
 	}
@@ -1032,6 +1196,7 @@ int parse_lookup(char *xmlp, int xmlp_len, webdav_filetype_t *a_file_type)
 		*a_file_type = element_ptr->file_type;
 		if (element_ptr->next != NULL)
 		{
+			syslog(LOG_ERR, "parser_lookup: element_ptr->next != NULL");
 			error = 1;
 		}
 #ifdef DEBUG_PARSE
@@ -1048,7 +1213,7 @@ int parse_lookup(char *xmlp, int xmlp_len, webdav_filetype_t *a_file_type)
 
 /*****************************************************************************/
 
-int parse_opendir(char *xmlp, int xmlp_len, int fd, char *dir_ref, char *hostname, int uid)
+int parse_opendir(char *xmlp, int xmlp_len, int fd, char *dir_ref, char *hostname, uid_t uid)
 {
 	CFDataRef xml_dataref;
 	CFXMLParserCallBacks callbacks =
@@ -1067,7 +1232,7 @@ int parse_opendir(char *xmlp, int xmlp_len, int fd, char *dir_ref, char *hostnam
 	CFURLRef fake_url;
 	int error = 0;
 	int ignore_error;
-	size_t size;
+	ssize_t size;
 	char *name_ptr;
 	char *decoded_dir_ref;
 	char *after_dir_ref_hostname = NULL;		/* used to point to part of dir_ref which is after the hostname */
@@ -1198,7 +1363,7 @@ int parse_opendir(char *xmlp, int xmlp_len, int fd, char *dir_ref, char *hostnam
 
 		if (after_dir_ref_hostname && strchr(after_dir_ref_hostname, '/'))
 		{
-			error = webdav_get_inode(cache_uri, strrchr(cache_uri, '/') - cache_uri,
+			error = webdav_get_inode(cache_uri, (unsigned int)(strrchr(cache_uri, '/') - cache_uri),
 				TRUE, &dir_data[1].d_fileno);
 			if (error)
 			{
@@ -1213,7 +1378,6 @@ int parse_opendir(char *xmlp, int xmlp_len, int fd, char *dir_ref, char *hostnam
 	}
 	dir_data[1].d_type = DT_DIR;
 
-
 	size = write(fd, (void *)dir_data, (sizeof(struct dirent)) * 2);
 
 	/* If for some reason we did not get all the data into
@@ -1224,10 +1388,12 @@ int parse_opendir(char *xmlp, int xmlp_len, int fd, char *dir_ref, char *hostnam
 	{
 		if (size == -1)
 		{
+			syslog(LOG_ERR, "parser_opendir: write() . & ..: %s", strerror(errno));
 			error = errno;
 		}
 		else
 		{
+			syslog(LOG_ERR, "parser_opendir: write() . & .. was short");
 			error = EIO;
 		}
 	}
@@ -1310,15 +1476,22 @@ int parse_opendir(char *xmlp, int xmlp_len, int fd, char *dir_ref, char *hostnam
 				{
 					statstruct.va_type = VDIR;
 					statstruct.va_size = WEBDAV_DIR_SIZE;
+					/* appledoubleheadervalid is never valid for directories */
+					element_ptr->appledoubleheadervalid = FALSE;
 				}
 				else
 				{
 					statstruct.va_type = VREG;
 					statstruct.va_size = element_ptr->statsize;
+					/* appledoubleheadervalid is valid for files only if the server
+					 * returned the appledoubleheader property and file size is
+					 * the size of the appledoubleheader (APPLEDOUBLEHEADER_LENGTH bytes).
+					 */
+					element_ptr->appledoubleheadervalid =
+						(element_ptr->appledoubleheadervalid && (element_ptr->statsize == APPLEDOUBLEHEADER_LENGTH));
 				}
 
-				statstruct.va_bytes = statstruct.va_size + WEBDAV_BLOCK_SIZE -
-					((statstruct.va_size) % WEBDAV_BLOCK_SIZE);
+				statstruct.va_bytes = ((statstruct.va_size + S_BLKSIZE - 1) / S_BLKSIZE) * S_BLKSIZE;
 				statstruct.va_atime = statstruct.va_mtime = statstruct.va_ctime =
 					element_ptr->stattime;
 
@@ -1331,6 +1504,7 @@ int parse_opendir(char *xmlp, int xmlp_len, int fd, char *dir_ref, char *hostnam
 						(((int)name_ptr) + 1));
 					if (name_len > MAXNAMLEN)
 					{
+						syslog(LOG_ERR, "parser_opendir: URI too long");
 						error = ENAMETOOLONG;
 						goto free_decoded_dir_ref;
 					}
@@ -1350,7 +1524,7 @@ int parse_opendir(char *xmlp, int xmlp_len, int fd, char *dir_ref, char *hostnam
 					if (strncmp(dir_ref, _WEBDAVPREFIX, strlen(_WEBDAVPREFIX)) == 0)
 					{
 
-						int tmp_name_len = (int)(strlen(dir_ref) + (name_ptr ? strlen(name_ptr) : 0));
+						size_t tmp_name_len = (strlen(dir_ref) + (name_ptr ? strlen(name_ptr) : 0));
 						full_url = malloc(tmp_name_len);
 
 						if (full_url)
@@ -1363,6 +1537,7 @@ int parse_opendir(char *xmlp, int xmlp_len, int fd, char *dir_ref, char *hostnam
 						}
 						else
 						{
+							syslog(LOG_ERR, "parser_opendir: full_url could not be allocated");
 							error = ENOMEM;
 							goto free_decoded_dir_ref;
 						}
@@ -1383,7 +1558,8 @@ int parse_opendir(char *xmlp, int xmlp_len, int fd, char *dir_ref, char *hostnam
 						/* Now cache the stat structure */
 
 						ignore_error = webdav_memcache_insert(uid, cache_uri, &gmemcache_header,
-							&statstruct);
+							&statstruct,
+							element_ptr->appledoubleheadervalid ? element_ptr->appledoubleheader: NULL);
 
 						free(full_url);
 
@@ -1411,7 +1587,8 @@ int parse_opendir(char *xmlp, int xmlp_len, int fd, char *dir_ref, char *hostnam
 							/* Now cache the stat structure */
 
 							ignore_error = webdav_memcache_insert(uid, cache_uri, &gmemcache_header,
-								&statstruct);
+								&statstruct,
+								element_ptr->appledoubleheadervalid ? element_ptr->appledoubleheader: NULL);
 							/* reconstruct_url (if it succeeded) will have allocated the url which
 							  we must now free. */
 							free(full_url);
@@ -1433,7 +1610,8 @@ int parse_opendir(char *xmlp, int xmlp_len, int fd, char *dir_ref, char *hostnam
 					}
 
 					ignore_error = webdav_memcache_insert(uid, cache_uri, &gmemcache_header,
-						&statstruct);
+						&statstruct,
+						element_ptr->appledoubleheadervalid ? element_ptr->appledoubleheader: NULL);
 				}
 
 				/* Ok now we'll complete the task of getting the regular name into the dirent */
@@ -1444,7 +1622,7 @@ int parse_opendir(char *xmlp, int xmlp_len, int fd, char *dir_ref, char *hostnam
 				  contains the name that starts right after the last '/'. */
 				if (name_ptr)
 				{
-					bcopy(name_ptr + 1, element_ptr->dir_data.d_name, name_len);
+					bcopy(name_ptr + 1, element_ptr->dir_data.d_name, (size_t)name_len);
 					element_ptr->dir_data.d_name[name_len] = '\0';
 					element_ptr->dir_data.d_namlen = name_len;
 					element_ptr->dir_data.d_fileno = statstruct.va_fileid;
@@ -1460,10 +1638,12 @@ int parse_opendir(char *xmlp, int xmlp_len, int fd, char *dir_ref, char *hostnam
 				{
 					if (size == -1)
 					{
+						syslog(LOG_ERR, "parser_opendir: write(): %s", strerror(errno));
 						error = errno;
 					}
 					else
 					{
+						syslog(LOG_ERR, "parser_opendir: write() was short");
 						error = EIO;
 					}
 				}
@@ -1538,7 +1718,7 @@ int parse_file_count(char *xmlp, int xmlp_len, int *file_count)
 
 /*****************************************************************************/
 
-int parse_stat(char *xmlp, int xmlp_len, const char *orig_uri, struct vattr *statbuf)
+int parse_stat(char *xmlp, int xmlp_len, const char *orig_uri, struct vattr *statbuf, uid_t uid)
 {
 	CFDataRef xml_dataref;
 	CFXMLParserCallBacks callbacks =
@@ -1554,6 +1734,7 @@ int parse_stat(char *xmlp, int xmlp_len, const char *orig_uri, struct vattr *sta
 	CFXMLParserRef parser;
 	CFURLRef fake_url;
 	int error = 0;
+	int ignore_error;
 
 	/* Start by getting the data into a form Core Foundation can
 	  understand
@@ -1599,8 +1780,7 @@ int parse_stat(char *xmlp, int xmlp_len, const char *orig_uri, struct vattr *sta
 
 	if (statbuf->va_size)
 	{
-		statbuf->va_bytes = statbuf->va_size + WEBDAV_BLOCK_SIZE -
-			((statbuf->va_size) % WEBDAV_BLOCK_SIZE);
+		statbuf->va_bytes = ((statbuf->va_size + S_BLKSIZE - 1) / S_BLKSIZE) * S_BLKSIZE;
 	}
 
 	/* Now put the URI into the inode hash.	 Orig URI is the non decoded (pure utf8)
@@ -1617,6 +1797,10 @@ int parse_stat(char *xmlp, int xmlp_len, const char *orig_uri, struct vattr *sta
 	{
 		return (error);
 	}
+	
+	/* Now cache the stat structure */
+	ignore_error = webdav_memcache_insert(uid, (const char *)orig_uri, &gmemcache_header,
+							statbuf, NULL);
 
 	return (error);
 }
@@ -1719,9 +1903,48 @@ int parse_lock(char *xmlp, int xmlp_len, char **locktoken)
 
 	if (*locktoken == (char *)WEBDAV_LOCK_TOKEN || *locktoken == (char *)WEBDAV_LOCK_HREF)
 	{
+		syslog(LOG_ERR, "parse_lock: error parsing lock token");
 		*locktoken = NULL;
 	}
 
+	return (0);
+}
+
+/*****************************************************************************/
+
+int parse_getlastmodified(char *xmlp, int xmlp_len, time_t *last_modified)
+{
+	CFDataRef xml_dataref;
+	CFXMLParserCallBacks callbacks =
+	{
+		0, parser_getlastmodified_create, parser_getlastmodified_add, parser_end, parser_resolve, NULL
+	};
+	CFXMLParserContext context =
+	{
+		0, last_modified, NULL, NULL, NULL
+	};
+	CFXMLParserOptions options = kCFXMLParserNoOptions;
+	/* *** if supported, could use kCFXMLParserReplacePhysicalEntities *** */
+	CFXMLParserRef parser;
+	CFURLRef fake_url;
+	
+	/* Start by getting the data into a form Core Foundation can
+	  understand
+	*/
+	xml_dataref = CFDataCreateWithBytesNoCopy(kCFAllocatorSystemDefault, xmlp, 
+		(CFIndex)xmlp_len, kCFAllocatorNull);
+
+	/* Fake up a URL ref since we don't have one */
+	fake_url = CFURLCreateWithString(NULL, CFSTR("fakeurl"), NULL);
+
+	/* Create the Parser, set it's call backs and away we go */
+	parser = CFXMLParserCreate(kCFAllocatorSystemDefault, xml_dataref, fake_url, options, 
+		kCFXMLNodeCurrentVersion, &callbacks, &context);
+	CFXMLParserParse(parser);
+	CFRelease(parser);
+	CFRelease(xml_dataref);
+	CFRelease(fake_url);
+	
 	return (0);
 }
 

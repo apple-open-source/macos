@@ -29,7 +29,7 @@
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 // SCSI Architecture Model Family includes
-#include <IOKit/scsi-commands/SCSICommandDefinitions.h>
+#include <IOKit/scsi/SCSICommandDefinitions.h>
 #include "IOSCSIMultimediaCommandsDevice.h"
 #include "SCSIMultimediaCommands.h"
 #include "SCSIBlockCommands.h"

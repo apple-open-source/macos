@@ -39,6 +39,15 @@
 
 using namespace khtml;
 
+#if APPLE_CHANGES
+void Font::drawHighlightForText( QPainter *p, int x, int y, QChar *str, int slen, int pos, int len,
+                     int toAdd, QPainter::TextDirection d, int from, int to, QColor bg ) const
+{
+    p->drawHighlightForText(x, y, str + pos, std::min(slen - pos, len), from, to, toAdd, bg, d,
+                letterSpacing, wordSpacing, fontDef.smallCaps);
+}
+#endif
+                     
 void Font::drawText( QPainter *p, int x, int y, QChar *str, int slen, int pos, int len,
                      int toAdd, QPainter::TextDirection d, int from, int to, QColor bg ) const
 {
@@ -116,6 +125,11 @@ void Font::floatCharacterWidths( QChar *str, int slen, int pos, int len, int toA
     fm.floatCharacterWidths(str, slen, pos, len, toAdd, buffer, letterSpacing, wordSpacing, fontDef.smallCaps);
 }
 
+int Font::checkSelectionPoint (QChar *s, int slen, int pos, int len, int toAdd, int x, bool reversed) const
+{
+    return fm.checkSelectionPoint (s, slen, pos, len, toAdd, letterSpacing, wordSpacing, fontDef.smallCaps, x, reversed);
+}
+
 #endif
 
 int Font::width( QChar *chs, int slen, int pos, int len ) const
@@ -186,7 +200,7 @@ void Font::update( QPaintDeviceMetrics* devMetrics ) const
 	f.setFirstFamily(fontDef.family);
     f.setItalic(fontDef.italic);
     f.setWeight(fontDef.weight);
-    f.setPixelSize(fontDef.pixelSize());
+    f.setPixelSize(fontDef.computedPixelSize());
     f.setPrinterFont(fontDef.usePrinterFont);
 
     fm.setFont(f);

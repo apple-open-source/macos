@@ -27,7 +27,7 @@
 # authorization.                                                           *
 #***************************************************************************
 #
-# $Id: MKterminfo.sh,v 1.1.1.1 2001/11/29 20:40:54 jevans Exp $
+# $Id: MKterminfo.sh,v 1.2 2003/01/07 23:12:08 jevans Exp $
 #
 # MKterminfo.sh -- generate terminfo.5 from Caps tabular data
 #
@@ -68,9 +68,9 @@ sed -n <$caps "\
 /%%-STOP-HERE-%%/q
 /^#%/s///p
 /^#/d
-s/[	]\+/	/g
+s/[	]\{1,\}/	/g
 s/$/T}/
-s/	[A-Z0-9_()\-]\+	[0-9\-]\+	[Y\-][B\-][C\-][G\-][EK\-]\**	/	T{/
+s/	[A-Z0-9_()\-]\{1,\}	[0-9\-]\{1,\}	[Y\-][B\-][C\-][G\-][EK\-]\**	/	T{/
 s/	bool	/	/p
 s/	num	/	/p
 s/	str	/	/p

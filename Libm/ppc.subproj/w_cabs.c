@@ -22,40 +22,111 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*******************************************************************************
-*                                                                              *
-*     File:  w_cabs.c                                                           *
-*                                                                              *
-*     Contains: Legacy cabs(). 		       				       *
-*                                                                              *
-*     Copyright © 2001 Apple Computer, Inc.  All rights reserved.              *
-*                                                                              *
-*     Written by Stephen C. Peters, started in November 2001.                  *
-*                                                                              *
-*     A MathLib v5 file.                                                       *
-*                                                                              *
-*     Change History (most recent first):                                      *
-*                                                                              *
-*     21 Nov 01   scp   First created.                                         *
-*                                                                              *
-*     W A R N I N G:                                                           *
-*     These routines require a 64-bit double precision IEEE-754 model.         *
-*     They are written for PowerPC only and are expecting the compiler         *
-*     to generate the correct sequence of multiply-add fused instructions.     *
-*                                                                              *
-*     These routines are not intended for 32-bit Intel architectures.          *
-*                                                                              *
-*     A version of gcc higher than 932 is required.                            *
-*                                                                              *
-*     GCC compiler options:                                                    *
-*           optimization level 3 (-O3)                                         *
-*           -fschedule-insns -finline-functions -funroll-all-loops             *
-*                                                                              *
-*******************************************************************************/
-#include "math.h"
 
-double cabs ( _complex z )
+/****************************************************************************
+   double cabs(double complex z) returns the absolute value (magnitude) of its
+   complex argument z, avoiding spurious overflow, underflow, and invalid
+   exceptions.  The algorithm is from Kahan's paper.
+   
+   CONSTANTS:  FPKSQT2 = sqrt(2.0) to double precision
+               FPKR2P1 = sqrt(2.0) + 1.0 to double precision
+               FPKT2P1 = sqrt(2.0) + 1.0 - FPKR2P1 to double precision, so
+                  that FPKR2P1 + FPKT2P1 = sqrt(2.0) + 1.0 to double
+                  double precision.
+            
+   Calls:  fpclassify, fabs, sqrt, feholdexcept, fesetround, feclearexcept,
+           and feupdateenv.
+****************************************************************************/
+
+#include "math.h"
+#include "fenv.h"
+
+#define complex _Complex
+
+#define Real(z) (__real__ z)
+#define Imag(z) (__imag__ z)
+
+#if defined(__BIG_ENDIAN__)
+#define HEXDOUBLE(hi, lo) { { hi, lo } }
+#elif defined(__LITTLE_ENDIAN__)
+#define HEXDOUBLE(hi, lo) { { lo, hi } }
+#else
+#error Unknown endianness
+#endif
+
+static const union {              /* sqrt(2.0) */
+   long int ival[2];
+   double dval;
+   } FPKSQT2 = HEXDOUBLE(0x3ff6a09e,0x667f3bcd);
+
+static const union {              /* sqrt(2.0) + 1.0 to double */
+   long int ival[2];
+   double dval;
+   } FPKR2P1 = HEXDOUBLE(0x4003504f,0x333f9de6);
+
+static const union {              /* sqrt(2.0) + 1.0 - FPKR2P1 to double */
+   long int ival[2];
+   double dval;
+   } FPKT2P1 = HEXDOUBLE(0x3ca21165,0xf626cdd6);
+
+/****************************************************************************
+   double cabs(double complex z) returns the absolute value (magnitude) of its
+   complex argument z, avoiding spurious overflow, underflow, and invalid
+   exceptions.  The algorithm is from Kahan's paper.
+   
+   CONSTANTS:  FPKSQT2 = sqrt(2.0) to double precision
+               FPKR2P1 = sqrt(2.0) + 1.0 to double precision
+               FPKT2P1 = sqrt(2.0) + 1.0 - FPKR2P1 to double precision, so
+                  that FPKR2P1 + FPKT2P1 = sqrt(2.0) + 1.0 to double
+                  double precision.
+            
+   Calls:  fpclassify, fabs, sqrt, feholdexcept, fesetround, feclearexcept,
+           and feupdateenv.
+****************************************************************************/
+
+double cabs ( double complex z )
 {
-    return hypot ( z.Real, z.Imag );
-}
+   double a,b,s,t;
+   fenv_t env;
+   int   clre,clim,ifoo;
+   
+   clre = fpclassify(Real(z));
+   clim = fpclassify(Imag(z));
+   
+   if ((clre < FP_NORMAL) || (clim < FP_NORMAL)) {
+      return (fabs(Real(z)) + fabs(Imag(z))); /* Real(z) or Imag(z) is NaN, INF, or zero */
+   }
+   
+   else {                        /* both components of z are finite, nonzero */
+      ifoo = feholdexcept(&env);         /* save environment, clear flags */
+      ifoo = fesetround(FE_TONEAREST);   /* set default rounding */
+      a = fabs(Real(z));                    /* work with absolute values */
+      b = fabs(Imag(z));
+      s = 0.0;
+      if (a < b) {                       /* order a >= b */
+         t = a;
+         a = b;
+         b = t;
+      }
+      t = a - b;                         /* magnitude difference */
+      
+      if (t != a) {                      /* b not negligible relative to a */
+         if (t > b) {                    /* a - b > b */
+            s = a/b;
+            s += sqrt(1.0 + s*s);
+         }
+         else {                          /* a - b <= b */
+            s = t/b;
+            t = (2.0 + s)*s;
+            s = ((FPKT2P1.dval+t/(FPKSQT2.dval+sqrt(2.0+t)))+s)+FPKR2P1.dval;
+         }
+         
+         s = b/s;                        /* may spuriously underflow */
+         feclearexcept(FE_UNDERFLOW);
+      }
+      
+      feupdateenv(&env);                 /* restore environment */
+      return (a + s);                    /* deserved overflow occurs here */
+   }                                     /* finite, nonzero case */
+}   
 

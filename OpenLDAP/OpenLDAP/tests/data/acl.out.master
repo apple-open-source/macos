@@ -1,7 +1,5 @@
 dn: cn=James A Jones 1,ou=Alumni Association,ou=People,o=University of Michiga
  n,c=US
-objectclass: top
-objectclass: person
 objectclass: OpenLDAPperson
 cn: James A Jones 1
 cn: James Jones
@@ -15,7 +13,7 @@ homephone: +1 313 555 4772
 description: Outstanding
 title: Mad Cow Researcher, UM Alumni Association
 pager: +1 313 555 3923
-mail: jaj@mail.alumni.umich.edu
+mail: jaj@mail.alumni.example.com
 facsimiletelephonenumber: +1 313 555 4332
 telephonenumber: +1 313 555 0895
 
@@ -66,36 +64,32 @@ cn: Alumni Assoc Staff
 objectclass: groupofnames
 
 dn: ou=Alumni Association,ou=People,o=University of Michigan,c=US
-objectclass: top
 objectclass: organizationalUnit
 ou: Alumni Association
 
 dn: cn=Barbara Jensen,ou=Information Technology Division,ou=People,o=Universit
  y of Michigan,c=US
-objectclass: top
-objectclass: person
 objectclass: OpenLDAPperson
 cn: Barbara Jensen
 cn: Babs Jensen
-sn: Jensen
+sn:: IEplbnNlbiA=
 uid: bjensen
 title: Mythical Manager, Research Systems
 postaladdress: ITD Prod Dev & Deployment $ 535 W. William St. Room 4212 $ Ann 
  Arbor, MI 48103-4943
 seealso: cn=All Staff,ou=Groups,o=University of Michigan,c=US
-mail: bjensen@mailgw.umich.edu
+mail: bjensen@mailgw.example.com
 homepostaladdress: 123 Wesley $ Ann Arbor, MI 48103
 description: Mythical manager of the rsdd unix project
 drink: water
 homephone: +1 313 555 2333
+homephone: +1 313 555 5444
 pager: +1 313 555 3233
 facsimiletelephonenumber: +1 313 555 2274
 telephonenumber: +1 313 555 9022
 
 dn: cn=Bjorn Jensen,ou=Information Technology Division,ou=People,o=University 
  of Michigan,c=US
-objectclass: top
-objectclass: person
 objectclass: OpenLDAPperson
 cn: Bjorn Jensen
 cn: Biiff Jensen
@@ -107,19 +101,17 @@ drink: Iced Tea
 description: Hiker, biker
 title: Director, Embedded Systems
 postaladdress: Info Tech Division $ 535 W. William St. $ Ann Arbor, MI 48103
-mail: bjorn@mailgw.umich.edu
+mail: bjorn@mailgw.example.com
 homephone: +1 313 555 5444
 pager: +1 313 555 4474
 facsimiletelephonenumber: +1 313 555 2177
 telephonenumber: +1 313 555 0355
 
 dn: ou=Groups,o=University of Michigan,c=US
-objectclass: top
 objectclass: organizationalUnit
 ou: Groups
 
 dn: ou=Information Technology Division,ou=People,o=University of Michigan,c=US
-objectclass: top
 objectclass: organizationalUnit
 ou: Information Technology Division
 
@@ -141,8 +133,6 @@ ou: Groups
 
 dn: cn=James A Jones 2,ou=Information Technology Division,ou=People,o=Universi
  ty of Michigan,c=US
-objectclass: top
-objectclass: person
 objectclass: OpenLDAPperson
 cn: James A Jones 2
 cn: James Jones
@@ -154,7 +144,7 @@ homepostaladdress: 933 Brooks $ Ann Arbor, MI 48104
 homephone: +1 313 555 8838
 title: Senior Manager, Information Technology Division
 description: Not around very much
-mail: jjones@mailgw.umich.edu
+mail: jjones@mailgw.example.com
 postaladdress: Info Tech Division $ 535 W William $ Ann Arbor, MI 48103
 pager: +1 313 555 2833
 facsimiletelephonenumber: +1 313 555 8688
@@ -162,8 +152,6 @@ telephonenumber: +1 313 555 7334
 
 dn: cn=John Doe,ou=Information Technology Division,ou=People,o=University of M
  ichigan,c=US
-objectclass: top
-objectclass: person
 objectclass: OpenLDAPperson
 cn: John Doe
 cn: Jonathon Doe
@@ -174,14 +162,13 @@ seealso: cn=All Staff,ou=Groups,o=University of Michigan,c=US
 homepostaladdress: 912 East Bllvd $ Ann Arbor, MI 48104
 title: System Administrator, Information Technology Division
 description: overworked!
-mail: johnd@mailgw.umich.edu
+mail: johnd@mailgw.example.com
 homephone: +1 313 555 3774
 pager: +1 313 555 6573
 facsimiletelephonenumber: +1 313 555 4544
 telephonenumber: +1 313 555 9394
 
 dn: cn=Manager,o=University of Michigan,c=US
-objectclass: top
 objectclass: person
 cn: Manager
 cn: Directory Manager
@@ -190,12 +177,10 @@ sn: Manager
 description: Manager of the directory
 
 dn: ou=People,o=University of Michigan,c=US
-objectclass: top
 objectclass: organizationalUnit
 ou: People
 
 dn: o=University of Michigan,c=US
-objectclass: top
 objectclass: organization
 objectclass: domainRelatedObject
 l: Ann Arbor, Michigan
@@ -209,5 +194,5 @@ description: The University of Michigan at Ann Arbor
 postaladdress: University of Michigan $ 535 W. William St. $ Ann Arbor, MI 481
  09 $ US
 telephonenumber: +1 313 764-1817
-associateddomain: umich.edu
+associateddomain: example.com
 

@@ -1,0 +1,5 @@
+# This config uses ppcbug1 protocol in GDB.
+set_board_info gdb_protocol "ppcbug1"
+
+# But otherwise we're the same as powerpc-bug.
+load_base_board_description "powerpc-bug"

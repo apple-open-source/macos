@@ -1,16 +1,32 @@
 /*
- *  IOFireWireAVCLibConsumer.h
- *  IOFireWireAVC
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
- *  Created by cpieper on Tue Feb 05 2002.
- *  Copyright (c) 2001 __MyCompanyName__. All rights reserved.
- *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
  */
 
 #ifndef _IOKIT_IOFIREWIREAVCLIBCONSUMER_H_
 #define _IOKIT_IOFIREWIREAVCLIBCONSUMER_H_
 
-#include "IOFireWireAVCLib.h"
+#include <IOKit/avc/IOFireWireAVCLib.h>
 
 #include <pthread.h>	// for mutexes
 
@@ -102,9 +118,9 @@ protected:
         return (addr2 - addr1);
     }
 
-	static void sendHeartbeatResponse( IOFireWireAVCLibConsumer ** info );
-	static void sendDisconnectResponse( IOFireWireAVCLibConsumer ** info );
-    static void sendFrameStatusNotification( IOFireWireAVCLibConsumer ** info );
+	static void sendHeartbeatResponse( void * info );
+	static void sendDisconnectResponse( void * info );
+    static void sendFrameStatusNotification( void * info );
         
     virtual void startConsumerHeartbeatTimer( void );
     static void consumerHeartbeatProc( CFRunLoopTimerRef timer, void * data );

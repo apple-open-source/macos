@@ -1,0 +1,32 @@
+--- big5.c.orig	Tue May 20 15:21:44 2003
++++ big5.c	Wed Jun 18 12:02:34 2003
+@@ -45,6 +45,7 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <sys/types.h>
++#include <ctype.h>
+ 
+ rune_t	_BIG5_sgetrune(const char *, size_t, char const **);
+ int	_BIG5_sputrune(rune_t, char *, size_t, char **);
+@@ -77,13 +78,17 @@
+ 	rune_t rune = 0;
+ 	int len;
+ 
+-	if (n < 1 || (len = _big5_check(*string)) > n) {
+-		if (result)
+-			*result = string;
++	if (result)
++		*result = string;
++	if (n < 1 || (len = _big5_check(*string)) > n)
+ 		return (_INVALID_RUNE);
+-	}
+ 	while (--len >= 0)
+ 		rune = (rune << 8) | ((u_int)(*string++) & 0xff);
++	if (!isrune(rune)) {
++		if (result)
++			(*result)++;
++		return (_INVALID_RUNE);
++	}
+ 	if (result)
+ 		*result = string;
+ 	return rune;

@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# $Id: Customize,v 1.6 99/03/29 09:40:22 abe Exp $
+# $Id: Customize,v 1.8 2002/12/09 13:51:33 abe Exp $
 #
 # Customize: customize dialect's machine.h header file.
 #
@@ -8,6 +8,8 @@
 # lsof, made in the dialect's machine.h header file, including:
 #
 #	HASSECURITY	the security option
+#	HASNOSOCKSECURITY
+#			the socket oberalization of HASSECURITY
 #	HASDCACHE	enabling/disabling the device cache file
 #			(Note: changing the device cache file option isn't
 #			       offered when machine.h contains NEVER_HASDCACHE
@@ -173,7 +175,10 @@ cat << .CAT_MARK
 
 When HASSECURITY is enabled, only the root user may use lsof to
 examine all open files; other users may examine only the files
-belonging to the real user ID of their lsof process.
+belonging to the real user ID of their lsof process.  If
+HASNOSOCKSECURITY is also defined, anyone may list anyone else's
+open socket files, provided their listing is selected with the "-i"
+option.
 
 When HASSECURITY is disabled, anyone may use lsof to examine all
 open files.
@@ -184,13 +189,12 @@ grep HASSECURITY $OLD | tail -1 | egrep "^#define" > /dev/null
 if test $? -eq 0
 then
   echo "HASSECURITY is enabled."
-  SEC=1
+  NSEC=1
 else
   echo "HASSECURITY is disabled."
-  SEC=0
+  NSEC=0
 fi
 END=0
-NSEC=$SEC
 while test $END -eq 0
 do
   echo ""
@@ -225,6 +229,72 @@ do
     fi
   fi
 done
+
+# If HASSECURITY is enabled, see if HASNOSOCKSECURITY should also be defined.
+
+if test $NSEC -eq 1
+then
+  cat << .CAT_MARK
+
+====================================================================
+
+When HASSECURITY is enabled, you may also define HASNOSOCKSECURITY.
+
+When both are defined, no one but root may list all of anyone else's
+open files -- only their own open files -- but anyone may list
+anyone else's open socket files.
+
+This option is useful with ntop (http://www.ntop.org).
+
+.CAT_MARK
+
+  grep HASNOSOCKSECURITY $OLD | tail -1 | egrep "^#define" > /dev/null
+  if test $? -eq 0
+  then
+    echo "HASNOSOCKSECURITY is enabled."
+    SOCKSEC=1
+  else
+    echo "HASNOSOCKSECURITY is disabled."
+    SOCKSEC=0
+  fi
+  END=0
+  while test $END -eq 0
+  do
+    echo ""
+    if test $SOCKSEC -eq 1
+    then
+      echo $EO "Disable HASNOSOCKSECURITY (y|n) [n]? $EC"
+    else
+      echo $EO "Enable HASNOSOCKSECURITY (y|n) [n]? $EC"
+    fi
+    read ANS EXCESS
+    if test "X$ANS" = "Xy" -o "X$ANS" = "XY"
+    then
+      echo ""
+      if test $SOCKSEC -eq 1
+      then
+        SOCKSEC=0
+        echo "HASNOSOCKSECURITY will be disabled."
+      else
+        SOCKSEC=1
+        echo "HASNOSOCKSECURITY will be enabled."
+      fi
+      END=1
+    else
+      if test "X$ANS" = "Xn" -o "X$ANS" = "XN" -o "X$ANS" = "X"
+      then
+        echo ""
+        echo "HASNOSOCKSECURITY will not be changed."
+        END=1
+      else
+        echo ""
+        echo "Please answer y|n [n]."
+      fi
+    fi
+  done
+else
+  SOCKSEC=0
+fi
 
 # Process WARNINGSTATE.
 
@@ -889,12 +959,17 @@ date >> $NEW
 echo " */" >> $NEW
 echo "" >> $NEW
 
-# Change HASSECURITY, as required.
+# Change HASSECURITY and HASNOSOCKSECURITY, as required.
 
 echo "#undef	HASSECURITY" >> $NEW
+echo "#undef	HASNOSOCKSECURITY" >> $NEW
 if test $NSEC -eq 1
 then
   echo "#define	HASSECURITY	1" >> $NEW
+  if test $SOCKSEC -eq 1
+  then
+    echo "#define	HASNOSOCKSECURITY	1" >> $NEW
+  fi
 fi
 
 # Change WARNDEVACCESS, as required.

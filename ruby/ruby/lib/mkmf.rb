@@ -3,13 +3,33 @@
 
 require 'rbconfig'
 require 'find'
+require 'shellwords'
 
 CONFIG = Config::MAKEFILE_CONFIG
 ORIG_LIBPATH = ENV['LIB']
 
 SRC_EXT = ["c", "cc", "m", "cxx", "cpp", "C"]
 
-$config_cache = CONFIG["compile_dir"]+"/ext/config.cache"
+unless defined? $configure_args
+  $configure_args = {}
+  for arg in Shellwords.shellwords(CONFIG["configure_args"])
+    arg, val = arg.split('=', 2)
+    if arg.sub!(/^(?!--)/, '--')
+      val or next
+      arg.downcase!
+    end
+    next if /^--(?:top|topsrc|src|cur)dir$/ =~ arg
+    $configure_args[arg] = val || true
+  end
+  for arg in ARGV
+    arg, val = arg.split('=', 2)
+    if arg.sub!(/^(?!--)/, '--')
+      val or next
+      arg.downcase!
+    end
+    $configure_args[arg] = val || true
+  end
+end
 
 $srcdir = CONFIG["srcdir"]
 $libdir = CONFIG["libdir"]
@@ -37,15 +57,14 @@ elsif RUBY_PLATFORM =~ /-nextstep|-rhapsody|-darwin/
   CFLAGS.gsub!( /-arch\s\w*/, '' )
 end
 
-$log = open('mkmf.log', 'w')
-
 if /mswin32/ =~ RUBY_PLATFORM
   OUTFLAG = '-Fe'
 else
   OUTFLAG = '-o '
 end
-LINK = "#{CONFIG['CC']} #{OUTFLAG}conftest -I#{$hdrdir} #{CFLAGS} -I#{CONFIG['includedir']} %s %s #{CONFIG['LDFLAGS']} %s conftest.c %s %s #{CONFIG['LIBS']}"
-CPP = "#{CONFIG['CPP']} -E %s -I#{$hdrdir} #{CFLAGS} -I#{CONFIG['includedir']} %s %s conftest.c"
+LINK = "#{CONFIG['CC']} #{OUTFLAG}conftest -I#{$hdrdir} #{CFLAGS} %s %s #{CONFIG['LDFLAGS']} %s conftest.c %s %s #{CONFIG['LIBS']}"
+CC = "#{CONFIG['CC']} -c #{CONFIG['CPPFLAGS']} %s -I#{$hdrdir} #{CFLAGS} %s %s conftest.c"
+CPP = "#{CONFIG['CPP']} -E %s -I#{$hdrdir} #{CFLAGS} %s %s conftest.c"
 
 def rm_f(*files)
   targets = []
@@ -58,21 +77,56 @@ def rm_f(*files)
   end
 end
 
-$orgerr = $stderr.dup
-$orgout = $stdout.dup
+module Logging
+  @log = nil
+  @logfile = 'mkmf.log'
+  @orgerr = $stderr.dup
+  @orgout = $stdout.dup
+
+  def self::open
+    @log ||= File::open(@logfile, 'w')
+    $stderr.reopen(@log)
+    $stdout.reopen(@log)
+    yield
+  ensure
+    $stderr.reopen(@orgerr)
+    $stdout.reopen(@orgout)
+  end
+
+  def self::message(*s)
+    @log ||= File::open(@logfile, 'w')
+    @log.printf(*s)
+  end
+
+  def self::logfile file
+    @logfile = file
+    if @log and not @log.closed?
+      @log.close
+      @log = nil
+    end
+  end
+end
+
 def xsystem command
   Config.expand(command)
-  if $DEBUG
+  Logging::open do
     puts command
-    return system(command)
+    $stdout.flush
+    system(command)
   end
-  $stderr.reopen($log) 
-  $stdout.reopen($log) 
-  puts command
-  r = system(command)
-  $stderr.reopen($orgerr)
-  $stdout.reopen($orgout)
-  return r
+end
+
+def xpopen command, *mode, &block
+  Config.expand(command)
+  Logging::open do
+    case mode[0]
+    when nil, /^r/
+      puts "#{command} |"
+    else
+      puts "| #{command}"
+    end
+    IO.popen(command, *mode, &block)
+  end
 end
 
 def try_link0(src, opt="")
@@ -102,6 +156,17 @@ def try_link(src, opt="")
   end
 end
 
+def try_compile(src, opt="")
+  cfile = open("conftest.c", "w")
+  cfile.print src
+  cfile.close
+  begin
+    xsystem(format(CC, $CPPFLAGS, $CFLAGS, opt))
+  ensure
+    rm_f "conftest*"
+  end
+end
+
 def try_cpp(src, opt="")
   cfile = open("conftest.c", "w")
   cfile.print src
@@ -118,7 +183,25 @@ def egrep_cpp(pat, src, opt="")
   cfile.print src
   cfile.close
   begin
-    xsystem(format(CPP+"|egrep #{pat}", $CPPFLAGS, $CFLAGS, opt))
+    xpopen(format(CPP, $CFLAGS, $CPPFLAGS, opt)) do |f|
+      if Regexp === pat
+	puts("    ruby -ne 'print if /#{pat.source}/'")
+	f.grep(pat) {|l|
+	  puts "#{f.lineno}: #{l}"
+	  return true
+	}
+	false
+      else
+	puts("    egrep '#{pat}'")
+	begin
+	  stdin = $stdin.dup
+	  $stdin.reopen(f)
+	  system("egrep", pat)
+	ensure
+	  $stdin.reopen(stdin)
+	end
+      end
+    end
   ensure
     rm_f "conftest*"
   end
@@ -137,33 +220,6 @@ def try_run(src, opt="")
     end
   ensure
     rm_f "conftest*"
-  end
-end
-
-def install_rb(mfile, dest, srcdir = nil)
-  libdir = "lib"
-  libdir = srcdir + "/" + libdir if srcdir
-  path = []
-  dir = []
-  if File.directory? libdir
-    Find.find(libdir) do |f|
-      next unless /\.rb$/ =~ f
-      f = f[libdir.length+1..-1]
-      path.push f
-      dir |= [File.dirname(f)]
-    end
-  end
-  for f in dir
-    if f == "."
-      mfile.printf "\t@$(RUBY) -r ftools -e 'File::makedirs(*ARGV)' %s\n", dest
-    else
-      mfile.printf "\t@$(RUBY) -r ftools -e 'File::makedirs(*ARGV)' %s/%s\n", dest, f
-    end
-  end
-  for f in path
-    d = '/' + File::dirname(f)
-    d = '' if d == '/.' 
-    mfile.printf "\t@$(RUBY) -r ftools -e 'File::install(ARGV[0], ARGV[1], 0644, true)' %s/%s %s%s\n", libdir, f, dest, d
   end
 end
 
@@ -267,7 +323,7 @@ SRC
   unless r
     r = try_link(src + <<"SRC", libs)
 int main() { return 0; }
-int t() { void ((*p)()); p = (void ((*)()))#{func}; return 0; }
+int t() { void ((*volatile p)()); p = (void ((*)()))#{func}; return 0; }
 SRC
   end
   unless r
@@ -296,14 +352,6 @@ SRC
 end
 
 def arg_config(config, default=nil)
-  unless defined? $configure_args
-    $configure_args = {}
-    for arg in CONFIG["configure_args"].split + ARGV
-      next unless /^--/ =~ arg
-      arg, val = arg.split('=', 2)
-      $configure_args[arg] = val || true
-    end
-  end
   $configure_args.fetch(config, default)
 end
 
@@ -315,9 +363,9 @@ def with_config(config, default=nil)
 end
 
 def enable_config(config, default=nil)
-  if arg_config("--enable-"+config, default)
+  if arg_config("--enable-"+config)
     true
-  elsif arg_config("--disable-"+config, false)
+  elsif arg_config("--disable-"+config)
     false
   else
     default
@@ -362,7 +410,53 @@ def with_destdir(dir)
   /^\$[\(\{]/ =~ dir ? dir : "$(DESTDIR)"+dir
 end
 
-def create_makefile(target, srcdir = File.dirname($0))
+def install_dllib(mfile, target, site = false)
+  if site
+    dir = "$(sitearchdir)"
+    install = "site-install"
+  else
+    dir = "$(archdir)"
+    install = "install"
+  end
+  mfile.print target ? <<EOMF : <<EOMF
+#{install}:	#{dir}$(target_prefix)/$(DLLIB)
+
+#{dir}$(target_prefix)/$(DLLIB): $(DLLIB)
+	@$(RUBY) -r ftools -e 'File::makedirs(*ARGV)' #{dir}$(target_prefix)
+	@$(RUBY) -r ftools -e 'File::install(ARGV[0], ARGV[1], 0755, true)' $(DLLIB) #{dir}$(target_prefix)/$(DLLIB)
+EOMF
+#{install}:	Makefile
+EOMF
+end
+
+def install_rb(mfile, dest, srcdir = nil)
+  libdir = "lib"
+  libdir = srcdir + "/" + libdir if srcdir
+  path = []
+  dir = []
+  if File.directory? libdir
+    Find.find(libdir) do |f|
+      next unless /\.rb$/ =~ f
+      f = f[libdir.length+1..-1]
+      path.push f
+      dir |= [File.dirname(f)]
+    end
+  end
+  for f in dir
+    if f == "."
+      mfile.printf "\t@$(RUBY) -r ftools -e 'File::makedirs(*ARGV)' %s\n", dest
+    else
+      mfile.printf "\t@$(RUBY) -r ftools -e 'File::makedirs(*ARGV)' %s/%s\n", dest, f
+    end
+  end
+  for f in path
+    d = '/' + File::dirname(f)
+    d = '' if d == '/.' 
+    mfile.printf "\t@$(RUBY) -r ftools -e 'File::install(ARGV[0], ARGV[1], 0644, true)' %s/%s %s%s\n", libdir, f, dest, d
+  end
+end
+
+def create_makefile(target, srcdir = $srcdir)
   save_libs = $libs.dup
   save_libpath = $LIBPATH.dup
   print "creating Makefile\n"
@@ -383,12 +477,29 @@ def create_makefile(target, srcdir = File.dirname($0))
   end
   $DLDFLAGS = CONFIG["DLDFLAGS"]
 
-  $libs = CONFIG["LIBRUBYARG"] + " " + $libs
-  $configure_args['--enable-shared'] or $LIBPATH |= [$topdir]
+  $libs = CONFIG["LIBRUBYARG"] + " " + $libs + " " + CONFIG["LIBS"]
+  $configure_args['--enable-shared'] or $LIBPATH |= ["$(topdir)"]
   $LIBPATH |= [CONFIG["libdir"]]
 
+  unless $objs then
+    $objs = []
+    for f in Dir[File.join(srcdir, "*.{#{SRC_EXT.join(%q{,})}}")]
+      f = File.basename(f)
+      f.sub!(/(#{SRC_EXT.join(%q{|})})$/, $OBJEXT)
+      $objs.push f
+    end
+  else
+    for i in $objs
+      i.sub!(/\.o\z/, ".#{$OBJEXT}")
+    end
+  end
+  $objs = $objs.join(" ")
+
+  target = nil if $objs == ""
+
+  srcdir ||= '.'
   defflag = ''
-  if RUBY_PLATFORM =~ /cygwin|mingw/
+  if target and RUBY_PLATFORM =~ /cygwin|mingw/
     deffile = target + '.def'
     if not File.exist? deffile
       if File.exist? File.join srcdir, deffile
@@ -412,20 +523,7 @@ def create_makefile(target, srcdir = File.dirname($0))
   end
   drive = File::PATH_SEPARATOR == ';' ? /\A\w:/ : /\A/
 
-  unless $objs then
-    $objs = []
-    for f in Dir[File.join(srcdir || ".", "*.{#{SRC_EXT.join(%q{,})}}")]
-      f = File.basename(f)
-      f.sub!(/(#{SRC_EXT.join(%q{|})})$/, $OBJEXT)
-      $objs.push f
-    end
-  else
-    for i in $objs
-      i.sub!(/\.o\z/, ".#{$OBJEXT}")
-    end
-  end
-  $objs = $objs.join(" ")
-
+  dllib = target ? "$(TARGET).#{CONFIG['DLEXT']}" : ""
   mfile = open("Makefile", "w")
   mfile.binmode if /mingw/ =~ RUBY_PLATFORM
   mfile.print  <<EOMF
@@ -433,7 +531,7 @@ SHELL = /bin/sh
 
 #### Start of system configuration section. ####
 
-srcdir = #{srcdir || $srcdir}
+srcdir = #{srcdir}
 topdir = #{$topdir}
 hdrdir = #{$hdrdir}
 VPATH = $(srcdir)
@@ -441,7 +539,7 @@ VPATH = $(srcdir)
 CC = #{CONFIG["CC"]}
 
 CFLAGS   = #{CONFIG["CCDLFLAGS"]} #{CFLAGS} #{$CFLAGS}
-CPPFLAGS = -I. -I$(hdrdir) -I$(srcdir) -I#{CONFIG["includedir"]} #{$defs.join(" ")} #{CONFIG["CPPFLAGS"]} #{$CPPFLAGS}
+CPPFLAGS = -I. -I$(hdrdir) -I$(srcdir) #{$defs.join(" ")} #{CONFIG["CPPFLAGS"]} #{$CPPFLAGS}
 CXXFLAGS = $(CFLAGS)
 DLDFLAGS = #{$DLDFLAGS} #{$LDFLAGS}
 LDSHARED = #{CONFIG["LDSHARED"]} #{defflag}
@@ -475,14 +573,14 @@ LIBS = #{$libs}
 OBJS = #{$objs}
 
 TARGET = #{target}
-DLLIB = $(TARGET).#{CONFIG["DLEXT"]}
+DLLIB = #{dllib}
 
 RUBY = #{CONFIG["ruby_install_name"]}
-RM = $(RUBY) -rftools -e "File::rm_f(*ARGV.map{|x|Dir[x]}.flatten.uniq)"
+RM = $(RUBY) -rftools -e "File::rm_f(*ARGV.map do|x|Dir[x]end.flatten.uniq)"
 
 EXEEXT = #{CONFIG["EXEEXT"]}
 
-all:		$(DLLIB)
+all:		#{target ? "$(DLLIB)" : "Makefile"}
 
 clean:;		@$(RM) *.#{$OBJEXT} *.so *.sl *.a $(DLLIB)
 		@$(RM) $(TARGET).lib $(TARGET).exp $(TARGET).ilk *.pdb $(CLEANFILES)
@@ -493,25 +591,19 @@ distclean:	clean
 
 realclean:	distclean
 
-install:	$(archdir)$(target_prefix)/$(DLLIB)
-
-site-install:	$(sitearchdir)$(target_prefix)/$(DLLIB)
-
-$(archdir)$(target_prefix)/$(DLLIB): $(DLLIB)
-	@$(RUBY) -r ftools -e 'File::makedirs(*ARGV)' $(rubylibdir) $(archdir)$(target_prefix)
-	@$(RUBY) -r ftools -e 'File::install(ARGV[0], ARGV[1], 0555, true)' $(DLLIB) $(archdir)$(target_prefix)/$(DLLIB)
 EOMF
+
+  install_dllib(mfile, target)
   install_rb(mfile, "$(rubylibdir)$(target_prefix)", srcdir)
   mfile.printf "\n"
 
-  mfile.printf <<EOMF
-$(sitearchdir)$(target_prefix)/$(DLLIB): $(DLLIB)
-	@$(RUBY) -r ftools -e 'File::makedirs(*ARGV)' $(sitearchdir)$(target_prefix)
-	@$(RUBY) -r ftools -e 'File::install(ARGV[0], ARGV[1], 0555, true)' $(DLLIB) $(sitearchdir)$(target_prefix)/$(DLLIB)
-EOMF
+  install_dllib(mfile, target, :site)
   install_rb(mfile, "$(sitelibdir)$(target_prefix)", srcdir)
   mfile.printf "\n"
 
+  return unless target
+
+  mfile.print ".SUFFIXES: .#{SRC_EXT.join(' .')} .#{$OBJEXT}\n"
   if /mswin32/ !~ RUBY_PLATFORM
     mfile.print "
 .c.#{$OBJEXT}:
@@ -548,8 +640,6 @@ EOMF
 "
   else
     mfile.print "
-.SUFFIXES: .#{$OBJEXT}
-
 .c.#{$OBJEXT}:
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c $(subst /,\\\\,$<)
 
@@ -583,10 +673,13 @@ EOMF
     dfile = open(depend, "r")
     mfile.printf "###\n"
     while line = dfile.gets()
-      mfile.printf "%s", line.gsub(/\.o\b/, ".#{$OBJEXT}")
+      line.gsub!(/\.o\b/, ".#{$OBJEXT}")
+      line.gsub!(/(\s)([^\s\/]+\.[ch])/, '\1{$(srcdir)}\2') if /nmake/i =~ $make
+      mfile.printf "%s", line
     end
     dfile.close
   end
+ensure
   mfile.close
   $libs = save_libs
   $LIBPATH = save_libpath
@@ -605,9 +698,14 @@ $defs = []
 
 $make = with_config("make-prog", ENV["MAKE"] || "make")
 
-$CFLAGS = with_config("cflags", "")
-$CPPFLAGS = with_config("cppflags", "")
-$LDFLAGS = with_config("ldflags", "")
+$CFLAGS = with_config("cflags", arg_config("CFLAGS", ""))
+$CPPFLAGS = with_config("cppflags", arg_config("CPPFLAGS", ""))
+$LDFLAGS = with_config("ldflags", arg_config("LDFLAGS", ""))
 $LIBPATH = []
 
 dir_config("opt")
+
+$srcdir = arg_config("--srcdir", File.dirname($0))
+$configure_args["--topsrcdir"] ||= $srcdir
+$curdir = arg_config("--curdir", Dir.pwd)
+$configure_args["--topdir"] ||= $curdir

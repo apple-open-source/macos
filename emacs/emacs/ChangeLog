@@ -1,3 +1,71 @@
+2002-03-16  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* Version 21.2 released.
+
+2002-03-15  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* configure.in: Support AIX 5.1.
+
+2002-02-22  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* make-dist: Fix the change from 2002-02-02.
+
+2002-02-18  Paul Eggert  <eggert@twinsun.com>
+
+	* make-dist: Port to POSIX 1003.1-2001, which doesn't allow "head -1".
+	"sed q" is a portable equivalent to plain "head -1".
+
+2002-02-02  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* make-dist: Remove the (empty) lisp/calc subdirectory after
+	linking.
+
+2002-01-28  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* configure.in: Recognize BSD/OS 5.0.
+
+2002-01-11  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* make-dist: Make version checking in emacs.texi consistent with
+	how we set it there.
+
+2001-11-07  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* AUTHORS: Regenerate.
+
+	* make-dist (tempdir): Copy AUTHORS as well.
+
+2001-11-01  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in: Remove doubled `;;'.
+
+2001-11-01  Pavel Jan,Bm(Bk  <Pavel@Janik.cz>
+
+	* configure.in: Reindent --help output.
+	From Per Starback (starback@ling.uu.se).
+
+2001-10-31  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* configure.in: New entry for HP/UX-11.
+
+	* Makefile.in (SOURCES): Replace GETTING.GNU.SOFTWARE with FTP.
+	From Eric S. Raymond <esr@golux.thyrsus.com>.
+
+2001-10-25  Gerd Moellmann  <gerd@gnu.org>
+
+	* Makefile.in (maybe_bootstrap): New target.
+	(all): Add to prerequisites to bootstrap if abbrev.elc doesn't
+	exist.
+
+2001-10-24  Gerd Moellmann  <gerd@gnu.org>
+
+	* configure.in: Use $MAKE for `make' if set.
+
+2001-10-22  Gerd Moellmann  <gerd@gnu.org>
+
+	* Makefile.in (install-arch-indep): Add -h (follow symlinks)
+	to tar options.
+
 2001-10-20  Gerd Moellmann  <gerd@gnu.org>
 
 	* Version 21.1 released.
@@ -5002,7 +5070,7 @@
 ;; coding: iso-2022-7bit-unix
 ;; End:
 
-    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2001
+    Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2001, 2002
 	Free Software Foundation, Inc.
   Copying and distribution of this file, with or without modification,
   are permitted provided the copyright notice and this notice are preserved.

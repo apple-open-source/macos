@@ -55,7 +55,7 @@ void HandleObject::State::make(HandleObject *obj)
 	for (;;) {
 		Handle handle = reinterpret_cast<uint32>(obj) ^ (++sequence << 19);
 		if (handleMap[handle] == NULL) {
-			debug("handleobj", "create 0x%lx for %p", handle, obj);
+			secdebug("handleobj", "create 0x%lx for %p", handle, obj);
 			obj->setHandle(handle);
 			handleMap[handle] = obj;
 			return;

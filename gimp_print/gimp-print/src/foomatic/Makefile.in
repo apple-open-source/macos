@@ -1,0 +1,554 @@
+# Makefile.in generated automatically by automake 1.4 from Makefile.am
+
+# Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
+# This Makefile.in is free software; the Free Software Foundation
+# gives unlimited permission to copy and/or distribute it,
+# with or without modifications, as long as this notice is preserved.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY, to the extent permitted by law; without
+# even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+# PARTICULAR PURPOSE.
+
+
+SHELL = @SHELL@
+
+srcdir = @srcdir@
+top_srcdir = @top_srcdir@
+VPATH = @srcdir@
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+
+bindir = @bindir@
+sbindir = @sbindir@
+libexecdir = @libexecdir@
+datadir = @datadir@
+sysconfdir = @sysconfdir@
+sharedstatedir = @sharedstatedir@
+localstatedir = @localstatedir@
+libdir = @libdir@
+infodir = @infodir@
+mandir = @mandir@
+includedir = @includedir@
+oldincludedir = /usr/include
+
+DESTDIR =
+
+pkgdatadir = $(datadir)/@PACKAGE@
+pkglibdir = $(libdir)/@PACKAGE@
+pkgincludedir = $(includedir)/@PACKAGE@
+
+top_builddir = ../..
+
+ACLOCAL = @ACLOCAL@
+AUTOCONF = @AUTOCONF@
+AUTOMAKE = @AUTOMAKE@
+AUTOHEADER = @AUTOHEADER@
+
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@ $(AM_INSTALL_PROGRAM_FLAGS)
+INSTALL_DATA = @INSTALL_DATA@
+INSTALL_SCRIPT = @INSTALL_SCRIPT@
+transform = @program_transform_name@
+
+NORMAL_INSTALL = :
+PRE_INSTALL = :
+POST_INSTALL = :
+NORMAL_UNINSTALL = :
+PRE_UNINSTALL = :
+POST_UNINSTALL = :
+host_alias = @host_alias@
+host_triplet = @host@
+ALL_LINGUAS = @ALL_LINGUAS@
+AS = @AS@
+AWK = @AWK@
+BISON_PROG = @BISON_PROG@
+BUILD_INCLUDED_LIBINTL = @BUILD_INCLUDED_LIBINTL@
+CATALOGS = @CATALOGS@
+CATOBJEXT = @CATOBJEXT@
+CC = @CC@
+CONVERT = @CONVERT@
+CUPS_BACKEND_BIN = @CUPS_BACKEND_BIN@
+CUPS_BIN = @CUPS_BIN@
+CUPS_CFLAGS = @CUPS_CFLAGS@
+CUPS_CONF = @CUPS_CONF@
+CUPS_CONFIG = @CUPS_CONFIG@
+CUPS_FILTER_BIN = @CUPS_FILTER_BIN@
+CUPS_INSTALL = @CUPS_INSTALL@
+CUPS_LIBS = @CUPS_LIBS@
+CUPS_MAN = @CUPS_MAN@
+CUPS_NOINST_BIN = @CUPS_NOINST_BIN@
+CUPS_PKG = @CUPS_PKG@
+CUPS_PPD_PS_LEVEL = @CUPS_PPD_PS_LEVEL@
+DATADIRNAME = @DATADIRNAME@
+DB2HTML = @DB2HTML@
+DB2PDF = @DB2PDF@
+DB2PS = @DB2PS@
+DLLTOOL = @DLLTOOL@
+DVIPDF = @DVIPDF@
+DVIPS = @DVIPS@
+ECHO = @ECHO@
+ESCPUTIL_BIN = @ESCPUTIL_BIN@
+ESCPUTIL_MAN = @ESCPUTIL_MAN@
+EXEEXT = @EXEEXT@
+FOOMATIC_3_NOINST_BIN = @FOOMATIC_3_NOINST_BIN@
+FOOMATIC_CONFIGURE = @FOOMATIC_CONFIGURE@
+FOOMATIC_INSTALL = @FOOMATIC_INSTALL@
+FOOMATIC_KITLOAD = @FOOMATIC_KITLOAD@
+FOOMATIC_PPDFILE = @FOOMATIC_PPDFILE@
+GENCAT = @GENCAT@
+GIMPPRINT_BINARY_AGE = @GIMPPRINT_BINARY_AGE@
+GIMPPRINT_CFLAGS = @GIMPPRINT_CFLAGS@
+GIMPPRINT_CONFIG = @GIMPPRINT_CONFIG@
+GIMPPRINT_CURRENT_INTERFACE = @GIMPPRINT_CURRENT_INTERFACE@
+GIMPPRINT_DEPLIBS = @GIMPPRINT_DEPLIBS@
+GIMPPRINT_INTERFACE_AGE = @GIMPPRINT_INTERFACE_AGE@
+GIMPPRINT_LIBS = @GIMPPRINT_LIBS@
+GIMPPRINT_MAJOR_VERSION = @GIMPPRINT_MAJOR_VERSION@
+GIMPPRINT_MICRO_VERSION = @GIMPPRINT_MICRO_VERSION@
+GIMPPRINT_MINOR_VERSION = @GIMPPRINT_MINOR_VERSION@
+GIMPPRINT_VERSION = @GIMPPRINT_VERSION@
+GIMPTOOL = @GIMPTOOL@
+GIMP_BIN = @GIMP_BIN@
+GIMP_CFLAGS = @GIMP_CFLAGS@
+GIMP_CFLAGS_NOUI = @GIMP_CFLAGS_NOUI@
+GIMP_CONFIG = @GIMP_CONFIG@
+GIMP_DATA_DIR = @GIMP_DATA_DIR@
+GIMP_LIBS = @GIMP_LIBS@
+GIMP_LIBS_NOUI = @GIMP_LIBS_NOUI@
+GIMP_PLUGIN_DIR = @GIMP_PLUGIN_DIR@
+GIMP_PRINT_H = @GIMP_PRINT_H@
+GLIBC21 = @GLIBC21@
+GLIB_CFLAGS = @GLIB_CFLAGS@
+GLIB_CONFIG = @GLIB_CONFIG@
+GLIB_LIBS = @GLIB_LIBS@
+GMOFILES = @GMOFILES@
+GMSGFMT = @GMSGFMT@
+GNUCFLAGS = @GNUCFLAGS@
+GTK_CFLAGS = @GTK_CFLAGS@
+GTK_CONFIG = @GTK_CONFIG@
+GTK_LIBS = @GTK_LIBS@
+IJS_BIN = @IJS_BIN@
+IJS_CFLAGS = @IJS_CFLAGS@
+IJS_CONFIG = @IJS_CONFIG@
+IJS_INSTALL = @IJS_INSTALL@
+IJS_LIBS = @IJS_LIBS@
+INSTOBJEXT = @INSTOBJEXT@
+INTLBISON = @INTLBISON@
+INTLLIBS = @INTLLIBS@
+INTLOBJS = @INTLOBJS@
+INTL_LIBTOOL_SUFFIX_PREFIX = @INTL_LIBTOOL_SUFFIX_PREFIX@
+LEX = @LEX@
+LIBGIMPPRINT_LIBS = @LIBGIMPPRINT_LIBS@
+LIBICONV = @LIBICONV@
+LIBREADLINE_DEPS = @LIBREADLINE_DEPS@
+LIBTOOL = @LIBTOOL@
+LIBTOOL_DEPS = @LIBTOOL_DEPS@
+LN_S = @LN_S@
+LTALLOCA = @LTALLOCA@
+LTLIBOBJS = @LTLIBOBJS@
+LT_AGE = @LT_AGE@
+LT_CURRENT = @LT_CURRENT@
+LT_RELEASE = @LT_RELEASE@
+LT_REVISION = @LT_REVISION@
+MAINT = @MAINT@
+MAINTAINER_CFLAGS = @MAINTAINER_CFLAGS@
+MAIN_BIN = @MAIN_BIN@
+MAIN_DAT = @MAIN_DAT@
+MAIN_MAN = @MAIN_MAN@
+MAIN_SCR = @MAIN_SCR@
+MAKEINFO = @MAKEINFO@
+MKINSTALLDIRS = @MKINSTALLDIRS@
+MSGFMT = @MSGFMT@
+OBJDUMP = @OBJDUMP@
+OBJEXT = @OBJEXT@
+PACKAGE = @PACKAGE@
+PERL = @PERL@
+PLUG_IN_PATH = @PLUG_IN_PATH@
+POFILES = @POFILES@
+POSUB = @POSUB@
+PRINT_VASPRINTF = @PRINT_VASPRINTF@
+RANLIB = @RANLIB@
+RELEASE_DATE = @RELEASE_DATE@
+RM = @RM@
+SAMPLE_IMAGES = @SAMPLE_IMAGES@
+STRIP = @STRIP@
+TESTPATTERN_BIN = @TESTPATTERN_BIN@
+TEST_BIN = @TEST_BIN@
+TEXI2HTML = @TEXI2HTML@
+USER_GUIDE = @USER_GUIDE@
+USE_INCLUDED_LIBINTL = @USE_INCLUDED_LIBINTL@
+USE_NLS = @USE_NLS@
+VERSION = @VERSION@
+YACC = @YACC@
+YACC_PROG = @YACC_PROG@
+cups_bindir = @cups_bindir@
+cups_conf_datadir = @cups_conf_datadir@
+cups_conf_serverbin = @cups_conf_serverbin@
+cups_conf_serverroot = @cups_conf_serverroot@
+cups_exec_prefix = @cups_exec_prefix@
+cups_prefix = @cups_prefix@
+gimp_plug_indir = @gimp_plug_indir@
+gimpprint_cflags = @gimpprint_cflags@
+gimpprint_libs = @gimpprint_libs@
+
+AUTOMAKE_OPTIONS = 1.4 gnu
+
+MAINT_CHARSET = latin1
+
+AM_CFLAGS = $(GNUCFLAGS)
+INCLUDES = @INCLUDES@ $(LIBGIMPPRINT_CFLAGS) -I$(top_srcdir)/src/main
+LIBPRINTUT = $(top_builddir)/lib/libprintut.la
+LIBS = $(INTLLIBS) @LIBS@
+
+FOOMATIC_NOINST_BIN = printer_options printer_margins paper_sizes gimp-print-version 	stp_limits printers
+
+
+noinst_PROGRAMS = @FOOMATIC_NOINST_BIN@
+
+EXTRA_PROGRAMS = printer_options printer_margins gimp-print-version paper_sizes 	stp_limits printers
+
+
+printer_options_SOURCES = printer_options.c
+printer_options_LDADD = $(LIBPRINTUT) $(LIBGIMPPRINT_LIBS)
+printer_options_DEPENDENCIES = $(LIBGIMPPRINT_LIBS)
+
+printer_margins_SOURCES = printer_margins.c
+printer_margins_LDADD = $(LIBPRINTUT) $(LIBGIMPPRINT_LIBS)
+printer_margins_DEPENDENCIES = $(LIBGIMPPRINT_LIBS)
+
+gimp_print_version_SOURCES = gimp-print-version.c
+gimp_print_version_LDADD = $(LIBPRINTUT) $(LIBGIMPPRINT_LIBS)
+gimp_print_version_DEPENDENCIES = $(LIBGIMPPRINT_LIBS)
+
+paper_sizes_SOURCES = paper_sizes.c
+paper_sizes_LDADD = $(LIBPRINTUT) $(LIBGIMPPRINT_LIBS)
+paper_sizes_DEPENDENCIES = $(LIBGIMPPRINT_LIBS)
+
+stp_limits_SOURCES = stp_limits.c
+stp_limits_LDADD = $(LIBPRINTUT) $(LIBGIMPPRINT_LIBS)
+stp_limits_DEPENDENCIES = $(LIBGIMPPRINT_LIBS)
+
+printers_SOURCES = printers.c
+printers_LDADD = $(LIBPRINTUT) $(LIBGIMPPRINT_LIBS)
+printers_DEPENDENCIES = $(LIBGIMPPRINT_LIBS)
+@BUILD_FOOMATIC_TRUE@INSTALL_DATA_LOCAL_DEPS = foomatic-data
+@BUILD_FOOMATIC_FALSE@INSTALL_DATA_LOCAL_DEPS = 
+@BUILD_FOOMATIC_3_TRUE@FOOMATIC_GENERATOR_FOOMATIC_3_OPTS = -f 3
+@BUILD_FOOMATIC_3_FALSE@FOOMATIC_GENERATOR_FOOMATIC_3_OPTS = 
+@BUILD_IJS_TRUE@FOOMATIC_GENERATOR_EXTRA_OPTS = -d all
+@BUILD_IJS_FALSE@FOOMATIC_GENERATOR_EXTRA_OPTS = -d noijs
+@BUILD_IJS_TRUE@FOOMATIC_IJS = yes
+@BUILD_IJS_FALSE@FOOMATIC_IJS = 
+
+CLEANFILES = $(noinst_PROGRAMS) foomatic-stamp
+MAINTAINERCLEANFILES = Makefile.in
+
+EXTRA_DIST = foomatic-printermap 			foomatic-templates-gs/*.xml			foomatic-templates-ijs/*.xml
+
+mkinstalldirs = $(SHELL) $(top_srcdir)/scripts/mkinstalldirs
+CONFIG_HEADER = ../../config.h
+CONFIG_CLEAN_FILES =  foomatic-generator
+noinst_PROGRAMS =  @FOOMATIC_NOINST_BIN@
+PROGRAMS =  $(noinst_PROGRAMS)
+
+
+DEFS = @DEFS@ -I. -I$(srcdir) -I../..
+CPPFLAGS = @CPPFLAGS@
+LDFLAGS = @LDFLAGS@
+printer_options_OBJECTS =  printer_options.$(OBJEXT)
+printer_options_LDFLAGS = 
+printer_margins_OBJECTS =  printer_margins.$(OBJEXT)
+printer_margins_LDFLAGS = 
+gimp_print_version_OBJECTS =  gimp-print-version.$(OBJEXT)
+gimp_print_version_LDFLAGS = 
+paper_sizes_OBJECTS =  paper_sizes.$(OBJEXT)
+paper_sizes_LDFLAGS = 
+stp_limits_OBJECTS =  stp_limits.$(OBJEXT)
+stp_limits_LDFLAGS = 
+printers_OBJECTS =  printers.$(OBJEXT)
+printers_LDFLAGS = 
+CFLAGS = @CFLAGS@
+COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+CCLD = $(CC)
+LINK = $(LIBTOOL) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
+DIST_COMMON =  Makefile.am Makefile.in foomatic-generator.in
+
+
+DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
+
+TAR = tar
+GZIP_ENV = --best
+SOURCES = $(printer_options_SOURCES) $(printer_margins_SOURCES) $(gimp_print_version_SOURCES) $(paper_sizes_SOURCES) $(stp_limits_SOURCES) $(printers_SOURCES)
+OBJECTS = $(printer_options_OBJECTS) $(printer_margins_OBJECTS) $(gimp_print_version_OBJECTS) $(paper_sizes_OBJECTS) $(stp_limits_OBJECTS) $(printers_OBJECTS)
+
+all: all-redirect
+.SUFFIXES:
+.SUFFIXES: .S .c .lo .o .obj .s
+$(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ Makefile.am $(top_srcdir)/configure.in $(ACLOCAL_M4) 
+	cd $(top_srcdir) && $(AUTOMAKE) --gnu --include-deps src/foomatic/Makefile
+
+Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
+	cd $(top_builddir) \
+	  && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
+
+foomatic-generator: $(top_builddir)/config.status foomatic-generator.in
+	cd $(top_builddir) && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
+
+mostlyclean-noinstPROGRAMS:
+
+clean-noinstPROGRAMS:
+	-test -z "$(noinst_PROGRAMS)" || rm -f $(noinst_PROGRAMS)
+
+distclean-noinstPROGRAMS:
+
+maintainer-clean-noinstPROGRAMS:
+
+.c.o:
+	$(COMPILE) -c $<
+
+# FIXME: We should only use cygpath when building on Windows,
+# and only if it is available.
+.c.obj:
+	$(COMPILE) -c `cygpath -w $<`
+
+.s.o:
+	$(COMPILE) -c $<
+
+.S.o:
+	$(COMPILE) -c $<
+
+mostlyclean-compile:
+	-rm -f *.o core *.core
+	-rm -f *.$(OBJEXT)
+
+clean-compile:
+
+distclean-compile:
+	-rm -f *.tab.c
+
+maintainer-clean-compile:
+
+.c.lo:
+	$(LIBTOOL) --mode=compile $(COMPILE) -c $<
+
+.s.lo:
+	$(LIBTOOL) --mode=compile $(COMPILE) -c $<
+
+.S.lo:
+	$(LIBTOOL) --mode=compile $(COMPILE) -c $<
+
+mostlyclean-libtool:
+	-rm -f *.lo
+
+clean-libtool:
+	-rm -rf .libs _libs
+
+distclean-libtool:
+
+maintainer-clean-libtool:
+
+printer_options$(EXEEXT): $(printer_options_OBJECTS) $(printer_options_DEPENDENCIES)
+	@rm -f printer_options$(EXEEXT)
+	$(LINK) $(printer_options_LDFLAGS) $(printer_options_OBJECTS) $(printer_options_LDADD) $(LIBS)
+
+printer_margins$(EXEEXT): $(printer_margins_OBJECTS) $(printer_margins_DEPENDENCIES)
+	@rm -f printer_margins$(EXEEXT)
+	$(LINK) $(printer_margins_LDFLAGS) $(printer_margins_OBJECTS) $(printer_margins_LDADD) $(LIBS)
+
+gimp-print-version$(EXEEXT): $(gimp_print_version_OBJECTS) $(gimp_print_version_DEPENDENCIES)
+	@rm -f gimp-print-version$(EXEEXT)
+	$(LINK) $(gimp_print_version_LDFLAGS) $(gimp_print_version_OBJECTS) $(gimp_print_version_LDADD) $(LIBS)
+
+paper_sizes$(EXEEXT): $(paper_sizes_OBJECTS) $(paper_sizes_DEPENDENCIES)
+	@rm -f paper_sizes$(EXEEXT)
+	$(LINK) $(paper_sizes_LDFLAGS) $(paper_sizes_OBJECTS) $(paper_sizes_LDADD) $(LIBS)
+
+stp_limits$(EXEEXT): $(stp_limits_OBJECTS) $(stp_limits_DEPENDENCIES)
+	@rm -f stp_limits$(EXEEXT)
+	$(LINK) $(stp_limits_LDFLAGS) $(stp_limits_OBJECTS) $(stp_limits_LDADD) $(LIBS)
+
+printers$(EXEEXT): $(printers_OBJECTS) $(printers_DEPENDENCIES)
+	@rm -f printers$(EXEEXT)
+	$(LINK) $(printers_LDFLAGS) $(printers_OBJECTS) $(printers_LDADD) $(LIBS)
+
+tags: TAGS
+
+ID: $(HEADERS) $(SOURCES) $(LISP)
+	list='$(SOURCES) $(HEADERS)'; \
+	unique=`for i in $$list; do echo $$i; done | \
+	  awk '    { files[$$0] = 1; } \
+	       END { for (i in files) print i; }'`; \
+	here=`pwd` && cd $(srcdir) \
+	  && mkid -f$$here/ID $$unique $(LISP)
+
+TAGS:  $(HEADERS) $(SOURCES)  $(TAGS_DEPENDENCIES) $(LISP)
+	tags=; \
+	here=`pwd`; \
+	list='$(SOURCES) $(HEADERS)'; \
+	unique=`for i in $$list; do echo $$i; done | \
+	  awk '    { files[$$0] = 1; } \
+	       END { for (i in files) print i; }'`; \
+	test -z "$(ETAGS_ARGS)$$unique$(LISP)$$tags" \
+	  || (cd $(srcdir) && etags $(ETAGS_ARGS) $$tags  $$unique $(LISP) -o $$here/TAGS)
+
+mostlyclean-tags:
+
+clean-tags:
+
+distclean-tags:
+	-rm -f TAGS ID
+
+maintainer-clean-tags:
+
+distdir = $(top_builddir)/$(PACKAGE)-$(VERSION)/$(subdir)
+
+subdir = src/foomatic
+
+distdir: $(DISTFILES)
+	$(mkinstalldirs) $(distdir)/foomatic-templates-gs \
+	   $(distdir)/foomatic-templates-ijs
+	@for file in $(DISTFILES); do \
+	  d=$(srcdir); \
+	  if test -d $$d/$$file; then \
+	    cp -pr $$/$$file $(distdir)/$$file; \
+	  else \
+	    test -f $(distdir)/$$file \
+	    || ln $$d/$$file $(distdir)/$$file 2> /dev/null \
+	    || cp -p $$d/$$file $(distdir)/$$file || :; \
+	  fi; \
+	done
+gimp-print-version.o: gimp-print-version.c ../../config.h \
+	../../include/gimp-print/gimp-print.h ../../lib/libprintut.h \
+	../../lib/xmalloc.h
+paper_sizes.o: paper_sizes.c ../../config.h \
+	../../include/gimp-print/gimp-print.h ../../lib/libprintut.h \
+	../../lib/xmalloc.h
+printer_margins.o: printer_margins.c ../../config.h \
+	../../include/gimp-print/gimp-print.h ../../lib/libprintut.h \
+	../../lib/xmalloc.h
+printer_options.o: printer_options.c ../../config.h \
+	../../include/gimp-print/gimp-print.h ../../lib/libprintut.h \
+	../../lib/xmalloc.h
+printers.o: printers.c ../../config.h \
+	../../include/gimp-print/gimp-print.h ../../lib/libprintut.h \
+	../../lib/xmalloc.h
+stp_limits.o: stp_limits.c ../../config.h \
+	../../include/gimp-print/gimp-print.h ../../lib/libprintut.h \
+	../../lib/xmalloc.h
+
+info-am:
+info: info-am
+dvi-am:
+dvi: dvi-am
+check-am: all-am
+check: check-am
+installcheck-am:
+installcheck: installcheck-am
+install-exec-am:
+install-exec: install-exec-am
+
+install-data-am: install-data-local
+install-data: install-data-am
+
+install-am: all-am
+	@$(MAKE) $(AM_MAKEFLAGS) install-exec-am install-data-am
+install: install-am
+uninstall-am:
+uninstall: uninstall-am
+all-am: Makefile $(PROGRAMS) all-local
+all-redirect: all-am
+install-strip:
+	$(MAKE) $(AM_MAKEFLAGS) AM_INSTALL_PROGRAM_FLAGS=-s install
+installdirs:
+
+
+mostlyclean-generic:
+
+clean-generic:
+	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
+
+distclean-generic:
+	-rm -f Makefile $(CONFIG_CLEAN_FILES)
+	-rm -f config.cache config.log stamp-h stamp-h[0-9]*
+
+maintainer-clean-generic:
+	-test -z "$(MAINTAINERCLEANFILES)" || rm -f $(MAINTAINERCLEANFILES)
+mostlyclean-am:  mostlyclean-noinstPROGRAMS mostlyclean-compile \
+		mostlyclean-libtool mostlyclean-tags \
+		mostlyclean-generic
+
+mostlyclean: mostlyclean-am
+
+clean-am:  clean-noinstPROGRAMS clean-compile clean-libtool clean-tags \
+		clean-generic mostlyclean-am clean-local
+
+clean: clean-am
+
+distclean-am:  distclean-noinstPROGRAMS distclean-compile \
+		distclean-libtool distclean-tags distclean-generic \
+		clean-am
+	-rm -f libtool
+
+distclean: distclean-am
+
+maintainer-clean-am:  maintainer-clean-noinstPROGRAMS \
+		maintainer-clean-compile maintainer-clean-libtool \
+		maintainer-clean-tags maintainer-clean-generic \
+		distclean-am
+	@echo "This command is intended for maintainers to use;"
+	@echo "it deletes files that may require special tools to rebuild."
+
+maintainer-clean: maintainer-clean-am
+
+.PHONY: mostlyclean-noinstPROGRAMS distclean-noinstPROGRAMS \
+clean-noinstPROGRAMS maintainer-clean-noinstPROGRAMS \
+mostlyclean-compile distclean-compile clean-compile \
+maintainer-clean-compile mostlyclean-libtool distclean-libtool \
+clean-libtool maintainer-clean-libtool tags mostlyclean-tags \
+distclean-tags clean-tags maintainer-clean-tags distdir info-am info \
+dvi-am dvi check check-am installcheck-am installcheck install-exec-am \
+install-exec install-data-local install-data-am install-data install-am \
+install uninstall-am uninstall all-local all-redirect all-am all \
+installdirs mostlyclean-generic distclean-generic clean-generic \
+maintainer-clean-generic clean mostlyclean distclean maintainer-clean
+
+
+@SET_MAKE@
+
+all-local: $(INSTALL_DATA_LOCAL_DEPS)
+
+install-data-local: $(INSTALL_DATA_LOCAL_DEPS)
+	if test -n "$(INSTALL_DATA_LOCAL_DEPS)" ; then \
+	  $(MAKE) install-kit FOOMATIC_DB=foomatic-db/gimp-print ; \
+	  if test -n "$(FOOMATIC_IJS)" ; then \
+	    $(MAKE) install-kit FOOMATIC_DB=foomatic-db/gimp-print-ijs ; \
+	  fi ; \
+	fi
+
+install-kit:
+	if test -n "$(DESTDIR)" ; then \
+	  $(mkinstalldirs) $(DESTDIR)`$(FOOMATIC_KITLOAD) -l` ; \
+	  $(FOOMATIC_KITLOAD) -f -d $(DESTDIR) -k $(FOOMATIC_DB) ; \
+	else \
+	  $(FOOMATIC_KITLOAD) -f -k $(FOOMATIC_DB) ; \
+	fi
+
+clean-local:
+	-$(RM) -r foomatic-db
+
+foomatic-data: foomatic-stamp
+
+foomatic-stamp: foomatic-generator foomatic-printermap $(EXTRA_PROGRAMS)
+	-$(RM) -r foomatic-db
+	./foomatic-generator -m $(srcdir)/foomatic-printermap -t $(srcdir)/foomatic-templates $(FOOMATIC_GENERATOR_EXTRA_OPTS) $(FOOMATIC_GENERATOR_FOOMATIC_3_OPTS)
+	touch foomatic-stamp
+
+$(LIBGIMPPRINT_LIBS):
+	cd ../main ; \
+	$(MAKE)
+
+# Tell versions [3.59,3.63) of GNU make to not export all variables.
+# Otherwise a system limit (for SysV at least) may be exceeded.
+.NOEXPORT:

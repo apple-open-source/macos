@@ -32,22 +32,23 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\"     @(#)stty.1	8.5 (Berkeley) 6/1/94
+.\"     @(#)stty.1	8.4 (Berkeley) 4/18/94
+.\" $FreeBSD: src/bin/stty/stty.1,v 1.27 2001/11/29 15:46:54 green Exp $
 .\"
-.Dd June 1, 1994
+.Dd April 18, 1994
 .Dt STTY 1
 .Os
 .Sh NAME
 .Nm stty
 .Nd set the options for a terminal device interface
 .Sh SYNOPSIS
-.Nm stty
+.Nm
 .Op Fl a | Fl e | Fl g
 .Op Fl f Ar file
 .Op operands
 .Sh DESCRIPTION
 The
-.Nm stty
+.Nm
 utility sets or reports on terminal
 characteristics for the device that is its standard input.
 If no options or operands are specified, it reports the settings of a subset
@@ -59,7 +60,7 @@ Some combinations of arguments are mutually
 exclusive on some terminal types.
 .Pp
 The following options are available:
-.Bl -tag -width Ds
+.Bl -tag -width indent
 .It Fl a
 Display all the current settings for the terminal to standard output
 as per
@@ -67,7 +68,7 @@ as per
 .It Fl e
 Display all the current settings for the terminal to standard output
 in the traditional
-.Tn BSD
+.Bx
 ``all'' and ``everything'' formats.
 .It Fl f
 Open and use the terminal named by
@@ -83,7 +84,7 @@ block on the open.
 .It Fl g
 Display all the current settings for the terminal to standard output
 in a form that may be used as an argument to a subsequent invocation of
-.Nm stty
+.Nm
 to restore the current terminal state as per
 .St -p1003.2 .
 .El
@@ -124,7 +125,6 @@ If
 the output baud rate is set to
 zero, modem control is
 no longer asserted.
-.ne 1i
 .It Cm speed Ar number
 This sets both
 .Cm ispeed
@@ -146,7 +146,7 @@ Enable (disable) the receiver.
 Assume a line without (with) modem
 control.
 .It Cm crtscts Pq Fl crtscts
-Enable RTS/CTS flow control.
+Enable (disable) RTS/CTS flow control.
 .El
 .Ss Input Modes:
 This corresponds to the c_iflag in the termios structure.
@@ -160,10 +160,10 @@ Signal (do not signal)
 on
 break.
 .It Cm ignpar Pq Fl ignpar
-Ignore (do not ignore) parity
+Ignore (do not ignore) characters with parity
 errors.
 .It Cm parmrk Pq Fl parmrk
-Mark (do not mark) parity errors.
+Mark (do not mark) characters with parity errors.
 .It Cm inpck Pq Fl inpck
 Enable (disable) input parity
 checking.
@@ -200,7 +200,6 @@ receives
 or if
 .Cm ixany
 is set, any character restarts output.
-.ne 1i
 .It Cm ixoff Pq Fl ixoff
 Request that the system send (not
 send)
@@ -236,10 +235,20 @@ output modes).
 Map (do not map)
 .Dv NL
 to
-.DV CR-NL
+.Dv CR-NL
+on output.
+.It Cm ocrnl Pq Fl ocrnl
+Map (do not map)
+.Dv CR
+to
+.Dv NL
 on output.
 .It Cm oxtabs Pq Fl oxtabs
 Expand (do not expand) tabs to spaces on output.
+.It Cm onocr Pq Fl onocr
+Do not (do) output CRs at column zero.
+.It Cm onlret Pq Fl onlret
+On the terminal NL performs (does not perform) the CR function.
 .El
 .Ss Local Modes:
 .Pp
@@ -296,13 +305,12 @@ Echo (do not echo)
 after
 .Dv KILL
 character.
-.ne 1i
 .It Cm echoke Pq Fl echoke
 The
 .Dv KILL
 character shall (shall
 not) visually erase the
-the current line from the
+current line from the
 display, if possible.
 .It Cm echonl Pq Fl echonl
 Echo (do not echo)
@@ -315,7 +323,8 @@ If
 is set, echo control characters as ^X.  Otherwise control characters
 echo as themselves.
 .It Cm echoprt Pq Fl echoprt
-For printing terminals. If set, echo erased characters backwards within ``\\''
+For printing terminals.
+If set, echo erased characters backwards within ``\\''
 and ``/''.  Otherwise, disable this feature.
 .It Cm noflsh Pq Fl noflsh
 Disable (enable) flush after
@@ -369,23 +378,24 @@ Recognized control-characters:
 .Bd -ragged -offset indent
 .Bl -column character Subscript
 .It control-
-.It character	Subscript	Description
-.It _________	_________	_______________
-.It eof Ta Tn VEOF	EOF No character
-.It eol Ta Tn VEOL	EOL No character
-.It eol2 Ta Tn VEOL2	EOL2 No character
-.It erase Ta Tn VERASE	ERASE No character
-.It werase Ta Tn VWERASE	WERASE No character
-.It intr Ta Tn VINTR	INTR No character
-.It kill Ta Tn VKILL	KILL No character
-.It quit Ta Tn VQUIT	QUIT No character
-.It susp Ta Tn VSUSP	SUSP No character
-.It start Ta Tn VSTART	START No character
-.It stop Ta Tn VSTOP	STOP No character
-.It dsusp Ta Tn VDSUSP	DSUSP No character
-.It lnext Ta Tn VLNEXT	LNEXT No character
-.It reprint Ta Tn VREPRINT	REPRINT No character
-.It status Ta Tn VSTATUS	STATUS No character
+.It character Ta Subscript Ta Description
+.It _________ Ta _________ Ta _______________
+.It eof Ta Tn VEOF Ta EOF No character
+.It eol Ta Tn VEOL Ta EOL No character
+.It eol2 Ta Tn VEOL2 Ta EOL2 No character
+.It erase Ta Tn VERASE Ta ERASE No character
+.It erase2 Ta Tn VERASE2 Ta ERASE2 No character
+.It werase Ta Tn VWERASE Ta WERASE No character
+.It intr Ta Tn VINTR Ta INTR No character
+.It kill Ta Tn VKILL Ta KILL No character
+.It quit Ta Tn VQUIT Ta QUIT No character
+.It susp Ta Tn VSUSP Ta SUSP No character
+.It start Ta Tn VSTART Ta START No character
+.It stop Ta Tn VSTOP Ta STOP No character
+.It dsusp Ta Tn VDSUSP Ta DSUSP No character
+.It lnext Ta Tn VLNEXT Ta LNEXT No character
+.It reprint Ta Tn VREPRINT Ta REPRINT No character
+.It status Ta Tn VSTATUS Ta STATUS No character
 .El
 .Ed
 .It Cm min Ar number
@@ -421,7 +431,8 @@ In addition
 -nl unsets inlcr and igncr.
 .It Cm ek
 Reset
-.Dv ERASE
+.Dv ERASE ,
+.Dv ERASE2 ,
 and
 .Dv KILL
 characters
@@ -447,15 +458,14 @@ The terminal size is recorded as having
 columns.
 .It Cm cols Ar number
 is an alias for
-.Cm columns.
-.ne 1i
+.Cm columns .
 .It Cm rows Ar number
 The terminal size is recorded as having
 .Ar number
 rows.
 .It Cm dec
-Set modes suitable for users of Digital Equipment Corporation systems (
-.Dv ERASE ,
+Set modes suitable for users of Digital Equipment Corporation systems
+.Dv ( ERASE ,
 .Dv KILL ,
 and
 .Dv INTR
@@ -470,7 +480,8 @@ performed by either the terminal hardware or by the remote side connected
 to a pty.
 .It Cm raw Pq Fl raw
 If set, change the modes of the terminal so that no input or output processing
-is performed. If unset, change the modes of the terminal to some reasonable
+is performed.
+If unset, change the modes of the terminal to some reasonable
 state that performs input and output processing.  Note that since the
 terminal driver no longer has a single
 .Dv RAW
@@ -481,14 +492,12 @@ This means that unsetting
 may not put back all the setting that were previously in effect.
 To set the terminal into a raw state and then accurately restore it, the following
 shell code is recommended:
-.nf
-
+.Bd -literal
 save_state=$(stty -g)
 stty raw
 \&...
 stty "$save_state"
-
-.fi
+.Ed
 .It Cm size
 The size of the terminal is printed as two numbers on a single line,
 first rows, then columns.
@@ -496,7 +505,9 @@ first rows, then columns.
 .Ss Compatibility Modes:
 .Pp
 These modes remain for compatibility with the previous version of
-the stty command.
+the
+.Nm
+command.
 .Bl -tag -width Fl
 .It Cm all
 Reports all the terminal modes as with
@@ -513,7 +524,7 @@ If set, enables
 .Cm brkint , ixon , imaxbel , opost ,
 .Cm isig , iexten ,
 and
-.Cm Fl icanon .
+.Fl icanon .
 If unset, same as
 .Cm sane .
 .It Cm new
@@ -534,7 +545,6 @@ Same as
 .It Cm decctlq Pq Fl decctlq
 The converse of
 .Cm ixany .
-.ne 1i
 .It Cm crterase Pq Fl crterase
 Same as
 .Cm echoe .
@@ -555,7 +565,7 @@ The converse of
 .Cm opost .
 .It Cm tabs Pq Fl tabs
 The converse of
-.Cm tabs .
+.Cm oxtabs .
 .It Cm brk Ar value
 Same as the control character
 .Cm eol .
@@ -566,16 +576,14 @@ Same as the control character
 Same as the control character
 .Cm reprint .
 .El
-.Pp
-The
-.Nm stty
-utility exits with a value of 0 if successful, and >0 if an error occurs.
+.Sh DIAGNOSTICS
+.Ex -std
 .Sh SEE ALSO
 .Xr termios 4
 .Sh STANDARDS
 The
-.Nm stty
-function is expected to be
+.Nm
+utility is expected to be
 .St -p1003.2
 compatible.  The flags
 .Fl e

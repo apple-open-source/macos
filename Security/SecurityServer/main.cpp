@@ -35,12 +35,15 @@
 #include <sys/wait.h>
 #include <signal.h>
 
+#include "ktracecodes.h"
+
 // ACL subject types (their makers are instantiated here)
 #include <Security/acl_any.h>
 #include <Security/acl_password.h>
 #include <Security/acl_protectedpw.h>
 #include <Security/acl_threshold.h>
 #include <Security/acl_codesigning.h>
+#include <Security/acl_process.h>
 #include <Security/acl_comment.h>
 #include "acl_keychain.h"
 
@@ -52,6 +55,7 @@ namespace Security
 // Program options (set by argument scan and environment)
 //
 uint32 debugMode = 0;
+const char *bootstrapName = NULL;
 
 } // end namespace Security
 
@@ -69,26 +73,31 @@ static void handleSIGOther(int);
 //
 int main(int argc, char *argv[])
 {
+    Debug::trace (kSecTraceSecurityServerStart);
+    
 	// program arguments (preset to defaults)
 	bool forceCssmInit = false;
 	bool reExecute = false;
 	int workerTimeout = 0;
 	int maxThreads = 0;
 	const char *authorizationConfig = "/etc/authorization";
-	const char *bootstrapName = "SecurityServer";
     const char *entropyFile = "/var/db/SystemEntropyCache";
+	const char *equivDbFile = EQUIVALENCEDBPATH;
 
 	// parse command line arguments
 	extern char *optarg;
 	extern int optind;
 	int arg;
-	while ((arg = getopt(argc, argv, "a:dEfN:t:T:X")) != -1) {
+	while ((arg = getopt(argc, argv, "a:de:E:fN:t:T:X")) != -1) {
 		switch (arg) {
 		case 'a':
 			authorizationConfig = optarg;
 			break;
 		case 'd':
 			debugMode++;
+			break;
+		case 'e':
+			equivDbFile = optarg;
 			break;
         case 'E':
             entropyFile = optarg;
@@ -118,13 +127,20 @@ int main(int argc, char *argv[])
 	// take no non-option arguments
 	if (optind < argc)
 		usage(argv[0]);
+	
+	// figure out the bootstrap name
+    IFDEBUG(if (!bootstrapName) bootstrapName = getenv(SECURITYSERVER_BOOTSTRAP_ENV));
+
+	if (!bootstrapName) {
+		bootstrapName = SECURITYSERVER_BOOTSTRAP_NAME;
+	}
 		
 	// configure logging first
 	if (debugMode) {
-		Syslog::open(argv[0], LOG_AUTHPRIV, LOG_PERROR);
+		Syslog::open(bootstrapName, LOG_AUTHPRIV, LOG_PERROR);
 		Syslog::notice("SecurityServer started in debug mode");
 	} else {
-		Syslog::open(argv[0], LOG_AUTHPRIV, LOG_CONS);
+		Syslog::open(bootstrapName, LOG_AUTHPRIV, LOG_CONS);
 	}
     
     // if we're not running as root in production mode, fail
@@ -136,12 +152,12 @@ int main(int argc, char *argv[])
         exit(1);
 #else
         fprintf(stderr, "SecurityServer is unprivileged; some features may not work.\n");
-        debug("SS", "Running as user %d (you have been warned)", uid);
+        secdebug("SS", "Running as user %d (you have been warned)", uid);
 #endif //NDEBUG
     }
     
     // turn into a properly diabolical daemon unless debugMode is on
-	if (!debugMode) {
+    if (!debugMode) {
 		if (!Daemon::incarnate())
 			exit(1);	// can't daemonize
 		
@@ -161,19 +177,19 @@ int main(int argc, char *argv[])
     new ProtectedPasswordAclSubject::Maker();
 	new ThresholdAclSubject::Maker();
     new CommentAclSubject::Maker();
-    new CodeSignatureAclSubject::Maker(signer);
+ 	new ProcessAclSubject::Maker();
+	new CodeSignatureAclSubject::Maker(signer);
     new KeychainPromptAclSubject::Maker();
 	
 	// add a temporary registration for a subject type that went out in 10.2 seed 1
 	// this should probably be removed for the next major release >10.2
 	new KeychainPromptAclSubject::Maker(CSSM_WORDID__RESERVED_1);
 	
+	// establish the code equivalents database
+	CodeSignatures codeSignatures(equivDbFile);
+	
     // create the main server object and register it
- 	Server server(authority, bootstrapName);
-    
-    // create the RootSession object (if -d, give it graphics and tty attributes)
-    RootSession rootSession(server.primaryServicePort(),
-		debugMode ? (sessionHasGraphicAccess | sessionHasTTY) : 0);
+ 	Server server(authority, codeSignatures, bootstrapName);
 
     // set server configuration from arguments, if specified
 	if (workerTimeout)
@@ -187,21 +203,28 @@ int main(int argc, char *argv[])
 # else
     if (!getuid()) new EntropyManager(server, entropyFile);
 # endif
+    
+    // create the RootSession object (if -d, give it graphics and tty attributes)
+    RootSession rootSession(server.primaryServicePort(),
+		debugMode ? (sessionHasGraphicAccess | sessionHasTTY) : 0);
         
     // set up signal handlers
     if (signal(SIGCHLD, handleSIGCHLD) == SIG_ERR)
-        debug("SS", "Cannot ignore SIGCHLD: errno=%d", errno);
+        secdebug("SS", "Cannot ignore SIGCHLD: errno=%d", errno);
     if (signal(SIGINT, handleSIGOther) == SIG_ERR)
-        debug("SS", "Cannot handle SIGINT: errno=%d", errno);
+        secdebug("SS", "Cannot handle SIGINT: errno=%d", errno);
     if (signal(SIGTERM, handleSIGOther) == SIG_ERR)
-        debug("SS", "Cannot handle SIGTERM: errno=%d", errno);
+        secdebug("SS", "Cannot handle SIGTERM: errno=%d", errno);
     
     // initialize CSSM now if requested
     if (forceCssmInit)
         server.loadCssm();
     
 	Syslog::notice("Entering service");
-	debug("SS", "Entering service run loop");
+	secdebug("SS", "%s initialized", bootstrapName);
+
+    Debug::trace (kSecTraceSecurityServerStart);
+    
 	server.run();
 	
 	// fell out of runloop (should not happen)
@@ -227,15 +250,16 @@ static void usage(const char *me)
 static void handleSIGCHLD(int)
 {
     int status;
-    switch (pid_t pid = waitpid(-1, &status, WNOHANG)) {
+	pid_t pid = waitpid(-1, &status, WNOHANG);
+    switch (pid) {
     case 0:
-        debug("SS", "Spurious SIGCHLD ignored");
+        //secdebug("SS", "Spurious SIGCHLD ignored");
         return;
     case -1:
-        debug("SS", "waitpid after SIGCHLD failed: errno=%d", errno);
+        //secdebug("SS", "waitpid after SIGCHLD failed: errno=%d", errno);
         return;
     default:
-        debug("SS", "Reaping child pid=%d", pid);
+        //secdebug("SS", "Reaping child pid=%d", pid);
         return;
     }
 }
@@ -248,11 +272,11 @@ static void handleSIGOther(int sig)
 {
     switch (sig) {
     case SIGINT:
-        debug("SS", "Interrupt signal; terminating");
+        //secdebug("SS", "Interrupt signal; terminating");
         Syslog::notice("received interrupt signal; terminating");
         exit(0);
     case SIGTERM:
-        debug("SS", "Termination signal; terminating");
+        //secdebug("SS", "Termination signal; terminating");
         Syslog::notice("received termination signal; terminating");
         exit(0);
     }

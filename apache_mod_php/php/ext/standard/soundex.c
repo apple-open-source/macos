@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -15,7 +15,7 @@
    | Author: Bjørn Borud - Guardian Networks AS <borud@guardian.no>       |
    +----------------------------------------------------------------------+
  */
-/* $Id: soundex.c,v 1.1.1.3 2001/12/14 22:13:28 zarzycki Exp $ */
+/* $Id: soundex.c,v 1.1.1.5 2003/07/18 18:07:44 zarzycki Exp $ */
 
 #include "php.h"
 #include <stdlib.h>
@@ -28,9 +28,8 @@
    Calculate the soundex key of a string */
 PHP_FUNCTION(soundex)
 {
-	char	*somestring;
-	int	i, _small, len, code, last;
-	pval	*arg, **parg;
+	char	*str;
+	int	i, _small, str_len, code, last;
 	char	soundex[4 + 1];
 
 	static char soundex_table[26] =
@@ -61,25 +60,21 @@ PHP_FUNCTION(soundex)
 	 0,							/* Y */
 	 '2'};						/* Z */
 
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &parg) == FAILURE) {
-		WRONG_PARAM_COUNT;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &str, &str_len) == FAILURE) {
+		return;
 	}
-	convert_to_string_ex(parg);
-	arg = *parg;
-	if (arg->value.str.len==0) {
+	if (str_len == 0) {
 		RETURN_FALSE;
 	}
-	somestring = arg->value.str.val;
-	len = arg->value.str.len;
 
 	/* build soundex string */
 	last = -1;
-	for (i = 0, _small = 0; i < len && _small < 4; i++) {
+	for (i = 0, _small = 0; i < str_len && _small < 4; i++) {
 		/* convert chars to upper case and strip non-letter chars */
 		/* BUG: should also map here accented letters used in non */
 		/* English words or names (also found in English text!): */
 		/* esstsett, thorn, n-tilde, c-cedilla, s-caron, ... */
-		code = toupper(somestring[i]);
+		code = toupper(str[i]);
 		if (code >= 'A' && code <= 'Z') {
 			if (_small == 0) {
 				/* remember first valid char */
@@ -106,9 +101,7 @@ PHP_FUNCTION(soundex)
 	}
 	soundex[_small] = '\0';
 
-	return_value->value.str.val = estrndup(soundex, _small);
-	return_value->value.str.len = _small;
-	return_value->type = IS_STRING;
+	RETURN_STRINGL(soundex, _small, 1);
 }
 /* }}} */
 
@@ -117,6 +110,6 @@ PHP_FUNCTION(soundex)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

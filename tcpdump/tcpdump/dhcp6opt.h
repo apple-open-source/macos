@@ -1,4 +1,4 @@
-/* @(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/dhcp6opt.h,v 1.1.1.2 2002/05/29 00:05:30 landonf Exp $ (LBL) */
+/* @(#) $Header: /cvs/root/tcpdump/tcpdump/dhcp6opt.h,v 1.1.1.2 2002/05/29 00:05:30 landonf Exp $ (LBL) */
 /*
  * Copyright (C) 1998 and 1999 WIDE Project.
  * All rights reserved.

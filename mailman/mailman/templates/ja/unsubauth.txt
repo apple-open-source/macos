@@ -1,0 +1,9 @@
+以下の，退会申請にあなたの承認が必要です
+
+    申請者:	%(username)s
+    リスト:	%(listname)s@%(hostname)s
+
+都合のよいときに以下の URLで決済してください．
+
+	%(admindb_url)s
+

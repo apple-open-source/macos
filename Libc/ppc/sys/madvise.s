@@ -27,5 +27,4 @@
 #include "SYS.h"
 
 SYSCALL(madvise, 3)
-	blr
 

@@ -2077,13 +2077,15 @@ If FRAME is nil, describe the currently selected frame.")
   
   if (FRAME_LIVE_P (f))
     {
+      /* Avoid consing in frequent cases.  */
       if (EQ (parameter, Qname))
 	value = f->name;
 #ifdef HAVE_X_WINDOWS
       else if (EQ (parameter, Qdisplay) && FRAME_X_P (f))
 	value = XCAR (FRAME_X_DISPLAY_INFO (f)->name_list_element);
 #endif /* HAVE_X_WINDOWS */
-      else
+      else if (EQ (parameter, Qbackground_color)
+	       || EQ (parameter, Qforeground_color))
 	{
 	  value = Fassq (parameter, f->param_alist);
 	  if (CONSP (value))
@@ -2118,13 +2120,14 @@ If FRAME is nil, describe the currently selected frame.")
 		    }
 		}
 	    }
-	  else if (EQ (parameter, Qdisplay_type)
-		   || EQ (parameter, Qbackground_mode))
-	    /* Avoid consing in frequent cases.  */
-	    value = Qnil;
 	  else
 	    value = Fcdr (Fassq (parameter, Fframe_parameters (frame)));
 	}
+      else if (EQ (parameter, Qdisplay_type)
+	       || EQ (parameter, Qbackground_mode))
+	value = Fcdr (Fassq (parameter, f->param_alist));
+      else
+	value = Fcdr (Fassq (parameter, Fframe_parameters (frame)));
     }
   
   return value;

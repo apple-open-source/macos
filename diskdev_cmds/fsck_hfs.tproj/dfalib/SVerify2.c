@@ -1192,13 +1192,14 @@ OSErr CompareVolumeHeader( SGlobPtr GPtr, HFSPlusVolumeHeader *volumeHeader )
 		char goodStr[32], badStr[32];
 
 		PrintError(GPtr, errID, 0);
-		sprintf(goodStr, "%d", goodValue);
-		sprintf(badStr, "%d", badValue);
+		sprintf(goodStr, "%u", goodValue);
+		sprintf(badStr, "%u", badValue);
 		PrintError(GPtr, E_BadValue, 2, goodStr, badStr);
 		goto VolumeHeaderDamaged;
 	}
 
-	if ( volumeHeader->signature != kHFSPlusSigWord ) {
+	if ( volumeHeader->signature != kHFSPlusSigWord  &&
+	     volumeHeader->signature != kHFSXSigWord) {
 		if ( GPtr->logLevel >= kDebugLog ) 
 			printf( "\tinvalid VHB signature \n" );
 		goto VolumeHeaderDamaged;

@@ -626,7 +626,7 @@ Con_info:
 			    "%s must be connected to a nexus", cur.d_name);
 			yyerror(errbuf);
 		}
-		cur.d_conn = connect($2, $3);
+		cur.d_conn = dconnect($2, $3);
 		if (machine == MACHINE_SQT)
 			dev_param(&cur, "index", cur.d_unit);
 		} |
@@ -882,7 +882,7 @@ mkswap(system, fl, size)
  * returns 0 if no such device and prints an error message
  */
 struct device *
-connect(dev, num)
+dconnect(dev, num)
 	register char *dev;
 	register int num;
 {
@@ -962,7 +962,7 @@ huhcon(dev)
 		if (dcp == TO_NEXUS || dcp == 0)
 			dp->d_conn = dcp;
 		else
-			dp->d_conn = connect(dcp->d_name, QUES);
+			dp->d_conn = dconnect(dcp->d_name, QUES);
 	}
 	return (dp);
 }

@@ -87,7 +87,7 @@ static __pset_pointer pset_insert( pset_h pset, const __pset_pointer p )
 /*
  * Remove a pointer from a pset by moving every thing above it down 1 spot.
  */
-void pset_delete( register pset_h pset, register __pset_pointer ptr )
+void pset_delete( register pset_h pset, register const __pset_pointer ptr )
 {
 	register unsigned u = 0;
 	register int found_it = 0;

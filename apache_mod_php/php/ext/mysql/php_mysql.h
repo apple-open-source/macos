@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,12 +12,12 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Zeev Suraski <zeev@zend.com>                                |
+   | Author: Zeev Suraski <zeev@zend.com>                                 |
    +----------------------------------------------------------------------+
 */
 
 
-/* $Id: php_mysql.h,v 1.1.1.5 2001/12/14 22:12:41 zarzycki Exp $ */
+/* $Id: php_mysql.h,v 1.1.1.8 2003/07/18 18:07:37 zarzycki Exp $ */
 
 #ifndef PHP_MYSQL_H
 #define PHP_MYSQL_H
@@ -58,6 +58,7 @@ PHP_FUNCTION(mysql_db_query);
 PHP_FUNCTION(mysql_list_dbs);
 PHP_FUNCTION(mysql_list_tables);
 PHP_FUNCTION(mysql_list_fields);
+PHP_FUNCTION(mysql_list_processes);
 PHP_FUNCTION(mysql_error);
 PHP_FUNCTION(mysql_errno);
 PHP_FUNCTION(mysql_affected_rows);
@@ -80,10 +81,16 @@ PHP_FUNCTION(mysql_field_len);
 PHP_FUNCTION(mysql_field_type);
 PHP_FUNCTION(mysql_field_flags);
 PHP_FUNCTION(mysql_escape_string);
+PHP_FUNCTION(mysql_real_escape_string);
 PHP_FUNCTION(mysql_get_client_info);
 PHP_FUNCTION(mysql_get_host_info);
 PHP_FUNCTION(mysql_get_proto_info);
 PHP_FUNCTION(mysql_get_server_info);
+PHP_FUNCTION(mysql_info);
+PHP_FUNCTION(mysql_stat);
+PHP_FUNCTION(mysql_thread_id);
+PHP_FUNCTION(mysql_client_encoding);
+PHP_FUNCTION(mysql_ping);
 
 ZEND_BEGIN_MODULE_GLOBALS(mysql)
 	long default_link;
@@ -95,6 +102,9 @@ ZEND_BEGIN_MODULE_GLOBALS(mysql)
 	char *default_socket;
 	char *connect_error;
 	long connect_errno;
+	long connect_timeout;
+	long result_allocated;
+	long trace_mode;
 ZEND_END_MODULE_GLOBALS(mysql)
 
 #ifdef ZTS

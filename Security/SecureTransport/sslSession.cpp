@@ -190,8 +190,6 @@ SSLInstallSessionFromData(const SSLBuffer sessionData, SSLContext *ctx)
     uint32              certLen;
     
     session = (ResumableSession*)sessionData.data;
-    
-    assert(ctx->negProtocolVersion == session->protocolVersion);
 	
 	/* 
 	 * For SSLv3 and TLSv1, we know that selectedCipher has already been specified in 

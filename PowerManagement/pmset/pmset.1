@@ -1,7 +1,7 @@
 .\"
 .\" Copyright (c) 2002 Apple Computer, Inc.  All rights reserved.
 .\"
-.Dd Augest 19, 2002
+.Dd August 19, 2002
 .Dt PMSET 1
 .Os Darwin
 .Sh NAME
@@ -18,13 +18,13 @@
 .Op autorestart Ar 1/0
 .Op dps Ar 1/0
 .Op reduce Ar 1/0
-.Op boot
 .Op powerbutton Ar 1/0
-
+.Op lidwake Ar 1/0
+.Op acwake Ar 1/0
+.Op boot
 .Nm
-.Fl g 
-.Op disk | live | cap
-
+.Fl g
+.Op disk | live | cap | sched
 .\.Nm
 .\.Op Fl a b c
 .\.Op dim
@@ -33,41 +33,41 @@
 .\.Op womp
 .\.Op ring
 .\.Op autorestart
+.\.Op acwake
 .\.Op dps
 .\.Op reduce
-
 .Sh DESCRIPTION
 .Nm
-changes and reads power management settings such as idle sleep timing, wake on administrative access, automatic restart on power loss, etc. 
-
+changes and reads power management settings such as idle sleep timing, wake on administrative access, automatic restart on power loss, etc.
 .Sh SETTING
 The
 .Fl a,
 .Fl b,
 .Fl c
-flags determine whether the settings apply to battery (-b), charger (wall power) (-c), or all (-a). 
+flags determine whether the settings apply to battery (-b), charger (wall power) (-c), or all (-a).
 .Pp
-Use a minutes argument of 0 to set the idle time to never. 
+Use a minutes argument of 0 to set the idle time to never.
 .Pp
-.Nm 
+.Nm
 must be run as root.
 .Pp
 The boot argument tells power management that system bootup is complete. Loginwindow handles this on a normal Mac OS X system.
-
 .Sh GETTING
 The
-.Fl g 
-flag outputs the settings currently in use (same as 
-.Fl g 
+.Fl g
+flag outputs the settings currently in use (same as
+.Fl g
 live
-). 
-.Fl g 
-disk 
-will tell you the settings on disk.  
-.Fl g 
-cap 
+).
+.Fl g
+disk
+will tell you the settings on disk.
+.Fl g
+cap
 will tell you which power management features the machine supports.
-
+.Fl g
+sched 
+will show scheduled startup/wake and shutdown/sleep events.
 .Sh ARGUMENTS
 dim - display dim timer (value in minutes)
 .br
@@ -84,32 +84,34 @@ autorestart - automatic restart on power loss (value = 0/1)
 dps - dynamically change processor speed based on load (value = 0/1)
 .br
 reduce - reduce processor speed (value = 0/1)
-
+.br
+powerbutton - sleep the machine when power button is pressed (value = 0/1)
+.br
+lidwake - wake the machine when the laptop lid(or clamshell) is opened (value = 0/1)
+.br
+acwake - wake the machine when power source (AC/battery) is changed (value = 0/1)
 .Sh OTHER ARGUMENTS
 These arguments don't directly affect power management settings:
 .br
-  boot - tell the kernel that system boot is complete
-.br
-  powerbutton - if set, ignores power button sleep requests (value = 0/1)
-
+boot - tell the kernel that system boot is complete
 .Sh EXAMPLES
 .Nm
-.Fl b 
+.Fl b
 dim 5
 .Pp
 .Nm
 .Fl a
 dim 10 spindown 10 sleep 30 womp 1
 .Pp
-.Nm 
-.Fl g 
+.Nm
+.Fl g
 live
-.Pp 
+.Pp
 .Sh FILES
 All changes made through
 .Nm
-are saved in a persistent preferences file (per-system, not per-user) at 
-.Pa /var/db/SystemConfiguration/com.apple.PowerManagement.xml
+are saved in a persistent preferences file (per-system, not per-user) at
+.Pa /Library/Preferences/SystemConfiguration/com.apple.PowerManagement.plist
 .Pp
 .Nm
 modifies the same file that System Preferences Energy Saver modifies.

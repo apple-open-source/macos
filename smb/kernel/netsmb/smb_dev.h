@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_dev.h,v 1.3 2001/07/07 00:16:58 conrad Exp $
+ * $Id: smb_dev.h,v 1.6 2003/08/19 01:34:17 lindak Exp $
  */
 #ifndef _NETSMB_DEV_H_
 #define _NETSMB_DEV_H_
@@ -54,6 +54,7 @@
 #define	SMBVOPT_PRIVATE		0x0002	/* connection should be private */
 #define	SMBVOPT_SINGLESHARE	0x0004	/* keep only one share at this VC */
 #define	SMBVOPT_PERMANENT	0x0010	/* object will keep last reference */
+#define	SMBVOPT_EXT_SEC		0x0020	/* extended security negotiation */
 
 #define	SMBSOPT_CREATE		0x0001	/* create object if necessary */
 #define	SMBSOPT_PERMANENT	0x0010	/* object will keep last reference */
@@ -63,6 +64,8 @@
  */
 #define SMBLK_CREATE		0x0001
 
+#define DEF_SEC_TOKEN_LEN 2048
+
 struct smbioc_ossn {
 	int		ioc_opt;
 	int		ioc_svlen;	/* size of ioc_server address */
@@ -70,7 +73,7 @@ struct smbioc_ossn {
 	int		ioc_lolen;	/* size of ioc_local address */
 	struct sockaddr*ioc_local;
 	char		ioc_srvname[SMB_MAXSRVNAMELEN + 1];
-	int		ioc_timeout;
+	int		ioc_timeout;	/* ignored?! XXX */
 	int		ioc_retrycount;	/* number of retries before giveup */
 	char		ioc_localcs[16];/* local charset */
 	char		ioc_servercs[16];/* server charset */
@@ -81,6 +84,8 @@ struct smbioc_ossn {
 	gid_t		ioc_group;	/* proposed group */
 	mode_t		ioc_mode;	/* desired access mode */
 	mode_t		ioc_rights;	/* SMBM_* */
+	size_t *	ioc_intok;
+	size_t *	ioc_outtok;
 };
 
 struct smbioc_oshare {
@@ -146,14 +151,26 @@ struct smbioc_rw {
 /*
  * Device IOCTLs
  */
+#ifndef APPLE
 #define	SMBIOC_OPENSESSION	_IOW('n',  100, struct smbioc_ossn)
 #define	SMBIOC_OPENSHARE	_IOW('n',  101, struct smbioc_oshare)
+#endif
 #define	SMBIOC_REQUEST		_IOWR('n', 102, struct smbioc_rq)
 #define	SMBIOC_T2RQ		_IOWR('n', 103, struct smbioc_t2rq)
+#ifndef APPLE
 #define	SMBIOC_SETFLAGS		_IOW('n',  104, struct smbioc_flags)
+#endif
 #define	SMBIOC_LOOKUP		_IOW('n',  106, struct smbioc_lookup)
+#ifndef APPLE
 #define	SMBIOC_READ		_IOWR('n', 107, struct smbioc_rw)
 #define	SMBIOC_WRITE		_IOWR('n', 108, struct smbioc_rw)
+#endif
+/* these three replace SMBIOC_LOOKUP */
+#define	SMBIOC_NEGOTIATE	_IOW('n',  109, struct smbioc_lookup)
+#define	SMBIOC_SSNSETUP		_IOW('n',  110, struct smbioc_lookup)
+#define	SMBIOC_TCON		_IOW('n',  111, struct smbioc_lookup)
+
+#define	SMBIOC_TDIS		_IOW('n',  112, struct smbioc_lookup)
 
 #ifdef _KERNEL
 
@@ -184,12 +201,22 @@ struct smb_cred;
 /*
  * Compound user interface
  */
+#ifndef APPLE
 int  smb_usr_lookup(struct smbioc_lookup *dp, struct smb_cred *scred,
 	struct smb_vc **vcpp, struct smb_share **sspp);
+#endif
+int  smb_usr_negotiate(struct smbioc_lookup *dp, struct smb_cred *scred,
+	struct smb_vc **vcpp, struct smb_share **sspp);
+int  smb_usr_ssnsetup(struct smbioc_lookup *dp, struct smb_cred *scred,
+	struct smb_vc *vcp, struct smb_share **sspp);
+int  smb_usr_tcon(struct smbioc_lookup *dp, struct smb_cred *scred,
+	struct smb_vc *vcp, struct smb_share **sspp);
+#ifndef APPLE
 int  smb_usr_opensession(struct smbioc_ossn *data,
 	struct smb_cred *scred,	struct smb_vc **vcpp);
 int  smb_usr_openshare(struct smb_vc *vcp, struct smbioc_oshare *data,
 	struct smb_cred *scred, struct smb_share **sspp);
+#endif
 int  smb_usr_simplerequest(struct smb_share *ssp, struct smbioc_rq *data,
 	struct smb_cred *scred);
 int  smb_usr_t2request(struct smb_share *ssp, struct smbioc_t2rq *data,

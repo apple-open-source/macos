@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +21,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 #include "AppleUSBMergeNub.h"
 
 #include <IOKit/usb/IOUSBController.h>

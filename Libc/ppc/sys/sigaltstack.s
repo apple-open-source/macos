@@ -25,4 +25,3 @@
 #include "SYS.h"
 
 SYSCALL(sigaltstack, 3)
-	blr

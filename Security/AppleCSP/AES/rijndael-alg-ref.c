@@ -53,6 +53,8 @@ static const word8 shifts[3][4][2] = {
  }
 }; 
 
+#if 	!GLADMAN_AES_128_ENABLE
+
 /* 128 bit key/word shift table in bits */
 static const word8 shifts128[4][2] = {
  { 0,  0 },
@@ -60,6 +62,8 @@ static const word8 shifts128[4][2] = {
  { 16, 16 },
  { 24, 8 }
 };
+
+#endif	/* GLADMAN_AES_128_ENABLE */
 
 #if		!AES_MUL_BY_LOOKUP
 /*
@@ -73,6 +77,7 @@ static const word8 shifts128[4][2] = {
  * and 1.88 for decrypt. (Decrypt wins more for this enhancement because the 
  * InvMixColumn does four muls, vs. 2 muls for MixColumn). Measurements taken
  * on a 500 MHz G4 with 1 MB of L2 cache. 
+ */
 
 /*
  * The mod 255 op in mul is really expensive...

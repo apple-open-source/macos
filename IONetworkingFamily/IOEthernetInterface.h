@@ -135,7 +135,8 @@ private:
     int syncSIOCSIFADDR(IONetworkController * ctr);
     int syncSIOCADDMULTI(IONetworkController * ctr);
     int syncSIOCDELMULTI(IONetworkController * ctr);
-    int syncSIOCSIFMTU(IONetworkController * ctlr, struct ifreq * ifr);
+    int syncSIOCSIFMTU(IONetworkController * ctr, struct ifreq * ifr);
+    int syncSIOCSIFLLADDR(IONetworkController * ctr, const char * lladdr, int len);
 
     static int performGatedCommand(void *, void *, void *, void *, void *);
 
@@ -295,6 +296,11 @@ public:
     virtual bool willTerminate( IOService *  provider,
                                 IOOptionBits options );
 
+    /* Override IONetworkInterface::attachToDataLinkLayer() */
+
+    virtual IOReturn attachToDataLinkLayer( IOOptionBits options,
+                                            void *       parameter );
+                                                    
     // Virtual function padding
     OSMetaClassDeclareReservedUnused( IOEthernetInterface,  0);
     OSMetaClassDeclareReservedUnused( IOEthernetInterface,  1);

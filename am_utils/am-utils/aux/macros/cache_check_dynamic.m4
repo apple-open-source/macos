@@ -13,9 +13,9 @@ define(AMU_CACHE_CHECK_DYNAMIC,
 ac_tmp=`echo $2`
 if eval "test \"`echo '$''{'$ac_tmp'+set}'`\" = set"; then
   AC_MSG_CHECKING([$1])
-  echo $ECHO_N "(cached) $ECHO_C" 1>&AC_FD_MSG
+  echo $ECHO_N "(cached) $ECHO_C" 1>&AS_MESSAGE_FD([])
 dnl XXX: for older autoconf versions
-dnl  echo $ac_n "(cached) $ac_c" 1>&AC_FD_MSG
+dnl  echo $ac_n "(cached) $ac_c" 1>&AS_MESSAGE_FD([])
 else
   $3
   AC_MSG_CHECKING([$1])

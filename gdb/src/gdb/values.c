@@ -1,7 +1,8 @@
 /* Low level packing and unpacking of values for GDB, the GNU Debugger.
+
    Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994,
-   1995, 1996, 1997, 1998, 1999, 2000, 2002.
-   Free Software Foundation, Inc.
+   1995, 1996, 1997, 1998, 1999, 2000, 2002, 2003 Free Software
+   Foundation, Inc.
 
    This file is part of GDB.
 
@@ -34,14 +35,13 @@
 #include "demangle.h"
 #include "doublest.h"
 #include "gdb_assert.h"
+#include "regcache.h"
 
 /* Prototypes for exported functions. */
 
 void _initialize_values (void);
 
 /* Prototypes for local functions. */
-
-static struct value *value_headof (struct value *, struct type *, struct type *);
 
 static void show_values (char *, int);
 
@@ -680,7 +680,7 @@ value_as_address (struct value *val)
    to an INT (or some size).  After all, it is only an offset.  */
 
 LONGEST
-unpack_long (struct type *type, char *valaddr)
+unpack_long (struct type *type, const char *valaddr)
 {
   register enum type_code code = TYPE_CODE (type);
   register int len = TYPE_LENGTH (type);
@@ -729,7 +729,7 @@ unpack_long (struct type *type, char *valaddr)
    format, result is in host format.  */
 
 DOUBLEST
-unpack_double (struct type *type, char *valaddr, int *invp)
+unpack_double (struct type *type, const char *valaddr, int *invp)
 {
   enum type_code code;
   int len;
@@ -786,7 +786,7 @@ unpack_double (struct type *type, char *valaddr, int *invp)
    to an INT (or some size).  After all, it is only an offset.  */
 
 CORE_ADDR
-unpack_pointer (struct type *type, char *valaddr)
+unpack_pointer (struct type *type, const char *valaddr)
 {
   /* Assume a CORE_ADDR can fit in a LONGEST (for now).  Not sure
      whether we want this to be true eventually.  */
@@ -794,17 +794,20 @@ unpack_pointer (struct type *type, char *valaddr)
 }
 
 
-/* Get the value of the FIELDN'th field (which must be static) of TYPE. */
+/* Get the value of the FIELDN'th field (which must be static) of
+   TYPE.  Return NULL if the field doesn't exist or has been
+   optimized out. */
 
 struct value *
 value_static_field (struct type *type, int fieldno)
 {
-  CORE_ADDR addr;
-  asection *sect;
+  struct value *retval;
+
   if (TYPE_FIELD_STATIC_HAS_ADDR (type, fieldno))
     {
-      addr = TYPE_FIELD_STATIC_PHYSADDR (type, fieldno);
-      sect = NULL;
+      retval = value_at (TYPE_FIELD_TYPE (type, fieldno),
+			 TYPE_FIELD_STATIC_PHYSADDR (type, fieldno),
+			 NULL);
     }
   else
     {
@@ -819,27 +822,25 @@ value_static_field (struct type *type, int fieldno)
 	    return NULL;
 	  else
 	    {
-	      addr = SYMBOL_VALUE_ADDRESS (msym);
-	      sect = SYMBOL_BFD_SECTION (msym);
+	      retval = value_at (TYPE_FIELD_TYPE (type, fieldno),
+				 SYMBOL_VALUE_ADDRESS (msym),
+				 SYMBOL_BFD_SECTION (msym));
 	    }
 	}
       else
 	{
- 	  /* Anything static that isn't a constant, has an address */
- 	  if (SYMBOL_CLASS (sym) != LOC_CONST)
- 	    {
-	      addr = SYMBOL_VALUE_ADDRESS (sym);
-	      sect = SYMBOL_BFD_SECTION (sym);
-	    }
- 	  /* However, static const's do not, the value is already known.  */
- 	  else
- 	    {
- 	      return value_from_longest (TYPE_FIELD_TYPE (type, fieldno), SYMBOL_VALUE (sym));
- 	    }
+	  /* SYM should never have a SYMBOL_CLASS which will require
+	     read_var_value to use the FRAME parameter.  */
+	  if (symbol_read_needs_frame (sym))
+	    warning ("static field's value depends on the current "
+		     "frame - bad debug info?");
+	  retval = read_var_value (sym, NULL);
  	}
-      SET_FIELD_PHYSADDR (TYPE_FIELD (type, fieldno), addr);
+      if (retval && VALUE_LVAL (retval) == lval_memory)
+	SET_FIELD_PHYSADDR (TYPE_FIELD (type, fieldno),
+			    VALUE_ADDRESS (retval));
     }
-  return value_at (TYPE_FIELD_TYPE (type, fieldno), addr, sect);
+  return retval;
 }
 
 /* Change the enclosing type of a value object VAL to NEW_ENCL_TYPE.  
@@ -862,7 +863,9 @@ value_change_enclosing_type (struct value *val, struct type *new_encl_type)
       struct value *prev;
       
       new_val = (struct value *) xrealloc (val, sizeof (struct value) + TYPE_LENGTH (new_encl_type));
-      
+
+      VALUE_ENCLOSING_TYPE (new_val) = new_encl_type;
+ 
       /* We have to make sure this ends up in the same place in the value
 	 chain as the original copy, so it's clean-up behavior is the same. 
 	 If the value has been released, this is a waste of time, but there
@@ -1020,96 +1023,6 @@ value_fn_field (struct value **arg1p, struct fn_field *f, int j, struct type *ty
   return v;
 }
 
-/* ARG is a pointer to an object we know to be at least
-   a DTYPE.  BTYPE is the most derived basetype that has
-   already been searched (and need not be searched again).
-   After looking at the vtables between BTYPE and DTYPE,
-   return the most derived type we find.  The caller must
-   be satisfied when the return value == DTYPE.
-
-   FIXME-tiemann: should work with dossier entries as well.
-   NOTICE - djb: I see no good reason at all to keep this function now that
-   we have RTTI support. It's used in literally one place, and it's
-   hard to keep this function up to date when it's purpose is served
-   by value_rtti_type efficiently.
-   Consider it gone for 5.1. */
-
-static struct value *
-value_headof (struct value *in_arg, struct type *btype, struct type *dtype)
-{
-  /* First collect the vtables we must look at for this object.  */
-  struct value *arg;
-  struct value *vtbl;
-  struct symbol *sym;
-  char *demangled_name;
-  struct minimal_symbol *msymbol;
-  char *tmp;
-
-  btype = TYPE_VPTR_BASETYPE (dtype);
-  CHECK_TYPEDEF (btype);
-  arg = in_arg;
-  if (btype != dtype)
-      arg = value_cast (lookup_pointer_type (btype), arg);
-  if (TYPE_CODE (VALUE_TYPE (arg)) == TYPE_CODE_REF)
-      {
-	  /*
-	   * Copy the value, but change the type from (T&) to (T*).
-	   * We keep the same location information, which is efficient,
-	   * and allows &(&X) to get the location containing the reference.
-	   */
-	  arg = value_copy (arg);
-	  VALUE_TYPE (arg) = lookup_pointer_type (TYPE_TARGET_TYPE (VALUE_TYPE (arg)));
-      }
-  if (VALUE_ADDRESS(value_field (value_ind(arg), TYPE_VPTR_FIELDNO (btype)))==0)
-      return arg;
-
-  vtbl = value_ind (value_field (value_ind (arg), TYPE_VPTR_FIELDNO (btype)));
-  /* Turn vtable into typeinfo function */
-  VALUE_OFFSET(vtbl)+=4;
-
-  msymbol = lookup_minimal_symbol_by_pc ( value_as_address(value_ind(vtbl)) );
-  if (msymbol == NULL
-      || (demangled_name = SYMBOL_NAME (msymbol)) == NULL)
-      {
-	  /* If we expected to find a vtable, but did not, let the user
-	     know that we aren't happy, but don't throw an error.
-	     FIXME: there has to be a better way to do this.  */
-	  struct type *error_type = (struct type *) xmalloc (sizeof (struct type));
-	  memcpy (error_type, VALUE_TYPE (in_arg), sizeof (struct type));
-	  TYPE_NAME (error_type) = savestring ("suspicious *", sizeof ("suspicious *"));
-	  VALUE_TYPE (in_arg) = error_type;
-	  return in_arg;
-      }
-  demangled_name = cplus_demangle(demangled_name,DMGL_ANSI);
-  tmp = strchr (demangled_name, ' ');
-  if (tmp)
-    *tmp = '\0';
-
-  sym = lookup_symbol (demangled_name, 0, VAR_NAMESPACE, 0, 0);
-  if (sym == NULL)
-      error ("could not find type declaration for `%s'", demangled_name);
-
-  arg = in_arg;
-  VALUE_TYPE (arg) = lookup_pointer_type (SYMBOL_TYPE (sym));
-  return arg;
-}
-
-/* ARG is a pointer object of type TYPE.  If TYPE has virtual
-   function tables, probe ARG's tables (including the vtables
-   of its baseclasses) to figure out the most derived type that ARG
-   could actually be a pointer to.  */
-
-struct value *
-value_from_vtable_info (struct value *arg, struct type *type)
-{
-  /* Take care of preliminaries.  */
-  if (TYPE_VPTR_FIELDNO (type) < 0)
-    fill_in_vptr_fieldno (type);
-  if (TYPE_VPTR_FIELDNO (type) < 0)
-    return 0;
-
-  return value_headof (arg, 0, type);
-}
 
 /* Unpack a field FIELDNO of the specified TYPE, from the anonymous object at
    VALADDR.
@@ -1126,7 +1039,7 @@ value_from_vtable_info (struct value *arg, struct type *type)
    If the field is signed, we also do sign extension. */
 
 LONGEST
-unpack_field_as_long (struct type *type, char *valaddr, int fieldno)
+unpack_field_as_long (struct type *type, const char *valaddr, int fieldno)
 {
   ULONGEST val;
   ULONGEST valmask;
@@ -1316,7 +1229,8 @@ value_from_double (struct type *type, DOUBLEST num)
 
 /* ARGSUSED */
 struct value *
-value_being_returned (struct type *valtype, char *retbuf, int struct_return)
+value_being_returned (struct type *valtype, struct regcache *retbuf,
+		      int struct_return)
 {
   struct value *val;
   CORE_ADDR addr;
@@ -1326,6 +1240,17 @@ value_being_returned (struct type *valtype, char *retbuf, int struct_return)
     if (struct_return)
       {
 	addr = EXTRACT_STRUCT_VALUE_ADDRESS (retbuf);
+	if (!addr)
+	  error ("Function return value unknown.");
+	return value_at (valtype, addr, NULL);
+      }
+
+  /* If this is not defined, just use EXTRACT_RETURN_VALUE instead.  */
+  if (DEPRECATED_EXTRACT_STRUCT_VALUE_ADDRESS_P ())
+    if (struct_return)
+      {
+	char *buf = deprecated_grub_regcache_for_registers (retbuf);
+	addr = DEPRECATED_EXTRACT_STRUCT_VALUE_ADDRESS (buf);
 	if (!addr)
 	  error ("Function return value unknown.");
 	return value_at (valtype, addr, NULL);
@@ -1406,7 +1331,7 @@ set_return_value (struct value *val)
       || code == TYPE_CODE_UNION)	/* FIXME, implement struct return.  */
     error ("GDB does not support specifying a struct or union return value.");
 
-  STORE_RETURN_VALUE (type, VALUE_CONTENTS (val));
+  STORE_RETURN_VALUE (type, current_regcache, VALUE_CONTENTS (val));
 }
 
 void

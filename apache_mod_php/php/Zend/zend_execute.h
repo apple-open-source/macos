@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 0.92 of the Zend license,     |
+   | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
    | available at through the world-wide-web at                           |
-   | http://www.zend.com/license/0_92.txt.                                |
+   | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
    | license@zend.com so we can mail you a copy immediately.              |
@@ -25,35 +25,17 @@
 #include "zend_hash.h"
 #include "zend_variables.h"
 #include "zend_operators.h"
+#include "zend_execute_globals.h"
 
-typedef union _temp_variable {
-	zval tmp_var;
-	struct {
-		zval **ptr_ptr;
-		zval *ptr;
-	} var;
-	struct {
-		zval tmp_var; /* a dummy */
-
-		union {
-			struct {
-				zval *str;
-				int offset;
-			} str_offset;
-			zend_property_reference overloaded_element;
-		} data;
-			
-		unsigned char type;
-	} EA;
-} temp_variable;
-
-
+BEGIN_EXTERN_C()
 ZEND_API extern void (*zend_execute)(zend_op_array *op_array TSRMLS_DC);
+ZEND_API extern void (*zend_execute_internal)(zend_execute_data *execute_data_ptr, int return_value_used TSRMLS_DC);
 
 void init_executor(TSRMLS_D);
 void shutdown_executor(TSRMLS_D);
 ZEND_API void execute(zend_op_array *op_array TSRMLS_DC);
 ZEND_API int zend_is_true(zval *op);
+ZEND_API void execute_internal(zend_execute_data *execute_data_ptr, int return_value_used TSRMLS_DC);
 static inline void safe_free_zval_ptr(zval *p)
 {
 	TSRMLS_FETCH();
@@ -157,5 +139,7 @@ void zend_assign_to_variable_reference(znode *result, zval **variable_ptr_ptr, z
 
 #define IS_OVERLOADED_OBJECT 1
 #define IS_STRING_OFFSET 2
+
+END_EXTERN_C()
 
 #endif /* ZEND_EXECUTE_H */

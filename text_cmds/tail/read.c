@@ -1,5 +1,3 @@
-/*	$NetBSD: read.c,v 1.5 1997/10/19 23:45:09 lukem Exp $	*/
-
 /*-
  * Copyright (c) 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -37,21 +35,23 @@
  */
 
 #include <sys/cdefs.h>
+
+
 #ifndef lint
-#if 0
-static char sccsid[] = "@(#)read.c	8.1 (Berkeley) 6/6/93";
+static const char sccsid[] = "@(#)read.c	8.1 (Berkeley) 6/6/93";
 #endif
-__RCSID("$NetBSD: read.c,v 1.5 1997/10/19 23:45:09 lukem Exp $");
-#endif /* not lint */
 
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <fcntl.h>
+
+#include <err.h>
 #include <errno.h>
-#include <unistd.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+
 #include "extern.h"
 
 /*
@@ -64,7 +64,7 @@ __RCSID("$NetBSD: read.c,v 1.5 1997/10/19 23:45:09 lukem Exp $");
  * it is displayed from the character closest to the beginning of the input to
  * the end.
  */
-void
+int
 bytes(fp, off)
 	FILE *fp;
 	off_t off;
@@ -75,7 +75,7 @@ bytes(fp, off)
 	char *sp;
 
 	if ((sp = p = malloc(off)) == NULL)
-		err(1, "%s", strerror(errno));
+		err(1, "malloc");
 
 	for (wrap = 0, ep = p + off; (ch = getc(fp)) != EOF;) {
 		*p = ch;
@@ -86,7 +86,7 @@ bytes(fp, off)
 	}
 	if (ferror(fp)) {
 		ierr();
-		return;
+		return 1;
 	}
 
 	if (rflag) {
@@ -116,9 +116,11 @@ bytes(fp, off)
 	} else {
 		if (wrap && (len = ep - p))
 			WR(p, len);
-		if ((len = p - sp) == 0)
+		len = p - sp;
+		if (len)
 			WR(sp, len);
 	}
+	return 0;
 }
 
 /*
@@ -131,43 +133,41 @@ bytes(fp, off)
  * it is displayed from the line closest to the beginning of the input to
  * the end.
  */
-void
+int
 lines(fp, off)
 	FILE *fp;
 	off_t off;
 {
 	struct {
-		u_int blen;
+		int blen;
 		u_int len;
 		char *l;
-	} *lines;
+	} *llines;
 	int ch;
-	char *p;
+	char *p, *sp;
 	int blen, cnt, recno, wrap;
-	char *sp;
 
-	p = NULL;
-	if ((lines = malloc(off * sizeof(*lines))) == NULL)
-		err(1, "%s", strerror(errno));
-
+	if ((llines = malloc(off * sizeof(*llines))) == NULL)
+		err(1, "malloc");
+	bzero(llines, off * sizeof(*llines));
 	sp = NULL;
 	blen = cnt = recno = wrap = 0;
 
 	while ((ch = getc(fp)) != EOF) {
 		if (++cnt > blen) {
 			if ((sp = realloc(sp, blen += 1024)) == NULL)
-				err(1, "%s", strerror(errno));
+				err(1, "realloc");
 			p = sp + cnt - 1;
 		}
 		*p++ = ch;
 		if (ch == '\n') {
-			if (lines[recno].blen < cnt) {
-				lines[recno].blen = cnt + 256;
-				if ((lines[recno].l = realloc(lines[recno].l,
-				    lines[recno].blen)) == NULL)
-					err(1, "%s", strerror(errno));
+			if ((int)llines[recno].blen < cnt) {
+				llines[recno].blen = cnt + 256;
+				if ((llines[recno].l = realloc(llines[recno].l,
+				    llines[recno].blen)) == NULL)
+					err(1, "realloc");
 			}
-			memmove(lines[recno].l, sp, lines[recno].len = cnt);
+			bcopy(sp, llines[recno].l, llines[recno].len = cnt);
 			cnt = 0;
 			p = sp;
 			if (++recno == off) {
@@ -178,11 +178,11 @@ lines(fp, off)
 	}
 	if (ferror(fp)) {
 		ierr();
-		return;
+		return 1;
 	}
 	if (cnt) {
-		lines[recno].l = sp;
-		lines[recno].len = cnt;
+		llines[recno].l = sp;
+		llines[recno].len = cnt;
 		if (++recno == off) {
 			wrap = 1;
 			recno = 0;
@@ -191,15 +191,16 @@ lines(fp, off)
 
 	if (rflag) {
 		for (cnt = recno - 1; cnt >= 0; --cnt)
-			WR(lines[cnt].l, lines[cnt].len);
+			WR(llines[cnt].l, llines[cnt].len);
 		if (wrap)
 			for (cnt = off - 1; cnt >= recno; --cnt)
-				WR(lines[cnt].l, lines[cnt].len);
+				WR(llines[cnt].l, llines[cnt].len);
 	} else {
 		if (wrap)
 			for (cnt = recno; cnt < off; ++cnt)
-				WR(lines[cnt].l, lines[cnt].len);
+				WR(llines[cnt].l, llines[cnt].len);
 		for (cnt = 0; cnt < recno; ++cnt)
-			WR(lines[cnt].l, lines[cnt].len);
+			WR(llines[cnt].l, llines[cnt].len);
 	}
+	return 0;
 }

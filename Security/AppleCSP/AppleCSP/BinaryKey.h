@@ -29,6 +29,15 @@
 // opaque key reference type 
 typedef uint32	KeyRef;
 
+class AppleCSPSession;
+
+/* 
+ * unique blob type passed to generateKeyBlob() for key digest calculation 
+ */
+#define CSSM_KEYBLOB_RAW_FORMAT_DIGEST	\
+	(CSSM_KEYBLOB_RAW_FORMAT_VENDOR_DEFINED + 0x12345)
+
+
 // frame for Binary key; all modules (BSAFE, CryptKit) must subclass
 // this and add a member whose type is the native raw key object.
 // Subclasses must implement constructor, destructor, and generateKeyBlob().
@@ -46,11 +55,27 @@ public:
 	 * CSSM_ATTRIBUTE_{PUBLIC,PRIVATE,SYMMETRIC}_KEY_FORMAT attribute in the current
 	 * context. If so such attribute is present, the default value 
 	 * CSSM_KEYBLOB_RAW_FORMAT_NONE is specified as the default input param.
+	 *
+	 * All BinaryKeys must handle the special case format 
+	 * CSSM_KEYBLOB_RAW_FORMAT_DIGEST, which creates a blob suitable for use
+	 * in calcuating the digest of the key blob. 
+	 *
+	 * The session and paramKey arguments facilitate the conversion of a partial
+	 * BinaryKey to a fully formed raw key, i.e., a null wrap to get a fully formed
+	 * raw key. The attrFlags aregument is used to indicate that this operation
+	 * did in fact convert a partial binary key to a fully formed raw key
+	 * (in which case the subclass clears the CSSM_KEYATTR_PARTIAL bit
+	 * in attrFlags before returning). 
 	 */
 	virtual void		generateKeyBlob(
 		CssmAllocator 		&allocator,
 		CssmData			&blob,
-		CSSM_KEYBLOB_FORMAT	&format)	// in/out, CSSM_KEYBLOB_RAW_FORMAT_PKCS1, etc.
+		CSSM_KEYBLOB_FORMAT	&format,	// in/out, CSSM_KEYBLOB_RAW_FORMAT_PKCS1, 
+										//   etc.
+		AppleCSPSession		&session,
+		const CssmKey		*paramKey,	// optional
+		CSSM_KEYATTR_FLAGS	&attrFlags)	// IN/OUT
+
 		{
 			CssmError::throwMe(CSSMERR_CSP_FUNCTION_NOT_IMPLEMENTED); 
 		}
@@ -69,7 +94,10 @@ public:
 	void generateKeyBlob(
 		CssmAllocator 		&allocator,
 		CssmData			&blob,
-		CSSM_KEYBLOB_FORMAT	&format);	// CSSM_KEYBLOB_RAW_FORMAT_PKCS1, etc.
+		CSSM_KEYBLOB_FORMAT	&format,		/* CSSM_KEYBLOB_RAW_FORMAT_PKCS1, etc. */
+		AppleCSPSession		&session,
+		const CssmKey		*paramKey,		/* optional, unused here */
+		CSSM_KEYATTR_FLAGS 	&attrFlags);	/* IN/OUT */
 
 	CssmData			mKeyData;
 	CssmAllocator 		&mAllocator;

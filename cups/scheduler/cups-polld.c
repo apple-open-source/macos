@@ -1,9 +1,9 @@
 /*
- * "$Id: cups-polld.c,v 1.1.1.4 2002/03/02 18:30:32 jlovell Exp $"
+ * "$Id: cups-polld.c,v 1.1.1.12 2003/05/07 01:11:58 jlovell Exp $"
  *
  *   Polling daemon for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -33,8 +33,37 @@
 
 #include <cups/cups.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <cups/language.h>
 #include <cups/string.h>
+
+
+/*
+ * Some OS's don't have hstrerror(), most notably Solaris...
+ */
+
+#ifndef HAVE_HSTRERROR
+#  define hstrerror cups_hstrerror
+
+const char *					/* O - Error string */
+cups_hstrerror(int error)			/* I - Error number */
+{
+  static const char * const errors[] =
+		{
+		  "OK",
+		  "Host not found.",
+		  "Try again.",
+		  "Unrecoverable lookup error.",
+		  "No data associated with name."
+		};
+
+
+  if (error < 0 || error > 4)
+    return ("Unknown hostname lookup error.");
+  else
+    return (errors[error]);
+}
+#endif /* !HAVE_HSTRERROR */
 
 
 /*
@@ -42,7 +71,7 @@
  */
 
 int	poll_server(http_t *http, cups_lang_t *language, ipp_op_t op,
-	            int sock, int port, int interval);
+	            int sock, int port, int interval, const char *prefix);
 
 
 /*
@@ -59,10 +88,13 @@ main(int  argc,				/* I - Number of command-line arguments */
   int			sock;		/* Browser sock */
   int			port;		/* Browser port */
   int			val;		/* Socket option value */
+  int			seconds,	/* Seconds left from poll */
+			remain;		/* Total remaining time to sleep */
+  char			prefix[1024];	/* Prefix for log messages */
 
 
  /*
-  * Don't buffer errors...
+  * Don't buffer log messages...
   */
 
   setbuf(stderr, NULL);
@@ -82,25 +114,19 @@ main(int  argc,				/* I - Number of command-line arguments */
   interval = atoi(argv[3]);
   port     = atoi(argv[4]);
 
- /*
-  * Open a connection to the server...
-  */
+  if (interval < 2)
+    interval = 2;
 
-  if ((http = httpConnectEncrypt(argv[1], atoi(argv[2]),
-                                 cupsEncryption())) == NULL)
-  {
-    perror("cups-polld");
-    return (1);
-  }
+  snprintf(prefix, sizeof(prefix), "[cups-polld %s:%d]", argv[1], atoi(argv[2]));
 
  /*
-  * Open a broadcast sock...
+  * Open a broadcast socket...
   */
 
   if ((sock = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
   {
-    perror("cups-polld");
-    httpClose(http);
+    fprintf(stderr, "ERROR: %s Unable to open broadcast socket: %s\n", prefix,
+            strerror(errno));
     return (1);
   }
 
@@ -111,11 +137,24 @@ main(int  argc,				/* I - Number of command-line arguments */
   val = 1;
   if (setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &val, sizeof(val)))
   {
-    perror("cups-polld");
+    fprintf(stderr, "ERROR: %s Unable to put socket in broadcast mode: %s\n",
+            prefix, strerror(errno));
 
     close(sock);
-    httpClose(http);
     return (1);
+  }
+
+ /*
+  * Open a connection to the server...
+  */
+
+  while ((http = httpConnectEncrypt(argv[1], atoi(argv[2]),
+                                    cupsEncryption())) == NULL)
+  {
+    fprintf(stderr, "ERROR: %s Unable to connect to %s on port %s: %s\n",
+            prefix, argv[1], argv[2],
+	    h_errno ? hstrerror(h_errno) : strerror(errno));
+    sleep (interval);
   }
 
  /*
@@ -126,25 +165,29 @@ main(int  argc,				/* I - Number of command-line arguments */
 
   for (;;)
   {
-    if (!poll_server(http, language, CUPS_GET_PRINTERS, sock, port,
-                     interval / 2))
-    {
-     /*
-      * We got the printers, now get the classes...
-      */
+   /*
+    * Get the printers, then the classes...
+    */
 
-      poll_server(http, language, CUPS_GET_CLASSES, sock, port, interval / 2);
-    }
-    else
-    {
-     /*
-      * If successful, poll_server() will sleep for us; otherwise sleep
-      * here...
-      */
+    remain = interval;
 
-      sleep(interval);
-    }
+    if ((seconds = poll_server(http, language, CUPS_GET_PRINTERS, sock, port,
+                               interval / 2, prefix)) > 0)
+      remain -= seconds;
+
+    if ((seconds = poll_server(http, language, CUPS_GET_CLASSES, sock, port,
+                               interval / 2, prefix)) > 0)
+      remain -= seconds;
+
+   /*
+    * Sleep for any remaining time...
+    */
+
+    if (remain > 0) 
+      sleep(remain);
   }
+
+  return (0);
 }
 
 
@@ -152,14 +195,16 @@ main(int  argc,				/* I - Number of command-line arguments */
  * 'poll_server()' - Poll the server for the given set of printers or classes.
  */
 
-int					/* O - 0 for success, -1 on error */
+int					/* O - Number of seconds or -1 on error */
 poll_server(http_t      *http,		/* I - HTTP connection */
             cups_lang_t *language,	/* I - Language */
 	    ipp_op_t    op,		/* I - Operation code */
 	    int         sock,		/* I - Broadcast sock */
 	    int         port,		/* I - Broadcast port */
-	    int         interval)	/* I - Polling interval */
+	    int         interval,	/* I - Polling interval */
+	    const char	*prefix)	/* I - Prefix for log messages */
 {
+  int			seconds;	/* Number of seconds */
   int			count,		/* Current number of printers/classes */
 			max_count;	/* Maximum printers/classes per second */
   ipp_t			*request,	/* Request data */
@@ -173,11 +218,12 @@ poll_server(http_t      *http,		/* I - HTTP connection */
   ipp_pstate_t		state;		/* printer-state */
   struct sockaddr_in	addr;		/* Broadcast address */
   char			packet[1540];	/* Data packet */
-  static const char	*attrs[] =	/* Requested attributes */
+  static const char * const attrs[] =	/* Requested attributes */
 			{
 			  "printer-info",
 			  "printer-location",
 			  "printer-make-and-model",
+			  "printer-name",
 			  "printer-state",
 			  "printer-type",
 			  "printer-uri-supported"
@@ -203,8 +249,6 @@ poll_server(http_t      *http,		/* I - HTTP connection */
   request->request.op.operation_id = op;
   request->request.op.request_id   = 1;
 
-  language = cupsLangDefault();
-
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_CHARSET,
                "attributes-charset", NULL, cupsLangEncoding(language));
 
@@ -223,7 +267,7 @@ poll_server(http_t      *http,		/* I - HTTP connection */
   {
     if (response->request.status.status_code > IPP_OK_CONFLICT)
     {
-      fprintf(stderr, "cups-polld: get-%s failed: %s\n",
+      fprintf(stderr, "ERROR: %s get-%s failed: %s\n", prefix,
               op == CUPS_GET_PRINTERS ? "printers" : "classes",
               ippErrorString(response->request.status.status_code));
       ippDelete(response);
@@ -240,7 +284,11 @@ poll_server(http_t      *http,		/* I - HTTP connection */
 	 attr = ippFindNextAttribute(response, "printer-name", IPP_TAG_NAME),
 	     max_count ++);
 
+    fprintf(stderr, "DEBUG: %s found %d %s.\n", prefix, max_count,
+            op == CUPS_GET_PRINTERS ? "printers" : "classes");
+
     count     = 0;
+    seconds   = time(NULL);
     max_count = max_count / interval + 1;
 
    /*
@@ -324,11 +372,13 @@ poll_server(http_t      *http,		/* I - HTTP connection */
 	snprintf(packet, sizeof(packet), "%x %x %s \"%s\" \"%s\" \"%s\"\n",
         	 type | CUPS_PRINTER_REMOTE, state, uri,
 		 location, info, make_model);
-        puts(packet);
+
+        fprintf(stderr, "DEBUG2: %s Sending %s", prefix, packet);
 
 	if (sendto(sock, packet, strlen(packet), 0,
 	           (struct sockaddr *)&addr, sizeof(addr)) <= 0)
 	{
+	  ippDelete(response);
 	  perror("cups-polld");
 	  return (-1);
 	}
@@ -347,7 +397,6 @@ poll_server(http_t      *http,		/* I - HTTP connection */
 
 	  count = 0;
 	  sleep(1);
-	  interval --;
 	}
       }
 
@@ -359,23 +408,20 @@ poll_server(http_t      *http,		/* I - HTTP connection */
   }
   else
   {
-    fprintf(stderr, "cups-polld: get-%s failed: %s\n",
+    fprintf(stderr, "ERROR: %s get-%s failed: %s\n", prefix,
             op == CUPS_GET_PRINTERS ? "printers" : "classes",
             ippErrorString(cupsLastError()));
     return (-1);
   }
 
  /*
-  * OK, sleep for the remaining time interval...
+  * Return the number of seconds we used...
   */
 
-  if (interval)
-    sleep(interval);
-
-  return (0);
+  return (time(NULL) - seconds);
 }
 
 
 /*
- * End of "$Id: cups-polld.c,v 1.1.1.4 2002/03/02 18:30:32 jlovell Exp $".
+ * End of "$Id: cups-polld.c,v 1.1.1.12 2003/05/07 01:11:58 jlovell Exp $".
  */

@@ -1,0 +1,21 @@
+Twój adres "%(email)s" zosta³ zaproszony do przy³±czenia siê do 
+listy dyskusyjnej %(listname)s na serwerze %(hostname)s. Zaprasza Ciê
+opiekun listy %(listname)s.
+Je¶li zgadzasz siê byæ cz³onkiem tej grupy, odpowiedz proszê na t± wiadomo¶æ
+nie zmieniaj±c jej Tematu.
+
+To samo mo¿esz zrobiæ wchodz±c na stronê:
+
+    %(confirmurl)s
+
+albo wysy³aj±c now± wiadomo¶æ na adres %(requestaddr)s, która bêdzie
+zawiera³a tylko jedn± liniê:
+
+    confirm %(cookie)s
+
+Wys³anie zwyk³ej odpowiedzi powinno zadzia³aæ w wiêkszo¶ci programów
+pocztowych.
+
+Je¶li nie chcesz przyj±æ zaproszenia, po prostu zignoruj t± wiadomo¶æ.
+W przypadku jakichkolwiek w±tpliwo¶ci lub pytañ proszê skontaktowaæ siê z
+opiekunem listy %(listowner)s.

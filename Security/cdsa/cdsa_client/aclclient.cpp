@@ -21,7 +21,8 @@
 //
 #include <Security/aclclient.h>
 #include <Security/keychainacl.h>
-#include <Security/walkers.h>
+#include <Security/cssmwalkers.h>
+#include <Security/cssmdata.h>
 
 
 namespace Security {
@@ -133,22 +134,52 @@ const AccessCredentials *AclFactory::unlockCred() const
 { return &statics().unlockCred; }
 
 
-
-AclFactory::PasswordChangeCredentials::PasswordChangeCredentials (const CssmData& password, CssmAllocator& allocator) :
-    mAllocator (allocator)
+//
+// Manage the (pseudo) credentials used to explicitly provide a passphrase to a keychain.
+// Use the eternal unlockCred() for normal (protected prompt) unlocking.
+//
+AclFactory::KeychainCredentials::~KeychainCredentials ()
 {
-    mCredentials = new (allocator) AutoCredentials (allocator);;
-    mCredentials->sample(0) = TypedList(allocator, CSSM_SAMPLE_TYPE_KEYCHAIN_CHANGE_LOCK, new (allocator) ListElement (CSSM_SAMPLE_TYPE_PASSWORD),
-                                        new (allocator) ListElement (password));
+    DataWalkers::chunkFree (mCredentials, allocator);
+}
+
+AclFactory::PassphraseUnlockCredentials::PassphraseUnlockCredentials (const CssmData& password,
+	CssmAllocator& allocator) : KeychainCredentials(allocator)
+{
+    mCredentials->sample(0) = TypedList(allocator, CSSM_SAMPLE_TYPE_KEYCHAIN_LOCK,
+		new (allocator) ListElement (CSSM_SAMPLE_TYPE_PASSWORD),
+		new (allocator) ListElement (CssmAutoData(allocator, password).release()));
 }
 
 
-
-AclFactory::PasswordChangeCredentials::~PasswordChangeCredentials ()
+//
+// Manage the (pseudo) credentials used to explicitly change a keychain's passphrase
+//
+AclFactory::PasswordChangeCredentials::PasswordChangeCredentials (const CssmData& password,
+	CssmAllocator& allocator) : KeychainCredentials(allocator)
 {
-    DataWalkers::chunkFree (mCredentials, mAllocator);
+    mCredentials->sample(0) = TypedList(allocator, CSSM_SAMPLE_TYPE_KEYCHAIN_CHANGE_LOCK,
+		new (allocator) ListElement (CSSM_SAMPLE_TYPE_PASSWORD),
+		new (allocator) ListElement (CssmAutoData(allocator, password).release()));
 }
 
+
+//
+// Create an ANY style AclEntryInput.
+// This can be used to explicitly request wide-open authorization on a new CSSM object.
+//
+AclFactory::AnyResourceContext::AnyResourceContext(const CSSM_ACCESS_CREDENTIALS *cred)
+	: mAny(CSSM_ACL_SUBJECT_TYPE_ANY), mTag(CSSM_ACL_AUTHORIZATION_ANY)
+{
+	// set up an ANY/EVERYTHING AclEntryInput
+	input().proto().subject() += &mAny;
+	AuthorizationGroup &authGroup = input().proto().authorization();
+	authGroup.NumberOfAuthTags = 1;
+	authGroup.AuthTags = &mTag;
+	
+	// install the cred (not copied)
+	credentials(cred);
+}
 
 
 } // end namespace CssmClient

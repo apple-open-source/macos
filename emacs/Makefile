@@ -11,17 +11,16 @@ Project  = emacs
 UserType = Developer
 ToolType = Commands
 CommonNoInstallSource = YES
-GnuAfterInstall = remove-dir
+GnuAfterInstall = remove-dir install-dumpemacs
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
-# Emacs cannot be built fat; it requires a forked native build
-CC_Archs =
-
 # Regenerate the .elc files after copying the source, since RCS string
 # substitution has corrupted several of them.  This is an unavoidable result of
 # storing the sources in cvs.
+
+installsrc : CC_Archs = 
 installsrc :
 	if test ! -d $(SRCROOT) ; then mkdir -p $(SRCROOT); fi;
 	tar cf - . | (cd $(SRCROOT) ; tar xfp -)
@@ -38,3 +37,6 @@ installsrc :
 
 remove-dir :
 	rm $(DSTROOT)/usr/share/info/dir
+
+install-dumpemacs: $(SRCROOT)/dumpemacs
+	$(INSTALL) -o root -g wheel -m 555 $(SRCROOT)/dumpemacs $(DSTROOT)/usr/libexec/

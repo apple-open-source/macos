@@ -1,5 +1,3 @@
-/*	$NetBSD: pathnames.h,v 1.6 1995/03/21 09:06:55 cgd Exp $	*/
-
 /*
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,7 +31,10 @@
  * SUCH DAMAGE.
  *
  *	@(#)pathnames.h	8.1 (Berkeley) 5/31/93
+ * $FreeBSD: src/bin/mv/pathnames.h,v 1.6 2002/05/17 11:38:48 jmallett Exp $
  */
 
 #define	_PATH_RM	"/bin/rm"
-#define	_PATH_CP	"/bin/cp"
+#ifdef __APPLE__
+#define _PATH_CP	"/bin/cp"
+#endif /* __APPLE__ */

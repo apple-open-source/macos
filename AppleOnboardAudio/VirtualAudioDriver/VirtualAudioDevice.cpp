@@ -322,7 +322,11 @@ Exit:
 IOService* VirtualAudioDevice::probe(IOService* provider, SInt32* score)
 {
 	IOService* result;
+
 	debugIOLog("VirtualAudioDevice::probe\n");
+
+	result = NULL;
+
 #if 1
 	if (score)
 	{

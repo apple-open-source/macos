@@ -81,7 +81,8 @@ is a privileged operation."
 If this is nil while `mail-specify-envelope-from' is non-nil, the
 content of `user-mail-address' is used."
   :version "21.1"
-  :type 'boolean
+  :type '(choice (const :tag "Use `user-mail-address'" nil)
+		 string)
   :group 'sendmail)
 
 ;;;###autoload
@@ -494,8 +495,8 @@ Turning on Mail mode runs the normal hooks `text-mode-hook' and
   (set (make-local-variable 'comment-start) mail-yank-prefix)
   (make-local-variable 'adaptive-fill-regexp)
   (setq adaptive-fill-regexp
-	(concat adaptive-fill-regexp
-		"\\|[ \t]*[-[:alnum:]]*>+[ \t]*"))
+	(concat "[ \t]*[-[:alnum:]]+>+[ \t]*\\|"
+		adaptive-fill-regexp))
   (make-local-variable 'adaptive-fill-first-line-regexp)
   (setq adaptive-fill-first-line-regexp
 	(concat adaptive-fill-first-line-regexp
@@ -805,7 +806,8 @@ external program defined by `sendmail-program'."
 	(mailbuf (current-buffer))
 	(program (if (boundp 'sendmail-program)
 		     sendmail-program
-		   "/usr/lib/sendmail")))
+		   "/usr/lib/sendmail"))
+	(mail-envelope-from mail-envelope-from))
     (unwind-protect
 	(save-excursion
 	  (set-buffer tembuf)

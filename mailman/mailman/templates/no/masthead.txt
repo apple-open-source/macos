@@ -1,0 +1,15 @@
+Send meldinger som skal distribueres til %(real_name)s til:
+	%(got_list_email)s
+
+For å melde deg av eller på listen via World Wide Web, gå inn på:
+	%(got_listinfo_url)s
+eller send en epost til
+	%(got_request_email)s
+med ordet 'help' i emnefeltet eller som innhold.
+
+Du kan nå ansvarlig(e) person(er) for listen på
+	%(got_owner_email)s
+
+Når du svarer på epost til listen, vennligst endre emnefeltet slik
+at det er litt mer beskrivende enn bare
+"Re: Innhold av %(real_name)s sammendrag..."

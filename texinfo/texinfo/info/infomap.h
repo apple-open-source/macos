@@ -1,5 +1,5 @@
 /* infomap.h -- description of a keymap in Info and related functions.
-   $Id: infomap.h,v 1.1.1.1 2002/04/19 01:00:25 jkh Exp $
+   $Id: infomap.h,v 1.2 2003/07/25 18:37:06 jkh Exp $
 
    Copyright (C) 1993, 2001 Free Software Foundation, Inc.
 

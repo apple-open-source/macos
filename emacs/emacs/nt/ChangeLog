@@ -1,3 +1,32 @@
+2002-03-16  Eli Zaretskii  <eliz@is.elta.co.il>
+
+	* Version 21.2 released.
+
+2002-02-18  Jason Rumney  <jasonr@gnu.org>
+
+	* emacs.rc: Define VS_VERSION_INFO if not already.
+	Update version info.
+
+2002-02-11  Andrew Innes  <andrewi@gnu.org>
+
+	* gmake.defs (CFLAGS): Define _WIN32_WINNT as 0x0400, in order to
+	pick up relevant bits of the Windows API definitions.
+
+	* nmake.defs (CFLAGS): Define _WIN32_WINNT as 0x0400, in order to
+	pick up relevant bits of the Windows API definitions.
+
+2001-11-20  Jason Rumney  <jasonr@gnu.org>
+
+	* INSTALL: Update table of versions of make that are suitable
+	for building Emacs, based on recent feedback.
+
+	* TODO, _emacs, emacs.bat.in, debug.bat.in: Removed.
+
+2001-11-17  Jason Rumney  <jasonr@gnu.org>
+
+	* nmake.defs (SYS_LDFLAGS): Add setargv.obj for wildcard
+	expansion.  From Juanma Barranquero <lektu@terra.es>.
+
 2001-10-20  Gerd Moellmann  <gerd@gnu.org>
 
 	* Version 21.1 released.

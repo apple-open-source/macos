@@ -1,4 +1,28 @@
 /*
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * Copyright 1996 1995 by Open Software Foundation, Inc. 1997 1996 1995 1994 1993 1992 1991  
  *              All Rights Reserved 
  *  
@@ -27,7 +51,8 @@
  * POSIX Pthread Library
  */
 
-#define __POSIX_LIB__
+#include "pthread_internals.h"
+
 #include <assert.h>
 #include <stdio.h>	/* For printf(). */
 #include <stdlib.h>
@@ -35,15 +60,21 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/sysctl.h>
+#include <sys/queue.h>
 #include <sys/syscall.h>
 #include <machine/vmparam.h>
 #include <mach/vm_statistics.h>
+#define	__APPLE_API_PRIVATE
+#include <machine/cpu_capabilities.h>
 
-#include "pthread_internals.h"
+__private_extern__ struct __pthread_list __pthread_head = LIST_HEAD_INITIALIZER(&__pthread_head);
 
 /* Per-thread kernel support */
 extern void _pthread_set_self(pthread_t);
 extern void mig_init(int);
+
+/* Get CPU capabilities from the kernel */
+__private_extern__ void _init_cpu_capabilities(void);
 
 /* Needed to tell the malloc subsystem we're going multithreaded */
 extern void set_malloc_singlethreaded(int);
@@ -59,9 +90,10 @@ static struct _pthread _thread = {0};
 ** pthread has been created.
 */
 int __is_threaded = 0;
+/* _pthread_count is protected by _pthread_list_lock */
 static int _pthread_count = 1;
 
-static pthread_lock_t _pthread_count_lock = LOCK_INITIALIZER;
+__private_extern__ pthread_lock_t _pthread_list_lock = LOCK_INITIALIZER;
 
 /* Same implementation as LOCK, but without the __is_threaded check */
 int _spin_tries = 0;
@@ -75,9 +107,6 @@ __private_extern__ void _spin_lock_retry(pthread_lock_t *lock)
 		tries = _spin_tries;
 	} while(!_spin_lock_try(lock));
 }
-
-/* Apparently, bcopy doesn't declare _cpu_has_altivec anymore */
-int _cpu_has_altivec = 0;
 
 extern mach_port_t thread_recycle_port;
 
@@ -102,18 +131,6 @@ size_t _pthread_stack_size = 0;
 #define STACK_LOWEST(sp)	((sp) & ~__pthread_stack_mask)
 #define STACK_RESERVED		(sizeof (struct _pthread))
 
-#ifdef STACK_GROWS_UP
-
-/* The stack grows towards higher addresses:
-   |struct _pthread|user stack---------------->|
-   ^STACK_BASE     ^STACK_START
-   ^STACK_SELF
-   ^STACK_LOWEST  */
-#define STACK_BASE(sp)		STACK_LOWEST(sp)
-#define STACK_START(stack_low)	(STACK_BASE(stack_low) + STACK_RESERVED)
-#define STACK_SELF(sp)		STACK_BASE(sp)
-
-#else
 
 /* The stack grows towards lower addresses:
    |<----------------user stack|struct _pthread|
@@ -124,8 +141,6 @@ size_t _pthread_stack_size = 0;
 #define STACK_START(stack_low)	(STACK_BASE(stack_low) - STACK_RESERVED)
 #define STACK_SELF(sp)		STACK_START(sp)
 
-#endif
-
 #if defined(__ppc__)
 static const vm_address_t PTHREAD_STACK_HINT = 0xF0000000;
 #elif defined(__i386__)
@@ -134,44 +149,46 @@ static const vm_address_t PTHREAD_STACK_HINT = 0xB0000000;
 #error Need to define a stack address hint for this architecture
 #endif
 
-/* Set the base address to use as the stack pointer, before adjusting due to the ABI */
+/* Set the base address to use as the stack pointer, before adjusting due to the ABI
+ * The guardpages for stackoverflow protection is also allocated here
+ * If the stack was already allocated(stackaddr in attr)  then there are no guardpages 
+ * set up for the thread
+ */
 
 static int
 _pthread_allocate_stack(pthread_attr_t *attrs, void **stack)
 {
     kern_return_t kr;
+    size_t guardsize;
 #if 1
     assert(attrs->stacksize >= PTHREAD_STACK_MIN);
     if (attrs->stackaddr != NULL) {
+	/* No guard pages setup in this case */
         assert(((vm_address_t)(attrs->stackaddr) & (vm_page_size - 1)) == 0);
         *stack = attrs->stackaddr;
          return 0;
     }
 
+   guardsize = attrs->guardsize;
     *((vm_address_t *)stack) = PTHREAD_STACK_HINT;
     kr = vm_map(mach_task_self(), (vm_address_t *)stack,
-    			attrs->stacksize + vm_page_size,
+    			attrs->stacksize + guardsize,
     			vm_page_size-1,
     			VM_MAKE_TAG(VM_MEMORY_STACK)| VM_FLAGS_ANYWHERE , MEMORY_OBJECT_NULL,
     			0, FALSE, VM_PROT_DEFAULT, VM_PROT_ALL,
     			VM_INHERIT_DEFAULT);
     if (kr != KERN_SUCCESS)
     	kr = vm_allocate(mach_task_self(),
-    					(vm_address_t *)stack, attrs->stacksize + vm_page_size,
+    					(vm_address_t *)stack, attrs->stacksize + guardsize,
     					VM_MAKE_TAG(VM_MEMORY_STACK)| VM_FLAGS_ANYWHERE);
     if (kr != KERN_SUCCESS) {
         return EAGAIN;
     }
- #ifdef STACK_GROWS_UP
-     /* The guard page is the page one higher than the stack */
-     /* The stack base is at the lowest address */
-    kr = vm_protect(mach_task_self(), *stack + attrs->stacksize, vm_page_size, FALSE, VM_PROT_NONE);
- #else
      /* The guard page is at the lowest address */
      /* The stack base is the highest address */
-    kr = vm_protect(mach_task_self(), (vm_address_t)*stack, vm_page_size, FALSE, VM_PROT_NONE);
-    *stack += attrs->stacksize + vm_page_size;
- #endif
+    if (guardsize)
+    	kr = vm_protect(mach_task_self(), (vm_address_t)*stack, guardsize, FALSE, VM_PROT_NONE);
+    *stack += attrs->stacksize + guardsize;
 
 #else
     vm_address_t cur_stack = (vm_address_t)0;
@@ -202,18 +219,11 @@ _pthread_allocate_stack(pthread_attr_t *attrs, void **stack)
 					 FALSE);
 #ifndef	NO_GUARD_PAGES
 			if (kr == KERN_SUCCESS) {
-# ifdef	STACK_GROWS_UP
-			    kr = vm_protect(mach_task_self(),
-					    lowest_stack+__pthread_stack_size,
-					    __pthread_stack_size,
-					    FALSE, VM_PROT_NONE);
-# else	/* STACK_GROWS_UP */
 			    kr = vm_protect(mach_task_self(),
 					    lowest_stack,
 					    __pthread_stack_size,
 					    FALSE, VM_PROT_NONE);
 			    lowest_stack += __pthread_stack_size;
-# endif	/* STACK_GROWS_UP */
 			    if (kr == KERN_SUCCESS)
 				break;
 			}
@@ -239,18 +249,11 @@ _pthread_allocate_stack(pthread_attr_t *attrs, void **stack)
 			   know what to do.  */
 #ifndef	NO_GUARD_PAGES
 			if (kr == KERN_SUCCESS) {
-# ifdef	STACK_GROWS_UP
-			    kr = vm_protect(mach_task_self(),
-					    lowest_stack+__pthread_stack_size,
-					    __pthread_stack_size,
-					    FALSE, VM_PROT_NONE);
-# else	/* STACK_GROWS_UP */
 			    kr = vm_protect(mach_task_self(),
 					    lowest_stack,
 					    __pthread_stack_size,
 					    FALSE, VM_PROT_NONE);
 			    lowest_stack += __pthread_stack_size;
-# endif	/* STACK_GROWS_UP */
 			}
 #endif
 			free_stacks = (vm_address_t *)lowest_stack;
@@ -354,7 +357,8 @@ pthread_attr_getschedpolicy(const pthread_attr_t *attr,
 	}
 }
 
-static const size_t DEFAULT_STACK_SIZE = DFLSSIZ;
+/* Retain the existing stack size of 512K and not depend on Main thread default stack size */
+static const size_t DEFAULT_STACK_SIZE = (512*1024);
 /*
  * Initialize a thread attribute structure to default values.
  */
@@ -364,12 +368,13 @@ pthread_attr_init(pthread_attr_t *attr)
         attr->stacksize = DEFAULT_STACK_SIZE;
         attr->stackaddr = NULL;
 	attr->sig = _PTHREAD_ATTR_SIG;
-	attr->policy = _PTHREAD_DEFAULT_POLICY;
 	attr->param.sched_priority = default_priority;
 	attr->param.quantum = 10; /* quantum isn't public yet */
-	attr->inherit = _PTHREAD_DEFAULT_INHERITSCHED;
 	attr->detached = PTHREAD_CREATE_JOINABLE;
+	attr->inherit = _PTHREAD_DEFAULT_INHERITSCHED;
+	attr->policy = _PTHREAD_DEFAULT_POLICY;
         attr->freeStackOnExit = TRUE;
+	attr->guardsize = vm_page_size;
 	return (ESUCCESS);
 }
 
@@ -552,7 +557,10 @@ int
 pthread_attr_getstack(const pthread_attr_t *attr, void **stackaddr, size_t * stacksize)
 {
     if (attr->sig == _PTHREAD_ATTR_SIG) {
-        *stackaddr = attr->stackaddr;
+	u_int32_t addr = (u_int32_t)attr->stackaddr;
+
+	addr -= attr->stacksize;
+	*stackaddr = (void *)addr;
         *stacksize = attr->stacksize;
         return (ESUCCESS);
     } else {
@@ -560,20 +568,60 @@ pthread_attr_getstack(const pthread_attr_t *attr, void **stackaddr, size_t * sta
     }
 }
 
+/* By SUSV spec, the stackaddr is the base address, the lowest addressable 
+ * byte address. This is not the same as in pthread_attr_setstackaddr.
+ */
 int
 pthread_attr_setstack(pthread_attr_t *attr, void *stackaddr, size_t stacksize)
 {
     if ((attr->sig == _PTHREAD_ATTR_SIG) && 
 	(((vm_offset_t)stackaddr & (vm_page_size - 1)) == 0) && 
 	((stacksize % vm_page_size) == 0) && (stacksize >= PTHREAD_STACK_MIN)) {
-        	attr->stackaddr = stackaddr;
-        	attr->freeStackOnExit = FALSE;
+		u_int32_t addr = (u_int32_t)stackaddr;
+
+		addr += stacksize;
+		attr->stackaddr = (void *)addr;
         	attr->stacksize = stacksize;
+        	attr->freeStackOnExit = FALSE;
         	return (ESUCCESS);
     } else {
         return (EINVAL); /* Not an attribute structure! */
     }
 }
+
+
+/*
+ * Set the guardsize attribute in the attr.
+ */
+int
+pthread_attr_setguardsize(pthread_attr_t *attr,
+                            size_t guardsize)
+{
+    if (attr->sig == _PTHREAD_ATTR_SIG) {
+	/* Guardsize of 0 is valid, ot means no guard */
+        if ((guardsize % vm_page_size) == 0) {
+		attr->guardsize = guardsize;
+            return (ESUCCESS);
+	} else
+		return(EINVAL);
+    }
+    return (EINVAL); /* Not an attribute structure! */
+}
+
+/*
+ * Get the guardsize attribute in the attr.
+ */
+int
+pthread_attr_getguardsize(const pthread_attr_t *attr,
+                            size_t *guardsize)
+{
+    if (attr->sig == _PTHREAD_ATTR_SIG) {
+        *guardsize = attr->guardsize;
+        return (ESUCCESS);
+    }
+    return (EINVAL); /* Not an attribute structure! */
+}
+
 
 /*
  * Create and start execution of a new thread.
@@ -598,8 +646,10 @@ _pthread_create(pthread_t t,
 	do
 	{
 		memset(t, 0, sizeof(*t));
+		t->tsd[0] = t;
 		t->stacksize = attrs->stacksize;
                 t->stackaddr = (void *)stack;
+		t->guardsize = attrs->guardsize;
                 t->kernel_thread = kernel_thread;
 		t->detached = attrs->detached;
 		t->inherit = attrs->inherit;
@@ -611,6 +661,8 @@ _pthread_create(pthread_t t,
                 t->reply_port = MACH_PORT_NULL;
                 t->cthread_self = NULL;
 		LOCK_INIT(t->lock);
+		t->plist.le_next = (struct _pthread *)0;
+		t->plist.le_prev = (struct _pthread **)0;
 		t->cancel_state = PTHREAD_CANCEL_ENABLE | PTHREAD_CANCEL_DEFERRED;
 		t->cleanup_stack = (struct _pthread_handler_rec *)NULL;
 		t->death = SEMAPHORE_NULL;
@@ -736,14 +788,15 @@ _pthread_create_suspended(pthread_t *thread,
 		}
 		set_malloc_singlethreaded(0);
 		__is_threaded = 1;
-		LOCK(_pthread_count_lock);
-		_pthread_count++;
-		UNLOCK(_pthread_count_lock);
 
 		/* Send it on it's way */
 		t->arg = arg;
 		t->fun = start_routine;
 		/* Now set it up to execute */
+		LOCK(_pthread_list_lock);
+		LIST_INSERT_HEAD(&__pthread_head, t, plist);
+		_pthread_count++;
+		UNLOCK(_pthread_list_lock);
 		_pthread_setup(t, _pthread_body, stack, suspended, needresume);
 	} while (0);
 	return (res);
@@ -806,6 +859,7 @@ pthread_detach(pthread_t thread)
  * pthread_kill call to system call
  */
 
+extern int __pthread_kill(mach_port_t, int);
 
 int   
 pthread_kill (
@@ -881,11 +935,9 @@ int _pthread_reap_thread(pthread_t th, mach_port_t kernel_thread, void **value_p
 		vm_address_t addr = (vm_address_t)th->stackaddr;
 		vm_size_t size;
 
-		size = (vm_size_t)th->stacksize + vm_page_size;
+		size = (vm_size_t)th->stacksize + th->guardsize;
 		
-#if !defined(STACK_GROWS_UP)
 		addr -= size;
-#endif
 		ret = vm_deallocate(self, addr, size);
 		if (ret != KERN_SUCCESS) {
 		  fprintf(stderr,
@@ -973,15 +1025,19 @@ pthread_exit(void *value_ptr)
 				    "semaphore_signal(death) failed: %s\n",
 					mach_error_string(kern_res));
 		}
+		LOCK(_pthread_list_lock);
+		thread_count = --_pthread_count;
+		UNLOCK(_pthread_list_lock);
 	} else {
 		UNLOCK(self->lock);
+		LOCK(_pthread_list_lock);
+		LIST_REMOVE(self, plist);
+		thread_count = --_pthread_count;
+		UNLOCK(_pthread_list_lock);
 		/* with no joiner, we let become available consume our cached ref */
 		_pthread_become_available(self, pthread_mach_thread_np(self));
 	}
 
-	LOCK(_pthread_count_lock);
-	thread_count = --_pthread_count;
-	UNLOCK(_pthread_count_lock);
 	if (thread_count <= 0)
 		exit(0);
 
@@ -1029,6 +1085,9 @@ pthread_join(pthread_t thread,
 					} while (kern_res != KERN_SUCCESS);
 				}
 
+				LOCK(_pthread_list_lock);
+				LIST_REMOVE(thread, plist);
+				UNLOCK(_pthread_list_lock);
 				/* ... and wait for it to really be dead */
 				while ((res = _pthread_reap_thread(thread,
 							thread->kernel_thread,
@@ -1106,13 +1165,13 @@ pthread_setschedparam(pthread_t thread,
 		default:
 			return (EINVAL);
 		}
-            thread->policy = policy;
-            thread->param = *param;
 		ret = thread_policy(pthread_mach_thread_np(thread), policy, base, count, TRUE);
 		if (ret != KERN_SUCCESS)
 		{
 			return (EINVAL);
 		}
+            	thread->policy = policy;
+            	thread->param = *param;
 		return (ESUCCESS);
 	} else
 	{
@@ -1148,6 +1207,18 @@ pthread_equal(pthread_t t1,
 	return (t1 == t2);
 }
 
+__private_extern__ void
+_pthread_set_self(pthread_t p)
+{
+	extern void __pthread_set_self(pthread_t);
+        if (p == 0) {
+                bzero(&_thread, sizeof(struct _pthread));
+                p = &_thread;
+        }
+        p->tsd[0] = p;
+	__pthread_set_self(p);
+}
+
 void 
 cthread_set_self(void *cself)
 {
@@ -1175,13 +1246,13 @@ int
 pthread_once(pthread_once_t *once_control, 
 	     void (*init_routine)(void))
 {
-	LOCK(once_control->lock);
+	_spin_lock(&once_control->lock);
 	if (once_control->sig == _PTHREAD_ONCE_SIG_init)
 	{
 		(*init_routine)();
 		once_control->sig = _PTHREAD_ONCE_SIG;
 	}
-	UNLOCK(once_control->lock);
+	_spin_unlock(&once_control->lock);
 	return (ESUCCESS);  /* Spec defines no possible errors! */
 }
 
@@ -1287,12 +1358,6 @@ pthread_setconcurrency(int new_level)
  * Perform package initialization - called automatically when application starts
  */
 
-extern int _cpu_capabilities;
-
-#define kHasAltivec     0x01                                            
-#define kCache32                0x04                                    
-#define kUseDcba                0x20                                    
-
 static int
 pthread_init(void)
 {
@@ -1308,9 +1373,6 @@ pthread_init(void)
 	int mib[2];
 	size_t len;
 	int numcpus;
-                                                                                
-	extern  int     _bcopy_initialize(void);
-                                                                                
 
         count = HOST_PRIORITY_INFO_COUNT;
 	info = (host_info_t)&priority_info;
@@ -1321,13 +1383,16 @@ pthread_init(void)
                 printf("host_info failed (%d); probably need privilege.\n", kr);
         else {
 		default_priority = priority_info.user_priority;
-            min_priority = priority_info.minimum_priority;
-            max_priority = priority_info.maximum_priority;
+		min_priority = priority_info.minimum_priority;
+		max_priority = priority_info.maximum_priority;
 	}
 	attrs = &_pthread_attr_default;
 	pthread_attr_init(attrs);
 
+	LIST_INIT(&__pthread_head);
+	LOCK_INIT(_pthread_list_lock);
 	thread = &_thread;
+	LIST_INSERT_HEAD(&__pthread_head, thread, plist);
 	_pthread_set_self(thread);
 	_pthread_create(thread, attrs, (void *)USRSTACK, mach_thread_self());
 	thread->detached = PTHREAD_CREATE_JOINABLE|_PTHREAD_CREATE_PARENT;
@@ -1350,18 +1415,27 @@ pthread_init(void)
 		else {
 			if (basic_info.avail_cpus > 1)
 				_spin_tries = MP_SPIN_TRIES;
-			/* This is a crude test */
-			if (basic_info.cpu_subtype >= CPU_SUBTYPE_POWERPC_7400) 
-				_cpu_has_altivec = 1;
 		}
 	}
+
 	mach_port_deallocate(mach_task_self(), host);
+    
+	_init_cpu_capabilities();
 
-	len = sizeof(_cpu_capabilities);
-	sysctlbyname("hw._cpu_capabilities", &_cpu_capabilities, &len, NULL, 0);
+#if defined(__ppc__)
+	
+	/* Use fsqrt instruction in sqrt() if available. */
+    if (_cpu_capabilities & kHasFsqrt) {
+        extern size_t hw_sqrt_len;
+        extern double sqrt( double );
+        extern double hw_sqrt( double );
+        extern void sys_icache_invalidate(void *, size_t);
 
-	_bcopy_initialize();
-
+        memcpy ( (void *)sqrt, (void *)hw_sqrt, hw_sqrt_len );
+        sys_icache_invalidate((void *)sqrt, hw_sqrt_len);
+    }
+#endif
+    
 	mig_init(1);		/* enable multi-threaded mig interfaces */
 	return 0;
 }
@@ -1410,11 +1484,16 @@ static void sem_pool_reset(void) {
 	UNLOCK(sem_pool_lock);
 }
 
-__private_extern__ void _pthread_fork_child(void) {
+__private_extern__ void _pthread_fork_child(pthread_t p) {
 	/* Just in case somebody had it locked... */
 	UNLOCK(sem_pool_lock);
 	sem_pool_reset();
-	UNLOCK(_pthread_count_lock);
+	/* No need to hold the pthread_list_lock as no one other than this 
+	 * thread is present at this time
+	 */
+	LIST_INIT(&__pthread_head);
+	LOCK_INIT(_pthread_list_lock);
+	LIST_INSERT_HEAD(&__pthread_head, p, plist);
 	_pthread_count = 1;
 }
 

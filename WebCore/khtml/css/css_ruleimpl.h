@@ -20,7 +20,7 @@
  * the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
  *
- * $Id: css_ruleimpl.h,v 1.8 2003/02/25 20:00:15 hyatt Exp $
+ * $Id: css_ruleimpl.h,v 1.9 2003/08/29 22:04:02 mjs Exp $
  */
 #ifndef _CSS_css_ruleimpl_h_
 #define _CSS_css_ruleimpl_h_
@@ -143,7 +143,7 @@ public:
     unsigned long insertRule ( CSSRuleImpl *rule, unsigned long index );
     void deleteRule ( unsigned long index );
 
-    void append( CSSRuleImpl *rule ) { m_lstCSSRules.append( rule ); }
+    void append( CSSRuleImpl *rule );
 protected:
     QPtrList<CSSRuleImpl> m_lstCSSRules;
 };

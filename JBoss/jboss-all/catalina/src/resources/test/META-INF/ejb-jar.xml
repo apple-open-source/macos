@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ejb-jar>
+    <enterprise-beans>
+        
+       <session>
+            <ejb-name>Optimized</ejb-name>
+            <home>org.jboss.test.tomcat.ejb.interfaces.StatelessSessionHome</home>
+            <remote>org.jboss.test.tomcat.ejb.interfaces.StatelessSession</remote>
+            <ejb-class>org.jboss.test.tomcat.ejb.bean.StatelessSessionBean</ejb-class>
+            <session-type>Stateless</session-type>
+            <transaction-type>Container</transaction-type>
+        </session>
+        
+       <session>
+            <ejb-name>NonOptimized</ejb-name>
+            <home>org.jboss.test.tomcat.ejb.interfaces.StatelessSessionHome</home>
+            <remote>org.jboss.test.tomcat.ejb.interfaces.StatelessSession</remote>
+            <ejb-class>org.jboss.test.tomcat.ejb.bean.StatelessSessionBean</ejb-class>
+            <session-type>Stateless</session-type>
+            <transaction-type>Container</transaction-type>
+        </session>
+        
+    </enterprise-beans>
+</ejb-jar>
+

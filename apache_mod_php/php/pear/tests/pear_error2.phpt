@@ -1,6 +1,7 @@
 --TEST--
 PEAR_Error: die mode
 --SKIPIF--
+skip
 --FILE--
 <?php // -*- C++ -*-
 
@@ -9,7 +10,7 @@ PEAR_Error: die mode
 //               - PEAR::isError static method
 // testing PEAR_Error
 
-require "../PEAR.php";
+include dirname(__FILE__)."/../PEAR.php";
 
 error_reporting(E_ALL);
 

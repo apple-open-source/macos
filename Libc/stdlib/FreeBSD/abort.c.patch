@@ -1,0 +1,18 @@
+--- abort.c.orig	Mon Apr 28 16:37:26 2003
++++ abort.c	Sat May  3 14:27:55 2003
+@@ -43,12 +43,9 @@
+ #include <unistd.h>
+ #include <pthread.h>
+ 
+-void (*__cleanup)();
+-
+-/* XXX - why are these declarations here? */
+-extern int	__sys_sigprocmask(int, const sigset_t *, sigset_t *);
+-extern int	__sys_sigaction(int, const struct sigaction *,
+-		    struct sigaction *);
++extern void (*__cleanup)();
++#define	__sys_sigprocmask	sigprocmask
++#define	__sys_sigaction		sigaction
+ 
+ void
+ abort()

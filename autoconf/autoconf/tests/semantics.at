@@ -1,8 +1,23 @@
-#							-*- autoconf -*-
+#							-*- Autotest -*-
 
 AT_BANNER([Semantics.])
 
-
+# Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+# 02111-1307, USA.
 
 
 ## -------------------------------- ##
@@ -108,7 +123,7 @@ AT_CHECK_DEFINES(
 ])
 
 AT_CHECK([sed 's/  */ /g;s/^ //;s/ $//' config.libobjs], [],
-         [autoconf_ftnirp.o
+         [autoconf_ftnirp$U.o
 ])
 
 AT_CLEANUP([config.libobjs])
@@ -141,27 +156,36 @@ AT_CHECK_MACRO([AC_CHECK_MEMBERS],
 
 # AC_CHECK_SIZEOF
 # ---------------
+# Not cross-compiling.
 AT_CHECK_MACRO([AC_CHECK_SIZEOF],
 [[AC_CHECK_SIZEOF(char)
 AC_CHECK_SIZEOF(charchar,,
 [[#include <stdio.h>
 typedef char charchar[2];]])
 AC_CHECK_SIZEOF(charcharchar)
-
-# Exercize the code used when cross-compiling
-cross_compiling=yes
-AC_CHECK_SIZEOF(unsigned char)
-AC_CHECK_SIZEOF(ucharchar,,
-[[#include <stdio.h>
-typedef unsigned char ucharchar[2];]])
-AC_CHECK_SIZEOF(ucharcharchar)]],
+]],
 [AT_CHECK_DEFINES(
 [#define SIZEOF_CHAR 1
 #define SIZEOF_CHARCHAR 2
 #define SIZEOF_CHARCHARCHAR 0
-#define SIZEOF_UCHARCHAR 2
-#define SIZEOF_UCHARCHARCHAR 0
-#define SIZEOF_UNSIGNED_CHAR 1
+])])
+
+
+# AC_CHECK_SIZEOF
+# ---------------
+AT_CHECK_MACRO([AC_CHECK_SIZEOF],
+[[# Exercise the code used when cross-compiling
+cross_compiling=yes
+AC_CHECK_SIZEOF(char)
+AC_CHECK_SIZEOF(charchar,,
+[[#include <stdio.h>
+typedef char charchar[2];]])
+AC_CHECK_SIZEOF(charcharchar)
+]],
+[AT_CHECK_DEFINES(
+[#define SIZEOF_CHAR 1
+#define SIZEOF_CHARCHAR 2
+#define SIZEOF_CHARCHARCHAR 0
 ])])
 
 
@@ -187,7 +211,7 @@ AT_CHECK_MACRO([AC_CHECK_TYPES],
 # or to the new one.
 AT_SETUP([AC_CHECK_TYPES: backward compatibility])
 
-AT_DATA(configure.ac,
+AT_DATA([configure.ac],
 [[AC_INIT
 define([_AC_CHECK_TYPE_NEW], [NEW])
 define([_AC_CHECK_TYPE_OLD], [OLD])
@@ -268,10 +292,10 @@ AT_SETUP([AC_CHECK_PROG & AC_CHECK_PROGS])
 
 AT_CHECK_PROGS_PREPARE
 
-AT_DATA(configure.ac,
+AT_DATA([configure.ac],
 [[AC_INIT
 pwd=`pwd`
-p="1${ac_path_separator}2${ac_path_separator}3${ac_path_separator}4${ac_path_separator}5${ac_path_separator}6"
+p="1${PATH_SEPARATOR}2${PATH_SEPARATOR}3${PATH_SEPARATOR}4${PATH_SEPARATOR}5${PATH_SEPARATOR}6"
 path=`echo $p | sed -e 's,\([[0-9]]\),'"$pwd"'/path/\1,g'`
 fail=false
 
@@ -308,18 +332,56 @@ AT_CHECK_CONFIGURE
 AT_CLEANUP(path)
 
 
+
+## ---------------- ##
+## AC_C_BIGENDIAN.  ##
+## ---------------- ##
+
+AT_SETUP([[AC_C_BIGENDIAN]])
+AT_KEYWORDS([cross])
+
+# Make sure that AC_C_BIGENDIAN behave the same whether we are
+# cross-compiling or not.
+
+_AT_CHECK_AC_MACRO(
+  [AC_C_BIGENDIAN([ac_endian=big],[ac_endian=little],[ac_endian=unknown])
+   echo $ac_endian > at-endian
+])
+
+rm -f config.hin  # So that next run of autoheader is quiet.
+_AT_CHECK_AC_MACRO(
+  [cross_compiling=yes
+   AC_C_BIGENDIAN([ac_endian=big],[ac_endian=little],[ac_endian=unknown])
+   ac_prevendian=`cat at-endian`
+   # Check that we have found the same result as in the previous run
+   # or unknown (because the cross-compiling check is allowed to fail;
+   # although it might be interesting to suppress this comparison, just
+   # to know on which system it fails if it ever does).
+   if test $ac_endian != $ac_prevendian && test $ac_endian != unknown; then
+     AC_MSG_ERROR([unexpected endianness: first run found '$ac_prevendian' but second run found '$ac_endian'])
+   fi
+])
+
+# Make sure AC_C_BIGENDIAN with no argument will define WORDS_BIGENDIAN
+AT_CONFIGURE_AC([AC_C_BIGENDIAN])
+AT_CHECK_AUTOHEADER
+AT_CHECK([grep WORDS_BIGENDIAN config.hin], [], [ignore])
+
+AT_CLEANUP(at-endian)
+
+
 # ------------------------------ #
 # AC_PATH_PROG & AC_PATH_PROGS.  #
 # ------------------------------ #
 
-AT_SETUP(AC_PATH_PROG & AC_PATH_PROGS)
+AT_SETUP([[AC_PATH_PROG & AC_PATH_PROGS]])
 
 AT_CHECK_PROGS_PREPARE
 
-AT_DATA(configure.ac,
+AT_DATA([configure.ac],
 [[AC_INIT
 pwd=`pwd`
-p="1${ac_path_separator}2${ac_path_separator}3${ac_path_separator}4${ac_path_separator}5${ac_path_separator}6"
+p="1${PATH_SEPARATOR}2${PATH_SEPARATOR}3${PATH_SEPARATOR}4${PATH_SEPARATOR}5${PATH_SEPARATOR}6"
 path=`echo $p | sed -e 's,\([[0-9]]\),'"$pwd"'/path/\1,g'`
 fail=false
 

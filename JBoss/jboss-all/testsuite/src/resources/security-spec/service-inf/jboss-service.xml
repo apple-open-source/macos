@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<server>
+   <!-- The custom JAAS login configuration service that installs 
+       a Configuration capable of dynamically updating the
+       config settings
+   -->
+   <mbean code="org.jboss.test.security.service.SecurityConfig"
+         name="jboss.security.tests:service=SecuritySpecLoginConfig">
+      <attribute name="AuthConfig">META-INF/spec-test-config.xml</attribute>
+      <attribute name="SecurityConfigName">jboss.security:service=SecurityConfig</attribute>
+   </mbean>
+
+   <!-- A JaasSecurityDomain setup to test that changes to the security
+   layer do not affect the ability to use this subclass of JaasSecurityManager
+   -->
+   <mbean code="org.jboss.security.plugins.JaasSecurityDomain"
+      name="jboss.security:service=JaasSecurityDomain,domain=spec-test-domain">
+      <constructor>
+         <arg type="java.lang.String" value="spec-test-domain"/>
+      </constructor>
+      <attribute name="KeyStoreURL">resource:tst.keystore</attribute>
+      <attribute name="KeyStorePass">unit-tests</attribute>
+   </mbean>
+
+</server>

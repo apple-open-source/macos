@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -24,7 +22,7 @@
  */
 #ifdef SHLIB
 #include "shlib.h"
-#endif SHLIB
+#endif /* SHLIB */
 /*
  * This file contains the routines that deal with module initialization and
  * termination function pointer sections. 
@@ -57,8 +55,8 @@
  */
 static struct merged_section *dylib_ms_init = NULL;
 static struct merged_section *dylib_ms_term = NULL;
-static unsigned long ninit = 0;
-static unsigned long nterm = 0;
+__private_extern__ unsigned long ninit = 0;
+__private_extern__ unsigned long nterm = 0;
 #endif /* !defined(RLD) */
 
 /*

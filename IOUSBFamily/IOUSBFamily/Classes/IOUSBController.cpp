@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,6 +22,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
 //================================================================================================
 //
 //   Headers
@@ -41,6 +41,7 @@
 #include <IOKit/IOTimerEventSource.h>
 
 #include <IOKit/usb/IOUSBController.h>
+#include <IOKit/usb/IOUSBControllerV2.h>
 #include <IOKit/usb/IOUSBDevice.h>
 #include <IOKit/usb/USBSpec.h>
 #include <IOKit/usb/IOUSBRootHubDevice.h>
@@ -92,6 +93,7 @@ IOUSBLog		*IOUSBController::_log;
 const IORegistryPlane	*IOUSBController::gIOUSBPlane = 0;
 UInt32			IOUSBController::_busCount;
 bool			IOUSBController::gUsedBusIDs[kMaxNumberUSBBusses];
+
 
 //================================================================================================
 //
@@ -333,7 +335,6 @@ IOUSBController::CreateDevice(	IOUSBDevice 		*newDevice,
              deviceAddress, (speed == kUSBDeviceSpeedLow) ? "low" :  ((speed == kUSBDeviceSpeedFull) ? "full" : "high"), (int)powerAvailable*2);
     
     _addressPending[deviceAddress] = true;			// in case the INIT takes a long time
-    
     do 
     {
         if (!newDevice->init(deviceAddress, powerAvailable, speed, maxPacketSize))
@@ -352,10 +353,10 @@ IOUSBController::CreateDevice(	IOUSBDevice 		*newDevice,
         {
             USBLog(3,"%s[%p]::CreateDevice device->start failed", getName(), this);
             newDevice->detach(this);
-            newDevice->release();
             break;
         }
 
+        USBLog(2, "%s[%p]::CreateDevice - releasing pend on address %d", getName(), this, deviceAddress);
         _addressPending[deviceAddress] = false;
 
         return(kIOReturnSuccess);
@@ -425,7 +426,6 @@ IOUSBController::GetNewAddress(void)
     {
         if ( _addressPending[i] == true )
         {
-            USBLog(3,"%s[%p]::GetNewAddress: Address %d is pending",getName(), this, i);
             assigned[i] = true;
         }
     }
@@ -469,9 +469,18 @@ IOUSBController::ControlTransaction(IOUSBCommand *command)
     {
         // Setup Stage
 
-        completion.target    = (void *)this;
-        completion.action    = (IOUSBCompletionAction) &IOUSBController::ControlPacketHandler;
-        completion.parameter = (void *)command;
+	completion = command->GetUSLCompletion();
+	if(completion.action == NULL)
+	{
+//USBLog(1,"ControlTransaction new version, setting old completion");
+	    completion.target    = (void *)this;
+	    completion.action    = (IOUSBCompletionAction) &ControlPacketHandler;
+	    completion.parameter = (void *)command;
+	}
+	else
+	{
+USBLog(7,"ControlTransaction new version, using V2 completion");
+	}
 
 	// the request is in Host format, so I need to convert the 16 bit fields to bus format
 	request->wValue = HostToUSBWord(request->wValue);
@@ -603,6 +612,7 @@ IOUSBController::ControlPacketHandler( OSObject * 	target,
     IOUSBCommand 	*command = (IOUSBCommand *)parameter;
     IOUSBDevRequest	*request;
     UInt8		sent, back, todo;
+    Boolean in = false;
     IOUSBController *	me = (IOUSBController *)target;
 
     USBLog(7,"ControlPacketHandler lParam=%lx  status=0x%x bufferSizeRemaining=0x%x", 
@@ -632,9 +642,13 @@ IOUSBController::ControlPacketHandler( OSObject * 	target,
         // This is the data transport phase, so this is the interesting one
         command->SetStage(command->GetStage() | kDataBack);
         command->SetDataRemaining(bufferSizeRemaining);
+	in = (((request->bmRequestType >> kUSBRqDirnShift) & kUSBRqDirnMask) == kUSBIn);
     }
     else if((todo & kStatusBack) != 0)
+    {
         command->SetStage(command->GetStage() | kStatusBack);
+	in = (((request->bmRequestType >> kUSBRqDirnShift) & kUSBRqDirnMask) != kUSBIn);
+    }
     else
         USBLog(5,"%s[%p]::ControlPacketHandler: Spare transactions, This seems to be harmless", me->getName(), me);
 
@@ -647,9 +661,22 @@ IOUSBController::ControlPacketHandler( OSObject * 	target,
         {
             USBDeviceAddress	addr = command->GetAddress();
             UInt8		endpt = command->GetEndpoint();
+	    IOUSBControllerV2   *v2Bus;
     
             command->SetStatus(status);
-    
+
+	    if (status == kIOUSBHighSpeedSplitError)
+	    {
+		USBLog(1,"%s[%p]::ControlPacketHandler - kIOUSBHighSpeedSplitError", me->getName(), me);
+		v2Bus = OSDynamicCast(IOUSBControllerV2, me);
+		if (v2Bus)
+		{
+		    USBLog(1,"%s[%p]::ControlPacketHandler - calling clear TT", me->getName(), me);
+		    v2Bus->ClearTT(addr, endpt, in);
+		}
+		status = kIOReturnNotResponding;
+	    }    
+
             USBLog(3,"%s[%p]:ControlPacketHandler error 0x%x occured on endpoint (%d).  todo = 0x%x (Clearing stall)", me->getName(), me, status, endpt, todo);
             
             // We used to only clear the endpoint (and hence return all transactions on that endpoint) stall for endpoint 0.  However, a
@@ -742,7 +769,8 @@ IOUSBController::InterruptPacketHandler(OSObject * target, void * parameter, IOR
     if (command == 0)
         return;
 
-    USBLog(7,"InterruptPacketHandler: addr=%d:%d transaction complete status=0x%x bufferSizeRemaining = %d, buffer: %p, reqCount = %d", command->GetAddress(), command->GetEndpoint(), status,(int)bufferSizeRemaining, command->GetBuffer(), command->GetReqCount());
+    USBLog(7,"InterruptPacketHandler: transaction complete status=0x%x bufferSizeRemaining = %d", status, 
+	    (int)bufferSizeRemaining);
 
     if ( status == kIOUSBTransactionReturned )
         status = kIOReturnAborted;
@@ -1787,6 +1815,7 @@ IOUSBController::DeviceRequest(IOUSBDevRequest *request, IOUSBCompletion *comple
 {
     IOUSBCommand *command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
     IOReturn	err = kIOReturnSuccess; 
+    IOUSBCompletion nullCompletion;
 
     // If we couldn't get a command, increase the allocation and try again
     //
@@ -1815,6 +1844,11 @@ IOUSBController::DeviceRequest(IOUSBDevRequest *request, IOUSBCompletion *comple
         command->SetClientCompletion(*completion);
 	command->SetNoDataTimeout(noDataTimeout);
 	command->SetCompletionTimeout(completionTimeout);
+
+	/* Set the USL completion to NULL, so the high speed controller can do its own thing. */
+	nullCompletion.action = NULL;
+        command->SetUSLCompletion(nullCompletion);
+	
 	for (i=0; i < 10; i++)
 	    command->SetUIMScratch(i, 0);
 	    
@@ -1845,6 +1879,7 @@ IOUSBController::DeviceRequest(IOUSBDevRequestDesc *request, IOUSBCompletion *	c
 {
     IOUSBCommand *command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
     IOReturn	err = kIOReturnSuccess;
+    IOUSBCompletion nullCompletion;
 
     // If we couldn't get a command, increase the allocation and try again
     //
@@ -1875,6 +1910,11 @@ IOUSBController::DeviceRequest(IOUSBDevRequestDesc *request, IOUSBCompletion *	c
         command->SetClientCompletion(*completion);
 	command->SetNoDataTimeout(noDataTimeout);
 	command->SetCompletionTimeout(completionTimeout);
+
+	/* Set the USL completion to NULL, so the high speed controller can do its own thing. */
+	nullCompletion.action = NULL;
+        command->SetUSLCompletion(nullCompletion);
+
 	for (i=0; i < 10; i++)
 	    command->SetUIMScratch(i, 0);
 
@@ -1933,9 +1973,10 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
     IOReturn			err = kIOReturnSuccess;
     OSNumber * 			busNumberProp;
     UInt32			bus;
+    UInt32			address;
     const char *		parentLocation;
     int				deviceNum = 0, functionNum = 0;
-    UInt32			busIndex;
+    SInt32			busIndex;
 
     
     /*
@@ -1949,11 +1990,15 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
     }
 
     *rootHubDevice = IOUSBRootHubDevice::NewRootHubDevice();
-
-    err = CreateDevice(*rootHubDevice, GetNewAddress(), desc.bMaxPacketSize0, _controllerSpeed, kUSB500mAAvailable);
+    address = GetNewAddress();
+    SetHubAddress( address );
+    
+    err = CreateDevice(*rootHubDevice, address, desc.bMaxPacketSize0, _controllerSpeed, kUSB500mAAvailable);
     if ( err != kIOReturnSuccess)
     {
         USBError(1,"%s: unable to create and initialize root hub device", getName());
+	(*rootHubDevice)->release();
+	*rootHubDevice = NULL;
         goto ErrorExit;
     }
 
@@ -1981,7 +2026,7 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
     else
     {
         // Take the PCI device number and function number and combine to make an 8 bit
-        // quantity, in binary:  fffd dddd.  If the bus already exists, then just look for the next
+        // quantity, in binary:  dddddfff.  If the bus already exists, then just look for the next
         // available bus entry after that.
         //
         bus = ( ((functionNum & 0x7) << 5) | (deviceNum & 0x1f) );

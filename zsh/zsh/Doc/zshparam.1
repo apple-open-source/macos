@@ -1,4 +1,4 @@
-.TH "ZSHPARAM" "1" "October 26, 2001" "zsh 4\&.0\&.4"
+.TH "ZSHPARAM" "1" "June 18, 2003" "zsh 4\&.1\&.1"
 .SH "NAME"
 zshparam \- zsh parameters
 .\" Yodl file: Zsh/params.yo
@@ -23,8 +23,9 @@ writing:
 .RE
 .PP
 If the integer attribute, \fB\-i\fP, is set for \fIname\fP, the \fIvalue\fP
-is subject to arithmetic evaluation\&.  See the section `Array Parameters'
-for additional forms of assignment\&.
+is subject to arithmetic evaluation\&.  Furthermore, by replacing `\fB=\fP'
+with `\fB+=\fP', a parameter can be added or appended to\&.  See
+the section `Array Parameters' for additional forms of assignment\&.
 .PP
 To refer to the value of a parameter, write `\fB$\fP\fIname\fP' or
 `\fB${\fP\fIname\fP\fB}\fP'\&.  See
@@ -33,9 +34,11 @@ for complete details\&.
 .PP
 In the parameter lists that follow, the mark `<S>' indicates that the
 parameter is special\&.
-Special parameters cannot have their type changed, and they stay special even
-if unset\&.  `<Z>' indicates that the parameter does not exist when the shell
-initializes in \fBsh\fP or \fBksh\fP emulation mode\&.
+Special parameters cannot have their type changed or their
+readonly attribute turned off, and if a special parameter is unset, then
+later recreated, the special properties will be retained\&.  `<Z>' indicates
+that the parameter does not exist when the shell initializes in \fBsh\fP or
+\fBksh\fP emulation mode\&.
 .SH "ARRAY PARAMETERS"
 To assign an array value, write one of:
 .PP
@@ -573,15 +576,30 @@ The present working directory\&.  This is set when the shell initializes
 and whenever the directory changes\&.
 .TP
 \fBRANDOM\fP <S>
-A random integer from 0 to 32767, newly generated each time
+A pseudo\-random integer from 0 to 32767, newly generated each time
 this parameter is referenced\&.  The random number generator
 can be seeded by assigning a numeric value to \fBRANDOM\fP\&.
+.RS
+.PP
+The values of \fBRANDOM\fP form an intentionally\-repeatable pseudo\-random
+sequence; subshells that reference \fBRANDOM\fP will result
+in identical pseudo\-random values unless the value of \fBRANDOM\fP is
+referenced or seeded in the parent shell in between subshell invocations\&.
+.RE
 .TP
 \fBSECONDS\fP <S>
 The number of seconds since shell invocation\&.  If this parameter
 is assigned a value, then the value returned upon reference
 will be the value that was assigned plus the number of seconds
 since the assignment\&.
+.RS
+.PP
+Unlike other special parameters, the type of the \fBSECONDS\fP parameter can
+be changed using the \fBtypeset\fP command\&.  Only integer and one of the
+floating point types are allowed\&.  For example, `\fBtypeset \-F SECONDS\fP'
+causes the value to be reported as a floating point number\&.  The precision
+is six decimal places, although not all places may be useful\&.
+.RE
 .TP
 \fBSHLVL\fP <S>
 Incremented by one each time a new shell is started\&.
@@ -666,15 +684,21 @@ The maximum size of the directory stack\&.  If the
 stack gets larger than this, it will be truncated automatically\&.
 This is useful with the \fBAUTO_PUSHD\fP option\&.
 .TP
+\fBENV\fP
+If the \fBENV\fP environment variable is set when zsh is invoked as \fBsh\fP
+or \fBksh\fP, \fB$ENV\fP is sourced after the profile scripts\&.  The value of
+\fBENV\fP is subjected to parameter expansion, command substitution, and
+arithmetic expansion before being interpreted as a pathname\&.  Note that
+\fBENV\fP is \fInot\fP used unless zsh is emulating \fBsh\fP or \fBksh\fP\&.
+.TP
 \fBFCEDIT\fP
 The default editor for the \fBfc\fP builtin\&.
 .TP
 \fBfignore\fP <S> <Z> (\fBFIGNORE\fP <S>)
 An array (colon separated list)
 containing the suffixes of files to be ignored
-during filename completion\&.  However, if the completion generates only files
-which would match if this variable would be ignored, than these files are
-completed anyway\&.
+during filename completion\&.  However, if completion only generates files
+with suffixes in this list, then these files are completed anyway\&.
 .TP
 \fBfpath\fP <S> <Z> (\fBFPATH\fP <S>)
 An array (colon separated list)
@@ -896,6 +920,16 @@ This prompt is displayed on the right\-hand side of the screen
 when the primary prompt is being displayed on the left\&.
 This does not work if the \fBSINGLELINEZLE\fP option is set\&.
 It is expanded in the same way as \fBPS1\fP\&.
+.TP
+.PD 0
+\fBRPROMPT2\fP <S>
+.TP
+.PD
+\fBRPS2\fP <S>
+This prompt is displayed on the right\-hand side of the screen
+when the secondary prompt is being displayed on the left\&.
+This does not work if the \fBSINGLELINEZLE\fP option is set\&.
+It is expanded in the same way as \fBPS2\fP\&.
 .TP
 \fBSAVEHIST\fP
 The maximum number of history events to save in the history file\&.

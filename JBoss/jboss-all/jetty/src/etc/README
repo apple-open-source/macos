@@ -1,0 +1,57 @@
+-----------------------------------------------------------------------
+Using a custom webdefault.xml
+-----------------------------------------------------------------------
+As of JBoss 3.x, Jetty uses a standard webdefault.xml file by default.
+
+In order to override the webdefaults.xml shipped with Jetty, place
+a customized webdefault.xml file into this directory, uncomment the
+appropriate line in src/resources/jetty-plugin/META-INF/jboss-service.xml,
+and then rebuild the Jetty JBoss Service Archive (jetty-plugin.sar) and
+redeploy.
+
+
+-----------------------------------------------------------------------
+Customizing Jetty configuration
+-----------------------------------------------------------------------
+As of JBoss 3.x, essential Jetty configuration is placed within Jetty's
+jboss-service.xml file instead of requiring a jetty.xml file. 
+
+As shipped, the Jetty configuration fires up a listener on port 8080,
+and sets up a standard HTTP request log in the JBoss log directory.
+If you wish to specify an SSL listener, then uncomment the appropriate 
+lines in src/resources/jetty-plugin/META-INF/jboss-service.xml,
+rebuild and redeploy.
+
+If you REALLY NEED to customize Jetty further, place your custom Jetty
+XML into a web-jetty.xml file in your WEB-INF/ directory of your war files.
+
+DO NOT add webapps into the jboss-service.xml file, as these will not be visible to the JBoss deployment mechanism.
+
+-----------------------------------------------------------------------
+MBeans
+-----------------------------------------------------------------------
+By default, Jetty will create MBeans for all listeners, contexts, log sinks etc. To view them, hit http://localhost:8082
+
+
+
+-----------------------------------------------------------------------
+Reporting problems
+-----------------------------------------------------------------------
+
+Please post problems accordingly :
+
+Jetty (i.e. WAR, JSDK, HTTP) related -> jetty-discuss@yahoogroups.com
+
+JBoss/Jetty Integration (Deployment etc...) related ->
+jboss-development@lists.sourceforge.net (put 'Jetty' in your subject
+line)
+
+JBoss (everything else) related -> jboss-development@lists.sourceforge.net
+
+
+
+
+Thanks for using JBoss-Jetty,
+
+Jules (JBoss-Jetty maintainer) - Jules_Gosnell@yahoo.com
+

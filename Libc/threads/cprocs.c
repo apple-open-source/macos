@@ -64,8 +64,6 @@ extern void alloc_stack(), _dealloc_stack();
 extern mach_port_t mach_thread_self();
 extern boolean_t swtch_pri();
 
-private int cprocs_started = FALSE;
-
 #ifdef	CTHREADS_DEBUG
 private void
 print_cproc(p)
@@ -100,12 +98,11 @@ print_cproc_queue(name, queue)
 	cthread_queue_map(queue, cproc_t, print_cproc);
 	printf("\n");
 }
-#endif	CTHREADS_DEBUG
-
-private int cproc_lock = 0;		/* unlocked */
-private cproc_t cprocs = NO_CPROC;	/* linked list of cprocs */
+#endif	/* CTHREADS_DEBUG */
 
 #ifdef	CTHREADS_DEBUG
+private cproc_t cprocs = NO_CPROC;	/* linked list of cprocs */
+
 private void
 print_all_cprocs()
 {
@@ -116,7 +113,7 @@ print_all_cprocs()
 		print_cproc(p);
 	printf("\n");
 }
-#endif	CTHREADS_DEBUG
+#endif	/* CTHREADS_DEBUG */
 
 /*
  * Routines for supporting fork() of multi-threaded programs.

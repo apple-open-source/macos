@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/result.c,v 1.64 2002/01/17 22:30:05 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/result.c,v 1.64.2.12 2003/02/28 17:07:14 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*  Portions
@@ -26,6 +26,10 @@
  * April 2000 sfs Add code to process V3 referrals and search results
  *
  *  result.c - wait for an ldap result
+ */
+/* Note: A verbatim copy of version 2.0.1 of the OpenLDAP Public License 
+ * can be found in the file "build/LICENSE-2.0.1" in this distribution
+ * of OpenLDAP Software.
  */
 
 /*
@@ -53,7 +57,7 @@
 #include <ac/unistd.h>
 
 #include "ldap-int.h"
-
+#include "ldap_log.h"
 
 static int ldap_abandoned LDAP_P(( LDAP *ld, ber_int_t msgid ));
 static int ldap_mark_abandoned LDAP_P(( LDAP *ld, ber_int_t msgid ));
@@ -97,16 +101,11 @@ ldap_result(
 	assert( ld != NULL );
 	assert( result != NULL );
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ARGS, "ldap_result msgid %d\n", msgid, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_result msgid %d\n", msgid, 0, 0 );
-
-	if( ld == NULL ) {
-		return -1;
-	}
-
-	if( result == NULL ) {
-		ld->ld_errno = LDAP_PARAM_ERROR;
-		return -1;
-	}
+#endif
 
     lm = chkResponseList(ld, msgid, all);
 
@@ -133,17 +132,27 @@ chkResponseList(
 	 * wait until it arrives or timeout occurs.
 	 */
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ARGS, "ldap_chkResponseList for msgid=%d, all=%d\n", 
+		msgid, all, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE,
 		"ldap_chkResponseList for msgid=%d, all=%d\n",
 	    msgid, all, 0 );
+#endif
 	lastlm = NULL;
 	for ( lm = ld->ld_responses; lm != NULL; lm = nextlm ) {
 		nextlm = lm->lm_next;
 
 		if ( ldap_abandoned( ld, lm->lm_msgid ) ) {
+#ifdef NEW_LOGGING
+			LDAP_LOG ( OPERATION, DETAIL1, 
+				"ldap_chkResponseList msg abandoned, msgid %d\n", msgid, 0, 0 );
+#else
 			Debug( LDAP_DEBUG_TRACE,
 				"ldap_chkResponseList msg abandoned, msgid %d\n",
 			    msgid, 0, 0 );
+#endif
 			ldap_mark_abandoned( ld, lm->lm_msgid );
 
 			if ( lastlm == NULL ) {
@@ -201,12 +210,23 @@ chkResponseList(
 
 #ifdef LDAP_DEBUG
 	if( lm == NULL) {
+#ifdef NEW_LOGGING
+		LDAP_LOG ( OPERATION, RESULTS, "ldap_chkResponseList returns NULL\n",
+			0, 0, 0 );
+#else
 		Debug( LDAP_DEBUG_TRACE,
 			"ldap_chkResponseList returns NULL\n", 0, 0, 0);
+#endif
 	} else {
+#ifdef NEW_LOGGING
+		LDAP_LOG ( OPERATION, RESULTS, 
+			"ldap_chkResponseList returns msgid %d, type 0x%02lu\n",
+			lm->lm_msgid, (unsigned long) lm->lm_msgtype, 0 );
+#else
 		Debug( LDAP_DEBUG_TRACE,
 			"ldap_chkResponseList returns msgid %d, type 0x%02lu\n",
 			lm->lm_msgid, (unsigned long) lm->lm_msgtype, 0);
+#endif
 	}
 #endif
     return lm;
@@ -231,11 +251,22 @@ wait4msg(
 
 #ifdef LDAP_DEBUG
 	if ( timeout == NULL ) {
+#ifdef NEW_LOGGING
+		LDAP_LOG ( OPERATION, ARGS, 
+			"wait4msg (infinite timeout), msgid %d\n", msgid, 0, 0 );
+#else
 		Debug( LDAP_DEBUG_TRACE, "wait4msg (infinite timeout), msgid %d\n",
 		    msgid, 0, 0 );
+#endif
 	} else {
+#ifdef NEW_LOGGING
+		LDAP_LOG ( OPERATION, ARGS, 
+			"wait4msg (timeout %ld sec, %ld usec), msgid %d\n", 
+			(long) timeout->tv_sec, (long) timeout->tv_usec, msgid );
+#else
 		Debug( LDAP_DEBUG_TRACE, "wait4msg (timeout %ld sec, %ld usec), msgid %d\n",
 		       (long) timeout->tv_sec, (long) timeout->tv_usec, msgid );
+#endif
 	}
 #endif /* LDAP_DEBUG */
 
@@ -250,8 +281,13 @@ wait4msg(
 	rc = -2;
 	while ( rc == -2 ) {
 #ifdef LDAP_DEBUG
+#ifdef NEW_LOGGING
+		LDAP_LOG ( OPERATION, ARGS, 
+			"wait4msg continue, msgid %d, all %d\n", msgid, all, 0 );
+#else
 		Debug( LDAP_DEBUG_TRACE, "wait4msg continue, msgid %d, all %d\n",
 		    msgid, all, 0 );
+#endif
 		if ( ldap_debug & LDAP_DEBUG_TRACE ) {
 			ldap_dump_connection( ld, ld->ld_conns, 1 );
 			ldap_dump_requests_and_responses( ld );
@@ -277,9 +313,15 @@ wait4msg(
 
 #ifdef LDAP_DEBUG
 			    if ( rc == -1 ) {
+#ifdef NEW_LOGGING
+					LDAP_LOG ( OPERATION, ARGS, 
+						"wait4msg: ldap_int_select returned -1: errno %d\n", 
+						errno, 0, 0 );
+#else
 			        Debug( LDAP_DEBUG_TRACE,
 				        "ldap_int_select returned -1: errno %d\n",
 				        errno, 0, 0 );
+#endif
 			    }
 #endif
 
@@ -296,6 +338,12 @@ wait4msg(
 				    rc = -2;	/* select interrupted: loop */
 			    } else {
 				    rc = -2;
+				    if ( ld->ld_requests &&
+						ld->ld_requests->lr_status == LDAP_REQST_WRITING &&
+						ldap_is_write_ready( ld,
+							ld->ld_requests->lr_conn->lconn_sb ) ) {
+						ldap_int_flush_request( ld, ld->ld_requests );
+					}
 				    for ( lc = ld->ld_conns; rc == -2 && lc != NULL;
 				        lc = nextlc ) {
 					    nextlc = lc->lconn_next;
@@ -319,8 +367,13 @@ wait4msg(
 				break;
 			}
 
+#ifdef NEW_LOGGING
+			LDAP_LOG ( OPERATION, DETAIL1, 
+				"wait4msg: %ld secs to go\n", (long) tv.tv_sec, 0, 0 );
+#else
 			Debug( LDAP_DEBUG_TRACE, "wait4msg:  %ld secs to go\n",
 			       (long) tv.tv_sec, 0, 0 );
+#endif
 			start_time = tmp_time;
 		}
 	}
@@ -348,6 +401,9 @@ try_read1msg(
 	BerElement	tmpber;
 	int		rc, refer_cnt, hadref, simple_request;
 	ber_int_t	lderr;
+#ifdef LDAP_CONNECTIONLESS
+	int		firstmsg = 1, moremsgs = 0, isv2 = 0;
+#endif
 	/*
 	 * v3ref = flag for V3 referral / search reference
 	 * 0 = not a ref, 1 = sucessfully chased ref, -1 = pass ref to application
@@ -357,8 +413,13 @@ try_read1msg(
 	assert( ld != NULL );
 	assert( lc != NULL );
 	
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ARGS, "read1msg: msgid %d, all %d\n", msgid, all, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "read1msg: msgid %d, all %d\n", msgid, all, 0 );
+#endif
 
+retry:
     if ( lc->lconn_ber == NULL ) {
 		lc->lconn_ber = ldap_alloc_ber_with_options(ld);
 
@@ -370,20 +431,28 @@ try_read1msg(
 	ber = lc->lconn_ber;
 	assert( LBER_VALID (ber) );
 
+retry2:
 	/* get the next message */
 	errno = 0;
 #ifdef LDAP_CONNECTIONLESS
 	if ( LDAP_IS_UDP(ld) ) {
 		struct sockaddr from;
 		ber_int_sb_read(sb, &from, sizeof(struct sockaddr));
+		if (ld->ld_options.ldo_version == LDAP_VERSION2) isv2=1;
 	}
+nextresp3:
 #endif
 	if ( (tag = ber_get_next( sb, &len, ber ))
 	    != LDAP_TAG_MESSAGE ) {
 		if ( tag == LBER_DEFAULT) {
 #ifdef LDAP_DEBUG		   
+#ifdef NEW_LOGGING
+			LDAP_LOG ( OPERATION, DETAIL1, 
+				"read1msg: ber_get_next failed\n", 0, 0, 0 );
+#else
 			Debug( LDAP_DEBUG_CONNS,
 			      "ber_get_next failed.\n", 0, 0, 0 );
+#endif		   
 #endif		   
 #ifdef EWOULDBLOCK			
 			if (errno==EWOULDBLOCK) return -2;
@@ -413,23 +482,38 @@ try_read1msg(
 
 	/* if it's been abandoned, toss it */
 	if ( ldap_abandoned( ld, id ) ) {
-		ber_free( ber, 1 );
+#ifdef NEW_LOGGING
+		LDAP_LOG ( OPERATION, DETAIL1, "read1msg: abandoned\n", 0, 0, 0 );
+#else
 		Debug( LDAP_DEBUG_ANY, "abandoned\n", 0, 0, 0);
+#endif
+retry_ber:
+		if ( ber_sockbuf_ctrl( sb, LBER_SB_OPT_DATA_READY, NULL ) ) {
+			ber_free_buf( ber );
+			ber_init2( ber, NULL, ld->ld_lberoptions );
+			goto retry2;
+		}
+		ber_free( ber, 1 );
 		return( -2 );	/* continue looking */
 	}
 
 	if (( lr = ldap_find_request_by_msgid( ld, id )) == NULL ) {
+#ifdef NEW_LOGGING
+		LDAP_LOG ( OPERATION, DETAIL1, 
+			"read1msg: no request for response with msgid %ld (tossing)\n",
+			(long) id, 0, 0 );
+#else
 		Debug( LDAP_DEBUG_ANY,
 		    "no request for response with msgid %ld (tossing)\n",
 		    (long) id, 0, 0 );
-		ber_free( ber, 1 );
-		return( -2 );	/* continue looking */
+#endif
+		goto retry_ber;
 	}
 #ifdef LDAP_CONNECTIONLESS
-	if (LDAP_IS_UDP(ld) && ld->ld_options.ldo_version == LDAP_VERSION2) {
-		struct berval blank;
-		ber_scanf(ber, "m{", &blank);
+	if (LDAP_IS_UDP(ld) && isv2) {
+		ber_scanf(ber, "x{");
 	}
+nextresp2:
 #endif
 	/* the message type */
 	if ( (tag = ber_peek_tag( ber, &len )) == LBER_ERROR ) {
@@ -438,10 +522,17 @@ try_read1msg(
 		return( -1 );
 	}
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, DETAIL1, 
+		"read1msg: ldap_read: message type %s msgid %ld, original id %ld\n",
+	    ldap_int_msgtype2str( tag ),
+		(long) lr->lr_msgid, (long) lr->lr_origid );
+#else
 	Debug( LDAP_DEBUG_TRACE,
 		"ldap_read: message type %s msgid %ld, original id %ld\n",
 	    ldap_int_msgtype2str( tag ),
 		(long) lr->lr_msgid, (long) lr->lr_origid );
+#endif
 
 	id = lr->lr_origid;
 	refer_cnt = 0;
@@ -476,9 +567,16 @@ try_read1msg(
 						/* If haven't got end search, set chasing referrals */
 						if( lr->lr_status != LDAP_REQST_COMPLETED) {
 							lr->lr_status = LDAP_REQST_CHASINGREFS;
+#ifdef NEW_LOGGING
+							LDAP_LOG ( OPERATION, DETAIL1, 
+								"read1msg: search ref chased,"
+								"mark request chasing refs, id =	%d\n",
+								lr->lr_msgid, 0, 0 );
+#else
 							Debug( LDAP_DEBUG_TRACE,
 							    "read1msg:  search ref chased, mark request chasing refs, id = %d\n",
 							    lr->lr_msgid, 0, 0);
+#endif
 						}
 						v3ref = 1;	/* We sucessfully chased the reference */
 					}
@@ -502,9 +600,16 @@ try_read1msg(
 						if( ber_scanf( &tmpber, "{v}", &refs) == LBER_ERROR) {
 							rc = LDAP_DECODING_ERROR;
 							lr->lr_status = LDAP_REQST_COMPLETED;
+#ifdef NEW_LOGGING
+							LDAP_LOG ( OPERATION, DETAIL1, 
+								"read1msg: referral decode error,"
+								"mark request completed, id =	%d\n",
+								lr->lr_msgid, 0, 0 );
+#else
 							Debug( LDAP_DEBUG_TRACE,
 							    "read1msg: referral decode error, mark request completed, id = %d\n",
 								    lr->lr_msgid, 0, 0);
+#endif
 						} else {
 							/* Chase the referral 
 							 * Note: refs arrary is freed by ldap_chase_v3referrals
@@ -512,9 +617,16 @@ try_read1msg(
 							refer_cnt = ldap_chase_v3referrals( ld, lr, refs,
 							    0, &lr->lr_res_error, &hadref );
 							lr->lr_status = LDAP_REQST_COMPLETED;
+#ifdef NEW_LOGGING
+							LDAP_LOG ( OPERATION, DETAIL1, 
+								"read1msg: referral chased,"
+								"mark request completed, id =	%d\n",
+								lr->lr_msgid, 0, 0 );
+#else
 							Debug( LDAP_DEBUG_TRACE,
 							    "read1msg:  referral chased, mark request completed, id = %d\n",
 							    lr->lr_msgid, 0, 0);
+#endif
 							if( refer_cnt > 0) {
 								v3ref = 1;  /* Referral successfully chased */
 							}
@@ -538,7 +650,11 @@ try_read1msg(
 	 * go through the following code.  This code also chases V2 referrals
 	 * and checks if all referrals have been chased.
 	 */
-	if ( (tag != LDAP_RES_SEARCH_ENTRY) && (v3ref > -1) ) {
+	if ( (tag != LDAP_RES_SEARCH_ENTRY) && (v3ref > -1)
+#ifdef LDAP_RES_INTERMEDIATE_RESP
+		&& (tag != LDAP_RES_INTERMEDIATE_RESP )
+#endif
+	) {
 		/* For a v3 search referral/reference, only come here if already chased it */
 		if ( ld->ld_version >= LDAP_VERSION2 &&
 			( lr->lr_parent != NULL ||
@@ -546,7 +662,13 @@ try_read1msg(
 		{
 			tmpber = *ber;	/* struct copy */
 			if ( v3ref == 1 ) {
-				; /* V3 search reference or V3 referral sucessfully chased */
+				/* V3 search reference or V3 referral
+				 * sucessfully chased. If this message
+				 * is a search result, then it has no more
+				 * outstanding referrals.
+				 */
+				if ( tag == LDAP_RES_SEARCH_RESULT )
+					refer_cnt = 0;
 			} else if ( ber_scanf( &tmpber, "{iaa}", &lderr,
 			    &lr->lr_res_matched, &lr->lr_res_error )
 			    != LBER_ERROR ) {
@@ -555,8 +677,15 @@ try_read1msg(
 					refer_cnt = ldap_chase_referrals( ld, lr,
 						&lr->lr_res_error, -1, &hadref );
 					lr->lr_status = LDAP_REQST_COMPLETED;
+#ifdef NEW_LOGGING
+					LDAP_LOG ( OPERATION, DETAIL1, 
+						"read1msg: V2 referral chased,"
+						"mark request completed, id =	%d\n",
+						lr->lr_msgid, 0, 0 );
+#else
 					Debug( LDAP_DEBUG_TRACE,
 					    "read1msg:  V2 referral chased, mark request completed, id = %d\n", lr->lr_msgid, 0, 0);
+#endif
 				}
 
 				/* save errno, message, and matched string */
@@ -569,15 +698,27 @@ try_read1msg(
 				} else {
 					lr->lr_res_errno = LDAP_PARTIAL_RESULTS;
 				}
+#ifdef NEW_LOGGING
+LDAP_LOG ( OPERATION, DETAIL1, 
+	"read1msg: new result: res_errno: %d, res_error: <%s>, res_matched: <%s>\n",
+    lr->lr_res_errno, lr->lr_res_error ? lr->lr_res_error : "",
+    lr->lr_res_matched ? lr->lr_res_matched : "" );
+#else
 Debug( LDAP_DEBUG_TRACE,
     "new result:  res_errno: %d, res_error: <%s>, res_matched: <%s>\n",
     lr->lr_res_errno, lr->lr_res_error ? lr->lr_res_error : "",
     lr->lr_res_matched ? lr->lr_res_matched : "" );
+#endif
 			}
 		}
 
+#ifdef NEW_LOGGING
+		LDAP_LOG ( OPERATION, DETAIL1, "read1msg: %d new referrals\n", 
+			refer_cnt, 0, 0 );
+#else
 		Debug( LDAP_DEBUG_TRACE,
 		    "read1msg:  %d new referrals\n", refer_cnt, 0, 0 );
+#endif
 
 		if ( refer_cnt != 0 ) {	/* chasing referrals */
 			ber_free( ber, 1 );
@@ -597,8 +738,14 @@ Debug( LDAP_DEBUG_TRACE,
 			}
 
 			lr->lr_status = LDAP_REQST_COMPLETED; /* declare this request done */
+#ifdef NEW_LOGGING
+			LDAP_LOG ( OPERATION, DETAIL1, 
+				"read1msg: mark request completed, id = %d\n", 
+				lr->lr_msgid, 0, 0 );
+#else
 			Debug( LDAP_DEBUG_TRACE,
 			    "read1msg:  mark request completed, id = %d\n", lr->lr_msgid, 0, 0);
+#endif
 			while ( lr->lr_parent != NULL ) {
 				merge_error_info( ld, lr->lr_parent, lr );
 
@@ -622,12 +769,21 @@ Debug( LDAP_DEBUG_TRACE,
 			if ( lr->lr_outrefcnt <= 0 && lr->lr_parent == NULL && tmplr == NULL ) {
 				id = lr->lr_msgid;
 				tag = lr->lr_res_msgtype;
+#ifdef NEW_LOGGING
+			LDAP_LOG ( OPERATION, DETAIL1, 
+				"read1msg: request %ld done\n", (long) id, 0, 0 );
+			LDAP_LOG ( OPERATION, DETAIL1, 
+				"read1msg: res_errno: %d,res_error: <%s>, res_matched: <%s>\n",
+				lr->lr_res_errno, lr->lr_res_error ? lr->lr_res_error : "",
+				lr->lr_res_matched ? lr->lr_res_matched : "" );
+#else
 				Debug( LDAP_DEBUG_ANY, "request %ld done\n",
 				    (long) id, 0, 0 );
 Debug( LDAP_DEBUG_TRACE,
 "res_errno: %d, res_error: <%s>, res_matched: <%s>\n",
 lr->lr_res_errno, lr->lr_res_error ? lr->lr_res_error : "",
 lr->lr_res_matched ? lr->lr_res_matched : "" );
+#endif
 				if ( !simple_request ) {
 					ber_free( ber, 1 );
 					ber = NULL;
@@ -660,11 +816,84 @@ lr->lr_res_matched ? lr->lr_res_matched : "" );
 	new->lm_msgtype = tag;
 	new->lm_ber = ber;
 
-#ifndef LDAP_NOCACHE
-		if ( ld->ld_cache != NULL ) {
-			ldap_add_result_to_cache( ld, new );
+#ifdef LDAP_CONNECTIONLESS
+	/* CLDAP replies all fit in a single datagram. In LDAPv2 RFC1798
+	 * the responses are all a sequence wrapped in one message. In
+	 * LDAPv3 each response is in its own message. The datagram must
+	 * end with a SearchResult. We can't just parse each response in
+	 * separate calls to try_read1msg because the header info is only
+	 * present at the beginning of the datagram, not at the beginning
+	 * of each response. So parse all the responses at once and queue
+	 * them up, then pull off the first response to return to the
+	 * caller when all parsing is complete.
+	 */
+	if ( LDAP_IS_UDP(ld) ) {
+		/* If not a result, look for more */
+		if ( tag != LDAP_RES_SEARCH_RESULT ) {
+			int ok = 0;
+			moremsgs = 1;
+			if (isv2) {
+				/* LDAPv2: dup the current ber, skip past the current
+				 * response, and see if there are any more after it.
+				 */
+				ber = ber_dup( ber );
+				ber_scanf( ber, "x" );
+				if (ber_peek_tag(ber, &len) != LBER_DEFAULT) {
+					/* There's more - dup the ber buffer so they can all be
+					 * individually freed by ldap_msgfree.
+					 */
+					struct berval bv;
+					ber_get_option(ber, LBER_OPT_BER_REMAINING_BYTES, &len);
+					bv.bv_val = LDAP_MALLOC(len);
+					if (bv.bv_val) {
+						ok=1;
+						ber_read(ber, bv.bv_val, len);
+						bv.bv_len = len;
+						ber_init2(ber, &bv, ld->ld_lberoptions );
+					}
+				}
+			} else {
+				/* LDAPv3: Just allocate a new ber. Since this is a buffered
+				 * datagram, if the sockbuf is readable we still have data
+				 * to parse.
+				 */
+				ber = ldap_alloc_ber_with_options(ld);
+				if (ber_sockbuf_ctrl(sb, LBER_SB_OPT_DATA_READY, NULL)) ok=1;
+			}
+			/* set up response chain */
+			if ( firstmsg ) {
+				firstmsg = 0;
+				new->lm_next = ld->ld_responses;
+				ld->ld_responses = new;
+			} else {
+				tmp->lm_chain = new;
+			}
+			tmp = new;
+			/* "ok" means there's more to parse */
+			if (ok) {
+				if (isv2) goto nextresp2;
+				else goto nextresp3;
+			} else {
+				/* got to end of datagram without a SearchResult. Free
+				 * our dup'd ber, but leave any buffer alone. For v2 case,
+				 * the previous response is still using this buffer. For v3,
+				 * the new ber has no buffer to free yet.
+				 */
+				ber_free(ber, 0);
+				return -1;
+			}
+		} else if ( moremsgs ) {
+		/* got search result, and we had multiple responses in 1 datagram.
+		 * stick the result onto the end of the chain, and then pull the
+		 * first response off the head of the chain.
+		 */
+			tmp->lm_chain = new;
+			*result = chkResponseList( ld, msgid, all );
+			ld->ld_errno = LDAP_SUCCESS;
+			return( (*result)->lm_msgtype );
 		}
-#endif /* LDAP_NOCACHE */
+	}
+#endif
 
 	/* is this the one we're looking for? */
 	if ( msgid == LDAP_RES_ANY || id == msgid ) {
@@ -703,11 +932,17 @@ lr->lr_res_matched ? lr->lr_res_matched : "" );
 
 		new->lm_next = ld->ld_responses;
 		ld->ld_responses = new;
-		return( -2 );	/* continue looking */
+		goto exit;
 	}
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, DETAIL1, 
+		"read1msg: adding response id %ld type %ld\n",
+		(long) new->lm_msgid, (long) new->lm_msgtype, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "adding response id %ld type %ld:\n",
 	    (long) new->lm_msgid, (long) new->lm_msgtype, 0 );
+#endif
 
 	/* part of a search response - add to end of list of entries */
 	for ( tmp = l; (tmp->lm_chain != NULL) &&
@@ -726,20 +961,13 @@ lr->lr_res_matched ? lr->lr_res_matched : "" );
 			prev->lm_next = l->lm_next;
 		*result = l;
 		ld->ld_errno = LDAP_SUCCESS;
-#ifdef LDAP_WORLD_P16
-		/*
-		 * XXX questionable fix; see text for [P16] on
-		 * http://www.critical-angle.com/ldapworld/patch/
-		 *
-		 * inclusion of this patch causes searchs to hang on
-		 * multiple platforms
-		 */
-		return( l->lm_msgtype );
-#else	/* LDAP_WORLD_P16 */
 		return( tag );
-#endif	/* !LDAP_WORLD_P16 */
 	}
 
+exit:
+	if ( ber_sockbuf_ctrl( sb, LBER_SB_OPT_DATA_READY, NULL ) ) {
+		goto retry;
+	}
 	return( -2 );	/* continue looking */
 }
 
@@ -748,7 +976,7 @@ static ber_tag_t
 build_result_ber( LDAP *ld, BerElement **bp, LDAPRequest *lr )
 {
 	ber_len_t	len;
-	ber_int_t	tag;
+	ber_tag_t	tag;
 	ber_int_t	along;
 	BerElement *ber;
 
@@ -826,12 +1054,21 @@ merge_error_info( LDAP *ld, LDAPRequest *parentr, LDAPRequest *lr )
 		}
 	}
 
+#ifdef NEW_LOGGING
+	LDAP_LOG( OPERATION, DETAIL1, "merged parent (id %d) error info:  ",
+	    parentr->lr_msgid, 0, 0 );
+	LDAP_LOG( OPERATION, DETAIL1, "result errno %d, error <%s>, matched <%s>\n",
+	    parentr->lr_res_errno, parentr->lr_res_error ?
+	    parentr->lr_res_error : "", parentr->lr_res_matched ?
+	    parentr->lr_res_matched : "" );
+#else
 	Debug( LDAP_DEBUG_TRACE, "merged parent (id %d) error info:  ",
 	    parentr->lr_msgid, 0, 0 );
 	Debug( LDAP_DEBUG_TRACE, "result errno %d, error <%s>, matched <%s>\n",
 	    parentr->lr_res_errno, parentr->lr_res_error ?
 	    parentr->lr_res_error : "", parentr->lr_res_matched ?
 	    parentr->lr_res_matched : "" );
+#endif
 }
 
 
@@ -877,7 +1114,11 @@ ldap_msgfree( LDAPMessage *lm )
 	LDAPMessage	*next;
 	int		type = 0;
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_msgfree\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_msgfree\n", 0, 0, 0 );
+#endif
 
 	for ( ; lm != NULL; lm = next ) {
 		next = lm->lm_chain;
@@ -901,7 +1142,11 @@ ldap_msgdelete( LDAP *ld, int msgid )
 
 	assert( ld != NULL );
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_msgdelete\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_msgdelete\n", 0, 0, 0 );
+#endif
 
 	prev = NULL;
 	for ( lm = ld->ld_responses; lm != NULL; lm = lm->lm_next ) {

@@ -1,0 +1,4 @@
+<!DOCTYPE synopsis PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
+<synopsis>
+int max(int int1, int int2);
+</synopsis>

@@ -1,7 +1,7 @@
 /* abandon.c - decode and handle an ldap abandon operation */
-/* $OpenLDAP: pkg/ldap/servers/slapd/abandon.c,v 1.26 2002/01/04 20:17:44 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/abandon.c,v 1.26.2.6 2003/02/17 16:57:41 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -30,13 +30,13 @@ do_abandon(
     Operation	*op
 )
 {
-	ber_int_t		id;
+	ber_int_t	id;
 	Operation	*o;
-	int rc;
+	int		rc;
+	int		i;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "operation", LDAP_LEVEL_ENTRY, "conn: %d do_abandon\n",
-		conn->c_connid));
+	LDAP_LOG( OPERATION, ENTRY, "conn: %d do_abandon\n", conn->c_connid, 0, 0);
 #else
 	Debug( LDAP_DEBUG_TRACE, "do_abandon\n", 0, 0, 0 );
 #endif
@@ -49,9 +49,8 @@ do_abandon(
 
 	if ( ber_scanf( op->o_ber, "i", &id ) == LBER_ERROR ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_ERR, 
-		       "conn: %d do_abandon: ber_scanf failed\n",
-		       conn->c_connid ));
+		LDAP_LOG( OPERATION, ERR, 
+			"conn: %d do_abandon: ber_scanf failed\n", conn->c_connid, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY, "do_abandon: ber_scanf failed\n", 0, 0 ,0 );
 #endif
@@ -66,16 +65,17 @@ do_abandon(
 	} 
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "operation", LDAP_LEVEL_ARGS,
-		"do_abandon: conn: %d  id=%ld\n", conn->c_connid, (long) id ));
+	LDAP_LOG( OPERATION, ARGS, "do_abandon: conn: %d  id=%ld\n", 
+		conn->c_connid, (long) id, 0 );
 #else
 	Debug( LDAP_DEBUG_ARGS, "do_abandon: id=%ld\n", (long) id, 0 ,0 );
 #endif
 
 	if( id <= 0 ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_ERR,
-		    "do_abandon: conn: %d bad msgid %ld\n", conn->c_connid, (long) id ));
+		LDAP_LOG( OPERATION, ERR, 
+			"do_abandon: conn: %d bad msgid %ld\n", 
+			conn->c_connid, (long) id, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
 			"do_abandon: bad msgid %ld\n", (long) id, 0, 0 );
@@ -92,9 +92,7 @@ do_abandon(
 
 	LDAP_STAILQ_FOREACH( o, &conn->c_ops, o_next ) {
 		if ( o->o_msgid == id ) {
-			ldap_pvt_thread_mutex_lock( &o->o_abandonmutex );
 			o->o_abandon = 1;
-			ldap_pvt_thread_mutex_unlock( &o->o_abandonmutex );
 			goto done;
 		}
 	}
@@ -108,12 +106,19 @@ do_abandon(
 	}
 
 done:
+
+	for ( i = 0; i < nbackends; i++ ) {
+		Backend *be = &backends[i];
+
+		if( be->be_abandon ) be->be_abandon( be, conn, op, id );
+	}
+
 	ldap_pvt_thread_mutex_unlock( &conn->c_mutex );
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "operation", LDAP_LEVEL_ENTRY,
+	LDAP_LOG( OPERATION, ENTRY, 
 		"do_abandon: conn: %d op=%ld %sfound\n",
-		conn->c_connid, (long)id, o ? "" : "not " ));
+		conn->c_connid, (long)id, o ? "" : "not " );
 #else
 	Debug( LDAP_DEBUG_TRACE, "do_abandon: op=%ld %sfound\n",
 		(long) id, o ? "" : "not ", 0 );

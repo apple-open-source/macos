@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2001, 2003 Apple Computer, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -19,209 +19,185 @@
 //
 //  AtomicFile.h - Description t.b.d.
 //
-#ifndef _H_ATOMICFILE
-#define _H_ATOMICFILE
+#ifndef _SECURITY_ATOMICFILE_H_
+#define _SECURITY_ATOMICFILE_H_  1
 
-#include <Security/threading.h>
-
-#include <map>
+#include <Security/refcount.h>
 #include <string>
-
-#if _USE_IO == _USE_IO_POSIX
-#include <sys/types.h>
-#include <machine/endian.h>
-#elif _USE_IO == _USE_IO_MACOS
-#define htonl(X) (X)
-#define ntohl(X) (X)
-#endif
-
-#ifdef _CPP_ATOMICFILE
-#pragma export on
-#endif
+#include <sys/stat.h>
 
 namespace Security
 {
 
-class DbName;
+class AtomicBufferedFile;
+class AtomicLockedFile;
+class AtomicTempFile;
 
 class AtomicFile
 {
 public:
-    typedef int FileRef;
-    typedef int VersionId;
-
-    AtomicFile(const DbName &inDbName);
+	AtomicFile(const std::string &inPath);
 	~AtomicFile();
-
-    // Close the currently open AtomicFile.  (If there are transactions outstanding this call
-    // has no effect until after they have completed.
-    void close();
-
-    // Start a read operation. Returns a mmaped region with the file in it.  Return the size of the
-    // file in length.  Each call to enterRead() *must* be paired with a call to exitRead.
-    VersionId enterRead(const uint8 *&outFileAddress, size_t &outLength);
-
-    // End a read operation.
-    void exitRead(VersionId inVersionId);
-
-	// Return true if inVersionId is not the most recent version of this file.
-	bool isDirty(VersionId inVersionId);
 
     // Aquire the write lock and remove the file.
     void performDelete();
 
-    // Create and lock the database file for writing, and set outWriteRef to a newly created
-    // file open for writing.
-    // Return the new VersionId this file will have after a succesful commit.
-    VersionId enterCreate(FileRef &outWriteRef);
+    // Aquire the write lock and rename the file.
+    void rename(const std::string &inNewPath);
 
-    // Lock the database file for writing, map the database file for reading and
-    // set outWriteRef to a newly created file open for writing.
-    // Return the VersionId or the file being modified.
-    VersionId enterWrite(const uint8 *&outFileAddress, size_t &outLength, FileRef &outWriteRef);
+	// Lock the file for writing and return a newly created AtomicTempFile.
+    RefPointer<AtomicTempFile> create(mode_t mode);
 
-    // Commit the current create or write and close the write file.  Return the VersionId of the new file.
-    VersionId commit();
+    // Lock the file for writing and return a newly created AtomicTempFile.
+	RefPointer<AtomicTempFile> write();
 
-    // Rollback the current create or write.
-    void rollback();
+	// Return a bufferedFile containing current version of the file for reading.
+	RefPointer<AtomicBufferedFile> read();
 
-    enum OffsetType {
-        None,
+	string path() const { return mPath; }
+	string dir() const { return mDir; }
+	string file() const { return mFile; }
+
+	mode_t mode() const;
+
+    enum OffsetType
+	{
         FromStart,
-        FromCurrent
+		FromEnd			// only works with offset of 0
     };
 
-    void write(OffsetType inOffsetType, uint32 inOffset, const uint32 *inData, uint32 inCount);
-    void write(OffsetType inOffsetType, uint32 inOffset, const uint8 *inData, uint32 inLength);
-    void write(OffsetType inOffsetType, uint32 inOffset, const uint32 inData);
-    const string filename() const { return mReadFilename; }
-private:
-    void endWrite();
-    void rename(const string &inSrcFilename, const string &inDestFilename);
-    void unlink(const string &inFilename);
-
-    class OpenFile
-    {
-    public:
-        OpenFile(const std::string &inFilename, bool write, bool lock, VersionId inVersionId, mode_t mode);
-        ~OpenFile();
-
-        void close();
-        VersionId versionId() const { return mVersionId; }
-        FileRef fileRef() const { return mFileRef; }
-        const uint8 *address() const { return mAddress; }
-        size_t length() const { return mLength; }
-
-        // Check if the file has its dirty bit set.
-        bool isDirty();
-        // Set the files dirty bit (requires the file to be writeable and locked).
-        void setDirty();
-
-        void lock();
-        void unlock();
-
-		// Return the mode bits of the file
-		mode_t mode();
-
-        int mUseCount;
-        FileRef mFileRef;
-    private:
-        VersionId readVersionId();
-        void writeVersionId(VersionId inVersionId);
-		static void mkpath(const std::string &inFilename);
-
-        VersionId mVersionId;
-        const uint8 *mAddress;
-        size_t mLength;
-		bool mFcntlLock;
-        enum
-        {
-            Closed,
-            Read,
-            Write,
-            ReadWrite,
-            Create
-        } mState;
-    };
-
-    Mutex mReadLock;
-    OpenFile *mReadFile;
-    string mReadFilename;
-
-    Mutex mWriteLock;
-    OpenFile *mWriteFile;
-    string mWriteFilename;
-
-    typedef std::map<VersionId, OpenFile *> OpenFileMap;
-    OpenFileMap mOpenFileMap;
-
-    bool mCreating;
-};
-
-
-class AtomicFileRef
-{
-public:
-    virtual ~AtomicFileRef();
-
-    uint32 at(uint32 inOffset)
-    {
-        return ntohl(*reinterpret_cast<const uint32 *>(mAddress + inOffset));
-    }
-
-    uint32 operator[](uint32 inOffset)
-    {
-        if (inOffset + sizeof(uint32) > mLength)
-            CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
-        return at(inOffset);
-    }
-
-    const uint8 *range(uint32 inOffset, uint32 inLength)
-    {
-        if (inOffset + inLength > mLength)
-            CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
-        return mAddress + inOffset;
-    }
-
-    const AtomicFile::VersionId mVersionId;
-protected:
-    struct InitArg;
-    AtomicFileRef(AtomicFile &inAtomicFile, const InitArg &inInitArg);
-
-    AtomicFile &mAtomicFile;
-    const uint8 *mAddress;
-    const size_t mLength;
-};
-
-// Use this class to open an AtomicFile for reading.
-class AtomicFileReadRef : public AtomicFileRef
-{
-public:
-    AtomicFileReadRef(AtomicFile &inAtomicFile);
-    virtual ~AtomicFileReadRef();
-private:
-    static InitArg enterRead(AtomicFile &inAtomicFile);
-};
-
-// Use this class to open an AtomicFile for writing.
-class AtomicFileWriteRef : public AtomicFileRef
-{
-public:
-    AtomicFileWriteRef(AtomicFile &inAtomicFile);
-    virtual ~AtomicFileWriteRef();
-    AtomicFile::VersionId commit() { mOpen = false; return mAtomicFile.commit(); }
+	static void pathSplit(const std::string &inFull, std::string &outDir, std::string &outFile);
+	static void mkpath(const std::string &inDir, mode_t mode = 0777);
+	static int ropen(const char *const name, int flags, mode_t mode);
+	static int rclose(int fd);
 
 private:
-    static InitArg enterWrite(AtomicFile &inAtomicFile, AtomicFile::FileRef &outWriteFileRef);
-    AtomicFile::FileRef mFileRef;
-    bool mOpen;
+	string mPath;
+	string mDir;
+	string mFile;
 };
+
+
+//
+// AtomicBufferedFile - This represents an instance of a file opened for reading.
+// The file is read into memory and closed after this is done.
+// The memory is released when this object is destroyed.
+//
+class AtomicBufferedFile : public RefCount
+{
+public:
+	AtomicBufferedFile(const std::string &inPath);
+	~AtomicBufferedFile();
+
+	// Open the file and return it's size.
+	off_t open();
+
+	// Read inLength bytes starting at inOffset.
+	const uint8 *read(off_t inOffset, off_t inLength, off_t &outLength);
+
+	// Return the current mode bits of the file
+	mode_t mode();
+
+	// Close the file (this doesn't release the buffer).
+	void close();
+
+	// Return the length of the file.
+	off_t length() const { return mLength; }
+
+private:
+	// Complete path to the file
+	string mPath;
+
+	// File descriptor to the file or -1 if it's not currently open.
+	int mFileRef;
+
+	// This is where the data from the file is read in to.
+	uint8 *mBuffer;
+
+	// Length of file in bytes.
+	off_t mLength;
+};
+
+
+//
+// AtomicTempFile - A temporary file to write changes to.
+//
+class AtomicTempFile : public RefCount
+{
+public:
+	// Start a write for a new file.
+	AtomicTempFile(AtomicFile &inFile, const RefPointer<AtomicLockedFile> &inLockedFile, mode_t mode);
+
+	// Start a write of an existing file.
+	AtomicTempFile(AtomicFile &inFile, const RefPointer<AtomicLockedFile> &inLockedFile);
+
+	~AtomicTempFile();
+
+    // Commit the current create or write and close the write file.
+    void commit();
+
+    void write(AtomicFile::OffsetType inOffsetType, off_t inOffset, const uint32 *inData, uint32 inCount);
+    void write(AtomicFile::OffsetType inOffsetType, off_t inOffset, const uint8 *inData, uint32 inLength);
+    void write(AtomicFile::OffsetType inOffsetType, off_t inOffset, const uint32 inData);
+
+private:
+	// Called by both constructors.
+	void create(mode_t mode);
+
+	// Fsync the file
+	void fsync();
+
+	// Close the file
+	void close();
+
+    // Rollback the current create or write (happens automatically if commit() isn't called before the destructor is).
+    void rollback() throw();
+
+private:
+	// Our AtomicFile object.
+	AtomicFile &mFile;
+
+	RefPointer<AtomicLockedFile> mLockedFile;
+
+	// Complete path to the file
+	string mPath;
+
+	// File descriptor to the file or -1 if it's not currently open.
+	int mFileRef;
+
+	// If this is true we unlink both mPath and mFile.path() when we rollback.
+	bool mCreating;
+};
+
+
+// The current lock being held.
+class AtomicLockedFile : public RefCount
+{
+public:
+	// Create a write lock for inFile.
+	AtomicLockedFile(AtomicFile &inFile);
+
+	~AtomicLockedFile();
+
+private:
+	void lock(mode_t mode = (S_IRUSR|S_IRGRP|S_IROTH) /* === 0444 */);
+	void unlock() throw();
+
+private:
+	std::string unique(mode_t mode);
+	int rlink(const char *const old, const char *const newn, struct stat &sto);
+	int myrename(const char *const old, const char *const newn);
+	int xcreat(const char *const name, mode_t mode, time_t &tim);
+
+	// The directory in which we create the lock
+	string mDir;
+
+	// Complete path to the file
+	string mPath;
+};
+
 
 } // end namespace Security
 
-#ifdef _CPP_ATOMICFILE
-#pragma export off
-#endif
 
-#endif //_H_ATOMICFILE
+#endif // _SECURITY_ATOMICFILE_H_

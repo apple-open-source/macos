@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,8 +12,7 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors:                                                             |
-   |                                                                      |
+   | Author: Sascha Schumann <sascha@schumann.cx>                         |
    +----------------------------------------------------------------------+
  */
 
@@ -29,9 +28,11 @@ extern zend_module_entry ircg_module_entry;
 #define PHP_IRCG_API
 #endif
 
+PHP_FUNCTION(ircg_set_on_die);
 PHP_FUNCTION(ircg_pconnect);
 PHP_FUNCTION(ircg_join);
 PHP_FUNCTION(ircg_set_current);
+PHP_FUNCTION(ircg_set_file);
 PHP_FUNCTION(ircg_part);
 PHP_FUNCTION(ircg_register_current_conn);
 PHP_FUNCTION(ircg_whois);
@@ -52,6 +53,7 @@ PHP_FUNCTION(ircg_register_format_messages);
 PHP_FUNCTION(ircg_nickname_escape);
 PHP_FUNCTION(ircg_nickname_unescape);
 PHP_FUNCTION(ircg_get_username);
+PHP_FUNCTION(ircg_eval_ecmascript_params);
 
 PHP_MINIT_FUNCTION(ircg);
 PHP_MSHUTDOWN_FUNCTION(ircg);

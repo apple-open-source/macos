@@ -1,0 +1,37 @@
+#!/bin/sh
+
+##
+# BIND name service.
+##
+
+. /etc/rc.common
+
+StartService ()
+{
+    if [ "${DNSSERVER:=-NO-}" = "-YES-" ]; then
+	ConsoleMessage "Starting named"
+	named
+    fi
+}
+
+StopService ()
+{
+    ConsoleMessage "Stopping named"
+    kill -TERM `cat /var/run/named.pid`
+}
+
+RestartService ()
+{
+    if [ "${DNSSERVER:=-NO-}" = "-YES-" ]; then
+	ConsoleMessage "Restarting named"
+	if [ -x /var/run/named.pid ]; then
+	    kill -HUP `cat /var/run/named.pid`
+	else
+	    named
+	fi
+    else
+	StopService
+    fi
+}
+
+RunService "$1"

@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(ATPgetreq, 3)
-	blr
 

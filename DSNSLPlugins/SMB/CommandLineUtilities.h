@@ -1,31 +1,41 @@
 /*
- *	File:		CommandLineUtilities.h (used to be executecommand.h)
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
- *	Contains:	See comments in CommandLineUtilities.c.
- *
- *	Written by:	Jeff Albouze
- *
- *	Copyright:	© 2000-2001 Apple Computer, Inc., all rights reserved.
- *
- *	Change History (most recent first):
- *
- *		 <*>	  6/8/01	JFA		Last modified (S3.1 candidate).
- *		 <6>	 1/29/01	JFA		Last modified (Mac OS X Server GM).
- *		 <0>	 5/11/00	JFA		Created from scratch.
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
+/*!
+ *	@header CommandLineUtilities
+ *	Implement a way to execute a command and get back its result.
  */ 
 
 #ifndef __CommandLineUtilities__
 #define __CommandLineUtilities__	1
 
-//#define DEBUG 1
-#include <Carbon/Carbon.h>
+#include <CoreFoundation/CoreFoundation.h>
 
-/* Includes */
 #include <sys/types.h>
 #include <stdio.h>
 #include <pwd.h>
-
-/* Includes */
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
@@ -33,9 +43,7 @@
 #include <fcntl.h>
 #include <time.h>
 #include <stdarg.h>
-//#include <varargs.h>
 #include <syslog.h>
-
 #include <signal.h>
 #include <sys/param.h>
 #include <sys/wait.h>
@@ -51,7 +59,7 @@ extern "C" {
 #define ENOERR 0
 #endif
 
-#define kTimeOutVal		25					// in seconds?
+#define kTimeOutVal		5					// in seconds?
 #define DEFAULT_EXEC_DELAY	 	5
 #define SHELL					"/bin/sh"
 

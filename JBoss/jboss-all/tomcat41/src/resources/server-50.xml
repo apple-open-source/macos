@@ -1,0 +1,44 @@
+<Server>
+
+  <Listener className="org.apache.catalina.mbeans.ServerLifecycleListener"
+            descriptors="/jboss-mbeans.xml" debug="0"/>
+
+         <Service name = "Catalina">
+            <Engine name="Catalina" defaultHost="localhost">
+
+               <Logger className = "org.jboss.web.catalina.Log4jLogger"
+                  verbosityLevel = "INFORMATION" category = "org.jboss.web.localhost.Engine"/>
+
+               <Realm className="org.jboss.web.catalina.security.JBossSecurityMgrRealm" />
+
+               <Host name="localhost">
+
+                  <!-- Access logger -->
+                  <Valve className = "org.apache.catalina.valves.AccessLogValve"
+                     prefix = "localhost_access" suffix = ".log"
+                     pattern = "common" directory = "../server/default/log" />
+
+                  <!-- Default context parameters -->
+                  <DefaultContext cookies = "true" crossContext = "true" override = "true" />
+
+               </Host>
+            </Engine>
+
+            <!-- A HTTP/1.1 Connector on port 8080 -->
+            <Connector className="org.apache.coyote.tomcat5.CoyoteConnector"
+               port="8080" minProcessors="3" maxProcessors="10"
+               enableLookups="true" acceptCount="10" debug="0" 
+               connectionTimeout="20000" useURIValidationHack="false" />
+
+            <!-- A AJP 1.3 Connector on port 8009 -->
+            <!--
+            <Connector className="org.apache.coyote.tomcat5.CoyoteConnector"
+               port="8009" minProcessors="5" maxProcessors="75"
+               enableLookups="true" redirectPort="8443"
+               acceptCount="10" debug="0" connectionTimeout="20000"
+               useURIValidationHack="false"
+               protocolHandlerClassName="org.apache.jk.server.JkCoyoteHandler"/>
+            -->
+
+         </Service>
+</Server>

@@ -1,0 +1,408 @@
+<jsp:include page="head.jsp" flush="true" />
+<jsp:include page="slogan.jsp" flush="true" >
+ <jsp:param name="SLOGAN" value="JBoss.Net: Integrating Web Services with J2EE"/>
+</jsp:include>
+
+<p class="head">Integrating Web Services with J2EE
+
+<p class="text"> 
+
+<img SRC="pictures/jboss-net.png" align=LEFT>
+
+<small>
+<a href="http://msdn.microsoft.com/library/default.asp?url=/nhp/Default.asp?contentid=28000442">
+From the Microsoft Developer Network (MSDN):
+</a>
+</small> 
+
+<cite>
+A <b>Web Service</b> is a unit of application logic providing data and services to 
+other applications. Applications access Web Services via ubiquitous Web protocols and data 
+formats such as HTTP, XML, and SOAP, with no need to worry about how each Web Service 
+is implemented. Web Services combine the best aspects of component-based development 
+and the Web ...
+</cite>
+
+<p class="text"> In addition, Web Services can be characterised through their ability to 
+describe themselves in a platform-independent, XML-based meta-language such as WSDL 
+(Web Service Description Language) and their ability to federate through global, platform-independent, and 
+XML-based registries such as UDDI (Universal Description, Discovery Integration).
+</p>
+
+<p class="text"> As emphasised in the <a href="http://www.sun.com/sunone">Sun Open Network Environment</a> vision 
+and to be put right into the core of the upcoming <a href="http://j2ee.sun.com">J2EE1.4 specification</a>,
+Web Services and J2EE are an ideal match. J2EE is a mature and 
+productive environment for developing and deploying application logic. Web Services 
+provide a new degree of cross-platform interoperability especially 
+wrt the <a href="http://www.microsoft.com/net/">Microsoft .NET</a> cosmos 
+that <a href="http://www.omg.org/corba">CORBA and IIOP</a> have not been able to provide. 
+</p>
+
+<p class="text"> 
+<em><a href="http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/jboss/contrib/jboss.net/">JBoss.Net</a></em> 
+is a plugin to the <a href="http://www.jboss.org">JBoss</a> application server 
+that should facilitate both 
+<ul>
+<li> 
+the painless implementation and publication of J2EE/JBoss-based Web Services and 
+</li>
+<li> 
+the seamless integration of external Web Services running on other business platforms 
+into the J2EE/JBoss environment.
+</li>
+</ul>
+while keeping track with respective standardisation efforts in the Java Community, 
+the W3C consortium, and ... the Microsoft development department. 
+</p>
+
+<p class=test">
+JBoss.NET is - for the time being - <br>NOT</br> an attempt
+to build an alternative implementation of .NET! For that purpose, please have a look at 
+the commercial <a href="http://halcyonsoft.com/products/iNET.asp">Halycon iNet (Beta)</a> 
+or the <a href="http://www.go-mono.com/">Mono</a> Open Source project.
+</p>
+ 
+<p class="head">Overview and Team
+
+<p class="text">For an introduction, please see this <a href="JbossOne2002.ppt">PowerPoint File</a> 
+that has been presented at the JBossOne Convention March 2002. The core guys behind Jboss.Net are Christoph G. Jung 
+(Axis integration, .Net interoperability, EJB-Provisioning), Peter Braswell (JMX mappings, UDDI interfaces, JMS coupling),
+and Frederick N. Brier (Macromedia Flash support, XDoclet web service module).
+
+<p class="head">Features and release plan
+
+<p class="text"> 
+<img SRC="pictures/axis.jpg" align=right> 
+
+Jboss.net is currently released under 1.0 and has 
+been adopting the <a href="http://xml.apache.org/axis">Apache Axis</a> 
+package (Release Candidate 1, installed under 
+<a href="http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/jboss/thirdparty/apache/axis/">thirdParty/apache/axis</a>).
+
+Axis is a clean-room successor to <a href="http://xml.apache.org/soap/">Apache-SOAP 2.0</a> and comes with a 
+well-configurable, JAXRPC-compatible processing architecture that is quite similar to the JBoss container 
+concept (see the above overview slides). We aim to fit the Axis code optimally into the JBoss hot-deploying environment 
+such that MBeans and EJB큦 can be straightforwardly exposed as Web Services and such that the basic 
+J2EE-related use-cases are supported. 
+ 
+<p class="text"> The current features include:
+
+<ul>
+
+<li class="text"> 
+The <code>org.jboss.net.axis.server.AxisService</code> MBean installs the basic Axis invocation engine to which the 
+dedicated transport servlet located in the embedded jboss-net.war talks to (has been tested with both <a ref="jboss-jetty.jsp">Jetty</a> and <a ref="jboss-tomcat.jsp">Tomcat</a>). 
+(The <code>org.jboss.net.axis.AxisInvocationHandler</code> that should originally ease the 
+construction of detached (dynamic) client proxies is deprecated and will soon vanish since the reflection
+meta-data are too small for connecting to real-world web services ... rather we recommend using stubs as generated 
+by the wsdl2java tool and as integrated using the external web-service reference feature - see below).
+</li>
+
+<li class="text"> 
+The AxisService MBean functions as a (hot-)deployer  for so-called <em>Web Service aRchive</em> (WSR- or .wsr-) files. 
+These are ordinary .jar files that contain, besides necessary byte code for plugging into the Axis machinery, a 
+slightly extended <a ref="http://cvs.apache.org/viewcvs.cgi/~checkout~/xml-axis/java/docs/user-guide.html">Web Service Deployment Descriptor (WSDD)</a> 
+in their &quot;META-INF/web-service.xml&quot; entry.
+</li>
+
+<li class="text"> 
+JBoss.Net contains a dedicated <code>org.jboss.net.jmx.server.MBeanProvider</code>
+handler that maps Web Service invocations directly to dedicated MBeans on the JMX bus. Similar to
+the JMX way of invocation, any Web Method starts with a String-Array describing the signature of
+the target Java method followed by the proper arguments. The corresponding
+<code>org.jboss.net.jmx.MBeanInvocationHandler</code> is also provided. Implemented, but not yet 
+fully tested, is the automatic WSDL (Web Service Description Language) emmission for such web services from the
+JMX meta-information.
+</li>
+
+<li class="text"> 
+An example for an MBean-based Web Service is preinstalled through the embedded jmx-net.wsr. The <code>org.jboss.net.jmx.adaptor.server.RemoteAdapter</code> 
+which exposes the full MBeanServer functionality as a Web Service (for client-side acccess you can use, e.g., the 
+<code>org.jboss.net.jmx.adaptor.RemoteAdaptor</code> interface and the <code>org.jboss.net.jmx.adaptor.RemoteAdaptorInvocationHandler</code>
+factory). Some of the relevant java types, such as javax.management.ObjectName and javax.management.Attribute, already have
+a reasonable typemapping installed for that purpose. 
+</li>
+
+<li class="text"> 
+A specialised <code>org.jboss.net.axis.server.EJBProvider</code> allows to interface/map 
+Web Service invocations immediately to session beans. For that purpose, .wsr files can 
+be deployed as &quot;client applications&quot; within .ear files (&lt;java/&gt; modules). We allow 
+&quot;&lt;ejb-ref\&gt;&quot; entries in the Axis deployment descriptor to link the 
+naming environments of the Web Service to the corresponding EJB큦. This is exactly the same
+mechanism that is usually used in the web.xml descriptor for being able to reroute bean-lookups 
+without changing the Servlet-code (see the WebContainer HowTo for that purpose). However, since there is usually
+no code involved in exposing a web-service, this feature may dissappear in some future version. 
+</li>
+
+<li class="text"> 
+Stateful Session Beans can be reasonably treated by, e.g., maintaining a persistent http-session with the 
+web-server which is the default mode of the AxisInvocationHandler. When deploying the web-service with the
+correct session-scope (as opposed to the usual call-scope), subsequent calls to the same AxisInvocationHandler will 
+hence hit the same (maybe stateful) session bean reference stored in the message scope. Proper Lifecycle
+handling in the JAXRPC/Axis message scope will trigger the EJBs` remove() method when leaving the scope.
+scope
+</li>
+
+<li class="text"> 
+For the called web-service to correctly behave in the JBoss container, it is required that
+the calling thread (usually taken from the WebServer큦 threadpool) is associated with the correct classloader , i.e., 
+the deployment classloader of the targetted service. For this purpose, we have fixedly installed two handlers 
+<code>org.jboss.net.axis.SetClassLoaderHandler</code> and
+<code>org.jboss.net.axis.ResetClassLoaderHandler</code> in the server큦 http transport chain. The first handler is installed
+in the requestFlow and 
+remembers the old classloader in the messagecontext and associated the thread with the target service큦 deployment classloader. 
+The latter is installed in the responseFlow and resets the association to the old loader after a successful call. Upon failure in each flow, 
+both handlers are able to reset the association.
+</li>
+
+<li class="text"> 
+Axis and JBoss Security models are connected via the two handlers <code>org.jboss.net.axis.server.JBossAuthenticationHandler</code> and
+<code>org.jboss.net.axis.server.JBossAuthorizationHandler</code>. The first one is installed per-default in the http-transport
+chain and maps the basic authentication data that has been extracted by a preceeding <code>org.apache.axis.transports.http.HTTPAuthHandler</code> 
+to a given JBoss security domain (as specified as a JNDI name in the handlers "securityDomain" parameter). The latter handler can
+be inserted in the requestFlow of your particular Web-service to mimique a unix-style allow/denied roles authorization scheme (parameter
+"securityDomain" as before, parameters "allowedRoles" and "deniedRoles" for controlling access to the 
+specified web service. See the servers axis-config.xml for that purpose.
+</li>
+
+<li class="text"> 
+You usually would not want to expose your Entity Beans as Web Services themselves for the same reasons as you
+usually do not expose references to client applications for fine-grained access. Instead you usually apply
+the Value-Object-Pattern to stream the entity bean state to the client and to impose the returned modifications on 
+that state back to the entity instance. This is possible by using a combination of the Axis-BeanSerializer and the
+<code>org.jboss.axis.server.EntityBeanDeserializer</code>. The Deserializer is given a particular find method
+and corresponding attributes from the entity큦 state, such as the primary key attribute, which are the parameters to the 
+find method. During Deserialization, it will first obtain these attribute to get a reference to the entity instance through 
+the home interface and the find method and afterwards will set the remaining attributes and elements from the structure. This way, even
+if your application has not yet been designed using value objects, e.g., because it is yet used with a browser-based 
+GUI and the WebContainer is hosted in-VM, you can easily extend it into a web-service. 
+</li>
+
+<li class="text"> 
+Since the Entity Bean serialisation process will be deeply integrated with the persistence engine, it is also important to 
+cater about transactional isolation. Usually, the deserialized and serialized data should be consistent with
+the transactional context within the called method. For that purpose, the <code>org.jboss.net.axis.server.JBossTxHandler</code>
+and the <code>org.jboss.net.axis.server.JBossResetTxHandler</code> will spawn a minimal user transaction around the
+exposed Web-Service, or particular methods of the Web-Service. the <code>org.jboss.net.axis.server.JbossForceSerHandler</code> is used
+ to ensure that serialisation is indeed done within the transaction borders.
+</li>
+
+<li class="text"> 
+To deal with external web services, such as the well known Google and BabelFish services, that 
+are very useful to be called from within your POJOs, MBeans or EJBeans, there is now the possibility
+to deploy web service stubs into the server큦 JNDI tree. The &quot;ext-service&quot; tag inside the 
+deployment descriptor lets AxisService construct and bind javax.xml.rpc.Service instances into your JNDI tree. 
+See the &quot;external&quot; example in the testsuite that federates Google and Babelfish into a 
+combined session bean. (Remember to set the -Dhttp.proxyHost -Dhttp.proxyPort -Dhttp.proxyUser and -Dhttp.proxyPassword in the
+jboss startup file when running this test from behind your corporate firewall!) 
+</li>
+
+<li class="text"> 
+Macromedia decided that they would have some close-to-but-not-quite-that-close-to-standard SOAP support in their
+Flash5 plugin (maybe in order to sell their dedicated app-servers at the backends????). There came Frederik and
+shook Axis so long as to talk to these special, browser-based clients. For that purpose, you would have to
+uncomment a dedicated FlashAxisServiceServlet line in jboss-net.sar!META-INF/install-axis.xml (comment out the
+usual AxisServiceServlet instead) and install a dedicated FlashNamespaceHandler in the http response flow of 
+jboss-net.sar!axis-config.xml You will find a sample flash application under samples/src/flash (warning, you have to 
+switch the service address to axis/services with the default configuration of jboss.net). Since Flash does not like the SOAP-ENV namespace annotations which are removed by that 
+handler, you can currently configure jboss.net to either talk default SOAP or talk Flash-SOAP. We are working on
+a solution that allows both types of accesses through different URL-contexts but at the same service providers. 
+This is going to be great!
+</li>
+
+<li class="text"> 
+We provide an <a href="http://xdoclet.sourceforge.net">XDoclet</a>-module that generates the web-service.xml 
+from correctly tagged beans (tags are e.g., @jboss-net:web-service and @jboss-net:web-method) and data-objects 
+(@jboss-net:xml-schema) for you.
+</li>
+
+</ul>
+
+JBoss.Net is strongly connected to features of Jboss 3.0 (Rabbit Hole) and hence,  
+we try to synchronize with its release plan. The official release of JBoss.Net 1.0 will be included
+in the JBoss3.2.0 release. We are seeking any available help 
+for testing the existing code, constructing a detailed requirement list, and 
+implementing features! See the <a ref="http://sourceforge.net/pm/task.php?group_project_id=13975&group_id=22866&func=browse">Todo&Assignment List</a> 
+and make your development skills immortal! 
+
+<p class="text"> Plans for the 2.0 release include adherence to the EJB2.1 specification wrt. EJB-related 
+web service  features and will address advanced issues 
+like adopting the pending XML-related JSR큦 (Java API for XML DataBinding - JAXB, 
+Java API for XML Remote Procedure Call - JAX-RPC, Java API for XML Messaging - JAXM, 
+Java API for XML Registries - JAXR), introducing lightweight Internet Transactions and
+providing more sophisticated bean interaction patterns. Eventually, we will also provide basic
+C#-, or .Net-Code that will speed up your building of Microsoft-enabled client applications.
+
+<p class="head">How to build, install and use Jboss.net
+
+<p class="text"> Before you go on writing your first Web Service in Java, we recommend 
+that you have a look at code and meta-data samples at 
+<link href="http://xml.apache.org/axis/">the axis site</a>. 
+
+<p class="text"> <em>To build</em>, you can run either 
+
+<code>
+<pre>
+cd build
+build -Dmodules=jboss.net
+</pre>
+</code>
+
+or
+
+<code>
+<pre>
+cd build
+build -Dgroups=plugins
+</pre>
+</code>
+
+or 
+
+<code>
+<pre>
+cd build
+build -Dgroups=optional
+</pre>
+</code>
+
+or (this is for our friends of logical progression ;-)
+
+<code>
+<pre>
+cd build
+build -Dgroups=optional-plugins
+</pre>
+</code>
+
+<p class="text"> <em> To install </em>: JBoss.net relies requires a WebContainer 
+installation (Tomcat, Jetty; JBoss.net has currently been tested under Jetty) to realize 
+the http transport facility. The necessary runtime libraries (lib/ext/axis.jar, deploy/lib/jboss-net.sar and
+client/jboss-net-client.jar) and configuration files  (conf/default/axis-config.xml and client/client-config.xml)
+are installed as a part of the above BUILD step.
+	 
+<p class="text">AxisService will register itself as a .wsr deployer at the <code>org.jboss.system.MainDeployer</code>, hence simply putting a .wsr file (or a .wsr file embedded into some other 
+hierarchically structured deployment package, such as an .ear) into your deploy directory is enough. 
+If you would like to configure JBoss.net with a different WebContainer, please replace the dependency and 
+WarDeployer references in deploy/lib/jboss-net.sar!META_INF/jboss-service.xml (the way that 
+code and deployment descriptors are bundled is likely and hopefully to change in RH!) 
+by your favorite servlet-runner:
+
+<pre>
+
+&lt;server&gt;
+
+  &lt;mbean code=&quot;org.jboss.net.axis.server.AxisService&quot;
+	 name=&quot;jboss.net:service=Axis&quot;&gt;
+    &lt;depends&gt;jboss.web:service=Jetty&lt;/depends&gt;
+    &lt;attribute name=&quot;WarDeployerName&quot;&gt;jboss.web:service=Jetty&lt;/attribute&gt;
+    &lt;attribute name=&quot;RootContext&quot;&gt;axis/&lt;/attribute&gt;
+    &lt;attribute name=&quot;SecurityDomain&quot;&gt;java:/jaas/other&lt;/attribute&gt;
+  &lt;/mbean&gt;
+
+&lt;/server&gt;
+</pre>
+	
+<p class="text"><em>To test</em>: The successfull installation of JBoss.net will be reported 
+during the JBoss boot process (The WebContainer should acknowledge the deployment of 
+the _axis_\&lt;RootContext/&gt; web application including the main AxisServlet, where
+&lt;RootContext/&gt; is the configurable URL infix that defaults to axis/ and under which the 
+deployed Web-Services can be reached, see above).
+
+<p class="text">After that, pointing your browser to <a href="http://localhost:8080/jboss-net/servlet/AxisServlet">http://localhost:8080/jboss-net/servlet/AxisServlet</a> 
+(or an equivalent address depending on the configuration of your WebContainer and the RootContext) 
+should return the default "hello" response page of the AxisServlet. 
+
+<p class="text">When you start JBoss with the -Daxis.enableListQuery=true option (which you usually do not in a security-aware 
+productive environment), a <a href="http://localhost:8080/axis/services?list">http://localhost:8080/jboss-net/services?list</a>  
+request should return an xml document describing the current configuration of the AxisEngine including the
+deployed services. The services section should look like:
+
+<pre>
+  &lt;?xml version="1.0" encoding="UTF-8" ?&gt; 
+  &lt;deployment xmlns="http://xml.apache.org/axis/wsdd/" xmlns:java="http://xml.apache.org/axis/wsdd/providers/java"&gt;
+  &lt;service name="RemoteAdaptor" provider="Handler"&gt;
+  &lt;parameter name="handlerClass" value="org.jboss.net.jmx.server.MBeanProvider" /&gt; 
+  &lt;parameter name="ObjectName" value="jboss.net:service=Adaptor" /&gt; 
+  &lt;/service&gt;
+  &lt;service name="Administration" provider="java:MSG"&gt;
+  &lt;parameter name="allowedMethods" value="AdminService" /&gt; 
+  &lt;parameter name="isStatic" value="true" /&gt; 
+  &lt;parameter name="methodName" value="AdminService" /&gt; 
+  &lt;parameter name="enableRemoteAdmin" value="false" /&gt; 
+  &lt;parameter name="className" value="org.apache.axis.utils.Admin" /&gt; 
+  &lt;/service&gt;
+  &lt;transport name="http"&gt;
+  &lt;requestFlow&gt;
+  &lt;handler type="java:org.apache.axis.handlers.http.HTTPActionHandler" /&gt; 
+  &lt;handler type="java:org.apache.axis.handlers.http.URLMapper" /&gt; 
+  &lt;handler type="java:org.apache.axis.handlers.http.HTTPAuthHandler" /&gt; 
+  &lt;handler type="java:org.jboss.net.axis.SetClassLoaderHandler" /&gt; 
+  &lt;handler type="java:org.jboss.net.axis.server.JBossAuthenticationHandler" /&gt; 
+  &lt;/requestFlow&gt;
+  &lt;responseFlow&gt;
+  &lt;handler type="java:org.jboss.net.axis.ResetClassLoaderHandler" /&gt; 
+  &lt;/responseFlow&gt;
+  &lt;/transport&gt;
+  &lt;typeMapping encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" serializer="org.jboss.net.jmx.adaptor.ObjectNameSerializerFactory" deserializer="org.jboss.net.jmx.adaptor.ObjectNameDeserializerFactory" type="java:javax.management.ObjectName" qname="ns1:ObjectNameType" xmlns:ns1="http://net.jboss.org/jmx" /&gt; 
+  &lt;/deployment&gt;
+</pre>
+
+<p class="text">We recognize inter alia the already mentioned end-point of the RemoteAdaptor web service that
+is mapped (via the <code>org.jboss.net.jmx.server.MBeanProvider</code>) to a dedicated MBean with JMX-ObjectName "jboss.net:service=Adaptor". 
+Indeed, if you have a look at your <a ref="http://localhost:8082/">current JMX state</a> there
+should be the corresponding service up and running, ready to take your Web Invocations through
+the JMX bus.
+
+<p class="text">In the <a href="http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/jboss/contrib/jboss.net/testsuite/">JBoss.net testsuite</a>,
+we have assembled some samples and tests that can serve as an inspiration and source of insight. 
+You can build and run the testsuite against a running jboss server as follows (after having built the main jboss-all/testsuite!)
+
+<code>
+<pre>
+cd jboss.net/testsuite
+build tests-standard-unit
+</pre>
+</code>
+
+<p class="text">In the output directory, there will be some deployable Web Services
+(output/lib/addr.wsr is the JBoss-compatible package containing the Axis Address example, output/lib/hello.ear
+is a J2EE application consisting of the hello ejb module from the JBoss main testsuite and
+an additional web service layer on top of the HelloBean). In output/bin we also have put
+some (non-functional, arrgh) batch files to run the individual tests. 
+
+<p class="text">Under samples/win, we have checked-in a tiny C#/.Net-based client application that can be run against
+the advanced store-test from the above testsuite. You can play around especially with the "Add Web Reference" 
+functionality to see how programming against the live server and the wsdl-descriptions can be achieved. For example, 
+you can access the meta-data of the BusinessPartnerService bean under 
+<a href="http://localhost:8080:/axis/services/BusinessPartnerService?wsdl">http://localhost:8080:/jboss-net/services/BusinessPartnerService?wsdl</a> once
+the store.ear is deployed.
+
+<p class="head">DISTRIBUTION AND CVS
+
+<p class="text">JBoss.net is shipped with JBoss 3
+
+<p class="text">It isavailable as source under the CVS module <a href="/developers/cvs.jsp">contrib/jboss.net</a>
+
+<p class="text">The TODO and BUG list can be found under <a ref="http://sourceforge.net/pm/task.php?group_project_id=13975&group_id=22866&func=browse">
+Sourceforge</a>.
+
+<p class="head">PROBLEMS
+
+<p class="text">Axis questions should be directed to axis-users@xml.apache.org
+
+<p class="text">JBoss questions should be directed to jboss-user@list.sourceforge.net
+
+<p class="text">I shall be happy to answer questions about the integration.
+
+<p class="text">Enjoy.
+
+<p class="text">"Dr. Schorsch" (<a ref="mailto:christoph.Jung@jboss.org">christoph.jung@jboss.org</a>) - 29/09/2001, Last update on 30/03/2002
+
+<p class="text"><small>All mentioned trademarks on this page are 
+copyright of their respective owners ... or so ... </small></p>
+
+</body>
+
+</html>
+

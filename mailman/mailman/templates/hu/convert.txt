@@ -1,0 +1,31 @@
+Tájékoztató a(z) %(listname)s levelezési listán bekövetkezõ változásokról. 
+A levelezési listát a "Mailman" nevû listakezelõ program mûködteti. 
+Reméljük ezzel számos eddig jelentkezõ probléma megszûnik.
+
+Mire kell figyelned?
+
+1) A lista tagjainak szánt üzeneteidet a(z) %(listaddr)s címre küldd el.
+
+2) Egyéni jelszóval lehet leiratkozni a listáról, ezzel elkerülhetõ,
+hogy más a tudtod nélkül töröl téged a listáról. A jelszót egy különálló
+e-mailben kapod meg, vagy már meg is kaptad. Ne ess pánikba, ha
+elfelejtetted a jelszavadat, mivel minden hónapban emlékeztetõül e-mailben 
+elküldésre fog kerülni.
+
+3) Web elérés esetén bármikor leiratkozhatsz a listáról, beállíthatod
+a levelek fogadását, megtekintheted a lista archívumát, és más egyebet 
+tehetsz meg. Mindezeket a következõ webcímen lehet végrehajtani:
+
+  %(listinfo_url)s
+
+4) Web elérés hiányában mindezeket e-mailen keresztül is meg lehet 
+tenni. Küldj egy e-mailt a(z) %(requestaddr)s címre a levél törzsében
+vagy tárgyában megadott "help"-el. Ekkor egy automatikus válaszlevélben
+bõvebb leírást fogsz kapni a lehetséges beállításokról.
+
+Bármilyen kérdéseddel, észrevételeddel a következõ címre írj:
+%(adminaddr)s.
+
+Ezt a levelet a Mailman %(version)s automatikusan készítette. A Mailman 
+programról további információkat a Mailman honlapján lehet olvasni a 
+http://www.list.org/ címen.

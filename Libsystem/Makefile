@@ -12,10 +12,10 @@ NAME = System
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Library
 
-OTHERLINKED = SystemMath.s
+OTHERLINKED = SystemMath.s spinlock_stub.s spinlocktry_stub.s spinunlock_stub.s
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble System.order\
-            Info.plist
+OTHERSRCS = GNUmakefile Makefile.preamble Makefile Makefile.postamble \
+	    System.order Info.plist CommPageSymbols.st
 
 OTHERLINKEDOFILES = SystemMath.o
 
@@ -28,13 +28,13 @@ NEXTSTEP_INSTALLDIR = $(USRLIBDIR)
 WINDOWS_INSTALLDIR = /Library/Frameworks
 PDO_UNIX_INSTALLDIR = /Library/Frameworks
 LIBS = -lc -ldyld -linfo -lkvm -lm -lmacho\
-       -lstreams -lunc -lkeymgr
+       -lnotify -lstreams -lunc -lkeymgr -lpoll -ldl
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
 LIBRARY_PATHS = -L$(NEXT_ROOT)/usr/local/lib/system
-NEXTSTEP_PB_CFLAGS = -Wall -Werror
+NEXTSTEP_PB_CFLAGS = -Wall -Werror -I$(NEXT_ROOT)/System/Library/Frameworks/System.framework/PrivateHeaders
 NEXTSTEP_PB_LDFLAGS = -nostdlib -all_load
 
 

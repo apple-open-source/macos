@@ -4,19 +4,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -50,11 +53,55 @@
 
 struct NBImageList_s {
     dynarray_t		list;
-    NBImageEntryRef	default_entry;
 };
 
 extern void
 my_log(int priority, const char *message, ...);
+
+static Boolean
+myCFStringArrayToCStringArray(CFArrayRef arr, char * buffer, int * buffer_size,
+			      int * ret_count)
+{
+    int		count = CFArrayGetCount(arr);
+    int 	i;
+    char *	offset = NULL;	
+    int		space;
+    char * *	strlist = NULL;
+
+    space = count * sizeof(char *);
+    if (buffer != NULL) {
+	if (*buffer_size < space) {
+	    /* not enough space for even the pointer list */
+	    return (FALSE);
+	}
+	strlist = (char * *)buffer;
+	offset = buffer + space; /* the start of the 1st string */
+    }
+    for (i = 0; i < count; i++) {
+	CFIndex		len = 0;
+	CFStringRef	str;
+
+	str = CFArrayGetValueAtIndex(arr, i);
+	if (buffer != NULL) {
+	    len = *buffer_size - space;
+	    if (len < 0) {
+		return (FALSE);
+	    }
+	}
+	CFStringGetBytes(str, CFRangeMake(0, CFStringGetLength(str)),
+			 kCFStringEncodingASCII, '\0',
+			 FALSE, offset, len - 1, &len);
+	if (buffer != NULL) {
+	    strlist[i] = offset;
+	    offset[len] = '\0';
+	    offset += len + 1;
+	}
+	space += len + 1;
+    }
+    *buffer_size = space;
+    *ret_count = count;
+    return (TRUE);
+}
 
 static int
 cfstring_to_cstring(CFStringRef cfstr, char * str, int len)
@@ -65,7 +112,7 @@ cfstring_to_cstring(CFStringRef cfstr, char * str, int len)
 
     range = CFRangeMake(0, CFStringGetLength(cfstr));
     n = CFStringGetBytes(cfstr, range, kCFStringEncodingMacRoman,
-			 0, FALSE, str, len, &l);
+			 0, FALSE, str, len - 1, &l);
     str[l] = '\0';
     return (l);
 }
@@ -93,7 +140,7 @@ find_colon(char * str)
 }
 
 /*
- * Function: parse_netboot_path
+ * Function: parse_nfs_path
  * Purpose:
  *   Parse a string of the form:
  *        "<IP | hostname>:<mount>[:<image_path>]"
@@ -107,8 +154,8 @@ find_colon(char * str)
  * siegdi6:/Volumes/Foo\:/Library/NetBoot/NetBootSP0:Jaguar/Jaguar.dmg
  */
 static __inline__ boolean_t
-parse_netboot_path(char * path, struct in_addr * iaddr_p,
-		   char * * mount_dir, char * * image_path)
+parse_nfs_path(char * path, struct in_addr * iaddr_p,
+	       char * * mount_dir, char * * image_path)
 {
     char *	start;
     char *	colon;
@@ -151,6 +198,89 @@ parse_netboot_path(char * path, struct in_addr * iaddr_p,
     return (TRUE);
 }
 
+/*
+ * Function: parse_http_path
+ * Purpose:
+ *   Parse a string of the form:
+ *        "http://[user:password@]<IP | hostname>[:port]/<image_path>"
+ *   into the given ip address, image_path, and option user/password and port
+ * Notes:
+ * - the passed in string is modified i.e. ':' is replaced by '\0'
+ *
+ * Examples:
+ * http://17.203.12.194:8080/NetBootSP0/Jaguar/Jaguar.dmg
+ * http://foo:bar@17.203.12.194/NetBootSP0/Jaguar/Jaguar.dmg
+ */
+
+static __inline__ boolean_t
+parse_http_path(char * path, struct in_addr * iaddr_p,
+		char * * username, char * * password, int * port,
+		char * * image_path)
+{
+    char *	atchar;
+    char *      colon;
+    char *      slash;
+    char *	start;
+
+    *username = NULL;
+    *password = NULL;
+    *port = 0;
+
+#define HTTP_URL_PREFIX		"http://"
+#define HTTP_URL_PREFIX_LEN	7
+
+    /* scheme */
+    start = path;
+    if (strncmp(HTTP_URL_PREFIX, start, HTTP_URL_PREFIX_LEN) != 0) {
+	return (FALSE);
+    }
+    start += HTTP_URL_PREFIX_LEN;
+
+    /* look for start of image path */
+    slash = strchr(start, '/');
+    if (slash == NULL) {
+	return (FALSE);
+    }
+    *slash = '\0';
+    *image_path = slash + 1;
+
+    /* check for optional username:password@... */
+    atchar = strchr(start, '@');
+    if (atchar != NULL && atchar < slash) {
+	*atchar = '\0';
+	*username = start;
+	*password = strsep(username, ":");
+	if (*password == NULL) {
+	    /* both username and password need to specified */
+	    return (FALSE);
+	}
+	start = atchar + 1;
+    }
+    
+    /* check for optional port in server_name_or_ip[:port] */
+    colon = strchr(start, ':');
+    if (colon) {
+	*colon = '\0';
+	*port = atoi(colon + 1);
+    }
+
+    /* if the server specification isn't an IP address, look it up by name */
+    if (inet_aton(start, iaddr_p) != 1) {
+	struct in_addr * * 	addr;
+	struct hostent * 	ent;
+
+	ent = gethostbyname(start);
+	if (ent == NULL) {
+	    return (FALSE);
+	}
+	addr = (struct in_addr * *)ent->h_addr_list;
+	if (*addr == NULL)
+	    return (FALSE);
+	*iaddr_p = **addr;
+    }
+    return (TRUE);
+}
+
 int
 NBImageList_count(NBImageListRef image_list)
 {
@@ -173,8 +303,10 @@ NBImageList_elementWithID(NBImageListRef image_list, bsdp_image_id_t image_id)
 {
     dynarray_t *	dlist = &image_list->list;
     int 		i;
+    int			count;
 
-    for (i = 0; i < dynarray_count(dlist); i++) {
+    count = dynarray_count(dlist);
+    for (i = 0; i < count; i++) {
 	NBImageEntryRef	entry = dynarray_element(dlist, i);
 
 	if (image_id == entry->image_id) {
@@ -221,14 +353,40 @@ stat_file(char * dir, char * file)
     return (TRUE);
 }
 
+static const char *
+NBImageTypeStr(NBImageType type)
+{
+    switch (type) {
+    case kNBImageTypeClassic:
+	return "Classic";
+    case kNBImageTypeNFS:
+	return "NFS";
+    case kNBImageTypeHTTP:
+	return "HTTP";
+    default:
+	return "<unknown>";
+    }
+}
+
+static void
+dump_strlist(const char * * strlist, int count)
+{
+    int i;
+
+    for (i = 0; i < count; i++) {
+	printf("%s%s", (i != 0) ? ", " : "", strlist[i]);
+    }
+    return;
+}
+
 static void
 NBImageEntry_print(NBImageEntryRef entry)
 {
-    printf("%-12s %-25.*s 0x%08x %-8s %-12s", 
+    printf("%-12s %-35.*s 0x%08x %-8s %-12s", 
 	   entry->sharepoint.name,
 	   entry->name_length, entry->name,
 	   entry->image_id, 
-	   (entry->type == kNBImageTypeClassic) ? "Classic" : "NFS",
+	   NBImageTypeStr(entry->type),
 	   entry->bootfile);
     switch (entry->type) {
     case kNBImageTypeClassic:
@@ -241,11 +399,42 @@ NBImageEntry_print(NBImageEntryRef entry)
 	printf(" %-12s%s", entry->type_info.nfs.root_path,
 	       (entry->type_info.nfs.indirect == TRUE)? " [indirect]" : "");
 	break;
+    case kNBImageTypeHTTP:
+	printf(" %-12s%s", entry->type_info.http.root_path,
+	       (entry->type_info.http.indirect == TRUE)? " [indirect]" : "");
+	break;
     default:
 	break;
     }
+    if (entry->sysids != NULL) {
+	printf(" [ ");
+	dump_strlist(entry->sysids, entry->sysids_count);
+	printf(" ]");
+    }
     printf("\n");
     return;
+}
+
+static boolean_t
+S_get_plist_boolean(CFDictionaryRef plist, CFStringRef key, boolean_t d)
+{
+    CFBooleanRef	b;
+    boolean_t 		ret = d;
+
+    b = CFDictionaryGetValue(plist, key);
+    if (isA_CFBoolean(b) != NULL) {
+	ret = CFBooleanGetValue(b);
+    }
+    return (ret);
+}
+
+static int
+my_ptrstrcmp(const void * v1, const void * v2)
+{
+    const char * * s1 = (const char * *)v1;
+    const char * * s2 = (const char * *)v2;
+
+    return (strcmp(*s1, *s2));
 }
 
 static NBImageEntryRef
@@ -254,22 +443,20 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
 {
     u_int16_t		attr = 0;
     CFStringRef		bootfile;
+    boolean_t		diskless = FALSE;
     NBImageEntryRef	entry = NULL;
     char *		ent_bootfile = NULL;
     char *		ent_name = NULL;
     CFIndex		ent_name_len = 0;
     char *		ent_private = NULL;
     char *		ent_root_path = NULL;
-    char *		ent_tftp_path = NULL;
     char *		ent_shared = NULL;
+    char *		ent_tftp_path = NULL;
     u_int16_t		idx_val;
     CFNumberRef		idx;
     char *		image_file = NULL;
     boolean_t		image_is_default = FALSE;
     boolean_t		indirect = FALSE;
-    CFBooleanRef	is_default;
-    CFBooleanRef	is_enabled;
-    CFBooleanRef	is_install;
     CFNumberRef		kind;
     int			kind_val = -1;
     char *		mount_point = NULL;
@@ -280,8 +467,13 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
     CFStringRef		private;
     CFStringRef		root_path;
     struct in_addr	server_ip;
+    char *              server_password;
+    int                 server_port;
+    char *              server_username;
     CFStringRef		shared;
     int			string_space = 0;
+    int			sysids_space = 0;
+    CFArrayRef		sysids_prop;
     char		tmp[PATH_MAX];
     CFStringRef		type;
     NBImageType		type_val = kNBImageTypeNone;
@@ -292,24 +484,17 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
     if (isA_CFDictionary(plist) == NULL) {
 	goto failed;
     }
-    is_enabled = CFDictionaryGetValue(plist, kNetBootImageInfoIsEnabled);
-    if (is_enabled != NULL) {
-	if (isA_CFBoolean(is_enabled) == NULL
-	    || CFBooleanGetValue(is_enabled) == FALSE) {
-	    /* image is disabled */
-	    goto failed;
-	}
+    if (S_get_plist_boolean(plist, kNetBootImageInfoIsEnabled, TRUE) == FALSE) {
+	/* image is disabled */
+	goto failed;
     }
-    is_install = CFDictionaryGetValue(plist, kNetBootImageInfoIsInstall);
-    if (isA_CFBoolean(is_install) != NULL
-	&& CFBooleanGetValue(is_install) == TRUE) {
+    if (S_get_plist_boolean(plist, kNetBootImageInfoIsInstall, FALSE) == TRUE) {
 	attr |= BSDP_IMAGE_ATTRIBUTES_INSTALL;
     }
-    is_default = CFDictionaryGetValue(plist, kNetBootImageInfoIsDefault);
-    if (isA_CFBoolean(is_default) != NULL
-	&& CFBooleanGetValue(is_default) == TRUE) {
-	image_is_default = TRUE;
-    }
+    image_is_default = S_get_plist_boolean(plist, kNetBootImageInfoIsDefault,
+					   FALSE);
+    diskless = S_get_plist_boolean(plist, kNetBootImageInfoSupportsDiskless, 
+				   FALSE);
     name = CFDictionaryGetValue(plist, kNetBootImageInfoName);
     if (isA_CFString(name) == NULL) {
 	fprintf(stderr, "missing/invalid Name property\n");
@@ -357,9 +542,16 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
 	if (kind_val == -1) {
 	    kind_val = bsdp_image_kind_MacOS9;
 	}
+	diskless = TRUE;	/* Mac OS 9 supports diskless */
     }
     else if (CFEqual(type, kNetBootImageInfoTypeNFS)) {
 	type_val = kNBImageTypeNFS;
+	if (kind_val == -1) {
+	    kind_val = bsdp_image_kind_MacOSX;
+	}
+    }
+    else if (CFEqual(type, kNetBootImageInfoTypeHTTP)) {
+	type_val = kNBImageTypeHTTP;
 	if (kind_val == -1) {
 	    kind_val = bsdp_image_kind_MacOSX;
 	}
@@ -398,6 +590,25 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
     ent_tftp_path = strdup(tmp);
     string_space += strlen(ent_tftp_path) + 1;
 
+    /* supported system ids */
+    sysids_prop 
+	= CFDictionaryGetValue(plist, 
+			       kNetBootImageInfoEnabledSystemIdentifiers);
+    if (sysids_prop != NULL) {
+	int sysids_count;
+
+	if (isA_CFArray(sysids_prop) == NULL) {
+	    fprintf(stderr, "EnabledSystemIdentifiers isn't an array\n");
+	    goto failed;
+	}
+	if (myCFStringArrayToCStringArray(sysids_prop, NULL, &sysids_space,
+					  &sysids_count) == FALSE) {
+	    fprintf(stderr, 
+		    "Couldn't calculate EnabledSystemIdentifiers length\n");
+	    goto failed;
+	}
+	string_space += sysids_space;
+    }
     switch (type_val) {
     case kNBImageTypeClassic:
 	/* must have Shared */
@@ -442,8 +653,8 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
 	if (stat_file(dir_path, tmp) == TRUE) {
 	    ent_root_path = strdup(tmp);
 	}
-	else if (parse_netboot_path(tmp, &server_ip, &mount_point,
-			       &image_file) == TRUE) {
+	else if (parse_nfs_path(tmp, &server_ip, &mount_point,
+				&image_file) == TRUE) {
 	    if (image_file) {
 		snprintf(path, sizeof(path), "nfs:%s:%s:%s",
 			 inet_ntoa(server_ip), mount_point,
@@ -452,6 +663,50 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
 	    else {
 		snprintf(path, sizeof(path), "nfs:%s:%s",
 			 inet_ntoa(server_ip), mount_point);
+	    }
+	    indirect = TRUE;
+	    ent_root_path = strdup(path);
+	}
+	if (ent_root_path == NULL) {
+	    goto failed;
+	}
+	string_space += strlen(ent_root_path) + 1;
+	break;
+    case kNBImageTypeHTTP:
+	/* must have RootPath */
+	root_path = CFDictionaryGetValue(plist, kNetBootImageInfoRootPath);
+	if (isA_CFString(root_path) == NULL) {
+	    fprintf(stderr, "missing/invalid RootPath property\n");
+	    goto failed;
+	}
+	cfstring_to_cstring(root_path, tmp, sizeof(tmp));
+	if (stat_file(dir_path, tmp) == TRUE) {
+	    ent_root_path = strdup(tmp);
+	}
+	else if (parse_http_path(tmp, &server_ip, &server_username,
+				 &server_password, &server_port,
+				 &image_file) == TRUE) {
+	    if (server_username && server_password) {
+		if (server_port != 0) {
+		    snprintf(path, sizeof(path), "http://%s:%s@%s:%d/%s",
+			     server_username, server_password, 
+			     inet_ntoa(server_ip), 
+			     server_port, image_file);
+		} else {
+		    snprintf(path, sizeof(path), "http://%s:%s@%s/%s",
+			     server_username, server_password, 
+			     inet_ntoa(server_ip),
+			     image_file);
+		}
+	    } else {
+		if (server_port != 0) {
+		    snprintf(path, sizeof(path), "http://%s:%d/%s",
+			     inet_ntoa(server_ip), server_port,
+			     image_file);
+		} else {
+		    snprintf(path, sizeof(path), "http://%s/%s",
+			     inet_ntoa(server_ip), image_file);
+		}
 	    }
 	    indirect = TRUE;
 	    ent_root_path = strdup(path);
@@ -473,6 +728,7 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
     entry->image_id = bsdp_image_id_make(idx_val, attr);
     entry->type = type_val;
     entry->is_default = image_is_default;
+    entry->diskless = diskless;
 
     offset = (char *)(entry + 1);
 
@@ -505,6 +761,16 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
     strcpy(entry->tftp_path, ent_tftp_path);
     offset += strlen(ent_tftp_path) + 1;
 
+    /* supported system ids */
+    if (sysids_space > 0) {
+	entry->sysids = (const char * *)offset;
+	(void)myCFStringArrayToCStringArray(sysids_prop, offset, &sysids_space,
+					    &entry->sysids_count);
+	qsort(entry->sysids, entry->sysids_count, sizeof(char *),
+	      my_ptrstrcmp);
+	offset += sysids_space;
+    }
+
     switch (type_val) {
     case kNBImageTypeClassic:
 	entry->type_info.classic.shared = offset;
@@ -521,6 +787,12 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
 	strcpy(entry->type_info.nfs.root_path, ent_root_path);
 	offset += strlen(ent_root_path) + 1;
 	entry->type_info.nfs.indirect = indirect;
+	break;
+    case kNBImageTypeHTTP:
+	entry->type_info.http.root_path = offset;
+	strcpy(entry->type_info.http.root_path, ent_root_path);
+	offset += strlen(ent_root_path) + 1;
+	entry->type_info.http.indirect = indirect;
 	break;
     default:
 	break;
@@ -549,8 +821,68 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
     return (entry);
 }
 
+boolean_t
+NBImageEntry_supported_sysid(NBImageEntryRef entry, 
+			     const char * sysid)
+{
+    if (entry->sysids == NULL) {
+	return (TRUE);
+    }
+    return (bsearch(&sysid, entry->sysids, entry->sysids_count,
+		    sizeof(char *), my_ptrstrcmp) != NULL);
+}
+
 static void
-add_images(NBImageListRef image_list, NBSPEntryRef sharepoint)
+NBImageList_add_default_entry(NBImageListRef image_list,
+			      NBImageEntryRef entry)
+{
+    dynarray_t *	dlist = &image_list->list;
+    int 		i;
+    int			count;
+
+    if (entry->sysids == NULL) {
+	dynarray_insert(dlist, entry, 0);
+	return;
+    }
+    count = dynarray_count(dlist);
+    for (i = 0; i < count; i++) {
+	NBImageEntryRef	scan = dynarray_element(dlist, i);
+
+	if (scan->is_default == FALSE
+	    || scan->sysids != NULL) {
+	    dynarray_insert(dlist, entry, i);
+	    return;
+	}
+    }
+    dynarray_add(dlist, entry);
+    return;
+}
+
+static void
+NBImageList_add_entry(NBImageListRef image_list, NBImageEntryRef entry)
+{
+    NBImageEntryRef	scan;
+
+    scan = NBImageList_elementWithID(image_list, entry->image_id);
+    if (scan != NULL) {
+	fprintf(stderr, 
+		"Ignoring image with non-unique image index %d:\n",
+		bsdp_image_index(entry->image_id));
+	NBImageEntry_print(entry);
+	free(entry);
+	return;
+    }
+    if (entry->is_default) {
+	NBImageList_add_default_entry(image_list, entry);
+    }
+    else {
+	dynarray_add(&image_list->list, entry);
+    }
+    return;
+}
+
+static void
+NBImageList_add_images(NBImageListRef image_list, NBSPEntryRef sharepoint)
 {
     char		dir[PATH_MAX];
     DIR *		dir_p;
@@ -585,33 +917,7 @@ add_images(NBImageListRef image_list, NBSPEntryRef sharepoint)
 	}
 	entry = NBImageEntry_create(sharepoint, scan->d_name, dir, info_path);
 	if (entry != NULL) {
-	    boolean_t		add_it = TRUE;
-	    NBImageEntryRef	scan;
-
-	    scan = NBImageList_elementWithID(image_list, entry->image_id);
-	    if (scan != NULL) {
-		fprintf(stderr, 
-			"Ignoring image with non-unique image index %d:\n",
-			bsdp_image_index(entry->image_id));
-		NBImageEntry_print(entry);
-		add_it = FALSE;
-	    }
-	    else if (entry->is_default == TRUE) {
-		if (image_list->default_entry != NULL) {
-		    fprintf(stderr, 
-			    "More than one image claims to be default:\n");
-		    NBImageEntry_print(entry);
-		}
-		else {
-		    image_list->default_entry = entry;
-		}
-	    }
-	    if (add_it) {
-		dynarray_add(&image_list->list, entry);
-	    }
-	    else {
-		free(entry);
-	    }
+	    NBImageList_add_entry(image_list, entry);
 	}
     }
  done:
@@ -621,14 +927,27 @@ add_images(NBImageListRef image_list, NBSPEntryRef sharepoint)
 }
 
 NBImageEntryRef 
-NBImageList_default(NBImageListRef image_list)
+NBImageList_default(NBImageListRef image_list, const char * sysid)
 {
-    return (image_list->default_entry);
+    int			count;
+    dynarray_t *	dlist = &image_list->list;
+    int			i;
+
+    count = dynarray_count(dlist);
+    for (i = 0; i < count; i++) {
+	NBImageEntryRef	scan = dynarray_element(dlist, i);
+
+	if (NBImageEntry_supported_sysid(scan, sysid)) {
+	    return (scan);
+	}
+    }
+    return (NULL);
 }
 
 NBImageListRef
 NBImageList_init(NBSPListRef sharepoints)
 {
+    int				count;
     int				i;
     NBImageListRef		image_list = NULL;
     boolean_t			needs_free = FALSE;
@@ -647,10 +966,11 @@ NBImageList_init(NBSPListRef sharepoints)
     bzero(image_list, sizeof(*image_list));
     dynarray_init(&image_list->list, free, NULL);
 
-    for (i = 0; i < NBSPList_count(sharepoints); i++) {
+    count = NBSPList_count(sharepoints);
+    for (i = 0; i < count; i++) {
 	NBSPEntryRef	entry = NBSPList_element(sharepoints, i);
 
-	add_images(image_list, entry);
+	NBImageList_add_images(image_list, entry);
     }
  done:
     if (image_list != NULL) {
@@ -658,14 +978,6 @@ NBImageList_init(NBSPListRef sharepoints)
 	    dynarray_free(&image_list->list);
 	    free(image_list);
 	    image_list = NULL;
-	}
-	else {
-	    /* no default specified, pick the first one */
-	    if (image_list->default_entry == NULL) {
-		image_list->default_entry = (NBImageEntryRef)
-		    dynarray_element(&image_list->list, 0);
-		image_list->default_entry->is_default = TRUE;
-	    }
 	}
     }
     if (sharepoints != NULL && needs_free) {
@@ -677,12 +989,14 @@ NBImageList_init(NBSPListRef sharepoints)
 void
 NBImageList_print(NBImageListRef image_list)
 {
+    int			count;
     int			i;
 
-    printf("%-12s %-25s %-10s %-8s %-12s Image(s)\n", "Sharepoint", "Name",
+    printf("%-12s %-35s %-10s %-8s %-12s Image(s)\n", "Sharepoint", "Name",
 	   "Identifier", "Type", "BootFile");
 
-    for (i = 0; i < dynarray_count(&image_list->list); i++) {
+    count = dynarray_count(&image_list->list);
+    for (i = 0; i < count; i++) {
 	NBImageEntryRef	entry;
 
 	entry = (NBImageEntryRef)dynarray_element(&image_list->list, i);
@@ -692,6 +1006,8 @@ NBImageList_print(NBImageListRef image_list)
 }
 
 #ifdef TEST_NBIMAGES
+#if 0
+#include <syslog.h>
 void
 my_log(int priority, const char *message, ...)
 {
@@ -707,7 +1023,7 @@ my_log(int priority, const char *message, ...)
     vsyslog(priority, message, ap);
     return;
 }
-
+#endif 0
 int
 main()
 {

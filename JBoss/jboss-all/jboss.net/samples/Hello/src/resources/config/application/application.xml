@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<!DOCTYPE application PUBLIC '-//Sun Microsystems, Inc.//DTD J2EE Application 1.2//EN' 'http://java.sun.com/j2ee/dtds/application_1_2.dtd'>
+
+<application>
+   <display-name><XDtAnt:property name="app.display.name"/></display-name>
+   <description><XDtAnt:property name="app.description"/></description>
+   <module>
+      <ejb><XDtAnt:property name="app.ejbjar.name"/></ejb>
+   </module>
+   <module>
+      <web>
+         <web-uri><XDtAnt:property name="app.war.name"/></web-uri>
+         <context-root><XDtAnt:property name="app.contextroot"/></context-root>
+      </web>
+   </module>
+</application>
+
+

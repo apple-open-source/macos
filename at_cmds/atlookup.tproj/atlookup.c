@@ -274,11 +274,7 @@ static int
 zonecmp(t1, t2)
 	at_nvestr_t	*t1, *t2;
 {
-	int len;
-	
-	len = (t1->len >= t2->len) ? t1->len : t2->len;
-	
-	return (strncmp((char *) t1->str, (char *) t2->str, len));
+	return (strncmp((char *) t1->str, (char *) t2->str, t1->len));
 }
 
 static void

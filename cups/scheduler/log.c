@@ -1,9 +1,9 @@
 /*
- * "$Id: log.c,v 1.1.1.4 2002/06/06 22:13:17 jlovell Exp $"
+ * "$Id: log.c,v 1.1.1.13 2003/08/03 06:18:45 jlovell Exp $"
  *
  *   Log file routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -46,7 +46,7 @@
  * Local functions...
  */
 
-static int	check_log_file(FILE **, const char *);
+static int	check_log_file(cups_file_t **, const char *);
 
 
 /*
@@ -58,8 +58,8 @@ GetDateTime(time_t t)		/* I - Time value */
 {
   struct tm	*date;		/* Date/time value */
   static char	s[1024];	/* Date/time string */
-  static const char *months[12] =/* Months */
-		{
+  static const char * const months[12] =
+		{		/* Months */
 		  "Jan",
 		  "Feb",
 		  "Mar",
@@ -108,15 +108,15 @@ GetDateTime(time_t t)		/* I - Time value */
  * 'LogMessage()' - Log a message to the error log file.
  */
 
-int				/* O - 1 on success, 0 on error */
-LogMessage(int        level,	/* I - Log level */
-           const char *message,	/* I - printf-style message string */
-	   ...)			/* I - Additional args as needed */
+int					/* O - 1 on success, 0 on error */
+LogMessage(int        level,		/* I - Log level */
+           const char *message,		/* I - printf-style message string */
+	   ...)				/* I - Additional args as needed */
 {
-  int		len;		/* Length of message */
-  char		line[1024];	/* Line for output file */
-  va_list	ap;		/* Argument pointer */
-  static char	levels[] =	/* Log levels... */
+  int		len;			/* Length of message */
+  char		*ptr;			/* Pointer to message */
+  va_list	ap;			/* Argument pointer */
+  static const char levels[] =		/* Log levels... */
 		{
 		  ' ',
 		  'X',
@@ -130,7 +130,7 @@ LogMessage(int        level,	/* I - Log level */
 		  'd'
 		};
 #ifdef HAVE_VSYSLOG
-  static int	syslevels[] =	/* SYSLOG levels... */
+  static const int syslevels[] =	/* SYSLOG levels... */
 		{
 		  0,
 		  LOG_EMERG,
@@ -144,6 +144,9 @@ LogMessage(int        level,	/* I - Log level */
 		  LOG_DEBUG
 		};
 #endif /* HAVE_VSYSLOG */
+  static int	linesize = 0;		/* Size of line for output file */
+  static char	*line = NULL;		/* Line for output file */
+  static char	sigbuf[1024];		/* Buffer for signal handlers */
 
 
  /*
@@ -152,6 +155,8 @@ LogMessage(int        level,	/* I - Log level */
 
   if (level > LogLevel)
     return (1);
+
+  HoldSignals();
 
 #ifdef HAVE_VSYSLOG
  /*
@@ -164,6 +169,8 @@ LogMessage(int        level,	/* I - Log level */
     vsyslog(syslevels[level], message, ap);
     va_end(ap);
 
+    ReleaseSignals();
+
     return (1);
   }
 #endif /* HAVE_VSYSLOG */
@@ -173,31 +180,113 @@ LogMessage(int        level,	/* I - Log level */
   */
 
   if (!check_log_file(&ErrorFile, ErrorLog))
+  {
+    ReleaseSignals();
+
     return (0);
-  
+  }
+
  /*
   * Print the log level and date/time...
   */
 
-  fprintf(ErrorFile, "%c %s ", levels[level], GetDateTime(time(NULL)));
+  cupsFilePrintf(ErrorFile, "%c %s ", levels[level], GetDateTime(time(NULL)));
 
  /*
   * Then the log message...
   */
 
-  va_start(ap, message);
-  len = vsnprintf(line, sizeof(line), message, ap);
-  va_end(ap);
+  if (SignalCount)
+  {
+   /*
+    * Processing a signal so use the static buffer...
+    */
+
+    va_start(ap, message);
+    len = vsnprintf(sigbuf, sizeof(sigbuf), message, ap);
+    va_end(ap);
+
+    ptr = sigbuf;
+
+    if (len >= sizeof(sigbuf))
+      len = sizeof(sigbuf) - 1;
+  }
+  else
+  {
+   /*
+    * Not processing a signal so use the dynamic buffer...
+    */
+
+    if (!linesize)
+    {
+      linesize = 8192;
+      line     = malloc(linesize);
+
+      if (!line)
+      {
+	cupsFilePrintf(ErrorFile,
+                       "ERROR: Unable to allocate memory for line - %s\n",
+                       strerror(errno));
+	cupsFileFlush(ErrorFile);
+
+	ReleaseSignals();
+
+	return (0);
+      }
+    }
+
+    va_start(ap, message);
+    len = vsnprintf(line, linesize, message, ap);
+    va_end(ap);
+
+    if (len >= linesize)
+    {
+      len ++;
+
+      if (len < 8192)
+	len = 8192;
+      else if (len > 65536)
+	len = 65536;
+
+      line = realloc(line, len);
+
+      if (line)
+	linesize = len;
+      else
+      {
+	cupsFilePrintf(ErrorFile,
+                       "ERROR: Unable to allocate memory for line - %s\n",
+                       strerror(errno));
+	cupsFileFlush(ErrorFile);
+
+	ReleaseSignals();
+
+	return (0);
+      }
+
+      va_start(ap, message);
+      len = vsnprintf(line, linesize, message, ap);
+      va_end(ap);
+    }
+
+    ptr = line;
+
+    if (len >= linesize)
+      len = linesize - 1;
+  }
 
  /*
   * Then a newline...
   */
 
-  fputs(line, ErrorFile);
-  if (len > 0 && line[len - 1] != '\n')
-    putc('\n', ErrorFile);
+  cupsFilePuts(ErrorFile, line);
 
-  fflush(ErrorFile);
+  if (len > 0 && line[len - 1] != '\n')
+    cupsFilePutChar(ErrorFile, '\n');
+
+  cupsFileFlush(ErrorFile);
+
+  ReleaseSignals();
 
   return (1);
 }
@@ -211,11 +300,15 @@ int				/* O - 1 on success, 0 on error */
 LogPage(job_t       *job,	/* I - Job being printed */
         const char  *page)	/* I - Page being printed */
 {
-  ipp_attribute_t *billing;	/* job-billing attribute */
+  ipp_attribute_t *billing,	/* job-billing attribute */
+                  *hostname;	/* job-originating-host-name attribute */
 
 
+  billing  = ippFindAttribute(job->attrs, "job-billing", IPP_TAG_ZERO);
+  hostname = ippFindAttribute(job->attrs, "job-originating-host-name",
+                              IPP_TAG_ZERO);
 
-  billing = ippFindAttribute(job->attrs, "job-billing", IPP_TAG_ZERO);
+  HoldSignals();
 
 #ifdef HAVE_VSYSLOG
  /*
@@ -224,8 +317,12 @@ LogPage(job_t       *job,	/* I - Job being printed */
 
   if (strcmp(PageLog, "syslog") == 0)
   {
-    syslog(LOG_INFO, "PAGE %s %s %d %s %s", job->printer->name, job->username,
-           job->id, page, billing ? billing->values[0].string.text : "");
+    syslog(LOG_INFO, "PAGE %s %s %d %s %s %s", job->printer->name,
+           job->username ? job->username : "-",
+           job->id, page, billing ? billing->values[0].string.text : "-",
+           hostname->values[0].string.text);
+
+    ReleaseSignals();
 
     return (1);
   }
@@ -236,18 +333,27 @@ LogPage(job_t       *job,	/* I - Job being printed */
   */
 
   if (!check_log_file(&PageFile, PageLog))
+  {
+    ReleaseSignals();
+
     return (0);
+  }
 
  /*
   * Print a page log entry of the form:
   *
-  *    printer job-id user [DD/MON/YYYY:HH:MM:SS +TTTT] page num-copies billing
+  *    printer job-id user [DD/MON/YYYY:HH:MM:SS +TTTT] page num-copies \
+  *        billing hostname
   */
 
-  fprintf(PageFile, "%s %s %d %s %s %s\n", job->printer->name, job->username,
-          job->id, GetDateTime(time(NULL)), page,
-	  billing ? billing->values[0].string.text : "");
-  fflush(PageFile);
+  cupsFilePrintf(PageFile, "%s %s %d %s %s %s %s\n", job->printer->name,
+        	 job->username ? job->username : "-",
+        	 job->id, GetDateTime(time(NULL)), page,
+		 billing ? billing->values[0].string.text : "-",
+        	 hostname->values[0].string.text);
+  cupsFileFlush(PageFile);
+
+  ReleaseSignals();
 
   return (1);
 }
@@ -261,8 +367,8 @@ int				/* O - 1 on success, 0 on error */
 LogRequest(client_t      *con,	/* I - Request to log */
            http_status_t code)	/* I - Response code */
 {
-  static const char *states[] =	/* HTTP client states... */
-		{
+  static const char * const states[] =
+		{		/* HTTP client states... */
 		  "WAITING",
 		  "OPTIONS",
 		  "GET",
@@ -280,6 +386,8 @@ LogRequest(client_t      *con,	/* I - Request to log */
 		};
 
 
+  HoldSignals();
+
 #ifdef HAVE_VSYSLOG
  /*
   * See if we are logging accesses via syslog...
@@ -293,6 +401,8 @@ LogRequest(client_t      *con,	/* I - Request to log */
 	   con->http.version / 100, con->http.version % 100,
 	   code, con->bytes);
 
+    ReleaseSignals();
+
     return (1);
   }
 #endif /* HAVE_VSYSLOG */
@@ -302,18 +412,24 @@ LogRequest(client_t      *con,	/* I - Request to log */
   */
 
   if (!check_log_file(&AccessFile, AccessLog))
+  {
+    ReleaseSignals();
+
     return (0);
+  }
 
  /*
   * Write a log of the request in "common log format"...
   */
 
-  fprintf(AccessFile, "%s - %s %s \"%s %s HTTP/%d.%d\" %d %d\n",
-          con->http.hostname, con->username[0] != '\0' ? con->username : "-",
-	  GetDateTime(con->start), states[con->operation], con->uri,
-	  con->http.version / 100, con->http.version % 100,
-	  code, con->bytes);
-  fflush(AccessFile);
+  cupsFilePrintf(AccessFile, "%s - %s %s \"%s %s HTTP/%d.%d\" %d %d\n",
+        	 con->http.hostname, con->username[0] != '\0' ? con->username : "-",
+		 GetDateTime(con->start), states[con->operation], con->uri,
+		 con->http.version / 100, con->http.version % 100,
+		 code, con->bytes);
+  cupsFileFlush(AccessFile);
+
+  ReleaseSignals();
 
   return (1);
 }
@@ -324,8 +440,8 @@ LogRequest(client_t      *con,	/* I - Request to log */
  */
 
 static int				/* O  - 1 if log file open */
-check_log_file(FILE       **log,	/* IO - Log file */
-	       const char *logname)	/* I  - Log filename */
+check_log_file(cups_file_t **log,	/* IO - Log file */
+	       const char  *logname)	/* I  - Log filename */
 {
   char	backname[1024],			/* Backup log filename */
 	filename[1024],			/* Formatted log filename */
@@ -333,10 +449,10 @@ check_log_file(FILE       **log,	/* IO - Log file */
 
 
  /*
-  * See if we have a log file to check...
+  * See if we have a log file to check or we are handling a signal...
   */
 
-  if (log == NULL || logname == NULL || !logname[0])
+  if (log == NULL || logname == NULL || !logname[0] || SignalCount)
     return (1);
 
  /*
@@ -344,7 +460,7 @@ check_log_file(FILE       **log,	/* IO - Log file */
   */
 
   if (*log == NULL ||
-      (ftell(*log) > MaxLogSize && MaxLogSize > 0))
+      (cupsFileTell(*log) > MaxLogSize && MaxLogSize > 0))
   {
    /*
     * Handle format strings...
@@ -404,24 +520,27 @@ check_log_file(FILE       **log,	/* IO - Log file */
     * Nope, open the log file...
     */
 
-    if ((*log = fopen(filename, "a")) == NULL)
+    if ((*log = cupsFileOpen(filename, "a")) == NULL)
       return (0);
 
-    fchown(fileno(*log), User, Group);
-    fchmod(fileno(*log), LogFilePerm);
+    if (strncmp(filename, "/dev/", 5))
+    {
+      fchown(cupsFileNumber(*log), User, Group);
+      fchmod(cupsFileNumber(*log), LogFilePerm);
+    }
   }
 
  /*
   * Do we need to rotate the log?
   */
 
-  if (ftell(*log) > MaxLogSize && MaxLogSize > 0)
+  if (cupsFileTell(*log) > MaxLogSize && MaxLogSize > 0)
   {
    /*
     * Rotate log file...
     */
 
-    fclose(*log);
+    cupsFileClose(*log);
 
     strcpy(backname, filename);
     strlcat(backname, ".O", sizeof(backname));
@@ -429,11 +548,14 @@ check_log_file(FILE       **log,	/* IO - Log file */
     unlink(backname);
     rename(filename, backname);
 
-    if ((*log = fopen(filename, "a")) == NULL)
+    if ((*log = cupsFileOpen(filename, "a")) == NULL)
       return (0);
 
-    fchown(fileno(*log), User, Group);
-    fchmod(fileno(*log), LogFilePerm);
+    if (strncmp(filename, "/dev/", 5))
+    {
+      fchown(cupsFileNumber(*log), User, Group);
+      fchmod(cupsFileNumber(*log), LogFilePerm);
+    }
   }
 
   return (1);
@@ -441,5 +563,5 @@ check_log_file(FILE       **log,	/* IO - Log file */
 
 
 /*
- * End of "$Id: log.c,v 1.1.1.4 2002/06/06 22:13:17 jlovell Exp $".
+ * End of "$Id: log.c,v 1.1.1.13 2003/08/03 06:18:45 jlovell Exp $".
  */

@@ -232,6 +232,23 @@ KURL::KURL(const QString &url) :
     }
 }
 
+KURL::KURL(NSURL *url)
+{
+    if (url) {
+        // FIXME: Use new CF API to access URL bytes when that API is available
+        const char *bytes = [[url absoluteString] cString];
+        if (bytes[0] == '/') {
+            QString fileUrl = QString("file:") + bytes;
+            parse(fileUrl.ascii(), &fileUrl);
+        } else {
+            parse(bytes, NULL);
+        }
+    }
+    else {
+        parse("", NULL);
+    }
+}
+
 KURL::KURL(const KURL &base, const QString &relative, const QTextCodec *codec)
 {
     // Allow at lest absolute URLs to resolve against an empty URL.
@@ -249,6 +266,28 @@ KURL::KURL(const KURL &base, const QString &relative, const QTextCodec *codec)
         strBuffer = 0;
         str = relative.ascii();
     } else {
+        // Always use UTF-8 if the protocol is file, mailto, or help because that's
+        // what these protocols expect.
+        if (codec) {
+            QString protocol;
+            for (uint i = 0; i < relative.length(); i++) {
+                char p = relative.at(i).latin1();
+                if (IS_PATH_SEGMENT_END_CHAR(p)) {
+                    break;
+                }
+                if (p == ':') {
+                    protocol = relative.left(i);
+                    break;
+                }
+            }
+            if (!protocol) {
+                protocol = base.protocol();
+            }
+            protocol = protocol.lower();
+            if (protocol == "file" || protocol == "mailto" || protocol == "help") {
+                codec = NULL;
+            }
+        }
         QCString decoded = codec ? codec->fromUnicode(relative)
             : QTextCodec(kCFStringEncodingUTF8).fromUnicode(relative);
         strBuffer = strdup(decoded);
@@ -284,6 +323,10 @@ KURL::KURL(const KURL &base, const QString &relative, const QTextCodec *codec)
 	if (!base.m_isValid) {
 	    QString newURL = base.urlString + str;
 	    parse(newURL.ascii(), &newURL);
+            if (strBuffer) {
+                free(strBuffer);
+            }
+            return;
 	}
 
 	switch(str[0]) {
@@ -593,6 +636,64 @@ void KURL::setPort(unsigned short i)
     }
 }
 
+void KURL::setUser(const QString &user)
+{
+    if (m_isValid) {
+        QString u;
+        int end = userEndPos;
+        if (!user.isEmpty()) {
+            // Untested code, but this is never used.
+            ASSERT_NOT_REACHED();
+#if 0
+            u = user;
+            if (userStartPos == schemeEndPos + 1) {
+                u = "//" + u;
+            }
+            // Add '@' if we didn't have one before.
+            if (end == hostEndPos || (end == passwordEndPos && urlString[end] != '@')) {
+                u += '@';
+            }
+#endif
+        } else {
+            // Remove '@' if we now have neither user nor password.
+            if (userEndPos == passwordEndPos && end != hostEndPos && urlString[end] == '@') {
+                end += 1;
+            }
+        }
+        const QString newURL = urlString.left(userStartPos) + u + urlString.mid(end);
+        parse(newURL.ascii(), &newURL);
+    }
+}
+
+void KURL::setPass(const QString &password)
+{
+    if (m_isValid) {
+        QString p;
+        int end = passwordEndPos;
+        if (!password.isEmpty()) {
+            // Untested code, but this is never used.
+            ASSERT_NOT_REACHED();
+#if 0
+            p = ':' + password + '@';
+            if (userEndPos == schemeEndPos + 1) {
+                p = "//" + p;
+            }
+            // Eat the existing '@' since we are going to add our own.
+            if (end != hostEndPos && urlString[end] == '@') {
+                end += 1;
+            }
+#endif
+        } else {
+            // Remove '@' if we now have neither user nor password.
+            if (userStartPos == userEndPos && end != hostEndPos && urlString[end] == '@') {
+                end += 1;
+            }
+        }
+        const QString newURL = urlString.left(userEndPos) + p + urlString.mid(end);
+        parse(newURL.ascii(), &newURL);
+    }
+}
+
 void KURL::setRef(const QString &s)
 {
     if (m_isValid) {
@@ -603,8 +704,8 @@ void KURL::setRef(const QString &s)
 
 void KURL::setQuery(const QString &query, int encoding_hint)
 {
-    QString q;
     if (m_isValid) {
+        QString q;
 	if (!query.isEmpty() && query[0] != '?') {
 	    q = "?" + query;
 	} else {
@@ -759,7 +860,17 @@ static int copyPathRemovingDots(char *dst, const char *src, int srcStart, int sr
     const char *baseStringEnd = src + srcEnd;
     char *bufferPathStart = dst;
     const char *baseStringPos = baseStringStart;
-    
+
+    // this code is unprepared for paths that do not begin with a
+    // slash and we should always have one in the source string (but a
+    // totally empty path is OK and does not need to start with a slash)
+    ASSERT(srcStart == srcEnd || baseStringPos[0] == '/');
+
+    // copy the leading slash into the destination
+    *dst = *baseStringPos;
+    baseStringPos++;
+    dst++;
+
     while (baseStringPos < baseStringEnd) {
         if (baseStringPos[0] == '.' && dst[-1] == '/') {
             if (baseStringPos[1] == '/' || baseStringPos + 1 == baseStringEnd) {
@@ -927,26 +1038,40 @@ void KURL::parse(const char *url, const QString *originalString)
 	
     int pathStart = portEnd;
     int pathEnd = pathStart;
-    while (url[pathEnd] != '\0' && url[pathEnd] != '?' && url[pathEnd] != '#') {
-        pathEnd++;
-    }
+    int queryStart;
+    int queryEnd;
+    int fragmentStart;
+    int fragmentEnd;
 
-    int queryStart = pathEnd;
-    int queryEnd = queryStart;
-    if (url[queryStart] == '?') {
-        while (url[queryEnd] != '\0' && url[queryEnd] != '#') {
-            queryEnd++;
+    if (!hierarchical) {
+        while (url[pathEnd] != '\0') {
+            pathEnd++;
         }
+    	queryStart = queryEnd = pathEnd;
+    	fragmentStart = fragmentEnd = pathEnd;
     }
-
-    int fragmentStart = queryEnd;
-    int fragmentEnd = fragmentStart;
-    if (url[fragmentStart] == '#') {
-	fragmentStart++;
-	fragmentEnd = fragmentStart;
-	while(url[fragmentEnd] != '\0') {
-	    fragmentEnd++;
-	}
+    else {
+        while (url[pathEnd] != '\0' && url[pathEnd] != '?' && url[pathEnd] != '#') {
+            pathEnd++;
+        }
+    
+        queryStart = pathEnd;
+        queryEnd = queryStart;
+        if (url[queryStart] == '?') {
+            while (url[queryEnd] != '\0' && url[queryEnd] != '#') {
+                queryEnd++;
+            }
+        }
+        
+        fragmentStart = queryEnd;
+        fragmentEnd = fragmentStart;
+        if (url[fragmentStart] == '#') {
+            fragmentStart++;
+            fragmentEnd = fragmentStart;
+            while(url[fragmentEnd] != '\0') {
+                fragmentEnd++;
+            }
+        }
     }
 
     // assemble it all, remembering the real ranges
@@ -1076,7 +1201,7 @@ void KURL::parse(const char *url, const QString *originalString)
        
     // add path, escaping bad characters
     
-    if (strstr(url, "/.") || strstr(url, "..")) {
+    if (hierarchical && (strstr(url, "/.") || strstr(url, ".."))) {
         char static_path_buffer[4096];
         char *path_buffer;
         uint pathBufferLength = pathEnd - pathStart + 1;
@@ -1188,4 +1313,32 @@ QString KURL::encode_string(const QString& notEncodedString)
     }
 
     return result;
+}
+
+NSURL *KURL::getNSURL() const
+{
+    const UInt8 *bytes = (const UInt8 *)(urlString.latin1());
+    NSURL *result = nil;
+    if (urlString.length() > 0) {
+        // NOTE: We use UTF-8 here since this encoding is used when computing strings when returning URL components
+        // (e.g calls to NSURL -path). However, this function is not tolerant of illegal UTF-8 sequences, which
+        // could either be a malformed string or bytes in a different encoding, like shift-jis, so we fall back
+        // onto using ISO Latin 1 in those cases.
+        result = (NSURL *)CFURLCreateAbsoluteURLWithBytes(NULL, bytes, urlString.length(), kCFStringEncodingUTF8, NULL, TRUE);
+        if (!result) {
+            result = (NSURL *)CFURLCreateAbsoluteURLWithBytes(NULL, bytes, urlString.length(), kCFStringEncodingISOLatin1, NULL, TRUE);
+        }
+        [result autorelease];
+    }
+    else {
+        result = [NSURL URLWithString:@""];
+    }
+    
+    return result;
+}
+
+NSData *KURL::getNSData() const
+{
+    const UInt8 *bytes = (const UInt8 *)(urlString.latin1());
+    return [NSData dataWithBytes:bytes length:urlString.length()];
 }

@@ -121,7 +121,8 @@ int rijndaelBlockEncrypt(
 	word8 *input, 
 	word8 *outBuffer)
 {
-	int j, t;
+	int t;
+	unsigned j;
 	word8 localBlock[4][MAXBC];		// working memory: encrypt/decrypt in place here
 	
 	#if		AES_CONSISTENCY_CHECK
@@ -159,7 +160,8 @@ int rijndaelBlockDecrypt(
 	word8 *input, 
 	word8 *outBuffer)
 {
-	int j, t;
+	int t;
+	unsigned j;
 	word8 localBlock[4][MAXBC];		// working memory: encrypt/decrypt in place here
 
 	#if		AES_CONSISTENCY_CHECK

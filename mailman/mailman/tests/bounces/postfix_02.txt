@@ -1,0 +1,60 @@
+From VM Wed Dec 27 22:11:47 2000
+Return-Path: <>
+Delivered-To: xxxxx@mail.wooz.org
+Received: by mail.wooz.org (Postfix) via BOUNCE
+	id 68CBFD37E7; Wed, 27 Dec 2000 20:42:55 -0500 (EST)
+MIME-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="17E1DD37E0.977967775/mail.wooz.org"
+Message-Id: <20001228014255.68CBFD37E7@mail.wooz.org>
+From: MAILER-DAEMON@mail.wooz.org (Mail Delivery System)
+To: xxxxx@mail.wooz.org
+Subject: Undelivered Mail Returned to Sender
+Date: Wed, 27 Dec 2000 20:42:55 -0500 (EST)
+
+This is a MIME-encapsulated message.
+
+--17E1DD37E0.977967775/mail.wooz.org
+Content-Description: Notification
+Content-Type: text/plain
+
+This is the Postfix program at host mail.wooz.org.
+
+I'm sorry to have to inform you that the message returned
+below could not be delivered to one or more destinations.
+
+For further assistance, please contact <postmaster@mail.wooz.org>
+
+If you do so, please include this problem report. You can
+delete your own text from the message returned below.
+
+			The Postfix program
+
+<yyyyy@digicool.com>: Name service error for domain digicool.com: Host not
+    found, try again
+
+
+--17E1DD37E0.977967775/mail.wooz.org
+Content-Description: Undelivered Message
+Content-Type: message/rfc822
+
+Received: by mail.wooz.org (Postfix, from userid 889)
+	id 17E1DD37E0; Fri, 22 Dec 2000 20:06:42 -0500 (EST)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Message-ID: <14915.64162.965657.699956@anthem.concentric.net>
+Date: Fri, 22 Dec 2000 20:06:42 -0500
+To: yyyyy@digicool.com
+Subject: testing to yyyyy
+X-Mailer: VM 6.84 under 21.1 (patch 12) "Channel Islands" XEmacs Lucid
+X-Attribution: BAW
+X-Oblique-Strategy: You don't have to be ashamed of using your own ideas
+X-Url: http://www.wooz.org/yyyyy
+From: yyyyy@digicool.com (Yyyyy A. Zzzzz)
+
+
+hello yyyyy
+
+--17E1DD37E0.977967775/mail.wooz.org--
+

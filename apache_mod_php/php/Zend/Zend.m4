@@ -1,3 +1,8 @@
+dnl
+dnl $Id: Zend.m4,v 1.1.1.7 2003/07/18 18:07:25 zarzycki Exp $
+dnl
+dnl This file contains Zend specific autoconf functions.
+dnl
 
 AC_DEFUN(LIBZEND_BISON_CHECK,[
 
@@ -5,7 +10,7 @@ if test "$YACC" != "bison -y"; then
     AC_MSG_WARN(You will need bison if you want to regenerate the Zend parser.)
 else
     AC_MSG_CHECKING(bison version)
-    set `bison --version| sed -e 's/^GNU Bison version //' -e 's/\./ /'`
+    set `bison --version| grep 'GNU Bison' | cut -d ' ' -f 4 | sed -e 's/\./ /'`
     if test "${1}" = "1" -a "${2}" -lt "28"; then
         AC_MSG_WARN(You will need bison 1.28 if you want to regenerate the Zend parser (found ${1}.${2}).)
     fi
@@ -30,10 +35,9 @@ if test "$CC" = "gcc" -a "$ac_cv_prog_cc_g" = "yes" -a \
 	CFLAGS=`echo $CFLAGS | sed -e 's/-g//'`
 fi
 
-dnl Hack to work around a Mac OS X cpp problem
-dnl Known versions needing this workaround are 5.3 and 5.4
-if test "$ac_cv_prog_gcc" = "yes" -a "`uname -s`" = "Rhapsody"; then
-        CPPFLAGS="$CPPFLAGS -traditional-cpp"
+dnl Use the standard cpp instead of the precompiling one on Darwin / Mac OS X
+if test "$ac_cv_prog_gcc" = "yes" -a "`uname -s`" = "Darwin"; then
+        CPPFLAGS="$CPPFLAGS -no-cpp-precomp"
 fi
 
 AC_CHECK_HEADERS(
@@ -50,9 +54,6 @@ dlfcn.h)
 
 AC_TYPE_SIZE_T
 AC_TYPE_SIGNAL
-
-AC_CHECK_LIB(dl, dlopen, [LIBS="-ldl $LIBS"])
-AC_CHECK_FUNC(dlopen,[AC_DEFINE(HAVE_LIBDL, 1,[ ])])
 
 dnl This is required for QNX and may be some BSD derived systems
 AC_CHECK_TYPE( uint, unsigned int )
@@ -72,7 +73,25 @@ ZEND_FP_EXCEPT
 	
 ])
 
+AC_DEFUN(LIBZEND_LIBDL_CHECKS,[
+AC_CHECK_LIB(dl, dlopen, [LIBS="-ldl $LIBS"])
+AC_CHECK_FUNC(dlopen,[AC_DEFINE(HAVE_LIBDL, 1,[ ])])
+])
 
+AC_DEFUN(LIBZEND_DLSYM_CHECK,[
+dnl
+dnl Ugly hack to check if dlsym() requires a leading underscore in symbol name.
+dnl
+AC_MSG_CHECKING([whether dlsym() requires a leading underscore in symbol names])
+_LT_AC_TRY_DLOPEN_SELF([
+  AC_MSG_RESULT(no)
+], [
+  AC_MSG_RESULT(yes)
+  AC_DEFINE(DLSYM_NEEDS_UNDERSCORE, 1, [Define if dlsym() requires a leading underscore in symbol names. ])
+], [
+  AC_MSG_RESULT(no)
+], [])
+])
 
 
 
@@ -108,11 +127,11 @@ AC_ARG_ENABLE(experimental-zts,
 ])  
 
 AC_ARG_ENABLE(inline-optimization,
-[  --enable-inline-optimization   If you have much memory and are using
-                                 gcc, you might try this.],[
+[  --disable-inline-optimization If building zend_execute.lo fails, try
+                                this switch.],[
   ZEND_INLINE_OPTIMIZATION=$enableval
 ],[
-  ZEND_INLINE_OPTIMIZATION=no
+  ZEND_INLINE_OPTIMIZATION=yes
 ])
 
 AC_ARG_ENABLE(memory-limit,
@@ -122,7 +141,14 @@ AC_ARG_ENABLE(memory-limit,
   ZEND_MEMORY_LIMIT=no
 ])
 
-AC_MSG_CHECKING(whether to enable experimental ZTS)
+AC_ARG_ENABLE(zend-multibyte,
+[  --enable-zend-multibyte Compile with zend multibyte support. ], [
+  ZEND_MULTIBYTE=$enableval
+],[
+  ZEND_MULTIBYTE=no
+])
+
+AC_MSG_CHECKING(whether to enable thread-safety)
 AC_MSG_RESULT($ZEND_EXPERIMENTAL_ZTS)
 
 AC_MSG_CHECKING(whether to enable inline optimization for GCC)
@@ -133,7 +159,10 @@ AC_MSG_RESULT($ZEND_MEMORY_LIMIT)
 
 AC_MSG_CHECKING(whether to enable Zend debugging)
 AC_MSG_RESULT($ZEND_DEBUG)
-	
+
+AC_MSG_CHECKING(whether to enable Zend multibyte)
+AC_MSG_RESULT($ZEND_MULTIBYTE)
+
 if test "$ZEND_DEBUG" = "yes"; then
   AC_DEFINE(ZEND_DEBUG,1,[ ])
   echo " $CFLAGS" | grep ' -g' >/dev/null || DEBUG_CFLAGS="-g"
@@ -152,7 +181,6 @@ test -n "$DEBUG_CFLAGS" && CFLAGS="$CFLAGS $DEBUG_CFLAGS"
 if test "$ZEND_EXPERIMENTAL_ZTS" = "yes"; then
   AC_DEFINE(ZTS,1,[ ])
   CFLAGS="$CFLAGS -DZTS"
-  LIBZEND_CPLUSPLUS_CHECKS
 fi  
 
 if test "$ZEND_MEMORY_LIMIT" = "yes"; then
@@ -161,6 +189,9 @@ else
   AC_DEFINE(MEMORY_LIMIT, 0, [Memory limit])
 fi
 
+if test "$ZEND_MULTIBYTE" = "yes"; then
+  AC_DEFINE(ZEND_MULTIBYTE, 1, [ ])
+fi
 
 changequote({,})
 if test -n "$GCC" && test "$ZEND_INLINE_OPTIMIZATION" != "yes"; then
@@ -180,4 +211,3 @@ AC_SUBST(INLINE_CFLAGS)
 AC_DEFUN(LIBZEND_CPLUSPLUS_CHECKS,[
 
 ])
-

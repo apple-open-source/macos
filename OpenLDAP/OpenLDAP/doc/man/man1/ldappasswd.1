@@ -1,6 +1,6 @@
-.TH LDAPPASSWD 1 "20 August 2001" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man1/ldappasswd.1,v 1.28 2002/01/04 20:17:33 kurt Exp $
-.\" Copyright 1998-2002 The OpenLDAP Foundation All Rights Reserved.
+.TH LDAPPASSWD 1 "RELEASEDATE" "OpenLDAP LDVERSION"
+.\" $OpenLDAP: pkg/ldap/doc/man/man1/ldappasswd.1,v 1.28.2.7 2003/03/31 16:48:17 kurt Exp $
+.\" Copyright 1998-2003 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ldappasswd \- change the password of an LDAP entry
@@ -11,7 +11,7 @@ ldappasswd \- change the password of an LDAP entry
 [\c
 .BI \-a \ oldPasswd\fR]
 [\c
-.BR \-C ]
+.BI \-t \ oldpasswdfile\fR]
 [\c
 .BI \-D \ binddn\fR]
 [\c
@@ -29,11 +29,15 @@ ldappasswd \- change the password of an LDAP entry
 [\c
 .BI \-s \ newPasswd\fR]
 [\c
+.BI \-T \ newpasswdfile\fR]
+[\c
 .BR \-v ]
 [\c
 .BR \-W ]
 [\c
 .BI \-w \ passwd\fR]
+[\c
+.BI \-y \ passwdfile\fR]
 [\c
 .BR \-O \ security-properties ]
 [\c
@@ -43,9 +47,13 @@ ldappasswd \- change the password of an LDAP entry
 [\c
 .BI \-U \ authcid\fR]
 [\c
+.BI \-R \ authcid\fR]
+[\c
 .BR \-x ]
 [\c
 .BI \-X \ authzid\fR]
+[\c
+.BI \-R \ realm\fR]
 [\c
 .BI \-Y \ mech\fR]
 [\c
@@ -80,8 +88,8 @@ This is used instead of specifying the password on the command line.
 .BI \-a \ oldPasswd
 Set the old password to \fIoldPasswd\fP.
 .TP
-.B \-C
-Automatically chase referrals.
+.BI \-t \ oldPasswdFile
+Set the old password to the contents of \fIoldPasswdFile\fP.
 .TP
 .B \-x 
 Use simple authentication instead of SASL.
@@ -117,6 +125,9 @@ This is used instead of specifying the password on the command line.
 .BI \-s \ newPasswd
 Set the new password to \fInewPasswd\fP.
 .TP
+.BI \-T \ newPasswdFile
+Set the new password to the contents of \fInewPasswdFile\fP.
+.TP
 .B \-v
 Increase the verbosity of output.  Can be specified multiple times.
 .TP
@@ -126,6 +137,10 @@ This is used instead of specifying the password on the command line.
 .TP
 .BI \-w \ passwd
 Use \fIpasswd\fP as the password to bind with.
+.TP
+.BI \-y \ passwdfile
+Use complete contents of \fIpasswdfile\fP as the password for
+simple authentication.
 .TP
 .BI \-O \ security-properties
 Specify SASL security properties.
@@ -141,8 +156,12 @@ Enable SASL Quiet mode.  Never prompt.
 Specify the authentication ID for SASL bind. The form of the ID
 depends on the actual SASL mechanism used.
 .TP
+.BI \-R \ realm
+Specify the realm of authentication ID for SASL bind. The form of the realm
+depends on the actual SASL mechanism used.
+.TP
 .BI \-X \ authzid
-Specify the requested authorization ID for SASL bind.
+Specify the proxy authorization ID for SASL bind.
 .I authzid
 must be one of the following formats:
 .BI dn: <distinguished name>
@@ -158,8 +177,8 @@ Issue StartTLS (Transport Layer Security) extended operation. If you use
 .BR \-ZZ ,
 the command will require the operation to be successful
 .SH SEE ALSO
-.BR ldap_sasl_bind (3)
-.BR ldap_extended_operation (3)
+.BR ldap_sasl_bind (3),
+.BR ldap_extended_operation (3),
 .BR ldap_start_tls_s (3)
 .SH AUTHOR
 The OpenLDAP Project <http://www.openldap.org/>

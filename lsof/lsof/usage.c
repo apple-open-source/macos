@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1998 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: usage.c,v 1.17 2001/11/01 20:21:11 abe Exp $";
+static char *rcsid = "$Id: usage.c,v 1.20 2003/03/21 17:25:10 abe Exp $";
 #endif
 
 
@@ -45,6 +45,11 @@ static char *rcsid = "$Id: usage.c,v 1.17 2001/11/01 20:21:11 abe Exp $";
  */
 
 _PROTOTYPE(static char *isnullstr,(char *s));
+_PROTOTYPE(static void report_HASDCACHE,(int type, char *ttl, char *det));
+_PROTOTYPE(static void report_HASKERNIDCK,(char *pfx, char *verb));
+_PROTOTYPE(static void report_SECURITY,(char *pfx, char *punct));
+_PROTOTYPE(static void report_WARNDEVACCESS,(char *pfx, char *verb,
+					     char *punct));
 
 
 /*
@@ -67,6 +72,232 @@ isnullstr(s)
 
 
 /*
+ * report_HASDCACHE() -- report device cache file state
+ */
+
+static void
+report_HASDCACHE(type, ttl, det)
+	int type;				/* type: 0 == read path report
+						 *       1 == full report */
+	char *ttl;				/* title lines prefix
+						 * (NULL if none) */
+	char *det;				/* detail lines prefix
+						 * (NULL if none) */
+{
+
+#if	defined(HASDCACHE)
+	char *cp;
+	int dx;
+
+# if	defined(WILLDROPGID)
+	int saved_Setgid = Setgid;
+
+	Setgid = 0;
+# endif	/* defined(WILLDROPGID) */
+
+	if (type) {
+
+	/*
+	 * Report full device cache information.
+	 */
+	    (void) fprintf(stderr, "%sDevice cache file read-only paths:\n",
+		ttl ? ttl : "");
+	    if ((dx = dcpath(1, 0)) < 0)
+		(void) fprintf(stderr, "%snone\n", det ? det : "");
+	    else {
+		(void) fprintf(stderr, "%sNamed via -D: %s\n",
+		    det ? det : "",
+		    DCpath[0] ? DCpath[0] : "none");
+
+# if	defined(HASENVDC)
+		(void) fprintf(stderr,
+		    "%sNamed in environment variable %s: %s\n",
+		    det ? det : "",
+		    HASENVDC, DCpath[1] ? DCpath[1] : "none");
+# endif	/* defined(HASENVDC) */
+
+# if	defined(HASSYSDC)
+		if (DCpath[2])
+		    (void) fprintf(stderr,
+			"%sSystem-wide device cache: %s\n",
+			det ? det : "",
+			DCpath[2]);
+# endif	/* defined(HASSYSDC) */
+
+# if	defined(HASPERSDC)
+		(void) fprintf(stderr,
+		    "%sPersonal path format (HASPERSDC): \"%s\"\n",
+		    det ? det : "",
+		    HASPERSDC);
+#  if	defined(HASPERSDCPATH)
+		(void) fprintf(stderr,
+		    "%sModified personal path environment variable: %s\n",
+		    det ? det : "",
+		    HASPERSDCPATH);
+		cp = getenv(HASPERSDCPATH);
+		(void) fprintf(stderr, "%s%s value: %s\n",
+		    det ? det : "",
+		    HASPERSDCPATH, cp ? cp : "none");
+#  endif	/* defined(HASPERSDCPATH) */
+		(void) fprintf(stderr, "%sPersonal path: %s\n",
+		    det ? det : "",
+		    DCpath[3] ? DCpath[3] : "none");
+# endif	/* defined(HASPERSDC) */
+	    }
+	    (void) fprintf(stderr, "%sDevice cache file write paths:\n",
+		ttl ? ttl : "");
+	    if ((dx = dcpath(2, 0)) < 0)
+		(void) fprintf(stderr, "%snone\n", det ? det : "");
+	    else {
+		(void) fprintf(stderr, "%sNamed via -D: %s\n",
+		    det ? det : "",
+		    DCstate == 2 ? "none"
+				 : DCpath[0] ? DCpath[0] : "none");
+
+# if	defined(HASENVDC)
+		(void) fprintf(stderr,
+		    "%sNamed in environment variable %s: %s\n",
+		    det ? det : "",
+		    HASENVDC, DCpath[1] ? DCpath[1] : "none");
+# endif	/* defined(HASENVDC) */
+
+# if	defined(HASPERSDC)
+		(void) fprintf(stderr,
+		    "%sPersonal path format (HASPERSDC): \"%s\"\n",
+		    det ? det : "",
+		    HASPERSDC);
+#  if	defined(HASPERSDCPATH)
+		(void) fprintf(stderr,
+		    "%sModified personal path environment variable: %s\n",
+		    det ? det : "",
+		    HASPERSDCPATH);
+		cp = getenv(HASPERSDCPATH);
+		(void) fprintf(stderr, "%s%s value: %s\n",
+		    det ? det : "",
+		    HASPERSDCPATH, cp ? cp : "none");
+#  endif	/* defined(HASPERSDCPATH) */
+		 (void) fprintf(stderr, "%sPersonal path: %s\n",
+		    det ? det : "",
+		    DCpath[3] ? DCpath[3] : "none");
+# endif	/* defined(HASPERSDC) */
+	    }
+	} else {
+
+	/*
+	 * Report device cache read file path.
+	 */
+
+# if	defined(HASENVDC) || defined(HASPERSDC) || defined(HASSYSDC)
+	    cp = NULL;
+#  if	defined(HASENVDC)
+	    if ((dx = dcpath(1, 0)) >= 0)
+		cp = DCpath[1];
+#  endif	/* defined(HASENVDC) */
+#  if	defined(HASSYSDC)
+	    if (!cp)
+		cp = HASSYSDC;
+#  endif	/* defined(HASSYSDC) */
+#  if	defined(HASPERSDC)
+	    if (!cp && dx != -1 && (dx = dcpath(1, 0)) >= 0)
+		cp = DCpath[3];
+#  endif	/* defined(HASPERSDC) */
+	    if (cp)
+		(void) fprintf(stderr,
+		    "%s%s is the default device cache file read path.\n",
+		    ttl ? ttl : "",
+		    cp
+		);
+# endif    /* defined(HASENVDC) || defined(HASPERSDC) || defined(HASSYSDC) */
+	}
+
+# if	defined(WILLDROPGID)
+	Setgid = saved_Setgid;
+# endif	/* defined(WILLDROPGID) */
+
+#endif	/* defined(HASDCACHE) */
+
+}
+
+
+/*
+ * report_HASKERNIDCK() -- report HASKERNIDCK state
+ */
+
+static void
+report_HASKERNIDCK(pfx, verb)
+	char *pfx;				/* prefix (NULL if none) */
+	char *verb;				/* verb (NULL if none) */
+{
+	(void) fprintf(stderr, "%sernel ID check %s%s%s.\n",
+	    pfx ? pfx : "",
+	    verb ? verb : "",
+	    verb ? " " : "",
+
+#if	defined(HASKERNIDCK)
+		"enabled"
+#else	/* !defined(HASKERNIDCK) */
+		"disabled"
+#endif	/* defined(HASKERNIDCK) */
+
+	    );
+}
+
+
+/*
+ * report_SECURITY() -- report *SECURITY states
+ */
+
+static void
+report_SECURITY(pfx, punct)
+	char *pfx;				/* prefix (NULL if none) */
+	char *punct;				/* short foem punctuation
+						 * (NULL if none) */
+{
+	fprintf(stderr, "%s%s can list all files%s",
+	    pfx ? pfx : "",
+
+#if	defined(HASSECURITY)
+	    "Only root",
+# if	defined(HASNOSOCKSECURITY)
+	    ", but anyone can list socket files.\n"
+# else	/* !defined(HASNOSOCKSECURITY) */
+	    punct ? punct : ""
+# endif	/* defined(HASNOSOCKSECURITY) */
+#else	/* !defined(HASSECURITY) */
+	    "Anyone",
+	    punct ? punct : ""
+#endif	/* defined(HASSECURITY) */
+
+	);
+}
+
+
+/*
+ * report_WARNDEVACCESS() -- report WEARNDEVACCESS state
+ */
+
+static void
+report_WARNDEVACCESS(pfx, verb, punct)
+	char *pfx;				/* prefix (NULL if none) */
+	char *verb;				/* verb (NULL if none) */
+	char *punct;				/* punctuation */
+{
+	(void) fprintf(stderr, "%s/dev warnings %s%s%s%s",
+	    pfx ? pfx : "",
+	    verb ? verb : "",
+	    verb ? " " : "",
+
+#if	defined(WARNDEVACCESS)
+	    "enabled",
+#else	/* !defined(WARNDEVACCESS) */
+	    "disabled",
+#endif	/* defined(WARNDEVACCESS) */
+
+	    punct);
+}
+
+
+/*
  * usage() - display usage and exit
  */
 
@@ -77,7 +308,6 @@ usage(xv, fh, version)
 	int version;			/* ``-v'' status */
 {
 	char buf[MAXPATHLEN+1], *cp, *cp1, *cp2;
-	int dx = -2;
 	int  i;
 
 	if (Fhelp || xv) {
@@ -116,7 +346,7 @@ usage(xv, fh, version)
 	    (void) fprintf(stderr, " [-A A]");
 #endif	/* defined(HAS_AFS) && defined(HASAOPT) */
 
-	    (void) fprintf(stderr, " [-c c] [+|-d s] [+%sD D]",
+	    (void) fprintf(stderr, " [+|-c c] [+|-d s] [+%sD D]",
 
 #if	defined(HASDCACHE)
 		"|-"
@@ -159,12 +389,16 @@ usage(xv, fh, version)
 	}
 	if (Fhelp) {
 	    (void) fprintf(stderr,
-		"Defaults in parentheses; comma-separate set (s) items; dash-separate ranges.\n");
+		"Defaults in parentheses; comma-separate set (s) items;");
+	    (void) fprintf(stderr, " dash-separate ranges.\n");
 	    (void) fprintf(stderr, "  %-23.23s", "-?|-h list help");
 	    (void) fprintf(stderr, "  %-25.25s", "-a AND selections (OR)");
 	    (void) fprintf(stderr, "  %s\n", "-b avoid kernel blocks");
 	    (void) fprintf(stderr, "  %-23.23s", "-c c  cmd c, /c/[bix]");
-	    (void) fprintf(stderr, "  %-25.23s",
+	    (void) snpf(buf, sizeof(buf), "+c w  COMMAND width (%d)", CMDL);
+	    (void) fprintf(stderr, "  %-25.25s", buf);
+
+	    (void) fprintf(stderr, "  %s\n", 
 
 #if	defined(HASNCACHE)
 		"-C no kernel name cache");
@@ -172,9 +406,9 @@ usage(xv, fh, version)
 		" ");
 #endif	/* defined(HASNCACHE) */
 
-	    (void) fprintf(stderr, "  %s\n", "+d s  dir s files");
-	    (void) fprintf(stderr, "  %-23.23s", "-d s  select by FD set");
-	    (void) fprintf(stderr, "  %-25.25s", "+D D  dir D tree *SLOW?*");
+	    (void) fprintf(stderr, "  %-23.23s", "+d s  dir s files");
+	    (void) fprintf(stderr, "  %-25.25s", "-d s  select by FD set");
+	    (void) fprintf(stderr, "  %s\n", "+D D  dir D tree *SLOW?*");
 
 #if	defined(HASDCACHE)
 	    if (Setuidroot)
@@ -192,7 +426,7 @@ usage(xv, fh, version)
 	    (void) snpf(buf, sizeof(buf), " ");
 #endif	/* defined(HASDCACHE) */
 
-	    (void) fprintf(stderr, "  %s\n", buf);
+	    (void) fprintf(stderr, "  %-23.23s", buf);
 	    (void) snpf(buf, sizeof(buf), "-i select IPv%s files",
 
 #if	defined(HASIPv6)
@@ -202,14 +436,14 @@ usage(xv, fh, version)
 #endif	/* defined(HASIPv6) */
 
 			  );
-	    (void) fprintf(stderr, "  %-23.23s", buf);
-	    (void) fprintf(stderr, "  %-25.25s", "-l list UID numbers");
-	    (void) fprintf(stderr, "  %s\n", "-n no host names");
-	    (void) fprintf(stderr, "  %-23.23s", "-N select NFS files");
-	    (void) fprintf(stderr, "  %-25.25s", "-o list file offset");
-	    (void) fprintf(stderr, "  %s\n", "-O avoid overhead *RISKY*");
-	    (void) fprintf(stderr, "  %-23.23s", "-P no port names");
-	    (void) fprintf(stderr, "  %-25.25s",
+	    (void) fprintf(stderr, "  %-25.25s", buf);
+	    (void) fprintf(stderr, "  %s\n", "-l list UID numbers");
+	    (void) fprintf(stderr, "  %-23.23s", "-n no host names");
+	    (void) fprintf(stderr, "  %-25.25s", "-N select NFS files");
+	    (void) fprintf(stderr, "  %s\n", "-o list file offset");
+	    (void) fprintf(stderr, "  %-23.23s", "-O avoid overhead *RISKY*");
+	    (void) fprintf(stderr, "  %-25.25s", "-P no port names");
+	    (void) fprintf(stderr, "  %s\n",
 
 #if	defined(HASPPID)
 	 	"-R list paRent PID"
@@ -218,12 +452,12 @@ usage(xv, fh, version)
 #endif	/* defined(HASPPID) */
 
 	    );
-	    (void) fprintf(stderr, "  %s\n", "-s list file size");
-	    (void) fprintf(stderr, "  %-23.23s", "-t terse listing");
-	    (void) fprintf(stderr, "  %-25.25s", "-T disable TCP/TPI info");
-	    (void) fprintf(stderr, "  %s\n", "-U select Unix socket");
-	    (void) fprintf(stderr, "  %-23.23s", "-v list version info");
-	    (void) fprintf(stderr, "  %-25.25s", "-V verbose search");
+	    (void) fprintf(stderr, "  %-23.23s", "-s list file size");
+	    (void) fprintf(stderr, "  %-25.25s", "-t terse listing");
+	    (void) fprintf(stderr, "  %s\n", "-T disable TCP/TPI info");
+	    (void) fprintf(stderr, "  %-23.23s", "-U select Unix socket");
+	    (void) fprintf(stderr, "  %-25.25s", "-v list version info");
+	    (void) fprintf(stderr, "  %s\n", "-V verbose search");
 	    (void) snpf(buf, sizeof(buf), "+|-w  Warnings (%s)",
 
 #if	defined(WARNINGSTATE)
@@ -233,18 +467,21 @@ usage(xv, fh, version)
 #endif	/* defined(WARNINGSTATE) */
 
 	    );
-	    (void) fprintf(stderr, "  %s\n", buf);
+	    (void) fprintf(stderr, "  %-23.23s", buf);
 
 #if	defined(HASXOPT)
 # if	defined(HASXOPT_ROOT)
 	    if (Myuid == 0)
 		(void) snpf(buf, sizeof(buf), "-X %s", HASXOPT);
+	    buf[0] = '\0';
 # else	/* !defined(HASXOPT_ROOT) */
 	    (void) snpf(buf, sizeof(buf), "-X %s", HASXOPT);
 # endif	/* defined(HASXOPT_ROOT) */
-	    (void) fprintf(stderr, "  %-23.23s", buf);
+# else	/* !defined(HASXOPT) */
+	    buf[0] = '\0';
 #endif	/* defined(HASXOPT) */
 
+	    (void) fprintf(stderr, "  %-25.25s", buf);
 	    (void) fprintf(stderr, "  %s\n", "-- end option scan");
 	    (void) fprintf(stderr, "  %-36.36s",
 		"+f|-f  +filesystem or -file names");
@@ -372,55 +609,10 @@ usage(xv, fh, version)
 		"  -u s   exclude(^)|select login|UID set s\n");
 	    (void) fprintf(stderr,
 		"  names  select named files or files on named file systems\n");
-	    (void) fprintf(stderr, "%s can list all files;",
-
-#if	defined(HASSECURITY)
-		"Only root"
-#else	/* !defined(HASSECURITY) */
-		"Anyone"
-#endif	/* defined(HASSECURITY) */
-
-	    );
-	    (void) fprintf(stderr, " /dev warnings %s;",
-
-#if	defined(WARNDEVACCESS)
-		"enabled"
-#else	/* !defined(WARNDEVACCESS) */
-		"disabled"
-#endif	/* defined(WARNDEVACCESS) */
-
-	    );
-	    (void) fprintf(stderr, " kernel ID check %s.\n",
-
-#if	defined(HASKERNIDCK)
-		"enabled"
-#else	/* !defined(HASKERNIDCK) */
-		"disabled"
-#endif	/* defined(HASKERNIDCK) */
-
-	    );
-
-#if defined(HASDCACHE)
-# if	defined(HASENVDC) || defined(HASPERSDC) || defined(HASSYSDC)
-	    cp = NULL;
-#  if	defined(HASENVDC)
-	    if (dx == -2 && (dx = dcpath(1, 0)) >= 0)
-		cp = DCpath[1];
-#  endif	/* defined(HASENVDC) */
-#  if	defined(HASSYSDC)
-	    if (!cp)
-		cp = HASSYSDC;
-#  endif	/* defined(HASSYSDC) */
-#  if	defined(HASPERSDC)
-	    if (!cp && dx != -1 && (dx = dcpath(1, 0)) >= 0)
-		cp = DCpath[3];
-#  endif	/* defined(HASPERSDC) */
-	    if (cp)
-		(void) fprintf(stderr,
-		    "%s is the default device cache file read path.\n", cp);
-# endif    /* defined(HASENVDC) || defined(HASPERSDC) || defined(HASSYSDC) */
-#endif	/* defined(HASDCACHE) */
-
+	    (void) report_SECURITY(NULL, "; ");
+	    (void) report_WARNDEVACCESS(NULL, NULL, ";");
+	    (void) report_HASKERNIDCK(" k", NULL);
+	    (void) report_HASDCACHE(0, NULL, NULL);
 	}
 	if (fh) {
 	    (void) fprintf(stderr, "%s:\tID    field description\n", Pn);
@@ -445,78 +637,8 @@ usage(xv, fh, version)
 	}
 
 #if	defined(HASDCACHE)
-	if (DChelp) {
-
-	/*
-	 * Display device cache file read-only and write paths.
-	 */
-	    (void) fprintf(stderr, "%s: device cache file read-only paths:\n",
-		Pn);
-	    if ((dx = dcpath(1, 0)) < 0)
-		(void) fprintf(stderr, "\tnone\n");
-	    else {
-		(void) fprintf(stderr, "\tNamed via -D: %s\n",
-		    DCpath[0] ? DCpath[0] : "none");
-
-# if	defined(HASENVDC)
-		(void) fprintf(stderr,
-		    "\tNamed in environment variable %s: %s\n",
-		    HASENVDC, DCpath[1] ? DCpath[1] : "none");
-# endif	/* defined(HASENVDC) */
-
-# if	defined(HASSYSDC)
-		if (DCpath[2])
-		    (void) fprintf(stderr,
-			"\tSystem-wide device cache: %s\n", DCpath[2]);
-# endif	/* defined(HASSYSDC) */
-
-# if	defined(HASPERSDC)
-		(void) fprintf(stderr,
-		    "\tPersonal path format (HASPERSDC): \"%s\"\n",
-		    HASPERSDC);
-#  if	defined(HASPERSDCPATH)
-		(void) fprintf(stderr,
-		    "\tModified personal path environment variable: %s\n",
-		    HASPERSDCPATH);
-		cp = getenv(HASPERSDCPATH);
-		(void) fprintf(stderr, "\t%s value: %s\n",
-			HASPERSDCPATH, cp ? cp : "none");
-#  endif	/* defined(HASPERSDCPATH) */
-		(void) fprintf(stderr, "\tPersonal path: %s\n",
-		    DCpath[3] ? DCpath[3] : "none");
-# endif	/* defined(HASPERSDC) */
-	    }
-	    (void) fprintf(stderr, "%s: device cache file write paths:\n", Pn);
-	    if ((dx = dcpath(2, 0)) < 0)
-		(void) fprintf(stderr, "\tnone\n");
-	    else {
-		(void) fprintf(stderr, "\tNamed via -D: %s\n",
-		    DCstate == 2 ? "none"
-				 : DCpath[0] ? DCpath[0] : "none");
-
-# if	defined(HASENVDC)
-		(void) fprintf(stderr,
-		    "\tNamed in environment variable %s: %s\n",
-		    HASENVDC, DCpath[1] ? DCpath[1] : "none");
-# endif	/* defined(HASENVDC) */
-
-# if	defined(HASPERSDC)
-		(void) fprintf(stderr,
-		    "\tPersonal path format (HASPERSDC): \"%s\"\n",
-		    HASPERSDC);
-#  if	defined(HASPERSDCPATH)
-		(void) fprintf(stderr,
-		    "\tModified personal path environment variable: %s\n",
-		    HASPERSDCPATH);
-		cp = getenv(HASPERSDCPATH);
-		(void) fprintf(stderr, "\t%s value: %s\n",
-			HASPERSDCPATH, cp ? cp : "none");
-#  endif	/* defined(HASPERSDCPATH) */
-		 (void) fprintf(stderr, "\tPersonal path: %s\n",
-		    DCpath[3] ? DCpath[3] : "none");
-# endif	/* defined(HASPERSDC) */
-	    }
-	}
+	if (DChelp)
+	    report_HASDCACHE(1, NULL, "    ");
 #endif	/* defined(HASDCACHE) */
 
 	if (version) {
@@ -572,6 +694,10 @@ usage(xv, fh, version)
 		(void) fprintf(stderr, "    loader flags: %s\n", cp);
 	    if ((cp = isnullstr(LSOF_SYSINFO)))
 		(void) fprintf(stderr, "    system info: %s\n", cp);
+	    (void) report_SECURITY("    ", ".\n");
+	    (void) report_WARNDEVACCESS("    ", "are", ".\n");
+	    (void) report_HASKERNIDCK("    K", "is");
+	    (void) report_HASDCACHE(1, "    ", "\t");
 	}
 	Exit(xv);
 }

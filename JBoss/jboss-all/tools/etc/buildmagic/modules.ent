@@ -1,0 +1,131 @@
+<!-- $Id: modules.ent,v 1.1.2.7 2003/07/07 11:23:31 thomasra Exp $ -->
+
+  <!-- Cluster -->
+  <property name="jboss.cluster.root" value="${project.root}/cluster/output"/>
+  <property name="jboss.cluster.lib" value="${jboss.cluster.root}/lib"/>
+  <path id="jboss.cluster.classpath">
+    <pathelement path="${jboss.cluster.lib}/jbossha.jar"/>
+    <pathelement path="${jboss.cluster.lib}/jbossha-httpsession.sar"/>
+    <pathelement path="${jboss.cluster.lib}/jbossha-singleton.jar"/>
+  </path>
+
+  <!-- Common -->
+  <property name="jboss.common.root" value="${project.root}/common/output"/>
+  <property name="jboss.common.lib" value="${jboss.common.root}/lib"/>
+  <path id="jboss.common.classpath">
+    <pathelement path="${jboss.common.lib}/jboss-common.jar"/>
+  </path>
+
+  <!-- Compatibility -->
+  <property name="jboss.compatibility.root" value="${project.root}/compatibility/output"/>
+  <property name="jboss.compatibility.lib" value="${jboss.compatibility.root}/lib"/>
+  <path id="jboss.compatibility.classpath">
+  </path>
+
+  <!-- JCA -->
+  <property name="jboss.jca.root" value="${project.root}/connector/output"/>
+  <property name="jboss.jca.lib" value="${jboss.jca.root}/lib"/>
+  <path id="jboss.jca.classpath">
+    <pathelement path="${jboss.jca.lib}/jboss-jca.sar"/>
+  </path>
+
+  <!-- Iiop -->
+  <property name="jboss.iiop.root" value="${project.root}/iiop/output"/>
+  <property name="jboss.iiop.lib" value="${jboss.iiop.root}/lib"/>
+  <path id="jboss.iiop.classpath">
+    <pathelement path="${jboss.iiop.lib}/jboss-iiop.jar"/>
+  </path>
+
+  <!-- J2EE -->
+  <property name="jboss.j2ee.root" value="${project.root}/j2ee/output"/>
+  <property name="jboss.j2ee.lib" value="${jboss.j2ee.root}/lib"/>
+  <path id="jboss.j2ee.classpath">
+    <pathelement path="${jboss.j2ee.lib}/jboss-j2ee.jar"/>
+  </path>
+
+  <!-- Jbossnet -->
+  <property name="jboss.jbossnet.root" value="${project.root}/jboss.net/output"/>
+  <property name="jboss.jbossnet.lib" value="${jboss.jbossnet.root}/lib"/>
+  <!--path id="jboss.jbossnet.classpath">
+    <pathelement path="${jboss.jbossnet.lib}/jboss-net.sar"/>
+  </path-->
+
+  <!-- Jetty -->
+  <property name="jboss.jetty.root" value="${project.root}/jetty/output"/>
+  <property name="jboss.jetty.lib" value="${jboss.jetty.root}/lib"/>
+  <!--path id="jboss.jetty.classpath">
+    <pathelement path="${jboss.jetty.lib}/??.sar"/>
+  </path-->
+  <path id="jetty.servlet.classpath">
+    <pathelement path="${jboss.jetty.lib}/javax.servlet.jar"/>
+  </path>
+
+  <!-- JMX -->
+  <property name="jboss.jmx.root" value="${project.root}/jmx/output"/>
+  <property name="jboss.jmx.lib" value="${jboss.jmx.root}/lib"/>
+  <path id="jboss.jmx.classpath">
+    <pathelement path="${jboss.jmx.lib}/jboss-jmx.jar"/>
+  </path>
+
+  <!-- Management -->
+  <property name="jboss.management.root" value="${project.root}/management/output"/>
+  <property name="jboss.management.lib" value="${jboss.management.root}/lib"/>
+  <path id="jboss.management.classpath">
+    <pathelement path="${jboss.management.lib}/jboss-jsr77.jar"/>
+    <pathelement path="${jboss.management.lib}/jboss-management.jar"/>
+  </path>
+
+  <!-- Messaging -->
+  <property name="jboss.messaging.root" value="${project.root}/messaging/output"/>
+  <property name="jboss.messaging.lib" value="${jboss.messaging.root}/lib"/>
+  <path id="jboss.messaging.classpath">
+    <pathelement path="${jboss.messaging.lib}/jbossmq.jar"/>
+  </path>
+
+  <!-- Naming -->
+  <property name="jboss.naming.root" value="${project.root}/naming/output"/>
+  <property name="jboss.naming.lib" value="${jboss.naming.root}/lib"/>
+  <path id="jboss.naming.classpath">
+    <pathelement path="${jboss.naming.lib}/jnpserver.jar"/>
+  </path>
+
+  <!-- Security -->
+  <property name="jboss.security.root" value="${project.root}/security/output"/>
+  <property name="jboss.security.lib" value="${jboss.security.root}/lib"/>
+  <path id="jboss.security.classpath">
+    <pathelement path="${jboss.security.lib}/jbosssx.jar"/>
+    <pathelement path="${jboss.security.lib}/jboss-jaas.jar"/>
+  </path>
+
+  <!-- Server -->
+  <property name="jboss.server.root" value="${project.root}/server/output"/>
+  <property name="jboss.server.lib" value="${jboss.server.root}/lib"/>
+  <path id="jboss.server.classpath">
+    <pathelement path="${jboss.server.lib}/jboss.jar"/>
+    <pathelement path="${jboss.server.lib}/jmx-rmi-connector-client.jar"/>
+    <pathelement path="${jboss.server.lib}/jmx-rmi-adaptor.jar"/>    
+  </path>
+
+  <!-- System -->
+  <property name="jboss.system.root" value="${project.root}/system/output"/>
+  <property name="jboss.system.lib" value="${jboss.system.root}/lib"/>
+  <path id="jboss.system.classpath">
+    <pathelement path="${jboss.system.lib}/jboss-system.jar"/>
+  </path>
+  <property name="jboss.system.xdocletpath"
+      value="${project.root}/system/src/main"/>
+
+  <!-- Transaction -->
+  <property name="jboss.transaction.root" value="${project.root}/transaction/output"/>
+  <property name="jboss.transaction.lib" value="${jboss.transaction.root}/lib"/>
+  <path id="jboss.transaction.classpath">
+    <pathelement path="${jboss.transaction.lib}/jboss-transaction.jar"/>
+  </path>
+
+  <!-- Varia -->
+  <property name="jboss.varia.root" value="${project.root}/varia/output"/>
+  <property name="jboss.varia.lib" value="${jboss.varia.root}/lib"/>
+  <path id="jboss.varia.classpath">
+    <pathelement path="${jboss.varia.root}/classes"/>
+  </path>
+

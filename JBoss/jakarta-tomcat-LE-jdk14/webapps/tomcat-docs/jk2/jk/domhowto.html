@@ -1,0 +1,1120 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html xmlns="http://www.w3.org/TR/xhtml1/strict">
+<head>
+<title>Domino HowTo</title>
+<meta content="1999-2002 The Apache Software Foundation" name="copyright"/>
+<meta content="$Date$" name="last-changed"/>
+<meta content="Andy Armstrong" name="author"/>
+<meta content="andy@tagish.com" name="email"/>
+<meta content="Henri Gomez" name="author"/>
+<meta content="hgomez@apache.org" name="email"/>
+<link href="..//style.css" type="text/css" rel="stylesheet"/>
+<link href="../images/tomcat.ico" rel="shortcut icon"/>
+</head>
+<body link="#525D76" vlink="#525D76" alink="#525D76" text="#000000" bgcolor="#ffffff">
+<a name="TOP"/>
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr height="1">
+<td class="nil" height="1" bgcolor="#ffffff" width="150">
+<img hspace="0" vspace="0" height="1" width="150" border="0" src="../images/pixel.gif"/>
+</td>
+<td class="nil" height="1" bgcolor="#ffffff" width="*">
+<img hspace="0" vspace="0" height="1" width="370" border="0" src="../images/pixel.gif"/>
+</td>
+</tr>
+<tr>
+<td width="*" colspan="2" class="logo" bgcolor="#ffffff">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left">
+<img align="left" height="48" width="505" border="0" src="../images/jakarta.gif"/>
+</td>
+<td align="right">
+<img align="right" border="0" src="../images/mod_jk.jpg"/>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td colspan="2" width="*" align="right" class="head" bgcolor="#999999">
+<nobr>
+<a href="http://www.apache.org/" class="head">Apache Software Foundation</a> |
+                <a href="http://jakarta.apache.org/" class="head">Jakarta Project</a> |
+                <a href="http://jakarta.apache.org/tomcat/" class="head">Apache Tomcat</a>
+</nobr>
+</td>
+</tr>
+<tr>
+<td valign="top" width="150" bgcolor="#ffffff">
+<table class="menu" cellpadding="0" cellspacing="0" width="150" border="0">
+<tr height="1">
+<td class="nil" height="1" bgcolor="#cccccc" width="10">
+<img hspace="0" vspace="0" height="1" width="10" border="0" src="../images/pixel.gif"/>
+</td>
+<td class="nil" height="1" bgcolor="#cccccc" width="140">
+<img hspace="0" vspace="0" height="1" width="140" border="0" src="../images/pixel.gif"/>
+</td>
+</tr>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Presentation</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../index.html">Overview</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Commons</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../common/AJPv13.html">AJPv13</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../common/AJPv13-extensions-proposal.html">AJPv13 extensions Proposal</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../faq.html">FAQ</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">JK</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/quickhowto.html">Quick Start HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/aphowto.html">Apache HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/domhowto.html">Domino HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Introduction" class="menu">Introduction</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Installation on Windows" class="menu">Installation on Windows</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Installation on Linux" class="menu">Installation on Linux</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Building for Windows" class="menu">Building for Windows</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Building for Linux" class="menu">Building for Linux</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/iishowto.html">IIS HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/neshowto.html">Netscape/iPlanet HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/workershowto.html">Workers HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">JK2</td>
+</tr>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Configuration in the Tomcat</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configtc.html">Configuration options</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configtcex.html">Examples</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Configuration in the Web Server</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configweb.html">Configuration file</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configwebcom.html">Components</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configwebex.html">Examples</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Installation</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/installhowto.html">Installation of jk2 in the Web Server</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Howto</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/confighowto.html">Quick Start JK2 Configuration Guide</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+</table>
+</td>
+<td class="body" valign="top" width="*" bgcolor="#ffffff">
+<a name="Introduction">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Introduction</td>
+</tr>
+</table>
+</a>
+<p class="section">
+This document explains how to set up Domino to cooperate with Tomcat. 
+</p>
+<p class="section">
+It is recommended that you also read the <b>
+<a href="../jk/workershowto.html">Workers HowTo</a>
+</b> document
+to learn how to setup the working entities between your WebServer and Tomcat Engines.
+</p>
+<p class="section">
+Recent versions of the Lotus Domino web server have had the ability to host Java servlets, 
+but at the time of writing the Domino servlet container uses JDK 1.2.2 and it is not (apparently) 
+possible to replace this with JDK 1.3. 
+</p>
+<p class="section">
+That means if you want to use JAAS or any other API 
+that is JDK 1.3 only in your servlets you're stuck. 
+</p>
+<a name="sub_Document Conventions and Assumptions">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Document Conventions and Assumptions</td>
+</tr>
+</table>
+</a>
+<p class="section">
+${tomcat_home} is the root directory of tomcat. 
+Your Tomcat installation should have the following subdirectories:
+
+<ul>
+<li>
+${tomcat_home}\conf - Where you can place various configuration files
+</li>
+<li>
+${tomcat_home}\webapps - Containing example applications
+</li>
+<li>
+${tomcat_home}\bin - Where you place web server plugins
+</li>
+</ul>
+</p>
+<p class="section">
+In all the examples in this document ${tomcat_home} will be <b>
+<font color="#333333">c:\jakarta-tomcat</font>
+</b>.
+A worker is defined to be a tomcat process that accepts work from the Domino server.
+</p>
+<br/>
+<a name="sub_Supported Configuration">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Supported Configuration</td>
+</tr>
+</table>
+</a>
+<p class="section">
+The Domino Tomcat redirector was developed and tested on:
+<ul>
+<li>
+WinNT4.0-i386 SP6a (it should be able to work on other versions of the NT service pack.) and Win2K Professional
+</li>
+<li>
+RedHat Linux 7
+</li>
+<li>
+Lotus Domino 5.0.6a
+</li>
+<li>
+Tomcat 3.2.x, Tomcat 3.3.x, Tomcat 4.0.x, Tomcat 4.1.x and Tomcat 5
+</li>
+</ul>
+</p>
+<p class="section">
+The redirector uses <b>
+<font color="#333333">ajp12</font>
+</b> and <b>
+<font color="#333333">ajp13</font>
+</b> to send requests to the Tomcat containers.
+It probably also works with Tomcat in process, but that hasn't been tested.
+</p>
+<br/>
+<a name="sub_Who support ajp protocols ?">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Who support ajp protocols ?</td>
+</tr>
+</table>
+</a>
+<p class="section">
+The ajp12 protocol is only available in Tomcat 3.2.x and 3.3.x.
+</p>
+<p class="section">
+The <b>
+<font color="#333333">ajp12</font>
+</b> has been <b>
+<font color="#333333">deprecated</font>
+</b> with Tomcat 3.3.x and you should use instead 
+<b>
+<font color="#333333">ajp13</font>
+</b> which is the only ajp protocol known by Tomcat 4.0.x, 4.1.x and 5.
+</p>
+<p class="section">
+Of course Tomcat 3.2.x and 3.3.x also support ajp13 protocol.
+</p>
+<p class="section">
+Others servlet engines such as <b>
+<font color="#333333">jetty</font>
+</b> have support for ajp13 protocol
+</p>
+<br/>
+<br/>
+<a name="Installation on Windows">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Installation on Windows</td>
+</tr>
+</table>
+</a>
+<p class="section">
+The Tomcat redirector requires 3 entities:
+</p>
+<ul>
+<li>
+tomcat_redirect.dll - The Domino plugin; either obtain a pre-built DLL or build it yourself 
+(see the build section).
+</li>
+<li>
+workers.properties - A file that describes the host(s) and port(s) used by the workers (Tomcat processes). 
+A sample workers.properties can be found under the conf directory.
+</li>
+<li>
+tomcat_redirector.reg - Registry entries
+</li>
+</ul>
+<p class="section">
+We'll assume that tomcat redirector is placed in <b>
+<font color="#333333">c:\jk\lib\tomcat_redirector.dll</font>
+</b>, 
+the properties file is in<b>
+<font color="#333333">c:\jk\conf</font>
+</b>
+and you created a log directory <b>
+<font color="#333333">c:\jk\logs</font>
+</b>
+</p>
+<p class="section">
+Copy the file <b>
+<font color="#333333">tomcat_redirector.dll</font>
+</b> to the Domino program directory 
+(this is the directory, which may be called something like <b>
+<font color="#333333">c:\Lotus\Domino</font>
+</b>, that contains a file called 
+<b>
+<font color="#333333">nlnotes.exe</font>
+</b>). 
+</p>
+<p class="screendos">
+<div align="center">
+<table bgcolor="#000000" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#000000">
+<div class="screendos">Copy redirector dll to Domino program directory</div>
+<code>
+<nobr>
+<em class="screendos">c:\&gt;</em>
+<b class="screendos">copy c:\jk\lib\tomcat_redirector.dll c:\Lotus\Domino</b>
+</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<p class="section">
+Shortly we will tell Domino where to find this file, but before we do that we need to make some registry entries. 
+The simplest way is to edit the supplied file <b>
+<font color="#333333">tomcat_redirector.reg</font>
+</b>, which initially will look like this :
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<code class="screen">
+<nobr>REGEDIT4</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr/>
+</code>
+<br/>
+<code class="screen">
+<nobr>[HKEY_LOCAL_MACHINE\SOFTWARE\Apache Software Foundation\Jakarta Dsapi Redirector\1.0]</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>"log_file"="c:\\jk\\logs\\domino.log"</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>"log_level"="debug"</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>"worker_file"="c:\\jk\\conf\\workers.properties"</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>"worker_mount_file"="c:\\jk\\conf\\uriworkermap.properties"</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>"tomcat_start"="c:\\jakarta-tomcat\\bin\\tomcat.bat start"</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>"tomcat_stop"="c:\\jakarta-tomcat\\bin\\tomcat.bat stop"</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<p class="section">
+Edit this file to reflect the location where Tomcat has been installed, i.e. replace the instances 
+of <b>
+<font color="#333333">c:\\jakarta-tomcat</font>
+</b> and <b>
+<font color="#333333">c:\\jk</font>
+</b> with the appropriate path remembering to <b>
+<font color="#333333">retain the double backslashes</font>
+</b>. 
+</p>
+<p class="section">
+Once you've made the necessary changes save this file and double click on it to enter it into the registry.
+</p>
+<p class="section">
+Note that the files referred to by the worker_file and worker_mount_file keys need to exist and contain sane values. 
+Default Tomcat installations will have these files. Note also that recent versions of Tomcat write a file called uriworkermap.properties-auto when they start up that can be renamed uriworkermap.properties to obtain default behaviour.
+</p>
+<a name="sub_Note for Windows 2000 users">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Note for Windows 2000 users</td>
+</tr>
+</table>
+</a>
+<p class="section">
+For some reason Windows 2000 seems to have a problem resolving the references to localhost 
+in the default workers.properties. 
+</p>
+<p class="section">
+The easiest solution is to replace 'localhost' with '127.0.0.1' everywhere it appears.
+</p>
+<br/>
+<a name="sub_Automatically Starting Tomcat">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Automatically Starting Tomcat</td>
+</tr>
+</table>
+</a>
+<p class="section">
+The last two registry entries above provide commands that the redirector DLL will use to 
+start and stop Tomcat when the Domino http server starts and stops respectively. 
+</p>
+<p class="section">
+If you don't require this behaviour these two lines can be omitted 
+(or deleted if you've already placed them in the registry).
+</p>
+<br/>
+<a name="sub_Configuring Domino">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Configuring Domino</td>
+</tr>
+</table>
+</a>
+<p class="section">
+Finally we need to configure Domino to use the DSAPI extension DLL. 
+For those who are unfamiliar with Domino server configuration most of a server's configurable behavior 
+is dictated by a document called the "server document" in a database called the 
+<b>
+<font color="#333333">"Public Name and Address Book"</font>
+</b> or <b>
+<font color="#333333">"NAB"</font>
+</b> for short
+</p>
+<p class="section">
+(N.B. Lotus have renamed the NAB to "Domino Directory" from Domino 5 onwards). 
+Each Domino server will have a NAB (called names.nsf) and each NAB will have a number of server documents 
+including one for the current server. 
+</p>
+<p class="section">
+If you have not previously configured a Domino server you may need to refer to the supplied documentation, 
+or you may need to pass this document to your tame Domino administrator.
+</p>
+<p class="section">
+Assuming you know your way around a Domino server document what we're going to do is actually quite simple. 
+Open the server document for this server, place it in Edit mode, then locate the DSAPIsection and the 'DSAPI filter file names' field on the Internet Protocols tab, HTTP sub-tab. Add "tomcat_redirector.dll" to the DSAPI field, then save and close the document.
+</p>
+<br/>
+<a name="sub_Restart Domino">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Restart Domino</td>
+</tr>
+</table>
+</a>
+<p class="section">
+In order to get these settings to take effect and make sure that you haven't disrupted anything 
+else you should now restart the Domino server. 
+</p>
+<p class="section">If the server is running as a service and you have changed any relevant system variables 
+(JAVA_HOME, TOMCAT_HOME, CLASSPATH) since the last time you restarted the computer you should 
+do a complete restart now because updates to system variables are not seen by services until after a reboot. 
+</p>
+<p class="section">
+If all goes well you should see something like this on the server console when the web server starts up :
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<code class="screen">
+<nobr>29/05/2001 18:54:13   JVM: Java Virtual Machine initialized.</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>29/05/2001 18:54:14   Attempting to start Tomcat: c:\jakarta-tomcat\bin\tomcat.bat start</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>Including all jars in c:\jakarta-tomcat\lib in your CLASSPATH.</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr/>
+</code>
+<br/>
+<code class="screen">
+<nobr>Using CLASSPATH: c:\jakarta-tomcat\classes;c:\jakarta-tomcat\lib\ant.jar;c:\jakarta-tomcat\lib\servlet.jar</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr/>
+</code>
+<br/>
+<code class="screen">
+<nobr>Starting Tomcat in new window</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>29/05/2001 18:54:15   Apache Tomcat Interceptor (Jakarta/DSAPI/1.0) loaded</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>29/05/2001 18:54:16   HTTP Web Server started</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<p class="section">
+At about the same time Tomcat should open in a new window (assuming you enabled the autostart option in the registry settings). 
+</p>
+<p class="section">
+You should now be able to visit a URL that is handled by Tomcat. 
+Something like may be available, depending on how Tomcat is configured :
+</p>
+<p class="section">
+If that all works you're done ;-) 
+</p>
+<br/>
+<br/>
+<a name="Installation on Linux">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Installation on Linux</td>
+</tr>
+</table>
+</a>
+<p class="section">
+The Tomcat redirector requires 3 entities:
+</p>
+<ul>
+<li>
+libtomcat.so - The Domino plugin; either obtain a pre-built shared lib or build it yourself 
+(see the build section).
+</li>
+<li>
+workers.properties - A file that describes the host(s) and port(s) used by the workers (Tomcat processes). 
+A sample workers.properties can be found under the conf directory.
+</li>
+<li>
+libtomcat.ini - configuration entries
+</li>
+</ul>
+<p class="section">
+Copy the file <b>
+<font color="#333333">libtomcat.so</font>
+</b> to the Domino program directory which may be called 
+something like <b>
+<font color="#333333">/opt/lotus/notes/5601/linux</font>
+</b>, it should contains a file called <b>
+<font color="#333333">libnotes.so</font>
+</b>
+and copy <b>
+<font color="#333333">libtomcat.ini</font>
+</b> to the Domino data directory.
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen">Copy redirector shared lib to Domino program directory</div>
+<code>
+<nobr>
+<em class="screen">[user@host] ~ $ </em>
+<b class="screen">cp c:\jk\lib\libtomcat.so /opt/lotus/notes/5601/linux</b>
+</nobr>
+</code>
+<br/>
+<div class="screen">Copy config to Domino data directory</div>
+<code>
+<nobr>
+<em class="screen">[user@host] ~ $ </em>
+<b class="screen">cp c:\jk\conf\libtomcat.ini /opt/datalotus</b>
+</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<p class="section">
+Note that if you're building the redirector from source these files should already 
+have been copied to the appropriate locations. 
+</p>
+<p class="section">
+Before using the redirector you may like to review the settings in <b>
+<font color="#333333">libtomcat.ini</font>
+</b> which, 
+by default, will look something like this:
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<code class="screen">
+<nobr>log_file=/var/log/domino.log</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>log_level=debug</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker_file=/var/tomcat3/conf/workers.properties</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker_mount_file=/var/tomcat3/conf/uriworkermap.properties</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>tomcat_start=/var/tomcat3/bin/tomcat.sh start</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>tomcat_stop=/var/tomcat3/bin/tomcat.sh stop</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<p class="section">
+If you're building the redirector from the source you may not need to make any changes, 
+otherwise you may have to edit this file to reflect the location where Tomcat has been installed, 
+i.e. replace the instances of /usr/local/apache/tomcat with the appropriate path.
+</p>
+<p class="section">
+Note that the files referred to by the <b>
+<font color="#333333">worker_file</font>
+</b> and <b>
+<font color="#333333">worker_mount_file</font>
+</b> keys need to exist 
+and contain sane values. 
+</p>
+<p class="section">
+Default Tomcat installations will have these files. 
+Note also that recent versions of Tomcat write a file called <b>
+<font color="#333333">uriworkermap.properties-auto</font>
+</b> 
+when they start up that can be renamed <b>
+<font color="#333333">uriworkermap.properties</font>
+</b> to obtain default behaviour.
+</p>
+<a name="sub_Automatically Starting Tomcat">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Automatically Starting Tomcat</td>
+</tr>
+</table>
+</a>
+<p class="section">
+The last two registry entries above provide commands that the redirector will use to start and stop 
+Tomcat when the Domino http server starts and stops respectively. 
+</p>
+<p class="section">
+If you don't require this behaviour these two lines can be deleted.
+</p>
+<br/>
+<a name="sub_Configuring Domino">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Configuring Domino</td>
+</tr>
+</table>
+</a>
+<p class="section">
+Finally we need to configure Domino to use the DSAPI extension. 
+</p>
+<p class="section">
+For those who are unfamiliar with Domino server configuration most of a server's 
+configurable behavior is dictated by a document called the "server document" in a database called the 
+<b>
+<font color="#333333">"Public Name and Address Book"</font>
+</b> or <b>
+<font color="#333333">"NAB"</font>
+</b> for short
+</p>
+<p class="section">
+N.B. Lotus have renamed the NAB to "Domino Directory" from Domino 5 onwards). 
+</p>
+<p class="section">
+Each Domino server will have a NAB (called names.nsf) and each NAB will have a number of server documents 
+including one for the current server. 
+
+If you have not previously configured a Domino server you may need to refer to the supplied documentation, 
+or you may need to pass this document to your tame Domino administrator.
+</p>
+<p class="section">
+Assuming you know your way around a Domino server document what we're going to do is actually quite simple. 
+</p>
+<p class="section">
+Open the server document for this server, place it in Edit mode, then locate the 
+<b>
+<font color="#333333">DSAPIsection</font>
+</b> and the <b>
+<font color="#333333">'DSAPI filter file names'</font>
+</b> field on the Internet Protocols tab, 
+HTTP sub-tab. 
+</p>
+<p class="section">
+Add <b>
+<font color="#333333">"libtomcat.so"</font>
+</b> to the DSAPI field, then save and close the document.
+</p>
+<br/>
+<a name="sub_Restart Domino">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="subsection" bgcolor="#828DA6">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Restart Domino</td>
+</tr>
+</table>
+</a>
+<p class="section">
+In order to get these settings to take effect and make sure that you haven't 
+disrupted anything else you should now restart the Domino HTTP server. 
+</p>
+<p class="section">
+At the Domino console type
+</p>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<code>
+<nobr>
+<em class="screen">[user@host] ~ $ </em>
+<b class="screen">tell http quit</b>
+</nobr>
+</code>
+<br/>
+<code>
+<nobr>
+<em class="screen">[user@host] ~ $ </em>
+<b class="screen">load http</b>
+</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<p class="section">
+You should see the HTTP server reload along with messages that will confirm that the redirector 
+has loaded and that Tomcat has (if you used Tomcat autostart) started. 
+</p>
+<p class="section">
+You should now be able to visit a URL that is handled by Tomcat. Something like
+</p>
+<br/>
+<br/>
+<a name="Building for Windows">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Building for Windows</td>
+</tr>
+</table>
+</a>
+<p class="section">
+To compile it you'll need the JK Domino sources and Microsoft Visual C++ 6.0. 
+</p>
+<p class="section">
+You will probably also want the Lotus Notes C API version 5.0.7 or later.
+You can build the DLL without the C API, in which case you'll need to define the macro NO_CAPI in config.h. 
+If you do this Domino logging from the DLL will be disabled.
+</p>
+<ul>
+<li>
+Change directory to the domino plugin source directory.
+</li>
+<li>
+Edit <b>
+<font color="#333333">dsapi.dsp</font>
+</b> and update the include and library path to reflect your own Domino server installation 
+(search for a <b>
+<font color="#333333">/I compiler</font>
+</b> option and <b>
+<font color="#333333">/libpath</font>
+</b> linker option)
+</li>
+<li>
+Make the source with MSDEV
+</li>
+</ul>
+<p class="screendos">
+<div align="center">
+<table bgcolor="#000000" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#000000">
+<div class="screendos">Change directory to the dsapi plugins source directory</div>
+<code>
+<nobr>
+<em class="screendos">c:\&gt;</em>
+<b class="screendos">cd c:\home\apache\jk\domino</b>
+</nobr>
+</code>
+<br/>
+<div class="screendos">Build the sources using MSDEV</div>
+<code>
+<nobr>
+<em class="screendos">c:\&gt;</em>
+<b class="screendos">MSDEV dsapi.dsp /MAKE ALL</b>
+</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<br/>
+<a name="Building for Linux">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Building for Linux</td>
+</tr>
+</table>
+</a>
+<p class="section">
+You will probably also want the Lotus Notes C API version 5.0.3 for Unix or later.
+</p>
+<p class="section">
+You can build the redirector without the C API, in which case you'll need to define the macro NO_CAPI in config.h. 
+If you do this, Domino logging from the redirector will be disabled.
+</p>
+<ul>
+<li>
+Change directory to the Domino plugin source directory.
+</li>
+<li>
+Edit <b>
+<font color="#333333">Makefile</font>
+</b> and update the include and library path to reflect your own Domino server installation 
+</li>
+</ul>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen">edit the Makefile providing appropriate values for these variables</div>
+<code class="screen">
+<nobr># The root of your Domino installation. Mine's in /usr/local/lotus, but your's</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr># may well be /opt/lotus</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>NOTESROOT=/usr/local/lotus</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr/>
+</code>
+<br/>
+<code class="screen">
+<nobr># The place where the Notes API is installed</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>NOTESAPI=$(NOTESROOT)/notesapi</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr/>
+</code>
+<br/>
+<code class="screen">
+<nobr># The Domino program directory.</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>NOTESHOME=$(NOTESROOT)/notes/5061/linux</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr/>
+</code>
+<br/>
+<code class="screen">
+<nobr># The Domino data directory (the directory containing names.nsf)</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>NOTESDATA=$(NOTESROOT)/notes/data</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr/>
+</code>
+<br/>
+<code class="screen">
+<nobr># The include path for the Notes C API headers</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>NOTESINC=$(NOTESAPI)/include</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr/>
+</code>
+<br/>
+<code class="screen">
+<nobr># Where tomcat is installed. This is where conf, lib, webapps et al normally are</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>TOMCATHOME=/var/tomcat3</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr/>
+</code>
+<br/>
+<code class="screen">
+<nobr># Your JDK's include directory</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>JAVAINC=$(JAVA_HOME)/include</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<ul>
+<li>
+Now you should build via make
+</li>
+</ul>
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen">Launch build via make</div>
+<code>
+<nobr>
+<em class="screen">[user@host] ~ $ </em>
+<b class="screen">make</b>
+</nobr>
+</code>
+<br/>
+<div class="screen">place the redirector (libtomcat.so) and its settings file (libtomcat.ini) in the appropriate places</div>
+<code>
+<nobr>
+<em class="screen">[user@host] ~ $ </em>
+<b class="screen">make install</b>
+</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+<br/>
+</td>
+</tr>
+</table>
+</body>
+</html>

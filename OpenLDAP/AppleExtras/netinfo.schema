@@ -1,4 +1,4 @@
-#ident $Id: netinfo.schema,v 1.5.2.1 2002/10/03 00:12:44 jtownsen Exp $
+#ident $Id: netinfo.schema,v 1.15 2003/09/13 23:37:25 jtownsen Exp $
 #
 # NetInfo attribute mapping schema.
 #
@@ -19,11 +19,13 @@ attributemap /users change shadowLastChange
 attributemap /users class apple-user-class
 attributemap /users home_loc apple-user-homeurl
 attributemap /users homedirectoryquota apple-user-homequota
+attributemap /users homedirectorysoftquota apple-user-homesoftquota
 attributemap /users applemail apple-user-mailattribute
 attributemap /users appleprintservice apple-user-printattribute
 attributemap /users admin_limits apple-user-adminlimits
 attributemap /users picture apple-user-picture
 attributemap /users hint apple-user-authenticationhint
+attributemap /users passwordpolicyoptions apple-user-passwordpolicy
 attributemap /users authentication_authority authAuthority
 attributemap /users lastname sn
 attributemap /users firstname givenName
@@ -31,6 +33,19 @@ attributemap /users state stateOrProvinceName
 attributemap /users zip postalCode
 attributemap /users address1 streetAddress
 attributemap /users phonenumber telephoneNumber
+attributemap /users comment description
+attributemap /users smb_acctFlags acctFlags
+attributemap /users smb_pwd_last_set pwdLastSet
+attributemap /users smb_logon_time logonTime
+attributemap /users smb_logoff_time logoffTime
+attributemap /users smb_kickoff_time kickoffTime
+attributemap /users smb_home_drive homeDrive
+attributemap /users smb_script_path scriptPath
+attributemap /users smb_profile_path profilePath
+attributemap /users smb_user_workstations userWorkstations
+attributemap /users smb_home smbHome
+attributemap /users smb_rid rid
+attributemap /users smb_group_rid primaryGroupID
 
 #
 # Schema mapping for NetInfo groups.
@@ -41,6 +56,7 @@ attributemap /groups gid gidNumber
 attributemap /groups realname apple-group-realname
 attributemap /groups home_loc apple-group-homeurl
 attributemap /groups home_loc_owner apple-group-homeowner
+attributemap /groups picture apple-user-picture
 
 #
 # Schema mapping for NetInfo hosts.
@@ -98,6 +114,10 @@ attributemap /mounts passno mountPassNo
 #
 objectclassmap /printers apple-printer
 attributemap /printers attributes apple-printer-attributes
+attributemap /printers rm apple-printer-lprhost
+attributemap /printers rp apple-printer-lprqueue
+attributemap /printers ty apple-printer-type
+attributemap /printers note apple-printer-note
 
 #
 # Schema mapping for NetInfo mail aliases.
@@ -109,9 +129,21 @@ attributemap /aliases members rfc822MailMember
 # Schema mapping for NetInfo computers.
 #
 objectclassmap /computers apple-computer
+attributemap /computers realname apple-realname
 attributemap /computers comment description
 attributemap /computers en_address macAddress
 attributemap /computers groups apple-computer-list-groups
+attributemap /computers uid uidNumber
+attributemap /computers gid gidNumber
+attributemap /computers authentication_authority authAuthority
+attributemap /computers smb_acctFlags acctFlags
+attributemap /computers smb_pwd_last_set pwdLastSet
+attributemap /computers smb_logon_time logonTime
+attributemap /computers smb_logoff_time logoffTime
+attributemap /computers smb_kickoff_time kickoffTime
+attributemap /computers smb_rid rid
+attributemap /computers smb_group_rid primaryGroupID
+attributemap /computers xmlplist apple-xmlplist
 
 #
 # Schema mapping for NetInfo computer lists.
@@ -123,15 +155,20 @@ attributemap /computer_lists groups apple-computer-list-groups
 #
 # Schema mapping for NetInfo configurations.
 #
-#objectclassmap /config apple-configuration extensibleObject
+objectclassmap /config apple-configuration extensibleObject
 attributemap /config passwordserverlocation apple-password-server-location
 attributemap /config realname apple-config-realname
 attributemap /config data_stamp apple-data-stamp
+attributemap /config passwordserverlist apple-password-server-list
+attributemap /config kdcauthkey apple-kdc-authkey
+attributemap /config kdcconfigdata apple-kdc-configdata
+attributemap /config xmlplist apple-xmlplist
 
 #
 # Schema mapping for NetInfo preset computer lists.
 #
 objectclassmap /presets_computer_lists apple-preset-computer-list
+attributemap /presets_computer_lists groups apple-computer-list-groups
 
 #
 # Schema mapping for NetInfo preset groups.
@@ -150,9 +187,11 @@ attributemap /presets_users users memberUid
 attributemap /presets_users gid gidNumber
 attributemap /presets_users home homeDirectory
 attributemap /presets_users homedirectoryquota apple-user-homequota
+attributemap /presets_users homedirectorysoftquota apple-user-homesoftquota
 attributemap /presets_users applemail apple-user-mailattribute
 attributemap /presets_users appleprintservice apple-user-printattribute
 attributemap /presets_users admin_limits apple-user-adminlimits
+attributemap /presets_users passwordpolicyoptions apple-user-passwordpolicy
 attributemap /presets_users picture apple-user-picture
 attributemap /presets_users shell loginShell
 attributemap /presets_users change shadowLastChange
@@ -161,6 +200,19 @@ attributemap /presets_users authentication_authority authAuthority
 attributemap /presets_users preset_user_is_admin apple-preset-user-is-admin
 
 objectclassmap /people inetOrgPerson
+
+#
+# Schema mapping for NetInfo Server Assistant configs.
+#
+objectclassmap /autoserversetup apple-serverassistant-config
+attributemap /autoserversetup xmlplist apple-xmlplist
+
+#
+# Schema mapping for NetInfo locations.
+#
+objectclassmap /locations apple-location
+attributemap /locations domain apple-dns-domain
+attributemap /locations nameserver apple-dns-nameserver
 
 #
 # Top-level directories are mapped the "container"
@@ -182,3 +234,5 @@ attributemap name cn
 
 attributemap mcx_flags apple-mcxflags
 attributemap mcx_settings apple-mcxsettings
+attributemap keywords apple-keyword
+attributemap generateduid apple-generateduid

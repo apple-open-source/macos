@@ -1,0 +1,22 @@
+<?xml version='1.0'?>
+<!DOCTYPE policy PUBLIC
+      "-//JBoss//DTD JBOSS Security Config 3.0//EN"
+      "http://www.jboss.org/j2ee/dtd/security_config.dtd">
+
+<!-- The JAAS login configuration file for the java:/jaas/srp-test
+security domain used by the security-spec test case
+-->
+<policy>
+    <application-policy name = "srp-test">
+       <authentication>
+          <login-module code = "org.jboss.security.srp.jaas.SRPCacheLoginModule"
+             flag = "required">
+             <module-option name="cacheJndiName">srp-test/AuthenticationCache</module-option>
+          </login-module>
+          <login-module code = "org.jboss.security.auth.spi.UsersRolesLoginModule"
+             flag = "required">
+             <module-option name="password-stacking">useFirstPass</module-option>
+          </login-module>
+       </authentication>
+    </application-policy>
+</policy>

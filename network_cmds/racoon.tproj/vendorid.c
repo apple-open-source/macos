@@ -1,4 +1,4 @@
-/*	$KAME: vendorid.c,v 1.7 2000/12/15 13:43:57 sakane Exp $	*/
+/*	$KAME: vendorid.c,v 1.8 2001/03/27 02:39:57 thorpej Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.

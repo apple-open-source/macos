@@ -1,0 +1,23 @@
+--- samba/source/lib/util_sec.c.orig	Fri Aug 29 14:17:25 2003
++++ samba/source/lib/util_sec.c	Fri Aug 29 14:40:36 2003
+@@ -43,6 +43,20 @@
+ #define BOOL int
+ #endif
+ 
++#ifdef USE_SETRESUID
++#undef USE_SETRESUID
++#endif
++
++#ifdef USE_SETREUID
++#undef USE_SETREUID
++#endif
++
++#ifdef USE_SETUIDX
++#undef USE_SETUIDX
++#endif
++
++#define USE_SETEUID 1
++
+ /* are we running as non-root? This is used by the regresison test code,
+    and potentially also for sites that want non-root smbd */
+ static uid_t initial_uid;

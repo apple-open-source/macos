@@ -32,7 +32,7 @@
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 // IOSCSIArchitectureModelFamily includes
-#include <IOKit/scsi-commands/SCSICommandDefinitions.h>
+#include <IOKit/scsi/SCSICommandDefinitions.h>
 
 
 #ifdef __cplusplus
@@ -81,6 +81,8 @@ enum
 	kMMCDeviceReadDiscInformation					= 17,	// kIOUCStructIStructO, sizeof ( AppleReadDiscInfoStruct ), sizeof ( SCSITaskStatus )
 	kMMCDeviceReadTrackInformation					= 18,	// kIOUCStructIStructO, sizeof ( AppleReadTrackInfoStruct ), sizeof ( SCSITaskStatus )
 	kMMCDeviceReadDVDStructure						= 19,	// kIOUCStructIStructO, sizeof ( AppleReadDVDStructureStruct ), sizeof ( SCSITaskStatus )
+	kMMCDeviceSetCDSpeed							= 20,	// kIOUCStructIStructO, sizeof ( AppleSetCDSpeedStruct ), sizeof ( SCSITaskStatus )
+	kMMCDeviceReadFormatCapacities					= 21,	// kIOUCStructIStructO, sizeof ( AppleReadFormatCapacitiesStruct ), sizeof ( SCSITaskStatus )
 	
 	kSCSITaskUserClientMethodCount
 };
@@ -221,7 +223,6 @@ struct AppleReadTrackInfoStruct
 };
 typedef struct AppleReadTrackInfoStruct AppleReadTrackInfoStruct;
 
-
 struct AppleReadDVDStructureStruct
 {
 	SCSICmdField4Byte 			ADDRESS;
@@ -233,6 +234,22 @@ struct AppleReadDVDStructureStruct
 	void *						senseDataBuffer;
 };
 typedef struct AppleReadDVDStructureStruct AppleReadDVDStructureStruct;
+
+struct AppleSetCDSpeedStruct
+{
+	SCSICmdField2Byte 			LOGICAL_UNIT_READ_SPEED;
+	SCSICmdField2Byte 			LOGICAL_UNIT_WRITE_SPEED;
+	void *						senseDataBuffer;
+};
+typedef struct AppleSetCDSpeedStruct AppleSetCDSpeedStruct;
+
+struct AppleReadFormatCapacitiesStruct
+{
+	void * 						buffer;
+	SCSICmdField2Byte 			bufferSize;
+	void *						senseDataBuffer;
+};
+typedef struct AppleReadFormatCapacitiesStruct AppleReadFormatCapacitiesStruct;
 
 
 #ifdef __cplusplus

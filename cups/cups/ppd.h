@@ -1,10 +1,10 @@
 /*
- * "$Id: ppd.h,v 1.3.2.1 2002/10/22 17:43:04 gelphman Exp $"
+ * "$Id: ppd.h,v 1.12 2003/08/03 16:31:13 jlovell Exp $"
  *
  *   PostScript Printer Description definitions for the Common UNIX Printing
  *   System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -73,7 +73,7 @@ extern "C" {
  * Types and structures...
  */
 
-typedef enum			/**** UI types ****/
+typedef enum			/**** UI Types ****/
 {
   PPD_UI_BOOLEAN,		/* True or False option */
   PPD_UI_PICKONE,		/* Pick one from a list */
@@ -99,6 +99,47 @@ typedef enum			/**** Colorspaces ****/
   PPD_CS_RGBK,			/* RGBK (K = gray) colorspace */
   PPD_CS_N			/* DeviceN colorspace */
 } ppd_cs_t;
+
+typedef enum			/**** Status Codes ****/
+{
+  PPD_OK = 0,			/* OK */
+  PPD_FILE_OPEN_ERROR,		/* Unable to open PPD file */
+  PPD_NULL_FILE,		/* NULL PPD file pointer */
+  PPD_ALLOC_ERROR,		/* Memory allocation error */
+  PPD_MISSING_PPDADOBE4,	/* Missing PPD-Adobe-4.x header */
+  PPD_MISSING_VALUE,		/* Missing value string */
+  PPD_INTERNAL_ERROR,		/* Internal error */
+  PPD_BAD_OPEN_GROUP,		/* Bad OpenGroup */
+  PPD_NESTED_OPEN_GROUP,	/* OpenGroup without a CloseGroup first */
+  PPD_BAD_OPEN_UI,		/* Bad OpenUI/JCLOpenUI */
+  PPD_NESTED_OPEN_UI,		/* OpenUI/JCLOpenUI without a CloseUI/JCLCloseUI first */
+  PPD_BAD_ORDER_DEPENDENCY,	/* Bad OrderDependency */
+  PPD_BAD_UI_CONSTRAINTS,	/* Bad UIConstraints */
+  PPD_MISSING_ASTERISK,		/* Missing asterisk in column 0 */
+  PPD_LINE_TOO_LONG,		/* Line longer than 255 chars */
+  PPD_ILLEGAL_CHARACTER,	/* Illegal control character */
+  PPD_ILLEGAL_MAIN_KEYWORD,	/* Illegal main keyword string */
+  PPD_ILLEGAL_OPTION_KEYWORD,	/* Illegal option keyword string */
+  PPD_ILLEGAL_TRANSLATION,	/* Illegal translation string */
+  PPD_ILLEGAL_WHITESPACE	/* Illegal whitespace character */
+} ppd_status_t;
+
+typedef enum			/**** Conformance Levels ****/
+{
+  PPD_CONFORM_RELAXED,		/* Relax whitespace and control char */
+  PPD_CONFORM_STRICT		/* Require strict conformance */
+} ppd_conform_t;
+
+typedef struct			/**** PPD Attribute Structure ****/
+{
+  char		name[PPD_MAX_NAME],
+  				/* Name of attribute (cupsXYZ) */
+		spec[PPD_MAX_NAME],
+				/* Specifier string, if any */
+		text[PPD_MAX_TEXT],
+				/* Human-readable text, if any */
+		*value;		/* Value string */
+} ppd_attr_t;
 
 typedef struct			/**** Option choices ****/
 {
@@ -129,8 +170,14 @@ typedef struct			/**** Options ****/
 
 typedef struct ppd_group_str	/**** Groups ****/
 {
-  char		text[PPD_MAX_TEXT];
+  /**** Group text strings are limited to 39 chars + nul in order to
+   **** preserve binary compatibility and allow applications to get
+   **** the group's keyword name.
+   ****/
+  char		text[PPD_MAX_TEXT - PPD_MAX_NAME],
   				/* Human-readable group name */
+		name[PPD_MAX_NAME];
+				/* Group name */
   int		num_options;	/* Number of options */
   ppd_option_t	*options;	/* Options */
   int		num_subgroups;	/* Number of sub-groups */
@@ -223,7 +270,16 @@ typedef struct			/**** Files ****/
   ppd_profile_t	*profiles;	/* sRGB color profiles */
   int		num_filters;	/* Number of filters */
   char		**filters;	/* Filter strings... */
+
+  /**** New in CUPS 1.1 ****/
   int		flip_duplex;	/* 1 = Flip page for back sides */
+
+  /**** New in CUPS 1.1.19 ****/
+  char		*protocols,	/* Protocols (BCP, TBCP) string */
+		*pcfilename;	/* PCFileName string */
+  int		num_attrs,	/* Number of attributes */
+		cur_attr;	/* Current attribute */
+  ppd_attr_t	**attrs;	/* Attributes */
 } ppd_file_t;
 
 
@@ -237,26 +293,40 @@ extern int		ppdCollect(ppd_file_t *ppd, ppd_section_t section,
 extern int		ppdConflicts(ppd_file_t *ppd);
 extern int		ppdEmit(ppd_file_t *ppd, FILE *fp,
 			        ppd_section_t section);
+#if defined(__APPLE__)
 extern int		ppdEmitAfterOrder(ppd_file_t *ppd, FILE *fp,
-			        ppd_section_t section, int restrict, float minOrder);
+			        ppd_section_t section, int limitOrder, float minOrder);
+#endif	/* __APPLE__ */
 extern int		ppdEmitFd(ppd_file_t *ppd, int fd,
 			          ppd_section_t section);
 extern int		ppdEmitJCL(ppd_file_t *ppd, FILE *fp, int job_id,
 			           const char *user, const char *title);
+extern ppd_choice_t	*ppdFindChoice(ppd_option_t *o, const char *option);
+extern ppd_choice_t	*ppdFindMarkedChoice(ppd_file_t *ppd, const char *keyword);
+extern ppd_option_t	*ppdFindOption(ppd_file_t *ppd, const char *keyword);
 extern int		ppdIsMarked(ppd_file_t *ppd, const char *keyword,
 			            const char *option);
 extern void		ppdMarkDefaults(ppd_file_t *ppd);
 extern int		ppdMarkOption(ppd_file_t *ppd, const char *keyword,
 			              const char *option);
-extern ppd_choice_t	*ppdFindChoice(ppd_option_t *o, const char *option);
-extern ppd_choice_t	*ppdFindMarkedChoice(ppd_file_t *ppd, const char *keyword);
-extern ppd_option_t	*ppdFindOption(ppd_file_t *ppd, const char *keyword);
 extern ppd_file_t	*ppdOpen(FILE *fp);
 extern ppd_file_t	*ppdOpenFd(int fd);
 extern ppd_file_t	*ppdOpenFile(const char *filename);
 extern float		ppdPageLength(ppd_file_t *ppd, const char *name);
 extern ppd_size_t	*ppdPageSize(ppd_file_t *ppd, const char *name);
 extern float		ppdPageWidth(ppd_file_t *ppd, const char *name);
+
+/**** New in CUPS 1.1.19 ****/
+extern const char	*ppdErrorString(ppd_status_t status);
+extern ppd_attr_t	*ppdFindAttr(ppd_file_t *ppd, const char *name,
+			             const char *spec);
+extern ppd_attr_t	*ppdFindNextAttr(ppd_file_t *ppd, const char *name,
+			                 const char *spec);
+extern ppd_status_t	ppdLastError(int *line);
+
+/**** New in CUPS 1.1.20 ****/
+extern void		ppdSetConformance(ppd_conform_t c);
+
 
 /*
  * C++ magic...
@@ -268,5 +338,5 @@ extern float		ppdPageWidth(ppd_file_t *ppd, const char *name);
 #endif /* !_CUPS_PPD_H_ */
 
 /*
- * End of "$Id: ppd.h,v 1.3.2.1 2002/10/22 17:43:04 gelphman Exp $".
+ * End of "$Id: ppd.h,v 1.12 2003/08/03 16:31:13 jlovell Exp $".
  */

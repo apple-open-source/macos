@@ -9,23 +9,12 @@ get_host()
 {
 	ifconfig ${primary} inet 2>/dev/null | sed -n '/169\.254/d;/127\.0\.0\.1/d;/0\.0\.0\.0/d;s/^.*inet \([0-9\.]*\) netmask.*/\1/p' | while read ip_address 
 	do
-		host=$(nslookup ${ip_address} 2>/dev/null | sed -n 's/Name: [ ]*\([^ ]*\)$/\1/p')
+		host=$(/usr/bin/host ${ip_address} 2>/dev/null | sed -n 's/.* domain name pointer \([^ ]*\)[\.]$/\1/p')
 		if [ ! "${host}" = "" ] ; then
 			echo "${host}"
 			break;
 		fi
 	done
-}
-
-get_localhost()
-{
-	scutil << __END_OF_SCUTIL_COMMAND 2>/dev/null   | \
-		sed -n -e 's/.*LocalHostName : \(.*\)/\1.local./p'
-open
-show Setup:/Network/HostNames
-close
-quit
-__END_OF_SCUTIL_COMMAND
 }
 
 if [ ! "${HOSTNAME:=-AUTOMATIC-}" = "-AUTOMATIC-" ] ; then
@@ -43,14 +32,17 @@ if [ ! "${primary}" = "" ] ; then
 fi
 
 if [ "${host}" = "" ]; then
-	host=$(get_localhost)
+	localhostname="$(/usr/sbin/scutil --get LocalHostName)"
+	if [ ! "${localhostname}" = "" ]; then
+		host="${localhostname}.local"
+	fi
 fi
 
 if [ "${host}" = "" ]; then
 	host=localhost
 fi
 
-logger setting hostname to "${host}"
+logger -i -p daemon.notice -t set-hostname setting hostname to "${host}"
 hostname "${host}"
 
 exit 0

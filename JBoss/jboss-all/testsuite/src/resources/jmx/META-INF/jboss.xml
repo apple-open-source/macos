@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<jboss>
+     <enterprise-beans>
+       <session>
+	 <ejb-name>TestDataSource</ejb-name>
+	 <jndi-name>test/TestDataSource</jndi-name>
+       </session>
+       <secure>false</secure>
+     </enterprise-beans>
+     <resource-managers />
+   </jboss>

@@ -1,0 +1,317 @@
+==============================================================================
+KerberosWrappers Version History
+==============================================================================
+Current version:	1.4fc2
+Date:				August 20, 2003
+Authors:			meeroh@mit.edu, lxs@mit.edu
+==============================================================================
+
+	KerberosWrappers 1.4fc2
+	August 20, 2003
+	
+	[RT 1760] Wrappers can't create v4 principals without default realm
+	
+	========================================================================
+
+	KerberosWrappers 1.4fc1
+	July 16, 2003
+	
+	Moved to final candidate
+	
+	========================================================================
+
+	KerberosWrappers 1.4a1
+	January 14, 2003
+	
+	[RT 1315] Wrappers needs UKerberos5SecureContext
+	
+	========================================================================
+
+KerberosWrappers 1.3
+June 19, 2001
+
+First release for Jaguar
+
+========================================================================
+
+	KerberosWrappers 1.3
+	June 19, 2001
+	
+	Moved to final candidate.
+	
+	========================================================================
+
+	KerberosWrappers 1.3fc1
+	June 17, 2001
+	
+	Moved to final candidate.
+	
+	========================================================================
+
+	KerberosWrappers 1.3a1
+	June 10, 2001
+	
+	[BZ 760]	Wrappers doesn't adjust v4 lifetimes for CCAPI V4
+	
+	========================================================================
+
+WrappersLib 1.2
+Feb 19, 2002
+
+========================================================================
+
+	WrappersLib 1.2fc1
+	Feb 7, 2001
+	
+	Moved to final candidate
+	
+	========================================================================
+
+	WrappersLib 1.2b4
+	Dec 13, 2001
+	
+	Removed version strings from the Mac OS X project
+	
+	========================================================================
+
+	WrappersLib 1.2b3
+	Dec 3, 2001
+	
+	Fixed prebinding on Mac OS X
+	
+	========================================================================
+
+	WrappersLib 1.2b2
+	Nov 15, 2001
+	
+	Separated private and public login API
+	
+	========================================================================
+
+	WrappersLib 1.2b1
+	Nov 7, 2001
+	
+	Documentation update
+	
+	========================================================================
+
+	WrappersLib 1.2a2
+	Sep 27, 2001
+	
+	CWP7 compatibility
+	
+	========================================================================
+
+	WrappersLib 1.2a1
+	Aug 7, 2001
+	
+	Fixes in Mac OS X builds
+	
+	========================================================================
+
+WrappersLib 1.1
+June 25, 2001
+
+Carbon, CW Pro 6
+
+========================================================================
+
+	WrappersLib 1.1fc1
+	June 13, 2001
+	
+	Final candidate for 3.5
+	
+	Build fixes for B&I
+
+	========================================================================
+
+	WrappersLib 1.1b1
+	April 2, 2001
+	
+	Moved to beta
+
+	========================================================================
+
+	WrappersLib 1.1a4
+	March 21, 2001
+	
+	Updated includes for new header layout
+
+	========================================================================
+
+	WrappersLib 1.1a3
+	March 16, 2001
+	
+	Documentation update
+	Updated includes for new header layout
+	Added KLGetDisplayString
+
+	========================================================================
+
+	WrappersLib 1.1a2
+	February 1, 2001
+	
+	Fixed errno paths
+
+	========================================================================
+
+	WrappersLib 1.1a1
+	December 9, 2000
+	
+	Alpha
+
+	========================================================================
+
+	WrappersLib 1.1d5
+	November 30, 2000
+	
+	Added support for v4 long lifetimes
+
+	========================================================================
+
+	WrappersLib 1.1d4
+	October 27, 2000
+	
+	First Mach-O release
+
+	========================================================================
+
+	WrappersLib 1.1d3
+	October 4, 2000
+	
+	Bugs fixed in this release:
+		- [BZ 423]	Problems with operator =
+
+	========================================================================
+
+	WrappersLib 1.1d2
+	September 28, 2000
+	
+	Rebuilt with fixed CWP 6 fcntl.h
+	Brought in operator == for UCCache.h from 3.x branch
+
+	========================================================================
+
+	WrappersLib 1.1d1
+	September 26, 2000
+	
+	Carbonized and moved to CWP 6
+
+	========================================================================
+
+WrappersLib 1.0
+June 30, 2000
+
+First public release
+
+========================================================================
+
+	WrappersLib 1.0fc3
+	June 28, 2000
+	
+	Bugs fixed in this release:
+		[BZ 365]	Moved strings into code section
+	========================================================================
+
+	WrappersLib 1.0fc2
+	June 20, 2000
+	
+	Bugs fixed in this release:
+		[BZ 363]	IsTicketGrantingService does not handle asymmtric realms
+	========================================================================
+
+	WrappersLib 1.0fc1
+	June 16, 2000
+	
+	Changed to final candidate	
+	========================================================================
+
+	WrappersLib 1.0b2
+	June 14, 2000
+	
+	Bugs fixed in this release:
+		[BZ 340]	ENOENT not handled from krb5_init_context
+	
+	========================================================================
+
+	WrappersLib 1.0b1
+	June 3, 2000
+	
+	Updated for changes in LoginLib API
+	
+	========================================================================
+
+	WrappersLib 1.0a1
+	May 6, 2000
+	
+	Added UPrincipal::GetBoolean [BZ 265]
+	Added ULazyKerberos5Context [BZ 266]
+	
+	========================================================================
+
+	WrappersLib 1.0d8
+	May 6, 2000
+	
+	Code changes to compile with better-compliant compilers (CWP 6)
+
+	Added UPrincipal::Clone [BZ 229]
+	
+	========================================================================
+
+	WrappersLib 1.0d7
+	April 29, 2000
+
+	Bugs fixes in this release:
+		[BZ  37] 	UPrincipal::GetKLPrincipal throws -1 on error
+	
+	========================================================================
+
+	WrappersLib 1.0d6
+	April 9, 2000
+
+		[BZ 102]	Added UCCache::GetCCacheForPrincipal
+	
+	========================================================================
+
+	WrappersLib 1.0d5
+	March 24, 2000
+
+	Bugs fixed	
+		[BZ  55]	Missing traceback tables
+	
+	========================================================================
+
+	WrappersLib 1.0d4
+	March 13, 2000
+
+	Bugs fixed	
+		[BZ  47]    Garbage returned for realm of v4 principals
+		[BZ  39]	Garbage at the end of principal components
+	
+	========================================================================
+
+	WrappersLib 1.0d3
+	February 27, 2000
+	
+	Removed UKerberos4Principal
+	Added UPrincipal::GetKLPrincipal and UCCache::MoveTo
+	
+	========================================================================
+
+	WrappersLib 1.0d2
+	February 27, 2000
+	
+	Updated to use LoginLib API 2.0
+	Changed UCCache::GetPrincipal and UCCacheSetPrincipal to handle both
+	Kerberos version
+	Added ability to convert UCredentials to other creds types
+	
+	========================================================================
+
+	WrappersLib 1.0d1
+	February 10, 2000
+	
+	First release.
+	
+	========================================================================
+

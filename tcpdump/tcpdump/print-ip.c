@@ -21,23 +21,18 @@
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-ip.c,v 1.1.1.2 2002/05/29 00:05:37 landonf Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-ip.c,v 1.1.1.3 2003/03/17 18:42:17 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <sys/param.h>
-#include <sys/time.h>
-#include <sys/socket.h>
-
-#include <netinet/in.h>
+#include <tcpdump-stdinc.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #include "addrtoname.h"
 #include "interface.h"
@@ -75,13 +70,59 @@ ip_printroute(const char *type, register const u_char *cp, u_int length)
 	printf("%s}", ptr == len? "#" : "");
 }
 
+/*
+ * If source-routing is present, return the final destination.
+ * Otherwise, return IP destination.
+ *
+ * This is used for UDP and TCP pseudo-header in the checksum
+ * calculation.
+ */
+u_int32_t
+ip_finddst(const struct ip *ip)
+{
+	int length;
+	int len;
+	const u_char *cp;
+	u_int32_t retval;
+
+	cp = (const u_char *)(ip + 1);
+	length = (IP_HL(ip) << 2) - sizeof(struct ip);
+
+	for (; length > 0; cp += len, length -= len) {
+		int tt = *cp;
+
+		if (tt == IPOPT_NOP || tt == IPOPT_EOL)
+			len = 1;
+		else {
+			if (&cp[1] >= snapend) {
+				return 0;
+			}
+			len = cp[1];
+		}
+		if (len <= 0) {
+			return 0;
+		}
+		if (&cp[1] >= snapend || cp + len > snapend) {
+			return 0;
+		}
+		switch (tt) {
+
+		case IPOPT_SSRR:
+		case IPOPT_LSRR:
+			memcpy(&retval, cp + len - 4, 4);
+			return retval;
+		}
+	}
+	return ip->ip_dst.s_addr;
+}
+
 static void
 ip_printts(register const u_char *cp, u_int length)
 {
 	register u_int ptr = cp[2] - 1;
 	register u_int len = 0;
 	int hoplen;
-	char *type;
+	const char *type;
 
 	printf(" TS{");
 	hoplen = ((cp[3]&0xF) != IPOPT_TS_TSONLY) ? 8 : 4;
@@ -108,7 +149,7 @@ ip_printts(register const u_char *cp, u_int length)
 	case 3:			/* IPOPT_TS_PRESPEC */
 		printf("PRESPEC");
 		break;
-	default:	
+	default:
 		printf("[bad ts type %d]", cp[3]&0xF);
 		goto done;
 	}
@@ -224,12 +265,12 @@ in_cksum(const u_short *addr, register u_int len, int csum)
 	u_short answer;
 	int sum = csum;
 
- 	/*
+	/*
 	 *  Our algorithm is simple, using a 32 bit accumulator (sum),
 	 *  we add sequential 16 bit words to it, and at the end, fold
 	 *  back all the carry bits from the top 16 bits into the lower
 	 *  16 bits.
- 	 */
+	 */
 	while (nleft > 1)  {
 		sum += *w++;
 		nleft -= 2;
@@ -247,6 +288,58 @@ in_cksum(const u_short *addr, register u_int len, int csum)
 }
 
 /*
+ * Given the host-byte-order value of the checksum field in a packet
+ * header, and the network-byte-order computed checksum of the data
+ * that the checksum covers (including the checksum itself), compute
+ * what the checksum field *should* have been.
+ */
+u_int16_t
+in_cksum_shouldbe(u_int16_t sum, u_int16_t computed_sum)
+{
+	u_int32_t shouldbe;
+
+	/*
+	 * The value that should have gone into the checksum field
+	 * is the negative of the value gotten by summing up everything
+	 * *but* the checksum field.
+	 *
+	 * We can compute that by subtracting the value of the checksum
+	 * field from the sum of all the data in the packet, and then
+	 * computing the negative of that value.
+	 *
+	 * "sum" is the value of the checksum field, and "computed_sum"
+	 * is the negative of the sum of all the data in the packets,
+	 * so that's -(-computed_sum - sum), or (sum + computed_sum).
+	 *
+	 * All the arithmetic in question is one's complement, so the
+	 * addition must include an end-around carry; we do this by
+	 * doing the arithmetic in 32 bits (with no sign-extension),
+	 * and then adding the upper 16 bits of the sum, which contain
+	 * the carry, to the lower 16 bits of the sum, and then do it
+	 * again in case *that* sum produced a carry.
+	 *
+	 * As RFC 1071 notes, the checksum can be computed without
+	 * byte-swapping the 16-bit words; summing 16-bit words
+	 * on a big-endian machine gives a big-endian checksum, which
+	 * can be directly stuffed into the big-endian checksum fields
+	 * in protocol headers, and summing words on a little-endian
+	 * machine gives a little-endian checksum, which must be
+	 * byte-swapped before being stuffed into a big-endian checksum
+	 * field.
+	 *
+	 * "computed_sum" is a network-byte-order value, so we must put
+	 * it in host byte order before subtracting it from the
+	 * host-byte-order value from the header; the adjusted checksum
+	 * will be in host byte order, which is what we'll return.
+	 */
+	shouldbe = sum;
+	shouldbe += ntohs(computed_sum);
+	shouldbe = (shouldbe & 0xFFFF) + (shouldbe >> 16);
+	shouldbe = (shouldbe & 0xFFFF) + (shouldbe >> 16);
+	return shouldbe;
+}
+
+/*
  * print an IP datagram.
  */
 void
@@ -257,34 +350,9 @@ ip_print(register const u_char *bp, register u_int length)
 	register const u_char *cp;
 	u_char nh;
 	int advance;
+	struct protoent *proto;
 
 	ip = (const struct ip *)bp;
-#ifdef LBL_ALIGN
-	/*
-	 * If the IP header is not aligned, copy into abuf.
-	 * This will never happen with BPF.  It does happen raw packet
-	 * dumps from -r.
-	 */
-	if ((long)ip & 3) {
-		static u_char *abuf = NULL;
-		static int didwarn = 0;
-
-		if (abuf == NULL) {
-			abuf = (u_char *)malloc(snaplen);
-			if (abuf == NULL)
-				error("ip_print: malloc");
-		}
-		memcpy((char *)abuf, (char *)ip, min(length, snaplen));
-		snapend += abuf - (u_char *)ip;
-		packetp = abuf;
-		ip = (struct ip *)abuf;
-		/* We really want libpcap to give us aligned packets */
-		if (!didwarn) {
-			warning("compensating for unaligned libpcap packets");
-			++didwarn;
-		}
-	}
-#endif
 	if ((u_char *)(ip + 1) > snapend) {
 		printf("[|ip]");
 		return;
@@ -299,18 +367,51 @@ ip_print(register const u_char *bp, register u_int length)
 		return;
 	}
 
-	len = ntohs(ip->ip_len);
+	len = EXTRACT_16BITS(&ip->ip_len);
 	if (length < len)
 		(void)printf("truncated-ip - %d bytes missing! ",
 			len - length);
 	len -= hlen;
 	len0 = len;
 
+	off = EXTRACT_16BITS(&ip->ip_off);
+
+        if (vflag) {
+            (void)printf("(tos 0x%x", (int)ip->ip_tos);
+            /* ECN bits */
+            if (ip->ip_tos & 0x03) {
+                switch (ip->ip_tos & 0x03) {
+                case 1:
+                    (void)printf(",ECT(1)");
+                    break;
+                case 2:
+                    (void)printf(",ECT(0)");
+                    break;
+                case 3:
+                    (void)printf(",CE");
+                }
+            }
+
+            if (ip->ip_ttl >= 1)
+                (void)printf(", ttl %u", ip->ip_ttl);    
+
+            if ((off & 0x3fff) != 0)
+                (void)printf(", id %u", EXTRACT_16BITS(&ip->ip_id));
+
+            (void)printf(", length: %u", EXTRACT_16BITS(&ip->ip_len));
+
+            if ((hlen - sizeof(struct ip)) > 0) {
+                (void)printf(", optlength: %u (", hlen - (u_int)sizeof(struct ip));
+                ip_optprint((u_char *)(ip + 1), hlen - sizeof(struct ip));
+                printf(" )");
+            }
+            printf(") ");
+	}
+
 	/*
 	 * If this is fragment zero, hand it to the next higher
 	 * level protocol.
 	 */
-	off = ntohs(ip->ip_off);
 	if ((off & 0x1fff) == 0) {
 		cp = (const u_char *)ip + hlen;
 		nh = ip->ip_p;
@@ -331,7 +432,7 @@ again:
 #endif
 		case IPPROTO_AH:
 			nh = *cp;
-			advance = ah_print(cp, (const u_char *)ip);
+			advance = ah_print(cp);
 			cp += advance;
 			len -= advance;
 			goto again;
@@ -357,7 +458,7 @@ again:
 		case IPPROTO_IPCOMP:
 		    {
 			int enh;
-			advance = ipcomp_print(cp, (const u_char *)ip, &enh);
+			advance = ipcomp_print(cp, &enh);
 			cp += advance;
 			len -= advance;
 			if (enh < 0)
@@ -367,7 +468,7 @@ again:
 		    }
 
 		case IPPROTO_SCTP:
-  			sctp_print(cp, (const u_char *)ip, len);
+			sctp_print(cp, (const u_char *)ip, len);
 			break;
 
 		case IPPROTO_TCP:
@@ -394,7 +495,7 @@ again:
 			break;
 
 		case IPPROTO_EGP:
-			egp_print(cp, len, (const u_char *)ip);
+			egp_print(cp);
 			break;
 
 #ifndef IPPROTO_OSPF
@@ -430,6 +531,12 @@ again:
 			break;
 #endif /*INET6*/
 
+#ifndef IPPROTO_RSVP
+#define IPPROTO_RSVP 46
+#endif
+		case IPPROTO_RSVP:
+			rsvp_print(cp, len);
+			break;
 
 #ifndef IPPROTO_GRE
 #define IPPROTO_GRE 47
@@ -461,14 +568,18 @@ again:
 			break;
 
 		default:
-			(void)printf(" ip-proto-%d %d", nh, len);
+			if ((proto = getprotobynumber(nh)) != NULL)
+				(void)printf(" %s", proto->p_name);
+			else
+				(void)printf(" ip-proto-%d", nh);
+			printf(" %d", len);
 			break;
 		}
 	}
 
- 	/* Ultra quiet now means that all this stuff should be suppressed */
- 	/* res 3-Nov-98 */
- 	if (qflag > 1) return;
+	/* Ultra quiet now means that all this stuff should be suppressed */
+	/* res 3-Nov-98 */
+	if (qflag > 1) return;
 
 
 	/*
@@ -480,73 +591,44 @@ again:
 	if (off & 0x3fff) {
 		/*
 		 * if this isn't the first frag, we're missing the
-		 * next level protocol header.  print the ip addr.
+		 * next level protocol header.  print the ip addr
+		 * and the protocol.
 		 */
-		if (off & 0x1fff)
+		if (off & 0x1fff) {
 			(void)printf("%s > %s:", ipaddr_string(&ip->ip_src),
 				      ipaddr_string(&ip->ip_dst));
+			if ((proto = getprotobynumber(ip->ip_p)) != NULL)
+				(void)printf(" %s", proto->p_name);
+			else
+				(void)printf(" ip-proto-%d", ip->ip_p);
+		}
 #ifndef IP_MF
 #define IP_MF 0x2000
 #endif /* IP_MF */
 #ifndef IP_DF
 #define IP_DF 0x4000
 #endif /* IP_DF */
-		(void)printf(" (frag %d:%u@%d%s)", ntohs(ip->ip_id), len,
+		(void)printf(" (frag %u:%u@%u%s)", EXTRACT_16BITS(&ip->ip_id), len,
 			(off & 0x1fff) * 8,
 			(off & IP_MF)? "+" : "");
 
 	} else if (off & IP_DF)
 		(void)printf(" (DF)");
 
-	if (ip->ip_tos) {
-		(void)printf(" [tos 0x%x", (int)ip->ip_tos);
-		/* ECN bits */
-		if (ip->ip_tos & 0x03) {
-			switch (ip->ip_tos & 0x03) {
-			case 1:
-				(void)printf(",ECT(1)");
-				break;
-			case 2:
-				(void)printf(",ECT(0)");
-				break;
-			case 3:
-				(void)printf(",CE");
-			}
-		}
-		(void)printf("] ");
-	}
-
-	if (ip->ip_ttl <= 1)
-		(void)printf(" [ttl %d]", (int)ip->ip_ttl);
-
 	if (vflag) {
-		int sum;
-		char *sep = "";
+		u_int16_t sum, ip_sum;
+		const char *sep = "";
 
-		printf(" (");
-		if (ip->ip_ttl > 1) {
-			(void)printf("%sttl %d", sep, (int)ip->ip_ttl);
-			sep = ", ";
-		}
-		if ((off & 0x3fff) == 0) {
-			(void)printf("%sid %d", sep, (int)ntohs(ip->ip_id));
-			sep = ", ";
-		}
-		(void)printf("%slen %d", sep, (int)ntohs(ip->ip_len));
-		sep = ", ";
 		if ((u_char *)ip + hlen <= snapend) {
 			sum = in_cksum((const u_short *)ip, hlen, 0);
 			if (sum != 0) {
-				(void)printf("%sbad cksum %x!", sep,
-					     ntohs(ip->ip_sum));
+				ip_sum = EXTRACT_16BITS(&ip->ip_sum);
+				(void)printf("%sbad cksum %x (->%x)!", sep,
+					     ip_sum,
+					     in_cksum_shouldbe(ip_sum, sum));
 				sep = ", ";
 			}
 		}
-		if ((hlen -= sizeof(struct ip)) > 0) {
-			(void)printf("%soptlen=%d", sep, hlen);
-			ip_optprint((u_char *)(ip + 1), hlen);
-		}
-		printf(")");
 	}
 }
 
@@ -575,3 +657,6 @@ ipN_print(register const u_char *bp, register u_int length)
 		return;
 	}
 }
+
+
+

@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<!DOCTYPE web-app
+    PUBLIC "-//Sun Microsystems, Inc.//DTD Web Application 2.3//EN"
+    "http://java.sun.com/dtd/web-app_2_3.dtd">
+
+<web-app>
+
+  <display-name>Tomcat Manager Application</display-name>
+  <description>
+    A scriptable management web application for the Tomcat Web Server;
+	Manager lets you view, load/unload/etc particular web applications.
+  </description>
+
+  <!-- Define the Manager Servlet
+       Change servlet-class to: org.apache.catalina.servlets.HTMLManagerServlet
+       to get a Servlet with a more intuitive HTML interface, don't change if you
+       have software that is expected to parse the output from ManagerServlet
+       since they're not compatible.
+   -->
+  <servlet>
+    <servlet-name>Manager</servlet-name>
+    <servlet-class>org.apache.catalina.servlets.ManagerServlet</servlet-class>
+    <init-param>
+      <param-name>debug</param-name>
+      <param-value>2</param-value>
+    </init-param>
+  </servlet>
+  <servlet>
+    <servlet-name>HTMLManager</servlet-name>
+    <servlet-class>org.apache.catalina.servlets.HTMLManagerServlet</servlet-class>
+    <init-param>
+      <param-name>debug</param-name>
+      <param-value>2</param-value>
+    </init-param>
+  </servlet>
+
+  <!-- Define the Manager Servlet Mapping -->
+  <servlet-mapping>
+    <servlet-name>Manager</servlet-name>
+      <url-pattern>/list</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>Manager</servlet-name>
+      <url-pattern>/sessions</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>Manager</servlet-name>
+      <url-pattern>/start</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>Manager</servlet-name>
+      <url-pattern>/stop</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>Manager</servlet-name>
+      <url-pattern>/install</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>Manager</servlet-name>
+      <url-pattern>/remove</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>Manager</servlet-name>
+      <url-pattern>/deploy</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>Manager</servlet-name>
+      <url-pattern>/undeploy</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>Manager</servlet-name>
+      <url-pattern>/reload</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>Manager</servlet-name>
+      <url-pattern>/serverinfo</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>Manager</servlet-name>
+      <url-pattern>/roles</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>Manager</servlet-name>
+      <url-pattern>/resources</url-pattern>
+  </servlet-mapping>
+  <servlet-mapping>
+    <servlet-name>HTMLManager</servlet-name>
+    <url-pattern>/html/*</url-pattern>
+  </servlet-mapping>
+
+  <!-- Define reference to the user database for looking up roles -->
+  <resource-env-ref>
+    <description>
+      Link to the UserDatabase instance from which we request lists of
+      defined role names.  Typically, this will be connected to the global
+      user database with a ResourceLink element in server.xml or the context
+      configuration file for the Manager web application.
+    </description>
+    <resource-env-ref-name>users</resource-env-ref-name>
+    <resource-env-ref-type>
+      org.apache.catalina.UserDatabase
+    </resource-env-ref-type>
+  </resource-env-ref>
+
+  <!-- Define a Security Constraint on this Application -->
+  <security-constraint>
+    <web-resource-collection>
+      <web-resource-name>HTMLManger and Manager command</web-resource-name>
+      <url-pattern>/html/*</url-pattern>
+      <url-pattern>/list</url-pattern>
+      <url-pattern>/sessions</url-pattern>
+      <url-pattern>/start</url-pattern>
+      <url-pattern>/stop</url-pattern>
+      <url-pattern>/install</url-pattern>
+      <url-pattern>/remove</url-pattern>
+      <url-pattern>/deploy</url-pattern>
+      <url-pattern>/undeploy</url-pattern>
+      <url-pattern>/reload</url-pattern>
+      <url-pattern>/serverinfo</url-pattern>
+      <url-pattern>/roles</url-pattern>
+      <url-pattern>/resources</url-pattern>
+    </web-resource-collection>
+    <auth-constraint>
+       <!-- NOTE:  This role is not present in the default users file -->
+       <role-name>manager</role-name>
+    </auth-constraint>
+  </security-constraint>
+
+  <!-- Define the Login Configuration for this Application -->
+  <login-config>
+    <auth-method>BASIC</auth-method>
+    <realm-name>Tomcat Manager Application</realm-name>
+  </login-config>
+
+  <!-- Security roles referenced by this web application -->
+  <security-role>
+    <description>
+      The role that is required to log in to the Manager Application
+    </description>
+    <role-name>manager</role-name>
+  </security-role>
+
+</web-app>

@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 2001 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -387,15 +388,36 @@ get_config_agent(void *d, int c, dsrecord **r)
 
 - (LUArray *)query:(LUDictionary *)pattern
 {
-	LUArray *all;
+	LUArray *all, *stamps;
+	LUDictionary *item;
 	u_int32_t status, i, len;
-	dsrecord *dsr_pattern, *dsr_all;
+	dsrecord *dsr_pattern, *dsr_stamp, *dsr_all;
+	dsattribute *a;
+	char str[256];
 
 	if (pattern == nil) return nil;
 
 	dsr_pattern = dictToDSRecord(pattern);
-	dsr_all = NULL;
 
+	/* Fetch Validation Stamps */
+	dsr_stamp = dsrecord_copy(dsr_pattern);
+	a = dsattribute_from_cstrings(STAMP_KEY, "1", NULL);
+	dsrecord_append_attribute(dsr_stamp, a, SELECT_META_ATTRIBUTE);
+	dsattribute_release(a);
+
+	dsr_all = NULL;
+	status = callout_query(cdata, dsr_stamp, &dsr_all);
+	dsrecord_release(dsr_stamp);
+	if (status != 0)
+	{
+		dsrecord_release(dsr_pattern);
+		return nil;
+	}
+
+	stamps = dsrecordToArray(dsr_all);
+	dsrecord_release(dsr_all);
+
+	dsr_all = NULL;
 	status = callout_query(cdata, dsr_pattern, &dsr_all);
 	dsrecord_release(dsr_pattern);
 	if (status != 0) return nil;
@@ -409,6 +431,20 @@ get_config_agent(void *d, int c, dsrecord **r)
 		[[all objectAtIndex:i] setValue:(char *)[self serviceName] forKey:"_lookup_agent"];
 	}
 
+	if (all != nil)
+	{
+		len = [stamps count];
+		for (i = 0; i < len; i++) 
+		{
+			item = [stamps objectAtIndex:i];
+			sprintf(str, "V-0x%08x", (unsigned int)item);
+			[item setBanner:str];
+			[item setValue:(char *)[self serviceName] forKey:"_lookup_agent"];
+			[all addValidationStamp:item];
+		}
+	}
+
+	[stamps release];
 	return all;
 }
 

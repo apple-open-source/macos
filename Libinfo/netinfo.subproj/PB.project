@@ -12,7 +12,7 @@
             netinfo.3, 
             netinfo.5
         ); 
-        PUBLIC_HEADERS = (ni.h, ni_util.h); 
+        PRIVATE_HEADERS = (ni.h, ni_util.h, ni_prot.x, nibind_prot.x); 
     }; 
     LANGUAGE = English; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 

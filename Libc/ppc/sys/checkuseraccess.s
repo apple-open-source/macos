@@ -27,4 +27,3 @@
 #include "SYS.h"
 
 SYSCALL(checkuseraccess, 0)
-	blr

@@ -44,7 +44,7 @@
 #include <kstaticdeleter.h>
 
 #include "rendering/render_canvas.h"
-#include "rendering/render_replaced.h"
+#include "rendering/render_frames.h"
 #include "rendering/render_image.h"
 #include "render_arena.h"
 
@@ -934,7 +934,7 @@ void DocumentImpl::recalcStyle( StyleChange change )
                 fontDef.family.setFamily(stdfont);
                 fontDef.family.appendFamily(0);
             }
-            fontDef.setSize(m_styleSelector->fontSizes()[3]);
+            m_styleSelector->setFontSize(fontDef, m_styleSelector->fontSizes()[3]);
         }
 
         //kdDebug() << "DocumentImpl::attach: setting to charset " << settings->charset() << endl;
@@ -1031,7 +1031,7 @@ void DocumentImpl::attach()
     
     // Create the rendering tree
     m_render = new (m_renderArena) RenderCanvas(this, m_view);
-    m_styleSelector->computeFontSizes(paintDeviceMetrics(), m_view ? m_view->part()->zoomFactor() : 100);
+    m_styleSelector->computeFontSizes(paintDeviceMetrics());
     recalcStyle( Force );
 
     RenderObject* render = m_render;
@@ -2264,26 +2264,56 @@ void DocumentImpl::timerEvent(QTimerEvent *)
     dispatchImageLoadEventsNow();
 }
 
-void DocumentImpl::addCheckedRadioButton(HTMLInputElementImpl *b)
+ElementImpl *DocumentImpl::ownerElement()
 {
-    QString name = b->name().string();
-    
-    // Uncheck the old checked radio button.
-    QMap<QString, HTMLInputElementImpl *>::ConstIterator i = m_checkedRadioButtons.find(name);
-    if (i != m_checkedRadioButtons.end()) {
-        assert(i.data() != b);
-        i.data()->setChecked(false);
-        assert(m_checkedRadioButtons.find(name) == m_checkedRadioButtons.end());
-    }
-    
-    m_checkedRadioButtons.insert(name, b);
+    KHTMLView *childView = view();
+    if (!childView)
+        return 0;
+    KHTMLPart *childPart = childView->part();
+    if (!childPart)
+        return 0;
+    KHTMLPart *parent = childPart->parentPart();
+    if (!parent)
+        return 0;
+    ChildFrame *childFrame = parent->frame(childPart);
+    if (!childFrame)
+        return 0;
+    RenderPart *renderPart = childFrame->m_frame;
+    if (!renderPart)
+        return 0;
+    return static_cast<ElementImpl *>(renderPart->element());
 }
 
-void DocumentImpl::removeCheckedRadioButton(HTMLInputElementImpl *b)
+DOMString DocumentImpl::domain() const
 {
-    QString name = b->name().string();
-    assert(m_checkedRadioButtons[name] == b);
-    m_checkedRadioButtons.remove(name);
+    if ( m_domain.isEmpty() ) // not set yet (we set it on demand to save time and space)
+        m_domain = KURL(URL()).host(); // Initially set to the host
+    return m_domain;
+}
+
+void DocumentImpl::setDomain(const DOMString &newDomain, bool force /*=false*/)
+{
+    if ( force ) {
+        m_domain = newDomain;
+        return;
+    }
+    if ( m_domain.isEmpty() ) // not set yet (we set it on demand to save time and space)
+        m_domain = KURL(URL()).host(); // Initially set to the host
+
+    // Both NS and IE specify that changing the domain is only allowed when
+    // the new domain is a suffix of the old domain.
+    int oldLength = m_domain.length();
+    int newLength = newDomain.length();
+    if ( newLength < oldLength ) // e.g. newDomain=kde.org (7) and m_domain=www.kde.org (11)
+    {
+        DOMString test = m_domain.copy();
+        if ( test[oldLength - newLength - 1] == '.' ) // Check that it's a subdomain, not e.g. "de.org"
+        {
+            test.remove( 0, oldLength - newLength ); // now test is "kde.org" from m_domain
+            if ( test == newDomain )                 // and we check that it's the same thing as newDomain
+                m_domain = newDomain;
+        }
+    }
 }
 
 #if APPLE_CHANGES

@@ -58,4 +58,5 @@ typedef uint32 AuthorizationResultInt;
 
 #define UseStaticTemplates 0
 
+
 } // end namespace Security

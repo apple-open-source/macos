@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = IOUSBFamily ;
-export deferred SRCROOT = /Volumes/Home/Latest/IOUSBFamily ;
+export deferred SRCROOT = /Volumes/Home/Latest/Panther/IOUSBFamily ;
 
 # User-defined project-wide settings for project
 
@@ -30,7 +30,7 @@ export deferred KERNEL_MODULE = YES ;
 export deferred LIBRARY_SEARCH_PATHS =  ;
 export deferred MODULE_IOKIT = YES ;
 export deferred MODULE_NAME = com.apple.driver.IOUSBHIDDriver ;
-export deferred MODULE_VERSION = 2.0.0d1 ;
+export deferred MODULE_VERSION = 2.0.5 ;
 export deferred OTHER_CFLAGS =  ;
 export deferred OTHER_LDFLAGS =  ;
 export deferred OTHER_REZFLAGS =  ;

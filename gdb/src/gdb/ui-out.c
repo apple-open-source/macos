@@ -45,7 +45,7 @@ struct ui_out_hdr
    is always available.  Stack/nested level 0 is reserved for the
    top-level result. */
 
-enum { MAX_UI_OUT_LEVELS = 5 };
+enum { MAX_UI_OUT_LEVELS = 6 };
 
 struct ui_out_level
   {
@@ -305,6 +305,22 @@ previous table_end.");
   uo_table_begin (uiout, nbrofcols, nr_rows, uiout->table.id);
 }
 
+static void
+do_cleanup_table_end (void *data)
+{
+  struct ui_out *uiout = (struct ui_out *) data;
+  ui_out_table_end (uiout);
+}
+
+struct cleanup *
+make_cleanup_ui_out_table_begin_end (struct ui_out *uiout, int nbrofcols,
+				     int nr_rows,
+				     const char *tblid)
+{
+  ui_out_table_begin (uiout, nbrofcols, nr_rows, tblid);
+  return make_cleanup (do_cleanup_table_end, uiout);
+}
+
 void
 ui_out_table_body (struct ui_out *uiout)
 {
@@ -496,15 +512,37 @@ ui_out_field_int (struct ui_out *uiout,
 }
 
 void
+ui_out_field_fmt_int (struct ui_out *uiout,
+                      int input_width,
+                      enum ui_align input_align,
+		      const char *fldname,
+		      int value)
+{
+  int fldno;
+  int width;
+  int align;
+  struct ui_out_level *current = current_level (uiout);
+
+  verify_field (uiout, &fldno, &width, &align);
+
+  uo_field_int (uiout, fldno, input_width, input_align, fldname, value);
+}
+
+void
 ui_out_field_core_addr (struct ui_out *uiout,
 			const char *fldname,
 			CORE_ADDR address)
 {
   char addstr[20];
 
-  /* FIXME-32x64: need a print_address_numeric with field width */
+  /* FIXME: cagney/2002-05-03: Need local_address_string() function
+     that returns the language localized string formatted to a width
+     based on TARGET_ADDR_BIT.  */
   /* print_address_numeric (address, 1, local_stream); */
-  strcpy (addstr, local_hex_string_custom ((unsigned long) address, "08l"));
+  if (TARGET_ADDR_BIT <= 32)
+    strcpy (addstr, local_hex_string_custom (address, "08l"));
+  else
+    strcpy (addstr, local_hex_string_custom (address, "016l"));
 
   ui_out_field_string (uiout, fldname, addstr);
 }
@@ -696,22 +734,25 @@ ui_out_get_verblvl (struct ui_out *uiout)
 }
 
 /* 
- * Try to cleanup a ui_out UIOUT after an error; 
- * esp useful when the error happens in an MI command.
+   APPLE LOCAL: Try to cleanup a ui_out UIOUT after an error; 
+   esp useful when the error happens in an MI command.
+   FIXME: FSF gdb has adopted a different approach to this problem - they
+   use make_cleanup_ui_out_{list,tuple}_begin_end and the do_cleanups
+   mechanism.  We should switch to that.
  */
 void
 ui_out_cleanup_after_error (struct ui_out *uiout)
 {
   /* cleanup any pending lists first */
   while (uiout->level > 0) 
-    if (uiout->table.flag)
-      {
-	ui_out_table_end (uiout);
-      }
-    else
-      {
-	ui_out_list_end (uiout);
-      }
+    {
+      ui_out_end (uiout, current_level (uiout)->type);
+    }
+
+  if (uiout->table.flag)
+    {
+      ui_out_table_end (uiout);
+    }
 }
 
 struct cleanup *
@@ -782,7 +823,7 @@ gdb_query (struct ui_out *uiout, int qflags, char *qprompt)
 int
 ui_out_is_mi_like_p (struct ui_out *uiout)
 {
-  if (uiout == NULL)
+  if (uiout == NULL || uiout->impl == NULL)
     return 0;
   else
     return uiout->impl->is_mi_like_p;

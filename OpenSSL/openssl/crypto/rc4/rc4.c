@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
 		{
 bad:
 		for (pp=usage; (*pp != NULL); pp++)
-			fprintf(stderr,*pp);
+			fprintf(stderr,"%s",*pp);
 		exit(1);
 		}
 
@@ -141,7 +141,7 @@ bad:
 			}
 		}
 		
-#ifdef MSDOS
+#ifdef OPENSSL_SYS_MSDOS
 	/* This should set the file to binary mode. */
 	{
 #include <fcntl.h>
@@ -162,7 +162,7 @@ bad:
 		keystr=buf;
 		}
 
-	MD5((unsigned char *)keystr,(unsigned long)strlen(keystr),md);
+	EVP_Digest((unsigned char *)keystr,(unsigned long)strlen(keystr),md,NULL,EVP_md5());
 	OPENSSL_cleanse(keystr,strlen(keystr));
 	RC4_set_key(&key,MD5_DIGEST_LENGTH,md);
 	

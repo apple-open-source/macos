@@ -54,15 +54,20 @@ private:
 	UInt8 * busNum, UInt8 * deviceNum, UInt8 * functionNum );
     bool checkProperties( IOPCIDevice * entry );
     bool checkCardBusNumbering(OSArray * children);
+    void checkCardBusResources( const OSArray * nubs,
+                                UInt32 * yentaIndices, UInt32 yentaCount );
 
 protected:
     IORangeAllocator *	bridgeMemoryRanges;
     IORangeAllocator *	bridgeIORanges;
 
 /*! @struct ExpansionData
-    @discussion This structure will be used to expand the capablilties of the IOWorkLoop in the future.
+    @discussion This structure will be used to expand the capablilties of the IOPCIBridge in the future.
     */    
-    struct ExpansionData { };
+    struct ExpansionData
+    {
+        IORangeAllocator * cardBusMemoryRanges;
+    };
 
 /*! @var reserved
     Reserved for future use.  (Internal use only)  */
@@ -113,6 +118,7 @@ protected:
     virtual IOReturn getDTNubAddressing( IOPCIDevice * nub );
 
 public:
+    virtual void free( void );
 
     virtual bool start( IOService * provider );
 
@@ -174,8 +180,14 @@ public:
 					IOByteCount agpOffset,
 					IOOptionBits options );
 
+protected:
+    virtual bool addBridgePrefetchableMemoryRange( IOPhysicalAddress start,
+                                                   IOPhysicalLength length,
+                                                   bool host );
+
+    OSMetaClassDeclareReservedUsed(IOPCIBridge, 0);
+
     // Unused Padding
-    OSMetaClassDeclareReservedUnused(IOPCIBridge,  0);
     OSMetaClassDeclareReservedUnused(IOPCIBridge,  1);
     OSMetaClassDeclareReservedUnused(IOPCIBridge,  2);
     OSMetaClassDeclareReservedUnused(IOPCIBridge,  3);

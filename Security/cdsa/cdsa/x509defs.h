@@ -121,7 +121,7 @@ typedef struct cssm_x509ext_basicConstraints {
 typedef enum extension_data_format {
     CSSM_X509_DATAFORMAT_ENCODED = 0,
     CSSM_X509_DATAFORMAT_PARSED,
-    CSSM_X509_DATAFORMAT_PAIR,
+    CSSM_X509_DATAFORMAT_PAIR
 } CSSM_X509EXT_DATA_FORMAT;
 
 typedef struct cssm_x509_extensionTagAndValue {

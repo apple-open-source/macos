@@ -142,34 +142,20 @@ class Mutex {
     void check(int err)	{ if (err) UnixError::throwMe(err); }
 
 public:
-#if defined(THREAD_NDEBUG) && !defined(THREAD_MAKE_STUBS)
-	Mutex(bool = true)	{ check(pthread_mutex_init(&me, NULL)); }
-    void lock()			{ check(pthread_mutex_lock(&me)); }
-	bool tryLock() {
-		if (int err = pthread_mutex_trylock(&me))
-			if (err == EBUSY) return false; else UnixError::throwMe(err);
-		else return true;
-	}
-	void unlock()		{ check(pthread_mutex_unlock(&me)); }
-    ~Mutex()			{ check(pthread_mutex_destroy(&me)); }
-#else //THREAD_NDEBUG
     Mutex(bool log = true);
 	~Mutex();
     void lock();
 	bool tryLock();
     void unlock();
-#endif //THREAD_NDEBUG
 
 private:
     pthread_mutex_t me;
 	
-#if !defined(THREAD_CLEAN_NDEBUG)
 	bool debugLog;						// log *this* mutex
 	unsigned long useCount;				// number of locks succeeded
 	unsigned long contentionCount;		// number of contentions (valid only if debugLog)
 	static bool debugHasInitialized;	// global: debug state set up
 	static bool loggingMutexi;			// global: we are debug-logging mutexi
-#endif //THREAD_CLEAN_NDEBUG
 };
 
 #elif _USE_THREADS == _USE_NO_THREADS
@@ -323,10 +309,10 @@ public:
         bool operator != (const Identity &other) const
         { return !(*this == other); }
         
-#if !defined(NDEBUG)
+		// visible thread identifiers are FOR DEBUGGING ONLY
+		// if you use this for production code, your code will rot after shipment :-)
         static const int idLength = 10;
         static void getIdString(char id[idLength]);
-#endif //NDEBUG
     
     private:
         pthread_t mIdent;

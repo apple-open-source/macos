@@ -3,7 +3,7 @@
 
 #include <syslog.h>
 
-char *msg_init(void);
+const char *msg_init(void);
 void msg_suspend(void);
 void msg_resume(void);
 void msg(int level,const char *func,const char *fmt,...)

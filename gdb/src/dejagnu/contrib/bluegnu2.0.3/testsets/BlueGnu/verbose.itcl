@@ -1,0 +1,562 @@
+#
+# test for verbose levels
+#
+#
+
+global verbose
+
+verbose "verbose level: >$verbose<" 0
+
+# Modify output procedures to return instead of doing output
+#
+uplevel #0 {
+    rename send_user send_user_saved
+    rename send_error send_error_saved
+    rename send_log send_log_saved
+    proc send_user args {
+	eval return "\{USER: [join $args]\}"
+    }
+    proc send_error args {
+	eval return "\{ERROR: [join $args]\}"
+    }
+    proc send_log args {
+	eval return "\{LOG: [join $args]\}"
+    }
+}
+
+# Checkin verbose with out any swicthes
+#
+foreach level {0 1} {
+    set szV [verbose "some text" $level]
+    if {[string length $szV] == 0 && $level <= $verbose} {
+	fail "verbose level $level, output expected"
+    } else {
+	if {[string length $szV] == 0} {
+	    pass "No output expected"
+	} else {
+	    if [regexp "^USER:" $szV] {
+		if [regexp "ERROR:" $szV] {
+		    fail "Did detect ERROR in commands >$szV<"
+		} else {
+		    if {[string compare \
+			    [string range $szV end end] "\n"] == 0} {
+			pass "$szV"
+		    } else {
+			fail "Expected NL at end of >$szV<"
+		    }
+		}
+	    } else {
+		fail "Didn't used send_user"
+	    }
+	}
+    }
+
+    set szV [verbose {[set l some text]} $level]
+    if {[string length $szV] == 0 && $level <= $verbose} {
+	fail "verbose level $level, output expected"
+    } else {
+	if {[string length $szV] == 0} {
+	    pass "No output expected"
+	} else {
+	    if [regexp "^USER:" $szV] {
+		if [regexp "ERROR:" $szV] {
+		    if {[string compare \
+			    [string range $szV end end] "\n"] == 0} {
+			pass "$szV"
+		    } else {
+			fail "Expected NL at end of >$szV<"
+		    }
+		} else {
+		    fail "Didn't detect ERROR in commands >$szV<"
+		}
+	    } else {
+		fail "Didn't used send_user"
+	    }
+	}
+    }
+
+    set szV [verbose {[set l "some text"]} $level]
+    if {[string length $szV] == 0 && $level <= $verbose} {
+	fail "verbose level $level, output expected"
+    } else {
+	if {[string length $szV] == 0} {
+	    pass "No output expected"
+	} else {
+	    if [regexp "^USER:" $szV] {
+		if [regexp "ERROR:" $szV] {
+		    fail "Did detect ERROR in commands >$szV<"
+		} else {
+		    if {[string compare \
+			    [string range $szV end end] "\n"] == 0} {
+			pass "$szV"
+		    } else {
+			fail "Expected NL at end of >$szV<"
+		    }
+		}
+	    } else {
+		fail "Didn't used send_user"
+	    }
+	}
+    }
+}
+
+# checking verbose --
+#
+foreach level {0 1} {
+    set szV [verbose -- "some text" $level]
+    if {[string length $szV] == 0 && $level <= $verbose} {
+	fail "verbose level $level, output expected"
+    } else {
+	if {[string length $szV] == 0} {
+	    pass "No output expected"
+	} else {
+	    if [regexp "^USER:" $szV] {
+		if [regexp "ERROR:" $szV] {
+		    fail "Did detect ERROR in commands >$szV<"
+		} else {
+		    if {[string compare \
+			    [string range $szV end end] "\n"] == 0} {
+			pass "$szV"
+		    } else {
+			fail "Expected NL at end of >$szV<"
+		    }
+		}
+	    } else {
+		fail "Didn't used send_user"
+	    }
+	}
+    }
+
+    set szV [verbose -- {[set l some text]} $level]
+    if {[string length $szV] == 0 && $level <= $verbose} {
+	fail "verbose level $level, output expected"
+    } else {
+	if {[string length $szV] == 0} {
+	    pass "No output expected"
+	} else {
+	    if [regexp "^USER:" $szV] {
+		if [regexp "ERROR:" $szV] {
+		    if {[string compare \
+			    [string range $szV end end] "\n"] == 0} {
+			pass "$szV"
+		    } else {
+			fail "Expected NL at end of >$szV<"
+		    }
+		} else {
+		    fail "Didn't detect ERROR in commands >$szV<"
+		}
+	    } else {
+		fail "Didn't used send_user"
+	    }
+	}
+    }
+
+    set szV [verbose -- {[set l "some text"]} $level]
+    if {[string length $szV] == 0 && $level <= $verbose} {
+	fail "verbose level $level, output expected"
+    } else {
+	if {[string length $szV] == 0} {
+	    pass "No output expected"
+	} else {
+	    if [regexp "^USER:" $szV] {
+		if [regexp "ERROR:" $szV] {
+		    fail "Did detect ERROR in commands >$szV<"
+		} else {
+		    if {[string compare \
+			    [string range $szV end end] "\n"] == 0} {
+			pass "$szV"
+		    } else {
+			fail "Expected NL at end of >$szV<"
+		    }
+		}
+	    } else {
+		fail "Didn't used send_user"
+	    }
+	}
+    }
+}
+
+# Checking verbose -n (Suppress NL)
+#
+foreach level {0 1} {
+    set szV [verbose -n "some text" $level]
+    if {[string length $szV] == 0 && $level <= $verbose} {
+	fail "verbose level $level, output expected"
+    } else {
+	if {[string length $szV] == 0} {
+	    pass "No output expected"
+	} else {
+	    if [regexp "^USER:" $szV] {
+		if [regexp "ERROR:" $szV] {
+		    fail "Did detect ERROR in commands >$szV<"
+		} else {
+		    if {[string compare \
+			    [string range $szV end end] "\n"] == 0} {
+			fail "Didn't expected NL at end of >$szV<"
+		    } else {
+			pass "$szV"
+		    }
+		}
+	    } else {
+		fail "Didn't used send_user"
+	    }
+	}
+    }
+
+    set szV [verbose -n {[set l some text]} $level]
+    if {[string length $szV] == 0 && $level <= $verbose} {
+	fail "verbose level $level, output expected"
+    } else {
+	if {[string length $szV] == 0} {
+	    pass "No output expected"
+	} else {
+	    if [regexp "^USER:" $szV] {
+		if [regexp "ERROR:" $szV] {
+		    if {[string compare \
+			    [string range $szV end end] "\n"] == 0} {
+			fail "Didn't expected NL at end of >$szV<"
+		    } else {
+			pass "$szV"
+		    }
+		} else {
+		    fail "Didn't detect ERROR in commands >$szV<"
+		}
+	    } else {
+		fail "Didn't used send_user"
+	    }
+	}
+    }
+
+    set szV [verbose -n {[set l "some text"]} $level]
+    if {[string length $szV] == 0 && $level <= $verbose} {
+	fail "verbose level $level, output expected"
+    } else {
+	if {[string length $szV] == 0} {
+	    pass "No output expected"
+	} else {
+	    if [regexp "^USER:" $szV] {
+		if [regexp "ERROR:" $szV] {
+		    fail "Did detect ERROR in commands >$szV<"
+		} else {
+		    if {[string compare \
+			    [string range $szV end end] "\n"] == 0} {
+			fail "Didn't expected NL at end of >$szV<"
+		    } else {
+			pass "$szV"
+		    }
+		}
+	    } else {
+		fail "Didn't used send_user"
+	    }
+	}
+    }
+}
+
+# checking verbose -log
+#
+foreach level {0 1} {
+    set szV [verbose -log "some text" $level]
+    if {[string length $szV] == 0 && $level <= $verbose} {
+	fail "verbose level $level, output expected"
+    } else {
+	if {[string length $szV] == 0} {
+	    pass "No output expected"
+	} else {
+	    if {$level > $verbose} {
+		if [regexp "^LOG:" $szV] {
+		    if [regexp "ERROR:" $szV] {
+			fail "Did detect ERROR in commands >$szV<"
+		    } else {
+			if {[string compare \
+				[string range $szV end end] "\n"] == 0} {
+			    pass "$szV"
+			} else {
+			    fail "Expected NL at end of >$szV<"
+			}
+		    }
+		} else {
+		    fail "Didn't used send_user"
+		}
+	    } else {
+		if [regexp "^USER:" $szV] {
+		    if [regexp "ERROR:" $szV] {
+			fail "Did detect ERROR in commands >$szV<"
+		    } else {
+			if {[string compare \
+				[string range $szV end end] "\n"] == 0} {
+			    pass "$szV"
+			} else {
+			    fail "Expected NL at end of >$szV<"
+			}
+		    }
+		} else {
+		    fail "Didn't used send_user"
+		}
+	    }
+	}
+    }
+
+    set szV [verbose -log {[set l some text]} $level]
+    if {[string length $szV] == 0 && $level <= $verbose} {
+	fail "verbose level $level, output expected"
+    } else {
+	if {[string length $szV] == 0} {
+	    pass "No output expected"
+	} else {
+	    if {$level > $verbose} {
+		if [regexp "^LOG:" $szV] {
+		    if [regexp "ERROR:" $szV] {
+			if {[string compare \
+				[string range $szV end end] "\n"] == 0} {
+			    pass "$szV"
+			} else {
+			    fail "Expected NL at end of >$szV<"
+			}
+		    } else {
+			fail "Didn't detect ERROR in commands >$szV<"
+		    }
+		} else {
+		    fail "Didn't used send_user"
+		}
+	    } else {
+		if [regexp "^USER:" $szV] {
+		    if [regexp "ERROR:" $szV] {
+			if {[string compare \
+				[string range $szV end end] "\n"] == 0} {
+			    pass "$szV"
+			} else {
+			    fail "Expected NL at end of >$szV<"
+			}
+		    } else {
+			fail "Didn't detect ERROR in commands >$szV<"
+		    }
+		} else {
+		    fail "Didn't used send_user"
+		}
+	    }
+	}
+    }
+
+    set szV [verbose -log {[set l "some text"]} $level]
+    if {[string length $szV] == 0 && $level <= $verbose} {
+	fail "verbose level $level, output expected"
+    } else {
+	if {[string length $szV] == 0} {
+	    pass "No output expected"
+	} else {
+	    if {$level > $verbose} {
+		if [regexp "^LOG:" $szV] {
+		    if [regexp "ERROR:" $szV] {
+			fail "Did detect ERROR in commands >$szV<"
+		    } else {
+			if {[string compare \
+				[string range $szV end end] "\n"] == 0} {
+			    pass "$szV"
+			} else {
+			    fail "Expected NL at end of >$szV<"
+			}
+		    }
+		} else {
+		fail "Didn't used send_user"
+		}
+	    } else {
+		if [regexp "^USER:" $szV] {
+		    if [regexp "ERROR:" $szV] {
+			fail "Did detect ERROR in commands >$szV<"
+		    } else {
+			if {[string compare \
+				[string range $szV end end] "\n"] == 0} {
+			    pass "$szV"
+			} else {
+			    fail "Expected NL at end of >$szV<"
+			}
+		    }
+		} else {
+		fail "Didn't used send_user"
+		}
+	    }
+	}
+    }
+}
+
+# checking verbose -n -log
+#
+foreach level {0 1} {
+    set szV [verbose -n -log "some text" $level]
+    if {[string length $szV] == 0 && $level <= $verbose} {
+	fail "verbose level $level, output expected"
+    } else {
+	if {[string length $szV] == 0} {
+	    pass "No output expected"
+	} else {
+	    if {$level > $verbose} {
+		if [regexp "^LOG:" $szV] {
+		    if [regexp "ERROR:" $szV] {
+			fail "Did detect ERROR in commands >$szV<"
+		    } else {
+			if {[string compare \
+				[string range $szV end end] "\n"] == 0} {
+			    fail "Didn't expected NL at end of >$szV<"
+			} else {
+			    pass "$szV"
+			}
+		    }
+		} else {
+		    fail "Didn't used send_user"
+		}
+	    } else {
+		if [regexp "^USER:" $szV] {
+		    if [regexp "ERROR:" $szV] {
+			fail "Did detect ERROR in commands >$szV<"
+		    } else {
+			if {[string compare \
+				[string range $szV end end] "\n"] == 0} {
+			    fail "Didn't expected NL at end of >$szV<"
+			} else {
+			    pass "$szV"
+			}
+		    }
+		} else {
+		    fail "Didn't used send_user"
+		}
+	    }
+	}
+    }
+
+    set szV [verbose -log -n {[set l some text]} $level]
+    if {[string length $szV] == 0 && $level <= $verbose} {
+	fail "verbose level $level, output expected"
+    } else {
+	if {[string length $szV] == 0} {
+	    pass "No output expected"
+	} else {
+	    if {$level > $verbose} {
+		if [regexp "^LOG:" $szV] {
+		    if [regexp "ERROR:" $szV] {
+			if {[string compare \
+				[string range $szV end end] "\n"] == 0} {
+			    fail "Didn't expected NL at end of >$szV<"
+			} else {
+			    pass "$szV"
+			}
+		    } else {
+			fail "Didn't detect ERROR in commands >$szV<"
+		    }
+		} else {
+		    fail "Didn't used send_user"
+		}
+	    } else {
+		if [regexp "^USER:" $szV] {
+		    if [regexp "ERROR:" $szV] {
+			if {[string compare \
+				[string range $szV end end] "\n"] == 0} {
+			    fail "Didn't expected NL at end of >$szV<"
+			} else {
+			    pass "$szV"
+			}
+		    } else {
+			fail "Didn't detect ERROR in commands >$szV<"
+		    }
+		} else {
+		    fail "Didn't used send_user"
+		}
+	    }
+	}
+    }
+
+    set szV [verbose -n -log -- {[set l "some text"]} $level]
+    if {[string length $szV] == 0 && $level <= $verbose} {
+	fail "verbose level $level, output expected"
+    } else {
+	if {[string length $szV] == 0} {
+	    pass "No output expected"
+	} else {
+	    if {$level > $verbose} {
+		if [regexp "^LOG:" $szV] {
+		    if [regexp "ERROR:" $szV] {
+			fail "Did detect ERROR in commands >$szV<"
+		    } else {
+			if {[string compare \
+				[string range $szV end end] "\n"] == 0} {
+			    fail "Didn't expected NL at end of >$szV<"
+			} else {
+			    pass "$szV"
+			}
+		    }
+		} else {
+		fail "Didn't used send_user"
+		}
+	    } else {
+		if [regexp "^USER:" $szV] {
+		    if [regexp "ERROR:" $szV] {
+			fail "Did detect ERROR in commands >$szV<"
+		    } else {
+			if {[string compare \
+				[string range $szV end end] "\n"] == 0} {
+			    fail "Didn't expected NL at end of >$szV<"
+			} else {
+			    pass "$szV"
+			}
+		    }
+		} else {
+		fail "Didn't used send_user"
+		}
+	    }
+	}
+    }
+}
+
+if {$verbose >= 1} {
+    set szV [verbose -n -BB -log -- {[set l "some text"]} $level]
+    if {[string length $szV] == 0 && $level <= $verbose} {
+	fail "verbose level $level, ERROR output expected"
+    } else {
+	if [regexp "^ERROR:.*illegal argument:" $szV] {
+	    setup_xfail
+	}
+	fail "$szV"
+    }
+
+    set szV [verbose]
+    if {[string length $szV] == 0 && $level <= $verbose} {
+	fail "verbose level $level, ERROR output expected"
+    } else {
+	if [regexp "^ERROR:.*nothing to print$" $szV] {
+	    setup_xfail
+	}
+	fail "$szV"
+    }
+
+    set szV [verbose -n --]
+    if {[string length $szV] == 0 && $level <= $verbose} {
+	fail "verbose level $level, ERROR output expected"
+    } else {
+	if [regexp "^ERROR:.*nothing to print$" $szV] {
+	    setup_xfail
+	}
+	fail "$szV"
+    }
+
+    set szV [verbose -n -- ABC def 100]
+    if {[string length $szV] == 0 && $level <= $verbose} {
+	fail "verbose level $level, ERROR output expected >$szV<"
+    } else {
+	if [regexp "^ERROR:.*Too many arguments$" $szV] {
+	    setup_xfail
+	}
+	fail "$szV"
+    }
+} else {
+    warning "NO verbose error returns tester, verbose level < 1"
+}
+
+# Restore original procedures
+#
+uplevel #0 {
+    rename send_user ""
+    rename send_error ""
+    rename send_log ""
+    rename send_user_saved send_user
+    rename send_error_saved send_error
+    rename send_log_saved send_log
+}

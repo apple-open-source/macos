@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap_r/thr_stub.c,v 1.15 2002/01/04 20:17:40 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap_r/thr_stub.c,v 1.15.2.4 2003/04/15 22:17:47 hyc Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, Redwood City, California, USA
+ * Copyright 1998-2003 The OpenLDAP Foundation, Redwood City, California, USA
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms are permitted only
@@ -154,9 +154,9 @@ ldap_pvt_thread_pool_init (
 int
 ldap_pvt_thread_pool_submit (
 	ldap_pvt_thread_pool_t *pool,
-	void *(*start_routine)( void * ), void *arg )
+	ldap_pvt_thread_start_t *start_routine, void *arg )
 {
-	(start_routine)(arg);
+	(start_routine)(NULL, arg);
 	return(0);
 }
 
@@ -176,6 +176,29 @@ ldap_pvt_thread_pool_backload (
 int
 ldap_pvt_thread_pool_destroy (
 	ldap_pvt_thread_pool_t *pool, int run_pending )
+{
+	return(0);
+}
+
+int ldap_pvt_thread_pool_getkey (
+	void *ctx, void *key, void **data, ldap_pvt_thread_pool_keyfree_t **kfree )
+{
+	return(0);
+}
+
+int ldap_pvt_thread_pool_setkey (
+	void *ctx, void *key, void *data, ldap_pvt_thread_pool_keyfree_t *kfree )
+{
+	return(0);
+}
+
+void *ldap_pvt_thread_pool_context( ldap_pvt_thread_pool_t *tpool )
+{
+	return(NULL);
+}
+
+ldap_pvt_thread_t
+ldap_pvt_thread_self( void )
 {
 	return(0);
 }

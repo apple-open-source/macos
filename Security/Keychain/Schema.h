@@ -61,6 +61,21 @@ extern const CSSM_DB_SCHEMA_INDEX_INFO X509CertificateSchemaIndexList[];
 extern const uint32 X509CertificateSchemaAttributeCount;
 extern const uint32 X509CertificateSchemaIndexCount;
 
+// CRL attributes and schema
+extern const CSSM_DB_ATTRIBUTE_INFO kX509CrlCrlType;
+extern const CSSM_DB_ATTRIBUTE_INFO kX509CrlCrlEncoding;
+extern const CSSM_DB_ATTRIBUTE_INFO kX509CrlPrintName;
+extern const CSSM_DB_ATTRIBUTE_INFO kX509CrlAlias;
+extern const CSSM_DB_ATTRIBUTE_INFO kX509CrlIssuer;
+extern const CSSM_DB_ATTRIBUTE_INFO kX509CrlSerialNumber;
+extern const CSSM_DB_ATTRIBUTE_INFO kX509CrlThisUpdate;
+extern const CSSM_DB_ATTRIBUTE_INFO kX509CrlNextUpdate;
+
+extern const CSSM_DB_SCHEMA_ATTRIBUTE_INFO X509CrlSchemaAttributeList[];
+extern const CSSM_DB_SCHEMA_INDEX_INFO X509CrlSchemaIndexList[];
+extern const uint32 X509CrlSchemaAttributeCount;
+extern const uint32 X509CrlSchemaIndexCount;
+
 // UserTrust records attributes and schema
 extern const CSSM_DB_ATTRIBUTE_INFO kUserTrustTrustedCertificate;
 extern const CSSM_DB_ATTRIBUTE_INFO kUserTrustTrustedPolicy;

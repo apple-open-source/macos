@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<application>
+    <display-name>JBossTest Ear Deployment Testsuite</display-name>
+
+
+    <module>
+        <ejb>sessiona.jar</ejb>
+    </module>
+
+    <module>
+        <ejb>sessionb.jar</ejb>
+    </module>
+
+</application>
+

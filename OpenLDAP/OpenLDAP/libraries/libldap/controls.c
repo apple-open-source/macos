@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/controls.c,v 1.32 2002/01/04 20:17:38 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/controls.c,v 1.32.2.7 2003/02/08 23:53:24 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -38,6 +38,7 @@ ldap_int_put_controls(
 	LDAPControl *const *c;
 
 	assert( ld != NULL );
+	assert( LDAP_VALID(ld) );
 	assert( ber != NULL );
 
 	if( ctrls == NULL ) {
@@ -186,31 +187,25 @@ int ldap_int_get_controls(
 
 		tag = ber_scanf( ber, "{a" /*}*/, &tctrl->ldctl_oid );
 
-		if( tag != LBER_ERROR ) {
-			tag = ber_peek_tag( ber, &len );
+		if( tag == LBER_ERROR ) {
+			*ctrls = NULL;
+			ldap_controls_free( tctrls );
+			return LDAP_DECODING_ERROR;
 		}
+
+		tag = ber_peek_tag( ber, &len );
 
 		if( tag == LBER_BOOLEAN ) {
 			ber_int_t crit;
 			tag = ber_scanf( ber, "b", &crit );
 			tctrl->ldctl_iscritical = crit ? (char) 0 : (char) ~0;
-		}
-
-		if( tag != LBER_ERROR ) {
 			tag = ber_peek_tag( ber, &len );
 		}
 
 		if( tag == LBER_OCTETSTRING ) {
 			tag = ber_scanf( ber, "o", &tctrl->ldctl_value );
-
 		} else {
 			tctrl->ldctl_value.bv_val = NULL;
-		}
-
-		if( tag == LBER_ERROR ) {
-			*ctrls = NULL;
-			ldap_controls_free( tctrls );
-			return LDAP_DECODING_ERROR;
 		}
 
 		*ctrls = tctrls;
@@ -284,7 +279,7 @@ ldap_controls_dup( LDAPControl *const *controls )
 		return NULL;
 	}
 
-	new = (LDAPControl **) LDAP_MALLOC( i * sizeof(LDAPControl *) );
+	new = (LDAPControl **) LDAP_MALLOC( (i+1) * sizeof(LDAPControl *) );
 
 	if( new == NULL ) {
 		/* memory allocation failure */
@@ -365,7 +360,7 @@ ldap_control_dup( const LDAPControl *c )
 }
 
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /* Adapted for inclusion into OpenLDAP by Kurt D. Zeilenga */
@@ -386,6 +381,10 @@ ldap_control_dup( const LDAPControl *c )
  *---
  * Modification to OpenLDAP source by Novell, Inc.
  * June 2000 sfs  Added control utilities
+ */
+/* Note: A verbatim copy of version 2.0.1 of the OpenLDAP Public License
+ * can be found in the file "build/LICENSE-2.0.1" in this distribution
+ * of OpenLDAP Software.
  */
 /*---
    ldap_create_control
@@ -411,24 +410,20 @@ ldap_create_control(
 	LDAPControl **ctrlp )
 {
 	LDAPControl *ctrl;
-	struct berval *bvalp;
 
-	if ( requestOID == NULL || ctrlp == NULL ) {
-		return LDAP_PARAM_ERROR;
-	}
+	assert( requestOID != NULL );
+	assert( ber != NULL );
+	assert( ctrlp != NULL );
 
 	ctrl = (LDAPControl *) LDAP_MALLOC( sizeof(LDAPControl) );
 	if ( ctrl == NULL ) {
 		return LDAP_NO_MEMORY;
 	}
 
-	if ( ber_flatten( ber, &bvalp ) == LBER_ERROR ) {
+	if ( ber_flatten2( ber, &ctrl->ldctl_value, 1 ) == -1 ) {
 		LDAP_FREE( ctrl );
 		return LDAP_NO_MEMORY;
 	}
-
-	ctrl->ldctl_value = *bvalp;
-	ber_memfree( bvalp );
 
 	ctrl->ldctl_oid = LDAP_STRDUP( requestOID );
 	ctrl->ldctl_iscritical = iscritical;
@@ -453,6 +448,7 @@ int ldap_int_client_controls( LDAP *ld, LDAPControl **ctrls )
 	LDAPControl *const *c;
 
 	assert( ld != NULL );
+	assert( LDAP_VALID(ld) );
 
 	if( ctrls == NULL ) {
 		/* use default server controls */

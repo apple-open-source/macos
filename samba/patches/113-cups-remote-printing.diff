@@ -1,0 +1,80 @@
+--- samba/source/printing/print_cups.c.orig	Thu Mar  6 20:11:07 2003
++++ samba/source/printing/print_cups.c	Fri Aug 29 14:40:45 2003
+@@ -81,11 +81,13 @@ void cups_printer_fn(void (*fn)(char *, 
+ 	char		*name,		/* printer-name attribute */
+ 			*make_model,	/* printer-make-and-model attribute */
+ 			*info;		/* printer-info attribute */
++	int remote;         /* filter out remote printers and classes */
+ 	static const char *requested[] =/* Requested attributes */
+ 			{
+ 			  "printer-name",
+ 			  "printer-make-and-model",
+-			  "printer-info"
++			  "printer-info",
++			  "printer-type"
+ 			};       
+ 
+ 
+@@ -166,6 +168,7 @@ void cups_printer_fn(void (*fn)(char *, 
+ 		name       = NULL;
+ 		make_model = NULL;
+ 		info       = NULL;
++		remote     = 0;
+ 
+ 		while (attr != NULL && attr->group_tag == IPP_TAG_PRINTER)
+ 		{
+@@ -181,6 +184,10 @@ void cups_printer_fn(void (*fn)(char *, 
+ 			    attr->value_tag == IPP_TAG_TEXT)
+ 				info = attr->values[0].string.text;
+ 
++        		if (strcmp(attr->name, "printer-type") == 0 &&
++			    attr->value_tag == IPP_TAG_ENUM)
++				remote = attr->values[0].integer & CUPS_PRINTER_REMOTE;
++
+         		attr = attr->next;
+ 		}
+ 
+@@ -189,7 +196,10 @@ void cups_printer_fn(void (*fn)(char *, 
+ 		*/
+ 
+ 		if (name == NULL)
+-			break;
++			continue;
++
++ 		if (remote != 0)
++			continue;
+ 
+  		if (info == NULL || !info[0])
+ 			(*fn)(name, make_model);
+@@ -260,6 +270,8 @@ void cups_printer_fn(void (*fn)(char *, 
+ 		name       = NULL;
+ 		make_model = NULL;
+ 		info       = NULL;
++		remote     = 0;
++
+ 
+ 		while (attr != NULL && attr->group_tag == IPP_TAG_PRINTER)
+ 		{
+@@ -275,6 +287,10 @@ void cups_printer_fn(void (*fn)(char *, 
+ 			    attr->value_tag == IPP_TAG_TEXT)
+ 				info = attr->values[0].string.text;
+ 
++        		if (strcmp(attr->name, "printer-type") == 0 &&
++			    attr->value_tag == IPP_TAG_ENUM)
++				remote = attr->values[0].integer & CUPS_PRINTER_REMOTE;
++
+         		attr = attr->next;
+ 		}
+ 
+@@ -283,7 +299,10 @@ void cups_printer_fn(void (*fn)(char *, 
+ 		*/
+ 
+ 		if (name == NULL)
+-			break;
++			continue;
++
++  		if (remote != 0)
++			continue;
+ 
+  		if (info == NULL || !info[0])
+ 			(*fn)(name, make_model);

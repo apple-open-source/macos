@@ -68,6 +68,10 @@ do
     esac
 
     {
+	# Print the date at the beginning of all logs.
+	echo
+	date
+
         empty=TRUE
         processed=0
         for dir in $dirlist

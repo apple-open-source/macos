@@ -1,6 +1,6 @@
 ;;; tex-mode.el --- TeX, LaTeX, and SliTeX mode commands
 
-;; Copyright (C) 1985, 86, 89, 92, 94, 95, 96, 97, 98, 1999
+;; Copyright (C) 1985, 86, 89, 92, 94, 95, 96, 97, 98, 1999, 2002
 ;;       Free Software Foundation, Inc.
 
 ;; Maintainer: FSF
@@ -497,12 +497,12 @@ An alternative value is \" . \", if you use a font with a narrow period."
 			t))
 	    ;;
 	    ;; Names of commands that should be fontified.
-	    (specials (regexp-opt
-		       '("\\" "\\*" ;; "-"
-			 "linebreak" "nolinebreak" "pagebreak" "nopagebreak"
-			 "newline" "newpage" "clearpage" "cleardoublepage"
-			 "displaybreak" "allowdisplaybreaks" "enlargethispage")
-		       t))
+	    (specials-1 (regexp-opt '("\\" "\\*") t)) ;; "-"
+	    (specials-2 (regexp-opt
+			 '("linebreak" "nolinebreak" "pagebreak" "nopagebreak"
+			   "newline" "newpage" "clearpage" "cleardoublepage"
+			   "displaybreak" "allowdisplaybreaks"
+			   "enlargethispage") t))
 	    (general "\\([a-zA-Z@]+\\**\\|[^ \t\n]\\)")
 	    ;;
 	    ;; Miscellany.
@@ -521,7 +521,9 @@ An alternative value is \" . \", if you use a font with a narrow period."
 	      'font-lock-string-face)
 	;;
 	;; Command names, special and general.
-	(cons (concat slash specials) 'font-lock-warning-face)
+	(cons (concat slash specials-1) 'font-lock-warning-face)
+	(list (concat "\\(" slash specials-2 "\\)\\([^a-zA-Z@]\\|\\'\\)")
+	      1 'font-lock-warning-face)
 	(concat slash general)
 	;;
 	;; Font environments.  It seems a bit dubious to use `bold' etc. faces
@@ -1408,8 +1410,10 @@ ALL other buffers."
 		     ;; (or (easy-mmode-derived-mode-p 'latex-mode)
 		     ;; 	 (easy-mmode-derived-mode-p 'plain-tex-mode))
 		     (save-excursion
-		       (goto-char (point-min))
-		       (re-search-forward header-re 10000 t)))
+		       (save-restriction
+			 (widen)
+			 (goto-char (point-min))
+			 (re-search-forward header-re 10000 t))))
 	    (throw 'found (expand-file-name buffer-file-name))))))))
 
 (defun tex-main-file ()

@@ -1,10 +1,10 @@
 /*
- * "$Id: auth.h,v 1.1.1.3 2002/04/08 07:26:16 jlovell Exp $"
+ * "$Id: auth.h,v 1.1.1.7 2002/12/24 00:07:25 jlovell Exp $"
  *
  *   Authorization definitions for the Common UNIX Printing System (CUPS)
  *   scheduler.
  *
- *   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -129,9 +129,11 @@ extern void		DenyIP(location_t *loc, unsigned address,
 			       unsigned netmask);
 extern location_t	*FindBest(const char *path, http_state_t state);
 extern location_t	*FindLocation(const char *location);
+extern char		*GetMD5Passwd(const char *username, const char *group,
+			              char passwd[33]);
 extern http_status_t	IsAuthorized(client_t *con);
 
 
 /*
- * End of "$Id: auth.h,v 1.1.1.3 2002/04/08 07:26:16 jlovell Exp $".
+ * End of "$Id: auth.h,v 1.1.1.7 2002/12/24 00:07:25 jlovell Exp $".
  */

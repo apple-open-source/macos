@@ -7,11 +7,12 @@
 # Copyright (c) 1991-1993 The Regents of the University of California.
 # Copyright (c) 1994 Sun Microsystems, Inc.
 # Copyright (c) 1998-1999 by Scriptics Corporation.
+# Copyright (c) 2001 by Kevin B. Kenny.  All rights reserved.
 #
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: string.test,v 1.1.1.5 2002/04/05 16:13:57 jevans Exp $
+# RCS: @(#) $Id: string.test,v 1.1.1.8 2003/07/22 23:11:14 landonf Exp $
 
 if {[lsearch [namespace children] ::tcltest] == -1} {
     package require tcltest
@@ -119,12 +120,29 @@ test string-2.26 {string compare -nocase, null strings} {
 test string-2.27 {string compare -nocase, null strings} {
     string compare -nocase foo ""
 } 1
-test string-2.28 {string equal with length, unequal strings} {
+test string-2.28 {string compare with length, unequal strings} {
     string compare -length 2 abc abde
 } 0
-test string-2.29 {string equal with length, unequal strings} {
+test string-2.29 {string compare with length, unequal strings} {
     string compare -length 2 ab abde
 } 0
+test string-2.30 {string compare with NUL character vs. other ASCII} {
+    # Be careful here, since UTF-8 rep comparison with memcmp() of
+    # these puts chars in the wrong order
+    string compare \x00 \x01
+} -1
+test string-2.31 {string compare, high bit} {
+    proc foo {} {string compare "a\x80" "a@"}
+    foo
+} 1
+test string-2.32 {string compare, high bit} {
+    proc foo {} {string compare "a\x00" "a\x01"}
+    foo
+} -1
+test string-2.33 {string compare, high bit} {
+    proc foo {} {string compare "\x00\x00" "\x00\x01"}
+    foo
+} -1
 
 # only need a few tests on equal, since it uses the same code as
 # string compare, but just modifies the return output
@@ -155,13 +173,13 @@ test string-3.8 {string equal with length, unequal strings} {
 
 test string-4.1 {string first, too few args} {
     list [catch {string first a} msg] $msg
-} {1 {wrong # args: should be "string first string1 string2 ?startIndex?"}}
+} {1 {wrong # args: should be "string first subString string ?startIndex?"}}
 test string-4.2 {string first, bad args} {
     list [catch {string first a b c} msg] $msg
 } {1 {bad index "c": must be integer or end?-integer?}}
 test string-4.3 {string first, too many args} {
     list [catch {string first a b 5 d} msg] $msg
-} {1 {wrong # args: should be "string first string1 string2 ?startIndex?"}}
+} {1 {wrong # args: should be "string first subString string ?startIndex?"}}
 test string-4.4 {string first} {
     string first bq abcdefgbcefgbqrs
 } 12
@@ -192,9 +210,16 @@ test string-4.12 {string first, start index} {
 test string-4.13 {string first, start index} {
     string first \u7266 abc\u7266x end-2
 } 3
-test string-4.14 {string first, start index} {
-    string first a abcabc end-4
-} 3
+test string-4.14 {string first, negative start index} {
+    string first b abc -1
+} 1
+test string-4.15 {string first, ability to two-byte encoded utf-8 chars} {
+    # Test for a bug in Tcl 8.3 where test for all-single-byte-encoded
+    # strings was incorrect, leading to an index returned by [string first] 
+    # which pointed past the end of the string.
+    set uchar \u057e    ;# character with two-byte encoding in utf-8
+    string first % %#$uchar$uchar#$uchar$uchar#% 3
+} 8
 
 test string-5.1 {string index} {
     list [catch {string index} msg] $msg
@@ -254,7 +279,7 @@ test string-5.17 {string index, bad integer} {
 } {1 {bad index "08": must be integer or end?-integer? (looks like invalid octal number)}}
 test string-5.18 {string index, bad integer} {
     list [catch {string index "abc" end-00289} msg] $msg
-} {1 {expected integer but got "-00289" (looks like invalid octal number)}}
+} {1 {bad index "end-00289": must be integer or end?-integer? (looks like invalid octal number)}}
 test string-5.19 {string index, bytearray object out of bounds} {
     string index [binary format I* {0x50515253 0x52}] -1
 } {}
@@ -268,7 +293,7 @@ proc largest_int {} {
     # so we can test for overflow properly below on >32 bit systems
     set int 1
     set exp 7; # assume we get at least 8 bits
-    while {$int > 0} { set int [expr {1 << [incr exp]}] }
+    while {$int > 0} { set int [expr {wide(1) << [incr exp]}] }
     return [expr {$int-1}]
 }
 
@@ -556,17 +581,51 @@ test string-6.89 {string is xdigit} {
     list [string is xdigit -fail var 0123456789\u0061bcdefABCDEFg] $var
 } {0 22}
 
+test string-6.90 {string is integer, bad integers} {
+    # SF bug #634856
+    set result ""
+    set numbers [list 1 +1 ++1 +-1 -+1 -1 --1 "- +1"]
+    foreach num $numbers {
+	lappend result [string is int -strict $num]
+    }
+    set result
+} {1 1 0 0 0 1 0 0}
+test string-6.91 {string is double, bad doubles} {
+    set result ""
+    set numbers [list 1.0 +1.0 ++1.0 +-1.0 -+1.0 -1.0 --1.0 "- +1.0"]
+    foreach num $numbers {
+	lappend result [string is double -strict $num]
+    }
+    set result
+} {1 1 0 0 0 1 0 0}
+test string-6.92 {string is double, 32-bit overflow} {
+    # Bug 718878
+    set x 0x100000000
+    list [string is integer -failindex var $x] $var
+} {0 -1}
+test string-6.93 {string is double, 32-bit overflow} {
+    # Bug 718878
+    set x 0x100000000
+    append x ""
+    list [string is integer -failindex var $x] $var
+} {0 -1}
+test string-6.94 {string is double, 32-bit overflow} {
+    # Bug 718878
+    set x 0x100000000
+    list [string is integer -failindex var [expr {$x}]] $var
+} {0 -1}
+
 catch {rename largest_int {}}
 
 test string-7.1 {string last, too few args} {
     list [catch {string last a} msg] $msg
-} {1 {wrong # args: should be "string last string1 string2 ?startIndex?"}}
+} {1 {wrong # args: should be "string last subString string ?startIndex?"}}
 test string-7.2 {string last, bad args} {
     list [catch {string last a b c} msg] $msg
 } {1 {bad index "c": must be integer or end?-integer?}}
 test string-7.3 {string last, too many args} {
     list [catch {string last a b c d} msg] $msg
-} {1 {wrong # args: should be "string last string1 string2 ?startIndex?"}}
+} {1 {wrong # args: should be "string last subString string ?startIndex?"}}
 test string-7.4 {string last} {
     string la xxx xxxx123xx345x678
 } 1
@@ -695,6 +754,12 @@ test string-10.16 {string map, one pair case} {
 test string-10.17 {string map, one pair case} {
     string map {Ab 4321} aAbCaBaAbAbcAb
 } {a4321CaBa43214321c4321}
+test string-10.18 {string map, empty argument} {
+    string map -nocase {{} abc} foo
+} foo
+test string-10.19 {string map, empty arguments} {
+    string map -nocase {{} abc f bar {} def} foo
+} baroo
 
 test string-11.1 {string match, too few args} {
     list [catch {string match a} msg] $msg
@@ -849,7 +914,44 @@ test string-11.49 {string match, *special case} {
 test string-11.50 {string match, *special case} {
     string match "\\" "\\"
 } 0
-
+test string-11.51 {string match; *, -nocase and UTF-8} {
+    string match -nocase [binary format I 717316707] \
+	    [binary format I 2028036707]
+} 1
+test string-11.52 {string match, null char in string} {
+    set out ""
+    set ptn "*abc*"
+    foreach elem [list "\u0000@abc" "@abc" "\u0000@abc\u0000" "blahabcblah"] {
+	lappend out [string match $ptn $elem]
+    }
+    set out
+} {1 1 1 1}
+test string-11.53 {string match, null char in pattern} {
+    set out ""
+    foreach {ptn elem} [list \
+	    "*\u0000abc\u0000"  "\u0000abc\u0000" \
+	    "*\u0000abc\u0000"  "\u0000abc\u0000ef" \
+	    "*\u0000abc\u0000*" "\u0000abc\u0000ef" \
+	    "*\u0000abc\u0000"  "@\u0000abc\u0000ef" \
+	    "*\u0000abc\u0000*"  "@\u0000abc\u0000ef" \
+	    ] {
+	lappend out [string match $ptn $elem]
+    }
+    set out
+} {1 0 1 0 1}
+test string-11.54 {string match, failure} {
+    set longString ""
+    for {set i 0} {$i < 10} {incr i} {
+	append longString "abcdefghijklmnopqrstuvwxy\u0000z01234567890123"
+    }
+    string first $longString 123
+    list [string match *cba* $longString] \
+	    [string match *a*l*\u0000* $longString] \
+	    [string match *a*l*\u0000*123 $longString] \
+	    [string match *a*l*\u0000*123* $longString] \
+	    [string match *a*l*\u0000*cba* $longString] \
+	    [string match *===* $longString]
+} {0 1 1 1 0 0}
 
 test string-12.1 {string range} {
     list [catch {string range} msg] $msg
@@ -909,8 +1011,8 @@ test string-12.19 {string range, bytearray object} {
     set b [binary format I* {0x50515253 0x52}]
     set r1 [string range $b 1 end-1]
     set r2 [string range $b 1 6]
-    string compare $r1 $r2
-} 0
+    string equal $r1 $r2
+} 1
 test string-12.20 {string range, out of bounds indices} {
     string range \u00ff 0 1
 } \u00ff

@@ -1,5 +1,5 @@
 /* ============================================================================
- * Copyright (C) 1998 Angus Mackay. All rights reserved; 
+ * Copyright (C) 1998 - 2002, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * Redistribution and use are freely permitted provided that:
  *
@@ -22,7 +22,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * ============================================================================
  *
- * $Id: getpass.c,v 1.1.1.2 2001/04/24 18:49:09 wsanchez Exp $
+ * $Id: getpass.c,v 1.1.1.3 2002/11/26 19:07:54 zarzycki Exp $
  *
  * The spirit of this license is to allow use of this source code in any
  * project be it open or closed but still encourage the use of the open,
@@ -35,13 +35,35 @@
  *   Daniel Stenberg <daniel@haxx.se>
  */
 
-#ifdef HAVE_CONFIG_H
-#  include <config.h>
-#endif
+#include "setup.h" /* setup.h is required for read() prototype */
 
 #ifndef HAVE_GETPASS_R
 
 #ifndef WIN32
+#ifdef	VMS
+#include <stdio.h>
+#include <string.h>
+#include descrip
+#include starlet
+#include iodef
+#include iosbdef
+char *getpass_r(const char *prompt, char *buffer, size_t buflen)
+{
+	long sts;
+	short chan;
+	struct _iosb iosb;
+	$DESCRIPTOR(ttdesc, "TT");
+
+	buffer[0]='\0';
+	if ((sts = sys$assign(&ttdesc, &chan,0,0)) & 1) {
+		if (((sts = sys$qiow(0, chan, IO$_READPROMPT | IO$M_NOECHO, &iosb, 0, 0, buffer, buflen, 0, 0, prompt, strlen(prompt))) & 1) && (iosb.iosb$w_status&1)) {
+			buffer[iosb.iosb$w_bcnt] = '\0';
+		} 
+		sts = sys$dassgn(chan);
+	}
+	return buffer; /* we always return success */
+}
+#else /* VMS */
 #ifdef HAVE_TERMIOS_H
 #  if !defined(HAVE_TCGETATTR) && !defined(HAVE_TCSETATTR) 
 #    undef HAVE_TERMIOS_H
@@ -71,14 +93,10 @@
 #include "memdebug.h"
 #endif
 
-/* no perror? make an fprintf! */
-#ifndef HAVE_PERROR
-#  define perror(x) fprintf(stderr, "Error in: %s\n", x)
-#endif
-
 char *getpass_r(const char *prompt, char *buffer, size_t buflen)
 {
   FILE *infp;
+  char infp_fclose = 0;
   FILE *outfp;
   RETSIGTYPE (*sigint)();
 #ifndef __EMX__
@@ -105,41 +123,30 @@ char *getpass_r(const char *prompt, char *buffer, size_t buflen)
   sigtstp = signal(SIGTSTP, SIG_IGN);
 #endif
 
-  if( (infp=fopen("/dev/tty", "r")) == NULL )
-  {
+  infp=fopen("/dev/tty", "r");
+  if( NULL == infp )
     infp = stdin;
-  }
-  if( (outfp=fopen("/dev/tty", "w")) == NULL )
-  {
-    outfp = stderr;
-  }
+  else
+    infp_fclose = 1;
+
+  outfp = stderr;
+
   infd = fileno(infp);
   outfd = fileno(outfp);
 
   /* dissable echo */
 #ifdef HAVE_TERMIOS_H
-  if(tcgetattr(outfd, &orig) != 0)
-  {
-    ; /*perror("tcgetattr");*/
-  }
+  tcgetattr(outfd, &orig);
+
   noecho = orig;
   noecho.c_lflag &= ~ECHO;
-  if(tcsetattr(outfd, TCSANOW, &noecho) != 0)
-  {
-    ; /*perror("tcgetattr");*/
-  }
+  tcsetattr(outfd, TCSANOW, &noecho);
 #else
 #  ifdef HAVE_TERMIO_H
-  if(ioctl(outfd, TCGETA, &orig) != 0)
-  {
-    ; /*perror("ioctl");*/
-  }
+  ioctl(outfd, TCGETA, &orig);
   noecho = orig;
   noecho.c_lflag &= ~ECHO;
-  if(ioctl(outfd, TCSETA, &noecho) != 0)
-  {
-    ; /*perror("ioctl");*/
-  }
+  ioctl(outfd, TCSETA, &noecho);
 #  else
 #  endif
 #endif
@@ -165,16 +172,10 @@ char *getpass_r(const char *prompt, char *buffer, size_t buflen)
    * user types more than buflen
    */
 #ifdef HAVE_TERMIOS_H
-  if(tcsetattr(outfd, TCSAFLUSH, &orig) != 0)
-  {
-    ; /*perror("tcgetattr");*/
-  }
+  tcsetattr(outfd, TCSAFLUSH, &orig);
 #else
 #  ifdef HAVE_TERMIO_H
-  if(ioctl(outfd, TCSETA, &orig) != 0)
-  {
-    ; /*perror("ioctl");*/
-  }
+  ioctl(outfd, TCSETA, &orig);
 #  else
 #  endif
 #endif
@@ -184,8 +185,12 @@ char *getpass_r(const char *prompt, char *buffer, size_t buflen)
   signal(SIGTSTP, sigtstp);
 #endif
 
+  if(infp_fclose)
+    fclose(infp);
+
   return buffer; /* we always return success */
 }
+#endif /* VMS */
 #else /* WIN32 */
 #include <stdio.h>
 #include <conio.h>
@@ -219,3 +224,11 @@ char *getpass(const char *prompt)
   return getpass_r(prompt, buf, sizeof(buf));
 }
 #endif
+
+/*
+ * local variables:
+ * eval: (load-file "../curl-mode.el")
+ * end:
+ * vim600: fdm=marker
+ * vim: et sw=2 ts=2 sts=2 tw=78
+ */

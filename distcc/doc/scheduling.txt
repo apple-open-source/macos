@@ -1,0 +1,43 @@
+$Header: /cvs/repository/devenv/pbxdev/distcc/doc/scheduling.txt,v 1.2 2003/03/22 02:16:49 rwill Exp $
+
+
+What's the best way to schedule jobs?  Multiprocessor machines present
+a considerable complication, because we ought to schedule to them even
+if they're already busy.
+
+We don't know how many more jobs will arrive in the future.  This
+might be the first of many, or it might be the last, or all jobs might
+be sequenced in this stage of compilation.
+
+Generic OS scheduling theory suggests (??) that we should schedule a
+job in the place where it is likely to complete fastest.  In other
+words, we should put it on the fastest CPU that's not currently busy.
+
+We can't control the overall amount of concurrency -- that's down to
+Make.  I think all we really want is to keep roughly the same number
+of jobs running on each machine.
+
+I would rather not require all clients to know the capabilities of the
+machines they might like to use, but it's probably acceptable.
+
+There is unfortunately no portable way to tell how many CPUs a machine
+might have, but we can fairly easily have various special cases.  (On
+Linux, we would try to read /proc/cpuinfo.)  Alternatively, you could
+specify it directly.
+
+It might be nice to avoid using a machine if we think it's down, but
+that's not necessarily the same as scheduling load evenly.
+
+We could also take the current load of the CPUs into account, but I'm
+not sure if we could get the information back fast enough for it to
+make a difference.
+
+
+----
+
+If we go to using DNS roundrobin records, or if people have the same
+HOSTS set on different machines, then we can't rely on the ordering of
+hosts.  Perhaps we should always shuffle them?
+
+Having "localhost" be magic is not so good.  Perhaps it should
+recognize the hosts's own name?

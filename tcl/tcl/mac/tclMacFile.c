@@ -10,7 +10,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclMacFile.c,v 1.1.1.4 2002/04/05 16:13:44 jevans Exp $
+ * RCS: @(#) $Id: tclMacFile.c,v 1.1.1.5 2003/03/06 00:12:00 landonf Exp $
  */
 
 /*
@@ -23,6 +23,8 @@
 #include "tclPort.h"
 #include "tclMacInt.h"
 #include <Aliases.h>
+#include <Resources.h>
+#include <Files.h>
 #include <Errors.h>
 #include <Processes.h>
 #include <Strings.h>
@@ -30,6 +32,33 @@
 #include <MoreFiles.h>
 #include <MoreFilesExtras.h>
 #include <FSpCompat.h>
+
+static int NativeMatchType(Tcl_Obj *tempName, Tcl_GlobTypeData *types, 
+			   HFileInfo fileInfo, OSType okType, OSType okCreator);
+static OSErr FspLocationFromFsPath _ANSI_ARGS_((Tcl_Obj *pathPtr, 
+						FSSpec* specPtr));
+static OSErr FspLLocationFromFsPath _ANSI_ARGS_((Tcl_Obj *pathPtr, 
+						FSSpec* specPtr));
+
+static OSErr CreateAliasFile _ANSI_ARGS_((FSSpec *theAliasFile, FSSpec *targetFile));
+
+static OSErr 
+FspLocationFromFsPath(pathPtr, specPtr)
+    Tcl_Obj *pathPtr;
+    FSSpec* specPtr;
+{
+    CONST char *native = Tcl_FSGetNativePath(pathPtr);
+    return FSpLocationFromPath(strlen(native), native, specPtr);
+}
+
+static OSErr 
+FspLLocationFromFsPath(pathPtr, specPtr)
+    Tcl_Obj *pathPtr;
+    FSSpec* specPtr;
+{
+    CONST char *native = Tcl_FSGetNativePath(pathPtr);
+    return FSpLLocationFromPath(strlen(native), native, specPtr);
+}
 
 
 /*
@@ -95,17 +124,16 @@ TclpFindExecutable(
 /*
  *----------------------------------------------------------------------
  *
- * TclpMatchFilesTypes --
+ * TclpMatchInDirectory --
  *
  *	This routine is used by the globbing code to search a
  *	directory for all files which match a given pattern.
  *
  * Results: 
- *	If the tail argument is NULL, then the matching files are
- *	added to the the interp's result.  Otherwise, TclDoGlob is called
- *	recursively for each matching subdirectory.  The return value
- *	is a standard Tcl result indicating whether an error occurred
- *	in globbing.
+ *	
+ *	The return value is a standard Tcl result indicating whether an
+ *	error occurred in globbing.  Errors are left in interp, good
+ *	results are lappended to resultPtr (which must be a valid object)
  *
  * Side effects:
  *	None.
@@ -113,111 +141,26 @@ TclpFindExecutable(
  *---------------------------------------------------------------------- */
 
 int
-TclpMatchFilesTypes(
-    Tcl_Interp *interp,		/* Interpreter to receive results. */
-    char *separators,		/* Directory separators to pass to TclDoGlob. */
-    Tcl_DString *dirPtr,	/* Contains path to directory to search. */
-    char *pattern,		/* Pattern to match against. */
-    char *tail,			/* Pointer to end of pattern.  Tail must
-				 * point to a location in pattern and must
-				 * not be static.*/
-    GlobTypeData *types)	/* Object containing list of acceptable types.
-				 * May be NULL. */
+TclpMatchInDirectory(interp, resultPtr, pathPtr, pattern, types)
+    Tcl_Interp *interp;		/* Interpreter to receive errors. */
+    Tcl_Obj *resultPtr;		/* List object to lappend results. */
+    Tcl_Obj *pathPtr;	        /* Contains path to directory to search. */
+    CONST char *pattern;	/* Pattern to match against.  NULL or empty
+                        	 * means pathPtr is actually a single file
+                        	 * to check. */
+    Tcl_GlobTypeData *types;	/* Object containing list of acceptable types.
+				 * May be NULL. In particular the directory
+				 * flag is very important. */
 {
-    char *fname, *patternEnd = tail;
-    char savedChar;
-    int fnameLen, result = TCL_OK;
-    int baseLength;
-    CInfoPBRec pb;
-    OSErr err;
-    FSSpec dirSpec;
-    Boolean isDirectory;
-    long dirID;
-    short itemIndex;
-    Str255 fileName;
-    Tcl_DString fileString;    
-    Tcl_Obj *resultPtr;
     OSType okType = 0;
     OSType okCreator = 0;
-    Tcl_DString dsOrig;
+    Tcl_Obj *fileNamePtr;
 
-    Tcl_DStringInit(&dsOrig);
-    Tcl_DStringAppend(&dsOrig, Tcl_DStringValue(dirPtr), 
-    	Tcl_DStringLength(dirPtr));
-    baseLength = Tcl_DStringLength(&dsOrig);
-
-    /*
-     * Make sure that the directory part of the name really is a
-     * directory.
-     */
-
-    Tcl_UtfToExternalDString(NULL, Tcl_DStringValue(&dsOrig),
-	    Tcl_DStringLength(&dsOrig), &fileString);
-
-    err = FSpLocationFromPath(Tcl_DStringLength(&fileString), 
-			      Tcl_DStringValue(&fileString), &dirSpec);
-    Tcl_DStringFree(&fileString);
-    if (err == noErr)
-    err = FSpGetDirectoryID(&dirSpec, &dirID, &isDirectory);
-    if ((err != noErr) || !isDirectory) {
-    /*
-     * Check if we had a relative path (unix style relative path 
-     * compatibility for glob)
-     */
-    Tcl_DStringFree(&dsOrig);
-    Tcl_DStringAppend(&dsOrig, ":", 1);
-    Tcl_DStringAppend(&dsOrig, Tcl_DStringValue(dirPtr), 
-    	Tcl_DStringLength(dirPtr));
-    baseLength = Tcl_DStringLength(&dsOrig);
-
-    Tcl_UtfToExternalDString(NULL, Tcl_DStringValue(&dsOrig),
-	    Tcl_DStringLength(&dsOrig), &fileString);
+    fileNamePtr = Tcl_FSGetTranslatedPath(interp, pathPtr);
+    if (fileNamePtr == NULL) {
+	return TCL_ERROR;
+    }
     
-    err = FSpLocationFromPath(Tcl_DStringLength(&fileString), 
-			      Tcl_DStringValue(&fileString), &dirSpec);
-    Tcl_DStringFree(&fileString);
-    if (err == noErr)
-    err = FSpGetDirectoryID(&dirSpec, &dirID, &isDirectory);
-    if ((err != noErr) || !isDirectory) {
-    	Tcl_DStringFree(&dsOrig);
-    	return TCL_OK;
-    }
-    }
-
-    /* Make sure we have a trailing directory delimiter */
-    if (Tcl_DStringValue(&dsOrig)[baseLength-1] != ':') {
-	Tcl_DStringAppend(&dsOrig, ":", 1);
-	baseLength++;
-    }
-
-    /*
-     * Now open the directory for reading and iterate over the contents.
-     */
-
-    pb.hFileInfo.ioVRefNum = dirSpec.vRefNum;
-    pb.hFileInfo.ioDirID = dirID;
-    pb.hFileInfo.ioNamePtr = (StringPtr) fileName;
-    pb.hFileInfo.ioFDirIndex = itemIndex = 1;
-
-    /*
-     * Clean up the end of the pattern and the tail pointer.  Leave
-     * the tail pointing to the first character after the path separator
-     * following the pattern, or NULL.  Also, ensure that the pattern
-     * is null-terminated.
-     */
-
-    if (*tail == '\\') {
-	tail++;
-    }
-    if (*tail == '\0') {
-	tail = NULL;
-    } else {
-	tail++;
-    }
-    savedChar = *patternEnd;
-    *patternEnd = '\0';
-
-    resultPtr = Tcl_GetObjResult(interp);
     if (types != NULL) {
 	if (types->macType != NULL) {
 	    Tcl_GetOSTypeFromObj(NULL, types->macType, &okType);
@@ -227,142 +170,264 @@ TclpMatchFilesTypes(
 	}
     }
 
-    while (1) {
-	pb.hFileInfo.ioFDirIndex = itemIndex;
-	pb.hFileInfo.ioDirID = dirID;
-	err = PBGetCatInfoSync(&pb);
-	if (err != noErr) {
-	    break;
+    if (pattern == NULL || (*pattern == '\0')) {
+	/* Match a single file directly */
+	Tcl_StatBuf buf;
+	CInfoPBRec paramBlock;
+	FSSpec fileSpec;
+	
+	if (TclpObjLstat(fileNamePtr, &buf) != 0) {
+	    /* File doesn't exist */
+	    return TCL_OK;
 	}
 
+	if (FspLLocationFromFsPath(fileNamePtr, &fileSpec) == noErr) {
+	    paramBlock.hFileInfo.ioCompletion = NULL;
+	    paramBlock.hFileInfo.ioNamePtr = fileSpec.name;
+	    paramBlock.hFileInfo.ioVRefNum = fileSpec.vRefNum;
+	    paramBlock.hFileInfo.ioFDirIndex = 0;
+	    paramBlock.hFileInfo.ioDirID = fileSpec.parID;
+	    
+	    PBGetCatInfo(&paramBlock, 0);
+	}
+
+	if (NativeMatchType(fileNamePtr, types, paramBlock.hFileInfo,
+			    okType, okCreator)) {
+	    int fnameLen;
+	    char *fname = Tcl_GetStringFromObj(pathPtr,&fnameLen);
+	    if ((fnameLen > 1) && (strchr(fname+1, ':') == NULL)) {
+		Tcl_ListObjAppendElement(interp, resultPtr, 
+			Tcl_NewStringObj(fname+1, fnameLen-1));
+	    } else {
+		Tcl_ListObjAppendElement(interp, resultPtr, pathPtr);
+	    }
+	}
+	return TCL_OK;
+    } else {
+	char *fname;
+	int fnameLen, result = TCL_OK;
+	int baseLength;
+	CInfoPBRec pb;
+	OSErr err;
+	FSSpec dirSpec;
+	Boolean isDirectory;
+	long dirID;
+	short itemIndex;
+	Str255 fileName;
+	Tcl_DString fileString;    
+	Tcl_DString dsOrig;
+
+	Tcl_DStringInit(&dsOrig);
+	Tcl_DStringAppend(&dsOrig, Tcl_GetString(fileNamePtr), -1);
+	baseLength = Tcl_DStringLength(&dsOrig);
+
 	/*
-	 * Now check to see if the file matches.  If there are more
-	 * characters to be processed, then ensure matching files are
-	 * directories before calling TclDoGlob. Otherwise, just add
-	 * the file to the result.
+	 * Make sure that the directory part of the name really is a
+	 * directory.
 	 */
-	 
-	Tcl_ExternalToUtfDString(NULL, (char *) fileName + 1, fileName[0],
-		&fileString);
-	if (Tcl_StringMatch(Tcl_DStringValue(&fileString), pattern)) {
-	    Tcl_DStringSetLength(&dsOrig, baseLength);
-	    Tcl_DStringAppend(&dsOrig, Tcl_DStringValue(&fileString), -1);
-	    fname = Tcl_DStringValue(&dsOrig);
-	    fnameLen = Tcl_DStringLength(&dsOrig);
-	    if (tail == NULL) {
-		int typeOk = 1;
-		if (types != NULL) {
-		    if (types->perm != 0) {
-			if (
-			    ((types->perm & TCL_GLOB_PERM_RONLY) &&
-				    !(pb.hFileInfo.ioFlAttrib & 1)) ||
-			    ((types->perm & TCL_GLOB_PERM_HIDDEN) &&
-				    !(pb.hFileInfo.ioFlFndrInfo.fdFlags &
-					    kIsInvisible)) ||
-			    ((types->perm & TCL_GLOB_PERM_R) &&
-				    (TclpAccess(fname, R_OK) != 0)) ||
-			    ((types->perm & TCL_GLOB_PERM_W) &&
-				    (TclpAccess(fname, W_OK) != 0)) ||
-			    ((types->perm & TCL_GLOB_PERM_X) &&
-				    (TclpAccess(fname, X_OK) != 0))
-			    ) {
-			    typeOk = 0;
-			}
-		    }
-		    if (typeOk == 1 && types->type != 0) {
-			struct stat buf;
-			/*
-			 * We must match at least one flag to be listed
-			 */
-			typeOk = 0;
-			if (TclpLstat(fname, &buf) >= 0) {
-			    /*
-			     * In order bcdpfls as in 'find -t'
-			     */
-			    if (
-				((types->type & TCL_GLOB_TYPE_BLOCK) &&
-					S_ISBLK(buf.st_mode)) ||
-				((types->type & TCL_GLOB_TYPE_CHAR) &&
-					S_ISCHR(buf.st_mode)) ||
-				((types->type & TCL_GLOB_TYPE_DIR) &&
-					S_ISDIR(buf.st_mode)) ||
-				((types->type & TCL_GLOB_TYPE_PIPE) &&
-					S_ISFIFO(buf.st_mode)) ||
-				((types->type & TCL_GLOB_TYPE_FILE) &&
-					S_ISREG(buf.st_mode))
-#ifdef S_ISLNK
-				|| ((types->type & TCL_GLOB_TYPE_LINK) &&
-					S_ISLNK(buf.st_mode))
-#endif
-#ifdef S_ISSOCK
-				|| ((types->type & TCL_GLOB_TYPE_SOCK) &&
-					S_ISSOCK(buf.st_mode))
-#endif
-				) {
-				typeOk = 1;
-			    }
-			} else {
-			    /* Posix error occurred */
-			}
-		    }
-		    if (typeOk && (
-			((okType != 0) && (okType !=
-				pb.hFileInfo.ioFlFndrInfo.fdType)) ||
-			((okCreator != 0) && (okCreator !=
-				pb.hFileInfo.ioFlFndrInfo.fdCreator)))) {
-			typeOk = 0;
-		    }
-		} 
-		if (typeOk) {
+
+	Tcl_UtfToExternalDString(NULL, Tcl_DStringValue(&dsOrig),
+		Tcl_DStringLength(&dsOrig), &fileString);
+
+	err = FSpLocationFromPath(Tcl_DStringLength(&fileString), 
+				  Tcl_DStringValue(&fileString), &dirSpec);
+	Tcl_DStringFree(&fileString);
+	if (err == noErr) {
+	    err = FSpGetDirectoryID(&dirSpec, &dirID, &isDirectory);
+	}
+	
+	if ((err != noErr) || !isDirectory) {
+	    /*
+	     * Check if we had a relative path (unix style relative path 
+	     * compatibility for glob)
+	     */
+	    Tcl_DStringFree(&dsOrig);
+	    Tcl_DStringAppend(&dsOrig, ":", 1);
+	    Tcl_DStringAppend(&dsOrig, Tcl_GetString(fileNamePtr), -1);
+	    baseLength = Tcl_DStringLength(&dsOrig);
+
+	    Tcl_UtfToExternalDString(NULL, Tcl_DStringValue(&dsOrig),
+		    Tcl_DStringLength(&dsOrig), &fileString);
+	    
+	    err = FSpLocationFromPath(Tcl_DStringLength(&fileString), 
+				      Tcl_DStringValue(&fileString), &dirSpec);
+	    Tcl_DStringFree(&fileString);
+	    if (err == noErr) {
+		err = FSpGetDirectoryID(&dirSpec, &dirID, &isDirectory);
+	    }
+	    
+	    if ((err != noErr) || !isDirectory) {
+		Tcl_DStringFree(&dsOrig);
+		return TCL_OK;
+	    }
+	}
+
+	/* Make sure we have a trailing directory delimiter */
+	if (Tcl_DStringValue(&dsOrig)[baseLength-1] != ':') {
+	    Tcl_DStringAppend(&dsOrig, ":", 1);
+	    baseLength++;
+	}
+	
+	/*
+	 * Now open the directory for reading and iterate over the contents.
+	 */
+
+	pb.hFileInfo.ioVRefNum = dirSpec.vRefNum;
+	pb.hFileInfo.ioDirID = dirID;
+	pb.hFileInfo.ioNamePtr = (StringPtr) fileName;
+	pb.hFileInfo.ioFDirIndex = itemIndex = 1;
+
+	while (1) {
+	    pb.hFileInfo.ioFDirIndex = itemIndex;
+	    pb.hFileInfo.ioDirID = dirID;
+	    err = PBGetCatInfoSync(&pb);
+	    if (err != noErr) {
+		break;
+	    }
+
+	    /*
+	     * Now check to see if the file matches.  
+	     */
+	     
+	    Tcl_ExternalToUtfDString(NULL, (char *) fileName + 1, fileName[0],
+		    &fileString);
+	    if (Tcl_StringMatch(Tcl_DStringValue(&fileString), pattern)) {
+		Tcl_Obj *tempName;
+		Tcl_DStringSetLength(&dsOrig, baseLength);
+		Tcl_DStringAppend(&dsOrig, Tcl_DStringValue(&fileString), -1);
+		fname = Tcl_DStringValue(&dsOrig);
+		fnameLen = Tcl_DStringLength(&dsOrig);
+		
+		/* 
+		 * We use this tempName in calls to check the file's
+		 * type below.  We may also use it for the result.
+		 */
+		tempName = Tcl_NewStringObj(fname, fnameLen);
+		Tcl_IncrRefCount(tempName);
+
+		/* Is the type acceptable? */
+		if (NativeMatchType(tempName, types, pb.hFileInfo,
+				    okType, okCreator)) {
 		    if ((fnameLen > 1) && (strchr(fname+1, ':') == NULL)) {
 			Tcl_ListObjAppendElement(interp, resultPtr, 
 				Tcl_NewStringObj(fname+1, fnameLen-1));
 		    } else {
-			Tcl_ListObjAppendElement(interp, resultPtr, 
-				Tcl_NewStringObj(fname, fnameLen));
+			Tcl_ListObjAppendElement(interp, resultPtr, tempName);
 		    }
 		}
+		/* 
+		 * This will free the object, unless it was inserted in
+		 * the result list above.
+		 */
+		Tcl_DecrRefCount(tempName);
+	    }
+	    Tcl_DStringFree(&fileString);
+	    itemIndex++;
+	}
+
+	Tcl_DStringFree(&dsOrig);
+	return result;
+    }
+}
+
+static int 
+NativeMatchType(
+    Tcl_Obj *tempName,        /* Path to check */
+    Tcl_GlobTypeData *types,  /* Type description to match against */
+    HFileInfo fileInfo,       /* MacOS file info */
+    OSType okType,            /* Acceptable MacOS type, or zero */
+    OSType okCreator)         /* Acceptable MacOS creator, or zero */
+{
+    if (types == NULL) {
+	/* If invisible, don't return the file */
+	if (fileInfo.ioFlFndrInfo.fdFlags & kIsInvisible) {
+	    return 0;
+	}
+    } else {
+	Tcl_StatBuf buf;
+	
+	if (fileInfo.ioFlFndrInfo.fdFlags & kIsInvisible) {
+	    /* If invisible */
+	    if ((types->perm == 0) || 
+	      !(types->perm & TCL_GLOB_PERM_HIDDEN)) {
+		return 0;
+	    }
+	} else {
+	    /* Visible */
+	    if (types->perm & TCL_GLOB_PERM_HIDDEN) {
+		return 0;
+	    }
+	}
+	if (types->perm != 0) {
+	    if (
+		((types->perm & TCL_GLOB_PERM_RONLY) &&
+			!(fileInfo.ioFlAttrib & 1)) ||
+		((types->perm & TCL_GLOB_PERM_R) &&
+			(TclpObjAccess(tempName, R_OK) != 0)) ||
+		((types->perm & TCL_GLOB_PERM_W) &&
+			(TclpObjAccess(tempName, W_OK) != 0)) ||
+		((types->perm & TCL_GLOB_PERM_X) &&
+			(TclpObjAccess(tempName, X_OK) != 0))
+		) {
+		return 0;
+	    }
+	}
+	if (types->type != 0) {
+	    if (TclpObjStat(tempName, &buf) != 0) {
+		/* Posix error occurred */
+		return 0;
+	    }
+	    /*
+	     * In order bcdpfls as in 'find -t'
+	     */
+	    if (
+		((types->type & TCL_GLOB_TYPE_BLOCK) &&
+			S_ISBLK(buf.st_mode)) ||
+		((types->type & TCL_GLOB_TYPE_CHAR) &&
+			S_ISCHR(buf.st_mode)) ||
+		((types->type & TCL_GLOB_TYPE_DIR) &&
+			S_ISDIR(buf.st_mode)) ||
+		((types->type & TCL_GLOB_TYPE_PIPE) &&
+			S_ISFIFO(buf.st_mode)) ||
+		((types->type & TCL_GLOB_TYPE_FILE) &&
+			S_ISREG(buf.st_mode))
+#ifdef S_ISSOCK
+		|| ((types->type & TCL_GLOB_TYPE_SOCK) &&
+			S_ISSOCK(buf.st_mode))
+#endif
+		) {
+		/* Do nothing -- this file is ok */
 	    } else {
-		Tcl_DStringAppend(&dsOrig, ":", 1);
-		result = TclDoGlob(interp, separators, &dsOrig, tail, types);
-		if (result != TCL_OK) {
-		    Tcl_DStringFree(&fileString);
-		    break;
+		int typeOk = 0;
+#ifdef S_ISLNK
+		if (types->type & TCL_GLOB_TYPE_LINK) {
+		    if (TclpObjLstat(tempName, &buf) == 0) {
+			if (S_ISLNK(buf.st_mode)) {
+			    typeOk = 1;
+			}
+		    }
+		}
+#endif
+		if (typeOk == 0) {
+		    return 0;
 		}
 	    }
 	}
-	Tcl_DStringFree(&fileString);
-	itemIndex++;
+	if (((okType != 0) && (okType !=
+			       fileInfo.ioFlFndrInfo.fdType)) ||
+	    ((okCreator != 0) && (okCreator !=
+				  fileInfo.ioFlFndrInfo.fdCreator))) {
+	    return 0;
+	}
     }
-    *patternEnd = savedChar;
+    return 1;
+}
 
-    Tcl_DStringFree(&dsOrig);
-    return result;
-}
-
-/* 
- * TclpMatchFiles --
- * 
- * This function is now obsolete.  Call the above function 
- * 'TclpMatchFilesTypes' instead.
- */
-int
-TclpMatchFiles(
-    Tcl_Interp *interp,		/* Interpreter to receive results. */
-    char *separators,		/* Directory separators to pass to TclDoGlob. */
-    Tcl_DString *dirPtr,	/* Contains path to directory to search. */
-    char *pattern,		/* Pattern to match against. */
-    char *tail)			/* Pointer to end of pattern.  Tail must
-				 * point to a location in pattern and must
-				 * not be static.*/
-{
-    return TclpMatchFilesTypes(interp,separators,dirPtr,pattern,tail,NULL);
-}
 
 /*
  *----------------------------------------------------------------------
  *
- * TclpAccess --
+ * TclpObjAccess --
  *
  *	This function replaces the library version of access().
  *
@@ -375,10 +440,10 @@ TclpMatchFiles(
  *----------------------------------------------------------------------
  */
 
-int
-TclpAccess(
-    CONST char *path,		/* Path of file to access (UTF-8). */
-    int mode)			/* Permission setting. */
+int 
+TclpObjAccess(pathPtr, mode)
+    Tcl_Obj *pathPtr;
+    int mode;
 {
     HFileInfo fpb;
     HVolumeParam vpb;
@@ -386,13 +451,9 @@ TclpAccess(
     FSSpec fileSpec;
     Boolean isDirectory;
     long dirID;
-    Tcl_DString ds;
-    char *native;
     int full_mode = 0;
 
-    native = Tcl_UtfToExternalDString(NULL, path, -1, &ds);
-    err = FSpLocationFromPath(Tcl_DStringLength(&ds), native, &fileSpec);
-    Tcl_DStringFree(&ds);
+    err = FspLLocationFromFsPath(pathPtr, &fileSpec);
 
     if (err != noErr) {
 	errno = TclMacOSErrorToPosixError(err);
@@ -444,7 +505,7 @@ TclpAccess(
 	     * files of type 'APPL' are executable.
 	     */
 	    if (!(fpb.ioFlAttrib & 0x10) && (mode & X_OK)
-	    	&& (fpb.ioFlFndrInfo.fdType != 'APPL')) {
+		&& (fpb.ioFlFndrInfo.fdType != 'APPL')) {
 		return -1;
 	    }
 	}
@@ -461,7 +522,7 @@ TclpAccess(
 /*
  *----------------------------------------------------------------------
  *
- * TclpChdir --
+ * TclpObjChdir --
  *
  *	This function replaces the library version of chdir().
  *
@@ -470,25 +531,21 @@ TclpAccess(
  *
  * Side effects:
  *	See chdir() documentation.  Also the cache maintained used by 
- *	TclGetCwd() is deallocated and set to NULL.
+ *	Tcl_FSGetCwd() is deallocated and set to NULL.
  *
  *----------------------------------------------------------------------
  */
 
-int
-TclpChdir(
-    CONST char *dirName)     	/* Path to new working directory (UTF-8). */
+int 
+TclpObjChdir(pathPtr)
+    Tcl_Obj *pathPtr;
 {
     FSSpec spec;
     OSErr err;
     Boolean isFolder;
     long dirID;
-    Tcl_DString ds;
-    char *native;
 
-    native = Tcl_UtfToExternalDString(NULL, dirName, -1, &ds);
-    err = FSpLocationFromPath(Tcl_DStringLength(&ds), native, &spec);
-    Tcl_DStringFree(&ds);
+    err = FspLocationFromFsPath(pathPtr, &spec);
 
     if (err != noErr) {
 	errno = ENOENT;
@@ -524,7 +581,7 @@ TclpChdir(
 /*
  *----------------------------------------------------------------------
  *
- * TclpGetCwd --
+ * TclpObjGetCwd --
  *
  *	This function replaces the library version of getcwd().
  *
@@ -542,7 +599,22 @@ TclpChdir(
  *----------------------------------------------------------------------
  */
 
-char *
+Tcl_Obj* 
+TclpObjGetCwd(interp)
+    Tcl_Interp *interp;
+{
+    Tcl_DString ds;
+    if (TclpGetCwd(interp, &ds) != NULL) {
+	Tcl_Obj *cwdPtr = Tcl_NewStringObj(Tcl_DStringValue(&ds), -1);
+	Tcl_IncrRefCount(cwdPtr);
+	Tcl_DStringFree(&ds);
+	return cwdPtr;
+    } else {
+	return NULL;
+    }
+}
+
+CONST char *
 TclpGetCwd(
     Tcl_Interp *interp,		/* If non-NULL, used for error reporting. */
     Tcl_DString *bufferPtr)	/* Uninitialized or free DString filled
@@ -611,25 +683,24 @@ TclpReadlink(
     Handle theString = NULL;
     int pathSize;
     Tcl_DString ds;
-    char *native;
     
-    native = Tcl_UtfToExternalDString(NULL, path, -1, &ds);
+    Tcl_UtfToExternalDString(NULL, path, -1, &ds);
 
     /*
      * Remove ending colons if they exist.
      */
      
-    while ((strlen(native) != 0) && (path[strlen(native) - 1] == ':')) {
-	native[strlen(native) - 1] = NULL;
+    while ((Tcl_DStringLength(&ds) != 0) 
+	   && (Tcl_DStringValue(&ds)[Tcl_DStringLength(&ds) - 1] == ':')) {
+	Tcl_DStringSetLength(&ds, Tcl_DStringLength(&ds) - 1);
     }
 
-    if (strchr(native, ':') == NULL) {
-	strcpy(fileName + 1, native);
-	native = NULL;
+    end = strrchr(Tcl_DStringValue(&ds), ':');
+    if (end == NULL ) {
+	strcpy(fileName + 1, Tcl_DStringValue(&ds));
     } else {
-	end = strrchr(native, ':') + 1;
-	strcpy(fileName + 1, end);
-	*end = NULL;
+	strcpy(fileName + 1, end + 1);
+	Tcl_DStringSetLength(&ds, end + 1 - Tcl_DStringValue(&ds));
     }
     fileName[0] = (char) strlen(fileName + 1);
     
@@ -638,8 +709,9 @@ TclpReadlink(
      * we want to look at.
      */
 
-    if (native != NULL) {
-	err = FSpLocationFromPath(strlen(native), native, &fileSpec);
+    if (end != NULL) {
+	err = FSpLocationFromPath(Tcl_DStringLength(&ds), 
+				  Tcl_DStringValue(&ds), &fileSpec);
 	if (err != noErr) {
 	    Tcl_DStringFree(&ds);
 	    errno = EINVAL;
@@ -706,39 +778,40 @@ TclpReadlink(
     
     return Tcl_DStringValue(linkPtr);
 }
+
+static int 
+TclpObjStatAlias _ANSI_ARGS_((Tcl_Obj *pathPtr, Tcl_StatBuf *bufPtr, 
+			      Boolean resolveLink));
+
 
 /*
  *----------------------------------------------------------------------
  *
- * TclpLstat --
+ * TclpObjLstat --
  *
  *	This function replaces the library version of lstat().
  *
  * Results:
- *	See stat() documentation.
+ *	See lstat() documentation.
  *
  * Side effects:
- *	See stat() documentation.
+ *	See lstat() documentation.
  *
  *----------------------------------------------------------------------
  */
 
-int
-TclpLstat(
-    CONST char *path,		/* Path of file to stat (in UTF-8). */
-    struct stat *bufPtr)	/* Filled with results of stat call. */
+int 
+TclpObjLstat(pathPtr, buf)
+    Tcl_Obj *pathPtr;
+    Tcl_StatBuf *buf;
 {
-    /*
-     * FIXME: Emulate TclpLstat
-     */
-     
-    return TclpStat(path, bufPtr);
+    return TclpObjStatAlias(pathPtr, buf, FALSE);
 }
 
 /*
  *----------------------------------------------------------------------
  *
- * TclpStat --
+ * TclpObjStat --
  *
  *	This function replaces the library version of stat().
  *
@@ -751,10 +824,17 @@ TclpLstat(
  *----------------------------------------------------------------------
  */
 
-int
-TclpStat(
-    CONST char *path,		/* Path of file to stat (in UTF-8). */
-    struct stat *bufPtr)	/* Filled with results of stat call. */
+int 
+TclpObjStat(pathPtr, bufPtr)
+    Tcl_Obj *pathPtr;
+    Tcl_StatBuf *bufPtr;
+{
+    return TclpObjStatAlias(pathPtr, bufPtr, TRUE);
+}
+
+
+static int
+TclpObjStatAlias (Tcl_Obj *pathPtr, Tcl_StatBuf *bufPtr, Boolean resolveLink)
 {
     HFileInfo fpb;
     HVolumeParam vpb;
@@ -762,11 +842,11 @@ TclpStat(
     FSSpec fileSpec;
     Boolean isDirectory;
     long dirID;
-    Tcl_DString ds;
     
-    path = Tcl_UtfToExternalDString(NULL, path, -1, &ds);
-    err = FSpLocationFromPath(Tcl_DStringLength(&ds), path, &fileSpec);
-    Tcl_DStringFree(&ds);
+    if (resolveLink)
+    	err = FspLocationFromFsPath(pathPtr, &fileSpec);
+    else
+    	err = FspLLocationFromFsPath(pathPtr, &fileSpec);
     
     if (err != noErr) {
 	errno = TclMacOSErrorToPosixError(err);
@@ -813,18 +893,18 @@ TclpStat(
 		}
 	    }
 	    if ((fpb.ioFlAttrib & 0x10) || (fpb.ioFlFndrInfo.fdType == 'APPL')) {
-	    	/*
-	    	 * Directories and applications are executable by everyone.
-	    	 */
-	    	 
-	    	bufPtr->st_mode |= S_IXUSR | S_IXGRP | S_IXOTH;
+		/*
+		 * Directories and applications are executable by everyone.
+		 */
+		 
+		bufPtr->st_mode |= S_IXUSR | S_IXGRP | S_IXOTH;
 	    }
 	    if ((fpb.ioFlAttrib & 0x01) == 0){
-	    	/* 
-	    	 * If not locked, then everyone has write acces.
-	    	 */
-	    	 
-	        bufPtr->st_mode |= S_IWUSR | S_IWGRP | S_IWOTH;
+		/* 
+		 * If not locked, then everyone has write acces.
+		 */
+		 
+		bufPtr->st_mode |= S_IWUSR | S_IWGRP | S_IWOTH;
 	    }
 	    bufPtr->st_ino = fpb.ioDirID;
 	    bufPtr->st_dev = fpb.ioVRefNum;
@@ -911,7 +991,7 @@ TclMacFOpenHack(
     int size;
     FILE * f;
     
-    err = FSpLocationFromPath(strlen(path), (char *) path, &fileSpec);
+    err = FSpLocationFromPath(strlen(path), path, &fileSpec);
     if ((err != noErr) && (err != fnfErr)) {
 	return NULL;
     }
@@ -1011,16 +1091,18 @@ TclMacOSErrorToPosixError(
 	    return EINVAL;
     }
 }
+
 int
 TclMacChmod(
-    char *path, 
+    CONST char *path, 
     int mode)
 {
     HParamBlockRec hpb;
     OSErr err;
-    
-    c2pstr(path);
-    hpb.fileParam.ioNamePtr = (unsigned char *) path;
+    Str255 pathName;
+    strcpy((char *) pathName + 1, path);
+    pathName[0] = strlen(path);
+    hpb.fileParam.ioNamePtr = pathName;
     hpb.fileParam.ioVRefNum = 0;
     hpb.fileParam.ioDirID = 0;
     
@@ -1029,7 +1111,6 @@ TclMacChmod(
     } else {
         err = PBHSetFLockSync(&hpb);
     }
-    p2cstr((unsigned char *) path);
     
     if (err != noErr) {
         errno = TclMacOSErrorToPosixError(err);
@@ -1037,4 +1118,228 @@ TclMacChmod(
     }
     
     return 0;
+}
+
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * TclpTempFileName --
+ *
+ *	This function returns a unique filename.
+ *
+ * Results:
+ *	Returns a valid Tcl_Obj* with refCount 0, or NULL on failure.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+Tcl_Obj* 
+TclpTempFileName()
+{
+    char fileName[L_tmpnam];
+    
+    if (tmpnam(fileName) == NULL) {	       /* INTL: Native. */
+	return NULL;
+    }
+
+    return TclpNativeToNormalized((ClientData) fileName);
+}
+
+#ifdef S_IFLNK
+
+Tcl_Obj* 
+TclpObjLink(pathPtr, toPtr, linkAction)
+    Tcl_Obj *pathPtr;
+    Tcl_Obj *toPtr;
+    int linkAction;
+{
+    Tcl_Obj* link = NULL;
+
+    if (toPtr != NULL) {
+	if (TclpObjAccess(pathPtr, F_OK) != -1) {
+	    /* src exists */
+	    errno = EEXIST;
+	    return NULL;
+	}
+	if (TclpObjAccess(toPtr, F_OK) == -1) {
+	    /* target doesn't exist */
+	    errno = ENOENT;
+	    return NULL;
+	}
+
+	if (linkAction & TCL_CREATE_SYMBOLIC_LINK) {
+	    /* Needs to create a new link */
+	    FSSpec spec;
+	    FSSpec linkSpec;
+	    OSErr err;
+	    CONST char *path;
+	    
+	    err = FspLocationFromFsPath(toPtr, &spec);
+	    if (err != noErr) {
+		errno = ENOENT;
+		return NULL;
+	    }
+
+	    path = Tcl_FSGetNativePath(pathPtr);
+	    err = FSpLocationFromPath(strlen(path), path, &linkSpec);
+	    if (err == noErr) {
+		err = dupFNErr;		/* EEXIST. */
+	    } else {
+		err = CreateAliasFile(&linkSpec, &spec);
+	    }
+	    if (err != noErr) {
+		errno = TclMacOSErrorToPosixError(err);
+		return NULL;
+	    }
+	    return toPtr;
+	} else {
+	    errno = ENODEV;
+	    return NULL;
+	}
+    } else {
+	Tcl_DString ds;
+	Tcl_Obj *transPtr = Tcl_FSGetTranslatedPath(NULL, pathPtr);
+	if (transPtr == NULL) {
+	    return NULL;
+	}
+	if (TclpReadlink(Tcl_GetString(transPtr), &ds) != NULL) {
+	    link = Tcl_NewStringObj(Tcl_DStringValue(&ds), -1);
+	    Tcl_IncrRefCount(link);
+	    Tcl_DStringFree(&ds);
+	}
+    }
+    return link;
+}
+
+#endif
+
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * TclpFilesystemPathType --
+ *
+ *      This function is part of the native filesystem support, and
+ *      returns the path type of the given path.  Right now it simply
+ *      returns NULL.  In the future it could return specific path
+ *      types, like 'HFS', 'HFS+', 'nfs', 'samba', 'FAT32', etc.
+ *
+ * Results:
+ *      NULL at present.
+ *
+ * Side effects:
+ *	None.
+ *
+ *---------------------------------------------------------------------------
+ */
+Tcl_Obj*
+TclpFilesystemPathType(pathObjPtr)
+    Tcl_Obj* pathObjPtr;
+{
+    /* All native paths are of the same type */
+    return NULL;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * TclpUtime --
+ *
+ *	Set the modification date for a file.
+ *
+ * Results:
+ *	0 on success, -1 on error.
+ *
+ * Side effects:
+ *	None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int 
+TclpUtime(pathPtr, tval)
+    Tcl_Obj *pathPtr;      /* File to modify */
+    struct utimbuf *tval;  /* New modification date structure */
+{
+    long gmt_offset=TclpGetGMTOffset();
+    struct utimbuf local_tval;
+    local_tval.actime=tval->actime+gmt_offset;
+    local_tval.modtime=tval->modtime+gmt_offset;
+    return utime(Tcl_FSGetNativePath(Tcl_FSGetNormalizedPath(NULL,pathPtr)),
+		 &local_tval);
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * CreateAliasFile --
+ *
+ *	Creates an alias file located at aliasDest referring to the targetFile.
+ *
+ * Results:
+ *	0 on success, OS error code on error.
+ *
+ * Side effects:
+ *	None.
+ *
+ *---------------------------------------------------------------------------
+ */
+static OSErr
+CreateAliasFile(FSSpec *theAliasFile, FSSpec *targetFile)
+{
+    CInfoPBRec cat;
+    FInfo fndrInfo;
+    AliasHandle theAlias;
+    short saveRef, rsrc = -1;
+    OSErr err;
+    
+    saveRef = CurResFile();
+    /* set up the Finder information record for the alias file */
+    cat.dirInfo.ioNamePtr = targetFile->name;
+    cat.dirInfo.ioVRefNum = targetFile->vRefNum;
+    cat.dirInfo.ioFDirIndex = 0;
+    cat.dirInfo.ioDrDirID = targetFile->parID;
+    err = PBGetCatInfoSync(&cat);
+    if (err != noErr) goto bail;
+    if ((cat.dirInfo.ioFlAttrib & 16) == 0) {
+        /* file alias */
+        switch (cat.hFileInfo.ioFlFndrInfo.fdType) {
+            case 'APPL': fndrInfo.fdType = kApplicationAliasType; break;
+            case 'APPC': fndrInfo.fdType = kApplicationCPAliasType; break;
+            case 'APPD': fndrInfo.fdType = kApplicationDAAliasType; break;
+            default: fndrInfo.fdType = cat.hFileInfo.ioFlFndrInfo.fdType; break;
+        }
+        fndrInfo.fdCreator = cat.hFileInfo.ioFlFndrInfo.fdCreator;
+    } else {
+        /* folder alias */
+        fndrInfo.fdType = kContainerFolderAliasType;
+        fndrInfo.fdCreator = 'MACS';
+    }
+    fndrInfo.fdFlags = kIsAlias;
+    fndrInfo.fdLocation.v = 0;
+    fndrInfo.fdLocation.h = 0;
+    fndrInfo.fdFldr = 0;
+    /* create new file and set the file information */
+    FSpCreateResFile( theAliasFile, fndrInfo.fdCreator, fndrInfo.fdType, smSystemScript);
+    if ((err = ResError()) != noErr) goto bail;
+    err = FSpSetFInfo( theAliasFile, &fndrInfo);
+    if (err != noErr) goto bail;
+    /* save the alias resource */
+    rsrc = FSpOpenResFile(theAliasFile, fsRdWrPerm);
+    if (rsrc == -1) { err = ResError(); goto bail; }
+    UseResFile(rsrc);
+    err = NewAlias(theAliasFile, targetFile, &theAlias);
+    if (err != noErr) goto bail;
+    AddResource((Handle) theAlias, rAliasType, 0, theAliasFile->name);
+    if ((err = ResError()) != noErr) goto bail;
+    CloseResFile(rsrc);
+    rsrc = -1;
+    /* done */
+ bail:
+    if (rsrc != -1) CloseResFile(rsrc);
+    UseResFile(saveRef);
+    return err;
 }

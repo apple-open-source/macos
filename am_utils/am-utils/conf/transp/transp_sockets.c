@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: transp_sockets.c,v 1.1.1.1 2002/05/15 01:22:11 jkh Exp $
+ * $Id: transp_sockets.c,v 1.1.1.2 2002/07/15 19:42:55 zarzycki Exp $
  *
  * Socket specific utilities.
  *      -Erez Zadok <ezk@cs.columbia.edu>
@@ -160,9 +160,7 @@ get_mount_client(char *unused_host, struct sockaddr_in *sin, struct timeval *tv,
     *sock = RPC_ANYSOCK;
     return NULL;
   }
-#ifdef DEBUG
   dlog("get_mount_client: Using udp, port %d", sin->sin_port);
-#endif /* DEBUG */
   return client;
 }
 
@@ -175,6 +173,16 @@ amu_svc_getcaller(SVCXPRT *xprt)
 {
   /* glibc 2.2 returns a sockaddr_storage ??? */
   return (struct sockaddr_in *)svc_getcaller(xprt);
+}
+
+
+/*
+ * register an RPC server
+ */
+int
+amu_svc_register(SVCXPRT *xprt, u_long prognum, u_long versnum, void (*dispatch)(), u_long protocol, struct netconfig *dummy)
+{
+  return svc_register(xprt, prognum, versnum, dispatch, protocol);
 }
 
 
@@ -213,7 +221,7 @@ create_nfs_service(int *soNFSp, u_short *nfs_portp, SVCXPRT **nfs_xprtp, void (*
  * Create the amq service for amd (both TCP and UDP)
  */
 int
-create_amq_service(int *udp_soAMQp, SVCXPRT **udp_amqpp, int *tcp_soAMQp, SVCXPRT **tcp_amqpp)
+create_amq_service(int *udp_soAMQp, SVCXPRT **udp_amqpp, struct netconfig **dummy1, int *tcp_soAMQp, SVCXPRT **tcp_amqpp, struct netconfig **dummy2)
 {
   /* first create TCP service */
   if (tcp_soAMQp) {

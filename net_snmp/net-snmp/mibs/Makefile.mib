@@ -1,8 +1,8 @@
-RFCHOST =	ftp.nordu.net	# ftp.ietf.org
+RFCHOST =	ftp://ftp.nordu.net	# ftp.ietf.org
 RFCDIR =	rfc
 
-IANAHOST =	ftp.iana.org
-IANADIR =	mib/iana.mib
+IANAHOST =	http://www.iana.org
+IANADIR =	assignments
 
 ALLDIR =	/usr/local/share/snmp/rfc.orig
 
@@ -34,19 +34,19 @@ clean:
 	rm $(MIBS)
 
 SNMP-FRAMEWORK-MIB.txt:	$(MIBDEPS)
-	./mibfetch $(RFCHOST) $(RFCDIR) 2571
+	./mibfetch $(RFCHOST) $(RFCDIR) 3411
 
 SNMP-MPD-MIB.txt:	$(MIBDEPS)
-	./mibfetch $(RFCHOST) $(RFCDIR) 2572 SNMP-MPD-MIB
+	./mibfetch $(RFCHOST) $(RFCDIR) 3412 SNMP-MPD-MIB
 
 SNMP-TARGET-MIB.txt SNMP-NOTIFICATION-MIB.txt SNMP-PROXY-MIB.txt:	$(MIBDEPS)
-	./mibfetch $(RFCHOST) $(RFCDIR) 2573
+	./mibfetch $(RFCHOST) $(RFCDIR) 3413
 
 SNMP-USER-BASED-SM-MIB.txt:	$(MIBDEPS)
-	./mibfetch $(RFCHOST) $(RFCDIR) 2574 SNMP-USER-BASED-SM-MIB
+	./mibfetch $(RFCHOST) $(RFCDIR) 3414 SNMP-USER-BASED-SM-MIB
 
 SNMP-VIEW-BASED-ACM-MIB.txt:	$(MIBDEPS)
-	./mibfetch $(RFCHOST) $(RFCDIR) 2575
+	./mibfetch $(RFCHOST) $(RFCDIR) 3415
 
 SNMP-COMMUNITY-MIB.txt:	$(MIBDEPS)
 	./mibfetch $(RFCHOST) $(RFCDIR) 2576
@@ -61,10 +61,10 @@ SNMPv2-CONF.txt:	$(MIBDEPS)
 	./mibfetch $(RFCHOST) $(RFCDIR) 2580
 
 SNMPv2-TM.txt:	$(MIBDEPS)
-	./mibfetch $(RFCHOST) $(RFCDIR) 1906
+	./mibfetch $(RFCHOST) $(RFCDIR) 3417
 
 SNMPv2-MIB.txt:	$(MIBDEPS)
-	./mibfetch $(RFCHOST) $(RFCDIR) 1907
+	./mibfetch $(RFCHOST) $(RFCDIR) 3418
 
 AGENTX-MIB.txt:	$(MIBDEPS)
 	./mibfetch $(RFCHOST) $(RFCDIR) 2742
@@ -73,7 +73,7 @@ SMUX-MIB.txt:	$(MIBDEPS)
 	./mibfetch $(RFCHOST) $(RFCDIR) 1227 SMUX-MIB
 
 DISMAN-SCHEDULE-MIB.txt:	$(MIBDEPS)
-	./mibfetch $(RFCHOST) $(RFCDIR) 2591
+	./mibfetch $(RFCHOST) $(RFCDIR) 3231
 
 DISMAN-SCRIPT-MIB.txt:	$(MIBDEPS)
 	./mibfetch $(RFCHOST) $(RFCDIR) 3165
@@ -88,19 +88,19 @@ HCNUM-TC.txt:	$(MIBDEPS)
 	./mibfetch $(RFCHOST) $(RFCDIR) 2856
 
 INET-ADDRESS-MIB.txt:	$(MIBDEPS)
-	./mibfetch $(RFCHOST) $(RFCDIR) 2851
+	./mibfetch $(RFCHOST) $(RFCDIR) 3291
 
 EtherLike-MIB.txt:	$(MIBDEPS)
 	./mibfetch $(RFCHOST) $(RFCDIR) 2665
 
 IANAifType-MIB.txt:	$(MIBDEPS)
-	./mibfetch $(IANAHOST) $(IANADIR) ianaiftype.mib
+	./mibfetch -x $(IANAHOST) $(IANADIR) ianaiftype-mib
 
 IANA-LANGUAGE-MIB.txt:	$(MIBDEPS)
-	./mibfetch $(IANAHOST) $(IANADIR) ianalanguage.mib
+	./mibfetch -x $(IANAHOST) $(IANADIR) ianalanguage-mib
 
 IANA-ADDRESS-FAMILY-NUMBERS-MIB.txt:	$(MIBDEPS)
-	./mibfetch $(IANAHOST) $(IANADIR) ianaaddressfamilynumbers.mib
+	./mibfetch -x $(IANAHOST) $(IANADIR) ianaaddressfamilynumbers-mib
 
 IP-MIB.txt:	$(MIBDEPS)
 	./mibfetch $(RFCHOST) $(RFCDIR) 2011
@@ -150,7 +150,7 @@ ianamibs:	ianalist
 		do \
 		  if [ "$$file" != "#" ]; \
 		  then \
-		    ./mibfetch -d (ALLDIR) $(IANAHOST) $(IANADIR) $$file $$mibs; \
+		    ./mibfetch -d $(ALLDIR) -x $(IANAHOST) $(IANADIR) $$file $$mibs; \
 		  fi; \
 		done
 

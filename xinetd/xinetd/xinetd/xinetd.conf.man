@@ -3,7 +3,7 @@
 .\"All rights reserved.  The file named COPYRIGHT specifies the terms 
 .\"and conditions for redistribution.
 .\"
-.\" $Id: xinetd.conf.man,v 1.1.1.4 2002/12/10 01:05:38 bbraun Exp $
+.\" $Id: xinetd.conf.man,v 1.2 2003/08/06 01:15:36 rbraun Exp $
 .TH XINETD.CONF 5 "14 June 2001"
 .\" *************************** NAME *********************************
 .SH NAME
@@ -142,6 +142,9 @@ Sets the service to be an IPv4 service (AF_INET).
 .TP
 .B IPv6
 Sets the service to be an IPv6 service (AF_INET6), if IPv6 is available on the system.
+.TP
+.B REUSE
+The REUSE flag is deprecated.  All services now implicitly use the REUSE flag.
 .RE
 .TP
 .B disable
@@ -176,11 +179,16 @@ will be used.
 .TP
 .B wait
 This attribute determines if the service is single-threaded or
-multi-threaded. If its value is \fIyes\fP the service is single-threaded;
-this means that \fBxinetd\fP will start the server and then it will stop 
-handling requests for the service until the server dies.
-If the attribute value is \fIno\fP, the service is multi-threaded and
-\fBxinetd\fP will keep handling new service requests.
+multi-threaded and whether or not xinetd accepts the connection or the server
+program accepts the connection. If its value is \fIyes\fP, the service is 
+single-threaded; this means that \fBxinetd\fP will start the server and then 
+it will stop handling requests for the service until the server dies and that
+the server software will accept the connection. If the attribute value is 
+\fIno\fP, the service is multi-threaded and \fBxinetd\fP will keep handling 
+new service requests and xinetd will accept the connection. It should be noted 
+that udp/dgram services normally expect the value to be yes since udp is not
+connection oriented, while tcp/stream servers normally expect the value to be
+no.
 .TP
 .B user
 determines the uid for the server process. The user name must exist in
@@ -328,7 +336,7 @@ increased by 1% but the extra size must be within the parameters
 and
 .SM LOG_EXTRA_MAX
 which default to 5K and 20K respectively (these constants are defined in 
-\fIconfig.h\fP).
+\fIxconfig.h\fP).
 .RE
 .TP
 .B log_on_success
@@ -357,6 +365,9 @@ option is used)
 .TP
 .B DURATION 
 logs the duration of a service session
+.TP
+.B TRAFFIC
+logs the total bytes in and out for a redirected service.
 .RE
 .TP
 .B log_on_failure
@@ -403,7 +414,7 @@ except for those explicitly defined using the
 attribute.
 (notice that you can use this attribute in conjunction with the
 .I env
-attribute to specify exactly what argument will be passed to the server).
+attribute to specify exactly what environment will be passed to the server).
 .TP
 .B port
 determines the service port. If this attribute is specified for a service 
@@ -438,19 +449,28 @@ Synonym for bind.
 Takes the name of a file to be splatted at the remote host when a 
 connection to that service is established.  This banner is printed
 regardless of access control.  It should *always* be printed when
-a connection has been made.
+a connection has been made.  \fBxinetd\fP outputs the file as-is,
+so you must ensure the file is correctly formatted for the service's
+protocol.  In paticular, if the protocol requires CR-LF pairs for line
+termination, you must supply them.
 .TP
 .B banner_success
 Takes the name of a file to be splatted at the remote host when a
 connection to that service is granted.  This banner is printed
-as soon as access is granted for the service.  
+as soon as access is granted for the service.  \fBxinetd\fP outputs the
+file as-is, so you must ensure the file is correctly formatted for
+the service's protocol.  In paticular, if the protocol requires CR-LF
+pairs for line termination, you must supply them.
 .TP
 .B banner_fail
 Takes the name of a file to be splatted at the remote host when a
 connection to that service is denied.  This banner is printed 
 immediately upon denial of access.  This is useful for informing
 your users that they are doing something bad and they shouldn't be
-doing it anymore.
+doing it anymore.  \fBxinetd\fP outputs the file as-is,
+so you must ensure the file is correctly formatted for the service's
+protocol.  In paticular, if the protocol requires CR-LF pairs for line
+termination, you must supply them.
 .TP
 .B per_source
 Takes an integer or "UNLIMITED" as an argument.  This specifies the
@@ -481,6 +501,16 @@ to "no", then the server runs with no supplementary groups.  This
 attribute must be set to "yes" for many BSD systems.  This attribute
 can be set in the defaults section as well.
 .TP
+.B mdns
+Takes either "yes" or "no".  On systems that support mdns registration
+of services (currently only Mac OS X), this will enable or disable
+registration of the service.  This defaults to "yes".
+.TP
+.B session_create
+Takes either "yes" or "no".  If yes, xinetd will create a new
+Security Framework Login Session in the forked child process
+before launching the daemon.  This defaults to "no".
+.TP
 .B umask
 Sets the inherited umask for the service.  Expects an octal value.  
 This option may be set in the "defaults" section to set a umask
@@ -489,11 +519,13 @@ OR'd with 022.  This is the umask that will be inherited by all
 child processes if the umask option is not used.
 .TP
 .B enabled
-Takes a list of service names to enable.  This will enable only the
+Takes a list of service ID's to enable.  This will enable only the
 services listed as arguments to this attribute; the rest will be
-disabled.  Not that the service "disable" attribute and "DISABLE"
-flag can prevent a service from being enabled despite being listed
-in this attribute.
+disabled.  If you have 2 ftp services, you will need to list both of
+their ID's and not just ftp. (ftp is the service name, not the ID. It
+might accidentally be the ID, but you better check.) Note that the 
+service "disable" attribute and "DISABLE" flag can prevent a service 
+from being enabled despite being listed in this attribute. 
 .TP
 .B include
 Takes a filename in the form of "include /etc/xinetd/service".
@@ -637,6 +669,7 @@ don't specify those attributes. Possible default attributes:
 .RS
 .TP 18
 .B log_type
+(cumulative effect)
 .TP
 .B bind 
 .TP
@@ -666,6 +699,21 @@ don't specify those attributes. Possible default attributes:
 .TP
 .B enabled
 (cumulative effect)
+.TP
+.B banner 
+.TP
+.B banner_success 
+.TP
+.B banner_fail
+.TP
+.B per_source 
+.TP
+.B groups 
+.TP
+.B cps 
+.TP
+.B max_load 
+.TP
 .RE
 .PD
 .LP
@@ -711,25 +759,6 @@ and the datagram-based \fIecho\fP, \fIchargen\fP, and \fIdiscard\fP)
 have no limitation in the number of 
 .B instances.
 .LP
-.B xinetd
-also provides two
-.I UNLISTED
-internal stream-based services:
-.I servers
-and
-.I services.
-The former lists information about running servers while the latter
-provides a list of currently active services. 
-There is one service per line and each line contains the service name,
-protocol (e.g. "tcp") and port number.
-.LP
-There is also now an administrative interface that is an internal
-service.  The service name "xadmin" is reserved, and will always be
-an internal service.  You should specify a port number for this
-service, and probably also some IP based access control, since at
-the time of this writing it does not have any password protection.
-You can telnet to this port and query xinetd for some information.
-
 .\" *********************** TCPMUX Services ****************************
 .SH "TCPMUX Services"
 .LP
@@ -948,7 +977,7 @@ defaults
 .IP log_on_success
 = PID
 .IP log_on_failure 
-= HOST RECORD
+= HOST 
 .IP only_from
 = 128.138.193.0 128.138.204.0 
 .IP only_from
@@ -1000,7 +1029,7 @@ service shell
 .IP server
 = /usr/etc/in.rshd
 .IP log_on_success
-+= HOST RECORD
++= HOST 
 .RE
 }
 
@@ -1087,22 +1116,6 @@ service echo
 .RE
 }
 
-service servers
-{
-.RS
-.IP type 20
-= INTERNAL UNLISTED
-.IP protocol
-= tcp
-.IP port
-= 9099
-.IP socket_type
-= stream
-.IP wait
-= no
-.RE
-}
-
 #
 # Sample RPC service
 #
@@ -1157,32 +1170,37 @@ service unlisted
 .I "xinetd.log(5)"
 .LP
 Postel J.,
-.I "Echo Protocol",
+.IR "Echo Protocol" ,
 RFC 862,
 May 1983
 .LP
 Postel J.,
-.I "Discard Protocol",
+.IR "Discard Protocol" ,
 RFC 863,
 May 1983
 .LP
 Postel J.,
-.I "Character Generator Protocol",
+.IR "Character Generator Protocol" ,
 RFC 864,
 May 1983
 .LP
 Postel J.,
-.I "Daytime Protocol",
+.IR "Daytime Protocol" ,
 RFC 867,
 May 1983
 .LP
 Postel J., Harrenstien K.,
-.I "Time Protocol",
+.IR "Time Protocol" ,
 RFC 868,
 May 1983
 .LP
+M. Lottor,
+.IR "TCP Port Service Multiplexer (TCPMUX)" ,
+RFC 1078
+Nov 1988
+.LP
 StJohns M.,
-.I " Identification Protocol",
+.IR " Identification Protocol" ,
 RFC 1413,
 February 1993
 .\" *********************** BUGS ****************************

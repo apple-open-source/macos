@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE server>
+<!-- $Id: iiop-service.xml,v 1.8 2002/06/11 19:58:26 reverbel Exp $ -->
+
+<!-- ===================================================================== -->
+<!--                                                                       -->
+<!--  JBoss RMI/IIOP Configuration                                         -->
+<!--                                                                       -->
+<!-- ===================================================================== -->
+
+<server>
+
+  <classpath codebase="lib" archives="jboss-iiop.jar, jacorb.jar"/>
+
+  <!-- ==================================================================== -->
+  <!-- CORBA ORB service                                                    -->
+  <!-- The ORB is pluggable. This configuration uses JacORB.                -->
+  <!-- ==================================================================== -->
+
+  <mbean code="org.jboss.iiop.CorbaORBService"
+         name="jboss:service=CorbaORB">
+    <attribute name="ORBClass">org.jacorb.orb.ORB</attribute>
+    <attribute name="ORBSingletonClass">org.jboss.system.ORBSingleton</attribute>
+    <attribute name="ORBSingletonDelegate">org.jacorb.orb.ORBSingleton</attribute>
+    <attribute name="ORBPropertiesFileName">jacorb.properties</attribute>
+    <attribute name="PortableInterceptorInitializerClass">org.jboss.iiop.codebase.CodebaseInterceptorInitializer</attribute>
+  </mbean>
+
+  <!-- ==================================================================== -->
+  <!-- IIOP invoker                                                         -->
+  <!-- ==================================================================== -->
+
+  <mbean code="org.jboss.invocation.iiop.IIOPInvoker" 
+         name="jboss:service=invoker,type=iiop">
+    <depends>jboss:service=CorbaORB</depends>
+  </mbean>
+  
+  <!-- ==================================================================== -->
+  <!-- CORBA naming service                                                 -->
+  <!-- =================================================================== -->
+
+  <mbean code="org.jboss.iiop.CorbaNamingService" 
+         name="jboss:service=CorbaNaming">
+    <depends>jboss:service=CorbaORB</depends>
+  </mbean>
+  
+</server>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,8 +22,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-
-
 #include <libkern/OSByteOrder.h>
 
 #include <IOKit/assert.h>
@@ -1131,10 +1129,7 @@ IOUSBDeviceUserClient::free()
             fWorkLoop->release();
             fWorkLoop = NULL;
 	}
-	else
-	{
-	    USBError(1, "%s[%p]::free - have gate, but no valid workloop!", getName(), this);
-	}
+
 	fGate->release();
 	fGate = NULL;
     }
@@ -1169,6 +1164,25 @@ IOUSBDeviceUserClient::willTerminate( IOService * provider, IOOptionBits options
     // isInactive flag is set, so we really are marked as being done. we will do in here
     // what we used to do in the message method (this happens first)
     USBLog(3, "%s[%p]::willTerminate isInactive = %d", getName(), this, isInactive());
+
+    //  We have seen cases where our fOwner is not valid at this point.  This is strange
+    //  but we'll code defensively and only execute if our provider (fOwner) is still around
+    //
+    if ( fOwner )
+    {
+        IncrementOutstandingIO();
+
+        if ( (GetOutstandingIO() > 1) && fOwner )
+        {
+            IOUSBPipe *pipeZero = fOwner->GetPipeZero();
+
+            if (pipeZero)
+                (void) pipeZero->Abort();
+        }
+
+        DecrementOutstandingIO();
+    }
+    
     return super::willTerminate(provider, options);
 }
 
@@ -1181,10 +1195,14 @@ IOUSBDeviceUserClient::didTerminate( IOService * provider, IOOptionBits options,
     // in which case we can just close our provider and IOKit will take care of the rest. Otherwise, we need to 
     // hold on to the device and IOKit will terminate us when we close it later
     USBLog(3, "%s[%p]::didTerminate isInactive = %d, outstandingIO = %d", getName(), this, isInactive(), fOutstandingIO);
-    if ( fOutstandingIO == 0 )
-	fOwner->close(this);
-    else
-	fNeedToClose = true;
+
+    if ( fOwner )
+    {
+        if ( fOutstandingIO == 0 )
+            fOwner->close(this);
+        else
+            fNeedToClose = true;
+    }
     
     return super::didTerminate(provider, options, defer);
 }

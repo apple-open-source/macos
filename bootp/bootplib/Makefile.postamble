@@ -134,7 +134,7 @@ nihosts:
 	cc -g -o nihosts -DTEST_NIHOSTS NIHosts.m util.c NIDomain.c dynarray.c ptrlist.c netinfo.c host_identifier.c
 
 interfaces: interfaces.c interfaces.h
-	cc -g -o interfaces -DTEST_INTERFACES interfaces.c ptrlist.c dynarray.c
+	cc -g -o interfaces -DTEST_INTERFACES interfaces.c ptrlist.c dynarray.c -I$(NET_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders
 
 dhcpopt: dhcp_options.c
 	cc -g -DTEST_DHCP_OPTIONS -o dhcpopt dhcp_options.c ptrlist.c util.c
@@ -146,4 +146,4 @@ hfsvols: hfsvols.c hfsvols.h
 	cc -g -DTEST_HFSVOLS -o hfsvols hfsvols.c ptrlist.c dynarray.c
 
 nbimages: nbimages.c nbimages.h
-	cc -Wall -g -DTEST_NBIMAGES -o nbimages nbimages.c nbsp.c hfsvols.c ptrlist.c dynarray.c cfutil.c -framework CoreFoundation -I$(NET_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders
+	cc -Wall -g -DTEST_NBIMAGES -o nbimages nbimages.c util.c nbsp.c hfsvols.c ptrlist.c dynarray.c cfutil.c -framework CoreFoundation -I$(NET_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders

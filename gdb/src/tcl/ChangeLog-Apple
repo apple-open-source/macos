@@ -1,0 +1,4 @@
+2003-04-25  Klee Dienes  <kdienes@apple.com>
+
+	* configure: Regenerate.
+	* unix/configure: Regenerate.

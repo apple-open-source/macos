@@ -36,8 +36,8 @@
 #include <IOKit/IOCommandGate.h>
 
 // SCSI Architecture Model Family includes
-#include <IOKit/scsi-commands/IOSCSITargetDevice.h>
-#include <IOKit/scsi-commands/IOSCSIProtocolServices.h>
+#include <IOKit/scsi/IOSCSITargetDevice.h>
+#include <IOKit/scsi/IOSCSIProtocolServices.h>
 
 #include "SCSITaskDefinition.h"
 

@@ -1,9 +1,9 @@
 /*
- * "$Id: options.c,v 1.4 2002/03/03 18:01:31 jlovell Exp $"
+ * "$Id: options.c,v 1.1.1.9 2003/07/23 02:33:33 jlovell Exp $"
  *
  *   Option routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -242,7 +242,12 @@ cupsParseOptions(const char    *arg,		/* I - Argument to parse */
       value = ptr;
 
       while (*ptr != '\'' && *ptr != '\0')
+      {
+        if (*ptr == '\\')
+	  cups_strcpy(ptr, ptr + 1);
+
         ptr ++;
+      }
 
       if (*ptr != '\0')
         *ptr++ = '\0';
@@ -257,7 +262,42 @@ cupsParseOptions(const char    *arg,		/* I - Argument to parse */
       value = ptr;
 
       while (*ptr != '\"' && *ptr != '\0')
+      {
+        if (*ptr == '\\')
+	  cups_strcpy(ptr, ptr + 1);
+
         ptr ++;
+      }
+
+      if (*ptr != '\0')
+        *ptr++ = '\0';
+    }
+    else if (*ptr == '{')
+    {
+     /*
+      * Collection value...
+      */
+
+      int depth;
+
+      value = ptr;
+
+      for (depth = 1; *ptr; ptr ++)
+        if (*ptr == '{')
+	  depth ++;
+	else if (*ptr == '}')
+	{
+	  depth --;
+	  if (!depth)
+	  {
+	    ptr ++;
+
+	    if (*ptr != ',')
+	      break;
+	  }
+        }
+        else if (*ptr == '\\')
+	  cups_strcpy(ptr, ptr + 1);
 
       if (*ptr != '\0')
         *ptr++ = '\0';
@@ -271,7 +311,12 @@ cupsParseOptions(const char    *arg,		/* I - Argument to parse */
       value = ptr;
 
       while (!isspace(*ptr) && *ptr != '\0')
-	ptr ++;
+      {
+        if (*ptr == '\\')
+	  cups_strcpy(ptr, ptr + 1);
+
+        ptr ++;
+      }
     }
 
    /*
@@ -308,11 +353,12 @@ cupsMarkOptions(ppd_file_t    *ppd,		/* I - PPD file */
                 int           num_options,	/* I - Number of options */
                 cups_option_t *options)		/* I - Options */
 {
-  int	i;					/* Looping var */
-  int	conflict;				/* Option conflicts */
-  char	*val,					/* Pointer into value */
-	*ptr,					/* Pointer into string */
-	s[255];					/* Temporary string */
+  int		i;				/* Looping var */
+  int		conflict;			/* Option conflicts */
+  char		*val,				/* Pointer into value */
+		*ptr,				/* Pointer into string */
+		s[255];				/* Temporary string */
+  cups_option_t	*optptr;			/* Current option */
 
 
  /*
@@ -328,15 +374,15 @@ cupsMarkOptions(ppd_file_t    *ppd,		/* I - PPD file */
 
   conflict = 0;
 
-  for (i = num_options; i > 0; i --, options ++)
-    if (strcasecmp(options->name, "media") == 0)
+  for (i = num_options, optptr = options; i > 0; i --, optptr ++)
+    if (strcasecmp(optptr->name, "media") == 0)
     {
      /*
       * Loop through the option string, separating it at commas and
       * marking each individual option.
       */
 
-      for (val = options->value; *val;)
+      for (val = optptr->value; *val;)
       {
        /*
         * Extract the sub-option from the string...
@@ -353,22 +399,42 @@ cupsMarkOptions(ppd_file_t    *ppd,		/* I - PPD file */
         * Mark it...
 	*/
 
-	if (ppdMarkOption(ppd, "PageSize", s))
-          conflict = 1;
-	if (ppdMarkOption(ppd, "InputSlot", s))
-          conflict = 1;
-	if (ppdMarkOption(ppd, "MediaType", s))
-          conflict = 1;
-	if (ppdMarkOption(ppd, "EFMediaQualityMode", s))	/* EFI */
-          conflict = 1;
-	if (strcasecmp(s, "manual") == 0)
+        if (cupsGetOption("PageSize", num_options, options) == NULL)
+	  if (ppdMarkOption(ppd, "PageSize", s))
+            conflict = 1;
+
+        if (cupsGetOption("InputSlot", num_options, options) == NULL)
+	  if (ppdMarkOption(ppd, "InputSlot", s))
+            conflict = 1;
+
+        if (cupsGetOption("MediaType", num_options, options) == NULL)
+	  if (ppdMarkOption(ppd, "MediaType", s))
+            conflict = 1;
+
+        if (cupsGetOption("EFMediaQualityMode", num_options, options) == NULL)
+	  if (ppdMarkOption(ppd, "EFMediaQualityMode", s))	/* EFI */
+            conflict = 1;
+
+	if (strcasecmp(s, "manual") == 0 &&
+	    cupsGetOption("ManualFeed", num_options, options) == NULL)
           if (ppdMarkOption(ppd, "ManualFeed", "True"))
 	    conflict = 1;
       }
     }
-    else if (strcasecmp(options->name, "sides") == 0)
+    else if (strcasecmp(optptr->name, "sides") == 0)
     {
-      if (strcasecmp(options->value, "one-sided") == 0)
+      if (cupsGetOption("Duplex", num_options, options) != NULL ||
+          cupsGetOption("JCLDuplex", num_options, options) != NULL ||
+          cupsGetOption("EFDuplex", num_options, options) != NULL ||
+          cupsGetOption("KD03Duplex", num_options, options) != NULL)
+      {
+       /*
+        * Don't override the PPD option with the IPP attribute...
+	*/
+
+        continue;
+      }
+      else if (strcasecmp(optptr->value, "one-sided") == 0)
       {
         if (ppdMarkOption(ppd, "Duplex", "None"))
 	  conflict = 1;
@@ -379,7 +445,7 @@ cupsMarkOptions(ppd_file_t    *ppd,		/* I - PPD file */
         if (ppdMarkOption(ppd, "KD03Duplex", "None"))	/* Kodak */
 	  conflict = 1;
       }
-      else if (strcasecmp(options->value, "two-sided-long-edge") == 0)
+      else if (strcasecmp(optptr->value, "two-sided-long-edge") == 0)
       {
         if (ppdMarkOption(ppd, "Duplex", "DuplexNoTumble"))
 	  conflict = 1;
@@ -390,7 +456,7 @@ cupsMarkOptions(ppd_file_t    *ppd,		/* I - PPD file */
         if (ppdMarkOption(ppd, "KD03Duplex", "DuplexNoTumble"))	/* Kodak */
 	  conflict = 1;
       }
-      else if (strcasecmp(options->value, "two-sided-short-edge") == 0)
+      else if (strcasecmp(optptr->value, "two-sided-short-edge") == 0)
       {
         if (ppdMarkOption(ppd, "Duplex", "DuplexTumble"))
 	  conflict = 1;
@@ -402,25 +468,26 @@ cupsMarkOptions(ppd_file_t    *ppd,		/* I - PPD file */
 	  conflict = 1;
       }
     }
-    else if (strcasecmp(options->name, "resolution") == 0 ||
-             strcasecmp(options->name, "printer-resolution") == 0)
+    else if (strcasecmp(optptr->name, "resolution") == 0 ||
+             strcasecmp(optptr->name, "printer-resolution") == 0)
     {
-      if (ppdMarkOption(ppd, "Resolution", options->value))
+      if (ppdMarkOption(ppd, "Resolution", optptr->value))
         conflict = 1;
-      if (ppdMarkOption(ppd, "SetResolution", options->value))
+      if (ppdMarkOption(ppd, "SetResolution", optptr->value))
       	/* Calcomp, Linotype, QMS, Summagraphics, Tektronix, Varityper */
         conflict = 1;
-      if (ppdMarkOption(ppd, "JCLResolution", options->value))	/* HP */
+      if (ppdMarkOption(ppd, "JCLResolution", optptr->value))	/* HP */
         conflict = 1;
-      if (ppdMarkOption(ppd, "CNRes_PGP", options->value))	/* Canon */
+      if (ppdMarkOption(ppd, "CNRes_PGP", optptr->value))	/* Canon */
         conflict = 1;
     }
-    else if (strcasecmp(options->name, "output-bin") == 0)
+    else if (strcasecmp(optptr->name, "output-bin") == 0)
     {
-      if (ppdMarkOption(ppd, "OutputBin", options->value))
-        conflict = 1;
+      if (cupsGetOption("OutputBin", num_options, options) == NULL)
+        if (ppdMarkOption(ppd, "OutputBin", optptr->value))
+          conflict = 1;
     }
-    else if (ppdMarkOption(ppd, options->name, options->value))
+    else if (ppdMarkOption(ppd, optptr->name, optptr->value))
       conflict = 1;
 
   return (conflict);
@@ -428,5 +495,5 @@ cupsMarkOptions(ppd_file_t    *ppd,		/* I - PPD file */
 
 
 /*
- * End of "$Id: options.c,v 1.4 2002/03/03 18:01:31 jlovell Exp $".
+ * End of "$Id: options.c,v 1.1.1.9 2003/07/23 02:33:33 jlovell Exp $".
  */

@@ -1,5 +1,3 @@
-/*	$NetBSD: str.c,v 1.8 1997/10/20 00:56:05 lukem Exp $	*/
-
 /*-
  * Copyright (c) 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,33 +32,32 @@
  */
 
 #include <sys/cdefs.h>
+
+__RCSID("$FreeBSD: src/usr.bin/tr/str.c,v 1.16 2002/07/05 09:28:13 tjr Exp $");
+
 #ifndef lint
-#if 0
-static char sccsid[] = "@(#)str.c	8.2 (Berkeley) 4/28/95";
+static const char sccsid[] = "@(#)str.c	8.2 (Berkeley) 4/28/95";
 #endif
-__RCSID("$NetBSD: str.c,v 1.8 1997/10/20 00:56:05 lukem Exp $");
-#endif /* not lint */
 
 #include <sys/cdefs.h>
 #include <sys/types.h>
 
+#include <ctype.h>
 #include <err.h>
-#include <errno.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
 
 #include "extern.h"
 
-static int	backslash __P((STR *));
-static int	bracket __P((STR *));
-static int	c_class __P((const void *, const void *));
-static void	genclass __P((STR *));
-static void	genequiv __P((STR *));
-static int	genrange __P((STR *));
-static void	genseq __P((STR *));
+static int	backslash(STR *);
+static int	bracket(STR *);
+static int	c_class(const void *, const void *);
+static void	genclass(STR *);
+static void	genequiv(STR *);
+static int	genrange(STR *);
+static void	genseq(STR *);
 
 int
 next(s)
@@ -74,7 +71,7 @@ next(s)
 	case INFINITE:
 		return (1);
 	case NORMAL:
-		switch (ch = *s->str) {
+		switch (ch = (u_char)*s->str) {
 		case '\0':
 			s->state = EOS;
 			return (0);
@@ -114,9 +111,10 @@ next(s)
 			return (next(s));
 		}
 		return (1);
+	default:
+		return (0);
 	}
 	/* NOTREACHED */
-	return (0);
 }
 
 static int
@@ -127,23 +125,28 @@ bracket(s)
 
 	switch (s->str[1]) {
 	case ':':				/* "[:class:]" */
-		if ((p = strstr(s->str + 2, ":]")) == NULL)
+		if ((p = strchr(s->str + 2, ']')) == NULL)
 			return (0);
-		*p = '\0';
+		if (*(p - 1) != ':' || p - s->str < 4)
+			goto repeat;
+		*(p - 1) = '\0';
 		s->str += 2;
 		genclass(s);
-		s->str = p + 2;
+		s->str = p + 1;
 		return (1);
 	case '=':				/* "[=equiv=]" */
-		if ((p = strstr(s->str + 2, "=]")) == NULL)
+		if ((p = strchr(s->str + 2, ']')) == NULL)
 			return (0);
+		if (*(p - 1) != '=' || p - s->str < 4)
+			goto repeat;
 		s->str += 2;
 		genequiv(s);
 		return (1);
 	default:				/* "[\###*n]" or "[#*n]" */
+	repeat:
 		if ((p = strpbrk(s->str + 2, "*]")) == NULL)
 			return (0);
-		if (p[0] != '*' || strchr(p, ']') == NULL)
+		if (p[0] != '*' || index(p, ']') == NULL)
 			return (0);
 		s->str += 1;
 		genseq(s);
@@ -152,47 +155,44 @@ bracket(s)
 	/* NOTREACHED */
 }
 
-#ifdef __APPLE__ /* Prototypes missing from ctype.h */
-int isalnum __P((int)),
-    isalpha __P((int)),
-    isblank __P((int)),
-    isspace __P((int)),
-    iscntrl __P((int)),
-    isdigit __P((int)),
-    isgraph __P((int)),
-    islower __P((int)),
-    isprint __P((int)),
-    ispunct __P((int)),
-    isupper __P((int)),
-    isxdigit __P((int));
-#endif
-
 typedef struct {
-	char *name;
-	int (*func) __P((int));
+	const char *name;
+	int (*func)(int);
 	int *set;
 } CLASS;
 
 static CLASS classes[] = {
-	{ "alnum",  isalnum,  },
-	{ "alpha",  isalpha,  },
-	{ "blank",  isblank,  },
-	{ "cntrl",  iscntrl,  },
-	{ "digit",  isdigit,  },
-	{ "graph",  isgraph,  },
-	{ "lower",  islower,  },
-	{ "print",  isupper,  },
-	{ "punct",  ispunct,  },
-	{ "space",  isspace,  },
-	{ "upper",  isupper,  },
-	{ "xdigit", isxdigit, },
+#undef isalnum
+	{ "alnum",  isalnum,  NULL },
+#undef isalpha
+	{ "alpha",  isalpha,  NULL },
+#undef isblank
+	{ "blank",  isblank,  NULL },
+#undef iscntrl
+	{ "cntrl",  iscntrl,  NULL },
+#undef isdigit
+	{ "digit",  isdigit,  NULL },
+#undef isgraph
+	{ "graph",  isgraph,  NULL },
+#undef islower
+	{ "lower",  islower,  NULL },
+#undef isprint
+	{ "print",  isprint,  NULL },
+#undef ispunct
+	{ "punct",  ispunct,  NULL },
+#undef isspace
+	{ "space",  isspace,  NULL },
+#undef isupper
+	{ "upper",  isupper,  NULL },
+#undef isxdigit
+	{ "xdigit", isxdigit, NULL },
 };
 
 static void
 genclass(s)
 	STR *s;
 {
-	int cnt, (*func) __P((int));
+	int cnt, (*func)(int);
 	CLASS *cp, tmp;
 	int *p;
 
@@ -203,7 +203,7 @@ genclass(s)
 
 	if ((cp->set = p = malloc((NCHARS + 1) * sizeof(int))) == NULL)
 		err(1, "malloc");
-	memset(p, 0, (NCHARS + 1) * sizeof(int));
+	bzero(p, (NCHARS + 1) * sizeof(int));
 	for (cnt = 0, func = cp->func; cnt < NCHARS; ++cnt)
 		if ((func)(cnt))
 			*p++ = cnt;
@@ -218,27 +218,49 @@ static int
 c_class(a, b)
 	const void *a, *b;
 {
-	return (strcmp(((CLASS *)a)->name, ((CLASS *)b)->name));
+	return (strcmp(((const CLASS *)a)->name, ((const CLASS *)b)->name));
 }
 
-/*
- * English doesn't have any equivalence classes, so for now
- * we just syntax check and grab the character.
- */
 static void
 genequiv(s)
 	STR *s;
 {
+	int i, p, pri;
+	char src[2], dst[3];
+
 	if (*s->str == '\\') {
 		s->equiv[0] = backslash(s);
 		if (*s->str != '=')
 			errx(1, "misplaced equivalence equals sign");
+		s->str += 2;
 	} else {
 		s->equiv[0] = s->str[0];
 		if (s->str[1] != '=')
 			errx(1, "misplaced equivalence equals sign");
+		s->str += 3;
 	}
-	s->str += 2;
+
+	/*
+	 * Calculate the set of all characters in the same equivalence class
+	 * as the specified character (they will have the same primary
+	 * collation weights).
+	 * XXX Knows too much about how strxfrm() is implemented. Assumes
+	 * it fills the string with primary collation weight bytes. Only one-
+	 * to-one mappings are supported.
+	 */
+	src[0] = s->equiv[0];
+	src[1] = '\0';
+	if (strxfrm(dst, src, sizeof(dst)) == 1) {
+		pri = (unsigned char)*dst;
+		for (p = 1, i = 1; i < NCHARS; i++) {
+			*src = i;
+			if (strxfrm(dst, src, sizeof(dst)) == 1 && pri &&
+			    pri == (unsigned char)*dst)
+				s->equiv[p++] = i;
+		}
+		s->equiv[p] = OOBCH;
+	}
+
 	s->cnt = 0;
 	s->state = SET;
 	s->set = s->equiv;
@@ -252,7 +274,7 @@ genrange(s)
 	char *savestart;
 
 	savestart = s->str;
-	stopval = *++s->str == '\\' ? backslash(s) : *s->str++;
+	stopval = *++s->str == '\\' ? backslash(s) : (u_char)*s->str++;
 	if (stopval < (u_char)s->lastch) {
 		s->str = savestart;
 		return (0);
@@ -288,7 +310,7 @@ genseq(s)
 		++s->str;
 		break;
 	default:
-		if (isdigit(*s->str)) {
+		if (isdigit((u_char)*s->str)) {
 			s->cnt = strtol(s->str, &ep, 0);
 			if (*ep == ']') {
 				s->str = ep + 1;
@@ -313,7 +335,7 @@ backslash(s)
 	int ch, cnt, val;
 
 	for (cnt = val = 0;;) {
-		ch = *++s->str;
+		ch = (u_char)*++s->str;
 		if (!isascii(ch) || !isdigit(ch))
 			break;
 		val = val * 8 + ch - '0';

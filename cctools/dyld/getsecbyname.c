@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -38,7 +36,7 @@ const char *sectname)
 {
     struct segment_command *sgp;
     struct section *sp;
-    long i, j;
+    unsigned long i, j;
         
 	sgp = (struct segment_command *)
 	      ((char *)mhp + sizeof(struct mach_header));

@@ -1,7 +1,6 @@
 #include <CoreFoundation/CoreFoundation.h>
-#include <Security/Authorization.h>
 #include <libc.h>
-
+#include <IOKit/IOTypes.h>
 
 #include <IOKit/kext/KXKextManager.h>
 #include <IOKit/kext/KextManagerPriv.h>
@@ -14,12 +13,8 @@
 *******************************************************************************/
 
 static char * progname = "(unknown)";
+static int verbose_level = kKXKextManagerLogLevelDefault;  // -v, -q options set this
 
-extern char ** environ;
-#define KEXTD_LAUNCH         "KEXTD_LAUNCH_USERID="
-#define KEXTD_LAUNCH_FORMAT  "KEXTD_LAUNCH_USERID=%d"
-#define KEXTD_AUTHORIZATION         "KEXTD_AUTHORIZATION="
-#define KEXTD_AUTHORIZATION_FORMAT  "KEXTD_AUTHORIZATION=%d"
 
 /*******************************************************************************
 * Utility and callback functions.
@@ -27,24 +22,18 @@ extern char ** environ;
 
 static Boolean check_file(const char * filename);
 static Boolean check_dir(const char * dirname, int writeable);
+static void qerror(const char * format, ...);
 static void verbose_log(const char * format, ...);
 static void error_log(const char * format, ...);
 static int user_approve(int default_answer, const char * format, ...);
 static const char * user_input(const char * format, ...);
-static Boolean addKextsToManager(
+static int addKextsToManager(
     KXKextManagerRef aManager,
     CFArrayRef kextNames,
     CFMutableArrayRef kextArray,
     Boolean do_tests);
 static void usage(int level);
 
-static CFDataRef createXMLDataForNonsecureKextload(
-    int argc,
-    const char ** argv,
-    const char * kext_path);
-
-KXKextManagerError _KXKextRaiseSecurityAlert(KXKextRef aKext, uid_t euid, AuthorizationRef auth_ref);
-KXKextManagerError _KXKextMakeSecure(KXKextRef aKext);
 extern KXKextManagerError _KXKextManagerPrepareKextForLoading(
     KXKextManagerRef aKextManager,
     KXKextRef aKext,
@@ -59,7 +48,7 @@ extern KXKextManagerError _KXKextManagerLoadKextUsingOptions(
     const char * kernel_file,
     const char * patch_dir,
     const char * symbol_dir,
-    Boolean do_load,
+    IOOptionBits load_options,
     Boolean do_start_kext,
     int     interactive_level,
     Boolean ask_overwrite_symbols,
@@ -76,6 +65,7 @@ extern const char * _KXKextCopyCanonicalPathnameAsCString(KXKextRef aKext);
 int main(int argc, const char *argv[]) {
     int exit_code = 0;
     int failure_code = 0;  // if any kext load fails during the loop
+    int add_kexts_result = 1;  // assume success here
     int argc_mod = argc;
     int argc_opt_count = 0;
     const char ** argv_mod = argv;
@@ -110,11 +100,10 @@ int main(int argc, const char *argv[]) {
 
     Boolean do_tests = false;                // -t
     Boolean strict_auth = true;
-    int verbose_level = 0;                   // -v
     Boolean safe_boot_mode = false;          // -x
     Boolean pretend_authentic = false;       // -z
     Boolean skip_dependencies = false;       // -Z (and with -t only!)
-    Boolean check_loaded_for_dependencies = true; // -D to turn off
+    Boolean check_loaded_for_dependencies = false; // -D to turn off (obsolete)
 
     unsigned int addresses_cap = 10;
     unsigned int num_addresses = 0;
@@ -139,33 +128,6 @@ int main(int argc, const char *argv[]) {
     CFIndex inauthentic_kext_count = 0;
     CFIndex k = 0;
 
-    char ** envp = NULL;
-    Boolean kextd_launch = false;
-    Boolean kextd_launch_with_ref = false;
-    uid_t kextd_launch_userid = -1;
-    AuthorizationRef kextd_authref = NULL;
-    int kextd_auth_mbox = -1;
-    AuthorizationExternalForm auth_ext_form;
-
-    for (envp = environ; *envp; envp++) {
-        char * env_string = *envp;
-        if (!strncmp(env_string, KEXTD_LAUNCH, strlen(KEXTD_LAUNCH))) {
-            kextd_launch = true;
-            if (sscanf(env_string, KEXTD_LAUNCH_FORMAT, &kextd_launch_userid) != 1) {
-                kextd_launch_userid = -1;
-            }
-        }
-        if (!strncmp(env_string, KEXTD_AUTHORIZATION, strlen(KEXTD_AUTHORIZATION)) 
-            && (sscanf(env_string, KEXTD_AUTHORIZATION_FORMAT, &kextd_auth_mbox) == 1)
-            && !lseek(kextd_auth_mbox, 0, SEEK_SET)
-            && (read(kextd_auth_mbox, &auth_ext_form, sizeof(auth_ext_form)) == 
-                sizeof(auth_ext_form))
-            && (errAuthorizationSuccess == AuthorizationCreateFromExternalForm(&auth_ext_form, &kextd_authref))) {
-            kextd_launch_with_ref = true;
-        }
-    }
-    
-
    /*****
     * Find out what the program was invoked as.
     */
@@ -182,7 +144,7 @@ int main(int argc, const char *argv[]) {
     addresses = (char **)malloc(addresses_cap * sizeof(char *));
     if (!addresses) {
         exit_code = 1;
-        fprintf(stderr, "memory allocation failure\n");
+        qerror("memory allocation failure\n");
         goto finish;
     }
     bzero(addresses, addresses_cap * sizeof(char *));
@@ -191,7 +153,7 @@ int main(int argc, const char *argv[]) {
         &kCFTypeArrayCallBacks);
     if (!personalityNames) {
         exit_code = 1;
-        fprintf(stderr, "memory allocation failure\n");
+        qerror("memory allocation failure\n");
         goto finish;
     }
 
@@ -199,7 +161,7 @@ int main(int argc, const char *argv[]) {
         &kCFTypeArrayCallBacks);
     if (!dependencyNames) {
         exit_code = 1;
-        fprintf(stderr, "memory allocation failure\n");
+        qerror("memory allocation failure\n");
         goto finish;
     }
 
@@ -207,7 +169,7 @@ int main(int argc, const char *argv[]) {
         &kCFTypeArrayCallBacks);
     if (!repositoryDirectories) {
         exit_code = 1;
-        fprintf(stderr, "memory allocation failure\n");
+        qerror("memory allocation failure\n");
         goto finish;
     }
 
@@ -215,7 +177,7 @@ int main(int argc, const char *argv[]) {
         &kCFTypeArrayCallBacks);
     if (!kextNames) {
         exit_code = 1;
-        fprintf(stderr, "memory allocation failure\n");
+        qerror("memory allocation failure\n");
         goto finish;
     }
 
@@ -223,7 +185,7 @@ int main(int argc, const char *argv[]) {
         &kCFTypeArrayCallBacks);
     if (!kextNamesToUse) {
         exit_code = 1;
-        fprintf(stderr, "memory allocation failure\n");
+        qerror("memory allocation failure\n");
         goto finish;
     }
 
@@ -231,7 +193,7 @@ int main(int argc, const char *argv[]) {
         &kCFTypeArrayCallBacks);
     if (!kextIDs) {
         exit_code = 1;
-        fprintf(stderr, "memory allocation failure\n");
+        qerror("memory allocation failure\n");
         goto finish;
     }
 
@@ -242,7 +204,7 @@ int main(int argc, const char *argv[]) {
     */
 // -j option currently masked out
     while ((optchar = getopt(argc, (char * const *)argv,
-               "a:Ab:cd:DehiIk:lLmnp:P:r:s:tvxzZ")) != -1) {
+               "a:Ab:cd:DehiIk:lLmnp:P:qr:s:tvxzZ")) != -1) {
 
         char * address_string = NULL;  // don't free
         unsigned int address;
@@ -253,14 +215,14 @@ int main(int argc, const char *argv[]) {
             flag_n = 1;  // -a implies -n
 
             if (!optarg) {
-                fprintf(stderr, "no argument for -a\n");
+                qerror("no argument for -a\n");
                 usage(0);
                 exit_code = 1;
                 goto finish;
             }
             address_string = index(optarg, '@');
             if (!address_string) {
-                fprintf(stderr, "invalid use of -a option\n\n");
+                qerror("invalid use of -a option\n\n");
                 usage(0);
                 exit_code = 1;
                 goto finish;
@@ -268,7 +230,7 @@ int main(int argc, const char *argv[]) {
             address_string++;
             address = strtoul(address_string, NULL, 16);
             if (!address) {
-                fprintf(stderr,
+                qerror(
                     "address must be specified and non-zero\n\n");
                 usage(0);
                 exit_code = 1;
@@ -280,7 +242,7 @@ int main(int argc, const char *argv[]) {
                 addresses = (char **)realloc(addresses,
                     (addresses_cap * sizeof(char *)));
                 if (!addresses) {
-                    fprintf(stderr,
+                    qerror(
                         "memory allocation failure\n");
                     exit_code = 1;
                     goto finish;
@@ -298,7 +260,7 @@ int main(int argc, const char *argv[]) {
 
           case 'b':
             if (!optarg) {
-                fprintf(stderr, "no argument for -b\n");
+                qerror("no argument for -b\n");
                 usage(0);
                 exit_code = 1;
                 goto finish;
@@ -306,7 +268,7 @@ int main(int argc, const char *argv[]) {
             optArg = CFStringCreateWithCString(kCFAllocatorDefault,
                 optarg, kCFStringEncodingMacRoman);
             if (!optArg) {
-                fprintf(stderr, "memory allocation failure\n");
+                qerror("memory allocation failure\n");
                 exit_code = 1;
                 goto finish;
            }
@@ -321,7 +283,7 @@ int main(int argc, const char *argv[]) {
 
           case 'd':
             if (!optarg) {
-                fprintf(stderr, "no argument for -d\n");
+                qerror("no argument for -d\n");
                 usage(0);
                 exit_code = 1;
                 goto finish;
@@ -329,7 +291,7 @@ int main(int argc, const char *argv[]) {
             optArg = CFStringCreateWithCString(kCFAllocatorDefault,
                 optarg, kCFStringEncodingMacRoman);
             if (!optArg) {
-                fprintf(stderr, "memory allocation failure\n");
+                qerror("memory allocation failure\n");
                 exit_code = 1;
                 goto finish;
             }
@@ -353,7 +315,7 @@ int main(int argc, const char *argv[]) {
 
           case 'i':
             if (interactive_level) {
-                fprintf(stderr, "use only one of -i or -I\n\n");
+                qerror("use only one of -i or -I\n\n");
                 usage(0);
                 exit_code = 1;
                 goto finish;
@@ -364,7 +326,7 @@ int main(int argc, const char *argv[]) {
 
           case 'I':
             if (interactive_level) {
-                fprintf(stderr, "use only one of -i or -I\n\n");
+                qerror("use only one of -i or -I\n\n");
                 usage(0);
                 exit_code = 1;
                 goto finish;
@@ -383,13 +345,13 @@ int main(int argc, const char *argv[]) {
 
           case 'k':
             if (kernel_file) {
-                fprintf(stderr, "duplicate use of -k option\n\n");
+                qerror("duplicate use of -k option\n\n");
                 usage(0);
                 exit_code = 1;
                 goto finish;
             }
             if (!optarg) {
-                fprintf(stderr, "no argument for -k\n");
+                qerror("no argument for -k\n");
                 usage(0);
                 exit_code = 1;
                 goto finish;
@@ -413,7 +375,7 @@ int main(int argc, const char *argv[]) {
 
           case 'p':
             if (!optarg) {
-                fprintf(stderr, "no argument for -p\n");
+                qerror("no argument for -p\n");
                 usage(0);
                 exit_code = 1;
                 goto finish;
@@ -421,7 +383,7 @@ int main(int argc, const char *argv[]) {
             optArg = CFStringCreateWithCString(kCFAllocatorDefault,
                 optarg, kCFStringEncodingMacRoman);
             if (!optArg) {
-                fprintf(stderr, "memory allocation failure\n");
+                qerror("memory allocation failure\n");
                 exit_code = 1;
                 goto finish;
             }
@@ -432,13 +394,13 @@ int main(int argc, const char *argv[]) {
 #if ALLOW_PATCH_OUTPUT
           case 'P':
             if (patch_dir) {
-                fprintf(stderr, "duplicate use of -P option\n\n");
+                qerror("duplicate use of -P option\n\n");
                 usage(0);
                 exit_code = 1;
                 goto finish;
             }
             if (!optarg) {
-                fprintf(stderr, "no argument for -P\n");
+                qerror("no argument for -P\n");
                 usage(0);
                 exit_code = 1;
                 goto finish;
@@ -447,11 +409,21 @@ int main(int argc, const char *argv[]) {
             break;
 #endif
 
+          case 'q':
+            if (verbose_level != kKXKextManagerLogLevelDefault) {
+                qerror("duplicate use of -v and/or -q option\n\n");
+                usage(0);
+                exit_code = 1;
+                goto finish;
+            }
+            verbose_level = kKXKextManagerLogLevelSilent;
+            break;
+
           case 'r':
             /* fall through */
           case 'L':
             if (!optarg) {
-                fprintf(stderr, "no argument for -%c\n", optchar);
+                qerror("no argument for -%c\n", optchar);
                 usage(0);
                 exit_code = 1;
                 goto finish;
@@ -459,7 +431,7 @@ int main(int argc, const char *argv[]) {
             optArg = CFStringCreateWithCString(kCFAllocatorDefault,
                optarg, kCFStringEncodingMacRoman);
             if (!optArg) {
-                fprintf(stderr, "memory allocation failure\n");
+                qerror("memory allocation failure\n");
                 exit_code = 1;
                 goto finish;
             }
@@ -470,13 +442,13 @@ int main(int argc, const char *argv[]) {
 
           case 's':
             if (symbol_dir) {
-                fprintf(stderr, "duplicate use of -s option\n\n");
+                qerror("duplicate use of -s option\n\n");
                 usage(0);
                 exit_code = 1;
                 goto finish;
             }
             if (!optarg) {
-                fprintf(stderr, "no argument for -s\n");
+                qerror("no argument for -s\n");
                 usage(0);
                 exit_code = 1;
                 goto finish;
@@ -492,25 +464,29 @@ int main(int argc, const char *argv[]) {
             {
                 const char * next;
 
-                if (verbose_level > 0) {
-                    fprintf(stderr, "duplicate use of -v option\n\n");
+                if (verbose_level != kKXKextManagerLogLevelDefault) {
+                    qerror("duplicate use of -v and/or -q option\n\n");
                     usage(0);
                     exit_code = 1;
                     goto finish;
                 }
                 if (optind >= argc) {
-                    verbose_level = 1;
+                    verbose_level = kKXKextManagerLogLevelBasic;
                 } else {
                     next = argv[optind];
-                    if ((next[0] == '1' || next[0] == '2' ||
-                         next[0] == '3' || next[0] == '4' ||
-                         next[0] == '5' || next[0] == '6') &&
-                         next[1] == '\0') {
+                    if ((next[0] == '0' || next[0] == '1' ||
+                         next[0] == '2' || next[0] == '3' || 
+                         next[0] == '4' || next[0] == '5' ||
+                         next[0] == '6') && next[1] == '\0') {
 
-                        verbose_level = atoi(next);
+                        if (next[0] == '0') {
+                            verbose_level = kKXKextManagerLogLevelErrorsOnly;
+                        } else {
+                            verbose_level = atoi(next);
+                        }
                         optind++;
                     } else {
-                        verbose_level = 1;
+                        verbose_level = kKXKextManagerLogLevelBasic;
                     }
                 }
             }
@@ -530,7 +506,7 @@ int main(int argc, const char *argv[]) {
             break;
 
         default:
-            fprintf(stderr, "unknown option -%c\n", optchar);
+            qerror("unknown option -%c\n", optchar);
             usage(0);
             exit_code = 1;
             goto finish;
@@ -547,7 +523,7 @@ int main(int argc, const char *argv[]) {
     * Check for bad combinations of options.
     */
     if (flag_l + flag_m + flag_n > 1) {
-        fprintf(stderr, "only one of -l/-m/-n is allowed"
+        qerror("only one of -l/-m/-n is allowed"
             " (-a and -A imply -n)\n\n");
         usage(0);
         exit_code = 1;
@@ -564,28 +540,28 @@ int main(int argc, const char *argv[]) {
     }
 
     if (do_load && geteuid() != 0) {
-        fprintf(stderr, "you must be running as root "
+        qerror("you must be running as root "
             "to load modules into the kernel\n");
         exit_code = 1;
         goto finish;
     }
 
     if (num_addresses > 0 && get_addrs_from_kernel) {
-        fprintf(stderr, "don't use -a with -A\n");
+        qerror("don't use -a with -A\n");
         usage(0);
         exit_code = 1;
         goto finish;
     }
 
     if (num_addresses > 0 && (do_load || do_start_matching)) {
-        fprintf(stderr, "don't use -a with -l or -m\n");
+        qerror("don't use -a with -l or -m\n");
         usage(0);
         exit_code = 1;
         goto finish;
     }
 
     if (get_addrs_from_kernel && (do_load || do_start_matching)) {
-        fprintf(stderr, "don't use -A with -l or -m\n");
+        qerror("don't use -A with -l or -m\n");
         usage(0);
         exit_code = 1;
         goto finish;
@@ -596,7 +572,7 @@ int main(int argc, const char *argv[]) {
     // FIXME: ...boot, and always represents the currently running kernel.
     //
     if (kernel_file && (do_load || do_start_matching)) {
-        fprintf(stderr, "use -k only with -n\n");
+        qerror("use -k only with -n\n");
         usage(0);
         exit_code = 1;
         goto finish;
@@ -612,10 +588,22 @@ int main(int argc, const char *argv[]) {
     }
 
     if (pretend_authentic && do_load) {
-        fprintf(stderr, "-z is only allowed when not loading\n");
+        qerror("-z is only allowed when not loading\n");
         usage(0);
         exit_code = 1;
         goto finish;
+    }
+
+   /* If running in quiet mode and the invocation might require
+    * interaction, just exit with an error.
+    */
+    if (verbose_level == kKXKextManagerLogLevelSilent) {
+        if (interactive_level > 0 ||
+            (flag_n && num_addresses == 0 && get_addrs_from_kernel == 0)) {
+
+            exit_code = 1;
+            goto finish;
+        }
     }
 
    /****
@@ -626,9 +614,15 @@ int main(int argc, const char *argv[]) {
     */
     if (get_addrs_from_kernel) {
         check_loaded_for_dependencies = true;
-    } else if (!do_load) {
+    }
+#if 0
+// Default behavior now is to not check loaded for dependencies and
+// do pure version-based dependency resolution. We might introduce
+// a new flag to turn this on for general load cases....
+else if (!do_load) {
         check_loaded_for_dependencies = false;
     }
+#endif /* 0 */
 
    /*****
     * If we're not loading and have no request to emit a symbol
@@ -637,7 +631,7 @@ int main(int argc, const char *argv[]) {
     if (!do_tests && !do_load && !do_start_matching &&
         !symbol_dir && !patch_dir) {
 
-        fprintf(stderr, "no work to do; check your options\n\n");
+        qerror("no work to do; check your options\n\n");
         usage(0);
         exit_code = 1;
         goto finish;
@@ -648,9 +642,9 @@ int main(int argc, const char *argv[]) {
     */
     if (skip_dependencies && (!do_tests || do_load || symbol_dir || patch_dir)) {
 #if ALLOW_PATCH_OUTPUT
-        fprintf(stderr, "use -Z only with -nt and not with -s or -P\n");
+        qerror("use -Z only with -nt and not with -s or -P\n");
 #else
-        fprintf(stderr, "use -Z only with -nt and not with -s\n");
+        qerror("use -Z only with -nt and not with -s\n");
 #endif ALLOW_PATCH_OUTPUT
         usage(0);
         exit_code = 1;
@@ -664,7 +658,7 @@ int main(int argc, const char *argv[]) {
         CFStringRef kextName = CFStringCreateWithCString(kCFAllocatorDefault,
               argv_mod[i], kCFStringEncodingMacRoman);
         if (!kextName) {
-            fprintf(stderr, "memory allocation failure\n");
+            qerror("memory allocation failure\n");
             exit_code = 1;
             goto finish;
         }
@@ -673,7 +667,7 @@ int main(int argc, const char *argv[]) {
     }
 
     if (CFArrayGetCount(kextNames) == 0 && CFArrayGetCount(kextIDs) == 0) {
-        fprintf(stderr, "no kernel extension specified\n\n");
+        qerror("no kernel extension specified\n\n");
         usage(0);
         exit_code = 1;
         goto finish;
@@ -694,7 +688,7 @@ int main(int argc, const char *argv[]) {
     */
     if (!kernel_file) {
         kernel_file = default_kernel_file;
-        if (!do_load && verbose_level >= 1) {
+        if (!do_load && verbose_level >= kKXKextManagerLogLevelBasic) {
             verbose_log("no kernel file specified; using %s", kernel_file);
         }
     }
@@ -726,7 +720,7 @@ int main(int argc, const char *argv[]) {
     */
     theKextManager = KXKextManagerCreate(kCFAllocatorDefault);
     if (!theKextManager) {
-        fprintf(stderr, "can't allocate kernel extension manager\n");
+        qerror("can't allocate kernel extension manager\n");
         exit_code = 1;
         goto finish;
     }
@@ -734,7 +728,7 @@ int main(int argc, const char *argv[]) {
     result = KXKextManagerInit(theKextManager, true /* load_in_task */,
         safe_boot_mode);
     if (result != kKXKextManagerErrorNone) {
-        fprintf(stderr, "can't initialize kernel extension manager (%s)\n",
+        qerror("can't initialize kernel extension manager (%s)\n",
             KXKextManagerErrorStaticCStringForError(result));
         exit_code = 1;
         goto finish;
@@ -762,8 +756,12 @@ int main(int argc, const char *argv[]) {
     * be found first. (This won't help a bit if a later version is in a
     * repository, of course; the user has to know how to use the program,
     * after all.)
+    *
+    * This invocation is a failure only if a fatal error occurs; if some
+    * of the kexts couldn't be added we will keep going and deal with a
+    * missing dependency later.
     */
-    if (!addKextsToManager(theKextManager, dependencyNames, NULL, do_tests)) {
+    if (addKextsToManager(theKextManager, dependencyNames, NULL, do_tests) == -1) {
         exit_code = 1;
         goto finish;
     }
@@ -779,7 +777,7 @@ int main(int argc, const char *argv[]) {
             CFURLCreateWithFileSystemPath(kCFAllocatorDefault,
                 directory, kCFURLPOSIXPathStyle, true);
         if (!directoryURL) {
-            fprintf(stderr, "memory allocation failure\n");
+            qerror("memory allocation failure\n");
             exit_code = 1;
 
             goto finish;
@@ -789,7 +787,7 @@ int main(int argc, const char *argv[]) {
             directoryURL, true /* scanForKexts */,
             use_repository_caches, NULL);
         if (result != kKXKextManagerErrorNone) {
-            fprintf(stderr, "can't add repository (%s).\n",
+            qerror("can't add repository (%s).\n",
                 KXKextManagerErrorStaticCStringForError(result));
             exit_code = 1;
             goto finish;
@@ -799,11 +797,19 @@ int main(int argc, const char *argv[]) {
     }
 
    /*****
-    * Add each kext named on the command line to the manager.
+    * Add each kext named on the command line to the manager. If any can't
+    * be added, addKextsToManager() returns 0, so set the exit_code to 1, but
+    * go on to process the kexts that could be added.
+    * If a fatal error occurs, addKextsToManager() returns -1, so go right
+    * to the finish;
     */
-    if (!addKextsToManager(theKextManager, kextNames, kextNamesToUse, do_tests)) {
+    add_kexts_result = addKextsToManager(theKextManager, kextNames,
+       kextNamesToUse, do_tests);
+    if (add_kexts_result < 1) {
         exit_code = 1;
-        goto finish;
+        if (add_kexts_result < 0) {
+            goto finish;
+        }
     }
 
    /*****
@@ -848,12 +854,12 @@ int main(int argc, const char *argv[]) {
         if (!CFStringGetCString(thisKextID,
             name_buffer, sizeof(name_buffer) - 1, kCFStringEncodingMacRoman)) {
 
-            fprintf(stderr, "internal error; no memory?\n");
+            qerror("internal error; no memory?\n");
             exit_code = 1;
             goto finish;
         }
-        if (verbose_level >= 1) {
-            verbose_log("looking up extension with identifier %s\n",
+        if (verbose_level >= kKXKextManagerLogLevelBasic) {
+            verbose_log("looking up extension with identifier %s",
                 name_buffer);
         }
 
@@ -862,29 +868,29 @@ int main(int argc, const char *argv[]) {
                 name_buffer, sizeof(name_buffer) - 1,
                 kCFStringEncodingMacRoman)) {
 
-                fprintf(stderr, "internal error; no memory?\n");
+                qerror("internal error; no memory?\n");
                 exit_code = 1;
                 goto finish;
             }
-            fprintf(stderr, "can't find extension with identifier %s\n",
+            qerror("can't find extension with identifier %s\n",
                 name_buffer);
             exit_code = 1;
-            goto finish;
+            continue;  // not fatal, keep trying the others
         }
         kextName = KXKextCopyAbsolutePath(theKext);
         if (!kextName) {
-            fprintf(stderr, "memory allocation failure\n");
+            qerror("memory allocation failure\n");
             exit_code = 1;
             goto finish;
         }
         if (!CFStringGetCString(kextName,
             name_buffer, sizeof(name_buffer) - 1, kCFStringEncodingMacRoman)) {
 
-            fprintf(stderr, "internal error; no memory?\n");
+            qerror("internal error; no memory?\n");
             exit_code = 1;
             goto finish;
         }
-        if (verbose_level >= 1) {
+        if (verbose_level >= kKXKextManagerLogLevelBasic) {
             verbose_log("found extension bundle %s", name_buffer);
         }
         CFArrayAppendValue(kextNamesToUse, kextName);
@@ -920,7 +926,7 @@ retry:
             &kCFTypeArrayCallBacks);
         if (!inauthenticKexts) {
             exit_code = 1;
-            fprintf(stderr, "memory allocation failure\n");
+            qerror("memory allocation failure\n");
             goto finish;
         }
 
@@ -933,7 +939,7 @@ retry:
         if (!CFStringGetCString(kextName,
             kext_name, sizeof(kext_name) - 1, kCFStringEncodingMacRoman)) {
 
-            fprintf(stderr, "memory allocation or string conversion failure\n");
+            qerror("memory allocation or string conversion failure\n");
             exit_code = 1;
             goto finish;
         }
@@ -941,7 +947,7 @@ retry:
         kextURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault,
             kextName, kCFURLPOSIXPathStyle, true);
         if (!kextURL) {
-            fprintf(stderr, "memory allocation failure\n");
+            qerror("memory allocation failure\n");
             exit_code = 1;
             goto finish;
         }
@@ -949,7 +955,7 @@ retry:
         theKext = KXKextManagerGetKextWithURL(theKextManager, kextURL);
 
         if (!theKext) {
-            fprintf(stderr, "can't find extension %s in database\n",
+            qerror("can't find extension %s in database\n",
                 kext_name);
             failure_code = 1;
             continue;
@@ -959,7 +965,7 @@ retry:
         * Confirm kext is loadable.
         */
         if (safe_boot_mode && !KXKextIsEligibleDuringSafeBoot(theKext)) {
-            fprintf(stderr, "extension %s is not eligible for safe boot "
+            qerror("extension %s is not eligible for safe boot "
                 "(has no OSBundleRequired setting, "
                 "or all personalities have nonzero IOKitDebug setting)\n",
                 kext_name);
@@ -977,12 +983,12 @@ retry:
                (!skip_dependencies && !KXKextGetHasAllDependencies(theKext))
            ))) {
 
-            fprintf(stderr, "kernel extension %s has problems", kext_name);
-            if (do_tests) {
-                fprintf(stderr, ":\n");
+            qerror("kernel extension %s has problems", kext_name);
+            if (do_tests && verbose_level >= kKXKextManagerLogLevelErrorsOnly) {
+                qerror(":\n");
                 KXKextPrintDiagnostics(theKext, stderr);
             } else {
-                fprintf(stderr, " (run %s with -t for diagnostic output)\n",
+                qerror(" (run %s with -t for diagnostic output)\n",
                     progname);
             }
             failure_code = 1;
@@ -992,7 +998,7 @@ retry:
             continue;
         }
 
-        if (do_tests || verbose_level > 0) {
+        if (do_tests || verbose_level > kKXKextManagerLogLevelDefault) {
             verbose_log("extension %s appears to be valid", kext_name);
         }
 
@@ -1015,11 +1021,11 @@ retry:
             approve = user_approve(1, "Load extension %s and its dependencies",
                 kext_name);
             if (approve < 0) {
-                fprintf(stderr, "error reading response\n");
+                qerror("error reading response\n");
                 failure_code = 1;
                 goto finish;
             } else if (approve == 0) {
-                fprintf(stderr, "not loading extension %s\n", kext_name);
+                qerror("not loading extension %s\n", kext_name);
                 continue;
             }
         }
@@ -1050,104 +1056,28 @@ retry:
         inauthentic_kext_count = CFArrayGetCount(inauthenticKexts);
         if (inauthentic_kext_count) {
             for (k = 0; k < inauthentic_kext_count; k++) {
-                uid_t login_euid = -1;
                 KXKextRef thisKext =
                     (KXKextRef)CFArrayGetValueAtIndex(inauthenticKexts, k);
 
-                if (kextd_launch) {
-                    login_euid = kextd_launch_userid;
-                } else {
-                    login_euid = _KextManagerGetLoggedInUserid();
+                const char * kext_path = NULL; // must free
+                CFDataRef xmlData = NULL; // must release
+                const char * rpc_data = NULL; // don't free (ref to kext_path)
+                size_t data_length = 0;
+
+                kext_path = _KXKextCopyCanonicalPathnameAsCString(thisKext);
+                if (!kext_path) {
+                    fprintf(stderr, "memory allocation failure\n");
+                    exit_code = 1;
+                    goto finish;
                 }
-
-                if (login_euid == -1) {
-                    if (!kextd_launch) {
-                        const char * kext_path = NULL; // must free
-                        CFDataRef xmlData = NULL; // must release
-                        const char * rpc_data = NULL; // don't free
-                        size_t data_length = 0;
-
-                        kext_path = _KXKextCopyCanonicalPathnameAsCString(thisKext);
-                        if (!kext_path) {
-                            fprintf(stderr, "memory allocation failure\n");
-                            exit_code = 1;
-                            goto finish;
-                        }
-                        xmlData = createXMLDataForNonsecureKextload(
-                            argc_opt_count, argv,
-                            kext_path);
-                        if (!xmlData) {
-                            fprintf(stderr, "memory allocation failure\n");
-                            exit_code = 1;
-                            goto finish;
-                        }
-                        rpc_data = CFDataGetBytePtr(xmlData);
-                        data_length = CFDataGetLength(xmlData);
-                        fprintf(stderr,
-                            "no user logged in, can't offer to fix kext %s; "
-                            "informing kextd\n",
-                            kext_name);
-                        _KextManagerRecordNonsecureKextload(rpc_data, data_length);
-                        if (kext_path) free((char *)kext_path);
-                        if (xmlData) CFRelease(xmlData);
-                        failure_code = 1;
-                        break;
-                    }
-                } else {
-                    const char * kext_path = NULL; // must free
-                    CFDataRef xmlData = NULL; // must release
-                    const char * rpc_data = NULL; // don't free
-                    size_t data_length = 0;
-
-                    kext_path = _KXKextCopyCanonicalPathnameAsCString(thisKext);
-                    if (!kext_path) {
-                        fprintf(stderr, "memory allocation failure\n");
-                        exit_code = 1;
-                        goto finish;
-                    }
-
-                   /* Raise the security alert. If this fails on an IPC error,
-                    * tell kextd using _KextManagerRecordNonsecureKext(),
-                    * just in case.
-                    */
-                    
-                    if (!kextd_launch_with_ref)
-                        AuthorizationCreate(NULL, NULL, 0, &kextd_authref);
-                    
-                    switch ( _KXKextRaiseSecurityAlert(thisKext, login_euid, kextd_authref)) {
-                      case kKXKextManagerErrorNone:
-                        break;
-                      case kKXKextManagerErrorIPC:
-                        if (!kextd_launch) {
-                            xmlData = createXMLDataForNonsecureKextload(
-                                argc_opt_count, argv, kext_path);
-                            if (!xmlData) {
-                                fprintf(stderr, "memory allocation failure\n");
-                                exit_code = 1;
-                                goto finish;
-                            }
-                            rpc_data = CFDataGetBytePtr(xmlData);
-                            data_length = CFDataGetLength(xmlData);
-                            _KextManagerRecordNonsecureKextload(rpc_data,
-                                data_length);
-                            if (xmlData) CFRelease(xmlData);
-                        }
-                        break;
-                      case kKXKextManagerErrorUserAbort:
-                        fprintf(stderr, "load aborted for extension %s\n",
-                            kext_name);
-                        /* fall through */
-                      default:
-                        failure_code = 1;
-                        break;
-                    }
-
-                    if (kext_path) free((char *)kext_path);
-
-                    if (failure_code) {
-                        break;  /* for loop */
-                    }
-                }
+                error_log("extension %s is not authentic", kext_path);
+                rpc_data = kext_path;
+                data_length = 1 + strlen(kext_path);
+                _KextManagerRecordNonsecureKextload(rpc_data, data_length);
+                if (kext_path) free((char *)kext_path);
+                if (xmlData) CFRelease(xmlData);
+                failure_code = 1;
+                exit_code = 1;
             }
         }
 
@@ -1181,7 +1111,7 @@ retry:
                 continue;
             } else if (result == kKXKextManagerErrorUserAbort) {
                 if (do_load) {
-                    fprintf(stderr, "load aborted for extension %s\n",
+                    qerror("load aborted for extension %s\n",
                         kext_name);
                 }
                 // user abort is not a failure
@@ -1195,29 +1125,31 @@ retry:
                         "Cache inconsistency for %s; rescan and try again",
                         kext_name);
                     if (approve < 0) {
-                        fprintf(stderr, "error reading response\n");
+                        qerror("error reading response\n");
                         failure_code = 1;
                         goto finish;
                     } else if (approve == 0) {
-                        fprintf(stderr, "skipping extension %s\n", kext_name);
+                        qerror("skipping extension %s\n", kext_name);
                         continue;
                     }
                 } else {
-                    fprintf(stderr, "rescanning all kexts due to cache inconsistency\n");
+                    qerror("rescanning all kexts due to cache inconsistency\n");
                 }
                 KXKextManagerResetAllRepositories(theKextManager);
                 cache_retry_count--;
                 goto retry;
             } else if (result != kKXKextManagerErrorNone) {
                 if (do_load) {
-                    fprintf(stderr, "load failed for extension %s\n",
+                    qerror("load failed for extension %s\n",
                         kext_name);
                 }
-                if (do_tests && !KXKextIsLoadable(theKext, safe_boot_mode)) {
-                    fprintf(stderr, "kernel extension problems:\n");
+                if (do_tests && !KXKextIsLoadable(theKext, safe_boot_mode) &&
+                    verbose_level >= kKXKextManagerLogLevelErrorsOnly) {
+
+                    qerror("kernel extension problems:\n");
                     KXKextPrintDiagnostics(theKext, stderr);
                 } else {
-                    fprintf(stderr, " (run %s with -t for diagnostic output)\n",
+                    qerror(" (run %s with -t for diagnostic output)\n",
                         progname);
                 }
                 failure_code = 1;
@@ -1227,7 +1159,7 @@ retry:
             if (do_load) {
                 verbose_log("%s loaded successfully", kext_name);
             }
-        } else if (do_load && verbose_level >= 1) {
+        } else if (do_load && verbose_level >= kKXKextManagerLogLevelBasic) {
             verbose_log("extension %s has no executable", kext_name);
             // FIXME: Is this an error?
         }
@@ -1245,11 +1177,11 @@ retry:
                 (interactive_level > 0), safe_boot_mode);
 
             if (result == kKXKextManagerErrorNone &&
-                (interactive_level || verbose_level >= 1) ) {
+                (interactive_level || verbose_level >= kKXKextManagerLogLevelBasic) ) {
                 verbose_log("matching started for %s", kext_name);
             } else if (result != kKXKextManagerErrorNone) {
                 failure_code = 1;
-                if (interactive_level || verbose_level >= 1) {
+                if (interactive_level || verbose_level >= kKXKextManagerLogLevelBasic) {
                     verbose_log("start matching failed for %s", kext_name);
                 }
             }
@@ -1269,9 +1201,6 @@ finish:
    /*****
     * Clean everything up.
     */
-    AuthorizationFree(kextd_authref, 0);
-    if (kextd_auth_mbox >= 0) close (kextd_auth_mbox);
-    
     if (addresses)             free(addresses);
     if (repositoryDirectories) CFRelease(repositoryDirectories);
     if (dependencyNames)       CFRelease(dependencyNames);
@@ -1305,13 +1234,13 @@ static Boolean check_file(const char * filename)
     }
 
     if ( !(stat_buf.st_mode & S_IFREG) ) {
-        fprintf(stderr, "%s is not a regular file\n", filename);
+        qerror("%s is not a regular file\n", filename);
         result = false;
         goto finish;
     }
 
     if (access(filename, R_OK) != 0) {
-        fprintf(stderr, "%s is not readable\n", filename);
+        qerror("%s is not readable\n", filename);
         result = false;
         goto finish;
     }
@@ -1337,20 +1266,36 @@ static Boolean check_dir(const char * dirname, int writeable)
     }
 
     if ( !(stat_buf.st_mode & S_IFDIR) ) {
-        fprintf(stderr, "%s is not a directory\n", dirname);
+        qerror("%s is not a directory\n", dirname);
         result = false;
         goto finish;
     }
 
     if (writeable) {
         if (access(dirname, W_OK) != 0) {
-            fprintf(stderr, "%s is not writeable\n", dirname);
+            qerror("%s is not writeable\n", dirname);
             result = false;
             goto finish;
         }
     }
 finish:
     return result;
+}
+
+/*******************************************************************************
+* qerror()
+*
+* Quick wrapper over printing that checks verbose level.
+*******************************************************************************/
+static void qerror(const char * format, ...)
+{
+    va_list ap;
+
+    if (verbose_level <= kKXKextManagerLogLevelSilent) return;
+    va_start(ap, format);
+    vfprintf(stderr, format, ap);
+    va_end(ap);
+    return;
 }
 
 /*******************************************************************************
@@ -1365,13 +1310,15 @@ static void verbose_log(const char * format, ...)
     int output_length;
     char * output_string;
 
+    if (verbose_level < kKXKextManagerLogLevelDefault) return;
+
     va_start(ap, format);
     output_length = vsnprintf(fake_buffer, 1, format, ap);
     va_end(ap);
 
     output_string = (char *)malloc(output_length + 1);
     if (!output_string) {
-        fprintf(stderr, "memory allocation failure\n");
+        qerror("memory allocation failure\n");
         return;
     }
 
@@ -1402,13 +1349,15 @@ static void error_log(const char * format, ...)
     int output_length;
     char * output_string;
 
+    if (verbose_level <= kKXKextManagerLogLevelSilent) return;
+
     va_start(ap, format);
     output_length = vsnprintf(fake_buffer, 1, format, ap);
     va_end(ap);
 
     output_string = (char *)malloc(output_length + 1);
     if (!output_string) {
-        fprintf(stderr, "memory allocation failure\n");
+        qerror("memory allocation failure\n");
         return;
     }
 
@@ -1417,7 +1366,7 @@ static void error_log(const char * format, ...)
     va_end(ap);
 
     va_start(ap, format);
-    fprintf(stderr, "%s: %s\n", progname, output_string);
+    qerror("%s: %s\n", progname, output_string);
     va_end(ap);
 
     fflush(stderr);
@@ -1448,7 +1397,7 @@ static int user_approve(int default_answer, const char * format, ...)
 
     output_string = (char *)malloc(output_length + 1);
     if (!output_string) {
-        fprintf(stderr, "memory allocation failure\n");
+        qerror("memory allocation failure\n");
         result = -1;
         goto finish;
     }
@@ -1529,7 +1478,7 @@ static const char * user_input(const char * format, ...)
 
     output_string = (char *)malloc(output_length + 1);
     if (!output_string) {
-        fprintf(stderr, "memory allocation failure\n");
+        qerror("memory allocation failure\n");
         result = NULL;
         goto finish;
     }
@@ -1570,14 +1519,19 @@ finish:
 *
 * Add the kexts named in the kextNames array to the given kext manager, and
 * put their names into the kextNamesToUse.
+*
+* Return values:
+*   1: all kexts added successfully
+*   0: one or more could not be added
+*  -1: program-fatal error; exit as soon as possible
 *******************************************************************************/
-static Boolean addKextsToManager(
+static int addKextsToManager(
     KXKextManagerRef aManager,
     CFArrayRef kextNames,
     CFMutableArrayRef kextNamesToUse,
     Boolean do_tests)
 {
-    Boolean result = true;     // assume success
+    int result = 1;     // assume success
     KXKextManagerError kxresult = kKXKextManagerErrorNone;
     CFIndex i, count;
     KXKextRef theKext = NULL;  // don't release
@@ -1601,28 +1555,29 @@ static Boolean addKextsToManager(
         kextURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault,
             kextName, kCFURLPOSIXPathStyle, true);
         if (!kextURL) {
-            fprintf(stderr, "memory allocation failure\n");
-            result = false;
+            qerror("memory allocation failure\n");
+            result = -1;
             goto finish;
         }
 
         if (!CFStringGetCString(kextName,
             name_buffer, sizeof(name_buffer) - 1, kCFStringEncodingMacRoman)) {
 
-            fprintf(stderr, "memory allocation or string conversion error\n");
-            result = false;
+            qerror("memory allocation or string conversion error\n");
+            result = -1;
             goto finish;
         }
 
         kxresult = KXKextManagerAddKextWithURL(aManager, kextURL, true, &theKext);
         if (kxresult != kKXKextManagerErrorNone) {
-            fprintf(stderr, "can't add kernel extension %s (%s)",
+            result = 0;
+            qerror("can't add kernel extension %s (%s)",
                 name_buffer, KXKextManagerErrorStaticCStringForError(kxresult));
-            fprintf(stderr, " (run %s on this kext with -t for diagnostic output)\n",
+            qerror(" (run %s on this kext with -t for diagnostic output)\n",
                 progname);
 #if 0
-            if (do_tests && theKext) {
-                fprintf(stderr, "kernel extension problems:\n");
+            if (do_tests && theKext && verbose_level >= kKXKextManagerLogLevelErrorsOnly) {
+                qerror("kernel extension problems:\n");
                 KXKextPrintDiagnostics(theKext, stderr);
             }
             continue;
@@ -1645,8 +1600,8 @@ finish:
 *******************************************************************************/
 static void usage(int level)
 {
-    fprintf(stderr,
-      "usage: %s [-h] [-v [1-6]] [-t [-Z]] [-i | -I] [-x] [-z] [-e] [-c] [-D]\n"
+    qerror(
+      "usage: %s [-h] [-v [0-6]] [-q] [-t [-Z]] [-i | -I] [-x] [-z] [-e] [-c] [-D]\n"
       "    [-k kernel_file] [-d extension] ... [-r directory] ...\n"
 // -j currently masked out of code
       "    [-l | -m | -n | -A | -a kext_id@address ...] [-s directory]\n"
@@ -1659,390 +1614,69 @@ static void usage(int level)
     }
 
     if (level == 1) {
-        fprintf(stderr, "use %s -h for an explanation of each option\n",
+        qerror("use %s -h for an explanation of each option\n",
             progname);
         return;
     }
 
-    fprintf(stderr, "  extension: the kext bundle to load\n");
-    fprintf(stderr,
+    qerror("  extension: the kext bundle to load\n");
+    qerror(
         "  -a kext_id@address: kext_id is loaded at address\n");
-    fprintf(stderr,
+    qerror(
         "  -A: get load addresses for all kexts from those in the kernel\n");
-    fprintf(stderr,
+    qerror(
         "  -b bundle_id: load/use the kext whose CFBundleIdentifier is "
         "bundle_id\n");
-    fprintf(stderr,
+    qerror(
         "  -c: don't use repository caches; scan repository folders\n");
-    fprintf(stderr,
+    qerror(
         "  -d extension: consider extension as a candidate dependency\n");
-    fprintf(stderr,
+    qerror(
         "  -D: don't check for loaded kexts when resolving "
-        "dependencies\n");
-    fprintf(stderr, "  -e: don't examine /System/Library/Extensions\n");
-    fprintf(stderr, "  -h: print this message\n");
-    fprintf(stderr,
+        "dependencies (obsolete; setting is now on by default)\n");
+    qerror("  -e: don't examine /System/Library/Extensions\n");
+    qerror("  -h: print this message\n");
+    qerror(
         "  -i: interactive mode\n");
-    fprintf(stderr,
+    qerror(
         "  -I: interactive mode for extension and all its dependencies\n");
 #if ALLOW_NO_START
-    fprintf(stderr,
+    qerror(
         "  -j: just load; don't even start the extension running\n");
 #endif
-    fprintf(stderr,
+    qerror(
         "  -k kernel_file: link against kernel_file (default is /mach)\n");
-    fprintf(stderr,
+    qerror(
         "  -l: load & start only; don't start matching\n");
-    fprintf(stderr,
+    qerror(
         "  -L: same as -r (remains for backward compatibility)\n");
-    fprintf(stderr,
+    qerror(
         "  -m: don't load but do start matching\n");
-    fprintf(stderr,
+    qerror(
         "  -n: neither load nor start matching\n");
-    fprintf(stderr,
+    qerror(
         "  -p personality: send the named personality to the catalog\n");
 #if ALLOW_PATCH_OUTPUT
-    fprintf(stderr,
+    qerror(
         "  -P directory: write the patched binary file into directory\n");
 #endif ALLOW_PATCH_OUTPUT
-    fprintf(stderr,
+    qerror(
+        "  -q: quiet mode: print no informational or error messages\n");
+    qerror(
         "  -r directory: use directory as a repository of dependency kexts\n");
-    fprintf(stderr,
+    qerror(
         "  -s directory: write symbol files for all kexts into directory\n");
-    fprintf(stderr, "  -t: perform all possible tests and print a report on "
+    qerror("  -t: perform all possible tests and print a report on "
         "the extension\n");
-    fprintf(stderr, "  -v: verbose mode; print info about load process\n");
-    fprintf(stderr,
+    qerror("  -v: verbose mode; print info about load process\n");
+    qerror(
         "  -x: run in safe boot mode (only qualified kexts will load)\n");
-    fprintf(stderr,
+    qerror(
         "  -z: don't authenticate kexts (for use during development)\n");
-    fprintf(stderr,
+    qerror(
         "  -Z: don't check dependencies when diagnosing with -nt\n");
-    fprintf(stderr,
+    qerror(
         "  --: end of options\n");
 
     return;
-}
-
-/*******************************************************************************
-* createXMLDataForNonsecureKextload()
-*******************************************************************************/
-static CFDataRef createXMLDataForNonsecureKextload(
-    int argc,
-    const char ** argv,
-    const char * kext_path)
-{
-    char * working_dir = NULL;  // must free
-    CFDataRef xmlData = NULL;    // returned, caller must release
-    CFMutableDictionaryRef dataDictionary = NULL;  // must release
-    CFDataRef dataValue = NULL;  // scratch value, must release
-    CFStringRef dataKey = NULL;  // scratch key, must release
-    CFMutableArrayRef argvArray = NULL;  // must release
-    int i;
-
-    dataDictionary = CFDictionaryCreateMutable(
-        kCFAllocatorDefault, 0,
-        &kCFTypeDictionaryKeyCallBacks,
-        &kCFTypeDictionaryValueCallBacks);
-    if (!dataDictionary) {
-        goto finish;
-    }
-
-    argvArray = CFArrayCreateMutable(kCFAllocatorDefault, 0,
-        &kCFTypeArrayCallBacks);
-    if (!argvArray) {
-        goto finish;
-    }
-
-   /* Add the working directory for kextload to the dictionary.
-    */
-    working_dir = getcwd(NULL, 0);
-    if (!working_dir) {
-        goto finish;
-    }
-
-    dataValue = CFDataCreate(kCFAllocatorDefault, working_dir,
-        1 + strlen(working_dir));
-    if (!dataValue) {
-        goto finish;
-    }
-
-    CFDictionarySetValue(dataDictionary, CFSTR("workingDir"),
-        dataValue);
-    CFRelease(dataValue);
-    dataValue = NULL;
-
-   /* Add the path to kextload as argv[0].
-    */
-    dataValue = CFDataCreate(kCFAllocatorDefault, "/sbin/kextload",
-        1 + strlen("/sbin/kextload"));
-    if (!dataValue) {
-        goto finish;
-    }
-    CFArrayAppendValue(argvArray, dataValue);
-    CFRelease(dataValue);
-    dataValue = NULL;
-
-   /* Add the command line options used for this kextload invocation.
-    */
-    for (i = 1 /* skip slot 0! */; i < argc; i++) {
-        if (!strcmp(argv[i], "-b")) {
-            i++;  // skip -b and its arg
-            continue;
-        }
-        dataValue = CFDataCreate(kCFAllocatorDefault, argv[i],
-            1 + strlen(argv[i]));
-        if (!dataValue) {
-            goto finish;
-        }
-        CFArrayAppendValue(argvArray, dataValue);
-        CFRelease(dataValue);
-        dataValue = NULL;
-    }
-
-   /* Add the kext to load.
-    */
-    dataValue = CFDataCreate(kCFAllocatorDefault, kext_path,
-        1 + strlen(kext_path));
-    if (!dataValue) {
-        goto finish;
-    }
-    CFArrayAppendValue(argvArray, dataValue);
-    CFRelease(dataValue);
-    dataValue = NULL;
-
-    CFDictionarySetValue(dataDictionary, CFSTR("argv"),
-        argvArray);
-    CFRelease(argvArray);
-    argvArray = NULL;
-
-   /* Roll up the XML data.
-    */
-    xmlData = CFPropertyListCreateXMLData(kCFAllocatorDefault,
-         dataDictionary);
-    if (!xmlData) {
-        goto finish;
-    }
-
-finish:
-
-     if (working_dir)     free(working_dir);
-     if (dataDictionary)  CFRelease(dataDictionary);
-     if (dataValue)       CFRelease(dataValue);
-     if (dataKey)         CFRelease(dataKey);
-     if (argvArray)       CFRelease(argvArray);
-
-    return xmlData;
-}
-
-/*******************************************************************************
-*
-*******************************************************************************/
-KXKextManagerError _KXKextRaiseSecurityAlert(KXKextRef aKext, uid_t euid, AuthorizationRef auth_ref)
-{
-    KXKextManagerError result = kKXKextManagerErrorNone;
-    CFMutableDictionaryRef alertDict = NULL;  // must release (reused)
-    CFMutableArrayRef alertMessageArray = NULL; // must release (reused)
-    CFURLRef iokitFrameworkBundleURL = NULL;  // must release
-    CFUserNotificationRef securityNotification = NULL; // must release
-    CFUserNotificationRef failureNotification = NULL; // must release
-    SInt32 userNotificationError = 0;
-    CFOptionFlags response = 0;
-    int userNotificationResult = 0;
-    uid_t real_euid = geteuid();
-
-#ifdef NO_CFUserNotification
-
-    result = kKXKextManagerErrorUnspecified;
-    goto finish;
-
-#else
-
-    alertDict = CFDictionaryCreateMutable(
-        kCFAllocatorDefault, 0,
-        &kCFTypeDictionaryKeyCallBacks,
-        &kCFTypeDictionaryValueCallBacks);
-    if (!alertDict) {
-        result = kKXKextManagerErrorUnspecified;
-        goto finish;
-    }
-
-    iokitFrameworkBundleURL = CFURLCreateWithFileSystemPath(
-        kCFAllocatorDefault,
-        CFSTR("/System/Library/Frameworks/IOKit.framework"),
-        kCFURLPOSIXPathStyle, true);
-    if (!iokitFrameworkBundleURL) {
-        result = kKXKextManagerErrorUnspecified;
-        goto finish;
-    }
-
-    alertMessageArray = CFArrayCreateMutable(kCFAllocatorDefault, 0,
-        &kCFTypeArrayCallBacks);
-    if (!alertMessageArray) {
-        result = kKXKextManagerErrorUnspecified;
-        goto finish;
-    }
-
-   /* This is the localized format string for the alert message.
-    */
-    CFArrayAppendValue(alertMessageArray,
-        CFSTR("The file \""));
-    CFArrayAppendValue(alertMessageArray, KXKextGetBundleDirectoryName(aKext));
-    CFArrayAppendValue(alertMessageArray,
-        CFSTR("\" has problems that may reduce the security of "
-            "your computer. You should contact the manufacturer of the "
-            "product you are using for a new version. If you are sure the "
-            "file is OK, you can allow the application to use it, or fix "
-            "it and then use it. If you click Don't Use, any other files "
-            "that depend on this file will not be used."));
-
-    CFDictionarySetValue(alertDict, kCFUserNotificationLocalizationURLKey,
-        iokitFrameworkBundleURL);
-    CFDictionarySetValue(alertDict, kCFUserNotificationAlertHeaderKey,
-        CFSTR("The program you are using needs to use a system file that may "
-              "reduce the security of your computer."));
-    CFDictionarySetValue(alertDict, kCFUserNotificationDefaultButtonTitleKey,
-        CFSTR("Don't Use"));
-    CFDictionarySetValue(alertDict, kCFUserNotificationAlternateButtonTitleKey,
-        CFSTR("Fix and Use"));
-    CFDictionarySetValue(alertDict, kCFUserNotificationOtherButtonTitleKey,
-        CFSTR("Use"));
-    CFDictionarySetValue(alertDict, kCFUserNotificationAlertMessageKey,
-        alertMessageArray);
-    CFRelease(alertMessageArray);
-    alertMessageArray = NULL;
-
-    securityNotification = CFUserNotificationCreate(kCFAllocatorDefault,
-        0 /* time interval */, kCFUserNotificationCautionAlertLevel,
-        &userNotificationError, alertDict);
-    if (!securityNotification) {
-        fprintf(stderr, 
-            "error creating user notification (%d)\n", userNotificationError);
-        result = kKXKextManagerErrorUnspecified;
-        goto finish;
-    }
-    userNotificationResult = CFUserNotificationReceiveResponse(
-        securityNotification, 0, &response);
-
-    if (userNotificationResult != 0) {
-        fprintf(stderr, 
-            "can't ask user to allow load of nonsecure kext\n");
-        result = kKXKextManagerErrorIPC;
-        goto finish;
-    }
-
-    if (response == kCFUserNotificationDefaultResponse) {
-        // The default response is to not load the kext.
-        result = kKXKextManagerErrorUserAbort;
-        goto finish;
-    } else if (response == kCFUserNotificationAlternateResponse ||
-               response == kCFUserNotificationOtherResponse) {
-
-        AuthorizationItem fixkextright = { "system.kext.make_secure", 0,
-            NULL, 0 };
-        const AuthorizationItemSet fixkextrightset = { 1, &fixkextright };
-        int flags = kAuthorizationFlagExtendRights |
-            kAuthorizationFlagInteractionAllowed;
-        OSStatus auth_result = errAuthorizationSuccess;
-
-        if (seteuid(euid) != 0) {
-            fprintf(stderr, "call to seteuid() failed\n");
-            result = kKXKextManagerErrorUnspecified;
-            goto finish;
-        }
-
-        auth_result = AuthorizationCopyRights(auth_ref, &fixkextrightset, NULL, flags, NULL);
-        
-        seteuid(real_euid);
-
-        if (auth_result != errAuthorizationSuccess) {
-            result = kKXKextManagerErrorUserAbort;
-            goto finish;
-        }
-
-        KXKextManagerRequalifyKext(KXKextGetManager(aKext), aKext);
-
-        if (response == kCFUserNotificationAlternateResponse) {
-            result = _KXKextMakeSecure(aKext);
-
-           /* If the kext couldn't be made secure (presumably because it's on
-            * a read-only or closed network filesystem) then inform the user
-            * and mark it authentic so it will be loaded anyway.
-            */
-            if (result == kKXKextManagerErrorFileAccess) {
-                result = kKXKextManagerErrorNone;
-                KXKextMarkAuthentic(aKext);
-
-                alertDict = CFDictionaryCreateMutable(
-                    kCFAllocatorDefault, 0,
-                    &kCFTypeDictionaryKeyCallBacks,
-                    &kCFTypeDictionaryValueCallBacks);
-                if (!alertDict) {
-                    result = kKXKextManagerErrorUnspecified;
-                    goto finish;
-                }
-
-                alertMessageArray = CFArrayCreateMutable(kCFAllocatorDefault, 0,
-                    &kCFTypeArrayCallBacks);
-                if (!alertMessageArray) {
-                    result = kKXKextManagerErrorUnspecified;
-                    goto finish;
-                }
-
-               /* This is the localized format string for the alert message.
-                */
-                CFArrayAppendValue(alertMessageArray,
-                    CFSTR("The file \""));
-                CFArrayAppendValue(alertMessageArray,
-                    KXKextGetBundleDirectoryName(aKext));
-                CFArrayAppendValue(alertMessageArray,
-                    CFSTR("\" could not be fixed, but it will be used anyway."));
-                CFDictionarySetValue(alertDict, kCFUserNotificationLocalizationURLKey,
-                    iokitFrameworkBundleURL);
-                CFDictionarySetValue(alertDict, kCFUserNotificationAlertHeaderKey,
-                    CFSTR("File Access Error"));
-                CFDictionarySetValue(alertDict, kCFUserNotificationDefaultButtonTitleKey,
-                    CFSTR("OK"));
-                CFDictionarySetValue(alertDict, kCFUserNotificationAlertMessageKey,
-                    alertMessageArray);
-                CFRelease(alertMessageArray);
-                alertMessageArray = NULL;
-
-                failureNotification = CFUserNotificationCreate(kCFAllocatorDefault,
-                    0 /* time interval */, kCFUserNotificationCautionAlertLevel,
-                    &userNotificationError, alertDict);
-
-                if (!failureNotification) {
-                    fprintf(stderr, 
-                        "error creating user notification (%d)\n", userNotificationError);
-                    result = kKXKextManagerErrorUnspecified;
-                    goto finish;
-                }
-                userNotificationResult = CFUserNotificationReceiveResponse(
-                    failureNotification, 0, &response);
-
-                if (userNotificationResult != 0) {
-                    fprintf(stderr,
-                        "couldn't get response to failure notification\n");
-                    result = kKXKextManagerErrorIPC;
-                    goto finish;
-                }
-            }
-            goto finish;
-        } else if (response == kCFUserNotificationOtherResponse) {
-            KXKextMarkAuthentic(aKext);
-            goto finish;
-        }
-    }
-
-#endif /* NO_CFUserNotification */
-
-finish:
-    if (alertDict)               CFRelease(alertDict);
-    if (alertMessageArray)       CFRelease(alertMessageArray);
-    if (securityNotification)    CFRelease(securityNotification);
-    if (failureNotification)     CFRelease(failureNotification);
-    if (iokitFrameworkBundleURL) CFRelease(iokitFrameworkBundleURL);
-
-    return result;
 }

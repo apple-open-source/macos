@@ -52,6 +52,7 @@ enum {
 	kNoHint						= 0
 };
 
+
 //
 // Misc constants
 //
@@ -678,6 +679,7 @@ typedef struct SGlob {
 	int				chkLevel;
 	int             repairLevel;
 	Boolean			scanAgain;	//	used to force another scan of the volume (max of 2 scans)
+	Boolean			minorRepairErrors;	// indicates some minor repairs failed
 	int				canWrite;  	// we can safely write to the block device
 	int				lostAndFoundMode;  // used when creating lost+found directory
 	BTScanState		scanState;
@@ -793,8 +795,9 @@ enum {
 	M_Rescan	               	= 20,
 	M_Look		               	= 21,
 	M_OtherWriters		       	= 22,
+	M_CaseSensitive		       	= 23,
 
-	M_LastMessage               = 22
+	M_LastMessage               = 23
 };
 
 /*------------------------------------------------------------------------------
@@ -991,11 +994,13 @@ extern void 	GetVolumeObjectPrimaryBlockNum( UInt64 * theBlockNumPtr );
 extern OSErr	GetVolumeObjectAlternateMDB( BlockDescriptor * theBlockDescPtr );
 extern OSErr 	GetVolumeObjectPrimaryMDB( BlockDescriptor * theBlockDescPtr );
 extern OSErr 	GetVolumeObjectVHBorMDB( BlockDescriptor * theBlockDescPtr );
+extern void 	PrintName( int theCount, const UInt8 *theNamePtr, Boolean isUnicodeString );
 extern void 	PrintVolumeObject( void );
 extern Boolean 	VolumeObjectIsHFSPlus( void );
 extern Boolean 	VolumeObjectIsHFS( void );
 extern Boolean 	VolumeObjectIsEmbeddedHFSPlus( void );
 extern Boolean 	VolumeObjectIsPureHFSPlus( void );
+
 
 extern	void	InvalidateCalculatedVolumeBitMap( SGlobPtr GPtr );
 
@@ -1203,6 +1208,9 @@ CompareCatalogKeys				(HFSCatalogKey *		searchKey,
 EXTERN_API_C( SInt32 )
 CompareExtendedCatalogKeys		(HFSPlusCatalogKey *	searchKey,
 								 HFSPlusCatalogKey *	trialKey);
+EXTERN_API_C( SInt32 )
+CaseSensitiveCatalogKeyCompare (HFSPlusCatalogKey * searchKey,
+                                HFSPlusCatalogKey * trialKey);
 
 EXTERN_API_C( SInt32 )
 CompareExtentKeys				(const HFSExtentKey *	searchKey,

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE jboss PUBLIC "-//JBoss//DTD JBOSS 3.0//EN" "http://www.jboss.org/j2ee/dtd/jboss_3_0.dtd">
+
+<jboss>
+   <enterprise-beans>
+      <entity>
+         <ejb-name>PathologicalEJB</ejb-name>
+         <configuration-name>Pathological Container Configuration</configuration-name>
+      </entity>
+   </enterprise-beans>
+
+   <container-configurations>
+      <container-configuration extends="Standard BMP EntityBean">
+         <container-name>Pathological Container Configuration</container-name>
+         <commit-option>C</commit-option>
+      </container-configuration>
+   </container-configurations>
+</jboss>

@@ -1,0 +1,19 @@
+#!/usr/bin/perl
+
+use strict;
+
+use constant VERSION3_3 => '3.3';
+
+sub toint {
+    my $str = shift;
+    my $vers = 0;
+    my @pieces = split(/\./, $str);
+    for(my $i = 0; $i < 3; $i++) {
+	$vers = 1000 * $vers + $pieces[$i];
+    }
+    return($vers);
+}
+
+my $info = `cc -v 2>&1`;
+my($version) = $info =~ /gcc\s+version\s+(\S+)/;
+printf "%s\n", (toint($version) >= toint(VERSION3_3) ? 'YES' : 'NO');

@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -28,7 +26,14 @@
  * above and their r_type is RELOC_VANILLA.  The rest of the relocation types
  * are for instructions.  Since they are for instructions the r_address field
  * indicates the 32 bit instruction that the relocation is to be preformed on.
- * The fields r_pcrel and r_length are ignored for non-RELOC_VANILLA r_types.
+ * The fields r_pcrel and r_length are ignored for non-RELOC_VANILLA r_types
+ * except for PPC_RELOC_BR14.
+ *
+ * For PPC_RELOC_BR14 if the r_length is the unused value 3, then the branch was
+ * statically predicted setting or clearing the Y-bit based on the sign of the
+ * displacement or the opcode.  If this is the case the static linker must flip
+ * the value of the Y-bit if the sign of the displacement changes for non-branch
+ * always conditions.
  */
 enum reloc_type_ppc
 {
@@ -46,12 +51,13 @@ enum reloc_type_ppc
 			 */
     PPC_RELOC_LO14,	/* Same as the LO16 except that the low 2 bits are not
 			 * stored in the instruction and are always zero.  This
-			 * is used for in double word load/store instructons.
+			 * is used in double word load/store instructions.
 			 */
     PPC_RELOC_SECTDIFF,	/* a PAIR follows with subtract symbol value */
     PPC_RELOC_PB_LA_PTR,/* prebound lazy pointer */
     PPC_RELOC_HI16_SECTDIFF, /* section difference forms of above.  a PAIR */
     PPC_RELOC_LO16_SECTDIFF, /* follows these with subtract symbol value */
     PPC_RELOC_HA16_SECTDIFF,
-    PPC_RELOC_JBSR
+    PPC_RELOC_JBSR,
+    PPC_RELOC_LO14_SECTDIFF
 };

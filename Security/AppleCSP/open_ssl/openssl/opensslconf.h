@@ -54,8 +54,6 @@ extern "C" {
 #define NO_MD5 		1
 #define NO_RIPEMD 	1
 #define NO_DES 		1
-#define NO_BF 		1
-#define NO_CAST 	1
 #define NO_IDEA 	1
 #define NO_MDC2		1
 
@@ -77,8 +75,12 @@ typedef uint32 RC4_INT;
 #undef RC4_INDEX
 
 typedef uint32 RC5_32_INT;
-
 typedef uint32 MD2_INT;
+
+#if defined(HEADER_BF_LOCL_H) && !defined(CONFIG_HEADER_BF_LOCL_H)
+#define CONFIG_HEADER_BF_LOCL_H
+#define BF_PTR
+#endif /* HEADER_BF_LOCL_H */
 
 /*
  * FIXME - this could certainly use some tweaking

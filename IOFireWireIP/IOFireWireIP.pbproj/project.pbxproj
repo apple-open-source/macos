@@ -1,0 +1,898 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		06AA1264FFB2107B11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		06AA1265FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		06AA1266FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		06AA1267FFB2110C11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+//060
+//061
+//062
+//063
+//064
+//080
+//081
+//082
+//083
+//084
+		089C1669FE841209C02AAC07 = {
+			buildStyles = (
+				06AA1265FFB2107B11CA28AA,
+				06AA1266FFB2107B11CA28AA,
+				4DBB84E103A1856100CE20D6,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = 089C166AFE841209C02AAC07;
+			projectDirPath = "";
+			targets = (
+				F51F429A036DAA9201CD2883,
+				089C1673FE841209C02AAC07,
+			);
+		};
+		089C166AFE841209C02AAC07 = {
+			children = (
+				247142CAFF3F8F9811CA285C,
+				089C167CFE841241C02AAC07,
+				19C28FB6FE9D52B211CA2CBB,
+			);
+			isa = PBXGroup;
+			name = IOFireWireIP;
+			refType = 4;
+		};
+		089C1673FE841209C02AAC07 = {
+			buildPhases = (
+				06AA1267FFB2110C11CA28AA,
+				089C1674FE841209C02AAC07,
+				089C1675FE841209C02AAC07,
+				089C1676FE841209C02AAC07,
+				089C1677FE841209C02AAC07,
+				089C1679FE841209C02AAC07,
+				06AA1264FFB2107B11CA28AA,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALLHDRS_COPY_PHASE = "\U0001YES";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOFireWireIP;
+				MODULE_VERSION = 1.2.0;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "\U0001";
+				OTHER_REZFLAGS = "\U0001";
+				PRODUCT_NAME = "\U0001IOFireWireIP";
+				SECTORDER_FLAGS = "\U0001";
+				WARNING_CFLAGS = "\U0001-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = "\U0001kext";
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = IOFireWireIP;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = IOFireWireIP;
+			productReference = 0B81C263FFB7832611CA28AA;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IOFireWireIP</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.iokit.IOFireWireIP</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.2.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.2.0</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>IOFireWireIP</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOFireWireIP</string>
+			<key>IOClass</key>
+			<string>IOFireWireIP</string>
+			<key>IOMatchCategory</key>
+			<string>IOFireWireIPMatchCategory</string>
+			<key>IOProviderClass</key>
+			<string>IOFireWireLocalNode</string>
+		</dict>
+		<key>IOFireWireIPUnit</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOFireWireIP</string>
+			<key>IOClass</key>
+			<string>IOFireWireIPUnit</string>
+			<key>IOProbeScore</key>
+			<integer>4096</integer>
+			<key>IOProviderClass</key>
+			<string>IOFireWireUnit</string>
+			<key>Unit_SW_Version</key>
+			<integer>1</integer>
+			<key>Unit_Spec_ID</key>
+			<integer>94</integer>
+		</dict>
+		<key>IOFireWireIPv6Unit</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOFireWireIP</string>
+			<key>IOClass</key>
+			<string>IOFireWireIPUnit</string>
+			<key>IOProbeScore</key>
+			<integer>4096</integer>
+			<key>IOProviderClass</key>
+			<string>IOFireWireUnit</string>
+			<key>Unit_SW_Version</key>
+			<integer>2</integer>
+			<key>Unit_Spec_ID</key>
+			<integer>94</integer>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.iokit.IOFireWireFamily</key>
+		<string>1.1</string>
+		<key>com.apple.iokit.IONetworkingFamily</key>
+		<string>1.1</string>
+	</dict>
+</dict>
+</plist>
+";
+		};
+		089C1674FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				B1E92A0B040ED80200CD2883,
+				B1E92A0C040ED80200CD2883,
+				B1E92A0E040ED80200CD2883,
+				B1E92A0F040ED80200CD2883,
+				B1E92A10040ED80200CD2883,
+				B1E92A12040ED80200CD2883,
+				B1E92A15040ED80200CD2883,
+				B1E92A16040ED80200CD2883,
+				B1E92A18040ED80200CD2883,
+				B1E92A19040ED80200CD2883,
+				B1E92A1A040ED80200CD2883,
+				B5833A0F043D065000565698,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1675FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				089C1680FE841241C02AAC07,
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1676FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				B1E92A31040ED80D00CD2883,
+				B1E92A32040ED80D00CD2883,
+				B1E92A33040ED80D00CD2883,
+				B1E92A36040ED80D00CD2883,
+				B1E92A37040ED80D00CD2883,
+				B1E92A38040ED80D00CD2883,
+				B1E92A3A040ED80D00CD2883,
+				B1E92A3D040ED80D00CD2883,
+				B1E92A3F040ED80D00CD2883,
+				B1E92A40040ED80D00CD2883,
+				B59371A50410259B00CD2883,
+				B5833A0E043D064B00565698,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1677FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1679FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C167CFE841241C02AAC07 = {
+			children = (
+				089C167DFE841241C02AAC07,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			refType = 4;
+		};
+		089C167DFE841241C02AAC07 = {
+			children = (
+				089C167EFE841241C02AAC07,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			refType = 4;
+		};
+		089C167EFE841241C02AAC07 = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			name = English;
+			path = English.lproj/InfoPlist.strings;
+			refType = 4;
+		};
+		089C1680FE841241C02AAC07 = {
+			fileRef = 089C167DFE841241C02AAC07;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//080
+//081
+//082
+//083
+//084
+//0B0
+//0B1
+//0B2
+//0B3
+//0B4
+		0B81C263FFB7832611CA28AA = {
+			isa = PBXBundleReference;
+			path = IOFireWireIP.kext;
+			refType = 3;
+		};
+//0B0
+//0B1
+//0B2
+//0B3
+//0B4
+//190
+//191
+//192
+//193
+//194
+		19C28FB6FE9D52B211CA2CBB = {
+			children = (
+				0B81C263FFB7832611CA28AA,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+//190
+//191
+//192
+//193
+//194
+//240
+//241
+//242
+//243
+//244
+		247142CAFF3F8F9811CA285C = {
+			children = (
+				B1E929F0040ED7E700CD2883,
+				F51F4264036DA8B301CD2883,
+				B1E929F3040ED80200CD2883,
+				B1E92A1B040ED80D00CD2883,
+			);
+			isa = PBXGroup;
+			name = Source;
+			path = "";
+			refType = 4;
+		};
+//240
+//241
+//242
+//243
+//244
+//4D0
+//4D1
+//4D2
+//4D3
+//4D4
+		4DBB84E103A1856100CE20D6 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
+			};
+			isa = PBXBuildStyle;
+			name = FireLog;
+		};
+//4D0
+//4D1
+//4D2
+//4D3
+//4D4
+//B10
+//B11
+//B12
+//B13
+//B14
+		B1E929F0040ED7E700CD2883 = {
+			children = (
+				B1E929F1040ED7E700CD2883,
+			);
+			isa = PBXGroup;
+			path = CommonHeaders;
+			refType = 2;
+		};
+		B1E929F1040ED7E700CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOFireWireIPUserClientCommon.h;
+			refType = 4;
+		};
+		B1E929F3040ED80200CD2883 = {
+			children = (
+				B1E929F5040ED80200CD2883,
+				B1E929F9040ED80200CD2883,
+				B1E92A04040ED80200CD2883,
+			);
+			isa = PBXGroup;
+			path = KernelHeaders;
+			refType = 4;
+		};
+		B1E929F5040ED80200CD2883 = {
+			children = (
+				B1E929F7040ED80200CD2883,
+				B1E929F8040ED80200CD2883,
+			);
+			isa = PBXGroup;
+			path = BSD;
+			refType = 4;
+		};
+		B1E929F7040ED80200CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = firewire.h;
+			refType = 4;
+		};
+		B1E929F8040ED80200CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = if_firewire.h;
+			refType = 4;
+		};
+		B1E929F9040ED80200CD2883 = {
+			children = (
+				B1E929FB040ED80200CD2883,
+				B1E929FC040ED80200CD2883,
+				B1E929FD040ED80200CD2883,
+				B1E929FE040ED80200CD2883,
+				B1E929FF040ED80200CD2883,
+				B1E92A00040ED80200CD2883,
+				B1E92A01040ED80200CD2883,
+				B1E92A02040ED80200CD2883,
+				B1E92A03040ED80200CD2883,
+				F5DF0B9C043926CC01CD2883,
+			);
+			isa = PBXGroup;
+			path = IOKit;
+			refType = 4;
+		};
+		B1E929FB040ED80200CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOFireWireIP.h;
+			refType = 4;
+		};
+		B1E929FC040ED80200CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOFireWireIPCommand.h;
+			refType = 4;
+		};
+		B1E929FD040ED80200CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOFireWireIPUnit.h;
+			refType = 4;
+		};
+		B1E929FE040ED80200CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOFireWireIPUserClient.h;
+			refType = 4;
+		};
+		B1E929FF040ED80200CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOFWAsyncStreamRxCommand.h;
+			refType = 4;
+		};
+		B1E92A00040ED80200CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOFWEthernetShim.h;
+			refType = 4;
+		};
+		B1E92A01040ED80200CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOFWIPEventSource.h;
+			refType = 4;
+		};
+		B1E92A02040ED80200CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOIPPort.h;
+			refType = 4;
+		};
+		B1E92A03040ED80200CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = ip_firewire.h;
+			refType = 4;
+		};
+		B1E92A04040ED80200CD2883 = {
+			children = (
+				B1E92A06040ED80200CD2883,
+				B1E92A07040ED80200CD2883,
+				B1E92A08040ED80200CD2883,
+			);
+			isa = PBXGroup;
+			path = IONetworkingFamily;
+			refType = 4;
+		};
+		B1E92A06040ED80200CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOFWController.h;
+			refType = 4;
+		};
+		B1E92A07040ED80200CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOFWInterface.h;
+			refType = 4;
+		};
+		B1E92A08040ED80200CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOFWStats.h;
+			refType = 4;
+		};
+		B1E92A0B040ED80200CD2883 = {
+			fileRef = B1E929F7040ED80200CD2883;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B1E92A0C040ED80200CD2883 = {
+			fileRef = B1E929F8040ED80200CD2883;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B1E92A0E040ED80200CD2883 = {
+			fileRef = B1E929FB040ED80200CD2883;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B1E92A0F040ED80200CD2883 = {
+			fileRef = B1E929FC040ED80200CD2883;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B1E92A10040ED80200CD2883 = {
+			fileRef = B1E929FD040ED80200CD2883;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B1E92A12040ED80200CD2883 = {
+			fileRef = B1E929FF040ED80200CD2883;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B1E92A15040ED80200CD2883 = {
+			fileRef = B1E92A02040ED80200CD2883;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B1E92A16040ED80200CD2883 = {
+			fileRef = B1E92A03040ED80200CD2883;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B1E92A18040ED80200CD2883 = {
+			fileRef = B1E92A06040ED80200CD2883;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B1E92A19040ED80200CD2883 = {
+			fileRef = B1E92A07040ED80200CD2883;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B1E92A1A040ED80200CD2883 = {
+			fileRef = B1E92A08040ED80200CD2883;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B1E92A1B040ED80D00CD2883 = {
+			children = (
+				B1E92A1C040ED80D00CD2883,
+				B1E92A22040ED80D00CD2883,
+				B1E92A2C040ED80D00CD2883,
+			);
+			isa = PBXGroup;
+			path = KernelSource;
+			refType = 4;
+		};
+		B1E92A1C040ED80D00CD2883 = {
+			children = (
+				B1E92A1E040ED80D00CD2883,
+				B1E92A20040ED80D00CD2883,
+				B1E92A1F040ED80D00CD2883,
+				B5E2FD9D040F053500CD2883,
+				B1E92A21040ED80D00CD2883,
+			);
+			isa = PBXGroup;
+			path = BSD;
+			refType = 4;
+		};
+		B1E92A1E040ED80D00CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = firewire_if_module.cpp;
+			refType = 4;
+		};
+		B1E92A1F040ED80D00CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = firewire_inet_pr_module.cpp;
+			refType = 4;
+		};
+		B1E92A20040ED80D00CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = if_firewire.cpp;
+			refType = 4;
+		};
+		B1E92A21040ED80D00CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = if_firewiresubr.cpp;
+			refType = 4;
+		};
+		B1E92A22040ED80D00CD2883 = {
+			children = (
+				B1E92A24040ED80D00CD2883,
+				B1E92A25040ED80D00CD2883,
+				B1E92A26040ED80D00CD2883,
+				B1E92A27040ED80D00CD2883,
+				B1E92A28040ED80D00CD2883,
+				B1E92A29040ED80D00CD2883,
+				B1E92A2A040ED80D00CD2883,
+				B1E92A2B040ED80D00CD2883,
+				F5DF0B9B043926B601CD2883,
+			);
+			isa = PBXGroup;
+			path = IOKit;
+			refType = 4;
+		};
+		B1E92A24040ED80D00CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOFireWireIP.cpp;
+			refType = 4;
+		};
+		B1E92A25040ED80D00CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOFireWireIPCommand.cpp;
+			refType = 4;
+		};
+		B1E92A26040ED80D00CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOFireWireIPUnit.cpp;
+			refType = 4;
+		};
+		B1E92A27040ED80D00CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOFireWireIPUserClient.cpp;
+			refType = 4;
+		};
+		B1E92A28040ED80D00CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOFWAsyncStreamRxCommand.cpp;
+			refType = 4;
+		};
+		B1E92A29040ED80D00CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOFWEthernetShim.cpp;
+			refType = 4;
+		};
+		B1E92A2A040ED80D00CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOFWIPEventSource.cpp;
+			refType = 4;
+		};
+		B1E92A2B040ED80D00CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOIPPort.cpp;
+			refType = 4;
+		};
+		B1E92A2C040ED80D00CD2883 = {
+			children = (
+				B1E92A2E040ED80D00CD2883,
+				B1E92A2F040ED80D00CD2883,
+			);
+			isa = PBXGroup;
+			path = IONetworkingFamily;
+			refType = 4;
+		};
+		B1E92A2E040ED80D00CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOFWController.cpp;
+			refType = 4;
+		};
+		B1E92A2F040ED80D00CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOFWInterface.cpp;
+			refType = 4;
+		};
+		B1E92A31040ED80D00CD2883 = {
+			fileRef = B1E92A1E040ED80D00CD2883;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B1E92A32040ED80D00CD2883 = {
+			fileRef = B1E92A1F040ED80D00CD2883;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B1E92A33040ED80D00CD2883 = {
+			fileRef = B1E92A20040ED80D00CD2883;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B1E92A36040ED80D00CD2883 = {
+			fileRef = B1E92A24040ED80D00CD2883;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B1E92A37040ED80D00CD2883 = {
+			fileRef = B1E92A25040ED80D00CD2883;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B1E92A38040ED80D00CD2883 = {
+			fileRef = B1E92A26040ED80D00CD2883;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B1E92A3A040ED80D00CD2883 = {
+			fileRef = B1E92A28040ED80D00CD2883;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B1E92A3D040ED80D00CD2883 = {
+			fileRef = B1E92A2B040ED80D00CD2883;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B1E92A3F040ED80D00CD2883 = {
+			fileRef = B1E92A2E040ED80D00CD2883;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B1E92A40040ED80D00CD2883 = {
+			fileRef = B1E92A2F040ED80D00CD2883;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//B10
+//B11
+//B12
+//B13
+//B14
+//B50
+//B51
+//B52
+//B53
+//B54
+		B5833A0E043D064B00565698 = {
+			fileRef = F5DF0B9B043926B601CD2883;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B5833A0F043D065000565698 = {
+			fileRef = F5DF0B9C043926CC01CD2883;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B59371A50410259B00CD2883 = {
+			fileRef = B5E2FD9D040F053500CD2883;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		B5E2FD9D040F053500CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = firewire_inet6_pr_module.c;
+			refType = 4;
+		};
+//B50
+//B51
+//B52
+//B53
+//B54
+//F50
+//F51
+//F52
+//F53
+//F54
+		F51F4264036DA8B301CD2883 = {
+			children = (
+				F51F4265036DA8B301CD2883,
+				F51F4266036DA8B301CD2883,
+				F51F4267036DA8B301CD2883,
+				F59B0B17036DB7D901CD2883,
+				F59B0DCE036DB7F301CD2883,
+			);
+			isa = PBXGroup;
+			name = IOFireWireIP.plugin;
+			path = IOFireWireIPLib;
+			refType = 4;
+		};
+		F51F4265036DA8B301CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOFireWireIPLib.h;
+			refType = 4;
+		};
+		F51F4266036DA8B301CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOFireWireIPLibUnit.cpp;
+			refType = 4;
+		};
+		F51F4267036DA8B301CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOFireWireIPLibUnit.h;
+			refType = 4;
+		};
+		F51F429A036DAA9201CD2883 = {
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = All;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				F598D7530405781F01CD2883,
+			);
+			isa = PBXAggregateTarget;
+			name = All;
+			productName = All;
+		};
+		F598D7530405781F01CD2883 = {
+			isa = PBXTargetDependency;
+			target = 089C1673FE841209C02AAC07;
+		};
+		F59B0B17036DB7D901CD2883 = {
+			isa = PBXFrameworkReference;
+			name = IOKit.framework;
+			path = /System/Library/Frameworks/IOKit.framework;
+			refType = 0;
+		};
+		F59B0DCE036DB7F301CD2883 = {
+			isa = PBXFrameworkReference;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+		};
+		F5DF0B9B043926B601CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOFireWireIPDiagnostics.cpp;
+			refType = 4;
+		};
+		F5DF0B9C043926CC01CD2883 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = IOFireWireIPDiagnostics.h;
+			refType = 4;
+		};
+	};
+	rootObject = 089C1669FE841209C02AAC07;
+}

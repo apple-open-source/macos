@@ -36,7 +36,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-NEXTSTEP_PB_CFLAGS = -traditional-cpp
+NEXTSTEP_PB_CFLAGS = -no-cpp-precomp
 
 
 NEXTSTEP_BUILD_OUTPUT_DIR = /tmp/BUILD

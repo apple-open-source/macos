@@ -1,0 +1,28 @@
+package id1kabfcz90wf51cz90ya4k;
+
+/**
+@version 2.0
+@physicalPackage
+@__modelType diagram 
+*/
+class diagram {
+/**
+@__ref <oiref:design#Class#id2tcnbcz90wf51cz90ya9u.diagram:oiref><oihard>
+@__modelType reference
+@__fqn <oiref:#Package#org.jboss:oiref> 
+*/
+class reference {
+}}/**
+@__tags
+@shapeType ClassDiagram 
+*/
+class __tags {
+}/**
+@__options 
+*/
+class __options {
+}/**
+@__positions 
+*/
+class __positions {
+}

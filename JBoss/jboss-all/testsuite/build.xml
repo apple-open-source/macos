@@ -1,0 +1,5226 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE project [
+   <!ENTITY buildmagic SYSTEM "../tools/etc/buildmagic/buildmagic.ent">
+   <!ENTITY mqstress SYSTEM "mqstress.xml">
+]>
+
+<!-- ====================================================================== -->
+<!--                                                                        -->
+<!--  JBoss, the OpenSource J2EE webOS                                      -->
+<!--                                                                        -->
+<!--  Distributable under LGPL license.                                     -->
+<!--  See terms of license at http://www.gnu.org.                           -->
+<!--                                                                        -->
+<!-- ====================================================================== -->
+
+<!-- $Id: build.xml,v 1.165.2.85 2003/07/21 23:58:37 starksm Exp $ -->
+
+<project default="main" name="JBoss/Testsuite">
+
+  <!-- ================================================================== -->
+  <!-- Setup                                                              -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Include the common Buildmagic elements.
+     |
+     | This defines several different targets, properties and paths.
+     | It also sets up the basic extention tasks amoung other things.
+   -->
+
+  &buildmagic;
+
+
+  <!-- ================================================================== -->
+  <!-- Initialization                                                     -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Initialize the build system.  Must depend on '_buildmagic:init'.
+     | Other targets should depend on 'init' or things will mysteriously fail.
+   -->
+
+  <target name="init" depends="_buildmagic:init">
+    <tstamp>
+       <format property="TIMENOW" pattern="yyyy-MM-dd.HH-mm" timezone="GMT"/>
+    </tstamp>
+    <echo message="${TIMENOW}" file="run.tstamp" />
+    <echo message="Set timestamp to: ${TIMENOW}" />
+  </target>
+
+
+  <property name="results_web" value="http://jboss.sourceforge.net//junit-results/32"/>
+
+  <!-- ================================================================== -->
+  <!-- Configuration                                                      -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Configure the build system.
+     |
+     | This target is invoked by the Buildmagic initialization logic and
+     | should contain module specific configuration elements.
+   -->
+
+  <target name="configure" unless="configure.disable">
+    <!-- Give user a chance to override without editing this file
+       (and without typing -D each time they run it) -->
+    <property file=".ant.properties" />
+
+    <!-- =================== -->
+    <!-- Basic Configuration -->
+    <!-- =================== -->
+
+    <!-- Module name(s) & version -->
+    <property name="module.name" value="testsuite"/>
+    <property name="module.Name" value="JBoss Testsuite"/>
+    <property name="module.version" value="DEV"/>
+
+    <!-- ========= -->
+    <!-- Libraries -->
+    <!-- ========= -->
+
+    <!-- Java Cryptography Extension (JCE) -->
+    <property name="sun.jce.root" value="${project.thirdparty}/sun/jce"/>
+    <property name="sun.jce.lib" value="${sun.jce.root}/lib"/>
+    <path id="sun.jce.classpath">
+      <pathelement path="${sun.jce.lib}/jce1_2_1.jar"/>
+    </path>
+
+    <!-- Java Secure Sockets Extension (JSSE) -->
+    <property name="sun.jsse.root" value="${project.thirdparty}/sun/jsse"/>
+    <property name="sun.jsse.lib" value="${sun.jsse.root}/lib"/>
+    <path id="sun.jsse.classpath">
+      <pathelement path="${sun.jsse.lib}/jcert.jar"/>
+      <pathelement path="${sun.jsse.lib}/jnet.jar"/>
+      <pathelement path="${sun.jsse.lib}/jsse.jar"/>
+    </path>
+
+    <!-- JavaMail -->
+    <property name="sun.javamail.root" value="${project.thirdparty}/sun/javamail"/>
+    <property name="sun.javamail.lib" value="${sun.javamail.root}/lib"/>
+    <path id="sun.javamail.classpath">
+      <pathelement path="${sun.javamail.lib}/mail.jar"/>
+    </path>
+
+    <!-- Java Servlets -->
+    <property name="sun.servlet.root" value="${project.thirdparty}/sun/servlet"/>
+    <property name="sun.servlet.lib" value="${sun.servlet.root}/lib"/>
+    <path id="sun.servlet.classpath">
+      <pathelement path="${sun.servlet.lib}/servlet.jar"/>
+    </path>
+
+    <!-- Apache Crimson (XML/DOM) -->
+    <property name="apache.crimson.root" value="${project.thirdparty}/apache/crimson"/>
+    <property name="apache.crimson.lib" value="${apache.crimson.root}/lib"/>
+    <path id="apache.crimson.classpath">
+      <pathelement path="${apache.crimson.lib}/crimson.jar"/>
+    </path>
+
+    <!-- Apache Commons -->
+    <property name="apache.commons.root" value="${project.thirdparty}/apache/commons"/>
+    <property name="apache.commons.lib" value="${apache.commons.root}/lib"/>
+    <path id="apache.commons.classpath">
+      <pathelement path="${apache.commons.lib}/commons-collections.jar"/>
+      <pathelement path="${apache.commons.lib}/commons-logging.jar"/>
+    </path>
+
+    <!-- Log4j -->
+    <property name="apache.log4j.root" value="${project.thirdparty}/apache/log4j"/>
+    <property name="apache.log4j.lib" value="${apache.log4j.root}/lib"/>
+    <path id="apache.log4j.classpath">
+      <pathelement path="${apache.log4j.lib}/log4j.jar"/>
+    </path>
+
+    <!-- EDU.oswego.cs.dl.util.concurrent -->
+    <property name="oswego.concurrent.root" value="${project.thirdparty}/oswego/concurrent"/>
+    <property name="oswego.concurrent.lib" value="${oswego.concurrent.root}/lib"/>
+    <path id="oswego.concurrent.classpath">
+      <pathelement path="${oswego.concurrent.lib}/concurrent.jar"/>
+    </path>
+
+    <!-- JacORB -->
+    <property name="jacorb.jacorb.root" value="${project.thirdparty}/jacorb/jacorb"/>
+    <property name="jacorb.jacorb.lib" value="${jacorb.jacorb.root}/lib"/>
+    <path id="jacorb.jacorb.classpath">
+      <pathelement path="${jacorb.jacorb.lib}/jacorb.jar"/>
+    </path>
+
+    <!-- JUnit -->
+    <property name="junit.junit.root" value="${project.thirdparty}/junit/junit"/>
+    <property name="junit.junit.lib" value="${junit.junit.root}/lib"/>
+    <path id="junit.junit.classpath">
+      <pathelement path="${junit.junit.lib}/junit.jar"/>
+    </path>
+
+    <!-- GNU Regexp -->
+    <property name="gnu.regexp.root" value="${project.thirdparty}/gnu/regexp"/>
+    <property name="gnu.regexp.lib" value="${gnu.regexp.root}/lib"/>
+    <path id="gnu.regexp.classpath">
+      <pathelement path="${gnu.regexp.lib}/gnu-regexp.jar"/>
+    </path>
+
+    <!-- JUnitEJB -->
+    <property name="junitejb.junitejb.root"
+       value="${project.thirdparty}/junitejb/junitejb"/>
+    <property name="junitejb.junitejb.lib"
+       value="${junitejb.junitejb.root}/lib"/>
+    <path id="junitejb.junitejb.classpath">
+      <pathelement path="${junitejb.junitejb.lib}/junitejb.jar"/>
+    </path>
+
+    <!-- BCEL -->
+    <property name="apache.bcel.root" value="${project.thirdparty}/apache/bcel"/>
+    <property name="apache.bcel.lib" value="${apache.bcel.root}/lib"/>
+    <path id="apache.bcel.classpath">
+      <pathelement path="${apache.bcel.lib}/bcel.jar"/>
+    </path>
+
+    <!-- Hypersonic -->
+    <property name="hsqldb.root" value="${project.thirdparty}/hsqldb/hsqldb"/>
+    <property name="hsqldb.lib" value="${hsqldb.root}/lib"/>
+    <path id="hsqldb.classpath">
+      <pathelement path="${hsqldb.lib}/hsqldb.jar"/>
+    </path>
+
+    <!-- The combined library classpath -->
+    <path id="library.classpath">
+      <path refid="sun.jce.classpath"/>
+      <path refid="sun.jsse.classpath"/>
+      <path refid="sun.javamail.classpath"/>
+      <path refid="sun.servlet.classpath"/>
+      <path refid="apache.crimson.classpath"/>
+      <path refid="apache.commons.classpath"/>
+      <path refid="apache.log4j.classpath"/>
+      <path refid="oswego.concurrent.classpath"/>
+      <path refid="jacorb.jacorb.classpath"/>
+      <path refid="junit.junit.classpath"/>
+      <path refid="junitejb.junitejb.classpath"/>
+
+      <!-- needed for JBossMQ selector tests -->
+      <path refid="gnu.regexp.classpath"/>
+
+      <!-- needed for proxy tests -->
+      <path refid="apache.bcel.classpath"/>
+      <!-- needed for security login module tests -->
+      <path refid="hsqldb.classpath"/>
+    </path>
+
+    <!-- ======= -->
+    <!-- Modules -->
+    <!-- ======= -->
+
+    <!-- J2EE -->
+    <property name="jboss.j2ee.root" value="${project.root}/j2ee/output"/>
+    <property name="jboss.j2ee.lib" value="${jboss.j2ee.root}/lib"/>
+    <path id="jboss.j2ee.classpath">
+      <pathelement path="${jboss.j2ee.lib}/jboss-j2ee.jar"/>
+    </path>
+
+    <!-- Common -->
+    <property name="jboss.common.root" value="${project.root}/common/output"/>
+    <property name="jboss.common.lib" value="${jboss.common.root}/lib"/>
+    <path id="jboss.common.classpath">
+      <pathelement path="${jboss.common.lib}/jboss-common.jar"/>
+      <pathelement path="${jboss.common.lib}/testsuite-support.jar"/>
+    </path>
+
+    <!-- System -->
+    <property name="jboss.system.root" value="${project.root}/system/output"/>
+    <property name="jboss.system.lib" value="${jboss.system.root}/lib"/>
+    <path id="jboss.system.classpath">
+      <pathelement path="${jboss.system.lib}/testsuite-support.jar"/>
+    </path>
+
+    <!-- Naming -->
+    <property name="jboss.naming.root" value="${project.root}/naming/output"/>
+    <property name="jboss.naming.lib" value="${jboss.naming.root}/lib"/>
+    <path id="jboss.naming.classpath">
+      <pathelement path="${jboss.naming.lib}/jnpserver.jar"/>
+    </path>
+
+    <!-- Server -->
+    <property name="jboss.server.root" value="${project.root}/server/output"/>
+    <property name="jboss.server.lib" value="${jboss.server.root}/lib"/>
+    <path id="jboss.server.classpath">
+      <pathelement path="${jboss.server.lib}/jboss-client.jar"/>
+      <pathelement path="${jboss.server.lib}/jmx-invoker-adaptor-client.jar"/>
+      <pathelement path="${jboss.server.lib}/jmx-rmi-connector-client.jar"/>
+      <pathelement path="${jboss.server.lib}/testsuite-support.jar"/>
+    </path>
+
+    <!-- InternalServer -->
+<!-- This could be a mistake.  Perhaps, though, it would be a good idea to separate
+tests that need internal jboss classes from those that don't.  When I put it in, only
+the jca XATxConnectionManagerUnitTestCase needed an internal class (the tx manager)-->
+    <property name="jboss.internal-server.root" value="${project.root}/server/output"/>
+    <property name="jboss.internal-server.lib" value="${jboss.internal-server.root}/lib"/>
+    <path id="jboss.internal-server.classpath">
+      <pathelement path="${jboss.server.lib}/jboss.jar"/>
+      <pathelement path="${jboss.server.lib}/jboss-system.jar"/>
+    </path>
+
+    <!-- Messaging -->
+    <property name="jboss.messaging.root" value="${project.root}/messaging/output"/>
+    <property name="jboss.messaging.lib" value="${jboss.messaging.root}/lib"/>
+    <path id="jboss.messaging.classpath">
+      <pathelement path="${jboss.messaging.lib}/jbossmq-client.jar"/>
+    </path>
+
+    <!-- Security -->
+    <property name="jboss.security.root" value="${project.root}/security/output"/>
+    <property name="jboss.security.lib" value="${jboss.security.root}/lib"/>
+    <path id="jboss.security.classpath">
+      <pathelement path="${jboss.security.lib}/jbosssx-client.jar"/>
+      <pathelement path="${jboss.security.lib}/jbosssx.jar"/>
+      <pathelement path="${jboss.security.lib}/jboss-jaas.jar"/>
+    </path>
+
+    <!-- Connector -->
+    <property name="jboss.connector.root" value="${project.root}/connector/output"/>
+    <property name="jboss.connector.lib" value="${jboss.connector.root}/lib"/>
+    <path id="jboss.connector.classpath">
+      <pathelement path="${jboss.connector.lib}/jboss-jca.sar"/>
+      <pathelement path="${jboss.connector.lib}/jboss-local-jdbc.jar"/>
+      <pathelement path="${jboss.connector.lib}/jboss-common-jdbc-wrapper.jar"/>
+    </path>
+
+     <!-- Cluster -->
+     <property name="jboss.cluster.root" value="${project.root}/cluster/output"/>
+     <property name="jboss.cluster.lib" value="${jboss.cluster.root}/lib"/>
+     <path id="jboss.cluster.classpath">
+       <pathelement path="${jboss.cluster.lib}/jbossha-client.jar"/>
+     </path>
+     <path id="jboss.cluster.all.classpath">
+       <pathelement path="${jboss.cluster.lib}/jbossha.jar"/>
+     </path>
+     
+     <!-- Transaction -->
+     <property name="jboss.transaction.root" value="${project.root}/transaction/output"/>
+     <property name="jboss.transaction.lib" value="${jboss.transaction.root}/lib"/>
+     <path id="jboss.transaction.classpath">
+       <pathelement path="${jboss.transaction.lib}/testsuite-support.jar"/>
+     </path>
+
+     <!-- JBossMX -->
+     <property name="jboss.jmx.root" value="${project.root}/jmx/output"/>
+     <property name="jboss.jmx.lib" value="${jboss.jmx.root}/lib"/>
+     <path id="jboss.jmx.classpath">
+       <pathelement path="${jboss.jmx.lib}/jboss-jmx.jar"/>
+       <pathelement path="${jboss.server.lib}/jboss.jar"/>
+     </path>
+
+    <!-- Management -->
+    <property name="jboss.management.root" value="${project.root}/management/output"/>
+    <property name="jboss.management.lib" value="${jboss.management.root}/lib"/>
+    <path id="jboss.management.classpath">
+      <pathelement path="${jboss.management.lib}/jboss-jsr77-client.jar"/>
+      <pathelement path="${jboss.management.lib}/jboss-management.jar"/>
+    </path>
+
+    <!-- IIOP -->
+    <property name="jboss.iiop.root" value="${project.root}/iiop/output"/>
+    <property name="jboss.iiop.lib" value="${jboss.iiop.root}/lib"/>
+    <path id="jboss.iiop.classpath">
+      <pathelement path="${jboss.iiop.lib}/jboss-iiop-client.jar"/>
+    </path>
+
+    <!-- Varia -->
+    <property name="jboss.varia.root" value="${project.root}/varia/output"/>
+    <property name="jboss.varia.lib" value="${jboss.varia.root}/lib"/>
+    <path id="jboss.varia.classpath">
+      <pathelement path="${jboss.varia.lib}/autonumber-plugin.jar"/>
+      <pathelement path="${jboss.varia.lib}/scheduler-plugin.jar"/>
+    </path>
+
+    <!-- The combined dependant module classpath -->
+    <path id="dependentmodule.classpath">
+      <path refid="jboss.j2ee.classpath"/>
+      <path refid="jboss.common.classpath"/>
+      <path refid="jboss.system.classpath"/>
+      <path refid="jboss.naming.classpath"/>
+      <path refid="jboss.server.classpath"/>
+      <path refid="jboss.internal-server.classpath"/>
+      <path refid="jboss.messaging.classpath"/>
+      <path refid="jboss.security.classpath"/>
+      <path refid="jboss.connector.classpath"/>
+      <path refid="jboss.cluster.classpath"/>
+      <path refid="jboss.cluster.all.classpath"/>
+      <path refid="jboss.management.classpath"/>
+      <path refid="jboss.transaction.classpath"/>
+      <path refid="jboss.varia.classpath"/>
+    </path>
+
+    <!-- ===== -->
+    <!-- Tasks -->
+    <!-- ===== -->
+
+    <!-- Where source files live -->
+    <property name="source.java" value="${module.source}/main"/>
+    <property name="source.etc" value="${module.source}/etc"/>
+    <property name="source.docs" value="${module.source}/docs"/>
+    <property name="source.resources" value="${module.source}/resources"/>
+    <property name="source.stylesheets" value="${module.source}/stylesheets"/>
+
+    <!-- Where build generated files will go -->
+    <property name="build.classes" value="${module.output}/classes"/>
+    <property name="build.lib" value="${module.output}/lib"/>
+    <property name="build.api" value="${module.output}/api"/>
+    <property name="build.etc" value="${module.output}/etc"/>
+    <property name="build.docs" value="${module.output}/docs"/>
+    <property name="build.resources" value="${module.output}/resources"/>
+    <property name="build.stylesheets" value="${module.output}/stylesheets"/>
+    <property name="build.reports" value="${module.output}/reports"/>
+    <property name="build.testlog" value="${module.output}/log"/>
+
+    <!--xdoclet output directories-->
+    <property name="build.gen-src" value="${module.output}/gen-src/"/>
+    <!-- put ejb-jar.xml and other resources into build.resources-->
+
+    <!-- Install/Release structure -->
+    <property name="install.id" value="${module.name}-${module.version}"/>
+    <property name="release.id" value="${install.id}"/>
+    <property name="install.root" value="${module.output}/${install.id}"/>
+
+    <!-- The combined thirdparty classpath -->
+    <path id="thirdparty.classpath">
+      <path refid="library.classpath"/>
+      <path refid="dependentmodule.classpath"/>
+    </path>
+
+    <!-- This module is based on Java 1.2 -->
+    <property name="javac.target" value="1.2"/>
+
+    <!-- RMIC should generate stubs compatible with Java 1.2+ -->
+    <property name="rmic.stubVersion" value="1.2"/>
+
+    <!-- classpath and local.classpath must have a value using with a path -->
+    <property name="classpath" value=""/>
+    <property name="local.classpath" value=""/>
+
+    <!-- Classpath to build and run the tests -->
+    <path id="tests.classpath">
+      <pathelement path="${classpath}"/>
+      <pathelement path="${local.classpath}"/>
+      <pathelement path="${project.tools}/lib/ant.jar"/>
+      <pathelement path="${project.tools}/lib/junit.jar"/>
+      <pathelement path="${project.tools}/lib/optional.jar"/>
+      <path refid="jboss.jmx.classpath"/>
+      <path refid="thirdparty.classpath"/>
+    </path>
+
+    <!-- The classpath required to build javadocs. -->
+    <path id="javadoc.classpath">
+      <path refid="tests.classpath"/>
+    </path>
+
+    <!-- Packages to include when generating api documentation -->
+    <property name="javadoc.packages" value="org.jboss.*"/>
+
+    <!-- Override JUnit defaults -->
+    <property name="junit.timeout" value="180000"/> <!-- 3 minutes -->
+    <property name="jbosstest.iterationcount" value="10"/>
+    <property name="jbosstest.threadcount" value="5"/>
+    <property name="jbosstest.beancount" value="5"/>
+    <property name="jbosstest.nodeploy" value="false"/>
+    <property name="junit.batchtest.todir" value="${build.reports}"/>
+    <property name="junit.jvm.options" value="-Ddummy"/>
+    <!-- Override JUnit Marathon defaults -->
+    <property name="marathon.timeout" value="3900000"/> <!-- 65 minutes -->
+    <property name="marathon.duration" value="3600000"/> <!-- 60 minutes -->
+    <property name="marathon.threadcount" value="100"/>
+    <echo><![CDATA[
+junit.timeout:              ${junit.timeout}
+jbosstest.iterationcount:   ${jbosstest.iterationcount}
+jbosstest.threadcount:      ${jbosstest.threadcount}
+jbosstest.beancount:        ${jbosstest.beancount}
+marathon.timeout:           ${marathon.timeout}
+marathon.duration:          ${marathon.duration}
+marathon.threadcount:       ${marathon.threadcount}
+]]></echo>
+
+    <!-- xdoclet -->
+    <path id="xdoclet.task.classpath">
+      <path refid="tests.classpath"/>
+      <fileset dir="${project.thirdparty}/xdoclet/xdoclet/lib">
+        <include name="**/*.jar"/>
+      </fileset>
+    </path>
+    <property name="xdoclet.task.classpath"
+	      refid="xdoclet.task.classpath"/>
+
+    <property name="xdoclet.mergedir" value="${project.tools}/etc/xdoclet/templates}"/>
+
+    <!-- Setup the version 1 classes so the tests compile -->
+    <mkdir dir="${build.gen-src}/org/jboss/test/cts/interfaces" />
+    <copy tofile="${build.gen-src}/org/jboss/test/cts/interfaces/CtsCmp2Local.java"
+      file="${source.java}/org/jboss/test/cts/interfaces/CtsCmp2Local_V1.txt"
+      overwrite="false" />
+    <mkdir dir="${build.gen-src}/org/jboss/test/classloader/scoping/singleton" />
+    <copy tofile="${build.gen-src}/org/jboss/test/classloader/scoping/singleton/MySingleton.java"
+      file="${source.java}/org/jboss/test/classloader/scoping/singleton/MySingleton_V1.txt"
+      overwrite="false" />
+
+  </target>
+
+
+  <!-- ================================================================== -->
+  <!-- Compile                                                            -->
+  <!-- ================================================================== -->
+
+  <!--
+     |  Compile everything.
+     |
+     |  This target should depend on other compile-* targets for each
+     |  different type of compile that needs to be performed, short of
+     |  documentation compiles.
+    -->
+  <target name="compile"
+	  depends="compile-classes, compile-xmbean-dds,  compile-etc, compile-stylesheets, compile-resources"
+	  description="Compile all source files."/>
+
+  <!-- Compile EJB beans with XDoclet -->
+  <target name="compile-bean-sources" depends="init" unless="noxdoclet">
+	<taskdef name="ejbdoclet" classname="xdoclet.modules.ejb.EjbDocletTask" classpathref="xdoclet.task.classpath"/>
+
+    <mkdir dir="${build.gen-src}"/>
+
+<!--ejbconf-->
+    <mkdir dir="${build.resources}/ejb-conf/readonly/META-INF"/>
+    <ejbdoclet destdir="${build.gen-src}"
+	     ejbspec="2.0"
+	     excludedtags="@version,@author"
+             mergedir="${source.resources}/ejb-conf/readonly">
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/ejbconf/beans/**/*Bean.java"/>
+      </fileset>
+      <packageSubstitution packages="ejb" substituteWith="interfaces"/>
+      <remoteinterface/>
+      <localinterface/>
+      <homeinterface/>
+      <localhomeinterface/>
+      <!--session/-->
+      <deploymentdescriptor xmlencoding ="UTF-8"
+			    destdir="${build.resources}/ejbconf/readonly/META-INF"/>
+      <jboss xmlencoding="UTF-8"
+             version="3.0"
+	     destdir="${build.resources}/ejbconf/readonly/META-INF"
+             mergedir="${source.resources}/ejbconf/readonly/"
+             Datasource="java:/DefaultDS"
+             Typemapping="Hypersonic SQL"
+             />
+    </ejbdoclet>
+
+<!--eardeployment, SessionA-->
+    <mkdir dir="${build.resources}/jmx/eardeployment/a/META-INF"/>
+    <ejbdoclet destdir="${build.gen-src}"
+	     ejbspec="2.0"
+	     excludedtags="@version,@author"
+             mergedir="${source.resources}/eardeployment/a">
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/jmx/eardeployment/a/ejb/*Bean.java"/>
+      </fileset>
+      <packageSubstitution packages="ejb" substituteWith="interfaces"/>
+      <remoteinterface/>
+      <localinterface/>
+      <homeinterface/>
+      <localhomeinterface/>
+      <!--session/-->
+      <deploymentdescriptor xmlencoding ="UTF-8"
+			    destdir="${build.resources}/jmx/eardeployment/a/META-INF"/>
+      <jboss xmlencoding="UTF-8"
+             version="3.0"
+	     destdir="${build.resources}/jmx/eardeployment/a/META-INF"
+             mergedir="${source.resources}/jmx/eardeployment/a/"/>
+    </ejbdoclet>
+
+<!--eardeployment, SessionB-->
+    <mkdir dir="${build.resources}/jmx/eardeployment/b/META-INF"/>
+    <ejbdoclet destdir="${build.gen-src}"
+	     ejbspec="2.0"
+	     excludedtags="@version,@author"
+             mergedir="${source.resources}/eardeployment/b">
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/jmx/eardeployment/b/ejb/*Bean.java"/>
+      </fileset>
+      <packageSubstitution packages="ejb" substituteWith="interfaces"/>
+      <remoteinterface/>
+      <localinterface/>
+      <homeinterface/>
+      <localhomeinterface/>
+      <!--session/-->
+      <deploymentdescriptor xmlencoding ="UTF-8"
+			    destdir="${build.resources}/jmx/eardeployment/b/META-INF"/>
+      <jboss xmlencoding="UTF-8"
+             version="3.0"
+	     destdir="${build.resources}/jmx/eardeployment/b/META-INF"
+             mergedir="${source.resources}/jmx/eardeployment/b/"/>
+    </ejbdoclet>
+
+    <!-- cmr written after post create -->
+    <mkdir dir="${build.resources}/cmp2/cmr/META-INF"/>
+    <ejbdoclet destdir="${build.gen-src}"
+	     ejbspec="2.0"
+	     excludedtags="@version,@author"
+             mergedir="${source.resources}/cmp2/cmr">
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/cmp2/cmr/ejb/*Bean.java"/>
+      </fileset>
+      <packageSubstitution packages="ejb" substituteWith="interfaces"/>
+      <remoteinterface/>
+      <localinterface/>
+      <homeinterface/>
+      <localhomeinterface/>
+      <!--session/-->
+      <deploymentdescriptor xmlencoding ="UTF-8"
+			    destdir="${build.resources}/cmp2/cmr/META-INF"/>
+      <jboss xmlencoding="UTF-8"
+             version="3.0"
+	     destdir="${build.resources}/cmp2/cmr/META-INF"
+             mergedir="${source.resources}/cmp2/cmr/"
+             Datasource="java:/DefaultDS"
+             Typemapping="Hypersonic SQL"/>
+    </ejbdoclet>
+
+    <!-- cmp2 passivation integrity test -->
+    <mkdir dir="${build.resources}/cmp2/passivation/META-INF"/>
+    <ejbdoclet destdir="${build.gen-src}"
+	     ejbspec="2.0"
+	     excludedtags="@version,@author"
+             mergedir="${source.resources}/cmp2/passivation">
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/cmp2/passivation/ejb/*Bean.java"/>
+      </fileset>
+      <packageSubstitution packages="ejb" substituteWith="interfaces"/>
+      <remoteinterface/>
+      <localinterface/>
+      <homeinterface/>
+      <localhomeinterface/>
+      <deploymentdescriptor
+         destdir="${build.resources}/cmp2/passivation/META-INF"
+         validatexml="${validatexml}"/>
+      <jboss
+         version="3.2"
+         xmlencoding="UTF-8"
+         destdir="${build.resources}/cmp2/passivation/META-INF"
+         validatexml="${validatexml}"
+         mergedir="${source.resources}/cmp2/passivation"/>
+    </ejbdoclet>
+
+    <!-- optimistic lock test -->
+    <mkdir dir="${build.resources}/cmp2/optimisticlock/META-INF"/>
+    <ejbdoclet destdir="${build.gen-src}"
+	     ejbspec="2.0"
+	     excludedtags="@version,@author"
+             mergedir="${source.resources}/cmp2/optimisticlock">
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/cmp2/optimisticlock/ejb/*Bean.java"/>
+      </fileset>
+      <packageSubstitution packages="ejb" substituteWith="interfaces"/>
+      <remoteinterface/>
+      <localinterface/>
+      <homeinterface/>
+      <localhomeinterface/>
+    </ejbdoclet>
+
+    <!-- foreign key mapping tests -->
+    <mkdir dir="${build.resources}/cmp2/fkmapping/META-INF"/>
+    <ejbdoclet destdir="${build.gen-src}"
+	     ejbspec="2.0"
+	     excludedtags="@version,@author"
+             mergedir="${source.etc}/cmp2/fkmapping">
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/cmp2/fkmapping/ejb/*Bean.java"/>
+      </fileset>
+      <remoteinterface/>
+      <localinterface/>
+      <homeinterface/>
+      <localhomeinterface/>
+      <entitypk/>
+      <utilobject cacheHomes="true" includeGUID="false"/>
+      <entitycmp/>
+      <session/>
+      <deploymentdescriptor
+         destdir="${build.resources}/cmp2/fkmapping/META-INF"
+         validatexml="${validatexml}"/>
+      <jboss
+         version="3.2"
+         xmlencoding="UTF-8"
+         destdir="${build.resources}/cmp2/fkmapping/META-INF"
+         validatexml="${validatexml}"/>
+    </ejbdoclet>
+
+    <!-- foreign key mapping stack overflow error tests -->
+    <mkdir dir="${build.resources}/cmp2/fkstackoverflow/META-INF"/>
+    <ejbdoclet destdir="${build.gen-src}"
+	     ejbspec="2.0"
+	     excludedtags="@version,@author"
+             mergedir="${source.etc}/cmp2/fkstackoverflow">
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/cmp2/fkstackoverflow/ejb/*Bean.java"/>
+      </fileset>
+      <remoteinterface/>
+      <localinterface/>
+      <homeinterface/>
+      <localhomeinterface/>
+      <entitypk/>
+      <utilobject cacheHomes="true" includeGUID="false"/>
+      <entitycmp/>
+      <session/>
+      <deploymentdescriptor
+         destdir="${build.resources}/cmp2/fkstackoverflow/META-INF"
+         validatexml="${validatexml}"/>
+      <jboss
+         version="3.2"
+         xmlencoding="UTF-8"
+         destdir="${build.resources}/cmp2/fkstackoverflow/META-INF"
+         validatexml="${validatexml}"/>
+    </ejbdoclet>
+
+    <!-- updates of foreign keys mapped to cmp fields -->
+    <mkdir dir="${build.resources}/cmp2/fkupdates/META-INF"/>
+    <ejbdoclet destdir="${build.gen-src}"
+	     ejbspec="2.0"
+	     excludedtags="@version,@author"
+             mergedir="${source.etc}/cmp2/fkupdates">
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/cmp2/fkupdates/ejb/*Bean.java"/>
+      </fileset>
+      <remoteinterface/>
+      <localinterface/>
+      <homeinterface/>
+      <localhomeinterface/>
+      <entitypk/>
+      <utilobject cacheHomes="true" includeGUID="false"/>
+      <entitycmp/>
+      <session/>
+      <deploymentdescriptor
+         destdir="${build.resources}/cmp2/fkupdates/META-INF"
+         validatexml="${validatexml}"/>
+      <jboss
+         version="3.2"
+         xmlencoding="UTF-8"
+         destdir="${build.resources}/cmp2/fkupdates/META-INF"
+         validatexml="${validatexml}"/>
+    </ejbdoclet>
+
+    <!-- cmp2 relationship stress tests -->
+    <mkdir dir="${build.resources}/cmp2/cmrstress/META-INF"/>
+    <ejbdoclet destdir="${build.gen-src}"
+	     ejbspec="2.0"
+	     excludedtags="@version,@author"
+             mergedir="${source.resources}/cmp2/cmrstress">
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/cmp2/cmrstress/ejb/*Bean.java"/>
+      </fileset>
+      <packageSubstitution packages="ejb" substituteWith="interfaces"/>
+      <remoteinterface/>
+      <localinterface/>
+      <homeinterface/>
+      <localhomeinterface/>
+      <utilobject cacheHomes="true" includeGUID="false" kind="physical" />
+      <deploymentdescriptor xmlencoding ="UTF-8"
+			    destdir="${build.resources}/cmp2/cmrstress/META-INF"/>
+      <jboss xmlencoding="UTF-8"
+             version="3.0"
+	     	 destdir="${build.resources}/cmp2/cmrstress/META-INF"
+             datasource="java:/DefaultDS"
+             datasourceMapping ="Hypersonic SQL"
+             />
+    </ejbdoclet>
+
+<!--undeploy of broken packages-->
+    <mkdir dir="${build.resources}/jmx/undeploy/META-INF"/>
+    <ejbdoclet destdir="${build.gen-src}"
+	     ejbspec="2.0"
+	     excludedtags="@version,@author">
+             <!--mergedir="${source.resources}/jmx/ejb"-->
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/jmx/ejb/Entity*Bean.java"/>
+      </fileset>
+      <packageSubstitution packages="ejb" substituteWith="interfaces"/>
+      <remoteinterface/>
+      <localinterface/>
+      <homeinterface/>
+      <localhomeinterface/>
+      <!--session/-->
+      <deploymentdescriptor xmlencoding ="UTF-8"
+			    destdir="${build.resources}/jmx/undeploy/META-INF"/>
+      <jboss xmlencoding="UTF-8"
+             version="3.0"
+	     destdir="${build.resources}/jmx/undeploy/META-INF"
+             mergedir="${source.resources}/jmx/undeploy/"
+             Datasource="java:/DefaultDS"
+             Typemapping="Hypersonic SQL"
+             />
+    </ejbdoclet>
+
+<!--jca framework tests-->
+    <mkdir dir="${build.resources}/jca/META-INF"/>
+    <ejbdoclet destdir="${build.gen-src}"
+	     ejbspec="2.0"
+	     excludedtags="@version,@author">
+             <!--mergedir="${source.resources}/jca/ejb"-->
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/jca/ejb/*Bean.java"/>
+      </fileset>
+      <packageSubstitution packages="ejb" substituteWith="interfaces"/>
+      <remoteinterface/>
+      <localinterface/>
+      <homeinterface/>
+      <localhomeinterface/>
+      <!--session/-->
+      <deploymentdescriptor xmlencoding ="UTF-8"
+			    destdir="${build.resources}/jca/META-INF"/>
+      <jboss xmlencoding="UTF-8"
+             version="3.0"
+	     destdir="${build.resources}/jca/META-INF"
+             mergedir="${source.resources}/jca/"/>
+    </ejbdoclet>
+
+    <mkdir dir="${build.resources}/jca/bank/META-INF"/>
+    <ejbdoclet destdir="${build.gen-src}"
+	     ejbspec="2.0"
+	     excludedtags="@version,@author">
+             <!--mergedir="${source.resources}/jca/ejb"-->
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/jca/bank/ejb/*Bean.java"/>
+      </fileset>
+      <packageSubstitution packages="ejb" substituteWith="interfaces"/>
+      <remoteinterface/>
+      <localinterface/>
+      <homeinterface/>
+      <localhomeinterface/>
+      <!--session/-->
+      <deploymentdescriptor xmlencoding ="UTF-8"
+			    destdir="${build.resources}/jca/bank/META-INF"/>
+      <jboss xmlencoding="UTF-8"
+             version="3.0"
+	     destdir="${build.resources}/jca/bank/META-INF"
+             mergedir="${source.resources}/jca/bank/"/>
+    </ejbdoclet>
+
+    <mkdir dir="${build.resources}/banknew/META-INF"/>
+    <ejbdoclet destdir="${build.gen-src}"
+	     ejbspec="2.0"
+	     excludedtags="@version,@author">
+             <!--mergedir="${source.resources}/jca/ejb"-->
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/banknew/ejb/*Bean.java"/>
+      </fileset>
+      <packageSubstitution packages="ejb" substituteWith="interfaces"/>
+      <entitycmp cmpspec="2.x"/>
+      <session/>
+      <remoteinterface/>
+<!--      <localinterface/> -->
+      <homeinterface/>
+<!--      <localhomeinterface/> -->
+      <dataobject/>
+      <entitypk/>
+      <!--session/-->
+      <deploymentdescriptor xmlencoding ="UTF-8"
+         destdir="${build.resources}/banknew/META-INF"/>
+      <jboss xmlencoding="UTF-8"
+         version="3.0"
+         destdir="${build.resources}/banknew/META-INF"
+         mergedir="${source.resources}/banknew/"/>
+    </ejbdoclet>
+
+    <!-- Foe-Deployer: Simple Test -->
+    <mkdir dir="${build.resources}/foedeployer/simple/META-INF"/>
+    <ejbdoclet destdir="${build.gen-src}"
+	     ejbspec="2.0"
+	     excludedtags="@version,@author">
+             <!--mergedir="${source.resources}/jca/ejb"-->
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/foedeployer/ejb/simple/*Bean.java"/>
+      </fileset>
+      <remoteinterface/>
+      <localinterface/>
+      <homeinterface/>
+      <localhomeinterface/>
+      <deploymentdescriptor xmlencoding ="UTF-8"
+         destdir="${build.resources}/foedeployer/simple/META-INF"/>
+      <weblogic version="6.1"
+                xmlencoding="UTF-8"
+                destdir="${build.resources}/foedeployer/simple/META-INF"
+                validatexml="true"
+                createtables="True"
+                datasource="java:/DefaultDS"
+                mergedir="${source.resources}/foedeployer/"/>
+       <!-- No JBoss DD generation here because that is what we can to use FoeDeployer for -->
+    </ejbdoclet>
+
+    <!-- Foe-Deployer: Message Test -->
+    <mkdir dir="${build.resources}/foedeployer/message/META-INF"/>
+    <ejbdoclet destdir="${build.gen-src}"
+	     ejbspec="2.0"
+	     excludedtags="@version,@author">
+             <!--mergedir="${source.resources}/jca/ejb"-->
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/foedeployer/ejb/message/*Bean.java"/>
+      </fileset>
+
+      <deploymentdescriptor xmlencoding ="UTF-8"
+         destdir="${build.resources}/foedeployer/message/META-INF"/>
+      <weblogic version="6.1"
+                xmlencoding="UTF-8"
+                destdir="${build.resources}/foedeployer/message/META-INF"
+                validatexml="true"
+                datasource="java:/DefaultDS"
+                mergedir="${source.resources}/foedeployer/"/>
+       <!-- No JBoss DD generation here because that is what we can to use FoeDeployer for -->
+    </ejbdoclet>
+
+    <!-- Foe-Deployer: O2MB Test -->
+    <mkdir dir="${build.resources}/foedeployer/o2mb/META-INF"/>
+    <ejbdoclet destdir="${build.gen-src}"
+	     ejbspec="2.0"
+	     excludedtags="@version,@author">
+             <!--mergedir="${source.resources}/jca/ejb"-->
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/foedeployer/ejb/o2mb/*Bean.java"/>
+      </fileset>
+      <remoteinterface/>
+      <localinterface/>
+      <homeinterface/>
+      <localhomeinterface/>
+      <deploymentdescriptor xmlencoding ="UTF-8"
+         destdir="${build.resources}/foedeployer/o2mb/META-INF"/>
+      <weblogic version="6.1"
+                xmlencoding="UTF-8"
+                destdir="${build.resources}/foedeployer/o2mb/META-INF"
+                validatexml="true"
+                createtables="True"
+                datasource="java:/DefaultDS"
+                mergedir="${source.resources}/foedeployer/"/>
+       <!-- No JBoss DD generation here because that is what we can to use FoeDeployer for -->
+    </ejbdoclet>
+
+    <!-- Foe-Deployer: M2MB Test -->
+    <mkdir dir="${build.resources}/foedeployer/m2mb/META-INF"/>
+    <ejbdoclet destdir="${build.gen-src}"
+	     ejbspec="2.0"
+	     excludedtags="@version,@author">
+             <!--mergedir="${source.resources}/jca/ejb"-->
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/foedeployer/ejb/m2mb/*Bean.java"/>
+      </fileset>
+      <remoteinterface/>
+      <localinterface/>
+      <homeinterface/>
+      <localhomeinterface/>
+      <deploymentdescriptor xmlencoding ="UTF-8"
+         destdir="${build.resources}/foedeployer/m2mb/META-INF"/>
+      <weblogic version="6.1"
+                xmlencoding="UTF-8"
+                destdir="${build.resources}/foedeployer/m2mb/META-INF"
+                validatexml="true"
+                createtables="True"
+                datasource="java:/DefaultDS"
+                mergedir="${source.resources}/foedeployer/"/>
+       <!-- No JBoss DD generation here because that is what we can to use FoeDeployer for -->
+    </ejbdoclet>
+
+    <!-- Foe-Deployer: QL Test -->
+    <mkdir dir="${build.resources}/foedeployer/ql/META-INF"/>
+    <ejbdoclet destdir="${build.gen-src}"
+	     ejbspec="2.0"
+	     excludedtags="@version,@author">
+             <!--mergedir="${source.resources}/jca/ejb"-->
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/foedeployer/ejb/ql/*Bean.java"/>
+      </fileset>
+      <remoteinterface/>
+      <localinterface/>
+      <homeinterface/>
+      <localhomeinterface/>
+      <deploymentdescriptor xmlencoding ="UTF-8"
+         destdir="${build.resources}/foedeployer/ql/META-INF"/>
+      <weblogic version="6.1"
+                xmlencoding="UTF-8"
+                destdir="${build.resources}/foedeployer/ql/META-INF"
+                validatexml="true"
+                createtables="True"
+                datasource="java:/DefaultDS"
+                mergedir="${source.resources}/foedeployer/"/>
+       <!-- No JBoss DD generation here because that is what we can to use FoeDeployer for -->
+    </ejbdoclet>
+
+    <!-- cpmanifest test -->
+    <mkdir dir="${build.resources}/jmx/loading/cpmanifest/META-INF"/>
+    <ejbdoclet destdir="${build.gen-src}"
+        ejbspec="2.0"
+        excludedtags="@version,@author">
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/jmx/loading/ConcreteBean.java"/>
+      </fileset>
+      <packageSubstitution packages="ejb" substituteWith="interfaces"/>
+      <remoteinterface/>
+      <homeinterface/>
+      <!--session/-->
+      <deploymentdescriptor xmlencoding ="UTF-8"
+             destdir="${build.resources}/jmx/loading/cpmanifest/META-INF"/>
+    </ejbdoclet>
+
+    <!-- entity test -->
+    <mkdir dir="${build.resources}/entity/entity/META-INF"/>
+    <ejbdoclet destdir="${build.gen-src}"
+             ejbspec="2.0"
+             excludedtags="@version,@author"
+             mergedir="${source.resources}/entity/entity">
+      <fileset dir="${source.java}">
+         <include name="org/jboss/test/entity/beans/*Bean.java"/>
+       </fileset>
+      <packageSubstitution packages="beans" substituteWith="interfaces"/>
+      <valueobject/>
+      <remoteinterface/>
+      <localinterface/>
+      <homeinterface/>
+      <localhomeinterface/>
+      <entitycmp/>
+      <utilobject kind="physical"/>
+      <deploymentdescriptor xmlencoding="UTF-8"
+                            destdir="${build.resources}/entity/entity/META-INF"/>
+      <jboss xmlencoding="UTF-8"
+             version="3.0"
+             datasource="java:/DefaultDS"
+             typemapping="Hypersonic SQL"
+             destdir="${build.resources}/entity/entity/META-INF"/>
+    </ejbdoclet>
+
+  </target>
+
+  <target name="compile-mbean-sources" depends="init" unless="noxdoclet">
+	<taskdef name="jmxdoclet" classname="xdoclet.modules.jmx.JMXDocletTask" classpathref="xdoclet.task.classpath"/>
+
+    <mkdir dir="${build.gen-src}"/>
+    <jmxdoclet destdir="${build.gen-src}"
+               force="true"
+	       excludedtags="@version,@author">
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/jmx/deployer/*.java"/>
+        <include name="org/jboss/test/jmx/invoker/*.java"/>
+        <include name="org/jboss/test/jmx/mbean/*.java"/>
+        <include name="org/jboss/test/jmx/missingclass/*.java"/>
+      </fileset>
+      <mbeaninterface mergedir="${project.tools}/etc/xdoclet/templates"/>
+      <!--mbeaninterface mergedir="${xdoclet.mergedir}"/-->
+    </jmxdoclet>
+  </target>
+
+  <target name="compile-xmbean-dds" depends="init" unless="noxdoclet">
+	<taskdef name="jmxdoclet" classname="xdoclet.modules.jmx.JMXDocletTask" classpathref="xdoclet.task.classpath"/>
+<echo message="xdoclet.mergedir: ${xdoclet.mergedir}"/>
+    <mkdir dir="${build.resources}/jmx/xmbean"/>
+    <jmxdoclet destdir="${build.resources}/jmx/xmbean"
+               force="true"
+	       excludedtags="@version,@author">
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/jmx/xmbean/*.java"/>
+      </fileset>
+      <jbossxmbean/>
+    </jmxdoclet>
+
+  </target>
+
+  <target name="compile-proxycompiler-bean-sources" depends="init" unless="noxdoclet">
+	<taskdef name="ejbdoclet" classname="xdoclet.modules.ejb.EjbDocletTask" classpathref="xdoclet.task.classpath"/>
+
+    <mkdir dir="${build.gen-src}"/>
+
+    <mkdir dir="${build.resources}/proxycompiler/META-INF"/>
+    <ejbdoclet destdir="${build.gen-src}"
+	     ejbspec="2.0"
+	     excludedtags="@version,@author"
+             mergedir="${source.resources}/proxycompiler">
+      <fileset dir="${source.java}">
+        <include name="org/jboss/test/proxycompiler/beans/**/*Bean.java"/>
+      </fileset>
+      <packageSubstitution packages="ejb" substituteWith="interfaces"/>
+      <remoteinterface/>
+      <localinterface/>
+      <homeinterface/>
+      <localhomeinterface/>
+      <!--session/-->
+      <deploymentdescriptor xmlencoding ="UTF-8"
+			    destdir="${build.resources}/proxycompiler/META-INF"/>
+      <jboss xmlencoding="UTF-8"
+             version="3.0"
+	     destdir="${build.resources}/proxycompiler/META-INF"
+             mergedir="${source.resources}/proxycompiler"/>
+    </ejbdoclet>
+
+  </target>
+
+  <!-- Compile all class files -->
+  <target name="compile-classes" depends="compile-bean-sources, compile-mbean-sources, compile-proxycompiler-bean-sources, compile-classes-only">
+  </target>
+
+  <target name="compile-classes-only" depends="init">
+    <mkdir dir="${build.classes}"/>
+    <javac destdir="${build.classes}"
+           optimize="${javac.optimize}"
+	   target="${javac.target}"
+           debug="${javac.debug}"
+	   depend="${javac.depend}"
+	   verbose="${javac.verbose}"
+	   deprecation="${javac.deprecation}"
+	   includeAntRuntime="${javac.include.ant.runtime}"
+	   includeJavaRuntime="${javac.include.java.runtime}"
+	   failonerror="${javac.fail.onerror}">
+       <src path="${source.java}"/>
+       <src path="${build.gen-src}"/>
+       <classpath refid="tests.classpath"/>
+       <include name="${javac.includes}"/>
+       <exclude name="${javac.excludes}"/>
+    </javac>
+  </target>
+
+  <!-- Compile resource files -->
+  <target name="compile-resources" depends="init">
+    <mkdir dir="${build.resources}"/>
+    <copy todir="${build.resources}" filtering="no">
+      <fileset dir="${source.resources}">
+         <include name="**/*"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <!-- Compile stylesheets files -->
+  <target name="compile-stylesheets" depends="init">
+    <mkdir dir="${build.stylesheets}"/>
+    <copy todir="${build.stylesheets}" filtering="yes">
+      <fileset dir="${source.stylesheets}">
+         <include name="**/*"/>
+      </fileset>
+    </copy>
+  </target>
+
+  <!-- Compile etc files (manifests and such) -->
+  <target name="compile-etc" depends="init">
+    <mkdir dir="${build.etc}"/>
+    <copy todir="${build.etc}" filtering="yes">
+      <fileset dir="${source.etc}">
+         <include name="**/*"/>
+      </fileset>
+    </copy>
+  </target>
+
+
+
+  <!-- ================================================================== -->
+  <!-- Archives                                                           -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Build all jar files.
+   -->
+
+  <target name="jars" description="Builds all jar files."
+	  depends="compile,
+                   _jars-bank,
+                   _jars-bank-new,
+                   _jars-bmp,
+                   _jars-cts,
+                   _jars-entityexc,
+                   _jars-hello,
+                   _jars-idgen,
+                   _jars-dbtest,
+                   _jars-jmsra,
+                   _jars-mdb,
+                   _jars-lock,
+                   _jars-readahead,
+                   _jars-xa,
+                   _jars-jca,
+                   _jars-jmx,
+                   _jars-naming,
+                   _jars-jbossmq,
+                   _jars-load,
+                   _jars-jrmp,
+                   _jars-invokers,
+                   _jars-threading,
+                   _jars-deadlock,
+                   _jars-pooled,
+                   _jars-testbean,
+                   _jars-testbeancluster,
+                   _jars-perf,
+                   _jars-web,
+                   _jars-bench,
+                   _jars-security,
+                   _jars-exception,
+                   _jars-cmp2,
+                   _jars-jsr77,
+                   _jars-foedeployer,
+                   _jars-jbossmx,
+                   _jars-ejbconf,
+                   _jars-proxycompiler,
+                   _jars-helloiiop,
+                   _jars-bankiiop,
+                   _jars-hellojrmpiiop,
+                   _jars-excepiiop,
+                   _jars-marathon,
+                   _jars-entity,
+                   _jars-classloader,
+                   _jars-tm,
+                   _jars-util">
+  </target>
+
+  <!--
+     | These targets are meant to be invoked from the 'jars' target.  They
+     | do not depend on 'compile' to avoid recursing over those tasks over
+     | and over.
+     |
+     | If you really want to run these outside of 'jars', then besure that
+     | the 'compile' targets has be run or you are bound to run into lots of
+     | errors.
+   -->
+
+  <patternset id="common.test.client.classes">
+    <include name="org/jboss/test/util/**"/>
+  </patternset>
+
+  <patternset id="common.test.application.classes">
+    <include name="org/jboss/test/util/ejb/**"/>
+  </patternset>
+
+  <!-- bank test -->
+  <target name="_jars-bank">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build banktest.jar -->
+    <jar jarfile="${build.lib}/banktest.jar"
+	 manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.client.classes"/>
+        <include name="org/jboss/test/bank/interfaces/**"/>
+        <include name="org/jboss/test/bank/test/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/bank">
+        <include name="*.*"/>
+      </fileset>
+    </jar>
+
+    <!-- build bank.jar -->
+    <jar jarfile="${build.lib}/bank.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/bank/interfaces/**"/>
+        <include name="org/jboss/test/bank/ejb/**"/>
+        <include name="org/jboss/test/bank/beans/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/bank/ejb11">
+        <include name="**/*.xml"/>
+      </fileset>
+    </jar>
+
+    <!-- build bank.jar -->
+    <jar jarfile="${build.lib}/bank-ejb20.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/bank/interfaces/**"/>
+        <include name="org/jboss/test/bank/ejb/**"/>
+        <include name="org/jboss/test/bank/beans/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/bank/ejb20">
+        <include name="**/*.xml"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- bank-new test -->
+  <target name="_jars-bank-new">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build banknewtest.jar -->
+    <jar jarfile="${build.lib}/banknewtest.jar"
+	 manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.client.classes"/>
+        <include name="org/jboss/test/banknew/interfaces/**"/>
+        <include name="org/jboss/test/banknew/test/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/bank">
+        <include name="*.*"/>
+      </fileset>
+    </jar>
+
+    <!-- build banknew.jar -->
+    <jar jarfile="${build.lib}/banknew.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/banknew/interfaces/**"/>
+        <include name="org/jboss/test/banknew/ejb/**"/>
+        <include name="org/jboss/test/banknew/beans/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/banknew">
+        <include name="**/*.xml"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- bankiiop test -->
+  <target name="_jars-bankiiop">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build bankiioptest.jar -->
+    <jar jarfile="${build.lib}/bankiioptest.jar"
+	 manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.client.classes"/>
+        <include name="org/jboss/test/bankiiop/interfaces/**"/>
+        <include name="org/jboss/test/bankiiop/test/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/bankiiop">
+        <include name="*.*"/>
+      </fileset>
+    </jar>
+
+    <!-- build bankiiop.jar -->
+    <jar jarfile="${build.lib}/bankiiop.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/bankiiop/interfaces/**"/>
+        <include name="org/jboss/test/bankiiop/ejb/**"/>
+        <include name="org/jboss/test/bankiiop/beans/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/bankiiop">
+        <include name="**/*.xml"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- bmp test -->
+  <target name="_jars-bmp">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build bmptest.jar -->
+    <jar jarfile="${build.lib}/bmptest.jar"
+	 manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.client.classes"/>
+        <include name="org/jboss/test/bmp/interfaces/**"/>
+        <include name="org/jboss/test/bmp/test/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/bmp">
+        <include name="*.*"/>
+      </fileset>
+    </jar>
+
+    <!-- build bmp.jar -->
+    <jar jarfile="${build.lib}/bmp.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/bmp/interfaces/**"/>
+        <include name="org/jboss/test/bmp/ejb/**"/>
+        <include name="org/jboss/test/bmp/beans/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/bmp">
+        <include name="**/*.xml"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- cts test -->
+  <target name="_jars-cts">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- Compile the ClientCallbackImpl stub -->
+    <rmic base="${build.classes}"
+      sourcebase="${build.classes}"
+      verify="${rmic.verify}"
+      iiop="${rmic.iiop}"
+      iiopopts="${rmic.iiopops}"
+      idl="${rmic.idl}"
+      idlopts="${rmic.idlops}"
+      debug="${rmic.debug}"
+      stubVersion="${rmic.stubVersion}"
+    >
+      <classpath refid="tests.classpath"/>
+      <include name="${rmic.includes}"/>
+      <exclude name="${rmic.excludes}"/>
+      <include name="org/jboss/test/cts/test/ClientCallbackImpl.class" />
+    </rmic>
+
+    <!-- build ctstest.jar -->
+    <jar jarfile="${build.lib}/ctstest.jar"
+	 manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.client.classes"/>
+        <include name="org/jboss/test/cts/interfaces/**"/>
+        <include name="org/jboss/test/cts/test/**"/>
+        <include name="org/jboss/test/cts/jms/**"/>
+        <include name="org/jboss/test/cts/keys/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/cts">
+        <include name="*.*"/>
+      </fileset>
+    </jar>
+
+    <!-- build cts.jar -->
+    <jar jarfile="${build.lib}/cts.jar">
+      <metainf dir="${build.resources}/cts/META-INF">
+        <include name="ejb-jar.xml"/>
+        <include name="jboss.xml"/>
+      </metainf>
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/cts/interfaces/**"/>
+        <include name="org/jboss/test/cts/ejb/**"/>
+        <include name="org/jboss/test/cts/beans/**"/>
+        <include name="org/jboss/test/cts/jms/**"/>
+        <include name="org/jboss/test/cts/keys/**"/>
+        <include name="org/jboss/test/cts/test/*_Stub*.class"/>
+      </fileset>
+    </jar>
+    <!-- build a duplicate cts.jar with new home bindings -->
+    <jar jarfile="${build.lib}/cts2.jar">
+      <metainf dir="${build.resources}/cts/metainf2">
+        <include name="ejb-jar.xml"/>
+        <include name="jboss.xml"/>
+      </metainf>
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/cts/interfaces/**"/>
+        <include name="org/jboss/test/cts/ejb/**"/>
+        <include name="org/jboss/test/cts/beans/**"/>
+        <include name="org/jboss/test/cts/jms/**"/>
+        <include name="org/jboss/test/cts/keys/**"/>
+        <include name="org/jboss/test/cts/test/*_Stub*.class"/>
+      </fileset>
+    </jar>
+
+    <!-- Build version 1 of the cts-cmp2 ear -->
+    <delete dir="${build.gen-src}/org/jboss/test/cts" />
+    <mkdir dir="${build.gen-src}/org/jboss/test/cts/ejb" />
+    <mkdir dir="${build.gen-src}/org/jboss/test/cts/interfaces" />
+    <copy tofile="${build.gen-src}/org/jboss/test/cts/interfaces/CtsCmp2Local.java"
+      file="${source.java}/org/jboss/test/cts/interfaces/CtsCmp2Local_V1.txt"
+      overwrite="true" />
+    <copy tofile="${build.gen-src}/org/jboss/test/cts/ejb/CtsCmp2Bean.java"
+      file="${source.java}/org/jboss/test/cts/ejb/CtsCmp2Bean_V1.txt"
+      overwrite="true" />
+    <copy tofile="${build.gen-src}/org/jboss/test/cts/service/CtsCmpService.java"
+      file="${source.java}/org/jboss/test/cts/service/CtsCmpService_V1.txt"
+      overwrite="true" />
+    <javac destdir="${build.classes}" optimize="${javac.optimize}"
+      target="${javac.target}" debug="${javac.debug}" >
+       <src path="${build.gen-src}"/>
+       <src path="${source.java}"/>
+       <classpath refid="tests.classpath"/>
+       <include name="org/jboss/test/cts/**" />
+    </javac>
+    <jar jarfile="${build.lib}/cts-v1cmp.sar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/cts/service/CtsCmpService*.class"/>
+        <include name="org/jboss/test/util/Debug.class"/>
+      </fileset>
+      <metainf dir="${build.resources}/cts/cmpv1">
+        <include name="jboss-service.xml"/>
+      </metainf>
+    </jar>
+    <jar jarfile="${build.lib}/cts-v1cmp.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/cts/ejb/CtsCmp2*.class"/>
+        <include name="org/jboss/test/cts/interfaces/CtsCmp2*"/>
+      </fileset>
+      <metainf dir="${build.resources}/cts/cmpv1">
+        <include name="ejb-jar.xml"/>
+        <include name="jboss.xml"/>
+        <include name="jbosscmp-jdbc.xml"/>
+      </metainf>
+    </jar>
+    <ear earfile="${build.lib}/cts-v1cmp.ear"
+       appxml="${build.resources}/cts/cmpv1/application.xml">
+       <metainf dir="${build.resources}/cts/cmpv1">
+         <include name="jboss-app.xml" />
+       </metainf>
+       <fileset dir="${build.lib}">
+         <include name="cts-v1cmp.jar" />
+       </fileset>
+    </ear>
+    <ear earfile="${build.lib}/cts-v1cmp-sar.ear"
+       appxml="${build.resources}/cts/cmpv1/application.xml">
+       <metainf dir="${build.resources}/cts/cmpv1/ear+sar">
+         <include name="jboss-app.xml" />
+       </metainf>
+       <fileset dir="${build.lib}">
+         <include name="cts-v1cmp.jar" />
+         <include name="cts-v1cmp.sar" />
+       </fileset>
+    </ear>
+
+    <!-- Build version 2 of the cts-cmp2 ear -->
+    <delete dir="${build.classes}/org/jboss/test/cts">
+      <include name="**/CtsCmp2Local.class" />
+      <include name="**/CtsCmp2Bean.class" />
+      <include name="**/CtsCmpService*.class" />
+    </delete>
+    <delete dir="${build.gen-src}/org/jboss/test/cts" />
+    <copy tofile="${build.gen-src}/org/jboss/test/cts/interfaces/CtsCmp2Local.java"
+      file="${source.java}/org/jboss/test/cts/interfaces/CtsCmp2Local_V2.txt"
+      overwrite="true" />
+    <copy tofile="${build.gen-src}/org/jboss/test/cts/ejb/CtsCmp2Bean.java"
+      file="${source.java}/org/jboss/test/cts/ejb/CtsCmp2Bean_V2.txt"
+      overwrite="true" />
+    <copy tofile="${build.gen-src}/org/jboss/test/cts/service/CtsCmpService.java"
+      file="${source.java}/org/jboss/test/cts/service/CtsCmpService_V2.txt"
+      overwrite="true" />
+    <javac destdir="${build.classes}" optimize="${javac.optimize}"
+      target="${javac.target}" debug="${javac.debug}" >
+       <src path="${build.gen-src}"/>
+       <src path="${source.java}"/>
+       <classpath refid="tests.classpath"/>
+       <include name="org/jboss/test/cts/**" />
+    </javac>
+    <jar jarfile="${build.lib}/cts-v2cmp.sar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/cts/service/CtsCmpService*.class"/>
+        <include name="org/jboss/test/util/Debug.class"/>
+      </fileset>
+      <metainf dir="${build.resources}/cts/cmpv2">
+        <include name="jboss-service.xml"/>
+      </metainf>
+    </jar>
+    <jar jarfile="${build.lib}/cts-v2cmp.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/cts/ejb/CtsCmp2*.class"/>
+        <include name="org/jboss/test/cts/interfaces/CtsCmp2*"/>
+      </fileset>
+      <metainf dir="${build.resources}/cts/cmpv2">
+        <include name="ejb-jar.xml"/>
+        <include name="jboss.xml"/>
+        <include name="jbosscmp-jdbc.xml"/>
+      </metainf>
+    </jar>
+    <ear earfile="${build.lib}/cts-v2cmp.ear"
+       appxml="${build.resources}/cts/cmpv2/application.xml">
+       <metainf dir="${build.resources}/cts/cmpv2">
+         <include name="jboss-app.xml" />
+       </metainf>
+       <fileset dir="${build.lib}">
+         <include name="cts-v2cmp.jar" />
+       </fileset>
+    </ear>
+    <ear earfile="${build.lib}/cts-v2cmp-sar.ear"
+       appxml="${build.resources}/cts/cmpv2/application.xml">
+       <metainf dir="${build.resources}/cts/cmpv2/ear+sar">
+         <include name="jboss-app.xml" />
+       </metainf>
+       <fileset dir="${build.lib}">
+         <include name="cts-v2cmp.jar" />
+         <include name="cts-v2cmp.sar" />
+       </fileset>
+    </ear>
+
+  </target>
+
+  <!-- entityexc test -->
+  <target name="_jars-entityexc">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build entityexctest.jar -->
+    <jar jarfile="${build.lib}/entityexctest.jar"
+	 manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.client.classes"/>
+        <include name="org/jboss/test/entityexc/interfaces/**"/>
+        <include name="org/jboss/test/entityexc/test/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/entityexc">
+        <include name="*.*"/>
+      </fileset>
+    </jar>
+
+    <!-- build entityexc.jar -->
+    <jar jarfile="${build.lib}/entityexc.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/entityexc/interfaces/**"/>
+        <include name="org/jboss/test/entityexc/ejb/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/entityexc">
+        <include name="**/*.xml"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- hello test -->
+  <target name="_jars-hello">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build hellotest.jar -->
+    <jar jarfile="${build.lib}/hellotest.jar"
+	 manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.client.classes"/>
+        <include name="org/jboss/test/hello/interfaces/**"/>
+        <include name="org/jboss/test/hello/test/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/hello">
+        <include name="*.*"/>
+      </fileset>
+    </jar>
+
+    <!-- build hello.jar -->
+    <jar jarfile="${build.lib}/hello.jar">
+      <metainf dir="${build.resources}/hello/META-INF" />
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/hello/interfaces/**"/>
+        <include name="org/jboss/test/hello/ejb/**"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- helloiiop test -->
+  <target name="_jars-helloiiop">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build helloiioptest.jar -->
+    <jar jarfile="${build.lib}/helloiioptest.jar"
+        manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.client.classes"/>
+        <include name="org/jboss/test/helloiiop/interfaces/**"/>
+        <include name="org/jboss/test/helloiiop/test/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/helloiiop">
+        <include name="*.*"/>
+      </fileset>
+    </jar>
+
+    <!-- build helloiiop.jar -->
+    <jar jarfile="${build.lib}/helloiiop.jar">
+      <metainf dir="${build.resources}/helloiiop/META-INF" />
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/helloiiop/interfaces/**"/>
+        <include name="org/jboss/test/helloiiop/ejb/**"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- hellojrmpiiop test -->
+  <target name="_jars-hellojrmpiiop">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build hellojrmpiioptest.jar -->
+    <jar jarfile="${build.lib}/hellojrmpiioptest.jar"
+        manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.client.classes"/>
+        <include name="org/jboss/test/hellojrmpiiop/interfaces/**"/>
+        <include name="org/jboss/test/hellojrmpiiop/test/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/hellojrmpiiop">
+        <include name="*.*"/>
+      </fileset>
+    </jar>
+
+    <!-- build hellojrmpiiop.jar -->
+    <jar jarfile="${build.lib}/hellojrmpiiop.jar">
+      <metainf dir="${build.resources}/hellojrmpiiop/META-INF" />
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/hellojrmpiiop/interfaces/**"/>
+        <include name="org/jboss/test/hellojrmpiiop/ejb/**"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- excepiiop test -->
+  <target name="_jars-excepiiop">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build excepiioptest.jar -->
+    <jar jarfile="${build.lib}/excepiioptest.jar"
+        manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.client.classes"/>
+        <include name="org/jboss/test/excepiiop/interfaces/**"/>
+        <include name="org/jboss/test/excepiiop/test/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/excepiiop">
+        <include name="*.*"/>
+      </fileset>
+    </jar>
+
+    <!-- build excepiiop.jar -->
+    <jar jarfile="${build.lib}/excepiiop.jar">
+      <metainf dir="${build.resources}/excepiiop/META-INF" />
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/excepiiop/interfaces/**"/>
+        <include name="org/jboss/test/excepiiop/ejb/**"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- idgen test -->
+  <target name="_jars-idgen">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build idgentest.jar -->
+    <jar jarfile="${build.lib}/idgentest.jar"
+	 manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.client.classes"/>
+        <include name="org/jboss/test/idgen/interfaces/**"/>
+        <include name="org/jboss/test/idgen/test/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/idgen">
+        <include name="*.*"/>
+      </fileset>
+    </jar>
+
+    <!-- build idgen.jar -->
+    <jar jarfile="${build.lib}/idgen.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/idgen/interfaces/**"/>
+        <include name="org/jboss/test/idgen/ejb/**"/>
+        <include name="org/jboss/test/idgen/beans/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/idgen">
+        <include name="**/*.xml"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- dbtest test -->
+  <target name="_jars-dbtest">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build dbtestclient.jar -->
+    <jar jarfile="${build.lib}/dbtestclient.jar"
+	 manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.client.classes"/>
+        <include name="org/jboss/test/dbtest/interfaces/**"/>
+        <include name="org/jboss/test/dbtest/test/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/dbtest">
+        <include name="*.*"/>
+      </fileset>
+    </jar>
+
+    <!-- build dbtest.jar -->
+    <jar jarfile="${build.lib}/dbtest.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/dbtest/interfaces/**"/>
+        <include name="org/jboss/test/dbtest/ejb/**"/>
+        <include name="org/jboss/test/dbtest/bean/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/dbtest">
+        <include name="**/*.xml"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- jmsra test -->
+  <target name="_jars-jmsra">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build jmsratest.jar -->
+    <jar jarfile="${build.lib}/jmsratest.jar"
+	 manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.client.classes"/>
+        <include name="org/jboss/test/jmsra/interfaces/**"/>
+        <include name="org/jboss/test/jmsra/test/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/jmsra">
+        <include name="*.*"/>
+      </fileset>
+    </jar>
+
+    <!-- build jmsra.jar -->
+    <jar jarfile="${build.lib}/jmsra.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/jmsra/interfaces/**"/>
+        <include name="org/jboss/test/jmsra/ejb/**"/>
+        <include name="org/jboss/test/jmsra/bean/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/jmsra">
+        <include name="**/*.xml"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- mdb test -->
+  <target name="_jars-mdb">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build mdbtest.jar -->
+    <jar jarfile="${build.lib}/mdbtest.jar"
+	 manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.client.classes"/>
+        <include name="org/jboss/test/mdb/bean/**"/>
+        <include name="org/jboss/test/mdb/test/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/mdb">
+        <include name="*.*"/>
+      </fileset>
+    </jar>
+
+    <!-- build mdb.jar -->
+    <jar jarfile="${build.lib}/mdb.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/mdb/bean/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/mdb">
+        <include name="**/*.xml"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- lock test -->
+  <target name="_jars-lock">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build locktestclient.jar -->
+    <jar jarfile="${build.lib}/locktestclient.jar"
+	 manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.client.classes"/>
+        <include name="org/jboss/test/lock/interfaces/**"/>
+        <include name="org/jboss/test/lock/test/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/lock">
+        <include name="*.*"/>
+      </fileset>
+    </jar>
+
+    <!-- build locktest.jar -->
+    <jar jarfile="${build.lib}/locktest.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/lock/interfaces/**"/>
+        <include name="org/jboss/test/lock/bean/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/lock">
+        <include name="**/*.xml"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- readahead test -->
+  <target name="_jars-readahead">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build readaheadtest.jar -->
+    <jar jarfile="${build.lib}/readaheadtest.jar"
+	 manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.client.classes"/>
+        <include name="org/jboss/test/readahead/interfaces/**"/>
+        <include name="org/jboss/test/readahead/test/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/readahead">
+        <include name="*.*"/>
+      </fileset>
+    </jar>
+
+    <!-- build readahead.jar -->
+    <jar jarfile="${build.lib}/readahead.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/readahead/interfaces/**"/>
+        <include name="org/jboss/test/readahead/ejb/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/readahead">
+        <include name="**/*.xml"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- xa test -->
+  <target name="_jars-xa">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build xatestclient.jar -->
+    <jar jarfile="${build.lib}/xatestclient.jar"
+	 manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.client.classes"/>
+        <include name="org/jboss/test/xa/interfaces/**"/>
+        <include name="org/jboss/test/xa/test/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/xa">
+        <include name="*.*"/>
+      </fileset>
+    </jar>
+
+    <!-- build xatest.jar -->
+    <jar jarfile="${build.lib}/xatest.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/xa/interfaces/**"/>
+        <include name="org/jboss/test/xa/bean/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/xa">
+        <include name="**/*.xml"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- jca test -->
+  <target name="_jars-jca"
+ 	  depends="compile">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build test jdbc driver with config inside sar -->
+    <jar jarfile="${build.lib}/jbosstestdriver.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jca/jdbc/**"/>
+      </fileset>
+    </jar>
+
+
+    <!-- build test adapter -->
+    <jar jarfile="${build.lib}/jbosstestadapter.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jca/adapter/**"/>
+      </fileset>
+    </jar>
+
+    <jar jarfile="${build.lib}/jbosstestadapter.rar">
+      <fileset dir="${build.lib}">
+        <include name="jbosstestadapter.jar"/>
+      </fileset>
+      <fileset dir="${build.resources}/jca/adapter">
+        <include name="META-INF/ra.xml"/>
+      </fileset>
+    </jar>
+
+    <!-- test adapter config -->
+    <copy todir="${build.lib}" filtering="no">
+      <fileset dir="${build.resources}/jca/adapter">
+         <include name="testadapter-ds.xml"/>
+      </fileset>
+      <fileset dir="${build.resources}/jca/jdbc">
+         <include name="testdriver-ds.xml"/>
+      </fileset>
+    </copy>
+
+
+    <!-- build jcatest.jar -->
+    <jar jarfile="${build.lib}/jcatest.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jca/interfaces/**"/>
+        <include name="org/jboss/test/jca/ejb/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/jca">
+        <include name="META-INF/*.xml"/>
+      </fileset>
+    </jar>
+
+    <jar jarfile="${build.lib}/jcabanktest.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jca/bank/interfaces/**"/>
+        <include name="org/jboss/test/jca/bank/ejb/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/jca/bank">
+        <include name="**/*.xml"/>
+      </fileset>
+    </jar>
+
+    <!--copy the plain *-service.xml files too -->
+    <copy todir="${build.lib}" filtering="no">
+      <fileset dir="${build.resources}/jca/autocommit">
+         <include name="*.xml"/>
+      </fileset>
+    </copy>
+
+  </target>
+
+  <!-- jmx test -->
+  <target name="_jars-jmx">
+    <mkdir dir="${build.lib}"/>
+    <property name="jmx-rsrc" value="${build.resources}/jmx" />
+
+    <!-- build jmxtest.jar -->
+    <jar jarfile="${build.lib}/jmxtest.jar"
+	 manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/**"/>
+        <exclude name="org/jboss/test/jmx/mbean*/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/jmx">
+        <include name="test-service.xml"/>
+        <include name="META-INF/ejb-jar.xml"/>
+        <include name="META-INF/jboss.xml"/>
+      </fileset>
+    </jar>
+
+    <!--build test sar for testing sar deployment -->
+    <jar jarfile="${build.lib}/testdeploy.sar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/mbean/TestDeployer**"/>
+      </fileset>
+      <fileset dir="${build.resources}/jmx/mbean">
+        <include name="META-INF/jboss-service.xml"/>
+      </fileset>
+    </jar>
+
+    <jar jarfile="${build.lib}/defaultpkg.sar">
+      <metainf dir="${build.resources}/jmx/default" />
+      <fileset dir="${build.classes}">
+        <include name="DefaultPkgService*"/>
+      </fileset>
+    </jar>
+
+    <jar jarfile="${build.lib}/testdeploya.sar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/mbeana/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/jmx/mbeana">
+        <include name="META-INF/jboss-service.xml"/>
+      </fileset>
+    </jar>
+
+    <jar jarfile="${build.lib}/testdeployb.sar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/mbeanb/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/jmx/mbeanb">
+        <include name="META-INF/jboss-service.xml"/>
+      </fileset>
+    </jar>
+
+    <jar jarfile="${build.lib}/testdeployc.sar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/mbeanc/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/jmx/mbeanc">
+        <include name="META-INF/jboss-service.xml"/>
+      </fileset>
+    </jar>
+
+
+    <jar jarfile="${build.lib}/testdeployd.sar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/mbeand/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/jmx/mbeand">
+        <include name="META-INF/jboss-service.xml"/>
+      </fileset>
+    </jar>
+
+    <jar jarfile="${build.lib}/testdeploye-util.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/mbeane/util/*"/>
+      </fileset>
+    </jar>
+    <jar jarfile="${build.lib}/testdeploye.sar">
+      <metainf dir="${build.resources}/jmx/mbeane/META-INF" />
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/mbeane/*"/>
+      </fileset>
+      <fileset dir="${build.lib}">
+        <include name="testdeploye-util.jar"/>
+      </fileset>
+    </jar>
+
+    <!-- ExternalClass ear including a sar and util jar -->
+    <jar jarfile="${build.lib}/external.sar"
+      manifest="${build.resources}/jmx/loading/ext/manifest.mf">
+      <metainf dir="${build.resources}/jmx/loading/ext">
+         <include name="jboss-service.xml" />
+      </metainf>
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/loading/ExternalClass*"/>
+      </fileset>
+    </jar>
+    <jar jarfile="${build.lib}/external-util.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/loading/util/*"/>
+      </fileset>
+    </jar>
+    <ear earfile="${build.lib}/external.ear"
+      appxml="${jmx-rsrc}/loading/ext/application.xml">
+      <metainf dir="${build.resources}/jmx/loading/ext">
+         <include name="jboss-app.xml" />
+      </metainf>
+      <fileset dir="${build.lib}">
+        <include name="external.sar"/>
+        <include name="external-util.jar"/>
+      </fileset>
+    </ear>
+
+    <!-- ResourceTsts case#1, a sar with the classes and resources -->
+    <jar jarfile="${build.lib}/rsrc1.sar">
+      <metainf dir="${build.resources}/jmx/loading/rsrc1" />
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/loading/ResourceTsts*"/>
+      </fileset>
+    </jar>
+    <!-- ResourceTsts case#2, a sar with the resources and the
+      service in a nested jar
+    -->
+    <jar jarfile="${build.lib}/rsrcsvc.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/loading/ResourceTsts*"/>
+      </fileset>
+    </jar>
+    <jar jarfile="${build.lib}/rsrc2.sar">
+      <metainf dir="${build.resources}/jmx/loading/rsrc2" />
+      <fileset dir="${build.lib}">
+        <include name="rsrcsvc.jar"/>
+      </fileset>
+    </jar>
+    <!-- ResourceTsts case#3, a jar with two sars with only
+      the service descriptor metadata and a jar containing the
+      service code.
+    -->
+    <jar jarfile="${build.lib}/rsrc31.sar">
+      <metainf dir="${build.resources}/jmx/loading/rsrc1" />
+    </jar>
+    <jar jarfile="${build.lib}/rsrc32.sar">
+      <metainf dir="${build.resources}/jmx/loading/rsrc2" />
+    </jar>
+    <jar jarfile="${build.lib}/rsrc3.jar">
+       <fileset dir="${build.lib}">
+         <include name="rsrcsvc.jar"/>
+         <include name="rsrc31.sar" />
+         <include name="rsrc32.sar" />
+       </fileset>
+    </jar>
+    <!-- ResourceTsts case#4, a sar with a service descriptor with
+      mulitiple mbeans, a resource file with multiple configs
+      using a namespace, and the service code in a nested jar
+    -->
+    <jar jarfile="${build.lib}/rsrc4.sar">
+      <metainf dir="${build.resources}/jmx/loading/rsrc4" />
+       <fileset dir="${build.lib}">
+         <include name="rsrcsvc.jar"/>
+       </fileset>
+    </jar>
+
+    <!-- Tests that a sar jboss-service.xml can include an entity ref
+    -->
+    <jar jarfile="${build.lib}/entityref.sar">
+      <metainf dir="${build.resources}/jmx/loading/entityref" />
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/loading/NoopService*"/>
+      </fileset>
+    </jar>
+
+    <!--build test sar for testing local directory copy deployment -->
+    <jar jarfile="${build.lib}/testcopylocaldir.sar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/mbean/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/jmx/mbeanlocaldir">
+        <include name="META-INF/jboss-service.xml"/>
+        <include name="local-directory/**"/>
+      </fileset>
+    </jar>
+    <!--copy the plain *-service.xml files too -->
+    <copy todir="${build.lib}" filtering="no">
+      <fileset dir="${build.resources}/jmx">
+         <include name="*.xml"/>
+      </fileset>
+    </copy>
+
+    <!--build test sar for testing crash during start -->
+    <jar jarfile="${build.lib}/testcrashinstart.sar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/mbeancrashtest/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/jmx/mbeancrashtest">
+        <include name="META-INF/jboss-service.xml"/>
+      </fileset>
+    </jar>
+
+    <!--build sar for testing invalid Dynamic MBean that returns null MBeanInfo -->
+    <jar jarfile="${build.lib}/testnullinfo.sar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/nullinfo/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/jmx/nullinfo">
+        <include name="META-INF/jboss-service.xml"/>
+      </fileset>
+    </jar>
+
+    <!--build sar containing broken deployer.  I don't know how to use this in a unit test-->
+    <jar jarfile="${build.lib}/brokendeployer.sar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/deployer/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/jmx/deployer">
+        <include name="META-INF/jboss-service.xml"/>
+      </fileset>
+    </jar>
+
+    <!--just a jar, service.xml separate-->
+    <jar jarfile="${build.lib}/testmbeanclassloader.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/mbean/TestMB**"/>
+      </fileset>
+    </jar>
+
+    <!--eardeployment, 2 jars of 1 session bean each-->
+    <!--IMPORTANT!! this test relies on the dd's being in the "wrong" jar -->
+    <!--the point of the test is to see if the classes in one jar are visible to
+      the deployment descriptors of the other jar -->
+    <jar jarfile="${build.lib}/sessiona.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/eardeployment/a/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/jmx/eardeployment/b/">
+        <include name="META-INF/ejb-jar.xml"/>
+        <include name="META-INF/jboss.xml"/>
+      </fileset>
+    </jar>
+
+    <jar jarfile="${build.lib}/sessionb.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/eardeployment/b/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/jmx/eardeployment/a/">
+        <include name="META-INF/ejb-jar.xml"/>
+        <include name="META-INF/jboss.xml"/>
+      </fileset>
+    </jar>
+
+    <jar jarfile="${build.lib}/eardeployment.ear">
+      <fileset dir="${build.lib}">
+        <include name="sessiona.jar"/>
+        <include name="sessionb.jar"/>
+      </fileset>
+      <fileset dir="${build.resources}/jmx/eardeployment/">
+        <include name="META-INF/application.xml"/>
+      </fileset>
+    </jar>
+
+    <!-- Unpackaged ear test -->
+    <mkdir dir="${build.lib}/unpacked/eardeployment.ear/META-INF" />
+    <copy file="${build.resources}/jmx/eardeployment/META-INF/application.xml"
+      todir="${build.lib}/unpacked/eardeployment.ear/META-INF" />
+    <unjar src="${build.lib}/sessiona.jar"
+      dest="${build.lib}/unpacked/eardeployment.ear/sessiona.jar" />
+    <unjar src="${build.lib}/sessionb.jar"
+      dest="${build.lib}/unpacked/eardeployment.ear/sessionb.jar" />
+
+    <!-- cpmanifest test -->
+    <jar jarfile="${build.lib}/abstract.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/loading/Abstract*"/>
+      </fileset>
+    </jar>
+    <jar jarfile="${build.lib}/concrete.jar"
+         manifest="${build.resources}/jmx/loading/cpmanifest/META-INF/manifest.mf">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/loading/Concrete*"/>
+      </fileset>
+      <fileset dir="${build.resources}/jmx/loading/cpmanifest/">
+        <include name="META-INF/ejb-jar.xml"/>
+      </fileset>
+    </jar>
+    <ear earfile="${build.lib}/cpmanifest.ear"
+      appxml="${jmx-rsrc}/loading/cpmanifest/META-INF/application.xml">
+      <fileset dir="${build.lib}">
+        <include name="abstract.jar"/>
+        <include name="concrete.jar"/>
+      </fileset>
+    </ear>
+
+    <!-- cpcircular-manifest test -->
+    <jar jarfile="${build.lib}/abstract2.jar"
+         manifest="${jmx-rsrc}/loading/cpmanifest/META-INF/a2cmanifest.mf">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/loading/Abstract*"/>
+      </fileset>
+    </jar>
+    <jar jarfile="${build.lib}/concrete2.jar"
+         manifest="${jmx-rsrc}/loading/cpmanifest/META-INF/c2amanifest.mf">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/loading/Concrete*"/>
+      </fileset>
+      <fileset dir="${build.resources}/jmx/loading/cpmanifest/">
+        <include name="META-INF/ejb-jar.xml"/>
+      </fileset>
+    </jar>
+    <ear earfile="${build.lib}/cpcircular-manifest.ear"
+      appxml="${jmx-rsrc}/loading/cpmanifest/META-INF/application-circular.xml">
+      <fileset dir="${build.lib}">
+        <include name="abstract2.jar"/>
+        <include name="concrete2.jar"/>
+      </fileset>
+    </ear>
+
+    <!-- cpejbs-manifest test -->
+    <jar jarfile="${build.lib}/ejbjar1.jar"
+      manifest="${jmx-rsrc}/loading/cpmanifest/META-INF/ejbjar1.mf">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/eardeployment/a/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/jmx/eardeployment/a/">
+        <include name="META-INF/ejb-jar.xml"/>
+        <include name="META-INF/jboss.xml"/>
+      </fileset>
+    </jar>
+    <jar jarfile="${build.lib}/ejbjar2.jar"
+      manifest="${jmx-rsrc}/loading/cpmanifest/META-INF/ejbjar2.mf">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/eardeployment/b/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/jmx/eardeployment/b/">
+        <include name="META-INF/ejb-jar.xml"/>
+        <include name="META-INF/jboss.xml"/>
+      </fileset>
+    </jar>
+    <ear earfile="${build.lib}/cpejbs-manifest.ear"
+      appxml="${jmx-rsrc}/loading/cpmanifest/META-INF/application-ejbs.xml">
+      <fileset dir="${build.lib}">
+        <include name="ejbjar1.jar"/>
+        <include name="ejbjar2.jar"/>
+      </fileset>
+    </ear>
+
+    <!-- jar in sar with jsr-77 mbeans -->
+    <jar jarfile="${build.lib}/jarinsar.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/ejb/TestDataSourceBean.class"/>
+        <include name="org/jboss/test/jmx/interfaces/TestDataSource*.class"/>
+      </fileset>
+      <fileset dir="${build.resources}/jmx">
+        <include name="META-INF/ejb-jar.xml"/>
+      </fileset>
+    </jar>
+
+    <jar jarfile="${build.lib}/jarinsar.sar">
+      <fileset dir="${build.lib}">
+        <include name="jarinsar.jar"/>
+      </fileset>
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/mbeana/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/jmx/mbeana">
+        <include name="META-INF/jboss-service.xml"/>
+      </fileset>
+    </jar>
+
+    <!--package with external jndi dependencies, for undeploy of broken package-->
+    <jar jarfile="${build.lib}/undeploybroken.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/ejb/Entity*.class"/>
+        <include name="org/jboss/test/jmx/interfaces/Entity*.class"/>
+      </fileset>
+      <fileset dir="${build.resources}/jmx/undeploy">
+        <include name="META-INF/*.xml"/>
+      </fileset>
+    </jar>
+
+    <!-- EJB jars used by UndeployBrokenPackageUnitTestCase -->
+    <jar jarfile="${build.lib}/ejbredeploy-bad.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/ejb/EntityABean.class"/>
+        <include name="org/jboss/test/jmx/interfaces/EntityA*.class"/>
+      </fileset>
+      <metainf dir="${source.resources}/jmx/undeploy/bad-inf" />
+    </jar>
+    <jar jarfile="${build.lib}/ejbredeploy-good.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/ejb/EntityABean.class"/>
+        <include name="org/jboss/test/jmx/interfaces/EntityA*.class"/>
+      </fileset>
+      <metainf dir="${source.resources}/jmx/undeploy/good-inf" />
+    </jar>
+
+    <!--xmbean test deployment-->
+    <jar jarfile="${build.lib}/user-xmbean.sar">
+      <metainf dir="${build.resources}/jmx/xmbean/META-INF" />
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/xmbean/*.class"/>
+      </fileset>
+      <fileset dir="${build.resources}/jmx/xmbean">
+        <include name="**/User.xml"/>
+      </fileset>
+    </jar>
+
+    <!--xmbean embedded dd tests -->
+    <jar jarfile="${build.lib}/user2-xmbean-embedded.sar">
+      <metainf dir="${build.resources}/jmx/xmbean/embedded" />
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/xmbean/User2.class"/>
+        <include name="org/jboss/test/jmx/xmbean/CustomType*.class"/>
+      </fileset>
+    </jar>
+    <!--xmbean persistence tests -->
+    <jar jarfile="${build.lib}/user2-xmbean.sar">
+      <metainf dir="${build.resources}/jmx/xmbean/user2" />
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/xmbean/User2.class"/>
+      </fileset>
+    </jar>
+    <copy todir="${build.lib}">
+      <fileset dir="${build.resources}/jmx/xmbean">
+        <include name="RemoveUser2Store.bsh"/>
+      </fileset>
+    </copy>
+
+    <!-- Tests of xmbeans with custom interceptors -->
+    <jar jarfile="${build.lib}/interceptors-xmbean.sar">
+      <metainf dir="${build.resources}/jmx/interceptors">
+        <include name="jboss-service.xml" />
+        <include name="secured-xmbean.xml" />
+        <include name="naming-xmbean.xml" />
+      </metainf>
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/interceptors/*.class"/>
+      </fileset>
+      <fileset dir="${build.resources}">
+        <include name="jmx/interceptors/*.properties"/>
+        <include name="jmx/interceptors/security-config.xml"/>
+        <include name="jmx/interceptors/scripts/*"/>
+      </fileset>
+    </jar>
+
+    <!-- missing classes test -->
+    <jar jarfile="${build.lib}/missingclassmbean.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/missingclass/*.class"/>
+      </fileset>
+    </jar>
+
+    <!-- invoker adaptor test sar -->
+    <jar jarfile="${build.lib}/invoker-adaptor-test.sar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jmx/invoker/*.class"/>
+      </fileset>
+      <fileset dir="${build.resources}/jmx/invoker/sar">
+        <include name="META-INF/*.xml"/>
+      </fileset>
+    </jar>
+
+    <!-- invoker adaptor test ear -->
+    <jar jarfile="${build.lib}/invoker-adaptor-test.ear">
+      <fileset dir="${build.lib}">
+        <include name="invoker-adaptor-test.sar"/>
+      </fileset>
+      <fileset dir="${build.resources}/jmx/invoker/ear">
+        <include name="META-INF/*.xml"/>
+      </fileset>
+    </jar>
+
+  </target>
+
+  <!-- naming test -->
+  <target name="_jars-naming">
+    <mkdir dir="${build.lib}"/>
+    <mkdir dir="${build.lib}/subdir"/>
+
+    <!-- build naming.jar -->
+    <jar jarfile="${build.lib}/naming.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/naming/ejb/**"/>
+        <include name="org/jboss/test/naming/interfaces/**"/>
+        <include name="org/jboss/test/util/Debug.class"/>
+      </fileset>
+      <fileset dir="${build.resources}/naming/jar">
+        <include name="META-INF/*.xml"/>
+      </fileset>
+    </jar>
+
+    <!-- build remote-naming.jar -->
+    <jar jarfile="${build.lib}/remote-naming.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/naming/ejb/**"/>
+        <include name="org/jboss/test/naming/interfaces/**"/>
+        <include name="org/jboss/test/util/Debug.class"/>
+      </fileset>
+      <fileset dir="${build.resources}/remote-naming">
+        <include name="**/*.xml"/>
+      </fileset>
+    </jar>
+
+    <!-- build naminga.jar -->
+    <jar jarfile="${build.lib}/subdir/naminga.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/naming/ejb/**"/>
+        <include name="org/jboss/test/naming/interfaces/**"/>
+        <include name="org/jboss/test/util/Debug.class"/>
+      </fileset>
+      <fileset dir="${build.resources}/naming/ear/a">
+        <include name="META-INF/*.xml"/>
+      </fileset>
+    </jar>
+
+    <!-- build namingb.jar -->
+    <jar jarfile="${build.lib}/namingb.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/naming/ejb/**"/>
+        <include name="org/jboss/test/naming/interfaces/**"/>
+        <include name="org/jboss/test/util/Debug.class"/>
+      </fileset>
+      <fileset dir="${build.resources}/naming/ear/b">
+        <include name="META-INF/*.xml"/>
+      </fileset>
+    </jar>
+
+    <!-- build naming.ear -->
+    <jar jarfile="${build.lib}/naming.ear">
+      <fileset dir="${build.lib}">
+        <include name="subdir/naminga.jar"/>
+        <include name="namingb.jar"/>
+      </fileset>
+      <fileset dir="${build.resources}/naming/ear">
+        <include name="META-INF/*.xml"/>
+      </fileset>
+    </jar>
+
+    <jar destfile="${build.lib}/naming-readonly.sar">
+      <metainf dir="${build.resources}/naming/services">
+         <include name="jboss-service.xml" />
+      </metainf>
+      <fileset dir="${build.resources}/naming/services">
+        <include name="naming-xmbean.xml"/>
+      </fileset>
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/naming/interceptors/*" />
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- jbossmq test -->
+  <target name="_jars-jbossmq">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build jbossmqtest.jar -->
+    <jar jarfile="${build.lib}/jbossmqtest.jar"
+	 manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jbossmq/**"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- load test -->
+  <target name="_jars-load">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build loadtest.jar -->
+    <jar jarfile="${build.lib}/load.jar"
+	 manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/load/test/**"/>
+        <include name="org/jboss/test/testbean/interfaces/**"/>
+        <include name="org/jboss/test/bmp/interfaces/**"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- jrmp test -->
+  <target name="_jars-jrmp">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build jrmp-comp-client.jar -->
+    <jar jarfile="${build.lib}/jrmp-comp-client.jar"
+	 manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jrmp/interfaces/**"/>
+      </fileset>
+    </jar>
+
+    <!-- build comp-client.jar -->
+    <jar jarfile="${build.lib}/comp-client.jar"
+	 manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jrmp/ejb/Compression*.class"/>
+      </fileset>
+    </jar>
+
+    <!-- build jrmp-comp.jar -->
+    <jar jarfile="${build.lib}/jrmp-comp.sar">
+      <metainf dir="${build.resources}/jrmp/service-inf" />
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jrmp/ejb/Compression*.class"/>
+      </fileset>
+    </jar>
+    <jar jarfile="${build.lib}/jrmp-comp.jar">
+      <metainf dir="${build.resources}/jrmp/META-INF" />
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jrmp/interfaces/**"/>
+        <include name="org/jboss/test/jrmp/ejb/**"/>
+      </fileset>
+      <fileset dir="${build.lib}">
+        <include name="jrmp-comp.sar"/>
+      </fileset>
+    </jar>
+
+    <!-- build jrmp-dl-client.jar -->
+    <jar jarfile="${build.lib}/jrmp-dl-client.jar"
+	 manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.client.classes"/>
+        <include name="org/jboss/test/jrmp/interfaces/**"/>
+        <include name="org/jboss/test/jrmp/test/DynLoading*.class"/>
+        <include name="org/jboss/test/JBossTestCase.class"/>
+        <include name="org/jboss/test/JBossTestServices.class"/>
+      </fileset>
+    </jar>
+
+    <!-- build jrmp-dl.jar -->
+    <jar jarfile="${build.lib}/jrmp-dl.jar">
+      <metainf dir="${build.resources}/jrmp/META-INF">
+        <exclude name="jboss.xml" />
+      </metainf>
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/jrmp/interfaces/**"/>
+        <include name="org/jboss/test/jrmp/ejb/**"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- invokers test -->
+  <target name="_jars-invokers">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build invokers-client.jar -->
+    <jar jarfile="${build.lib}/invokers-client.jar"
+	 manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/invokers/interfaces/**"/>
+      </fileset>
+    </jar>
+
+    <!-- build invokers-comp.jar -->
+    <jar jarfile="${build.lib}/invokers.sar">
+      <metainf dir="${build.resources}/invokers/service-inf" />
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/invokers/ejb/Compression*.class"/>
+      </fileset>
+    </jar>
+    <jar jarfile="${build.lib}/invokers.jar">
+      <metainf dir="${build.resources}/invokers/META-INF" />
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/invokers/interfaces/**"/>
+        <include name="org/jboss/test/invokers/ejb/**"/>
+      </fileset>
+      <fileset dir="${build.lib}">
+        <include name="invokers.sar"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- threading test -->
+  <target name="_jars-threading">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build threadingMBean.jar -->
+    <jar jarfile="${build.lib}/threadingMBean.jar"
+	 manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/threading/interfaces/**"/>
+        <include name="org/jboss/test/threading/mbean/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/threading">
+        <include name="*.*"/>
+      </fileset>
+    </jar>
+
+    <!-- build threadingBean.jar -->
+    <jar jarfile="${build.lib}/threadingBean.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/threading/interfaces/**"/>
+        <include name="org/jboss/test/threading/ejb/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/threading">
+        <include name="**/*.xml"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- deadlock test -->
+  <target name="_jars-deadlock">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build deadlocktest.jar -->
+    <jar jarfile="${build.lib}/deadlocktest.jar"
+	 manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.client.classes"/>
+        <include name="org/jboss/test/deadlock/interfaces/**"/>
+        <include name="org/jboss/test/deadlock/test/**"/>
+        <include name="org/somepackage/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/deadlock">
+        <include name="*.*"/>
+      </fileset>
+    </jar>
+
+    <!-- build deadlock.jar -->
+    <jar jarfile="${build.lib}/deadlock.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/deadlock/interfaces/**"/>
+        <include name="org/jboss/test/deadlock/bean/**"/>
+        <include name="org/somepackage/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/deadlock">
+        <include name="**/*.xml"/>
+      </fileset>
+    </jar>
+
+  </target>
+
+  <!-- pooled test -->
+  <target name="_jars-pooled">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build pooledtest.jar -->
+    <jar jarfile="${build.lib}/pooledtest.jar"
+	 manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.client.classes"/>
+        <include name="org/jboss/test/pooled/interfaces/**"/>
+        <include name="org/jboss/test/pooled/test/**"/>
+        <include name="org/somepackage/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/pooled">
+        <include name="*.*"/>
+      </fileset>
+    </jar>
+
+    <!-- build pooled.jar -->
+    <jar jarfile="${build.lib}/pooled.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/pooled/interfaces/**"/>
+        <include name="org/jboss/test/pooled/bean/**"/>
+        <include name="org/somepackage/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/pooled">
+        <include name="**/*.xml"/>
+      </fileset>
+    </jar>
+
+  </target>
+
+  <!-- testbean test -->
+  <target name="_jars-testbean">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build testbeantest.jar -->
+    <jar jarfile="${build.lib}/testbeantest.jar"
+	 manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.client.classes"/>
+        <include name="org/jboss/test/testbean/interfaces/**"/>
+        <include name="org/jboss/test/testbean/test/**"/>
+        <include name="org/jboss/test/testbean2/interfaces/**"/>
+        <include name="org/somepackage/**"/>
+        <include name="org/jboss/test/bmp/interfaces/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/testbean">
+        <include name="*.*"/>
+      </fileset>
+    </jar>
+
+    <!-- build testbean.jar -->
+    <jar jarfile="${build.lib}/testbean.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/testbean/interfaces/**"/>
+        <include name="org/jboss/test/testbean/bean/**"/>
+        <!--include name="org/jboss/test/testbean2/interfaces/**"/-->
+        <include name="org/somepackage/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/testbean">
+        <include name="**/*.xml"/>
+      </fileset>
+    </jar>
+
+    <!-- build testbean2.jar -->
+    <jar jarfile="${build.lib}/testbean2.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/testbean/interfaces/**"/>
+        <include name="org/jboss/test/testbean2/interfaces/**"/>
+        <include name="org/jboss/test/testbean2/bean/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/testbean2">
+        <include name="**/*.xml"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- testbeancluster test -->
+  <target name="_jars-testbeancluster" depends="_jars-testbean">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build testbeancluster.jar -->
+    <jar jarfile="${build.lib}/testbeancluster.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/testbean/interfaces/**"/>
+        <include name="org/jboss/test/testbeancluster/interfaces/**"/>
+        <include name="org/jboss/test/testbean/bean/**"/>
+        <include name="org/jboss/test/testbeancluster/bean/**"/>
+        <include name="org/somepackage/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/testbeancluster">
+        <include name="**/*.xml"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- perf test -->
+  <target name="_jars-perf">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build perftest.jar -->
+    <jar jarfile="${build.lib}/perftest.jar"
+	 manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.client.classes"/>
+        <include name="org/jboss/test/perf/interfaces/**"/>
+        <include name="org/jboss/test/perf/test/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/perf">
+        <include name="*.*"/>
+      </fileset>
+    </jar>
+
+    <!-- build perf.jar -->
+    <jar jarfile="${build.lib}/perf.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/perf/interfaces/**"/>
+        <include name="org/jboss/test/perf/ejb/**"/>
+      </fileset>
+      <metainf dir="${build.resources}/perf/META-INF">
+         <exclude name="jboss-service.xml" />
+      </metainf>
+    </jar>
+    <!-- build probe.jar -->
+    <jar jarfile="${build.lib}/probe.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/perf/interfaces/Perf*"/>
+        <include name="org/jboss/test/perf/interfaces/Probe*"/>
+        <include name="org/jboss/test/perf/ejb/Perf*"/>
+        <include name="org/jboss/test/perf/ejb/Probe*"/>
+        <include name="org/jboss/test/util/Debug.class"/>
+      </fileset>
+      <metainf dir="${build.resources}/perf/probe">
+         <exclude name="jboss-service.xml" />
+      </metainf>
+    </jar>
+
+    <!-- build secure-perf.jar -->
+    <jar jarfile="${build.lib}/secure-perf.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/perf/interfaces/**"/>
+        <include name="org/jboss/test/perf/ejb/**"/>
+      </fileset>
+      <metainf dir="${build.resources}/secure-perf/META-INF" />
+      <fileset dir="${build.resources}/secure-perf">
+        <include name="users.properties"/>
+        <include name="roles.properties"/>
+      </fileset>
+    </jar>
+
+    <!-- build the perf-service.sar -->
+    <jar jarfile="${build.lib}/perf-service.sar">
+      <!-- jboss-service.xml for tomcat plugin -->
+      <metainf dir="${build.resources}/perf">
+         <include name="jboss-service.xml" />
+      </metainf>
+      <!-- The service classes -->
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/perf/test/PerfTest.class" />
+        <include name="org/jboss/test/perf/test/PerfTestMBean.class" />
+      </fileset>
+      <!-- The perf.jar -->
+      <fileset dir="${build.lib}">
+        <include name="perf.jar" />
+      </fileset>
+    </jar>
+
+    <!-- build the perf-service2.sar, does not include perf.jar -->
+    <jar jarfile="${build.lib}/perf-service2.sar">
+      <!-- jboss-service.xml for tomcat plugin -->
+      <metainf dir="${build.resources}/perf">
+         <include name="jboss-service.xml" />
+      </metainf>
+      <!-- The service classes -->
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/perf/test/PerfTest.class" />
+        <include name="org/jboss/test/perf/test/PerfTestMBean.class" />
+      </fileset>
+    </jar>
+
+    <!-- The perf-service ear -->
+    <ear earfile="${build.lib}/perf-service.ear"
+       appxml="${build.resources}/perf/application.xml">
+       <fileset dir="${build.lib}">
+         <include name="perf.jar" />
+         <include name="perf-service2.sar" />
+       </fileset>
+    </ear>
+  </target>
+
+  <!-- web test -->
+  <target name="_jars-web" depends="_jars-cts">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build jbosstest-web-ejbs.jar -->
+    <jar jarfile="${build.lib}/jbosstest-web-ejbs.jar"
+         manifest="${build.resources}/web/ejb.mf">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/web/interfaces/**"/>
+        <include name="org/jboss/test/web/ejb/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/web">
+        <include name="META-INF/ejb-jar.xml"/>
+        <include name="META-INF/jboss.xml"/>
+        <include name="users.properties"/>
+        <include name="roles.properties"/>
+      </fileset>
+    </jar>
+
+    <!-- build jbosstest-web-util.jar -->
+    <jar jarfile="${build.lib}/jbosstest-web-util.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/web/util/**"/>
+        <exclude name="org/jboss/test/web/util/ClassInClasses.class"/>
+        <exclude name="org/jboss/test/web/util/EJBManifestClass.class"/>
+      </fileset>
+    </jar>
+    <mkdir dir="${build.lib}/lib" />
+    <jar jarfile="${build.lib}/lib/util.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/util/Debug.class"/>
+        <include name="org/jboss/test/web/util/EJBManifestClass.class"/>
+      </fileset>
+    </jar>
+
+    <!-- build websubdir/relative.jar -->
+    <mkdir dir="${build.lib}/websubdir"/>
+    <jar jarfile="${build.lib}/websubdir/relative.jar">
+      <fileset dir="${build.resources}/web/websubdir">
+        <include name="**/*.xml"/>
+      </fileset>
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/web/ejb/StatelessSessionBean.class"/>
+        <include name="org/jboss/test/web/interfaces/StatelessSession*.class"/>
+      </fileset>
+    </jar>
+
+
+    <!-- build root-web.war -->
+    <war warfile="${build.lib}/root-web.war"
+	   webxml="${build.resources}/web/WEB-INF/root-web.xml">
+      <fileset dir="${build.resources}/web/html/root">
+        <include name="**/*.html"/>
+      </fileset>
+    </war>
+
+    <!-- build notjbosstest-web.war -->
+    <mkdir dir="${build.lib}/wars" />
+    <war warfile="${build.lib}/wars/notjbosstest-web.war"
+      webxml="${build.resources}/web/WEB-INF/notjbosstest-web.xml">
+      <webinf dir="${build.resources}/web/html/other/WEB-INF">
+        <include name="*"/>
+      </webinf>
+      <classes dir="${build.classes}">
+         <include name="org/jboss/test/web/servlets/SecureServlet.class"/>
+      </classes>
+      <fileset dir="${build.resources}/web">
+        <include name="*.properties"/>
+      </fileset>
+      <fileset dir="${build.resources}/web/html/other">
+        <include name="**/*.html"/>
+      </fileset>
+    </war>
+
+    <!-- build jbosstest-web.war -->
+    <jar destfile="${build.lib}/resources.jar">
+      <zipfileset dir="${build.resources}/web/html/jbosstest"
+      prefix="org/jboss/resources" includes="JBoss.properties" />
+    </jar>
+    <war warfile="${build.lib}/jbosstest-web.war"
+      webxml="${build.resources}/web/WEB-INF/jbosstest-web.xml">
+      <webinf dir="${build.resources}/web/html/jbosstest/WEB-INF">
+        <include name="*"/>
+      </webinf>
+      <lib dir="${build.lib}">
+        <include name="jbosstest-web-util.jar"/>
+        <include name="resources.jar" />
+      </lib>
+      <classes dir="${build.classes}">
+         <!-- -->
+         <include name="org/jboss/test/web/interfaces/ReturnData.class"/>
+         <include name="org/jboss/test/web/servlets/**"/>
+         <include name="org/jboss/test/web/util/ClassInClasses.class"/>
+      </classes>
+      <fileset dir="${build.resources}/web/html/jbosstest">
+        <include name="**/*.jsp"/>
+        <include name="**/*.html"/>
+      </fileset>
+    </war>
+
+    <!-- Create a war with a bad web.xml descriptor to test redeployment
+    of a failed war. The good-web.war is the same war with the web.xml
+    descriptor fixed. Both use a context-root of /redeploy
+    -->
+    <war warfile="${build.lib}/bad-web.war"
+      webxml="${build.resources}/web/WEB-INF/bad-web.xml">
+      <webinf dir="${build.resources}/web/html/bad/WEB-INF">
+        <include name="*"/>
+      </webinf>
+      <fileset dir="${build.resources}/web/html/bad">
+        <include name="**/*.html"/>
+      </fileset>
+    </war>
+    <war warfile="${build.lib}/good-web.war"
+      webxml="${build.resources}/web/WEB-INF/good-web.xml">
+      <webinf dir="${build.resources}/web/html/bad/WEB-INF">
+        <include name="*"/>
+      </webinf>
+      <fileset dir="${build.resources}/web/html/bad">
+        <include name="**/*.html"/>
+      </fileset>
+    </war>
+
+
+    <!-- build jbosstest-web.ear -->
+    <ear earfile="${build.lib}/jbosstest-web.ear"
+    appxml="${build.resources}/web/META-INF/application.xml">
+      <metainf dir="${build.resources}/web/META-INF">
+        <include name="jboss-app.xml" />
+      </metainf>
+      <fileset dir="${build.lib}">
+        <include name="jbosstest-web-ejbs.jar"/>
+        <include name="root-web.war"/>
+        <include name="jbosstest-web.war"/>
+        <include name="wars/notjbosstest-web.war"/>
+        <include name="cts.jar"/>
+        <include name="lib/util.jar"/>
+        <include name="websubdir/relative.jar"/>
+      </fileset>
+    </ear>
+
+    <!-- Create an ear with the same war as the jbosstest-web.ear to test
+    conflicts with unpackaging ear content
+    -->
+    <ear earfile="${build.lib}/jbosstest-web2.ear"
+    appxml="${build.resources}/web/META-INF/application2.xml">
+      <metainf dir="${build.resources}/web/META-INF">
+        <include name="jboss-app.xml" />
+      </metainf>
+      <fileset dir="${build.lib}">
+        <include name="wars/notjbosstest-web.war"/>
+      </fileset>
+    </ear>
+
+    <ear earfile="${build.lib}/jbosstest-bad.ear"
+    appxml="${build.resources}/web/META-INF/application-bad.xml">
+      <fileset dir="${build.lib}">
+        <include name="bad-web.war"/>
+      </fileset>
+    </ear>
+    <ear earfile="${build.lib}/jbosstest-good.ear"
+    appxml="${build.resources}/web/META-INF/application-good.xml">
+      <fileset dir="${build.lib}">
+        <include name="good-web.war"/>
+      </fileset>
+    </ear>
+  </target>
+
+  <!-- bench test -->
+  <target name="_jars-bench">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build bench.jar -->
+    <jar jarfile="${build.lib}/bench.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/bench/interfaces/**"/>
+        <include name="org/jboss/test/bench/ejb/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/bench/ejb">
+        <include name="**/*.xml"/>
+      </fileset>
+    </jar>
+
+    <!-- build bench.war -->
+    <war warfile="${build.lib}/bench.war"
+	 webxml="${build.resources}/bench/web/WEB-INF/web.xml"
+	 manifest="${build.resources}/bench/web.mf">
+      <webinf dir="${build.resources}/bench/web/WEB-INF">
+        <include name="*"/>
+        <exclude name="web.xml"/>
+      </webinf>
+      <lib dir="${build.lib}">
+        <include name="jbosstest-bench-util.jar"/>
+      </lib>
+      <classes dir="${build.classes}">
+         <include name="org/jboss/test/bench/servlet/**"/>
+      </classes>
+      <fileset dir="${build.resources}/bench/web/">
+        <include name="*"/>
+      </fileset>
+    </war>
+
+    <!-- build bench.ear -->
+    <ear earfile="${build.lib}/bench.ear"
+	 appxml="${build.resources}/bench/ear/META-INF/application.xml">
+      <fileset dir="${build.lib}">
+        <include name="bench.jar"/>
+        <include name="bench.war"/>
+      </fileset>
+    </ear>
+  </target>
+
+  <!-- security test -->
+  <target name="_jars-security">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build security-client.jar -->
+    <jar jarfile="${build.lib}/security-client.jar"
+	 manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/security/interfaces/**"/>
+      </fileset>
+    </jar>
+
+    <!-- build security.jar -->
+    <jar jarfile="${build.lib}/security.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/security/interfaces/**"/>
+        <include name="org/jboss/test/security/ejb/**"/>
+        <include name="org/jboss/test/security/proxy/**"/>
+        <include name="org/jboss/test/security/test/Namespace*"/>
+        <include name="org/jboss/test/security/test/PermissionName*"/>
+      </fileset>
+      <fileset dir="${build.resources}/security">
+        <include name="**/ejb-jar.xml" />
+        <include name="**/jboss.xml" />
+      </fileset>
+    </jar>
+
+    <!-- build security-spec.jar -->
+    <jar jarfile="${build.lib}/security-spec.sar">
+      <metainf dir="${build.resources}/security-spec/service-inf" />
+      <fileset dir="${build.resources}/security">
+        <include name="tst.keystore" />
+      </fileset>
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/security/service/SecurityConfig*.class"/>
+      </fileset>
+    </jar>
+    <jar jarfile="${build.lib}/security-spec.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/security/interfaces/**"/>
+        <include name="org/jboss/test/security/ejb/**"/>
+        <include name="org/jboss/test/security/test/Namespace*"/>
+        <include name="org/jboss/test/security/test/PermissionName*"/>
+      </fileset>
+      <fileset dir="${build.resources}/security-spec">
+        <include name="META-INF/ejb-jar.xml" />
+        <include name="META-INF/jboss.xml" />
+        <include name="users.properties"/>
+        <include name="roles.properties"/>
+      </fileset>
+      <fileset dir="${build.lib}">
+        <include name="security-spec.sar"/>
+      </fileset>
+    </jar>
+
+    <!-- build security-srp.jar and security-srp.sar -->
+    <jar jarfile="${build.lib}/security-srp.sar">
+      <metainf dir="${build.resources}/security-srp/service-inf" />
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/security/service/PropertiesVerifierStore*.class"/>
+        <include name="org/jboss/test/security/service/SecurityConfig*.class"/>
+        <include name="org/jboss/test/security/service/SRPCache*.class"/>
+        <include name="org/jboss/test/security/interceptors/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/security-srp">
+        <include name="users.properties"/>
+      </fileset>
+    </jar>
+
+    <jar jarfile="${build.lib}/security-srp.jar">
+      <metainf dir="${build.resources}/security-srp/ejb-inf" />
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/security/ejb/StatelessSessionBean.class"/>
+        <include name="org/jboss/test/security/interfaces/StatelessSession*"/>
+      </fileset>
+      <fileset dir="${build.resources}/security-srp">
+        <include name="users.properties"/>
+        <include name="roles.properties"/>
+      </fileset>
+      <fileset dir="${build.lib}">
+        <include name="security-srp.sar"/>
+      </fileset>
+    </jar>
+
+    <!-- build https-service.sar -->
+    <jar jarfile="${build.lib}/https-service.sar">
+      <metainf dir="${build.resources}/security/META-INF"/>
+      <metainf dir="${build.resources}/security">
+        <include name="tst.keystore"/>
+      </metainf>
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/security/service/Https*.class"/>
+      </fileset>
+    </jar>
+
+    <!-- build security-proxy.jar -->
+    <jar jarfile="${build.lib}/security-proxy.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/security/ejb/IOStatelessSessionBean.class"/>
+        <include name="org/jboss/test/security/ejb/IOStatefulSessionBean.class"/>
+        <include name="org/jboss/test/security/interfaces/IOSession.class"/>
+        <include name="org/jboss/test/security/interfaces/IOSessionHome.class"/>
+        <include name="org/jboss/test/security/interfaces/ReadAccessException.class"/>
+        <include name="org/jboss/test/security/proxy/SessionSecurityProxy.class"/>
+      </fileset>
+      <fileset dir="${build.resources}/security-proxy">
+        <include name="*.properties" />
+      </fileset>
+      <metainf dir="${build.resources}/security-proxy/META-INF" />
+    </jar>
+
+    <!-- build securitymgr-ejb.jar -->
+    <jar jarfile="${build.lib}/securitymgr-ejb.jar">
+      <metainf dir="${build.resources}/securitymgr/META-INF" />
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/securitymgr/ejb/**"/>
+        <include name="org/jboss/test/securitymgr/interfaces/**"/>
+      </fileset>
+    </jar>
+
+    <!-- build securitymgr-tests.jar -->
+    <jar jarfile="${build.lib}/securitymgr-tests.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/*.class"/>
+        <include name="org/jboss/test/securitymgr/test/**"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- jsr77 test -->
+  <target name="_jars-jsr77">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build jsr77-test.jar -->
+    <jar jarfile="${build.lib}/jsr77-test.jar">
+      <fileset dir="${build.classes}">
+       <include name="org/jboss/test/management/**"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- foe-deployer test -->
+  <target name="_jars-foedeployer">
+    <mkdir dir="${build.lib}"/>
+    <!-- First task is to copy the Foe-Deployer SAR to the current lib directory -->
+    <echo>${project.root}</echo>
+    <copy todir="${build.lib}" filtering="no">
+      <fileset dir="${project.root}/varia/output/lib">
+        <include name="foe-deployer-3.2.sar"/>
+      </fileset>
+    </copy>
+
+    <!-- build foe-deployer-simple-test.wlar -->
+    <jar jarfile="${build.lib}/foe-deployer-simple-test.wlar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/foedeployer/ejb/simple/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/foedeployer/simple/">
+        <include name="META-INF/**"/>
+      </fileset>
+    </jar>
+
+    <!-- build foe-deployer-message-test.wlar -->
+    <jar jarfile="${build.lib}/foe-deployer-message-test.wlar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/foedeployer/ejb/message/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/foedeployer/message/">
+        <include name="META-INF/**"/>
+      </fileset>
+    </jar>
+
+    <!-- build foe-deployer-o2mb-test.wlar -->
+    <jar jarfile="${build.lib}/foe-deployer-o2mb-test.wlar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/foedeployer/ejb/o2mb/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/foedeployer/o2mb/">
+        <include name="META-INF/**"/>
+      </fileset>
+    </jar>
+
+    <!-- build foe-deployer-m2mb-test.wlar -->
+    <jar jarfile="${build.lib}/foe-deployer-m2mb-test.wlar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/foedeployer/ejb/m2mb/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/foedeployer/m2mb/">
+        <include name="META-INF/**"/>
+      </fileset>
+    </jar>
+
+    <!-- build foe-deployer-ql-test.wlar -->
+    <jar jarfile="${build.lib}/foe-deployer-ql-test.wlar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/foedeployer/ejb/ql/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/foedeployer/ql/">
+        <include name="META-INF/**"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- cmp2 tests -->
+  <target name="_jars-cmp2">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build cmp2-relationship.jar -->
+    <jar jarfile="${build.lib}/cmp2-relationship.jar">
+      <fileset dir="${build.classes}">
+       <patternset refid="common.test.client.classes"/>
+       <include name="org/jboss/test/cmp2/relationship/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/cmp2/relationship">
+       <include name="**/*.*"/>
+      </fileset>
+      <zipfileset src="${junitejb.junitejb.lib}/junitejb.jar"
+        includes="net/**/*.*"/>
+      <zipfileset src="${junit.junit.lib}/junit.jar"
+        includes="junit/**/*.*"/>
+    </jar>
+
+    <!-- build cmp2-readonly.jar -->
+    <jar jarfile="${build.lib}/cmp2-readonly.jar">
+      <fileset dir="${build.classes}">
+       <patternset refid="common.test.client.classes"/>
+       <include name="org/jboss/test/cmp2/readonly/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/cmp2/readonly">
+       <include name="**/*.*"/>
+      </fileset>
+      <zipfileset src="${junitejb.junitejb.lib}/junitejb.jar"
+        includes="net/**/*.*"/>
+      <zipfileset src="${junit.junit.lib}/junit.jar"
+        includes="junit/**/*.*"/>
+    </jar>
+
+    <!-- build cmp2-ejbselect.jar -->
+    <jar jarfile="${build.lib}/cmp2-ejbselect.jar">
+      <fileset dir="${build.classes}">
+       <patternset refid="common.test.client.classes"/>
+       <include name="org/jboss/test/cmp2/ejbselect/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/cmp2/ejbselect">
+       <include name="**/*.*"/>
+      </fileset>
+      <zipfileset src="${junitejb.junitejb.lib}/junitejb.jar"
+        includes="net/**/*.*"/>
+      <zipfileset src="${junit.junit.lib}/junit.jar"
+        includes="junit/**/*.*"/>
+    </jar>
+
+    <!-- build cmr-postcreateswritten.jar -->
+    <jar jarfile="${build.lib}/cmr-postcreateswritten.jar">
+      <fileset dir="${build.classes}">
+       <include name="org/jboss/test/cmp2/cmr/ejb/*"/>
+       <include name="org/jboss/test/cmp2/cmr/interfaces/*"/>
+      </fileset>
+      <fileset dir="${build.resources}/cmp2/cmr">
+       <include name="**/*.*"/>
+      </fileset>
+    </jar>
+
+    <!-- build cmp2-simple.jar -->
+    <jar jarfile="${build.lib}/cmp2-simple.jar">
+      <fileset dir="${build.classes}">
+       <include name="org/jboss/test/cmp2/simple/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/cmp2/simple">
+       <include name="**/*.*"/>
+      </fileset>
+      <zipfileset src="${junitejb.junitejb.lib}/junitejb.jar"
+        includes="net/**/*.*"/>
+      <zipfileset src="${junit.junit.lib}/junit.jar"
+        includes="junit/**/*.*"/>
+    </jar>
+
+    <!-- build cmp2-commerce.jar -->
+    <jar jarfile="${build.lib}/cmp2-commerce.jar">
+      <fileset dir="${build.classes}">
+       <include name="org/jboss/test/cmp2/commerce/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/cmp2/commerce">
+       <include name="**/*.*"/>
+      </fileset>
+      <zipfileset src="${junitejb.junitejb.lib}/junitejb.jar"
+        includes="net/**/*.*"/>
+      <zipfileset src="${junit.junit.lib}/junit.jar"
+        includes="junit/**/*.*"/>
+    </jar>
+
+    <!-- build cmp2-lob.jar -->
+    <jar jarfile="${build.lib}/cmp2-lob.jar">
+      <fileset dir="${build.classes}">
+       <include name="org/jboss/test/cmp2/lob/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/cmp2/lob">
+       <include name="**/*.*"/>
+      </fileset>
+      <zipfileset src="${junitejb.junitejb.lib}/junitejb.jar"
+        includes="net/**/*.*"/>
+      <zipfileset src="${junit.junit.lib}/junit.jar"
+        includes="junit/**/*.*"/>
+    </jar>
+
+    <!-- build cmp2-optimisticlock.jar -->
+    <jar jarfile="${build.lib}/cmp2-optimisticlock.jar">
+      <fileset dir="${build.classes}">
+       <include name="org/jboss/test/cmp2/optimisticlock/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/cmp2/optimisticlock">
+       <include name="**/*.*"/>
+      </fileset>
+      <zipfileset src="${junitejb.junitejb.lib}/junitejb.jar"
+        includes="net/**/*.*"/>
+      <zipfileset src="${junit.junit.lib}/junit.jar"
+        includes="junit/**/*.*"/>
+    </jar>
+
+    <!-- build cmp2-passivation.jar -->
+    <jar jarfile="${build.lib}/cmp2-passivation.jar">
+      <fileset dir="${build.classes}">
+       <include name="org/jboss/test/cmp2/passivation/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/cmp2/passivation">
+       <include name="**/*.*"/>
+      </fileset>
+      <zipfileset src="${junitejb.junitejb.lib}/junitejb.jar"
+        includes="net/**/*.*"/>
+      <zipfileset src="${junit.junit.lib}/junit.jar"
+        includes="junit/**/*.*"/>
+    </jar>
+
+    <!-- build cmp2-fkmapping.jar -->
+    <jar jarfile="${build.lib}/cmp2-fkmapping.jar">
+      <fileset dir="${build.classes}">
+       <include name="org/jboss/test/cmp2/fkmapping/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/cmp2/fkmapping">
+       <include name="**/*.*"/>
+      </fileset>
+      <zipfileset src="${junitejb.junitejb.lib}/junitejb.jar"
+        includes="net/**/*.*"/>
+      <zipfileset src="${junit.junit.lib}/junit.jar"
+        includes="junit/**/*.*"/>
+    </jar>
+
+    <!-- build cmp2-fkstackoverflow.jar -->
+    <jar jarfile="${build.lib}/cmp2-fkstackoverflow.jar">
+      <fileset dir="${build.classes}">
+       <include name="org/jboss/test/cmp2/fkstackoverflow/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/cmp2/fkstackoverflow">
+       <include name="**/*.*"/>
+      </fileset>
+      <zipfileset src="${junitejb.junitejb.lib}/junitejb.jar"
+        includes="net/**/*.*"/>
+      <zipfileset src="${junit.junit.lib}/junit.jar"
+        includes="junit/**/*.*"/>
+    </jar>
+
+    <!-- build cmp2-fkupdates.jar -->
+    <jar jarfile="${build.lib}/cmp2-fkupdates.jar">
+      <fileset dir="${build.classes}">
+       <include name="org/jboss/test/cmp2/fkupdates/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/cmp2/fkupdates">
+       <include name="**/*.*"/>
+      </fileset>
+      <zipfileset src="${junitejb.junitejb.lib}/junitejb.jar"
+        includes="net/**/*.*"/>
+      <zipfileset src="${junit.junit.lib}/junit.jar"
+        includes="junit/**/*.*"/>
+    </jar>
+
+    <!-- build cmp2-audit.jar -->
+    <jar jarfile="${build.lib}/cmp2-audit.jar">
+      <fileset dir="${build.classes}">
+       <include name="org/jboss/test/cmp2/audit/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/cmp2/audit">
+       <include name="**/*.*"/>
+      </fileset>
+    </jar>
+
+    <!-- build cmp2-cmrstress.jar -->
+    <jar jarfile="${build.lib}/cmp2-cmrstress.jar">
+      <fileset dir="${build.classes}">
+       <include name="org/jboss/test/cmp2/cmrstress/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/cmp2/cmrstress">
+       <include name="**/*.*"/>
+      </fileset>
+      <zipfileset src="${junitejb.junitejb.lib}/junitejb.jar"
+        includes="net/**/*.*"/>
+      <zipfileset src="${junit.junit.lib}/junit.jar"
+        includes="junit/**/*.*"/>
+    </jar>
+
+    <!-- build cmp2-keygen.jar -->
+    <jar jarfile="${build.lib}/cmp2-keygen.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/cmp2/keygen/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/cmp2/keygen">
+        <include name="**/*.*"/>
+      </fileset>
+      <zipfileset src="${junitejb.junitejb.lib}/junitejb.jar"
+         includes="net/**/*.*"/>
+      <zipfileset src="${junit.junit.lib}/junit.jar"
+         includes="junit/**/*.*"/>
+    </jar>
+
+    <jar jarfile="${build.lib}/cmp2-perf.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/cmp2/perf/**"/>
+      </fileset>
+      <metainf dir="${build.resources}/cmp2/perf" />
+    </jar>
+
+    <!-- build cmp2-dbschema.jar -->
+    <jar jarfile="${build.lib}/cmp2-dbschema.jar">
+      <fileset dir="${build.classes}">
+       <include name="org/jboss/test/cmp2/dbschema/**"/>
+      </fileset>
+      <fileset dir="${build.classes}">
+       <include name="org/jboss/test/cmp2/relationship/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/cmp2/relationship">
+       <include name="**/*.*"/>
+      </fileset>
+      <zipfileset src="${junitejb.junitejb.lib}/junitejb.jar"
+        includes="net/**/*.*"/>
+      <zipfileset src="${junit.junit.lib}/junit.jar"
+        includes="junit/**/*.*"/>
+    </jar>
+  </target>
+
+  <!-- exception tests -->
+  <target name="_jars-exception">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build exception.jar -->
+    <jar jarfile="${build.lib}/exception.jar">
+      <fileset dir="${build.classes}">
+       <patternset refid="common.test.client.classes"/>
+       <include name="org/jboss/test/exception/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/exception">
+       <include name="**/*.*"/>
+      </fileset>
+      <zipfileset src="${junitejb.junitejb.lib}/junitejb.jar"
+        includes="net/**/*.*"/>
+      <zipfileset src="${junit.junit.lib}/junit.jar"
+        includes="junit/**/*.*"/>
+    </jar>
+ </target>
+
+  <!-- JbossMX tests -->
+  <target name="_jars-jbossmx">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build compliance.jar -->
+    <jar jarfile="${build.lib}/jbossmx-compliance.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/jbossmx/compliance/**"/>
+      </fileset>
+    </jar>
+
+    <!-- build implementation.jar -->
+    <jar jarfile="${build.lib}/jbossmx-implementation.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/jbossmx/implementation/**"/>
+      </fileset>
+    </jar>
+
+    <!-- build performance.jar -->
+    <jar jarfile="${build.lib}/jbossmx-performance.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.application.classes"/>
+        <include name="org/jboss/test/jbossmx/performance/**"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- jca ejbconf readonly tests -->
+  <target name="_jars-ejbconf">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build ejbconf-test.jar -->
+    <jar jarfile="${build.lib}/ejbconf-test.jar">
+      <fileset dir="${build.classes}">
+       <include name="org/jboss/test/ejbconf/beans/**"/>
+      </fileset>
+      <fileset dir="${build.resources}/ejbconf/readonly/">
+       <include name="META-INF/*.*"/>
+      </fileset>
+    </jar>
+  </target>
+
+   <!-- proxy compiler tests -->
+  <target name="_jars-proxycompiler">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build ejbconf-test.jar -->
+    <jar jarfile="${build.lib}/proxycompiler-test.jar">
+      <fileset dir="${build.classes}">
+       <include name="org/jboss/test/proxycompiler/beans/**"/>
+      </fileset>
+      <fileset dir="${build.classes}">
+       <include name="org/jboss/test/proxycompiler/*"/>
+      </fileset>
+      <fileset dir="${build.resources}/proxycompiler/">
+       <include name="META-INF/*"/>
+      </fileset>
+    </jar>
+
+  </target>
+
+  <!-- marathon test -->
+  <target name="_jars-marathon">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build marathon.jar -->
+    <jar jarfile="${build.lib}/marathon.jar">
+      <fileset dir="${build.classes}">
+       <include name="org/jboss/test/marathon/**"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- classloader test -->
+  <target name="_jars-classloader" depends="compile-classes-only">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build concurrentloader.sar -->
+    <jar jarfile="${build.lib}/concurrentloader.sar">
+      <metainf dir="${source.resources}/classloader/concurrentloader" />
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/classloader/concurrentload/**"/>
+      </fileset>
+    </jar>
+    <!-- build concurrentloader.ear which deploys the concurrentloader.sar
+         with a HeirarchicalLoaderRepository
+    -->
+    <ear earfile="${build.lib}/concurrentloader.ear"
+       appxml="${build.resources}/classloader/concurrentloader/application.xml">
+       <metainf dir="${build.resources}/classloader/concurrentloader">
+         <include name="jboss-app.xml" />
+       </metainf>
+       <fileset dir="${build.lib}">
+         <include name="concurrentloader.sar" />
+       </fileset>
+    </ear>
+
+    <!-- build circularity.sar -->
+    <jar jarfile="${build.lib}/j0.jar" basedir="${build.classes}"
+       includes="org/jboss/test/classloader/circularity/support/Class0.class"/>
+    <jar jarfile="${build.lib}/j1.jar" basedir="${build.classes}"
+       includes="org/jboss/test/classloader/circularity/support/Class1.class"/>
+    <jar jarfile="${build.lib}/j2.jar" basedir="${build.classes}"
+       includes="org/jboss/test/classloader/circularity/support/Class2.class"/>
+    <jar jarfile="${build.lib}/j3.jar" basedir="${build.classes}"
+       includes="org/jboss/test/classloader/circularity/support/Derived.class"/>
+    <jar jarfile="${build.lib}/any0.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/classloader/circularity/support/Base.class"/>
+        <include name="org/jboss/test/classloader/circularity/support/Class0.class"/>
+        <include name="org/jboss/test/classloader/circularity/support/Class2.class"/>
+      </fileset>
+    </jar>
+    <jar jarfile="${build.lib}/any1.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/classloader/circularity/support/Class0.class"/>
+        <include name="org/jboss/test/classloader/circularity/support/Class2.class"/>
+      </fileset>
+    </jar>
+    <jar jarfile="${build.lib}/login.jar" basedir="${build.classes}"
+       manifest="${source.resources}/classloader/circularity/to-cl-util.mf"
+       includes="org/jboss/test/classloader/circularity/support/UserOfLoginInfo.class"/>
+    <jar jarfile="${build.lib}/usrmgr.jar" basedir="${build.classes}"
+       manifest="${source.resources}/classloader/circularity/to-cl-util.mf"
+       includes="org/jboss/test/classloader/circularity/support/UserOfUsrMgr.class"/>
+    <jar jarfile="${build.lib}/cl-util.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/classloader/circularity/support/LoginInfo.class"/>
+        <include name="org/jboss/test/classloader/circularity/support/UsrMgr.class"/>
+      </fileset>
+    </jar>
+    <jar jarfile="${build.lib}/le0.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/classloader/circularity/support/Base.class"/>
+        <include name="org/jboss/test/classloader/circularity/support/UserOfBase.class"/>
+      </fileset>
+    </jar>
+    <jar jarfile="${build.lib}/le1.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/classloader/circularity/support/Base.class"/>
+        <include name="org/jboss/test/classloader/circularity/support/Support.class"/>
+      </fileset>
+    </jar>
+    <jar jarfile="${build.lib}/dl10.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/classloader/circularity/support/pkg0/Derived.class"/>
+      </fileset>
+    </jar>
+    <jar jarfile="${build.lib}/dl11.jar">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/classloader/circularity/support/Base.class"/>
+      </fileset>
+    </jar>
+
+    <jar jarfile="${build.lib}/circularity.sar">
+      <metainf dir="${source.resources}/classloader/circularity" />
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/classloader/circularity/**"/>
+      </fileset>
+    </jar>
+
+    <!-- build interrupt.sar -->
+    <jar jarfile="${build.lib}/interrupt.sar">
+      <metainf dir="${source.resources}/classloader/interrupt" />
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/classloader/interrupt/**"/>
+      </fileset>
+    </jar>
+
+    <!-- build loadingresource.sar -->
+    <jar jarfile="${build.lib}/loadingresource.sar">
+      <metainf dir="${source.resources}/classloader/resource">
+         <include name="jboss-service.xml" />
+      </metainf>
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/classloader/resource/**"/>
+      </fileset>
+    </jar>
+
+     <ear earfile="${build.lib}/loadingresource.ear"
+        appxml="${build.resources}/classloader/resource/application.xml">
+        <metainf dir="${build.resources}/classloader/resource">
+          <include name="jboss-app.xml" />
+        </metainf>
+        <fileset dir="${build.resources}/classloader/resource">
+          <include name="dtds/*" />
+        </fileset>
+        <fileset dir="${build.lib}">
+          <include name="loadingresource.sar" />
+        </fileset>
+     </ear>
+
+    <!-- Build version 1 of the singleton.jar -->
+    <copy tofile="${build.gen-src}/org/jboss/test/classloader/scoping/singleton/MySingleton.java"
+      file="${source.java}/org/jboss/test/classloader/scoping/singleton/MySingleton_V1.txt"
+      overwrite="true" />
+    <checksum property="v1singletonmd5"
+      file="${build.gen-src}/org/jboss/test/classloader/scoping/singleton/MySingleton.java" />
+    <echo message="V1 MySingleton.java cksum: ${v1singletonmd5}" />
+    <copy todir="${build.classes}/org/jboss/test/classloader/scoping/singleton"
+      overwrite="true">
+      <fileset dir="${source.java}/org/jboss/test/classloader/scoping/singleton">
+         <include name="jboss-service.xml" />
+      </fileset>
+      <filterset>
+         <filter token="VERSION" value="V1"/>
+      </filterset>
+    </copy>
+
+    <javac destdir="${build.classes}" optimize="${javac.optimize}"
+      target="${javac.target}" debug="${javac.debug}" >
+       <src path="${build.gen-src}"/>
+       <src path="${source.java}"/>
+       <classpath refid="tests.classpath"/>
+       <include name="org/jboss/test/classloader/scoping/singleton/**" />
+    </javac>
+    <jar jarfile="${build.lib}/singleton1.sar">
+      <metainf dir="${build.classes}/org/jboss/test/classloader/scoping/singleton">
+         <include name="jboss-service.xml" />
+      </metainf>
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/classloader/scoping/singleton/*"/>
+        <exclude name="org/jboss/test/classloader/scoping/singleton/*.xml"/>
+      </fileset>
+    </jar>
+
+    <!-- Build version 2 of the singleton.jar -->
+    <delete dir="${build.classes}/org/jboss/test/classloader/scoping/singleton" />
+    <copy tofile="${build.gen-src}/org/jboss/test/classloader/scoping/singleton/MySingleton.java"
+      file="${source.java}/org/jboss/test/classloader/scoping/singleton/MySingleton_V2.txt"
+      overwrite="true" />
+    <checksum property="v2singletonmd5"
+      file="${build.gen-src}/org/jboss/test/classloader/scoping/singleton/MySingleton.java" />
+    <echo message="V2 MySingleton.java cksum: ${v2singletonmd5}" />
+    <copy todir="${build.classes}/org/jboss/test/classloader/scoping/singleton"
+      overwrite="true">
+      <fileset dir="${source.java}/org/jboss/test/classloader/scoping/singleton">
+         <include name="jboss-service.xml" />
+      </fileset>
+      <filterset>
+         <filter token="VERSION" value="V2"/>
+      </filterset>
+    </copy>
+
+    <javac destdir="${build.classes}" optimize="${javac.optimize}"
+      target="${javac.target}" debug="${javac.debug}" >
+       <src path="${build.gen-src}"/>
+       <src path="${source.java}"/>
+       <classpath refid="tests.classpath"/>
+       <include name="org/jboss/test/classloader/scoping/singleton/**" />
+    </javac>
+    <jar jarfile="${build.lib}/singleton2.sar">
+      <metainf dir="${build.classes}/org/jboss/test/classloader/scoping/singleton">
+         <include name="jboss-service.xml" />
+      </metainf>
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/classloader/scoping/singleton/*"/>
+        <exclude name="org/jboss/test/classloader/scoping/singleton/*.xml"/>
+      </fileset>
+    </jar>
+
+    <jar jarfile="${build.lib}/log4j113-ejb.jar">
+      <metainf dir="${build.resources}/classloader/scoping/override/log4j113/META-INF">
+         <include name="ejb-jar.xml" />
+         <include name="jboss.xml" />
+      </metainf>
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/classloader/scoping/override/ejb/log4j113/*"/>
+      </fileset>
+      <fileset dir="${build.resources}/classloader/scoping/override/log4j113">
+        <include name="*.jar"/>
+      </fileset>
+    </jar>
+
+    <war warfile="${build.lib}/log4j113.war"
+      webxml="${build.resources}/classloader/scoping/override/log4j113/WEB-INF/web.xml">
+      <webinf dir="${build.resources}/classloader/scoping/override/log4j113/WEB-INF">
+         <include name="jboss-web.xml" />
+      </webinf>
+      <lib dir="${build.resources}/classloader/scoping/override/log4j113">
+        <include name="*.jar"/>
+      </lib>
+      <classes dir="${build.classes}">
+        <include name="org/jboss/test/classloader/scoping/override/web/**"/>
+      </classes>
+      <classes dir="${build.resources}/classloader/scoping/override/log4j113">
+        <include name="log4j.properties"/>
+      </classes>
+    </war>
+
+    <!-- build classpath.sar -->
+    <jar jarfile="${build.lib}/classpath.sar">
+      <metainf dir="${source.resources}/classloader/classpath">
+         <include name="jboss-service.xml" />
+      </metainf>
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/classloader/classpath/**"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- entity test -->
+  <target name="_jars-entity">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build jboss-test-entity.jar -->
+    <jar jarfile="${build.lib}/jboss-test-entity.jar"
+	 manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.client.classes"/>
+        <include name="org/jboss/test/entity/interfaces/**"/>
+        <include name="org/jboss/test/entity/beans/**"/>
+        <include name="org/jboss/test/entity/test/EntityUnitTestCase"/>
+      </fileset>
+      <fileset dir="${build.resources}/entity/entity">
+        <include name="**"/>
+      </fileset>
+    </jar>
+
+    <!-- build jboss-test-entity.jar -->
+    <jar jarfile="${build.lib}/jboss-test-pathological-entity.jar"
+	 manifest="${build.etc}/manifest.mf">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.client.classes"/>
+        <include name="org/jboss/test/entity/interfaces/**"/>
+        <include name="org/jboss/test/entity/ejb/**"/>
+        <include name="org/jboss/test/entity/test/PathologicalUnitTestCase"/>
+      </fileset>
+      <fileset dir="${build.resources}/entity/pathological">
+        <include name="**"/>
+      </fileset>
+    </jar>
+
+    <!-- build jboss-test-ejbload.jar -->
+    <jar jarfile="${build.lib}/jboss-test-ejbload.jar">
+      <fileset dir="${build.classes}">
+        <patternset refid="common.test.client.classes"/>
+        <include name="org/jboss/test/entity/interfaces/**"/>
+        <include name="org/jboss/test/entity/ejb/**"/>
+        <include name="org/jboss/test/entity/test/EJBLoadUnitTestCase"/>
+      </fileset>
+      <fileset dir="${build.resources}/entity/ejbload">
+        <include name="**"/>
+      </fileset>
+    </jar>
+  </target>
+
+   <!-- Utility services tests -->
+   <target name="_jars-util">
+      <!-- The external scheduler.jar -->
+      <jar destfile="${build.lib}/scheduler.jar">
+         <fileset dir="${build.classes}">
+            <include name="org/jboss/test/util/scheduler/*" />
+         </fileset>
+      </jar>
+      <!-- The scheduler.sar -->
+      <jar destfile="${build.lib}/scheduler.sar">
+         <manifest>
+            <attribute name="Class-Path" value="../../scheduler.jar"/>
+         </manifest>
+         <metainf dir="${build.resources}/util/scheduler">
+            <include name="jboss-service.xml" />
+         </metainf>
+      </jar>
+      <!-- The scheduler.ear -->
+      <ear destfile="${build.lib}/scheduler.ear"
+         appxml="${build.resources}/util/scheduler/application.xml">
+         <metainf dir="${build.resources}/util/scheduler">
+            <include name="jboss-app.xml" />
+         </metainf>
+         <fileset dir="${build.lib}">
+            <include name="scheduler.sar" />
+         </fileset>
+      </ear>
+   </target>
+
+  <!-- transaction test -->
+  <target name="_jars-tm">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- build tmtest.sar -->
+    <jar jarfile="${build.lib}/tmtest.sar">
+      <metainf dir="${build.resources}/tm">
+         <include name="jboss-service.xml" />
+      </metainf>
+      <fileset dir="${build.classes}">
+       <include name="org/jboss/test/tm/mbean/**"/>
+       <include name="org/jboss/test/tm/resource/**"/>
+      </fileset>
+    </jar>
+  </target>
+
+  <!-- ================================================================== -->
+  <!-- Install & Release                                                  -->
+  <!-- ================================================================== -->
+
+  <target name="install"
+	  description="Install the structure for a release."
+	  depends="all, _buildmagic:install:default"/>
+
+  <target name="release" depends="install"/>
+
+  <target name="release-zip"
+	  description="Builds a ZIP distribution."
+	  depends="release, _buildmagic:release:zip"/>
+
+  <target name="release-tar"
+	  description="Builds a TAR distribution."
+	  depends="release, _buildmagic:release:tar"/>
+
+  <target name="release-tgz"
+	  description="Builds a TAR-GZ distribution."
+	  depends="release, _buildmagic:release:tgz"/>
+
+  <target name="release-all"
+	  description="Builds a distribution for each archive type."
+	  depends="release-zip, release-tgz"/>
+
+
+  <!-- ================================================================== -->
+  <!-- Cleaning                                                           -->
+  <!-- ================================================================== -->
+
+  <!-- Clean up all build output -->
+  <target name="clean"
+	  description="Cleans up most generated files."
+	  depends="_buildmagic:clean">
+  </target>
+
+  <!-- Clean up all generated files -->
+  <target name="clobber"
+	  description="Cleans up all generated files."
+	  depends="_buildmagic:clobber, clean">
+  </target>
+
+
+  <!-- ================================================================== -->
+  <!-- Misc.                                                              -->
+  <!-- ================================================================== -->
+
+  <target name="main"
+	  description="Executes the default target (most)."
+	  depends="most"/>
+
+  <target name="all"
+	  description="Builds everything."
+	  depends="jars, docs"/>
+
+  <target name="most"
+	  description="Builds almost everything."
+	  depends="jars"/>
+
+  <target name="help"
+          description="Show this help message."
+	  depends="_buildmagic:help:standard"/>
+
+  <!-- ================================================================== -->
+  <!-- Tests                                                              -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Run all tests.
+   -->
+
+  <target name="maybejars" depends="init"
+          unless="nojars">
+    <antcall target="jars" inheritRefs="true"/>
+  </target>
+
+  <target name="tests" description="Execute all tests."
+    depends="init,
+             tests-standard-unit,
+             tests-client-unit,
+             tests-security-basic-unit,
+             tests-standard-stress,
+             tests-client-stress,
+             tests-security-basic-stress,
+             tests-jsr77-unit,
+             tests-util-unit,
+             tests-jbossmx-compliance,
+             tests-jbossmx-implementation,
+             tests-jbossmx-performance,
+	     tests-iiop-stress,
+             tests-report">
+  </target>
+
+
+  <target name="tests-unit" description="Execute all unit tests."
+    depends="init,
+             tests-standard-unit,
+             tests-client-unit,
+             tests-security-basic-unit,
+             tests-jsr77-unit,
+             tests-util-unit,
+             tests-jbossmx-compliance,
+             tests-jbossmx-implementation,
+             tests-report">
+  </target>
+
+  <target name="tests-stress" description="Execute all stress tests."
+    depends="init,
+             tests-standard-stress,
+             tests-iiop-stress,
+             tests-client-stress,
+             tests-security-basic-stress,
+             tests-jbossmx-performance,
+             tests-report">
+  </target>
+
+  <target name="tests-clustering" description="Execute clustering tests requiring two nodes."
+    depends="init,
+             tests-clustering-unit,
+             tests-report">
+  </target>
+
+  <!--
+     | Helper for running all jbossmx tests
+   -->
+  <target name="tests-jbossmx-all" description="Execute all jmx tests."
+    depends="init,
+             tests-jbossmx-compliance,
+             tests-jbossmx-implementation,
+             tests-jbossmx-performance,
+             tests-report">
+  </target>
+
+  <target name="tests-marathon" description="Execute all marathon tests."
+    depends="init,
+             tests-standard-marathon">
+  </target>
+
+  <!--
+     | Standard tests that should run successfully against a default JBoss
+     | server distribution build.
+   -->
+
+  <target name="tests-standard-unit" depends="maybejars">
+    <mkdir dir="${build.reports}"/>
+    <mkdir dir="${build.testlog}"/>
+    <junit dir="${module.output}"
+	   printsummary="${junit.printsummary}"
+	   haltonerror="${junit.haltonerror}"
+	   haltonfailure="${junit.haltonfailure}"
+	   fork="${junit.fork}"
+	   timeout="${junit.timeout}"
+	   jvm="${junit.jvm}">
+
+      <jvmarg value="${junit.jvm.options}"/>
+      <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
+      <sysproperty key="build.testlog" value="${build.testlog}"/>
+      <sysproperty key="log4j.configuration" value="file:${build.resources}/log4j.xml"/>
+
+      <classpath>
+        <pathelement location="${build.classes}"/>
+        <pathelement location="${build.resources}"/>
+        <path refid="tests.classpath"/>
+      </classpath>
+
+<!--
+      <formatter classname="org.jboss.ant.taskdefs.XMLJUnitResultFormatter"
+		  usefile="${junit.formatter.usefile}"/>
+-->
+      <formatter type="xml"  usefile="${junit.formatter.usefile}"/>
+
+      <batchtest todir="${build.reports}"
+		 haltonerror="${junit.batchtest.haltonerror}"
+		 haltonfailure="${junit.batchtest.haltonfailure}"
+		 fork="${junit.batchtest.fork}">
+
+        <fileset dir="${build.classes}">
+
+          <include name="**/*UnitTestCase.class"/>
+	  <!-- include the objectweb JMS tests -->
+	  <include name="org/objectweb/jtests/**/*Test.class"/>
+
+          <!-- do not include the dyn loading or security tests -->
+          <exclude name="**/test/jrmp/test/DynLoadingUnitTestCase.class"/>
+          <exclude name="**/test/naming/test/Security*"/>
+          <exclude name="**/test/security/test/*"/>
+          <exclude name="**/test/securitymgr/test/*"/>
+
+          <!-- Takes way too long, needs to be fixed to handle timeouts -->
+          <!--
+          <exclude name="**/test/jmsra/test/*"/>
+          -->
+
+          <!-- Exclude XAUnitTestCase until it can be updated -->
+          <exclude name="**/test/xa/test/XAUnitTestCase.class"/>
+
+          <!-- Exclude JSR77, it is run in its own target with a security manager -->
+          <exclude name="**/test/management/test/**UnitTestCase.class"/>
+        </fileset>
+      </batchtest>
+    </junit>
+  </target>
+
+  <target name="tests-standard-stress" depends="maybejars">
+    <mkdir dir="${build.reports}"/>
+    <mkdir dir="${build.testlog}"/>
+    <junit dir="${module.output}"
+	   printsummary="${junit.printsummary}"
+	   haltonerror="${junit.haltonerror}"
+	   haltonfailure="${junit.haltonfailure}"
+	   fork="${junit.fork}"
+	   timeout="${junit.timeout}"
+	   jvm="${junit.jvm}">
+
+      <jvmarg value="${junit.jvm.options}"/>
+      <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
+      <sysproperty key="build.testlog" value="${build.testlog}"/>
+      <sysproperty key="log4j.configuration" value="file:${build.resources}/log4j.xml"/>
+      <sysproperty key="jbosstest.threadcount" value="${jbosstest.threadcount}"/>
+      <sysproperty key="jbosstest.iterationcount" value="${jbosstest.iterationcount}"/>
+      <sysproperty key="jbosstest.beancount" value="${jbosstest.beancount}"/>
+
+      <classpath>
+        <pathelement location="${build.classes}"/>
+        <pathelement location="${build.resources}"/>
+        <path refid="tests.classpath"/>
+      </classpath>
+
+      <formatter type="xml"  usefile="${junit.formatter.usefile}"/>
+
+      <batchtest todir="${build.reports}"
+		 haltonerror="${junit.batchtest.haltonerror}"
+		 haltonfailure="${junit.batchtest.haltonfailure}"
+		 fork="${junit.batchtest.fork}">
+
+        <fileset dir="${build.classes}">
+          <include name="**/*StressTestCase.class"/>
+
+          <!-- do not include the perf, security, or iiop tests -->
+<!--mq test seems to break things-->
+          <!--exclude name="**/JBossMQPerfStressTestCase.class"/-->
+          <exclude name="**/test/naming/test/Security*"/>
+          <exclude name="**/test/perf/test/SecurePerfStressTestCase.class"/>
+          <exclude name="**/test/security/test/*"/>
+          <exclude name="**/test/securitymgr/test/*"/>
+          <exclude name="**/test/*iiop/test/*"/>
+        </fileset>
+      </batchtest>
+    </junit>
+  </target>
+
+  <target name="tests-clustering-unit" depends="maybejars">
+    <mkdir dir="${build.reports}"/>
+    <mkdir dir="${build.testlog}"/>
+    <junit dir="${module.output}"
+	   printsummary="${junit.printsummary}"
+	   haltonerror="${junit.haltonerror}"
+	   haltonfailure="${junit.haltonfailure}"
+	   fork="${junit.fork}"
+	   timeout="${junit.timeout}"
+	   jvm="${junit.jvm}">
+
+      <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
+      <sysproperty key="build.testlog" value="${build.testlog}"/>
+      <sysproperty key="log4j.configuration" value="file:${build.resources}/log4j.xml"/>
+
+      <!--jvmarg value="${junit.jvm.options}"/>
+      <jvmarg value="-Xrunjdwp:transport=dt_socket,address=8789,server=y,suspend=y"/>
+      <jvmarg value="-Djava.compiler=NONE"/>
+      <jvmarg value="-Xdebug"/>
+      <jvmarg value="-Xnoagent"/-->
+
+      <classpath>
+        <pathelement location="${build.classes}"/>
+        <pathelement location="${build.resources}"/>
+        <path refid="tests.classpath"/>
+      </classpath>
+
+      <formatter type="xml"  usefile="${junit.formatter.usefile}"/>
+
+      <batchtest todir="${build.reports}"
+		 haltonerror="${junit.batchtest.haltonerror}"
+		 haltonfailure="${junit.batchtest.haltonfailure}"
+		 fork="${junit.batchtest.fork}">
+
+        <fileset dir="${build.classes}">
+
+          <include name="org/jboss/test/testbeancluster/**/*UnitTestCase*.class"/>
+
+        </fileset>
+      </batchtest>
+    </junit>
+  </target>
+
+  <!--
+     | Tests that need to be run by loading the testcase code from a client
+     | jar rather than the build.classes.dir. Typically these tests need to
+     | control how classes are loaded.
+   -->
+
+  <target name="tests-client-unit" depends="maybejars">
+    <mkdir dir="${build.reports}"/>
+    <mkdir dir="${build.testlog}"/>
+    <junit dir="${module.output}"
+	   printsummary="${junit.printsummary}"
+	   haltonerror="${junit.haltonerror}"
+	   haltonfailure="${junit.haltonfailure}"
+	   fork="${junit.fork}"
+	   timeout="${junit.timeout}"
+	   jvm="${junit.jvm}">
+
+      <jvmarg value="${junit.jvm.options}"/>
+      <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
+      <sysproperty key="build.testlog" value="${build.testlog}"/>
+      <sysproperty key="log4j.configuration" value="file:${build.resources}/log4j.xml"/>
+
+      <jvmarg value="-Djava.security.manager"/>
+      <sysproperty key="java.security.policy"
+		   value="${build.resources}/security/tst.policy"/>
+      <sysproperty key="java.security.auth.login.config"
+                   value="${build.resources}/security/auth.conf"/>
+
+      <classpath>
+        <pathelement path="${build.lib}/jrmp-dl-client.jar"/>
+        <pathelement location="${build.resources}"/>
+        <path refid="tests.classpath"/>
+      </classpath>
+
+      <formatter type="xml"  usefile="${junit.formatter.usefile}"/>
+
+      <batchtest todir="${build.reports}"
+		 haltonerror="${junit.batchtest.haltonerror}"
+		 haltonfailure="${junit.batchtest.haltonfailure}"
+		 fork="${junit.batchtest.fork}">
+
+        <fileset dir="${build.classes}">
+          <include name="**/test/jrmp/test/DynLoadingUnitTestCase.class"/>
+        </fileset>
+      </batchtest>
+    </junit>
+  </target>
+
+  <target name="tests-client-stress" depends="maybejars">
+    <mkdir dir="${build.reports}"/>
+    <mkdir dir="${build.testlog}"/>
+    <junit dir="${module.output}"
+	   printsummary="${junit.printsummary}"
+	   haltonerror="${junit.haltonerror}"
+	   haltonfailure="${junit.haltonfailure}"
+	   fork="${junit.fork}"
+	   timeout="${junit.timeout}"
+	   jvm="${junit.jvm}">
+
+      <jvmarg value="${junit.jvm.options}"/>
+      <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
+
+      <jvmarg value="-Djava.security.manager"/>
+      <sysproperty key="java.security.policy"
+		   value="${build.resources}/security/tst.policy"/>
+      <sysproperty key="java.security.auth.login.config"
+                   value="${build.resources}/security/auth.conf"/>
+      <sysproperty key="build.testlog" value="${build.testlog}"/>
+      <sysproperty key="log4j.configuration" value="file:${build.resources}/log4j.xml"/>
+      <sysproperty key="jbosstest.threadcount" value="${jbosstest.threadcount}"/>
+      <sysproperty key="jbosstest.iterationcount" value="${jbosstest.iterationcount}"/>
+      <sysproperty key="jbosstest.beancount" value="${jbosstest.beancount}"/>
+
+
+      <classpath>
+        <pathelement path="${build.lib}/jrmp-dl-client.jar"/>
+        <pathelement location="${build.resources}"/>
+        <path refid="tests.classpath"/>
+      </classpath>
+
+      <formatter type="xml"  usefile="${junit.formatter.usefile}"/>
+
+      <batchtest todir="${build.reports}"
+		 haltonerror="${junit.batchtest.haltonerror}"
+		 haltonfailure="${junit.batchtest.haltonfailure}"
+		 fork="${junit.batchtest.fork}">
+
+        <fileset dir="${build.classes}">
+          <!--there aren't any of these - included for symmetry-->
+          <exclude name="**/*"/>
+        </fileset>
+      </batchtest>
+    </junit>
+  </target>
+
+  <!--
+     | Standard security tests that should run successfully against a default
+     | JBoss server distribution build.
+   -->
+
+  <target name="tests-security-basic-unit" depends="maybejars">
+    <mkdir dir="${build.reports}"/>
+    <mkdir dir="${build.testlog}"/>
+    <junit dir="${module.output}"
+	   printsummary="${junit.printsummary}"
+	   haltonerror="${junit.haltonerror}"
+	   haltonfailure="${junit.haltonfailure}"
+	   fork="${junit.fork}"
+	   timeout="${junit.timeout}"
+	   jvm="${junit.jvm}">
+
+      <jvmarg value="${junit.jvm.options}"/>
+      <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
+
+      <jvmarg value="-Djava.security.manager"/>
+      <jvmarg value="-Dsecurity.domain=test-domain"/>
+      <sysproperty key="java.security.policy"
+		   value="${build.resources}/security/tst.policy"/>
+      <sysproperty key="java.security.auth.login.config"
+                   value="${build.resources}/security/auth.conf"/>
+      <sysproperty key="build.testlog" value="${build.testlog}"/>
+      <sysproperty key="log4j.configuration" value="file:${build.resources}/log4j.xml"/>
+
+      <classpath>
+        <pathelement location="${build.classes}"/>
+        <pathelement location="${build.resources}/security"/>
+        <pathelement location="${build.resources}"/>
+        <path refid="tests.classpath"/>
+      </classpath>
+
+      <formatter type="xml"  usefile="${junit.formatter.usefile}"/>
+
+      <batchtest todir="${build.reports}"
+		 haltonerror="${junit.batchtest.haltonerror}"
+		 haltonfailure="${junit.batchtest.haltonfailure}"
+		 fork="${junit.batchtest.fork}">
+
+        <fileset dir="${build.classes}">
+          <include name="**/test/naming/test/Security*"/>
+          <include name="**/test/security/test/**UnitTestCase.class"/>
+        </fileset>
+      </batchtest>
+    </junit>
+  </target>
+
+
+  <target name="tests-security-basic-stress" depends="maybejars">
+    <mkdir dir="${build.reports}"/>
+    <mkdir dir="${build.testlog}"/>
+    <junit dir="${module.output}"
+	   printsummary="${junit.printsummary}"
+	   haltonerror="${junit.haltonerror}"
+	   haltonfailure="${junit.haltonfailure}"
+	   fork="${junit.fork}"
+	   timeout="${junit.timeout}"
+	   jvm="${junit.jvm}">
+
+      <jvmarg value="${junit.jvm.options}"/>
+      <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
+
+      <jvmarg value="-Djava.security.manager"/>
+      <sysproperty key="java.security.policy"
+		   value="${build.resources}/security/tst.policy"/>
+      <sysproperty key="java.security.auth.login.config"
+                   value="${build.resources}/security/auth.conf"/>
+      <sysproperty key="build.testlog" value="${build.testlog}"/>
+      <sysproperty key="log4j.configuration" value="file:${build.resources}/log4j.xml"/>
+      <sysproperty key="jbosstest.threadcount" value="${jbosstest.threadcount}"/>
+      <sysproperty key="jbosstest.iterationcount" value="${jbosstest.iterationcount}"/>
+      <sysproperty key="jbosstest.beancount" value="${jbosstest.beancount}"/>
+
+
+      <classpath>
+        <pathelement location="${build.classes}"/>
+        <pathelement location="${build.resources}/security"/>
+        <pathelement location="${build.resources}"/>
+        <path refid="tests.classpath"/>
+      </classpath>
+
+      <formatter type="xml"  usefile="${junit.formatter.usefile}"/>
+
+      <batchtest todir="${build.reports}"
+		 haltonerror="${junit.batchtest.haltonerror}"
+		 haltonfailure="${junit.batchtest.haltonfailure}"
+		 fork="${junit.batchtest.fork}">
+
+        <fileset dir="${build.classes}">
+          <include name="**/test/perf/test/SecurePerfStressTestCase.class"/>
+          <include name="**/test/security/test/*StressTestCase.class"/>
+        </fileset>
+      </batchtest>
+    </junit>
+  </target>
+
+  <!-- Tests of Java2 permissions. The JBoss server must be running with
+   a security manager for this test -->
+  <target name="tests-security-manager" depends="init">
+    <mkdir dir="${build.reports}"/>
+    <mkdir dir="${build.testlog}"/>
+    <junit dir="${module.output}"
+	   printsummary="true"
+	   haltonerror="false"
+	   haltonfailure="false"
+	   fork="true"
+	   timeout="${junit.timeout}"
+	   jvm="${junit.jvm}">
+
+      <jvmarg value="${junit.jvm.options}"/>
+
+      <jvmarg value="-Djava.security.manager"/>
+      <jvmarg value="-Djava.security.policy==${build.resources}/securitymgr/client.policy"/>
+<!--
+      <jvmarg value="-Djava.security.debug=access,failure"/>
+-->
+      <sysproperty key="jboss.home" file="${project.root}"/>
+      <sysproperty key="jboss.thirdparty.dir" file="${project.root}/thirdparty"/>
+      <sysproperty key="jboss.tools.dir" file="${project.root}/tools"/>
+      <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
+      <sysproperty key="java.security.auth.login.config"
+         value="${build.resources}/security/auth.conf"/>
+      <sysproperty key="build.testlog" value="${build.testlog}"/>
+      <sysproperty key="log4j.configuration" value="file:${build.resources}/log4j.xml"/>
+
+      <classpath>
+        <pathelement location="${build.resources}"/>
+        <pathelement location="${build.lib}/securitymgr-ejb.jar"/>
+        <pathelement location="${build.lib}/securitymgr-tests.jar"/>
+        <path refid="tests.classpath"/>
+      </classpath>
+
+      <formatter type="xml" />
+
+      <batchtest todir="${build.reports}"
+		 haltonerror="false"
+		 haltonfailure="false"
+		 fork="true">
+
+        <fileset dir="${build.classes}">
+          <exclude name="org/jboss/test/securitymgr/test/PolicyUnitTestCase.class"/>
+          <include name="org/jboss/test/securitymgr/test/*TestCase.class"/>
+        </fileset>
+      </batchtest>
+    </junit>
+  </target>
+
+  <target name="tests-security-policy" depends="init">
+    <mkdir dir="${build.reports}"/>
+    <mkdir dir="${build.testlog}"/>
+    <!-- The standalone test runs against the securitymgr-*.jars -->
+    <junit dir="${module.output}"
+	   printsummary="true"
+	   haltonerror="false"
+	   haltonfailure="false"
+	   fork="true"
+	   timeout="${junit.timeout}"
+	   jvm="${junit.jvm}">
+
+      <jvmarg value="${junit.jvm.options}"/>
+
+      <jvmarg value="-Djava.security.manager"/>
+      <jvmarg value="-Djava.security.policy==${build.resources}/securitymgr/client.policy"/>
+<!--
+      <jvmarg value="-Djava.security.debug=access,domain,stack"/>
+-->
+      <sysproperty key="jboss.home" file="${project.root}"/>
+      <sysproperty key="jboss.thirdparty.dir" file="${project.root}/thirdparty"/>
+      <sysproperty key="jboss.tools.dir" file="${project.root}/tools"/>
+      <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
+      <sysproperty key="java.security.auth.login.config"
+         value="${build.resources}/security/auth.conf"/>
+      <sysproperty key="build.testlog" value="${build.testlog}"/>
+      <sysproperty key="log4j.configuration" value="file:${build.resources}/log4j.xml"/>
+
+      <classpath>
+        <pathelement location="${build.resources}"/>
+        <pathelement location="${build.lib}/securitymgr-ejb.jar"/>
+        <pathelement location="${build.lib}/securitymgr-tests.jar"/>
+        <path refid="tests.classpath"/>
+      </classpath>
+
+      <formatter type="xml" />
+      <test name="org.jboss.test.securitymgr.test.PolicyUnitTestCase"
+		    haltonerror="false"
+          haltonfailure="false"
+		    fork="true" />
+    </junit>
+  </target>
+
+  <!--
+     | Standard JSR-77 tests that should run successfully against a default
+     | JBoss server distribution build.
+   -->
+
+  <target name="tests-jsr77-unit" depends="maybejars">
+    <mkdir dir="${build.reports}"/>
+    <mkdir dir="${build.testlog}"/>
+    <junit dir="${module.output}"
+	   printsummary="${junit.printsummary}"
+	   haltonerror="${junit.haltonerror}"
+	   haltonfailure="${junit.haltonfailure}"
+	   fork="${junit.fork}"
+	   timeout="${junit.timeout}"
+	   jvm="${junit.jvm}">
+
+      <jvmarg value="${junit.jvm.options}"/>
+      <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
+
+      <jvmarg value="-Djava.security.manager"/>
+      <jvmarg value="-Dsecurity.domain=test-domain"/>
+      <sysproperty key="java.security.policy"
+		   value="${build.resources}/security/tst.policy"/>
+      <sysproperty key="java.security.auth.login.config"
+                   value="${build.resources}/security/auth.conf"/>
+      <sysproperty key="build.testlog" value="${build.testlog}"/>
+      <sysproperty key="log4j.configuration" value="file:${build.resources}/log4j.xml"/>
+
+      <classpath>
+        <pathelement location="${build.classes}"/>
+        <pathelement location="${build.resources}/security"/>
+        <pathelement location="${build.resources}"/>
+        <path refid="tests.classpath"/>
+      </classpath>
+
+      <formatter type="xml"  usefile="${junit.formatter.usefile}"/>
+
+      <batchtest todir="${build.reports}"
+		 haltonerror="${junit.batchtest.haltonerror}"
+		 haltonfailure="${junit.batchtest.haltonfailure}"
+		 fork="${junit.batchtest.fork}">
+
+        <fileset dir="${build.classes}">
+          <include name="**/test/management/test/**UnitTestCase.class"/>
+        </fileset>
+      </batchtest>
+    </junit>
+  </target>
+
+  <!--
+     | Standard marathon tests that should run successfully against a default
+     | JBoss server distribution build.
+   -->
+
+  <target name="tests-standard-marathon" depends="maybejars">
+    <mkdir dir="${build.reports}"/>
+    <mkdir dir="${build.testlog}"/>
+    <junit dir="${module.output}"
+	   printsummary="${junit.printsummary}"
+	   haltonerror="${junit.haltonerror}"
+	   haltonfailure="${junit.haltonfailure}"
+	   fork="${junit.fork}"
+	   timeout="${marathon.timeout}"
+	   jvm="${junit.jvm}">
+
+      <jvmarg value="${junit.jvm.options}"/>
+      <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
+
+      <jvmarg value="-Djava.security.manager"/>
+      <jvmarg value="-Dsecurity.domain=test-domain"/>
+      <sysproperty key="java.security.policy"
+		   value="${build.resources}/security/tst.policy"/>
+      <sysproperty key="java.security.auth.login.config"
+                   value="${build.resources}/security/auth.conf"/>
+      <sysproperty key="build.testlog" value="${build.testlog}"/>
+      <sysproperty key="log4j.configuration" value="file:${build.resources}/log4j.xml"/>
+      <sysproperty key="jbosstest.duration" value="${marathon.duration}" />
+      <sysproperty key="jbosstest.threadcount" value="${marathon.threadcount}" />
+      <sysproperty key="jbosstest.server.name" value="${jbosstest.server.name}"/>
+      <sysproperty key="jbosstest.deploy.dir" value="${jbosstest.deploy.dir}"/>
+
+      <classpath>
+        <pathelement location="${build.classes}"/>
+<!--        <pathelement location="${build.resources}/marathon"/> -->
+        <pathelement location="${build.resources}"/>
+        <path refid="tests.classpath"/>
+      </classpath>
+
+      <formatter type="xml"  usefile="${junit.formatter.usefile}"/>
+
+      <batchtest todir="${build.reports}"
+		 haltonerror="${junit.batchtest.haltonerror}"
+		 haltonfailure="${junit.batchtest.haltonfailure}"
+		 fork="${junit.batchtest.fork}">
+
+        <fileset dir="${build.classes}">
+          <include name="**/test/marathon/test/**MarathonTestCase.class"/>
+        </fileset>
+      </batchtest>
+    </junit>
+  </target>
+
+  <!--
+     | Standard Foe-Deployer tests that should run successfully against a default
+     | JBoss server distribution build.
+   -->
+
+  <target name="tests-foe-deployer-unit" depends="maybejars">
+    <mkdir dir="${build.reports}"/>
+    <mkdir dir="${build.testlog}"/>
+    <junit dir="${module.output}"
+      printsummary="${junit.printsummary}"
+      haltonerror="${junit.haltonerror}"
+      haltonfailure="${junit.haltonfailure}"
+      fork="${junit.fork}"
+      timeout="${junit.timeout}"
+      jvm="${junit.jvm}">
+
+      <jvmarg value="${junit.jvm.options}"/>
+      <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
+
+      <jvmarg value="-Djava.security.manager"/>
+      <jvmarg value="-Dsecurity.domain=test-domain"/>
+      <sysproperty key="java.security.policy"
+        value="${build.resources}/security/tst.policy"/>
+      <sysproperty key="java.security.auth.login.config"
+        value="${build.resources}/security/auth.conf"/>
+      <sysproperty key="build.testlog" value="${build.testlog}"/>
+      <sysproperty key="log4j.configuration" value="file:${build.resources}/log4j.xml"/>
+
+      <classpath>
+        <pathelement location="${build.classes}"/>
+        <pathelement location="${build.resources}/security"/>
+        <pathelement location="${build.resources}"/>
+        <path refid="tests.classpath"/>
+      </classpath>
+
+      <formatter type="xml"  usefile="${junit.formatter.usefile}"/>
+
+      <batchtest todir="${build.reports}"
+        haltonerror="${junit.batchtest.haltonerror}"
+        haltonfailure="${junit.batchtest.haltonfailure}"
+        fork="${junit.batchtest.fork}">
+
+        <fileset dir="${build.classes}">
+          <include name="**/test/foedeployer/test/**TestCase.class"/>
+        </fileset>
+      </batchtest>
+    </junit>
+  </target>
+
+  <!--
+     | Standard JBoss Util tests that should run successfully against a default
+     | JBoss server distribution build.
+   -->
+
+  <target name="tests-util-unit" depends="maybejars">
+    <mkdir dir="${build.reports}"/>
+    <mkdir dir="${build.testlog}"/>
+    <junit dir="${module.output}"
+	   printsummary="${junit.printsummary}"
+	   haltonerror="${junit.haltonerror}"
+	   haltonfailure="${junit.haltonfailure}"
+	   fork="${junit.fork}"
+	   timeout="${junit.timeout}"
+	   jvm="${junit.jvm}">
+
+      <jvmarg value="${junit.jvm.options}"/>
+      <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
+
+      <jvmarg value="-Djava.security.manager"/>
+      <jvmarg value="-Dsecurity.domain=test-domain"/>
+      <sysproperty key="java.security.policy"
+		   value="${build.resources}/security/tst.policy"/>
+      <sysproperty key="java.security.auth.login.config"
+                   value="${build.resources}/security/auth.conf"/>
+      <sysproperty key="build.testlog" value="${build.testlog}"/>
+      <sysproperty key="log4j.configuration" value="file:${build.resources}/log4j.xml"/>
+
+      <classpath>
+        <pathelement location="${build.classes}"/>
+        <pathelement location="${build.resources}/security"/>
+        <pathelement location="${build.resources}"/>
+        <path refid="tests.classpath"/>
+      </classpath>
+
+      <formatter type="xml"  usefile="${junit.formatter.usefile}"/>
+
+      <batchtest todir="${build.reports}"
+		 haltonerror="${junit.batchtest.haltonerror}"
+		 haltonfailure="${junit.batchtest.haltonfailure}"
+		 fork="${junit.batchtest.fork}">
+
+        <fileset dir="${build.classes}">
+          <include name="**/test/util/test/**UnitTestCase.class"/>
+        </fileset>
+      </batchtest>
+    </junit>
+  </target>
+
+  <!--
+     | JBossMX implementation tests that should run correctly.
+   -->
+
+  <target name="tests-jbossmx-implementation" depends="maybejars">
+    <mkdir dir="${build.reports}"/>
+    <mkdir dir="${build.testlog}"/>
+    <junit dir="${module.output}"
+	   printsummary="${junit.printsummary}"
+	   haltonerror="${junit.haltonerror}"
+	   haltonfailure="${junit.haltonfailure}"
+	   fork="${junit.fork}"
+	   timeout="${junit.timeout}"
+	   jvm="${junit.jvm}">
+
+      <jvmarg value="${junit.jvm.options}"/>
+
+      <sysproperty key="build.testlog" value="${build.testlog}"/>
+      <sysproperty key="log4j.configuration" value="file:${build.resources}/log4j.xml"/>
+
+      <classpath>
+        <pathelement location="${build.classes}"/>
+        <path refid="tests.classpath"/>
+      </classpath>
+
+      <formatter type="xml"  usefile="${junit.formatter.usefile}"/>
+
+      <batchtest todir="${build.reports}"
+		 haltonerror="${junit.batchtest.haltonerror}"
+		 haltonfailure="${junit.batchtest.haltonfailure}"
+		 fork="${junit.batchtest.fork}">
+
+        <fileset dir="${build.classes}">
+          <include name="**/jbossmx/implementation/**/*TestCase.class"/>
+          <!-- Ignore the abstract class -->
+          <exclude name="org/jboss/test/jbossmx/implementation/TestCase.class"/>
+        </fileset>
+      </batchtest>
+    </junit>
+  </target>
+
+  <!--
+     | JBossMX performance tests that should run correctly.
+   -->
+
+  <target name="tests-jbossmx-performance" depends="maybejars">
+    <mkdir dir="${build.reports}"/>
+    <mkdir dir="${build.testlog}"/>
+    <junit dir="${module.output}"
+	   printsummary="${junit.printsummary}"
+	   haltonerror="${junit.haltonerror}"
+	   haltonfailure="${junit.haltonfailure}"
+	   fork="${junit.fork}"
+	   timeout="${junit.timeout}"
+	   jvm="${junit.jvm}">
+
+      <jvmarg value="${junit.jvm.options}"/>
+
+      <sysproperty key="build.testlog" value="${build.testlog}"/>
+      <sysproperty key="log4j.configuration" value="file:${build.resources}/log4j.xml"/>
+
+      <classpath>
+        <pathelement location="${build.classes}"/>
+        <path refid="tests.classpath"/>
+      </classpath>
+
+      <formatter type="xml"  usefile="${junit.formatter.usefile}"/>
+
+      <batchtest todir="${build.reports}"
+		 haltonerror="${junit.batchtest.haltonerror}"
+		 haltonfailure="${junit.batchtest.haltonfailure}"
+		 fork="${junit.batchtest.fork}">
+
+        <fileset dir="${build.classes}">
+          <include name="**/jbossmx/performance/**/*TestCase.class"/>
+          <!-- Ignore the abstract class -->
+          <exclude name="org/jboss/test/jbossmx/performance/TestCase.class"/>
+        </fileset>
+      </batchtest>
+    </junit>
+  </target>
+
+  <!--
+     | JBossMX compliance tests that should run correctly.
+   -->
+
+  <target name="tests-jbossmx-compliance" depends="maybejars">
+    <mkdir dir="${build.reports}"/>
+    <mkdir dir="${build.testlog}"/>
+    <junit dir="${module.output}"
+	   printsummary="${junit.printsummary}"
+	   haltonerror="${junit.haltonerror}"
+	   haltonfailure="${junit.haltonfailure}"
+	   fork="${junit.fork}"
+	   timeout="${junit.timeout}"
+	   jvm="${junit.jvm}">
+
+      <jvmarg value="${junit.jvm.options}"/>
+
+      <sysproperty key="build.testlog" value="${build.testlog}"/>
+      <sysproperty key="log4j.configuration" value="file:${build.resources}/log4j.xml"/>
+
+      <classpath>
+        <pathelement location="${build.classes}"/>
+        <path refid="tests.classpath"/>
+      </classpath>
+
+      <formatter type="xml"  usefile="${junit.formatter.usefile}"/>
+
+      <batchtest todir="${build.reports}"
+		 haltonerror="${junit.batchtest.haltonerror}"
+		 haltonfailure="${junit.batchtest.haltonfailure}"
+		 fork="${junit.batchtest.fork}">
+
+        <fileset dir="${build.classes}">
+          <include name="**/jbossmx/compliance/**/*TestCase.class"/>
+          <!-- Ignore the abstract class -->
+          <exclude name="org/jboss/test/jbossmx/compliance/TestCase.class"/>
+        </fileset>
+      </batchtest>
+    </junit>
+  </target>
+
+  <!--
+     | IIOP test cases that should run successfully
+   -->
+
+  <target name="tests-iiop-stress" depends="maybejars">
+    <mkdir dir="${build.reports}"/>
+    <mkdir dir="${build.testlog}"/>
+    <junit dir="${module.output}"
+           printsummary="${junit.printsummary}"
+           haltonerror="${junit.haltonerror}"
+           haltonfailure="${junit.haltonfailure}"
+           fork="${junit.fork}"
+           timeout="${junit.timeout}"
+           jvm="${junit.jvm}">
+
+      <jvmarg value="${junit.jvm.options}"/>
+      <jvmarg value="-Dorg.omg.CORBA.ORBClass=org.jacorb.orb.ORB"/>
+      <jvmarg value="-Dorg.omg.CORBA.ORBSingletonClass=org.jacorb.orb.ORBSingleton"/>
+      <jvmarg value="-Djacorb.orb.print_version=off"/>
+      <jvmarg value="-Djacorb.security.ssl.client.supported_options=0"/>
+      <jvmarg value="-Djacorb.security.ssl.client.required_options=0"/>
+      <sysproperty key="jacorb.verbosity" value="0"/>
+      <jvmarg value="-Djava.security.manager"/>
+      <sysproperty key="java.security.policy"
+		   value="${build.resources}/security/tst.policy"/>
+      <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
+      <sysproperty key="build.testlog" value="${build.testlog}"/>
+      <sysproperty key="log4j.configuration" value="file:${build.resources}/log4j.xml"/>
+      <sysproperty key="jbosstest.threadcount" value="${jbosstest.threadcount}"/>
+      <sysproperty key="jbosstest.iterationcount" value="${jbosstest.iterationcount}"/>
+      <sysproperty key="jbosstest.beancount" value="${jbosstest.beancount}"/>
+
+      <classpath>
+        <pathelement location="${build.classes}"/>
+        <pathelement location="${build.resources}"/>
+        <path refid="tests.classpath"/>
+        <path refid="jboss.iiop.classpath"/>
+      </classpath>
+
+      <formatter type="xml"  usefile="${junit.formatter.usefile}"/>
+
+      <batchtest todir="${build.reports}"
+                 haltonerror="${junit.batchtest.haltonerror}"
+                 haltonfailure="${junit.batchtest.haltonfailure}"
+                 fork="${junit.batchtest.fork}">
+
+        <fileset dir="${build.classes}">
+          <include name="**/test/*iiop/test/*StressTestCase.class"/>
+        </fileset>
+      </batchtest>
+    </junit>
+  </target>
+
+  <!--
+     | Run all database related tests
+   -->
+
+  <target name="tests-db" depends="init, run-db-tests, tests-report-html"/>
+
+  <target name="run-db-tests" depends="maybejars">
+    <mkdir dir="${build.reports}"/>
+    <mkdir dir="${build.testlog}"/>
+    <junit dir="${module.output}"
+	   printsummary="${junit.printsummary}"
+	   haltonerror="${junit.haltonerror}"
+	   haltonfailure="${junit.haltonfailure}"
+	   fork="${junit.fork}"
+	   timeout="${junit.timeout}"
+	   jvm="${junit.jvm}">
+
+      <jvmarg value="${junit.jvm.options}"/>
+      <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
+      <sysproperty key="build.testlog" value="${build.testlog}"/>
+      <sysproperty key="log4j.configuration" value="file:${build.resources}/log4j.xml"/>
+      <sysproperty key="jbosstest.iterationcount" value="2"/>
+
+      <classpath>
+        <pathelement location="${build.classes}"/>
+        <pathelement location="${build.resources}"/>
+        <path refid="tests.classpath"/>
+      </classpath>
+
+      <formatter type="xml"  usefile="${junit.formatter.usefile}"/>
+
+      <batchtest todir="${build.reports}"
+		 haltonerror="${junit.batchtest.haltonerror}"
+		 haltonfailure="${junit.batchtest.haltonfailure}"
+		 fork="${junit.batchtest.fork}">
+
+        <fileset dir="${build.classes}">
+          <include name="**/bank/**/*StressTestCase.class"/>
+          <include name="**/bmp/**/*UnitTestCase.class"/>
+          <include name="**/cmp2/**/*UnitTestCase.class"/>
+          <include name="**/cmp2/**/*StressTestCase.class"/>
+          <include name="**/dbtest/**/*UnitTestCase.class"/>
+          <include name="**/deadlock/**/*StressTestCase.class"/>
+          <include name="**/entityexc/**/*UnitTestCase.class"/>
+          <include name="**/idgen/**/*UnitTestCase.class"/>
+          <include name="**/perf/**/*UnitTestCase.class"/>
+          <include name="**/testbean/**/*UnitTestCase.class"/>
+        </fileset>
+      </batchtest>
+    </junit>
+  </target>
+
+
+
+  <!--
+     | Run testcases in a single directory by specifing the test directory
+     | name in -Dtest=dirname in tests/dirname/test/**TestCase.class
+   -->
+
+  <target name="test" depends="maybejars" if="test"
+	  description="Execute a single test.">
+    <mkdir dir="${build.reports}"/>
+    <mkdir dir="${build.testlog}"/>
+    <!-- Remove the test.log so each run has a fresh log -->
+    <delete file="${build.testlog}/test.log" />
+    <junit dir="${module.output}"
+	   printsummary="${junit.printsummary}"
+	   haltonerror="${junit.haltonerror}"
+	   haltonfailure="${junit.haltonfailure}"
+	   fork="${junit.fork}"
+	   timeout="${junit.timeout}"
+	   jvm="${junit.jvm}">
+
+      <jvmarg value="${junit.jvm.options}"/>
+      <sysproperty key="jbosstest.deploy.dir" value="${build.lib}"/>
+      <sysproperty key="build.testlog" value="${build.testlog}"/>
+      <sysproperty key="log4j.configuration" value="file:${build.resources}/log4j.xml"/>
+      <sysproperty key="jbosstest.threadcount" value="${jbosstest.threadcount}"/>
+      <sysproperty key="jbosstest.iterationcount" value="${jbosstest.iterationcount}"/>
+      <sysproperty key="jbosstest.beancount" value="${jbosstest.beancount}"/>
+
+
+      <classpath>
+        <pathelement location="${build.classes}"/>
+        <pathelement location="${build.resources}"/>
+        <!-- Include for those tests that need common security resources -->
+        <pathelement location="${build.resources}/security"/>
+        <path refid="tests.classpath"/>
+      </classpath>
+
+      <formatter type="xml"  usefile="${junit.formatter.usefile}"/>
+
+      <batchtest todir="${build.reports}"
+		 haltonerror="${junit.batchtest.haltonerror}"
+		 haltonfailure="${junit.batchtest.haltonfailure}"
+		 fork="${junit.batchtest.fork}">
+
+        <fileset dir="${build.classes}">
+          <include name="org/jboss/test/${test}/**/*TestCase.class"/>
+        </fileset>
+      </batchtest>
+    </junit>
+  </target>
+
+  <!--
+     | Run iiop testcases in a single directory by specifing the test
+     | directory name in -Dtest=dirname in tests/dirname/test/**TestCase.class
+   -->
+
+  <target name="iiop-test" depends="maybejars" if="test"
+         description="Execute a single test.">
+    <mkdir dir="${build.reports}"/>
+    <mkdir dir="${build.testlog}"/>
+    <!-- Remove the test.log so each run has a fresh log -->
+    <delete file="${build.testlog}/test.log" />
+    <junit dir="${module.output}"
+          printsummary="${junit.printsummary}"
+          haltonerror="${junit.haltonerror}"
+          haltonfailure="${junit.haltonfailure}"
+          fork="${junit.fork}"
+          timeout="${junit.timeout}"
+          jvm="${junit.jvm}">
+
+      <jvmarg value="${junit.jvm.options}"/>
+      <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
+      <sysproperty key="build.testlog" value="${build.testlog}"/>
+      <sysproperty key="log4j.configuration" value="file:${build.resources}/log4j.xml"/>
+
+      <jvmarg value="-Dorg.omg.CORBA.ORBClass=org.jacorb.orb.ORB"/>
+      <jvmarg value="-Dorg.omg.CORBA.ORBSingletonClass=org.jacorb.orb.ORBSingleton"/>
+      <jvmarg value="-Djacorb.verbosity=0"/>
+      <jvmarg value="-Djacorb.security.ssl.client.supported_options=0"/>
+      <jvmarg value="-Djacorb.security.ssl.client.required_options=0"/>
+      <jvmarg value="-Djacorb.orb.print_version=off"/>
+      <jvmarg value="-Djava.security.manager"/>
+      <jvmarg value="-Djava.security.policy==${build.resources}/${test}/client.policy"/>
+
+      <sysproperty key="log4j.properties" file="${build.resources}/log4j.properties"/>
+      <sysproperty key="jbosstest.threadcount" value="${jbosstest.threadcount}"/>
+      <sysproperty key="jbosstest.iterationcount" value="${jbosstest.iterationcount}"/>
+      <sysproperty key="jbosstest.beancount" value="${jbosstest.beancount}"/>
+
+      <classpath>
+        <pathelement location="${build.classes}"/>
+        <pathelement location="${build.resources}"/>
+        <path refid="tests.classpath"/>
+        <path refid="jboss.iiop.classpath"/>
+      </classpath>
+
+      <formatter type="xml"  usefile="${junit.formatter.usefile}"/>
+
+      <batchtest todir="${build.reports}"
+                haltonerror="${junit.batchtest.haltonerror}"
+                haltonfailure="${junit.batchtest.haltonfailure}"
+                fork="${junit.batchtest.fork}">
+
+        <fileset dir="${build.classes}">
+          <include name="org/jboss/test/${test}/**/*TestCase.class"/>
+        </fileset>
+      </batchtest>
+    </junit>
+  </target>
+
+  <!--
+     | Run the JORAM JMS testsuite against JBossMQ
+   -->
+  <target name="tests-objectweb-jms" depends="maybejars">
+    <mkdir dir="${build.reports}"/>
+    <mkdir dir="${build.testlog}"/>
+    <junit dir="${module.output}"
+	   printsummary="${junit.printsummary}"
+	   haltonerror="${junit.haltonerror}"
+	   haltonfailure="${junit.haltonfailure}"
+	   fork="${junit.fork}"
+	   timeout="${junit.timeout}"
+	   jvm="${junit.jvm}">
+
+      <jvmarg value="${junit.jvm.options}"/>
+      <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
+      <sysproperty key="build.testlog" value="${build.testlog}"/>
+      <sysproperty key="log4j.configuration" value="file:${build.resources}/log4j.xml"/>
+      <sysproperty key="jbosstest.threadcount" value="${jbosstest.threadcount}"/>
+      <sysproperty key="jbosstest.iterationcount" value="${jbosstest.iterationcount}"/>
+      <sysproperty key="jbosstest.beancount" value="${jbosstest.beancount}"/>
+
+      <classpath>
+        <pathelement location="${build.classes}"/>
+        <pathelement location="${build.resources}"/>
+        <path refid="tests.classpath"/>
+      </classpath>
+
+      <formatter type="xml"  usefile="${junit.formatter.usefile}"/>
+
+      <batchtest todir="${build.reports}"
+		 haltonerror="${junit.batchtest.haltonerror}"
+		 haltonfailure="${junit.batchtest.haltonfailure}"
+		 fork="${junit.batchtest.fork}">
+
+        <fileset dir="${build.classes}">
+		<include name="org/objectweb/jtests/**/*Test.class"/>
+        </fileset>
+      </batchtest>
+    </junit>
+  </target>
+
+  <!--
+     | Run a single testcase by specifing the fully qualified class name
+     | of the unit test using the test property, -Dtest=org.jboss.test....
+     | Here you specify the testcase class, not the directory
+   -->
+
+  <target name="one-test" depends="maybejars" if="test"
+	  description="Execute a single test.">
+    <mkdir dir="${build.reports}"/>
+    <mkdir dir="${build.testlog}"/>
+    <!-- Remove the test.log so each test has a fresh log -->
+    <delete file="${build.testlog}/test.log"/>
+    <junit dir="${module.output}"
+	   printsummary="${junit.printsummary}"
+	   haltonerror="${junit.haltonerror}"
+	   haltonfailure="${junit.haltonfailure}"
+	   fork="${junit.fork}"
+	   timeout="${junit.timeout}"
+	   jvm="${junit.jvm}">
+
+      <jvmarg value="${junit.jvm.options}"/>
+      <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
+      <sysproperty key="build.testlog" value="${build.testlog}"/>
+      <sysproperty key="log4j.configuration" value="file:${build.resources}/log4j.xml"/>
+      <sysproperty key="jbosstest.threadcount" value="${jbosstest.threadcount}"/>
+      <sysproperty key="jbosstest.iterationcount" value="${jbosstest.iterationcount}"/>
+      <sysproperty key="jbosstest.beancount" value="${jbosstest.beancount}"/>
+      <sysproperty key="jbosstest.nodeploy" value="${jbosstest.nodeploy}"/>
+      <sysproperty key="java.security.auth.login.config"
+        value="${build.resources}/security/auth.conf"/>
+
+      <classpath>
+        <pathelement location="${build.classes}"/>
+        <pathelement location="${build.resources}"/>
+        <!-- Include for those tests that need common security resources -->
+        <pathelement location="${build.resources}/security"/>
+        <path refid="tests.classpath"/>
+      </classpath>
+
+      <formatter type="xml"  usefile="${junit.formatter.usefile}"/>
+
+      <test todir="${build.reports}" name="${test}"
+		 haltonerror="${junit.batchtest.haltonerror}"
+		 haltonfailure="${junit.batchtest.haltonfailure}"
+		 fork="${junit.batchtest.fork}"/>
+    </junit>
+  </target>
+
+
+  <!--
+     | Generates reports from JUnit output.
+   -->
+
+  <target name="reports" depends="tests-report"
+	  description="Generates all reports."/>
+
+  <target name="tests-report-clean" depends="init">
+    <delete dir="${build.reports}"/>
+  </target>
+
+  <target name="tests-report" depends="tests-report-html, tests-report-text">
+     <tar tarfile="${module.output}/${TIMENOW}.tgz" compression="gzip" longfile="gnu">
+        <tarfileset dir="${build.reports}/html" prefix="${TIMENOW}">
+           <include name="**"/>
+        </tarfileset>
+     </tar>
+  </target>
+
+  <target name="tests-report-html" depends="compile-stylesheets">
+    <mkdir dir="${build.reports}/html"/>
+
+    <junitreport todir="${build.reports}">
+      <fileset dir="${build.reports}">
+        <include name="TEST-*.xml"/>
+      </fileset>
+      <report format="frames"
+              todir="${build.reports}/html"
+              styledir="${build.stylesheets}"
+      />
+    </junitreport>
+  </target>
+
+  <!--
+     | this currently spews logs of VariableReference crap, so it is turned
+     | off by default.  Once this is fixed, it should be built after
+     | tests-report-html
+   -->
+
+  <target name="tests-report-text" depends="tests-report-html">
+    <mkdir dir="${build.reports}/text"/>
+
+    <style basedir="${build.reports}"
+	   destdir="${build.reports}/text"
+	   extension=".txt"
+	   style="${build.stylesheets}/summary1b.xsl"
+	   includes="TESTS-TestSuites.xml">
+       <param name="thedate" expression="${TIMENOW}"/>
+       <param name="java_version" expression="${java.version}"/>
+       <param name="java_vendor" expression="${java.vendor}"/>
+       <param name="java_vm_specification_version" expression="${java.vm.specification.version}"/>
+       <param name="java_vm_version" expression="${java.vm.version}"/>
+       <param name="java_vm_name" expression="${java.vm.name}"/>
+       <param name="java_vm_info" expression="${java.vm.info}"/>
+       <param name="java_specification_version" expression="${java.specification.version}"/>
+       <param name="java_class_version" expression="${java.class.version}"/>
+       <param name="os_name" expression="${os.name}"/>
+       <param name="os_arch" expression="${os.arch}"/>
+       <param name="os_version" expression="${os.version}"/>
+       <param name="builduid" expression="${TIMENOW}"/>
+       <param name="results_web" expression="${results_web}"/>
+    </style>
+  </target>
+
+  <!-- include the mqstress test - remember that these tests need to be
+       manually updated when the version info of the server changes
+  -->
+  &mqstress;
+</project>

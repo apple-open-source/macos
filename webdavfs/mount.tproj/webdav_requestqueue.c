@@ -2,23 +2,24 @@
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').	You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- *
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 /*		@(#)webdav_requestqueue.c	   *
@@ -44,10 +45,104 @@
 
 /*****************************************************************************/
 
-void webdav_requestqueue_init()
+/* gconnectionstate_lock used to make gconnectionstate thread safe */
+pthread_mutex_t gconnectionstate_lock;
+/* gconnectionstate is set to either WEBDAV_CONNECTION_UP or WEBDAV_CONNECTION_DOWN */
+int gconnectionstate;
+
+/*****************************************************************************/
+
+/* initialize gconnectionstate_lock and gconnectionstate */
+int gconnectionstate_init(void)
+{
+	pthread_mutexattr_t mutexattr;
+	int error;
+	
+	/* set up the lock on gconnectionbad */
+	
+	gconnectionstate = WEBDAV_CONNECTION_UP;
+	
+	error = pthread_mutexattr_init(&mutexattr);
+	if (error)
+	{
+		syslog(LOG_ERR, "gconnectionstate_init: pthread_mutexattr_init() failed: %s", strerror(error));
+		goto done;
+	}
+
+	error = pthread_mutex_init(&gconnectionstate_lock, &mutexattr);
+	if (error)
+	{
+		syslog(LOG_ERR, "gconnectionstate_init: pthread_mutex_init() failed: %s", strerror(error));
+		goto done;
+	}
+	
+done:
+	
+	return ( error );
+}
+
+/*****************************************************************************/
+
+/* get the gconnectionstate */
+int get_gconnectionstate(void)
+{
+	int error;
+	int result = 1; /* return bad if we cannot lock the mutex */
+	
+	error = pthread_mutex_lock(&gconnectionstate_lock);
+	if (error)
+	{
+		syslog(LOG_ERR, "get_gconnectionstate: pthread_mutex_lock(): %s", strerror(error));
+		goto exit;
+	}
+	
+	result = gconnectionstate;
+	
+	error = pthread_mutex_unlock(&gconnectionstate_lock);
+	if (error)
+	{
+		syslog(LOG_ERR, "get_gconnectionstate: pthread_mutex_unlock(): %s", strerror(error));
+	}
+	
+exit:
+	
+	return ( result );
+}
+
+/*****************************************************************************/
+
+/* set the gconnectionstate */
+void set_gconnectionstate(int state)
+{
+	int error;
+	
+	error = pthread_mutex_lock(&gconnectionstate_lock);
+	if (error)
+	{
+		syslog(LOG_ERR, "set_gconnectionstate: pthread_mutex_lock(): %s", strerror(error));
+		goto exit;
+	}
+	
+	gconnectionstate = state;
+	
+	error = pthread_mutex_unlock(&gconnectionstate_lock);
+	if (error)
+	{
+		syslog(LOG_ERR, "set_gconnectionstate: pthread_mutex_unlock(): %s", strerror(error));
+	}
+	
+exit:
+	
+	return;
+}
+
+/*****************************************************************************/
+
+int webdav_requestqueue_init()
 {
 	pthread_mutexattr_t mutexattr;
 	int	index;
+	int error;
 	
 	/* Initialize webdav_threadsockets  */
 	for ( index = 0; index < WEBDAV_REQUEST_THREADS; ++index )
@@ -58,25 +153,38 @@ void webdav_requestqueue_init()
 				
 	bzero(&gwaiting_requests, sizeof(gwaiting_requests));
 
-	if (pthread_cond_init(&gcondvar, NULL))
+	error = pthread_cond_init(&gcondvar, NULL);
+	if (error)
 	{
-		err(1, " pthread cond init - global cond var");
+		syslog(LOG_ERR, "webdav_requestqueue_init: pthread_cond_init() failed: %s", strerror(error));
+		goto done;
 	}
 
 	/* set up the lock on the queues */
-	if (pthread_mutexattr_init(&mutexattr))
+	error = pthread_mutexattr_init(&mutexattr);
+	if (error)
 	{
-		err(1, "mutex atrribute init - reqeust queue lock");
+		syslog(LOG_ERR, "webdav_requestqueue_init: pthread_mutexattr_init() failed: %s", strerror(error));
+		goto done;
 	}
 
-	if (pthread_mutex_init(&grequests_lock, &mutexattr))
+	error = pthread_mutex_init(&grequests_lock, &mutexattr);
+	if (error)
 	{
-		err(1, "mutex lock - request queue lock");
+		syslog(LOG_ERR, "webdav_requestqueue_init: pthread_mutex_init() failed: %s", strerror(error));
+		goto done;
 	}
+	
+done:
+	
+	return ( error );
 }
 
 /*****************************************************************************/
 
+/* webdav_requestqueue_enqueue_request
+ * caller exits on errors.
+ */
 int webdav_requestqueue_enqueue_request(int proxy_ok, int socket)
 {
 	int error, unlock_error;
@@ -85,12 +193,14 @@ int webdav_requestqueue_enqueue_request(int proxy_ok, int socket)
 	error = pthread_mutex_lock(&grequests_lock);
 	if (error)
 	{
+		syslog(LOG_ERR, "webdav_requestqueue_enqueue_request: pthread_mutex_lock(): %s", strerror(error));
 		return (error);
 	}
 
 	request_element_ptr = malloc(sizeof(webdav_requestqueue_element_t));
 	if (!request_element_ptr)
 	{
+		syslog(LOG_ERR, "webdav_requestqueue_enqueue_request: error allocating request_element_ptr");
 		error = ENOMEM;
 		goto unlock;
 	}
@@ -114,6 +224,7 @@ int webdav_requestqueue_enqueue_request(int proxy_ok, int socket)
 	error = pthread_cond_signal(&gcondvar);
 	if (error)
 	{
+		syslog(LOG_ERR, "webdav_requestqueue_enqueue_request: pthread_cond_signal(): %s", strerror(error));
 		goto unlock;
 	}
 
@@ -122,6 +233,7 @@ unlock:
 	unlock_error = pthread_mutex_unlock(&grequests_lock);
 	if (unlock_error)
 	{
+		syslog(LOG_ERR, "webdav_requestqueue_enqueue_request: pthread_mutex_unlock(): %s", strerror(unlock_error));
 		if (!(error))
 		{
 			return (unlock_error);
@@ -133,31 +245,35 @@ unlock:
 
 /*****************************************************************************/
 
-int webdav_requestqueue_enqueue_download(int *remote, int local, off_t total_length,
-	int chunked, int *download_status)
+int webdav_requestqueue_enqueue_download(int remote, int local, off_t total_length,
+	int chunked, int *download_status, int connection_close)
 {
-	int error, unlock_error;
+	int error, error2;
 	webdav_requestqueue_element_t * request_element_ptr;
 
 	error = pthread_mutex_lock(&grequests_lock);
 	if (error)
 	{
+		syslog(LOG_ERR, "webdav_requestqueue_enqueue_download: pthread_mutex_lock(): %s", strerror(error));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
 		return (error);
 	}
 
 	request_element_ptr = malloc(sizeof(webdav_requestqueue_element_t));
 	if (!request_element_ptr)
 	{
-		error = ENOMEM;
+		syslog(LOG_ERR, "webdav_requestqueue_enqueue_download: allocate request_element_ptr failed");
+		error = EIO;
 		goto unlock;
 	}
 
 	request_element_ptr->type = WEBDAV_DOWNLOAD_TYPE;
-	request_element_ptr->element.download.remote = *remote;
+	request_element_ptr->element.download.remote = remote;
 	request_element_ptr->element.download.local = local;
 	request_element_ptr->element.download.total_length = total_length;
 	request_element_ptr->element.download.chunked = chunked;
 	request_element_ptr->element.download.download_status = download_status;
+	request_element_ptr->element.download.connection_close = connection_close;
 	request_element_ptr->next = 0;
 	++(gwaiting_requests.request_count);
 
@@ -174,17 +290,21 @@ int webdav_requestqueue_enqueue_download(int *remote, int local, off_t total_len
 	error = pthread_cond_signal(&gcondvar);
 	if (error)
 	{
+		syslog(LOG_ERR, "webdav_requestqueue_enqueue_download: pthread_cond_signal(): %s", strerror(error));
+		error = EIO;
 		goto unlock;
 	}
 
 unlock:
 
-	unlock_error = pthread_mutex_unlock(&grequests_lock);
-	if (unlock_error)
+	error2 = pthread_mutex_unlock(&grequests_lock);
+	if (error2)
 	{
-		if (!(error))
+		syslog(LOG_ERR, "webdav_requestqueue_enqueue_download: pthread_mutex_lock(): %s", strerror(error2));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
+		if (!error)
 		{
-			return (unlock_error);
+			error = error2;
 		}
 	}
 
@@ -193,9 +313,9 @@ unlock:
 
 /*****************************************************************************/
 
-int webdav_request_thread(arg)
-	void *arg;
+int webdav_request_thread(void *arg)
 {
+	#pragma unused(arg)
 	int error, proxy_ok;
 	int kernel_socket;
 	ThreadSocket *myThreadSocket;	/* pointer to ThreadSocket this thread is using */
@@ -209,6 +329,7 @@ int webdav_request_thread(arg)
 		error = pthread_mutex_lock(&grequests_lock);
 		if (error)
 		{
+			syslog(LOG_ERR, "webdav_request_thread: pthread_mutex_lock(): %s", strerror(error));
 			goto die;
 		}
 
@@ -216,8 +337,12 @@ int webdav_request_thread(arg)
 
 		if (gwaiting_requests.request_count > 0)
 		{
+			int	index;
+			ThreadSocket *aThreadSocket; /* pointer to a free ThreadSocket */
+			
+			myThreadSocket = aThreadSocket = NULL;
+			
 			/* There is a request so dequeue it */
-
 			myrequest = gwaiting_requests.item_head;
 			--(gwaiting_requests.request_count);
 			if (gwaiting_requests.request_count > 0)
@@ -235,15 +360,12 @@ int webdav_request_thread(arg)
 			{
 				case WEBDAV_REQUEST_TYPE:
 					{
-						int	index;
-						ThreadSocket *aThreadSocket; /* pointer to first free ThreadSocket */
 						
 						/* Find the first open ThreadSocket that isn't in use. If all open
 						 * ThreadSockets are in use, use the first closed ThreadSocket
 						 * that isn't in use. This has to be done while grequests_lock
 						 * is locked.
 						 */
-						myThreadSocket = aThreadSocket = NULL;
 						for ( index = 0; index < WEBDAV_REQUEST_THREADS; ++index )
 						{
 							if ( !webdav_threadsockets[index].inuse )
@@ -268,7 +390,7 @@ int webdav_request_thread(arg)
 							/* this should never happen */
 							if ( aThreadSocket == NULL )
 							{
-								syslog(LOG_INFO, "webdav_request_thread: aThreadSocket is NULL!\n");
+								syslog(LOG_ERR, "webdav_request_thread: aThreadSocket is NULL");
 								goto die;
 							}
 							
@@ -279,6 +401,48 @@ int webdav_request_thread(arg)
 					}
 					break;
 
+				case WEBDAV_DOWNLOAD_TYPE:
+					{
+						/* Find the first closed ThreadSocket that isn't in use. If all closed
+						 * ThreadSockets are in use, use the last open ThreadSocket
+						 * that isn't in use. This has to be done while grequests_lock
+						 * is locked.
+						 */
+						for ( index = 0; index < WEBDAV_REQUEST_THREADS; ++index )
+						{
+							if ( !webdav_threadsockets[index].inuse )
+							{
+								/* found one not in use */
+								if ( (webdav_threadsockets[index].socket < 0) )
+								{
+									/*  and it is closed, so grab it */
+									myThreadSocket = &webdav_threadsockets[index];
+									myThreadSocket->inuse = 1;	/* mark it in use */
+									break;
+								}
+								else
+								{
+									/* keep track of this open one in case we don't find an closed one*/
+									aThreadSocket = &webdav_threadsockets[index];
+								}
+							}
+						}
+						if ( myThreadSocket == NULL )
+						{
+							/* this should never happen */
+							if ( aThreadSocket == NULL )
+							{
+								syslog(LOG_ERR, "webdav_request_thread: aThreadSocket is NULL");
+								goto die;
+							}
+							
+							/* we didn't find an closed socket so use the last free ThreadSocket */
+							myThreadSocket = aThreadSocket;
+							myThreadSocket->inuse = 1;	/* mark it in use */
+						}
+					}
+					break;
+					
 				default:
 					break;
 			}
@@ -287,6 +451,7 @@ int webdav_request_thread(arg)
 			error = pthread_mutex_unlock(&grequests_lock);
 			if (error)
 			{
+				syslog(LOG_ERR, "webdav_request_thread: pthread_mutex_unlock(): %s", strerror(error));
 				goto die;
 			}
 
@@ -340,16 +505,39 @@ int webdav_request_thread(arg)
 						(void)fchflags(myrequest->element.download.local, 0);
 						*(myrequest->element.download.download_status) = WEBDAV_DOWNLOAD_FINISHED;
 					}
+					error = 0;
 					
 					/* close the cache file */
 					(void)close(myrequest->element.download.local);
 					
-					/* close the socket if needed */
 					if ( myrequest->element.download.remote >= 0 )
 					{
-						(void)close(myrequest->element.download.remote);
+						/* close the socket if needed */
+						if ( myrequest->element.download.connection_close )
+						{
+							(void)close(myrequest->element.download.remote);
+						}
+						else
+						{
+							/* We have a socket that shouldn't be closed */
+							
+							/* if the myThreadSocket we found when this thread was started
+							 * was still open, close it before saving the socket we just
+							 * finished using.
+							 */
+							if ( myThreadSocket->socket >= 0 )
+							{
+								(void)close(myThreadSocket->socket);
+							}
+							/* save the socket we just finished using */
+							myThreadSocket->socket = myrequest->element.download.remote;
+						}
 					}
-										
+					
+					/* free up this ThreadSocket */
+					myThreadSocket->inuse = 0;
+					
+					myThreadSocket = NULL;
 					break;
 
 				default:
@@ -366,6 +554,7 @@ int webdav_request_thread(arg)
 			error = pthread_cond_wait(&gcondvar, &grequests_lock);
 			if (error)
 			{
+				syslog(LOG_ERR, "webdav_request_thread: pthread_cond_wait(): %s", strerror(error));
 				goto die;
 			}
 
@@ -373,12 +562,20 @@ int webdav_request_thread(arg)
 			error = pthread_mutex_unlock(&grequests_lock);
 			if (error)
 			{
+				syslog(LOG_ERR, "webdav_request_thread: pthread_mutex_unlock(): %s", strerror(error));
 				goto die;
 			}
 		}
 	}
 
 die:
+
+	/* errors coming out of this routine are fatal */
+	if ( error )
+	{
+		syslog(LOG_ERR, "webdav_request_thread: pthread_mutex_lock(): %s", strerror(error));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
+	}
 
 	return error;
 }

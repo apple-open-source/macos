@@ -14,7 +14,7 @@
     <dahinds@users.sourceforge.net>.  Portions created by David A. Hinds
     are Copyright (C) 1999 David A. Hinds.  All Rights Reserved.
 
-    Contributor:  Apple Computer, Inc.  Portions © 2000 Apple Computer, 
+    Contributor:  Apple Computer, Inc.  Portions © 2003 Apple Computer, 
     Inc. All rights reserved.
 
     Alternatively, the contents of this file may be used under the
@@ -97,6 +97,7 @@ static OSArray *	gAvailableMemRanges = 0;
 IOWorkLoop *		gIOPCCardWorkLoop = 0;
 OSSet *	 		gIOPCCardMappedBridgeSpace = 0;
 void *			gCardServicesGate = 0;
+int			gIOPCCardDisablePrefetch = 0;
 
 // resource variables
 IORangeAllocator *	gSharedMemoryRange;
@@ -342,19 +343,25 @@ IOPCCardBridge::getOFConfigurationSettings(OSArray **ioRanges, OSArray **memRang
     // find all cardbus controllers in the system, and build a list of all
     // the i/o and memory address ranges that have been configured.
 
+#ifdef __i386__
+    OSIterator * iter = IORegistryIterator::iterateOver(gIOServicePlane, kIORegistryIterateRecursively);
+#else
+    // on ppc, the entries are added to the service plane as we are trying to find them.
     OSIterator * iter = IORegistryIterator::iterateOver(gIODTPlane, kIORegistryIterateRecursively);
+#endif
     if (!iter) return false;
 
     OSArray * newIORanges = OSArray::withCapacity(1);
     OSArray * newMemRanges = OSArray::withCapacity(1);
     if (!newIORanges || !newMemRanges) return false;
 
-    OSSymbol * myName = (OSSymbol *)bridgeDevice->copyName();
-
     IORegistryEntry * entry;
     while (entry = OSDynamicCast(IORegistryEntry, iter->getNextObject())) {
 
-	if (!entry->compareName(myName)) continue;
+	// is this a cardbus device?
+	OSData * classCode = OSDynamicCast(OSData, entry->getProperty("class-code"));
+	if (!classCode) continue;
+	if ((*((UInt32 *)classCode->getBytesNoCopy()) & 0xffffff00) != 0x00060700) continue;
 
 	// get the address ranges from the Open Firmware "ranges" property.
 	// 
@@ -391,6 +398,9 @@ IOPCCardBridge::getOFConfigurationSettings(OSArray **ioRanges, OSArray **memRang
 		if (spaceCode == kIOPCIIOSpace) {
 		    if (data[0] < 0xffff) {
 			if (data[1] > 0xffff) data[1] = 0xffff;
+
+			data[0] = OSSwapHostToBigInt32(data[0]);
+			data[1] = OSSwapHostToBigInt32(data[1]);
 			OSData * temp = OSData::withBytes(data, sizeof(UInt32) * 2);
 			newIORanges->setObject(temp);
 			temp->release();
@@ -398,6 +408,9 @@ IOPCCardBridge::getOFConfigurationSettings(OSArray **ioRanges, OSArray **memRang
 		}
 		    
 		if (spaceCode == kIOPCI32BitMemorySpace) {
+
+		    data[0] = OSSwapHostToBigInt32(data[0]);
+		    data[1] = OSSwapHostToBigInt32(data[1]);
 		    OSData * temp = OSData::withBytes(data, sizeof(UInt32) * 2);
 		    newMemRanges->setObject(temp);
 		    temp->release();
@@ -408,7 +421,6 @@ IOPCCardBridge::getOFConfigurationSettings(OSArray **ioRanges, OSArray **memRang
 	}
     }
     iter->release();
-    myName->release();
 
     if ((newIORanges->getCount() == 0) || (newMemRanges->getCount() == 0)) {
 	newIORanges->release();
@@ -449,6 +461,9 @@ IOPCCardBridge::getConfigurationSettings(void)
 	    return false;
 	}
 
+	if (modelData)
+	    gIOPCCardDisablePrefetch = !strncmp((char *)modelData->getBytesNoCopy(), "PowerBook1,1", 20);
+	
 	OSDictionary * settings = NULL;
 	if (modelData)
 	    settings = OSDynamicCast(OSDictionary, config->getObject((char *)modelData->getBytesNoCopy()));

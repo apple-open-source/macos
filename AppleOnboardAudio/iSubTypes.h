@@ -28,4 +28,33 @@ typedef struct _iSubAudioFormat {
     UInt32 			outputSampleRate;		
 } iSubAudioFormatType;
 
+// iSub filter state structures
+typedef struct _sPreviousValues {
+    float	xl_1;
+    float	xr_1;
+    float	xl_2;
+    float	xr_2;
+    float	yl_1;
+    float	yr_1;
+    float	yl_2;
+    float	yr_2;
+} PreviousValues;
+
+typedef struct _iSubProcessingParams_t {
+    float				srcPhase;
+    float				srcState;
+    PreviousValues 		filterState;
+    PreviousValues 		filterState2;
+    PreviousValues 		phaseCompState;
+    float				*lowFreqSamples;
+    float				*highFreqSamples;
+	SInt16 				*iSubBuffer;
+	UInt32 				iSubBufferLen;
+	UInt32 				iSubLoopCount;
+	SInt32 				iSubBufferOffset;
+	iSubAudioFormatType	iSubFormat;
+	UInt32 				sampleRate;
+	UInt32 				adaptiveSampleRate;
+} iSubProcessingParams_t, *iSubProcessingParamsPtr_t;
+
 #endif

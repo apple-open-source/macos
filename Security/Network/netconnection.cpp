@@ -37,7 +37,7 @@ namespace Network {
 Connection::Connection(Protocol &proto, const HostTarget &host)
     : protocol(proto), hostTarget(host), mTransfer(NULL), mRetainMe(false), mRestarting(false)
 {
-    debug("netconn", 
+    secdebug("netconn", 
         "connection %p created for %s", this, hostTarget.urlForm().c_str());
 }
 
@@ -48,7 +48,7 @@ Connection::Connection(Protocol &proto, const HostTarget &host)
 Connection::~Connection()
 {
     assert(!isDocked());
-    debug("netconn", "connection %p destroyed", this);
+    secdebug("netconn", "connection %p destroyed", this);
 }
 
 
@@ -61,7 +61,7 @@ void Connection::dock(Transfer *xfer)
     assert(!xfer->isDocked());
     mTransfer = xfer;
     xfer->mConnection = this;
-    debug("netconn", "connection %p docked xfer %p", this, xfer);
+    secdebug("netconn", "connection %p docked xfer %p", this, xfer);
 }
 
 
@@ -80,7 +80,7 @@ void Connection::undock()
     bool retain = mRetainMe && mTransfer->shareConnections();
     
     // physically sever our relationship with the Transfer
-    debug("netconn", "connection %p undocking xfer %p", this, mTransfer);
+    secdebug("netconn", "connection %p undocking xfer %p", this, mTransfer);
     mTransfer->mConnection = NULL;
     mTransfer = NULL;
 
@@ -121,7 +121,7 @@ void Connection::restart()
 {
     if (mRestarting) {
         Transfer *transfer = mTransfer;
-        debug("netconn", "%p restarting xfer %p", this, transfer);
+        secdebug("netconn", "%p restarting xfer %p", this, transfer);
         
         // throw outselves out
         retain(false);

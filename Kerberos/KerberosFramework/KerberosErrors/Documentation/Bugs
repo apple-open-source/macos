@@ -1,0 +1,35 @@
+========================================================================
+KerberosErrors Bug List
+========================================================================
+Current version: 1.5fc3
+Date:            August 22, 2003
+Authors:         lxs@mit.edu, meeroh@mit.edu
+========================================================================
+
+========================================================================
+Bug #       Bug description                                     Fixed in
+========================================================================
+
+[RT 1764] Framework should use CFStringGetMaximumSizeForEncoding() 1.5fc3
+[RT 1688]   Sometimes compile_et doesn't catch the first error  1.5fc2
+[RT 1449]   error_message() corrupts unknown negative errors    1.5a4
+[RT 1389]   Remove old ErrorLib API -- now use error_message()  1.5a3
+[RT 1361]   compile_et breaks on strings containing " end "     1.5a2
+[RT 1295]   Kerberos framework initializer causes performance problems
+                                                                1.5a1
+[BZ 714]	Merge ComErr with ErrorLib							1.4a1
+[BZ 738]	Ask for UTF8 strings, not system encoding			1.4a1
+[BZ 744]	ComErr should remember BundleIDs not Bundles		1.4a1
+[BZ 619]	Do not call ResError after CurResFile				1.2
+[BZ 367]	Move strings into code section						1.1.1fc2
+[BZ 178]	Stack overflow under low-memory conditions			1.1.1b1
+[BZ 254]	"Unknown error" strings come from app res fork		1.1.1a5
+[BZ 169]	System error tables override custom error tabls		1.1.1a3
+[     6]	ErrorLibraryIsPresent was not conditioned out for	1.1.1a1
+			classic 68K
+[     5]	Was incorrectly using DisposeHandle on a res handle	1.1.1a1
+[     4]	Not correctly restoring current res file			1.1.1a1
+			when error not found in tables
+[     3]    Not including Files.h causing problems				1.1b1
+[     2]	Struct alignment not specified in header files		1.0fc1
+[     1]	Headers not C++ friendly							1.0fc1

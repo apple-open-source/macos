@@ -1,4 +1,4 @@
-/*	$KAME: algorithm.h,v 1.19 2001/08/16 06:17:12 sakane Exp $	*/
+/*	$KAME: algorithm.h,v 1.20 2001/12/12 18:23:41 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.

@@ -1,7 +1,7 @@
 /* test.c - lber encoding test program */
-/* $OpenLDAP: pkg/ldap/libraries/liblber/etest.c,v 1.24 2002/01/04 20:17:37 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblber/etest.c,v 1.24.2.2 2003/03/03 17:10:04 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /* Portions
@@ -32,7 +32,7 @@ static void usage( const char *name )
 
 static char* getbuf( void ) {
 	char *p;
-	static char buf[128];
+	static char buf[1024];
 
 	if ( fgets( buf, sizeof(buf), stdin ) == NULL )
 		return NULL;

@@ -1,0 +1,34 @@
+// Permissions for the org.jboss.test.securitymgr.test.*UnitTestCase
+
+// Trusted core Java code
+grant codeBase "file:${java.home}/lib/ext/*" {
+   permission java.security.AllPermission;
+};
+
+grant codeBase "file:${jboss.home}/server/output/lib/-" {
+   permission java.security.AllPermission;
+};
+grant codeBase "file:${jboss.home}/security/output/lib/-" {
+   permission java.security.AllPermission;
+};
+grant codeBase "file:${jboss.home}/naming/output/lib/-" {
+   permission java.security.AllPermission;
+};
+grant codeBase "file:${jboss.home}/common/output/lib/-" {
+   permission java.security.AllPermission;
+};
+
+grant codeBase "file:${jboss.tools.dir}/-" {
+   permission java.security.AllPermission;
+};
+grant codeBase "file:${jboss.thirdparty.dir}/-" {
+   permission java.security.AllPermission;
+};
+grant codeBase "file:${jbosstest.deploy.dir}/securitymgr-tests.jar" {
+   permission java.security.AllPermission;
+};
+grant codeBase "file:${jbosstest.deploy.dir}/securitymgr-ejb.jar" {
+   permission java.util.PropertyPermission "*", "read";
+   permission java.net.SocketPermission "*", "connect";
+};
+

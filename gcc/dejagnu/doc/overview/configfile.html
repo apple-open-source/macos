@@ -1,0 +1,544 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML
+><HEAD
+><TITLE
+>Config File Values</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.64
+"><LINK
+REL="HOME"
+TITLE="DejaGnu"
+HREF="book1.html"><LINK
+REL="UP"
+TITLE="Customizing DejaGnu"
+HREF="customizing.html"><LINK
+REL="PREVIOUS"
+TITLE="Remote Host Testing"
+HREF="releng.html"><LINK
+REL="NEXT"
+TITLE="Extending DejaGnu"
+HREF="extending.html"></HEAD
+><BODY
+CLASS="SECT1"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="3"
+ALIGN="center"
+>DejaGnu: The GNU Testing Framework</TH
+></TR
+><TR
+><TD
+WIDTH="10%"
+ALIGN="left"
+VALIGN="bottom"
+><A
+HREF="releng.html"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="80%"
+ALIGN="center"
+VALIGN="bottom"
+>Customizing DejaGnu</TD
+><TD
+WIDTH="10%"
+ALIGN="right"
+VALIGN="bottom"
+><A
+HREF="extending.html"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+></TABLE
+><HR
+ALIGN="LEFT"
+WIDTH="100%"></DIV
+><DIV
+CLASS="SECT1"
+><H1
+CLASS="SECT1"
+><A
+NAME="CONFIGFILE"
+>Config File Values</A
+></H1
+><P
+>DejaGnu uses a named array in Tcl to hold all the info for
+      each machine. In the case of a canadian cross, this means host
+      information as well as target information. The named array is
+      called <SPAN
+CLASS="SYMBOL"
+>target_info</SPAN
+>, and it has two indices. The
+      following fields are part of the array.</P
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="OPTIONDEFS"
+>Command Line Option Variables</A
+></H2
+><P
+>In the user editable second section of the <A
+HREF="configfile.html#PERSONAL"
+>Personal Config File</A
+> you can not only override the configuration
+	variables captured in the first section, but also specify
+	default values for all on the <B
+CLASS="COMMAND"
+>runtest</B
+>
+	command line options.  Save for <TT
+CLASS="OPTION"
+>--debug</TT
+>,
+	<TT
+CLASS="OPTION"
+>--help</TT
+>, and <TT
+CLASS="OPTION"
+>--version</TT
+>, each 
+	command line option has an associated Tcl variable.  Use the
+	Tcl <B
+CLASS="COMMAND"
+>set</B
+> command to specify a new default
+	value (as for the configuration variables).  The following
+	table describes the correspondence between command line
+	options and variables you can set in
+	<TT
+CLASS="FILENAME"
+>site.exp</TT
+>.  <A
+HREF="runtest.html#INVOKING"
+>Invoking Runtest</A
+>, for
+	explanations of the command-line options.</P
+><P
+><DIV
+CLASS="TABLE"
+><A
+NAME="AEN1008"
+></A
+><P
+><B
+>Table 1. Tcl Variables For Command Line Options</B
+></P
+><TABLE
+BORDER="1"
+BGCOLOR="#E0E0E0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><THEAD
+><TR
+><TH
+ALIGN="LEFT"
+VALIGN="TOP"
+>runtest</TH
+><TH
+ALIGN="LEFT"
+VALIGN="TOP"
+>Tcl</TH
+><TH
+ALIGN="LEFT"
+VALIGN="TOP"
+>option</TH
+><TH
+ALIGN="LEFT"
+VALIGN="TOP"
+>variable</TH
+><TH
+ALIGN="LEFT"
+VALIGN="TOP"
+>description</TH
+></TR
+></THEAD
+><TBODY
+><TR
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>--all</TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>all_flag</TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>display all test results if set</TD
+></TR
+><TR
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>--baud</TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>baud</TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>set the default baud rate to something other than
+	    9600.</TD
+></TR
+><TR
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>--connect</TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>connectmode</TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+><B
+CLASS="COMMAND"
+>rlogin</B
+>,
+	    <B
+CLASS="COMMAND"
+>telnet</B
+>, <B
+CLASS="COMMAND"
+>rsh</B
+>,
+	    <B
+CLASS="COMMAND"
+>kermit</B
+>, <B
+CLASS="COMMAND"
+>tip</B
+>, or
+	    <B
+CLASS="COMMAND"
+>mondfe</B
+></TD
+></TR
+><TR
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>--outdir</TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>outdir</TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>directory for <TT
+CLASS="FILENAME"
+>tool.sum</TT
+> and
+	    <TT
+CLASS="FILENAME"
+>tool.log.</TT
+></TD
+></TR
+><TR
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>--objdir</TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>objdir</TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>directory for pre-compiled binaries</TD
+></TR
+><TR
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>--reboot</TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>reboot</TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>reboot the target if set to
+	    <I
+CLASS="EMPHASIS"
+>"1"</I
+>; do not reboot if set to
+	    <I
+CLASS="EMPHASIS"
+>"0"</I
+> (the default).</TD
+></TR
+><TR
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>--srcdir</TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>srcdir</TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>directory of test subdirectories</TD
+></TR
+><TR
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>--strace</TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>tracelevel</TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>a number: Tcl trace depth</TD
+></TR
+><TR
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>--tool</TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>tool</TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>name of tool to test; identifies init, test subdir</TD
+></TR
+><TR
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>--verbose</TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>verbose</TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>verbosity level.  As option, use multiple times; as
+	    variable, set a number, 0 or greater.</TD
+></TR
+><TR
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>--target</TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>target_triplet</TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>The canonical configuration string for the target.</TD
+></TR
+><TR
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>--host</TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>host_triplet</TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>The canonical configuration string for the host.</TD
+></TR
+><TR
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>--build</TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>build_triplet</TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>The canonical configuration string for the build
+	    host.</TD
+></TR
+><TR
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>--mail</TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>address</TD
+><TD
+ALIGN="LEFT"
+VALIGN="TOP"
+>Email the output log to the specified address.</TD
+></TR
+></TBODY
+></TABLE
+></DIV
+>
+	</P
+></DIV
+><DIV
+CLASS="SECT2"
+><H2
+CLASS="SECT2"
+><A
+NAME="PERSONAL"
+>Personal Config File</A
+></H2
+><P
+>The personal config file is used to customize
+      <B
+CLASS="COMMAND"
+>runtest's</B
+> behaviour for each person. It's
+      typically used to set the user prefered setting for verbosity,
+      and any experimental Tcl procedures. My personal
+      <TT
+CLASS="FILENAME"
+>~/.dejagnurc</TT
+> file looks like:</P
+><DIV
+CLASS="EXAMPLE"
+><A
+NAME="AEN1090"
+></A
+><P
+><B
+>Example 12. Personal Config File</B
+></P
+><TABLE
+BORDER="0"
+BGCOLOR="#E0E0E0"
+WIDTH="100%"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>	set all_flag 1
+	set RLOGIN /usr/ucb/rlogin
+	set RSH /usr/local/sbin/ssh
+	</PRE
+></TD
+></TR
+></TABLE
+></DIV
+><P
+>Here I set <SPAN
+CLASS="SYMBOL"
+>all_flag</SPAN
+> so I see all the test
+      cases that PASS along with the ones that FAIL. I also set
+      <SPAN
+CLASS="SYMBOL"
+>RLOGIN</SPAN
+> to the BSD version. I have
+      <SPAN
+CLASS="PRODUCTNAME"
+>Kerberos</SPAN
+> installed, and when I rlogin
+      to a target board, it usually isn't supported. So I use the non
+      secure version rather than the default that's in my path. I also
+      set <SPAN
+CLASS="SYMBOL"
+>RSH</SPAN
+> to the <SPAN
+CLASS="PRODUCTNAME"
+>SSH</SPAN
+>
+      secure shell, as rsh is mostly used to test unix
+      machines within a local network here.</P
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><HR
+ALIGN="LEFT"
+WIDTH="100%"><TABLE
+WIDTH="100%"
+BORDER="0"
+CELLPADDING="0"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+><A
+HREF="releng.html"
+>&#60;&#60;&#60; Previous</A
+></TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="book1.html"
+>Home</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+><A
+HREF="extending.html"
+>Next &#62;&#62;&#62;</A
+></TD
+></TR
+><TR
+><TD
+WIDTH="33%"
+ALIGN="left"
+VALIGN="top"
+>Remote Host Testing</TD
+><TD
+WIDTH="34%"
+ALIGN="center"
+VALIGN="top"
+><A
+HREF="customizing.html"
+>Up</A
+></TD
+><TD
+WIDTH="33%"
+ALIGN="right"
+VALIGN="top"
+>Extending DejaGnu</TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

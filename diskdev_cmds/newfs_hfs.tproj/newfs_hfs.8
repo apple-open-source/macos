@@ -1,4 +1,4 @@
-.\" Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+.\" Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
 .\" 
 .\" The contents of this file constitute Original Code as defined in and
 .\" are subject to the Apple Public Source License Version 1.1 (the
@@ -15,7 +15,7 @@
 .\" under the License.
 .\" 
 .\"     @(#)newfs_hfs.8
-.Dd March 14, 2001
+.Dd April 1, 2003
 .Dt NEWFS_HFS 8
 .Os "Mac OS X"
 .Sh NAME
@@ -24,11 +24,15 @@
 .Sh SYNOPSIS
 .Nm newfs_hfs
 .Op Fl N
+.Op Fl U Ar uid
+.Op Fl G Ar gid
+.Op Fl M Ar mask
 .Op Fl h | w
+.Op Fl s
 .Op Fl b Ar block-size
 .Op Fl c Ar clump-size-list
 .Op Fl i Ar first-cnid
-.Op Fl j Ar [journal-size]
+.Op Fl J Ar [journal-size]
 .Op Fl n Ar node-size-list
 .Op Fl v Ar volume-name
 .Ar special
@@ -52,10 +56,23 @@ The options are as follows:
 .It Fl N
 Causes the file system parameters to be printed out
 without really creating the file system.
+.It Fl U Ar uid
+Set the owner of the file system's root directory to
+.Pa uid .
+.It Fl G Ar gid
+Set the group of the file system's root directory to
+.Pa gid .
+.It Fl M Ar mask
+Specify the access permissions mask for the file system's root directory.
 .It Fl h
 Creates a legacy HFS format filesystem. This option
 is not recomended for file systems that will be
 primarily used with Mac OS X or Darwin.
+.It Fl s
+Creates a case-sensitive HFS Plus filesystem. By
+default a case-insensitive filesystem is created.
+Case-sensitive HFS Plus file systems require a Mac OS X
+version of 10.3 (Darwin 7.0) or later. 
 .It Fl w
 Adds an HFS wrapper around the HFS Plus file system.
 This wrapper is required if the file system will be used
@@ -90,9 +107,11 @@ Set the extent overflow file clump size.
 .It Fl i Ar first-cnid
 This specifies the initial catalog node ID for user files
 and directories. The default value is 16.
-.It Fl j Ar [journal-size]
+.It Fl J Ar [journal-size]
 Creates a journaled HFS+ volume.
-The default journal size is 4MB.
+The default journal size is 8MB.  Appending an 'M' to the
+journal size implies megabytes (i.e. 64M is 64 megabytes).
+The maximum journal size is 512 megabytes.
 .It Fl n Ar node-size-list
 This specifies the b-tree
 .Em node
@@ -120,9 +139,7 @@ Set the extent overflow b-tree node size.
 Volume name (file system name) in ascii or UTF-8 format.
 .El
 .Sh SEE ALSO
-.Xr fsck_hfs 8 ,
-.Xr mount_hfs 8 ,
-.Xr newfs 8 ,
+.Xr mount 8 ,
 .Xr pdisk 8
 .Sh HISTORY
 The

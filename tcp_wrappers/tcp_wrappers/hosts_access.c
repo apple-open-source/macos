@@ -33,6 +33,7 @@ static char sccsid[] = "@(#) hosts_access.c 1.21 97/02/12 02:13:22";
 #include <errno.h>
 #include <setjmp.h>
 #include <string.h>
+#include <stdint.h>
 
 extern char *fgets();
 extern int errno;
@@ -82,6 +83,9 @@ static int client_match();
 static int host_match();
 static int string_match();
 static int masked_match();
+#ifdef HAVE_IPV6
+static void ipv6_mask();
+#endif
 
 /* Size of logical line buffer. */
 
@@ -155,7 +159,7 @@ struct request_info *request;
 		tcpd_warn("missing \":\" separator");
 		continue;
 	    }
-	    sh_cmd = split_at(cl_list, ':');
+	    sh_cmd = split_at(skip_ipv6_addrs(cl_list), ':');
 	    match = list_match(sv_list, request, server_match)
 		&& list_match(cl_list, request, client_match);
 	}
@@ -247,8 +251,6 @@ char   *tok;
 struct host_info *host;
 {
     char   *mask;
-    unsigned long addr;
-    address_range_t range;
 
     /*
      * This code looks a little hairy because we want to avoid unnecessary
@@ -275,9 +277,52 @@ struct host_info *host;
     } else if (STR_EQ(tok, "LOCAL")) {		/* local: no dots in name */
 	char   *name = eval_hostname(host);
 	return (strchr(name, '.') == 0 && HOSTNAME_KNOWN(name));
-    } else if (address_range(tok, &range)) {	/* address range */
-	addr = dot_quad_addr(eval_hostaddr(host));
-	return ((addr != INADDR_NONE) && address_range_match(range, addr));
+#ifdef HAVE_IPV6
+    } else if (tok[0] == '[') {			/* IPv6 address */
+	    struct in6_addr in6, hostin6, *hip;
+	    char *cbr;
+	    char *slash;
+	    int mask = IPV6_ABITS;
+
+	    if (SGFAM(host->sin) != AF_INET6)
+		return (NO);
+
+	    if (cbr = strchr(tok, ']'))
+		*cbr = '\0';
+
+	    /*
+	     * A /nnn prefix specifies how many bits of the address we
+	     * need to check. 
+	     */
+	    if (slash = strchr(tok, '/')) {
+		*slash = '\0';
+		mask = atoi(slash+1);
+		if (mask < 0 || mask > IPV6_ABITS) {
+		    tcpd_warn("bad IP6 prefix specification");
+		    return (NO);
+		}
+		hostin6 = host->sin->sg_sin6.sin6_addr;
+		hip = &hostin6;
+	    } else
+		hip = &host->sin->sg_sin6.sin6_addr;
+
+	    if (cbr == NULL || inet_pton(AF_INET6, tok+1, &in6) != 1) {
+		tcpd_warn("bad IP6 address specification");
+		return (NO);
+	    }
+	    /*
+	     * Zero the bits we're not interested in in both addresses
+	     * then compare.  Note that we take a copy of the host info
+	     * in that case.
+	     */
+	    if (mask != IPV6_ABITS) {
+		ipv6_mask(&in6, mask);
+		ipv6_mask(hip, mask);
+	    }
+	    if (memcmp(&in6, hip, sizeof(in6)) == 0)
+		return (YES);
+	    return (NO);
+#endif
     } else if ((mask = split_at(tok, '/')) != 0) {	/* net/mask */
 	return (masked_match(tok, mask, eval_hostaddr(host)));
     } else {					/* anything else */
@@ -334,3 +379,29 @@ char   *string;
     }
     return ((addr & mask) == net);
 }
+
+#ifdef HAVE_IPV6
+/*
+ * Function that zeros all but the first "maskbits" bits of the IPV6 address
+ * This function can be made generic by specifying an address length as
+ * extra parameter. (So Wietse can implement 1.2.3.4/16)
+ */
+static void ipv6_mask(in6p, maskbits)
+struct in6_addr *in6p;
+int maskbits;
+{
+    uint8_t *p = (uint8_t*) in6p;
+
+    if (maskbits < 0 || maskbits >= IPV6_ABITS)
+	return;
+
+    p += maskbits / 8;
+    maskbits %= 8;
+
+    if (maskbits != 0)
+	*p++ &= 0xff << (8 - maskbits);
+
+    while (p < (((uint8_t*) in6p)) + sizeof(*in6p))
+	*p++ = 0;
+}
+#endif

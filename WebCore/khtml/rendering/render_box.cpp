@@ -66,23 +66,13 @@ RenderBox::RenderBox(DOM::NodeImpl* node)
 
 void RenderBox::setStyle(RenderStyle *_style)
 {
-    // Make sure the root element retains its display:block type even across style
-    // changes.
-    if (isRoot() && _style->display() != NONE)
-        _style->setDisplay(BLOCK);
-    
     RenderObject::setStyle(_style);
 
     // The root always paints its background/border.
     if (isRoot())
         setShouldPaintBackgroundOrBorder(true);
     
-    // ### move this into the parser. --> should work. Lars
-    // if only horizontal position was defined, vertical should be 50%
-    //if(!_style->backgroundXPosition().isVariable() && _style->backgroundYPosition().isVariable())
-    //style()->setBackgroundYPosition(Length(50, Percent));
-
-    setInline(style()->display()==INLINE);
+    setInline(_style->isDisplayInlineType());
     
     switch(_style->position())
     {
@@ -92,10 +82,19 @@ void RenderBox::setStyle(RenderStyle *_style)
         break;
     default:
         setPositioned(false);
-        if(_style->isFloating())
+
+        if (_style->isFloating())
             setFloating(true);
-        else if(_style->position() == RELATIVE)
+
+        if (_style->position() == RELATIVE)
             setRelPositioned(true);
+    }
+
+    // Frames and framesets never honor position:relative or position:absolute.  This is necessary to
+    // fix a crash where a site tries to position these objects.
+    if (element() && (element()->id() == ID_FRAME || element()->id() == ID_FRAMESET)) {
+        setPositioned(false);
+        setRelPositioned(false);
     }
     
     if (requiresLayer()) {
@@ -109,16 +108,31 @@ void RenderBox::setStyle(RenderStyle *_style)
         m_layer = 0;
     }
 
+    adjustZIndex();
+
+    // Set the text color if we're the body.
+    if (isBody())
+        element()->getDocument()->setTextColor(_style->color());
+}
+
+void RenderBox::adjustZIndex()
+{
     if (m_layer) {
         // Make sure our z-index values are only applied if we're positioned or
-        // relpositioned.
-        if (!isPositioned() && !isRelPositioned()) {
+        // relpositioned or transparent.
+        if (!isPositioned() && !isRelPositioned() && style()->opacity() == 1.0f) {
             // Set the auto z-index flag.
             if (isRoot())
                 style()->setZIndex(0);
             else
                 style()->setHasAutoZIndex();
         }
+        
+        // Auto z-index becomes 0 for transparent objects.  This prevents cases where
+        // objects that should be blended as a single unit end up with a non-transparent object
+        // wedged in between them.
+        if (style()->opacity() < 1.0f && style()->hasAutoZIndex())
+            style()->setZIndex(0);
     }
 }
 
@@ -153,6 +167,9 @@ int RenderBox::contentHeight() const
 {
     int h = m_height - borderTop() - borderBottom();
     h -= paddingTop() + paddingBottom();
+
+    if (style()->scrollsOverflow() && m_layer)
+        h -= m_layer->horizontalScrollbarHeight();
 
     return h;
 }
@@ -206,16 +223,34 @@ void RenderBox::paintRootBoxDecorations(QPainter *p,int, int _y,
     QColor c = style()->backgroundColor();
     CachedImage *bg = style()->backgroundImage();
 
-    if (!c.isValid() && !bg && firstChild()) {
-        if (!c.isValid())
-            c = firstChild()->style()->backgroundColor();
-        if (!bg)
-            bg = firstChild()->style()->backgroundImage();
+    if (!c.isValid() && !bg) {
+        // Locate the <body> element using the DOM.  This is easier than trying
+        // to crawl around a render tree with potential :before/:after content and
+        // anonymous blocks created by inline <body> tags etc.  We can locate the <body>
+        // render object very easily via the DOM.
+        RenderObject* bodyObject = 0;
+        for (DOM::NodeImpl* elt = element()->firstChild(); elt; elt = elt->nextSibling()) {
+            if (elt->id() == ID_BODY) {
+                bodyObject = elt->renderer();
+                break;
+            }
+        }
+
+        if (bodyObject) {
+            c = bodyObject->style()->backgroundColor();
+            bg = bodyObject->style()->backgroundImage();
+        }
     }
 
-    if( !c.isValid() && canvas()->view())
-        c = canvas()->view()->palette().active().color(QColorGroup::Base);
-
+    // Only fill with a base color (e.g., white) if we're the root document, since iframes/frames with
+    // no background in the child document should show the parent's background.
+    if (!c.isValid() && canvas()->view()) {
+        if (element()->getDocument()->ownerElement())
+            canvas()->view()->useSlowRepaints(); // The parent must show behind the child.
+        else
+            c = canvas()->view()->palette().active().color(QColorGroup::Base);
+    }
+    
     int w = width();
     int h = height();
 
@@ -246,7 +281,7 @@ void RenderBox::paintRootBoxDecorations(QPainter *p,int, int _y,
 
     paintBackground(p, c, bg, my, _h, bx, by, bw, bh);
 
-    if(style()->hasBorder())
+    if (style()->hasBorder() && style()->display() != INLINE)
         paintBorder( p, _tx, _ty, w, h, style() );
 }
 
@@ -268,9 +303,14 @@ void RenderBox::paintBoxDecorations(QPainter *p,int _x, int _y,
     else
         mh = QMIN(_h,h);
 
-    paintBackground(p, style()->backgroundColor(), style()->backgroundImage(), my, mh, _tx, _ty, w, h);
-
-    if(style()->hasBorder())
+    // The <body> only paints its background if the root element has defined a background
+    // independent of the body.  Go through the DOM to get to the root element's render object,
+    // since the root could be inline and wrapped in an anonymous block.
+    if (!isBody()
+        || element()->getDocument()->documentElement()->renderer()->style()->backgroundColor().isValid()
+        || element()->getDocument()->documentElement()->renderer()->style()->backgroundImage())        	paintBackground(p, style()->backgroundColor(), style()->backgroundImage(), my, mh, _tx, _ty, w, h);
+   
+    if (style()->hasBorder())
         paintBorder(p, _tx, _ty, w, h, style());
 }
 
@@ -492,7 +532,8 @@ short RenderBox::containingBlockWidth() const
         return canvas()->view()->visibleWidth();
     
     RenderBlock* cb = containingBlock();
-    if ((style()->hidesOverflow() || ((style()->htmlHacks() || isTable()) && style()->flowAroundFloats()))
+    if ((style()->hidesOverflow() || isFlexibleBox() ||
+         ((style()->htmlHacks() || isTable()) && style()->flowAroundFloats()))
             && style()->width().isVariable())
         return cb->lineWidth(m_y);
     else
@@ -554,7 +595,7 @@ void RenderBox::position(InlineBox* box, int from, int len, bool reverse)
 void RenderBox::repaint(bool immediate)
 {
     //kdDebug( 6040 ) << "repaint!" << endl;
-    if (isRoot()) {
+    if (isRoot() || isBody()) {
         RenderObject *cb = containingBlock();
         if(cb != this)
             cb->repaint(immediate);
@@ -628,8 +669,18 @@ void RenderBox::calcWidth()
     }
     else
     {
+        // The parent box is flexing us, so it has increased or decreased our width.  We just bail
+        // and leave our width unchanged in this case.
+        if (parent()->isFlexibleBox() && parent()->style()->boxOrient() == HORIZONTAL
+            && parent()->isFlexingChildren())
+            return;
+
+        bool inVerticalBox = parent()->isFlexibleBox() && parent()->style()->boxOrient() == VERTICAL;
+        bool stretching = parent()->style()->boxAlign() == BSTRETCH;
+        bool treatAsReplaced = isReplaced() && !isInlineBlockOrInlineTable() &&
+            (!inVerticalBox || !stretching);
         Length w;
-        if ( isReplaced () )
+        if (treatAsReplaced)
             w = Length( calcReplacedWidth(), Fixed );
         else
             w = style()->width();
@@ -639,7 +690,7 @@ void RenderBox::calcWidth()
 
         int cw;
         RenderBlock *cb = containingBlock();
-        if (style()->hidesOverflow() || style()->flowAroundFloats())
+        if ((style()->width().isVariable() && (style()->hidesOverflow() || isFlexibleBox())) || style()->flowAroundFloats())
             cw = cb->lineWidth( m_y );
         else
             cw = cb->contentWidth();
@@ -649,12 +700,12 @@ void RenderBox::calcWidth()
         m_marginLeft = 0;
         m_marginRight = 0;
 
-        if (isInline())
+        if (isInline() && !isInlineBlockOrInlineTable())
         {
             // just calculate margins
             m_marginLeft = ml.minWidth(cw);
             m_marginRight = mr.minWidth(cw);
-            if (isReplaced())
+            if (treatAsReplaced)
             {
                 m_width = w.width(cw);
                 m_width += paddingLeft() + paddingRight() + borderLeft() + borderRight();
@@ -665,7 +716,7 @@ void RenderBox::calcWidth()
         }
         else {
             LengthType widthType, minWidthType, maxWidthType;
-            if (isReplaced()) {
+            if (treatAsReplaced) {
                 m_width = w.width(cw);
                 m_width += paddingLeft() + paddingRight() + borderLeft() + borderRight();
                 widthType = w.type;
@@ -697,7 +748,8 @@ void RenderBox::calcWidth()
             }
         }
 
-        if (cw && cw != m_width + m_marginLeft + m_marginRight && !isFloating() && !isInline())
+        if (cw && cw != m_width + m_marginLeft + m_marginRight && !isFloating() && !isInline() &&
+            !cb->isFlexibleBox())
         {
             if (style()->direction()==LTR)
                 m_marginRight = cw - m_width - m_marginLeft;
@@ -756,19 +808,23 @@ void RenderBox::calcHorizontalMargins(const Length& ml, const Length& mr, int cw
     else
     {
         if ( (ml.type == Variable && mr.type == Variable) ||
-             (!(ml.type == Variable) &&
-                containingBlock()->style()->textAlign() == KONQ_CENTER) )
+             (ml.type != Variable && mr.type != Variable &&
+                containingBlock()->style()->textAlign() == KHTML_CENTER) )
         {
             m_marginLeft = (cw - m_width)/2;
             if (m_marginLeft<0) m_marginLeft=0;
             m_marginRight = cw - m_width - m_marginLeft;
         }
-        else if (mr.type == Variable)
+        else if (mr.type == Variable ||
+                 (ml.type != Variable && containingBlock()->style()->direction() == RTL &&
+                  containingBlock()->style()->textAlign() == KHTML_LEFT))
         {
             m_marginLeft = ml.width(cw);
             m_marginRight = cw - m_width - m_marginLeft;
         }
-        else if (ml.type == Variable)
+        else if (ml.type == Variable ||
+                 (mr.type != Variable && containingBlock()->style()->direction() == LTR &&
+                  containingBlock()->style()->textAlign() == KHTML_RIGHT))
         {
             m_marginRight = mr.width(cw);
             m_marginLeft = cw - m_width - m_marginRight;
@@ -797,7 +853,17 @@ void RenderBox::calcHeight()
     else
     {
         Length h;
-        if ( isReplaced() ) {
+        bool inHorizontalBox = parent()->isFlexibleBox() && parent()->style()->boxOrient() == HORIZONTAL;
+        bool stretching = parent()->style()->boxAlign() == BSTRETCH;
+        
+        // The parent box is flexing us, so it has increased or decreased our height.  We have to
+        // grab our cached flexible height.
+        if (parent()->isFlexibleBox() && parent()->style()->boxOrient() == VERTICAL
+            && parent()->isFlexingChildren() && style()->boxFlexedHeight() != -1)
+            h = Length(style()->boxFlexedHeight() - borderTop() - borderBottom() -
+                       paddingTop() - paddingBottom(), Fixed);
+        else if ( isReplaced() && !isInlineBlockOrInlineTable() &&
+                  (!inHorizontalBox || !stretching )) {
             h = Length( calcReplacedHeight(), Fixed );
         }
         else
@@ -808,6 +874,19 @@ void RenderBox::calcHeight()
         // for tables, calculate margins only
         if (isTable())
             return;
+
+        // The parent box is flexing us, so it has increased or decreased our height.  We have to
+        // grab our cached flexible height.
+        if (parent()->isFlexibleBox() && parent()->style()->boxOrient() == VERTICAL
+            && parent()->isFlexingChildren() && style()->boxFlexedHeight() != -1)
+            h = Length(style()->boxFlexedHeight() - borderTop() - borderBottom() -
+                       paddingTop() - paddingBottom(), Fixed);
+        
+        // Block children of horizontal flexible boxes fill the height of the box.
+        if (h.isVariable() && parent()->isFlexibleBox() && parent()->style()->boxOrient() == HORIZONTAL
+            && parent()->isStretchingChildren())
+            h = Length(parent()->contentHeight() - marginTop() - marginBottom() -
+                       borderTop() - paddingTop() - borderBottom() - paddingBottom(), Fixed);
 
         if (!h.isVariable())
         {

@@ -1,5 +1,5 @@
 {
-  Description     = "network time syncronization";
+  Description     = "network time synchronization";
   Provides        = ("Network Time");
   Requires        = ("DirectoryServices");
   OrderPreference = "First";

@@ -1,10 +1,10 @@
 /*
- * "$Id: rastertoepson.c,v 1.1.1.3 2002/03/02 18:28:31 jlovell Exp $"
+ * "$Id: rastertoepson.c,v 1.1.1.7 2002/12/24 00:07:05 jlovell Exp $"
  *
  *   EPSON ESC/P and ESC/P2 filter for the Common UNIX Printing System
  *   (CUPS).
  *
- *   Copyright 1993-2002 by Easy Software Products.
+ *   Copyright 1993-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -77,7 +77,8 @@ unsigned char	*Planes[6],		/* Output buffers */
 		*LineBuffers[2];	/* Line bitmap buffers */
 int		Model,			/* Model number */
 		NumPlanes,		/* Number of color planes */
-		Feed;			/* Number of lines to skip */
+		Feed,			/* Number of lines to skip */
+		EjectPage;		/* Eject the page when done? */
 int		DotBit,			/* Bit in buffers */
 		DotBytes,		/* # bytes in a dot column */
 		DotColumns,		/* # columns in 1/60 inch */
@@ -119,7 +120,7 @@ Setup(void)
   */
 
   if ((device_uri = getenv("DEVICE_URI")) != NULL &&
-      strncmp(device_uri, "usb:", 4) == 0)
+      strncmp(device_uri, "usb:", 4) == 0 && Model >= EPSON_ICOLOR)
     pwrite("\000\000\000\033\001@EJL 1284.4\n@EJL     \n\033@", 29);
 }
 
@@ -169,8 +170,8 @@ StartPage(const ppd_file_t         *ppd,	/* I - PPD file */
   * See which type of printer we are using...
   */
 
-  Model = ppd->model_number;
-
+  EjectPage = header->Margins[0] || header->Margins[1];
+    
   switch (ppd->model_number)
   {
     case EPSON_9PIN :
@@ -355,7 +356,8 @@ EndPage(const cups_page_header_t *header)	/* I - Page header */
   * Eject the current page...
   */
 
-  putchar(12);		/* Form feed */
+  if (EjectPage)
+    putchar(12);		/* Form feed */
   fflush(stdout);
 
  /*
@@ -1039,6 +1041,8 @@ main(int  argc,			/* I - Number of command-line arguments */
   */
 
   ppd = ppdOpenFile(getenv("PPD"));
+  if (ppd)
+    Model = ppd->model_number;
 
   Setup();
 
@@ -1129,5 +1133,5 @@ main(int  argc,			/* I - Number of command-line arguments */
 
 
 /*
- * End of "$Id: rastertoepson.c,v 1.1.1.3 2002/03/02 18:28:31 jlovell Exp $".
+ * End of "$Id: rastertoepson.c,v 1.1.1.7 2002/12/24 00:07:05 jlovell Exp $".
  */

@@ -1,0 +1,16 @@
+#------------------------------------------------------------
+# Java ByteCode
+# From Larry Schwimmer (schwim@cs.stanford.edu)
+#
+# The Java magic number is the same as the Mach-O fat file magic number.
+# To make the file(1) command work with both, the Java Bytecode magic was
+# merged with the Mach-O magic in the file mach.
+#
+#0	belong		0xcafebabe	compiled Java class data,
+#>6	beshort x	version %d.
+#>4	beshort x	\b%d
+#------------------------------------------------------------
+# Java serialization
+# From Martin Pool (m.pool@pharos.com.au)
+0	beshort		0xaced		Java serialization data
+>2	beshort		>0x0004		\b, version %d

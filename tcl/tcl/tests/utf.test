@@ -8,10 +8,10 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: utf.test,v 1.1.1.3 2000/12/06 23:04:21 wsanchez Exp $
+# RCS: @(#) $Id: utf.test,v 1.1.1.5 2003/07/09 01:33:58 landonf Exp $
 
 if {[lsearch [namespace children] ::tcltest] == -1} {
-    package require tcltest
+    package require tcltest 2
     namespace import -force ::tcltest::*
 }
 
@@ -257,7 +257,13 @@ test utf-20.1 {TclUniCharNcmp} {
 } {}
 
 test utf-21.1 {TclUniCharIsAlnum} {
-} {}
+    # this returns 1 with Unicode 3 compliance
+    string is alnum \u1040\u021f
+} {1}
+test utf-21.2 {unicode alnum char in regc_locale.c} {
+    # this returns 1 with Unicode 3 compliance
+    list [regexp {^[[:alnum:]]+$} \u1040\u021f] [regexp {^\w+$} \u1040\u021f]
+} {1 1}
 
 test utf-22.1 {TclUniCharIsWordChar} {
     string wordend "xyz123_bar fg" 0
@@ -265,29 +271,68 @@ test utf-22.1 {TclUniCharIsWordChar} {
 test utf-22.2 {TclUniCharIsWordChar} {
     string wordend "x\u5080z123_bar\u203c fg" 0
 } 10
-    
+
 test utf-23.1 {TclUniCharIsAlpha} {
-} {}
+    # this returns 1 with Unicode 3 compliance
+    string is alpha \u021f
+} {1}
+test utf-23.2 {unicode alpha char in regc_locale.c} {
+    # this returns 1 with Unicode 3 compliance
+    regexp {^[[:alpha:]]+$} \u021f
+} {1}
 
 test utf-24.1 {TclUniCharIsDigit} {
-} {}
+    # this returns 1 with Unicode 3 compliance
+    string is digit \u1040
+} {1}
+test utf-24.2 {unicode digit char in regc_locale.c} {
+    # this returns 1 with Unicode 3 compliance
+    list [regexp {^[[:digit:]]+$} \u1040] [regexp {^\d+$} \u1040]
+} {1 1}
 
-test utf-24.2 {TclUniCharIsSpace} {
-} {}
+test utf-24.3 {TclUniCharIsSpace} {
+    # this returns 1 with Unicode 3 compliance
+    string is space \u1680
+} {1}
+test utf-24.4 {unicode space char in regc_locale.c} {
+    # this returns 1 with Unicode 3 compliance
+    list [regexp {^[[:space:]]+$} \u1680] [regexp {^\s+$} \u1680]
+} {1 1}
+
+testConstraint teststringobj [llength [info commands teststringobj]]
+test utf-25.1 {Tcl_UniCharNcasecmp} teststringobj {
+    testobj freeallvars
+    teststringobj set 1 a
+    teststringobj set 2 b
+    teststringobj getunicode 1
+    teststringobj getunicode 2
+    string compare -nocase [teststringobj get 1] [teststringobj get 2]
+} -1
+test utf-25.2 {Tcl_UniCharNcasecmp} teststringobj {
+    testobj freeallvars
+    teststringobj set 1 b
+    teststringobj set 2 a
+    teststringobj getunicode 1
+    teststringobj getunicode 2
+    string compare -nocase [teststringobj get 1] [teststringobj get 2]
+} 1
+test utf-25.3 {Tcl_UniCharNcasecmp} teststringobj {
+    testobj freeallvars
+    teststringobj set 1 B
+    teststringobj set 2 a
+    teststringobj getunicode 1
+    teststringobj getunicode 2
+    string compare -nocase [teststringobj get 1] [teststringobj get 2]
+} 1
+test utf-25.4 {Tcl_UniCharNcasecmp} teststringobj {
+    testobj freeallvars
+    teststringobj set 1 aBcB
+    teststringobj set 2 abca
+    teststringobj getunicode 1
+    teststringobj getunicode 2
+    string compare -nocase [teststringobj get 1] [teststringobj get 2]
+} 1
 
 # cleanup
 ::tcltest::cleanupTests
 return
-
-
-
-
-
-
-
-
-
-
-
-
-

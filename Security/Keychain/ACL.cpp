@@ -27,7 +27,6 @@
 #include <Security/SecTrustedApplication.h>
 #include <Security/devrandom.h>
 #include <Security/uniformrandom.h>
-#include "keychainacl.h"
 #include <memory>
 
 
@@ -123,8 +122,10 @@ ACL::ACL(Access &acc, string description, const CSSM_ACL_KEYCHAIN_PROMPT_SELECTO
 //
 // Destroy an ACL
 //
-ACL::~ACL()
+ACL::~ACL() throw()
 {
+	// release subject form (if any)
+	chunkFree(mSubjectForm, allocator);
 }
 
 
@@ -134,8 +135,8 @@ ACL::~ACL()
 bool ACL::authorizes(AclAuthorization right) const
 {
 	return mAuthorizations.find(right) != mAuthorizations.end()
-		||
-		mAuthorizations.find(CSSM_ACL_AUTHORIZATION_ANY) != mAuthorizations.end();
+		|| mAuthorizations.find(CSSM_ACL_AUTHORIZATION_ANY) != mAuthorizations.end()
+		|| mAuthorizations.empty();
 }
 
 
@@ -170,7 +171,7 @@ void ACL::addApplication(TrustedApplication *app)
 void ACL::modify()
 {
 	if (mState == unchanged) {
-		debug("SecAccess", "ACL %p marked modified", this);
+		secdebug("SecAccess", "ACL %p marked modified", this);
 		mState = modified;
 	}
 }
@@ -188,6 +189,41 @@ void ACL::remove()
 	mAppList.clear();
 	mForm = invalidForm;
 	mState = deleted;
+}
+
+
+//
+// Produce CSSM-layer form (ACL prototype) copies of our content.
+// Note that the result is chunk-allocated, and becomes the responsibility
+// of the caller.
+//
+void ACL::copyAclEntry(AclEntryPrototype &proto, CssmAllocator &alloc)
+{
+	proto.clearPod();	// preset
+	
+	// carefully copy the subject
+	makeSubject();
+	assert(mSubjectForm);
+	proto = AclEntryPrototype(*mSubjectForm, mDelegate);	// shares subject
+	ChunkCopyWalker w(alloc);
+	walk(w, proto.subject());	// copy subject in-place
+	
+	// the rest of a prototype
+	assert(mEntryTag.size() <= CSSM_MODULE_STRING_SIZE);	// no kidding
+	strcpy(proto.tag(), mEntryTag.c_str());
+	AuthorizationGroup tags(mAuthorizations, allocator);
+	proto.authorization() = tags;
+}
+
+void ACL::copyAclOwner(AclOwnerPrototype &proto, CssmAllocator &alloc)
+{
+	proto.clearPod();
+	
+	makeSubject();
+	assert(mSubjectForm);
+	proto = AclOwnerPrototype(*mSubjectForm, mDelegate);	// shares subject
+	ChunkCopyWalker w(alloc);
+	walk(w, proto.subject());	// copy subject in-place
 }
 
 
@@ -210,12 +246,12 @@ void ACL::setAccess(AclBearer &target, bool update,
 	if (isOwner()) {
 		switch (action) {
 		case unchanged:
-			debug("SecAccess", "ACL %p owner unchanged", this);
+			secdebug("SecAccess", "ACL %p owner unchanged", this);
 			return;
 		case inserted:		// means modify the initial owner
 		case modified:
 			{
-				debug("SecAccess", "ACL %p owner modified", this);
+				secdebug("SecAccess", "ACL %p owner modified", this);
 				makeSubject();
 				assert(mSubjectForm);
 				AclOwnerPrototype proto(*mSubjectForm, mDelegate);
@@ -231,10 +267,10 @@ void ACL::setAccess(AclBearer &target, bool update,
 	// simple cases
 	switch (action) {
 	case unchanged:	// ignore
-		debug("SecAccess", "ACL %p handle 0x%lx unchanged", this, entryHandle());
+		secdebug("SecAccess", "ACL %p handle 0x%lx unchanged", this, entryHandle());
 		return;
 	case deleted:	// delete
-		debug("SecAccess", "ACL %p handle 0x%lx deleted", this, entryHandle());
+		secdebug("SecAccess", "ACL %p handle 0x%lx deleted", this, entryHandle());
 		target.deleteAcl(entryHandle(), cred);
 		return;
 	default:
@@ -252,11 +288,11 @@ void ACL::setAccess(AclBearer &target, bool update,
 	AclEntryInput input(proto);
 	switch (action) {
 	case inserted:	// insert
-		debug("SecAccess", "ACL %p inserted", this);
+		secdebug("SecAccess", "ACL %p inserted", this);
 		target.addAcl(input, cred);
 		break;
 	case modified:	// update
-		debug("SecAccess", "ACL %p handle 0x%lx modified", this, entryHandle());
+		secdebug("SecAccess", "ACL %p handle 0x%lx modified", this, entryHandle());
 		target.changeAcl(entryHandle(), input, cred);
 		break;
 	default:
@@ -290,13 +326,13 @@ void ACL::parse(const TypedList &subject)
 				uint32 count = subject[2];
 				
 				// parse final (PROMPT) element
-				const TypedList &end = subject[count + 2];	// last choice
+				TypedList &end = subject[count + 2];	// last choice
 				if (end.type() != CSSM_ACL_SUBJECT_TYPE_KEYCHAIN_PROMPT)
 					throw ParseError();	// not PROMPT at end
 				parsePrompt(end);
 				
 				// check for leading ANY
-				const TypedList &first = subject[3];
+				TypedList &first = subject[3];
 				if (first.type() == CSSM_ACL_SUBJECT_TYPE_ANY) {
 					mForm = allowAllForm;
 					return;
@@ -310,10 +346,11 @@ void ACL::parse(const TypedList &subject)
 			return;
 		default:
 			mForm = customForm;
+			mSubjectForm = chunkCopy(&subject);
 			return;
 		}
 	} catch (const ParseError &) {
-		debug("SecAccess", "acl compile failed; marking custom");
+		secdebug("SecAccess", "acl compile failed; marking custom");
 		mForm = customForm;
 		mAppList.clear();
 	}
@@ -322,7 +359,8 @@ void ACL::parse(const TypedList &subject)
 void ACL::parsePrompt(const TypedList &subject)
 {
 	assert(subject.length() == 3);
-	mPromptSelector = *subject[1].data().interpretedAs<CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR>();
+	mPromptSelector =
+		*subject[1].data().interpretedAs<CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR>(CSSM_ERRCODE_INVALID_ACL_SUBJECT_VALUE);
 	mPromptDescription = subject[2].toString();
 }
 
@@ -332,11 +370,9 @@ void ACL::parsePrompt(const TypedList &subject)
 //
 void ACL::makeSubject()
 {
-	// release previous value, if any
-	chunkFree(mSubjectForm, allocator);
-	
 	switch (form()) {
 	case allowAllForm:
+		chunkFree(mSubjectForm, allocator);	// release previous
 		if (mPromptDescription.empty()) {
 			// no description -> pure ANY
 			mSubjectForm = new(allocator) TypedList(allocator, CSSM_ACL_SUBJECT_TYPE_ANY);
@@ -354,6 +390,7 @@ void ACL::makeSubject()
 		return;
 	case appListForm: {
 		// threshold(1 of n+1) of { app1, ..., appn, PROMPT }
+		chunkFree(mSubjectForm, allocator);	// release previous
 		uint32 appCount = mAppList.size();
 		mSubjectForm = new(allocator) TypedList(allocator, CSSM_ACL_SUBJECT_TYPE_THRESHOLD,
 			new(allocator) ListElement(1),
@@ -368,7 +405,8 @@ void ACL::makeSubject()
 		}
 		return;
 	case customForm:
-		assert(false);	// @@@ not yet
+		assert(mSubjectForm);	// already set; keep it
+		return;
 	default:
 		assert(false);	// unexpected
 	}

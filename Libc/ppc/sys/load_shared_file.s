@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(load_shared_file, 7)
-	blr
 

@@ -148,6 +148,10 @@ SOURCE=..\libldap\cache.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\libldap\cancel.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\libldap\charray.c
 # End Source File
 # Begin Source File
@@ -169,10 +173,6 @@ SOURCE=..\libldap\delete.c
 # Begin Source File
 
 SOURCE=..\libldap\dnssrv.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\libldap\dsparse.c
 # End Source File
 # Begin Source File
 
@@ -201,10 +201,6 @@ SOURCE=..\libldap\getdn.c
 # Begin Source File
 
 SOURCE=..\libldap\getentry.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\libldap\getfilter.c
 # End Source File
 # Begin Source File
 

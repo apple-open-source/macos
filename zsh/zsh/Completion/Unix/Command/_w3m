@@ -3,7 +3,7 @@
 local curcontext="$curcontext" state line
 typeset -A opt_args
 
-_arguments \
+_arguments -C \
   '-t[tabwidth]:tabwidth:' \
   '-r[ignore backspace effect]' \
   '-l[preserved lines]:number of lines:' \
@@ -42,7 +42,7 @@ case $state in
 	   compadd $_w3mhistory
 	fi
 
-	_urls || _files -g '*.html'
+	_urls -f
 	;;
 
 esac

@@ -104,10 +104,10 @@ export deferred INSTALL_DIR = $(DSTROOT)/$(INSTALL_PATH) ;
 export deferred INSTALL_OWNER = $(USER) ;
 export deferred INSTALL_GROUP = $(GROUP) ;
 export deferred INSTALL_MODE_FLAG = "a-w,a+rX" ;
-       deferred STRIP_INSTALLED_PRODUCT = YES ;
 
 # language-independent code generation settings
        deferred OPTIMIZATION_LEVEL = 0 ;
+       deferred OPTIMIZATION_CFLAGS = -Os ;
        deferred DEBUGGING_SYMBOLS = YES ;
        deferred PROFILING_CODE = NO ;
        deferred PREBINDING = YES ;
@@ -129,7 +129,7 @@ export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred FRAMEWORK_VERSION = A ;
        deferred REMOVE_CVS_FROM_RESOURCES = YES ;
        deferred COPY_PHASE_STRIP = NO ;
-       deferred CLONE_HEADERS = YES ;
+       deferred CLONE_HEADERS = NO ;
        deferred KEEP_PRIVATE_EXTERNS = YES ;   # this currently affects the master.o file only
 
 
@@ -141,17 +141,34 @@ rule ConditionalDefinitions
         case copysrc : deferred BUILD_COMPONENTS = source ;
         case copyhdrs : deferred BUILD_COMPONENTS = headers ;
         case copyrsrcs : deferred BUILD_COMPONENTS = resources ;
-        case install : deferred BUILD_COMPONENTS = headers build ; deferred DEPLOYMENT_POSTPROCESSING = YES ;
-        case installdebugonly : deferred BUILD_COMPONENTS = build ; deferred DEPLOYMENT_POSTPROCESSING = YES ; deferred BUILD_VARIANTS = debug ;
-        case installprofileonly : deferred BUILD_COMPONENTS = build ; deferred DEPLOYMENT_POSTPROCESSING = YES ; deferred BUILD_VARIANTS = profile ;
-        case installdebugprofileonly : deferred BUILD_COMPONENTS = build ; deferred DEPLOYMENT_POSTPROCESSING = YES ; deferred BUILD_VARIANTS = debug profile ;
-        case installhdrs : deferred BUILD_COMPONENTS = headers ; deferred DEPLOYMENT_POSTPROCESSING = YES ;
-        case installsrc : deferred BUILD_COMPONENTS = source ; deferred DEPLOYMENT_POSTPROCESSING = YES ;
-        case installrsrcs : deferred BUILD_COMPONENTS = resources ; deferred DEPLOYMENT_POSTPROCESSING = YES ;
+        case install : deferred BUILD_COMPONENTS = headers build ; 
+         deferred DEPLOYMENT_LOCATION = YES ;
+         deferred DEPLOYMENT_POSTPROCESSING = YES ;
+        case installdebugonly : deferred BUILD_COMPONENTS = build ;
+         deferred DEPLOYMENT_LOCATION = YES ;
+         deferred DEPLOYMENT_POSTPROCESSING = YES ;
+         deferred BUILD_VARIANTS = debug ;
+        case installprofileonly : deferred BUILD_COMPONENTS = build ;
+         deferred DEPLOYMENT_LOCATION = YES ;
+         deferred DEPLOYMENT_POSTPROCESSING = YES ;
+         deferred BUILD_VARIANTS = profile ;
+        case installdebugprofileonly : deferred BUILD_COMPONENTS = build ;
+         deferred DEPLOYMENT_LOCATION = YES ;
+         deferred DEPLOYMENT_POSTPROCESSING = YES ;
+         deferred BUILD_VARIANTS = debug profile ;
+        case installhdrs : deferred BUILD_COMPONENTS = headers ;
+         deferred DEPLOYMENT_LOCATION = YES ;
+         deferred DEPLOYMENT_POSTPROCESSING = YES ;
+        case installsrc : deferred BUILD_COMPONENTS = source ;
+         deferred DEPLOYMENT_LOCATION = YES ;
+         deferred DEPLOYMENT_POSTPROCESSING = YES ;
+        case installrsrcs : deferred BUILD_COMPONENTS = resources ;
+         deferred DEPLOYMENT_LOCATION = YES ;
+         deferred DEPLOYMENT_POSTPROCESSING = YES ;
     }
 
     # conditional locations enabling install-in-place
-    if $(DEPLOYMENT_POSTPROCESSING) = YES {
+    if $(DEPLOYMENT_LOCATION) = YES {
         if $(SKIP_INSTALL) || ! $(INSTALL_PATH) {
             # !!!:cmolick:20020301 uninstalled products might best go to
             #  the built products dir, or a subfolder if there are asides
@@ -161,7 +178,7 @@ rule ConditionalDefinitions
             export deferred TARGET_BUILD_DIR = $(INSTALL_ROOT)/$(INSTALL_PATH) ;
         }
         deferred BASE_PROJECT_HEADER_DIR = $(TEMP_ROOT)/ProjectHeaders ;
-        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
+        if $(INSTALLED_PRODUCT_ASIDES) = YES {
             # built products go in subfolder when there are asides
             export deferred BUILT_PRODUCTS_DIR = $(BUILD_ROOT)/BuiltProducts ;
         }
@@ -202,7 +219,7 @@ for ARCH in $(SUPPORTED_ARCHITECTURES) {
 # renamed that we had already told external users about
 export deferred TEMP_FILES_DIR = $(TEMP_DIR) ;
 export deferred DERIVED_SOURCES_DIR = $(DERIVED_FILE_DIR) ;
-export deferred BUILD_PATH = $(BUILD_ROOT) ;
+export deferred BUILD_PATH = $(TEMP_ROOT) ;
 
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred TARGETNAME = $(TARGET_NAME) ;
@@ -232,6 +249,7 @@ CD		default = cd ;
 CHMOD		default = /bin/chmod ;
 CHOWN		default = /usr/sbin/chown ;
 CP		default = /bin/cp ;
+DITTO		default = /usr/bin/ditto ;
 ECHO            default = echo ;
 EGREP		default = /usr/bin/egrep ;
 FASTCP		default = /usr/lib/fastcp ;
@@ -260,6 +278,7 @@ OSAC		default = /usr/bin/osacompile ;
 OSAL		default = /usr/bin/osalang ;
 OSAS		default = /usr/bin/osascript ;
 PAX		default = /bin/pax ;
+PBXCP		default = $(SYSTEM_DEVELOPER_TOOLS)/pbxcp ;
 RANLIB		default = /usr/bin/ranlib ;
 REGGEN		default = reggen ;
 RESMERGER	default = $(SYSTEM_DEVELOPER_TOOLS)/ResMerger ;
@@ -318,7 +337,9 @@ actions together MkEmptyDir
 # Link target is treated as a nonfile to preserve the value
 rule SymLink
 {
-    NOTFILE $(2) ;
+    if ! $(2) in $(PRODUCT_FILES) && $(2) != $(PRODUCT_CLASS_FILE_DIR) {
+        NOTFILE $(2) ;
+    }
 }
 actions SymLink
 {
@@ -609,6 +630,51 @@ actions together piecemeal Cp
     $(CP) "$(CPFLAGS)" "$_source" "$(1)"
 }
 
+# PBXCp <destination-file> : <source-file>
+# Reliably copies files only.  Does not currently respect Mac OS
+# Finder info or resource forks, but it does skip CVS directories
+# and it does optionally strip Mach-O executables.
+# Leaf names of the source and destination are expected to match.
+rule PBXCp
+{
+    if $(ACTION) != installhdrs {
+        DEPENDS $(1) : $(2) ;
+    }
+    PBXCP_FLAGS on $(1) = ;
+    VERBOSE_PBXCP default = NO ;
+    if $(VERBOSE_PBXCP) = YES {
+        PBXCP_FLAGS on $(1) += -V ;
+    }
+    PBXCP_FLAGS on $(1) += -exclude .DS_Store ;
+    if $(REMOVE_CVS_FROM_RESOURCES) = YES {
+        PBXCP_FLAGS on $(1) += -exclude CVS ;
+    }
+    if $(COPY_PHASE_STRIP) = YES  &&  $(ACTION) != installhdrs {
+        PBXCP_FLAGS on $(1) += -strip-debug-symbols ;
+    }
+    # Because any content copied may have been generated, and so may be
+    # in the form of a symlink to the actual content, it is necessary
+    # to resolve one level of symbolic link for all sources copied.
+    PBXCP_FLAGS on $(1) += -resolve-src-symlinks ;
+
+    PBXCp.CopyToDirectory $(1) : $(2) ;
+}
+actions together piecemeal updated PBXCp.CopyToDirectory
+{
+    $(PBXCP) $(PBXCP_FLAGS:Q) $(2:Q) $(1:DQ)
+}
+
+# Ditto <destination> : <source>
+# Directory to directory copies.
+rule Ditto
+{
+    DEPENDS $(1) : $(2) ;
+}
+actions Ditto
+{
+    $(DITTO) $(2:Q) $(1:Q)
+}
+
 # RobustCp <destination> : <source>
 # RobustCp is like Cp, but is made more robust by first removing
 # any previous copy results and then conditionally removing CVS
@@ -720,15 +786,6 @@ rule ResourcePreservingMv
 actions together piecemeal ResourcePreservingMv
 {
     $(RESOURCE_PRESERVING_CP) -r "$(2)" "$(1)"
-}
-
-# BulkCopy <destination dir> : <source dir>
-# !!!:cmolick:20020130 dest depending on source may be redundant or undefined in the case of implicitly created wrappers
-actions ignore BulkCopy
-{
-    if [ -e "$(2)" ]
-      then cd "$(2:P)" && ($(PAX) -pe -rw "$(2:BS)" "$(1:P:G=)" | fgrep -v 'pax: Unable to set file uid/gid')
-    fi
 }
 
 # CloneHeader <primary target> : <header> : <target directory>
@@ -1092,7 +1149,7 @@ rule InterfacerHeaders
       && ! $(PUBLIC_HEADER_LINK) in $(PRODUCT_FILES) {
         SymLink $(PUBLIC_HEADER_LINK) : $(PUBLIC_HEADER_LINK_PATH) ;
         ProductFile $(PUBLIC_HEADER_LINK) ;
-        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
+        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
             ASIDE_PUBLIC_HEADER_LINK default = $(PUBLIC_HEADER_LINK:G=aside) ;
             SymLink $(ASIDE_PUBLIC_HEADER_LINK) : $(PUBLIC_HEADER_LINK_PATH) ;
             ProductFileAside $(ASIDE_PUBLIC_HEADER_LINK) ;
@@ -1104,7 +1161,7 @@ rule InterfacerHeaders
       && ! $(PRIVATE_HEADER_LINK) in $(PRODUCT_FILES) {
         SymLink $(PRIVATE_HEADER_LINK) : $(PRIVATE_HEADER_LINK_PATH) ;
         ProductFile $(PRIVATE_HEADER_LINK) ;
-        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
+        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
             ASIDE_PRIVATE_HEADER_LINK default = $(PRIVATE_HEADER_LINK:G=aside) ;
             SymLink $(ASIDE_PRIVATE_HEADER_LINK) : $(PRIVATE_HEADER_LINK_PATH) ;
             ProductFileAside $(ASIDE_PRIVATE_HEADER_LINK) ;
@@ -1139,7 +1196,7 @@ rule InterfacerHeaders
         Mkdir $(PUBLIC_HEADER_DIR) ;
         ProductFile $(PUBLIC_HEADER_DIR) ;
         DEPENDS $(INTERFACER_HEADERS) : $(PUBLIC_HEADER_DIR) ;
-        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
+        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
             ASIDE_PUBLIC_HEADER_DIR default = $(PUBLIC_HEADER_DIR:G=aside) ;
             Mkdir $(ASIDE_PUBLIC_HEADER_DIR) ;
             ProductFileAside $(ASIDE_PUBLIC_HEADER_DIR) ;
@@ -1150,7 +1207,7 @@ rule InterfacerHeaders
         Mkdir $(PRIVATE_HEADER_DIR) ;
         ProductFile $(PRIVATE_HEADER_DIR) ;
         DEPENDS $(INTERFACER_HEADERS) : $(PRIVATE_HEADER_DIR) ;
-        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
+        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
             ASIDE_PRIVATE_HEADER_DIR default = $(PRIVATE_HEADER_DIR:G=aside) ;
             Mkdir $(ASIDE_PRIVATE_HEADER_DIR) ;
             ProductFileAside $(ASIDE_PRIVATE_HEADER_DIR) ;
@@ -1272,7 +1329,7 @@ actions Interfacer.PrepareExportList
 # Linking, class archive generation, and related operations:
 #
 # Variables used by linking operations:
-# FLAGS.o of target, LDFLAGS, OTHER_LDFLAGS,
+# FLAGS.o of target, LDFLAGS, SECTORDER_FLAGS
 # LIBRARY_SEARCH_PATHS, FRAMEWORK_SEARCH_PATHS,
 # and optionally LINK_FILE_LIST and INIT_ROUTINE
 
@@ -1310,18 +1367,18 @@ rule ClassArchive {
 # Use jar command to generate an archive
 # from the class file list after removing "./" from each file path
 actions ClassArchive.jarArchive {
-    cd "$(2)" && $(JAR) $(JARFLAGS) $(OTHER_JARFLAGS) "$(JAVA_MANIFEST_FILE)" "$(1)" .
+    cd "$(2)" && $(MKDIR) -p "$(1:D)" && $(JAR) $(JARFLAGS) $(OTHER_JARFLAGS) "$(JAVA_MANIFEST_FILE)" "$(1)" .
 }
 # Use zip command to generate an archive
 # from the class file list after removing "./" from each file path
 actions ClassArchive.zipArchive {
-    cd "$(2)" && $(ZIP) $(ZIPFLAGS) $(OTHER_ZIPFLAGS) "$(1)" .
+    cd "$(2)" && $(MKDIR) -p "$(1:D)" && $(ZIP) $(ZIPFLAGS) $(OTHER_ZIPFLAGS) "$(1)" .
 }
 
 # Bulk copy of class files
 # ClassCopy <product class file dir> : <compiled class file dir>
 actions ClassCopy {
-    mkdir -p "$(1:G=)" && cd "$(2:G=)" && $(PAX) -pe -rw . "$(1:G=)"
+    $(MKDIR) -p "$(1:G=)" && cd "$(2:G=)" && $(PAX) -pe -rw . "$(1:G=)"
 }
 
 # Unarchive <location> : <archive>
@@ -1542,7 +1599,7 @@ rule StaticLibrary
 {
     LIBRARY_SEARCH_PATHS on $(1) = $(LIBRARY_SEARCH_PATHS) ;
     ProcessLink $(1) : $(2) : StaticLibrary ;
-    FLAGS.o on $(1) = $(LDFLAGS) $(SECTORDER_FLAGS) $(OTHER_LDFLAGS) ;
+    FLAGS.o on $(1) = $(LDFLAGS) $(SECTORDER_FLAGS) ;
 }
 actions together StaticLibrary
 {
@@ -1567,7 +1624,7 @@ rule StandaloneExecutable
     ProcessLink $(1) : $(2) ;
     FRAMEWORK_SEARCH_PATHS on $(1) = $(FRAMEWORK_SEARCH_PATHS) ;
     LIBRARY_SEARCH_PATHS on $(1) = $(LIBRARY_SEARCH_PATHS) ;
-    FLAGS.o on $(1) = $(ARCH_FLAGS) $(LDFLAGS) $(SECTORDER_FLAGS) $(OTHER_LDFLAGS) ;
+    FLAGS.o on $(1) = $(ARCH_FLAGS) $(LDFLAGS) $(SECTORDER_FLAGS) ;
     if $(INIT_ROUTINE) {
         FLAGS.o on $(1) += -init $(INIT_ROUTINE) ;
     }
@@ -1596,7 +1653,7 @@ rule DynamicLibrary
     LIBRARY_SEARCH_PATHS on $(1) = $(LIBRARY_SEARCH_PATHS) ;
     FRAMEWORK_SEARCH_PATHS on $(1) = $(FRAMEWORK_SEARCH_PATHS) ;
     ProcessLink $(1) : $(2) : DynamicLibrary ;
-    FLAGS.o on $(1) = $(ARCH_FLAGS) $(LDFLAGS) $(SECTORDER_FLAGS) $(OTHER_LDFLAGS) ;
+    FLAGS.o on $(1) = $(ARCH_FLAGS) $(LDFLAGS) $(SECTORDER_FLAGS) ;
     if $(INIT_ROUTINE) {
         FLAGS.o on $(1) += -init $(INIT_ROUTINE) ;
     }
@@ -1667,11 +1724,10 @@ actions MasterObjectFile.EditExports
 }
 
 # Ranlib <library>
-# Ranlib for static library, with touch of product link
+# Ranlib for static library
 actions Ranlib
 {
     $(RANLIB) "$(1)"
-    otool -aW "$(1)" | head -3
 }
 
 # VersioningSystem_next-cvs <product>
@@ -1683,7 +1739,9 @@ rule VersioningSystem_next-cvs
     # Make sure that the C file containing the version string gets created.
     VersioningSystem_next-cvs.Create $(VERSION_INFO_FILE) : $(1:B) ;
     DerivedFiles $(VERSION_INFO_FILE) ;
+    SUPPRESS_PREFIX_HEADER = YES ;
     ProcessFile $(1) : $(VERSION_INFO_FILE) ;
+    SUPPRESS_PREFIX_HEADER = NO ;
 
     # Set up default values for the variables.
     CVS_VERS_FILE default = CVSVersionInfo.txt ;
@@ -1733,7 +1791,9 @@ rule VersioningSystem_apple-generic
     # Create versioning code
     VersioningSystem_apple-generic.Create $(VERSION_INFO_FILE) : $(1) ;
     DerivedFiles $(VERSION_INFO_FILE) ;
+    SUPPRESS_PREFIX_HEADER = YES ;
     ProcessFile $(1) : $(VERSION_INFO_FILE) ;
+    SUPPRESS_PREFIX_HEADER = NO ;
 }
 actions VersioningSystem_apple-generic.Create
 {
@@ -1777,7 +1837,9 @@ rule KernelModuleGeneratedSource
         }
     }
     KernelModuleGeneratedSource.Create $(MODULE_INFO_FILE_$(VARIANT)) ;
+    SUPPRESS_PREFIX_HEADER = YES ;
     ProcessFile $(1) : $(MODULE_INFO_FILE_$(VARIANT)) ;
+    SUPPRESS_PREFIX_HEADER = NO ;
 }
 actions KernelModuleGeneratedSource.Create
 {
@@ -1795,6 +1857,7 @@ actions KernelModuleGeneratedSource.Create
     /bin/echo "KMOD_EXPLICIT_DECL($(MODULE_NAME), \"$(MODULE_VERSION)\", _start, _stop)" >> "$(1)"
     /bin/echo "__private_extern__ kmod_start_func_t *_realmain = $(MODULE_START);" >> "$(1)"
     /bin/echo "__private_extern__ kmod_stop_func_t *_antimain = $(MODULE_STOP);" >> "$(1)"
+    /bin/echo "__private_extern__ int _kext_apple_cc = __APPLE_CC__ ;" >> "$(1)"
 }
 
 # GenerateFrameworkStub <framework stub>
@@ -1802,14 +1865,15 @@ actions KernelModuleGeneratedSource.Create
 # Also be sure to the FRAMEWORK_INSTALL_NAME variable on the <framework stub>
 actions GenerateFrameworkStub
 {
-    $(MKDIR) -p "$(DERIVED_FILE_DIR)"
+    $(MKDIR:Q) -p $(DERIVED_FILE_DIR:Q)
     dummy_class_name=`echo -n $(1:B) | tr -c '[:alnum:]' '_'`
-    $(ECHO) "@interface NSFramework_${dummy_class_name}" > "$(DERIVED_FILE_DIR)/framework_stub.m"
-    $(ECHO) "@end" >> "$(DERIVED_FILE_DIR)/framework_stub.m"
-    $(ECHO) "@implementation NSFramework_${dummy_class_name}" >> "$(DERIVED_FILE_DIR)/framework_stub.m"
-    $(ECHO) "@end" >> "$(DERIVED_FILE_DIR)/framework_stub.m"
-    $(CC) -c "$(DERIVED_FILE_DIR)/framework_stub.m" -o "$(DERIVED_FILE_DIR)/framework_stub.o"
-    $(_LD_FOR_LINKING) -dynamiclib $(DYLIB_VERSION_FLAGS) $(INSTALLED_NAME_FLAG) $(DYLIB_VERSION_FLAGS) "-L$(LIBRARY_SEARCH_PATHS)" "-F$(FRAMEWORK_SEARCH_PATHS)" "$(DynamicLibrary.ARGUMENTS)" "$(DERIVED_FILE_DIR)/framework_stub.o" -o "$(1)"
+    $(ECHO:Q) "@interface NSFramework_${dummy_class_name}" > $(DERIVED_FILE_DIR:Q)/framework_stub.m
+    $(ECHO:Q) "@end" >> $(DERIVED_FILE_DIR:Q)/framework_stub.m
+    $(ECHO:Q) "@implementation NSFramework_${dummy_class_name}" >> $(DERIVED_FILE_DIR:Q)/framework_stub.m
+    $(ECHO:Q) "@end" >> $(DERIVED_FILE_DIR:Q)/framework_stub.m
+    $(CC:Q) -c $(DERIVED_FILE_DIR:Q)/framework_stub.m -o $(DERIVED_FILE_DIR:Q)/framework_stub.o
+    $(_LD_FOR_LINKING:Q) -dynamiclib $(INSTALLED_NAME_FLAG) $(DYLIB_VERSION_FLAGS:Q) -L$(LIBRARY_SEARCH_PATHS:Q) -F$(FRAMEWORK_SEARCH_PATHS:Q) $(DynamicLibrary.ARGUMENTS:Q) $(DERIVED_FILE_DIR:Q)/framework_stub.o -o $(1:Q)
+    $(STRIP:Q) $(STRIPFLAGS:Q) $(1:Q)
 }
 # Copyright (c) 1999-2002 Apple Computer, Inc.
 # All rights reserved.
@@ -1831,12 +1895,10 @@ INSTALL_ROOT default = $(DSTROOT) ;
 _BUILD_PHASING default = YES ;
 export INSTALL_OWNER default = $(USER) ;
 export INSTALL_GROUP default = $(GROUP) ;
-export INSTALL_MODE_FLAG default = "a-w,a+rX" ;
+export INSTALL_MODE_FLAG default = "ugo-w,o+rX" ;
 export FRAMEWORK_VERSION default = "A" ;
-STRIP_INSTALLED_PRODUCT default = YES ;
 REMOVE_CVS_FROM_RESOURCES default = YES ;
 COPY_PHASE_STRIP default = NO ;
-CLONE_HEADERS default = YES ;
 PREBINDING default = YES ;
 SET_DIR_MODE_OWNER_GROUP default = YES ;
 SET_FILE_MODE_OWNER_GROUP default = NO ;
@@ -1863,12 +1925,13 @@ JAVA_COMPILER_DEPRECATED_WARNINGS default = NO ;
 
 # These default flags probably shouldn't be overridden by users.
 JAVAC_DEFAULT_FLAGS default = -J-Xms64m -J-XX:NewSize=4M -J-Dfile.encoding=UTF8 ;
-JIKES_DEFAULT_FLAGS default = +E -OLDCSO ;
+JIKES_DEFAULT_FLAGS default = +E +OLDCSO ;
 
 # Default variants and flags
 # !!!:cmolick:20020226 using all three is an interesting test case
 # BUILD_VARIANTS default = normal debug profile ;
 BUILD_VARIANTS default = normal ;
+_BUILD_PHASES = ;
 cc_normal_FLAGS default = ;
 cc_debug_FLAGS default = -g ;
 cc_profile_FLAGS default = -pg ;
@@ -1978,7 +2041,7 @@ rule BeginProduct
         }
     }
     # Set reasonable optimization flags for installs if not already set
-    OPTIMIZATION_CFLAGS default = -O ;
+    OPTIMIZATION_CFLAGS default = -Os ;
     # C++ options match C options by default
     OTHER_CPLUSPLUSFLAGS default = $(OTHER_CFLAGS) ;
     WARNING_CPLUSPLUSFLAGS default = $(WARNING_CFLAGS) ;
@@ -2011,7 +2074,7 @@ rule BeginProduct
         Mkdir $(TARGET_BUILD_DIR) ;
     }
     # asides
-    if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
+    if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
         ASIDE_DIR default = $(BUILD_ROOT) ;
         Mkdir $(ASIDE_DIR) ;
         ProductFile $(ASIDE_DIR) ;
@@ -2065,7 +2128,7 @@ rule BeginProduct
         FRAMEWORK_SEARCH_PATHS = $(BUILD_ROOT) $(FRAMEWORK_SEARCH_PATHS) ;
     }
     LIBRARY_SEARCH_PATHS = $(BUILD_ROOT) $(LIBRARY_SEARCH_PATHS) ;
-    if $(DEPLOYMENT_POSTPROCESSING) = YES && $(BUILT_PRODUCTS_DIR) {
+    if $(DEPLOYMENT_LOCATION) = YES && $(BUILT_PRODUCTS_DIR) {
         HEADER_SEARCH_PATHS = $(BUILT_PRODUCTS_DIR)$(/)include $(HEADER_SEARCH_PATHS) ;
         FRAMEWORK_SEARCH_PATHS = $(BUILT_PRODUCTS_DIR) $(FRAMEWORK_SEARCH_PATHS) ;
         LIBRARY_SEARCH_PATHS = $(BUILT_PRODUCTS_DIR) $(LIBRARY_SEARCH_PATHS) ;
@@ -2077,14 +2140,17 @@ rule BeginProduct
     # Make symlink to product in products dir,
     # and also set product mode and ownership
     # unless there is no nonempty product name.
-    if $(DEPLOYMENT_POSTPROCESSING) = YES {
+    if $(DEPLOYMENT_LOCATION) = YES {
         if $(WRAPPER)
          && $(PRODUCT_TYPE) != Tool
          && $(PRODUCT_TYPE) != Library {
             # Use WRAPPER when defined for bundle product
             _INSTALLED_PRODUCT = $(TARGET_BUILD_DIR)$(/)$(WRAPPER) ;
-            _PRODUCT_REFERENCE default = $(BUILT_PRODUCTS_DIR:G=ProductLink)$(/)$(WRAPPER) ;
-            SetModeOwnerAndGroup $(_INSTALLED_PRODUCT:G=ModeOwnerGroup) : $(_INSTALLED_PRODUCT) ;
+            _PRODUCT_REFERENCE default = $(BUILT_PRODUCTS_DIR:G=ProductRef)$(/)$(WRAPPER) ;
+            #!!!:cmolick:20020517:this may be bad for non-deployment location
+            if $(DEPLOYMENT_POSTPROCESSING) = YES {
+                SetModeOwnerAndGroup $(_INSTALLED_PRODUCT:G=ModeOwnerGroup) : $(_INSTALLED_PRODUCT) ;
+            }
             SymLink $(_PRODUCT_REFERENCE) : $(_INSTALLED_PRODUCT) ;
             DEPENDS $(_PRODUCT_REFERENCE) : $(BUILT_PRODUCTS_DIR) ;
             DEPENDS $(1) : $(_PRODUCT_REFERENCE) ;
@@ -2093,7 +2159,7 @@ rule BeginProduct
             if $(1:G=) {
                 # Use nonempty, ungristed primary target for tool or library product
                 _INSTALLED_PRODUCT = $(TARGET_BUILD_DIR)$(/)$(1:G=) ;
-                _PRODUCT_REFERENCE default = $(BUILT_PRODUCTS_DIR:G=ProductLink)$(/)$(1:G=) ;
+                _PRODUCT_REFERENCE default = $(BUILT_PRODUCTS_DIR:G=ProductRef)$(/)$(1:G=) ;
                 SymLink $(_PRODUCT_REFERENCE) : $(_INSTALLED_PRODUCT) ;
                 DEPENDS $(_PRODUCT_REFERENCE) : $(BUILT_PRODUCTS_DIR) ;
                 DEPENDS $(1) : $(_PRODUCT_REFERENCE) ;
@@ -2130,7 +2196,7 @@ rule EndProduct
         PRODUCT_FILES += $(OBJECT_FILE_DIR_$(VARIANT)) ;
         DEPENDS $(1) : $(OBJECT_FILE_DIR_$(VARIANT)) ;
     }
-    if $(DEPLOYMENT_POSTPROCESSING) {
+    if $(DEPLOYMENT_LOCATION) {
         Mkdir $(BUILT_PRODUCTS_DIR) ;
         PRODUCT_FILES += $(BUILT_PRODUCTS_DIR) ;
         DEPENDS $(1) : $(BUILT_PRODUCTS_DIR) ;
@@ -2144,7 +2210,7 @@ rule EndProduct
     # Set up post-phase processing
     if $(POST_PHASE_PRODUCTS) {
         DEPENDS $(1) : $(POST_PHASE_PRODUCTS) ;
-        DEPENDS $(POST_PHASE_PRODUCTS) : $(BUILD_PHASES) ;
+        DEPENDS $(POST_PHASE_PRODUCTS) : $(_BUILD_PHASES) ;
     }
     # Alternative catch-all mechanism to set mode and ownership of files
     # that for some reason require this post build processing.
@@ -2154,17 +2220,14 @@ rule EndProduct
         ALTERNATE_PERMISSIONS_TARGET = $(ALTERNATE_PERMISSIONS_FILE:G=AlternatePermissions) ;
         NOTFILE $(ALTERNATE_PERMISSIONS_TARGET) ;
         DEPENDS $(1) : $(ALTERNATE_PERMISSIONS_TARGET) ;
-        DEPENDS $(ALTERNATE_PERMISSIONS_TARGET) : $(BUILD_PHASES) ;
+        DEPENDS $(ALTERNATE_PERMISSIONS_TARGET) : $(_BUILD_PHASES) ;
         if $(ALTERNATE_MODE) {
-            INSTALL_MODE_FLAG = $(ALTERNATE_MODE) ;
             INSTALL_MODE_FLAG on $(ALTERNATE_PERMISSIONS_TARGET) = $(ALTERNATE_MODE) ;
         }
         if $(ALTERNATE_OWNER) {
-            INSTALL_OWNER = $(ALTERNATE_OWNER) ;
             INSTALL_OWNER on $(ALTERNATE_PERMISSIONS_TARGET) = $(ALTERNATE_OWNER) ;
         }
         if $(ALTERNATE_GROUP) {
-            INSTALL_GROUP = $(ALTERNATE_GROUP) ;
             INSTALL_GROUP on $(ALTERNATE_PERMISSIONS_TARGET) = $(ALTERNATE_GROUP) ;
         }
         SetModeOwnerAndGroup $(ALTERNATE_PERMISSIONS_TARGET) : $(ALTERNATE_PERMISSIONS_FILE_PATH) ;
@@ -2190,16 +2253,18 @@ rule EndProduct
 # 
 rule BeginWrappedProduct
 {
-    # set up the basic product variables
-    BeginProduct $(1) ;
     # define wrapper using appropriate extension and suffix
-    WRAPPER = $(1:G=) ;
     if $(WRAPPER_EXTENSION) {
         WRAPPER_SUFFIX = .$(WRAPPER_EXTENSION) ;
     }
     if $(WRAPPER_SUFFIX) {
-        WRAPPER = $(WRAPPER:S=$(WRAPPER_SUFFIX)) ;
+        WRAPPER = $(1:G=:S=$(WRAPPER_SUFFIX)) ;
     }
+    else {
+        WRAPPER = $(1:G=) ;
+    }
+    # set up the basic product variables
+    BeginProduct $(1) ;
     # define and create wrapper and make primary nonfile target depend on it
     LOCATE on $(WRAPPER) = $(TARGET_BUILD_DIR) ;
     Mkdir $(WRAPPER) ;
@@ -2524,6 +2589,9 @@ rule EndFramework
 .applescript_RULE	= ProcessAppleScript ;
 .s_RULE		= ProcessC ;
 .c_RULE		= ProcessC ;
+.adb_RULE	= ProcessC ; # unsupported
+.ads_RULE	= ProcessC ; # unsupported
+.f_RULE		= ProcessC ; # unsupported
 .C_RULE		= ProcessCplusplus ;
 .cc_RULE	= ProcessCplusplus ;
 .cp_RULE	= ProcessCplusplus ;
@@ -2595,7 +2663,7 @@ rule PhaseTarget
 rule BuildPhase
 {
     # retain a list of all phases
-    BUILD_PHASES += $(1) ;
+    _BUILD_PHASES += $(1) ;
     # retain name for action echo
     PHASE_NAME on $(1) = $(1:G) ;
     # this build phase depends on the previous phase
@@ -2776,43 +2844,13 @@ rule ProcessHeaders
                 BUILD_PHASE_PRODUCTS += $(PRECOMP_DESTINATION_DIR) ;
             }
             if $(USE_GCC3_PFE_SUPPORT) = YES {
-                # We need to precompile the prefix file, and we're using GCC 3.  This means that we need to make an arbitrary number of PFE files, one per language-and-architecture combination.  PFE_FILE_C_DIALECTS gives the languages and ARCHS gives the architectures.  The "effective prefix file" is set to nothing, since we won't be passing a -include directive.
+                # We need to precompile the prefix file, and we're using GCC 3.  This means that we need to make an arbitrary number of PFE files, one per language-and-architecture combination.  PFE_FILE_C_DIALECTS gives the languages and ARCHS gives the architectures (although PFE_FILE_C_DIALECTS is only used _inside_ the action of MakePFEFile -- from Jam's perspective, we treat each architecture's PFE file as an atomic unit).  The "effective prefix file" is set to nothing, since we won't be passing a -include directive.  The "EFFECTIVE_PFE_FILE_$(ARCH)" is set to the produced PFE file.
                 for ARCH in $(ARCHS) {
-                    if ( "c" in $(PFE_FILE_C_DIALECTS) ) {
-                        C_PFE_FILE_DESTINATION_PATH_$(ARCH) = $(PRECOMP_DESTINATION_DIR)$(/)$(PREFIX_HEADER:BS="-c-$(ARCH).pfe") ;
-                        C_DIALECT = "c" ;
-                        MakePFEFile $(C_PFE_FILE_DESTINATION_PATH_$(ARCH)) : $(PREFIX_HEADER) ;
-                        PRODUCT_FILES += $(C_PFE_FILE_DESTINATION_PATH_$(ARCH)) ;
-                        if $(_BUILD_PHASING) = YES {
-                            BUILD_PHASE_PRODUCTS += $(C_PFE_FILE_DESTINATION_PATH_$(ARCH)) ;
-                        }
-                    }
-                    if ( "objective-c" in $(PFE_FILE_C_DIALECTS) ) {
-                        OBJC_PFE_FILE_DESTINATION_PATH_$(ARCH) = $(PRECOMP_DESTINATION_DIR)$(/)$(PREFIX_HEADER:BS="-objc-$(ARCH).pfe") ;
-                        C_DIALECT = "objective-c" ;
-                        MakePFEFile $(OBJC_PFE_FILE_DESTINATION_PATH_$(ARCH)) : $(PREFIX_HEADER) ;
-                        PRODUCT_FILES += $(OBJC_PFE_FILE_DESTINATION_PATH_$(ARCH)) ;
-                        if $(_BUILD_PHASING) = YES {
-                            BUILD_PHASE_PRODUCTS += $(OBJC_PFE_FILE_DESTINATION_PATH_$(ARCH)) ;
-                        }
-                    }
-                    if ( "c++" in $(PFE_FILE_C_DIALECTS) ) {
-                        CPLUSPLUS_PFE_FILE_DESTINATION_PATH_$(ARCH) = $(PRECOMP_DESTINATION_DIR)$(/)$(PREFIX_HEADER:BS="-cpp-$(ARCH).pfe") ;
-                        C_DIALECT = "c++" ;
-                        MakePFEFile $(CPLUSPLUS_PFE_FILE_DESTINATION_PATH_$(ARCH)) : $(PREFIX_HEADER) ;
-                        PRODUCT_FILES += $(CPLUSPLUS_PFE_FILE_DESTINATION_PATH_$(ARCH)) ;
-                        if $(_BUILD_PHASING) = YES {
-                            BUILD_PHASE_PRODUCTS += $(CPLUSPLUS_PFE_FILE_DESTINATION_PATH_$(ARCH)) ;
-                        }
-                    }
-                    if ( "objective-c++" in $(PFE_FILE_C_DIALECTS) ) {
-                        OBJCPLUSPLUS_PFE_FILE_DESTINATION_PATH_$(ARCH) = $(PRECOMP_DESTINATION_DIR)$(/)$(PREFIX_HEADER:BS="-objcpp-$(ARCH).pfe") ;
-                        C_DIALECT = "objective-c++" ;
-                        MakePFEFile $(OBJCPLUSPLUS_PFE_FILE_DESTINATION_PATH_$(ARCH)) : $(PREFIX_HEADER) ;
-                        PRODUCT_FILES += $(OBJCPLUSPLUS_PFE_FILE_DESTINATION_PATH_$(ARCH)) ;
-                        if $(_BUILD_PHASING) = YES {
-                            BUILD_PHASE_PRODUCTS += $(OBJCPLUSPLUS_PFE_FILE_DESTINATION_PATH_$(ARCH)) ;
-                        }
+                    EFFECTIVE_PFE_FILE_$(ARCH) = $(PRECOMP_DESTINATION_DIR)$(/)$(PREFIX_HEADER:BS="-$(ARCH).pfe") ;
+                    MakePFEFile $(EFFECTIVE_PFE_FILE_$(ARCH)) : $(PREFIX_HEADER) ;
+                    PRODUCT_FILES += $(EFFECTIVE_PFE_FILE_$(ARCH)) ;
+                    if $(_BUILD_PHASING) = YES {
+                        BUILD_PHASE_PRODUCTS += $(EFFECTIVE_PFE_FILE_$(ARCH)) ;
                     }
                 }
                 EFFECTIVE_PREFIX_HEADER = ;  # because with a PFE file, we don't actually pass a -include argument
@@ -2944,7 +2982,7 @@ rule ProcessHeader
                 if ! $(PUBLIC_HEADER_DIR) in $(PRODUCT_FILES) {
                     Mkdir $(PUBLIC_HEADER_DIR) ;
                     ProductFile $(PUBLIC_HEADER_DIR) ;
-                    if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
+                    if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
                         ASIDE_PUBLIC_HEADER_DIR default = $(PUBLIC_HEADER_DIR:G=aside) ;
                         Mkdir $(ASIDE_PUBLIC_HEADER_DIR) ;
                         ProductFileAside $(ASIDE_PUBLIC_HEADER_DIR) ;
@@ -2956,7 +2994,7 @@ rule ProcessHeader
                     SymLink $(PUBLIC_HEADER_LINK) : $(PUBLIC_HEADER_LINK_PATH) ;
                     DEPENDS $(PUBLIC_HEADER_LINK) : $(PUBLIC_HEADER_DIR) ;
                     ProductFile $(PUBLIC_HEADER_LINK) ;
-                    if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
+                    if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
                         ASIDE_PUBLIC_HEADER_LINK default = $(PUBLIC_HEADER_LINK:G=aside) ;
                         SymLink $(ASIDE_PUBLIC_HEADER_LINK) : $(PUBLIC_HEADER_LINK_PATH) ;
                         DEPENDS $(ASIDE_PUBLIC_HEADER_LINK) : $(ASIDE_PUBLIC_HEADER_DIR) ;
@@ -2971,12 +3009,20 @@ rule ProcessHeader
                 if headers in $(BUILD_COMPONENTS) {
                     if $(PUBLIC_HEADER_DIR) {
                         local HEADER_COPY = $(PUBLIC_HEADER_DIR)$(/)$(2:BS:G=) ;
-                        Cp $(HEADER_COPY) : $(2) ;
+                        #DEPENDS $(PUBLIC_HEADER_DIR:G=populated) : $(2) ;
+                        #PBXCp $(PUBLIC_HEADER_DIR:G=populated) : $(2) ;
+                        #ProductFile $(PUBLIC_HEADER_DIR:G=populated) ;
+                        DEPENDS $(HEADER_COPY) : $(2) ;
+                        PBXCp $(HEADER_COPY) : $(2) ;
                         ProductFile $(HEADER_COPY) ;
-                        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
+                        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
                             ASIDE_HEADER_COPY = $(HEADER_COPY:G=aside) ;
-                            Cp $(ASIDE_HEADER_COPY) : $(2) ;
-                            ProductFile $(ASIDE_HEADER_COPY) ;
+                            #DEPENDS $(ASIDE_PUBLIC_HEADER_DIR:G=aside-populated) : $(2) ;
+                            #PBXCp $(ASIDE_PUBLIC_HEADER_DIR:G=aside-populated) : $(2) ;
+                            #ProductFileAside $(ASIDE_PUBLIC_HEADER_DIR:G=aside-populated) ;
+                            DEPENDS $(ASIDE_HEADER_COPY) : $(2) ;
+                            PBXCp $(ASIDE_HEADER_COPY) : $(2) ;
+                            ProductFileAside $(ASIDE_HEADER_COPY) ;
                         }
                     }
                     else {
@@ -2989,7 +3035,7 @@ rule ProcessHeader
                 if ! $(PRIVATE_HEADER_DIR) in $(PRODUCT_FILES) {
                     Mkdir $(PRIVATE_HEADER_DIR) ;
                     ProductFile $(PRIVATE_HEADER_DIR) ;
-                    if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
+                    if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
                         ASIDE_PRIVATE_HEADER_DIR default = $(PRIVATE_HEADER_DIR:G=aside) ;
                         Mkdir $(ASIDE_PRIVATE_HEADER_DIR) ;
                         ProductFileAside $(ASIDE_PRIVATE_HEADER_DIR) ;
@@ -3001,7 +3047,7 @@ rule ProcessHeader
                     SymLink $(PRIVATE_HEADER_LINK) : $(PRIVATE_HEADER_LINK_PATH) ;
                     DEPENDS $(PRIVATE_HEADER_LINK) : $(PRIVATE_HEADER_DIR) ;
                     ProductFile $(PRIVATE_HEADER_LINK) ;
-                    if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
+                    if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
                         ASIDE_PRIVATE_HEADER_LINK default = $(PRIVATE_HEADER_LINK:G=aside) ;
                         SymLink $(ASIDE_PRIVATE_HEADER_LINK) : $(PRIVATE_HEADER_LINK_PATH) ;
                         DEPENDS $(ASIDE_PRIVATE_HEADER_LINK) : $(ASIDE_PRIVATE_HEADER_DIR) ;
@@ -3016,11 +3062,19 @@ rule ProcessHeader
                 if headers in $(BUILD_COMPONENTS) {
                     if $(PRIVATE_HEADER_DIR) {
                         local HEADER_COPY = $(PRIVATE_HEADER_DIR)$(/)$(2:BS:G=) ;
-                        Cp $(HEADER_COPY) : $(2) ;
+                        #DEPENDS $(PRIVATE_HEADER_DIR:G=populated) : $(2) ;
+                        #PBXCp $(PRIVATE_HEADER_DIR:G=populated) : $(2) ;
+                        #ProductFile $(PRIVATE_HEADER_DIR:G=populated) ;
+                        DEPENDS $(HEADER_COPY) : $(2) ;
+                        PBXCp $(HEADER_COPY) : $(2) ;
                         ProductFile $(HEADER_COPY) ;
-                        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
+                        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
                             ASIDE_HEADER_COPY = $(HEADER_COPY:G=aside) ;
-                            Cp $(ASIDE_HEADER_COPY) : $(2) ;
+                            #DEPENDS $(ASIDE_PRIVATE_HEADER_DIR:G=aside-populated) : $(2) ;
+                            #PBXCp $(ASIDE_PRIVATE_HEADER_DIR:G=aside-populated) : $(2) ;
+                            #ProductFileAside $(ASIDE_PRIVATE_HEADER_DIR:G=aside-populated) ;
+                            DEPENDS $(ASIDE_HEADER_COPY) : $(2) ;
+                            PBXCp $(ASIDE_HEADER_COPY) : $(2) ;
                             ProductFileAside $(ASIDE_HEADER_COPY) ;
                         }
                     }
@@ -3042,8 +3096,8 @@ rule PrecompileHeader
     if $(KERNEL_MODULE) = YES {
         local KERNEL_FRAMEWORK = $(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework ;
         local KERNEL_HEADERS = $(KERNEL_FRAMEWORK)/Headers ;
-        local KERNEL_INCLUDE_PATHS = $(KERNEL_HEADERS) $(KERNEL_HEADERS)/bsd ;
-        local KERNEL_COMPILE_OPTIONS = -finline -fno-keep-inline-functions -force_cpusubtype_ALL -msoft-float ;
+        local KERNEL_INCLUDE_PATHS = $(KERNEL_HEADERS) $(KERNEL_HEADERS)/bsd $(KERNEL_FRAMEWORK)/PrivateHeaders ;
+        local KERNEL_COMPILE_OPTIONS = -fno-builtin -finline -fno-keep-inline-functions -force_cpusubtype_ALL -msoft-float ;
         local KERNEL_DEFINITIONS = -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT ;
         FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CFLAGS) -fno-common -nostdinc $(OPTIMIZATION_CFLAGS) $(WARNING_CFLAGS) $(OTHER_CFLAGS) -I$(KERNEL_INCLUDE_PATHS) -I$(PROJECT_HEADER_DIR) $(KERNEL_COMPILE_OPTIONS) -static $(KERNEL_DEFINITIONS) ;
         GLOBAL_CFLAGS on $(1) = ;
@@ -3053,6 +3107,14 @@ rule PrecompileHeader
     }
     else {
         FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CFLAGS) -fno-common -fpascal-strings $(OPTIMIZATION_CFLAGS) $(WARNING_CFLAGS) ;    # We must compile with the extension-specific build flags
+        if $(PRODUCT_TYPE) = Tool || $(PRODUCT_TYPE) = Application {
+            USE_DYNAMIC_NO_PIC default = YES ;
+        } else {
+            USE_DYNAMIC_NO_PIC default = NO ;
+        }
+        if $(USE_DYNAMIC_NO_PIC) = YES {
+            FLAGS on $(1) += -mdynamic-no-pic ;
+        }
         FLAGS on $(1) += $(OTHER_CFLAGS) ;
     }
     FLAGS on $(1) += -pipe ;
@@ -3106,17 +3168,26 @@ rule MakePFEFile
     if $(KERNEL_MODULE) = YES {
         local KERNEL_FRAMEWORK = $(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework ;
         local KERNEL_HEADERS = $(KERNEL_FRAMEWORK)/Headers ;
-        local KERNEL_INCLUDE_PATHS = $(KERNEL_HEADERS) $(KERNEL_HEADERS)/bsd ;
-        local KERNEL_COMPILE_OPTIONS = -finline -fno-keep-inline-functions -force_cpusubtype_ALL -msoft-float ;
+        local KERNEL_INCLUDE_PATHS = $(KERNEL_HEADERS) $(KERNEL_HEADERS)/bsd $(KERNEL_FRAMEWORK)/PrivateHeaders ;
+        local KERNEL_COMPILE_OPTIONS = -fno-builtin -finline -fno-keep-inline-functions -force_cpusubtype_ALL -msoft-float ;
         if $(ARCH) in ppc {
             KERNEL_COMPILE_OPTIONS += -mlong-branch ;
         }
+        KERNEL_COMPILE_OPTIONS += -fapple-kext ;
         local KERNEL_DEFINITIONS = -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT ;
         FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CFLAGS) -fno-common -nostdinc $(OPTIMIZATION_CFLAGS) $(WARNING_CFLAGS) $(OTHER_CFLAGS) -I$(KERNEL_INCLUDE_PATHS) -I$(PROJECT_HEADER_DIR) $(KERNEL_COMPILE_OPTIONS) -static $(KERNEL_DEFINITIONS) ;
         GLOBAL_CFLAGS on $(1) = ;
     }
     else {
         FLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CFLAGS) -fno-common -fpascal-strings $(OPTIMIZATION_CFLAGS) $(WARNING_CFLAGS) ;    # We must compile with the extension-specific build flags
+        if $(PRODUCT_TYPE) = Tool || $(PRODUCT_TYPE) = Application {
+            USE_DYNAMIC_NO_PIC default = YES ;
+        } else {
+            USE_DYNAMIC_NO_PIC default = NO ;
+        }
+        if $(USE_DYNAMIC_NO_PIC) = YES {
+            FLAGS on $(1) += -mdynamic-no-pic ;
+        }
         FLAGS on $(1) += $(OTHER_CFLAGS) ;
     }
     FLAGS on $(1) += -pipe ;
@@ -3136,26 +3207,21 @@ rule MakePFEFile
     if $(PROFILING_CODE) = YES {
         FLAGS on $(1) += -pg ;
     }
-    if $(OS) in MACOS DARWIN {
-        FLAGS on $(1) += -precomp-trustfile $(PRECOMP_TRUSTFILE) ;
-    }
     if $(CPP_HEADERMAP_FILE) {
         FLAGS on $(1) += "-Wp,-header-mapfile,$(CPP_HEADERMAP_FILE)" ;
-    }
-    if $(C_DIALECT) {
-        FLAGS on $(1) += -x $(C_DIALECT) ;
     }
     if YES in $(GENERATE_CPP_ILOG_FILES) {
         local INCLUSION_LOG_FILE default = $(OBJECT_FILE_DIR)-$(VARIANT)$(/)$(ARCH)$(/)$(2:DB).ilog ;
         FLAGS on $(1) += "-Wp,-inclusion-log-file,$(INCLUSION_LOG_FILE)" ;
     }
+    ARCH on $(1) = $(ARCH) ;
     Mkdir $(PRECOMP_DESTINATION_DIR) ;
     DEPENDS $(1) : $(PRECOMP_DESTINATION_DIR) ;
     SEARCH on $(2) = $(SOURCE_ROOT) ;
 }
 actions MakePFEFile
 {
-    $(CC) -c --dump-pch "$(1)" "-F$(FRAMEWORK_SEARCH_PATHS)" "-I$(HEADER_SEARCH_PATHS)" "$(FLAGS)" $(GLOBAL_CFLAGS) "-I$(DERIVED_PATHS)" "-I$(SOURCE_ROOT)" "$(PREFIX_HEADER_CFLAGS)" "$(OTHER_PRECOMP_CFLAGS)" "$(2)"
+    for c_dialect in $(PFE_FILE_C_DIALECTS) ; do dummy_file=`mktemp /tmp/.null-XXXXXXXX`; $(CC:Q) -c -x ${c_dialect} -F$(FRAMEWORK_SEARCH_PATHS:Q) -I$(HEADER_SEARCH_PATHS:Q) "$(FLAGS)" $(GLOBAL_CFLAGS) -I$(DERIVED_PATHS:Q) -I$(SOURCE_ROOT:Q) $(PREFIX_HEADER_CFLAGS:Q) $(OTHER_PRECOMP_CFLAGS:Q) $(2:Q) -o ${dummy_file} --dump-pch $(1:Q) ; exit_code=$? ; rm ${dummy_file} ; if [ ${exit_code} != 0 ] ; then exit ${exit_code} ; fi ; done
 }
 
 
@@ -3192,7 +3258,7 @@ rule ProcessResources
                     if ! $(RESOURCE_DIR) in $(PRODUCT_FILES) {
                         Mkdir $(RESOURCE_DIR) ;
                         ProductFile $(RESOURCE_DIR) ;
-                        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
+                        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
                             ASIDE_RESOURCE_DIR default = $(RESOURCE_DIR:G=aside) ;
                             Mkdir $(ASIDE_RESOURCE_DIR) ;
                             ProductFileAside $(ASIDE_RESOURCE_DIR) ;
@@ -3203,7 +3269,7 @@ rule ProcessResources
                      && ! $(RESOURCE_LINK) in $(PRODUCT_FILES) {
                         SymLink $(RESOURCE_LINK) : $(RESOURCE_LINK_PATH) ;
                         ProductFile $(RESOURCE_LINK) ;
-                        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
+                        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
                             ASIDE_RESOURCE_LINK default = $(RESOURCE_LINK:G=aside) ;
                             SymLink $(ASIDE_RESOURCE_LINK) : $(RESOURCE_LINK_PATH) ;
                             ProductFileAside $(ASIDE_RESOURCE_LINK) ;
@@ -3222,7 +3288,7 @@ rule ProcessResources
                     if ! $(INFO_PLIST_DIR) in $(PRODUCT_FILES) {
                         Mkdir $(INFO_PLIST_DIR) ;
                         ProductFile $(INFO_PLIST_DIR) ;
-                        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
+                        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
                             ASIDE_INFO_PLIST_DIR default = $(INFO_PLIST_DIR:G=aside) ;
                             Mkdir $(ASIDE_INFO_PLIST_DIR) ;
                             ProductFileAside $(ASIDE_INFO_PLIST_DIR) ;
@@ -3232,7 +3298,7 @@ rule ProcessResources
                 }
                 Cp $(INFO_PLIST_FILE) : $(_INFO_PLIST_FILE_PATH) ;
                 ProductFile $(INFO_PLIST_FILE) ;
-                if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
+                if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
                     ASIDE_INFO_PLIST_FILE default = $(INFO_PLIST_FILE:G=aside) ;
                     DEPENDS $(ASIDE_INFO_PLIST_FILE) : $(ASIDE_INFO_PLIST_DIR) ;
                     Cp $(ASIDE_INFO_PLIST_FILE) : $(PRODUCT_SETTINGS_PATH) ;
@@ -3248,7 +3314,7 @@ rule ProcessResources
                     if ! $(RESOURCE_DIR) in $(PRODUCT_FILES) {
                         Mkdir $(RESOURCE_DIR) ;
                         ProductFile $(RESOURCE_DIR) ;
-                        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
+                        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
                             ASIDE_RESOURCE_DIR default = $(RESOURCE_DIR:G=aside) ;
                             Mkdir $(ASIDE_RESOURCE_DIR) ;
                             ProductFileAside $(ASIDE_RESOURCE_DIR) ;
@@ -3260,7 +3326,7 @@ rule ProcessResources
                      && ! $(RESOURCE_LINK) in $(PRODUCT_FILES) {
                         SymLink $(RESOURCE_LINK) : $(RESOURCE_LINK_PATH) ;
                         ProductFile $(RESOURCE_LINK) ;
-                        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
+                        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
                             ASIDE_RESOURCE_LINK default = $(RESOURCE_LINK:G=aside) ;
                             DEPENDS $(ASIDE_RESOURCE_LINK) : $(ASIDE_RESOURCE_DIR) ;
                             SymLink $(ASIDE_RESOURCE_LINK) : $(RESOURCE_LINK_PATH) ;
@@ -3280,7 +3346,7 @@ rule ProcessResources
                     if ! $(VERSION_PLIST_DIR) in $(PRODUCT_FILES) {
                         Mkdir $(VERSION_PLIST_DIR) ;
                         ProductFile $(VERSION_PLIST_DIR) ;
-                        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
+                        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
                             ASIDE_VERSION_PLIST_DIR default = $(VERSION_PLIST_DIR) ;
                             Mkdir $(ASIDE_VERSION_PLIST_DIR) ;
                             ProductFileAside $(ASIDE_VERSION_PLIST_DIR) ;
@@ -3290,7 +3356,7 @@ rule ProcessResources
                 }
                 Cp $(VERSION_PLIST_FILE) : $(_VERSION_PLIST_FILE_PATH) ;
                 ProductFile $(VERSION_PLIST_FILE) ;
-                if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
+                if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
                     ASIDE_VERSION_PLIST_FILE default = $(VERSION_PLIST_FILE:G=aside) ;
                     Cp $(ASIDE_VERSION_PLIST_FILE) : $(VERSION_PLIST_FILE) ;
                     DEPENDS $(ASIDE_VERSION_PLIST_FILE) : $(ASIDE_VERSION_PLIST_DIR) ;
@@ -3299,7 +3365,7 @@ rule ProcessResources
             }
             # development settings property list
             # This plist gets copied into the bundle if we are doing a development build or removed from the symroot otherwise.  Right now, "development build" means that the ACTION is "build" (as opposed to "install").
-            if $(_PBDEVELOPMENT_FILE_LIST_PATH)
+            if $(DEVELOPMENT_SETTINGS_PATH)
              && $(PURE_JAVA) != YES && $(ACTION) = build {
                 # if available and not pure java
                 if $(PRODUCT_TYPE) = Framework {
@@ -3307,7 +3373,7 @@ rule ProcessResources
                     if ! $(RESOURCE_DIR) in $(PRODUCT_FILES) {
                         Mkdir $(RESOURCE_DIR) ;
                         ProductFile $(RESOURCE_DIR) ;
-                        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
+                        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
                             ASIDE_RESOURCE_DIR default = $(RESOURCE_DIR:G=aside) ;
                             Mkdir $(ASIDE_RESOURCE_DIR) ;
                             ProductFileAsides $(ASIDE_RESOURCE_DIR) ;
@@ -3319,7 +3385,7 @@ rule ProcessResources
                       && ! $(RESOURCE_LINK) in $(PRODUCT_FILES) {
                         SymLink $(RESOURCE_LINK) : $(RESOURCE_LINK_PATH) ;
                         ProductFile $(RESOURCE_LINK) ;
-                        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
+                        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
                             ASIDE_RESOURCE_LINK default = $(RESOURCE_LINK:G=aside) ;
                             SymLink $(ASIDE_RESOURCE_LINK) : $(RESOURCE_LINK_PATH) ;
                             DEPENDS $(ASIDE_RESOURCE_LINK) : $(ASIDE_RESOURCE_DIR) ;
@@ -3339,7 +3405,7 @@ rule ProcessResources
                     if ! $(DEVELOPMENT_PLIST_DIR) in $(PRODUCT_FILES) {
                         Mkdir $(DEVELOPMENT_PLIST_DIR) ;
                         ProductFile $(DEVELOPMENT_PLIST_DIR) ;
-                        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
+                        if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
                             ASIDE_DEVELOPMENT_PLIST_DIR default = $(DEVELOPMENT_PLIST_DIR:G=aside) ;
                             Mkdir $(ASIDE_DEVELOPMENT_PLIST_DIR) ;
                             ProductFileAsides $(ASIDE_DEVELOPMENT_PLIST) ;
@@ -3347,9 +3413,9 @@ rule ProcessResources
                     }
                     DEPENDS $(DEVELOPMENT_PLIST_FILE) : $(DEVELOPMENT_PLIST_DIR) ;
                 }
-                Cp $(DEVELOPMENT_PLIST_FILE) : $(_DEVELOPMENT_PLIST_FILE_PATH) ;
+                Cp $(DEVELOPMENT_PLIST_FILE) : $(DEVELOPMENT_SETTINGS_PATH) ;
                 ProductFile $(DEVELOPMENT_PLIST_FILE) ;
-                if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
+                if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
                     ASIDE_DEVELOPMENT_PLIST_FILE default = $(DEVELOPMENT_PLIST_FILE:G=aside) ;
                     Cp $(ASIDE_DEVELOPMENT_PLIST_FILE) : $(DEVELOPMENT_SETTINGS_PATH) ;
                     DEPENDS $(ASIDE_DEVELOPMENT_PLIST_FILE) : $(DEVELOPMENT_PLIST_DIR) ;
@@ -3372,7 +3438,7 @@ rule ProcessResources
                 if ! $(PKGINFO_DIR) in $(PRODUCT_FILES) {
                     Mkdir $(PKGINFO_DIR) ;
                     ProductFile $(PKGINFO_DIR) ;
-                    if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
+                    if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATIN) = YES {
                         ASIDE_PKGINFO_DIR default = $(PKGINFO_DIR:G=aside) ;
                         Mkdir $(ASIDE_PKGINFO_DIR) ;
                         ProductFileAside $(ASIDE_PKGINFO_DIR) ;
@@ -3380,7 +3446,7 @@ rule ProcessResources
                 }
                 Cp $(PKGINFO_FILE) : $(_PKGINFO_FILE_PATH) ;
                 ProductFile $(PKGINFO_FILE) ;
-                if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
+                if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
                     ASIDE_PKGINFO_FILE default = $(PKGINFO_FILE:G=aside) ;
                     DEPENDS $(ASIDE_PKGINFO_FILE) : $(ASIDE_PKGINFO_DIR) ;
                     Cp $(ASIDE_PKGINFO_FILE) : $(_PKGINFO_FILE_PATH) ;
@@ -3430,7 +3496,7 @@ rule ProcessResource
         if ! $(RESOURCE_DIR) in $(PRODUCT_FILES) {
             Mkdir $(RESOURCE_DIR) ;
             ProductFile $(RESOURCE_DIR) ;
-            if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
+            if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
                 ASIDE_RESOURCE_DIR default = $(RESOURCE_DIR:G=aside) ;
                 Mkdir $(ASIDE_RESOURCE_DIR) ;
                 ProductFileAside $(ASIDE_RESOURCE_DIR) ;
@@ -3441,34 +3507,44 @@ rule ProcessResource
          && ! $(RESOURCE_LINK) in $(PRODUCT_FILES) {
             SymLink $(RESOURCE_LINK) : $(RESOURCE_LINK_PATH) ;
             ProductFile $(RESOURCE_LINK) ;
-            if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
+            if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
                 ASIDE_RESOURCE_LINK default = $(RESOURCE_LINK:G=aside) ;
                 SymLink $(ASIDE_RESOURCE_LINK) : $(RESOURCE_LINK_PATH) ;
                 DEPENDS $(ASIDE_RESOURCE_LINK) : $(ASIDE_RESOURCE_DIR) ;
                 ProductFileAside $(ASIDE_RESOURCE_LINK) ;
             }
         }
-        if ! $(REGION) {
+        if ! $(REGION)
+         || ( $(BUNDLE_STYLE) = SHALLOW && $(REGION) = $(DEVELOPMENT_LANGUAGE) ) {
             # non-localized resource
+            # or development language resource for shallow bundle
             local NONLOCALIZED_RESOURCE_DIR NONLOCALIZED_RESOURCE ;
             NONLOCALIZED_RESOURCE_DIR = $(RESOURCE_DIR) ;
             if ! $(NONLOCALIZED_RESOURCE_DIR) in $(PRODUCT_FILES) {
                 Mkdir $(NONLOCALIZED_RESOURCE_DIR) ;
                 ProductFile $(NONLOCALIZED_RESOURCE_DIR) ;
-                if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
-                    ASIDE_NONLOCALIZED_RESOURCE_DIR = $(NONLOCALIZED_RESOURCE_DIR:G=aside) ;
+            }
+            if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
+                ASIDE_NONLOCALIZED_RESOURCE_DIR = $(NONLOCALIZED_RESOURCE_DIR:G=aside) ;
+                if ! $(ASIDE_NONLOCALIZED_RESOURCE_DIR) in $(PRODUCT_FILES) {
                     Mkdir $(ASIDE_NONLOCALIZED_RESOURCE_DIR) ;
                     ProductFileAside $(ASIDE_NONLOCALIZED_RESOURCE_DIR) ;
                 }
             }
             NONLOCALIZED_RESOURCE = $(NONLOCALIZED_RESOURCE_DIR)$(/)$(2:BS) ;
-            DEPENDS $(NONLOCALIZED_RESOURCE) : $(NONLOCALIZED_RESOURCE_DIR) ;
-            RobustCp $(NONLOCALIZED_RESOURCE) : $(2) ;
+            #DEPENDS $(NONLOCALIZED_RESOURCE_DIR:G=populated) : $(2) ;
+            #PBXCp $(NONLOCALIZED_RESOURCE_DIR:G=populated) : $(2) ;
+            #ProductFile $(NONLOCALIZED_RESOURCE_DIR:G=populated) ;
+            DEPENDS $(NONLOCALIZED_RESOURCE) : $(2) ;
+            PBXCp $(NONLOCALIZED_RESOURCE) : $(2) ;
             ProductFile $(NONLOCALIZED_RESOURCE) ;
-            if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
+            if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
                 ASIDE_NONLOCALIZED_RESOURCE = $(NONLOCALIZED_RESOURCE:G=aside) ;
-                DEPENDS $(ASIDE_NONLOCALIZED_RESOURCE) : $(ASIDE_NONLOCALIZED_RESOURCE_DIR) ;
-                RobustCp $(ASIDE_NONLOCALIZED_RESOURCE) : $(2) ;
+                #DEPENDS $(ASIDE_NONLOCALIZED_RESOURCE_DIR:G=aside-populated) : $(2) ;
+                #PBXCp $(ASIDE_NONLOCALIZED_RESOURCE_DIR:G=aside-populated) : $(2) ;
+                #ProductFileAside $(ASIDE_NONLOCALIZED_RESOURCE_DIR:G=aside-populated) ;
+                DEPENDS $(ASIDE_NONLOCALIZED_RESOURCE) : $(2) ;
+                PBXCp $(ASIDE_NONLOCALIZED_RESOURCE) : $(2) ;
                 ProductFileAside $(ASIDE_NONLOCALIZED_RESOURCE) ;
             }
         } else for SPECIFIC_REGION in $(REGION) {
@@ -3479,20 +3555,28 @@ rule ProcessResource
             if ! $(LOCALIZED_RESOURCE_DIR) in $(PRODUCT_FILES) {
                 Mkdir $(LOCALIZED_RESOURCE_DIR) ;
                 ProductFile $(LOCALIZED_RESOURCE_DIR) ;
-                if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
-                    ASIDE_LOCALIZED_RESOURCE_DIR = $(LOCALIZED_RESOURCE_DIR:G=aside) ;
+            }
+            if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
+                ASIDE_LOCALIZED_RESOURCE_DIR = $(LOCALIZED_RESOURCE_DIR:G=aside) ;
+                if ! $(ASIDE_LOCALIZED_RESOURCE_DIR) in $(PRODUCT_FILES) {
                     Mkdir $(ASIDE_LOCALIZED_RESOURCE_DIR) ;
                     ProductFileAside $(ASIDE_LOCALIZED_RESOURCE_DIR) ;
                 }
             }
             LOCALIZED_RESOURCE = $(LOCALIZED_RESOURCE_DIR)$(/)$(2:BS) ;
-            DEPENDS $(LOCALIZED_RESOURCE) : $(LOCALIZED_RESOURCE_DIR) ;
-            RobustCp $(LOCALIZED_RESOURCE) : $(2) ;
+            #DEPENDS $(LOCALIZED_RESOURCE_DIR:G=populated) : $(2) ;
+            #PBXCp $(LOCALIZED_RESOURCE_DIR:G=populated) : $(2) ;
+            #ProductFile $(LOCALIZED_RESOURCE_DIR:G=populated) ;
+            DEPENDS $(LOCALIZED_RESOURCE) : $(2) ;
+            PBXCp $(LOCALIZED_RESOURCE) : $(2) ;
             ProductFile $(LOCALIZED_RESOURCE) ;
-            if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_POSTPROCESSING) = YES {
+            if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
                 ASIDE_LOCALIZED_RESOURCE = $(LOCALIZED_RESOURCE:G=aside) ;
-                DEPENDS $(ASIDE_LOCALIZED_RESOURCE) : $(ASIDE_LOCALIZED_RESOURCE_DIR) ;
-                RobustCp $(ASIDE_LOCALIZED_RESOURCE) : $(2) ;
+                #DEPENDS $(ASIDE_LOCALIZED_RESOURCE_DIR:G=aside-populated) : $(2) ;
+                #PBXCp $(ASIDE_LOCALIZED_RESOURCE_DIR:G=aside-populated) : $(2) ;
+                #ProductFileAside $(ASIDE_LOCALIZED_RESOURCE_DIR:G=aside-populated) ;
+                DEPENDS $(ASIDE_LOCALIZED_RESOURCE) : $(2) ;
+                PBXCp $(ASIDE_LOCALIZED_RESOURCE) : $(2) ;
                 ProductFileAside $(ASIDE_LOCALIZED_RESOURCE) ;
             }
         }
@@ -3672,7 +3756,9 @@ rule ProcessFrameworksAndLibraries
                 INNER_PRODUCT_$(VARIANT) default = $(INNER_PRODUCT)$(VARIANT_SUFFIX_$(VARIANT)) ;
                 INNER_PRODUCT_LINK_$(VARIANT) default = ;
                 ProductFile $(INNER_PRODUCT_$(VARIANT)) ;
-                SetModeOwnerAndGroup $(INNER_PRODUCT:G=ModeOwnerGroup) : $(INNER_PRODUCT) ;
+                if $(DEPLOYMENT_POSTPROCESSING) = YES {
+                    SetModeOwnerAndGroup $(INNER_PRODUCT:G=ModeOwnerGroup) : $(INNER_PRODUCT) ;
+                }
             }
             else {
                 if $(PRODUCT_TYPE) = Framework {
@@ -3795,7 +3881,7 @@ rule ProcessFrameworksAndLibraries
                 }
             }
             # preen
-            if $(DEPLOYMENT_POSTPROCESSING) = YES {
+            if $(DEPLOYMENT_POSTPROCESSING) = YES && $(UNSTRIPPED_PRODUCT) != YES {
                 STRIPPED_PRODUCT_$(VARIANT) default = $(INNER_PRODUCT_$(VARIANT):G=strip) ;
                 DEPENDS $(STRIPPED_PRODUCT_$(VARIANT)) : $(INNER_PRODUCT_$(VARIANT)) ;
                 if $(PRODUCT_TYPE) != Tool && $(PRODUCT_TYPE) != Application {
@@ -3803,7 +3889,7 @@ rule ProcessFrameworksAndLibraries
                 }
                 Strip $(STRIPPED_PRODUCT_$(VARIANT)) ;
                 if $(PRODUCT_TYPE) = Library && $(LIBRARY_STYLE) = STATIC {
-                    Ranlib $(STRIPPED_PRODUCT_$(VARIANT)) : $(_PRODUCT_REFERENCE) ;
+                    Ranlib $(STRIPPED_PRODUCT_$(VARIANT)) ;
                 }
                 ProductFile $(STRIPPED_PRODUCT_$(VARIANT)) ;
             }
@@ -3837,6 +3923,11 @@ rule ProcessFrameworksAndLibraries
                 FLAGS.o on $(INNER_PRODUCT_$(VARIANT)) += -static -nostdlib -r -lkmodc++ "$(MODULE_OBJECT_PATH)" -lkmod -lcc_kext ;
             }
             else {
+                if $(PREBINDING) = YES
+                 && $(PRODUCT_TYPE) != Bundle
+                 && ! ( $(PRODUCT_TYPE) = Library && ( $(LIBRARY_STYLE) = BUNDLE || $(LIBRARY_STYLE) = STATIC ) ) {
+                    FLAGS.o on $(INNER_PRODUCT_$(VARIANT)) += -prebind ;
+                }
                 if $(PRODUCT_TYPE) = Bundle
                  || ( $(PRODUCT_TYPE) = Library && $(LIBRARY_STYLE) = BUNDLE ) {
                     FLAGS.o on $(INNER_PRODUCT_$(VARIANT)) += -bundle ;
@@ -3866,6 +3957,11 @@ rule ProcessFrameworksAndLibraries
                     }
                 }
             }
+            # other link options
+            OTHER_LDFLAGS_$(VARIANT) default = $(OTHER_LDFLAGS) ;
+            if $(OTHER_LDFLAGS_$(VARIANT)) {
+                FLAGS.o on $(INNER_PRODUCT_$(VARIANT)) += $(OTHER_LDFLAGS_$(VARIANT)) ;
+            }
         }
         else {
             # no object files present, indicating pure Java
@@ -3884,16 +3980,16 @@ rule ProcessFrameworksAndLibraries
                 }
                 ProductFile $(INNER_PRODUCT_$(VARIANT)) ;
                 if $(DYLIB_COMPATIBILITY_VERSION) {
-                    DYLIB_VERSION_FLAGS on $(INNER_PRODUCT) += -compatibility_version "$(DYLIB_COMPATIBILITY_VERSION)" ;
+                    DYLIB_VERSION_FLAGS on $(INNER_PRODUCT_$(VARIANT)) += -compatibility_version "$(DYLIB_COMPATIBILITY_VERSION)" ;
                 }
                 else {
-                    DYLIB_VERSION_FLAGS on $(INNER_PRODUCT) += -compatibility_version 1 ;
+                    DYLIB_VERSION_FLAGS on $(INNER_PRODUCT_$(VARIANT)) += -compatibility_version 1 ;
                 }
                 if $(DYLIB_CURRENT_VERSION) {
-                    DYLIB_VERSION_FLAGS on $(INNER_PRODUCT) += -current_version "$(DYLIB_CURRENT_VERSION)" ;
+                    DYLIB_VERSION_FLAGS on $(INNER_PRODUCT_$(VARIANT)) += -current_version "$(DYLIB_CURRENT_VERSION)" ;
                 }
                 else {
-                    DYLIB_VERSION_FLAGS on $(INNER_PRODUCT) += -current_version 1 ;
+                    DYLIB_VERSION_FLAGS on $(INNER_PRODUCT_$(VARIANT)) += -current_version 1 ;
                 }
                 if $(INSTALL_PATH) {
                     FRAMEWORK_INSTALLED_NAME_$(VARIANT) default = $(INSTALL_PATH)$(/)$(INNER_PRODUCT_$(VARIANT):G=) ;
@@ -3981,7 +4077,7 @@ rule ProcessFrameworksAndLibraries
             }
         }
         # generate an archive if there are compiled or merged classes
-        if $(COMPILED_JAVA) || $(MERGED_ARCHIVES) {
+        if $(COMPILED_JAVA) || $(MERGED_ARCHIVES) || $(COPIED_JAVA_RESOURCES) {
 	    if $(JAVA_ARCHIVE_CLASSES) != NO {
 	        # java archive suffix applies to applications and frameworks
 	        if $(JAVA_ARCHIVE_TYPE) = JAR {
@@ -3997,13 +4093,35 @@ rule ProcessFrameworksAndLibraries
                   || $(PRODUCT_TYPE) = Framework ) {
                     # Assume bundled products with object files are Cocoa
 		    CLASS_ARCHIVE default = $(RESOURCE_DIR)$(/)Java$(/)$(1:B)$(CLASS_ARCHIVE_SUFFIX) ;
+                    ProductFile $(CLASS_ARCHIVE) ;
 	        }
 	        else {
                     CLASS_ARCHIVE default = $(1:B:G=)$(CLASS_ARCHIVE_SUFFIX) ;
-	        }
-                # class archive depends on class archive dir
+                    # It is critical for the class archive to be declared
+                    # a product file before any symlinks to it are made
+                    # which would conditionally involved declaring the
+                    # symbolic link content to not be a file.
+                    ProductFile $(CLASS_ARCHIVE) ;
+                    # ref. w/suffix for tool or library in deployment location
+                    if $(DEPLOYMENT_LOCATION) = YES {
+                        _ARCHIVE_REFERENCE default = $(BUILT_PRODUCTS_DIR:G=ArchiveRef)$(/)$(CLASS_ARCHIVE) ;
+                        SymLink $(_ARCHIVE_REFERENCE) : $(CLASS_ARCHIVE) ;
+                        DEPENDS $(_ARCHIVE_REFERENCE) : $(BUILT_PRODUCTS_DIR) ;
+                        DEPENDS $(1) : $(_ARCHIVE_REFERENCE) ;
+                    }
+                    # Make a link to the product without extension
+                    # to allow for references missing extension.
+                    _SUFFIX_FREE_ARCHIVE_REFERENCE = $(CLASS_ARCHIVE:S=) ;
+                    LOCATE on $(_SUFFIX_FREE_ARCHIVE_REFERENCE) = $(TARGET_BUILD_DIR) ;
+                    SymLink $(_SUFFIX_FREE_ARCHIVE_REFERENCE) : $(CLASS_ARCHIVE) ;
+                    DEPENDS $(_SUFFIX_FREE_ARCHIVE_REFERENCE) : $(TARGET_BUILD_DIR) ;
+                    DEPENDS $(1) : $(_SUFFIX_FREE_ARCHIVE_REFERENCE) ;
+    	        }
+                # class archive depends on target build dir
+                DEPENDS $(CLASS_ARCHIVE) : $(TARGET_BUILD_DIR) ;
+                # class archive depends on class archive dir (if defined)
                 CLASS_ARCHIVE_DIR = $(CLASS_ARCHIVE:D:G=) ;
-                if ! $(CLASS_ARCHIVE_DIR) in $(PRODUCT_FILES) {
+                if $(CLASS_ARCHIVE_DIR) && ! $(CLASS_ARCHIVE_DIR) in $(PRODUCT_FILES) {
                     Mkdir $(CLASS_ARCHIVE_DIR) ;
                     ProductFile $(CLASS_ARCHIVE_DIR) ;
                 }
@@ -4012,25 +4130,23 @@ rule ProcessFrameworksAndLibraries
 	        if $(MERGED_ARCHIVES) {
                     DEPENDS $(CLASS_ARCHIVE) : $(MERGED_ARCHIVES) ;
                 }
-                else {
+                if $(COMPILED_JAVA) {
                     DEPENDS $(CLASS_ARCHIVE) : $(JAVA_COMPILE_TARGET) ;
                 }
-                ProductFile $(CLASS_ARCHIVE) ;
+                if $(COPIED_JAVA_RESOURCES) {
+                    DEPENDS $(CLASS_ARCHIVE) : $(COPIED_JAVA_RESOURCES) ;
+                }
 	    }
             if $(JAVA_ARCHIVE_CLASSES) != YES {
                 # !!!:cmolick:20020123 product class file dir not always made?!
                 Mkdir $(PRODUCT_CLASS_FILE_DIR) ;
                 ProductFile $(PRODUCT_CLASS_FILE_DIR) ;
-
-                CLASS_COPY_TARGET default = $(PRODUCT_CLASS_FILE_DIR:G=ClassCopy) ;
-                ClassCopy $(CLASS_COPY_TARGET) : $(CLASS_FILE_DIR) ;
-                ProductFile $(CLASS_COPY_TARGET) ;
-                DEPENDS $(CLASS_COPY_TARGET) : $(PRODUCT_CLASS_FILE_DIR) ;
+                Ditto $(PRODUCT_CLASS_FILE_DIR) : $(CLASS_FILE_DIR) ;
 	        if $(MERGED_ARCHIVES) {
-                    DEPENDS $(CLASS_COPY_TARGET) : $(MERGED_ARCHIVES) ;
+                    DEPENDS $(PRODUCT_CLASS_FILE_DIR) : $(MERGED_ARCHIVES) ;
                 }
                 else {
-                    DEPENDS $(CLASS_COPY_TARGET) : $(JAVA_COMPILE_TARGET) ;
+                    DEPENDS $(PRODUCT_CLASS_FILE_DIR) : $(JAVA_COMPILE_TARGET) ;
                 }
             }
         }
@@ -4355,7 +4471,7 @@ rule ProcessCopyFile
     }
 }
 
-rule ProcessJavaArchiveFiles
+rule ProcessJavaResourceFiles
 {
     if build in $(BUILD_COMPONENTS) {
         local FILE ;
@@ -4366,7 +4482,7 @@ rule ProcessJavaArchiveFiles
         }
         LOCATE on $(2) = $(SOURCE_ROOT) ;
         for FILE in $(2) {
-            ProcessJavaArchiveFile $(1) : $(FILE) : $(CLASS_FILE_DIR) ;
+            ProcessJavaResourceFile $(1) : $(FILE) : $(CLASS_FILE_DIR) ;
         }
         if $(_BUILD_PHASING) = YES {
             if $(BUILD_PHASE_PRODUCTS) {
@@ -4377,33 +4493,30 @@ rule ProcessJavaArchiveFiles
     }
 }
 
-rule ProcessJavaArchiveFile
+rule ProcessJavaResourceFile
 {
     local ARCHIVE_PATH ;
     local ARCHIVE_DESTINATION ;
+    local ARCHIVE_DESTINATION_FILE ;
 
     # copy any other reference - formulate destination first
     if $($(2)_JAVA_ARCHIVE_SUBDIR) {
-        ARCHIVE_DESTINATION = $(3)$(/)$($(2)_JAVA_ARCHIVE_SUBDIR)$(/)$(2:BS) ;
+        ARCHIVE_DESTINATION_DIR = $(3)$(/)$($(2)_JAVA_ARCHIVE_SUBDIR) ;
     }
     else {
-        RemovePrefixPath ARCHIVE_PATH : $(JAVA_SOURCE_SUBDIR) : $(2) ;
-        ARCHIVE_DESTINATION = $(3)$(/)$(ARCHIVE_PATH) ;
+        # if there's no setting, just copy the file to the root of the archive.
+        ARCHIVE_DESTINATION_DIR = $(3) ;
     }
-    ProductFile $(ARCHIVE_DESTINATION) ;
-    Cp $(ARCHIVE_DESTINATION) : $(2) ;
+    ARCHIVE_DESTINATION_FILE = $(ARCHIVE_DESTINATION_DIR)/$(2:BS) ;
+    Mkdir $(ARCHIVE_DESTINATION_DIR) ;
+    ProductFile $(ARCHIVE_DESTINATION_DIR) ;
+    PBXCp $(ARCHIVE_DESTINATION_FILE:G=populated) : $(2) ;
+    ProductFile $(ARCHIVE_DESTINATION_FILE:G=populated) ;
 
     # copied content depends on source
-    DEPENDS $(ARCHIVE_DESTINATION) : $(2) ;
-    # make sure destination directory exists
-    local DESTINATION_DIR = $(ARCHIVE_DESTINATION:D) ;
-    DEPENDS $(ARCHIVE_DESTINATION) : $(DESTINATION_DIR) ;
-    if ! $(DESTINATION_DIR) in $(PRODUCT_FILES) {
-        Mkdir $(DESTINATION_DIR) ;
-        ProductFile $(DESTINATION_DIR) ;
-    }
-    # set contents present for archival flag by making COMPILED_JAVA nonempty
-    COMPILED_JAVA += $(2) ;
+    DEPENDS $(ARCHIVE_DESTINATION_FILE) : $(2) ;
+    # set contents present for archival flag by making COPIED_JAVA_RESOURCES nonempty
+    COPIED_JAVA_RESOURCES += $(2) ;
 }
 
 # Following rules are used by ProcessSource
@@ -4423,13 +4536,14 @@ rule ProcessUsingJavaCompiler
             DEPENDS $(JAVA_COMPILE_TARGET) : $(JAVA_BRIDGE_COMPILE_TARGET) ;
         }
     }
+    
     export JAVA_SOURCE_PATH default = $(SOURCE_ROOT)$(/)$(JAVA_SOURCE_SUBDIR) ;
 
     # start with the compiler-specific flags.
     if $(JAVA_COMPILER:B) = jikes {
         export JAVAC_FLAGS = $(JIKES_DEFAULT_FLAGS) ;
     }
-    if $(JAVA_COMPILER:B) = javac {
+    else if $(JAVA_COMPILER:B) = javac {
         export JAVAC_FLAGS = $(JAVAC_DEFAULT_FLAGS) ;
     }
     else {
@@ -4550,7 +4664,7 @@ actions together piecemeal JavaCompile.jikes {
     frameworkjars=""
     for i in `echo $(JAVA_FRAMEWORK_JARS)/*.jar $(JAVA_FRAMEWORK_JARS)/*.zip ` ; do if [ -f "$i" ] ; then frameworkjars="$frameworkjars":"$i" ; fi ; done
     classpath="$(CLASS_FILE_DIR)$(LINKED_CLASS_ARCHIVES)$frameworkjars:"`$(JAVACONFIG) DefaultClasspath`
-    $(JAVA_COMPILER) +OLDCSO +E $(JAVAC_FLAGS) -sourcepath "$(JAVA_SOURCE_PATH)" -classpath "$classpath" -d "$(CLASS_FILE_DIR)" '$(2)'
+    $(JAVA_COMPILER) $(JAVAC_FLAGS) -sourcepath "$(JAVA_SOURCE_PATH)" -classpath "$classpath" -d "$(CLASS_FILE_DIR)" '$(2)'
 }
 
 rule ProcessApplescripts
@@ -4754,8 +4868,8 @@ rule CompileC
     if $(KERNEL_MODULE) = YES {
         local KERNEL_FRAMEWORK = $(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework ;
         local KERNEL_HEADERS = $(KERNEL_FRAMEWORK)/Headers ;
-        local KERNEL_INCLUDE_PATHS = $(KERNEL_HEADERS) $(KERNEL_HEADERS)/bsd ;
-        local KERNEL_COMPILE_OPTIONS = -finline -fno-keep-inline-functions -force_cpusubtype_ALL -msoft-float ;
+        local KERNEL_INCLUDE_PATHS = $(KERNEL_HEADERS) $(KERNEL_HEADERS)/bsd $(KERNEL_FRAMEWORK)/PrivateHeaders ;
+        local KERNEL_COMPILE_OPTIONS = -fno-builtin -finline -fno-keep-inline-functions -force_cpusubtype_ALL -msoft-float ;
         if $(ARCH) in ppc {
             KERNEL_COMPILE_OPTIONS += -mlong-branch ;
         }
@@ -4769,6 +4883,14 @@ rule CompileC
     FLAGS on $(1) += -pipe ;
     if $(USE_GCC3) = YES {
         FLAGS on $(1) += -fmessage-length=0 ;
+        if $(PRODUCT_TYPE) = Tool || $(PRODUCT_TYPE) = Application {
+            USE_DYNAMIC_NO_PIC default = YES ;
+        } else {
+            USE_DYNAMIC_NO_PIC default = NO ;
+        }
+        if $(USE_DYNAMIC_NO_PIC) = YES {
+            FLAGS on $(1) += -mdynamic-no-pic ;
+        }
     }
     # seed search paths with target-wide values
     HEADER_SEARCH_PATHS on $(1) = $(HEADER_SEARCH_PATHS) ;
@@ -4796,7 +4918,7 @@ rule CompileC
     }
     # Pass the trusted-precomp file name to the compiler to keep track
     # of which precompiled headers it has already sanity checked.
-    if $(OS) in MACOS DARWIN {
+    if $(OS) in MACOS DARWIN  &&  $(EFFECTIVE_PFE_FILE_$(ARCH)) = "" {
         FLAGS on $(1) += -precomp-trustfile $(PRECOMP_TRUSTFILE) ;
     }
     if $(CPP_HEADERMAP_FILE) {
@@ -4809,15 +4931,11 @@ rule CompileC
     if $(INDEX_GENERATION_PIPE_NAME) != "" {
         FLAGS on $(1) += "-fgen-index=$(INDEX_GENERATION_PIPE_NAME)" ;
     }
-    if ( $(2:S) in ".m" ".mm" ".M"  ) && ( $(OBJC_PFE_FILE_DESTINATION_PATH_$(ARCH)) != "" ) {
-        PREFIX_HEADER_CFLAGS on $(1) = --load-pch "$(OBJC_PFE_FILE_DESTINATION_PATH_$(ARCH))" ;
-        DEPENDS $(1) : $(OBJC_PFE_FILE_DESTINATION_PATH_$(ARCH)) ;
-     }
-    else if ( $(C_PFE_FILE_DESTINATION_PATH_$(ARCH)) != "" ) {
-        PREFIX_HEADER_CFLAGS on $(1) = --load-pch "$(C_PFE_FILE_DESTINATION_PATH_$(ARCH))" ;
-        DEPENDS $(1) : $(C_PFE_FILE_DESTINATION_PATH_$(ARCH)) ;
+    if $(EFFECTIVE_PFE_FILE_$(ARCH)) != ""  &&  $(SUPPRESS_PREFIX_HEADER) != YES {
+        PREFIX_HEADER_CFLAGS on $(1) = --load-pch "$(EFFECTIVE_PFE_FILE_$(ARCH))" ;
+        DEPENDS $(1) : $(EFFECTIVE_PFE_FILE_$(ARCH)) ;
     }
-    if $(EFFECTIVE_PREFIX_HEADER) {
+    if $(EFFECTIVE_PREFIX_HEADER) != ""  &&  $(SUPPRESS_PREFIX_HEADER) != YES {
         PREFIX_HEADER_CFLAGS on $(1) += -include "$(EFFECTIVE_PREFIX_HEADER)" ;
         DEPENDS $(1) : $(EFFECTIVE_PREFIX_HEADER) ;
     }
@@ -4825,7 +4943,7 @@ rule CompileC
 
 actions CompileC
 {
-    $(CC) -c "-F$(FRAMEWORK_SEARCH_PATHS)" "-I$(HEADER_SEARCH_PATHS)" "$(FLAGS)" $(GLOBAL_CFLAGS) "-I$(DERIVED_PATHS)" "$(PREFIX_HEADER_CFLAGS)" "$(2)" -o "$(1)"
+    $(CC:Q) -c -F$(FRAMEWORK_SEARCH_PATHS:Q) -I$(HEADER_SEARCH_PATHS:Q) "$(FLAGS)" $(GLOBAL_CFLAGS) -I$(DERIVED_PATHS:Q) $(PREFIX_HEADER_CFLAGS:Q) $(2:Q) -o $(1:Q)
 }
 
 rule CompileCplusplus
@@ -4836,16 +4954,13 @@ rule CompileCplusplus
     if $(KERNEL_MODULE) = YES {
         local KERNEL_FRAMEWORK = $(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework ;
         local KERNEL_HEADERS = $(KERNEL_FRAMEWORK)/Headers ;
-        local KERNEL_INCLUDE_PATHS = $(KERNEL_HEADERS) $(KERNEL_HEADERS)/bsd ;
+        local KERNEL_INCLUDE_PATHS = $(KERNEL_HEADERS) $(KERNEL_HEADERS)/bsd $(KERNEL_FRAMEWORK)/PrivateHeaders ;
         #!!!:cmolick:20020228 different default flags for gcc3 kext builds
         if $(USE_GCC3) = YES {
-            KERNEL_COMPILE_OPTIONS = -x c++ -fno-rtti -fno-exceptions -fcheck-new ;
-            if $(MODULE_IOKIT) = YES {
-                KERNEL_COMPILE_OPTIONS += -fapple-kext ;
-            }
+            KERNEL_COMPILE_OPTIONS = -fno-builtin -finline -fno-keep-inline-functions -force_cpusubtype_ALL -fno-rtti -fno-exceptions -fcheck-new -msoft-float -fapple-kext ;
         }
         else {
-            KERNEL_COMPILE_OPTIONS = -x c++ -fno-rtti -fno-exceptions -fcheck-new -fvtable-thunks ;
+            KERNEL_COMPILE_OPTIONS = -fno-builtin -finline -fno-keep-inline-functions -force_cpusubtype_ALL -fno-rtti -fno-exceptions -fcheck-new -fvtable-thunks -msoft-float ;
             if $(MODULE_IOKIT) = YES {
                 KERNEL_COMPILE_OPTIONS += -findirect-virtual-calls ;
             }
@@ -4867,6 +4982,14 @@ rule CompileCplusplus
     FLAGS on $(1) += -pipe ;
     if ( $(USE_GCC3) = YES ) {
         FLAGS on $(1) += -fmessage-length=0 ;
+        if $(PRODUCT_TYPE) = Tool || $(PRODUCT_TYPE) = Application {
+            USE_DYNAMIC_NO_PIC default = YES ;
+        } else {
+            USE_DYNAMIC_NO_PIC default = NO ;
+        }
+        if $(USE_DYNAMIC_NO_PIC) = YES {
+            FLAGS on $(1) += -mdynamic-no-pic ;
+        }
     }
     # seed search paths with target-wide values
     HEADER_SEARCH_PATHS on $(1) = $(HEADER_SEARCH_PATHS) ;
@@ -4893,7 +5016,7 @@ rule CompileCplusplus
     }
     # Pass the trusted-precomp file name to the compiler to keep track
     # of which precompiled headers it has already sanity checked.
-    if $(OS) in MACOS DARWIN {
+    if $(OS) in MACOS DARWIN  &&  $(EFFECTIVE_PFE_FILE_$(ARCH)) = "" {
         FLAGS on $(1) += -precomp-trustfile $(PRECOMP_TRUSTFILE) ;
     }
     if $(CPP_HEADERMAP_FILE) {
@@ -4903,15 +5026,11 @@ rule CompileCplusplus
         local INCLUSION_LOG_FILE default = $(OBJECT_FILE_DIR)-$(VARIANT)$(/)$(ARCH)$(/)$(1:DB).ilog ;
         FLAGS on $(1) += "-Wp,-inclusion-log-file,$(INCLUSION_LOG_FILE)" ;
     }
-    if ( $(2:S) in ".mm" ".M"  ) && ( $(OBJCPLUSPLUS_PFE_FILE_DESTINATION_PATH_$(ARCH)) != "" ) {
-        PREFIX_HEADER_CFLAGS on $(1) = --load-pch "$(OBJCPLUSPLUS_PFE_FILE_DESTINATION_PATH_$(ARCH))" ;
-        DEPENDS $(1) : $(OBJCPLUSPLUS_PFE_FILE_DESTINATION_PATH_$(ARCH)) ;
+    if $(EFFECTIVE_PFE_FILE_$(ARCH)) != ""  &&  $(SUPPRESS_PREFIX_HEADER) != YES {
+        PREFIX_HEADER_CFLAGS on $(1) = --load-pch "$(EFFECTIVE_PFE_FILE_$(ARCH))" ;
+        DEPENDS $(1) : $(EFFECTIVE_PFE_FILE_$(ARCH)) ;
     }
-    else if ( $(CPLUSPLUS_PFE_FILE_DESTINATION_PATH_$(ARCH)) != "" ) {
-        PREFIX_HEADER_CFLAGS on $(1) = --load-pch "$(CPLUSPLUS_PFE_FILE_DESTINATION_PATH_$(ARCH))" ;
-        DEPENDS $(1) : $(CPLUSPLUS_PFE_FILE_DESTINATION_PATH_$(ARCH)) ;
-    }
-    if $(EFFECTIVE_PREFIX_HEADER) {
+    if $(EFFECTIVE_PREFIX_HEADER) != ""  &&  $(SUPPRESS_PREFIX_HEADER) != YES {
         PREFIX_HEADER_CFLAGS on $(1) += -include "$(EFFECTIVE_PREFIX_HEADER)" ;
         DEPENDS $(1) : $(EFFECTIVE_PREFIX_HEADER) ;
     }
@@ -4920,7 +5039,7 @@ rule CompileCplusplus
 
 actions CompileCplusplus
 {
-    $(CPLUSPLUS) -c "-F$(FRAMEWORK_SEARCH_PATHS)" "-I$(HEADER_SEARCH_PATHS)" "$(FLAGS)" $(GLOBAL_CFLAGS) "-I$(DERIVED_PATHS)" "$(PREFIX_HEADER_CFLAGS)" "$(2)" -o "$(1)"
+    $(CPLUSPLUS:Q) -c -F$(FRAMEWORK_SEARCH_PATHS:Q) -I$(HEADER_SEARCH_PATHS:Q) "$(FLAGS)" $(GLOBAL_CFLAGS) -I$(DERIVED_PATHS:Q) $(PREFIX_HEADER_CFLAGS:Q) $(2:Q) -o $(1:Q)
 }
 
 VECTOR_SUFFIX default = ;
@@ -4966,9 +5085,11 @@ rule ProcessUsingMig
     if Server in $($(2)_ATTRIBUTES) {
         TEMP_FILES += $(FILE_BASE)Server.h $(FILE_BASE)Server.c ;
     }
-    Mig $(TEMP_FILES) : $(2) ;
-    DerivedFiles $(TEMP_FILES) ;
-    ProcessFiles $(1) : $(TEMP_FILES) ;
+    if Client in $($(2)_ATTRIBUTES) || Server in $($(2)_ATTRIBUTES) {
+        Mig $(TEMP_FILES) : $(2) ;
+        DerivedFiles $(TEMP_FILES) ;
+        ProcessFiles $(1) : $(TEMP_FILES) ;
+    }
 }
 
 rule ProcessUsingLex

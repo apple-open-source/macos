@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -495,6 +496,8 @@ ni_create(void *handle, ni_id *parent_id, ni_proplist pl, ni_id *child_id_p, ni_
 	obj_free(child);
 	obj_free(parent);
 
+	file_notify(FH(handle));
+
 	return NI_OK;
 }
 
@@ -564,6 +567,8 @@ ni_destroy(void *handle, ni_id *parent_id, ni_id child_id)
 		obj_unalloc(handle, child);
 	}
 
+	file_notify(FH(handle));
+
 	return NI_OK;
 }
 
@@ -630,6 +635,9 @@ ni_write(void *handle, ni_id *id, ni_proplist props)
 
 	*id = obj->nio_id;
 	obj_free(obj);
+
+	file_notify(FH(handle));
+
 	return NI_OK;
 }
 
@@ -1032,6 +1040,8 @@ ni_writeprop(void *handle, ni_id *id, ni_index prop_index, ni_namelist values)
 	*id = obj->nio_id;
 	obj_free(obj);
 
+	file_notify(FH(handle));
+
 	return status;
 }
 
@@ -1066,6 +1076,8 @@ ni_createprop(void *handle, ni_id *id, ni_property prop, ni_index where)
 	*id = obj->nio_id;
 	im_create_list(IMH(handle), obj, prop.nip_name, prop.nip_val);
 	obj_free(obj);
+
+	file_notify(FH(handle));
 
 	return NI_OK;
 }
@@ -1114,6 +1126,8 @@ ni_destroyprop(void *handle, ni_id *id, ni_index prop_index)
 	ni_prop_free(&saveprop);
 	obj_free(obj);
 
+	file_notify(FH(handle));
+
 	return NI_OK;
 }
 
@@ -1157,6 +1171,8 @@ ni_renameprop(void *handle, ni_id *id, ni_index prop_index, ni_name_const name)
 	
 	*id = obj->nio_id;
 	obj_free(obj);
+
+	file_notify(FH(handle));
 
 	return NI_OK;
 }
@@ -1226,6 +1242,8 @@ ni_createname(void *handle, ni_id *id, ni_index prop_index, ni_name_const name, 
 	im_create(IMH(handle), obj,  obj->nio_props.nipl_val[prop_index].nip_name, name, where);
 	*id = obj->nio_id;
 	obj_free(obj);
+
+	file_notify(FH(handle));
 
 	return NI_OK;
 }
@@ -1346,6 +1364,8 @@ ni_writename(void *handle, ni_id *id, ni_index prop_index, ni_index name_index, 
 
 	*id = obj->nio_id;
 	obj_free(obj);
+
+	file_notify(FH(handle));
 
 	return NI_OK;
 }

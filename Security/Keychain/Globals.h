@@ -25,7 +25,6 @@
 #undef check
 #endif
 #include <Security/StorageManager.h>
-#include <Security/DefaultKeychain.h>
 #include <Security/aclclient.h>
 
 
@@ -45,10 +44,10 @@ public:
 
 	// Public globals
 	StorageManager storageManager;
-	DefaultKeychain defaultKeychain;
+	//DefaultKeychain defaultKeychain;
 	Mutex apiLock;
 private:
-    
+
 	// Other "globals"
 	bool mUI;
 	CssmClient::AclFactory mACLFactory;  

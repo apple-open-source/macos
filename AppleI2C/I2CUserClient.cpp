@@ -335,7 +335,7 @@ IOReturn I2CUserClient::read( void *inStruct, void *outStruct,
 	sevenBitAddr = input->addr >> 1;	// shift out the R/W bit
 
 	// attempt the read
-	retries = 10;
+	retries = 1;
 
 	while (!fProvider->readI2CBus(sevenBitAddr, input->subAddr, output->buf, byteCount))
 	{
@@ -450,7 +450,7 @@ IOReturn I2CUserClient::write( void *inStruct, void *outStruct,
 	sevenBitAddr = input->addr >> 1;	// shift out the R/W bit
 
 	// attempt the write
-	retries = 10;
+	retries = 1;
 
 	while (!fProvider->writeI2CBus(sevenBitAddr, input->subAddr, input->buf, byteCount))
 	{
@@ -556,7 +556,7 @@ IOReturn I2CUserClient::rmw( void *inStruct, void *inCount,
 	}
 
 	// attempt the read
-	retries = 10;
+	retries = 1;
 
 	while (!fProvider->readI2CBus(sevenBitAddr, input->subAddr, &newByte, 1))
 	{
@@ -626,7 +626,7 @@ IOReturn I2CUserClient::rmw( void *inStruct, void *inCount,
 	}
 
 	// attempt the write
-	retries = 10;
+	retries = 1;
 
 	while (!fProvider->writeI2CBus(sevenBitAddr, input->subAddr, &newByte, 1))
 	{

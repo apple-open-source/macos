@@ -1,0 +1,1016 @@
+This is Info file dejagnu.info, produced by Makeinfo version 1.68 from
+the input file ./dejagnu.texi.
+
+START-INFO-DIR-ENTRY
+* DejaGnu: (dejagnu).            The GNU testing framework.
+END-INFO-DIR-ENTRY
+
+   Copyright (C) 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided also
+that the entire resulting derived work is distributed under the terms
+of a permission notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions.
+
+
+File: dejagnu.info,  Node: Debugging,  Next: Adding,  Prev: Writing,  Up: Tests
+
+Debugging a test case
+=====================
+
+These are the kinds of debugging information available from DejaGnu:
+
+  1. Output controlled by test scripts themselves, explicitly allowed
+     for by the test author.  This kind of debugging output appears in
+     the detailed output recorded in the `TOOL.log' file.  To do the
+     same for new tests, use the `verbose' procedure (which in turn
+     uses the variable also called `verbose') to control how much
+     output to generate.  This will make it easier for other people
+     running the test to debug it if necessary.  Whenever possible, if
+     `$verbose' is `0', there should be no output other than the output
+     from `pass', `fail', `error', and `warning'.  Then, to whatever
+     extent is appropriate for the particular test, allow successively
+     higher values of `$verbose' to generate more information.  Be kind
+     to other programmers who use your tests: provide for a lot of
+     debugging information.
+
+  2. Output from the internal debugging functions of Tcl and `expect'.
+     There is a command line options for each; both forms of debugging
+     output are recorded in the file `dbg.log' in the current directory.
+
+     Use `--debug' for information from the `expect' level; it
+     generates displays of the `expect' attempts to match the tool
+     output with the patterns specified (*note Debug Log: Debug.).  This
+     output can be very helpful while developing test scripts, since it
+     shows precisely the characters received.  Iterating between the
+     latest attempt at a new test script and the corresponding
+     `dbg.log' can allow you to create the final patterns by "cut and
+     paste".  This is sometimes the best way to write a test case.
+
+     Use `--strace' to see more detail at the Tcl level; this shows how
+     Tcl procedure definitions expand, as they execute.  The associated
+     number controls the depth of definitions expanded; see the
+     discussion of `--strace' in *Note Running the Tests: Invoking
+     runtest.
+
+  3. Finally, if the value of `verbose' is 3 or greater, `runtest'
+     turns on the `expect' command `log_user'.  This command prints all
+     `expect' actions to the `expect' standard output, to the detailed
+     log file, and (if `--debug' is on) to `dbg.log'.
+
+
+File: dejagnu.info,  Node: Adding,  Next: Hints,  Prev: Debugging,  Up: Tests
+
+Adding a test case to a test suite
+==================================
+
+   There are two slightly different ways to add a test case. One is to
+add the test case to an existing directory. The other is to create a new
+directory to hold your test. The existing test directories represent
+several styles of testing, all of which are slightly different; examine
+the directories for the tool of interest to see which (if any) is most
+suitable.
+
+   Adding a GCC test can be very simple: just add the C code to any
+directory beginning with `gcc.' and it runs on the next `runtest --tool
+gcc'.
+
+   To add a test to GDB, first add any source code you will need to the
+test directory. Then you can either create a new `expect' file, or add
+your test to an existing one (any file with a `.exp' suffix).  Creating
+a new `.exp' file is probably a better idea if the test is
+significantly different from existing tests. Adding it as a separate
+file also makes upgrading easier. If the C code has to be already
+compiled before the test will run, then you'll have to add it to the
+`Makefile.in' file for that test directory, then run `configure' and
+`make'.
+
+   Adding a test by creating a new directory is very similar:
+
+  1. Create the new directory. All subdirectory names begin with the
+     name of the tool to test; e.g. G++ tests might be in a directory
+     called `g++.other'. There can be multiple test directories that
+     start with the same tool name (such as `g++').
+
+  2. Add the new directory name to the `configdirs' definition in the
+     `configure.in' file for the test suite directory. This way when
+     `make' and `configure' next run, they include the new directory.
+
+  3. Add the new test case to the directory, as above.
+
+  4. To add support in the new directory for configure and make, you
+     must also create a `Makefile.in' and a `configure.in'.  *Note What
+     Configure Does: (configure.info)What Configure Does.
+
+
+File: dejagnu.info,  Node: Hints,  Next: Variables,  Prev: Adding,  Up: Tests
+
+Hints on writing a test case
+============================
+
+   There may be useful existing procedures already written for your
+test in the `lib' directory of the DejaGnu distribution.  *Note DejaGnu
+Builtins: DejaGnu Builtins.
+
+   It is safest to write patterns that match *all* the output generated
+by the tested program; this is called "closure".  If a pattern does not
+match the entire output, any output that remains will be examined by
+the *next* `expect' command.  In this situation, the precise boundary
+that determines which `expect' command sees what is very sensitive to
+timing between the `expect' task and the task running the tested tool.
+As a result, the test may sometimes appear to work, but is likely to
+have unpredictable results.  (This problem is particularly likely for
+interactive tools, but can also affect batch tools--especially for
+tests that take a long time to finish.)  The best way to ensure closure
+is to use the `-re' option for the `expect' command to write the
+pattern as a full regular expressions; then you can match the end of
+output using a `$'.  It is also a good idea to write patterns that
+match all available output by using `.*\' after the text of interest;
+this will also match any intervening blank lines.  Sometimes an
+alternative is to match end of line using `\r' or `\n', but this is
+usually too dependent on terminal settings.
+
+   Always escape punctuation, such as `(' or `"', in your patterns; for
+example, write `\('.  If you forget to escape punctuation, you will
+usually see an error message like `extra characters after close-quote'.
+
+   If you have trouble understanding why a pattern does not match the
+program output, try using the `--debug' option to `runtest', and
+examine the debug log carefully.  *Note Debug Log: Debug.
+
+   Be careful not to neglect output generated by setup rather than by
+the interesting parts of a test case.  For example, while testing GDB,
+I issue a send `set height 0\n' command.  The purpose is simply to make
+sure GDB never calls a paging program.  The `set height' command in GDB
+does not generate any output; but running *any* command makes GDB issue
+a new `(gdb) ' prompt.  If there were no `expect' command to match this
+prompt, the output `(gdb) ' begins the text seen by the next `expect'
+command--which might make *that* pattern fail to match.
+
+   To preserve basic sanity, I also recommended that no test ever pass
+if there was any kind of problem in the test case.  To take an extreme
+case, tests that pass even when the tool will not spawn are misleading.
+Ideally, a test in this sort of situation should not fail either.
+Instead, print an error message by calling one of the DejaGnu procedures
+`error' or `warning'.
+
+
+File: dejagnu.info,  Node: Variables,  Prev: Hints,  Up: Tests
+
+Special variables used by test cases
+====================================
+
+   Your test cases can use these variables, with conventional meanings
+(as well as the variables saved in `site.exp' *note Setting `runtest'
+defaults: Customizing.):
+
+     *These variables are available to all test cases.*
+
+`prms_id'
+     The tracking system (e.g. GNATS) number identifying a corresponding
+     bugreport.  (`0' if you do not specify it in the test script.)
+
+`bug_id'
+     An optional bug id; may reflect a bug identification from another
+     organization.  (`0' if you do not specify it.)
+
+`subdir'
+     The subdirectory for the current test case.
+
+     *These variables should never be changed. They appear in most
+     tests.*
+
+`expect_out(buffer)'
+     The output from the last command. This is an internal variable set
+     by `expect'.
+
+`exec_output'
+     This is the output from a `TOOL_load' command. This only applies
+     to tools like GCC and GAS which produce an object file that must
+     in turn be executed to complete a test.
+
+`comp_output'
+     This is the output from a `TOOL_start' command.  This is
+     conventionally used for batch oriented programs, like GCC and GAS,
+     that may produce interesting output (warnings, errors) without
+     further interaction.
+
+
+File: dejagnu.info,  Node: Extending,  Next: Installation,  Prev: Tests,  Up: Top
+
+New Tools, Targets, or Hosts
+****************************
+
+   The most common ways to extend the DejaGnu framework are: adding a
+suite of tests for a new tool to be tested; adding support for testing
+on a new target; and porting `runtest' to a new host.
+
+* Menu:
+
+* Adding Tools::                How to add tests for a new tool
+* Adding Targets::              How to add a new target
+* Porting::                     Porting DejaGnu to a new host
+
+
+File: dejagnu.info,  Node: Adding Tools,  Next: Adding Targets,  Up: Extending
+
+Writing tests for a new tool
+============================
+
+   In general, the best way to learn how to write (code or even prose)
+is to read something similar.  This principle applies to test cases and
+to test suites.  Unfortunately, well-established test suites have a way
+of developing their own conventions: as test writers become more
+experienced with DejaGnu and with Tcl, they accumulate more utilities,
+and take advantage of more and more features of `expect' and Tcl in
+general.
+
+   Inspecting such established test suites may make the prospect of
+creating an entirely new test suite appear overwhelming.  Nevertheless,
+it is quite straightforward to get a new test suite going.
+
+   There is one test suite that is guaranteed not to grow more elaborate
+over time: both it and the tool it tests were created expressly to
+illustrate what it takes to get started with DejaGnu.  The `example/'
+directory of the DejaGnu distribution contains both an interactive tool
+called `calc', and a test suite for it.  Reading this test suite, and
+experimenting with it, is a good way to supplement the information in
+this section.  (Thanks to Robert Lupton for creating `calc' and its
+test suite--and also the first version of this section of the manual!)
+
+   To help orient you further in this task, here is an outline of the
+steps to begin building a test suite for a program EXAMPLE.
+
+  1. Create or select a directory to contain your new collection of
+     tests.  Change to that directory (shown here as `testsuite'):
+
+          eg$ cd testsuite/
+
+  2. Create a `configure.in' file in this directory, to control
+     configuration-dependent choices for your tests.  So far as DejaGnu
+     is concerned, the important thing is to set a value for the
+     variable `target_abbrev'; this value is the link to the init file
+     you will write soon.  (For simplicity, we assume the environment
+     is Unix, and use `unix' as the value.)
+
+     What else is needed in `configure.in' depends on the requirements
+     of your tool, your intended test environments, and which
+     `configure' system you use.  This example is a minimal
+     `configure.in' for use with Cygnus Configure.  (For an alternative
+     based on the FSF `autoconf' system, see the `calc' example
+     distributed with DejaGnu.)  Replace EXAMPLE with the name of your
+     program:
+
+          # This file is a shell script fragment
+          # for use with Cygnus configure.
+          
+          srctrigger="EXAMPLE.0"
+          srcname="The DejaGnu EXAMPLE tests"
+          
+          # per-host:
+          
+          # per-target:
+          
+          # everything defaults to unix for a target
+          target_abbrev=unix
+          
+          # post-target:
+
+  3. Create `Makefile.in', the source file used by `configure' to build
+     your `Makefile'.  Its leading section should as usual contain the
+     values that `configure' may override:
+
+          srcdir = .
+          prefix = /usr/local
+          
+          exec_prefix = $(prefix)
+          bindir = $(exec_prefix)/bin
+          libdir = $(exec_prefix)/lib
+          tooldir = $(libdir)/$(target_alias)
+          
+          datadir = $(exec_prefix)/lib/dejagnu
+          
+          RUNTEST = runtest
+          RUNTESTFLAGS =
+          FLAGS_TO_PASS =
+          
+          #### host, target, site specific Makefile frags come in here.
+
+     This should be followed by the standard targets at your site.  To
+     begin with, they need not do anything--for example, these
+     definitions will do:
+
+
+          all:
+          
+          info:
+          
+          install-info:
+          
+          install:
+          uninstall:
+          
+          clean:
+                  -rm -f *~ core *.info*
+
+     It is also a good idea to make sure your `Makefile' can rebuild
+     itself if `Makefile.in' changes, with a target like this (which
+     works for either Cygnus or FSF Configure):
+
+          Makefile : $(srcdir)/Makefile.in $(host_makefile_frag) \
+                       $(target_makefile_frag)
+                  $(SHELL) ./config.status
+
+     You also need to include two targets important to DejaGnu: `check',
+     to run the tests, and `site.exp', to set up the Tcl copies of
+     configuration-dependent values.  The `check' target must run
+     `runtest --tool EXAMPLE':
+
+          check: site.exp all
+                  $(RUNTEST) $(RUNTESTFLAGS) $(FLAGS_TO_PASS) \
+                      --tool EXAMPLE --srcdir $(srcdir)
+
+     The `site.exp' target should usually set up (among other things!) a
+     Tcl variable for the name of your program:
+
+          site.exp: ./config.status Makefile
+                  @echo "Making a new config file..."
+                  -@rm -f ./tmp?
+                  @touch site.exp
+          
+                  -@mv site.exp site.bak
+                  @echo "## these variables are automatically\
+           generated by make ##" > ./tmp0
+                  @echo "# Do not edit here. If you wish to\
+           override these values" >> ./tmp0
+                  @echo "# add them to the last section" >> ./tmp0
+                  @echo "set host_os ${host_os}" >> ./tmp0
+                  @echo "set host_alias ${host_alias}" >> ./tmp0
+                  @echo "set host_cpu ${host_cpu}" >> ./tmp0
+                  @echo "set host_vendor ${host_vendor}" >> ./tmp0
+                  @echo "set target_os ${target_os}" >> ./tmp0
+                  @echo "set target_alias ${target_alias}" >> ./tmp0
+                  @echo "set target_cpu ${target_cpu}" >> ./tmp0
+                  @echo "set target_vendor ${target_vendor}" >> ./tmp0
+                  @echo "set host_triplet ${host_canonical}" >> ./tmp0
+                  @echo "set target_triplet ${target_canonical}">>./tmp0
+                  @echo "set tool binutils" >> ./tmp0
+                  @echo "set srcdir ${srcdir}" >> ./tmp0
+                  @echo "set objdir `pwd`" >> ./tmp0
+                  @echo "set EXAMPLENAME EXAMPLE" >> ./tmp0
+                  @echo "## All variables above are generated by\
+           configure. Do Not Edit ##" >> ./tmp0
+                          @cat ./tmp0 > site.exp
+                  @sed < site.bak \
+                         -e '1,/^## All variables above are.*##/ d' \
+                         >> site.exp
+                  -@rm -f ./tmp?
+
+  4. Create a directory (in `testsuite/') called `config/':
+
+          eg$ mkdir config
+
+  5. Make an init file in this directory; its name must start with the
+     `target_abbrev' value, so call it `config/unix.exp'.  This is the
+     file that contains the target-dependent procedures; fortunately,
+     most of them do not have to do very much in order for `runtest' to
+     run.
+
+     If EXAMPLE is not interactive, you can get away with this minimal
+     `unix.exp' to begin with:
+
+          proc foo_exit {} {}
+          proc foo_version {} {}
+
+     If EXAMPLE is interactive, however, you might as well define a
+     start routine *and invoke it* by using an init file like this:
+
+          proc foo_exit {} {}
+          proc foo_version {} {}
+          
+          proc foo_start {} {
+            global EXAMPLENAME
+            spawn $EXAMPLENAME
+            expect {
+              -re "" {}
+            }
+          }
+          foo_start
+
+  6. Create a directory whose name begins with your tool's name, to
+     contain tests:
+
+          eg$ mkdir EXAMPLE.0
+
+  7. Create a sample test file in `EXAMPLE.0'.  Its name must end with
+     `.exp'; you can use `first-try.exp'  To begin with, just write
+     there a line of Tcl code to issue a message:
+
+          send_user "Testing: one, two...\n"
+
+  8. Back in the `testsuite/' (top level) directory, run
+
+          eg$ configure
+
+     (You may have to specify more of a path, if a suitable `configure'
+     is not available in your execution path.)
+
+  9. You are now ready to triumphantly type `make check' or `runtest
+     --tool EXAMPLE'.  You should see something like this:
+
+          Test Run By rhl on Fri Jan 29 16:25:44 EST 1993
+          
+                          === EXAMPLE tests ===
+          
+          Running ./EXAMPLE.0/first-try.exp ...
+          Testing: one, two...
+          
+                          === EXAMPLE Summary ===
+
+     There is no output in the summary, because so far the example does
+     not call any of the procedures that establish a test outcome.
+
+ 10. Begin writing some real tests.  For an interactive tool, you should
+     probably write a real exit routine in fairly short order; in any
+     case, you should also write a real version routine soon.
+
+
+File: dejagnu.info,  Node: Adding Targets,  Next: Porting,  Prev: Adding Tools,  Up: Extending
+
+Adding a target
+===============
+
+   DejaGnu has some additional requirements for target support, beyond
+the general-purpose provisions of Cygnus `configure'.  `runtest' must
+actively communicate with the target, rather than simply generating or
+managing code for the target architecture.  Therefore, each tool
+requires an initialization module for each target.  For new targets, you
+must supply a few Tcl procedures to adapt DejaGnu to the target.  This
+permits DejaGnu itself to remain target independent.  *Note
+Initialization module: Init Module, for a discussion of the naming
+conventions that enable DejaGnu to locate and use init files.
+
+   Usually the best way to write a new initialization module is to edit
+an existing initialization module; some trial and error will be
+required.  If necessary, you can use the `--debug' option to see what
+is really going on.
+
+   When you code an initialization module, be generous in printing
+information controlled by the `verbose' procedure (*note DejaGnu
+procedures: DejaGnu Builtins.).
+
+   Most of the work is in getting the communications right.
+Communications code (for several situations involving IP networks or
+serial lines) is available in a DejaGnu library file, `lib/remote.exp'.
+*Note DejaGnu Builtins: DejaGnu Builtins.
+
+   If you suspect a communication problem, try running the connection
+interactively from `expect'.  (There are three ways of running `expect'
+as an interactive interpreter.  You can run `expect' with no arguments,
+and control it completely interactively; or you can use `expect -i'
+together with other command-line options and arguments; or you can run
+the command `interpreter' from any `expect' procedure.  Use `return' to
+get back to the calling procedure (if any), or `return -tcl' to make
+the calling procedure itself return to its caller; use `exit' or
+end-of-file to leave `expect' altogether.)  Run the program whose name
+is recorded in `$connectmode', with the arguments in `$targetname', to
+establish a connection.  You should at least be able to get a prompt
+from any target that is physically connected.
+
+
+File: dejagnu.info,  Node: Porting,  Prev: Adding Targets,  Up: Extending
+
+Porting to a new host
+=====================
+
+   The task of porting DejaGnu is basically that of porting Tcl and
+`expect'. Tcl and `expect', as distributed with DejaGnu, both use
+`autoconf'; they should port automatically to most Unix systems.
+
+   Once Tcl and `expect' are ported, DejaGnu should run.  Most system
+dependencies are taken care of by using `expect' as the main command
+shell.
+
+
+File: dejagnu.info,  Node: Installation,  Next: Index,  Prev: Extending,  Up: Top
+
+Installing DejaGnu
+******************
+
+   Once you have the DejaGnu source unpacked and available, you must
+first configure the software to specify where it is to run (and the
+associated defaults); then you can proceed to installing it.
+
+* Menu:
+
+* Configuring DejaGnu::
+* Installing DejaGnu::
+
+
+File: dejagnu.info,  Node: Configuring DejaGnu,  Next: Installing DejaGnu,  Up: Installation
+
+Configuring the DejaGnu test driver
+===================================
+
+   It is usually best to configure in a directory separate from the
+source tree, specifying where to find the source with the optional
+`--srcdir' option to `configure'. DejaGnu uses the GNU `autoconf' to
+configure itself. For more info on using autoconf, read the GNU
+autoconf manual. To configure, execute the `configure' program, no
+other options are required. For an example, to configure in a seperate
+tree for objects, execute the configure script from the source tree
+like this:
+
+     ../dejagnu-1.3/configure
+
+   DejaGnu doesn't care at config time if it's for testing a native
+system or a cross system. That is determined at runtime by using the
+config files.
+
+   You may also want to use the `configure' option `--prefix' to
+specify where you want DejaGnu and its supporting code installed.  By
+default, installation is in subdirectories of `/usr/local', but you can
+select any alternate directory ALTDIR by including `--prefix=ALTDIR' on
+the `configure' command line.  (This value is captured in the Makefile
+variables `prefix' and `exec_prefix'.)
+
+   Save for a small number of example tests, the DejaGnu distribution
+itself does not include any test suites; these are available separately.
+Test suites for the GNU compiler (testing both GCC and G++) and for the
+GNU binary utilities are distributed in parallel with the DejaGnu
+distribution (but packaged as separate files).  The test suite for the
+GNU debugger is distributed in parallel with each release of GDB
+itself, starting with GDB 4.9.  After configuring the top-level DejaGnu
+directory, unpack and configure the test directories for the tools you
+want to test; then, in each test directory, run `make' to build
+auxiliary programs required by some of the tests.
+
+
+File: dejagnu.info,  Node: Installing DejaGnu,  Prev: Configuring DejaGnu,  Up: Installation
+
+Installing DejaGnu
+==================
+
+   To install DejaGnu in your filesystem (either in `/usr/local', or as
+specified by your `--prefix' option to `configure'), execute
+
+     eg$ make install
+
+`make install' does these things for DejaGnu:
+
+  1. Look in the path specified for executables (`$exec_prefix') for
+     directories called `lib' and `bin'.  If these directories do not
+     exist, `make install' creates them.
+
+  2. Create another directory in the `lib' directory, called `dejagnu'.
+
+  3. Copy the `runtest' shell script into `$exec_prefix/bin'.
+
+  4. Copy all the library files (used to support the framework) into
+     `$exec_prefix/lib/dejagnu'.
+
+  5. Copy `runtest.exp' into `$exec_prefix/lib/dejagnu'.  This is the
+     main Tcl code implementing DejaGnu.
+
+
+   Each test suite collection comes with simple installation
+instructions in a `README' file; in general, the test suites are
+designed to be unpacked in the source directory for the corresponding
+tool, and extract into a directory called `testsuite'.
+
+
+File: dejagnu.info,  Node: Index,  Prev: Installation,  Up: Top
+
+Index
+*****
+
+* Menu:
+
+* --all (runtest option):                Invoking runtest.
+* --baud (runtest option):               Invoking runtest.
+* --build (runtest option):              Invoking runtest.
+* --connect (runtest option):            Invoking runtest.
+* --debug (runtest option):              Invoking runtest.
+* --help (runtest option):               Invoking runtest.
+* --host (runtest option):               Invoking runtest.
+* --name (runtest option):               Invoking runtest.
+* --objdir (runtest option):             Invoking runtest.
+* --outdir (runtest option):             Invoking runtest.
+* --reboot (runtest option):             Invoking runtest.
+* --srcdir (runtest option):             Invoking runtest.
+* --strace (runtest option):             Invoking runtest.
+* --target (runtest option):             Invoking runtest.
+* --tool (runtest option):               Invoking runtest.
+* --tool and naming conventions:         Names.
+* --verbose (runtest option):            Invoking runtest.
+* --version (runtest option):            Invoking runtest.
+* -b (runtest option):                   Invoking runtest.
+* -V (runtest option):                   Invoking runtest.
+* -v (runtest option):                   Invoking runtest.
+* .exp:                                  Overview.
+* absolute PATH:                         utils.exp.
+* adding a target:                       Adding Targets.
+* adding a test case:                    Adding.
+* all_flag:                              Config Values.
+* ambiguity, required for POSIX:         Posix.
+* archive object files:                  target.exp.
+* auxiliary files, building:             Running Tests.
+* auxiliary programs:                    Configuring DejaGnu.
+* auxiliary test programs:               Invoking runtest.
+* baud:                                  Config Values.
+* baud rate, specifying:                 Invoking runtest.
+* bps, specifying:                       Invoking runtest.
+* bt:                                    debugger.exp.
+* bug number:                            Variables.
+* bug number, extra:                     Variables.
+* bug_id:                                Variables.
+* build config name, changing:           Invoking runtest.
+* build host configuration test:         framework.exp.
+* build_triplet:                         Config Values.
+* built in procedures, DejaGnu:          DejaGnu Builtins.
+* C torture test:                        Writing.
+* canadian cross configuration test:     framework.exp.
+* cancelling expected failure:           framework.exp.
+* check makefile target:                 Running Tests.
+* clear_xfail CONFIG:                    framework.exp.
+* Closing a remote connection:           remote.exp.
+* command line option variables:         Config Values.
+* command line options:                  Invoking runtest.
+* command line Tcl variable definition:  Invoking runtest.
+* communications procedures:             remote.exp.
+* comp_output:                           Variables.
+* comparing files:                       utils.exp.
+* compile a file:                        target.exp.
+* configuration dependent defaults:      Config Values.
+* configuring DejaGnu:                   Installation.
+* connecting to target:                  Invoking runtest.
+* connectmode:                           Config Values.
+* converting relative paths to absolute: utils.exp.
+* Core Internal Procedures:              framework.exp.
+* cross configuration:                   Running Tests.
+* current test subdirectory:             Variables.
+* dbg.log file:                          Invoking runtest.
+* debug log:                             Debug.
+* debug log for test cases:              Invoking runtest.
+* debugger.exp:                          debugger.exp.
+* debugging a test case:                 Debugging.
+* default options, controlling:          Config Values.
+* defaults, option:                      Config Values.
+* defaults, setting in init file:        Init Module.
+* DejaGnu configuration:                 Installation.
+* DejaGnu test driver:                   Invoking runtest.
+* DejaGnu, the name:                     Design Goals.
+* Delete a watchpoint.:                  debugger.exp.
+* design goals:                          Design Goals.
+* detailed log:                          Detail.
+* diff FILENAME FILENAME:                utils.exp.
+* directories matching a pattern:        utils.exp.
+* directory names and --tool:            Names.
+* download a file:                       remote.exp.
+* download FILE [ SPAWNID ]:             remote.exp.
+* download, tip:                         remote.exp.
+* dumplocals *expr*:                     debugger.exp.
+* dumprocs *expr*:                       debugger.exp.
+* dumpvars *expr*:                       debugger.exp.
+* dumpwatch *expr*:                      debugger.exp.
+* echo.exp:                              Sample Test.
+* ERROR <1>:                             framework.exp.
+* ERROR:                                 Invoking runtest.
+* example:                               Sample Test.
+* exec_output:                           Variables.
+* exec_prefix, configure options.:       Configuring DejaGnu.
+* execute_anywhere *cmdline*:            target.exp.
+* executing commands remotely:           target.exp.
+* existing tests, running:               Running Tests.
+* exit code from runtest:                Invoking runtest.
+* exit procedure, tested tools:          Target Dependent.
+* exit_remote_shell SPAWNID:             remote.exp.
+* exp filename suffix:                   Names.
+* expect internal tracing:               Invoking runtest.
+* expect script names:                   Overview.
+* expect scripting language:             Tcl and Expect.
+* expect_out(buffer):                    Variables.
+* expected failure <1>:                  framework.exp.
+* expected failure:                      Invoking runtest.
+* expected failure, cancelling:          framework.exp.
+* FAIL <1>:                              Invoking runtest.
+* FAIL:                                  Posix.
+* fail "STRING":                         framework.exp.
+* failing test, expected:                Invoking runtest.
+* failing test, unexpected:              Invoking runtest.
+* failure, expected:                     framework.exp.
+* failure, POSIX definition:             Posix.
+* filename for test files:               Names.
+* files matching a pattern:              utils.exp.
+* find DIR PATTERN:                      utils.exp.
+* findfile:                              Init Module.
+* finding file differences:              utils.exp.
+* future directions:                     Future Directions.
+* gdb.t00/echo.exp:                      Sample Test.
+* get_warning_threshold:                 framework.exp.
+* getdirs DIR:                           utils.exp.
+* getdirs DIR PATTERN:                   utils.exp.
+* getenv VAR:                            utils.exp.
+* getting environment variables:         utils.exp.
+* GNATS bug number:                      Variables.
+* Granlund, Torbjorn:                    Writing.
+* grep FILENAME REGEXP:                  utils.exp.
+* grep FILENAME REGEXP line:             utils.exp.
+* help with runtest:                     Invoking runtest.
+* hints on test case writing:            Hints.
+* host config name, changing:            Invoking runtest.
+* host configuration test:               framework.exp.
+* host, explained:                       Installation.
+* host_triplet:                          Config Values.
+* ignoretests:                           Config Values.
+* init file name:                        Init Module.
+* init file, purpose:                    Init Module.
+* initialization:                        Init Module.
+* input files:                           Input Files.
+* installed tool name:                   framework.exp.
+* installing DejaGnu:                    Installing DejaGnu.
+* internal details:                      Internals.
+* invoking:                              Invoking runtest.
+* IP network procedures:                 remote.exp.
+* isbuild "HOST":                        framework.exp.
+* ishost "HOST":                         framework.exp.
+* isnative:                              framework.exp.
+* istarget "TARGET":                     framework.exp.
+* kermit PORT BPS:                       remote.exp.
+* kermit, remote testing via:            Invoking runtest.
+* last command output:                   Variables.
+* lib/debugger.exp:                      debugger.exp.
+* lib/remote.exp:                        remote.exp.
+* lib/target.exp:                        target.exp.
+* lib/utils.exp:                         utils.exp.
+* Libes, Don:                            Tcl and Expect.
+* list, pruning:                         utils.exp.
+* list_targets:                          target.exp.
+* lists supported targets:               target.exp.
+* load library file:                     framework.exp.
+* load procedure, tested tools:          Target Dependent.
+* load_lib "LIBRARY-FILE":               framework.exp.
+* local site.exp:                        Local Config File.
+* log files, where to write:             Invoking runtest.
+* Lupton, Robert:                        Adding Tools.
+* make builds part of tests:             Configuring DejaGnu.
+* make check:                            Running Tests.
+* master site.exp:                       Master Config File.
+* Menapace, Julia:                       Design Goals.
+* mondfe:                                Cross Targets.
+* mondfe, remote testing via:            Invoking runtest.
+* name "DejaGnu":                        Design Goals.
+* name for remote test machine:          Invoking runtest.
+* name transformations:                  framework.exp.
+* name, initialization module:           Init Module.
+* naming conventions:                    Names.
+* naming tests to run:                   Invoking runtest.
+* native configuration:                  Running Tests.
+* native configuration test:             framework.exp.
+* network (IP) procedures:               remote.exp.
+* NOTE <1>:                              framework.exp.
+* NOTE:                                  Invoking runtest.
+* note "STRING":                         framework.exp.
+* objdir:                                Config Values.
+* object directory:                      Invoking runtest.
+* Opening a remote connection:           remote.exp.
+* operating principles:                  Internals.
+* option defaults:                       Config Values.
+* option list, runtest:                  Invoking runtest.
+* options:                               Invoking runtest.
+* options for runtest, common:           Running Tests.
+* options, Tcl variables for defaults:   Config Values.
+* order of tests:                        Names.
+* Ousterhout, John K.:                   Tcl and Expect.
+* outdir:                                Config Values.
+* output directory:                      Invoking runtest.
+* output files:                          Output Files.
+* output, additional:                    Invoking runtest.
+* overriding site.exp:                   Customizing.
+* overview:                              Overview.
+* PASS <1>:                              Invoking runtest.
+* PASS:                                  Posix.
+* pass "STRING":                         framework.exp.
+* path lookup:                           utils.exp.
+* pattern match, directory:              utils.exp.
+* pattern match, filenames:              utils.exp.
+* perror "STRING NUMBER":                framework.exp.
+* personal config site.exp:              Personal Config File.
+* pop_host:                              target.exp.
+* pop_target:                            target.exp.
+* porting to a new host:                 Porting.
+* POSIX conformance:                     Posix.
+* prefix, configure options:             Configuring DejaGnu.
+* print *var*:                           debugger.exp.
+* Print a backtrace:                     debugger.exp.
+* Print global variable values:          debugger.exp.
+* Print local variable value:            debugger.exp.
+* Print procedure bodies:                debugger.exp.
+* Print watchpoints:                     debugger.exp.
+* Printing variable values:              debugger.exp.
+* PRMS bug number:                       Variables.
+* prms_id:                               Variables.
+* problem, detected by test case:        Invoking runtest.
+* prune LIST PATTERN:                    utils.exp.
+* prune_system_crud SYSTEM TEXT:         utils.exp.
+* pruning system output, examining program output: utils.exp.
+* psource FILENAME:                      utils.exp.
+* push_host *name*:                      target.exp.
+* push_target *name*:                    target.exp.
+* quit:                                  debugger.exp.
+* Quiting DejaGnu:                       debugger.exp.
+* ranlib a file:                         target.exp.
+* reboot:                                Config Values.
+* rebooting remote targets:              Invoking runtest.
+* regular expression, file contents:     utils.exp.
+* remote connection procedures:          remote.exp.
+* remote connection, ending:             remote.exp.
+* remote test machine name:              Invoking runtest.
+* remote testbed, connecting to:         Invoking runtest.
+* remote testing:                        Cross Targets.
+* remote testing via kermit:             Invoking runtest.
+* remote testing via mondfe:             Invoking runtest.
+* remote testing via rlogin:             Invoking runtest.
+* remote testing via rsh:                Invoking runtest.
+* remote testing via telnet:             Invoking runtest.
+* remote testing via tip:                Invoking runtest.
+* remote.exp:                            remote.exp.
+* remote_close SHELLID:                  remote.exp.
+* remote_open TYPE:                      remote.exp.
+* rlogin HOSTNAME:                       remote.exp.
+* rlogin, remote testing via:            Invoking runtest.
+* rsh HOSTNAME:                          remote.exp.
+* rsh, remote testing via:               Invoking runtest.
+* running:                               Invoking runtest.
+* running tests:                         Running Tests.
+* runtest description:                   Invoking runtest.
+* runtest exit code:                     Invoking runtest.
+* runtest option defaults:               Config Values.
+* runtest option list:                   Invoking runtest.
+* runtest, listing options:              Invoking runtest.
+* runtest, most common options:          Running Tests.
+* runtest, variable defns on cmdline:    Invoking runtest.
+* runtest.exp:                           Internals.
+* runtest_file_p RUNTESTS TESTCASE:      utils.exp.
+* runtests:                              Config Values.
+* searching file contents:               utils.exp.
+* selecting a range of tests <1>:        utils.exp.
+* selecting a range of tests:            Invoking runtest.
+* selecting tests for a tool:            Invoking runtest.
+* serial download, tip:                  remote.exp.
+* serial line connection, kermit:        remote.exp.
+* serial line connection, tip:           remote.exp.
+* set current host:                      target.exp.
+* set current target:                    target.exp.
+* set_warning_threshold THRESHOLD:       framework.exp.
+* setenv VAR VAL:                        utils.exp.
+* setting defaults for DejaGnu variables: Config Values.
+* setting environment variables:         utils.exp.
+* setting up targets:                    Init Module.
+* setup_xfail "CONFIG  [BUGID]":         framework.exp.
+* site.exp:                              Customizing.
+* site.exp for all of DejaGnu:           Master Config File.
+* site.exp for each person:              Personal Config File.
+* site.exp for each tool:                Local Config File.
+* site.exp, multiple:                    Customizing.
+* slay NAME:                             utils.exp.
+* slaying processes:                     utils.exp.
+* source directory:                      Invoking runtest.
+* sourcing Tcl files:                    utils.exp.
+* special variables:                     Variables.
+* specifying target name:                Invoking runtest.
+* specifying the build config name:      Invoking runtest.
+* specifying the host config name:       Invoking runtest.
+* specifying the target configuration:   Invoking runtest.
+* srcdir:                                Config Values.
+* standard conformance: POSIX 1003.3:    Posix.
+* start procedure, tested tools:         Target Dependent.
+* starting interactive tools:            Init Module.
+* starting the tcl debugger:             Invoking runtest.
+* subdir:                                Variables.
+* success, POSIX definition:             Posix.
+* successful test:                       Invoking runtest.
+* successful test, unexpected:           Invoking runtest.
+* suffix, expect scripts:                Overview.
+* summary log:                           Summary.
+* target configuration test:             framework.exp.
+* target configuration, specifying:      Invoking runtest.
+* target dependent procedures:           Target Dependent.
+* target machine name:                   Invoking runtest.
+* target, explained:                     Installation.
+* target.exp:                            target.exp.
+* target_triplet:                        Config Values.
+* targetname:                            Config Values.
+* targets:                               Cross Targets.
+* tcl:                                   Tcl and Expect.
+* tcl debugger:                          Invoking runtest.
+* Tcl variables for option defaults:     Config Values.
+* Tcl variables, defining for runtest:   Invoking runtest.
+* TCLVAR=VALUE:                          Invoking runtest.
+* telnet HOSTNAME PORT:                  remote.exp.
+* telnet, remote testing via:            Invoking runtest.
+* terminating remote connection:         remote.exp.
+* test case cannot run:                  Invoking runtest.
+* test case messages:                    Invoking runtest.
+* test case warnings:                    Invoking runtest.
+* test case, debugging:                  Debugging.
+* test case, declaring ambiguity:        framework.exp.
+* test case, declaring failure:          framework.exp.
+* test case, declaring no support:       framework.exp.
+* test case, declaring no test:          framework.exp.
+* test case, declaring success:          framework.exp.
+* test case, ERROR in:                   framework.exp.
+* test case, expecting failure:          framework.exp.
+* test case, informational messages:     framework.exp.
+* test case, WARNING in:                 framework.exp.
+* test case, WARNING threshold:          framework.exp.
+* test case, writing:                    Tests.
+* test cases, debug log:                 Invoking runtest.
+* test directories, naming:              Names.
+* test filename:                         Names.
+* test output, displaying all:           Invoking runtest.
+* test programs, auxiliary:              Invoking runtest.
+* test suite distributions:              Configuring DejaGnu.
+* test, failing:                         Invoking runtest.
+* test, successful:                      Invoking runtest.
+* test, unresolved outcome:              Invoking runtest.
+* test, unsupported:                     Invoking runtest.
+* tests, running:                        Running Tests.
+* tests, running order:                  Names.
+* tests, running specifically <1>:       utils.exp.
+* tests, running specifically:           Invoking runtest.
+* TET:                                   Posix.
+* tip PORT:                              remote.exp.
+* tip, remote testing via:               Invoking runtest.
+* tip_download SPAWNID FILE:             remote.exp.
+* tool:                                  Config Values.
+* tool command language:                 Tcl and Expect.
+* tool initialization:                   Init Module.
+* tool name, as installed:               framework.exp.
+* tool names and naming conventions:     Names.
+* TOOL_exit:                             Target Dependent.
+* TOOL_load:                             Target Dependent.
+* TOOL_start:                            Target Dependent.
+* TOOL_version:                          Target Dependent.
+* tracelevel:                            Config Values.
+* tracing Tcl commands:                  Invoking runtest.
+* transform:                             Init Module.
+* transform "TOOLNAME":                  framework.exp.
+* transform tool name:                   framework.exp.
+* turning on output:                     Invoking runtest.
+* unexpected success:                    Invoking runtest.
+* UNRESOLVED <1>:                        Invoking runtest.
+* UNRESOLVED:                            Posix.
+* unresolved "STRING":                   framework.exp.
+* unset current host:                    target.exp.
+* unset current target:                  target.exp.
+* unsetenv VAR:                          utils.exp.
+* unsetting environment variables:       utils.exp.
+* UNSUPPORTED <1>:                       Invoking runtest.
+* UNSUPPORTED:                           Posix.
+* unsupported "STRING":                  framework.exp.
+* unsupported test:                      Invoking runtest.
+* UNTESTED <1>:                          Invoking runtest.
+* UNTESTED:                              Posix.
+* untested "STRING":                     framework.exp.
+* untested properties:                   Invoking runtest.
+* utilities, loading from init file:     Init Module.
+* utils.exp:                             utils.exp.
+* variables for all tests:               Variables.
+* variables for option defaults:         Config Values.
+* variables of DejaGnu, defaults:        Customizing.
+* verbose:                               Config Values.
+* verbose [-log] [-n] [-] "STRING" NUMBER: framework.exp.
+* verbose builtin function:              framework.exp.
+* version numbers:                       Invoking runtest.
+* version procedure, tested tools:       Target Dependent.
+* VxWorks, link with -r:                 Cross Targets.
+* WARNING <1>:                           framework.exp.
+* WARNING:                               Invoking runtest.
+* warning "STRING NUMBER":               framework.exp.
+* Watch when a variable is read:         debugger.exp.
+* Watch when a variable is unset:        debugger.exp.
+* Watch when a variable is written:      debugger.exp.
+* watchdel *watch*:                      debugger.exp.
+* watchread *var*:                       debugger.exp.
+* watchunset *var*:                      debugger.exp.
+* watchwrite *var*:                      debugger.exp.
+* What is New:                           What is New.
+* which BINARY:                          utils.exp.
+* writing a test case:                   Tests.
+* XFAIL <1>:                             Invoking runtest.
+* XFAIL:                                 Posix.
+* XFAIL, avoiding for POSIX:             Posix.
+* XFAIL, producing:                      framework.exp.
+* XPASS:                                 Invoking runtest.
+* XPASS, producing:                      framework.exp.
+
+

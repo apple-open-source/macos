@@ -12,7 +12,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclMacUnix.c,v 1.1.1.4 2002/04/05 16:13:48 jevans Exp $
+ * RCS: @(#) $Id: tclMacUnix.c,v 1.1.1.5 2003/03/06 00:12:27 landonf Exp $
  */
 
 #include <Files.h>
@@ -74,7 +74,7 @@ Tcl_EchoCmd(
     ClientData dummy,			/* Not used. */
     Tcl_Interp *interp,			/* Current interpreter. */
     int argc,				/* Number of arguments. */
-    char **argv)			/* Argument strings. */
+    CONST char **argv)			/* Argument strings. */
 {
     Tcl_Channel chan;
     int mode, result, i;

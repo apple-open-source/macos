@@ -73,7 +73,7 @@ static void checkForActivity(CFRunLoopTimerRef aTimer, void* anInfo)
                 CFStringRef aString = aWaitingForString && anItemDescription ? 
                                         CFStringCreateWithFormat(NULL, NULL, aWaitingForString, anItemDescription) : NULL;
                 
-                if (aString) 
+                if (aString)
                   {
                     displayStatus(aStartupContext->aDisplayContext, aString);
                     CFRelease(aString);
@@ -98,6 +98,61 @@ static CFRunLoopTimerRef createActivityTimer(StartupContext aStartupContext)
 
     return CFRunLoopTimerCreate(NULL, CFAbsoluteTimeGetCurrent(), kTimerInterval, 0, 0, &checkForActivity, &aTimerContext);
 }
+
+/*
+ * print out any error messages to the log regarding non starting StartupItems
+ */
+void displayErrorMessages(StartupContext aStartupContext)
+{
+    if (aStartupContext->aFailedList && CFArrayGetCount(aStartupContext->aFailedList) > 0)
+      {
+        CFIndex anItemCount = CFArrayGetCount(aStartupContext->aFailedList);
+        CFIndex anItemIndex;
+
+
+        warning(CFSTR("The following StartupItems failed to properly start:\n"));
+        
+        for (anItemIndex = 0; anItemIndex < anItemCount; anItemIndex++)
+          {
+            CFMutableDictionaryRef anItem        = (CFMutableDictionaryRef)CFArrayGetValueAtIndex(aStartupContext->aFailedList, anItemIndex);
+            CFStringRef anErrorDescription       = CFDictionaryGetValue(anItem, kErrorKey);
+            CFStringRef anItemPath               = CFDictionaryGetValue(anItem, kBundlePathKey);
+            
+            if (anItemPath)
+              {
+                warning(CFSTR("\t%@"), anItemPath );
+              }
+            if (anErrorDescription)
+              {
+                warning(CFSTR(" - %@"), anErrorDescription );
+              }
+            else
+              {
+                warning(CFSTR(" - %@"), kErrorInternal );
+              }
+            warning(CFSTR("\n"));
+          }
+      }
+
+    if (CFArrayGetCount(aStartupContext->aWaitingList) > 0)
+      {
+        CFIndex anItemCount = CFArrayGetCount(aStartupContext->aWaitingList);
+        CFIndex anItemIndex;
+        
+        warning(CFSTR("The following StartupItems were not attempted due to failure of a required service:\n"));
+        
+        for (anItemIndex = 0; anItemIndex < anItemCount; anItemIndex++)
+          {
+            CFMutableDictionaryRef anItem       = (CFMutableDictionaryRef)CFArrayGetValueAtIndex(aStartupContext->aWaitingList, anItemIndex);
+            CFStringRef anItemPath              = CFDictionaryGetValue(anItem, kBundlePathKey);
+            if (anItemPath)
+              {
+                warning(CFSTR("\t%@\n"), anItemPath );
+              }
+          }
+      }
+}
+
 
 int system_starter (Action anAction, CFStringRef aService)
 {
@@ -177,10 +232,12 @@ int system_starter (Action anAction, CFStringRef aService)
           }
 
         aStartupContext->aWaitingList = StartupItemListCreateWithMask(aMask);
+        aStartupContext->aFailedList = NULL;
         aStartupContext->aStatusDict  = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks,
                                                                                  &kCFTypeDictionaryValueCallBacks);
         aStartupContext->aServicesCount = 0;
         aStartupContext->aRunningCount = 0;
+        aStartupContext->aQuitOnNotification = gQuitOnNotification && aStartupContext->aDisplayContext;
 
         if (aService)
           {
@@ -214,9 +271,20 @@ int system_starter (Action anAction, CFStringRef aService)
 
         if (anItem)
           {
-            ++aStartupContext->aRunningCount;
-            StartupItemRun(aStartupContext->aStatusDict, anItem, anAction);
-            MonitorStartupItem(aStartupContext, anItem);
+            int err = StartupItemRun(aStartupContext->aStatusDict, anItem, anAction);
+            if (!err)
+              {
+                ++aStartupContext->aRunningCount;
+                MonitorStartupItem(aStartupContext, anItem); 
+              }
+            else
+              {
+                /* add item to failed list */
+                AddItemToFailedList(aStartupContext, anItem);
+
+                /* Remove the item from the waiting list. */
+                RemoveItemFromWaitingList(aStartupContext, anItem);
+              }
           }
         else
           {
@@ -247,27 +315,38 @@ int system_starter (Action anAction, CFStringRef aService)
     /**
      * Good-bye.
      **/
-    if (CFArrayGetCount(aStartupContext->aWaitingList) > 0)
+    displayErrorMessages(aStartupContext);
+
+    /*  Display final message and wait if necessary  */
+    {
+      CFStringRef aLocalizedString = NULL;
+      if (aStartupContext->aQuitOnNotification)
+        {
+          aLocalizedString = LocalizedString(aStartupContext->aResourcesBundlePath, kLoginWindowKey);
+        }
+      else
+        {
+          aLocalizedString = LocalizedString(aStartupContext->aResourcesBundlePath, kStartupCompleteKey);
+        }
+
+      if (aLocalizedString)
+        {
+          displayStatus(aStartupContext->aDisplayContext, aLocalizedString);
+          CFRelease(aLocalizedString);
+        }
+    }
+
+    /* sit and wait for a message from ConsoleMessage to quit */
+    if (aStartupContext->aQuitOnNotification)
       {
-        CFStringRef aDescription = CFCopyDescription(aStartupContext->aWaitingList);
-
-        warning(CFSTR("Some startup items failed to launch due to conflicts:\n%@\n"), aDescription);
-
-        CFRelease(aDescription);
+        CFRunLoopRun();
       }
 
-      {
-        CFStringRef aLocalizedString = LocalizedString(aStartupContext->aResourcesBundlePath, kStartupCompleteKey);
-   	if (aLocalizedString)
-          {
-            displayStatus(aStartupContext->aDisplayContext, aLocalizedString);
-            CFRelease(aLocalizedString);
-          }
-      }
-    
+    /*  clean up  */
     if (anActivityTimer              ) CFRelease(anActivityTimer);
     if (aStartupContext->aStatusDict ) CFRelease(aStartupContext->aStatusDict);
     if (aStartupContext->aWaitingList) CFRelease(aStartupContext->aWaitingList);
+    if (aStartupContext->aFailedList)  CFRelease(aStartupContext->aFailedList);
     if (aStartupContext->aResourcesBundlePath) CFRelease(aStartupContext->aResourcesBundlePath);
     
     if (aStartupContext->aDisplayContext) freeDisplayContext(aStartupContext->aDisplayContext);

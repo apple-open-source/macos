@@ -11,6 +11,7 @@ UserType              = Administrator
 ToolType              = Services
 Extra_Configure_Flags = --with-apxs
 Extra_CC_Flags        = -I.
+export APXS_CFLAGS    = "-Wl,$(RC_CFLAGS)"
 Extra_Install_Flags   = INSTALL_ROOT="$(DSTROOT)"
 GnuAfterInstall       = strip
 

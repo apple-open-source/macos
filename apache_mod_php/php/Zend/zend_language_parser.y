@@ -3,12 +3,12 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2002 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 0.92 of the Zend license,     |
+   | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
    | available at through the world-wide-web at                           |
-   | http://www.zend.com/license/0_92.txt.                                |
+   | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
    | license@zend.com so we can mail you a copy immediately.              |
@@ -118,6 +118,8 @@
 %token T_DOUBLE_ARROW
 %token T_LIST
 %token T_ARRAY
+%token T_CLASS_C
+%token T_FUNC_C
 %token T_LINE
 %token T_FILE
 %token T_COMMENT
@@ -199,7 +201,7 @@ unticked_statement:
 	|	T_UNSET '(' unset_variables ')' ';'
 	|	T_FOREACH '(' w_cvar T_AS { zend_do_foreach_begin(&$1, &$3, &$2, &$4, 1 TSRMLS_CC); } w_cvar foreach_optional_arg ')' { zend_do_foreach_cont(&$6, &$7, &$4 TSRMLS_CC); } foreach_statement { zend_do_foreach_end(&$1, &$2 TSRMLS_CC); }
 	|	T_FOREACH '(' expr_without_variable T_AS { zend_do_foreach_begin(&$1, &$3, &$2, &$4, 0 TSRMLS_CC); } w_cvar foreach_optional_arg ')' { zend_do_foreach_cont(&$6, &$7, &$4 TSRMLS_CC); } foreach_statement { zend_do_foreach_end(&$1, &$2 TSRMLS_CC); }
-	|	T_DECLARE { zend_do_declare_begin(TSRMLS_C); } '(' declare_list ')' declare_statement { zend_do_declare_end(TSRMLS_C); }
+	|	T_DECLARE { $1.u.opline_num = get_next_op_number(CG(active_op_array)); zend_do_declare_begin(TSRMLS_C); } '(' declare_list ')' declare_statement {zend_do_declare_end(&$1 TSRMLS_CC); }
 	|	';'		/* empty statement */
 ;
 
@@ -273,7 +275,7 @@ switch_case_list:
 
 case_list:
 		/* empty */	{ $$.op_type = IS_UNUSED; }
-	|	case_list T_CASE expr case_separator { zend_do_extended_info(TSRMLS_C);  zend_do_case_before_statement(&$1, &$2, &$3 TSRMLS_CC); } inner_statement_list { zend_do_case_after_statement(&$$, &$2 TSRMLS_CC); $$.op_type = IS_CONST }
+	|	case_list T_CASE expr case_separator { zend_do_extended_info(TSRMLS_C);  zend_do_case_before_statement(&$1, &$2, &$3 TSRMLS_CC); } inner_statement_list { zend_do_case_after_statement(&$$, &$2 TSRMLS_CC); $$.op_type = IS_CONST; }
 	|	case_list T_DEFAULT case_separator { zend_do_extended_info(TSRMLS_C);  zend_do_default_before_statement(&$1, &$2 TSRMLS_CC); } inner_statement_list { zend_do_case_after_statement(&$$, &$2 TSRMLS_CC); $$.op_type = IS_CONST; }
 ;
 
@@ -388,6 +390,7 @@ class_statement:
 is_reference:
 		/* empty */	{ $$.op_type = ZEND_RETURN_VAL; }
 	|	'&'			{ $$.op_type = ZEND_RETURN_REF; }
+;
 
 class_variable_decleration:
 		class_variable_decleration ',' T_VARIABLE					{ zend_do_declare_property(&$3, NULL TSRMLS_CC); }
@@ -523,13 +526,15 @@ common_scalar:
 	|	T_CONSTANT_ENCAPSED_STRING	{ $$ = $1; }
 	|	T_LINE 						{ $$ = $1; }
 	|	T_FILE 						{ $$ = $1; }
+	|	T_CLASS_C					{ $$ = $1; }
+	|	T_FUNC_C					{ $$ = $1; }
 ;
 
 
 static_scalar: /* compile-time evaluated scalars */
 		common_scalar		{ $$ = $1; }
 	|	T_STRING 		{ zend_do_fetch_constant(&$$, &$1, ZEND_CT TSRMLS_CC); }
-	|	'+' static_scalar	{ $$ = $1; }
+	|	'+' static_scalar	{ $$ = $2; }
 	|	'-' static_scalar	{ zval minus_one;  minus_one.type = IS_LONG; minus_one.value.lval = -1;  mul_function(&$2.u.constant, &$2.u.constant, &minus_one TSRMLS_CC);  $$ = $2; }
 	|	T_ARRAY '(' static_array_pair_list ')' { $$ = $3; $$.u.constant.type = IS_CONSTANT_ARRAY; }
 ;

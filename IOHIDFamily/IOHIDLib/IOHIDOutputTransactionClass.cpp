@@ -1,21 +1,23 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -66,9 +68,17 @@ enum {
         return kIOReturnNotOpen;    \
 } while (0)
 
+#define seizeCheck() do {               \
+    if ((!fOwningDevice) ||		\
+         (fOwningDevice->fIsSeized))    \
+        return kIOReturnExclusiveAccess;\
+} while (0)
+
+
 #define allChecks() do {	    \
     connectCheck();		    \
     openCheck();		    \
+    seizeCheck();                   \
 } while (0)
 
 IOHIDOutputTransactionClass::IOHIDOutputTransactionClass()
@@ -194,14 +204,16 @@ IOReturn IOHIDOutputTransactionClass::create ()
     // if we have async port, set it on other side
     if (fAsyncPort)
     {
-        natural_t 			asyncRef[1];
-        int				input[1];
+        /*
+        natural_t		asyncRef[1];
+        int			input[1];
         mach_msg_type_number_t 	len = 0;
     
         // async kIOHIDLibUserClientSetQueueAsyncPort, kIOUCScalarIScalarO, 1, 0
-        //ret = io_async_method_scalarI_scalarO(
-        //        fOwningDevice->fConnection, fAsyncPort, asyncRef, 1,
-        //        kIOHIDLibUserClientSetQueueAsyncPort, input, 1, NULL, &len);
+        ret = io_async_method_scalarI_scalarO(
+                fOwningDevice->fConnection, fAsyncPort, asyncRef, 1,
+                kIOHIDLibUserClientSetQueueAsyncPort, input, 1, NULL, &len);
+        */
         if (ret != kIOReturnSuccess) {
             (void) this->dispose();
         }
@@ -224,14 +236,14 @@ IOReturn IOHIDOutputTransactionClass::dispose()
      
     numElements = CFDictionaryGetCount(fElementDictionaryRef);
     
-    CFDataRef	elementDataRefs[numElements];
+    CFMutableDataRef	elementDataRefs[numElements];
     
     if (!numElements) {
         ret = kIOReturnError;
         goto DISPOSE_RELEASE;
     }
         
-    CFDictionaryGetKeysAndValues(fElementDictionaryRef, NULL, elementDataRefs);
+    CFDictionaryGetKeysAndValues(fElementDictionaryRef, NULL, (const void **)elementDataRefs);
     
     if (!elementDataRefs) {
         ret = kIOReturnError;
@@ -276,7 +288,7 @@ IOReturn IOHIDOutputTransactionClass::addElement (
     IOHIDTransactionElement 	*element;
     IOHIDElementStruct		tempElementStruct;
     IOReturn			ret = kIOReturnSuccess;
-    CFDataRef			elementDataRef;
+    CFMutableDataRef		elementDataRef;
     CFNumberRef			elementKeyRef;
     int 			cookieValue = (int)elementCookie;
     
@@ -302,9 +314,9 @@ IOReturn IOHIDOutputTransactionClass::addElement (
     bzero (element, sizeof(IOHIDTransactionElement));
     element->cookie = elementCookie;
     element->defaultValue.elementCookie = elementCookie;
-    element->defaultValue.type = tempElementStruct.type;
+    element->defaultValue.type = (IOHIDElementType)tempElementStruct.type;
     element->currentValue.elementCookie = elementCookie;
-    element->currentValue.type = tempElementStruct.type;
+    element->currentValue.type = (IOHIDElementType)tempElementStruct.type;
 
 
     CFDictionarySetValue(fElementDictionaryRef, elementKeyRef, elementDataRef);
@@ -367,7 +379,7 @@ IOReturn IOHIDOutputTransactionClass::getElementDefault(IOHIDElementCookie	eleme
                                                         IOHIDEventStruct *	valueEvent)
 {    
     CFNumberRef			elementKeyRef;
-    CFDataRef			elementDataRef;
+    CFMutableDataRef		elementDataRef;
     IOHIDTransactionElement 	*element;
     int 			cookieValue = (int)elementCookie;
              
@@ -381,7 +393,7 @@ IOReturn IOHIDOutputTransactionClass::getElementDefault(IOHIDElementCookie	eleme
         return kIOReturnError;
     }
         
-    elementDataRef = CFDictionaryGetValue(fElementDictionaryRef, elementKeyRef);
+    elementDataRef = (CFMutableDataRef)CFDictionaryGetValue(fElementDictionaryRef, elementKeyRef);
     
     CFRelease(elementKeyRef);
     
@@ -420,7 +432,7 @@ IOReturn IOHIDOutputTransactionClass::setElementDefault(IOHIDElementCookie	eleme
                                                       IOHIDEventStruct *	valueEvent)
 {
     CFNumberRef			elementKeyRef;
-    CFDataRef			elementDataRef;
+    CFMutableDataRef		elementDataRef;
     IOHIDTransactionElement 	*element;
     int 			cookieValue = (int)elementCookie;
              
@@ -434,7 +446,7 @@ IOReturn IOHIDOutputTransactionClass::setElementDefault(IOHIDElementCookie	eleme
         return kIOReturnError;
     }
         
-    elementDataRef = CFDictionaryGetValue(fElementDictionaryRef, elementKeyRef);
+    elementDataRef = (CFMutableDataRef)CFDictionaryGetValue(fElementDictionaryRef, elementKeyRef);
     
     CFRelease(elementKeyRef);
     
@@ -480,7 +492,7 @@ IOReturn IOHIDOutputTransactionClass::setElementValue(IOHIDElementCookie	element
                                                       IOHIDEventStruct *	valueEvent)
 {
     CFNumberRef			elementKeyRef;
-    CFDataRef			elementDataRef;
+    CFMutableDataRef		elementDataRef;
     IOHIDTransactionElement 	*element;
     int 			cookieValue = (int)elementCookie;
     
@@ -494,7 +506,7 @@ IOReturn IOHIDOutputTransactionClass::setElementValue(IOHIDElementCookie	element
         return kIOReturnError;
     }
         
-    elementDataRef = CFDictionaryGetValue(fElementDictionaryRef, elementKeyRef);
+    elementDataRef = (CFMutableDataRef)CFDictionaryGetValue(fElementDictionaryRef, elementKeyRef);
     
     CFRelease(elementKeyRef);
     
@@ -540,7 +552,7 @@ IOReturn IOHIDOutputTransactionClass::getElementValue(IOHIDElementCookie	element
                                                         IOHIDEventStruct *	valueEvent)
 {
     CFNumberRef			elementKeyRef;
-    CFDataRef			elementDataRef;
+    CFMutableDataRef		elementDataRef;
     IOHIDTransactionElement 	*element;
     int 			cookieValue = (int)elementCookie;
 
@@ -554,7 +566,7 @@ IOReturn IOHIDOutputTransactionClass::getElementValue(IOHIDElementCookie	element
         return kIOReturnError;
     }
         
-    elementDataRef = CFDictionaryGetValue(fElementDictionaryRef, elementKeyRef);
+    elementDataRef = (CFMutableDataRef)CFDictionaryGetValue(fElementDictionaryRef, elementKeyRef);
     
     CFRelease(elementKeyRef);
     
@@ -608,9 +620,9 @@ IOReturn IOHIDOutputTransactionClass::commit(UInt32 			timeoutMS,
     if (!numElements)
         return kIOReturnError;
     
-    CFDataRef		elementDataRefs[numElements];
+    CFMutableDataRef	elementDataRefs[numElements];
 
-    CFDictionaryGetKeysAndValues(fElementDictionaryRef, NULL, elementDataRefs);
+    CFDictionaryGetKeysAndValues(fElementDictionaryRef, NULL, (const void **)elementDataRefs);
     
     if (!elementDataRefs)
         return kIOReturnError;
@@ -662,8 +674,8 @@ IOReturn IOHIDOutputTransactionClass::commit(UInt32 			timeoutMS,
     allChecks();
 
     ret = io_connect_method_structureI_structureO( fOwningDevice->fConnection, 
-            kIOHIDLibUserClientPostElementValue, (UInt8 *)transactionCookies, 
-            sizeof(UInt32) * numValidElements, NULL, &outputCount);
+            kIOHIDLibUserClientPostElementValue, (char *)transactionCookies, 
+            sizeof(UInt32) * numValidElements, NULL, (mach_msg_type_number_t *)&outputCount);
             
     return ret;
             
@@ -683,9 +695,9 @@ IOReturn IOHIDOutputTransactionClass::clear ()
     if (!numElements)
         return kIOReturnError;
         
-    CFDataRef	elementDataRefs[numElements];
+    CFMutableDataRef	elementDataRefs[numElements];
     
-    CFDictionaryGetKeysAndValues(fElementDictionaryRef, NULL, elementDataRefs);
+    CFDictionaryGetKeysAndValues(fElementDictionaryRef, NULL, (const void **)elementDataRefs);
     
     if (!elementDataRefs)
         return kIOReturnError;

@@ -71,8 +71,8 @@ OSMetaClassDefineReservedUsed(IOAudioStream, 4);
 OSMetaClassDefineReservedUsed(IOAudioStream, 5);
 OSMetaClassDefineReservedUsed(IOAudioStream, 6);
 OSMetaClassDefineReservedUsed(IOAudioStream, 7);
+OSMetaClassDefineReservedUsed(IOAudioStream, 8);
 
-OSMetaClassDefineReservedUnused(IOAudioStream, 8);
 OSMetaClassDefineReservedUnused(IOAudioStream, 9);
 OSMetaClassDefineReservedUnused(IOAudioStream, 10);
 OSMetaClassDefineReservedUnused(IOAudioStream, 11);
@@ -124,10 +124,18 @@ IOReturn IOAudioStream::setFormat(const IOAudioStreamFormat *streamFormat, const
 {
     IOReturn result = kIOReturnSuccess;
     OSDictionary *formatDict = NULL;
+	IOAudioStreamFormatExtension validFormatExtension;
     
     if (streamFormat) {
-        if (formatDict = createDictionaryFromFormat(streamFormat, formatExtension)) {
-            result = setFormat(streamFormat, formatExtension, formatDict, callDriver);
+		if (!formatExtension) {
+			IOAudioStreamFormatDesc formatDesc;
+			validateFormat((IOAudioStreamFormat *)streamFormat, NULL, &formatDesc);
+			memcpy (&validFormatExtension, &formatDesc.formatExtension, sizeof (validFormatExtension));
+		} else {
+			validFormatExtension = *formatExtension;
+		}
+        if (formatDict = createDictionaryFromFormat(streamFormat, &validFormatExtension)) {
+            result = setFormat(streamFormat, &validFormatExtension, formatDict, callDriver);
             formatDict->release();
         } else {
             result = kIOReturnError;
@@ -443,6 +451,14 @@ IOReturn IOAudioStream::mixOutputSamples(const void *sourceBuf, void *mixBuf, UI
 	bcopy (sourceBuf, (float *)mixBuf + (firstSampleFrame * streamFormat->fNumChannels), numSampleFrames * sizeof (float) * streamFormat->fNumChannels);
 
 	return kIOReturnSuccess;
+}
+
+void IOAudioStream::setSampleLatency(UInt32 numSamples)
+{
+#ifdef DEBUG_CALLS
+    IOLog("IOAudioStream[%p]::setSampleLatency(0x%lx)\n", this, numSamples);
+#endif
+    setProperty(kIOAudioStreamSampleLatencyKey, numSamples, sizeof(UInt32)*8);
 }
 
 // Original code from here on:
@@ -1764,7 +1780,7 @@ IOReturn IOAudioStream::addDefaultAudioControl(IOAudioControl *defaultAudioContr
             
             if (defaultAudioControl->attachAndStart(this)) {
                 if (!defaultAudioControls) {
-                    defaultAudioControls = OSSet::withObjects(&(const OSObject *)defaultAudioControl, 1, 1);
+                    defaultAudioControls = OSSet::withObjects((const OSObject **)&defaultAudioControl, 1, 1);
                 } else {
                     defaultAudioControls->setObject(defaultAudioControl);
                 }

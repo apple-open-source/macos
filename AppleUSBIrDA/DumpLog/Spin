@@ -1,0 +1,6 @@
+echo dumping log every 2 seconds
+while (1)	
+	date
+	./dumplog
+	sleep 2 
+end

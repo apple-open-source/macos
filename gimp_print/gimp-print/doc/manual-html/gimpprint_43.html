@@ -1,0 +1,189 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from .././gimpprint.texi on 22 January 2003 -->
+
+<TITLE>GIMP-Print - Tuning Epson printers</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_42.html">previous</A>, <A HREF="gimpprint_44.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H2><A NAME="SEC58" HREF="gimpprint_toc.html#TOC58">D.4  Tuning the printer</A></H2>
+<P>
+<A NAME="IDX265"></A>
+<A NAME="IDX266"></A>
+
+</P>
+<P>
+Now, how do you use all this to tune a printer?  There are a number of
+ways to do it; this one is my personal favorite.
+
+</P>
+<P>
+There's a file named <TT>`cyan-sweep.tif'</TT>.  This consists of a thin bar
+of cyan sweeping from white to almost pure cyan, and from pure cyan to
+black.  The first thing to do is to pick the appropriate
+<CODE>simple_dither_range_t</CODE> (or create a whole new
+<CODE>escp2_variable_inklist_t</CODE>) and comment out all but the darkest ink
+(this means you'll be using the largest dots of dark ink).  At 8.5"
+width (the width of a letter-size piece of paper), the bar will be 1/8"
+high.  Printing it on wider or narrower paper will change the height
+accordingly.  Print it width-wise across a piece of photo quality paper
+in line art mode using ordered or adaptive hybrid dither.  Do not use
+photographic mode; the colors in photographic mode vary non-linearly
+depending upon the presence of the three color components, while in line
+art mode the colors are much purer.  Make sure that all the color
+adjustments are set to defaults (1.0).  Use the highest quality version
+of the print mode you're testing to reduce banding and other artifacts.
+This is much easier to do with the Gimp than with Ghostscript.
+
+</P>
+<P>
+At this stage, you want to look for four things:
+
+</P>
+
+<OL>
+<LI>
+
+The black near the center of the line is solid, but not more so than
+that.
+
+<LI>
+
+The cyan immediately to the left of the black is <EM>almost</EM> solid.
+
+<LI>
+
+The dark cyan at the far right of the page is solid, but not more so.
+You can try tuning the density so that it isn't quite solid, then
+nudging up the density until it is.
+
+<LI>
+
+Both sweeps sweep smoothly from light to dark.  In particular, the dark
+half of the bar shouldn't visibly change color; it should go smoothly
+from cyan to black.
+</OL>
+
+<P>
+Repeat this stage until you have everything just right.  Use the
+positioning entry boxes in the dialog to position each bar exactly
+1/8" further down the page.  Adjacent bars will be touching.
+
+</P>
+<P>
+The next step is to uncomment out the second darkest dot size.  If
+you're using variable dots, use the second largest dot size of the
+dark ink rather than the largest dot size of the light ink.  This will
+give you two inks.
+
+</P>
+<P>
+When you recompile the plugin, you simply need to copy the new
+executable into the correct place.  You do not need to exit and
+restart the Gimp.
+
+</P>
+<P>
+Print another bar adjacent to the first one.  Your goal is to match
+the bar using a single dot size as closely as possible.  You'll find
+that the dark region of the bar shouldn't change to any great degree,
+but the light half probably will.  If the lighter part of the light
+half is too dark, you need to increase the value of the smaller dot;
+if it's too light, you need to decrease the value.  The reasoning is
+that if the value is too low, the ink isn't being given enough credit
+for its contribution to the darkness of the ink, and vice versa.
+Repeat until you have a good match.  Make sure you let the ink dry
+fully, which will take a few minutes.  Wet ink will look too dark.
+Don't look at the paper too closely; hold it at a distance.  The extra
+graininess of the largest dot size will probably make it look lighter
+than it should; if you hold it far enough away so that you can't see
+the dots, you'll get a more accurate picture of what's going on.
+
+</P>
+<P>
+After you have what looks like a good match, print another bar using
+only the largest dot size (or dark ink, for single dot size 6-color
+printers).  You want to ensure that the bars touching each other look
+identical, or as close as possible to it; your eye won't give you a
+good reading if the bars are separated from each other.  You'll
+probably have to repeat the procedure.
+
+</P>
+<P>
+The next step is to comment out all but the largest and third-largest
+dot size, and repeat the procedure.  When they match, use all three
+dot sizes of dark ink.  Again, the goal is to match the single dot
+size.
+
+</P>
+<P>
+You'll probably find the match is imperfect.  Now you have to figure
+out what region isn't right, which takes some experimentation.  Even
+small adjustments can make a noticeable difference in what you see.
+At this stage, it's very important to hold the page far enough from
+your eye; when you use all three dot sizes, the texture will be much
+more even, which sometimes makes it look darker and sometimes lighter.
+
+</P>
+<P>
+After this is calibrated, it's time to calibrate the light ink against
+the dark ink.  To do this, comment out all but the large dot version
+of the two inks, and repeat the procedure.  This is trickier, because
+the hues of the inks might not be quite identical.  Look at the dark
+half of the bar as well as the light half to see that the hue really
+doesn't change as you sweep from cyan to black.  Sometimes it's easier
+to judge that way.  You may find that it looks blotchy, in which case
+you should switch from ordered dither to adaptive hybrid.
+
+</P>
+<P>
+After you have the light and dark inks calibrated against each other,
+it's time to add everything back in.  Usually you don't want to use
+the largest dot size of light ink.  These dots will be much larger
+than the small dots of dark ink, but they'll still be lighter.  This
+will cause problems when printing mixed colors, since you'll be
+depositing more ink on lighter regions of the page, and you'll
+probably get strange color casts that you can't get rid of in neutral
+tones.  I normally use only the smallest one or two dot sizes of light
+ink.
+
+</P>
+<P>
+After you've tweaked everything, print the color bar with saturation
+set to zero.  This will print neutral tones using color inks.  Your
+goal here is to look for neutral tonality.  If you're using a 6-color
+printer and get a yellow cast, it means that the values for your light
+inks are too high (remember, that means they're getting too much
+credit, so you're not depositing enough cyan and magenta ink, and the
+yellow dominates).  If you get a bluish or bluish-purple cast, your
+light inks are too low (you're not giving them enough credit, so too
+much cyan and magenta is deposited, which overwhelms the yellow).
+Make sure you do this on very white, very high grade inkjet paper
+that's designed for 1440x720 dpi or higher; otherwise the ink will
+spread on contact and you'll get values that aren't really true for
+high grade paper.  You can, of course, calibrate for low grade paper
+if that's what you're going to use, but that shouldn't be put into the
+distribution.
+
+</P>
+<P>
+You can also fully desaturate this bar inside the Gimp and print it as
+monochrome (don't print the cyan as monochrome; the driver does funny
+things with luminance), for comparison.  You'll find it very hard to
+get rid of all color casts.
+
+</P>
+<P>
+There are other ways of tuning printers, but this one works pretty
+well for me.
+
+</P>
+
+<P><HR><P>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_42.html">previous</A>, <A HREF="gimpprint_44.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+</BODY>
+</HTML>

@@ -72,6 +72,11 @@
 #include <pw_util.h>
 
 #include "chpass.h"
+#ifdef DIRECTORY_SERVICE
+#include "directory_service.h"
+
+extern int dswhere;
+#endif /* DIRECTORY_SERVICE */
 
 extern char *tempname;
 
@@ -109,12 +114,68 @@ display(fd, pw)
 {
 	FILE *fp;
 	char *bp, *p, *ttoa();
+#ifdef DIRECTORY_SERVICE
+	ENTRY *ep;
+	struct display d;
+	int ndisplayed = 0;
+#endif /* DIRECTORY_SERVICE */
 
 	if (!(fp = fdopen(fd, "w")))
 		pw_error(tempname, 1, 1);
 
 	(void)fprintf(fp,
-	    "#Changing user database information for %s.\n", pw->pw_name);
+	    "# Changing user database information for %s.\n"
+	    "#\n"
+	    "# (use \"passwd\" to change the password)\n"
+	    "##\n",
+	    pw->pw_name);
+            
+#ifdef DIRECTORY_SERVICE
+	switch (dswhere) {
+	case WHERE_FILES:
+	    (void)fprintf(fp,
+		"# Flat file: /etc/master.passwd\n"
+		"##\n");
+	    break;
+	case WHERE_LOCALNI:
+	    (void)fprintf(fp,
+		"# Local NetInfo Database\n"
+		"##\n");
+	    break;
+	}
+	d.pw = pw;
+	bp = pw->pw_gecos;
+	p = strsep(&bp, ",");
+	d.fullname =  (p ? p : "");
+	p = strsep(&bp, ",");
+	d.location = (p ? p : "");
+	p = strsep(&bp, ",");
+	d.officephone = (p ? p : "");
+	p = strsep(&bp, ",");
+	d.homephone = ( p ? p : "");
+
+	for (ep = list; ep->prompt; ep++)
+		if (!ep->restricted) {
+			ep->display(&d, fp);
+			ndisplayed++;
+		}
+	if(!ndisplayed) {
+		(void)fprintf(fp, "###################################\n");
+		(void)fprintf(fp, "# No fields are available to change\n");
+		(void)fprintf(fp, "###################################\n");
+	}
+#else /* DIRECTORY_SERVICE */
+        (void)fprintf(fp,
+	    "##\n"
+            "# User Database\n"
+            "# \n"
+            "# Note:  This program edits the /etc/master.passwd file which is only \n"
+            "# consulted when the system is running in single-user mode.  At other times \n"
+            "# this information is handled by lookupd.  By default, lookupd gets \n"
+            "# information from NetInfo, so this file will not be consulted unless you \n"
+            "# have changed lookupd's configuration.\n"
+            "##\n");
+
 	if (!uid) {
 		(void)fprintf(fp, "Login: %s\n", pw->pw_name);
 		(void)fprintf(fp, "Password: %s\n", pw->pw_passwd);
@@ -148,6 +209,7 @@ display(fd, pw)
 	(void)fprintf(fp, "Office Phone: %s\n", p ? p : "");
 	p = strsep(&bp, ",");
 	(void)fprintf(fp, "Home Phone: %s\n", p ? p : "");
+#endif /* DIRECTORY_SERVICE */
 
 	(void)fchown(fd, getuid(), getgid());
 	(void)fclose(fp);
@@ -214,12 +276,22 @@ bad:					(void)fclose(fp);
 	(void)fclose(fp);
 
 	/* Build the gecos field. */
+#ifdef DIRECTORY_SERVICE
+	if (list[E_NAME].save) {
+		if (list[E_LOCATE].save) {
+#endif /* DIRECTORY_SERVICE */
 	len = strlen(list[E_NAME].save) + strlen(list[E_BPHONE].save) +
 	    strlen(list[E_HPHONE].save) + strlen(list[E_LOCATE].save) + 4;
 	if (!(p = malloc(len)))
 		err(1, NULL);
 	(void)sprintf(pw->pw_gecos = p, "%s,%s,%s,%s", list[E_NAME].save,
 	    list[E_LOCATE].save, list[E_BPHONE].save, list[E_HPHONE].save);
+#ifdef DIRECTORY_SERVICE
+		} else
+			pw->pw_gecos = list[E_NAME].save;
+	} else
+		pw->pw_gecos = "";
+#endif /* DIRECTORY_SERVICE */
 
 	if (snprintf(buf, sizeof(buf),
 	    "%s:%s:%d:%d:%s:%ld:%ld:%s:%s:%s",
@@ -229,5 +301,5 @@ bad:					(void)fclose(fp);
 		warnx("entries too long");
 		return (0);
 	}
-	return (pw_scan(buf, pw));
+	return (pw_scan(buf, pw, NULL));
 }

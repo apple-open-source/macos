@@ -134,7 +134,8 @@ OTHER_GENERATED_OFILES = $(VERS_OFILE)
 # Change this definition to install projects somewhere other than the
 # standard locations.  NEXT_ROOT defaults to "C:/Apple" on Windows systems
 # and "" on other systems.
-# DSTROOT = $(HOME)
+DSTROOT = $(HOME)
+AFTER_INSTALL = install_extra
 
 # Additional flags (for MiG generated files)
 ALL_MIGFLAGS = -F$(SYMROOT)

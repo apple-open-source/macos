@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Christian Cartus <cartus@atrior.de>                         |
+   | Author: Christian Cartus <cartus@atrior.de>                          |
    +----------------------------------------------------------------------+
  */
  
-/* $Id: sysvshm.c,v 1.1.1.5 2001/12/14 22:13:34 zarzycki Exp $ */
+/* $Id: sysvshm.c,v 1.1.1.8 2003/07/18 18:07:46 zarzycki Exp $ */
 
 /* This has been built and tested on Linux 2.2.14 
  *
@@ -47,19 +47,19 @@ function_entry sysvshm_functions[] = {
 	PHP_FE(shm_put_var, NULL)
 	PHP_FE(shm_get_var, NULL)
 	PHP_FE(shm_remove_var, NULL)
-	{0}
+	{NULL, NULL, NULL}	
 };
 /* }}} */
 
 /* {{{ sysvshm_module_entry
  */
 zend_module_entry sysvshm_module_entry = {
-    STANDARD_MODULE_HEADER,
+	STANDARD_MODULE_HEADER,
 	"sysvshm", sysvshm_functions, 
 	PHP_MINIT(sysvshm), NULL,
 	NULL, NULL,
 	NULL,
-    NO_VERSION_YET,
+	NO_VERSION_YET,
 	STANDARD_MODULE_PROPERTIES
 };
 /* }}} */
@@ -74,7 +74,7 @@ THREAD_LS sysvshm_module php_sysvshm;
 
 /* {{{ php_release_sysvshm
  */
-static void php_release_sysvshm(zend_rsrc_list_entry *rsrc)
+static void php_release_sysvshm(zend_rsrc_list_entry *rsrc TSRMLS_DC)
 {
 	sysvshm_shm *shm_ptr = (sysvshm_shm *)rsrc->ptr;
 	shmdt((void*)shm_ptr->ptr);
@@ -118,13 +118,13 @@ PHP_FUNCTION(shm_attach)
 	switch (ac) {
 		case 3:
 			convert_to_long_ex(arg_flag);
-			shm_flag = (*arg_flag)->value.lval;
+			shm_flag = Z_LVAL_PP(arg_flag);
 		case 2:
 			convert_to_long_ex(arg_size);
-			shm_size= (*arg_size)->value.lval;
+			shm_size= Z_LVAL_PP(arg_size);
 		case 1:
 			convert_to_long_ex(arg_key);
-			shm_key = (*arg_key)->value.lval;
+			shm_key = Z_LVAL_PP(arg_key);
 	}
 
 	if((shm_list_ptr = (sysvshm_shm *) emalloc(sizeof(sysvshm_shm)))==NULL) {
@@ -181,7 +181,7 @@ PHP_FUNCTION(shm_detach)
 
 	convert_to_long_ex(arg_id);
 	
-	id = (*arg_id)->value.lval;
+	id = Z_LVAL_PP(arg_id);
 
 	zend_list_delete(id);
 
@@ -205,11 +205,11 @@ PHP_FUNCTION(shm_remove)
 
 	convert_to_long_ex(arg_id);
 	
-	id = (*arg_id)->value.lval;
+	id = Z_LVAL_PP(arg_id);
 
 	shm_list_ptr = (sysvshm_shm *) zend_list_find(id, &type);
 
-    if (!shm_list_ptr) {
+	if (!shm_list_ptr) {
 		php_error(E_WARNING, "The parameter is not a valid shm_indentifier");
 		RETURN_FALSE;
 	}
@@ -240,9 +240,9 @@ PHP_FUNCTION(shm_put_var)
 	}
 			
 	convert_to_long_ex(arg_id);
-	id = (*arg_id)->value.lval;
+	id = Z_LVAL_PP(arg_id);
 	convert_to_long_ex(arg_key);
-	key = (*arg_key)->value.lval;
+	key = Z_LVAL_PP(arg_key);
 
 	shm_list_ptr = (sysvshm_shm *) zend_list_find(id, &type);
 	if (type!=php_sysvshm.le_shm) {
@@ -280,16 +280,16 @@ PHP_FUNCTION(shm_get_var)
 	char *shm_data;	
 	long shm_varpos;
 	sysvshm_chunk *shm_var;
-	php_serialize_data_t var_hash;
+	php_unserialize_data_t var_hash;
 	
 	if(ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &arg_id, &arg_key) == FAILURE) {
 		WRONG_PARAM_COUNT;
 	}
 
 	convert_to_long_ex(arg_id);
-	id = (*arg_id)->value.lval;
+	id = Z_LVAL_PP(arg_id);
 	convert_to_long_ex(arg_key);
-	key = (*arg_key)->value.lval;
+	key = Z_LVAL_PP(arg_key);
 
 	shm_list_ptr = (sysvshm_shm *) zend_list_find(id, &type);
 	if (type!=php_sysvshm.le_shm) {
@@ -333,9 +333,9 @@ PHP_FUNCTION(shm_remove_var)
 	}
 
 	convert_to_long_ex(arg_id);
-	id = (*arg_id)->value.lval;
+	id = Z_LVAL_PP(arg_id);
 	convert_to_long_ex(arg_key);
-	key = (*arg_key)->value.lval;
+	key = Z_LVAL_PP(arg_key);
 
 	shm_list_ptr = (sysvshm_shm *) zend_list_find(id, &type);
 	if (type!=php_sysvshm.le_shm) {
@@ -362,14 +362,15 @@ int php_put_shm_data(sysvshm_chunk_head *ptr,long key,char *data, long len) {
 	long shm_varpos;	
 
 	total_size=((long)(len+sizeof(sysvshm_chunk)-1)/4)*4+4;    /* 4-byte alligment */
+
+	if((shm_varpos=php_check_shm_data(ptr,key))>0) {
+		php_remove_shm_data(ptr, shm_varpos);	
+	}
 	
 	if(ptr->free<total_size) {
 		return -1;   /* not enough memeory */
 	}
 
-	if((shm_varpos=php_check_shm_data(ptr,key))>0) {
-		php_remove_shm_data(ptr, shm_varpos);	
-	}
 	shm_var=(sysvshm_chunk*)((char *)ptr+ptr->end);	
 	shm_var->key=key;
 	shm_var->length=len;
@@ -428,6 +429,6 @@ int php_remove_shm_data(sysvshm_chunk_head *ptr, long shm_varpos) {
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -13,8 +13,8 @@
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
    | Authors: Shane Caraveo             <shane@caraveo.com>               | 
-   |          Colin Viebrock            <cmv@easydns.com>                 |
-   |          Hartmut Holzgraefe        <hartmut@six.de>                  |
+   |          Colin Viebrock            <colin@easydns.com>               |
+   |          Hartmut Holzgraefe        <hholzgra@php.net>                |
    +----------------------------------------------------------------------+
  */
 /* $Id: */
@@ -29,36 +29,35 @@ static void _cal_easter(INTERNAL_FUNCTION_PARAMETERS, int gm)
 
 	/* based on code by Simon Kershaw, <webmaster@ely.anglican.org> */
 
-	pval *year_arg;
-	struct tm *ta, te;
-	time_t the_time;
+	struct tm te;
 	long year, golden, solar, lunar, pfm, dom, tmp, easter;
+	long method = CAL_EASTER_DEFAULT;
 
-	switch(ZEND_NUM_ARGS()) {
-	case 0:
-		the_time = time(NULL);
-		ta = localtime(&the_time);
-		year = ta->tm_year + 1900;
-		break;
-	case 1:
-		if (getParameters(ht, 1, &year_arg) == FAILURE) {
-			WRONG_PARAM_COUNT;
-		}
-		convert_to_long(year_arg);
-		year = year_arg->value.lval;
-		break;
-	default:
-		WRONG_PARAM_COUNT;
+	/* Default to the current year if year parameter is not given */
+	{
+		time_t a;
+		struct tm b;
+		time(&a);
+		php_localtime_r(&a, &b);
+		year = 1900 + b.tm_year;
+	}
+
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC,
+		"|ll", &year, &method) == FAILURE) {
+			return;
 	}
  
 	if (gm && (year<1970 || year>2037)) {				/* out of range for timestamps */
-		php3_error(E_WARNING, "easter_date() is only valid for years between 1970 and 2037 inclusive");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "This function is only valid for years between 1970 and 2037 inclusive");
 		RETURN_FALSE;
 	}
 
 	golden = (year % 19) + 1;					/* the Golden number */
 
-	if ( year <= 1752 ) {						/* JULIAN CALENDAR */
+	if ((year <= 1582 && method != CAL_EASTER_ALWAYS_GREGORIAN) ||
+	    (year >= 1583 && year <= 1752 && method != CAL_EASTER_ROMAN && method != CAL_EASTER_ALWAYS_GREGORIAN) ||
+	     method == CAL_EASTER_ALWAYS_JULIAN) {		/* JULIAN CALENDAR */
+	     
 		dom = (year + (year/4) + 5) % 7;			/* the "Dominical number" - finding a Sunday */
 		if (dom < 0) {
 			dom += 7;
@@ -109,12 +108,12 @@ static void _cal_easter(INTERNAL_FUNCTION_PARAMETERS, int gm)
 			te.tm_mday = easter-10;
 		}
 
-	        return_value->value.lval = mktime(&te);
+	        Z_LVAL_P(return_value) = mktime(&te);
 	} else {							/* return the days after March 21 */	
-	        return_value->value.lval = easter;
+	        Z_LVAL_P(return_value) = easter;
 	}
 
-        return_value->type = IS_LONG;
+        Z_TYPE_P(return_value) = IS_LONG;
 
 }
 
@@ -126,7 +125,7 @@ PHP_FUNCTION(easter_date)
 }
 /* }}} */
 
-/* {{{ proto int easter_days([int year])
+/* {{{ proto int easter_days([int year, [int method]])
    Return the number of days after March 21 that Easter falls on for a given year (defaults to current year) */
 PHP_FUNCTION(easter_days)
 {

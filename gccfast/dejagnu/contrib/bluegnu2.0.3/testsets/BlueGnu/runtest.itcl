@@ -1,0 +1,19 @@
+#
+# This script is testing the runtest command
+#
+
+#runtest [list A.itcl\[1\]=arg A.itcl\[2\]=arg]
+runtest [list namespaceVariables.itcl namespaceVariables.itcl]
+
+#note "test scripts: >>>>\n[join [parseTest A.itcl  A.itcl\[2=x=y\]=arg2 \
+	[list A.itcl\[1\]  A.itcl]] "\n"]<<<<"
+#note "test scripts: >>>>\n[join [appendTestCaseID [appendArguments \
+	[parseTest A.itcl  A.itcl\[2=x=y\]=arg2 \
+	[list A.itcl\[1\]  A.itcl]] XYZ=abc] DEF] "\n"]<<<<"
+
+#note "test scripts: >[appendTestCaseID \
+	[list A.itcl\[DEF\]=xyz=100 A.itcl\[GHI\]=xyz=200] =SSN=00101001]<"
+
+#note "test scripts: >[appendArguments \
+	[list A.itcl A.itcl=SSN=001010001 \
+	A.itcl\[1\] A.itcl\[2\]=SSN=001010001] BODS=ABC]<"

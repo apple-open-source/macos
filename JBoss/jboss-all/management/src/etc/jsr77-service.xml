@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- JSR-77 services configuration
+$Id: jsr77-service.xml,v 1.1.2.1 2003/06/02 20:19:24 starksm Exp $
+-->
+<server>
+
+  <!-- ==================================================================== -->
+  <!-- JSR-77 Single JBoss Server Management Domain                         -->
+  <!-- ==================================================================== -->
+
+  <mbean code="org.jboss.management.j2ee.LocalJBossServerDomain"
+         name="jboss.management.local:j2eeType=J2EEDomain,name=Manager">
+    <attribute name="MainDeployer">jboss.system:service=MainDeployer</attribute>
+    <attribute name="SARDeployer">jboss.system:service=ServiceDeployer</attribute>
+    <attribute name="EARDeployer">jboss.j2ee:service=EARDeployer</attribute>
+    <attribute name="EJBDeployer">jboss.ejb:service=EJBDeployer</attribute>
+    <attribute name="RARDeployer">jboss.jca:service=RARDeployer</attribute>
+    <attribute name="CMDeployer">jboss.jca:service=ConnectionFactoryDeployer</attribute>
+    <attribute name="WARDeployer">jboss.web:service=WebServer</attribute>
+    <attribute name="MailService">jboss:service=Mail</attribute>
+    <attribute name="JMSService">jboss.mq:service=DestinationManager</attribute>
+    <attribute name="JNDIService">jboss:service=Naming</attribute>
+    <attribute name="JTAService">jboss:service=TransactionManager</attribute>
+    <attribute name="UserTransactionService">jboss:service=ClientUserTransaction</attribute>
+  </mbean>
+
+</server>
+

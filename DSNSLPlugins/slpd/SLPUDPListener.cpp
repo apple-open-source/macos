@@ -1,22 +1,39 @@
 /*
-	File:		SLPUDPListener.cp
-
-	Contains:	A thread that will actively listen for communications via UDP for SLP requests
-    
-    TEMP: Currently we are also handling the TCP communications here too...
-    
-	Written by:	Kevin Arnold
-
-	Copyright:	© 2000 by Apple Computer, Inc., all rights reserved.
-
-	Change History (most recent first):
-
-
-*/
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+ 
+/*!
+ *  @header SLPUDPListener
+ *  A thread that will actively listen for communications via UDP for SLP requests
+ */
+ 
 #include <stdio.h>
 #include <string.h>
 #include <sys/un.h>
-//#include <Carbon/Carbon.h>
+#include <syslog.h>
+
+#include <DirectoryService/DirServicesTypes.h>
 
 #include "mslp_sd.h"
 #include "slp.h"
@@ -24,12 +41,12 @@
 #include "mslpd_store.h"
 #include "mslp_dat.h"
 #include "mslpd.h"
-//#include "SLPDefines.h"
 
+#include "SLPComm.h"
 #include "slpipc.h"
-//#include "URLUtilities.h"
 #include "SLPRegistrar.h"
 #include "SLPUDPListener.h"
+#include "CNSLTimingUtils.h"
 
 static SLPUDPListener*	gUDPL = NULL;
 static int				gUDPLRunning = 0;
@@ -44,7 +61,7 @@ int InitializeUDPListener( SAState* psa )
         gUDPL = new SLPUDPListener( psa, &status );
         
         if ( !gUDPL )
-            status = memFullErr;
+            status = eMemoryAllocError;
     }
     
 	return status;
@@ -73,14 +90,13 @@ void CancelSLPUDPListener( void )
     }
 }	
 
-
-
 SLPUDPListener::SLPUDPListener( SAState* psa, OSStatus *status )
-	: LThread(threadOption_Default)
+	: DSLThread()
 {
 	mServerState = psa;
     mCanceled = false;
 	mSelfPtr = this;
+	mNumBadDescriptors = 0;
 }
 
 SLPUDPListener::~SLPUDPListener()
@@ -122,8 +138,39 @@ void* SLPUDPListener::Run()
                 break;
             }
             else if ( errno == EINTR )		// other wise just ignore and fall out
-                SLP_LOG( SLP_LOG_DROP, "mslpd handle_udp recvfrom received EINTR");
-            else
+                SLP_LOG( SLP_LOG_DROP, "SLPUDPListener: recvfrom received EINTR");
+            else if ( errno == EBADF )
+			{
+				mNumBadDescriptors++;
+				
+				if ( mNumBadDescriptors > kMaxNumFailures )
+				{
+					syslog( LOG_ERR, "slpd exiting due to an exorbitant amount of bad descriptors\n" );
+					exit(0);
+				}
+				
+				unsigned char ttl;
+				char*	endPtr = NULL;
+				u_char	loop = 1;	// enable
+				
+				mServerState->sdUDP = socket(AF_INET, SOCK_DGRAM, 0);		// bad file descriptor, try getting a new one
+
+				ttl = (SLPGetProperty("net.slp.multicastTTL"))?(unsigned char) strtol(SLPGetProperty("net.slp.multicastTTL"),&endPtr,10):1400;
+				err = setsockopt(mServerState->sdUDP, IPPROTO_IP, IP_MULTICAST_TTL, (char*)&ttl, sizeof(ttl));
+				
+				if (err < 0)
+				{
+					mslplog(SLP_LOG_DEBUG,"SLPUDPListener: Could not set multicast TTL, %s",strerror(errno));
+				}
+				else
+				{
+					err = setsockopt( mServerState->sdUDP, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop) );
+
+					if (err < 0)
+						mslplog(SLP_LOG_DEBUG,"SLPUDPListener: Could not set setsockopt, %s",strerror(errno));
+				}
+			}
+			else
             {
                 SLP_LOG( SLP_LOG_DROP, "SLPUDPListener recvfrom: %s", strerror(errno) );
             }
@@ -152,7 +199,7 @@ pthread_mutex_t	SLPUDPHandler::mQueueLock;
 
 CFStringRef SLPUDPHandlerCopyDesctriptionCallback ( const void *item )
 {
-    return CFSTR("SLP RAdmin Notification");
+    return kSLPRAdminNotificationSAFE_CFSTR;
 }
 
 Boolean SLPUDPHandlerEqualCallback ( const void *item1, const void *item2 )
@@ -161,7 +208,7 @@ Boolean SLPUDPHandlerEqualCallback ( const void *item1, const void *item2 )
 }
 
 SLPUDPHandler::SLPUDPHandler(SAState* psa)
-	: LThread(threadOption_Default)
+	: DSLThread()
 {
 	CFArrayCallBacks	callBack;
     
@@ -212,17 +259,22 @@ void SLPUDPHandler::AddUDPMessageToQueue( SAState *psa, char* pcInBuf, int bufSi
     QueueUnlock();
 }
 
+#define	kMinTimeToWaitToCheckForNewData		2
+#define	kTimeToBump							4
+#define	kMaxTimeBetweenNaps					10		// most requests timeout after 15 seconds so make sure we can process them in time
 void* SLPUDPHandler::Run( void )
 {
-    UDPMessageObject* udpMessage = NULL;
-
+    UDPMessageObject* 	udpMessage = NULL;
+	unsigned int		sleepTime = kMinTimeToWaitToCheckForNewData;
+	
     while ( !mCanceled )
     {
         // grab next element off the queue and process
         QueueLock();
         if ( mUDPQueue && ::CFArrayGetCount( mUDPQueue ) > 0 )
         {
-            udpMessage = (UDPMessageObject*)::CFArrayGetValueAtIndex( mUDPQueue, 0 );		// grab the first one
+            sleepTime = kMinTimeToWaitToCheckForNewData;		// reset this
+			udpMessage = (UDPMessageObject*)::CFArrayGetValueAtIndex( mUDPQueue, 0 );		// grab the first one
             ::CFArrayRemoveValueAtIndex( mUDPQueue, 0 );
             QueueUnlock();
         }
@@ -233,7 +285,10 @@ void* SLPUDPHandler::Run( void )
 
             DoPeriodicTasks();
             
-            sleep(1);			// wait a sec for more data
+            SmartSleep(sleepTime*USEC_PER_SEC);			// wait a sec for more data
+			
+			if ( sleepTime + kTimeToBump <= kMaxTimeBetweenNaps )
+				sleepTime += kTimeToBump;
         }
         
         if ( udpMessage )

@@ -1,0 +1,34 @@
+# This is a list of toolchains that are supported on this board.
+set_board_info target_install {m32r-elf}
+
+# Load the generic configuration for this board. This will define a basic set
+# of routines needed by the tool to communicate with the board.
+load_generic_config "sim"
+
+# basic-sim.exp is a basic description for the standard Cygnus simulator.
+load_base_board_description "basic-sim"
+
+# "m32r" is the name of the sim subdir.
+setup_sim m32r
+
+# No multilib options needed by default.
+process_multilib_options ""
+
+# We only support newlib on this target. We assume that all multilib
+# options have been specified before we get here.
+
+set_board_info compiler  "[find_gcc]"
+set_board_info cflags    "[libgloss_include_flags] [newlib_include_flags]"
+set_board_info ldflags   "[libgloss_link_flags] [newlib_link_flags]"
+# No linker script needed.
+set_board_info ldscript "";
+
+# The simulator doesn't return exit statuses and we need to indicate this;
+# the standard GCC wrapper will work with this target.
+set_board_info needs_status_wrapper  1
+# Doesn't pass arguments or signals, can't return results, and doesn't
+# do inferiorio.
+set_board_info noargs 1
+set_board_info gdb,nosignals 1
+set_board_info gdb,noresults 1
+set_board_info gdb,noinferiorio 1

@@ -1,0 +1,24 @@
+#! /bin/csh -f
+#
+# Build a keychain out of roots or certs.
+#
+set prog=$0
+if ( $#argv != 2 ) then
+        echo usage: ${prog:t} dbfile certsdir
+		echo dbfile must NOT exist.
+        exit(1)
+endif
+#
+# Our job is to cook up a list of files in certsdir, not including
+# the CVS directory.
+#
+set cwd=`pwd`
+set dbfile=$cwd/$argv[1]
+set certsdir=$argv[2]
+if ( -e $dbfile ) then
+   echo I insist that you delete $argv[1] manually.
+   exit(1)
+endif
+#
+set cmd="./makecerts $dbfile $certsdir/[a-zABD-Z0-9]* $certsdir/C[a-zA-UW-Z0-9]*"
+$cmd || exit(1)

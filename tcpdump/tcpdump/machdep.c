@@ -21,23 +21,32 @@
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/machdep.c,v 1.1.1.2 2002/05/29 00:05:31 landonf Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/machdep.c,v 1.1.1.3 2003/03/17 18:42:16 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <sys/types.h>
+/*
+ * XXX - all we need, on platforms other than DEC OSF/1 (a/k/a Digital UNIX,
+ * a/k/a Tru64 UNIX), is "size_t", which is a standard C type; what do we
+ * need to do to get it defined?  This is clearly wrong, as we shouldn't
+ * have to include UNIX or Windows system header files to get it.
+ */
+#include <tcpdump-stdinc.h>
+
+#ifndef HAVE___ATTRIBUTE__
+#define __attribute__(x)
+#endif /* HAVE___ATTRIBUTE__ */
+
+#define _U_	__attribute__((unused))
+
 #ifdef __osf__
 #include <sys/sysinfo.h>
 #include <sys/proc.h>
 
 #if !defined(HAVE_SNPRINTF)
-#ifndef HAVE___ATTRIBUTE__
-#define __attribute__(x)
-#endif /* HAVE___ATTRIBUTE__ */
-
 int snprintf(char *, size_t, const char *, ...)
      __attribute__((format(printf, 3, 4)));
 #endif /* !defined(HAVE_SNPRINTF) */
@@ -46,7 +55,7 @@ int snprintf(char *, size_t, const char *, ...)
 #include "machdep.h"
 
 int
-abort_on_misalignment(char *ebuf, size_t ebufsiz)
+abort_on_misalignment(char *ebuf _U_, size_t ebufsiz _U_)
 {
 #ifdef __osf__
 	static int buf[2] = { SSIN_UACPROC, UAC_SIGBUS };

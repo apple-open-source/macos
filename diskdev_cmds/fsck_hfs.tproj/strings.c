@@ -24,6 +24,7 @@ char * stat_msg[] =
 	"Rechecking volume.",
 	"Look for missing items in lost+found directory.",
 	"Cannot repair volume when it is mounted with write access.",
+	"Detected a case-sensitive catalog.",
 };
 
 

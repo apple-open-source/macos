@@ -70,29 +70,32 @@ extern __const char *__const sys_siglist[NSIG];
 #endif
 
 __BEGIN_DECLS
-int	raise __P((int));
+int	raise(int);
 #ifndef	_ANSI_SOURCE
-int	kill __P((pid_t, int));
-int	sigaction __P((int, const struct sigaction *, struct sigaction *));
-int	sigaddset __P((sigset_t *, int));
-int	sigdelset __P((sigset_t *, int));
-int	sigemptyset __P((sigset_t *));
-int	sigfillset __P((sigset_t *));
-int	sigismember __P((const sigset_t *, int));
-int	sigpending __P((sigset_t *));
-int	sigprocmask __P((int, const sigset_t *, sigset_t *));
-int	sigsuspend __P((const sigset_t *));
+int	kill(pid_t, int);
+int	sigaction(int, const struct sigaction *, struct sigaction *);
+int	sigaddset(sigset_t *, int);
+int	sigaltstack(const struct sigaltstack *, struct sigaltstack *);
+int	sigdelset(sigset_t *, int);
+int	sigemptyset(sigset_t *);
+int	sigfillset(sigset_t *);
+int	sigismember(const sigset_t *, int);
+int	sigpending(sigset_t *);
+int	sigprocmask(int, const sigset_t *, sigset_t *);
+int	sigsuspend(const sigset_t *);
+int	sigwait(const sigset_t *, int *);
 #ifndef _POSIX_SOURCE
-int	killpg __P((pid_t, int));
-int	sigblock __P((int));
-int	siginterrupt __P((int, int));
-int	sighold __P((int));
-int	sigrelse __P((int));
-int	sigpause __P((int));
-int	sigreturn __P((struct sigcontext *));
-int	sigsetmask __P((int));
-int	sigvec __P((int, struct sigvec *, struct sigvec *));
-void	psignal __P((unsigned int, const char *));
+int	killpg(pid_t, int);
+int	sigblock(int);
+int	siginterrupt(int, int);
+int	sighold(int);
+int	sigrelse(int);
+int	sigpause(int);
+int	sigreturn(struct sigcontext *);
+int	sigsetmask(int);
+int	sigvec(int, struct sigvec *, struct sigvec *);
+void	psignal(unsigned int, const char *);
+
 #endif	/* !_POSIX_SOURCE */
 #endif	/* !_ANSI_SOURCE */
 __END_DECLS

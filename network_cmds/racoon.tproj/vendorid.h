@@ -1,4 +1,4 @@
-/*	$KAME: vendorid.h,v 1.5 2000/10/04 17:41:04 itojun Exp $	*/
+/*	$KAME: vendorid.h,v 1.6 2001/03/27 02:39:58 thorpej Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -45,8 +45,9 @@
 	((x) == VENDORID_GSSAPI_LONG ||					\
 	 (x) == VENDORID_GSSAPI ||					\
 	 (x) == VENDORID_MS_NT5)
+#define	VENDORID_NATT		4
 
-#define	NUMVENDORIDS		4
+#define	NUMVENDORIDS		5
 
 #define	VENDORID_STRINGS						\
 {									\
@@ -54,6 +55,7 @@
 	"A GSS-API Authentication Method for IKE",			\
 	"GSSAPI",							\
 	"MS NT5 ISAKMPOAKLEY",						\
+	"draft-ietf-ipsec-nat-t-ike"				\
 }
 
 extern const char *vendorid_strings[];

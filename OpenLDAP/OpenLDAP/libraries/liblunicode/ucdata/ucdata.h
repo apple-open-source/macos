@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblunicode/ucdata/ucdata.h,v 1.10.2.1 2002/04/22 15:43:28 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblunicode/ucdata/ucdata.h,v 1.10.2.2 2003/02/08 23:50:39 kurt Exp $ */
 /*
- * Copyright 2000-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 2000-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*
@@ -28,7 +28,7 @@
 #define _h_ucdata
 
 /*
- * $Id: ucdata.h,v 1.2 2002/07/15 23:45:14 majka Exp $
+ * $Id: ucdata.h,v 1.3 2003/07/18 01:10:28 jtownsen Exp $
  */
 
 LDAP_BEGIN_DECL

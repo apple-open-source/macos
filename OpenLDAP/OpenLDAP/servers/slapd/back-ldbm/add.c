@@ -1,7 +1,7 @@
 /* add.c - ldap ldbm back-end add routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/add.c,v 1.66 2002/02/09 04:14:18 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/add.c,v 1.66.2.4 2003/03/03 17:10:09 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -31,15 +31,48 @@ ldbm_back_add(
 	ID               id = NOID;
 	const char	*text = NULL;
 	AttributeDescription *children = slap_schema.si_ad_children;
+	AttributeDescription *entry = slap_schema.si_ad_entry;
 	char textbuf[SLAP_TEXT_BUFLEN];
 	size_t textlen = sizeof textbuf;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_ENTRY,"ldbm_back_add: %s\n",
-		e->e_dn ));
+	LDAP_LOG( BACK_LDBM, ENTRY, "ldbm_back_add: %s\n", e->e_dn, 0, 0 );
 #else
 	Debug(LDAP_DEBUG_ARGS, "==> ldbm_back_add: %s\n", e->e_dn, 0, 0);
 #endif
+
+	rc = entry_schema_check( be, e, NULL, &text, textbuf, textlen );
+	if ( rc != LDAP_SUCCESS ) {
+#ifdef NEW_LOGGING
+		LDAP_LOG( BACK_LDBM, ERR, 
+			"ldbm_back_add: entry (%s) failed schema check.\n", e->e_dn, 0, 0 );
+#else
+		Debug( LDAP_DEBUG_TRACE, "entry failed schema check: %s\n",
+			text, 0, 0 );
+#endif
+
+		send_ldap_result( conn, op, rc,
+			NULL, text, NULL, NULL );
+		return( -1 );
+	}
+
+	if ( ! access_allowed( be, conn, op, e,
+		entry, NULL, ACL_WRITE, NULL ) )
+	{
+#ifdef NEW_LOGGING
+		LDAP_LOG( BACK_LDBM, ERR, 
+			"ldbm_back_add: No write access to entry (%s).\n", 
+			e->e_dn, 0, 0 );
+#else
+		Debug( LDAP_DEBUG_TRACE, "no write access to entry\n", 0,
+		    0, 0 );
+#endif
+
+		send_ldap_result( conn, op, LDAP_INSUFFICIENT_ACCESS,
+		    NULL, "no write access to entry", NULL, NULL );
+
+		return -1;
+	}
 
 	/* grab giant lock for writing */
 	ldap_pvt_thread_rdwr_wlock(&li->li_giant_rwlock);
@@ -48,27 +81,8 @@ ldbm_back_add(
 		/* if (rc) something bad happened to ldbm cache */
 		ldap_pvt_thread_rdwr_wunlock(&li->li_giant_rwlock);
 		send_ldap_result( conn, op, 
-			rc ? LDAP_OPERATIONS_ERROR : LDAP_ALREADY_EXISTS,
+			rc ? LDAP_OTHER : LDAP_ALREADY_EXISTS,
 			NULL, NULL, NULL, NULL );
-		return( -1 );
-	}
-
-	rc = entry_schema_check( be, e, NULL, &text, textbuf, textlen );
-
-	if ( rc != LDAP_SUCCESS ) {
-		ldap_pvt_thread_rdwr_wunlock(&li->li_giant_rwlock);
-
-#ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_ERR,
-			"ldbm_back_add: entry (%s) failed schema check.\n",
-			e->e_dn ));
-#else
-		Debug( LDAP_DEBUG_TRACE, "entry failed schema check: %s\n",
-			text, 0, 0 );
-#endif
-
-		send_ldap_result( conn, op, rc,
-			NULL, text, NULL, NULL );
 		return( -1 );
 	}
 
@@ -107,9 +121,9 @@ ldbm_back_add(
 			ldap_pvt_thread_rdwr_wunlock(&li->li_giant_rwlock);
 
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "backend", LDAP_LEVEL_ERR,
-				"ldbm_back_add: Parent of (%s) does not exist.\n",
-				e->e_dn ));
+			LDAP_LOG( BACK_LDBM, ERR, 
+				"ldbm_back_add: Parent of (%s) does not exist.\n", 
+				e->e_dn, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_TRACE, "parent does not exist\n",
 				0, 0, 0 );
@@ -133,9 +147,9 @@ ldbm_back_add(
 			ldap_pvt_thread_rdwr_wunlock(&li->li_giant_rwlock);
 
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "backend", LDAP_LEVEL_ERR,
-				   "ldbm_back_add: No write access to parent (%s).\n",
-				   e->e_dn ));
+			LDAP_LOG( BACK_LDBM, ERR, 
+				"ldbm_back_add: No write access to parent (%s).\n", 
+				e->e_dn, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_TRACE, "no write access to parent\n", 0,
 			    0, 0 );
@@ -155,8 +169,8 @@ ldbm_back_add(
 			ldap_pvt_thread_rdwr_wunlock(&li->li_giant_rwlock);
 
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "backend", LDAP_LEVEL_ERR,
-				   "ldbm_back_add:  Parent is an alias.\n"));
+			LDAP_LOG(BACK_LDBM, ERR, 
+				"ldbm_back_add:  Parent is an alias.\n", 0, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_TRACE, "parent is alias\n", 0,
 			    0, 0 );
@@ -181,8 +195,8 @@ ldbm_back_add(
 			ldap_pvt_thread_rdwr_wunlock(&li->li_giant_rwlock);
 
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "backend", LDAP_LEVEL_ERR,
-				   "ldbm_back_add: Parent is referral.\n" ));
+			LDAP_LOG( BACK_LDBM, ERR,
+				   "ldbm_back_add: Parent is referral.\n", 0, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_TRACE, "parent is referral\n", 0,
 			    0, 0 );
@@ -214,9 +228,9 @@ ldbm_back_add(
 					ldap_pvt_thread_rdwr_wunlock(&li->li_giant_rwlock);
 
 #ifdef NEW_LOGGING
-					LDAP_LOG(( "backend", LDAP_LEVEL_ERR,
+					LDAP_LOG( BACK_LDBM, ERR,
 						"ldbm_back_add: No write "
-						"access to parent (\"\").\n" ));
+						"access to parent (\"\").\n", 0, 0, 0 );
 #else
 					Debug( LDAP_DEBUG_TRACE, 
 						"no write access to parent\n", 
@@ -236,10 +250,10 @@ ldbm_back_add(
 				ldap_pvt_thread_rdwr_wunlock(&li->li_giant_rwlock);
 
 #ifdef NEW_LOGGING
-				LDAP_LOG(( "backend", LDAP_LEVEL_ERR,
+				LDAP_LOG( BACK_LDBM, ERR,
 					   "ldbm_back_add: %s add denied.\n",
 					   pdn.bv_val == NULL ? "suffix" 
-					   : "entry at root" ));
+					   : "entry at root", 0, 0 );
 #else
 				Debug( LDAP_DEBUG_TRACE, "%s add denied\n",
 						pdn.bv_val == NULL ? "suffix" 
@@ -264,8 +278,8 @@ ldbm_back_add(
 		ldap_pvt_thread_rdwr_wunlock(&li->li_giant_rwlock);
 
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_ERR,
-			"ldbm_back_add: next_id failed.\n" ));
+		LDAP_LOG( BACK_LDBM, ERR,
+			"ldbm_back_add: next_id failed.\n", 0, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY, "ldbm_add: next_id failed\n",
 			0, 0, 0 );
@@ -291,8 +305,8 @@ ldbm_back_add(
 		ldap_pvt_thread_rdwr_wunlock(&li->li_giant_rwlock);
 
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_ERR,
-			   "ldbm_back_add: cache_add_entry_lock failed.\n" ));
+		LDAP_LOG( BACK_LDBM, ERR,
+			"ldbm_back_add: cache_add_entry_lock failed.\n", 0, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY, "cache_add_entry_lock failed\n", 0, 0,
 		    0 );
@@ -310,8 +324,8 @@ ldbm_back_add(
 	/* attribute indexes */
 	if ( index_entry_add( be, e, e->e_attrs ) != LDAP_SUCCESS ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_ERR,
-			   "ldbm_back_add: index_entry_add failed.\n" ));
+		LDAP_LOG( BACK_LDBM, ERR,
+			"ldbm_back_add: index_entry_add failed.\n", 0, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_TRACE, "index_entry_add failed\n", 0,
 		    0, 0 );
@@ -326,8 +340,8 @@ ldbm_back_add(
 	/* dn2id index */
 	if ( dn2id_add( be, &e->e_nname, e->e_id ) != 0 ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_ERR,
-			   "ldbm_back_add: dn2id_add failed.\n" ));
+		LDAP_LOG( BACK_LDBM, ERR,
+			"ldbm_back_add: dn2id_add failed.\n", 0, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_TRACE, "dn2id_add failed\n", 0,
 		    0, 0 );
@@ -343,8 +357,8 @@ ldbm_back_add(
 	/* id2entry index */
 	if ( id2entry_add( be, e ) != 0 ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_ERR,
-			   "ldbm_back_add: id2entry_add failed.\n" ));
+		LDAP_LOG( BACK_LDBM, ERR,
+			   "ldbm_back_add: id2entry_add failed.\n", 0, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_TRACE, "id2entry_add failed\n", 0,
 		    0, 0 );

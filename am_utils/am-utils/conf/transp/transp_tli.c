@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: transp_tli.c,v 1.1.1.1 2002/05/15 01:22:11 jkh Exp $
+ * $Id: transp_tli.c,v 1.1.1.2 2002/07/15 19:42:55 zarzycki Exp $
  *
  * TLI specific utilities.
  *      -Erez Zadok <ezk@cs.columbia.edu>
@@ -295,9 +295,7 @@ get_mount_client(char *host, struct sockaddr_in *unused_sin, struct timeval *tv,
     goto tryudp;
   }
   /* tcp succeeded */
-#ifdef DEBUG
   dlog("get_mount_client: using tcp, port %d", sin.sin_port);
-#endif /* DEBUG */
   if (nc)
     freenetconfigent(nc);
   return client;
@@ -347,9 +345,7 @@ tryudp:
     goto badout;		/* neither tcp not udp succeeded */
   }
   /* udp succeeded */
-#ifdef DEBUG
   dlog("get_mount_client: using udp, port %d", sin.sin_port);
-#endif /* DEBUG */
   return client;
 
 badout:
@@ -372,6 +368,16 @@ amu_svc_getcaller(SVCXPRT *xprt)
     return (struct sockaddr_in *) nbp->buf; /* all OK */
 
   return NULL;			/* failed */
+}
+
+
+/*
+ * register an RPC server
+ */
+int
+amu_svc_register(SVCXPRT *xprt, u_long prognum, u_long versnum, void (*dispatch)(), u_long protocol, struct netconfig *ncp)
+{
+  return svc_reg(xprt, prognum, versnum, dispatch, ncp);
 }
 
 
@@ -646,7 +652,6 @@ get_nfs_version(char *host, struct sockaddr_in *sin, u_long nfs_version, const c
     nfs_version = NFS_VERS_MAX;
   }
 
-#ifdef DEBUG
   if (nfs_version == NFS_VERSION) {
     dlog("get_nfs_version trying NFS(%d,%s) for %s",
 	 (int) nfs_version, proto, host);
@@ -654,7 +659,7 @@ get_nfs_version(char *host, struct sockaddr_in *sin, u_long nfs_version, const c
     dlog("get_nfs_version trying NFS(%d-%d,%s) for %s",
 	 (int) NFS_VERSION, (int) nfs_version, proto, host);
   }
-#endif /* DEBUG */
+
   /* get the best NFS version, and timeout quickly if remote host is down */
   clnt = amu_clnt_create_best_vers(host, NFS_PROGRAM, &versout,
 				   NFS_VERSION, nfs_version, proto);

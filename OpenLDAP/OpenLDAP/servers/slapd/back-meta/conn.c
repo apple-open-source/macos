@@ -1,5 +1,5 @@
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  *
  * Copyright 2001, Pierangelo Masarati, All rights reserved. <ando@sys-net.it>
@@ -97,8 +97,7 @@ meta_back_conn_cmp(
 	struct metaconn *lc1 = ( struct metaconn * )c1;
         struct metaconn *lc2 = ( struct metaconn * )c2;
 	
-	return ( ( lc1->conn < lc2->conn ) ? -1 :
-			( ( lc1->conn > lc2-> conn ) ? 1 : 0 ) );
+	return SLAP_PTRCMP( lc1->conn, lc2->conn );
 }
 
 /*
@@ -170,7 +169,6 @@ static struct metaconn *
 metaconn_alloc( int ntargets )
 {
 	struct metaconn *lc;
-	int i;
 
 	assert( ntargets > 0 );
 
@@ -182,22 +180,12 @@ metaconn_alloc( int ntargets )
 	/*
 	 * make it a null-terminated array ...
 	 */
-	lc->conns = ch_calloc( sizeof( struct metasingleconn * ), ntargets+1 );
+	lc->conns = ch_calloc( sizeof( struct metasingleconn ), ntargets+1 );
 	if ( lc->conns == NULL ) {
 		free( lc );
 		return NULL;
 	}
-
-	for ( i = 0; i < ntargets; i++ ) {
-		lc->conns[ i ] =
-			ch_calloc( sizeof( struct metasingleconn ), 1 );
-		if ( lc->conns[ i ] == NULL ) {
-			charray_free( ( char ** )lc->conns );
-			free( lc->conns );
-			free( lc );
-			return NULL;
-		}
-	}
+	lc->conns[ ntargets ].candidate = META_LAST_CONN;
 
 	lc->bound_target = META_BOUND_NONE;
 
@@ -219,12 +207,7 @@ metaconn_free(
 	}
 	
 	if ( lc->conns ) {
-		int i;
-
-		for ( i = 0; lc->conns[ i ] != NULL; ++i ) {
-			free( lc->conns[ i ] );
-		}
-		charray_free( ( char ** )lc->conns );
+		ch_free( lc->conns );
 	}
 
 	free( lc );
@@ -240,11 +223,10 @@ init_one_conn(
 		Connection *conn, 
 		Operation *op, 
 		struct metatarget *lt, 
-		int vers,
 		struct metasingleconn *lsc
 		)
 {
-	int err;
+	int err, vers;
 
 	/*
 	 * Already init'ed
@@ -260,11 +242,12 @@ init_one_conn(
 	if ( err != LDAP_SUCCESS ) {
 		return ldap_back_map_result( err );
 	}
-	
+
 	/*
 	 * Set LDAP version. This will always succeed: If the client
 	 * bound with a particular version, then so can we.
 	 */
+	vers = conn->c_protocol;
 	ldap_set_option( lsc->ld, LDAP_OPT_PROTOCOL_VERSION, &vers );
 
 	/*
@@ -275,43 +258,43 @@ init_one_conn(
 	/*
 	 * If the connection dn is not null, an attempt to rewrite it is made
 	 */
-	if ( conn->c_cdn.bv_len != 0 ) {
+	if ( conn->c_dn.bv_len != 0 ) {
 		
 		/*
 		 * Rewrite the bind dn if needed
 		 */
 		lsc->bound_dn.bv_val = NULL;
 		switch ( rewrite_session( lt->rwinfo, "bindDn",
-					conn->c_cdn.bv_val, conn, 
+					conn->c_dn.bv_val, conn, 
 					&lsc->bound_dn.bv_val ) ) {
 		case REWRITE_REGEXEC_OK:
 			if ( lsc->bound_dn.bv_val == NULL ) {
-				ber_dupbv( &lsc->bound_dn, &conn->c_cdn );
+				ber_dupbv( &lsc->bound_dn, &conn->c_dn );
 			}
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "backend", LDAP_LEVEL_DETAIL1,
-					"[rw] bindDn: \"%s\" -> \"%s\"\n",
-					conn->c_cdn.bv_val, lsc->bound_dn.bv_val ));
+			LDAP_LOG( BACK_META, DETAIL1,
+				"[rw] bindDn: \"%s\" -> \"%s\"\n",
+				conn->c_dn.bv_val, lsc->bound_dn.bv_val, 0 );
 #else /* !NEW_LOGGING */
 			Debug( LDAP_DEBUG_ARGS,
 				       	"rw> bindDn: \"%s\" -> \"%s\"\n",
-					conn->c_cdn.bv_val, lsc->bound_dn.bv_val, 0 );
+					conn->c_dn.bv_val, lsc->bound_dn.bv_val, 0 );
 #endif /* !NEW_LOGGING */
 			break;
 			
 		case REWRITE_REGEXEC_UNWILLING:
 			send_ldap_result( conn, op,
 					LDAP_UNWILLING_TO_PERFORM,
-					NULL, "Unwilling to perform",
+					NULL, "Operation not allowed",
 					NULL, NULL );
 			return LDAP_UNWILLING_TO_PERFORM;
 			
 		case REWRITE_REGEXEC_ERR:
 			send_ldap_result( conn, op,
-					LDAP_OPERATIONS_ERROR,
-					NULL, "Operations error",
+					LDAP_OTHER,
+					NULL, "Rewrite error",
 					NULL, NULL );
-			return LDAP_OPERATIONS_ERROR;
+			return LDAP_OTHER;
 		}
 
 		assert( lsc->bound_dn.bv_val );
@@ -351,7 +334,7 @@ meta_back_getconn(
 		int 		*candidate )
 {
 	struct metaconn *lc, lc_curr;
-	int vers, cached = -1, i = -1, err = LDAP_SUCCESS;
+	int cached = -1, i = -1, err = LDAP_SUCCESS;
 	int new_conn = 0;
 
 	/* Searches for a metaconn in the avl tree */
@@ -367,8 +350,6 @@ meta_back_getconn(
 		lc->conn = conn;
 		new_conn = 1;
 	}
-
-	vers = conn->c_protocol;
 
 	/*
 	 * looks in cache, if any
@@ -402,10 +383,9 @@ meta_back_getconn(
 		}
 				
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_INFO,
-				"meta_back_getconn: got target %d"
-				" for ndn=\"%s\" from cache\n", 
-				i, ndn->bv_val ));
+		LDAP_LOG( BACK_META, INFO,
+			"meta_back_getconn: got target %d for ndn=\"%s\" from cache\n", 
+			i, ndn->bv_val, 0 );
 #else /* !NEW_LOGGING */
 		Debug( LDAP_DEBUG_CACHE,
 	"==>meta_back_getconn: got target %d for ndn=\"%s\" from cache\n%s",
@@ -423,7 +403,7 @@ meta_back_getconn(
 		 * sends the appropriate result.
 		 */
 		err = init_one_conn( conn, op, li->targets[ i ],
-				vers, lc->conns[ i ] );
+				&lc->conns[ i ] );
 		if ( err != LDAP_SUCCESS ) {
 		
 			/*
@@ -431,7 +411,7 @@ meta_back_getconn(
 			 * be init'd, should the other ones
 			 * be tried?
 			 */
-			( void )meta_clear_one_candidate( lc->conns[ i ], 1 );
+			( void )meta_clear_one_candidate( &lc->conns[ i ], 1 );
 			if ( new_conn ) {
 				metaconn_free( lc );
 			}
@@ -453,7 +433,7 @@ meta_back_getconn(
 			 * also init'd
 			 */
 			int lerr = init_one_conn( conn, op, li->targets[ i ],
-					vers, lc->conns[ i ] );
+					&lc->conns[ i ] );
 			if ( lerr != LDAP_SUCCESS ) {
 				
 				/*
@@ -461,7 +441,7 @@ meta_back_getconn(
 				 * be init'd, should the other ones
 				 * be tried?
 				 */
-				( void )meta_clear_one_candidate( lc->conns[ i ], 1 );
+				( void )meta_clear_one_candidate( &lc->conns[ i ], 1 );
 				err = lerr;
 				continue;
 			}
@@ -481,7 +461,7 @@ meta_back_getconn(
 				 */
 				int lerr = init_one_conn( conn, op,
 						li->targets[ i ],
-						vers, lc->conns[ i ] );
+						&lc->conns[ i ] );
 				if ( lerr != LDAP_SUCCESS ) {
 				
 					/*
@@ -489,7 +469,7 @@ meta_back_getconn(
 					 * be init'd, should the other ones
 					 * be tried?
 					 */
-					( void )meta_clear_one_candidate( lc->conns[ i ], 1 );
+					( void )meta_clear_one_candidate( &lc->conns[ i ], 1 );
 					err = lerr;
 					continue;
 				}
@@ -513,9 +493,8 @@ meta_back_getconn(
 		ldap_pvt_thread_mutex_unlock( &li->conn_mutex );
 
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_INFO,
-				"meta_back_getconn: conn %ld inserted\n",
-				lc->conn->c_connid ));
+		LDAP_LOG( BACK_META, INFO,
+			"meta_back_getconn: conn %ld inserted\n", lc->conn->c_connid, 0, 0);
 #else /* !NEW_LOGGING */
 		Debug( LDAP_DEBUG_TRACE,
 			"=>meta_back_getconn: conn %ld inserted\n%s%s",
@@ -526,16 +505,15 @@ meta_back_getconn(
 		 * Err could be -1 in case a duplicate metaconn is inserted
 		 */
 		if ( err != 0 ) {
-			send_ldap_result( conn, op, LDAP_OPERATIONS_ERROR,
+			send_ldap_result( conn, op, LDAP_OTHER,
 			NULL, "Internal server error", NULL, NULL );
 			metaconn_free( lc );
 			return NULL;
 		}
 	} else {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_INFO,
-				"meta_back_getconn: conn %ld fetched\n",
-				lc->conn->c_connid ));
+		LDAP_LOG( BACK_META, INFO,
+			"meta_back_getconn: conn %ld fetched\n", lc->conn->c_connid, 0, 0 );
 #else /* !NEW_LOGGING */
 		Debug( LDAP_DEBUG_TRACE,
 			"=>meta_back_getconn: conn %ld fetched\n%s%s",

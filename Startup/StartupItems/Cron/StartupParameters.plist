@@ -1,6 +1,5 @@
 {
   Description     = "timed execution services";
   Provides        = ("Cron");
-  Uses            = ("Network Time");
   OrderPreference = "Late";
 }

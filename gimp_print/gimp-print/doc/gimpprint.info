@@ -1,0 +1,94 @@
+This is gimpprint.info, produced by makeinfo version 4.0 from
+gimpprint.texi.
+
+INFO-DIR-SECTION Libraries
+START-INFO-DIR-ENTRY
+* GIMP-Print: (gimpprint).      print plugin for the GIMP, and printing library
+END-INFO-DIR-ENTRY
+
+   This file documents the gimpprint library and associated programs
+used for high quality printing.
+
+   Copyright (C) 2001 Michael Sweet (<mike@easysw.com>) and Robert
+Krawitz (<rlk@alum.mit.edu>)
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided that
+the entire resulting derived work is distributed under the terms of a
+permission notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that this permission notice may be stated in a
+translation approved by the Foundation.
+
+
+Indirect:
+gimpprint.info-1: 1086
+gimpprint.info-2: 50090
+gimpprint.info-3: 97464
+gimpprint.info-4: 142317
+gimpprint.info-5: 185904
+
+Tag Table:
+(Indirect)
+Node: Top1086
+Node: Instructions2197
+Node: Copying3918
+Node: Overview24512
+Node: Using libgimpprint25397
+Node: Integrating libgimpprint26721
+Node: gimpprint-config27428
+Node: make29503
+Node: autoconf30090
+Node: automake31773
+Node: Functions33960
+Node: Main functions34957
+Node: stp_vars_t functions36188
+Node: Dither functions49755
+Node: Options functions50090
+Node: Paper functions51096
+Node: Printer functions52501
+Node: Settings functions56361
+Node: Version functions57187
+Node: Programs59480
+Node: The GIMP plugin60109
+Ref: The GIMP plugin-Footnote-169830
+Ref: The GIMP plugin-Footnote-269860
+Ref: The GIMP plugin-Footnote-369905
+Ref: The GIMP plugin-Footnote-469938
+Node: Ghostscript70040
+Node: CUPS70175
+Node: Problems70272
+Ref: Problems-Footnote-171100
+Ref: Problems-Footnote-271149
+Node: Appendices71198
+Node: Dithering71582
+Node: Weaving97161
+Node: Weaving introduction97464
+Node: Weaving algorithms103941
+Node: Simple weaving algorithms106555
+Node: Perfect weaving110315
+Node: Weaving collisions119194
+Node: What is perfect weaving?120618
+Node: Oversampling142317
+Node: ESC/P2151914
+Node: ESC/P2 Introduction152280
+Node: ESC/P2 Standard Commands153602
+Node: ESC/P2 Remote Mode Commands165573
+Node: ESC/P2 Appropriate Remote Commands178224
+Node: New Printer180913
+Node: printers.xml181856
+Node: Driver file184518
+Node: Epson inkjet printers185904
+Node: Tuning Epson printers203620
+Node: Canon inkjet printers210530
+Node: Data Type and Variable Index213988
+Node: Function and Macro Index215150
+Node: Concept Index228335
+
+End Tag Table

@@ -24,9 +24,10 @@ StartService ()
     # Network Information Service.
     ##
     CheckForNetwork
+    if [ -f /var/run/NIS.StartupItem -o "${NETWORKUP}" = "-NO-" ]; then exit; fi
+    touch /var/run/NIS.StartupItem
 
-    if [ "${NETWORKUP}" = "-YES-" ] &&
-       [ "${NISDOMAIN:=-NO-}" != "-NO-" ]; then
+    if [ "${NISDOMAIN:=-NO-}" != "-NO-" ]; then
 
         VARYP=/var/yp
 

@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -343,7 +346,7 @@ startBundle(const void *value, void *context) {
 
 	/* check if this directory entry is a valid bundle name */
 	len = strlen(cp);
-	if (len <= sizeof(BUNDLE_DIR_EXTENSION)) {
+	if (len <= (int)sizeof(BUNDLE_DIR_EXTENSION)) {
 		/* if entry name isn't long enough */
 		return;
 	}
@@ -404,14 +407,16 @@ sortBundles(CFMutableArrayRef orig)
 	new = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	while (CFArrayGetCount(orig) > 0) {
 		int	i;
-		Boolean	inserted = FALSE;
+		Boolean	inserted	= FALSE;
+		int	nOrig		= CFArrayGetCount(orig);
 
-		for (i = 0; i < CFArrayGetCount(orig); i++) {
+		for (i = 0; i < nOrig; i++) {
 			CFBundleRef	bundle1	  = (CFBundleRef)CFArrayGetValueAtIndex(orig, i);
 			CFStringRef	bundleID1 = CFBundleGetIdentifier(bundle1);
 			int		count;
 			CFDictionaryRef	dict;
 			int		j;
+			int		nRequires;
 			CFArrayRef	requires  = NULL;
 
 			dict = isA_CFDictionary(CFBundleGetInfoDictionary(bundle1));
@@ -425,12 +430,14 @@ sortBundles(CFMutableArrayRef orig)
 				inserted = TRUE;
 				break;
 			}
-			count = CFArrayGetCount(requires);
-			for (j = 0; j < CFArrayGetCount(requires); j++) {
+			count = nRequires = CFArrayGetCount(requires);
+			for (j = 0; j < nRequires; j++) {
 				int		k;
+				int		nNew;
 				CFStringRef	r	= CFArrayGetValueAtIndex(requires, j);
 
-				for (k = 0; k < CFArrayGetCount(new); k++) {
+				nNew = CFArrayGetCount(new);
+				for (k = 0; k < nNew; k++) {
 					CFBundleRef	bundle2	  = (CFBundleRef)CFArrayGetValueAtIndex(new, k);
 					CFStringRef	bundleID2 = CFBundleGetIdentifier(bundle2);
 
@@ -468,6 +475,7 @@ sortBundles(CFMutableArrayRef orig)
 }
 
 
+__private_extern__
 void *
 plugin_exec(void *arg)
 {
@@ -476,8 +484,8 @@ plugin_exec(void *arg)
 	/* keep track of bundles */
 	allBundles = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 
-        /* allow plug-ins to exec child/helper processes */
-        _SCDPluginExecInit();
+	/* allow plug-ins to exec child/helper processes */
+	_SCDPluginExecInit();
 
 	if (arg == NULL) {
 		char				path[MAXPATHLEN];
@@ -594,11 +602,6 @@ plugin_exec(void *arg)
 	}
 #endif	/* DEBUG */
 
-	if (_configd_fork) {
-		/* synchronize with parent process */
-		kill(getppid(), SIGTERM);
-	}
-
 	/*
 	 * The assumption is that each loaded plugin will establish CFMachPortRef,
 	 * CFSocketRef, and CFRunLoopTimerRef input sources to handle any events
@@ -613,6 +616,7 @@ plugin_exec(void *arg)
 }
 
 
+__private_extern__
 void
 plugin_init()
 {

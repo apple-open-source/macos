@@ -19,7 +19,7 @@
 # 02111-1307, USA.
 
 AC_PREREQ(2.52)
-AC_INIT([GNU Automake], [1.6.1], [bug-automake@gnu.org])
+AC_INIT([GNU Automake], [1.6.3], [bug-automake@gnu.org])
 
 AC_CONFIG_SRCDIR(automake.in)
 AC_CONFIG_AUX_DIR(lib)
@@ -62,6 +62,22 @@ AM_RUN_LOG([cd conftest && eval $AUTOCONF -o /dev/null conftest.ac]) || {
    AC_MSG_ERROR([Autoconf 2.52 or better is required])
 }
 rm -rf conftest
+
+# Test for ln.  We need use it to install the versioned binaries.
+AC_MSG_CHECKING([whether ln works])
+AC_CACHE_VAL([am_cv_prog_ln], [
+rm -f conftest conftest.file
+: >conftest.file
+if ln conftest.file conftest 2>/dev/null; then
+  am_cv_prog_ln=ln
+else
+  am_cv_prog_ln='cp -p'
+fi
+rm -f conftest conftest.file])
+AC_SUBST([LN], [$am_cv_prog_ln])
+result=no
+test "x$am_cv_prog_ln" = xln && result=yes
+AC_MSG_RESULT([$result])
 
 AC_CONFIG_FILES([automake], [chmod +x automake])
 AC_CONFIG_FILES([aclocal], [chmod +x aclocal])

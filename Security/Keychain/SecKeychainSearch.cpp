@@ -16,6 +16,8 @@
  */
 
 #include <Security/SecKeychainSearch.h>
+#include <Security/KCCursor.h>
+#include <Security/Item.h>
 
 #include "SecBridge.h"
 
@@ -24,7 +26,8 @@ SecKeychainSearchGetTypeID(void)
 {
 	BEGIN_SECAPI
 
-	return gTypes().cursor.typeId;
+	secdebug("kcsearch", "SecKeychainSearchGetTypeID()");
+	return gTypes().KCCursorImpl.typeID;
 
 	END_SECAPI1(_kCFRuntimeNotATypeID)
 }
@@ -35,12 +38,14 @@ SecKeychainSearchCreateFromAttributes(CFTypeRef keychainOrArray, SecItemClass it
 {
     BEGIN_SECAPI
 
+	secdebug("kcsearch", "SecKeychainSearchCreateFromAttributes(%p, %lu, %p, %p)",
+		keychainOrArray, itemClass, attrList, searchRef);
 	Required(searchRef); // Make sure that searchRef is an invalid SearchRef
 
 	StorageManager::KeychainList keychains;
 	globals().storageManager.optionalSearchList(keychainOrArray, keychains);
 	KCCursor cursor(keychains, itemClass, attrList);
-	*searchRef = gTypes().cursor.handle(*cursor);
+	*searchRef = cursor->handle();
 
 	END_SECAPI
 }
@@ -51,12 +56,13 @@ SecKeychainSearchCopyNext(SecKeychainSearchRef searchRef, SecKeychainItemRef *it
 {
     BEGIN_SECAPI
 
+	secdebug("kcsearch", "SecKeychainSearchCopyNext(%p, %p)", searchRef, itemRef);
 	RequiredParam(itemRef);
 	Item item;
-	if (!gTypes().cursor.required(searchRef)->next(item))
+	if (!KCCursorImpl::required(searchRef)->next(item))
 		return errSecItemNotFound;
 
-	*itemRef=gTypes().item.handle(*item);
+	*itemRef=item->handle();
 
 	END_SECAPI
 }

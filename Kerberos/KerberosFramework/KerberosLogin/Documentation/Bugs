@@ -1,0 +1,218 @@
+==============================================================================
+Kerberos Login Library Bug List
+==============================================================================
+Current version: 1.7fc11
+Date           : September 18, 2003
+Author         : meeroh@mit.edu, smcguire@mit.edu, lxs@mit.edu
+==============================================================================
+
+==============================================================================
+Bug #       Bug description                                           Fixed in
+==============================================================================
+
+[RT 1867] KLVerifyInitialTicket*() should not fail if hostname doesn't resolve  1.7fc11
+[RT 1840] KLL stores tickets with bogus string to key type                      1.7fc10
+[RT 1839] KLS has UI glitches when caller provides principal                    1.7fc10
+[RT 1838] KLL should not always prompt on v4 only realms                        1.7fc10
+[RT 1834] KLL must handle MIG using MACH_SEND_TIMEOUT                           1.7fc9
+[RT 1835] GUI prompter should handle NULL banner or title                       1.7fc9
+[RT 1837] Password change question should use strcasecmp, not strcmp            1.7fc9
+[RT 1628] Stanford "v4_realm" tag broken                                        1.7fc8
+[RT 1764] Framework should use CFStringGetMaximumSizeForEncoding()              1.7fc7
+[RT 1762] KLL needs a way to store credentials                                  1.7fc7
+[RT 1763] KLL shouldn't mangle principals (host/host.domain.com@realm)          1.7fc7
+[RT 1761] KLL can't create v4 principals without default realm                  1.7fc6
+[RT 1741] KLH should set LSVisibleInClassic=1                                   1.7fc5
+[RT 1723] KLL does not honor dns_fallback = no                                  1.7fc4
+[RT 1705] loginLogout plugins should not reenter prompting code                 1.7fc3
+[RT 1719] KLL should handle long v5 principals with no instances                1.7fc3
+[RT 1710] KLL shouldn't require krb524 for sites with v4 and v5                 1.7fc2
+[RT 1705] loginLogout plugins should not reenter prompting code                 1.7fc2
+[RT 1694] Don't do krb524 on realms using the "v4_realm" tag                    1.7fc2
+[RT 1698] KLAcquireNewInitialTickets violates API spec in terminal case         1.7fc2
+[RT 1699] Do not use NSMatrix with NSSecureTextFieldCell for the prompter       1.7fc2
+[RT 1659] Don't prompt if there is no configuration at all                      1.7fc1
+[RT 1660] KLL should support an environment variable to supress prompting       1.7fc1
+[RT 1669] Icon badging doesn't work when dialog starts out expanded             1.7fc1
+[RT 1628] Stanford "v4_realm" tag broken                                        1.7a9
+[RT 1639] KLChangePassword always indicates that password was rejected          1.7a9
+[RT 1640] Kerberos Authentication dialog should badge icon with app icon        1.7a9
+[RT 1644] Change "passphrase" to "password"                                     1.7a9
+[RT 1422]   KLVerifyInitialTickets should do an Apple style keytab lookup       1.7a8
+[RT 1577]   Remove KLL terminal prompt headers                                  1.7a8
+[RT 1578]   Kerberos Authentication dialog needs caps lock key warning          1.7a8
+[RT 1590]   Kerberos Login Server crashes when no configuration file            1.7a8
+[RT 1591]   KLL application name incorrect for non-bundled apps                 1.7a8
+[RT 1597]   KLTicketExpirationTime returns bogus time when no config file       1.7a8
+[RT 1599]   Default renew lifetime not reported correctly when no config file   1.7a8
+[RT 1534]   Specifying nonexistent loginLogout plugin results in a crash        1.7a7
+[RT 1564]   KLL should free profiles from krb5_get_profile and krb_get_profile  1.7a7
+[RT 1565]   KLL leaks krb5_context when prompting to the terminal               1.7a7
+[RT 1566]   KLL lock files leak strings                                         1.7a7
+[RT 1574]   KLL should look up krb5 and krb4 realms in DNS                      1.7a7
+[RT 1508]   Login-logout plugins crash on login                                 1.7a6
+[RT 1466]   KLL should support DNS kdc lookups                                  1.7a6
+[RT 1475]   KLL documentation has wrong KLRenewInitialTickets prototype         1.7a6
+[RT 1489]   Remap KRB5KDC_ERR_PREAUTH_FAILED to better error                    1.7a6
+[RT 1498]   Ticket lifetime defaults to 0                                       1.7a6
+[RT 1499]   Dialog should remember the state of the options button              1.7a6
+[RT 1458]   KLL needs an API to block home directory access                     1.7a5
+[RT 1460]   KLL lock files broken for login                                     1.7a5
+[RT 1394]   Lifetime and renewable life sliders behave stupidly                 1.7a4
+[RT 1399]   Renewable checkbox broken                                           1.7a4
+[RT 1322]   Renewable slider doesn't use libdefaults to determine the max time  1.7a3
+[RT 1382]   KLVerifyInitialTicketCredentials fails with RC/IO error             1.7a3
+[RT 1317]   Getting tickets is slow at sites with krb524 port blocked           1.7a2
+[RT 1318]   KLS dialogs are minimizable and/or resizable                        1.7a2
+[RT 1319]   Renewable ticket lifetime has no preference file entry              1.7a2
+[RT 1320]   Addressless ticket option has no preference file entry              1.7a2
+[RT 1358]   KLChangePassword assumes result_code_string and result_string are non-NULL 1.7a2
+[RT 1375]   KLL should krb524init when applicable                               1.7a2
+[RT 1376]   StLoginOptions wasn't checking return value of krb5_init_context    1.7a2
+[RT 1297]   KLS should be a Cocoa nib-based application                         1.7a1
+[RT 1296]   KLL should verify credentials with a secure context                 1.7a1
+[RT 1295]   Kerberos framework initializer causes performance problems          1.7a1
+[BZ 780]	options dialog lifetime caption initially blank on Jaguar			1.6
+[BZ 778]	krb4 tickets gotten with krb524 don't give clock skew error			1.6fc2
+[BZ 774]	KLS leaks IconRefs on Jaguar										1.6fc1
+[BZ 770]	KLAcquireNewInitialTickets misbehaves with non-nil principal		1.6a2
+[BZ 771]	Login Dialog ignores lifetime slider Options setting				1.6a2
+[BZ 659]	Dock animation still slow when launching LoginServer				1.6a1
+[BZ 683]	Still getting a prebinding error									1.6a1
+[BZ 715]	KLL should use CFBundle's InfoPlist.strings for localization		1.6a1
+[BZ 716]	KLL should be able to aquire postdated tickets and validate			1.6a1
+[BZ 717]	KLL should be able to renew tickets									1.6a1
+[BZ 718]	KLL should be able to get initial tickets from a keytab				1.6a1
+[BZ 719]	KLL should be able to get tickets without storing them				1.6a1
+[BZ 720]	KLL should be able to get addressless tickets						1.6a1
+[BZ 721]	KLL should be able to get tickets of a different service princ		1.6a1
+[BZ 723]	KLS should link against KLL											1.6a1
+[BZ 724]	KLS should use Core Foundation to read version number				1.6a1
+[BZ 732]	v4 long lifetimes for TGTs are wrong - investigate krb524			1.6a1
+[BZ 733]	Login dialog does not properly display/remember ticket life			1.6a1
+[BZ 737]	Defer reading resource prefs until needed							1.6a1
+[BZ 743]	Remove annoying "Kerberos Login:" banner for Terminal login			1.6a1
+[BZ 745]	KLL should remember BundleID not Bundles							1.6a1
+[BZ 748]	KLL shouldn't constantly init contexts for apis						1.6a1
+[BZ 749]	KLL Vulnerable to Zanarotti Attack									1.6a1
+[BZ 761]	KLL should renew tickets rather than prompting						1.6a1
+[BZ 765]	Dialog OK buttons don't hilite on paste into fields					1.6a1
+[BZ 750]	KLConfirmInitialTicketsWithPassword is a confusing name				1.6a1
+[BZ 708]	Classic compatibility check fixed									1.5fc3
+[BZ 706]	MachIPC UID checking added											1.5fc2
+[BZ 687]	Launching KLH from Classic has no UI (needs spinning cursor) 		1.5b9
+[BZ 688]	Slider and lifetimes > 99 hours and ranges > 1000 hours 			1.5b9
+[BZ 691]	KLL does not wait for TK under Classic 								1.5b9
+[BZ 663]	Hang when sending zephyr with no tix from Classic					1.5b8
+[BZ 671]	Calling KLLastChangedTime starves the classic login dialog			1.5b7
+[BZ 679]	Login Help is too slow												1.5b6
+[BZ 680]	Login Helper won't launch more than once per reboot					1.5b6
+[BZ 665]	Dialog options&realms not shared between Classic&OS X
+[BZ 641]	Preference sharing doesn't work in Mac OS X							1.5b5
+[BZ 639]	Doesn't read default prefs from resource							1.5b1
+[BZ 640]	Login window positions not honored on X								1.5b1
+[BZ 650]	Doesn't call idle proc on X											1.5b1
+[BZ 645]	Control panel icon in X login dialog								1.5b1
+[BZ 607]	Skip confirmation on policy failure									1.4fc1
+[BZ 489]	Better behavior when min lifetime greater than max					1.4fc1
+[BZ 487]	TYping in login dialog very slow on 8.6								1.4fc1
+[BZ 476]	KLAcquireTickets crashes if login server is missing					1.4fc1
+[BZ 596]	Fixed problems unmounting after server launches						1.4b2
+[BZ 587]	Assertion every time a progress dialog comes up						1.4a7
+[BZ 477]	No user notificaation on change password success					1.4a6
+[BZ 490]	Slider misbehaves is default lifetime out of range					1.4a6
+[BZ 576]	Banner stretched in change password dialog							1.4a6
+[BZ 533]	Editing realms corrupts the global realm state						1.4a5
+[BZ 537]	Change password on a hw preauth principal crashes					1.4a5
+[BZ 541]	Error alert movable													1.4a5
+[BZ 545]	KLTicketExpirationTime, PPP & expiration							1.4a5
+[BZ 552]	Remove "MIT" from the banner										1.4a5
+[BZ 556]	No way to distinguish expired and IP-invalid tickets				1.4a5
+[BZ 526]	Crashes if launching server fails									1.4a3
+[BZ 437]	LoginHelper loses AppleEvent replies								1.4a2
+[BZ 506]	Tries to load MenusLib under Mac OS 8.1								1.4a1
+[    25]	No caps lock warning												1.4d6
+[BZ 449]	Error writing prefs when prefs file has no res fork					1.4d5
+[BZ 469]	KLGetDefaultLoginOption returns klContextServerErr					1.4d5
+[BZ 470]	KLGetDefaultLoginOption returns bad values for lifetime				1.4d5
+[BZ 433]	Carbon version crashes on initialization							1.4d4
+[BZ 396] 	KLCacheHasValidTickets does not return false correctly				1.4d3
+[BZ 381]	Errors from change password not reported							1.2
+[BZ 382]	Setting of std::strings incorrect									1.2
+[BZ 365]	Moved strings into code section										1.2fc3
+[BZ 368]	KLSetKerberosDefaultRealmByName() does not
+			return klRealmDoesNotExistErr										1.2fc3
+[BZ 369]	KLSetKerberosDefaultRealmByName() raises signal in non-debug		1.2fc3
+[BZ 362]	Icons in realm menu wrong when v4 and v5 realm names differ			1.2fc2
+[BZ 348]	Change change password dialog layout								1.2fc1
+[BZ 344]	Change copyright string												1.2fc1
+[BZ 334]	Resource file changed in KLGlobalOptions::WriteOptions				1.2fc1
+[BZ 324]	Extra resources in the shlib file									1.2b2
+[BZ 325]	Version caption too small											1.2b2
+[BZ 328]	Leak in UKLEnvironment::RealmShouldHaveKerberosv4					1.2b2
+[BZ 317]	Need to add KLCancelAllDialogs to allow clients to cancel login		1.2b1
+[BZ 309]	Need to use PreferencesLib											1.2b1
+[BZ 316]	No error handling for ShlibResBegin									1.2b1
+[BZ 315]	Icon flashed in progress dialog when cmd-period is hit				1.2b1
+[BZ 271]	AcquireTickets returns no error with assymtric tickets				1.2a2
+[BZ 286]	Realm conf API asserts when prefs locked							1.2a2
+[BZ 287]	KLSetDefaultLoginOption asserts when prefs locked					1.2a2
+[BZ 278]	Low level API														1.2a2
+[BZ 280]	Eats suspend-resume events											1.2a2
+[BZ 281]	CCacheHasValidTickets/ExpirationTime don't handle assymetric caches	1.2a2
+[BZ 295]	Docs missing for klDialogAlreadyExists								1.2a2
+[BZ 296]	Scrapping update events while dialog is up							1.2a2
+[    11]	Can put up dialog in background app & two apps can put up dialog	1.2a2
+			at the same time
+[     8]	Edit text not disabled in background								1.2a2
+[     7]	Repositioning offscreen doesn't bring window back in view			1.2a2
+[     3]	Re-enable menus when login dialog put in the background				1.2a1
+[BZ 232]	AcquireTickets trips an uncaught exception if prefs file
+			missing																1.2a1
+[BZ 262]	Disable favorite realms not in the preferences file 				1.2a1
+[BZ 264]	Fix address verification code for no addresses						1.2a1
+[BZ 201]	Saving more than 4 favorite realms in prefs doesn't work 			1.2d8
+[BZ 212]	Does not invalidate window regions on close of dialogs. 			1.2d8
+[BZ 219]	Globals lib was not global 											1.2d8
+[BZ  22] 	Need error specifications in API spec 								1.2d7
+[BZ 112]	Mismatch between ticket lifetime set by API and displayed in
+			dialog														 		1.2d7
+[BZ 138]	Application menu won't flash notification when Login dialog 		1.2d7
+[BZ 156]	API needs __KLInternalAcquireTicketsForCache 						1.2d7
+[BZ 159]	Mouse cursor doesn't disappear when I type in an edit field 		1.2d7
+[BZ 160]	Mouse cursor doesn't change to an I-beam over an edit field 		1.2d7
+[BZ 166]	Forwardable displayed for v4-only realms 							1.2d7
+[BZ 168]	Login dialog comes up for service ticket requests in v4-only 		1.2d7
+[BZ 184]	Better error string for "realm not in configuration file" 			1.2d7
+[BZ 201]	Saving more than 4 favorite realms in prefs doesn't work 			1.2d7
+[BZ 106]	Version number clipped 												1.2d6
+[BZ 134]	Need a banner in the login dialog 									1.2d6
+[BZ 105]	Dialog remembers last principal when
+			loginOption_RememberPrincipal is off								1.2d6
+[BZ 109]	Wrong balloon help for password field 								1.2d6
+[BZ  82]	Cancelling the login dialog leaves sys menus disabled 				1.2d5
+[BZ  83]	Menubar tracking doesn't work in login dialog 						1.2d5
+[BZ  91]	Removing default realm w/out specifying new one causes
+			KLAcquireTickets to fail									 		1.2d5
+[BZ  92]	Problems with tracking of default realm 							1.2d5
+[BZ  74]	MacCVS Pro dies even when tickets for the correct user are default	1.2d5
+[BZ  84]	Using Login dialog too many times causes crash in SpinCursor		1.2d5 
+[BZ  96]	Missing loginOption_DefaultForwardableTicket handlers				1.2d5
+[BZ  33]	KLCreatePrincipalFromString needs a return value for invalid
+			version																1.2d4
+[BZ  23]	Need status display and watch cursor when logging in				1.2d4
+[BZ  43]
+[BZ  44]	Crash in krb5_free_principal when canceling login dialog or
+			getting service tickets												1.2d3
+[    22]	Can't force renewal													1.2d3
+[    17]	Username and instance always editable, even when passed in			1.2d3
+[     1]	Password not highlighted when incorrect								1.2d3
+[BZ  32]	Exceptions thrown from LoginLib calls to WrappersLib
+			terminate the current process										1.2d2
+[BZ   7]    Login button disabled when pricipal passed in						1.2d2
+[BZ  15]	KLAcquireNewTickets leaks a KLPrincipal for nil argument 			1.2d2
+[    14]	No change password functionality									1.0d3
+[    12]	Classic dialogs non-existent										1.0d3
+[     6]	Disclosure state not saved											1.0d2
+[     5]	Buttons all over the place											1.0d2
+

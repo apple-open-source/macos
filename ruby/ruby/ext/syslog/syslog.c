@@ -4,7 +4,7 @@
  * <amos+ruby@utdallas.edu>
  *
  * $RoughId: syslog.c,v 1.21 2002/02/25 12:21:17 knu Exp $
- * $Id: syslog.c,v 1.1.1.1 2002/05/27 17:59:47 jkh Exp $
+ * $Id: syslog.c,v 1.1.1.2 2003/05/14 13:58:47 melville Exp $
  */
 
 #include "ruby.h"
@@ -12,8 +12,8 @@
 
 /* Syslog class */
 static VALUE mSyslog, mSyslogConstants;
-static VALUE syslog_ident = Qnil, syslog_options = INT2FIX(-1),
-  syslog_facility = INT2FIX(-1), syslog_mask = INT2FIX(-1);
+static const char *syslog_ident = NULL;
+static int syslog_options = -1, syslog_facility = -1, syslog_mask = -1;
 static int syslog_opened = 0;
 
 /* Package helper routines */
@@ -37,7 +37,15 @@ static void syslog_write(int pri, int argc, VALUE *argv)
 /* Syslog module methods */
 static VALUE mSyslog_close(VALUE self)
 {
+    if (!syslog_opened) {
+        rb_raise(rb_eRuntimeError, "syslog not opened");
+    }
+
     closelog();
+
+    free((void *)syslog_ident);
+    syslog_ident = NULL;
+    syslog_options = syslog_facility = syslog_mask = -1;
     syslog_opened = 0;
 
     return Qnil;
@@ -51,30 +59,36 @@ static VALUE mSyslog_open(int argc, VALUE *argv, VALUE self)
     if (syslog_opened) {
         rb_raise(rb_eRuntimeError, "syslog already open");
     }
+
     rb_scan_args(argc, argv, "03", &ident, &opt, &fac);
+
     if (NIL_P(ident)) {
         ident = rb_gv_get("$0"); 
     }
-    if (NIL_P(opt)) {
-        opt = INT2NUM(LOG_PID | LOG_CONS);
-    }
-    if (NIL_P(fac)) {
-        fac = INT2NUM(LOG_USER);
-    }
-
 #ifdef SafeStringValue
     SafeStringValue(ident);
 #else
     Check_SafeStr(ident);
 #endif
-    syslog_ident = ident;
-    syslog_options = opt;
-    syslog_facility = fac;
-    openlog(RSTRING(ident)->ptr, NUM2INT(opt), NUM2INT(fac));
+    syslog_ident = strdup(RSTRING(ident)->ptr);
+
+    if (NIL_P(opt)) {
+	syslog_options = LOG_PID | LOG_CONS;
+    } else {
+	syslog_options = NUM2INT(opt);
+    }
+
+    if (NIL_P(fac)) {
+	syslog_facility = LOG_USER;
+    } else {
+	syslog_facility = NUM2INT(fac);
+    }
+
+    openlog(syslog_ident, syslog_options, syslog_facility);
+
     syslog_opened = 1;
 
-    setlogmask(mask = setlogmask(0));
-    syslog_mask = INT2NUM(mask);
+    setlogmask(syslog_mask = setlogmask(0));
 
     /* be like File.new.open {...} */
     if (rb_block_given_p()) {
@@ -98,22 +112,22 @@ static VALUE mSyslog_isopen(VALUE self)
 
 static VALUE mSyslog_ident(VALUE self)
 {
-    return syslog_ident;
+    return syslog_opened ? rb_str_new2(syslog_ident) : Qnil;
 }
 
 static VALUE mSyslog_options(VALUE self)
 {
-    return syslog_options;
+    return syslog_opened ? INT2NUM(syslog_options) : Qnil;
 }
 
 static VALUE mSyslog_facility(VALUE self)
 {
-    return syslog_facility;
+    return syslog_opened ? INT2NUM(syslog_facility) : Qnil;
 }
 
 static VALUE mSyslog_get_mask(VALUE self)
 {
-    return syslog_mask;
+    return syslog_opened ? INT2NUM(syslog_mask) : Qnil;
 }
 
 static VALUE mSyslog_set_mask(VALUE self, VALUE mask)
@@ -122,8 +136,7 @@ static VALUE mSyslog_set_mask(VALUE self, VALUE mask)
         rb_raise(rb_eRuntimeError, "must open syslog before setting log mask");
     }
 
-    setlogmask(NUM2INT(mask));
-    syslog_mask = mask;
+    setlogmask(syslog_mask = NUM2INT(mask));
 
     return mask;
 }
@@ -150,22 +163,22 @@ static VALUE mSyslog_log(int argc, VALUE *argv, VALUE self)
 
 static VALUE mSyslog_inspect(VALUE self)
 {
-#define N 7
-    int argc = N;
-    VALUE argv[N];
-    const char fmt[] =
-      "<#%s: opened=%s, ident=\"%s\", options=%d, facility=%d, mask=%d>";
+    char buf[1024];
 
-    argv[0] = rb_str_new(fmt, sizeof(fmt) - 1);
-    argv[1] = mSyslog;
-    argv[2] = syslog_opened ? Qtrue : Qfalse;
-    argv[3] = syslog_ident;
-    argv[4] = syslog_options;
-    argv[5] = syslog_facility;
-    argv[6] = syslog_mask;
+    if (syslog_opened) {
+	snprintf(buf, sizeof(buf),
+	  "<#%s: opened=true, ident=\"%s\", options=%d, facility=%d, mask=%d>",
+	  rb_class2name(self),
+	  syslog_ident,
+	  syslog_options,
+	  syslog_facility,
+	  syslog_mask);
+    } else {
+	snprintf(buf, sizeof(buf),
+	  "<#%s: opened=false>", rb_class2name(self));
+    }
 
-    return rb_f_sprintf(argc, argv);
-#undef N
+    return rb_str_new2(buf);
 }
 
 static VALUE mSyslog_instance(VALUE self)

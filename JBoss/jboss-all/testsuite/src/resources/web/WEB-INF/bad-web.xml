@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE web-app PUBLIC
+   "-//Sun Microsystems, Inc.//DTD Web Application 2.3//EN"
+   "http://java.sun.com/dtd/web-app_2_3.dtd">
+
+<web-app>
+   <description>WebApp Integration Tests</description>
+
+   <ejb-local-ref>
+      <ejb-ref-name>ejb/local/NoWhereToBeFound</ejb-ref-name>
+      <ejb-ref-type>Session</ejb-ref-type>
+      <local-home>org.jboss.test.web.interfaces.StatelessSessionLocalHome</local-home>
+      <local>org.jboss.test.web.interfaces.StatelessSessionLocal</local>
+      <ejb-link>NoWhereToBeFound</ejb-link>
+   </ejb-local-ref>
+</web-app>

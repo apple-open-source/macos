@@ -39,7 +39,7 @@
 #include "pathnames.h"
 #include "log.h"
 
-RCSID("$Id: ssh-rand-helper.c,v 1.1.1.3 2002/06/26 18:33:27 zarzycki Exp $");
+RCSID("$Id: ssh-rand-helper.c,v 1.1.1.5 2003/04/01 04:02:23 zarzycki Exp $");
 
 /* Number of bytes we write out */
 #define OUTPUT_SEED_SIZE	48
@@ -62,7 +62,6 @@ RCSID("$Id: ssh-rand-helper.c,v 1.1.1.3 2002/06/26 18:33:27 zarzycki Exp $");
 #ifndef SSH_PRNG_COMMAND_FILE
 # define SSH_PRNG_COMMAND_FILE   SSHDIR "/ssh_prng_cmds"
 #endif
-
 
 #ifdef HAVE___PROGNAME
 extern char *__progname;
@@ -115,7 +114,7 @@ double stir_from_programs(void);
 double stir_gettimeofday(double entropy_estimate);
 double stir_clock(double entropy_estimate);
 double stir_rusage(int who, double entropy_estimate);
-double hash_command_output(entropy_cmd_t *src, char *hash);
+double hash_command_output(entropy_cmd_t *src, unsigned char *hash);
 int get_random_bytes_prngd(unsigned char *buf, int len, 
     unsigned short tcp_port, char *socket_path);
 
@@ -274,7 +273,7 @@ timeval_diff(struct timeval *t1, struct timeval *t2)
 }
 
 double
-hash_command_output(entropy_cmd_t *src, char *hash)
+hash_command_output(entropy_cmd_t *src, unsigned char *hash)
 {
 	char buf[8192];
 	fd_set rdset;
@@ -356,6 +355,7 @@ hash_command_output(entropy_cmd_t *src, char *hash)
 		case 0:
 			/* timer expired */
 			error_abort = 1;
+			kill(pid, SIGINT);
 			break;
 		case 1:
 			/* command input */
@@ -460,7 +460,7 @@ stir_from_programs(void)
 {
 	int c;
 	double entropy, total_entropy;
-	char hash[SHA_DIGEST_LENGTH];
+	unsigned char hash[SHA_DIGEST_LENGTH];
 
 	total_entropy = 0;
 	for(c = 0; entropy_cmds[c].path != NULL; c++) {
@@ -543,7 +543,8 @@ void
 prng_write_seedfile(void)
 {
 	int fd;
-	char seed[SEED_FILE_SIZE], filename[MAXPATHLEN];
+	unsigned char seed[SEED_FILE_SIZE];
+	char filename[MAXPATHLEN];
 	struct passwd *pw;
 
 	pw = getpwuid(getuid());
@@ -561,7 +562,8 @@ prng_write_seedfile(void)
 
 	debug("writing PRNG seed to file %.100s", filename);
 
-	RAND_bytes(seed, sizeof(seed));
+	if (RAND_bytes(seed, sizeof(seed)) <= 0)
+		fatal("PRNG seed extration failed");
 
 	/* Don't care if the seed doesn't exist */
 	prng_check_seedfile(filename);
@@ -848,7 +850,8 @@ main(int argc, char **argv)
 	if (!RAND_status())
 		fatal("Not enough entropy in RNG");
 
-	RAND_bytes(buf, bytes);
+	if (RAND_bytes(buf, bytes) <= 0)
+		fatal("Couldn't extract entropy from PRNG");
 
 	if (output_hex) {
 		for(ret = 0; ret < bytes; ret++)
@@ -862,4 +865,3 @@ main(int argc, char **argv)
 	
 	return ret == bytes ? 0 : 1;
 }
-

@@ -1,0 +1,15 @@
+O seu pedido a %(requestaddr)s:
+
+    %(cmd)s
+
+foi encaminhado para a pessoa que gere a lista.
+
+Isto aconteceu, provavelmente, porque está a tentar subscrever uma lista
+'fechada'.
+
+Será notificado por email da decisão que o dono da lista tomar em relação 
+ao seu pedido de inscrição.
+
+Quaisquer questões sobre a política de gestão da lista devem ser dirigidas a:
+
+    %(adminaddr)s

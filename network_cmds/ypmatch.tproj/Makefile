@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = ypmatch.c
 
-OTHERSRCS = Makefile.dist Makefile.preamble ypmatch.1
+OTHERSRCS = Makefile.dist Makefile.preamble Makefile.postamble ypmatch.1
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOPCCardFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOPCCardFamily 1.4.0, Copyright 2000-2003 Apple Computer, Inc.</string>
+	<string>IOPCCardFamily 1.5.0, Copyright 2000-2003 Apple Computer, Inc.</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.iokit.IOPCCardFamily</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -17,11 +17,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.0</string>
+	<string>1.5.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.0</string>
+	<string>1.5.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOPCCardFamily</key>
@@ -186,7 +186,7 @@
 						</data>
 					</array>
 				</dict>
-				<key>X86PC</key>
+				<key>Test X86PC</key>
 				<dict>
 					<key>I/O Port Ranges</key>
 					<array>

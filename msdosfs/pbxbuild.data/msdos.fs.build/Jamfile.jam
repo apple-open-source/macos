@@ -1,20 +1,28 @@
-# Jamfile for target msdos.fs of project msdosfs
+# Jamfile for target "msdos.fs" of project "msdosfs"
 
-
-PROJECT = msdosfs ;
 
 JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 
-# msdos.fs target
-export deferred TARGET_NAME = msdos.fs ;
-export deferred PRODUCT_NAME = msdos ;
+# Implicitly computed project-wide settings for project
+export deferred DEVELOPMENT_LANGUAGE = English ;
+export deferred PROJECT = $(PROJECT_NAME) ;
+export deferred PROJECT_NAME = msdosfs ;
+export deferred SRCROOT = /Volumes/Speedy/sources/msdosfs ;
 
-export deferred PKGINFO_FILE_CONTENTS = "fs  ????" ;
-export deferred PRODUCT_SETTINGS_PATH = "$(SRCROOT)/pbxbuild.data/msdos.fs.build/Info.plist" ;
-export deferred PKGINFO_FILE_PATH = "$(SRCROOT)/pbxbuild.data/msdos.fs.build/PkgInfo" ;
-export deferred DEVELOPMENT_SETTINGS_PATH = "$(SRCROOT)/pbxbuild.data/msdos.fs.build/pbdevelopment.plist" ;
+# User-defined project-wide settings for project
 
+# Target "msdos.fs"
+
+export deferred _INFO_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/msdos.fs.build/Info.plist" ;
+export deferred _PKGINFO_FILE_PATH = "$(SRCROOT)/pbxbuild.data/msdos.fs.build/PkgInfo" ;
+export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/msdos.fs.build/pbdevelopment.plist" ;
+
+# Implicitly computed build settings for target "msdos.fs"
 export deferred CLONE_HEADERS = NO ;
+export deferred TARGETNAME = $(TARGET_NAME) ;
+export deferred TARGET_NAME = msdos.fs ;
+
+# User-defined build settings for target "msdos.fs"
 export deferred INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Filesystems" ;
 export deferred OTHER_CFLAGS =  ;
 export deferred OTHER_LDFLAGS = -bundle -undefined suppress ;
@@ -26,12 +34,15 @@ export deferred WRAPPER_EXTENSION = fs ;
 
 if "$(BUILD_STYLE)" = Development {
 	export deferred COPY_PHASE_STRIP = NO ;
+	export deferred OPTIMIZATION_CFLAGS = -O0 ;
 }
 
 if "$(BUILD_STYLE)" = Deployment {
 	export deferred COPY_PHASE_STRIP = YES ;
 }
 
+
+ConditionalDefinitions _ ;
 commitdeferred ;
 
 
@@ -47,9 +58,9 @@ RESOURCES = msdos_util.tproj/English.lproj/InfoPlist.strings ;
 ProcessResources "<msdos>msdos.fs" : "$(RESOURCES)" : BPTag000 : BPTag001 ;
 
 # Copy Files
-"$(BUILD_DIR)/msdos.util_ATTRIBUTES" = AbsolutePath ;
-COPY_FILES = "$(BUILD_DIR)/msdos.util" ;
-COPYFILES_DESTINATION_PATH = "$(BUILD_DIR)/msdos.fs" ;
+"$(BUILT_PRODUCTS_DIR)/msdos.util_ATTRIBUTES" = AbsolutePath ;
+COPY_FILES = "$(BUILT_PRODUCTS_DIR)/msdos.util" ;
+COPYFILES_DESTINATION_PATH = "$(TARGET_BUILD_DIR)/msdos.fs" ;
 ProcessCopyFiles "<msdos>msdos.fs" : "$(COPY_FILES)" : BPTag001 : BPTag002 ;
 
 # Sources
@@ -63,6 +74,12 @@ ProcessFrameworksAndLibraries "<msdos>msdos.fs" : "$(FRAMEWORKS_AND_LIBRARIES)" 
 # Rez Files
 REZ_FILES = ;
 ProcessRezFiles "<msdos>msdos.fs" : "$(REZ_FILES)" : BPTag004 : BPTag005 ;
+
+rule DefineHeaderDependencies
+{
+}
+
+DefineHeaderDependencies "<msdos>msdos.fs" ;
 
 EndBundle "<msdos>msdos.fs" ;
 

@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(msgrcv, 3)
-	blr
 

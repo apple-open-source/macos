@@ -1,0 +1,31 @@
+#! /bin/sh
+
+# Make sure that man pages listed in man_MANS are installed and
+# renamed as documented.
+
+. $srcdir/defs || exit 1
+
+set -e
+
+echo AC_OUTPUT >> configure.in
+
+cat > Makefile.am << 'END'
+man_MANS = foo.2
+man4_MANS = foo.4 bar.man
+END
+
+: > foo.2
+: > foo.4
+: > bar.man
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE
+
+# Let's play with $DESTDIR too, it shouldn't hurt.
+./configure --prefix=''
+DESTDIR="`pwd`/=inst" $MAKE -e SHELL=/bin/sh install
+
+test -f ./=inst/man/man2/foo.2
+test -f ./=inst/man/man4/foo.4
+test -f ./=inst/man/man4/bar.4

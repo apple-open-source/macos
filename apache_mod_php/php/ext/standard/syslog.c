@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Stig Sæther Bakken <ssb@fast.no>                            |
+   | Author: Stig Sæther Bakken <ssb@fast.no>                             |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: syslog.c,v 1.1.1.4 2001/12/14 22:13:28 zarzycki Exp $ */
+/* $Id: syslog.c,v 1.1.1.7 2003/07/18 18:07:44 zarzycki Exp $ */
 
 #include "php.h"
 
@@ -191,13 +191,18 @@ static void start_syslog(TSRMLS_D)
    Initializes all syslog-related variables */
 PHP_FUNCTION(define_syslog_variables)
 {
+	if (ZEND_NUM_ARGS() != 0) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "expects no parameters, %d given", ZEND_NUM_ARGS());
+		return;
+	}
+
 	if (!BG(syslog_started)) {
 		start_syslog(TSRMLS_C);
 	}
 }
 /* }}} */
 
-/* {{{ proto int openlog(string ident, int option, int facility)
+/* {{{ proto bool openlog(string ident, int option, int facility)
    Open connection to system logger */
 /*
    ** OpenLog("nettopp", $LOG_PID, $LOG_LOCAL1);
@@ -206,27 +211,32 @@ PHP_FUNCTION(define_syslog_variables)
  */
 PHP_FUNCTION(openlog)
 {
-	pval **ident, **option, **facility;
+	char *ident;
+	long option, facility;
+	int ident_len;
 
-	if (ZEND_NUM_ARGS() != 3 || zend_get_parameters_ex(3, &ident, &option, &facility) == FAILURE) {
-		WRONG_PARAM_COUNT;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sll", &ident,
+							  &ident_len, &option, &facility) == FAILURE) {
+		return;
 	}
-	convert_to_string_ex(ident);
-	convert_to_long_ex(option);
-	convert_to_long_ex(facility);
 	if (BG(syslog_device)) {
 		efree(BG(syslog_device));
 	}
-	BG(syslog_device) = estrndup((*ident)->value.str.val, (*ident)->value.str.len);
-	openlog(BG(syslog_device), (*option)->value.lval, (*facility)->value.lval);
+	BG(syslog_device) = estrndup(ident, ident_len);
+	openlog(BG(syslog_device), option, facility);
 	RETURN_TRUE;
 }
 /* }}} */
 
-/* {{{ proto int closelog(void)
+/* {{{ proto bool closelog(void)
    Close connection to system logger */
 PHP_FUNCTION(closelog)
 {
+	if (ZEND_NUM_ARGS() != 0) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "expects no parameters, %d given", ZEND_NUM_ARGS());
+		return;
+	}
+
 	closelog();
 	if (BG(syslog_device)) {
 		efree(BG(syslog_device));
@@ -236,24 +246,25 @@ PHP_FUNCTION(closelog)
 }
 /* }}} */
 
-/* {{{ proto int syslog(int priority, string message)
+/* {{{ proto bool syslog(int priority, string message)
    Generate a system log message */
 PHP_FUNCTION(syslog)
 {
-	pval **priority, **message;
+	long priority;
+	char *message;
+	int message_len;
 
-	if (ZEND_NUM_ARGS() != 2 || zend_get_parameters_ex(2, &priority, &message) == FAILURE) {
-		WRONG_PARAM_COUNT;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ls", &priority,
+							  &message, &message_len) == FAILURE) {
+		return;
 	}
-	convert_to_long_ex(priority);
-	convert_to_string_ex(message);
 
 	/*
 	 * CAVEAT: if the message contains patterns such as "%s",
 	 * this will cause problems.
 	 */
 
-	php_syslog((*priority)->value.lval, "%.500s", (*message)->value.str.val);
+	php_syslog(priority, "%.500s", message);
 	RETURN_TRUE;
 }
 /* }}} */
@@ -265,6 +276,6 @@ PHP_FUNCTION(syslog)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

@@ -1,0 +1,49 @@
+Thu Mar 26 22:17:45 1998  Felix Lee  <flee@cygnus.como>
+
+	* configure.in: sinclude(../aclocal.m4)
+	* configure: rebuilt
+
+Tue Mar 24 16:21:05 1998  Stu Grossman  <grossman@bhuna.cygnus.co.uk>
+
+	* configure:  Regenerate with autoconf 2.12.1 to fix shell issues for
+	NT native builds.
+
+Sun Dec 28 11:05:45 1997  Jeffrey A Law  (law@cygnus.com)
+
+	* Makefile.in: Change "gxx_includedir" to "gxx_include_dir".
+
+Wed Sep  4 15:55:40 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* expect.tests/expect-tests.exp: Use regexp submatches, not
+	lindex, to extract test names.
+
+Mon Aug 26 12:07:17 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* configure: Rebuilt.
+
+	* Makefile.in (configure): --localdir is always "..".
+
+Fri Aug 23 15:55:37 1996  Tom Tromey  <tromey@creche.cygnus.com>
+
+	* Makefile.in (.PHONY): New target.
+
+Fri Aug 23 13:45:41 1996  Doug Evans  <dje@canuck.cygnus.com>
+
+	* Makefile.in (configure): Delete dependencies.
+
+Mon Feb 22 07:54:03 1993  Mike Werner  (mtw@poseidon.cygnus.com)
+
+        * expect/testsuite: made modifications to testcases, etc., to allow
+        them to work properly  given the reorganization of deja-gnu and the
+        relocation of the testcases from deja-gnu to a "tool" subdirectory.
+
+Sun Feb 21 10:55:55 1993  Mike Werner  (mtw@poseidon.cygnus.com)
+
+	* expect/testsuite: Initial creation of expect/testsuite.
+	Migrated dejagnu testcases and support files for testing nm to
+	expect/testsuite from deja-gnu.  These files were moved "as is"
+	with no modifications.  This migration is part of a major overhaul
+	of dejagnu.  The modifications to these testcases, etc., which
+	will allow them to work with the new version of dejagnu will be
+	made in a future update.
+

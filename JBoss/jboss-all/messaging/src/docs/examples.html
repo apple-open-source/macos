@@ -1,0 +1,61 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML>
+<HEAD>
+<META name="GENERATOR" content="IBM WebSphere Page Designer V3.5 for Windows">
+<META http-equiv="Content-Style-Type" content="text/css">
+<TITLE>JBossMQ Examples Documentation </TITLE>
+<LINK REL ="stylesheet" TYPE="text/css" HREF="styles.css" TITLE="Style">
+</HEAD>
+<BODY BGCOLOR="white">
+<H1>JBossMQ Examples Documentation</H1>
+<HR>
+<H2>SERVER</H2>
+<P>This is a simple JMS server using SypderMQ.</P>
+<H2>CLIENT</H2>
+<P>This is a simple parser which gives you the ability to test the JMS server.
+You can dynamically use JMS objects, and invoke methods on them. </P>
+<H3>Commands</H3>
+<UL>
+  <LI><B>object.method(param[,...])</B><BR>
+  Where param is an object or a string : invoke the selected method on the object<BR>
+  ex: <B>session.createTopic(&quot;myTopic&quot;)</B>
+  <LI><B>result=object.method(param[,...])</B><BR>
+  Use this form to store the result of the method<BR>
+  ex: <B>ID=connection.getClientID()</B>
+</UL>
+<H3>Macros</H3>
+<UL>
+  <LI><B>pub(topic,text) </B><BR>
+  Send a TextMessage to a topic
+  <LI><B>pubq(queue,text)</B><BR>
+  Send a TextMessage to a queue
+  <LI><B>pub2(topic)</B><BR>
+  Send a 10K BytesMessage to a topic
+  <LI><B>newSubscriber=sub(topic)</B> <BR>
+  create a new TopicSubscriber for this topic
+  <LI><B>queueReceiver=subq(queue)</B> <BR>
+  create a new QueueReceiver for this queue
+  <LI><B>subscriber.listen()</B> <BR>
+  create a Listener for this MessageConsumer
+  <LI><B>subscriber.unlisten()</B> <BR>
+  remove the Listener for this MessageConsumer
+</UL>
+<H3>Objects</H3>
+<P>When the program starts, it creates one the follwing objects:</P>
+<UL>
+  <LI><B>ct</B> is a TopicConnection 
+  <LI><B>st</B> is a TopicSession
+  <LI><B>cq</B> is a QueueConnection
+  <LI><B>sq</B> is a QueueSession
+</UL>
+<H3>Example</H3>
+<BLOCKQUOTE>
+<PRE>st.createTopic(&quot;example&quot;)
+sub=sub(&quot;example&quot;)
+sub.listen()
+publish(&quot;example&quot;,&quot;hello&quot;)
+ct.start()
+</PRE>
+</BLOCKQUOTE>
+</BODY>
+</HTML>

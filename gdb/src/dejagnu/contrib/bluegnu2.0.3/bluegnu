@@ -1,0 +1,136 @@
+#! /bin/sh
+#
+# This application is using [incr Tcl]
+#
+#   Copyright (C) 1998, 1999 jotOmega dsc, Inc.
+
+# This file is part of BlueGnu testing framework.
+# It asumes that the itclsh3.0 program is on your PATH
+#
+
+#
+# Get the execution path to this script
+#
+execpath=`echo ${0-.} | sed  -e 's@/[^/]*$@@'`
+
+#
+# get the name by which bluegnu was invoked and extract the config triplet
+#
+bluegnu=`echo ${0-.} | sed -e 's@^.*/@@'`
+target=`echo $bluegnu | sed -e 's/-bluegnu$//'`
+if [ "$target" != bluegnu ] ; then
+    target="--target=${target}"
+else
+    target=""
+fi
+
+#
+# Find the right interpreter binary to use. If a variable EXPECT exists,
+# it takes precedence over all other tests. Otherwise look for a freshly
+# built one, and then use one in the path.
+#
+if [ x"$EXPECT" != x ] ; then
+  expectbin=$EXPECT
+else
+  if [ -x "$execpath/itclsh3.0" ] ; then
+    expectbin=$execpath/itclsh3.0
+  else
+      expectbin=itclsh3.0
+    fi
+fi
+
+# just to be safe...
+if [ -z "$expectbin" ]; then
+  echo "ERROR: No $expectbin shell found"
+  exit 1
+fi
+
+#
+# Extract a few options from the option list.
+#
+verbose=0
+debug=""
+for a in "$@" ; do
+  case $a in	    
+      -v|--v|-verb*|--verb*)    verbose=`expr $verbose + 1`;;
+      -D0|--D0)       debug="-D 0" ;;
+      -D1|--D1)       debug="-D 1" ;;
+  esac
+done
+
+if expr $verbose \> 0 \& "$DEBUG" > /dev/null ; then
+  echo Using $expectbin as interpreter for the BlueGnu testing framework.
+fi
+
+#
+# find bluegnu.itcl. First we look in it's installed location, otherwise
+# start if from the source tree.
+#
+for i in $execpath/../lib/bluegnu $execpath/../lib $execpath $execpath/lib ; do
+    if expr $verbose \> 2 \& "$DEBUG" > /dev/null ; then
+	echo Looking for $i/bluegnu.itcl.
+    fi  
+    if [ -f $i/bluegnu.itcl ] ; then
+	runpath=$i
+	if expr $verbose \> 0 \& "$DEBUG" > /dev/null ; then
+	    echo Using $i/bluegnu.itcl as default main test driver
+	fi
+	break
+    fi
+done
+
+# check for an environment variable
+if [ x"$BLUEGNULIB" != x ] ; then
+    runpath=$BLUEGNULIB
+else
+    BLUEGNULIB=$runpath; export BLUEGNULIB
+fi
+if expr $verbose \> 0 \& "$DEBUG" > /dev/null ; then
+    echo Using $BLUEGNULIB as the BlueGnu library
+fi
+
+#
+# Find the right test framework. If a variable FRAMEWORK exists,
+# it takes precedence over all other frameworks. Otherwise look for the
+# default one.
+if [ x"$FRAMEWORK" != x ] ; then
+  framework=$FRAMEWORK
+else
+  if [ -r "$runpath/bluegnu.itcl" ] ; then
+    framework=bluegnu.itcl
+  else
+    echo "ERROR: $runpath/bluegnu.itcl does not exist."
+    exit 1
+  fi
+fi
+
+if [ x"$runpath" = x ] ; then
+    echo "ERROR: bluegnu.itcl does not exist."
+    exit 1
+fi
+
+if [ ! -r "$runpath/$framework" ] ; then
+    echo "ERROR: $runpath/$framework does not exist."
+else
+    if expr $verbose \> 0 \& "$DEBUG" > /dev/null ; then
+	echo "Using $runpath/$framework as main test driver"
+    fi
+fi
+
+# Find Test Suite Root directory
+#
+if [ x"$TESTSUITEROOT" = x ] ; then
+    TESTSUITEROOT=`pwd`; export TESTSUITEROOT
+else
+    cd $TESTSUITEROOT
+fi
+if expr $verbose \> 0 \& "$DEBUG" > /dev/null ; then
+    echo "Using $TESTSUITEROOT as Test Suite Directory."
+fi
+
+# Start the BlueGnu Test Framework
+#
+if expr $verbose \> 2 \& "$DEBUG" > /dev/null ; then
+    echo Command: $expectbin $debug $runpath/$framework $target ${1+"$@"}
+fi
+exec $expectbin $debug $runpath/$framework $target ${1+"$@"}

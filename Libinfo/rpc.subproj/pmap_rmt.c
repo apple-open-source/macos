@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -53,7 +54,7 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 /*static char *sccsid = "from: @(#)pmap_rmt.c 1.21 87/08/27 Copyr 1984 Sun Micro";*/
 /*static char *sccsid = "from: @(#)pmap_rmt.c	2.2 88/08/01 4.0 RPCSRC";*/
-static char *rcsid = "$Id: pmap_rmt.c,v 1.4 2002/03/15 22:07:50 majka Exp $";
+static char *rcsid = "$Id: pmap_rmt.c,v 1.5 2003/06/05 21:43:28 majka Exp $";
 #endif
 
 /*
@@ -262,7 +263,7 @@ clnt_broadcast(prog, vers, proc, xargs, argsp, xresults, resultsp, eachresult)
 	fd_set readfds;
 	register int i;
 	bool_t done = FALSE;
-	register u_long xid;
+	u_long xid;
 	u_long port;
 	struct in_addr addrs[20];
 	struct sockaddr_in baddr, raddr; /* broadcast and response addresses */
@@ -299,14 +300,15 @@ clnt_broadcast(prog, vers, proc, xargs, argsp, xresults, resultsp, eachresult)
 /*	baddr.sin_addr.S_un.S_addr = htonl(INADDR_ANY); */
 
 	rfd = open("/dev/random", O_RDONLY, 0);
-	if ((rfd < 0) || (read(rfd, &msg.rm_xid, sizeof(msg.rm_xid)) != sizeof(msg.rm_xid)))
+	if ((rfd < 0) || (read(rfd, &xid, sizeof(xid)) != sizeof(xid)))
 	{
 		gettimeofday(&t, (struct timezone *)0);
-		msg.rm_xid = getpid() ^ t.tv_sec ^ t.tv_usec;
+		xid = getpid() ^ t.tv_sec ^ t.tv_usec;
 	}
 	if (rfd > 0) close(rfd);
 
 	t.tv_usec = 0;
+	msg.rm_xid = xid;
 	msg.rm_direction = CALL;
 	msg.rm_call.cb_rpcvers = RPC_MSG_VERSION;
 	msg.rm_call.cb_prog = PMAPPROG;

@@ -1,4 +1,28 @@
 /*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * lcp.h - Link Control Protocol definitions.
  *
  * Copyright (c) 1989 Carnegie Mellon University.
@@ -16,7 +40,7 @@
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * $Id: lcp.h,v 1.3 2002/05/23 01:09:19 callie Exp $
+ * $Id: lcp.h,v 1.6 2003/08/14 00:00:30 callie Exp $
  */
 
 /*
@@ -66,12 +90,12 @@ typedef struct lcp_options {
     bool neg_mrru;		/* negotiate multilink MRRU */
     bool neg_ssnhf;		/* negotiate short sequence numbers */
     bool neg_endpoint;		/* negotiate endpoint discriminator */
-    bool use_digest;
-    bool use_chapms;
-    bool use_chapms_v2;
+#ifdef EAP
+    bool use_eap;		
+#endif
     int  mru;			/* Value of MRU */
     int	 mrru;			/* Value of MRRU, and multilink enable */
-    u_char chap_mdtype;		/* which MD type (hashing algorithm) */
+    u_char chap_mdtype;		/* which MD types (hashing algorithm) */
     u_int32_t asyncmap;		/* Value of async map */
     u_int32_t magicnumber;
     int  numloops;		/* Number of loops during magic number neg. */
@@ -84,7 +108,6 @@ extern lcp_options lcp_wantoptions[];
 extern lcp_options lcp_gotoptions[];
 extern lcp_options lcp_allowoptions[];
 extern lcp_options lcp_hisoptions[];
-extern u_int32_t xmit_accm[][8];
 
 #define DEFMRU	1500		/* Try for this */
 #define MINMRU	128		/* No MRUs below this */
@@ -101,4 +124,3 @@ extern struct protent lcp_protent;
 /* Default number of times we receive our magic number from the peer
    before deciding the link is looped-back. */
 #define DEFLOOPBACKFAIL	10
-

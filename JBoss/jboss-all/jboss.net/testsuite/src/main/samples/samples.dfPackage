@@ -1,0 +1,28 @@
+package id995fcz90wf51cz90ya54;
+
+/**
+@version 2.0
+@physicalPackage
+@__modelType diagram 
+*/
+class diagram {
+/**
+@__ref <oiref:design#Class#id1f3yhcz90wf51cz90ya90.diagram:oiref><oihard>
+@__modelType reference
+@__fqn <oiref:#Package#samples.addr:oiref> 
+*/
+class reference {
+}}/**
+@__tags
+@shapeType ClassDiagram 
+*/
+class __tags {
+}/**
+@__options 
+*/
+class __options {
+}/**
+@__positions 
+*/
+class __positions {
+}

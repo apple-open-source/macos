@@ -1,0 +1,74 @@
+<html><head><META http-equiv="Content-Type" content="text/html; charset=iso-8859-1"><title>Application Developer's Guide - Installation</title><meta value="Craig R. McClanahan" name="author"><meta value="craigmcc@apache.org" name="email"></head><body vlink="#525D76" alink="#525D76" link="#525D76" text="#000000" bgcolor="#ffffff"><table cellspacing="4" width="100%" border="0"><!--PAGE HEADER--><tr><td colspan="2"><!--JAKARTA LOGO--><a href="http://jakarta.apache.org/"><img border="0" alt="The Jakarta Project" align="left" src="../../images/jakarta-logo.gif"></a><!--PROJECT LOGO--><a href="http://jakarta.apache.org/tomcat/"><img border="0" alt="
+      The Tomcat Servlet/JSP Container
+    " align="right" src="../../images/tomcat.gif"></a></td></tr><!--HEADER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade=""></td></tr><tr><!--RIGHT SIDE MAIN BODY--><td align="left" valign="top" width="80%"><table cellspacing="4" width="100%" border="0"><tr><td nowrap="true" valign="top" align="left"><h1>Application Developer's Guide</h1><h2>Installation</h2></td><td nowrap="true" valign="top" align="right"><img border="0" hspace="0" vspace="0" height="1" width="1" src="../../images/void.gif"></td></tr></table><table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#525D76"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Installation"><strong>Installation</strong></a></font></td></tr><tr><td><blockquote>
+
+<p>In order to use Tomcat 4 for developing web applications, you must first
+install it (and the software it depends on).  The required steps are outlined
+in the following subsections.</p>
+
+<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="JDK"><strong>JDK</strong></a></font></td></tr><tr><td><blockquote>
+
+<p>Tomcat will operate under any <strong>Java Development Kit</strong> (JDK)
+environment that provides a JDK 1.2 (also known as Java2 Standard Edition, or
+J2SE) or later platform.  You will need a Java Development Kit, as opposed to a
+Java Runtime Environment, so that your servlets, other classes, and JSP pages
+can be compiled.  Tomcat 4 has been extensively tested with JDK 1.3.1, which
+is recommended.</p>
+
+<p>Compatible JDKs for many platforms (or links to where they can be found)
+are available at
+<a href="http://java.sun.com/j2se/">http://java.sun.com/j2se/</a>.</p>
+
+</blockquote></td></tr></table>
+
+<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Tomcat"><strong>Tomcat</strong></a></font></td></tr><tr><td><blockquote>
+
+<p>Binary downloads of the <strong>Tomcat</strong> server are available from
+<a href="http://jakarta.apache.org/downloads/binindex.html">http://jakarta.apache.org/downloads/binindex.html</a>.
+This manual assumes you are using the most recent release
+of Tomcat 4.  Detailed instructions for downloading and installing
+Tomcat 4 are available <a href="../../RUNNING.txt">here</a>.</p>
+
+<p>In the remainder of this manual, example shell scripts assume that you have
+set an environment variable <code>CATALINA_HOME</code> that contains the
+pathname to the directory in which Tomcat 4 has been installed.</p>
+
+</blockquote></td></tr></table>
+
+
+<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="Ant"><strong>Ant</strong></a></font></td></tr><tr><td><blockquote>
+
+<p>Binary downloads of the <strong>Ant</strong> build tool are available from
+<a href="http://jakarta.apache.org/downloads/binindex.html">http://jakarta.apache.org/downloads/binindex.html</a>.
+This manual assumes you are using Ant 1.4 or later.  The instructions should
+also be compatible with later versions, but this has not been tested.</p>
+
+<p>Download and install Ant from the distribution directory mentioned above.
+Then, add the <code>bin</code> directory of the Ant distribution to your
+<code>PATH</code> environment variable, following the standard practices for
+your operating system platform.  Once you have done this, you will be able to
+execute the <code>ant</code> shell command directly.</p>
+
+</blockquote></td></tr></table>
+
+
+<table cellpadding="2" cellspacing="0" border="0"><tr><td bgcolor="#828DA6"><font face="arial,helvetica.sanserif" color="#ffffff"><a name="CVS"><strong>CVS</strong></a></font></td></tr><tr><td><blockquote>
+
+<p>Besides the required tools described above, you are strongly encouraged
+to download and install a <em>source code control</em> system, such as the
+<strong>Concurrent Version System</strong> (CVS), to maintain historical
+versions of the source files that make up your web application.  Besides
+the server, you will also need appropriate client
+tools to check out source code files, and check in modified versions.</p>
+
+<p>Detailed instructions for installing and using source code control
+applications is beyond the scope of this manual.  However, CVS server and
+client tools for many platforms (along with documentation) can be downloaded
+from <a href="http://www.cvshome.org">http://www.cvshome.org</a>.</p>
+
+</blockquote></td></tr></table>
+
+
+</blockquote></td></tr></table></td></tr><!--FOOTER SEPARATOR--><tr><td colspan="2"><hr size="1" noshade=""></td></tr><!--PAGE FOOTER--><tr><td colspan="2"><div align="center"><font size="-1" color="#525D76"><em>
+        Copyright &copy; 1999-2002, Apache Software Foundation
+        </em></font></div></td></tr></table></body></html>

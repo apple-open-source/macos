@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -43,7 +46,6 @@
 #include <sys/mount.h>
 #include <mach/boolean.h>
 #include <string.h>
-
 #include <sys/attr.h>
 
 #include "hfsvols.h"
@@ -266,26 +268,6 @@ hfsVolList_init()
     return ((hfsVolList_t)list);
 }
 
-typedef struct {
-    u_long		len;
-    u_long		finderInfo[8];
-} finderInfo_t;
-
-static __inline__ void
-S_print_finderInfo(finderInfo_t * finder)
-{
-    int i;
-
-    char * cptr = (u_char *)finder->finderInfo;
-
-    printf("we got %ld bytes back\n", finder->len);
-    for (i = 0; i < 32; i++) 
-	printf(" %c", cptr[i]);
-    printf("\n");
-    return;
-}
-
-
 /*
  * Function: hfs_set_file_size
  * 
@@ -299,40 +281,6 @@ hfs_set_file_size(int fd, off_t size)
     fcntl(fd, F_SETSIZE, &size);
 #endif F_SETSIZE
     return (ftruncate(fd, size));
-}
-
-/*
- * Function: hfs_copy_finder_info
- *
- * Purpose:
- *   Copy the finder information of one file to another file.
- */
-boolean_t
-hfs_copy_finder_info(u_char * target_path, u_char * source_path)
-{
-    struct attrlist 	attrspec;
-    finderInfo_t	finder;
-
-    bzero(&finder, sizeof(finder));
-    attrspec.bitmapcount	= ATTR_BIT_MAP_COUNT;
-    attrspec.reserved		= 0;
-    attrspec.commonattr		= ATTR_CMN_FNDRINFO;
-    attrspec.volattr 		= 0;
-    attrspec.dirattr 		= 0;
-    attrspec.fileattr 		= 0;
-    attrspec.forkattr 		= 0;
-
-    /* if no source path, target is source */
-    if (source_path == NULL) 
-	source_path = target_path;
-
-    if (getattrlist(source_path, &attrspec, &finder, sizeof(finder), 0))
-	return (FALSE);
-
-    if (setattrlist(target_path, &attrspec, finder.finderInfo,
-		    sizeof(finder.finderInfo), 0))
-	return (FALSE);
-    return (TRUE);
 }
 
 #ifdef TEST_HFSVOLS

@@ -1,7 +1,4 @@
 include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common
 
-INSTALL_AS_GROUP    = kmem
-INSTALL_PERMISSIONS = 2555
-
 after_install::
 	$(LINKPRODUCT) $(DSTROOT)$(INSTALLDIR)/uptime

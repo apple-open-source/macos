@@ -1,7 +1,7 @@
 /*
- * IPX protocol formats 
+ * IPX protocol formats
  *
- * @(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/ipx.h,v 1.1.1.2 2002/05/29 00:05:31 landonf Exp $
+ * @(#) $Header: /cvs/root/tcpdump/tcpdump/ipx.h,v 1.1.1.3 2003/03/17 18:42:16 rbraun Exp $
  */
 
 /* well-known sockets */
@@ -25,7 +25,7 @@ struct ipxHdr {
     u_int16_t	srcNet[2];	/* source net */
     u_int8_t	srcNode[6];	/* source node */
     u_int16_t	srcSkt;		/* source socket */
-} ipx_hdr_t;
+};
 
 #define ipxSize	30
 

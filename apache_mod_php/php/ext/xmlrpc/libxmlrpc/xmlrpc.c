@@ -31,7 +31,7 @@
 */
 
 
-static const char rcsid[] = "#(@) $Id: xmlrpc.c,v 1.1.1.1 2001/12/14 22:13:40 zarzycki Exp $";
+static const char rcsid[] = "#(@) $Id: xmlrpc.c,v 1.1.1.3 2003/03/11 01:09:35 zarzycki Exp $";
 
 
 /****h* ABOUT/xmlrpc
@@ -42,16 +42,37 @@ static const char rcsid[] = "#(@) $Id: xmlrpc.c,v 1.1.1.1 2001/12/14 22:13:40 za
  * CREATION DATE
  *   9/1999 - 10/2000
  * HISTORY
+ *   $Log: xmlrpc.c,v $
+ *   Revision 1.1.1.3  2003/03/11 01:09:35  zarzycki
+ *   Import of php-4.3.1
+ *
+ *   Revision 1.4  2002/07/05 04:43:53  danda
+ *   merged in updates from SF project.  bring php repository up to date with xmlrpc-epi version 0.51
+ *
+ *   Revision 1.22  2002/03/09 23:15:44  danda
+ *   add fault interrogation funcs
+ *
+ *   Revision 1.21  2002/03/09 22:27:41  danda
+ *   win32 build patches contributed by Jeff Lawson
+ *
+ *   Revision 1.20  2002/02/13 20:58:50  danda
+ *   patch to make source more windows friendly, contributed by Jeff Lawson
+ *
+ *   Revision 1.19  2001/10/12 23:25:54  danda
+ *   default to writing xmlrpc
+ *
+ *   Revision 1.18  2001/09/29 21:58:05  danda
+ *   adding cvs log to history section
+ *
+ *   10/15/2000 -- danda -- adding robodoc documentation
+ *   08/2000 -- danda -- PHP C extension that uses XMLRPC                     
+ *   08/2000 -- danda -- support for two vocabularies: danda-rpc and xml-rpc
  *   09/1999 -- danda -- Initial API, before I even knew of standard XMLRPC vocab. Response only.
- *   06/2000 -- danda -- played with expat-ensor from www.ensor.org.  Cool, but some flaws.
  *   07/2000 -- danda -- wrote new implementation to be compatible with xmlrpc standard and
  *                       incorporated some ideas from ensor, most notably the separation of
  *                       xml dom from xmlrpc api.
- *   08/2000 -- danda -- support for two vocabularies: danda-rpc and xml-rpc
- *   08/2000 -- danda -- PHP C extension that uses XMLRPC                     
- *   10/15/2000 -- danda -- adding robodoc documentation
+ *   06/2000 -- danda -- played with expat-ensor from www.ensor.org.  Cool, but some flaws.
  * TODO
- *   Server method introspection. (Enumerate available methods, describe I/O)
  * PORTABILITY
  *   Coded on RedHat Linux 6.2.  Builds on Solaris x86.  Should build on just
  *   about anything with minor mods.
@@ -96,6 +117,9 @@ static const char rcsid[] = "#(@) $Id: xmlrpc.c,v 1.1.1.1 2001/12/14 22:13:40 za
  *******/
 
 
+#ifdef _WIN32
+#include "xmlrpc_win32.h"
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -109,9 +133,11 @@ static const char rcsid[] = "#(@) $Id: xmlrpc.c,v 1.1.1.1 2001/12/14 22:13:40 za
 
 #include "xml_to_xmlrpc.h"
 #include "xml_to_dandarpc.h"
+#include "xml_to_soap.h"
 #include "xml_element.h"
 #include "xmlrpc_private.h"
 #include "xmlrpc_introspection_private.h"
+#include "system_methods_private.h"
 
 
 
@@ -119,12 +145,24 @@ static const char rcsid[] = "#(@) $Id: xmlrpc.c,v 1.1.1.1 2001/12/14 22:13:40 za
 * Begin Time Functions *
 ***********************/
 
-static int date_from_ISO8601(const char *text, time_t *value)
-{
+static int date_from_ISO8601 (const char *text, time_t * value) {
    struct tm tm;
    int n;
    int i;
-   time_t t;
+	char buf[18];
+
+	if (strchr (text, '-')) {
+		char *p = (char *) text, *p2 = buf;
+		while (p && *p) {
+			if (*p != '-') {
+				*p2 = *p;
+				p2++;
+			}
+			p++;
+		}
+		text = buf;
+	}
+
 
    tm.tm_isdst = -1;
 
@@ -182,12 +220,14 @@ static int date_from_ISO8601(const char *text, time_t *value)
 
 }
 
-static int date_to_ISO8601(time_t value, char *buf, int length)
-{
+static int date_to_ISO8601 (time_t value, char *buf, int length) {
    struct tm *tm;
    tm = localtime(&value);
-
+#if 0  // TODO: soap seems to favor this method. xmlrpc the latter.
+	return strftime (buf, length, "%Y-%m-%dT%H:%M:%SZ", tm);
+#else
    return strftime(buf, length, "%Y%m%dT%H:%M:%S", tm);
+#endif
 }
 
 /*-*******************
@@ -219,6 +259,7 @@ XMLRPC_REQUEST XMLRPC_RequestNew() {
    }
    return xRequest;
 }
+
 /*******/
 
 /****f* REQUEST/XMLRPC_RequestFree
@@ -249,6 +290,7 @@ void XMLRPC_RequestFree(XMLRPC_REQUEST request, int bFreeIO) {
       my_free(request);
    }
 }
+
 /*******/
 
 /* Set Method Name to call */
@@ -276,6 +318,7 @@ const char* XMLRPC_RequestSetMethodName(XMLRPC_REQUEST request, const char* meth
    }
    return NULL;
 }
+
 /*******/
 
 /****f* REQUEST/XMLRPC_RequestGetMethodName
@@ -296,6 +339,7 @@ const char* XMLRPC_RequestSetMethodName(XMLRPC_REQUEST request, const char* meth
 const char* XMLRPC_RequestGetMethodName(XMLRPC_REQUEST request) {
    return request ? request->methodName.str : NULL;
 }
+
 /*******/
 
 /****f* REQUEST/XMLRPC_RequestSetRequestType
@@ -317,13 +361,15 @@ const char* XMLRPC_RequestGetMethodName(XMLRPC_REQUEST request) {
  *   XMLRPC_REQUEST_TYPE
  * SOURCE
  */
-XMLRPC_REQUEST_TYPE XMLRPC_RequestSetRequestType(XMLRPC_REQUEST request, XMLRPC_REQUEST_TYPE type) {
+XMLRPC_REQUEST_TYPE XMLRPC_RequestSetRequestType (XMLRPC_REQUEST request,
+																  XMLRPC_REQUEST_TYPE type) {
    if(request) {
       request->request_type = type;
       return request->request_type;
    }
    return xmlrpc_request_none;
 }
+
 /*******/
 
 /****f* REQUEST/XMLRPC_RequestGetRequestType
@@ -349,6 +395,7 @@ XMLRPC_REQUEST_TYPE XMLRPC_RequestSetRequestType(XMLRPC_REQUEST request, XMLRPC_
 XMLRPC_REQUEST_TYPE XMLRPC_RequestGetRequestType(XMLRPC_REQUEST request) {
    return request ? request->request_type : xmlrpc_request_none;
 }
+
 /*******/
 
 
@@ -377,11 +424,15 @@ XMLRPC_REQUEST_TYPE XMLRPC_RequestGetRequestType(XMLRPC_REQUEST request) {
  */
 XMLRPC_VALUE XMLRPC_RequestSetData(XMLRPC_REQUEST request, XMLRPC_VALUE data) {
    if(request && data) {
+		if (request->io) {
+			XMLRPC_CleanupValue (request->io);
+		}
       request->io = XMLRPC_CopyValue(data);
       return request->io;
    }
    return NULL;
 }
+
 /*******/
 
 /****f* REQUEST/XMLRPC_RequestGetData
@@ -406,7 +457,65 @@ XMLRPC_VALUE XMLRPC_RequestSetData(XMLRPC_REQUEST request, XMLRPC_VALUE data) {
 XMLRPC_VALUE XMLRPC_RequestGetData(XMLRPC_REQUEST request) {
    return request ? request->io : NULL;
 }
+
 /*******/
+
+/****f* REQUEST/XMLRPC_RequestSetError
+ * NAME
+ *   XMLRPC_RequestSetError
+ * SYNOPSIS
+ *   XMLRPC_VALUE XMLRPC_RequestSetError(XMLRPC_REQUEST request, XMLRPC_VALUE error)
+ * FUNCTION
+ *   Associates a block of xmlrpc data, representing an error
+ *   condition, with the request. 
+ * INPUTS
+ *   request -- previously allocated request struct
+ *   error   -- previously allocated error code or struct
+ * RESULT
+ *   XMLRPC_VALUE -- pointer to value stored, or NULL
+ * NOTES
+ *   This is a private function for usage by internals only.
+ * SEE ALSO
+ *   XMLRPC_RequestGetError ()
+ * SOURCE
+ */
+XMLRPC_VALUE XMLRPC_RequestSetError (XMLRPC_REQUEST request, XMLRPC_VALUE error) {
+	if (request && error) {
+		if (request->error) {
+			XMLRPC_CleanupValue (request->error);
+		}
+		request->error = XMLRPC_CopyValue (error);
+		return request->error;
+	}
+	return NULL;
+}
+
+/*******/
+
+/****f* REQUEST/XMLRPC_RequestGetError
+ * NAME
+ *   XMLRPC_RequestGetError
+ * SYNOPSIS
+ *   XMLRPC_VALUE XMLRPC_RequestGetError(XMLRPC_REQUEST request)
+ * FUNCTION
+ *   Returns error data associated with request, if any.
+ * INPUTS
+ *   request -- previously allocated request struct
+ * RESULT
+ *   XMLRPC_VALUE -- pointer to error value stored, or NULL
+ * NOTES
+ *   This is a private function for usage by internals only.
+ * SEE ALSO
+ *   XMLRPC_RequestSetError ()
+ *   XMLRPC_RequestFree ()
+ * SOURCE
+ */
+XMLRPC_VALUE XMLRPC_RequestGetError (XMLRPC_REQUEST request) {
+	return request ? request->error : NULL;
+}
+
+/*******/
+
 
 /****f* REQUEST/XMLRPC_RequestSetOutputOptions
  * NAME
@@ -431,11 +540,13 @@ XMLRPC_VALUE XMLRPC_RequestGetData(XMLRPC_REQUEST request) {
  */
 XMLRPC_REQUEST_OUTPUT_OPTIONS XMLRPC_RequestSetOutputOptions(XMLRPC_REQUEST request, XMLRPC_REQUEST_OUTPUT_OPTIONS output) {
    if(request && output) {
-      memcpy(&request->output, output, sizeof(STRUCT_XMLRPC_REQUEST_OUTPUT_OPTIONS));
+		memcpy (&request->output, output,
+				  sizeof (STRUCT_XMLRPC_REQUEST_OUTPUT_OPTIONS));
       return &request->output;
    }
    return NULL;
 }
+
 /*******/
 
 
@@ -461,6 +572,7 @@ XMLRPC_REQUEST_OUTPUT_OPTIONS XMLRPC_RequestSetOutputOptions(XMLRPC_REQUEST requ
 XMLRPC_REQUEST_OUTPUT_OPTIONS XMLRPC_RequestGetOutputOptions(XMLRPC_REQUEST request) {
    return request ? &request->output : NULL;
 }
+
 /*******/
 
 /*-*************************
@@ -503,6 +615,7 @@ char* XMLRPC_VALUE_ToXML(XMLRPC_VALUE val, int* buf_len) {
    }
    return pRet;
 }
+
 /*******/
 
 /****f* SERIALIZE/XMLRPC_REQUEST_ToXML
@@ -527,19 +640,31 @@ char* XMLRPC_VALUE_ToXML(XMLRPC_VALUE val, int* buf_len) {
  * SOURCE
  */
 char* XMLRPC_REQUEST_ToXML(XMLRPC_REQUEST request, int* buf_len) {
-   if(request) {
-      xml_element *root_elem = (request->output.version == xmlrpc_version_simple) ? 
-                                        DANDARPC_REQUEST_to_xml_element(request) :
-                                        XMLRPC_REQUEST_to_xml_element(request);
       char* pRet = NULL;
+	if (request) {
+		xml_element *root_elem = NULL;
+		if (request->output.version == xmlrpc_version_simple) {
+			root_elem = DANDARPC_REQUEST_to_xml_element (request);
+		}
+		else if (request->output.version == xmlrpc_version_1_0 ||
+					request->output.version == xmlrpc_version_none) {
+			root_elem = XMLRPC_REQUEST_to_xml_element (request);
+		}
+		else if (request->output.version == xmlrpc_version_soap_1_1) {
+			root_elem = SOAP_REQUEST_to_xml_element (request);
+		}
 
       if(root_elem) {
-         pRet = xml_elem_serialize_to_string(root_elem, &request->output.xml_elem_opts, buf_len);
+			pRet =
+			xml_elem_serialize_to_string (root_elem,
+													&request->output.xml_elem_opts,
+													buf_len);
          xml_elem_free(root_elem);
       }
-      return pRet;
    }
+	return pRet;
 }
+
 /*******/
 
 /****f* SERIALIZE/XMLRPC_VALUE_FromXML
@@ -562,8 +687,7 @@ char* XMLRPC_REQUEST_ToXML(XMLRPC_REQUEST request, int* buf_len) {
  *   XMLRPC_VALUE
  * SOURCE
  */
-XMLRPC_VALUE XMLRPC_VALUE_FromXML(const char* in_buf, int len, XMLRPC_REQUEST_INPUT_OPTIONS in_options)
-{
+XMLRPC_VALUE XMLRPC_VALUE_FromXML (const char *in_buf, int len, XMLRPC_REQUEST_INPUT_OPTIONS in_options) {
    XMLRPC_VALUE xResponse = NULL;
    XMLRPC_REQUEST req = XMLRPC_REQUEST_FromXML(in_buf, len, in_options);
 
@@ -573,6 +697,7 @@ XMLRPC_VALUE XMLRPC_VALUE_FromXML(const char* in_buf, int len, XMLRPC_REQUEST_IN
    }
    return xResponse;
 }
+
 /*******/
 
 /* map parser errors to standard xml-rpc errors */
@@ -583,8 +708,7 @@ static XMLRPC_VALUE map_expat_errors(XML_ELEM_ERROR error) {
       char buf[1024];
       snprintf(buf, sizeof(buf), 
                "error occurred at line %i, column %i, byte index %i", 
-               error->line, error->column,
-               error->byte_index);
+					 error->line, error->column, error->byte_index);
 
       /* expat specific errors */
       switch(error->parser_code) {
@@ -622,19 +746,26 @@ static XMLRPC_VALUE map_expat_errors(XML_ELEM_ERROR error) {
  *   XMLRPC_REQUEST
  * SOURCE
  */
-XMLRPC_REQUEST XMLRPC_REQUEST_FromXML(const char* in_buf, int len, XMLRPC_REQUEST_INPUT_OPTIONS in_options)
-{
+XMLRPC_REQUEST XMLRPC_REQUEST_FromXML (const char *in_buf, int len, 
+													XMLRPC_REQUEST_INPUT_OPTIONS in_options) {
    XMLRPC_REQUEST request = XMLRPC_RequestNew();
    STRUCT_XML_ELEM_ERROR error = {0};
 
    if(request) {
-      xml_element *root_elem = xml_elem_parse_buf(in_buf, len, (in_options ? &in_options->xml_elem_opts : NULL), &error);
+		xml_element *root_elem =
+		xml_elem_parse_buf (in_buf, len,
+								  (in_options ? &in_options->xml_elem_opts : NULL),
+								  &error);
 
       if(root_elem) {
          if(!strcmp(root_elem->name, "simpleRPC")) {
             request->output.version = xmlrpc_version_simple;
             xml_element_to_DANDARPC_REQUEST(request, root_elem);
          }
+			else if (!strcmp (root_elem->name, "SOAP-ENV:Envelope")) {
+				request->output.version = xmlrpc_version_soap_1_1;
+				xml_element_to_SOAP_REQUEST (request, root_elem);
+			}
          else {
             request->output.version = xmlrpc_version_1_0;
             xml_element_to_XMLRPC_REQUEST(request, root_elem);
@@ -643,13 +774,14 @@ XMLRPC_REQUEST XMLRPC_REQUEST_FromXML(const char* in_buf, int len, XMLRPC_REQUES
       }
       else {
          if(error.parser_error) {
-            request->error = map_expat_errors(&error);
+				XMLRPC_RequestSetError (request, map_expat_errors (&error));
          }
       }
    }
 
    return request;
 }
+
 /*******/
 
 /*-************************
@@ -676,6 +808,9 @@ XMLRPC_REQUEST XMLRPC_REQUEST_FromXML(const char* in_buf, int len, XMLRPC_REQUES
 XMLRPC_VALUE XMLRPC_CreateValueEmpty() {
    XMLRPC_VALUE v = calloc(1, sizeof(STRUCT_XMLRPC_VALUE));
    if(v) {
+#ifdef XMLRPC_DEBUG_REFCOUNT
+		printf ("calloc'd 0x%x\n", v);
+#endif
       v->type = xmlrpc_empty;
       simplestring_init(&v->id);
       simplestring_init(&v->str);
@@ -689,6 +824,7 @@ static const char* get_string(const char* buf, int bDup) {
    }
    return buf;
 }
+
 /*******/
 
 /****f* VALUE/XMLRPC_SetValueID_Case
@@ -724,7 +860,12 @@ const char *XMLRPC_SetValueID_Case(XMLRPC_VALUE value, const char* id, int len, 
          if(id_case == xmlrpc_case_lower || id_case == xmlrpc_case_upper) {
             int i;
             for(i = 0; i < value->id.len; i++) {
-               value->id.str[i] = (id_case == xmlrpc_case_lower) ? tolower(value->id.str[i]) : toupper(value->id.str[i]);
+					value->id.str[i] =
+					(id_case ==
+					 xmlrpc_case_lower) ? tolower (value->id.
+															 str[i]) : toupper (value->
+																					  id.
+																					  str[i]);
             }
          }
 
@@ -738,6 +879,7 @@ const char *XMLRPC_SetValueID_Case(XMLRPC_VALUE value, const char* id, int len, 
 
    return pRetval;
 }
+
 /*******/
 
 
@@ -772,6 +914,7 @@ const char *XMLRPC_SetValueString(XMLRPC_VALUE value, const char* val, int len) 
 
    return pRetval;
 }
+
 /*******/
 
 /****f* VALUE/XMLRPC_SetValueInt
@@ -797,6 +940,7 @@ void XMLRPC_SetValueInt(XMLRPC_VALUE value, int val) {
       value->i = val;
    }
 }
+
 /*******/
 
 /****f* VALUE/XMLRPC_SetValueBoolean
@@ -822,6 +966,7 @@ void XMLRPC_SetValueBoolean(XMLRPC_VALUE value, int val) {
       value->i = val ? 1 : 0;
    }
 }
+
 /*******/
 
 
@@ -850,7 +995,16 @@ void XMLRPC_SetValueBoolean(XMLRPC_VALUE value, int val) {
 int XMLRPC_SetIsVector(XMLRPC_VALUE value, XMLRPC_VECTOR_TYPE type) {
    int bSuccess = 0;
 
-   if(value && value->type != xmlrpc_vector) {
+	if (value) {
+		// we can change the type so long as nothing is currently stored.
+		if(value->type == xmlrpc_vector) {
+			if(value->v) {
+				if(!Q_Size(value->v->q)) {
+					value->v->type = type;
+				}
+			}
+		}
+		else {
       value->v = calloc(1, sizeof(STRUCT_XMLRPC_VECTOR));
       if(value->v) {
          value->v->q = (queue*)malloc(sizeof(queue));
@@ -862,9 +1016,11 @@ int XMLRPC_SetIsVector(XMLRPC_VALUE value, XMLRPC_VECTOR_TYPE type) {
          }
       }
    }
+	}
 
    return bSuccess;
 }
+
 /*******/
 
 /****f* VECTOR/XMLRPC_CreateVector
@@ -912,6 +1068,7 @@ XMLRPC_VALUE XMLRPC_CreateVector(const char* id, XMLRPC_VECTOR_TYPE type) {
    }
    return val;
 }
+
 /*******/
 
 
@@ -966,22 +1123,26 @@ int XMLRPC_AddValueToVector(XMLRPC_VALUE target, XMLRPC_VALUE source) {
             case xmlrpc_vector:
                /* Guard against putting a key/val pair into an array vector */
                if( !(source->id.len && target->v->type == xmlrpc_vector_array) ) {
-                  if(isDuplicateEntry(target, source) || Q_PushTail(target->v->q, XMLRPC_CopyValue(source))) {
+					if (isDuplicateEntry (target, source)
+						 || Q_PushTail (target->v->q, XMLRPC_CopyValue (source))) {
                      return 1;
                   }
                }
                else {
-                  fprintf(stderr, "xmlrpc: attempted to add key/val pair to vector of type array\n");
+					fprintf (stderr,
+								"xmlrpc: attempted to add key/val pair to vector of type array\n");
                }
                break;
             default:
-               fprintf(stderr, "xmlrpc: attempted to add value of unknown type to vector\n");
+				fprintf (stderr,
+							"xmlrpc: attempted to add value of unknown type to vector\n");
                break;
          }
       }
    }
    return 0;
 }
+
 /*******/
 
 
@@ -1026,7 +1187,8 @@ int XMLRPC_AddValuesToVector(XMLRPC_VALUE target, ...) {
                   break;
                }
             }
-         } while(v);
+			}
+			while (v);
 
          va_end(vl);
 
@@ -1037,6 +1199,7 @@ int XMLRPC_AddValuesToVector(XMLRPC_VALUE target, ...) {
    }
    return iRetval;
 }
+
 /*******/
 
 
@@ -1059,7 +1222,8 @@ int XMLRPC_AddValuesToVector(XMLRPC_VALUE target, ...) {
  *   XMLRPC_CASE_COMPARISON
  * SOURCE
  */
-XMLRPC_VALUE XMLRPC_VectorGetValueWithID_Case(XMLRPC_VALUE vector, const char* id, XMLRPC_CASE_COMPARISON id_case) {
+XMLRPC_VALUE XMLRPC_VectorGetValueWithID_Case (XMLRPC_VALUE vector, const char *id,
+															  XMLRPC_CASE_COMPARISON id_case) {
    if(vector && vector->v && vector->v->q) {
        q_iter qi = Q_Iter_Head_F(vector->v->q);
 
@@ -1082,6 +1246,7 @@ XMLRPC_VALUE XMLRPC_VectorGetValueWithID_Case(XMLRPC_VALUE vector, const char* i
    }
    return NULL;
 }
+
 /*******/
 
 
@@ -1136,6 +1301,7 @@ XMLRPC_VALUE XMLRPC_CreateValueString(const char* id, const char* val, int len) 
    }
    return value;
 }
+
 /*******/
 
 /****f* VALUE/XMLRPC_CreateValueInt
@@ -1167,6 +1333,7 @@ XMLRPC_VALUE XMLRPC_CreateValueInt(const char* id, int i) {
    }
    return val;
 }
+
 /*******/
 
 /****f* VALUE/XMLRPC_CreateValueBoolean
@@ -1198,6 +1365,7 @@ XMLRPC_VALUE XMLRPC_CreateValueBoolean(const char* id, int i) {
    }
    return val;
 }
+
 /*******/
 
 
@@ -1235,10 +1403,12 @@ void XMLRPC_CleanupValue(XMLRPC_VALUE value) {
 
 #ifdef XMLRPC_DEBUG_REFCOUNT
       if(value->id.str) {
-         printf("decremented refcount of %s, now %i\n", value->id.str, value->iRefCount);
+			printf ("decremented refcount of %s, now %i\n", value->id.str,
+					  value->iRefCount);
       }
       else {
-         printf("decremented refcount of 0x%x, now %i\n", value, value->iRefCount);
+			printf ("decremented refcount of 0x%x, now %i\n", value,
+					  value->iRefCount);
       }
 #endif
 
@@ -1295,12 +1465,14 @@ void XMLRPC_CleanupValue(XMLRPC_VALUE value) {
                my_free(value);
                break;
             default:
-               fprintf(stderr, "xmlrpc: attempted to free value of invalid type\n");
+				fprintf (stderr,
+							"xmlrpc: attempted to free value of invalid type\n");
                break;
          }
       }
    }
 }
+
 /*******/
 
 
@@ -1339,6 +1511,7 @@ void XMLRPC_SetValueDateTime(XMLRPC_VALUE value, time_t time) {
       }
    }
 }
+
 /*******/
 
 /****f* VALUE/XMLRPC_CopyValue
@@ -1347,13 +1520,14 @@ void XMLRPC_SetValueDateTime(XMLRPC_VALUE value, time_t time) {
  * SYNOPSIS
  *   XMLRPC_VALUE XMLRPC_CopyValue(XMLRPC_VALUE value)
  * FUNCTION
- *   Make a copy of an XMLRPC_VALUE
+ *   Make a copy (reference) of an XMLRPC_VALUE
  * INPUTS
  *   value     The target XMLRPC_VALUE
  * RESULT
  *   XMLRPC_VALUE -- address of the copy
  * SEE ALSO
  *   XMLRPC_CleanupValue ()
+ *   XMLRPC_DupValueNew ()
  * NOTES
  *   This function is implemented via reference counting, so the
  *   returned value is going to be the same as the passed in value.
@@ -1366,12 +1540,83 @@ XMLRPC_VALUE XMLRPC_CopyValue(XMLRPC_VALUE value) {
       value->iRefCount ++;
 #ifdef XMLRPC_DEBUG_REFCOUNT
       if(value->id.str) {
-         printf("incremented refcount of %s\n", value->id.str);
+			printf ("incremented refcount of %s, now %i\n", value->id.str,
+					  value->iRefCount);
+		}
+		else {
+			printf ("incremented refcount of 0x%x, now %i\n", value,
+					  value->iRefCount);
       }
 #endif
    }
    return value;
 }
+
+/*******/
+
+
+/****f* VALUE/XMLRPC_DupValueNew
+ * NAME
+ *   XMLRPC_DupValueNew
+ * SYNOPSIS
+ *   XMLRPC_VALUE XMLRPC_DupValueNew(XMLRPC_VALUE value)
+ * FUNCTION
+ *   Make a duplicate (non reference) of an XMLRPC_VALUE with newly allocated mem.
+ * INPUTS
+ *   value     The source XMLRPC_VALUE to duplicate
+ * RESULT
+ *   XMLRPC_VALUE -- address of the duplicate value
+ * SEE ALSO
+ *   XMLRPC_CleanupValue ()
+ *   XMLRPC_CopyValue ()
+ * NOTES
+ *   Use this when function when you need to modify the contents of
+ *   the copied value seperately from the original.
+ *   
+ *   this function is recursive, thus the value and all of its children
+ *   (if any) will be duplicated.
+ * SOURCE
+ */
+XMLRPC_VALUE XMLRPC_DupValueNew (XMLRPC_VALUE xSource) {
+	XMLRPC_VALUE xReturn = NULL;
+	if (xSource) {
+		xReturn = XMLRPC_CreateValueEmpty ();
+		if (xSource->id.len) {
+			XMLRPC_SetValueID (xReturn, xSource->id.str, xSource->id.len);
+		}
+
+		switch (xSource->type) {
+		case xmlrpc_int:
+		case xmlrpc_boolean:
+			XMLRPC_SetValueInt (xReturn, xSource->i);
+			break;
+		case xmlrpc_string:
+		case xmlrpc_base64:
+			XMLRPC_SetValueString (xReturn, xSource->str.str, xSource->str.len);
+			break;
+		case xmlrpc_datetime:
+			XMLRPC_SetValueDateTime (xReturn, xSource->i);
+			break;
+		case xmlrpc_double:
+			XMLRPC_SetValueDouble (xReturn, xSource->d);
+			break;
+		case xmlrpc_vector:
+			{
+				q_iter qi = Q_Iter_Head_F (xSource->v->q);
+				XMLRPC_SetIsVector (xReturn, xSource->v->type);
+
+				while (qi) {
+					XMLRPC_VALUE xIter = Q_Iter_Get_F (qi);
+					XMLRPC_AddValueToVector (xReturn, XMLRPC_DupValueNew (xIter));
+					qi = Q_Iter_Next_F (qi);
+				}
+			}
+			break;
+		}
+	}
+	return xReturn;
+}
+
 /*******/
 
 
@@ -1405,6 +1650,7 @@ XMLRPC_VALUE XMLRPC_CreateValueDateTime(const char* id, time_t time) {
    }
    return val;
 }
+
 /*******/
 
 
@@ -1440,6 +1686,7 @@ void XMLRPC_SetValueDateTime_ISO8601(XMLRPC_VALUE value, const char* s) {
       }
    }
 }
+
 /*******/
 
 /****f* VALUE/XMLRPC_CreateValueDateTime_ISO8601
@@ -1473,6 +1720,7 @@ XMLRPC_VALUE XMLRPC_CreateValueDateTime_ISO8601(const char* id, const char *s) {
    }
    return val;
 }
+
 /*******/
 
 
@@ -1506,6 +1754,7 @@ void XMLRPC_SetValueBase64(XMLRPC_VALUE value, const char* s, int len) {
       value->type = xmlrpc_base64;
    }
 }
+
 /*******/
 
 
@@ -1540,6 +1789,7 @@ XMLRPC_VALUE XMLRPC_CreateValueBase64(const char* id, const char* s, int len) {
    }
    return val;
 }
+
 /*******/
 
 /****f* VALUE/XMLRPC_SetValueDouble
@@ -1566,6 +1816,7 @@ void XMLRPC_SetValueDouble(XMLRPC_VALUE value, double val) {
       value->d = val;
    }
 }
+
 /*******/
 
 /****f* VALUE/XMLRPC_CreateValueDouble
@@ -1596,6 +1847,7 @@ XMLRPC_VALUE XMLRPC_CreateValueDouble(const char* id, double d) {
    }
    return val;
 }
+
 /*******/
 
 /****f* VALUE/XMLRPC_GetValueString
@@ -1618,6 +1870,7 @@ XMLRPC_VALUE XMLRPC_CreateValueDouble(const char* id, double d) {
 const char* XMLRPC_GetValueString(XMLRPC_VALUE value) {
     return ((value && value->type == xmlrpc_string) ? value->str.str : 0);
 }
+
 /*******/
 
 /****f* VALUE/XMLRPC_GetValueStringLen
@@ -1640,6 +1893,7 @@ const char* XMLRPC_GetValueString(XMLRPC_VALUE value) {
 int XMLRPC_GetValueStringLen(XMLRPC_VALUE value) {
     return ((value) ? value->str.len : 0);
 }
+
 /*******/
 
 /****f* VALUE/XMLRPC_GetValueInt
@@ -1663,6 +1917,7 @@ int XMLRPC_GetValueStringLen(XMLRPC_VALUE value) {
 int XMLRPC_GetValueInt(XMLRPC_VALUE value) {
     return ((value && value->type == xmlrpc_int) ? value->i : 0);
 }
+
 /*******/
 
 /****f* VALUE/XMLRPC_GetValueBoolean
@@ -1686,6 +1941,7 @@ int XMLRPC_GetValueInt(XMLRPC_VALUE value) {
 int XMLRPC_GetValueBoolean(XMLRPC_VALUE value) {
     return ((value && value->type == xmlrpc_boolean) ? value->i : 0);
 }
+
 /*******/
 
 /****f* VALUE/XMLRPC_GetValueDouble
@@ -1709,6 +1965,7 @@ int XMLRPC_GetValueBoolean(XMLRPC_VALUE value) {
 double XMLRPC_GetValueDouble(XMLRPC_VALUE value) {
     return ((value && value->type == xmlrpc_double) ? value->d : 0);
 }
+
 /*******/
 
 /****f* VALUE/XMLRPC_GetValueBase64
@@ -1733,6 +1990,7 @@ double XMLRPC_GetValueDouble(XMLRPC_VALUE value) {
 const char* XMLRPC_GetValueBase64(XMLRPC_VALUE value) {
     return ((value && value->type == xmlrpc_base64) ? value->str.str : 0);
 }
+
 /*******/
 
 /****f* VALUE/XMLRPC_GetValueDateTime
@@ -1757,6 +2015,7 @@ const char* XMLRPC_GetValueBase64(XMLRPC_VALUE value) {
 time_t XMLRPC_GetValueDateTime(XMLRPC_VALUE value) {
     return (time_t)((value && value->type == xmlrpc_datetime) ? value->i : 0);
 }
+
 /*******/
 
 /****f* VALUE/XMLRPC_GetValueDateTime_IOS8601
@@ -1779,6 +2038,7 @@ time_t XMLRPC_GetValueDateTime(XMLRPC_VALUE value) {
 const char* XMLRPC_GetValueDateTime_ISO8601(XMLRPC_VALUE value) {
     return ((value && value->type == xmlrpc_datetime) ? value->str.str : 0);
 }
+
 /*******/
 
 /* Get ID (key) of value or NULL */
@@ -1802,6 +2062,7 @@ const char* XMLRPC_GetValueDateTime_ISO8601(XMLRPC_VALUE value) {
 const char* XMLRPC_GetValueID(XMLRPC_VALUE value) {
     return (const char*)((value && value->id.len) ? value->id.str : 0);
 }
+
 /*******/
 
 
@@ -1830,6 +2091,7 @@ int XMLRPC_VectorSize(XMLRPC_VALUE value) {
    }
    return size;
 }
+
 /*******/
 
 /****f* VECTOR/XMLRPC_VectorRewind
@@ -1857,6 +2119,7 @@ XMLRPC_VALUE XMLRPC_VectorRewind(XMLRPC_VALUE value) {
    }
    return xReturn;
 }
+
 /*******/
 
 /****f* VECTOR/XMLRPC_VectorNext
@@ -1882,6 +2145,7 @@ XMLRPC_VALUE XMLRPC_VectorNext(XMLRPC_VALUE value) {
    }
    return xReturn;
 }
+
 /*******/
 
 /****f* VALUE/XMLRPC_GetValueType
@@ -1897,15 +2161,18 @@ XMLRPC_VALUE XMLRPC_VectorNext(XMLRPC_VALUE value) {
  *   data type of value as enumerated by XMLRPC_VALUE_TYPE
  * NOTES
  *   all values are of type xmlrpc_empty until set.
+ *   Deprecated for public use.  See XMLRPC_GetValueTypeEasy
  * SEE ALSO
  *   XMLRPC_SetValue*
  *   XMLRPC_CreateValue*
  *   XMLRPC_Append*
+ *   XMLRPC_GetValueTypeEasy ()
  * SOURCE
  */
 XMLRPC_VALUE_TYPE XMLRPC_GetValueType(XMLRPC_VALUE value) {
    return value ? value->type : xmlrpc_empty;
 }
+
 /*******/
 
 /* Vector type accessor */
@@ -1919,18 +2186,67 @@ XMLRPC_VALUE_TYPE XMLRPC_GetValueType(XMLRPC_VALUE value) {
  * INPUTS
  *   XMLRPC_VALUE of type xmlrpc_vector
  * RESULT
- *   vector type of value as enumerated by XMLRPC_VECTOR_TYPE
+ *   vector type of value as enumerated by XMLRPC_VECTOR_TYPE.
+ *   xmlrpc_none if not a value.
  * NOTES
  *   xmlrpc_none is returned if value is not a vector
+ *   Deprecated for public use.  See XMLRPC_GetValueTypeEasy
  * SEE ALSO
  *   XMLRPC_SetIsVector ()
  *   XMLRPC_GetValueType ()
+ *   XMLRPC_GetValueTypeEasy ()
  * SOURCE
  */
 XMLRPC_VECTOR_TYPE XMLRPC_GetVectorType(XMLRPC_VALUE value) {
    return(value && value->v) ? value->v->type : xmlrpc_none;
 }
+
 /*******/
+
+/****f* VALUE/XMLRPC_GetValueTypeEasy
+ * NAME
+ *   XMLRPC_GetValueTypeEasy
+ * SYNOPSIS
+ *   XMLRPC_VALUE_TYPE_EASY XMLRPC_GetValueTypeEasy(XMLRPC_VALUE value)
+ * FUNCTION
+ *   determine data type of the XMLRPC_VALUE. includes vector types.
+ * INPUTS
+ *   XMLRPC_VALUE target of query
+ * RESULT
+ *   data type of value as enumerated by XMLRPC_VALUE_TYPE_EASY
+ *   xmlrpc_type_none if not a value.
+ * NOTES
+ *   all values are of type xmlrpc_type_empty until set. 
+ * SEE ALSO
+ *   XMLRPC_SetValue*
+ *   XMLRPC_CreateValue*
+ *   XMLRPC_Append*
+ * SOURCE
+ */
+XMLRPC_VALUE_TYPE_EASY XMLRPC_GetValueTypeEasy (XMLRPC_VALUE value) {
+	if (value) {
+		switch (value->type) {
+		case xmlrpc_vector:
+			switch (value->v->type) {
+			case xmlrpc_vector_none:
+				return xmlrpc_type_none;
+			case xmlrpc_vector_struct:
+				return xmlrpc_type_struct;
+			case xmlrpc_vector_mixed:
+				return xmlrpc_type_mixed;
+			case xmlrpc_vector_array:
+				return xmlrpc_type_array;
+			}
+		default:
+			/* evil cast, but we know they are the same */
+			return(XMLRPC_VALUE_TYPE_EASY) value->type;
+		}
+	}
+	return xmlrpc_none;
+}
+
+/*******/
+
 
 
 /*-*******************
@@ -1966,6 +2282,7 @@ XMLRPC_SERVER XMLRPC_ServerCreate() {
    }
    return server;
 }
+
 /*******/
 
 /* Return global server.  Not locking! Not Thread Safe! */
@@ -1996,6 +2313,7 @@ XMLRPC_SERVER XMLRPC_GetGlobalServer() {
    }
    return xsServer;
 }
+
 /*******/
 
 /****f* VALUE/XMLRPC_ServerDestroy
@@ -2042,6 +2360,7 @@ void XMLRPC_ServerDestroy(XMLRPC_SERVER server) {
       my_free(server);
    }
 }
+
 /*******/
 
 
@@ -2082,9 +2401,10 @@ int XMLRPC_ServerRegisterMethod(XMLRPC_SERVER server, const char *name, XMLRPC_C
    }
    return 0;
 }
+
 /*******/
 
-inline server_method* find_method(XMLRPC_SERVER server, const char* name) {
+server_method* find_method(XMLRPC_SERVER server, const char* name) {
    server_method* sm;
 
    q_iter qi = Q_Iter_Head_F(&server->methodlist);
@@ -2164,6 +2484,7 @@ XMLRPC_Callback XMLRPC_ServerFindMethod(XMLRPC_SERVER server, const char* callNa
    }
    return NULL;
 }
+
 /*******/
 
 
@@ -2199,17 +2520,21 @@ XMLRPC_VALUE XMLRPC_ServerCallMethod(XMLRPC_SERVER server, XMLRPC_REQUEST reques
    if(request && request->error) {
       xReturn = XMLRPC_CopyValue(request->error);
    }
-   else if(server && request && request->methodName.str) {
-      XMLRPC_Callback cb = XMLRPC_ServerFindMethod(server, request->methodName.str);
+	else if (server && request) {
+		XMLRPC_Callback cb =
+		XMLRPC_ServerFindMethod (server, request->methodName.str);
       if(cb) {
          xReturn = cb(server, request, userData);
       }
       else {
-         xReturn = XMLRPC_UtilityCreateFault(xmlrpc_error_unknown_method, request->methodName.str);
+			xReturn =
+			XMLRPC_UtilityCreateFault (xmlrpc_error_unknown_method,
+												request->methodName.str);
       }
    }
    return xReturn;
 }
+
 /*******/
 
 /*-*****************
@@ -2227,7 +2552,8 @@ XMLRPC_VALUE XMLRPC_ServerCallMethod(XMLRPC_SERVER server, XMLRPC_REQUEST reques
 typedef struct _xmlrpc_options {
    XMLRPC_CASE id_case;
    XMLRPC_CASE_COMPARISON id_case_compare;
-} STRUCT_XMLRPC_OPTIONS, *XMLRPC_OPTIONS;
+}
+STRUCT_XMLRPC_OPTIONS, *XMLRPC_OPTIONS;
 
 static XMLRPC_OPTIONS XMLRPC_GetDefaultOptions() {
    static STRUCT_XMLRPC_OPTIONS options = {
@@ -2259,6 +2585,7 @@ XMLRPC_CASE XMLRPC_GetDefaultIdCase() {
    XMLRPC_OPTIONS options = XMLRPC_GetDefaultOptions();
    return options->id_case;
 }
+
 /*******/
 
 /****f* VALUE/XMLRPC_SetDefaultIdCase
@@ -2284,6 +2611,7 @@ XMLRPC_CASE XMLRPC_SetDefaultIdCase(XMLRPC_CASE id_case) {
    options->id_case = id_case;
    return options->id_case;
 }
+
 /*******/
 
 /****f* VALUE/XMLRPC_GetDefaultIdCaseComparison
@@ -2308,6 +2636,7 @@ XMLRPC_CASE_COMPARISON XMLRPC_GetDefaultIdCaseComparison() {
    XMLRPC_OPTIONS options = XMLRPC_GetDefaultOptions();
    return options->id_case_compare;
 }
+
 /*******/
 
 /****f* VALUE/XMLRPC_SetDefaultIdCaseComparison
@@ -2333,6 +2662,7 @@ XMLRPC_CASE_COMPARISON XMLRPC_SetDefaultIdCaseComparison(XMLRPC_CASE_COMPARISON 
    options->id_case_compare = id_case_compare;
    return options->id_case_compare;
 }
+
 /*******/
 
 /*-*********************************
@@ -2341,7 +2671,7 @@ XMLRPC_CASE_COMPARISON XMLRPC_SetDefaultIdCaseComparison(XMLRPC_CASE_COMPARISON 
 
 
 /*-******************
-* Utility API funcs *
+* Fault API funcs   *
 ********************/
 
 /****f* UTILITY/XMLRPC_UtilityCreateFault
@@ -2375,6 +2705,7 @@ XMLRPC_CASE_COMPARISON XMLRPC_SetDefaultIdCaseComparison(XMLRPC_CASE_COMPARISON 
  *   simplerpc serialization, meaning that there will be no "<fault>" element in that
  *   serialization. There will simply be a standard struct with 2 child elements.  
  *   imho, the "<fault>" element is unnecessary and/or out of place as part of the standard API.
+ *
  * SOURCE
  */
 XMLRPC_VALUE XMLRPC_UtilityCreateFault(int fault_code, const char* fault_string) {
@@ -2385,16 +2716,36 @@ XMLRPC_VALUE XMLRPC_UtilityCreateFault(int fault_code, const char* fault_string)
    simplestring_init(&description);
 
    switch (fault_code) {
-   case xmlrpc_error_parse_xml_syntax: string = xmlrpc_error_parse_xml_syntax_str; break;
-   case xmlrpc_error_parse_unknown_encoding: string = xmlrpc_error_parse_unknown_encoding_str; break;
-   case xmlrpc_error_parse_bad_encoding: string = xmlrpc_error_parse_bad_encoding_str; break;
-   case xmlrpc_error_invalid_xmlrpc: string = xmlrpc_error_invalid_xmlrpc_str; break;
-   case xmlrpc_error_unknown_method: string = xmlrpc_error_unknown_method_str; break;
-   case xmlrpc_error_invalid_params: string = xmlrpc_error_invalid_params_str; break;
-   case xmlrpc_error_internal_server: string = xmlrpc_error_internal_server_str; break;
-   case xmlrpc_error_application: string = xmlrpc_error_application_str; break;
-   case xmlrpc_error_system: string = xmlrpc_error_system_str; break;
-   case xmlrpc_error_transport: string = xmlrpc_error_transport_str; break;
+	case xmlrpc_error_parse_xml_syntax:
+		string = xmlrpc_error_parse_xml_syntax_str;
+		break;
+	case xmlrpc_error_parse_unknown_encoding:
+		string = xmlrpc_error_parse_unknown_encoding_str;
+		break;
+	case xmlrpc_error_parse_bad_encoding:
+		string = xmlrpc_error_parse_bad_encoding_str;
+		break;
+	case xmlrpc_error_invalid_xmlrpc:
+		string = xmlrpc_error_invalid_xmlrpc_str;
+		break;
+	case xmlrpc_error_unknown_method:
+		string = xmlrpc_error_unknown_method_str;
+		break;
+	case xmlrpc_error_invalid_params:
+		string = xmlrpc_error_invalid_params_str;
+		break;
+	case xmlrpc_error_internal_server:
+		string = xmlrpc_error_internal_server_str;
+		break;
+	case xmlrpc_error_application:
+		string = xmlrpc_error_application_str;
+		break;
+	case xmlrpc_error_system:
+		string = xmlrpc_error_system_str;
+		break;
+	case xmlrpc_error_transport:
+		string = xmlrpc_error_transport_str;
+		break;
    }
 
    simplestring_add(&description, string);
@@ -2408,7 +2759,8 @@ XMLRPC_VALUE XMLRPC_UtilityCreateFault(int fault_code, const char* fault_string)
    if(description.len) {
       xOutput = XMLRPC_CreateVector(NULL, xmlrpc_vector_struct);
 
-      XMLRPC_VectorAppendString(xOutput, "faultString", description.str, description.len);
+		XMLRPC_VectorAppendString (xOutput, "faultString", description.str,
+											description.len);
       XMLRPC_VectorAppendInt(xOutput, "faultCode", fault_code);
    }
 
@@ -2416,7 +2768,149 @@ XMLRPC_VALUE XMLRPC_UtilityCreateFault(int fault_code, const char* fault_string)
 
    return xOutput;
 }
+
 /*******/
+
+
+/****f* FAULT/XMLRPC_ValueIsFault
+ * NAME
+ *   XMLRPC_ValueIsFault
+ * SYNOPSIS
+ *   int XMLRPC_ValueIsFault (XMLRPC_VALUE value)
+ * FUNCTION
+ *   Determines if a value encapsulates a fault "object"
+ * INPUTS
+ *   value  any XMLRPC_VALUE
+ * RESULT
+ *   1 if it is a fault, else 0
+ * SEE ALSO
+ *   XMLRPC_ResponseIsFault ()
+ * SOURCE
+ */
+int XMLRPC_ValueIsFault (XMLRPC_VALUE value) {
+   if( XMLRPC_VectorGetValueWithID(value, "faultCode") &&
+       XMLRPC_VectorGetValueWithID(value, "faultString") ) {
+      return 1;
+   }
+   return 0;
+}
+/*******/
+
+
+/****f* FAULT/XMLRPC_ResponseIsFault
+ * NAME
+ *   XMLRPC_ResponseIsFault
+ * SYNOPSIS
+ *   int XMLRPC_ResponseIsFault (XMLRPC_REQUEST response)
+ * FUNCTION
+ *   Determines if a response contains an encapsulated fault "object"
+ * INPUTS
+ *   value  any XMLRPC_REQUEST. typically of type xmlrpc_request_response
+ * RESULT
+ *   1 if it contains a fault, else 0
+ * SEE ALSO
+ *   XMLRPC_ValueIsFault ()
+ * SOURCE
+ */
+int XMLRPC_ResponseIsFault(XMLRPC_REQUEST response) {
+   return XMLRPC_ValueIsFault( XMLRPC_RequestGetData(response) );
+}
+
+/*******/
+
+/****f* FAULT/XMLRPC_GetValueFaultCode
+ * NAME
+ *   XMLRPC_GetValueFaultCode
+ * SYNOPSIS
+ *   int XMLRPC_GetValueFaultCode (XMLRPC_VALUE value)
+ * FUNCTION
+ *   returns fault code from a struct, if any
+ * INPUTS
+ *   value  XMLRPC_VALUE of type xmlrpc_vector_struct.
+ * RESULT
+ *   fault code, else 0.
+ * BUGS
+ *   impossible to distinguish faultCode == 0 from faultCode not present.
+ * SEE ALSO
+ *   XMLRPC_GetResponseFaultCode ()
+ * SOURCE
+ */
+int XMLRPC_GetValueFaultCode (XMLRPC_VALUE value) {
+   return XMLRPC_VectorGetIntWithID(value, "faultCode");
+}
+
+/*******/
+
+/****f* FAULT/XMLRPC_GetResponseFaultCode
+ * NAME
+ *   XMLRPC_GetResponseFaultCode
+ * SYNOPSIS
+ *   int XMLRPC_GetResponseFaultCode(XMLRPC_REQUEST response)
+ * FUNCTION
+ *   returns fault code from a response, if any
+ * INPUTS
+ *   response  XMLRPC_REQUEST. typically of type xmlrpc_request_response.
+ * RESULT
+ *   fault code, else 0.
+ * BUGS
+ *   impossible to distinguish faultCode == 0 from faultCode not present.
+ * SEE ALSO
+ *   XMLRPC_GetValueFaultCode ()
+ * SOURCE
+ */
+int XMLRPC_GetResponseFaultCode(XMLRPC_REQUEST response) {
+   return XMLRPC_GetValueFaultCode( XMLRPC_RequestGetData(response) );
+}
+
+/*******/
+
+
+/****f* FAULT/XMLRPC_GetValueFaultString
+ * NAME
+ *   XMLRPC_GetValueFaultString
+ * SYNOPSIS
+ *   const char* XMLRPC_GetValueFaultString (XMLRPC_VALUE value)
+ * FUNCTION
+ *   returns fault string from a struct, if any
+ * INPUTS
+ *   value  XMLRPC_VALUE of type xmlrpc_vector_struct.
+ * RESULT
+ *   fault string, else 0.
+ * SEE ALSO
+ *   XMLRPC_GetResponseFaultString ()
+ * SOURCE
+ */
+const char* XMLRPC_GetValueFaultString (XMLRPC_VALUE value) {
+   return XMLRPC_VectorGetStringWithID(value, "faultString");
+}
+
+/*******/
+
+/****f* FAULT/XMLRPC_GetResponseFaultString
+ * NAME
+ *   XMLRPC_GetResponseFaultString
+ * SYNOPSIS
+ *   const char* XMLRPC_GetResponseFaultString (XMLRPC_REQUEST response)
+ * FUNCTION
+ *   returns fault string from a response, if any
+ * INPUTS
+ *   response  XMLRPC_REQUEST. typically of type xmlrpc_request_response.
+ * RESULT
+ *   fault string, else 0.
+ * SEE ALSO
+ *   XMLRPC_GetValueFaultString ()
+ * SOURCE
+ */
+const char* XMLRPC_GetResponseFaultString (XMLRPC_REQUEST response) {
+   return XMLRPC_GetValueFaultString( XMLRPC_RequestGetData(response) );
+}
+
+/*******/
+
+
+/*-******************
+* Utility API funcs *
+********************/
 
 
 /****f* UTILITY/XMLRPC_Free
@@ -2438,6 +2932,7 @@ XMLRPC_VALUE XMLRPC_UtilityCreateFault(int fault_code, const char* fault_string)
 void XMLRPC_Free(void* mem) {
    my_free(mem);
 }
+
 /*******/
 
 
@@ -2458,14 +2953,10 @@ void XMLRPC_Free(void* mem) {
 const char*  XMLRPC_GetVersionString() {
    return XMLRPC_VERSION_STR;
 }
+
 /*******/
 
 
 /*-**********************
 * End Utility API funcs *
 ************************/
-
-
-
-
-

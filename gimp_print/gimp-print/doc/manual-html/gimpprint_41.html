@@ -1,0 +1,52 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from .././gimpprint.texi on 22 January 2003 -->
+
+<TITLE>GIMP-Print - Driver file</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_40.html">previous</A>, <A HREF="gimpprint_42.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H2><A NAME="SEC56" HREF="gimpprint_toc.html#TOC56">D.2  The driver file</A></H2>
+<P>
+<A NAME="IDX262"></A>
+
+</P>
+<P>
+Adding a new printer to a driver module (<TT>`print-escp2.c'</TT>,
+<TT>`print-pcl.c'</TT>, or <TT>`print-canon.c'</TT>---<TT>`print-ps.c'</TT> is
+really ad hoc) requires a bit more planning.  Each driver is somewhat
+different, but they all generally have a vector of printer definitions,
+and the code does some special casing based on particular printer
+capabilities.  The PCL and Canon drivers are quite similar; the Canon
+driver was actually cribbed from the PCL driver, but it then returned
+the favor.
+
+</P>
+<P>
+The Epson driver is a little bit different.  Canon and PCL printers
+have some amount of intelligence; a lot of them have specific ink
+options, and know about specific paper sizes and types, and must be
+told the right thing.  Epson printers have somewhat less intelligence
+and will more or less do exactly what the host tells it to do in a
+fairly regular fashion.  I actually prefer this; it isn't materially
+more work for the host to compute things like exact paper sizes and
+such, it allows a lot more tweaking, and it may be why Epson has been
+more open with information -- the communication protocol doesn't
+really contain very much IP, so they have less reason to keep it
+secret.
+
+</P>
+<P>
+Someone else will have to fill in the sections about PCL and Canon
+printers.
+
+</P>
+
+<P><HR><P>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_40.html">previous</A>, <A HREF="gimpprint_42.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+</BODY>
+</HTML>

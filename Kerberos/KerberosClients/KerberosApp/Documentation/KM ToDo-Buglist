@@ -1,0 +1,80 @@
+========================================================================
+Kerberos Manager Bug List
+========================================================================
+Current version:	1.6a3
+Date:				October 23, 2001
+Authors:			smcguire@mit.edu
+========================================================================
+
+========================================================================
+Bug #		Bug description										Fixed in
+========================================================================
+[BZ 642]	Default ticket lifetime in Prefs dialog may not
+			reflect changes made in Login Dialog
+[BZ 565]	Tix info window doesn't display dates correctly
+			on Japanese OS
+[BZ  70]	Ticket list doesn't rescroll when resized
+[BZ 110]	Preferences dialog ticket lifetime display should
+			match Login Library
+[BZ 416]    Option-click on close box should close all ticket	1.5
+            info windows
+[BZ 451]	Proper positioning of Preferences and Quit menu		1.5d4
+            items in X
+[BZ 450]	Resizing window in Aqua causes drawing artifacts	1.5d3
+[BZ 445]	Quits when trying to read prefs from file w/out		1.5d2
+            resource fork
+[BZ 435]    Crash when exiting Edit Realms dialog brought up in 1.5d2
+            Prefs dialog
+[BZ  69]	Double-click on a principal doesn't leave it		1.2d1
+			selected
+[BZ	 56]	Replace check for krb5.ini with KrbPreferencesLib	1.1fc1
+			call
+[BZ 113]	v4 & v5 tgt expiration times are sometimes different
+[BZ 116]	Default username preference not implemented			1.1fc1
+[BZ 218]	CCache changes cause ticket list to lose			1.2d1
+			collapsed/expanded state
+
+[Ideas/ramblings not necessarily implying any future plans]
+
+* Do we need to go back to using DebuggingLib?
+
+* Remove LHierarchichyTable RemoveAllRows() override?
+
+* Rename CTextColumnColorized?
+
+* Why doesn't UpdateCollapsedWindowDockTile() work all the time?
+
+* Remove FREF, BNDL resources from Mach-O version?
+
+* Clean up 32 x 32 icon (less critical now that we've gone back to original icon on OS 9)
+
+* Make sure things are using "small system font" as appropriate? (Doesn't seem to help the Japanese display issue...)
+
+* why are we rolling our own CTextColumnColorized::DropInTrash as opposed to using LDragTask?
+
+* Dragging a realm to the Trash does nothing (hence why are we wasting time supporting that?)
+
+[Really old to-do items]
+OPERATIONAL COMMENTS
+--------------------
+* Have KM quit after it's been launched by an AE to login, and the login is finished?
+
+* Provide option to get tickets w/out IP addresses (if you're on DCHP for instance) to avoid problems with changing IP addresses - basically provide an interface for setting noaddresses = true.
+
+* Should KM be reading and using default ticket options set in krb5conf?
+
+CODE COMMENTS
+-------------
+* CTicketMgrApp::LaunchDateTime() - we return error codes but does anything actually ever look at them?
+
+* Should we be launching the D&T control panel using OpenApplication() instead of AE (see Ticket Keeper launching code)?
+
+* It's possible that we should check the time separator for our time displays, because for some languages it may not be a colon.
+
+BUGS WE LIKELY CAN'T DO ANYTHING ABOUT
+--------------------------------------
+* The last 0 if your ticket lifetime is 10:00 and your system font is Textile is getting clipped.  We have plenty of room in the text field, so this may be a PP right-justify bug (or OS bug).
+
+* If you change system fonts in the Appearance dialog, a few text items in the main and login windows don't pick up the change (the ones that are right-justified and the active edit field).  This is apparently a PP bug.
+
+* Windows don't make the Appearance sounds when they're moved.  This appears to be a PowerPlant bug.

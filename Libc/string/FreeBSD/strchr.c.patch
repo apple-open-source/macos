@@ -1,0 +1,8 @@
+--- strchr.c.orig	Fri Mar 22 13:53:19 2002
++++ strchr.c	Sat May  3 14:34:14 2003
+@@ -2,4 +2,4 @@
+ __FBSDID("$FreeBSD: src/lib/libc/string/strchr.c,v 1.2 2002/03/22 21:53:19 obrien Exp $");
+ 
+ #define	STRCHR
+-#include "index.c"
++#include "index-fbsd.c"

@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(ATsocket, 3)
-	blr
 

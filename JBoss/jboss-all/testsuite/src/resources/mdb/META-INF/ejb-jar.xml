@@ -1,0 +1,203 @@
+<?xml version="1.0"?>
+
+<!DOCTYPE ejb-jar PUBLIC "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 2.0//EN" "http://java.sun.com/j2ee/dtds/ejb-jar_2_0.dtd">
+
+<ejb-jar>
+    <enterprise-beans>
+
+      <message-driven>
+	<ejb-name>ObjectMessageBean</ejb-name>
+	<ejb-class>org.jboss.test.mdb.bean.ObjectMessageBean</ejb-class>
+        <message-selector></message-selector>
+        <transaction-type>Bean</transaction-type>
+        <acknowledge-mode>AUTO_ACKNOWLEDGE</acknowledge-mode>
+         <message-driven-destination>
+            <destination-type>javax.jms.Queue</destination-type>
+            <subscription-durability>NonDurable</subscription-durability>
+        </message-driven-destination>
+      </message-driven>
+
+    <message-driven>
+	<ejb-name>BMTTXTimeOutBean</ejb-name>
+	    <ejb-class>org.jboss.test.mdb.bean.TXTimeOutBean</ejb-class>
+        <message-selector></message-selector>
+         <transaction-type>Bean</transaction-type>
+    	<acknowledge-mode>AUTO_ACKNOWLEDGE</acknowledge-mode>
+        <message-driven-destination>
+            <destination-type>javax.jms.Queue</destination-type>
+			<subscription-durability>NonDurable</subscription-durability>
+        </message-driven-destination>
+     </message-driven>
+
+    <message-driven>
+	<ejb-name>CMTTXTimeOutBean</ejb-name>
+	    <ejb-class>org.jboss.test.mdb.bean.TXTimeOutBean</ejb-class>
+        <message-selector></message-selector>
+         <transaction-type>Container</transaction-type>
+    	<acknowledge-mode>AUTO_ACKNOWLEDGE</acknowledge-mode>
+        <message-driven-destination>
+            <destination-type>javax.jms.Queue</destination-type>
+			<subscription-durability>NonDurable</subscription-durability>
+        </message-driven-destination>
+     </message-driven>
+
+
+      <message-driven>
+	<ejb-name>QueueBean</ejb-name>
+	<ejb-class>org.jboss.test.mdb.bean.QueueBean</ejb-class>
+<!--
+        <message-selector>JMSType='activityCompletion'</message-selector>
+-->
+        <message-selector></message-selector>
+         <!-- We also have the acknowledge-mode - AUTO_ACKNOWLEDGE | DUPS_OK_AKNOWLEDGE - for bean managed transactions, and the subscription-durability for topic destination types -->
+         <transaction-type>Bean</transaction-type>
+    <acknowledge-mode>AUTO_ACKNOWLEDGE</acknowledge-mode>
+
+        <message-driven-destination>
+            <destination-type>javax.jms.Queue</destination-type>
+<!--
+Only with topic
+            <subscription-durability>Durable</subscription-durability>
+-->
+<subscription-durability>NonDurable</subscription-durability>
+        </message-driven-destination>
+      </message-driven>
+      <message-driven>
+	<ejb-name>TopicBean</ejb-name>
+	<ejb-class>org.jboss.test.mdb.bean.TopicBean</ejb-class>
+<!--
+        <message-selector>JMSType='activityCompletion'</message-selector>
+-->
+        <message-selector></message-selector>
+         <!-- We also have the acknowledge-mode - AUTO_ACKNOWLEDGE | DUPS_OK_AKNOWLEDGE - for bean managed transactions, and the subscription-durability for topic destination types -->
+         <transaction-type>Container</transaction-type>
+    <!-- <acknowledge-mode>AUTO_ACKNOWLEDGE</acknowledge-mode> -->
+
+        <message-driven-destination>
+            <destination-type>javax.jms.Topic</destination-type>
+<!--
+Only with topic
+            <subscription-durability>Durable</subscription-durability>
+-->
+<subscription-durability>NonDurable</subscription-durability>
+        </message-driven-destination>
+      </message-driven>
+      <message-driven>
+	<ejb-name>DurableTopicBean</ejb-name>
+	<ejb-class>org.jboss.test.mdb.bean.TopicBean</ejb-class>
+<!--
+        <message-selector>JMSType='activityCompletion'</message-selector>
+-->
+        <message-selector></message-selector>
+         <!-- We also have the acknowledge-mode - AUTO_ACKNOWLEDGE | DUPS_OK_AKNOWLEDGE - for bean managed transactions, and the subscription-durability for topic destination types -->
+         <transaction-type>Container</transaction-type>
+    <!-- <acknowledge-mode>AUTO_ACKNOWLEDGE</acknowledge-mode> -->
+
+        <message-driven-destination>
+            <destination-type>javax.jms.Topic</destination-type>
+<!--
+Only with topic
+            <subscription-durability>Durable</subscription-durability>
+-->
+<subscription-durability>Durable</subscription-durability>
+        </message-driven-destination>
+      </message-driven>
+      <message-driven>
+	<ejb-name>ExQueueBean</ejb-name>
+	<ejb-class>org.jboss.test.mdb.bean.ExQueueBean</ejb-class>
+        <message-selector></message-selector>
+         <transaction-type>Container</transaction-type>
+
+        <message-driven-destination>
+            <destination-type>javax.jms.Queue</destination-type>
+            <subscription-durability>NonDurable</subscription-durability>
+        </message-driven-destination>
+      </message-driven>
+
+      <message-driven>
+	<ejb-name>QueueInADifferentContext</ejb-name>
+	<ejb-class>org.jboss.test.mdb.bean.ObjectMessageBean</ejb-class>
+        <message-selector></message-selector>
+        <transaction-type>Bean</transaction-type>
+        <acknowledge-mode>AUTO_ACKNOWLEDGE</acknowledge-mode>
+         <message-driven-destination>
+            <destination-type>javax.jms.Queue</destination-type>
+            <subscription-durability>NonDurable</subscription-durability>
+        </message-driven-destination>
+      </message-driven>
+
+      <message-driven>
+	<ejb-name>TopicInADifferentContext</ejb-name>
+	<ejb-class>org.jboss.test.mdb.bean.TopicBean</ejb-class>
+        <message-selector></message-selector>
+         <transaction-type>Container</transaction-type>
+        <message-driven-destination>
+            <destination-type>javax.jms.Topic</destination-type>
+            <subscription-durability>NonDurable</subscription-durability>
+        </message-driven-destination>
+      </message-driven>
+
+    </enterprise-beans>
+
+
+    <assembly-descriptor>
+     <container-transaction>
+
+       <method>
+
+         <ejb-name>TopicBean</ejb-name>
+
+         <method-name>onMessage</method-name>
+         <method-params>
+           <method-param>javax.jms.Message</method-param>
+         </method-params>
+
+       </method>
+     <!-- May also be NotSupported -->
+     <trans-attribute>Required</trans-attribute>
+
+     </container-transaction>
+          <container-transaction>
+
+       <method>
+
+         <ejb-name>DurableTopicBean</ejb-name>
+
+         <method-name>onMessage</method-name>
+
+       </method>
+     <!-- May also be NotSupported -->
+     <trans-attribute>Required</trans-attribute>
+
+     </container-transaction>
+
+     <container-transaction>
+       <method>
+         <ejb-name>BMTTXTimeOutBean</ejb-name>
+         <method-name>*</method-name>
+       </method>
+       <trans-attribute>Required</trans-attribute>
+     </container-transaction>
+
+     <container-transaction>
+       <method>
+         <ejb-name>CMTTXTimeOutBean</ejb-name>
+         <method-name>*</method-name>
+       </method>
+       <trans-attribute>NotSupported</trans-attribute>
+     </container-transaction>
+
+     <container-transaction>
+       <method>
+
+         <ejb-name>ExQueueBean</ejb-name>
+
+         <method-name>*</method-name>
+
+       </method>
+     <!-- May also be NotSupported -->
+     <trans-attribute>Required</trans-attribute>
+
+     </container-transaction>
+    </assembly-descriptor>
+  </ejb-jar>

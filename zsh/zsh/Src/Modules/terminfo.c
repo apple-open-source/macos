@@ -57,10 +57,10 @@ static Param terminfo_pm;
 
 /**/
 static int
-bin_echoti(char *name, char **argv, char *ops, int func)
+bin_echoti(char *name, char **argv, Options ops, int func)
 {
-    char *s, *t;
-    int num;
+    char *s, *t, *u;
+    int num, argct;
 
     s = *argv++;
     /* This depends on the termcap stuff in init.c */
@@ -92,9 +92,28 @@ bin_echoti(char *name, char **argv, char *ops, int func)
 	zwarnnam(name, "no such terminfo capability: %s", s, 0);
 	return 1;
     }
-
-    tputs(t, 1, putchar);
+    /* count the number of arguments required */
+    for (argct = 0, u = t; *u; u++)
+        if (*u == '%') {
+            if (u++, (*u == 'd' || *u == '2' || *u == '3' || *u == '.' ||
+                      *u == '+'))
+                argct++;
+        }
+    /* check that the number of arguments provided is correct */
+    if (arrlen(argv) != argct) {
+        zwarnnam(name, (arrlen(argv) < argct) ? "not enough arguments" :
+                 "too many arguments", NULL, 0);
+        return 1;
+    }
+    /* output string, through the proper termcap functions */
+    if (!argct)
+        tputs(t, 1, putraw);
+    else {
+        num = (argv[1]) ? atoi(argv[1]) : atoi(*argv);
+        tputs(tparm(t, atoi(*argv)), num, putraw);
+    }
     return 0;
+
 }
 
 /**/
@@ -175,10 +194,6 @@ getterminfo(HashTable ht, char *name)
     pm = (Param) zhalloc(sizeof(struct param));
     pm->nam = dupstring(name);
     pm->flags = PM_READONLY;
-    pm->sets.cfn = NULL;
-    pm->gets.cfn = strgetfn;
-    pm->sets.ifn = NULL;
-    pm->gets.ifn = intgetfn;
     pm->unsetfn = NULL;
     pm->ct = 0;
     pm->env = NULL;
@@ -189,21 +204,29 @@ getterminfo(HashTable ht, char *name)
     if (((num = tigetnum(name)) != -1) && (num != -2)) {
 	pm->u.val = num;
 	pm->flags |= PM_INTEGER;
+	pm->sets.ifn = NULL;
+	pm->gets.ifn = intgetfn;
     }
     else if ((num = tigetflag(name)) != -1) {
 	pm->u.str = num ? dupstring("yes") : dupstring("no");
 	pm->flags |= PM_SCALAR;
+        pm->sets.cfn = NULL;
+        pm->gets.cfn = strgetfn;
     }
     else if ((tistr = (char *)tigetstr(name)) != NULL && tistr != (char *)-1)
     {
 	pm->u.str = dupstring(tistr);
 	pm->flags |= PM_SCALAR;
+        pm->sets.cfn = NULL;
+        pm->gets.cfn = strgetfn;
     }
     else
     {
 	/* zwarn("no such capability: %s", name, 0); */
 	pm->u.str = dupstring("");
 	pm->flags |= PM_UNSET;
+        pm->sets.cfn = NULL;
+        pm->gets.cfn = strgetfn;
     }
     return (HashNode) pm;
 }
@@ -287,10 +310,6 @@ scanterminfo(HashTable ht, ScanFunc func, int flags)
 #endif
 
     pm = (Param) zhalloc(sizeof(struct param));
-    pm->sets.cfn = NULL;
-    pm->gets.cfn = strgetfn;
-    pm->sets.ifn = NULL;
-    pm->gets.ifn = intgetfn;
     pm->unsetfn = NULL;
     pm->ct = 0;
     pm->env = NULL;
@@ -298,6 +317,9 @@ scanterminfo(HashTable ht, ScanFunc func, int flags)
     pm->old = NULL;
     
     pm->flags = PM_READONLY | PM_SCALAR;
+    pm->sets.cfn = NULL;
+    pm->gets.cfn = strgetfn;
+
     for (capname = (char **)boolnames; *capname; capname++) {
 	if ((num = tigetflag(*capname)) != -1) {
 	    pm->u.str = num ? dupstring("yes") : dupstring("no");
@@ -305,8 +327,11 @@ scanterminfo(HashTable ht, ScanFunc func, int flags)
 	    func((HashNode) pm, flags);
 	}
     }
-    
+
     pm->flags = PM_READONLY | PM_INTEGER;
+    pm->sets.ifn = NULL;
+    pm->gets.ifn = intgetfn;
+
     for (capname = (char **)numnames; *capname; capname++) {
 	if (((num = tigetnum(*capname)) != -1) && (num != -2)) {
 	    pm->u.val = num;
@@ -314,8 +339,11 @@ scanterminfo(HashTable ht, ScanFunc func, int flags)
 	    func((HashNode) pm, flags);
 	}
     }
-    
+
     pm->flags = PM_READONLY | PM_SCALAR;
+    pm->sets.cfn = NULL;
+    pm->gets.cfn = strgetfn;
+
     for (capname = (char **)strnames; *capname; capname++) {
 	if ((tistr = (char *)tigetstr(*capname)) != NULL &&
 	    tistr != (char *)-1) {

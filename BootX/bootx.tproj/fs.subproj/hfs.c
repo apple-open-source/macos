@@ -43,6 +43,7 @@
 static CICell                  gCurrentIH;
 static long long               gAllocationOffset;
 static long                    gIsHFSPlus;
+static long                    gCaseSensitive;
 static long                    gBlockSize;
 static char                    gBTreeHeaderBuffer[512];
 static BTHeaderRec             *gBTHeaders[2];
@@ -82,6 +83,8 @@ static long CompareHFSPlusExtentsKeys(void *key, void *testKey);
 extern long FastRelString(char *str1, char *str2);
 extern long FastUnicodeCompare(u_int16_t *uniStr1, u_int32_t len1,
 			       u_int16_t *uniStr2, u_int32_t len2);
+extern long BinaryUnicodeCompare(u_int16_t *uniStr1, u_int32_t len1,
+			         u_int16_t *uniStr2, u_int32_t len2);
 extern void utf_encodestr(const u_int16_t *ucsp, int ucslen,
 			  u_int8_t *utf8p, u_int32_t bufsize);
 extern void utf_decodestr(const u_int8_t *utf8p, u_int16_t *ucsp,
@@ -99,6 +102,7 @@ long HFSInitPartition(CICell ih)
   
   gAllocationOffset = 0;
   gIsHFSPlus = 0;
+  gCaseSensitive = 0;
   gBTHeaders[0] = 0;
   gBTHeaders[1] = 0;
   
@@ -139,7 +143,8 @@ long HFSInitPartition(CICell ih)
   Read(ih, (long)gHFSPlusHeader, kBlockSize);
   
   // Not a HFS[+] volume.
-  if (gHFSPlus->signature != kHFSPlusSigWord) return -1;
+  if ((gHFSPlus->signature != kHFSPlusSigWord) &&
+      (gHFSPlus->signature != kHFSXSigWord)) return -1;
   
   gIsHFSPlus = 1;
   gBlockSize = gHFSPlus->blockSize;
@@ -495,6 +500,10 @@ static long ReadBTreeEntry(long btree, void *key, char *entry, long *dirIndex)
 	       gBTreeHeaderBuffer + btree * 256, 0);
     gBTHeaders[btree] = (BTHeaderRec *)(gBTreeHeaderBuffer + btree * 256 +
 				       sizeof(BTNodeDescriptor));
+    if ((gIsHFSPlus && btree == kBTreeCatalog) &&
+        (gBTHeaders[btree]->keyCompareType == kHFSBinaryCompare)) {
+      gCaseSensitive = 1;
+    }
   }
   
   curNode = gBTHeaders[btree]->rootNode;
@@ -745,10 +754,17 @@ static long CompareHFSPlusCatalogKeys(void *key, void *testKey)
     if ((searchKey->nodeName.length == 0) || (trialKey->nodeName.length == 0))
       result = searchKey->nodeName.length - trialKey->nodeName.length;
     else
-      result = FastUnicodeCompare(&searchKey->nodeName.unicode[0],
-				  searchKey->nodeName.length,
-				  &trialKey->nodeName.unicode[0],
-				  trialKey->nodeName.length);
+      if (gCaseSensitive) {
+        result = BinaryUnicodeCompare(&searchKey->nodeName.unicode[0],
+				      searchKey->nodeName.length,
+				      &trialKey->nodeName.unicode[0],
+				      trialKey->nodeName.length);
+      } else {
+        result = FastUnicodeCompare(&searchKey->nodeName.unicode[0],
+				    searchKey->nodeName.length,
+				    &trialKey->nodeName.unicode[0],
+				    trialKey->nodeName.length);
+      }
   }
   
   return result;

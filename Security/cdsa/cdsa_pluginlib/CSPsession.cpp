@@ -714,7 +714,7 @@ void CSPFullPluginSession::QueryKeySizeInBits(CSSM_CC_HANDLE ccHandle,
 						CSSM_KEY_SIZE &keySize)
 {
 	if (context) {
-		getKeySize(context->get<CSSM_KEY>(CSSM_ATTRIBUTE_KEY, CSSMERR_CSP_MISSING_ATTR_KEY),
+		getKeySize(context->get<CssmKey>(CSSM_ATTRIBUTE_KEY, CSSMERR_CSP_MISSING_ATTR_KEY),
 			keySize);
 	} else {
 		getKeySize(CssmKey::required(key), keySize);
@@ -913,7 +913,8 @@ void
 KeyPool::add(ReferencedKey &referencedKey)
 {
 	StLock<Mutex> _(mKeyMapLock);
-	bool inserted = mKeyMap.insert(KeyMap::value_type(referencedKey.keyReference(), &referencedKey)).second;
+	IFDEBUG(bool inserted =)
+		mKeyMap.insert(KeyMap::value_type(referencedKey.keyReference(), &referencedKey)).second;
 	// Since add is only called from the constructor of ReferencedKey we should
 	// never add a key that is already in mKeyMap
 	assert(inserted);

@@ -341,18 +341,33 @@ IOReturn IOLocalConfigDirectory::addEntry(int key, OSData *value, OSString* desc
 {
     IOReturn res;
 
-    IOConfigEntry *entry = IOConfigEntry::create(key, kConfigLeafKeyType, value);
-    if(!entry)
+	// copying the OSData makes us robust against clients 
+	// which modify the OSData after they pass it in to us.
+	
+	OSData * valueCopy = OSData::withData( value );
+	if( valueCopy == NULL )
+		return kIOReturnNoMemory;
+		
+    IOConfigEntry *entry = IOConfigEntry::create(key, kConfigLeafKeyType, valueCopy );
+    if( entry == NULL )
         return kIOReturnNoMemory;
+	
+	valueCopy->release();
+	valueCopy = NULL;
+	
     if(!fEntries->setObject(entry))
         res = kIOReturnNoMemory;
     else
         res = kIOReturnSuccess;
-    entry->release();	// In array now.
-    if(desc) {
+   
+	 entry->release();	// In array now.
+    
+	if(desc) 
+	{
         addEntry(desc);
     }
-    return res;
+    
+	return res;
 }
 
 // addEntry

@@ -120,6 +120,8 @@ extern u_short getport(struct sockaddr_in *, u_long, u_long, u_int);
 	port = getport(&sin, MOUNTPROG, 3, IPPROTO_UDP);
 	if (port == 0) return nil;
 
+	sys_msg(debug, LOG_DEBUG, "%s(%d):  port = %d\n", __FILE__, __LINE__, ntohs(port));
+	
 	sin.sin_port = port;
 
 	s = RPC_ANYSOCK;
@@ -162,7 +164,18 @@ extern u_short getport(struct sockaddr_in *, u_long, u_long, u_int);
 	while (next != NULL)
 	{
 //		sys_msg(debug, LOG_DEBUG, "%s: %s", [hname value], next->ex_dir);
-		[self newMount:hname server:serv volume:next->ex_dir parent:v];
+		if (!strcmp(next->ex_dir, "/")) {
+			[v setType:NFLNK];
+			[v setServer:serv];
+			x = [String uniqueString:"/"];
+			[v setSource:x];
+			[x release];
+			x = [String uniqueString:"nfs"];
+			[v setVfsType:x];
+			[x release];
+		} else {
+			[self newMount:hname server:serv volume:next->ex_dir parent:v];
+		};
 		next = next->ex_next;
 	}
 

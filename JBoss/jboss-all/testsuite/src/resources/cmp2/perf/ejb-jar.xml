@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE ejb-jar PUBLIC
+   '-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 2.0//EN'
+   'http://java.sun.com/dtd/ejb-jar_2_0.dtd'>
+
+<ejb-jar>
+   <description>CheckBook EJBs</description>
+   <display-name>CheckBook EJBs</display-name>
+   <enterprise-beans>
+      <session>
+         <ejb-name>CheckBookMgrEJB</ejb-name>
+         <home>org.jboss.test.cmp2.perf.interfaces.CheckBookMgrHome</home>
+         <remote>org.jboss.test.cmp2.perf.interfaces.CheckBookMgr</remote>
+         <ejb-class>org.jboss.test.cmp2.perf.ejb.CheckBookMgrBean</ejb-class>
+         <session-type>Stateful</session-type>
+         <transaction-type>Container</transaction-type>
+
+         <ejb-local-ref>
+            <ejb-ref-name>ejb/LocalCheckBookHome</ejb-ref-name>
+            <ejb-ref-type>Entity</ejb-ref-type>
+            <local-home>org.jboss.test.cmp2.perf.interfaces.LocalCheckBookHome</local-home>
+            <local>org.jboss.test.cmp2.perf.interfaces.LocalCheckBook</local>
+            <ejb-link>CheckBookEJB</ejb-link>
+         </ejb-local-ref>
+         <ejb-local-ref>
+            <ejb-ref-name>ejb/LocalCheckBookEntryHome</ejb-ref-name>
+            <ejb-ref-type>Entity</ejb-ref-type>
+            <local-home>org.jboss.test.cmp2.perf.interfaces.LocalCheckBookHome</local-home>
+            <local>org.jboss.test.cmp2.perf.interfaces.LocalCheckBook</local>
+            <ejb-link>CheckBookEntryEJB</ejb-link>
+         </ejb-local-ref>
+      </session>
+      <entity>
+         <ejb-name>CheckBookEJB</ejb-name>
+         <local-home>org.jboss.test.cmp2.perf.interfaces.LocalCheckBookHome</local-home>
+         <local>org.jboss.test.cmp2.perf.interfaces.LocalCheckBook</local>
+         <ejb-class>org.jboss.test.cmp2.perf.ejb.CheckBookBean</ejb-class>
+         <persistence-type>Container</persistence-type>
+         <prim-key-class>java.lang.String</prim-key-class>
+         <reentrant>False</reentrant>
+         <cmp-version>2.x</cmp-version>
+         <abstract-schema-name>CheckBook</abstract-schema-name>
+         <cmp-field>
+            <description>The unqiue account for the check book</description>
+            <field-name>account</field-name>
+         </cmp-field>
+         <cmp-field>
+            <description>The ckeck book account balance</description>
+            <field-name>balance</field-name>
+         </cmp-field>
+         <primkey-field>account</primkey-field>
+      </entity>
+      <entity>
+         <ejb-name>CheckBookEntryEJB</ejb-name>
+         <local-home>org.jboss.test.cmp2.perf.interfaces.LocalCheckBookEntryHome</local-home>
+         <local>org.jboss.test.cmp2.perf.interfaces.LocalCheckBookEntry</local>
+         <ejb-class>org.jboss.test.cmp2.perf.ejb.CheckBookEntryBean</ejb-class>
+         <persistence-type>Container</persistence-type>
+         <prim-key-class>java.lang.Integer</prim-key-class>
+         <reentrant>False</reentrant>
+         <cmp-version>2.x</cmp-version>
+         <abstract-schema-name>CheckBookEntry</abstract-schema-name>
+         <cmp-field>
+            <description>The uique ID for the entry</description>
+            <field-name>entryID</field-name>
+         </cmp-field>
+         <cmp-field>
+            <description>The entry amount in $</description>
+            <field-name>amount</field-name>
+         </cmp-field>
+         <cmp-field>
+            <description>The category of the entry</description>
+            <field-name>category</field-name>
+         </cmp-field>
+         <cmp-field>
+            <description>The system timestamp of the entry</description>
+            <field-name>timestamp</field-name>
+         </cmp-field>
+         <primkey-field>entryID</primkey-field>
+      </entity>
+   </enterprise-beans>
+
+   <relationships>
+      <ejb-relation>
+         <ejb-relation-name>CheckBookEJB - CheckBookEntryEJB</ejb-relation-name>
+         <ejb-relationship-role>
+            <ejb-relationship-role-name>CheckBookToEntries</ejb-relationship-role-name>
+            <multiplicity>One</multiplicity>
+            <relationship-role-source>
+               <ejb-name>CheckBookEJB</ejb-name>
+            </relationship-role-source>
+            <cmr-field>
+               <cmr-field-name>checkBookEntries</cmr-field-name>
+               <cmr-field-type>java.util.Collection</cmr-field-type>
+            </cmr-field>
+         </ejb-relationship-role>
+         <ejb-relationship-role>
+            <ejb-relationship-role-name>EntryToCheckBook</ejb-relationship-role-name>
+            <multiplicity>Many</multiplicity>
+            <cascade-delete></cascade-delete>
+            <relationship-role-source>
+               <ejb-name>CheckBookEntryEJB</ejb-name>
+            </relationship-role-source>
+         </ejb-relationship-role>
+      </ejb-relation>
+   </relationships>
+
+   <assembly-descriptor>
+      <container-transaction>
+         <description>Transaction attributes for 'CheckBookEJB' methods</description>
+         <method>
+            <ejb-name>CheckBookEJB</ejb-name>
+            <method-name>*</method-name>
+         </method>
+         <trans-attribute>Required</trans-attribute>
+      </container-transaction>
+      <container-transaction>
+         <description>Transaction attributes for 'CheckBookEntryEJB' methods</description>
+         <method>
+            <ejb-name>CheckBookEntryEJB</ejb-name>
+            <method-name>*</method-name>
+         </method>
+         <trans-attribute>Required</trans-attribute>
+      </container-transaction>
+      <container-transaction>
+         <description>Transaction attributes for 'CheckBookMgrEJB' methods</description>
+         <method>
+            <ejb-name>CheckBookMgrEJB</ejb-name>
+            <method-name>*</method-name>
+         </method>
+         <trans-attribute>Required</trans-attribute>
+      </container-transaction>
+   </assembly-descriptor>
+</ejb-jar>

@@ -1,0 +1,422 @@
+From VM Tue Dec 26 22:41:08 2000
+Return-Path: <mailman-users-admin@python.org>
+Received: from ns2.digicool.com ([216.164.72.2] verified)
+  by digicool.com (CommuniGate Pro SMTP 3.3.1)
+  with ESMTP id 400038 for xxxxx@mail.digicool.com; Tue, 26 Dec 2000 18:41:55 -0500
+Received: from mail.python.org (starship.python.net [63.102.49.30])
+	by ns2.digicool.com (8.9.3/8.9.3) with ESMTP id SAA03359
+	for <xxxxx@digicool.com>; Tue, 26 Dec 2000 18:41:47 -0500
+Received: from ns1.zope.org (localhost.localdomain [127.0.0.1])
+	by mail.python.org (Postfix) with ESMTP id DC80BE904
+	for <xxxxx@digicool.com>; Tue, 26 Dec 2000 13:27:01 -0500 (EST)
+Delivered-To: mm+mailman-users-admin@python.org
+Received: from mr2.its.yale.edu (mr2.its.yale.edu [130.132.21.43])
+	by mail.python.org (Postfix) with ESMTP id E27E8E904
+	for <mailman-users-admin@python.org>; Tue, 26 Dec 2000 13:26:19 -0500 (EST)
+Received: (from mailnull@localhost)
+	by mr2.its.yale.edu (8.8.8/8.8.8) id NAA14658;
+	Tue, 26 Dec 2000 13:26:18 -0500 (EST)
+Message-Id: <200012261826.NAA14658@mr2.its.yale.edu>
+Errors-To: mailman-users-owner@python.org
+Precedence: bulk
+List-Help: <mailto:mailman-users-request@python.org?subject=help>
+List-Post: <mailto:mailman-users@python.org>
+List-Subscribe: <http://www.python.org/mailman/listinfo/mailman-users>,
+	<mailto:mailman-users-request@python.org?subject=subscribe>
+List-Id: Mailman mailing list management users <mailman-users.python.org>
+List-Unsubscribe: <http://www.python.org/mailman/listinfo/mailman-users>,
+	<mailto:mailman-users-request@python.org?subject=unsubscribe>
+List-Archive: <http://www.python.org/pipermail/mailman-users/>
+From: MAILER-DAEMON@mr2.its.yale.edu
+Sender: mailman-users-owner@python.org
+To: mailman-users-admin@python.org
+Subject: Returned mail - nameserver error report
+Date: Tue, 26 Dec 2000 13:26:18 -0500 (EST)
+X-BeenThere: mailman-users@python.org
+X-Mailman-Version: 2.0
+
+ --------Message not delivered to the following:
+
+ thomas.dtankengine    No matches to nameserver query
+
+ --------Error Detail (phquery V4.1):
+
+ The message, "No matches to nameserver query," is generated whenever
+ Yale's on-line directory fails to locate either a ph alias, name or
+ nickname field that matches the supplied name.  The usual causes are
+ typographical errors.  Recommended action is to query the Yale on-line
+ directory prior to mailing using the ``ph -s directory.yale.edu NAME'',
+ ``finger NAME@directory.yale.edu'', or equivalent commands, or by
+ querying the Yale Directory within YaleInfo, where NAME is your party's
+ name, email alias, or nickname.  If no lookup tools are available to
+ you, try sending to the most explicit form of the name, e.g., if
+ mike.fox@yale.edu fails, try michael.j.fox@yale.edu.
+ 
+ To reach a party that was formerly reachable by emailing NAME@yale.edu,
+ try emailing to NAME@cs.yale.edu instead.
+ 
+
+ --------Unsent Message below:
+
+Received: from mail.python.org ([63.102.49.30])
+	by mr2.its.yale.edu (8.8.8/8.8.8) with ESMTP id NAA14654
+	for <thomas.dtankengine@yale.edu>; Tue, 26 Dec 2000 13:26:17 -0500 (EST)
+Received: from ns1.zope.org (localhost.localdomain [127.0.0.1])
+	by mail.python.org (Postfix) with ESMTP
+	id 3DFEDE904; Tue, 26 Dec 2000 12:01:13 -0500 (EST)
+From: mailman-users-request@python.org
+Subject: Mailman-Users digest, Vol 1 #948 - 11 msgs
+Reply-To: mailman-users@python.org
+X-Mailer: Mailman v2.0
+MIME-version: 1.0
+Content-type: text/plain
+To: mailman-users@python.org
+Sender: mailman-users-admin@python.org
+Errors-To: mailman-users-admin@python.org
+X-BeenThere: mailman-users@python.org
+X-Mailman-Version: 2.0
+Precedence: bulk
+List-Help: <mailto:mailman-users-request@python.org?subject=help>
+List-Post: <mailto:mailman-users@python.org>
+List-Subscribe: <http://www.python.org/mailman/listinfo/mailman-users>,
+	<mailto:mailman-users-request@python.org?subject=subscribe>
+List-Id: Mailman mailing list management users <mailman-users.python.org>
+List-Unsubscribe: <http://www.python.org/mailman/listinfo/mailman-users>,
+	<mailto:mailman-users-request@python.org?subject=unsubscribe>
+List-Archive: <http://www.python.org/pipermail/mailman-users/>
+Message-Id: <20001226170113.3DFEDE904@mail.python.org>
+Date: Tue, 26 Dec 2000 12:01:13 -0500 (EST)
+
+Send Mailman-Users mailing list submissions to
+	mailman-users@python.org
+
+To subscribe or unsubscribe via the World Wide Web, visit
+	http://www.python.org/mailman/listinfo/mailman-users
+or, via email, send a message with subject or body 'help' to
+	mailman-users-request@python.org
+
+You can reach the person managing the list at
+	mailman-users-admin@python.org
+
+When replying, please edit your Subject line so it is more specific
+than "Re: Contents of Mailman-Users digest..."
+
+
+Today's Topics:
+
+   1. Re: GID error (Bradley Leonard)
+   2. Password bug in Mailman 2.0 (Juan Eliseo Carrasco Diaz)
+   3. Re: Password bug in Mailman 2.0 (Bek Oberin)
+   4. Re: Password bug in Mailman 2.0 (Juan Eliseo Carrasco Diaz)
+   5. Re: Password bug in Mailman 2.0 (Bek Oberin)
+   6. Re: Is this a bug, or just because I called it from an
+       unpriveledged account? (Dan Mick)
+   7. Re: Re: Password bug in Mailman 2.0 (Dan Mick)
+   8. Mailman 2.0 with Python 2.0 (Leonard Jacobs)
+   9. Recovering/resetting a list admin password (Jim Trigg)
+  10. (no subject) (Michael Albert)
+
+--__--__--
+
+Message: 1
+Date: Mon, 25 Dec 2000 14:05:42 -0500 (EST)
+Subject: Re: [Mailman-Users] GID error
+From: "Bradley Leonard" <bradley@stygianresearch.com>
+To: jaym@opensourcedirectory.com
+Cc: mailman-users@python.org
+Reply-To: bradley@stygianresearch.com
+
+If the rpm was compiled for RH 7 then its probably set to apache.  If not, 
+you need to find the src rpm and rebuild it using the --rebuilddb option.
+You'll need to pass in new options or change the spec file.
+
+Brad
+
+
+0> How would I set the GID for the cgi to execute. If I installed mailman
+> via rpm(on a slackware system)?
+> 
+> 
+> ------------------------------------------------------
+> Mailman-Users maillist  -  Mailman-Users@python.org
+> http://www.python.org/mailman/listinfo/mailman-users
+
+
+-- 
+Bradley Leonard     (bradley@stygianresearch.com)
+Stygian Research    (http://stygianresearch.com)
+
+Life is simple.  We make it complicated.
+
+
+
+
+--__--__--
+
+Message: 2
+Date: Mon, 25 Dec 2000 22:48:07 -0500
+From: Juan Eliseo Carrasco Diaz <eliseocd@teleline.es>
+To: mailman-users@python.org
+Subject: [Mailman-Users] Password bug in Mailman 2.0
+
+ The Administrator name can be used as password to go into and change
+administrative and users options in theirs respective html pages.
+
+ It's this a bug?
+
+
+
+--__--__--
+
+Message: 3
+Date: Tue, 26 Dec 2000 11:49:21 +1100
+From: Bek Oberin <gossamer@tertius.net.au>
+To: Juan Eliseo Carrasco Diaz <eliseocd@teleline.es>
+Cc: mailman-users@python.org
+Subject: [Mailman-Users] Re: Password bug in Mailman 2.0
+
+Juan Eliseo Carrasco Diaz wrote:
+>  The Administrator name can be used as password to go into and change
+> administrative and users options in theirs respective html pages.
+
+It's a feature.
+
+
+bekj
+
+-- 
+: --Hacker-Neophile-Eclectic-Geek-Grrl-Queer-Disabled-Boychick--
+: gossamer@tertius.net.au   http://www.tertius.net.au/~gossamer/
+: Artificial Intelligence: the art of making computers that behave
+: like the ones in movies.  -- Bill Bulko
+
+
+--__--__--
+
+Message: 4
+Date: Tue, 26 Dec 2000 01:21:42 -0500
+From: Juan Eliseo Carrasco Diaz <eliseocd@teleline.es>
+To: Bek Oberin <gossamer@tertius.net.au>
+Cc: mailman-users@python.org
+Subject: [Mailman-Users] Re: Password bug in Mailman 2.0
+
+Bek Oberin wrote:
+
+> Juan Eliseo Carrasco Diaz wrote:
+> >  The Administrator name can be used as password to go into and change
+> > administrative and users options in theirs respective html pages.
+>
+> It's a feature.
+>
+> bekj
+>
+> --
+> : --Hacker-Neophile-Eclectic-Geek-Grrl-Queer-Disabled-Boychick--
+> : gossamer@tertius.net.au   http://www.tertius.net.au/~gossamer/
+> : Artificial Intelligence: the art of making computers that behave
+> : like the ones in movies.  -- Bill Bulko
+
+Ok, but It can be used by anyone, so a list member can modify the
+administrative options.
+
+ If it's a feature, I don't understand it.
+
+
+
+--__--__--
+
+Message: 5
+Date: Tue, 26 Dec 2000 12:23:42 +1100
+From: Bek Oberin <gossamer@tertius.net.au>
+To: Juan Eliseo Carrasco Diaz <eliseocd@teleline.es>
+Cc: mailman-users@python.org
+Subject: [Mailman-Users] Re: Password bug in Mailman 2.0
+
+Juan Eliseo Carrasco Diaz wrote:
+> Bek Oberin wrote:
+> > Juan Eliseo Carrasco Diaz wrote:
+> > >  The Administrator name can be used as password to go into and change
+> > > administrative and users options in theirs respective html pages.
+> > It's a feature.
+> Ok, but It can be used by anyone, so a list member can modify the
+> administrative options.
+
+Hang on, I mis-read that as "The Administrator password ...".
+Their -name-?  You mean their email address?  There isn't
+anywhere in mailman that their name is used ....
+
+bekj
+
+-- 
+: --Hacker-Neophile-Eclectic-Geek-Grrl-Queer-Disabled-Boychick--
+: gossamer@tertius.net.au   http://www.tertius.net.au/~gossamer/
+: Uptime DSW's are the highest form of geek competition.
+: -- Mike Whitaker
+
+
+--__--__--
+
+Message: 6
+Date: Mon, 25 Dec 2000 21:00:25 -0800
+From: Dan Mick <Dan.Mick@west.sun.com>
+To: scott-brown@home.com
+Cc: mailman-users@python.org
+Subject: Re: [Mailman-Users] Is this a bug, or just because I called it from an 
+ unpriveledged account?
+
+
+
+> If it's trying to delete a lock file, it's no doubt due to the fact that it
+> (thought that it) created a lock file. Since no lock file is present... why
+> did it get as far as it did without producing an error?
+
+I believe the underlying code is trying to clean up any possibly pre-existing lock file
+as part of the "taking care" section when creating a list.  There's no known live lock 
+file for the list because the list is being created now, and this code is just a 
+prophylactic measure to try to make newlist more bulletproof.  The fact
+that you didn't have permission would be a fatal error for either creating or
+removing a lock, so dying if it happens is not unreasonable.
+
+It is a bit confusing, but it's part of trying to make the filesystem persistence
+less of a problem.
+
+
+--__--__--
+
+Message: 7
+Date: Mon, 25 Dec 2000 21:06:48 -0800
+From: Dan Mick <Dan.Mick@west.sun.com>
+To: Juan Eliseo Carrasco Diaz <eliseocd@teleline.es>,
+	mailman-users@python.org
+Subject: Re: [Mailman-Users] Re: Password bug in Mailman 2.0
+
+
+
+Juan Eliseo Carrasco Diaz wrote:
+> 
+> Bek Oberin wrote:
+> 
+> > Juan Eliseo Carrasco Diaz wrote:
+> > >  The Administrator name can be used as password to go into and change
+> > > administrative and users options in theirs respective html pages.
+> >
+> > It's a feature.
+> >
+> > bekj
+> >
+> > --
+> > : --Hacker-Neophile-Eclectic-Geek-Grrl-Queer-Disabled-Boychick--
+> > : gossamer@tertius.net.au   http://www.tertius.net.au/~gossamer/
+> > : Artificial Intelligence: the art of making computers that behave
+> > : like the ones in movies.  -- Bill Bulko
+> 
+> Ok, but It can be used by anyone, so a list member can modify the
+> administrative options.
+
+??  You said, correctly, the administrator password can be used as password to go
+change users' options.  That's not at all true in the reverse; user passwords don't
+get you admin privileges.
+
+Think of the admin password like the "root" user password; you can do more with it.
+And the site password works for even more things (for admin privs on any list, 
+for example).
+
+
+--__--__--
+
+Message: 8
+From: "Leonard Jacobs" <lj@mandala-designs.com>
+To: mailman-users@python.org
+Date: Tue, 26 Dec 2000 01:31:17 -0500
+Reply-To: lj@mandala-designs.com
+Subject: [Mailman-Users] Mailman 2.0 with Python 2.0
+
+Mailman seems to be continually retrying sending mail to hosts 
+which can't be resolved via the DNS.  Is this correct?
+
+Also why is it that Mailman seems to invoke sendmail in such a 
+way that it causes sendmail to return a failure on hostnames that 
+can't be resolved (presumably a temporary condition) rather than 
+just passing the message to sendmail and letting sendmail do all 
+the retries itself (which is how most mailers invoke sendmail).  I 
+imagine this must relate to the program's needing more detailed 
+info about the state of each message to be sent, but when you tie 
+this in with the default frequency of its retries, it's very strange.
+
+------------------
+   
+  Leonard Jacobs
+  www.mandala-designs.com
+  (508) 359-5473
+
+
+
+--__--__--
+
+Message: 9
+Date: Tue, 26 Dec 2000 09:08:39 -0500
+To: mailman-users@python.org
+From: Jim Trigg <blaise@scadian.net>
+Subject: [Mailman-Users] Recovering/resetting a list admin password
+
+I lost the email giving me my list admin password for one list.  The site 
+admin claims that there is no way to either recover or reset that password, 
+and that I have to recreate the list.  Is that true, or can he use the site 
+admin password to get access to the list administrative page and reset the 
+password that way?  It looks to me from the documentation that he should be 
+able to.
+
+Thanks,
+Jim Trigg
+
+
+
+--__--__--
+
+Message: 10
+From: "Michael Albert" <sysop@zmag.org>
+To: <mailman-users@python.org>
+Date: Tue, 26 Dec 2000 10:03:03 -0800
+Subject: [Mailman-Users] (no subject)
+
+There is a list about ethiopia maintained or adminstered or otherwise
+related to your operations.
+
+People are being added to this list without having any knowledge of it. They
+are given passwords they don't know. They cannot, therefore, remove
+themsleves. I am such a person.
+
+Perhaps this is ignorance, more likely a stupid but venal undertaking, At
+any rate, you should immediately shut down this list and inform those
+attempting to create it of proper procedures.
+
+Thank you.
+
+The list is
+
+Pol.ethiopia mailing list
+Pol.ethiopia@lists.sn.apc.org
+http://lists.sn.apc.org/mailman/listinfo/pol.ethiopia
+
+
+
+Michael Albert
+Z Magazine / ZNet
+sysop@zmag.org
+www.zmag.org
+
+
+
+
+--__--__--
+
+------------------------------------------------------
+Mailman-Users maillist  -  Mailman-Users@python.org
+http://www.python.org/mailman/listinfo/mailman-users
+
+
+End of Mailman-Users Digest
+
+ --------End of Unsent Message
+
+

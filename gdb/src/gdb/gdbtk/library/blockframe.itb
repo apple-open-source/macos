@@ -14,7 +14,7 @@
 # ------------------------------------------------------------------
 #                            Block
 # ------------------------------------------------------------------
-body Block::constructor {start end args} {
+itcl::body Block::constructor {start end args} {
 
   # Record runtime info about this block
   set _start $start
@@ -24,7 +24,7 @@ body Block::constructor {start end args} {
 }
 
 # Destroy ourself. 
-body Block::destructor {} {
+itcl::body Block::destructor {} {
 
   # Each block is responsible for destroying its
   # variables and removing them from the list of
@@ -36,12 +36,12 @@ body Block::destructor {} {
 
 # Return a list of variables defined in this block
 # This list is determined when we are created.
-body Block::variables {} {
+itcl::body Block::variables {} {
   return $_variables
 }
 
 # Find the new variables for this block.
-body Block::_findVariables {} {
+itcl::body Block::_findVariables {} {
 
   # Find the new variables for this block.
   set variables [gdb_block_variables $_start $_end]
@@ -59,7 +59,7 @@ body Block::_findVariables {} {
   return $vars
 }
 
-body Block::update {} {
+itcl::body Block::update {} {
 
   set changed {}
   foreach var $_variables {
@@ -69,7 +69,7 @@ body Block::update {} {
   return $changed
 }
 
-body Block::info {} {
+itcl::body Block::info {} {
 
   return [list $_start $_end]
 }
@@ -77,7 +77,7 @@ body Block::info {} {
 # ------------------------------------------------------------------
 #                             Frame
 # ------------------------------------------------------------------
-body Frame::constructor {addr} {
+itcl::body Frame::constructor {addr} {
 
   set _addr $addr
 
@@ -87,14 +87,14 @@ body Frame::constructor {addr} {
 
 }
 
-body Frame::destructor {} {
+itcl::body Frame::destructor {} {
   # destroy our own blocks
   foreach block $_blocks {
     _removeBlock $block
   }
 }
 
-body Frame::_removeBlock {blockObj} {
+itcl::body Frame::_removeBlock {blockObj} {
 
   set i [lsearch $_blocks $blockObj]
   if {$i != -1} {
@@ -103,7 +103,7 @@ body Frame::_removeBlock {blockObj} {
   }
 }
 
-body Frame::_addBlock {block} {
+itcl::body Frame::_addBlock {block} {
 
   set start [lindex $block 0]
   set end [lindex $block 1]
@@ -113,14 +113,14 @@ body Frame::_addBlock {block} {
   return $b
 }
 
-body Frame::_createBlocks {blocks} {
+itcl::body Frame::_createBlocks {blocks} {
 
   foreach block $blocks {
     set b [_addBlock $block]
   }
 }
 
-body Frame::update {} {
+itcl::body Frame::update {} {
 
   set vars {}
   foreach block $_blocks {
@@ -130,7 +130,7 @@ body Frame::update {} {
   return $vars
 }
 
-body Frame::variables {} {
+itcl::body Frame::variables {} {
 
   set vars {}
   foreach block $_blocks {
@@ -140,7 +140,7 @@ body Frame::variables {} {
   return $vars
 }
 
-body Frame::new {} {
+itcl::body Frame::new {} {
   # find any new variables. So get a list of all blocks,
   # eliminate duplicates, and get those variables.
 
@@ -159,14 +159,14 @@ body Frame::new {} {
   return $new
 }
 
-body Frame::deleteOld {} {
+itcl::body Frame::deleteOld {} {
 
   foreach block [_oldBlocks] {
     _removeBlock $block
   }
 }
 
-body Frame::_oldBlocks {} {
+itcl::body Frame::_oldBlocks {} {
 
   set blocks [gdb_get_blocks]
   set oldObjs $_blocks
@@ -183,7 +183,7 @@ body Frame::_oldBlocks {} {
   return $oldObjs
 }
   
-body Frame::old {} {
+itcl::body Frame::old {} {
 
   # All the variables in the blocks in old are now gone...
   # We don't remove blocks here, since the frontend viewer
@@ -198,7 +198,7 @@ body Frame::old {} {
   return $vars
 }
 
-body Frame::_findBlock {block} {
+itcl::body Frame::_findBlock {block} {
 
   foreach b $_blocks {
     set info [$b info]
@@ -210,7 +210,7 @@ body Frame::_findBlock {block} {
   return ""
 }
 
-body Frame::_findBlockIndex {block} {
+itcl::body Frame::_findBlockIndex {block} {
 
   set i 0
   foreach b $_blocks {

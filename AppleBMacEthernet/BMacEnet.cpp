@@ -68,7 +68,7 @@ OSDefineMetaClassAndStructors( BMacEnet, IOEthernetController )
  *
  *-------------------------------------------------------------------------*/
 
-bool BMacEnet::init(OSDictionary * properties = 0)
+bool BMacEnet::init( OSDictionary* properties )
 {
     if ( super::init(properties) == false )
         return false;
@@ -95,7 +95,7 @@ bool BMacEnet::start(IOService * provider)
 
 	transmitQueue = OSDynamicCast(IOGatedOutputQueue, getOutputQueue());
 	if (!transmitQueue) {
-		IOLog("BMac: output queue initialization failed\n");
+		IOLog( "BMacEnet::start: output queue initialization failed\n" );
 		return false;
 	}
 	transmitQueue->retain();
@@ -118,7 +118,7 @@ bool BMacEnet::start(IOService * provider)
 
 	mbufCursor = IOMbufBigMemoryCursor::withSpecification(NETWORK_BUFSIZE, 2);
 	if (!mbufCursor) {
-		IOLog("Ethernet(BMac): IOMbufBigMemoryCursor allocation failure\n");
+		IOLog( "BMacEnet::start: IOMbufBigMemoryCursor allocation failure\n" );
 		return false;
 	}
 
@@ -212,66 +212,76 @@ bool BMacEnet::start(IOService * provider)
 	IOWorkLoop * myWorkLoop = getWorkLoop();
 	assert(myWorkLoop);
 
-	//
-	// Allocate three IOInterruptEventSources.
-	//
-	rxIntSrc = IOInterruptEventSource::interruptEventSource
-            (this,
-             (IOInterruptEventAction) &BMacEnet::interruptOccurredForSource,
-             provider, PROVIDER_DMA_RX);
-        if (!rxIntSrc
-        || (myWorkLoop->addEventSource(rxIntSrc) != kIOReturnSuccess)) {
-		IOLog("Ethernet(BMac): rxIntSrc init failure\n");
+		// Allocate three IOInterruptEventSources:
+
+	rxIntSrc = IOInterruptEventSource::interruptEventSource(
+					this,
+					(IOInterruptEventAction)&BMacEnet::interruptOccurred,
+					provider,
+					PROVIDER_DMA_RX );
+	if ( !rxIntSrc || (myWorkLoop->addEventSource( rxIntSrc ) != kIOReturnSuccess) )
+	{
+		IOLog( "BMacEnet::start - rxIntSrc init failure\n" );
 		return false;
 	}
 
-	intES = IOInterruptEventSource::interruptEventSource
-            (this,
-             (IOInterruptEventAction) &BMacEnet::interruptOccurredForSource,
-             provider, PROVIDER_DMA_TX);
-        if (intES) {
-            bool res = (myWorkLoop->addEventSource(intES) != kIOReturnSuccess);
-            intES->release();
-            if (res) {
-		IOLog("Ethernet(BMac): PROVIDER_DMA_TX add failure\n");
-                return false;
-            }
-        }
-        else {
-		IOLog("Mace: PROVIDER_DMA_TX init failure\n");
-		return false;
+	intES = IOInterruptEventSource::interruptEventSource(
+					this,
+					(IOInterruptEventAction)&BMacEnet::interruptOccurred,
+					provider,
+					PROVIDER_DMA_TX );
+	if ( intES )
+	{
+		bool res = (myWorkLoop->addEventSource( intES ) != kIOReturnSuccess );
+		intES->release();
+		if ( res )
+		{
+			IOLog( "BMacEnet::start -  PROVIDER_DMA_TX add failure\n" );
+			return false;
+		}
 	}
-	
-	intES = IOInterruptEventSource::interruptEventSource
-            (this,
-             (IOInterruptEventAction) &BMacEnet::interruptOccurredForSource,	
-	     provider, PROVIDER_DEV);	
-	if (intES) {	
-	    bool res = (myWorkLoop->addEventSource(intES) != kIOReturnSuccess);	
-	    intES->release();	
-	    if (res) {
-		IOLog("Ethernet(BMac): PROVIDER_DEV add failure\n");	
-	        return false;	
-	    }	
-	}	
-	else {
-		IOLog("Ethernet(BMac): PROVIDER_DEV init failure\n");
-		return false;
-	}
-	
-	timerSrc = IOTimerEventSource::timerEventSource
-            (this, (IOTimerEventSource::Action) &BMacEnet::timeoutOccurred);
-	if (!timerSrc
-	|| (myWorkLoop->addEventSource(timerSrc) != kIOReturnSuccess)) {
-		IOLog("Ethernet(BMac): timerSrc init failure\n");
+	else
+	{
+		IOLog( "BMacEnet::start - PROVIDER_DMA_TX init failure\n" );
 		return false;
 	}
 
-	MGETHDR(txDebuggerPkt, M_DONTWAIT, MT_DATA);
-	if (!txDebuggerPkt) {
-		IOLog("Ethernet(BMac): Couldn't allocate KDB buffer\n");
+	intES = IOInterruptEventSource::interruptEventSource(
+					this,
+					(IOInterruptEventAction)&BMacEnet::interruptOccurred,
+					provider,
+					PROVIDER_DEV );
+	if ( intES )
+	{
+	    bool res = (myWorkLoop->addEventSource( intES ) != kIOReturnSuccess);
+	    intES->release();
+	    if ( res )
+		{
+			IOLog( "BMacEnet::start - PROVIDER_DEV add failure\n" );
+			return false;
+	    }
+	}
+	else
+	{
+		IOLog( "BMacEnet::start - PROVIDER_DEV init failure\n" );
 		return false;
 	}
+
+	timerSrc = IOTimerEventSource::timerEventSource(
+					this,
+					(IOTimerEventSource::Action)&BMacEnet::timerPopped );
+	if ( !timerSrc || (myWorkLoop->addEventSource( timerSrc ) != kIOReturnSuccess) )
+	{
+		IOLog( "BMacEnet::start - timerSrc init failure\n" );
+		return false;
+	}
+
+	txDebuggerPkt = allocatePacket( NETWORK_BUFSIZE );
+	if ( !txDebuggerPkt )
+	{	IOLog( "BMacEnet::start: Couldn't allocate KDB buffer\n" );
+		return false;
+	}
+	txDebuggerPkt->m_next = 0;
 
 #if 0
 	// Enable the interrupt event sources. The hardware interrupts
@@ -370,15 +380,21 @@ void BMacEnet::free()
     	if (rxMbuf[i]) freePacket(rxMbuf[i]);
 
     for (i = 0; i < txMaxCommand; i++)
-    	if (txMbuf[i]) freePacket(txMbuf[i]);
+    	if ( txMbuf[i] && (txMbuf[i] != txDebuggerPkt) ) freePacket(txMbuf[i]);
 
 	for (i = 0; i < MEMORY_MAP_COUNT; i++)
 		if (maps[i]) maps[i]->release();
 
-	if (dmaMemory.ptr)
+	if ( dmaCommandsDesc )
+	{	dmaCommandsDesc->complete(  kIODirectionOutIn );
+		dmaCommandsDesc->release();
+		dmaCommandsDesc = 0;
+	}
+
+	if ( dmaCommands )
 	{
-		IOFree(dmaMemory.ptrReal, dmaMemory.sizeReal);
-		dmaMemory.ptr = 0;
+		IOFreeContiguous( dmaCommands, dmaCommandsSize );
+		dmaCommands = 0;
 	}
 
     if ( workLoop )
@@ -388,7 +404,9 @@ void BMacEnet::free()
     }
 
 	super::free();
-}
+	return;
+}/* end free */
+
 
 /*-------------------------------------------------------------------------
  * Override IONetworkController::createWorkLoop() method and create
@@ -420,8 +438,14 @@ IOWorkLoop * BMacEnet::getWorkLoop() const
  *
  *-------------------------------------------------------------------------*/
 
-void BMacEnet::interruptOccurredForSource(IOInterruptEventSource *src,
-		 int /*count*/)
+void BMacEnet::interruptOccurred( OSObject *me, IOInterruptEventSource *src, int /*count*/ )
+{
+	((BMacEnet*)me)->handleInterrupt( src );
+	return;
+}/* end interruptOccurred */
+
+
+void BMacEnet::handleInterrupt( IOInterruptEventSource *src )
 {
 	bool doFlushQueue = false;
 	bool doService    = false;
@@ -466,7 +490,9 @@ void BMacEnet::interruptOccurredForSource(IOInterruptEventSource *src,
 	 */
 	if ( doService && netifEnabled )
 		transmitQueue->service();
-}
+	return;
+}/* end handleInterrupt */
+
 
 /*-------------------------------------------------------------------------
  *
@@ -636,7 +662,7 @@ bool BMacEnet::configureInterface( IONetworkInterface * netif )
 
     if ( !nd || !(netStats = (IONetworkStats *) nd->getBuffer()) )
     {
-        IOLog("EtherNet(BMac): invalid network statistics\n");
+        IOLog( "BMacEnet::start: invalid network statistics\n" );
         return false;
     }
 
@@ -657,7 +683,7 @@ IOReturn BMacEnet::enable(IONetworkInterface * netif)
 	//
 	if ( netifEnabled )
     {
-		IOLog("EtherNet(BMac): already enabled\n");
+		IOLog( "BMacEnet::enable: already enabled\n" );
 		return kIOReturnSuccess;
 	}
 
@@ -762,7 +788,14 @@ IOReturn BMacEnet::disable(IOKernelDebugger * /*debugger*/)
  *
  *-------------------------------------------------------------------------*/
 
-void BMacEnet::timeoutOccurred(IOTimerEventSource * /*timer*/)
+void BMacEnet::timerPopped( OSObject *me, IOTimerEventSource* /*timer*/ )
+{
+	((BMacEnet*)me)->handleTimerPop();
+	return;
+}/* end timerPopped */
+
+
+void BMacEnet::handleTimerPop()
 {
     u_int32_t       dmaStatus;
 	bool            doFlushQueue = false;
@@ -773,7 +806,7 @@ void BMacEnet::timeoutOccurred(IOTimerEventSource * /*timer*/)
         return;
     }
 
-	// IOLog("Ethernet(BMac): watchdog timer\n");
+	// IOLog( "BMacEnet::handleTimerPop: watchdog timer\n" );
 
 	reserveDebuggerLock();
 	
@@ -784,10 +817,10 @@ void BMacEnet::timeoutOccurred(IOTimerEventSource * /*timer*/)
     if ( !(dmaStatus & kdbdmaActive) )
     {
 #if 0
-		IOLog( "Ethernet(BMac): Timeout check - RxHead = %d RxTail = %d\n", 
-			rxCommandHead, rxCommandTail);
+		IOLog( "BMacEnet::handleTimerPop: Timeout check - RxHead = %d RxTail = %d\n", 
+			rxCommandHead, rxCommandTail );
 
-      IOLog( "Ethernet(BMac): Rx Commands = %08x(p) Rx DMA Ptr = %08x(p)\n\r", rxDMACommandsPhys, IOGetDBDMACommandPtr(ioBaseEnetRxDMA) ); 
+      IOLog( "BMacEnet::handleTimerPop: Rx Commands = %08x(p) Rx DMA Ptr = %08x(p)\n", rxDMACommandsPhys, IOGetDBDMACommandPtr(ioBaseEnetRxDMA) ); 
       [self _dumpDesc:(void *)rxDMACommands Size:rxMaxCommand * sizeof(enet_dma_cmd_t)];
 #endif
 
@@ -810,7 +843,7 @@ void BMacEnet::timeoutOccurred(IOTimerEventSource * /*timer*/)
 				if (_transmitInterruptOccurred() == false)
 				{
 #if 0
-					IOLog( "Ethernet(BMac): Timeout check - TxHead = %d TxTail = %d\n", 
+					IOLog( "BMacEnet::handleTimerPop: Timeout check - TxHead = %d TxTail = %d\n", 
 						txCommandHead, txCommandTail);
 #endif
 					_restartTransmitter();
@@ -863,11 +896,10 @@ void BMacEnet::timeoutOccurred(IOTimerEventSource * /*timer*/)
 		transmitQueue->service();
 	}
 
-    /*
-     * Restart the watchdog timer
-     */
-	timerSrc->setTimeoutMS(WATCHDOG_TIMER_MS);
-}
+	timerSrc->setTimeoutMS( WATCHDOG_TIMER_MS );	/* Restart the watchdog timer	*/
+	return;
+}/* end handleTimerPop */
+
 
 /*-------------------------------------------------------------------------
  *
@@ -1002,10 +1034,10 @@ void BMacEnet::monitorLinkStatus( bool firstPoll )
         setLinkStatus( linkStatus, medium, linkSpeed * 1000000 );
         
         if ( linkStatus & kIONetworkLinkActive )
-            IOLog( "Ethernet(BMac): Link up at %ld Mbps - %s Duplex\n",
+            IOLog( "BMacEnet::monitorLinkStatus: Link up at %ld Mbps - %s Duplex\n",
                    linkSpeed, (fullDuplex) ? "Full" : "Half" );
         else
-            IOLog( "Ethernet(BMac): Link down\n" );
+            IOLog( "BMacEnet::monitorLinkStatus: Link down\n" );
     }
 }
 
@@ -1198,7 +1230,7 @@ IOReturn BMacEnet::setPowerState( unsigned long powerStateOrdinal,
 {
     IOReturn ret = IOPMAckImplied;
 
-    // kprintf("Ethernet(BMac): setPowerState %d\n", powerStateOrdinal);
+    // kprintf( "BMacEnet::setPowerState: setPowerState %d\n", powerStateOrdinal );
 
     if ( currentPowerState == powerStateOrdinal )
         return IOPMAckImplied;
@@ -1206,12 +1238,12 @@ IOReturn BMacEnet::setPowerState( unsigned long powerStateOrdinal,
     switch ( powerStateOrdinal )
     {
         case 0:
-            kprintf("Ethernet(BMac): powering off\n");
+            kprintf( "BMacEnet::setPowerState: powering off\n" );
             currentPowerState = powerStateOrdinal;
             break;
 
         case 1:
-            kprintf("Ethernet(BMac): powering on\n");
+            kprintf( "BMacEnet::setPowerState: powering on\n" );
             currentPowerState = powerStateOrdinal;
             break;
 

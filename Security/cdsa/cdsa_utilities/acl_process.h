@@ -31,10 +31,6 @@
 #include <Security/cssmacl.h>
 #include <string>
 
-#ifdef _CPP_ACL_PROCESS
-#pragma export on
-#endif
-
 namespace Security
 {
 
@@ -52,13 +48,13 @@ public:
 // The ProcessAclSubject matches process attributes securely identified
 // by the system across IPC channels.
 //
-class ProcessAclSubject : public SimpleAclSubject {
+class ProcessAclSubject : public AclSubject {
 public:
-    bool validate(const AclValidationContext &baseCtx, const TypedList &sample) const;
+    bool validate(const AclValidationContext &baseCtx) const;
     CssmList toList(CssmAllocator &alloc) const;
 
     ProcessAclSubject(const AclProcessSubjectSelector &selector)
-    : SimpleAclSubject(CSSM_ACL_SUBJECT_TYPE_PROCESS, CSSM_SAMPLE_TYPE_PROCESS),
+    : AclSubject(CSSM_ACL_SUBJECT_TYPE_PROCESS),
       select(selector) { }
 
     void exportBlob(Writer::Counter &pub, Writer::Counter &priv);
@@ -86,10 +82,6 @@ private:
 };
 
 } // end namespace Security
-
-#ifdef _CPP_ACL_PROCESS
-#pragma export off
-#endif
 
 
 #endif //_ACL_PROCESS

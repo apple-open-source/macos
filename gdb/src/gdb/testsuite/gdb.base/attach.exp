@@ -36,7 +36,7 @@ if { [istarget "hppa*-*-hpux*"] } {
 }
 
 # are we on a target board
-if ![isnative] then {
+if [is_remote target] then {
     return 0
 }
 
@@ -63,30 +63,11 @@ if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {deb
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
 
-# Because we can't attach over nfs, copy binfile to /tmp/${binfile}.${pid}
-# and replace binfile with a symbolic link
-
-  set pid [pid]
-  exec /bin/cp -f ${binfile} /tmp/attach1.${pid}
-  exec rm -f ${binfile}
-  set binfile /tmp/attach1.${pid}
-#  exec ln -s /tmp/attach1.${pid} ${binfile}
-
 # Build the in-system-call test
 
 if  { [gdb_compile "${srcdir}/${subdir}/${srcfile2}" "${binfile2}" executable {debug}] != "" } {
      gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
 }
-
-# Because we can't attach over nfs, copy binfile2 to /tmp/${binfile2}.${pid}
-# and replace binfile2 with a symbolic link
-
-  set pid [pid]
-  exec cp -f ${binfile2} /tmp/attach2.${pid} 
-  exec rm -f ${binfile2}
-  set binfile2 /tmp/attach2.${pid}
-#  exec ln -s /tmp/attach2.${pid} ${binfile2}
-
 
 if [get_compiler_info ${binfile}] {
     return -1
@@ -109,10 +90,19 @@ proc do_attach_tests {} {
 
    # Verify that we cannot attach to nonsense.
    #
+
+# APPLE LOCAL: Our gdb's attach cmd can take a process name.
+   setup_xfail "*-apple-darwin*"
+
    send_gdb "attach abc\n"
    gdb_expect {
       -re ".*Illegal process-id: abc.*$gdb_prompt $"\
                       {pass "attach to nonsense is prohibited"}
+      -re "Attaching to.*, process .*couldn't open /proc file.*$gdb_prompt $"\
+                      {
+                        # Response expected from /proc-based systems.
+                        pass "attach to nonsense is prohibited" 
+                      }
       -re "Attaching to.*$gdb_prompt $"\
                       {fail "attach to nonsense is prohibited (bogus pid allowed)"}
       -re "$gdb_prompt $" {fail "attach to nonsense is prohibited"}
@@ -125,14 +115,28 @@ proc do_attach_tests {} {
    #
    send_gdb "attach 0\n"
    gdb_expect {
-      # This reponse is expected on HP-UX 10.20 (i.e., ptrace-based).
       -re "Attaching to.*, process 0.*No such process.*$gdb_prompt $"\
-                      {pass "attach to nonexistent process is prohibited"}
-      # This response is expected on HP-UX 11.0 (i.e., ttrace-based).
+                      {
+                        # Response expected on HP-UX 10.20 (i.e., ptrace-based).
+                        pass "attach to nonexistent process is prohibited"
+                      }
       -re "Attaching to.*, process 0 failed.*Hint.*$gdb_prompt $"\
-                      {pass "attach to nonexistent process is prohibited"}
+                      {
+                        # Response expected on HP-UX 11.0 (i.e., ttrace-based).
+                        pass "attach to nonexistent process is prohibited"
+                      }
+      -re "Unable to access task for process-id 0: \\\(os/kern\\\) failure.*$gdb_prompt $"\
+                      {
+                        # Response expected on MacOS X 10.2
+                        pass "attach to nonexistent process is prohibited"
+                      }
       -re "Attaching to.*, process 0.*denied.*$gdb_prompt $"\
                       {pass "attach to nonexistent process is prohibited"}
+      -re "Attaching to.*, process .*couldn't open /proc file.*$gdb_prompt $"\
+                      {
+                        # Response expected from /proc-based systems.
+                        pass "attach to nonexistent process is prohibited"
+                      }
       -re "$gdb_prompt $" {fail "attach to nonexistent process is prohibited"}
       timeout         {fail "(timeout) attach to nonexistent process is prohibited"}
    }
@@ -164,7 +168,7 @@ proc do_attach_tests {} {
 
    send_gdb "attach $testpid\n"
    gdb_expect {
-      -re "Attaching to program.*$binfile, process $testpid.*main.*at .*$srcfile:.*$gdb_prompt $"\
+      -re "Attaching to program.*`?$binfile'?, process $testpid.*main.*at .*$srcfile:.*$gdb_prompt $"\
                       {pass "attach1, after setting file"}
       -re "$gdb_prompt $" {fail "attach1, after setting file"}
       timeout         {fail "(timeout) attach1, after setting file"}
@@ -225,6 +229,7 @@ proc do_attach_tests {} {
    # Verify that we can attach to the process just by giving the
    # process ID.
    #
+   gdb_test "set verbose on" "" "set verbose on"
    send_gdb "attach $testpid\n"
    gdb_expect {
       -re "Attaching to process $testpid.*Reading symbols from $binfile.*main.*at .*$gdb_prompt $"\
@@ -232,6 +237,7 @@ proc do_attach_tests {} {
       -re "$gdb_prompt $" {fail "attach2"}
       timeout         {fail "(timeout) attach2"}
    }
+   gdb_test "set verbose off" "" "set verbose off"
 
    # Verify that we can modify the variable "should_exit" in the
    # program.
@@ -293,9 +299,9 @@ proc do_attach_tests {} {
       timeout         {fail "(timeout) set source path"}
    }
 
-   send_gdb "cd /tmp\n"
+   send_gdb "cd /private/tmp\n"
    gdb_expect {
-      -re ".*Working directory /tmp.*$gdb_prompt $"\
+      -re ".*Working directory /private/tmp.*$gdb_prompt $"\
                       {pass "cd away from process' a.out"}
       -re "$gdb_prompt $" {fail "cd away from process' a.out"}
       timeout         {fail "(timeout) cd away from process' a.out"}
@@ -326,6 +332,7 @@ proc do_attach_tests {} {
       timeout         {fail "(timeout) before attach3, flush exec"}
    }
 
+   gdb_test "set verbose on" "" "set verbose on (2)"
    send_gdb "attach $testpid\n"
    gdb_expect {
       -re "Attaching to process $testpid.*Reading symbols from $binfile.*main.*at .*$gdb_prompt $"\
@@ -333,6 +340,7 @@ proc do_attach_tests {} {
       -re "$gdb_prompt $" {fail "attach when process' a.out not in cwd"}
       timeout         {fail "(timeout) attach when process' a.out not in cwd"}
    }
+   gdb_test "set verbose off" "" "set verbose off (2)"
 
    send_gdb "kill\n"
    gdb_expect {
@@ -361,17 +369,19 @@ proc do_call_attach_tests {} {
    # Attach
    #
    gdb_test "file $binfile2" ".*" "force switch to gdb64, if necessary"
+   gdb_test "set verbose on" "" "set verbose on (3)"
    send_gdb "attach $testpid\n"
    gdb_expect {
       -re ".*warning: reading register.*I.*O error.*$gdb_prompt $" {
          fail "attach call, read register 3 error"
      }
-     -re "Attaching to.*process $testpid.*libc.*$gdb_prompt $" {
+     -re "Attaching to.*process $testpid.*lib.*$gdb_prompt $" {
          pass "attach call"
      }
       -re "$gdb_prompt $" {fail "attach call"}
       timeout         {fail "(timeout) attach call"}
    }
+   gdb_test "set verbose off" "" "set verbose off (3)"
 
    # See if other registers are problems
    #
@@ -414,19 +424,7 @@ do_attach_tests
 gdb_exit
 gdb_start
 
-# this seems not necessary. - guo
-#
-# # Since we have moved the executable to /tmp, it will be hard for gdb
-# # to find the object file/executable to read the symbols.  This is
-# # a known limitation.  We try and get the name of the executable the
-# # process is running from a variety of methods, but none is foolproof.
-# # Using "dir" will get us the symbols.
-# 
-# gdb_test "dir ./gdb.base" ".*" "set up directory before attach"
 gdb_reinitialize_dir $srcdir/$subdir
 do_call_attach_tests
-
-# Cleanup the files placed in /tmp and the symlinks
-  remote_exec build "rm -f ${binfile} ${binfile2} /tmp/attach1.${pid} /tmp/attach2.${pid}"
 
 return 0

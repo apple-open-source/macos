@@ -1,10 +1,10 @@
 /*
- * "$Id: usersys.c,v 1.1.1.4 2002/06/06 22:12:39 jlovell Exp $"
+ * "$Id: usersys.c,v 1.1.1.9 2003/02/10 21:57:25 jlovell Exp $"
  *
  *   User, system, and password routines for the Common UNIX Printing
  *   System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -47,6 +47,10 @@
 #include <stdlib.h>
 #include <ctype.h>
 
+#ifdef WIN32
+#  include <windows.h>
+#endif /* WIN32 */
+
 
 /*
  * Local functions...
@@ -76,7 +80,7 @@ cupsEncryption(void)
   FILE		*fp;			/* client.conf file */
   char		*encryption;		/* CUPS_ENCRYPTION variable */
   const char	*home;			/* Home directory of user */
-  static char	line[1024];		/* Line from file */
+  char		line[1024];		/* Line from file */
 
 
  /*
@@ -123,7 +127,8 @@ cupsEncryption(void)
 	*/
 
 	while (cups_get_line(line, sizeof(line), fp) != NULL)
-	  if (strncmp(line, "Encryption ", 11) == 0)
+	  if (strncmp(line, "Encryption ", 11) == 0 ||
+	      strncmp(line, "Encryption\t", 11) == 0)
 	  {
 	   /*
 	    * Got it!  Drop any trailing newline and find the name...
@@ -191,7 +196,7 @@ cupsServer(void)
   FILE		*fp;			/* client.conf file */
   char		*server;		/* Pointer to server name */
   const char	*home;			/* Home directory of user */
-  static char	line[1024];		/* Line from file */
+  char		line[1024];		/* Line from file */
 
 
  /*
@@ -238,7 +243,8 @@ cupsServer(void)
 	*/
 
 	while (cups_get_line(line, sizeof(line), fp) != NULL)
-	  if (strncmp(line, "ServerName ", 11) == 0)
+	  if (strncmp(line, "ServerName ", 11) == 0 ||
+	      strncmp(line, "ServerName\t", 11) == 0)
 	  {
 	   /*
 	    * Got it!  Drop any trailing newline and find the name...
@@ -309,9 +315,9 @@ cupsSetUser(const char *user)		/* I - User name */
 }
 
 
-#if defined(WIN32) || defined(__EMX__)
+#if defined(WIN32)
 /*
- * WIN32 and OS/2 username and password stuff...
+ * WIN32 username and password stuff...
  */
 
 /*
@@ -322,7 +328,20 @@ const char *				/* O - User name */
 cupsUser(void)
 {
   if (!cups_user[0])
-    strcpy(cups_user, "WindowsUser");
+  {
+    DWORD	size;		/* Size of string */
+
+
+    size = sizeof(cups_user);
+    if (!GetUserName(cups_user, &size))
+    {
+     /*
+      * Use the default username...
+      */
+
+      strcpy(cups_user, "unknown");
+    }
+  }
 
   return (cups_user);
 }
@@ -399,7 +418,7 @@ cups_get_password(const char *prompt)	/* I - Prompt string */
 {
   return (getpass(prompt));
 }
-#endif /* WIN32 || __EMX__ */
+#endif /* WIN32 */
 
 
 /*
@@ -437,5 +456,5 @@ cups_get_line(char *buf,	/* I - Line buffer */
 
 
 /*
- * End of "$Id: usersys.c,v 1.1.1.4 2002/06/06 22:12:39 jlovell Exp $".
+ * End of "$Id: usersys.c,v 1.1.1.9 2003/02/10 21:57:25 jlovell Exp $".
  */

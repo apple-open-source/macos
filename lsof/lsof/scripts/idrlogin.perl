@@ -1,6 +1,6 @@
-#!/usr/local/bin/perl4
+#!/usr/local/bin/perl
 #
-# $Id: idrlogin.perl,v 1.4 2000/07/14 17:03:37 abe Exp $
+# $Id: idrlogin.perl,v 1.5 2001/11/18 12:20:46 abe Exp $
 #
 # idrlogin.perl -- sample Perl script to identify the network source of a
 #		   network (remote) login via rlogind, sshd, or telnetd 
@@ -11,8 +11,6 @@
 #
 # 1.  Set the interpreter line of this script to the local path of the
 #     Perl executable.
-#
-# 2.  Set the $LSOF variable to the path of the local lsof executable.
 
 
 #
@@ -47,10 +45,16 @@ $fdst = 0;							# fd state
 $pidst = 0;							# process state
 $cmd = $login = $pid = $ppid = "";				# process var.
 
+# Set path to lsof.
+
+if (($LSOF = &isexec("../lsof")) eq "") {	# Try .. first
+    if (($LSOF = &isexec("lsof")) eq "") {	# Then try . and $PATH
+	print "can't execute $LSOF\n"; exit 1
+    }
+}
+
 # Open a pipe from lsof.
 
-$LSOF="../lsof";
-if (! -x "$LSOF") { die "Can't execute $LSOF\n"; }
 open(P, "$LSOF -R -FcDfLpPRn|") || die "Can't pipe from $LSOF\n";
 
 # Process the ``lsof -FcDfLpPRn'' output a line at a time
@@ -167,4 +171,31 @@ sub save_proc {
     $shcmd{$pid} = $cmd;
     $shtty{$pid} = $tty;
     $shlogin{$pid} = $login;
+}
+
+
+## isexec($path) -- is $path executable
+#
+# $path   = absolute or relative path to file to test for executabiity.
+#	    Paths that begin with neither '/' nor '.' that arent't found as
+#	    simple references are also tested with the path prefixes of the
+#	    PATH environment variable.  
+
+sub
+isexec {
+    my ($path) = @_;
+    my ($i, @P, $PATH);
+
+    $path =~ s/^\s+|\s+$//g;
+    if ($path eq "") { return(""); }
+    if (($path =~ m#^[\/\.]#)) {
+	if (-x $path) { return($path); }
+	return("");
+    }
+    $PATH = $ENV{PATH};
+    @P = split(":", $PATH);
+    for ($i = 0; $i <= $#P; $i++) {
+	if (-x "$P[$i]/$path") { return("$P[$i]/$path"); }
+    }
+    return("");
 }

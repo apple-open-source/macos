@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: info_hesiod.c,v 1.1.1.1 2002/05/15 01:21:54 jkh Exp $
+ * $Id: info_hesiod.c,v 1.1.1.2 2002/07/15 19:42:37 zarzycki Exp $
  *
  */
 
@@ -109,10 +109,8 @@ hesiod_search(mnt_map *m, char *map, char *key, char **pval, time_t *tp)
    */
   dlog("Hesiod base is: %s\n", gopt.hesiod_base);
   dlog("hesiod_search: hes_resolve(%s, %s)", hes_key, gopt.hesiod_base);
-#ifdef DEBUG
-  if (debug_flags & D_INFO)
+  amuDebug(D_INFO)
     _res.options |= RES_DEBUG;
-#endif /* DEBUG */
 
 #ifdef HAVE_HESIOD_INIT
   /* new style hesiod */

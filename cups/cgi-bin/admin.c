@@ -1,9 +1,9 @@
 /*
- * "$Id: admin.c,v 1.1.1.4 2002/06/06 22:12:32 jlovell Exp $"
+ * "$Id: admin.c,v 1.1.1.10 2003/04/11 21:07:15 jlovell Exp $"
  *
  *   Administration CGI for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -233,7 +233,7 @@ do_am_class(http_t      *http,		/* I - HTTP connection */
 
       if ((response = cupsDoRequest(http, request, "/")) != NULL)
       {
-	ippSetCGIVars(response, NULL, NULL);
+	ippSetCGIVars(response, NULL, NULL, NULL, 0);
 	ippDelete(response);
       }
 
@@ -256,17 +256,14 @@ do_am_class(http_t      *http,		/* I - HTTP connection */
   }
 
   name = cgiGetVariable("PRINTER_NAME");
-  if (isdigit(*name))
-    ptr = name;
-  else
-    for (ptr = name; *ptr; ptr ++)
-      if (!isalnum(*ptr) && *ptr != '_')
-	break;
+  for (ptr = name; *ptr; ptr ++)
+    if ((*ptr >= 0 && *ptr <= ' ') || *ptr == 127 || *ptr == '/')
+      break;
 
-  if (*ptr || ptr == name)
+  if (*ptr || ptr == name || strlen(name) > 127)
   {
-    cgiSetVariable("ERROR", "The class name may only contain letters, "
-                            "numbers, and the underscore.");
+    cgiSetVariable("ERROR", "The class name may only contain up to 127 printable "
+                            "characters.");
     cgiCopyTemplateLang(stdout, TEMPLATES, "error.tmpl", getenv("LANG"));
     return;
   }
@@ -450,7 +447,7 @@ do_am_class(http_t      *http,		/* I - HTTP connection */
       ippDelete(response);
     }
     else
-      status = IPP_NOT_AUTHORIZED;
+      status = cupsLastError();
 
     if (status > IPP_OK_CONFLICT)
     {
@@ -551,7 +548,7 @@ do_am_printer(http_t      *http,	/* I - HTTP connection */
       */
 
       if (oldinfo)
-	ippSetCGIVars(oldinfo, NULL, NULL);
+	ippSetCGIVars(oldinfo, NULL, NULL, NULL, 0);
 
       cgiCopyTemplateLang(stdout, TEMPLATES, "modify-printer.tmpl", getenv("LANG"));
     }
@@ -570,17 +567,14 @@ do_am_printer(http_t      *http,	/* I - HTTP connection */
     return;
   }
 
-  if (isdigit(*name))
-    ptr = name;
-  else
-    for (ptr = name; *ptr; ptr ++)
-      if (!isalnum(*ptr) && *ptr != '_')
-	break;
+  for (ptr = name; *ptr; ptr ++)
+    if ((*ptr >= 0 && *ptr <= ' ') || *ptr == 127 || *ptr == '/')
+      break;
 
-  if (*ptr || ptr == name)
+  if (*ptr || ptr == name || strlen(name) > 127)
   {
-    cgiSetVariable("ERROR", "The printer name may only contain letters, "
-                            "numbers, and the underscore.");
+    cgiSetVariable("ERROR", "The printer name may only contain up to 127 printable "
+                            "characters.");
     cgiCopyTemplateLang(stdout, TEMPLATES, "error.tmpl", getenv("LANG"));
     return;
   }
@@ -616,7 +610,7 @@ do_am_printer(http_t      *http,	/* I - HTTP connection */
 
     if ((response = cupsDoRequest(http, request, "/")) != NULL)
     {
-      ippSetCGIVars(response, NULL, NULL);
+      ippSetCGIVars(response, NULL, NULL, NULL, 0);
       ippDelete(response);
     }
 
@@ -782,7 +776,7 @@ do_am_printer(http_t      *http,	/* I - HTTP connection */
 
         strlcpy(make, var, sizeof(make));
 
-        ippSetCGIVars(response, "ppd-make", make);
+        ippSetCGIVars(response, "ppd-make", make, NULL, 0);
 	cgiCopyTemplateLang(stdout, TEMPLATES, "choose-model.tmpl",
 	                    getenv("LANG"));
       }
@@ -876,7 +870,7 @@ do_am_printer(http_t      *http,	/* I - HTTP connection */
       ippDelete(response);
     }
     else
-      status = IPP_NOT_AUTHORIZED;
+      status = cupsLastError();
 
     if (status > IPP_OK_CONFLICT)
     {
@@ -922,6 +916,7 @@ do_config_printer(http_t      *http,	/* I - HTTP connection */
   ppd_file_t	*ppd;			/* PPD file */
   ppd_group_t	*group;			/* Option group */
   ppd_option_t	*option;		/* Option */
+  ppd_attr_t	*protocol;		/* cupsProtocol attribute */
 
 
  /*
@@ -941,10 +936,28 @@ do_config_printer(http_t      *http,	/* I - HTTP connection */
   * Get the PPD file...
   */
 
+  cupsSetServer("localhost");
+
   if ((filename = cupsGetPPD(printer)) == NULL)
   {
-    cgiSetVariable("ERROR", ippErrorString(IPP_NOT_FOUND));
-    cgiCopyTemplateLang(stdout, TEMPLATES, "error.tmpl", getenv("LANG"));
+    if (cupsLastError() == IPP_NOT_FOUND)
+    {
+     /*
+      * No PPD file for this printer, so we can't configure it!
+      */
+
+      cgiSetVariable("ERROR", ippErrorString(IPP_NOT_POSSIBLE));
+      cgiCopyTemplateLang(stdout, TEMPLATES, "error.tmpl", getenv("LANG"));
+    }
+    else
+    {
+     /*
+      * Unable to access the PPD file for some reason...
+      */
+
+      cgiSetVariable("ERROR", ippErrorString(cupsLastError()));
+      cgiCopyTemplateLang(stdout, TEMPLATES, "error.tmpl", getenv("LANG"));
+    }
     return;
   }
 
@@ -956,19 +969,34 @@ do_config_printer(http_t      *http,	/* I - HTTP connection */
   else
     have_options = 0;
 
-  for (i = ppd->num_groups, group = ppd->groups;
-       i > 0 && !have_options;
-       i --, group ++)
-    for (j = group->num_options, option = group->options;
-         j > 0;
-	 j --, option ++)
+  ppdMarkDefaults(ppd);
+
+  DEBUG_printf(("<P>ppd->num_groups = %d\n"
+                "<UL>\n", ppd->num_groups));
+
+  for (i = ppd->num_groups, group = ppd->groups; i > 0; i --, group ++)
+  {
+    DEBUG_printf(("<LI>%s<UL>\n", group->text));
+
+    for (j = group->num_options, option = group->options; j > 0; j --, option ++)
       if ((var = cgiGetVariable(option->keyword)) != NULL)
       {
+        DEBUG_printf(("<LI>%s = \"%s\"</LI>\n", option->keyword, var));
         have_options = 1;
-	break;
+	ppdMarkOption(ppd, option->keyword, var);
       }
+#ifdef DEBUG
+      else
+        printf("<LI>%s not defined!</LI>\n", option->keyword);
+#endif /* DEBUG */
 
-  if (!have_options)
+    DEBUG_puts("</UL></LI>");
+  }
+
+  DEBUG_printf(("</UL>\n"
+                "<P>ppdConflicts(ppd) = %d\n", ppdConflicts(ppd)));
+
+  if (!have_options || ppdConflicts(ppd))
   {
    /*
     * Show the options to the user...
@@ -976,6 +1004,21 @@ do_config_printer(http_t      *http,	/* I - HTTP connection */
 
     cgiCopyTemplateLang(stdout, TEMPLATES, "config-printer.tmpl",
                         getenv("LANG"));
+
+    if (ppdConflicts(ppd))
+    {
+      for (i = ppd->num_groups, k = 0, group = ppd->groups; i > 0; i --, group ++)
+	for (j = group->num_options, option = group->options; j > 0; j --, option ++)
+          if (option->conflicted)
+	  {
+	    cgiSetArray("ckeyword", k, option->keyword);
+	    cgiSetArray("ckeytext", k, option->text);
+	    k ++;
+	  }
+
+      cgiCopyTemplateLang(stdout, TEMPLATES, "option-conflict.tmpl",
+                          getenv("LANG"));
+    }
 
     for (i = ppd->num_groups, group = ppd->groups;
 	 i > 0;
@@ -999,7 +1042,11 @@ do_config_printer(http_t      *http,	/* I - HTTP connection */
 
         cgiSetVariable("KEYWORD", option->keyword);
         cgiSetVariable("KEYTEXT", option->text);
-	cgiSetVariable("DEFCHOICE", option->defchoice);
+	    
+	if (option->conflicted)
+	  cgiSetVariable("CONFLICTED", "1");
+	else
+	  cgiSetVariable("CONFLICTED", "0");
 
 	cgiSetSize("CHOICES", option->num_choices);
 	cgiSetSize("TEXT", option->num_choices);
@@ -1007,6 +1054,9 @@ do_config_printer(http_t      *http,	/* I - HTTP connection */
 	{
 	  cgiSetArray("CHOICES", k, option->choices[k].choice);
 	  cgiSetArray("TEXT", k, option->choices[k].text);
+
+          if (option->choices[k].marked)
+	    cgiSetVariable("DEFCHOICE", option->choices[k].choice);
 	}
 
         switch (option->ui)
@@ -1104,6 +1154,45 @@ do_config_printer(http_t      *http,	/* I - HTTP connection */
       ippDelete(response);
     }
 
+   /*
+    * Binary protocol support...
+    */
+
+    if (ppd->protocols && strstr(ppd->protocols, "BCP"))
+    {
+      protocol = ppdFindAttr(ppd, "cupsProtocol", NULL);
+
+      cgiSetVariable("GROUP", "PS Binary Protocol");
+      cgiCopyTemplateLang(stdout, TEMPLATES, "option-header.tmpl",
+                          getenv("LANG"));
+
+      cgiSetSize("CHOICES", 2);
+      cgiSetSize("TEXT", 2);
+      cgiSetArray("CHOICES", 0, "None");
+      cgiSetArray("TEXT", 0, "None");
+
+      if (strstr(ppd->protocols, "TBCP"))
+      {
+	cgiSetArray("CHOICES", 1, "TBCP");
+	cgiSetArray("TEXT", 1, "TBCP");
+      }
+      else
+      {
+	cgiSetArray("CHOICES", 1, "BCP");
+	cgiSetArray("TEXT", 1, "BCP");
+      }
+
+      cgiSetVariable("KEYWORD", "protocol");
+      cgiSetVariable("KEYTEXT", "PS Binary Protocol");
+      cgiSetVariable("DEFCHOICE", protocol ? protocol->value : "None");
+
+      cgiCopyTemplateLang(stdout, TEMPLATES, "option-pickone.tmpl",
+	                  getenv("LANG"));
+
+      cgiCopyTemplateLang(stdout, TEMPLATES, "option-trailer.tmpl",
+                          getenv("LANG"));
+    }
+
     cgiCopyTemplateLang(stdout, TEMPLATES, "config-printer2.tmpl",
                         getenv("LANG"));
   }
@@ -1127,7 +1216,9 @@ do_config_printer(http_t      *http,	/* I - HTTP connection */
 
     while (get_line(line, sizeof(line), in) != NULL)
     {
-      if (strncmp(line, "*Default", 8) != 0)
+      if (!strncmp(line, "*cupsProtocol:", 14) && cgiGetVariable("protocol"))
+        continue;
+      else if (strncmp(line, "*Default", 8))
         fprintf(out, "%s\n", line);
       else
       {
@@ -1154,6 +1245,9 @@ do_config_printer(http_t      *http,	/* I - HTTP connection */
 	  fprintf(out, "%s\n", line);
       }
     }
+
+    if ((var = cgiGetVariable("protocol")) != NULL)
+      fprintf(out, "*cupsProtocol: %s\n", cgiGetVariable("protocol"));
 
     fclose(in);
     fclose(out);
@@ -1201,7 +1295,7 @@ do_config_printer(http_t      *http,	/* I - HTTP connection */
       ippDelete(response);
     }
     else
-      status = IPP_NOT_AUTHORIZED;
+      status = cupsLastError();
 
     if (status > IPP_OK_CONFLICT)
     {
@@ -1282,7 +1376,7 @@ do_delete_class(http_t      *http,	/* I - HTTP connection */
     ippDelete(response);
   }
   else
-    status = IPP_GONE;
+    status = cupsLastError();
 
   if (status > IPP_OK_CONFLICT)
   {
@@ -1358,7 +1452,7 @@ do_delete_printer(http_t      *http,	/* I - HTTP connection */
     ippDelete(response);
   }
   else
-    status = IPP_GONE;
+    status = cupsLastError();
 
   if (status > IPP_OK_CONFLICT)
   {
@@ -1429,7 +1523,7 @@ do_printer_op(http_t      *http,	/* I - HTTP connection */
     ippDelete(response);
   }
   else
-    status = IPP_GONE;
+    status = cupsLastError();
 
   if (status > IPP_OK_CONFLICT)
   {
@@ -1498,5 +1592,5 @@ get_line(char *buf,	/* I - Line buffer */
 
 
 /*
- * End of "$Id: admin.c,v 1.1.1.4 2002/06/06 22:12:32 jlovell Exp $".
+ * End of "$Id: admin.c,v 1.1.1.10 2003/04/11 21:07:15 jlovell Exp $".
  */

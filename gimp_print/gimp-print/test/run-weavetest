@@ -1,0 +1,43 @@
+#!/bin/sh
+
+echo 'run-weavetest may take over an hour to complete.  Please wait...'
+
+modes='15,3 15,6 21,4 21,8 32,4 32,8 48,3 48,6 59,1 59,2 59,4 60,1 60,2 60,4 64,2 64,4 96,2 96,4 128,1 128,2 128,4 128,8 144,1 144,2 144,4 180,1 180,2 180,4 192,1 192,2'
+passes='1,1,1 2,1,1 1,2,1 1,2,2 1,4,1 4,1,1 4,2,1 2,2,1 1,4,2 2,2,2 2,4,2 8,1,1'
+
+jets='1 2 4 8 15 20 21 24 32 47 48 60 64 96 128 144 180 192'
+separations='1 2 3 4 6 8'
+arrangements='0 1'
+#rows=2000
+head_limit=768
+
+if [ $# -eq 0 ] ; then
+    extracmd='grep [a-z]'
+else
+    extracmd=cat
+fi
+
+(for jet in $jets ; do
+    for sep in $separations ; do
+	for pass in $passes ; do
+	    for arrangement in $arrangements; do
+		start=`expr $jet \* $sep`
+		if [ $start -le $head_limit ] ; then
+		    rows=`expr $start \* 10`
+		    if [ $rows -lt 200 ] ; then
+			rows=200
+		    fi
+		    s1=`expr $start - 1`
+		    for f in 0 41 $start $s1 ; do
+			end=`expr $rows + $f + $start`
+			end1=`expr $rows + $f`
+			end2=`expr $rows + $f + 35`
+			for g in $end $end1 $end2 ; do
+			    echo "$jet $sep $pass $rows $f $g $arrangement"
+			done
+		    done
+		fi
+	    done
+	done
+    done
+done) | sed 's/,/ /g' | ./escp2-weavetest | $extracmd

@@ -23,6 +23,15 @@ Now that you have the lsof distribution, I suggest:
 
 *  If you want to cross-configure, read 00XCONFIG.
 
+*  Use the test suite, described in 00TEST, by:
+
+	$ cd tests
+	$ make
+
+   and possibly:
+
+	$ make opt
+
 *  If you're having trouble, read 00FAQ.  (Please read 00FAQ before
    you send a bug report.)
 
@@ -35,4 +44,4 @@ Now that you have the lsof distribution, I suggest:
 
 
 Vic Abell <abe@purdue.edu>
-May 11, 1998
+April 19, 2002

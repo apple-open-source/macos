@@ -1,9 +1,9 @@
 /*
- * "$Id: hpgl-polygon.c,v 1.1.1.3 2002/03/02 18:28:19 jlovell Exp $"
+ * "$Id: hpgl-polygon.c,v 1.1.1.8 2003/04/11 21:07:45 jlovell Exp $"
  *
  *   HP-GL/2 polygon routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1993-2002 by Easy Software Products.
+ *   Copyright 1993-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -227,7 +227,7 @@ PM_polygon_mode(int     num_params,	/* I - Number of parameters */
       params[0].value.number == 0)
   {
     Outputf("MP\n");
-    Outputf("%.3f %.3f MO\n", PenPosition[0], PenPosition[1]);
+/*    Outputf("%.3f %.3f MO\n", PenPosition[0], PenPosition[1]);*/
     PolygonMode = 1;
   }
   else if (params[0].value.number == 2)
@@ -378,5 +378,5 @@ WG_fill_wedge(int     num_params,	/* I - Number of parameters */
 
 
 /*
- * End of "$Id: hpgl-polygon.c,v 1.1.1.3 2002/03/02 18:28:19 jlovell Exp $".
+ * End of "$Id: hpgl-polygon.c,v 1.1.1.8 2003/04/11 21:07:45 jlovell Exp $".
  */

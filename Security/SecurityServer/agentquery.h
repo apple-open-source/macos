@@ -38,11 +38,14 @@ class Session;
 class SecurityAgentQuery : protected SecurityAgent::Client {
 public:
 	typedef SecurityAgent::Reason Reason;
+	
+	static const char defaultName[];
 
-	SecurityAgentQuery(uid_t clientUID, Session &clientSession);
+	SecurityAgentQuery();
+	SecurityAgentQuery(uid_t clientUID, Session &clientSession, const char *agentName = defaultName);
 	virtual ~SecurityAgentQuery();
 
-	virtual void activate(const char *bootstrapName = NULL);
+	virtual void activate();
 	virtual void terminate();
 
 private:
@@ -55,81 +58,63 @@ private:
 //
 class QueryKeychainUse : public SecurityAgent::Client::KeychainChoice, public SecurityAgentQuery {
 public:
-    QueryKeychainUse(uid_t clientUID, Session &clientSession,
-		     bool needPass) :
-	SecurityAgentQuery(clientUID, clientSession),
-	needPassphrase(needPass) { }
-    void operator () (const char *database, const char *description, AclAuthorization action);
+    QueryKeychainUse(bool needPass)	: needPassphrase(needPass) { }
+    void queryUser (const Database *db, const char* database, const char *description, AclAuthorization action);
+	~QueryKeychainUse();
 	
 	const bool needPassphrase;
 };
 
 
 //
-// Specialized for passphrase-yielding queries based on Credential markers
+// Specialized for code signature adjustment queries
 //
-class QueryPassphrase : public SecurityAgentQuery {
-protected:
-	QueryPassphrase(uid_t clientUID, Session &clientSession,
-			unsigned int maxTries) :
-	    SecurityAgentQuery(clientUID, clientSession),
-	    maxRetries(maxTries) { }
-	void query(const AccessCredentials *cred, CSSM_SAMPLE_TYPE relevantSampleType);
-	
-	virtual void queryInteractive(CssmOwnedData &passphrase) = 0;
-	virtual void retryInteractive(CssmOwnedData &passphrase, Reason reason) = 0;
-
-protected:
-	virtual Reason accept(CssmManagedData &passphrase, bool canRetry) = 0;
-	
-private:
-	const unsigned int maxRetries;
+class QueryCodeCheck : public SecurityAgent::Client::KeychainChoice, public SecurityAgentQuery {
+public:
+    void operator () (const char *aclPath);
 };
 
 
 //
 // A query for an existing passphrase
 //
-class QueryUnlock : public QueryPassphrase {
-	static const int maxTries = 3;
+class QueryUnlock : public SecurityAgentQuery {
+	static const int maxTries = kMaximumAuthorizationTries;
 public:
-	QueryUnlock(uid_t clientUID, Session &clientSession,
-		    Database &db) :
-	    QueryPassphrase(clientUID, clientSession, maxTries),
-	    database(db) { }
+	QueryUnlock(Database &db) : database(db) { }
 	
 	Database &database;
 	
-	void operator () (const AccessCredentials *cred);
+	Reason operator () ();
 	
 protected:
+	Reason query();
 	void queryInteractive(CssmOwnedData &passphrase);
 	void retryInteractive(CssmOwnedData &passphrase, Reason reason);
-	Reason accept(CssmManagedData &passphrase, bool canRetry);
+	Reason accept(CssmManagedData &passphrase);
 };
 
 
 //
 // A query for a new passphrase
 //
-class QueryNewPassphrase : public QueryPassphrase {
+class QueryNewPassphrase : public SecurityAgentQuery {
 	static const int maxTries = 7;
 public:
-	QueryNewPassphrase(uid_t clientUID, Session &clientSession,
-		    Database::Common &common, Reason reason) :
-	    QueryPassphrase(clientUID, clientSession, maxTries),
-	    dbCommon(common), initialReason(reason),
+	QueryNewPassphrase(Database &db, Reason reason) :
+	    database(db), initialReason(reason),
 	    mPassphrase(CssmAllocator::standard(CssmAllocator::sensitive)),
 	    mPassphraseValid(false) { }
 
-	Database::Common &dbCommon;
+	Database &database;
 	
-	void operator () (const AccessCredentials *cred, CssmOwnedData &passphrase);
+	Reason operator () (CssmOwnedData &passphrase);
 	
 protected:
-	void queryInteractive(CssmOwnedData &passphrase);
-	void retryInteractive(CssmOwnedData &passphrase, Reason reason);
-	Reason accept(CssmManagedData &passphrase, bool canRetry);
+	Reason query();
+	void queryInteractive(CssmOwnedData &passphrase, CssmOwnedData &oldPassphrase);
+	void retryInteractive(CssmOwnedData &passphrase, CssmOwnedData &oldPassphrase, Reason reason);
+	Reason accept(CssmManagedData &passphrase, CssmData *oldPassphrase);
 	
 private:
 	Reason initialReason;
@@ -161,18 +146,14 @@ private:
     bool mActive;
 };
 
+
+using Authorization::AuthValueVector;
+
 class QueryInvokeMechanism : public SecurityAgentQuery {
 public:
-    QueryInvokeMechanism(uid_t clientUID, const AuthorizationToken &auth);
-    bool operator () (const string &inPluginId, const string &inMechanismId, const AuthorizationValueVector *inArguments, const AuthItemSet &inHints, const AuthItemSet &inContext, AuthorizationResult  *outResult, AuthorizationItemSet *&outHintsPtr, AuthorizationItemSet *&outContextPtr);
+    QueryInvokeMechanism(uid_t clientUID, const AuthorizationToken &auth, const char *agentName);
+    bool operator () (const string &inPluginId, const string &inMechanismId, const AuthValueVector &inArguments, AuthItemSet &inHints, AuthItemSet &inContext, AuthorizationResult *outResult);
+    void terminateAgent();
 };
-
-class QueryTerminateAgent : public SecurityAgentQuery {
-public:
-    QueryTerminateAgent(uid_t clientUID, const AuthorizationToken &auth);
-    void operator () ();
-};
-
-
 
 #endif //_H_AGENTQUERY

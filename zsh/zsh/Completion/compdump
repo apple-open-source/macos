@@ -16,7 +16,7 @@
 emulate -L zsh
 setopt extendedglob noshglob
 
-typeset _d_file _d_f _d_bks _d_line _d_als _d_files
+typeset _d_file _d_f _d_bks _d_line _d_als _d_files _d_name _d_tmp
 
 _d_file=${_comp_dumpfile-${0:h}/compinit.dump}.$HOST.$$
 [[ $_d_file = //* ]] && _d_file=${_d_file[2,-1]}
@@ -35,30 +35,31 @@ fi
 
 print "#files: $#_d_files" > $_d_file
 
-# First dump the arrays _comps, _services and _patcomps.  The quoting
+# Dump the arrays _comps, _services and _patcomps.  The quoting
 # hieroglyphics ensure that a single quote inside a variable is itself
 # correctly quoted.
 
-print "_comps=(" >> $_d_file
+print "\n_comps=(" >> $_d_file
 for _d_f in ${(ok)_comps}; do
-    print -r - "${(q)_d_f}" "${(q)_comps[$_d_f]}"
-done  >> $_d_file
+  print -r - "${(q)_d_f}" "${(q)_comps[$_d_f]}"
+done >> $_d_file
 print ")" >> $_d_file
 
-print "_services=(" >> $_d_file
+print "\n_services=(" >> $_d_file
 for _d_f in ${(ok)_services}; do
-    print -r - "${(q)_d_f}" "${(q)_services[$_d_f]}"
-done  >> $_d_file
+  print -r - "${(q)_d_f}" "${(q)_services[$_d_f]}"
+done >> $_d_file
 print ")" >> $_d_file
 
 print "\n_patcomps=(" >> $_d_file
-for _d_f in "${(ok@)_patcomps}"; do
+for _d_f in ${(ok)_patcomps}; do
   print -r - "${(q)_d_f}" "${(q)_patcomps[$_d_f]}"
 done >> $_d_file
 print ")" >> $_d_file
 
+_d_tmp="_postpatcomps"
 print "\n_postpatcomps=(" >> $_d_file
-for _d_f in "${(ok@)_postpatcomps}"; do
+for _d_f in ${(ok)_postpatcomps}; do
   print -r - "${(q)_d_f}" "${(q)_postpatcomps[$_d_f]}"
 done >> $_d_file
 print ")" >> $_d_file
@@ -100,13 +101,9 @@ bindkey |
 print >> $_d_file
 
 
-# Autoloads: whence -w produces "_d_foo: function", so look for
-# all functions beginning with `_'.
+# Autoloads: look for all functions beginning with `_'.
 
-_d_als=($(whence -wm '_*' | sort |
-while read -rA _d_line; do
-  [[ ${_d_line[2]} = function ]] && print -r - ${_d_line[1]%:}
-done))
+_d_als=(${(o)$(typeset +fm '_*')})
 
 # print them out:  about five to a line looks neat
 
@@ -115,7 +112,7 @@ print -n autoload -U >> $_d_file
 while (( $#_d_als )); do
   if (( ! $+_compautos[$_d_als[1]] )); then
     print -n " $_d_als[1]"
-    if (( ! _i-- && $#_d_als > 1 )); then
+    if (( ! --_i && $#_d_als > 1 )); then
       _i=5
       print -n ' \\\n           '
     fi
@@ -128,6 +125,11 @@ print >> $_d_file
 for _i in "${(ok@)_compautos}"; do
   print "autoload -U $_compautos[$_i] $_i" >> $_d_file
 done
+
+print >> $_d_file
+
+print "typeset -gUa _comp_assocs" >> $_d_file
+print "_comp_assocs=( ${(q)_comp_assocs} )" >> $_d_file
 
 mv $_d_file ${_d_file%.$HOST.$$}
 

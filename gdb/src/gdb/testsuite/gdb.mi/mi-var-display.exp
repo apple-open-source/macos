@@ -1,4 +1,4 @@
-#   Copyright (C) 1999 2000 Cygnus Solutions
+#   Copyright (C) 1999, 2000, 2002 Free Software Foundation, Inc.
 #
 # This Program Is Free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -25,6 +25,12 @@
 
 load_lib mi-support.exp
 set MIFLAGS "-i=mi"
+
+# APPLE LOCAL: For now, ignore all non-mi1 tests.
+if [istarget "*-apple-darwin*"] then {
+  gdb_suppress_entire_file "Not testing non-mi1 on Darwin at this time."
+  return
+}
 
 gdb_exit
 if [mi_gdb_start] {
@@ -333,6 +339,9 @@ gdb_expect {
     -re "\\^running\r\n${mi_gdb_prompt}\\*stopped,reason=\"breakpoint-hit\",bkptno=\"2\",thread-id=\"\[0-9\]\",frame=\{addr=\"$hex\",func=\"do_special_tests\",args=\\\[\\\],file=\".*var-cmd.c\",line=\"282\"\}\r\n$mi_gdb_prompt$" {
 	pass "continue to do_special_tests"
     }
+    -re ".*$mi_gdb_prompt$" {
+	fail "continue to do_special_tests (2)"
+    }
     timeout {
 	fail "continue to do_special_tests (timeout)"
     }
@@ -604,13 +613,22 @@ gdb_expect {
 
 # Test: c_variable-7.81
 # Desc: Create variables in different scopes
+
+if { [info exists fp] } {
 mi_gdb_test "-var-create a1 * a" \
 	"\\^done,name=\"a1\",numchild=\"0\",type=\"char\"" \
 	"create local variable a1"
+} else {
+	fail "create local variable a1"
+}
 
+if { [info exists fp] } {
 mi_gdb_test "-var-create a2 $fp a" \
 	"\\^done,name=\"a2\",numchild=\"0\",type=\"int\"" \
 	"create variable a2 in different scope"
+} else {
+	fail "create variable a2 in different scope"
+}
 
 #gdbtk_test c_variable-7.81 {create variables in different scopes} {
 #  set a1 [gdb_variable create -expr a]

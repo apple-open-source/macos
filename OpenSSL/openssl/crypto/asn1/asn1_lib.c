@@ -64,7 +64,7 @@
 
 static int asn1_get_length(unsigned char **pp,int *inf,long *rl,int max);
 static void asn1_put_length(unsigned char **pp, int length);
-const char ASN1_version[]="ASN.1" OPENSSL_VERSION_PTEXT;
+const char *ASN1_version="ASN.1" OPENSSL_VERSION_PTEXT;
 
 int ASN1_check_infinite_end(unsigned char **p, long len)
 	{
@@ -109,7 +109,7 @@ int ASN1_get_object(unsigned char **pp, long *plength, int *ptag, int *pclass,
 		l<<=7L;
 		l|= *(p++)&0x7f;
 		tag=(int)l;
-		if (--max == 0) goto err;
+		if (l > (INT_MAX >> 7L)) goto err;
 		}
 	else
 		{ 
@@ -306,7 +306,7 @@ int asn1_GetSequence(ASN1_CTX *c, long *length)
 		return(0);
 		}
 	if (c->inf == (1|V_ASN1_CONSTRUCTED))
-		c->slen= *length;
+		c->slen= *length+ *(c->pp)-c->p;
 	c->eos=0;
 	return(1);
 	}

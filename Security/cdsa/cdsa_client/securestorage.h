@@ -159,13 +159,6 @@ public:
 							const CSSM_DATA *data,
 							const CSSM_RESOURCE_CONTROL_CONTEXT *rc = NULL);
 
-#if 0
-	SSDbUniqueRecord insert(CSSM_DB_RECORDTYPE recordType,
-							const CSSM_DB_RECORD_ATTRIBUTE_DATA *attributes,
-							const CSSM_DATA *data,
-							const AutoAclEntryInfoList &keyAcl);
-#endif
-
 	SSDbUniqueRecord insert(CSSM_DB_RECORDTYPE recordType,
 							const CSSM_DB_RECORD_ATTRIBUTE_DATA *attributes,
 							const CSSM_DATA *data, const SSGroup &group,

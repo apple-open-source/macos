@@ -1,4 +1,28 @@
 /*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * mslp_mcast.c : Minimal SLP v2 multicast utilities used by mslpd and mslplib.
  *
  * Version: 1.4
@@ -24,6 +48,9 @@
  * (c) Sun Microsystems, 1998, All Rights Reserved.
  * Author: Erik Guttman
  */
+ /*
+	Portions Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ */
 
 #include <stdio.h>
 #include <string.h>
@@ -48,8 +75,7 @@ EXPORT SLPInternalError set_multicast_sender_interf(SOCKET sd)
     u_char			loop = 1;		// enable;
     char*		endPtr = NULL;
     
-//    ttl = (unsigned char) atoi(SLPGetProperty("net.slp.multicastTTL"));
-    ttl = (unsigned char) strtol(SLPGetProperty("net.slp.multicastTTL"), &endPtr, 10);
+    ttl =  (SLPGetProperty("net.slp.multicastTTL"))?(unsigned char) strtol(SLPGetProperty("net.slp.multicastTTL"), &endPtr, 10):255;
     iErr = setsockopt( sd, IPPROTO_IP, IP_MULTICAST_TTL, (char*)&ttl, sizeof(ttl) );
     
     if (iErr < 0)
@@ -82,17 +108,10 @@ EXPORT SLPInternalError set_multicast_sender_interf(SOCKET sd)
                         (char*)&ia, sizeof(struct in_addr))) != 0) 
             {
                 SLP_LOG( SLP_LOG_DEBUG, "an error occurred calling setsockopt default mc interface",strerror(iErr));
-                //LOG( SLP_LOG_FAIL, "an error occurred calling setsockopt default mc interface" );
+
                 err = SLP_NETWORK_INIT_FAILED;
             }
         }
-
-/*        if ( mcast_set_if( sd, ifName ) < 0 )
-        {
-            SLP_LOG( SLP_LOG_DEBUG, "an error occurred calling mcast_set_if: %s", strerror(errno) );
-            err = SLP_NETWORK_INIT_FAILED;
-        } 
-*/
     }
     
     return err;
@@ -122,9 +141,8 @@ int mcast_set_if(int sockfd, const char *ifname)
 EXPORT SLPInternalError join_group(SOCKET sdUDP, struct in_addr iaMC, struct in_addr iaInterf) 
 {
     struct ip_mreq 	mreq;
-	char*			endptr = NULL;
-    unsigned char	ttl = (unsigned char) strtol(SLPGetProperty("net.slp.multicastTTL"), &endptr, 10);
-//    unsigned char	ttl = (unsigned char) atoi(SLPGetProperty("net.slp.multicastTTL"));
+	char*			endPtr = NULL;
+    unsigned char	ttl =  (SLPGetProperty("net.slp.multicastTTL"))?(unsigned char) strtol(SLPGetProperty("net.slp.multicastTTL"), &endPtr, 10):255;
     int 			err = 0;
     SLPInternalError		returnErr = SLP_OK;
     
@@ -133,12 +151,8 @@ EXPORT SLPInternalError join_group(SOCKET sdUDP, struct in_addr iaMC, struct in_
     mreq.imr_interface = iaInterf;
     err = setsockopt(sdUDP,IPPROTO_IP,IP_ADD_MEMBERSHIP, (char*)&mreq,sizeof(mreq));
     if (err < 0) 
-    {
-//        mslplog(SLP_LOG_DEBUG, "Could not join multicast group",strerror(errno));
-//        mslplog(SLP_LOG_DEBUG, "We were trying to use interface:", inet_ntoa(iaInterf) );
-        
+    {        
         SLP_LOG( SLP_LOG_DEBUG, "Received an error trying to setsockopt IP_ADD_MEMBERSHIP" );
-//        returnErr = SLP_NETWORK_INIT_FAILED;
     }
     
     if ( returnErr == SLP_OK )
@@ -147,7 +161,6 @@ EXPORT SLPInternalError join_group(SOCKET sdUDP, struct in_addr iaMC, struct in_
         if (err < 0) 
         {
             mslplog(SLP_LOG_DEBUG, "join_group: Could not set multicast TTL",strerror(errno));
-            //SLP_LOG( SLP_LOG_FAIL, "join_group: Could not set multicast TTL" );
             returnErr = SLP_NETWORK_INIT_FAILED;
         }
     }

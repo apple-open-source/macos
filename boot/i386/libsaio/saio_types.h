@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -30,8 +31,9 @@
 #include <sys/types.h>
 #include "bios.h"
 #include "nbp_cmd.h"
+#include <pexpert/i386/boot.h>
 
-#if 0
+#if DEBUG
 #define DEBUG_DISK(x)    printf x
 #else
 #define DEBUG_DISK(x)
@@ -55,6 +57,15 @@ struct driveParameters {
     int heads;
     int totalDrives;
 };
+
+struct driveInfo {
+    boot_drive_info_t di;
+    int uses_ebios;
+    int no_emulation;
+    int biosdev;
+    int valid;
+};
+
 
 struct         BootVolume;
 typedef struct BootVolume * BVRef;
@@ -87,9 +98,12 @@ struct dirstuff {
     BVRef          dir_bvr;         /* volume reference */
 };
 
+#define BVSTRLEN 32
+
 struct BootVolume {
     BVRef            next;            /* list linkage pointer */
     int              biosdev;         /* BIOS device number */
+    int              type;            /* device type (floppy, hd, network) */
     unsigned int     flags;           /* attribute flags */
     BVGetDescription description;     /* BVGetDescription function */
     int              part_no;         /* partition number (1 based) */
@@ -98,6 +112,10 @@ struct BootVolume {
     unsigned int     fs_boff;         /* 1st block # of next read */
     FSLoadFile       fs_loadfile;     /* FSLoadFile function */
     FSGetDirEntry    fs_getdirentry;  /* FSGetDirEntry function */
+    unsigned int     bps;             /* bytes per sector for this device */
+    char             name[BVSTRLEN];  /* (name of partition) */
+    char             type_name[BVSTRLEN]; /* (type of partition, eg. Apple_HFS) */
+
 };
 
 enum {
@@ -115,8 +133,8 @@ enum {
     kBIOSDevMask          = 0xFF
 };
 
-#define BIOS_DEV_TYPE(d)  ((d) & kBIOSDevTypeMask)
-#define BIOS_DEV_UNIT(d)  ((d) & kBIOSDevUnitMask)
+//#define BIOS_DEV_TYPE(d)  ((d) & kBIOSDevTypeMask)
+#define BIOS_DEV_UNIT(bvr)  ((bvr)->biosdev - (bvr)->type)
 
 /*
  * KernBootStruct device types.
@@ -137,5 +155,10 @@ enum {
 #endif
 
 #define MAKEKERNDEV(t, u, p)  MAKEBOOTDEV(t, 0, 0, u, p)
+
+enum {
+    kNetworkDeviceType = kBIOSDevTypeNetwork,
+    kBlockDeviceType   = kBIOSDevTypeHardDrive
+} gBootFileType_t;
 
 #endif /* !__LIBSAIO_SAIO_TYPES_H */

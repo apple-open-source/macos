@@ -1,5 +1,5 @@
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  *
  * Copyright 1999, Howard Chu, All rights reserved. <hyc@highlandsun.com>
@@ -87,14 +87,18 @@ struct metasingleconn {
 	int			candidate;
 #define	META_NOT_CANDIDATE	0
 #define	META_CANDIDATE		1
+#define	META_LAST_CONN		-1
 	
 	LDAP            	*ld;
 	struct berval          	bound_dn;
+	struct berval		cred;
 	int             	bound;
 #define META_UNBOUND		0
 #define META_BOUND		1
 #define META_ANONYMOUS		2
 };
+
+#define META_LAST(lsc)		((lsc)->candidate == META_LAST_CONN)
 
 struct metaconn {
 	struct slap_conn	*conn;
@@ -108,7 +112,7 @@ struct metaconn {
 #define META_BOUND_NONE		-1
 #define META_BOUND_ALL		-2
 	/* supersedes the connection stuff */
-	struct metasingleconn **conns;
+	struct metasingleconn *conns;
 };
 
 struct metatarget {
@@ -146,19 +150,9 @@ struct metainfo {
 	
 	ldap_pvt_thread_mutex_t	conn_mutex;
 	Avlnode			*conntree;
+
+	int			savecred;
 };
-
-extern int
-meta_back_do_single_bind(
-		struct metainfo         *li,
-		struct metaconn         *lc,
-		struct berval		*dn,
-		struct berval		*ndn,
-		struct berval		*cred,
-		int			method,
-		int                     candidate
-);
-
 
 #define META_OP_ALLOW_MULTIPLE		0x00
 #define META_OP_REQUIRE_SINGLE		0x01

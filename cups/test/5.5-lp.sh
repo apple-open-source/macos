@@ -1,10 +1,10 @@
 #!/bin/sh
 #
-# "$Id: 5.5-lp.sh,v 1.1.1.2 2002/02/10 04:51:55 jlovell Exp $"
+# "$Id: 5.5-lp.sh,v 1.1.1.7 2003/04/29 00:15:19 jlovell Exp $"
 #
 #   Test the lp command.
 #
-#   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+#   Copyright 1997-2003 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
 #   property of Easy Software Products and are protected by Federal
@@ -47,6 +47,25 @@ else
 fi
 echo ""
 
+echo "LP Flood Test"
+echo ""
+echo "    lp -d Test1 testfile.jpg ($1 times in parallel)"
+i=0
+while test $i -lt $1; do
+	echo "    flood copy $i..." 1>&2
+	../systemv/lp -d Test1 testfile.jpg 2>&1 &
+	lppid=$!
+	i=`expr $i + 1`
+done
+wait $lppid
+if test $? != 0; then
+	echo "    FAILED"
+	exit 1
+else
+	echo "    PASSED"
+fi
+echo ""
+
 #
-# End of "$Id: 5.5-lp.sh,v 1.1.1.2 2002/02/10 04:51:55 jlovell Exp $".
+# End of "$Id: 5.5-lp.sh,v 1.1.1.7 2003/04/29 00:15:19 jlovell Exp $".
 #

@@ -1,0 +1,14 @@
+--- site.py.orig	Fri Jul 18 10:45:33 2003
++++ site.py	Mon Aug 11 23:13:05 2003
+@@ -178,7 +178,10 @@
+             # locations. Currently only per-user, but /Library and
+             # /Network/Library could be added too
+             if 'Python.framework' in prefix:
+-                home = os.environ.get('HOME')
++                try:
++                    home = os.environ.get('HOME')
++                except KeyError:
++                    home = None
+                 if home:
+                     sitedirs.append(
+                         os.path.join(home,

@@ -3,26 +3,35 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1999-2000 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All rights reserved.
  *
- *  DRI: Josh de Cesare
+ *  File: $Id: Core99.cpp,v 1.22 2003/03/12 03:11:21 galcher Exp $
+ *
+ *  DRI: Bill Galcher
+ *
+ *      $Log: Core99.cpp,v $
+ *      Revision 1.22  2003/03/12 03:11:21  galcher
+ *      [3122869] Remove old C-style implementation of power tree XML and move it into IOKitPersonalities in the project, where it will get auto-created for us when matching occurs.  Then fetch it in ::PMInstantiatePowerDomains() and move to it its provider as was previously done.  This allows us to remove Core99PowerTree.cpp from the build entirely, fixing the original complaint of the bug.
  *
  */
 
@@ -204,11 +213,12 @@ bool Core99PE::platformAdjustService(IOService *service)
   const OSSymbol *tmpSymbol, *keySymbol;
   bool           result;
   
-  if (IODTMatchNubWithKeys(service, "open-pic")) {
-    keySymbol = OSSymbol::withCStringNoCopy("InterruptControllerName");
-    tmpSymbol = IODTInterruptControllerName(service);
-    result = service->setProperty(keySymbol, tmpSymbol);
-    return true;
+  if (IODTMatchNubWithKeys(service, "open-pic"))
+  {
+        keySymbol = OSSymbol::withCStringNoCopy("InterruptControllerName");
+        tmpSymbol = IODTInterruptControllerName(service);
+        result = service->setProperty(keySymbol, (OSSymbol *)tmpSymbol);
+        return true;
   }
   
   if (!strcmp(service->getName(), "programmer-switch")) {
@@ -423,33 +433,39 @@ IOReturn Core99PE::accessUniN15PerformanceRegister(bool write, long regNumber,
 // the idle PCI power budget)
 //*********************************************************************************
 
+#define kPOWER_TREE_DESCRIPTION_PROPERTY_NAME "powertreedesc"
+
 void Core99PE::PMInstantiatePowerDomains ( void )
 {    
-   OSString * errorStr = new OSString;
-   OSObject * obj;
-   IOPMUSB99 * usb99;
+IOPMUSB99		* usb99;
+const OSSymbol	* PTDescription = OSSymbol::withCString( kPOWER_TREE_DESCRIPTION_PROPERTY_NAME );
 
-   obj = OSUnserializeXML (gIOCore99PMTree, &errorStr);
+    // NOTE - the power tree XML is now included in AppleCore99PE.pbproj/project.pbxproj
+    //        as a Personality-based property.  ALL properties of this type are
+    //        automatically created in the appropriate node when the KEXT is matched.
+    //        Therefore, all we have to do is go fetch this property and move it up
+    //        to its provider.
 
-   if( 0 == (thePowerTree = ( OSArray * ) obj) ) {
-     kprintf ("error parsing power tree: %s", errorStr->getCStringNoCopy());
-   }
-
-   getProvider()->setProperty ("powertreedesc", thePowerTree);
+    thePowerTree = OSDynamicCast(OSArray, getProperty( PTDescription ));
+    if ( thePowerTree )
+        getProvider()->setProperty( kPOWER_TREE_DESCRIPTION_PROPERTY_NAME, thePowerTree );
+    else
+        kprintf( "%s::PMInstantiatePowerDomains - unable to retrieve '%s' property\n",
+                    this->getName(), kPOWER_TREE_DESCRIPTION_PROPERTY_NAME );
 
 #if CREATE_PLEXUS
-   plexus = new IOPMPagingPlexus;
-   if ( plexus ) {
+	plexus = new IOPMPagingPlexus;
+	if ( plexus )
+    {
         plexus->init();
         plexus->attach(this);
         plexus->start(this);
     }
 #endif
          
-   root = new IOPMrootDomain;
-   root->init();
-   root->attach(this);
-   root->start(this);
+	root = IOPMrootDomain::construct();
+	root->attach(this);
+	root->start(this);
 
     if ( plexus ) {
         root->addPowerChild(plexus);

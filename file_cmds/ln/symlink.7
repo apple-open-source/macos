@@ -1,5 +1,3 @@
-.\"	$NetBSD: symlink.7,v 1.7 1998/02/06 05:39:47 perry Exp $
-.\"
 .\" Copyright (c) 1992, 1993, 1994
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
@@ -32,10 +30,11 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)symlink.7	8.3 (Berkeley) 3/31/94
+.\" $FreeBSD: src/bin/ln/symlink.7,v 1.25 2002/08/21 17:32:32 trhodes Exp $
 .\"
 .Dd March 31, 1994
 .Dt SYMLINK 7
-.Os BSD 4
+.Os
 .Sh NAME
 .Nm symlink
 .Nd symbolic link handling
@@ -54,7 +53,7 @@ i.e. it is a pointer to another name, and not to an underlying object.
 For this reason, symbolic links may reference directories and may span
 file systems.
 .Pp
-Because a symbolic link and its referenced object coexist in the filesystem
+Because a symbolic link and its referenced object coexist in the file system
 name space, confusion can arise in distinguishing between the link itself
 and the referenced object.
 Historically, commands and system calls have adopted their own link
@@ -81,7 +80,7 @@ exceeded.)
 .Pp
 There are three separate areas that need to be discussed.
 They are as follows:
-.sp
+.Pp
 .Bl -enum -compact -offset indent
 .It
 Symbolic links used as file name arguments for system calls.
@@ -103,16 +102,21 @@ For example, if there were a symbolic link
 which pointed to a file named
 .Dq Li afile ,
 the system call
-.Dq Li open("slink" ...)
+.Dq Li open("slink" ...\&)
 would return a file descriptor to the file
 .Dq afile .
 .Pp
-There are four system calls that do not follow links, and which operate
+There are nine system calls that do not follow links, and which operate
 on the symbolic link itself.
 They are:
+.Xr lchflags 2 ,
+.Xr lchmod 2 ,
+.Xr lchown 2 ,
 .Xr lstat 2 ,
+.Xr lutimes 2 ,
 .Xr readlink 2 ,
 .Xr rename 2 ,
+.Xr rmdir 2 ,
 and
 .Xr unlink 2 .
 Because
@@ -120,21 +124,45 @@ Because
 is an alias for
 .Xr unlink 2 ,
 it also does not follow symbolic links.
+When
+.Xr rmdir 2
+is applied to a symbolic link, it fails with the error
+.Er ENOTDIR .
+.Pp
+The owner and group of an existing symbolic link can be changed by
+means of the
+.Xr lchown 2
+system call.
+The flags, access permissions, owner/group and modification time of
+an existing symbolic link can be changed by means of the
+.Xr lchflags 2 ,
+.Xr lchmod 2 ,
+.Xr lchown 2 ,
+and 
+.Xr lutimes 2
+system calls, respectively.
+Of these, only the flags are used by the system;
+the access permissions and ownership are ignored.
 .Pp
 The
 .Bx 4.4
-system differs from historical 
+system differs from historical
 .Bx 4
 systems in that the system call
 .Xr chown 2
 has been changed to follow symbolic links.
+The
+.Xr lchown 2
+system call was added later when the limitations of the new
+.Xr chown 2
+became apparent.
 .Ss Commands not traversing a file tree.
 The second area is symbolic links, specified as command line file
 name arguments, to commands which are not traversing a file tree.
 .Pp
 Except as noted below, commands follow symbolic links named as command
 line arguments.
-For example, if there were a symbolic link 
+For example, if there were a symbolic link
 .Dq Li slink
 which pointed to a file named
 .Dq Li afile ,
@@ -153,23 +181,23 @@ is not.
 .Pp
 If it is explicitly intended that the command operate on the symbolic
 link instead of following the symbolic link, e.g., it is desired that
-.Dq Li "file slink"
-display the type of file that
+.Dq Li "chown slink"
+change the ownership of the file that
 .Dq Li slink
 is, whether it is a symbolic link or not, the
 .Fl h
 option should be used.
 In the above example,
-.Dq Li "file slink"
-would report the type of the file referenced by
+.Dq Li "chown root slink"
+would change the ownership of the file referenced by
 .Dq Li slink ,
 while
-.Dq Li "file -h slink"
-would report that
+.Dq Li "chown -h root slink"
+would change the ownership of
 .Dq Li slink
-was a symbolic link.
+itself.
 .Pp
-There are three exceptions to this rule.
+There are four exceptions to this rule.
 The
 .Xr mv 1
 and
@@ -191,6 +219,8 @@ option is not specified),
 the
 .Nm ls
 command follows symbolic links named as arguments if the
+.Fl H
+or
 .Fl L
 option is specified,
 or if the
@@ -198,27 +228,35 @@ or if the
 .Fl d
 or
 .Fl l
-options are not specified.
-(If the
-.Fl L
-option is specified,
+options are not specified.  (The
 .Nm ls
-always follows symbolic links.
-.Nm ls
-is the only command where the
+command is the only command where the
+.Fl H
+and
 .Fl L
-option affects its behavior even though it is not doing a walk of
+options affect its behavior even though it is not doing a walk of
 a file tree.)
+.Pp
+The
+.Xr file 1
+command is also an exception to this rule.
+The
+.Xr file 1
+command does not follow symbolic links named as argument by default.
+The
+.Xr file 1
+command does follow symbolic links named as argument if
+.Fl L
+option is specified.
 .Pp
 The
 .Bx 4.4
 system differs from historical
 .Bx 4
 systems in that the
-.Nm chown ,
-.Nm chgrp
+.Nm chown
 and
-.Nm file
+.Nm chgrp
 commands follow symbolic links specified on the command line.
 .Ss Commands traversing a file tree.
 The following commands either optionally or always traverse file trees:
@@ -244,13 +282,6 @@ not of type directory.
 Operations that apply to symbolic links are performed on the links
 themselves, but otherwise the links are ignored.
 .Pp
-For example, the command
-.Dq Li "chown -R user slink directory"
-will ignore
-.Dq Li slink ,
-because symbolic links in this system do not have owners.
-Any symbolic links encountered during the tree traversal will also be
-ignored.
 The command
 .Dq Li "rm -r slink directory"
 will remove
@@ -258,9 +289,7 @@ will remove
 as well as any symbolic links encountered in the tree traversal of
 .Dq Li directory ,
 because symbolic links may be removed.
-In no case will either
-.Nm chown
-or
+In no case will
 .Nm rm
 affect the file which
 .Dq Li slink
@@ -280,7 +309,7 @@ walk (where symbolic links referencing directories are followed).
 As consistently as possible, you can make commands doing a file tree
 walk follow any symbolic links named on the command line, regardless
 of the type of file they reference, by specifying the
-.Fl H 
+.Fl H
 (for
 .Dq half\-logical )
 flag.
@@ -387,23 +416,20 @@ options.
 To maintain compatibility with historic systems,
 the
 .Nm ls
-command never follows symbolic links unless the
-.Fl L
-flag is specified.
-If the
+command acts a little differently.  If you do not specify the
+.Fl F ,
+.Fl d
+or
+.Fl l
+options,
+.Nm ls
+will follow symbolic links specified on the command line.  If the
 .Fl L
 flag is specified,
 .Nm ls
 follows all symbolic links,
 regardless of their type,
 whether specified on the command line or encountered in the tree walk.
-The
-.Nm ls
-command does not support the
-.Fl H
-or
-.Fl P
-options.
 .Sh SEE ALSO
 .Xr chflags 1 ,
 .Xr chgrp 1 ,
@@ -417,7 +443,11 @@ options.
 .Xr pax 1 ,
 .Xr rm 1 ,
 .Xr tar 1 ,
+.Xr lchflags 2 ,
+.Xr lchmod 2 ,
+.Xr lchown 2 ,
 .Xr lstat 2 ,
+.Xr lutimes 2 ,
 .Xr readlink 2 ,
 .Xr rename 2 ,
 .Xr symlink 2 ,

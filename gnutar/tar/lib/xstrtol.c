@@ -1,5 +1,5 @@
 /* A more useful interface to strtol.
-   Copyright 1995, 1996, 1998, 1999 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1998-2001 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -86,7 +86,11 @@ long int strtol ();
 unsigned long int strtoul ();
 #endif
 
-#ifndef strtoumax
+#if !HAVE_DECL_STRTOIMAX
+intmax_t strtoimax ();
+#endif
+
+#if !HAVE_DECL_STRTOUMAX
 uintmax_t strtoumax ();
 #endif
 
@@ -199,6 +203,7 @@ __xstrtol (const char *s, char **ptr, int strtol_base,
 	  break;
 
 	case 'G': /* Giga */
+	case 'g': /* 'g' is undocumented; for compatibility only */
 	  overflow = bkm_scale_by_power (&tmp, base, 3);
 	  break;
 
@@ -207,7 +212,7 @@ __xstrtol (const char *s, char **ptr, int strtol_base,
 	  break;
 
 	case 'M': /* Mega */
-	case 'm': /* 'm' is undocumented; for backward compatibility only */
+	case 'm': /* 'm' is undocumented; for compatibility only */
 	  overflow = bkm_scale_by_power (&tmp, base, 2);
 	  break;
 
@@ -216,6 +221,7 @@ __xstrtol (const char *s, char **ptr, int strtol_base,
 	  break;
 
 	case 'T': /* Tera */
+	case 't': /* 't' is undocumented; for compatibility only */
 	  overflow = bkm_scale_by_power (&tmp, base, 4);
 	  break;
 

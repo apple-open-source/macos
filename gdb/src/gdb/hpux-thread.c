@@ -404,18 +404,19 @@ hpux_thread_store_registers (int regno)
 	  else if (regno == SP_REGNUM)
 	    {
 	      write_memory ((CORE_ADDR) & tcb_ptr->static_ctx.sp,
-			    registers + REGISTER_BYTE (regno),
+			    &deprecated_registers[REGISTER_BYTE (regno)],
 			    REGISTER_RAW_SIZE (regno));
 	      tcb_ptr->static_ctx.sp = (cma__t_hppa_regs *)
-		(extract_address (registers + REGISTER_BYTE (regno), REGISTER_RAW_SIZE (regno)) + 160);
+		(extract_address (&deprecated_registers[REGISTER_BYTE (regno)],
+				  REGISTER_RAW_SIZE (regno)) + 160);
 	    }
 	  else if (regno == PC_REGNUM)
 	    write_memory (sp - 20,
-			  registers + REGISTER_BYTE (regno),
+			  &deprecated_registers[REGISTER_BYTE (regno)],
 			  REGISTER_RAW_SIZE (regno));
 	  else
 	    write_memory (sp + regmap[regno],
-			  registers + REGISTER_BYTE (regno),
+			  &deprecated_registers[REGISTER_BYTE (regno)],
 			  REGISTER_RAW_SIZE (regno));
 	}
     }
@@ -601,6 +602,7 @@ init_hpux_thread_ops (void)
   hpux_thread_ops.to_terminal_init = terminal_init_inferior;
   hpux_thread_ops.to_terminal_inferior = terminal_inferior;
   hpux_thread_ops.to_terminal_ours_for_output = terminal_ours_for_output;
+  hpux_thread_ops.to_terminal_save_ours = terminal_save_ours;
   hpux_thread_ops.to_terminal_ours = terminal_ours;
   hpux_thread_ops.to_terminal_info = child_terminal_info;
   hpux_thread_ops.to_kill = hpux_thread_kill_inferior;

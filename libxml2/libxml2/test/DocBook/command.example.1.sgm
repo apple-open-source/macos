@@ -1,0 +1,5 @@
+<!DOCTYPE para PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
+<para>
+In <acronym>UNIX</acronym>,
+<command>ls</command> is used to get a directory listing.
+</para>

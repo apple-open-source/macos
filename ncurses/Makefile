@@ -9,11 +9,13 @@ SRCROOT=
 OBJROOT=$(SRCROOT)
 SYMROOT=$(OBJROOT)
 DSTROOT=/usr/local
+APPLE_INTERNAL_DIR=/AppleInternal
 RC_ARCHS=
 
-ENV=	CFLAGS="$(RC_ARCHS:%=-arch %) -O" \
+ENV=	APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
+	CFLAGS="$(RC_ARCHS:%=-arch %) -O" \
 	RC_ARCHS="$(RC_ARCHS)" \
-	DYLD_LIBRARY_PATH=$(DSTROOT)/usr/lib
+	DYLD_LIBRARY_PATH="$(DSTROOT)/usr/lib"
 
 INSTALLED_BINS := clear infocmp tack tic toe tput tset
 INSTALLED_STLIBS := libcurses.a libform.a libmenu.a libncurses.a libpanel.a
@@ -47,6 +49,7 @@ install :
 	rm $(DSTROOT)/usr/lib/terminfo; \
 	mkdir -p $(DSTROOT)/usr/share; \
 	mv $(DSTROOT)/usr/man $(DSTROOT)/usr/share/man; \
+	ln -f $(DSTROOT)/usr/share/man/man3/ncurses.3x $(DSTROOT)/usr/share/man/man3/curses.3x; \
 	for b in $(INSTALLED_BINS) ; do \
 		strip $(DSTROOT)/usr/bin/$${b}; \
 	done; \

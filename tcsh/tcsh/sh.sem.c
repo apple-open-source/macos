@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/sh.sem.c,v 1.1.1.2 2001/06/28 23:10:52 bbraun Exp $ */
+/* $Header: /cvs/root/tcsh/tcsh/sh.sem.c,v 1.1.1.3 2003/01/17 03:41:16 nicolai Exp $ */
 /*
  * sh.sem.c: I/O redirections and job forking. A touchy issue!
  *	     Most stuff with builtins is incorrect
@@ -15,11 +15,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -37,7 +33,7 @@
  */
 #include "sh.h"
 
-RCSID("$Id: sh.sem.c,v 1.1.1.2 2001/06/28 23:10:52 bbraun Exp $")
+RCSID("$Id: sh.sem.c,v 1.1.1.3 2003/01/17 03:41:16 nicolai Exp $")
 
 #include "tc.h"
 #include "tw.h"
@@ -88,10 +84,11 @@ static	void		 chkclob	__P((char *));
 
 /*VARARGS 1*/
 void
-execute(t, wanttty, pipein, pipeout)
+execute(t, wanttty, pipein, pipeout, do_glob)
     register struct command *t;
     int     wanttty;
     int *pipein, *pipeout;
+    bool do_glob;
 {
 #ifdef VFORK
     extern bool use_fork;	/* use fork() instead of vfork()? */
@@ -319,6 +316,18 @@ execute(t, wanttty, pipein, pipeout)
 		break;
 	}
 
+	/* 
+	 * GrP Executing a command - run jobcmd hook
+	 * Don't run for builtins
+	 * Don't run if we're not in a tty
+	 * Don't run if we're not really executing 
+	 */
+	if (t->t_dtyp == NODE_COMMAND && !bifunc && !noexec && intty) {
+	    Char *cmd = unparse(t);
+	    job_cmd(cmd);
+	    xfree(cmd);
+	}
+	   
 	/*
 	 * We fork only if we are timed, or are not the end of a parenthesized
 	 * list and not a simple builtin function. Simple meaning one that is
@@ -571,7 +580,9 @@ execute(t, wanttty, pipein, pipeout)
 		    if (t->t_dflg & F_NICE) {
 			int nval = SIGN_EXTEND_CHAR(t->t_nice);
 # ifdef BSDNICE
-			(void) setpriority(PRIO_PROCESS, 0, nval);
+			if (setpriority(PRIO_PROCESS, 0, nval) == -1 && errno)
+				stderror(ERR_SYSTEM, "setpriority",
+				    strerror(errno));
 # else /* !BSDNICE */
 			(void) nice(nval);
 # endif /* BSDNICE */
@@ -646,7 +657,7 @@ execute(t, wanttty, pipein, pipeout)
 	    break;
 	}
 	if (t->t_dtyp != NODE_PAREN) {
-	    doexec(t);
+	    doexec(t, do_glob);
 	    /* NOTREACHED */
 	}
 	/*
@@ -665,31 +676,31 @@ execute(t, wanttty, pipein, pipeout)
 	didfds = 0;
 	wanttty = -1;
 	t->t_dspr->t_dflg |= t->t_dflg & F_NOINTERRUPT;
-	execute(t->t_dspr, wanttty, NULL, NULL);
+	execute(t->t_dspr, wanttty, NULL, NULL, do_glob);
 	exitstat();
 
     case NODE_PIPE:
 #ifdef BACKPIPE
 	t->t_dcdr->t_dflg |= F_PIPEIN | (t->t_dflg &
 			(F_PIPEOUT | F_AMPERSAND | F_NOFORK | F_NOINTERRUPT));
-	execute(t->t_dcdr, wanttty, pv, pipeout);
+	execute(t->t_dcdr, wanttty, pv, pipeout, do_glob);
 	t->t_dcar->t_dflg |= F_PIPEOUT |
 	    (t->t_dflg & (F_PIPEIN | F_AMPERSAND | F_STDERR | F_NOINTERRUPT));
-	execute(t->t_dcar, wanttty, pipein, pv);
+	execute(t->t_dcar, wanttty, pipein, pv, do_glob);
 #else /* !BACKPIPE */
 	t->t_dcar->t_dflg |= F_PIPEOUT |
 	    (t->t_dflg & (F_PIPEIN | F_AMPERSAND | F_STDERR | F_NOINTERRUPT));
-	execute(t->t_dcar, wanttty, pipein, pv);
+	execute(t->t_dcar, wanttty, pipein, pv, do_glob);
 	t->t_dcdr->t_dflg |= F_PIPEIN | (t->t_dflg &
 			(F_PIPEOUT | F_AMPERSAND | F_NOFORK | F_NOINTERRUPT));
-	execute(t->t_dcdr, wanttty, pv, pipeout);
+	execute(t->t_dcdr, wanttty, pv, pipeout, do_glob);
 #endif /* BACKPIPE */
 	break;
 
     case NODE_LIST:
 	if (t->t_dcar) {
 	    t->t_dcar->t_dflg |= t->t_dflg & F_NOINTERRUPT;
-	    execute(t->t_dcar, wanttty, NULL, NULL);
+	    execute(t->t_dcar, wanttty, NULL, NULL, do_glob);
 	    /*
 	     * In strange case of A&B make a new job after A
 	     */
@@ -700,7 +711,7 @@ execute(t, wanttty, pipein, pipeout)
 	if (t->t_dcdr) {
 	    t->t_dcdr->t_dflg |= t->t_dflg &
 		(F_NOFORK | F_NOINTERRUPT);
-	    execute(t->t_dcdr, wanttty, NULL, NULL);
+	    execute(t->t_dcdr, wanttty, NULL, NULL, do_glob);
 	}
 	break;
 
@@ -708,7 +719,7 @@ execute(t, wanttty, pipein, pipeout)
     case NODE_AND:
 	if (t->t_dcar) {
 	    t->t_dcar->t_dflg |= t->t_dflg & F_NOINTERRUPT;
-	    execute(t->t_dcar, wanttty, NULL, NULL);
+	    execute(t->t_dcar, wanttty, NULL, NULL, do_glob);
 	    if ((getn(varval(STRstatus)) == 0) !=
 		(t->t_dtyp == NODE_AND)) {
 		return;
@@ -717,7 +728,7 @@ execute(t, wanttty, pipein, pipeout)
 	if (t->t_dcdr) {
 	    t->t_dcdr->t_dflg |= t->t_dflg &
 		(F_NOFORK | F_NOINTERRUPT);
-	    execute(t->t_dcdr, wanttty, NULL, NULL);
+	    execute(t->t_dcdr, wanttty, NULL, NULL, do_glob);
 	}
 	break;
 

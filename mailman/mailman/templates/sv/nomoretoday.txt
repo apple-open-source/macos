@@ -1,0 +1,7 @@
+Vi har fått en förfrågan från din adress '%(sender)s', som kräver ett
+automatiskt svar från e-postlistan %(listname)s. Vi har redan fått %(num)s
+frågor från dig idag. För att undvika problem som till exempel oändliga e-postloopar
+mellan e-postrobotar, kommer vi inte att skicka fler svar till dig idag. Var snäll och försök igen i morgon.
+
+Om du anser att detta inte kan stämma, eller du om har frågor,
+kontakta ägaren till e-postlistan på %(owneremail)s.

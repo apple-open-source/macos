@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -197,8 +195,8 @@ int mode)
 	if(module == NULL){
 	    NSLinkEditError(&NSLinkEditError_errorClass,
 			    &NSLinkEditError_errorNumber,
-    			    &NSLinkEditError_fileName,
-			    &NSLinkEditError_errorString);
+    			    (const char **)&NSLinkEditError_fileName,
+			    (const char **)&NSLinkEditError_errorString);
 	    if(NSLinkEditError_errorClass == NSLinkEditUnixResourceError)
 		errno = NSLinkEditError_errorNumber;
 	    dlerror_pointer = NSLinkEditError_errorString;

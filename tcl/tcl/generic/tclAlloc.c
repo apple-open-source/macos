@@ -15,8 +15,15 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclAlloc.c,v 1.1.1.4 2000/12/06 23:03:21 wsanchez Exp $
+ * RCS: @(#) $Id: tclAlloc.c,v 1.1.1.5 2003/03/06 00:09:55 landonf Exp $
  */
+
+/*
+ * Windows and Unix use an alternative allocator when building with threads
+ * that has significantly reduced lock contention.
+ */
+
+#if !defined(TCL_THREADS) || !defined(USE_THREAD_ALLOC)
 
 #include "tclInt.h"
 #include "tclPort.h"
@@ -30,9 +37,10 @@
 #endif
 
 /*
- * On Unix this will already be defined
+ * We should really make use of AC_CHECK_TYPE(caddr_t)
+ * here, but it can wait until Tcl uses config.h properly.
  */
-#if defined(WIN32) || defined(MAC_TCL)
+#if defined(MAC_TCL) || defined(_MSC_VER) || defined(__MINGW32__) || defined(__BORLANDC__)
 typedef unsigned long caddr_t;
 #endif
 
@@ -720,3 +728,4 @@ TclpRealloc(cp, nbytes)
 }
 
 #endif /* !USE_TCLALLOC */
+#endif /* !TCL_THREADS */

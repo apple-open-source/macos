@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -38,6 +41,7 @@
 #include "SCDynamicStoreInternal.h"
 #include "config.h"		/* MiG generated file */
 
+
 Boolean
 SCDynamicStoreSetMultiple(SCDynamicStoreRef	store,
 			  CFDictionaryRef	keysToSet,
@@ -57,10 +61,12 @@ SCDynamicStoreSetMultiple(SCDynamicStoreRef	store,
 	CFIndex				myNotifyLen	= 0;
 	int				sc_status;
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreSetMultiple:"));
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  keysToSet    = %@"), keysToSet);
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  keysToRemove = %@"), keysToRemove);
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  keysToNotify = %@"), keysToNotify);
+	if (_sc_verbose) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreSetMultiple:"));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  keysToSet    = %@"), keysToSet);
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  keysToRemove = %@"), keysToRemove);
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  keysToNotify = %@"), keysToNotify);
+	}
 
 	if (!store) {
 		/* sorry, you must provide a session */
@@ -75,7 +81,19 @@ SCDynamicStoreSetMultiple(SCDynamicStoreRef	store,
 
 	/* serialize the key/value pairs to set*/
 	if (keysToSet) {
-		if (!_SCSerialize(keysToSet, &xmlSet, (void **)&mySetRef, &mySetLen)) {
+		CFDictionaryRef	newInfo;
+		Boolean		ok;
+
+		newInfo = _SCSerializeMultiple(keysToSet);
+		if (!newInfo) {
+			_SCErrorSet(kSCStatusFailed);
+			return NULL;
+		}
+
+		ok = _SCSerialize(newInfo, &xmlSet, (void **)&mySetRef, &mySetLen);
+		CFRelease(newInfo);
+
+		if (!ok) {
 			_SCErrorSet(kSCStatusFailed);
 			return NULL;
 		}
@@ -137,7 +155,7 @@ SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListR
 {
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 	kern_return_t			status;
-	CFDataRef			xmlKey;		/* serialized key */
+	CFDataRef			utfKey;		/* serialized key */
 	xmlData_t			myKeyRef;
 	CFIndex				myKeyLen;
 	CFDataRef			xmlData;	/* serialized data */
@@ -146,9 +164,11 @@ SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListR
 	int				sc_status;
 	int				newInstance;
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreSetValue:"));
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  key          = %@"), key);
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  value        = %@"), value);
+	if (_sc_verbose) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreSetValue:"));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  key          = %@"), key);
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  value        = %@"), value);
+	}
 
 	if (!store) {
 		/* sorry, you must provide a session */
@@ -163,16 +183,16 @@ SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListR
 	}
 
 	/* serialize the key */
-	if (!_SCSerialize(key, &xmlKey, (void **)&myKeyRef, &myKeyLen)) {
+	if (!_SCSerializeString(key, &utfKey, (void **)&myKeyRef, &myKeyLen)) {
 		_SCErrorSet(kSCStatusFailed);
-		return NULL;
+		return FALSE;
 	}
 
 	/* serialize the data */
 	if (!_SCSerialize(value, &xmlData, (void **)&myDataRef, &myDataLen)) {
-		CFRelease(xmlKey);
+		CFRelease(utfKey);
 		_SCErrorSet(kSCStatusFailed);
-		return NULL;
+		return FALSE;
 	}
 
 	/* send the key & data to the server, get new instance id */
@@ -186,7 +206,7 @@ SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListR
 			   (int *)&sc_status);
 
 	/* clean up */
-	CFRelease(xmlKey);
+	CFRelease(utfKey);
 	CFRelease(xmlData);
 
 	if (status != KERN_SUCCESS) {

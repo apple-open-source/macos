@@ -1,4 +1,4 @@
-.TH NSModule 3 "December 13, 2001" "Apple Computer, Inc."
+.TH NSModule 3 "March 10, 2001" "Apple Computer, Inc."
 .SH NAME
 NSModule \- programmatic interface for working with modules and symbols
 .SH SYNOPSIS
@@ -165,6 +165,16 @@ that failed to load the routine
 is then used.  It has the same parameters as the link edit error handler (see
 below) except all the parameters are pointers in which the information is
 returned indirectly.
+.TP
+.B NSLINKMODULE_OPTION_DONT_CALL_MOD_INIT_ROUTINES
+With this option the module init routines are not called.  This is only useful
+to the fix-and-continue implementation.
+.TP NSLINKMODULE_OPTION_TRAILING_PHYS_NAME
+With this option the parameter,
+.I moduleName
+is assumed to be a string with the logical name of the image with the physical
+name of the object file tailing after the NULL character of the logical name.
+This is only useful to the zero-link implementation.
 .PP
 .I NSUnLinkModule
 unlinks the specified module handle from the program.  Currently the 

@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +21,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 
 #include <libkern/OSByteOrder.h>
 #include <IOKit/IOMessage.h>
@@ -92,7 +92,7 @@ AppleUSBComposite::CompositeDriverInterestHandler(  void * target, void * refCon
             break;
             
         case kIOMessageServiceWasClosed:
-            USBLog(5, "CompositeDriverInterestHandler received kIOMessageServiceWasClosed (expecting close = %d)", me->_expectingClose);
+            USBLog(3, "CompositeDriverInterestHandler received kIOMessageServiceWasClosed (expecting close = %d)", me->_expectingClose);
             me->_expectingClose = false;
             break;
             
@@ -112,7 +112,7 @@ bool
 AppleUSBComposite::ConfigureDevice()
 {
     IOReturn	err = kIOReturnSuccess;
-    UInt8	prefConfigValue;
+    UInt8	prefConfigValue = 0;
     OSNumber *	prefConfig = NULL;
     
     do {
@@ -302,7 +302,7 @@ AppleUSBComposite::message( UInt32 type, IOService * provider,  void * argument 
         case kIOUSBMessagePortHasBeenReset:
             // Should we do something here if we get an error?
             //
-            USBLog(5, "%s[%p]::message - received kIOUSBMessagePortHasBeenReset",getName(), this);
+            USBLog(3, "%s[%p]::message - received kIOUSBMessagePortHasBeenReset",getName(), this);
             err = ReConfigureDevice();
             break;
             
@@ -334,7 +334,7 @@ AppleUSBComposite::message( UInt32 type, IOService * provider,  void * argument 
 bool
 AppleUSBComposite::willTerminate( IOService * provider, IOOptionBits options )
 {
-    USBLog(5, "%s[%p]::willTerminate isInactive = %d", getName(), this, isInactive());
+    USBLog(6, "%s[%p]::willTerminate isInactive = %d", getName(), this, isInactive());
 
     // Clean up our notifier.  That will release it
     //
@@ -348,7 +348,7 @@ AppleUSBComposite::willTerminate( IOService * provider, IOOptionBits options )
 bool
 AppleUSBComposite::didTerminate( IOService * provider, IOOptionBits options, bool * defer )
 {
-    USBLog(5, "%s[%p]::didTerminate isInactive = %d", getName(), this, isInactive());
+    USBLog(6, "%s[%p]::didTerminate isInactive = %d", getName(), this, isInactive());
     // if we are still hanging on to the device, go ahead and close it
     if (_device->isOpen(this))
 	_device->close(this);
@@ -391,7 +391,6 @@ AppleUSBComposite::terminate( IOOptionBits options = 0 )
 void
 AppleUSBComposite::free( void )
 {
-    USBLog(3, "%s[%p]::free isInactive = %d", getName(), this, isInactive());
     super::free();
 }
 

@@ -1,0 +1,3511 @@
+<HTML
+><HEAD
+><TITLE
+>encoding</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.76b+
+"><LINK
+REL="HOME"
+TITLE="Gnome XML Library Reference Manual"
+HREF="book1.html"><LINK
+REL="UP"
+TITLE="Libxml Library Reference"
+HREF="libxml-lib.html"><LINK
+REL="PREVIOUS"
+TITLE="parserInternals"
+HREF="libxml-parserinternals.html"><LINK
+REL="NEXT"
+TITLE="hash"
+HREF="libxml-hash.html"></HEAD
+><BODY
+CLASS="REFENTRY"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+WIDTH="100%"
+BORDER="0"
+BGCOLOR="#000000"
+CELLPADDING="1"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="4"
+ALIGN="center"
+><FONT
+COLOR="#FFFFFF"
+SIZE="5"
+>Gnome XML Library Reference Manual</FONT
+></TH
+></TR
+><TR
+><TD
+WIDTH="25%"
+BGCOLOR="#C00000"
+ALIGN="left"
+><A
+HREF="libxml-parserinternals.html"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+>&#60;&#60;&#60; Previous Page</B
+></FONT
+></A
+></TD
+><TD
+WIDTH="25%"
+BGCOLOR="#0000C0"
+ALIGN="center"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+><A
+HREF="book1.html"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+>Home</B
+></FONT
+></A
+></B
+></FONT
+></TD
+><TD
+WIDTH="25%"
+BGCOLOR="#00C000"
+ALIGN="center"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+><A
+HREF="libxml-lib.html"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+>Up</B
+></FONT
+></A
+></B
+></FONT
+></TD
+><TD
+WIDTH="25%"
+BGCOLOR="#C00000"
+ALIGN="right"
+><A
+HREF="libxml-hash.html"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+>Next Page &#62;&#62;&#62;</B
+></FONT
+></A
+></TD
+></TR
+></TABLE
+></DIV
+><H1
+><A
+NAME="LIBXML-ENCODING">encoding</H1
+><DIV
+CLASS="REFNAMEDIV"
+><A
+NAME="AEN24757"
+></A
+><H2
+>Name</H2
+>encoding&nbsp;--&nbsp;</DIV
+><DIV
+CLASS="REFSYNOPSISDIV"
+><A
+NAME="AEN24760"><H2
+>Synopsis</H2
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="SYNOPSIS"
+>&#13;
+
+enum        <A
+HREF="libxml-encoding.html#XMLCHARENCODING"
+>xmlCharEncoding</A
+>;
+int         (<A
+HREF="libxml-encoding.html#XMLCHARENCODINGINPUTFUNC"
+>*xmlCharEncodingInputFunc</A
+>)     (unsigned char *out,
+                                             int *outlen,
+                                             unsigned char *in,
+                                             int *inlen);
+int         (<A
+HREF="libxml-encoding.html#XMLCHARENCODINGOUTPUTFUNC"
+>*xmlCharEncodingOutputFunc</A
+>)    (unsigned char *out,
+                                             int *outlen,
+                                             unsigned char *in,
+                                             int *inlen);
+struct      <A
+HREF="libxml-encoding.html#XMLCHARENCODINGHANDLER"
+>xmlCharEncodingHandler</A
+>;
+typedef     <A
+HREF="libxml-encoding.html#XMLCHARENCODINGHANDLERPTR"
+>xmlCharEncodingHandlerPtr</A
+>;
+void        <A
+HREF="libxml-encoding.html#XMLINITCHARENCODINGHANDLERS"
+>xmlInitCharEncodingHandlers</A
+>     (void);
+void        <A
+HREF="libxml-encoding.html#XMLCLEANUPCHARENCODINGHANDLERS"
+>xmlCleanupCharEncodingHandlers</A
+>  (void);
+void        <A
+HREF="libxml-encoding.html#XMLREGISTERCHARENCODINGHANDLER"
+>xmlRegisterCharEncodingHandler</A
+>  (<A
+HREF="libxml-encoding.html#XMLCHARENCODINGHANDLERPTR"
+>xmlCharEncodingHandlerPtr</A
+> handler);
+<A
+HREF="libxml-encoding.html#XMLCHARENCODINGHANDLERPTR"
+>xmlCharEncodingHandlerPtr</A
+> <A
+HREF="libxml-encoding.html#XMLGETCHARENCODINGHANDLER"
+>xmlGetCharEncodingHandler</A
+>
+                                            (<A
+HREF="libxml-encoding.html#XMLCHARENCODING"
+>xmlCharEncoding</A
+> enc);
+<A
+HREF="libxml-encoding.html#XMLCHARENCODINGHANDLERPTR"
+>xmlCharEncodingHandlerPtr</A
+> <A
+HREF="libxml-encoding.html#XMLFINDCHARENCODINGHANDLER"
+>xmlFindCharEncodingHandler</A
+>
+                                            (const char *name);
+<A
+HREF="libxml-encoding.html#XMLCHARENCODINGHANDLERPTR"
+>xmlCharEncodingHandlerPtr</A
+> <A
+HREF="libxml-encoding.html#XMLNEWCHARENCODINGHANDLER"
+>xmlNewCharEncodingHandler</A
+>
+                                            (const char *name,
+                                             <A
+HREF="libxml-encoding.html#XMLCHARENCODINGINPUTFUNC"
+>xmlCharEncodingInputFunc</A
+> input,
+                                             <A
+HREF="libxml-encoding.html#XMLCHARENCODINGOUTPUTFUNC"
+>xmlCharEncodingOutputFunc</A
+> output);
+int         <A
+HREF="libxml-encoding.html#XMLADDENCODINGALIAS"
+>xmlAddEncodingAlias</A
+>             (const char *name,
+                                             const char *alias);
+int         <A
+HREF="libxml-encoding.html#XMLDELENCODINGALIAS"
+>xmlDelEncodingAlias</A
+>             (const char *alias);
+const char* <A
+HREF="libxml-encoding.html#XMLGETENCODINGALIAS"
+>xmlGetEncodingAlias</A
+>             (const char *alias);
+void        <A
+HREF="libxml-encoding.html#XMLCLEANUPENCODINGALIASES"
+>xmlCleanupEncodingAliases</A
+>       (void);
+<A
+HREF="libxml-encoding.html#XMLCHARENCODING"
+>xmlCharEncoding</A
+> <A
+HREF="libxml-encoding.html#XMLPARSECHARENCODING"
+>xmlParseCharEncoding</A
+>        (const char *name);
+const char* <A
+HREF="libxml-encoding.html#XMLGETCHARENCODINGNAME"
+>xmlGetCharEncodingName</A
+>          (<A
+HREF="libxml-encoding.html#XMLCHARENCODING"
+>xmlCharEncoding</A
+> enc);
+<A
+HREF="libxml-encoding.html#XMLCHARENCODING"
+>xmlCharEncoding</A
+> <A
+HREF="libxml-encoding.html#XMLDETECTCHARENCODING"
+>xmlDetectCharEncoding</A
+>       (unsigned char *in,
+                                             int len);
+int         <A
+HREF="libxml-encoding.html#XMLCHARENCOUTFUNC"
+>xmlCharEncOutFunc</A
+>               (<A
+HREF="libxml-encoding.html#XMLCHARENCODINGHANDLER"
+>xmlCharEncodingHandler</A
+> *handler,
+                                             <A
+HREF="libxml-tree.html#XMLBUFFERPTR"
+>xmlBufferPtr</A
+> out,
+                                             <A
+HREF="libxml-tree.html#XMLBUFFERPTR"
+>xmlBufferPtr</A
+> in);
+int         <A
+HREF="libxml-encoding.html#XMLCHARENCINFUNC"
+>xmlCharEncInFunc</A
+>                (<A
+HREF="libxml-encoding.html#XMLCHARENCODINGHANDLER"
+>xmlCharEncodingHandler</A
+> *handler,
+                                             <A
+HREF="libxml-tree.html#XMLBUFFERPTR"
+>xmlBufferPtr</A
+> out,
+                                             <A
+HREF="libxml-tree.html#XMLBUFFERPTR"
+>xmlBufferPtr</A
+> in);
+int         <A
+HREF="libxml-encoding.html#XMLCHARENCFIRSTLINE"
+>xmlCharEncFirstLine</A
+>             (<A
+HREF="libxml-encoding.html#XMLCHARENCODINGHANDLER"
+>xmlCharEncodingHandler</A
+> *handler,
+                                             <A
+HREF="libxml-tree.html#XMLBUFFERPTR"
+>xmlBufferPtr</A
+> out,
+                                             <A
+HREF="libxml-tree.html#XMLBUFFERPTR"
+>xmlBufferPtr</A
+> in);
+int         <A
+HREF="libxml-encoding.html#XMLCHARENCCLOSEFUNC"
+>xmlCharEncCloseFunc</A
+>             (<A
+HREF="libxml-encoding.html#XMLCHARENCODINGHANDLER"
+>xmlCharEncodingHandler</A
+> *handler);
+int         <A
+HREF="libxml-encoding.html#UTF8TOISOLAT1"
+>UTF8Toisolat1</A
+>                   (unsigned char *out,
+                                             int *outlen,
+                                             unsigned char *in,
+                                             int *inlen);
+int         <A
+HREF="libxml-encoding.html#ISOLAT1TOUTF8"
+>isolat1ToUTF8</A
+>                   (unsigned char *out,
+                                             int *outlen,
+                                             unsigned char *in,
+                                             int *inlen);
+int         <A
+HREF="libxml-encoding.html#XMLCHECKUTF8"
+>xmlCheckUTF8</A
+>                    (unsigned char *utf);
+int         <A
+HREF="libxml-encoding.html#XMLUTF8STRSIZE"
+>xmlUTF8Strsize</A
+>                  (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *utf,
+                                             int len);
+<A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+>*    <A
+HREF="libxml-encoding.html#XMLUTF8STRNDUP"
+>xmlUTF8Strndup</A
+>                  (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *utf,
+                                             int len);
+<A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+>*    <A
+HREF="libxml-encoding.html#XMLUTF8STRPOS"
+>xmlUTF8Strpos</A
+>                   (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *utf,
+                                             int pos);
+int         <A
+HREF="libxml-encoding.html#XMLUTF8STRLOC"
+>xmlUTF8Strloc</A
+>                   (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *utf,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *utfchar);
+<A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+>*    <A
+HREF="libxml-encoding.html#XMLUTF8STRSUB"
+>xmlUTF8Strsub</A
+>                   (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *utf,
+                                             int start,
+                                             int len);
+int         <A
+HREF="libxml-encoding.html#XMLUTF8STRLEN"
+>xmlUTF8Strlen</A
+>                   (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *utf);</PRE
+></TD
+></TR
+></TABLE
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN24824"
+></A
+><H2
+>Description</H2
+><P
+></P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN24827"
+></A
+><H2
+>Details</H2
+><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN24829"
+></A
+><H3
+><A
+NAME="XMLCHARENCODING"
+></A
+>enum xmlCharEncoding</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>typedef enum {
+    XML_CHAR_ENCODING_ERROR=   -1, /* No char encoding detected */
+    XML_CHAR_ENCODING_NONE=	0, /* No char encoding detected */
+    XML_CHAR_ENCODING_UTF8=	1, /* UTF-8 */
+    XML_CHAR_ENCODING_UTF16LE=	2, /* UTF-16 little endian */
+    XML_CHAR_ENCODING_UTF16BE=	3, /* UTF-16 big endian */
+    XML_CHAR_ENCODING_UCS4LE=	4, /* UCS-4 little endian */
+    XML_CHAR_ENCODING_UCS4BE=	5, /* UCS-4 big endian */
+    XML_CHAR_ENCODING_EBCDIC=	6, /* EBCDIC uh! */
+    XML_CHAR_ENCODING_UCS4_2143=7, /* UCS-4 unusual ordering */
+    XML_CHAR_ENCODING_UCS4_3412=8, /* UCS-4 unusual ordering */
+    XML_CHAR_ENCODING_UCS2=	9, /* UCS-2 */
+    XML_CHAR_ENCODING_8859_1=	10,/* ISO-8859-1 ISO Latin 1 */
+    XML_CHAR_ENCODING_8859_2=	11,/* ISO-8859-2 ISO Latin 2 */
+    XML_CHAR_ENCODING_8859_3=	12,/* ISO-8859-3 */
+    XML_CHAR_ENCODING_8859_4=	13,/* ISO-8859-4 */
+    XML_CHAR_ENCODING_8859_5=	14,/* ISO-8859-5 */
+    XML_CHAR_ENCODING_8859_6=	15,/* ISO-8859-6 */
+    XML_CHAR_ENCODING_8859_7=	16,/* ISO-8859-7 */
+    XML_CHAR_ENCODING_8859_8=	17,/* ISO-8859-8 */
+    XML_CHAR_ENCODING_8859_9=	18,/* ISO-8859-9 */
+    XML_CHAR_ENCODING_2022_JP=  19,/* ISO-2022-JP */
+    XML_CHAR_ENCODING_SHIFT_JIS=20,/* Shift_JIS */
+    XML_CHAR_ENCODING_EUC_JP=   21,/* EUC-JP */
+    XML_CHAR_ENCODING_ASCII=    22 /* pure ASCII */
+} xmlCharEncoding;</PRE
+></TD
+></TR
+></TABLE
+><P
+>Predefined values for some standard encodings.
+Libxml don't do beforehand translation on UTF8, ISOLatinX.
+It also support UTF16 (LE and BE) by default.</P
+><P
+>Anything else would have to be translated to UTF8 before being
+given to the parser itself. The BOM for UTF16 and the encoding
+declaration are looked at and a converter is looked for at that
+point. If not found the parser stops here as asked by the XML REC
+Converter can be registered by the user using xmlRegisterCharEncodingHandler
+but the current form doesn't allow stateful transcoding (a serious
+problem agreed !). If iconv has been found it will be used
+automatically and allow stateful transcoding, the simplest is then
+to be sure to enable icon and to provide iconv libs for the encoding
+support needed.</P
+><P
+></P
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN24836"
+></A
+><H3
+><A
+NAME="XMLCHARENCODINGINPUTFUNC"
+></A
+>xmlCharEncodingInputFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         (*xmlCharEncodingInputFunc)     (unsigned char *out,
+                                             int *outlen,
+                                             unsigned char *in,
+                                             int *inlen);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Take a block of chars in the original encoding and try to convert
+it to an UTF-8 block of chars out.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN24842"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>out</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a pointer to an array of bytes to store the UTF-8 result</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>outlen</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the length of <TT
+CLASS="PARAMETER"
+><I
+>out</I
+></TT
+></TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>in</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a pointer to an array of chars in the original encoding</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>inlen</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the length of <TT
+CLASS="PARAMETER"
+><I
+>in</I
+></TT
+></TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the number of byte written, or -1 by lack of space, or -2
+if the transcoding failed.
+The value of <TT
+CLASS="PARAMETER"
+><I
+>inlen</I
+></TT
+> after return is the number of octets consumed
+as the return value is positive, else unpredictiable.
+The value of <TT
+CLASS="PARAMETER"
+><I
+>outlen</I
+></TT
+> after return is the number of octets consumed.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN24871"
+></A
+><H3
+><A
+NAME="XMLCHARENCODINGOUTPUTFUNC"
+></A
+>xmlCharEncodingOutputFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         (*xmlCharEncodingOutputFunc)    (unsigned char *out,
+                                             int *outlen,
+                                             unsigned char *in,
+                                             int *inlen);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Take a block of UTF-8 chars in and try to convert it to an other
+encoding.
+Note: a first call designed to produce heading info is called with
+in = NULL. If stateful this should also initialize the encoder state.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN24877"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>out</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a pointer to an array of bytes to store the result</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>outlen</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the length of <TT
+CLASS="PARAMETER"
+><I
+>out</I
+></TT
+></TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>in</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a pointer to an array of UTF-8 chars</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>inlen</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the length of <TT
+CLASS="PARAMETER"
+><I
+>in</I
+></TT
+></TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the number of byte written, or -1 by lack of space, or -2
+if the transcoding failed.
+The value of <TT
+CLASS="PARAMETER"
+><I
+>inlen</I
+></TT
+> after return is the number of octets consumed
+as the return value is positive, else unpredictiable.
+The value of <TT
+CLASS="PARAMETER"
+><I
+>outlen</I
+></TT
+> after return is the number of ocetes consumed.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN24906"
+></A
+><H3
+><A
+NAME="XMLCHARENCODINGHANDLER"
+></A
+>struct xmlCharEncodingHandler</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>struct xmlCharEncodingHandler {
+    char                       *name;
+    xmlCharEncodingInputFunc   input;
+    xmlCharEncodingOutputFunc  output;
+#ifdef LIBXML_ICONV_ENABLED
+    iconv_t                    iconv_in;
+    iconv_t                    iconv_out;
+#endif /* LIBXML_ICONV_ENABLED */
+};</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN24911"
+></A
+><H3
+><A
+NAME="XMLCHARENCODINGHANDLERPTR"
+></A
+>xmlCharEncodingHandlerPtr</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>typedef xmlCharEncodingHandler *xmlCharEncodingHandlerPtr;</PRE
+></TD
+></TR
+></TABLE
+><P
+></P
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN24916"
+></A
+><H3
+><A
+NAME="XMLINITCHARENCODINGHANDLERS"
+></A
+>xmlInitCharEncodingHandlers ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        xmlInitCharEncodingHandlers     (void);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Initialize the char encoding support, it registers the default
+encoding supported.
+NOTE: while public, this function usually doesn't need to be called
+in normal processing.</P
+><P
+></P
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN24922"
+></A
+><H3
+><A
+NAME="XMLCLEANUPCHARENCODINGHANDLERS"
+></A
+>xmlCleanupCharEncodingHandlers ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        xmlCleanupCharEncodingHandlers  (void);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Cleanup the memory allocated for the char encoding support, it
+unregisters all the encoding handlers and the aliases.</P
+><P
+></P
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN24928"
+></A
+><H3
+><A
+NAME="XMLREGISTERCHARENCODINGHANDLER"
+></A
+>xmlRegisterCharEncodingHandler ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        xmlRegisterCharEncodingHandler  (<A
+HREF="libxml-encoding.html#XMLCHARENCODINGHANDLERPTR"
+>xmlCharEncodingHandlerPtr</A
+> handler);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Register the char encoding handler, surprising, isn't it ?</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN24935"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>handler</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the xmlCharEncodingHandlerPtr handler block</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN24944"
+></A
+><H3
+><A
+NAME="XMLGETCHARENCODINGHANDLER"
+></A
+>xmlGetCharEncodingHandler ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-encoding.html#XMLCHARENCODINGHANDLERPTR"
+>xmlCharEncodingHandlerPtr</A
+> xmlGetCharEncodingHandler
+                                            (<A
+HREF="libxml-encoding.html#XMLCHARENCODING"
+>xmlCharEncoding</A
+> enc);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Search in the registered set the handler able to read/write that encoding.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN24952"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>enc</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an xmlCharEncoding value.</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the handler or NULL if not found</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN24965"
+></A
+><H3
+><A
+NAME="XMLFINDCHARENCODINGHANDLER"
+></A
+>xmlFindCharEncodingHandler ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-encoding.html#XMLCHARENCODINGHANDLERPTR"
+>xmlCharEncodingHandlerPtr</A
+> xmlFindCharEncodingHandler
+                                            (const char *name);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Search in the registered set the handler able to read/write that encoding.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN24972"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>name</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a string describing the char encoding.</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the handler or NULL if not found</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN24985"
+></A
+><H3
+><A
+NAME="XMLNEWCHARENCODINGHANDLER"
+></A
+>xmlNewCharEncodingHandler ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-encoding.html#XMLCHARENCODINGHANDLERPTR"
+>xmlCharEncodingHandlerPtr</A
+> xmlNewCharEncodingHandler
+                                            (const char *name,
+                                             <A
+HREF="libxml-encoding.html#XMLCHARENCODINGINPUTFUNC"
+>xmlCharEncodingInputFunc</A
+> input,
+                                             <A
+HREF="libxml-encoding.html#XMLCHARENCODINGOUTPUTFUNC"
+>xmlCharEncodingOutputFunc</A
+> output);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Create and registers an xmlCharEncodingHandler.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN24994"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>name</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the encoding name, in UTF-8 format (ASCII actually)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>input</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the xmlCharEncodingInputFunc to read that encoding</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>output</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the xmlCharEncodingOutputFunc to write that encoding</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the xmlCharEncodingHandlerPtr created (or NULL in case of error).</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN25015"
+></A
+><H3
+><A
+NAME="XMLADDENCODINGALIAS"
+></A
+>xmlAddEncodingAlias ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlAddEncodingAlias             (const char *name,
+                                             const char *alias);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Registers and alias <TT
+CLASS="PARAMETER"
+><I
+>alias</I
+></TT
+> for an encoding named <TT
+CLASS="PARAMETER"
+><I
+>name</I
+></TT
+>. Existing alias
+will be overwritten.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN25023"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>name</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the encoding name as parsed, in UTF-8 format (ASCII actually)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>alias</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the alias name as parsed, in UTF-8 format (ASCII actually)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>0 in case of success, -1 in case of error</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN25040"
+></A
+><H3
+><A
+NAME="XMLDELENCODINGALIAS"
+></A
+>xmlDelEncodingAlias ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlDelEncodingAlias             (const char *alias);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Unregisters an encoding alias <TT
+CLASS="PARAMETER"
+><I
+>alias</I
+></TT
+></P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN25047"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>alias</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the alias name as parsed, in UTF-8 format (ASCII actually)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>0 in case of success, -1 in case of error</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN25060"
+></A
+><H3
+><A
+NAME="XMLGETENCODINGALIAS"
+></A
+>xmlGetEncodingAlias ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>const char* xmlGetEncodingAlias             (const char *alias);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Lookup an encoding name for the given alias.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN25066"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>alias</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the alias name as parsed, in UTF-8 format (ASCII actually)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>NULL if not found the original name otherwise</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN25079"
+></A
+><H3
+><A
+NAME="XMLCLEANUPENCODINGALIASES"
+></A
+>xmlCleanupEncodingAliases ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        xmlCleanupEncodingAliases       (void);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Unregisters all aliases</P
+><P
+></P
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN25085"
+></A
+><H3
+><A
+NAME="XMLPARSECHARENCODING"
+></A
+>xmlParseCharEncoding ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-encoding.html#XMLCHARENCODING"
+>xmlCharEncoding</A
+> xmlParseCharEncoding        (const char *name);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Compare the string to the known encoding schemes already known. Note
+that the comparison is case insensitive accordingly to the section
+[XML] 4.3.3 Character Encoding in Entities.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN25092"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>name</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the encoding name as parsed, in UTF-8 format (ASCII actually)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>one of the XML_CHAR_ENCODING_... values or XML_CHAR_ENCODING_NONE
+if not recognized.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN25105"
+></A
+><H3
+><A
+NAME="XMLGETCHARENCODINGNAME"
+></A
+>xmlGetCharEncodingName ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>const char* xmlGetCharEncodingName          (<A
+HREF="libxml-encoding.html#XMLCHARENCODING"
+>xmlCharEncoding</A
+> enc);</PRE
+></TD
+></TR
+></TABLE
+><P
+>The "canonical" name for XML encoding.
+C.f. http://www.w3.org/TR/REC-xml<GTKDOCLINK
+HREF="CHARENCODING"
+>charencoding</GTKDOCLINK
+>
+Section 4.3.3  Character Encoding in Entities</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN25113"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>enc</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the encoding</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the canonical name for the given encoding</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN25126"
+></A
+><H3
+><A
+NAME="XMLDETECTCHARENCODING"
+></A
+>xmlDetectCharEncoding ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-encoding.html#XMLCHARENCODING"
+>xmlCharEncoding</A
+> xmlDetectCharEncoding       (unsigned char *in,
+                                             int len);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Guess the encoding of the entity using the first bytes of the entity content
+accordingly of the non-normative appendix F of the XML-1.0 recommendation.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN25133"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>in</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a pointer to the first bytes of the XML entity, must be at least
+4 bytes long.</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>len</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  pointer to the length of the buffer</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>one of the XML_CHAR_ENCODING_... values.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN25150"
+></A
+><H3
+><A
+NAME="XMLCHARENCOUTFUNC"
+></A
+>xmlCharEncOutFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlCharEncOutFunc               (<A
+HREF="libxml-encoding.html#XMLCHARENCODINGHANDLER"
+>xmlCharEncodingHandler</A
+> *handler,
+                                             <A
+HREF="libxml-tree.html#XMLBUFFERPTR"
+>xmlBufferPtr</A
+> out,
+                                             <A
+HREF="libxml-tree.html#XMLBUFFERPTR"
+>xmlBufferPtr</A
+> in);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Generic front-end for the encoding handler output function
+a first call with <TT
+CLASS="PARAMETER"
+><I
+>in</I
+></TT
+> == NULL has to be made firs to initiate the 
+output in case of non-stateless encoding needing to initiate their
+state or the output (like the BOM in UTF16).
+In case of UTF8 sequence conversion errors for the given encoder,
+the content will be automatically remapped to a CharRef sequence.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN25160"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>handler</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>	char enconding transformation data structure</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>out</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an xmlBuffer for the output.</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>in</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an xmlBuffer for the input</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the number of byte written if success, or 
+-1 general error
+-2 if the transcoding fails (for *in is not valid utf8 string or
+the result of transformation can't fit into the encoding we want), or</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN25181"
+></A
+><H3
+><A
+NAME="XMLCHARENCINFUNC"
+></A
+>xmlCharEncInFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlCharEncInFunc                (<A
+HREF="libxml-encoding.html#XMLCHARENCODINGHANDLER"
+>xmlCharEncodingHandler</A
+> *handler,
+                                             <A
+HREF="libxml-tree.html#XMLBUFFERPTR"
+>xmlBufferPtr</A
+> out,
+                                             <A
+HREF="libxml-tree.html#XMLBUFFERPTR"
+>xmlBufferPtr</A
+> in);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Generic front-end for the encoding handler input function</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN25190"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>handler</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>	char encoding transformation data structure</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>out</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an xmlBuffer for the output.</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>in</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an xmlBuffer for the input</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the number of byte written if success, or 
+-1 general error
+-2 if the transcoding fails (for *in is not valid utf8 string or
+the result of transformation can't fit into the encoding we want), or</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN25211"
+></A
+><H3
+><A
+NAME="XMLCHARENCFIRSTLINE"
+></A
+>xmlCharEncFirstLine ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlCharEncFirstLine             (<A
+HREF="libxml-encoding.html#XMLCHARENCODINGHANDLER"
+>xmlCharEncodingHandler</A
+> *handler,
+                                             <A
+HREF="libxml-tree.html#XMLBUFFERPTR"
+>xmlBufferPtr</A
+> out,
+                                             <A
+HREF="libxml-tree.html#XMLBUFFERPTR"
+>xmlBufferPtr</A
+> in);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Front-end for the encoding handler input function, but handle only
+the very first line, i.e. limit itself to 45 chars.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN25220"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>handler</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>	char enconding transformation data structure</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>out</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an xmlBuffer for the output.</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>in</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an xmlBuffer for the input</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the number of byte written if success, or 
+-1 general error
+-2 if the transcoding fails (for *in is not valid utf8 string or
+the result of transformation can't fit into the encoding we want), or</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN25241"
+></A
+><H3
+><A
+NAME="XMLCHARENCCLOSEFUNC"
+></A
+>xmlCharEncCloseFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlCharEncCloseFunc             (<A
+HREF="libxml-encoding.html#XMLCHARENCODINGHANDLER"
+>xmlCharEncodingHandler</A
+> *handler);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Generic front-end for encoding handler close function</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN25248"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>handler</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>	char enconding transformation data structure</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>0 if success, or -1 in case of error</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN25261"
+></A
+><H3
+><A
+NAME="UTF8TOISOLAT1"
+></A
+>UTF8Toisolat1 ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         UTF8Toisolat1                   (unsigned char *out,
+                                             int *outlen,
+                                             unsigned char *in,
+                                             int *inlen);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Take a block of UTF-8 chars in and try to convert it to an ISO Latin 1
+block of chars out.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN25267"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>out</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a pointer to an array of bytes to store the result</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>outlen</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the length of <TT
+CLASS="PARAMETER"
+><I
+>out</I
+></TT
+></TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>in</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a pointer to an array of UTF-8 chars</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>inlen</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the length of <TT
+CLASS="PARAMETER"
+><I
+>in</I
+></TT
+></TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>0 if success, -2 if the transcoding fails, or -1 otherwise
+The value of <TT
+CLASS="PARAMETER"
+><I
+>inlen</I
+></TT
+> after return is the number of octets consumed
+as the return value is positive, else unpredictable.
+The value of <TT
+CLASS="PARAMETER"
+><I
+>outlen</I
+></TT
+> after return is the number of ocetes consumed.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN25296"
+></A
+><H3
+><A
+NAME="ISOLAT1TOUTF8"
+></A
+>isolat1ToUTF8 ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         isolat1ToUTF8                   (unsigned char *out,
+                                             int *outlen,
+                                             unsigned char *in,
+                                             int *inlen);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Take a block of ISO Latin 1 chars in and try to convert it to an UTF-8
+block of chars out.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN25302"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>out</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a pointer to an array of bytes to store the result</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>outlen</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the length of <TT
+CLASS="PARAMETER"
+><I
+>out</I
+></TT
+></TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>in</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a pointer to an array of ISO Latin 1 chars</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>inlen</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the length of <TT
+CLASS="PARAMETER"
+><I
+>in</I
+></TT
+></TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>0 if success, or -1 otherwise
+The value of <TT
+CLASS="PARAMETER"
+><I
+>inlen</I
+></TT
+> after return is the number of octets consumed
+as the return value is positive, else unpredictable.
+The value of <TT
+CLASS="PARAMETER"
+><I
+>outlen</I
+></TT
+> after return is the number of ocetes consumed.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN25331"
+></A
+><H3
+><A
+NAME="XMLCHECKUTF8"
+></A
+>xmlCheckUTF8 ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlCheckUTF8                    (unsigned char *utf);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Checks <TT
+CLASS="PARAMETER"
+><I
+>utf</I
+></TT
+> for being valid utf-8. <TT
+CLASS="PARAMETER"
+><I
+>utf</I
+></TT
+> is assumed to be
+null-terminated. This function is not super-strict, as it will
+allow longer utf-8 sequences than necessary. Note that Java is
+capable of producing these sequences if provoked. Also note, this
+routine checks for the 4-byte maximum size, but does not check for
+0x10ffff maximum value.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN25339"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>utf</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> Pointer to putative utf-8 encoded string.</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> true if <TT
+CLASS="PARAMETER"
+><I
+>utf</I
+></TT
+> is valid.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN25353"
+></A
+><H3
+><A
+NAME="XMLUTF8STRSIZE"
+></A
+>xmlUTF8Strsize ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlUTF8Strsize                  (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *utf,
+                                             int len);</PRE
+></TD
+></TR
+></TABLE
+><P
+>storage size of an UTF8 string</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN25360"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>utf</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a sequence of UTF-8 encoded bytes</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>len</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the number of characters in the array</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the storage size of
+the first 'len' characters of ARRAY&#13;</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN25377"
+></A
+><H3
+><A
+NAME="XMLUTF8STRNDUP"
+></A
+>xmlUTF8Strndup ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+>*    xmlUTF8Strndup                  (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *utf,
+                                             int len);</PRE
+></TD
+></TR
+></TABLE
+><P
+>a strndup for array of UTF8's</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN25385"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>utf</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the input UTF8 *</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>len</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the len of <TT
+CLASS="PARAMETER"
+><I
+>utf</I
+></TT
+> (in chars)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>a new UTF8 * or NULL</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN25403"
+></A
+><H3
+><A
+NAME="XMLUTF8STRPOS"
+></A
+>xmlUTF8Strpos ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+>*    xmlUTF8Strpos                   (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *utf,
+                                             int pos);</PRE
+></TD
+></TR
+></TABLE
+><P
+>a function to provide the equivalent of fetching a
+character from a string array</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN25411"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>utf</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the input UTF8 *</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>pos</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the position of the desired UTF8 char (in chars)</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>a pointer to the UTF8 character or NULL</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN25428"
+></A
+><H3
+><A
+NAME="XMLUTF8STRLOC"
+></A
+>xmlUTF8Strloc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlUTF8Strloc                   (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *utf,
+                                             const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *utfchar);</PRE
+></TD
+></TR
+></TABLE
+><P
+>a function to provide relative location of a UTF8 char</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN25436"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>utf</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the input UTF8 *</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>utfchar</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the UTF8 character to be found</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the relative character position of the desired char
+or -1 if not found</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN25453"
+></A
+><H3
+><A
+NAME="XMLUTF8STRSUB"
+></A
+>xmlUTF8Strsub ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+><A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+>*    xmlUTF8Strsub                   (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *utf,
+                                             int start,
+                                             int len);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Note:  positions are given in units of UTF-8 chars</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN25461"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>utf</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a sequence of UTF-8 encoded bytes</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>start</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> relative pos of first char</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>len</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>   total number to copy</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>a pointer to a newly created string
+or NULL if any problem</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN25482"
+></A
+><H3
+><A
+NAME="XMLUTF8STRLEN"
+></A
+>xmlUTF8Strlen ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlUTF8Strlen                   (const <A
+HREF="libxml-tree.html#XMLCHAR"
+>xmlChar</A
+> *utf);</PRE
+></TD
+></TR
+></TABLE
+><P
+>compute the length of an UTF8 string, it doesn't do a full UTF8
+checking of the content of the string.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN25489"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>utf</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a sequence of UTF-8 encoded bytes</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the number of characters in the string or -1 in case of error</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><BR
+CLEAR="all"><BR><TABLE
+WIDTH="100%"
+BORDER="0"
+BGCOLOR="#000000"
+CELLPADDING="1"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="25%"
+BGCOLOR="#C00000"
+ALIGN="left"
+><A
+HREF="libxml-parserinternals.html"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+>&#60;&#60;&#60; Previous Page</B
+></FONT
+></A
+></TD
+><TD
+WIDTH="25%"
+BGCOLOR="#0000C0"
+ALIGN="center"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+><A
+HREF="book1.html"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+>Home</B
+></FONT
+></A
+></B
+></FONT
+></TD
+><TD
+WIDTH="25%"
+BGCOLOR="#00C000"
+ALIGN="center"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+><A
+HREF="libxml-lib.html"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+>Up</B
+></FONT
+></A
+></B
+></FONT
+></TD
+><TD
+WIDTH="25%"
+BGCOLOR="#C00000"
+ALIGN="right"
+><A
+HREF="libxml-hash.html"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+>Next Page &#62;&#62;&#62;</B
+></FONT
+></A
+></TD
+></TR
+><TR
+><TD
+COLSPAN="2"
+ALIGN="left"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+>parserInternals</B
+></FONT
+></TD
+><TD
+COLSPAN="2"
+ALIGN="right"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+>hash</B
+></FONT
+></TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

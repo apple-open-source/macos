@@ -1,47 +1,42 @@
 #compdef dict
 
-_arguments \
-	'(--host)-h[host]:dict server:_hosts' \
-	'(-h)--host:dict server:_hosts' \
-	'(--port)-p[port]:service:' \
-	'(-p)--port:service:' \
-	'(--database)-d[database]:db name:' \
-	'(-d)--database:db name:' \
-	'(--match)-m[match]' \
-	'(-m)--match' \
-	'(--strategy)-s[strategy]:strategy:' \
-	'(-s)--strategy:strategy:' \
-	'(--nocorrect)-C[nocorrect]' \
-	'(-C)--nocorrect' \
-	'(--config)-c[config]:config file:_files' \
-	'(-c)--config:config file:_files' \
-	'(--dbs)-D[list dbs]' \
-	'(-D)--dbs' \
-	'(--strats)-S[strats]' \
-	'(-S)--strats' \
-	'(--serverhelp)-H[server help]' \
-	'(-H)--serverhelp' \
-	'(--info)-i[db info]:db name:' \
-	'(-i)--info:db name:' \
-	'(--noauth)-a[disable authentication]' \
-	'(-a)--noauth' \
-	'(--user)-u[user]:user name:' \
-	'(-u)--user:user name:' \
-	'(--key)-k[key]:shared secret:' \
-	'(-k)--key:shared secret:' \
-	'(--version)-V[display version]' \
-	'(-V)--version' \
-	'(--license)-L[display license]' \
-	'(-L)--license' \
-	'--help' \
-	'(--verbose)-v[be verbose]' \
-	'(-v)--verbose' \
-	'(--raw)-r[be very verbose]' \
-	'(-r)--raw' \
-	'(--pager)-P[pager]:program:_command_names -e' \
-	'(-P)--pager:_command_names -e:' \
-	'--html' \
-	'--pipesize:buffer size:' \
-	'--client:client text:' \
-	'--debug:debug flag:(verbose raw scan parse pipe serial time)' \
-	':word:_dict_words'
+local strategy database state line curcontext="$curcontext"
+typeset -A opt_args
+
+_arguments -C -S \
+  '(--host -h)'{--host=,-h+}'[specify hostname of dict server]:dict server:_hosts' \
+  '(--port -p)'{--port=,-p+}'[specify port for dict server]:service:_ports' \
+  '(--database -d)'{--database=,-d+}'[database]:db name:->database' \
+  '(--match -m)'{--match,-m}'[perform matching]' \
+  '(--strategy -s)'{--strategy=,-s+}'[specify matching strategy]:strategy:->strategy' \
+  '(--nocorrect -C)'{--nocorrect,-C}'[disable spelling correction]' \
+  '(--config -c)'{--config=,-c+}'[specify config file]:config file:_files' \
+  '(--dbs -D)'{--dbs,-D}'[list available databases]' \
+  '(--strats -S)'{--strats,-S}'[list available search strategies]' \
+  '(--serverhelp -H)'{--serverhelp,-H}'[query server for help info it provides]' \
+  '(--info -i)'{--info=,-i+}'[get info on specified database]:db name:->database' \
+  '(--serverinfo -I)'{--serverinfo,-I}'[display info about server]' \
+  '(--noauth -a)'{--noauth,-a}'[disable authentication]' \
+  '(--user -u)'{--user=,-u+}'[specify username for authentication]:user name:' \
+  '(--key -k)'{--key=,-k+}'[specify key for authentication]:shared secret:' \
+  '(-)'{--version,-V}'[display program version]' \
+  '(-)'{--license,-L}'[display program license]' \
+  '(-)--help[display usage info]' \
+  '(--verbose -v)'{--verbose,-v}'[verbose output]' \
+  '(--raw -r)'{--raw,-r}'[be very verbose]' \
+  '(--pager -P)'{--pager=,-P+}'[specify pager]:program:_command_names -e' \
+  '--pipesize=[specify buffer size for pipelining commands]:buffer size:' \
+  '--client=[specify additional text to send to server]:client text' \
+  '--debug=[set a debug flag]:debug flag:(verbose raw scan parse pipe serial time)' \
+  ':word:_dict_words' && return
+
+case "$state" in
+  strategy)
+    strategy=( ${${${(f)"$(_call_program strategy dict -S 2>/dev/null)"}[2,-1]#?}/ ##/:} )
+    _describe -t strategy strategy strategy && return
+  ;;
+  database)
+    database=( ${${${(f)"$(_call_program database dict --dbs 2>/dev/null)"}[2,-1]#?}/ ##/:} )
+    _describe -t database database database && return
+  ;;
+esac

@@ -1,8 +1,0 @@
-#
-#	Makefile.preamble for gnuchess.subproj
-#
-#	Copyright 1995, NeXT Computer, Inc.
-#
-
-# original sources
-OTHER_SOURCEFILES = gnuchess.save

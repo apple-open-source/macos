@@ -1,0 +1,110 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 39;
+	objects = {
+		8928587D02108C4F0CCA2CB6 = {
+			buildArgumentsString = "$ACTION $ALL_SETTINGS";
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = gcc3;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			buildToolPath = /usr/bin/gnumake;
+			dependencies = (
+			);
+			isa = PBXLegacyTarget;
+			name = "B&I build and install";
+			passBuildSettingsInEnvironment = 1;
+			productName = "Full build and install";
+			settingsToExpand = 6;
+			settingsToPassInEnvironment = 287;
+			settingsToPassOnCommandLine = 280;
+		};
+//890
+//891
+//892
+//893
+//894
+//8C0
+//8C1
+//8C2
+//8C3
+//8C4
+		8C18C7DB00C5722F06CA2AC8 = {
+			buildStyles = (
+				8C864B2C00C575A806CA2AC8,
+				8C956F6300C57A1506CA2AC8,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = 8C18C7DC00C5722F06CA2AC8;
+			productRefGroup = 8C864B2700C575A806CA2AC8;
+			projectDirPath = "";
+			targets = (
+				8928587D02108C4F0CCA2CB6,
+			);
+		};
+		8C18C7DC00C5722F06CA2AC8 = {
+			children = (
+				8C18C7DD00C5731506CA2AC8,
+				8C864B2700C575A806CA2AC8,
+			);
+			isa = PBXGroup;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8C18C7DD00C5731506CA2AC8 = {
+			expectedFileType = folder;
+			fallbackIsa = PBXFileReference;
+			includeInIndex = 0;
+			isa = PBXFolderReference;
+			name = gcc3;
+			path = ..;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		8C864B2700C575A806CA2AC8 = {
+			children = (
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8C864B2C00C575A806CA2AC8 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = s;
+				OPTIMIZATION_CFLAGS = "-O0";
+				ZERO_LINK = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		8C956F6300C57A1506CA2AC8 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+	};
+	rootObject = 8C18C7DB00C5722F06CA2AC8;
+}

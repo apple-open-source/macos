@@ -10,7 +10,7 @@ sbin_PROGRAMS = amd
 man_MANS = amd.8
 
 # test scripts
-TESTS = #test1.sh
+TESTS = test1.sh
 
 # headers this depends on, not to be installed
 noinst_HEADERS = amd.h

@@ -1,0 +1,12 @@
+--- popen.c.orig	Fri Jan  3 16:15:15 2003
++++ popen.c	Sat May  3 14:05:13 2003
+@@ -55,7 +55,8 @@
+ #include "un-namespace.h"
+ #include "libc_private.h"
+ 
+-extern char **environ;
++#include <crt_externs.h>
++#define environ (*_NSGetEnviron())
+ 
+ static struct pid {
+ 	struct pid *next;

@@ -1,0 +1,32 @@
+
+// CosTSPortability Module
+// OMG Transaction Service v1.1, November 1997.
+
+// NOTE: This should not be sent through the idltojava compiler since
+// it is PIDL.
+
+#include "CORBA.idl"
+#include "CosTransactions.idl"
+
+#pragma prefix "omg.org"
+#pragma javaPackage "org.omg"
+
+module CosTSPortability { // PIDL
+	typedef long ReqId;
+
+	interface Sender {
+		void sending_request(in ReqId id,
+			out CosTransactions::PropagationContext ctx);
+		void received_reply(in ReqId id,
+			in CosTransactions::PropagationContext ctx, 
+			in CORBA::Environment env) raises (WrongTransaction);
+	};
+
+	interface Receiver {
+		void received_request(in ReqId id,
+			in CosTransactions::PropagationContext ctx);
+		void sending_reply(in ReqId id,
+			out CosTransactions::PropagationContext ctx);
+	};
+};
+

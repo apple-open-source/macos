@@ -1,21 +1,24 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -29,6 +32,10 @@
 #include <IOKit/IOLib.h>
 #include <IOKit/IODeviceTreeSupport.h>
 #define super IOHIKeyboard
+#ifndef kIOHIDFKeyModeKey
+#define kIOHIDFKeyModeKey    "HIDFKeyMode"
+#endif
+
 OSDefineMetaClassAndStructors(AppleADBKeyboard,IOHIKeyboard)
 
 
@@ -49,9 +56,44 @@ static unsigned char	kmapConvert[] =
 	0x60,0x61,0x62,0x63,0x64,0x65,0x66,0x67,0x68,0x69,0x6A,0x6B,0x6C,0x6D,0x6E,0x6F,
 	0x70,0x71,0x72,0x73,0x74,0x75,0x76,0x77,0x78,0x79,0x7A,0x3C,0x3D,0x3E,0x36,0x7F,
 	00,00
-	}; 
+	}; 	
 #endif
 
+void AppleADBKeyboard::stop( IOService * provider )
+{
+    if (adbDevice)
+    {
+	IORegistryEntry * us;
+	
+	us = this;
+	adbDevice->releaseFromClient(us); //us is just a placeholder, not used
+
+	adbDevice = 0;
+    }
+
+    super::stop(provider);
+}
+
+void AppleADBKeyboard::free( void )
+{
+    if (_keybrdLock)
+    {
+	IOLockFree(_keybrdLock);
+	_keybrdLock = NULL;
+    }
+
+    if (adbDevice)
+    {
+	IORegistryEntry * us;
+	
+	us = this;
+	adbDevice->releaseFromClient(us); //us is just a placeholder, not used
+
+	adbDevice = 0;
+    }
+
+    super::free();
+}
 
 // **********************************************************************************
 // start
@@ -63,6 +105,8 @@ bool AppleADBKeyboard::start ( IOService * theNub )
     const char *	pTable;
     OSNumber 		*enable_fwd_delete;
 
+    _keybrdLock = NULL;
+    _fn_key_invoked_power = false;   //Used by iBook and PowerBooks
     enable_fwd_delete = OSDynamicCast( OSNumber, getProperty("PowerBook fn Foward Delete"));
     if (enable_fwd_delete)
     {
@@ -95,12 +139,44 @@ bool AppleADBKeyboard::start ( IOService * theNub )
 		_virtualmap[i] = strtol(pTable, NULL, 16); //Must be base 16
 		pTable += 5;  //Format is "0x00,0x01,0x02"
 	    }
-	}
+	}	
     }
     else
     {
 	return false; 
     }
+    
+    _sticky_fn_ON = _stickymodeON = false;
+    
+    data = OSDynamicCast( OSString, getProperty( "fnVirtualKeys" ));  // 
+    if (data)
+    {
+	pTable = data->getCStringNoCopy();
+	if (data->getLength() < (5 * 0x7f)) //7f codes, 5 bytes per code in XML string
+	{
+	    IOLog("AppleADBKeyboard: too few sticky fn keys found in Info.plist");
+	    for (int i=0; i<128; i++)
+	    {
+		_fnvirtualmap[i] = i;	//Somewhat usable keymap
+	    }
+	} 
+	else 
+	{
+	    for (int i=0; i< 128; i++) 
+	    {
+		_fnvirtualmap[i] = strtol(pTable, NULL, 16); //Must be base 16
+		pTable += 5;  //Format is "0x00,0x01,0x02"
+	    }
+	}	
+    }
+    else
+    {
+	IOLog("AppleADBKeyboard: no fn keymap found in Info.plist"); 
+	//No error return if sticky fn data does not exist, it's not as critical since
+	//   numlock on PB would accomplish the same thing.  However, _fnvirtualmap
+	//   must be set to something valid
+	memcpy(_fnvirtualmap, _virtualmap, 128);
+    } 
     
     _get_last_keydown = OSSymbol::withCString("get_last_keydown");
     _get_handler_id = OSSymbol::withCString("get_handler_id");
@@ -112,10 +188,108 @@ bool AppleADBKeyboard::start ( IOService * theNub )
     
     clock_interval_to_absolutetime_interval( 4, kSecondScale, &rebootTime);
     clock_interval_to_absolutetime_interval( 1, kSecondScale, &debuggerTime);
+    
+    _hasDualModeFunctionKeys = false;
     updateFKeyMap();  //UPDATE PMU DATA IF APPROPRIATE 
     
+    getFKeyMode();  // this will update _hasDualModeFunctionKeys
+    if (_hasDualModeFunctionKeys)
+    {
+        setFKeyMode( 0 );  //set PowerBook Function keys to default (0) mode.
+    }
+    
+    getLEDStatus();
+    if (LEDStatus & ADBKS_LED_CAPSLOCK) 
+    {	
+	_oneshotCAPSLOCK = true;
+    }
+    else
+    {
+	_oneshotCAPSLOCK = false;
+    }
+
+    _keybrdLock = IOLockAlloc(); 
+
     return super::start(theNub);
 }
+
+
+
+// --------------------------------------------------------------------------
+//
+// Method: setFKeyMode
+//
+// Purpose:  set PowerBook function keys mode.  An argument of zero means
+// default mode, while an argument of 1 means F keys primary.  The default
+// mode will trigger functions as they appear on the keyboard.  Older
+// portables like WallStreet will not be affected since F keys don't
+// have dual purposes.  And of course external ADB keyboards are not affected.
+void
+AppleADBKeyboard::setFKeyMode(UInt8 mode)
+{
+    UInt16              value;
+    IOByteCount         length = sizeof( UInt16);
+
+    if (_hasDualModeFunctionKeys && adbDevice)
+    {
+        value = mode;
+        adbDevice->writeRegister(1, (UInt8 *)&value, &length);
+        setProperty(kIOHIDFKeyModeKey, mode, sizeof(UInt32));
+    }
+}
+
+
+
+// --------------------------------------------------------------------------
+//
+// Method: getFKeyMode
+//
+// Purpose:  get PowerBook function keys mode.  Also set up instance variable
+// to keep track of whether this device has dual mode Function Keys or not.
+SInt8
+AppleADBKeyboard::getFKeyMode(void)
+{
+    UInt8       	adbdata[8], isFnPrimary = 0;
+    IOByteCount		length = 8;
+    OSDictionary 	* FKeyModeParamDict;
+    SInt32		dictData = -1;
+    OSNumber 		* datan;
+
+    if (!adbDevice)
+	return -1;	// -1 means feature unsupported
+    
+    FKeyModeParamDict = OSDictionary::withCapacity(4);
+    bzero(adbdata, 8);
+    adbDevice->readRegister(1, adbdata, &length);
+    // [1] contains F key mode and [0] contains world region (ANSI, JIS, ISO)
+    _hasDualModeFunctionKeys = false;
+    if (adbdata[0])	//is 0 for external keyboards.  
+    {
+	_hasDualModeFunctionKeys = true;
+	if (adbdata[1] & 0x0001)
+	    isFnPrimary = 1;
+	setProperty(kIOHIDFKeyModeKey, isFnPrimary, sizeof(UInt32));
+	dictData = isFnPrimary;
+    }
+    datan = OSNumber::withNumber((unsigned long long) dictData, 32 ); // 0, 1, or -1
+    if( datan) {
+	FKeyModeParamDict->setObject( kIOHIDFKeyModeKey, datan);
+	datan->release();
+    }
+    if (_keyboardEventTarget)
+    {
+	((IOHIDSystem *)_keyboardEventTarget)->setParamProperties(FKeyModeParamDict); 
+	//Merge new property with HIDSystem properties
+    }
+    FKeyModeParamDict->release();
+    
+    if (_hasDualModeFunctionKeys)
+	return isFnPrimary;
+    else
+	return -1;	// -1 means feature unsupported
+    
+}
+
 
 // --------------------------------------------------------------------------
 //
@@ -147,7 +321,8 @@ AppleADBKeyboard::updateFKeyMap()
 			setButtonTransTableEntry(fkeyindex, buttonkeyvalue);
 			}
 		}
-            }
+            }	    
+	    devicetreeRegEntry->release();  //3172112
 	}
 }
 
@@ -163,7 +338,10 @@ AppleADBKeyboard::updateFKeyMap()
 // ******************************************************************************************************
 /* static */ void
 AppleADBKeyboard::setButtonTransTableEntry(unsigned char fkeynum, unsigned char transvalue)
-{						// CMD: int KBD 2 reg 0 listen filled in by IOPMUADBController
+{
+    if (!adbDevice)
+	return;
+						// CMD: int KBD 2 reg 0 listen filled in by IOPMUADBController
     UInt8 oBuffer[3];				// embed. data count =3 to PMU filled in by IOPMUADBController
     oBuffer[0] = 1;				// selector for PMU: set fkey command
     oBuffer[1] = fkeynum;			// fkey to set
@@ -194,6 +372,9 @@ UInt32 AppleADBKeyboard::deviceType ( void )
     UInt32 		*dataptr;
     OSNumber 		*xml_handlerID;
 
+    if (!adbDevice)
+	return 2;
+
     xml_handlerID = OSDynamicCast( OSNumber, getProperty("alt_handler_id"));
     if (xml_handlerID)
     {
@@ -207,8 +388,21 @@ UInt32 AppleADBKeyboard::deviceType ( void )
     if (id == 18)  //Adjustable JIS
     {
 	_virtualmap[0x32] = 0x35; //tilde to ESC
+	_fnvirtualmap[0x32] = 0x35;
     }
 
+    if ((id == 2) || (id == 3))  //External ADB keyboards may retain ID = 3 between boots
+    {
+	adbDevice->setHandlerID(3);
+	id = 2;  // Gestalt.h has no idea what type 3 is since historically it was never used
+    }
+    else
+    if (id == 5)  //ISO extended keyboard
+    {
+	adbDevice->setHandlerID(3);
+	id = 5;  
+    }
+    
     if ((id == kgestaltPwrBkEKDomKbd) || (id == kgestaltPwrBkEKISOKbd) || 
 	(id == kgestaltPwrBkEKJISKbd) || (id == kgestaltPwrBk99JISKbd))
     {	
@@ -278,6 +472,8 @@ static void asyncSetLEDFunc ( thread_call_param_t self, thread_call_param_t )
 UInt16		value;
 IOByteCount	length = sizeof( UInt16);
 
+    if (!((AppleADBKeyboard*)self)->adbDevice)
+	return;
 
     value = ((AppleADBKeyboard*)self)->turnLEDon;
     ((AppleADBKeyboard*)self)->adbDevice->writeRegister(2, (UInt8 *)&value, &length);
@@ -285,11 +481,17 @@ IOByteCount	length = sizeof( UInt16);
 
 /**********************************************************************
 Get LED status by reading hardware.  Register 2 has 16 bits.
+Note that early ADB keyboards don't support this much data in 
+register 2, so it will come back all zeros and that is interpreted
+as every LED being turned on.
 **********************************************************************/
 unsigned AppleADBKeyboard::getLEDStatus (void )
 {  
     UInt8       data[8];  //8 bytes max for ADB read (talk) operation
     IOByteCount length = 8;
+
+    if (!adbDevice)
+	return 0;
 
     bzero(data, 8);
     LEDStatus = 0;
@@ -301,7 +503,7 @@ unsigned AppleADBKeyboard::getLEDStatus (void )
 	LEDStatus |= ADBKS_LED_CAPSLOCK;
     if ((data[1] & ADBKS_LED_SCROLLLOCK) == 0)
 	LEDStatus |= ADBKS_LED_SCROLLLOCK;
-  
+
     return LEDStatus;
 }
 
@@ -333,6 +535,15 @@ void AppleADBKeyboard::dispatchKeyboardEvent(unsigned int	keyCode,
                             /* direction */ bool         	goingDown,
                             /* timeStamp */ AbsoluteTime	time)
 {
+    char * pvirtualmap;
+ 
+
+    pvirtualmap = _virtualmap;
+    if ((_stickymodeON) && (_sticky_fn_ON))
+    {
+	pvirtualmap = _fnvirtualmap;
+    }
+
     if( !goingDown && programmerKey) {
 	programmerKey = false;
 	EVK_KEYUP( ADBK_CONTROL, _keyState);
@@ -358,7 +569,20 @@ void AppleADBKeyboard::dispatchKeyboardEvent(unsigned int	keyCode,
 	}
 	else if (deviceFlags() & NX_SECONDARYFNMASK)
 	{ 
-	    return;  //On PowerBooks fn + CMD creates a POWER keycode
+	    //On PowerBooks fn + CMD creates a POWER keycode, so change it now to CMD code
+	    keyCode = ADBK_FLOWER;
+	    //If fn is released before CMD key, we need to fake another CMD key later,
+	    //  but if CMD key is released first then we don't need to do anything else
+	    //  later since the CMD key will still generate a POWER key-up when fn is down.
+	    _fn_key_invoked_power = goingDown;
+	}
+	else if (_fn_key_invoked_power)
+	{
+	    //If fn key is released before CMD key, then when CMD key is released
+	    //  the keycode is still 7f (POWER).  But that makes CMD key look like
+	    //  it is stuck in the down position from line above, so fake CMD up now
+	    keyCode = ADBK_FLOWER;
+	    _fn_key_invoked_power = false;
 	}
     }
 
@@ -373,7 +597,7 @@ void AppleADBKeyboard::dispatchKeyboardEvent(unsigned int	keyCode,
 	{
 	    if ((!goingDown) && (_fwd_delete_down))
 	    {
-		super::dispatchKeyboardEvent( _virtualmap[ADBK_FORWARD_DELETE], 
+		super::dispatchKeyboardEvent( pvirtualmap[ADBK_FORWARD_DELETE], 
 		    false, time );
 		_fwd_delete_down = false;
 	    }
@@ -381,8 +605,7 @@ void AppleADBKeyboard::dispatchKeyboardEvent(unsigned int	keyCode,
     
     }
 
-    super::dispatchKeyboardEvent( _virtualmap[keyCode], goingDown, time );
-
+    super::dispatchKeyboardEvent( pvirtualmap[keyCode], goingDown, time );
 }
 
 // **********************************************************************************
@@ -455,11 +678,21 @@ void AppleADBKeyboard::keyboardEvent(unsigned eventType,
 	/* originalCharSet */    unsigned origCharSet)
 {
 
-    if (_codeToRepeat != (unsigned)-1)  //only save time if autorepeated key
+    //only save time if autorepeated key
+    //save my own time, ignore super's time.  
+    switch ( _codeToRepeat)
     {
-    	//save my own time, ignore super's time.   
-	clock_get_uptime(&_lastkeyCGEvent);  
+	case  ADBK_F9:
+	case  ADBK_F10:
+	case  ADBK_F11:
+	case  ADBK_F12:
+	case  (unsigned) -1:
+	    break;
+	default:
+	    clock_get_uptime(&_lastkeyCGEvent);  
+	    break;
     }
+	
     super::keyboardEvent( eventType, flags, keyCode, charCode, charSet,
 	origCharCode, origCharSet);
 }
@@ -524,6 +757,85 @@ bool AppleADBKeyboard:: doesKeyLock ( unsigned key)
     }
 }
 
+// **********************************************************************************
+//  setParamProperties
+//  
+// **********************************************************************************
+IOReturn AppleADBKeyboard::setParamProperties( OSDictionary * dict )
+{
+    OSNumber 	*datan;
+
+    if (_keybrdLock)
+	IOLockLock (_keybrdLock);
+    
+    if (datan = OSDynamicCast(OSNumber, dict->getObject(kIOHIDFKeyModeKey)))
+    {
+	bool	theFkeyMode;
+	
+	theFkeyMode = (bool) datan->unsigned32BitValue();
+	setFKeyMode(theFkeyMode); //This calls setProperty too
+    }
+    
+    if (datan = OSDynamicCast(OSNumber, dict->getObject(kIOHIDStickyKeysOnKey)))
+    {
+	UInt32	propertydata;
+	
+        propertydata = (bool) datan->unsigned32BitValue();;
+		
+	if (propertydata) 
+	{
+	    _stickymodeON = true;
+	}
+	else
+	{
+	    _stickymodeON = false;
+	}
+    }
+
+    if (_oneshotCAPSLOCK && adbDevice) //If caps lock LED was set in prior session
+    {
+	AbsoluteTime	locktime;
+	UInt32		id;
+
+	_oneshotCAPSLOCK = false;  // only set to true by start()
+	
+	//check handler ID since keyboards of type 1 fail register 2 check
+	id = adbDevice->handlerID();
+	if (id > 0xc0) //Anything beyond 0xc0 is WallStreet or higher, and USB and BT
+	{
+	    clock_get_uptime(&locktime);
+	    super::dispatchKeyboardEvent(ADBK_CAPSLOCK, true, locktime);
+	}
+
+    }
+        
+    if (_keybrdLock)
+	IOLockUnlock (_keybrdLock);
+
+    return super::setParamProperties(dict);
+}
+
+// **********************************************************************************
+//  keyboardSpecialEvent
+//  Used only to capture sticky PowerBook fn key from IOHIDSystem (in IOHIDFamily)
+// **********************************************************************************
+void AppleADBKeyboard::keyboardSpecialEvent( unsigned eventType, unsigned flags, 
+	unsigned keyCode, unsigned flavor)
+{
+    if ((_stickymodeON) && (eventType == NX_SYSDEFINED) && (keyCode == NX_NOSPECIALKEY))
+    {
+	if (flavor == NX_SUBTYPE_STICKYKEYS_FN_UP)
+	{
+	    _sticky_fn_ON = false;
+	}
+	if ((flavor == NX_SUBTYPE_STICKYKEYS_FN_LOCK) || 
+	    (flavor == NX_SUBTYPE_STICKYKEYS_FN_DOWN))
+	{
+	    _sticky_fn_ON = true;
+	}
+    }
+    return super::keyboardSpecialEvent(eventType, flags, keyCode, flavor);
+}
 
 // **********************************************************************************
 // defaultKeymapOfLength
@@ -533,16 +845,20 @@ const unsigned char * AppleADBKeyboard::defaultKeymapOfLength (UInt32 * length )
 {
 static const unsigned char appleUSAKeyMap[] = {
             0x00,0x00,
-	    0x08,	//8 modifier keys
+	    0x0b,	//11 modifier keys
 	    0x00,0x01,0x39,  //NX_MODIFIERKEY_ALPHALOCK
 	    0x01,0x01,0x38,  //NX_MODIFIERKEY_SHIFT virtual from KMAP
 	    0x02,0x01,0x3b,  //NX_MODIFIERKEY_CONTROL
 	    0x03,0x01,0x3a,  //NX_MODIFIERKEY_ALTERNATE
 	    0x04,0x01,0x37,	  //NX_MODIFIERKEY_COMMAND
-	    0x05,0x15,0x52,0x41,0x4c,0x53,0x54,0x55,0x45,0x58,0x57,0x56,0x5b,0x5c,
-            0x43,0x4b,0x51,0x7b,0x7d,0x7e,0x7c,0x4e,0x59,  //NX_MODIFIERKEY_NUMERICPAD
+	    0x05,0x11,0x52,0x41,0x4c,0x53,0x54,0x55,0x45,0x58,0x57,0x56,0x5b,0x5c,
+            0x43,0x4b,0x51,0x4e,0x59,  //NX_MODIFIERKEY_NUMERICPAD no longer includes arrows
 	    0x06,0x01,0x72, //NX_MODIFIERKEY_HELP  7th modifier here
 	    0x07,0x01,0x3f, //NX_MODIFIERKEY_SECONDARYFN 8th modifier
+	    0x09,0x01,0x3c, // NX_MODIFIERKEY_RSHIFT
+	    0x0a,0x01,0x3e, // NX_MODIFIERKEY_RCONTROL
+	    0x0b,0x01,0x3d, // NX_MODIFIERKEY_RALTERNATE
+	    //0x0c,0x01,0x36, // 36 (for NX_MODIFIERKEY_RCOMMAND) not possible with Apple ADB Extended Keyboard 
 	    0x7f,0x0d,0x00,0x61,
             0x00,0x41,0x00,0x01,0x00,0x01,0x00,0xca,0x00,0xc7,0x00,0x01,0x00,0x01,0x0d,0x00,
             0x73,0x00,0x53,0x00,0x13,0x00,0x13,0x00,0xfb,0x00,0xa7,0x00,0x13,0x00,0x13,0x0d,

@@ -18,6 +18,9 @@
 #endif
 # include "headers.h"
 # include "newstr.h"
+#ifdef APPLE_EXTENSIONS
+# include "timingdata.h"
+#endif
 
 /*
  * headers.c - handle #includes in source files
@@ -61,6 +64,16 @@ TARGET *t;
 #endif
 	int	rec = 0;
 
+#ifdef APPLE_EXTENSIONS
+	struct timeval current_time;
+	double start_of_scan = 0.0;
+
+	if( globs.enable_timings )
+	{
+	    gettimeofday( &current_time, (struct timezone *) NULL );
+	    start_of_scan = SECONDS_FROM_TIMEVAL( current_time );
+	}
+#endif
 	if( !( hdrscan = var_get( "HDRSCAN" ) ) || 
 	    !( hdrrule = var_get( "HDRRULE" ) ) )
 	        return;
@@ -73,20 +86,20 @@ TARGET *t;
 	while( rec < MAXINC && hdrscan )
 	{
 #if defined(__APPLE__)
-	  re[rec] = (regex_t *)malloc(sizeof(regex_t));
-	  ret = regcomp( re[rec++], hdrscan->string, REG_EXTENDED );
-	  if (ret != 0) {
-	      char *errbuf = NULL;
-	      size_t bufsize;
-	      bufsize = regerror(ret, re[--rec], NULL, 0);
-	      errbuf = (char *)malloc(bufsize);
-	      (void)regerror(ret, re[rec], errbuf, bufsize);
-	      fprintf(stderr, "regcomp(%s) failed: %s\n", hdrscan->string, errbuf);
-	      regfree(re[rec]);
-	      free(re[rec]);
-	      free(errbuf);
-	      return;
-	  }
+	    re[rec] = (regex_t *)malloc(sizeof(regex_t));
+	    ret = regcomp( re[rec++], hdrscan->string, REG_EXTENDED );
+	    if (ret != 0) {
+		char *errbuf = NULL;
+		size_t bufsize;
+		bufsize = regerror(ret, re[--rec], NULL, 0);
+		errbuf = (char *)malloc(bufsize);
+		(void)regerror(ret, re[rec], errbuf, bufsize);
+		fprintf(stderr, "regcomp(%s) failed: %s\n", hdrscan->string, errbuf);
+		regfree(re[rec]);
+		free(re[rec]);
+		free(errbuf);
+		return;
+	    }
 #else
 	    re[rec++] = regcomp( hdrscan->string );
 #endif
@@ -117,12 +130,24 @@ TARGET *t;
 
 	while( rec ) {
 #if defined(__APPLE__)
-	  regfree( re[--rec] );
-	  free( re[rec] );
+	    regfree( re[--rec] );
+	    free( re[rec] );
 #else
 	    free( (char *)re[--rec] );
 #endif
 	}
+
+#ifdef APPLE_EXTENSIONS
+	if( globs.enable_timings )
+	{
+	    double now;
+
+	    gettimeofday( &current_time, (struct timezone *) NULL );
+	    now = SECONDS_FROM_TIMEVAL( current_time );
+	    globs.header_scanning_time += now - start_of_scan;
+	    globs.headers_scanned++;
+	}
+#endif
 }
 
 
@@ -131,7 +156,7 @@ TARGET *t;
 char * eol_agnostic_fgets (char * buffer, size_t buffer_size, FILE * file)
 {
     int      ch;
-    int      n = 0;
+    unsigned      n = 0;
 
     while ((ch = getc(file)) != EOF)
     {
@@ -174,6 +199,12 @@ regexp	*re[];
 #if defined(__APPLE__)
     size_t	nmatch = 2;
     regmatch_t	pmatch[2];
+#endif
+
+#ifdef APPLE_EXTENSIONS
+    if( globs.enable_timings ) {
+        globs.headers_scanned++;
+    }
 #endif
 
     if( !( f = fopen( file, "r" ) ) )

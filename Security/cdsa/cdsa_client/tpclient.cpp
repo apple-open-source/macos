@@ -69,7 +69,7 @@ void TPImpl::certGroupVerify(const CertGroup &certGroup,
 void TPImpl::setupCL()
 {
     if (mUseCL == NULL) {
-        debug("tpclient", "TP is auto-attaching supporting CL");
+        secdebug("tpclient", "TP is auto-attaching supporting CL");
         mUseCL = new CL(gGuidAppleX509CL);
         mOwnCL = true;
     }
@@ -78,7 +78,7 @@ void TPImpl::setupCL()
 void TPImpl::setupCSP()
 {
     if (mUseCSP == NULL) {
-        debug("tpclient", "TP is auto-attaching supporting CSP");
+        secdebug("tpclient", "TP is auto-attaching supporting CSP");
         mUseCSP = new CSP(gGuidAppleCSP);
         mOwnCSP = true;
     }

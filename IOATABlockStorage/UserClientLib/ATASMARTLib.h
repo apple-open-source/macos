@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -33,6 +36,7 @@
 	#include <IOKit/IOReturn.h>
 	#include <IOKit/IOTypes.h>
 	#include <IOKit/IOCFPlugIn.h>
+	#include <IOKit/storage/ata/IOATAStorageDefines.h>
 	
 #ifdef __cplusplus
 extern "C" {
@@ -305,6 +309,30 @@ typedef struct IOATASMARTInterface
 										   UInt32			logOffset,
 										   const void *		buffer,
 										   UInt32			size );
+	
+	/*!
+		@function GetATAIdentifyData
+		@abstract Reads the 512-byte data provided by the drive in response
+		to the ATA IDENTIFY DEVICE command.
+		@discussion Reads the 512-byte data provided by the drive in response
+		to the ATA IDENTIFY DEVICE command.
+		See section 8.15 of ATA/ATAPI-6.
+		The data placed in buffer is guaranteed to be in native endian form on return.
+		(i.e. it will be byte swapped on big endian platforms, so the caller need not
+		do anything)
+		@param interface A valid IOATASMARTInterface**.
+		@param buffer A valid buffer.
+		@param inSize The number of bytes to place in the buffer.
+		@param outSize The number of bytes placed in the buffer. Can be NULL if the information
+		is not required by the caller.
+		@return An IOReturn result code. If inSize is greater than 512 or less than 1,
+				kIOReturnBadArgument is returned.
+	*/
+	
+	IOReturn ( *GetATAIdentifyData ) ( void *				interface,
+									   void *				buffer,
+									   UInt32				inSize,
+									   UInt32 *				outSize );
 	
 } IOATASMARTInterface;
 

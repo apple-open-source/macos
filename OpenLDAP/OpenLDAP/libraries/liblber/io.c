@@ -1,7 +1,7 @@
 /* io.c - ber general i/o routines */
-/* $OpenLDAP: pkg/ldap/libraries/liblber/io.c,v 1.70 2002/02/14 12:32:40 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblber/io.c,v 1.70.2.11 2003/05/22 22:22:36 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /* Portions
@@ -33,6 +33,7 @@
 #endif
 
 #include "lber-int.h"
+#include "ldap_log.h"
 
 ber_slen_t
 ber_read(
@@ -104,7 +105,7 @@ ber_realloc( BerElement *ber, ber_len_t len )
 
 	total = ber_pvt_ber_total( ber );
 
-#define LBER_EXBUFSIZ	1000 /* a few words less than 2^N for binary buddy */
+#define LBER_EXBUFSIZ	4060 /* a few words less than 2^N for binary buddy */
 #if defined( LBER_EXBUFSIZ ) && LBER_EXBUFSIZ > 0
 # ifndef notdef
 	/* don't realloc by small amounts */
@@ -191,7 +192,7 @@ ber_free( BerElement *ber, int freebuf )
 int
 ber_flush( Sockbuf *sb, BerElement *ber, int freeit )
 {
-	ber_len_t	nwritten, towrite;
+	ber_len_t	towrite;
 	ber_slen_t	rc;	
 
 	assert( sb != NULL );
@@ -207,13 +208,16 @@ ber_flush( Sockbuf *sb, BerElement *ber, int freeit )
 
 	if ( sb->sb_debug ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "liblber", LDAP_LEVEL_DETAIL1,
+		LDAP_LOG( BER, DETAIL1,
 			   "ber_flush: %ld bytes to sd %ld%s\n",
 			   towrite, (long)sb->sb_fd,
-			   ber->ber_rwptr != ber->ber_buf ? " (re-flush)" : "" ));
-		BER_DUMP(( "liblber", LDAP_LEVEL_DETAIL2, ber, 1 ));
+			   ber->ber_rwptr != ber->ber_buf ? " (re-flush)" : "" );
+
+		if(LDAP_LOGS_TEST(BER, DETAIL2))
+				BER_DUMP(( "liblber", LDAP_LEVEL_DETAIL2, ber, 1 ));
+
 #else
-		ber_log_printf( LDAP_DEBUG_ANY, sb->sb_debug,
+		ber_log_printf( LDAP_DEBUG_TRACE, sb->sb_debug,
 			"ber_flush: %ld bytes to sd %ld%s\n",
 			towrite, (long) sb->sb_fd,
 			ber->ber_rwptr != ber->ber_buf ?  " (re-flush)" : "" );
@@ -222,16 +226,19 @@ ber_flush( Sockbuf *sb, BerElement *ber, int freeit )
 #endif
 	}
 
-	nwritten = 0;
-	do {
+	while ( towrite > 0 ) {
+#ifdef LBER_TRICKLE
+		sleep(1);
+		rc = ber_int_sb_write( sb, ber->ber_rwptr, 1 );
+#else
 		rc = ber_int_sb_write( sb, ber->ber_rwptr, towrite );
+#endif
 		if (rc<=0) {
 			return -1;
 		}
 		towrite -= rc;
-		nwritten += rc;
 		ber->ber_rwptr += rc;
-	} while ( towrite > 0 );
+	} 
 
 	if ( freeit )
 		ber_free( ber, 1 );
@@ -360,24 +367,21 @@ ber_init( struct berval *bv )
 
 /* New C-API ber_flatten routine */
 /* This routine allocates a struct berval whose contents are a BER
-** encoding taken from the ber argument.  The bvPtr pointer pointers to
+** encoding taken from the ber argument.  The bvPtr pointer points to
 ** the returned berval.
+**
+** ber_flatten2 is the same, but uses a struct berval passed by
+** the caller. If alloc is 0 the returned bv uses the ber buf directly.
 */
-int ber_flatten(
+int ber_flatten2(
 	BerElement *ber,
-	struct berval **bvPtr)
+	struct berval *bv,
+	int alloc )
 {
-	struct berval *bv;
- 
-	assert( bvPtr != NULL );
+	assert( bv != NULL );
 
-    ber_int_options.lbo_valid = LBER_INITIALIZED;
+	ber_int_options.lbo_valid = LBER_INITIALIZED;
 
-	if(bvPtr == NULL) {
-		return -1;
-	}
-
-	bv = LBER_MALLOC( sizeof(struct berval) );
 	if ( bv == NULL ) {
 		return -1;
 	}
@@ -391,19 +395,47 @@ int ber_flatten(
 		/* copy the berval */
 		ber_len_t len = ber_pvt_ber_write( ber );
 
-		bv->bv_val = (char *) LBER_MALLOC( len + 1 );
-		if ( bv->bv_val == NULL ) {
-			LBER_FREE( bv );
-			return -1;
+		if ( alloc ) {
+			bv->bv_val = (char *) LBER_MALLOC( len + 1 );
+			if ( bv->bv_val == NULL ) {
+				return -1;
+			}
+			AC_MEMCPY( bv->bv_val, ber->ber_buf, len );
+		} else {
+			bv->bv_val = ber->ber_buf;
 		}
-
-		AC_MEMCPY( bv->bv_val, ber->ber_buf, len );
 		bv->bv_val[len] = '\0';
 		bv->bv_len = len;
 	}
-    
-	*bvPtr = bv;
 	return 0;
+}
+
+int ber_flatten(
+	BerElement *ber,
+	struct berval **bvPtr)
+{
+	struct berval *bv;
+	int rc;
+ 
+	assert( bvPtr != NULL );
+
+	ber_int_options.lbo_valid = LBER_INITIALIZED;
+
+	if(bvPtr == NULL) {
+		return -1;
+	}
+
+	bv = LBER_MALLOC( sizeof(struct berval) );
+	if ( bv == NULL ) {
+		return -1;
+	}
+	rc = ber_flatten2(ber, bv, 1);
+	if (rc == -1) {
+		LBER_FREE(bv);
+	} else {
+		*bvPtr = bv;
+	}
+	return rc;
 }
 
 void
@@ -429,6 +461,8 @@ ber_reset( BerElement *ber, int was_writing )
  * a full packet is read.
  */
 
+#define LENSIZE	4
+
 ber_tag_t
 ber_get_next(
 	Sockbuf *sb,
@@ -443,7 +477,7 @@ ber_get_next(
 	assert( LBER_VALID( ber ) );
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "liblber", LDAP_LEVEL_ENTRY, "ber_get_next: enter\n" ));
+	LDAP_LOG( BER, ENTRY, "ber_get_next: enter\n", 0, 0, 0 );
 #else
 	ber_log_printf( LDAP_DEBUG_TRACE, ber->ber_debug,
 		"ber_get_next\n" );
@@ -459,30 +493,35 @@ ber_get_next(
 	 *	1) small tags (less than 128)
 	 *	2) definite lengths
 	 *	3) primitive encodings used whenever possible
+	 *
+	 * The code also handles multi-byte tags. The first few bytes
+	 * of the message are read to check for multi-byte tags and
+	 * lengths. These bytes are temporarily stored in the ber_tag,
+	 * ber_len, and ber_usertag fields of the berelement until
+	 * tag/len parsing is complete. After this parsing, any leftover
+	 * bytes and the rest of the message are copied into the ber_buf.
+	 *
+	 * We expect tag and len to be at most 32 bits wide.
 	 */
 
 	if (ber->ber_rwptr == NULL) {
-		/* XXYYZ
-		 * dtest does like this assert.
-		 */
-		/* assert( ber->ber_buf == NULL ); */
+		assert( ber->ber_buf == NULL );
 		ber->ber_rwptr = (char *) &ber->ber_len-1;
 		ber->ber_ptr = ber->ber_rwptr;
 		ber->ber_tag = 0;
 	}
 
 	while (ber->ber_rwptr > (char *)&ber->ber_tag && ber->ber_rwptr <
-		(char *)(&ber->ber_usertag + 1)) {
-		ber_slen_t i;
+		(char *)&ber->ber_len + LENSIZE*2 -1) {
+		ber_slen_t sblen;
 		char buf[sizeof(ber->ber_len)-1];
 		ber_len_t tlen = 0;
 
-		if ((i=ber_int_sb_read( sb, ber->ber_rwptr,
-			(char *)(&ber->ber_usertag+1)-ber->ber_rwptr))<=0) {
-			return LBER_DEFAULT;
-		}
-
-		ber->ber_rwptr += i;
+		errno = 0;
+		sblen=ber_int_sb_read( sb, ber->ber_rwptr,
+			((char *)&ber->ber_len + LENSIZE*2 - 1)-ber->ber_rwptr);
+		if (sblen<=0) return LBER_DEFAULT;
+		ber->ber_rwptr += sblen;
 
 		/* We got at least one byte, try to parse the tag. */
 		if (ber->ber_ptr == (char *)&ber->ber_len-1) {
@@ -490,10 +529,11 @@ ber_get_next(
 			unsigned char *p = (unsigned char *)ber->ber_ptr;
 			tag = *p++;
 			if ((tag & LBER_BIG_TAG_MASK) == LBER_BIG_TAG_MASK) {
-				for (i=1; (char *)p<ber->ber_rwptr; i++,p++) {
+				ber_len_t i;
+				for (i=1; (char *)p<ber->ber_rwptr; i++) {
 					tag <<= 8;
-					tag |= *p;
-					if (!(*p & LBER_MORE_TAG_MASK))
+					tag |= *p++;
+					if (!(tag & LBER_MORE_TAG_MASK))
 						break;
 					/* Is the tag too big? */
 					if (i == sizeof(ber_tag_t)-1) {
@@ -503,42 +543,65 @@ ber_get_next(
 				}
 				/* Did we run out of bytes? */
 				if ((char *)p == ber->ber_rwptr) {
+#if defined( EWOULDBLOCK )
+					errno = EWOULDBLOCK;
+#elif defined( EAGAIN )
+					errno = EAGAIN;
+#endif			
 					return LBER_DEFAULT;
 				}
-				p++;
 			}
 			ber->ber_tag = tag;
 			ber->ber_ptr = (char *)p;
 		}
 
+		if ( ber->ber_ptr == ber->ber_rwptr ) {
+#if defined( EWOULDBLOCK )
+			errno = EWOULDBLOCK;
+#elif defined( EAGAIN )
+			errno = EAGAIN;
+#endif			
+			return LBER_DEFAULT;
+		}
+
 		/* Now look for the length */
 		if (*ber->ber_ptr & 0x80) {	/* multi-byte */
-			int llen = *(unsigned char *)ber->ber_ptr++ & 0x7f;
-			if (llen > sizeof(ber_len_t)) {
+			ber_len_t i;
+			unsigned char *p = (unsigned char *)ber->ber_ptr;
+			int llen = *p++ & 0x7f;
+			if (llen > (int)sizeof(ber_len_t)) {
 				errno = ERANGE;
 				return LBER_DEFAULT;
 			}
 			/* Not enough bytes? */
-			if (ber->ber_rwptr - ber->ber_ptr < llen) {
+			if (ber->ber_rwptr - (char *)p < llen) {
+#if defined( EWOULDBLOCK )
+				errno = EWOULDBLOCK;
+#elif defined( EAGAIN )
+				errno = EAGAIN;
+#endif			
 				return LBER_DEFAULT;
 			}
-			for (i=0; i<llen && ber->ber_ptr<ber->ber_rwptr; i++,ber->ber_ptr++) {
+			for (i=0; i<llen; i++)
+			{
 				tlen <<=8;
-				tlen |= *(unsigned char *)ber->ber_ptr;
+				tlen |= *p++;
 			}
+			ber->ber_ptr = p;
 		} else {
 			tlen = *(unsigned char *)ber->ber_ptr++;
 		}
+
 		/* Are there leftover data bytes inside ber->ber_len? */
 		if (ber->ber_ptr < (char *)&ber->ber_usertag) {
 			if (ber->ber_rwptr < (char *)&ber->ber_usertag)
-				i = ber->ber_rwptr - ber->ber_ptr;
+				sblen = ber->ber_rwptr - ber->ber_ptr;
 			else
-				i = (char *)&ber->ber_usertag - ber->ber_ptr;
-			AC_MEMCPY(buf, ber->ber_ptr, i);
-			ber->ber_ptr += i;
+				sblen = (char *)&ber->ber_usertag - ber->ber_ptr;
+			AC_MEMCPY(buf, ber->ber_ptr, sblen);
+			ber->ber_ptr += sblen;
 		} else {
-			i = 0;
+			sblen = 0;
 		}
 		ber->ber_len = tlen;
 
@@ -548,11 +611,13 @@ ber_get_next(
 		if ( ber->ber_len == 0 ) {
 			errno = ERANGE;
 			return LBER_DEFAULT;
-		} else if ( sb->sb_max_incoming && ber->ber_len > sb->sb_max_incoming ) {
+		}
+
+		if ( sb->sb_max_incoming && ber->ber_len > sb->sb_max_incoming ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "liblber", LDAP_LEVEL_ERR, 
+			LDAP_LOG( BER, ERR, 
 				"ber_get_next: sockbuf_max_incoming limit hit "
-				"(%d > %d)\n", ber->ber_len, sb->sb_max_incoming ));
+				"(%d > %d)\n", ber->ber_len, sb->sb_max_incoming, 0 );
 #else
 			ber_log_printf( LDAP_DEBUG_CONNS, ber->ber_debug,
 				"ber_get_next: sockbuf_max_incoming limit hit "
@@ -568,7 +633,7 @@ ber_get_next(
 			 * make sure ber->ber_len agrees with what we've
 			 * already read.
 			 */
-			if ( ber->ber_len < i + l ) {
+			if ( ber->ber_len < sblen + l ) {
 				errno = ERANGE;
 				return LBER_DEFAULT;
 			}
@@ -577,19 +642,19 @@ ber_get_next(
 				return LBER_DEFAULT;
 			}
 			ber->ber_end = ber->ber_buf + ber->ber_len;
-			if (i) {
-				AC_MEMCPY(ber->ber_buf, buf, i);
+			if (sblen) {
+				AC_MEMCPY(ber->ber_buf, buf, sblen);
 			}
 			if (l > 0) {
-				AC_MEMCPY(ber->ber_buf + i, ber->ber_ptr, l);
-				i += l;
+				AC_MEMCPY(ber->ber_buf + sblen, ber->ber_ptr, l);
+				sblen += l;
 			}
 			ber->ber_ptr = ber->ber_buf;
 			ber->ber_usertag = 0;
-			if ((ber_len_t)i == ber->ber_len) {
+			if ((ber_len_t)sblen == ber->ber_len) {
 				goto done;
 			}
-			ber->ber_rwptr = ber->ber_buf + i;
+			ber->ber_rwptr = ber->ber_buf + sblen;
 		}
 	}
 
@@ -600,9 +665,9 @@ ber_get_next(
 		to_go = ber->ber_end - ber->ber_rwptr;
 		assert( to_go > 0 );
 		
+		errno = 0;
 		res = ber_int_sb_read( sb, ber->ber_rwptr, to_go );
-		if (res<=0)
-			return LBER_DEFAULT;
+		if (res<=0) return LBER_DEFAULT;
 		ber->ber_rwptr+=res;
 		
 		if (res<to_go) {
@@ -618,10 +683,11 @@ done:
 		*len = ber->ber_len;
 		if ( ber->ber_debug ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "liblber", LDAP_LEVEL_DETAIL1,
-				"ber_get_next: tag 0x%lx len %ld\n",
-				ber->ber_tag, ber->ber_len ));
-			BER_DUMP(( "liblber", LDAP_LEVEL_DETAIL2, ber, 1 ));
+			LDAP_LOG( BER, DETAIL1, 
+				"ber_get_next: tag 0x%lx len %ld\n", 
+				ber->ber_tag, ber->ber_len, 0  );
+			if(LDAP_LOGS_TEST(BER, DETAIL2))
+					BER_DUMP(( "liblber", LDAP_LEVEL_DETAIL2, ber, 1 ));
 #else
 			ber_log_printf( LDAP_DEBUG_TRACE, ber->ber_debug,
 				"ber_get_next: tag 0x%lx len %ld contents:\n",

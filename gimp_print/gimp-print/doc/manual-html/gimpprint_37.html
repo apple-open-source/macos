@@ -1,0 +1,663 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from .././gimpprint.texi on 22 January 2003 -->
+
+<TITLE>GIMP-Print - ESC/P2 Remote Mode Commands</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_36.html">previous</A>, <A HREF="gimpprint_38.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H2><A NAME="SEC52" HREF="gimpprint_toc.html#TOC52">C.3  Remote Mode Commands</A></H2>
+
+<P>
+The following description of remote commands comes out of an
+examination of the sequences used by the printer utilities bundled
+with the Windows drivers for the ESC740, and from other sources (some
+Epson manuals, experimentation, analysis of print files).  It is
+largely speculative as these commands are not all documented in the
+Epson documentation we have access to.  Generally, newer manuals
+provide more thorough documentation.
+
+</P>
+<P>
+Remote command mode is entered when the printer is sent the following
+sequence:
+
+</P>
+
+<PRE>
+ESC (R BC=8 00 R E M O T E 1
+</PRE>
+
+<P>
+Remote mode commands are then sent, and terminated with the following
+sequence:
+
+</P>
+
+<PRE>
+ESC 00 00 00
+</PRE>
+
+<P>
+All remote mode commands must be sent before the initial <SAMP>`ESC (G'</SAMP>
+command is sent.
+
+</P>
+<P>
+This introductory sequence is then followed by a sequence of commands.
+Each command is constructed as follows:
+
+</P>
+
+<UL>
+<LI>Two ASCII bytes indicating the function
+
+<LI>A byte count (two bytes, little-endian) for the parameters
+
+<LI>Binary parameters, if any
+
+</UL>
+
+<P>
+This is a list of all remote commands we have seen:
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>NC <VAR>BC</VAR>=2 00 00</CODE></B>
+<DD><A NAME="IDX222"></A>
+Print a nozzle check pattern
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>VI <VAR>BC</VAR>=2 00 00</CODE></B>
+<DD><A NAME="IDX223"></A>
+on my 740, prints the following:
+
+</P>
+
+<PRE>
+W01286 I02382\r\n
+</PRE>
+
+<P>
+probably "version information"
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>* AI <VAR>BC</VAR>=3 00 00 00</CODE></B>
+<DD><A NAME="IDX224"></A>
+Prints a "printer ID".  On one 870, prints the following:
+
+<PRE>
+51-51-50-51-49-48\r\n
+</PRE>
+
+<P>
+The Windows driver has a text entry field where this number can be
+entered, but its purpose is unknown.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>* LD <VAR>BC</VAR>=0</CODE></B>
+<DD><A NAME="IDX225"></A>
+Load printer defaults from NVRAM, DIP switches, and/or ROM. This
+apparently does not load factory defaults per se, but any settings that
+are saved.  This is commonly used right at the end of each print job
+after the <SAMP>`ESC @'</SAMP> printer reset command.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>* CH <VAR>BC</VAR>=2 00 <VAR>xx</VAR></CODE></B>
+<DD><A NAME="IDX226"></A>
+Perform a head cleaning cycle.  The heads to clean are determined by
+parameter <VAR>xx</VAR>:
+
+</P>
+<DL COMPACT>
+
+<DT><SAMP>`00'</SAMP>
+<DD>
+clean all heads
+<DT><SAMP>`01'</SAMP>
+<DD>
+clean black head
+<DT><SAMP>`02'</SAMP>
+<DD>
+clean color heads
+</DL>
+
+<P>
+While <VAR>xx</VAR> = <SAMP>`00'</SAMP> is probably supported by all printers, <VAR>xx</VAR> =
+<SAMP>`01'</SAMP> and <SAMP>`02'</SAMP> may well not be.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>* DT <VAR>BC</VAR>=3 00 <VAR>xx</VAR> 00</CODE></B>
+<DD><A NAME="IDX227"></A>
+Print an alignment pattern.  There are three patterns, which are picked
+via the choice of <VAR>xx</VAR>.  Pattern <SAMP>`0'</SAMP> is coarse, pattern
+<SAMP>`1'</SAMP> is medium, and pattern <SAMP>`2'</SAMP> is fine.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>* DU <VAR>BC</VAR>=6 00 <VAR>xx</VAR> 00 09 00 <VAR>yy</VAR></CODE></B>
+<DD><A NAME="IDX228"></A>
+Print another alignment pattern.  It isn't entirely clear what <VAR>xx</VAR>
+and <VAR>yy</VAR> are, but it appears that <VAR>xx</VAR> takes on the values
+<SAMP>`1'</SAMP> and <SAMP>`2'</SAMP> , and <VAR>yy</VAR> takes on the values <SAMP>`0'</SAMP> and
+<VAR>1</VAR>.  This may only work on the 580 and/or 480.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>* DA <VAR>BC</VAR>=4 00 <VAR>xx</VAR> 00 <VAR>yy</VAR></CODE></B>
+<DD><A NAME="IDX229"></A>
+Set results for the first alignment pattern.  <VAR>xx</VAR> is the pattern
+(<SAMP>`1'</SAMP>--<SAMP>`3'</SAMP>); <VAR>yy</VAR> is the best choice from the set
+(<SAMP>`1'</SAMP>--<SAMP>`7'</SAMP> or <SAMP>`1'</SAMP>--<SAMP>`15'</SAMP>).  This does not save to
+NVRAM, so when the printer is powered off, the setting will be lost.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>* DA <VAR>BC</VAR>=6 00 <VAR>xx</VAR> 00 <VAR>yy</VAR> 09 00</CODE></B>
+<DD><A NAME="IDX230"></A>
+Set results for alternate alignment pattern.  <VAR>xx</VAR> appears to be the
+pass, and <VAR>yy</VAR> appears to be the optimum pattern.  This does not
+save to NVRAM, so when the printer is powered off, the setting will be
+lost.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>* SV <VAR>BC</VAR>=0</CODE></B>
+<DD><A NAME="IDX231"></A>
+Save the current settings to NVRAM.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>* RS <VAR>BC</VAR>=1 01</CODE></B>
+<DD><A NAME="IDX232"></A>
+Reset the printer.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>* IQ <VAR>BC</VAR>=1 01</CODE></B>
+<DD><A NAME="IDX233"></A>
+Get ink quantity.  This requires direct access to the printer port.  The
+return looks like
+
+</P>
+
+<PRE>
+IQ:KKCCMMYY
+</PRE>
+
+<P>
+or
+
+</P>
+
+<PRE>
+IQ:KKCCMMYYccmm
+</PRE>
+
+<P>
+(for 4-color and 6-color printers respectively), where each pair of
+digits are hexadecimal representations of percent.
+</DL>
+
+</P>
+<P>
+The following two commands have been observed on an STP 870.
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>* IR <VAR>BC</VAR>=2 00 <VAR>xx</VAR></CODE></B>
+<DD><A NAME="IDX234"></A>
+<STRONG>Function unknown</STRONG>. This command has been observed on an STP 870
+with <VAR>xx</VAR>=<SAMP>`03'</SAMP> at the start of a job and <VAR>xx</VAR>=<SAMP>`02'</SAMP> at
+the end of a job (where it is followed by an <SAMP>`LD'</SAMP> command).  When
+in roll mode, the values change to <VAR>xx</VAR>=<SAMP>`01'</SAMP> at the start of a
+job and <VAR>xx</VAR>=<SAMP>`00'</SAMP> at the end of a job.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>* FP <VAR>BC</VAR>=3 00 <VAR>xx</VAR> <VAR>yy</VAR></CODE></B>
+<DD><A NAME="IDX235"></A>
+<VAR>xx</VAR>=<SAMP>`00'</SAMP> and <VAR>yy</VAR>=<SAMP>`00'</SAMP> selects the printer's normal
+left margin (about 3mm).  <VAR>xx</VAR>=<SAMP>`0xb0'</SAMP> and <VAR>yy</VAR>=<SAMP>`0xff'</SAMP>
+selects zero-margin mode, where the left-most print position is shifted
+to a point about 0.1" to the left of the left-hand edge of the paper,
+allowing printing up to (and off) the left-hand edge of the paper.
+</DL>
+
+</P>
+<P>
+The commands below are partially documented in the Stylus Pro 9000
+manual.  Much of this information is interpreted; none is tested.
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>* SN <VAR>BC</VAR>=3 00 <VAR>xx</VAR> <VAR>yy</VAR></CODE></B>
+<DD><A NAME="IDX236"></A>
+Select Mechanism Sequence.  <VAR>xx</VAR> controls which sub-operation is
+performed.  <VAR>xx</VAR>=<SAMP>`00'</SAMP> selects the "Feed paper sequence
+setting".  <VAR>yy</VAR> can take on the following values (on the STP 870,
+at any rate):
+
+</P>
+<DL COMPACT>
+
+<DT><SAMP>`0'</SAMP>
+<DD>
+default
+<DT><SAMP>`1'</SAMP>
+<DD>
+plain paper
+<DT><SAMP>`2'</SAMP>
+<DD>
+postcards
+<DT><SAMP>`3'</SAMP>
+<DD>
+film (photo quality glossy film, transparencies)
+<DT><SAMP>`4'</SAMP>
+<DD>
+envelopes
+<DT><SAMP>`5'</SAMP>
+<DD>
+plain paper (fast load)
+<DT><SAMP>`6'</SAMP>
+<DD>
+back light film (although this has been observed with heavyweight matte
+paper)
+<DT><SAMP>`7'</SAMP>
+<DD>
+matte paper (observed with 360 dpi inkjet paper, and photo quality
+inkjet paper)
+<DT><SAMP>`8'</SAMP>
+<DD>
+photo paper
+</DL>
+
+<P>
+Experimentation suggests that this setting changes details of how the
+printers' cut sheet feeder works, presumably to tune it for different
+types of paper.
+
+</P>
+<P>
+<VAR>xx</VAR>=<SAMP>`01'</SAMP> controls the platen gap setting; <VAR>yy</VAR>=<SAMP>`00'</SAMP>
+is the default, <VAR>yy</VAR>=<SAMP>`1'</SAMP> or <SAMP>`2'</SAMP> are higher settings.
+
+</P>
+<P>
+<VAR>xx</VAR>=<SAMP>`02'</SAMP> controls paper loading speed (<VAR>yy</VAR>=<SAMP>`0'</SAMP> is
+normal, <SAMP>`1'</SAMP> is fast, <SAMP>`2'</SAMP> is slow).  It appears that <SAMP>`1'</SAMP>
+is used when printing on "plain paper", "360dpi ink jet paper" or
+"ink jet transparencies", and <VAR>yy</VAR>=<SAMP>`00'</SAMP> for all other paper
+type settings.
+
+</P>
+<P>
+<VAR>xx</VAR>=<SAMP>`07'</SAMP> controls duplex printing for printers with that
+capability (<VAR>yy</VAR>=<VAR>0</VAR> is default, for non-duplex printing;
+<SAMP>`1'</SAMP> is front side of the paper, and <VAR>2</VAR> is back side).
+
+</P>
+<P>
+<VAR>xx</VAR>=<SAMP>`09'</SAMP> controls zero margin printing on the printers with
+the capability of printing zero-margin on all sides (Stylus Photo
+780/790, 890, and 1280/1290).  <VAR>yy</VAR>=<SAMP>`0'</SAMP> is the default;
+<SAMP>`1'</SAMP> enables zero margin printing.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>* PP <VAR>BC</VAR>=3 00 <VAR>xx</VAR> <VAR>yy</VAR></CODE></B>
+<DD><A NAME="IDX237"></A>
+Set Paper Path.  <VAR>xx</VAR>=<SAMP>`2'</SAMP> indicates manual feed,
+<VAR>xx</VAR>=<SAMP>`3'</SAMP> is for roll paper.  <VAR>yy</VAR> selects "paper path
+number".
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>* AC <VAR>BC</VAR>=2 00 <VAR>xx</VAR></CODE></B>
+<DD><A NAME="IDX238"></A>
+Set Auto Cutting State.  <VAR>xx</VAR>=<SAMP>`0'</SAMP> selects auto cutting off,
+<VAR>xx</VAR>=<SAMP>`1'</SAMP> selects auto cutting on, and <VAR>xx</VAR>=<SAMP>`2'</SAMP>
+indicates horizontal print page line on.  It appears that with auto
+cutting on, roll paper is cut automatically at the point a formfeed
+character is sent.  The formfeed character is normally used to eject a
+page; with this turned on, it also cuts the roll paper.  Horizontal
+print page line on prints a narrow line of black dots at the position
+the paper should be cut manually.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>* DR <VAR>BC</VAR>=4 00 xx <VAR>DT2</VAR></CODE></B>
+<DD><A NAME="IDX239"></A>
+Set Drying Time.  <VAR>xx</VAR>=<SAMP>`00'</SAMP> sets the drying time "per scan"
+(per pass?); <VAR>xx</VAR>=<SAMP>`01'</SAMP> sets the drying time per page. <VAR>DT</VAR>
+indicates the drying time, which is in seconds if page mode is used and
+in milliseconds if scan mode is used.  <VAR>DT</VAR> must not exceed 3600
+seconds in per-page mode and 10000 milliseconds in per-scan mode.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>* IK <VAR>BC</VAR>=2 00 <VAR>xx</VAR></CODE></B>
+<DD><A NAME="IDX240"></A>
+Select Ink Type.  <VAR>xx</VAR>=<SAMP>`00'</SAMP> selects dye ink.  Pigment ink is
+apparently selected by <VAR>xx</VAR>=<SAMP>`01'</SAMP>.  This probably does not apply
+to the consumer-grade printers.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>* PZ BC=2 00 xx</CODE></B>
+<DD><A NAME="IDX241"></A>
+Set Pause After Printing.  <VAR>xx</VAR>=<SAMP>`00'</SAMP> selects no pause after
+printing; <VAR>xx</VAR>=<SAMP>`01'</SAMP> selects pause after printing.  If turned
+on, the printer is paused after the page is ejected (by the FF
+byte).  If cutting is turned on, the printer is paused <STRONG>after</STRONG>
+the cutting or printing of the horizontal cut line.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>* EX <VAR>BC</VAR>=6 00 00 00 00 0x14 <VAR>xx</VAR></CODE></B>
+<DD><A NAME="IDX242"></A>
+Set Vertical Print Page Line Mode.  <VAR>xx</VAR>=<SAMP>`00'</SAMP> is off,
+<VAR>xx</VAR>=<SAMP>`01'</SAMP> is on.  If turned on, this prints vertical trim lines
+at the left and right margins.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>* EX <VAR>BC</VAR>=6 00 00 00 00 0x05 <VAR>xx</VAR></CODE></B>
+<DD><A NAME="IDX243"></A>
+Set Roll Paper Mode.  If <VAR>xx</VAR> is <SAMP>`0'</SAMP>, roll paper mode is off;
+if <VAR>xx</VAR> is <SAMP>`1'</SAMP>, roll paper mode is on.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>* EX <VAR>BC</VAR>=3 00 <VAR>xx</VAR> <VAR>yy</VAR></CODE></B>
+<DD><A NAME="IDX244"></A>
+Appears to be a synonym for the <SAMP>`SN'</SAMP> command described above.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>* PH <VAR>BC</VAR>=2 00 <VAR>xx</VAR></CODE></B>
+<DD><A NAME="IDX245"></A>
+Select Paper Thickness.  Set the paper thickness <VAR>xx</VAR> in .1 mm
+units.  This must not exceed 0x10 (1.6 mm).  If the thickness is set
+"more than" .6 mm (which probably means "at least" .6 mm, since the
+other case reads "less than 0.5 mm"), the platen gap is set high
+irrespective of the <SAMP>`SN'</SAMP> command.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>* PM <VAR>BC</VAR>=2 00 00</CODE></B>
+<DD><A NAME="IDX246"></A>
+<STRONG>Function unknown</STRONG>. Used on the STC 3000 at least when using roll
+feed, and on the STP 870 in all print files analysed to date.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>* ST <VAR>BC</VAR>=2 00 <VAR>xx</VAR></CODE></B>
+<DD><A NAME="IDX247"></A>
+Epson's STP 750/1200 programming guide refers to the <SAMP>`ST'</SAMP> command
+as "Set printer state reply".  If <VAR>xx</VAR> is <SAMP>`0'</SAMP> or <SAMP>`2'</SAMP>,
+the printer will not send status replies.  If <VAR>xx</VAR> is <SAMP>`1'</SAMP> or
+<SAMP>`3'</SAMP>, the printer will send status replies.  The status replies
+consist of state, error codes, ink leve, firmware version, and warning
+status.
+
+</P>
+<P>
+The actual reply is documented as
+
+</P>
+
+<PRE>
+@BDC ST\r
+ST: xx;
+[ER: yy;]
+IQ: n1n2n3n4;
+[WR: w1,w2...;]
+RV: zz;
+AI:CW:02kkccmmyy, MI:mm
+[TC:tttt;]
+INK:...;
+\f
+</PRE>
+
+<P>
+(<SAMP>`\r'</SAMP> is carriage return; <SAMP>`\n'</SAMP> is newline; <SAMP>`\f'</SAMP> is
+formfeed.)
+
+</P>
+<P>
+<SAMP>`ST'</SAMP> is the printer status:
+
+</P>
+<DL COMPACT>
+
+<DT><SAMP>`00'</SAMP>
+<DD>
+Error
+<DT><SAMP>`01'</SAMP>
+<DD>
+Self-test
+<DT><SAMP>`02'</SAMP>
+<DD>
+Busy
+<DT><SAMP>`03'</SAMP>
+<DD>
+Waiting while printing
+<DT><SAMP>`04'</SAMP>
+<DD>
+Idle
+<DT><SAMP>`07'</SAMP>
+<DD>
+Cleaning/filling ink heads
+<DT><SAMP>`08'</SAMP>
+<DD>
+Not yet initialized/filling heads
+</DL>
+
+<P>
+<SAMP>`ER'</SAMP>, if provided, is the error status:
+
+</P>
+<DL COMPACT>
+
+<DT><SAMP>`00'</SAMP>
+<DD>
+Fatal error
+<DT><SAMP>`01'</SAMP>
+<DD>
+Interface not selected
+<DT><SAMP>`04'</SAMP>
+<DD>
+Paper jam
+<DT><SAMP>`05'</SAMP>
+<DD>
+Out of ink
+<DT><SAMP>`06'</SAMP>
+<DD>
+Paper out
+</DL>
+
+<P>
+<SAMP>`IQ'</SAMP> is the amount of ink left, as a (decimal!) percentage
+expressed in hexadecimal.  The values are black, cyan, magenta, and
+yellow (presumably 6-color printers supply light cyan and light magenta
+inks as additional parameters).
+
+</P>
+<P>
+<SAMP>`WR'</SAMP>, if provided, is the warning status:
+
+</P>
+<DL COMPACT>
+
+<DT><SAMP>`10'</SAMP>
+<DD>
+Black ink low
+<DT><SAMP>`11'</SAMP>
+<DD>
+Cyan
+<DT><SAMP>`12'</SAMP>
+<DD>
+Magenta
+<DT><SAMP>`13'</SAMP>
+<DD>
+Yellow
+<DT><SAMP>`14'</SAMP>
+<DD>
+Light cyan (presumably)
+<DT><SAMP>`15'</SAMP>
+<DD>
+Light magenta (presumably)
+</DL>
+
+<P>
+<SAMP>`RV'</SAMP> is the firmware revision (one byte ASCII).
+
+</P>
+<P>
+<SAMP>`AI'</SAMP> is actuator information.  These are two byte ASCII codes that
+indicate "ink weight rank ID" of KCMY, respectively.
+
+</P>
+<P>
+<SAMP>`TC'</SAMP>, if provided, is the total time of cleaning or ink filling (?).
+
+</P>
+<P>
+<SAMP>`INK:'</SAMP> and <SAMP>`MI'</SAMP> are <STRONG>not documented</STRONG>.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>* SM <VAR>BC</VAR>=2 00 <VAR>xx</VAR></CODE></B>
+<DD><A NAME="IDX248"></A>
+Set Status Reply Rate.  <VAR>xx</VAR> is the repeat interval in seconds.  If
+<VAR>xx</VAR> is <SAMP>`0'</SAMP>, the status is returned only when the printer's
+state changes.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>* ST <VAR>BC</VAR>=1 01</CODE></B>
+<DD><A NAME="IDX249"></A>
+Reply Printer Status.  The reply is formatted as
+
+</P>
+
+<PRE>
+@BDC PS\r\nST:<VAR>xx</VAR>;\f
+</PRE>
+
+<P>
+(<SAMP>`\r'</SAMP> is carriage return; <SAMP>`\n'</SAMP> is newline; <SAMP>`\f'</SAMP> is
+formfeed).  If <VAR>xx</VAR> (the reply value) is <SAMP>`0'</SAMP> or <SAMP>`2'</SAMP>,
+automatic status update is disabled; if <SAMP>`1'</SAMP> or <SAMP>`3'</SAMP>, it is
+enabled.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>* SM <VAR>BC</VAR>=1 01</CODE></B>
+<DD><A NAME="IDX250"></A>
+Reply Printer Status Rate.  The reply is formatted as
+
+</P>
+
+<PRE>
+@BDC PS\r\nST:xx;\f
+</PRE>
+
+<P>
+(<SAMP>`\r'</SAMP> is carriage return; <SAMP>`\n'</SAMP> is newline; <SAMP>`\f'</SAMP> is
+formfeed).  See <SAMP>`SM <VAR>BC</VAR>=2'</SAMP> above for the meaning of the return
+value.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>* ?? <VAR>BC</VAR>=<VAR>xx</VAR> <VAR>y</VAR>[1] ... <VAR>y</VAR>[xx]</CODE></B>
+<DD><A NAME="IDX251"></A>
+Echo Parameters (perhaps better described as Echo Commands).  The
+command string is executed (it would appear from the documentation), and
+the string sent is returned using a sequence similar to that described
+in the <SAMP>`ST <VAR>BC</VAR>=1'</SAMP> and <SAMP>`SM <VAR>BC</VAR>=1'</SAMP> commands.  Note
+that in this case the number of bytes is variable!
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>ESC/P2 remote command:</U> <B><CODE>* SM <VAR>BC</VAR>=2 00 02</CODE></B>
+<DD><A NAME="IDX252"></A>
+<STRONG>Function unknown</STRONG>.  Used on the STC 3000 at least when using
+roll feed.
+</DL>
+
+</P>
+
+<P><HR><P>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_36.html">previous</A>, <A HREF="gimpprint_38.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+</BODY>
+</HTML>

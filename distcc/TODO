@@ -1,0 +1,647 @@
+TODO list for distcc            -*- mode: indented-text; fill-column: 78; -*-
+
+See also TODO comments in source files
+
+
+static linking
+    
+    cachegrind shows that a large fraction of client runtime is spent in the
+    dynamic linker, which is kind of a waste.  In principle using dietlibc
+    might reduce the fixed overhead of the client.  However, the nsswitch
+    functions are always dynamically linked: even if we try to produce a
+    static client it will include dlopen and eventually indirectly get libc,
+    so it's probably not practical.
+
+testing
+
+    How to use Debian's make-kpkg with distcc?  Does it work with the
+    masquerade feature?
+
+    Add --die-after= option to distccd to make sure it gets killed off in
+    testing even if the test script is killed.
+
+ccache
+    
+    Add an uncached fd to ccache, so that we can describe e.g. network
+    failures that shouldn't be remembered.  Export this as CCACHE_ERR_FD or
+    something. 
+
+kernel 2.5 bug
+
+    Andrew Morton has a situation where distcc on Linux 2.5 causes a TCP bug.
+    (One machine thinks the socket is ESTABLISHED but the other thinks it is
+    CLOSED.  This should never happen.)
+
+    Need to install 2.5 on two machines and run compilations until it hangs. 
+
+
+slow networks
+
+    Use Linux Traffic Control to simulate compilation across a slow network.
+    Woohoo!
+
+"single queue multi server" scheduler
+
+    research this more.
+
+read hosts from file
+
+compression
+
+manpages
+
+    The GNU project considers manpages to be deprecated, and they are
+    certainly harder to maintain than a proper manual, but many people still
+    find them useful.
+
+    It might be nice to update the manual pages to contain quick-reference
+    information that is smaller than the user manual but larger than what is
+    available from --help.  Is that ever really needed?
+
+    The manpages should be reasonably small both because that suits the
+    format, and also because I don't want to need to keep too much duplicated
+    information up to date.
+
+    This might be a nice small bit of work for somebody who wants to
+    contribute.
+    
+    http://www.debian.org/doc/debian-policy/ch-docs.html
+
+User Manual
+
+    We tried using Docbook in release 1.2, but the tools for it seem much less
+    mature than those for Linuxdoc, so I'm going to skip this for a while.
+
+ - Add some documentation of the benchmark system.  Does this belong
+   in the manual, or in a separate manual?
+
+ - Note that mixed gcc versions might cause different optimizations, which may
+   be a problem.  In addition, files which test the gcc version either in the
+   configure script or in the preprocessor will have trouble.  The kernel is
+   one such program, and it needs to be built the same versions of gcc on all
+   machines.
+
+ - FAQ: Can't you check the gcc version?  No, because gcc programs which
+   report the same versions number can have different behaviours, perhaps due
+   to vendor/distributor patches.
+
+ - Actually, distcc might use flock, lockf, or something else, depending on
+   the platform.
+
+ - Note that LSB requires init scripts to reset PATH, etc, so as to be
+   independent of user settings if started interactively.
+
+ - Discuss dietlibc.
+
+
+Just cpp and linker?
+
+ - Is it easy to describe how to install only the bits of gcc needed for
+   distcc clients?  Basically the driver, header, linker, and specs.  Would
+   this save much space?
+
+
+Preforking
+
+ - The daemon might "pre-fork" children, which will each accept
+   connections and do their thing, as in Apache.  This might reduce
+   the number of fork() calls incurred, and perhaps also the latency
+   in accepting a connection.  I'm not sure if it's really justified,
+   but if we have server-side concurrency limits it might fall out
+   nicely.
+
+
+-g support
+
+    Perhaps detect the -g option, and then absolutify filenames passed to the
+    compiler.  This will cause absolute filenames to appear in error messages,
+    but I don't see any easy way to have both correct stabs info and also
+    correct error messages.
+
+    Is anything else wrong with this approach?
+
+  
+--enable-final option for KDE
+
+  Bernardo Innocenti <bernie@develer.com> says
+
+    Using the --enable-final configure option of KDE makes distcc almost
+    useless.  
+
+  What is he talking about?
+
+> Moin Martin,
+
+Hello!
+
+> --enable-final makes the build system concatenate all sourcefiles in a
+> directory (say, Konqueror's sourcefiles) into one big file.
+
+Thanks for explaining that.  I'd wondered about that approach, so it's
+interesting to hear that KDE has done it.  The SGI compiler does
+something similar, but by writing a bytecode into the .o files and
+then doing global optimization at "link" time.
+
+> Technically, this is achieved by creating a dummy file which simply
+> includes every C++ sourcefile. The advantage of this is that the
+> compile a) takes less time since there is only little scattered file
+> opening involved and b) produces usually more optimized code, since
+> the compiler can see more code at once and thus there are more
+> chances to optimize. Of course this eats a lot more memory, but that
+> is not an issue nowadays.
+> 
+> Now, it's clear why this makes distcc useless: there is just one huge file
+> per project, and outsourcing that file via distcc to other nodes will just
+> delay the build since the sourcecode (and it's a lot) has to be transferred
+> over the network, and there is no way to pararellize this.
+
+Yes, that does seem to make it non-parallelizable.  However, I suppose
+you might profitably still use distcc to build different
+libraries/programs in different directories at the same time, if the
+makefile can do that.  Or at least you might use it to shift work from
+a slow machine to a faster one.
+
+
+
+
+Statistics
+
+    Accumulate statistics on how many jobs are built on various machines.
+
+    Want to be able to do something like "watch ccache -s".
+
+
+Compression
+
+  Use LZO.  Very cheap compared to cpp.
+
+  Perhaps statically link minilzo into the program -- simpler and
+  possibly faster than using a shared library.
+
+
+kill compiler
+
+    If the client is killed, it will close the connection.  The server ought
+    to kill the compiler so as to prevent runaway processes on the server. 
+
+    This probably involves selecting() for read on the connection.
+
+    The compilation will complete relatively soon anyhow, so it's not worth
+    doing this unless there is a simple implementation.
+    
+
+Scheduling
+
+  Scheduler needs to include port number when naming machines
+
+  New "supermarket" scheduler
+
+    There's rarely any point sending two files to any one machine at
+    the same time.  Presumably the network can be completely filled by
+    one of them.
+
+    Other processes queue up behind whoever is waiting for the
+    connection.  Try to keep them in order.
+
+    Implement this by a series of locks
+
+    How to correctly allow for make running other tasks on the machine at the
+    same time?
+
+    Tasks that are waiting for resources should *not* be bound to any
+    particular resource: they should wait for *anything* to be free, and then
+    take that.  Perhaps we need a semaphore initialized to the number of
+    remote slots?  
+
+    What's the best portable way to do semaphores?  SysVSem, or something
+    built from scratch?  Cygwin has POSIX semaphores.  
+
+    Doing this for an inconsistent list of hosts might be tricky, though.
+
+    Alternatively, create a client-side daemon that queues up clients and
+    sends them to the next-available machine.
+
+    Alternatively, use select() to wait on many files.  Can this wait for
+    locks?  It would be a shame if it can't.
+
+    Alternatively, just sleep for 0.1s and then try to acquire a lock again.
+    Ugly, but simple and it would probably work.  Not very expensive compared
+    to actually running the compiler, and probably cheap compared to running a
+    compiler in the wrong place.
+
+    Probably don't do load limitation on remote hosts by default: just send
+    everything and let the daemon accept as it wishes.
+
+
+corks
+
+    Can corks cause data to be sent in the SYN or ACK packet?
+
+
+tcp fiddling
+
+    I wonder if increasing the maximum window size (sys.net.core.wmem_default,
+    etc) will help anything?  It's probably dominated by scheduling
+    inefficiency at the moment.
+
+
+benchmark
+
+    Try aspell and xmms, which may have strange Makefiles.
+
+
+compression when needed
+
+    Compression is probably only useful when we're network-bound.  We can
+    roughly detect this by seeing whether we had to wait to acquire the mutex
+    to send data to a particular machine.  If we're waiting for the network to
+    be free, we might as well start compressing.
+
+
+
+Load balancing
+
+  Perhaps rely on external balancer
+
+  http://balance.sourceforge.net/
+
+  Perhaps we can adapt its ideas.
+
+rsync-like caching
+
+  Send source as an rdiff against the previous version.
+
+  Needs to be able to fall back to just sending plain text of course.
+
+  Perhaps use different compression for source and binary.
+
+--ping option
+       
+  It would be nice to have a <tt>--ping</tt> client option to contact
+  all the remote servers, and perhaps return some kind of interesting
+  information.  
+
+  Output should be machine-parseable e.g. to use in removing
+  unreachable machines from the host list.
+
+host specification
+
+    Perhaps look in /etc/distcc/hosts and ~/.distcc/hosts by default, if the
+    DISTCC_HOSTS is not set.
+
+    If it is set, perhaps allow it to contain filenames which cause those
+    files to be read.
+
+
+Implicit usage:
+
+    Take CC name from environment variable DISTCC_CC.  Document this.
+    Perhaps have a separate one for CXX?  (Though really I don't see
+    any point in this, because we could only distinguish the two by
+    looking at the prefix of the source file, which is the same as
+    what gcc will do.)
+
+    We need to reliably distinguish the three cases, and then also
+    implement each one correctly.  Plenty of room for interesting test
+    cases here.
+
+    Three methods of usage:
+
+	"Explicit" compiler name.
+	    distcc gcc -c foo.c  
+
+	    Nice and simple!!  Name of the real compiler is simply taken
+	    from argv[1].
+
+	"Implicit" compiler.
+	    distcc -c foo.c
+	    distcc foo.o -o foo
+	    
+	    First argument is not a compiler name.  
+
+	"Intercepted" compiler
+	    ln -s distcc /usr/local/bin/cc
+	    cc -c foo.c
+	    cc foo.o -o
+
+	    The command line looks like an implicit compiler invocation, in
+	    that the first word is not the name of the compiler.  
+
+	    However, rather than using DISTCC_CC, we need to find the
+	    "real" underlying compiler.
+
+	    Want to set a _DISTCC_SAFEGUARD environment variable to
+	    protect against accidentally invoking distcc recursively.
+
+   I'm not sure what the precedence should be between DISTCC_CC and an
+   intercepted compiler name.  On the whole I think using the
+   intercepted name is probably better.
+
+   So the decision tree is probably like this:
+
+   if a compiler name is explicitly specified
+	run the named compiler
+   otherwise, if we intercepted the call
+        work out the name of the real compiler
+   otherwise, 
+        use DISTCC_CC
+
+   So how to work out if the compiler name was explicitly specified?  
+  
+        1- Look to see whether it looks like a source file or option.
+	But this is a problem for some linker invocations...
+	
+	2- Look along the PATH to see if the file exists and is
+	executable. 
+
+    When checking the path:
+
+        If the filename is absolute, then just check it directly.
+        Otherwise, check every directory of the path, looking for a
+        file of that name.  Check if it's executable.
+
+    We can't rely on the contents of the path being the same on the
+    server, but it should not be necessary to evalute this on the
+    server. 
+
+    If random files in the build are executable and either on the path
+    or explicitly named on the command line then we may have trouble.
+
+    How to tell if we've intercepted the compiler?  One way is just to
+    check if the last component of argv[0] is "distcc".  This is what
+    ccache does, and it probably works pretty well.
+
+    How to find the real compiler?  We might try looking for the first
+    program of the same name that's not a symlink, but that will cause
+    trouble on machines where there is a link like "gcc -> gcc-3.2",
+    which is common.
+
+    On the server, distcc may be on the path.  Sending an absolute
+    path to the compiler is undesirable, particularly since we might
+    be cross-compiling (and have some programs in /usr/local), or
+    running to a different distribution.
+
+    Another problem is that people will probably end up with the hook on their
+    distccd's path, and therefore it will recurse.  See
+    http://bugs.gentoo.org/show_bug.cgi?id=13625#c2
+
+
+Protocol
+  Perhaps rather than getting the server to reinterpret the command
+  line, we should mark the input and output parameters on the client.
+  So what's sent across the network might be
+
+    distcc -c @@INPUT@@ -o @@OUTPUT@@
+
+  It's probably better to add additional protocol sections to say
+  which words should be the input and output files than to use magic
+  values.
+
+  The attraction is that this would allow a particularly knotty part
+  of code to be included only in the client and run only once.  If any
+  bugs are fixed in this, then only the client will need to be
+  upgraded.  This might remove most of the gcc-specific knowledge from
+  the server.
+
+  Different clients might be used to support various very different
+  distributable jobs.
+
+  We ought to allow for running commands that don't take an input or
+  output file, in case we want to run "gcc --version".
+
+  The drawback is that probably new servers need to be installed to
+  handle the new protocol version.
+
+  I don't know if there's really a compelling reason to do this.  If
+  the argument parser depends on things that can only be seen on the
+  client, such as checking whether files exist, then this may be
+  needed.
+
+gcc wierdnesses:
+
+    distcc needs to  handle <tt>$COMPILER_PATH</tt> and
+    <tt>$GCC_EXEC_PREFIX</tt> in some sensible way, if there is one.
+    Not urgent because I have never heard of them being used.
+
+compiler versioning:
+
+    distcc might usefully verify that the compiler versions and
+    critical parameters are compatible on all machines, for example by
+    running -V.  This really should be done in a way that preserves
+    the simplicity of the protocol: we don't want to interactively
+    query the server on each request.  Perhaps distcc ought to add
+    <tt>-b</tt> and <tt>-V</tt> options to the compiler, based on
+    whatever is present on the current machine?  Or perhaps the user
+    should just do this.
+
+networking timeouts:
+
+    distcc waits for too long on unreachable hosts.  We probably need
+    to timeout after about a second and build locally.  Probably this
+    should be implemented by connect() in non-blocking mode, bounded
+    by a select.
+
+    Also we want a timeout for name resolution.  The GNU resolver has
+    a specific feature to do this.  On other systems we probably need
+    to use alarm(), but that might be more trouble than it is worth.  Jonas
+    Jensen says:
+
+	Timing out the connect call could be done easier than this, just by
+	interrupting it with a SIGALRM, but that's not enough to abort
+	gethostbyname. This method of longjmp'ing from a signal handler is what
+	they use in curl, so it should be ok.
+
+    The client should have a medium-term local cache about unusable
+    servers, to avoid always retrying connections.  Several different
+    cases (unreachable, host down, server down, server broken) will
+    produce slightly different errors.
+
+
+ssh
+
+    Running distcc across OpenSSH has several security advantages and
+    should be supported in the future.  They include:
+
+	Volunteer machines will not need to open an additional
+	network-facing service.
+
+	Only authenticated users can use a volunteer machine.
+
+	Clients have some guarantees that their connections to a
+	volunteer are not being spoofed.
+
+    Using SSH is greatly preferable to developing and maintaining a
+    custom security protocol.
+
+    If the client or volunteer is subverted, then the other party is
+    not protected.  (For example, if the administrator of the
+    volunteer is malicious, or if the volunteer has been compromised,
+    then compilation results might contain trojans.)  However, this is
+    the case for practically every Internet protocol.
+
+    Using SSH will consume some CPU cycles in computation on both
+    client and volunteer.
+
+    A simple implementation would be trivial, since the daemon already
+    works on stdin/stdout.  However, this might perform poorly because
+    SSH takes quite a long time to open a connection.
+
+    Connections should be hoarded by the client.  If the client
+    doesn't already have an ssh connection to the server, distcc
+    should fork, with a background task holding the connection open
+    and coordinating access.
+
+
+waitstatus
+
+    Make sure that native waitstatus formats are the same as the
+    Unix/Linux/BSD formats used on the wire.  (See
+    <http://www.opengroup.org/onlinepubs/007904975/functions/wait.html>,
+    which says they may only be interpreted by macros.)  I don't know
+    of any system where they're different.
+
+
+gui
+
+    a gui to show progress of compilation and distribution of load would be
+    neat.  probably the most sensible way is to make it parse $distcc_log.
+
+override compiler name
+	    
+    distcc could support cross-compilation by a per-volunteer option to
+    override the compiler name.  On the local host, it might invoke gcc
+    directly, but on some volunteers it might be necessary to specify a more
+    detailed description of the compiler to get the appropriate cross tool.
+    This might be insufficient for Makefiles that need to call several
+    different compilers, perhaps gcc and g++ or different versions of gcc.
+    Perhaps they can make do with changing the DISTCC host settings at
+    appropriate times.
+
+    I'm not convinced this complexity is justified.
+	    
+IPv6
+
+    distcc could easily handle IPv6, but it doesn't yet.  The new sockets API
+    does not work properly on all systems, so we need to detect it and fall
+    back to the old API as necessary.
+
+LNX-BBC
+
+    It would be nice to put distcc and appropriate compilers on the LNX-BBC.
+    This could be pretty small because only the compiler would be required,
+    not header files or libraries.
+
+#pragma implementation
+  
+    We might keep the same file basename, and put the files in a temporary
+    subdirectory.  This might avoid some problems with C++ looking at the
+    filename for #pragma implementation stuff.
+
+    This is also a potential fix for the -MD stuff: we could run the whole
+    compile in a subdirectory, and then grab any .d files generated.
+
+Installable package for Windows
+
+    Also, it would be nice to have an easily installable package for Windows
+    that makes the machine be a Cygwin-based compile volunteer.  It probably
+    needs to include cross-compilers for Linux (or whatever), or at least
+    simple instructions for building them.
+
+
+    Automatic detection ("zero configuration") of compile volunteers is
+    probably not a good idea, because it might be complicated to implement,
+    and would possibly cause breakage by distributing to machines which are
+    not properly configured.
+
+
+    Notwithstanding the previous point, centralized configuration for a site
+    would be good, and probably quite practical.  Setting up a list of
+    machines centrally rather than configuring each one sounds more friendly.
+    The most likely design is to use DNS SRV records (RFC2052), or perhaps
+    multi-RR A records.  For exmaple, compile.ozlabs.foo.com would resolve to
+    all relevant machines.  Another possibility would be to use SLP, the
+    Service Location Protocol, but that adds a larger dependency and it seems
+    not to be widely deployed.
+
+
+
+Large-scale Distribution
+
+    distcc in it's present form works well on small numbers of close machines
+    owned by the same people.  It might be an interesting project to
+    investigate scaling up to large numbers of machines, which potentially do
+    not trust each other.  This would make distcc somewhat more like other
+    "peer-to-peer" systems like Freenet and Napster.
+
+Load Balancing
+
+    When running a job locally (such as cpp or ld), distcc ought to count that
+    against the load of localhost.  At the moment it is biased towards too
+    much local load.
+
+    distcc needs a way to know that some machines have multiple CPUs, and
+    should accept a proportionally larger number of jobs at the same time.
+    It's not clear whether multiprocessor machines should be completely filled
+    before moving on to another machine.
+
+
+    If there are more parallel invocations of distcc than available CPUs it's
+    not clear what behaviour would be best.  Options include having the
+    remaining children sleep; distributing multiple jobs across available
+    machines; or running all the overflow jobs locally.
+
+
+    In fact, on Linux it seems that running two tasks on a CPU is not much
+    slower than running a single task, because the task-switching overhead is
+    pretty low.
+
+
+    Problems tend to occur when we run more jobs than will fit into available
+    physical memory.  It might be nice if there was a "batch mode" scheduler
+    that would finish one before running the next, but in the absence of that
+    we have to do it ourselves.  I can't see any clean and portable way to
+    determine when the compiler is using too much memory: it would depend on
+    the RSS of the compiler (which depends on the source file), on the amount
+    of memory and swap, and on what other tasks are running.  In addition, on
+    some small boxes compiling large code, you may actually want (or need) to
+    have it swap sometimes.
+
+
+    In addition, it might be nice to have a --max-load option, as for GNU
+    Make, to tell it not to accept more than one job (or more than zero?) when
+    the machine's load average is above that number.  We can try calling
+    getloadavg(), which should exist on Linux and BSD, but apparently not on
+    Solaris.  Can take patches later.
+
+
+
+    A server-side administrative restriction on the number of consecutive
+    tasks would probably be a sufficient approximation.
+
+
+    Oscar Esteban suggests that when the server is limiting accepted jobs, it
+    may be better to have it accept source, but defer compiling it.  This
+    implies not using fifos, even if they would otherwise be appropriate.
+    This may smooth out network utilization.  There may be some undesirable
+    transient effects where we're waiting for one small box to finish all the
+    jobs it has queued.
+
+
+
+    The scheduler would ideally also take into account the special
+    distribution required for non-parallel parts of the build: the most common
+    case is running configure, where many small jobs will be run sequentially.
+    In general the best solution is to run them locally, but if the local
+    machine is very slow that may not be true.  Perhaps some kind of adaptive
+    system based on measuring the performance of all available machines would
+    make sense.
+
+distributed caching
+
+    Look in the remote machine's cache as well.
+
+    Perhaps use a SQUID-like broadcast of the file digest and other critical
+    details to find out if any machine in the workgroup has the file cached.
+    Perhaps this could be built on top of a more general file-caching
+    mechanism that maps from hash to body.  At the moment this sounds like
+    premature optimization.

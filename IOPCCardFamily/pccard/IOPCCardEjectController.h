@@ -27,7 +27,16 @@
 #ifndef _IOKIT_IOPCCARDEJECTDEVICE_H
 #define _IOKIT_IOPCCARDEJECTDEVICE_H
 
+/*! @header IOPCCardEjectDevice
+    @abstract An IOService based virtual class for supporting software-controlled PC Card ejection mechanisms.
+ */
+
 #define kIOPCCardEjectCategory "IOPCCardEjectController"
+
+/*! @class IOPCCardEjectController
+    @abstract Skeleton class for supporting software-controlled PC Card ejection mechanisms.
+    @discussion  This is an optional skeleton class that you may subclass if you wish to support a software-controlled PC Card ejection mechanism and/or software-controlled card socket ejection buttons.  There should be an instance of your subclassed driver attached to the CardBus Controller's provider for each socket.  The CardBus bridge driver, IOPCCardBridge, uses the matching category "IOPCCardEjectController" to find this driver and call it.  This class is both responsible for receiving external requests for ejections, such as platform-specific eject buttons, and for the execution of the actual software initiated ejection.
+*/
 
 class IOPCCardEjectController : public IOService
 {
@@ -41,7 +50,18 @@ public:
     bool			start(IOService * provider);
     void			stop(IOService * provider);
 
+    /*! @function requestCardEjection
+     *  @abstract Makes a request for a card to be ejected.
+     *  @discussion This method is used to start a request for a card ejection by routing Card Services EjectCard call to the driver(s) for this socket.  Normally, this would be called after an external event was detected, such as a platform-specific PC Card eject button press.
+     *  @result Returns true if the ejection request was accepted by all drivers and the ejection was successful.
+     */    
     virtual bool		requestCardEjection();
+
+    /*! @function ejectCard
+     *  @abstract Physically ejects a card from its socket.
+     *  @discussion This method is called to initiate the physical ejection of a card.  It is called by its peer, the IOPCCardBridge driver, after the bridge driver has terminated the socket's driver(s) and the socket has been powered down.  
+     *  @result Returns kIOReturnSuccess if the card is ejected.
+     */    
     virtual IOReturn		ejectCard();
 
     OSMetaClassDeclareReservedUnused(IOPCCardEjectController,  0);

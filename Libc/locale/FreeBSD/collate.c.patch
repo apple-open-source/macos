@@ -1,0 +1,10 @@
+--- collate.c.orig	Tue Oct 29 01:03:57 2002
++++ collate.c	Sat May  3 14:14:24 2003
+@@ -29,7 +29,6 @@
+ __FBSDID("$FreeBSD: src/lib/libc/locale/collate.c,v 1.32 2002/10/29 09:03:57 tjr Exp $");
+ 
+ #include "namespace.h"
+-#include <arpa/inet.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>

@@ -1,11 +1,11 @@
 /* gzio.c -- IO on .gz files
- * Copyright (C) 1995-1998 Jean-loup Gailly.
+ * Copyright (C) 1995-2002 Jean-loup Gailly.
  * For conditions of distribution and use, see copyright notice in zlib.h
  *
  * Compile this file with -DNO_DEFLATE to avoid the compression code.
  */
 
-/* @(#) $Id: gzio.c,v 1.1.1.1 1999/04/23 02:07:08 wsanchez Exp $ */
+/* @(#) $Id: gzio.c,v 1.2 2003/06/05 18:21:47 rbraun Exp $ */
 
 #include <stdio.h>
 
@@ -529,14 +529,9 @@ int ZEXPORTVA gzprintf (gzFile file, const char *format, /* args */ ...)
     int len;
 
     va_start(va, format);
-#ifdef HAS_vsnprintf
-    (void)vsnprintf(buf, sizeof(buf), format, va);
-#else
-    (void)vsprintf(buf, format, va);
-#endif
+    len = vsnprintf(buf, sizeof(buf), format, va);
     va_end(va);
-    len = strlen(buf); /* some *sprintf don't return the nb of bytes written */
-    if (len <= 0) return 0;
+    if (len <= 0 || len >= sizeof(buf)) return 0;
 
     return gzwrite(file, buf, (unsigned)len);
 }
@@ -552,15 +547,9 @@ int ZEXPORTVA gzprintf (file, format, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10,
     char buf[Z_PRINTF_BUFSIZE];
     int len;
 
-#ifdef HAS_snprintf
-    snprintf(buf, sizeof(buf), format, a1, a2, a3, a4, a5, a6, a7, a8,
+    len = snprintf(buf, sizeof(buf), format, a1, a2, a3, a4, a5, a6, a7, a8,
 	     a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20);
-#else
-    sprintf(buf, format, a1, a2, a3, a4, a5, a6, a7, a8,
-	    a9, a10, a11, a12, a13, a14, a15, a16, a17, a18, a19, a20);
-#endif
-    len = strlen(buf); /* old sprintf doesn't return the nb of bytes written */
-    if (len <= 0) return 0;
+    if (len <= 0 || len >= sizeof(buf)) return 0;
 
     return gzwrite(file, buf, len);
 }

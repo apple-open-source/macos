@@ -2,21 +2,24 @@
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -324,23 +327,23 @@ int pppoe_dlil_input(struct mbuf *m, char *frame_header, struct ifnet *ifp,
                      u_long dl_tag, int sync_ok)
 {
 
-//    unsigned char *p = frame_header;
- //   unsigned char *data;
+    //unsigned char *p = frame_header;
+    //unsigned char *data;
     struct ether_header *eh = (struct ether_header *)frame_header;
 
- //   log(LOGVAL, "pppenet_input, dl_tag = 0x%x\n", dl_tag);
-//    log(LOGVAL, "pppenet_input: enet_header dst : %x:%x:%x:%x:%x:%x - src %x:%x:%x:%x:%x:%x - type - %4x\n",
-//        p[0],p[1],p[2],p[3],p[4],p[5],p[6],p[7],p[8],p[9],p[10],p[11],*(u_int16_t *)&p[12]);
+    //log(LOGVAL, "pppenet_input, dl_tag = 0x%x\n", dl_tag);
+    //log(LOGVAL, "pppenet_input: enet_header dst : %x:%x:%x:%x:%x:%x - src %x:%x:%x:%x:%x:%x - type - %4x\n",
+        //p[0],p[1],p[2],p[3],p[4],p[5],p[6],p[7],p[8],p[9],p[10],p[11],ntohs(*(u_int16_t *)&p[12]));
 
 
-//    data = mtod(m, unsigned char *);
-//    log(LOGVAL, "pppenet_input: data 0x %x %x %x %x %x %x\n",
-//        data[0],data[1],data[2],data[3],data[4],data[5]);
+    //data = mtod(m, unsigned char *);
+    //log(LOGVAL, "pppenet_input: data 0x %x %x %x %x %x %x\n",
+    //    data[0],data[1],data[2],data[3],data[4],data[5]);
 
     // only the dl_tag discriminate client at this point
     // pppoe will have to look at the session id to select the appropriate socket
 
-    pppoe_rfc_lower_input(dl_tag, m, frame_header + ETHER_ADDR_LEN, eh->ether_type);
+    pppoe_rfc_lower_input(dl_tag, m, frame_header + ETHER_ADDR_LEN, ntohs(eh->ether_type));
 
     return 0;
 }
@@ -355,7 +358,7 @@ int pppoe_dlil_output(u_long dl_tag, struct mbuf *m, u_int8_t *to, u_int16_t typ
 
     eh = (struct ether_header *)sa.sa_data;
     (void)memcpy(eh->ether_dhost, to, sizeof(eh->ether_dhost));
-    eh->ether_type = typ; //htons(typ);	/* if_output will not swap */
+    eh->ether_type = htons(typ);
     sa.sa_family = AF_UNSPEC;
     sa.sa_len = sizeof(sa);
 

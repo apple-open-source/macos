@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- ===================================================================== -->
+<!--                                                                       -->
+<!--  JBoss Server Configuration                                           -->
+<!--                                                                       -->
+<!-- ===================================================================== -->
+
+<!-- $Id: oracle-ds.xml,v 1.1.2.2 2003/04/01 04:51:12 d_jencks Exp $ -->
+<!-- ==================================================================== -->
+<!--  Datasource config for Oracle originally from Steven Coy             -->
+<!-- ==================================================================== -->
+
+
+<datasources>
+  <local-tx-datasource>
+    <jndi-name>OracleDS</jndi-name>
+    <connection-url>jdbc:oracle:thin:@youroraclehost:1521:yoursid</connection-url>
+	<!--
+
+		Here are a couple of the possible OCI configurations.
+		For more information, see http://otn.oracle.com/docs/products/oracle9i/doc_library/release2/java.920/a96654/toc.htm
+
+	<connection-url>jdbc:oracle:oci:@youroracle-tns-name</connection-url>
+		or
+	<connection-url>jdbc:oracle:oci:@(description=(address=(host=youroraclehost)(protocol=tcp)(port=1521))(connect_data=(SERVICE_NAME=yourservicename)))</connection-url>
+
+		Clearly, its better to have TNS set up properly.
+	 -->
+    <driver-class>oracle.jdbc.driver.OracleDriver</driver-class>
+    <user-name>x</user-name>
+    <password>y</password>
+    <exception-sorter-class-name>org.jboss.resource.adapter.jdbc.vendor.OracleExceptionSorter</exception-sorter-class-name>
+  </local-tx-datasource>
+
+</datasources>

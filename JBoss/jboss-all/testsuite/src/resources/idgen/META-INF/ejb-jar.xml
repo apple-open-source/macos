@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!DOCTYPE ejb-jar PUBLIC "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 2.0//EN" "http://java.sun.com/j2ee/dtds/ejb-jar_2_0.dtd">
+
+<ejb-jar>
+     <description>Id generator</description>
+     <display-name>IdGen</display-name>
+     <enterprise-beans>
+
+       <session>
+     <ejb-name>IdGen</ejb-name>
+     <home>org.jboss.test.idgen.interfaces.IdGeneratorHome</home>
+     <remote>org.jboss.test.idgen.interfaces.IdGenerator</remote>
+     <ejb-class>org.jboss.test.idgen.ejb.IdGeneratorBean</ejb-class>
+     <session-type>Stateless</session-type>
+     <transaction-type>Container</transaction-type>
+     <ejb-ref>
+       <ejb-ref-name>ejb/IdCounter</ejb-ref-name>
+       <ejb-ref-type>Entity</ejb-ref-type>
+       <home>org.jboss.test.idgen.interfaces.IdCounterHome</home>
+       <remote>org.jboss.test.idgen.interfaces.IdCounter</remote>
+       <ejb-link>IdCounter</ejb-link>
+     </ejb-ref>
+       </session>
+
+       <entity>
+     <display-name>Id counter</display-name>
+     <ejb-name>IdCounter</ejb-name>
+     <home>org.jboss.test.idgen.interfaces.IdCounterHome</home>
+     <remote>org.jboss.test.idgen.interfaces.IdCounter</remote>
+     <ejb-class>org.jboss.test.idgen.ejb.IdCounterBeanCMP</ejb-class>
+     <persistence-type>Container</persistence-type>
+     <prim-key-class>java.lang.String</prim-key-class>
+     <primkey-field>name</primkey-field>
+     <reentrant>True</reentrant>
+     <cmp-version>1.x</cmp-version>
+     <cmp-field>
+       <description>Counter name</description>
+       <field-name>name</field-name>
+     </cmp-field>
+     <cmp-field>
+       <description>Counter value</description>
+       <field-name>currentValue</field-name>
+     </cmp-field>
+      <env-entry>
+        <env-entry-name>size</env-entry-name>
+        <env-entry-type>java.lang.Long</env-entry-type>
+        <env-entry-value>100</env-entry-value>
+      </env-entry>
+       </entity>
+
+     </enterprise-beans>
+   </ejb-jar>

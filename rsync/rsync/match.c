@@ -90,6 +90,18 @@ static void build_hash_table(struct sum_struct *s)
 static OFF_T last_match;
 
 
+/**
+ * Transmit a literal and/or match token.
+ *
+ * This delightfully-named function is called either when we find a
+ * match and need to transmit all the unmatched data leading up to it,
+ * or when we get bored of accumulating literal data and just need to
+ * transmit it.  As a result of this second case, it is called even if
+ * we have not matched at all!
+ *
+ * @param i If >0, the number of a matched token.  If 0, indicates we
+ * have only literal data.
+ **/
 static void matched(int f,struct sum_struct *s,struct map_struct *buf,
 		    OFF_T offset,int i)
 {
@@ -141,9 +153,12 @@ static void hash_search(int f,struct sum_struct *s,
 	last_i = -1;
 
 	if (verbose > 2)
-		rprintf(FINFO,"hash search b=%d len=%.0f\n",s->n,(double)len);
+		rprintf(FINFO,"hash search b=%ld len=%.0f\n",
+			(long) s->n, (double)len);
 
-	k = MIN(len, s->n);
+	/* cast is to make s->n signed; it should always be reasonably
+	 * small */
+	k = MIN(len, (OFF_T) s->n);
 	
 	map = (schar *)map_ptr(buf,0,k);
 	
@@ -158,8 +173,8 @@ static void hash_search(int f,struct sum_struct *s,
 	end = len + 1 - s->sums[s->count-1].len;
 	
 	if (verbose > 3)
-		rprintf(FINFO,"hash search s->n=%d len=%.0f count=%d\n",
-			s->n,(double)len,s->count);
+		rprintf(FINFO, "hash search s->n=%ld len=%.0f count=%ld\n",
+			(long) s->n, (double) len, (long) s->count);
 	
 	do {
 		tag t = gettag2(s1,s2);
@@ -246,7 +261,8 @@ static void hash_search(int f,struct sum_struct *s,
 		   match. The 3 reads are caused by the
 		   running match, the checksum update and the
 		   literal send. */
-		if (offset-last_match >= CHUNK_SIZE+s->n && 
+		if (offset > last_match &&
+		    offset-last_match >= CHUNK_SIZE+s->n && 
 		    (end-offset > CHUNK_SIZE)) {
 			matched(f,s,buf,offset - s->n, -2);
 		}
@@ -257,7 +273,21 @@ static void hash_search(int f,struct sum_struct *s,
 }
 
 
-void match_sums(int f,struct sum_struct *s,struct map_struct *buf,OFF_T len)
+/**
+ * Scan through a origin file, looking for sections that match
+ * checksums from the generator, and transmit either literal or token
+ * data.
+ *
+ * Also calculates the MD4 checksum of the whole file, using the md
+ * accumulator.  This is transmitted with the file as protection
+ * against corruption on the wire.
+ *
+ * @param s Checksums received from the generator.  If <tt>s->count ==
+ * 0</tt>, then there are actually no checksums for this file.
+ *
+ * @param len Length of the file to send.
+ **/
+void match_sums(int f, struct sum_struct *s, struct map_struct *buf, OFF_T len)
 {
 	char file_sum[MD4_SUM_LENGTH];
 	extern int write_batch;  /*  dw */

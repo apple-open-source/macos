@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +21,8 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
+
 #include "AppleUSBEHCI.h"
 #include <IOKit/usb/USB.h>
 #include <IOKit/usb/IOUSBLog.h>
@@ -263,9 +264,9 @@ AppleUSBEHCI::ClearRootHubFeature(UInt16 wValue)
 IOReturn 
 AppleUSBEHCI::GetRootHubPortStatus(IOUSBHubPortStatus *status, UInt16 port)
 {
-static UInt32 prevStatus[kMaxPorts];
-	UInt16						portFlags;
-	UInt32						portSC, portSCChange;
+    static UInt32 	prevStatus[kMaxPorts];
+    UInt16		portFlags;
+    UInt32		portSC, portSCChange;
 
    
 #if (DEBUGGING_LEVEL > 2)
@@ -499,7 +500,7 @@ AppleUSBEHCI::EHCIRootHubPower(bool on)
 IOReturn 
 AppleUSBEHCI::EHCIRootHubResetChangeConnection(UInt16 port)
 {
-	UInt32 value;
+    UInt32 value;
 
     value = getPortSCForWriting(_pEHCIRegisters,port);
 
@@ -624,7 +625,7 @@ AppleUSBEHCI::EHCIRootHubResetPort (UInt16 port)
     }
 	
     value |= kEHCIPortSC_Reset;
-        value &= ~kEHCIPortSC_Enabled;
+    value &= ~kEHCIPortSC_Enabled;
     
     // Set the reset on
     _pEHCIRegisters->PortSC[port-1] = HostToUSBLong (value);

@@ -8,7 +8,7 @@
 ##
 ## Annotated patch file: sslcfg.patch
 ## Copyright (c) 1998-2001 Ralf S. Engelschall, All Rights Reserved. 
-## Created on: 18-Mar-2003
+## Created on: 18-Jul-2003
 ##
 ## This file assembles changes to existing Apache source files
 ## between the original Apache and the patched variant. It can be
@@ -27,8 +27,8 @@
 | which speaks SSL.
 +---------------------------------------------------------------------------
 Index: conf/httpd.conf-dist
---- conf/httpd.conf-dist	4 Oct 2002 11:49:58 -0000	1.1.1.15
-+++ conf/httpd.conf-dist	4 Oct 2002 11:54:56 -0000	1.66
+--- conf/httpd.conf-dist	18 Jul 2003 15:44:09 -0000	1.1.1.16
++++ conf/httpd.conf-dist	18 Jul 2003 15:56:57 -0000	1.67
 @@ -231,6 +231,17 @@
  #
  Port 80
@@ -47,7 +47,7 @@ Index: conf/httpd.conf-dist
  #
  # If you wish httpd to run as a different user or group, you must run
  # httpd as root initially and it will switch.  
-@@ -974,3 +985,245 @@
+@@ -973,3 +984,245 @@
  #    ErrorLog logs/dummy-host.example.com-error_log
  #    CustomLog logs/dummy-host.example.com-access_log common
  #</VirtualHost>
@@ -298,8 +298,8 @@ Index: conf/httpd.conf-dist
 | 
 +---------------------------------------------------------------------------
 Index: conf/httpd.conf-dist-win
---- conf/httpd.conf-dist-win	4 Oct 2002 11:49:58 -0000	1.1.1.15
-+++ conf/httpd.conf-dist-win	4 Oct 2002 11:54:56 -0000	1.14
+--- conf/httpd.conf-dist-win	18 Jul 2003 15:44:10 -0000	1.1.1.16
++++ conf/httpd.conf-dist-win	18 Jul 2003 15:56:57 -0000	1.15
 @@ -190,6 +190,7 @@
  #LoadModule headers_module modules/mod_headers.so
  #LoadModule usertrack_module modules/mod_usertrack.so

@@ -101,7 +101,7 @@ IOService * IOBacklightDisplay::probe( IOService * provider, SInt32 * score )
                     && (kPanelFSTNConnect != displayType))
                 continue;
 
-            OSIterator * iter = getMatchingServices( nameMatching("backlight") );
+            OSIterator * iter = getMatchingServices(nameMatching("backlight"));
             if (iter)
             {
                 haveBacklight = (0 != iter->getNextObject());

@@ -1,21 +1,24 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -46,31 +49,31 @@
  */
 enum {
     kPCI_ID_PIIX   = 0x12308086,
-	kPCI_ID_PIIX3  = 0x70108086,
-	kPCI_ID_PIIX4  = 0x71118086,
-	kPCI_ID_ICH    = 0x24118086,
-	kPCI_ID_ICH0   = 0x24218086,
-	kPCI_ID_ICH2_M = 0x244a8086,
-	kPCI_ID_ICH2   = 0x244b8086,
-	kPCI_ID_NONE   = 0xffffffff
+    kPCI_ID_PIIX3  = 0x70108086,
+    kPCI_ID_PIIX4  = 0x71118086,
+    kPCI_ID_ICH    = 0x24118086,
+    kPCI_ID_ICH0   = 0x24218086,
+    kPCI_ID_ICH2_M = 0x244a8086,
+    kPCI_ID_ICH2   = 0x244b8086,
+    kPCI_ID_NONE   = 0xffffffff
 };
 
 /*
  * I/O port addresses for primary and secondary channels.
  */
 enum {
-	kPIIX_P_CMD_ADDR = 0x1f0,
-	kPIIX_P_CTL_ADDR = 0x3f4,
-	kPIIX_S_CMD_ADDR = 0x170,
-	kPIIX_S_CTL_ADDR = 0x374
+    kPIIX_P_CMD_ADDR = 0x1f0,
+    kPIIX_P_CTL_ADDR = 0x3f4,
+    kPIIX_S_CMD_ADDR = 0x170,
+    kPIIX_S_CTL_ADDR = 0x374
 };
 
 /*
  * IRQ assigned to primary and secondary channels.
  */
 enum {
-	kPIIX_P_IRQ = 14,
-	kPIIX_S_IRQ = 15
+    kPIIX_P_IRQ = 14,
+    kPIIX_S_IRQ = 15
 };
 
 /*
@@ -78,7 +81,7 @@ enum {
  */
 enum {
     kPIIX_CHANNEL_PRIMARY = 0,
-	kPIIX_CHANNEL_SECONDARY
+    kPIIX_CHANNEL_SECONDARY
 };
 
 /*
@@ -86,20 +89,22 @@ enum {
  * Register size (bits) in parenthesis.
  */
 enum {
-	kPIIX_PCI_CFID       = 0x00,   // (32) PCI Device/Vendor ID
-	kPIIX_PCI_PCICMD     = 0x04,   // (16) PCI command register
-	kPIIX_PCI_PCISTS     = 0x06,   // (16) PCI device status register
-	kPIIX_PCI_RID        = 0x08,   // (8)  Revision ID register
-	kPIIX_PCI_CLASSC     = 0x09,   // (24) Class code register
-	kPIIX_PCI_MLT        = 0x0d,   // (8)  Master latency timer register
-	kPIIX_PCI_HEDT       = 0x0e,   // (8)  Header type register
-	kPIIX_PCI_BMIBA      = 0x20,   // (32) Bus-Master base address
-	kPIIX_PCI_IDETIM     = 0x40,   // (16) IDE timing registers (pri)
-	kPIIX_PCI_IDETIM_S   = 0x42,   // (16) IDE timing registers (sec)
-	kPIIX_PCI_SIDETIM    = 0x44,   // (8)  Slave IDE timing register
-	kPIIX_PCI_UDMACTL    = 0x48,   // (8)  Ultra DMA/33 control register
-	kPIIX_PCI_UDMATIM    = 0x4a,   // (16) Ultra DMA/33 timing register
-	kPIIX_PCI_IDECONFIG  = 0x54    // (16) IDE I/O Config register
+    kPIIX_PCI_CFID       = 0x00,   // (32) PCI Device/Vendor ID
+    kPIIX_PCI_PCICMD     = 0x04,   // (16) PCI command register
+    kPIIX_PCI_PCISTS     = 0x06,   // (16) PCI device status register
+    kPIIX_PCI_RID        = 0x08,   // (8)  Revision ID register
+    kPIIX_PCI_PI         = 0x09,   // (8)  Programming interface
+    kPIIX_PCI_MLT        = 0x0d,   // (8)  Master latency timer register
+    kPIIX_PCI_HEDT       = 0x0e,   // (8)  Header type register
+    kPIIX_PCI_BMIBA      = 0x20,   // (32) Bus-Master base address
+    kPIIX_PCI_IDETIM     = 0x40,   // (16) IDE timing registers (pri)
+    kPIIX_PCI_IDETIM_S   = 0x42,   // (16) IDE timing registers (sec)
+    kPIIX_PCI_SIDETIM    = 0x44,   // (8)  Slave IDE timing register
+    kPIIX_PCI_UDMACTL    = 0x48,   // (8)  Ultra DMA/33 control register
+    kPIIX_PCI_UDMATIM    = 0x4a,   // (16) Ultra DMA/33 timing register
+    kPIIX_PCI_IDECONFIG  = 0x54,   // (16) IDE I/O Config register
+    kPIIX_PCI_MAP        = 0x90,   // (8)  SATA port mapping register
+    kPIIX_PCI_PCS        = 0x92    // (8)  SATA port control and status
 };
 
 #define kPIIX_PCI_BMIBA_RTE     0x01    // resource type indicator (I/O)
@@ -208,6 +213,20 @@ enum {
 #define kPIIX_PCI_IDECONFIG_FAST_SCB1  0x8000
 
 /*
+ * ICHx/ATA PCI configuration space register definition.
+ *
+ * Port control and status register (ICH5/SATA)
+ *
+ * Address: 0x92
+ */
+enum {
+    kPIIX_PCI_PCS_P0E = 0x01,
+    kPIIX_PCI_PCS_P1E = 0x02,
+    kPIIX_PCI_PCS_P0P = 0x10,
+    kPIIX_PCI_PCS_P1P = 0x20
+};
+
+/*
  * PIIX/ATA IO space register offsets. Base address is set in kPIIX_PCI_BMIBA.
  * Register size (bits) in parenthesis.
  *
@@ -217,11 +236,11 @@ enum {
  * the value stored in kPIIX_PCI_BMIBA.
  */
 enum {
-	kPIIX_IO_BMICX     = 0x00,    // (8) Bus master command register
-	kPIIX_IO_BMISX     = 0x02,    // (8) Bus master status register
-	kPIIX_IO_BMIDTPX   = 0x04,    // (32) Descriptor table register
-	kPIIX_IO_BM_OFFSET = 0x08,    // fixed offset to channel 1 registers
-	kPIIX_IO_BM_MASK   = 0xfff0   // BMIBA mask to get I/O base address
+    kPIIX_IO_BMICX     = 0x00,    // (8) Bus master command register
+    kPIIX_IO_BMISX     = 0x02,    // (8) Bus master status register
+    kPIIX_IO_BMIDTPX   = 0x04,    // (32) Descriptor table register
+    kPIIX_IO_BM_OFFSET = 0x08,    // fixed offset to channel 1 registers
+    kPIIX_IO_BM_MASK   = 0xfff0   // BMIBA mask to get I/O base address
 };
 
 /*
@@ -242,5 +261,29 @@ enum {
 #define kPIIX_IO_BMISX_IDEINTS   0x04    // IDE device asserted its interrupt
 #define kPIIX_IO_BMISX_ERROR     0x02    // DMA error (cleared by writing a 1)
 #define kPIIX_IO_BMISX_BMIDEA    0x01    // bus master active bit
+
+/*
+ * ICHx ATA channel can support several modes of operation.
+ * SATA modes added for ICH5. Devices before ICH5 only support
+ * kChannelModePATA.
+ */
+enum {
+    kChannelModePATA,
+    kChannelModeSATAPort0,
+    kChannelModeSATAPort1,
+    kChannelModeSATAPort01,
+    kChannelModeSATAPort10,
+    kChannelModeCount
+};
+
+/*
+ * Serial ATA controllers define ports for point-to-point connection to
+ * serial ATA devices.
+ */
+enum {
+    kSerialATAPort0,
+    kSerialATAPort1,
+    kSerialATAPortX  /* invalid port */
+};
 
 #endif /* !_APPLEINTELPIIXATAHW_H */

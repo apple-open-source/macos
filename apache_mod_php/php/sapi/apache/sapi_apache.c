@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -19,49 +19,15 @@
    | Stig Bakken <ssb@fast.no>                                            |
    +----------------------------------------------------------------------+
  */
-/* $Id: sapi_apache.c,v 1.1.1.5 2001/12/14 22:15:16 zarzycki Exp $ */
+/* $Id: sapi_apache.c,v 1.1.1.8 2003/07/18 18:07:50 zarzycki Exp $ */
 
-#define NO_REGEX_EXTRA_H
-#ifdef WIN32
-#include <winsock2.h>
-#include <stddef.h>
-#endif
-
-#include "php.h"
-
-#include "httpd.h"
-#include "http_config.h"
-#if MODULE_MAGIC_NUMBER > 19980712
-# include "ap_compat.h"
-#else
-# if MODULE_MAGIC_NUMBER > 19980324
-#  include "compat.h"
-# endif
-#endif
-#include "http_core.h"
-#include "http_main.h"
-#include "http_protocol.h"
-#include "http_request.h"
-#include "http_log.h"
-
-#include "zend.h"
-#include "php_ini.h"
-#include "php_globals.h"
-#include "SAPI.h"
-#include "php_main.h"
-#include "zend_compile.h"
-#include "zend_execute.h"
-#include "zend_highlight.h"
-#include "zend_indent.h"
-#include "ext/standard/php_standard.h"
-#include "util_script.h"
-#include "php_version.h"
-#include "mod_php4.h"
+#include "php_apache_http.h"
 
 /* {{{ apache_php_module_main
  */
 int apache_php_module_main(request_rec *r, int display_source_mode TSRMLS_DC)
 {
+	int retval = OK;	
 	zend_file_handle file_handle;
 
 	if (php_request_startup(TSRMLS_C) == FAILURE) {
@@ -75,10 +41,8 @@ int apache_php_module_main(request_rec *r, int display_source_mode TSRMLS_DC)
 		zend_syntax_highlighter_ini syntax_highlighter_ini;
 
 		php_get_highlight_struct(&syntax_highlighter_ini);
-		if (highlight_file(SG(request_info).path_translated, &syntax_highlighter_ini TSRMLS_CC)){
-			return OK;
-		} else {
-			return NOT_FOUND;
+		if (highlight_file(SG(request_info).path_translated, &syntax_highlighter_ini TSRMLS_CC) != SUCCESS) {
+			retval = NOT_FOUND;
 		}
 	} else {
 		file_handle.type = ZEND_HANDLE_FILENAME;
@@ -96,7 +60,7 @@ int apache_php_module_main(request_rec *r, int display_source_mode TSRMLS_DC)
 		php_request_shutdown(NULL);
 	} zend_end_try();
 	
-	return (OK);
+	return retval;
 }
 /* }}} */
 
@@ -105,6 +69,6 @@ int apache_php_module_main(request_rec *r, int display_source_mode TSRMLS_DC)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

@@ -1,0 +1,393 @@
+========================================================================
+KerberosErrors Version History
+========================================================================
+Current version: 1.5fc3
+Date:            August 22, 2003
+Author:          lxs@mit.edu, meeroh@mit.edu
+========================================================================
+
+	KerberosErrors 1.5fc3
+	August 22, 2003
+
+	[RT 1764] Framework should use CFStringGetMaximumSizeForEncoding()
+
+	========================================================================
+
+	KerberosErrors 1.5fc2
+	July 23, 2003
+
+	[RT 1688] Sometimes compile_et doesn't catch the first error string
+
+	========================================================================
+
+	KerberosErrors 1.5fc1
+	July 16, 2003
+
+	Moved to final candidate.
+
+	========================================================================
+
+	KerberosErrors 1.5a4
+	May 1, 2003
+
+	New C implementation
+	
+	[RT 1449] error_message() corrupts unknown negative errors
+
+	========================================================================
+
+	KerberosErrors 1.5a3
+	March 20, 2003
+
+	[RT 1389] Remove old ErrorLib API -- now use error_message()
+	
+	========================================================================
+
+	KerberosErrors 1.5a2
+	March 11, 2003
+
+	[RT 1361] compile_et breaks on strings containing " end "
+	
+	========================================================================
+
+	KerberosErrors 1.5a1
+	January 14, 2003
+
+	[RT 1295]  Kerberos framework initializer causes performance problems
+	
+	========================================================================
+
+KerberosErrors 1.4
+June 19, 2002
+
+First release for Jaguar
+Merged with ComErr
+
+========================================================================
+
+	KerberosErrors 1.4
+	June 19, 2002
+
+	Moved to GM.
+	
+	========================================================================
+
+	KerberosErrors 1.4fc1
+	June 17, 2002
+
+	Moved to final candidate.
+	
+	========================================================================
+
+	KerberosErrors 1.4a1
+	February 7, 2002
+
+	[BZ 714]	Merge ComErr with ErrorLib
+	[BZ 738]	Ask for UTF8 strings, not system encoding
+	[BZ 744]	ComErr should remember BundleIDs not Bundles
+	
+	========================================================================
+
+ErrorLib 1.3
+Feb 19, 2002
+
+Bug fixes for 1.2, Mac OS X bundle APIs
+
+========================================================================
+
+	ErrorLib 1.3fc1
+	February 7, 2002
+
+	Moved to final candidate
+	
+	========================================================================
+
+	ErrorLib 1.3b1
+	November 7, 2001
+
+	Changed the prototypes for the bundle APIs
+	
+	========================================================================
+
+	ErrorLib 1.3a1
+	Aug 7, 2001
+
+	Added Mac OS X bundle API
+	
+	========================================================================
+
+ErrorLib 1.2
+June 25, 2001
+
+Carbon and CWP 6
+
+Bugs fixed in this revision:
+	- [BZ 619] Do not call ResError after CurResFile
+
+========================================================================
+
+	ErrorLib 1.2fc1
+	June 13, 2000
+
+	Final candidate for 3.5
+	
+	========================================================================
+
+	ErrorLib 1.2b2
+	April 30, 2000
+
+	Initial Mac OS X implementation
+	
+	========================================================================
+
+	ErrorLib 1.2b1
+	April 2, 2000
+
+	Moved to beta
+	
+	========================================================================
+
+	ErrorLib 1.2a5
+	March 21, 2000
+
+	Moved headers into subfolder
+	
+	========================================================================
+
+	ErrorLib 1.2a4
+	March 16, 2000
+
+	Documentation update
+	
+	========================================================================
+
+	ErrorLib 1.2a3
+	February 1, 2000
+
+	Added check for correct errno on Carbon
+	
+	========================================================================
+
+	ErrorLib 1.2a2
+	December 28, 2000
+
+	Make strings read only
+	
+	========================================================================
+
+	ErrorLib 1.2a1
+	December 9, 2000
+
+	Alpha
+	
+	========================================================================
+
+	ErrorLib 1.2d4
+	November 30, 2000
+
+	Use precompiled headers
+	
+	========================================================================
+
+	ErrorLib 1.2d3
+	October 24, 2000
+
+	Changed Carbon fragment names
+	
+	========================================================================
+
+	ErrorLib 1.2d2
+	September 28, 2000
+
+	Rebuilt with fixed CWP 6 fcntl.h
+	
+	========================================================================
+
+	ErrorLib 1.2d1
+	September 26, 2000
+
+	Carbonized and moved to CWP 6
+	
+	========================================================================
+
+ErrorLib 1.1.1
+June 30, 2000
+
+Changes since 1.1:
+	Bug fixes
+	Added CFM-68K glue
+
+========================================================================
+
+	ErrorLib 1.1.1fc2
+	June 28, 2000
+
+	Bugs fixed in this release:
+		[BZ 367]	Moved strings into code section
+	
+	========================================================================
+
+	ErrorLib 1.1.1fc1
+	June 15, 2000
+
+	Changed	to final candidate
+	
+	========================================================================
+
+	ErrorLib 1.1.1b1
+	June 10, 2000
+
+	Bugs fixed in this revision:
+		[BZ 178]	Stack overflow under low memory conditions
+		
+	========================================================================
+
+	ErrorLib 1.1.1a5
+	May 22, 2000
+
+	Bugs fixed in this revision:
+		[BZ 254]	"Unknown error" strings come from app res fork
+		
+	========================================================================
+
+	ErrorLib 1.1.1a4
+	May 6, 2000
+
+	Documentation update
+		
+	========================================================================
+
+	ErrorLib 1.1.1a3
+	April 28, 2000
+
+	Bugs fixed in this release:
+		[BZ 169]	System error tables override custom error tables
+		
+	========================================================================
+
+	ErrorLib 1.1.1a2
+	February 27, 2000
+
+	Change to use MIT Runtime.Lib
+	Removed 68K support
+		
+	========================================================================
+
+	ErrorLib 1.1.1a1
+	February 8, 2000
+
+	Bugs fixed in this release:
+	 - [     4] Now correctly restoring res file when error is not found
+	 - [     5] No longer calling DisposeHandle on a resource handle
+	 - [     6] ErrorLibraryIsPresent conditioned out on non-CFM
+		
+	========================================================================
+
+ErrorLib 1.1
+September 14, 1999
+
+Changes since 1.0:
+	Rebuilt from the new tree
+	Changed API (RegisterErrorTable) and implementation so that
+		error tables no longer hog the heap all the time
+
+========================================================================
+
+	ErrorLib 1.1fc1
+	September 1, 1999
+
+	Added documentation
+		
+	========================================================================
+
+	ErrorLib 1.1b1
+	August 6, 1999
+
+	Bugs fixed in this revision:
+	 - [     3] Now including Files.h from ErrorLib.h
+		
+	========================================================================
+
+	ErrorLib 1.1a1
+	August 6, 1999
+
+	Changed API and implementation so that error tables are no longer kept
+	loaded in application heap all the time
+		
+	========================================================================
+
+	ErrorLib 1.0.1a1
+	July 20, 1999
+
+	No changes; moved to alpha in preparation for MIT Support Library 1.5a1
+		
+	========================================================================
+
+	ErrorLib 1.0.1d1
+	May 28, 1999
+
+	Rebuilt from the new tree	
+		
+	========================================================================
+
+ErrorLib 1.0
+April 29, 1999
+
+First public release
+
+	========================================================================
+
+	ErrorLib 1.0fc3
+	April 21, 1999
+	
+	Renamed all fragments for even newer MIT Support Library convention.
+	
+	New features in this revision: none
+	
+	Bugs fixed in this revision: none
+		
+	========================================================================
+	
+	ErrorLib 1.0fc2
+	April 7, 1999
+	
+	Renamed all fragments for new MITAthenaLib convention.
+	
+	New features in this revision: none
+	
+	Bugs fixed in this revision: none
+		
+	========================================================================
+	
+	ErrorLib 1.0fc1
+	March 23, 1999
+	
+	New features in this revision: none
+	
+	Bugs fixed in this revision:
+		- [     1] Headers made C++ friendly
+		- [     2] Forced struct alignment in headers
+		
+	========================================================================
+	
+	ErrorLib 1.0b2
+	Unknown release date (MITAthena 1.0b3)
+	
+	New features in this revision: none
+	
+	Bugs fixed in this revision: none
+		
+	========================================================================
+	
+	ErrorLib 1.0b1
+	Unknown release date
+	
+	Initial testing release
+	
+	New features in this revision: none
+	
+	Bugs fixed in this revision: none
+		
+	========================================================================
+	
+	

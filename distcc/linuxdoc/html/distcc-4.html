@@ -1,0 +1,107 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+ <META NAME="GENERATOR" CONTENT="LinuxDoc-Tools 0.9.21">
+ <TITLE>distcc User Manual: The distccd Server</TITLE>
+ <LINK HREF="distcc-5.html" REL=next>
+ <LINK HREF="distcc-3.html" REL=previous>
+ <LINK HREF="distcc.html#toc4" REL=contents>
+</HEAD>
+<BODY>
+<A HREF="distcc-5.html">Next</A>
+<A HREF="distcc-3.html">Previous</A>
+<A HREF="distcc.html#toc4">Contents</A>
+<HR>
+<H2><A NAME="s4">4.</A> <A HREF="distcc.html#toc4">The distccd Server</A></H2>
+
+<P>
+<A NAME="server"></A> 
+The distccd server may be started either from a super-server
+such as <CODE>inetd</CODE>, or as a stand-alone daemon.</P>
+<P>distccd does not need to run as root and should not.</P>
+<P>distccd does not have a configuration file; it's behaviour is
+controlled only by command-line options and requests from
+clients.</P>
+<H2><A NAME="ss4.1">4.1</A> <A HREF="distcc.html#toc4.1">Invoking distccd</A>
+</H2>
+
+<P>These options may be used for either inetd or standalone
+mode.</P>
+<P>If you want to see if the daemon started properly, look in the
+log file.  By default this is something like
+<CODE>/var/log/daemon</CODE> or <CODE>/var/log/messages</CODE>,
+depending on your system.</P>
+<P>
+<DL>
+<DT><B><CODE>-</CODE><CODE>-help</CODE></B><DD><P>Explains usage of the daemon and exits.</P>
+
+<DT><B><CODE>-</CODE><CODE>-version</CODE></B><DD><P>Shows the daemon version and exits.</P>
+
+<DT><B><CODE>-N</CODE>, <CODE>-</CODE><CODE>-nice NICENESS</CODE></B><DD><P>Makes the daemon more nice about giving up the CPU to
+other tasks on the machine.  <EM>NICENESS</EM> is a
+value from 0 (regular priority) to 20 (lowest
+priority).  This option is good if you want to run
+distccd in the background on a machine used for other
+purposes.</P>
+
+<DT><B><CODE>-p, -</CODE><CODE>-port PORT</CODE></B><DD><P>Set the TCP port to listen on.  (Standalone mode only.)</P>
+
+<DT><B><CODE>-P, -</CODE><CODE>-pid-file FILE</CODE></B><DD><P>Save daemon process id to file.</P>
+
+<DT><B><CODE>-</CODE><CODE>-verbose</CODE></B><DD><P>Include debug messages in log.</P>
+
+<DT><B><CODE>-</CODE><CODE>-no-detach</CODE></B><DD><P>Do not detach from the shell that started the daemon.
+This may be useful when running distccd from a system
+such as <EM>daemontools</EM> that manages daemons after
+they start.</P>
+
+<DT><B><CODE>-</CODE><CODE>-no-fork</CODE></B><DD><P>Don't fork children for each connection, to allow
+attaching <CODE>gdb</CODE>.  <B>Don't use this if you don't
+understand it!</B></P>
+
+<DT><B><CODE>--no-fifo</CODE></B><DD><P>Send input to the compiler by writing to a temporary
+file, rather than using a pipe.  This is required when
+the server's temporary directory is on NFS, on at least
+some machines.  It may be faster in some circumstances,
+but probably is not.</P>
+
+<DT><B><CODE>-</CODE><CODE>-log-file=FILE</CODE></B><DD><P>Send messages here instead of syslog.</P>
+
+<DT><B><CODE>-</CODE><CODE>-log-stderr</CODE></B><DD><P>Send log messages to stderr, rather than to a file or
+syslog.  This is mainly intended for use in debugging.</P>
+
+<DT><B><CODE>-</CODE><CODE>-inetd</CODE></B><DD><P>Serve a client connected to stdin/stdout.  As the name
+suggests, this option should be used when distccd is run
+from within a super-server like <CODE>inetd</CODE>.  distccd
+assumes inetd mode when stdin is a socket.</P>
+
+<DT><B><CODE>-</CODE><CODE>-daemon</CODE></B><DD><P>Bind and listen on a socket, rather than running from
+inetd.  This is used for standalone mode.  distccd
+assumes daemon mode at startup if stdin is a tty, so
+<CODE>--daemon</CODE> should be explicitly specified when
+starting distccd from a script or in a non-interactive
+ssh connection.</P>
+</DL>
+</P>
+<H2><A NAME="ss4.2">4.2</A> <A HREF="distcc.html#toc4.2">distccd Exit Codes</A>
+</H2>
+
+<P>As for distcc 
+<A HREF="distcc-2.html#exit">exit</A>
+.</P>
+<H2><A NAME="ss4.3">4.3</A> <A HREF="distcc.html#toc4.3">distccd Environment Variables</A>
+</H2>
+
+<P>
+<DL>
+<DT><B><CODE>DISTCC_SAVE_TEMPS</CODE></B><DD><P>If set to <CODE>1</CODE>, temporary files are not deleted
+after use.  Good for debugging or if your disks are too
+empty.</P>
+</DL>
+</P>
+<HR>
+<A HREF="distcc-5.html">Next</A>
+<A HREF="distcc-3.html">Previous</A>
+<A HREF="distcc.html#toc4">Contents</A>
+</BODY>
+</HTML>

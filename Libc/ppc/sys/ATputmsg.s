@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(ATputmsg, 3)
-	blr
 

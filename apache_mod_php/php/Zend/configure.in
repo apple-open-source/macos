@@ -1,4 +1,4 @@
-dnl $Id: configure.in,v 1.1.1.2 2001/01/25 05:00:56 wsanchez Exp $
+dnl $Id: configure.in,v 1.1.1.4 2003/03/11 01:09:14 zarzycki Exp $
 dnl Process this file with autoconf to produce a configure script.
 
 AC_INIT(zend.c)
@@ -17,6 +17,8 @@ test -z "$CFLAGS" && auto_cflags=1
 sinclude(Zend.m4)
 
 LIBZEND_BASIC_CHECKS
+LIBZEND_LIBDL_CHECKS
+LIBZEND_DLSYM_CHECK
 
 AM_PROG_LIBTOOL
 if test "$enable_debug" != "yes"; then
@@ -35,9 +37,9 @@ fi
 LIBZEND_ENABLE_DEBUG
 LIBZEND_OTHER_CHECKS
 
-EXTRA_LIBS="$LIBS"
+ZEND_EXTRA_LIBS="$LIBS"
 LIBS=""
-AC_SUBST(EXTRA_LIBS)
+AC_SUBST(ZEND_EXTRA_LIBS)
 AC_OUTPUT(Makefile)
 
 # Local Variables:

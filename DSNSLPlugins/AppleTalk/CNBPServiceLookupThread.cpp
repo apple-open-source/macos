@@ -1,10 +1,30 @@
 /*
- *  CNBPServiceLookupThread.cpp
- *  DSNBPPlugIn
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
- *  Created by imlucid on Wed Aug 27 2001.
- *  Copyright (c) 2001 Apple Computer. All rights reserved.
- *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+ 
+/*!
+ *  @header CNBPServiceLookupThread
  */
 
 #include "GenericNBPURL.h"
@@ -55,8 +75,8 @@ void* CNBPServiceLookupThread::Run( void )
     char		serviceType[256] = {0};
     char		searchScope[256] = {0};
     
-    // "searchScope" must be retrieved as CFStringGetSystemEncoding() because AppleTalk.framework expects
-    // it. Searching on UTF8 causes a zone mismatch (sns).
+    // "searchScope" must be retrieved as NSLGetSystemEncoding() because AppleTalk.framework expects
+    // it. Searching on UTF8 causes a zone mismatch.
     
     if ( AreWeCanceled() )
     {
@@ -148,9 +168,10 @@ CNBPServiceLookupThread::DoLookupOnService( char* service, char *zone )
 		
 		for ( long index = 0; index < actualCount && !AreWeCanceled(); index++ )
 		{
-			if ( mNABuffer[index].name[0] > 0 )
+			if ( mNABuffer[index].name[0] != 0 )
 			{
 				urlLen = 256;
+
 				MakeGenericNBPURL( service, zone, mNABuffer[index].name, urlStr, &urlLen );
 				urlStr[urlLen] = '\0';
                 
@@ -161,10 +182,6 @@ CNBPServiceLookupThread::DoLookupOnService( char* service, char *zone )
                     char *endPtr;
                     short servceTypeLen;
                     
-                    /*
-                    for ( int i=0; urlStr[i] != '\0' && strncmp( &urlStr[i], ":/", 2 ) != 0; i++ )
-                        serviceType[i] = urlStr[i];
-                    */
                     endPtr = strstr( urlStr, ":/" );
                     if ( endPtr )
                     {
@@ -199,7 +216,6 @@ CNBPServiceLookupThread::DoLookupOnService( char* service, char *zone )
                         ::CFRelease( nameValueRef );
 				}
 			}
-                        
 		}
 	}
 	
@@ -232,27 +248,24 @@ CNBPServiceLookupThread::ConvertToLocalZoneIfThereAreNoZones( char* zoneName )
 	short result = kNotConverted;
 	OSStatus status;
 
-//	if ( mDefaultNeighborhoodName && strcmp( zoneName, mDefaultNeighborhoodName ) == 0 )
-	{
-		long actualCount = 0;
-		long bufferSize = sizeof(Str32) * kMaxZonesOnTryOne;
-		
-		mBuffer = (char *)malloc( bufferSize );
-		if ( mBuffer == NULL )
-			return memFullErr;
+	long actualCount = 0;
+	long bufferSize = sizeof(Str32) * kMaxZonesOnTryOne;
+	
+	mBuffer = (char *)malloc( bufferSize );
+	if ( mBuffer == NULL )
+		return memFullErr;
 
-		// go get the local zone list
-		if ( !AreWeCanceled() )
+	// go get the local zone list
+	if ( !AreWeCanceled() )
+	{
+		status = ZIPGetZoneList( LOOKUP_CURRENT, mBuffer, bufferSize, &actualCount );
+		if ( status == -1 )
 		{
-			status = ZIPGetZoneList( LOOKUP_CURRENT, mBuffer, bufferSize, &actualCount );
-			if ( status == -1 )
-			{
-				strcpy( zoneName, "*" );
-				result = kConvertedToLocal;
-			}
-			else
-				result = kMustSearchZoneNameAppleTalk;
+			strcpy( zoneName, kNoZoneLabel );
+			result = kConvertedToLocal;
 		}
+		else
+			result = kMustSearchZoneNameAppleTalk;
 	}
 
 	return result;
@@ -268,7 +281,7 @@ CNBPServiceLookupThread::ConvertToLocalZoneIfThereAreNoZones( char* zoneName )
 // if a client asks for a lot of services (http, https, ftp, news, nntp, radminx, afp, nfs, LaserWriter,
 // Macintosh Manager == 10 services). Thread dumping is generally safe with the NSL UI dialog because
 // the column view guarantees that the user is looking at the contents of the last set of searches. If a client
-// implements a list-view, it could screw them over. I've chosen 15 as the threshold because
+// implements a list-view, it could cause problems. I've chosen 15 as the threshold because
 // normal cases will work.
 
 #define kMaxSemaphoreQueueSize	15
@@ -377,6 +390,7 @@ int CNBPServiceLookupThread::NBPGetServerList(
                 DBGLOG( "NBPGetServerList: found len > 33\n" );
             }
             cptr = currEntry->name;
+
             if (strncpy ((char*) cptr, (char*)tuple->enu_entity.object.str, len) <= 0 )
             {
                 throw (-1);
@@ -390,26 +404,8 @@ int CNBPServiceLookupThread::NBPGetServerList(
             currEntry++;
         }
 
-#if 0
-        currEntry = buffer;
-        for (j = 0; j < entryCount; j++)
-        {
-            DBGLOG( "Entry %d, <%s> 0x%x%x:0x%x:0x%x\n", j, (char*) currEntry->name, currEntry->atalkAddress.net[0], currEntry->atalkAddress.net[1], currEntry->atalkAddress.node, currEntry->atalkAddress.socket);
-            currEntry++;
-        }
-#endif
-
         qsort (buffer, entryCount, sizeof (struct NBPNameAndAddress), my_strcmp2);
 
-
-#if 0
-        currEntry = buffer;
-        for (j = 0; j < entryCount; j++)
-        {
-            DBGLOG( "Entry %d, <%s> 0x%x%x:0x%x:0x%x\n", j, (char*) currEntry->name, currEntry->atalkAddress.net[0], currEntry->atalkAddress.net[1], currEntry->atalkAddress.node, currEntry->atalkAddress.socket);
-            currEntry++;
-        }
-#endif
         *actualCount = entryCount;
     }
     catch( int inError )
@@ -421,5 +417,3 @@ int CNBPServiceLookupThread::NBPGetServerList(
     
     return(error);
 }
-
-

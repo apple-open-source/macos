@@ -1,0 +1,5 @@
+*.o
+*.lo
+odbctest
+.libs
+.deps

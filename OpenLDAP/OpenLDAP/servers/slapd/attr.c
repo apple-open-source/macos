@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/attr.c,v 1.71 2002/01/16 03:40:41 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/attr.c,v 1.71.2.3 2003/03/03 17:10:07 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /* attr.c - routines for dealing with attributes */
@@ -23,7 +23,9 @@
 #include "slap.h"
 
 #ifdef LDAP_DEBUG
-static void at_index_print( void ) {};
+static void at_index_print( void ) 
+{
+}
 #endif
 
 void
@@ -129,6 +131,31 @@ attr_merge(
 	}
 
 	return( value_add( &(*a)->a_vals, vals ) );
+}
+
+int
+attr_merge_one(
+	Entry		*e,
+	AttributeDescription *desc,
+	struct berval	*val )
+{
+	Attribute	**a;
+
+	for ( a = &e->e_attrs; *a != NULL; a = &(*a)->a_next ) {
+		if ( ad_cmp( (*a)->a_desc, desc ) == 0 ) {
+			break;
+		}
+	}
+
+	if ( *a == NULL ) {
+		*a = (Attribute *) ch_malloc( sizeof(Attribute) );
+		(*a)->a_desc = desc;
+		(*a)->a_vals = NULL;
+		(*a)->a_next = NULL;
+		(*a)->a_flags = 0;
+	}
+
+	return( value_add_one( &(*a)->a_vals, val ) );
 }
 
 /*

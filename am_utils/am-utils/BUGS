@@ -165,12 +165,19 @@ kernel will panic.
 
 The Linux kernels don't support Amd's direct mounts very well, leading to
 erratic behavior: shares that don't get remounted after the first timeout,
-inability to restart Amd because its mount points cannot be unmounted,
-etc. There are some kernel patches on the am-utils Web site, which solve
-these problems.
+inability to restart Amd because its mount points cannot be unmounted, etc.
+There are some kernel patches on the am-utils Web site, which solve these
+problems.  See http://www.am-utils.org/patches/.
 
 Later 2.4.x kernels completely disallow the hack amd was using for direct
 mounts, so another solution will have to be found.
+
+(12) *-aix5.1.0.0 and *-hpux9*
+
+/bin/sh is broken and fails to run the configure script properly. You need
+to use /bin/ksh instead. The buildall script will do it for you; if for some
+reason you need to run configure directly, run it using 'ksh configure'
+instead of just 'configure'.
 
 
 Erez.

@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -255,8 +252,6 @@ ATADeviceNub::executeCommand(IOATACommand* command)
 /*---------------------------------------------------------------------------
 
 
-This function will be deprecated in the future. Device nubs in general should 
-Never issue commands of any form to a device.
 
 
 ---------------------------------------------------------------------------*/
@@ -330,6 +325,7 @@ ATADeviceNub::getDeviceID( void )
 	cmd->refCon = (void*) completion;
 	cmd->refCon2 = (void*) this;
 	
+	desc->prepare(kIODirectionIn);
 	// tell the bus to exec the command
 	DLOG("Sending ID command to bus controller\n");	
 	IOReturn err =	executeCommand( cmd);	
@@ -337,8 +333,17 @@ ATADeviceNub::getDeviceID( void )
 
 	completion->sync->wait();
 	
+	desc->complete( kIODirectionIn );
+	
 	IOFree( completion, sizeof(completionInfo));
 
+	if( cmd->getResult() )
+	{
+		err = cmd->getResult();
+	}
+	
+	freeCommand(cmd);
+	
 #if defined(__BIG_ENDIAN__)
 // The identify device info needs to be byte-swapped on ppc (big-endian) 
 // systems becuase it is data that is produced by the drive, read across a 
@@ -403,6 +408,24 @@ ATADeviceNub::publishBusProperties( void )
 		case kPCCardSocket:
  			string = OSString::withCString( kATAPCCardSocketString );	
 		break;
+
+		case kInternalSATA:
+ 			string = OSString::withCString( kATAInternalSATAString );	
+		break;
+
+		case kSATABay:
+ 			string = OSString::withCString( kATASATABayString );	
+		break;
+		
+		case kInternalSATA2:
+ 			string = OSString::withCString( kATAInternalSATA2 );	
+		break;
+		
+		
+		case kSATA2Bay:
+ 			string = OSString::withCString( kATASATA2BayString );	
+		break;
+
 	
  		default:
  			string = OSString::withCString( kATAUnkownSocketString );

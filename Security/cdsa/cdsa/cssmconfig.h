@@ -49,11 +49,6 @@ typedef UInt32 uint32;
 typedef UInt16 uint16;
 typedef UInt8 uint8;
 
-#if 0
-#define CSSM_EXTERN(_type) EXTERN_API_C(_type)
-#define CSSM_DEFINE(_type) DEFINE_API_C(_type)
-#define CSSM_CALLBACK(_type, _name) CALLBACK_API_C(_type, _name)
-#else
 #define CSSMACI
 #define CSSMAPI
 #define CSSMCLI
@@ -62,7 +57,6 @@ typedef UInt8 uint8;
 #define CSSMKRI
 #define CSSMSPI
 #define CSSMTPI
-#endif
 
 #ifdef __cplusplus
 }

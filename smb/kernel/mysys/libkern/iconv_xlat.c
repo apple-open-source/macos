@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: iconv_xlat.c,v 1.4 2001/07/07 00:16:57 conrad Exp $
+ * $Id: iconv_xlat.c,v 1.5 2003/05/06 21:54:41 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/kernel.h>
@@ -63,6 +63,7 @@ static int
 iconv_xlat_open(struct iconv_converter_class *dcp,
 	struct iconv_cspair *csp, struct iconv_cspair *cspf, void **dpp)
 {
+	#pragma unused(cspf)
 	struct iconv_xlat *dp;
 
 	dp = (struct iconv_xlat *)kobj_create((struct kobj_class*)dcp, M_ICONV, M_WAITOK);
@@ -109,6 +110,7 @@ iconv_xlat_conv(void *d2p, const char **inbuf,
 static const char *
 iconv_xlat_name(struct iconv_converter_class *dcp)
 {
+	#pragma unused(dcp)
 	return "xlat";
 }
 

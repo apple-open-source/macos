@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,28 +12,45 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Sascha Schumann <sascha@schumann.cx>                        |
+   | Author: Sascha Schumann <sascha@schumann.cx>                         |
    +----------------------------------------------------------------------+
  */
+
+/* $Id: php_apache.h,v 1.1.1.5 2003/07/18 18:07:50 zarzycki Exp $ */
 
 #ifndef PHP_APACHE_H
 #define PHP_APACHE_H
 
+#include "httpd.h"
+#include "http_config.h"
+#include "http_core.h"
+
+/* Declare this so we can get to it from outside the sapi_apache2.c file */
+extern module AP_MODULE_DECLARE_DATA php4_module;
+
+/* A way to specify the location of the php.ini dir in an apache directive */
+extern char *apache2_php_ini_path_override;
+
+/* The server_context used by PHP */
 typedef struct php_struct {
 	int state;
-	apr_bucket_brigade *bb;
-	ap_filter_t *f;
+	request_rec *r;
+	ap_filter_t *f; /* downstream output filters after the PHP filter. */
 	/* Length of post_data buffer */
 	int post_len;
 	/* Index for reading from buffer */
 	int post_idx;
+	/* stat structure of the current file */	
+	struct stat finfo;
 	/* Buffer for request body filter */
 	char *post_data;
+	/* Whether or not we've processed PHP in the output filters yet. */
+	int request_processed;
 } php_struct;
 
-int php_apache_register_module(void);
 void *merge_php_config(apr_pool_t *p, void *base_conf, void *new_conf);
 void *create_php_config(apr_pool_t *p, char *dummy);
+char *get_php_config(void *conf, char *name, size_t name_len);
 void apply_config(void *);
 extern const command_rec php_dir_cmds[];
 

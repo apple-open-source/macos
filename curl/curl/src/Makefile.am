@@ -1,35 +1,35 @@
 #
-# $Id: Makefile.am,v 1.1.1.1 2001/02/15 19:52:31 wsanchez Exp $
+# $Id: Makefile.am,v 1.1.1.2 2002/11/26 19:08:05 zarzycki Exp $
 #
 
-# Some flags needed when trying to cause warnings ;-)
-# CFLAGS = -g -DMALLOCDEBUG # -Wall -pedantic
-#CPPFLAGS = -DGLOBURL -DCURL_SEPARATORS
+AUTOMAKE_OPTIONS = foreign nostdinc
 
-INCLUDES = -I$(top_srcdir)/include
+# we use srcdir/include for the static global include files
+# we use builddir/src for the generated src/config.h file to get found
+# we use srcdir/lib for the client-private header files
+INCLUDES = -I$(top_srcdir)/include -I$(top_builddir)/src -I$(top_srcdir)/src
 
 bin_PROGRAMS = curl #memtest
-
-noinst_HEADERS = setup.h \
-	config-win32.h \
-	urlglob.h \
-	version.h \
-	writeout.h
 
 #memtest_SOURCES = memtest.c
 #memtest_LDADD = $(top_srcdir)/lib/libcurl.la
 
-curl_SOURCES = main.c hugehelp.c urlglob.c writeout.c
+curl_SOURCES = main.c hugehelp.c urlglob.c writeout.c setup.h \
+	config-win32.h config-mac.h config-vms.h config-riscos.h \
+	urlglob.h version.h writeout.h writeenv.c writeenv.h
+
 curl_LDADD = ../lib/libcurl.la
 curl_DEPENDENCIES = ../lib/libcurl.la
 BUILT_SOURCES = hugehelp.c
 CLEANFILES = hugehelp.c
 NROFF=@NROFF@
 
-EXTRA_DIST = mkhelp.pl config-win32.h \
-	Makefile.vc6 Makefile.b32 Makefile.m32
-
-AUTOMAKE_OPTIONS = foreign no-dependencies
+EXTRA_DIST = mkhelp.pl curlmsg.msg \
+	Makefile.vc6 Makefile.b32 Makefile.m32 Makefile.riscos config.h.in \
+	macos/curl.mcp.xml.sit.hqx \
+	macos/MACINSTALL.TXT \
+	macos/src/curl_GUSIConfig.cpp \
+	macos/src/macos_main.cpp
 
 MANPAGE=$(top_srcdir)/docs/curl.1
 README=$(top_srcdir)/docs/MANUAL

@@ -1,4 +1,6 @@
-dnl $Id: config.m4,v 1.1.1.2 2001/07/19 00:20:26 zarzycki Exp $
+dnl
+dnl $Id: config.m4,v 1.1.1.4 2003/03/11 01:09:34 zarzycki Exp $
+dnl
 
 PHP_ARG_WITH(sybase,for Sybase support,
 [  --with-sybase[=DIR]     Include Sybase-DB support.  DIR is the Sybase home
@@ -15,7 +17,7 @@ if test "$PHP_SYBASE" != "no"; then
   fi
   PHP_ADD_INCLUDE($SYBASE_INCDIR)
   PHP_ADD_LIBRARY_WITH_PATH(sybdb, $SYBASE_LIBDIR, SYBASE_SHARED_LIBADD)
-  PHP_EXTENSION(sybase, $ext_shared)
+  PHP_NEW_EXTENSION(sybase, php_sybase_db.c, $ext_shared)
   AC_CHECK_LIB(dnet_stub, dnet_addr,
      [ PHP_ADD_LIBRARY_WITH_PATH(dnet_stub,,SYBASE_SHARED_LIBADD)
         AC_DEFINE(HAVE_LIBDNET_STUB,1,[ ])

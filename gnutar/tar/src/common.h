@@ -1,5 +1,7 @@
 /* Common declarations for the tar program.
-   Copyright (C) 1988, 92, 93, 94, 96, 97, 1999 Free Software Foundation, Inc.
+
+   Copyright 1988, 1992, 1993, 1994, 1996, 1997, 1999, 2000, 2001 Free
+   Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -36,10 +38,10 @@
 # define TTY_NAME "/dev/tty"
 #endif
 
-/* GLOBAL is defined to empty in `tar.c' only, and left alone in other `*.c'
+/* GLOBAL is defined to empty in tar.c only, and left alone in other *.c
    modules.  Here, we merely set it to "extern" if it is not already set.
    GNU tar does depend on the system loader to preset all GLOBAL variables to
-   neutral (or zero) values, explicit initialisation is usually not done.  */
+   neutral (or zero) values, explicit initialization is usually not done.  */
 #ifndef GLOBAL
 # define GLOBAL extern
 #endif
@@ -58,27 +60,31 @@ GLOBAL int exit_status;
    writes a message on stderr and aborts immediately, with another message
    line telling so.  USAGE_ERROR works like FATAL_ERROR except that the
    other message line suggests trying --help.  All four macros accept a
-   single argument of the form ((0, errno, _("FORMAT"), Args...)).  `errno'
-   is `0' when the error is not being detected by the system.  */
+   single argument of the form ((0, errno, _("FORMAT"), Args...)).  errno
+   is zero when the error is not being detected by the system.  */
 
 #define WARN(Args) \
   error Args
 #define ERROR(Args) \
   (error Args, exit_status = TAREXIT_FAILURE)
 #define FATAL_ERROR(Args) \
-  (error Args, error (TAREXIT_FAILURE, 0, \
-		      _("Error is not recoverable: exiting now")), 0)
+  (error Args, fatal_exit ())
 #define USAGE_ERROR(Args) \
-  (error Args, usage (TAREXIT_FAILURE), 0)
+  (error Args, usage (TAREXIT_FAILURE))
 
 /* Information gleaned from the command line.  */
 
 #include "arith.h"
-#include "backupfile.h"
-#include "basename.h"
-#include "exclude.h"
-#include "modechange.h"
-#include "safe-read.h"
+#include <backupfile.h>
+#include <exclude.h>
+#include <modechange.h>
+#include <safe-read.h>
+#include <full-write.h>
+
+/* Log base 2 of common values.  */
+#define LG_8 3
+#define LG_64 6
+#define LG_256 8
 
 /* Name of this program.  */
 GLOBAL const char *program_name;
@@ -171,8 +177,15 @@ GLOBAL const char *info_script_option;
 /* Boolean value.  */
 GLOBAL int interactive_option;
 
-/* Boolean value.  */
-GLOBAL int keep_old_files_option;
+enum old_files
+{
+  DEFAULT_OLD_FILES, /* default */
+  UNLINK_FIRST_OLD_FILES, /* --unlink-first */
+  KEEP_OLD_FILES, /* --keep-old-files */
+  OVERWRITE_OLD_DIRS, /* --overwrite-dir */
+  OVERWRITE_OLD_FILES /* --overwrite */
+};
+GLOBAL enum old_files old_files_option;
 
 /* Specified file name for incremental list.  */
 GLOBAL const char *listed_incremental_option;
@@ -187,13 +200,12 @@ GLOBAL int multi_volume_option;
    non-existing option, for making the code clearer, elsewhere.  */
 #define newer_ctime_option newer_mtime_option
 
-/* Specified threshold date and time.  Files having a more recent timestamp
-   get archived (also see after_date_option above).  If left to zero, it may
-   be interpreted as very low threshold, just usable as such.  */
+/* Specified threshold date and time.  Files having an older time stamp
+   do not get archived (also see after_date_option above).  */
 GLOBAL time_t newer_mtime_option;
 
-/* Boolean value.  */
-GLOBAL int no_recurse_option;
+/* Zero if there is no recursion, otherwise FNM_LEADING_DIR.  */
+GLOBAL int recursion_option;
 
 /* Boolean value.  */
 GLOBAL int numeric_owner_option;
@@ -220,10 +232,10 @@ GLOBAL const char *rsh_command_option;
 /* Boolean value.  */
 GLOBAL int same_order_option;
 
-/* Boolean value.  */
+/* If positive, preserve ownership when extracting.  */
 GLOBAL int same_owner_option;
 
-/* Boolean value.  */
+/* If positive, preserve permissions when extracting.  */
 GLOBAL int same_permissions_option;
 
 /* Boolean value.  */
@@ -246,10 +258,7 @@ GLOBAL int totals_option;
 
 /* Boolean value.  */
 GLOBAL int touch_option;
-
-/* Boolean value.  */
-GLOBAL int unlink_first_option;
-
+ 
 /* Count how many times the option has been set, multiple setting yields
    more verbose behavior.  Value 0 means no verbosity, 1 means file name
    only, 2 means file name and all attributes.  More than 2 is just like 2.  */
@@ -272,6 +281,14 @@ GLOBAL int archive;
 /* Nonzero when outputting to /dev/null.  */
 GLOBAL int dev_null_output;
 
+/* Timestamp for when we started execution.  */
+#if HAVE_CLOCK_GETTIME
+  GLOBAL struct timespec start_timespec;
+# define start_time (start_timespec.tv_sec)
+#else
+  GLOBAL time_t start_time;
+#endif
+
 /* Name of file for the current archive entry.  */
 GLOBAL char *current_file_name;
 
@@ -293,15 +310,13 @@ struct name
     char found;			/* a matching file has been found */
     char firstch;		/* first char is literally matched */
     char regexp;		/* this name is a regexp, not literal */
-    char *change_dir;		/* set with the -C option */
-    const char *dir_contents;	/* for incremental_option */
+    int change_dir;		/* set with the -C option */
+    char const *dir_contents;	/* for incremental_option */
     char fake;			/* dummy entry */
     char name[1];
   };
-GLOBAL struct name *namelist;	/* points to first name in list */
-GLOBAL struct name *namelast;	/* points to last name in list */
 
-/* Pointer to the start of the scratch space.  */
+/* Information about a sparse file.  */
 struct sp_array
   {
     off_t offset;
@@ -309,7 +324,7 @@ struct sp_array
   };
 GLOBAL struct sp_array *sparsearray;
 
-/* Initial size of the sparsearray.  */
+/* Number of elements in sparsearray.  */
 GLOBAL int sp_array_size;
 
 /* Declarations for each module.  */
@@ -331,7 +346,7 @@ extern FILE *stdlis;
 extern char *save_name;
 extern off_t save_sizeleft;
 extern off_t save_totsize;
-extern int write_archive_to_stdout;
+extern bool write_archive_to_stdout;
 
 size_t available_space_after PARAMS ((union block *));
 off_t current_block_ordinal PARAMS ((void));
@@ -341,7 +356,6 @@ union block *find_next_block PARAMS ((void));
 void flush_read PARAMS ((void));
 void flush_write PARAMS ((void));
 void flush_archive PARAMS ((void));
-void init_total_written PARAMS ((void));
 void init_volume_number PARAMS ((void));
 void open_archive PARAMS ((enum access_mode));
 void print_total_written PARAMS ((void));
@@ -351,29 +365,29 @@ void set_next_block_after PARAMS ((union block *));
 /* Module create.c.  */
 
 void create_archive PARAMS ((void));
-void dump_file PARAMS ((char *, dev_t, int));
+void dump_file PARAMS ((char *, int, dev_t));
 void finish_header PARAMS ((union block *));
 void write_eot PARAMS ((void));
 
-#define GID_TO_OCT(val, where) gid_to_oct (val, where, sizeof (where))
-#define MAJOR_TO_OCT(val, where) major_to_oct (val, where, sizeof (where))
-#define MINOR_TO_OCT(val, where) minor_to_oct (val, where, sizeof (where))
-#define MODE_TO_OCT(val, where) mode_to_oct (val, where, sizeof (where))
-#define OFF_TO_OCT(val, where) off_to_oct (val, where, sizeof (where))
-#define SIZE_TO_OCT(val, where) size_to_oct (val, where, sizeof (where))
-#define TIME_TO_OCT(val, where) time_to_oct (val, where, sizeof (where))
-#define UID_TO_OCT(val, where) uid_to_oct (val, where, sizeof (where))
-#define UINTMAX_TO_OCT(val, where) uintmax_to_oct (val, where, sizeof (where))
+#define GID_TO_CHARS(val, where) gid_to_chars (val, where, sizeof (where))
+#define MAJOR_TO_CHARS(val, where) major_to_chars (val, where, sizeof (where))
+#define MINOR_TO_CHARS(val, where) minor_to_chars (val, where, sizeof (where))
+#define MODE_TO_CHARS(val, where) mode_to_chars (val, where, sizeof (where))
+#define OFF_TO_CHARS(val, where) off_to_chars (val, where, sizeof (where))
+#define SIZE_TO_CHARS(val, where) size_to_chars (val, where, sizeof (where))
+#define TIME_TO_CHARS(val, where) time_to_chars (val, where, sizeof (where))
+#define UID_TO_CHARS(val, where) uid_to_chars (val, where, sizeof (where))
+#define UINTMAX_TO_CHARS(val, where) uintmax_to_chars (val, where, sizeof (where))
 
-void gid_to_oct PARAMS ((gid_t, char *, size_t));
-void major_to_oct PARAMS ((major_t, char *, size_t));
-void minor_to_oct PARAMS ((minor_t, char *, size_t));
-void mode_to_oct PARAMS ((mode_t, char *, size_t));
-void off_to_oct PARAMS ((off_t, char *, size_t));
-void size_to_oct PARAMS ((size_t, char *, size_t));
-void time_to_oct PARAMS ((time_t, char *, size_t));
-void uid_to_oct PARAMS ((uid_t, char *, size_t));
-void uintmax_to_oct PARAMS ((uintmax_t, char *, size_t));
+void gid_to_chars PARAMS ((gid_t, char *, size_t));
+void major_to_chars PARAMS ((major_t, char *, size_t));
+void minor_to_chars PARAMS ((minor_t, char *, size_t));
+void mode_to_chars PARAMS ((mode_t, char *, size_t));
+void off_to_chars PARAMS ((off_t, char *, size_t));
+void size_to_chars PARAMS ((size_t, char *, size_t));
+void time_to_chars PARAMS ((time_t, char *, size_t));
+void uid_to_chars PARAMS ((uid_t, char *, size_t));
+void uintmax_to_chars PARAMS ((uintmax_t, char *, size_t));
 
 /* Module diffarch.c.  */
 
@@ -385,9 +399,11 @@ void verify_volume PARAMS ((void));
 
 /* Module extract.c.  */
 
+extern int we_are_root;
 void extr_init PARAMS ((void));
 void extract_archive PARAMS ((void));
-void apply_delayed_set_stat PARAMS ((void));
+void extract_finish PARAMS ((void));
+void fatal_exit PARAMS ((void)) __attribute__ ((noreturn));
 
 /* Module delete.c.  */
 
@@ -395,11 +411,10 @@ void delete_archive_members PARAMS ((void));
 
 /* Module incremen.c.  */
 
-void collect_and_sort_names PARAMS ((void));
 char *get_directory_contents PARAMS ((char *, dev_t));
-void write_dir_file PARAMS ((void));
-void gnu_restore PARAMS ((int));
+void read_directory_file PARAMS ((void));
 void write_directory_file PARAMS ((void));
+void gnu_restore PARAMS ((size_t));
 
 /* Module list.c.  */
 
@@ -407,6 +422,7 @@ enum read_header
 {
   HEADER_STILL_UNREAD,		/* for when read_header has not been called */
   HEADER_SUCCESS,		/* header successfully read and checksummed */
+  HEADER_SUCCESS_EXTENDED,	/* likewise, but we got an extended header */
   HEADER_ZERO_BLOCK,		/* zero block where header expected */
   HEADER_END_OF_FILE,		/* true end of file while header expected */
   HEADER_FAILURE		/* ill-formed header, or bad checksum */
@@ -419,36 +435,37 @@ extern enum archive_format current_format;
 void decode_header PARAMS ((union block *, struct stat *,
 			    enum archive_format *, int));
 #define STRINGIFY_BIGINT(i, b) \
-  stringify_uintmax_t_backwards ((uintmax_t) (i), (b) + sizeof (b))
+  stringify_uintmax_t_backwards ((uintmax_t) (i), (b) + UINTMAX_STRSIZE_BOUND)
 char *stringify_uintmax_t_backwards PARAMS ((uintmax_t, char *));
+char const *tartime PARAMS ((time_t));
 
-#define GID_FROM_OCT(where) gid_from_oct (where, sizeof (where))
-#define MAJOR_FROM_OCT(where) major_from_oct (where, sizeof (where))
-#define MINOR_FROM_OCT(where) minor_from_oct (where, sizeof (where))
-#define MODE_FROM_OCT(where) mode_from_oct (where, sizeof (where))
-#define OFF_FROM_OCT(where) off_from_oct (where, sizeof (where))
-#define SIZE_FROM_OCT(where) size_from_oct (where, sizeof (where))
-#define TIME_FROM_OCT(where) time_from_oct (where, sizeof (where))
-#define UID_FROM_OCT(where) uid_from_oct (where, sizeof (where))
-#define UINTMAX_FROM_OCT(where) uintmax_from_oct (where, sizeof (where))
+#define GID_FROM_HEADER(where) gid_from_header (where, sizeof (where))
+#define MAJOR_FROM_HEADER(where) major_from_header (where, sizeof (where))
+#define MINOR_FROM_HEADER(where) minor_from_header (where, sizeof (where))
+#define MODE_FROM_HEADER(where) mode_from_header (where, sizeof (where))
+#define OFF_FROM_HEADER(where) off_from_header (where, sizeof (where))
+#define SIZE_FROM_HEADER(where) size_from_header (where, sizeof (where))
+#define TIME_FROM_HEADER(where) time_from_header (where, sizeof (where))
+#define UID_FROM_HEADER(where) uid_from_header (where, sizeof (where))
+#define UINTMAX_FROM_HEADER(where) uintmax_from_header (where, sizeof (where))
 
-gid_t gid_from_oct PARAMS ((const char *, size_t));
-major_t major_from_oct PARAMS ((const char *, size_t));
-minor_t minor_from_oct PARAMS ((const char *, size_t));
-mode_t mode_from_oct PARAMS ((const char *, size_t));
-off_t off_from_oct PARAMS ((const char *, size_t));
-size_t size_from_oct PARAMS ((const char *, size_t));
-time_t time_from_oct PARAMS ((const char *, size_t));
-uid_t uid_from_oct PARAMS ((const char *, size_t));
-uintmax_t uintmax_from_oct PARAMS ((const char *, size_t));
+gid_t gid_from_header PARAMS ((const char *, size_t));
+major_t major_from_header PARAMS ((const char *, size_t));
+minor_t minor_from_header PARAMS ((const char *, size_t));
+mode_t mode_from_header PARAMS ((const char *, size_t));
+off_t off_from_header PARAMS ((const char *, size_t));
+size_t size_from_header PARAMS ((const char *, size_t));
+time_t time_from_header PARAMS ((const char *, size_t));
+uid_t uid_from_header PARAMS ((const char *, size_t));
+uintmax_t uintmax_from_header PARAMS ((const char *, size_t));
 
 void list_archive PARAMS ((void));
 void print_for_mkdir PARAMS ((char *, int, mode_t));
 void print_header PARAMS ((void));
 void read_and PARAMS ((void (*do_) ()));
-enum read_header read_header PARAMS ((void));
-void skip_extended_headers PARAMS ((void));
+enum read_header read_header PARAMS ((bool));
 void skip_file PARAMS ((off_t));
+void skip_member PARAMS ((void));
 
 /* Module mangle.c.  */
 
@@ -460,14 +477,68 @@ void assign_string PARAMS ((char **, const char *));
 char *quote_copy_string PARAMS ((const char *));
 int unquote_string PARAMS ((char *));
 
-char *merge_sort PARAMS ((char *, int, int, int (*) (char *, char *)));
+int contains_dot_dot PARAMS ((char const *));
 
-int is_dot_or_dotdot PARAMS ((const char *));
 int remove_any_file PARAMS ((const char *, int));
 int maybe_backup_file PARAMS ((const char *, int));
 void undo_last_backup PARAMS ((void));
 
+int deref_stat PARAMS ((int, char const *, struct stat *));
+
+int chdir_arg PARAMS ((char const *));
+void chdir_do PARAMS ((int));
+
+void decode_mode PARAMS ((mode_t, char *));
+
+void chdir_fatal PARAMS ((char const *)) __attribute__ ((noreturn));
+void chmod_error_details PARAMS ((char const *, mode_t));
+void chown_error_details PARAMS ((char const *, uid_t, gid_t));
+void close_error PARAMS ((char const *));
+void close_warn PARAMS ((char const *));
+void exec_fatal PARAMS ((char const *)) __attribute__ ((noreturn));
+void link_error PARAMS ((char const *, char const *));
+void mkdir_error PARAMS ((char const *));
+void mkfifo_error PARAMS ((char const *));
+void mknod_error PARAMS ((char const *));
+void open_error PARAMS ((char const *));
+void open_fatal PARAMS ((char const *)) __attribute__ ((noreturn));
+void open_warn PARAMS ((char const *));
+void read_error PARAMS ((char const *));
+void read_error_details PARAMS ((char const *, off_t, size_t));
+void read_fatal PARAMS ((char const *)) __attribute__ ((noreturn));
+void read_fatal_details PARAMS ((char const *, off_t, size_t));
+void read_warn_details PARAMS ((char const *, off_t, size_t));
+void readlink_error PARAMS ((char const *));
+void readlink_warn PARAMS ((char const *));
+void savedir_error PARAMS ((char const *));
+void savedir_warn PARAMS ((char const *));
+void seek_error PARAMS ((char const *));
+void seek_error_details PARAMS ((char const *, off_t));
+void seek_warn PARAMS ((char const *));
+void seek_warn_details PARAMS ((char const *, off_t));
+void stat_error PARAMS ((char const *));
+void stat_warn PARAMS ((char const *));
+void symlink_error PARAMS ((char const *, char const *));
+void truncate_error PARAMS ((char const *));
+void truncate_warn PARAMS ((char const *));
+void unlink_error PARAMS ((char const *));
+void utime_error PARAMS ((char const *));
+void waitpid_error PARAMS ((char const *));
+void write_error PARAMS ((char const *));
+void write_error_details PARAMS ((char const *, ssize_t, size_t));
+void write_fatal PARAMS ((char const *)) __attribute__ ((noreturn));
+void write_fatal_details PARAMS ((char const *, ssize_t, size_t))
+     __attribute__ ((noreturn));
+
+pid_t xfork PARAMS ((void));
+void xpipe PARAMS ((int[2]));
+
+char const *quote PARAMS ((char const *));
+char const *quote_n PARAMS ((int, char const *));
+
 /* Module names.c.  */
+
+extern struct name *gnu_list_name;
 
 void gid_to_gname PARAMS ((gid_t, char gname[GNAME_FIELD_SIZE]));
 int gname_to_gid PARAMS ((char gname[GNAME_FIELD_SIZE], gid_t *));
@@ -478,17 +549,22 @@ void init_names PARAMS ((void));
 void name_add PARAMS ((const char *));
 void name_init PARAMS ((int, char *const *));
 void name_term PARAMS ((void));
-char *name_next PARAMS ((int change_));
+char *name_next PARAMS ((int));
 void name_close PARAMS ((void));
 void name_gather PARAMS ((void));
-void addname PARAMS ((const char *));
+struct name *addname PARAMS ((char const *, int));
 int name_match PARAMS ((const char *));
 void names_notfound PARAMS ((void));
-void name_expand PARAMS ((void));
+void collect_and_sort_names PARAMS ((void));
 struct name *name_scan PARAMS ((const char *));
 char *name_from_list PARAMS ((void));
 void blank_name_list PARAMS ((void));
 char *new_name PARAMS ((const char *, const char *));
+
+bool excluded_name PARAMS ((char const *));
+
+void add_avoided_name PARAMS ((char const *));
+int is_avoided_name PARAMS ((char const *));
 
 /* Module tar.c.  */
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -113,7 +113,7 @@ void info(const char *format, ...)
 	va_end(ap);
 }
 
-__private_extern__ void log(const char *format, ...)
+void notice(const char *format, ...)
 {
 	va_list ap;
 	

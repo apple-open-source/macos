@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -24,7 +22,7 @@
  */
 #ifdef SHLIB
 #include "shlib.h"
-#endif SHLIB
+#endif /* SHLIB */
 /*
  * This file contains the routines that drives the layout phase of the
  * link-editor.  In this phase the output file's addresses and offset are
@@ -151,7 +149,7 @@ static void check_for_overlapping_segments(
     struct merged_segment *outputs_linkedit_segment);
 static void print_load_map(void);
 static void print_load_map_for_objects(struct merged_section *ms);
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 
 /*
  * layout() is called from main() and lays out the output file.
@@ -180,7 +178,7 @@ layout(void)
 	memset(&hppa_integer_state, '\0',
 		sizeof(struct hp_pa_integer_thread_state));
 	memset(&sparc_state, '\0', sizeof(struct sparc_thread_state_regs));
-#endif RLD
+#endif /* RLD */
 	/*
 	 * First finish creating all sections that will be in the final output
 	 * file.  This involves defining common symbols which can create a
@@ -194,7 +192,7 @@ layout(void)
 	 */
 #ifndef RLD
 	process_section_specs();
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 
 	/*
 	 * So literal pointer sections can use indirect symbols these need to
@@ -214,11 +212,14 @@ layout(void)
 	if(filetype == MH_EXECUTE ||
 	   filetype == MH_BUNDLE ||
 	   filetype == MH_DYLIB ||
-	   filetype == MH_DYLINKER)
+	   filetype == MH_DYLINKER){
 	    setup_link_editor_symbols();
+	    if(undefined_flag == UNDEFINED_DEFINE_A_WAY)
+		define_undefined_symbols_a_way();
+	}
 	if(filetype == MH_PRELOAD)
 	    define_link_editor_preload_symbols(TRUE);
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 
 	/*
 	 * Now that the alignment of all the sections has been determined (from
@@ -233,14 +234,14 @@ layout(void)
 #ifdef DEBUG
 	if(debug & (1 << 21))
 	    print_merged_section_stats();
-#endif DEBUG
+#endif /* DEBUG */
 
 #ifndef RLD
 	/*
 	 * Layout any sections that have -sectorder options specified for them.
 	 */
 	layout_ordered_sections();
-#endif RLD
+#endif /* RLD */
 
 	/*
 	 * Report undefined symbols and account for merged that will not be
@@ -264,7 +265,7 @@ layout(void)
 	   twolevel_namespace == TRUE &&
 	   multiply_defined_unused_flag != MULTIPLY_DEFINED_SUPPRESS)
 	    twolevel_namespace_check_for_unused_dylib_symbols();
-#endif RLD
+#endif /* RLD */
 
 	/*
 	 * Assign the symbol table indexes for the symbol table entries.
@@ -307,7 +308,7 @@ layout(void)
 
 	if(load_map)
 	    print_load_map();
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 
 #ifdef DEBUG
 	if(debug & (1 << 7)){
@@ -320,7 +321,7 @@ layout(void)
 	    print_symbol_list("after layout", FALSE);
 	if(debug & (1 << 20))
 	    print_object_list();
-#endif DEBUG
+#endif /* DEBUG */
 }
 
 #if defined(RLD) && !defined(SA_RLD) && !(defined(KLD) && defined(__STATIC__))
@@ -421,7 +422,7 @@ layout_segments(void)
     enum bool address_zero_specified;
     struct merged_dylib *mdl;
     struct dynamic_library *dp;
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
     struct merged_symbol *merged_symbol;
 
     static struct merged_segment linkedit_segment = { {0} };
@@ -431,7 +432,7 @@ layout_segments(void)
 
 #ifdef RLD
 	memset(&object_segment, '\0', sizeof(struct merged_segment));
-#endif RLD
+#endif /* RLD */
 
 	/*
 	 * If the file type is MH_OBJECT then place all the sections in one
@@ -443,7 +444,7 @@ layout_segments(void)
 	    zerofill = &(object_segment.zerofill_sections);
 #ifdef RLD
 	    original_merged_segments = merged_segments;
-#endif RLD
+#endif /* RLD */
 	    p = &merged_segments;
 	    while(*p){
 		msg = *p;
@@ -645,6 +646,7 @@ layout_segments(void)
 		    if(strip_level != STRIP_ALL)
 			linkedit_segment.sg.filesize +=
 			    (nmerged_symbols
+			     - nstripped_merged_symbols
 			     + nlocal_symbols
 			     - nmerged_symbols_referenced_only_from_dylibs) *
 			    sizeof(struct nlist) +
@@ -732,7 +734,7 @@ layout_segments(void)
 	 * segments.
 	 */
 	process_segment_specs();
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 
 #ifndef RLD
 	/*
@@ -755,7 +757,7 @@ layout_segments(void)
 		msg->prot_set = TRUE;
 	    }
 	}
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 
 	/*
 	 * Set the protections of segments that have not had their protection
@@ -984,6 +986,16 @@ layout_segments(void)
 				     (dp->pbdylib->cmdsize -
 				      sizeof(struct prebound_dylib_command));
 			}
+			/*
+			 * Since we are building this executable prebound we
+			 * want to have some header padding in case their are
+			 * more indirectly referenced dylibs that will need to
+			 * be added when redoing the prebinding.  We have found
+			 * that in the 10.2 release that 3 times the size of
+			 * the initial LC_PREBOUND_DYLIB commands seems to work
+			 * for most but not all things.
+			 */
+			headerpad += dp->pbdylib->cmdsize * 3;
 		    }
 		}
 	    }
@@ -999,6 +1011,7 @@ layout_segments(void)
 	if(strip_level != STRIP_ALL){
 	    output_symtab_info.symtab_command.nsyms =
 		nmerged_symbols
+		- nstripped_merged_symbols
 		+ nlocal_symbols
 		- nmerged_symbols_referenced_only_from_dylibs;
 	    output_symtab_info.symtab_command.strsize =
@@ -1065,7 +1078,8 @@ layout_segments(void)
 		output_thread_info.thread_command.cmdsize += sizeof(long) *
 					    M68K_THREAD_STATE_REGS_COUNT;
 	    }
-	    else if(arch_flag.cputype == CPU_TYPE_POWERPC){
+	    else if(arch_flag.cputype == CPU_TYPE_POWERPC ||
+		    arch_flag.cputype == CPU_TYPE_VEO){
 		output_thread_info.flavor = PPC_THREAD_STATE;
 		output_thread_info.count = PPC_THREAD_STATE_COUNT;
 		output_thread_info.entry_point = (int *)&(powerpc.srr0);
@@ -1301,51 +1315,54 @@ layout_segments(void)
 
 #ifdef RLD
 	/*
-	 * For rld() the output format is MH_OBJECT and only the contents of the
-	 * segment (the entire vmsize not just the filesize) without headers is
-	 * allocated and the address the segment is linked to is the address of
-	 * this memory.
+	 * For rld() the output format is MH_OBJECT and the contents of the
+	 * first segment (the entire vmsize not just the filesize), if it exists,
+	 * plus headers are allocated and the address the segment is linked to 
+	 * is the address of this memory.
 	 */
 	output_size = 0;
-	if(first_msg != NULL){
 #ifndef SA_RLD
-	    kern_return_t r;
+	kern_return_t r;
 #endif
-	    unsigned long allocate_size;
+	unsigned long allocate_size;
 
-	    headers_size = round(headers_size, max_align);
-	    output_size = headers_size + first_msg->sg.vmsize;
-	    allocate_size = output_size;
-	    if(strip_level != STRIP_ALL)
-		allocate_size += output_symtab_info.symtab_command.nsyms *
-				 sizeof(struct nlist) +
-				 output_symtab_info.symtab_command.strsize;
+	headers_size = round(headers_size, max_align);
+	output_size = headers_size;
+	if(first_msg != NULL)
+	    output_size += first_msg->sg.vmsize;
+	allocate_size = output_size;
+	if(strip_level != STRIP_ALL)
+	    allocate_size += output_symtab_info.symtab_command.nsyms *
+				sizeof(struct nlist) +
+				output_symtab_info.symtab_command.strsize;
 
 #ifdef SA_RLD
-	    if(allocate_size > sa_rld_output_size)
-		fatal("not enough memory for output of size %lu (memory "
-		      "available %lu)", allocate_size, sa_rld_output_size);
-	    output_addr = sa_rld_output_addr;
+	if(allocate_size > sa_rld_output_size)
+	    fatal("not enough memory for output of size %lu (memory "
+		    "available %lu)", allocate_size, sa_rld_output_size);
+	output_addr = sa_rld_output_addr;
 #else /* !defined(SA_RLD) */
-	    if((r = vm_allocate(mach_task_self(), (vm_address_t *)&output_addr,
-				allocate_size, TRUE)) != KERN_SUCCESS)
-		mach_fatal(r, "can't vm_allocate() memory for output of size "
-			   "%lu", allocate_size);
-	    /*
-	     * The default initial protection for vm_allocate()'ed memory
-	     * may not include VM_PROT_EXECUTE so we need to raise the
-	     * the protection to VM_PROT_ALL which include this.
-	     */
-	    if((r = vm_protect(mach_task_self(), (vm_address_t)output_addr,
-		allocate_size, FALSE, VM_PROT_ALL)) != KERN_SUCCESS)
-		mach_fatal(r, "can't set vm_protection on memory for output");
+	if((r = vm_allocate(mach_task_self(), (vm_address_t *)&output_addr,
+			    allocate_size, TRUE)) != KERN_SUCCESS)
+	    mach_fatal(r, "can't vm_allocate() memory for output of size "
+			"%lu", allocate_size);
+	/*
+	    * The default initial protection for vm_allocate()'ed memory
+	    * may not include VM_PROT_EXECUTE so we need to raise the
+	    * the protection to VM_PROT_ALL which include this.
+	    */
+	if((r = vm_protect(mach_task_self(), (vm_address_t)output_addr,
+	    allocate_size, FALSE, VM_PROT_ALL)) != KERN_SUCCESS)
+	    mach_fatal(r, "can't set vm_protection on memory for output");
 #endif /* defined(SA_RLD) */
 #ifdef RLD_VM_ALLOC_DEBUG
-	    print("rld() vm_allocate: addr = 0x%0x size = 0x%x\n",
-		  (unsigned int)output_addr, (unsigned int)allocate_size);
+	print("rld() vm_allocate: addr = 0x%0x size = 0x%x\n",
+		(unsigned int)output_addr, (unsigned int)allocate_size);
 #endif /* RLD_VM_ALLOC_DEBUG */
-	    sets[cur_set].output_addr = output_addr;
-	    sets[cur_set].output_size = output_size;
+	sets[cur_set].output_addr = output_addr;
+	sets[cur_set].output_size = output_size;
+
+	if(first_msg != NULL){
 	    if(address_func != NULL){
 	        if(RLD_DEBUG_OUTPUT_FILENAME_flag)
 		    first_msg->sg.vmaddr =
@@ -1357,7 +1374,7 @@ layout_segments(void)
 	    else
 		first_msg->sg.vmaddr = (long)output_addr + headers_size;
 	}
-#endif RLD
+#endif /* RLD */
 	/*
 	 * Set the addresses of segments that have not had their addresses set
 	 * and set the addresses of all sections (previously set relitive to the
@@ -1415,7 +1432,7 @@ layout_segments(void)
 	check_for_overlapping_segments(&linkedit_segment);
 	if(prebinding)
 	    output_mach_header.flags |= MH_PREBOUND;
-#endif RLD
+#endif /* RLD */
 
 	/*
 	 * Assign all file offsets.  Things with offsets appear in the following
@@ -1506,7 +1523,7 @@ layout_segments(void)
 	 * strip_level != STRIP_ALL.
 	 */
 	offset = output_size;
-#endif RLD
+#endif /* RLD */
 
 	/* the linkedit segment will start here */
 	linkedit_segment.sg.fileoff = offset;
@@ -1577,7 +1594,7 @@ layout_segments(void)
 	    offset += output_dysymtab_info.dysymtab_command.nextrefsyms *
 		      sizeof(struct dylib_reference);
 	}
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 	/* set the offset to the symbol table (output not for dyld case) */
 	if(output_for_dyld == FALSE){
 	    if(strip_level != STRIP_ALL){
@@ -1594,7 +1611,7 @@ layout_segments(void)
 #ifndef RLD
 	/* set the size of the output file */
 	output_size = offset;
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 
 	/*
 	 * Set the output section number in to each merged section to be used
@@ -1636,7 +1653,7 @@ layout_segments(void)
 	    define_link_editor_dylib_symbols(first_msg->sg.vmaddr);
 	if(filetype == MH_PRELOAD)
 	    define_link_editor_preload_symbols(FALSE);
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 
 	/*
 	 * Now with the addresses of the segments and sections set and the
@@ -2194,12 +2211,18 @@ struct merged_section *ms)
 				      (unsigned int)(ms->s.addr +
 					fine_relocs[k].output_offset),
 				      (unsigned int)
-				      (k == object_file->section_maps[j].
-							     nfine_relocs - 1 ?
-				      object_file->section_maps[j].s->size -
-					fine_relocs[k].input_offset :
-				      fine_relocs[k + 1].input_offset -
-					fine_relocs[k].input_offset));
+				      (k == (unsigned int)
+					((object_file->section_maps[j].
+							    nfine_relocs) -
+					(unsigned int)1) ?
+				      (unsigned int)
+				      (object_file->section_maps[j].s->size) -
+					(unsigned int)(fine_relocs[k].
+						input_offset) :
+				      (unsigned int)(fine_relocs[k + 1].
+					input_offset) -
+					(unsigned int)(fine_relocs[k].
+					input_offset)));
 				print_obj_name(object_file);
 				print("\n");
 			    }
@@ -2218,7 +2241,7 @@ struct merged_section *ms)
 	    }
 	}
 }
-#endif !defined(RLD)
+#endif /* !defined(RLD) */
 
 #ifdef DEBUG
 /*
@@ -2273,4 +2296,4 @@ print_thread_info(void)
 	else
 	    print("\n");
 }
-#endif DEBUG
+#endif /* DEBUG */

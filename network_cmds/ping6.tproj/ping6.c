@@ -104,6 +104,8 @@ static const char rcsid[] =
  * network attached to 1 or more interfaces)
  */
 
+#define BIND_8_COMPAT
+
 #include <sys/param.h>
 #include <sys/uio.h>
 #include <sys/socket.h>

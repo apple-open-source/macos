@@ -12,8 +12,15 @@
 
 struct _structTag {
     short firstField;
-    unsigned long secondField
+    unsigned long secondField;
 } SimpleStruct;
+
+
+/*!	@typedef Foo
+    @discussion Test of simple typedef.
+*/
+
+typedef struct Bar *Foo;
 
 /*!
     @typedef TypedefdSimpleStruct
@@ -53,6 +60,18 @@ typedef enum {
     @result Returns what it can when it is possible to do so.
 */
 typedef long (*simpleCallback)(short inFirstParameter, unsigned long long *outSecondParameter);
+
+
+/*!	@typedef CGPathElement
+    @discussion Test of struct/typedef combo.
+*/
+
+struct CGPathElement {
+	CGPathElementType type;
+	CGPoint *points;
+};
+
+typedef struct CGPathElement CGPathElement;
 
 
 /*! @typedef TypedefdStructWithCallbacks
@@ -114,6 +133,6 @@ typedef struct _someTag {
                         UInt32 *outTransferCount,
                         Boolean *outIsWrite);
 
-    unsigned long lastField
+    unsigned long lastField;
 } TypedefdStructWithCallbacks;
 

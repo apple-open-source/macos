@@ -1,9 +1,9 @@
 /*
- * "$Id: md5passwd.c,v 1.1.1.3 2002/03/02 18:27:48 jlovell Exp $"
+ * "$Id: md5passwd.c,v 1.1.1.8 2003/02/10 21:57:20 jlovell Exp $"
  *
  *   MD5 password support for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -125,7 +125,7 @@ httpMD5String(const md5_byte_t *sum,	/* I - MD5 sum data */
 {
   int		i;			/* Looping var */
   char		*md5ptr;		/* Pointer into MD5 string */
-  static char	*hex = "0123456789abcdef";
+  static const char hex[] = "0123456789abcdef";
 					/* Hex digits */
 
 
@@ -146,5 +146,5 @@ httpMD5String(const md5_byte_t *sum,	/* I - MD5 sum data */
 
 
 /*
- * End of "$Id: md5passwd.c,v 1.1.1.3 2002/03/02 18:27:48 jlovell Exp $".
+ * End of "$Id: md5passwd.c,v 1.1.1.8 2003/02/10 21:57:20 jlovell Exp $".
  */

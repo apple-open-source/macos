@@ -1,0 +1,23 @@
+
+// OMG Transaction Service v1.1, November 1997.
+// CORBA Module
+
+// PIDL for TSIdentification interface to be implemented by ORB
+// NOTE: This should not be sent through the idltojava compiler.
+
+#include "CosTSPortability.idl"
+
+#pragma prefix "omg.org"
+#pragma javaPackage org.omg
+
+module CORBA { 
+    interface TSIdentification { // PIDL
+        exception NotAvailable{};
+        exception AlreadyIdentified{};
+
+        void identify_sender(in CosTSPortability::Sender sender)
+                raises (NotAvailable, AlreadyIdentified);
+        void identify_receiver(in CosTSPortability::Receiver receiver)
+                raises (NotAvailable, AlreadyIdentified);
+    };
+};

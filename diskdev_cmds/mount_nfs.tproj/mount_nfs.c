@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -215,8 +215,7 @@ main(argc, argv)
 	struct nfs_args nfsargs;
 	struct nfsd_cargs ncd;
 	int mntflags, altflags, i, nfssvc_flag, num;
-	char *name, *p, *spec;
-	int error = 0;
+	char name[MAXPATHLEN], *p, *spec;
 #ifdef NFSKERB
 	uid_t last_ruid;
 
@@ -241,7 +240,7 @@ main(argc, argv)
 	nfsargs = nfsdefargs;
 	nfsargsp = &nfsargs;
 	while ((c = getopt(argc, argv,
-	    "23a:bcdD:g:I:iKL:lm:o:PpqR:r:sTt:w:x:U")) != EOF)
+	    "23a:bcdD:g:I:iKLlm:o:PpqR:r:sTt:Uw:x:")) != EOF)
 		switch (c) {
 		case '3':
 			if (force2)
@@ -301,11 +300,7 @@ main(argc, argv)
 			break;
 #endif
 		case 'L':
-			num = strtol(optarg, &p, 10);
-			if (*p || num < 2)
-				errx(1, "illegal -L value -- %s", optarg);
-			nfsargsp->leaseterm = num;
-			nfsargsp->flags |= NFSMNT_LEASETERM;
+			nfsargsp->flags |= NFSMNT_NOLOCKS;
 			break;
 		case 'l':
 			nfsargsp->flags |= NFSMNT_RDIRPLUS;
@@ -436,7 +431,9 @@ main(argc, argv)
 	}
 
 	spec = *argv++;
-	name = *argv;
+
+	if (realpath(*argv, name) == NULL)
+		err(1, "realpath %s", name);
 
 	if (!getnfsargs(spec, nfsargsp))
 		exit(1);

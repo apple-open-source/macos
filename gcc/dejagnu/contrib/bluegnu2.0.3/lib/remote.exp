@@ -1,0 +1,896 @@
+# Copyright (C) 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+# Please email any bugs, comments, and/or additions to this file to:
+# bug-dejagnu@prep.ai.mit.edu
+
+# This file was written by Rob Savoye. (rob@welcomehome.org)
+
+# these just need to be initialized
+# FIXME: This is deprecated (we should have no knowledge of global `shell_id').
+# Remove at some point.
+set shell_id   	0
+
+# 
+# Open a connection to a remote host or target. This requires the target_info
+# array be filled in with the proper info to work. The old variables are also
+# still functional.
+#
+# type is either "host" or "target". The default is target if no type is supplied.
+# It returns the spawn id of the process that is the connection.
+#	
+proc remote_open { args } {
+    global target_info
+    global connectmode
+    global targetname
+    global serialport
+    global netport
+    global reboot
+    global shell_id
+    global spawn_id
+   
+    if { [llength $args] == 0 } {
+	set type "target"
+    } else {
+	set type $args
+    }
+
+    # set the current connection
+    if [info exists target_info(${type},name)] {	
+	if { $target_info(${type},name) != "" } {	
+	    if { [info proc push_$type] != "" } {
+		push_$type $target_info(${type},name)
+	    }
+	} else {
+	    warning "Couldn't push target, name was NULL"
+	}
+    }
+
+    if [info exists target_info(${type},connect)] {
+	set connect_prog $target_info(${type},connect)
+    } else {
+	if [info exists connectmode] {
+	    set connect_prog $connectmode
+	} else {
+	    perror "No connectmode specified"
+	    set shell_id -1
+	    return $shell_id
+	}
+    }
+
+    # reboot the machine if we neeed to, typically by using an x10 controller.
+    if $reboot {
+	if { [info procs "reboot_hook"] != "" } {
+	    reboot_hook
+	}
+    }
+
+    set shell_id [$connect_prog $type]
+
+    if [info exists target_info] {
+	set target_info(${type},fileid) $shell_id
+	if [info exists target_info(${type},name)] {
+	    set target_info($target_info(${type},name),fileid) $shell_id
+	}
+    }
+    return $shell_id
+}
+
+#
+# Close the remote connection.
+#	shell_id - This is the id number returned by the any of the connection
+#	procedures, or an index into one of the arrays. 
+#
+proc remote_close { arg } {
+    # get the type of connection, host or target
+    if [expr [string match "host" $arg] || [string match "target" $arg]] {
+	set type $arg
+	if [info exists target_info(${type},fileid)] {
+	    set shell_id $target_info(${type},fileid)
+	} else {
+	    perror "No shell id for to close"
+	}
+    } else {
+	set shell_id $arg
+    }
+
+    verbose "Closing the remote shell $shell_id" 2
+    catch "close -i $shell_id"
+    catch "wait -i $shell_id"
+
+    return 0
+}
+
+
+# Most of these procedures try to establish the connection 3 times before
+# returning. If $verbose is set to a value of 2 or greater, then error
+# messages will appear for each attempt. If there is an error that
+# can't be recovered from, it returns a -1. If the connection is
+# established, it returns the shell's process number returned by the
+# tcl command spawn.
+# Hostname refers to the entry in /etc/hosts for this target. The
+# procedure's name is the same as its unix counterpart.
+# The final argument is the type of connection to establish, the default
+# is the target. This can also be passed as the second arg or the third.
+
+#
+# Connect using telnet. This takes two arguments. The first one is the
+# hostname, and the second is the optional port number. This sets
+# the fileid field in the config array, and returns -1 for error, or the
+# spawn id.
+#
+proc telnet { args } {
+    global verbose
+    global connectmode
+    global shell_prompt
+    global spawn_id
+    global timeout
+    global errno
+
+    set hostname [lindex $args 0]
+    
+    # get the port number
+    if { [llength $args] > 1 } {
+	set port [lindex $args 1]
+    } else {
+        set port 23
+    }
+    
+    # get the hostname and port number from the config array
+    if [expr [string match "host" $hostname] || [string match "target" $hostname]] {
+	set type $hostname
+	set hosttmp [split $target_info($type,netport) ":"]
+	set hostname [lindex $hosttmp 0]
+	if { [llength $hosttmp] > 1 } {
+	    set port [lindex $hosttmp 1]
+	}
+	unset hosttmp
+	if [info exists target_info($type,prompt)] {
+	    set shell_prompt $target_info($type,prompt)
+	}
+    } else {
+	set type target
+    }
+    if ![info exists shell_prompt] {	# if no prompt, then set it to something generic
+	set shell_prompt ".*> "
+    }
+ 
+    set tries 0
+    set result -1
+    verbose "Starting a telnet connection to $hostname:$port" 2
+    spawn telnet $hostname $port
+    exp_send "\r\n"
+    while { $tries <= 3 } {
+	catch expect {
+	    "ogin:" {
+		perror "telnet: need to login"
+		break
+	    }
+	    "assword:" {
+		perror "telnet: need a password"
+		break
+	    }
+	    -re ".*$shell_prompt.*$" {
+		verbose "Got prompt\n"
+		set result 0
+	    }
+	    "Connected to" {
+		exp_continue
+	    }
+	    -re "\[\r\n\]*" {
+		exp_continue
+	    }
+	    "unknown host" {
+		exp_send "\003"
+		perror "telnet: unknown host"
+		break
+	    }
+	    "Escape character is" {
+		exp_send "\r\n"
+		exp_continue
+	    }
+	    "has logged on from" {
+		exp_continue
+	    }
+	    "You have no Kerberos tickets" {
+		warning "telnet: no kerberos Tickets, please kinit"
+		break
+	    }
+	    -re "Connection refused.*$" {
+		exp_send "\003"
+		warning "telnet: connection refused."
+	    }
+	    -re "Sorry, this system is engaged.*" {
+		exp_send "\003"
+		warning "telnet: already connected."
+	    }
+	    "Connection closed by foreign host.*$" {
+		warning "telnet: connection closed by foreign host."
+		break
+	    }
+	    timeout { 
+		exp_send "\003"
+		warning "telnet: timed out trying to connect."
+	    }
+	    eof {
+		perror "telnet: got unexpected EOF from telnet."
+		break
+	    }
+	}
+	incr tries
+    }
+    # we look for this hear again cause it means something went wrong, and
+    # it doesn't always show up in the expect in buffer till the server times out.
+    if [info exists expect_out(buffer)] {
+	if [regexp "assword:|ogin:|" $expect_out(buffer)] {
+	    perror "telnet: need to supply a login and password."
+	}
+    }
+    if { $result < 0 } {
+	catch close
+	catch wait
+#	perror "telnet: couldn't connect after $tries tries."
+	set spawn_id -1
+    }
+    set target_info(target,fileid) $spawn_id
+    if [info exists target_info(target,name)] {
+	set target_info($target_info(target,name),fileid) $spawn_id
+    }
+    return $spawn_id
+}
+
+#
+# Connect to hostname using rlogin. The global RLOGIN
+# is the name of the actual rlogin program. This is for systems
+# using rlogin to braindead targets that don't support kerboros.
+# It returns either the spawn_id or a -1.
+# The final argument is the type of connection to establish, the default
+# is the target. This can also be passed as the second arg or the third.
+#
+proc rlogin { arg } {
+    global spawn_id
+    global target_info
+    global RLOGIN
+    global errno
+
+    set tries 0
+    set result -1
+
+    # get the hostname and port number from the config array
+    if [expr [string match "host" $arg] || [string match "target" $arg]] {
+	set type $arg
+	set hostname [lindex [split $target_info(${type},netport) ":"] 0]
+	if [info exists target_info($type,prompt)] {
+	    set shell_prompt $target_info($type,prompt)
+	}
+    } else {
+	set hostname $arg
+	set type target
+    }
+    if ![info exists shell_prompt] {	# if no prompt, then set it to something generic
+	set shell_prompt ".*> "
+    }
+ 
+    # get the right version of rlogin
+    if ![info exists RLOGIN] {
+	set RLOGIN rlogin
+    }
+    
+    # start connection and store the spawn_id
+    verbose "Opening a $RLOGIN connection to $hostname" 2
+    spawn $RLOGIN $hostname
+    if { $spawn_id < 0 } {
+	perror "invalid spawn id from rlogin"
+	return
+    }
+    set target_info(${type},fileid) $spawn_id
+    if [info exists target_info($type,name)] {
+	set target_info($target_info($type,name),fileid) $spawn_id
+    }
+    
+    # try to connect to the target. We give up after 3 attempts. At one point
+    # we used to look for the prompt, but we may not know what it looks like.
+    while { $tries <= 3 } {
+	expect {
+	    -re ".*$shell_prompt.*$" {
+		verbose "Got prompt\n"
+		set result 0
+		break
+	    }
+	    -re "TERM = .*\\)\[ ]*$" {
+		send "dumb\r\n"
+		expect {
+		    "Terminal type is*$" {
+			verbose "rlogin: set the terminal to dumb" 2
+		    }
+		    default {
+			warning "rlogin: couldn't set terminmal type"
+		    }
+		}
+		set result 10
+		break
+	    }
+	    "unknown host" {
+		perror "rlogin: unknown host"
+		break
+	    }
+	    "has logged on from" {
+		exp_continue
+	    }
+	    "Terminal type is" {
+		verbose "rlogin: connected, got terminal prompt" 2
+		set result 0
+		break
+	    }
+	    -re "Maximum number of users already logged in.*$" {
+		warning "rlogin: maximum number of users already logged in"
+	    }
+	    -re "Sorry, shell is locked.*Connection closed.*$" {
+		warning "rlogin: lready connected."
+	    }
+	    -re "Sorry, this system is engaged.*Connection closed.*$" {
+		warning "rlogin: system engaged."
+	    }
+	    -re "Kerberos rcmd failed.*$" {
+		warning "rlogin: Kerberos rcmd failed, please kinit"
+		catch close
+		catch wait
+       		break
+	    }
+	    -re "trying normal rlogin.*$" {
+		warning "rlogin: trying normal rlogin."
+		catch close
+		catch wait
+		break
+	    }
+	    -re "unencrypted connection.*$" {
+		warning "rlogin: unencrypted connection, please kinit"
+		catch close
+		catch wait
+		break
+	    }
+	    -re "isn't registered for Kerberos.*service.*$" {
+		warning "rsh: isn't registered, please kinit"
+		catch close
+		catch wait
+		break
+	    }
+	    -re "You have no Kerberos tickets.*$" {
+		warning "rlogin: No kerberos Tickets, please kinit"
+		catch close
+		catch wait
+		break
+	    }
+	    timeout	{ 
+		warning "rlogin: timed out trying to connect."
+	    }
+	    eof {
+		perror "rlogin: got EOF while trying to connect."
+		break
+	    }
+	}
+	incr tries
+    }
+
+    # if the error was fatal, there's nothing to send to
+    catch { send "\r\n" } tmp
+    if [string match "*invalid spawn id*" $tmp] {
+	perror "Couldn't rlogin to $hostname, fatal error."
+	catch "close $spawn_id"
+	set target_info(${type},fileid) $spawn_id
+	if [info exists target_info(${type},name)] {
+	    set target_info($target_info(${type},name),fileid) $spawn_id
+	}
+	return $spawn_id
+    }
+    expect {
+	"\r\n*$" {
+	    exp_continue
+	}
+	-re "\[- A-Za-z0-9\.\;\"\_\:\'\`\(\)\!\#\=\+\?\&\*]+.*$" {
+	    # this is kinda gross, but if we get most any legit ascii
+	    # text we figure we connected. Others tests later will
+	    # determine if the connection actually works.
+	    verbose "We got some text" 2
+	}
+    }
+
+    # see if we maxed out on errors
+    if { $result < 0 } {
+	catch close
+	catch wait
+#	perror "rlogin: couldn't rlogin to $hostname, Too many errors"
+	catch "close $spawn_id"
+	set spawn_id -1
+	set target_info(${type},fileid) $spawn_id
+	if [info exists target_info(${type},name)] {
+	    set target_info($target_info(${type},name),fileid) $spawn_id
+	}
+    } else {
+	verbose "rlogin: connected to $hostname" 2
+    }
+    
+    return $spawn_id
+}
+
+#
+# Connect to hostname using rsh
+#
+proc rsh { arg } {
+    global spawn_id
+    global target_info
+    global RSH
+    global errno
+
+    set tries 0
+    set result -1
+
+    # get the hostname and port number from the config array
+    if [expr [string match "host" $arg] || [string match "target" $arg]] {
+	set type $arg
+	set hostname [lindex [split $target_info(${type},netport) ":"] 0]
+	if [info exists target_info(${type},prompt)] {
+	    set shell_prompt $target_info(${type},prompt)
+	}
+    } else {
+	set hostname $arg
+	set type target
+    }
+    if ![info exists shell_prompt] {	# if no prompt, then set it to something generic
+	set shell_prompt ".*> "
+    }
+ 
+    if ![info exists RSH] {
+	set RSH rsh
+    }
+    spawn $RSH $hostname
+    if { $spawn_id < 0 } {
+	perror "invalid spawn id from rsh"
+	return
+    }
+    set target_info(${type},fileid) $spawn_id
+    if [info exists target_info(${type},name)] {
+	set target_info($target_info(${type},name),fileid) $spawn_id
+    }
+    if [info exists target_info(${type},prompt)] {
+	set prompt $target_info(${type},prompt)
+    }
+    send "\r\n"
+    while { $tries <= 3 } {
+	expect {
+	    -re ".*$shell_prompt.*$" {
+		verbose "Got prompt\n"
+		set result 0
+		break
+	    }
+	    -re "TERM = .*$" {
+		warning "Setting terminal type to vt100"
+		set result 0
+		send "vt100\n"
+		break
+	    }
+	    "unknown host" {
+		exp_send "\003"
+		perror "telnet: unknown host"
+		break
+	    }
+	    "has logged on from" {
+		exp_continue
+	    }
+	    -re "isn't registered for Kerberos.*service.*$" {
+		warning "rsh: isn't registered for Kerberos, please kinit"
+		catch close
+		catch wait
+		break
+	    }
+	    -re "Kerberos rcmd failed.*$" {
+		warning "rsh: Kerberos rcmd failed, please kinit"
+		catch close
+		catch wait
+		break
+	    }
+	    -re "You have no Kerberos tickets.*$" {
+		warning "rsh: No kerberos Tickets, please kinit"
+		catch close
+		catch wait
+		break
+	    }
+	    "Terminal type is" {
+		verbose "rsh: connected, got terminal prompt" 2
+		set result 0
+		break
+	    }
+	    -re "trying normal rlogin.*$" {
+		warning "rsh: trying normal rlogin."
+		catch close
+		catch wait
+		break
+	    }
+	    -re "unencrypted connection.*$" {
+		warning "rsh: unencrypted connection, please kinit"
+		catch close
+		catch wait
+		break
+	    }
+	    -re "Sorry, shell is locked.*Connection closed.*$" {
+		warning "rsh: already connected."
+	    }
+	    timeout {	    
+	       warning "rsh: timed out trying to connect."
+	    }
+	    eof {	    
+		perror "rsh: got EOF while trying to connect."
+		break
+	    }
+	}
+	incr tries
+    }
+    
+    if { $result < 0 } {
+#	perror "rsh: couldn't connect after $tries tries."
+	set spawn_id -1
+    }
+    set target_info(${type},fileid) $spawn_id
+    if [info exists target_info(${type},name)] {
+	set target_info($target_info(${type},name),fileid) $spawn_id
+    }
+    return $spawn_id
+}
+
+#
+# Download an executable to a network neighbor
+#
+# DEST is assumed to already contain the nodename.
+# Returns the status returned by the rcp command.
+#
+proc rcp_download { src dest } {
+    set status [catch "exec rcp $src $dest" output]
+    if { $status == 0 } {
+	verbose "Copied $src to $dest" 2
+    } else {
+	verbose "Download to $dest failed, $output."
+    }
+    return $status
+}
+
+#
+# This proc is deprecated.  Please use `execute_anywhere' instead.
+#
+# Execute a program on the remote system using rsh
+#
+# SYSTEM is the host name of the system to run the program on.
+# CMD is the program to run (including path) and any arguments.
+# The result is a list of two elements.
+# First element: 0 for success, 1 for failure, -1 for comms failure.
+# Second element: program output (success/failure) or error message (comms).
+#
+proc rsh_exec { system cmd } {
+    verbose "Executing $system:$cmd" 3
+    # If CMD sends any output to stderr, exec will think it failed.  More often
+    # than not that will be true, but it doesn't catch the case where there is
+    # no output but the exit code is non-zero.  The "2>&1" is done on the
+    # remote system and is not a special flag for `exec'.
+    set status [catch "exec rsh $system $cmd 2>&1 \\; echo XYZ$?ZYX" output]
+    # `status' doesn't mean much here other than rsh worked ok.
+    # What we want is whether $cmd ran ok.
+    if { $status != 0 } {
+	regsub "XYZ(\[0-9\]*)ZYX\n?" $output "" output
+	return [list -1 "rsh to $system failed for $cmd, $output"]
+    }
+    regexp "XYZ(\[0-9\]*)ZYX" $output junk status
+    verbose "rsh_exec: status:$status text:$output" 4
+    if { $status == "" } {
+	return [list -1 "Couldn't parse rsh output, $output."]
+    }
+    regsub "XYZ(\[0-9\]*)ZYX\n?" $output "" output
+    # Delete one trailing \n because that is what `exec' will do and we want
+    # to behave identical to it.
+    regsub "\n$" $output "" output
+    return [list [expr $status != 0] $output]
+}
+
+#
+# Connect to using tip
+# port - must be a name from /etc/remote, or "host" or "target".
+# returns -1 if it failed, the spawn_id if it worked
+#
+proc tip { arg } {
+    global verbose
+    global shell_prompt
+    global target_info
+    global spawn_id
+
+    set tries 0
+    set result -1
+
+    if [expr [string match "host" $arg] || [string match "target" $arg]] {
+	set port $target_info(${type},target)
+	if [info exists target_info(${type},prompt)] {
+	    set shell_prompt $target_info(${type},prompt)
+	}
+    } else {
+	set port $arg
+    }
+    if ![info exists shell_prompt] {	# if no prompt, then set it to something generic
+	set shell_prompt ".*> "
+    }
+ 
+    spawn tip -v $port
+    if { $spawn_id < 0 } {
+	perror "invalid spawn id from tip"
+	return -1
+    }
+    set target_info(target,fileid) $spawn_id
+    set target_info($target_info(target,name),fileid) $spawn_id
+    expect {
+	-re ".*connected.*$" { 
+	    send "\r\n"
+	    expect {
+		-re ".*$shell_prompt.*$" {
+		    verbose "Got prompt\n"
+		    set result 0
+		    incr tries
+		}
+		timeout {
+		    warning "Never got prompt."
+		    set result -1
+		    incr tries
+		    if $tries<=2 {
+			exp_continue
+		    }
+		}
+	    }
+	}
+	-re "all ports busy.*$" {
+	    set result -1
+	    perror "All ports busy."
+	    incr tries
+	    if { $tries <= 2 } {
+		exp_continue
+	    }	    
+	}
+	-re "Connection Closed.*$" {
+	    perror "Never connected."
+	    set result -1
+	    incr tries
+	    if { $tries <= 2 } {
+		exp_continue
+	    }
+	}
+	-re ".*: Permission denied.*link down.*$" {
+	    perror "Link down."
+	    set result -1
+	    incr tries
+	}
+	timeout	{
+	    perror "Timed out trying to connect."
+	    set result -1
+	    incr tries
+	    if { $tries <= 2 } {
+		exp_continue
+	    }
+	}
+	eof {
+	    perror "Got unexpected EOF from tip."
+	    set result -1
+	    incr tries
+	}
+    }
+
+    send "\n~s"
+    expect {
+	"~\[set\]*" {
+	    verbose "Setting verbose mode" 1
+	    send "verbose\n\n\n"
+	}	
+    }
+
+    if { $result < 0 } {
+	perror "Couldn't connect after $tries tries."
+	set target_info(${type},fileid) -1
+	set target_info($target_info(${type},name),fileid) -1
+	return -1
+    } else {
+	set target_info(${type},fileid) $spawn_id
+	set target_info($target_info(${type},name),fileid) $spawn_id
+	return $spawn_id
+    }
+}
+
+#
+# Downloads using the ~put command under tip
+#     arg - is a full path name to the file to download
+#     returns 1 if an error occured, otherwise it returns
+#	  the spawn_id.
+#
+proc tip_download { shell_id file } {
+    global verbose
+    global decimal
+    global shell_prompt
+    global expect_out
+
+    set result 1
+    if ![file exists $file] {
+	perror "$file doesn't exist."
+	return 1
+    }
+
+    send -i $shell_id "\n~p"
+    expect {
+	-i $shell_id "~\[put\]*" {
+	    verbose "Downloading $file, please wait" 1
+	    send -i $shell_id "$file\n"
+	    set timeout 50
+	    expect {
+		-i $shell_id -re ".*$file.*$" {
+		    exp_continue
+		}
+		-i $shell_id -re ".*lines transferred in.*minute.*seconds.*$shell_prompt.*$" {
+		    verbose "Download $file successfully" 1
+		    set result 0
+		}
+		-i $shell_id -re ".*Invalid command.*$shell_prompt$" {
+		    warning "Got an Invalid command to the monitor"
+		}
+		-i $shell_id -re ".*$decimal\r" {
+		    if [info exists expect_out(buffer)] {
+			verbose "$expect_out(buffer)"
+			exp_continue
+		    }
+		}
+		-i $shell_id timeout {
+		    perror "Timed out trying to download."
+		    set result 1
+		}
+	    }
+	}	
+	timeout {
+	    perror "Timed out waiting for response to put command."
+	}
+    }	
+    set timeout 10
+    return $result
+}
+
+#
+# Connect to using kermit
+#     args - first is the device name, ie. /dev/ttyb
+#         second is the optional baud rate. If this is "host" or "target" the 
+#	  config array is used instead.
+#     returns -1 if it failed, otherwise it returns
+#         the spawn_id.
+#
+proc kermit { args } {
+    global verbose
+    global shell_prompt
+    global spawn_id
+
+    if { [llength $args] == 1 } {
+	set baud 9600
+    } else {
+	set baud [lindex $args 1]
+    } 
+
+    if [expr [string match "host" [lindex $args 0]] || [string match "target" [lindex $arg 0]]] {
+	set device $target_info(${type},serial)
+	if [info exists target_info(${type},baud)] {
+	    set baud $target_info(${type},baud)
+	}
+    } else {
+	set device [lindex $args 0]
+    }
+ 
+    set tries 0
+    set result -1
+    spawn kermit -l $device -b $baud
+    if { $spawn_id < 0 } {
+	perror "invalid spawn id from kermit"
+	return -1
+    }
+    set target_info(${type},fileid) $spawn_id
+    set target_info($target_info(${type},name),fileid) $spawn_id
+    expect {
+	-re ".*ermit.*>.*$" { 
+	    send "c\n"
+	    expect {
+		-re ".*Connecting to $port.*Type the escape character followed by C to.*$" {
+		    verbose "Got prompt\n"
+		    set result 0
+		    incr tries
+		}
+		timeout {
+		    warning "Never got prompt."
+		    set result -1
+		    incr tries
+		    if { $tries <= 2 } {
+			exp_continue
+		    }
+		}
+	    }
+	}
+	-re "Connection Closed.*$" {
+	    perror "Never connected."
+	    set result -1
+	    incr tries
+	    if { $tries <= 2 } {
+		exp_continue
+	    }
+	}
+	timeout			{	    
+	    warning "Timed out trying to connect."
+	    set result -1
+	    incr tries
+	    if { $tries<=2 } {
+		exp_continue
+	    }
+	}
+    }
+
+    if { $result < 0 } {
+	perror "Couldn't connect after $tries tries."
+	set target_info(${type},fileid) -1
+	set target_info($target_info(${type},name),fileid) -1
+	return -1
+    } else {
+	set target_info(${type},fileid) $spawn_id
+	set target_info($target_info(${type},name),fileid) $spawn_id
+	return $spawn_id
+    }
+}
+
+#
+# exit the remote shell
+#
+# ??? This proc is deprecated.  Please use `remote_close' instead.
+proc exit_remote_shell { shell_id } {
+    return [remote_close $shell_id]
+}
+
+#
+# Download a file using stdin. This will download a file
+# regardless of whether rlogin, telnet, tip, or kermit was
+# used to establish the connection.
+#
+proc download { args } {
+    global spawn_id
+    global verbose
+
+    set file [lindex $args 0]
+
+    if { [llength $args] > 1 } {
+        set shellid [lindex $args 1]
+    } else {
+        set shellid $spawn_id
+    }
+
+    set lines 0
+    set fd [open $file r]
+    while { [gets $fd cur_line] >= 0 } {
+        set errmess ""
+        catch "send -i $shellid \"$cur_line\"" errmess
+        if [string match "write\(spawn_id=\[0-9\]+\):" $errmess] {
+            perror "sent \"$command\" got expect error \"$errmess\""
+            catch "close $fd"
+            return -1
+        }
+        verbose "." 2
+        verbose "Sent $cur_line" 3
+	incr lines
+    }
+    verbose "$lines lines downloaded"
+    close $fd
+    return 0
+}

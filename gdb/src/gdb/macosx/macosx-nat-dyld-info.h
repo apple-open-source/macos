@@ -7,21 +7,27 @@ struct _bfd;
 
 typedef enum dyld_objfile_reason { 
 
-  dyld_reason_deallocated = 0x1, 
+  dyld_reason_deallocated = 0x0000, 
 
-  dyld_reason_user = 0x02,
-  dyld_reason_cached = 0x04,
+  dyld_reason_user = 0x0001,
+  dyld_reason_init = 0x0002,
+  dyld_reason_executable = 0x0004,
+  dyld_reason_dyld = 0x0008,
+  dyld_reason_cfm = 0x0010, 
+  
+  dyld_reason_executable_mask = 0x0004,
 
-  dyld_reason_init = 0x08,
-  dyld_reason_executable = 0x10,
+  dyld_reason_type_mask = 0x00ff,
+  dyld_reason_flags_mask = 0xff00,
 
-  dyld_reason_dyld = 0x20,
-  dyld_reason_cfm = 0x40, 
+  dyld_reason_image_mask = 0x0006,
 
-  dyld_reason_image = 0x18,
-  dyld_reason_shlib = 0xfc,
-  dyld_reason_all = 0xfe
+  dyld_reason_cached_mask = 0x0100,
+  dyld_reason_weak_mask = 0x0200,
+  dyld_reason_cached_weak_mask = 0x0300,
 
+  dyld_reason_all_mask = 0xfffe
+  
 } dyld_objfile_reason;
 
 struct dyld_objfile_entry {
@@ -37,7 +43,7 @@ struct dyld_objfile_entry {
   unsigned long dyld_index;
   int dyld_valid;
 
-  unsigned long cfm_connection;
+  unsigned long cfm_container;
 
   char *user_name;
 
@@ -51,10 +57,10 @@ struct dyld_objfile_entry {
   int text_name_valid;
 
   struct _bfd *abfd;
-  struct _bfd *sym_bfd;
-
   struct objfile *objfile;
-  struct objfile *sym_objfile;
+
+  struct _bfd *commpage_bfd; /* The BFD corresponding to the commpage symbol information */
+  struct objfile *commpage_objfile; /* The corresponding objfile */
 
   const char *loaded_name;
   CORE_ADDR loaded_memaddr;
@@ -79,11 +85,12 @@ struct dyld_objfile_info {
   struct obj_section *sections_end;
 };
 
-const int dyld_entry_source_filename_is_absolute
-PARAMS ((struct dyld_objfile_entry *e));
+struct dyld_path_info;
 
-const char *dyld_entry_source_filename
-PARAMS ((struct dyld_objfile_entry *e));
+enum { DYLD_ENTRY_FILENAME_LOADED = 1 } dyld_entry_filename_type;
+
+const char *dyld_entry_filename
+PARAMS ((const struct dyld_objfile_entry *e, const struct dyld_path_info *d, int type));
 
 char *dyld_offset_string
 PARAMS ((unsigned long offset));
@@ -116,9 +123,40 @@ struct dyld_objfile_entry *dyld_objfile_entry_alloc
 PARAMS ((struct dyld_objfile_info *i));
 
 void dyld_print_shlib_info
-PARAMS ((struct dyld_objfile_info *s, unsigned int reason_mask));
+PARAMS ((struct dyld_objfile_info *s, unsigned int reason_mask, int header, const char *args));
 
-int dyld_objfile_info_compare (struct dyld_objfile_info *a, 
-			       struct dyld_objfile_info *b);
+int dyld_resolve_shlib_num
+PARAMS ((struct dyld_objfile_info *s, unsigned int num,
+	 struct dyld_objfile_entry **eptr, struct objfile **optr));
+
+int dyld_objfile_info_compare
+PARAMS ((struct dyld_objfile_info *a, struct dyld_objfile_info *b));
+
+void dyld_convert_entry PARAMS ((struct objfile *o, struct dyld_objfile_entry *e));
+
+void 
+dyld_entry_info PARAMS ((struct dyld_objfile_entry *e, int print_basenames, 
+			 char **in_name, char **in_objname, char **in_symname,
+			 char **in_commobjname, char **in_commsymname,
+			 char **addr, char **slide, char **prefix));
+
+void dyld_print_entry_info
+PARAMS ((struct dyld_objfile_entry *j, unsigned int shlibnum,
+	 unsigned int baselen));
+
+int dyld_entry_shlib_num
+PARAMS ((struct dyld_objfile_info *s, struct dyld_objfile_entry *eptr,
+	 unsigned int *numptr));
+
+int dyld_entry_shlib_num_matches
+PARAMS ((int shlibnum, const char *args, int verbose));
+
+unsigned int dyld_next_allocated_shlib
+PARAMS ((struct dyld_objfile_info *info, unsigned int n));
+
+#define DYLD_ALL_OBJFILE_INFO_ENTRIES(info, o, n)          	   \
+  for ((n) = dyld_next_allocated_shlib ((info), 0);		   \
+       ((n) < (info)->nents) ? (o = &(info)->entries[(n)], 1) : 0; \
+       (n) = dyld_next_allocated_shlib (info, (n) + 1))
 
 #endif /* __GDB_MACOSX_NAT_DYLD_INFO_H__ */

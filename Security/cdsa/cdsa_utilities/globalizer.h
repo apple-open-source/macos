@@ -72,7 +72,11 @@ public:
     Type &operator () ()
     {
         AtomicWord p = pointer;	// latch pointer
-        return *reinterpret_cast<Type *>((p && !(p & 0x1)) ? p : create(make));
+		if (!p || (p & 0x1)) {
+			p = create(make);
+			secdebug("nexus", "module %s 0x%x", Debug::typeName<Type>().c_str(), pointer);
+		}
+		return *reinterpret_cast<Type *>(p);
     }
     
     void reset()
@@ -92,7 +96,7 @@ class CleanModuleNexus : public ModuleNexus<Type> {
 public:
     ~CleanModuleNexus()
     {
-        debug("nexus", "ModuleNexus %p destroyed object 0x%x", this, pointer);
+        secdebug("nexus", "ModuleNexus %p destroyed object 0x%x", this, pointer);
         delete reinterpret_cast<Type *>(pointer);
     }
 };
@@ -127,7 +131,7 @@ class CleanModuleNexus : public ModuleNexus<Type> {
 public:
     ~CleanModuleNexus()
     {
-        debug("nexus", "ModuleNexus %p destroyed object 0x%x", this, mSingleton);
+        secdebug("nexus", "ModuleNexus %p destroyed object 0x%x", this, mSingleton);
         delete mSingleton;
     }
 };

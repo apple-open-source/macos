@@ -64,17 +64,12 @@ SSL2ReadRecord(SSLRecord &rec, SSLContext *ctx)
     
     switch (ctx->negProtocolVersion)
     {   case SSL_Version_Undetermined:
-        case SSL_Version_3_0_With_2_0_Hello:
         case SSL_Version_2_0:
             break;
         case SSL_Version_3_0:           /* We've negotiated a 3.0 session; 
 										 * we can send an alert */
 		case TLS_Version_1_0:
             SSLFatalSessionAlert(SSL_AlertUnexpectedMsg, ctx);
-            return errSSLProtocol;
-        case SSL_Version_3_0_Only:      /* We haven't yet negotiated, but 
-										 * we don't want to support 2.0; just 
-										 * die without an alert */
             return errSSLProtocol;
         default:
             sslErrorLog("bad protocolVersion in ctx->protocolVersion");
@@ -84,11 +79,11 @@ SSL2ReadRecord(SSLRecord &rec, SSLContext *ctx)
     if (!ctx->partialReadBuffer.data || ctx->partialReadBuffer.length < 3)
     {   if (ctx->partialReadBuffer.data)
             if ((err = SSLFreeBuffer(ctx->partialReadBuffer, ctx)) != 0)
-            {   SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);
+            {   SSL2SendError(SSL2_ErrNoCipher, ctx);
                 return err;
             }
         if ((err = SSLAllocBuffer(ctx->partialReadBuffer, DEFAULT_BUFFER_SIZE, ctx)) != 0)
-        {   SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);
+        {   SSL2SendError(SSL2_ErrNoCipher, ctx);
             return err;
         }
     }

@@ -71,8 +71,6 @@ bool AppleK2::start(IOService *provider)
 	IOPlatformFunction *func;
    	IOPCIDevice		*pciProvider;
 
-kprintf("AppleK2::start\n");
-
     fProvider = provider;
 	tmpData = (OSData *) fProvider->getProperty( "AAPL,phandle" );
 	if(tmpData)
@@ -850,7 +848,6 @@ bool AppleK2::performFunction(IOPlatformFunction *func, void *pfParam1,
 	UInt32 						cmd, cmdLen, result, param1, param2, param3, param4, param5, 
 									param6, param7, param8, param9, param10;
 	
-	kprintf ("AppleK2::performFunction - entered\n");
 	if (!func)
 		return false;
 	
@@ -863,9 +860,6 @@ bool AppleK2::performFunction(IOPlatformFunction *func, void *pfParam1,
 			iter->release();
 			return false;
 		}
-		kprintf ("AppleK2::performFunction - 1)0x%lx, 2)0x%lx, 3)0x%lx, 4)0x%lx, 5)0x%lx,"
-				"6)0x%lx, 7)0x%lx, 8)0x%lx, 9)0x%lx, 10)0x%lx\n", param1, param2, param3,
-				param4, param5, param6, param7, param8, param9, param10);
 
 		switch (cmd) {
             case kCommandWriteReg32:
@@ -905,7 +899,7 @@ bool AppleK2::performFunction(IOPlatformFunction *func, void *pfParam1,
 				return false;   		        	    
 		}
 	}
-	kprintf ("AppleK2::performFunction - done\n");
+    iter->release();
 	return true;
 }
 
@@ -922,9 +916,6 @@ IOReturn AppleK2::callPlatformFunction(const OSSymbol *functionName,
 			if (pfFunc = OSDynamicCast(IOPlatformFunction, fPlatformFuncArray->getObject(i))) {
 				// Check for on-demand case
 				if (pfFunc->platformFunctionMatch (functionName, kIOPFFlagOnDemand, NULL)) {
-					kprintf ("AppleK2::callPlatformFunction '%s', calling demand function\n",
-							functionName->getCStringNoCopy());
-
 					return (performFunction (pfFunc, param1, param2, param3, param4) ? kIOReturnSuccess : kIOReturnBadArgument);
 				}
 			}

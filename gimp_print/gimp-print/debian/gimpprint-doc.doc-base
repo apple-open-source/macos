@@ -1,0 +1,15 @@
+Document: gimpprint-doc
+Title: The User's Guide to the Gimp-Print Top Quality Printer Drivers
+Author: Andy Stewart
+Abstract: The Gimp-Print Top Quality Printer Drivers (hereafter
+ called Gimp-Print) are a set of printer drivers written to
+ take advantage of the full capabilities of a wide range of
+ printers. This document will explain how to use the Gimp-Print
+ software to achieve high quality printouts from the GIMP (GNU
+ Image Manipulation Program) and CUPS (Common Unix Printing
+ System).
+Section: Apps/Graphics
+
+Format: HTML
+Index: /usr/share/doc/gimpprint-doc/html/index.html
+Files: /usr/share/doc/gimpprint-doc/html/*

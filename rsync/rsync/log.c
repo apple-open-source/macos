@@ -27,9 +27,11 @@
   */
 #include "rsync.h"
 
+static int log_initialised;
 static char *logfname;
 static FILE *logfile;
 static int log_error_fd = -1;
+struct stats stats;
 
 int log_got_error=0;
 
@@ -41,6 +43,7 @@ struct {
 	{ RERR_PROTOCOL   , "protocol incompatibility" }, 
 	{ RERR_FILESELECT , "errors selecting input/output files, dirs" }, 
 	{ RERR_UNSUPPORTED, "requested action not supported" }, 
+	{ RERR_STARTCLIENT, "error starting client-server protocol" }, 
 	{ RERR_SOCKETIO   , "error in socket IO" }, 
 	{ RERR_FILEIO     , "error in file IO" }, 
 	{ RERR_STREAMIO   , "error in rsync protocol data stream" }, 
@@ -49,7 +52,7 @@ struct {
 	{ RERR_SIGNAL     , "received SIGUSR1 or SIGINT" }, 
 	{ RERR_WAITCHILD  , "some error returned by waitpid()" }, 
 	{ RERR_MALLOC     , "error allocating core memory buffers" }, 
-	{ RERR_PARTIAL    , "partial transfer" }, 
+	{ RERR_PARTIAL    , "some files could not be transferred" }, 
 	{ RERR_TIMEOUT    , "timeout in data send/receive" }, 
 	{ RERR_CMD_FAILED , "remote shell failed" },
 	{ RERR_CMD_KILLED , "remote shell killed" },
@@ -144,12 +147,11 @@ static void logit(int priority, char *buf)
 
 void log_init(void)
 {
-	static int initialised;
 	int options = LOG_PID;
 	time_t t;
 
-	if (initialised) return;
-	initialised = 1;
+	if (log_initialised) return;
+	log_initialised = 1;
 
 	/* this looks pointless, but it is needed in order for the
 	   C library on some systems to fetch the timezone info
@@ -182,7 +184,7 @@ void log_init(void)
 #endif
 }
 
-void log_open()
+void log_open(void)
 {
 	if (logfname && !logfile) {
 		extern int orig_umask;
@@ -192,7 +194,7 @@ void log_open()
 	}
 }
 
-void log_close()
+void log_close(void)
 {
 	if (logfile) {
 		fclose(logfile);
@@ -236,12 +238,20 @@ void rwrite(enum logcode code, char *buf, int len)
 		return;
 	}
 
-	/* if that fails, try to pass it to the other end */
-	if (am_server && io_multiplex_write(code, buf, len)) {
+	/* next, if we are a server but not in daemon mode, and multiplexing
+	 *  is enabled, pass it to the other side.  */
+	if (am_server && !am_daemon && io_multiplex_write(code, buf, len)) {
 		return;
 	}
 
-	if (am_daemon) {
+	/* otherwise, if in daemon mode and either we are not a server
+	 *  (that is, we are not running --daemon over a remote shell) or
+	 *  the log has already been initialised, log the message on this
+	 *  side because we don't want the client to see most errors for
+	 *  security reasons.  We do want early messages when running daemon
+	 *  mode over a remote shell to go to the remote side; those will
+	 *  fall through to the next case. */
+	if (am_daemon && (!am_server || log_initialised)) {
 		static int depth;
 		int priority = LOG_INFO;
 		if (code == FERROR) priority = LOG_WARNING;
@@ -340,6 +350,8 @@ void rsyserr(enum logcode code, int errcode, const char *format, ...)
 	/* Note: might return <0 */
 	len = vsnprintf(buf, sizeof(buf), format, ap);
 	va_end(ap);
+
+	/* TODO: Put in RSYNC_NAME at the start. */
 
 	if ((size_t) len > sizeof(buf)-1)
 		exit_cleanup(RERR_MESSAGEIO);
@@ -559,20 +571,16 @@ void log_exit(int code, const char *file, int line)
 	}
 }
 
-
-
-
-/* log the incoming transfer of a file for interactive use, this
-   will be called at the end where the client was run 
-   
-   it i called when a file starts to be transferred
-*/
+/*
+ * Log the incoming transfer of a file for interactive use,
+ * this will be called at the end where the client was run.
+ * Called when a file starts to be transferred.
+ */
 void log_transfer(struct file_struct *file, const char *fname)
 {
 	extern int verbose;
 
 	if (!verbose) return;
 
-	rprintf(FINFO,"%s\n", fname);
+	rprintf(FINFO, "%s\n", fname);
 }
-

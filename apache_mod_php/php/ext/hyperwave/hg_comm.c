@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Uwe Steinmann                                               |
+   | Author: Uwe Steinmann <Uwe.Steinmann@fernuni-hagen.de>               |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: hg_comm.c,v 1.1.1.4 2001/12/14 22:12:23 zarzycki Exp $ */
+/* $Id: hg_comm.c,v 1.1.1.6 2003/07/18 18:07:33 zarzycki Exp $ */
 
 /* #define HW_DEBUG */
 
@@ -287,7 +287,7 @@ void fnListAnchor(DLIST *pAnchorList)
 * Return: As strcmp                                                    *
 ***********************************************************************/
 #ifdef newlist
-int fnCmpAnchors(const void *e1, const void *e2)
+int fnCmpAnchors(const void *e1, const void *e2 TSRMLS_DC)
 {
 	ANCHOR *a1, **aa1, *a2, **aa2;
 	zend_llist_element **ee1, **ee2;
@@ -298,7 +298,7 @@ int fnCmpAnchors(const void *e1, const void *e2)
 	a1 = *aa1;
 	a2 = *aa2;
 #else
-int fnCmpAnchors(ANCHOR *a1, ANCHOR *a2)
+int fnCmpAnchors(ANCHOR *a1, ANCHOR *a2 TSRMLS_DC)
 {
 #endif
 	if(a1->start < a2->start)
@@ -599,11 +599,12 @@ DLIST *fnCreateAnchorList(hw_objectID objID, char **anchors, char **docofanchorr
 		
 				}
 		
-				efree(anchors[i]);
-				if(docofanchorrec[i]) efree(docofanchorrec[i]);
-				if(reldestrec)
-					if(reldestrec[i]) efree(reldestrec[i]);
 			}
+			/* free memory even if it is an invisible anchor */
+			efree(anchors[i]);
+			if(docofanchorrec[i]) efree(docofanchorrec[i]);
+			if(reldestrec)
+				if(reldestrec[i]) efree(reldestrec[i]);
 		}
 	}
 	return pAnchorList;
@@ -656,7 +657,7 @@ char *fnInsAnchorsIntoText(char *text, DLIST *pAnchorList, char **bodytag, char 
 		else {
 			convert_to_string_ex(script_name);
 			for(i=0; i<5; i++)
-				scriptname[i] = (*script_name)->value.str.val;
+				scriptname[i] = Z_STRVAL_PP(script_name);
 		}
 
 #if 0
@@ -682,7 +683,7 @@ char *fnInsAnchorsIntoText(char *text, DLIST *pAnchorList, char **bodytag, char 
 	newtext = text;
 	bgstr[0] = '\0';
 #ifdef newlist
-	zend_llist_sort(pAnchorList, fnCmpAnchors);
+	zend_llist_sort(pAnchorList, fnCmpAnchors TSRMLS_CC);
 	ptr = (ANCHOR **) zend_llist_get_last(pAnchorList);
 	if(ptr)
 		cur_ptr = *ptr;
@@ -802,7 +803,8 @@ char *fnInsAnchorsIntoText(char *text, DLIST *pAnchorList, char **bodytag, char 
 	}
 	snprintf(istr, BUFFERLEN, "<BODY %s>", bgstr);
 	*bodytag = estrdup(istr);
-	if(scriptname != urlprefix) efree(scriptname);
+/*	if(scriptname != urlprefix) efree(scriptname); */
+	if(scriptname != NULL) efree(scriptname);
 	return(newtext);
 }
 #undef BUFFERLEN
@@ -1418,7 +1420,7 @@ hg_msg *recv_hg_msg_head(int sockfd)
 	}
 
 #ifdef HW_DEBUG
-	php_printf("<B>   Recv msg: </B>type = %d -- id = %d<BR>\n", msg->msg_type, msg->version_msgid);
+	php_printf("<b>   Recv msg: </b>type = %d -- id = %d<br />\n", msg->msg_type, msg->version_msgid);
 #endif
 	return(msg);
 }
@@ -1470,7 +1472,7 @@ hg_msg *recv_hg_msg(int sockfd)
 		msg->buf = NULL;  
 
 #ifdef HW_DEBUG
-	php_printf("<B>   Recv msg: </B>type = %d -- id = %d<BR>\n", msg->msg_type, msg->version_msgid);
+	php_printf("<b>   Recv msg: </b>type = %d -- id = %d<br />\n", msg->msg_type, msg->version_msgid);
 #endif
 	return(msg);
 }
@@ -2221,7 +2223,6 @@ int send_insertanchors(char **text, int *count, char **anchors, char **destrec, 
 #endif
 		*bodytag = strdup(body);
 		if(body) efree(body);
-fprintf(stderr, "bodytag = %s\n", *bodytag);
 		*text = newtext;
 		*count = strlen(newtext);
 	}
@@ -5681,7 +5682,7 @@ static int send_hg_msg(int sockfd, hg_msg *msg, int length)
      char *buf, *tmp;
 
 #ifdef HW_DEBUG
-	php_printf("<B>Sending msg: </B>type = %d -- id = %d<BR>\n", msg->msg_type, msg->version_msgid);
+	php_printf("<b>Sending msg: </b>type = %d -- id = %d<br />\n", msg->msg_type, msg->version_msgid);
 #endif
      if ( length < HEADER_LENGTH )  {
 /*          fprintf(stderr, "send_hg_msg: bad msg\n"); */
@@ -5793,7 +5794,7 @@ static char *build_msg_int(char *buf, int val) {
 	int tmp;
 
 #ifdef HW_DEBUG
-	php_printf("   Added int to header: <B>%d</B><BR>\n", val);
+	php_printf("   Added int to header: <b>%d</b><br />\n", val);
 #endif
 	tmp = swap_on ? swap(val) : val;
 	memcpy(buf, (char *)&tmp, 4);
@@ -5807,7 +5808,7 @@ static char *build_msg_str(char *buf, char *str)
      int len = strlen(str)+1;
 
 #ifdef HW_DEBUG
-	php_printf("   Added str to header: <B>%s</B> (%d)<BR>\n", str, strlen(str));
+	php_printf("   Added str to header: <b>%s</b> (%d)<br />\n", str, strlen(str));
 #endif
 
      memcpy(buf, str, len);

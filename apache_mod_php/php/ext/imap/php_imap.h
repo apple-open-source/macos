@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997, 1998, 1999, 2000, 2001 The PHP Group             |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,33 +17,30 @@
    |          Brian Wang          <brian@vividnet.com>                    |
    |          Kaj-Michael Lang    <milang@tal.org>                        |
    |          Antoni Pamies Olive <toni@readysoft.net>                    |
-   |          Rasmus Lerdorf      <rasmus@lerdorf.on.ca>                  |
+   |          Rasmus Lerdorf      <rasmus@php.net>                        |
    |          Chuck Hagenbuch     <chuck@horde.org>                       |
    |          Andrew Skalski      <askalski@chekinc.com>                  |
    |          Hartmut Holzgraefe  <hartmut@six.de>                        |
    |          Jani Taskinen       <sniper@iki.fi>                         |
+   |          Daniel R. Kalowsky  <kalowsky@php.net>                      |
    | PHP 4.0 updates:  Zeev Suraski <zeev@zend.com>                       |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_imap.h,v 1.1.1.5 2001/12/14 22:12:26 zarzycki Exp $ */
+/* $Id: php_imap.h,v 1.1.1.8 2003/07/18 18:07:34 zarzycki Exp $ */
 
 #ifndef PHP_IMAP_H
 #define PHP_IMAP_H
 
 #if HAVE_IMAP
 
-#ifndef PHP_WIN32
-#include "build-defs.h"
-#endif
-
 #if defined(HAVE_IMAP2000) || defined(HAVE_IMAP2001)
  /* these are used for quota support */
- #include "c-client.h"	/* includes mail.h and rfc822.h */
- #include "imap4r1.h"	/* location of c-client quota functions */
+# include "c-client.h"	/* includes mail.h and rfc822.h */
+# include "imap4r1.h"	/* location of c-client quota functions */
 #else
- #include "mail.h"
- #include "rfc822.h" 
+# include "mail.h"
+# include "rfc822.h" 
 #endif
 
 extern zend_module_entry imap_module_entry;
@@ -78,12 +75,6 @@ typedef enum {
 typedef struct php_imap_le_struct {
 	MAILSTREAM *imap_stream;
 	long flags;
-#ifdef OP_RELOGIN
-	/* AJS: busy flag for persistent connections, pointers for chaining */
-	struct php_imap_le_struct *next;
-	struct php_imap_le_struct **prev;
-	char busy;
-#endif
 } pils;
 
 typedef struct php_imap_mailbox_struct {
@@ -177,6 +168,7 @@ PHP_FUNCTION(imap_thread);
 
 #if defined(HAVE_IMAP2000) || defined(HAVE_IMAP2001)
 PHP_FUNCTION(imap_get_quota);
+PHP_FUNCTION(imap_get_quotaroot);
 PHP_FUNCTION(imap_set_quota);
 PHP_FUNCTION(imap_setacl);
 #endif
@@ -185,14 +177,21 @@ PHP_FUNCTION(imap_setacl);
 ZEND_BEGIN_MODULE_GLOBALS(imap)
 	char *imap_user;
 	char *imap_password;
-	STRINGLIST *imap_folders;
-	STRINGLIST *imap_sfolders;
+
 	STRINGLIST *imap_alertstack;
 	ERRORLIST *imap_errorstack;
+
+	STRINGLIST *imap_folders;
+	STRINGLIST *imap_folders_tail;
+	STRINGLIST *imap_sfolders;
+	STRINGLIST *imap_sfolders_tail;
 	MESSAGELIST *imap_messages;
 	MESSAGELIST *imap_messages_tail;
 	FOBJECTLIST *imap_folder_objects;
+	FOBJECTLIST *imap_folder_objects_tail;
 	FOBJECTLIST *imap_sfolder_objects;
+	FOBJECTLIST *imap_sfolder_objects_tail;
+
 	folderlist_style_t folderlist_style;
 	long status_flags;
 	unsigned long status_messages;
@@ -201,8 +200,7 @@ ZEND_BEGIN_MODULE_GLOBALS(imap)
 	unsigned long status_uidnext;
 	unsigned long status_uidvalidity;
 #if defined(HAVE_IMAP2000) || defined(HAVE_IMAP2001)
-	unsigned long quota_usage;
-	unsigned long quota_limit;
+	zval **quota_return;
 #endif
 ZEND_END_MODULE_GLOBALS(imap)
 

@@ -1139,7 +1139,7 @@ static void
 do_child_store_inferior_registers (int r)
 {
   if (r >= 0)
-    read_register_gen (r, ((char *) &current_thread->context) + mappings[r]);
+    deprecated_read_register_gen (r, ((char *) &current_thread->context) + mappings[r]);
   else
     {
       for (r = 0; r < NUM_REGS; r++)
@@ -1910,6 +1910,7 @@ init_child_ops (void)
   child_ops.to_terminal_inferior = terminal_inferior;
   child_ops.to_terminal_ours_for_output = terminal_ours_for_output;
   child_ops.to_terminal_ours = terminal_ours;
+  child_ops.to_terminal_save_ours = terminal_save_ours;
   child_ops.to_terminal_info = child_terminal_info;
   child_ops.to_kill = child_kill_inferior;
   child_ops.to_load = child_load;
@@ -1923,8 +1924,6 @@ init_child_ops (void)
   child_ops.to_has_stack = 1;
   child_ops.to_has_registers = 1;
   child_ops.to_has_execution = 1;
-  child_ops.to_sections = 0;
-  child_ops.to_sections_end = 0;
   child_ops.to_magic = OPS_MAGIC;
 }
 
@@ -1965,7 +1964,7 @@ set_upload_type (char *ignore, int from_tty)
 }
 
 void
-_initialize_inftarg (void)
+_initialize_wince (void)
 {
   struct cmd_list_element *set;
   init_child_ops ();

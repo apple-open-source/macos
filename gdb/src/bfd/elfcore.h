@@ -1,5 +1,5 @@
 /* ELF core file support for BFD.
-   Copyright 1995, 1996, 1997, 1998, 2000, 2001
+   Copyright 1995, 1996, 1997, 1998, 2000, 2001, 2002
    Free Software Foundation, Inc.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -32,7 +32,7 @@ elf_core_file_failing_signal (abfd)
   return elf_tdata (abfd)->core_signal;
 }
 
-boolean
+bfd_boolean
 elf_core_file_matches_executable_p (core_bfd, exec_bfd)
      bfd *core_bfd;
      bfd *exec_bfd;
@@ -44,7 +44,7 @@ elf_core_file_matches_executable_p (core_bfd, exec_bfd)
   if (core_bfd->xvec != exec_bfd->xvec)
     {
       bfd_set_error (bfd_error_system_call);
-      return false;
+      return FALSE;
     }
 
   /* See if the name in the corefile matches the executable name.  */
@@ -56,10 +56,10 @@ elf_core_file_matches_executable_p (core_bfd, exec_bfd)
       execname = execname ? execname + 1 : exec_bfd->filename;
 
       if (strcmp(execname, corename) != 0)
-	return false;
+	return FALSE;
     }
 
-  return true;
+  return TRUE;
 }
 
 /*  Core files are simply standard ELF formatted files that partition
@@ -85,22 +85,22 @@ elf_core_file_p (abfd)
   unsigned int phindex;
   struct elf_backend_data *ebd;
   struct bfd_preserve preserve;
-  struct elf_obj_tdata *new_tdata = NULL;
   bfd_size_type amt;
 
-  preserve.arch_info = abfd->arch_info;
+  preserve.marker = NULL;
 
   /* Read in the ELF header in external format.  */
   if (bfd_bread ((PTR) &x_ehdr, (bfd_size_type) sizeof (x_ehdr), abfd)
       != sizeof (x_ehdr))
     {
       if (bfd_get_error () != bfd_error_system_call)
-	bfd_set_error (bfd_error_wrong_format);
-      return NULL;
+	goto wrong;
+      else
+	goto fail;
     }
 
   /* Check the magic number.  */
-  if (elf_file_p (&x_ehdr) == false)
+  if (! elf_file_p (&x_ehdr))
     goto wrong;
 
   /* FIXME: Check EI_VERSION here ! */
@@ -126,23 +126,13 @@ elf_core_file_p (abfd)
 
   /* Give abfd an elf_obj_tdata.  */
   amt = sizeof (struct elf_obj_tdata);
-  new_tdata = (struct elf_obj_tdata *) bfd_zalloc (abfd, amt);
-  if (new_tdata == NULL)
-    return NULL;
-  preserve.tdata = elf_tdata (abfd);
-  elf_tdata (abfd) = new_tdata;
-
-  /* Clear section information, since there might be a recognized bfd that
-     we now check if we can replace, and we don't want to append to it.  */
-  preserve.sections = abfd->sections;
-  preserve.section_tail = abfd->section_tail;
-  preserve.section_count = abfd->section_count;
-  preserve.section_htab = abfd->section_htab;
-  abfd->sections = NULL;
-  abfd->section_tail = &abfd->sections;
-  abfd->section_count = 0;
-  if (!bfd_hash_table_init (&abfd->section_htab, bfd_section_hash_newfunc))
+  preserve.marker = bfd_zalloc (abfd, amt);
+  if (preserve.marker == NULL)
     goto fail;
+  if (!bfd_preserve_save (abfd, &preserve))
+    goto fail;
+
+  elf_tdata (abfd) = preserve.marker;
 
   /* Swap in the rest of the header, now that we have the byte order.  */
   i_ehdrp = elf_elfheader (abfd);
@@ -244,11 +234,11 @@ elf_core_file_p (abfd)
      information.  */
   if (ebd->elf_backend_object_p)
     {
-      if ((*ebd->elf_backend_object_p) (abfd) == false)
+      if (! (*ebd->elf_backend_object_p) (abfd))
 	goto wrong;
     }
 
-  bfd_hash_table_free (&preserve.section_htab);
+  bfd_preserve_finish (abfd, &preserve);
   return abfd->xvec;
 
 wrong:
@@ -264,17 +254,7 @@ wrong:
   bfd_set_error (bfd_error_wrong_format);
 
 fail:
-  abfd->arch_info = preserve.arch_info;
-  if (new_tdata != NULL)
-    {
-      /* bfd_release frees all memory more recently bfd_alloc'd than
-	 its arg, as well as its arg.  */
-      bfd_release (abfd, new_tdata);
-      elf_tdata (abfd) = preserve.tdata;
-      abfd->section_htab = preserve.section_htab;
-      abfd->sections = preserve.sections;
-      abfd->section_tail = preserve.section_tail;
-      abfd->section_count = preserve.section_count;
-    }
+  if (preserve.marker != NULL)
+    bfd_preserve_restore (abfd, &preserve);
   return NULL;
 }

@@ -1,0 +1,247 @@
+Mailman - The GNU Mailing List Management System
+Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
+59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+
+INTRODUCTION
+
+    This is GNU Mailman, a mailing list management system distributed
+    under the terms of the GNU General Public License (GPL).  The name
+    of this software is spelled "Mailman" with a leading capital `M'
+    but with a lower case second `m'.  Any other spelling is
+    incorrect.
+
+    Mailman is written primarily in Python, a free object-oriented
+    scripting language.  There is some ANSI C code for security
+    purposes.
+
+    Mailman was originally developed by John Viega.  Subsequent
+    development (through version 1.0b3) was by Ken Manheimer.  Further
+    work towards the 1.0 final release was a group effort, with the
+    core contributors being: Barry Warsaw, Ken Manheimer, Scott
+    Cotton, Harald Meland, and John Viega.  Version 1.0 and beyond
+    have been primarily maintained by Barry Warsaw with contributions
+    from many; see the ACKNOWLEDGMENTS file for details.  Jeremy
+    Hylton helped considerably with the Pipermail code in Mailman 2.0.
+
+    The Mailman home page is
+
+        http://www.gnu.org/software/mailman
+
+    with mirrors at
+
+        http://www.list.org
+        http://mailman.sf.net
+
+    Mailman 2.1 requires Python 2.1.3 or greater, which can be
+    downloaded from
+
+        http://www.python.org
+
+    It is recommended that you use Python 2.1.3 or Python 2.2.1, the
+    latest releases as of this writing.  Mailman 2.1 is not compatible
+    with Python 2.0 or any earlier version.
+
+    You will also need an ANSI C compiler to build both Python and
+    Mailman; gcc (the GNU C compiler) works just fine.  Mailman
+    currently works only on GNU/Linux and other Unix-like operating
+    systems (e.g. Solaris, *BSD, MacOSX, etc.).  It does not run on
+    Windows, although web and mail clients on any platform should be
+    able to interact with Mailman just fine.
+
+    See the INSTALL file for installation instructions.  If you are
+    upgrading from a previous version of Mailman, you need to read the
+    UPGRADING file for important information.
+
+
+FEATURES
+
+    Read the NEWS file for a list of changes since version 0.9.  Read
+    the TODO file for our (extensive) wish list.  You can see Mailman
+    2.1 in action at
+
+        http://mail.python.org/mailman-21/listinfo
+
+    Mailman has most of the standard features you'd expect in a
+    mailing list manager, and more:
+
+    - Web based list administration for nearly all tasks.  Web based
+      subscriptions and user configuration management.  A customizable
+      "home page" for each mailing list.
+
+    - Privacy features such as moderation, open and closed list
+      subscription policies, private membership rosters, and
+      sender-based filters.
+
+    - Automatic web based archiving built-in with support for private
+      and public archives, and hooks for external archivers.
+
+    - Per-user configuration optional digest delivery for either
+      MIME-compliant or RFC 1153 style "plain text" digests.
+
+    - Integrated mail/Usenet gateways.
+
+    - Integrated auto-replies.
+
+    - Majordomo-style email based commands.
+
+    - Integrated bounce detection within an extensible framework.
+
+    - Integrated spam detection, and MIME-based content filtering.
+
+    - An extensible mail delivery pipeline.
+
+    - Support for virtual domains.
+
+
+REQUIREMENTS
+
+    The default mail delivery mechanism uses a direct SMTP connection
+    to whatever mail transport agent you have running on port 25.  You
+    can thus use Mailman with any such MTA, however with certain MTAs
+    (e.g. Exim and Postfix), Mailman will support thru-the-web
+    creation and removal of mailing lists.
+
+    Mailman works with any web server that supports CGI/1.1.  The HTML
+    it generates is quite pedestrian and stingy on the graphics so it
+    should be friendly to most web browsers and network connections.
+    It is regularly tested with IE 5.5, Netscape 4.7x, and Mozilla on
+    Windows and Netscape 4.7x and Mozilla on Linux (and occasionally
+    Lynx on Linux and Netscape and Mozilla on MacOS too!).
+
+    You will need root access on the machine hosting your Mailman
+    installation in order to complete some of the configuration
+    steps.  See the INSTALL file for details.
+
+    Mailman's web and email user interface should be compatible with
+    just about any mail reader or web browser, although a mail reader
+    that is MIME aware will be a big help.  You do not need Java,
+    JavaScript, or any other fancy plugins.
+
+
+CREATE YOUR FIRST LIST
+
+    These instructions assume that you've installed and configured
+    Mailman according to the instructions in the INSTALL file.  To
+    create and test your first list, try the following:
+
+    - First, initialize the site administrator's password by cd'ing to
+      the install directory (by default /usr/local/mailman) and typing
+
+      % bin/mmsitepass
+      New site password: [yourpassword]
+      Again to confirm password: [yourpassword]
+      Password changed.
+
+    - Visit the url
+
+        http://my.dom.ain/mailman/create
+
+      Fill out the form as described in the on-screen instructions, and
+      in the "List creator's password" field, type the password you
+      entered above.  Type your own email address for the "Initial
+      list owner address", and select "Yes" to notify the list
+      administrator.
+
+    - Hit "Create List"
+
+    - Check your email for a message from Mailman informing you that
+      your new mailing list was created.
+
+    - NOTE: If you are using an MTA other than Exim or Postfix
+      (e.g. Sendmail or qmail), then you'll need to do the extra step
+      of installing the mailing list aliases manually.  Follow the
+      instructions in an email message that you should have received
+      (you'll need to know how to do this for your particular MTA, see
+      the README for your MTA for more information).
+
+    - Now visit the list's admin page (either by following the link on
+      the web page or entering the link from the email Mailman just
+      sent you).  Typically the url will be something like
+
+        http://my.dom.ain/mailman/admin/mysitelist
+
+      Type in the list's password and click on "Let me in..."
+    
+    - Click on "Membership Management" and then on "Mass Subscription".
+
+    - Enter your email address in the big text field, and click on
+      "Submit Your Changes"
+
+    - Now go to your email and send a message to yourlist@my.dom.ain.
+      Within a minute or two you should see your message reflected
+      back to you via Mailman.
+
+    Congratulations!  You've just set up and tested your first Mailman
+    mailing list.  If you had any problems along the way, please see
+    the section below on FOR MORE INFORMATION.
+
+
+FOR MORE INFORMATION
+
+    The online documentation can be found in
+
+        file:admin/www/index.html
+
+    in the directory in which you unpacked Mailman.
+
+    Chris Kolar has made a list owner-oriented manual available from
+    the following URL
+
+        http://www.imsa.edu/~ckolar/mailman/
+
+    There are also several mailing lists that can be used as resources
+    to help you get going with Mailman.
+
+    Mailman-Users
+        An list for users of Mailman, for posting questions or
+        problems related to installation, use, etc.  We'll try to keep
+        the deep technical discussions off this list.
+
+        http://mail.python.org/mailman/listinfo/mailman-users
+
+    Listowners
+        This mailing list with a non-technical focus, specifically for
+        discussions from the perspective of listowners and moderators
+        who do not have "shell access" to the mailing list server
+        where the Mailman software runs.
+
+        http://listowner.org
+
+    Mailman-Announce
+        A read-only list for release announcements an other important
+        news.
+
+        http://mail.python.org/mailman/listinfo/mailman-announce
+
+    Mailman-Developers
+        A list for those of you interested in helping develop
+        Mailman's future direction.  This list will contain in-depth
+        technical discussions.
+
+        http://mail.python.org/mailman/listinfo/mailman-developers
+
+    Mailman-I18N
+        A list for the discussion of the Mailman internationalization
+        effort.  Mailman 2.1 will be fully multi-lingual.
+
+        http://mail.python.org/mailman/listinfo/mailman-i18n
+
+    Mailman-Checkins
+        A read-only list which is an adjunct to the public anonymous
+        CVS repository.  You can stay on the bleeding edge of Mailman
+        development by subscribing to this list.
+
+        http://mail.python.org/mailman/listinfo/mailman-checkins
+
+    The Mailman project is coordinated on SourceForge at
+
+        http://sf.net/projects/mailman
+
+    You should use SourceForge to report bugs and to upload patches.
+
+
+
+Local Variables:
+mode: indented-text
+indent-tabs-mode: nil
+End:

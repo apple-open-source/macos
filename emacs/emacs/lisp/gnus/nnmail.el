@@ -1,5 +1,5 @@
 ;;; nnmail.el --- mail support functions for the Gnus mail backends
-;; Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000
+;; Copyright (C) 1995, 1996, 1997, 1998, 1999, 2000, 2002
 ;;        Free Software Foundation, Inc.
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
@@ -318,7 +318,7 @@ GROUP: Mail will be stored in GROUP (a string).
 \(FIELD VALUE [- RESTRICT [- RESTRICT [...]]] SPLIT): If the message
   field FIELD (a regexp) contains VALUE (a regexp), store the messages 
   as specified by SPLIT.  If RESTRICT (a regexp) matches some string
-  after FIELD and before the end of the matched VALUE, return NIL,
+  after FIELD and before the end of the matched VALUE, return nil,
   otherwise process SPLIT.  Multiple RESTRICTs add up, further
   restricting the possibility of processing SPLIT.
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 1993-2000
+/* Copyright (c) 1993-2002
  *      Juergen Weigert (jnweiger@immd4.informatik.uni-erlangen.de)
  *      Michael Schroeder (mlschroe@immd4.informatik.uni-erlangen.de)
  * Copyright (c) 1987 Oliver Laumann
@@ -22,7 +22,7 @@
  */
 
 #include "rcs.h"
-RCS_ID("$Id: process.c,v 1.1.1.1 2001/12/14 22:08:29 bbraun Exp $ FAU")
+RCS_ID("$Id: process.c,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU")
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -52,18 +52,19 @@ extern struct comm comms[];
 extern char *rc_name;
 extern char *RcFileName, *home;
 extern char *BellString, *ActivityString, *ShellProg, *ShellArgs[];
-extern char *hstatusstring, *captionstring;
+extern char *hstatusstring, *captionstring, *timestring;
+extern char *wliststr, *wlisttit;
 extern int captionalways;
 extern char *hardcopydir, *screenlogfile, *logtstamp_string;
 extern int log_flush, logtstamp_on, logtstamp_after;
 extern char *VisualBellString;
 extern int VBellWait, MsgWait, MsgMinWait, SilenceWait;
 extern char SockPath[], *SockName;
-extern int TtyMode, auto_detach;
-extern int iflag;
+extern int TtyMode, auto_detach, use_altscreen;
+extern int iflag, maxwin;
 extern int use_hardstatus, visual_bell;
 #ifdef COLOR
-extern int attr2color[];
+extern int attr2color[][4];
 extern int nattr2color;
 #endif
 extern int hardstatusemu;
@@ -75,11 +76,12 @@ extern int ZombieKey_resurrect;
 #ifdef AUTO_NUKE
 extern int defautonuke;
 #endif
-extern int intrc, origintrc; /* display? */
+extern int separate_sids;
 extern struct NewWindow nwin_default, nwin_undef;
 #ifdef COPY_PASTE
 extern int join_with_cr;
 extern int compacthist;
+extern int search_ic;
 # ifdef FONT
 extern int pastefont;
 # endif
@@ -101,6 +103,9 @@ extern char *kmapmdef[];
 #endif
 extern struct mchar mchar_so, mchar_null;
 extern int VerboseCreate;
+#ifdef UTF8
+extern char *screenencodings;
+#endif
 
 static int  CheckArgNum __P((int, char **));
 static void ClearAction __P((struct action *));
@@ -108,10 +113,8 @@ static int  NextWindow __P((void));
 static int  PreviousWindow __P((void));
 static int  MoreWindows __P((void));
 static void LogToggle __P((int));
-static void ShowTime __P((void));
 static void ShowInfo __P((void));
 static void ShowDInfo __P((void));
-static void SwitchWindow __P((int));
 static char **SaveArgs __P((char **));
 static struct win *WindowByName __P((char *));
 static int  WindowByNumber __P((char *));
@@ -187,6 +190,12 @@ int hardcopy_append = 0;
 int all_norefresh = 0;
 
 struct action ktab[256];	/* command key translation table */
+struct kclass {
+  struct kclass *next;
+  char *name;
+  struct action ktab[256];
+};
+struct kclass *kclasses;
 
 #ifdef MAPKEYS
 struct action umtab[KMAP_KEYS+KMAP_AKEYS+KMAP_EXT];
@@ -199,34 +208,58 @@ int kmap_extras_fl[KMAP_EXT];
 #endif
 
 
+/* digraph table taken from old vim and rfc1345 */
 static const unsigned char digraphs[][3] = {
     {' ', ' ', 160},	/*   */
+    {'N', 'S', 160},	/*   */
     {'~', '!', 161},	/* ¡ */
     {'!', '!', 161},	/* ¡ */
+    {'!', 'I', 161},	/* ¡ */
     {'c', '|', 162},	/* ¢ */
+    {'c', 't', 162},	/* ¢ */
     {'$', '$', 163},	/* £ */
+    {'P', 'd', 163},	/* £ */
     {'o', 'x', 164},	/* ¤ */
+    {'C', 'u', 164},	/* ¤ */
+    {'C', 'u', 164},	/* ¤ */
+    {'E', 'u', 164},	/* ¤ */
     {'Y', '-', 165},	/* ¥ */
+    {'Y', 'e', 165},	/* ¥ */
     {'|', '|', 166},	/* ¦ */
+    {'B', 'B', 166},	/* ¦ */
     {'p', 'a', 167},	/* § */
+    {'S', 'E', 167},	/* § */
     {'"', '"', 168},	/* ¨ */
+    {'\'', ':', 168},	/* ¨ */
     {'c', 'O', 169},	/* © */
+    {'C', 'o', 169},	/* © */
     {'a', '-', 170},	/* ª */
     {'<', '<', 171},	/* « */
     {'-', ',', 172},	/* ¬ */
+    {'N', 'O', 172},	/* ¬ */
     {'-', '-', 173},	/* ­ */
     {'r', 'O', 174},	/* ® */
+    {'R', 'g', 174},	/* ® */
     {'-', '=', 175},	/* ¯ */
+    {'\'', 'm', 175},	/* ¯ */
     {'~', 'o', 176},	/* ° */
+    {'D', 'G', 176},	/* ° */
     {'+', '-', 177},	/* ± */
     {'2', '2', 178},	/* ² */
+    {'2', 'S', 178},	/* ² */
     {'3', '3', 179},	/* ³ */
+    {'3', 'S', 179},	/* ³ */
     {'\'', '\'', 180},	/* ´ */
     {'j', 'u', 181},	/* µ */
+    {'M', 'y', 181},	/* µ */
     {'p', 'p', 182},	/* ¶ */
+    {'P', 'I', 182},	/* ¶ */
     {'~', '.', 183},	/* · */
+    {'.', 'M', 183},	/* · */
     {',', ',', 184},	/* ¸ */
+    {'\'', ',', 184},	/* ¸ */
     {'1', '1', 185},	/* ¹ */
+    {'1', 'S', 185},	/* ¹ */
     {'o', '-', 186},	/* º */
     {'>', '>', 187},	/* » */
     {'1', '4', 188},	/* ¼ */
@@ -234,71 +267,113 @@ static const unsigned char digraphs[][3] = {
     {'3', '4', 190},	/* ¾ */
     {'~', '?', 191},	/* ¿ */
     {'?', '?', 191},	/* ¿ */
+    {'?', 'I', 191},	/* ¿ */
     {'A', '`', 192},	/* À */
+    {'A', '!', 192},	/* À */
     {'A', '\'', 193},	/* Á */
     {'A', '^', 194},	/* Â */
+    {'A', '>', 194},	/* Â */
     {'A', '~', 195},	/* Ã */
+    {'A', '?', 195},	/* Ã */
     {'A', '"', 196},	/* Ä */
+    {'A', ':', 196},	/* Ä */
     {'A', '@', 197},	/* Å */
+    {'A', 'A', 197},	/* Å */
     {'A', 'E', 198},	/* Æ */
     {'C', ',', 199},	/* Ç */
     {'E', '`', 200},	/* È */
+    {'E', '!', 200},	/* È */
     {'E', '\'', 201},	/* É */
     {'E', '^', 202},	/* Ê */
+    {'E', '>', 202},	/* Ê */
     {'E', '"', 203},	/* Ë */
+    {'E', ':', 203},	/* Ë */
     {'I', '`', 204},	/* Ì */
+    {'I', '!', 204},	/* Ì */
     {'I', '\'', 205},	/* Í */
     {'I', '^', 206},	/* Î */
+    {'I', '>', 206},	/* Î */
     {'I', '"', 207},	/* Ï */
+    {'I', ':', 207},	/* Ï */
     {'D', '-', 208},	/* Ð */
     {'N', '~', 209},	/* Ñ */
+    {'N', '?', 209},	/* Ñ */
     {'O', '`', 210},	/* Ò */
+    {'O', '!', 210},	/* Ò */
     {'O', '\'', 211},	/* Ó */
     {'O', '^', 212},	/* Ô */
+    {'O', '>', 212},	/* Ô */
     {'O', '~', 213},	/* Õ */
+    {'O', '?', 213},	/* Õ */
     {'O', '"', 214},	/* Ö */
+    {'O', ':', 214},	/* Ö */
     {'/', '\\', 215},	/* × */
+    {'*', 'x', 215},	/* × */
     {'O', '/', 216},	/* Ø */
     {'U', '`', 217},	/* Ù */
+    {'U', '!', 217},	/* Ù */
     {'U', '\'', 218},	/* Ú */
     {'U', '^', 219},	/* Û */
+    {'U', '>', 219},	/* Û */
     {'U', '"', 220},	/* Ü */
+    {'U', ':', 220},	/* Ü */
     {'Y', '\'', 221},	/* Ý */
     {'I', 'p', 222},	/* Þ */
+    {'T', 'H', 222},	/* Þ */
     {'s', 's', 223},	/* ß */
     {'s', '"', 223},	/* ß */
     {'a', '`', 224},	/* à */
+    {'a', '!', 224},	/* à */
     {'a', '\'', 225},	/* á */
     {'a', '^', 226},	/* â */
+    {'a', '>', 226},	/* â */
     {'a', '~', 227},	/* ã */
+    {'a', '?', 227},	/* ã */
     {'a', '"', 228},	/* ä */
-    {'a', '@', 229},	/* å */
+    {'a', ':', 228},	/* ä */
+    {'a', 'a', 229},	/* å */
     {'a', 'e', 230},	/* æ */
     {'c', ',', 231},	/* ç */
     {'e', '`', 232},	/* è */
+    {'e', '!', 232},	/* è */
     {'e', '\'', 233},	/* é */
     {'e', '^', 234},	/* ê */
+    {'e', '>', 234},	/* ê */
     {'e', '"', 235},	/* ë */
+    {'e', ':', 235},	/* ë */
     {'i', '`', 236},	/* ì */
+    {'i', '!', 236},	/* ì */
     {'i', '\'', 237},	/* í */
     {'i', '^', 238},	/* î */
+    {'i', '>', 238},	/* î */
     {'i', '"', 239},	/* ï */
+    {'i', ':', 239},	/* ï */
     {'d', '-', 240},	/* ð */
     {'n', '~', 241},	/* ñ */
+    {'n', '?', 241},	/* ñ */
     {'o', '`', 242},	/* ò */
+    {'o', '!', 242},	/* ò */
     {'o', '\'', 243},	/* ó */
     {'o', '^', 244},	/* ô */
+    {'o', '>', 244},	/* ô */
     {'o', '~', 245},	/* õ */
+    {'o', '?', 245},	/* õ */
     {'o', '"', 246},	/* ö */
+    {'o', ':', 246},	/* ö */
     {':', '-', 247},	/* ÷ */
     {'o', '/', 248},	/* ø */
     {'u', '`', 249},	/* ù */
+    {'u', '!', 249},	/* ù */
     {'u', '\'', 250},	/* ú */
     {'u', '^', 251},	/* û */
+    {'u', '>', 251},	/* û */
     {'u', '"', 252},	/* ü */
+    {'u', ':', 252},	/* ü */
     {'y', '\'', 253},	/* ý */
     {'i', 'p', 254},	/* þ */
+    {'t', 'h', 254},	/* þ */
     {'y', '"', 255},	/* ÿ */
+    {'y', ':', 255},	/* ÿ */
     {'"', '[', 196},	/* Ä */
     {'"', '\\', 214},	/* Ö */
     {'"', ']', 220},	/* Ü */
@@ -421,7 +496,6 @@ InitKeytab()
     char *args[2];
     args[0] = "-";
     args[1] = NULL;
-
     ktab['-'].nr = RC_SELECT;
     ktab['-'].args = SaveArgs(args);
   }
@@ -434,7 +508,14 @@ InitKeytab()
       ktab['0' + i].nr = RC_SELECT;
       ktab['0' + i].args = SaveArgs(args);
     }
-  ktab['\''].nr = ktab['"'].nr = RC_SELECT; /* calling a window by name */
+  ktab['\''].nr = RC_SELECT; /* calling a window by name */
+  {
+    char *args[2];
+    args[0] = "-b";
+    args[1] = 0;
+    ktab['"'].nr = RC_WINDOWLIST;
+    ktab['"'].args = SaveArgs(args);
+  }
   ktab[Ctrl('G')].nr = RC_VBELL;
   ktab[':'].nr = RC_COLON;
 #ifdef COPY_PASTE
@@ -442,11 +523,11 @@ InitKeytab()
   {
     char *args[2];
     args[0] = ".";
-    args[1] = NULL;
+    args[1] = 0;
     ktab[']'].args = SaveArgs(args);
     ktab[Ctrl(']')].args = SaveArgs(args);
+    ktab[']'].nr = ktab[Ctrl(']')].nr = RC_PASTE;
   }
-  ktab[']'].nr = ktab[Ctrl(']')].nr = RC_PASTE;
   ktab['{'].nr = RC_HISTORY;
   ktab['}'].nr = RC_HISTORY;
   ktab['>'].nr = RC_WRITEBUF;
@@ -478,6 +559,46 @@ InitKeytab()
       ClearAction(&ktab[DefaultMetaEsc]);
       ktab[DefaultMetaEsc].nr = RC_META;
     }
+}
+
+struct action *
+FindKtab(class, create)
+char *class;
+int create;
+{
+  struct kclass *kp, **kpp;
+  int i;
+
+  if (class == 0)
+    return ktab;
+  for (kpp = &kclasses; (kp = *kpp) != 0; kpp = &kp->next)
+    if (!strcmp(kp->name, class))
+      break;
+  if (kp == 0)
+    {
+      if (!create)
+	return 0;
+      if (strlen(class) > 80)
+	{
+	  Msg(0, "Command class name too long.");
+	  return 0;
+	}
+      kp = malloc(sizeof(*kp));
+      if (kp == 0)
+	{
+	  Msg(0, strnomem);
+	  return 0;
+	}
+      kp->name = SaveStr(class);
+      for (i = 0; i < sizeof(kp->ktab)/sizeof(*kp->ktab); i++)
+	{
+	  kp->ktab[i].nr = RC_ILLEGAL;
+	  kp->ktab[i].args = noargs;
+	}
+      kp->next = 0;
+      *kpp = kp;
+    }
+  return kp->ktab;
 }
 
 static void
@@ -621,6 +742,7 @@ int ilen;
 {
   char *s;
   int ch, slen;
+  struct action *ktabp;
 
   debug1("ProcessInput2: %d bytes\n", ilen);
   while (ilen && display)
@@ -642,10 +764,11 @@ int ilen;
 	  if (slen)
 	    DoProcess(fore, &ibuf, &slen, 0);
 	  if (--ilen == 0)
-	    D_ESCseen = 1;
+	    D_ESCseen = ktab;
 	}
       if (ilen <= 0)
         return;
+      ktabp = D_ESCseen ? D_ESCseen : ktab;
       D_ESCseen = 0;
       ch = (unsigned char)*s;
 
@@ -661,7 +784,7 @@ int ilen;
         ch = DefaultMetaEsc;
 
       if (ch >= 0)
-        DoAction(&ktab[ch], ch);
+        DoAction(&ktabp[ch], ch);
       ibuf = (char *)(s + 1);
       ilen--;
     }
@@ -827,7 +950,7 @@ char **args;
       if (i != n && i != n + 2)
         {
 	  Msg(0, orformat[1], rc_name, comms[nr].name, argss[n], 
-	      argss[n + 2], "");
+	      argss[n + 2], "s");
 	  return -1;
 	}
     }
@@ -945,7 +1068,28 @@ int key;
       WriteFile(user, (char *)0, DUMP_TERMCAP);
       break;
     case RC_HARDCOPY:
-      WriteFile(user, (char *)0, DUMP_HARDCOPY);
+      {
+	int mode = DUMP_HARDCOPY;
+
+	if (argc > 1 && !strcmp(*args, "-h"))
+	  {
+	    mode = DUMP_SCROLLBACK;
+	    args++;
+	    argc--;
+	  }
+	if (*args && args[1])
+	  {
+	    Msg(0, "%s: hardcopy: too many arguments", rc_name);
+	    break;
+	  }
+        if (fore == 0 && *args == 0)
+	  Msg(0, "%s: hardcopy: window required", rc_name);
+        else
+          WriteFile(user, *args, mode);
+      }
+      break;
+    case RC_DEFLOG:
+      (void)ParseOnOff(act, &nwin_default.Lflag);
       break;
     case RC_LOG:
       n = fore->w_log ? 1 : 0;
@@ -1004,7 +1148,10 @@ int key;
       /* NOTREACHED */
 #ifdef DETACH
     case RC_DETACH:
-      Detach(D_DETACH);
+      if (*args && !strcmp(*args, "-h"))
+        Hangup();
+      else
+        Detach(D_DETACH);
       break;
 # ifdef POW_DETACH
     case RC_POW_DETACH:
@@ -1240,6 +1387,19 @@ int key;
 
 #ifdef COPY_PASTE
     case RC_READREG:
+#ifdef ENCODINGS
+      i = fore ? fore->w_encoding : display ? display->d_encoding : 0;
+      if (args[0] && args[1] && !strcmp(args[0], "-e"))
+	{
+	  i = FindEncoding(args[1]);
+	  if (i == -1)
+	    {
+	      Msg(0, "%s: readreg: unknown encoding", rc_name);
+	      break;
+	    }
+	  args += 2;
+	}
+#endif
       /* 
        * Without arguments we prompt for a destination register.
        * It will receive the copybuffer contents.
@@ -1261,6 +1421,11 @@ int key;
        */
       if (args[1])
         {
+	  if (args[2])
+	    {
+	      Msg(0, "%s: readreg: too many arguments", rc_name);
+	      break;
+	    }
 	  if ((s = ReadFile(args[1], &n)))
 	    {
 	      struct plop *pp = plop_tab + (int)(unsigned char)ch;
@@ -1269,6 +1434,9 @@ int key;
 		free(pp->buf);
 	      pp->buf = s;
 	      pp->len = n;
+#ifdef ENCODINGS
+	      pp->enc = i;
+#endif
 	    }
 	}
       else
@@ -1281,17 +1449,39 @@ int key;
       break;
 #endif
     case RC_REGISTER:
-      if ((s = ParseChar(*args, &ch)) == NULL || *s)
+#ifdef ENCODINGS
+      i = fore ? fore->w_encoding : display ? display->d_encoding : 0;
+      if (args[0] && args[1] && !strcmp(args[0], "-e"))
+	{
+	  i = FindEncoding(args[1]);
+	  if (i == -1)
+	    {
+	      Msg(0, "%s: register: unknown encoding", rc_name);
+	      break;
+	    }
+	  args += 2;
+	  argc -= 2;
+	}
+#endif
+      if (argc != 2)
+	{
+	  Msg(0, "%s: register: illegal number of arguments.", rc_name);
+	  break;
+	}
+      if ((s = ParseChar(*args, &ch)) == 0 || *s)
 	Msg(0, "%s: register: character, ^x, or (octal) \\032 expected.", rc_name);
 #ifdef COPY_PASTE
       else if (ch == '.')
 	{
-	  if (user->u_copybuffer != NULL)
+	  if (user->u_plop.buf != NULL)
 	    UserFreeCopyBuffer(user);
 	  if (args[1] && args[1][0])
 	    {
-	      user->u_copybuffer = SaveStr(args[1]);
-	      user->u_copylen = strlen(user->u_copybuffer);
+	      user->u_plop.buf = SaveStr(args[1]);
+	      user->u_plop.len = strlen(user->u_plop.buf);
+#ifdef ENCODINGS
+	      user->u_plop.enc = i;
+#endif
 	    }
 	}
 #endif
@@ -1303,6 +1493,9 @@ int key;
 	    free(plp->buf);
 	  plp->buf = SaveStr(args[1]);
 	  plp->len = strlen(plp->buf);
+#ifdef ENCODINGS
+	  plp->enc = i;
+#endif
 	}
       break;
     case RC_PROCESS:
@@ -1358,7 +1551,12 @@ int key;
       Msg(0, "screen %s", version);
       break;
     case RC_TIME:
-      ShowTime();
+      if (*args)
+	{
+	  timestring = SaveStr(*args);
+	  break;
+	}
+      Msg(0, "%s", MakeWinMsg(timestring, fore, '%'));
       break;
     case RC_INFO:
       ShowInfo();
@@ -1367,12 +1565,23 @@ int key;
       ShowDInfo();
       break;
     case RC_COMMAND:
-      if (!D_ESCseen)
 	{
-	  D_ESCseen = 1;
-	  break;
+	  struct action *ktabp = ktab;
+	  if (argc == 2 && !strcmp(*args, "-c"))
+	    {
+	      if ((ktabp = FindKtab(args[1], 0)) == 0)
+		{
+		  Msg(0, "Unknown command class '%s'", args[1]);
+		  break;
+		}
+	    }
+	  if (D_ESCseen != ktab || ktabp != ktab)
+	    {
+	      D_ESCseen = ktabp;
+	      break;
+	    }
+	  D_ESCseen = 0;
 	}
-      D_ESCseen = 0;
       /* FALLTHROUGH */
     case RC_OTHER:
       if (MoreWindows())
@@ -1670,7 +1879,7 @@ int key;
       WriteString(fore, "\033c", 2);
       break;
     case RC_MONITOR:
-      n = fore->w_monitor == MON_ON;
+      n = fore->w_monitor != MON_OFF;
       if (ParseSwitch(act, &n))
 	break;
       if (n)
@@ -1709,8 +1918,49 @@ int key;
       display_displays();
       break;
 #endif
+    case RC_WINDOWLIST:
+      if (!*args)
+        display_wlist(0);
+      else if (!strcmp(*args, "-b") && !args[1])
+        display_wlist(1);
+      else if (!strcmp(*args, "string"))
+	{
+	  if (args[1])
+	    {
+	      if (wliststr)
+		free(wliststr);
+	      wliststr = SaveStr(args[1]);
+	    }
+	  if (msgok)
+	    Msg(0, "windowlist string is '%s'", wliststr);
+	}
+      else if (!strcmp(*args, "title"))
+	{
+	  if (args[1])
+	    {
+	      if (wlisttit)
+		free(wlisttit);
+	      wlisttit = SaveStr(args[1]);
+	    }
+	  if (msgok)
+	    Msg(0, "windowlist title is '%s'", wlisttit);
+	}
+      else
+	Msg(0, "usage: windowlist [-b] [string [string] | title [title]]");
+      break;
     case RC_HELP:
-      display_help();
+      if (argc == 2 && !strcmp(*args, "-c"))
+	{
+	  struct action *ktabp;
+	  if ((ktabp = FindKtab(args[1], 0)) == 0)
+	    {
+	      Msg(0, "Unknown command class '%s'", args[1]);
+	      break;
+	    }
+          display_help(args[1], ktabp);
+	}
+      else
+        display_help((char *)0, ktab);
       break;
     case RC_LICENSE:
       display_copyright();
@@ -1735,7 +1985,7 @@ int key;
 	  }
 	if (GetHistory() == 0)
 	  break;
-	if (user->u_copybuffer == NULL)
+	if (user->u_plop.buf == NULL)
 	  break;
 	args = pasteargs;
       }
@@ -1744,6 +1994,9 @@ int key;
       {
         char *ss, *dbuf, dch;
         int l = 0;
+# ifdef ENCODINGS
+	int enc = -1;
+# endif
 
 	/*
 	 * without args we prompt for one(!) register to be pasted in the window
@@ -1753,6 +2006,8 @@ int key;
 	    Input("Paste from register:", 1, INP_RAW, ins_reg_fn, NULL);
 	    break;
 	  }
+	if (args[1] == 0 && !fore)	/* no window? */
+	  break;
 	/*	
 	 * with two arguments we paste into a destination register
 	 * (no window needed here).
@@ -1763,6 +2018,11 @@ int key;
 		rc_name);
 	    break;
 	  }
+# ifdef ENCODINGS
+        else if (fore)
+	  enc = fore->w_encoding;
+# endif
+
 	/*
 	 * measure length of needed buffer 
 	 */
@@ -1770,11 +2030,26 @@ int key;
           {
 	    if (ch == '.')
 	      {
-	      	if (display)
-		  l += user->u_copylen;
+# ifdef ENCODINGS
+		if (enc == -1)
+		  enc = user->u_plop.enc;
+		if (enc != user->u_plop.enc)
+		  l += RecodeBuf((unsigned char *)user->u_plop.buf, user->u_plop.len, user->u_plop.enc, enc, (unsigned char *)0);
+		else
+# endif
+		  l += user->u_plop.len;
 	      }
 	    else
-              l += plop_tab[(int)(unsigned char)ch].len;
+	      {
+# ifdef ENCODINGS
+		if (enc == -1)
+		  enc = plop_tab[(int)(unsigned char)ch].enc;
+		if (enc != plop_tab[(int)(unsigned char)ch].enc)
+		  l += RecodeBuf((unsigned char *)plop_tab[(int)(unsigned char)ch].buf, plop_tab[(int)(unsigned char)ch].len, plop_tab[(int)(unsigned char)ch].enc, enc, (unsigned char *)0);
+		else
+# endif
+                  l += plop_tab[(int)(unsigned char)ch].len;
+	      }
           }
         if (l == 0)
 	  {
@@ -1787,11 +2062,13 @@ int key;
 	 * pass a pointer rather than duplicating the buffer.
 	 */
         if (s[1] == 0 && args[1] == 0)
-          {
-	    if (fore)
-	      MakePaster(&fore->w_paster, *s == '.' ? user->u_copybuffer : plop_tab[(int)(unsigned char)*s].buf, l, 0);
-	    break;
-          }
+# ifdef ENCODINGS
+	  if (enc == (*s == '.' ? user->u_plop.enc : plop_tab[(int)(unsigned char)*s].enc))
+# endif
+            {
+	      MakePaster(&fore->w_paster, *s == '.' ? user->u_plop.buf : plop_tab[(int)(unsigned char)*s].buf, l, 0);
+	      break;
+            }
 	/*
 	 * if no shortcut, we construct a buffer
 	 */
@@ -1807,29 +2084,22 @@ int key;
 	 */
         for (ss = s; (ch = *ss); ss++)
           {
-	    if (ch == '.')
+	    struct plop *pp = (ch == '.' ? &user->u_plop : &plop_tab[(int)(unsigned char)ch]);
+#ifdef ENCODINGS
+	    if (pp->enc != enc)
 	      {
-	        if (display == 0)
-		  continue;
-		bcopy(user->u_copybuffer, dbuf + l, user->u_copylen);
-                l += user->u_copylen;
-              }
-	    else
-	      {
-		bcopy(plop_tab[(int)(unsigned char)ch].buf, dbuf + l, plop_tab[(int)(unsigned char)ch].len);
-                l += plop_tab[(int)(unsigned char)ch].len;
-              }
+		l += RecodeBuf((unsigned char *)pp->buf, pp->len, pp->enc, enc, (unsigned char *)dbuf + l);
+		continue;
+	      }
+#endif
+	    bcopy(pp->buf, dbuf + l, pp->len);
+	    l += pp->len;
           }
 	/*
 	 * when called with one argument we paste our buffer into the window 
 	 */
 	if (args[1] == 0)
 	  {
-	    if (fore == 0)
-	      {
-		free(dbuf); /* no window? zap our buffer */
-		break;
-	      }
 	    MakePaster(&fore->w_paster, dbuf, l, 1);
 	  }
 	else
@@ -1840,47 +2110,114 @@ int key;
 	     */
 	    if (dch == '.')
 	      {
-		if (display == 0)
-		  {
-		    free(dbuf);
-		    break;
-		  }
-	        if (user->u_copybuffer != NULL)
+	        if (user->u_plop.buf != NULL)
 	          UserFreeCopyBuffer(user);
-		user->u_copybuffer = dbuf;
-		user->u_copylen = l;
+		user->u_plop.buf = dbuf;
+		user->u_plop.len = l;
+#ifdef ENCODINGS
+		user->u_plop.enc = enc;
+#endif
 	      }
 	    else
 	      {
 		struct plop *pp = plop_tab + (int)(unsigned char)dch;
-
 		if (pp->buf)
 		  free(pp->buf);
 		pp->buf = dbuf;
 		pp->len = l;
+#ifdef ENCODINGS
+		pp->enc = enc;
+#endif
 	      }
 	  }
         break;
       }
     case RC_WRITEBUF:
-      if (user->u_copybuffer == NULL)
+      if (!user->u_plop.buf)
 	{
 	  Msg(0, "empty buffer");
 	  break;
 	}
-      WriteFile(user, args[0], DUMP_EXCHANGE);
+#ifdef ENCODINGS
+	{
+	  struct plop oldplop;
+
+	  oldplop = user->u_plop;
+	  if (args[0] && args[1] && !strcmp(args[0], "-e"))
+	    {
+	      int enc, l;
+	      char *newbuf;
+
+	      enc = FindEncoding(args[1]);
+	      if (enc == -1)
+		{
+		  Msg(0, "%s: writebuf: unknown encoding", rc_name);
+		  break;
+		}
+	      if (enc != oldplop.enc)
+		{
+		  l = RecodeBuf((unsigned char *)oldplop.buf, oldplop.len, oldplop.enc, enc, (unsigned char *)0);
+		  newbuf = malloc(l + 1);
+		  if (!newbuf)
+		    {
+		      Msg(0, strnomem);
+		      break;
+		    }
+		  user->u_plop.len = RecodeBuf((unsigned char *)oldplop.buf, oldplop.len, oldplop.enc, enc, (unsigned char *)newbuf);
+		  user->u_plop.buf = newbuf;
+		  user->u_plop.enc = enc;
+		}
+	      args += 2;
+	    }
+#endif
+	  if (args[0] && args[1])
+	    Msg(0, "%s: writebuf: too many arguments", rc_name);
+	  else
+	    WriteFile(user, args[0], DUMP_EXCHANGE);
+#ifdef ENCODINGS
+	  if (user->u_plop.buf != oldplop.buf)
+	    free(user->u_plop.buf);
+	  user->u_plop = oldplop;
+	}
+#endif
       break;
     case RC_READBUF:
+#ifdef ENCODINGS
+      i = fore ? fore->w_encoding : display ? display->d_encoding : 0;
+      if (args[0] && args[1] && !strcmp(args[0], "-e"))
+	{
+	  i = FindEncoding(args[1]);
+	  if (i == -1)
+	    {
+	      Msg(0, "%s: readbuf: unknown encoding", rc_name);
+	      break;
+	    }
+	  args += 2;
+	}
+#endif
+      if (args[0] && args[1])
+	{
+	  Msg(0, "%s: readbuf: too many arguments", rc_name);
+	  break;
+	}
       if ((s = ReadFile(args[0] ? args[0] : BufferFile, &n)))
 	{
-	  if (user->u_copybuffer)
+	  if (user->u_plop.buf)
 	    UserFreeCopyBuffer(user);
-	  user->u_copylen = n;
-	  user->u_copybuffer = s;
+	  user->u_plop.len = n;
+	  user->u_plop.buf = s;
+#ifdef ENCODINGS
+	  user->u_plop.enc = i;
+#endif
 	}
       break;
     case RC_REMOVEBUF:
       KillBuffers();
+      break;
+    case RC_IGNORECASE:
+      (void)ParseSwitch(act, &search_ic);
+      if (msgok)
+        Msg(0, "Will %signore case in searches", search_ic ? "" : "not ");
       break;
 #endif				/* COPY_PASTE */
     case RC_ESCAPE:
@@ -2044,11 +2381,30 @@ int key;
 #if defined(UTMPOK) && defined(LOGOUTOK)
     case RC_LOGIN:
       n = fore->w_slot != (slot_t)-1;
+      if (*args && !strcmp(*args, "always"))
+	{
+	  fore->w_lflag = 3;
+	  if (!displays && n)
+	    SlotToggle(n);
+	  break;
+	}
+      if (*args && !strcmp(*args, "attached"))
+	{
+	  fore->w_lflag = 1;
+	  if (!displays && n)
+	    SlotToggle(0);
+	  break;
+	}
       if (ParseSwitch(act, &n) == 0)
         SlotToggle(n);
       break;
     case RC_DEFLOGIN:
-      (void)ParseOnOff(act, &nwin_default.lflag);
+      if (!strcmp(*args, "always"))
+	nwin_default.lflag |= 2;
+      else if (!strcmp(*args, "attached"))
+	nwin_default.lflag &= ~2;
+      else
+        (void)ParseOnOff(act, &nwin_default.lflag);
       break;
 #endif
     case RC_DEFFLOW:
@@ -2057,17 +2413,15 @@ int key;
 	  iflag = 1;
 	  for (display = displays; display; display = display->d_next)
 	    {
-	      if ((intrc == VDISABLE) && (origintrc != VDISABLE))
-		{
+	      if (!D_flow)
+		continue;
 #if defined(TERMIO) || defined(POSIX)
-		  intrc = D_NewMode.tio.c_cc[VINTR] = origintrc;
-		  D_NewMode.tio.c_lflag |= ISIG;
+	      D_NewMode.tio.c_cc[VINTR] = D_OldMode.tio.c_cc[VINTR];
+	      D_NewMode.tio.c_lflag |= ISIG;
 #else /* TERMIO || POSIX */
-		  intrc = D_NewMode.m_tchars.t_intrc = origintrc;
+	      D_NewMode.m_tchars.t_intrc = D_OldMode.m_tchars.t_intrc;
 #endif /* TERMIO || POSIX */
-
-		  SetTTY(D_userfd, &D_NewMode);
-		}
+	      SetTTY(D_userfd, &D_NewMode);
 	    }
 	}
       if (args[0] && args[0][0] == 'a')
@@ -2268,7 +2622,7 @@ int key;
         {
 	  int old = fore->w_number;
 
-	  if (ParseNum(act, &n) || n >= MAXWIN)
+	  if (ParseNum(act, &n) || n >= maxwin)
 	    break;
 	  p = wtab[n];
 	  wtab[n] = fore;
@@ -2299,6 +2653,7 @@ int key;
 	  WindowChanged(fore, 'n');
 	  WindowChanged((struct win *)0, 'w');
 	  WindowChanged((struct win *)0, 'W');
+	  WindowChanged((struct win *)0, 0);
 	}
       break;
     case RC_SILENCE:
@@ -2374,7 +2729,7 @@ int key;
 	  s = 0;
 	  if (ParseSaveStr(act, &s))
 	    break;
-	  if (!*s || strlen(s) + (SockName - SockPath) > MAXPATHLEN - 13)
+	  if (!*s || strlen(s) + (SockName - SockPath) > MAXPATHLEN - 13 || index(s, '/'))
 	    {
 	      Msg(0, "%s: bad session name '%s'\n", rc_name, s);
 	      free(s);
@@ -2521,29 +2876,40 @@ int key;
       break;
 #endif				/* PASSWORD */
     case RC_BIND:
-      if ((s = ParseChar(*args, &ch)) == 0 || *s)
 	{
-	  Msg(0, "%s: bind: character, ^x, or (octal) \\032 expected.",
-	      rc_name);
-	  break;
-	}
-      n = (unsigned char)ch;
-      if (args[1])
-	{
-	  if ((i = FindCommnr(args[1])) == RC_ILLEGAL)
+	  struct action *ktabp = ktab;
+
+	  if (argc > 2 && !strcmp(*args, "-c"))
 	    {
-	      Msg(0, "%s: bind: unknown command '%s'", rc_name, args[1]);
+	      ktabp = FindKtab(args[1], 1);
+	      if (ktabp == 0)
+		break;
+	      args += 2;
+	    }
+	  if ((s = ParseChar(*args, &ch)) == 0 || *s)
+	    {
+	      Msg(0, "%s: bind: character, ^x, or (octal) \\032 expected.",
+		  rc_name);
 	      break;
 	    }
-	  if (CheckArgNum(i, args + 2) < 0)
-	    break;
-          ClearAction(&ktab[n]);
-	  ktab[n].nr = i;
-	  if (args[2])
-	    ktab[n].args = SaveArgs(args + 2);
+	  n = (unsigned char)ch;
+	  if (args[1])
+	    {
+	      if ((i = FindCommnr(args[1])) == RC_ILLEGAL)
+		{
+		  Msg(0, "%s: bind: unknown command '%s'", rc_name, args[1]);
+		  break;
+		}
+	      if (CheckArgNum(i, args + 2) < 0)
+		break;
+	      ClearAction(&ktabp[n]);
+	      ktabp[n].nr = i;
+	      if (args[2])
+		ktabp[n].args = SaveArgs(args + 2);
+	    }
+	  else
+	    ClearAction(&ktabp[n]);
 	}
-      else
-        ClearAction(&ktab[n]);
       break;
 #ifdef MAPKEYS
     case RC_BINDKEY:
@@ -2799,8 +3165,16 @@ int key;
       break;
 #endif
     case RC_GR:
+#ifdef ENCODINGS
+      if (fore->w_gr == 2)
+	fore->w_gr = 0;
+#endif
       if (ParseSwitch(act, &fore->w_gr) == 0 && msgok)
         Msg(0, "Will %suse GR", fore->w_gr ? "" : "not ");
+#ifdef ENCODINGS
+      if (fore->w_gr == 0 && fore->w_FontE)
+	fore->w_gr = 2;
+#endif
       break;
     case RC_C1:
       if (ParseSwitch(act, &fore->w_c1) == 0 && msgok)
@@ -2812,51 +3186,81 @@ int key;
         Msg(0, "Will %serase with background color", fore->w_bce ? "" : "not ");
       break;
 #endif
-#ifdef KANJI
+#ifdef ENCODINGS
     case RC_KANJI:
+    case RC_ENCODING:
+#ifdef UTF8
+      if (*args && !strcmp(args[0], "-d"))
+	{
+	  if (!args[1])
+	    Msg(0, "encodings directory is %s", screenencodings ? screenencodings : "<unset>");
+	  else
+	    {
+	      free(screenencodings);
+	      screenencodings = SaveStr(args[1]);
+	    }
+	  break;
+	}
+      if (*args && !strcmp(args[0], "-l"))
+	{
+	  if (!args[1])
+	    Msg(0, "encoding: -l: argument required");
+	  else if (LoadFontTranslation(-1, args[1]))
+	    Msg(0, "encoding: could not load utf8 encoding file");
+	  else if (msgok)
+	    Msg(0, "encoding: utf8 encoding file loaded");
+	  break;
+	}
+#else
+      if (*args && (!strcmp(args[0], "-l") || !strcmp(args[0], "-d")))
+	{
+	  if (msgok)
+	    Msg(0, "encoding: screen is not compiled for UTF-8.");
+	  break;
+	}
+#endif
       for (i = 0; i < 2; i++)
 	{
 	  if (args[i] == 0)
 	    break;
-	  if (strcmp(args[i], "jis") == 0 || strcmp(args[i], "off") == 0)
-	    n = 0;
-	  else if (strcmp(args[i], "euc") == 0)
-	    n = EUC;
-	  else if (strcmp(args[i], "sjis") == 0)
-	    n = SJIS;
-	  else
+	  if (!strcmp(args[i], "."))
+	    continue;
+	  n = FindEncoding(args[i]);
+	  if (n == -1)
 	    {
-	      Msg(0, "kanji: illegal argument (%s)", args[i]);
-		  break;
+	      Msg(0, "encoding: unknown encoding '%s'", args[i]);
+	      break;
 	    }
-	  if (i == 0)
-	    fore->w_kanji = n;
-	  else if (display)
-	    D_kanji = n;
+	  if (i == 0 && fore)
+	    {
+	      WinSwitchEncoding(fore, n);
+	      ResetCharsets(fore);
+	    }
+	  else if (i && display)
+	    D_encoding  = n;
 	}
-      if (fore)
-        ResetCharsets(fore);
       break;
     case RC_DEFKANJI:
-      if (strcmp(*args, "jis") == 0 || strcmp(*args, "off") == 0)
-	n = 0;
-      else if (strcmp(*args, "euc") == 0)
-	n = EUC;
-      else if (strcmp(*args, "sjis") == 0)
-	n = SJIS;
-      else
+    case RC_DEFENCODING:
+      n = FindEncoding(*args);
+      if (n == -1)
 	{
-	  Msg(0, "defkanji: illegal argument (%s)", *args);
-	    break;
+	  Msg(0, "defencoding: unknown encoding '%s'", *args);
+	  break;
 	}
-      nwin_default.kanji = n;
+      nwin_default.encoding = n;
       break;
 #endif
 
 #ifdef UTF8
     case RC_DEFUTF8:
-      if (ParseSwitch(act, &nwin_default.utf8) == 0 && msgok)
-        Msg(0, "Will %suse UTF-8 encoding for new windows", nwin_default.utf8 ? "" : "not ");
+      n = nwin_default.encoding == UTF8;
+      if (ParseSwitch(act, &n) == 0)
+	{
+	  nwin_default.encoding = n ? UTF8 : 0;
+	  if (msgok)
+            Msg(0, "Will %suse UTF-8 encoding for new windows", n ? "" : "not ");
+	}
       break;
     case RC_UTF8:
       for (i = 0; i < 2; i++)
@@ -2864,7 +3268,7 @@ int key;
 	  if (i && args[i] == 0)
 	    break;
 	  if (args[i] == 0)
-	    n = !fore->w_utf8;
+	    n = fore->w_encoding != UTF8;
 	  else if (strcmp(args[i], "off") == 0)
 	    n = 0;
 	  else if (strcmp(args[i], "on") == 0)
@@ -2876,12 +3280,12 @@ int key;
 	    }
 	  if (i == 0)
 	    {
-	      WinSwitchUtf8(fore, n);
+	      WinSwitchEncoding(fore, n ? UTF8 : 0);
 	      if (msgok)
 		Msg(0, "Will %suse UTF-8 encoding", n ? "" : "not ");
 	    }
 	  else if (display)
-	    D_utf8 = n;
+	    D_encoding = n ? UTF8 : 0;
 	  if (args[i] == 0)
 	    break;
 	}
@@ -2981,13 +3385,28 @@ int key;
 #endif
 #ifdef COLOR
     case RC_ATTRCOLOR:
-      if (args[0][0] >= '0' && args[0][0] <= '9')
-        i = args[0][0] - '0';
+      s = args[0];
+      if (*s >= '0' && *s <= '9')
+        i = *s - '0';
       else
-	for (i = 0; i < NATTR; i++)
-	  if (args[0][0] == "dubrsB"[i])
+	for (i = 0; i < 8; i++)
+	  if (*s == "dubrsBiI"[i])
 	    break;
-      if (args[0][1] || i < 0 || i >= NATTR)
+      s++;
+      nr = 0;
+      if (*s && s[1] && !s[2])
+	{
+	  if (*s == 'd' && s[1] == 'd')
+	    nr = 3;
+	  else if (*s == '.' && s[1] == 'd')
+	    nr = 2;
+	  else if (*s == 'd' && s[1] == '.')
+	    nr = 1;
+	  else if (*s != '.' || s[1] != '.')
+	    s--;
+	  s += 2;
+	}
+      if (*s || i < 0 || i >= 8)
 	{
 	  Msg(0, "%s: attrcolor: unknown attribute '%s'.", rc_name, args[0]);
 	  break;
@@ -2997,10 +3416,10 @@ int key;
         n = ParseAttrColor(args[1], args[2], 1);
       if (n == -1)
 	break;
-      attr2color[i] = n;
+      attr2color[i][nr] = n;
       n = 0;
-      for (i = 0; i < NATTR; i++)
-	if (attr2color[i])
+      for (i = 0; i < 8; i++)
+	if (attr2color[i][0] || attr2color[i][1] || attr2color[i][2] || attr2color[i][3])
 	  n |= 1 << i;
       nattr2color = n;
       break;
@@ -3016,11 +3435,15 @@ int key;
 	}
       if (msgok)
 #ifdef COLOR
-        Msg(0, "Standout attributes 0x%02x  color 0x%02x", (unsigned char)mchar_so.attr, 0x99 - (unsigned char)mchar_so.color);
+        Msg(0, "Standout attributes 0x%02x  color 0x%02x", (unsigned char)mchar_so.attr, 0x99 ^ (unsigned char)mchar_so.color);
 #else
         Msg(0, "Standout attributes 0x%02x ", (unsigned char)mchar_so.attr);
 #endif
       break;
+
+      case RC_SOURCE:
+	do_source(*args);
+	break;
 
 #ifdef MULTIUSER
     case RC_SU:
@@ -3062,7 +3485,7 @@ int key;
       break;
     case RC_FOCUS:
       if (!*args || !strcmp(*args, "down"))
-        D_forecv = D_forecv->c_next ? D_forecv->c_next : D_cvlist;
+	D_forecv = D_forecv->c_next ? D_forecv->c_next : D_cvlist;
       else if (!strcmp(*args, "up"))
 	{
 	  struct canvas *cv;
@@ -3071,7 +3494,7 @@ int key;
 	  D_forecv = cv;
 	}
       else if (!strcmp(*args, "top"))
-        D_forecv = D_cvlist;
+	D_forecv = D_cvlist;
       else if (!strcmp(*args, "bottom"))
 	{
 	  struct canvas *cv;
@@ -3084,8 +3507,7 @@ int key;
 	  Msg(0, "%s: usage: focus [up|down|top|bottom]", rc_name);
 	  break;
 	}
-      D_fore = Layer2Window(D_forecv->c_layer);
-      fore = D_fore;
+      fore = D_fore = Layer2Window(D_forecv->c_layer);
       flayer = D_forecv->c_layer;
 #ifdef RXVT_OSC
       if (D_xtermosc[2] || D_xtermosc[3])
@@ -3100,12 +3522,59 @@ int key;
 #endif
       flayer = D_forecv->c_layer;
       CV_CALL(D_forecv, LayRestore();LaySetCursor());
+      WindowChanged(0, 'F');
       break;
     case RC_RESIZE:
       if (*args)
 	ResizeRegions(*args);
       else
 	Input("resize # lines: ", 20, INP_COOKED, ResizeFin, (char*)0);
+      break;
+    case RC_SETSID:
+      (void)ParseSwitch(act, &separate_sids);
+      break;
+    case RC_EVAL:
+      for (; *args; args++)
+	{
+	  char *ss = SaveStr(*args);
+	  RcLine(ss);
+	  free(ss);
+	}
+      break;
+    case RC_ALTSCREEN:
+      (void)ParseSwitch(act, &use_altscreen);
+      if (msgok)
+        Msg(0, "Will %sdo alternate screen switching", use_altscreen ? "" : "not ");
+      break;
+    case RC_MAXWIN:
+      if (ParseNum(act, &n))
+	break;
+      if (n < 1)
+        Msg(0, "illegal maxwin number specified");
+      else if (n > maxwin)
+        Msg(0, "may only decrease maxwin number");
+      else
+        maxwin = n;
+      break;
+    case RC_BACKTICK:
+      if (ParseBase(act, *args, &n, 10, "decimal"))
+	break;
+      if (!args[1])
+	setbacktick(n, 0, 0, (char **)0);
+      else
+	{
+	  int lifespan, tick;
+	  if (argc < 4)
+	    {
+	      Msg(0, "%s: usage: backtick num [lifespan tick cmd args...]", rc_name);
+	      break;
+	    }
+	  if (ParseBase(act, args[1], &lifespan, 10, "decimal"))
+	    break;
+	  if (ParseBase(act, args[2], &tick, 10, "decimal"))
+	    break;
+	  setbacktick(n, lifespan, tick, SaveArgs(args + 3));
+	}
       break;
     default:
 #ifdef HAVE_BRAILLE
@@ -3566,7 +4035,7 @@ char *s, *p;
   return IsNum(s, base);
 }
 
-static void
+void
 SwitchWindow(n)
 int n;
 {
@@ -3748,6 +4217,7 @@ int norefresh;
       if (fore->w_monitor != MON_OFF)
 	fore->w_monitor = MON_ON;
       fore->w_bell = BELL_ON;
+      WindowChanged(fore, 'f');
 
 #if 0
       if (ResizeDisplay(fore->w_width, fore->w_height))
@@ -3766,7 +4236,7 @@ static int
 NextWindow()
 {
   register struct win **pp;
-  int n = fore ? fore->w_number : 0;
+  int n = fore ? fore->w_number : -1;
 
   for (pp = wtab + n + 1; pp != wtab + n; pp++)
     {
@@ -3797,6 +4267,7 @@ PreviousWindow()
 static int
 MoreWindows()
 {
+  char *m = "No other window.";
   if (windows && (fore == 0 || windows->w_next))
     return 1;
   if (fore == 0)
@@ -3804,7 +4275,7 @@ MoreWindows()
       Msg(0, "No window available");
       return 0;
     }
-  Msg(0, "No other window."+1-1, fore->w_number);	/* other arg for nethack */
+  Msg(0, m, fore->w_number);	/* other arg for nethack */
   return 0;
 }
 
@@ -3853,6 +4324,7 @@ struct win *wi;
   FreeWindow(wi);
   WindowChanged((struct win *)0, 'w');
   WindowChanged((struct win *)0, 'W');
+  WindowChanged((struct win *)0, 0);
 }
 
 static void
@@ -3872,6 +4344,7 @@ int on;
       Msg(0, "Logfile \"%s\" closed.", fore->w_log->name);
       logfclose(fore->w_log);
       fore->w_log = 0;
+      WindowChanged(fore, 'f');
       return;
     }
   if (DoStartLog(fore, buf, sizeof(buf)))
@@ -3883,6 +4356,7 @@ int on;
     Msg(0, "Creating logfile \"%s\".", fore->w_log->name);
   else
     Msg(0, "Appending to logfile \"%s\".", fore->w_log->name);
+  WindowChanged(fore, 'f');
 }
 
 char *
@@ -3897,7 +4371,7 @@ int where;
   register char *cmd;
 
   s = ss = buf;
-  for (pp = wtab; pp < wtab + MAXWIN; pp++)
+  for (pp = ((flags & 4) && where >= 0) ? wtab + where + 1: wtab; pp < wtab + MAXWIN; pp++)
     {
       if (pp - wtab == where && ss == buf)
 	ss = s;
@@ -3909,7 +4383,7 @@ int where;
       cmd = p->w_title;
       if (s - buf + strlen(cmd) > len - 24)
 	break;
-      if (s > buf)
+      if (s > buf || (flags & 4))
 	{
 	  *s++ = ' ';
 	  *s++ = ' ';
@@ -3918,31 +4392,13 @@ int where;
       if (p->w_number == where)
         ss = s;
       s += strlen(s);
-
       if (display && p == D_fore)
 	*s++ = '*';
-
       if (!(flags & 2))
 	{
-	  if (display && p == D_other)
+          if (display && p == D_other)
 	    *s++ = '-';
-	  if (p->w_layer.l_cvlist && p->w_layer.l_cvlist->c_lnext)
-	    *s++ = '&';
-	  if (p->w_monitor == MON_DONE)
-	    *s++ = '@';
-	  if (p->w_bell == BELL_DONE)
-	    *s++ = '!';
-#ifdef UTMPOK
-	  if (p->w_slot != (slot_t) 0 && p->w_slot != (slot_t) -1)
-	    *s++ = '$';
-#endif
-	  if (p->w_log != 0)
-	    {
-	      strcpy(s, "(L)");
-	      s += 3;
-	    }
-	  if (p->w_ptyfd < 0)
-	    *s++ = 'Z';
+          s = AddWindowFlags(s, len, p);
 	}
       *s++ = ' ';
       strcpy(s, cmd);
@@ -3950,6 +4406,45 @@ int where;
     }
   *s = 0;
   return ss;
+}
+
+char *
+AddWindowFlags(buf, len, p)
+char *buf;
+int len;
+struct win *p;
+{
+  char *s = buf;
+  if (p == 0 || len < 12)
+    {
+      *s = 0;
+      return s;
+    }
+#if 0
+  if (display && p == D_fore)
+    *s++ = '*';
+  if (display && p == D_other)
+    *s++ = '-';
+#endif
+  if (p->w_layer.l_cvlist && p->w_layer.l_cvlist->c_lnext)
+    *s++ = '&';
+  if (p->w_monitor == MON_DONE)
+    *s++ = '@';
+  if (p->w_bell == BELL_DONE)
+    *s++ = '!';
+#ifdef UTMPOK
+  if (p->w_slot != (slot_t) 0 && p->w_slot != (slot_t) -1)
+    *s++ = '$';
+#endif
+  if (p->w_log != 0)
+    {
+      strcpy(s, "(L)");
+      s += 3;
+    }
+  if (p->w_ptyfd < 0)
+    *s++ = 'Z';
+  *s = 0;
+  return s;
 }
 
 char *
@@ -3992,7 +4487,7 @@ struct win *p;
     }
   *s = 0;
   display = olddisplay;
-  return buf;
+  return s;
 }
 
 void
@@ -4021,24 +4516,6 @@ int where;
   else
     ss = buf;
   Msg(0, "%s", ss);
-}
-
-static void
-ShowTime()
-{
-  char buf[512];
-  struct tm *tp;
-  time_t now;
-
-  (void) time(&now);
-  tp = localtime(&now);
-  sprintf(buf, "%2d:%02d:%02d %s", tp->tm_hour, tp->tm_min, tp->tm_sec,
-	  HostName);
-#ifdef LOADAV
-  strcat(buf, " ");
-  AddLoadav(buf + strlen(buf));
-#endif /* LOADAV */
-  Msg(0, "%s", buf);
 }
 
 static void
@@ -4080,17 +4557,34 @@ ShowInfo()
 
   p += strlen(p);
 #ifdef FONT
-# ifdef UTF8
-  if (wp->w_utf8)
+# ifdef ENCODINGS
+  if (wp->w_encoding && (display == 0 || D_encoding != wp->w_encoding || EncodingDefFont(wp->w_encoding) <= 0))
     {
-      sprintf(p, " UFT-8");
+      *p++ = ' ';
+      strcpy(p, EncodingName(wp->w_encoding));
       p += strlen(p);
     }
-  else
+#  ifdef UTF8
+  if (wp->w_encoding != UTF8)
+#  endif
 # endif
     if (D_CC0 || (D_CS0 && *D_CS0))
       {
-	if (wp->w_gr)
+	if (wp->w_gr == 2)
+	  {
+	    sprintf(p, " G%c", wp->w_Charset + '0');
+	    if (wp->w_FontE >= ' ')
+	      p[3] = wp->w_FontE;
+	    else
+	      {
+	        p[3] = '^';
+	        p[4] = wp->w_FontE ^ 0x40;
+		p++;
+	      }
+	    p[4] = '[';
+	    p++;
+	  }
+	else if (wp->w_gr)
 	  sprintf(p++, " G%c%c[", wp->w_Charset + '0', wp->w_CharsetR + '0');
 	else
 	  sprintf(p, " G%c[", wp->w_Charset + '0');
@@ -4109,10 +4603,6 @@ ShowInfo()
 	  }
 	*p++ = ']';
 	*p = 0;
-# ifdef KANJI
-	strcpy(p, wp->w_kanji == EUC ? " euc" : wp->w_kanji == SJIS ? " sjis" : "");
-	p += strlen(p);
-# endif
       }
 #endif
 
@@ -4141,20 +4631,13 @@ ShowDInfo()
   p = buf;
   sprintf(p, "(%d,%d)", D_width, D_height),
   p += strlen(p);
-#ifdef UTF8
-  if (D_utf8)
+#ifdef ENCODINGS
+  if (D_encoding)
     {
-      sprintf(p, " UTF-8");
+      *p++ = ' ';
+      strcpy(p, EncodingName(D_encoding));
       p += strlen(p);
     }
-  else
-#endif
-#ifdef KANJI
-    if (D_kanji)
-      {
-	strcpy(p, D_kanji == EUC ? " euc" : D_kanji == SJIS ? " sjis" : "");
-	p += strlen(p);
-      }
 #endif
   if (D_CXT)
     {
@@ -4374,6 +4857,9 @@ char *fn, **av;
 	    case '\0':
 	      nwin.lflag = 1;
 	      break;
+	    case 'a':
+	      nwin.lflag = 3;
+	      break;
 	    default:
 	      break;
 	    }
@@ -4510,17 +4996,20 @@ char *data;	/* dummy */
     free(pp->buf);
   pp->buf = 0;
   pp->len = 0;
-  if (D_user->u_copylen)
+  if (D_user->u_plop.len)
     {
-      if ((pp->buf = (char *)malloc(D_user->u_copylen)) == NULL)
+      if ((pp->buf = (char *)malloc(D_user->u_plop.len)) == NULL)
 	{
 	  Msg(0, strnomem);
 	  return;
 	}
-      bcopy(D_user->u_copybuffer, pp->buf, D_user->u_copylen);
+      bcopy(D_user->u_plop.buf, pp->buf, D_user->u_plop.len);
     }
-  pp->len = D_user->u_copylen;
-  Msg(0, "Copied %d characters into register %c", D_user->u_copylen, *buf);
+  pp->len = D_user->u_plop.len;
+#ifdef ENCODINGS
+  pp->enc = D_user->u_plop.enc;
+#endif
+  Msg(0, "Copied %d characters into register %c", D_user->u_plop.len, *buf);
 }
 
 static void
@@ -4677,7 +5166,7 @@ int len;
 char *data;
 {
   int st;
-  char salt[2];
+  char salt[3];
   struct acluser *u = (struct acluser *)data;
 
   ASSERT(u);
@@ -4702,19 +5191,23 @@ char *data;
     {
       for (st = 0; st < 2; st++)
 	salt[st] = 'A' + (int)((time(0) >> 6 * st) % 26);
+      salt[2] = 0;
       buf = crypt(u->u_password, salt);
       bzero(u->u_password, strlen(u->u_password));
       free((char *)u->u_password);
       u->u_password = SaveStr(buf);
       bzero(buf, strlen(buf));
 #ifdef COPY_PASTE
-      if (u->u_copybuffer)
+      if (u->u_plop.buf)
 	UserFreeCopyBuffer(u);
-      u->u_copylen = strlen(u->u_password);
-      if (!(u->u_copybuffer = SaveStr(u->u_password)))
+      u->u_plop.len = strlen(u->u_password);
+# ifdef ENCODINGS
+      u->u_plop.enc = 0;
+#endif
+      if (!(u->u_plop.buf = SaveStr(u->u_password)))
 	{
 	  Msg(0, strnomem);
-          D_user->u_copylen = 0;
+          D_user->u_plop.len = 0;
 	}
       else
 	Msg(0, "[ Password moved into copybuffer ]");
@@ -4811,7 +5304,7 @@ char *data;	/* dummy */
   i = 1;
   *buf = x;
 #ifdef UTF8
-  if (flayer->l_utf8)
+  if (flayer->l_encoding == UTF8)
     i = ToUtf8(buf, x);	/* buf is big enough for all UTF-8 codes */
 #endif
   while(i)
@@ -4839,7 +5332,7 @@ int i;
   fore = D_fore;
   act = 0;
 #ifdef COPY_PASTE
-  if (InMark() || InInput())
+  if (InMark() || InInput() || InWList())
     act = &mmtab[i];
 #endif
   if ((!act || act->nr == RC_ILLEGAL) && !D_mapdefault)
@@ -4875,13 +5368,14 @@ char *presel;
   int i;
 
   debug2("FindNiceWindow %d %s\n", wi ? wi->w_number : -1 , presel ? presel : "NULL");
-  ASSERT(display);
   if (presel)
     {
       i = WindowByNoN(presel);
       if (i >= 0)
 	wi = wtab[i];
     }
+  if (!display)
+    return wi;
 #ifdef MULTIUSER
   if (wi && AclCheckPermWin(D_user, ACL_READ, wi))
     wi = 0;
@@ -5321,12 +5815,12 @@ struct mchar *mc;
   if ((i & 0xf0) != 0xf0)
     mc->attr = (mc->attr & 0x7f) | ((i >> 3) & 0x80);
 # endif
-  mc->color = 0x99 - mc->color;
+  mc->color = 0x99 ^ mc->color;
   if ((i & 0x0e) == 0x0e)
     i = (i & 0xf0) | (mc->color & 0x0f);
   if ((i & 0xe0) == 0xe0)
     i = (i & 0x0f) | (mc->color & 0xf0);
-  mc->color = 0x99 - i;
+  mc->color = 0x99 ^ i;
   debug2("ApplyAttrColor - %02x %02x\n", mc->attr, i);
 #endif
 }

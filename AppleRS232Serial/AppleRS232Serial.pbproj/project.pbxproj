@@ -1,0 +1,428 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		01C100B2FFD5BC5411CE1757 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = Z85C30.h;
+			refType = 4;
+		};
+		01C100B3FFD5BC5411CE1757 = {
+			fileRef = 01C100B2FFD5BC5411CE1757;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		01C5059E0044665611CE156C = {
+			isa = PBXFrameworkReference;
+			name = Kernel.framework;
+			path = /System/Library/Frameworks/Kernel.framework;
+			refType = 0;
+		};
+//010
+//011
+//012
+//013
+//014
+//060
+//061
+//062
+//063
+//064
+		06AA1264FFB2107B11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		06AA1265FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		06AA1266FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		06AA1267FFB2110C11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+//060
+//061
+//062
+//063
+//064
+//080
+//081
+//082
+//083
+//084
+		089C1669FE841209C02AAC07 = {
+			buildStyles = (
+				06AA1265FFB2107B11CA28AA,
+				06AA1266FFB2107B11CA28AA,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = 089C166AFE841209C02AAC07;
+			projectDirPath = "";
+			targets = (
+				089C1673FE841209C02AAC07,
+			);
+		};
+		089C166AFE841209C02AAC07 = {
+			children = (
+				F544C65C0236F2E301000103,
+				247142CAFF3F8F9811CA285C,
+				089C167CFE841241C02AAC07,
+				19C28FB6FE9D52B211CA2CBB,
+				01C5059E0044665611CE156C,
+			);
+			isa = PBXGroup;
+			name = AppleRS232Serial;
+			refType = 4;
+		};
+		089C1673FE841209C02AAC07 = {
+			buildPhases = (
+				06AA1267FFB2110C11CA28AA,
+				089C1674FE841209C02AAC07,
+				089C1675FE841209C02AAC07,
+				089C1676FE841209C02AAC07,
+				089C1677FE841209C02AAC07,
+				089C1679FE841209C02AAC07,
+				06AA1264FFB2107B11CA28AA,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOSerialFamily.kext/Contents/PlugIns/";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleRS574Serial;
+				MODULE_VERSION = 1.2.1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleRS574Serial;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = AppleRS574Serial;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOSerialFamily.kext/Contents/PlugIns/";
+			productName = AppleRS232Serial;
+			productReference = 0B81C263FFB7832611CA28AA;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleRS574Serial</string>
+	<key>CFBundleGetInfoString</key>
+	<string>Apple RS574 Serial version 1.2.1b1, Copyright 2002, Apple Computer, Inc.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleRS574Serial</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>AppleRS574Serial</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.2.1</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.2.1</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>AppleRS574Serial</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleRS574Serial</string>
+			<key>IOClass</key>
+			<string>AppleRS232Serial</string>
+			<key>IONameMatch</key>
+			<array>
+				<string>ch-a</string>
+			</array>
+			<key>IOProbeScore</key>
+			<integer>10</integer>
+			<key>IOProviderClass</key>
+			<string>AppleMacIODevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.iokit.IOSerialFamily</key>
+		<string>1.0.4</string>
+	</dict>
+</dict>
+</plist>
+";
+		};
+		089C1674FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				01C100B3FFD5BC5411CE1757,
+				F59467B00237E17301000103,
+				F58D2065023C37A401000103,
+				F56183B902427D6001000103,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1675FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				089C1680FE841241C02AAC07,
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1676FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				F544C65E0236F2E301000103,
+				F58D2066023C37A401000103,
+				F56CFE09023D1CEE01000103,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1677FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1679FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C167CFE841241C02AAC07 = {
+			children = (
+				089C167DFE841241C02AAC07,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			refType = 4;
+		};
+		089C167DFE841241C02AAC07 = {
+			children = (
+				089C167EFE841241C02AAC07,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			refType = 4;
+		};
+		089C167EFE841241C02AAC07 = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			name = English;
+			path = English.lproj/InfoPlist.strings;
+			refType = 4;
+		};
+		089C1680FE841241C02AAC07 = {
+			fileRef = 089C167DFE841241C02AAC07;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//080
+//081
+//082
+//083
+//084
+//0B0
+//0B1
+//0B2
+//0B3
+//0B4
+		0B81C263FFB7832611CA28AA = {
+			isa = PBXBundleReference;
+			path = AppleRS574Serial.kext;
+			refType = 3;
+		};
+//0B0
+//0B1
+//0B2
+//0B3
+//0B4
+//190
+//191
+//192
+//193
+//194
+		19C28FB6FE9D52B211CA2CBB = {
+			children = (
+				0B81C263FFB7832611CA28AA,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+//190
+//191
+//192
+//193
+//194
+//240
+//241
+//242
+//243
+//244
+		247142CAFF3F8F9811CA285C = {
+			children = (
+				F544C65D0236F2E301000103,
+				F58D2064023C37A401000103,
+				F56CFE07023D1CEE01000103,
+			);
+			isa = PBXGroup;
+			name = Source;
+			path = "";
+			refType = 4;
+		};
+//240
+//241
+//242
+//243
+//244
+//F50
+//F51
+//F52
+//F53
+//F54
+		F544C65C0236F2E301000103 = {
+			children = (
+				F59467AF0237E17301000103,
+				01C100B2FFD5BC5411CE1757,
+				F58D2063023C37A401000103,
+				F56183B802427D6001000103,
+			);
+			isa = PBXGroup;
+			name = Headers;
+			path = "";
+			refType = 4;
+		};
+		F544C65D0236F2E301000103 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AppleRS232Serial.cpp;
+			refType = 4;
+		};
+		F544C65E0236F2E301000103 = {
+			fileRef = F544C65D0236F2E301000103;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F56183B802427D6001000103 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = SccChip.h;
+			refType = 4;
+		};
+		F56183B902427D6001000103 = {
+			fileRef = F56183B802427D6001000103;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F56CFE07023D1CEE01000103 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = SccChip.cpp;
+			refType = 4;
+		};
+		F56CFE09023D1CEE01000103 = {
+			fileRef = F56CFE07023D1CEE01000103;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F58D2063023C37A401000103 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = SccQueue.h;
+			refType = 4;
+		};
+		F58D2064023C37A401000103 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = SccQueue.cpp;
+			refType = 4;
+		};
+		F58D2065023C37A401000103 = {
+			fileRef = F58D2063023C37A401000103;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F58D2066023C37A401000103 = {
+			fileRef = F58D2064023C37A401000103;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F59467AF0237E17301000103 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AppleRS232Serial.h;
+			refType = 4;
+		};
+		F59467B00237E17301000103 = {
+			fileRef = F59467AF0237E17301000103;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+	};
+	rootObject = 089C1669FE841209C02AAC07;
+}

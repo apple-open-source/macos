@@ -43,6 +43,12 @@ QLineEdit::QLineEdit()
     [view release];
 }
 
+QLineEdit::~QLineEdit()
+{
+    KWQTextField* textField = (KWQTextField*)getView();
+    [textField invalidate];
+}
+
 void QLineEdit::setEchoMode(EchoMode mode)
 {
     KWQTextField *textField = (KWQTextField *)getView();
@@ -109,7 +115,7 @@ int QLineEdit::maxLength() const
 void QLineEdit::selectAll()
 {
     KWQTextField *textField = (KWQTextField *)getView();
-    return [textField selectText:nil];
+    [textField selectText:nil];
 }
 
 bool QLineEdit::edited() const
@@ -121,7 +127,7 @@ bool QLineEdit::edited() const
 void QLineEdit::setEdited(bool flag)
 {
     KWQTextField *textField = (KWQTextField *)getView();
-    return [textField setEdited:flag];
+    [textField setEdited:flag];
 }
 
 QSize QLineEdit::sizeForCharacterWidth(int numCharacters) const
@@ -167,5 +173,6 @@ void QLineEdit::clicked()
 void QLineEdit::setAlignment(AlignmentFlags alignment)
 {
     ASSERT(alignment == AlignLeft || alignment == AlignRight);
-    [(KWQTextField *)getView() setAlignment:(alignment == AlignRight ? NSRightTextAlignment : NSLeftTextAlignment)];
+    KWQTextField *textField = getView();
+    [textField setAlignment:(alignment == AlignRight ? NSRightTextAlignment : NSLeftTextAlignment)];
 }

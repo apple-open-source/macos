@@ -1,9 +1,9 @@
 #
-# "$Id: Makedefs.in,v 1.17 2002/06/10 23:47:22 jlovell Exp $"
+# "$Id: Makedefs.in,v 1.1.1.13 2003/07/16 17:21:40 jlovell Exp $"
 #
 #   Common makefile definitions for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+#   Copyright 1997-2003 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
 #   property of Easy Software Products and are protected by Federal
@@ -26,22 +26,22 @@
 # Programs...
 #
 
-AR	=	@AR@
-AWK	=	@AWK@
-CC	=	@LIBTOOL@ @CC@
-CXX	=	@LIBTOOL@ @CXX@
-DSO	=	@DSO@
-HTMLDOC	=	@HTMLDOC@
-INSTALL	=	@INSTALL@
-LIBTOOL	=	@LIBTOOL@
-LN	=	/bin/ln -sf
-MV	=	@MV@
-NROFF	=	@NROFF@
-RANLIB	=	@RANLIB@
-RM	=	@RM@ -f
-SED	=	@SED@
-SHELL	=	/bin/sh
-STRIP	=	@STRIP@
+AR		=	@AR@
+AWK		=	@AWK@
+CC		=	@LIBTOOL@ @CC@
+CXX		=	@LIBTOOL@ @CXX@
+DSO		=	@DSO@
+HTMLDOC		=	@HTMLDOC@
+INSTALL		=	@INSTALL@
+LIBTOOL		=	@LIBTOOL@
+LN		=	@LN@ -sf
+MV		=	@MV@
+NROFF		=	@NROFF@
+RANLIB		=	@RANLIB@
+RM		=	@RM@ -f
+SED		=	@SED@
+SHELL		=	/bin/sh
+STRIP		=	@STRIP@
 
 #
 # Installation programs...
@@ -65,14 +65,15 @@ CUPS_GROUP	=	@CUPS_GROUP@
 # Libraries...
 #
 
-LIBCUPS	=	@LIBCUPS@
-LIBCUPSIMAGE =	@LIBCUPSIMAGE@
-LIBJPEG	=	@LIBJPEG@
-LIBMALLOC =	@LIBMALLOC@
-LIBPNG	=	@LIBPNG@
-LIBSLP	=	@LIBSLP@
-LIBTIFF	=	@LIBTIFF@
-LIBZ	=	@LIBZ@
+LIBCUPS		=	@LIBCUPS@
+LIBCUPSIMAGE	=	@LIBCUPSIMAGE@
+LIBJPEG		=	@LIBJPEG@
+LIBMALLOC	=	@LIBMALLOC@
+LIBPAPER	=	@LIBPAPER@
+LIBPNG		=	@LIBPNG@
+LIBSLP		=	@LIBSLP@
+LIBTIFF		=	@LIBTIFF@
+LIBZ		=	@LIBZ@
 
 #
 # Program options...
@@ -82,22 +83,24 @@ LIBZ	=	@LIBZ@
 #         extra debug info)
 #
 
-ARFLAGS	=	@ARFLAGS@
-CFLAGS	=	$(RC_CFLAGS) @CFLAGS@ -I.. $(OPTIONS)
-CXXFLAGS =	$(RC_CFLAGS) @CXXFLAGS@ -I.. $(OPTIONS)
-CXXLIBS	=	@CXXLIBS@
-DSOFLAGS =	@DSOFLAGS@
-DSOLIBS	=	@DSOLIBS@
-IMGLIBS	=	@IMGLIBS@ -lm
-LDFLAGS	=	-L../cups -L../filter @LDFLAGS@ $(OPTIM)
-LINKCUPS =	@LINKCUPS@
-LINKCUPSIMAGE =	@LINKCUPSIMAGE@
-LIBS	=	$(LINKCUPS) $(NETLIBS) @LIBS@
-NETLIBS	=	@NETLIBS@
-OPTIM	=	@OPTIM@
-OPTIONS	=
-PAMLIBS	=	@PAMLIBS@
-SSLLIBS	=	@SSLLIBS@
+ARFLAGS		=	@ARFLAGS@
+BACKLIBS	=	@BACKLIBS@
+CFLAGS		=	$(RC_CFLAGS) @CPPFLAGS@ @CFLAGS@ -I.. $(OPTIONS)
+COMMONLIBS	=	@COMMONLIBS@
+CXXFLAGS	=	$(RC_CFLAGS) @CPPFLAGS@ @CXXFLAGS@ -I.. $(OPTIONS)
+CXXLIBS		=	@CXXLIBS@
+DSOFLAGS	=	@DSOFLAGS@
+DSOLIBS		=	@DSOLIBS@ $(COMMONLIBS)
+IMGLIBS		=	@IMGLIBS@ -lm
+LDFLAGS		=	-L../cups -L../filter $(RC_CFLAGS) @LDFLAGS@ $(OPTIM)
+LINKCUPS	=	@LINKCUPS@
+LINKCUPSIMAGE	=	@LINKCUPSIMAGE@
+LIBS		=	$(LINKCUPS) $(NETLIBS) @LIBS@ $(COMMONLIBS)
+NETLIBS		=	@NETLIBS@
+OPTIM		=	@OPTIM@
+OPTIONS		=
+PAMLIBS		=	@PAMLIBS@
+SSLLIBS		=	@SSLLIBS@
 
 #
 # Directories...
@@ -173,11 +176,12 @@ MAN8DIR		=	@MAN8DIR@
 	-$(NROFF) -man $< >$@
 .man.z:
 	echo Formatting $<...
-	$(RM) $@ t.z
-	-$(NROFF) -man $< >t
-	pack -f t
-	$(MV) t.z $@
+	$(RM) $@ $@.tmp $@.tmp.z
+	-$(NROFF) -man $< >$@.tmp
+	pack -f $@.tmp
+	$(MV) $@.tmp.z $@
+
 
 #
-# End of "$Id: Makedefs.in,v 1.17 2002/06/10 23:47:22 jlovell Exp $"
+# End of "$Id: Makedefs.in,v 1.1.1.13 2003/07/16 17:21:40 jlovell Exp $"
 #

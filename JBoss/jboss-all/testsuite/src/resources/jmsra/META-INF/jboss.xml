@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<jboss>
+     <secure>false</secure>
+      <resource-managers>
+        <resource-manager>
+          <res-name>queuefactoryref</res-name>
+          <res-jndi-name>java:/JmsXA</res-jndi-name>
+        </resource-manager>
+        <resource-manager>
+          <res-name>queueref</res-name>
+          <res-jndi-name>queue/testQueue</res-jndi-name>
+        </resource-manager>
+        <resource-manager>
+          <res-name>topicfactoryref</res-name>
+          <res-jndi-name>java:/JmsXA</res-jndi-name>
+        </resource-manager>
+        <resource-manager>
+          <res-name>topicref</res-name>
+          <res-jndi-name>topic/testTopic</res-jndi-name>
+        </resource-manager>
+        <resource-manager>
+          <res-name>recqueueref</res-name>
+          <res-jndi-name>queue/A</res-jndi-name>
+        </resource-manager>
+    </resource-managers>
+
+     <enterprise-beans>
+       <session>
+	 <ejb-name>QueuePublisher</ejb-name>
+	 <jndi-name>TxPublisher</jndi-name>
+	 <configuration-name>Standard Stateless SessionBean</configuration-name>
+          <resource-ref>
+           <res-ref-name>jms/MyQueueConnection</res-ref-name>
+           <resource-name>queuefactoryref</resource-name>
+         </resource-ref>
+         <resource-ref>
+           <res-ref-name>jms/QueueName</res-ref-name>
+           <resource-name>queueref</resource-name>
+         </resource-ref>
+         <ejb-ref>
+	   <ejb-ref-name>ejb/PublisherCMP</ejb-ref-name>
+	  <jndi-name></jndi-name>
+	 </ejb-ref>
+       </session>
+       <session>
+	 <ejb-name>TopicPublisher</ejb-name>
+	 <jndi-name>TxTopicPublisher</jndi-name>
+	 <configuration-name>Standard Stateless SessionBean</configuration-name>
+          <resource-ref>
+           <res-ref-name>jms/MyTopicConnection</res-ref-name>
+           <resource-name>topicfactoryref</resource-name>
+         </resource-ref>
+         <resource-ref>
+           <res-ref-name>jms/TopicName</res-ref-name>
+           <resource-name>topicref</resource-name>
+         </resource-ref>
+         <ejb-ref>
+	   <ejb-ref-name>ejb/PublisherCMP</ejb-ref-name>
+	  <jndi-name></jndi-name>
+	 </ejb-ref>
+       </session>
+       <session>
+	 <ejb-name>QueueRec</ejb-name>
+	 <jndi-name>QueueRec</jndi-name>
+	 <configuration-name>Standard Stateless SessionBean</configuration-name>
+          <resource-ref>
+           <res-ref-name>jms/MyQueueConnection</res-ref-name>
+           <resource-name>queuefactoryref</resource-name>
+         </resource-ref>
+         <resource-ref>
+           <res-ref-name>jms/QueueName</res-ref-name>
+           <resource-name>recqueueref</resource-name>
+         </resource-ref>
+       </session>
+       <entity>
+	 <ejb-name>PublisherCMP</ejb-name>
+	 <jndi-name>PublisherCMP</jndi-name>
+       </entity>
+       <message-driven>
+         <ejb-name>TopicAdapter</ejb-name>
+         <configuration-name>Standard Message Driven Bean</configuration-name>
+         <destination-jndi-name>topic/testTopic</destination-jndi-name>
+         <resource-ref>
+           <res-ref-name>jms/MyQueueConnection</res-ref-name>
+           <resource-name>queuefactoryref</resource-name>
+         </resource-ref>
+         <resource-ref>
+           <res-ref-name>jms/QueueName</res-ref-name>
+           <resource-name>queueref</resource-name>
+         </resource-ref>
+       </message-driven>
+     </enterprise-beans>
+</jboss>
+

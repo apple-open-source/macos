@@ -1,0 +1,830 @@
+<!-- $Id: targets.ent,v 1.1.2.1 2003/05/18 06:24:13 starksm Exp $ -->
+<!--
+   $Log: targets.ent,v $
+   Revision 1.1.2.1  2003/05/18 06:24:13  starksm
+
+   Update the buildmagic element to be consistent with head
+
+   Revision 1.16  2003/05/15 14:58:18  yanikc
+   Replaced tabs with spaces to make this file compliant with the
+   JBoss coding standards. Added the Log entry to display
+   cvs history in comment at the beginning of the file.
+
+-->
+
+<!-- ================================================================== -->
+<!-- Initialization                                                     -->
+<!-- ================================================================== -->
+
+<!--
+   | Initialize the build system.  Must depend on '_buildmagic:init'.  
+   | Other targets should depend on 'init' or things will mysteriously fail.
+ -->
+
+<target name="_default:init" unless="init.disable" depends="_buildmagic:init">
+</target>
+
+
+<!-- ================================================================== -->
+<!-- Compile                                                            -->
+<!-- ================================================================== -->
+
+<!-- Compile all class files -->
+<target name="_default:compile-classes" depends="init" unless="compile.disable">
+  <mkdir dir="${build.classes}"/>
+
+  <!-- Hack, required to avoid duplicate javac targets -->
+  <mkdir dir="${build.gen.classes}"/>
+
+  <!-- Remove classes which depend on changed files, so they will rebuild. -->
+  <depend srcdir="${source.java}:${build.gen.classes}"
+          destdir="${build.classes}"
+          dump="${javac.depend.dump}" 
+          closure="${javac.depend.closure}">
+     <include name="${javac.includes}"/>
+     <exclude name="${javac.excludes}"/>
+  </depend>
+
+  <javac destdir="${build.classes}"
+         optimize="${javac.optimize}"
+         target="${javac.target}"
+         debug="${javac.debug}"
+    depend="${javac.depend}"
+    verbose="${javac.verbose}"
+    deprecation="${javac.deprecation}"
+    includeAntRuntime="${javac.include.ant.runtime}"
+    includeJavaRuntime="${javac.include.java.runtime}"
+    failonerror="${javac.fail.onerror}">
+     <src path="${source.java}:${build.gen.classes}"/>
+     <classpath refid="javac.classpath"/>
+     <include name="${javac.includes}"/>
+     <exclude name="${javac.excludes}"/>
+  </javac>
+</target>
+
+<!-- Compile all module test class files -->
+<target name="_default:compile-test-classes" depends="init" unless="compile.disable">
+
+  <mkdir dir="${build.test}"/>
+
+  <!-- Hack, required to avoid duplicate javac targets -->
+  <mkdir dir="${build.gen.test}"/>
+
+  <!-- Remove classes which depend on changed files, so they will rebuild. -->
+  <depend srcdir="${source.test}:${build.gen.test}"
+          destdir="${build.test}"
+          dump="${javac.depend.dump}" 
+          closure="${javac.depend.closure}">
+     <include name="${javac.includes}"/>
+     <exclude name="${javac.excludes}"/>
+  </depend>
+
+  <javac destdir="${build.test}"
+         optimize="${javac.optimize}"
+         target="${javac.target}"
+         debug="${javac.debug}"
+    depend="${javac.depend}"
+    verbose="${javac.verbose}"
+    deprecation="${javac.deprecation}"
+    includeAntRuntime="${javac.include.ant.runtime}"
+    includeJavaRuntime="${javac.include.java.runtime}"
+    failonerror="${javac.fail.onerror}">
+     <src path="${source.test}:${build.gen.test}"/>
+     <classpath>
+       <path refid="javac.classpath"/>
+       <pathelement location="${build.classes}"/>
+     </classpath>
+     <include name="${javac.includes}"/>
+     <exclude name="${javac.excludes}"/>
+  </javac>
+</target>
+
+<!-- Compile manifests -->
+<target name="_default:compile-etc" depends="init" unless="compile.disable">
+  <mkdir dir="${build.etc}"/>
+  <copy todir="${build.etc}" filtering="yes">
+    <fileset dir="${source.etc}">
+       <include name="**"/>
+    </fileset>
+  </copy>
+</target>
+
+<!-- Compile resource files -->
+<target name="_default:compile-resources" depends="init" unless="compile.disable">
+  <mkdir dir="${build.resources}"/>
+  <copy todir="${build.resources}" filtering="yes">
+    <fileset dir="${source.resources}">
+      <patternset refid="compile-resources.filter.pattern"/>
+    </fileset>
+  </copy>
+  <copy todir="${build.resources}" filtering="no">
+    <fileset dir="${source.resources}">
+      <patternset refid="compile-resources.pattern"/>
+    </fileset>
+  </copy>
+</target>
+
+<patternset id="compile-resources.filter.pattern">
+  <include name="**/*"/>
+</patternset>
+
+<patternset id="compile-resources.pattern">
+  <exclude name="INVALID_FILE_DOES_NOT_EXISTS"/>
+</patternset>
+
+<!-- Compile stylesheets files -->
+<target name="_default:compile-stylesheets" depends="init" unless="compile.disable">
+  <mkdir dir="${build.stylesheets}"/>
+  <copy todir="${build.stylesheets}" filtering="yes">
+    <fileset dir="${source.stylesheets}">
+       <include name="**/*"/>
+    </fileset>
+  </copy>
+</target>
+
+<!-- Compile bin scripts -->
+<target name="_default:compile-bin" depends="init" unless="compile.disable">
+  <mkdir dir="${build.bin}"/>
+  <copy todir="${build.bin}" filtering="yes">
+    <fileset dir="${source.bin}">
+       <include name="**/*"/>
+    </fileset>
+  </copy>
+
+  <call target="_default:fix-bin"/>
+</target>
+
+<target name="_default:fix-bin" depends="init">
+  <fixcrlf srcdir="${build.bin}"
+        eol="lf" eof="remove"
+        includes="**/*.sh"/>
+
+  <fixcrlf srcdir="${build.bin}" 
+        eol="crlf" eof="remove"
+        includes="**/*.bat, **/*.cmd"/>
+
+  <chmod perm="+x">
+    <fileset dir="${build.bin}">
+       <include name="**/*.sh"/>
+    </fileset>
+  </chmod>
+</target>
+
+<target name="_default:compile-web" depends="init" unless="compile.disable">
+  <mkdir dir="${build.web}"/>
+  <copy todir="${build.web}" filtering="yes">
+    <fileset dir="${source.web}">
+      <patternset refid="compile-web.filter.pattern"/>
+    </fileset>
+  </copy>
+  <copy todir="${build.web}" filtering="no">
+    <fileset dir="${source.web}">
+      <patternset refid="compile-web.pattern"/>
+    </fileset>
+  </copy>
+</target>
+
+<patternset id="compile-web.pattern">
+  <exclude name="INVALID_FILE_DOES_NOT_EXISTS"/>
+</patternset>
+
+<patternset id="compile-web.filter.pattern">
+  <include name="**/*"/>
+</patternset>
+
+<target name="_default:compile-checksums" depends="init" unless="compile.disable">
+  <checksum>
+    <fileset dir="${build.lib}">
+      <include name="*.jar"/>
+      <include name="*.zip"/>
+    </fileset>
+  </checksum>
+</target>
+
+<!-- Compile RMI stubs -->
+<target name="_default:compile-rmi" depends="init" unless="compile.disable">
+  <rmic base="${build.classes}"
+        verify="${rmic.verify}"
+   iiop="${rmic.iiop}"
+   iiopopts="${rmic.iiopops}"
+   idl="${rmic.idl}"
+   idlopts="${rmic.idlops}"
+   debug="${rmic.debug}"
+        stubVersion="${rmic.stubVersion}">
+    <classpath refid="javac.classpath"/>
+    <patternset refid="compile-rmi.pattern"/>
+  </rmic>
+</target>
+
+<patternset id="compile-rmi.pattern">
+  <exclude name="INVALID_FILE_DOES_NOT_EXISTS"/>
+</patternset>
+
+<!-- ================================================================== -->
+<!-- Tests                                                              -->
+<!-- ================================================================== -->
+<!-- default test target.  To test a module, include 
+  <target name="tests" depends="_default:tests"/>
+  in the module build file-->
+
+  <target name="_default:tests" depends="compile" unless="tests.disable">
+    <echo message="build.reports: ${build.reports}"/>
+    <echo message="build.test: ${build.test}"/>
+
+    <mkdir dir="${build.test}"/>
+
+    <!-- Hack, required to avoid duplicate javac targets -->
+    <mkdir dir="${build.gen.test}"/>
+
+    <path id="tests.classpath">
+      <pathelement path="${classpath}"/>
+      <pathelement path="${local.classpath}"/>
+      <pathelement path="${project.tools}/lib/ant.jar"/>
+      <pathelement path="${project.tools}/lib/junit.jar"/>
+      <pathelement path="${project.tools}/lib/optional.jar"/>
+      <path refid="thirdparty.classpath"/>
+<!-- FIXME: Need to add at least log4j here, what else? -->
+      <path refid="apache.log4j.classpath"/>
+    </path>
+
+    <!--default value, reset earlier if desired-->
+    <property name="log4j.configuration" value="file:${project.root}/testsuite/src/resources/log4j.xml"/>
+    <property name="test.pattern" value="**/*TestCase.class"/>
+    <echo message="test.pattern: ${test.pattern}"/>
+
+    <property name="jbosstest.data.dir" location="${module.output}/data"/>
+    <echo message="jbosstest.data.dir: ${jbosstest.data.dir}"/>
+
+    <mkdir dir="${build.reports}"/>
+    <mkdir dir="${build.log}"/>
+    <junit dir="${module.output}"
+           printsummary="${junit.printsummary}"
+           haltonerror="${junit.haltonerror}"
+           haltonfailure="${junit.haltonfailure}"
+           fork="${junit.fork}"
+           timeout="${junit.timeout}"
+           jvm="${junit.jvm}">
+
+      <jvmarg value="${junit.jvm.options}"/>
+      <sysproperty key="build.log" value="${build.log}"/>
+      <sysproperty key="log4j.configuration" value="${log4j.configuration}"/>
+      <sysproperty key="jbosstest.data.dir" value="${jbosstest.data.dir}"/>
+
+      <classpath>
+        <pathelement location="${build.classes}"/>
+        <pathelement location="${build.test}"/>
+        <pathelement location="${build.resources}"/>
+        <path refid="tests.classpath"/>
+      </classpath>
+
+      <formatter type="xml" usefile="${junit.formatter.usefile}"/>
+
+      <batchtest todir="${build.reports}"
+                 haltonerror="${junit.batchtest.haltonerror}"
+                 haltonfailure="${junit.batchtest.haltonfailure}"
+                 fork="${junit.batchtest.fork}">
+
+        <fileset dir="${build.test}">
+          <include name="${test.pattern}"/>
+        </fileset>
+      </batchtest>
+    </junit>
+  </target>
+  <!-- end _default:tests-->
+
+<!-- ================================================================== -->
+<!-- Documents                                                          -->
+<!-- ================================================================== -->
+
+<target name="_default:docs" description="Builds all documentation."
+   depends="docs-api, 
+                 docs-todo"/>
+
+<!-- ======== -->
+<!-- JavaDocs -->
+<!-- ======== -->
+
+
+
+<target name="docs-javadocs-check" depends="init">
+
+  <!-- if index.html is newer than the sources we are up to date -->
+  <uptodate property="docs-javadocs.disable"
+         targetfile="${build.api}/index.html">
+    <srcfiles dir="${source.java}" includes="**/*.java"/>
+  </uptodate>
+</target>
+<target name="docs-javadocs" depends="init">
+   <call target="docs-javadocs_1_4" if="HAVE_JDK_1.4" />
+   <call target="docs-javadocs_1_3" unless="HAVE_JDK_1.4" />
+</target>
+  <!-- Generate Javadoc if we are out of date -->
+<target name="docs-javadocs_1_4" 
+     depends="docs-javadocs-check" 
+     unless="docs-javadocs.disable">
+
+  <mkdir dir="${build.api}"/>
+  <javadoc packagenames="${javadoc.packages}"
+             sourcepath="${source.classes}:${build.gen.classes}"
+             destdir="${build.api}"
+             classpathref="javadoc.classpath"
+             windowtitle="${javadoc.windowtitle}"
+        splitindex="${javadoc.splitindex}"
+             author="${javadoc.author}"
+             version="${javadoc.version}"
+             public="${javadoc.public}"
+             package="${javadoc.package}"
+             protected="${javadoc.protected}"
+             private="${javadoc.private}"
+             use="${javadoc.use}"
+        verbose="${javadoc.verbose}"> 
+    <doctitle><![CDATA[<h1>${module.Name} API Documentation</h1>]]></doctitle>
+    <bottom><![CDATA[
+      <i>
+      <div align="center">
+        <font size="-1">Copyright &#169; 2002 JBoss Group, LLC. All Rights Reserved.</font>
+      </div>
+      </i>
+    ]]></bottom>
+    
+    <!--
+    <link href="http://java.sun.com/j2se/1.3/docs/api"/>
+      -->
+      
+    <!-- Added links and tags by Yanik Crepeau <yanik@exScriptis.com> 2003-05-13 -->
+    <!--Thes tag declarations will shut down the Unknown tag warning during the javadoc process -->
+    <link href="http://java.sun.com/j2se/1.4.1/docs/api/"/>
+    <tag name="ejb.interface-method" description="ejb interface method delcaration" enabled="false" />
+    <tag name="ejb.persistence" description="ejb persistence declaration" enabled="false" />
+    <tag name="ejb.pk-field" description="ejb primary-key field declaration" enabled="false" />
+    <tag name="ejb.pk" description="ejb" enabled="false" />
+    <tag name="ejb.bean" description="ejb" enabled="false" />
+    <tag name="ejb.transaction" description="ejb" enabled="false" />
+    <tag name="ejb.finder" description="ejb" enabled="false" />
+    <tag name="ejb.relation" description="ejb" enabled="false" />
+    <tag name="ejb.create-method" description="ejb" enabled="false" />
+    
+    <tag name="jboss.query" description="jboss" enabled="false" />
+    <tag name="jboss.lazy-load-group" description="jboss" enabled="false" />
+    <tag name="jboss.load-group" description="jboss" enabled="false" />
+    <tag name="jboss.persistence" description="jboss" enabled="false" />
+    <tag name="jboss.entity-command" description="jboss" enabled="false" />
+    <tag name="jboss.method-attribute" description="jboss" enabled="false" />
+    <tag name="jboss.relation" description="jboss" enabled="false" />
+    <tag name="jboss.method-attribute" description="jboss" enabled="false" />
+    <tag name="jboss.relation-read-ahead" description="jboss" enabled="false" />
+    <tag name="jboss.relation-table" description="jboss" enabled="false" />
+    <tag name="jboss.table-attribute" description="jboss" enabled="false" />
+    
+    <tag name="jmx.managed-attribute" description="jmx" enabled="false" />
+    <tag name="jmx.managed-constructor" description="jmx" enabled="false" />
+    <tag name="jboss.method-attributes" description="jboss" enabled="false" />
+    
+  </javadoc>
+</target>
+
+<target name="docs-javadocs_1_3" 
+     depends="docs-javadocs-check" 
+     unless="docs-javadocs.disable">
+
+  <mkdir dir="${build.api}"/>
+  <javadoc packagenames="${javadoc.packages}"
+             sourcepath="${source.classes}:${build.gen.classes}"
+             destdir="${build.api}"
+             classpathref="javadoc.classpath"
+             windowtitle="${javadoc.windowtitle}"
+        splitindex="${javadoc.splitindex}"
+             author="${javadoc.author}"
+             version="${javadoc.version}"
+             public="${javadoc.public}"
+             package="${javadoc.package}"
+             protected="${javadoc.protected}"
+             private="${javadoc.private}"
+             use="${javadoc.use}"
+        verbose="${javadoc.verbose}"> 
+    <doctitle><![CDATA[<h1>${module.Name} API Documentation</h1>]]></doctitle>
+    <bottom><![CDATA[
+      <i>
+      <div align="center">
+        <font size="-1">Copyright &#169; 2002 JBoss Group, LLC. All Rights Reserved.</font>
+      </div>
+      </i>
+    ]]></bottom>
+    
+    <!--
+    <link href="http://java.sun.com/j2se/1.3/docs/api"/>
+      -->
+    
+  </javadoc>
+</target>
+
+<target name="docs-api" depends="docs-javadocs"/>
+
+<target name="javadocs" depends="docs-javadocs"/>
+
+<!-- ========= -->
+<!-- TODO Docs -->
+<!-- ========= -->
+
+<target name="docs-todo-check" depends="init">
+
+  <!-- if index.html is newer than the sources we are up to date -->
+  <uptodate property="docs-todo.disable"
+         targetfile="${build.todo}/index.html">
+    <srcfiles dir="${source.java}" includes="**/*.java"/>
+  </uptodate>
+  </target>
+
+  <!-- Generate TODO list from @todo tags -->
+  <target name="docs-todo" 
+     depends="docs-todo-check" 
+     unless="docs-todo.disable">
+
+  <mkdir dir="${build.todo}"/>
+  <todo destdir="${build.todo}">
+    <fileset dir="${source.java}">
+      <include name="**/*.java"/>
+    </fileset>
+
+    <info/>
+  </todo>
+</target>
+
+<target name="todo" depends="docs-todo"/>
+
+<!-- ============== -->
+<!-- JMX MBean Docs -->
+<!-- ============== -->
+
+<target name="jmx-docs" depends="init">
+
+  <mkdir dir="${build.jmx-doc}"/>
+  <jmxdoclet destdir="${build.jmx-doc}"
+             force="false"
+        excludedtags="@version,@author">
+    <fileset dir="${source.java}">
+      <include name="**/*.java"/>
+    </fileset>
+    <jbossXmlDoc/>
+  </jmxdoclet>
+
+</target>
+
+<!-- Generate the plain HTML jmx docs -->
+<target name="docs-jmx-html-plain" depends="jmx-docs">
+
+  <!-- Force the use of SAXON XSLT -->
+  <property system="true" 
+         name="javax.xml.transform.TransformerFactory"
+         value="com.icl.saxon.TransformerFactoryImpl"/>
+
+  <mkdir dir="${build.jmx-api}"/>
+  <style style="${project.thirdparty}/oasis/docbook-xsl/html/docbook.xsl"
+      processor="trax"
+      extension=".html"
+      basedir="${build.jmx-doc}"
+      destdir="${build.jmx-api}">
+    <include name="**/*.xml"/>
+    <param name="quiet" expression="${oasis.docbook.xsl.chunker.quiet}"/>
+    <param name="base.dir" expression="${build.jmx-api}${file.separator}"/>
+    <xmlcatalog>
+      <dtd
+          publicId="-//OASIS//DTD DocBook XML V4.1.2//EN"
+          location="${project.thirdparty}/oasis/docbook-xml/docbookx.dtd"/>
+    </xmlcatalog> 
+  </style>
+
+</target>
+
+
+<!-- ================================================================== -->
+<!-- Cleaning                                                           -->
+<!-- ================================================================== -->
+
+<!-- Clean up all build output -->
+<target name="_default:clean" 
+     description="Cleans up most generated files."
+     depends="_buildmagic:clean">
+</target>
+
+<!-- Clean up all generated files -->
+<target name="_default:clobber" 
+     description="Cleans up all generated files."
+     depends="_buildmagic:clobber, clean">
+</target>
+
+<target name="rebuild" depends="clean,most"/>
+
+
+<!-- ================================================================== -->
+<!-- Misc.                                                              -->
+<!-- ================================================================== -->
+
+<target name="_default:main"
+   description="Executes the default target (most)."
+   depends="most"/>
+    
+<target name="_default:all"
+   description="Builds everything."
+   depends="most,docs"/>
+
+<target name="_default:most" 
+   description="Builds almost everything."
+   depends="output"/>
+
+<target name="_default:help" 
+        description="Show this help message."
+   depends="_buildmagic:help:standard"/>
+
+
+<!-- ================================================================== -->
+<!-- Install & Release                                                  -->
+<!-- ================================================================== -->
+
+<!--
+   | These are almost never overriden, so no need to force module build.xml
+   | to define them.
+ -->
+
+<target name="release-zip" 
+   description="Builds a ZIP distribution."
+   depends="output, _buildmagic:release:zip"/>
+
+<target name="release-tar" 
+   description="Builds a TAR distribution."
+   depends="output, _buildmagic:release:tar"/>
+
+<target name="release-tgz" 
+   description="Builds a TAR-GZ distribution."
+   depends="output, _buildmagic:release:tgz"/>
+
+<target name="release-all"
+   description="Builds a distribution for each archive type."
+   depends="release-zip, release-tgz"/>
+
+
+  <!-- ================================================================== -->
+  <!-- Project (build module) Targets                                     -->
+  <!-- ================================================================== -->
+
+<!-- jason: this needs to be cleaned up -->
+
+<target name="configure-project" unless="configure-project.disable">
+
+    <!-- Bits for building source archives -->
+    <patternset id="source.ignore">
+      <exclude name="**/output/**"/>
+    </patternset>
+    <patternset id="source.free">
+      <exclude name="tools/**"/>
+      <exclude name="thirdparty/**"/>
+      <include name="**"/>
+    </patternset>
+    <patternset id="source.external">
+      <include name="tools/**"/>
+      <include name="thirdparty/**"/>
+    </patternset>
+
+    <!-- Skip any missing modules and issue a warning -->
+    <property name="executemodules.skipmissing" value="true"/>
+
+    <!-- The header and footer displayed during each module execution -->
+    <property name="executemodules.header"><![CDATA[
+ ============================================================== 
+ ==
+ ==  Executing '@TARGET@' in module '@MODULE@'...
+ ==
+ ==]]></property>
+
+    <property name="executemodules.footer"><![CDATA[
+ ==
+ ==
+ ==  Finished '@TARGET@' in module '@MODULE@'.
+ ==
+ ==============================================================
+    ]]></property>
+
+    <property name="executemodules.exportproperties">
+       version.major,
+       version.minor,
+       version.revision,
+       version.tag, 
+       version.name, 
+       version.cvstag,
+
+       specification.title,
+       specification.version,
+       specification.vendor,
+
+       implementation.title,
+       implementation.version,
+       implementation.vendor,
+       implementation.vendor.id,
+       implementation.url
+    </property>
+
+    <!-- Show the module configuration -->
+    <echo>groups:  ${groups}</echo>
+    <echo>modules: ${modules}</echo>
+
+    <property name="configure-project.disable" value="true" system="true"/>
+
+</target>
+
+  <!-- ================================================================== -->
+  <!-- Module Pass-through Targets                                        -->
+  <!-- ================================================================== -->
+
+  <!--
+     | These targets will execute all configured modules with the specified
+     | target.
+   -->
+
+  <target name="modules-all" depends="_buildmagic:modules:all"/>
+  <target name="modules-most" depends="_buildmagic:modules:most"/>
+  <target name="modules-main" depends="_buildmagic:modules:main"/>
+  <target name="modules-release" depends="_buildmagic:modules:release"/>
+  <target name="modules-tests" depends="_buildmagic:modules:tests"/>
+  <target name="modules-clean" depends="_buildmagic:modules:clean"/>
+  <target name="modules-clobber" depends="_buildmagic:modules:clobber"/>
+
+
+<!-- ================================================================== -->
+<!-- Module Pass-through Targets                                        -->
+<!-- ================================================================== -->
+
+<!-- Invoke the 'all' on all configured modules -->
+<target name="_buildmagic:modules:all" depends="init">
+  <execmodules target="all" 
+       modules="${modules}" 
+       root="${project.root}/@MODULE@"
+       skipmissing="${executemodules.skipmissing}"
+                 exportproperties="${executemodules.exportproperties}">
+    <before target="_module-@MODULE@-@TARGET@-prepare"/>
+    <header message="${executemodules.header}"/>
+    <footer message="${executemodules.footer}"/>
+    <after target="_module-@MODULE@-@TARGET@"/>
+    <property name="init.have-parent" value="true"/>
+  </execmodules>
+</target>
+
+<!-- Invoke the 'most' on all configured modules -->
+<target name="_buildmagic:modules:most" depends="init">
+  <execmodules target="most" 
+          modules="${modules}" 
+          root="${project.root}/@MODULE@"
+          skipmissing="${executemodules.skipmissing}"
+          exportproperties="${executemodules.exportproperties}">
+    <header message="${executemodules.header}"/>
+    <footer message="${executemodules.footer}"/>
+    <before target="_module-@MODULE@-@TARGET@-prepare"/>
+    <after target="_module-@MODULE@-@TARGET@"/>
+    <property name="init.have-parent" value="true"/>
+  </execmodules>
+</target>
+
+<!-- Invoke the 'main' on all configured modules -->
+<target name="_buildmagic:modules:main" depends="init">
+  <execmodules target="main" 
+          modules="${modules}" 
+          root="${project.root}/@MODULE@"
+          skipmissing="${executemodules.skipmissing}"
+          exportproperties="${executemodules.exportproperties}">
+    <header message="${executemodules.header}"/>
+    <footer message="${executemodules.footer}"/>
+    <before target="_module-@MODULE@-@TARGET@-prepare"/>
+    <after target="_module-@MODULE@-@TARGET@"/>
+    <property name="init.have-parent" value="true"/>
+  </execmodules>
+</target>
+
+<!-- Invoke the 'release' on all configured modules -->
+<target name="_buildmagic:modules:release" depends="init">
+  <execmodules target="release" 
+          modules="${modules}" 
+          root="${project.root}/@MODULE@"
+          skipmissing="${executemodules.skipmissing}"
+          exportproperties="${executemodules.exportproperties}">
+    <before target="_module-@MODULE@-@TARGET@-prepare"/>
+    <header message="${executemodules.header}"/>
+    <footer message="${executemodules.footer}"/>
+    <after target="_module-@MODULE@-@TARGET@"/>
+    <property name="init.have-parent" value="true"/>
+  </execmodules>
+</target>
+
+<!-- Invoke the 'tests' on all configured modules -->
+<target name="_buildmagic:modules:tests" depends="init">
+  <execmodules target="tests" 
+          modules="${modules}" 
+          root="${project.root}/@MODULE@"
+          skipmissing="${executemodules.skipmissing}"
+          exportproperties="${executemodules.exportproperties}">
+    <before target="_module-@MODULE@-@TARGET@-prepare"/>
+    <header message="${executemodules.header}"/>
+    <footer message="${executemodules.footer}"/>
+    <after target="_module-@MODULE@-@TARGET@"/>
+    <property name="init.have-parent" value="true"/>
+    <property name="build.reports" value="${project.root}/testsuite/output/reports"/>
+  </execmodules>
+</target>
+
+<!-- Invoke the 'clean' on all configured modules -->
+<target name="_buildmagic:modules:clean" depends="init">
+  <execmodules target="clean" 
+          modules="${modules}" 
+          root="${project.root}/@MODULE@"
+          skipmissing="${executemodules.skipmissing}">
+    <before target="_module-@MODULE@-@TARGET@-prepare"/>
+    <header message="${executemodules.header}"/>
+    <footer message="${executemodules.footer}"/>
+    <after target="_module-@MODULE@-@TARGET@"/>
+    <property name="init.have-parent" value="true"/>
+  </execmodules>
+</target>
+
+<!-- Invoke the 'clobber' on all configured modules -->
+<target name="_buildmagic:modules:clobber" depends="init">
+  <execmodules target="clobber" 
+       modules="${modules}" 
+       root="${project.root}/@MODULE@"
+       skipmissing="${executemodules.skipmissing}">
+    <before target="_module-@MODULE@-@TARGET@-prepare"/>
+    <header message="${executemodules.header}"/>
+    <footer message="${executemodules.footer}"/>
+    <after target="_module-@MODULE@-@TARGET@"/>
+    <property name="init.have-parent" value="true"/>
+  </execmodules>
+</target>
+
+
+  <!-- ================================================================== -->
+  <!-- Source Archives                                                    -->
+  <!-- ================================================================== -->
+
+  <target name="source-free-zip" depends="init"
+     description="Builds a ZIP free source distribution.">
+    <mkdir dir="${module.output}"/>
+    <zip zipfile="${module.output}/${release.id}-free-src.zip">
+      <fileset dir="${project.root}">
+        <patternset refid="source.ignore"/>
+        <patternset refid="source.free"/>
+      </fileset>
+    </zip>
+  </target>
+
+  <target name="source-external-zip" depends="init"
+     description="Builds a ZIP external source distribution.">
+    <mkdir dir="${module.output}"/>
+    <zip zipfile="${module.output}/${release.id}-external-src.zip">
+      <fileset dir="${project.root}">
+        <patternset refid="source.ignore"/>
+        <patternset refid="source.external"/>
+      </fileset>
+    </zip>
+  </target>
+
+  <target name="source-zip" depends="source-free-zip, source-external-zip"
+     description="Builds a ZIP source distribution."/>
+
+  <target name="source-free-tar" depends="init"
+     description="Builds a TAR free source distribution.">
+    <mkdir dir="${module.output}"/>
+    <tar tarfile="${module.output}/${release.id}-free-src.tar" longfile="gnu"
+    basedir="${project.root}">
+        <patternset refid="source.ignore"/>
+        <patternset refid="source.free"/>
+    </tar>
+  </target>
+
+  <target name="source-external-tar" depends="init"
+     description="Builds a TAR external source distribution.">
+    <mkdir dir="${module.output}"/>
+    <tar tarfile="${module.output}/${release.id}-external-src.tar" longfile="gnu"
+    basedir="${project.root}">
+        <patternset refid="source.ignore"/>
+        <patternset refid="source.external"/>
+    </tar>
+  </target>
+
+  <target name="source-tar" depends="source-free-tar, source-external-tar"
+     description="Builds a TAR source distribution."/>
+
+  <target name="source-free-tgz" depends="source-free-tar"
+     description="Builds a TAR-GZIP free source distribution.">
+    <gzip src="${module.output}/${release.id}-free-src.tar"
+     zipfile="${module.output}/${release.id}-free-src.tgz"/>
+  </target>
+
+  <target name="source-external-tgz" depends="source-external-tar"
+     description="Builds a TAR-GZIP external source distribution.">
+    <gzip src="${module.output}/${release.id}-external-src.tar"
+     zipfile="${module.output}/${release.id}-external-src.tgz"/>
+  </target>
+
+  <target name="source-tgz" depends="source-free-tgz, source-external-tgz"
+     description="Builds a TAR-GZIP source distribution."/>
+
+  <target name="source-all"
+     depends="source-tar, source-tgz, source-zip"
+     description="Builds all source distributions."/>

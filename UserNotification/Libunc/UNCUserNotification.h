@@ -78,5 +78,6 @@ extern const char kUNCPopUpTitlesKey[];
 extern const char kUNCTextFieldTitlesKey[];
 extern const char kUNCCheckBoxTitlesKey[];
 extern const char kUNCTextFieldValuesKey[];
+extern const char kUNCPopUpSelectionKey[];
 
 #endif	/* _UNCUSERNOTIFICATION_H_ */

@@ -10,13 +10,11 @@ dnl ======================================================================
 
 dnl ######################################################################
 dnl INITIALIZATION
-dnl AC_INIT(amd/amd.c)
+dnl AC_INIT
 dnl new init style: PACKAGE, VERSION, BUG-REPORTING-ADDRESS
-AC_INIT(am-utils,
-	6.1a5,
-	amd-dev@am-utils.org)
+AC_INIT([am-utils],[6.1b1],[amd-dev@am-utils.org])
 AC_MSG_NOTICE(*** INITIALIZATION ***)
-AC_CONFIG_SRCDIR(amd/amd.c)
+AC_CONFIG_SRCDIR([amd/amd.c])
 AM_CONFIG_HEADER(config.h)
 AH_TOP([
 /*
@@ -54,8 +52,8 @@ AH_BOTTOM([
 ])
 dnl
 dnl AC_CONFIG_AUX_DIR(aux)
-AC_PREREQ(2.50)
-AC_REVISION($Revision: 1.1.1.1 $)
+AC_PREREQ(2.52)
+AC_REVISION($Revision: 1.2 $)
 AC_COPYRIGHT([Copyright (c) 1997-2002 Erez Zadok])
 dnl find out system type
 AC_MSG_NOTICE(*** SYSTEM TYPES ***)
@@ -251,7 +249,7 @@ dnl if we have to build am-utils on Irix 4, PTX, or Unixware.
 dnl AC_FUNC_GETMNTENT
 AMU_FUNC_BAD_MEMCMP
 AMU_FUNC_BAD_YP_ALL
-AC_FUNC_VFORK
+AC_FUNC_FORK([])
 AC_FUNC_WAIT3
 AC_FUNC_GETPGRP
 AC_FUNC_SETPGRP
@@ -289,6 +287,7 @@ AC_CHECK_FUNCS(			\
 	hesiod_reload		\
 	hesiod_to_bind		\
 	ldap_open		\
+	ldap_enable_cache	\
 	memcmp			\
 	memcpy			\
 	memmove			\
@@ -338,6 +337,7 @@ AC_REPLACE_FUNCS(		\
 	hasmntopt		\
 	strcasecmp		\
 	strdup			\
+	strerror		\
 	strstr			\
 	ualarm			\
 	)
@@ -728,8 +728,10 @@ AMU_CHECK_FIELD(nfs_args_t.version)
 AMU_CHECK_FIELD(struct ifreq.ifr_addr)
 AMU_CHECK_FIELD(struct ifaddrs.ifa_next)
 AMU_CHECK_FIELD(struct sockaddr.sa_len)
+AMU_CHECK_FIELD(struct umntrequest.devid)
 dnl This one is for Irix
 AMU_CHECK_FIELD(autofs_args_t.addr)
+
 dnl ======================================================================
 
 dnl ######################################################################
@@ -738,10 +740,14 @@ AC_MSG_NOTICE(*** MAP TYPES ***)
 dnl DBM is obsolete, use NDBM
 dnl AMU_CHECK_MAP_FUNCS(dbminit dbmopen, dbm)
 AMU_CHECK_MAP_FUNCS(fgets, file)
-if test "$with_hesiod" = "yes"; then
+dnl Define HESIOD map if user wanted it, and both headers and libraries exist
+if test "$with_hesiod" = "yes" && test "$ac_cv_header_hesiod_h" = "yes"
+then
 AMU_CHECK_MAP_FUNCS(hes_init hesiod_init, hesiod)
 fi
-if test "$with_ldap" = "yes"; then
+dnl Define LDAP map if user wanted it, and both headers and libraries exist
+if test "$with_ldap" = "yes" && test "$ac_cv_header_ldap_h" = "yes"
+then
 AMU_CHECK_MAP_FUNCS(ldap_open, ldap)
 fi
 AMU_CHECK_MAP_FUNCS(dbm_open, ndbm)
@@ -1048,12 +1054,13 @@ AC_MSG_NOTICE(*** OUTPUT FILES ***)
 dnl The am_utils_link_files variable is set in macros in aclocal.m4
 AC_CONFIG_LINKS(${am_utils_link_files})
 dnl ==========================================================================
-dnl This is required by libtool 1.0 until an automake after 2.12 does it
-dnl automatically.
-LTLIBOBJS=`echo "$LIBOBJS" | sed 's/\.o/.lo/g'`
+dnl This is necessary so that .o files in LIBOBJS are also built via
+dnl the ANSI2KNR-filtering rules.
+LIBOBJS=`echo "$LIBOBJS" |
+		sed 's,\.[[^.]]* ,$U&,g;s,\.[[^.]]*$,$U&,'`
+LTLIBOBJS=`echo "$LIBOBJS" |
+		sed 's,\.[[^.]]* ,.lo ,g;s,\.[[^.]]*$,.lo,'`
 AC_SUBST(LTLIBOBJS)
-LTALLOCA=`echo "$ALLOCA" | sed 's/\.o/.lo/g'`
-AC_SUBST(LTALLOCA)
 dnl XXX: next two lines are temp hack until automake newer than 1.4 comes out
 AMU_LIB_OBJS="${LTLIBOBJS} ${LTALLOCA}"
 AC_SUBST(AMU_LIB_OBJS)

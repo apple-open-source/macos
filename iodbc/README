@@ -1,0 +1,119 @@
+iODBC for Mac OS X
+Steve Miner <miner@apple.com>
+original date 04/08/02
+updated 04/17/02
+
+iODBC is an open source ODBC driver manager written by OpenLink.  It
+has been ported to various Unix platforms and Windows.  See
+<http://www.iodbc.org> and <http://www.openlinksw.com> for more
+information.
+
+This port is based on a prerelease version of 3.0.6 which has a number
+of changes from the current open source release (version 3.0.5).
+
+The source from OpenLink did not contain the makefiles or the
+configure script necessary to build on Mac OS X.  OpenLink has been
+unresponsive to our requests for a package that builds cleanly on
+10.1.3.  They have not responded to our requests for their
+configuration information.  I have no idea why they are so
+uncooperative.
+
+Apparently, the source had been configured with newer versions of
+autoconf, automake, libtool, and m4 than are shipped with Mac OS X
+10.1.3. Mac OS 10.2 is not expected to provide any of these updates.
+
+I had to install updated versions of these gnu tools in order to
+generate the makefiles and configure script that are included with the
+sources.  This was a trial-and-error process.  It's entirely possible
+that I missed something or am using some different setting than the
+OpenLink developers intended.
+
+The updated gnu tools are not stored in the repository with the iODBC
+source since they are not needed to build iODBC once it is configured.
+However, they may be needed to support future updates of iODBC.  You
+can track down the following sources through www.gnu.org:
+
+-  autoconf-2.53
+-  libtool-1.4.2
+-  automake-1.6
+-  m4-1.4
+
+I also had to install dlcompat to get things to build.  The dlcompat
+package is a shim that provides the dlopen API that is not supported
+by Mac OS X.  I started with the Fink project dlcompat-20010831, but
+I had to modify it to work with Jaguar.  (I changed "enum bool" to
+"enum DYLD_BOOL".)  I then tried to add the source for dlopen.c and
+the header dlfcn.h directly to the iodbc sources, rather than building
+another library (libdl).  I am not sure if this was done properly.
+
+You can find dlcompat at <http://fink.sourceforge.net/>.  I added my
+modified version to the cvs repository for iODBC to for reference.  It
+may be necessary to reintegrate dlopen.c and dlfnc.h into new releases
+of iODBC.
+
+The source now builds without error using ~rc/bin/buildit.  It has not
+been tested with a driver and may not actually work at all.
+
+There was a problem building in RC.  The basic conflict is that the
+DSTROOT has a tilde '~' in it and gnu libtool is using IFS='~' to pass
+multiple commands in sh scripts.  The problem occurs when the commands
+are split at the ~, leaving a malformed command that fails.  When I
+use ~rc/bin/buildit on my machine, it works because the local build
+dir has no confusing tildes.  Arguably, this is a bug in gnu libtool
+and friends.  The solution is to edit the iodbc/configure and
+iodbc/admin/ltmain.sh files to use a + instead of a ~ to separate
+commands.  That little trick is likely to be a maintenance headache.
+Maybe there's a way to patch some of the automake tools to fix this in
+a more general way, but it's too complicated for me to figure out at
+the moment.
+
+Next, rc complained about the install_name being incorrect.  I hacked
+on configure a bit again to work around that.  (Search configure for
+-install_name to find my comments.)
+
+
+My understanding is that the task for porting iODBC to Jaguar was
+assigned to the WebObjects group because no one else wanted to do it,
+and the WebObjects group had some connection to databases.  WebObjects
+is written in Java so there's actually no practical connection between
+iODBC and WebObjects.
+
+
+Various people involved with iODBC:
+
+Steve Miner <miner@apple.com>, WebObjects Software Engineer
+Andreas Wendker <wendker@apple.com>,  WebObjects Manager
+Toni Trujillo Vian <toni@apple.com>,  WebObjects Director
+Dexter Chan <dexter@apple.com>,  Apple Developer Relations
+Ernie Prabhakar <prabhaka@apple.com>,  Apple Marketing
+Joyce Chow <jchow@apple.com>, copyright issues
+Andrew Hill <ahill@openlinksw.com>, OpenLink contact
+
+
+Andrew Hill
+Director of Technology Evangelism
+OpenLink Software  http://www.openlinksw.com
+Universal Data Access & Virtuoso Universal Server
+office:781.273.0900 x 27 mobile:781.608.4217
+
+
+
+Notes on configuration
+
+OpenLink refuses to give us source for their GUI admin tool so users
+will have to edit their .odbc.ini files by hand.  This also forces us
+to use --disable-gui when building (see Makefile).
+
+To get things to build without errors, I had to set several options
+for the installation destinations using $(DSTROOT).  This did not work
+the way I had expected.
+
+
+To Do: Get a driver to test with.
+
+OpenLink drivers are not useful for testing because they use their own
+version of the iODBC driver manager, not what we build.  MyODBC is an
+open source driver for MySQL.  In my initial tests, it failed to build
+correctly.  I eventually got something to build but it failed at
+runtime.  There are likely more configuration issues between MyODBC,
+MySQL and iODBC that I need to figure out.

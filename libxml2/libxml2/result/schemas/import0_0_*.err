@@ -1,0 +1,7 @@
+Schemas: element anonelem2 ref to p not found
+Type of sequence 1 : ./test/schemas/import0_0.xsd:12 :elements
+Type of myType : ./test/schemas/import0_0.xsd:11 :elements
+Type of sequence 1 : ./test/schemas/import0_0.xsd:12 :elements
+Building content model for myElt
+warning: failed to load external entity "./test/schemas/import0_*.xml"
+Could not parse ./test/schemas/import0_*.xml

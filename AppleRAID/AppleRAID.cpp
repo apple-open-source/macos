@@ -802,7 +802,10 @@ IOReturn AppleRAID::terminateRAIDMedia(IOMedia *media)
         if (!getSliceNumberForMedia(media, &sliceNumber)) return kIOReturnSuccess;
         
         if (arSetLevel == kAppleRAIDMirror) {
-            if (isOpen()) return kIOReturnSuccess;
+            if (isOpen()) {
+		setProperty(kAppleRAIDStatus, kAppleRAIDStatusDegraded);
+		return kIOReturnSuccess;
+	    }
             
             setMirrorTimer = true;
         }

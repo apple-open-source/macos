@@ -13,7 +13,7 @@ PROJECTVERSION = 2.6
 PROJECT_TYPE = Aggregate
 LANGUAGE = English
 
-LIBRARIES = common 
+LIBRARIES = resolver common
 
 AGGREGATES = agents servers tools
 

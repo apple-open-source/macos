@@ -64,6 +64,7 @@
 #	the include path (defaults to -I.)
 #    DEBUG_BUILD_LDFLAGS, OPTIMIZE_BUILD_LDFLAGS, PROFILE_BUILD_LDFLAGS: flags
 #	passed to ld/libtool (defaults to nothing)
+WARNING_CFLAGS=-Wall
 
 
 # Library and Framework projects only:
@@ -107,16 +108,20 @@ before_installhdrs: $(OFILE_DIR)
 $(OFILE_DIR)/genSCPreferences: genSCPreferences.o
 	$(CC) -o $@ $(ARCHITECTURE_FLAGS) $<
 
+SCSchemaDefinitions_10_1.h: $(OFILE_DIR)/genSCPreferences
+	$(CD) $(SFILE_DIR) && $(OFILE_DIR)/genSCPreferences header-x > $@
+
 SCSchemaDefinitions.h: $(OFILE_DIR)/genSCPreferences
-	$(CD) $(SFILE_DIR) && $(OFILE_DIR)/genSCPreferences header > $@
+	$(CD) $(SFILE_DIR) && $(OFILE_DIR)/genSCPreferences header   > $@
 
 SCSchemaDefinitions.c: $(OFILE_DIR)/genSCPreferences
-	$(CD) $(SFILE_DIR) && $(OFILE_DIR)/genSCPreferences cfile  > $@
+	$(CD) $(SFILE_DIR) && $(OFILE_DIR)/genSCPreferences cfile    > $@
 
 genSCFiles:
 	cc -o /tmp/genSCFiles genSCPreferences.c -framework CoreFoundation
-	/tmp/genSCFiles header > /tmp/SCSchemaDefinitions.h
-	/tmp/genSCFiles cfile  > /tmp/SCSchemaDefinitions.c
+	/tmp/genSCFiles header   > /tmp/SCSchemaDefinitions.h
+	/tmp/genSCFiles header-x > /tmp/SCSchemaDefinitions_10_1.h
+	/tmp/genSCFiles cfile    > /tmp/SCSchemaDefinitions.c
 
 dhcp: DHCP.c
 	cc -Wall -DTEST_DHCPCLIENT_PREFERENCES -g -o dhcp DHCP.c -framework CoreFoundation -framework SystemConfiguration

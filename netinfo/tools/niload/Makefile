@@ -12,13 +12,9 @@ NAME = niload
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-CLASSES =\
-	FFAgent.m FFParser.m Lock.m LUAgent.m LUArray.m LUDictionary.m\
-	LUDictionaryExtras.m Root.m
+CLASSES = FFParser.m LUArray.m LUDictionary.m
 
-HFILES =\
-	FFAgent.h FFParser.h Lock.h LUAgent.h LUArray.h LUDictionary.h\
-	LUGlobal.h LUDictionaryExtras.h Root.h print.h
+HFILES = FFParser.h LUArray.h LUDictionary.h LUGlobal.h print.h
 
 MFILES = niload.m
 

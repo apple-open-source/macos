@@ -103,7 +103,7 @@ SRC_ROOT = $(SRCROOT)
 # owned by the top-level Makefile API and no context has been set up for where 
 # derived files should go.
 #
-MIGFLAGS = -traditional-cpp -R  -untyped -DNO_DIRECT_RPC
+MIGFLAGS = -no-cpp-precomp -R  -untyped -DNO_DIRECT_RPC
 MIG = $(NEXT_ROOT)/usr/bin/mig 
         
 default_pager_alerts_server.c : backing_store_alerts.c \
@@ -124,3 +124,7 @@ backing_store_triggers_server.c: \
 	cp $(SRCROOT)/dynamic_pager.tproj/backing_store_triggers.defs $(SYM_DIR);
 	cd $(SYM_DIR) && \
 	$(MIG) $(MIGFLAGS) -user /dev/null -server backing_store_triggers_server.c -sheader backing_store_triggers_server.h backing_store_triggers.defs
+
+install-man-page:
+	install -d $(DSTROOT)/usr/share/man/man8
+	install -c -m 444 dynamic_pager.8 $(DSTROOT)/usr/share/man/man8/dynamic_pager.8

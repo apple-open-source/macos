@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile,v 1.3 2002/02/10 05:31:26 jlovell Exp $"
+# "$Id: Makefile,v 1.4 2003/07/23 01:38:17 jlovell Exp $"
 #
 #   Datafile makefile for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 1993-2002 by Easy Software Products.
+#   Copyright 1993-2003 by Easy Software Products.
 #
 #   These coded instructions, statements, and computer programs are the
 #   property of Easy Software Products and are protected by Federal
@@ -35,19 +35,7 @@ BANNERS	=	classified \
 		topsecret \
 		unclassified
 
-CHARSETS =	windows-874 \
-		windows-1250 \
-		windows-1251 \
-		windows-1252 \
-		windows-1253 \
-		windows-1254 \
-		windows-1255 \
-		windows-1256 \
-		windows-1257 \
-		windows-1258 \
-		koi8-r \
-		koi8-u \
-		iso-8859-1 \
+CHARSETS =	iso-8859-1 \
 		iso-8859-2 \
 		iso-8859-3 \
 		iso-8859-4 \
@@ -62,7 +50,18 @@ CHARSETS =	windows-874 \
 		iso-8859-15 \
 		koi8-r \
 		koi8-u \
-		utf-8
+		utf-8 \
+		windows-874 \
+		windows-1250 \
+		windows-1251 \
+		windows-1252 \
+		windows-1253 \
+		windows-1254 \
+		windows-1255 \
+		windows-1256 \
+		windows-1257 \
+		windows-1258
+
 DATAFILES =	HPGLprolog psglyphs testprint.ps
 
 
@@ -97,16 +96,9 @@ install:
 	for file in $(DATAFILES); do \
 		$(INSTALL_DATA) $$file $(DATADIR)/data; \
 	done
-	-if test x$(PAMDIR) != x$(BUILDROOT); then \
-		$(INSTALL_DIR) $(PAMDIR); \
-		if test -f /lib/security/pam_unix.so; then \
-			$(INSTALL_DATA) cups.suse $(PAMDIR)/cups; \
-		else \
-			$(INSTALL_DATA) cups.pam $(PAMDIR)/cups; \
-		fi \
-	fi
+	$(INSTALL_DIR) $(DATADIR)/profiles
 
 
 #
-# End of "$Id: Makefile,v 1.3 2002/02/10 05:31:26 jlovell Exp $".
+# End of "$Id: Makefile,v 1.4 2003/07/23 01:38:17 jlovell Exp $".
 #

@@ -1,9 +1,22 @@
-Installation Instructions for PHP 4.0
--------------------------------------
+Installation Instructions for PHP 4
+-----------------------------------
 
-For the impatient here is a quick set of steps that will build PHP as
-first a dynamic Apache module (DSO) for Apache 1.3.x with MySQL support 
-and then a static module.  A more verbose explanation follows.  
+STOP!
+
+Before going any further, please remember you are going to find more 
+up to date instructions in the online manual, located here:
+
+http://www.php.net/manual/en/install.apache.php
+
+For Apache 2, instructions and up-to-date information regarding it's
+support status, is available here:
+
+http://www.php.net/manual/en/install.apache2.php
+
+It is strongly recommended that you read the manual page before going
+further. However, for the impatient, here is a quick set of steps that 
+will build PHP as (first) a dynamic Apache module (DSO) for Apache 1.3.x 
+with MySQL support and then a static module.  A more verbose explanation follows.  
 
 For installing PHP on other web servers, refer to one of the following
 files:
@@ -14,24 +27,26 @@ files:
     sapi/thttpd/README
     README.Zeus
 
-Note!  Only install either the static module or the dynamic one.  Do not
-install both.  
+Some notes:
 
-Note 2!  If you are recompiling PHP to add new extensions or upgrading
-something like GD, remove the config.cache file before you re-run 
-configure.
+1: Only install either the static module or the dynamic one.  Do not
+   install both.  
 
-Note 3!  If you are on Linux and have installed shared libraries, make
-sure the location of these shared libraries are listed in your 
-/etc/ld.so.conf file.  For example, if you have:
+2:  If you are recompiling PHP to add new extensions or upgrading
+    something like GD, remove the config.cache file before you re-run 
+    configure.
 
-  /usr/local/lib/mysql/libmysqlclient.so
+3:  If you are on Linux and have installed shared libraries, make
+    sure the location of these shared libraries are listed in your 
+    /etc/ld.so.conf file.  For example, if you have:
 
-Make sure /etc/ld.so.conf contains:
+       /usr/local/lib/mysql/libmysqlclient.so
 
-  /usr/local/lib/mysql
+    Make sure /etc/ld.so.conf contains:
 
-Then run ldconfig.
+      /usr/local/lib/mysql
+
+    Then run ldconfig.
 
 If you want both PHP 3 and 4 modules in the same Apache server, check the
 bottom of this file for instructions.
@@ -52,8 +67,8 @@ Compiled-in modules:
 Chances are you will see a lot more modules than these two. That's ok, 
 as long as mod_so.c shows up you can proceed with the following steps:
 
-$ gunzip -c php-4.0.x.tar.gz | tar xf -
-$ cd php-4.0.x
+$ gunzip -c php-4.x.y.tar.gz | tar xf -
+$ cd php-4.x.y
 $ ./configure --with-mysql --with-apxs
 $ make
 $ make install
@@ -61,6 +76,9 @@ $ make install
 If you get an error telling you that the apxs script could not be found,
 look for it on your system and if you find it, provide the full path to it
 as: --with-apxs=/path/to/apxs
+
+Make sure you specify the version of apxs that is actually installed on
+your system and NOT the one that is in the apache source tarball.
 
 Next you must copy php.ini-dist to the appropriate place (normally
 /usr/local/lib/php.ini) and edit it as necessary to set PHP options.
@@ -83,9 +101,9 @@ $ cd apache_1.3.x
 $ ./configure
 $ cd ..
 
-$ gunzip -c php-4.0.x.tar.gz | tar xf -
-$ cd php-4.0.x
-$ ./configure --with-mysql --with-apache=../apache_1.3.x --enable-track-vars
+$ gunzip -c php-4.x.y.tar.gz | tar xf -
+$ cd php-4.x.y
+$ ./configure --with-mysql --with-apache=../apache_1.3.x
 $ make
 $ make install
 
@@ -96,7 +114,7 @@ $ ./configure --prefix=/www --activate-module=src/modules/php4/libphp4.a
 $ make
  (you should now have an httpd binary which you can copy to your Apache bin dir if
   is is your first install then you need to "make install" as well)
-$ cd ../php-4.0.x
+$ cd ../php-4.x.y
 $ cp php.ini-dist /usr/local/lib/php.ini
 You can edit /usr/local/lib/php.ini file to set PHP options.
 Edit your httpd.conf or srm.conf file and add:
@@ -115,12 +133,12 @@ Installing PHP can be done in four simple steps:
 
 1. Unpack your distribution file.  
 
-   You will have downloaded a file named something like php-4.0.x.tar.gz.
-   Unzip this file with a command like: gunzip php-4.0.x.tar.gz
+   You will have downloaded a file named something like php-4.x.y.tar.gz.
+   Unzip this file with a command like: gunzip php-4.x.y.tar.gz
 
-   Next you have to untar it with: tar -xvf php-4.0.x.tar
+   Next you have to untar it with: tar -xvf php-4.x.y.tar
 
-   This will create a php-4.0.x directory.  cd into this new directory.
+   This will create a php-4.x.y directory.  cd into this new directory.
 
 2a. Configure PHP (Dynamic Module) - Skip to 2b if you wish to build
     a static module
@@ -150,6 +168,9 @@ Installing PHP can be done in four simple steps:
    look for it on your system and if you find it, provide the full path to it
    as: --with-apxs=/path/to/apxs
 
+   Make sure you specify the version of apxs that is actually installed on
+   your system and NOT the one that is in the apache source tarball.
+   
    You might also want other flags on this configure line.  --with-mysql
    is just an example.  
 
@@ -380,16 +401,11 @@ WHY DISABLING -fPIC WORKS ON LINUX
 
 USING PHP 3 AND PHP 4 AS CONCURRENT APACHE MODULES
 
-   Recent operating systems provide the ability to perform versioning and
-   scoping. This features make it possible to let PHP 3 and PHP 4 run as
-   concurrent modules in one Apache server. 
-   
-   This feature is known to work on the following platforms:
+   With some (newer) installations of Apache, it's possible to compile both
+   PHP 3 and PHP 4, and run them concurrently. 
 
-   - Linux with recent binutils (binutils 2.9.1.0.25 tested)
-   - Solaris 2.5 or better
-   - FreeBSD (3.2, 4.0 tested)
-   - IRIX64 6.5
+   Note, it's only really wise to do this if you need to use the PHP 3 engine
+   to maintain backwards compatibility. 
    
    To enable it, configure PHP 3 and PHP 4 to use APXS (--with-apxs) and the
    necessary link extensions (--enable-versioning). Otherwise, all standard
@@ -399,8 +415,8 @@ USING PHP 3 AND PHP 4 AS CONCURRENT APACHE MODULES
 				--with-apxs=/apache/bin/apxs \
 				--enable-versioning \
 				--with-mysql \
-				--enable-track-vars
 
-   If this also works on your platform or if you know a way to do it, please
-   report it to our bug database at http://bugs.php.net
+
+
+
 

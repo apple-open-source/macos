@@ -1,4 +1,4 @@
-/*	$KAME: admin.c,v 1.22 2001/04/03 15:51:54 thorpej Exp $	*/
+/*	$KAME: admin.c,v 1.23 2001/06/01 10:12:55 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.

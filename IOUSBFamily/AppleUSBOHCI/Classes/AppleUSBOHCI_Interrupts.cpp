@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +21,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 #include <libkern/OSByteOrder.h>
 
 #include <IOKit/usb/IOUSBLog.h>
@@ -378,12 +378,11 @@ AppleUSBOHCI::FilterInterrupt(int index)
                 {
                     if (!IsValidPhysicalAddress( physicalAddress & kOHCIPageMask) )
                     {
+                        USBLog(1, "Bad phys addr #1 %p", physicalAddress);
                         pHCDoneTD = NULL;
                     }
                     else
                     {
-                        // Now get the logical address from the physical one
-                        //
                         pHCDoneTD = AppleUSBOHCIgtdMemoryBlock::GetGTDFromPhysical(physicalAddress);
                     }
                 }

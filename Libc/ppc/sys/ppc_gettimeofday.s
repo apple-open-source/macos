@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,6 +25,13 @@
 /* Copyright 1998 Apple Computer, Inc. */
 
 #include "SYS.h"
+
+#define	__APPLE_API_PRIVATE
+#include <machine/cpu_capabilities.h>
+#undef	__APPLE_API_PRIVATE
+
+LEAF(___commpage_gettimeofday)
+    ba	_COMM_PAGE_GETTIMEOFDAY
 
 	.globl cerror
 LEAF(___ppc_gettimeofday)

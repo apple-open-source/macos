@@ -1,7 +1,8 @@
 /* Target-vector operations for controlling Unix child processes, for GDB.
-   Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1998, 1999, 
-   2000, 2002
-   Free Software Foundation, Inc.
+
+   Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1998, 1999,
+   2000, 2002, 2003 Free Software Foundation, Inc.
+
    Contributed by Cygnus Support.
 
    ## Contains temporary hacks..
@@ -37,12 +38,14 @@
 
 #include "gdb_wait.h"
 
-extern struct symtab_and_line *child_enable_exception_callback (enum
-								exception_event_kind,
-								int);
+extern int child_enable_exception_callback (enum exception_event_kind,
+				 int);
+extern struct symtabs_and_lines *
+child_find_exception_catchpoints (enum exception_event_kind,
+				  struct objfile *);
 
-extern struct exception_event_record
-  *child_get_current_exception_event (void);
+extern struct exception_event_record *
+child_get_current_exception_event (void);
 
 extern void _initialize_inftarg (void);
 
@@ -62,19 +65,11 @@ static void child_files_info (struct target_ops *);
 
 static void child_detach (char *, int);
 
-static void child_detach_from_process (int, char *, int, int);
-
 static void child_attach (char *, int);
-
-static void child_attach_to_process (char *, int, int);
 
 #if !defined(CHILD_POST_ATTACH)
 extern void child_post_attach (int);
 #endif
-
-static void child_require_attach (char *, int);
-
-static void child_require_detach (int, char *, int);
 
 static void ptrace_me (void);
 
@@ -104,16 +99,6 @@ int child_suppress_run = 0;	/* Non-zero if inftarg should pretend not to
 				   thread support.  */
 
 #ifndef CHILD_WAIT
-
-/*## */
-/* Enable HACK for ttrace work.  In
- * infttrace.c/require_notification_of_events,
- * this is set to 0 so that the loop in child_wait
- * won't loop.
- */
-int not_same_real_pid = 1;
-/*## */
-
 
 /* Wait for child to do something.  Return pid of child, or -1 in case
    of error; store status through argument pointer OURSTATUS.  */
@@ -171,59 +156,7 @@ child_wait (ptid_t ptid, struct target_waitstatus *ourstatus, gdb_client_data cl
 	  ourstatus->kind = TARGET_WAITKIND_SPURIOUS;
 	  return pid_to_ptid (pid);
 	}
-
-      if (target_has_forked (pid, &related_pid)
-	  && ((pid == PIDGET (inferior_ptid)) 
-	      || (related_pid == PIDGET (inferior_ptid))))
-	{
-	  ourstatus->kind = TARGET_WAITKIND_FORKED;
-	  ourstatus->value.related_pid = related_pid;
-	  return pid_to_ptid (pid);
-	}
-
-      if (target_has_vforked (pid, &related_pid)
-	  && ((pid == PIDGET (inferior_ptid))
-	      || (related_pid == PIDGET (inferior_ptid))))
-	{
-	  ourstatus->kind = TARGET_WAITKIND_VFORKED;
-	  ourstatus->value.related_pid = related_pid;
-	  return pid_to_ptid (pid);
-	}
-
-      if (target_has_execd (pid, &execd_pathname))
-	{
-	  /* Are we ignoring initial exec events?  (This is likely because
-	     we're in the process of starting up the inferior, and another
-	     (older) mechanism handles those.)  If so, we'll report this
-	     as a regular stop, not an exec.
-	   */
-	  if (inferior_ignoring_startup_exec_events)
-	    {
-	      inferior_ignoring_startup_exec_events--;
-	    }
-	  else
-	    {
-	      ourstatus->kind = TARGET_WAITKIND_EXECD;
-	      ourstatus->value.execd_pathname = execd_pathname;
-	      return pid_to_ptid (pid);
-	    }
-	}
-
-      /* All we must do with these is communicate their occurrence
-         to wait_for_inferior...
-       */
-      if (target_has_syscall_event (pid, &kind, &syscall_id))
-	{
-	  ourstatus->kind = kind;
-	  ourstatus->value.syscall_id = syscall_id;
-	  return pid_to_ptid (pid);
-	}
-
-      /*##  } while (pid != PIDGET (inferior_ptid)); ## *//* Some other child died or stopped */
-/* hack for thread testing */
-    }
-  while ((pid != PIDGET (inferior_ptid)) && not_same_real_pid);
-/*## */
+      } while (pid != PIDGET (inferior_ptid)); /* Some other child died or stopped */
 
   store_waitstatus (ourstatus, status);
   return pid_to_ptid (pid);
@@ -258,8 +191,10 @@ child_thread_alive (ptid_t ptid)
 
 #endif
 
+/* Attach to process PID, then initialize for debugging it.  */
+
 static void
-child_attach_to_process (char *args, int from_tty, int after_fork)
+child_attach (char *args, int from_tty)
 {
   if (!args)
     error_no_arg ("process-id to attach");
@@ -285,10 +220,7 @@ child_attach_to_process (char *args, int from_tty, int after_fork)
       {
 	exec_file = (char *) get_exec_file (0);
 
-	if (after_fork)
-	  printf_unfiltered ("Attaching after fork to %s\n",
-			     target_pid_to_str (pid_to_ptid (pid)));
-	else if (exec_file)
+	if (exec_file)
 	  printf_unfiltered ("Attaching to program: %s, %s\n", exec_file,
 			     target_pid_to_str (pid_to_ptid (pid)));
 	else
@@ -298,24 +230,12 @@ child_attach_to_process (char *args, int from_tty, int after_fork)
 	gdb_flush (gdb_stdout);
       }
 
-    if (!after_fork)
-      attach (pid);
-    else
-      REQUIRE_ATTACH (pid);
+    attach (pid);
 
     inferior_ptid = pid_to_ptid (pid);
     push_target (&child_ops);
   }
 #endif /* ATTACH_DETACH */
-}
-
-
-/* Attach to process PID, then initialize for debugging it.  */
-
-static void
-child_attach (char *args, int from_tty)
-{
-  child_attach_to_process (args, from_tty, 0);
 }
 
 #if !defined(CHILD_POST_ATTACH)
@@ -326,45 +246,6 @@ child_post_attach (int pid)
      operation by a debugger.  */
 }
 #endif
-
-static void
-child_require_attach (char *args, int from_tty)
-{
-  child_attach_to_process (args, from_tty, 1);
-}
-
-static void
-child_detach_from_process (int pid, char *args, int from_tty, int after_fork)
-{
-#ifdef ATTACH_DETACH
-  {
-    int siggnal = 0;
-
-    if (from_tty)
-      {
-	char *exec_file = get_exec_file (0);
-	if (exec_file == 0)
-	  exec_file = "";
-	if (after_fork)
-	  printf_unfiltered ("Detaching after fork from %s\n",
-			     target_pid_to_str (pid_to_ptid (pid)));
-	else
-	  printf_unfiltered ("Detaching from program: %s, %s\n", exec_file,
-			     target_pid_to_str (pid_to_ptid (pid)));
-	gdb_flush (gdb_stdout);
-      }
-    if (args)
-      siggnal = atoi (args);
-
-    if (!after_fork)
-      detach (siggnal);
-    else
-      REQUIRE_DETACH (pid, siggnal);
-  }
-#else
-  error ("This version of Unix does not support detaching a process.");
-#endif
-}
 
 /* Take a program previously attached to and detaches it.
    The program resumes execution and will no longer stop
@@ -377,17 +258,32 @@ child_detach_from_process (int pid, char *args, int from_tty, int after_fork)
 static void
 child_detach (char *args, int from_tty)
 {
-  child_detach_from_process (PIDGET (inferior_ptid), args, from_tty, 0);
-  inferior_ptid = null_ptid;
-  unpush_target (&child_ops);
-}
+#ifdef ATTACH_DETACH
+  {
+    int siggnal = 0;
+    int pid = PIDGET (inferior_ptid);
 
-static void
-child_require_detach (int pid, char *args, int from_tty)
-{
-  child_detach_from_process (pid, args, from_tty, 1);
-}
+    if (from_tty)
+      {
+	char *exec_file = get_exec_file (0);
+	if (exec_file == 0)
+	  exec_file = "";
+	printf_unfiltered ("Detaching from program: %s, %s\n", exec_file,
+			   target_pid_to_str (pid_to_ptid (pid)));
+	gdb_flush (gdb_stdout);
+      }
+    if (args)
+      siggnal = atoi (args);
 
+    detach (siggnal);
+
+    inferior_ptid = null_ptid;
+    unpush_target (&child_ops);
+  }
+#else
+  error ("This version of Unix does not support detaching a process.");
+#endif
+}
 
 /* Get ready to modify the registers array.  On machines which store
    individual registers, this doesn't need to do anything.  On machines
@@ -492,27 +388,6 @@ child_acknowledge_created_inferior (int pid)
 #endif
 
 
-void
-child_clone_and_follow_inferior (int child_pid, int *followed_child)
-{
-  clone_and_follow_inferior (child_pid, followed_child);
-
-  /* Don't resume CHILD_PID; it's stopped where it ought to be, until
-     the decision gets made elsewhere how to continue it.
-   */
-}
-
-
-#if !defined(CHILD_POST_FOLLOW_INFERIOR_BY_CLONE)
-void
-child_post_follow_inferior_by_clone (void)
-{
-  /* This version of Unix doesn't require a meaningful "post follow inferior"
-     operation by a clone debugger.
-   */
-}
-#endif
-
 #if !defined(CHILD_INSERT_FORK_CATCHPOINT)
 int
 child_insert_fork_catchpoint (int pid)
@@ -549,48 +424,12 @@ child_remove_vfork_catchpoint (int pid)
 }
 #endif
 
-#if !defined(CHILD_HAS_FORKED)
+#if !defined(CHILD_FOLLOW_FORK)
 int
-child_has_forked (int pid, int *child_pid)
+child_follow_fork (int follow_child)
 {
-  /* This version of Unix doesn't support notification of fork events.  */
+  /* This version of Unix doesn't support following fork or vfork events.  */
   return 0;
-}
-#endif
-
-
-#if !defined(CHILD_HAS_VFORKED)
-int
-child_has_vforked (int pid, int *child_pid)
-{
-  /* This version of Unix doesn't support notification of vfork events.
-   */
-  return 0;
-}
-#endif
-
-
-#if !defined(CHILD_CAN_FOLLOW_VFORK_PRIOR_TO_EXEC)
-int
-child_can_follow_vfork_prior_to_exec (void)
-{
-  /* This version of Unix doesn't support notification of vfork events.
-     However, if it did, it probably wouldn't allow vforks to be followed
-     before the following exec.
-   */
-  return 0;
-}
-#endif
-
-
-#if !defined(CHILD_POST_FOLLOW_VFORK)
-void
-child_post_follow_vfork (int parent_pid, int followed_parent, int child_pid,
-			 int followed_child)
-{
-  /* This version of Unix doesn't require a meaningful "post follow vfork"
-     operation by a clone debugger.
-   */
 }
 #endif
 
@@ -612,17 +451,6 @@ child_remove_exec_catchpoint (int pid)
 }
 #endif
 
-#if !defined(CHILD_HAS_EXECD)
-int
-child_has_execd (int pid, char **execd_pathname)
-{
-  /* This version of Unix doesn't support notification of exec events.
-   */
-  return 0;
-}
-#endif
-
-
 #if !defined(CHILD_REPORTED_EXEC_EVENTS_PER_EXEC_CALL)
 int
 child_reported_exec_events_per_exec_call (void)
@@ -632,18 +460,6 @@ child_reported_exec_events_per_exec_call (void)
   return 1;
 }
 #endif
-
-
-#if !defined(CHILD_HAS_SYSCALL_EVENT)
-int
-child_has_syscall_event (int pid, enum target_waitkind *kind, int *syscall_id)
-{
-  /* This version of Unix doesn't support notification of syscall events.
-   */
-  return 0;
-}
-#endif
-
 
 #if !defined(CHILD_HAS_EXITED)
 int
@@ -701,10 +517,17 @@ child_stop (void)
 }
 
 #if !defined(CHILD_ENABLE_EXCEPTION_CALLBACK)
-struct symtab_and_line *
+struct symtabs_and_lines *
+child_find_exception_catchpoints (enum exception_event_kind kind, 
+				  struct objfile *objfile)
+{
+  return (struct symtabs_and_lines *) NULL;
+}
+  
+int
 child_enable_exception_callback (enum exception_event_kind kind, int enable)
 {
-  return (struct symtab_and_line *) NULL;
+  return 0;
 }
 #endif
 
@@ -755,9 +578,7 @@ init_child_ops (void)
   child_ops.to_open = child_open;
   child_ops.to_attach = child_attach;
   child_ops.to_post_attach = child_post_attach;
-  child_ops.to_require_attach = child_require_attach;
   child_ops.to_detach = child_detach;
-  child_ops.to_require_detach = child_require_detach;
   child_ops.to_resume = child_resume;
   child_ops.to_wait = child_wait;
   child_ops.to_post_wait = child_post_wait;
@@ -771,27 +592,21 @@ init_child_ops (void)
   child_ops.to_terminal_init = terminal_init_inferior;
   child_ops.to_terminal_inferior = terminal_inferior;
   child_ops.to_terminal_ours_for_output = terminal_ours_for_output;
+  child_ops.to_terminal_save_ours = terminal_save_ours;
   child_ops.to_terminal_ours = terminal_ours;
   child_ops.to_terminal_info = child_terminal_info;
   child_ops.to_kill = kill_inferior;
   child_ops.to_create_inferior = child_create_inferior;
   child_ops.to_post_startup_inferior = child_post_startup_inferior;
   child_ops.to_acknowledge_created_inferior = child_acknowledge_created_inferior;
-  child_ops.to_clone_and_follow_inferior = child_clone_and_follow_inferior;
-  child_ops.to_post_follow_inferior_by_clone = child_post_follow_inferior_by_clone;
   child_ops.to_insert_fork_catchpoint = child_insert_fork_catchpoint;
   child_ops.to_remove_fork_catchpoint = child_remove_fork_catchpoint;
   child_ops.to_insert_vfork_catchpoint = child_insert_vfork_catchpoint;
   child_ops.to_remove_vfork_catchpoint = child_remove_vfork_catchpoint;
-  child_ops.to_has_forked = child_has_forked;
-  child_ops.to_has_vforked = child_has_vforked;
-  child_ops.to_can_follow_vfork_prior_to_exec = child_can_follow_vfork_prior_to_exec;
-  child_ops.to_post_follow_vfork = child_post_follow_vfork;
+  child_ops.to_follow_fork = child_follow_fork;
   child_ops.to_insert_exec_catchpoint = child_insert_exec_catchpoint;
   child_ops.to_remove_exec_catchpoint = child_remove_exec_catchpoint;
-  child_ops.to_has_execd = child_has_execd;
   child_ops.to_reported_exec_events_per_exec_call = child_reported_exec_events_per_exec_call;
-  child_ops.to_has_syscall_event = child_has_syscall_event;
   child_ops.to_has_exited = child_has_exited;
   child_ops.to_mourn_inferior = child_mourn_inferior;
   child_ops.to_can_run = child_can_run;
@@ -799,6 +614,7 @@ init_child_ops (void)
   child_ops.to_pid_to_str = child_pid_to_str;
   child_ops.to_stop = child_stop;
   child_ops.to_enable_exception_callback = child_enable_exception_callback;
+  child_ops.to_find_exception_catchpoints = child_find_exception_catchpoints;
   child_ops.to_get_current_exception_event = child_get_current_exception_event;
   child_ops.to_pid_to_exec_file = child_pid_to_exec_file;
   child_ops.to_stratum = process_stratum;
@@ -841,7 +657,8 @@ _initialize_inftarg (void)
 #define PROC_NAME_FMT "/proc/%05d"
 #endif
   sprintf (procname, PROC_NAME_FMT, getpid ());
-  if ((fd = open (procname, O_RDONLY)) >= 0)
+  fd = open (procname, O_RDONLY);
+  if (fd >= 0)
     {
       close (fd);
       return;

@@ -84,14 +84,14 @@ Q:after  {
     /*   content: close-quote;  */
 }
 
-IFRAME {
+IFRAME, EMBED, OBJECT {
 	width: 300px; height:150px;
 }
 
 CENTER { 
 	display: block;
 	/* special centering to be able to emulate the html4/netscape behaviour */
-	text-align: \2d konq-center;
+	text-align: -khtml-center;
 }  
       
 HR  { 
@@ -102,7 +102,7 @@ HR  {
         border-width: 1px;
         margin-left: 1px; /* will be overwritten by ALIGN */ 
         margin-right: 1px; /* will be overwritten by ALIGN */
-        \2d konq-flow-mode: \2d konq-around-floats;
+        -khtml-flow-mode: -khtml-around-floats;
 } 
  
 MAP { 
@@ -162,23 +162,15 @@ H6 {
 TABLE { 
 	display: table;
 	border-collapse: separate;
-	text-align: \2d konq-auto;
+	text-align: -khtml-auto;
 	border-spacing: 2px;
 	border-color: gray;
-        \2d konq-flow-mode: \2d konq-around-floats;
-}
-
-TD[align=left] > TABLE {
-    margin-right: auto;
-}
-
-TD[align=right] > TABLE {
-    margin-left: auto;
+        -khtml-flow-mode: -khtml-around-floats;
 }
 
 TABLE[align="center"] { 
-	margin-left: auto !important; 
-	margin-right: auto !important;
+    margin-left: auto; 
+    margin-right: auto;
 }
 
 THEAD { 
@@ -226,14 +218,8 @@ TH {
 
 CAPTION { 
 	display: table-caption;  
-	text-align: \2d konq-center; 
+	text-align: -khtml-center; 
 }
-
-/* rules to deal with right-aligned divs. -dwh */
-DIV[align="right"] > TABLE,
-DIV[align="right"] > P,
-DIV[align="right"] > DIV
- { margin-left: auto; margin-right: 0px; }
 
 /*
  * Lists
@@ -440,12 +426,13 @@ acronym {
 }
 
 :focus          { outline: 1px dotted invert }
-a:link          { color: blue; text-decoration: underline; }
-a:link:active          { color: black; outline: gray 1px dotted; }
-a:visited              { color: navy; text-decoration: underline; }
-a:visited:active       { color: black; outline: gray 1px dotted; }
+a:link          { color: #0000EE; text-decoration: underline; }
+a:link:active          { color: red; outline: gray 1px dotted; }
+a:visited              { color: #551A8B; text-decoration: underline; }
+a:visited:active       { color: red; outline: gray 1px dotted; }
 
-/* ### :before is not supported at the moment
+/* ### :before is now supported, but we haven't tried reinstating this
+   ### rule that was comment out long ago.
       BR:before       { content: "\n" }
 */
 

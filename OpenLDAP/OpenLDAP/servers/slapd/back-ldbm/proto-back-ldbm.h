@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/proto-back-ldbm.h,v 1.69 2002/01/14 00:43:22 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/proto-back-ldbm.h,v 1.69.2.1 2003/02/09 16:31:38 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -68,7 +68,11 @@ void ldbm_cache_close LDAP_P(( Backend *be, DBCache *db ));
 void ldbm_cache_really_close LDAP_P(( Backend *be, DBCache *db ));
 void ldbm_cache_flush_all LDAP_P(( Backend *be ));
 void ldbm_cache_sync LDAP_P(( Backend *be ));
+#if 0 /* replaced by macro */
 Datum ldbm_cache_fetch LDAP_P(( DBCache *db, Datum key ));
+#else /* 1 */
+#define ldbm_cache_fetch( db, key )	ldbm_fetch( (db)->dbc_db, (key) )
+#endif /* 1 */
 int ldbm_cache_store LDAP_P(( DBCache *db, Datum key, Datum data, int flags ));
 int ldbm_cache_delete LDAP_P(( DBCache *db, Datum key ));
 void *ldbm_cache_sync_daemon LDAP_P(( void *));

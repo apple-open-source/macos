@@ -1,21 +1,22 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
- *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -33,7 +34,7 @@
 
 #include "IOHIDPointing.h"
 #include "IOHIDKeys.h"
-
+#include "IOHIDElement.h"
 
 #define kMaxButtons	32	// Is this defined anywhere in the event headers?
 #define kMaxValues	32	// This should be plenty big to find the X, Y and wheel values - is there some absolute max?
@@ -41,19 +42,33 @@
 #define kDefaultFixedResolution 	(400 << 16)
 #define kDefaultScrollFixedResolution	(10 << 16)
 
-
 #define super IOHIPointing
 OSDefineMetaClassAndStructors(IOHIDPointing, IOHIPointing);
 
-IOHIDPointing * IOHIDPointing::Pointing()
+IOHIDPointing * IOHIDPointing::Pointing(OSArray * elements, IOHIDDevice * owner)
 {
-    IOHIDPointing *nub = new IOHIDPointing;
+    IOHIDPointing 	*nub 			= new IOHIDPointing;
+    IOService 		*ownersProvider 	= owner->getProvider();
+    OSNumber 		*interfaceSubClass 	= 0;
+    OSNumber 		*interfaceProtocol 	= 0;
+    bool		bootPointing		= false;
     
-    if ((nub == 0) || !nub->init())
+    interfaceSubClass = OSDynamicCast(OSNumber, ((ownersProvider) ? ownersProvider->getProperty("bInterfaceSubClass") : 0));
+    interfaceProtocol = OSDynamicCast(OSNumber, ((ownersProvider) ? ownersProvider->getProperty("bInterfaceProtocol") : 0));
+    
+    if (interfaceSubClass && interfaceProtocol)
+    {
+        bootPointing = ((interfaceSubClass->unsigned32BitValue() == 1) && 
+                        (interfaceProtocol->unsigned32BitValue() == 2));
+    }
+    
+    if ((nub == 0) || !nub->init() || (!nub->findDesiredElements(elements) && !bootPointing))
     {
         if (nub) nub->release();
         return 0;
     }
+    
+    nub->_bootProtocol = bootPointing;
 
     return nub;
 }
@@ -67,21 +82,63 @@ bool IOHIDPointing::init(OSDictionary * properties)
     _resolution = kDefaultFixedResolution;
     _scrollResolution = kDefaultScrollFixedResolution;
     _preparsedReportDescriptorData = NULL;
+    _buttonType = 0;
     _buttonCollection = -1;
-    _xCollection = -1;
-    _yCollection = -1;
+    _xAbsoluteCollection = -1;
+    _yAbsoluteCollection = -1;
+    _xRelativeCollection = -1;
+    _yRelativeCollection = -1;
     _tipPressureCollection = -1;
     _digitizerButtonCollection = -1;
     _scrollWheelCollection = -1;
     _horzScrollCollection = -1;
+    _absoluteCoordinates = false;
     _hasInRangeReport = false;
     _tipPressureMin = 255;
     _tipPressureMax = 255;
+    _reportCount = 0;
+    _cachedButtonState = 0;
+    _bootProtocol = false;
         
     return true;
 }
 
-
+bool IOHIDPointing::findDesiredElements(OSArray *elements)
+{
+    IOHIDElement 	*element;
+    UInt32		usage, usagePage;
+    UInt32		count;
+    bool		isPointing = false;
+    
+    if (!elements)
+        return false;
+    
+    count = elements->getCount();
+    for (int i=0; i<count; i++)
+    {
+        element		= elements->getObject(i);
+        usagePage	= element->getUsagePage();
+        usage		= element->getUsage();
+        
+        switch (usagePage)
+        {
+            case kHIDPage_GenericDesktop:
+                if ((element->getElementType() == kIOHIDElementTypeCollection) &&
+                    (element->getElementCollectionType() == kIOHIDElementCollectionTypeApplication) &&
+                    (usage == kHIDUsage_GD_Mouse))
+                {
+                    isPointing = true;
+                }
+                break;
+                
+            default:
+                break;
+            // add future parsing below
+        }
+    }
+    
+    return (isPointing);
+}
 
 bool IOHIDPointing::start(IOService *provider)
 {
@@ -147,6 +204,7 @@ IOReturn IOHIDPointing::parseReportDescriptor( IOMemoryDescriptor * report,
     UInt32			numButtonCaps = kMaxButtons;
     HIDValueCapabilities	valueCaps[kMaxValues];
     UInt32			numValueCaps = kMaxValues;
+    int				resIndex;
 
     reportData   = report->getVirtualSegment(0, &segmentSize);
     reportLength = report->getLength();
@@ -179,34 +237,9 @@ IOReturn IOHIDPointing::parseReportDescriptor( IOMemoryDescriptor * report,
     }
 
     do {
-        result = HIDGetSpecificButtonCapabilities(kHIDInputReport,
-                                          kHIDPage_Button,
-                                          0,
-                                          0,
-                                          buttonCaps,
-                                          &numButtonCaps,
-                                          _preparsedReportDescriptorData);
-        if ((result == noErr) && (numButtonCaps > 0)) 
-        {
-            _buttonCollection = buttonCaps[0].collection;	// Do we actually need to look at and store all of the button page collections?
-            if (buttonCaps[0].isRange) 
-            {
-                _numButtons = buttonCaps[0].u.range.usageMax - buttonCaps[0].u.range.usageMin + 1;
-            }
-            
-            /*
-             * RY: Publish a property containing the button Count.  This will
-             * will be used to determine whether or not the button
-             * behaviors can be modified.
-             */
-            if (_numButtons > 1)
-            {
-                setProperty(kIOHIDPointerButtonCountKey, buttonCount());
-            }
-
-            
-        }
-
+        _reportCount = (_preparsedReportDescriptorData) ?
+                        ((HIDPreparsedDataPtr)_preparsedReportDescriptorData)->reportCount : 0;
+    
         numButtonCaps = kMaxButtons;
         result = HIDGetSpecificButtonCapabilities(kHIDInputReport,
                                           kHIDPage_Digitizer,
@@ -227,7 +260,7 @@ IOReturn IOHIDPointing::parseReportDescriptor( IOMemoryDescriptor * report,
                                           buttonCaps,
                                           &numButtonCaps,
                                           _preparsedReportDescriptorData);
-        if (result == noErr) {
+        if ((result == noErr) && (numButtonCaps > 0)) {
             _hasInRangeReport = true;
         }
 
@@ -240,11 +273,27 @@ IOReturn IOHIDPointing::parseReportDescriptor( IOMemoryDescriptor * report,
                                          _preparsedReportDescriptorData);
         if ((result == noErr) && (numValueCaps > 0))
         {
-            _xCollection = valueCaps[0].collection;
-            _absoluteCoordinates = valueCaps[0].isAbsolute;
-            _bounds.minx = valueCaps[0].logicalMin;
-            _bounds.maxx = valueCaps[0].logicalMax;
-            
+            // trudge through all the axis caps, if we find an
+            // absolute axis, take it.  Otherwise, take the first
+            // relative axis seen.
+            resIndex = -1;
+            for (int i=0; i<numValueCaps; i++)
+            {
+                if (valueCaps[i].isAbsolute && (_xAbsoluteCollection == -1))
+                {
+                    _xAbsoluteCollection = valueCaps[i].collection;
+                    _absoluteCoordinates = true;
+                    _bounds.minx = valueCaps[i].logicalMin;
+                    _bounds.maxx = valueCaps[i].logicalMax;
+                    resIndex = (resIndex != -1) ? resIndex : i;
+                }
+                if (!valueCaps[i].isAbsolute && (_xRelativeCollection == -1))
+                {
+                    _xRelativeCollection = valueCaps[i].collection;
+                    resIndex = i;
+                }
+            }
+                                    
             // Check to see if this has a different resolution. (Only checking x-axis.) 
             // (Can use equation given in section 6.2.2.7 of the Device Class Definition for HID, v 1.1.)
             // _resolution = (logMax -logMin)/((physMax -physMin) * 10 ** exp)
@@ -252,11 +301,11 @@ IOReturn IOHIDPointing::parseReportDescriptor( IOMemoryDescriptor * report,
             // If there is no physical min and max in HID descriptor,
             // cababilites calls set equal to logical min and max.
             // Keep default resolution if we don't have distinct physical min and max.
-            if (valueCaps[0].physicalMin != valueCaps[0].logicalMin &&
-                valueCaps[0].physicalMax != valueCaps[0].logicalMax)
+            if (valueCaps[resIndex].physicalMin != valueCaps[resIndex].logicalMin &&
+                valueCaps[resIndex].physicalMax != valueCaps[resIndex].logicalMax)
             {
-                SInt32 logicalDiff = (valueCaps[0].logicalMax - valueCaps[0].logicalMin);
-                SInt32 physicalDiff = (valueCaps[0].physicalMax - valueCaps[0].physicalMin);
+                SInt32 logicalDiff = (valueCaps[resIndex].logicalMax - valueCaps[resIndex].logicalMin);
+                SInt32 physicalDiff = (valueCaps[resIndex].physicalMax - valueCaps[resIndex].physicalMin);
                 
                 // Since IOFixedDivide truncated fractional part and can't use floating point
                 // within the kernel, have to convert equation when using negative exponents:
@@ -264,7 +313,7 @@ IOReturn IOHIDPointing::parseReportDescriptor( IOMemoryDescriptor * report,
 
                 // Even though unitExponent is stored as SInt32, The real values are only
                 // a signed nibble that doesn't expand to the full 32 bits.
-                SInt32 resExponent = valueCaps[0].unitExponent & 0x0F;
+                SInt32 resExponent = valueCaps[resIndex].unitExponent & 0x0F;
                 
                 if (resExponent < 8)
                 {
@@ -324,14 +373,62 @@ IOReturn IOHIDPointing::parseReportDescriptor( IOMemoryDescriptor * report,
                                          &numValueCaps,
                                          _preparsedReportDescriptorData);
         if ((result == noErr) && (numValueCaps > 0)) {
-            _yCollection = valueCaps[0].collection;
-            _bounds.miny = valueCaps[0].logicalMin;
-            _bounds.maxy = valueCaps[0].logicalMax;
+
+            // trudge through all the axis caps, if we find an
+            // absolute axis, take it.  Otherwise, take the first
+            // relative axis seen.
+            for (int i=0; i<numValueCaps; i++)
+            {
+                if (valueCaps[i].isAbsolute && (_yAbsoluteCollection == -1))
+                {
+                    _yAbsoluteCollection = valueCaps[i].collection;
+                    _absoluteCoordinates = true;
+                    _bounds.miny = valueCaps[i].logicalMin;
+                    _bounds.maxy = valueCaps[i].logicalMax;
+                }
+                if (!valueCaps[i].isAbsolute && (_yRelativeCollection == -1))
+                {
+                    _yRelativeCollection = valueCaps[i].collection;
+                }
+            }
         } else {
             IOLog ("%s: error getting Y axis information from HID report descriptor.  err=0x%lx\n", getName(), result);
             ret = kIOReturnError;
             break;
         }
+
+        numButtonCaps = kMaxButtons;
+        result = HIDGetSpecificButtonCapabilities(kHIDInputReport,
+                                          kHIDPage_Button,
+                                          0,
+                                          0,
+                                          buttonCaps,
+                                          &numButtonCaps,
+                                          _preparsedReportDescriptorData);
+        if ((result == noErr) && (numButtonCaps > 0)) 
+        {
+            _buttonCollection = buttonCaps[0].collection;	// Do we actually need to look at and store all of the button page collections?
+            
+            if (_buttonCollection == _xRelativeCollection)
+                _buttonType = kIOHIDPointingButtonRelative;
+            else if (_buttonCollection == _xAbsoluteCollection)
+                _buttonType = kIOHIDPointingButtonAbsolute;
+                
+            _numButtons = 0;
+            for (int i=0; i<numButtonCaps; i++)
+            {
+                if (buttonCaps[i].isRange) 
+                {
+                    _numButtons += buttonCaps[i].u.range.usageMax - buttonCaps[i].u.range.usageMin + 1;
+                }
+                else
+                {
+                    _numButtons ++;
+                }
+            }
+            
+        }
+
 
         numValueCaps = kMaxValues;
         result = HIDGetSpecificValueCapabilities(kHIDInputReport,
@@ -345,6 +442,11 @@ IOReturn IOHIDPointing::parseReportDescriptor( IOMemoryDescriptor * report,
             _tipPressureCollection = valueCaps[0].collection;
             _tipPressureMin = valueCaps[0].logicalMin;
             _tipPressureMax = valueCaps[0].logicalMax;
+            
+            if (_absoluteCoordinates)
+            {
+                setProperty("SupportsInk", 1, 32);
+            }
         }
 
         numValueCaps = kMaxValues;
@@ -451,10 +553,12 @@ IOReturn IOHIDPointing::handleReport(
     OSStatus	status;
     HIDUsage	usageList[kMaxButtons];
     UInt32	usageListSize = kMaxButtons;
+    UInt32	reportID = 0;
+    UInt32	bootOffset = 0;
     UInt32	buttonState = 0;
     SInt32	usageValue;
     SInt32	pressure = MAXPRESSURE;
-    int		dx = 0, dy = 0, scrollWheelDelta = 0, horzScrollDelta = 0;
+    int		adx = 0, ady = 0, rdx = 0, rdy = 0, scrollWheelDelta = 0, horzScrollDelta = 0;
     AbsoluteTime now;
     bool	inRange = !_hasInRangeReport;
     UInt8 *	mouseData;
@@ -499,8 +603,20 @@ IOReturn IOHIDPointing::handleReport(
                 }
             }
         }
-
+    } 
+    else if ( _bootProtocol )
+    {
+        bootOffset = 0;
+        reportID = 0;
+        if (_reportCount > 0) {
+            bootOffset ++;
+            reportID = mouseData[0];
+        }
+        
+        if ((reportID == 0) && (ret_bufsize > bootOffset))
+            buttonState = mouseData[bootOffset];
     }
+
 
     if (_tipPressureCollection != -1) {
         status = HIDGetUsageValue (kHIDInputReport,
@@ -574,42 +690,106 @@ IOReturn IOHIDPointing::handleReport(
         }
     }
 
-    status = HIDGetUsageValue (kHIDInputReport,
-                               kHIDPage_GenericDesktop,
-                               _xCollection,
-                               kHIDUsage_GD_X,
-                               &usageValue,
-                               _preparsedReportDescriptorData,
-                               mouseData,
-                               ret_bufsize);
-    if (status == noErr) {
-        dx = usageValue;
+    if (_xAbsoluteCollection != -1) {
+        status = HIDGetUsageValue (kHIDInputReport,
+                                kHIDPage_GenericDesktop,
+                                _xAbsoluteCollection,
+                                kHIDUsage_GD_X,
+                                &usageValue,
+                                _preparsedReportDescriptorData,
+                                mouseData,
+                                ret_bufsize);
+        if (status == noErr) {
+            adx = usageValue;
+        }
+    }
+    
+    if (_yAbsoluteCollection != -1) {
+        status = HIDGetUsageValue (kHIDInputReport,
+                                kHIDPage_GenericDesktop,
+                                _yAbsoluteCollection,
+                                kHIDUsage_GD_Y,
+                                &usageValue,
+                                _preparsedReportDescriptorData,
+                                mouseData,
+                                ret_bufsize);
+        if (status == noErr) {
+            ady = usageValue;
+        }
+    }
+    
+    if (_xRelativeCollection != -1) {
+        status = HIDGetUsageValue (kHIDInputReport,
+                                kHIDPage_GenericDesktop,
+                                _xRelativeCollection,
+                                kHIDUsage_GD_X,
+                                &usageValue,
+                                _preparsedReportDescriptorData,
+                                mouseData,
+                                ret_bufsize);
+        if (status == noErr) {
+            rdx = usageValue;
+        }
+    }
+    
+    if (_yRelativeCollection != -1) {
+        status = HIDGetUsageValue (kHIDInputReport,
+                                kHIDPage_GenericDesktop,
+                                _yRelativeCollection,
+                                kHIDUsage_GD_Y,
+                                &usageValue,
+                                _preparsedReportDescriptorData,
+                                mouseData,
+                                ret_bufsize);
+        if (status == noErr) {
+            rdy = usageValue;
+        }
+    }
+    
+    if (_bootProtocol && (_xRelativeCollection == -1) && 
+	(_xAbsoluteCollection == -1))
+    {
+        bootOffset = 1;
+        reportID = 0;
+        if (_reportCount > 0) {
+            bootOffset ++;
+            reportID = mouseData[0];
+        }
+        
+        if ((reportID == 0) && (ret_bufsize > bootOffset))
+            rdx = mouseData[bootOffset];
     }
 
-    status = HIDGetUsageValue (kHIDInputReport,
-                               kHIDPage_GenericDesktop,
-                               _yCollection,
-                               kHIDUsage_GD_Y,
-                               &usageValue,
-                               _preparsedReportDescriptorData,
-                               mouseData,
-                               ret_bufsize);
-    if (status == noErr) {
-        dy = usageValue;
+    if (_bootProtocol && (_yRelativeCollection == -1) && 
+        (_yAbsoluteCollection == -1))
+    {
+        bootOffset = 2;
+        reportID=0;
+        if (_reportCount > 0) {
+            bootOffset ++;
+            reportID = mouseData[0];
+        }
+        
+        if ((reportID == 0)  && (ret_bufsize > bootOffset))
+            rdy = mouseData[bootOffset];
     }
-
+    
     clock_get_uptime(&now);
 
-    if (_absoluteCoordinates) {
+    if (_absoluteCoordinates && !rdx && !rdy && 
+        !((buttonState != _cachedButtonState) && 
+        (_buttonType == kIOHIDPointingButtonRelative))) {
         Point newLoc;
 
-        newLoc.x = dx;
-        newLoc.y = dy;
+        newLoc.x = adx;
+        newLoc.y = ady;
 
         dispatchAbsolutePointerEvent(&newLoc, &_bounds, buttonState, inRange, pressure, _tipPressureMin, _tipPressureMax, 90, now);
-    } else {
-        dispatchRelativePointerEvent(dx, dy, buttonState, now);
+    } else if (rdx || rdy || (buttonState != _cachedButtonState)) {
+        dispatchRelativePointerEvent(rdx, rdy, buttonState, now);
     }
+    
+    _cachedButtonState = buttonState;
 
     if (scrollWheelDelta != 0 || horzScrollDelta != 0) {
         dispatchScrollWheelEvent(scrollWheelDelta, horzScrollDelta, 0, now);

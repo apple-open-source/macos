@@ -1,59 +1,67 @@
-		Known problems in GDB 5.1.1
+
+			Known problems in GDB 5.3
+
+		See also: http://www.gnu.org/software/gdb/bugs/
 
 
-See also the bug database http://www.gnu.org/software/gdb/bugs/
+*-*-freebsd*
+---------------
+
+Due to a kernel bug (kern/35175), detaching from an attached process
+will very likely cause the process to be stop or die with a Trace/BPT
+trap.
 
 
-Contrary to the GDB 5.1.1 announcement, the update did not contain
-fixes to a i386 floating point problem.  The latest sources do contain
-the fix and it will be included in GDB 5.2.
+i386-*-freebsd[34]*
+-------------------
 
-
-		Known problems in GDB 5.1
+There is a bug (bin/41671) in FreeBSD's gcc that causes it to emit bad
+debug information when using the stabs format (which is the default).
+As a result GDB tends to place breakpoints on functions before the
+function prologue, and information about function parameters and local
+variables is lost.  In earlier versions of GDB the effects were rather
+limited, but starting with GDB 5.3 the influence is much more
+prominent.  As a workaround, compile your code with -gdwarf-2.
 
 
 hppa2.0-hp-hpux10.20
+--------------------
 
-Due to a problem (conflicting types) with libiberty/regex.c, GDB 5.1
-does not build on HP/UX 10.20 when using the HP supplied compiler.
+gdb/487: The top level make files used to build GDB are not compatible
+with HP/UX make.  As a workaround, use GNU make.
 
-Due to bit rot, GDB 5.1 does not work on HP/UX 10.20 when built with
-GCC.
+gdb/486: The HP/UX C compiler defaults to K&R mode but GDB only builds
+with an ISO C compiler.  The top level configuration incorrectly sets
+CC to `cc' instead of `cc -Ae'.  As a workaround, the correct compiler
+can be specified as part of the configuration vis:
 
-
-hppa2.0w-hp-hpux11.00
-
-Due to a problem with ltconfig and long argument lines, GDB 5.1 does
-not configure on HP/UX 11.00.
-
-
-alpha-dec-osf5.1
-
-GDB 5.1 has a number of problems on this platform (Ref PR gdb/237).  A
-GDB 5.1 built with ``CC="cc -DUSE_LDR_ROUTINES"'' is reported to work
-much better.
+    $  'CC=cc -Ae' ./configure
 
 
-alpha-dec-osf4.0e
+s390*-*-*
+---------
 
-GDB 5.1 is known to have problems on this platform (encounters an
-internal error in the symbol table reader).
-
-
-sparcv9-sun-solaris2.8
-
-There are known problems with building GDB 5.1 using GCC 3.0.x for the
-64 bit SPARC target (bad code gen).  You could try a development
-version of GCC.
+gdb/513: GDB does not build on s390 GNU/Linux.  The problem should be
+fixed in more recent sources.
 
 
-i586-sco-sysv5uw7.1.1
+i386-*-freebsd4.4*
+------------------
 
-There are known problems with GDB 5.1's thread support on this
-platform.  Non-threaded programs should work.
+gdb/455: GDB doesn't build on a FreeBSD 4.4-STABLE system.  The
+problem is still being investigated.
 
+alpha*-*-osf*
+-------------
 
-*-*-*
+gdb/816: When building GDB with GCC 3.0.1, GDB is unable to load a core
+file properly. It generates several errors and warnings regarding
+unhandled core file section types, incorrect endianness, the failure to
+load the registers. Are also incorrectly reported: The program name, the
+cause of the program death, and the call stack at the moment of the
+death. This problem has been reported on alpha-osf4.0f and alpha-osf5.1a.
+To work-around the problem, add -D__digital__ to the CFLAGS when
+building GDB vis:
 
-GDB 5.1 assumes that the host C compiler implemends alloca().  GCC is
-one such compiler.  This problem should be fixed on the trunk.
+    $ make CFLAGS='-O2 -D__digital__'
+

@@ -72,7 +72,7 @@ typedef struct _DVDevice
     UInt8		fReadChan;			// Channel the Mac reads from the device on
     UInt8		fMaxSpeed;			// Max bus speed for isoc channel
     bool		fSupportsFCP;		// Does device support AVC commands using the FCP protocol?
-    bool		p2pConnected;
+    UInt8		p2pConnected;
     UInt32		p2pPlug;
     UInt32		p2pChan;
     UInt32		deviceIndex;		// 1-based device index for message callback refcon
@@ -120,6 +120,11 @@ struct _DVThread
 
     UInt32					fLogPos;
     Log						fLog[kLogSize];
+
+	io_object_t             fPowerManagementNotifier;
+	IONotificationPortRef	fPowerNotifyPort;
+	CFRunLoopSourceRef		fPowerNotifySource;
+	io_connect_t			fPowerNotifyConnect;
 };
 
 

@@ -35,12 +35,9 @@
  * SUCH DAMAGE.
  *
  *	@(#)activate.c	8.3 (Berkeley) 4/28/95
+ *
+ *	$Id: activate.c,v 1.11 2003/09/10 00:46:06 lutherj Exp $
  */
-
-#ifndef lint
-static const char rcsid[] =
-	"$Id: activate.c,v 1.3 2002/04/26 20:42:28 lutherj Exp $";
-#endif /* not lint */
 
 #include <err.h>
 #include <errno.h>
@@ -60,16 +57,13 @@ static const char rcsid[] =
 
 
 #include "../webdav_fs.kextproj/webdav_fs.kmodproj/vnops.h"
+#include "../webdav_fs.kextproj/webdav_fs.kmodproj/webdav.h"
 #include "webdavd.h"
+#include "webdav_requestqueue.h"
 
 /*****************************************************************************/
 
-static int get_request(so, vnopp, pcr, key, klen)
-	int so;
-	int *vnopp;
-	struct webdav_cred *pcr;
-	void *key;
-	int klen;
+static int get_request(int so, int *vnopp, struct webdav_cred *pcr, void *key, int klen)
 {
 	struct iovec iov[3];
 	struct msghdr msg;
@@ -91,7 +85,7 @@ static int get_request(so, vnopp, pcr, key, klen)
 	{
 		return (errno);
 	}
-	if (n <= sizeof(*pcr))
+	if ((unsigned)n <= sizeof(*pcr))
 	{
 		return (EINVAL);
 	}
@@ -104,11 +98,7 @@ static int get_request(so, vnopp, pcr, key, klen)
 
 /*****************************************************************************/
 
-static void send_reply(so, fd, data, error)
-	int so;
-	int fd;
-	int data;
-	int error;
+static void send_reply(int so, int fd, int data, int error)
 {
 	int n;
 	struct iovec iov[1];
@@ -118,13 +108,20 @@ static void send_reply(so, fd, data, error)
 		struct cmsghdr cmsg;
 		int fd;
 	} ctl;
+	int send_error = error;
+	
+	/* if the connection is down, let the kernel know */
+	if ( !gSuppressAllUI && (get_gconnectionstate() == WEBDAV_CONNECTION_DOWN) )
+	{
+		send_error |= WEBDAV_CONNECTION_DOWN_MASK;
+	}
 	
 	/*
 	 * Line up error code.  Don't worry about byte ordering
 	 * because we must be sending to the local machine.
 	 */
-	iov[0].iov_base = (caddr_t) & error;
-	iov[0].iov_len = sizeof(error);
+	iov[0].iov_base = (caddr_t) &send_error;
+	iov[0].iov_len = sizeof(send_error);
 	
 	/*
 	 * Build a msghdr
@@ -153,12 +150,8 @@ static void send_reply(so, fd, data, error)
 	n = sendmsg(so, &msg, 0);
 	if (n < 0)
 	{
-		syslog(LOG_ERR, "send fd: %s", strerror(errno));
+		syslog(LOG_ERR, "send_reply: sendmsg() fd: %s", strerror(errno));
 	}
-
-#ifdef DEBUG0
-	fprintf(stderr, "sendreply: sent %d bytes\n", n);
-#endif
 
 	/*
 	 * Ok, now we have sent the file descriptor, send the
@@ -176,18 +169,14 @@ static void send_reply(so, fd, data, error)
 		n = sendmsg(so, &msg, 0);
 		if (n < 0)
 		{
-			syslog(LOG_ERR, "send fh: %s", strerror(errno));
+			syslog(LOG_ERR, "send_reply: sendmsg() fh: %s", strerror(errno));
 		}
-
-#ifdef DEBUG0
-		fprintf(stderr, "sendreply: sent %d bytes; fh was %d\n", n, data);
-#endif
 	}/* end of if !error */
 
 #ifdef notdef
 	if (shutdown(so, 2) < 0)
 	{
-		syslog(LOG_ERR, "shutdown: %s", strerror(errno));
+		syslog(LOG_ERR, "send_reply: shutdown(): %s", strerror(errno));
 	}
 #endif
 
@@ -198,23 +187,25 @@ static void send_reply(so, fd, data, error)
 	{
 	    if (close(fd) < 0)
 		{
-	        syslog(LOG_ERR, "send_reply close: %s", strerror(errno));
+	        syslog(LOG_ERR, "send_reply: close(): %s", strerror(errno));
 		}
 	}
 }
 
 /*****************************************************************************/
 
-static void send_data(so, data, size, error)
-	int so;
-	void *data;
-	int size;
-	int error;
+static void send_data(int so, void *data, int size, int error)
 {
 	int n;
 	struct iovec iov[2];
 	struct msghdr msg;
 	int send_error = error;
+	
+	/* if the connection is down, let the kernel know */
+	if ( !gSuppressAllUI && (get_gconnectionstate() == WEBDAV_CONNECTION_DOWN) )
+	{
+		send_error |= WEBDAV_CONNECTION_DOWN_MASK;
+	}
 	
 	/*
 	 * Line up error code.  Don't worry about byte ordering
@@ -249,17 +240,13 @@ static void send_data(so, data, size, error)
 	n = sendmsg(so, &msg, 0);
 	if (n < 0)
 	{
-		syslog(LOG_ERR, "send data: %s", strerror(errno));
+		syslog(LOG_ERR, "send_data: sendmsg(): %s", strerror(errno));
 	}
 	
-#ifdef DEBUG0
-	fprintf(stderr, "senddata: sent %d bytes\n", n);
-#endif
-
 #ifdef notdef
 	if (shutdown(so, 2) < 0)
 	{
-		syslog(LOG_ERR, "shutdown: %s", strerror(errno));
+		syslog(LOG_ERR, "send_data: shutdown(): %s", strerror(errno));
 	}
 #endif
 }
@@ -285,7 +272,6 @@ void activate(int so, int proxy_ok, int *socketptr)
 	error = get_request(so, &vnop, &pcred, (void *)key, sizeof(key));
 	if (error)
 	{
-		syslog(LOG_ERR, "activate: recvmsg: %s", strerror(error));
 		send_reply(so, fd, data, error);
 		goto drop;
 	}
@@ -295,9 +281,9 @@ void activate(int so, int proxy_ok, int *socketptr)
 #ifdef DEBUG	
 	fprintf(stderr, 
 #else
-	syslog(LOG_ERR,
+	syslog(LOG_INFO,
 #endif
-		"%s(%d) %s[%d]\n",
+		"activate: %s(%d) %s[%d]",
 		(vnop==WEBDAV_FILE_OPEN) ? "FILE_OPEN" :
 			(vnop==WEBDAV_DIR_OPEN) ? "DIR_OPEN" :
 			(vnop==WEBDAV_DIR_REFRESH) ? "DIR_REFRESH" :
@@ -311,7 +297,9 @@ void activate(int so, int proxy_ok, int *socketptr)
 			(vnop==WEBDAV_DIR_DELETE) ? "DIR_DEL" :
 			(vnop==WEBDAV_STATFS) ? "STATFS" :
 			(vnop==WEBDAV_RENAME) ? "RENAME" :
-			(vnop==WEBDAV_BYTE_READ) ? "BYTE_READ" : "???",
+			(vnop==WEBDAV_BYTE_READ) ? "BYTE_READ" :
+			(vnop==WEBDAV_DIR_REFRESH_CACHE) ? "DIR_REFRESH_CACHE" :
+			(vnop==WEBDAV_INVALIDATE_CACHES) ? "WEBDAV_INVALIDATE_CACHES" : "???",
 		vnop, 
 		(vnop==WEBDAV_RENAME) ? (char *)(key+sizeof(webdav_rename_header_t)) : key, 
 		((vnop==WEBDAV_CLOSE) || (vnop==WEBDAV_FILE_FSYNC)) ? (*(int *) key) : -1);
@@ -352,7 +340,12 @@ void activate(int so, int proxy_ok, int *socketptr)
 			break;
 
 		case WEBDAV_DIR_REFRESH:
-			error = webdav_refreshdir(proxy_ok, &pcred, *((webdav_filehandle_t *)key), socketptr);
+			error = webdav_refreshdir(proxy_ok, &pcred, *((webdav_filehandle_t *)key), socketptr, FALSE);
+			send_data(so, (void *)0, 0, error);
+			break;
+
+		case WEBDAV_DIR_REFRESH_CACHE:
+			error = webdav_refreshdir(proxy_ok, &pcred, *((webdav_filehandle_t *)key), socketptr, TRUE);
 			send_data(so, (void *)0, 0, error);
 			break;
 
@@ -416,6 +409,11 @@ void activate(int so, int proxy_ok, int *socketptr)
 			}
 			break;
 
+		case WEBDAV_INVALIDATE_CACHES:
+			error = webdav_invalidate_caches();
+			send_data(so, (void *)0, 0, error);
+			break;
+
 		default:
 			error = EOPNOTSUPP;
 			break;
@@ -431,9 +429,9 @@ void activate(int so, int proxy_ok, int *socketptr)
 #ifdef DEBUG	
 			fprintf(stderr, 
 #else
-			syslog(LOG_ERR,
+			syslog(LOG_INFO,
 #endif
-				"error %d, %s(%d) %s[%d]\n", error,
+				"activate: error %d, %s(%d) %s[%d]", error,
 				(vnop==WEBDAV_FILE_OPEN) ? "FILE_OPEN" :
 					(vnop==WEBDAV_DIR_OPEN) ? "DIR_OPEN" :
 					(vnop==WEBDAV_DIR_REFRESH) ? "DIR_REFRESH" :
@@ -447,7 +445,9 @@ void activate(int so, int proxy_ok, int *socketptr)
 					(vnop==WEBDAV_STATFS) ? "STATFS" :
 					(vnop==WEBDAV_DIR_DELETE) ? "DIR_DEL" :
 					(vnop==WEBDAV_RENAME) ? "RENAME" :
-					(vnop==WEBDAV_BYTE_READ) ? "BYTE_READ" : "???",
+					(vnop==WEBDAV_BYTE_READ) ? "BYTE_READ" :
+					(vnop==WEBDAV_DIR_REFRESH_CACHE) ? "DIR_REFRESH_CACHE" :
+					(vnop==WEBDAV_INVALIDATE_CACHES) ? "WEBDAV_INVALIDATE_CACHES" : "???",
 				vnop,
 				(vnop==WEBDAV_RENAME) ? (char *)(key+sizeof(webdav_rename_header_t)) : key, 
 				((vnop==WEBDAV_CLOSE) || (vnop==WEBDAV_FILE_FSYNC)) ? (*(int *)key) :
@@ -470,19 +470,23 @@ void webdav_pulse_thread(arg)
 	int i, error, proxy_ok;
 	int mysocket;
 	
+	proxy_ok = *((int *)arg);
+
 	mysocket = socket(PF_INET, SOCK_STREAM, 0);
 	if (mysocket < 0)
 	{
-		errx(EIO, "webdav_pulse_thread socket");
+		syslog(LOG_ERR, "webdav_pulse_thread: socket(): %s", strerror(errno));
+		webdav_kill(-1);	/* tell the main select loop to force unmount */
+		goto done;
 	}
-	
-	proxy_ok = *((int *)arg);
 	
 	while (TRUE)
 	{
 		error = pthread_mutex_lock(&garray_lock);
 		if (error)
 		{
+			syslog(LOG_ERR, "webdav_pulse_thread: pthread_mutex_lock(): %s", strerror(error));
+			webdav_kill(-1);	/* tell the main select loop to force unmount */
 			goto done;
 		}
 		gettimeofday(&tv, &tz);
@@ -493,11 +497,21 @@ void webdav_pulse_thread(arg)
 
 		for (i = 0; i < WEBDAV_MAX_OPEN_FILES; ++i)
 		{
-			if (gfile_array[i].fd &&
+			if ((gfile_array[i].fd != -1) &&
 				gfile_array[i].lockdata.locktoken &&
 				gfile_array[i].lockdata.refresh)
 			{
 				error = webdav_lock(proxy_ok, &(gfile_array[i]), &mysocket);
+				if ( error )
+				{
+					/* XXX If error, then we've lost our lock and exclusive access
+					 * to the resource on the WebDAV server. Clear lock token or
+					 * just let things fail at the fsync/close?
+					 */
+#ifdef DEBUG
+					syslog(LOG_INFO, "webdav_pulse_thread: webdav_lock(): %s", strerror(error));
+#endif
+				}
 			}
 			
 			/*
@@ -505,7 +519,7 @@ void webdav_pulse_thread(arg)
 			 * next one and try to refresh it.
 			 */
 	
-			if (gfile_array[i].fd && gfile_array[i].cachetime)
+			if ((gfile_array[i].fd != -1) && gfile_array[i].cachetime)
 			{
 	
 				if (gfile_array[i].deleted)
@@ -531,6 +545,12 @@ void webdav_pulse_thread(arg)
 		} /* end for loop */
 
         error = pthread_mutex_unlock(&garray_lock);
+		if ( error )
+		{
+			syslog(LOG_ERR, "webdav_pulse_thread: pthread_mutex_unlock(): %s", strerror(error));
+			webdav_kill(-1);	/* tell the main select loop to force unmount */
+			goto done;
+		}
 
 done:
         (void) sleep(gtimeout_val/2);

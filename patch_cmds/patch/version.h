@@ -1,5 +1,5 @@
 /* Print the version number.  */
 
-/* $Id: version.h,v 1.1.1.2 2000/05/06 22:44:56 wsanchez Exp $ */
+/* $Id: version.h,v 1.1.1.3 2003/05/08 18:38:04 rbraun Exp $ */
 
-void version PARAMS ((void));
+void version (void);

@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/servers/slurpd/proto-slurp.h,v 1.8 2002/01/04 20:17:57 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slurpd/proto-slurp.h,v 1.8.2.2 2003/03/03 17:10:11 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 #ifndef _PROTO_SLURP
@@ -21,16 +21,21 @@ int doargs	LDAP_P((int argc, char **argv, struct globals *g));
 #define ch_malloc malloc
 #define ch_realloc realloc
 #define ch_calloc calloc
+#define ch_strdup strdup
 #define ch_free free
 #else
 void *ch_malloc	LDAP_P((ber_len_t size));
 void *ch_realloc	LDAP_P((void *block, ber_len_t size));
 void *ch_calloc	LDAP_P((ber_len_t nelem, ber_len_t size));
+char *ch_strdup LDAP_P((const char *str));
 void ch_free	LDAP_P((void *p));
 #endif
 
 /* config.c */
 int slurpd_read_config	LDAP_P((char *fname));
+
+extern char *slurpd_pid_file;
+extern char *slurpd_args_file;
 
 /* ch_malloc.c */
 void ch_free LDAP_P(( void *p ));
@@ -38,6 +43,7 @@ void ch_free LDAP_P(( void *p ));
 /* fm.c */
 void *fm	LDAP_P((void *arg));
 RETSIGTYPE do_nothing	LDAP_P((int i));
+RETSIGTYPE slurp_set_shutdown LDAP_P((int));
 
 /* globals.c */
 extern struct globals *sglob;

@@ -1,5 +1,3 @@
-/*	$NetBSD: ls.c,v 1.31 1998/08/19 01:44:19 thorpej Exp $	*/
-
 /*
  * Copyright (c) 1989, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
@@ -36,125 +34,172 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1989, 1993, 1994\n\
-	The Regents of the University of California.  All rights reserved.\n");
+static const char copyright[] =
+"@(#) Copyright (c) 1989, 1993, 1994\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
-#ifndef lint
 #if 0
-static char sccsid[] = "@(#)ls.c	8.7 (Berkeley) 8/5/94";
-#else
-__RCSID("$NetBSD: ls.c,v 1.31 1998/08/19 01:44:19 thorpej Exp $");
-#endif
+#ifndef lint
+static char sccsid[] = "@(#)ls.c	8.5 (Berkeley) 4/2/94";
 #endif /* not lint */
+#endif
+#include <sys/cdefs.h>
+__RCSID("$FreeBSD: src/bin/ls/ls.c,v 1.66 2002/09/21 01:28:36 wollman Exp $");
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
-#include <sys/param.h>
 
 #include <dirent.h>
 #include <err.h>
 #include <errno.h>
 #include <fts.h>
+#include <grp.h>
+#include <limits.h>
+#include <locale.h>
+#include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <pwd.h>
-#include <grp.h>
+#ifdef COLORLS
+#include <termcap.h>
+#include <signal.h>
+#endif
 
 #include "ls.h"
 #include "extern.h"
+#ifndef __APPLE__
+#include "lomac.h"
+#endif /* __APPLE__ */
 
-int	main __P((int, char *[]));
+/*
+ * Upward approximation of the maximum number of characters needed to
+ * represent a value of integral type t as a string, excluding the
+ * NUL terminator, with provision for a sign.
+ */
+#define	STRBUF_SIZEOF(t)	(1 + CHAR_BIT * sizeof(t) / 3 + 1)
 
-static void	 display __P((FTSENT *, FTSENT *));
-static int	 mastercmp __P((const FTSENT **, const FTSENT **));
-static void	 traverse __P((int, char **, int));
+static void	 display(FTSENT *, FTSENT *);
+static u_quad_t	 makenines(u_long);
+static int	 mastercmp(const FTSENT * const *, const FTSENT * const *);
+static void	 traverse(int, char **, int);
 
-static void (*printfcn) __P((DISPLAY *));
-static int (*sortfcn) __P((const FTSENT *, const FTSENT *));
-
-#define	BY_NAME 0
-#define	BY_SIZE 1
-#define	BY_TIME	2
+static void (*printfcn)(DISPLAY *);
+static int (*sortfcn)(const FTSENT *, const FTSENT *);
 
 long blocksize;			/* block size units */
 int termwidth = 80;		/* default terminal width */
-int sortkey = BY_NAME;
 
 /* flags */
-int f_accesstime;		/* use time of last access */
-int f_column;			/* columnated format */
-int f_columnacross;		/* columnated format, sorted across */
-int f_flags;			/* show flags associated with a file */
-int f_inode;			/* print inode */
-int f_listdir;			/* list actual directory, not contents */
-int f_listdot;			/* list files beginning with . */
-int f_longform;			/* long listing format */
-int f_nonprint;			/* show unprintables as ? */
-int f_nosort;			/* don't sort output */
-int f_numericonly;		/* don't convert uid/gid to name */
-int f_recursive;		/* ls subdirectories also */
-int f_reversesort;		/* reverse whatever sort is used */
-int f_sectime;			/* print the real time for all files */
-int f_singlecol;		/* use single column output */
-int f_size;			/* list size in short listing */
-int f_statustime;		/* use time of last mode change */
-int f_type;			/* add type character for non-regular files */
-int f_whiteout;			/* show whiteout entries */
+       int f_accesstime;	/* use time of last access */
+       int f_flags;		/* show flags associated with a file */
+       int f_humanval;		/* show human-readable file sizes */
+       int f_inode;		/* print inode */
+static int f_kblocks;		/* print size in kilobytes */
+static int f_listdir;		/* list actual directory, not contents */
+static int f_listdot;		/* list files beginning with . */
+       int f_longform;		/* long listing format */
+       int f_nonprint;		/* show unprintables as ? */
+static int f_nosort;		/* don't sort output */
+       int f_notabs;		/* don't use tab-separated multi-col output */
+static int f_numericonly;	/* don't convert uid/gid to name */
+       int f_octal;		/* show unprintables as \xxx */
+       int f_octal_escape;	/* like f_octal but use C escapes if possible */
+static int f_recursive;		/* ls subdirectories also */
+static int f_reversesort;	/* reverse whatever sort is used */
+       int f_sectime;		/* print the real time for all files */
+static int f_singlecol;		/* use single column output */
+       int f_size;		/* list size in short listing */
+       int f_slash;		/* similar to f_type, but only for dirs */
+       int f_sortacross;	/* sort across rows, not down columns */ 
+       int f_statustime;	/* use time of last mode change */
+       int f_stream;		/* stream the output, separate with commas */
+static int f_timesort;		/* sort by time vice name */
+static int f_sizesort;		/* sort by size */
+       int f_type;		/* add type character for non-regular files */
+static int f_whiteout;		/* show whiteout entries */
+       int f_lomac;		/* show LOMAC attributes */
+#ifdef COLORLS
+       int f_color;		/* add type in color for non-regular files */
+
+char *ansi_bgcol;		/* ANSI sequence to set background colour */
+char *ansi_fgcol;		/* ANSI sequence to set foreground colour */
+char *ansi_coloff;		/* ANSI sequence to reset colours */
+char *attrs_off;		/* ANSI sequence to turn off attributes */
+char *enter_bold;		/* ANSI sequence to set color to bold mode */
+#endif
+
+static int rval;
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
-	static char dot[] = ".", *dotav[] = { dot, NULL };
+	static char dot[] = ".", *dotav[] = {dot, NULL};
 	struct winsize win;
 	int ch, fts_options, notused;
-	int kflag = 0;
-	const char *p;
+	char *p;
+#ifdef COLORLS
+	char termcapbuf[1024];	/* termcap definition buffer */
+	char tcapbuf[512];	/* capability buffer */
+	char *bp = tcapbuf;
+#endif
+
+	(void)setlocale(LC_ALL, "");
 
 	/* Terminal defaults to -Cq, non-terminal defaults to -1. */
 	if (isatty(STDOUT_FILENO)) {
-		if ((p = getenv("COLUMNS")) != NULL)
+		termwidth = 80;
+		if ((p = getenv("COLUMNS")) != NULL && *p != '\0')
 			termwidth = atoi(p);
-		else if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &win) == 0 &&
+		else if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &win) != -1 &&
 		    win.ws_col > 0)
 			termwidth = win.ws_col;
-		f_column = f_nonprint = 1;
-	} else
+		f_nonprint = 1;
+	} else {
 		f_singlecol = 1;
+		/* retrieve environment variable, in case of explicit -C */
+		p = getenv("COLUMNS");
+		if (p)
+			termwidth = atoi(p);
+	}
 
 	/* Root is -A automatically. */
 	if (!getuid())
 		f_listdot = 1;
 
 	fts_options = FTS_PHYSICAL;
-	while ((ch = getopt(argc, argv, "1ACFLRSTWacdfgiklnoqrstuxv")) != -1) {
+ 	while ((ch = getopt(argc, argv, "1ABCFGHLPRSTWZabcdfghiklmnopqrstuvwx")) 
+	    != -1) {
 		switch (ch) {
 		/*
-		 * The -1, -C, -l and -x options all override each other so
-		 * shell aliasing works correctly.
+		 * The -1, -C, -x and -l options all override each other so
+		 * shell aliasing works right.
 		 */
 		case '1':
 			f_singlecol = 1;
-			f_column = f_columnacross = f_longform = 0;
+			f_longform = 0;
+			f_stream = 0;
+			break;
+		case 'B':
+			f_nonprint = 0;
+			f_octal = 1;
+			f_octal_escape = 0;
 			break;
 		case 'C':
-			f_column = 1;
-			f_columnacross = f_longform = f_singlecol = 0;
+			f_sortacross = f_longform = f_singlecol = 0;
 			break;
 		case 'l':
 			f_longform = 1;
-			f_column = f_columnacross = f_singlecol = 0;
+			f_singlecol = 0;
+			f_stream = 0;
 			break;
 		case 'x':
-			f_columnacross = 1;
-			f_column = f_longform = f_singlecol = 0;
+			f_sortacross = 1;
+			f_longform = 0;
+			f_singlecol = 0;
 			break;
 		/* The -c and -u options override each other. */
 		case 'c':
@@ -167,10 +212,22 @@ main(argc, argv)
 			break;
 		case 'F':
 			f_type = 1;
+			f_slash = 0;
+			break;
+		case 'H':
+			fts_options |= FTS_COMFOLLOW;
+			break;
+		case 'G':
+			setenv("CLICOLOR", "", 1);
 			break;
 		case 'L':
 			fts_options &= ~FTS_PHYSICAL;
 			fts_options |= FTS_LOGICAL;
+			break;
+		case 'P':
+			fts_options &= ~FTS_COMFOLLOW;
+			fts_options &= ~FTS_LOGICAL;
+			fts_options |= FTS_PHYSICAL;
 			break;
 		case 'R':
 			f_recursive = 1;
@@ -189,14 +246,21 @@ main(argc, argv)
 		case 'f':
 			f_nosort = 1;
 			break;
-		case 'g':		/* Compatibility with 4.3BSD. */
+		case 'g':	/* Compatibility with 4.3BSD. */
+			break;
+		case 'h':
+			f_humanval = 1;
 			break;
 		case 'i':
 			f_inode = 1;
 			break;
 		case 'k':
-			blocksize = 1024;
-			kflag = 1;
+			f_kblocks = 1;
+			break;
+		case 'm':
+			f_stream = 1;
+			f_singlecol = 0;
+			f_longform = 0;
 			break;
 		case 'n':
 			f_numericonly = 1;
@@ -204,14 +268,21 @@ main(argc, argv)
 		case 'o':
 			f_flags = 1;
 			break;
+		case 'p':
+			f_slash = 1;
+			f_type = 1;
+			break;
 		case 'q':
 			f_nonprint = 1;
+			f_octal = 0;
+			f_octal_escape = 0;
 			break;
 		case 'r':
 			f_reversesort = 1;
 			break;
 		case 'S':
-			sortkey = BY_SIZE;
+			/* Darwin 1.4.1 compatibility */
+			f_sizesort = 1;
 			break;
 		case 's':
 			f_size = 1;
@@ -220,13 +291,27 @@ main(argc, argv)
 			f_sectime = 1;
 			break;
 		case 't':
-			sortkey = BY_TIME;
+			f_timesort = 1;
 			break;
 		case 'W':
 			f_whiteout = 1;
 			break;
 		case 'v':
+			/* Darwin 1.4.1 compatibility */
 			f_nonprint = 0;
+			break;
+		case 'b':
+			f_nonprint = 0;
+			f_octal = 0;
+			f_octal_escape = 1;
+			break;
+		case 'w':
+			f_nonprint = 0;
+			f_octal = 0;
+			f_octal_escape = 0;
+			break;
+		case 'Z':
+			f_lomac = 1;
 			break;
 		default:
 		case '?':
@@ -236,12 +321,53 @@ main(argc, argv)
 	argc -= optind;
 	argv += optind;
 
+	/* Enabling of colours is conditional on the environment. */
+	if (getenv("CLICOLOR") &&
+	    (isatty(STDOUT_FILENO) || getenv("CLICOLOR_FORCE")))
+#ifdef COLORLS
+		if (tgetent(termcapbuf, getenv("TERM")) == 1) {
+			ansi_fgcol = tgetstr("AF", &bp);
+			ansi_bgcol = tgetstr("AB", &bp);
+			attrs_off = tgetstr("me", &bp);
+			enter_bold = tgetstr("md", &bp);
+
+			/* To switch colours off use 'op' if
+			 * available, otherwise use 'oc', or
+			 * don't do colours at all. */
+			ansi_coloff = tgetstr("op", &bp);
+			if (!ansi_coloff)
+				ansi_coloff = tgetstr("oc", &bp);
+			if (ansi_fgcol && ansi_bgcol && ansi_coloff)
+				f_color = 1;
+		}
+#else
+		(void)fprintf(stderr, "Color support not compiled in.\n");
+#endif /*COLORLS*/
+
+#ifdef COLORLS
+	if (f_color) {
+		/*
+		 * We can't put tabs and color sequences together:
+		 * column number will be incremented incorrectly
+		 * for "stty oxtabs" mode.
+		 */
+		f_notabs = 1;
+		(void)signal(SIGINT, colorquit);
+		(void)signal(SIGQUIT, colorquit);
+		parsecolors(getenv("LSCOLORS"));
+	}
+#endif
+
 	/*
-	 * If not -F, -i, -l, -S, -s or -t options, don't require stat
-	 * information.
+	 * If not -F, -i, -l, -s or -t options, don't require stat
+	 * information, unless in color mode in which case we do
+	 * need this to determine which colors to display.
 	 */
-	if (!f_inode && !f_longform && !f_size && !f_type &&
-	    sortkey == BY_NAME)
+	if (!f_inode && !f_longform && !f_size && !f_timesort && !f_type && !f_sizesort
+#ifdef COLORLS
+	    && !f_color
+#endif
+	    )
 		fts_options |= FTS_NOSTAT;
 
 	/*
@@ -261,55 +387,45 @@ main(argc, argv)
 
 	/* If -l or -s, figure out block size. */
 	if (f_longform || f_size) {
-		if (!kflag)
+		if (f_kblocks)
+			blocksize = 2;
+		else {
 			(void)getbsize(&notused, &blocksize);
-		blocksize /= 512;
+			blocksize /= 512;
+		}
 	}
-
 	/* Select a sort function. */
 	if (f_reversesort) {
-		switch (sortkey) {
-		case BY_NAME:
-			sortfcn = revnamecmp;
-			break;
-		case BY_SIZE:
+		if (f_sizesort)
 			sortfcn = revsizecmp;
-			break;
-		case BY_TIME:
-			if (f_accesstime)
-				sortfcn = revacccmp;
-			else if (f_statustime)
-				sortfcn = revstatcmp;
-			else /* Use modification time. */
-				sortfcn = revmodcmp;
-			break;
-		}
+		else if (!f_timesort)
+			sortfcn = revnamecmp;
+		else if (f_accesstime)
+			sortfcn = revacccmp;
+		else if (f_statustime)
+			sortfcn = revstatcmp;
+		else		/* Use modification time. */
+			sortfcn = revmodcmp;
 	} else {
-		switch (sortkey) {
-		case BY_NAME:
-			sortfcn = namecmp;
-			break;
-		case BY_SIZE:
+		if (f_sizesort)
 			sortfcn = sizecmp;
-			break;
-		case BY_TIME:
-			if (f_accesstime)
-				sortfcn = acccmp;
-			else if (f_statustime)
-				sortfcn = statcmp;
-			else /* Use modification time. */
-				sortfcn = modcmp;
-			break;
-		}
+		else if (!f_timesort)
+			sortfcn = namecmp;
+		else if (f_accesstime)
+			sortfcn = acccmp;
+		else if (f_statustime)
+			sortfcn = statcmp;
+		else		/* Use modification time. */
+			sortfcn = modcmp;
 	}
 
 	/* Select a print function. */
 	if (f_singlecol)
 		printfcn = printscol;
-	else if (f_columnacross)
-		printfcn = printacol;
 	else if (f_longform)
 		printfcn = printlong;
+	else if (f_stream)
+		printfcn = printstream;
 	else
 		printfcn = printcol;
 
@@ -317,11 +433,10 @@ main(argc, argv)
 		traverse(argc, argv, fts_options);
 	else
 		traverse(1, dotav, fts_options);
-	exit(0);
-	/* NOTREACHED */
+	exit(rval);
 }
 
-static int output;			/* If anything output. */
+static int output;		/* If anything output. */
 
 /*
  * Traverse() walks the logical directory structure specified by the argv list
@@ -330,18 +445,15 @@ static int output;			/* If anything output. */
  * a superset (may be exact set) of the files to be displayed.
  */
 static void
-traverse(argc, argv, options)
-	int argc, options;
-	char *argv[];
+traverse(int argc, char *argv[], int options)
 {
 	FTS *ftsp;
 	FTSENT *p, *chp;
 	int ch_options;
-	char pbuf[MAXPATHLEN + 1], *path;
 
 	if ((ftsp =
 	    fts_open(argv, options, f_nosort ? NULL : mastercmp)) == NULL)
-		err(1, "%s", "");
+		err(1, "fts_open");
 
 	display(NULL, fts_children(ftsp, 0));
 	if (f_listdir)
@@ -361,6 +473,7 @@ traverse(argc, argv, options)
 		case FTS_DNR:
 		case FTS_ERR:
 			warnx("%s: %s", p->fts_name, strerror(p->fts_errno));
+			rval = 1;
 			break;
 		case FTS_D:
 			if (p->fts_level != FTS_ROOTLEVEL &&
@@ -372,24 +485,19 @@ traverse(argc, argv, options)
 			 * a separator.  If multiple arguments, precede each
 			 * directory with its name.
 			 */
-			if (f_nonprint) {
-				prcopy(p->fts_path, pbuf, p->fts_pathlen+1);
-				path = pbuf;
-			} else
-				path = p->fts_path;
-
 			if (output)
-				(void)printf("\n%s:\n", path);
+				(void)printf("\n%s:\n", p->fts_path);
 			else if (argc > 1) {
-				(void)printf("%s:\n", path);
+				(void)printf("%s:\n", p->fts_path);
 				output = 1;
 			}
-
 			chp = fts_children(ftsp, ch_options);
 			display(p, chp);
 
 			if (!f_recursive && chp != NULL)
 				(void)fts_set(ftsp, p, FTS_SKIP);
+			break;
+		default:
 			break;
 		}
 	if (errno)
@@ -402,52 +510,135 @@ traverse(argc, argv, options)
  * points to the parent directory of the display list.
  */
 static void
-display(p, list)
-	FTSENT *p, *list;
+display(FTSENT *p, FTSENT *list)
 {
 	struct stat *sp;
 	DISPLAY d;
 	FTSENT *cur;
 	NAMES *np;
-	u_int64_t btotal, maxblock, maxsize;
-	int maxinode, maxnlink, maxmajor, maxminor;
-	int bcfile, entries, flen, glen, ulen, maxflags, maxgroup, maxlen;
-	int maxuser, needstats;
+	off_t maxsize;
+	u_int64_t btotal, maxblock;
+	u_long lattrlen, maxinode, maxlen, maxnlink, maxlattr;
+	int bcfile, maxflags;
+	gid_t maxgroup;
+	uid_t maxuser;
+	size_t flen, ulen, glen;
+	char *initmax;
+	int entries, needstats;
 	const char *user, *group;
-	char ubuf[21]="", gbuf[21]="", buf[21];	/* 64 bits == 20 digits, +1 for NUL */
-	char nuser[12], ngroup[12];
-	char *flags = NULL;
-
-#ifdef __GNUC__
-	/* This outrageous construct just to shut up a GCC warning. */
-	(void) &maxsize;
-#endif
+	char *flags, *lattr = NULL;
+	char buf[STRBUF_SIZEOF(u_quad_t) + 1];
+	char ngroup[STRBUF_SIZEOF(uid_t) + 1];
+	char nuser[STRBUF_SIZEOF(gid_t) + 1];
 
 	/*
 	 * If list is NULL there are two possibilities: that the parent
 	 * directory p has no children, or that fts_children() returned an
 	 * error.  We ignore the error case since it will be replicated
 	 * on the next call to fts_read() on the post-order visit to the
-	 * directory p, and will be signalled in traverse().
+	 * directory p, and will be signaled in traverse().
 	 */
 	if (list == NULL)
 		return;
 
 	needstats = f_inode || f_longform || f_size;
 	flen = 0;
-	maxinode = maxnlink = 0;
+	btotal = 0;
+	initmax = getenv("LS_COLWIDTHS");
+	/* Fields match -lios order.  New ones should be added at the end. */
+	maxlattr = maxblock = maxinode = maxlen = maxnlink =
+	    maxuser = maxgroup = maxflags = maxsize = 0;
+	if (initmax != NULL && *initmax != '\0') {
+		char *initmax2, *jinitmax;
+		int ninitmax;
+
+		/* Fill-in "::" as "0:0:0" for the sake of scanf. */
+		jinitmax = initmax2 = malloc(strlen(initmax) * 2 + 2);
+		if (jinitmax == NULL)
+			err(1, "malloc");
+		if (*initmax == ':')
+			strcpy(initmax2, "0:"), initmax2 += 2;
+		else
+			*initmax2++ = *initmax, *initmax2 = '\0';
+		for (initmax++; *initmax != '\0'; initmax++) {
+			if (initmax[-1] == ':' && initmax[0] == ':') {
+				*initmax2++ = '0';
+				*initmax2++ = initmax[0];
+				initmax2[1] = '\0';
+			} else {
+				*initmax2++ = initmax[0];
+				initmax2[1] = '\0';
+			}
+		}
+		if (initmax2[-1] == ':')
+			strcpy(initmax2, "0");
+
+		ninitmax = sscanf(jinitmax,
+		    " %lu : %qu : %lu : %i : %i : %i : %qu : %lu : %lu ",
+		    &maxinode, &maxblock, &maxnlink, &maxuser,
+		    &maxgroup, &maxflags, &maxsize, &maxlen, &maxlattr);
+		f_notabs = 1;
+		switch (ninitmax) {
+		case 0:
+			maxinode = 0;
+			/* FALLTHROUGH */
+		case 1:
+			maxblock = 0;
+			/* FALLTHROUGH */
+		case 2:
+			maxnlink = 0;
+			/* FALLTHROUGH */
+		case 3:
+			maxuser = 0;
+			/* FALLTHROUGH */
+		case 4:
+			maxgroup = 0;
+			/* FALLTHROUGH */
+		case 5:
+			maxflags = 0;
+			/* FALLTHROUGH */
+		case 6:
+			maxsize = 0;
+			/* FALLTHROUGH */
+		case 7:
+			maxlen = 0;
+			/* FALLTHROUGH */
+		case 8:
+			maxlattr = 0;
+			/* FALLTHROUGH */
+#ifdef COLORLS
+			if (!f_color)
+#endif
+				f_notabs = 0;
+			/* FALLTHROUGH */
+		default:
+			break;
+		}
+		maxinode = makenines(maxinode);
+		maxblock = makenines(maxblock);
+		maxnlink = makenines(maxnlink);
+		maxsize = makenines(maxsize);
+	}
+#ifndef __APPLE__
+	if (f_lomac)
+		lomac_start();
+#endif /* __APPLE__ */
 	bcfile = 0;
-	maxuser = maxgroup = maxflags = maxlen = 0;
-	btotal = maxblock = maxsize = 0;
-	maxmajor = maxminor = 0;
+	flags = NULL;
 	for (cur = list, entries = 0; cur; cur = cur->fts_link) {
 		if (cur->fts_info == FTS_ERR || cur->fts_info == FTS_NS) {
 			warnx("%s: %s",
 			    cur->fts_name, strerror(cur->fts_errno));
 			cur->fts_number = NO_PRINT;
+#ifndef __APPLE__
+			/* Don't count this as an error.  This is for
+			 * binary compatibility with Matlab installer script.
+			 * 3252074
+			 */
+			rval = 1;
+#endif
 			continue;
 		}
-
 		/*
 		 * P is NULL if list is the argv list, to which different rules
 		 * apply.
@@ -467,6 +658,12 @@ display(p, list)
 		}
 		if (cur->fts_namelen > maxlen)
 			maxlen = cur->fts_namelen;
+		if (f_octal || f_octal_escape) {
+			u_long t = len_octal(cur->fts_name, cur->fts_namelen);
+
+			if (t > maxlen)
+				maxlen = t;
+		}
 		if (needstats) {
 			sp = cur->fts_statp;
 			if (sp->st_blocks > maxblock)
@@ -477,13 +674,6 @@ display(p, list)
 				maxnlink = sp->st_nlink;
 			if (sp->st_size > maxsize)
 				maxsize = sp->st_size;
-			if (S_ISCHR(sp->st_mode) || S_ISBLK(sp->st_mode)) {
-				bcfile = 1;
-				if (major(sp->st_rdev) > maxmajor)
-					maxmajor = major(sp->st_rdev);
-				if (minor(sp->st_rdev) > maxminor)
-					maxminor = minor(sp->st_rdev);
-			}
 
 			btotal += sp->st_blocks;
 			if (f_longform) {
@@ -495,40 +685,63 @@ display(p, list)
 					user = nuser;
 					group = ngroup;
 				} else {
-					if ((user = user_from_uid(sp->st_uid, 0)) == NULL) {
-						(void)snprintf(ubuf, sizeof(ubuf), "%d", (int)sp->st_uid);
-						user = ubuf;
-					}
-					if ((group = group_from_gid(sp->st_gid, 0)) == NULL) {
-						(void)snprintf(gbuf, sizeof(gbuf), "%d", (int)sp->st_gid);
-						group = gbuf;
-					}
+					user = user_from_uid(sp->st_uid, 0);
+					group = group_from_gid(sp->st_gid, 0);
 				}
 				if ((ulen = strlen(user)) > maxuser)
 					maxuser = ulen;
 				if ((glen = strlen(group)) > maxgroup)
 					maxgroup = glen;
 				if (f_flags) {
-					flags =
-					    flags_to_string(sp->st_flags, "-");
-					if ((flen = strlen(flags)) > maxflags)
+					flags = fflagstostr(sp->st_flags);
+					if (flags != NULL && *flags == '\0') {
+						free(flags);
+						flags = strdup("-");
+					}
+					if (flags == NULL)
+						err(1, "fflagstostr");
+					flen = strlen(flags);
+					if (flen > (size_t)maxflags)
 						maxflags = flen;
 				} else
 					flen = 0;
+				lattr = NULL;
+#ifndef __APPLE__
+				if (f_lomac) {
+					lattr = get_lattr(cur);
+					lattrlen = strlen(lattr);
+					if (lattrlen > maxlattr)
+						maxlattr = lattrlen;
+				} else
+#endif /* __APPLE__ */
+					lattrlen = 0;
 
-				if ((np = malloc(sizeof(NAMES) +
-				    ulen + glen + flen + 3)) == NULL)
-					err(1, "%s", "");
+				if ((np = malloc(sizeof(NAMES) + lattrlen +
+				    ulen + glen + flen + 4)) == NULL)
+					err(1, "malloc");
 
 				np->user = &np->data[0];
 				(void)strcpy(np->user, user);
 				np->group = &np->data[ulen + 1];
 				(void)strcpy(np->group, group);
 
+				if (S_ISCHR(sp->st_mode) ||
+				    S_ISBLK(sp->st_mode))
+					bcfile = 1;
+
 				if (f_flags) {
 					np->flags = &np->data[ulen + glen + 2];
-				  	(void)strcpy(np->flags, flags);
+					(void)strcpy(np->flags, flags);
+					free(flags);
 				}
+#ifndef __APPLE__
+				if (f_lomac) {
+					np->lattr = &np->data[ulen + glen + 2
+					    + (f_flags ? flen + 1 : 0)];
+					(void)strcpy(np->lattr, lattr);
+					free(lattr);
+				}
+#endif /* __APPLE__ */
 				cur->fts_pointer = np;
 			}
 		}
@@ -542,39 +755,31 @@ display(p, list)
 	d.entries = entries;
 	d.maxlen = maxlen;
 	if (needstats) {
+		d.bcfile = bcfile;
 		d.btotal = btotal;
-		(void)snprintf(buf, sizeof(buf), "%qu", (long long)maxblock);
+		(void)snprintf(buf, sizeof(buf), "%qu", (u_int64_t)maxblock);
 		d.s_block = strlen(buf);
 		d.s_flags = maxflags;
+		d.s_lattr = maxlattr;
 		d.s_group = maxgroup;
-		(void)snprintf(buf, sizeof(buf), "%u", maxinode);
+		(void)snprintf(buf, sizeof(buf), "%lu", maxinode);
 		d.s_inode = strlen(buf);
-		(void)snprintf(buf, sizeof(buf), "%u", maxnlink);
+		(void)snprintf(buf, sizeof(buf), "%lu", maxnlink);
 		d.s_nlink = strlen(buf);
-		(void)snprintf(buf, sizeof(buf), "%qu", (long long)maxsize);
+		(void)snprintf(buf, sizeof(buf), "%qu", (u_int64_t)maxsize);
 		d.s_size = strlen(buf);
 		d.s_user = maxuser;
-		if (bcfile) {
-			(void)snprintf(buf, sizeof(buf), "%u", maxmajor);
-			d.s_major = strlen(buf);
-			(void)snprintf(buf, sizeof(buf), "%u", maxminor);
-			d.s_minor = strlen(buf);
-			if (d.s_major + d.s_minor + 2 > d.s_size)
-				d.s_size = d.s_major + d.s_minor + 2;
-			else if (d.s_size - d.s_minor - 2 > d.s_major)
-				d.s_major = d.s_size - d.s_minor - 2;
-		} else {
-			d.s_major = 0;
-			d.s_minor = 0;
-		}
 	}
-
 	printfcn(&d);
 	output = 1;
 
 	if (f_longform)
 		for (cur = list; cur; cur = cur->fts_link)
 			free(cur->fts_pointer);
+#ifndef __APPLE__
+	if (f_lomac)
+		lomac_stop();
+#endif /* __APPLE__ */
 }
 
 /*
@@ -584,8 +789,7 @@ display(p, list)
  * All other levels use the sort function.  Error entries remain unsorted.
  */
 static int
-mastercmp(a, b)
-	const FTSENT **a, **b;
+mastercmp(const FTSENT * const *a, const FTSENT * const *b)
 {
 	int a_info, b_info;
 
@@ -596,21 +800,34 @@ mastercmp(a, b)
 	if (b_info == FTS_ERR)
 		return (0);
 
-	if (a_info == FTS_NS || b_info == FTS_NS) {
-		if (b_info != FTS_NS)
-			return (1);
-		else if (a_info != FTS_NS)
-			return (-1);
-		else
-			return (namecmp(*a, *b));
-	}
+	if (a_info == FTS_NS || b_info == FTS_NS)
+		return (namecmp(*a, *b));
 
-	if (a_info != b_info && !f_listdir &&
-	    (*a)->fts_level == FTS_ROOTLEVEL) {
+	if (a_info != b_info &&
+	    (*a)->fts_level == FTS_ROOTLEVEL && !f_listdir) {
 		if (a_info == FTS_D)
 			return (1);
-		else if (b_info == FTS_D)
+		if (b_info == FTS_D)
 			return (-1);
 	}
 	return (sortfcn(*a, *b));
+}
+
+/*
+ * Makenines() returns (10**n)-1.  This is useful for converting a width
+ * into a number that wide in decimal.
+ */
+static u_quad_t
+makenines(u_long n)
+{
+	u_long i;
+	u_quad_t reg;
+
+	reg = 1;
+	/* Use a loop instead of pow(), since all values of n are small. */
+	for (i = 0; i < n; i++)
+		reg *= 10;
+	reg--;
+
+	return reg;
 }

@@ -40,16 +40,18 @@ int gVerboseFlag   = 1;
 int gSafeBootFlag  = 0;
 int gNoRunFlag     = 0;
 int gParentPID     = 0;
+int gQuitOnNotification = 0;
 
 static void usage() __attribute__((__noreturn__));
 static void usage()
 {
     char* aProgram = **_NSGetArgv();
-    error(CFSTR("usage: %s [-vxdDqng?] [ <action> [ <item> ] ]\n"
+    error(CFSTR("usage: %s [-vxdDrqng?] [ <action> [ <item> ] ]\n"
 		"\t<action>: action to take (start|stop|restart); default is start\n"
 		"\t<item>  : name of item to act on; default is all items\n"
 		"options:\n"
 		"\t-g: graphical startup\n"
+		"\t-r: do not quit when done, keep running until notified from ConsoleMessage\n"
 		"\t-v: verbose (text mode) startup\n"
 		"\t-x: safe mode startup\n"
 		"\t-d: print debugging output\n"
@@ -73,7 +75,7 @@ int main (int argc, char *argv[])
      **/
     {
         char c;
-        while ((c = getopt(argc, argv, "gvxidDqn?")) != -1) {
+        while ((c = getopt(argc, argv, "gvxirdDqn?")) != -1) {
             switch (c) {
 	        /* Options from init */
                 case 'g':
@@ -86,6 +88,10 @@ int main (int argc, char *argv[])
                 
                 case 'x':
                     gSafeBootFlag = 1;
+                    break;
+
+                case 'r':
+                    gQuitOnNotification = 1;
                     break;
 
 		/* Debugging Options */

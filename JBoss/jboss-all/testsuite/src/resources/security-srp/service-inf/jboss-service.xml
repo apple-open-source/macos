@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<server>
+
+   <!-- The custom JAAS login configuration that installs 
+       a Configuration capable of dynamically updating the
+       config settings
+   -->
+   <mbean code="org.jboss.test.security.service.SecurityConfig"
+      name="jboss.security.tests:service=LoginConfig">
+      <attribute name="AuthConfig">META-INF/srp-test-config.xml</attribute>
+      <attribute name="SecurityConfigName">jboss.security:service=SecurityConfig</attribute>
+   </mbean>
+
+   <!-- The SRP service that sets up the RMI and JMX access to SRP -->
+   <mbean code="org.jboss.security.srp.SRPService"
+      name="jboss.security.tests:service=SRPService">
+      <attribute name="VerifierSourceJndiName">srp-test/TestVerifierSource</attribute>
+      <attribute name="JndiName">srp-test/SRPServerInterface</attribute>
+      <attribute name="AuthenticationCacheJndiName">srp-test/AuthenticationCache</attribute>
+      <attribute name="ServerPort">0</attribute>
+      <depends>jboss.security.tests:service=PropertiesVerifierStore</depends>
+   </mbean>
+
+   <!-- Expose the SRP service interface via HTTP -->
+   <mbean code="org.jboss.invocation.http.server.HttpProxyFactory"
+      name="jboss.security.tests:service=SRP/HTTP">
+      <attribute name="InvokerURL">http://localhost:8080/invoker/JMXInvokerServlet</attribute>
+      <attribute name="InvokerName">jboss.security.tests:service=SRPService</attribute>
+      <attribute name="ExportedInterface">org.jboss.security.srp.SRPRemoteServerInterface</attribute>
+      <attribute name="JndiName">srp-test-http/SRPServerInterface</attribute>
+   </mbean>
+
+   <!-- The SRP store handler service -->
+   <mbean code="org.jboss.test.security.service.PropertiesVerifierStore"
+      name="jboss.security.tests:service=PropertiesVerifierStore">
+      <attribute name="JndiName">srp-test/TestVerifierSource</attribute>
+   </mbean>
+
+   <mbean code="org.jboss.test.security.service.SRPCacheTest"
+      name="jboss.security.tests:service=SRPCacheTest" xmbean-dd="">
+      <xmbean>
+         <description>An xmbean for testing SRP session validity</description>
+         <descriptors>
+            <interceptors>
+               <interceptor code="org.jboss.test.security.interceptors.SRPCacheInterceptor"
+                  authenticationCacheJndiName="srp-test/AuthenticationCache"/>
+               <interceptor code="org.jboss.mx.interceptor.PersistenceInterceptor2" />
+               <interceptor code="org.jboss.mx.interceptor.ModelMBeanInterceptor" />
+               <interceptor code="org.jboss.mx.interceptor.ObjectReferenceInterceptor" />
+            </interceptors>
+         </descriptors>
+         <!--class>org.jboss.test.security.service.SRPCacheTest</class -->
+
+         <!-- Operations -->
+         <operation>
+            <description>The start lifecycle operation</description>
+            <name>start</name>
+         </operation>
+         <operation>
+            <description>The stop lifecycle operation</description>
+            <name>stop</name>
+         </operation>
+
+         <operation>
+            <description></description>
+            <name>testSession</name>
+            <parameter>
+               <description>The SRPSession principal</description>
+               <name>principal</name>
+               <type>java.security.Principal</type>
+            </parameter>
+            <parameter>
+               <description>The SRPSession session key</description>
+               <name>clientChallenge</name>
+               <!-- byte[] -->
+               <type>[B</type>
+            </parameter>
+            <return-type>int</return-type>
+         </operation>
+      </xmbean>
+   </mbean>
+</server>

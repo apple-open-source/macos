@@ -36,6 +36,7 @@
 #include "render_arena.h"
 #include "render_inline.h"
 #include "render_block.h"
+#include "render_flexbox.h"
 
 #include <assert.h>
 using namespace DOM;
@@ -67,21 +68,13 @@ RenderObject *RenderObject::createObject(DOM::NodeImpl* node,  RenderStyle* styl
     case NONE:
         break;
     case INLINE:
+        o = new (arena) RenderInline(node);
+        break;
     case BLOCK:
-        // In compat mode, if <td> has a display of block, build a table cell instead.
-        // This corrects erroneous HTML.  A better fix would be to implement full-blown
-        // CSS2 anonymous table render object construction, but until then, this will have
-        // to suffice. -dwh
-        if (style->display() == BLOCK && node->id() == ID_TD && style->htmlHacks())
-            o = new (arena) RenderTableCell(node);
-        // In quirks mode if <table> has a display of block, make a table. If it has 
-        // a display of inline, make an inline-table.
-        else if (node->id() == ID_TABLE && style->htmlHacks())
-            o = new (arena) RenderTable(node);
-        else if (style->display() == INLINE)
-            o = new (arena) RenderInline(node);
-        else
-            o = new (arena) RenderBlock(node);
+        o = new (arena) RenderBlock(node);
+        break;
+    case INLINE_BLOCK:
+        o = new (arena) RenderBlock(node);
         break;
     case LIST_ITEM:
         o = new (arena) RenderListItem(node);
@@ -89,8 +82,6 @@ RenderObject *RenderObject::createObject(DOM::NodeImpl* node,  RenderStyle* styl
     case RUN_IN:
     case COMPACT:
         o = new (arena) RenderBlock(node);
-        break;
-    case MARKER:
         break;
     case TABLE:
     case INLINE_TABLE:
@@ -115,8 +106,11 @@ RenderObject *RenderObject::createObject(DOM::NodeImpl* node,  RenderStyle* styl
     case TABLE_CAPTION:
         o = new (arena) RenderBlock(node);
         break;
+    case BOX:
+    case INLINE_BOX:
+        o = new (arena) RenderFlexibleBox(node);
+        break;
     }
-    if(o) o->setStyle(style);
     return o;
 }
 
@@ -159,12 +153,28 @@ RenderObject::~RenderObject()
         m_style->deref();
 }
 
-bool RenderObject::isRoot() const {
+bool RenderObject::isRoot() const
+{
     return element() && element()->renderer() == this &&
            element()->getDocument()->documentElement() == element();
 }
 
+bool RenderObject::isBody() const
+{
+    return element() && element()->renderer() == this && element()->id() == ID_BODY;
+}
+
 bool RenderObject::canHaveChildren() const
+{
+    return false;
+}
+
+RenderFlow* RenderObject::continuation() const
+{
+    return 0;
+}
+
+bool RenderObject::isInlineContinuation() const
 {
     return false;
 }
@@ -303,6 +313,11 @@ RenderLayer* RenderObject::enclosingLayer()
         curr = curr->parent();
     }
     return 0;
+}
+
+bool RenderObject::requiresLayer()
+{
+    return isRoot() || isPositioned() || isRelPositioned() || style()->opacity() < 1.0f;
 }
 
 int RenderObject::offsetLeft() const
@@ -474,8 +489,17 @@ int RenderObject::containingBlockHeight() const
 
 bool RenderObject::sizesToMaxWidth() const
 {
-    return isFloating() || isCompact() ||
-      (element() && (element()->id() == ID_BUTTON || element()->id() == ID_LEGEND));
+    if (isFloating() || isCompact() || isInlineBlockOrInlineTable() ||
+        (element() && (element()->id() == ID_BUTTON || element()->id() == ID_LEGEND)))
+        return true;
+
+    // Flexible horizontal boxes lay out children at their maxwidths.  Also vertical boxes
+    // that don't stretch their kids lay out their children at their maxwidths.
+    if (parent()->isFlexibleBox() &&
+        (parent()->style()->boxOrient() == HORIZONTAL || parent()->style()->boxAlign() != BSTRETCH))
+        return true;
+
+    return false;
 }
 
 void RenderObject::drawBorder(QPainter *p, int x1, int y1, int x2, int y2,
@@ -927,8 +951,7 @@ void RenderObject::handleDynamicFloatPositionChange()
     // We have gone from not affecting the inline status of the parent flow to suddenly
     // having an impact.  See if there is a mismatch between the parent flow's
     // childrenInline() state and our state.
-    setInline(m_style->display() == INLINE || // m_style->display() == INLINE_BLOCK ||
-              m_style->display() == INLINE_TABLE);
+    setInline(style()->isDisplayInlineType());
     if (isInline() != parent()->childrenInline()) {
         if (!isInline()) {
             if (parent()->isRenderInline()) {
@@ -1182,7 +1205,7 @@ void RenderObject::removeFromObjectLists()
     if (isFloating()) {
         RenderBlock* outermostBlock = containingBlock();
         for (RenderBlock* p = outermostBlock;
-             p && !p->isCanvas() && p->containsFloat(this) && !p->isFloatingOrPositioned();
+             p && !p->isCanvas() && p->containsFloat(this);
              outermostBlock = p, p = p->containingBlock());
         if (outermostBlock)
             outermostBlock->markAllDescendantsWithFloatsForLayout(this);
@@ -1425,7 +1448,8 @@ short RenderObject::getVerticalPosition( bool firstLine ) const
     } else if ( va == LENGTH ) {
         vpos = -style()->verticalAlignLength().width( lineHeight( firstLine ) );
     } else  {
-        vpos = parent()->verticalPositionHint( firstLine );
+        bool checkParent = parent()->isInline() && !parent()->isInlineBlockOrInlineTable();
+        vpos = checkParent ? parent()->verticalPositionHint( firstLine ) : 0;
         // don't allow elements nested inside text-top to have a different valignment.
         if ( va == BASELINE )
             return vpos;
@@ -1446,7 +1470,8 @@ short RenderObject::getVerticalPosition( bool firstLine ) const
 //                 qDebug( "CSSLH: %d, CSS_FS: %d, basepos: %d", fontheight, fontsize, parent()->baselinePosition( firstLine ) );
 //                 qDebug( "this:" );
 //                 qDebug( "CSSLH: %d, CSS_FS: %d, basepos: %d", lineHeight( firstLine ), style()->font().pixelSize(), baselinePosition( firstLine ) );
-            vpos += ( baselinePosition( firstLine ) - parent()->baselinePosition( firstLine ) );
+            vpos += ( baselinePosition( firstLine ) -
+                      parent()->baselinePosition( firstLine, !checkParent ) );
         } else if ( va == MIDDLE ) {
 #if APPLE_CHANGES
             vpos += - (int)(QFontMetrics(f).xHeight()/2) - lineHeight( firstLine )/2 + baselinePosition( firstLine );
@@ -1465,7 +1490,7 @@ short RenderObject::getVerticalPosition( bool firstLine ) const
     return vpos;
 }
 
-short RenderObject::lineHeight( bool firstLine ) const
+short RenderObject::lineHeight( bool firstLine, bool ) const
 {
     Length lh = style(firstLine)->lineHeight();
 
@@ -1480,10 +1505,10 @@ short RenderObject::lineHeight( bool firstLine ) const
     return lh.value;
 }
 
-short RenderObject::baselinePosition( bool firstLine ) const
+short RenderObject::baselinePosition( bool firstLine, bool isRootLineBox ) const
 {
     const QFontMetrics &fm = fontMetrics( firstLine );
-    return fm.ascent() + ( lineHeight( firstLine ) - fm.height() ) / 2;
+    return fm.ascent() + ( lineHeight( firstLine, isRootLineBox ) - fm.height() ) / 2;
 }
 
 void RenderObject::invalidateVerticalPositions()
@@ -1550,8 +1575,9 @@ void RenderObject::removeLeftoverAnonymousBoxes()
 {
 }
 
-InlineBox* RenderObject::createInlineBox(bool makePlaceHolderBox)
+InlineBox* RenderObject::createInlineBox(bool,bool isRootLineBox)
 {
+    KHTMLAssert(!isRootLineBox);
     return new (renderArena()) InlineBox(this);
 }
 

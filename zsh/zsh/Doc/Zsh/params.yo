@@ -20,8 +20,9 @@ cindex(assignment)
 indent(var(name)tt(=)var(value))
 
 If the integer attribute, tt(-i), is set for var(name), the var(value)
-is subject to arithmetic evaluation.  See noderef(Array Parameters)
-for additional forms of assignment.
+is subject to arithmetic evaluation.  Furthermore, by replacing `tt(=)'
+with `tt(+=)', a parameter can be added or appended to.  See
+noderef(Array Parameters) for additional forms of assignment.
 
 To refer to the value of a parameter, write `tt($)var(name)' or
 `tt(${)var(name)tt(})'.  See
@@ -31,9 +32,11 @@ for complete details.
 
 In the parameter lists that follow, the mark `<S>' indicates that the
 parameter is special.
-Special parameters cannot have their type changed, and they stay special even
-if unset.  `<Z>' indicates that the parameter does not exist when the shell
-initializes in tt(sh) or tt(ksh) emulation mode.
+Special parameters cannot have their type changed or their
+readonly attribute turned off, and if a special parameter is unset, then
+later recreated, the special properties will be retained.  `<Z>' indicates
+that the parameter does not exist when the shell initializes in tt(sh) or
+tt(ksh) emulation mode.
 startmenu()
 menu(Array Parameters)
 menu(Positional Parameters)
@@ -571,9 +574,14 @@ and whenever the directory changes.
 )
 vindex(RANDOM)
 item(tt(RANDOM) <S>)(
-A random integer from 0 to 32767, newly generated each time
+A pseudo-random integer from 0 to 32767, newly generated each time
 this parameter is referenced.  The random number generator
 can be seeded by assigning a numeric value to tt(RANDOM).
+
+The values of tt(RANDOM) form an intentionally-repeatable pseudo-random
+sequence; subshells that reference tt(RANDOM) will result
+in identical pseudo-random values unless the value of tt(RANDOM) is
+referenced or seeded in the parent shell in between subshell invocations.
 )
 vindex(SECONDS)
 item(tt(SECONDS) <S>)(
@@ -581,6 +589,12 @@ The number of seconds since shell invocation.  If this parameter
 is assigned a value, then the value returned upon reference
 will be the value that was assigned plus the number of seconds
 since the assignment.
+
+Unlike other special parameters, the type of the tt(SECONDS) parameter can
+be changed using the tt(typeset) command.  Only integer and one of the
+floating point types are allowed.  For example, `tt(typeset -F SECONDS)'
+causes the value to be reported as a floating point number.  The precision
+is six decimal places, although not all places may be useful.
 )
 vindex(SHLVL)
 item(tt(SHLVL) <S>)(
@@ -682,6 +696,14 @@ stack gets larger than this, it will be truncated automatically.
 This is useful with the tt(AUTO_PUSHD) option.
 pindex(AUTO_PUSHD, use of)
 )
+vindex(ENV)
+item(tt(ENV))(
+If the tt(ENV) environment variable is set when zsh is invoked as tt(sh)
+or tt(ksh), tt($ENV) is sourced after the profile scripts.  The value of
+tt(ENV) is subjected to parameter expansion, command substitution, and
+arithmetic expansion before being interpreted as a pathname.  Note that
+tt(ENV) is em(not) used unless zsh is emulating bf(sh) or bf(ksh).
+)
 vindex(FCEDIT)
 item(tt(FCEDIT))(
 The default editor for the tt(fc) builtin.
@@ -691,9 +713,8 @@ vindex(FIGNORE)
 item(tt(fignore) <S> <Z> (tt(FIGNORE) <S>))(
 An array (colon separated list)
 containing the suffixes of files to be ignored
-during filename completion.  However, if the completion generates only files
-which would match if this variable would be ignored, than these files are
-completed anyway.
+during filename completion.  However, if completion only generates files
+with suffixes in this list, then these files are completed anyway.
 )
 vindex(fpath)
 vindex(FPATH)
@@ -954,6 +975,15 @@ This prompt is displayed on the right-hand side of the screen
 when the primary prompt is being displayed on the left.
 This does not work if the tt(SINGLELINEZLE) option is set.
 It is expanded in the same way as tt(PS1).
+)
+vindex(RPROMPT2)
+xitem(tt(RPROMPT2) <S>)
+vindex(RPS2)
+item(tt(RPS2) <S>)(
+This prompt is displayed on the right-hand side of the screen
+when the secondary prompt is being displayed on the left.
+This does not work if the tt(SINGLELINEZLE) option is set.
+It is expanded in the same way as tt(PS2).
 )
 vindex(SAVEHIST)
 item(tt(SAVEHIST))(

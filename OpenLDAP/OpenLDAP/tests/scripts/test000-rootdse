@@ -1,5 +1,5 @@
 #! /bin/sh
-# $OpenLDAP: pkg/ldap/tests/scripts/test000-rootdse,v 1.9 2002/01/21 05:35:04 kurt Exp $
+# $OpenLDAP: pkg/ldap/tests/scripts/test000-rootdse,v 1.9.2.5 2002/09/24 00:05:01 kurt Exp $
 
 SRCDIR="."
 if test $# -ge 1 ; then
@@ -8,6 +8,10 @@ fi
 BACKEND=bdb
 if test $# -ge 1 ; then
 	BACKEND=$1; shift
+fi
+MONITORDB=no
+if test $# -ge 1 ; then
+	MONITORDB=$1; shift
 fi
 
 WAIT=0
@@ -25,7 +29,7 @@ echo "Cleaning up in $DBDIR..."
 rm -f $DBDIR/[!C]*
 
 echo "Starting slapd on TCP/IP port $PORT..."
-. $CONFFILTER $BACKEND < $SCHEMACONF > $DBCONF
+. $CONFFILTER $BACKEND $MONITORDB < $SCHEMACONF > $DBCONF
 $SLAPD -f $DBCONF -h $MASTERURI -d $LVL $TIMING > $MASTERLOG 2>&1 &
 PID=$!
 if test $WAIT != 0 ; then
@@ -33,15 +37,22 @@ if test $WAIT != 0 ; then
     read foo
 fi
 
-echo "Using ldapsearch to retrieve all the entries..."
+echo "Using ldapsearch to retrieve the root DSE..."
 for i in 0 1 2 3 4 5; do
-	$LDAPSEARCH -b "" -s base -h $LOCALHOST -p $PORT 'extensibleObject' > $SEARCHOUT 2>&1
+	$LDAPSEARCH -b "" -s base -h $LOCALHOST -p $PORT '+extensibleObject' > $SEARCHOUT 2>&1
 	RC=$?
-	if test $RC = 1 ; then
-		echo "Waiting 5 seconds for slapd to start..."
-		sleep 5
+	if test $RC = 0 ; then
+		break
 	fi
+	echo "Waiting 5 seconds for slapd to start..."
+	sleep 5
 done
+
+if test $RC = 0 -a $MONITORDB = yes ; then
+	echo "Using ldapsearch to retrieve the cn=Monitor..."
+	$LDAPSEARCH -b "cn=Monitor" -s base -h $LOCALHOST -p $PORT '+extensibleObject' >> $SEARCHOUT 2>&1
+	RC=$?
+fi
 
 kill -HUP $PID
 

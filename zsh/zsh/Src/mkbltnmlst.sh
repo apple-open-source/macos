@@ -40,6 +40,7 @@ for x_mod in $x_mods; do
     unset moddeps autobins autoinfixconds autoprefixconds autoparams
     unset automathfuncs
     . $srcdir/../$modfile
+    echo "  if (emulation == EMULATE_ZSH) {"
     for bin in $autobins; do
 	echo "    add_autobin(\"$bin\", \"$x_mod\");"
     done
@@ -55,8 +56,9 @@ for x_mod in $x_mods; do
     for mfunc in $automathfuncs; do
 	echo "    add_automath(\"$mfunc\", \"$x_mod\");"
     done
+    echo "  }"
     for dep in $moddeps; do
-	echo "    add_dep(\"$x_mod\", \"$dep\");"
+	echo "  add_dep(\"$x_mod\", \"$dep\");"
     done
     test "x$linked" = xno && echo "#endif"
 done

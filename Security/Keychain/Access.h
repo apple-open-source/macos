@@ -39,6 +39,8 @@ using CssmClient::AclBearer;
 class Access : public SecCFObject {
 	NOCOPY(Access)
 public:
+	SECCFFUNCTIONS(Access, SecAccessRef, errSecInvalidItemRef)
+
 	class Maker {
 		NOCOPY(Maker)
 		static const size_t keySize = 16;	// number of (random) bytes
@@ -75,8 +77,7 @@ public:
 	// make from CSSM layer information (presumably retrieved by caller)
 	Access(const CSSM_ACL_OWNER_PROTOTYPE &owner,
 		uint32 aclCount, const CSSM_ACL_ENTRY_INFO *acls);
-
-    virtual ~Access();
+    virtual ~Access() throw();
 
 public:
 	CFArrayRef copySecACLs() const;
@@ -101,6 +102,9 @@ public:
 	
 	void addApplicationToRight(AclAuthorization right, TrustedApplication *app);
 	
+	void copyOwnerAndAcl(CSSM_ACL_OWNER_PROTOTYPE * &owner,
+		uint32 &aclCount, CSSM_ACL_ENTRY_INFO * &acls);
+	
 protected:
     void makeStandard(const string &description, const ACL::ApplicationList &trusted,
 		const AclAuthorizationSet &limitedRights = AclAuthorizationSet(),
@@ -112,7 +116,7 @@ protected:
 
 private:
 	static const CSSM_ACL_HANDLE ownerHandle = ACL::ownerHandle;
-	typedef map<CSSM_ACL_HANDLE, RefPointer<ACL> > Map;
+	typedef map<CSSM_ACL_HANDLE, SecPointer<ACL> > Map;
 
 	Map mAcls;			// set of ACL entries
 };

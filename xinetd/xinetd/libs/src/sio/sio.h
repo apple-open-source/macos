@@ -5,7 +5,7 @@
  */
 
 /*
- * $Id: sio.h,v 1.1.1.3 2002/10/02 21:07:08 bbraun Exp $
+ * $Id: sio.h,v 1.1.1.5 2003/06/15 17:31:44 rbraun Exp $
  */
 
 #ifndef __SIO_H
@@ -133,7 +133,7 @@ extern __sio_descriptor_t *__sio_descriptors ;
  * Internally used macros
  */
 #define __SIO_FD_INITIALIZED( fd ) \
-	(fd < __sio_n_descriptors && __sio_descriptors[ fd ].initialized)
+   (fd >= 0 && fd < __sio_n_descriptors && __sio_descriptors[ fd ].initialized)
 #define __SIO_ID( fd )	(__sio_descriptors[ fd ].descriptor.input_descriptor)
 #define __SIO_OD( fd )	(__sio_descriptors[ fd ].descriptor.output_descriptor)
 #define __SIO_MUST_FLUSH( od, ch )				\
@@ -163,7 +163,7 @@ char *Srdline ( int fd ) ;
 /*
  * The Write functions
  */
-int Swrite ( int fd, const char *buf, int nbytes );
+int Swrite ( int fd, const char *buf, unsigned int nbytes );
 int Sprint ( int fd, const char *format, ... )
 #ifdef __GNUC__
 	__attribute__ ((format (printf, 2, 3)));
@@ -187,8 +187,12 @@ int Sclose ( int fd ) ;
 int Sbuftype ( int fd, int type ) ;
 int Smorefds ( int ) ;
 int __sio_converter( __sio_od_t *, int , const char *, va_list );
-int sio_setup(int fd, __sio_descriptor_t **dp, int type );
-void sio_init( void );
+int sio_setup(int fd, __sio_descriptor_t **dp, unsigned int type );
+
+#ifdef __GNUC__
+__attribute__ ((noreturn))
+#endif
+void terminate(const char *);
 
 #endif /* __SIO_H */
 

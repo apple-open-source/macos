@@ -8,8 +8,14 @@
 
 #include "defs.h"
 
+#ifdef __GNUC__
+__attribute__ ((noreturn))
+#endif
 void child_process(struct server *serp);
 void child_exit(void);
+#ifdef __GNUC__
+__attribute__ ((noreturn))
+#endif
 void exec_server( const struct server *serp );
 
 #endif

@@ -23,6 +23,7 @@
 
 #include "macosx-nat-inferior.h"
 #include "macosx-nat-inferior-util.h"
+#include "macosx-nat-inferior-debug.h"
 #include "macosx-nat-mutils.h"
 
 #include "defs.h"
@@ -40,67 +41,84 @@
 
 extern macosx_inferior_status *macosx_status;
 
-#include <mach/machine/thread_status.h>
+#define set_trace_bit(thread) modify_trace_bit (thread, 1)
+#define clear_trace_bit(thread) modify_trace_bit (thread, 0)
+
+void 
+macosx_setup_registers_before_hand_call ()
+{
+  thread_t current_thread = ptid_get_tid (inferior_ptid);
+
+  thread_abort_safely (current_thread);
+}
 
 #if defined (TARGET_I386)
 
-#define THREAD_STATE i386_THREAD_STATE
-#define THREAD_STRUCT i386_thread_state_t
-#define THREAD_COUNT i386_THREAD_STATE_COUNT
+#include "i386-macosx-thread-status.h"
 
-#define TRACE_BIT_SET(s) ((s).eflags & 0x100UL)
-#define SET_TRACE_BIT(s) ((s).eflags |= 0x100UL)
-#define CLEAR_TRACE_BIT(s) ((s).eflags &= ~0x100UL)
+kern_return_t modify_trace_bit (thread_t thread, int value)
+{
+  i386_thread_state_t state;
+  unsigned int state_count = i386_THREAD_STATE_COUNT;
+  kern_return_t	kret;
+    
+  kret = thread_get_state (thread, i386_THREAD_STATE, (thread_state_t) &state, &state_count);
+  MACH_PROPAGATE_ERROR (kret);
+
+  if ((state.eflags & 0x100UL) != (value ? 1 : 0)) {
+    state.eflags = (state.eflags & ~0x100UL) | (value ? 0x100UL : 0);
+    kret = thread_set_state (thread, i386_THREAD_STATE, (thread_state_t) &state, state_count);
+    MACH_PROPAGATE_ERROR (kret);
+  }
+
+  return KERN_SUCCESS;
+}
 
 #elif defined (TARGET_POWERPC)
 
-#define THREAD_STATE PPC_THREAD_STATE
-#define THREAD_STRUCT struct ppc_thread_state
-#define THREAD_COUNT PPC_THREAD_STATE_COUNT
+#include "ppc-macosx-thread-status.h"
 
-#define TRACE_BIT_SET(s) ((s).srr1 & 0x400UL)
-#define SET_TRACE_BIT(s) ((s).srr1 |= 0x400UL)
-#define CLEAR_TRACE_BIT(s) ((s).srr1 &= ~0x400UL)
+kern_return_t modify_trace_bit (thread_t thread, int value)
+{
+  if (gdbarch_osabi (current_gdbarch) == GDB_OSABI_DARWIN64) {
+
+    gdb_ppc_thread_state_64_t state;
+    unsigned int state_count = GDB_PPC_THREAD_STATE_64_COUNT;
+    kern_return_t kret;
+    
+    kret = thread_get_state (thread, GDB_PPC_THREAD_STATE_64, (thread_state_t) &state, &state_count);
+    MACH_PROPAGATE_ERROR (kret);
+
+    if ((state.srr1 & 0x400UL) != (value ? 1 : 0)) {
+      state.srr1 = (state.srr1 & ~0x400UL) | (value ? 0x400UL : 0);
+      kret = thread_set_state (thread, GDB_PPC_THREAD_STATE_64, (thread_state_t) &state, state_count);
+      MACH_PROPAGATE_ERROR (kret);
+    }
+
+    return KERN_SUCCESS;
+
+  } else {
+
+    gdb_ppc_thread_state_t state;
+    unsigned int state_count = GDB_PPC_THREAD_STATE_COUNT;
+    kern_return_t kret;
+    
+    kret = thread_get_state (thread, GDB_PPC_THREAD_STATE, (thread_state_t) &state, &state_count);
+    MACH_PROPAGATE_ERROR (kret);
+
+    if ((state.srr1 & 0x400UL) != (value ? 1 : 0)) {
+      state.srr1 = (state.srr1 & ~0x400UL) | (value ? 0x400UL : 0);
+      kret = thread_set_state (thread, GDB_PPC_THREAD_STATE, (thread_state_t) &state, state_count);
+      MACH_PROPAGATE_ERROR (kret);
+    }
+
+    return KERN_SUCCESS;
+  }
+}
 
 #else
 #error unknown architecture
 #endif
-
-kern_return_t set_trace_bit (thread_t thread)
-{
-  THREAD_STRUCT state;
-  unsigned int state_count = THREAD_COUNT;
-  kern_return_t	kret;
-    
-  kret = thread_get_state (thread, THREAD_STATE, (thread_state_t) &state, &state_count);
-  MACH_PROPAGATE_ERROR (kret);
-
-  if (! TRACE_BIT_SET (state)) {
-    SET_TRACE_BIT (state);
-    kret = thread_set_state (thread, THREAD_STATE, (thread_state_t) &state, state_count);
-    MACH_PROPAGATE_ERROR (kret);
-  }
-
-  return KERN_SUCCESS;
-}
-
-kern_return_t clear_trace_bit (thread_t thread)
-{
-  THREAD_STRUCT state;
-  unsigned int state_count = THREAD_COUNT;
-  kern_return_t kret;
-
-  kret = thread_get_state (thread, THREAD_STATE, (thread_state_t) &state, &state_count);
-  MACH_PROPAGATE_ERROR (kret);
-
-  if (TRACE_BIT_SET (state)) {
-    CLEAR_TRACE_BIT (state);
-    kret = thread_set_state (thread, THREAD_STATE, (thread_state_t) &state, state_count);
-    MACH_PROPAGATE_ERROR (kret);
-  }
-
-  return KERN_SUCCESS;
-}
 
 void prepare_threads_after_stop (struct macosx_inferior_status *inferior)
 {
@@ -110,7 +128,8 @@ void prepare_threads_after_stop (struct macosx_inferior_status *inferior)
   unsigned int i;
   
   if (inferior->exception_status.saved_exceptions_stepping) {
-    kret = macosx_restore_exception_ports (inferior->task, &inferior->exception_status.saved_exceptions_step);
+    kret = macosx_restore_exception_ports (inferior->task, 
+					   &inferior->exception_status.saved_exceptions_step);
     MACH_CHECK_ERROR (kret);
     inferior->exception_status.saved_exceptions_stepping = 0;
   }
@@ -128,6 +147,25 @@ void prepare_threads_after_stop (struct macosx_inferior_status *inferior)
     ptid = ptid_build (inferior->pid, 0, thread_list[i]);
     tp = find_thread_pid (ptid);
     CHECK_FATAL (tp != NULL);
+    if (inferior_debug_flag >= 2)
+      {
+	struct thread_basic_info info;
+	unsigned int info_count = THREAD_BASIC_INFO_COUNT;
+	kern_return_t kret;
+	
+	kret = thread_info (thread_list[i], THREAD_BASIC_INFO, (thread_info_t) &info, 
+			    &info_count);
+	MACH_CHECK_ERROR (kret);
+	
+	if (tp->gdb_suspend_count > 0)
+	  inferior_debug (2, "**  Resuming thread 0x%x, gdb suspend count: "
+			  "%d, real suspend count: %d\n", 
+			  thread_list[i], tp->gdb_suspend_count, info.suspend_count);
+	else
+	  inferior_debug (2, "**  Thread 0x%x was not suspended from gdb, "
+			  "real suspend count: %d\n", 
+			  thread_list[i], info.suspend_count);
+      }
     while (tp->gdb_suspend_count > 0) {
       thread_resume (thread_list[i]);
       tp->gdb_suspend_count--;
@@ -148,51 +186,71 @@ void prepare_threads_before_run
   kern_return_t kret;
   unsigned int i;
   
-  macosx_check_new_threads ();
   prepare_threads_after_stop (inferior);
 
+  /*
   if (! step) {
     CHECK_FATAL (current == THREAD_NULL);
   }
+  */
 
-  if (step) {
-    struct thread_basic_info info;
-    unsigned int info_count = THREAD_BASIC_INFO_COUNT;
-    kern_return_t kret;
-    
-    kret = thread_info (current, THREAD_BASIC_INFO, (thread_info_t) &info, &info_count);
-    MACH_CHECK_ERROR (kret);
-
-    if (info.suspend_count != 0) {
-      error ("Unable to single-step thread (thread is already suspended from outside of GDB)");
+  if (step || stop_others) 
+    {
+      struct thread_basic_info info;
+      unsigned int info_count = THREAD_BASIC_INFO_COUNT;
+      kern_return_t kret;
+      
+      kret = thread_info (current, THREAD_BASIC_INFO, (thread_info_t) &info, &info_count);
+      MACH_CHECK_ERROR (kret);
+      
+      if (info.suspend_count != 0) 
+	{
+	  if (step)
+	    error ("Unable to single-step thread 0x%x "
+		   "(thread is already suspended from outside of GDB)", current);
+	  else
+	    error ("Unable to run only thread 0x%x "
+		   "(thread is already suspended from outside of GDB)", current);
+	}
     }
-  }
 
   kret = task_threads (inferior->task, &thread_list, &nthreads);
   MACH_CHECK_ERROR (kret);
   
+  if (step)
+    inferior_debug (2, "*** Suspending threads to step: 0x%x\n", current);
+
   for (i = 0; i < nthreads; i++)  {
 
-    kret = clear_trace_bit (thread_list[i]);
-    MACH_CHECK_ERROR (kret);
-    if ((step && stop_others) && (thread_list[i] != current)) {
+    /* Don't need to do this either, since it is already done in prepare_threads_after_stop
+       kret = clear_trace_bit (thread_list[i]);
 
-      ptid_t ptid;
-      struct thread_info *tp = NULL;
-      
-      ptid = ptid_build (inferior->pid, 0, thread_list[i]);
-      tp = find_thread_pid (ptid);
-      CHECK_FATAL (tp != NULL);
-      kret = thread_suspend (thread_list[i]);
-      MACH_CHECK_ERROR (kret);
-      tp->gdb_suspend_count++;
-    }
+       MACH_CHECK_ERROR (kret); 
+   */
+
+    if ((stop_others) && (thread_list[i] != current)) 
+      {
+	
+	ptid_t ptid;
+	struct thread_info *tp = NULL;
+	
+	ptid = ptid_build (inferior->pid, 0, thread_list[i]);
+	tp = find_thread_pid (ptid);
+	CHECK_FATAL (tp != NULL);
+	kret = thread_suspend (thread_list[i]);
+	MACH_CHECK_ERROR (kret);
+	tp->gdb_suspend_count++;
+	inferior_debug (2, "*** Suspending thread 0x%x, suspend count %d\n", 
+		   thread_list[i], tp->gdb_suspend_count);
+      }
+    else if (stop_others)
+      inferior_debug (2, "*** Allowing thread 0x%x to run from gdb\n", thread_list[i]);
   }
 
   kret = vm_deallocate (mach_task_self(), (vm_address_t) thread_list, (nthreads * sizeof (int)));
   MACH_CHECK_ERROR (kret);
   
-  if (step && stop_others) {
+  if (step) {
     set_trace_bit (current);
   }
 
@@ -215,19 +273,63 @@ char *unparse_run_state (int run_state)
   }
 }
 
+thread_t
+get_application_thread_port (thread_t our_name)
+{
+  mach_msg_type_number_t i;
+  mach_port_name_array_t names;
+  mach_msg_type_number_t names_count;
+  mach_port_type_array_t types;
+  mach_msg_type_number_t types_count;
+  mach_port_t match = 0;
+
+  mach_port_names (macosx_status->task, &names, &names_count, &types, &types_count);
+  for (i = 0; i < names_count; i++) {
+    mach_port_t local_name;
+    mach_msg_type_name_t local_type;
+    kern_return_t ret;
+
+    ret = mach_port_extract_right(macosx_status->task,
+				  names[i],
+				  MACH_MSG_TYPE_COPY_SEND,
+				  &local_name,
+				  &local_type);
+    if (ret == KERN_SUCCESS) {
+      mach_port_deallocate(mach_task_self(), local_name); // don't actually need another right
+      if (local_name == our_name) {
+	match = names[i];
+	break;
+      }
+    }
+  }
+
+  vm_deallocate(mach_task_self(), (vm_address_t) names, names_count * sizeof(mach_port_t));
+  
+  return (thread_t) match;
+}
+
 void print_thread_info (thread_t tid)
 {
   struct thread_basic_info info;
   unsigned int info_count = THREAD_BASIC_INFO_COUNT;
   kern_return_t kret;
+  thread_t app_thread_name;
 
   kret = thread_info (tid, THREAD_BASIC_INFO, (thread_info_t) &info, &info_count);
   MACH_CHECK_ERROR (kret);
 
-  printf_filtered ("Thread 0x%lx has current state \"%s\"\n",
-		   (unsigned long) tid, unparse_run_state (info.run_state));
+  /* FIXME: We store the application port name in the private structure
+     in the thread_info.  Can we use that here rather than having to
+     call get_application_thread_port? */
+
+  app_thread_name = get_application_thread_port (tid);
+
+  printf_filtered ("Thread 0x%lx (local 0x%lx) has current state \"%s\"\n",
+		   (unsigned long) app_thread_name,
+		   (unsigned long) tid, 
+		   unparse_run_state (info.run_state));
   printf_filtered ("Thread 0x%lx has a suspend count of %d",
-		   (unsigned long) tid, info.suspend_count);
+		   (unsigned long) app_thread_name, info.suspend_count);
   if (info.sleep_time == 0) {
     printf_filtered (".\n");
   } else {
@@ -311,10 +413,18 @@ static void thread_suspend_command (char *tidstr, int from_tty)
 static void thread_resume_command (char *tidstr, int from_tty)
 {
   kern_return_t kret;
-  thread_t thread;
+  thread_t tid;
+  struct thread_basic_info info;
+  unsigned int info_count = THREAD_BASIC_INFO_COUNT;
 
-  thread = parse_thread (tidstr);
-  kret = thread_resume (thread);
+  tid = parse_thread (tidstr);
+
+  kret = thread_info (tid, THREAD_BASIC_INFO, (thread_info_t) &info, &info_count);
+  MACH_CHECK_ERROR (kret);
+  if (info.suspend_count == 0)
+    error ("Attempt to resume a thread with suspend count of 0");
+
+  kret = thread_resume (tid);
   
   MACH_CHECK_ERROR (kret);
 }
@@ -323,10 +433,10 @@ void
 _initialize_threads ()
 {
   add_cmd ("suspend", class_run, thread_suspend_command,
-	  "Suspend a thread.", &thread_cmd_list);
+	  "Increment the suspend count of a thread.", &thread_cmd_list);
 
   add_cmd ("resume", class_run, thread_resume_command,
-	  "Resume a thread.", &thread_cmd_list);
+	  "Decrement the suspend count of a thread.", &thread_cmd_list);
 
   add_info ("thread", info_thread_command,
 	    "Get information on thread.");

@@ -12,6 +12,7 @@
 				2C67210200C5D2B64ACA28A9,
 				2C67210300C5D2B64ACA28A9,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 0352A9FA0043263F11CA2A40;
 			productRefGroup = 0352AA510043263F11CA2A40;
@@ -70,7 +71,6 @@
 				0352AA030043263F11CA2A40,
 				0352AA040043263F11CA2A40,
 				0352AA050043263F11CA2A40,
-				0352AA060043263F11CA2A40,
 				0352AA070043263F11CA2A40,
 				0352AA080043263F11CA2A40,
 				0352AA090043263F11CA2A40,
@@ -86,66 +86,73 @@
 			refType = 4;
 		};
 		0352AA020043263F11CA2A40 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = fetch.h;
 			refType = 4;
 		};
 		0352AA030043263F11CA2A40 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = mntopts.h;
 			refType = 4;
 		};
 		0352AA040043263F11CA2A40 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = pathnames.h;
 			refType = 4;
 		};
 		0352AA050043263F11CA2A40 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = webdavd.h;
 			refType = 4;
 		};
-		0352AA060043263F11CA2A40 = {
-			isa = PBXFileReference;
-			path = webdav_allocator.h;
-			refType = 4;
-		};
 		0352AA070043263F11CA2A40 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = webdav_mount.h;
 			refType = 4;
 		};
 		0352AA080043263F11CA2A40 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = webdav_parse.h;
 			refType = 4;
 		};
 		0352AA090043263F11CA2A40 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = http.h;
 			refType = 4;
 		};
 		0352AA0A0043263F11CA2A40 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = webdav_memcache.h;
 			refType = 4;
 		};
 		0352AA0B0043263F11CA2A40 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = webdav_authcache.h;
 			refType = 4;
 		};
 		0352AA0C0043263F11CA2A40 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = webdav_authentication.h;
 			refType = 4;
 		};
 		0352AA0D0043263F11CA2A40 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = webdav_requestqueue.h;
 			refType = 4;
 		};
 		0352AA0E0043263F11CA2A40 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = webdav_inode.h;
 			refType = 4;
@@ -158,7 +165,6 @@
 				0352AA130043263F11CA2A40,
 				0352AA140043263F11CA2A40,
 				0352AA150043263F11CA2A40,
-				0352AA160043263F11CA2A40,
 				0352AA170043263F11CA2A40,
 				0352AA180043263F11CA2A40,
 				0352AA190043263F11CA2A40,
@@ -173,46 +179,49 @@
 			refType = 4;
 		};
 		0352AA100043263F11CA2A40 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = activate.c;
 			refType = 4;
 		};
 		0352AA110043263F11CA2A40 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = fetch_util.c;
 			refType = 4;
 		};
 		0352AA120043263F11CA2A40 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = getmntopts.c;
 			refType = 4;
 		};
 		0352AA130043263F11CA2A40 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = http.c;
 			refType = 4;
 		};
 		0352AA140043263F11CA2A40 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = mount_webdav.c;
 			refType = 4;
 		};
 		0352AA150043263F11CA2A40 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = util.c;
 			refType = 4;
 		};
-		0352AA160043263F11CA2A40 = {
-			isa = PBXFileReference;
-			path = webdav_allocator.c;
-			refType = 4;
-		};
 		0352AA170043263F11CA2A40 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = webdav_file.c;
 			refType = 4;
 		};
 		0352AA180043263F11CA2A40 = {
+			fileEncoding = 30;
 			indentWidth = 4;
 			isa = PBXFileReference;
 			path = webdav_parse.c;
@@ -221,26 +230,31 @@
 			usesTabs = 1;
 		};
 		0352AA190043263F11CA2A40 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = webdav_memcache.c;
 			refType = 4;
 		};
 		0352AA1A0043263F11CA2A40 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = webdav_authcache.c;
 			refType = 4;
 		};
 		0352AA1B0043263F11CA2A40 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = webdav_authentication.c;
 			refType = 4;
 		};
 		0352AA1C0043263F11CA2A40 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = webdav_requestqueue.c;
 			refType = 4;
 		};
 		0352AA1D0043263F11CA2A40 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = webdav_inode.c;
 			refType = 4;
@@ -299,11 +313,13 @@
 			refType = 4;
 		};
 		0352AA2D0043263F11CA2A40 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = vnops.h;
 			refType = 4;
 		};
 		0352AA2E0043263F11CA2A40 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = webdav.h;
 			refType = 4;
@@ -313,22 +329,26 @@
 				0352AA300043263F11CA2A40,
 				0352AA310043263F11CA2A40,
 				0352AA320043263F11CA2A40,
+				D14929C2043D054F0BCA2B4C,
 			);
 			isa = PBXGroup;
 			name = "Other Sources";
 			refType = 4;
 		};
 		0352AA300043263F11CA2A40 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = webdav_nodehash.c;
 			refType = 4;
 		};
 		0352AA310043263F11CA2A40 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = webdav_vfsops.c;
 			refType = 4;
 		};
 		0352AA320043263F11CA2A40 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = webdav_vnops.c;
 			refType = 4;
@@ -359,6 +379,7 @@
 			refType = 4;
 		};
 		0352AA3A0043263F11CA2A40 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = load.c;
 			refType = 4;
@@ -413,6 +434,7 @@
 		0352AA4A0043263F11CA2A40 = {
 			children = (
 				0352AA4B0043263F11CA2A40,
+				D13962DF047451780BCA2B4C,
 				0352AA4C0043263F11CA2A40,
 				0352AA4D0043263F11CA2A40,
 				0352AA4E0043263F11CA2A40,
@@ -508,7 +530,6 @@
 			isa = PBXAggregateTarget;
 			name = "webdavfs (Aggregate)";
 			productName = "webdavfs (Aggregate)";
-			shouldUseHeadermap = 0;
 		};
 		0352AA570043263F11CA2A40 = {
 			isa = PBXTargetDependency;
@@ -524,6 +545,7 @@
 			);
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				HEADER_SEARCH_PATHS = "";
 				INSTALL_PATH = /sbin;
 				OTHER_CFLAGS = "-no-cpp-precomp";
@@ -532,7 +554,7 @@
 				PRODUCT_NAME = mount_webdav;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wall -Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WARNING_CFLAGS = "-Werror -Wmissing-declarations -Wmissing-prototypes -Wall -W -Wcast-qual -Wpointer-arith -Wno-four-char-constants -Wno-unknown-pragmas";
 			};
 			dependencies = (
 			);
@@ -541,7 +563,6 @@
 			productInstallPath = /sbin;
 			productName = "mount_webdav (Tool)";
 			productReference = 0352AA520043263F11CA2A40;
-			shouldUseHeadermap = 0;
 		};
 		0352AA590043263F11CA2A40 = {
 			buildActionMask = 2147483647;
@@ -550,7 +571,6 @@
 				0352AA5B0043263F11CA2A40,
 				0352AA5C0043263F11CA2A40,
 				0352AA5D0043263F11CA2A40,
-				0352AA5E0043263F11CA2A40,
 				0352AA5F0043263F11CA2A40,
 				0352AA600043263F11CA2A40,
 				0352AA610043263F11CA2A40,
@@ -584,12 +604,6 @@
 		};
 		0352AA5D0043263F11CA2A40 = {
 			fileRef = 0352AA050043263F11CA2A40;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		0352AA5E0043263F11CA2A40 = {
-			fileRef = 0352AA060043263F11CA2A40;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -651,7 +665,6 @@
 				0352AA6B0043263F11CA2A40,
 				0352AA6C0043263F11CA2A40,
 				0352AA6D0043263F11CA2A40,
-				0352AA6E0043263F11CA2A40,
 				0352AA6F0043263F11CA2A40,
 				0352AA700043263F11CA2A40,
 				0352AA710043263F11CA2A40,
@@ -706,14 +719,6 @@
 		};
 		0352AA6D0043263F11CA2A40 = {
 			fileRef = 0352AA150043263F11CA2A40;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-				);
-			};
-		};
-		0352AA6E0043263F11CA2A40 = {
-			fileRef = 0352AA160043263F11CA2A40;
 			isa = PBXBuildFile;
 			settings = {
 				ATTRIBUTES = (
@@ -784,6 +789,8 @@
 				0352AA790043263F11CA2A40,
 				0352AA7A0043263F11CA2A40,
 				D16EA8DA016933140BC915D5,
+				D1396C88047560CD0BCA2B4C,
+				D1396C89047560D00BCA2B4C,
 			);
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -834,6 +841,7 @@
 				0352AA890043263F11CA2A40,
 			);
 			buildSettings = {
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				HEADER_SEARCH_PATHS = "";
 				INSTALL_PATH = /System/Library/Extensions;
 				KERNEL_EXTENSION = YES;
@@ -842,13 +850,13 @@
 				MODULE_NAME = com.apple.filesystems.webdav;
 				MODULE_START = webdav_fs_module_start;
 				MODULE_STOP = webdav_fs_module_stop;
-				MODULE_VERSION = 1.2;
+				MODULE_VERSION = 1.2.4;
 				OTHER_CFLAGS = "-no-cpp-precomp -fno-builtin";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = webdav_fs;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wall -Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WARNING_CFLAGS = "-Werror -Wall -W -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
 			};
 			dependencies = (
@@ -879,11 +887,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.3</string>
+	<string>1.2.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.3</string>
+	<string>1.2.4</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kernel.bsd</key>
@@ -892,7 +900,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		0352AA7E0043263F11CA2A40 = {
 			buildActionMask = 2147483647;
@@ -941,6 +948,7 @@
 				0352AA840043263F11CA2A40,
 				0352AA850043263F11CA2A40,
 				0352AA860043263F11CA2A40,
+				D14929C4043D054F0BCA2B4C,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1009,6 +1017,7 @@
 			);
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				HEADER_SEARCH_PATHS = "";
 				INSTALL_MODE_FLAG = 4555;
 				INSTALL_PATH = /usr/libexec;
@@ -1019,7 +1028,7 @@
 				PRODUCT_NAME = load_webdav;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wall -Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WARNING_CFLAGS = "-Werror -Wmissing-declarations -Wmissing-prototypes -Wall -W -Wcast-qual -Wpointer-arith -Wno-four-char-constants -Wno-unknown-pragmas";
 			};
 			dependencies = (
 			);
@@ -1028,7 +1037,6 @@
 			productInstallPath = /usr/libexec;
 			productName = "load_webdav (Tool)";
 			productReference = 0352AA540043263F11CA2A40;
-			shouldUseHeadermap = 0;
 		};
 		0352AA8C0043263F11CA2A40 = {
 			buildActionMask = 2147483647;
@@ -1089,7 +1097,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = webdavfs;
 				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wall -Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WARNING_CFLAGS = "-Werror -Wall -Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = bundle;
 			};
 			dependencies = (
@@ -1131,15 +1139,14 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.3</string>
+	<string>1.2.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.3</string>
+	<string>1.2.4</string>
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		0352AA930043263F11CA2A40 = {
 			buildActionMask = 2147483647;
@@ -1302,7 +1309,38 @@
 //D12
 //D13
 //D14
+		D13962DF047451780BCA2B4C = {
+			isa = PBXFrameworkReference;
+			name = Security.framework;
+			path = /System/Library/Frameworks/Security.framework;
+			refType = 0;
+		};
+		D1396C88047560CD0BCA2B4C = {
+			fileRef = D13962DF047451780BCA2B4C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D1396C89047560D00BCA2B4C = {
+			fileRef = 0352AA4F0043263F11CA2A40;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D14929C2043D054F0BCA2B4C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = webdav_attrlist.c;
+			refType = 4;
+		};
+		D14929C4043D054F0BCA2B4C = {
+			fileRef = D14929C2043D054F0BCA2B4C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		D15DE55D0242C7F30BC915D5 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = mount_webdav.8;
 			refType = 4;
@@ -1324,6 +1362,7 @@
 			};
 		};
 		D16EA8D1016932660BC915D5 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = digcalc.h;
 			refType = 4;
@@ -1335,6 +1374,7 @@
 			};
 		};
 		D16EA8D4016932C50BC915D5 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = digcalc.c;
 			refType = 4;

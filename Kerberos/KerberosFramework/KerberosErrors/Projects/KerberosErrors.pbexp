@@ -1,0 +1,7 @@
+_error_message
+_com_err
+_com_err_va
+_reset_com_err_hook
+_set_com_err_hook
+_add_error_table
+_remove_error_table

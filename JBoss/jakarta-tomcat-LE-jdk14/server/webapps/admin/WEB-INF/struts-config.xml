@@ -1,0 +1,1017 @@
+<?xml version="1.0" encoding="ISO-8859-1" ?>
+
+<!DOCTYPE struts-config PUBLIC
+          "-//Apache Software Foundation//DTD Struts Configuration 1.0//EN"
+          "http://jakarta.apache.org/struts/dtds/struts-config_1_0.dtd"> 
+
+
+<struts-config>
+
+
+  <!-- ========== Data Source Configuration =============================== -->
+
+
+  <!-- ========== Form Bean Definitions =================================== -->
+
+  <form-beans>
+
+    <!-- Set Locale form bean -->
+    <form-bean      name="setLocaleForm"
+                    type="org.apache.webapp.admin.SetLocaleForm"/>
+
+    <!-- ============= Server Module ============= -->
+
+    <form-bean      name="serverForm"
+                    type="org.apache.webapp.admin.server.ServerForm"/>
+                    
+    <!-- ============= Service Module ============= -->
+
+    <form-bean      name="serviceForm"
+                    type="org.apache.webapp.admin.service.ServiceForm"/>
+                    
+    <form-bean      name="servicesForm"
+                    type="org.apache.webapp.admin.service.ServicesForm"/>
+
+    <!-- ============= Host Module ============= -->
+
+    <form-bean      name="hostForm"
+                    type="org.apache.webapp.admin.host.HostForm"/>
+                    
+    <form-bean      name="hostsForm"
+                    type="org.apache.webapp.admin.host.HostsForm"/>
+
+    <form-bean      name="aliasForm"
+                    type="org.apache.webapp.admin.host.AliasForm"/>
+                    
+    <form-bean      name="aliasesForm"
+                    type="org.apache.webapp.admin.host.AliasesForm"/>
+
+   <!-- ============= Logger Module ============= -->
+
+    <form-bean      name="loggerForm"
+                    type="org.apache.webapp.admin.logger.LoggerForm"/>
+                    
+    <form-bean      name="loggersForm"
+                    type="org.apache.webapp.admin.logger.LoggersForm"/>
+
+    <!-- ============= Realm Module ============= -->
+
+    <form-bean      name="jdbcRealmForm"
+                    type="org.apache.webapp.admin.realm.JDBCRealmForm"/>
+
+    <form-bean      name="jndiRealmForm"
+                    type="org.apache.webapp.admin.realm.JNDIRealmForm"/>
+
+    <form-bean      name="memoryRealmForm"
+                    type="org.apache.webapp.admin.realm.MemoryRealmForm"/>
+
+    <form-bean      name="userDatabaseRealmForm"
+                    type="org.apache.webapp.admin.realm.UserDatabaseRealmForm"/>
+
+    <form-bean      name="realmsForm"
+                    type="org.apache.webapp.admin.realm.RealmsForm"/>
+
+    <!-- ============= Context Module ============= -->
+
+    <form-bean      name="contextForm"
+                    type="org.apache.webapp.admin.context.ContextForm"/>
+                    
+    <form-bean      name="contextsForm"
+                    type="org.apache.webapp.admin.context.ContextsForm"/>
+
+    <!-- ============= DefaultContext Module ============= -->
+
+    <form-bean      name="defaultContextForm"
+                    type="org.apache.webapp.admin.defaultcontext.DefaultContextForm"/>
+                    
+    <form-bean      name="defaultContextsForm"
+                    type="org.apache.webapp.admin.defaultContext.DefaultContextsForm"/>
+
+    <!-- ============= Connector Module ============= -->
+
+    <form-bean      name="connectorForm"
+                    type="org.apache.webapp.admin.connector.ConnectorForm"/>
+                    
+    <form-bean      name="connectorsForm"
+                    type="org.apache.webapp.admin.connector.ConnectorsForm"/>
+
+    <!-- ============= Valve Module ============= -->
+
+    <form-bean      name="accessLogValveForm"
+                    type="org.apache.webapp.admin.valve.AccessLogValveForm"/>
+
+    <form-bean      name="remoteAddrValveForm"
+                    type="org.apache.webapp.admin.valve.RemoteAddrValveForm"/>
+
+    <form-bean      name="remoteHostValveForm"
+                    type="org.apache.webapp.admin.valve.RemoteHostValveForm"/>
+
+    <form-bean      name="requestDumperValveForm"
+                    type="org.apache.webapp.admin.valve.RequestDumperValveForm"/>
+
+    <form-bean      name="singleSignOnValveForm"
+                    type="org.apache.webapp.admin.valve.SingleSignOnValveForm"/>
+
+    <form-bean      name="valvesForm"
+                    type="org.apache.webapp.admin.valve.ValvesForm"/>
+
+    <!-- ========== Resources Module ========== -->
+
+    <form-bean      name="envEntryForm"
+                    type="org.apache.webapp.admin.resources.EnvEntryForm"/>
+
+    <form-bean      name="envEntriesForm"
+                    type="org.apache.webapp.admin.resources.EnvEntriesForm"/>
+
+    <form-bean      name="userDatabaseForm"
+                    type="org.apache.webapp.admin.resources.UserDatabaseForm"/>
+
+    <form-bean      name="userDatabasesForm"
+                    type="org.apache.webapp.admin.resources.UserDatabasesForm"/>
+
+    <form-bean      name="dataSourceForm"
+                    type="org.apache.webapp.admin.resources.DataSourceForm"/>
+
+    <form-bean      name="dataSourcesForm"
+                    type="org.apache.webapp.admin.resources.DataSourcesForm"/>
+
+    <form-bean      name="mailSessionForm"
+                    type="org.apache.webapp.admin.resources.MailSessionForm"/>
+
+    <form-bean      name="mailSessionsForm"
+                    type="org.apache.webapp.admin.resources.MailSessionsForm"/>
+
+    <form-bean      name="resourceLinkForm"
+                    type="org.apache.webapp.admin.resources.ResourceLinkForm"/>
+
+    <form-bean      name="resourceLinksForm"
+                    type="org.apache.webapp.admin.resources.ResourceLinksForm"/>
+
+    <!-- ========== User Database Module ========== -->
+
+    <form-bean      name="databaseForm"
+                    type="org.apache.webapp.admin.users.BaseForm"/>
+
+    <form-bean      name="groupForm"
+                    type="org.apache.webapp.admin.users.GroupForm"/>
+
+    <form-bean      name="groupsForm"
+                    type="org.apache.webapp.admin.users.GroupsForm"/>
+
+    <form-bean      name="roleForm"
+                    type="org.apache.webapp.admin.users.RoleForm"/>
+
+    <form-bean      name="rolesForm"
+                    type="org.apache.webapp.admin.users.RolesForm"/>
+
+    <form-bean      name="userForm"
+                    type="org.apache.webapp.admin.users.UserForm"/>
+
+    <form-bean      name="usersForm"
+                    type="org.apache.webapp.admin.users.UsersForm"/>
+
+    <!-- ========== ==================== ========== -->
+
+
+  </form-beans>
+
+
+  <!-- ========== Global Forward Definitions ============================== -->
+
+  <global-forwards>
+
+    <forward        name="Dump Registry Results"
+                    path="/dumpRegistry.jsp"
+                redirect="false"/>
+
+    <forward        name="Dump Server Results"
+                    path="/dumpServer.jsp"
+                redirect="false"/>
+
+    <forward        name="Main Menu"
+                    path="/index.jsp"
+                redirect="false"/>
+
+    <forward        name="Tree Control Test"
+                    path="/tree-control-test.jsp"
+                redirect="false"/>
+                  
+    <forward        name="Save Successful"
+                    path="/saved.jsp"
+                redirect="false"/>
+                
+    <forward        name="Blank"
+                    path="/blank.jsp"
+                redirect="false"/>
+
+    <forward        name="User"
+                    path="/user.jsp"
+                redirect="false"/>
+
+    <!-- ============ Server Module ============== -->
+
+    <forward        name="Server"
+                    path="/server/server.jsp"
+                redirect="false"/>
+    
+    <!-- ============ Service Module ============== -->
+
+    <forward        name="Service"
+                    path="/service/service.jsp"
+                redirect="false"/>
+
+    <forward        name="Services"
+                    path="/service/services.jsp"
+                redirect="false"/>
+
+    <!-- ============ Host Module ============== -->
+
+    <forward        name="Host"
+                    path="/host/host.jsp"
+                redirect="false"/>
+
+    <forward        name="Hosts"
+                    path="/host/hosts.jsp"
+                redirect="false"/>
+
+    <forward        name="Alias"
+                    path="/host/alias.jsp"
+                redirect="false"/>
+
+    <forward        name="Aliases"
+                    path="/host/aliases.jsp"
+                redirect="false"/>
+
+    <!-- ============ Logger Module ============== -->
+
+    <forward        name="Logger"
+                    path="/logger/logger.jsp"
+                redirect="false"/>
+
+    <forward        name="Loggers"
+                    path="/logger/loggers.jsp"
+                redirect="false"/>
+
+    <!-- ============ Context Module ============== -->
+
+    <forward        name="Context"
+                    path="/context/context.jsp"
+                redirect="false"/>
+
+    <forward        name="Contexts"
+                    path="/context/contexts.jsp"
+                redirect="false"/>
+
+
+    <!-- ============ DefaultContext Module ============== -->
+
+    <forward        name="DefaultContext"
+                    path="/defaultcontext/defaultcontext.jsp"
+                redirect="false"/>
+
+    <forward        name="DefaultContexts"
+                    path="/defaultcontext/defaultcontexts.jsp"
+                redirect="false"/>
+
+
+    <!-- ============ Connector Module ============== -->
+
+    <forward        name="Connector"
+                    path="/connector/connector.jsp"
+                redirect="false"/>
+
+    <forward        name="Connectors"
+                    path="/connector/connectors.jsp"
+                redirect="false"/>
+
+    <!-- ============ Realm Module ============== -->
+
+    <forward        name="JDBCRealm"
+                    path="/realm/jdbcRealm.jsp"
+                redirect="false"/>
+                
+    <forward        name="JNDIRealm"
+                    path="/realm/jndiRealm.jsp"
+                redirect="false"/>
+                
+    <forward        name="MemoryRealm"
+                    path="/realm/memoryRealm.jsp"
+                redirect="false"/>
+
+    <forward        name="UserDatabaseRealm"
+                    path="/realm/userDatabaseRealm.jsp"
+                redirect="false"/>
+
+    <forward        name="Realms"
+                    path="/realm/realms.jsp"
+                redirect="false"/>
+
+
+    <!-- ============ Valve Module ============== -->
+
+    <forward        name="AccessLogValve"
+                    path="/valve/accessLogValve.jsp"
+                redirect="false"/>
+                
+    <forward        name="RemoteAddrValve"
+                    path="/valve/remoteAddrValve.jsp"
+                redirect="false"/>
+                
+    <forward        name="RemoteHostValve"
+                    path="/valve/remoteHostValve.jsp"
+                redirect="false"/>
+
+    <forward        name="RequestDumperValve"
+                    path="/valve/requestDumperValve.jsp"
+                redirect="false"/>
+
+    <forward        name="SingleSignOn"
+                    path="/valve/singleSignOnValve.jsp"
+                redirect="false"/>
+
+    <forward        name="Valves"
+                    path="/valve/valves.jsp"
+                redirect="false"/>
+
+    <!-- ========== Resources Module ========== -->
+
+    <forward        name="EnvEntry"
+                    path="/resources/envEntry.jsp"
+                redirect="false"/>
+
+    <forward        name="EnvEntries Delete List"
+                    path="/resources/deleteEnvEntries.jsp"
+                redirect="false"/>
+
+    <forward        name="EnvEntries List"
+                    path="/resources/listEnvEntries.jsp"
+                redirect="false"/>
+
+    <forward        name="EnvEntries List Setup"
+                    path="/resources/listEnvEntries.do?forward=EnvEntries+List"
+                redirect="false"/>
+
+    <forward        name="UserDatabase"
+                    path="/resources/userDatabase.jsp"
+                redirect="false"/>
+
+    <forward        name="UserDatabases Delete List"
+                    path="/resources/deleteUserDatabases.jsp"
+                redirect="false"/>
+
+    <forward        name="UserDatabases List"
+                    path="/resources/listUserDatabases.jsp"
+                redirect="false"/>
+
+    <forward        name="UserDatabases List Setup"
+                    path="/resources/listUserDatabases.do?forward=UserDatabases+List"
+                redirect="false"/>
+                
+    <forward        name="DataSource"
+                    path="/resources/dataSource.jsp"
+                redirect="false"/>
+
+    <forward        name="DataSources Delete List"
+                    path="/resources/deleteDataSources.jsp"
+                redirect="false"/>
+
+    <forward        name="DataSources List"
+                    path="/resources/listDataSources.jsp"
+                redirect="false"/>
+
+    <forward        name="DataSources List Setup"
+                    path="/resources/listDataSources.do?forward=DataSources+List"
+                redirect="false"/>
+
+    <forward        name="MailSession"
+                    path="/resources/mailSession.jsp"
+                redirect="false"/>
+
+    <forward        name="MailSessions Delete List"
+                    path="/resources/deleteMailSessions.jsp"
+                redirect="false"/>
+
+    <forward        name="MailSessions List"
+                    path="/resources/listMailSessions.jsp"
+                redirect="false"/>
+
+    <forward        name="MailSessions List Setup"
+                    path="/resources/listMailSessions.do?forward=MailSessions+List"
+                redirect="false"/>
+
+    <forward        name="ResourceLink"
+                    path="/resources/resourceLink.jsp"
+                redirect="false"/>
+
+    <forward        name="ResourceLinks Delete List"
+                    path="/resources/deleteResourceLinks.jsp"
+                redirect="false"/>
+
+    <forward        name="ResourceLinks List"
+                    path="/resources/listResourceLinks.jsp"
+                redirect="false"/>
+
+    <forward        name="ResourceLinks List Setup"
+                    path="/resources/listResourceLinks.do?forward=ResourceLinks+List"
+                redirect="false"/>
+                        
+    <!-- ========== User Database Module ========== -->
+
+    <forward        name="Group"
+                    path="/users/group.jsp"
+                redirect="false"/>
+
+    <forward        name="Groups Delete List"
+                    path="/users/deleteGroups.jsp"
+                redirect="false"/>
+
+    <forward        name="Groups List"
+                    path="/users/listGroups.jsp"
+                redirect="false"/>
+
+    <forward        name="Groups List Setup"
+                    path="/users/listGroups.do?forward=Groups+List"
+                redirect="false"/>
+
+    <forward        name="Role"
+                    path="/users/role.jsp"
+                redirect="false"/>
+
+    <forward        name="Roles Delete List"
+                    path="/users/deleteRoles.jsp"
+                redirect="false"/>
+
+    <forward        name="Roles List"
+                    path="/users/listRoles.jsp"
+                redirect="false"/>
+
+    <forward        name="Roles List Setup"
+                    path="/users/listRoles.do?forward=Roles+List"
+                redirect="false"/>
+
+    <forward        name="User"
+                    path="/users/user.jsp"
+                redirect="false"/>
+
+    <forward        name="Users Delete List"
+                    path="/users/deleteUsers.jsp"
+                redirect="false"/>
+
+    <forward        name="Users List"
+                    path="/users/listUsers.jsp"
+                redirect="false"/>
+
+    <forward        name="Users List Setup"
+                    path="/users/listUsers.do?forward=Users+List"
+                redirect="false"/>
+
+    <!-- ========== ==================== ========== -->
+
+
+  </global-forwards>
+
+
+  <!-- ========== Action Mapping Definitions ============================== -->
+
+  <action-mappings>
+
+    <!-- Dump registry information (debugging) -->
+    <action    path="/dumpRegistry"
+               type="org.apache.webapp.admin.DumpRegistryAction"/>
+
+    <!-- Dump MBean server information (debugging) -->
+    <action    path="/dumpServer"
+               type="org.apache.webapp.admin.DumpServerAction"/>
+
+    <!-- Set up Tree datastructure -->
+    <action    path="/setUpTree"
+               type="org.apache.webapp.admin.SetUpTreeAction">
+      <forward        name="SetUpTree"
+                      path="/tree-control-test.jsp"
+                  redirect="true"/>
+    </action>
+
+    <!-- Log out of the application -->
+    <action    path="/logOut"
+               type="org.apache.webapp.admin.LogOutAction">
+      <forward        name="Main Menu"
+                      path="/index.jsp"
+                  redirect="true"/>
+    </action>
+
+    <!-- Save current settings to server.xml -->
+    <action    path="/commitChanges"
+               type="org.apache.webapp.admin.CommitChangesAction">
+      <forward        name="Banner"
+                      path="/banner.jsp"
+                  redirect="true"/>
+    </action>
+
+    <!-- Process a set-locale action -->
+    <action    path="/setLocale"
+               type="org.apache.webapp.admin.SetLocaleAction"
+               name="setLocaleForm"
+              scope="session">
+    </action>
+
+    <!-- Tree control test action -->
+    <action    path="/treeControlTest"
+               type="org.apache.webapp.admin.TreeControlTestAction"/>
+
+   <!-- ============= Server Module ============== -->
+
+    <!-- Set up Edit Server transaction -->
+    <action    path="/EditServer"
+               type="org.apache.webapp.admin.server.EditServerAction">
+    </action>
+
+    <!-- Perform Save Server transaction -->
+    <action    path="/SaveServer"
+               type="org.apache.webapp.admin.server.SaveServerAction"
+               name="serverForm"
+              input="/server/server.jsp"
+               scope="session"/>
+
+    <!-- ============= Service Module ============== -->
+
+    <!-- Set up Add Service transaction -->
+    <action    path="/AddService"
+               type="org.apache.webapp.admin.service.AddServiceAction">
+    </action>
+
+    <!-- Set up Delete Services transaction -->
+    <action    path="/DeleteService"
+               type="org.apache.webapp.admin.service.DeleteServiceAction"
+               name="servicesForm"
+               scope="request"/>
+
+    <!-- Perform Delete Services transaction -->
+    <action    path="/DeleteServices"
+               type="org.apache.webapp.admin.service.DeleteServicesAction"
+               name="servicesForm"
+               scope="request"/>
+
+    <!-- Set up Edit Service transaction -->
+    <action    path="/EditService"
+               type="org.apache.webapp.admin.service.EditServiceAction">
+    </action>
+
+    <!-- Perform Save Service transaction -->
+    <action    path="/SaveService"
+               type="org.apache.webapp.admin.service.SaveServiceAction"
+               name="serviceForm"
+              input="/service/service.jsp"
+               scope="session"/>
+
+    <!-- ============= Host Module ============== -->
+
+    <!-- Set up Add Host transaction -->
+    <action    path="/AddHost"
+               type="org.apache.webapp.admin.host.AddHostAction">
+    </action>
+
+    <!-- Set up Delete Hosts transaction -->
+    <action    path="/DeleteHost"
+               type="org.apache.webapp.admin.host.DeleteHostAction"
+               name="hostsForm"
+               scope="request"/>
+
+    <!-- Perform Delete Hosts transaction -->
+    <action    path="/DeleteHosts"
+               type="org.apache.webapp.admin.host.DeleteHostsAction"
+               name="hostsForm"
+               scope="request"/>
+
+    <!-- Set up Edit Host transaction -->
+    <action    path="/EditHost"
+               type="org.apache.webapp.admin.host.EditHostAction">
+    </action>
+
+    <!-- Perform Save Host transaction -->
+    <action    path="/SaveHost"
+               type="org.apache.webapp.admin.host.SaveHostAction"
+               name="hostForm"
+              input="/host/host.jsp"
+               scope="session"/>
+               
+    <!-- Set up Add Alias transaction -->
+    <action    path="/AddAlias"
+               type="org.apache.webapp.admin.host.AddAliasAction">
+    </action>
+
+    <!-- Perform Delete Aliases transaction -->
+    <action    path="/DeleteAlias"
+               type="org.apache.webapp.admin.host.DeleteAliasAction"
+               name="aliasesForm"
+               scope="request"/>
+               
+    <!-- Perform Delete Aliases transaction -->
+    <action    path="/DeleteAliases"
+               type="org.apache.webapp.admin.host.DeleteAliasesAction"
+               name="aliasesForm"
+               scope="request"/>
+               
+    <!-- Perform Save Host transaction -->
+    <action    path="/SaveAlias"
+               type="org.apache.webapp.admin.host.SaveAliasAction"
+               name="aliasForm"
+              input="/host/alias.jsp"
+               scope="session"/>
+
+    <!-- ============= Realm Module ============== -->
+
+    <!-- Set up Add Realm transaction -->
+    <action    path="/AddRealm"
+               type="org.apache.webapp.admin.realm.AddRealmAction">
+    </action>
+
+    <!-- Set up Delete Realms transaction -->
+    <action    path="/DeleteRealm"
+               type="org.apache.webapp.admin.realm.DeleteRealmAction"
+               name="realmsForm"
+               scope="request"/>
+
+    <!-- Perform Delete Realms transaction -->
+    <action    path="/DeleteRealms"
+               type="org.apache.webapp.admin.realm.DeleteRealmsAction"
+               name="realmsForm"
+               scope="request"/>
+
+    <!-- Set up Edit Realm transaction (generic) -->
+    <action    path="/EditRealm"
+               type="org.apache.webapp.admin.realm.EditRealmAction">
+    </action>
+
+    <!-- Perform Save UserDatabase Realm transaction -->
+    <action    path="/SaveUserDatabaseRealm"
+               type="org.apache.webapp.admin.realm.SaveUserDatabaseRealmAction"
+               name="userDatabaseRealmForm"
+              input="/realm/userDatabaseRealm.jsp"
+               scope="session"/>
+
+   <!-- Perform Save JDBC Realm transaction -->
+    <action    path="/SaveJDBCRealm"
+               type="org.apache.webapp.admin.realm.SaveJDBCRealmAction"
+               name="jdbcRealmForm"
+              input="/realm/jdbcRealm.jsp"
+               scope="session"/>
+
+    <!-- Perform Save JNDI Realm transaction -->
+    <action    path="/SaveJNDIRealm"
+               type="org.apache.webapp.admin.realm.SaveJNDIRealmAction"
+               name="jndiRealmForm"
+              input="/realm/jndiRealm.jsp"
+               scope="session"/>
+
+    <!-- Perform Save Memory transaction -->
+    <action    path="/SaveMemoryRealm"
+               type="org.apache.webapp.admin.realm.SaveMemoryRealmAction"
+               name="memoryRealmForm"
+              input="/realm/memoryRealm.jsp"
+               scope="session"/>
+               
+    <!-- ============= Logger Module ============== -->
+
+    <!-- Set up Add Logger transaction -->
+    <action    path="/AddLogger"
+               type="org.apache.webapp.admin.logger.AddLoggerAction">
+    </action>
+
+    <!-- Set up Delete Loggers transaction -->
+    <action    path="/DeleteLogger"
+               type="org.apache.webapp.admin.logger.DeleteLoggerAction"
+               name="loggersForm"
+               scope="request"/>
+
+    <!-- Perform Delete Loggers transaction -->
+    <action    path="/DeleteLoggers"
+               type="org.apache.webapp.admin.logger.DeleteLoggersAction"
+               name="loggersForm"
+               scope="request"/>
+
+    <!-- Set up Edit Logger transaction -->
+    <action    path="/EditLogger"
+               type="org.apache.webapp.admin.logger.EditLoggerAction">
+    </action>
+
+    <!-- Perform Save Logger transaction -->
+    <action    path="/SaveLogger"
+               type="org.apache.webapp.admin.logger.SaveLoggerAction"
+               name="loggerForm"
+              input="/logger/logger.jsp"
+               scope="session"/>
+
+   <!-- ============= Context Module ============== -->
+
+    <!-- Set up Add Context transaction -->
+    <action    path="/AddContext"
+               type="org.apache.webapp.admin.context.AddContextAction">
+    </action>
+
+    <!-- Set up Delete Contexts transaction -->
+    <action    path="/DeleteContext"
+               type="org.apache.webapp.admin.context.DeleteContextAction"
+               name="contextsForm"
+               scope="request"/>
+
+    <!-- Perform Delete Contexts transaction -->
+    <action    path="/DeleteContexts"
+               type="org.apache.webapp.admin.context.DeleteContextsAction"
+               name="contextsForm"
+               scope="request"/>
+
+    <!-- Set up Edit Context transaction -->
+    <action    path="/EditContext"
+               type="org.apache.webapp.admin.context.EditContextAction">
+    </action>
+
+    <!-- Perform Save Context transaction -->
+    <action    path="/SaveContext"
+               type="org.apache.webapp.admin.context.SaveContextAction"
+               name="contextForm"
+              input="/context/context.jsp"
+               scope="session"/>
+
+   <!-- ============= DefaultContext Module ============== -->
+
+    <!-- Set up Add DefaultContext transaction -->
+    <action    path="/AddDefaultContext"
+               type="org.apache.webapp.admin.defaultcontext.AddDefaultContextAction">
+    </action>
+
+    <!-- Set up Delete DefaultContexts transaction -->
+    <action    path="/DeleteDefaultContext"
+               type="org.apache.webapp.admin.defaultcontext.DeleteDefaultContextAction"
+               name="defaultContextsForm"
+               scope="request"/>
+
+    <!-- Perform Delete DefaultContexts transaction -->
+    <action    path="/DeleteDefaultContexts"
+               type="org.apache.webapp.admin.defaultcontext.DeleteDefaultContextsAction"
+               name="defaultContextsForm"
+               scope="request"/>
+
+    <!-- Set up Edit DefaultContext transaction -->
+    <action    path="/EditDefaultContext"
+               type="org.apache.webapp.admin.defaultcontext.EditDefaultContextAction">
+    </action>
+
+    <!-- Perform Save DefaultContext transaction -->
+    <action    path="/SaveDefaultContext"
+               type="org.apache.webapp.admin.defaultcontext.SaveDefaultContextAction"
+               name="defaultContextForm"
+               input="/defaultcontext/defaultcontext.jsp"
+               scope="session"/>
+
+   <!-- ============= Connector Module ============== -->
+
+    <!-- Set up Add Connector transaction -->
+    <action    path="/AddConnector"
+               type="org.apache.webapp.admin.connector.AddConnectorAction">
+    </action>
+
+    <!-- Set up Delete Connectors transaction -->
+    <action    path="/DeleteConnector"
+               type="org.apache.webapp.admin.connector.DeleteConnectorAction"
+               name="connectorsForm"
+               scope="request"/>
+
+    <!-- Perform Delete Connectors transaction -->
+    <action    path="/DeleteConnectors"
+               type="org.apache.webapp.admin.connector.DeleteConnectorsAction"
+               name="connectorsForm"
+               scope="request"/>
+
+    <!-- Set up Edit Connector transaction -->
+    <action    path="/EditConnector"
+               type="org.apache.webapp.admin.connector.EditConnectorAction">
+    </action>
+
+    <!-- Perform Save Connector transaction -->
+    <action    path="/SaveConnector"
+               type="org.apache.webapp.admin.connector.SaveConnectorAction"
+               name="connectorForm"
+              input="/connector/connector.jsp"
+               scope="session"/>
+               
+   <!-- ============= Valve Module ============== -->
+
+    <!-- Set up Add Valve transaction -->
+    <action    path="/AddValve"
+               type="org.apache.webapp.admin.valve.AddValveAction">
+    </action>
+
+    <!-- Set up Delete Valves transaction -->
+    <action    path="/DeleteValve"
+               type="org.apache.webapp.admin.valve.DeleteValveAction"
+               name="valvesForm"
+               scope="request"/>
+
+    <!-- Perform Delete Valves transaction -->
+    <action    path="/DeleteValves"
+               type="org.apache.webapp.admin.valve.DeleteValvesAction"
+               name="valvesForm"
+               scope="request"/>
+
+    <!-- Set up Edit Valve transaction (generic) -->
+    <action    path="/EditValve"
+               type="org.apache.webapp.admin.valve.EditValveAction">
+    </action>
+    
+    <!-- Perform Save AccessLog Valve transaction -->
+    <action    path="/SaveAccessLogValve"
+               type="org.apache.webapp.admin.valve.SaveAccessLogValveAction"
+               name="accessLogValveForm"
+              input="/valve/accessLogValve.jsp"
+               scope="session"/>
+
+   <!-- Perform Save Remote Addr Valve transaction -->
+    <action    path="/SaveRemoteAddrValve"
+               type="org.apache.webapp.admin.valve.SaveRemoteAddrValveAction"
+               name="remoteAddrValveForm"
+              input="/valve/remoteAddrValve.jsp"
+               scope="session"/>
+
+    <!-- Perform Save Remote Host Valve transaction -->
+    <action    path="/SaveRemoteHostValve"
+               type="org.apache.webapp.admin.valve.SaveRemoteHostValveAction"
+               name="remoteHostValveForm"
+              input="/valve/remoteHostValve.jsp"
+               scope="session"/>
+
+    <!-- Perform Save Request Dumper Valve transaction -->
+    <action    path="/SaveRequestDumperValve"
+               type="org.apache.webapp.admin.valve.SaveRequestDumperValveAction"
+               name="requestDumperValveForm"
+              input="/valve/requestDumperValve.jsp"
+               scope="session"/>
+
+   <!-- Perform Save Single Sign On Valve transaction -->
+    <action    path="/SaveSingleSignOn"
+               type="org.apache.webapp.admin.valve.SaveSingleSignOnValveAction"
+               name="singleSignOnValveForm"
+              input="/valve/singleSignOnValve.jsp"
+               scope="session"/>
+               
+   <!-- ========== Resources Module ========== -->
+
+   <action    path="/resources/deleteEnvEntries"
+               name="envEntriesForm"
+              scope="request"
+               type="org.apache.webapp.admin.resources.DeleteEnvEntriesAction"/>
+
+   <action    path="/resources/deleteUserDatabases"
+               name="userDatabasesForm"
+              scope="request"
+               type="org.apache.webapp.admin.resources.DeleteUserDatabasesAction"/>
+      
+    <action    path="/resources/deleteDataSources"
+               name="dataSourcesForm"
+              scope="request"
+               type="org.apache.webapp.admin.resources.DeleteDataSourcesAction"/>
+
+    <action    path="/resources/deleteMailSessions"
+               name="mailSessionsForm"
+              scope="request"
+               type="org.apache.webapp.admin.resources.DeleteMailSessionsAction"/>
+
+    <action    path="/resources/deleteResourceLinks"
+               name="resourceLinksForm"
+              scope="request"
+               type="org.apache.webapp.admin.resources.DeleteResourceLinksAction"/>
+               
+    <action    path="/resources/listEnvEntries"
+               name="envEntriesForm"
+              scope="request"
+               type="org.apache.webapp.admin.resources.ListEnvEntriesAction"/>
+               
+    <action    path="/resources/listUserDatabases"
+               name="userDatabasesForm"
+              scope="request"
+               type="org.apache.webapp.admin.resources.ListUserDatabasesAction"/>
+
+    <action    path="/resources/listDataSources"
+               name="dataSourcesForm"
+              scope="request"
+               type="org.apache.webapp.admin.resources.ListDataSourcesAction"/>
+
+    <action    path="/resources/listMailSessions"
+               name="mailSessionsForm"
+              scope="request"
+               type="org.apache.webapp.admin.resources.ListMailSessionsAction"/>
+
+    <action    path="/resources/listResourceLinks"
+               name="resourceLinksForm"
+              scope="request"
+               type="org.apache.webapp.admin.resources.ListResourceLinksAction"/>
+
+   <action    path="/resources/saveEnvEntry"
+              input="/resources/envEntry.jsp"
+               name="envEntryForm"
+              scope="request"
+               type="org.apache.webapp.admin.resources.SaveEnvEntryAction"/>
+               
+   <action    path="/resources/saveUserDatabase"
+              input="/resources/userDatabase.jsp"
+               name="userDatabaseForm"
+              scope="request"
+               type="org.apache.webapp.admin.resources.SaveUserDatabaseAction"/>
+
+    <action    path="/resources/saveDataSource"
+              input="/resources/dataSource.jsp"
+               name="dataSourceForm"
+              scope="request"
+               type="org.apache.webapp.admin.resources.SaveDataSourceAction"/>
+
+    <action    path="/resources/saveMailSession"
+              input="/resources/mailSession.jsp"
+               name="mailSessionForm"
+              scope="request"
+               type="org.apache.webapp.admin.resources.SaveMailSessionAction"/>
+
+    <action    path="/resources/saveResourceLink"
+              input="/resources/resourceLink.jsp"
+               name="resourceLinkForm"
+              scope="request"
+               type="org.apache.webapp.admin.resources.SaveResourceLinkAction"/>
+
+   <action    path="/resources/setUpEnvEntry"
+               type="org.apache.webapp.admin.resources.SetUpEnvEntryAction"/>
+
+   <action    path="/resources/setUpUserDatabase"
+               type="org.apache.webapp.admin.resources.SetUpUserDatabaseAction"/>
+
+    <action    path="/resources/setUpDataSource"
+               type="org.apache.webapp.admin.resources.SetUpDataSourceAction"/>
+
+    <action    path="/resources/setUpMailSession"
+               type="org.apache.webapp.admin.resources.SetUpMailSessionAction"/>
+
+    <action    path="/resources/setUpResourceLink"
+               type="org.apache.webapp.admin.resources.SetUpResourceLinkAction"/>
+           
+    <!-- ========== User Database Module ========== -->
+
+    <action    path="/users/deleteGroups"
+               name="groupsForm"
+              scope="request"
+               type="org.apache.webapp.admin.users.DeleteGroupsAction"/>
+
+    <action    path="/users/deleteRoles"
+               name="rolesForm"
+              scope="request"
+                type="org.apache.webapp.admin.users.DeleteRolesAction"/>
+
+    <action    path="/users/deleteUsers"
+               name="usersForm"
+              scope="request"
+               type="org.apache.webapp.admin.users.DeleteUsersAction"/>
+
+    <action    path="/users/listGroups"
+               name="groupsForm"
+              scope="request"
+               type="org.apache.webapp.admin.users.ListGroupsAction"/>
+
+    <action    path="/users/listRoles"
+               name="rolesForm"
+              scope="request"
+               type="org.apache.webapp.admin.users.ListRolesAction"/>
+
+    <action    path="/users/listUsers"
+               name="usersForm"
+              scope="request"
+               type="org.apache.webapp.admin.users.ListUsersAction"/>
+
+    <action    path="/users/saveGroup"
+              input="/users/group.jsp"
+               name="groupForm"
+              scope="request"
+               type="org.apache.webapp.admin.users.SaveGroupAction"/>
+
+    <action    path="/users/saveRole"
+              input="/users/role.jsp"
+               name="roleForm"
+              scope="request"
+               type="org.apache.webapp.admin.users.SaveRoleAction"/>
+
+    <action    path="/users/saveUser"
+              input="/users/user.jsp"
+               name="userForm"
+              scope="request"
+               type="org.apache.webapp.admin.users.SaveUserAction"/>
+
+    <action    path="/users/setUpGroup"
+               type="org.apache.webapp.admin.users.SetUpGroupAction"/>
+
+    <action    path="/users/setUpRole"
+               type="org.apache.webapp.admin.users.SetUpRoleAction"/>
+
+    <action    path="/users/setUpUser"
+               type="org.apache.webapp.admin.users.SetUpUserAction"/>
+
+    <!-- ========== ==================== ========== -->
+
+
+  </action-mappings>  
+    
+</struts-config>

@@ -69,6 +69,7 @@
 #include <netdb.h>
 #include <ctype.h>
 #include <syslog.h>
+#include <sys/errno.h>
 
 #ifdef HAVE_STDLIB_H
 #include <stdlib.h>

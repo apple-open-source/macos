@@ -7,12 +7,18 @@
  * Copyright (c) 1999 by Scriptics Corporation.
  * All rights reserved.
  *
- * RCS: @(#) $Id: tclUnixInit.c,v 1.1.1.5 2002/04/05 16:14:08 jevans Exp $
+ * RCS: @(#) $Id: tclUnixInit.c,v 1.1.1.7 2003/07/09 01:34:07 landonf Exp $
  */
 
+#if defined(HAVE_CFBUNDLE)
+#include <CoreFoundation/CoreFoundation.h>
+#endif
 #include "tclInt.h"
 #include "tclPort.h"
 #include <locale.h>
+#ifdef HAVE_LANGINFO
+#include <langinfo.h>
+#endif
 #if defined(__FreeBSD__)
 #   include <floatingpoint.h>
 #endif
@@ -29,6 +35,20 @@
  */
 #include "tclInitScript.h"
 
+/* Used to store the encoding used for binary files */
+static Tcl_Encoding binaryEncoding = NULL;
+/* Has the basic library path encoding issue been fixed */
+static int libraryPathEncodingFixed = 0;
+
+/*
+ * Tcl tries to use standard and homebrew methods to guess the right
+ * encoding on the platform.  However, there is always a final fallback,
+ * and this value is it.  Make sure it is a real Tcl encoding.
+ */
+
+#ifndef TCL_DEFAULT_ENCODING
+#define TCL_DEFAULT_ENCODING "iso8859-1"
+#endif
 
 /*
  * Default directory in which to look for Tcl library scripts.  The
@@ -47,7 +67,10 @@ static char pkgPath[sizeof(TCL_PACKAGE_PATH)+200] = TCL_PACKAGE_PATH;
 
 /*
  * The following table is used to map from Unix locale strings to
- * encoding files.
+ * encoding files.  If HAVE_LANGINFO is defined, then this is a fallback
+ * table when the result from nl_langinfo isn't a recognized encoding.
+ * Otherwise this is the first list checked for a mapping from env
+ * encoding to Tcl encoding name.
  */
 
 typedef struct LocaleTable {
@@ -56,6 +79,29 @@ typedef struct LocaleTable {
 } LocaleTable;
 
 static CONST LocaleTable localeTable[] = {
+#ifdef HAVE_LANGINFO
+    {"gb2312-1980",	"gb2312"},
+#ifdef __hpux
+    {"SJIS",		"shiftjis"},
+    {"eucjp",		"euc-jp"},
+    {"euckr",		"euc-kr"},
+    {"euctw",		"euc-cn"},
+    {"greek8",		"cp869"},
+    {"iso88591",	"iso8859-1"},
+    {"iso88592",	"iso8859-2"},
+    {"iso88595",	"iso8859-5"},
+    {"iso88596",	"iso8859-6"},
+    {"iso88597",	"iso8859-7"},
+    {"iso88598",	"iso8859-8"},
+    {"iso88599",	"iso8859-9"},
+    {"iso885915",	"iso8859-15"},
+    {"roman8",		"iso8859-1"},
+    {"tis620",		"tis-620"},
+    {"turkish8",	"cp857"},
+    {"utf8",		"utf-8"},
+#endif /* __hpux */
+#endif /* HAVE_LANGINFO */
+
     {"ja_JP.SJIS",	"shiftjis"},
     {"ja_JP.EUC",	"euc-jp"},
     {"ja_JP.eucJP",     "euc-jp"},
@@ -93,6 +139,11 @@ static CONST LocaleTable localeTable[] = {
 
     {NULL, NULL}
 };
+
+#ifdef HAVE_CFBUNDLE
+static int Tcl_MacOSXGetLibraryPath(Tcl_Interp *interp, int maxPathLen, char *tclLibPath);
+#endif /* HAVE_CFBUNDLE */
+
 
 /*
  *---------------------------------------------------------------------------
@@ -193,10 +244,10 @@ CONST char *path;		/* Path to the executable in native
 {
 #define LIBRARY_SIZE	    32
     Tcl_Obj *pathPtr, *objPtr;
-    char *str;
+    CONST char *str;
     Tcl_DString buffer, ds;
     int pathc;
-    char **pathv;
+    CONST char **pathv;
     char installLib[LIBRARY_SIZE], developLib[LIBRARY_SIZE];
 
     Tcl_DStringInit(&ds);
@@ -210,8 +261,7 @@ CONST char *path;		/* Path to the executable in native
      */
      
     sprintf(installLib, "lib/tcl%s", TCL_VERSION);
-    sprintf(developLib, "tcl%s/library",
-	    ((TCL_RELEASE_LEVEL < 2) ? TCL_PATCH_LEVEL : TCL_VERSION));
+    sprintf(developLib, "tcl%s/library", TCL_PATCH_LEVEL);
 
     /*
      * Look for the library relative to default encoding dir.
@@ -268,17 +318,17 @@ CONST char *path;		/* Path to the executable in native
      * This code looks in the following directories:
      *
      *	<bindir>/../<installLib>
-     *		(e.g. /usr/local/bin/../lib/tcl8.2)
+     *	  (e.g. /usr/local/bin/../lib/tcl8.4)
      *	<bindir>/../../<installLib>
-     *		(e.g. /usr/local/TclPro/solaris-sparc/bin/../../lib/tcl8.2)
+     *	  (e.g. /usr/local/TclPro/solaris-sparc/bin/../../lib/tcl8.4)
      *	<bindir>/../library
-     *		(e.g. /usr/src/tcl8.2/unix/../library)
+     *	  (e.g. /usr/src/tcl8.4.0/unix/../library)
      *	<bindir>/../../library
-     *		(e.g. /usr/src/tcl8.2/unix/solaris-sparc/../../library)
+     *	  (e.g. /usr/src/tcl8.4.0/unix/solaris-sparc/../../library)
      *	<bindir>/../../<developLib>
-     *		(e.g. /usr/src/tcl8.2/unix/../../tcl8.2/library)
-     *	<bindir>/../../../<devlopLib>
-     *		(e.g. /usr/src/tcl8.2/unix/solaris-sparc/../../../tcl8.2/library)
+     *	  (e.g. /usr/src/tcl8.4.0/unix/../../tcl8.4.0/library)
+     *	<bindir>/../../../<developLib>
+     *	  (e.g. /usr/src/tcl8.4.0/unix/solaris-sparc/../../../tcl8.4.0/library)
      */
      
 
@@ -352,10 +402,21 @@ CONST char *path;		/* Path to the executable in native
      * is different from the prtefix.
      */
 			      
-    str = defaultLibraryDir;
+    {
+#ifdef HAVE_CFBUNDLE
+    char tclLibPath[MAXPATHLEN + 1];
+    
+    if (Tcl_MacOSXGetLibraryPath(NULL, MAXPATHLEN, tclLibPath) == TCL_OK) {
+        str = tclLibPath;
+    } else
+#endif /* HAVE_CFBUNDLE */
+    {
+        str = defaultLibraryDir;
+    }
     if (str[0] != '\0') {
         objPtr = Tcl_NewStringObj(str, -1);
         Tcl_ListObjAppendElement(NULL, pathPtr, objPtr);
+    }
     }
 
     TclSetLibraryPath(pathPtr);    
@@ -370,13 +431,18 @@ CONST char *path;		/* Path to the executable in native
  *	Based on the locale, determine the encoding of the operating
  *	system and the default encoding for newly opened files.
  *
- *	Called at process initialization time.
+ *	Called at process initialization time, and part way through
+ *	startup, we verify that the initial encodings were correctly
+ *	setup.  Depending on Tcl's environment, there may not have been
+ *	enough information first time through (above).
  *
  * Results:
  *	None.
  *
  * Side effects:
- *	The Tcl library path is converted from native encoding to UTF-8.
+ *	The Tcl library path is converted from native encoding to UTF-8,
+ *	on the first call, and the encodings may be changed on first or
+ *	second call.
  *
  *---------------------------------------------------------------------------
  */
@@ -384,141 +450,223 @@ CONST char *path;		/* Path to the executable in native
 void
 TclpSetInitialEncodings()
 {
-    CONST char *encoding;
-    int i;
-    Tcl_Obj *pathPtr;
-    char *langEnv;
+    if (libraryPathEncodingFixed == 0) {
+	CONST char *encoding = NULL;
+	int i, setSysEncCode = TCL_ERROR;
+	Tcl_Obj *pathPtr;
 
-    /*
-     * Determine the current encoding from the LC_* or LANG environment
-     * variables.  We previously used setlocale() to determine the locale,
-     * but this does not work on some systems (e.g. Linux/i386 RH 5.0).
-     */
-
-    langEnv = getenv("LC_ALL");
-
-    if (langEnv == NULL || langEnv[0] == '\0') {
-	langEnv = getenv("LC_CTYPE");
-    }
-    if (langEnv == NULL || langEnv[0] == '\0') {
-	langEnv = getenv("LANG");
-    }
-    if (langEnv == NULL || langEnv[0] == '\0') {
-	langEnv = NULL;
-    }
-
-    encoding = NULL;
-    if (langEnv != NULL) {
-	for (i = 0; localeTable[i].lang != NULL; i++) {
-	    if (strcmp(localeTable[i].lang, langEnv) == 0) {
-		encoding = localeTable[i].encoding;
-		break;
-	    }
-	}
 	/*
-	 * There was no mapping in the locale table.  If there is an
-	 * encoding subfield, we can try to guess from that.
+	 * Determine the current encoding from the LC_* or LANG environment
+	 * variables.  We previously used setlocale() to determine the locale,
+	 * but this does not work on some systems (e.g. Linux/i386 RH 5.0).
 	 */
-
-	if (encoding == NULL) {
-	    char *p;
-	    for (p = langEnv; *p != '\0'; p++) {
-		if (*p == '.') {
-		    p++;
-		    break;
-		}
-	    }
-	    if (*p != '\0') {
-		Tcl_DString ds;
-		Tcl_DStringInit(&ds);
-		Tcl_DStringAppend(&ds, p, -1);
-
-		encoding = Tcl_DStringValue(&ds);
-		Tcl_UtfToLower(Tcl_DStringValue(&ds));
-		if (Tcl_SetSystemEncoding(NULL, encoding) == TCL_OK) {
-		    Tcl_DStringFree(&ds);
-		    goto resetPath;
-		}
-		Tcl_DStringFree(&ds);
-		encoding = NULL;
-	    }
-	}
-    }
-    if (encoding == NULL) {
-	encoding = "iso8859-1";
-    }
-
-    Tcl_SetSystemEncoding(NULL, encoding);
-
-    resetPath:
-    /*
-     * Initialize the C library's locale subsystem.  This is required
-     * for input methods to work properly on X11.  We only do this for
-     * LC_CTYPE because that's the necessary one, and we don't want to
-     * affect LC_TIME here.  The side effect of setting the default locale
-     * should be to load any locale specific modules that are needed by X.
-     * [BUG: 5422 3345 4236 2522 2521].
-     */
-
-    setlocale(LC_CTYPE, "");
-
-    /*
-     * In case the initial locale is not "C", ensure that the numeric
-     * processing is done in "C" locale regardless.  This is needed because
-     * Tcl relies on routines like strtod, but should not have locale
-     * dependent behavior.
-     */
-
-    setlocale(LC_NUMERIC, "C");
-
-    /*
-     * Until the system encoding was actually set, the library path was
-     * actually in the native multi-byte encoding, and not really UTF-8
-     * as advertised.  We cheated as follows:
-     *
-     * 1. It was safe to allow the Tcl_SetSystemEncoding() call to 
-     * append the ASCII chars that make up the encoding's filename to 
-     * the names (in the native encoding) of directories in the library 
-     * path, since all Unix multi-byte encodings have ASCII in the
-     * beginning.
-     *
-     * 2. To open the encoding file, the native bytes in the file name
-     * were passed to the OS, without translating from UTF-8 to native,
-     * because the name was already in the native encoding.
-     *
-     * Now that the system encoding was actually successfully set,
-     * translate all the names in the library path to UTF-8.  That way,
-     * next time we search the library path, we'll translate the names 
-     * from UTF-8 to the system encoding which will be the native 
-     * encoding.
-     */
-
-    pathPtr = TclGetLibraryPath();
-    if (pathPtr != NULL) {
-	int objc;
-	Tcl_Obj **objv;
-	
-	objc = 0;
-	Tcl_ListObjGetElements(NULL, pathPtr, &objc, &objv);
-	for (i = 0; i < objc; i++) {
-	    int length;
-	    char *string;
+#ifdef HAVE_LANGINFO
+	if (setlocale(LC_CTYPE, "") != NULL) {
 	    Tcl_DString ds;
 
-	    string = Tcl_GetStringFromObj(objv[i], &length);
-	    Tcl_ExternalToUtfDString(NULL, string, length, &ds);
-	    Tcl_SetStringObj(objv[i], Tcl_DStringValue(&ds), 
-		    Tcl_DStringLength(&ds));
+	    /*
+	     * Use a DString so we can overwrite it in name compatability
+	     * checks below.
+	     */
+
+	    Tcl_DStringInit(&ds);
+	    encoding = Tcl_DStringAppend(&ds, nl_langinfo(CODESET), -1);
+
+	    Tcl_UtfToLower(Tcl_DStringValue(&ds));
+#ifdef HAVE_LANGINFO_DEBUG
+	    fprintf(stderr, "encoding '%s'", encoding);
+#endif
+	    if (encoding[0] == 'i' && encoding[1] == 's' && encoding[2] == 'o'
+		    && encoding[3] == '-') {
+		char *p, *q;
+		/* need to strip '-' from iso-* encoding */
+		for(p = Tcl_DStringValue(&ds)+3, q = Tcl_DStringValue(&ds)+4;
+		    *p; *p++ = *q++);
+	    } else if (encoding[0] == 'i' && encoding[1] == 'b'
+		    && encoding[2] == 'm' && encoding[3] >= '0'
+		    && encoding[3] <= '9') {
+		char *p, *q;
+		/* if langinfo reports "ibm*" we should use "cp*" */
+		p = Tcl_DStringValue(&ds);
+		*p++ = 'c'; *p++ = 'p';
+		for(q = p+1; *p ; *p++ = *q++);
+	    } else if ((*encoding == '\0')
+		    || !strcmp(encoding, "ansi_x3.4-1968")) {
+		/* Use iso8859-1 for empty or 'ansi_x3.4-1968' encoding */
+		encoding = "iso8859-1";
+	    }
+#ifdef HAVE_LANGINFO_DEBUG
+	    fprintf(stderr, " ?%s?", encoding);
+#endif
+	    setSysEncCode = Tcl_SetSystemEncoding(NULL, encoding);
+	    if (setSysEncCode != TCL_OK) {
+		/*
+		 * If this doesn't return TCL_OK, the encoding returned by
+		 * nl_langinfo or as we translated it wasn't accepted.  Do
+		 * this fallback check.  If this fails, we will enter the
+		 * old fallback below.
+		 */
+
+		for (i = 0; localeTable[i].lang != NULL; i++) {
+		    if (strcmp(localeTable[i].lang, encoding) == 0) {
+			setSysEncCode = Tcl_SetSystemEncoding(NULL,
+				localeTable[i].encoding);
+			break;
+		    }
+		}
+	    }
+#ifdef HAVE_LANGINFO_DEBUG
+	    fprintf(stderr, " => '%s'\n", encoding);
+#endif
 	    Tcl_DStringFree(&ds);
 	}
+#ifdef HAVE_LANGINFO_DEBUG
+	else {
+	    fprintf(stderr, "setlocale returned NULL\n");
+	}
+#endif
+#endif /* HAVE_LANGINFO */
+
+	if (setSysEncCode != TCL_OK) {
+	    /*
+	     * Classic fallback check.  This tries a homebrew algorithm to
+	     * determine what encoding should be used based on env vars.
+	     */
+	    char *langEnv = getenv("LC_ALL");
+	    encoding = NULL;
+
+	    if (langEnv == NULL || langEnv[0] == '\0') {
+		langEnv = getenv("LC_CTYPE");
+	    }
+	    if (langEnv == NULL || langEnv[0] == '\0') {
+		langEnv = getenv("LANG");
+	    }
+	    if (langEnv == NULL || langEnv[0] == '\0') {
+		langEnv = NULL;
+	    }
+
+	    if (langEnv != NULL) {
+		for (i = 0; localeTable[i].lang != NULL; i++) {
+		    if (strcmp(localeTable[i].lang, langEnv) == 0) {
+			encoding = localeTable[i].encoding;
+			break;
+		    }
+		}
+		/*
+		 * There was no mapping in the locale table.  If there is an
+		 * encoding subfield, we can try to guess from that.
+		 */
+
+		if (encoding == NULL) {
+		    char *p;
+		    for (p = langEnv; *p != '\0'; p++) {
+			if (*p == '.') {
+			    p++;
+			    break;
+			}
+		    }
+		    if (*p != '\0') {
+			Tcl_DString ds;
+			Tcl_DStringInit(&ds);
+			encoding = Tcl_DStringAppend(&ds, p, -1);
+
+			Tcl_UtfToLower(Tcl_DStringValue(&ds));
+			setSysEncCode = Tcl_SetSystemEncoding(NULL, encoding);
+			if (setSysEncCode != TCL_OK) {
+			    encoding = NULL;
+			}
+			Tcl_DStringFree(&ds);
+		    }
+		}
+#ifdef HAVE_LANGINFO_DEBUG
+		fprintf(stderr, "encoding fallback check '%s' => '%s'\n",
+			langEnv, encoding);
+#endif
+	    }
+	    if (setSysEncCode != TCL_OK) {
+		if (encoding == NULL) {
+		    encoding = TCL_DEFAULT_ENCODING;
+		}
+
+		Tcl_SetSystemEncoding(NULL, encoding);
+	    }
+
+	    /*
+	     * Initialize the C library's locale subsystem.  This is required
+	     * for input methods to work properly on X11.  We only do this for
+	     * LC_CTYPE because that's the necessary one, and we don't want to
+	     * affect LC_TIME here.  The side effect of setting the default
+	     * locale should be to load any locale specific modules that are
+	     * needed by X.  [BUG: 5422 3345 4236 2522 2521].
+	     * In HAVE_LANGINFO, this call is already done above.
+	     */
+#ifndef HAVE_LANGINFO
+	    setlocale(LC_CTYPE, "");
+#endif
+	}
+
+	/*
+	 * In case the initial locale is not "C", ensure that the numeric
+	 * processing is done in "C" locale regardless.  This is needed because
+	 * Tcl relies on routines like strtod, but should not have locale
+	 * dependent behavior.
+	 */
+
+	setlocale(LC_NUMERIC, "C");
+
+	/*
+	 * Until the system encoding was actually set, the library path was
+	 * actually in the native multi-byte encoding, and not really UTF-8
+	 * as advertised.  We cheated as follows:
+	 *
+	 * 1. It was safe to allow the Tcl_SetSystemEncoding() call to 
+	 * append the ASCII chars that make up the encoding's filename to 
+	 * the names (in the native encoding) of directories in the library 
+	 * path, since all Unix multi-byte encodings have ASCII in the
+	 * beginning.
+	 *
+	 * 2. To open the encoding file, the native bytes in the file name
+	 * were passed to the OS, without translating from UTF-8 to native,
+	 * because the name was already in the native encoding.
+	 *
+	 * Now that the system encoding was actually successfully set,
+	 * translate all the names in the library path to UTF-8.  That way,
+	 * next time we search the library path, we'll translate the names 
+	 * from UTF-8 to the system encoding which will be the native 
+	 * encoding.
+	 */
+
+	pathPtr = TclGetLibraryPath();
+	if (pathPtr != NULL) {
+	    int objc;
+	    Tcl_Obj **objv;
+	    
+	    objc = 0;
+	    Tcl_ListObjGetElements(NULL, pathPtr, &objc, &objv);
+	    for (i = 0; i < objc; i++) {
+		int length;
+		char *string;
+		Tcl_DString ds;
+
+		string = Tcl_GetStringFromObj(objv[i], &length);
+		Tcl_ExternalToUtfDString(NULL, string, length, &ds);
+		Tcl_SetStringObj(objv[i], Tcl_DStringValue(&ds), 
+			Tcl_DStringLength(&ds));
+		Tcl_DStringFree(&ds);
+	    }
+	}
+
+	libraryPathEncodingFixed = 1;
     }
-
-    /*
-     * Keep the iso8859-1 encoding preloaded.  The IO package uses it for
-     * gets on a binary channel.
-     */
-
-    Tcl_GetEncoding(NULL, "iso8859-1");
+    
+    /* This is only ever called from the startup thread */
+    if (binaryEncoding == NULL) {
+	/*
+	 * Keep the iso8859-1 encoding preloaded.  The IO package uses
+	 * it for gets on a binary channel.
+	 */
+	binaryEncoding = Tcl_GetEncoding(NULL, "iso8859-1");
+    }
 }
 
 /*
@@ -548,16 +696,83 @@ TclpSetVariables(interp)
     struct utsname name;
 #endif
     int unameOK;
-    char *user;
+    CONST char *user;
     Tcl_DString ds;
 
-    Tcl_SetVar(interp, "tclDefaultLibrary", defaultLibraryDir, TCL_GLOBAL_ONLY);
-    Tcl_SetVar(interp, "tcl_pkgPath", pkgPath, TCL_GLOBAL_ONLY);
+#ifdef HAVE_CFBUNDLE
+    char tclLibPath[MAXPATHLEN + 1];
+    
+    if (Tcl_MacOSXGetLibraryPath(interp, MAXPATHLEN, tclLibPath) == TCL_OK) {
+        CONST char *str;
+        Tcl_DString ds;
+        CFBundleRef bundleRef;
+
+        Tcl_SetVar(interp, "tclDefaultLibrary", tclLibPath, 
+                TCL_GLOBAL_ONLY);
+        Tcl_SetVar(interp, "tcl_pkgPath", tclLibPath,
+                TCL_GLOBAL_ONLY);
+        Tcl_SetVar(interp, "tcl_pkgPath", " ",
+                TCL_GLOBAL_ONLY | TCL_APPEND_VALUE);
+        str = TclGetEnv("DYLD_FRAMEWORK_PATH", &ds);
+        if ((str != NULL) && (str[0] != '\0')) {
+            char *p = Tcl_DStringValue(&ds);
+            /* convert DYLD_FRAMEWORK_PATH from colon to space separated */
+            do {
+                if(*p == ':') *p = ' ';
+            } while (*p++);
+            Tcl_SetVar(interp, "tcl_pkgPath", Tcl_DStringValue(&ds),
+                    TCL_GLOBAL_ONLY | TCL_APPEND_VALUE);
+            Tcl_SetVar(interp, "tcl_pkgPath", " ",
+                    TCL_GLOBAL_ONLY | TCL_APPEND_VALUE);
+            Tcl_DStringFree(&ds);
+        }
+        if ((bundleRef = CFBundleGetMainBundle())) {
+            CFURLRef frameworksURL;
+            Tcl_StatBuf statBuf;
+            if((frameworksURL = CFBundleCopyPrivateFrameworksURL(bundleRef))) {
+                if(CFURLGetFileSystemRepresentation(frameworksURL, TRUE,
+                            tclLibPath, MAXPATHLEN) &&
+                        ! TclOSstat(tclLibPath, &statBuf) &&
+                        S_ISDIR(statBuf.st_mode)) {
+                    Tcl_SetVar(interp, "tcl_pkgPath", tclLibPath,
+                            TCL_GLOBAL_ONLY | TCL_APPEND_VALUE);
+                    Tcl_SetVar(interp, "tcl_pkgPath", " ",
+                            TCL_GLOBAL_ONLY | TCL_APPEND_VALUE);
+                }
+                CFRelease(frameworksURL);
+            }
+            if((frameworksURL = CFBundleCopySharedFrameworksURL(bundleRef))) {
+                if(CFURLGetFileSystemRepresentation(frameworksURL, TRUE,
+                            tclLibPath, MAXPATHLEN) &&
+                        ! TclOSstat(tclLibPath, &statBuf) &&
+                        S_ISDIR(statBuf.st_mode)) {
+                    Tcl_SetVar(interp, "tcl_pkgPath", tclLibPath,
+                            TCL_GLOBAL_ONLY | TCL_APPEND_VALUE);
+                    Tcl_SetVar(interp, "tcl_pkgPath", " ",
+                            TCL_GLOBAL_ONLY | TCL_APPEND_VALUE);
+                }
+                CFRelease(frameworksURL);
+            }
+        }
+        Tcl_SetVar(interp, "tcl_pkgPath", pkgPath,
+                TCL_GLOBAL_ONLY | TCL_APPEND_VALUE);
+    } else
+#endif /* HAVE_CFBUNDLE */
+    {
+        Tcl_SetVar(interp, "tclDefaultLibrary", defaultLibraryDir, 
+                TCL_GLOBAL_ONLY);
+        Tcl_SetVar(interp, "tcl_pkgPath", pkgPath, TCL_GLOBAL_ONLY);
+    }
+
+#ifdef DJGPP
+    Tcl_SetVar2(interp, "tcl_platform", "platform", "dos", TCL_GLOBAL_ONLY);
+#else
     Tcl_SetVar2(interp, "tcl_platform", "platform", "unix", TCL_GLOBAL_ONLY);
+#endif
     unameOK = 0;
 #ifndef NO_UNAME
     if (uname(&name) >= 0) {
-	char *native;
+	CONST char *native;
 	
 	unameOK = 1;
 
@@ -732,14 +947,14 @@ Tcl_SourceRCFile(interp)
     Tcl_Interp *interp;		/* Interpreter to source rc file into. */
 {
     Tcl_DString temp;
-    char *fileName;
+    CONST char *fileName;
     Tcl_Channel errChannel;
 
     fileName = Tcl_GetVar(interp, "tcl_rcFileName", TCL_GLOBAL_ONLY);
 
     if (fileName != NULL) {
         Tcl_Channel c;
-	char *fullName;
+	CONST char *fullName;
 
         Tcl_DStringInit(&temp);
 	fullName = Tcl_TranslateFileName(interp, fileName, &temp);
@@ -797,3 +1012,33 @@ TclpCheckStackSpace()
 
     return 1;
 }
+
+#ifdef HAVE_CFBUNDLE
+/*
+ *----------------------------------------------------------------------
+ *
+ * Tcl_MacOSXGetLibraryPath --
+ *
+ *	If we have a bundle structure for the Tcl installation,
+ *	then check there first to see if we can find the libraries
+ *	there.
+ *
+ * Results:
+ *	TCL_OK if we have found the tcl library; TCL_ERROR otherwise.
+ *
+ * Side effects:
+ *	Same as for Tcl_MacOSXOpenVersionedBundleResources.
+ *
+ *----------------------------------------------------------------------
+ */
+static int Tcl_MacOSXGetLibraryPath(Tcl_Interp *interp, int maxPathLen, char *tclLibPath)
+{
+    int foundInFramework = TCL_ERROR;
+    if (strcmp(defaultLibraryDir, "@TCL_IN_FRAMEWORK@") == 0) {
+	foundInFramework = Tcl_MacOSXOpenVersionedBundleResources(interp, 
+	    "com.tcltk.tcllibrary", TCL_VERSION, 0, maxPathLen, tclLibPath);
+    }
+    return foundInFramework;
+}
+#endif /* HAVE_CFBUNDLE */
+

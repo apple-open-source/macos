@@ -1,0 +1,19 @@
+#
+# This test script test the commands:
+#     appendArguments
+#     appendTestCaseID
+#
+
+
+note "[appendTestCaseID A ID]"
+note "[appendTestCaseID [list A B C] ID]"
+note "[appendTestCaseID A ID=arg1=100]"
+note "[appendTestCaseID [list A B C] ID=arg2]"
+note "[appendTestCaseID [appendArguments A arg1] ID]"
+note "[appendArguments [appendTestCaseID B ID] arg1]"
+note "[appendTestCaseID [appendArguments [list A B C] arg1] ID]"
+note "[appendArguments [appendTestCaseID [list X Y Z] ID] arg1]"
+note "[appendTestCaseID [appendArguments [list A B C] \
+	"arg1=1 arg2 arg3=100"] ID]"
+note "[appendArguments [appendTestCaseID [list X Y Z] ID] \
+	"arg1=1 arg2 arg3=100"]"

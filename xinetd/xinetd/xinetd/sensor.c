@@ -208,3 +208,15 @@ static void scrub_global_access_list( void )
    }
 }
 
+void destroy_global_access_list( void )
+{
+   if ( global_no_access ) {
+      pset_apply( global_no_access, free, NULL ) ;
+      pset_destroy( global_no_access ) ;
+   }
+
+   if ( global_no_access_time ) {
+      pset_apply( global_no_access_time, free, NULL ) ;
+      pset_destroy( global_no_access_time ) ;
+   }
+}

@@ -1,0 +1,118 @@
+set srcdir [lindex $argv 0]
+set subdir [lindex $argv 1]
+set objdir [lindex $argv 2]
+
+if [ file exists $objdir/setval.tmp ] {
+    source $objdir/setval.tmp
+} else {
+    puts "ERROR: $objdir/setval.tmp doesn't exist"
+}
+if [ file exists $srcdir/$subdir/default_procs.tcl ] {
+    source "$srcdir/$subdir/default_procs.tcl"
+} else {
+    puts "ERROR: $srcdir$subdir/default_procs.tcl doesn't exist"
+}
+
+set file $srcdir/../lib/utils.exp    
+if [ file exists $file] {
+    source $file
+} else {
+    puts "ERROR: $file doesn't exist"
+}
+
+#
+# getdirs tests
+#
+if [lib_pat_test "getdirs" "${srcdir}/runtest.all" "runtest.all/topdir" ] {
+    puts "FAILED: getdirs toplevel, no arguments"
+} else {
+    puts "PASSED: getdirs toplevel, no arguments"
+}
+
+if [lib_pat_test "getdirs" "${srcdir}/runtest.all top*" "runtest.all/topdir" ] {
+    puts "FAILED: getdirs toplevel, one subdir"
+} else {
+    puts "PASSED: getdirs toplevel, one subdir"
+}
+
+if [lib_pat_test "getdirs" "${srcdir}/runtest.all/topdir" "subdir1*subdir2" ] {
+    puts "FAILED: getdirs toplevel, two subdirs"
+} else {
+    puts "PASSED: getdirs toplevel, two subdirs"
+}
+
+#
+# find tests
+#
+if [string match "*/subdir2/subfile2" "[find ${srcdir}/runtest.all/topdir/subdir2 sub*]"] {
+    puts "PASSED: find, only one level deep"
+} else {
+    puts "FAILED: find, only one level deep"
+}
+
+#set path ${srcdir}/runtest.all/topdir/subdir1
+#exp_test "find ${path} sub*" "Adding */subdir1/subsubdir1/subsubfile1" "find, two levels deep"
+
+if [string match "*/subdir1/subsubdir1/subsubfile1" "[find ${srcdir}/runtest.all/topdir/subdir1 sub*]"] {
+    puts "PASSED: find, two levels deep"
+} else {
+    puts "FAILED: find, two  levels deep"
+}
+
+#
+# environment varible utility tests
+#
+
+if [info exists env(TESTRUN)] {
+    unset env(TESTRUN)
+}
+
+# test setenv
+setenv TESTRUN FooBar
+if [info exists env(TESTRUN)] {
+    if { $env(TESTRUN) == "FooBar" } {
+        pass "setenv, set an environment variable"
+    } else {
+        fail "setenv, set an environment variable       
+    }
+} else {
+    fail "setenv, set an environment variable"
+}
+# test getenv
+if [info exists env(TESTRUN)] {
+    if { [getenv TESTRUN] == "FooBar" } {
+        pass "getenv, get an environment variable"
+    } else {
+        fail "getenv, get an environment variable"
+    }
+} else {
+    untested "getenv, get an environment variable"
+}
+
+# test unsetenv
+if [info exists env(TESTRUN)] {
+    unsetenv TESTRUN
+    if [info exists env(TESTRUN)] {
+        fail "unsetenv, unset an environment variable"
+    } else {
+        pass "unsetenv, unset an environment variable"
+    }
+} else {
+    untested "unsetenv, unset an environment variable"
+}
+
+# which file
+# grep args
+# prune list pattern
+# slay name
+# absolute path
+# psource file
+# diff file_1 file_2
+
+
+
+
+
+
+
+

@@ -163,7 +163,7 @@
 #include "log.h"
 #include "atomicio.h"
 
-RCSID("$Id: loginrec.c,v 1.1.1.9 2002/05/28 18:24:32 zarzycki Exp $");
+RCSID("$Id: loginrec.c,v 1.2 2003/09/25 22:48:25 nicolai Exp $");
 
 #ifdef HAVE_UTIL_H
 #  include <util.h>
@@ -609,6 +609,9 @@ void
 construct_utmp(struct logininfo *li,
 		    struct utmp *ut)
 {
+# ifdef HAVE_ADDR_V6_IN_UTMP
+	struct sockaddr_in6 *sa6;
+#  endif
 	memset(ut, '\0', sizeof(*ut));
 
 	/* First fill out fields used for both logins and logouts */
@@ -622,13 +625,13 @@ construct_utmp(struct logininfo *li,
 	switch (li->type) {
 	case LTYPE_LOGIN:
 		ut->ut_type = USER_PROCESS;
-#ifdef _CRAY
+#ifdef _UNICOS
 		cray_set_tmpdir(ut);
 #endif
 		break;
 	case LTYPE_LOGOUT:
 		ut->ut_type = DEAD_PROCESS;
-#ifdef _CRAY
+#ifdef _UNICOS
 		cray_retain_utmp(ut, li->pid);
 #endif
 		break;
@@ -661,6 +664,19 @@ construct_utmp(struct logininfo *li,
 	if (li->hostaddr.sa.sa_family == AF_INET)
 		ut->ut_addr = li->hostaddr.sa_in.sin_addr.s_addr;
 # endif
+# ifdef HAVE_ADDR_V6_IN_UTMP
+	/* this is just a 128-bit IPv6 address */
+	if (li->hostaddr.sa.sa_family == AF_INET6) {
+		sa6 = ((struct sockaddr_in6 *)&li->hostaddr.sa);
+		memcpy(ut->ut_addr_v6, sa6->sin6_addr.s6_addr, 16);
+		if (IN6_IS_ADDR_V4MAPPED(&sa6->sin6_addr)) {
+			ut->ut_addr_v6[0] = ut->ut_addr_v6[3];
+			ut->ut_addr_v6[1] = 0;
+			ut->ut_addr_v6[2] = 0;
+			ut->ut_addr_v6[3] = 0;
+		}
+	}
+# endif
 }
 #endif /* USE_UTMP || USE_WTMP || USE_LOGIN */
 
@@ -689,6 +705,9 @@ set_utmpx_time(struct logininfo *li, struct utmpx *utx)
 void
 construct_utmpx(struct logininfo *li, struct utmpx *utx)
 {
+# ifdef HAVE_ADDR_V6_IN_UTMP
+	struct sockaddr_in6 *sa6;
+#  endif
 	memset(utx, '\0', sizeof(*utx));
 # ifdef HAVE_ID_IN_UTMPX
 	line_abbrevname(utx->ut_id, li->line, sizeof(utx->ut_id));
@@ -724,6 +743,19 @@ construct_utmpx(struct logininfo *li, struct utmpx *utx)
 	/* this is just a 32-bit IP address */
 	if (li->hostaddr.sa.sa_family == AF_INET)
 		utx->ut_addr = li->hostaddr.sa_in.sin_addr.s_addr;
+# endif
+# ifdef HAVE_ADDR_V6_IN_UTMP
+	/* this is just a 128-bit IPv6 address */
+	if (li->hostaddr.sa.sa_family == AF_INET6) {
+		sa6 = ((struct sockaddr_in6 *)&li->hostaddr.sa);
+		memcpy(ut->ut_addr_v6, sa6->sin6_addr.s6_addr, 16);
+		if (IN6_IS_ADDR_V4MAPPED(&sa6->sin6_addr)) {
+			ut->ut_addr_v6[0] = ut->ut_addr_v6[3];
+			ut->ut_addr_v6[1] = 0;
+			ut->ut_addr_v6[2] = 0;
+			ut->ut_addr_v6[3] = 0;
+		}
+	}
 # endif
 # ifdef HAVE_SYSLEN_IN_UTMPX
 	/* ut_syslen is the length of the utx_host string */
@@ -1249,7 +1281,7 @@ wtmpx_get_entry(struct logininfo *li)
 	}
 	if (fstat(fd, &st) != 0) {
 		log("wtmpx_get_entry: couldn't stat %s: %s",
-		    WTMP_FILE, strerror(errno));
+		    WTMPX_FILE, strerror(errno));
 		close(fd);
 		return 0;
 	}
@@ -1271,6 +1303,7 @@ wtmpx_get_entry(struct logininfo *li)
 		/* Logouts are recorded as a blank username on a particular line.
 		 * So, we just need to find the username in struct utmpx */
 		if ( wtmpx_islogin(li, &utx) ) {
+			found = 1;
 # ifdef HAVE_TV_IN_UTMPX
 			li->tv_sec = utx.ut_tv.tv_sec;
 # else
@@ -1312,6 +1345,7 @@ syslogin_perform_login(struct logininfo *li)
 	}
 	construct_utmp(li, ut);
 	login(ut);
+	free(ut);
 
 	return 1;
 }
@@ -1404,6 +1438,17 @@ lastlog_openseek(struct logininfo *li, int *fd, int filemode)
 	int type;
 	char lastlog_file[1024];
 
+	/* HACK HACK HACK: This is because HFS doesn't support sparse files
+	 * and seeking into the file too far is too slow.  The "solution"
+	 * is to just bail if the seek time for a large uid would be too
+	 * slow.
+	 */
+	if(li->uid > 100000) {
+		log("User login %s (%d) not logged in lastlog.  UID too large.",
+		    li->username, li->uid);
+		return 0;
+	}
+
 	type = lastlog_filetype(LASTLOG_FILE);
 	switch (type) {
 		case LL_FILE:
@@ -1489,22 +1534,32 @@ int
 lastlog_get_entry(struct logininfo *li)
 {
 	struct lastlog last;
-	int fd;
+	int fd, ret;
 
 	if (!lastlog_openseek(li, &fd, O_RDONLY))
-		return 0;
+		return (0);
 
-	if (atomicio(read, fd, &last, sizeof(last)) != sizeof(last)) {
-		close(fd);
-		log("lastlog_get_entry: Error reading from %s: %s",
-		    LASTLOG_FILE, strerror(errno));
-		return 0;
-	}
-
+	ret = atomicio(read, fd, &last, sizeof(last));
 	close(fd);
 
-	lastlog_populate_entry(li, &last);
+	switch (ret) {
+	case 0:
+		memset(&last, '\0', sizeof(last));
+		/* FALLTHRU */
+	case sizeof(last):
+		lastlog_populate_entry(li, &last);
+		return (1);
+	case -1:
+		error("%s: Error reading from %s: %s", __func__, 
+		    LASTLOG_FILE, strerror(errno));
+		return (0);
+	default:
+		error("%s: Error reading from %s: Expecting %d, got %d",
+		    __func__, LASTLOG_FILE, sizeof(last), ret);
+		return (0);
+	}
 
-	return 1;
+	/* NOTREACHED */
+	return (0);
 }
 #endif /* USE_LASTLOG */

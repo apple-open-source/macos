@@ -58,10 +58,10 @@ void TransferEngine::remove(Client *client)
 {
 #ifndef NDEBUG
     if (!client->mReadBuffer.isEmpty())
-        debug("xferengine", "xfer %p(%d) HAD %ld BYTES READ LEFT",
+        secdebug("xferengine", "xfer %p(%d) HAD %ld BYTES READ LEFT",
             client, client->fileDesc(), client->mReadBuffer.length());
     if (!client->mWriteBuffer.isEmpty())
-        debug("xferengine", "xfer %p(%d) HAD %ld BYTES WRITE LEFT",
+        secdebug("xferengine", "xfer %p(%d) HAD %ld BYTES WRITE LEFT",
             client, client->fileDesc(), client->mWriteBuffer.length());
 #endif //NDEBUG
     if (client->io.fd () != -1) { // did we have a live socket?
@@ -79,7 +79,7 @@ void TransferEngine::remove(Client *client)
 //
 void TransferEngine::Client::mode(InputMode newMode)
 {
-    debug("xferengine", "xfer %p(%d) switching to mode %d", this, fileDesc(), newMode);
+    secdebug("xferengine", "xfer %p(%d) switching to mode %d", this, fileDesc(), newMode);
     switch (newMode) {
     case rawInput:
     case lineInput:
@@ -99,7 +99,7 @@ void TransferEngine::Client::mode(Sink &sink, size_t byteCount)
     mMode = autoReadInput;
     mSink = &sink;
     mResidualReadCount = byteCount;
-    debug("xferengine", "xfer %p(%d) switching to autoReadInput (%ld bytes)", 
+    secdebug("xferengine", "xfer %p(%d) switching to autoReadInput (%ld bytes)", 
         this, fileDesc(), byteCount);
 }
 
@@ -109,7 +109,7 @@ void TransferEngine::Client::mode(Source &source, size_t byteCount)
     mAutoCopyOut = true;
     mSource = &source;
     mResidualWriteCount = byteCount;
-    debug("xferengine", "xfer %p(%d) enabling autoCopyOut mode (%ld bytes)",
+    secdebug("xferengine", "xfer %p(%d) enabling autoCopyOut mode (%ld bytes)",
         this, fileDesc(), byteCount);
     enable(output);
 }
@@ -133,7 +133,7 @@ void TransferEngine::Client::vprintf(const char *format, va_list args)
 #if !defined(NDEBUG)
     char buffer[1024];
     vsnprintf(buffer, sizeof(buffer), format, args);
-    debug("engineio", "%p(%d) <-- %s", this, fileDesc(), buffer);
+    secdebug("engineio", "%p(%d) <-- %s", this, fileDesc(), buffer);
 #endif //NDEBUG
     startOutput();
 }
@@ -153,7 +153,7 @@ void TransferEngine::Client::vprintfe(const char *format, va_list args)
 #if !defined(NDEBUG)
     char buffer[1024];
     vsnprintf(buffer, sizeof(buffer), format, args);
-    debug("engineio", "%p(%d) <-- %s[CRNL]", this, fileDesc(), buffer);
+    secdebug("engineio", "%p(%d) <-- %s[CRNL]", this, fileDesc(), buffer);
 #endif //NDEBUG
     startOutput();
 }
@@ -169,7 +169,7 @@ void TransferEngine::Client::vprintfe(const char *format, va_list args)
 void TransferEngine::Client::flushOutput(bool autoFlush)
 {
     mAutoFlush = autoFlush;
-    debug("engineio", "%p(%d) output flush %s", this, fileDesc(), autoFlush? "on" : "off");
+    secdebug("engineio", "%p(%d) output flush %s", this, fileDesc(), autoFlush? "on" : "off");
     if (mAutoFlush)
         startOutput();
 }
@@ -205,7 +205,7 @@ void TransferEngine::Client::startOutput()
 void TransferEngine::Client::flushInput()
 {
     if (!mReadBuffer.isEmpty()) {
-        debug("engineio", "flushing %ld bytes of input", mReadBuffer.length());
+        secdebug("engineio", "flushing %ld bytes of input", mReadBuffer.length());
         mReadBuffer.clear();
         mInputFlushed = true;	// inhibit normal buffer ops
     }
@@ -225,7 +225,7 @@ size_t TransferEngine::Client::autoCopy()
         len = mResidualWriteCount;
     void *addr; mWriteBuffer.locatePut(addr, len);
     mSource->produce(addr, len);
-    debug("xferengine", "xfer %p(%d) autoCopyOut source delivered %ld bytes",
+    secdebug("xferengine", "xfer %p(%d) autoCopyOut source delivered %ld bytes",
         this, fileDesc(), len);
     mWriteBuffer.usePut(len);
     return len;
@@ -247,7 +247,7 @@ void TransferEngine::Client::notify(int fd, Type type)
             if (mMode == connecting) {
                 Socket s; s = fd;	// Socket(fd) means something different...
                 int error = s.error();
-                debug("xferengine", "xfer %p(%d) connect (errno %d)",
+                secdebug("xferengine", "xfer %p(%d) connect (errno %d)",
                     this, fd, error);
                 transit(connectionDone, NULL, error);
                 return;
@@ -259,13 +259,13 @@ void TransferEngine::Client::notify(int fd, Type type)
                     switch (mSource->state()) {
                     case Source::stalled:
                         // ah well, maybe later
-                        debug("xferengine", "xfer %p(%d) autoCopyOut source is stalled", this, fd);
+                        secdebug("xferengine", "xfer %p(%d) autoCopyOut source is stalled", this, fd);
                         break;
                     case Source::endOfData:
                         mAutoCopyOut = false;	// done
-                        debug("xferengine", "xfer %p(%d) autoCopyOut end of data", this, fd);
+                        secdebug("xferengine", "xfer %p(%d) autoCopyOut end of data", this, fd);
                         if (mResidualWriteCount > 0)
-                            debug("xferengine", "xfer %p(%d) has %ld autoCopy bytes left",
+                            secdebug("xferengine", "xfer %p(%d) has %ld autoCopy bytes left",
                                 this, fd, mResidualWriteCount);
                         transit(autoWriteDone);
                         if (!isActive())
@@ -277,17 +277,17 @@ void TransferEngine::Client::notify(int fd, Type type)
                 }
             }
             if (mWriteBuffer.isEmpty()) {	// output possible, no output pending
-                debug("xferengine", "xfer %p(%d) disabling output (empty)", this, fd);
+                secdebug("xferengine", "xfer %p(%d) disabling output (empty)", this, fd);
                 disable(output);
             } else {					// stuff some more
                 size_t length = mWriteBuffer.write(*this);
-                debug("xferengine", "xfer %p(%d) writing %ld bytes", this, fd, length);
+                secdebug("xferengine", "xfer %p(%d) writing %ld bytes", this, fd, length);
             }
         }
     
         if (type & Selector::input) {
-            IFDEBUG(debug("xferengine", "xfer %p(%d) input ready %d bytes",
-                this, fd, io.iocget<int>(FIONREAD)));
+            secdebug("xferengine", "xfer %p(%d) input ready %d bytes",
+                this, fd, io.iocget<int>(FIONREAD));
     
             do {
                 mInputFlushed = false;	// preset normal
@@ -325,13 +325,13 @@ void TransferEngine::Client::notify(int fd, Type type)
                     {
                         // we should never be here. Selector gave us "read but not write" while connecting. FUBAR
                         Socket s; s = fd;
-                        debug("xferengine",
+                        secdebug("xferengine",
                             "fd %d input while connecting (errno=%d, type=%d)",
                             fd, s.error(), type);
                         UnixError::throwMe(ECONNREFUSED);	// likely interpretation
                     }
                 default:
-                    debug("xferengine", "mode error in input sequencer (mode=%d)", mMode);
+                    secdebug("xferengine", "mode error in input sequencer (mode=%d)", mMode);
                     assert(false);
                 }
                 if (!io)		// client has unhooked; clear buffer and exit loop
@@ -352,8 +352,8 @@ void TransferEngine::Client::rawInputTransit()
     // just shove it at the user
     char *addr; size_t length = mReadBuffer.length();
     mReadBuffer.locateGet(addr, length);
-    IFDEBUG(debug("engineio", "%p(%d) --> %d bytes RAW",
-        this, fileDesc(), io.iocget<int>(FIONREAD)));
+    secdebug("engineio", "%p(%d) --> %d bytes RAW",
+        this, fileDesc(), io.iocget<int>(FIONREAD));
     transit(inputAvailable, addr, length);
     if (!mInputFlushed)
         mReadBuffer.useGet(length);
@@ -371,11 +371,11 @@ bool TransferEngine::Client::lineInputTransit()
         
     if (nl > line && nl[-1] == '\r') {		// proper \r\n termination
         nl[-1] = '\0';						// terminate for transit convenience
-        debug("engineio", "%p(%d) --> %s", this, fileDesc(), line);
+        secdebug("engineio", "%p(%d) --> %s", this, fileDesc(), line);
         transit(inputAvailable, line, nl - line - 1);
     } else {								// improper, tolerate
         nl[0] = '\0';						// terminate for transit convenience
-        debug("engineio", "%p(%d) [IMPROPER] --> %s", this, fileDesc(), line);
+        secdebug("engineio", "%p(%d) [IMPROPER] --> %s", this, fileDesc(), line);
         transit(inputAvailable, line, nl - line);
     }
     if (!mInputFlushed)
@@ -385,13 +385,13 @@ bool TransferEngine::Client::lineInputTransit()
 
 void TransferEngine::Client::autoReadInputTransit()
 {
-    debug("xferengine", "xfer %p(%d) %ld pending %d available",
+    secdebug("xferengine", "xfer %p(%d) %ld pending %d available",
         this, fileDesc(), mReadBuffer.length(), io.iocget<int>(FIONREAD));
     void *data; size_t length = mReadBuffer.length();
     if (mResidualReadCount && mResidualReadCount < length)
         length = mResidualReadCount;
     mReadBuffer.locateGet(data, length);
-    debug("engineio", "%p(%d) --> %ld bytes autoReadInput", this, fileDesc(), length);
+    secdebug("engineio", "%p(%d) --> %ld bytes autoReadInput", this, fileDesc(), length);
     mSink->consume(data, length);
     if (!mInputFlushed)
         mReadBuffer.useGet(length);

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+<!DOCTYPE xdoclet-module PUBLIC "-//XDoclet Team//DTD XDoclet Module 1.0//EN" "http://xdoclet.sourceforge.net/dtd/xdoclet-module_1_0.dtd">
+-->
+
+<xdoclet-module>
+
+    <!--
+    xdoclet.modules.jboss.net.JBossNetEJBSubTask
+    -->
+
+    <subtask
+        name="jbossnet"
+        implementation-class="xdoclet.modules.jboss.net.JBossNetEJBSubTask"
+        parent-task-class="xdoclet.modules.ejb.EjbDocletTask"
+    />
+    
+    <!--
+    xdoclet.modules.jboss.net.JBossNetJMXSubTask
+    -->
+
+    <subtask
+        name="jbossnet"
+        implementation-class="xdoclet.modules.jboss.net.JBossNetJMXSubTask"
+        parent-task-class="xdoclet.modules.jmx.JMXDocletTask"
+    />
+
+</xdoclet-module>

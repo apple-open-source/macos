@@ -1,4 +1,4 @@
-# Copyright (c) 1999-2002 Apple Computer, Inc.
+# Copyright (c) 1999-2003 Apple Computer, Inc.
 # All rights reserved.
 
 # Define reasonable base locations, to be overridden by default
@@ -18,7 +18,6 @@ INSTALL_ROOT default = $(DSTROOT) ;
 _BUILD_PHASING default = YES ;
 export INSTALL_OWNER default = $(USER) ;
 export INSTALL_GROUP default = $(GROUP) ;
-export INSTALL_MODE_FLAG default = "ugo-w,o+rX" ;
 export FRAMEWORK_VERSION default = "A" ;
 REMOVE_CVS_FROM_RESOURCES default = YES ;
 COPY_PHASE_STRIP default = NO ;
@@ -30,6 +29,9 @@ SET_FILE_MODE_OWNER_GROUP default = NO ;
 export OPTIMIZATION_LEVEL default = 0 ;
 export DEBUGGING_SYMBOLS default = YES ;
 export PROFILING_CODE default = NO ;
+
+# Default linker warnings
+WARNING_LDFLAGS default = -Wl,-no_arch_warnings ;
 
 # Default settings for Java builds
 JAVA_ARCHIVE_CLASSES default = YES ;
@@ -51,16 +53,8 @@ JAVAC_DEFAULT_FLAGS default = -J-Xms64m -J-XX:NewSize=4M -J-Dfile.encoding=UTF8 
 JIKES_DEFAULT_FLAGS default = +E +OLDCSO ;
 
 # Default variants and flags
-# !!!:cmolick:20020226 using all three is an interesting test case
-# BUILD_VARIANTS default = normal debug profile ;
 BUILD_VARIANTS default = normal ;
 _BUILD_PHASES = ;
-cc_normal_FLAGS default = ;
-cc_debug_FLAGS default = -g ;
-cc_profile_FLAGS default = -pg ;
-
-# !!!:cmolick:20020109 Installed product asides on by default for debugging
-#INSTALLED_PRODUCT_ASIDES default = YES ;
 
 # BeginProduct <product>
 #
@@ -90,7 +84,6 @@ cc_profile_FLAGS default = -pg ;
 # SOURCE_DIR			
 # BUILD_DIR			Target-specific directory for builds
 # TEMP_DIR			For target-specific intermediates
-# BASE_PROJECT_HEADER_DIR	Location for header clone folders
 # PROJECT_HEADER_DIR		Project header file directory in $(TEMP_DIR)
 # OBJECT_FILE_DIR		Object file directory in $(TEMP_DIR)
 # CLASS_FILE_DIR		Class file directory in $(TEMP_DIR)
@@ -115,36 +108,46 @@ rule BeginProduct
     HEADER_SUBDIRECTORY = $(1:B) ;
 
     # the following sequence of tests sets up CC, CPLUSPLUS, LD, and LDPLUSPLUS appropriately,
-    # depending on whether we're using GCC 2.95.2 or GCC 3.x (either explicitly or implicitly)
+    # depending on whether we're using GCC 2.95.2, 3.1, or 3.3 (either explicitly or implicitly)
 
-    # hack to detect attempt to use GCC 3, and to set the 'USE_GCC3' build setting accordingly
-    if ( $(CC) = "/usr/bin/gcc3" ) {
-        USE_GCC3 default = YES ;
+    # a hack to detect attempt to use GCC 3, and to set the 'GCC_VERSION' build setting accordingly
+    if $(USE_GCC3) = YES  ||  $(USE_GCC2) = NO  ||  $(CC) = "/usr/bin/gcc3" {
+        # use either the default gcc version if available or default to 3.1
+        if $(_DEFAULT_GCC_VERSION) = 3.1 || $(_DEFAULT_GCC_VERSION) = 3.3 {
+            GCC_VERSION default = $(_DEFAULT_GCC_VERSION) ;
+        }
+        else {
+            GCC_VERSION default = 3.1 ;
+        }
     }
-    # if USE_GCC2 has not been explicitly set to YES, and if the default compiler (as detected
-    # by pbxbuild) is GCC 3, we set USE_GCC3 to YES so the rest of the logic knows it can do
-    # GCC 3 specific stuff
-    if ( $(USE_GCC2) != YES )  &&  ( $(_DEFAULT_GCC_VERSION) != "" )  &&  ( $(_DEFAULT_GCC_VERSION) != "2.95.2" ) {
-        USE_GCC3 default = YES ;
+    else if $(USE_GCC2) = YES  ||  $(USE_GCC3) = NO  ||  $(CC) = "/usr/bin/gcc2" {
+        GCC_VERSION default = 2.x ;
+    }
+    else {
+        if $(_DEFAULT_GCC_VERSION) = 3.1 || $(_DEFAULT_GCC_VERSION) = 3.3 {
+            GCC_VERSION default = $(_DEFAULT_GCC_VERSION) ;
+        }
+        else if $(_DEFAULT_GCC_VERSION) = 2.95.2 {
+            GCC_VERSION default = 2.x ;
+        }
+        else {
+            GCC_VERSION default = unknown ;
+        }
     }
 
     # set up CC, CPLUSPLUS, LD, and LDPLUSPLUS appropriately (this logic is temporary, and is
     # expected to be phased out once we have per-build-phase compiler choices)
-    if $(USE_GCC3) = YES {
+    if $(GCC_VERSION) = 3.3 {
+        CC default = /usr/bin/gcc-3.3 ;
+        CPLUSPLUS default = /usr/bin/g++-3.3 ;
+    }
+    else if $(GCC_VERSION) = 3.1 {
         CC default = /usr/bin/gcc3 ;
         CPLUSPLUS default = /usr/bin/g++3 ;
-        # for GCC 3, we use -precomp support (as opposed to PFE support) by default for now
-        USE_GCC3_PFE_SUPPORT default = NO ;
     }
-    else if $(USE_GCC2) = YES {
-        if $(_DEFAULT_GCC_VERSION) = "2.95.2" {
-            CC default = /usr/bin/cc ;
-            CPLUSPLUS default = /usr/bin/c++ ;
-        }
-        else {
-            CC default = /usr/bin/gcc2 ;
-            CPLUSPLUS default = /usr/bin/g++2 ;
-        }
+    else if $(GCC_VERSION) = 2.x {
+        CC default = /usr/bin/gcc2 ;
+        CPLUSPLUS default = /usr/bin/g++2 ;
     }
     else {
         CC default = /usr/bin/cc ;
@@ -154,8 +157,30 @@ rule BeginProduct
     LDPLUSPLUS default = $(CPLUSPLUS) ;
     _LD_FOR_LINKING = $(LD) ;   # this might get reset to $(LDPLUSPLUS) in the CompileCplusplus rule
 
-    # Variant suffixes
+    # Set reasonable optimization flags for installs if not already set
+    OPTIMIZATION_CFLAGS default = -Os ;
+    # precompiled header, C++, Assembly, and Fortran options match C options by default
+    OTHER_PRECOMP_CPLUSPLUSFLAGS default = $(OTHER_PRECOMP_CFLAGS) ;
+    OTHER_CPLUSPLUSFLAGS default = $(OTHER_CFLAGS) ;
+    WARNING_CPLUSPLUSFLAGS default = $(WARNING_CFLAGS) ;
+    OTHER_ASFLAGS default = $(OTHER_CFLAGS) ;
+    WARNING_ASFLAGS default = $(WARNING_CFLAGS) ;
+    OTHER_FFLAGS default = $(OTHER_CFLAGS) ;
+    WARNING_FFLAGS default = $(WARNING_CFLAGS) ;
+    # Variant flags and suffixes
     for VARIANT in $(BUILD_VARIANTS) {
+        if $(VARIANT) = profile {
+            OTHER_CFLAGS_$(VARIANT) default = $(OTHER_CFLAGS) -pg ;
+            OTHER_ASFLAGS_$(VARIANT) default = $(OTHER_CFLAGS) -pg ;
+            OTHER_CPLUSPLUSFLAGS_$(VARIANT) default = $(OTHER_CPLUSPLUSFLAGS) -pg ;
+            OTHER_LDFLAGS_$(VARIANT) default = $(OTHER_LDFLAGS) -pg ;
+        }
+        else {
+            OTHER_CFLAGS_$(VARIANT) default = $(OTHER_CFLAGS) ;
+            OTHER_ASFLAGS_$(VARIANT) default = $(OTHER_CFLAGS) ;
+            OTHER_CPLUSPLUSFLAGS_$(VARIANT) default = $(OTHER_CPLUSPLUSFLAGS) ;
+            OTHER_LDFLAGS_$(VARIANT) default = $(OTHER_LDFLAGS) ;
+        }
         if $(VARIANT) = normal {
             VARIANT_SUFFIX_$(VARIANT) = "" ;
         }
@@ -163,19 +188,10 @@ rule BeginProduct
             VARIANT_SUFFIX_$(VARIANT) = _$(VARIANT) ;
         }
     }
-    # Set reasonable optimization flags for installs if not already set
-    OPTIMIZATION_CFLAGS default = -Os ;
-    # C++ options match C options by default
-    OTHER_CPLUSPLUSFLAGS default = $(OTHER_CFLAGS) ;
-    WARNING_CPLUSPLUSFLAGS default = $(WARNING_CFLAGS) ;
     # Set up architecture options for product
     INCLUDED_ARCHS default = $(SUPPORTED_ARCHITECTURES) ;
     SUPPORTED_ARCHITECTURE_FLAGS = ;
     ARCHS = ;
-    if ! $(RC_ARCHS) {
-	$(NATIVE_ARCH) = YES ;
-        RC_$(NATIVE_ARCH) = YES ;
-    }
     for SUPPORTED_ARCHITECTURE in $(SUPPORTED_ARCHITECTURES) {
         if $($(SUPPORTED_ARCHITECTURE)) = YES
          && ( $(SUPPORTED_ARCHITECTURE) in $(INCLUDED_ARCHS) )
@@ -184,6 +200,14 @@ rule BeginProduct
             ARCHS += $(SUPPORTED_ARCHITECTURE) ;
         }
     }
+    # if somehow no architecture was found, then use the native architecture
+    if ! $(ARCHS) {
+        $(NATIVE_ARCH) = YES ;
+        RC_$(NATIVE_ARCH) = YES ;
+        SUPPORTED_ARCHITECTURE_FLAGS += -arch $(NATIVE_ARCH) ;
+        ARCHS += $(NATIVE_ARCH) ;
+    }
+
     ARCH_FLAGS default = $(SUPPORTED_ARCHITECTURE_FLAGS) ;
     # Initialize the directory variables
     # SOURCE_DIR is the location of installed sources
@@ -198,20 +222,13 @@ rule BeginProduct
     }
     # asides
     if $(INSTALLED_PRODUCT_ASIDES) = YES && $(DEPLOYMENT_LOCATION) = YES {
+        SEPARATE_STRIP = YES ;
         ASIDE_DIR default = $(BUILD_ROOT) ;
         Mkdir $(ASIDE_DIR) ;
         ProductFile $(ASIDE_DIR) ;
     }
     # define other important locations
     TEMP_DIR default = $(TEMP_ROOT)$(/)$(PROJECT_NAME).build$(/)$(TARGET_NAME).build ;
-    if $(CLONE_HEADERS) = YES {
-        if $(HEADER_SUBDIRECTORY) {
-            PROJECT_HEADER_DIR default = $(BASE_PROJECT_HEADER_DIR)$(/)$(HEADER_SUBDIRECTORY) ;
-        }
-        else {
-            PROJECT_HEADER_DIR default = $(BASE_PROJECT_HEADER_DIR) ;
-        }
-    }
     OBJECT_FILE_DIR default = $(TEMP_DIR)$(/)Objects ;
     export CLASS_FILE_DIR default = $(TEMP_DIR)$(/)JavaClasses ;
     for VARIANT in $(BUILD_VARIANTS) {
@@ -232,24 +249,14 @@ rule BeginProduct
         INSTALL_DIR default = $(INSTALL_ROOT) ;
     }
     # Initialize the search paths
-    if $(CLONE_HEADERS) = YES {
-        if $(TARGET_BUILD_DIR) != $(BUILD_DIR) {
-            HEADER_SEARCH_PATHS = $(PROJECT_HEADER_DIR) $(TARGET_BUILD_DIR)$(/)include $(BUILD_DIR)$(/)include $(HEADER_SEARCH_PATHS) ;
-        }
-        else {
-            HEADER_SEARCH_PATHS = $(PROJECT_HEADER_DIR) $(BUILD_DIR)$(/)include $(HEADER_SEARCH_PATHS) ;
-        }
-        FRAMEWORK_SEARCH_PATHS = $(BASE_PROJECT_HEADER_DIR) $(BUILD_ROOT) $(INSTALL_DIR) $(FRAMEWORK_SEARCH_PATHS) ;
+    if $(TARGET_BUILD_DIR) != $(BUILD_DIR) {
+        HEADER_SEARCH_PATHS = $(TARGET_BUILD_DIR)$(/)include $(BUILD_DIR)$(/)include $(HEADER_SEARCH_PATHS) ;
     }
     else {
-        if $(TARGET_BUILD_DIR) != $(BUILD_DIR) {
-            HEADER_SEARCH_PATHS = $(TARGET_BUILD_DIR)$(/)include $(BUILD_DIR)$(/)include $(HEADER_SEARCH_PATHS) ;
-        }
-        else {
-            HEADER_SEARCH_PATHS = $(BUILD_DIR)$(/)include $(HEADER_SEARCH_PATHS) ;
-        }
-        FRAMEWORK_SEARCH_PATHS = $(BUILD_ROOT) $(FRAMEWORK_SEARCH_PATHS) ;
+        HEADER_SEARCH_PATHS = $(BUILD_DIR)$(/)include $(HEADER_SEARCH_PATHS) ;
     }
+    FRAMEWORK_SEARCH_PATHS = $(BUILD_ROOT) $(FRAMEWORK_SEARCH_PATHS) ;
+    REZ_SEARCH_PATHS default = $(BUILT_PRODUCTS_DIR) $(HEADER_SEARCH_PATHS) ;
     LIBRARY_SEARCH_PATHS = $(BUILD_ROOT) $(LIBRARY_SEARCH_PATHS) ;
     if $(DEPLOYMENT_LOCATION) = YES && $(BUILT_PRODUCTS_DIR) {
         HEADER_SEARCH_PATHS = $(BUILT_PRODUCTS_DIR)$(/)include $(HEADER_SEARCH_PATHS) ;
@@ -258,6 +265,7 @@ rule BeginProduct
     }
     # Initialize the file lists
     DERIVED_FILES = ;
+    DERIVED_FILE_SOURCES = ;
     PRODUCT_FILES = ;
     PRECOMP_TRUSTFILE default = $(TEMP_DIR)$(/)TrustedPrecomps.txt ;
     # Make symlink to product in products dir,
@@ -289,6 +297,12 @@ rule BeginProduct
             }
         }
     }
+    # Set default locations for headers and resources of simple (tool or library) products
+    if $(PRODUCT_TYPE) = Tool || $(PRODUCT_TYPE) = Library {
+        PUBLIC_HEADER_DIR default = $(TARGET_BUILD_DIR) ;
+        PRIVATE_HEADER_DIR default = $(TARGET_BUILD_DIR) ;
+        RESOURCE_DIR default = $(TARGET_BUILD_DIR) ;
+    }
     # Run the hack script to build debug and profile variants, if appropriate.
     if $(INTERNAL_BUILD_VARIANTS)
      && ( $(RC_JASPER) || $(INTERNAL_BUILD_VARIANTS_ONLY_IN_JASPER) != YES )
@@ -309,11 +323,6 @@ rule EndProduct
 {
     # Create required directories.  This is done here to allow
     # variables to be overridden before this rule is evaluated.
-    if $(CLONE_HEADERS) = YES && $(PROJECT_HEADER_DIR) {
-        Mkdir $(PROJECT_HEADER_DIR) ;
-        PRODUCT_FILES += $(PROJECT_HEADER_DIR) ;
-        DEPENDS $(1) : $(PROJECT_HEADER_DIR) ;
-    }
     for VARIANT in $(BUILD_VARIANTS) {
         Mkdir $(OBJECT_FILE_DIR_$(VARIANT)) ;
         PRODUCT_FILES += $(OBJECT_FILE_DIR_$(VARIANT)) ;
@@ -337,10 +346,24 @@ rule EndProduct
     }
     # Alternative catch-all mechanism to set mode and ownership of files
     # that for some reason require this post build processing.
-    if $(ACTION) = install {
+    # !!!:cmolick:20021025 skip this if action is installhdrs since
+    #  it is not relevant in that case and might even be impossible
+    if ( $(DEPLOYMENT_POSTPROCESSING) = YES && $(_INSTALLED_PRODUCT) ) {
+        DEPENDS $(_INSTALLED_PRODUCT:G=ModeOwnerGroup) : $(PRODUCT_FILES) ;
+    }
+    if $(DEPLOYMENT_POSTPROCESSING) = YES && $(ACTION) != installhdrs {
+    PREVIOUS_PERMISSIONS_TARGET = ;
     for ALTERNATE_PERMISSIONS_FILE in $(ALTERNATE_PERMISSIONS_FILES) {
         ALTERNATE_PERMISSIONS_FILE_PATH = $(INSTALL_DIR)$(/)$(ALTERNATE_PERMISSIONS_FILE) ;
         ALTERNATE_PERMISSIONS_TARGET = $(ALTERNATE_PERMISSIONS_FILE:G=AlternatePermissions) ;
+        if $(PREVIOUS_PERMISSIONS_TARGET) {
+            DEPENDS $(ALTERNATE_PERMISSIONS_TARGET) : $(PREVIOUS_PERMISSIONS_TARGET) ;
+        }
+        else {
+            if ( $(DEPLOYMENT_POSTPROCESSING) = YES && $(_INSTALLED_PRODUCT) ) {
+                DEPENDS $(ALTERNATE_PERMISSIONS_TARGET) : $(_INSTALLED_PRODUCT:G=ModeOwnerGroup) ;
+            }
+        }
         NOTFILE $(ALTERNATE_PERMISSIONS_TARGET) ;
         DEPENDS $(1) : $(ALTERNATE_PERMISSIONS_TARGET) ;
         DEPENDS $(ALTERNATE_PERMISSIONS_TARGET) : $(_BUILD_PHASES) ;
@@ -354,6 +377,7 @@ rule EndProduct
             INSTALL_GROUP on $(ALTERNATE_PERMISSIONS_TARGET) = $(ALTERNATE_GROUP) ;
         }
         SetModeOwnerAndGroup $(ALTERNATE_PERMISSIONS_TARGET) : $(ALTERNATE_PERMISSIONS_FILE_PATH) ;
+        PREVIOUS_PERMISSIONS_TARGET = $(ALTERNATE_PERMISSIONS_TARGET) ;
     }
     }
     # Define actions for this target
@@ -368,9 +392,8 @@ rule EndProduct
 # WRAPPER_SUFFIX		Based on WRAPPER_EXTENSION by default
 # RESOURCE_DIR			Base bundle resources location
 # APPLESCRIPTS_DIR		Compiled AppleScript files folder
-# [PUBLIC|PRIVATE]_HEADER_[CLONE_][DIR|LINK|LINK_PATH] Header folders
-# WRAPPER_CLONE_DIR		Base location for header clone framework
-# CURRENT_VERSION[_CLONE]_[DIR|LINK|LINK_PATH]
+# [PUBLIC|PRIVATE]_HEADER_[DIR|LINK|LINK_PATH] Header folders
+# CURRENT_VERSION_[DIR|LINK|LINK_PATH]
 # HEADERDOC_DIR			Headerdoc output folder
 # PRODUCT_CLASS_FILE_DIR	Defined if JAVA_ARCHIVE_CLASSES	is set
 # 
@@ -413,17 +436,6 @@ rule BeginWrappedProduct
         PRIVATE_HEADER_LINK default = "" ;
         CURRENT_VERSION_DIR default = "" ;
         CURRENT_VERSION_LINK default = "" ;
-        if $(CLONE_HEADERS) = YES {
-            WRAPPER_CLONE_DIR = $(BASE_PROJECT_HEADER_DIR)$(/)$(WRAPPER) ;
-            PUBLIC_HEADER_CLONE_DIR default = $(WRAPPER_CLONE_DIR)$(/)"Contents"$(/)Headers ;
-            LOCATE on $(PUBLIC_HEADER_CLONE_DIR) = $(TARGET_BUILD_DIR) ;
-            PUBLIC_HEADER_CLONE_LINK default = "" ;
-            PRIVATE_HEADER_CLONE_DIR default = $(WRAPPER_CLONE_DIR)$(/)"Contents"$(/)PrivateHeaders ;
-            LOCATE on $(PRIVATE_HEADER_CLONE_DIR) = $(TARGET_BUILD_DIR) ;
-            PRIVATE_HEADER_CLONE_LINK default = "" ;
-            CURRENT_VERSION_CLONE_DIR default = "" ;
-            CURRENT_VERSION_CLONE_LINK default = "" ;
-        }
     } # application wrappers
     else if $(PRODUCT_TYPE) = Framework {
         # Framework wrappers
@@ -450,22 +462,6 @@ rule BeginWrappedProduct
         CURRENT_VERSION_LINK default = $(WRAPPER:G=)$(/)Versions$(/)Current ;
         LOCATE on $(CURRENT_VERSION_LINK) = $(TARGET_BUILD_DIR) ;
         CURRENT_VERSION_LINK_PATH default = Versions$(/)Current ;
-        if $(CLONE_HEADERS) = YES {
-            WRAPPER_CLONE_DIR = $(BASE_PROJECT_HEADER_DIR)$(/)$(WRAPPER) ;
-            PUBLIC_HEADER_CLONE_DIR default = $(WRAPPER_CLONE_DIR)$(/)Versions$(/)$(FRAMEWORK_VERSION)$(/)Headers ;
-            LOCATE on $(PUBLIC_HEADER_CLONE_DIR) = $(TARGET_BUILD_DIR) ;
-            PUBLIC_HEADER_CLONE_LINK default = $(WRAPPER_CLONE_DIR)$(/)Headers ;
-            LOCATE on $(PUBLIC_HEADER_CLONE_LINK) = $(TARGET_BUILD_DIR) ;
-            PUBLIC_HEADER_CLONE_LINK_PATH default = Versions$(/)Current$(/)Headers ;
-            PRIVATE_HEADER_CLONE_DIR default = $(WRAPPER_CLONE_DIR)$(/)Versions$(/)$(FRAMEWORK_VERSION)$(/)PrivateHeaders ;
-            LOCATE on $(PRIVATE_HEADER_CLONE_DIR) = $(TARGET_BUILD_DIR) ;
-            PRIVATE_HEADER_CLONE_LINK default = $(WRAPPER_CLONE_DIR)$(/)PrivateHeaders ;
-            LOCATE on $(PRIVATE_HEADER_CLONE_LINK) = $(TARGET_BUILD_DIR) ;
-            PRIVATE_HEADER_CLONE_LINK_PATH default = Versions$(/)Current$(/)PrivateHeaders ;
-            CURRENT_VERSION_CLONE_DIR default = $(WRAPPER_CLONE_DIR)$(/)Versions$(/)$(FRAMEWORK_VERSION) ;
-            CURRENT_VERSION_CLONE_LINK default = $(WRAPPER_CLONE_DIR)$(/)Versions$(/)Current ;
-            CURRENT_VERSION_CLONE_LINK_PATH default = Versions$(/)Current ;
-        }
         if $(ASIDE_DIR) {
             ASIDE_CURRENT_VERSION_DIR default = $(WRAPPER:G=aside)$(/)Versions$(/)$(FRAMEWORK_VERSION) ;
             ASIDE_CURRENT_VERSION_LINK default = $(WRAPPER:G=aside)$(/)Versions$(/)Current ;
@@ -494,20 +490,6 @@ rule BeginWrappedProduct
         DEPENDS $(1) : $(CURRENT_VERSION_LINK) ;  # need this or build phase
         DEPENDS $(CURRENT_VERSION_LINK) : $(CURRENT_VERSION_DIR) ;
         NOUPDATE $(CURRENT_VERSION_LINK) ;
-        if $(CLONE_HEADERS) = YES {
-            Mkdir $(CURRENT_VERSION_CLONE_DIR) ;
-            ProductFile $(CURRENT_VERSION_CLONE_DIR) ;
-            NOUPDATE $(CURRENT_VERSION_CLONE_DIR) ;
-            # Current version link
-            SymLink $(CURRENT_VERSION_CLONE_LINK) : $(FRAMEWORK_VERSION) ;
-            ProductFile $(CURRENT_VERSION_CLONE_LINK) ;
-            DEPENDS $(1) : $(CURRENT_VERSION_CLONE_LINK) ;
-            DEPENDS $(CURRENT_VERSION_CLONE_LINK) : $(CURRENT_VERSION_CLONE_DIR) ;
-            NOUPDATE $(CURRENT_VERSION_CLONE_LINK) ;
-            # Make sure someone depends on the clone current symlink so it will get created.
-            DEPENDS $(PUBLIC_HEADER_CLONE_LINK) : $(CURRENT_VERSION_CLONE_LINK) ;
-            DEPENDS $(PRIVATE_HEADER_CLONE_LINK) : $(CURRENT_VERSION_CLONE_LINK) ;
-        }
     } # framework wrappers
     else {
         # Default bundle wrappers
@@ -521,13 +503,6 @@ rule BeginWrappedProduct
             LOCATE on $(PUBLIC_HEADER_DIR) = $(TARGET_BUILD_DIR) ;
             PRIVATE_HEADER_DIR default = $(WRAPPER)$(/)PrivateHeaders ;
             LOCATE on $(PRIVATE_HEADER_DIR) = $(TARGET_BUILD_DIR) ;
-            if $(CLONE_HEADERS) = YES {
-                WRAPPER_CLONE_DIR = $(BASE_PROJECT_HEADER_DIR)$(/)$(WRAPPER) ;
-                PUBLIC_HEADER_CLONE_DIR default = $(WRAPPER_CLONE_DIR)$(/)Headers ;
-                LOCATE on $(PUBLIC_HEADER_CLONE_DIR) = $(TARGET_BUILD_DIR) ;
-                PRIVATE_HEADER_CLONE_DIR default = $(WRAPPER_CLONE_DIR)$(/)PrivateHeaders ;
-                LOCATE on $(PRIVATE_HEADER_CLONE_DIR) = $(TARGET_BUILD_DIR) ;
-            }
         }
         else {
             # else, BUNDLE_STYLE=DEEP bundles do have Contents/Resources folders
@@ -539,25 +514,12 @@ rule BeginWrappedProduct
             LOCATE on $(PUBLIC_HEADER_DIR) = $(TARGET_BUILD_DIR) ;
             PRIVATE_HEADER_DIR default = $(WRAPPER)$(/)Contents$(/)PrivateHeaders ;
             LOCATE on $(PRIVATE_HEADER_DIR) = $(TARGET_BUILD_DIR) ;
-            if $(CLONE_HEADERS) = YES {
-                WRAPPER_CLONE_DIR = $(BASE_PROJECT_HEADER_DIR)$(/)$(WRAPPER) ;
-                PUBLIC_HEADER_CLONE_DIR default = $(WRAPPER_CLONE_DIR)$(/)Contents$(/)Headers ;
-                LOCATE on $(PUBLIC_HEADER_CLONE_DIR) = $(TARGET_BUILD_DIR) ;
-                PRIVATE_HEADER_CLONE_DIR default = $(WRAPPER_CLONE_DIR)$(/)Contents$(/)PrivateHeaders ;
-                LOCATE on $(PRIVATE_HEADER_CLONE_DIR) = $(TARGET_BUILD_DIR) ;
-            }
         }
         RESOURCE_LINK default = "" ;
         PUBLIC_HEADER_LINK default = "" ;
         PRIVATE_HEADER_LINK default = "" ;
         CURRENT_VERSION_DIR default = "" ;
         CURRENT_VERSION_LINK default = "" ;
-        if $(CLONE_HEADERS) = YES {
-            PUBLIC_HEADER_CLONE_LINK default = "" ;
-            PRIVATE_HEADER_CLONE_LINK default = "" ;
-            CURRENT_VERSION_CLONE_DIR default = "" ;
-            CURRENT_VERSION_CLONE_LINK default = "" ;
-        }
     } # all bundle layouts
     # define location for optional header documentation generation
     if $(GENERATE_HEADERDOC) = YES && $(RESOURCE_DIR) {

@@ -147,6 +147,10 @@ SOURCE=.\cache.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\cancel.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\charray.c
 # End Source File
 # Begin Source File
@@ -168,10 +172,6 @@ SOURCE=.\delete.c
 # Begin Source File
 
 SOURCE=.\dnssrv.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\dsparse.c
 # End Source File
 # Begin Source File
 
@@ -200,10 +200,6 @@ SOURCE=.\getdn.c
 # Begin Source File
 
 SOURCE=.\getentry.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\getfilter.c
 # End Source File
 # Begin Source File
 
@@ -291,6 +287,10 @@ SOURCE=".\os-ip.c"
 # End Source File
 # Begin Source File
 
+SOURCE=.\passwd.c
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\include\portable.h
 # End Source File
 # Begin Source File
@@ -364,6 +364,10 @@ SOURCE=".\util-int.c"
 # Begin Source File
 
 SOURCE=.\vlvctrl.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\whoami.c
 # End Source File
 # End Target
 # End Project

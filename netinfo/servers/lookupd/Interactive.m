@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -51,7 +52,9 @@
 #import <setjmp.h>
 #import <sys/signal.h>
 #import <arpa/inet.h>
+#import <resolv.h>
 #import <NetInfo/dsutil.h>
+#import <dns_util.h>
 
 int oldflags;
 struct ltchars termc;
@@ -512,6 +515,18 @@ void dohelp(FILE *in, FILE *out, int proc, char **commands)
 		fprintf(out, "Turns off statistics gathering.\n");
 	}
 
+	else if (streq(commands[proc], "dns_query"))
+	{
+		fprintf(out, "\n");
+		fprintf(out, "Proxy DNS query\n");
+	}
+
+	else if (streq(commands[proc], "dns_search"))
+	{
+		fprintf(out, "\n");
+		fprintf(out, "Proxy DNS search\n");
+	}
+
 	else if (streq(commands[proc], "enableStatistics"))
 	{
 		fprintf(out, "\n");
@@ -794,16 +809,17 @@ void help(FILE *in, FILE *out, char **commands)
 
 void doproc(FILE *in, FILE *out, int proc, char **commands)
 {
-	LUDictionary *dict;
+	LUDictionary *dict, *pattern;
 	LUArray *list;
 	LUServer *server;
 	LUServer *tserver;
 	int i, len;
+	u_int16_t hi;
 	BOOL resultIsList;
 	BOOL test;
 	LUAgent *agent;
 	id ask;
-	char *name, *host, *user, *domain, *proto;
+	char *name, *host, *user, *domain, *proto, *class, *type;
 	char *key, *val, *cat;
 	Thread *t;
 	unsigned long ts;
@@ -989,7 +1005,145 @@ void doproc(FILE *in, FILE *out, int proc, char **commands)
 		statistics_enabled = NO;
 		return;
 	}
+
+	else if (streq(commands[proc], "dns_query"))
+	{
+		name = copyString(get_string(in, out, ": "));
+		if (dns_class_number(get_string(in, out, " class: "), &hi) != 0)
+		{
+			fprintf(out, "\nunknown class\n");
+			return;
+		}
+		sprintf(scratch, "%hu", hi);
+		class = copyString(scratch);
+
+		if (dns_type_number(get_string(in, out, " type: "), &hi) != 0)
+		{
+			fprintf(out, "\nunknown type\n");
+			return;
+		}
+		sprintf(scratch, "%hu", hi);
+		type = copyString(scratch);
+		fprintf(out, "\n");
+
+		pattern = [[LUDictionary alloc] init];
+		[pattern setValue:name forKey:"name"];
+		[pattern setValue:class forKey:"class"];
+		[pattern setValue:type forKey:"type"];
+		[pattern setValue:"interactive dns_query" forKey:"proxy_id"];
+
+		dict = [ask dns_proxy:pattern];
+		[pattern release];
+		if (dict == nil)
+		{
+			fprintf(out, "-nil-\n");
+		}
+		else
+		{
+			char *b64;
+			char d_buf[8192];
+			int test;
+			dns_reply_t *d_r;
+
+			fprintf(out, "Server: %s\n", [dict valueForKey:"server"]);
+
+			b64 = [dict valueForKey:"buffer"];
+			if (b64 != NULL)
+			{
+				test = b64_pton(b64, d_buf, 8192);
+				if (test < 0) 
+				{
+					fprintf(out, "b64_pton failed!\n");
+				}
+				else
+				{
+					d_r = dns_parse_packet(d_buf, test);
+					if (d_r == NULL)
+					{
+						fprintf(out, "dns_parse_packet failed!\n");
+					}
+					else
+					{
+						dns_print_reply(d_r, out, 0xdfff);
+						dns_free_reply(d_r);
+					}
+				}
+			}
+		}
+
+		[controller checkInServer:server];
+		return;
+	}
+
+	else if (streq(commands[proc], "dns_search"))
+	{
+		name = copyString(get_string(in, out, ": "));
+		if (dns_class_number(get_string(in, out, " class: "), &hi) != 0)
+		{
+			fprintf(out, "\nunknown class\n");
+			return;
+		}
+		sprintf(scratch, "%hu", hi);
+		class = copyString(scratch);
+
+		if (dns_type_number(get_string(in, out, " type: "), &hi) != 0)
+		{
+			fprintf(out, "\nunknown type\n");
+			return;
+		}
+		sprintf(scratch, "%hu", hi);
+		type = copyString(scratch);
+		fprintf(out, "\n");
+
+		pattern = [[LUDictionary alloc] init];
+		[pattern setValue:name forKey:"name"];
+		[pattern setValue:class forKey:"class"];
+		[pattern setValue:type forKey:"type"];
+		[pattern setValue:"interactive dns_search" forKey:"proxy_id"];
 	
+		dict = [ask dns_proxy:pattern];
+		[pattern release];
+		if (dict == nil)
+		{
+			fprintf(out, "-nil-\n");
+		}
+		else
+		{
+			char *b64;
+			char d_buf[8192];
+			int test;
+			dns_reply_t *d_r;
+
+			fprintf(out, "Server: %s\n", [dict valueForKey:"server"]);
+
+			b64 = [dict valueForKey:"buffer"];
+			if (b64 != NULL)
+			{
+				test = b64_pton(b64, d_buf, 8192);
+				if (test < 0) 
+				{
+					fprintf(out, "b64_pton failed!\n");
+				}
+				else
+				{
+					d_r = dns_parse_packet(d_buf, test);
+					if (d_r == NULL)
+					{
+						fprintf(out, "dns_parse_packet failed!\n");
+					}
+					else
+					{
+						dns_print_reply(d_r, out, 0xdfff);
+						dns_free_reply(d_r);
+					}
+				}
+			}
+		}
+
+		[controller checkInServer:server];
+		return;
+	}
+
 	else if (streq(commands[proc], "enableStatistics"))
 	{
 		fprintf(out, "\n");
@@ -1355,6 +1509,8 @@ void interactive(FILE *in, FILE *out)
 	commands = appendString("bootparamsWithName", commands);
 	commands = appendString("configuration", commands);
 	commands = appendString("disableStatistics", commands);
+	commands = appendString("dns_query", commands);
+	commands = appendString("dns_search", commands);
 	commands = appendString("enableStatistics", commands);
 	commands = appendString("flushCache", commands);
 	commands = appendString("groupWithName", commands);

@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: am_utils.h,v 1.1.1.1 2002/05/15 01:22:19 jkh Exp $
+ * $Id: am_utils.h,v 1.1.1.2 2002/07/15 19:43:05 zarzycki Exp $
  *
  */
 
@@ -147,9 +147,11 @@
  * Systems which have the mount table in a file need to read it before
  * they can perform an unmount() system call.
  */
-#define UMOUNT_FS(dir, mtb_name)	umount_fs(dir, mtb_name)
+#define UMOUNT_FS(dir, real_dir, mtb_name)	umount_fs2(dir, real_dir, mtb_name)
+
 /* imported via $srcdir/conf/umount/umount_*.c */
-extern int umount_fs(char *fs_name, const char *mnttabname);
+extern int umount_fs2(char *mntdir, char *real_mntdir, const char *mnttabname);
+extern int umount_fs(char *mntdir, const char *mnttabname);
 
 /*
  * macro definitions for automounter vfs/vnode operations.
@@ -331,6 +333,8 @@ struct mntfs {
   am_ops *mf_ops;		/* Operations on this mountpoint */
   am_opts *mf_fo;		/* File opts */
   char *mf_mount;		/* "/a/kiska/home/kiska" */
+  char *mf_real_mount;		/* Mount point as passed to mount(2)
+				   -- home of the append-a-space autofs hack */
   char *mf_info;		/* Mount info */
   char *mf_auto;		/* Automount opts */
   char *mf_mopts;		/* FS mount opts */
@@ -405,7 +409,9 @@ struct am_ops {
   vumounted	umounted;	/* fxn: after-umount extra actions */
   vffserver	ffserver;	/* fxn: find a file server */
   int		nfs_fs_flags;	/* filesystem flags FS_* for nfs mounts */
+#ifdef HAVE_FS_AUTOFS
   int		autofs_fs_flags;/* filesystem flags FS_* for autofs mounts */
+#endif /* HAVE_FS_AUTOFS */
 };
 
 typedef int (*task_fun) (voidp);
@@ -608,6 +614,7 @@ extern int mount_auto_node(char *, voidp);
 extern int mount_automounter(int);
 extern int mount_exported(void);
 extern int mount_fs(mntent_t *, int, caddr_t, int, MTYPE_TYPE, u_long, const char *, const char *);
+extern int mount_fs2(mntent_t *, char *, int, caddr_t, int, MTYPE_TYPE, u_long, const char *, const char *);
 extern int mount_node(am_node *);
 extern int nfs_srvr_port(fserver *, u_short *, voidp);
 extern int pickup_rpc_reply(voidp, int, voidp, XDRPROC_T_TYPE);
@@ -701,21 +708,20 @@ extern void write_mntent(mntent_t *, const char *);
 extern int syslogging;
 #endif /* defined(HAVE_SYSLOG_H) || defined(HAVE_SYS_SYSLOG_H) */
 
-#ifdef HAVE_TRANSPORT_TYPE_TLI
-
 extern void compute_nfs_args(nfs_args_t *nap, mntent_t *mntp, int genflags, struct netconfig *nfsncp, struct sockaddr_in *ip_addr, u_long nfs_version, char *nfs_proto, am_nfs_handle_t *fhp, char *host_name, char *fs_name);
 extern int create_amq_service(int *udp_soAMQp, SVCXPRT **udp_amqpp, struct netconfig **udp_amqncpp, int *tcp_soAMQp, SVCXPRT **tcp_amqpp, struct netconfig **tcp_amqncpp);
 extern int create_nfs_service(int *soNFSp, u_short *nfs_portp, SVCXPRT **nfs_xprtp, void (*dispatch_fxn)(struct svc_req *rqstp, SVCXPRT *transp));
+extern int amu_svc_register(SVCXPRT *, u_long, u_long, void (*)(), u_long, struct netconfig *);
+
+#ifdef HAVE_TRANSPORT_TYPE_TLI
+
 extern int get_knetconfig(struct knetconfig **kncpp, struct netconfig *in_ncp, char *nc_protoname);
 extern struct netconfig *nfsncp;
 extern void free_knetconfig(struct knetconfig *kncp);
 
 #else /* not HAVE_TRANSPORT_TYPE_TLI */
 
-extern void compute_nfs_args(nfs_args_t *nap, mntent_t *mntp, int genflags, struct sockaddr_in *ip_addr, u_long nfs_version, char *nfs_proto, am_nfs_handle_t *fhp, char *host_name, char *fs_name);
 extern enum clnt_stat pmap_ping(struct sockaddr_in *address);
-extern int create_amq_service(int *udp_soAMQp, SVCXPRT **udp_amqpp, int *tcp_soAMQp, SVCXPRT **tcp_amqpp);
-extern int create_nfs_service(int *soNFSp, u_short *nfs_portp, SVCXPRT **nfs_xprtp, void (*dispatch_fxn)(struct svc_req *rqstp, SVCXPRT *transp));
 
 #endif /* not HAVE_TRANSPORT_TYPE_TLI */
 
@@ -968,6 +974,7 @@ extern void malloc_verify(void);
 
 /* functions that depend solely on debugging */
 extern void print_nfs_args(const nfs_args_t *nap, u_long nfs_version);
+extern int debug_option (char *opt);
 
 #else /* not DEBUG */
 
@@ -982,11 +989,11 @@ extern void print_nfs_args(const nfs_args_t *nap, u_long nfs_version);
 #define		amuDebugNo(x)	if (0)
 
 #define		print_nfs_args(nap, nfs_version)
+#define		debug_option(x)	(1)
 
 #endif /* not DEBUG */
 
 extern int debug_flags;		/* Debug options */
-extern int debug_option (char *opt);
 extern struct opt_tab dbg_opt[];
 extern void dplog(const char *fmt, ...)
      __attribute__ ((__format__ (__printf__, 1, 2)));

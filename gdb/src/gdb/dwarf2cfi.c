@@ -1,5 +1,7 @@
 /* Stack unwinding code based on dwarf2 frame info for GDB, the GNU debugger.
-   Copyright 2001, 2002 Free Software Foundation, Inc.
+
+   Copyright 2001, 2002, 2003 Free Software Foundation, Inc.
+
    Contributed by Jiri Smid, SuSE Labs.
    Based on code written by Daniel Berlin (dan@dberlin.org).
 
@@ -21,6 +23,7 @@
    Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
+#include "gdbcore.h"
 #include "symtab.h"
 #include "symfile.h"
 #include "objfiles.h"
@@ -29,12 +32,13 @@
 #include "inferior.h"
 #include "regcache.h"
 #include "dwarf2cfi.h"
+#include "gdb_assert.h"
 
 /* Common Information Entry - holds information that is shared among many
    Frame Descriptors.  */
 struct cie_unit
 {
-  /* Offset of this unit in dwarf_frame_buffer.  */
+  /* Offset of this unit in .debug_frame or .eh_frame.  */
   ULONGEST offset;
 
   /* A null-terminated string that identifies the augmentation to this CIE or
@@ -86,37 +90,6 @@ struct fde_array
   struct fde_unit **array;
   int elems;
   int array_size;
-};
-
-struct context_reg
-{
-  union
-  {
-    unsigned int reg;
-    long offset;
-    CORE_ADDR addr;
-  }
-  loc;
-  enum
-  {
-    REG_CTX_UNSAVED,
-    REG_CTX_SAVED_OFFSET,
-    REG_CTX_SAVED_REG,
-    REG_CTX_SAVED_ADDR,
-    REG_CTX_VALUE,
-  }
-  how;
-};
-
-/* This is the register and unwind state for a particular frame.  */
-struct context
-{
-  struct context_reg *reg;
-
-  CORE_ADDR cfa;
-  CORE_ADDR ra;
-  void *lsda;
-  int args_size;
 };
 
 struct frame_state_reg
@@ -176,7 +149,16 @@ struct frame_state
   struct objfile *objfile;
 };
 
-#define UNWIND_CONTEXT(fi) ((struct context *) (fi->context))
+enum ptr_encoding
+{
+  PE_absptr = DW_EH_PE_absptr,
+  PE_pcrel = DW_EH_PE_pcrel,
+  PE_textrel = DW_EH_PE_textrel,
+  PE_datarel = DW_EH_PE_datarel,
+  PE_funcrel = DW_EH_PE_funcrel
+};
+
+#define UNWIND_CONTEXT(fi) ((struct context *) (deprecated_get_frame_context (fi)))
 
 
 static struct cie_unit *cie_chunks;
@@ -188,8 +170,6 @@ extern file_ptr dwarf_frame_offset;
 extern unsigned int dwarf_frame_size;
 extern file_ptr dwarf_eh_frame_offset;
 extern unsigned int dwarf_eh_frame_size;
-
-static char *dwarf_frame_buffer;
 
 
 extern char *dwarf2_read_section (struct objfile *objfile, file_ptr offset,
@@ -199,10 +179,8 @@ static struct fde_unit *fde_unit_alloc (void);
 static struct cie_unit *cie_unit_alloc (void);
 static void fde_chunks_need_space ();
 
-static struct context *context_alloc ();
-static struct frame_state *frame_state_alloc ();
+static void unwind_tmp_obstack_init ();
 static void unwind_tmp_obstack_free ();
-static void context_cpy (struct context *dst, struct context *src);
 
 static unsigned int read_1u (bfd *abfd, char **p);
 static int read_1s (bfd *abfd, char **p);
@@ -218,12 +196,11 @@ static LONGEST read_sleb128 (bfd *abfd, char **p);
 static CORE_ADDR read_pointer (bfd *abfd, char **p);
 static CORE_ADDR read_encoded_pointer (bfd *abfd, char **p,
 				       unsigned char encoding);
+static enum ptr_encoding pointer_encoding (unsigned char encoding);
 
 static LONGEST read_initial_length (bfd *abfd, char *buf, int *bytes_read);
 static ULONGEST read_length (bfd *abfd, char *buf, int *bytes_read,
 			     int dwarf64);
-static ULONGEST read_address (bfd *abfd, char **p);
-
 
 static int is_cie (ULONGEST cie_id, int dwarf64);
 static int compare_fde_unit (const void *a, const void *b);
@@ -237,11 +214,12 @@ static void frame_state_for (struct context *context, struct frame_state *fs);
 static void get_reg (char *reg, struct context *context, int regnum);
 static CORE_ADDR execute_stack_op (struct objfile *objfile,
 				   char *op_ptr, char *op_end,
-				   struct context *context, CORE_ADDR initial);
+				   struct context *context,
+				   CORE_ADDR initial);
 static void update_context (struct context *context, struct frame_state *fs,
 			    int chain);
-
 
+
 /* Memory allocation functions.  */
 static struct fde_unit *
 fde_unit_alloc (void)
@@ -264,7 +242,7 @@ cie_unit_alloc (void)
 }
 
 static void
-fde_chunks_need_space ()
+fde_chunks_need_space (void)
 {
   if (fde_chunks.elems < fde_chunks.array_size)
     return;
@@ -276,11 +254,11 @@ fde_chunks_need_space ()
 }
 
 /* Alocate a new `struct context' on temporary obstack.  */
-static struct context *
-context_alloc ()
+struct context *
+context_alloc (void)
 {
   struct context *context;
-  struct context_reg *reg;
+
   int regs_size = sizeof (struct context_reg) * NUM_REGS;
 
   context = (struct context *) obstack_alloc (&unwind_tmp_obstack,
@@ -293,47 +271,57 @@ context_alloc ()
 }
 
 /* Alocate a new `struct frame_state' on temporary obstack.  */
-static struct frame_state *
-frame_state_alloc ()
+struct frame_state *
+frame_state_alloc (void)
 {
   struct frame_state *fs;
-  struct frame_state_reg *reg;
+
   int regs_size = sizeof (struct frame_state_reg) * NUM_REGS;
 
   fs = (struct frame_state *) obstack_alloc (&unwind_tmp_obstack,
 					     sizeof (struct frame_state));
   memset (fs, 0, sizeof (struct frame_state));
-  fs->regs.reg = (struct frame_state_reg *)  obstack_alloc (&unwind_tmp_obstack,
-							    regs_size);
+  fs->regs.reg =
+    (struct frame_state_reg *) obstack_alloc (&unwind_tmp_obstack, regs_size);
   memset (fs->regs.reg, 0, regs_size);
   return fs;
 }
 
 static void
-unwind_tmp_obstack_free ()
+unwind_tmp_obstack_init (void)
 {
-  obstack_free (&unwind_tmp_obstack, NULL);
   obstack_init (&unwind_tmp_obstack);
 }
 
 static void
+unwind_tmp_obstack_free (void)
+{
+  obstack_free (&unwind_tmp_obstack, NULL);
+  unwind_tmp_obstack_init ();
+}
+
+void
 context_cpy (struct context *dst, struct context *src)
 {
-  struct context_reg *reg = dst->reg;
   int regs_size = sizeof (struct context_reg) * NUM_REGS;
+  struct context_reg *dreg;
 
+  /* Since `struct context' contains a pointer to an array with
+     register values, make sure we end up with a copy of that array,
+     and not with a copy of the pointer to that array.  */
+  dreg = dst->reg;
   *dst = *src;
+  dst->reg = dreg;
   memcpy (dst->reg, src->reg, regs_size);
 }
-
 
 static unsigned int
 read_1u (bfd *abfd, char **p)
 {
   unsigned ret;
 
-  ret= bfd_get_8 (abfd, (bfd_byte *) *p);
-  (*p) ++;
+  ret = bfd_get_8 (abfd, (bfd_byte *) * p);
+  (*p)++;
   return ret;
 }
 
@@ -342,8 +330,8 @@ read_1s (bfd *abfd, char **p)
 {
   int ret;
 
-  ret= bfd_get_signed_8 (abfd, (bfd_byte *) *p);
-  (*p) ++;
+  ret = bfd_get_signed_8 (abfd, (bfd_byte *) * p);
+  (*p)++;
   return ret;
 }
 
@@ -352,8 +340,8 @@ read_2u (bfd *abfd, char **p)
 {
   unsigned ret;
 
-  ret= bfd_get_16 (abfd, (bfd_byte *) *p);
-  (*p) ++;
+  ret = bfd_get_16 (abfd, (bfd_byte *) * p);
+  (*p)++;
   return ret;
 }
 
@@ -362,7 +350,7 @@ read_2s (bfd *abfd, char **p)
 {
   int ret;
 
-  ret= bfd_get_signed_16 (abfd, (bfd_byte *) *p);
+  ret = bfd_get_signed_16 (abfd, (bfd_byte *) * p);
   (*p) += 2;
   return ret;
 }
@@ -372,7 +360,7 @@ read_4u (bfd *abfd, char **p)
 {
   unsigned int ret;
 
-  ret= bfd_get_32 (abfd, (bfd_byte *) *p);
+  ret = bfd_get_32 (abfd, (bfd_byte *) * p);
   (*p) += 4;
   return ret;
 }
@@ -382,7 +370,7 @@ read_4s (bfd *abfd, char **p)
 {
   int ret;
 
-  ret= bfd_get_signed_32 (abfd, (bfd_byte *) *p);
+  ret = bfd_get_signed_32 (abfd, (bfd_byte *) * p);
   (*p) += 4;
   return ret;
 }
@@ -392,7 +380,7 @@ read_8u (bfd *abfd, char **p)
 {
   ULONGEST ret;
 
-  ret = bfd_get_64 (abfd, (bfd_byte *) *p);
+  ret = bfd_get_64 (abfd, (bfd_byte *) * p);
   (*p) += 8;
   return ret;
 }
@@ -402,7 +390,7 @@ read_8s (bfd *abfd, char **p)
 {
   LONGEST ret;
 
-  ret = bfd_get_signed_64 (abfd, (bfd_byte *) *p);
+  ret = bfd_get_signed_64 (abfd, (bfd_byte *) * p);
   (*p) += 8;
   return ret;
 }
@@ -419,8 +407,8 @@ read_uleb128 (bfd *abfd, char **p)
   i = 0;
   while (1)
     {
-      byte = bfd_get_8 (abfd, (bfd_byte *) *p);
-      (*p) ++;
+      byte = bfd_get_8 (abfd, (bfd_byte *) * p);
+      (*p)++;
       ret |= ((unsigned long) (byte & 127) << shift);
       if ((byte & 128) == 0)
 	{
@@ -445,8 +433,8 @@ read_sleb128 (bfd *abfd, char **p)
   i = 0;
   while (1)
     {
-      byte = bfd_get_8 (abfd, (bfd_byte *) *p);
-      (*p) ++;
+      byte = bfd_get_8 (abfd, (bfd_byte *) * p);
+      (*p)++;
       ret |= ((long) (byte & 127) << shift);
       shift += 7;
       if ((byte & 128) == 0)
@@ -475,6 +463,9 @@ read_pointer (bfd *abfd, char **p)
     }
 }
 
+/* Read the appropriate amount of data from *P and return the
+   resulting value based on ENCODING, which the calling function must
+   provide.  */
 static CORE_ADDR
 read_encoded_pointer (bfd *abfd, char **p, unsigned char encoding)
 {
@@ -518,27 +509,38 @@ read_encoded_pointer (bfd *abfd, char **p, unsigned char encoding)
 		      "read_encoded_pointer: unknown pointer encoding");
     }
 
-  if (ret != 0)
-    switch (encoding & 0xf0)
-      {
-      case DW_EH_PE_absptr:
-	break;
-      case DW_EH_PE_pcrel:
-	ret += (CORE_ADDR) *p;
-	break;
-      case DW_EH_PE_textrel:
-      case DW_EH_PE_datarel:
-      case DW_EH_PE_funcrel:
-      default:
-	internal_error (__FILE__, __LINE__,
-			"read_encoded_pointer: unknown pointer encoding");
-      }
+  return ret;
+}
 
+/* The variable 'encoding' carries three different flags:
+   - encoding & 0x0f : size of the address (handled in read_encoded_pointer())
+   - encoding & 0x70 : type (absolute, relative, ...)
+   - encoding & 0x80 : indirect flag (DW_EH_PE_indirect == 0x80).  */
+enum ptr_encoding
+pointer_encoding (unsigned char encoding)
+{
+  int ret;
+
+  if (encoding & DW_EH_PE_indirect)
+    warning ("CFI: Unsupported pointer encoding: DW_EH_PE_indirect");
+
+  switch (encoding & 0x70)
+    {
+    case DW_EH_PE_absptr:
+    case DW_EH_PE_pcrel:
+    case DW_EH_PE_textrel:
+    case DW_EH_PE_datarel:
+    case DW_EH_PE_funcrel:
+      ret = encoding & 0x70;
+      break;
+    default:
+      internal_error (__FILE__, __LINE__, "CFI: unknown pointer encoding");
+    }
   return ret;
 }
 
 static LONGEST
-read_initial_length (bfd * abfd, char *buf, int *bytes_read)
+read_initial_length (bfd *abfd, char *buf, int *bytes_read)
 {
   LONGEST ret = 0;
 
@@ -558,7 +560,7 @@ read_initial_length (bfd * abfd, char *buf, int *bytes_read)
 }
 
 static ULONGEST
-read_length (bfd * abfd, char *buf, int *bytes_read, int dwarf64)
+read_length (bfd *abfd, char *buf, int *bytes_read, int dwarf64)
 {
   if (dwarf64)
     {
@@ -573,8 +575,8 @@ read_length (bfd * abfd, char *buf, int *bytes_read, int dwarf64)
 }
 
 static void
-execute_cfa_program ( struct objfile *objfile, char *insn_ptr, char *insn_end,
-		      struct context *context, struct frame_state *fs)
+execute_cfa_program (struct objfile *objfile, char *insn_ptr, char *insn_end,
+		     struct context *context, struct frame_state *fs)
 {
   struct frame_state_regs *unused_rs = NULL;
 
@@ -586,7 +588,6 @@ execute_cfa_program ( struct objfile *objfile, char *insn_ptr, char *insn_end,
       unsigned char insn = *insn_ptr++;
       ULONGEST reg, uoffset;
       LONGEST offset;
-      int bytes_read;
 
       if (insn & DW_CFA_advance_loc)
 	fs->pc += (insn & 0x3f) * fs->code_align;
@@ -594,7 +595,7 @@ execute_cfa_program ( struct objfile *objfile, char *insn_ptr, char *insn_end,
 	{
 	  reg = insn & 0x3f;
 	  uoffset = read_uleb128 (objfile->obfd, &insn_ptr);
-	  offset = (long) uoffset * fs->data_align;
+	  offset = (long) uoffset *fs->data_align;
 	  fs->regs.reg[reg].how = REG_SAVED_OFFSET;
 	  fs->regs.reg[reg].loc.offset = offset;
 	}
@@ -609,6 +610,10 @@ execute_cfa_program ( struct objfile *objfile, char *insn_ptr, char *insn_end,
 	  case DW_CFA_set_loc:
 	    fs->pc = read_encoded_pointer (objfile->obfd, &insn_ptr,
 					   fs->addr_encoding);
+
+	    if (pointer_encoding (fs->addr_encoding) != PE_absptr)
+	      warning ("CFI: DW_CFA_set_loc uses relative addressing");
+
 	    break;
 
 	  case DW_CFA_advance_loc1:
@@ -788,27 +793,31 @@ frame_state_for (struct context *context, struct frame_state *fs)
 {
   struct fde_unit *fde;
   struct cie_unit *cie;
-  unsigned char *aug, *insn, *end;
 
   context->args_size = 0;
   context->lsda = 0;
 
-  if ((fde = get_fde_for_addr (context->ra - 1)) != NULL)
-    {
-      fs->pc = fde->initial_location;
+  fde = get_fde_for_addr (context->ra - 1);
 
-      cie = fde->cie_ptr;
-      fs->code_align = cie->code_align;
-      fs->data_align = cie->data_align;
-      fs->retaddr_column = cie->ra;
-      fs->addr_encoding = cie->addr_encoding;
-      fs->objfile = cie->objfile;
+  if (fde == NULL)
+    return;
 
-      execute_cfa_program (cie->objfile, cie->data,
-			   cie->data + cie->data_length, context, fs);
-      execute_cfa_program (cie->objfile, fde->data,
-			   fde->data + fde->data_length, context, fs);
-    }
+  fs->pc = fde->initial_location;
+
+  gdb_assert (fde->cie_ptr != NULL);
+
+  cie = fde->cie_ptr;
+
+  fs->code_align = cie->code_align;
+  fs->data_align = cie->data_align;
+  fs->retaddr_column = cie->ra;
+  fs->addr_encoding = cie->addr_encoding;
+  fs->objfile = cie->objfile;
+
+  execute_cfa_program (cie->objfile, cie->data,
+		       cie->data + cie->data_length, context, fs);
+  execute_cfa_program (cie->objfile, fde->data,
+		       fde->data + fde->data_length, context, fs);
 }
 
 static void
@@ -817,14 +826,14 @@ get_reg (char *reg, struct context *context, int regnum)
   switch (context->reg[regnum].how)
     {
     case REG_CTX_UNSAVED:
-      read_register_gen (regnum, reg);
+      deprecated_read_register_gen (regnum, reg);
       break;
     case REG_CTX_SAVED_OFFSET:
       target_read_memory (context->cfa + context->reg[regnum].loc.offset,
 			  reg, REGISTER_RAW_SIZE (regnum));
       break;
     case REG_CTX_SAVED_REG:
-      read_register_gen (context->reg[regnum].loc.reg, reg);
+      deprecated_read_register_gen (context->reg[regnum].loc.reg, reg);
       break;
     case REG_CTX_SAVED_ADDR:
       target_read_memory (context->reg[regnum].loc.addr,
@@ -835,8 +844,7 @@ get_reg (char *reg, struct context *context, int regnum)
 	      REGISTER_RAW_SIZE (regnum));
       break;
     default:
-      internal_error (__FILE__, __LINE__,
-		      "get_reg: unknown register rule");
+      internal_error (__FILE__, __LINE__, "get_reg: unknown register rule");
     }
 }
 
@@ -856,7 +864,8 @@ execute_stack_op (struct objfile *objfile,
   while (op_ptr < op_end)
     {
       enum dwarf_location_atom op = *op_ptr++;
-      ULONGEST result, reg;
+      CORE_ADDR result;
+      ULONGEST reg;
       LONGEST offset;
 
       switch (op)
@@ -1067,32 +1076,21 @@ execute_stack_op (struct objfile *objfile,
 	    {
 	    case DW_OP_deref:
 	      {
-		char *ptr = (char *) result;
-		result = read_pointer (objfile->obfd, &ptr);
+		int len = TARGET_ADDR_BIT / TARGET_CHAR_BIT;
+		if (len != 4 && len != 8)
+		  internal_error (__FILE__, __LINE__,
+				  "execute_stack_op error");
+		result = read_memory_unsigned_integer (result, len);
 	      }
 	      break;
 
 	    case DW_OP_deref_size:
 	      {
-		char *ptr = (char *) result;
-		switch (*op_ptr++)
-		  {
-		  case 1:
-		    result = read_1u (objfile->obfd, &ptr);
-		    break;
-		  case 2:
-		    result = read_2u (objfile->obfd, &ptr);
-		    break;
-		  case 4:
-		    result = read_4u (objfile->obfd, &ptr);
-		    break;
-		  case 8:
-		    result = read_8u (objfile->obfd, &ptr);
-		    break;
-		  default:
-		    internal_error (__FILE__, __LINE__,
-				    "execute_stack_op error");
-		  }
+		int len = *op_ptr++;
+		if (len != 1 && len != 2 && len != 4 && len != 8)
+		  internal_error (__FILE__, __LINE__,
+				  "execute_stack_op error");
+		result = read_memory_unsigned_integer (result, len);
 	      }
 	      break;
 
@@ -1108,6 +1106,8 @@ execute_stack_op (struct objfile *objfile,
 	      break;
 	    case DW_OP_plus_uconst:
 	      result += read_uleb128 (objfile->obfd, &op_ptr);
+	      break;
+	    default:
 	      break;
 	    }
 	  break;
@@ -1186,6 +1186,9 @@ execute_stack_op (struct objfile *objfile,
 	      case DW_OP_ne:
 		result = (LONGEST) first != (LONGEST) second;
 		break;
+	      default:
+		error ("execute_stack_op: Unknown DW_OP_ value");
+		break;
 	      }
 	  }
 	  break;
@@ -1228,11 +1231,14 @@ static void
 update_context (struct context *context, struct frame_state *fs, int chain)
 {
   struct context *orig_context;
-  CORE_ADDR cfa;
+  CORE_ADDR cfa = 0;
   long i;
+
+  unwind_tmp_obstack_init ();
 
   orig_context = context_alloc ();
   context_cpy (orig_context, context);
+
   /* Compute this frame's CFA.  */
   switch (fs->cfa_how)
     {
@@ -1243,9 +1249,9 @@ update_context (struct context *context, struct frame_state *fs, int chain)
 
     case CFA_EXP:
       /* ??? No way of knowing what register number is the stack pointer
-	 to do the same sort of handling as above.  Assume that if the
-	 CFA calculation is so complicated as to require a stack program
-	 that this will not be a problem.  */
+         to do the same sort of handling as above.  Assume that if the
+         CFA calculation is so complicated as to require a stack program
+         that this will not be a problem.  */
       {
 	char *exp = fs->cfa_exp;
 	ULONGEST len;
@@ -1255,6 +1261,8 @@ update_context (struct context *context, struct frame_state *fs, int chain)
 					    exp + len, context, 0);
 	break;
       }
+    default:
+      break;
     }
   context->cfa = cfa;
 
@@ -1298,9 +1306,9 @@ update_context (struct context *context, struct frame_state *fs, int chain)
 	    context->reg[i].how = REG_CTX_SAVED_ADDR;
 	    context->reg[i].loc.addr =
 	      orig_context->reg[fs->regs.reg[i].loc.reg].loc.addr;
+	    break;
 	  default:
-	    internal_error (__FILE__, __LINE__,
-			    "cfi_update_context: unknown register rule");
+	    internal_error (__FILE__, __LINE__, "bad switch");
 	  }
 	break;
       case REG_SAVED_EXP:
@@ -1317,9 +1325,7 @@ update_context (struct context *context, struct frame_state *fs, int chain)
 	}
 	break;
       default:
-	internal_error (__FILE__, __LINE__,
-			"cfi_update_context: unknown register rule");
-
+	internal_error (__FILE__, __LINE__, "bad switch");
       }
   get_reg ((char *) &context->ra, context, fs->retaddr_column);
   unwind_tmp_obstack_free ();
@@ -1346,36 +1352,46 @@ compare_fde_unit (const void *a, const void *b)
 }
 
 /*  Build the cie_chunks and fde_chunks tables from informations
-    in .debug.frame section.  */
-void
-dwarf2_build_frame_info (struct objfile *objfile)
+    found in .debug_frame and .eh_frame sections.  */
+/* We can handle both of these sections almost in the same way, however there
+   are some exceptions:
+   - CIE ID is -1 in debug_frame, but 0 in eh_frame
+   - eh_frame may contain some more information that are used only by gcc 
+     (eg. personality pointer, LSDA pointer, ...). Most of them we can ignore.
+   - In debug_frame FDE's item cie_id contains offset of it's parent CIE.
+     In eh_frame FDE's item cie_id is a relative pointer to the parent CIE.
+     Anyway we don't need to bother with this, because we are smart enough 
+     to keep the pointer to the parent CIE of oncomming FDEs in 'last_cie'.
+   - Although debug_frame items can contain Augmentation as well as 
+     eh_frame ones, I have never seen them non-empty. Thus only in eh_frame 
+     we can encounter for example non-absolute pointers (Aug. 'R').  
+                                                              -- mludvig  */
+static void
+parse_frame_info (struct objfile *objfile, file_ptr frame_offset,
+		  unsigned int frame_size, int eh_frame)
 {
   bfd *abfd = objfile->obfd;
+  asection *curr_section_ptr;
   char *start = NULL;
   char *end = NULL;
+  char *frame_buffer = NULL;
+  char *curr_section_name, *aug_data;
+  struct cie_unit *last_cie = NULL;
+  int last_dup_fde = 0;
+  int aug_len, i;
+  CORE_ADDR curr_section_vma = 0;
 
-  obstack_init (&unwind_tmp_obstack);
+  unwind_tmp_obstack_init ();
 
-  dwarf_frame_buffer = 0;
+  frame_buffer = dwarf2_read_section (objfile, frame_offset, frame_size);
 
-  if (dwarf_frame_offset)
-    {
-      dwarf_frame_buffer = dwarf2_read_section (objfile,
-						dwarf_frame_offset,
-						dwarf_frame_size);
+  start = frame_buffer;
+  end = frame_buffer + frame_size;
 
-      start = dwarf_frame_buffer;
-      end = dwarf_frame_buffer + dwarf_frame_size;
-    }
-  else if (dwarf_eh_frame_offset)
-    {
-      dwarf_frame_buffer = dwarf2_read_section (objfile,
-						dwarf_eh_frame_offset,
-						dwarf_eh_frame_size);
-
-      start = dwarf_frame_buffer;
-      end = dwarf_frame_buffer + dwarf_eh_frame_size;
-    }
+  curr_section_name = eh_frame ? ".eh_frame" : ".debug_frame";
+  curr_section_ptr = bfd_get_section_by_name (abfd, curr_section_name);
+  if (curr_section_ptr)
+    curr_section_vma = curr_section_ptr->vma;
 
   if (start)
     {
@@ -1383,9 +1399,8 @@ dwarf2_build_frame_info (struct objfile *objfile)
 	{
 	  unsigned long length;
 	  ULONGEST cie_id;
-	  ULONGEST unit_offset = start - dwarf_frame_buffer;
-	  int bytes_read;
-	  int dwarf64;
+	  ULONGEST unit_offset = start - frame_buffer;
+	  int bytes_read, dwarf64;
 	  char *block_end;
 
 	  length = read_initial_length (abfd, start, &bytes_read);
@@ -1393,10 +1408,16 @@ dwarf2_build_frame_info (struct objfile *objfile)
 	  dwarf64 = (bytes_read == 12);
 	  block_end = start + length;
 
+	  if (length == 0)
+	    {
+	      start = block_end;
+	      continue;
+	    }
+
 	  cie_id = read_length (abfd, start, &bytes_read, dwarf64);
 	  start += bytes_read;
 
-	  if (is_cie (cie_id, dwarf64))
+	  if ((eh_frame && cie_id == 0) || is_cie (cie_id, dwarf64))
 	    {
 	      struct cie_unit *cie = cie_unit_alloc ();
 	      char *aug;
@@ -1412,70 +1433,186 @@ dwarf2_build_frame_info (struct objfile *objfile)
 	      start++;		/* version */
 
 	      cie->augmentation = aug = start;
-	      while (*start)
-		start++;
-	      start++;		/* skip past NUL */
+	      while (*start++);	/* Skips last NULL as well */
 
 	      cie->code_align = read_uleb128 (abfd, &start);
 	      cie->data_align = read_sleb128 (abfd, &start);
 	      cie->ra = read_1u (abfd, &start);
 
+	      /* Augmentation:
+	         z      Indicates that a uleb128 is present to size the
+	         augmentation section.
+	         L      Indicates the encoding (and thus presence) of
+	         an LSDA pointer in the FDE augmentation.
+	         R      Indicates a non-default pointer encoding for
+	         FDE code pointers.
+	         P      Indicates the presence of an encoding + language
+	         personality routine in the CIE augmentation.
+
+	         [This info comes from GCC's dwarf2out.c]
+	       */
 	      if (*aug == 'z')
 		{
-		  int xtra = read_uleb128 (abfd, &start);
-		  start += xtra;
+		  aug_len = read_uleb128 (abfd, &start);
+		  aug_data = start;
+		  start += aug_len;
 		  ++aug;
 		}
+
+	      cie->data = start;
+	      cie->data_length = block_end - cie->data;
 
 	      while (*aug != '\0')
 		{
 		  if (aug[0] == 'e' && aug[1] == 'h')
 		    {
-		      start += sizeof (void *);
-		      aug += 2;
+		      aug_data += sizeof (void *);
+		      aug++;
 		    }
 		  else if (aug[0] == 'R')
-		    {
-		      cie->addr_encoding = *start++;
-		      aug += 1;
-		    }
+		    cie->addr_encoding = *aug_data++;
 		  else if (aug[0] == 'P')
 		    {
-		      CORE_ADDR ptr;
-		      ptr = read_encoded_pointer (abfd, &start,
-						  cie->addr_encoding);
-		      aug += 1;
+		      CORE_ADDR pers_addr;
+		      int pers_addr_enc;
+
+		      pers_addr_enc = *aug_data++;
+		      /* We don't need pers_addr value and so we 
+		         don't care about it's encoding.  */
+		      pers_addr = read_encoded_pointer (abfd, &aug_data,
+							pers_addr_enc);
+		    }
+		  else if (aug[0] == 'L' && eh_frame)
+		    {
+		      int lsda_addr_enc;
+
+		      /* Perhaps we should save this to CIE for later use?
+		         Do we need it for something in GDB?  */
+		      lsda_addr_enc = *aug_data++;
 		    }
 		  else
-		    warning ("unknown augmentation");
+		    warning ("CFI warning: unknown augmentation \"%c\""
+			     " in \"%s\" of\n"
+			     "\t%s", aug[0], curr_section_name,
+			     objfile->name);
+		  aug++;
 		}
 
-	      cie->data = start;
-	      cie->data_length = block_end - start;
+	      last_cie = cie;
 	    }
 	  else
 	    {
 	      struct fde_unit *fde;
 	      struct cie_unit *cie;
+	      int dup = 0;
+	      CORE_ADDR init_loc;
 
-	      fde_chunks_need_space ();
-	      fde = fde_unit_alloc ();
+	      /* We assume that debug_frame is in order 
+	         CIE,FDE,CIE,FDE,FDE,...  and thus the CIE for this FDE
+	         should be stored in last_cie pointer. If not, we'll 
+	         try to find it by the older way.  */
+	      if (last_cie)
+		cie = last_cie;
+	      else
+		{
+		  warning ("CFI: last_cie == NULL. "
+			   "Perhaps a malformed %s section in '%s'...?\n",
+			   curr_section_name, objfile->name);
 
-	      fde_chunks.array[fde_chunks.elems++] = fde;
-	      fde->initial_location = read_pointer (abfd, &start);
-	      fde->address_range = read_pointer (abfd, &start);
+		  cie = cie_chunks;
+		  while (cie)
+		    {
+		      if (cie->objfile == objfile)
+			{
+			  if (eh_frame &&
+			      (cie->offset ==
+			       (unit_offset + bytes_read - cie_id)))
+			    break;
+			  if (!eh_frame && (cie->offset == cie_id))
+			    break;
+			}
 
-	      for (cie = cie_chunks;
-		   cie && (cie->offset != cie_id); cie = cie->next);
-	      if (!cie)
-		error ("dwarf cfi error: can't find CIE pointer");
-	      fde->cie_ptr = cie;
+		      cie = cie->next;
+		    }
+		  if (!cie)
+		    error ("CFI: can't find CIE pointer");
+		}
 
-	      if (cie->augmentation[0] == 'z')
-		  read_uleb128 (abfd, &start);
+	      init_loc = read_encoded_pointer (abfd, &start,
+					       cie->addr_encoding);
 
-	      fde->data = start;
-	      fde->data_length = block_end - start;
+	      switch (pointer_encoding (cie->addr_encoding))
+		{
+		case PE_absptr:
+		  break;
+		case PE_pcrel:
+		  /* start-frame_buffer gives offset from 
+		     the beginning of actual section.  */
+		  init_loc += curr_section_vma + start - frame_buffer;
+		  break;
+		default:
+		  warning ("CFI: Unsupported pointer encoding\n");
+		}
+
+	      /* For relocatable objects we must add an offset telling
+	         where the section is actually mapped in the memory.  */
+	      init_loc += ANOFFSET (objfile->section_offsets,
+				    SECT_OFF_TEXT (objfile));
+
+	      /* If we have both .debug_frame and .eh_frame present in 
+	         a file, we must eliminate duplicate FDEs. For now we'll 
+	         run through all entries in fde_chunks and check it one 
+	         by one. Perhaps in the future we can implement a faster 
+	         searching algorithm.  */
+	      /* eh_frame==2 indicates, that this file has an already 
+	         parsed .debug_frame too. When eh_frame==1 it means, that no
+	         .debug_frame is present and thus we don't need to check for
+	         duplicities. eh_frame==0 means, that we parse .debug_frame
+	         and don't need to care about duplicate FDEs, because
+	         .debug_frame is parsed first.  */
+	      if (eh_frame == 2)
+		for (i = 0; eh_frame == 2 && i < fde_chunks.elems; i++)
+		  {
+		    /* We assume that FDEs in .debug_frame and .eh_frame 
+		       have the same order (if they are present, of course).
+		       If we find a duplicate entry for one FDE and save
+		       it's index to last_dup_fde it's very likely, that 
+		       we'll find an entry for the following FDE right after 
+		       the previous one. Thus in many cases we'll run this 
+		       loop only once.  */
+		    last_dup_fde = (last_dup_fde + i) % fde_chunks.elems;
+		    if (fde_chunks.array[last_dup_fde]->initial_location
+			== init_loc)
+		      {
+			dup = 1;
+			break;
+		      }
+		  }
+
+	      /* Allocate a new entry only if this FDE isn't a duplicate of
+	         something we have already seen.   */
+	      if (!dup)
+		{
+		  fde_chunks_need_space ();
+		  fde = fde_unit_alloc ();
+
+		  fde_chunks.array[fde_chunks.elems++] = fde;
+
+		  fde->initial_location = init_loc;
+		  fde->address_range = read_encoded_pointer (abfd, &start,
+							     cie->
+							     addr_encoding);
+
+		  fde->cie_ptr = cie;
+
+		  /* Here we intentionally ignore augmentation data
+		     from FDE, because we don't need them.  */
+		  if (cie->augmentation[0] == 'z')
+		    start += read_uleb128 (abfd, &start);
+
+		  fde->data = start;
+		  fde->data_length = block_end - start;
+		}
 	    }
 	  start = block_end;
 	}
@@ -1483,15 +1620,40 @@ dwarf2_build_frame_info (struct objfile *objfile)
 	     sizeof (struct fde_unit *), compare_fde_unit);
     }
 }
-
+
+/* We must parse both .debug_frame section and .eh_frame because 
+ * not all frames must be present in both of these sections. */
+void
+dwarf2_build_frame_info (struct objfile *objfile)
+{
+  int after_debug_frame = 0;
+
+  /* If we have .debug_frame then the parser is called with 
+     eh_frame==0 for .debug_frame and eh_frame==2 for .eh_frame, 
+     otherwise it's only called once for .eh_frame with argument 
+     eh_frame==1.  */
+
+  if (dwarf_frame_offset)
+    {
+      parse_frame_info (objfile, dwarf_frame_offset,
+			dwarf_frame_size, 0 /* = debug_frame */ );
+      after_debug_frame = 1;
+    }
+
+  if (dwarf_eh_frame_offset)
+    parse_frame_info (objfile, dwarf_eh_frame_offset, dwarf_eh_frame_size,
+		      1 /* = eh_frame */  + after_debug_frame);
+}
 
 /* Return the frame address.  */
 CORE_ADDR
-cfi_read_fp ()
+cfi_read_fp (void)
 {
   struct context *context;
   struct frame_state *fs;
   CORE_ADDR cfa;
+
+  unwind_tmp_obstack_init ();
 
   context = context_alloc ();
   fs = frame_state_alloc ();
@@ -1502,7 +1664,9 @@ cfi_read_fp ()
   update_context (context, fs, 0);
 
   cfa = context->cfa;
+
   unwind_tmp_obstack_free ();
+
   return cfa;
 }
 
@@ -1514,6 +1678,8 @@ cfi_write_fp (CORE_ADDR val)
   struct context *context;
   struct frame_state *fs;
 
+  unwind_tmp_obstack_init ();
+
   context = context_alloc ();
   fs = frame_state_alloc ();
 
@@ -1524,7 +1690,7 @@ cfi_write_fp (CORE_ADDR val)
   if (fs->cfa_how == CFA_REG_OFFSET)
     {
       val -= fs->cfa_offset;
-      write_register_gen (fs->cfa_reg, (char *) &val);
+      deprecated_write_register_gen (fs->cfa_reg, (char *) &val);
     }
   else
     warning ("Can't write fp.");
@@ -1537,16 +1703,14 @@ cfi_write_fp (CORE_ADDR val)
 void
 cfi_pop_frame (struct frame_info *fi)
 {
-  char regbuf[MAX_REGISTER_RAW_SIZE];
+  char *regbuf = alloca (MAX_REGISTER_RAW_SIZE);
   int regnum;
-
-  fi = get_current_frame ();
 
   for (regnum = 0; regnum < NUM_REGS; regnum++)
     {
       get_reg (regbuf, UNWIND_CONTEXT (fi), regnum);
-      write_register_bytes (REGISTER_BYTE (regnum), regbuf,
-			    REGISTER_RAW_SIZE (regnum));
+      deprecated_write_register_bytes (REGISTER_BYTE (regnum), regbuf,
+				       REGISTER_RAW_SIZE (regnum));
     }
   write_register (PC_REGNUM, UNWIND_CONTEXT (fi)->ra);
 
@@ -1560,6 +1724,8 @@ cfi_frame_chain (struct frame_info *fi)
   struct context *context;
   struct frame_state *fs;
   CORE_ADDR cfa;
+
+  unwind_tmp_obstack_init ();
 
   context = context_alloc ();
   fs = frame_state_alloc ();
@@ -1577,17 +1743,24 @@ cfi_frame_chain (struct frame_info *fi)
 
   cfa = context->cfa;
   unwind_tmp_obstack_free ();
+
   return cfa;
 }
 
 /* Sets the pc of the frame.  */
-void
+CORE_ADDR
 cfi_init_frame_pc (int fromleaf, struct frame_info *fi)
 {
-  if (fi->next)
-    get_reg ((char *) &(fi->pc), UNWIND_CONTEXT (fi->next), PC_REGNUM);
+  if (get_next_frame (fi))
+    {
+      CORE_ADDR pc;
+      /* FIXME: cagney/2002-12-04: This is straight wrong.  It's
+         assuming that the PC is CORE_ADDR (a host quantity) in size.  */
+      get_reg ((void *)&pc, UNWIND_CONTEXT (get_next_frame (fi)), PC_REGNUM);
+      return pc;
+    }
   else
-    fi->pc = read_pc ();
+    return read_pc ();
 }
 
 /* Initialize unwind context informations of the frame.  */
@@ -1596,25 +1769,28 @@ cfi_init_extra_frame_info (int fromleaf, struct frame_info *fi)
 {
   struct frame_state *fs;
 
+  unwind_tmp_obstack_init ();
+
   fs = frame_state_alloc ();
-  fi->context = frame_obstack_alloc (sizeof (struct context));
+  deprecated_set_frame_context (fi, frame_obstack_zalloc (sizeof (struct context)));
   UNWIND_CONTEXT (fi)->reg =
-    frame_obstack_alloc (sizeof (struct context_reg) * NUM_REGS);
+    frame_obstack_zalloc (sizeof (struct context_reg) * NUM_REGS);
   memset (UNWIND_CONTEXT (fi)->reg, 0,
 	  sizeof (struct context_reg) * NUM_REGS);
 
-  if (fi->next)
+  if (get_next_frame (fi))
     {
-      context_cpy (UNWIND_CONTEXT (fi), UNWIND_CONTEXT (fi->next));
+      context_cpy (UNWIND_CONTEXT (fi), UNWIND_CONTEXT (get_next_frame (fi)));
       frame_state_for (UNWIND_CONTEXT (fi), fs);
       update_context (UNWIND_CONTEXT (fi), fs, 1);
     }
   else
     {
-      UNWIND_CONTEXT (fi)->ra = fi->pc + 1;
+      UNWIND_CONTEXT (fi)->ra = get_frame_pc (fi) + 1;
       frame_state_for (UNWIND_CONTEXT (fi), fs);
       update_context (UNWIND_CONTEXT (fi), fs, 0);
     }
+
   unwind_tmp_obstack_free ();
 }
 
@@ -1635,7 +1811,7 @@ cfi_get_ra (struct frame_info *fi)
 void
 cfi_get_saved_register (char *raw_buffer,
 			int *optimized,
-			CORE_ADDR * addrp,
+			CORE_ADDR *addrp,
 			struct frame_info *frame,
 			int regnum, enum lval_type *lval)
 {
@@ -1649,9 +1825,9 @@ cfi_get_saved_register (char *raw_buffer,
   if (addrp)			/* default assumption: not found in memory */
     *addrp = 0;
 
-  if (!frame->next)
+  if (!get_next_frame (frame))
     {
-      read_register_gen (regnum, raw_buffer);
+      deprecated_read_register_gen (regnum, raw_buffer);
       if (lval != NULL)
 	*lval = lval_register;
       if (addrp != NULL)
@@ -1659,11 +1835,11 @@ cfi_get_saved_register (char *raw_buffer,
     }
   else
     {
-      frame = frame->next;
+      frame = get_next_frame (frame);
       switch (UNWIND_CONTEXT (frame)->reg[regnum].how)
 	{
 	case REG_CTX_UNSAVED:
-	  read_register_gen (regnum, raw_buffer);
+	  deprecated_read_register_gen (regnum, raw_buffer);
 	  if (lval != NULL)
 	    *lval = not_lval;
 	  if (optimized != NULL)
@@ -1681,8 +1857,8 @@ cfi_get_saved_register (char *raw_buffer,
 	      UNWIND_CONTEXT (frame)->reg[regnum].loc.offset;
 	  break;
 	case REG_CTX_SAVED_REG:
-	  read_register_gen (UNWIND_CONTEXT (frame)->reg[regnum].loc.reg,
-			     raw_buffer);
+	  deprecated_read_register_gen (UNWIND_CONTEXT (frame)->reg[regnum].loc.reg,
+					raw_buffer);
 	  if (lval != NULL)
 	    *lval = lval_register;
 	  if (addrp != NULL)
@@ -1721,6 +1897,8 @@ cfi_virtual_frame_pointer (CORE_ADDR pc, int *frame_reg,
 {
   struct context *context;
   struct frame_state *fs;
+
+  unwind_tmp_obstack_init ();
 
   context = context_alloc ();
   fs = frame_state_alloc ();

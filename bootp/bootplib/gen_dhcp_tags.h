@@ -1,21 +1,24 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -100,6 +103,8 @@ typedef enum {
     dhcptag_slp_directory_agent_e      	= 78,
     dhcptag_slp_service_scope_e        	= 79,
     dhcptag_ldap_url_e                 	= 95,
+    dhcptag_swap_path_e                	= 108,
+    dhcptag_url_e                      	= 114,
 
     /* dhcp-specific extensions: 50..61, 66, 67 */
     dhcptag_requested_ip_address_e     	= 50,
@@ -155,11 +160,9 @@ typedef enum {
     dhcptag_105_e                      	= 105,
     dhcptag_106_e                      	= 106,
     dhcptag_107_e                      	= 107,
-    dhcptag_108_e                      	= 108,
     dhcptag_109_e                      	= 109,
     dhcptag_110_e                      	= 110,
     dhcptag_111_e                      	= 111,
-    dhcptag_114_e                      	= 114,
     dhcptag_115_e                      	= 115,
     dhcptag_117_e                      	= 117,
     dhcptag_118_e                      	= 118,
@@ -370,6 +373,8 @@ typedef enum {
 #define DHCPTAG_SLP_DIRECTORY_AGENT        	"slp_directory_agent"
 #define DHCPTAG_SLP_SERVICE_SCOPE          	"slp_service_scope"
 #define DHCPTAG_LDAP_URL                   	"ldap_url"
+#define DHCPTAG_SWAP_PATH                  	"swap_path"
+#define DHCPTAG_URL                        	"url"
 #define DHCPTAG_REQUESTED_IP_ADDRESS       	"requested_ip_address"
 #define DHCPTAG_LEASE_TIME                 	"lease_time"
 #define DHCPTAG_OPTION_OVERLOAD            	"option_overload"
@@ -419,11 +424,9 @@ typedef enum {
 #define DHCPTAG_105                        	"105"
 #define DHCPTAG_106                        	"106"
 #define DHCPTAG_107                        	"107"
-#define DHCPTAG_108                        	"108"
 #define DHCPTAG_109                        	"109"
 #define DHCPTAG_110                        	"110"
 #define DHCPTAG_111                        	"111"
-#define DHCPTAG_114                        	"114"
 #define DHCPTAG_115                        	"115"
 #define DHCPTAG_117                        	"117"
 #define DHCPTAG_118                        	"118"

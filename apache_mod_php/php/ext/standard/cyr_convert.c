@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Kirill Maximov <kir@rus.net>                                |
+   | Author: Kirill Maximov <kir@rus.net>                                 |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: cyr_convert.c,v 1.1.1.4 2001/12/14 22:13:18 zarzycki Exp $ */
+/* $Id: cyr_convert.c,v 1.1.1.7 2003/07/18 18:07:42 zarzycki Exp $ */
 
 #include <stdlib.h>
 
@@ -201,7 +201,7 @@ _cyr_mac = {
 *    d - x-cp866
 *    m - x-mac-cyrillic
 *****************************************************************************/
-static char * php_convert_cyr_string(unsigned char *str, int length, char from, char to)
+static char * php_convert_cyr_string(unsigned char *str, int length, char from, char to TSRMLS_DC)
 {
 	const unsigned char *from_table, *to_table;
 	unsigned char tmp;
@@ -210,7 +210,7 @@ static char * php_convert_cyr_string(unsigned char *str, int length, char from, 
 	from_table = NULL;
 	to_table   = NULL;
 	
-	switch (toupper(from))
+	switch (toupper((int)(unsigned char)from))
 	{
 		case 'W':
 			from_table = _cyr_win1251;
@@ -228,11 +228,11 @@ static char * php_convert_cyr_string(unsigned char *str, int length, char from, 
 		case 'K':
 			break;
 		default:
-			php_error(E_WARNING, "Unknown source charset: %c", from);
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unknown source charset: %c", from);
 			break;
 	}
 
-	switch (toupper(to))
+	switch (toupper((int)(unsigned char)to))
 	{
 		case 'W':
 			to_table = _cyr_win1251;
@@ -250,7 +250,7 @@ static char * php_convert_cyr_string(unsigned char *str, int length, char from, 
 		case 'K':
 			break;
 		default:
-			php_error(E_WARNING, "Unknown destination charset: %c", to);
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unknown destination charset: %c", to);
 			break;
 	}
 
@@ -282,9 +282,9 @@ PHP_FUNCTION(convert_cyr_string)
     convert_to_string_ex(fr_cs);
     convert_to_string_ex(to_cs);
 
-	str = (unsigned char*) estrndup((*str_arg)->value.str.val, (*str_arg)->value.str.len);
+	str = (unsigned char*) estrndup(Z_STRVAL_PP(str_arg), Z_STRLEN_PP(str_arg));
 	
-	php_convert_cyr_string(str, (*str_arg)->value.str.len, (*fr_cs)->value.str.val[0], (*to_cs)->value.str.val[0]);
+	php_convert_cyr_string(str, Z_STRLEN_PP(str_arg), Z_STRVAL_PP(fr_cs)[0], Z_STRVAL_PP(to_cs)[0] TSRMLS_CC);
 	RETVAL_STRING((char *)str, 0)
 }
 /* }}} */
@@ -294,6 +294,6 @@ PHP_FUNCTION(convert_cyr_string)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

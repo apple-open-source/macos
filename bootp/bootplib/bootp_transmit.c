@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -41,6 +44,7 @@
 #include <ctype.h>
 #include <net/if.h>
 #include <net/ethernet.h>
+#include <net/firewire.h>
 #include <net/if_arp.h>
 #include <netinet/in.h>
 #include <netinet/udp.h>
@@ -56,8 +60,8 @@
 extern void
 my_log(int priority, const char *message, ...);
 
-static struct ether_addr ether_broadcast = { 
-    {0xff, 0xff, 0xff, 0xff, 0xff, 0xff} 
+static char link_broadcast[8] = { 
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
 };
 
 typedef struct {
@@ -110,8 +114,8 @@ bootp_transmit(int sockfd, char sendbuf[2048],
 	       u_short src_port,
 	       void * data, int len)
 {
-    int		first = 1;
-    int 	ip_id = 0;
+    static int	first = 1;
+    static int 	ip_id = 0;
     int		bpf_fd = -1;
     int 	status = 0;
 
@@ -120,7 +124,7 @@ bootp_transmit(int sockfd, char sendbuf[2048],
 	ip_id = random();
     }
 
-    if (hwtype == ARPHRD_ETHER
+    if ((hwtype == ARPHRD_ETHER || hwtype == ARPHRD_IEEE1394)
 	&& (ntohl(dest_ip.s_addr) == INADDR_BROADCAST
 	    || hwaddr != NULL)) {
 	bpf_fd = get_bpf_fd(if_name);
@@ -128,16 +132,53 @@ bootp_transmit(int sockfd, char sendbuf[2048],
 	    status = -1;
 	}
 	else {
-	    struct ether_header * 	eh_p;
+	    int				frame_length;
 	    ip_udp_header_t *		ip_udp;
-	    udp_pseudo_hdr_t *		udp_pseudo;
 	    char *			payload;
+	    udp_pseudo_hdr_t *		udp_pseudo;
+
+	    switch (hwtype) {
+	    default:
+	    case ARPHRD_ETHER:
+		{
+		    struct ether_header *	eh_p;
+
+		    eh_p = (struct ether_header *)sendbuf;
+		    ip_udp = (ip_udp_header_t *)(sendbuf + sizeof(*eh_p));
+		    udp_pseudo = (udp_pseudo_hdr_t *)(((char *)&ip_udp->udp)
+						      - sizeof(*udp_pseudo));
+		    payload = sendbuf + sizeof(*eh_p) + sizeof(*ip_udp);
+		    /* fill in the ethernet header */
+		    if (ntohl(dest_ip.s_addr) == INADDR_BROADCAST) {
+			bcopy(link_broadcast, eh_p->ether_dhost,
+			      sizeof(eh_p->ether_dhost));
+		    }
+		    else {
+			bcopy(hwaddr, eh_p->ether_dhost,
+			      sizeof(eh_p->ether_dhost));
+		    }
+		    eh_p->ether_type = htons(ETHERTYPE_IP);
+		    frame_length = sizeof(*eh_p) + sizeof(*ip_udp) + len;
+		    break;
+		}
+	    case ARPHRD_IEEE1394:
+		{
+		    struct firewire_header *	fh_p;
+		    
+		    /* fill in the firewire header */
+		    fh_p = (struct firewire_header *)sendbuf;
+		    bcopy(link_broadcast, fh_p->firewire_dhost,
+			  sizeof(fh_p->firewire_dhost));
+		    fh_p->firewire_type = htons(ETHERTYPE_IP);
+		    ip_udp = (ip_udp_header_t *)(sendbuf + sizeof(*fh_p));
+		    udp_pseudo = (udp_pseudo_hdr_t *)(((char *)&ip_udp->udp)
+						      - sizeof(*udp_pseudo));
+		    payload = sendbuf + sizeof(*fh_p) + sizeof(*ip_udp);
+		    frame_length = sizeof(*fh_p) + sizeof(*ip_udp) + len;
+		    break;
+		}
+	    }
 	    
-	    eh_p = (struct ether_header *)sendbuf;
-	    ip_udp = (ip_udp_header_t *)(sendbuf + sizeof(*eh_p));
-	    udp_pseudo = (udp_pseudo_hdr_t *)(((char *)&ip_udp->udp)
-					      - sizeof(*udp_pseudo));
-	    payload = sendbuf + sizeof(*eh_p) + sizeof(*ip_udp);
 	    /* copy the data */
 	    bcopy(data, payload, len);
 
@@ -170,21 +211,7 @@ bootp_transmit(int sockfd, char sendbuf[2048],
 	    ip_udp->ip.ip_sum = 0; /* needs to be zero for checksum */
 	    ip_udp->ip.ip_sum = in_cksum(&ip_udp->ip, sizeof(ip_udp->ip));
 	    
-	    
-	    /* set ethernet dest and type, source is inserted automatically */
-	    if (ntohl(dest_ip.s_addr) == INADDR_BROADCAST) {
-		bcopy(&ether_broadcast, eh_p->ether_dhost,
-		      sizeof(ether_broadcast));
-	    }
-	    else {
-		bcopy(hwaddr, eh_p->ether_dhost,
-		      sizeof(eh_p->ether_dhost));
-	    }
-	    eh_p->ether_type = htons(ETHERTYPE_IP);
-	    
-	    status = bpf_write(bpf_fd, sendbuf, 
-			       sizeof(*eh_p) + sizeof(*ip_udp) + len);
-	    
+	    status = bpf_write(bpf_fd, sendbuf, frame_length);
 	    if (status < 0) {
 		my_log(LOG_ERR, 
 		       "bootp_session_transmit: bpf_write(%s) failed: %s (%d)",

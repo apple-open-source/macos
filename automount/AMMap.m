@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -28,21 +29,39 @@
 #import "AMString.h"
 #import "automount.h"
 #import "log.h"
+#import <netdb.h>
 #import <syslog.h>
 #import <string.h>
 #import <stdio.h>
 #import <stdlib.h>
 
-extern int innetgr(char *, char *, char *, char *);
+#ifndef innetgr
+extern int innetgr(const char *, const char *, const char *, const char *);
+#endif
 extern int doing_timeout;
 
 @implementation Map
 
 - (Map *)initWithParent:(Vnode *)p directory:(String *)dir
 {
+	return [self initWithParent:p directory:dir from:nil mountdirectory:nil];
+}
+
+- (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds
+{
+	return [self initWithParent:p directory:dir from:ds mountdirectory:nil];
+}
+
+- (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds mountdirectory:(String *)mnt
+{
 	[super init];
 
-	mountPoint = [controller mountDirectory];
+	if (mnt)
+	{
+		mountPoint = mnt;
+	} else {
+		mountPoint = [controller mountDirectory];
+	};
 	if (mountPoint != nil) [mountPoint retain];
 
 	name = [String uniqueString:"-null"];
@@ -56,9 +75,14 @@ extern int doing_timeout;
 	return self;
 }
 
-- (Map *)initWithParent:(Vnode *)p directory:(String *)dir from:(String *)ds
+/*
+ *	-cleanup exists for maps that need to do some form of clean up
+ *	(release resources, etc.) before the global Vnode and Server
+ *	tables have been released.  For example, StaticMap uses this
+ *	to remove symlinks for static mounts.
+ */
+- (void)cleanup
 {
-	return [self initWithParent:p directory:dir];
 }
 
 - (void)setName:(String *)n
@@ -77,6 +101,10 @@ extern int doing_timeout;
 {
 	if (mountPoint != nil) [mountPoint release];
 	if (name != nil) [name release];
+	if (root != nil)
+	{
+		[controller destroyVnode:root];
+	}
 	[super dealloc];
 }
 
@@ -90,6 +118,13 @@ extern int doing_timeout;
 	return root;
 }
 
+- (void)setMountDirectory:(String *)mnt
+{
+	if (mountPoint != nil) [mountPoint release];
+	mountPoint = mnt;
+	[mountPoint retain];
+}
+
 - (String *)mountPoint
 {
 	return mountPoint;
@@ -98,6 +133,16 @@ extern int doing_timeout;
 - (int)mountArgs
 {
 	return 0;
+}
+
+- (void)setFSID:(fsid_t *)fsid
+{
+	mountedMapFSID = *fsid;
+}
+
+- (fsid_t *)mountedFSID
+{
+	return &mountedMapFSID;
 }
 
 - (unsigned int)mount:(Vnode *)v
@@ -211,6 +256,7 @@ extern int doing_timeout;
 
 - (void)reInit
 {
+	[root setMarked:NO];
 }
 
 - (void)timeout
@@ -263,6 +309,10 @@ extern int doing_timeout;
 			[x setName:part];
 			if (type != nil) [x setVfsType:type];
 			[n addChild:x];
+		}
+		else
+		{
+			[x setMarked:NO];	/* This Vnode is still alive */
 		}
 		n = x;
 
@@ -448,6 +498,10 @@ extern int doing_timeout;
 		return NO;
 	}
 	else if (!strcmp(k, "url"))
+	{
+		return YES;
+	}
+	else if (!strcmp(k, "authenticated_url"))
 	{
 		return YES;
 	}

@@ -1,3 +1,27 @@
+/*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 
 /*
  * mslp_prefs.c : Hash table for mini slpv2 preference storage.
@@ -26,6 +50,9 @@
  * 
  * (c) Sun Microsystems, All Rights Reserved, 1998.
  * Author: Erik Guttman
+ */
+ /*
+	Portions Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  */
 
 #include <stdio.h>
@@ -144,7 +171,6 @@ void mslp_hash_read(MslpHashtable *ph, const char *pcFileName)
         SLPFree(pcVal);
     }
     
-//    free(buf);
     fclose(fp);
 }
 
@@ -178,7 +204,7 @@ int  mslp_conf_int(MslpHashtable *ph, const char *pcKey, int index, int iDefault
     {
 		char*	endPtr = NULL;
         result = strtol(pcIter,&endPtr,10);
-//        result = atoi(pcIter);
+
         SLPFree(pcIter);
         return result;
     }

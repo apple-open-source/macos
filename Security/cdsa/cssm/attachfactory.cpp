@@ -39,7 +39,11 @@
 template <CSSM_SERVICE_TYPE type, typename Table, const char *const nameTable[]>
 class StandardAttachmentMaker : public AttachmentMaker {
 public:
-    StandardAttachmentMaker();
+    StandardAttachmentMaker() : AttachmentMaker(type)
+    {
+        for (unsigned n = 0; n < sizeof(nameTable) / sizeof(nameTable[0]); n++)
+            nameMap.insert(typename NameMap::value_type(nameTable[n], n));
+    }
 
     Attachment *make(Module *module,
                      const CSSM_VERSION &version,
@@ -69,18 +73,6 @@ private:
     NameMap nameMap;
 };
 
-
-//
-// The constructor of the StandardAttachmentMaker builds a dictionary
-// derived from the plugin type's function name tables.
-//
-template <CSSM_SERVICE_TYPE type, typename Table, const char *nameTable[]>
-StandardAttachmentMaker<type, Table, nameTable>::StandardAttachmentMaker()
-: AttachmentMaker(type)
-{
-    for (unsigned n = 0; n < sizeof(nameTable) / sizeof(nameTable[0]); n++)
-        nameMap.insert(typename NameMap::value_type(nameTable[n], n));
-}
 
 //
 // Implementation of an attachment factory

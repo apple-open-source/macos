@@ -1,0 +1,102 @@
+###
+### List of failing tests with Radar bug numbers
+### <radarNum>: <test name>
+### test name should be exactly as it appears html summary reports
+### including any trailing #<number>
+###
+### When the bug is fixed and the test passes, it will be a
+### analyzed non-fail. You should then comment out the test in this 
+### file and make sure the Radar bug is closed.
+### 
+###------------------------------------------------------------------
+#3221870: g++.dg/parse/named_ops.C (test for excess errors)
+#3221795: g++.dg/pascal-strings-1.C (test for excess errors)
+#3221795: g++.dg/pascal-strings-2.C  (test for warnings, line, line 27)
+#3221795: g++.dg/pascal-strings-2.C  (test for warnings, line 28)
+#3221795: g++.dg/pascal-strings-2.C  (test for warnings, line 29)
+#3221795: g++.dg/pascal-strings-2.C  (test for warnings, line 30)
+#3221795: g++.dg/pascal-strings-2.C  (test for warnings, line 31)
+#3221795: g++.dg/pascal-strings-2.C (test for excess errors)
+#3230483: g++.dg/pch/empty.C -g assembly comparison
+#3230483: g++.dg/pch/empty.C -O2 -g assembly comparison
+#3230483: g++.dg/pch/system-1.C -g assembly comparison
+#3230483: g++.dg/pch/system-1.C -O2 -g assembly comparison
+#3230483: g++.dg/pch/system-2.C -g assembly comparison
+#3230483: g++.dg/pch/system-2.C -O2 -g assembly comparison
+#3230483: g++.dg/pch/uninst.C -g assembly comparison
+#3230483: g++.dg/pch/uninst.C -O2 -g assembly comparison
+#3255511: g++.dg/kext3.C (test for excess errors)
+#3256731: g++.dg/expr/cast-ptr-1.C (test for excess errors)
+#3220984: g++.dg/altivec-5.C (test for excess errors)
+#3221290: g++.dg/debug/const1.C -gdwarf-21 (test for excess errors)
+#3221290: g++.dg/debug/const1.C -gdwarf-21 -O2 (test for excess errors)
+#3221290: g++.dg/debug/const1.C -gdwarf-21 -O3 (test for excess errors)
+#3221290: g++.dg/debug/const1.C -gdwarf-2 (test for excess errors)
+#3221290: g++.dg/debug/const1.C -gdwarf-2 -O2 (test for excess errors)
+#3221290: g++.dg/debug/const1.C -gdwarf-2 -O3 (test for excess errors)
+#3221290: g++.dg/debug/const1.C -gdwarf-23 (test for excess errors)
+#3221290: g++.dg/debug/const1.C -gdwarf-23 -O2 (test for excess errors)
+#3221290: g++.dg/debug/const1.C -gdwarf-23 -O3 (test for excess errors)
+#3221290: g++.dg/debug/debug4.C -gdwarf-21 (test for excess errors)
+#3221290: g++.dg/debug/debug4.C -gdwarf-21 -O2 (test for excess errors)
+#3221290: g++.dg/debug/debug4.C -gdwarf-21 -O3 (test for excess errors)
+#3221290: g++.dg/debug/debug4.C -gdwarf-2 (test for excess errors)
+#3221290: g++.dg/debug/debug4.C -gdwarf-2 -O2 (test for excess errors)
+#3221290: g++.dg/debug/debug4.C -gdwarf-2 -O3 (test for excess errors)
+#3221290: g++.dg/debug/debug4.C -gdwarf-23 (test for excess errors)
+#3221290: g++.dg/debug/debug4.C -gdwarf-23 -O2 (test for excess errors)
+#3221290: g++.dg/debug/debug4.C -gdwarf-23 -O3 (test for excess errors)
+#3221290: g++.dg/debug/trivial.C -gdwarf-21 (test for excess errors)
+#3221290: g++.dg/debug/trivial.C -gdwarf-21 -O2 (test for excess errors)
+#3221290: g++.dg/debug/trivial.C -gdwarf-21 -O3 (test for excess errors)
+#3221290: g++.dg/debug/trivial.C -gdwarf-2 (test for excess errors)
+#3221290: g++.dg/debug/trivial.C -gdwarf-2 -O2 (test for excess errors)
+#3221290: g++.dg/debug/trivial.C -gdwarf-2 -O3 (test for excess errors)
+#3221290: g++.dg/debug/trivial.C -gdwarf-23 (test for excess errors)
+#3221290: g++.dg/debug/trivial.C -gdwarf-23 -O2 (test for excess errors)
+#3221290: g++.dg/debug/trivial.C -gdwarf-23 -O3 (test for excess errors)
+#3221021: g++.dg/opt/vtgc1.C scan-assembler-dem .vtable_inherit[ 	]*vtable for Multivv3.*0
+#3221021: g++.dg/opt/vtgc1.C scan-assembler-dem .vtable_inherit[ 	]*VTT for Multivv3.*0
+#3221021: g++.dg/opt/vtgc1.C scan-assembler-dem .vtable_inherit[ 	]*vtable for Multiss2.*vtable for Base2
+#3221021: g++.dg/opt/vtgc1.C scan-assembler-dem .vtable_inherit[ 	]*vtable for Multivs1.*vtable for Base2
+#3221021: g++.dg/opt/vtgc1.C scan-assembler-dem .vtable_inherit[ 	]*VTT for Multivs1.*vtable for Base2
+#3221021: g++.dg/opt/vtgc1.C scan-assembler-dem .vtable_inherit[ 	]*vtable for Multisv0.*vtable for Side0
+#3221021: g++.dg/opt/vtgc1.C scan-assembler-dem .vtable_inherit[ 	]*VTT for Multisv0.*vtable for Side0
+#3221021: g++.dg/opt/vtgc1.C scan-assembler-dem .vtable_inherit[ 	]*vtable for Side0.*0
+#3221021: g++.dg/opt/vtgc1.C scan-assembler-dem .vtable_inherit[ 	]*vtable for VbasedA.*0
+#3221021: g++.dg/opt/vtgc1.C scan-assembler-dem .vtable_inherit[ 	]*VTT for VbasedA.*0
+#3221021: g++.dg/opt/vtgc1.C scan-assembler-dem .vtable_inherit[ 	]*vtable for Base2.*vtable for Base1
+#3221021: g++.dg/opt/vtgc1.C scan-assembler-dem .vtable_inherit[ 	]*vtable for Base1.*vtable for Base0
+#3221021: g++.dg/opt/vtgc1.C scan-assembler-dem .vtable_inherit[ 	]*vtable for Base0.*0
+###------------------------------------------------------------------
+3220746: g++.dg/compat/break/bitfield7 y_tst.o compile
+3220997: g++.dg/align-test-1.C execution test
+3221627: g++.dg/warn/Wunused-2.C  (test for warnings, line 5)
+3222046: g++.dg/warn/weak1.C (test for excess errors)
+3223598: g++.dg/special/conpr-3.C conpr-3a.o conpr-3b.o execution test
+3222135: g++.bugs/900404_02.C  (test for warnings, line 24)
+3222046: g++.ext/attrib5.C (test for excess errors)
+3222698: g++.ext/pretty4.C  Execution test
+3222625: g++.ext/syshdr1.C (test for excess errors)
+3223636: g++.other/null1.C converting NULL to non-pointer type (test for warnings, line 25)
+3223636: g++.other/null1.C converting NULL to non-pointer type (test for warnings, line 26)
+3223636: g++.other/null1.C NULL used in arithmetic (test for warnings, line 29)
+3223636: g++.other/null1.C NULL used in arithmetic (test for warnings, line 30)
+3223636: g++.other/null1.C converting NULL to non-pointer type (test for warnings, line 33)
+3223636: g++.other/null1.C converting NULL to non-pointer type (test for warnings, line 34)
+3223636: g++.other/null1.C converting NULL to non-pointer type (test for warnings, line 35)
+3223636: g++.other/null1.C converting NULL to non-pointer-type (test for warnings, line 36)
+3223636: g++.other/null1.C converting NULL to non-pointer type (test for warnings, line 37)
+3223636: g++.other/null1.C converting NULL to non-pointer type (test for warnings, line 38)
+3223636: g++.other/null1.C converting NULL to int (test for warnings, line 39)
+3223636: g++.other/null1.C converting NULL to int (test for warnings, line 40)
+3223636: g++.other/null1.C NULL bound to integer template parameter (test for warnings, line 41)
+3223636: g++.other/null1.C converting NULL to int (test for warnings, line 42)
+3224899: g++.other/string2.C  Execution test
+3267206: g++.pt/instantiate4.C (test for excess errors)
+3267206: g++.pt/instantiate6.C (test for excess errors)
+3222264: g++.pt/repo1.C (test for excess errors)
+3222264: g++.pt/repo2.C (test for excess errors)
+3222264: g++.pt/repo3.C (test for excess errors)
+3222264: g++.pt/repo4.C (test for excess errors)
+3239450: g++.pt/instantiate12.C caused compiler crash

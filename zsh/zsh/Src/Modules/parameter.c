@@ -342,7 +342,7 @@ setfunction(char *name, char *val, int dis)
 
     val = metafy(val, strlen(val), META_REALLOC);
 
-    prog = parse_string(val, 1);
+    prog = parse_string(val);
 
     if (!prog || prog == &dummy_eprog) {
 	zwarn("invalid function definition", value, 0);
@@ -794,7 +794,14 @@ getpmoption(HashTable ht, char *name)
     pm->level = 0;
 
     if ((n = optlookup(name)))
-	pm->u.str = dupstring(opts[n] ? "on" : "off");
+    {
+	int ison;
+	if (n > 0)
+	    ison = opts[n];
+	else
+	    ison = !opts[-n];
+	pm->u.str = dupstring(ison ? "on" : "off");
+    }
     else {
 	pm->u.str = dupstring("");
 	pm->flags |= PM_UNSET;

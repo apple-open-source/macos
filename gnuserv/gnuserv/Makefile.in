@@ -1,0 +1,269 @@
+# Makefile.in gnuserv
+
+# Copyright (C) 1994, 1995, 1997, 1999, 2000, 2001 Noah S. Friedman, Martin Schwenke
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330; Boston, MA 02111-1307, USA.
+
+# $Id$
+
+PACKAGENAME = gnuserv
+VERSION = 3.12.4
+DISTNAME = $(PACKAGENAME)-$(VERSION)
+
+#### Start of system configuration section. ####
+
+srcdir = @srcdir@
+VPATH = @srcdir@
+
+CC = @CC@
+
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_SCRIPT = @INSTALL_SCRIPT@
+INSTALL_DATA = @INSTALL_DATA@
+
+DEFS = @DEFS@
+LIBS = @LIBS@
+LIBXAUTH = @LIBXAUTH@
+
+CFLAGS = @CFLAGS@
+CPPFLAGS = @CPPFLAGS@
+LDFLAGS = @LDFLAGS@
+
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+
+# The directory for installing executable programs that users can run.
+bindir = $(exec_prefix)/bin
+# Prefix/suffix for each installed program name, normally empty.
+binprefix =
+binsuffix =
+
+# The directory for installing read-only architecture independent
+# data files.
+# As a special exception, see `infodir' and `includedir' below.
+datadir = $(prefix)/share
+
+elispdir = $(datadir)/emacs/site-lisp
+
+# Where to install the manual pages.
+man1dir = $(prefix)/man/man1
+# Prefix/suffix for each installed man page, normally empty or `g'.
+man1prefix = $(binprefix)
+man1suffix = $(binsuffix)
+# Extension (not including `.') for the installed manual page filenames.
+man1ext = 1
+
+AUTOCONF       = autoconf
+AUTOHEADER     = autoheader
+EMACS          = emacs
+ETAGS          = etags
+GZIP           = gzip
+LN             = ln -s
+MAKEINFO       = makeinfo
+MAKEINFOFLAGS  = --no-split -I. -I$(srcdir)
+MV             = mv
+RM             = rm -f
+TAR            = tar
+TOUCH 	       = touch
+TEXI2DVI       = texi2dvi
+TEXI2DVIFLAGS  = #-I. -I$(srcdir)
+
+#### End of system configuration section. ####
+
+SHELL = /bin/sh
+
+LOADLIBES = $(LIBS) $(LIBXAUTH)
+
+DIST_TXTS = INSTALL COPYING README README.orig ChangeLog
+DIST_MISC = 
+DIST_CONF = Makefile.in acconfig.h aclocal.m4 config.h.in config.h.bot \
+            configure configure.in install-sh mkinstalldirs
+DIST_SCPS = gnuattach gnudoit
+DIST_SRCS = getopt.c gnuclient.c gnuserv.c gnuslib.c
+DIST_HDRS = getopt.h gnuserv.h sysfile.h
+DIST_DOCS = gnuserv.1
+DIST_LISP = gnuserv.el gnuserv-compat.el devices.el
+DISTFILES = $(DIST_TXTS) $(DIST_MISC) $(DIST_CONF) $(DIST_SCPS) \
+            $(DIST_SRCS) $(DIST_HDRS) $(DIST_DOCS) $(DIST_LISP)
+
+
+COMPILE_FLAGS = -I. -I$(srcdir) $(DEFS) $(CPPFLAGS) $(CFLAGS)
+.c.o:
+	$(CC) -c $(COMPILE_FLAGS) $<
+
+.SUFFIXES: .texi .info
+.texi.info:
+	$(MAKEINFO) $(MAKEINFOFLAGS) $<
+
+.SUFFIXES: .texi .dvi
+.texi.dvi:
+	$(TEXI2DVI) $(TEXI2DVIFLAGS) $<
+
+.SUFFIXES: .el .elc
+.el.elc:
+	$(EMACS) -batch -l loadup -f batch-byte-compile $<
+
+all: all-gnuserv
+all-info: info
+
+### targets required by GNU Coding standards ###
+
+Makefile: Makefile.in config.status
+	$(SHELL) ./config.status
+
+config.status: configure
+	$(SHELL) ./config.status --recheck
+
+configure: configure.in
+	cd $(srcdir) && $(AUTOCONF)
+
+config.h.in: configure.in
+	cd $(srcdir) && $(AUTOHEADER)
+
+config.h: config.h.in
+	$(SHELL) ./config.status
+
+TAGS:
+	cd $(srcdir) && $(ETAGS)
+
+.PHONY: clean mostlyclean distclean
+clean:
+	$(RM) $(PROGS) *.o *.elc core a.out
+
+mostlyclean: clean
+
+distclean: clean
+	$(RM) Makefile config.status config.log config.cache config.h
+
+.PHONY: maintainer-clean maintclean-warning
+maintainer-clean: maintclean-warning distclean
+	$(RM) configure config.h.in getdate.c y.tab.c
+
+# Used by maintainer-clean to print a warning before any rm commands are run.
+maintclean-warning:
+	@echo "This command is intended for maintainers to use;"
+	@echo "it deletes files that may require special tools to rebuild."
+
+realclean: distclean
+	$(RM) TAGS
+
+.PHONY: dist
+dist: $(DISTFILES)
+	$(TOUCH) config.h.in
+	$(RM) -r $(DISTNAME)
+	mkdir $(DISTNAME)
+	@dst=$(DISTNAME); for f in $(DISTFILES); do \
+	   { cmd=ln; $$cmd $(srcdir)/$$f $$dst/$$f ; } \
+	     || { cmd='cp -p'; cp -p $(srcdir)/$$f $$dst/$$f ; }; \
+	   echo $$cmd $(srcdir)/$$f $$dst/$$f; \
+	done
+	$(TAR) cf - $(DISTNAME) | $(GZIP) > $(DISTNAME).tar.gz
+	$(RM) -r $(DISTNAME)
+
+.PHONY: installdirs uninstall
+install: all installdirs install-programs install-man install-elisp
+
+installdirs: force
+	-$(SHELL) $(srcdir)/mkinstalldirs $(bindir) $(datadir) $(libdir) $(infodir) $(man1dir) $(elispdir)
+
+install-programs: all-gnuserv
+	@for prog in gnuserv gnuclient ; do \
+	  new=$(bindir)/$(binprefix)$$prog$(binsuffix); \
+          echo $(INSTALL_PROGRAM) $$prog $$new; \
+	  $(INSTALL_PROGRAM) $$prog $$new;\
+	done
+	@for prog in gnuattach gnudoit ; do \
+	  new=$(bindir)/$(binprefix)$$prog$(binsuffix); \
+          echo $(INSTALL_SCRIPT) $$prog $$new; \
+	  $(INSTALL_SCRIPT) $$prog $$new;\
+	done
+
+install-man: force
+	@new=$(man1prefix)gnuserv$(man1suffix).$(man1ext); \
+	echo $(INSTALL_DATA) $(srcdir)/gnuserv.1 $(man1dir)/$$new; \
+	$(INSTALL_DATA) $(srcdir)/gnuserv.1 $(man1dir)/$$new; \
+	cd $(man1dir) || exit 1; \
+	for l in gnuclient gnuattach gnudoit ; do \
+	  l=$(man1dir)/$(man1prefix)$$l$(man1suffix).$(man1ext); \
+	  echo $(LN) $(man1dir)/$$new $$l; \
+	  $(RM) $$l; $(LN) $$new $$l; \
+	done
+
+install-elisp: gnuserv.el gnuserv.elc
+	for e in gnuserv gnuserv-compat devices ; do \
+	  $(INSTALL_DATA) $(srcdir)/$${e}.el $(elispdir)/$${e}.el; \
+	  $(INSTALL_DATA) $${e}.elc $(elispdir)/$${e}.elc; \
+	done
+
+uninstall: force
+	-cd $(bindir) && $(RM) $(PROGS)
+	-@cd $(man1dir);\
+	 for l in $(PROGS); do \
+	   f=$(man1dir)/$(man1prefix)$$l$(man1suffix).$(man1ext); \
+	   echo $(RM) $$f && $(RM) $$f ; \
+	 done
+
+.PHONY: check installcheck force
+check:
+	@echo 'Nothing to be done for "check"'
+
+installcheck:
+	@echo 'Nothing to be done for "installcheck"'
+
+force:
+
+### program-specific building targets ###
+
+PROGS = gnuserv gnuclient
+ELC = gnuserv-compat.elc gnuserv.elc devices.elc
+
+all-gnuserv: $(PROGS) $(ELC)
+
+gnuserv: gnuserv.o gnuslib.o
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ gnuserv.o gnuslib.o $(LOADLIBES)
+
+gnuclient: gnuclient.o gnuslib.o getopt.o
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ gnuclient.o gnuslib.o getopt.o $(LOADLIBES)
+
+gnuserv.o: gnuserv.c gnuserv.h config.h
+gnuclient.o: gnuclient.c gnuserv.h getopt.h config.h
+gnuslib.o: gnuslib.c gnuserv.h getopt.o config.h
+getopt.o: getopt.c getopt.h config.h
+
+gnuserv-compat.elc: gnuserv-compat.el
+	$(EMACS) -batch -l loadup \
+		--eval "(add-to-list 'load-path \".\")" \
+		-l gnuserv-compat  -f batch-byte-compile $<
+gnuserv.elc: gnuserv.el
+	$(EMACS) -batch -l loadup \
+	--eval "(add-to-list 'load-path \".\")" \
+	-l gnuserv-compat -f batch-byte-compile $<
+devices.elc: devices.el
+
+info: gnuserv.info
+gnuserv.info: gnuserv.texi
+
+dvi: gnuserv.dvi
+gnuserv.dvi: gnuserv.texi
+
+# Prevent GNU make v3 from overflowing arg limit on SysV.
+.NOEXPORT:
+
+# local variables:
+# mode: makefile
+# end:
+
+# Makefile.in ends here

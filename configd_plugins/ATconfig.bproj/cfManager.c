@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -124,15 +127,17 @@ configWrite(const char *path, CFArrayRef config)
 }
 
 
+#ifdef	NOTNOW
 void
 configSet(CFMutableArrayRef config, CFStringRef key, CFStringRef value)
 {
 	CFMutableStringRef	pref;
 	CFIndex			configLen	= CFArrayGetCount(config);
 	CFIndex			i;
+	CFIndex			n;
 	CFMutableStringRef	newValue;
 	CFRange			range;
-	CFStringRef		specialChars	= CFSTR(" \"'$!|\\><{}[]");
+	CFStringRef		specialChars	= CFSTR(" \"'$!|\\<>`{}[]");
 	boolean_t		mustQuote	= FALSE;
 
 	/* create search prefix */
@@ -147,7 +152,9 @@ configSet(CFMutableArrayRef config, CFStringRef key, CFStringRef value)
 	 *       string is properly quoted.
 	 */
 	newValue = CFStringCreateMutableCopy(NULL, 0, value);
-	for (i=0; i<CFStringGetLength(specialChars); i++) {
+
+	n = CFStringGetLength(specialChars);
+	for (i = 0; i < n; i++) {
 		CFStringRef	specialChar;
 
 		specialChar = CFStringCreateWithSubstring(NULL, specialChars, CFRangeMake(i, 1));
@@ -161,13 +168,14 @@ configSet(CFMutableArrayRef config, CFStringRef key, CFStringRef value)
 	}
 
 	if (mustQuote) {
-		CFStringRef	charsToQuote	= CFSTR("\"\\");
+		CFStringRef	charsToQuote	= CFSTR("\\\"$`");
 
 		/*
 		 * in addition to quoting the entire string we also need to escape the
 		 * space " " and backslash "\" characters
 		 */
-		for (i=0; i<CFStringGetLength(charsToQuote); i++) {
+		n = CFStringGetLength(charsToQuote);
+		for (i = 0; i < n; i++) {
 			CFStringRef	quoteChar;
 			CFArrayRef	matches;
 
@@ -198,7 +206,7 @@ configSet(CFMutableArrayRef config, CFStringRef key, CFStringRef value)
 	}
 
 	/* locate existing key */
-	for (i=0; i<configLen; i++) {
+	for (i = 0; i < configLen; i++) {
 		if (CFStringHasPrefix(CFArrayGetValueAtIndex(config, i), pref)) {
 			break;
 		}
@@ -234,7 +242,7 @@ configRemove(CFMutableArrayRef config, CFStringRef key)
 	CFStringAppend(pref, CFSTR("="));
 
 	/* locate existing key */
-	for (i=0; i<configLen; i++) {
+	for (i = 0; i < configLen; i++) {
 		if (CFStringHasPrefix(CFArrayGetValueAtIndex(config, i), pref)) {
 			/* entry found, remove it */
 			CFArrayRemoveValueAtIndex(config, i);
@@ -245,3 +253,4 @@ configRemove(CFMutableArrayRef config, CFStringRef key)
 	CFRelease(pref);
 	return;
 }
+#endif	/* NOTNOW */

@@ -792,7 +792,7 @@ This file describes the changes to xinetd. The base version is 2.0.0.
 		free()'d memory.
 	Fixed a bug in the consistency check mechanism where it would
 		report the signal pipe as a problem.
-	Clear memory before freeing it.  This isn't strictly necissary,
+	Clear memory before freeing it.  This isn't strictly necessary,
 		but aids in debugging.
 	Add the pid to debugging messages.
 	Remove access control calls for special services.  The access control
@@ -809,3 +809,53 @@ This file describes the changes to xinetd. The base version is 2.0.0.
 		- Andrey Alekseyev
 	Fix a reconfig timing issue.
 		- Andrey Alekseyev
+2.3.11
+	Fix some compile time errors on Solaris
+	Fixed a bounds check in Sdone().  Patch from Dmitry V. Levin
+	Added FreeBSD loadavg support.  Patch from Vanilla I. Shu
+	TCPMUX parser updates. -Steve Grubb
+	TCPMUX was causing core dumps due to changes made in 2.3.10's 
+		child_process(), reverted changes. -Philip Armstrong
+	Remove RECORD logging option. -Steve Grubb
+	Change Sclose to make sure it always closes the fd. -Steve Grubb
+	Added better error handling to filelog.c. -Steve Grubb
+	Error messages now go to syslog instead of stderr in 
+		strparse.c. -Steve Grubb
+	Fixed memory leaks found with valgrind. -Steve Grubb
+	Correct problems with bind specified in the default 
+		section. -Steve Grubb
+	Use Sclose to close banner commands. -Jay Fenlason
+	Correct banner to match man pages. -Jay Fenlason
+devel
+	Cleanup some signal handling if not defined. -MARUYAMA Shinichi
+	Make ident protocol work properly for multi-homed hosts. -Alan Sundell
+	Code cleanup for const warnings. -Steve Grubb
+	Make redirect protocol independent. -Cougar
+	Make reconfig iterate over all services. Some may be in "not started"
+		state and were being missed. -Steve Grubb
+	Make redirected, forking builtins, & tcpmux close all listening
+		descriptors so reconfig works. -Jay Fenlason
+	Add support for the IPV6_V6ONLY socket option.  Don't assume
+		a default setting, as the default seems to be in flux.
+	Address compare in readjust was wrong. Its now corrected to handle
+		each address family separately. -Steve Grubb
+	Add command line option to not fork. This will allow xinetd to be
+		started by init or daemontools. -Matthias Andree
+	Fixed a leak in reconfig. If log_type = file is used for a service and
+		SIGHUP is sent to xinetd, it leaked a file descriptor and 
+		44 bytes of memory per service using FILE. -Steve Grubb
+	Change all close() calls to Sclose() to prevent future 
+		problems. -Steve Grubb
+	Fixed bug if service name is unparsable and in an included directory
+		that caused xinetd to core dump. -Steve Grubb
+	Fixed bug where address lists had "version" uninitialized when the 
+		list used hostnames with no dots in the name. -Steve Grubb
+	Numerous memory leaks when parsing errors occurred. -Steve Grubb
+	Remove the servers and xadmin internal services.
+	Update addrlist_match to use the address part of the IPv6 address
+		structure. -Christof Meerwald 
+	Correct looping problems for udp connections rejected by the child
+		access controls. -Steve Grubb
+	Added TRAFFIC logging option to report total bytes in and out for a 
+		redirected service. -Christof Meerwald 
+	Correct a double-free condition if a retry was scheduled. -Steve Grubb

@@ -369,14 +369,43 @@ static kern_return_t SetOFVariable(char *name, char *value)
   if (valueRef) {
     typeID = CFGetTypeID(valueRef);
     CFRelease(valueRef);
-  } else typeID = CFDataGetTypeID();
-  
-  valueRef = ConvertValueToCFTypeRef(typeID, value);
-  if (valueRef == 0) {
-    FatalError(-1, "Error (-1) creating CFTypeRef for value %s",(long)value);
+    
+    valueRef = ConvertValueToCFTypeRef(typeID, value);
+    if (valueRef == 0) {
+      FatalError(-1, "Error (-1) creating CFTypeRef for value %s",(long)value);
+    }  result = IORegistryEntrySetCFProperty(gOptionsRef, nameRef, valueRef);
+  } else {
+    while (1) {
+      // In the default case, try data, string, number, then boolean.    
+      
+      valueRef = ConvertValueToCFTypeRef(CFDataGetTypeID(), value);
+      if (valueRef != 0) {
+	result = IORegistryEntrySetCFProperty(gOptionsRef, nameRef, valueRef);
+	if (result == KERN_SUCCESS) break;
+      }
+      
+      valueRef = ConvertValueToCFTypeRef(CFStringGetTypeID(), value);
+      if (valueRef != 0) {
+	result = IORegistryEntrySetCFProperty(gOptionsRef, nameRef, valueRef);
+	if (result == KERN_SUCCESS) break;
+      }
+      
+      valueRef = ConvertValueToCFTypeRef(CFNumberGetTypeID(), value);
+      if (valueRef != 0) {
+	result = IORegistryEntrySetCFProperty(gOptionsRef, nameRef, valueRef);
+	if (result == KERN_SUCCESS) break;
+      }
+      
+      valueRef = ConvertValueToCFTypeRef(CFBooleanGetTypeID(), value);
+      if (valueRef != 0) {
+	result = IORegistryEntrySetCFProperty(gOptionsRef, nameRef, valueRef);
+	if (result == KERN_SUCCESS) break;
+      }
+      
+      result = -1;
+      break;
+    }
   }
-  
-  result = IORegistryEntrySetCFProperty(gOptionsRef, nameRef, valueRef);
   
   CFRelease(nameRef);
   

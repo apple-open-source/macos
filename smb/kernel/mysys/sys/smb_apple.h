@@ -15,13 +15,15 @@
 #include <kern/wait_queue.h>
 #include <string.h>
 
+#ifndef PRIVSYM
+#define PRIVSYM __private_extern__
+#endif
+
 #undef KASSERT
 #define KASSERT(exp,msg)	do { if (!(exp)) panic msg; } while (0)
 
 #define curproc current_proc()
 #define vnode_pager_setsize ubc_setsize /* works since n_size is quad */
-
-#define lf_advlock(a, b, c) (0)
 
 #define VFS_SET(a, b, c)
 #define vop_defaultop vn_default_error
@@ -114,7 +116,7 @@ struct smb_cred;
 extern int	smbfs_smb_flush __P((struct smbnode *, struct smb_cred *));
 extern int	smb_smb_flush __P((struct smbnode *, struct smb_cred *));
 extern int	smbfs_0extend __P((struct vnode *, u_quad_t, u_quad_t,
-				 struct smb_cred *, struct proc *));
+				 struct smb_cred *, struct proc *, int));
 
 extern unsigned		splbio __P((void));
 extern void		splx __P((unsigned));
@@ -130,7 +132,7 @@ extern void wait_queue_sub_init __P((wait_queue_sub_t, int));
 extern kern_return_t wait_subqueue_unlink_all __P((wait_queue_sub_t));
 
 
-extern void		smb_vhashrem __P((struct vnode *, struct proc *));
+extern void		smb_vhashrem __P((struct smbnode *, struct proc *));
 
 typedef int	 vop_t __P((void *));
 

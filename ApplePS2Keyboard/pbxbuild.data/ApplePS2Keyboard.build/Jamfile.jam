@@ -7,19 +7,19 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = ApplePS2Keyboard ;
-export deferred SRCROOT = /Volumes/Users/markaria/Active/ApplePS2Keyboard ;
+export deferred SRCROOT = /Volumes/Junk/ApplePS2Keyboard ;
 
 # User-defined project-wide settings for project
 
 # Target "ApplePS2Keyboard"
 
-export deferred _INFO_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/Info.plist" ;
-export deferred _PKGINFO_FILE_PATH = "$(SRCROOT)/pbxbuild.data/PkgInfo" ;
-export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/pbdevelopment.plist" ;
+export deferred _INFO_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/ApplePS2Keyboard.build/Info.plist" ;
+export deferred _PKGINFO_FILE_PATH = "$(SRCROOT)/pbxbuild.data/ApplePS2Keyboard.build/PkgInfo" ;
+export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/ApplePS2Keyboard.build/pbdevelopment.plist" ;
 
 # Implicitly computed build settings for target "ApplePS2Keyboard"
 export deferred CLONE_HEADERS = NO ;
-export deferred PFE_FILE_C_DIALECTS = "c++" ;
+export deferred PFE_FILE_C_DIALECTS = c++ ;
 export deferred TARGETNAME = $(TARGET_NAME) ;
 export deferred TARGET_NAME = ApplePS2Keyboard ;
 
@@ -31,7 +31,7 @@ export deferred KERNEL_MODULE = YES ;
 export deferred LIBRARY_SEARCH_PATHS =  ;
 export deferred MODULE_IOKIT = YES ;
 export deferred MODULE_NAME = com.apple.driver.ApplePS2Keyboard ;
-export deferred MODULE_VERSION = 1.0.1 ;
+export deferred MODULE_VERSION = 1.0.2 ;
 export deferred OTHER_CFLAGS = -fpermissive ;
 export deferred OTHER_LDFLAGS =  ;
 export deferred OTHER_REZFLAGS =  ;
@@ -56,7 +56,7 @@ commitdeferred ;
 BeginBundle "<ApplePS2Keyboard>ApplePS2Keyboard.kext" ;
 
 # Script Build Phase Files
-SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/BPTag000-script.sh" ;
+SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/ApplePS2Keyboard.build/BPTag000-script.sh" ;
 ProcessScriptBuildPhaseFiles "<ApplePS2Keyboard>ApplePS2Keyboard.kext" : "$(SCRIPT_BUILD_PHASE_FILES)" : "" : BPTag000 ;
 
 # Headers
@@ -83,8 +83,14 @@ REZ_FILES = ;
 ProcessRezFiles "<ApplePS2Keyboard>ApplePS2Keyboard.kext" : "$(REZ_FILES)" : BPTag004 : BPTag005 ;
 
 # Script Build Phase Files
-SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/BPTag006-script.sh" ;
+SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/ApplePS2Keyboard.build/BPTag006-script.sh" ;
 ProcessScriptBuildPhaseFiles "<ApplePS2Keyboard>ApplePS2Keyboard.kext" : "$(SCRIPT_BUILD_PHASE_FILES)" : BPTag005 : BPTag006 ;
+
+rule DefineHeaderDependencies
+{
+}
+
+DefineHeaderDependencies "<ApplePS2Keyboard>ApplePS2Keyboard.kext" ;
 
 EndBundle "<ApplePS2Keyboard>ApplePS2Keyboard.kext" ;
 

@@ -1,0 +1,85 @@
+
+JBoss-IIOP.
+-----------
+
+DESCRIPTION:
+
+This is some preliminary code for IIOP support in JBoss.
+
+1) In package org.jboss.iiop, I have written a simple MBean that serves
+   an ORB and POA in JNDI "java:" for JBoss to use.
+
+2) In package org.jboss.iiop.rmi, I have written some code for analysing
+   java classes to get the metadata needed for a compile-less RMI-IIOP
+    mapping.
+
+3) In package org.jboss.iiop.rmi.ir, I have written the code for a CORBA
+   Interface Repository that can be easily filled in with some remote
+   interfaces. This IR is meant to publish the metadata of the RMI-IIOP
+   mapping in the usual CORBA IR format.
+
+4) In package org.jboss.iiop.rmi.server, I have written some code for
+   supporting an IIOP-based container invoker for JBoss. This contains
+   code for unmarshaling invocation arguments, and marshaling return
+   values and exceptions thrown.
+
+
+HOW TO RUN:
+
+1) Copy the file jacorb.jar to $JBOSS/lib and $JBOSS/src/lib, where $JBOSS
+   is the root of the JBoss source distribution. The file jacorb.jar is the
+   result of applying the patch JacORB.diff to JacORB 1.3.30 and recompiling
+   JacORB.
+2) Add a MBean entry to $JBOSS/src/etc/conf/default/jboss.jcml, like:
+   <!-- ==================================================================== -->
+   <!-- RMI/IIOP                                                             -->
+   <!-- ==================================================================== -->
+   <mbean code="org.jboss.iiop.CorbaORBService"
+          name="DefaultDomain:service=CorbaORB">
+   </mbean>
+3) Do a recursive copy of the src subdirectory here to $JBOSS/src.
+   This adds new directories and files, but should not change anything in
+   the existing JBoss sources. 
+4) Compile JBoss the usual way.
+5) Copy the file jacorb.properties to $JBOSS/dist/bin.
+6) When starting JBoss, you should see startup messages for the new service,
+   like:
+     [CorbaORBService] Starting
+     [Default] Setup Info: properties was file loaded from: file:$JBOSS/dist/bin/jacorb.properties
+     [Default]       JacORB V 1.3.30, www.jacorb.org
+     [Default]       (C) Gerald Brose, FU Berlin, 13 June 2001
+     [Default] [ Build: org.jacorb.orb.standardInterceptors.IORInterceptorInitializer ]
+     [Default] [ InterceptorManager started with 0 SIs, 0 CIs and 1 IORIs ]
+     [Default] [ no initial map policy defined. Defining default initial map policy ]
+7) When starting the new service, a test interface repository is created, and
+   loaded with a few test classes. This will emit a large amount of debug
+   information to the logs. If this succeeds, the logs should contain lines like:
+     [Default] *******************************************
+     [Default] *******************************************
+     [Default] *******************************************
+     [Default] IR: [IOR:<snipped large hex string>]
+     [Default] *******************************************
+     [Default] *******************************************
+     [Default] *******************************************
+     [CorbaORBService] Started
+8) The IOR of the test IR is stringified, and written to the file
+   $JBOSS/dist/bin/t.ior
+9) To browse the IR, copy the script irbrowse.sh to $JBOSS/dist/bin.
+   You may have to edit that file to fit your environment.
+   Then simply run this script, and it should start the JacORB interface
+   repository browser GUI.
+
+
+CREDITS:
+
+Gerald Brose deserves _lots_ of credits for making this possible.
+- For creating JacORB, and making it available under a Free license.
+- For his work on Java and CORBA metadata, and his coding the JacORB IR,
+  which was a great inspiration for this.
+
+
+Best Regards,
+
+Ole Husgaard.
+osh@sparre.dk
+

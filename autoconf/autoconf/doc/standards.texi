@@ -3,16 +3,13 @@
 @setfilename standards.info
 @settitle GNU Coding Standards
 @c This date is automagically updated when you save this file:
-@set lastupdate March 23, 2001
+@set lastupdate November 23, 2002
 @c %**end of header
 
-@ifinfo
-@format
-START-INFO-DIR-ENTRY
+@dircategory GNU organization
+@direntry
 * Standards: (standards).        GNU coding standards.
-END-INFO-DIR-ENTRY
-@end format
-@end ifinfo
+@end direntry
 
 @c @setchapternewpage odd
 @setchapternewpage off
@@ -32,73 +29,51 @@ END-INFO-DIR-ENTRY
 @set CHAPTER node
 @end ifinfo
 
-@ifinfo
-GNU Coding Standards
-Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+@copying
+The GNU coding standards, last updated @value{lastupdate}.
 
-Permission is granted to make and distribute verbatim copies of
-this manual provided the copyright notice and this permission notice
-are preserved on all copies.
+Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
+2001, 2002 Free Software Foundation, Inc.
 
-@ignore
-Permission is granted to process this file through TeX and print the
-results, provided the printed document carries copying permission
-notice identical to this one except for the removal of this paragraph
-(this paragraph not being relevant to the printed manual).
-@end ignore
-
-Permission is granted to copy and distribute modified versions of this
-manual under the conditions for verbatim copying, provided that the entire
-resulting derived work is distributed under the terms of a permission
-notice identical to this one.
-
-Permission is granted to copy and distribute translations of this manual
-into another language, under the above conditions for modified versions,
-except that this permission notice may be stated in a translation approved
-by the Free Software Foundation.
-@end ifinfo
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1
+or any later version published by the Free Software Foundation;
+with no Invariant Sections, with no
+Front-Cover Texts, and with no Back-Cover Texts.
+A copy of the license is included in the section entitled ``GNU
+Free Documentation License''.
+@end copying
 
 @titlepage
 @title GNU Coding Standards
-@author Richard Stallman
+@author Richard Stallman, et al.
 @author last updated @value{lastupdate}
 @page
-
 @vskip 0pt plus 1filll
-Copyright @copyright{} 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
-
-Permission is granted to make and distribute verbatim copies of
-this manual provided the copyright notice and this permission notice
-are preserved on all copies.
-
-Permission is granted to copy and distribute modified versions of this
-manual under the conditions for verbatim copying, provided that the entire
-resulting derived work is distributed under the terms of a permission
-notice identical to this one.
-
-Permission is granted to copy and distribute translations of this manual
-into another language, under the above conditions for modified versions,
-except that this permission notice may be stated in a translation approved
-by the Free Software Foundation.
+@insertcopying
 @end titlepage
 
-@ifinfo
+@contents
+
+@ifnottex
 @node Top, Preface, (dir), (dir)
 @top Version
 
-Last updated @value{lastupdate}.
-@end ifinfo
+@insertcopying
+@end ifnottex
 
 @menu
-* Preface::                 About the GNU Coding Standards
-* Legal Issues::            Keeping Free Software Free
-* Design Advice::           General Program Design
-* Program Behavior::        Program Behavior for All Programs
-* Writing C::               Making The Best Use of C
-* Documentation::           Documenting Programs
-* Managing Releases::       The Release Process
-* References::              References to Non-Free Software or Documentation
-* Index::
+* Preface::                     About the GNU Coding Standards
+* Legal Issues::                Keeping Free Software Free
+* Design Advice::               General Program Design
+* Program Behavior::            Program Behavior for All Programs
+* Writing C::                   Making The Best Use of C
+* Documentation::               Documenting Programs
+* Managing Releases::           The Release Process
+* References::                  References to Non-Free Software or Documentation
+* Copying This Manual::         How to Make Copies of This Manual
+* Index::                       
+
 @end menu
 
 @node Preface
@@ -118,14 +93,15 @@ This release of the GNU Coding Standards was last updated
 @cindex where to obtain @code{standards.texi}
 @cindex downloading this manual
 If you did not obtain this file directly from the GNU project and
-recently, please check for a newer version.  You can ftp the GNU
-Coding Standards from any GNU FTP host in the directory
-@file{/pub/gnu/standards/}.  The GNU Coding Standards are available
-there in several different formats: @file{standards.text},
-@file{standards.info}, and @file{standards.dvi}, as well as the
+recently, please check for a newer version.  You can get the GNU
+Coding Standards from the GNU World Wide Web server host in several
+different formats: @uref{http://www.gnu.org/prep/standards.text},
+@uref{http://www.gnu.org/prep/standards.info}, and
+@uref{http://www.gnu.org/prep/standards.dvi}, as well as the
 Texinfo ``source'' which is divided in two files:
-@file{standards.texi} and @file{make-stds.texi}.  The GNU Coding
-Standards are also available on the GNU World Wide Web server:
+@uref{http://www.gnu.org/prep/standards.texi} and
+@uref{http://www.gnu.org/prep/make-stds.texi}.  The GNU Coding
+Standards are also available in HTML format starting at
 @uref{http://www.gnu.org/prep/standards_toc.html}.
 
 Corrections or suggestions for this document should be sent to
@@ -133,6 +109,22 @@ Corrections or suggestions for this document should be sent to
 suggested new wording for it; our time is limited.  We prefer a context
 diff to the @file{standards.texi} or @file{make-stds.texi} files, but if
 you don't have those files, please mail your suggestion anyway.
+
+These standards cover the minimum of what is important when writing a
+GNU package.  Likely, the needs for additional standards will come up.
+Sometimes, you might suggest that such standards be added to this
+document.  If you think your standards would be generally useful, please
+do suggest them.
+
+You should also set standards for your package on many questions not
+addressed or not firmly specified here.  The most important point is to
+be self-consistent---try to stick to the conventions you pick, and try
+to document them as much as possible.  That way, your program will be
+more maintainable by others.
+
+The GNU Hello program serves as an example of how to follow the GNU
+coding standards for a trivial program which prints @samp{Hello,
+world!}.  @uref{http://www.gnu.org/software/hello/hello.html}.
 
 @node Legal Issues
 @chapter Keeping Free Software Free
@@ -272,6 +264,7 @@ account when designing your program.
 * Compatibility::               Compatibility with other implementations
 * Using Extensions::            Using non-standard features
 * Standard C::                  Using Standard C features
+* Conditional Compilation::     Compiling Code Only If A Conditional is True
 @end menu
 
 @node Source Language
@@ -463,6 +456,54 @@ prototypes, you may want to use a preprocessor macro like this:
 #endif
 @end example
 
+@node Conditional Compilation
+@section Conditional Compilation
+
+When supporting configuration options already known when building your
+program we prefer using @code{if (... )} over conditional compilation,
+as in the former case the compiler is able to perform more extensive
+checking of all possible code paths.
+
+For example, please write
+
+@smallexample
+  if (HAS_FOO)
+    ...
+  else
+    ...
+@end smallexample
+
+instead of:
+
+@smallexample
+  #ifdef HAS_FOO
+    ...
+  #else
+    ...
+  #endif
+@end smallexample
+
+A modern compiler such as GCC will generate exactly the same code in
+both cases, and we have been using similar techniques with good success
+in several projects.
+
+While this is not a silver bullet solving all portability problems,
+following this policy would have saved the GCC project alone many person
+hours if not days per year.
+
+In the case of function-like macros like @code{REVERSIBLE_CC_MODE} in
+GCC which cannot be simply used in @code{if( ...)} statements, there is
+an easy workaround.  Simply introduce another macro
+@code{HAS_REVERSIBLE_CC_MODE} as in the following example:
+
+@smallexample
+  #ifdef REVERSIBLE_CC_MODE
+  #define HAS_REVERSIBLE_CC_MODE 1
+  #else
+  #define HAS_REVERSIBLE_CC_MODE 0
+  #endif
+@end smallexample
+
 @node Program Behavior
 @chapter Program Behavior for All Programs
 
@@ -635,10 +676,12 @@ Error messages from compilers should look like this:
 @end example
 
 @noindent
-If you want to mention the column number, use this format:
+If you want to mention the column number, use one of these formats:
 
 @example
 @var{source-file-name}:@var{lineno}:@var{column}: @var{message}
+@var{source-file-name}:@var{lineno}.@var{column}: @var{message}   
+
 @end example
 
 @noindent
@@ -647,6 +690,24 @@ column numbers should start from 1 at the beginning of the line.  (Both
 of these conventions are chosen for compatibility.)  Calculate column
 numbers assuming that space and all ASCII printing characters have
 equal width, and assuming tab stops every 8 columns.
+
+The error message can also give both the starting and ending positions
+of the erroneous text.  There are several formats so that you can
+avoid redundant information such as a duplicate line number.
+Here are the possible formats:
+
+@example
+@var{source-file-name}:@var{lineno-1}.@var{column-1}-@var{lineno-2}.@var{column-2}: @var{message}
+@var{source-file-name}:@var{lineno-1}.@var{column-1}-@var{column-2}: @var{message}
+@var{source-file-name}:@var{lineno-1}-@var{lineno-2}: @var{message}
+@end example
+
+@noindent
+When an error is spread over several files, you can use this format:
+
+@example
+@var{file-1}:@var{lineno-1}.@var{column-1}-@var{file-2}:@var{lineno-2}.@var{column-2}: @var{message}
+@end example
 
 Error messages from other noninteractive programs should look like this:
 
@@ -859,6 +920,24 @@ which changes were made---there's no need to list the years for previous
 versions' changes.  You don't have to mention the name of the program in
 these notices, if that is inconvenient, since it appeared in the first
 line.
+
+Translations of the above lines must preserve the validity of the
+copyright notices (@pxref{Internationalization}).  If the translation's
+character set supports it, the @samp{(C)} should be replaced with the
+copyright symbol, as follows:
+
+@ifinfo 
+(the official copyright symbol, which is the letter C in a circle); 
+@end ifinfo 
+@ifnotinfo 
+@copyright{}
+@end ifnotinfo 
+
+Write the word ``Copyright'' exactly like that, in English.  Do not
+translate it into another language.  International treaties recognize
+the English word ``Copyright''; translations into other languages do not
+have legal significance.
+
 
 @cindex @samp{--help} option
 @item --help
@@ -1258,7 +1337,7 @@ Used to ask for brief usage information.
 @samp{-q} in @code{ls}.
 
 @item html
-In @code{makeinfo}, output HTML.  
+In @code{makeinfo}, output HTML.
 
 @item idle
 @samp{-u} in @code{who}.
@@ -1510,6 +1589,9 @@ Used in GDB.
 
 @item no-sort
 @samp{-p} in @code{nm}.
+
+@item no-splash
+Don't print a startup splash screen.
 
 @item no-split
 Used in @code{makeinfo}.
@@ -2043,7 +2125,7 @@ when writing GNU software.
 * Formatting::                  Formatting Your Source Code
 * Comments::                    Commenting Your Work
 * Syntactic Conventions::       Clean Use of C Constructs
-* Names::                       Naming Variables and Functions
+* Names::                       Naming Variables, Functions, and Files
 * System Portability::          Portability between different operating systems
 * CPU Portability::             Supporting the range of CPU types
 * System Functions::            Portability and ``standard'' library functions
@@ -2437,9 +2519,9 @@ casts to @code{void}.  Zero without a cast is perfectly fine as a null
 pointer constant, except when calling a varargs function.
 
 @node Names
-@section Naming Variables and Functions
+@section Naming Variables, Functions, and Files
 
-@cindex names of variables and functions
+@cindex names of variables, functions, and files
 The names of global variables and functions in a program serve as
 comments of a sort.  So don't choose terse names---instead, look for
 names that give useful information about the meaning of the variable or
@@ -2938,10 +3020,13 @@ together, we can make the whole subject clearer.
 
 The manual which discusses a program should certainly document all of
 the program's command-line options and all of its commands.  It should
-give examples of their use.  But don't organize the manual as a list of
-features.  Instead, organize it logically, by subtopics.  Address the
-questions that a user will ask when thinking about the job that the
-program does.
+give examples of their use.  But don't organize the manual as a list
+of features.  Instead, organize it logically, by subtopics.  Address
+the questions that a user will ask when thinking about the job that
+the program does.  Don't just tell the reader what each feature can
+do---say what jobs it is good for, and show how to use it for those
+jobs.  Explain what is recommended usage, and what kinds of usage
+users should avoid.
 
 In general, a GNU manual should serve both as tutorial and reference.
 It should be set up for convenient access to each topic through Info,
@@ -2979,15 +3064,15 @@ exceptions.)  Also, Unix man pages use a particular format which is
 different from what we use in GNU manuals.
 
 Please include an email address in the manual for where to report
-bugs @emph{in the manual}.
+bugs @emph{in the text of the manual}.
 
 Please do not use the term ``pathname'' that is used in Unix
 documentation; use ``file name'' (two words) instead.  We use the term
 ``path'' only for search paths, which are lists of directory names.
 
-Please do not use the term ``illegal'' to refer to erroneous input to a
-computer program.  Please use ``invalid'' for this, and reserve the term
-``illegal'' for activities punishable by law.
+Please do not use the term ``illegal'' to refer to erroneous input to
+a computer program.  Please use ``invalid'' for this, and reserve the
+term ``illegal'' for activities prohibited by law.
 
 @node Doc Strings and Manuals
 @section Doc Strings and Manuals
@@ -3354,7 +3439,7 @@ all GNU software.
 
 @menu
 * Configuration::               How Configuration Should Work
-* Makefile Conventions::	Makefile Conventions
+* Makefile Conventions::        Makefile Conventions
 * Releases::                    Making Releases
 @end menu
 
@@ -3424,18 +3509,25 @@ this:
 @var{cpu}-@var{company}-@var{system}
 @end example
 
-For example, a Sun 3 might be @samp{m68k-sun-sunos4.1}.
+For example, an Athlon-based GNU/Linux system might be
+@samp{i686-pc-linux-gnu}.
 
 The @code{configure} script needs to be able to decode all plausible
-alternatives for how to describe a machine.  Thus, @samp{sun3-sunos4.1}
-would be a valid alias.  For many programs, @samp{vax-dec-ultrix} would
-be an alias for @samp{vax-dec-bsd}, simply because the differences
-between Ultrix and @sc{bsd} are rarely noticeable, but a few programs
-might need to distinguish them.
-@c Real 4.4BSD now runs on some Suns.
-
-There is a shell script called @file{config.sub} that you can use
+alternatives for how to describe a machine.  Thus,
+@samp{athlon-pc-gnu/linux} would be a valid alias.
+There is a shell script called
+@uref{ftp://ftp.gnu.org/gnu/config/config.sub, @file{config.sub}}
+that you can use
 as a subroutine to validate system types and canonicalize aliases.
+
+The @code{configure} script should also take the option
+@option{--build=@var{buildtype}}, which should be equivalent to a
+plain @var{buildtype} argument.  For example, @samp{configure
+--build=i686-pc-linux-gnu} is equivalent to @samp{configure
+i686-pc-linux-gnu}.  When the build type is not specified by an option
+or argument, the @code{configure} script should normally guess it
+using the shell script
+@uref{ftp://ftp.gnu.org/gnu/config/config.guess, @file{config.guess}}.
 
 @cindex optional features, configure-time
 Other options are permitted to specify in more detail the software
@@ -3463,10 +3555,10 @@ to work with @var{package}.
 @c  Giving an optional @var{parameter} of
 @c @samp{no} should omit @var{package}, if it is used by default.
 
-Possible values of @var{package} include 
+Possible values of @var{package} include
 @samp{gnu-as} (or @samp{gas}), @samp{gnu-ld}, @samp{gnu-libc},
 @samp{gdb},
-@samp{x}, 
+@samp{x},
 and
 @samp{x-toolkit}.
 
@@ -3496,6 +3588,11 @@ The @code{configure} script should normally treat the specified type of
 system as both the host and the target, thus producing a program which
 works for the same type of machine that it runs on.
 
+To compile a program to run on a host type that differs from the build
+type, use the configure option @option{--host=@var{hosttype}}, where
+@var{hosttype} uses the same syntax as @var{buildtype}.  The host type
+normally defaults to the build type.
+
 To configure a cross-compiler, cross-assembler, or what have you, you
 should specify a target different from the host, using the configure
 option @samp{--target=@var{targettype}}.  The syntax for
@@ -3503,21 +3600,13 @@ option @samp{--target=@var{targettype}}.  The syntax for
 look like this:
 
 @example
-./configure @var{hosttype} --target=@var{targettype}
+./configure --host=@var{hosttype} --target=@var{targettype}
 @end example
 
+The target type normally defaults to the host type.
 Programs for which cross-operation is not meaningful need not accept the
 @samp{--target} option, because configuring an entire operating system for
 cross-operation is not a meaningful operation.
-
-Bootstrapping a cross-compiler requires compiling it on a machine other
-than the host it will run on.  Compilation packages accept a
-configuration option @samp{--build=@var{buildtype}} for specifying the
-configuration on which you will compile them, but the configure script
-should normally guess the build machine type (using
-@file{config.guess}), so this option is probably not necessary.  The
-host and target types normally default from the build type, so in
-bootstrapping a cross-compiler you must specify them both explicitly.
 
 Some programs have ways of configuring themselves automatically.  If
 your program is set up to do this, your @code{configure} script can simply
@@ -3619,38 +3708,105 @@ other files to get.
 @cindex references to non-free material
 
 A GNU program should not recommend use of any non-free program.  We
-can't stop some people from writing proprietary programs, or stop other
-people from using them.  But we can and should avoid helping to
-advertise them to new customers.
+can't stop some people from writing proprietary programs, or stop
+other people from using them, but we can and should refuse to
+advertise them to new potential customers.  Proprietary software is a
+social and ethical problem, and the point of GNU is to solve that
+problem.
 
-Sometimes it is important to mention how to build your package on top of
-some non-free operating system or other non-free base package.  In such
-cases, please mention the name of the non-free package or system in the
-briefest possible way.  Don't include any references for where to find
-more information about the proprietary program.  The goal should be that
-people already using the proprietary program will get the advice they
-need about how to use your free program, while people who don't already
-use the proprietary program will not see anything to encourage them to
-take an interest in it.
+The GNU definition of free software is found in
+@url{http://www.gnu.org/philosophy/free-sw.html}, with a list of
+important licenses and whether they qualify as free in
+@url{http://www.gnu.org/licenses/license-list.html}.  The terms
+``free'' and ``non-free'', used in this document, refer to that
+definition.  If it is not clear whether a license qualifies as free
+under this definition, please ask the GNU Project by writing to
+@email{licensing@@gnu.org}.  We will answer, and if the license is an
+important one, we will add it to the list.
 
-Likewise, a GNU package should not refer the user to any non-free
-documentation for free software.  The need for free documentation to go
-with free software is now a major focus of the GNU project; to show that
-we are serious about the need for free documentation, we must not
-undermine our position by recommending use of documentation that isn't
-free.
+When a non-free program or system is well known, you can mention it in
+passing---that is harmless, since users who might want to use it
+probably already know about it.  For instance, it is fine to explain
+how to build your package on top of some widely used non-free
+operating system, or how to use it together with some widely used
+non-free program.
+
+However, you should give only the necessary information to help those
+who already use the non-free program to use your program with
+it---don't give, or refer to, any further information about the
+proprietary program, and don't imply that the proprietary program
+enhances your program, or that its existence is in any way a good
+thing.  The goal should be that people already using the proprietary
+program will get the advice they need about how to use your free
+program with it, while people who don't already use the proprietary
+program will not see anything to lead them to take an interest in it.
+
+If a non-free program or system is obscure in your program's domain,
+your program should not mention or support it at all, since doing so
+would tend to popularize the non-free program more than it popularizes
+your program.  (You cannot hope to find many additional users among
+the users of Foobar if the users of Foobar are few.)
+
+Sometimes a program is free software in itself but depends on a
+non-free platform in order to run.  For instance, many Java programs
+depend on Sun's Java implementation, and won't run on the GNU Java
+Compiler (which does not yet have all the features) or won't run with
+the GNU Java libraries.  To recommend that program is inherently to
+recommend the non-free platform as well; if you should not do the
+latter, then don't do the former.
+
+A GNU package should not refer the user to any non-free documentation
+for free software.  Free documentation that can be included in free
+operating systems is essential for completing the GNU system, or any
+free operating system, so it is a major focus of the GNU Project; to
+recommend use of documentation that we are not allowed to use in GNU
+would weaken the impetus for the community to produce documentation
+that we can include.  So GNU packages should never recommend non-free
+documentation.
+
+By contrast, it is ok to refer to journal articles and textbooks in
+the comments of a program for explanation of how it functions, even
+though they be non-free.  This is because we don't include such things
+in the GNU system even if we are allowed to--they are outside the
+scope of an operating system project.
+
+Referring to a web site that describes or recommends a non-free
+program is in effect promoting that software, so please do not make
+links (or mention by name) web sites that contain such material.  This
+policy is relevant particulary for the web pages for a GNU package.
+
+Following links from nearly any web site can lead to non-free
+software; this is an inescapable aspect of the nature of the web, and
+in itself is no objection to linking to a site.  As long as the site
+does not itself recommend a non-free program, there is no need be
+concerned about the sites it links to for other reasons.
+
+Thus, for example, you should not make a link to AT&T's web site,
+because that recommends AT&T's non-free software packages; you should
+not make a link to a site that links to AT&T's site saying it is a
+place to get a non-free program; but if a site you want to link to
+refers to AT&T's web site in some other context (such as long-distance
+telephone service), that is not a problem.
+
+@node Copying This Manual
+@appendix Copying This Manual
+
+@menu
+* GNU Free Documentation License::  License for copying this manual
+@end menu
+
+@include fdl.texi
 
 @node Index
 @unnumbered Index
 @printindex cp
 
-@contents
-
 @bye
+
 Local variables:
-update-date-leading-regexp: "@c This date is automagically updated when you save this file:\n@set lastupdate "
-update-date-trailing-regexp: ""
-eval: (load "/gd/gnuorg/update-date.el")
-eval: (add-hook 'write-file-hooks 'update-date)
+eval: (add-hook 'write-file-hooks 'time-stamp)
+time-stamp-start: "@set lastupdate "
+time-stamp-end: "$"
+time-stamp-format: "%:b %:d, %:y"
 compile-command: "make just-standards"
 End:

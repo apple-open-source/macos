@@ -2,6 +2,8 @@
 <!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
 <plist version="0.9">
 <dict>
+	<key>system performance tuning</key>
+	<string>system performance tuning</string>
 	<key>Tuning system</key>
 	<string>Tuning system</string>
 	<key>Rebooting with server configuration</key>

@@ -109,5 +109,5 @@ INSTALL_PERMISSIONS = 2555        # If set, 'install' chmod's executable to this
 # a single colon.
 
 after_install:
-	mkdir -p "$(DSTROOT)/usr/share/man/man8"
+	/usr/bin/install -m 755 -d "$(DSTROOT)/usr/share/man/man8"
 	install -c -m 644 pstat.8 "$(DSTROOT)/usr/share/man/man8"

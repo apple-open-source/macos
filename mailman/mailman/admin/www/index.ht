@@ -1,0 +1,59 @@
+Title: Mailman, the GNU Mailing List Manager
+Other-links:
+    <h3>Exits</h3>
+    <li><a href="http://sf.net/projects/mailman">SF Project Page</a>
+    <li><a href="lists.html">Discussion Lists</a>
+    <li><a href="http://www.python.org/">Python</a>
+    <li><a href="http://www.gnu.org/">GNU</a>
+    <li><a href="http://barry.warsaw.us/">Barry Warsaw</a>
+
+
+<h3>Mailman, the GNU Mailing List Manager</h3>
+
+Mailman is free software for managing electronic mail discussion and
+e-newsletter lists.  Mailman is integrated with the web, making it
+easy for users to manage their accounts and for list owners to
+administer their lists.  Mailman supports built-in archiving,
+automatic bounce processing, content filtering, digest delivery, spam
+filters, and more.  See the <a href="features.html">features page</a>
+for details.
+
+<p>Mailman is free software, distributed under the
+<a href="http://www.gnu.org/copyleft/gpl.html">GNU General Public
+License</a>.  Mailman is written in the
+<a href="http://www.python.org/">Python</a>
+programming language, with a little bit of C code for security.
+
+<p>The name of this software is spelled <em>Mailman</em>
+with a capital leading <em>M</em> and a lowercase second <em>m</em>.
+It is incorrect to spell it "MailMan" (i.e. you should not use
+StudlyCaps).
+<!-- Mailman is gender neutral, low carb, kid safe, drug
+free, high octane, slightly lemony flavored... and easier to remember
+than <a href="http://www.eve-golden.com/images/FloobsOPT--OK.jpg">Floob
+Boober Bab Boober Bubs</a>. -->
+
+<h3>Current Version</h3>
+
+<p>Version
+<!-VERSION--->2.1.2<!-VERSION--->,
+(released on
+<!-DATE--->19-Apr-2003<!-DATE--->)
+is the current released version of Mailman, in production at many
+sites.
+
+<h3>Acknowledgements</h3>
+
+<p>Mailman's lead developer is
+<a href="http://barry.warsaw.us">Barry Warsaw</a> who can be contacted
+at <a href="mailto:barry@python.org">barry@python.org</a>.
+
+<p>Thanks go to
+<a href="http://www.control.com/">Control.com</a> for their
+sponsorship of new Mailman 2.1 features such as the topic filters,
+external membership sources, and "virtual" mailing lists.  Also, a
+huge thanks goes out to my employer <a href="http://www.zope.com">Zope
+Corporation</a> for their support, as well as the
+<a href="http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/mailman/mailman/ACKNOWLEDGMENTS?rev=HEAD&content-type=text/vnd.viewcvs-markup"
+>list of contributors</a>, bug hunters, big idea people, and others
+who have helped immensely with Mailman's development.

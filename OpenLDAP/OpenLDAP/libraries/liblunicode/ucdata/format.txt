@@ -1,5 +1,5 @@
 #
-# $Id: format.txt,v 1.2 2002/07/15 23:45:13 majka Exp $
+# $Id: format.txt,v 1.3 2003/07/18 01:10:28 jtownsen Exp $
 #
 
 CHARACTER DATA

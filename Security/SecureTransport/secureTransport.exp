@@ -4,6 +4,8 @@ _SSLGetSessionState
 _SSLSetIOFuncs
 _SSLSetProtocolVersion
 _SSLGetProtocolVersion
+_SSLSetProtocolVersionEnabled
+_SSLGetProtocolVersionEnabled
 _SSLSetConnection
 _SSLGetNegotiatedProtocolVersion
 _SSLSetAllowsExpiredCerts

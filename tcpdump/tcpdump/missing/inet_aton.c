@@ -2,27 +2,27 @@
  * Copyright (c) 1995, 1996, 1997 Kungliga Tekniska Högskolan
  * (Royal Institute of Technology, Stockholm, Sweden).
  * All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
- * 
+ *
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 
+ *
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
  *      This product includes software developed by the Kungliga Tekniska
  *      Högskolan and its contributors.
- * 
+ *
  * 4. Neither the name of the Institute nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE INSTITUTE AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -36,17 +36,14 @@
  * SUCH DAMAGE.
  */
 
-/* $Id: inet_aton.c,v 1.1.1.1 2001/07/07 00:50:55 bbraun Exp $ */
+/* $Id: inet_aton.c,v 1.1.1.2 2003/03/17 18:42:21 rbraun Exp $ */
 
 #ifndef lint
 static const char rcsid[] =
-     "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/missing/inet_aton.c,v 1.1.1.1 2001/07/07 00:50:55 bbraun Exp $";
+     "@(#) $Header: /cvs/root/tcpdump/tcpdump/missing/inet_aton.c,v 1.1.1.2 2003/03/17 18:42:21 rbraun Exp $";
 #endif
 
-#include <sys/types.h>
-#include <netinet/in.h>
-#include <netdb.h>
-#include <arpa/inet.h>
+#include <tcpdump-stdinc.h>
 
 /* Minimal implementation of inet_aton.
  * Cannot distinguish between failure and a local broadcast address. */

@@ -1,9 +1,9 @@
 /*
- * "$Id: rastertodymo.c,v 1.1.1.2 2002/03/02 18:28:31 jlovell Exp $"
+ * "$Id: rastertodymo.c,v 1.1.1.8 2003/04/11 21:07:46 jlovell Exp $"
  *
  *   DYMO label printer filter for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2001 by Easy Software Products.
+ *   Copyright 2001-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -86,6 +86,12 @@ Setup(void)
 
   for (i = 0; i < 100; i ++)
     putchar(0x1b);
+
+ /*
+  * Reset the printer...
+  */
+
+  printf("\033@");
 }
 
 
@@ -96,6 +102,9 @@ Setup(void)
 void
 StartPage(cups_page_header_t *header)	/* I - Page header */
 {
+  int	length;				/* Actual label length */
+
+
 #if defined(HAVE_SIGACTION) && !defined(HAVE_SIGSET)
   struct sigaction action;		/* Actions for POSIX signals */
 #endif /* HAVE_SIGACTION && !HAVE_SIGSET */
@@ -122,7 +131,9 @@ StartPage(cups_page_header_t *header)	/* I - Page header */
   * Setup printer/job attributes...
   */
 
-  printf("\033L%c%c", header->cupsHeight, header->cupsHeight >> 8);
+  length = header->PageSize[1] * header->HWResolution[1] / 72;
+
+  printf("\033L%c%c", length, length >> 8);
   printf("\033D%c", header->cupsBytesPerLine);
 
   printf("\033%c", header->cupsCompression + 'c'); /* Darkness */
@@ -320,11 +331,30 @@ main(int  argc,		/* I - Number of command-line arguments */
       {
         if (Feed)
 	{
+	  while (Feed > 255)
+	  {
+	    printf("\033f\001%c", 255);
+	    Feed -= 255;
+	  }
+
 	  printf("\033f\001%c", Feed);
 	  Feed = 0;
         }
+
         putchar(0x16);
 	fwrite(Buffer, header.cupsBytesPerLine, 1, stdout);
+	fflush(stdout);
+
+#ifdef __sgi
+       /*
+        * This hack works around a bug in the IRIX serial port driver when
+	* run at high baud rates (e.g. 115200 baud)...  This results in
+	* slightly slower label printing, but at least the labels come
+	* out properly.
+	*/
+
+	sginap(1);
+#endif /* __sgi */
       }
       else
         Feed ++;
@@ -359,5 +389,5 @@ main(int  argc,		/* I - Number of command-line arguments */
 
 
 /*
- * End of "$Id: rastertodymo.c,v 1.1.1.2 2002/03/02 18:28:31 jlovell Exp $".
+ * End of "$Id: rastertodymo.c,v 1.1.1.8 2003/04/11 21:07:46 jlovell Exp $".
  */

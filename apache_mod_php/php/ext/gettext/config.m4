@@ -1,10 +1,9 @@
-dnl $Id: config.m4,v 1.1.1.3 2001/12/14 22:12:21 zarzycki Exp $
-dnl config.m4 for extension gettext
-dnl don't forget to call PHP_EXTENSION(gettext)
+dnl
+dnl $Id: config.m4,v 1.1.1.5 2003/03/11 01:09:20 zarzycki Exp $
+dnl
 
-PHP_ARG_WITH(gettext,whether to include GNU gettext support,
-[  --with-gettext[=DIR]    Include GNU gettext support.  DIR is the gettext
-                          install directory, defaults to /usr/local])
+PHP_ARG_WITH(gettext,for GNU gettext support,
+[  --with-gettext[=DIR]    Include GNU gettext support.])
 
 if test "$PHP_GETTEXT" != "no"; then
   for i in /usr /usr/local $PHP_GETTEXT; do
@@ -22,15 +21,21 @@ if test "$PHP_GETTEXT" != "no"; then
   
   O_LDFLAGS=$LDFLAGS
   LDFLAGS="$LDFLAGS -L$GETTEXT_LIBDIR"
-  AC_CHECK_LIB(intl, bindtextdomain, GETTEXT_LIBS=intl,[
-      AC_CHECK_LIB(c, bindtextdomain, GETTEXT_LIBS= ,[
-          AC_MSG_ERROR(Unable to find required gettext library)
-      ])
-  ])
+  AC_CHECK_LIB(intl, bindtextdomain, [
+	GETTEXT_LIBS=intl
+	GETTEXT_CHECK_IN_LIB=intl
+	],
+	AC_CHECK_LIB(c, bindtextdomain, [
+		GETTEXT_LIBS=
+		GETTEXT_CHECK_IN_LIB=c
+	],[
+		AC_MSG_ERROR(Unable to find required gettext library)
+	])
+  )
   LDFLAGS=$O_LDFLAGS
 
   AC_DEFINE(HAVE_LIBINTL,1,[ ])
-  PHP_EXTENSION(gettext, $ext_shared)
+  PHP_NEW_EXTENSION(gettext, gettext.c, $ext_shared)
   PHP_SUBST(GETTEXT_SHARED_LIBADD)
 
   if test -n "$GETTEXT_LIBS"; then
@@ -38,4 +43,10 @@ if test "$PHP_GETTEXT" != "no"; then
   fi
 
   PHP_ADD_INCLUDE($GETTEXT_INCDIR)
+
+  AC_CHECK_LIB($GETTEXT_CHECK_IN_LIB, ngettext,  [AC_DEFINE(HAVE_NGETTEXT, 1, [ ])])
+  AC_CHECK_LIB($GETTEXT_CHECK_IN_LIB, dngettext,  [AC_DEFINE(HAVE_DNGETTEXT, 1, [ ])])
+  AC_CHECK_LIB($GETTEXT_CHECK_IN_LIB, dcngettext,  [AC_DEFINE(HAVE_DCNGETTEXT, 1, [ ])])
+  AC_CHECK_LIB($GETTEXT_CHECK_IN_LIB, bind_textdomain_codeset,  [AC_DEFINE(HAVE_BIND_TEXTDOMAIN_CODESET, 1, [ ])])
+  
 fi

@@ -23,35 +23,35 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "sysdep.h"
 #include "libbfd.h"
 
-static boolean h8300_scan
+static bfd_boolean h8300_scan
   PARAMS ((const struct bfd_arch_info *, const char *));
 static const bfd_arch_info_type * compatible
   PARAMS ((const bfd_arch_info_type *, const bfd_arch_info_type *));
 
-static boolean
+static bfd_boolean
 h8300_scan (info, string)
      const struct bfd_arch_info *info;
      const char *string;
 {
   if (*string != 'h' && *string != 'H')
-    return false;
+    return FALSE;
 
   string++;
   if (*string != '8')
-    return false;
+    return FALSE;
 
   string++;
   if (*string == '/')
     string++;
 
   if (*string != '3')
-    return false;
+    return FALSE;
   string++;
   if (*string != '0')
-    return false;
+    return FALSE;
   string++;
   if (*string != '0')
-    return false;
+    return FALSE;
   string++;
   if (*string == '-')
     string++;
@@ -97,23 +97,20 @@ compatible (in, out)
     return in;
 }
 
-static const bfd_arch_info_type h8300_info_struct =
+static const bfd_arch_info_type h8300s_info_struct =
 {
-  16,				/* 16 bits in a word */
-  16,				/* 16 bits in an address */
+  32,				/* 32 bits in a word */
+  32,				/* 32 bits in an address */
   8,				/* 8 bits in a byte */
   bfd_arch_h8300,
-  bfd_mach_h8300,
-  "h8300",			/* arch_name  */
-  "h8300",			/* printable name */
+  bfd_mach_h8300s,
+  "h8300s",			/* arch_name  */
+  "h8300s",			/* printable name */
   1,
-  true,				/* the default machine */
+  FALSE,			/* the default machine */
   compatible,
   h8300_scan,
-#if 0
-  local_bfd_reloc_type_lookup,
-#endif
-  0,
+  0
 };
 
 static const bfd_arch_info_type h8300h_info_struct =
@@ -126,30 +123,24 @@ static const bfd_arch_info_type h8300h_info_struct =
   "h8300h",			/* arch_name  */
   "h8300h",			/* printable name */
   1,
-  false,			/* the default machine */
+  FALSE,			/* the default machine */
   compatible,
   h8300_scan,
-#if 0
-  local_bfd_reloc_type_lookup,
-#endif
-  &h8300_info_struct,
+  &h8300s_info_struct
 };
 
 const bfd_arch_info_type bfd_h8300_arch =
 {
-  32,				/* 32 bits in a word */
-  32,				/* 32 bits in an address */
+  16,				/* 16 bits in a word */
+  16,				/* 16 bits in an address */
   8,				/* 8 bits in a byte */
   bfd_arch_h8300,
-  bfd_mach_h8300s,
-  "h8300s",			/* arch_name  */
-  "h8300s",			/* printable name */
+  bfd_mach_h8300,
+  "h8300",			/* arch_name  */
+  "h8300",			/* printable name */
   1,
-  false,			/* the default machine */
+  TRUE,				/* the default machine */
   compatible,
   h8300_scan,
-#if 0
-  local_bfd_reloc_type_lookup,
-#endif
-  &h8300h_info_struct,
+  &h8300h_info_struct
 };

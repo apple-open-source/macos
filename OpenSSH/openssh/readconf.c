@@ -12,7 +12,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: readconf.c,v 1.100 2002/06/19 00:27:55 deraadt Exp $");
+RCSID("$OpenBSD: readconf.c,v 1.104 2003/04/01 10:22:21 markus Exp $");
 
 #include "ssh.h"
 #include "xmalloc.h"
@@ -97,6 +97,12 @@ typedef enum {
 #if defined(KRB4) || defined(KRB5)
 	oKerberosAuthentication,
 #endif
+#ifdef GSSAPI
+	oGssAuthentication, oGssDelegateCreds,
+#ifdef GSI
+	oGssGlobusDelegateLimitedCreds,
+#endif /* GSI */
+#endif /* GSSAPI */
 #if defined(AFS) || defined(KRB5)
 	oKerberosTgtPassing,
 #endif
@@ -114,6 +120,7 @@ typedef enum {
 	oDynamicForward, oPreferredAuthentications, oHostbasedAuthentication,
 	oHostKeyAlgorithms, oBindAddress, oSmartcardDevice,
 	oClearAllForwardings, oNoHostAuthenticationForLocalhost,
+	oEnableSSHKeysign,
 	oDeprecated
 } OpCodes;
 
@@ -143,6 +150,15 @@ static struct {
 #if defined(KRB4) || defined(KRB5)
 	{ "kerberosauthentication", oKerberosAuthentication },
 #endif
+#ifdef GSSAPI
+	{ "gssapiauthentication", oGssAuthentication },
+	{ "gssapidelegatecredentials", oGssDelegateCreds },
+#ifdef GSI
+	/* For backwards compatability with old 1.2.27 client code */
+	{ "forwardgssapiglobusproxy", oGssDelegateCreds }, /* alias */
+	{ "forwardgssapiglobuslimitedproxy", oGssGlobusDelegateLimitedCreds },
+#endif /* GSI */
+#endif /* GSSAPI */
 #if defined(AFS) || defined(KRB5)
 	{ "kerberostgtpassing", oKerberosTgtPassing },
 #endif
@@ -185,6 +201,7 @@ static struct {
 	{ "bindaddress", oBindAddress },
 	{ "smartcarddevice", oSmartcardDevice },
 	{ "clearallforwardings", oClearAllForwardings },
+	{ "enablesshkeysign", oEnableSSHKeysign },
 	{ "nohostauthenticationforlocalhost", oNoHostAuthenticationForLocalhost },
 	{ NULL, oBadOption }
 };
@@ -199,7 +216,7 @@ add_local_forward(Options *options, u_short port, const char *host,
 		  u_short host_port)
 {
 	Forward *fwd;
-#ifndef HAVE_CYGWIN
+#ifndef NO_IPPORT_RESERVED_CONCEPT
 	extern uid_t original_real_uid;
 	if (port < IPPORT_RESERVED && original_real_uid != 0)
 		fatal("Privileged ports can only be forwarded by root.");
@@ -266,14 +283,16 @@ parse_token(const char *cp, const char *filename, int linenum)
  * Processes a single option line as used in the configuration files. This
  * only sets those values that have not already been set.
  */
+#define WHITESPACE " \t\r\n"
 
 int
 process_config_line(Options *options, const char *host,
 		    char *line, const char *filename, int linenum,
 		    int *activep)
 {
-	char buf[256], *s, *string, **charptr, *endofnumber, *keyword, *arg;
+	char buf[256], *s, **charptr, *endofnumber, *keyword, *arg;
 	int opcode, *intptr, value;
+	size_t len;
 	u_short fwd_port, fwd_host_port;
 	char sfwd_host_port[6];
 
@@ -362,6 +381,23 @@ parse_flag:
 		intptr = &options->kerberos_authentication;
 		goto parse_flag;
 #endif
+#ifdef GSSAPI
+	case oGssAuthentication:
+		intptr = &options->gss_authentication;
+		goto parse_flag;
+      
+	case oGssDelegateCreds:
+		intptr = &options->gss_deleg_creds;
+		goto parse_flag;
+ 
+#ifdef GSI
+	case oGssGlobusDelegateLimitedCreds:
+		intptr = &options->gss_globus_deleg_limited_proxy;
+		goto parse_flag;
+#endif /* GSI */
+
+#endif /* GSSAPI */
+
 #if defined(AFS) || defined(KRB5)
 	case oKerberosTgtPassing:
 		intptr = &options->kerberos_tgt_passing;
@@ -486,16 +522,9 @@ parse_string:
 
 	case oProxyCommand:
 		charptr = &options->proxy_command;
-		string = xstrdup("");
-		while ((arg = strdelim(&s)) != NULL && *arg != '\0') {
-			string = xrealloc(string, strlen(string) + strlen(arg) + 2);
-			strcat(string, " ");
-			strcat(string, arg);
-		}
+		len = strspn(s, WHITESPACE "=");
 		if (*activep && *charptr == NULL)
-			*charptr = string;
-		else
-			xfree(string);
+			*charptr = xstrdup(s + len);
 		return 0;
 
 	case oPort:
@@ -669,6 +698,10 @@ parse_int:
 			*intptr = value;
 		break;
 
+	case oEnableSSHKeysign:
+		intptr = &options->enable_ssh_keysign;
+		goto parse_flag;
+
 	case oDeprecated:
 		debug("%s line %d: Deprecated option \"%s\"",
 		    filename, linenum, keyword);
@@ -747,6 +780,14 @@ initialize_options(Options * options)
 	options->rsa_authentication = -1;
 	options->pubkey_authentication = -1;
 	options->challenge_response_authentication = -1;
+#ifdef GSSAPI
+        options->gss_authentication = -1;
+        options->gss_deleg_creds = -1;
+#ifdef GSI
+        options->gss_globus_deleg_limited_proxy = -1;
+#endif /* GSI */
+#endif /* GSSAPI */
+
 #if defined(KRB4) || defined(KRB5)
 	options->kerberos_authentication = -1;
 #endif
@@ -792,6 +833,7 @@ initialize_options(Options * options)
 	options->preferred_authentications = NULL;
 	options->bind_address = NULL;
 	options->smartcard_device = NULL;
+	options->enable_ssh_keysign = - 1;
 	options->no_host_authentication_for_localhost = - 1;
 }
 
@@ -823,6 +865,16 @@ fill_default_options(Options * options)
 		options->pubkey_authentication = 1;
 	if (options->challenge_response_authentication == -1)
 		options->challenge_response_authentication = 1;
+#ifdef GSSAPI
+	if (options->gss_authentication == -1)
+		options->gss_authentication = 1;
+	if (options->gss_deleg_creds == -1)
+		options->gss_deleg_creds = 1;
+#ifdef GSI
+	if (options->gss_globus_deleg_limited_proxy == -1)
+		options->gss_globus_deleg_limited_proxy = 0;
+#endif /* GSI */
+#endif /* GSSAPI */
 #if defined(KRB4) || defined(KRB5)
 	if (options->kerberos_authentication == -1)
 		options->kerberos_authentication = 1;
@@ -907,6 +959,8 @@ fill_default_options(Options * options)
 		clear_forwardings(options);
 	if (options->no_host_authentication_for_localhost == - 1)
 		options->no_host_authentication_for_localhost = 0;
+	if (options->enable_ssh_keysign == -1)
+		options->enable_ssh_keysign = 0;
 	/* options->proxy_command should not be set by default */
 	/* options->user will be set in the main program if appropriate */
 	/* options->hostname will be set in the main program if appropriate */

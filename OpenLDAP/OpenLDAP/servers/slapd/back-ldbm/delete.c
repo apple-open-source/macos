@@ -1,7 +1,7 @@
 /* delete.c - ldbm backend delete routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/delete.c,v 1.55 2002/02/09 04:14:18 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/delete.c,v 1.55.2.3 2003/03/03 17:10:09 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -32,10 +32,10 @@ ldbm_back_delete(
 	int	rc = -1;
 	int		manageDSAit = get_manageDSAit( op );
 	AttributeDescription *children = slap_schema.si_ad_children;
+	AttributeDescription *entry = slap_schema.si_ad_entry;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_ENTRY,
-		"ldbm_back_delete: %s\n", dn->bv_val ));
+	LDAP_LOG( BACK_LDBM, ENTRY, "ldbm_back_delete: %s\n", dn->bv_val, 0, 0 );
 #else
 	Debug(LDAP_DEBUG_ARGS, "==> ldbm_back_delete: %s\n", dn->bv_val, 0, 0);
 #endif
@@ -49,8 +49,8 @@ ldbm_back_delete(
 		BerVarray refs;
 
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_INFO,
-			"ldbm_back_delete: no such object %s\n", dn->bv_val ));
+		LDAP_LOG( BACK_LDBM, INFO, 
+			"ldbm_back_delete: no such object %s\n", dn->bv_val, 0, 0 );
 #else
 		Debug(LDAP_DEBUG_ARGS, "<=- ldbm_back_delete: no such object %s\n",
 			dn->bv_val, 0, 0);
@@ -79,6 +79,27 @@ ldbm_back_delete(
 		return( -1 );
 	}
 
+	/* check entry for "entry" acl */
+	if ( ! access_allowed( be, conn, op, e,
+		entry, NULL, ACL_WRITE, NULL ) )
+	{
+#ifdef NEW_LOGGING
+		LDAP_LOG( BACK_LDBM, ERR, 
+			"ldbm_back_delete: no write access to entry of (%s)\n", 
+			dn->bv_val, 0, 0 );
+#else
+		Debug( LDAP_DEBUG_TRACE,
+			"<=- ldbm_back_delete: no write access to entry\n", 0,
+			0, 0 );
+#endif
+
+		send_ldap_result( conn, op, LDAP_INSUFFICIENT_ACCESS,
+			NULL, "no write access to entry", NULL, NULL );
+
+		rc = 1;
+		goto return_results;
+	}
+
     if ( !manageDSAit && is_entry_referral( e ) ) {
 		/* parent is a referral, don't allow add */
 		/* parent is an alias, don't allow add */
@@ -86,9 +107,8 @@ ldbm_back_delete(
 			conn, op, e );
 
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_INFO,
-			"ldbm_back_delete: entry (%s) is a referral.\n",
-			e->e_dn ));
+		LDAP_LOG( BACK_LDBM, INFO, 
+			"ldbm_back_delete: entry (%s) is a referral.\n", e->e_dn, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_TRACE, "entry is referral\n", 0,
 		    0, 0 );
@@ -103,11 +123,10 @@ ldbm_back_delete(
 		goto return_results;
 	}
 
-
 	if ( has_children( be, e ) ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_ERR,
-			   "ldbm_back_delete: (%s) is a non-leaf node.\n", dn->bv_val ));
+		LDAP_LOG( BACK_LDBM, ERR, 
+			   "ldbm_back_delete: (%s) is a non-leaf node.\n", dn->bv_val, 0,0);
 #else
 		Debug(LDAP_DEBUG_ARGS, "<=- ldbm_back_delete: non leaf %s\n",
 			dn->bv_val, 0, 0);
@@ -123,8 +142,8 @@ ldbm_back_delete(
 		pdn.bv_len) ) {
 		if( (p = dn2entry_w( be, &pdn, NULL )) == NULL) {
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "backend", LDAP_LEVEL_ERR,
-				"ldbm_back_delete: parent of (%s) does not exist\n", dn ));
+			LDAP_LOG( BACK_LDBM, ERR, 
+				"ldbm_back_delete: parent of (%s) does not exist\n", dn, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_TRACE,
 				"<=- ldbm_back_delete: parent does not exist\n",
@@ -141,9 +160,9 @@ ldbm_back_delete(
 			children, NULL, ACL_WRITE, NULL ) )
 		{
 #ifdef NEW_LOGGING
-			LDAP_LOG(( "backend", LDAP_LEVEL_ERR,
-				"ldbm_back_delete: no access to parent of (%s)\n",
-				dn->bv_val ));
+			LDAP_LOG( BACK_LDBM, ERR, 
+				"ldbm_back_delete: no access to parent of (%s)\n", 
+				dn->bv_val, 0, 0 );
 #else
 			Debug( LDAP_DEBUG_TRACE,
 				"<=- ldbm_back_delete: no access to parent\n", 0,
@@ -151,7 +170,7 @@ ldbm_back_delete(
 #endif
 
 			send_ldap_result( conn, op, LDAP_INSUFFICIENT_ACCESS,
-				NULL, NULL, NULL, NULL );
+				NULL, "no write access to parent", NULL, NULL );
 			goto return_results;
 		}
 
@@ -168,26 +187,25 @@ ldbm_back_delete(
 				/* check parent for "children" acl */
 				if ( ! rc ) {
 #ifdef NEW_LOGGING
-					LDAP_LOG(( "backend", LDAP_LEVEL_ERR,
+					LDAP_LOG( BACK_LDBM, ERR,
 						"ldbm_back_delete: no access "
-						"to parent of ("")\n" ));
+						"to parent of ("")\n", 0, 0, 0 );
 #else
 					Debug( LDAP_DEBUG_TRACE,
 						"<=- ldbm_back_delete: no "
 						"access to parent\n", 0, 0, 0 );
 #endif
 
-					send_ldap_result( conn, op, 
-						LDAP_INSUFFICIENT_ACCESS,
-						NULL, NULL, NULL, NULL );
+					send_ldap_result( conn, op, LDAP_INSUFFICIENT_ACCESS,
+						NULL, "no write access to parent", NULL, NULL );
 					goto return_results;
 				}
 
 			} else {
 #ifdef NEW_LOGGING
-				LDAP_LOG(( "backend", LDAP_LEVEL_ERR,
+				LDAP_LOG( BACK_LDBM, ERR, 
 					"ldbm_back_delete: (%s) has no "
-					"parent & not a root.\n", dn ));
+					"parent & not a root.\n", dn, 0, 0 );
 #else
 				Debug( LDAP_DEBUG_TRACE,
 					"<=- ldbm_back_delete: no parent & "
@@ -205,9 +223,8 @@ ldbm_back_delete(
 	/* delete from dn2id mapping */
 	if ( dn2id_delete( be, &e->e_nname, e->e_id ) != 0 ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_ERR,
-			"ldbm_back_delete: (%s) operations error\n",
-			dn->bv_val ));
+		LDAP_LOG( BACK_LDBM, ERR, 
+			"ldbm_back_delete: (%s) operations error\n", dn->bv_val, 0, 0 );
 #else
 		Debug(LDAP_DEBUG_ARGS,
 			"<=- ldbm_back_delete: operations error %s\n",
@@ -222,9 +239,8 @@ ldbm_back_delete(
 	/* delete from disk and cache */
 	if ( id2entry_delete( be, e ) != 0 ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "backend", LDAP_LEVEL_ERR,
-			"ldbm_back_delete: (%s) operations error\n",
-			dn->bv_val ));
+		LDAP_LOG( BACK_LDBM, ERR, 
+			"ldbm_back_delete: (%s) operations error\n", dn->bv_val, 0, 0 );
 #else
 		Debug(LDAP_DEBUG_ARGS,
 			"<=- ldbm_back_delete: operations error %s\n",

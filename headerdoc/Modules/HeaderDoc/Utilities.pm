@@ -2,7 +2,7 @@
 # Utilities.pm
 # 
 # Common subroutines
-# Last Updated: $Date: 2001/11/30 22:43:18 $
+# Last Updated: $Date: 2003/08/01 21:23:56 $
 # 
 # Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
@@ -34,7 +34,8 @@ $VERSION = 1.02;
 @ISA = qw(Exporter);
 @EXPORT = qw(findRelativePath safeName safeNameNoCollide linesFromFile makeAbsolutePath
              printHash printArray fileNameFromPath folderPathForFile convertCharsForFileMaker 
-             updateHashFromConfigFiles getHashFromConfigFile getAPINameAndDisc openLogs
+             updateHashFromConfigFiles getHashFromConfigFile getVarNameAndDisc
+             getAPINameAndDisc openLogs
              logMsg logMsgAndWarning logWarning logToAllFiles closeLogs);
 
 ########## Portability ##############################
@@ -50,7 +51,14 @@ BEGIN {
 	}
 }
 ########## Name length constants ##############################
-my $macFileLengthLimit = 31;
+my $macFileLengthLimit;
+BEGIN {
+	if ($isMacOS) {
+		$macFileLengthLimit = 31;
+	} else {
+		$macFileLengthLimit = 255;
+	}
+}
 my $longestExtension = 5;
 ###############################################################
 
@@ -261,15 +269,34 @@ sub makeAbsolutePath {
 
 sub getAPINameAndDisc {
     my $line = shift;
+    return getNameAndDisc($line, 0);
+}
+
+sub getVarNameAndDisc {
+    my $line = shift;
+    return getNameAndDisc($line, 1);
+}
+
+sub getNameAndDisc {
+    my $line = shift;
+    my $multiword = shift;
     my ($name, $disc, $operator);
     # first, get rid of leading space
     $line =~ s/^\s+//;
-    ($name, $disc) = split (/\s/, $line, 2);
+    # DAG changed \s in next line to \n to fix bug w/ multi-word names
+    # but have to keep it as \n for @var to allow these very simple
+    # descriptions to be single-line (as described in the docs)
+    if ($multiword) {
+	($name, $disc) = split (/\n/, $line, 2);
+    } else {
+	($name, $disc) = split (/\s/, $line, 2);
+    }
     
     if ($name =~ /operator/) {  # this is for operator overloading in C++
         ($operator, $name, $disc) = split (/\s/, $line, 3);
         $name = $operator." ".$name;
     }
+    # print "name is $name, disc is $disc";
     return ($name, $disc);
 }
 

@@ -1,0 +1,64 @@
+--- samba/source/smbd/fileio.c.orig	Fri Aug 29 14:17:42 2003
++++ samba/source/smbd/fileio.c	Fri Aug 29 14:40:41 2003
+@@ -94,17 +94,21 @@ ssize_t read_file(files_struct *fsp,char
+ 	}
+ 
+ 	flush_write_cache(fsp, READ_FLUSH);
+-
++#ifndef USES_PREAD
+ 	if (seek_file(fsp,pos) == -1) {
+ 		DEBUG(3,("read_file: Failed to seek to %.0f\n",(double)pos));
+ 		return(ret);
+ 	}
+-  
++ #endif  
+ 	if (n > 0) {
+ #ifdef DMF_FIX
+ 		int numretries = 3;
+ tryagain:
++#ifdef USES_PREAD
++		readret = pread(fsp->fd,data,n,pos);
++#else
+ 		readret = SMB_VFS_READ(fsp,fsp->fd,data,n);
++#endif		
+ 		if (readret == -1) {
+ 			if ((errno == EAGAIN) && numretries) {
+ 				DEBUG(3,("read_file EAGAIN retry in 10 seconds\n"));
+@@ -115,12 +119,20 @@ tryagain:
+ 			return -1;
+ 		}
+ #else /* NO DMF fix. */
++#ifdef USES_PREAD
++		readret = pread(fsp->fd,data,n,pos);
++#else
+ 		readret = SMB_VFS_READ(fsp,fsp->fd,data,n);
++#endif
+ 		if (readret == -1)
+ 			return -1;
+ #endif
+-		if (readret > 0)
++		if (readret > 0) {
+ 			ret += readret;
++#ifdef USES_PREAD
++			fsp->pos = pos + ret;
++#endif
++		}
+ 	}
+ 
+ 	DEBUG(10,("read_file (%s): pos = %.0f, size = %lu, returned %lu\n",
+@@ -143,10 +155,15 @@ static ssize_t real_write_file(files_str
+ {
+ 	ssize_t ret;
+ 
++#ifdef USES_PWRITE
++    ret = pwrite(fsp->fd, data, n, pos);
++//    fsp->pos = pos + ret;
++#else
+ 	if ((pos != -1) && (seek_file(fsp,pos) == -1))
+ 		return -1;
+ 
+ 	ret = vfs_write_data(fsp,data,n);
++#endif
+ 
+ 	DEBUG(10,("real_write_file (%s): pos = %.0f, size = %lu, returned %ld\n",
+ 		fsp->fsp_name, (double)pos, (unsigned long)n, (long)ret ));

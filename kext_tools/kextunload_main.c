@@ -6,16 +6,21 @@
 #include <IOKit/kext/KXKextManager.h>
 
 static char * progname = "(unknown)";
-static int verbose_level = 0;           // nonzero for -v option
+static int verbose_level = kKXKextManagerLogLevelDefault; // -v, -q set this
 static mach_port_t gMasterPort;
 
+static char calc_buffer[2] = "";
+static int kern_result_buffer_length = 80;
+static char * kern_result_buffer;     // for formatting status messages
 
 /*******************************************************************************
 *******************************************************************************/
 
 // FIXME: Several of these belong in a separate module
+int format_kern_result(kern_return_t result);
 static void verbose_log(const char * format, ...);
 static void error_log(const char * format, ...);
+static void qerror(const char * format, ...);
 int addKextsToManager(
     KXKextManagerRef aManager,
     CFArrayRef kextNames,
@@ -59,7 +64,7 @@ int main(int argc, const char *argv[]) {
 
     kern_result = IOMasterPort(NULL, &gMasterPort);
     if (kern_result != KERN_SUCCESS) {
-        fprintf(stderr, "can't get I/O Kit master port\n");
+        qerror("can't get I/O Kit master port\n");
         exit_code = 1;
         goto finish;
     }
@@ -71,7 +76,7 @@ int main(int argc, const char *argv[]) {
         &kCFTypeArrayCallBacks);
     if (!kextNames) {
         exit_code = 1;
-        fprintf(stderr, "can't allocate memory\n");
+        qerror("can't allocate memory\n");
         goto finish;
     }
 
@@ -79,7 +84,7 @@ int main(int argc, const char *argv[]) {
         NULL /* C pointers */);
     if (!kextClassNames) {
         exit_code = 1;
-        fprintf(stderr, "can't allocate memory\n");
+        qerror("can't allocate memory\n");
         goto finish;
     }
 
@@ -87,7 +92,7 @@ int main(int argc, const char *argv[]) {
         NULL /* C pointers */);
     if (!kextBundleIDs) {
         exit_code = 1;
-        fprintf(stderr, "can't allocate memory\n");
+        qerror("can't allocate memory\n");
         goto finish;
     }
 
@@ -95,7 +100,7 @@ int main(int argc, const char *argv[]) {
         &kCFTypeArrayCallBacks);
     if (!kexts) {
         exit_code = 1;
-        fprintf(stderr, "can't allocate memory\n");
+        qerror("can't allocate memory\n");
         goto finish;
     }
 
@@ -103,7 +108,7 @@ int main(int argc, const char *argv[]) {
     /*****
     * Process command line arguments.
     */
-    while ((optchar = getopt(argc, (char * const *)argv, "b:c:hm:pv")) != -1) {
+    while ((optchar = getopt(argc, (char * const *)argv, "b:c:hm:pqv")) != -1) {
 
         switch (optchar) {
           case 'b':
@@ -120,25 +125,46 @@ int main(int argc, const char *argv[]) {
           case 'p':
             unload_personalities = false;
             break;
+          case 'q':
+            if (verbose_level != kKXKextManagerLogLevelDefault) {
+                qerror("duplicate use of -v and/or -q option\n\n");
+                usage(0);
+                exit_code = 1;
+                goto finish;
+            }
+            verbose_level = kKXKextManagerLogLevelSilent;
+            break;
           case 'v':
             {
                 const char * next;
 
+                if (verbose_level != kKXKextManagerLogLevelDefault) {
+                    qerror("duplicate use of -v and/or -q option\n\n");
+                    usage(0);
+                    exit_code = 1;
+                    goto finish;
+                }
                 if (optind >= argc) {
-                    verbose_level = 1;
+                    verbose_level = kKXKextManagerLogLevelBasic;
                 } else {
                     next = argv[optind];
-                    if ((next[0] == '1' || next[0] == '2' || next[0] == '3' ||
-                         next[0] == '4' || next[0] == '5' || next[0] == '6') &&
-                         next[1] == '\0') {
+                    if ((next[0] == '0' || next[0] == '1' ||
+                         next[0] == '2' || next[0] == '3' || 
+                         next[0] == '4' || next[0] == '5' ||
+                         next[0] == '6') && next[1] == '\0') {
 
-                        verbose_level = atoi(next);
+                        if (next[0] == '0') {
+                            verbose_level = kKXKextManagerLogLevelErrorsOnly;
+                        } else {
+                            verbose_level = atoi(next);
+                        }
                         optind++;
                     } else {
-                        verbose_level = 1;
+                        verbose_level = kKXKextManagerLogLevelBasic;
                     }
                 }
             }
+            break;
         }
     }
 
@@ -154,7 +180,7 @@ int main(int argc, const char *argv[]) {
         CFStringRef kextName = CFStringCreateWithCString(kCFAllocatorDefault,
               argv[i], kCFStringEncodingMacRoman);
         if (!kextName) {
-            fprintf(stderr, "Can't create kext name string for \"%s\"; "
+            qerror("Can't create kext name string for \"%s\"; "
                 "no memory?\n", argv[i]);
             exit_code = 1;
             goto finish;
@@ -168,7 +194,7 @@ int main(int argc, const char *argv[]) {
         CFArrayGetCount(kextBundleIDs) == 0 &&
 
         CFArrayGetCount(kextClassNames) == 0) {
-        fprintf(stderr, "no kernel extension specified\n\n");
+        qerror("no kernel extension specified\n\n");
         usage(1);
         exit_code = 1;
         goto finish;
@@ -180,14 +206,14 @@ int main(int argc, const char *argv[]) {
     */
     myKextManager = KXKextManagerCreate(kCFAllocatorDefault);
     if (!myKextManager) {
-        fprintf(stderr, "can't allocate kext manager\n");
+        qerror("can't allocate kext manager\n");
         exit_code = 1;
         goto finish;
     }
 
     result = KXKextManagerInit(myKextManager, true, false);
     if (result != kKXKextManagerErrorNone) {
-        fprintf(stderr, "can't initialize manager (%s)\n",
+        qerror("can't initialize manager (%s)\n",
             KXKextManagerErrorStaticCStringForError(result));
         exit_code = 1;
         goto finish;
@@ -215,6 +241,12 @@ int main(int argc, const char *argv[]) {
 
     KXKextManagerCalculateVersionRelationships(myKextManager);
 
+    kern_result_buffer = (char *)malloc(sizeof(char) * kern_result_buffer_length);
+    if (!kern_result_buffer) {
+        exit_code = 1;
+        goto finish;
+    }
+    kern_result_buffer[0] = '\0';
 
    /*****
     * Get busy unloading kexts. First do the class names, then do the
@@ -229,16 +261,22 @@ int main(int argc, const char *argv[]) {
             kIOCatalogServiceTerminate,
             kext_class_name);
         if (kern_result == kIOReturnNotPrivileged) {
-             printf("permission denied; you must be root to unload kexts\n");
+             qerror("permission denied; you must be root to unload kexts\n");
              exit_code = 1;
              goto finish;
         }
-        printf("terminate instances for class %s %s",
-            kext_class_name, kern_result == KERN_SUCCESS ?
-            "succeeded" : "failed");
         if (kern_result != KERN_SUCCESS) {
-             printf(" (result code 0x%x)\n", kern_result);
+             if (!format_kern_result(kern_result)) {
+                 exit_code = 1;
+                 goto finish;
+             }
+             exit_code = 1;
         }
+        verbose_log("terminate instances for class %s %s%s",
+            kext_class_name,
+            kern_result == KERN_SUCCESS ? "succeeded" : "failed",
+            kern_result != KERN_SUCCESS ? kern_result_buffer : "");
+        kern_result_buffer[0] = '\0';
     }
 
     count = CFArrayGetCount(kextBundleIDs);
@@ -251,18 +289,24 @@ int main(int argc, const char *argv[]) {
                 kIOCatalogModuleTerminate,
             kext_id);
         if (kern_result == kIOReturnNotPrivileged) {
-             printf("permission denied; you must be root to unload kexts\n");
+             qerror("permission denied; you must be root to unload kexts\n");
              exit_code = 1;
              goto finish;
         }
-        printf("unload id %s %s",
-            kext_id, kern_result == KERN_SUCCESS ? "succeeded" : "failed");
         if (kern_result != KERN_SUCCESS) {
-             printf(" (result code 0x%x)\n", kern_result);
-        } else {
-            printf(" (any personalities%s unloaded)\n",
-                unload_personalities ? " also" : " not");
+             if (!format_kern_result(kern_result)) {
+                 exit_code = 1;
+                 goto finish;
+             }
+             exit_code = 1;
         }
+        verbose_log("unload id %s %s%s",
+            kext_id,
+            kern_result == KERN_SUCCESS ? "succeeded" : "failed",
+            kern_result != KERN_SUCCESS ? kern_result_buffer :
+                (unload_personalities ? " (any personalities also unloaded)" :
+                " (any personalities not unloaded)"));
+        kern_result_buffer[0] = '\0';
     }
 
     count = CFArrayGetCount(kexts);
@@ -294,18 +338,25 @@ int main(int argc, const char *argv[]) {
                 kIOCatalogModuleTerminate,
             kext_id);
         if (kern_result == kIOReturnNotPrivileged) {
-             printf("permission denied; you must be root to unload kexts\n");
+             qerror("permission denied; you must be root to unload kexts\n");
              exit_code = 1;
              goto finish;
         }
-        printf("unload kext %s %s",
-            kext_name, kern_result == KERN_SUCCESS ? "succeeded" : "failed");
-        if (kern_result != KERN_SUCCESS) {
-             printf(" (result code 0x%x)\n", kern_result);
-        } else {
-            printf(" (any personalities%s unloaded)\n",
-                unload_personalities ? " also" : " not");
-        }
+/* PR-3416740: we shouldn't return with an error if kextunload fails for unspecified reasons, like when the kext isn't 
+loaded.  This isn't optimal, but it's what we did in Jaguar. -DH */
+ /*        if (kern_result != KERN_SUCCESS) {
+             if (!format_kern_result(kern_result)) {
+                 exit_code = 1;
+                 goto finish;
+             }
+             exit_code = 1;
+        }*/
+        verbose_log("unload kext %s %s",
+            kext_name,
+            kern_result == KERN_SUCCESS ? "succeeded" : "failed",
+            kern_result != KERN_SUCCESS ? kern_result_buffer :
+                (unload_personalities ? " (any personalities also unloaded)" :
+                " (any personalities not unloaded)"));
     }
 
 finish:
@@ -326,6 +377,22 @@ finish:
     return exit_code;
 }
 
+int format_kern_result(kern_return_t kern_result)
+{
+    int check_length = snprintf(calc_buffer, 1,
+        " (result code 0x%x)", kern_result);
+
+    if (check_length + 1 > kern_result_buffer_length) {
+        kern_result_buffer = (char *)realloc(kern_result_buffer,
+            sizeof(char) * (check_length + 1));
+        if (!kern_result_buffer) {
+            return 0;
+        }
+    }
+    sprintf(kern_result_buffer, " (result code 0x%x)", kern_result);
+    return 1;
+}
+
 static void verbose_log(const char * format, ...)
 {
     va_list ap;
@@ -333,13 +400,15 @@ static void verbose_log(const char * format, ...)
     int output_length;
     char * output_string;
 
+    if (verbose_level < kKXKextManagerLogLevelDefault) return;
+
     va_start(ap, format);
     output_length = vsnprintf(fake_buffer, 1, format, ap);
     va_end(ap);
 
     output_string = (char *)malloc(output_length + 1);
     if (!output_string) {
-        fprintf(stderr, "malloc failure\n");
+        qerror("malloc failure\n");
         return;
     }
 
@@ -364,13 +433,15 @@ static void error_log(const char * format, ...)
     int output_length;
     char * output_string;
 
+    if (verbose_level < kKXKextManagerLogLevelErrorsOnly) return;
+
     va_start(ap, format);
     output_length = vsnprintf(fake_buffer, 1, format, ap);
     va_end(ap);
 
     output_string = (char *)malloc(output_length + 1);
     if (!output_string) {
-        fprintf(stderr, "malloc failure\n");
+        qerror("malloc failure\n");
         return;
     }
 
@@ -379,11 +450,22 @@ static void error_log(const char * format, ...)
     va_end(ap);
 
     va_start(ap, format);
-    fprintf(stderr, "%s: %s\n", progname, output_string);
+    qerror("%s: %s\n", progname, output_string);
     va_end(ap);
 
     free(output_string);
 
+    return;
+}
+
+static void qerror(const char * format, ...)
+{
+    va_list ap;
+
+    if (verbose_level < kKXKextManagerLogLevelErrorsOnly) return;
+    va_start(ap, format);
+    vfprintf(stderr, format, ap);
+    va_end(ap);
     return;
 }
 
@@ -408,7 +490,7 @@ int addKextsToManager(
         kextURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault,
             kextName, kCFURLPOSIXPathStyle, true);
         if (!kextURL) {
-            fprintf(stderr, "can't create kext URL; no memory?\n");
+            qerror("can't create kext URL; no memory?\n");
             result = 0;
             goto finish;
         }
@@ -416,7 +498,7 @@ int addKextsToManager(
         kxresult = KXKextManagerAddKextWithURL(aManager, kextURL, true, &theKext);
         if (kxresult != kKXKextManagerErrorNone) {
             // FIXME: Improve this error message.
-            fprintf(stderr, "can't add kext (%s).\n",
+            qerror("can't add kext (%s).\n",
                 KXKextManagerErrorStaticCStringForError(kxresult));
             result = 0;
             goto finish;
@@ -438,22 +520,22 @@ finish:
 *******************************************************************************/
 static void usage(int level)
 {
-    fprintf(stderr,
-        "usage: %s [-b bundle_id] ... [-c class_name] ... [-h]\n"
-        "    [-p] [-v [1-6]] [kext] ...\n\n",
+    qerror("usage: %s [-b bundle_id] ... [-c class_name] ... [-h]\n"
+        "    [-p] [-v [0-6]] [kext] ...\n\n",
         progname);
     if (level > 1) {
-        fprintf(stderr, "  -b bundle_id: unload the kernel extension whose\n");
-        fprintf(stderr, "      CFBundleIdentifier is bundle_id\n");
-        fprintf(stderr, "  -c class_name: terminate instances of class_name but\n");
-        fprintf(stderr, "      do not unload code or personalities\n");
-        fprintf(stderr, "  -h: help; print this message\n");
-        fprintf(stderr, "  -p: don't remove personalities when unloading\n");
-        fprintf(stderr, "      (unnecessary with -c)\n");
-        fprintf(stderr, "  -v: verbose mode; print info about activity\n"
-            "     (more info printed as optional value increases "
-            " from 1 to 6)\n");
-        fprintf(stderr, "  kext: unload the named kernel extension bundle(s)\n");
+        qerror("  -b bundle_id: unload the kernel extension whose\n");
+        qerror("      CFBundleIdentifier is bundle_id\n");
+        qerror("  -c class_name: terminate instances of class_name but\n");
+        qerror("      do not unload code or personalities\n");
+        qerror("  -h: help; print this message\n");
+        qerror("  -p: don't remove personalities when unloading\n");
+        qerror("      (unnecessary with -c)\n");
+        qerror(
+            "  -q: quiet mode: print no informational or error messages\n");
+        qerror("  -v: verbose mode; print info about activity\n"
+            "     (more info printed as optional value increases)\n");
+        qerror("  kext: unload the named kernel extension bundle(s)\n");
     }
     return;
 }

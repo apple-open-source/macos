@@ -1,9 +1,9 @@
 /*
- * "$Id: lp.c,v 1.1.1.3 2002/06/06 22:13:20 jlovell Exp $"
+ * "$Id: lp.c,v 1.1.1.12 2003/05/14 05:23:51 jlovell Exp $"
  *
  *   "lp" command for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -23,8 +23,10 @@
  *
  * Contents:
  *
- *   main()       - Parse options and send files for printing.
- *   sighandler() - Signal catcher for when we print from stdin...
+ *   main()          - Parse options and send files for printing.
+ *   restart_job()   - Restart a job.
+ *   set_job_attrs() - Set job attributes.
+ *   sighandler()    - Signal catcher for when we print from stdin...
  */
 
 /*
@@ -33,12 +35,14 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <cups/cups.h>
 #include <cups/string.h>
 #include <cups/language.h>
 
 
 #ifndef WIN32
+#  include <unistd.h>
 #  include <signal.h>
 
 
@@ -48,6 +52,7 @@
 
 void	sighandler(int);
 #endif /* !WIN32 */
+int	restart_job(int job_id);
 int	set_job_attrs(int job_id, int num_options, cups_option_t *options);
 
 
@@ -119,16 +124,16 @@ main(int  argc,		/* I - Number of command-line arguments */
   job_id      = 0;
 
   for (i = 1; i < argc; i ++)
-    if (argv[i][0] == '-')
+    if (argv[i][0] == '-' && argv[i][1])
       switch (argv[i][1])
       {
         case 'E' : /* Encrypt */
-#ifdef HAVE_LIBSSL
+#ifdef HAVE_SSL
 	    cupsSetEncryption(HTTP_ENCRYPT_REQUIRED);
 #else
             fprintf(stderr, "%s: Sorry, no encryption support compiled in!\n",
 	            argv[0]);
-#endif /* HAVE_LIBSSL */
+#endif /* HAVE_SSL */
 	    break;
 
         case 'c' : /* Copy to spool dir (always enabled) */
@@ -255,12 +260,6 @@ main(int  argc,		/* I - Number of command-line arguments */
 	      num_copies = atoi(argv[i]);
 	    }
 
-	    if (num_copies < 1 || num_copies > 100)
-	    {
-	      fputs("lp: Number copies must be between 1 and 100.\n", stderr);
-	      return (1);
-	    }
-
             sprintf(buffer, "%d", num_copies);
             num_options = cupsAddOption("copies", buffer, num_options, &options);
 	    break;
@@ -295,7 +294,7 @@ main(int  argc,		/* I - Number of command-line arguments */
 	      if (i >= argc)
 	      {
 	        fprintf(stderr, "lp: Expected priority after -%c option!\n",
-		        argv[i][1]);
+		        argv[i - 1][1]);
 		return (1);
               }
 
@@ -383,6 +382,17 @@ main(int  argc,		/* I - Number of command-line arguments */
 	    else if (strcmp(val, "immediate") == 0)
               num_options = cupsAddOption("job-priority", "100",
 	                                  num_options, &options);
+	    else if (strcmp(val, "restart") == 0)
+	    {
+	      if (job_id < 1)
+	      {
+	        fputs("lp: Need job ID (-i) before \"-H restart\"!\n", stderr);
+		return (1);
+	      }
+
+	      if (restart_job(job_id))
+	        return (1);
+	    }
 	    else
               num_options = cupsAddOption("job-hold-until", val,
 	                                  num_options, &options);
@@ -442,11 +452,29 @@ main(int  argc,		/* I - Number of command-line arguments */
 	    fprintf(stderr, "lp: Unknown option \'%c\'!\n", argv[i][1]);
 	    return (1);
       }
+    else if (!strcmp(argv[i], "-"))
+    {
+      if (num_files || job_id)
+      {
+        fputs("lp: Error - cannot print from stdin if files or a job ID are "
+	      "provided!\n", stderr);
+	return (1);
+      }
+
+      break;
+    }
     else if (num_files < 1000 && job_id == 0)
     {
      /*
       * Print a file...
       */
+
+      if (access(argv[i], R_OK) != 0)
+      {
+        fprintf(stderr, "lp: Unable to access \"%s\" - %s\n", argv[i],
+	        strerror(errno));
+        return (1);
+      }
 
       files[num_files] = argv[i];
       num_files ++;
@@ -478,23 +506,25 @@ main(int  argc,		/* I - Number of command-line arguments */
     if (num_dests == 0)
       num_dests = cupsGetDests(&dests);
 
-    for (j = 0, dest = dests; j < num_dests; j ++, dest ++)
-      if (dest->is_default)
-      {
-	printer = dests[j].name;
+    if ((dest = cupsGetDest(NULL, NULL, num_dests, dests)) != NULL)
+    {
+      printer = dest->name;
 
-	for (j = 0; j < dest->num_options; j ++)
-	  if (cupsGetOption(dest->options[j].name, num_options, options) == NULL)
-	    num_options = cupsAddOption(dest->options[j].name,
-		                        dest->options[j].value,
-					num_options, &options);
-        break;
-      }
+      for (j = 0; j < dest->num_options; j ++)
+	if (cupsGetOption(dest->options[j].name, num_options, options) == NULL)
+	  num_options = cupsAddOption(dest->options[j].name,
+		                      dest->options[j].value,
+				      num_options, &options);
+    }
   }
 
   if (printer == NULL)
   {
-    fputs("lp: error - no default destination available.\n", stderr);
+    if (cupsLastError() >= IPP_BAD_REQUEST)
+      fputs("lp: error - scheduler not responding!\n", stderr);
+    else
+      fputs("lp: error - no default destination available.\n", stderr);
+
     return (1);
   }
 
@@ -563,6 +593,65 @@ main(int  argc,		/* I - Number of command-line arguments */
   }
   else if (!silent)
     printf("request id is %s-%d (%d file(s))\n", printer, job_id, num_files);
+
+  return (0);
+}
+
+
+/*
+ * 'restart_job()' - Restart a job.
+ */
+
+int					/* O - Exit status */
+restart_job(int job_id)			/* I - Job ID */
+{
+  http_t	*http;			/* HTTP connection to server */
+  ipp_t		*request,		/* IPP request */
+		*response;		/* IPP response */
+  cups_lang_t	*language;		/* Language for request */
+  char		uri[HTTP_MAX_URI];	/* URI for job */
+
+
+  http = httpConnectEncrypt(cupsServer(), ippPort(), cupsEncryption());
+
+  language = cupsLangDefault();
+
+  request = ippNew();
+  request->request.op.operation_id = IPP_RESTART_JOB;
+  request->request.op.request_id   = 1;
+
+  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_CHARSET,
+               "attributes-charset", NULL, cupsLangEncoding(language));
+
+  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_LANGUAGE,
+               "attributes-natural-language", NULL, language->language);
+
+  sprintf(uri, "ipp://localhost/jobs/%d", job_id);
+
+  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI,
+               "job-uri", NULL, uri);
+
+  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME,
+               "requesting-user-name", NULL, cupsUser());
+
+  if ((response = cupsDoRequest(http, request, "/jobs")) != NULL)
+  {
+    if (response->request.status.status_code > IPP_OK_CONFLICT)
+    {
+      fprintf(stderr, "lp: restart-job failed: %s\n",
+              ippErrorString(response->request.status.status_code));
+      ippDelete(response);
+      return (1);
+    }
+
+    ippDelete(response);
+  }
+  else
+  {
+    fprintf(stderr, "lp: restart-job failed: %s\n",
+            ippErrorString(cupsLastError()));
+    return (1);
+  }
 
   return (0);
 }
@@ -655,5 +744,5 @@ sighandler(int s)	/* I - Signal number */
 
 
 /*
- * End of "$Id: lp.c,v 1.1.1.3 2002/06/06 22:13:20 jlovell Exp $".
+ * End of "$Id: lp.c,v 1.1.1.12 2003/05/14 05:23:51 jlovell Exp $".
  */

@@ -1,0 +1,4 @@
+2003-05-12  Klee Dienes  <kdienes@apple.com>
+
+	* ppc.h (PPC_OPCODE_GPUL): New #define.
+

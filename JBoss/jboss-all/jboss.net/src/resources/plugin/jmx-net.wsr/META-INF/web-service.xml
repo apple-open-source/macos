@@ -1,0 +1,26 @@
+<!-- Descriptor for the JMX Adaptor Web Service -->
+
+<deployment 
+	name="JMX.net"
+	targetNameSpace="http://net.jboss.org/jmx"
+	xmlns="http://xml.apache.org/axis/wsdd/"
+	xmlns:jmx="http://net.jboss.org/jmx"
+	xmlns:java="http://xml.apache.org/axis/wsdd/providers/java">
+
+  <documentation>An example JMX-based Web Service</documentation>
+  
+  <!-- this service hits a connector web service that re-exposes the complete MBeanServer API -->
+  <service name="RemoteAdaptor" provider="Handler">
+    <parameter name="handlerClass" value="org.jboss.net.jmx.server.MBeanProvider"/>
+	<parameter name="ObjectName" value="jboss.net:service=Adaptor"/>
+	<parameter name="allowedMethods" value="invoke isRegistered"/>
+	<parameter name="allowedReadAttributes" value="DefaultDomain"/>
+  </service> 
+
+  <typeMapping qname="jmx:ObjectNameType" 
+	type="java:javax.management.ObjectName"
+	serializer="org.jboss.net.jmx.adaptor.ObjectNameSerializerFactory" 
+	deserializer="org.jboss.net.jmx.adaptor.ObjectNameDeserializerFactory"
+        encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"/>
+
+</deployment>

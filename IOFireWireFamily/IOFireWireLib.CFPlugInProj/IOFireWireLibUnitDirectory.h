@@ -31,19 +31,23 @@
  *
  */
 
-// public
-#import <IOKit/firewire/IOFireWireLib.h>
-
-// private
+#import "IOFireWireLibIUnknown.h"
 #import "IOFireWireLibPriv.h"
 
 namespace IOFireWireLib {
 
+	class Device ;
 	class LocalUnitDirectory: public IOFireWireIUnknown
 	{
-		public:
-			typedef ::IOFireWireLocalUnitDirectoryInterface 	Interface ;
-			typedef ::IOFireWireLibLocalUnitDirectoryRef		DirRef ;
+		typedef ::IOFireWireLocalUnitDirectoryInterface 	Interface ;
+		typedef ::IOFireWireLibLocalUnitDirectoryRef		DirRef ;
+
+		protected:
+		
+			static Interface		sInterface ;		
+			UserObjectHandle mKernUnitDirRef ;
+			Device&					mUserClient ;
+			bool					mPublished ;
 
 			HRESULT					QueryInterface(
 											REFIID				iid, 
@@ -94,12 +98,6 @@ namespace IOFireWireLib {
 		
 			// Use this function to cause your unit directory to appear in the Mac's config ROM.
 			static IOReturn			SPublish( DirRef self ) ;
-			static IOReturn			SUnpublish( DirRef self ) ;
-		
-		protected:
-			static Interface		sInterface ;		
-			KernUnitDirRef		mKernUnitDirRef ;
-			Device&					mUserClient ;
-			bool					mPublished ;
+			static IOReturn			SUnpublish( DirRef self ) ;		
 	} ;
 }

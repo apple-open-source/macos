@@ -4,7 +4,7 @@
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" RCS: @(#) $Id: Encoding.3,v 1.1.1.3 2002/04/05 16:12:56 jevans Exp $
+'\" RCS: @(#) $Id: Encoding.3,v 1.1.1.5 2003/07/22 23:11:02 landonf Exp $
 '\" 
 .so man.macros
 .TH Tcl_GetEncoding 3 "8.1" Tcl "Tcl Library Procedures"
@@ -14,7 +14,6 @@ Tcl_GetEncoding, Tcl_FreeEncoding, Tcl_ExternalToUtfDString, Tcl_ExternalToUtf, 
 .SH SYNOPSIS
 .nf
 \fB#include <tcl.h>\fR
-\fB#include <tclPlatDecls.h>\fR \fI/* Tcl_Win* functions only */\fR
 .sp
 Tcl_Encoding
 \fBTcl_GetEncoding\fR(\fIinterp, name\fR)
@@ -42,7 +41,7 @@ char *
 TCHAR *
 \fBTcl_WinUtfToTChar\fR(\fIsrc, srcLen, dstPtr\fR)
 .sp
-char *
+CONST char *
 \fBTcl_GetEncodingName\fR(\fIencoding\fR)
 .sp
 int
@@ -54,7 +53,7 @@ void
 Tcl_Encoding
 \fBTcl_CreateEncoding\fR(\fItypePtr\fR)
 .sp
-char *
+CONST char *
 \fBTcl_GetDefaultEncodingDir\fR(\fIvoid\fR)
 .sp
 void
@@ -125,7 +124,7 @@ Filled with the number of characters that correspond to the number of bytes
 stored in the output buffer.  May be NULL.
 .AP Tcl_EncodingType *typePtr in
 Structure that defines a new type of encoding.  
-.AP char *path in
+.AP "CONST char" *path in
 A path to the location of the encoding file.  
 .BE
 .SH INTRODUCTION
@@ -175,7 +174,7 @@ and delete it from the database.
 .PP
 \fBTcl_ExternalToUtfDString\fR converts a source buffer \fIsrc\fR from the
 specified \fIencoding\fR into UTF-8.  The converted bytes are stored in 
-\fIdstPtr\fR, which is then NULL terminated.  The caller should eventually
+\fIdstPtr\fR, which is then null-terminated.  The caller should eventually
 call \fBTcl_DStringFree\fR to free any information stored in \fIdstPtr\fR.
 When converting, if any of the characters in the source buffer cannot be
 represented in the target encoding, a default fallback character will be
@@ -213,7 +212,7 @@ the target encoding and TCL_ENCODING_STOPONERROR was specified.
 \fBTcl_UtfToExternalDString\fR converts a source buffer \fIsrc\fR from UTF-8 
 into the specified \fIencoding\fR.  The converted bytes are stored in
 \fIdstPtr\fR, which is then terminated with the appropriate encoding-specific
-NULL.  The caller should eventually call \fBTcl_DStringFree\fR to free any
+null.  The caller should eventually call \fBTcl_DStringFree\fR to free any
 information stored in \fIdstPtr\fR.  When converting, if any of the
 characters in the source buffer cannot be represented in the target
 encoding, a default fallback character will be used.  The return value is
@@ -245,7 +244,7 @@ encoding of NULL (the current system encoding).  On the other hand,
 if you planned to use the Unicode interface when running on Windows NT
 and the "char" interfaces when running on Windows 95, you would have
 to perform the following type of test over and over in your program
-(as represented in psuedo-code):
+(as represented in pseudo-code):
 .CS
 if (running NT) {
     encoding <- Tcl_GetEncoding("unicode");

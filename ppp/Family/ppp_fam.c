@@ -2,21 +2,24 @@
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -130,7 +133,7 @@ int ppp_fam_add_if(struct ifnet *ifp)
     
     LOGDBG(ifp, (LOGVAL, "ppp_fam_add_if, ifp = 0x%x\n", ifp));
     
-    MALLOC(pppfam, struct ppp_fam *, sizeof(struct ppp_fam), M_DEVBUF, M_WAIT);
+    MALLOC(pppfam, struct ppp_fam *, sizeof(struct ppp_fam), M_TEMP, M_WAIT);
     if (!pppfam) {
         LOGDBG(ifp, (LOGVAL, "ppp_fam_ifoutput : Can't allocate interface family structure\n"));
         return 1;
@@ -152,6 +155,12 @@ called from dlil when an interface is detached for that family
 int ppp_fam_del_if(struct ifnet *ifp)
 {
     LOGDBG(ifp, (LOGVAL, "ppp_fam_del_if, ifp = 0x%x\n", ifp));
+
+    if (ifp->family_cookie) {
+        FREE(ifp->family_cookie, M_TEMP);
+        ifp->family_cookie = 0;
+    }
+
     return 0;
 }
 
@@ -179,6 +188,12 @@ int  ppp_fam_add_proto(struct ddesc_head_str *desc_head, struct if_proto *proto,
             pppfam->ip_tag = dl_tag;
             pppfam->ip_proto = proto;
             break;
+        case PPP_IPV6:
+            if (pppfam->ipv6_tag)	// protocol already registered
+                return EEXIST;
+            pppfam->ipv6_tag = dl_tag;
+            pppfam->ipv6_proto = proto;
+            break;
         default:
             return EINVAL;	// happen for unknown protocol, or for empty descriptor
     }
@@ -202,6 +217,11 @@ int  ppp_fam_del_proto(struct if_proto *proto, u_long dl_tag)
         pppfam->ip_tag = 0;
         pppfam->ip_proto = 0;
     }
+
+    if (dl_tag == pppfam->ipv6_tag) {
+        pppfam->ipv6_tag = 0;
+        pppfam->ipv6_proto = 0;
+    }
     
     return 0;
 }
@@ -223,6 +243,9 @@ int ppp_fam_demux(struct ifnet *ifp, struct mbuf *m, char *frame_header,
     switch (proto) {
         case PPP_IP:
             *(struct if_proto **)if_proto_ptr = pppfam->ip_proto;
+            break;
+        case PPP_IPV6:
+            *(struct if_proto **)if_proto_ptr = pppfam->ipv6_proto;
             break;
         default :
             LOGDBG(ifp, (LOGVAL, "ppp_fam_demux, ifp = 0x%x, bad proto = 0x%x\n", ifp, proto));
@@ -249,7 +272,7 @@ int ppp_fam_frameout(struct ifnet *ifp, struct mbuf **m0,
     }
 
     // place protocol number at the beginning of the mbuf
-    *mtod(*m0, u_int16_t *) = *(u_int16_t *)ppp_type;
+    *mtod(*m0, u_int16_t *) = htons(*(u_int16_t *)ppp_type);
     
     return 0;
 }

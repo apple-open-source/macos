@@ -50,9 +50,7 @@ static void stream_daytime(const struct server *) ;
 static void dgram_daytime(const struct server *) ;
 static void stream_chargen(const struct server *) ;
 static void dgram_chargen(const struct server *) ;
-static void stream_servers(const struct server *) ;
 static void stream_services(const struct server *) ;
-static void xadmin_handler(const struct server *) ;
 static void tcpmux_handler(const struct server *) ;
 static int bad_port_check(const union xsockaddr *, const char *);
 
@@ -64,8 +62,8 @@ static int bad_port_check(const union xsockaddr *, const char *);
  *     svc_handle -- aka svc_handler_func -- aka svc_generic_handler   service.c
  *      server_run                      server.c
  *       server_internal               server.c
- *      sc_internal               service.c
- *       builtin_invoke               sc_conf.c
+ *      SC_INTERNAL               service.h
+ *       BUILTIN_INVOKE               sc_conf.h
  *        sc_builtin -- index into builtin_services   builtins.c
  */
 
@@ -81,13 +79,11 @@ static const struct builtin_service builtin_services[] =
       { "daytime",   SOCK_DGRAM,    { dgram_daytime,   NO_FORK } },
       { "chargen",   SOCK_STREAM,   { stream_chargen,  FORK    } },
       { "chargen",   SOCK_DGRAM,    { dgram_chargen,   NO_FORK } },
-      { "servers",   SOCK_STREAM,   { stream_servers,  FORK    } },
       { "services",  SOCK_STREAM,   { stream_services, FORK    } },
-      { "xadmin",    SOCK_STREAM,   { xadmin_handler,  FORK    } },
       { "sensor",    SOCK_STREAM,   { stream_discard,  NO_FORK } },
       { "sensor",    SOCK_DGRAM,    { dgram_discard,   NO_FORK } },
-      { "tcpmux",    SOCK_STREAM,   { tcpmux_handler,  FORK } },
-      { NULL }
+      { "tcpmux",    SOCK_STREAM,   { tcpmux_handler,  FORK    } },
+      { NULL,        0,             { NULL,            0       } }
    } ;
 
 
@@ -144,6 +140,8 @@ static void stream_echo( const struct server *serp )
       if ( descriptor == -1 ) return;
    }
 
+   close_all_svc_descriptors();
+
    for ( ;; )
    {
       cc = read( descriptor, buf, sizeof( buf ) ) ;
@@ -159,8 +157,8 @@ static void stream_echo( const struct server *serp )
       if ( write_buf( descriptor, buf, cc ) == FAILED )
          break ;
    }
-   if( SVC_WAITS( svc ) )
-      close(descriptor);
+   if( SVC_WAITS( svc ) ) /* Service forks, so close it */
+      Sclose(descriptor);
 }
 
 /* For internal UDP services, make sure we don't respond to our ports
@@ -187,13 +185,13 @@ static void dgram_echo( const struct server *serp )
    char            buf[ DATAGRAM_SIZE ] ;
    union xsockaddr lsin;
    int             cc ;
-   int             sin_len = 0;
+   unsigned int    sin_len = 0;
    int             descriptor = SERVER_FD( serp ) ;
    const char     *func = "dgram_echo";
 
    if( SC_IPV4( SVC_CONF( SERVER_SERVICE( serp ) ) ) )
       sin_len = sizeof( struct sockaddr_in );
-   if( SC_IPV6( SVC_CONF( SERVER_SERVICE( serp ) ) ) )
+   else if( SC_IPV6( SVC_CONF( SERVER_SERVICE( serp ) ) ) )
       sin_len = sizeof( struct sockaddr_in6 );
 
    cc = recvfrom( descriptor, buf, sizeof( buf ), 0, SA( &lsin ), &sin_len ) ;
@@ -214,14 +212,17 @@ static void stream_discard( const struct server *serp )
       descriptor = accept(descriptor, NULL, NULL);
       if ( descriptor == -1 ) return;
    }
+
+   close_all_svc_descriptors();
+
    for ( ;; )
    {
       cc = read( descriptor, buf, sizeof( buf ) ) ;
       if ( (cc == 0) || ((cc == -1) && (errno != EINTR)) )
          break ;
    }
-   if( SVC_WAITS( svc ) )
-      close(descriptor);
+   if( SVC_WAITS( svc ) ) /* Service forks, so close it */
+      Sclose(descriptor);
 }
 
 
@@ -241,7 +242,7 @@ static void dgram_discard( const struct server *serp )
  * buflen is a value-result parameter. It indicates the size of
  * buf and on exit it has the length of the string placed in buf.
  */
-static void daytime_protocol( char *buf, int *buflen )
+static void daytime_protocol( char *buf, unsigned int *buflen )
 {
    static const char *month_name[] =
       {
@@ -250,7 +251,7 @@ static void daytime_protocol( char *buf, int *buflen )
       } ;
    time_t      now ;
    struct tm   *tmp ;
-   int      size = *buflen ;
+   int         size = *buflen ;
 #ifdef HAVE_STRFTIME
    int      cc ;
 #endif
@@ -267,10 +268,12 @@ static void daytime_protocol( char *buf, int *buflen )
       "%02d %s %d %02d:%02d:%02d",
          tmp->tm_mday, month_name[ tmp->tm_mon ], 1900 + tmp->tm_year,
             tmp->tm_hour, tmp->tm_min, tmp->tm_sec ) ;
-   *buflen = cc ;
-   size -= cc ;
-   cc = strftime( &buf[ *buflen ], size, " %Z\r\n", tmp ) ;
-   *buflen += cc ;
+   if ( cc >= 0 ) { 
+      *buflen = cc ;
+      size -= cc ;
+      cc = strftime( &buf[ *buflen ], size, " %Z\r\n", tmp ) ;
+      *buflen += cc ;
+   }
 #endif
 }
 
@@ -278,7 +281,7 @@ static void daytime_protocol( char *buf, int *buflen )
 static void stream_daytime( const struct server *serp )
 {
    char  time_buf[ BUFFER_SIZE ] ;
-   int   buflen = sizeof( time_buf ) ;
+   unsigned int buflen = sizeof( time_buf ) ;
    int    descriptor = SERVER_FD( serp ) ;
    const struct service *svc = SERVER_SERVICE( serp ) ;;
 
@@ -288,7 +291,7 @@ static void stream_daytime( const struct server *serp )
    }
    daytime_protocol( time_buf, &buflen ) ;
    (void) write_buf( descriptor, time_buf, buflen ) ;
-   close(descriptor);
+   Sclose(descriptor);
 }
 
 
@@ -296,14 +299,14 @@ static void dgram_daytime( const struct server *serp )
 {
    char            time_buf[ BUFFER_SIZE ] ;
    union xsockaddr lsin ;
-   int             sin_len     = 0 ;
-   int             buflen      = sizeof( time_buf ) ;
+   unsigned int    sin_len     = 0 ;
+   unsigned int    buflen      = sizeof( time_buf ) ;
    int             descriptor  = SERVER_FD( serp ) ;
    const char     *func       = "dgram_daytime";
 
    if ( SC_IPV4( SVC_CONF( SERVER_SERVICE( serp ) ) ) ) 
       sin_len = sizeof( struct sockaddr_in );
-   if ( SC_IPV6( SVC_CONF( SERVER_SERVICE( serp ) ) ) ) 
+   else if ( SC_IPV6( SVC_CONF( SERVER_SERVICE( serp ) ) ) ) 
       sin_len = sizeof( struct sockaddr_in6 );
 
    if ( recvfrom( descriptor, time_buf, sizeof( time_buf ), 0,
@@ -352,7 +355,7 @@ static void stream_time( const struct server *serp )
    time_protocol( time_buf ) ;
    (void) write_buf( descriptor, (char *) time_buf, 4 ) ;
 
-   close(descriptor);
+   Sclose(descriptor);
 }
 
 
@@ -361,13 +364,13 @@ static void dgram_time( const struct server *serp )
    char     buf[ 1 ] ;
    unsigned char time_buf[4];
    union xsockaddr lsin ;
-   int             sin_len = sizeof( lsin ) ;
+   unsigned int    sin_len = 0 ;
    int             fd      = SERVER_FD( serp ) ;
    const char     *func    = "dgram_daytime";
 
    if ( SC_IPV4( SVC_CONF( SERVER_SERVICE( serp ) ) ) ) 
       sin_len = sizeof( struct sockaddr_in );
-   if ( SC_IPV6( SVC_CONF( SERVER_SERVICE( serp ) ) ) ) 
+   else if ( SC_IPV6( SVC_CONF( SERVER_SERVICE( serp ) ) ) ) 
       sin_len = sizeof( struct sockaddr_in6 );
 
    if ( recvfrom( fd, buf, sizeof( buf ), 0, SA( &lsin ), &sin_len ) == -1 )
@@ -393,11 +396,11 @@ static char *ring ;
 
 #define min( a, b )          ((a)<(b) ? (a) : (b))
 
-static char *generate_line( char *buf, int len )
+static char *generate_line( char *buf, unsigned int len )
 {
-   int line_len = min( LINE_LENGTH, len-2 ) ;
+   unsigned int line_len = min( LINE_LENGTH, len-2 ) ;
 
-   if ( line_len < 0 )
+   if ( len < 2 )       /* If len < 2, min will be wrong */
       return( NULL ) ;
 
    /* This never gets freed.  That's ok, because the reference to it is
@@ -443,6 +446,8 @@ static void stream_chargen( const struct server *serp )
    }
 
    (void) shutdown( descriptor, 0 ) ;
+   close_all_svc_descriptors();
+
    for ( ;; )
    {
       if ( generate_line( line_buf, sizeof( line_buf ) ) == NULL )
@@ -450,8 +455,8 @@ static void stream_chargen( const struct server *serp )
       if ( write_buf( descriptor, line_buf, sizeof( line_buf ) ) == FAILED )
          break ;
    }
-   if( SVC_WAITS( svc ) )
-      close(descriptor);
+   if( SVC_WAITS( svc ) ) /* Service forks, so close it */
+      Sclose(descriptor);
 }
 
 
@@ -459,16 +464,16 @@ static void dgram_chargen( const struct server *serp )
 {
    char            buf[ BUFFER_SIZE ] ;
    char            *p ;
-   int             len ;
+   unsigned int    len ;
    union xsockaddr lsin ;
-   int             sin_len = sizeof( lsin ) ;
+   unsigned int    sin_len = 0 ;
    int             fd      = SERVER_FD( serp ) ;
-   int             left    = sizeof( buf ) ;
+   unsigned int    left    = sizeof( buf ) ;
    const char     *func    = "dgram_chargen";
 
    if ( SC_IPV4( SVC_CONF( SERVER_SERVICE( serp ) ) ) ) 
       sin_len = sizeof( struct sockaddr_in );
-   if ( SC_IPV6( SVC_CONF( SERVER_SERVICE( serp ) ) ) ) 
+   else if ( SC_IPV6( SVC_CONF( SERVER_SERVICE( serp ) ) ) ) 
       sin_len = sizeof( struct sockaddr_in6 );
 
    if ( recvfrom( fd, buf, sizeof( buf ), 0, SA( &lsin ), &sin_len ) == -1 )
@@ -490,31 +495,12 @@ static void dgram_chargen( const struct server *serp )
 }
 
 
-static void stream_servers( const struct server *this_serp )
-{
-   unsigned  u ;
-   int       descriptor = SERVER_FD( this_serp ) ;
-
-   for ( u = 0 ; u < pset_count( SERVERS( ps ) ) ; u++ )
-   {
-      const struct server *serp = SERP( pset_pointer( SERVERS( ps ), u ) ) ;
-
-      /*
-       * We cannot report any useful information about this server because
-       * the data in the server struct are filled by the parent.
-       */
-      if ( serp == this_serp )
-         continue ;
-
-      server_dump( serp, descriptor ) ;
-   }
-}
-
-
 static void stream_services( const struct server *serp )
 {
    unsigned u ;
    int      fd = SERVER_FD( serp ) ;
+
+   close_all_svc_descriptors();
 
    for ( u = 0 ; u < pset_count( SERVICES( ps ) ) ; u++ )
    {
@@ -526,9 +512,10 @@ static void stream_services( const struct server *serp )
 
       strx_print( &cc, buf, sizeof( buf ), "%s %s %d\n",
          SC_NAME( scp ), SC_PROTONAME( scp ), SC_PORT( scp ) ) ;
-         
-      if ( write_buf( fd, buf, cc ) == FAILED )
-         break ;
+      if ( cc >= 0) {         
+         if ( write_buf( fd, buf, cc ) == FAILED )
+            break ;
+      }
    }
 }
 
@@ -550,6 +537,8 @@ static void tcpmux_handler( const struct server *serp )
    struct    service *sp = NULL;
    struct    server server, *nserp;
    struct    service_config *scp = NULL;
+
+   close_all_svc_descriptors();
 
    /*  Read in the name of the service in the format "svc_name\r\n".
     *
@@ -636,8 +625,8 @@ static void tcpmux_handler( const struct server *serp )
       exit(0);
    }
 
-   if( SVC_WAITS( svc ) )
-      close(descriptor);
+   if( SVC_WAITS( svc ) ) /* Service forks, so close it */
+      Sclose(descriptor);
 
    server.svr_sp = sp;
    server.svr_conn = serp->svr_conn;
@@ -647,153 +636,5 @@ static void tcpmux_handler( const struct server *serp )
    } else {
       exec_server(nserp);
    }
-   
 }
 
-#define MAX_CMD 100
-
-/* Do the redirection of a service */
-/* This function gets called from child.c after we have been forked */
-static void xadmin_handler( const struct server *serp )
-{
-   int  descriptor = SERVER_FD( serp );
-   char cmd[MAX_CMD]; 
-   int  red = 0;
-   unsigned  u = 0;
-   const char *func = "xadmin_handler";
-   
-   while(1)
-   {
-      Sprint(descriptor, "> ");
-      Sflush(descriptor);
-      bzero(cmd, MAX_CMD);
-      red = read(descriptor, cmd, MAX_CMD);
-      if( red < 0 )
-      {
-         msg(LOG_ERR, func, "xadmin:reading command: %s", strerror(errno));
-         exit(1);
-      }
-      if( red > MAX_CMD )
-      {
-         /* shouldn't ever happen */
-         msg(LOG_ERR, func, 
-	   "xadmin:reading command: read more bytes than MAX_CMD");
-         continue;
-      }
-
-      if( red == 0 )
-         exit(0);
-
-      if(   (strncmp(cmd, "bye",(red<3)?red:3) == 0)   ||
-         (strncmp(cmd, "exit", (red<4)?red:4) == 0)   ||
-         (strncmp(cmd, "quit", (red<4)?red:4) == 0) )
-      {
-         Sprint(descriptor, "bye bye\n");
-         Sflush(descriptor);
-         close(descriptor);
-         exit(0);
-      }
-
-      if( strncmp(cmd, "help", (red<4)?red:4) == 0 ) 
-      {
-         Sprint(descriptor, "xinetd admin help:\n");
-         Sprint(descriptor, "show run  :   shows information about running services\n");
-         Sprint(descriptor, "show avail:   shows what services are currently available\n");
-         Sprint(descriptor, "bye, exit :   exits the admin shell\n");
-      }
-
-      if( strncmp(cmd, "show", (red<4)?red:4) == 0 )
-      {
-         char *tmp = cmd+4;
-         red -= 4;
-         if( tmp[0] == ' ' )
-         {
-              tmp++;
-            red--;
-         }
-
-         if( red <= 0 )
-              continue;
-
-         if( strncmp(tmp, "run", (red<3)?red:3) == 0 )
-         {
-            Sprint(descriptor, "Running services:\n");
-            Sprint(descriptor, "service  run retry attempts descriptor\n");
-            for( u = 0 ; u < pset_count( SERVERS( ps ) ) ; u++ )
-            {
-               server_dump( SERP( pset_pointer( SERVERS(ps), u ) ), descriptor );
-  
-#ifdef FOO
-               Sprint(descriptor, "%-10s %-3d %-5d %-7d %-5d\n", 
-               (char *)SVC_ID( sp ), sp->svc_running_servers+1, 
-               sp->svc_retry_servers, sp->svc_attempts, sp->svc_fd );
-#endif
-            }
-         }
-         else if( strncmp(tmp, "avail", (red<5)?red:5) == 0 )
-         {
-      
-            Sprint(descriptor, "Available services:\n");
-            Sprint(descriptor, "service    port   bound address    uid redir addr redir port\n");
-
-            for( u = 0 ; u < pset_count( SERVICES( ps ) ) ; u++ )
-            {
-               struct service *sp=NULL;
-               char bname[NI_MAXHOST];
-               char rname[NI_MAXHOST];
-               int length = 0;
-
-               memset(bname, 0, sizeof(bname));
-               memset(rname, 0, sizeof(rname));
-
-               sp = SP( pset_pointer( SERVICES( ps ), u ) );
-
-               if( SVC_CONF(sp)->sc_bind_addr != NULL ) {
-                  if( SVC_CONF(sp)->sc_bind_addr->sa.sa_family == AF_INET )
-                     length = sizeof(struct sockaddr_in);
-                  else if( SVC_CONF(sp)->sc_bind_addr->sa.sa_family == AF_INET6)
-                     length = sizeof(struct sockaddr_in6);
-                  if( getnameinfo(&SVC_CONF(sp)->sc_bind_addr->sa, length, 
-                        bname, NI_MAXHOST, NULL, 0, 0) )
-                     strcpy(bname, "unknown");
-               }
-  
-               if( SVC_CONF(sp)->sc_redir_addr != NULL )
-               {
-                  if( SVC_CONF(sp)->sc_redir_addr->sa.sa_family == AF_INET )
-                     length = sizeof(struct sockaddr_in);
-                  else if(SVC_CONF(sp)->sc_redir_addr->sa.sa_family == AF_INET6)
-                     length = sizeof(struct sockaddr_in6);
-                  if( getnameinfo(&SVC_CONF(sp)->sc_redir_addr->sa, length, 
-                        rname, NI_MAXHOST, NULL, 0, 0) )
-                     strcpy(rname, "unknown");
-                  Sprint(descriptor, "%-10s ", SC_NAME( SVC_CONF( sp ) ) );
-                  Sprint(descriptor, "%-6d ", SC_PORT( SVC_CONF( sp ) ) );
-                  Sprint(descriptor, "%-16s ", bname );
-                  Sprint(descriptor, "%-6d ", SVC_CONF(sp)->sc_uid );
-                  Sprint(descriptor, "%-16s ", rname );
-                  Sprint(descriptor, "%-6d\n", xaddrport(SVC_CONF(sp)->sc_redir_addr) );
-               }
-               else
-               {
-                  Sprint(descriptor, "%-10s ", SC_NAME( SVC_CONF( sp ) ) );
-                  Sprint(descriptor, "%-6d ", SC_PORT( SVC_CONF( sp ) ) );
-                  Sprint(descriptor, "%-16s ", bname );
-                  Sprint(descriptor, "%-6d\n", SVC_CONF(sp)->sc_uid );
-               }
-            }
-         }
-         else
-         {
-            Sprint(descriptor, "Relevant commands:\n");
-            Sprint(descriptor, "run   : Show currently running servers\n");
-            Sprint(descriptor, "avail : Show currently available servers\n");
-         }
-      }
-   }
-   /* XXX: NOTREACHED (the compiler agrees) */
-#if 0
-   Sprint(descriptor, "exiting\n");
-   Sflush(descriptor);
-#endif
-}

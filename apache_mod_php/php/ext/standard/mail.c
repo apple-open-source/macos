@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,26 +12,25 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Rasmus Lerdorf <rasmus@php.net>                             |
+   | Author: Rasmus Lerdorf <rasmus@php.net>                              |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: mail.c,v 1.1.1.4 2001/12/14 22:13:24 zarzycki Exp $ */
+/* $Id: mail.c,v 1.1.1.7 2003/07/18 18:07:43 zarzycki Exp $ */
 
 #include <stdlib.h>
 #include <ctype.h>
 #include <stdio.h>
 #include "php.h"
 #include "ext/standard/info.h"
-#if !defined(PHP_WIN32)
-#include "build-defs.h"
+
 #if HAVE_SYSEXITS_H
 #include <sysexits.h>
 #endif
 #if HAVE_SYS_SYSEXITS_H
 #include <sys/sysexits.h>
 #endif
-#endif
+
 #include "php_mail.h"
 #include "php_ini.h"
 #include "safe_mode.h"
@@ -42,33 +41,38 @@
 #include "win32/sendmail.h"
 #endif
 
+#ifdef NETWARE
+#include "netware/pipe.h"    /* For popen(), pclose() */
+#include "netware/sysexits.h"   /* For exit status codes like EX_OK */
+#endif
+
+#define SKIP_LONG_HEADER_SEP(str, pos)										\
+	if (str[pos] == '\r' && str[pos + 1] == '\n' && (str[pos + 2] == ' ' || str[pos + 2] == '\t')) {	\
+		pos += 3;											\
+		while (str[pos] == ' ' || str[pos] == '\t') {							\
+			pos++;											\
+		}												\
+		continue;											\
+	}													\
+
 /* {{{ proto int ezmlm_hash(string addr)
    Calculate EZMLM list hash value. */
 PHP_FUNCTION(ezmlm_hash)
 {
-	pval **pstr = NULL;
-	char *str=NULL;
+	char *str = NULL;
 	unsigned long h = 5381L;
-	int j, l;
+	int j, str_len;
 	
-	if (ZEND_NUM_ARGS() != 1 || zend_get_parameters_ex(1, &pstr) == FAILURE) {
-		WRONG_PARAM_COUNT;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s",
+							  &str, &str_len) == FAILURE) {
+		return;
 	}
 
-	convert_to_string_ex(pstr);
-	if ((*pstr)->value.str.val) {
-		str = (*pstr)->value.str.val;
-	} else {
-		php_error(E_WARNING, "Must give string parameter to ezmlm_hash()");
-		RETURN_FALSE;
+	for (j = 0; j < str_len; j++) {
+		h = (h + (h << 5)) ^ (unsigned long) (unsigned char) tolower(str[j]);
 	}
 	
-	l = strlen(str);
-	for (j=0; j<l; j++) {
-		h = (h + (h<<5)) ^ (unsigned long) (unsigned char) tolower(str[j]);
-	}
-	
-	h = (h%53);
+	h = (h % 53);
 	
 	RETURN_LONG((int) h);
 }
@@ -78,67 +82,84 @@ PHP_FUNCTION(ezmlm_hash)
    Send an email message */
 PHP_FUNCTION(mail)
 {
-	pval **argv[5];
-	char *to=NULL, *message=NULL, *headers=NULL, *subject=NULL, *extra_cmd=NULL;
-	int argc;
-	
-	argc = ZEND_NUM_ARGS();
-	if (argc < 3 || argc > 5 || zend_get_parameters_array_ex(argc, argv) == FAILURE) {
-		WRONG_PARAM_COUNT;
-	}
-	/* To: */
-	convert_to_string_ex(argv[0]);
-	if ((*argv[0])->value.str.val) {
-		to = (*argv[0])->value.str.val;
-	} else {
-		php_error(E_WARNING, "No to field in mail command");
+	char *to=NULL, *message=NULL, *headers=NULL;
+	char *subject=NULL, *extra_cmd=NULL;
+	int to_len, message_len, headers_len;
+	int subject_len, extra_cmd_len, i;
+
+	if (PG(safe_mode) && (ZEND_NUM_ARGS() == 5)) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "SAFE MODE Restriction in effect.  The fifth parameter is disabled in SAFE MODE.");
 		RETURN_FALSE;
+	}	
+	
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sss|ss",
+							  &to, &to_len,
+							  &subject, &subject_len,
+							  &message, &message_len,
+							  &headers, &headers_len,
+							  &extra_cmd, &extra_cmd_len
+							  ) == FAILURE) {
+		return;
 	}
 
-	/* Subject: */
-	convert_to_string_ex(argv[1]);
-	if ((*argv[1])->value.str.val) {
-		subject = Z_STRVAL_PP(argv[1]);
-	} else {
-		php_error(E_WARNING, "No subject field in mail command");
-		RETURN_FALSE;
+	if (to_len > 0) {
+		for (; to_len; to_len--) {
+			if (!isspace((unsigned char) to[to_len - 1])) {
+				break;
+			}
+			to[to_len - 1] = '\0';
+		}
+		for (i = 0; to[i]; i++) {
+			if (iscntrl((unsigned char) to[i])) {
+				/* According to RFC 822, section 3.1.1 long headers may be separated into
+				 * parts using CRLF followed at least one linear-white-space character ('\t' or ' ').
+				 * To prevent these separators from being replaced with a space, we use the
+				 * SKIP_LONG_HEADER_SEP to skip over them.
+				 */
+				SKIP_LONG_HEADER_SEP(to, i);
+				to[i] = ' ';
+			}
+		}
 	}
 
-	/* message body */
-	convert_to_string_ex(argv[2]);
-	if ((*argv[2])->value.str.val) {
-		message = Z_STRVAL_PP(argv[2]);
-	} else {
-		/* this is not really an error, so it is allowed. */
-		php_error(E_WARNING, "No message string in mail command");
-		message = NULL;
+	if (subject_len > 0) {
+		for (; subject_len; subject_len--) {
+			if (!isspace((unsigned char) subject[subject_len - 1])) {
+				break;
+			}
+			subject[subject_len - 1] = '\0';
+		}
+		for(i = 0; subject[i]; i++) {
+			if (iscntrl((unsigned char) subject[i])) {
+				SKIP_LONG_HEADER_SEP(subject, i);
+				subject[i] = ' ';
+			}
+		}
 	}
 
-	if (argc >= 4) {			/* other headers */
-		convert_to_string_ex(argv[3]);
-		headers = Z_STRVAL_PP(argv[3]);
+	if (extra_cmd) {
+		extra_cmd = php_escape_shell_cmd(extra_cmd);
 	}
 	
-	if (argc == 5) {			/* extra options that get passed to the mailer */
-		convert_to_string_ex(argv[4]);
-		extra_cmd = php_escape_shell_arg(Z_STRVAL_PP(argv[4]));
-	}
-	
-	if (php_mail(to, subject, message, headers, extra_cmd)) {
+	if (php_mail(to, subject, message, headers, extra_cmd TSRMLS_CC)) {
 		RETVAL_TRUE;
 	} else {
 		RETVAL_FALSE;
 	}
-	if (extra_cmd) efree (extra_cmd);
+
+	if (extra_cmd) {
+		efree (extra_cmd);
+	}
 }
 /* }}} */
 
 /* {{{ php_mail
  */
-PHPAPI int php_mail(char *to, char *subject, char *message, char *headers, char *extra_cmd)
+PHPAPI int php_mail(char *to, char *subject, char *message, char *headers, char *extra_cmd TSRMLS_DC)
 {
-#ifdef PHP_WIN32
+#if (defined PHP_WIN32 || defined NETWARE)
 	int tsm_err;
+	char *tsm_errmsg = NULL;
 #endif
 	FILE *sendmail;
 	int ret;
@@ -146,10 +167,15 @@ PHPAPI int php_mail(char *to, char *subject, char *message, char *headers, char 
 	char *sendmail_cmd = NULL;
 
 	if (!sendmail_path) {
-#ifdef PHP_WIN32
+#if (defined PHP_WIN32 || defined NETWARE)
 		/* handle old style win smtp sending */
-		if (TSendMail(INI_STR("SMTP"), &tsm_err, headers, subject, to, message) != SUCCESS){
-			php_error(E_WARNING, GetSMErrorText(tsm_err));
+		if (TSendMail(INI_STR("SMTP"), &tsm_err, &tsm_errmsg, headers, subject, to, message, NULL, NULL, NULL) == FAILURE) {
+			if (tsm_errmsg) {
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", tsm_errmsg);
+				efree(tsm_errmsg);
+			} else {
+				php_error_docref(NULL TSRMLS_CC, E_WARNING, "%s", GetSMErrorText(tsm_err));
+			}
 			return 0;
 		}
 		return 1;
@@ -169,12 +195,23 @@ PHPAPI int php_mail(char *to, char *subject, char *message, char *headers, char 
 #ifdef PHP_WIN32
 	sendmail = popen(sendmail_cmd, "wb");
 #else
+	/* Since popen() doesn't indicate if the internal fork() doesn't work
+	 * (e.g. the shell can't be executed) we explicitely set it to 0 to be
+	 * sure we don't catch any older errno value. */
+	errno = 0;
 	sendmail = popen(sendmail_cmd, "w");
 #endif
 	if (extra_cmd != NULL)
 		efree (sendmail_cmd);
 
 	if (sendmail) {
+#ifndef PHP_WIN32
+		if (EACCES == errno) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Permission denied: unable to execute shell to run mail delivery binary");
+			pclose(sendmail);
+			return 0;
+		}
+#endif
 		fprintf(sendmail, "To: %s\n", to);
 		fprintf(sendmail, "Subject: %s\n", subject);
 		if (headers != NULL) {
@@ -186,9 +223,11 @@ PHPAPI int php_mail(char *to, char *subject, char *message, char *headers, char 
 		if (ret == -1)
 #else
 #if defined(EX_TEMPFAIL)
-		if ((ret != EX_OK)&&(ret != EX_TEMPFAIL)) 
+		if ((ret != EX_OK)&&(ret != EX_TEMPFAIL))
+#elif defined(EX_OK)
+		if (ret != EX_OK)
 #else
-		if (ret != EX_OK) 
+		if (ret != 0)
 #endif
 #endif
 		{
@@ -197,10 +236,11 @@ PHPAPI int php_mail(char *to, char *subject, char *message, char *headers, char 
 			return 1;
 		}
 	} else {
-		php_error(E_WARNING, "Could not execute mail delivery program");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Could not execute mail delivery program");
 		return 0;
 	}
-	return 1;
+
+	return 1; /* never reached */
 }
 /* }}} */
 
@@ -212,12 +252,12 @@ PHP_MINFO_FUNCTION(mail)
 
 #ifdef PHP_WIN32
 	if (!sendmail_path) {
-        php_info_print_table_row(2, "Internal Sendmail Support for Windows", "enabled");
+		php_info_print_table_row(2, "Internal Sendmail Support for Windows", "enabled");
 	} else {
-        php_info_print_table_row(2, "Path to sendmail", sendmail_path);
+		php_info_print_table_row(2, "Path to sendmail", sendmail_path);
 	}
 #else
-    php_info_print_table_row(2, "Path to sendmail", sendmail_path);
+	php_info_print_table_row(2, "Path to sendmail", sendmail_path);
 #endif
 }
 /* }}} */
@@ -234,6 +274,6 @@ PHP_MINFO_FUNCTION(mail) {}
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

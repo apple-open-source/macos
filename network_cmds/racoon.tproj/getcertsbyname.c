@@ -1,4 +1,4 @@
-/*	$KAME: getcertsbyname.c,v 1.6 2001/08/07 09:17:49 itojun Exp $	*/
+/*	$KAME: getcertsbyname.c,v 1.7 2001/11/16 04:12:59 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -28,6 +28,8 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
+
+#define BIND_8_COMPAT
 
 #include <sys/types.h>
 #include <sys/param.h>

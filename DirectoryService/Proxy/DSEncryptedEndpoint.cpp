@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -40,7 +43,7 @@
 #include <new>					// for bad_alloc exceptions
 #include <stdexcept>			// for standard exceptions
 
-#include <Endian.h>	// for Endian*() byte swapping macros
+#include <machine/byte_order.h>
 
 #ifdef DSSERVERTCP
 #include "CLog.h"
@@ -141,6 +144,7 @@ sInt32 DSEncryptedEndpoint::ClientNegotiateKey ( void )
 	CSSM_KEY		myPub;
 	CSSM_KEY		localDerived;
 	uInt32			theTestBlob	= 0;
+	uInt32			theTestBlobBE	= 0;
 	CSSM_DATA		plainText	= {0, NULL};
 	CSSM_DATA		cipherText	= {0, NULL};
 	sInt32			syncRet		= eDSNoErr;
@@ -166,7 +170,7 @@ sInt32 DSEncryptedEndpoint::ClientNegotiateKey ( void )
 			}
 			// build the send buffer with the auth tag
 			outBuff = (uInt8*)calloc(1,4 + myPub.KeyData.Length);
-			*((FourCharCode *) outBuff) = DSTCPAuthTag;
+			*((FourCharCode *) outBuff) = NXSwapHostLongToBig(DSTCPAuthTag);
 			outLen = myPub.KeyData.Length;
 			memcpy(outBuff+4, (uInt8 *)myPub.KeyData.Data, outLen);
 			outLen += 4; //for the tag
@@ -195,7 +199,8 @@ sInt32 DSEncryptedEndpoint::ClientNegotiateKey ( void )
 			//now need to send server a blob to confirm keys work
 			::srandom(getpid() + time(NULL));
 			theTestBlob			= random();
-			plainText.Data		= (uInt8 *)&theTestBlob;
+            theTestBlobBE = NXSwapHostLongToBig(theTestBlob);
+			plainText.Data		= (uInt8 *)&theTestBlobBE;
 			plainText.Length	= 4;
 
 			crtn = cdsaEncrypt(
@@ -268,7 +273,7 @@ sInt32 DSEncryptedEndpoint::ClientNegotiateKey ( void )
 		{
 			if (	(plainText.Data == nil) ||
 					(plainText.Length != 4) ||
-					(theTestBlob+1 != *((uInt32*)plainText.Data)) )
+					(theTestBlob+1 != NXSwapBigLongToHost(*((uInt32*)plainText.Data))) )
 			{
 				//printf("failed to compare the updated test blob plus one\n");
 				result = eDSCorruptBuffer; //TODO need an eDSEncryptError
@@ -353,8 +358,8 @@ sInt32 DSEncryptedEndpoint::ServerNegotiateKey ( void )
 
 		if (bFirstPass)
 		{
-			memcpy(&rxCode, inBuff, 4);
-			//first check the auth tag
+			rxCode = NXSwapBigLongToHost(*((FourCharCode *) inBuff));
+            //first check the auth tag
 			if ( (inLen <= 4) || (rxCode != DSTCPAuthTag) )
 			{
 				if (inBuff != nil)
@@ -432,7 +437,9 @@ sInt32 DSEncryptedEndpoint::ServerNegotiateKey ( void )
 				return eDSCorruptBuffer; //TODO need an eDSEncryptError
 			}
 			//add one to test blob received
-			(*(uInt32*)plainText.Data)++;
+            uInt32 temp = NXSwapBigLongToHost(*(uInt32*)plainText.Data);
+            temp++;
+			*(uInt32*)plainText.Data = NXSwapHostLongToBig(temp);
 
 			cipherText.Data		= nil;
 			cipherText.Length	= 0;

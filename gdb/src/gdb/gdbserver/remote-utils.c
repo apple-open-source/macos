@@ -35,11 +35,18 @@
 #include <fcntl.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <arpa/inet.h>
 
 int remote_debug = 0;
 struct ui_file *gdb_stdlog;
 
 static int remote_desc;
+
+/* FIXME headerize? */
+extern int using_threads;
+extern int debug_threads;
+
+extern int signal_pid;
 
 /* Open a connection to a remote debugger.
    NAME is the filename used for communication.  */
@@ -185,6 +192,42 @@ fromhex (int a)
   return 0;
 }
 
+int
+unhexify (char *bin, const char *hex, int count)
+{
+  int i;
+
+  for (i = 0; i < count; i++)
+    {
+      if (hex[0] == 0 || hex[1] == 0)
+        {
+          /* Hex string is short, or of uneven length.
+             Return the count that has been converted so far. */
+          return i;
+        }
+      *bin++ = fromhex (hex[0]) * 16 + fromhex (hex[1]);
+      hex += 2;
+    }
+  return i;
+}
+
+static void
+decode_address (CORE_ADDR *addrp, const char *start, int len)
+{
+  CORE_ADDR addr;
+  char ch;
+  int i;
+
+  addr = 0;
+  for (i = 0; i < len; i++)
+    {
+      ch = start[i];
+      addr = addr << 4;
+      addr = addr | (fromhex (ch) & 0x0f);
+    }
+  *addrp = addr;
+}
+
 /* Convert number NIB to a hex digit.  */
 
 static int
@@ -194,6 +237,24 @@ tohex (int nib)
     return '0' + nib;
   else
     return 'a' + nib - 10;
+}
+
+int
+hexify (char *hex, const char *bin, int count)
+{
+  int i;
+
+  /* May use a length, or a nul-terminated string as input. */
+  if (count == 0)
+    count = strlen (bin);
+
+  for (i = 0; i < count; i++)
+    {
+      *hex++ = tohex ((*bin >> 4) & 0xf);
+      *hex++ = tohex (*bin++ & 0xf);
+    }
+  *hex = 0;
+  return i;
 }
 
 /* Send a packet to the remote machine, with error checking.
@@ -241,10 +302,17 @@ putpkt (char *buf)
 	}
 
       if (remote_debug)
-	printf ("putpkt (\"%s\"); [looking for ack]\n", buf2);
+	{
+	  fprintf (stderr, "putpkt (\"%s\"); [looking for ack]\n", buf2);
+	  fflush (stderr);
+	}
       cc = read (remote_desc, buf3, 1);
       if (remote_debug)
-	printf ("[received '%c' (0x%x)]\n", buf3[0], buf3[0]);
+	{
+	  fprintf (stderr, "[received '%c' (0x%x)]\n", buf3[0], buf3[0]);
+	  fflush (stderr);
+	}
+
       if (cc <= 0)
 	{
 	  if (cc == 0)
@@ -255,6 +323,10 @@ putpkt (char *buf)
 	  free (buf2);
 	  return -1;
 	}
+
+      /* Check for an input interrupt while we're here.  */
+      if (buf3[0] == '\003')
+	kill (signal_pid, SIGINT);
     }
   while (buf3[0] != '+');
 
@@ -291,7 +363,7 @@ input_interrupt (int unused)
 	  return;
 	}
       
-      kill (inferior_pid, SIGINT);
+      kill (signal_pid, SIGINT);
     }
 }
 
@@ -356,7 +428,11 @@ getpkt (char *buf)
 	  if (c == '$')
 	    break;
 	  if (remote_debug)
-	    printf ("[getpkt: discarding char '%c']\n", c);
+	    {
+	      fprintf (stderr, "[getpkt: discarding char '%c']\n", c);
+	      fflush (stderr);
+	    }
+
 	  if (c < 0)
 	    return -1;
 	}
@@ -386,12 +462,19 @@ getpkt (char *buf)
     }
 
   if (remote_debug)
-    printf ("getpkt (\"%s\");  [sending ack] \n", buf);
+    {
+      fprintf (stderr, "getpkt (\"%s\");  [sending ack] \n", buf);
+      fflush (stderr);
+    }
 
   write (remote_desc, "+", 1);
 
   if (remote_debug)
-    printf ("[sent ack]\n");
+    {
+      fprintf (stderr, "[sent ack]\n");
+      fflush (stderr);
+    }
+
   return bp - buf;
 }
 
@@ -444,8 +527,6 @@ convert_ascii_to_int (char *from, char *to, int n)
 static char *
 outreg (int regno, char *buf)
 {
-  int regsize = register_size (regno);
-
   if ((regno >> 12) != 0)
     *buf++ = tohex ((regno >> 12) & 0xf);
   if ((regno >> 8) != 0)
@@ -453,11 +534,44 @@ outreg (int regno, char *buf)
   *buf++ = tohex ((regno >> 4) & 0xf);
   *buf++ = tohex (regno & 0xf);
   *buf++ = ':';
-  convert_int_to_ascii (register_data (regno), buf, regsize);
-  buf += 2 * regsize;
+  collect_register_as_string (regno, buf);
+  buf += 2 * register_size (regno);
   *buf++ = ';';
 
   return buf;
+}
+
+void
+new_thread_notify (int id)
+{
+  char own_buf[256];
+
+  /* The `n' response is not yet part of the remote protocol.  Do nothing.  */
+  if (1)
+    return;
+
+  if (server_waiting == 0)
+    return;
+
+  sprintf (own_buf, "n%x", id);
+  disable_async_io ();
+  putpkt (own_buf);
+  enable_async_io ();
+}
+
+void
+dead_thread_notify (int id)
+{
+  char own_buf[256];
+
+  /* The `x' response is not yet part of the remote protocol.  Do nothing.  */
+  if (1)
+    return;
+
+  sprintf (own_buf, "x%x", id);
+  disable_async_io ();
+  putpkt (own_buf);
+  enable_async_io ();
 }
 
 void
@@ -483,12 +597,23 @@ prepare_resume_reply (char *buf, char status, unsigned char signo)
 	  regp ++;
 	}
 
-      /* If the debugger hasn't used any thread features, don't burden it with
-	 threads.  If we didn't check this, GDB 4.13 and older would choke.  */
-      if (cont_thread != 0)
+      /* Formerly, if the debugger had not used any thread features we would not
+	 burden it with a thread status response.  This was for the benefit of
+	 GDB 4.13 and older.  However, in recent GDB versions the check
+	 (``if (cont_thread != 0)'') does not have the desired effect because of
+	 sillyness in the way that the remote protocol handles specifying a thread.
+	 Since thread support relies on qSymbol support anyway, assume GDB can handle
+	 threads.  */
+
+      if (using_threads)
 	{
+	  /* FIXME right place to set this? */
+	  thread_from_wait = ((struct inferior_list_entry *)current_inferior)->id;
+	  if (debug_threads)
+	    fprintf (stderr, "Writing resume reply for %d\n\n", thread_from_wait);
 	  if (old_thread_from_wait != thread_from_wait)
 	    {
+	      general_thread = thread_from_wait;
 	      sprintf (buf, "thread:%x;", thread_from_wait);
 	      buf += strlen (buf);
 	      old_thread_from_wait = thread_from_wait;
@@ -543,3 +668,46 @@ decode_M_packet (char *from, CORE_ADDR *mem_addr_ptr, unsigned int *len_ptr,
 
   convert_ascii_to_int (&from[i++], to, *len_ptr);
 }
+
+int
+look_up_one_symbol (const char *name, CORE_ADDR *addrp)
+{
+  char own_buf[266], *p, *q;
+  int len;
+
+  /* Send the request.  */
+  strcpy (own_buf, "qSymbol:");
+  hexify (own_buf + strlen ("qSymbol:"), name, strlen (name));
+  if (putpkt (own_buf) < 0)
+    return -1;
+
+  /* FIXME:  Eventually add buffer overflow checking (to getpkt?)  */
+  len = getpkt (own_buf);
+  if (len < 0)
+    return -1;
+
+  if (strncmp (own_buf, "qSymbol:", strlen ("qSymbol:")) != 0)
+    {
+      /* Malformed response.  */
+      if (remote_debug)
+	{
+	  fprintf (stderr, "Malformed response to qSymbol, ignoring.\n");
+	  fflush (stderr);
+	}
+
+      return -1;
+    }
+
+  p = own_buf + strlen ("qSymbol:");
+  q = p;
+  while (*q && *q != ':')
+    q++;
+
+  /* Make sure we found a value for the symbol.  */
+  if (p == q || *q == '\0')
+    return 0;
+
+  decode_address (addrp, p, q - p);
+  return 1;
+}
+

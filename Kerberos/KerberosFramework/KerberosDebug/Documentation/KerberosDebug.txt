@@ -1,0 +1,30 @@
+This is the Debugging Library, part of Kerberos Support Library.
+
+It provides the following APIs:
+
+AllocDebug		memory leak tracking for C/C++ allocators
+				Mac OS 9 only
+				See AllocDebug.cp
+				
+dprintf			debugging console interface
+				Mac OS 9 and Mac OS X
+				See DCon.h
+				
+Assert			assertion dialogs
+				Mac OS 9 only
+				See Debug.Assert.cp
+				
+DebugThrow		debugging versions of C++ exceptions
+				Mac OS 9 and Mac OS X
+				see Debug.Throw.h
+
+
+The library build is divided into two parts: a static library and a shared library.
+This is a relic of the times when we were trying to release a source distribution of 
+the library; the static library contains the bits of code we can't release to the
+public (for various reasons), whereas the shared library contains publishable code.
+The idea was the the source distribution would include the static library in binary
+form.
+
+Of course, we never got around to doing a source distribution... but the separation
+remains.

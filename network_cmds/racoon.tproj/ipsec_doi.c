@@ -1,4 +1,4 @@
-/*	$KAME: ipsec_doi.c,v 1.154 2001/12/31 20:13:40 thorpej Exp $	*/
+/*	$KAME: ipsec_doi.c,v 1.158 2002/09/27 05:55:52 itojun Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -80,6 +80,7 @@
 #include "crypto_openssl.h"
 #include "strnames.h"
 #include "gcmalloc.h"
+#include "isakmp_natd.h"
 
 #ifdef HAVE_GSSAPI
 #include "gssapi.h"
@@ -315,9 +316,7 @@ get_ph1approvalx(p, proposal, sap)
 	struct prop_pair *p;
 	struct isakmpsa *proposal, *sap;
 {
-#ifdef YIPS_DEBUG
 	struct isakmp_pl_p *prop = p->prop;
-#endif
 	struct isakmp_pl_t *trns = p->trns;
 	struct isakmpsa sa, *s, *tsap;
 
@@ -2085,6 +2084,8 @@ check_attr_ipsec(proto_id, trns)
 			switch (lorv) {
 			case IPSECDOI_ATTR_ENC_MODE_TUNNEL:
 			case IPSECDOI_ATTR_ENC_MODE_TRNS:
+			case IPSECDOI_ATTR_ENC_MODE_UDP_TUNNEL:
+			case IPSECDOI_ATTR_ENC_MODE_UDP_TRNS:
 				break;
 			default:
 				plog(LLV_ERROR, LOCATION, NULL,
@@ -2260,6 +2261,8 @@ check_attr_ipcomp(trns)
 			switch (lorv) {
 			case IPSECDOI_ATTR_ENC_MODE_TUNNEL:
 			case IPSECDOI_ATTR_ENC_MODE_TRNS:
+			case IPSECDOI_ATTR_ENC_MODE_UDP_TUNNEL:
+			case IPSECDOI_ATTR_ENC_MODE_UDP_TRNS:
 				break;
 			default:
 				plog(LLV_ERROR, LOCATION, NULL,
@@ -2797,6 +2800,27 @@ ipsecdoi_setph2proposal(iph2)
 	propoff = 0;
 	for (a = proposal; a; a = a->next) {
 		for (b = a->head; b; b = b->next) {
+#ifdef IKE_NAT_T
+			/*
+			 * Hack to fix encmode, we may have detected a nat since
+			 * we last set pr->encmode. We need to fix this if
+			 * we now have a NAT. NAT-T doesn't work with AH.
+			 */
+			if (iph2->ph1 && natd_hasnat(iph2->ph1) &&
+				b->proto_id != IPSECDOI_PROTO_IPSEC_AH)
+			{
+				switch (b->encmode)
+				{
+					case IPSECDOI_ATTR_ENC_MODE_TUNNEL:
+						b->encmode = IPSECDOI_ATTR_ENC_MODE_UDP_TUNNEL;
+						break;
+					case IPSECDOI_ATTR_ENC_MODE_TRNS:
+						b->encmode = IPSECDOI_ATTR_ENC_MODE_UDP_TRNS;
+						break;
+				}
+			}
+#endif
+			
 			q = setph2proposal0(iph2, a, b);
 			if (q == NULL) {
 				vfree(iph2->sa);
@@ -2838,7 +2862,8 @@ ipsecdoi_transportmode(iph2)
 
 	for (pp = iph2->proposal; pp; pp = pp->next) {
 		for (pr = pp->head; pr; pr = pr->next) {
-			if (pr->encmode != IPSECDOI_ATTR_ENC_MODE_TRNS)
+			if (pr->encmode != IPSECDOI_ATTR_ENC_MODE_TRNS &&
+				pr->encmode != IPSECDOI_ATTR_ENC_MODE_UDP_TRNS)
 				return 0;
 		}
 	}
@@ -3327,6 +3352,11 @@ ipsecdoi_setid2(iph2)
 		vchar_t *ident;
 
 		id_b.type = idtype2doi(iph2->sainfo->idvtype);
+		if (id_b.type == 255) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				"failed to convert ID type to DOI.\n");
+			return -1;
+		}
 		id_b.proto_id = 0;
 		id_b.port = 0;
 
@@ -3862,14 +3892,14 @@ static int rm_idtype2doi[] = {
 	IPSECDOI_ID_FQDN,
 	IPSECDOI_ID_USER_FQDN,
 	IPSECDOI_ID_KEY_ID,
-	-1,	/* it's type of "address"
+	255,	/* it's type of "address"
 		 * it expands into 4 types by another function. */
 	IPSECDOI_ID_DER_ASN1_DN,
 };
 
 /*
  * convert idtype to DOI value.
- * OUT	-1   : NG
+ * OUT	255  : NG
  *	other: converted.
  */
 int
@@ -3878,7 +3908,7 @@ idtype2doi(idtype)
 {
 	if (ARRAYLEN(rm_idtype2doi) > idtype)
 		return rm_idtype2doi[idtype];
-	return -1;
+	return 255;
 }
 
 int

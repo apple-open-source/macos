@@ -18,6 +18,7 @@
 			isa = PBXGroup;
 			name = Documentation;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		00FE5D86FEF9E95711CA2CB3 = {
 			children = (
@@ -29,6 +30,7 @@
 			isa = PBXGroup;
 			name = Parser;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		00FE5D87FEF9E99B11CA2CB3 = {
 			children = (
@@ -49,6 +51,7 @@
 			isa = PBXGroup;
 			name = Platforms;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		00FE5D88FEF9E9C911CA2CB3 = {
 			children = (
@@ -63,6 +66,7 @@
 			isa = PBXGroup;
 			name = Infrastructure;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		00FE5D89FEF9EB9511CA2CB3 = {
 			children = (
@@ -75,17 +79,24 @@
 			isa = PBXGroup;
 			name = Headers;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		00FE5D8AFEF9ED0F11CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = jambase.c;
-			refType = 2;
+			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 		};
 		00FE5D99FEF9EFEF11CA2CB3 = {
+			expectedFileType = text;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = runmkjambase.make;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		00FE5D9AFEF9F58311CA2CB3 = {
 			fileRef = 00FE5D8AFEF9ED0F11CA2CB3;
@@ -106,9 +117,12 @@
 //033
 //034
 		03A30260005AB89DC02AAC07 = {
+			expectedFileType = text;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = VersionCompatibilityNotes;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 //030
 //031
@@ -121,9 +135,12 @@
 //063
 //064
 		06AA5EC3FF4B5F9311CA2CB7 = {
+			expectedFileType = "compiled.mach-o.executable";
+			fallbackIsa = PBXFileReference;
 			isa = PBXExecutableFileReference;
 			path = jam;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 //060
 //061
@@ -139,7 +156,6 @@
 			buildRules = (
 			);
 			buildSettings = {
-				DEPLOYMENT_POSTPROCESSING = NO;
 				OPTIMIZATION_CFLAGS = "-O0";
 			};
 			isa = PBXBuildStyle;
@@ -149,7 +165,6 @@
 			buildRules = (
 			);
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
@@ -159,28 +174,6 @@
 //072
 //073
 //074
-//260
-//261
-//262
-//263
-//264
-		26750AA501F79E6508CA2CE9 = {
-			buildRules = (
-			);
-			buildSettings = {
-				PRECOMPILE_PREFIX_HEADER = NO;
-				PREFIX_HEADER = "";
-				USE_GCC2 = YES;
-				USE_GCC3 = NO;
-			};
-			isa = PBXBuildStyle;
-			name = "GCC 2.95.2";
-		};
-//260
-//261
-//262
-//263
-//264
 //3C0
 //3C1
 //3C2
@@ -190,8 +183,8 @@
 			buildStyles = (
 				07B3C7DFFFA7A65311CA2CEA,
 				07B3C7E0FFA7A65311CA2CEA,
-				26750AA501F79E6508CA2CE9,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 3C561388FEEF59C211CA2CB3;
 			productRefGroup = 3C561389FEEF59C211CA2CB3;
@@ -217,6 +210,7 @@
 			isa = PBXGroup;
 			name = jam;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3C561389FEEF59C211CA2CB3 = {
 			children = (
@@ -225,6 +219,7 @@
 			isa = PBXGroup;
 			name = Products;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3C56138BFEEF59C211CA2CB3 = {
 			children = (
@@ -242,162 +237,230 @@
 				3C56139EFEEF59C211CA2CB3,
 				3C56139FFEEF59C211CA2CB3,
 				3C5613A0FEEF59C211CA2CB3,
+				A5A73139042EDCFC00DB9E5B,
 			);
 			isa = PBXGroup;
 			name = Headers;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3C56138CFEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = command.h;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C56138DFEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = compile.h;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C56138EFEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = execcmd.h;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C56138FFEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = expand.h;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C561390FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = filesys.h;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C561391FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = hash.h;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C561392FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = headers.h;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C561393FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = jam.h;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C561394FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = jambase.h;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C561395FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = jamgramtab.h;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C561396FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = lists.h;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C561397FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = make.h;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C561398FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = newstr.h;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C561399FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = option.h;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C56139AFEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = parse.h;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C56139BFEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = patchlevel.h;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C56139CFEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = regexp.h;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C56139DFEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = rules.h;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C56139EFEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = scan.h;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C56139FFEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = search.h;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613A0FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = timestamp.h;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613A1FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = variable.h;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
@@ -415,225 +478,320 @@
 				3C5613C0FEEF59C211CA2CB3,
 				3C5613C1FEEF59C211CA2CB3,
 				00FE5D8AFEF9ED0F11CA2CB3,
+				A5A7313B042EEF2000DB9E5B,
 			);
 			isa = PBXGroup;
 			name = Core;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3C5613A3FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = command.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613A4FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = compile.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613A5FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = execmac.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613A6FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = execunix.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613A7FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = execvms.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613A8FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = expand.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613A9FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = filemac.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613AAFEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = filent.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613ABFEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = fileos2.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613ACFEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = fileunix.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613ADFEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = filevms.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613AEFEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = glob.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613AFFEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = hash.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613B0FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = headers.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613B1FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = jam.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613B3FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.yacc;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = jamgram.y;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613B4FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = lists.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613B5FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = make.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613B6FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = make1.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613B7FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = newstr.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613B8FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = option.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613B9FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = parse.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613BAFEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = pathmac.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613BBFEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = pathunix.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613BCFEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = pathvms.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613BDFEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = regexp.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 		};
 		3C5613BEFEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = rules.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613BFFEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = scan.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613C0FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = search.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613C1FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = timestamp.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613C2FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			indentWidth = 4;
 			isa = PBXFileReference;
 			path = variable.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
@@ -650,100 +808,141 @@
 			isa = PBXGroup;
 			name = Build;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3C5613C7FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = mkjambase.c;
 			refType = 4;
+			sourceTree = "<group>";
 			tabWidth = 8;
 			usesTabs = 1;
 		};
 		3C5613C8FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.jam;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = pbxJambase;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3C5613C9FEEF59C211CA2CB3 = {
+			expectedFileType = text;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = RELNOTES;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3C5613CAFEEF59C211CA2CB3 = {
+			expectedFileType = text;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = README;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3C5613CBFEEF59C211CA2CB3 = {
+			expectedFileType = text;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = Porting;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3C5613CCFEEF59C211CA2CB3 = {
+			expectedFileType = text.html;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = Jamlang.html;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3C5613CDFEEF59C211CA2CB3 = {
+			expectedFileType = text.html;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = Jamfile.html;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3C5613CEFEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.jam;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = Jamfile;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3C5613CFFEEF59C211CA2CB3 = {
+			expectedFileType = text.html;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = Jambase.html;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3C5613D0FEEF59C211CA2CB3 = {
+			expectedFileType = sourcecode.jam;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = Jambase;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3C5613D1FEEF59C211CA2CB3 = {
+			expectedFileType = text.html;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = Jam.html;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3C5613D2FEEF59C211CA2CB3 = {
+			expectedFileType = text;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = Build.mpw;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3C5613D3FEEF59C211CA2CB3 = {
+			expectedFileType = text;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			path = Build.com;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		3C5613D5FEEF59C211CA2CB3 = {
+			expectedFileType = wrapper.framework;
+			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
 			name = System.framework;
 			path = /System/Library/Frameworks/System.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		3C5613D6FEEF59C211CA2CB3 = {
 			buildPhases = (
 				3C5613D7FEEF59C211CA2CB3,
 				3C5613EEFEEF59C211CA2CB3,
 				3C56140FFEEF59C211CA2CB3,
-				A3563ABA02412C8C02CA2CBC,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 96.1;
+				CURRENT_PROJECT_VERSION = 238;
 				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_VERSION = 3.3;
 				HEADER_SEARCH_PATHS = "";
-				INSTALL_PATH = /usr/bin;
+				INSTALL_PATH = /Developer/Private;
 				LIBRARY_SEARCH_PATHS = "";
 				OTHER_CFLAGS = "-DAPPLE_EXTENSIONS";
-				OTHER_LDFLAGS = "";
+				OTHER_LDFLAGS = "-headerpad_max_install_names";
 				PRODUCT_NAME = jam;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
-				USE_GCC3 = YES;
-				USE_GCC3_PFE_SUPPORT = NO;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = PBX;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
@@ -752,10 +951,9 @@
 			);
 			isa = PBXToolTarget;
 			name = jam;
-			productInstallPath = /usr/bin;
+			productInstallPath = /Developer/Tools;
 			productName = jam;
 			productReference = 06AA5EC3FF4B5F9311CA2CB7;
-			shouldUseHeadermap = 1;
 		};
 		3C5613D7FEEF59C211CA2CB3 = {
 			buildActionMask = 2147483647;
@@ -780,8 +978,10 @@
 				3C5613EBFEEF59C211CA2CB3,
 				3C5613ECFEEF59C211CA2CB3,
 				3C5613EDFEEF59C211CA2CB3,
+				A5A7313A042EDCFC00DB9E5B,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		3C5613D8FEEF59C211CA2CB3 = {
 			fileRef = 3C56138CFEEF59C211CA2CB3;
@@ -941,8 +1141,10 @@
 				3C56140DFEEF59C211CA2CB3,
 				3C56140EFEEF59C211CA2CB3,
 				00FE5D9AFEF9F58311CA2CB3,
+				A5A7313C042EEF2000DB9E5B,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		3C5613EFFEEF59C211CA2CB3 = {
 			fileRef = 3C5613A3FEEF59C211CA2CB3;
@@ -1187,15 +1389,9 @@
 		3C56140FFEEF59C211CA2CB3 = {
 			buildActionMask = 2147483647;
 			files = (
-				3C561410FEEF59C211CA2CB3,
 			);
 			isa = PBXFrameworksBuildPhase;
-		};
-		3C561410FEEF59C211CA2CB3 = {
-			fileRef = 3C5613D5FEEF59C211CA2CB3;
-			isa = PBXBuildFile;
-			settings = {
-			};
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 //3C0
 //3C1
@@ -1208,22 +1404,48 @@
 //A33
 //A34
 		A3563AB902412C5D02CA2CBC = {
+			expectedFileType = text.man;
+			fileEncoding = 4;
 			isa = PBXFileReference;
 			lineEnding = 0;
 			path = jam.1;
 			refType = 4;
+			sourceTree = "<group>";
 		};
-		A3563ABA02412C8C02CA2CBC = {
-			buildActionMask = 8;
-			dstPath = /usr/share/man/man1;
-			dstSubfolderSpec = 0;
-			files = (
-				A3563ABB02412C9302CA2CBC,
-			);
-			isa = PBXCopyFilesBuildPhase;
+//A30
+//A31
+//A32
+//A33
+//A34
+//A50
+//A51
+//A52
+//A53
+//A54
+		A5A73139042EDCFC00DB9E5B = {
+			expectedFileType = sourcecode.c.h;
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = timingdata.h;
+			refType = 4;
+			sourceTree = "<group>";
 		};
-		A3563ABB02412C9302CA2CBC = {
-			fileRef = A3563AB902412C5D02CA2CBC;
+		A5A7313A042EDCFC00DB9E5B = {
+			fileRef = A5A73139042EDCFC00DB9E5B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A5A7313B042EEF2000DB9E5B = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = timingdata.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		A5A7313C042EEF2000DB9E5B = {
+			fileRef = A5A7313B042EEF2000DB9E5B;
 			isa = PBXBuildFile;
 			settings = {
 			};

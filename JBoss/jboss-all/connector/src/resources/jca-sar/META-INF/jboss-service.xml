@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- ===================================================================== -->
+<!--                                                                       -->
+<!--  JBoss JCA Configuration                                              -->
+<!--                                                                       -->
+<!-- ===================================================================== -->
+
+<!-- $Id: jboss-service.xml,v 1.7.2.1 2003/02/18 15:35:37 d_jencks Exp $ -->
+
+<!-- 
+   |  This contains configuration for the RARDeployer 
+      and some xsl based deployers.
+ -->
+
+<server>
+
+  <!-- ==================================================================== -->
+  <!-- JBossCX setup, for J2EE connector architecture support               -->
+  <!-- The RARDeployer is needed only until xslt based deployment is written.-->
+  <!-- ==================================================================== -->
+
+  <mbean code="org.jboss.resource.RARDeployer" 
+	 name="jboss.jca:service=RARDeployer">
+  </mbean>
+
+  <mbean code="org.jboss.deployment.XSLSubDeployer" name="jboss.jca:service=ConnectionFactoryDeployer">
+    <attribute name="DdSuffix">-ds.xml</attribute>
+    <attribute name="XslUrl">stylesheets/ConnectionFactoryTemplate.xsl</attribute>
+  </mbean>
+
+</server>

@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,7 +20,9 @@
  * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
- */ 
+ *
+ */
+
 #include <libkern/OSByteOrder.h>
 
 #include <IOKit/assert.h>
@@ -111,22 +112,6 @@ IOUSBControllerUserClient::sMethods[kNumUSBControllerMethods] =
 		2,							// # of params in
 		0							// # of params out
 	}
-,
-	{	// kUSBControllerUserClientReadRegister
-		(IOService*)kMethodObjectThis,				// object
-		( IOMethod )&IOUSBControllerUserClient::ReadRegister,	// func
-		kIOUCScalarIScalarO,					// flags
-		2,							// # of params in
-		1							// # of params out
-	}
-,
-	{	// kUSBControllerUserClientWriteRegister
-		(IOService*)kMethodObjectThis,				// object
-		( IOMethod )&IOUSBControllerUserClient::WriteRegister,	// func
-		kIOUCScalarIScalarO,					// flags
-		3,							// # of params in
-		0							// # of params out
-	}
 };
 
 const IOItemCount 
@@ -194,13 +179,6 @@ IOUSBControllerUserClient::start( IOService * provider )
     if(!super::start(provider))
         return false;
 
-    fMemMap = fOwner->getProvider()->mapDeviceMemoryWithIndex(0);
-    if (!fMemMap)
-    {
-	USBLog(1, "IOUSBControllerUserClient::start - unable to get a memory map");
-	return kIOReturnNoResources;
-    }
-
     return true;
 }
 
@@ -210,7 +188,7 @@ IOUSBControllerUserClient::open(bool seize)
 {
     IOOptionBits	options = seize ? (IOOptionBits) kIOServiceSeize : 0;
 
-    USBLog(1, "+IOUSBControllerUserClient::open");
+    IOLog("+IOUSBControllerUserClient::open\n");
     if (!fOwner)
         return kIOReturnNotAttached;
 
@@ -274,8 +252,8 @@ IOUSBControllerUserClient::SetDebuggingType(KernelDebuggingOutputType inType)
 IOReturn
 IOUSBControllerUserClient::GetDebuggingLevel(KernelDebugLevel * inLevel)
 {
-    IOLog("+IOUSBControllerUserClient::GetDebuggingLevel\n");
-    if (!fOwner)
+     IOLog("+IOUSBControllerUserClient::GetDebuggingLevel\n");
+   if (!fOwner)
         return kIOReturnNotAttached;
     
     *inLevel = KernelDebugGetLevel();
@@ -310,71 +288,12 @@ IOUSBControllerUserClient::SetTestMode(UInt32 mode, UInt32 port)
 }
 
 
-IOReturn
-IOUSBControllerUserClient::ReadRegister(UInt32 offset, UInt32 size, void *value)
-{
-    UInt8	bVal;
-    UInt16	wVal;
-    UInt32	lVal;
-    
-    USBLog(1, "+IOUSBControllerUserClient::ReadRegister Offset(0x%x), Size (%d)", (int)offset, (int)size);
-    if (!fOwner)
-        return kIOReturnNotAttached;
-    
-    if (!fMemMap)
-	return kIOReturnNoResources;
-	
-    switch (size)
-    {
-	case 8:
-	    bVal = *((UInt8 *)fMemMap->getVirtualAddress() + offset);
-	    *(UInt8*)value = bVal;
-	    USBLog(1, "IOUSBControllerUserClient::ReadRegister - got byte value %p", bVal);
-	    break;
-	    
-	case 16:
-	    wVal = OSReadLittleInt16((void*)(fMemMap->getVirtualAddress()), offset);
-	    *(UInt16*)value = wVal;
-	    USBLog(1, "IOUSBControllerUserClient::ReadRegister - got word value %p", wVal);
-	    break;
-	    
-	case 32:
-	    lVal = OSReadLittleInt32((void*)(fMemMap->getVirtualAddress()), offset);
-	    *(UInt32*)value = lVal;
-	    USBLog(1, "IOUSBControllerUserClient::ReadRegister - got long value %p", lVal);
-	    break;
-	    
-	default:
-	    USBLog(1, "IOUSBControllerUserClient::ReadRegister - invalid size");
-	    return kIOReturnBadArgument;
-    }
-    return kIOReturnSuccess;
-}
-
-
-IOReturn
-IOUSBControllerUserClient::WriteRegister(UInt32 offset, UInt32 size, UInt32 value)
-{
-    USBLog(1, "+IOUSBControllerUserClient::WriteRegister Offset(0x%x), Size (%d) Value (0x%x)", (int)offset, (int)size, (int)value);
-
-    if (!fOwner)
-        return kIOReturnNotAttached;
-    
-    return kIOReturnSuccess;
-}
-
 void 
 IOUSBControllerUserClient::stop( IOService * provider )
 {
     IOLog("IOUSBControllerUserClient::stop\n");
 
     super::stop( provider );
-
-    if (fMemMap)
-    {
-	fMemMap->release();
-	fMemMap = NULL;
-    }
 }
 
 IOReturn 

@@ -762,10 +762,10 @@ IOSCSITargetDevice::SetCharacteristicsFromINQUIRY (
 		
 	}
 	
-   	// Set the Product Indentification property for the device.
+   	// Set the Product Identification property for the device.
    	for ( index = 0; index < kINQUIRY_PRODUCT_IDENTIFICATION_Length; index++ )
    	{
-   		tempString[index] = inquiryBuffer->PRODUCT_INDENTIFICATION[index];
+   		tempString[index] = inquiryBuffer->PRODUCT_IDENTIFICATION[index];
    	}
    	tempString[index] = 0;
 	

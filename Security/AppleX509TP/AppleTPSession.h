@@ -66,8 +66,8 @@ public:
          CSSM_CSP_HANDLE CSPHandle,
          const CSSM_ENCODED_CRL &CrlToBeVerified,
          const CSSM_CERTGROUP &SignerCertGroup,
-         const CSSM_TP_VERIFY_CONTEXT &VerifyContext,
-         CSSM_TP_VERIFY_CONTEXT_RESULT &RevokerVerifyResult);
+         const CSSM_TP_VERIFY_CONTEXT *VerifyContext,
+         CSSM_TP_VERIFY_CONTEXT_RESULT *RevokerVerifyResult);
 	void CertReclaimKey(const CSSM_CERTGROUP &CertGroup,
          uint32 CertIndex,
          CSSM_LONG_HANDLE KeyCacheHandle,
@@ -88,8 +88,8 @@ public:
          CSSM_CC_HANDLE CCHandle,
          const CssmData &CertTemplateToBeSigned,
          const CSSM_CERTGROUP &SignerCertGroup,
-         const CSSM_TP_VERIFY_CONTEXT &SignerVerifyContext,
-         CSSM_TP_VERIFY_CONTEXT_RESULT &SignerVerifyResult,
+         const CSSM_TP_VERIFY_CONTEXT *SignerVerifyContext,
+         CSSM_TP_VERIFY_CONTEXT_RESULT *SignerVerifyResult,
          CssmData &SignedCert);
 	void TupleGroupToCertGroup(CSSM_CL_HANDLE CLHandle,
          const CSSM_TUPLEGROUP &TupleGroup,
@@ -141,8 +141,8 @@ public:
          CSSM_CC_HANDLE CCHandle,
          const CSSM_ENCODED_CRL &CrlToBeSigned,
          const CSSM_CERTGROUP &SignerCertGroup,
-         const CSSM_TP_VERIFY_CONTEXT &SignerVerifyContext,
-         CSSM_TP_VERIFY_CONTEXT_RESULT &SignerVerifyResult,
+         const CSSM_TP_VERIFY_CONTEXT *SignerVerifyContext,
+         CSSM_TP_VERIFY_CONTEXT_RESULT *SignerVerifyResult,
          CssmData &SignedCrl);
 	void CertGroupPrune(CSSM_CL_HANDLE CLHandle,
          const CSSM_DL_DB_LIST &DBList,
@@ -175,13 +175,27 @@ public:
 
 private:
 	void CertGroupConstructPriv(CSSM_CL_HANDLE clHand,
-		CSSM_CSP_HANDLE cspHand,
-		const CSSM_DL_DB_LIST &DBList,
-		const void *ConstructParams,
-		const CSSM_CERTGROUP &CertGroupFrag,
-		CSSM_BOOL ignoreExpired,
-		const char *cssmTimeStr,				// May be NULL
-		TPCertGroup *&CertGroup);
+		CSSM_CSP_HANDLE 		cspHand,
+		TPCertGroup 			&inCertGroup,
+		const CSSM_DL_DB_LIST 	*DBList,			// optional here
+		const char 				*cssmTimeStr,		// optional
+		uint32 					numAnchorCerts,		// optional
+		const CSSM_DATA			*anchorCerts,
+		
+		/* currently, only CSSM_TP_ACTION_FETCH_CERT_FROM_NET is 
+		 * interesting */
+		CSSM_APPLE_TP_ACTION_FLAGS	actionFlags,
+		/* 
+		 * Certs to be freed by caller (i.e., TPCertInfo which we allocate
+		 * as a result of using a cert from anchorCerts of dbList) are added
+		 * to this group.
+		 */
+		TPCertGroup				&certsToBeFreed,
+
+		/* returned */
+		CSSM_BOOL				&verifiedToRoot,	// end of chain self-verifies
+		CSSM_BOOL				&verifiedToAnchor,	// end of chain in anchors
+		TPCertGroup 			&outCertGroup);		// RETURNED
 			
 	/* in tpCredRequest.cp */
 	CSSM_X509_NAME * buildX509Name(const CSSM_APPLE_TP_NAME_OID *nameArray,
@@ -213,7 +227,6 @@ private:
 
 	void SubmitCsrRequest(
 		const CSSM_TP_REQUEST_SET &RequestInput,
-		const CSSM_TP_CALLERAUTH_CONTEXT *CallerAuthContext,
 		sint32 					&EstimatedTime,	
 		CssmData 				&ReferenceIdentifier);
 		

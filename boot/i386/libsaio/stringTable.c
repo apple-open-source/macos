@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -26,13 +27,16 @@
  * All rights reserved.
  */
 
+#include "bootstruct.h"
 #include "libsaio.h"
 #include "stringConstants.h"
 #include "legacy/configTablePrivate.h"
+#include "xml.h"
 
-extern KERNBOOTSTRUCT *kernBootStruct;
 extern char *Language;
 extern char *LoadableFamilies;
+
+static TagPtr gConfigDict;
 
 static void eatThru(char val, const char **table_p);
 
@@ -147,6 +151,7 @@ newStringFromList(
     char *begin = *list, *end;
     char *newstr;
     int newsize = *size;
+    int bufsize;
     
     while (*begin && newsize && isspace(*begin)) {
 	begin++;
@@ -159,8 +164,9 @@ newStringFromList(
     }
     if (begin == end)
 	return 0;
-    newstr = malloc(end - begin + 1);
-    strncpy(newstr, begin, end - begin);
+    bufsize = end - begin + 1;
+    newstr = malloc(bufsize);
+    strlcpy(newstr, begin, bufsize);
     *list = end;
     *size = newsize;
     return newstr;
@@ -190,53 +196,67 @@ int stringLength(const char *table, int compress)
 	return ret;
 }
 
-// looks in table for strings of format << "key" = "value"; >>
-// or << "key"; >>
-BOOL getValueForStringTableKey(const char *table, const char *key, const char **val, int *size)
+BOOL getValueForConfigTableKey(const char *table, const char *key, const char **val, int *size)
 {
 	int keyLength;
 	const char *tableKey;
 
-	do
-	{
-		eatThru('\"',&table);
-		tableKey = table;
-		keyLength = strlen(key);
-		if (keyLength &&
-		    (stringLength(table,1) == keyLength) &&
-		    (keyncmp(key, table, keyLength) == 0))
-		{
-			int c;
+        if (gConfigDict != 0 ) {
+            /* Look up key in XML dictionary */
+            TagPtr value;
+            value = XMLGetProperty(gConfigDict, key);
+            if (value != 0) {
+                if (value->type != kTagTypeString) {
+                    error("Non-string tag '%s' found in config file\n",
+                          key);
+                    return NO;
+                }
+                *val = value->string;
+                *size = strlen(value->string);
+                return YES;
+            }
+        } else {
+            /* Legacy plist-style table */
+            do
+                {
+                    eatThru('\"',&table);
+                    tableKey = table;
+                    keyLength = strlen(key);
+                    if (keyLength &&
+                        (stringLength(table,1) == keyLength) &&
+                        (keyncmp(key, table, keyLength) == 0))
+                        {
+                            int c;
 			
-			/* found the key; now look for either
-			 * '=' or ';'
-			 */
-			while (c = *table) {
-			    ++table;
-			    if (c == '\\') {
-				++table;
-				continue;
-			    } else if (c == '=' || c == ';') {
-				break;
-			    }
-			}
-			if (c == ';') {
-			    table = tableKey;
-			} else {
-			    eatThru('\"',&table);
-			}
-			*val = table;
-			*size = stringLength(table,0);
-			return YES;
-		}
+                            /* found the key; now look for either
+                             * '=' or ';'
+                             */
+                            while (c = *table) {
+                                ++table;
+                                if (c == '\\') {
+                                    ++table;
+                                    continue;
+                                } else if (c == '=' || c == ';') {
+                                    break;
+                                }
+                            }
+                            if (c == ';') {
+                                table = tableKey;
+                            } else {
+                                eatThru('\"',&table);
+                            }
+                            *val = table;
+                            *size = stringLength(table,0);
+                            return YES;
+                        }
 
-		eatThru(';',&table);
+                    eatThru(';',&table);
 
-	} while (*table);
+                } while (*table);
+        }
 
 	return NO;
 }
-
 
 /*
  * Returns a new malloc'ed string if one is found
@@ -252,7 +272,7 @@ char *newStringForStringTableKey(
     char *newstr, *p;
     int size;
     
-    if (getValueForStringTableKey(table, key, &val, &size)) {
+    if (getValueForConfigTableKey(table, key, &val, &size)) {
 	newstr = (char *)malloc(size+1);
 	for (p = newstr; size; size--, p++, val++) {
 	    if ((*p = *val) == '\\') {
@@ -289,7 +309,7 @@ newStringForKey(char *key)
     
     if (getValueForKey(key, &val, &size) && size) {
 	newstr = (char *)malloc(size + 1);
-	strncpy(newstr, val, size);
+	strlcpy(newstr, val, size + 1);
 	return newstr;
     } else {
 	return 0;
@@ -383,101 +403,15 @@ BOOL getValueForKey(
     int *size
 )
 {
-    if (getValueForBootKey(kernBootStruct->bootString, key, val, size))
+    if (getValueForBootKey(bootArgs->bootString, key, val, size))
 	return YES;
-    else if (getValueForStringTableKey(kernBootStruct->config, key, val, size))
+    else if (getValueForConfigTableKey(bootArgs->config, key, val, size))
 	return YES;
 
     return NO;
 }
 
-#if 0
-#define	LOCALIZABLE_PATH \
-	"%s/%s.config/%s.lproj/%s.strings"
-char *
-loadLocalizableStrings(
-    char *name,
-    char *tableName
-)
-{
-    char buf[256], *config;
-    register int count, fd = -1;
-    const char *device_dir = usrDevices();
-    
-    sprintf(buf, LOCALIZABLE_PATH, device_dir, name,
-	    Language, tableName);
-    if ((fd = open(buf, 0)) < 0) {
-	sprintf(buf, LOCALIZABLE_PATH, device_dir, name,
-		 "English", tableName);
-	if ((fd = open(buf,0)) < 0) {
-	    return 0;
-	}
-    }
-    count = file_size(fd);
-    config = malloc(count);
-    count = read(fd, config, count);
-    close(fd);
-    if (count <= 0) {
-	free(config);
-	return 0;
-    }
-    return config;
-}
-#endif
-
-#if 0 // XXX
-char *
-bundleLongName(
-    char *bundleName,
-    char *tableName
-)
-{
-    char *table, *name, *version, *newName;
-    char *path = malloc(256);
-    
-#define LONG_NAME_FORMAT "%s (v%s)"
-    sprintf(path, "%s/%s.config/%s.table",
-	usrDevices(), bundleName, tableName ? tableName : "Default");
-    if (loadConfigFile(path, &table, YES) == 0) {
-	version = newStringForStringTableKey(table, "Version");
-	free(table);
-    } else {
-	version = newString("0.0");
-    }
-    table = loadLocalizableStrings(bundleName,
-	tableName ? tableName : "Localizable");
-    if (table) {
-	name = newStringForStringTableKey(table, "Long Name");
-	free(table);
-    } else {
-	name = newString(bundleName);
-    }
-    newName = malloc(strlen(name)+strlen(version)+strlen(LONG_NAME_FORMAT));
-    sprintf(newName, LONG_NAME_FORMAT, name, version);
-    free(name); free(version);
-    return newName;
-}
-#endif
-
 int sysConfigValid;
-
-void
-addConfig(
-    const char *config
-)
-{
-    char *configPtr = kernBootStruct->configEnd;
-    int len = strlen(config);
-    
-    if ((configPtr - kernBootStruct->config) > CONFIG_SIZE) {
-	error("No room in memory for config files\n");
-	return;
-    }
-    strcpy(configPtr, config);
-    configPtr += (len + 1);
-    *configPtr = 0;
-    kernBootStruct->configEnd = configPtr;
-}
 
 #define TABLE_EXPAND_SIZE	192
 
@@ -491,7 +425,7 @@ addConfig(
 int
 loadConfigFile(const char *configFile, const char **table, BOOL allocTable)
 {
-    char *configPtr = kernBootStruct->configEnd;
+    char *configPtr = bootArgs->configEnd;
     int fd, count;
     
     /* Read config file into memory */
@@ -500,7 +434,7 @@ loadConfigFile(const char *configFile, const char **table, BOOL allocTable)
 	if (allocTable) {
 	    configPtr = malloc(file_size(fd)+2+TABLE_EXPAND_SIZE);
 	} else {
-	    if ((configPtr - kernBootStruct->config) > CONFIG_SIZE) {
+	    if ((configPtr - bootArgs->config) > CONFIG_SIZE) {
 		error("No room in memory for config files\n");
 		close(fd);
 		return -1;
@@ -515,7 +449,7 @@ loadConfigFile(const char *configFile, const char **table, BOOL allocTable)
 	*configPtr++ = 0;
 	*configPtr = 0;
 	if (!allocTable)
-	    kernBootStruct->configEnd = configPtr;
+	    bootArgs->configEnd = configPtr;
 
 	return 0;
     } else {
@@ -564,8 +498,10 @@ loadConfigDir(
 		if (loadConfigFile(buf, table, allocTable) == 0) {
 		    ret = 1;
 		} else {
-		    if (!allocTable)
+		    if (!allocTable) {
 			error("Config file \"%s\" not found\n", buf);
+			sleep(1); // let the message be seen!
+		    }
 		    ret = -1;
 		}
 	    }
@@ -590,7 +526,70 @@ loadConfigDir(
 #define LP '('
 #define RP ')'
 
+#define SYSTEM_CONFIG_DIR "/Library/Preferences/SystemConfiguration"
+#define SYSTEM_CONFIG_FILE "/com.apple.Boot.plist"
+#define SYSTEM_CONFIG_PATH SYSTEM_CONFIG_DIR SYSTEM_CONFIG_FILE
+#define CONFIG_EXT ".plist"
+
+#if 1
+void
+printSystemConfig(void)
+{
+    char *p1 = bootArgs->config;
+    char *p2 = p1, tmp;
+
+    while (*p1 != '\0') {
+	while (*p2 != '\0' && *p2 != '\n') p2++;
+	tmp = *p2;
+	*p2 = '\0';
+	printf("%s\n", p1);
+	*p2 = tmp;
+	if (tmp == '\0') break;
+	p1 = ++p2;
+    }
+}
+#endif
+
 static int sysconfig_dev;
+
+//==========================================================================
+// ParseXMLFile
+// Modifies the input buffer.
+// Expects to see one dictionary in the XML file.
+// Puts the first dictionary it finds in the
+// tag pointer and returns 0, or returns -1 if not found
+// (and does not modify dict pointer).
+//
+static long
+ParseXMLFile( char * buffer, TagPtr * dict )
+{
+    long       length, pos;
+    TagPtr     tag;
+    pos = 0;
+    char       *configBuffer;
+  
+    configBuffer = malloc(strlen(buffer)+1);
+    strcpy(configBuffer, buffer);
+
+    while (1)
+    {
+        length = XMLParseNextTag(configBuffer + pos, &tag);
+        if (length == -1) break;
+    
+        pos += length;
+    
+        if (tag == 0) continue;
+        if (tag->type == kTagTypeDict) break;
+    
+        XMLFreeTag(tag);
+    }
+    free(configBuffer);
+    if (length < 0) {
+        return -1;
+    }
+    *dict = tag;
+    return 0;
+}
 
 /* Returns 0 if requested config files were loaded,
  *         1 if default files were loaded,
@@ -606,155 +605,60 @@ loadSystemConfig(
     char *buf, *bp;
     const char *cp;
     int ret, len, doDefault=0;
-    const char *device_dir = usrDevices();
 
-#if 0
-		printf("In Load system config which=%d ; size=%d\n", which, size);
-		//sleep(1);
-#endif 1
-    buf = bp = malloc(256);
-    if (which && size)
-    {
-#if 0
-		printf("In Load system config alt\n");
-		//sleep(1);
-#endif 1
-	for(cp = which, len = size; len && *cp && *cp != LP; cp++, len--) ;
-	if (*cp == LP) {
-	    while (len-- && *cp && *cp++ != RP) ;
-	    /* cp now points past device */
-	    strncpy(buf,which,cp - which);
-	    bp += cp - which;
-	} else {
-	    cp = which;
-	    len = size;
-	}
-	if (*cp != '/') {
-	    strcpy(bp, device_dir);
-	    strcat(bp, "/System.config/");
-	    strncat(bp, cp, len);
-	    if (strncmp(cp + len - strlen(IO_TABLE_EXTENSION),
-		       IO_TABLE_EXTENSION, strlen(IO_TABLE_EXTENSION)) != 0)
-		strcat(bp, IO_TABLE_EXTENSION);
-	} else {
-	    strncpy(bp, cp, len);
-	    bp[size] = '\0';
-	}
-	if ((strcmp(bp, USR_SYSTEM_DEFAULT_FILE) == 0) ||
-	    (strcmp(bp, ARCH_SYSTEM_DEFAULT_FILE) == 0))
-	    doDefault = 1;
-	ret = loadConfigFile(bp = buf, 0, 0);
+    buf = bp = malloc(512);
+    if (which && size) {
+        for(cp = which, len = size; len && *cp && *cp != LP; cp++, len--) ;
+        if (*cp == LP) {
+            while (len-- && *cp && *cp++ != RP) ;
+            /* cp now points past device */
+            strlcpy(buf,which,cp - which);
+            bp += cp - which;
+        } else {
+            cp = which;
+            len = size;
+        }
+        if (*cp != '/') {
+            strcpy(bp, systemConfigDir());
+            strcat(bp, "/");
+            strncat(bp, cp, len);
+            if (strncmp(cp + len - strlen(CONFIG_EXT),
+                        CONFIG_EXT, strlen(CONFIG_EXT)) != 0)
+                strcat(bp, CONFIG_EXT);
+        } else {
+            strlcpy(bp, cp, len);
+        }
+        if ((strcmp(bp, SYSTEM_CONFIG_PATH) == 0)) {
+            doDefault = 1;
+        }
+        ret = loadConfigFile(bp = buf, 0, 0);
     } else {
-#if 0
-		printf("In default SYSTEM_CONFIG LOAD\n");
-		//sleep(1);
-#endif 1
-	ret = loadConfigDir((bp = SYSTEM_CONFIG), 0, 0, 0);
-#if 0
-		printf("come back from SYSTEM_CONFIG loadConfigDir\n");
-		//sleep(1);
-#endif 1
-   }
+        strcpy(bp, systemConfigDir());
+        strcat(bp, SYSTEM_CONFIG_FILE);
+        ret = loadConfigFile(bp, 0, 0);
+        if (ret < 0) {
+            ret = loadConfigDir((bp = SYSTEM_CONFIG), 0, 0, 0);
+        }
+    }
     sysconfig_dev = currentdev();
     if (ret < 0) {
 	error("System config file '%s' not found\n", bp);
-    } else
+	sleep(1);
+    } else {
 	sysConfigValid = 1;
+        // Check for XML file;
+        // if not XML, gConfigDict will remain 0.
+        ParseXMLFile(bootArgs->config, &gConfigDict);
+    }
     free(buf);
     return (ret < 0 ? ret : doDefault);
 }
 
-#ifdef DISABLED
-int
-loadOtherConfigs(
-    int useDefault
-)
+
+char * newString(const char * oldString)
 {
-    char *val, *table;
-    char *path = malloc(256);
-    char *hintTable;
-    char *installVersion = NULL, *thisVersion;
-    char *longName, *tableName;
-    int count;
-    char *string;
-    int  ret;
-    int old_dev = currentdev();
-
-    if (sysconfig_dev)
-	switchdev(sysconfig_dev);
-    if (getValueForKey( "Boot Drivers", &val, &count))
-    {
-#if 0
-	printf("Loading Boot Drivers\n");
-	sleep(1);
-#endif 1
-	while (string = newStringFromList(&val, &count)) {
-	    /* Check installation hints... */
-	    sprintf(path, "%s/System.config/" INSTALL_HINTS
-			  "/%s.table", usrDevices(), string);
-
-	    if (getBoolForKey("Ignore Hints") == NO &&
-		    loadConfigFile(path, &hintTable, YES) == 0) {
-		installVersion = newStringForStringTableKey(
-		    hintTable, "Version");
-		longName = newStringForStringTableKey(
-		    hintTable, "Long Name");
-		tableName = newStringForStringTableKey(
-		    hintTable, "Default Table");
-		free(hintTable);
-	    } else {
-		installVersion = longName = tableName = NULL;
-	    }
-
-	    ret = loadConfigDir(string, useDefault, &table, YES);
-	    if (ret >= 0) {
-		thisVersion = newStringForStringTableKey(
-		    table, "Version");
-		if (installVersion && thisVersion &&
-		    (strcmp(thisVersion, installVersion) != 0)) {
-		    /* Versions do not match */
-		    driverIsMissing(string, installVersion, longName, 
-                        tableName, DRIVER_VERSION_MISMATCH);
-		} else {
-		    struct driver_load_data dl;
-		    
-		    dl.name = string;
-		    if ((openDriverReloc(&dl)) >= 0) {
-			verbose("Loading binary for %s device driver.\n",string);
-			if (loadDriver(&dl) < 0) /// need to stop if error
-			    error("Error loading %s device driver.\n",string);
-#if 0
-		printf("Calling link driver for %s\n", string);
-#endif 1
-			if (linkDriver(&dl) < 0)
-			    error("Error linking %s device Driver.\n",string);
-		    }
-		    loadConfigDir(string, useDefault, NULL, NO);
-		    driverWasLoaded(string, table, NULL);
-		    free(table);
-		    free(string);
-		    free(installVersion); free(longName);
-		    free(tableName);
-		}
-		free(thisVersion);
-	    } else {
-                /* driver not found */
-		driverIsMissing(string, installVersion, longName, 
-                    tableName, DRIVER_NOT_FOUND);
-	    }
-#if 0
-	    if (ret == 1)
-		useDefault = 1;	// use defaults from now on
-#endif
-	}
-    } else {
-	error("Warning: No Boot drivers specified in system config.\n");
-    }
-
-    kernBootStruct->first_addr0 =
-	    (int)kernBootStruct->configEnd + 1024;
-    free(path);
-    switchdev(old_dev);
-    return 0;
+    if ( oldString )
+        return strcpy(malloc(strlen(oldString)+1), oldString);
+    else
+        return NULL;
 }
-#endif /* DISABLED */

@@ -1,0 +1,35 @@
+#! /bin/sh
+
+# Check gettext `external' support.
+# PR/338, reported by Charles Wilson.
+
+required='gettext'
+. $srcdir/defs || exit 1
+
+set -e
+
+cat >>configure.in <<END
+AM_GNU_GETTEXT([external])
+AC_OUTPUT
+END
+
+: >Makefile.am
+mkdir foo po
+
+$ACLOCAL
+
+# po/ is required, but intl/ isn't.
+
+$AUTOMAKE --add-missing 2>stderr && exit 1
+cat stderr
+grep 'AM_GNU_GETTEXT.*SUBDIRS' stderr
+
+echo 'SUBDIRS = foo' >Makefile.am
+$AUTOMAKE --add-missing 2>stderr && exit 1
+cat stderr
+grep 'AM_GNU_GETTEXT.*po' stderr
+
+# Ok.
+
+echo 'SUBDIRS = po' >Makefile.am
+$AUTOMAKE --add-missing

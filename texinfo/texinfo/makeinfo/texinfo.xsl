@@ -1,5 +1,5 @@
 <?xml version='1.0'?>
-<!-- $Id: texinfo.xsl,v 1.1.1.1 2002/04/19 01:00:31 jkh Exp $ -->
+<!-- $Id: texinfo.xsl,v 1.2 2003/07/25 18:37:24 jkh Exp $ -->
 <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
                 version="1.0">
 

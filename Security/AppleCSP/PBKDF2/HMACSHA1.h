@@ -27,17 +27,15 @@
 
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
 #include <Security/cssmtype.h>
+#include <MiscCSPAlgs/MD5.h>
+#include <MiscCSPAlgs/SHA1.h>
 
 #ifdef	__cplusplus
 extern "C" {
 #endif
 
-#define kHMACSHA1DigestSize  20
-#define kHMACMD5DigestSize	 16
-
-/* XXX These should really be in SHA1.h */
-#define kSHA1DigestSize  	20
-#define kSHA1BlockSize  	64
+#define kHMACSHA1DigestSize  	SHA1_DIGEST_SIZE
+#define kHMACMD5DigestSize	 	MD5_DIGEST_SIZE
 
 /* This function create an HMACSHA1 digest of kHMACSHA1DigestSizestSize bytes
  * and outputs it to resultPtr.  See RFC 2104 for details.  */

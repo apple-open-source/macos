@@ -1,0 +1,43 @@
+#   Copyright (C) 1997, 1999, 2000, 2003 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+
+load_lib dg.exp
+load_lib file-format.exp
+load_lib target-supports.exp
+load_lib scanasm.exp
+# APPLE LOCAL begin
+load_lib langutils-dg.exp
+# APPLE LOCAL end
+
+# Define g++ callbacks for dg.exp.
+
+# APPLE LOCAL move proc g++-dg-test to langutils-dg.exp proc ${tool}-dg-test
+
+# APPLE LOCAL move proc search_for to langutils-dg.exp
+
+proc g++-dg-prune { system text } {
+    set text [prune_gcc_output $text]
+
+    # If we see "region xxx is full" then the testcase is too big for ram.
+    # This is tricky to deal with in a large testsuite like c-torture so
+    # deal with it here.  Just mark the testcase as unsupported.
+    if [regexp "(^|\n)\[^\n\]*: region \[^\n\]* is full" $text] {
+	# The format here is important.  See dg.exp.
+	return "::unsupported::memory full"
+    }
+
+    return $text
+}

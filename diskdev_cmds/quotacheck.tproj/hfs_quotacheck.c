@@ -76,7 +76,7 @@ chkquota_hfs(fsname, mntpt, qnp)
 	char *fsname, *mntpt;
 	register struct quotaname *qnp;
 {
-        int errs = 0;
+	int errs = 0;
 	
 	sync();
 
@@ -116,7 +116,7 @@ collectdata(const char* path, struct quotaname *qnp)
 	/* Search for items with uid != 0 */
 	query.qq_len = sizeof(struct quota_query);
 	query.qq_uid = 0;
-	options |= SRCHFS_NEGATEPARAMS;
+	options |= SRCHFS_NEGATEPARAMS | SRCHFS_SKIPLINKS;
 	searchblk.searchattrs.bitmapcount = ATTR_BIT_MAP_COUNT;
 	searchblk.searchattrs.commonattr = QQ_COMMON;
 	searchblk.searchparams1 = &query;
@@ -149,7 +149,7 @@ collectdata(const char* path, struct quotaname *qnp)
 
 		for (i = 0; i < nummatches; ++i) {
 			vntype = qap[i].qa_type;
-			filebytes = (vntype == VDIR) ? 0 :qap[i].qa_bytes;
+			filebytes = (vntype == VDIR) ? 0 : qap[i].qa_bytes;
 	
 			if (qnp->flags & HASGRP) {
 				fup = addid(qap[i].qa_gid, GRPQUOTA);

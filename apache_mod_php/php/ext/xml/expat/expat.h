@@ -7,9 +7,10 @@ See the file COPYING for copying permission.
 #define XmlParse_INCLUDED 1
 
 #include <stdlib.h>
+#include "php_compat.h"
 
 #ifndef XMLPARSEAPI
-#  if defined(__declspec) && !defined(__BEOS__)
+#  if defined(__declspec) && !defined(__BEOS__) && !defined(__CYGWIN__)
 #    define XMLPARSEAPI(type) __declspec(dllimport) type __cdecl
 #  else
 #    define XMLPARSEAPI(type) type

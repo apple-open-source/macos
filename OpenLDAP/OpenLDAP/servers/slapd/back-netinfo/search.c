@@ -59,7 +59,7 @@ netinfo_back_search(
 	int isroot = 0;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_ARGS, "netinfo_back_search base %s scope %d\n", base->bv_val, scope));
+	LDAP_LOG((BACK_NETINFO, ARGS, "netinfo_back_search base %s scope %d\n", base->bv_val, scope));
 #else
 	Debug(LDAP_DEBUG_TRACE, "==> netinfo_back_search base=%s nbase=%s scope=%d\n", base->bv_val, nbase->bv_val, scope);
 #endif
@@ -68,7 +68,7 @@ netinfo_back_search(
 	if (netinfo_back_send_referrals(be, conn, op, nbase) == DSStatusOK)
 	{
 #ifdef NEW_LOGGING
-		LDAP_LOG(("backend", LDAP_LEVEL_INFO, "netinfo_back_search: sent referrals\n"));
+		LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_search: sent referrals\n"));
 #else
 		Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_search\n", 0, 0, 0);
 #endif
@@ -78,12 +78,32 @@ netinfo_back_search(
 
 	ENGINE_LOCK(di);
 
+	/*
+	 * Check for trusted_networks here. Previously, trusted_networks
+	 * was tested for every search results, which was inefficient
+	 * and could potentially result in a DoS attack.
+	 */
+	if (di->flags & DSENGINE_FLAGS_NATIVE_AUTHORIZATION)
+	{
+		status = is_trusted_network(be, conn);
+		if (status != DSStatusOK)
+		{
+			ENGINE_UNLOCK(di);
+#ifdef NEW_LOGGING
+			LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_search: untrusted network\n"));
+#else
+			Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_search\n", 0, 0, 0);
+#endif
+			return netinfo_back_op_result(be, conn, op, status);
+		}
+	}
+
 	status = netinfo_back_dn_pathmatch(be, nbase, &dsid);
 	if (status != DSStatusOK)
 	{
 		ENGINE_UNLOCK(di);
 #ifdef NEW_LOGGING
-		LDAP_LOG(("backend", LDAP_LEVEL_INFO, "netinfo_back_search: pathmatch failed\n"));
+		LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_search: pathmatch failed\n"));
 #else
 		Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_search\n", 0, 0, 0);
 #endif
@@ -97,7 +117,7 @@ netinfo_back_search(
 			scopemin = scopemax = 0;
 			break;
 		case LDAP_SCOPE_SUBTREE:
-			scopemin = 1;
+			scopemin = 0;
 			scopemax = (u_int32_t)-1;
 			break;
 		case LDAP_SCOPE_ONELEVEL:
@@ -113,7 +133,7 @@ netinfo_back_search(
 		send_ldap_result(conn, op, LDAP_OPERATIONS_ERROR, NULL,
 			"Could not translate filter", NULL, NULL);
 #ifdef NEW_LOGGING
-		LDAP_LOG(("backend", LDAP_LEVEL_INFO, "netinfo_back_search: could not translate filter\n"));
+		LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_search: could not translate filter\n"));
 #else
 		Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_search\n", 0, 0, 0);
 #endif
@@ -156,7 +176,7 @@ netinfo_back_search(
 				send_search_result(conn, op, LDAP_UNWILLING_TO_PERFORM,
 					NULL, NULL, NULL, NULL, 0);
 #ifdef NEW_LOGGING
-				LDAP_LOG(("backend", LDAP_LEVEL_INFO, "netinfo_back_search: reached hard time limit\n"));
+				LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_search: reached hard time limit\n"));
 #else
 				Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_search\n", 0, 0, 0);
 #endif
@@ -182,7 +202,7 @@ netinfo_back_search(
 				send_search_result(conn, op, LDAP_UNWILLING_TO_PERFORM,
 					NULL, NULL, NULL, NULL, 0);
 #ifdef NEW_LOGGING
-				LDAP_LOG(("backend", LDAP_LEVEL_INFO, "netinfo_back_search: reached hard size limit\n"));
+				LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_search: reached hard size limit\n"));
 #else
 				Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_search\n", 0, 0, 0);
 #endif
@@ -201,7 +221,7 @@ netinfo_back_search(
 		dsfilter_release(dsf);
 		ENGINE_UNLOCK(di);
 #ifdef NEW_LOGGING
-		LDAP_LOG(("backend", LDAP_LEVEL_INFO, "netinfo_back_search: search failed\n"));
+		LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_search: search failed\n"));
 #else
 		Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_search\n", 0, 0, 0);
 #endif
@@ -226,15 +246,12 @@ netinfo_back_search(
 		dsrecord *rec;
 
 		/* check for abandon */
-		ldap_pvt_thread_mutex_lock(&op->o_abandonmutex);
 		if (op->o_abandon)
 		{
 			ENGINE_UNLOCK(di);
 			free(match);
-			ldap_pvt_thread_mutex_unlock(&op->o_abandonmutex);
 			return 0; /* XXX SLAPD_ABANDON */
 		}
-		ldap_pvt_thread_mutex_unlock(&op->o_abandonmutex);
 
 		/* check timelimit */
 		if (tlimit != -1 && slap_get_time() > stoptime)
@@ -244,7 +261,7 @@ netinfo_back_search(
 		}
 
 #ifdef NEW_LOGGING
-		LDAP_LOG(("backend", LDAP_LEVEL_INFO, "netinfo_back_search: "
+		LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_search: "
 			"Fetching record dSID %d\n", match[i]));
 #else
 		Debug(LDAP_DEBUG_TRACE, "Fetching DS record ID=%d\n", match[i], 0, 0);
@@ -304,7 +321,7 @@ netinfo_back_search(
 	send_search_result(conn, op, rc, NULL, NULL, NULL, NULL, count);
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_INFO, "netinfo_back_search: %d entries\n", count));
+	LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_search: %d entries\n", count));
 #else
 	Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_search count=%d\n", count, 0, 0);
 #endif

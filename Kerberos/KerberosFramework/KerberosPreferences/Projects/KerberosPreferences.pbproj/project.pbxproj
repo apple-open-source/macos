@@ -1,0 +1,175 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		F551B616022455D701650119 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KerberosPreferences.pbexp;
+			refType = 2;
+		};
+		F579A425021D6B5B01650119 = {
+			buildStyles = (
+				F579A427021D6B5B01650119,
+				F579A428021D6B5B01650119,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = F579A426021D6B5B01650119;
+			productRefGroup = F579A429021D6BA101650119;
+			projectDirPath = "";
+			targets = (
+				F579A42B021D6BA101650119,
+			);
+		};
+		F579A426021D6B5B01650119 = {
+			children = (
+				F551B616022455D701650119,
+				F579A430021D6BAF01650119,
+				F579A434021D6C1201650119,
+				F579A429021D6BA101650119,
+			);
+			isa = PBXGroup;
+			refType = 4;
+		};
+		F579A427021D6B5B01650119 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		F579A428021D6B5B01650119 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		F579A429021D6BA101650119 = {
+			children = (
+				F579A42A021D6BA101650119,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+		F579A42A021D6BA101650119 = {
+			isa = PBXLibraryReference;
+			path = libKerberosPreferences.a;
+			refType = 3;
+		};
+		F579A42B021D6BA101650119 = {
+			buildPhases = (
+				F579A42C021D6BA101650119,
+				F579A42D021D6BA101650119,
+				F579A42E021D6BA101650119,
+				F579A42F021D6BA101650119,
+			);
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				HEADER_SEARCH_PATHS = "\"$(SRCROOT)/../Headers\" \"$(SRCROOT)/../../Common/Headers\" \"$(SRCROOT)/../../KerberosDebug/Headers\" \"$(SRCROOT)/../../KerberosErrors/Headers/Kerberos\" \"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates\" \"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/include\" \"$(BUILT_PRODUCTS_DIR)/Kerberos5.intermediates/include/krb5\" \"$(SRCROOT)/../../Kerberos5/Sources/include\" \"$(SRCROOT)/../../Kerberos5/Sources/include/krb5\"";
+				LIBRARY_STYLE = STATIC;
+				PRODUCT_NAME = libKerberosPreferences.a;
+				REZ_EXECUTABLE = YES;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXLibraryTarget;
+			name = KerberosPreferences;
+			productInstallPath = /usr/local/lib;
+			productName = KerberosPreferences;
+			productReference = F579A42A021D6BA101650119;
+		};
+		F579A42C021D6BA101650119 = {
+			buildActionMask = 2147483647;
+			files = (
+				F579A43A021D6C1201650119,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F579A42D021D6BA101650119 = {
+			buildActionMask = 2147483647;
+			files = (
+				F579A43B021D6C1201650119,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F579A42E021D6BA101650119 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F579A42F021D6BA101650119 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F579A430021D6BAF01650119 = {
+			children = (
+				F579A432021D6BAF01650119,
+			);
+			isa = PBXGroup;
+			name = Headers;
+			path = ../Headers;
+			refType = 2;
+		};
+		F579A432021D6BAF01650119 = {
+			children = (
+				F579A433021D6BAF01650119,
+			);
+			isa = PBXGroup;
+			path = Kerberos;
+			refType = 4;
+		};
+		F579A433021D6BAF01650119 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KerberosPreferences.h;
+			refType = 4;
+		};
+		F579A434021D6C1201650119 = {
+			children = (
+				F579A437021D6C1201650119,
+			);
+			isa = PBXGroup;
+			name = Sources;
+			path = ../Sources;
+			refType = 2;
+		};
+		F579A437021D6C1201650119 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = KerberosPreferences.c;
+			refType = 4;
+		};
+		F579A43A021D6C1201650119 = {
+			fileRef = F579A433021D6BAF01650119;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F579A43B021D6C1201650119 = {
+			fileRef = F579A437021D6C1201650119;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+	};
+	rootObject = F579A425021D6B5B01650119;
+}

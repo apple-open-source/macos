@@ -45,7 +45,7 @@ DUMPTIFF_OBJS = tif_packbits.o dumptiff.o BooterBitmap.o
 SIG = $(SYMROOT)/sig
 SIG_OBJS = sig.o
 
-DIRS_NEEDED = $(OBJROOT) $(SYMROOT) $(LANGDIR) $(LOCALBIN)
+DIRS_NEEDED = $(OBJROOT) $(SYMROOT) $(LANGDIR)
 
 #BITMAPS = Panel.image Wait1.image Wait2.image Wait3.image
 BITMAPS = Panel.image

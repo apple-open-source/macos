@@ -22,6 +22,7 @@
 #define _SECURITY_ACL_H_
 
 #include <Security/SecRuntime.h>
+#include <Security/SecACL.h>
 #include <Security/cssmaclpod.h>
 #include <Security/aclclient.h>
 #include <Security/cssmdata.h>
@@ -42,6 +43,8 @@ class TrustedApplication;
 class ACL : public SecCFObject {
 	NOCOPY(ACL)
 public:
+	SECCFFUNCTIONS(ACL, SecACLRef, errSecInvalidItemRef)
+
 	// create from CSSM layer ACL entry
 	ACL(Access &acc, const AclEntryInfo &info,
 		CssmAllocator &alloc = CssmAllocator::standard());
@@ -53,7 +56,7 @@ public:
 	// create from "standard form" arguments (with empty application list)
 	ACL(Access &acc, string description, const CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR &promptSelector,
 		CssmAllocator &alloc = CssmAllocator::standard());
-    virtual ~ACL();
+    virtual ~ACL() throw();
 	
 	CssmAllocator &allocator;
 	
@@ -82,15 +85,13 @@ public:
 	void setAuthorization(CSSM_ACL_AUTHORIZATION_TAG auth)
 	{ mAuthorizations.clear(); mAuthorizations.insert(auth); }
 	
-	typedef vector< RefPointer<TrustedApplication> > ApplicationList;
+	typedef vector< SecPointer<TrustedApplication> > ApplicationList;
 	ApplicationList &applications()
 	{ assert(form() == appListForm); return mAppList; }
 	void addApplication(TrustedApplication *app);
 	
-	CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR &promptSelector()
-	{ assert(form() == appListForm || form() == allowAllForm); return mPromptSelector; }
-	string &promptDescription()
-	{ assert(form() == appListForm || form() == allowAllForm); return mPromptDescription; }
+	CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR &promptSelector()	{ return mPromptSelector; }
+	string &promptDescription()							{ return mPromptDescription; }
 	
 	CSSM_ACL_HANDLE entryHandle() const	{ return mCssmHandle; }
 	
@@ -98,8 +99,12 @@ public:
 	bool isOwner() const			{ return mCssmHandle == ownerHandle; }
 	void makeOwner()				{ mCssmHandle = ownerHandle; }
 	
-	void modify();
-	void remove();
+	void modify();					// mark modified (update on commit)
+	void remove();					// mark removed (delete on commit)
+	
+	// produce chunk copies of CSSM forms; caller takes ownership
+	void copyAclEntry(AclEntryPrototype &proto, CssmAllocator &alloc = CssmAllocator::standard());
+	void copyAclOwner(AclOwnerPrototype &proto, CssmAllocator &alloc = CssmAllocator::standard());
 	
 public:
 	void setAccess(AclBearer &target, bool update = false,

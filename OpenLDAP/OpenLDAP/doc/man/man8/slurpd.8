@@ -1,11 +1,11 @@
-.TH SLURPD 8C "20 August 2000" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man8/slurpd.8,v 1.12 2002/01/04 20:17:35 kurt Exp $
-.\" Copyright 1998-2002 The OpenLDAP Foundation All Rights Reserved.
+.TH SLURPD 8C "RELEASEDATE" "OpenLDAP LDVERSION"
+.\" $OpenLDAP: pkg/ldap/doc/man/man8/slurpd.8,v 1.12.2.3 2003/03/03 17:10:03 kurt Exp $
+.\" Copyright 1998-2003 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 slurpd \- Standalone LDAP Update Replication Daemon
 .SH SYNOPSIS
-.B LIBEXECDIR/slurpd [\-d debug\-level]
+.B /usr/libexec/slurpd [\-d debug\-level]
 .B [\-f slapd\-config\-file] [\-r slapd\-replog\-file]
 .B [\-t temp\-dir] [\-o] [\-k srvtab\-file]
 .B 
@@ -60,6 +60,14 @@ config file, and sends the changes.
 See
 .BR slapd (8)
 for details on the standalone LDAP daemon.
+.LP
+Note that slurpd reads
+.B replication
+directive from
+.BR slapd.conf (5),
+but uses
+.BR ldap.conf (5)
+to obtain other configuration settings (such as TLS settings).
 .SH OPTIONS
 .TP
 .BI \-d " debug\-level"
@@ -74,7 +82,7 @@ different kind of debugging information.  See <ldap.h> for details.
 .TP
 .BI \-f " slapd\-config\-file"
 Specifies the slapd configuration file.  The default is
-.BR ETCDIR/slapd.conf .
+.BR /etc/openldap/slapd.conf .
 .TP
 .BI \-r " slapd\-replog\-file"
 Specifies the name of the 
@@ -112,7 +120,7 @@ The directory permissions should limit read/write/execute access as
 temporary files may contain sensitive information.
 This option allows you to specify the location of these temporary files. 
 The default is
-.BR LOCALSTATEDIR/openldap-slurp .
+.BR /var/db/openldap/openldap-slurp .
 .TP
 .BI \-k " srvtab\-file"
 Specify the location of the kerberos srvtab file which contains keys
@@ -132,7 +140,7 @@ just type:
 .LP
 .nf
 .ft tt
-	LIBEXECDIR/slurpd
+	/usr/libexec/slurpd
 .ft
 .fi
 .LP
@@ -145,12 +153,14 @@ on voluminous debugging which will be printed on standard error, type:
 .LP
 .nf
 .ft tt
-	LIBEXECDIR/slurpd -f ETCDIR/slapd.conf -d 255
+	/usr/libexec/slurpd -f /etc/openldap/slapd.conf -d 255
 .ft
 .fi
 .LP
 .SH "SEE ALSO"
 .BR ldap (3),
+.BR ldap.conf (5),
+.BR slapd.conf (5),
 .BR slapd.replog (5),
 .BR slapd (8)
 .LP

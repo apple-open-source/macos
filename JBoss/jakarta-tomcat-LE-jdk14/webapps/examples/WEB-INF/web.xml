@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<!DOCTYPE web-app
+    PUBLIC "-//Sun Microsystems, Inc.//DTD Web Application 2.3//EN"
+    "http://java.sun.com/dtd/web-app_2_3.dtd">
+
+<web-app>
+
+    <display-name>Tomcat Examples</display-name>
+    <description>
+      Tomcat Example servlets and JSP pages.
+    </description>
+
+    <!-- Define servlet-mapped and path-mapped example filters -->
+    <filter>
+        <filter-name>Servlet Mapped Filter</filter-name>
+        <filter-class>filters.ExampleFilter</filter-class>
+	<init-param>
+	    <param-name>attribute</param-name>
+	    <param-value>filters.ExampleFilter.SERVLET_MAPPED</param-value>
+	</init-param>
+    </filter>
+    <filter>
+        <filter-name>Path Mapped Filter</filter-name>
+        <filter-class>filters.ExampleFilter</filter-class>
+	<init-param>
+	    <param-name>attribute</param-name>
+	    <param-value>filters.ExampleFilter.PATH_MAPPED</param-value>
+	</init-param>
+    </filter>
+    <filter>
+        <filter-name>Request Dumper Filter</filter-name>
+        <filter-class>filters.RequestDumperFilter</filter-class>
+    </filter>
+
+    <!-- Example filter to set character encoding on each request -->
+    <filter>
+        <filter-name>Set Character Encoding</filter-name>
+        <filter-class>filters.SetCharacterEncodingFilter</filter-class>
+        <init-param>
+            <param-name>encoding</param-name>
+            <param-value>EUC_JP</param-value>
+        </init-param>
+    </filter>
+
+    <filter>
+        <filter-name>Compression Filter</filter-name>
+        <filter-class>compressionFilters.CompressionFilter</filter-class>
+
+        <init-param>
+          <param-name>compressionThreshold</param-name>
+          <param-value>10</param-value>
+        </init-param>
+        <init-param>
+          <param-name>debug</param-name>
+          <param-value>0</param-value>
+        </init-param>
+    </filter>
+
+    <!-- Define filter mappings for the defined filters -->
+    <filter-mapping>
+        <filter-name>Servlet Mapped Filter</filter-name>
+	<servlet-name>invoker</servlet-name>
+    </filter-mapping>
+    <filter-mapping>
+        <filter-name>Path Mapped Filter</filter-name>
+	<url-pattern>/servlet/*</url-pattern>
+    </filter-mapping>
+
+
+<!-- Example filter mapping to apply the "Set Character Encoding" filter
+     to *all* requests processed by this web application -->
+<!--
+    <filter-mapping>
+        <filter-name>Set Character Encoding</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+-->
+
+<!--
+    <filter-mapping>
+      <filter-name>Compression Filter</filter-name>
+      <url-pattern>/CompressionTest</url-pattern>
+    </filter-mapping>
+-->
+
+<!--
+    <filter-mapping>
+        <filter-name>Request Dumper Filter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+-->
+
+    <!-- Define example application events listeners -->
+    <listener>
+        <listener-class>listeners.ContextListener</listener-class>
+    </listener>
+    <listener>
+        <listener-class>listeners.SessionListener</listener-class>
+    </listener>
+
+    <!-- Define servlets that are included in the example application -->
+
+    <servlet>
+        <servlet-name>SendMailServlet</servlet-name>
+        <servlet-class>SendMailServlet</servlet-class>
+    </servlet>
+
+    <servlet>
+        <servlet-name>
+            snoop
+        </servlet-name>
+        <servlet-class>
+            SnoopServlet
+        </servlet-class>
+<!--
+        <init-param>
+            <param-name>foo</param-name>
+            <param-value>bar</param-value>
+        </init-param>
+-->
+        <run-as>
+            <description>Security role for anonymous access</description>
+            <role-name>tomcat</role-name>
+        </run-as>
+    </servlet>
+
+    <servlet>
+      <servlet-name>
+          servletToJsp
+      </servlet-name>
+      <servlet-class>
+          servletToJsp
+      </servlet-class>
+    </servlet>
+        <servlet>
+        <servlet-name>
+            CompressionFilterTestServlet
+        </servlet-name>
+        <servlet-class>
+            compressionFilters.CompressionFilterTestServlet
+        </servlet-class>
+
+    </servlet>
+
+    <servlet-mapping>
+        <servlet-name>invoker</servlet-name>
+        <url-pattern>/servlet/*</url-pattern>
+    </servlet-mapping>
+
+    <servlet-mapping>
+        <servlet-name>
+            CompressionFilterTestServlet
+        </servlet-name>
+        <url-pattern>
+            /CompressionTest
+        </url-pattern>
+    </servlet-mapping>
+
+    <servlet-mapping>
+        <servlet-name>SendMailServlet</servlet-name>
+        <url-pattern>/SendMailServlet</url-pattern>
+    </servlet-mapping>
+
+    <servlet-mapping>
+        <servlet-name>
+            snoop
+        </servlet-name>
+        <url-pattern>
+            /snoop
+        </url-pattern>
+    </servlet-mapping>
+    <servlet-mapping>
+        <servlet-name>
+            servletToJsp
+        </servlet-name>
+        <url-pattern>
+            /servletToJsp
+        </url-pattern>
+    </servlet-mapping>
+
+    <taglib>
+        <taglib-uri>
+	   http://jakarta.apache.org/tomcat/debug-taglib
+        </taglib-uri>
+        <taglib-location>
+           /WEB-INF/jsp/debug-taglib.tld
+        </taglib-location>
+    </taglib>
+
+    <taglib>
+        <taglib-uri>
+	   http://jakarta.apache.org/tomcat/examples-taglib
+        </taglib-uri>
+        <taglib-location>
+           /WEB-INF/jsp/example-taglib.tld
+        </taglib-location>
+    </taglib>
+
+    <resource-ref>
+      <res-ref-name>mail/Session</res-ref-name>
+      <res-type>javax.mail.Session</res-type>
+      <res-auth>Container</res-auth>
+    </resource-ref>
+
+    <security-constraint>
+      <display-name>Example Security Constraint</display-name>
+      <web-resource-collection>
+         <web-resource-name>Protected Area</web-resource-name>
+	 <!-- Define the context-relative URL(s) to be protected -->
+         <url-pattern>/jsp/security/protected/*</url-pattern>
+	 <!-- If you list http methods, only those methods are protected -->
+	 <http-method>DELETE</http-method>
+         <http-method>GET</http-method>
+         <http-method>POST</http-method>
+	 <http-method>PUT</http-method>
+      </web-resource-collection>
+      <auth-constraint>
+         <!-- Anyone with one of the listed roles may access this area -->
+         <role-name>tomcat</role-name>
+	 <role-name>role1</role-name>
+      </auth-constraint>
+    </security-constraint>
+
+    <!-- Default login configuration uses form-based authentication -->
+    <login-config>
+      <auth-method>FORM</auth-method>
+      <realm-name>Example Form-Based Authentication Area</realm-name>
+      <form-login-config>
+        <form-login-page>/jsp/security/protected/login.jsp</form-login-page>
+        <form-error-page>/jsp/security/protected/error.jsp</form-error-page>
+      </form-login-config>
+    </login-config>
+
+    <!-- Security roles referenced by this web application -->
+    <security-role>
+      <role-name>role1</role-name>
+    </security-role>
+    <security-role>
+      <role-name>tomcat</role-name>
+    </security-role>
+
+    <!-- Environment entry examples -->
+    <!--env-entry>
+      <env-entry-description>
+         The maximum number of tax exemptions allowed to be set.
+      </env-entry-description>
+      <env-entry-name>maxExemptions</env-entry-name>
+      <env-entry-value>15</env-entry-value>
+      <env-entry-type>java.lang.Integer</env-entry-type>
+    </env-entry-->
+    <env-entry>
+      <env-entry-name>minExemptions</env-entry-name>
+      <env-entry-value>1</env-entry-value>
+      <env-entry-type>java.lang.Integer</env-entry-type>
+    </env-entry>
+    <env-entry>
+      <env-entry-name>foo/name1</env-entry-name>
+      <env-entry-value>value1</env-entry-value>
+      <env-entry-type>java.lang.String</env-entry-type>
+    </env-entry>
+    <env-entry>
+      <env-entry-name>foo/bar/name2</env-entry-name>
+      <env-entry-value>true</env-entry-value>
+      <env-entry-type>java.lang.Boolean</env-entry-type>
+    </env-entry>
+    <env-entry>
+      <env-entry-name>name3</env-entry-name>
+      <env-entry-value>1</env-entry-value>
+      <env-entry-type>java.lang.Integer</env-entry-type>
+    </env-entry>
+    <env-entry>
+      <env-entry-name>foo/name4</env-entry-name>
+      <env-entry-value>10</env-entry-value>
+      <env-entry-type>java.lang.Integer</env-entry-type>
+    </env-entry>
+
+    <!-- EJB Reference -->
+    <ejb-ref>
+      <description>Example EJB Reference</description>
+      <ejb-ref-name>ejb/Account</ejb-ref-name>
+      <ejb-ref-type>Entity</ejb-ref-type>
+      <home>com.mycompany.mypackage.AccountHome</home>
+      <remote>com.mycompany.mypackage.Account</remote>
+    </ejb-ref>
+
+    <!-- Local EJB Reference -->
+    <ejb-local-ref>
+      <description>Example Local EJB Reference</description>
+      <ejb-ref-name>ejb/ProcessOrder</ejb-ref-name>
+      <ejb-ref-type>Session</ejb-ref-type>
+      <local-home>com.mycompany.mypackage.ProcessOrderHome</local-home>
+      <local>com.mycompany.mypackage.ProcessOrder</local>
+    </ejb-local-ref>
+
+
+</web-app>

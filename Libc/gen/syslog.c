@@ -281,7 +281,7 @@ openlog(ident, logstat, logfac)
 		}
 	}
 	if (LogFile != -1 && !connected)
-		if (connect(LogFile, &SyslogAddr, sizeof(SyslogAddr)) == -1) {
+		if (connect(LogFile, (struct sockaddr *)&SyslogAddr, sizeof(SyslogAddr)) == -1) {
 			(void)close(LogFile);
 			LogFile = -1;
 		} else

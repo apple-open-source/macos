@@ -48,8 +48,9 @@ static void sock_sink();
   * that lack DNS-style trailing dot magic, such as local files or NIS maps.
   */
 
-static struct hostent *gethostbyname_dot(name)
+static struct hostent *tcpd_gethostbyname_dot(name, af)
 char   *name;
+int af;
 {
     char    dot_name[MAXHOSTNAMELEN + 1];
 
@@ -59,14 +60,14 @@ char   *name;
      */
 
     if (strchr(name, '.') == 0 || strlen(name) >= MAXHOSTNAMELEN - 1) {
-	return (gethostbyname(name));
+	return (tcpd_gethostbyname(name, af));
     } else {
 	sprintf(dot_name, "%s.", name);
-	return (gethostbyname(dot_name));
+	return (tcpd_gethostbyname(dot_name, af));
     }
 }
 
-#define gethostbyname gethostbyname_dot
+#define tcpd_gethostbyname tcpd_gethostbyname_dot
 #endif
 
 /* sock_host - look up endpoint addresses and install conversion methods */
@@ -74,8 +75,8 @@ char   *name;
 void    sock_host(request)
 struct request_info *request;
 {
-    static struct sockaddr_in client;
-    static struct sockaddr_in server;
+    static struct sockaddr_gen client;
+    static struct sockaddr_gen server;
     int     len;
     char    buf[BUFSIZ];
     int     fd = request->fd;
@@ -104,6 +105,7 @@ struct request_info *request;
 	memset(buf, 0 sizeof(buf));
 #endif
     }
+    sockgen_simplify(&client);
     request->client->sin = &client;
 
     /*
@@ -117,6 +119,7 @@ struct request_info *request;
 	tcpd_warn("getsockname: %m");
 	return;
     }
+    sockgen_simplify(&server);
     request->server->sin = &server;
 }
 
@@ -125,10 +128,15 @@ struct request_info *request;
 void    sock_hostaddr(host)
 struct host_info *host;
 {
-    struct sockaddr_in *sin = host->sin;
+    struct sockaddr_gen *sin = host->sin;
 
     if (sin != 0)
-	STRN_CPY(host->addr, inet_ntoa(sin->sin_addr), sizeof(host->addr));
+#ifdef HAVE_IPV6
+	
+	(void) inet_ntop(SGFAM(sin), SGADDRP(sin), host->addr, sizeof(host->addr));
+#else
+	STRN_CPY(host->addr, inet_ntoa(sin->sg_sin.sin_addr), sizeof(host->addr));
+#endif
 }
 
 /* sock_hostname - map endpoint address to host name */
@@ -136,9 +144,10 @@ struct host_info *host;
 void    sock_hostname(host)
 struct host_info *host;
 {
-    struct sockaddr_in *sin = host->sin;
+    struct sockaddr_gen *sin = host->sin;
     struct hostent *hp;
     int     i;
+    int     herr;
 
     /*
      * On some systems, for example Solaris 2.3, gethostbyaddr(0.0.0.0) does
@@ -147,9 +156,9 @@ struct host_info *host;
      * have to special-case 0.0.0.0, in order to avoid false alerts from the
      * host name/address checking code below.
      */
-    if (sin != 0 && sin->sin_addr.s_addr != 0
-	&& (hp = gethostbyaddr((char *) &(sin->sin_addr),
-			       sizeof(sin->sin_addr), AF_INET)) != 0) {
+    if (sin != 0
+	&& !SG_IS_UNSPECIFIED(sin)
+	&& (hp = gethostbyaddr(SGADDRP(sin), SGADDRSZ(sin), SGFAM(sin))) != 0) {
 
 	STRN_CPY(host->name, hp->h_name, sizeof(host->name));
 
@@ -166,7 +175,7 @@ struct host_info *host;
 	 * we're in big trouble anyway.
 	 */
 
-	if ((hp = gethostbyname(host->name)) == 0) {
+	if ((hp = tcpd_gethostbyname(host->name, SGFAM(sin))) == 0) {
 
 	    /*
 	     * Unable to verify that the host name matches the address. This
@@ -189,6 +198,9 @@ struct host_info *host;
 		      host->name, STRING_LENGTH, hp->h_name);
 
 	} else {
+#ifdef HAVE_IPV6
+	    char buf[INET6_ADDRSTRLEN];
+#endif
 
 	    /*
 	     * The address should be a member of the address list returned by
@@ -199,9 +211,10 @@ struct host_info *host;
 
 	    for (i = 0; hp->h_addr_list[i]; i++) {
 		if (memcmp(hp->h_addr_list[i],
-			   (char *) &sin->sin_addr,
-			   sizeof(sin->sin_addr)) == 0)
+			   (char *) SGADDRP(sin),
+			   SGADDRSZ(sin)) == 0) {
 		    return;			/* name is good, keep it */
+		}
 	    }
 
 	    /*
@@ -209,9 +222,13 @@ struct host_info *host;
 	     * someone has messed up. Perhaps someone compromised a name
 	     * server.
 	     */
-
 	    tcpd_warn("host name/address mismatch: %s != %.*s",
-		      inet_ntoa(sin->sin_addr), STRING_LENGTH, hp->h_name);
+#ifdef HAVE_IPV6
+		      inet_ntop(SGFAM(sin), SGADDRP(sin), buf, sizeof(buf)),
+#else
+		      inet_ntoa(sin->sg_sin.sin_addr),
+#endif
+		      STRING_LENGTH, hp->h_name);
 	}
 	strcpy(host->name, paranoid);		/* name is bad, clobber it */
     }
@@ -232,4 +249,32 @@ int     fd;
      */
 
     (void) recvfrom(fd, buf, sizeof(buf), 0, (struct sockaddr *) & sin, &size);
+}
+
+/*
+ * If we receive a V4 connection on a V6 socket, we pretend we really
+ * got a V4 connection.
+ */
+void sockgen_simplify(sg)
+sockaddr_gen *sg;
+{
+#ifdef HAVE_IPV6
+    if (sg->sg_family == AF_INET6 &&
+	IN6_IS_ADDR_V4MAPPED(&sg->sg_sin6.sin6_addr)) {
+	    struct sockaddr_in v4_addr;
+
+#ifdef IN6_V4MAPPED_TO_INADDR			/* Solaris 8 */
+	    IN6_V4MAPPED_TO_INADDR(&sg->sg_sin6.sin6_addr, &v4_addr.sin_addr);
+#elif defined(IN6_MAPPED_TO_V4) 		/* Solaris 8 Beta only? */
+	    IN6_MAPPED_TO_V4(&sg->sg_sin6.sin6_addr, &v4_addr.sin_addr);
+#else						/* Do it the hard way */
+	    memcpy(&v4_addr.sin_addr, ((char*) &sg->sg_sin6.sin6_addr) + 12, 4);
+#endif
+	    v4_addr.sin_port = sg->sg_sin6.sin6_port;
+	    v4_addr.sin_family = AF_INET;
+	    memcpy(&sg->sg_sin, &v4_addr, sizeof(v4_addr));
+    }
+#else
+    return;
+#endif /* HAVE_IPV6 */
 }

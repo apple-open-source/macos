@@ -32,15 +32,13 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "includes.h"
-RCSID("$OpenBSD: key.c,v 1.45 2002/06/23 03:26:19 deraadt Exp $");
+RCSID("$OpenBSD: key.c,v 1.51 2003/02/12 09:33:04 markus Exp $");
 
 #include <openssl/evp.h>
 
 #include "xmalloc.h"
 #include "key.h"
 #include "rsa.h"
-#include "ssh-dss.h"
-#include "ssh-rsa.h"
 #include "uuencode.h"
 #include "buffer.h"
 #include "bufaux.h"
@@ -171,7 +169,7 @@ key_equal(Key *a, Key *b)
 	return 0;
 }
 
-static u_char*
+static u_char *
 key_fingerprint_raw(Key *k, enum fp_type dgst_type, u_int *dgst_raw_length)
 {
 	const EVP_MD *md = NULL;
@@ -227,8 +225,8 @@ key_fingerprint_raw(Key *k, enum fp_type dgst_type, u_int *dgst_raw_length)
 	return retval;
 }
 
-static char*
-key_fingerprint_hex(u_char* dgst_raw, u_int dgst_raw_len)
+static char *
+key_fingerprint_hex(u_char *dgst_raw, u_int dgst_raw_len)
 {
 	char *retval;
 	int i;
@@ -244,8 +242,8 @@ key_fingerprint_hex(u_char* dgst_raw, u_int dgst_raw_len)
 	return retval;
 }
 
-static char*
-key_fingerprint_bubblebabble(u_char* dgst_raw, u_int dgst_raw_len)
+static char *
+key_fingerprint_bubblebabble(u_char *dgst_raw, u_int dgst_raw_len)
 {
 	char vowels[] = { 'a', 'e', 'i', 'o', 'u', 'y' };
 	char consonants[] = { 'b', 'c', 'd', 'f', 'g', 'h', 'k', 'l', 'm',
@@ -291,7 +289,7 @@ key_fingerprint_bubblebabble(u_char* dgst_raw, u_int dgst_raw_len)
 	return retval;
 }
 
-char*
+char *
 key_fingerprint(Key *k, enum fp_type dgst_type, enum fp_rep dgst_rep)
 {
 	char *retval = NULL;
@@ -410,14 +408,14 @@ key_read(Key *ret, char **cpp)
 	case KEY_DSA:
 		space = strchr(cp, ' ');
 		if (space == NULL) {
-			debug3("key_read: no space");
+			debug3("key_read: missing whitespace");
 			return -1;
 		}
 		*space = '\0';
 		type = key_type_from_name(cp);
 		*space = ' ';
 		if (type == KEY_UNSPEC) {
-			debug3("key_read: no key found");
+			debug3("key_read: missing keytype");
 			return -1;
 		}
 		cp = space+1;
@@ -494,7 +492,8 @@ key_write(Key *key, FILE *f)
 {
 	int n, success = 0;
 	u_int len, bits = 0;
-	u_char *blob, *uu;
+	u_char *blob;
+	char *uu;
 
 	if (key->type == KEY_RSA1 && key->rsa != NULL) {
 		/* size of modulus 'n' */
@@ -647,6 +646,8 @@ key_type_from_name(char *name)
 		return KEY_RSA;
 	} else if (strcmp(name, "ssh-dss") == 0) {
 		return KEY_DSA;
+	} else if (strcmp(name, "null") == 0){
+		return KEY_NULL;
 	}
 	debug2("key_type_from_name: unknown key type '%s'", name);
 	return KEY_UNSPEC;
@@ -729,7 +730,6 @@ key_to_blob(Key *key, u_char **blobp, u_int *lenp)
 {
 	Buffer b;
 	int len;
-	u_char *buf;
 
 	if (key == NULL) {
 		error("key_to_blob: key == NULL");
@@ -755,14 +755,14 @@ key_to_blob(Key *key, u_char **blobp, u_int *lenp)
 		return 0;
 	}
 	len = buffer_len(&b);
-	buf = xmalloc(len);
-	memcpy(buf, buffer_ptr(&b), len);
-	memset(buffer_ptr(&b), 0, len);
-	buffer_free(&b);
 	if (lenp != NULL)
 		*lenp = len;
-	if (blobp != NULL)
-		*blobp = buf;
+	if (blobp != NULL) {
+		*blobp = xmalloc(len);
+		memcpy(*blobp, buffer_ptr(&b), len);
+	}
+	memset(buffer_ptr(&b), 0, len);
+	buffer_free(&b);
 	return len;
 }
 

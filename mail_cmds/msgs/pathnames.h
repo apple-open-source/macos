@@ -1,5 +1,3 @@
-/*	$NetBSD: pathnames.h,v 1.3 1995/09/28 06:57:41 tls Exp $	*/
-
 /*
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.

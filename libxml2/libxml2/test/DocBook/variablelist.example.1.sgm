@@ -1,0 +1,20 @@
+<!DOCTYPE variablelist PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
+<variablelist><title>Font Filename Extensions</title>
+<varlistentry><term><filename>TTF</filename></term>
+<listitem>
+<para>
+TrueType fonts.
+</para>
+</listitem>
+</varlistentry>
+<varlistentry><term><filename>PFA</filename></term>
+              <term><filename>PFB</filename></term>
+<listitem>
+<para>
+PostScript fonts.  <filename>PFA</filename> files are common on 
+<acronym>UNIX</acronym> systems, <filename>PFB</filename> files
+are more common on Windows systems.
+</para>
+</listitem>
+</varlistentry>
+</variablelist>

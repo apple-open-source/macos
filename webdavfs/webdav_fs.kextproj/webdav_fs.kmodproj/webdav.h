@@ -16,11 +16,12 @@
 #include "vnops.h"
 #include <sys/vnode.h>
 #include <sys/param.h>
+#include <sys/attr.h>
 
 #ifdef KERNEL
 #include <sys/uio.h>
 #include <sys/ubc.h>
-#endif KERNEL
+#endif /* KERNEL */
 
 struct webdav_args
 {
@@ -50,12 +51,31 @@ typedef struct
 	int wd_uri_size;
 } webdav_byte_read_header_t;
 
+/*
+ * The WEBDAV_CONNECTION_DOWN_MASK bit is set by the code in send_reply() and send_data()
+ * activate.c in the int result when the mount_webdav daemon determines it cannot
+ * communicate with the remote WebDAV server. webdav_sendmsg() and webdav_open() in
+ * webdav_vnops.c check that bit to determine if the connection is up or down.
+ */
+#define WEBDAV_CONNECTION_DOWN_MASK	0x80000000
+
+/*
+ * WEBDAVINVALIDATECACHES commmand passed to fsctl(2) causes WebDAV FS to
+ * revalidate cached files with the WebDAV server and to invalidate all
+ * all cached stat data.
+ * example:
+ * result = fsctl(path, WEBDAVINVALIDATECACHES, NULL, 0);
+ */
+#define	WEBDAVINVALIDATECACHES	_IO('w', 1)
+
+
 #ifdef KERNEL
 struct webdavmount
 {
 	struct vnode *pm_root;						/* Root node */
 	struct file *pm_server;						/* Held reference to server socket */
 	u_int32_t status;							/* status bits for this mounted structure */
+	struct mount *pm_mountp;					/* vfs structure for this filesystem */
 };
 
 struct webdavnode
@@ -88,11 +108,13 @@ struct webdavnode
 #define WEBDAV_MOUNT_SUPPORTS_STATFS 0x00000001	/* Indicates that the server supports quata and quota used properties */
 #define WEBDAV_MOUNT_STATFS 0x00000002			/* statfs is in progress */
 #define WEBDAV_MOUNT_STATFS_WANTED 0x00000004	/* statfs wakeup is wanted */
+#define WEBDAV_MOUNT_TIMEO 0x00000008			/* connection to webdav server was lost */
+#define WEBDAV_MOUNT_FORCE 0x00000010			/* doing a forced unmount. */
 
 /* Webdav sizes for statfs */
 
-#define WEBDAV_NUM_BLOCKS 2098000				/* ~1 gig's worth */
-#define WEBDAV_FREE_BLOCKS	(WEBDAV_NUM_BLOCKS - 2048) /* make it look real*/
+#define WEBDAV_NUM_BLOCKS -1					/* not supported */
+#define WEBDAV_FREE_BLOCKS	-1					/* not supported */
 #define WEBDAV_NUM_FILES 65535					/* Like HFS */
 #define WEBDAV_FREE_FILES (WEBDAV_NUM_FILES - 2) /* Used a couple */
 #define WEBDAV_IOSIZE (4*1024)					/* should be < WEBDAV_MAX_IO_BUFFER_SIZE */
@@ -102,7 +124,7 @@ struct webdavnode
 #define VFSTOWEBDAV(mp) ((struct webdavmount *)((mp)->mnt_data))
 #define VTOWEBDAV(vp) ((struct webdavnode *)(vp)->v_data)
 #define WEBDAVTOV(pt) ((pt)->pt_vnode)
-#define WEBDAVISMAPPED(vp) ((UBCINFOEXISTS(vp) && ((vp->v_ubcinfo->ui_flags) & UI_WASMAPPED)))
+#define WEBDAVISMAPPED(vp) (UBCINFOEXISTS(vp) && ubc_issetflags(vp, UI_WASMAPPED))
 
 
 /* Other defines */
@@ -132,16 +154,22 @@ struct webdavnode
  */ 
 #define WEBDAV_WAIT_IF_WITHIN	32768
 
+/* the number of seconds soreceive() should block
+ * before rechecking the server process state
+ */
+#define WEBDAV_SO_RCVTIMEO_SECONDS 10
+
 extern int( **webdav_vnodeop_p)();
 extern struct vfsops webdav_vfsops;
-extern void webdav_hashinit();
-extern void webdav_hashdestroy();
+extern void webdav_hashinit(void);
+extern void webdav_hashdestroy(void);
 extern void webdav_hashrem(struct webdavnode *);
 extern void webdav_hashins(struct webdavnode *);
 extern struct vnode *webdav_hashlookup(int, int, long, char *);
 extern struct vnode *webdav_hashget(int, int, long, char *);
 extern int webdav_sendmsg(int, int, struct webdavnode *, struct webdav_cred *, struct webdavmount *,
-	struct proc *, void *, int, int *, void *, int);
+	struct proc *, void *, int, int *, void *, int, struct vnode *);
+extern int webdav_getattrlist(struct vop_getattrlist_args *ap);
 					  
 /* Workaround for lack of current_proc() */
 void *current_task(void);

@@ -33,6 +33,17 @@
 
 
 //
+// Construct Context objects
+//
+Context::Context(CSSM_CONTEXT_TYPE type, CSSM_ALGORITHMS algorithmId)
+{
+	clearPod();
+	ContextType = type;
+	AlgorithmType = algorithmId;
+}
+
+
+//
 // Delete a single attribute from a Context by type.
 // We implement this by simply nulling out the slot - the memory is not released,
 // and will not be reclaimed until the Context is deleted or reconstructed for some reason.

@@ -1,4 +1,28 @@
 /*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * auth.c - PPP authentication and phase control.
  *
  * Copyright (c) 1993 The Australian National University.
@@ -32,7 +56,7 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#define RCSID	"$Id: auth.c,v 1.2 2002/03/13 22:44:24 callie Exp $"
+#define RCSID	"$Id: auth.c,v 1.11 2003/08/14 00:00:29 callie Exp $"
 
 #include <stdio.h>
 #include <stddef.h>
@@ -64,10 +88,13 @@
 #define PW_PPP PW_LOGIN
 #endif
 #endif
+#include <time.h>
 
 #include "pppd.h"
 #include "fsm.h"
 #include "lcp.h"
+#include "ccp.h"
+#include "ecp.h"
 #include "ipcp.h"
 #include "upap.h"
 #include "chap.h"
@@ -77,16 +104,7 @@
 #ifdef CBCP_SUPPORT
 #include "cbcp.h"
 #endif
-#ifdef CHAPMS
-#include "chap_ms.h"
-#endif
 #include "pathnames.h"
-
-#ifdef DYNAMIC
-#define _PATH_DYNAMIC "/etc/ppp/getaddr"
-#endif
-static char xuser[MAXNAMELEN];
- 
 
 static const char rcsid[] = RCSID;
 
@@ -101,6 +119,9 @@ char peer_authname[MAXNAMELEN];
 
 /* Records which authentication operations haven't completed yet. */
 static int auth_pending[NUM_PPP];
+
+/* Records which authentication operations have been completed. */
+int auth_done[NUM_PPP];
 
 /* Set if we have successfully called plogin() */
 static int logged_in;
@@ -144,17 +165,31 @@ void (*pap_logout_hook) __P((void)) = NULL;
 /* Hook for a plugin to get the PAP password for authenticating us */
 int (*pap_passwd_hook) __P((char *user, char *passwd)) = NULL;
 
-#ifdef CBCP_SUPPORT
-/* Set if we have done call-back sequences. */
-static int did_callback;
+#ifdef __APPLE__
+/* Hook for access control list to verify if user should have access */
+int (*acl_hook) __P((char *user, int len)) = NULL;
 #endif
 
 #ifdef __APPLE__
 struct notifier *auth_start_notify = NULL;
 struct notifier *auth_withpeer_fail_notify = NULL;
 struct notifier *auth_withpeer_success_notify = NULL;
+struct notifier *auth_peer_success_notify = NULL;
 #endif
 
+/* Hook for a plugin to say whether it is OK if the peer
+   refuses to authenticate. */
+int (*null_auth_hook) __P((struct wordlist **paddrs,
+			   struct wordlist **popts)) = NULL;
+
+int (*allowed_address_hook) __P((u_int32_t addr)) = NULL;
+
+/* A notifier for when the peer has authenticated itself,
+   and we are proceeding to the network phase. */
+struct notifier *auth_up_notifier = NULL;
+
+/* A notifier for when the link goes down. */
+struct notifier *link_down_notifier = NULL;
 
 /*
  * This is used to ensure that we don't start an auth-up/down
@@ -178,6 +213,13 @@ bool uselogin = 0;		/* Use /etc/passwd for checking PAP */
 bool cryptpap = 0;		/* Passwords in pap-secrets are encrypted */
 bool refuse_pap = 0;		/* Don't wanna auth. ourselves with PAP */
 bool refuse_chap = 0;		/* Don't wanna auth. ourselves with CHAP */
+#ifdef CHAPMS
+bool refuse_mschap = 0;		/* Don't wanna auth. ourselves with MS-CHAP */
+bool refuse_mschap_v2 = 0;	/* Don't wanna auth. ourselves with MS-CHAPv2 */
+#else
+bool refuse_mschap = 1;		/* Don't wanna auth. ourselves with MS-CHAP */
+bool refuse_mschap_v2 = 1;	/* Don't wanna auth. ourselves with MS-CHAPv2 */
+#endif
 #ifdef EAP
 bool refuse_eap = 0;		/* Don't wanna auth. ourselves with EAP */
 #endif
@@ -187,21 +229,18 @@ bool allow_any_ip = 0;		/* Allow peer to use any IP address */
 bool explicit_remote = 0;	/* User specified explicit remote name */
 char remote_name[MAXNAMELEN];	/* Peer's name for authentication */
 
-/* Bits in auth_pending[] */
-#define PAP_WITHPEER	1
-#define PAP_PEER	2
-#define CHAP_WITHPEER	4
-#define CHAP_PEER	8
-#define EAP_WITHPEER	0x10
-#define EAP_PEER	0x20
+static char *uafname;		/* name of most recent +ua file */
 
 extern char *crypt __P((const char *, const char *));
 
 /* Prototypes for procedures local to this file. */
 
-void network_phase __P((int));
+static void network_phase __P((int));
 #ifndef __APPLE__
 static void check_idle __P((void *));
+#endif
+#ifdef __APPLE__
+static int keychainpassword __P((char **));
 #endif
 static void connect_time_expired __P((void *));
 static int  plogin __P((char *, char *, char **));
@@ -218,97 +257,193 @@ static void free_wordlist __P((struct wordlist *));
 static void auth_script __P((char *));
 static void auth_script_done __P((void *));
 static void set_allowed_addrs __P((int, struct wordlist *, struct wordlist *));
-static int  some_ip_ok __P((struct wordlist *));
 static int  setupapfile __P((char **));
 static int  privgroup __P((char **));
 static int  set_noauth_addr __P((char **));
 static void check_access __P((FILE *, char *));
 static int  wordlist_count __P((struct wordlist *));
 
+#ifdef MAXOCTETS
+static void check_maxoctets __P((void *));
+#endif
+
 /*
  * Authentication-related options.
  */
 option_t auth_options[] = {
+    { "auth", o_bool, &auth_required,
+      "Require authentication from peer", OPT_PRIO | 1 },
+    { "noauth", o_bool, &auth_required,
+      "Don't require peer to authenticate", OPT_PRIOSUB | OPT_PRIV,
+      &allow_any_ip },
     { "require-pap", o_bool, &lcp_wantoptions[0].neg_upap,
-      "Require PAP authentication from peer", 1, &auth_required },
+      "Require PAP authentication from peer",
+      OPT_PRIOSUB | 1, &auth_required },
     { "+pap", o_bool, &lcp_wantoptions[0].neg_upap,
-      "Require PAP authentication from peer", 1, &auth_required },
+      "Require PAP authentication from peer",
+      OPT_ALIAS | OPT_PRIOSUB | 1, &auth_required },
+    { "require-chap", o_bool, &auth_required,
+      "Require CHAP authentication from peer",
+      OPT_PRIOSUB | OPT_A2OR | MDTYPE_MD5,
+      &lcp_wantoptions[0].chap_mdtype },
+    { "+chap", o_bool, &auth_required,
+      "Require CHAP authentication from peer",
+      OPT_ALIAS | OPT_PRIOSUB | OPT_A2OR | MDTYPE_MD5,
+      &lcp_wantoptions[0].chap_mdtype },
+#ifdef CHAPMS
+    { "require-mschap", o_bool, &auth_required,
+      "Require MS-CHAP authentication from peer",
+      OPT_PRIOSUB | OPT_A2OR | MDTYPE_MICROSOFT,
+      &lcp_wantoptions[0].chap_mdtype },
+    { "+mschap", o_bool, &auth_required,
+      "Require MS-CHAP authentication from peer",
+      OPT_ALIAS | OPT_PRIOSUB | OPT_A2OR | MDTYPE_MICROSOFT,
+      &lcp_wantoptions[0].chap_mdtype },
+    { "require-mschap-v2", o_bool, &auth_required,
+      "Require MS-CHAPv2 authentication from peer",
+      OPT_PRIOSUB | OPT_A2OR | MDTYPE_MICROSOFT_V2,
+      &lcp_wantoptions[0].chap_mdtype },
+    { "+mschap-v2", o_bool, &auth_required,
+      "Require MS-CHAPv2 authentication from peer",
+      OPT_ALIAS | OPT_PRIOSUB | OPT_A2OR | MDTYPE_MICROSOFT_V2,
+      &lcp_wantoptions[0].chap_mdtype },
+#ifdef __APPLE__
+// for compatibility
+    { "require-chapms", o_bool, &auth_required,
+      "Require MS-CHAP authentication from peer",
+      OPT_ALIAS | OPT_PRIOSUB | OPT_A2OR | MDTYPE_MICROSOFT,
+      &lcp_wantoptions[0].chap_mdtype },
+    { "+chapms", o_bool, &auth_required,
+      "Require MS-CHAP authentication from peer",
+      OPT_ALIAS | OPT_PRIOSUB | OPT_A2OR | MDTYPE_MICROSOFT,
+      &lcp_wantoptions[0].chap_mdtype },
+    { "require-chapms-v2", o_bool, &auth_required,
+      "Require MS-CHAPv2 authentication from peer",
+      OPT_ALIAS | OPT_PRIOSUB | OPT_A2OR | MDTYPE_MICROSOFT_V2,
+      &lcp_wantoptions[0].chap_mdtype },
+    { "+chapms-v2", o_bool, &auth_required,
+      "Require MS-CHAPv2 authentication from peer",
+      OPT_ALIAS | OPT_PRIOSUB | OPT_A2OR | MDTYPE_MICROSOFT_V2,
+      &lcp_wantoptions[0].chap_mdtype },
+#endif
+#endif
+
     { "refuse-pap", o_bool, &refuse_pap,
       "Don't agree to auth to peer with PAP", 1 },
     { "-pap", o_bool, &refuse_pap,
-      "Don't allow PAP authentication with peer", 1 },
+      "Don't allow PAP authentication with peer", OPT_ALIAS | 1 },
+    { "refuse-chap", o_bool, &refuse_chap,
+      "Don't agree to auth to peer with CHAP",
+      OPT_A2CLRB | MDTYPE_MD5,
+      &lcp_allowoptions[0].chap_mdtype },
+    { "-chap", o_bool, &refuse_chap,
+      "Don't allow CHAP authentication with peer",
+      OPT_ALIAS | OPT_A2CLRB | MDTYPE_MD5,
+      &lcp_allowoptions[0].chap_mdtype },
+#ifdef __APPLE__
+// for compatibility
+    { "refuse-chap-md5", o_bool, &refuse_chap,
+      "Don't allow CHAP authentication with peer",
+      OPT_ALIAS | OPT_A2CLRB | MDTYPE_MD5,
+      &lcp_allowoptions[0].chap_mdtype },
+    { "-chap-md5", o_bool, &refuse_chap,
+      "Don't allow CHAP authentication with peer",
+      OPT_ALIAS | OPT_A2CLRB | MDTYPE_MD5,
+      &lcp_allowoptions[0].chap_mdtype },
+#endif
+#ifdef CHAPMS
+    { "refuse-mschap", o_bool, &refuse_mschap,
+      "Don't agree to auth to peer with MS-CHAP",
+      OPT_A2CLRB | MDTYPE_MICROSOFT,
+      &lcp_allowoptions[0].chap_mdtype },
+    { "-mschap", o_bool, &refuse_mschap,
+      "Don't allow MS-CHAP authentication with peer",
+      OPT_ALIAS | OPT_A2CLRB | MDTYPE_MICROSOFT,
+      &lcp_allowoptions[0].chap_mdtype },
+    { "refuse-mschap-v2", o_bool, &refuse_mschap_v2,
+      "Don't agree to auth to peer with MS-CHAPv2",
+      OPT_A2CLRB | MDTYPE_MICROSOFT_V2,
+      &lcp_allowoptions[0].chap_mdtype },
+    { "-mschap-v2", o_bool, &refuse_mschap_v2,
+      "Don't allow MS-CHAPv2 authentication with peer",
+      OPT_ALIAS | OPT_A2CLRB | MDTYPE_MICROSOFT_V2,
+      &lcp_allowoptions[0].chap_mdtype },
+#ifdef __APPLE__
+// for compatibility
+    { "refuse-chapms", o_bool, &refuse_mschap,
+      "Don't agree to auth to peer with MS-CHAP",
+      OPT_ALIAS | OPT_A2CLRB | MDTYPE_MICROSOFT,
+      &lcp_allowoptions[0].chap_mdtype },
+    { "-chapms", o_bool, &refuse_mschap,
+      "Don't allow MS-CHAP authentication with peer",
+      OPT_ALIAS | OPT_A2CLRB | MDTYPE_MICROSOFT,
+      &lcp_allowoptions[0].chap_mdtype },
+    { "refuse-chapms-v2", o_bool, &refuse_mschap_v2,
+      "Don't agree to auth to peer with MS-CHAPv2",
+      OPT_ALIAS | OPT_A2CLRB | MDTYPE_MICROSOFT_V2,
+      &lcp_allowoptions[0].chap_mdtype },
+    { "-chapms-v2", o_bool, &refuse_mschap_v2,
+      "Don't allow MS-CHAPv2 authentication with peer",
+      OPT_ALIAS | OPT_A2CLRB | MDTYPE_MICROSOFT_V2,
+      &lcp_allowoptions[0].chap_mdtype },
+#endif
+#endif
+
 #ifdef EAP
-    { "require-eap", o_special_noarg, &lcp_wantoptions[0].neg_eap,
-      "Require EAP authentication from peer", 1, &auth_required },
-    { "+eap", o_special_noarg, &lcp_wantoptions[0].neg_eap,
-      "Require EAP authentication from peer", 1, &auth_required },
+    { "require-eap", o_special_noarg, reqeap,
+      "Require EAP authentication from peer" },
+    { "+eap", o_special_noarg, reqeap,
+      "Require EAP authentication from peer" },
     { "refuse-eap", o_bool, &refuse_eap,
       "Don't agree to auth to peer with EAP", 1 },
     { "-eap", o_bool, &refuse_eap,
       "Don't allow EAP authentication with peer", 1 },
 #endif
-    { "require-chap", o_special_noarg, reqchap,
-      "Require CHAP authentication from peer" },
-    { "+chap", o_special_noarg, reqchap,
-      "Require CHAP authentication from peer" },
-    { "refuse-chap", o_bool, &refuse_chap,
-      "Don't agree to auth to peer with CHAP", 1 },
-    { "-chap", o_bool, &refuse_chap,
-      "Don't allow CHAP authentication with peer", 1 },
-    { "refuse-chap-md5", o_bool, &lcp_wantoptions[0].use_digest,
-      "Don't allow md5-digest style CHAP", 0 },
-    { "-chap-md5", o_bool, &lcp_wantoptions[0].use_digest,
-      "Don't allow md5-digest style CHAP", 0 },
-#ifdef CHAPMS
-    { "require-chapms", o_special_noarg, reqchapms,
-      "Require MSCHAP (v1) authentication" },
-    { "+chapms", o_special_noarg, reqchapms,
-      "Require MSCHAP (v1) authentication" },
-    { "refuse-chapms", o_special_noarg, nochapms,
-      "Refuse MSCHAP (v1) authentication" },
-    { "-chapms", o_special_noarg, nochapms,
-      "Refuse MSCHAP (v1) authentication" },
-    { "require-chapms-v2", o_special_noarg, reqchapms_v2,
-      "Require MSCHAP-v2 authentication" },
-    { "+chapms-v2", o_special_noarg, reqchapms_v2,
-      "Require MSCHAP-v2 authentication" },
-    { "refuse-chapms-v2", o_special_noarg, nochapms_v2,
-      "Refuse MSCHAP-v2 authentication" },
-    { "-chapms-v2", o_special_noarg, nochapms_v2,
-      "Refuse MSCHAP-v2 authentication" },
-#endif
+
     { "name", o_string, our_name,
       "Set local name for authentication",
-      OPT_PRIV|OPT_STATIC, NULL, MAXNAMELEN },
+      OPT_PRIO | OPT_PRIV | OPT_STATIC, NULL, MAXNAMELEN },
+
+    { "+ua", o_special, (void *)setupapfile,
+      "Get PAP user and password from file",
+      OPT_PRIO | OPT_A2STRVAL, &uafname },
+
     { "user", o_string, user,
-      "Set name for auth with peer", OPT_STATIC, NULL, MAXNAMELEN },
+#ifdef __APPLE__
+      "Set name for auth with peer", OPT_PRIO | OPT_STATIC | OPT_A2COPY, username, MAXNAMELEN },
+#else
+      "Set name for auth with peer", OPT_PRIO | OPT_STATIC, NULL, MAXNAMELEN },
+#endif
+
+    { "password", o_string, passwd,
+      "Password for authenticating us to the peer",
+      OPT_PRIO | OPT_STATIC | OPT_HIDE, NULL, MAXSECRETLEN },
+
+#ifdef __APPLE__
+    { "keychainpassword", o_special, (void *)keychainpassword,
+      "Get password from keychain", OPT_PRIV },
+#endif
+
     { "usehostname", o_bool, &usehostname,
       "Must use hostname for authentication", 1 },
+
     { "remotename", o_string, remote_name,
-      "Set remote name for authentication", OPT_STATIC,
+      "Set remote name for authentication", OPT_PRIO | OPT_STATIC,
       &explicit_remote, MAXNAMELEN },
-    { "auth", o_bool, &auth_required,
-      "Require authentication from peer", 1 },
-    { "noauth", o_bool, &auth_required,
-      "Don't require peer to authenticate", OPT_PRIV, &allow_any_ip },
-    {  "login", o_bool, &uselogin,
+
+    { "login", o_bool, &uselogin,
       "Use system password database for PAP", 1 },
+
     { "papcrypt", o_bool, &cryptpap,
       "PAP passwords are encrypted", 1 },
-    { "+ua", o_special, (void *)setupapfile,
-      "Get PAP user and password from file" },
-    { "password", o_string, passwd,
-      "Password for authenticating us to the peer", 
-#ifdef __APPLE__
-        OPT_HIDE |
-#endif        
-        OPT_STATIC,
-      NULL, MAXSECRETLEN },
+
     { "privgroup", o_special, (void *)privgroup,
-      "Allow group members to use privileged options", OPT_PRIV },
+      "Allow group members to use privileged options", OPT_PRIV | OPT_A2LIST },
+
     { "allow-ip", o_special, (void *)set_noauth_addr,
       "Set IP address(es) which can be used without authentication",
-      OPT_PRIV },
+      OPT_PRIV | OPT_A2LIST },
+
     { NULL }
 };
 
@@ -319,36 +454,47 @@ static int
 setupapfile(argv)
     char **argv;
 {
-    FILE * ufile;
+    FILE *ufile;
     int l;
+    char u[MAXNAMELEN], p[MAXSECRETLEN];
+    char *fname;
 
     lcp_allowoptions[0].neg_upap = 1;
 
     /* open user info file */
+    fname = strdup(*argv);
+    if (fname == NULL)
+	novm("+ua file name");
     seteuid(getuid());
-    ufile = fopen(*argv, "r");
+    ufile = fopen(fname, "r");
     seteuid(0);
     if (ufile == NULL) {
-	option_error("unable to open user login data file %s", *argv);
+	option_error("unable to open user login data file %s", fname);
 	return 0;
     }
-    check_access(ufile, *argv);
+    check_access(ufile, fname);
+    uafname = fname;
 
     /* get username */
-    if (fgets(user, MAXNAMELEN - 1, ufile) == NULL
-	|| fgets(passwd, MAXSECRETLEN - 1, ufile) == NULL){
-	option_error("unable to read user login data file %s", *argv);
+    if (fgets(u, MAXNAMELEN - 1, ufile) == NULL
+	|| fgets(p, MAXSECRETLEN - 1, ufile) == NULL){
+	option_error("unable to read user login data file %s", fname);
 	return 0;
     }
     fclose(ufile);
 
     /* get rid of newlines */
-    l = strlen(user);
-    if (l > 0 && user[l-1] == '\n')
-	user[l-1] = 0;
-    l = strlen(passwd);
-    if (l > 0 && passwd[l-1] == '\n')
-	passwd[l-1] = 0;
+    l = strlen(u);
+    if (l > 0 && u[l-1] == '\n')
+	u[l-1] = 0;
+    l = strlen(p);
+    if (l > 0 && p[l-1] == '\n')
+	p[l-1] = 0;
+
+    if (override_value("user", option_priority, fname))
+	strlcpy(user, u, sizeof(user));
+    if (override_value("passwd", option_priority, fname))
+	strlcpy(passwd, p, sizeof(passwd));
 
     return (1);
 }
@@ -442,6 +588,7 @@ link_down(unit)
     int i;
     struct protent *protp;
 
+    notify(link_down_notifier, 0);
     auth_state = s_down;
     if (auth_script_state == s_up && auth_script_pid == 0) {
 	update_link_stats(unit);
@@ -459,7 +606,12 @@ link_down(unit)
     num_np_open = 0;
     num_np_up = 0;
     if (phase != PHASE_DEAD)
+#ifdef __APPLE__
+        // going into ESTABLISH phase, even if is correct, will give the wrong status to dialers
 	new_phase(PHASE_TERMINATE);
+#else
+	new_phase(PHASE_ESTABLISH);
+#endif
 }
 
 /*
@@ -485,7 +637,7 @@ link_established(unit)
 	    && protp->lowerup != NULL)
 	    (*protp->lowerup)(unit);
 
-    if (auth_required && !(go->neg_chap || go->neg_upap
+    if (auth_required && !(go->neg_upap || go->neg_chap
 #ifdef EAP
         || go->neg_eap
 #endif
@@ -494,7 +646,7 @@ link_established(unit)
 	 * We wanted the peer to authenticate itself, and it refused:
 	 * if we have some address(es) it can use without auth, fine,
 	 * otherwise treat it as though it authenticated with PAP using
-	 * a username * of "" and a password of "".  If that's not OK,
+	 * a username of "" and a password of "".  If that's not OK,
 	 * boot it out.
 	 */
 	if (noauth_addrs != NULL) {
@@ -511,7 +663,7 @@ link_established(unit)
     used_login = 0;
     auth = 0;
     if (go->neg_chap) {
-	ChapAuthPeer(unit, our_name, go->chap_mdtype);
+	ChapAuthPeer(unit, our_name, CHAP_DIGEST(go->chap_mdtype));
 	auth |= CHAP_PEER;
 #ifdef EAP
     } else if (go->neg_eap) {
@@ -523,7 +675,7 @@ link_established(unit)
 	auth |= PAP_PEER;
     }
     if (ho->neg_chap) {
-	ChapAuthWithPeer(unit, user, ho->chap_mdtype);
+	ChapAuthWithPeer(unit, user, CHAP_DIGEST(ho->chap_mdtype));
 	auth |= CHAP_WITHPEER;
 #ifdef EAP
     } else if (ho->neg_eap) {
@@ -540,6 +692,7 @@ link_established(unit)
 	auth |= PAP_WITHPEER;
     }
     auth_pending[unit] = auth;
+    auth_done[unit] = 0;
 
 #ifdef __APPLE__
     if (auth)
@@ -553,15 +706,11 @@ link_established(unit)
 /*
  * Proceed to the network phase.
  */
-void
+static void
 network_phase(unit)
     int unit;
 {
     lcp_options *go = &lcp_gotoptions[unit];
-
-#ifdef CBCP_SUPPORT
-    lcp_options *ho = &lcp_hisoptions[unit];
-#endif
 
     /*
      * If the peer had to authenticate, run the auth-up script now.
@@ -571,6 +720,7 @@ network_phase(unit)
         || go->neg_eap
 #endif
     ) {
+	notify(auth_up_notifier, 0);
 	auth_state = s_up;
 	if (auth_script_state == s_down && auth_script_pid == 0) {
 	    auth_script_state = s_up;
@@ -582,9 +732,8 @@ network_phase(unit)
     /*
      * If we negotiated callback, do it now.
      */
-    if ((go->neg_cbcp || ho->neg_cbcp) && !did_callback) {
+    if (go->neg_cbcp) {
 	new_phase(PHASE_CALLBACK);
-	did_callback = 1;
 	(*cbcp_protent.open)(unit);
 	return;
     }
@@ -598,14 +747,16 @@ network_phase(unit)
 	free_wordlist(extra_options);
 	extra_options = 0;
     }
-    start_networks();
+    start_networks(unit);
 }
 
 void
-start_networks()
+start_networks(unit)
+    int unit;
 {
     int i;
     struct protent *protp;
+    int ecp_required, mppe_required;
 
     new_phase(PHASE_NETWORK);
 
@@ -623,12 +774,37 @@ start_networks()
     if (!demand)
 	set_filters(&pass_filter, &active_filter);
 #endif
+    /* Start CCP and ECP */
     for (i = 0; (protp = protocols[i]) != NULL; ++i)
-        if (protp->protocol < 0xC000 && protp->enabled_flag
-	    && protp->open != NULL) {
+	if ((protp->protocol == PPP_ECP || protp->protocol == PPP_CCP)
+	    && protp->enabled_flag && protp->open != NULL)
 	    (*protp->open)(0);
-	    if (protp->protocol != PPP_CCP)
-		++num_np_open;
+
+    /*
+     * Bring up other network protocols iff encryption is not required.
+     */
+    ecp_required = ecp_gotoptions[unit].required;
+    mppe_required = ccp_gotoptions[unit].mppe;
+    if (!ecp_required && !mppe_required)
+	continue_networks(unit);
+}
+
+void
+continue_networks(unit)
+    int unit;
+{
+    int i;
+    struct protent *protp;
+
+    /*
+     * Start the "real" network protocols.
+     */
+    for (i = 0; (protp = protocols[i]) != NULL; ++i)
+	if (protp->protocol < 0xC000
+	    && protp->protocol != PPP_CCP && protp->protocol != PPP_ECP
+	    && protp->enabled_flag && protp->open != NULL) {
+	    (*protp->open)(0);
+	    ++num_np_open;
 	}
 
     if (num_np_open == 0)
@@ -654,20 +830,56 @@ auth_peer_fail(unit, protocol)
  * The peer has been successfully authenticated using `protocol'.
  */
 void
-auth_peer_success(unit, protocol, name, namelen)
-    int unit, protocol;
+auth_peer_success(unit, protocol, prot_flavor, name, namelen)
+    int unit, protocol, prot_flavor;
     char *name;
     int namelen;
 {
     int bit;
 
+#ifdef __APPLE__
+    struct auth_peer_success_info note;
+
+    /* if acl module present - check if user authorized */
+    if (acl_hook) {
+        if (acl_hook(name, namelen) == 0) {
+            lcp_close(unit, "Authorization failed");
+            status = EXIT_PEER_NOT_AUTHORIZED;
+            return;
+        }
+    }
+    note.protocol = protocol;
+    note.protocol_flavor = prot_flavor;
+    note.name = name;
+    note.namelen = namelen;
+    notify(auth_peer_success_notify, &note);
+#endif
+            
     switch (protocol) {
     case PPP_CHAP:
 	bit = CHAP_PEER;
+	switch (prot_flavor) {
+	case CHAP_DIGEST_MD5:
+	    bit |= CHAP_MD5_PEER;
+	    break;
+#ifdef CHAPMS
+	case CHAP_MICROSOFT:
+	    bit |= CHAP_MS_PEER;
+	    break;
+	case CHAP_MICROSOFT_V2:
+	    bit |= CHAP_MS2_PEER;
+	    break;
+#endif
+	}
 	break;
     case PPP_PAP:
 	bit = PAP_PEER;
 	break;
+#ifdef EAP
+    case PPP_EAP:
+	bit = EAP_PEER;
+	break;
+#endif
     default:
 	warning("auth_peer_success: unknown protocol %x", protocol);
 	return;
@@ -680,9 +892,10 @@ auth_peer_success(unit, protocol, name, namelen)
 	namelen = sizeof(peer_authname) - 1;
     BCOPY(name, peer_authname, namelen);
     peer_authname[namelen] = 0;
-    BCOPY(name, xuser, namelen);
-    xuser[namelen] = 0;
     script_setenv("PEERNAME", peer_authname, 0);
+
+    /* Save the authentication method for later. */
+    auth_done[unit] |= bit;
 
     /*
      * If there is no more authentication still to be done,
@@ -716,12 +929,29 @@ auth_withpeer_fail(unit, protocol)
     status = EXIT_AUTH_TOPEER_FAILED;
 }
 
+#if __APPLE__
+/*
+ * We have failed to authenticate ourselves to the peer using `protocol'.
+ */
+void
+auth_withpeer_cancelled(unit, protocol)
+    int unit, protocol;
+{
+
+    if (passwd_from_file)
+	BZERO(passwd, MAXSECRETLEN);
+
+    lcp_close(unit, "User cancelled authentication");
+    status = EXIT_USER_REQUEST;
+}
+#endif
+
 /*
  * We have successfully authenticated ourselves with the peer using `protocol'.
  */
 void
-auth_withpeer_success(unit, protocol)
-    int unit, protocol;
+auth_withpeer_success(unit, protocol, prot_flavor)
+    int unit, protocol, prot_flavor;
 {
     int bit;
 
@@ -732,7 +962,25 @@ auth_withpeer_success(unit, protocol)
     switch (protocol) {
     case PPP_CHAP:
 	bit = CHAP_WITHPEER;
+	switch (prot_flavor) {
+	case CHAP_DIGEST_MD5:
+	    bit |= CHAP_MD5_WITHPEER;
+	    break;
+#ifdef CHAPMS
+	case CHAP_MICROSOFT:
+	    bit |= CHAP_MS_WITHPEER;
+	    break;
+	case CHAP_MICROSOFT_V2:
+	    bit |= CHAP_MS2_WITHPEER;
+	    break;
+#endif
+	}
 	break;
+#ifdef EAP
+    case PPP_EAP:
+	bit = EAP_WITHPEER;
+	break;
+#endif
     case PPP_PAP:
 	if (passwd_from_file)
 	    BZERO(passwd, MAXSECRETLEN);
@@ -742,6 +990,9 @@ auth_withpeer_success(unit, protocol)
 	warning("auth_withpeer_success: unknown protocol %x", protocol);
 	bit = 0;
     }
+
+    /* Save the authentication method for later. */
+    auth_done[unit] |= bit;
 
     /*
      * If there is no more authentication still being done,
@@ -783,12 +1034,16 @@ np_up(unit, proto)
 	if (maxconnect > 0)
 	    TIMEOUT(connect_time_expired, 0, maxconnect);
 
+#ifdef MAXOCTETS
+	if (maxoctets > 0)
+	    TIMEOUT(check_maxoctets, NULL, maxoctets_timeout);
+#endif
+
 	/*
 	 * Detach now, if the updetach option was given.
 	 */
 	if (updetach && !nodetach)
 	    detach();
-
     }
     ++num_np_up;
 }
@@ -802,6 +1057,10 @@ np_down(unit, proto)
 {
     if (--num_np_up == 0) {
 	UNTIMEOUT(check_idle, NULL);
+	UNTIMEOUT(connect_time_expired, NULL);
+#ifdef MAXOCTETS
+	UNTIMEOUT(check_maxoctets, NULL);
+#endif	
 	new_phase(PHASE_NETWORK);
     }
 }
@@ -818,6 +1077,44 @@ np_finished(unit, proto)
 	lcp_close(0, "No network protocols running");
     }
 }
+
+#ifdef MAXOCTETS
+static void
+check_maxoctets(arg)
+    void *arg;
+{
+    int diff;
+    unsigned int used;
+
+    update_link_stats(ifunit);
+    link_stats_valid=0;
+    
+    switch(maxoctets_dir) {
+	case PPP_OCTETS_DIRECTION_IN:
+	    used = link_stats.bytes_in;
+	    break;
+	case PPP_OCTETS_DIRECTION_OUT:
+	    used = link_stats.bytes_out;
+	    break;
+	case PPP_OCTETS_DIRECTION_MAXOVERAL:
+	case PPP_OCTETS_DIRECTION_MAXSESSION:
+	    used = (link_stats.bytes_in > link_stats.bytes_out) ? link_stats.bytes_in : link_stats.bytes_out;
+	    break;
+	default:
+	    used = link_stats.bytes_in+link_stats.bytes_out;
+	    break;
+    }
+    diff = maxoctets - used;
+    if(diff < 0) {
+	notice("Traffic limit reached. Limit: %u Used: %u", maxoctets, used);
+	lcp_close(0, "Traffic limit");
+	need_holdoff = 0;
+	status = EXIT_TRAFFIC_LIMIT;
+    } else {
+        TIMEOUT(check_maxoctets, NULL, maxoctets_timeout);
+    }
+}
+#endif
 
 /*
  * check_idle - check whether the link has been idle for long
@@ -839,7 +1136,10 @@ check_idle(arg)
     if (idle_time_hook != 0) {
 	tlim = idle_time_hook(&idle);
     } else {
-	itime = MIN(idle.xmit_idle, idle.recv_idle);
+        if (noidlerecv)
+            itime = idle.xmit_idle;
+        else
+            itime = MIN(idle.xmit_idle, idle.recv_idle);
 	tlim = idle_time_limit - itime;
     }
     if (tlim <= 0) {
@@ -865,6 +1165,7 @@ connect_time_expired(arg)
     status = EXIT_CONNECT_TIME;
 }
 
+#ifdef __APPLE__
 /*
  * link connection becomes on hold.
  */
@@ -892,6 +1193,7 @@ void auth_cont(int unit)
     if (maxconnect > 0)
         TIMEOUT(connect_time_expired, 0, maxconnect);
 }
+#endif
 
 /*
  * auth_check_options - called to check authentication options.
@@ -918,21 +1220,26 @@ auth_check_options()
 	default_auth = 1;
     }
 
+    /* If we selected any CHAP flavors, we should probably negotiate it. :-) */
+    if (wo->chap_mdtype)
+	wo->neg_chap = 1;
+
     /* If authentication is required, ask peer for CHAP or PAP. */
     if (auth_required) {
+	allow_any_ip = 0;
 	if (!wo->neg_chap && !wo->neg_upap
 #ifdef EAP
             && !wo->neg_eap
 #endif
         ) {
-	    wo->neg_chap = 1;
+	    wo->neg_chap = 1; wo->chap_mdtype = MDTYPE_ALL;
 	    wo->neg_upap = 1;
 #ifdef EAP
 	    wo->neg_eap = 1;
 #endif
 	}
     } else {
-	wo->neg_chap = 0;
+	wo->neg_chap = 0; wo->chap_mdtype = MDTYPE_NONE;
 	wo->neg_upap = 0;
 #ifdef EAP
         wo->neg_eap = 0;
@@ -945,12 +1252,19 @@ auth_check_options()
      */
     lacks_ip = 0;
     can_auth = wo->neg_upap && (uselogin || have_pap_secret(&lacks_ip));
-    if (!can_auth && wo->neg_chap) {
+    if (!can_auth && (wo->neg_chap
+#ifdef EAP
+            || wo->neg_eap
+#endif
+    )) {
 	can_auth = have_chap_secret((explicit_remote? remote_name: NULL),
 				    our_name, 1, &lacks_ip);
     }
 #ifdef EAP
-    // check EAP plugins ???
+    if (wo->neg_eap) {
+        can_auth = 1;
+        // check EAP plugins ???
+    }
 #endif
     if (auth_required && !can_auth && noauth_addrs == NULL) {
 	if (default_auth) {
@@ -988,13 +1302,13 @@ auth_reset(unit)
     lcp_options *ao = &lcp_allowoptions[0];
 
     ao->neg_upap = !refuse_pap && (passwd[0] != 0 || get_pap_passwd(NULL));
-    ao->neg_chap = !refuse_chap
+    ao->neg_chap = (!refuse_chap || !refuse_mschap || !refuse_mschap_v2)
 	&& (passwd[0] != 0
 	    || have_chap_secret(user, (explicit_remote? remote_name: NULL),
 				0, NULL));
 #ifdef EAP
-    ao->neg_eap = !refuse_eap && (passwd[0] != 0);
-    // check eap plugins ?
+    // check eap plugins for pasword ???
+    ao->neg_eap = !refuse_eap;
 #endif
 
     if (go->neg_upap && !uselogin && !have_pap_secret(NULL))
@@ -1060,6 +1374,9 @@ check_passwd(unit, auser, userlen, apasswd, passwdlen, msg)
 	    BZERO(passwd, sizeof(passwd));
 	    if (addrs != 0)
 		free_wordlist(addrs);
+	    if (opts != 0) {
+		free_wordlist(opts);
+	    }
 	    return ret? UPAP_AUTHACK: UPAP_AUTHNAK;
 	}
     }
@@ -1247,7 +1564,7 @@ plogin(user, passwd, msg)
     if (pam_error == PAM_SUCCESS && !PAM_error) {    
         pam_error = pam_acct_mgmt (pamh, PAM_SILENT);
         if (pam_error == PAM_SUCCESS)
-	    pam_open_session (pamh, PAM_SILENT);
+	    pam_error = pam_open_session (pamh, PAM_SILENT);
     }
 
     *msg = (char *) pam_strerror (pamh, pam_error);
@@ -1310,7 +1627,7 @@ plogin(user, passwd, msg)
     tty = devnam;
     if (strncmp(tty, "/dev/", 5) == 0)
 	tty += 5;
-    logwtmp(tty, user, remote_name);		/* Add wtmp login entry */
+    logwtmp(tty, user, ifname);		/* Add wtmp login entry */
 
 #if defined(_PATH_LASTLOG) && !defined(USE_PAM)
     if (pw != (struct passwd *)NULL) {
@@ -1378,18 +1695,28 @@ null_login(unit)
     char secret[MAXWORDLEN];
 
     /*
+     * Check if a plugin wants to handle this.
+     */
+    ret = -1;
+    if (null_auth_hook)
+	ret = (*null_auth_hook)(&addrs, &opts);
+
+    /*
      * Open the file of pap secrets and scan for a suitable secret.
      */
-    filename = _PATH_UPAPFILE;
-    addrs = NULL;
-    f = fopen(filename, "r");
-    if (f == NULL)
-	return 0;
-    check_access(f, filename);
+    if (ret <= 0) {
+	filename = _PATH_UPAPFILE;
+	addrs = NULL;
+	f = fopen(filename, "r");
+	if (f == NULL)
+	    return 0;
+	check_access(f, filename);
 
-    i = scan_authfile(f, "", our_name, secret, &addrs, &opts, filename);
-    ret = i >= 0 && secret[0] == 0;
-    BZERO(secret, sizeof(secret));
+	i = scan_authfile(f, "", our_name, secret, &addrs, &opts, filename);
+	ret = i >= 0 && secret[0] == 0;
+	BZERO(secret, sizeof(secret));
+	fclose(f);
+    }
 
     if (ret)
 	set_allowed_addrs(unit, addrs, opts);
@@ -1398,7 +1725,6 @@ null_login(unit)
     if (addrs != 0)
 	free_wordlist(addrs);
 
-    fclose(f);
     return ret;
 }
 
@@ -1503,6 +1829,13 @@ have_chap_secret(client, server, need_ip, lacks_ipp)
     char *filename;
     struct wordlist *addrs;
 
+    if (chap_check_hook) {
+	ret = (*chap_check_hook)();
+	if (ret >= 0) {
+	    return ret;
+	}
+    }
+
     filename = _PATH_CHAPFILE;
     f = fopen(filename, "r");
     if (f == NULL)
@@ -1549,8 +1882,13 @@ get_secret(unit, client, server, secret, secret_len, am_server)
 
     if (!am_server && passwd[0] != 0) {
 	strlcpy(secbuf, passwd, sizeof(secbuf));
+    } else if (!am_server && chap_passwd_hook) {
+	if ( (*chap_passwd_hook)(client, secbuf) < 0) {
+	    error("Unable to obtain CHAP password for %s on %s from plugin",
+		  client, server);
+	    return 0;
+	}
     } else {
-
 	filename = _PATH_CHAPFILE;
 	addrs = NULL;
 	secbuf[0] = 0;
@@ -1586,61 +1924,6 @@ get_secret(unit, client, server, secret, secret_len, am_server)
 
     return 1;
 }
-
-#ifdef DYNAMIC
-/*
- * get_ip_addr_dynamic - scans dynamic-givable address space for
- * most recently used address for given user.
- */
-int
-get_ip_addr_dynamic(unit, addr)
-    int unit;
-    u_int32_t *addr;
-{
-    u_int32_t a;
-    struct wordlist *addrs;
-    FILE *fd;
-    int dfd;
-    char command[256];
-    char mypid[40], *s;
-    char address[50];
-    u_int32_t mask;
-    
-    if ((addrs = addresses[unit]) == NULL)
-	return 0;		/* no restriction */
-
-    fd = (FILE *)NULL;
-    for(; addrs != NULL; addrs = addrs->next) {
-	if(strcmp(addrs->word, "*") != 0)
-	    continue;
-	sprintf(mypid, "/var/tmp/ppp_dynamic.%d", getpid());
-	sprintf(command, "%s %s %s %s", _PATH_DYNAMIC, xuser, devnam, mypid);
-	dfd = open("/dev/null", O_RDWR);
-	device_script(command, dfd, dfd);
-	close(dfd);
-	fd = fopen(mypid, "r");
-	if(fd == (FILE *)NULL)
-	  break;
-	if(fgets(address, sizeof(address), fd) == (char *)NULL)
-	  break;
-	if((s = strchr(address, '\n')) != (char *)NULL)
-	  *s = '\0';
-	a = inet_addr(address);
-	if(a == -1L)
-	  break;
-	fclose(fd);
-	unlink(mypid);
-	*addr = a;
-	return 1;
-    }
-    if(fd != (FILE *)NULL)
-    {
-      fclose(fd);
-      unlink(mypid);
-    }
-    return 0;
-}
-#endif
 
 /*
  * set_allowed_addrs() - set the list of allowed addresses.
@@ -1788,8 +2071,15 @@ set_allowed_addrs(unit, addrs, opts)
      * which is a single host, then use that if we find one.
      */
     if (suggested_ip != 0
-	&& (wo->hisaddr == 0 || !auth_ip_addr(unit, wo->hisaddr)))
+	&& (wo->hisaddr == 0 || !auth_ip_addr(unit, wo->hisaddr))) {
 	wo->hisaddr = suggested_ip;
+	/*
+	 * Do we insist on this address?  No, if there are other
+	 * addresses authorized than the suggested one.
+	 */
+	if (n > 1)
+	    wo->accept_remote = 1;
+    }
 }
 
 /*
@@ -1807,11 +2097,25 @@ auth_ip_addr(unit, addr)
     if (bad_ip_adrs(addr))
 	return 0;
 
+    if (allowed_address_hook) {
+	ok = allowed_address_hook(addr);
+	if (ok >= 0) return ok;
+    }
+
+#ifdef EAP
+    // check with the EAP plugin...
+    if (auth_done[unit] & EAP_PEER) {
+	ok = EAPAllowedAddr(unit, addr);
+	if (ok >= 0) return ok;
+    }
+#endif
+
     if (addresses[unit] != NULL) {
 	ok = ip_addr_check(addr, addresses[unit]);
 	if (ok >= 0)
 	    return ok;
     }
+
     if (auth_required)
 	return 0;		/* no addresses authorized */
     return allow_any_ip || privileged || !have_route_to(addr);
@@ -1992,12 +2296,12 @@ scan_authfile(f, client, server, secret, addrs, opts, filename)
 	for (;;) {
 	    if (!getword(f, word, &newline, filename) || newline)
 		break;
-	    ap = (struct wordlist *) malloc(sizeof(struct wordlist));
+	    ap = (struct wordlist *)
+		    malloc(sizeof(struct wordlist) + strlen(word) + 1);
 	    if (ap == NULL)
 		novm("authorized addresses");
-	    ap->word = strdup(word);
-	    if (ap->word == NULL)
-		novm("authorized addresses");
+	    ap->word = (char *) (ap + 1);
+	    strcpy(ap->word, word);
 	    *app = ap;
 	    app = &ap->next;
 	}
@@ -2126,3 +2430,70 @@ auth_script(script)
 
     auth_script_pid = run_program(script, argv, 0, auth_script_done, NULL);
 }
+
+#ifdef __APPLE__
+#include <CoreFoundation/CoreFoundation.h>
+#include <Security/Security.h>
+
+/*
+ * get actual password from keyChain.
+ * the password passed is used as a key
+ */
+static int
+keychainpassword(argv)
+    char **argv;
+{
+	SecKeychainRef keychain = NULL;
+	void *cur_password = NULL;
+	UInt32 cur_password_len	= 0;
+	OSStatus status;
+        char serviceName[] = "com.apple.ppp";
+
+	status = SecKeychainSetPreferenceDomain(kSecPreferencesDomainSystem);
+	if (status != noErr) {
+                option_error("failed to set system keychain domain", *argv);
+		goto end;
+	}
+
+	status = SecKeychainCopyDomainDefault(kSecPreferencesDomainSystem,
+					      &keychain);
+	if (status != noErr) {
+                option_error("failed to get system keychain domain", *argv);
+		goto end;
+	}
+
+	status = SecKeychainFindGenericPassword(keychain,
+					        strlen(serviceName),
+					        serviceName,
+					        strlen(*argv),
+					        *argv,
+					        &cur_password_len,
+					        &cur_password,
+					        NULL);
+
+	switch (status) {
+
+	    case noErr :
+		break;
+
+	    case errSecItemNotFound :
+                option_error("password not found in the system keychain");
+		break;
+
+	    default :
+                option_error("failed to get password from system keychain (error %d)", status);
+	}
+
+end:
+
+        if (cur_password) {
+                strlcpy(passwd, cur_password, MAXSECRETLEN);
+		free(cur_password);
+        }
+        
+        if (keychain)
+            CFRelease(keychain);
+
+	return 1;
+}
+#endif

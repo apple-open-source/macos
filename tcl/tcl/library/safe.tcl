@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: safe.tcl,v 1.1.1.4 2002/04/05 16:13:29 jevans Exp $
+# RCS: @(#) $Id: safe.tcl,v 1.1.1.6 2003/07/22 23:11:09 landonf Exp $
 
 #
 # The implementation is based on namespaces. These naming conventions
@@ -294,7 +294,7 @@ namespace eval ::safe {
 	deletehook
     } {
 	# Create the slave.
-	if {[string compare "" $slave]} {
+	if {$slave ne ""} {
 	    ::interp create -safe $slave
 	} else {
 	    # empty argument: generate slave name
@@ -601,7 +601,7 @@ proc ::safe::setLogCmd {args} {
     # if the slave argument is given, 
     # it will return the corresponding master global variable name
     proc PathToken {n {slave ""}} {
-	if {[string compare "" $slave]} {
+	if {$slave ne ""} {
 	    return "[InterpStateName $slave](access_path,$n)"
 	} else {
 	    # We need to have a ":" in the token string so
@@ -636,15 +636,15 @@ proc ::safe::setLogCmd {args} {
     }
     # set/get values
     proc Set {args} {
-	eval Toplevel set $args
+	eval [list Toplevel set] $args
     }
     # lappend on toplevel vars
     proc Lappend {args} {
-	eval Toplevel lappend $args
+	eval [list Toplevel lappend] $args
     }
     # unset a var/token (currently just an global level eval)
     proc Unset {args} {
-	eval Toplevel unset $args
+	eval [list Toplevel unset] $args
     }
     # test existance 
     proc Exists {varname} {
@@ -695,24 +695,14 @@ proc ::safe::setLogCmd {args} {
 	}
     }
 
-    
+
     # file name control (limit access to files/ressources that should be
     # a valid tcl source file)
     proc CheckFileName {slave file} {
-	# limit what can be sourced to .tcl
-	# and forbid files with more than 1 dot and
-	# longer than 14 chars
-	set ftail [file tail $file]
-	if {[string length $ftail]>14} {
-	    error "$ftail: filename too long"
-	}
-	if {[regexp {\..*\.} $ftail]} {
-	    error "$ftail: more than one dot is forbidden"
-	}
-	if {[string compare $ftail "tclIndex"] && \
-		[string compare -nocase [file extension $ftail]	".tcl"]} {
-	    error "$ftail: must be a *.tcl or tclIndex"
-	}
+	# This used to limit what can be sourced to ".tcl" and forbid files
+	# with more than 1 dot and longer than 14 chars, but I changed that
+	# for 8.4 as a safe interp has enough internal protection already
+	# to allow sourcing anything. - hobbs
 
 	if {![file exists $file]} {
 	    # don't tell the file path
@@ -847,7 +837,15 @@ proc ::safe::setLogCmd {args} {
 	    error "\"$file\": is a directory"
 	}
 	set parent [file dirname $file]
-	if {[lsearch -exact $access_path $parent] == -1} {
+
+	# Normalize paths for comparison since lsearch knows nothing of
+	# potential pathname anomalies.
+	set norm_parent [file normalize $parent]
+	foreach path $access_path {
+	    lappend norm_access_path [file normalize $path]
+	}
+
+	if {[lsearch -exact $norm_access_path $norm_parent] == -1} {
 	    error "\"$file\": not in access_path"
 	}
     }
@@ -858,7 +856,7 @@ proc ::safe::setLogCmd {args} {
     proc Subset {slave command okpat args} {
 	set subcommand [lindex $args 0]
 	if {[regexp $okpat $subcommand]} {
-	    return [eval {$command $subcommand} [lrange $args 1 end]]
+	    return [eval [list $command $subcommand] [lrange $args 1 end]]
 	}
 	set msg "not allowed to invoke subcommand $subcommand of $command"
 	Log $slave $msg

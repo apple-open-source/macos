@@ -23,50 +23,56 @@
 #include "server.h"
 #include "session.h"
 #include "authority.h"
+#include "flippers.h"
 
 
 //
 // Construct a Process object.
 //
-Process::Process(Port servicePort, TaskPort taskPort, const char *identity, uid_t uid, gid_t gid)
+Process::Process(Port servicePort, TaskPort taskPort,
+	const ClientSetupInfo *info, const char *identity, uid_t uid, gid_t gid)
  :  session(Session::find(servicePort)), mBusyCount(0), mDying(false),
-	mTaskPort(taskPort), mUid(uid), mGid(gid)
+	mTaskPort(taskPort), mByteFlipped(false), mUid(uid), mGid(gid),
+	mClientIdent(deferred)
 {
+	// examine info passed
+	assert(info);
+	uint32 pversion = info->version;
+	if (pversion == SSPROTOVERSION) {
+		// correct protocol, same byte order, cool
+	} else {
+		Flippers::flip(pversion);
+		if (pversion == SSPROTOVERSION) {
+			// correct protocol, reversed byte order
+			mByteFlipped = true;
+		} else {
+			// unsupported protocol version
+			CssmError::throwMe(CSSM_ERRCODE_INCOMPATIBLE_VERSION);
+		}
+	}
+
     // let's take a look at our wannabe client...
     mPid = mTaskPort.pid();
     
     // register with the session
     session.addProcess(this);
 	
-	// identify the client-on-disk
-	// @@@ do this lazily on first use?
-	// @@@ note that the paradigm will shift here when kernel-supported id happens
-	mClientCode = CodeSigning::OSXCode::decode(identity);
-	
-	debug("SS", "New process %p(%d) uid=%d gid=%d session=%p TP=%d for %s",
+	secdebug("SS", "New process %p(%d) uid=%d gid=%d session=%p TP=%d %sfor %s",
 		this, mPid, mUid, mGid, &session,
-        mTaskPort.port(), identity ? identity : "(unknown)");
+        mTaskPort.port(),
+		mByteFlipped ? "FLIP " : "",
+		(identity && identity[0]) ? identity : "(unknown)");
+
+	try {
+		mClientCode = CodeSigning::OSXCode::decode(identity);
+	} catch (...) {
+		secdebug("SS", "process %p(%d) identity decode threw exception", this, pid());
+	}
+	if (!mClientCode) {
+		mClientIdent = unknown;		// no chance to squeeze a code identity from this
+		secdebug("SS", "process %p(%d) no clientCode - marked anonymous", this, pid());
+	}
 }
-
-#if 0
-Process::Process(Process &prior)
- :	session(Session::find(prior.mTaskPort.bootstrap())), mBusyCount(0), mDying(false),
-    mTaskPort(prior.mTaskPort), mUid(prior.mUid), mGid(prior.mGid)
-{
-    // copy more
-    mPid = prior.mPid;
-
-    // register with the session
-    session.addProcess(this);
-    
-    // copy the client-code id (and clear it in the prior so it doesn't get destroyed there)
-    mClientCode = prior.mClientCode;
-    prior.mTaskPort = Port();
-
-    debug("SS", "Process %p(%d) recloned uid=%d gid=%d session=%p",
-        this, mPid, mUid, mGid, &session);
-}
-#endif
 
 
 Process::~Process()
@@ -75,41 +81,45 @@ Process::~Process()
 
 	// tell all our authorizations that we're gone
 	IFDEBUG(if (!mAuthorizations.empty()) 
-		debug("SS", "Process %p(%d) clearing %d authorizations", 
+		secdebug("SS", "Process %p(%d) clearing %d authorizations", 
 			this, mPid, int(mAuthorizations.size())));
 	for (AuthorizationSet::iterator it = mAuthorizations.begin();
-			it != mAuthorizations.end(); it++) {
+			it != mAuthorizations.end(); ) {
         AuthorizationToken *auth = *it;
-        if (removeAuthorization(auth))
-            delete auth;
+        while (++it != mAuthorizations.end() && *it == auth) ;	// Skip duplicates
+		if (auth->endProcess(*this))
+			delete auth;
     }
-        
+
     // remove all database handles that belong to this process
     IFDEBUG(if (!mDatabases.empty())
-        debug("SS", "Process %p(%d) clearing %d database handles",
+        secdebug("SS", "Process %p(%d) clearing %d database handles",
             this, mPid, int(mDatabases.size())));
     for (DatabaseSet::iterator it = mDatabases.begin();
             it != mDatabases.end(); it++)
         delete *it;
 
 	// no need to lock here; the client process has no more active threads
-	debug("SS", "Process %p(%d) has died", this, mPid);
+	secdebug("SS", "Process %p(%d) has died", this, mPid);
 	
     // release our name for the process's task port
 	if (mTaskPort)
-        mTaskPort.destroy();	// either dead or taken by reclone
+        mTaskPort.destroy();
     
     // deregister from session
     if (session.removeProcess(this))
         delete &session;
 }
 
-bool Process::kill()
+bool Process::kill(bool keepTaskPort)
 {
+	StLock<Mutex> _(mLock);
+	if (keepTaskPort)
+		mTaskPort = Port();	// clear port so we don't destroy it later
 	if (mBusyCount == 0) {
 		return true;	// destroy me now
 	} else {
-		debug("SS", "Process %p(%d) destruction deferred for %d busy connections",
+		secdebug("SS", "Process %p(%d) destruction deferred for %d busy connections",
 			this, mPid, int(mBusyCount));
 		mDying = true;
 		return false;	// destroy me later
@@ -151,17 +161,39 @@ void Process::removeDatabase(Database *database)
 
 
 //
-// Verify the code signature of the a process's on-disk source.
-// @@@ In a truly secure solution, we would ask the OS to verify this.
-// @@@ Only the OS knows for sure what disk file (if any) originated a process.
-// @@@ In the meantime, we fake it.
+// CodeSignatures implementation of Identity.
+// The caller must make sure we have a valid (not necessarily hash-able) clientCode().
 //
-bool Process::verifyCodeSignature(const CodeSigning::Signature *signature)
+string Process::getPath() const
 {
-	if (mClientCode)
-		return Server::signer().verify(*mClientCode, signature);
-	else
-		return false;	// identity not known; can't verify
+	assert(mClientCode);
+	return mClientCode->canonicalPath();
+}
+
+const CssmData Process::getHash(CodeSigning::OSXSigner &signer) const
+{
+	switch (mClientIdent) {
+	case deferred:
+		try {
+			// try to calculate our signature hash (first time use)
+			mCachedSignature.reset(mClientCode->sign(signer));
+			assert(mCachedSignature.get());
+			mClientIdent = known;
+			secdebug("SS", "process %p(%d) code signature computed", this, pid());
+			break;
+		} catch (...) {
+			// couldn't get client signature (unreadable, gone, hack attack, ...)
+			mClientIdent = unknown;
+			secdebug("SS", "process %p(%d) no code signature - anonymous", this, pid());
+			CssmError::throwMe(CSSM_ERRCODE_INSUFFICIENT_CLIENT_IDENTIFICATION);
+		}
+	case known:
+		assert(mCachedSignature.get());
+		break;
+	case unknown:
+		CssmError::throwMe(CSSM_ERRCODE_INSUFFICIENT_CLIENT_IDENTIFICATION);
+	}
+	return CssmData(*mCachedSignature);
 }
 
 
@@ -176,17 +208,31 @@ void Process::addAuthorization(AuthorizationToken *auth)
 	auth->addProcess(*this);
 }
 
+void Process::checkAuthorization(AuthorizationToken *auth)
+{
+	assert(auth);
+	StLock<Mutex> _(mLock);
+	if (mAuthorizations.find(auth) == mAuthorizations.end())
+		MacOSError::throwMe(errAuthorizationInvalidRef);
+}
+
 bool Process::removeAuthorization(AuthorizationToken *auth)
 {
 	assert(auth);
 	StLock<Mutex> _(mLock);
 	// we do everything with a single set lookup call...
 	typedef AuthorizationSet::iterator Iter;
-	pair<Iter, Iter> range = mAuthorizations.equal_range(auth);
-	assert(range.first != mAuthorizations.end());
-	Iter next = range.first; next++;	// next element after first hit
-	mAuthorizations.erase(range.first);	// erase first hit
-	if (next == range.second) {			// if no more hits...
+	Iter it = mAuthorizations.lower_bound(auth);
+	bool isLast;
+	if (it == mAuthorizations.end() || auth != *it) {
+		Syslog::error("process is missing authorization to remove");	// temp. diagnostic
+		isLast = true;
+	} else {
+		Iter next = it; ++next;			// following element
+		isLast = (next == mAuthorizations.end()) || auth != *next;
+		mAuthorizations.erase(it);		// remove first match
+	}
+	if (isLast) {
 		if (auth->endProcess(*this))	// ... tell it to remove us,
 			return true;				// ... and tell the caller
 	}

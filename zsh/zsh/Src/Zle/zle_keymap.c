@@ -388,7 +388,10 @@ selectkeymap(char *name, int fb)
 	    return 1;
 	km = openkeymap(name = ".safe");
     }
-    curkeymapname = name;
+    if(name != curkeymapname) {
+	zsfree(curkeymapname);
+	curkeymapname = ztrdup(name);
+    }
     curkeymap = km;
     return 0;
 }
@@ -601,12 +604,12 @@ keyisprefix(Keymap km, char *seq)
 
 /**/
 int
-bin_bindkey(char *name, char **argv, char *ops, int func)
+bin_bindkey(char *name, char **argv, Options ops, int func)
 {
     static struct opn {
 	char o;
 	char selp;
-	int (*func) _((char *, char *, Keymap, char **, char *, char));
+	int (*func) _((char *, char *, Keymap, char **, Options, char));
 	int min, max;
     } const opns[] = {
 	{ 'l', 0, bin_bindkey_lsmaps, 0,  0 },
@@ -625,15 +628,16 @@ bin_bindkey(char *name, char **argv, char *ops, int func)
     int n;
 
     /* select operation and ensure no clashing arguments */
-    for(op = opns; op->o && !ops[STOUC(op->o)]; op++) ;
+    for(op = opns; op->o && !OPT_ISSET(ops,STOUC(op->o)); op++) ;
     if(op->o)
 	for(opp = op; (++opp)->o; )
-	    if(ops[STOUC(opp->o)]) {
+	    if(OPT_ISSET(ops,STOUC(opp->o))) {
 		zwarnnam(name, "incompatible operation selection options",
 		    NULL, 0);
 		return 1;
 	    }
-    n = ops['e'] + ops['v'] + ops['a'] + ops['M'];
+    n = OPT_ISSET(ops,'e') + OPT_ISSET(ops,'v') + 
+	OPT_ISSET(ops,'a') + OPT_ISSET(ops,'M');
     if(!op->selp && n) {
 	zwarnnam(name, "keymap cannot be selected with -%c", NULL, op->o);
 	return 1;
@@ -645,18 +649,14 @@ bin_bindkey(char *name, char **argv, char *ops, int func)
 
     /* keymap selection */
     if(op->selp) {
-	if(ops['e'])
+	if(OPT_ISSET(ops,'e'))
 	    kmname = "emacs";
-	else if(ops['v'])
+	else if(OPT_ISSET(ops,'v'))
 	    kmname = "viins";
-	else if(ops['a'])
+	else if(OPT_ISSET(ops,'a'))
 	    kmname = "vicmd";
-	else if(ops['M']) {
-	    kmname = *argv++;
-	    if(!kmname) {
-		zwarnnam(name, "-M option requires a keymap argument", NULL, 0);
-		return 1;
-	    }
+	else if(OPT_ISSET(ops,'M')) {
+	    kmname = OPT_ARG(ops,'M');
 	} else
 	    kmname = "main";
 	km = openkeymap(kmname);
@@ -664,7 +664,7 @@ bin_bindkey(char *name, char **argv, char *ops, int func)
 	    zwarnnam(name, "no such keymap `%s'", kmname, 0);
 	    return 1;
 	}
-	if(ops['e'] || ops['v'])
+	if(OPT_ISSET(ops,'e') || OPT_ISSET(ops,'v'))
 	    linkkeymap(km, "main", 0);
     } else {
 	kmname = NULL;
@@ -673,7 +673,7 @@ bin_bindkey(char *name, char **argv, char *ops, int func)
 
     /* listing is a special case */
     if(!op->o && (!argv[0] || !argv[1])) {
-	if(ops['e'] || ops['v'])
+	if(OPT_ISSET(ops,'e') || OPT_ISSET(ops,'v'))
 	    return 0;
 	return bin_bindkey_list(name, kmname, km, argv, ops, op->o);
     }
@@ -696,9 +696,9 @@ bin_bindkey(char *name, char **argv, char *ops, int func)
 
 /**/
 static int
-bin_bindkey_lsmaps(char *name, char *kmname, Keymap km, char **argv, char *ops, char func)
+bin_bindkey_lsmaps(char *name, char *kmname, Keymap km, char **argv, Options ops, char func)
 {
-    scanhashtable(keymapnamtab, 1, 0, 0, scanlistmaps, ops['L']);
+    scanhashtable(keymapnamtab, 1, 0, 0, scanlistmaps, OPT_ISSET(ops,'L'));
     return 0;
 }
 
@@ -722,7 +722,7 @@ scanlistmaps(HashNode hn, int list)
 
 /**/
 static int
-bin_bindkey_delall(char *name, char *kmname, Keymap km, char **argv, char *ops, char func)
+bin_bindkey_delall(char *name, char *kmname, Keymap km, char **argv, Options ops, char func)
 {
     keymapnamtab->emptytable(keymapnamtab);
     default_bindings();
@@ -733,7 +733,7 @@ bin_bindkey_delall(char *name, char *kmname, Keymap km, char **argv, char *ops, 
 
 /**/
 static int
-bin_bindkey_del(char *name, char *kmname, Keymap km, char **argv, char *ops, char func)
+bin_bindkey_del(char *name, char *kmname, Keymap km, char **argv, Options ops, char func)
 {
     int ret = 0;
 
@@ -752,7 +752,7 @@ bin_bindkey_del(char *name, char *kmname, Keymap km, char **argv, char *ops, cha
 
 /**/
 static int
-bin_bindkey_link(char *name, char *kmname, Keymap km, char **argv, char *ops, char func)
+bin_bindkey_link(char *name, char *kmname, Keymap km, char **argv, Options ops, char func)
 {
     km = openkeymap(argv[0]);
     if(!km) {
@@ -769,7 +769,7 @@ bin_bindkey_link(char *name, char *kmname, Keymap km, char **argv, char *ops, ch
 
 /**/
 static int
-bin_bindkey_new(char *name, char *kmname, Keymap km, char **argv, char *ops, char func)
+bin_bindkey_new(char *name, char *kmname, Keymap km, char **argv, Options ops, char func)
 {
     KeymapName kmn = (KeymapName) keymapnamtab->getnode(keymapnamtab, argv[0]);
 
@@ -797,7 +797,7 @@ bin_bindkey_new(char *name, char *kmname, Keymap km, char **argv, char *ops, cha
 
 /**/
 static int
-bin_bindkey_meta(char *name, char *kmname, Keymap km, char **argv, char *ops, char func)
+bin_bindkey_meta(char *name, char *kmname, Keymap km, char **argv, Options ops, char func)
 {
     char m[3], *str;
     int i;
@@ -827,7 +827,7 @@ bin_bindkey_meta(char *name, char *kmname, Keymap km, char **argv, char *ops, ch
 
 /**/
 static int
-bin_bindkey_bind(char *name, char *kmname, Keymap km, char **argv, char *ops, char func)
+bin_bindkey_bind(char *name, char *kmname, Keymap km, char **argv, Options ops, char func)
 {
     int ret = 0;
 
@@ -844,7 +844,7 @@ bin_bindkey_bind(char *name, char *kmname, Keymap km, char **argv, char *ops, ch
 	zwarnnam(name, "keymap `%s' is protected", kmname, 0);
 	return 1;
     }
-    if (func == 'r' && ops['p']) {
+    if (func == 'r' && OPT_ISSET(ops,'p')) {
 	char *useq, *bseq;
 	int len;
 	struct remprefstate rps;
@@ -875,7 +875,7 @@ bin_bindkey_bind(char *name, char *kmname, Keymap km, char **argv, char *ops, ch
 	}
 	bseq = getkeystring(useq, &len, 2, NULL);
 	seq = metafy(bseq, len, META_USEHEAP);
-	if(ops['R']) {
+	if(OPT_ISSET(ops,'R')) {
 	    int first, last;
 	    char m[3];
 
@@ -921,13 +921,13 @@ scanremoveprefix(char *seq, Thingy bind, char *str, void *magic)
 
 /**/
 static int
-bin_bindkey_list(char *name, char *kmname, Keymap km, char **argv, char *ops, char func)
+bin_bindkey_list(char *name, char *kmname, Keymap km, char **argv, Options ops, char func)
 {
     struct bindstate bs;
 
-    bs.flags = ops['L'] ? BS_LIST : 0;
+    bs.flags = OPT_ISSET(ops,'L') ? BS_LIST : 0;
     bs.kmname = kmname;
-    if(argv[0] && !ops['p']) {
+    if(argv[0] && !OPT_ISSET(ops,'p')) {
 	int len;
 	char *seq;
 
@@ -941,7 +941,7 @@ bin_bindkey_list(char *name, char *kmname, Keymap km, char **argv, char *ops, ch
 	bindlistout(&bs);
     } else {
 	/* empty prefix is equivalent to no prefix */
-	if (ops['p'] && (!argv[0] || argv[0][0])) {
+	if (OPT_ISSET(ops,'p') && (!argv[0] || argv[0][0])) {
 	    if (!argv[0]) {
 		zwarnnam(name, "option -p requires a prefix string", NULL, 0);
 		return 1;
@@ -1365,4 +1365,14 @@ getkeycmd(void)
     if (func == Th(z_executelastnamedcmd))
 	func = lastnamed;
     return func;
+}
+
+/**/
+mod_export void
+zlesetkeymap(int mode)
+{
+    Keymap km = openkeymap((mode == VIMODE) ? "viins" : "emacs");
+    if (!km)
+	return;
+    linkkeymap(km, "main", 0);
 }

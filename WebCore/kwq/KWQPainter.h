@@ -94,6 +94,9 @@ public:
     void setRasterOp(RasterOp);
 
     void drawText(int x, int y, int, int, int alignmentFlags, const QString &);
+    void drawHighlightForText(int x, int y, const QChar *, int length, int from, int to, int toAdd,
+                  const QColor& backgroundColor, QPainter::TextDirection d,
+                  int letterSpacing, int wordSpacing, bool smallCaps);
     void drawText(int x, int y, const QChar *, int length, int from, int to, int toAdd,
                   const QColor& backgroundColor, QPainter::TextDirection d,
                   int letterSpacing, int wordSpacing, bool smallCaps);
@@ -105,6 +108,12 @@ public:
     bool paintingDisabled() const;
     void setPaintingDisabled(bool);
         
+    void beginTransparencyLayer(float opacity);
+    void endTransparencyLayer();
+
+    void setShadow(int x, int y, int blur, const QColor& color);
+    void clearShadow();
+    
 private:
     // no copying or assignment
     QPainter(const QPainter &);
@@ -113,6 +122,9 @@ private:
     void _setColorFromBrush();
     void _setColorFromPen();
 
+    // A fillRect designed to work around buggy behavior in NSRectFill.
+    void _fillRect(float x, float y, float w, float h, const QColor& color);
+    
     void _drawPoints(const QPointArray &_points, bool winding, int index, int _npoints, bool fill);
 
     void _updateRenderer(NSString **families);

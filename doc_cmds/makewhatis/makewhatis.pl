@@ -26,14 +26,14 @@
 #
 # makewhatis -- update the whatis database in the man directories.
 #
-# $Id: makewhatis.pl,v 1.1.1.1 1999/04/23 02:34:58 wsanchez Exp $
+# $FreeBSD: src/gnu/usr.bin/man/makewhatis/makewhatis.perl,v 1.21.2.4 2002/03/29 15:38:09 ru Exp $
 
 
 sub usage {
 
     warn <<EOF;
-usage: makewhatis [-a|-append ] [-h|-help] [-i|-indent colum]
-                  [-n|-name name] [-o|-outfile file] [-v|-verbose] 
+usage: makewhatis [-a|-append] [-h|-help] [-i|-indent column] [-L|-locale]
+                  [-n|-name name] [-o|-outfile file] [-v|-verbose]
                   [directories ...]
 EOF
     exit 1;
@@ -53,10 +53,8 @@ sub open_output {
     }
     $tmp = $whatisdb;		# for signals
 
-
     # Array of all entries
     @a = ();
-
 
     # Append mode
     if ($append) {
@@ -97,7 +95,6 @@ sub close_output {
 
     $w =~ s/\.tmp$//;
     if ($success) {		# success
-
 	# uniq
 	warn "\n" if $verbose && $pointflag;
 	warn "sort -u > $whatisdb\n" if $verbose;
@@ -172,7 +169,7 @@ sub parse_dir {
 	delete $man_red{$file};
     }
 
-    if ($dir =~ /man$/) {
+    if ($dir =~ /man/) {
 	warn "\n" if $verbose && $pointflag;
 	warn "open manpath directory ``$dir''\n" if $verbose;
 	$pointflag = 0;
@@ -183,6 +180,7 @@ sub parse_dir {
 	    if ($subdir =~ /^man\w+$/) {
 		$subdir = "$dir/$subdir";
 		&parse_subdir($subdir);
+		&parse_subdir($subdir) if -d ($subdir .= "/${machine}");
 	    }
 	}
 	closedir DIR
@@ -199,7 +197,7 @@ sub parse_dir {
 sub dir_redundant {
     local($dir) = @_;
 
-    local ($dev,$ino) = (stat($dir))[0..1];
+    local($dev,$ino) = (stat($dir))[0..1];
 
     if ($dir_redundant{"$dev.$ino"}) {
 	warn "$dir is equal to: $dir_redundant{\"$dev.$ino\"}\n" if $verbose;
@@ -218,10 +216,10 @@ sub ext {
     $extension =~ s/$ext$//g;	# strip .gz
     $extension =~ s/.*\///g;	# basename
 
-    if ($extension !~ /\./) {	# no dot
+    if ($extension !~ m%[^/]+\.[^.]+$%) {	# no dot
 	$extension = $filename;
 	#$extension =~ s|/[^/]+$||;
-	$extension =~ s/.*(.)/$1/; # last character
+	$extension =~ s%.*man([^/]+)/[^/]+%$1%; # last character
 	warn "\n" if $verbose && $pointflag;
 	warn "$filename has no extension, try section ``$extension''\n"
 	    if $verbose;
@@ -332,19 +330,22 @@ sub manual {
     $extension = &ext($file);
     $name = &name($file);
 
+    $section_name = "NAME|Name|NAMN|BEZEICHNUNG|ּ¾¾־|מבתקבמיו";
+
     local($source) = 0;
     local($list);
     while(<F>) {
 	# ``man'' style pages
 	# &&: it takes you only half the user time, regexp is slow!!!
-	if (/^\.SH/ && /^\.SH[ \t]+["]?(NAME|Name|NAMN)["]?/) {
+ 	if (/^\.SH/ && /^\.SH[ \t]+["]?($section_name)["]?/) {
 	    #while(<F>) { last unless /^\./ } # Skip
 	    #chop; $list = $_;
 	    while(<F>) {
 		last if /^\.SH[ \t]/;
 		chop;
+		s/^\.IX\s.*//;            # delete perlpod garbage
 		s/^\.[A-Z]+[ ]+[0-9]+$//; # delete commands
-		s/^\.[A-Za-z]+[ \t]*//;	  # delete commands
+		s/^\.[A-Za-z]*[ \t]*//;	  # delete commands
 		s/^\.\\".*$//;            #" delete comments
 		s/^[ \t]+//;
 		if ($_) {
@@ -352,14 +353,16 @@ sub manual {
 		    $list .= ' ';
 		}
 	    }
+	    while(<F>) { }	# skip remaining input to avoid pipe errors
 	    &out($list); close F; return 1;
-	} elsif (/^\.Sh/ && /^\.Sh[ \t]+["]?(NAME|Name)["]?/) {
+ 	} elsif (/^\.Sh/ && /^\.Sh[ \t]+["]?($section_name)["]?/) {
 	    # ``doc'' style pages
 	    local($flag) = 0;
 	    while(<F>) {
 		last if /^\.Sh/;
 		chop;
 		s/^\.\\".*$//;            #" delete comments
+		next if /^\.[ \t]*$/;	  # skip empty calls
 		if (/^\.Nm/) {
 		    s/^\.Nm[ \t]*//;
 		    s/ ,/,/g;
@@ -367,17 +370,25 @@ sub manual {
 		    $list .= $_;
 		    $list .= ' ';
 		} else {
-		    $list .= '- ' if (!$flag && !/-/);
+		    $list .= '- ' if (!$flag && !/^- /);
 		    $flag++;
-		    s/^\.[A-Z][a-z][ \t]*//;
-		    s/[ \t]+$//;
-		    $list .= $_;
+		    if (/^\.Xr/) {
+			split;
+			$list .= @_[1];
+			$list .= "(@_[2])" if @_[2];
+		    } else {
+			s/^\.([A-Z][a-z])?[ \t]*//;
+			s/[ \t]+$//;
+			$list .= $_;
+		    }
 		    $list .= ' ';
 		}
 	    }
+	    while(<F>) { }	# skip remaining input to avoid pipe errors
 	    &out($list); close F; return 1;
 
 	} elsif(/^\.so/ && /^\.so[ \t]+man/) {
+	    while(<F>) { }	# skip remaining input to avoid pipe errors
 	    close F; return 1;
 	}
     }
@@ -424,10 +435,15 @@ sub stripdir {
 
 sub variables {
     $verbose = 0;		# Verbose
-    $indent = 24;		# indent for description
+    $indent = 24;		# Indent for description
     $outfile = 0;		# Don't write to ./whatis
     $whatis_name = "whatis.db";	# Default name for DB
     $append = 0;		# Don't delete old entries
+    $locale = 0;		# Build DB only for localized man directories
+    chomp($machine = $ENV{'MACHINE'} || `uname -m`);
+
+    # choose localized man directories suffix.
+    $local_suffix = $ENV{'LC_ALL'} || $ENV{'LC_CTYPE'} || $ENV{'LANG'};
 
     # if no argument for directories given
     @defaultmanpath = ( '/usr/share/man' );
@@ -471,8 +487,11 @@ sub parse {
 	elsif (/^--?(f|format|i|indent)$/) { $i = $argv[0]; shift @argv }
 	elsif (/^--?(n|name)$/)         { $whatis_name = $argv[0];shift @argv }
 	elsif (/^--?(a|append)$/)       { $append = 1 }
+	elsif (/^--?(L|locale)$/)       { $locale = 1 }
 	else                            { &usage }
     }
+    warn "Localized man directory suffix is ``$local_suffix''\n"
+	if $verbose && $locale;
 
     if ($i ne "") {
 	if ($i =~ /^[0-9]+$/) {
@@ -488,6 +507,31 @@ sub parse {
     warn "Missing directories\n"; &usage;
 }
 
+# Process man directory
+sub process_dir {
+  local($dir) = @_;
+
+  $dir = &stripdir($dir);
+  &dir_redundant($dir) && &parse_dir($dir);
+}
+
+# Process man directory and store output to file
+sub process_dir_to_file {
+  local($dir) = @_;
+
+  $dir = &stripdir($dir);
+  &dir_redundant($dir) &&
+      &close_output(&open_output($dir) && &parse_dir($dir));
+} 
+
+# convert locale name to short notation (ru_RU.KOI8-R -> ru.KOI8-R)
+sub short_locale_name {
+  local($lname) = @_;
+
+  $lname =~ s|_[A-Z][A-Z]||;
+  warn "short locale name is $lname\n" if $verbose && $locale;
+  return $lname;
+}
 
 ##
 ## Main
@@ -497,20 +541,32 @@ sub parse {
 # allow colons in dir: ``makewhatis dir1:dir2:dir3''
 @argv = &parse(split(/[: ]/, join($", @ARGV)));	# "
 
-
 if ($outfile) {
     if(&open_output($outfile)){
 	foreach $dir (@argv) {
-	    $dir = &stripdir($dir);
-	    &dir_redundant($dir) && &parse_dir($dir);
+	    # "Local only" flag set ? Yes ...
+	    if ($locale) {
+		if ($local_suffix ne "") {
+		     &process_dir($dir.'/'.$local_suffix);
+		     &process_dir($dir.'/'.&short_locale_name($local_suffix));
+		}
+	    } else {
+		&process_dir($dir);
+	    }
 	}
     }
     &close_output(1);
 } else {
     foreach $dir (@argv) {
-	$dir = &stripdir($dir);
-	&dir_redundant($dir) &&
-	    &close_output(&open_output($dir) && &parse_dir($dir));
+	# "Local only" flag set ? Yes ...
+        if ($locale) {
+	    if ($local_suffix ne "") {
+	      &process_dir_to_file($dir.'/'.$local_suffix);
+	      &process_dir_to_file($dir.'/'.&short_locale_name($local_suffix));
+	    }
+	} else {
+	   &process_dir_to_file($dir);
+	}
     }
 }
 

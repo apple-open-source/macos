@@ -12,10 +12,11 @@ NAME = sort
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-CFILES = sort.c
+CFILES = sort.c error.c getopt.c getopt1.c long-options.c version.c xstrtod.c
 
-OTHERSRCS = Makefile Makefile.preamble Makefile.postamble sort.1\
-            COPYING
+OTHERSRCS = Makefile Makefile.preamble Makefile.postamble sort.1 \
+	    config.h error.h getopt.h long-options.h system.h version.h \
+	    xstrtod.h COPYING
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
@@ -32,6 +33,7 @@ PROF_LIBS = $(LIBS)
 NEXTSTEP_BUILD_OUTPUT_DIR = /tmp/doc_cmds/Build
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc
+NEXTSTEP_PB_CFLAGS = -DHAVE_CONFIG_H
 WINDOWS_OBJCPLUS_COMPILER = $(DEVDIR)/gcc
 PDO_UNIX_OBJCPLUS_COMPILER = $(NEXTDEV_BIN)/gcc
 NEXTSTEP_JAVA_COMPILER = /usr/bin/javac

@@ -74,7 +74,7 @@ struct comp_addr
  * mask is a pointer to the in6_addr structure, bits is the
  * number of bits to set in the mask, and len is the length of mask.
  */
-static void xsetmask(char *mask, unsigned int bits, int len)
+static void xsetmask(char *mask, unsigned int bits, unsigned int len)
 {
    int i;
    int bytes = bits/8;
@@ -95,7 +95,7 @@ static void xsetmask(char *mask, unsigned int bits, int len)
 
 
 /* This is a helper function to make address matching with mask
- * work ok w/ipv6 
+ * work ok w/ipv6. The len parameter is in bytes, not bits. 
  * Returns TRUE if addr1&mask1 == addr2
  */
 static bool_int xmatch(const char *addr1, const char *mask1, 
@@ -184,22 +184,17 @@ int addrlist_match( const pset_h addr_list,
                return (u+1) ;
          } 
 	 else if( (addr->sa_family == AF_INET6) && (cap->version == 6)) 
-	 {  
-	    char str1[128], str2[128];
-
-	    /* FIXME: this needs to be optimized */
-	    inet_ntop(AF_INET6, &SAIN6(addr)->sin6_addr, str1, sizeof(str1));
-	    inet_ntop(AF_INET6, &cap->a.addr6, str2, sizeof(str2));
-
-	    /* NOTE: This is stricter than a mask since each byte must match */
-	    if (strcmp(str1, str2) == 0)
-               return( u+1 );
-	    
-	    /* Next try the old way...but I don't think this works. SG */
-            if ( xmatch( addr->sa_data, 
+	 {
+            if (cap->addr_type == NUMERIC_ADDR) {
+	       if (IN6_ARE_ADDR_EQUAL(&SAIN6(addr)->sin6_addr, &cap->a.addr6))
+                  return( u+1 );
+            }
+            else {  /* NET_ADDR */ 
+               if ( xmatch( SAIN6(addr)->sin6_addr.s6_addr, 
 	                (char *)&(cap->m.mask6), 
 			(char *)&(cap->a.addr6), 16) == TRUE )
-               return( u+1 );
+                  return( u+1 );
+            }
          } 
 	 else if (((addr->sa_family) == AF_INET6) && (cap->version == 4))
 	 {  /* 
@@ -208,7 +203,7 @@ int addrlist_match( const pset_h addr_list,
              */
             if( IN6_IS_ADDR_V4MAPPED( &SAIN6(addr)->sin6_addr ) ) 
 	    {
-               uint32_t *tmp_addr = (unsigned *)&addr->sa_data[3];
+               uint32_t *tmp_addr = (uint32_t *)&addr->sa_data[3];
                if( (ntohl(*tmp_addr) & cap->m.mask)
 			       == ( cap->a.addr & cap->m.mask ) )
                   return (u+1);
@@ -230,7 +225,7 @@ void addrlist_dump( const pset_h addr_list, int fd )
    for ( u = 0 ; u < num ; u++ )
    {
       struct comp_addr *cap = CAP( pset_pointer( addr_list, u ) ) ;
-      char *type ;
+      const char *type ;
 
       if ( cap->addr_type == NUMERIC_ADDR )
          type = "NUMERIC" ;
@@ -249,7 +244,7 @@ void addrlist_dump( const pset_h addr_list, int fd )
          inet_ntop(AF_INET, &addr, addrstring, sizeof(addrstring));
          inet_ntop(AF_INET, &mask, maskstring, sizeof(maskstring));
       }
-      if( cap->version == 6 ) {
+      else if( cap->version == 6 ) {
          inet_ntop(AF_INET6, &cap->a.addr6, addrstring, sizeof(addrstring));
          inet_ntop(AF_INET6, &cap->m.mask6, maskstring, sizeof(maskstring));
       }
@@ -611,6 +606,7 @@ static result_e host_addr( const char *str_addr, status_e (*op)(), pset_h addr_l
    strncpy(ca.name, str_addr, sizeof(ca.name)-1) ;
    ca.name[sizeof(ca.name)-1] = '\0';
    ca.addr_type = HOST_ADDR ;
+   ca.version = 0xFF;
    freeaddrinfo(res);
 
    if ( (*op)( addr_list, &ca ) == FAILED ) 

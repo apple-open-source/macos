@@ -91,7 +91,7 @@ void CssmClient::Context::algorithm(CSSM_ALGORITHMS alg)
 //
 // Query context operation output sizes.
 //    
-uint32 CssmClient::Context::getOutputSize(uint32 inputSize, bool encrypt = true)
+uint32 CssmClient::Context::getOutputSize(uint32 inputSize, bool encrypt /*= true*/)
 {
     CSSM_QUERY_SIZE_DATA data;
     data.SizeInputBlock = inputSize;
@@ -99,7 +99,7 @@ uint32 CssmClient::Context::getOutputSize(uint32 inputSize, bool encrypt = true)
     return data.SizeOutputBlock;
 }
 
-void CssmClient::Context::getOutputSize(CSSM_QUERY_SIZE_DATA &sizes, uint32 count, bool encrypt = true)
+void CssmClient::Context::getOutputSize(CSSM_QUERY_SIZE_DATA &sizes, uint32 count, bool encrypt /*= true*/)
 {
     check(CSSM_QuerySize(handle(), encrypt, count, &sizes));
 }

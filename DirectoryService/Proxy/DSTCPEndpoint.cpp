@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -42,12 +45,16 @@
 #include <errno.h>
 #include <sys/time.h>		// for struct timeval
 
+#include <machine/byte_order.h>
+
 #include "DSCThread.h"		// for GetCurThreadRunState()
 #include "DSTCPEndpoint.h"
 #ifdef DSSERVERTCP
 #include "CLog.h"
 #endif
 #include "SharedConsts.h"	// for sComData
+#include "DirServicesConst.h"
+#include "DSTCPEndian.h"
 
 // ----------------------------------------------------------------------------
 //	* DSTCPEndpoint Class (static) Methods
@@ -1117,7 +1124,7 @@ void * DSTCPEndpoint::GetClientMessage ( void )
 					}
 					if (pOutMsg != nil)
 					{
-						if (pOutMsg->fDataSize > buffLen - sizeof(sComData))
+						if (NXSwapBigLongToHost(pOutMsg->fDataSize) > buffLen - sizeof(sComData))
 						{
 							//fprintf(stderr,"bad message fDataSize!\n");
 							//let's just throw the message out since it is probably malformed
@@ -1149,7 +1156,10 @@ void * DSTCPEndpoint::GetClientMessage ( void )
 		}//if (inBuffer != nil)
 	}
 	
-	return( pOutMsg );
+	DSTCPEndian swapper(pOutMsg, DSTCPEndian::kSwapToHost);
+    swapper.SwapMessage();
+    
+    return( pOutMsg );
 
 } // GetClientMessage
 
@@ -1271,7 +1281,7 @@ sInt32 DSTCPEndpoint::SyncToMessageBody(const Boolean inStripLeadZeroes, uInt32 
 			}
 			else
 			{
-				*outBuffLen = buffLen;
+				*outBuffLen = NXSwapBigLongToHost(buffLen);
 			}
 		}		
 		catch( sInt32 err )
@@ -1302,8 +1312,12 @@ sInt32 DSTCPEndpoint::SyncToMessageBody(const Boolean inStripLeadZeroes, uInt32 
 
 sInt32 DSTCPEndpoint::SendClientReply ( void *inMsg )
 {
+	uInt32 messageSize = sizeof(sComData) + ((sComData *)inMsg)->fDataLength;
+	//let us only send the data that is present and not the entire buffer
 	((sComData *)inMsg)->fDataSize = ((sComData *)inMsg)->fDataLength;
-	return SendBuffer(inMsg, sizeof(sComData) + ((sComData *)inMsg)->fDataLength);
+	DSTCPEndian swapper((sComData *)inMsg, DSTCPEndian::kSwapToBig);
+    swapper.SwapMessage();
+    return SendBuffer(inMsg, messageSize);
 } // SendClientReply
 
 
@@ -1314,8 +1328,12 @@ sInt32 DSTCPEndpoint::SendClientReply ( void *inMsg )
 
 sInt32 DSTCPEndpoint::SendServerMessage ( void *inMsg )
 {
+	uInt32 messageSize = sizeof(sComData) + ((sComData *)inMsg)->fDataLength;
+	//let us only send the data that is present and not the entire buffer
 	((sComData *)inMsg)->fDataSize = ((sComData *)inMsg)->fDataLength;
-	return SendBuffer(inMsg, sizeof(sComData) + ((sComData *)inMsg)->fDataLength);
+	DSTCPEndian swapper((sComData *)inMsg, DSTCPEndian::kSwapToBig);
+    swapper.SwapMessage();
+    return SendBuffer(inMsg, messageSize);
 } // SendServerMessage
 
 
@@ -1349,8 +1367,7 @@ sInt32 DSTCPEndpoint::SendBuffer ( void *inBuffer, uInt32 inLength )
 	sendBuffLen = kDSTCPEndpointMessageTagSize + 4 + dataBuffLen;
 	sendBuffer = (char *)calloc(sendBuffLen, 1);
 	strcpy(sendBuffer,"DSPX");
-	memcpy(sendBuffer+kDSTCPEndpointMessageTagSize, &dataBuffLen, 4);
-	//JT need to do endian byte swapping here ^
+	*(long*)(sendBuffer+kDSTCPEndpointMessageTagSize) = NXSwapHostLongToBig(dataBuffLen);
 	memcpy(sendBuffer+kDSTCPEndpointMessageTagSize+4, outBuffer, outLength);
 
 	try
@@ -1454,6 +1471,12 @@ sInt32 DSTCPEndpoint::GetServerReply ( sComData **outMsg )
 		inBuffer = nil;
 	}
 	
+    if (*outMsg != nil)
+    {
+        DSTCPEndian swapper(*outMsg, DSTCPEndian::kSwapToHost);
+        swapper.SwapMessage();
+    }
+
 	return( siResult );
 
 } // GetServerReply

@@ -1,0 +1,867 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE project [
+   <!ENTITY buildmagic SYSTEM "../tools/etc/buildmagic/buildmagic.ent">
+]>
+
+<!-- ====================================================================== -->
+<!--                                                                        -->
+<!--  JBoss, the OpenSource J2EE webOS                                      -->
+<!--                                                                        -->
+<!--  Distributable under LGPL license.                                     -->
+<!--  See terms of license at http://www.gnu.org.                           -->
+<!--                                                                        -->
+<!-- ====================================================================== -->
+
+<!-- $Id: build.xml,v 1.39.4.6 2003/05/18 06:28:22 starksm Exp $ -->
+
+<project default="main" name="JBoss/JMX">
+
+  <!-- ================================================================== -->
+  <!-- Setup                                                              -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Include the common Buildmagic elements.
+     |
+     | This defines several different targets, properties and paths.
+     | It also sets up the basic extention tasks amoung other things.
+   -->
+
+  &buildmagic;
+
+
+  <!-- ================================================================== -->
+  <!-- Initialization                                                     -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Initialize the build system.  Must depend on '_buildmagic:init'.  
+     | Other targets should depend on 'init' or things will mysteriously fail.
+   -->
+
+  <target name="init" unless="init.disable" depends="_buildmagic:init">
+  </target>
+
+
+  <!-- ================================================================== -->
+  <!-- Configuration                                                      -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Configure the build system.  
+     |
+     | This target is invoked by the Buildmagic initialization logic and 
+     | should contain module specific configuration elements.
+   -->
+
+  <target name="configure" unless="configure.disable">
+
+    <!-- =================== -->
+    <!-- Basic Configuration -->
+    <!-- =================== -->
+
+    <!-- Module name(s) & version -->
+    <property name="module.name" value="JBossMX"/>
+    <property name="module.Name" value="JBoss JMX"/>
+    <property name="module.version" value="1_1_0"/>
+
+    <!-- ========= -->
+    <!-- Libraries -->
+    <!-- ========= -->
+
+    <!-- EDU.oswego.cs.dl.util.concurrent -->
+    <property name="oswego.concurrent.root" value="${project.thirdparty}/oswego/concurrent"/>
+    <property name="oswego.concurrent.lib" value="${oswego.concurrent.root}/lib"/>
+    <path id="oswego.concurrent.classpath">
+      <pathelement path="${oswego.concurrent.lib}/concurrent.jar"/>
+    </path>
+
+    <!-- GNU Regexp -->
+    <property name="gnu.regexp.root" value="${project.thirdparty}/gnu/regexp"/>
+    <property name="gnu.regexp.lib" value="${gnu.regexp.root}/lib"/>
+    <path id="gnu.regexp.classpath">
+      <pathelement path="${gnu.regexp.lib}/gnu-regexp.jar"/>
+    </path>
+
+    <!-- org.jdom -->
+    <property name="jdom.root" value="${project.thirdparty}/jdom"/>
+    <property name="jdom.lib" value="${jdom.root}/lib"/>
+    <path id="jdom.classpath">
+      <pathelement path="${jdom.lib}/jdom.jar"/>
+    </path>
+
+    <!-- org.xml.sax (SAX2 & SAX2 Extensions) -->
+    <property name="sax.root" value="${project.thirdparty}/xml/sax"/>
+    <property name="sax.lib" value="${sax.root}/lib"/>
+    <path id="sax.classpath">
+      <pathelement path="${sax.lib}/sax2.jar"/>
+      <pathelement path="${sax.lib}/sax2-ext.jar"/>
+    </path>
+
+    <!-- org.apache.crimson (Default XML parser for JDOM) -->
+    <property name="crimson.root" value="${project.thirdparty}/sun/jaxp"/>
+    <property name="crimson.lib"  value="${crimson.root}/lib"/>
+    <path id="crimson.classpath">
+      <pathelement path="${crimson.lib}/crimson.jar"/>
+    </path>
+    
+    <!-- Apache Commons -->
+    <property name="apache.commons.root" value="${project.thirdparty}/apache/commons"/>
+    <property name="apache.commons.lib" value="${apache.commons.root}/lib"/>
+    <path id="apache.commons.classpath">
+      <pathelement path="${apache.commons.lib}/commons-collections.jar"/>
+      <pathelement path="${apache.commons.lib}/commons-logging.jar"/>
+    </path>
+
+    <!-- JUnit -->
+    <property name="junit.junit.root" value="${project.thirdparty}/junit/junit"/>
+    <property name="junit.junit.lib" value="${junit.junit.root}/lib"/>
+    <path id="junit.junit.classpath">
+      <pathelement path="${junit.junit.lib}/junit.jar"/>
+    </path>
+
+    <!-- Log4j -->
+    <property name="apache.log4j.root" value="${project.thirdparty}/apache/log4j"/>
+    <property name="apache.log4j.lib" value="${apache.log4j.root}/lib"/>
+    <path id="apache.log4j.classpath">
+      <pathelement path="${apache.log4j.lib}/log4j.jar"/>
+    </path>
+
+    <!-- org.apache.bcel -->
+    <property name="apache.bcel.root" value="${project.thirdparty}/apache/bcel"/>
+    <property name="apache.bcel.lib"  value="${apache.bcel.root}/lib"/>
+    <path id="apache.bcel.classpath">
+      <pathelement path="${apache.bcel.lib}/bcel.jar"/>
+    </path>
+    
+    <!-- The combined library classpath -->
+    <path id="library.classpath">
+      <path refid="apache.log4j.classpath"/>
+      <path refid="apache.commons.classpath"/>
+      <path refid="oswego.concurrent.classpath"/>
+      <path refid="gnu.regexp.classpath"/>
+      <path refid="jdom.classpath"/>
+      <path refid="crimson.classpath"/>
+      <path refid="sax.classpath"/>
+      <path refid="junit.junit.classpath"/>
+      <path refid="apache.bcel.classpath"/>
+    </path>
+
+    <!-- ======= -->
+    <!-- Modules -->
+    <!-- ======= -->
+
+    <!-- Common -->
+    <property name="jboss.common.root" value="${project.root}/common/output"/>
+    <property name="jboss.common.lib" value="${jboss.common.root}/lib"/>
+    <path id="jboss.common.classpath">
+      <pathelement path="${jboss.common.lib}/jboss-common.jar"/>
+    </path>
+
+    <!-- The combined dependent module classpath -->
+    <path id="dependentmodule.classpath">
+      <path refid="jboss.common.classpath"/>
+    </path>
+
+    <!-- ===== -->
+    <!-- Tasks -->
+    <!-- ===== -->
+
+    <!-- Where source files live -->
+    <property name="source.java" value="${module.source}/main"/>
+    <property name="source.etc" value="${module.source}/etc"/>
+    <property name="source.resources" value="${module.source}/resources"/>
+    
+    <!-- Where build generated files will go -->
+    <property name="build.reports" value="${module.output}/reports"/>
+    <property name="build.classes" value="${module.output}/classes"/>
+    <property name="build.lib" value="${module.output}/lib"/>
+    <property name="build.api" value="${module.output}/api"/>
+    <property name="build.etc" value="${module.output}/etc"/>
+    <property name="build.gen-src" value="${module.output}/gen-src"/>
+    <property name="build.resources" value="${module.output}/resources"/>
+
+    <!-- Install/Release structure -->
+    <property name="install.id" value="${module.name}-${module.version}"/>
+    <property name="release.id" value="${install.id}"/>
+    <property name="install.root" value="${module.output}/${install.id}"/>
+
+    <!-- The combined thirdparty classpath -->
+    <path id="thirdparty.classpath">
+      <path refid="library.classpath"/>
+      <path refid="dependentmodule.classpath"/>
+    </path>
+
+    <!-- This module is based on Java 1.3 -->
+    <property name="javac.target" value="1.3"/>
+    
+    <!-- classpath and local.classpath must have a value using with a path -->
+    <property name="classpath" value=""/>
+    <property name="local.classpath" value=""/>
+
+    <!-- The classpath required to build classes. -->
+    <path id="javac.classpath">
+      <pathelement path="${classpath}"/>
+      <pathelement path="${local.classpath}"/>
+      <path refid="thirdparty.classpath"/>
+    </path>
+
+    <!-- The classpath required to build javadocs. -->
+    <path id="javadoc.classpath">
+      <path refid="javac.classpath"/>
+    </path>
+
+    <!-- Packages to include when generating api documentation -->
+    <property name="javadoc.packages" value="javax.management.*, org.jboss.*"/>
+
+    <!-- Override JUnit defaults -->
+    <property name="junit.timeout" value="240000"/> <!-- 4 minutes -->
+    <property name="junit.batchtest.todir" value="${build.reports}"/>
+    <property name="junit.jvm.options" value="-Ddummy"/>
+
+    <!-- xdoclet -->
+    <path id="xdoclet.task.classpath">
+      <path refid="javac.classpath"/>
+      <fileset dir="${project.thirdparty}/xdoclet/xdoclet/lib">
+        <include name="**/*.jar"/>
+      </fileset>
+    </path>
+    <property name="xdoclet.task.classpath" 
+	      refid="xdoclet.task.classpath"/>
+
+    <!-- Properties used in serialization tests -->
+    <property name="jboss.test.location.jmxri"
+              location="${project.thirdparty}/sun/jmx/lib/jmxri.jar"/>
+    <property name="jboss.test.location.jbossmx"
+              location="${build.lib}/jboss-jmx.jar"/>
+   
+    <path id="serialization.classpath">
+        <pathelement path="${build.lib}/jboss-jmx-testsuite.jar"/>
+       <path refid="thirdparty.classpath"/>
+    </path>
+
+  </target>
+
+  <!-- ================================================================== -->
+  <!-- Compile                                                            -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Compile everything.
+     |
+     | This target should depend on other compile-* targets for each
+     | different type of compile that needs to be performed, short of
+     | documentation compiles.
+   -->
+
+  <target name="compile"
+	  description="Compile all source files."
+	  depends="compile-classes, compile-etc, compile-resources"/>
+
+  <!-- Compile mbeans with XDoclet -->
+  <target name="compile-mbean-sources" depends="init">
+    <taskdef name="jmxdoclet" classname="xdoclet.jmx.JMXDocletTask" classpathref="xdoclet.task.classpath"/>
+
+    <mkdir dir="${build.gen-src}"/>
+<!--this will be enabled as soon as xdoclet 1.1.2 comes out.
+Since the xmbean doesn't really work now anyway, not a big loss
+    <xdoclet sourcepath="${source.java}"
+	     destdir="${build.gen-src}"
+	     classpath="${xdoclet.task.classpath}"
+	     excludedtags="@version,@author">
+      <fileset dir="${source.java}">
+        <include name="test/implementation/modelmbean/support/User.java"/>
+      </fileset>
+
+      <jbossxmbean/>
+
+    </xdoclet>
+-->
+  </target>
+
+  <!-- Compile all class files -->
+  <target name="compile-classes" depends="init, compile-mbean-sources">
+    <mkdir dir="${build.classes}"/>
+    <javac destdir="${build.classes}"
+           optimize="${javac.optimize}"
+	   target="${javac.target}"
+           debug="${javac.debug}"
+	   depend="${javac.depend}"
+	   verbose="${javac.verbose}"
+	   deprecation="${javac.deprecation}"
+	   includeAntRuntime="${javac.include.ant.runtime}"
+	   includeJavaRuntime="${javac.include.java.runtime}"
+	   failonerror="${javac.fail.onerror}">
+       <src path="${source.java}"/>
+       <classpath refid="javac.classpath"/>
+       <include name="${javac.includes}"/>
+       <exclude name="${javac.excludes}"/>
+    </javac>
+  </target>
+
+  <!-- Compile etc files (manifests and such) -->
+  <target name="compile-etc" depends="init">
+    <mkdir dir="${build.etc}"/>
+    <copy todir="${build.etc}" filtering="yes">
+      <fileset dir="${source.etc}">
+         <include name="**/*"/>
+      </fileset>
+    </copy>
+  </target>
+  <!-- Compile resource files (dtds) -->
+  <target name="compile-resources" depends="init">
+    <mkdir dir="${build.resources}"/>
+    <copy todir="${build.resources}" filtering="yes">
+      <fileset dir="${source.resources}">
+         <include name="metadata/*.dtd"/>
+      </fileset>
+    </copy>
+  </target>
+
+
+
+  <!-- ================================================================== -->
+  <!-- Archives                                                           -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Build all jar files.
+   -->
+  <target name="jars"
+	  description="Builds all jar files."
+	  depends="compile">
+
+    <mkdir dir="${build.lib}"/>
+    
+    <!-- Build the jboss-jmx.jar -->
+    <jar jarfile="${build.lib}/jboss-jmx.jar" manifest="${build.etc}/default.mf">
+      <fileset dir="${build.classes}">
+        <include name="**"/>
+        <exclude name="test/**"/>
+      </fileset>
+      <!-- include dtds for xmbeans -->
+      <fileset dir="${build.resources}">
+        <include name="metadata/*.dtd"/>
+        <include name="metadata/*.xsd"/>
+      </fileset>
+    </jar>
+    
+    <!-- Build the jboss-jmx-core.jar -->
+    <jar jarfile="${build.lib}/jboss-jmx-core.jar" manifest="${build.etc}/default.mf">
+      <fileset dir="${build.classes}">
+        <include name="**"/>
+        <exclude name="javax/management/monitor/**"/>
+        <exclude name="javax/management/relation/**"/>
+        <exclude name="javax/management/timer/**"/>
+        <exclude name="test/**"/>
+
+        <!-- Exclude service utility classes -->
+        <exclude name="org/jboss/mx/util/RunnableScheduler.class"/>
+        <exclude name="org/jboss/mx/util/SchedulableRunnable.class"/>
+        <exclude name="org/jboss/mx/util/ThreadPool*"/>
+
+        <!-- Exclude all the query stuff except QueryExp -->
+        <exclude name="javax/management/AndQueryExp.class"/>
+        <exclude name="javax/management/AnySubStringQueryExp.class"/>
+        <exclude name="javax/management/AttributeValueExp.class"/>
+        <exclude name="javax/management/BadAttributeValueExpException.class"/>
+        <exclude name="javax/management/BadBinaryOpValueExpException.class"/>
+        <exclude name="javax/management/BadStringOperationException.class"/>
+        <exclude name="javax/management/BetweenQueryExp.class"/>
+        <exclude name="javax/management/BinaryComparisonQueryExp.class"/>
+        <exclude name="javax/management/BinaryOpValueExp.class"/>
+        <exclude name="javax/management/BooleanValueExp.class"/>
+        <exclude name="javax/management/ClassAttributeValueExp.class"/>
+        <exclude name="javax/management/FinalSubStringQueryExp.class"/>
+        <exclude name="javax/management/InQueryExp.class"/>
+        <exclude name="javax/management/InitialSubStringQueryExp.class"/>
+        <exclude name="javax/management/InvalidApplicationException.class"/>
+        <exclude name="javax/management/MatchQueryExp.class"/>
+        <exclude name="javax/management/NotQueryExp.class"/>
+        <exclude name="javax/management/NumberValueExp.class"/>
+        <exclude name="javax/management/OrQueryExp.class"/>
+        <exclude name="javax/management/QualifiedAttributeValueExp.class"/>
+        <exclude name="javax/management/Query.class"/>
+        <exclude name="javax/management/QueryEval.class"/>
+        <exclude name="javax/management/QueryExpSupport.class"/>
+        <exclude name="javax/management/SingleValueExpSupport.class"/>
+        <exclude name="javax/management/StringValueExp.class"/>
+        <exclude name="javax/management/ValueExp.class"/>
+        <exclude name="javax/management/ValueExpSupport.class"/>
+      </fileset>
+    </jar>
+    
+    <!-- Build the jboss-jmx-services.jar -->
+    <jar jarfile="${build.lib}/jboss-jmx-services.jar" manifest="${build.etc}/default.mf">
+      <fileset dir="${build.classes}">
+        <include name="javax/management/monitor/**"/>
+        <include name="javax/management/relation/**"/>
+        <include name="javax/management/timer/**"/>
+
+        <!-- Include service utility classes -->
+        <include name="org/jboss/mx/util/RunnableScheduler.class"/>
+        <include name="org/jboss/mx/util/SchedulableRunnable.class"/>
+        <include name="org/jboss/mx/util/ThreadPool*"/>
+
+        <!-- Include all the query stuff except QueryExp -->
+        <include name="javax/management/AndQueryExp.class"/>
+        <include name="javax/management/AnySubStringQueryExp.class"/>
+        <include name="javax/management/AttributeValueExp.class"/>
+        <include name="javax/management/BadAttributeValueExpException.class"/>
+        <include name="javax/management/BadBinaryOpValueExpException.class"/>
+        <include name="javax/management/BadStringOperationException.class"/>
+        <include name="javax/management/BetweenQueryExp.class"/>
+        <include name="javax/management/BinaryComparisonQueryExp.class"/>
+        <include name="javax/management/BinaryOpValueExp.class"/>
+        <include name="javax/management/BooleanValueExp.class"/>
+        <include name="javax/management/ClassAttributeValueExp.class"/>
+        <include name="javax/management/FinalSubStringQueryExp.class"/>
+        <include name="javax/management/InQueryExp.class"/>
+        <include name="javax/management/InitialSubStringQueryExp.class"/>
+        <include name="javax/management/InvalidApplicationException.class"/>
+        <include name="javax/management/MatchQueryExp.class"/>
+        <include name="javax/management/NotQueryExp.class"/>
+        <include name="javax/management/NumberValueExp.class"/>
+        <include name="javax/management/OrQueryExp.class"/>
+        <include name="javax/management/QualifiedAttributeValueExp.class"/>
+        <include name="javax/management/Query.class"/>
+        <include name="javax/management/QueryEval.class"/>
+        <include name="javax/management/QueryExpSupport.class"/>
+        <include name="javax/management/SingleValueExpSupport.class"/>
+        <include name="javax/management/StringValueExp.class"/>
+        <include name="javax/management/ValueExp.class"/>
+        <include name="javax/management/ValueExpSupport.class"/>
+      </fileset>
+    </jar>
+
+    <!-- Build the jboss-jmx-testsuite.jar -->
+    <jar jarfile="${build.lib}/jboss-jmx-testsuite.jar">
+      <fileset dir="${build.classes}">
+        <include name="test/**"/>
+        <exclude name="test/compliance/loading/support/*.class"/>
+        <exclude name="test/compliance/server/support/AClass.*"/>
+        <exclude name="test/implementation/loading/support/*.class"/>
+      </fileset>
+      <fileset dir="${source.resources}/test/log4j">
+        <include name="log4j.properties"/>
+      </fileset>
+      <!--wait for xdoclet 1.1.2
+      <fileset dir="${build.gen-src}">
+        <include name="test/implementation/modelmbean/support/User.xml"/>
+      </fileset-->
+    </jar>
+    
+    
+    <mkdir dir="${build.etc}/test/compliance/loading"/>
+    <mkdir dir="${build.etc}/test/compliance/server"/>
+    <mkdir dir="${build.etc}/test/implementation/loading"/>
+    
+    <jar jarfile="${build.etc}/test/compliance/loading/MyMBeans.jar">
+      <fileset dir="${build.classes}">
+        <include name="test/compliance/loading/support/Trivial*.class"/>
+        <include name="test/compliance/loading/support/Another*.class"/>
+      </fileset>
+    </jar>
+
+    <jar jarfile="${build.etc}/test/compliance/loading/MoreMBeans.jar">
+      <fileset dir="${build.classes}">
+        <include name="test/compliance/loading/support/AClass.class"/>
+      </fileset>
+    </jar>
+
+    <jar jarfile="${build.etc}/test/implementation/loading/MyMBeans.jar">
+      <fileset dir="${build.classes}">
+        <include name="test/implementation/loading/support/Trivial*.class"/>
+      </fileset>
+    </jar>
+    
+    <jar jarfile="${build.etc}/test/compliance/server/Test.jar">
+      <fileset dir="${build.classes}">
+        <include name="test/compliance/server/support/AClass.class"/>
+      </fileset>
+    </jar>
+    
+    <copy todir="${build.etc}">
+      <fileset dir="${source.resources}">
+        <include name="test/compliance/loading/*.mlet"/>
+        <include name="test/implementation/loading/*.mlet"/>
+      </fileset>
+    </copy>
+    
+    <mkdir dir="${build.etc}/test/implementation/loading"/>
+    
+    <jar jarfile="${build.etc}/test/implementation/loading/Start.jar">
+      <fileset dir="${build.classes}">
+        <include name="test/implementation/loading/support/Start*.class"/>
+        <include name="test/implementation/loading/support/AClass.class"/>
+      </fileset>
+    </jar>
+    
+    <jar jarfile="${build.etc}/test/implementation/loading/Target.jar">
+      <fileset dir="${build.classes}">
+        <include name="test/implementation/loading/support/Target*.class"/>
+        <include name="test/implementation/loading/support/AClass.class"/>
+      </fileset>
+    </jar>
+    
+  </target>
+
+  <!-- ================================================================== -->
+  <!-- Install & Release                                                  -->
+  <!-- ================================================================== -->
+
+  <target name="install"
+	  description="Install the structure for a release."
+	  depends="all, _buildmagic:install:default"/>
+
+  <target name="release" depends="install"/>
+
+  <target name="release-zip"
+	  description="Builds a ZIP distribution."
+	  depends="release, _buildmagic:release:zip"/>
+
+  <target name="release-tar"
+	  description="Builds a TAR distribution."
+	  depends="release, _buildmagic:release:tar"/>
+
+  <target name="release-tgz"
+	  description="Builds a TAR-GZ distribution."
+	  depends="release, _buildmagic:release:tgz"/>
+
+  <target name="release-all"
+	  description="Builds a distribution for each archive type."
+	  depends="release-zip, release-tgz"/>
+
+
+  <!-- ================================================================== -->
+  <!-- Cleaning                                                           -->
+  <!-- ================================================================== -->
+
+  <!-- Clean up all build output -->
+  <target name="clean"
+	  description="Cleans up most generated files."
+	  depends="_buildmagic:clean">
+  </target>
+
+  <!-- Clean up all generated files -->
+  <target name="clobber"
+	  description="Cleans up all generated files."
+	  depends="_buildmagic:clobber, clean">
+  </target>
+
+
+  <!-- ================================================================== -->
+  <!-- Misc.                                                              -->
+  <!-- ================================================================== -->
+
+  <target name="main"
+	  description="Executes the default target (most)."
+	  depends="most"/>
+
+  <target name="all"
+	  description="Builds everything."
+	  depends="jars, docs"/>
+
+  <target name="most"
+	  description="Builds almost everything."
+	  depends="jars"/>
+
+  <target name="help"
+          description="Show this help message."
+	  depends="_buildmagic:help:standard"/>
+
+  <!-- ================================================================== -->
+  <!-- FULL Compliance - Run the complicance suite including long test    -->
+  <!-- ================================================================== -->
+
+  <!--
+     | There are three targets, one for the RI, one for JBossMX and one for both.
+     | WARNING, everthing is compiled over JBossMX
+   -->
+
+
+  <!-- IBM Tivoli FULL Implementation compliance -->
+  <!-- 
+  <target name="test-compliance-full-Tivoli" depends="jars"
+          description="Run FULL compliance test against IBM Tivoli">
+          
+   <path id="compliance.Tivoli.classpath">
+      <pathelement path="${project.thirdparty}/ibm/tivoli/jmx/lib/jmxx.jar"/>
+      <pathelement path="${project.thirdparty}/ibm/tivoli/jmx/lib/jmxc.jar"/>
+      <pathelement path="${project.thirdparty}/ibm/tivoli/jmx/lib/log.jar"/>
+      <pathelement path="${build.lib}/jboss-jmx-testsuite.jar"/>
+      <path refid="thirdparty.classpath"/>
+   </path>
+   
+   <java classname="test.compliance.FullComplianceSUITE" fork="true">
+      <classpath refid="compliance.Tivoli.classpath"/>
+   </java>
+  </target>
+  -->
+      
+  <!-- Reference FULL Implementation compliance -->
+  <target name="test-compliance-full-RI" depends="jars"
+          description="Run FULL compliance test against RI">
+
+    <path id="compliance.RI.classpath">
+       <pathelement path="${project.thirdparty}/sun/jmx/lib/jmxri.jar"/>
+       <pathelement path="${build.lib}/jboss-jmx-testsuite.jar"/>
+       <path refid="thirdparty.classpath"/>
+    </path>
+
+    <java classname="test.compliance.FullComplianceSUITE" fork="true">
+       <classpath refid="compliance.RI.classpath"/>
+    </java>
+
+  </target>
+
+  <!-- JBossMX FULL Implementation compliance -->
+  <target name="test-compliance-full-JBossMX" depends="jars"
+          description="Run FULL compliance test against JBossMX">
+
+    <path id="compliance.JBossMX.classpath">
+      <pathelement path="${build.lib}/jboss-jmx.jar"/>
+      <pathelement path="${build.lib}/jboss-jmx-testsuite.jar"/>
+      <path refid="thirdparty.classpath"/>
+    </path>
+
+    <java classname="test.compliance.FullComplianceSUITE" fork="true">
+       <classpath refid="compliance.JBossMX.classpath"/>
+    </java>
+
+  </target>
+
+  <!-- Run both FULL compliance tests -->
+  <target name="test-compliance-full" depends="test-compliance-full-RI, test-compliance-full-JBossMX"
+          description="Run FULL compliance test against RI and JBossMX">
+  </target>
+
+
+  <!-- ================================================================== -->
+  <!-- Compliance - Run the complicance suite                             -->
+  <!-- ================================================================== -->
+
+  <!--
+     | There are three targets, one for the RI, one for JBossMX and one for both.
+     | WARNING, everthing is compiled over JBossMX
+   -->
+
+
+  <!-- IBM Tivoli Implementation compliance -->
+  <!-- 
+  <target name="test-compliance-Tivoli" depends="jars"
+          description="Run compliance test against IBM Tivoli">
+          
+   <path id="compliance.Tivoli.classpath">
+      <pathelement path="${project.thirdparty}/ibm/tivoli/jmx/lib/jmxx.jar"/>
+      <pathelement path="${project.thirdparty}/ibm/tivoli/jmx/lib/jmxc.jar"/>
+      <pathelement path="${project.thirdparty}/ibm/tivoli/jmx/lib/log.jar"/>
+      <pathelement path="${build.lib}/jboss-jmx-testsuite.jar"/>
+      <path refid="thirdparty.classpath"/>
+   </path>
+   
+   <java classname="test.compliance.ComplianceSUITE" fork="true">
+      <classpath refid="compliance.Tivoli.classpath"/>
+   </java>
+  </target>
+  -->
+      
+  <!-- Reference Implementation compliance -->
+  <target name="test-compliance-RI" depends="jars"
+          description="Run compliance test against RI">
+
+    <path id="compliance.RI.classpath">
+       <pathelement path="${project.thirdparty}/sun/jmx/lib/jmxri.jar"/>
+       <pathelement path="${build.lib}/jboss-jmx-testsuite.jar"/>
+       <path refid="thirdparty.classpath"/>
+    </path>
+
+    <java classname="test.compliance.ComplianceSUITE" fork="true">
+       <classpath refid="compliance.RI.classpath"/>
+    </java>
+
+  </target>
+
+  <!-- JBossMX Implementation compliance -->
+  <target name="test-compliance-JBossMX" depends="jars"
+          description="Run compliance test against JBossMX">
+
+    <path id="compliance.JBossMX.classpath">
+      <pathelement path="${build.lib}/jboss-jmx.jar"/>
+      <pathelement path="${build.lib}/jboss-jmx-testsuite.jar"/>
+      <path refid="thirdparty.classpath"/>
+    </path>
+
+    <java classname="test.compliance.ComplianceSUITE" fork="true">
+       <classpath refid="compliance.JBossMX.classpath"/>
+    </java>
+
+  </target>
+
+  <!-- Run both compliance tests -->
+  <target name="test-compliance" depends="test-compliance-RI, test-compliance-JBossMX"
+          description="Run compliance test against RI and JBossMX">
+  </target>
+
+  <!-- ================================================================== -->
+  <!-- Performance - Runs the performance test suite                      -->
+  <!-- ================================================================== -->
+
+  <!--
+     | There are three targets, one for the RI, one for JBossMX and one for both.
+     | WARNING, everthing is compiled over JBossMX
+   -->
+
+  <!-- IBM Tivoli Implementation performance -->
+  <!--
+  <target name="test-performance-Tivoli" depends="jars"
+          description="Run performance test against IBM Tivoli">
+          
+   <path id="performance.Tivoli.classpath">
+      <pathelement path="${project.thirdparty}/ibm/tivoli/jmx/lib/jmxx.jar"/>
+      <pathelement path="${project.thirdparty}/ibm/tivoli/jmx/lib/jmxc.jar"/>
+      <pathelement path="${project.thirdparty}/ibm/tivoli/jmx/lib/log.jar"/>
+      <pathelement path="${build.lib}/jboss-jmx-testsuite.jar"/>
+      <path refid="thirdparty.classpath"/>
+   </path>
+
+   <java classname="test.performance.PerformanceSUITE" fork="true">
+      <classpath refid="performance.Tivoli.classpath"/>
+   </java>
+  </target>
+  -->
+  
+  <!-- Reference Implementation performance -->
+  <target name="test-performance-RI" depends="jars"
+          description="Run performance test against RI">
+          
+   <path id="performance.RI.classpath">
+      <pathelement path="${project.thirdparty}/sun/jmx/lib/jmxri.jar"/>
+      <pathelement path="${build.lib}/jboss-jmx-testsuite.jar"/>
+      <path refid="thirdparty.classpath"/>
+   </path>
+   
+   <java classname="test.performance.PerformanceSUITE" fork="true">
+      <classpath refid="performance.RI.classpath"/>
+   </java>
+  </target>
+  
+  <!-- JBossMX Implementation performance -->
+  <target name="test-performance-JBossMX" depends="jars"
+          description="Run performance test against JBossMX">
+          
+   <path id="performance.JBossMX.classpath">
+      <pathelement path="${build.lib}/jboss-jmx.jar"/>
+      <pathelement path="${build.lib}/jboss-jmx-testsuite.jar"/>
+      <path refid="thirdparty.classpath"/>
+   </path>
+   
+   <java classname="test.performance.PerformanceSUITE" fork="true">
+      <classpath refid="performance.JBossMX.classpath"/>
+   </java>
+  </target>
+
+  <!-- Run both performance tests -->
+  <target name="test-performance" depends="test-performance-RI, test-performance-JBossMX"
+          description="Run performance test against RI and JBossMX">
+  </target>
+  
+  <!-- ================================================================== -->
+  <!-- Implementation - tests the JBossMX implementation classes.         -->
+  <!-- ================================================================== -->
+  <target name="test-implementation" depends="jars"
+          description="Tests JBossMX implementation classes">
+   
+   <path id="implementation.JBossMX.classpath">
+      <pathelement path="${build.lib}/jboss-jmx.jar"/>
+      <pathelement path="${build.lib}/jboss-jmx-testsuite.jar"/>
+      <path refid="thirdparty.classpath"/>
+   </path>
+   
+   
+   <java classname="test.implementation.ImplementationSUITE" fork="true">
+      <classpath refid="implementation.JBossMX.classpath"/>
+   </java>
+  </target>
+  
+  <!-- ================================================================== -->
+  <!-- Serialization  - tests the JBossMX serialization compatibility     -->
+  <!--                  with the RI                                       -->
+  <!-- ================================================================== -->
+  <target name="test-serialization-1.0" depends="jars"
+          description="Tests JBossMX serialization with jmx 1.0">
+   
+   <java classname="test.serialization.SerializationSUITE" fork="true">
+      <classpath refid="serialization.classpath"/>
+      <sysproperty key="jboss.test.location.jmxri"
+                   value="${jboss.test.location.jmxri}"/>
+      <sysproperty key="jboss.test.location.jbossmx"
+                   value="${jboss.test.location.jbossmx}"/>
+      <sysproperty key="jmx.serial.form" value="1.0"/>
+   </java>
+  </target>
+
+  <target name="test-serialization-latest" depends="jars"
+          description="Tests JBossMX serialization with latest RI">
+   
+   <java classname="test.serialization.SerializationSUITE" fork="true">
+      <classpath refid="serialization.classpath"/>
+      <sysproperty key="jboss.test.location.jmxri"
+                   value="${jboss.test.location.jmxri}"/>
+      <sysproperty key="jboss.test.location.jbossmx"
+                   value="${jboss.test.location.jbossmx}"/>
+      <sysproperty key="jboss.test.location.jbossmx"
+                   value="${jboss.test.location.jbossmx}"/>
+   </java>
+  </target>
+
+  <target name="test-serialization" 
+          depends="test-serialization-1.0, test-serialization-latest"
+          description="Tests all JBossMX serialization with latest RI">
+  </target>
+  
+  <!-- ================================================================== -->
+  <!-- Stress - tests under stress conditions                             -->
+  <!-- ================================================================== -->
+
+  <!--
+     | There are three targets, one for the RI, one for JBossMX and one for both.
+     | WARNING, everthing is compiled over JBossMX
+   -->
+  
+  <!-- Reference Implementation stress -->
+  <target name="test-stress-RI" depends="jars"
+          description="Run stress test against RI">
+          
+   <path id="stress.RI.classpath">
+      <pathelement path="${project.thirdparty}/sun/jmx/lib/jmxri.jar"/>
+      <pathelement path="${build.lib}/jboss-jmx-testsuite.jar"/>
+      <path refid="thirdparty.classpath"/>
+   </path>
+   
+   <java classname="test.stress.StressSUITE" fork="true">
+      <classpath refid="stress.RI.classpath"/>
+   </java>
+  </target>
+
+  <!-- JBossMX stress -->
+  <target name="test-stress-JBossMX" depends="jars"
+          description="Tests JBossMX under stress">
+   
+   <path id="stress.JBossMX.classpath">
+      <pathelement path="${build.lib}/jboss-jmx.jar"/>
+      <pathelement path="${build.lib}/jboss-jmx-testsuite.jar"/>
+      <path refid="thirdparty.classpath"/>
+   </path>
+   
+   <java classname="test.stress.StressSUITE" fork="true">
+      <classpath refid="stress.JBossMX.classpath"/>
+   </java>
+  </target>
+
+  <!-- Run both stress tests -->
+  <target name="test-stress" depends="test-stress-RI, test-stress-JBossMX"
+          description="Run stress test against RI and JBossMX">
+  </target>
+  
+</project>

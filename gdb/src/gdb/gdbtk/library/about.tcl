@@ -16,7 +16,7 @@
 # Implements About window
 # ----------------------------------------------------------------------
 
-class About {
+itcl::class About {
   inherit ManagedWin ModalDialog
   constructor {args} {
     global gdb_ImageDir

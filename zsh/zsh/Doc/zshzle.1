@@ -1,4 +1,4 @@
-.TH "ZSHZLE" "1" "October 26, 2001" "zsh 4\&.0\&.4"
+.TH "ZSHZLE" "1" "June 18, 2003" "zsh 4\&.1\&.1"
 .SH "NAME"
 zshzle \- zsh command line editor
 .\" Yodl file: Zsh/zle.yo
@@ -136,9 +136,8 @@ Selects keymap `\fBviins\fP', and also links it to `\fBmain\fP'\&.
 \fB\-a\fP
 Selects keymap `\fBvicmd\fP'\&.
 .TP
-\fB\-M\fP
-The first non\-option argument is used as a keymap name,
-and does not otherwise count as an argument\&.
+\fB\-M\fP \fIkeymap\fP
+The \fIkeymap\fP specifies a keymap name\&.
 .PP
 If a keymap selection is required and none of the options above are used, the
 `\fBmain\fP' keymap is used\&.  Some operations do not permit a keymap to be
@@ -358,6 +357,12 @@ causes \fBvared\fP to exit immediately with a non\-zero return value\&.
 \fBzle\fP \fB\-U\fP \fIstring\fP
 .TP
 .PD 0
+\fBzle\fP \fB\-K\fP \fIkeymap\fP
+.TP
+.PD 0
+\fBzle\fP \fB\-F\fP [ \fB\-L\fP ] [ \fIfd\fP [ \fIhandler\fP ] ]
+.TP
+.PD 0
 \fBzle\fP \fB\-I\fP
 .TP
 .PD 0
@@ -455,9 +460,84 @@ the characters in each \fIstring\fP will be processed in the order in which
 they appear in the string\&.
 .RE
 .TP
+\fB\-K\fP \fIkeymap\fP
+Selects the keymap named \fIkeymap\fP\&.  An error message will be displayed if
+there is no such keymap\&.
+.RS
+.PP
+This keymap selection affects the interpretation of following keystrokes
+within this invocation of ZLE\&.  Any following invocation (e\&.g\&., the next
+command line) will start as usual with the `\fBmain\fP' keymap selected\&.
+.RE
+.TP
+\fB\-F\fP [ \fB\-L\fP ] [ \fIfd\fP [ \fIhandler\fP ] ]
+Only available if your system supports one of the `poll' or `select' system
+calls; most modern systems do\&.
+.RS
+.PP
+Installs \fIhandler\fP (the name of a shell function) to handle input from
+file descriptor \fIfd\fP\&.  When zle is attempting to read data, it will
+examine both the terminal and the list of handled \fIfd\fP's\&.  If data
+becomes available on a handled \fIfd\fP, zle will call \fIhandler\fP with
+the fd which is ready for reading as the only argument\&.  If the handler
+produces output to the terminal, it should call `\fBzle \-I\fP' before doing
+so (see below)\&.  The handler should not attempt to read from the terminal\&.
+Note that zle makes no attempt to check whether this fd is actually
+readable when installing the handler\&.  The user must make their own
+arrangements for handling the file descriptor when zle is not active\&.
+.PP
+Any number of handlers for any number of readable file descriptors may be
+installed\&.  Installing a handler for an \fIfd\fP which is already handled
+causes the existing handler to be replaced\&.
+.PP
+If no \fIhandler\fP is given, but an \fIfd\fP is present, any handler for
+that \fIfd\fP is removed\&.  If there is none, an error message is printed
+and status 1 is returned\&.
+.PP
+If no arguments are given, or the \fB\-L\fP option is supplied, a list of
+handlers is printed in a form which can be stored for later execution\&.
+.PP
+An \fIfd\fP (but not a \fIhandler\fP) may optionally be given with the \fB\-L\fP
+option; in this case, the function will list the handler if any, else
+silently return status 1\&.
+.PP
+Note that this feature should be used with care\&.  Activity on one of the
+\fIfd\fP's which is not properly handled can cause the terminal to become
+unusable\&.
+.PP
+Here is a simple example of using this feature\&.  A connection to a remote
+TCP port is created using the ztcp command; see 
+the description of the \fBzsh/net/tcp\fP module in \fIzshmodules\fP(1)\&.  Then a handler is installed
+which simply prints out any data which arrives on this connection\&.  Note
+that `select' will indicate that the file descriptor needs handling
+if the remote side has closed the connection; we handle that by testing
+for a failed read\&.
+.RS
+.nf
+\fBif ztcp pwspc 2811; then
+  tcpfd=$REPLY
+  handler() {
+    zle \-I
+    local line
+    if ! read \-r line <&$1; then
+      # select marks this fd if we reach EOF,
+      # so handle this specially\&.
+      print "[Read on fd $1 failed, removing\&.]" >&2
+      zle \-F $1
+      return 1
+    fi
+    print \-r \- $line
+  }
+  zle \-F $tcpfd handler
+fi\fP
+.fi
+.RE
+.RE
+.TP
 \fB\-I\fP
-Unusually, this option is only useful \fIoutside\fP ordinary widget functions\&.
-It invalidates the current zle display in preparation for output; usually
+Unusually, this option is most useful outside ordinary widget functions,
+though it may be used within if normal output to the terminal is required\&.
+It invalidates the current zle display in preparation for output; typically
 this will be from a trap function\&.  It has no effect if zle is not
 active\&.  When a trap exits, the shell checks to see if the display needs
 restoring, hence the following will print output in such a way as not to
@@ -468,19 +548,27 @@ disturb the line being edited:
 .nf
 \fBTRAPUSR1() {
     # Invalidate zle display
-  zle \-I
+  [[ \-o zle ]] && zle \-I
     # Show output
   print Hello
 }\fP
 .fi
 .RE
 .PP
-Note that there are better ways of manipulating the display from within zle
-widgets\&.  In general, the trap function may need to test whether zle is
-loaded before using this method; if it is not, there is no point in loading
-it specially since the line editor will not be active\&.
+In general, the trap function may need to test whether zle is active before
+using this method (as shown in the example), since the \fBzsh/zle\fP module
+may not even be loaded; if it is not, the command can be skipped\&.
 .PP
-The status is zero if zle was active, else one\&.
+It is possible to call `\fBzle \-I\fP' several times before control is
+returned to the editor; the display will only be invalidated the first time
+to minimise disruption\&.
+.PP
+Note that there are normally better ways of manipulating the display from
+within zle widgets; see, for example, `\fBzle \-R\fP' above\&.
+.PP
+The status is zero if zle is active and the current zle display has
+been invalidated (even if this was by a previous call to `\fBzle \-I\fP'),
+else one\&.
 .RE
 .TP
 \fIwidget\fP \fB[ \-n\fP \fInum\fP \fB]\fP \fB[ \-N ]\fP \fIargs\fP \&.\&.\&.
@@ -564,10 +652,10 @@ The entire contents of the edit buffer\&.  If it is written to, the
 cursor remains at the same offset, unless that would put it outside the
 buffer\&.
 .TP
-\fBBUFFERLINES\fP
+\fBBUFFERLINES\fP (integer)
 The number of screen lines needed for the edit buffer currently
 displayed on screen (i\&.e\&. without any changes to the preceding
-parameters done after the last redisplay)\&.
+parameters done after the last redisplay); read\-only\&.
 .TP
 \fBCURSOR\fP (integer)
 The offset of the cursor, within the edit buffer\&.  This is in the range
@@ -575,14 +663,39 @@ The offset of the cursor, within the edit buffer\&.  This is in the range
 Attempts to move the cursor outside the buffer will result in the
 cursor being moved to the appropriate end of the buffer\&.
 .TP
+\fBCUTBUFFER\fP (scalar)
+The last item to be cut using one of the `\fBkill\-\fP' commands; the
+string which the next yank would insert in the line\&.
+.TP
 \fBHISTNO\fP (integer)
-The current history number\&.
+The current history number; read\-only\&.
+.TP
+\fBKEYMAP\fP (scalar)
+The name of the currently selected keymap; read\-only\&.
 .TP
 \fBKEYS\fP (scalar)
-The keys typed to invoke this widget, as a literal string\&.
+The keys typed to invoke this widget, as a literal string; read\-only\&.
+.TP
+\fBkillring\fP (array)
+The array of previously killed items, with the most recently killed first\&.
+This gives the items that would be retrieved by a \fByank\-pop\fP in the
+same order\&.
+.RS
+.PP
+The default size for the kill ring is eight, however the length may be
+changed by normal array operations\&.  Any empty string in the kill ring is
+ignored by the \fByank\-pop\fP command, hence the size of the array
+effectively sets the maximum length of the kill ring, while the number of
+non\-zero strings gives the current length, both as seen by the user at the
+command line\&.
+.RE
+.PP
+.TP
+\fBLASTSEARCH\fP (scalar)
+The last search string used by an interactive search ; read\-only\&.
 .TP
 \fBLASTWIDGET\fP (scalar)
-The name of the last widget that was executed\&.
+The name of the last widget that was executed; read\-only\&.
 .TP
 \fBLBUFFER\fP (scalar)
 The part of the buffer that lies to the left of the cursor position\&.
@@ -603,12 +716,24 @@ called behave as if no numeric argument was given\&.
 The number of bytes pending for input, i\&.e\&. the number of bytes which have
 already been typed and can immediately be read\&. On systems where the shell
 is not able to get this information, this parameter will always have a
-value of zero\&.
+value of zero\&.  Read\-only\&.
 .TP
 \fBPREBUFFER\fP (scalar)
 In a multi\-line input at the secondary prompt, this read\-only parameter
 contains the contents of the lines before the one the cursor is
 currently in\&.
+.TP
+\fBPREDISPLAY\fP (scalar)
+Text to be displayed before the start of the editable text buffer\&.  This
+does not have to be a complete line; to display a complete line, a newline
+must be appended explicitly\&.    The text is reset on each new invocation
+(but not recursive invocation) of zle\&.
+.TP
+\fBPOSTDISPLAY\fP (scalar)
+Text to be displayed after the end of the editable text buffer\&.  This
+does not have to be a complete line; to display a complete line, a newline
+must be prepended explicitly\&.  The text is reset on each new invocation
+(but not recursive invocation) of zle\&.
 .TP
 \fBRBUFFER\fP (scalar)
 The part of the buffer that lies to the right of the cursor position\&.
@@ -616,7 +741,7 @@ If it is assigned to, only that part of the buffer is replaced, and the
 cursor remains between the old \fB$LBUFFER\fP and the new \fB$RBUFFER\fP\&.
 .TP
 \fBWIDGET\fP (scalar)
-The name of the widget currently being executed\&.
+The name of the widget currently being executed; read\-only\&.
 .SH "STANDARD WIDGETS"
 The following is a list of all the standard widgets,
 and their default bindings in emacs mode,
@@ -924,6 +1049,47 @@ left (zero inserts the previous command word)\&.  Repeating this command
 replaces the word just inserted with the last word from the
 history event prior to the one just used; numeric arguments can be used in
 the same way to pick a word from that event\&.
+.RS
+.PP
+When called from a shell function invoked from a user\-defined widget, the
+command can take one to three arguments\&.  The first argument specifies a
+history offset which applies to successive calls to this widget: if is \-1,
+the default behaviour is used, while if it is 1, successive calls will move
+forwards through the history\&.  The value 0 can be used to indicate that the
+history line examined by the previous execution of the command will be
+reexamined\&.  Note that negative numbers should be preceded with a
+`\fB\-\fP\fB\-\fP' argument to avoid confusing them with options\&.
+.PP
+If two arguments are given, the second specifies the word on the command
+line in normal array index notation (as a more natural alternative to the
+prefix argument)\&.  Hence 1 is the first word, and \-1 (the default) is the
+last word\&.
+.PP
+If a third argument is given, its value is ignored, but it is used to
+signify that the history offset is relative to the current history line,
+rather than the one remembered after the previous invocations of
+\fBinsert\-last\-word\fP\&.
+.PP
+For example, the default behaviour of the command corresponds to
+.PP
+.RS
+.nf
+\fBzle insert\-last\-word \-\- \-1 \-1\fP
+.fi
+.RE
+.PP
+while the command
+.PP
+.RS
+.nf
+\fBzle insert\-last\-word \-\- \-1 1 \-\fP
+.fi
+.RE
+.PP
+always copies the first word of the line in the history immediately before
+the line being edited\&.  This has the side effect that later invocations of
+the widget will be relative to that line\&.
+.RE
 .TP
 \fBvi\-repeat\-search\fP (unbound) (n) (unbound)
 Repeat the last vi history search\&.
@@ -1390,6 +1556,52 @@ At the top\-level (\fBPS1\fP) prompt, equivalent to \fBpush\-line\fP\&.
 At a secondary (\fBPS2\fP) prompt, move the entire current multiline
 construct into the editor buffer\&.
 The latter is equivalent to \fBpush\-input\fP followed by \fBget\-line\fP\&.
+.TP
+\fBrecursive\-edit\fP
+Only useful from a user\-defined widget\&.  At this point in the function,
+the editor regains control until one of the standard widgets which would
+normally cause zle to exit (typically an \fBaccept\-line\fP caused by
+hitting the return key) is executed\&.  Instead, control returns to the
+user\-defined widget\&.  The status returned is non\-zero if the return was
+caused by an error, but the function still continues executing and hence
+may tidy up\&.  This makes it safe for the user\-defined widget to alter
+the command line or key bindings temporarily\&.
+.RS
+.PP
+The following widget, \fBcaps\-lock\fP, serves as an example\&.
+.RS
+.nf
+\fBself\-insert\-ucase() {
+  LBUFFER+=${(U)KEYS[\-1]}
+}
+.PP
+integer stat
+.PP
+zle \-N self\-insert self\-insert\-ucase
+zle \-A caps\-lock save\-caps\-lock
+zle \-A accept\-line caps\-lock
+.PP
+zle recursive\-edit
+stat=$?
+.PP
+zle \-A \&.self\-insert self\-insert
+zle \-A save\-caps\-lock caps\-lock
+zle \-D save\-caps\-lock
+.PP
+(( stat )) && zle send\-break
+.PP
+return $stat
+\fP
+.fi
+.RE
+This causes typed letters to be inserted capitalised until either
+\fBaccept\-line\fP (i\&.e\&. typically the return key) is typed or the
+\fBcaps\-lock\fP widget is invoked again; the later is handled by saving
+the old definition of \fBcaps\-lock\fP as \fBsave\-caps\-lock\fP and then
+rebinding it to invoke \fBaccept\-line\fP\&.  Note that an error from the
+recursive edit is detected as a non\-zero return status and propagated by
+using the \fBsend\-break\fP widget\&.
+.RE
 .TP
 \fBredisplay\fP (unbound) (^R) (^R)
 Redisplays the edit buffer\&.

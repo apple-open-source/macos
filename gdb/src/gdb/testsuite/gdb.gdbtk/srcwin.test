@@ -48,7 +48,7 @@ proc move_mouse_to {win bbox} {
   return 1
 }
 
-proc click {win bbox event} {
+proc click {win bbox bnum} {
   if {![move_mouse_to $win $bbox]} {
     return 0
   }
@@ -57,7 +57,10 @@ proc click {win bbox event} {
   set x [expr [lindex $bbox 0] + [lindex $bbox 2] / 2]
   set y [expr [lindex $bbox 1] + [lindex $bbox 3] / 2]
 
-  if {[catch {event generate $win $event -x $x -y $y} result]} {
+  if {[catch {event generate $win <Button-$bnum> -x $x -y $y} result]} {
+    return 0
+  }
+  if {[catch {event generate $win <ButtonRelease-$bnum> -x $x -y $y} result]} {
     return 0
   }
   return 1
@@ -1079,7 +1082,7 @@ gdbtk_test srcwin-4.4 "Click on line to set BP" {
   set r 0
 
   # click mouse button 1 at index 20.1
-  if {![click $twin [$twin bbox 20.1] <Button-1>]} {
+  if {![click $twin [$twin bbox 20.1] 1]} {
     set r "Click failed on line 20.1"
   } else {
 
@@ -1147,9 +1150,10 @@ gdbtk_test srcwin-5.1 "variable balloon test" {
   move_mouse_to $twin [$twin bbox 20.$index]
   sleep 1
   if {[winfo ismapped $balloon]} {
-    if {![string compare "x=5" [$balloon.label cget -text]]} {incr r}
-    gdb_immediate "continue" 1
     if {![string compare "x=9" [$balloon.label cget -text]]} {incr r}
+    gdb_immediate "continue" 1
+    sleep 1
+    if {![string compare "x=13" [$balloon.label cget -text]]} {incr r}
   } else {
     set r -1
   }

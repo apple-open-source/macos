@@ -1,5 +1,7 @@
 /* Delete entries from a tar archive.
-   Copyright (C) 1988, 1992, 1994, 1996, 1997 Free Software Foundation, Inc.
+
+   Copyright (C) 1988, 1992, 1994, 1996, 1997, 2000, 2001 Free
+   Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -20,56 +22,55 @@
 #include "common.h"
 #include "rmt.h"
 
-static union block *new_record = NULL;
-static union block *save_record = NULL;
-static off_t records_read = 0;
-static int new_blocks = 0;
-static int blocks_needed = 0;
+static union block *new_record;
+static int new_blocks;
+static bool acting_as_filter;
 
-/* FIXME: This module should not directly handle the following three
-   variables, instead, this should be done in buffer.c only.  */
+/* FIXME: This module should not directly handle the following
+   variables, instead, the interface should be cleaned up.  */
 extern union block *record_start;
 extern union block *record_end;
 extern union block *current_block;
+extern union block *recent_long_name;
+extern union block *recent_long_link;
+extern size_t recent_long_name_blocks;
+extern size_t recent_long_link_blocks;
+extern off_t records_read; 
+extern off_t records_written;
 
-/*-------------------------------------------------------------------------.
-| Move archive descriptor by COUNT records worth.  If COUNT is positive we |
-| move forward, else we move negative.  If its a tape, MTIOCTOP had better |
-| work.  If its something else, we try to seek on it.  If we can't seek,   |
-| we loose!								   |
-`-------------------------------------------------------------------------*/
+/* The number of records skipped at the start of the archive, when
+   passing over members that are not deleted.  */
+static off_t records_skipped;
 
+/* Move archive descriptor by COUNT records worth.  If COUNT is
+   positive we move forward, else we move negative.  If it's a tape,
+   MTIOCTOP had better work.  If it's something else, we try to seek
+   on it.  If we can't seek, we lose!  */
 static void
 move_archive (off_t count)
 {
+  if (count == 0)
+    return;
+
 #ifdef MTIOCTOP
   {
     struct mtop operation;
-    int status;
 
-    if (count > 0)
+    if (count < 0
+	? (operation.mt_op = MTBSR,
+	   operation.mt_count = -count,
+	   operation.mt_count == -count)
+	: (operation.mt_op = MTFSR,
+	   operation.mt_count = count,
+	   operation.mt_count == count))
       {
-	operation.mt_op = MTFSR;
-	operation.mt_count = count;
-	if (operation.mt_count != count)
-	  FATAL_ERROR ((0, 0, _("Could not re-position archive file")));
-      }
-    else
-      {
-	operation.mt_op = MTBSR;
-	operation.mt_count = -count;
-	if (operation.mt_count != -count)
-	  FATAL_ERROR ((0, 0, _("Could not re-position archive file")));
-      }
+	if (0 <= rmtioctl (archive, MTIOCTOP, (char *) &operation))
+	  return;
 
-    if (status = rmtioctl (archive, MTIOCTOP, (char *) &operation),
-	status >= 0)
-      return;
-
-    if (errno == EIO)
-      if (status = rmtioctl (archive, MTIOCTOP, (char *) &operation),
-	  status >= 0)
-      return;
+	if (errno == EIO
+	    && 0 <= rmtioctl (archive, MTIOCTOP, (char *) &operation))
+	  return;
+      }
   }
 #endif /* MTIOCTOP */
 
@@ -80,25 +81,23 @@ move_archive (off_t count)
 
     if (increment / count != record_size
 	|| (position < position0) != (increment < 0)
-	|| rmtlseek (archive, position, SEEK_SET) != position)
-      FATAL_ERROR ((0, 0, _("Could not re-position archive file")));
+	|| (position = position < 0 ? 0 : position,
+	    rmtlseek (archive, position, SEEK_SET) != position))
+      seek_error_details (archive_name_array[0], position);
 
     return;
   }
 }
 
-/*----------------------------------------------------------------.
-| Write out the record which has been filled.  If MOVE_BACK_FLAG, |
-| backspace to where we started.                                  |
-`----------------------------------------------------------------*/
-
+/* Write out the record which has been filled.  If MOVE_BACK_FLAG,
+   backspace to where we started.  */
 static void
 write_record (int move_back_flag)
 {
-  save_record = record_start;
+  union block *save_record = record_start;
   record_start = new_record;
 
-  if (archive == STDIN_FILENO)
+  if (acting_as_filter)
     {
       archive = STDOUT_FILENO;
       flush_write ();
@@ -106,7 +105,7 @@ write_record (int move_back_flag)
     }
   else
     {
-      move_archive (-(records_read + 1));
+      move_archive ((records_written + records_skipped) - records_read);
       flush_write ();
     }
 
@@ -116,19 +115,24 @@ write_record (int move_back_flag)
     {
       /* Move the tape head back to where we were.  */
 
-      if (archive != STDIN_FILENO)
-	move_archive (records_read);
-
-      records_read--;
+      if (! acting_as_filter)
+	move_archive (records_read - (records_written + records_skipped));
     }
 
-  blocks_needed = blocking_factor;
   new_blocks = 0;
 }
 
-/*---.
-| ?  |
-`---*/
+static void
+write_recent_blocks (union block *h, size_t blocks)
+{
+  size_t i;
+  for (i = 0; i < blocks; i++)
+    {
+      new_record[new_blocks++] = h[i];
+      if (new_blocks == blocking_factor)
+	write_record (1);
+    }
+}
 
 void
 delete_archive_members (void)
@@ -144,10 +148,11 @@ delete_archive_members (void)
 
   name_gather ();
   open_archive (ACCESS_UPDATE);
+  acting_as_filter = strcmp (archive_name_array[0], "-") == 0;
 
-  while (logical_status == HEADER_STILL_UNREAD)
+  do
     {
-      enum read_header status = read_header ();
+      enum read_header status = read_header (1);
 
       switch (status)
 	{
@@ -157,17 +162,22 @@ delete_archive_members (void)
 	case HEADER_SUCCESS:
 	  if (name = name_scan (current_file_name), !name)
 	    {
-	      set_next_block_after (current_header);
-	      if (current_header->oldgnu_header.isextended)
-		skip_extended_headers ();
-	      skip_file (current_stat.st_size);
+	      skip_member ();
 	      break;
 	    }
 	  name->found = 1;
-	  logical_status = HEADER_SUCCESS;
+	  /* Fall through.  */
+	case HEADER_SUCCESS_EXTENDED:
+	  logical_status = status;
 	  break;
 
 	case HEADER_ZERO_BLOCK:
+	  if (ignore_zeros_option)
+	    {
+	      set_next_block_after (current_header);
+	      break;
+	    }
+	  /* Fall through.  */
 	case HEADER_END_OF_FILE:
 	  logical_status = HEADER_END_OF_FILE;
 	  break;
@@ -196,144 +206,159 @@ delete_archive_members (void)
 
       previous_status = status;
     }
+  while (logical_status == HEADER_STILL_UNREAD);
 
-  if (logical_status != HEADER_SUCCESS)
+  records_skipped = records_read - 1;
+  new_record = xmalloc (record_size);
+
+  if (logical_status == HEADER_SUCCESS
+      || logical_status == HEADER_SUCCESS_EXTENDED)
     {
-      write_eot ();
-      close_archive ();
-      names_notfound ();
-      return;
-    }
+      write_archive_to_stdout = 0;
 
-  write_archive_to_stdout = 0;
-  new_record = (union block *) xmalloc (record_size);
+      /* Save away blocks before this one in this record.  */
 
-  /* Save away blocks before this one in this record.  */
+      new_blocks = current_block - record_start;
+      if (new_blocks)
+	memcpy (new_record, record_start, new_blocks * BLOCKSIZE);
 
-  new_blocks = current_block - record_start;
-  blocks_needed = blocking_factor - new_blocks;
-  if (new_blocks)
-    memcpy ((void *) new_record, (void *) record_start,
-	   (size_t) (new_blocks * BLOCKSIZE));
-
-#if 0
-  /* FIXME: Old code, before the goto was inserted.  To be redesigned.  */
-  set_next_block_after (current_header);
-  if (current_header->oldgnu_header.isextended)
-    skip_extended_headers ();
-  skip_file (current_stat.st_size);
-#endif
-  logical_status = HEADER_STILL_UNREAD;
-  goto flush_file;
-
-  /* FIXME: Solaris 2.4 Sun cc (the ANSI one, not the old K&R) says:
-       "delete.c", line 223: warning: loop not entered at top
-     Reported by Bruno Haible.  */
-  while (1)
-    {
-      enum read_header status;
-
-      /* Fill in a record.  */
-
-      if (current_block == record_end)
+      if (logical_status == HEADER_SUCCESS)
 	{
-	  flush_archive ();
-	  records_read++;
-	}
-      status = read_header ();
-
-      if (status == HEADER_ZERO_BLOCK && ignore_zeros_option)
-	{
-	  set_next_block_after (current_header);
-	  continue;
-	}
-      if (status == HEADER_END_OF_FILE || status == HEADER_ZERO_BLOCK)
-	{
-	  logical_status = HEADER_END_OF_FILE;
-	  memset (new_record[new_blocks].buffer, 0,
-		 (size_t) (BLOCKSIZE * blocks_needed));
-	  new_blocks += blocks_needed;
-	  blocks_needed = 0;
-	  write_record (0);
-	  break;
+	  /* FIXME: Pheew!  This is crufty code!  */
+	  logical_status = HEADER_STILL_UNREAD;
+	  goto flush_file;
 	}
 
-      if (status == HEADER_FAILURE)
+      /* FIXME: Solaris 2.4 Sun cc (the ANSI one, not the old K&R) says:
+	 "delete.c", line 223: warning: loop not entered at top
+	 Reported by Bruno Haible.  */
+      while (1)
 	{
-	  ERROR ((0, 0, _("Deleting non-header from archive")));
-	  set_next_block_after (current_header);
-	  continue;
-	}
+	  enum read_header status;
 
-      /* Found another header.  */
-
-      if (name = name_scan (current_file_name), name)
-	{
-	  name->found = 1;
-	flush_file:
-	  set_next_block_after (current_header);
-	  blocks_to_skip = (current_stat.st_size + BLOCKSIZE - 1) / BLOCKSIZE;
-
-	  while (record_end - current_block <= blocks_to_skip)
-	    {
-	      blocks_to_skip -= (record_end - current_block);
-	      flush_archive ();
-	      records_read++;
-	    }
-	  current_block += blocks_to_skip;
-	  blocks_to_skip = 0;
-	  continue;
-	}
-
-      /* Copy header.  */
-
-      new_record[new_blocks] = *current_header;
-      new_blocks++;
-      blocks_needed--;
-      blocks_to_keep
-	= (current_stat.st_size + BLOCKSIZE - 1) / BLOCKSIZE;
-      set_next_block_after (current_header);
-      if (blocks_needed == 0)
-	write_record (1);
-
-      /* Copy data.  */
-
-      kept_blocks_in_record = record_end - current_block;
-      if (kept_blocks_in_record > blocks_to_keep)
-	kept_blocks_in_record = blocks_to_keep;
-
-      while (blocks_to_keep)
-	{
-	  int count;
+	  /* Fill in a record.  */
 
 	  if (current_block == record_end)
+	    flush_archive ();
+	  status = read_header (0);
+
+	  if (status == HEADER_ZERO_BLOCK && ignore_zeros_option)
 	    {
-	      flush_read ();
-	      records_read++;
-	      current_block = record_start;
-	      kept_blocks_in_record = blocking_factor;
-	      if (kept_blocks_in_record > blocks_to_keep)
-		kept_blocks_in_record = blocks_to_keep;
+	      set_next_block_after (current_header);
+	      continue;
 	    }
-	  count = kept_blocks_in_record;
-	  if (count > blocks_needed)
-	    count = blocks_needed;
+	  if (status == HEADER_END_OF_FILE || status == HEADER_ZERO_BLOCK)
+	    {
+	      logical_status = HEADER_END_OF_FILE;
+	      break;
+	    }
 
-	  memcpy ((void *) (new_record + new_blocks),
-		  (void *) current_block,
-		  (size_t) (count * BLOCKSIZE));
-	  new_blocks += count;
-	  blocks_needed -= count;
-	  current_block += count;
-	  blocks_to_keep -= count;
-	  kept_blocks_in_record -= count;
+	  if (status == HEADER_FAILURE)
+	    {
+	      ERROR ((0, 0, _("Deleting non-header from archive")));
+	      set_next_block_after (current_header);
+	      continue;
+	    }
 
-	  if (blocks_needed == 0)
+	  /* Found another header.  */
+
+	  if (name = name_scan (current_file_name), name)
+	    {
+	      name->found = 1;
+	    flush_file:
+	      set_next_block_after (current_header);
+	      blocks_to_skip = (current_stat.st_size + BLOCKSIZE - 1) / BLOCKSIZE;
+
+	      while (record_end - current_block <= blocks_to_skip)
+		{
+		  blocks_to_skip -= (record_end - current_block);
+		  flush_archive ();
+		}
+	      current_block += blocks_to_skip;
+	      blocks_to_skip = 0;
+	      continue;
+	    }
+
+	  /* Copy header.  */
+
+	  write_recent_blocks (recent_long_name, recent_long_name_blocks);
+	  write_recent_blocks (recent_long_link, recent_long_link_blocks);
+	  new_record[new_blocks] = *current_header;
+	  new_blocks++;
+	  blocks_to_keep
+	    = (current_stat.st_size + BLOCKSIZE - 1) / BLOCKSIZE;
+	  set_next_block_after (current_header);
+	  if (new_blocks == blocking_factor)
 	    write_record (1);
+
+	  /* Copy data.  */
+
+	  kept_blocks_in_record = record_end - current_block;
+	  if (kept_blocks_in_record > blocks_to_keep)
+	    kept_blocks_in_record = blocks_to_keep;
+
+	  while (blocks_to_keep)
+	    {
+	      int count;
+
+	      if (current_block == record_end)
+		{
+		  flush_read ();
+		  current_block = record_start;
+		  kept_blocks_in_record = blocking_factor;
+		  if (kept_blocks_in_record > blocks_to_keep)
+		    kept_blocks_in_record = blocks_to_keep;
+		}
+	      count = kept_blocks_in_record;
+	      if (blocking_factor - new_blocks < count)
+		count = blocking_factor - new_blocks;
+
+	      if (! count)
+		abort ();
+
+	      memcpy (new_record + new_blocks, current_block, count * BLOCKSIZE);
+	      new_blocks += count;
+	      current_block += count;
+	      blocks_to_keep -= count;
+	      kept_blocks_in_record -= count;
+
+	      if (new_blocks == blocking_factor)
+		write_record (1);
+	    }
 	}
     }
 
-  write_eot ();
+  if (logical_status == HEADER_END_OF_FILE)
+    {
+      /* Write the end of tape.  FIXME: we can't use write_eot here,
+	 as it gets confused when the input is at end of file.  */
+
+      int total_zero_blocks = 0;
+
+      do
+	{
+	  int zero_blocks = blocking_factor - new_blocks;
+	  memset (new_record + new_blocks, 0, BLOCKSIZE * zero_blocks);
+	  total_zero_blocks += zero_blocks;
+	  write_record (total_zero_blocks < 2);
+	}
+      while (total_zero_blocks < 2);
+    }
+
+  free (new_record);
+
+  if (! acting_as_filter && ! _isrmt (archive))
+    {
+#if MSDOS
+      int status = write (archive, "", 0);
+#else
+      off_t pos = lseek (archive, (off_t) 0, SEEK_CUR);
+      int status = pos < 0 ? -1 : ftruncate (archive, pos);
+#endif
+      if (status != 0)
+	truncate_warn (archive_name_array[0]);
+    }
+
   close_archive ();
   names_notfound ();
 }

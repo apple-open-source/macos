@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,7 +12,7 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Sascha Schumann <sascha@schumann.cx>                        |
+   | Author: Sascha Schumann <sascha@schumann.cx>                         |
    +----------------------------------------------------------------------+
  */
 
@@ -26,6 +26,11 @@
 
 #ifdef PHP_WIN32
 #include "win32/readdir.h"
+#endif
+
+#if defined(NETWARE) && !(NEW_LIBC)
+/*#include <ws2nlm.h>*/
+#include <sys/socket.h>
 #endif
 
 #include "php_reentrancy.h"
@@ -113,6 +118,63 @@ PHPAPI struct tm *php_gmtime_r(const time_t *const timep, struct tm *p_tm)
 }
 
 #endif
+
+#if defined(NETWARE)
+/*
+   Re-entrant versions of functions seem to be better for loading NLMs in different address space.
+   Since we have them now in LibC, we might as well make use of them.
+*/
+
+#define HAVE_LOCALTIME_R 1
+#define HAVE_CTIME_R 1
+#define HAVE_ASCTIME_R 1
+#define HAVE_GMTIME_R 1
+
+PHPAPI struct tm *php_localtime_r(const time_t *const timep, struct tm *p_tm)
+{
+    /* Modified according to LibC definition */
+	if (localtime_r(timep, p_tm) != NULL)
+		return (p_tm);
+	return (NULL);
+}
+
+PHPAPI char *php_ctime_r(const time_t *clock, char *buf)
+{
+    /* Modified according to LibC definition */
+	if (ctime_r(clock, buf) != NULL)
+		return (buf);
+	return (NULL);
+}
+
+PHPAPI char *php_asctime_r(const struct tm *tm, char *buf)
+{
+    /* Modified according to LibC definition */
+	if (asctime_r(tm, buf) != NULL)
+		return (buf);
+	return (NULL);
+}
+
+PHPAPI struct tm *php_gmtime_r(const time_t *const timep, struct tm *p_tm)
+{
+    /* Modified according to LibC definition */
+	if (gmtime_r(timep, p_tm) != NULL)
+		return (p_tm);
+	return (NULL);
+}
+
+#endif	/* NETWARE */
+
+#if defined(__BEOS__)
+
+PHPAPI struct tm *php_gmtime_r(const time_t *const timep, struct tm *p_tm)
+{
+    /* Modified according to LibC definition */
+        if (((struct tm*)gmtime_r(timep, p_tm)) == p_tm)
+                return (p_tm);
+        return (NULL);
+}
+
+#endif /* BEOS */
 
 #if !defined(HAVE_POSIX_READDIR_R)
 
@@ -436,6 +498,6 @@ cont:
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

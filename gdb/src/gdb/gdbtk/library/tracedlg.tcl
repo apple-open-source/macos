@@ -26,7 +26,7 @@
 # either one if a tracepoint was set/edited successfully or zero if 
 # the user bails out (cancel or destroy buttons).
 
-class TraceDlg {
+itcl::class TraceDlg {
   inherit ManagedWin
 
   # ------------------------------------------------------------------
@@ -306,8 +306,8 @@ class TraceDlg {
       -vscrollmode dynamic -selectmode multiple -exportselection 0 \
       -dblclickcommand [code $this edit] \
       -selectioncommand [code $this set_delete_action_state $ActionLB $new_frame.del_but] \
-      -background [pref get gdb/font/normal_bg]
-    [$ActionLB component listbox] configure -background [pref get gdb/font/normal_bg]
+      -background $::Colors(bg)
+    [$ActionLB component listbox] configure -background $::Colors(bg)
     label $act_frame.lbl -text {Actions}
     pack $act_frame.lbl -side top
     pack $act_frame.lb -side bottom -fill both -expand 1 -padx 5 -pady 5

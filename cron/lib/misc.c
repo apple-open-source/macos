@@ -17,7 +17,7 @@
 
 #if !defined(lint) && !defined(LINT)
 static const char rcsid[] =
-  "$FreeBSD: src/usr.sbin/cron/lib/misc.c,v 1.9 2000/05/23 13:44:00 ghelmer Exp $";
+  "$FreeBSD: src/usr.sbin/cron/lib/misc.c,v 1.11 2002/08/04 04:32:27 tjr Exp $";
 #endif
 
 /* vix 26jan87 [RCS has the rest of the log]
@@ -392,7 +392,8 @@ in_file(string, file)
 	rewind(file);
 	while (fgets(line, MAX_TEMPSTR, file)) {
 		if (line[0] != '\0')
-			line[strlen(line)-1] = '\0';
+			if (line[strlen(line)-1] == '\n')
+				line[strlen(line)-1] = '\0';
 		if (0 == strcmp(line, string))
 			return TRUE;
 	}
@@ -409,31 +410,38 @@ int
 allowed(username)
 	char *username;
 {
-	static int	init = FALSE;
-	static FILE	*allow, *deny;
+	FILE	*allow, *deny;
+	int	isallowed;
 
-	if (!init) {
-		init = TRUE;
+	isallowed = FALSE;
+
 #if defined(ALLOW_FILE) && defined(DENY_FILE)
-		allow = fopen(ALLOW_FILE, "r");
-		deny = fopen(DENY_FILE, "r");
-		Debug(DMISC, ("allow/deny enabled, %d/%d\n", !!allow, !!deny))
+	if ((allow = fopen(ALLOW_FILE, "r")) == NULL && errno != ENOENT)
+		goto out;
+	if ((deny = fopen(DENY_FILE, "r")) == NULL && errno != ENOENT)
+		goto out;
+	Debug(DMISC, ("allow/deny enabled, %d/%d\n", !!allow, !!deny))
 #else
-		allow = NULL;
-		deny = NULL;
+	allow = NULL;
+	deny = NULL;
 #endif
-	}
 
 	if (allow)
-		return (in_file(username, allow));
-	if (deny)
-		return (!in_file(username, deny));
-
+		isallowed = in_file(username, allow);
+	else if (deny)
+		isallowed = !in_file(username, deny);
+	else {
 #if defined(ALLOW_ONLY_ROOT)
-	return (strcmp(username, ROOT_USER) == 0);
+		isallowed = (strcmp(username, ROOT_USER) == 0);
 #else
-	return TRUE;
+		isallowed = TRUE; 
 #endif
+	}
+out:	if (allow)
+		fclose(allow);
+	if (deny)
+		fclose(deny);
+	return (isallowed);
 }
 
 

@@ -38,7 +38,7 @@
 .\"
 .\"	%W% (Berkeley) %G%
 .\"
-.\" $Id: amd.8,v 1.1.1.1 2002/05/15 01:21:52 jkh Exp $
+.\" $Id: amd.8,v 1.1.1.2 2002/07/15 19:42:33 zarzycki Exp $
 .\"
 .TH AMD 8 "3 November 1989"
 .SH NAME
@@ -75,6 +75,8 @@ amd \- automatically mount file systems
 .BI \-x " log-option"
 ] [
 .BI \-y " YP-domain"
+] [
+.BI \-A " arch"
 ] [
 .BI \-C " cluster-name"
 ] [
@@ -242,6 +244,11 @@ list chosen from: fatal, error, user, warn, info, map, stats, all.
 Specify an alternative NIS domain from which to fetch the NIS maps.
 The default is the system domain name.  This option is ignored if NIS
 support is not available.
+
+.TP
+.BI \-A " arch"
+Specifies the OS architecture.  This is used solely to set the ${arch}
+selector.
 
 .TP
 .BI \-C " cluster-name"

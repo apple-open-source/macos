@@ -1,0 +1,660 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE project [
+   <!ENTITY buildmagic SYSTEM "../tools/etc/buildmagic/buildmagic.ent">
+]>
+
+<!-- ====================================================================== -->
+<!--                                                                        -->
+<!--  JBoss, the OpenSource J2EE webOS                                      -->
+<!--                                                                        -->
+<!--  Distributable under LGPL license.                                     -->
+<!--  See terms of license at http://www.gnu.org.                           -->
+<!--                                                                        -->
+<!-- ====================================================================== -->
+
+<!-- $Id: build.xml,v 1.28.2.8 2003/05/18 06:28:35 starksm Exp $ -->
+
+<project default="main" name="JBoss/Security">
+
+  <!-- ================================================================== -->
+  <!-- Setup                                                              -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Include the common Buildmagic elements.
+     |
+     | This defines several different targets, properties and paths.
+     | It also sets up the basic extention tasks amoung other things.
+   -->
+
+  &buildmagic;
+
+
+  <!-- ================================================================== -->
+  <!-- Initialization                                                     -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Initialize the build system.  Must depend on '_buildmagic:init'.  
+     | Other targets should depend on 'init' or things will mysteriously fail.
+   -->
+
+  <target name="init" unless="init.disable" depends="_buildmagic:init">
+  </target>
+
+
+  <!-- ================================================================== -->
+  <!-- Configuration                                                      -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Configure the build system.  
+     |
+     | This target is invoked by the Buildmagic initialization logic and 
+     | should contain module specific configuration elements.
+   -->
+
+  <target name="configure" unless="configure.disable">
+
+    <!-- =================== -->
+    <!-- Basic Configuration -->
+    <!-- =================== -->
+
+    <!-- Module name(s) & version -->
+    <property name="module.name" value="security"/>
+    <property name="module.Name" value="JBoss Security(JBossSX)"/>
+    <property name="module.version" value="1.0"/>
+
+    <!-- ========= -->
+    <!-- Libraries -->
+    <!-- ========= -->
+
+    <!-- JavaCC -->
+    <property name="sun.javacc.root" value="${project.thirdparty}/sun/javacc"/>
+    <property name="sun.javacc.lib" value="${sun.javacc.root}/lib"/>
+
+    <!-- Java Authentication and Authorization Service (JAAS) -->
+    <property name="sun.jaas.root" value="${project.thirdparty}/sun/jaas"/>
+    <property name="sun.jaas.lib" value="${sun.jaas.root}/lib"/>
+    <path id="sun.jaas.classpath">
+      <pathelement path="${sun.jaas.lib}/jaas.jar"/>
+    </path>
+
+    <!-- Java Secure Socket Extension (JSSE) -->
+    <property name="sun.jsse.root" value="${project.thirdparty}/sun/jsse"/>
+    <property name="sun.jsse.lib" value="${sun.jsse.root}/lib"/>
+    <path id="sun.jsse.classpath">
+      <fileset dir="${sun.jsse.lib}">
+        <include name="**/*.jar"/>
+      </fileset>
+    </path>
+
+    <!-- Java Cryptography Extension (JCE) -->
+    <property name="sun.jce.root" value="${project.thirdparty}/sun/jce"/>
+    <property name="sun.jce.lib" value="${sun.jce.root}/lib"/>
+    <path id="sun.jce.classpath">
+      <fileset dir="${sun.jce.lib}">
+        <include name="**/*.jar"/>
+      </fileset>
+    </path>
+
+    <!-- Apache Crimson (XML/DOM) -->
+    <property name="apache.crimson.root" value="${project.thirdparty}/apache/crimson"/>
+    <property name="apache.crimson.lib" value="${apache.crimson.root}/lib"/>
+    <path id="apache.crimson.classpath">
+      <pathelement path="${apache.crimson.lib}/crimson.jar"/>
+    </path>
+
+    <!-- Log4j -->
+    <property name="apache.log4j.root" value="${project.thirdparty}/apache/log4j"/>
+    <property name="apache.log4j.lib" value="${apache.log4j.root}/lib"/>
+    <path id="apache.log4j.classpath">
+      <pathelement path="${apache.log4j.lib}/log4j.jar"/>
+    </path>
+
+    <!-- JUnit -->
+    <property name="junit.junit.root" value="${project.thirdparty}/junit/junit"/>
+    <property name="junit.junit.lib" value="${junit.junit.root}/lib"/>
+    <path id="junit.junit.classpath">
+      <pathelement path="${junit.junit.lib}/junit.jar"/>
+    </path>
+
+    <!-- Hypersonic SQL -->
+    <property name="hsqldb.hsqldb.root" value="${project.thirdparty}/hsqldb/hsqldb"/>
+    <property name="hsqldb.hsqldb.lib" value="${hsqldb.hsqldb.root}/lib"/>
+    <path id="hsqldb.hsqldb.classpath">
+      <pathelement path="${hsqldb.hsqldb.lib}/hsqldb.jar"/>
+    </path>
+
+    <!-- The combined library classpath -->
+    <path id="library.classpath">
+      <path refid="sun.jsse.classpath"/>
+      <path refid="sun.jce.classpath"/>
+      <path refid="apache.crimson.classpath"/>
+      <path refid="apache.log4j.classpath"/>
+      <path refid="junit.junit.classpath"/>
+      <path refid="hsqldb.hsqldb.classpath"/>
+    </path>
+
+    <!-- ======= -->
+    <!-- Modules -->
+    <!-- ======= -->
+
+    <!-- J2EE -->
+    <property name="jboss.j2ee.root" value="${project.root}/j2ee/output"/>
+    <property name="jboss.j2ee.lib" value="${jboss.j2ee.root}/lib"/>
+    <path id="jboss.j2ee.classpath">
+      <pathelement path="${jboss.j2ee.lib}/jboss-j2ee.jar"/>
+    </path>
+
+    <!-- Common -->
+    <property name="jboss.common.root" value="${project.root}/common/output"/>
+    <property name="jboss.common.lib" value="${jboss.common.root}/lib"/>
+    <path id="jboss.common.classpath">
+      <pathelement path="${jboss.common.lib}/jboss-common.jar"/>
+    </path>
+
+    <!-- System -->
+    <property name="jboss.system.root" value="${project.root}/system/output"/>
+    <property name="jboss.system.lib" value="${jboss.system.root}/lib"/>
+    <path id="jboss.system.classpath">
+      <pathelement path="${jboss.system.lib}/jboss-system.jar"/>
+    </path>
+
+    <!-- Naming -->
+    <property name="jboss.naming.root" value="${project.root}/naming/output"/>
+    <property name="jboss.naming.lib" value="${jboss.naming.root}/lib"/>
+    <path id="jboss.naming.classpath">
+      <pathelement path="${jboss.naming.lib}/jnpserver.jar"/>
+    </path>
+
+    <!-- Server -->
+    <property name="jboss.server.root" value="${project.root}/server/output"/>
+    <property name="jboss.server.lib" value="${jboss.server.root}/lib"/>
+    <path id="jboss.server.classpath">
+      <pathelement path="${jboss.server.lib}/jboss.jar"/>
+      <pathelement path="${jboss.server.lib}/jboss-security.jar"/>
+    </path>
+
+    <!-- JMX -->
+    <property name="jboss.jmx.root" value="${project.root}/jmx/output"/>
+    <property name="jboss.jmx.lib" value="${jboss.jmx.root}/lib"/>
+    <path id="jboss.jmx.classpath">
+      <pathelement path="${jboss.jmx.lib}/jboss-jmx.jar"/>
+    </path>
+
+    <!-- The combined dependent module classpath -->
+    <path id="dependentmodule.classpath">
+      <path refid="jboss.j2ee.classpath"/>
+      <path refid="jboss.common.classpath"/>
+      <path refid="jboss.system.classpath"/>
+      <path refid="jboss.naming.classpath"/>
+      <path refid="jboss.server.classpath"/>
+      <path refid="jboss.jmx.classpath"/>
+    </path>
+
+    <!-- ===== -->
+    <!-- Tasks -->
+    <!-- ===== -->
+
+    <!-- Where source files live -->
+    <property name="source.java" value="${module.source}/main"/>
+    <property name="source.etc" value="${module.source}/etc"/>
+
+    <!-- Where build generated files will go -->
+    <property name="build.reports" value="${module.output}/reports"/>
+    <property name="build.classes" value="${module.output}/classes"/>
+    <property name="build.lib" value="${module.output}/lib"/>
+    <property name="build.api" value="${module.output}/api"/>
+    <property name="build.etc" value="${module.output}/etc"/>
+    <property name="build.parsers" value="${module.output}/parsers"/>
+    <property name="build.tests" value="${module.output}/tests"/>
+
+    <!-- Install/Release structure -->
+    <property name="install.id" value="${module.name}-${module.version}"/>
+    <property name="release.id" value="${install.id}"/>
+    <property name="install.root" value="${module.output}/${install.id}"/>
+
+    <!-- The combined thirdparty classpath -->
+    <path id="thirdparty.classpath">
+      <path refid="library.classpath"/>
+      <path refid="dependentmodule.classpath"/>
+    </path>
+
+    <!-- This module is based on Java 1.2 -->
+    <property name="javac.target" value="1.2"/>
+
+    <!-- RMIC should generate stubs compatible with Java 1.2+ -->
+    <property name="rmic.stubVersion" value="1.2"/>
+
+    <!-- classpath and local.classpath must have a value using with a path -->
+    <property name="classpath" value=""/>
+    <property name="local.classpath" value=""/>
+
+    <!-- The classpath required to build classes. -->
+    <path id="javac.classpath">
+      <pathelement path="${classpath}"/>
+      <pathelement path="${local.classpath}"/>
+      <path refid="thirdparty.classpath"/>
+    </path>
+
+    <!-- The classpath required to build javadocs. -->
+    <path id="javadoc.classpath">
+      <path refid="javac.classpath"/>
+    </path>
+
+    <!-- Packages to include when generating api documentation -->
+    <property name="javadoc.packages" value="org.jboss.*"/>
+
+    <!-- Override JUnit defaults -->
+    <property name="junit.timeout" value="240000"/> <!-- 4 minutes -->
+    <property name="junit.batchtest.todir" value="${build.reports}"/>
+    <property name="junit.jvm.options" value="-Ddummy"/>
+  </target>
+
+
+  <!-- ================================================================== -->
+  <!-- Compile                                                            -->
+  <!-- ================================================================== -->
+
+  <!-- 
+     |  Compile everything.
+     |
+     |  This target should depend on other compile-* targets for each 
+     |  different type of compile that needs to be performed, short of
+     |  documentation compiles.
+    -->
+  <target name="compile" 
+	  depends="compile-parsers, compile-classes, compile-rmi, compile-etc"
+	  description="Compile all source files."/>
+
+  <!-- Compile parsers -->
+  <target name="compile-parsers" depends="init">
+    <mkdir dir="${build.parsers}/org/jboss/security/auth/login"/>
+
+    <!-- Sun JAAS config file parser -->
+    <javacc target="${source.java}/org/jboss/security/auth/login/SunConfigParser.jj"
+       outputdirectory="${build.parsers}/org/jboss/security/auth/login"
+       javacchome="${sun.javacc.lib}"
+       static="false"/>
+  </target>
+
+  <!-- Compile all class files -->
+  <target name="compile-classes" depends="compile-classes-jdk13,compile-classes-jdk14" />
+
+  <target name="compile-classes-jdk13" depends="init" unless="HAVE_JDK_1.4">
+    <echo message="Compiling for JDK1.3" />
+    <antcall target="do-compile" inheritRefs="true"/>
+  </target>
+  <target name="compile-classes-jdk14" depends="init" if="HAVE_JDK_1.4">
+    <echo message="Compiling for JDK1.4+" />
+    <antcall target="do-compile" inheritRefs="true" />
+  </target>
+
+  <target name="do-compile" depends="init">
+    <mkdir dir="${build.classes}"/>
+    <!-- HACK, unjar jboss-security.jar to include its files -->
+    <unjar src="${jboss.server.lib}/jboss-security.jar"
+      dest="${build.classes}"/>
+    <javac destdir="${build.classes}"
+           optimize="${javac.optimize}"
+	   target="${javac.target}"
+           debug="${javac.debug}"
+	   depend="${javac.depend}"
+	   verbose="${javac.verbose}"
+	   deprecation="${javac.deprecation}"
+	   includeAntRuntime="${javac.include.ant.runtime}"
+	   includeJavaRuntime="${javac.include.java.runtime}"
+	   failonerror="${javac.fail.onerror}">
+       <src path="${source.java}"/>
+       <src path="${build.parsers}"/>
+       <classpath refid="javac.classpath"/>
+       <include name="${javac.includes}"/>
+       <exclude name="${javac.excludes}"/>
+    </javac>
+  </target>
+
+  <!-- Compile RMI stubs -->
+  <target name="compile-rmi" depends="compile-classes">
+    <rmic base="${build.classes}"
+	  verify="${rmic.verify}"
+	  iiop="${rmic.iiop}"
+	  iiopopts="${rmic.iiopops}"
+	  idl="${rmic.idl}"
+	  idlopts="${rmic.idlops}"
+	  debug="${rmic.debug}"
+          stubVersion="${rmic.stubVersion}">
+      <classpath refid="javac.classpath"/>
+      <include name="${rmic.includes}"/>
+      <exclude name="${rmic.excludes}"/>
+
+      <include name="org/jboss/security/srp/SRPRemoteServer.class"/>
+    </rmic>
+  </target>
+
+  <!-- Compile manifests -->
+  <target name="compile-etc" depends="init">
+    <mkdir dir="${build.etc}"/>
+    <copy todir="${build.etc}" filtering="yes">
+      <fileset dir="${source.etc}">
+         <include name="**"/>
+      </fileset>
+    </copy>
+  </target>
+
+
+  <!-- ================================================================== -->
+  <!-- Archives                                                           -->
+  <!-- ================================================================== -->
+
+  <!-- 
+     |  Build all jar files.
+    -->
+  <target name="jars" depends="compile" description="Builds all jar files.">
+    <mkdir dir="${build.lib}"/>
+
+    <!-- Build jbosssx.jar -->
+    <jar jarfile="${build.lib}/jbosssx.jar"
+         manifest="${build.etc}/default.mf">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/crypto/**"/>
+        <include name="org/jboss/security/**"/>
+      </fileset>
+    </jar>
+
+    <!-- Build jboss-jaas.jar -->
+    <jar jarfile="${build.lib}/jboss-jaas.jar">
+      <fileset dir="${build.classes}">
+        <include name="javax/security/**"/>
+      </fileset>
+    </jar>
+
+    <!-- Build jbosssx-client.jar -->
+    <jar jarfile="${build.lib}/jbosssx-client.jar"
+         manifest="${build.etc}/default.mf">
+      <fileset dir="${build.classes}">
+        <exclude name="META-INF/MANIFEST.MF"/> <!-- HACK -->
+        <include name="org/jboss/crypto/JBossSXProvider.class"/>
+        <include name="org/jboss/crypto/digest/*"/>
+        <include name="org/jboss/security/ClientLoginModule.class"/>
+        <include name="org/jboss/security/NestableGroup*.class"/>
+        <include name="org/jboss/security/NestablePrincipal*.class"/>
+        <include name="org/jboss/security/SecurityAssociation*.class"/>
+        <include name="org/jboss/security/AnybodyPrincipal.class"/>
+        <include name="org/jboss/security/NobodyPrincipal.class"/>
+        <include name="org/jboss/security/SimpleGroup.class"/>
+        <include name="org/jboss/security/SimplePrincipal.class"/>
+        <include name="org/jboss/security/Util.class"/>
+        <include name="org/jboss/security/auth/callback/*"/>
+        <include name="org/jboss/security/auth/login/*"/>
+        <exclude name="org/jboss/security/auth/login/XMLLoginConfig.class"/>
+        <exclude name="org/jboss/security/auth/login/XMLLoginConfigMBean.class"/>
+        <include name="org/jboss/security/srp/PkgCategory.class"/>
+        <include name="org/jboss/security/srp/TracePriority.class"/>
+        <include name="org/jboss/security/srp/SRPClientSession.class"/>
+        <include name="org/jboss/security/srp/SRPServerInterface*.class"/>
+        <include name="org/jboss/security/srp/SRPServerProxy.class"/>
+        <include name="org/jboss/security/srp/SRPParameters.class"/>
+        <include name="org/jboss/security/srp/SRPPermission.class"/>
+        <include name="org/jboss/security/srp/SRPConf*.class"/>
+        <include name="org/jboss/security/srp/SRPRemoteServer_Stub.class"/>
+        <include name="org/jboss/security/srp/SRPRemoteServerInterface.class"/>
+        <include name="org/jboss/security/srp/SRPVerifierStore.class"/>
+        <include name="org/jboss/security/srp/jaas/SRPLoginModule.class"/>
+        <include name="org/jboss/security/srp/jaas/SRPPrincipal.class"/>
+        <include name="org/jboss/security/ssl/ClientSocketFactory.class"/>
+        <include name="org/jboss/security/ssl/RMISSLClientSocketFactory.class"/>
+      </fileset>
+    </jar>
+
+    <!-- Build jbosssx-tests.jar -->
+    <mkdir dir="${build.tests}" />
+    <jar jarfile="${build.tests}/jbosssx-tests.jar"
+         manifest="${build.etc}/default.mf">
+      <fileset dir="${build.classes}">
+        <include name="org/jboss/test/TestLoginModule.class"/>
+      </fileset>
+    </jar>
+
+  </target>
+
+  <!-- ================================================================== -->
+  <!-- Install & Release                                                  -->
+  <!-- ================================================================== -->
+
+  <target name="install" 
+	  description="Install the structure for a release."
+	  depends="all, _buildmagic:install:default"/>
+
+  <target name="release" depends="install"/>
+
+  <target name="release-zip" 
+	  description="Builds a ZIP distribution."
+	  depends="release, _buildmagic:release:zip"/>
+
+  <target name="release-tar" 
+	  description="Builds a TAR distribution."
+	  depends="release, _buildmagic:release:tar"/>
+
+  <target name="release-tgz" 
+	  description="Builds a TAR-GZ distribution."
+	  depends="release, _buildmagic:release:tgz"/>
+
+  <target name="release-all"
+	  description="Builds a distribution for each archive type."
+	  depends="release-zip, release-tgz"/>
+
+
+  <!-- ================================================================== -->
+  <!-- Cleaning                                                           -->
+  <!-- ================================================================== -->
+
+  <!-- Clean up all build output -->
+  <target name="clean" 
+	  description="Cleans up most generated files."
+	  depends="_buildmagic:clean">
+  </target>
+
+  <!-- Clean up all generated files -->
+  <target name="clobber" 
+	  description="Cleans up all generated files."
+	  depends="_buildmagic:clobber, clean">
+  </target>
+
+
+  <!-- ================================================================== -->
+  <!-- Misc.                                                              -->
+  <!-- ================================================================== -->
+
+  <target name="main"
+	  description="Executes the default target (most)."
+	  depends="most"/>
+    
+  <target name="all"
+	  description="Builds everything."
+	  depends="jars, docs"/>
+
+  <target name="most" 
+	  description="Builds almost everything."
+	  depends="jars"/>
+
+  <target name="help" 
+          description="Show this help message."
+	  depends="_buildmagic:help:standard"/>
+
+
+  <!-- ================================================================== -->
+  <!-- Tests                                                              -->
+  <!-- ================================================================== -->
+
+  <!--
+     | Run all tests.
+   -->
+
+  <target name="tests" depends="init, tests-junit, tests-reports" 
+	  description="Execute all tests.">
+  </target>
+
+  <!--
+     | Run JUnit tests.
+   -->
+
+  <target name="tests-junit" depends="jars">
+    <mkdir dir="${build.reports}"/>
+    <property name="conf.dir" value="${source.java}/org/jboss/test" />
+    <junit dir="${module.output}"
+	   printsummary="${junit.printsummary}" 
+	   haltonerror="${junit.haltonerror}" 
+	   haltonfailure="${junit.haltonfailure}" 
+	   fork="${junit.fork}"
+	   timeout="${junit.timeout}"
+	   jvm="${junit.jvm}">
+
+      <sysproperty key="output.dir" file="${module.output}"/>
+      <sysproperty key="jboss.home" file="${project.root}"/>
+      <jvmarg value="${junit.jvm.options}"/>
+      <jvmarg value="-Djava.security.debug=access,failure" />
+      <jvmarg value="-Djava.security.manager" />
+      <jvmarg value="-Djava.security.policy=${conf.dir}/tst.policy" />
+
+      <classpath>
+        <pathelement location="${build.classes}"/>
+        <pathelement location="${module.source}/main/org/jboss/test"/>
+        <path refid="javac.classpath"/>
+      </classpath>
+
+      <formatter type="${junit.formatter.type}"
+		 usefile="${junit.formatter.usefile}"/>
+
+      <batchtest todir="${build.reports}"
+		 haltonerror="${junit.batchtest.haltonerror}" 
+		 haltonfailure="${junit.batchtest.haltonfailure}" 
+		 fork="${junit.batchtest.fork}">
+
+        <fileset dir="${build.classes}">
+          <include name="**/*TestCase.class"/>
+          <include name="**/*TestSuite.class"/>
+        </fileset>
+      </batchtest>
+    </junit>
+  </target>
+
+  <target name="test-jaas10-junit" depends="compile">
+    <mkdir dir="${build.reports}"/>
+    <property name="conf.dir" value="${source.java}/org/jboss/test" />
+    <junit dir="${module.output}"
+      printsummary="${junit.printsummary}"
+      haltonerror="${junit.haltonerror}"
+      haltonfailure="${junit.haltonfailure}"
+      fork="${junit.fork}"
+      timeout="${junit.timeout}"
+      jvm="${junit.jvm}">
+
+      <sysproperty key="conf.dir" value="${conf.dir}"/>
+      <sysproperty key="output.dir" file="${module.output}"/>
+      <sysproperty key="jboss.home" file="${project.root}"/>
+      <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
+      <jvmarg value="${junit.jvm.options}"/>
+      <jvmarg value="-Djava.security.debug=access,failure"/>
+      <jvmarg value="-Djava.security.manager" />
+      <jvmarg value="-Djava.security.policy=${conf.dir}/tst.policy" />
+
+      <classpath>
+        <path refid="sun.jaas.classpath" />
+        <pathelement location="${build.lib}/jbosssx.jar"/>
+        <pathelement location="${build.tests}/jbosssx-tests.jar"/>
+        <pathelement location="${build.classes}"/>
+        <pathelement location="${conf.dir}"/>
+        <path refid="javac.classpath"/>
+      </classpath>
+
+      <formatter type="${junit.formatter.type}"
+		 usefile="${junit.formatter.usefile}"/>
+
+      <test todir="${build.reports}" name="org.jboss.test.LoginContextTestCase" />
+    </junit>
+  </target>
+
+  <target name="test-jbossjaas-junit" depends="compile">
+    <mkdir dir="${build.reports}"/>
+    <property name="conf.dir" value="${source.java}/org/jboss/test" />
+    <junit dir="${module.output}"
+      printsummary="${junit.printsummary}"
+      haltonerror="${junit.haltonerror}"
+      haltonfailure="${junit.haltonfailure}"
+      fork="${junit.fork}"
+      timeout="${junit.timeout}"
+      jvm="${junit.jvm}">
+
+      <sysproperty key="output.dir" file="${module.output}"/>
+      <sysproperty key="jboss.home" file="${project.root}"/>
+      <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
+      <jvmarg value="${junit.jvm.options}"/>
+      <jvmarg value="-Djava.security.debug=access,failure"/>
+      <jvmarg value="-Djava.security.manager" />
+      <jvmarg value="-Djava.security.policy=${conf.dir}/tst.policy" />
+      <sysproperty key="conf.dir" value="${conf.dir}"/>
+      <sysproperty key="jboss.home" value="${jboss.home}"/>
+      <sysproperty key="output.dir" value="${output.dir}"/>
+      <sysproperty key="jbosstest.deploy.dir" value="${build.lib}"/>
+
+      <classpath>
+        <pathelement location="${build.lib}/jboss-jaas.jar"/>
+        <pathelement location="${build.lib}/jbosssx.jar"/>
+        <pathelement location="${build.tests}/jbosssx-tests.jar"/>
+        <pathelement location="${build.classes}"/>
+        <pathelement location="${conf.dir}"/>
+        <path refid="javac.classpath"/>
+      </classpath>
+
+      <formatter type="${junit.formatter.type}"
+		 usefile="${junit.formatter.usefile}"/>
+
+      <test todir="${build.reports}" name="org.jboss.test.LoginContextTestCase" />
+    </junit>
+  </target>
+
+  <target name="test-parser-junit" depends="compile">
+    <mkdir dir="${build.reports}"/>
+    <property name="conf.dir" value="${source.java}/org/jboss/test" />
+    <junit dir="${module.output}"
+      printsummary="${junit.printsummary}"
+      haltonerror="${junit.haltonerror}"
+      haltonfailure="${junit.haltonfailure}"
+      fork="${junit.fork}"
+      timeout="${junit.timeout}"
+      jvm="${junit.jvm}">
+
+      <jvmarg value="${junit.jvm.options}"/>
+      <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
+
+      <classpath>
+        <pathelement location="${build.classes}"/>
+        <pathelement location="${module.source}/main/org/jboss/test"/>
+        <path refid="javac.classpath"/>
+      </classpath>
+
+      <formatter type="${junit.formatter.type}"
+       usefile="${junit.formatter.usefile}"/>
+
+      <test todir="${build.reports}" name="org.jboss.test.SunConfigParserTestCase" />
+    </junit>
+  </target>
+
+  <target name="reports" depends="tests-reports" 
+	  description="Generates all reports."/>
+
+  <target name="tests-reports" depends="tests-reports-html"/>
+
+  <target name="tests-reports-html" depends="compile">
+    <mkdir dir="${build.reports}/html"/>
+
+    <junitreport todir="${build.reports}">
+      <fileset dir="${build.reports}">
+        <include name="TEST-*.xml"/>
+      </fileset>
+      <report format="frames" todir="${build.reports}/html"/>
+    </junitreport>
+  </target>
+
+</project>

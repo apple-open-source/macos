@@ -34,6 +34,7 @@
 #include "target.h"
 
 #include <string.h>
+#include <sys/stat.h>
 
 #include <mach-o/nlist.h>
 #include <mach-o/loader.h>
@@ -138,17 +139,20 @@ inferior_flush (PTR iodata, bfd *abfd)
   return 0;
 }
 
-static boolean
+static bfd_boolean
 inferior_close (PTR iodata, bfd *abfd)
 {
   xfree (iodata);
   return 1;
 }
 
-static bfd_vma
-extend_vma (unsigned long n)
+static int
+inferior_stat (PTR iodata, bfd *abfd, struct stat *statbuf)
 {
-  return (- ((bfd_vma) (- ((long) n))));
+  struct inferior_info *iptr = (struct inferior_info *) iodata;
+  memset (statbuf, 0, sizeof (struct stat));
+  statbuf->st_size = iptr->len;
+  return 0;
 }
 
 static bfd *
@@ -162,7 +166,7 @@ inferior_bfd_generic
 
   iptr = (struct inferior_info *) xmalloc (sizeof (struct inferior_info));
   iptr->addr = addr;
-  iptr->offset = extend_vma (offset);
+  iptr->offset = offset;
   iptr->len = len;
 
   fdata.iodata = iptr;
@@ -170,6 +174,7 @@ inferior_bfd_generic
   fdata.write_func = &inferior_write;
   fdata.flush_func = &inferior_flush;
   fdata.close_func = &inferior_close;
+  fdata.stat_func = &inferior_stat;
 
   if (name != NULL)
     {

@@ -1,0 +1,8 @@
+あなたのメール(件名)
+
+    %(subject)s
+
+は %(listname)s メーリングリストに到達しました．
+
+リスト案内ページ: %(listinfo_url)s
+個人オプションページ: %(optionsurl)s

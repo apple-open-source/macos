@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 0.92 of the Zend license,     |
+   | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
    | available at through the world-wide-web at                           |
-   | http://www.zend.com/license/0_92.txt.                                |
+   | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
    | license@zend.com so we can mail you a copy immediately.              |
@@ -166,7 +166,7 @@ ZEND_API void zend_wrong_param_count(TSRMLS_D)
 
 /* Argument parsing API -- andrei */
 
-static char *zend_zval_type_name(zval *arg)
+ZEND_API char *zend_zval_type_name(zval *arg)
 {
 	switch (Z_TYPE_P(arg)) {
 		case IS_NULL:
@@ -207,7 +207,10 @@ static int zend_check_class(zval *obj, zend_class_entry *expected_ce)
 	}
 
 	for (ce = Z_OBJCE_P(obj); ce != NULL; ce = ce->parent) {
-		if (ce == expected_ce) {
+		/*
+		 * C'est une UGLY HACK.
+		 */
+		if (ce->refcount == expected_ce->refcount) {
 			return 1;
 		}
 	}
@@ -432,15 +435,13 @@ static char *zend_parse_arg_impl(zval **arg, va_list *va, char **spec)
 static int zend_parse_arg(int arg_num, zval **arg, va_list *va, char **spec, int quiet TSRMLS_DC)
 {
 	char *expected_type = NULL;
-	char buf[1024];
 
 	expected_type = zend_parse_arg_impl(arg, va, spec);
 	if (expected_type) {
 		if (!quiet) {
-			sprintf(buf, "%s() expects parameter %d to be %s, %s given",
+			zend_error(E_WARNING, "%s() expects parameter %d to be %s, %s given",
 					get_active_function_name(TSRMLS_C), arg_num, expected_type,
-					zend_zval_type_name(*arg));
-			zend_error(E_WARNING, buf);
+			                zend_zval_type_name(*arg));
 		}
 		return FAILURE;
 	}
@@ -1112,8 +1113,9 @@ void module_destructor(zend_module_entry *module)
 	if (module->type == MODULE_TEMPORARY) {
 		zend_clean_module_rsrc_dtors(module->module_number TSRMLS_CC);
 		clean_module_constants(module->module_number TSRMLS_CC);
-		if (module->request_shutdown_func)
+		if (module->request_shutdown_func) {
 			module->request_shutdown_func(module->type, module->module_number TSRMLS_CC);
+		}
 	}
 
 	if (module->module_started && module->module_shutdown_func) {
@@ -1265,7 +1267,7 @@ ZEND_API int zend_set_hash_symbol(zval *symbol, char *name, int name_length,
 
 /* Disabled functions support */
 
-static ZEND_FUNCTION(display_disabled_function)
+ZEND_API ZEND_FUNCTION(display_disabled_function)
 {
 	zend_error(E_WARNING, "%s() has been disabled for security reasons", get_active_function_name(TSRMLS_C));
 }
@@ -1284,6 +1286,27 @@ ZEND_API int zend_disable_function(char *function_name, uint function_name_lengt
 	}
 	disabled_function[0].fname = function_name;
 	return zend_register_functions(disabled_function, CG(function_table), MODULE_PERSISTENT TSRMLS_CC);
+}
+
+static zend_function_entry disabled_class_functions[] =  {
+	ZEND_FE(display_disabled_function, NULL)
+	{ NULL, NULL, NULL }
+};
+
+ZEND_API int zend_disable_class(char *class_name, uint class_name_length TSRMLS_DC)
+{
+	zend_class_entry zce;
+
+	zend_str_tolower(class_name, class_name_length);
+	if (zend_hash_del(CG(class_table), class_name, class_name_length+1)==FAILURE) {
+		return FAILURE;
+	}
+
+	disabled_class_functions[0].fname = class_name;
+	INIT_CLASS_ENTRY(zce, class_name, disabled_class_functions);
+	zend_register_internal_class(&zce TSRMLS_CC);
+
+	return SUCCESS;
 }
 
 zend_bool zend_is_callable(zval *callable, zend_bool syntax_only, char **callable_name)

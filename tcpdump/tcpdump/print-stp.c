@@ -11,18 +11,14 @@
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-stp.c,v 1.1.1.1 2001/07/07 00:50:54 bbraun Exp $";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-stp.c,v 1.1.1.2 2003/03/17 18:42:20 rbraun Exp $";
 #endif
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <sys/param.h>
-#include <sys/time.h>
-#include <sys/socket.h>
-
-#include <netinet/in.h>
+#include <tcpdump-stdinc.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -40,7 +36,7 @@ stp_print_bridge_id(const u_char *p)
 }
 
 static void
-stp_print_config_bpdu(const u_char *p, u_int length)
+stp_print_config_bpdu(const u_char *p)
 {
 	printf("config ");
 	if (p[7] & 1)
@@ -63,7 +59,7 @@ stp_print_config_bpdu(const u_char *p, u_int length)
 }
 
 static void
-stp_print_tcn_bpdu(const u_char *p, u_int length)
+stp_print_tcn_bpdu(void)
 {
 	printf("tcn");
 }
@@ -82,21 +78,21 @@ stp_print(const u_char *p, u_int length)
 		printf("unknown version");
 		return;
 	}
-		
+
 	switch (p[6])
 	{
 	case 0:
 		if (length < 10)
 			goto trunc;
-		stp_print_config_bpdu(p, length);
+		stp_print_config_bpdu(p);
 		break;
 
 	case 1:
-		stp_print_tcn_bpdu(p, length);
+		stp_print_tcn_bpdu();
 		break;
 
 	default:
-		printf("unknown type %i\n", p[6]);
+		printf("unknown type %i", p[6]);
 		break;
 	}
 

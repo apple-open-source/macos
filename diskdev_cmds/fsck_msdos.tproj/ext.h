@@ -71,6 +71,7 @@ extern int alwaysyes;	/* assume "yes" for all questions */
 extern int preen;	/* we are preening */
 extern int rdonly;	/* device is opened read only (supersedes above) */
 extern int quick;	/* set to quickly check if volume is dirty */
+extern int quiet;	/* set to suppress most messages */
 
 extern char *fname;	/* filesystem currently checked */
 

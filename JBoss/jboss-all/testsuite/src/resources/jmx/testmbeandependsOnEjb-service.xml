@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- random mbean using anonymous depends on ejb container mbean -->
+
+<server>
+
+  <mbean code="org.jboss.test.jmx.mbean.TestDeployer"
+	 name="test:name=TestMBeanDependsOnEjb">
+    <depends>jboss.j2ee:service=EJB,jndiName=test/TestDataSource</depends>
+  </mbean>
+
+
+</server>

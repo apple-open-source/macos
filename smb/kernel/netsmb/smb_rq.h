@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_rq.h,v 1.1.1.5 2001/07/06 22:38:41 conrad Exp $
+ * $Id: smb_rq.h,v 1.5 2003/09/19 20:45:43 lindak Exp $
  */
 #ifndef _NETSMB_SMB_RQ_H_
 #define	_NETSMB_SMB_RQ_H_
@@ -48,6 +48,7 @@
 #define	SMBR_INTERNAL		0x0080	/* request is internal to smbrqd */
 #define	SMBR_XLOCK		0x0100	/* request locked and can't be moved */
 #define	SMBR_XLOCKWANT		0x0200	/* waiter on XLOCK */
+#define	SMBR_VCREF		0x4000	/* took vc reference */
 
 #define SMBT2_ALLSENT		0x0001	/* all data and params are sent */
 #define SMBT2_ALLRECV		0x0002	/* all data and params are received */
@@ -76,6 +77,7 @@ struct smb_rq {
 	struct smb_share*	sr_share;
 	u_short			sr_mid;
 	struct mbchain		sr_rq;
+	u_char			sr_cmd;
 	u_int8_t		sr_rqflags;
 	u_int16_t		sr_rqflags2;
 	u_char *		sr_wcount;
@@ -87,7 +89,7 @@ struct smb_rq {
 	int			sr_rpsize;
 	struct smb_cred *	sr_cred;
 	int			sr_timo;
-	int			sr_rexmit;
+	int			sr_rexmit; /* how many more retries.  dflt 0 */
 	int			sr_sendcnt;
 	struct timespec 	sr_timesent;
 	int			sr_lerror;
@@ -125,6 +127,7 @@ struct smb_t2rq {
 	struct smb_connobj *t2_source;
 	struct smb_rq *	t2_rq;
 	struct smb_vc * t2_vc;
+	struct smb_share *t2_share;	/* for smb up/down */
 };
 
 int  smb_rq_alloc(struct smb_connobj *layer, u_char cmd,
@@ -140,6 +143,7 @@ void smb_rq_bstart(struct smb_rq *rqp);
 void smb_rq_bend(struct smb_rq *rqp);
 int  smb_rq_intr(struct smb_rq *rqp);
 int  smb_rq_simple(struct smb_rq *rqp);
+int  smb_rq_simple_timed(struct smb_rq *rqp, int timeout);
 
 int  smb_t2_alloc(struct smb_connobj *layer, u_short setup, struct smb_cred *scred,
 	struct smb_t2rq **rqpp);

@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -32,13 +35,18 @@
 #include "DSUtils.h"
 #include "CLog.h"
 #include "CConfigurePlugin.h"
-#include "COSUtils.h"
+#include "CPluginConfig.h"
+#include "CNetInfoPlugin.h"
+#include "CSearchPlugin.h"
+#include "CLDAPv3Plugin.h"
 
 #include <stdlib.h>	// for rand()
 
 #include <CoreFoundation/CFPlugIn.h>
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFURL.h>
+
+extern CPluginConfig	   *gPluginConfig;
 
 using namespace DSServerPlugin;
 
@@ -57,10 +65,9 @@ using namespace DSServerPlugin;
 //	and reduce unrelated dependencies in the class header.
 // ----------------------------------------------------------------------------
 
-static sInt32		_UnregisterNode	( const uInt32, tDataList * );
 static void			_DebugLog		( const char *inFormat, va_list inArgs );
 
-static SvrLibFtbl	_Callbacks = { CServerPlugin::_RegisterNode, _UnregisterNode, _DebugLog };
+static SvrLibFtbl	_Callbacks = { CServerPlugin::_RegisterNode, CServerPlugin::_UnregisterNode, _DebugLog };
 
 const	sInt32	kNodeNotRegistered			= -8000;
 const	sInt32	kNodeAlreadyRegistered		= -8001;
@@ -75,6 +82,11 @@ const	sInt32	kServerError				= -8101;
 // ----------------------------------------------------------------------------
 
 sInt32 CServerPlugin::_RegisterNode ( const uInt32 inToken, tDataList *inNodeList, eDirNodeType inNodeType )
+{
+	return InternalRegisterNode( inToken, inNodeList, inNodeType, false );
+}
+
+sInt32 CServerPlugin::InternalRegisterNode ( const uInt32 inToken, tDataList *inNodeList, eDirNodeType inNodeType, bool isProxyRegistration )
 {
 	sInt32			siResult	= eDSNoErr;
 	tDataList	   *pNodeList	= nil;
@@ -94,8 +106,8 @@ sInt32 CServerPlugin::_RegisterNode ( const uInt32 inToken, tDataList *inNodeLis
 	// Get the plugin pointer for this token
 	//this call associates the pluginPtr with the input token thus preventing any plugin
 	//from registering a node for another plugin unless that plugin knows the other plugin's token/signature
-	pPluginPtr = gPlugins->GetPlugInPtr( inToken );
-	if ( pPluginPtr == nil )
+	pPluginPtr = gPlugins->GetPlugInPtr( inToken, !isProxyRegistration );	// if this is a proxy registration (i.e. lazy loading), its ok to be nil
+	if ( pPluginPtr == nil && !isProxyRegistration )
 	{
 		return( kInvalidToken );
 	}
@@ -129,7 +141,9 @@ sInt32 CServerPlugin::_RegisterNode ( const uInt32 inToken, tDataList *inNodeLis
 				pNodeList = dsBuildFromPathPriv( pNodeName, (char *)gNodeList->GetDelimiter() );
 				
 				// Add the node to the node list
-				gNodeList->AddNode( pNodeName, pNodeList, kDirNodeType, pPluginPtr );
+				gNodeList->AddNode( pNodeName, pNodeList, kDirNodeType, pPluginPtr, inToken );
+
+				DBGLOG1( kLogPlugin, "Registered Directory Node %s", pNodeName );
 			}
 			else
 			{
@@ -148,7 +162,8 @@ sInt32 CServerPlugin::_RegisterNode ( const uInt32 inToken, tDataList *inNodeLis
 				pNodeList = dsBuildFromPathPriv( pNodeName, (char *)gNodeList->GetDelimiter() );
 				
 				// Add the node to the node list
-				gNodeList->AddNode( pNodeName, pNodeList, kLocalHostedType, pPluginPtr );
+				gNodeList->AddNode( pNodeName, pNodeList, kLocalHostedType, pPluginPtr, inToken );
+				SRVRLOG1( kLogPlugin, "Registered Locally Hosted Node %s", pNodeName );
 			}
 			else
 			{
@@ -167,7 +182,8 @@ sInt32 CServerPlugin::_RegisterNode ( const uInt32 inToken, tDataList *inNodeLis
 				pNodeList = dsBuildFromPathPriv( pNodeName, (char *)gNodeList->GetDelimiter() );
 				
 				// Add the node to the node list
-				gNodeList->AddNode( pNodeName, pNodeList, kDefaultNetworkNodeType, pPluginPtr );
+				gNodeList->AddNode( pNodeName, pNodeList, kDefaultNetworkNodeType, pPluginPtr, inToken );
+				DBGLOG1( kLogPlugin, "Registered Default Network Node %s", pNodeName );
 			}
 			else
 			{
@@ -176,7 +192,7 @@ sInt32 CServerPlugin::_RegisterNode ( const uInt32 inToken, tDataList *inNodeLis
 			bDone = true;
 		}
 		
-		if ( !bDone && ( inNodeType & (kLocalNodeType | kSearchNodeType | kConfigNodeType | kContactsSearchNodeType | kNetworkSearchNodeType) ) )
+		if ( !bDone && ( inNodeType & ( kLocalNodeType | kSearchNodeType | kConfigNodeType | kContactsSearchNodeType | kNetworkSearchNodeType | kDHCPLDAPv3NodeType ) ) )
 		//specific node type added here - don't check for duplicates here
 		//need to always be able to get in here regardless of mutexes ie. don't call IsPresent()
 		{
@@ -185,7 +201,7 @@ sInt32 CServerPlugin::_RegisterNode ( const uInt32 inToken, tDataList *inNodeLis
 			pNodeList = dsBuildFromPathPriv( pNodeName, (char *)gNodeList->GetDelimiter() );
 			
 			// Add the node to the node list
-			siResult = gNodeList->AddNode( pNodeName, pNodeList, inNodeType, pPluginPtr );
+			siResult = gNodeList->AddNode( pNodeName, pNodeList, inNodeType, pPluginPtr, inToken );
 			if (siResult == 0) //specific return from AddNode ie. not really a DS status
 			{
 				::dsDataListDeallocatePriv( pNodeList );
@@ -195,6 +211,7 @@ sInt32 CServerPlugin::_RegisterNode ( const uInt32 inToken, tDataList *inNodeLis
 			}
 			else
 			{
+				SRVRLOG1( kLogPlugin, "Registered node %s", pNodeName );
 				siResult = eDSNoErr;
 			}
 		}
@@ -217,7 +234,7 @@ sInt32 CServerPlugin::_RegisterNode ( const uInt32 inToken, tDataList *inNodeLis
 //
 // ----------------------------------------------------------------------------
 
-static sInt32 _UnregisterNode ( const uInt32 inToken, tDataList *inNode )
+sInt32 CServerPlugin::_UnregisterNode ( const uInt32 inToken, tDataList *inNode )
 {
 	sInt32			siResult	= 0;
 	char		   *nodePath	= nil;
@@ -247,7 +264,7 @@ static sInt32 _UnregisterNode ( const uInt32 inToken, tDataList *inNode )
 		}
 		else
 		{
-			SRVRLOG1( kLogPlugin, "Unregistered node %s", nodePath );
+			DBGLOG1( kLogPlugin, "Unregistered node %s", nodePath );
 		}
 		free( nodePath );
 		nodePath = nil;
@@ -279,9 +296,26 @@ static void _DebugLog ( const char *inPattern, va_list args )
 
 CServerPlugin::CServerPlugin ( void ) : mInstance( NULL )
 {
-	SvrLibFtbl		stTemp		= _Callbacks;
+	SvrLibFtbl stTemp	= _Callbacks;
+	fPlugInSignature	= 0;
+	fPlugInName			= nil;
+}
 
+// ----------------------------------------------------------------------------
+//	* CServerPlugin()
+//
+// ----------------------------------------------------------------------------
 
+CServerPlugin::CServerPlugin ( FourCharCode inSig, const char *inName ) : mInstance( NULL )
+{
+	SvrLibFtbl stTemp	= _Callbacks;
+    
+	fPlugInSignature	= inSig;
+	fPlugInName			= nil;
+	if ( inName != nil )
+	{
+		fPlugInName = strdup(inName);
+	}
 }
 
 
@@ -294,7 +328,7 @@ CServerPlugin::CServerPlugin ( CFPlugInRef		inThis,
 								 CFUUIDRef		inFactoryID,
 								 FourCharCode	inSig,
 								 uInt32			inVers,
-								 char		   *inName )
+								 const char	   *inName )
 	: mInstance( NULL )
 {
 	IUnknownVTbl	*spUnknown	= NULL;
@@ -303,12 +337,13 @@ CServerPlugin::CServerPlugin ( CFPlugInRef		inThis,
 	fPlugInRef	= inThis;
 	fPlugInVers	= inVers; //never used anywhere
 	fPlugInName	= nil;
-
+	
 	spUnknown = (IUnknownVTbl *)::CFPlugInInstanceCreate( kCFAllocatorDefault,
 														  inFactoryID,
 														  kModuleTypeUUID );
 	if ( spUnknown == NULL )
 	{
+		ERRORLOG( kLogPlugin, "*** Error in CServerPlugin:CFPlugInInstanceCreate -- spUnknown == NULL." );
 		throw( (sInt32) 'ecom' );
 	}
 
@@ -321,6 +356,7 @@ CServerPlugin::CServerPlugin ( CFPlugInRef		inThis,
 
 	if ( mInstance == NULL )
 	{
+		ERRORLOG( kLogPlugin, "*** Error in CServerPlugin:QueryInterface -- mInstance == NULL." );
 		throw( (sInt32) 'ecom' );
 	}
 
@@ -329,8 +365,7 @@ CServerPlugin::CServerPlugin ( CFPlugInRef		inThis,
 
 	if ( inName != nil )
 	{
-		fPlugInName = new char[ ::strlen( inName ) + 1 ];
-		::strcpy( fPlugInName, inName );
+		fPlugInName = strdup(inName);
 	}
 
 	fPlugInSignature = inSig;
@@ -389,7 +424,10 @@ sInt32 CServerPlugin::ProcessURL ( CFURLRef inURLPlugin )
 	CFUUIDRef		cfuuidFactory		= nil;
 	CFBundleRef		bdlThis				= nil;
 	CFDictionaryRef	plInfo				= nil;
-
+	CFStringRef		cfsOKToLoadPluginLazily	= nil;
+	CFArrayRef		cfaLazyNodesToRegister	= nil;
+	bool			loadPluginLazily	= false;
+	
 	try
 	{
 		::CFURLGetFileSystemRepresentation( inURLPlugin, true, path, sizeof( path ) );
@@ -485,40 +523,167 @@ sInt32 CServerPlugin::ProcessURL ( CFURLRef inURLPlugin )
 
 			DBGLOG1( kLogApplication, "Loading plugin: \"%s\"", pPIName );
 
-			cpPlugin = new CServerPlugin( plgThis, cfuuidFactory, fccPlugInSignature, ulVers, pPIName );
-			if ( cpPlugin != nil )
+	// In order to do load plugins lazily, we want to know a couple of things:
+	//	1) Is this plugin configured to be loaded lazily?
+	//		We require that the plugin have the CFString "YES" as a value of key kPluginLazyNodesToRegStr ("DSOKToLoadLazily") in the
+	//		plugin's plist.
+	//
+	//	2) Is this plugin configured to be disabled?  If so, we want to also load it lazily.
+	//
+	//	3) Does this plugin have a list of nodes in its plist that it wants us to publish
+	//		for it?  If so, we will register those nodes on the plugin's behalf.
+	//		
+	//		Registering nodes in the plist requires the following data:
+	//		a CFArray with key name kPluginLazyNodesToRegStr ("DSNodesToRegister").
+	//			Each item in this array is a CFDictionary that represents a node.  Here are the types in that dictionary:
+	//				kPluginNodeToRegisterType ("DSNodeToRegisterType")		which is a CFNumberRef (kCFNumberSInt32Type) matching the eDirNodeType mask
+	//				kPluginNodeToRegisterPath ("DSNodeToRegisterPath")		which is a CFArray of CFStrings that represent the path.  Index 0 is the root
+	//											of the path (i.e. "/BSD/Local" would be [BSD,Local]
+	//	If not #1, we will just load this plugin like normal.  This way legacy plugins and 3rd party
+	//	plugins will behave no differently.
+
+			cfsOKToLoadPluginLazily = (CFStringRef)::CFDictionaryGetValue( plInfo, kPluginOKToLoadLazilyStr );
+			
+			if ( cfsOKToLoadPluginLazily && ::CFGetTypeID( cfsOKToLoadPluginLazily ) == ::CFStringGetTypeID() && CFStringCompare( (CFStringRef)cfsOKToLoadPluginLazily, CFSTR("YES"), kCFCompareCaseInsensitive ) == kCFCompareEqualTo )
+				loadPluginLazily = true;
+				
+			if ( !loadPluginLazily )
+				loadPluginLazily = ( gPluginConfig->GetPluginState( pPIName ) == kInactive );	// if not active, load lazily as well
+				
+			if ( loadPluginLazily )
 			{
-				gPlugins->AddPlugIn( pPIName, pPIVersion, pPIConfigAvail, pPIConfigFile, fccPlugInSignature, cpPlugin );
+				gPlugins->AddPlugIn( pPIName, pPIVersion, pPIConfigAvail, pPIConfigFile, fccPlugInSignature, cpPlugin, plgThis, cfuuidFactory, ulVers );
+				SRVRLOG2( kLogApplication, "Plugin \"%s\", Version \"%s\", is set to load lazily.", pPIName, pPIVersion );
 
-				cpPlugin->Validate( pPIVersion, fccPlugInSignature );
+				// now we see if this plugin has any nodes it wants us to register on its behalf.
+				cfaLazyNodesToRegister = (CFArrayRef)::CFDictionaryGetValue( plInfo, kPluginLazyNodesToRegStr );
+				
+				// This should either be a CFString with one node to register or a CFArray of CFStrings to register.
+				
+				if ( cfaLazyNodesToRegister && ::CFGetTypeID( cfaLazyNodesToRegister ) == ::CFArrayGetTypeID() )
+				{
+					CFIndex		numNodesToRegister = ::CFArrayGetCount( cfaLazyNodesToRegister );
+					
+					for ( CFIndex i=0; i<numNodesToRegister; i++ )
+					{
+						CFDictionaryRef		nodeDataRef		= (CFDictionaryRef)::CFArrayGetValueAtIndex( cfaLazyNodesToRegister, i );
+						
+						if ( nodeDataRef && ::CFGetTypeID( nodeDataRef ) == ::CFDictionaryGetTypeID() )
+						{
+							CFNumberRef		nodeTypeRef = (CFNumberRef)::CFDictionaryGetValue( nodeDataRef, kPluginNodeToRegisterType );
+							CFArrayRef		nodePathRef = (CFArrayRef)::CFDictionaryGetValue( nodeDataRef, kPluginNodeToRegisterPath );
+							
+							if ( nodeTypeRef && ::CFGetTypeID( nodeTypeRef ) == ::CFNumberGetTypeID() && nodePathRef && ::CFGetTypeID( nodePathRef ) == ::CFArrayGetTypeID() )
+							{
+								CFIndex				numPieces = ::CFArrayGetCount( nodePathRef );
+								tDataListPtr		nodeToRegisterList = ::dsDataListAllocatePriv();
+								char				cBuf[1024];
+								CFStringRef			curStringRef = nil;
+								eDirNodeType		dirNodeType;
+								
+								if ( !nodeToRegisterList )
+									throw( (sInt32)eMemoryError );
+								
+								for ( CFIndex j=0; j<numPieces; j++ )
+								{
+									curStringRef = (CFStringRef)::CFArrayGetValueAtIndex( nodePathRef, j );
+									
+									if ( curStringRef && ::CFGetTypeID( curStringRef ) == ::CFStringGetTypeID() )
+									{
+										if ( CFStringGetCString( curStringRef, cBuf, sizeof(cBuf), kCFStringEncodingUTF8 ) )
+										{
+											::dsAppendStringToListAllocPriv( nodeToRegisterList, cBuf );
+										}
+										else
+										{
+											ERRORLOG3( kLogPlugin, "*** Error in Plugin: %s, it has data too large (> %d bytes!) for node %d in key DSNodeToRegisterType or DSNodeToRegisterPath", sizeof(cBuf), pPIName, j );
+											::dsDataListDeallocatePriv( nodeToRegisterList );
+											free( nodeToRegisterList );
+											nodeToRegisterList = nil;
+											throw((sInt32)ePlugInInitError);
+										}
+									}
+									else
+									{
+										ERRORLOG2( kLogPlugin, "*** Error in Plugin: %s, it has malformed plist data for node %d in key DSNodeToRegisterPath", pPIName, j );
+										::dsDataListDeallocatePriv( nodeToRegisterList );
+										free( nodeToRegisterList );
+										nodeToRegisterList = nil;
+										throw((sInt32)ePlugInInitError);
+									}
+								}
+								
+								if ( CFNumberGetValue( nodeTypeRef, kCFNumberSInt32Type, &dirNodeType ) )
+								{
+									CServerPlugin::InternalRegisterNode( fccPlugInSignature, nodeToRegisterList, dirNodeType, true );	// we are proxing the plugin
+								}
+								else
+									ERRORLOG2( kLogPlugin, "*** Error in Plugin: %s, it has malformed plist data for node %d in key DSNodeToRegisterType", pPIName, i );
 
-				SRVRLOG2( kLogApplication, "Plugin \"%s\", Version \"%s\", loaded successfully.", pPIName, pPIVersion );
-				DBGLOG3( kLogApplication, "Plugin \"%s\", Configure HI \"%s\", can be used to configure PlugIn with file \"%s\".", pPIName, pPIConfigAvail, pPIConfigFile );
-
-				pPIName			= nil;
-				pPIVersion		= nil;
-				pPIConfigAvail	= nil;
-				pPIConfigFile	= nil;
-				cpPlugin		= nil;
+								::dsDataListDeallocatePriv( nodeToRegisterList );
+								free( nodeToRegisterList );
+								nodeToRegisterList = nil;
+							}
+							else
+							{
+								ERRORLOG2( kLogPlugin, "*** Error in Plugin: %s, it has malformed plist data for node %d in key DSNodeToRegisterType or DSNodeToRegisterPath", pPIName, i );
+								throw((sInt32)ePlugInInitError);
+							}
+						}
+						else
+						{
+							ERRORLOG2( kLogPlugin, "*** Error in Plugin: %s, it has malformed plist data for node %d in key DSNodesToRegister", pPIName, i );
+							throw((sInt32)ePlugInInitError);
+						}
+					} // for i<numNodesToRegister
+				}
+				else if ( cfaLazyNodesToRegister )
+				{
+					ERRORLOG2( kLogPlugin, "*** Error in Plugin: %s, it has malformed plist data for key %s", pPIName, kPluginLazyNodesToRegStr );
+					throw((sInt32)ePlugInInitError);
+				}
 			}
 			else
 			{
-				ERRORLOG1( kLogApplication, "ERROR: \"%s\" plugin _FAILED_ to loaded.", pPIName );
+				cpPlugin = new CServerPlugin( plgThis, cfuuidFactory, fccPlugInSignature, ulVers, pPIName );
+				cpPlugin->Validate( pPIVersion, fccPlugInSignature );
+				gPlugins->AddPlugIn( pPIName, pPIVersion, pPIConfigAvail, pPIConfigFile, fccPlugInSignature, cpPlugin );
+				SRVRLOG2( kLogApplication, "Plugin \"%s\", Version \"%s\", loaded successfully.", pPIName, pPIVersion );
 			}
+			
+			DBGLOG3( kLogApplication, "Plugin \"%s\", Configure HI \"%s\", can be used to configure PlugIn with file \"%s\".", pPIName, pPIConfigAvail, pPIConfigFile );
+
+			pPIName			= nil;
+			pPIVersion		= nil;
+			pPIConfigAvail	= nil;
+			pPIConfigFile	= nil;
+			cpPlugin		= nil;
 
 			siResult = eDSNoErr;
-		}
+		} // try
 
 		catch( sInt32 err )
 		{
 			ERRORLOG1( kLogPlugin, "*** Error in Plugin path = %s.", path );
-			ERRORLOG2( kLogPlugin, "*** Error attempting to load plugin %s.  Error = %ld", pPIName, err );
+			ERRORLOG2( kLogPlugin, "*** Error attempting to load plugin %s.  Error = %d", pPIName, err );
 		}
 	}
 
 	catch( sInt32 err )
 	{
 		siResult = err;
+	}
+
+	if ( pPIConfigAvail != nil )
+	{
+		free( pPIConfigAvail );
+		pPIConfigAvail = nil;
+	}
+
+	if ( pPIConfigFile != nil )
+	{
+		free( pPIConfigFile );
+		pPIConfigFile = nil;
 	}
 
 	if ( pPIVersion != nil )
@@ -544,7 +709,7 @@ sInt32 CServerPlugin::ProcessURL ( CFURLRef inURLPlugin )
 		::CFRelease( cfaFactories );
 		cfaFactories = nil;
 	}
-
+	
 #if DEBUG
 	// Putting these here to flush any debugging output.
 	::fflush( stdout );
@@ -568,17 +733,6 @@ sInt32 CServerPlugin::Validate ( const char *inVersionStr, const uInt32 inSignat
 
 
 // ----------------------------------------------------------------------------
-//	* PeriodicTask ()
-//
-// ----------------------------------------------------------------------------
-
-sInt32 CServerPlugin::PeriodicTask ( void )
-{
-	return( mInstance->periodicTask( mInstance ) );
-} // PeriodicTask
-
-
-// ----------------------------------------------------------------------------
 //	* Initialize ()
 //
 // ----------------------------------------------------------------------------
@@ -587,6 +741,39 @@ sInt32 CServerPlugin::Initialize ( void )
 {
 	return( mInstance->initialize( mInstance ) );
 } // Initialize
+
+
+// --------------------------------------------------------------------------------
+//	* Configure ()
+// --------------------------------------------------------------------------------
+
+sInt32 CServerPlugin::Configure ( void )
+{
+	//return( mInstance->configure( mInstance ) );
+    return(eDSNoErr);
+} // Configure
+
+
+// ----------------------------------------------------------------------------
+//	* SetPluginState()
+//
+// ----------------------------------------------------------------------------
+
+sInt32 CServerPlugin::SetPluginState ( const uInt32 inState )
+{
+    return( mInstance->setPluginState( mInstance, inState ) );
+}  // SetPluginState
+
+
+// ----------------------------------------------------------------------------
+//	* PeriodicTask ()
+//
+// ----------------------------------------------------------------------------
+
+sInt32 CServerPlugin::PeriodicTask ( void )
+{
+	return( mInstance->periodicTask( mInstance ) );
+} // PeriodicTask
 
 
 // ----------------------------------------------------------------------------
@@ -600,15 +787,15 @@ sInt32 CServerPlugin::ProcessRequest ( void *inData )
 }  // ProcessRequest
 
 
-// ----------------------------------------------------------------------------
-//	* SetPluginState()
-//
-// ----------------------------------------------------------------------------
+// --------------------------------------------------------------------------------
+//	* Shutdown ()
+// --------------------------------------------------------------------------------
 
-sInt32 CServerPlugin::SetPluginState ( const uInt32 inState )
+sInt32 CServerPlugin::Shutdown ( void )
 {
-    return( mInstance->setPluginState( mInstance, inState ) );
-}  // SetPluginState
+	//return( mInstance->shutdown( mInstance ) );
+    return(eDSNoErr);
+} // Shutdown
 
 
 // ----------------------------------------------------------------------------
@@ -632,49 +819,65 @@ FourCharCode CServerPlugin::GetSignature ( void )
 	return( fPlugInSignature );
 }  // GetSignature
 
+
 // ----------------------------------------------------------------------------
-//	* ProcessConfigurePlugin()
+//	* ProcessStaticPlugin()
 //
 // ----------------------------------------------------------------------------
 
-sInt32 CServerPlugin::ProcessConfigurePlugin ( void )
+sInt32 CServerPlugin::ProcessStaticPlugin ( const char* inPluginName, const char* inPluginVersion )
 {
-	sInt32			siResult			= -1;
-	CConfigurePlugin  *cpPlugin			= nil;
-	FourCharCode	fccPlugInSignature	= 0;
+	sInt32				siResult			= -1;
+	CServerPlugin	   *cpPlugin			= nil;
+	FourCharCode		fccPlugInSignature	= 0;
 
 	try
 	{
-			fccPlugInSignature = ::rand();
+        fccPlugInSignature = ::rand();
 
-			DBGLOG( kLogApplication, "Processing Configure plugin." );
+        DBGLOG1( kLogApplication, "Processing <%s> plugin.", inPluginName );
 
-			cpPlugin = new CConfigurePlugin( fccPlugInSignature, "Configure" );
-			if ( cpPlugin != nil )
-			{
-				gPlugins->AddPlugIn( "Configure", COSUtils::GetStringFromList( kSysStringListID, kStrVersion ), "Not Available", "Not Available", fccPlugInSignature, cpPlugin );
+        //need to decide which static plugin to create here
+        if (strcmp(inPluginName,"Configure") == 0)
+        {
+            cpPlugin = new CConfigurePlugin( fccPlugInSignature, inPluginName );
+        }
+        else if (strcmp(inPluginName,"NetInfo") == 0)
+        {
+            cpPlugin = new CNetInfoPlugin( fccPlugInSignature, inPluginName );
+        }
+        else if (strcmp(inPluginName,"LDAPv3") == 0)
+        {
+            cpPlugin = new CLDAPv3Plugin( fccPlugInSignature, inPluginName );
+        }
+        else if (strcmp(inPluginName,"Search") == 0)
+        {
+            cpPlugin = new CSearchPlugin( fccPlugInSignature, inPluginName );
+        }
+        if ( cpPlugin != nil )
+        {
+            gPlugins->AddPlugIn( inPluginName, inPluginVersion, "Not Available", "Not Available", fccPlugInSignature, cpPlugin );
 
-				cpPlugin->Validate( COSUtils::GetStringFromList( kSysStringListID, kStrVersion ), fccPlugInSignature );
+            cpPlugin->Validate( inPluginVersion, fccPlugInSignature );
 
-				SRVRLOG1( kLogApplication, "Plugin \"Configure\", Version \"%s\", processed successfully.", COSUtils::GetStringFromList( kSysStringListID, kStrVersion ) );
+            SRVRLOG2( kLogApplication, "Plugin <%s>, Version <%s>, processed successfully.", inPluginName, inPluginVersion );
+        }
+        else
+        {
+            ERRORLOG1( kLogApplication, "ERROR: <%s> plugin _FAILED_ to process.", inPluginName );
+        }
 
-				cpPlugin		= nil;
-			}
-			else
-			{
-				ERRORLOG( kLogApplication, "ERROR: \"Configure\" plugin _FAILED_ to process." );
-			}
-
-			siResult = eDSNoErr;
+        siResult = eDSNoErr;
 	}
 
 	catch( sInt32 err )
 	{
 		siResult = err;
-        ERRORLOG1( kLogPlugin, "*** Error attempting to process Configure plugin .  Error = %ld", err );
+        ERRORLOG2( kLogPlugin, "*** Error attempting to process <%s> plugin .  Error = %ld", inPluginName, err );
 	}
 
 	return( siResult );
 
-} // ProcessConfigurePlugin
+} // ProcessStaticPlugin
+
 

@@ -1,5 +1,5 @@
-OpenLDAP To Do List
--------------------
+OpenLDAP Software To Do List
+----------------------------
 
 This is a list of projects that need getting done.  They are defined
 by scale of the effort as opposed to priority.  Contribute to
@@ -21,49 +21,48 @@ OpenLDAP 2.x Projects
 ---------------------
 	SLAPD
 		Complete Unicode Support (ACLs, etc.)
-	client API update
+	client C API update
 		Implement per referral/continuation callback
-	clients
+	clients (e.g. ldapsearch(1))
 		Implement referral chasing options w/ referral callback
 	Update manual pages
 
 
 Large projects
 --------------
-Redesign slapd memory allocation fault handling
-Perform a security audit (and fix any hole found)
-Implement LCUP
+Localize slapd
+Implement X.500 administrative models (e.g. subentries, etc.)
+Implement LDAP component matching
+Implement LDAP sorted search results control
 
 
 Medium projects
 ---------------
-Add LDIFv1 control: support
-Add support for in-directory SASL secrets
-Implement dNSReferral <draft-zeilenga-ldap-dnsref-xx.txt>
 Implement authPassword (RFC 3112)
-Implement localization
-Implement LDAP Transactions
-Implement Proxy Authorization Group extension
-Implement Proxy Authorization Control extension
-Update to latest autoconf and friends
-Use GNU shtool to improve portability
+Implement DIT Structure Rules and Name Forms
+Implement LDAP Assertion Control
+Implement LDAP Transactions extension
+Redesign slapd memory allocation fault handling
+Localize tools
+
 
 Small projects
 --------------
-Implement -E/-e extensions options
-Implement -V version options
-Implement simple paged results control
-Add no-op control support to ldap client tools
-Add tests to test suite (ACI, moddn, manageDSAit, etc.)
-Add support for Cyrus SASL v2
-Add support for Cyrus pwcheckd/saslauthd
-Create ldapbind (from ldapcompare?) to support bind operations
+Add DSML capabilities to command line tools
+Add dumpasn1 logging support
+Add tests to test suite
+Convert utfconv.txt into man page(s).
+Recode linked-list structs to use <ldap_queue.h> macros
 Update any manual page
 
 
 For additional TODO items, see:
   http://www.openldap.org/its/index.cgi/Software%20Enhancements
+  http://www.openldap.org/its/index.cgi/Software%20Bugs
 
+
+JLDAP TODO items, see:
+  http://www.openldap.org/devel/cvsweb.cgi/~checkout~/design/todo.txt?rev=1&cvsroot=JLDAP
 
 ---
-$OpenLDAP: pkg/ldap/doc/devel/todo,v 1.91 2002/02/02 19:30:31 kurt Exp $
+$OpenLDAP: pkg/ldap/doc/devel/todo,v 1.91.2.17 2003/05/15 19:38:50 kurt Exp $

@@ -1,4 +1,4 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/external.h,v 1.11 2002/02/02 09:13:16 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/external.h,v 1.11.2.1 2002/04/18 15:20:02 kurt Exp $ */
 #ifndef _PERL_EXTERNAL_H
 #define _PERL_EXTERNAL_H
 
@@ -10,6 +10,7 @@ extern BI_close	perl_back_close;
 extern BI_destroy	perl_back_destroy;
 
 extern BI_db_init	perl_back_db_init;
+extern BI_db_open	perl_back_db_open;
 extern BI_db_destroy	perl_back_db_destroy;
 
 extern BI_db_config	perl_back_db_config;

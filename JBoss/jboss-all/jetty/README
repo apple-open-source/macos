@@ -1,0 +1,49 @@
+
+This plugin integrates Jetty with JBoss.
+
+Jetty is wrapped up as a JettyService MBean (deployed in
+jetty-plugin.sar) and fulfils the role of WebContainer.
+
+Non WebContainer specific functionality is inherited from
+/server/src/main/org/jboss/web/AbstractWebContainer.java, where it can
+be shared by other WebContainer integrations.
+
+The integration basically maps Jetty's lifecycle to that of a JBoss
+Service, exposes Jetty's webapp deployment functionality to
+AbstractWebContainer, and integrates the following functionality:
+
+log:
+----
+
+We supply a Jetty Logger which maps to the JBoss logging scheme
+
+security:
+---------
+
+We supply a Jetty UserRealm which maps a Jetty SimplePrincipal onto a
+JBoss UserPrincipal and provides the necessary authentication and
+authorisation implementation. (JAAS is supported).
+
+session:
+--------
+
+STILL UNDER DEVELOPMENT - We extend Jetty's HttpSession management to
+support distributable sessions by reusing infrastructure available
+from JBoss (JBossHA, EJBs etc). Various strategies are configurable.
+
+xml:
+----
+
+We provide local resolution for a number of webapp descriptors and are
+responsible for parsing said descriptors and sharing results with
+AbstractWebContainer, whence it may set up e.g. JNDI bindings
+(java:/comp/env) etc.
+
+
+
+
+Enjoy,
+
+
+Jules (Jules_Gosnell@yahoo.com) 21/02/2002
+

@@ -51,6 +51,7 @@ void AppleCSPContext::symmetricKeyBits(
 		CssmError::throwMe(CSSMERR_CSP_ALGID_MISMATCH);
 	}
 	cspValidateIntendedKeyUsage(&key.KeyHeader, intendedUse);
+	cspVerifyKeyTimes(key.KeyHeader);
 	
 	/* extract raw bits one way or the other */
 	switch(key.blobType()) {
@@ -116,7 +117,10 @@ void AppleKeyPairGenContext::generate(
 	privHdr.KeyAttr &= ~KEY_ATTR_RETURN_MASK;
 		 
 	// Handle key formatting. Delete the BinaryKeys if
-	// we're not creating ref keys. 
+	// we're not creating ref keys, after safe completion of 
+	// generateKeyBlob (which may throw, in which case the binary keys
+	// get deleted by our caller). 
+	CSSM_KEYATTR_FLAGS attrFlags = 0;
 	switch(pubStorage) {
 		case CKS_Ref:
 			session.addRefKey(*pubBinKey, pubKey);
@@ -127,11 +131,12 @@ void AppleKeyPairGenContext::generate(
 			pubBinKey->generateKeyBlob(
 				session.normAlloc(),		// alloc in user space
 				CssmData::overlay(pubKey.KeyData),
-				pubHdr.Format);
-			delete pubBinKey;
+				pubHdr.Format,
+				session,
+				NULL,						// no paramKey here!
+				attrFlags);
 			break;
 		case CKS_None:
-			delete pubBinKey;
 			break;
 	}
 	switch(privStorage) {
@@ -144,12 +149,19 @@ void AppleKeyPairGenContext::generate(
 			privBinKey->generateKeyBlob(
 				session.normAlloc(),		// alloc in user space
 				CssmData::overlay(privKey.KeyData),
-				privHdr.Format);
-			delete privBinKey;
+				privHdr.Format,
+				session,
+				NULL,
+				attrFlags);
 			break;
 		case CKS_None:
-			delete privBinKey;
 			break;
+	}
+	if(pubStorage != CKS_Ref) {
+		delete pubBinKey;
+	}
+	if(privStorage != CKS_Ref) {
+		delete privBinKey;
 	}
 }
 
@@ -239,11 +251,15 @@ SymmetricBinaryKey::~SymmetricBinaryKey()
 void SymmetricBinaryKey::generateKeyBlob(
 	CssmAllocator 		&allocator,
 	CssmData			&blob,
-	CSSM_KEYBLOB_FORMAT	&format)	// CSSM_KEYBLOB_RAW_FORMAT_PKCS1, etc.
+	CSSM_KEYBLOB_FORMAT	&format,	// CSSM_KEYBLOB_RAW_FORMAT_PKCS1, etc.
+	AppleCSPSession		&session,
+	const CssmKey		*paramKey,	/* optional, unused here */
+	CSSM_KEYATTR_FLAGS 	&attrFlags)	/* IN/OUT */
 {
 	switch(format) {
 		case CSSM_KEYBLOB_RAW_FORMAT_NONE:			// default
 		case CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING:	// the one we can do
+		case CSSM_KEYBLOB_RAW_FORMAT_DIGEST:		// same thing
 			break;
 		default:
 			CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_SYMMETRIC_KEY_FORMAT);

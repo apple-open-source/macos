@@ -18,6 +18,7 @@ extern int logprocs_option;
 extern unsigned logprocs_option_arg;
 extern int stayalive_option;
 extern char *program_name;
+extern int dont_fork;
 
 int opt_recognize(int argc,char *argv[]);
 

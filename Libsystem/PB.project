@@ -6,9 +6,9 @@
         FRAMEWORKS = (); 
         FRAMEWORKSEARCH = (); 
         LIBRARYSEARCH = ("$(NEXT_ROOT)/usr/local/lib/system"); 
-        OTHER_LIBS = (c, dyld, info, kvm, m, macho, streams, unc, keymgr); 
+        OTHER_LIBS = (c, dyld, info, kvm, m, macho, notify, streams, unc, keymgr, poll, dl); 
         OTHER_LINKED = (SystemMath.s); 
-        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.postamble, System.order, Info.plist); 
+        OTHER_SOURCES = (GNUmakefile, Makefile.preamble, Makefile, Makefile.postamble, System.order, Info.plist, CommPageSymbols.st); 
     }; 
     LANGUAGE = English; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 

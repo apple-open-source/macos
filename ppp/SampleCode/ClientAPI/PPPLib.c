@@ -2,26 +2,32 @@
  * Copyright (c) 2000, 2001 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
 /*
  * Modification History
+ *
+ * Oct 25, 2002                 Christophe Allie <callie@apple.com>
+ * - use ServiceID instead of LinkID 
  *
  * Feb 28, 2002                 Christophe Allie <callie@apple.com>
  * - socket API fixes 
@@ -117,9 +123,9 @@ writen(int ref, void *data, int len)
     return len;
 }        
 
-static int
+static int 
 PPPExec(int		ref,
-	u_int32_t	link,
+	u_int8_t	*serviceid,
 	u_int32_t	cmd,
 	void		*request,
 	u_int32_t	requestLen,
@@ -131,14 +137,29 @@ PPPExec(int		ref,
 	ssize_t			n;
 
 	bzero(&msg, sizeof(msg));
+	if (serviceid) {
+            // serviceid is present, use it
+            msg.m_flags = USE_SERVICEID;
+            msg.m_link = strlen(serviceid);
+        }
+        else {
+            // no service ID, use the default link
+            msg.m_link = -1;
+        }
 	msg.m_type = cmd;
-	msg.m_link = link;
 	msg.m_len  = ((request != NULL) && (requestLen > 0)) ? requestLen : 0;
 
 	//  send the command
 	if (writen(ref, &msg, sizeof(msg)) < 0) {
                 fprintf(stderr, "PPPExec write() failed: %s\n", strerror(errno));
                 return errno;
+        }
+
+        if (serviceid) {
+            if (writen(ref, serviceid, msg.m_link) < 0) {
+                fprintf(stderr, "PPPExec write() failed: %s\n", strerror(errno));
+                return errno;
+            }
         }
 
 	if ((request != NULL) && (requestLen > 0)) {
@@ -156,6 +177,26 @@ PPPExec(int		ref,
 	} else if (n != sizeof(msg)) {
 		fprintf(stderr, "PPPExec read() failed: insufficent data, read=%d\n", n);
 		return -1;
+	}
+
+	if (serviceid && msg.m_link) {
+		buf = CFAllocatorAllocate(NULL, msg.m_link, 0);
+		if (buf) {
+			// read reply
+			n = readn(ref, buf, msg.m_link);
+			if (n == -1) {
+				fprintf(stderr, "PPPExec read() failed: error=%s\n", strerror(errno));
+				CFAllocatorDeallocate(NULL, buf);
+				return errno;
+			} else if (n != msg.m_link) {
+				fprintf(stderr, "PPPExec read() failed: insufficent data, read=%d\n", n);
+				CFAllocatorDeallocate(NULL, buf);
+				return -1;
+			}
+			// buf contains the service id we passed in the request
+			CFAllocatorDeallocate(NULL, buf);
+			buf = NULL;
+		}
 	}
 
 	if (msg.m_len) {
@@ -188,12 +229,12 @@ PPPExec(int		ref,
 
 
 int
-PPPConnect(int ref, u_int32_t link)
+PPPConnect(int ref, u_int8_t *serviceid)
 {
 	int	status;
 
 	status = PPPExec(ref,
-			 link,
+			 serviceid,
 			 PPP_CONNECT,
 			 NULL,
 			 0,
@@ -209,12 +250,12 @@ PPPConnect(int ref, u_int32_t link)
 
 
 int
-PPPDisconnect(int ref, u_int32_t link)
+PPPDisconnect(int ref, u_int8_t *serviceid)
 {
 	int	status;
 
 	status = PPPExec(ref,
-			 link,
+			 serviceid,
 			 PPP_DISCONNECT,
 			 NULL,
 			 0,
@@ -231,134 +272,7 @@ PPPDisconnect(int ref, u_int32_t link)
 
 __private_extern__
 int
-PPPGetNumberOfLinks(int ref, u_int32_t *nLinks)
-{
-	void		*replyBuf	= NULL;
-	u_int32_t	replyBufLen	= 0;
-	int		status;
-
-	status = PPPExec(ref,
-			    -1,
-			    PPP_GETNBLINKS,
-			    NULL,
-			    0,
-			    &replyBuf,
-			    &replyBufLen);
-	if (status != 0) {
-		fprintf(stderr, "PPPExec(PPP_GETNBLINKS) failed: status = %d\n", status);
-		return status;
-	}
-
-	*nLinks = (replyBufLen == sizeof(u_long)) ? *(u_long *)replyBuf : 0;
-	if (replyBuf)	CFAllocatorDeallocate(NULL, replyBuf);
-
-	return status;
-}
-
-
-__private_extern__
-int
-PPPGetLinkByIndex(int ref, u_int32_t index, u_int32_t *link)
-{
-	u_int32_t	i		= index;
-	void		*replyBuf	= NULL;
-	u_int32_t	replyBufLen	= 0;
-	int		status;
-
-	status = PPPExec(ref,
-			    -1,
-			    PPP_GETLINKBYINDEX,
-			    (void *)&i,
-			    sizeof(i),
-			    &replyBuf,
-			    &replyBufLen);
-	if (status != 0) {
-		fprintf(stderr, "PPPExec(PPP_GETLINKBYINDEX) failed: status = %d\n", status);
-		return status;
-	}
-
-	if (replyBuf && (replyBufLen == sizeof(u_int32_t))) {
-		*link = *(u_int32_t *)replyBuf;
-	} else {
-		status = -2;	/* if not found */
-	}
-	if (replyBuf)	CFAllocatorDeallocate(NULL, replyBuf);
-
-	return status;
-}
-
-
-__private_extern__
-int
-PPPGetLinkByServiceID(int ref, CFStringRef serviceID, u_int32_t *link)
-{
-	int		i;
-	u_int32_t	nLinks;
-	int		status;
-	CFDataRef	sID = NULL;
-
-	if (serviceID == NULL)
-		return EINVAL;
-
-	sID = CFStringCreateExternalRepresentation(NULL,
-						   serviceID,
-						   kCFStringEncodingMacRoman,
-						   0);
-	if (sID == NULL)
-		return ENOMEM;
-	 
-	status = PPPGetNumberOfLinks(ref, &nLinks);
-	if (status != 0) {
-		fprintf(stderr, "PPPGetNumberOfLinks() failed: %d\n", status);
-		goto done;
-	}
-
-	status = -2;	/* assume no link */
-
-	for (i=0; i<nLinks; i++) {
-		u_int32_t	iLink;
-		void		*data	= NULL;
-		u_int32_t	dataLen	= 0;
-
-		status = PPPGetLinkByIndex(ref, i, &iLink);
-		if (status != 0) {
-			fprintf(stderr, "PPPGetLinkByIndex() failed: %d\n", status);
-			goto done;
-		}
-
-		status = PPPGetOption(ref,
-				      iLink,
-				      PPP_OPT_SERVICEID,
-				      &data,
-				      &dataLen);
-		if (status != 0) {
-			fprintf(stderr, "PPPGetOption(PPP_OPT_SERVICEID) failed: %d\n", status);
-			goto done;
-		}
-
-		if ((dataLen != CFDataGetLength(sID)) ||
-		    (strncmp(data, CFDataGetBytePtr(sID), dataLen) != 0)) {
-			/* if link not found */
-			status = -2;
-		}
-
-		CFAllocatorDeallocate(NULL, data);
-		if (status == 0) {
-			*link = iLink;
-			goto done;
-		}
-	}
-
-    done :
-
-	CFRelease(sID);
-	return status;
-}
-
-
-__private_extern__
-int
-PPPGetOption(int ref, u_int32_t link, u_int32_t option, void **data, u_int32_t *dataLen)
+PPPGetOption(int ref, u_int8_t *serviceid, u_int32_t option, void **data, u_int32_t *dataLen)
 {
 	struct ppp_opt_hdr 	opt;
 	void			*replyBuf	= NULL;
@@ -369,7 +283,7 @@ PPPGetOption(int ref, u_int32_t link, u_int32_t option, void **data, u_int32_t *
 	opt.o_type = option;
 
 	status = PPPExec(ref,
-			    link,
+			    serviceid,
 			    PPP_GETOPTION,
 			    (void *)&opt,
 			    sizeof(opt),
@@ -395,7 +309,7 @@ PPPGetOption(int ref, u_int32_t link, u_int32_t option, void **data, u_int32_t *
 
 __private_extern__
 int
-PPPSetOption(int ref, u_int32_t link, u_int32_t option, void *data, u_int32_t dataLen)
+PPPSetOption(int ref, u_int8_t *serviceid, u_int32_t option, void *data, u_int32_t dataLen)
 {
 	void			*buf;
 	u_long			bufLen;
@@ -409,7 +323,7 @@ PPPSetOption(int ref, u_int32_t link, u_int32_t option, void *data, u_int32_t da
 	bcopy(data, ((struct ppp_opt *)buf)->o_data, dataLen);
 
 	status = PPPExec(ref,
-			 link,
+			 serviceid,
 			 PPP_SETOPTION,
 			 buf,
 			 bufLen,
@@ -427,14 +341,14 @@ PPPSetOption(int ref, u_int32_t link, u_int32_t option, void *data, u_int32_t da
 
 __private_extern__
 int
-PPPStatus(int ref, u_int32_t link, struct ppp_status **stat)
+PPPStatus(int ref, u_int8_t *serviceid, struct ppp_status **stat)
 {
 	void		*replyBuf	= NULL;
 	u_int32_t	replyBufLen	= 0;
 	int		status;
 
 	status = PPPExec(ref,
-			    link,
+			    serviceid,
 			    PPP_STATUS,
 			    NULL,
 			    0,
@@ -459,12 +373,12 @@ PPPStatus(int ref, u_int32_t link, struct ppp_status **stat)
 
 __private_extern__
 int
-PPPEnableEvents(int ref, u_int32_t link, u_char enable)
+PPPEnableEvents(int ref, u_int8_t *serviceid, u_char enable)
 {
 	int	status;
 
 	status = PPPExec(ref,
-			 link,
+			 serviceid,
 			 enable ? PPP_ENABLE_EVENT : PPP_DISABLE_EVENT,
 			 NULL,
 			 0,

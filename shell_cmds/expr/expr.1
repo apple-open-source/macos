@@ -50,7 +50,7 @@ Returns the results of addition or subtraction of integer-valued arguments.
 Returns the results of multiplication, integer division, or remainder of integer-valued arguments.
 .It Ar expr1 Li : Ar expr2
 The 
-.Dq \:
+.Dq \&:
 operator matches 
 .Ar expr1 
 against 
@@ -58,6 +58,10 @@ against
 which must be a regular expression.  The regular expression is anchored
 to the beginning of  the string with an implicit 
 .Dq ^ .
+.Nm
+expects "basic" regular expressions, see 
+.Xr re_format 7
+for more information on regular expressions.
 .Pp
 If the match succeeds and the pattern contains at least one regular
 expression subexpression 

@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -26,7 +27,7 @@
 #define kNoNewMount               0x00000002
 #define kMountAtMountdir          0x00000004
 #define kCreateNewSession         0x00000008
-#define kMarkAutomounted		      0x00000010
+#define kMarkAutomounted		  0x00000010
 #define kMountWithoutNotification 0x00000020
 
 #import "Controller.h"
@@ -37,7 +38,6 @@
 #import "FstabMap.h"
 #import "StaticMap.h"
 #import "FileMap.h"
-#import "NIMap.h"
 #import "HostMap.h"
 #import "UserMap.h"
 #import "NSLMap.h"
@@ -50,12 +50,16 @@
 #import <stdlib.h>
 #import <string.h>
 #import <errno.h>
+#include <sys/mount.h>
+#include <sys/sysctl.h>
 #import <sys/socket.h>
 #import <sys/param.h>
 #import <sys/queue.h>
 #import <sys/types.h>
 #import <sys/wait.h>
 #import <grp.h>
+
+#define BIND_8_COMPAT
 
 #import <sys/stat.h>
 #import <nfs_prot.h>
@@ -119,6 +123,40 @@ gidForGroup(char *name)
 	return 0;
 }
 
+int
+sysctl_fsid(op, fsid, oldp, oldlenp, newp, newlen)
+	int op;
+	fsid_t *fsid;
+	void *oldp;
+	size_t *oldlenp;
+	void *newp;
+	size_t newlen;
+{
+	int ctlname[CTL_MAXNAME+2];
+	size_t ctllen;
+	const char *sysstr = "vfs.generic.ctlbyfsid";
+	struct vfsidctl vc;
+
+	ctllen = CTL_MAXNAME+2;
+	if (sysctlnametomib(sysstr, ctlname, &ctllen) == -1) return -1;
+	ctlname[ctllen] = op;
+
+	bzero(&vc, sizeof(vc));
+	vc.vc_vers = VFS_CTL_VERS1;
+	vc.vc_fsid = *fsid;
+	vc.vc_ptr = newp;
+	vc.vc_len = newlen;
+	return (sysctl(ctlname, ctllen + 1, oldp, oldlenp, &vc, sizeof(vc)));
+}
+
+int
+sysctl_unmount(fsid_t *fsid, int flag)
+{
+
+	return (sysctl_fsid(VFS_CTL_UMOUNT, fsid, NULL, 0, &flag,
+		sizeof(flag)));
+}
+
 @implementation Controller
 
 - (Controller *)init:(char *)dir
@@ -127,6 +165,9 @@ gidForGroup(char *name)
 	char str[1024], *p;
 	FILE *pf;
 	float vers;
+	int sock;
+	struct sockaddr_in addr;
+	int len = sizeof(struct sockaddr_in);
 
 	[super init];
 
@@ -143,7 +184,26 @@ gidForGroup(char *name)
 
 	root = [rootMap root];
 
-	transp = svcudp_create(RPC_ANYSOCK);
+	sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	if (sock == -1) {
+		sys_msg(debug, LOG_ERR, "Can't create UDP socket");
+		[self release];
+		return nil;
+	}
+	
+	bzero((char *)&addr, sizeof (addr));
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+	if (bindresvport(sock, &addr)) {
+		addr.sin_port = 0;
+		if (bind(sock, (struct sockaddr *)&addr, len) == -1) {
+			sys_msg(debug, LOG_ERR, "Can't bind UDP socket to INADDR_LOOPBACK");
+			[self release];
+			return nil;
+		}
+	}
+
+	transp = svcudp_create(sock);
 	if (transp == NULL)
 	{
 		sys_msg(debug, LOG_ERR, "Can't create UDP service");
@@ -318,6 +378,18 @@ gidForGroup(char *name)
 	node_id++;
 }
 
+- (BOOL)vnodeIsRegistered:(Vnode *)v
+{
+	int i;
+
+	for (i = 0; i < node_table_count; i++)
+	{
+		if (node_table[i].node == v) return YES;
+	}
+
+	return NO;
+}
+
 - (Vnode *)vnodeWithID:(unsigned int)n
 {
 	int i;
@@ -336,48 +408,96 @@ gidForGroup(char *name)
 	return nil;
 }
 
-- (void)destroyVnode:(Vnode *)v
+- (void)compactVnodeTableFrom:(int)startIndex
 {
-	int i;
-	unsigned int n, count;
-	BOOL searching;
-	Array *kids;
+	int i, empty;
+
+	/*
+	    Track two pointer in a single pass across the vnode table:
+			'empty' is a trailing pointer to the leftmost empty slot,
+			'i' is the slot being checked
+	 */
+	for (i=0, empty=0; i < node_table_count; ++i)
+	{
+		if (node_table[i].node != nil)
+		{
+			/* This node is still in use, so shift it down */
+			if (i != empty) {
+				node_table[empty] = node_table[i];
+				node_table[i].node_id = 0;
+				node_table[i].node = nil;
+			};
+			++empty;
+		}
+	}
+	
+	if (empty != node_table_count)
+	{
+		node_table_count = empty;
+		if (node_table_count == 0)
+		{
+			free(node_table);
+			node_table = nil;
+		} else {
+			node_table = (node_table_entry *)realloc(node_table,
+			node_table_count * sizeof(node_table_entry));
+		};
+	};
+}
+
+- (void)freeVnode:(Vnode *)v
+{
+	int i, nodeIndex = -1;
 	Vnode *p;
 
-	n = [v nodeID];
-
-	searching = YES;
-	for (i = 0; (i < node_table_count) && searching; i++)
+	for (i = 0; i < node_table_count; i++)
 	{
-		if (node_table[i].node == v) searching = NO;
+		if (node_table[i].node == v) {
+			nodeIndex = i;
+			break;
+		};
 	}
 
-	if (searching)
+	if (nodeIndex == -1)
 	{
-		sys_msg(debug, LOG_ERR, "Unreferenced Vnode %u (%s)",
-			n, [[v path] value]);
-		return;
-	}
+		sys_msg(debug, LOG_ERR, "Unregistered Vnode %u (%s)", [v nodeID], [[v path] value]);
+	} else {
+		node_table[nodeIndex].node = nil;
+		node_table[nodeIndex].node_id = 0;
+	};
+	
+	p = [v parent];
+	if (p != nil) [p removeChild:v];
+	[v release];
+}
 
-	for(; i < node_table_count; i++) node_table[i-1] = node_table[i];
-
-	node_table_count--;
-	if (node_table_count == 0)
-		free(node_table);
-	else
-		node_table = (node_table_entry *)realloc(node_table,
-		node_table_count * sizeof(node_table_entry));
+- (void)removeVnode:(Vnode *)v
+{
+	int i;
+	unsigned int count;
+	Array *kids;
 
 	kids = [v children];
 	if (kids == nil) count = 0;
 	else count = [kids count];
 
 	for (i = count - 1; i >= 0; i--)
-		[self destroyVnode:[kids objectAtIndex:i]];
+		[self removeVnode:[kids objectAtIndex:i]];
 
-	p = [v parent];
-	if (p != nil) [p removeChild:v];
-	[v release];
+	[self freeVnode:v];
+}
+
+- (void)destroyVnode:(Vnode *)v
+{
+
+	[self removeVnode:v];
+	
+	/*
+	   Note that, in the process of deleting child nodes, nodes in unknown indices
+	   may have been removed from the table; the only safe way to catch up on all
+	   the table compaction now necessary is to start from 0.
+	 */
+	[self compactVnodeTableFrom:0];
 }
 
 - (unsigned int)automount:(Vnode *)v directory:(String *)dir args:(int)mntargs
@@ -410,7 +530,7 @@ gidForGroup(char *name)
 	args.maxgrouplist = NFS_MAXGRPS;
 	args.readahead = NFS_DEFRAHEAD;
 	args.fhsize = sizeof(nfs_fh);
-	args.flags = NFSMNT_INT | NFSMNT_TIMEO | NFSMNT_RETRANS;
+	args.flags = NFSMNT_INT | NFSMNT_TIMEO | NFSMNT_RETRANS | NFSMNT_NOLOCKS;
 	args.wsize = NFS_WSIZE;
 	args.rsize = NFS_RSIZE;
 #else
@@ -419,7 +539,7 @@ gidForGroup(char *name)
 	args.wsize = NFS_WSIZE;
 	args.rsize = NFS_RSIZE;
 #endif
-	if (debug) {
+	if (debug == DEBUG_STDERR) {
 		/* Don't hang system on internal errors */
 		args.flags &= ~NFSMNT_INT;
 		args.flags |= NFSMNT_SOFT;
@@ -482,10 +602,11 @@ gidForGroup(char *name)
 	return YES;
 }
 
-- (unsigned int)autoMap:(Map *)map name:(String *)name directory:(String *)dir
+- (unsigned int)autoMap:(Map *)map name:(String *)name directory:(String *)dir mountdirectory:(String *)mnt
 {
 	Vnode *maproot;
 	unsigned int status;
+	struct statfs sfs;
 
 	maproot = [map root];
 	[maproot setSource:name];
@@ -499,18 +620,24 @@ gidForGroup(char *name)
 
 	map_table[map_table_count].name = [name retain];
 	map_table[map_table_count].dir = [dir retain];
+	map_table[map_table_count].mountdir = [mnt retain];
 	map_table[map_table_count].map = map;
-
-	map_table_count++;
 
 	status = [self automount:maproot directory:dir args:[map mountArgs]];
 	if (status != 0) return status;
 
+	/* Look up and save off the fsid of the newly mounted map: */
+	status = statfs([dir value], &sfs);
+	if (status != 0) return status;
+	[map setFSID:&sfs.f_fsid];
+
+	map_table_count++;
+	
 	status = [map didAutoMount];
 	return status;
 }
 
-- (unsigned int)mountmap:(String *)mapname directory:(String *)dir
+- (unsigned int)mountmap:(String *)mapname directory:(String *)dir mountdirectory:(String *)mnt
 {
 	Vnode *root, *p;
 	Map *map;
@@ -539,10 +666,6 @@ gidForGroup(char *name)
 	else if (strcmp([mapname value], "-nsl") == 0)
 	{
 		mapclass = [NSLMap class];
-	}
-	else if (strncmp([mapname value], "/", 1))
-	{
-		mapclass = [NIMap class];
 	}
 	else if ([self isFile:mapname])
 	{
@@ -578,7 +701,7 @@ gidForGroup(char *name)
 	sys_msg(debug, LOG_DEBUG, "Initializing map \"%s\" parent \"%s\" mountpt \"%s\"", [mapname value], [parent value], [mountpt value]);
 	[parent release];
 
-	map = [[mapclass alloc] initWithParent:p directory:mountpt from:mapname];
+	map = [[mapclass alloc] initWithParent:p directory:mountpt from:mapname mountdirectory:mnt];
 	if (mapclass == [NSLMap class]) GlobalTargetNSLMap = (NSLMap *)map;
 
 	[mountpt release];
@@ -589,7 +712,7 @@ gidForGroup(char *name)
 		return 1;
 	}
 
-	return [self autoMap:map name:mapname directory:dir];
+	return [self autoMap:map name:mapname directory:dir mountdirectory:mnt];
 }
 
 - (Map *)rootMap
@@ -643,7 +766,7 @@ BOOL URLIsComplete(const char *url)
 	String *urlMountType;
     unsigned long urlMountFlags = kMarkAutomounted | kUseUIProxy;
 	char *url;
-	char *mountDir;
+	char mountDir[PATH_MAX];
 	sigset_t curr_set;
 	sigset_t blocked_set;
 	pid_t mountPID;
@@ -671,6 +794,7 @@ BOOL URLIsComplete(const char *url)
 		return 0;
 	} else {
 		String *nslEntrySource = [String uniqueString:"*"];
+		if ([v mntArgs] & MNT_DONTBROWSE) urlMountFlags |= kMarkDontBrowse;
 		if ([[v source] equal:nslEntrySource]) {
 			urlMountFlags |= kMountAll;
 		} else {
@@ -732,10 +856,16 @@ BOOL URLIsComplete(const char *url)
 		};
 		
 		url = [[v urlString] value];
-		mountDir = [[v link] value];
+		if (realpath([[v link] value], mountDir) == NULL)
+		{
+			sys_msg(debug, LOG_ERR, "Couldn't get real path for %s (%s: %s)", [[v link] value],
+				mountDir, strerror(errno));
+			status = NFSERR_IO;
+			goto URLMount_Failure;
+		}
 
 		/* chown the path to the passed in UID */
-		chown([[v link] value], uid, gidForGroup("nobody"));
+		chown(mountDir, uid, gidForGroup("nobody"));
 
 		status = 0;
 		
@@ -941,7 +1071,16 @@ URLMount_Failure: ;
 		sin.sin_addr.s_addr = [s address];
 		args.addr = (struct sockaddr *)&sin;
 
-		status = mount("nfs", [[v link] value], [v mntArgs] | MNT_AUTOMOUNTED, &args);
+		if (realpath([[v link] value], mountDir) == NULL)
+		{
+			sys_msg(debug, LOG_ERR, "Couldn't get real path for %s (%s: %s)", [[v link] value],
+				mountDir, strerror(errno));
+			status = NFSERR_IO;
+		}
+		else
+		{
+			status = mount("nfs", mountDir, [v mntArgs] | MNT_AUTOMOUNTED, &args);
+		}
 	}
 #else /* __APPLE__ */
 	if ([[v vfsType] equal:urlMountType])
@@ -1006,28 +1145,40 @@ void AddMountsInProgressListEntry(struct MountProgressRecord *pr)
 	struct MountProgressRecord *pr = [v mountInfo];
 	
 	pr->mpr_mountpid = mountPID;
-	pr->mpr_vp = v;
+	pr->mpr_vp = [v retain];
 	
 	AddMountsInProgressListEntry(pr);
 }
 
 void completeMount(Vnode *v, unsigned int status)
 {
-	if (status != 0)
+	sys_msg(debug_mount, LOG_DEBUG, "completeMount: v = 0x%08lx, status = 0x%08lx", v, status);
+	
+	if (v == NULL)
 	{
-		sys_msg(debug, LOG_ERR, "Can't mount %s:%s on %s: %s",
+		sys_msg(debug, LOG_ERR, "NULL vnode pointer in completeMount?!");
+	}
+	else if (status != 0)
+	{
+		sys_msg(debug, LOG_ERR, "Can't mount %s:%s on %s: %s (%d)",
 										[[[v server] name] value],
 										[[v source] value],
 										[[v link] value],
-										strerror(errno));
-		if ([v source]) [v setNfsStatus:NFSERR_IO];
+										strerror(status), status);
+		if (v && [v source]) [v setNfsStatus:status];
 	} else {
 		sys_msg(debug_mount, LOG_DEBUG, "Mounted %s:%s on %s", [[[v server] name] value],
 											[[v source] value],
 											[[v link] value]);
 	
 		/* Tell the node that it was mounted */
-		[v setMounted:YES];
+		if (v) {
+			[v setMounted:YES];
+			[v markDirectoryChanged];
+			if ([v parent]) {
+				[[v parent] markDirectoryChanged];
+			};
+		};
 	
 #ifndef __APPLE__
 		[self mtabUpdate:v];
@@ -1038,12 +1189,15 @@ void completeMount(Vnode *v, unsigned int status)
 - (void)completeMountInProgressBy:(pid_t)mountPID exitStatus:(int)exitStatus
 {
 	struct MountProgressRecord *pr;
-	struct ForkedMountDependency *dr;
 	
+	sys_msg(debug_mount, LOG_DEBUG, "completeMountInProgressBy:%d, status 0x%08lx", mountPID, exitStatus);
+
 	LIST_FOREACH(pr, &gMountsInProgress, mpr_link) {
+		sys_msg(debug_mount, LOG_DEBUG, "completeMountInProgressBy:%d, status 0x%08lx pr = 0x%08lx", pr);
 		if ((pr->mpr_mountpid == mountPID) || (pr->mpr_mountpid == 0)) {
 			completeMount(pr->mpr_vp, (unsigned int)WEXITSTATUS(exitStatus));
 			[pr->mpr_vp setMountInProgress:NO];
+			[pr->mpr_vp release];
 			LIST_REMOVE(pr, mpr_link);
 			break;
 		};
@@ -1090,23 +1244,25 @@ void completeMount(Vnode *v, unsigned int status)
 	for (i = 0; i < map_table_count; i++) [map_table[i].map timeout];
 }
 
-- (void)showNode:(int)n
+- (void)showNode:(Vnode *)v
 {
-	char msg[1024];
-	Vnode *v;
+	char msg[2048];
 
-	v = node_table[n].node;
 	if (v == nil) return;
 
 	msg[0] = '\0';
 
-	sprintf(msg, "%4d %1d %s %s", n, [v type],
+	sprintf(msg, "%4d %1d %s %s ", [v attributes].fileid, [v type],
 		[v mounted] ? "M" : " ",
 		[v fakeMount] ? "F" : " ");
 	
 	strcat(msg, "name=");
 	if ([v name] == nil) strcat(msg, "-nil-");
 	else strcat(msg, [[v name] value]);
+
+	strcat(msg, " vfsType=");
+	if ([v vfsType] == nil) strcat(msg, "-nil-");
+	else strcat(msg, [[v vfsType] value]);
 
 	strcat(msg, " path=");
 	if ([v path] == nil) strcat(msg, "-nil-");
@@ -1117,8 +1273,8 @@ void completeMount(Vnode *v, unsigned int status)
 	else strcat(msg, [[v link] value]);
 	
 	strcat(msg, " url=");
-	if ([v urlString] == nil) strcat(msg, "-nil-");
-	else strcat(msg, [[v urlString] value]);
+	if ([v debugURLString] == nil) strcat(msg, "-nil-");
+	else strcat(msg, [[v debugURLString] value]);
 	
 	strcat(msg, " source=");
 	if ([v source] == nil) strcat(msg, "-nil-");
@@ -1129,7 +1285,16 @@ void completeMount(Vnode *v, unsigned int status)
 	else if ([[v server] isLocalHost]) strcat(msg, "-local-");
 	else strcat(msg, [[[v server] name] value]);
 
+	strcat(msg, " parent=");
+	if ([v parent] == nil) strcat(msg, "-nil-");
+	else {
+                char parentStr[20];
+		sprintf(parentStr, "%d", [[v parent] attributes].fileid);
+		strcat(msg, parentStr);
+	}
+	
 	sys_msg(debug, LOG_DEBUG, "%s", msg);
+	usleep(1000);
 }
 
 - (void)unmountAutomounts:(int)use_force
@@ -1155,11 +1320,15 @@ void completeMount(Vnode *v, unsigned int status)
 		if (![v mounted]) continue;
 
 #ifdef __APPLE__
-		status = unmount([[v link] value], 0);
-		if ((status != 0) && (use_force != 0))
+		if (use_force)
 		{
 			sys_msg(debug, LOG_WARNING, "Force-unmounting %s", [[v link] value]);
 			status = unmount([[v link] value], MNT_FORCE);
+		}
+		else
+		{
+			sys_msg(debug, LOG_WARNING, "Unmounting %s", [[v link] value]);
+			status = unmount([[v link] value], 0);
 		}
 #else
 		status = unmount([[v link] value]);
@@ -1199,13 +1368,20 @@ void completeMount(Vnode *v, unsigned int status)
 		if ([v link] == nil) continue;
 
 #ifdef __APPLE__
-		sys_msg(debug, LOG_DEBUG, "Unmounting %s", [[v link] value]);
-		status = unmount([[v link] value], 0);
-		if ((status != 0) && (use_force != 0))
+		if (use_force)
 		{
 			sys_msg(debug, LOG_WARNING, "Force-unmounting %s", [[v link] value]);
-			status = unmount([[v link] value], MNT_FORCE);
+			if ((status = sysctl_unmount([[v map] mountedFSID], MNT_FORCE)) != 0) {
+				status = unmount([[v link] value], MNT_FORCE);
+			};
 		}
+		else
+		{
+			sys_msg(debug, LOG_DEBUG, "Unmounting %s", [[v link] value]);
+			if ((status = sysctl_unmount([[v map] mountedFSID], 0)) != 0) {
+				status = unmount([[v link] value], 0);
+			};
+		};
 #else
 		status = unmount([[v link] value]);
 #endif
@@ -1225,118 +1401,227 @@ void completeMount(Vnode *v, unsigned int status)
 	}
 }
 
-- (void)flushMaps
+/*
+ * Validate updates the Vnode hierarchy and Servers to match new network
+ * settings (including NetInfo or Directory Services changes).
+ *
+ * This is implemented as a combination of "mark and sweep" cleanup
+ * (like in a garbage collector) and first-time initialization.  It starts
+ * with a "mark" phase where all Vnodes are marked.  Then the maps are
+ * asked to re-initialize themselves.  As part of this process, existing
+ * Vnodes that would have been created during initialization are unmarked.
+ * Newly created Vnodes are created unmarked.  After the re-initialization,
+ * all marked Vnodes are removed (and unmounted if mounted), and empty
+ * directories are removed.
+ */
+- (void)validate
 {
-	int i;
-
-	sys_msg(debug, LOG_DEBUG, "flushing maps");
-
-	for (i = 0; i < map_table_count; i++) {
-	    [[map_table[i].map root] invalidateRecursively:YES];
+	int i,j;
+	Vnode *v;
+	char *mountpoint;
+	BOOL needNotify = NO;
+	unsigned int stored_node_id = node_id;
+       	
+	/* Mark all Vnodes */
+	sys_msg(debug, LOG_DEBUG, "validate: Marking Vnodes");
+	for (i=0; i<node_table_count; ++i)
+	{
+		[node_table[i].node setMarked:YES];
 	}
+	
+	/* (Re-)Initialize maps, unmarking nodes that still exist */
+	sys_msg(debug, LOG_DEBUG, "validate: Re-initializing maps");
+	for (i=0; i<map_table_count; ++i)
+	{
+		[map_table[i].map reInit];
+	}
+
+	/*
+	 * Unmount and release marked Vnodes
+	 *
+	 * We traverse the node table in reverse order so that we will visit
+	 * children before their parents.  That way, if a server cannot be
+	 * unmounted, we can avoid removing all ancestors.  The server,
+	 * and any otherwise unreferenced ancestors, remain marked so that
+	 * we can remove them when the server is eventually unmounted (once
+	 * we add code to detect unmounts).
+	 */
+	sys_msg(debug, LOG_DEBUG, "validate: Releasing marked nodes");
+	for (i=node_table_count-1; i>=0; --i)
+	{
+		v = node_table[i].node;
+		
+		if ([v marked] && ![v hasChildren])
+		{
+			/* Find out where the node would be mounted */
+			mountpoint = [[v link] value];
+			
+#if 0
+			if ([v source] != nil && mountpoint != nil && [v mounted] && ![[v server] isLocalHost])
+			{
+				/*
+				   This server is currently mounted.  It may not be safe to unmount it now
+				   (a disconnected NFS mount will hang forever in unmount()), but leave the
+				   mount undisturbed.
+				 */
+				sys_msg(debug, LOG_ERR, "validate: abandoning mountpoint %s.", mountpoint);
+					
+				/* Pretend this node was unmarked to begin with to leave its accessor path */
+				continue;
+			}
+#endif
+			/*
+			 * Release "v".  Note that we don't call -[Controller destroyVnode:] here.  The node
+			 * table will be compacted after all Vnodes have been invalidated.
+			 */
+			sys_msg(debug, LOG_DEBUG, "validate: releasing %s", mountpoint);
+			[self removeVnode:v];
+			
+			/* We need to notify the Finder so it can update its views */
+			needNotify = YES;
+		}
+	}
+	
+	/* Compact the node table ("squeeze out" released nodes) */
+	[self compactVnodeTableFrom:0];
+	
+	/* Release any unreferenced Servers */
+	for (i=0,j=0; i<server_table_count; ++i)
+	{
+		if ([server_table[i].server retainCount] == 1)
+		{
+			/* This server no longer in use, so release it */
+			sys_msg(debug, LOG_DEBUG, "validate: releasing server %s",
+				[server_table[i].name value], (unsigned long) server_table[i].server);
+			[server_table[i].name release];
+			[server_table[i].server release];
+		}
+		else
+		{
+			/* This server is still in use, so shift it down */
+			if (i != j)
+				server_table[j] = server_table[i];
+			++j;
+		}
+	}
+	sys_msg(debug, LOG_DEBUG, "validate: %d servers", j);
+	server_table = realloc(server_table, j*sizeof(server_table_entry));
+	server_table_count = j;
+
+	/* Cause Finder to update its views. */
+	if (needNotify || node_id > stored_node_id)
+	{
+		sys_msg(debug, LOG_DEBUG, "validate: FNNotifyAll");
+		FNNotifyAll(kFNDirectoryModifiedMessage, kNilOptions);
+	}
+	else
+	{
+		sys_msg(debug, LOG_DEBUG, "validate: no FNNotifyAll necessary");
+	}
+	
+	sys_msg(debug, LOG_DEBUG, "validate: done");
 }
 
 - (void)reInit
 {
-	int i, status;
-	String *mapname, *mountpt;
-	Map *map;
-	Vnode *p, *maproot;
+	int i, j, current_map_count;
+	map_table_entry *current_maps;
 	systhread *rpcLoop;
+	Vnode *root;
 
 	[self unmountAutomounts:0];
 	[self unmountMaps:0];
 
-	for (i = 0; i < node_table_count; i++)
+	current_maps = calloc(map_table_count, sizeof(map_table_entry));
+	if (current_maps == NULL) return;
+	
+	for (i = 0, j = 0; i < map_table_count; i++)
 	{
-		[node_table[i].node release];
-	}
-
-	node_table_count = 0;
-	free(node_table);
-	node_table = NULL;
-
-	for (i = 0; i < server_table_count; i++)
+		if ([[map_table[i].map root] parent] == nil)
+		{
+			/* This is the root map, always created first */
+			continue;
+		} else {
+			current_maps[j] = map_table[i];
+			current_maps[j].map = nil;			/* Not actually saved */
+			++j;
+		};
+		[map_table[i].map release];
+	};
+	[rootMap release];
+	
+	current_map_count = j;
+	map_table_count = 0;
+	free(map_table);
+	map_table = NULL;
+	
+	if (node_table_count > 0) {
+		for (i = 0; i < node_table_count; i++)
+		{
+			if (node_table[i].node) [node_table[i].node release];
+		}
+		node_table_count = 0;
+		free(node_table);
+		node_table = NULL;
+	};
+	
+	if (server_table_count > 0)
 	{
-		[server_table[i].name release];
-		[server_table[i].server release];
-	}
-
-	server_table_count = 0;
-	free(server_table);
-	server_table = NULL;
-
+		for (i = 0; i < server_table_count; i++)
+		{
+			if (server_table[i].name) [server_table[i].name release];
+			if (server_table[i].server) [server_table[i].server release];
+		}
+		server_table_count = 0;
+		free(server_table);
+		server_table = NULL;
+	};
+	
 	run_select_loop = 1;
 	rpcLoop = systhread_new();
 	systhread_run(rpcLoop, select_loop, NULL);
 	systhread_yield();
 
-	for (i = 0; i < map_table_count; i++)
+	rootMap = [[Map alloc] initWithParent:nil directory:mountDirectory];
+	root = [rootMap root];
+
+	for (i = 0; i < current_map_count; i++)
 	{
-		mapname = map_table[i].name;
-		maproot = [map_table[i].map root];
-
-		p = [maproot parent];
-		mountpt = [[maproot name] retain];
-
-		[map_table[i].map release];
-		map = nil;
-
-		sys_msg(debug, LOG_DEBUG, "Initializing map \"%s\"", [mapname value]);
-
-		if (strcmp([mapname value], "-fstab") == 0)
-		{
-			map = [[FstabMap alloc] initWithParent:p directory:mountpt from:mapname];
-		}
-		else if (strcmp([mapname value], "-static") == 0)
-		{
-			map = [[StaticMap alloc] initWithParent:p directory:mountpt from:mapname];
-		}
-		else if (strcmp([mapname value], "-host") == 0)
-		{
-			map = [[HostMap alloc] initWithParent:p directory:mountpt from:mapname];
-		}
-		else if (strcmp([mapname value], "-user") == 0)
-		{
-			map = [[UserMap alloc] initWithParent:p directory:mountpt from:mapname];
-		}
-		else if (strcmp([mapname value], "-nsl") == 0)
-		{
-			map = [[NSLMap alloc] initWithParent:p directory:mountpt from:mapname];
-			GlobalTargetNSLMap = (NSLMap *)map;
-		}
-		else if (strncmp([mapname value], "/", 1))
-		{
-			map = [[NIMap alloc] initWithParent:p directory:mountpt from:mapname];
-		}
-		else if ([self isFile:mapname])
-		{
-			map = [[FileMap alloc] initWithParent:p directory:mountpt from:mapname];
-		}
-		else if (strcmp([mapname value], "-null") == 0)
-		{
-			map = [[Map alloc] initWithParent:p directory:mountpt];
-		}
-
-		[mountpt release];
-
-		map_table[i].map = map;
-		maproot = [map_table[i].map root];
-		[maproot setSource:mapname];
-		[maproot setLink:map_table[i].dir];
-		[maproot setMounted:YES];
-		status = [self automount:maproot directory:map_table[i].dir args:[map mountArgs]];
-		status = [map didAutoMount];
+		sys_msg(debug, LOG_DEBUG, "Reinitializing map \"%s\" (on \"%s\", in \"%s\")",
+							[current_maps[i].name value],
+							[current_maps[i].dir value],
+							[current_maps[i].mountdir value]);
+		
+		[controller mountmap:current_maps[i].name directory:current_maps[i].dir mountdirectory:current_maps[i].mountdir];
 	}
 
+	free(current_maps);
+	
 	run_select_loop = 0;
-
 	while (running_select_loop)
 	{
 		systhread_yield();
 	}
 
 	sys_msg(debug, LOG_DEBUG, "Reset complete");
+}
+
+- (void)checkForUnmounts
+{
+	BOOL foundUnmount = NO;
+	int i;
+	
+	for (i=0; i<map_table_count; ++i)
+	{
+		sys_msg(debug, LOG_DEBUG, "Checking map %s for unmounts", [map_table[i].name value]);
+		foundUnmount = foundUnmount || [[map_table[i].map root] checkForUnmount];
+	}
+	
+	if (foundUnmount)
+	{
+		sys_msg(debug, LOG_DEBUG, "Found an unmount.  Notifying.");
+		FNNotifyAll(kFNDirectoryModifiedMessage, kNilOptions);
+	}
 }
 
 - (void)dealloc
@@ -1346,11 +1631,24 @@ void completeMount(Vnode *v, unsigned int status)
 	[self unmountAutomounts:1];
 	[self unmountMaps:1];
 
+	/* Give maps a chance to clean up before nodes or servers are released. */
+	for (i = 0; i < map_table_count; i++)
+	{
+		[map_table[i].map cleanup];
+
+		[map_table[i].name release];
+		[map_table[i].dir release];
+		[map_table[i].mountdir release];
+		[map_table[i].map release];
+	}
+	map_table_count = 0;
+	free(map_table);
+	map_table = NULL;
+
 	for (i = 0; i < node_table_count; i++)
 	{
 		[node_table[i].node release];
 	}
-
 	node_table_count = 0;
 	free(node_table);
 	node_table = NULL;
@@ -1364,17 +1662,6 @@ void completeMount(Vnode *v, unsigned int status)
 	server_table_count = 0;
 	free(server_table);
 	server_table = NULL;
-
-	for (i = 0; i < map_table_count; i++)
-	{
-		[map_table[i].name release];
-		[map_table[i].dir release];
-		[map_table[i].map release];
-	}
-
-	map_table_count = 0;
-	free(map_table);
-	map_table = NULL;
 
 	if (hostName != nil) [hostName release];
 	if (hostDNSDomain != nil) [hostDNSDomain release];
@@ -1429,14 +1716,15 @@ void completeMount(Vnode *v, unsigned int status)
 - (void)printTree
 {
 	int i;
-	
+
 	sys_msg(debug, LOG_DEBUG, "********** Map Table **********");
 	for (i = 0; i < map_table_count; i++)
 	{
-		sys_msg(debug, LOG_DEBUG, "Map %s   Directory %s (%s+%s)",
+		sys_msg(debug, LOG_DEBUG, "Map %s   Directory %s (%s+%s)   MountDir %s",
 			[map_table[i].name value], [map_table[i].dir value],
 			[[[[map_table[i].map root] parent] path] value],
-			[[[map_table[i].map root] name] value]);
+			[[[map_table[i].map root] name] value],
+			[map_table[i].mountdir value]);
 
 		[self printNode:[map_table[i].map root] level:0];
 	}
@@ -1444,13 +1732,14 @@ void completeMount(Vnode *v, unsigned int status)
 	sys_msg(debug, LOG_DEBUG, "********** Node Table **********");
 	for (i = 0; i < node_table_count; i++)
 	{
-		[self showNode:i];
+		[self showNode:node_table[i].node];
 	}
 
 	sys_msg(debug, LOG_DEBUG, "********** Server Table **********");
 	for (i = 0; i < server_table_count; i++)
 	{
 		sys_msg(debug, LOG_DEBUG, "%d: %s", i, [server_table[i].name value]);
+		usleep(1000);
 	}
 }
 
@@ -1486,6 +1775,7 @@ void completeMount(Vnode *v, unsigned int status)
 	}
 
 	sys_msg(debug, LOG_DEBUG, "%s", msg);
+	usleep(1000);
 
 	kids = [v children];
 	len = 0;
@@ -1494,7 +1784,6 @@ void completeMount(Vnode *v, unsigned int status)
 	for (i = 0; i < len; i++)
 	{
 		[self printNode:[kids objectAtIndex:i] level:l+1];
-		usleep(100);
 	}
 }
 

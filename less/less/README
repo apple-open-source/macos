@@ -1,15 +1,27 @@
-=========================================================================
-    This is the distribution of less, version 340, released 27 Apr 1999
+
+                            Less, version 378
+
+    This is the distribution of less, version 378, released 30 Sep 2002.
     This program is part of the GNU project (http://www.gnu.org).
-    See the file COPYING for licensing information.
-    Please report any problems to bug-less@gnu.org or marknu@flash.net.
-    See http://www.flash.net/~marknu/less for the latest info.
+
+    This program is free software.  You may redistribute it and/or
+    modify it under the terms of either:
+
+    1. The GNU General Public License, as published by the Free
+       Software Foundation; either version 2, or (at your option) any
+       later version.  A copy of this license is in the file COPYING.
+    or
+    2. The Less License, in the file LICENSE.
+
+    Please report any problems to bug-less@gnu.org or markn@greenwoodsoftware.com.
+    See http://www.greenwoodsoftware.com/less for the latest info.
     You may also contact the author at:
           Mark Nudelman
           Greenwood Software
           PO Box 2402
           El Granada, CA  94018
           USA
+
 =========================================================================
 
 This is the distribution of "less", a paginator similar to "more" or "pg".
@@ -28,10 +40,31 @@ INSTALLATION (Unix systems only):
    This will generate a Makefile and a defines.h.
    Warning: if you have a GNU sed, make sure it is version 2.05 or later.
 
+   The file INSTALL describes the usage of the configure program in
+   general.  In addition, these options to configure are supported:
+
+   --with-editor=program
+     Specifies the default editor program used by the "v" command.
+     The default is "vi".
+   --with-regex=lib
+     Specifies the regular expression library used by less for pattern
+     matching.  The default is "auto", which means the configure program 
+     finds a regular expression library automatically.  Other values are:
+        posix          Use the POSIX-compatible regcomp.
+        pcre           Use the PCRE library.
+        regcmp         Use the regcmp library.
+        re_comp        Use the re_comp library.
+        regcomp        Use the V8-compatible regcomp.
+        regcomp-local  Use Henry Spencer's V8-compatible regcomp
+                       (source is supplied with less).
+
 3. It is a good idea to look over the generated Makefile and defines.h
    and make sure they look ok.  If you know of any peculiarities of
    your system that configure might not have detected, you may fix the
-   Makefile now.  
+   Makefile now.  Take particular notice of the list of "terminal" 
+   libraries in the LIBS definition in the Makefile; these may need 
+   to be edited.  The terminal libraries will be some subset of
+       -lncurses  -lcurses  -ltermcap  -ltermlib
 
    If you wish, you may edit defines.h to remove some optional features.
    If you wish to build a "secure" version of less (which disables all
@@ -58,7 +91,7 @@ INSTALLATION (Unix systems only):
    bindir and/or mandir to the appropriate directories.
 
 If you have any problems building or running "less", suggestions, 
-complaints, etc., you may mail to the author at marknu@flash.net.
+complaints, etc., you may mail to the author at markn@greenwoodsoftware.com.
 
 Note to hackers: comments noting possible improvements are enclosed
 in double curly brackets {{ like this }}.
@@ -73,7 +106,7 @@ INSTALLATION (MS-DOS systems only,
    Depending on your compiler, you may need to convert the source 
    to have CR-LF rather than LF as line terminators.
 
-2. If you are using Microsoft C, rename MAKEFILE.DSM to MAKEFILE.
+2. If you are using Microsoft C, rename MAKEFILE.DSU to MAKEFILE.
    If you are using Borland C, rename MAKEFILE.DSB to MAKEFILE.
    If you are using DJGPP, rename MAKEFILE.DSG to MAKEFILE.
 
@@ -158,8 +191,10 @@ INSTALLATION (OS/2 systems only,
    somewhere in a directory listed in the PATH or INIT environment 
    variables.
 
-8. When satisfied that it works, you may wish to install less.exe and
-   lesskey.exe in a directory which is included in your PATH.
+8. When satisfied that it works, you may wish to install less.exe,
+   lesskey.exe and scrsize.exe in a directory which is included in 
+   your PATH.  scrsize.exe is required only if you use a terminal
+   emulator such as xterm or rxvt.
 
 
 
@@ -191,3 +226,10 @@ INSTALLATION (OS-9 systems only,
    See step 6 of the Unix installation instructions for details
    on how to change the default installation directories.
 
+=======================================================================
+ACKNOWLEDGMENTS:
+  Some versions of the less distribution are packaged using 
+  Info-ZIP's compression utility.
+  Info-ZIP's software is free and can be obtained as source 
+  code or executables from various anonymous-ftp sites,
+  including ftp.uu.net:/pub/archiving/zip.

@@ -12,6 +12,8 @@ NAME = wall
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
+HFILES = ttymsg.h
+
 CFILES = ttymsg.c wall.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble Makefile.dist\

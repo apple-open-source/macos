@@ -1,0 +1,56 @@
+<!-- The common client side JAAS login config used by the security unit tests -->
+
+<policy>
+
+   <application-policy name = "other">
+      <authentication>
+          <login-module code = "org.jboss.security.ClientLoginModule"
+             flag = "required">
+          </login-module>
+       </authentication>
+    </application-policy>
+
+   <!-- Used by the org.jboss.test.naming.test.SimpleUnitTestCase -->
+   <application-policy name = "testLoginInitialContext">
+      <authentication>
+          <login-module code = "org.jboss.security.auth.spi.UsersRolesLoginModule"
+             flag = "required">
+          </login-module>
+       </authentication>
+    </application-policy>
+
+   <!-- Used by the org.jboss.test.naming.test.SimpleUnitTestCase -->
+   <application-policy name = "testSecureHttpInvoker">
+      <authentication>
+          <login-module code = "org.jboss.security.auth.spi.UsersRolesLoginModule"
+             flag = "required">
+          </login-module>
+          <login-module code = "org.jboss.security.ClientLoginModule"
+             flag = "required" />
+       </authentication>
+    </application-policy>
+
+   <application-policy name = "spec-test">
+      <authentication>
+          <login-module code = "org.jboss.security.ClientLoginModule"
+             flag = "required">
+          </login-module>
+       </authentication>
+    </application-policy>
+
+   <application-policy name = "srp-test">
+      <authentication>
+          <login-module code = "org.jboss.security.srp.jaas.SRPLoginModule"
+             flag = "required">
+            <module-option name = "password-stacking">useFirstPass</module-option>
+            <module-option name = "srpServerJndiName">SRPServerInterface</module-option>
+            <module-option name = "debug">true</module-option>
+          </login-module>
+          <login-module code = "org.jboss.security.ClientLoginModule"
+             flag = "required">
+            <module-option name = "password-stacking">useFirstPass</module-option>
+          </login-module>
+       </authentication>
+    </application-policy>
+
+</policy> 

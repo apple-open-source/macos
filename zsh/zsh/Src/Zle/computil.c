@@ -31,57 +31,59 @@
 #include "computil.pro"
 
 
-/* Help for `_display'. */
-
-/* Calculation state. */
-
-typedef struct cdisp *Cdisp;
-
-struct cdisp {
-    int pre;			/* prefix length */
-    int suf;			/* suffix length */
-    int colon;			/* number of strings with descriptions */
-};
-
-/* Calculate longest prefix and suffix and count the strings with
- * descriptions. */
-
-static void
-cdisp_calc(Cdisp disp, char **args)
-{
-    char *cp;
-    int i, nbc;
-
-    for (; *args; args++) {
-	for (nbc = 0, cp = *args; *cp && *cp != ':'; cp++)
-	    if (*cp == '\\' && cp[1])
-		cp++, nbc++;
-	if (*cp == ':' && cp[1]) {
-	    disp->colon++;
-	    if ((i = cp - *args - nbc) > disp->pre)
-		disp->pre = i;
-	    if ((i = strlen(cp + 1)) > disp->suf)
-		disp->suf = i;
-	}
-    }
-}
-
-/* Help fuer `_describe'. */
+/* Help for `_describe'. */
 
 typedef struct cdset *Cdset;
+typedef struct cdstr *Cdstr;
+typedef struct cdrun *Cdrun;
 
 struct cdstate {
     int showd;			/* != 0 if descriptions should be shown */
     char *sep;			/* the separator string */
+    int slen;			/* its length */
+    int maxmlen;                /* maximum length to allow for the matches */
     Cdset sets;			/* the sets of matches */
-    struct cdisp disp;		/* used to calculate the alignment */
+    int pre;                    /* longest prefix (before description) */
+    int suf;                    /* longest suffix (description) */
+    int maxg;                   /* size of largest group */
+    int maxglen;                /* columns for matches of largest group */
+    int groups;                 /* number of groups */
+    int descs;                  /* number of non-group matches with desc */
+    int gpre;                   /* prefix length for group display */
+    Cdrun runs;                 /* runs to report to shell code */
 };
+
+struct cdstr {
+    Cdstr next;                 /* the next one in this set */
+    char *str;                  /* the string to display */
+    char *desc;                 /* the description or NULL */
+    char *match;                /* the match to add */
+    int len;                    /* length of str or match */
+    Cdstr other;                /* next string with the same description */
+    int kind;                   /* 0: not in a group, 1: the first, 2: other */
+    Cdset set;                  /* the set this string is in */
+    Cdstr run;                  /* next in this run */
+};
+
+struct cdrun {
+    Cdrun next;                 /* ... */
+    int type;                   /* see CRT_* below */
+    Cdstr strs;                 /* strings in this run */
+    int count;                  /* number of strings in this run */
+};
+
+#define CRT_SIMPLE 0
+#define CRT_DESC   1
+#define CRT_SPEC   2
+#define CRT_DUMMY  3
+#define CRT_EXPL   4
 
 struct cdset {
     Cdset next;			/* guess what */
     char **opts;		/* the compadd-options */
-    char **strs;		/* the display-strings */
-    char **matches;		/* the matches (or NULL) */
+    Cdstr strs;                 /* the strings/matches */
+    int count;                  /* number of matches in this set */
+    int desc;                   /* number of matches with description */
 };
 
 static struct cdstate cd_state;
@@ -91,26 +93,348 @@ static void
 freecdsets(Cdset p)
 {
     Cdset n;
+    Cdstr s, sn;
+    Cdrun r, rn;
 
     for (; p; p = n) {
 	n = p->next;
 	if (p->opts)
 	    freearray(p->opts);
-	if (p->strs)
-	    freearray(p->strs);
-	if (p->matches)
-	    freearray(p->matches);
+        for (s = p->strs; s; s = sn) {
+            sn = s->next;
+            zsfree(s->str);
+            zsfree(s->desc);
+            if (s->match != s->str)
+                zsfree(s->match);
+            zfree(s, sizeof(*s));
+        }
+        for (r = cd_state.runs; r; r = rn) {
+            rn = r->next;
+            zfree(r, sizeof(*r));
+        }
 	zfree(p, sizeof(*p));
+    }
+}
+
+/* Find matches with same descriptions and group them. */
+
+static void
+cd_group(int maxg)
+{
+    Cdset set1, set2;
+    Cdstr str1, str2, *strp;
+    int num, len;
+
+    cd_state.groups = cd_state.descs = cd_state.maxglen = 0;
+    cd_state.maxg = 0;
+
+    for (set1 = cd_state.sets; set1; set1 = set1->next)
+        for (str1 = set1->strs; str1; str1 = str1->next) {
+            str1->kind = 0;
+            str1->other = NULL;
+        }
+
+    for (set1 = cd_state.sets; set1; set1 = set1->next) {
+        for (str1 = set1->strs; str1; str1 = str1->next) {
+            if (!str1->desc || str1->kind != 0)
+                continue;
+
+            num = 1;
+            len = str1->len + cd_state.slen;
+            if (len > cd_state.maxglen)
+                cd_state.maxglen = len;
+            strp = &(str1->other);
+
+            for (set2 = set1; set2; set2 = set2->next) {
+                for (str2 = (set2 == set1 ? str1->next : set2->strs);
+                     str2; str2 = str2->next)
+                    if (str2->desc && !strcmp(str1->desc, str2->desc)) {
+                        len += 2 + str2->len;
+                        if (len > cd_state.maxmlen || num == maxg)
+                            break;
+                        if (len > cd_state.maxglen)
+                            cd_state.maxglen = len;
+                        str1->kind = 1;
+                        str2->kind = 2;
+                        num++;
+                        *strp = str2;
+                        strp = &(str2->other);
+                    }
+                if (str2)
+                    break;
+            }
+            *strp = NULL;
+
+            if (num > 1)
+                cd_state.groups++;
+            else
+                cd_state.descs++;
+
+            if (num > cd_state.maxg)
+                cd_state.maxg = num;
+        }
+    }
+}
+
+/* Calculate longest prefix and suffix and count the strings with
+ * descriptions. */
+
+static void
+cd_calc()
+{
+    Cdset set;
+    Cdstr str;
+    int l;
+
+    cd_state.pre = cd_state.suf = 0;
+
+    for (set = cd_state.sets; set; set = set->next) {
+        set->count = set->desc = 0;
+        for (str = set->strs; str; str = str->next) {
+            set->count++;
+            if ((l = strlen(str->str)) > cd_state.pre)
+                cd_state.pre = l;
+            if (str->desc) {
+                set->desc++;
+                if ((l = strlen(str->desc)) > cd_state.suf)
+                    cd_state.suf = l;
+            }
+        }
+    }
+}
+
+static int
+cd_sort(const void *a, const void *b)
+{
+    return strcmp((*((Cdstr *) a))->str, (*((Cdstr *) b))->str);
+}
+
+static int
+cd_prep()
+{
+    Cdrun run, *runp;
+    Cdset set;
+    Cdstr str, *strp;
+
+    runp = &(cd_state.runs);
+
+    if (cd_state.groups) {
+        int lines = cd_state.groups + cd_state.descs;
+        VARARR(Cdstr, grps, lines);
+        VARARR(int, wids, cd_state.maxg);
+        Cdstr gs, gp, gn, *gpp;
+        int i, j, d;
+        Cdrun expl;
+        Cdstr *strp2;
+
+        memset(wids, 0, cd_state.maxg * sizeof(int));
+        strp = grps;
+
+        for (set = cd_state.sets; set; set = set->next)
+            for (str = set->strs; str; str = str->next) {
+                if (str->kind != 1) {
+                    if (!str->kind && str->desc) {
+                        if (str->len > wids[0])
+                            wids[0] = str->len;
+                        str->other = NULL;
+                        *strp++ = str;
+                    }
+                    continue;
+                }
+                gs = str;
+                gs->kind = 2;
+                gp = str->other;
+                gs->other = NULL;
+                for (; gp; gp = gn) {
+                    gn = gp->other;
+                    gp->other = NULL;
+                    for (gpp = &gs; *gpp && (*gpp)->len > gp->len;
+                         gpp = &((*gpp)->other));
+                    gp->other = *gpp;
+                    *gpp = gp;
+                }
+                for (gp = gs, i = 0; gp; gp = gp->other, i++)
+                    if (gp->len > wids[i])
+                        wids[i] = gp->len;
+
+                *strp++ = gs;
+            }
+
+        cd_state.gpre = 0;
+        for (i = 0; i < cd_state.maxg; i++)
+            cd_state.gpre += wids[i] + 2;
+
+        if (cd_state.gpre > cd_state.maxmlen && cd_state.maxglen > 1)
+            return 1;
+
+        qsort(grps, lines, sizeof(Cdstr), cd_sort);
+
+        for (i = lines, strp = grps; i > 1; i--, strp++) {
+            strp2 = strp + 1;
+            if (!strcmp((*strp)->desc, (*strp2)->desc))
+                continue;
+            for (j = i - 2, strp2++; j > 0; j--, strp2++)
+                if (!strcmp((*strp)->desc, (*strp2)->desc)) {
+                    Cdstr tmp = *strp2;
+
+                    memmove(strp + 2, strp + 1,
+                            (strp2 - strp - 1) * sizeof(Cdstr));
+
+                    *++strp = tmp;
+                    i--;
+                }
+        }
+        expl =  (Cdrun) zalloc(sizeof(*run));
+        expl->type = CRT_EXPL;
+        expl->strs = grps[0];
+        expl->count = lines;
+
+        for (i = lines, strp = grps, strp2 = NULL; i; i--, strp++) {
+            str = *strp;
+            *strp = str->other;
+            if (strp2)
+                *strp2 = str;
+            strp2 = &(str->run);
+
+            *runp = run = (Cdrun) zalloc(sizeof(*run));
+            runp = &(run->next);
+            run->type = CRT_SPEC;
+            run->strs = str;
+            run->count = 1;
+        }
+        *strp2 = NULL;
+
+        for (i = cd_state.maxg - 1; i; i--) {
+            for (d = 0, j = lines, strp = grps; j; j--, strp++) {
+                if ((str = *strp)) {
+                    if (d) {
+                        *runp = run = (Cdrun) zalloc(sizeof(*run));
+                        runp = &(run->next);
+                        run->type = CRT_DUMMY;
+                        run->strs = expl->strs;
+                        run->count = d;
+                        d = 0;
+                    }
+                    *runp = run = (Cdrun) zalloc(sizeof(*run));
+                    runp = &(run->next);
+                    run->type = CRT_SPEC;
+                    run->strs = str;
+                    run->strs->run = NULL;
+                    run->count = 1;
+
+                    *strp = str->other;
+                } else
+                    d++;
+            }
+            if (d) {
+                *runp = run = (Cdrun) zalloc(sizeof(*run));
+                runp = &(run->next);
+                run->type = CRT_DUMMY;
+                run->strs = expl->strs;
+                run->count = d;
+            }
+        }
+        *runp = expl;
+        runp = &(expl->next);
+
+        for (set = cd_state.sets; set; set = set->next) {
+            for (i = 0, gs = NULL, gpp = &gs, str = set->strs;
+                 str; str = str->next) {
+                if (str->kind || str->desc)
+                    continue;
+
+                i++;
+                *gpp = str;
+                gpp = &(str->run);
+            }
+            *gpp = NULL;
+            if (i) {
+                *runp = run = (Cdrun) zalloc(sizeof(*run));
+                runp = &(run->next);
+                run->type = CRT_SIMPLE;
+                run->strs = gs;
+                run->count = i;
+            }
+        }
+    } else if (cd_state.showd) {
+        for (set = cd_state.sets; set; set = set->next) {
+            if (set->desc) {
+                *runp = run = (Cdrun) zalloc(sizeof(*run));
+                runp = &(run->next);
+                run->type = CRT_DESC;
+                strp = &(run->strs);
+                for (str = set->strs; str; str = str->next)
+                    if (str->desc) {
+                        *strp = str;
+                        strp = &(str->run);
+                    }
+                *strp = NULL;
+                run->count = set->desc;
+            }
+            if (set->desc != set->count) {
+                *runp = run = (Cdrun) zalloc(sizeof(*run));
+                runp = &(run->next);
+                run->type = CRT_SIMPLE;
+                strp = &(run->strs);
+                for (str = set->strs; str; str = str->next)
+                    if (!str->desc) {
+                        *strp = str;
+                        strp = &(str->run);
+                    }
+                *strp = NULL;
+                run->count = set->count - set->desc;
+            }
+        }
+    } else {
+        for (set = cd_state.sets; set; set = set->next)
+            if (set->count) {
+                *runp = run = (Cdrun) zalloc(sizeof(*run));
+                runp = &(run->next);
+                run->type = CRT_SIMPLE;
+                run->strs = set->strs;
+                for (str = set->strs; str; str = str->next)
+                    str->run = str->next;
+                run->count = set->count;
+            }
+    }
+    *runp = NULL;
+
+    return 0;
+}
+
+/* Duplicate and concatenate two arrays.  Return the result. */
+
+static char **
+cd_arrcat(char **a, char **b)
+{
+    if (!b)
+        return zarrdup(a);
+    else {
+        char **r = (char **) zalloc((arrlen(a) + arrlen(b) + 1) *
+                                    sizeof(char *));
+        char **p = r;
+
+        for (; *a; a++)
+            *p++ = ztrdup(*a);
+        for (; *b; b++)
+            *p++ = ztrdup(*b);
+
+        *p = NULL;
+
+        return r;
     }
 }
 
 /* Initialisation. Store and calculate the string and matches and so on. */
 
 static int
-cd_init(char *nam, char *sep, char **args, int disp)
+cd_init(char *nam, char *hide, char *mlen, char *sep,
+        char **opts, char **args, int disp)
 {
     Cdset *setp, set;
+    Cdstr *strp, str;
     char **ap, *tmp;
+    int grp = 0, itmp;
 
     if (cd_parsed) {
 	zsfree(cd_state.sep);
@@ -119,43 +443,118 @@ cd_init(char *nam, char *sep, char **args, int disp)
     }
     setp = &(cd_state.sets);
     cd_state.sep = ztrdup(sep);
+    cd_state.slen = ztrlen(sep);
     cd_state.sets = NULL;
-    cd_state.disp.pre = cd_state.disp.suf = cd_state.disp.colon = 0;
     cd_state.showd = disp;
-
+    cd_state.maxg = cd_state.groups = cd_state.descs = 0;
+    cd_state.maxmlen = atoi(mlen);
+    itmp = columns - cd_state.slen - 4;
+    if (cd_state.maxmlen > itmp)
+        cd_state.maxmlen = itmp;
+    if (cd_state.maxmlen < 4)
+        cd_state.maxmlen = 4;
+    if (*args && !strcmp(*args, "-g")) {
+        args++;
+        grp = 1;
+    }
     while (*args) {
 	*setp = set = (Cdset) zcalloc(sizeof(*set));
 	setp = &(set->next);
+        *setp = NULL;
+        set->opts = NULL;
+        set->strs = NULL;
 
 	if (!(ap = get_user_var(*args))) {
 	    zwarnnam(nam, "invalid argument: %s", *args, 0);
+            zsfree(cd_state.sep);
+            freecdsets(cd_state.sets);
 	    return 1;
 	}
-	set->strs = zarrdup(ap);
+        for (str = NULL, strp = &(set->strs); *ap; ap++) {
+            *strp = str = (Cdstr) zalloc(sizeof(*str));
+            strp = &(str->next);
 
-	if (disp)
-	    cdisp_calc(&(cd_state.disp), set->strs);
+            str->kind = 0;
+            str->other = NULL;
+            str->set = set;
+
+            for (tmp = *ap; *tmp && *tmp != ':'; tmp++)
+                if (*tmp == '\\' && tmp[1])
+                    tmp++;
+
+            if (*tmp)
+                str->desc = ztrdup(rembslash(tmp + 1));
+            else
+                str->desc = NULL;
+            *tmp = '\0';
+            str->str = str->match = ztrdup(rembslash(*ap));
+            str->len = strlen(str->str);
+        }
+        if (str)
+            str->next = NULL;
 
 	if (*++args && **args != '-') {
 	    if (!(ap = get_user_var(*args))) {
 		zwarnnam(nam, "invalid argument: %s", *args, 0);
+                zsfree(cd_state.sep);
+                freecdsets(cd_state.sets);
 		return 1;
 	    }
-	    set->matches = zarrdup(ap);
+            for (str = set->strs; str && *ap; str = str->next, ap++)
+                str->match = ztrdup(*ap);
+
 	    args++;
 	}
+        if (hide && *hide) {
+            for (str = set->strs; str; str = str->next) {
+                if (str->str == str->match)
+                    str->str = ztrdup(str->str);
+                if (hide[1] && str->str[0] == '-' && str->str[1] == '-')
+                    strcpy(str->str, str->str + 2);
+                else if (str->str[0] == '-' || str->str[0] == '+')
+                    strcpy(str->str, str->str + 1);
+            }
+        }
 	for (ap = args; *args &&
 		 (args[0][0] != '-' || args[0][1] != '-' || args[0][2]);
 	     args++);
 
 	tmp = *args;
 	*args = NULL;
-	set->opts = zarrdup(ap);
+	set->opts = cd_arrcat(ap, opts);
 	if ((*args = tmp))
 	    args++;
     }
+    if (disp && grp) {
+        int mg = columns;
+
+        do {
+            cd_group(mg);
+            mg = cd_state.maxg - 1;
+            cd_calc();
+        } while (cd_prep());
+
+    } else {
+        cd_calc();
+        cd_prep();
+    }
     cd_parsed = 1;
     return 0;
+}
+
+/* Copy an array with one element in reserve (at the beginning). */
+
+static char **
+cd_arrdup(char **a)
+{
+    char **r = (char **) zalloc((arrlen(a) + 2) * sizeof(char *));
+    char **p = r + 1;
+
+    while (*a)
+        *p++ = ztrdup(*a++);
+    *p = NULL;
+
+    return r;
 }
 
 /* Get the next set. */
@@ -163,94 +562,165 @@ cd_init(char *nam, char *sep, char **args, int disp)
 static int
 cd_get(char **params)
 {
-    Cdset set;
+    Cdrun run;
 
-    if ((set = cd_state.sets)) {
-	char **sd, **sdp, **md, **mdp, **ss, **ssp, **ms, **msp;
-	char **p, **mp, *cp, *copy, *cpp, oldc;
-	int dl = 1, sl = 1, sepl = strlen(cd_state.sep);
-	int pre = cd_state.disp.pre, suf = cd_state.disp.suf;
-	VARARR(char, buf, pre + suf + sepl + 1);
+    if ((run = cd_state.runs)) {
+        Cdstr str;
+        char **mats, **mp, **dpys, **dp, **opts, *csl = "";
 
-	for (p = set->strs; *p; p++)
-	    if (cd_state.showd) {
-		for (cp = *p; *cp && *cp != ':'; cp++)
-		    if (*cp == '\\' && cp[1])
-			cp++;
-		if (*cp == ':' && cp[1])
-		    dl++;
-		else
-		    sl++;
-	    } else
-		sl++;
+        cd_state.runs = run->next;
 
-	sd = (char **) zalloc(dl * sizeof(char *));
-	ss = (char **) zalloc(sl * sizeof(char *));
-	md = (char **) zalloc(dl * sizeof(char *));
-	ms = (char **) zalloc(sl * sizeof(char *));
+        switch (run->type) {
+        case CRT_SIMPLE:
+            mats = mp = (char **) zalloc((run->count + 1) * sizeof(char *));
+            dpys = dp = (char **) zalloc((run->count + 1) * sizeof(char *));
 
-	if (cd_state.showd) {
-	    memcpy(buf + pre, cd_state.sep, sepl);
-	    suf = pre + sepl;
-	}
+            for (str = run->strs; str; str = str->run) {
+                *mp++ = ztrdup(str->match);
+                *dp++ = ztrdup(str->str ? str->str : str->match);
+            }
+            *mp = *dp = NULL;
+            opts = zarrdup(run->strs->set->opts);
+            if (cd_state.groups) {
+                /* We are building a columnised list with dummy matches
+                 * but there are also matches without descriptions.
+                 * Those end up in a different group, so make sure that
+                 * group doesn't have an explanation. */
 
-	/* Build the aligned display strings. */
+                for (mp = dp = opts; *mp; mp++) {
+                    if (dp[0][0] == '-' && dp[0][1] == 'X') {
+                        if (!dp[0][2] && dp[1])
+                            mp++;
+                    } else
+                        *dp++ = *mp;
+                }
+                *dp = NULL;
+            }
+            break;
 
-	for (sdp = sd, ssp = ss, mdp = md, msp = ms,
-		 p = set->strs, mp = set->matches; *p; p++) {
-	    copy = dupstring(*p);
-	    for (cp = cpp = copy; *cp && *cp != ':'; cp++) {
-		if (*cp == '\\' && cp[1])
-		    cp++;
-		*cpp++ = *cp;
-	    }
-	    oldc = *cpp;
-	    *cpp = '\0';
-	    if (((cpp == cp && oldc == ':') || *cp == ':') && cp[1] &&
-		cd_state.showd) {
-		memset(buf, ' ', pre);
-		memcpy(buf, copy, (cpp - copy));
-		strcpy(buf + suf, cp + 1);
-		*sdp++ = ztrdup(buf);
-		if (mp) {
-		    *mdp++ = ztrdup(*mp);
-		    if (*mp)
-			mp++;
-		} else
-		    *mdp++ = ztrdup(copy);
-	    } else {
-		*ssp++ = ztrdup(copy);
-		if (mp) {
-		    *msp++ = ztrdup(*mp);
-		    if (*mp)
-			mp++;
-		} else
-		    *msp++ = ztrdup(copy);
-	    }
-	}
-	*sdp = *ssp = *mdp = *msp = NULL;
+        case CRT_DESC:
+            {
+                VARARR(char, buf,
+                       cd_state.pre + cd_state.suf + cd_state.slen + 3);
+                char *sufp = NULL;
 
-	p = zarrdup(set->opts);
+                memcpy(buf + cd_state.pre + 2, cd_state.sep, cd_state.slen);
+                buf[cd_state.pre] = buf[cd_state.pre + 1] = ' ';
+                sufp = buf + cd_state.pre + cd_state.slen + 2;
 
-	setaparam(params[0], p);
-	setaparam(params[1], sd);
-	setaparam(params[2], md);
-	setaparam(params[3], ss);
-	setaparam(params[4], ms);
+                mats = mp = (char **) zalloc((run->count + 1) * sizeof(char *));
+                dpys = dp = (char **) zalloc((run->count + 1) * sizeof(char *));
 
-	cd_state.sets = set->next;
-	set->next = NULL;
-	freecdsets(set);
+                for (str = run->strs; str; str = str->run) {
+                    *mp++ = ztrdup(str->match);
+                    memset(buf, ' ', cd_state.pre);
+                    memcpy(buf, str->str, str->len);
+                    strcpy(sufp, str->desc);
+                    if (strlen(buf) >= columns - 1)
+                        buf[columns - 1] = '\0';
+                    *dp++ = ztrdup(buf);
+                }
+                *mp = *dp = NULL;
+                opts = cd_arrdup(run->strs->set->opts);
+                opts[0] = ztrdup("-l");
+                break;
+            }
 
-	return 0;
+        case CRT_SPEC:
+            mats = (char **) zalloc(2 * sizeof(char *));
+            dpys = (char **) zalloc(2 * sizeof(char *));
+            mats[0] = ztrdup(run->strs->match);
+            dpys[0] = ztrdup(run->strs->str);
+            mats[1] = dpys[1] = NULL;
+            opts = cd_arrdup(run->strs->set->opts);
+            for (dp = opts + 1; *dp; dp++)
+                if (dp[0][0] == '-' && dp[0][1] == 'J')
+                    break;
+            if (*dp) {
+                char *s = tricat("-2V", "", dp[0] + 2);
+
+                zsfree(*dp);
+                *dp = s;
+
+                memmove(opts, opts + 1,
+                        (arrlen(opts + 1) + 1) * sizeof(char *));
+                
+            } else
+                opts[0] = ztrdup("-2V-default-");
+            csl = "packed";
+            break;
+  
+        case CRT_DUMMY:
+            {
+                char buf[20];
+
+                sprintf(buf, "-E%d", run->count);
+
+                mats = (char **) zalloc(sizeof(char *));
+                dpys = (char **) zalloc(sizeof(char *));
+                mats[0] = dpys[0] = NULL;
+
+                opts = cd_arrdup(run->strs->set->opts);
+                opts[0] = ztrdup(buf);
+
+                csl = "packed";
+            }
+            break;
+
+	default: /* This silences the "might be used uninitialized" warnings */
+        case CRT_EXPL:
+            {
+                int dlen = columns - cd_state.gpre - cd_state.slen;
+                VARARR(char, dbuf, dlen + cd_state.slen);
+                char buf[20];
+                int i = run->count;
+
+                sprintf(buf, "-E%d", i);
+
+                mats = (char **) zalloc(sizeof(char *));
+                dpys = (char **) zalloc((i + 1) * sizeof(char *));
+
+                for (dp = dpys, str = run->strs; str; str = str->run) {
+                    if (str->run && !strcmp(str->desc, str->run->desc)) {
+                        *dp++ = ztrdup("");
+                        continue;
+                    }
+                    memset(dbuf + cd_state.slen, ' ', dlen - 1);
+                    dbuf[dlen + cd_state.slen - 1] = '\0';
+                    strcpy(dbuf, cd_state.sep);
+                    memcpy(dbuf + cd_state.slen,
+                           str->desc,
+                           (strlen(str->desc) >= dlen ? dlen - 1 :
+                            strlen(str->desc)));
+                    *dp++ = ztrdup(dbuf);
+                }
+                mats[0] = *dp = NULL;
+
+                opts = cd_arrdup(run->strs->set->opts);
+                opts[0] = ztrdup(buf);
+
+                csl = "packed";
+            }
+            break;
+        }
+        setsparam(params[0], ztrdup(csl));
+        setaparam(params[1], opts);
+        setaparam(params[2], mats);
+        setaparam(params[3], dpys);
+
+        zfree(run, sizeof(*run));
+
+        return 0;
     }
     return 1;
 }
 
 /**/
 static int
-bin_compdescribe(char *nam, char **args, char *ops, int func)
+bin_compdescribe(char *nam, char **args, Options ops, int func)
 {
+    int n = arrlen(args);
+
     if (incompfunc != 1) {
 	zwarnnam(nam, "can only be called from completion function", NULL, 0);
 	return 1;
@@ -261,15 +731,30 @@ bin_compdescribe(char *nam, char **args, char *ops, int func)
     }
     switch (args[0][1]) {
     case 'i':
-	return cd_init(nam, "", args + 1, 0);
+        if (n < 3) {
+            zwarnnam(nam, "not enough arguments", NULL, 0);
+
+            return 1;
+        }
+	return cd_init(nam, args[1], args[2], "", NULL, args + 3, 0);
     case 'I':
-	return cd_init(nam, args[1], args + 2, 1);
+        if (n < 6) {
+            zwarnnam(nam, "not enough arguments", NULL, 0);
+
+            return 1;
+        } else {
+            char **opts;
+
+            if (!(opts = getaparam(args[4]))) {
+		zwarnnam(nam, "unknown parameter: %s", args[4], 0);
+		return 1;
+            }
+            return cd_init(nam, args[1], args[2], args[3], opts, args + 5, 1);
+        }
     case 'g':
 	if (cd_parsed) {
-	    int n = arrlen(args);
-
-	    if (n != 6) {
-		zwarnnam(nam, (n < 6 ? "not enough arguments" :
+	    if (n != 5) {
+		zwarnnam(nam, (n < 5 ? "not enough arguments" :
 			      "too many arguments"), NULL, 0);
 		return 1;
 	    }
@@ -632,6 +1117,8 @@ parse_cadef(char *nam, char **args)
 
 	args++;
     }
+    if (*args && !strcmp(*args, ":"))
+        args++;
     if (!*args)
 	return NULL;
 
@@ -910,7 +1397,7 @@ parse_cadef(char *nam, char **args)
 		    opt->descr = NULL;
 	    } else
 		opt->descr = NULL;
-	    opt->xor = (again == 1 ? zarrdup(xor) : xor);
+	    opt->xor = (again == 1 && xor ? zarrdup(xor) : xor);
 	    opt->type = otype;
 	    opt->args = oargs;
 	    opt->num = nopts++;
@@ -1247,6 +1734,33 @@ freecastate(Castate s)
     zfree(s->oargs, s->d->nopts * sizeof(LinkList));
 }
 
+/* Return a copy of an option's argument, ignoring possible quoting
+ * in the option name. */
+
+static char *
+ca_opt_arg(Caopt opt, char *line)
+{
+    char *o = opt->name;
+
+    while (1) {
+        if (*o == '\\')
+            o++;
+        if (*line == '\\' || *line == '\'' || *line == '"')
+            line++;
+        if (!*o || *o != *line)
+            break;
+        o++;
+        line++;
+    }
+    if (*line && (opt->type == CAO_EQUAL || opt->type == CAO_OEQUAL)) {
+        if (*line == '\\')
+            line++;
+        if (*line == '=')
+            line++;
+    }
+    return ztrdup(line);
+}
+
 /* Parse a command line. */
 
 static int
@@ -1255,7 +1769,7 @@ ca_parse_line(Cadef d, int multi, int first)
     Caarg adef, ddef;
     Caopt ptr, wasopt = NULL, dopt;
     struct castate state;
-    char *line, *pe, **argxor = NULL;
+    char *line, *oline, *pe, **argxor = NULL;
     int cur, doff, argend, arglast, ne;
     Patprog endpat = NULL, napat = NULL;
     LinkList sopts = NULL;
@@ -1321,6 +1835,7 @@ ca_parse_line(Cadef d, int multi, int first)
 	doff = state.singles = arglast = 0;
 
         /* remove quotes */
+        oline = line;
         line = dupstring(line);
         ne = noerrs;
         noerrs = 2;
@@ -1340,7 +1855,7 @@ ca_parse_line(Cadef d, int multi, int first)
 	if (state.def) {
 	    state.arg = 0;
 	    if (state.curopt)
-		zaddlinknode(state.oargs[state.curopt->num], ztrdup(line));
+		zaddlinknode(state.oargs[state.curopt->num], ztrdup(oline));
 
 	    if ((state.opt = (state.def->type == CAA_OPT)) && state.def->opt)
 		state.oopt++;
@@ -1422,7 +1937,8 @@ ca_parse_line(Cadef d, int multi, int first)
 		    state.def->type != CAA_RREST)
 		    state.def = state.def->next;
 
-		zaddlinknode(state.oargs[state.curopt->num], ztrdup(pe));
+		zaddlinknode(state.oargs[state.curopt->num],
+                             ca_opt_arg(state.curopt, oline));
 	    }
 	    if (state.def)
 		state.opt = 0;
@@ -1475,7 +1991,8 @@ ca_parse_line(Cadef d, int multi, int first)
 		    state.def->type != CAA_RREST)
 		    state.def = state.def->next;
 
-		zaddlinknode(state.oargs[state.curopt->num], ztrdup(pe));
+		zaddlinknode(state.oargs[state.curopt->num],
+                             ca_opt_arg(state.curopt, line));
 	    }
 	    if (state.def)
 		state.opt = 0;
@@ -1742,7 +2259,7 @@ ca_set_data(LinkList descr, LinkList act, LinkList subc,
 }
 
 static int
-bin_comparguments(char *nam, char **args, char *ops, int func)
+bin_comparguments(char *nam, char **args, Options ops, int func)
 {
     int min, max, n;
     Castate lstate = &ca_laststate;
@@ -1891,6 +2408,7 @@ bin_comparguments(char *nam, char **args, char *ops, int func)
 	    LinkList direct = newlinklist();
 	    LinkList odirect = newlinklist();
 	    LinkList equal = newlinklist(), l;
+            LinkNode node;
 	    Caopt p;
 	    char *str;
 	    int ret = 1;
@@ -1925,7 +2443,13 @@ bin_comparguments(char *nam, char **args, char *ops, int func)
 				strcat(str, p->descr);
 			    } else
 				str = bslashcolon(p->name);
-			    addlinknode(l, str);
+
+                            for (node = firstnode(l); node; incnode(node))
+                                if (!strcmp(str, (char *) getdata(node)))
+                                    break;
+
+                            if (!node)
+                                addlinknode(l, str);
 			}
 		    }
 		}
@@ -2076,6 +2600,7 @@ struct cvdef {
     char **defs;		/* original strings */
     int ndefs;			/* number of ... */
     int lastt;			/* last time used */
+    int words;                  /* if to look at other words */
 };
 
 /* One value definition. */
@@ -2133,18 +2658,23 @@ parse_cvdef(char *nam, char **args)
     Cvval val, *valp;
     Caarg arg;
     char **oargs = args, sep = '\0', asep = '=', *name, *descr, *p, *q, **xor, c;
-    int xnum, multi, vtype, hassep = 0;
+    int xnum, multi, vtype, hassep = 0, words = 0;
 
-    while (args[0][0] == '-' && (args[0][1] == 's' || args[0][1] == 'S') &&
+    while (args[0][0] == '-' &&
+           (args[0][1] == 's' || args[0][1] == 'S' || args[0][1] == 'w') &&
            !args[0][2]) {
 
         if (args[0][1] == 's') {
             hassep = 1;
             sep = args[1][0];
-        } else
+            args += 2;
+        } else if (args[0][1] == 'S') {
             asep = args[1][0];
-
-	args += 2;
+            args += 2;
+        } else {
+            words = 1;
+            args++;
+        }
     }
     if (!args[0] || !args[1]) {
 	zwarnnam(nam, "not enough arguments", NULL, 0);
@@ -2162,6 +2692,7 @@ parse_cvdef(char *nam, char **args)
     ret->defs = zarrdup(oargs);
     ret->ndefs = arrlen(oargs);
     ret->lastt = time(0);
+    ret->words = words;
 
     for (valp = &(ret->vals); *args; args++) {
 	int bs = 0;
@@ -2319,6 +2850,23 @@ cv_get_val(Cvdef d, char *name)
     return NULL;
 }
 
+static Cvval
+cv_quote_get_val(Cvdef d, char *name)
+{
+    int ne;
+
+    /* remove quotes */
+    name = dupstring(name);
+    ne = noerrs;
+    noerrs = 2;
+    parse_subst_string(name);
+    noerrs = ne;
+    remnulargs(name);
+    untokenize(name);
+
+    return cv_get_val(d, name);
+}
+
 /* Handle a xor list. */
 
 static void
@@ -2371,7 +2919,7 @@ cv_next(Cvdef d, char **sp, char **ap)
         do {
             sav = *++s;
             *s = '\0';
-            if ((r = cv_get_val(d, v))) {
+            if ((r = cv_quote_get_val(d, v))) {
                 *s = sav;
 
                 break;
@@ -2415,7 +2963,7 @@ cv_next(Cvdef d, char **sp, char **ap)
             sav = *sap;
             *sap = '\0';
         }
-        if ((!(r = cv_get_val(d, s)) || r->type == CVV_NOARG) && skip)
+        if ((!(r = cv_quote_get_val(d, s)) || r->type == CVV_NOARG) && skip)
             ns = as;
 
         if (sap)
@@ -2437,7 +2985,7 @@ cv_next(Cvdef d, char **sp, char **ap)
         } else
             *ap = sap = NULL;
 
-        r = cv_get_val(d, s);
+        r = cv_quote_get_val(d, s);
 
         if (sap)
             *sap = sav;
@@ -2469,6 +3017,35 @@ cv_parse_word(Cvdef d)
 
     cv_alloced = 1;
 
+    if (d->words && compwords[0]) {
+        int i;
+
+        for (i = 1; compwords[i]; i++)
+            if (i != compcurrent - 1)
+                for (str = compwords[i]; str && *str; ) {
+                    if ((val = cv_next(d, &str, &arg))) {
+                        zaddlinknode(state.vals, ztrdup(val->name));
+                        if (arg) {
+                            char sav = '\0';
+
+                            if (str) {
+                                sav = str[-1];
+                                str[-1] = '\0';
+                            }
+                            zaddlinknode(state.vals, ztrdup(arg));
+                            if (str)
+                                str[-1] = sav;
+                        } else
+                            zaddlinknode(state.vals, ztrdup(""));
+
+                        if (i + 1 < compcurrent)
+                            cv_inactive(d, val->xor);
+                    }
+                }
+
+        val = NULL;
+        arg = NULL;
+    }
     for (str = compprefix; str && *str; ) {
         if ((val = cv_next(d, &str, &arg))) {
             zaddlinknode(state.vals, ztrdup(val->name));
@@ -2559,7 +3136,7 @@ cv_parse_word(Cvdef d)
 }
 
 static int
-bin_compvalues(char *nam, char **args, char *ops, int func)
+bin_compvalues(char *nam, char **args, Options ops, int func)
 {
     int min, max, n;
 
@@ -2772,7 +3349,7 @@ comp_quote(char *str, int prefix)
 }
 
 static int
-bin_compquote(char *nam, char **args, char *ops, int func)
+bin_compquote(char *nam, char **args, Options ops, int func)
 {
     char *name;
     struct value vbuf;
@@ -2795,7 +3372,8 @@ bin_compquote(char *nam, char **args, char *ops, int func)
 	if ((v = getvalue(&vbuf, &name, 0))) {
 	    switch (PM_TYPE(v->pm->flags)) {
 	    case PM_SCALAR:
-		setstrvalue(v, ztrdup(comp_quote(getstrvalue(v), ops['p'])));
+		setstrvalue(v, ztrdup(comp_quote(getstrvalue(v), 
+						 OPT_ISSET(ops,'p'))));
 		break;
 	    case PM_ARRAY:
 		{
@@ -2805,7 +3383,7 @@ bin_compquote(char *nam, char **args, char *ops, int func)
 		    char **p = new;
 
 		    for (; *val; val++, p++)
-			*p = ztrdup(comp_quote(*val, ops['p']));
+			*p = ztrdup(comp_quote(*val, OPT_ISSET(ops,'p')));
 		    *p = NULL;
 
 		    setarrvalue(v, new);
@@ -2922,7 +3500,7 @@ arrcontains(char **a, char *s, int colon)
 }
 
 static int
-bin_comptags(char *nam, char **args, char *ops, int func)
+bin_comptags(char *nam, char **args, Options ops, int func)
 {
     int min, max, n, level;
 
@@ -3052,7 +3630,7 @@ bin_comptags(char *nam, char **args, char *ops, int func)
 }
 
 static int
-bin_comptry(char *nam, char **args, char *ops, int func)
+bin_comptry(char *nam, char **args, Options ops, int func)
 {
     if (incompfunc != 1) {
 	zwarnnam(nam, "can only be called from completion function", NULL, 0);
@@ -3744,7 +4322,7 @@ cf_remove_other(char **names, char *pre, int *amb)
 }
 
 static int
-bin_compfiles(char *nam, char **args, char *ops, int func)
+bin_compfiles(char *nam, char **args, Options ops, int func)
 {
     if (incompfunc != 1) {
 	zwarnnam(nam, "can only be called from completion function", NULL, 0);
@@ -3846,7 +4424,7 @@ bin_compfiles(char *nam, char **args, char *ops, int func)
 }
 
 static int
-bin_compgroups(char *nam, char **args, char *ops, int func)
+bin_compgroups(char *nam, char **args, Options ops, int func)
 {
     Heap oldheap;
     char *n;
@@ -3858,17 +4436,17 @@ bin_compgroups(char *nam, char **args, char *ops, int func)
     SWITCHHEAPS(oldheap, compheap) {
 	while ((n = *args++)) {
 	    endcmgroup(NULL);
-	    begcmgroup(n, 0);
+	    begcmgroup(n, CGF_NOSORT|CGF_UNIQCON);
+	    endcmgroup(NULL);
+	    begcmgroup(n, CGF_UNIQALL);
+	    endcmgroup(NULL);
+	    begcmgroup(n, CGF_NOSORT|CGF_UNIQCON);
+	    endcmgroup(NULL);
+	    begcmgroup(n, CGF_UNIQALL);
 	    endcmgroup(NULL);
 	    begcmgroup(n, CGF_NOSORT);
 	    endcmgroup(NULL);
-	    begcmgroup(n, CGF_UNIQALL);
-	    endcmgroup(NULL);
-	    begcmgroup(n, CGF_NOSORT|CGF_UNIQCON);
-	    endcmgroup(NULL);
-	    begcmgroup(n, CGF_UNIQALL);
-	    endcmgroup(NULL);
-	    begcmgroup(n, CGF_NOSORT|CGF_UNIQCON);
+	    begcmgroup(n, 0);
 	}
     } SWITCHBACKHEAPS(oldheap);
 

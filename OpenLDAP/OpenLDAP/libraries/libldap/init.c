@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/init.c,v 1.76 2002/02/09 00:09:23 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/init.c,v 1.76.2.4 2003/03/03 17:10:04 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 #include "portable.h"
@@ -19,7 +19,16 @@
 #include "ldap_defaults.h"
 
 struct ldapoptions ldap_int_global_options =
-	{ LDAP_UNINITIALIZED, LDAP_DEBUG_NONE };  
+	{ LDAP_UNINITIALIZED, LDAP_DEBUG_NONE };
+
+#ifdef __APPLE__
+#include <pthread.h>
+static pthread_mutex_t _init_lock_data_ = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t _init_lock_main_ = PTHREAD_MUTEX_INITIALIZER;
+static int _init_lock_count_ = 0;
+static unsigned int _init_thread_ = (unsigned int)-1;
+#endif
+
 
 #define ATTR_NONE	0
 #define ATTR_BOOL	1
@@ -96,6 +105,50 @@ static const struct ol_attribute {
 #define MAX_LDAP_ATTR_LEN  sizeof("TLS_CACERTDIR")
 #define MAX_LDAP_ENV_PREFIX_LEN 8
 
+#ifdef __APPLE__
+void _lock_init(void)
+{
+	unsigned int t;
+
+	t = (unsigned int)pthread_self();
+
+	pthread_mutex_lock(&_init_lock_data_);
+	if ((_init_lock_count_ > 0) && (_init_thread_ == t))
+	{
+		/* Recursive lock: just increment the locked counter */
+		_init_lock_count_++;
+		pthread_mutex_unlock(&_init_lock_data_);
+		return;
+	}
+	pthread_mutex_unlock(&_init_lock_data_);
+
+	pthread_mutex_lock(&_init_lock_main_);
+
+	pthread_mutex_lock(&_init_lock_data_);
+	_init_lock_count_ = 1;
+	_init_thread_ = t;
+	pthread_mutex_unlock(&_init_lock_data_);
+}
+
+void _unlock_init(void)
+{
+	int unlock_me;
+
+	unlock_me = 0;
+
+	pthread_mutex_lock(&_init_lock_data_);
+	if (_init_lock_count_ > 0) _init_lock_count_--;
+	if (_init_lock_count_ == 0)
+	{
+		_init_thread_ = (unsigned int)-1;
+		unlock_me = 1;
+	}
+	pthread_mutex_unlock(&_init_lock_data_);
+
+	if (unlock_me == 1) pthread_mutex_unlock(&_init_lock_main_);
+}
+#endif
+
 static void openldap_ldap_init_w_conf(
 	const char *file, int userconf )
 {
@@ -115,7 +168,12 @@ static void openldap_ldap_init_w_conf(
 		return;
 	}
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( CONFIG, DETAIL1, 
+		"openldap_init_w_conf: trying %s\n", file, 0, 0 );
+#else
 	Debug(LDAP_DEBUG_TRACE, "ldap_init: trying %s\n", file, 0, 0);
+#endif
 
 	fp = fopen(file, "r");
 	if(fp == NULL) {
@@ -123,7 +181,11 @@ static void openldap_ldap_init_w_conf(
 		return;
 	}
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( CONFIG, DETAIL1, "openldap_init_w_conf: using %s\n", file, 0, 0 );
+#else
 	Debug(LDAP_DEBUG_TRACE, "ldap_init: using %s\n", file, 0, 0);
+#endif
 
 	while((start = fgets(linebuf, sizeof(linebuf), fp)) != NULL) {
 		/* skip lines starting with '#' */
@@ -251,23 +313,33 @@ static void openldap_ldap_init_w_userconf(const char *file)
 	home = getenv("HOME");
 
 	if (home != NULL) {
+#ifdef NEW_LOGGING
+	LDAP_LOG ( CONFIG, ARGS, 
+		"openldap_init_w_userconf: HOME env is %s\n", home, 0, 0 );
+#else
 		Debug(LDAP_DEBUG_TRACE, "ldap_init: HOME env is %s\n",
 		      home, 0, 0);
-		path = LDAP_MALLOC(strlen(home) + strlen(file) + 3);
+#endif
+		path = LDAP_MALLOC(strlen(home) + strlen(file) + sizeof( LDAP_DIRSEP "."));
 	} else {
+#ifdef NEW_LOGGING
+	LDAP_LOG ( CONFIG, ARGS, "openldap_init_w_userconf: HOME env is NULL\n",
+		0, 0, 0 );
+#else
 		Debug(LDAP_DEBUG_TRACE, "ldap_init: HOME env is NULL\n",
 		      0, 0, 0);
+#endif
 	}
 
 	if(home != NULL && path != NULL) {
 		/* we assume UNIX path syntax is used... */
 
 		/* try ~/file */
-		sprintf(path, "%s%s%s", home, LDAP_DIRSEP, file);
+		sprintf(path, "%s" LDAP_DIRSEP "%s", home, file);
 		openldap_ldap_init_w_conf(path, 1);
 
 		/* try ~/.file */
-		sprintf(path, "%s%s.%s", home, LDAP_DIRSEP, file);
+		sprintf(path, "%s" LDAP_DIRSEP ".%s", home, file);
 		openldap_ldap_init_w_conf(path, 1);
 	}
 
@@ -458,11 +530,19 @@ char * ldap_int_hostname = NULL;
 
 void ldap_int_initialize( struct ldapoptions *gopts, int *dbglvl )
 {
+#ifdef __APPLE__
+	_lock_init();
+#endif
 	if ( gopts->ldo_valid == LDAP_INITIALIZED ) {
+#ifdef __APPLE__
+		_unlock_init();
+#endif
 		return;
 	}
 
 	ldap_int_error_init();
+
+	ldap_int_utils_init();
 
 #ifdef HAVE_WINSOCK2
 {	WORD wVersionRequested;
@@ -472,6 +552,9 @@ void ldap_int_initialize( struct ldapoptions *gopts, int *dbglvl )
 	if ( WSAStartup( wVersionRequested, &wsaData ) != 0 ) {
 		/* Tell the user that we couldn't find a usable */
 		/* WinSock DLL.                                  */
+#ifdef __APPLE__
+		_unlock_init();
+#endif
 		return;
 	}
  
@@ -487,13 +570,19 @@ void ldap_int_initialize( struct ldapoptions *gopts, int *dbglvl )
 	    /* Tell the user that we couldn't find a usable */
 	    /* WinSock DLL.                                  */
 	    WSACleanup( );
-	    return; 
+#ifdef __APPLE__
+		_unlock_init();
+#endif
+		return; 
 	}
 }	/* The WinSock DLL is acceptable. Proceed. */
 #elif HAVE_WINSOCK
 {	WSADATA wsaData;
 	if ( WSAStartup( 0x0101, &wsaData ) != 0 ) {
-	    return;
+#ifdef __APPLE__
+		_unlock_init();
+#endif
+		return;
 	}
 }
 #endif
@@ -502,14 +591,15 @@ void ldap_int_initialize( struct ldapoptions *gopts, int *dbglvl )
 	|| defined(HAVE_TLS) || defined(HAVE_CYRUS_SASL)
 	ldap_int_hostname = ldap_pvt_get_fqdn( ldap_int_hostname );
 #endif
-	ldap_int_utils_init();
-
 	if ( ldap_int_tblsize == 0 )
 		ldap_int_ip_init();
 
 	ldap_int_initialize_global_options(gopts, NULL);
 
 	if( getenv("LDAPNOINIT") != NULL ) {
+#ifdef __APPLE__
+		_unlock_init();
+#endif
 		return;
 	}
 
@@ -534,29 +624,56 @@ void ldap_int_initialize( struct ldapoptions *gopts, int *dbglvl )
 		char *altfile = getenv(LDAP_ENV_PREFIX "CONF");
 
 		if( altfile != NULL ) {
+#ifdef NEW_LOGGING
+			LDAP_LOG ( CONFIG, DETAIL1, 
+				"openldap_init_w_userconf: %sCONF env is %s\n",
+				LDAP_ENV_PREFIX, altfile, 0 );
+#else
 			Debug(LDAP_DEBUG_TRACE, "ldap_init: %s env is %s\n",
 			      LDAP_ENV_PREFIX "CONF", altfile, 0);
+#endif
 			openldap_ldap_init_w_sysconf( altfile );
 		}
 		else
+#ifdef NEW_LOGGING
+			LDAP_LOG ( CONFIG, DETAIL1, 
+				"openldap_init_w_userconf: %sCONF env is NULL\n",
+				LDAP_ENV_PREFIX, 0, 0 );
+#else
 			Debug(LDAP_DEBUG_TRACE, "ldap_init: %s env is NULL\n",
 			      LDAP_ENV_PREFIX "CONF", 0, 0);
+#endif
 	}
 
 	{
 		char *altfile = getenv(LDAP_ENV_PREFIX "RC");
 
 		if( altfile != NULL ) {
+#ifdef NEW_LOGGING
+			LDAP_LOG ( CONFIG, DETAIL1, 
+				"openldap_init_w_userconf: %sRC env is %s\n",
+				LDAP_ENV_PREFIX, altfile, 0 );
+#else
 			Debug(LDAP_DEBUG_TRACE, "ldap_init: %s env is %s\n",
 			      LDAP_ENV_PREFIX "RC", altfile, 0);
+#endif
 			openldap_ldap_init_w_userconf( altfile );
 		}
 		else
+#ifdef NEW_LOGGING
+			LDAP_LOG ( CONFIG, DETAIL1, 
+				"openldap_init_w_userconf: %sRC env is NULL\n",
+				LDAP_ENV_PREFIX, 0, 0 );
+#else
 			Debug(LDAP_DEBUG_TRACE, "ldap_init: %s env is NULL\n",
 			      LDAP_ENV_PREFIX "RC", 0, 0);
+#endif
 	}
 
 	openldap_ldap_init_w_env(gopts, NULL);
 
 	ldap_int_sasl_init();
+#ifdef __APPLE__
+	_unlock_init();
+#endif
 }

@@ -33,8 +33,12 @@
 ** AOF (afreier@next.com)
 */
 
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 extern char ***_NSGetArgv(void);
 extern int *_NSGetArgc(void);
 extern char ***_NSGetEnviron(void);
 extern char **_NSGetProgname(void);
 extern struct mach_header *_NSGetMachExecuteHeader(void);
+__END_DECLS

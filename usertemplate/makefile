@@ -31,17 +31,19 @@ install:
 	chmod 700 "$(DESTINATION)" # We need to set /Sytem/Library/User Template to 700
 
 	chmod 700 "$(DESTINATION)/English.lproj/Library" "$(DESTINATION)/English.lproj/Documents" "$(DESTINATION)/English.lproj/Library/Favorites" "$(DESTINATION)/English.lproj/Movies" "$(DESTINATION)/English.lproj/Music" "$(DESTINATION)/English.lproj/Pictures" "$(DESTINATION)/Non_localized/Library" "$(DESTINATION)/Non_localized/Library/Preferences" "$(DESTINATION)/English.lproj/Desktop"
+ 
 	chmod -R 700 "$(DESTINATION)/English.lproj/Library/Preferences" "$(DESTINATION)/English.lproj/Library/Keyboard Layouts" # Set Preferences to 700
 	chmod 733 "$(DESTINATION)/English.lproj/Public/Drop Box" # Drop Box gets 733
 
 	chmod 600 "$(DESTINATION)/English.lproj/Library/Preferences/com.apple.finder.plist" "$(DESTINATION)/Non_localized/Library/Preferences/com.apple.scheduler.plist" "$(DESTINATION)/English.lproj/Library/Preferences/.GlobalPreferences.plist" 
 
-	chmod 644 "$(DESTINATION)/English.lproj/Library/Preferences/Explorer/Favorites.html" "$(DESTINATION)/English.lproj/Library/FontCollections/Classic.fcache" "$(DESTINATION)/English.lproj/Library/FontCollections/Fun.fcache" "$(DESTINATION)/English.lproj/Library/FontCollections/Modern.fcache" "$(DESTINATION)/English.lproj/Library/FontCollections/PDF.fcache" "$(DESTINATION)/English.lproj/Library/FontCollections/Web.fcache" "$(DESTINATION)/English.lproj/.CFUserTextEncoding" "$(DESTINATION)/English.lproj/Public/.localized" "$(DESTINATION)/English.lproj/Sites/.localized" "$(DESTINATION)/English.lproj/Public/Drop Box/.localized" "$(DESTINATION)/English.lproj/Library/.localized" "$(DESTINATION)/English.lproj/Desktop/.localized" "$(DESTINATION)/English.lproj/Documents/.localized" "$(DESTINATION)/English.lproj/Movies/.localized" "$(DESTINATION)/English.lproj/Music/.localized" "$(DESTINATION)/English.lproj/Pictures/.localized"
+	chmod 644 "$(DESTINATION)/English.lproj/Library/Preferences/Explorer/Favorites.html" "$(DESTINATION)/English.lproj/Library/FontCollections/Classic.collection" "$(DESTINATION)/English.lproj/Library/FontCollections/Fun.collection" "$(DESTINATION)/English.lproj/Library/FontCollections/Modern.collection" "$(DESTINATION)/English.lproj/Library/FontCollections/PDF.collection" "$(DESTINATION)/English.lproj/Library/FontCollections/Web.collection" "$(DESTINATION)/English.lproj/Library/FontCollections/Chinese.collection" "$(DESTINATION)/English.lproj/Library/FontCollections/Japanese.collection" "$(DESTINATION)/English.lproj/Library/FontCollections/Korean.collection" "$(DESTINATION)/English.lproj/.CFUserTextEncoding" "$(DESTINATION)/English.lproj/Public/.localized" "$(DESTINATION)/English.lproj/Sites/.localized" "$(DESTINATION)/English.lproj/Public/Drop Box/.localized" "$(DESTINATION)/English.lproj/Library/.localized" "$(DESTINATION)/English.lproj/Desktop/.localized" "$(DESTINATION)/English.lproj/Documents/.localized" "$(DESTINATION)/English.lproj/Movies/.localized" "$(DESTINATION)/English.lproj/Music/.localized" "$(DESTINATION)/English.lproj/Pictures/.localized"
 
 
 	chmod 666 "$(DESTINATION)/English.lproj/Sites/index.html" "$(DESTINATION)/English.lproj/Sites/images/apache_pb.gif" "$(DESTINATION)/English.lproj/Sites/images/macosxlogo.gif" "$(DESTINATION)/English.lproj/Sites/images/web_share.gif"
 
-	# Set Symbolic Links
+	
+# Set Symbolic Links
 	ln -s ../../Documents "$(DESTINATION)English.lproj/Library/Favorites/Documents"
       #	ln -s ../.. "$(DESTINATION)English.lproj/Library/Favorites/Home"
 

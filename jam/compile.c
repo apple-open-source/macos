@@ -681,7 +681,7 @@ LOL		*args;
 	    list_free( rule->bindlist );
 	}
 
-	rule->actions = copystr( parse->string1 );
+	rule->actions = copystr( parse->string1 + (parse->string1[0] == '\n' ? 1 : 0) );
 	rule->bindlist = list_copy( L0, parse->llist );
 	rule->flags |= parse->num; /* XXX translate this properly */
 }

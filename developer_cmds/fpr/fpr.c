@@ -87,7 +87,7 @@ int     maxpos;
 int     maxcol;
 
 void	flush __P((void));
-void	gettext __P((void));
+void	get_text __P((void));
 void	init __P((void));
 int	main __P((int, char **));
 void	nospace __P((void));
@@ -134,7 +134,7 @@ main(argc, argv)
 					}
 
 	while (!ateof) {
-		gettext();
+		get_text();
 		ch = getchar();
 		if (ch == EOF) {
 			flush();
@@ -210,7 +210,7 @@ init()
 }
 
 void
-gettext()
+get_text()
 {
 	int i;
 	char ateol;

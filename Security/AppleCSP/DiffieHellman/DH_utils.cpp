@@ -22,44 +22,50 @@
 
 #include "DH_utils.h"
 #include "DH_keys.h"
-#include <opensslUtils/openRsaSnacc.h>
+#include <opensslUtils/opensslAsn1.h>
 #include <Security/logging.h>
 #include <Security/debugging.h>
-#include <open_ssl/opensslUtils/opensslUtils.h>
+#include <opensslUtils/opensslUtils.h>
 #include <openssl/bn.h>
 #include <openssl/dh.h>
 #include <openssl/err.h>
 
-#define dhMiscDebug(args...)	debug("dhMisc", ## args)
+#define dhMiscDebug(args...)	secdebug("dhMisc", ## args)
 
 /* 
  * Given a Context:
- * -- obtain CSSM key (there must only be one)
- * -- validate keyClass - MUST be private! (DH public keys are never found
- *    in contexts.)
+ * -- obtain CSSM key with specified attr (there must only be one)
+ * -- validate keyClass per caller's specification
  * -- validate keyUsage
  * -- convert to DH *, allocating the DH key if necessary
  */
 DH *contextToDhKey(
-	const Context 		&context,
-	AppleCSPSession	 	&session,
+	const Context		&context,
+	AppleCSPSession 	&session,
+	CSSM_ATTRIBUTE_TYPE	attr,		  // CSSM_ATTRIBUTE_KEY for private key
+									  // CSSM_ATTRIBUTE_PUBLIC_KEY for public key
+	CSSM_KEYCLASS		keyClass,	  // CSSM_KEYCLASS_{PUBLIC,PRIVATE}_KEY	
 	CSSM_KEYUSE			usage,		  // CSSM_KEYUSE_ENCRYPT, CSSM_KEYUSE_SIGN, etc.
 	bool				&mallocdKey)  // RETURNED
 {
-    CssmKey &cssmKey = 
-		context.get<CssmKey>(CSSM_ATTRIBUTE_KEY, CSSMERR_CSP_MISSING_ATTR_KEY);
-	const CSSM_KEYHEADER &hdr = cssmKey.KeyHeader;
+    CssmKey *cssmKey = context.get<CssmKey>(attr);
+	if(cssmKey == NULL) {
+		return NULL;
+	}
+	const CSSM_KEYHEADER &hdr = cssmKey->KeyHeader;
 	if(hdr.AlgorithmId != CSSM_ALGID_DH) {
 		CssmError::throwMe(CSSMERR_CSP_ALGID_MISMATCH);
 	}
-	if(hdr.KeyClass != CSSM_KEYCLASS_PRIVATE_KEY) {
+	if(hdr.KeyClass != keyClass) {
 		CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
 	}
 	cspValidateIntendedKeyUsage(&hdr, usage);
-	return cssmKeyToDh(cssmKey, session, mallocdKey);
+	cspVerifyKeyTimes(hdr);
+	return cssmKeyToDh(*cssmKey, session, mallocdKey);
 }
+
 /* 
- * Convert a CssmKey (Private only!) to an DH * key. May result in the 
+ * Convert a CssmKey to an DH * key. May result in the 
  * creation of a new DH (when cssmKey is a raw key); allocdKey is true 
  * in that case in which case the caller generally has to free the allocd key).
  */
@@ -76,10 +82,10 @@ DH *cssmKeyToDh(
 		// someone else's key (should never happen)
 		CssmError::throwMe(CSSMERR_CSP_INVALID_ALGORITHM);
 	}
-	assert(hdr->KeyClass == CSSM_KEYCLASS_PRIVATE_KEY);
 	switch(hdr->BlobType) {
 		case CSSM_KEYBLOB_RAW:
 			dhKey = rawCssmKeyToDh(cssmKey);
+			cspDhDebug("cssmKeyToDh, raw, dhKey %p", dhKey);
 			allocdKey = true;
 			break;
 		case CSSM_KEYBLOB_REFERENCE:
@@ -89,11 +95,11 @@ DH *cssmKeyToDh(
 			/* this cast failing means that this is some other
 			 * kind of binary key */
 			if(dhBinKey == NULL) {
-				dhMiscDebug("cssmKeyToDh: wrong BinaryKey subclass\n");
 				CssmError::throwMe(CSSMERR_CSP_INVALID_KEY);
 			}
 			assert(dhBinKey->mDhKey != NULL);
 			dhKey = dhBinKey->mDhKey;
+			cspDhDebug("cssmKeyToDh, ref, dhKey %p", dhKey);
 			break;
 		}
 		default:
@@ -103,21 +109,49 @@ DH *cssmKeyToDh(
 }
 
 /* 
- * Convert a raw CssmKey (Private only!)  to a newly alloc'd DH key.
+ * Convert a raw CssmKey to a newly alloc'd DH key.
  */
 DH *rawCssmKeyToDh(
 	const CssmKey	&cssmKey)
 {
 	const CSSM_KEYHEADER *hdr = &cssmKey.KeyHeader;
+	bool isPub = false;
 	
 	if(hdr->AlgorithmId != CSSM_ALGID_DH) {
 		// someone else's key (should never happen)
 		CssmError::throwMe(CSSMERR_CSP_INVALID_ALGORITHM);
 	}
 	assert(hdr->BlobType == CSSM_KEYBLOB_RAW); 
-	assert(hdr->KeyClass == CSSM_KEYCLASS_PRIVATE_KEY);
-	if(hdr->Format != DH_PRIV_KEY_FORMAT) {
-		CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_PRIVATE_KEY_FORMAT);
+	/* validate and figure out what we're dealing with */
+	switch(hdr->KeyClass) {
+		case CSSM_KEYCLASS_PUBLIC_KEY:
+			switch(hdr->Format) {
+				case CSSM_KEYBLOB_RAW_FORMAT_PKCS3:	
+				case CSSM_KEYBLOB_RAW_FORMAT_X509:
+					break;
+				/* openssh real soon now */
+				case CSSM_KEYBLOB_RAW_FORMAT_OPENSSH:
+				default:
+					CssmError::throwMe(
+						CSSMERR_CSP_INVALID_ATTR_PUBLIC_KEY_FORMAT);
+			}
+			isPub = true;
+			break;
+		case CSSM_KEYCLASS_PRIVATE_KEY:
+			switch(hdr->Format) {
+				case CSSM_KEYBLOB_RAW_FORMAT_PKCS3:	// default
+				case CSSM_KEYBLOB_RAW_FORMAT_PKCS8:	// SMIME style
+					break;
+				/* openssh real soon now */
+				case CSSM_KEYBLOB_RAW_FORMAT_OPENSSH:
+				default:
+					CssmError::throwMe(
+						CSSMERR_CSP_INVALID_ATTR_PRIVATE_KEY_FORMAT);
+			}
+			isPub = false;
+			break;
+		default:
+			CssmError::throwMe(CSSMERR_CSP_INVALID_KEY_CLASS);
 	}
 	
 	DH *dhKey = DH_new();
@@ -125,12 +159,18 @@ DH *rawCssmKeyToDh(
 		CssmError::throwMe(CSSMERR_CSP_MEMORY_ERROR);
 	}
 	CSSM_RETURN crtn;
-	crtn = DHPrivateKeyDecode(dhKey, 
-		cssmKey.KeyData.Data, 
-		cssmKey.KeyData.Length);
+	if(isPub) {
+		crtn = DHPublicKeyDecode(dhKey, hdr->Format,
+			cssmKey.KeyData.Data, cssmKey.KeyData.Length);
+	}
+	else {
+		crtn = DHPrivateKeyDecode(dhKey, hdr->Format,
+			cssmKey.KeyData.Data, cssmKey.KeyData.Length);
+	}
 	if(crtn) {
 		CssmError::throwMe(crtn);
 	}
+	cspDhDebug("rawCssmKeyToDh, dhKey %p", dhKey);
 	return dhKey;
 }
 

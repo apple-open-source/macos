@@ -24,8 +24,8 @@ static char sccsid[] = "@(#) diag.c 1.1 94/12/28 17:42:20";
 #include "tcpd.h"
 #include "mystdarg.h"
 
-struct tcpd_context tcpd_context;
-jmp_buf tcpd_buf;
+struct tcpd_context tcpd_context = {0};
+jmp_buf tcpd_buf = {0};
 
 /* tcpd_diag - centralize error reporter */
 

@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -29,6 +32,7 @@
 
 #include <sl.h>
 
+#include "ufs.h"
 #include "ufs_byteorder.h"
 
 typedef struct dinode Inode, *InodePtr;
@@ -177,9 +181,9 @@ long UFSLoadFile( CICell ih, char * filePath )
 {
     long ret, length, flags;
 
-    if (UFSInitPartition(ih) == -1) return -1;
-
     verbose("Loading UFS file: [%s] from %x.\n", filePath, (unsigned)ih);
+
+    if (UFSInitPartition(ih) == -1) return -1;
 
     // Skip one or two leading '/'.
     if (*filePath == '/') filePath++;
@@ -292,7 +296,7 @@ static long ResolvePathToInode( char * filePath, long * flags,
     // Copy the file name to gTempName
     cnt = 0;
     while ((filePath[cnt] != '/') && (filePath[cnt] != '\0')) cnt++;
-    strncpy(gTempName, filePath, cnt);
+    strlcpy(gTempName, filePath, cnt+1);
 
     // Move restPath to the right place.
     if (filePath[cnt] != '\0') cnt++;
@@ -338,7 +342,7 @@ static long ReadDirEntry( InodePtr dirInode, long * fileInodeNum,
     }
 
     *fileInodeNum = dir->d_ino;
-    *name = strncpy(gTempName2, dir->d_name, dir->d_namlen);
+    *name = strlcpy(gTempName2, dir->d_name, dir->d_namlen+1);
 
     return 0;
 }

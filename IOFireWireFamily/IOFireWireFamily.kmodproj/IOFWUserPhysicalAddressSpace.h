@@ -35,27 +35,31 @@
 #define _IOKIT_IOFWUserClientPhysAddrSpace_H_
 
 #import <IOKit/firewire/IOFWAddressSpace.h>
+#import <IOKit/IOMemoryCursor.h>
 
-class IOFWUserClientPhysicalAddressSpace: public IOFWPhysicalAddressSpace
+class IOFWUserPhysicalAddressSpace: public IOFWPhysicalAddressSpace
 {
-	OSDeclareDefaultStructors(IOFWUserClientPhysicalAddressSpace)
+	OSDeclareDefaultStructors(IOFWUserPhysicalAddressSpace)
 
- public:
- 	virtual void		free() ;
-    virtual bool 		initWithDesc(
-    							IOFireWireBus *			bus,
-								IOMemoryDescriptor*		mem);
+	protected:
+	
+		UInt32				fSegmentCount ;
+		bool				fMemPrepared ;
 
-	// getters
-	UInt32				getSegmentCount() ;
-	IOReturn			getSegments(
-								UInt32*					ioMaxPages,
-								IOPhysicalAddress		outPages[],
-								IOByteCount				outLengths[]) ;
+	public:
+	
+		virtual void		free() ;
+		void				exporterCleanup () ;
 
- protected:
-	UInt32				mSegmentCount ;
-	bool				fMemPrepared ;
+		virtual bool 		initWithDesc(
+									IOFireWireBus *			bus,
+									IOMemoryDescriptor*		mem);
+	
+		// getters
+		IOReturn			getSegmentCount( UInt32* outSegmentCount ) ;
+		IOReturn			getSegments(
+									UInt32*					ioSegmentCount,
+									IOMemoryCursor::IOPhysicalSegment outSegments[] ) ;
 } ;
 
 #endif //_IOKIT_IOFWUserClientPhysAddrSpace_H_

@@ -12,7 +12,7 @@ NAME = hidsystem
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Component
 
-HFILES = IOHIDLib.h
+HFILES = event_status_driver.h IOHIDLib.h
 
 CFILES = IOEventStatusAPI.c IOHIDLib.c
 
@@ -28,9 +28,9 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-PUBLIC_HEADERS = IOHIDLib.h
+PUBLIC_HEADERS = IOHIDLib.h event_status_driver.h
 
-PROJECT_HEADERS = IOHIDLib.h
+PROJECT_HEADERS = IOHIDLib.h event_status_driver.h
 
 
 

@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: iconv.c,v 1.5 2002/05/14 22:19:52 lindak Exp $
+ * $Id: iconv.c,v 1.7 2003/05/06 21:54:41 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -113,6 +113,7 @@ iconv_mod_unload(void)
 static int
 iconv_mod_handler(module_t mod, int type, void *data)
 {
+	#pragma unused(mod, data)
 	int error;
 
 	switch (type) {
@@ -243,7 +244,7 @@ iconv_unregister_cspair(struct iconv_cspair *csp)
  * Currently this layer didn't have associated 'instance' structure
  * to avoid unnesessary memory allocation.
  */
-int
+PRIVSYM int
 iconv_open(const char *to, const char *from, void **handle)
 {
 	struct iconv_cspair *csp, *cspfrom, *cspto;
@@ -280,13 +281,13 @@ iconv_open(const char *to, const char *from, void **handle)
 	return ENOENT;
 }
 
-int
+PRIVSYM int
 iconv_close(void *handle)
 {
 	return ICONV_CONVERTER_CLOSE(handle);
 }
 
-int
+PRIVSYM int
 iconv_conv(void *handle, const char **inbuf,
 	size_t *inbytesleft, char **outbuf, size_t *outbytesleft)
 {
@@ -304,6 +305,7 @@ iconv_sysctl_drvlist(SYSCTL_HANDLER_ARGS)
 iconv_sysctl_drvlist SYSCTL_HANDLER_ARGS
 #endif
 {
+	#pragma unused(oidp, arg1, arg2)
 	struct iconv_converter_class *dcp;
 	const char *name;
 	char spc;
@@ -357,6 +359,7 @@ iconv_sysctl_cslist(SYSCTL_HANDLER_ARGS)
 iconv_sysctl_cslist SYSCTL_HANDLER_ARGS
 #endif
 {
+	#pragma unused(oidp, arg1, arg2)
 	struct iconv_cspair *csp;
 	struct iconv_cspair_info csi;
 	int error;
@@ -388,7 +391,7 @@ SYSCTL_PROC(_kern_iconv, OID_AUTO, cslist, CTLFLAG_RD | CTLTYPE_OPAQUE,
 	    NULL, 0, iconv_sysctl_cslist, "S,xlat", "registered charset pairs");
 
 #ifdef APPLE
-int
+PRIVSYM int
 iconv_add(const char *converter, const char *to, const char *from)
 {
 	struct iconv_converter_class *dcp;
@@ -411,6 +414,7 @@ iconv_sysctl_add(SYSCTL_HANDLER_ARGS)
 iconv_sysctl_add SYSCTL_HANDLER_ARGS
 #endif
 {
+	#pragma unused(oidp, arg1, arg2)
 	struct iconv_converter_class *dcp;
 	struct iconv_cspair *csp;
 	struct iconv_add_in din;
@@ -471,21 +475,24 @@ SYSCTL_PROC(_kern_iconv, OID_AUTO, add, CTLFLAG_RW | CTLTYPE_OPAQUE,
 /*
  * Default stubs for converters
  */
-int
+PRIVSYM int
 iconv_converter_initstub(struct iconv_converter_class *dp)
 {
+	#pragma unused(dp)
 	return 0;
 }
 
-int
+PRIVSYM int
 iconv_converter_donestub(struct iconv_converter_class *dp)
 {
+	#pragma unused(dp)
 	return 0;
 }
 
-int
+PRIVSYM int
 iconv_converter_handler(module_t mod, int type, void *data)
 {
+	#pragma unused(mod)
 	struct iconv_converter_class *dcp = data;
 	int error;
 
@@ -511,11 +518,10 @@ iconv_converter_handler(module_t mod, int type, void *data)
 /*
  * Common used functions
  */
+PRIVSYM char *
 #ifdef APPLE
-char *
 iconv_convstr(void *handle, char *dst, const char *src, size_t len)
 #else
-char *
 iconv_convstr(void *handle, char *dst, const char *src)
 #endif
 {
@@ -542,7 +548,7 @@ iconv_convstr(void *handle, char *dst, const char *src)
 }
 
 #ifndef APPLE
-void *
+PRIVSYM void *
 iconv_convmem(void *handle, void *dst, const void *src, int size)
 {
 	const char *s = src;
@@ -566,7 +572,7 @@ iconv_convmem(void *handle, void *dst, const void *src, int size)
 }
 #endif
 
-int
+PRIVSYM int
 iconv_lookupcp(char **cpp, const char *s)
 {
 	if (cpp == NULL) {

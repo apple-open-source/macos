@@ -11,6 +11,7 @@
             "notify_server.h", 
             "plugin_support.h", 
             "session.h", 
+            "pattern.h", 
             "notify.h"
         ); 
         "OTHER_LIBS" = (objc); 
@@ -21,6 +22,7 @@
             "notify_server.c", 
             "plugin_support.c", 
             "session.c", 
+            "pattern.c", 
             "notify.c", 
             "_configopen.c", 
             "_configclose.c", 
@@ -49,7 +51,8 @@
             "Makefile.postamble", 
             "m.template", 
             "h.template", 
-            "config.defs"
+            "config.defs", 
+            "configd.plist"
         ); 
         "PRECOMPILED_HEADERS" = (); 
         "PROJECT_HEADERS" = (); 
@@ -61,6 +64,7 @@
     "NEXTSTEP_BUILDTOOL" = "/usr/bin/gnumake"; 
     "NEXTSTEP_INSTALLDIR" = "/usr/sbin"; 
     "NEXTSTEP_JAVA_COMPILER" = "/usr/bin/javac"; 
+    "NEXTSTEP_LINKEROPTIONS" = "-prebind_all_twolevel_modules"; 
     "NEXTSTEP_OBJCPLUS_COMPILER" = "/usr/bin/cc"; 
     "PDO_UNIX_BUILDTOOL" = "$NEXT_ROOT/Developer/bin/make"; 
     "PDO_UNIX_INSTALLDIR" = "/bin"; 

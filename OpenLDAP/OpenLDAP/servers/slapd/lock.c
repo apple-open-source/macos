@@ -1,7 +1,7 @@
 /* lock.c - routines to open and apply an advisory lock to a file */
-/* $OpenLDAP: pkg/ldap/servers/slapd/lock.c,v 1.20 2002/01/04 20:17:46 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/lock.c,v 1.20.2.5 2003/03/12 19:19:21 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -19,6 +19,7 @@
 #endif
 
 #include "slap.h"
+#include <lutil.h>
 
 FILE *
 lock_fopen( const char *fname, const char *type, FILE **lfp )
@@ -27,11 +28,12 @@ lock_fopen( const char *fname, const char *type, FILE **lfp )
 	char	buf[MAXPATHLEN];
 
 	/* open the lock file */
-	strcpy(slap_strcopy( buf, fname ), ".lock" );
+	snprintf( buf, sizeof buf, "%s.lock", fname );
+
 	if ( (*lfp = fopen( buf, "w" )) == NULL ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_ERR,
-			   "lock_fopen: could not open lock file \"%s\".\n", buf ));
+		LDAP_LOG( OPERATION, ERR, 
+			"lock_fopen: could not open lock file \"%s\".\n", buf, 0, 0);
 #else
 		Debug( LDAP_DEBUG_ANY, "could not open \"%s\"\n", buf, 0, 0 );
 #endif
@@ -45,8 +47,8 @@ lock_fopen( const char *fname, const char *type, FILE **lfp )
 	/* open the log file */
 	if ( (fp = fopen( fname, type )) == NULL ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_ERR,
-			   "lock_fopen: could not open log file \"%s\".\n", buf ));
+		LDAP_LOG( OPERATION, ERR, 
+			"lock_fopen: could not open log file \"%s\".\n", buf, 0, 0);
 #else
 		Debug( LDAP_DEBUG_ANY, "could not open \"%s\"\n", fname, 0, 0 );
 #endif

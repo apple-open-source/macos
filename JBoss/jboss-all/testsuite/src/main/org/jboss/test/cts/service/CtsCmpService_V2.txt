@@ -1,0 +1,58 @@
+/*
+ * JBoss, the OpenSource J2EE WebOS
+ *
+ * Distributable under LGPL license.
+ * See terms of license at gnu.org.
+ */
+package org.jboss.test.cts.service;
+
+import javax.naming.InitialContext;
+
+import org.jboss.system.ServiceMBeanSupport;
+import org.jboss.test.cts.interfaces.CtsCmp2Local;
+import org.jboss.test.cts.interfaces.CtsCmp2LocalHome;
+import org.jboss.test.util.Debug;
+
+/** Version 2 of the MBean service that uses the version 2 of the
+ * CtsCmp2Local EJB interface.
+ *
+ * @author Scott.Stark@jboss.org
+ * @version $Revision: 1.1.4.2 $
+ */
+public class CtsCmpService extends ServiceMBeanSupport
+   implements CtsCmpServiceMBean
+{
+   private CtsCmp2LocalHome home;
+   private String homeJndiName = "v2/local/CtsCmp2Bean";
+
+   public CtsCmpService()
+   {
+      log.info("CtsCmpService V2 ctor");
+   }
+
+   public void setHomeJndiName(String jndiName)
+   {
+      this.homeJndiName = jndiName;
+   }
+
+   protected void startService() throws Exception
+   {
+      InitialContext ctx = new InitialContext();
+      Object obj = new InitialContext().lookup(homeJndiName);
+      Class homeClass = obj.getClass();
+      StringBuffer results = new StringBuffer();
+      results.append("CtsCmpService V2 class info:\n");
+      Debug.displayClassInfo(getClass(), results);
+      results.append("CtsCmp2LocalHome Proxy class info:\n");
+      Debug.displayClassInfo(homeClass, results);
+      results.append("\nLocal CtsCmp2LocalHome.class info:\n");
+      Debug.displayClassInfo(CtsCmp2LocalHome.class, results);
+      log.info(results.toString());
+      home = (CtsCmp2LocalHome) obj;
+
+      CtsCmp2Local bean = home.create("V2key", "V2data");
+      log.info("CtsCmp2Local.key = "+bean.getKey());
+      log.info("CtsCmp2Local.data = "+bean.getData());
+      log.info("CtsCmp2Local.moreData = "+bean.getMoreData());
+   }
+}

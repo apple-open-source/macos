@@ -1,0 +1,83 @@
+--- ../MyODBC-2.50.39.old.OLD/configure	Thu Sep 20 10:04:09 2001
++++ configure	Mon Apr 29 14:28:24 2002
+@@ -2019,7 +2019,7 @@
+ 
+ 
+ CPPFLAGS="$CPPFLAGS -I$iodbc_includes"
+-for ac_hdr in isql.h isqlext.h
++for ac_hdr in iODBC/isql.h iODBC/isqlext.h
+ do
+ ac_safe=`echo "$ac_hdr" | sed 'y%./+-%__p_%'`
+ echo $ac_n "checking for $ac_hdr""... $ac_c" 1>&6
+@@ -2066,7 +2066,7 @@
+ 	{ echo "configure: error: Unable to find the iodbc headers in $iodbc_includes" 1>&2; exit 1; }
+ fi
+ 
+-for ac_hdr in iodbcinst.h
++for ac_hdr in iODBCinst/iodbcinst.h
+ do
+ ac_safe=`echo "$ac_hdr" | sed 'y%./+-%__p_%'`
+ echo $ac_n "checking for $ac_hdr""... $ac_c" 1>&6
+@@ -2106,61 +2106,8 @@
+ fi
+ done
+ 
+-
+-if test "x$ac_cv_header_iodbcinst_h" = "xyes"
+-then
+-
+-	save_LIBS="$LIBS"
+-	LIBS="-L$iodbc_libs $LIBS"
+-
+-	echo $ac_n "checking for SQLGetPrivateProfileString in -liodbcinst""... $ac_c" 1>&6
+-echo "configure:2118: checking for SQLGetPrivateProfileString in -liodbcinst" >&5
+-ac_lib_var=`echo iodbcinst'_'SQLGetPrivateProfileString | sed 'y%./+-%__p_%'`
+-if eval "test \"`echo '$''{'ac_cv_lib_$ac_lib_var'+set}'`\" = set"; then
+-  echo $ac_n "(cached) $ac_c" 1>&6
+-else
+-  ac_save_LIBS="$LIBS"
+-LIBS="-liodbcinst  $LIBS"
+-cat > conftest.$ac_ext <<EOF
+-#line 2126 "configure"
+-#include "confdefs.h"
+-/* Override any gcc2 internal prototype to avoid an error.  */
+-/* We use char because int might match the return type of a gcc2
+-    builtin and then its argument prototype would still apply.  */
+-char SQLGetPrivateProfileString();
+-
+-int main() {
+-SQLGetPrivateProfileString()
+-; return 0; }
+-EOF
+-if { (eval echo configure:2137: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest${ac_exeext}; then
+-  rm -rf conftest*
+-  eval "ac_cv_lib_$ac_lib_var=yes"
+-else
+-  echo "configure: failed program was:" >&5
+-  cat conftest.$ac_ext >&5
+-  rm -rf conftest*
+-  eval "ac_cv_lib_$ac_lib_var=no"
+-fi
+-rm -f conftest*
+-LIBS="$ac_save_LIBS"
+-
+-fi
+-if eval "test \"`echo '$ac_cv_lib_'$ac_lib_var`\" = yes"; then
+-  echo "$ac_t""yes" 1>&6
+-  cat >> confdefs.h <<\EOF
+-#define HAVE_SQLGETPRIVATEPROFILESTRING 1
+-EOF
+-
+-	LIBS="$LIBS -liodbcinst"
++	LIBS="$LIBS -framework iODBCinst"
+ 	have_iodbcinst=yes
+-else
+-  echo "$ac_t""no" 1>&6
+-LIBS="$save_LIBS"
+-fi
+-
+-fi
+-
+ 
+ # Check whether --with-odbc-ini or --without-odbc-ini was given.
+ if test "${with_odbc_ini+set}" = set; then

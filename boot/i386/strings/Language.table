@@ -1,5 +1,5 @@
 "Languages" = "English French German";
-"English" = "Type 1 to use the English language and USA keyboard while installing Rhapsody.\n";
-"French" = "Tapez 2 pour installer Rhapsody avec un clavier et des messages francais.\n";
-"German" = "Eingabe 3 fuer Rhapsody-Installation mit deutscher Sprache und Tastatur.\n";
+"English" = "Type 1 to use the English language and USA keyboard while installing Darwin.\n";
+"French" = "Tapez 2 pour installer Darwin avec un clavier et des messages francais.\n";
+"German" = "Eingabe 3 fuer Darwin-Installation mit deutscher Sprache und Tastatur.\n";
 

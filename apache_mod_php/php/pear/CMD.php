@@ -1,9 +1,9 @@
 <?php
 //
 // +----------------------------------------------------------------------+
-// | PHP version 4.0                                                      |
+// | PHP Version 4                                                        |
 // +----------------------------------------------------------------------+
-// | Copyright (c) 1997-2001 The PHP Group                                |
+// | Copyright (c) 1997-2003 The PHP Group                                |
 // +----------------------------------------------------------------------+
 // | This source file is subject to version 2.02 of the PHP license,      |
 // | that is bundled with this package in the file LICENSE, and is        |
@@ -13,11 +13,10 @@
 // | obtain it through the world-wide-web, please send a note to          |
 // | license@php.net so we can mail you a copy immediately.               |
 // +----------------------------------------------------------------------+
-// | Authors: Anders Johannsen <anders@johannsen.com>                     |
-// |                                                                      |
+// | Author: Anders Johannsen <anders@johannsen.com>                      |
 // +----------------------------------------------------------------------+
 //
-define('CMD_RCSID', '$Id: CMD.php,v 1.1.1.1 2001/07/19 00:20:40 zarzycki Exp $');
+define('CMD_RCSID', '$Id: CMD.php,v 1.1.1.3 2003/07/18 18:07:49 zarzycki Exp $');
 
 /**
  * The Cmd:: class implements an abstraction for various ways 
@@ -26,7 +25,7 @@ define('CMD_RCSID', '$Id: CMD.php,v 1.1.1.1 2001/07/19 00:20:40 zarzycki Exp $')
  * register_shutdown_function() or as a detached process using nohup).
  *
  * @author  Anders Johannsen <anders@johannsen.com>
- * @version $Revision: 1.1.1.1 $
+ * @version $Revision: 1.1.1.3 $
  **/
 
 require_once 'PEAR.php';

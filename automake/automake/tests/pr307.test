@@ -1,0 +1,49 @@
+#! /bin/sh
+
+# Test for PR 307: depcomp with depmode=dashmstdout libtool race condition
+# Report from Laurent Morichetti.
+# (Also exercises check_LTLIBRARIES.)
+
+required='libtoolize gcc'
+. $srcdir/defs || exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+AC_PROG_LIBTOOL
+AC_OUTPUT
+END
+
+cat > Makefile.am << 'END'
+check_LTLIBRARIES = librace.la
+librace_la_SOURCES = a.c b.c c.c d.c e.c f.c g.c h.c
+END
+
+for i in a b c d e f g h; do
+  echo "int $i() { return 0; }" > $i.c
+done
+
+set -e
+
+libtoolize --force
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE -a
+
+# Sanity check: make sure the variable we are attempting to force
+# is used by configure
+grep am_cv_CC_dependencies_compiler_type configure
+
+./configure am_cv_CC_dependencies_compiler_type=dashmstdout
+$MAKE
+test -f librace.la && exit 1
+$MAKE check
+
+# The failure we check usually occurs during the above build,
+# with an output such as
+#
+# mv -f .libs/f.lo f.lo
+# mv: cannot stat `.libs/f.lo': No such file or directory
+#
+# (This may happen on `f' or on some other files.)
+
+test -f librace.la

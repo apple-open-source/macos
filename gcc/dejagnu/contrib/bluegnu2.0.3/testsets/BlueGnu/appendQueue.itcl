@@ -1,0 +1,9 @@
+#
+# Test script for appendQueue command
+#
+
+#appendQueue [list namespaceVariables.itcl namespaceVariables.itcl \
+	namespaceVariables.itcl] "arg1 arg2 arg3" append
+
+appendQueue [list namespaceVariables.itcl namespaceVariables.itcl \
+	namespaceVariables.itcl]

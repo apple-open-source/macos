@@ -103,16 +103,19 @@
 			refType = 4;
 		};
 		03DB1084033AA50A03CA2A5F = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOAGPDevice.h;
 			refType = 4;
 		};
 		03DB1085033AA50A03CA2A5F = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPCIBridge.h;
 			refType = 4;
 		};
 		03DB1086033AA50A03CA2A5F = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPCIDevice.h;
 			refType = 4;
@@ -260,7 +263,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOPCIFamily;
-				MODULE_VERSION = 1.3;
+				MODULE_VERSION = 1.4;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -269,6 +272,7 @@
 				VALID_ARCHS = "ppc i386";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
+				BUNDLE_STYLE = SHALLOW;
 			};
 			dependencies = (
 				0358F57C0340F5D603CA2A5F,
@@ -287,7 +291,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOPCIFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.3, Copyright Apple Computer, Inc. 2000-2003</string>
+	<string>1.4, Copyright Apple Computer, Inc. 2000-2003</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -299,11 +303,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3</string>
+	<string>1.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3</string>
+	<string>1.4</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOPCI2PCIBridge-Name</key>
@@ -356,7 +360,7 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
+			shouldUseHeadermap = 0;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -465,21 +469,25 @@
 //403
 //404
 		4094C51900CEE7A80ACA2928 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPCIBridge.cpp;
 			refType = 4;
 		};
 		4094C51A00CEE7A80ACA2928 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPCIDevice.cpp;
 			refType = 4;
 		};
 		4094C51B00CEE7A80ACA2928 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPCIDeviceI386.cpp;
 			refType = 4;
 		};
 		4094C51C00CEE7A80ACA2928 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPCIDevicePPC.cpp;
 			refType = 4;

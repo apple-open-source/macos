@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/getvalues.c,v 1.15 2002/01/04 20:17:39 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/getvalues.c,v 1.15.2.6 2003/03/03 17:10:04 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*  Portions
@@ -36,7 +36,11 @@ ldap_get_values( LDAP *ld, LDAPMessage *entry, LDAP_CONST char *target )
 	assert( entry != NULL );
 	assert( target != NULL );
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_get_values\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_get_values\n", 0, 0, 0 );
+#endif
 
 	ber = *entry->lm_ber;
 
@@ -93,7 +97,11 @@ ldap_get_values_len( LDAP *ld, LDAPMessage *entry, LDAP_CONST char *target )
 	assert( entry != NULL );
 	assert( target != NULL );
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_get_values_len\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_get_values_len\n", 0, 0, 0 );
+#endif
 
 	ber = *entry->lm_ber;
 
@@ -167,3 +175,39 @@ ldap_value_free_len( struct berval **vals )
 {
 	ber_bvecfree( vals );
 }
+
+char **
+ldap_value_dup( char *const *vals )
+{
+	char **new;
+	int i;
+
+	if( vals == NULL ) {
+		return NULL;
+	}
+
+	for( i=0; vals[i]; i++ ) {
+		;   /* Count the number of values */
+	}
+
+	if( i == 0 ) {
+		return NULL;
+	}
+
+	new = LDAP_MALLOC( (i+1)*sizeof(char *) );  /* Alloc array of pointers */
+	if( new == NULL ) {
+		return NULL;
+	}
+
+	for( i=0; vals[i]; i++ ) {
+		new[i] = LDAP_STRDUP( vals[i] );   /* Dup each value */
+		if( new[i] == NULL ) {
+			LDAP_VFREE( new );
+			return NULL;
+		}
+	}
+	new[i] = NULL;
+
+	return new;
+}
+

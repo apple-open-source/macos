@@ -18,9 +18,12 @@
 .endif
 
 # Sources common to both syscall interfaces:
-SRCS+=	errno.c gettimeofday.c sigcatch.c sigsuspend.c getdtablesize.c  \
-	sigaction.c sigtramp.c crt_externs.c
 
+# 3375657: patches for sem_open() sem_unlink() shm_open() shm_unlink()
+CFLAGS+= -D__APPLE_PR3375657_HACK__
+SRCS+=	errno.c gettimeofday.c sigcatch.c sigsuspend.c getdtablesize.c  \
+	sigaction.c sigtramp.c crt_externs.c \
+	sem_open.c sem_unlink.c shm_open.c shm_unlink.c fix-3375657.c
 
 # Add machine dependent asm sources:
 SRCS+=${MDASM}

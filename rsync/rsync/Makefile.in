@@ -10,9 +10,11 @@ LIBS=@LIBS@
 CC=@CC@
 CFLAGS=@CFLAGS@
 CPPFLAGS=@CPPFLAGS@
+EXEEXT=@EXEEXT@
 LDFLAGS=@LDFLAGS@
 
 INSTALLCMD=@INSTALL@
+INSTALLMAN=@INSTALL@
 
 srcdir=@srcdir@
 VPATH=$(srcdir)
@@ -24,77 +26,107 @@ VERSION=@VERSION@
 .SUFFIXES: .c .o
 
 LIBOBJ=lib/fnmatch.o lib/compat.o lib/snprintf.o lib/mdfour.o \
-	lib/permstring.o \
-	@LIBOBJS@
+	lib/permstring.o @LIBOBJS@
 ZLIBOBJ=zlib/deflate.o zlib/infblock.o zlib/infcodes.o zlib/inffast.o \
 	zlib/inflate.o zlib/inftrees.o zlib/infutil.o zlib/trees.o \
-	zlib/zutil.o zlib/adler32.o 
-OBJS1=rsync.o generator.o receiver.o cleanup.o sender.o exclude.o util.o main.o checksum.o match.o syscall.o log.o backup.o
-OBJS2=options.o flist.o io.o compat.o hlink.o token.o uidlist.o socket.o fileio.o batch.o \
-	clientname.o
+	zlib/zutil.o zlib/adler32.o
+OBJS1=rsync.o generator.o receiver.o cleanup.o sender.o exclude.o util.o \
+	main.o checksum.o match.o syscall.o log.o backup.o
+OBJS2=options.o flist.o io.o compat.o hlink.o token.o uidlist.o socket.o \
+	fileio.o batch.o clientname.o
+OBJS3=progress.o pipe.o
 DAEMON_OBJ = params.o loadparm.o clientserver.o access.o connection.o authenticate.o
 popt_OBJS=popt/findme.o  popt/popt.o  popt/poptconfig.o \
 	popt/popthelp.o popt/poptparse.o
-OBJS=$(OBJS1) $(OBJS2) $(DAEMON_OBJ) $(LIBOBJ) $(ZLIBOBJ) @BUILD_POPT@
+OBJS=$(OBJS1) $(OBJS2) $(OBJS3) $(DAEMON_OBJ) $(LIBOBJ) $(ZLIBOBJ) @BUILD_POPT@
 
-tls_OBJ = tls.o syscall.o lib/permstring.o 
+TLS_OBJ = tls.o syscall.o lib/permstring.o
 
 # Programs we must have to run the test cases
-CHECK_PROGS = rsync tls
+CHECK_PROGS = rsync$(EXEEXT) tls$(EXEEXT) getgroups$(EXEEXT) \
+	trimslash$(EXEEXT) t_unsafe$(EXEEXT)
+
+# Objects for CHECK_PROGS to clean
+CHECK_OBJS=getgroups.o t_stub.o t_unsafe.o trimslash.o
 
 # note that the -I. is needed to handle config.h when using VPATH
 .c.o:
 @OBJ_SAVE@
-	$(CC) -I. -I$(srcdir) -I$(srcdir)/popt $(CPPFLAGS) $(CFLAGS) -c $< @CC_SHOBJ_FLAG@
+	$(CC) -I. -I$(srcdir) -I$(srcdir)/popt $(CFLAGS) $(CPPFLAGS) -c $< @CC_SHOBJ_FLAG@
 @OBJ_RESTORE@
 
-all: rsync
+all: rsync$(EXEEXT)
 
 man: rsync.1 rsyncd.conf.5
 
 install: all
-	-mkdir -p ${bindir}
-	${INSTALLCMD} -m 755 rsync ${bindir}
-	-mkdir -p ${mandir}/man1
-	-mkdir -p ${mandir}/man5
-	${INSTALLCMD} -m 644 $(srcdir)/rsync.1 ${mandir}/man1
-	${INSTALLCMD} -m 644 $(srcdir)/rsyncd.conf.5 ${mandir}/man5
+	-mkdir -p ${DESTDIR}${bindir}
+	${INSTALLCMD} ${STRIP} -m 755 rsync$(EXEEXT) ${DESTDIR}${bindir}
+	-mkdir -p ${DESTDIR}${mandir}/man1
+	-mkdir -p ${DESTDIR}${mandir}/man5
+	${INSTALLMAN} -m 644 $(srcdir)/rsync.1 ${DESTDIR}${mandir}/man1
+	${INSTALLMAN} -m 644 $(srcdir)/rsyncd.conf.5 ${DESTDIR}${mandir}/man5
 
 install-strip:
-	$(MAKE) INSTALLCMD='$(INSTALLCMD) -s' install
+	$(MAKE) STRIP='-s' install
 
-rsync: $(OBJS)
-	@echo "Please ignore warnings below about mktemp -- it is used in a safe way"
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o rsync $(OBJS) $(LIBS)
+rsync$(EXEEXT): $(OBJS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(OBJS) $(LIBS)
 
 $(OBJS): config.h
 
-tls: $(tls_OBJ)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -o $@ $(tls_OBJ) $(LIBS)
+tls$(EXEEXT): $(TLS_OBJ)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(TLS_OBJ) $(LIBS)
 
-Makefile: Makefile.in configure config.status
-	echo "WARNING: You need to run ./config.status --recheck"
+getgroups$(EXEEXT): getgroups.o
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ getgroups.o $(LIBS)
+
+TRIMSLASH_OBJ = trimslash.o syscall.o
+trimslash$(EXEEXT): $(TRIMSLASH_OBJ)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(TRIMSLASH_OBJ) $(LIBS)
+
+T_UNSAFE_OBJ = t_unsafe.o syscall.o util.o t_stub.o lib/compat.o lib/snprintf.o
+t_unsafe$(EXEEXT): $(T_UNSAFE_OBJ)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $(T_UNSAFE_OBJ) $(LIBS)
+
+# I don't like these rules because CVS can skew the timestamps and
+# produce spurious warnings, and also make "make install" fail if the
+# source directory can no longer be found.  Since we don't rebuild
+# automatically they're kind of lame anyhow.
+
+#Makefile: Makefile.in configure config.status
+#	echo "WARNING: You need to run ./config.status --recheck"
 
 # don't actually run autoconf, just issue a warning
-configure: configure.in
-	echo "WARNING: you need to rerun autoconf"
+#configure: configure.in
+#	echo "WARNING: you need to rerun autoconf"
 
-rsync.1: rsync.yo
-	yodl2man -o rsync.1 rsync.yo
+$(srcdir)/rsync.1: $(srcdir)/rsync.yo
+	yodl2man -o $(srcdir)/rsync.1 $(srcdir)/rsync.yo
 
-rsyncd.conf.5: rsyncd.conf.yo
-	yodl2man -o rsyncd.conf.5 rsyncd.conf.yo
+$(srcdir)/rsyncd.conf.5: $(srcdir)/rsyncd.conf.yo
+	yodl2man -o $(srcdir)/rsyncd.conf.5 $(srcdir)/rsyncd.conf.yo
 
 proto:
-	cat *.c lib/compat.c | awk -f mkproto.awk > proto.h
+	cat $(srcdir)/*.c $(srcdir)/lib/compat.c | awk -f $(srcdir)/mkproto.awk > $(srcdir)/proto.h
 
-clean:
-	rm -f *~ $(OBJS) rsync $(TLS_OBJ) tls
-	rm -rf ./testtmp
-	rm -f config.cache 
+clean: cleantests
+	rm -f *~ $(OBJS) $(TLS_OBJ) $(CHECK_PROGS) $(CHECK_OBJS)
 
+cleantests:
+	rm -rf ./testtmp*
+
+# We try to delete built files from both the source and build
+# directories, just in case somebody previously configured things in
+# the source directory.
 distclean: clean
 	rm -f Makefile config.h config.status
+	rm -f $(srcdir)/Makefile $(srcdir)/config.h $(srcdir)/config.status
+
+	rm -f config.cache config.log
+	rm -f $(srcdir)/config.cache $(srcdir)/config.log
+
+	rm -f shconfig $(srcdir)/shconfig
 
 # this target is really just for my use. It only works on a limited
 # range of machines and is used to produce a list of potentially
@@ -102,7 +134,7 @@ distclean: clean
 finddead:
 	nm *.o */*.o |grep 'U ' | awk '{print $$2}' | sort -u > nmused.txt
 	nm *.o */*.o |grep 'T ' | awk '{print $$3}' | sort -u > nmfns.txt
-	comm -13 nmused.txt nmfns.txt 
+	comm -13 nmused.txt nmfns.txt
 
 # 'check' is the GNU name, 'test' is the name for everybody else :-)
 .PHONY: check test
@@ -124,13 +156,37 @@ test: check
 # might lose in the future where POSIX diverges from old sh.
 
 check: all $(CHECK_PROGS)
-	POSIXLY_CORRECT=1 TLS=`pwd`/tls rsync_bin=`pwd`/rsync srcdir="$(srcdir)" $(srcdir)/runtests.sh
+	POSIXLY_CORRECT=1 TOOLDIR=`pwd` rsync_bin=`pwd`/rsync$(EXEEXT) srcdir="$(srcdir)" $(srcdir)/runtests.sh
 
 # This does *not* depend on building or installing: you can use it to
 # check a version installed from a binary or some other source tree,
 # if you want.
 
 installcheck: $(CHECK_PROGS)
-	POSIXLY_CORRECT=1 TLS=`pwd`/tls rsync_bin="$(bindir)/rsync" srcdir="$(srcdir)" $(srcdir)/runtests.sh
+	POSIXLY_CORRECT=1 TOOLDIR=`pwd` rsync_bin="$(bindir)/rsync$(EXEEXT)" srcdir="$(srcdir)" $(srcdir)/runtests.sh
 
 # TODO: Add 'dist' target; need to know which files will be included
+
+# Run the SPLINT (Secure Programming Lint) tool.  <www.splint.org>
+.PHONY: splint
+splint:
+	splint +unixlib +gnuextensions -weak rsync.c
+
+
+rsync.dvi: doc/rsync.texinfo
+	texi2dvi -o $@ $<
+
+rsync.ps: rsync.dvi
+	dvips -ta4 -o $@ $<
+
+rsync.pdf: doc/rsync.texinfo
+	texi2dvi -o $@ --pdf $<
+
+
+doxygen:
+	cd $(srcdir) && rm dox/html/* && doxygen
+
+# for maintainers only
+doxygen-upload:
+	rsync -avzv $(srcdir)/dox/html/ --delete \
+	samba.org:/home/httpd/html/rsync/doxygen/head/

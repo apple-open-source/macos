@@ -222,10 +222,10 @@ dsa_verify(
 	if (!(datafellows & SSH_BUG_SIGBLOB) &&
 	    signaturelen == SIGBLOB_LEN) {
 		datafellows |= ~SSH_BUG_SIGBLOB;
-		log("autodetect SSH_BUG_SIGBLOB");
+		ssh_log("autodetect SSH_BUG_SIGBLOB");
 	} else if ((datafellows & SSH_BUG_SIGBLOB) &&
 	    signaturelen != SIGBLOB_LEN) {
-		log("autoremove SSH_BUG_SIGBLOB");
+		ssh_log("autoremove SSH_BUG_SIGBLOB");
 		datafellows &= ~SSH_BUG_SIGBLOB;
 	}
 

@@ -539,7 +539,9 @@ readDosDirSection(f, boot, fat, dir)
 				if (!(dir->fsckflags & DIREMPWARN)) {
 					pwarn("%s has entries after end of directory\n",
 					      fullpath(dir));
-					if (ask(1, "Extend")) {
+					if (ask(1, "Truncate"))
+						dir->fsckflags |= DIREMPWARN;
+					else if (ask(0, "Extend")) {
 						u_char *q;
 
 						dir->fsckflags &= ~DIREMPTY;
@@ -551,8 +553,7 @@ readDosDirSection(f, boot, fat, dir)
 						for (; q < p; q += 32)
 							*q = SLOT_DELETED;
 						mod |= THISMOD|FSDIRMOD;
-					} else if (ask(0, "Truncate"))
-						dir->fsckflags |= DIREMPWARN;
+					} 
 				}
 				if (dir->fsckflags & DIREMPWARN) {
 					*p = SLOT_DELETED;

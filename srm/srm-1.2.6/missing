@@ -1,0 +1,24 @@
+#!/bin/sh
+
+# A free replacement for automake's missing
+#
+# This file is in the public domain. However, bug fixes, problem reports
+# and suggestions are appreciated at elleron@yahoo.com
+
+case $1 in
+    aclocal|autoconf)
+	echo "You do not appear to have autoconf installed."
+	echo "However, you do not need it to build the package." ;;
+    autoheader|automake)
+	echo "You do not appear have automake installed."
+	echo "However, you do not need it to build the package." ;;
+    bison|yacc)
+	echo "You do not appear to have bison or yacc installed."
+	echo "One or the other may be needed to compile this package." ;;
+    flex|lex)
+	echo "You do not appear to have flex or lex installed."
+	echo "One or the other may be needed to compile this package." ;;
+    makeinfo)
+	echo "You do not appear to have makeinfo installed."
+	echo "However, you do not need it to build this package." ;;
+esac

@@ -1,8 +1,8 @@
 /*
   +----------------------------------------------------------------------+
-  | PHP version 4.0                                                      |
+  | PHP Version 4                                                        |
   +----------------------------------------------------------------------+
-  | Copyright (c) 1997-2001 The PHP Group                                |
+  | Copyright (c) 1997-2003 The PHP Group                                |
   +----------------------------------------------------------------------+
   | This source file is subject to version 2.02 of the PHP license,      |
   | that is bundled with this package in the file LICENSE, and is        |
@@ -12,16 +12,17 @@
   | obtain it through the world-wide-web, please send a note to          |
   | license@php.net so we can mail you a copy immediately.               |
   +----------------------------------------------------------------------+
-  | Authors: Sascha Schumann <sascha@schumann.cx>                        |
+  | Author: Sascha Schumann <sascha@schumann.cx>                         |
   +----------------------------------------------------------------------+
 */
 
 #include "php.h"
 
-#ifdef TRANS_SID
-
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
+#ifdef HAVE_LIMITS_H
+#include <limits.h>
 #endif
 
 #include <stdio.h>
@@ -32,9 +33,9 @@
 #include "php_globals.h"
 #define STATE_TAG SOME_OTHER_STATE_TAG
 #include "basic_functions.h"
+#include "url.h"
 #undef STATE_TAG
 
-#define url_adapt_ext url_adapt_ext_ex
 #define url_scanner url_scanner_ex
 
 #include "php_smart_str.h"
@@ -83,13 +84,14 @@ static PHP_INI_MH(OnUpdateTags)
 }
 
 PHP_INI_BEGIN()
-	STD_PHP_INI_ENTRY("url_rewriter.tags", "a=href,area=href,frame=src,form=fakeentry", PHP_INI_ALL, OnUpdateTags, url_adapt_state_ex, php_basic_globals, basic_globals)
+	STD_PHP_INI_ENTRY("url_rewriter.tags", "a=href,area=href,frame=src,form=,fieldset=", PHP_INI_ALL, OnUpdateTags, url_adapt_state_ex, php_basic_globals, basic_globals)
 PHP_INI_END()
 
 /*!re2c
 any = [\000-\377];
 N = (any\[<]);
 alpha = [a-zA-Z];
+alphadash = ([a-zA-Z] | "-");
 */
 
 #define YYFILL(n) goto done
@@ -98,9 +100,9 @@ alpha = [a-zA-Z];
 #define YYLIMIT q
 #define YYMARKER r
 	
-static inline void append_modified_url(smart_str *url, smart_str *dest, smart_str *name, smart_str *val, const char *separator)
+static inline void append_modified_url(smart_str *url, smart_str *dest, smart_str *url_app, const char *separator)
 {
-	register const char *p, *q, *r;
+	register const char *p, *q;
 	const char *bash = NULL;
 	const char *sep = "?";
 	
@@ -114,7 +116,7 @@ scan:
   (any\[:?#])+		{ goto scan; }
 */
 done:
-  
+	
 	/* Don't modify URLs of the format "#mark" */
 	if (bash && bash - url->c == 0) {
 		smart_str_append(dest, url);
@@ -127,13 +129,12 @@ done:
 		smart_str_append(dest, url);
 
 	smart_str_appends(dest, sep);
-	smart_str_append(dest, name);
-	smart_str_appendc(dest, '=');
-	smart_str_append(dest, val);
+	smart_str_append(dest, url_app);
 
 	if (bash)
 		smart_str_appendl(dest, bash, q - bash);
 }
+
 
 #undef YYFILL
 #undef YYCTYPE
@@ -141,20 +142,22 @@ done:
 #undef YYLIMIT
 #undef YYMARKER
 
-static inline void tag_arg(url_adapt_state_ex_t *ctx, char quote TSRMLS_DC)
+static inline void tag_arg(url_adapt_state_ex_t *ctx, char quotes, char type TSRMLS_DC)
 {
 	char f = 0;
 
 	if (strncasecmp(ctx->arg.c, ctx->lookup_data, ctx->arg.len) == 0)
 		f = 1;
 
-	smart_str_appendc(&ctx->result, quote);
+	if (quotes)
+		smart_str_appendc(&ctx->result, type);
 	if (f) {
-		append_modified_url(&ctx->val, &ctx->result, &ctx->q_name, &ctx->q_value, PG(arg_separator).output);
+		append_modified_url(&ctx->val, &ctx->result, &ctx->url_app, PG(arg_separator).output);
 	} else {
 		smart_str_append(&ctx->result, &ctx->val);
 	}
-	smart_str_appendc(&ctx->result, quote);
+	if (quotes)
+		smart_str_appendc(&ctx->result, type);
 }
 
 enum {
@@ -176,21 +179,47 @@ enum {
 #define STD_PARA url_adapt_state_ex_t *ctx, char *start, char *YYCURSOR TSRMLS_DC
 #define STD_ARGS ctx, start, xp TSRMLS_CC
 
+#if SCANNER_DEBUG
+#define scdebug(x) printf x
+#else
+#define scdebug(x)
+#endif
+
 static inline void passthru(STD_PARA) 
 {
+	scdebug(("appending %d chars, starting with %c\n", YYCURSOR-start, *start));
 	smart_str_appendl(&ctx->result, start, YYCURSOR - start);
 }
 
-static inline void handle_form(STD_PARA) 
+/*
+ * This function appends a hidden input field after a <form> or
+ * <fieldset>.  The latter is important for XHTML.
+ */
+
+static void handle_form(STD_PARA) 
 {
-	if (ctx->tag.len == 4 && strncasecmp(ctx->tag.c, "form", 4) == 0) {
-		smart_str_appends(&ctx->result, "<input type=\"hidden\" name=\""); 
-		smart_str_append(&ctx->result, &ctx->q_name);
-		smart_str_appends(&ctx->result, "\" value=\"");
-		smart_str_append(&ctx->result, &ctx->q_value);
-		smart_str_appends(&ctx->result, "\" />");
+	int doit = 0;
+
+	if (ctx->form_app.len > 0) {
+		switch (ctx->tag.len) {
+
+#define RECOGNIZE(x) do { 	\
+	case sizeof(x)-1: \
+		if (strncasecmp(ctx->tag.c, x, sizeof(x)-1) == 0) \
+			doit = 1; \
+		break; \
+} while (0)
+		
+			RECOGNIZE("form");
+			RECOGNIZE("fieldset");
+		}
+
+		if (doit)
+			smart_str_append(&ctx->result, &ctx->form_app);
 	}
 }
+
+
 
 /*
  *  HANDLE_TAG copies the HTML Tag and checks whether we 
@@ -207,7 +236,7 @@ static inline void handle_tag(STD_PARA)
 	ctx->tag.len = 0;
 	smart_str_appendl(&ctx->tag, start, YYCURSOR - start);
 	for (i = 0; i < ctx->tag.len; i++)
-		ctx->tag.c[i] = tolower(ctx->tag.c[i]);
+		ctx->tag.c[i] = tolower((int)(unsigned char)ctx->tag.c[i]);
 	if (zend_hash_find(ctx->tags, ctx->tag.c, ctx->tag.len, (void **) &ctx->lookup_data) == SUCCESS)
 		ok = 1;
 	STATE = ok ? STATE_NEXT_ARG : STATE_PLAIN;
@@ -222,16 +251,10 @@ static inline void handle_arg(STD_PARA)
 static inline void handle_val(STD_PARA, char quotes, char type) 
 {
 	smart_str_setl(&ctx->val, start + quotes, YYCURSOR - start - quotes * 2);
-	tag_arg(ctx, type TSRMLS_CC);
+	tag_arg(ctx, quotes, type TSRMLS_CC);
 }
 
-#ifdef SCANNER_DEBUG
-#define scdebug(x) printf x
-#else
-#define scdebug(x)
-#endif
-
-static inline void mainloop(url_adapt_state_ex_t *ctx, const char *newdata, size_t newlen TSRMLS_DC)
+static inline void xx_mainloop(url_adapt_state_ex_t *ctx, const char *newdata, size_t newlen TSRMLS_DC)
 {
 	char *end, *q;
 	char *xp;
@@ -285,7 +308,7 @@ state_next_arg:
 state_arg:
 	start = YYCURSOR;
 /*!re2c
-  alpha+	{ passthru(STD_ARGS); handle_arg(STD_ARGS); STATE = STATE_BEFORE_VAL; goto state_before_val; }
+  alpha alphadash*	{ passthru(STD_ARGS); handle_arg(STD_ARGS); STATE = STATE_BEFORE_VAL; goto state_before_val; }
   any		{ passthru(STD_ARGS); STATE = STATE_NEXT_ARG; goto state_next_arg; }
 */
 
@@ -302,7 +325,7 @@ state_val:
 /*!re2c
   ["] (any\[">])* ["]	{ handle_val(STD_ARGS, 1, '"'); goto state_next_arg_begin; }
   ['] (any\['>])* [']	{ handle_val(STD_ARGS, 1, '\''); goto state_next_arg_begin; }
-  (any\[ \n>"'])+		{ handle_val(STD_ARGS, 0, '"'); goto state_next_arg_begin; }
+  (any\[ \t\n>])+	{ handle_val(STD_ARGS, 0, '\0'); goto state_next_arg_begin; }
   any					{ passthru(STD_ARGS); goto state_next_arg_begin; }
 */
 
@@ -316,62 +339,55 @@ stop:
 	ctx->buf.len = rest;
 }
 
-char *url_adapt_flush(size_t *newlen TSRMLS_DC)
-{
-	char *ret = NULL;
-	url_adapt_state_ex_t *ctx;
-	
-	ctx = &BG(url_adapt_state_ex);
-	
-	if (ctx->buf.len) {
-		ret = ctx->buf.c;
-		*newlen = ctx->buf.len;
-		ctx->buf.c = 0;
-		ctx->buf.len = 0;
-	}
-
-	return ret;
-}
-
-char *url_adapt_single_url(const char *url, size_t urllen, const char *name, const char *value, size_t *newlen TSRMLS_DC)
+char *php_url_scanner_adapt_single_url(const char *url, size_t urllen, const char *name, const char *value, size_t *newlen TSRMLS_DC)
 {
 	smart_str surl = {0};
 	smart_str buf = {0};
-	smart_str sname = {0};
-	smart_str sval = {0};
+	smart_str url_app = {0};
 
 	smart_str_setl(&surl, url, urllen);
-	smart_str_sets(&sname, name);
-	smart_str_sets(&sval, value);
 
-	append_modified_url(&surl, &buf, &sname, &sval, PG(arg_separator).output);
+	smart_str_appends(&url_app, name);
+	smart_str_appendc(&url_app, '=');
+	smart_str_appends(&url_app, value);
+
+	append_modified_url(&surl, &buf, &url_app, PG(arg_separator).output);
 
 	smart_str_0(&buf);
 	if (newlen) *newlen = buf.len;
-	
+
+	smart_str_free(&url_app);
+
 	return buf.c;
 }
 
-char *url_adapt_ext(const char *src, size_t srclen, const char *name, const char *value, size_t *newlen TSRMLS_DC)
+
+static char *url_adapt_ext(const char *src, size_t srclen, size_t *newlen, zend_bool do_flush TSRMLS_DC)
 {
-	char *ret;
 	url_adapt_state_ex_t *ctx;
+	char *retval;
 
 	ctx = &BG(url_adapt_state_ex);
 
-	smart_str_sets(&ctx->q_name, name);
-	smart_str_sets(&ctx->q_value, value);
-	mainloop(ctx, src, srclen TSRMLS_CC);
+	xx_mainloop(ctx, src, srclen TSRMLS_CC);
 
 	*newlen = ctx->result.len;
-	if (!ctx->result.c) 
+	if (!ctx->result.c) {
 		smart_str_appendl(&ctx->result, "", 0);
+	}
 	smart_str_0(&ctx->result);
+	if (do_flush) {
+		smart_str_appendl(&ctx->result, ctx->buf.c, ctx->buf.len);
+		*newlen += ctx->buf.len;
+		smart_str_free(&ctx->buf);
+	}
+	retval = ctx->result.c;
+	ctx->result.c = NULL;
 	ctx->result.len = 0;
-	return ctx->result.c;
+	return retval;
 }
 
-PHP_RINIT_FUNCTION(url_scanner)
+int php_url_scanner_ex_activate(TSRMLS_D)
 {
 	url_adapt_state_ex_t *ctx;
 	
@@ -382,7 +398,7 @@ PHP_RINIT_FUNCTION(url_scanner)
 	return SUCCESS;
 }
 
-PHP_RSHUTDOWN_FUNCTION(url_scanner)
+int php_url_scanner_ex_deactivate(TSRMLS_D)
 {
 	url_adapt_state_ex_t *ctx;
 	
@@ -396,14 +412,77 @@ PHP_RSHUTDOWN_FUNCTION(url_scanner)
 	return SUCCESS;
 }
 
+static void php_url_scanner_output_handler(char *output, uint output_len, char **handled_output, uint *handled_output_len, int mode TSRMLS_DC)
+{
+	size_t len;
+
+    if (BG(url_adapt_state_ex).url_app.len != 0) {
+        *handled_output = url_adapt_ext(output, output_len, &len, (zend_bool) (mode&PHP_OUTPUT_HANDLER_END ? 1 : 0) TSRMLS_CC);
+		if (sizeof(uint) < sizeof(size_t)) {
+			if (len > UINT_MAX)
+				len = UINT_MAX;
+		}
+		*handled_output_len = len;
+    } else {
+        *handled_output = NULL;
+    }
+}
+
+int php_url_scanner_add_var(char *name, int name_len, char *value, int value_len, int urlencode TSRMLS_DC)
+{
+	char *encoded;
+	int encoded_len;
+	smart_str val;
+	
+	if (! BG(url_adapt_state_ex).active) {
+		php_url_scanner_ex_activate(TSRMLS_C);
+		php_ob_set_internal_handler(php_url_scanner_output_handler, 0, "URL-Rewriter", 1 TSRMLS_CC);
+		BG(url_adapt_state_ex).active = 1;
+	}
+
+
+	if (BG(url_adapt_state_ex).url_app.len != 0) {
+		smart_str_appends(&BG(url_adapt_state_ex).url_app, PG(arg_separator).output);
+	}
+
+	if (urlencode) {
+		encoded = php_url_encode(value, value_len, &encoded_len);
+		smart_str_setl(&val, encoded, encoded_len);
+	} else {
+		smart_str_setl(&val, value, value_len);
+	}
+	
+	smart_str_appendl(&BG(url_adapt_state_ex).url_app, name, name_len);
+	smart_str_appendc(&BG(url_adapt_state_ex).url_app, '=');
+	smart_str_append(&BG(url_adapt_state_ex).url_app, &val);
+
+	smart_str_appends(&BG(url_adapt_state_ex).form_app, "<input type=\"hidden\" name=\""); 
+	smart_str_appendl(&BG(url_adapt_state_ex).form_app, name, name_len);
+	smart_str_appends(&BG(url_adapt_state_ex).form_app, "\" value=\"");
+	smart_str_append(&BG(url_adapt_state_ex).form_app, &val);
+	smart_str_appends(&BG(url_adapt_state_ex).form_app, "\" />");
+
+	if (urlencode)
+		efree(encoded);
+
+	return SUCCESS;
+}
+
+int php_url_scanner_reset_vars(TSRMLS_D)
+{
+	BG(url_adapt_state_ex).form_app.len = 0;
+	BG(url_adapt_state_ex).url_app.len = 0;
+
+	return FAILURE;
+}
+
 PHP_MINIT_FUNCTION(url_scanner)
 {
-	url_adapt_state_ex_t *ctx;
-	
-	ctx = &BG(url_adapt_state_ex);
+	BG(url_adapt_state_ex).tags = NULL;
 
-	ctx->tags = NULL;
-	
+	BG(url_adapt_state_ex).form_app.c = BG(url_adapt_state_ex).url_app.c = 0;
+	BG(url_adapt_state_ex).form_app.len = BG(url_adapt_state_ex).url_app.len = 0;
+
 	REGISTER_INI_ENTRIES();
 	return SUCCESS;
 }
@@ -413,7 +492,26 @@ PHP_MSHUTDOWN_FUNCTION(url_scanner)
 	UNREGISTER_INI_ENTRIES();
 	zend_hash_destroy(BG(url_adapt_state_ex).tags);
 	free(BG(url_adapt_state_ex).tags);
+
 	return SUCCESS;
 }
 
-#endif
+PHP_RINIT_FUNCTION(url_scanner)
+{
+	BG(url_adapt_state_ex).active = 0;
+	
+	return SUCCESS;
+}
+
+PHP_RSHUTDOWN_FUNCTION(url_scanner)
+{
+	if (BG(url_adapt_state_ex).active) {
+		php_url_scanner_ex_deactivate(TSRMLS_C);
+		BG(url_adapt_state_ex).active = 0;
+	}
+
+	smart_str_free(&BG(url_adapt_state_ex).form_app);
+	smart_str_free(&BG(url_adapt_state_ex).url_app);
+
+	return SUCCESS;
+}

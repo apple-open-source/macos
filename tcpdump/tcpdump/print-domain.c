@@ -21,17 +21,14 @@
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-domain.c,v 1.1.1.2 2002/05/29 00:05:35 landonf Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-domain.c,v 1.1.1.3 2003/03/17 18:42:16 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <sys/param.h>
-#include <sys/time.h>
-
-#include <netinet/in.h>
+#include <tcpdump-stdinc.h>
 
 #include "nameser.h"
 
@@ -57,7 +54,7 @@ static const char *ns_resp[] = {
 
 /* skip over a domain name */
 static const u_char *
-ns_nskip(register const u_char *cp, register const u_char *bp)
+ns_nskip(register const u_char *cp)
 {
 	register u_char i;
 
@@ -155,7 +152,7 @@ ns_nprint(register const u_char *cp, register const u_char *bp)
 	int elt;
 	int data_size = snapend - bp;
 
-	if ((l = labellen(cp)) < 0)
+	if ((l = labellen(cp)) == (u_int)-1)
 		return(NULL);
 	if (!TTEST2(*cp, 1))
 		return(NULL);
@@ -175,7 +172,7 @@ ns_nprint(register const u_char *cp, register const u_char *bp)
 				if (!TTEST2(*cp, 1))
 					return(NULL);
 				cp = bp + (((i << 8) | *cp) & 0x3fff);
-				if ((l = labellen(cp)) < 0)
+				if ((l = labellen(cp)) == (u_int)-1)
 					return(NULL);
 				if (!TTEST2(*cp, 1))
 					return(NULL);
@@ -214,7 +211,7 @@ ns_nprint(register const u_char *cp, register const u_char *bp)
 			cp += l;
 			chars_processed += l;
 			putchar('.');
-			if ((l = labellen(cp)) < 0)
+			if ((l = labellen(cp)) == (u_int)-1)
 				return(NULL);
 			if (!TTEST2(*cp, 1))
 				return(NULL);
@@ -230,7 +227,7 @@ ns_nprint(register const u_char *cp, register const u_char *bp)
 
 /* print a <character-string> */
 static const u_char *
-ns_cprint(register const u_char *cp, register const u_char *bp)
+ns_cprint(register const u_char *cp)
 {
 	register u_int i;
 
@@ -311,7 +308,7 @@ ns_qprint(register const u_char *cp, register const u_char *bp)
 	register const u_char *np = cp;
 	register u_int i;
 
-	cp = ns_nskip(cp, bp);
+	cp = ns_nskip(cp);
 
 	if (cp == NULL || !TTEST2(*cp, 4))
 		return(NULL);
@@ -343,7 +340,7 @@ ns_rprint(register const u_char *cp, register const u_char *bp)
 		if ((cp = ns_nprint(cp, bp)) == NULL)
 			return NULL;
 	} else
-		cp = ns_nskip(cp, bp);
+		cp = ns_nskip(cp);
 
 	if (cp == NULL || !TTEST2(*cp, 10))
 		return (snapend);
@@ -419,7 +416,7 @@ ns_rprint(register const u_char *cp, register const u_char *bp)
 
 	case T_TXT:
 		putchar(' ');
-		(void)ns_cprint(cp, bp);
+		(void)ns_cprint(cp);
 		break;
 
 #ifdef INET6
@@ -509,19 +506,20 @@ ns_print(register const u_char *bp, u_int length)
 	register const HEADER *np;
 	register int qdcount, ancount, nscount, arcount;
 	register const u_char *cp;
+	u_int16_t b2;
 
 	np = (const HEADER *)bp;
 	TCHECK(*np);
 	/* get the byte-order right */
-	qdcount = ntohs(np->qdcount);
-	ancount = ntohs(np->ancount);
-	nscount = ntohs(np->nscount);
-	arcount = ntohs(np->arcount);
+	qdcount = EXTRACT_16BITS(&np->qdcount);
+	ancount = EXTRACT_16BITS(&np->ancount);
+	nscount = EXTRACT_16BITS(&np->nscount);
+	arcount = EXTRACT_16BITS(&np->arcount);
 
 	if (DNS_QR(np)) {
 		/* this is a response */
 		printf(" %d%s%s%s%s%s%s",
-			ntohs(np->id),
+			EXTRACT_16BITS(&np->id),
 			ns_ops[DNS_OPCODE(np)],
 			ns_resp[DNS_RCODE(np)],
 			DNS_AA(np)? "*" : "",
@@ -534,14 +532,14 @@ ns_print(register const u_char *bp, u_int length)
 		/* Print QUESTION section on -vv */
 		cp = (const u_char *)(np + 1);
 		while (qdcount--) {
-			if (qdcount < ntohs(np->qdcount) - 1)
+			if (qdcount < EXTRACT_16BITS(&np->qdcount) - 1)
 				putchar(',');
 			if (vflag > 1) {
 				fputs(" q:", stdout);
 				if ((cp = ns_qprint(cp, bp)) == NULL)
 					goto trunc;
 			} else {
-				if ((cp = ns_nskip(cp, bp)) == NULL)
+				if ((cp = ns_nskip(cp)) == NULL)
 					goto trunc;
 				cp += 4;	/* skip QTYPE and QCLASS */
 			}
@@ -588,13 +586,14 @@ ns_print(register const u_char *bp, u_int length)
 	}
 	else {
 		/* this is a request */
-		printf(" %d%s%s%s", ntohs(np->id), ns_ops[DNS_OPCODE(np)],
+		printf(" %d%s%s%s", EXTRACT_16BITS(&np->id), ns_ops[DNS_OPCODE(np)],
 		    DNS_RD(np) ? "+" : "",
 		    DNS_AD(np) ? "$" : "");
 
 		/* any weirdness? */
-		if (*(((u_short *)np)+1) & htons(0x6cf))
-			printf(" [b2&3=0x%x]", ntohs(*(((u_short *)np)+1)));
+		b2 = EXTRACT_16BITS(((u_short *)np)+1);
+		if (b2 & 0x6cf)
+			printf(" [b2&3=0x%x]", b2);
 
 		if (DNS_OPCODE(np) == IQUERY) {
 			if (qdcount)

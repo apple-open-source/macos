@@ -2,6 +2,7 @@
 #include <NetInfo/syslock.h>
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
 
 #ifndef streq
 #define streq(A, B) (strcmp(A, B) == 0)
@@ -152,6 +153,8 @@ void
 system_log(int priority, char *str, ...)
 {
 	va_list ap;
+	char now[32];
+	time_t t;
 
 	if (priority > log_max_priority) return;
 
@@ -164,7 +167,10 @@ system_log(int priority, char *str, ...)
 
 	if (log_fp != NULL)
 	{
-		if (log_title != NULL) fprintf(log_fp, "%s: ", log_title);
+		memset(now, 0, 32);
+		time(&t);
+		strftime(now, 32, "%b %e %T", localtime(&t));
+		if (log_title != NULL) fprintf(log_fp, "%s %s: ", now, log_title);
 		vfprintf(log_fp, str, ap);
 		fprintf(log_fp, "\n");
 		fflush(log_fp);

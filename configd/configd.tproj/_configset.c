@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -30,11 +33,15 @@
  * - initial revision
  */
 
+
 #include "configd.h"
 #include "session.h"
+#include "pattern.h"
 
+
+__private_extern__
 int
-__SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyListRef value)
+__SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFDataRef value, Boolean internal)
 {
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 	int				sc_status	= kSCStatusOK;
@@ -44,12 +51,26 @@ __SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyLis
 	CFStringRef			sessionKey;
 	CFStringRef			storeSessionKey;
 
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("__SCDynamicStoreSetValue:"));
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  key          = %@"), key);
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  value        = %@"), value);
+	if (_configd_verbose) {
+		CFPropertyListRef	val;
+
+		(void) _SCUnserialize(&val, value, NULL, NULL);
+		SCLog(TRUE, LOG_DEBUG, CFSTR("__SCDynamicStoreSetValue:"));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  key          = %@"), key);
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  value        = %@"), val);
+		CFRelease(val);
+	}
 
 	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
 		return kSCStatusNoStoreSession;	/* you must have an open session to play */
+	}
+
+	if (_configd_trace) {
+		SCTrace(TRUE, _configd_trace,
+			CFSTR("%s : %5d : %@\n"),
+			internal ? "*set   " : "set    ",
+			storePrivate->server,
+			key);
 	}
 
 	/*
@@ -123,9 +144,7 @@ __SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyLis
 		if (CFSetContainsValue(deferredRemovals, key)) {
 			CFSetRemoveValue(deferredRemovals, key);
 		} else {
-			CFDictionaryApplyFunction(sessionData,
-						  (CFDictionaryApplierFunction)_addRegexWatchersBySession,
-						  (void *)key);
+			patternAddKey(key);
 		}
 	}
 
@@ -143,6 +162,7 @@ __SCDynamicStoreSetValue(SCDynamicStoreRef store, CFStringRef key, CFPropertyLis
 	return sc_status;
 }
 
+__private_extern__
 kern_return_t
 _configset(mach_port_t			server,
 	   xmlData_t			keyRef,		/* raw XML bytes */
@@ -156,29 +176,29 @@ _configset(mach_port_t			server,
 {
 	serverSessionRef	mySession = getSession(server);
 	CFStringRef		key;		/* key  (un-serialized) */
-	CFPropertyListRef	data;		/* data (un-serialized) */
+	CFDataRef		data;		/* data (un-serialized) */
 
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Set key to configuration database."));
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  server = %d"), server);
+	if (_configd_verbose) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("Set key to configuration database."));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  server = %d"), server);
+	}
 
 	*sc_status = kSCStatusOK;
 
 	/* un-serialize the key */
-	if (!_SCUnserialize((CFPropertyListRef *)&key, (void *)keyRef, keyLen)) {
+	if (!_SCUnserializeString(&key, NULL, (void *)keyRef, keyLen)) {
 		*sc_status = kSCStatusFailed;
-	}
-
-	if (!isA_CFString(key)) {
+	} else if (!isA_CFString(key)) {
 		*sc_status = kSCStatusInvalidArgument;
 	}
 
 	/* un-serialize the data */
-	if (!_SCUnserialize((CFPropertyListRef *)&data, (void *)dataRef, dataLen)) {
+	if (!_SCUnserializeData(&data, (void *)dataRef, dataLen)) {
 		*sc_status = kSCStatusFailed;
 	}
 
-	if (!isA_CFPropertyList(data)) {
-		*sc_status = kSCStatusInvalidArgument;
+	if (!mySession) {
+		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
 	}
 
 	if (*sc_status != kSCStatusOK) {
@@ -187,7 +207,7 @@ _configset(mach_port_t			server,
 		return KERN_SUCCESS;
 	}
 
-	*sc_status = __SCDynamicStoreSetValue(mySession->store, key, data);
+	*sc_status = __SCDynamicStoreSetValue(mySession->store, key, data, FALSE);
 	*newInstance = 0;
 
 	CFRelease(key);
@@ -200,18 +220,18 @@ static void
 setSpecificKey(const void *key, const void *value, void *context)
 {
 	CFStringRef		k	= (CFStringRef)key;
-	CFPropertyListRef	v	= (CFPropertyListRef)value;
+	CFDataRef		v	= (CFDataRef)value;
 	SCDynamicStoreRef	store	= (SCDynamicStoreRef)context;
 
 	if (!isA_CFString(k)) {
 		return;
 	}
 
-	if (!isA_CFPropertyList(v)) {
+	if (!isA_CFData(v)) {
 		return;
 	}
 
-	(void) __SCDynamicStoreSetValue(store, k, v);
+	(void) __SCDynamicStoreSetValue(store, k, v, TRUE);
 
 	return;
 }
@@ -226,7 +246,7 @@ removeSpecificKey(const void *value, void *context)
 		return;
 	}
 
-	(void) __SCDynamicStoreRemoveValue(store, k);
+	(void) __SCDynamicStoreRemoveValue(store, k, TRUE);
 
 	return;
 }
@@ -241,11 +261,86 @@ notifySpecificKey(const void *value, void *context)
 		return;
 	}
 
-	(void) __SCDynamicStoreNotifyValue(store, k);
+	(void) __SCDynamicStoreNotifyValue(store, k, TRUE);
 
 	return;
 }
 
+__private_extern__
+int
+__SCDynamicStoreSetMultiple(SCDynamicStoreRef store, CFDictionaryRef keysToSet, CFArrayRef keysToRemove, CFArrayRef keysToNotify)
+{
+	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
+	int				sc_status	= kSCStatusOK;
+
+	if (_configd_verbose) {
+		CFDictionaryRef	expDict;
+
+		expDict = keysToSet ? _SCUnserializeMultiple(keysToSet) : NULL;
+		SCLog(TRUE, LOG_DEBUG, CFSTR("__SCDynamicStoreSetMultiple:"));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  keysToSet    = %@"), expDict);
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  keysToRemove = %@"), keysToRemove);
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  keysToNotify = %@"), keysToNotify);
+		if (expDict) CFRelease(expDict);
+	}
+
+	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
+		return kSCStatusNoStoreSession;	/* you must have an open session to play */
+	}
+
+	if (_configd_trace) {
+		SCTrace(TRUE, _configd_trace,
+			CFSTR("set m   : %5d : %d set, %d remove, %d notify\n"),
+			storePrivate->server,
+			keysToSet    ? CFDictionaryGetCount(keysToSet)    : 0,
+			keysToRemove ? CFArrayGetCount     (keysToRemove) : 0,
+			keysToNotify ? CFArrayGetCount     (keysToNotify) : 0);
+	}
+
+	/*
+	 * Ensure that we hold the lock
+	 */
+	sc_status = __SCDynamicStoreLock(store, TRUE);
+	if (sc_status != kSCStatusOK) {
+		return sc_status;
+	}
+
+	/*
+	 * Set the new/updated keys
+	 */
+	if (keysToSet) {
+		CFDictionaryApplyFunction(keysToSet,
+					  setSpecificKey,
+					  (void *)store);
+	}
+
+	/*
+	 * Remove the specified keys
+	 */
+	if (keysToRemove) {
+		CFArrayApplyFunction(keysToRemove,
+				     CFRangeMake(0, CFArrayGetCount(keysToRemove)),
+				     removeSpecificKey,
+				     (void *)store);
+	}
+
+	/*
+	 * Notify the specified keys
+	 */
+	if (keysToNotify) {
+		CFArrayApplyFunction(keysToNotify,
+				     CFRangeMake(0, CFArrayGetCount(keysToNotify)),
+				     notifySpecificKey,
+				     (void *)store);
+	}
+
+	/* Release our lock */
+	__SCDynamicStoreUnlock(store, TRUE);
+
+	return sc_status;
+}
+
+__private_extern__
 kern_return_t
 _configset_m(mach_port_t		server,
 	     xmlData_t			dictRef,
@@ -261,86 +356,50 @@ _configset_m(mach_port_t		server,
 	CFArrayRef		remove	= NULL;		/* keys to remove (un-serialized) */
 	CFArrayRef		notify	= NULL;		/* keys to notify (un-serialized) */
 
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Set key to configuration database."));
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  server = %d"), server);
+	if (_configd_verbose) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("Set/remove/notify keys to configuration database."));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  server = %d"), server);
+	}
 
 	*sc_status = kSCStatusOK;
 
 	if (dictRef && (dictLen > 0)) {
 		/* un-serialize the key/value pairs to set */
-		if (!_SCUnserialize((CFPropertyListRef *)&dict, (void *)dictRef, dictLen)) {
+		if (!_SCUnserialize((CFPropertyListRef *)&dict, NULL, (void *)dictRef, dictLen)) {
 			*sc_status = kSCStatusFailed;
-		}
-
-		if (!isA_CFDictionary(dict)) {
+		} else if (!isA_CFDictionary(dict)) {
 			*sc_status = kSCStatusInvalidArgument;
 		}
 	}
 
 	if (removeRef && (removeLen > 0)) {
 		/* un-serialize the keys to remove */
-		if (!_SCUnserialize((CFPropertyListRef *)&remove, (void *)removeRef, removeLen)) {
+		if (!_SCUnserialize((CFPropertyListRef *)&remove, NULL, (void *)removeRef, removeLen)) {
 			*sc_status = kSCStatusFailed;
-		}
-
-		if (!isA_CFArray(remove)) {
+		} else if (!isA_CFArray(remove)) {
 			*sc_status = kSCStatusInvalidArgument;
 		}
 	}
 
 	if (notifyRef && (notifyLen > 0)) {
 		/* un-serialize the keys to notify */
-		if (!_SCUnserialize((CFPropertyListRef *)&notify, (void *)notifyRef, notifyLen)) {
+		if (!_SCUnserialize((CFPropertyListRef *)&notify, NULL, (void *)notifyRef, notifyLen)) {
 			*sc_status = kSCStatusFailed;
-		}
-
-		if (!isA_CFArray(notify)) {
+		} else if (!isA_CFArray(notify)) {
 			*sc_status = kSCStatusInvalidArgument;
 		}
 	}
 
+	if (!mySession) {
+		/* you must have an open session to play */
+		*sc_status = kSCStatusNoStoreSession;
+	}
+
 	if (*sc_status != kSCStatusOK) {
 		goto done;
 	}
 
-	/*
-	 * Ensure that we hold the lock
-	 */
-	*sc_status = __SCDynamicStoreLock(mySession->store, TRUE);
-	if (*sc_status != kSCStatusOK) {
-		goto done;
-	}
-
-	/*
-	 * Set the new/updated keys
-	 */
-	if (dict) {
-		CFDictionaryApplyFunction(dict,
-					  setSpecificKey,
-					  (void *)mySession->store);
-	}
-
-	/*
-	 * Remove the specified keys
-	 */
-	if (remove) {
-		CFArrayApplyFunction(remove,
-				     CFRangeMake(0, CFArrayGetCount(remove)),
-				     removeSpecificKey,
-				     (void *)mySession->store);
-	}
-
-	/*
-	 * Notify the specified keys
-	 */
-	if (notify) {
-		CFArrayApplyFunction(notify,
-				     CFRangeMake(0, CFArrayGetCount(notify)),
-				     notifySpecificKey,
-				     (void *)mySession->store);
-	}
-
-	__SCDynamicStoreUnlock(mySession->store, TRUE);	/* Release our lock */
+	*sc_status = __SCDynamicStoreSetMultiple(mySession->store, dict, remove, notify);
 
     done :
 

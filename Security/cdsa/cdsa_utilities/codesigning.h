@@ -35,6 +35,8 @@
 #pragma export on
 #endif
 
+#undef verify
+
 namespace Security
 {
 

@@ -1,0 +1,43 @@
+<driver id="driver/@@DRVNAME@@">
+ <name>@@DRVNAME@@</name>
+ <url>http://gimp-print.sourceforge.net/</url>
+ <execution>
+  <ghostscript />
+  <prototype>gs -q -dPARANOIDSAFER -dNOPAUSE -dBATCH -sDEVICE=stp %A%Z -sOutputFile=- -</prototype>
+ </execution>
+ <comments>
+  <en>
+
+    &lt;b&gt;This page provides data for the GhostScript
+    (&quot;stp&quot;) driver of the GIMP-Print 4.2.x series, if you
+    are using the IJS driver of the GIMP-Print 4.2.x series, go to the
+    &quot;&lt;a
+    href=&quot;show_driver.cgi?driver=gimp-print-ijs&quot;&gt;gimp-print-ijs&lt;/a&gt;&quot;
+    page, and if you are using GIMP-Print 4.0.x, go to the &quot;&lt;a
+    href=&quot;show_driver.cgi?driver=stp&quot;&gt;stp&lt;/a&gt;&quot;
+    page.&lt;/b&gt;&lt;p&gt;
+
+    GIMP-Print supports a wide variety of Epson Stylus, HP DeskJet,
+    LaserJet, Canon BubbleJet, Lexmark inkjet printers, with the
+    primary goal being uncompromising quality.  Epson Stylus printers
+    in particular are supported in all resolutions and modes, and the
+    latest printers are capable of producing prints that rival
+    photographic prints in quality. This package also offers much
+    faster printing for high quality text and presentation graphics
+    when required.&lt;p&gt;
+
+    The execution information currently here corresponds to driver
+    version @@STPVER@@. If you use another version, use the Foomatic
+    data which comes with the GIMP-Print package.&lt;p&gt;
+
+    Note that the Foomatic datafiles provided here are only for the
+    GhostScript driver of GIMP-Print. For the native CUPS driver there
+    are special PPD files provided by the GIMP-Print package.&lt;p&gt;
+
+    To get a pre-patched/pre-compiled GNU-GhostScript 6.51 with this driver
+    (version 4.2.0) download
+    &lt;a href="http://space.tin.it/computer/wvtberti/linux/stp_driver/gs_stp.htm"&gt;Daniele Berti's source and binary RPMS&lt;/a&gt;.
+  </en>
+ </comments>
+ @@STPRINTERS@@
+</driver>

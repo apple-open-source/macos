@@ -125,7 +125,6 @@
 /*
  * variables set up by front end.
  */
-extern int	mfs;		/* run as the memory based filesystem */
 extern int	Nflag;		/* run mkfs without writing file system */
 extern int	Oflag;		/* format as an 4.3BSD file system */
 extern int	fssize;		/* file system size */
@@ -152,6 +151,8 @@ extern int	maxbpg;		/* maximum blocks per file in a cyl group */
 extern int	nrpos;		/* # of distinguished rotational positions */
 extern int	bbsize;		/* boot block size */
 extern int	sbsize;		/* superblock size */
+extern int	avgfilesize;	/* expected average file size */
+extern int	avgfilesperdir;	/* expected number of files per directory */
 extern u_long	memleft;	/* virtual memory available */
 extern caddr_t	membase;	/* start address of memory based filesystem */
 extern caddr_t	malloc(u_long), calloc(u_long, u_long);
@@ -230,25 +231,6 @@ mkfs(fsys, fi, fo)
 #ifndef STANDALONE
 	time(&utime);
 #endif
-	if (mfs) {
-		ppid = getpid();
-		(void) signal(SIGUSR1, started);
-		if (i = fork()) {
-			if (i == -1) {
-				perror("mfs");
-				exit(10);
-			}
-			if (waitpid(i, &status, 0) != -1 && WIFEXITED(status))
-				exit(WEXITSTATUS(status));
-			exit(11);
-			/* NOTREACHED */
-		}
-		(void)malloc(0);
-		if (fssize * sectorsize > memleft)
-			fssize = (memleft - 16384) / sectorsize;
-		if ((membase = malloc(fssize * sectorsize)) == 0)
-			exit(12);
-	}
 	fsi = fi;
 	fso = fo;
 	if (Oflag) {
@@ -285,6 +267,17 @@ mkfs(fsys, fi, fo)
 		printf("preposterous ntrak %d\n", sblock.fs_ntrak), exit(14);
 	if (sblock.fs_nsect <= 0)
 		printf("preposterous nsect %d\n", sblock.fs_nsect), exit(15);
+	/*
+	 * collect and verify the filesystem density info
+	 */
+	sblock.fs_avgfilesize = avgfilesize;
+	sblock.fs_avgfpdir = avgfilesperdir;
+	if (sblock.fs_avgfilesize <= 0)
+		printf("illegal expected average file size %d\n",
+		    sblock.fs_avgfilesize), exit(14);
+	if (sblock.fs_avgfpdir <= 0)
+		printf("illegal expected number of files per directory %d\n",
+		    sblock.fs_avgfpdir), exit(15);
 	/*
 	 * collect and verify the block and fragment sizes
 	 */
@@ -660,7 +653,7 @@ next:
 		    NSPF(&sblock);
 		warn = 0;
 	}
-	if (warn && !mfs) {
+	if (warn) {
 		printf("Warning: %d sector(s) in last cylinder unallocated\n",
 		    sblock.fs_spc -
 		    (fssize * NSPF(&sblock) - (sblock.fs_ncyl - 1)
@@ -698,35 +691,29 @@ next:
 	/*
 	 * Dump out summary information about file system.
 	 */
-	if (!mfs) {
-		printf("%s:\t%d sectors in %d %s of %d tracks, %d sectors\n",
+	printf("%s:\t%d sectors in %d %s of %d tracks, %d sectors\n",
 		    fsys, sblock.fs_size * NSPF(&sblock), sblock.fs_ncyl,
 		    "cylinders", sblock.fs_ntrak, sblock.fs_nsect);
 #define B2MBFACTOR (1 / (1024.0 * 1024.0))
-		printf("\t%.1fMB in %d cyl groups (%d c/g, %.2fMB/g, %d i/g)\n",
+	printf("\t%.1fMB in %d cyl groups (%d c/g, %.2fMB/g, %d i/g)\n",
 		    (float)sblock.fs_size * sblock.fs_fsize * B2MBFACTOR,
 		    sblock.fs_ncg, sblock.fs_cpg,
 		    (float)sblock.fs_fpg * sblock.fs_fsize * B2MBFACTOR,
 		    sblock.fs_ipg);
 #undef B2MBFACTOR
-	}
 	/*
 	 * Now build the cylinders group blocks and
 	 * then print out indices of cylinder groups.
 	 */
-	if (!mfs)
-		printf("super-block backups (for fsck -b #) at:");
+	printf("super-block backups (for fsck -b #) at:");
 	for (cylno = 0; cylno < sblock.fs_ncg; cylno++) {
 		initcg(cylno, utime);
-		if (mfs)
-			continue;
 		if (cylno % 8 == 0)
 			printf("\n");
 		printf(" %d,", fsbtodb(&sblock, cgsblock(&sblock, cylno)));
 	}
-	if (!mfs)
-		printf("\n");
-	if (Nflag && !mfs)
+	printf("\n");
+	if (Nflag)
 		exit(0);
 	/*
 	 * Now construct the initial file system,
@@ -770,18 +757,6 @@ next:
 		wtfs(fsbtodb(&sblock, cgsblock(&sblock, cylno)),
 		    sbsize, (char *)&sblock);
 #endif  /* BIG_ENDIAN_INTEL_FS */
-	/*
-	 * Notify parent process of success.
-	 * Dissociate from session and tty.
-	 */
-	if (mfs) {
-		kill(ppid, SIGUSR1);
-		(void) setsid();
-		(void) close(0);
-		(void) close(1);
-		(void) close(2);
-		(void) chdir("/");
-	}
 }
 
 /*
@@ -1063,6 +1038,8 @@ fsinit(utime)
 			    DIRSIZ(0, &lost_found_dir[2]));
 	}
 	node.di_mode = IFDIR | UMASK;
+	node.di_uid = geteuid();
+	node.di_gid = getegid();
 	node.di_nlink = 2;
 	node.di_size = sblock.fs_bsize;
 	node.di_db[0] = alloc(node.di_size, node.di_mode);
@@ -1084,10 +1061,9 @@ fsinit(utime)
 	/*
 	 * create the root directory
 	 */
-	if (mfs)
-		node.di_mode = IFDIR | 01777;
-	else
-		node.di_mode = IFDIR | UMASK;
+	node.di_mode = IFDIR | UMASK;
+	node.di_uid = geteuid();
+	node.di_gid = getegid();
 	node.di_nlink = PREDEFDIR;
 	if (Oflag)
 		node.di_size = makedir((struct direct *)oroot_dir, PREDEFDIR);
@@ -1377,11 +1353,6 @@ rdfs(bno, size, bf)
 	off64_t temp64;
 	int n;
 
-	if (mfs) {
-		memmove(bf, membase + bno * sectorsize, size);
-		return;
-	}
-
 	temp64 = bno;
 	temp64 *= sectorsize;
 	if (dklseek(fsi, temp64, 0) < 0) {
@@ -1409,10 +1380,6 @@ wtfs(bno, size, bf)
 	off64_t temp64;
 	int n;
 
-	if (mfs) {
-		memmove(membase + bno * sectorsize, bf, size);
-		return;
-	}
 	if (Nflag)
 		return;
 

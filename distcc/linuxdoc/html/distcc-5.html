@@ -1,0 +1,65 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+ <META NAME="GENERATOR" CONTENT="LinuxDoc-Tools 0.9.21">
+ <TITLE>distcc User Manual: Cross compiling</TITLE>
+ <LINK HREF="distcc-6.html" REL=next>
+ <LINK HREF="distcc-4.html" REL=previous>
+ <LINK HREF="distcc.html#toc5" REL=contents>
+</HEAD>
+<BODY>
+<A HREF="distcc-6.html">Next</A>
+<A HREF="distcc-4.html">Previous</A>
+<A HREF="distcc.html#toc5">Contents</A>
+<HR>
+<H2><A NAME="s5">5.</A> <A HREF="distcc.html#toc5">Cross compiling</A></H2>
+
+<P>Cross compilation means building programs to run on a
+machine with a different processor, architecture, or
+operating system to where they were compiled.  distcc
+supports cross compilation, including teams of
+mixed-architecture machines, although some changes to the
+compilation commands may be required.</P>
+<P>The compilation command passed to distcc must be one that
+will execute properly on every volunteer machine to produce
+an object file of the appropriate type.  If the machines
+have different processors, then simply using <CODE>distcc
+cc</CODE> will probably <B>not</B> work, because that will
+normally invoke the volunteer's native compiler.</P>
+<P>Machines with the same instruction set but different
+operating systems may not necessarily generate compatible .o
+files.  Empirically it seems that the native FreeBSD
+compiler generates object files compatible with Linux for C
+programs, but not for C++.  It may be a good idea to install
+a Linux cross compiler on BSD volunteers.</P>
+<P>Different versions of the compiler may generate incompatible
+object files.  This seems to be much more of a problem with
+C++ than with C, because the C++ ABI (application binary
+interface) has changed in recent years.  If you will be
+building C++ programs, it may be a good idea to install the
+same version of <CODE>g++</CODE> on all machines.</P>
+<P>Several different gcc configurations can be installed
+side-by-side on any machine.  If you build gcc from source,
+you should use the <CODE>--program-suffix</CODE> configuration
+options to cause it to be installed with a name that encodes
+the gcc version and the target platform.</P>
+<P>The recommended convention for the gcc name is
+<EM>target</EM><CODE>-gcc-</CODE><EM>version</EM>, such as
+<CODE>i686-linux-gcc-3.2</CODE>.  GCC 3.3 will install itself
+under this name, in addition to <EM>target</EM><CODE>-gcc</CODE>
+and, if it's native, <CODE>gcc-</CODE><EM>version</EM> and
+<CODE>gcc</CODE>.</P>
+<P>The compiler must be installed under the same name on the
+client and on every volunteer machine.</P>
+<P>gcc also has <CODE>-b</CODE> and <CODE>-V</CODE> options to specify
+a target and version, but at the moment the gcc team
+recommend using a qualified compiler name instead.</P>
+<P>For more information on cross-compiling, see <EM>Specifying
+Target Machine and Compiler Version</EM> in the gcc manual,
+and the gcc installation guide.</P>
+<HR>
+<A HREF="distcc-6.html">Next</A>
+<A HREF="distcc-4.html">Previous</A>
+<A HREF="distcc.html#toc5">Contents</A>
+</BODY>
+</HTML>

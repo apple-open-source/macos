@@ -1,5 +1,5 @@
 /* index.h -- declarations for index.c.
-   $Id: index.h,v 1.1.1.1 2002/04/19 01:00:29 jkh Exp $
+   $Id: index.h,v 1.2 2003/07/25 18:37:24 jkh Exp $
 
    Copyright (C) 1998, 99 Free Software Foundation, Inc.
 

@@ -39,7 +39,7 @@
 				HEADER_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Headers\" \"$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Headers/bsd\"";
 				LIBRARY_STYLE = STATIC;
 				OPTIMIZATION_CFLAGS = "-O2";
-				OTHER_CFLAGS = "-nostdinc -finline -fno-keep-inline-functions -force_cpusubtype_ALL -mlong-branch -x c++ -fno-rtti -fno-exceptions -fcheck-new -fvtable-thunks -findirect-virtual-calls -static -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT";
+				OTHER_CFLAGS = "-nostdinc -finline -fno-keep-inline-functions -force_cpusubtype_ALL -mlong-branch -x c++ -fno-rtti -fno-exceptions -fcheck-new -findirect-virtual-calls -static -DKERNEL -DKERNEL_PRIVATE -DDRIVER_PRIVATE -DAPPLE -DNeXT";
 				OTHER_LDFLAGS = "";
 				OTHER_LIBTOOL_FLAGS = "";
 				OTHER_REZFLAGS = "";

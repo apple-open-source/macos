@@ -1,0 +1,407 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+    <!--#config timefmt="%d-%b-%y" -->
+    <title>JCE 1.2.1 -- Installation Instructions</title>
+</HEAD>
+
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#0000FF" ALINK="#FF0000" VLINK="#660066">
+
+<!-- server side include for top part of page -->
+
+<!--#include virtual="/share/include/normal.header.v4.0.html"-->
+
+<!-- end server side include for top of page -->
+
+
+<!-- begin table for main body navigation and content -->
+
+<TABLE BORDER="0" CELLSPACING="0" CELLPADDING="0" WIDTH="100%">
+<TR ALIGN="left" VALIGN="top">
+<TD WIDTH="100%" VALIGN="top">
+
+<!-- page headline -->
+
+<!--
+Changed typical page headline to accommodate graphic
+-->
+
+<table>
+<tr>
+<td align="left" width=80%>
+<FONT SIZE="+2">
+<strong>Java<SUP><FONT SIZE="-2">TM</FONT></SUP> Cryptography Extension (JCE) 1.2.1</strong>
+</FONT>
+</td>
+</tr>
+</table>
+
+
+<!-- end page headline -->
+
+<!-- main page content -->
+
+<P>
+<strong><font size=+1>Installation Instructions</font></strong>
+<p> 
+
+<ol>
+
+<h4><li></h4>
+Download JCE 1.2.1.  
+You can save the downloaded file anywhere on your local disk.
+<p>Note that JCE 1.2.1 requires that you have
+<a href="http://java.sun.com/products/jdk/1.2">
+Java<SUP><FONT SIZE="-2">TM</FONT></SUP> 2 SDK v 1.2.1 or later</a> or 
+<a href="http://java.sun.com/products/jdk/1.2/jre">
+Java<SUP><FONT SIZE="-2">TM</FONT></SUP> 2 Runtime Environment v 1.2.1 
+or later</a> already installed.
+
+<p>
+
+<h4><li></h4>
+Uncompress and extract the downloaded file. This will create a 
+directory named <code>jce1.2.1</code>, with two subdirectories named
+<code>doc</code> and <code>lib</code>.
+
+<p>
+
+<h4><li></h4>
+The JCE 1.2.1 framework and the "SunJCE" provider are supplied as 
+extensions (also known as 
+"optional packages") to the Java 2 platform.
+
+<p> The <code>lib</code> subdirectory extracted in the previous step
+contains the <code>jce1_2_1.jar</code> and <code>sunjce_provider.jar</code> files. The <code>lib</code> subdirectory 
+should also contain JAR files for jurisdiction
+policy files: <code>US_export_policy.jar</code> and 
+<code>local_policy.jar</code>.
+
+<P> Two types of installations are supported, described below.
+In both cases, the jurisdiction policy files must be installed in
+the same directory as that which contains the JCE 1.2.1 framework 
+JAR file. In some cases, <a href = "http://java.sun.com/products/jdk/1.2/docs/guide/security/permissions.html">
+permissions</a> must be granted to the JCE 1.2.1 framework and/or
+the "SunJCE" provider for when applets or applications using JCE are run 
+while a security manager is installed. Note: 
+There is typically a security manager installed whenever an applet is 
+running, and a security manager may be installed for an application 
+either via code in the application itself or via a command-line argument.
+
+<H4><b>Installation Option 1:</b> The JCE 1.2.1 framework is an 
+"installed" extension. Providers are installed or bundled.</H4>
+
+<blockquote>
+
+<P> (Note: A package (or packages) housed in a JAR file
+is considered "installed" if the JAR file is stored in a particular
+directory established for all installed extensions, as described below.)
+
+<P> <b>Pro</b>: This is the most convenient type of installation.
+Permissions do not need to be granted to installed extensions,
+since the default system <a href =
+"http://java.sun.com/products/jdk/1.2/docs/guide/security/PolicyFiles.html">
+policy file</a>
+grants all permissions to installed extensions.
+
+<P> <b>Con</b>: You must have access rights that allow you to
+write to the special directory that holds installed extensions.
+
+<P> <b>Instructions:</b> To make the JCE 1.2.1 framework an installed
+extension, move or copy the <code>jce1_2_1.jar</code>, 
+<code>US_export_policy.jar</code>, and 
+<code>local_policy.jar</code> files from the 
+<code>lib</code> subdirectory extracted in the previous step to
+the standard place for the JAR files of an installed extension:
+<blockquote><pre>
+&lt;java-home&gt;\lib\ext         [Win32]
+&lt;java-home&gt;/lib/ext         [Solaris]
+</pre></blockquote>
+<p>
+
+<P> Here <tt>&lt;java-home&gt;</tt> refers to the directory where the 
+runtime software is installed, which is the top-level directory of the JRE 
+or the <tt>jre</tt> directory in the 
+Java<SUP><FONT SIZE="-2">TM</FONT></SUP> 2 SDK software. 
+For example, if you have J2SDK v 1.2.2 
+installed on Solaris in a directory named <code>jdk1.2.2</code>, you
+need to install the JAR files in the following directory:
+
+<blockquote><pre>
+jdk1.2.2/jre/lib/ext
+</pre></blockquote>
+
+<P> Similarly, if you have 
+Java<SUP><FONT SIZE="-2">TM</FONT></SUP> 2 Runtime Environment v 1.2.2 
+installed on Solaris in a directory named <code>jre1.2.2</code>,
+you need to install the JAR files in the following directory:
+
+<blockquote><pre>
+jre1.2.2/lib/ext
+</pre></blockquote>
+
+<P> To also make the "SunJCE" provider an "installed" extension,
+move or copy <code>sunjce_provider.jar</code> to that same directory
+for installed extensions. If you want to make the "SunJCE" provider a "bundled" 
+extension, see <a href =
+"http://java.sun.com/products/jdk/1.2/docs/guide/extensions/spec.html#bundled">
+Bundled Extensions</a>. 
+
+<P> <b>Permissions:</b> You will need to grant the "SunJCE" provider 
+the permissions listed below
+if it is bundled and if a security manager is installed. 
+You don't have to understand what the permissions mean, but 
+you must grant them, for example, in a <a href =
+"http://java.sun.com/products/jdk/1.2/docs/guide/security/PolicyFiles.html">
+policy file</a>, or the "SunJCE" provider won't work.
+Here are the permissions that must be granted:
+<P> 
+
+<ul>
+<li> java.io.FilePermission to read the <code>jce1_2_1.jar</code> file
+<li> java.lang.RuntimePermission to get class protection domains
+<li> java.security.SecurityPermission to put (set) provider properties.
+</ul>
+
+<P> A sample statement granting these permissions appears
+below. Such a statement could appear in a 
+policy file. In this example, the
+JCE 1.2.1 framework is assumed to be an installed extension
+and the <code>sunjce_provider.jar</code> file is assumed
+to be in the <code>/work</code> directory.
+
+<pre>
+  grant codeBase "file:/work/sunjce_provider.jar" {
+    permission java.io.FilePermission
+      "/jdk1.2.2/jre/lib/ext/jce1_2_1.jar", "read";
+    permission java.lang.RuntimePermission 
+      "getProtectionDomain";
+    permission java.security.SecurityPermission
+      "putProviderProperty.SunJCE";
+  };
+</pre>
+
+<P> Once you have completed this type of installation, go on to the
+<a href="#registerSunJCE">next step</a> to register the "SunJCE"
+provider.
+
+</blockquote>
+
+
+<H4><a name = "Option2"><b>Installation Option 2:</b> 
+The JCE 1.2.1 framework and
+JCE providers are located on the class path (not installed extensions).</a></H4>
+
+<blockquote>
+
+<P> <b>Pro</b>: The JCE 1.2.1 framework and providers don't have to
+be put in a special directory. This is very useful if you share a 
+Java 2 installation with other people and you don't have access rights
+allowing you to write to the directory for installed extensions. 
+
+<P> <b>Con</b>: <a href = "http://java.sun.com/products/jdk/1.2/docs/guide/security/permissions.html">
+Permissions</a> need to be granted to the JCE 1.2.1 framework
+and JCE providers for when applets or applications using JCE are run 
+while a security manager is installed.
+
+<P> <b>Instructions</b>: Move or copy the JCE 1.2.1 framework 
+file <code>jce1_2_1.jar</code> and jurisdiction policy files 
+(<code>US_export_policy.jar</code>, and 
+<code>local_policy.jar</code>)
+to a directory that will be listed on your class path.
+(Note: All these files must be in the same directory.)
+Move or copy the "SunJCE" provider file <code>sunjce_provider.jar</code>
+to another directory that will be listed on your class path. It can
+be the same as the directory containing the JCE 1.2.1 framework, or
+a different directory.
+
+<P> Be sure to set the class path to include the directories
+containing the JCE 1.2.1 framework and "SunJCE" provider JAR files.
+
+<P> <b>Permissions:</b> The following permission should be granted to the 
+JCE 1.2.1 framework when a security manager is installed:
+
+<blockquote>
+<pre>
+java.security.AllPermission
+</pre>
+</blockquote>
+
+Below is a sample statement granting this permission.
+Such a statement could appear
+in a <a href =
+"http://java.sun.com/products/jdk/1.2/docs/guide/security/PolicyFiles.html">
+policy file</a>. In this example, the
+JCE 1.2.1 framework is assumed to be in the
+<code>/home/mydir</code> directory.
+
+<pre>
+  grant codeBase "file:/home/mydir/jce1_2_1.jar" {
+    permission java.security.AllPermission;
+  };
+</pre>
+
+
+<P> The following permissions should be granted to the "SunJCE"
+provider (and other JCE providers) when a security manager is installed::
+<P> 
+
+<ul>
+<li> java.io.FilePermission to read the <code>jce1_2_1.jar</code> file
+<li> java.lang.RuntimePermission to get class protection domains
+<li> java.security.SecurityPermission to put (set) provider properties.
+</ul>
+
+<P> A sample grant statement granting these permissions appears
+below. In this example, the
+JCE 1.2.1 framework is assumed to be in the
+<code>/home/mydir</code> directory
+and the <code>sunjce_provider.jar</code> file is assumed
+to be in the <code>/work</code> directory.
+
+<pre>
+  grant codeBase "file:/work/sunjce_provider.jar" {
+    permission java.io.FilePermission
+      "/home/mydir/jce1_2_1.jar", "read";
+    permission java.lang.RuntimePermission 
+      "getProtectionDomain";
+    permission java.security.SecurityPermission
+      "putProviderProperty.SunJCE";
+  };
+</pre>
+
+
+</blockquote>
+
+
+<p>
+
+
+<h4><a name = "registerSunJCE"><li></a></h4>
+Register the "SunJCE" provider.
+
+<p> Although the "SunJCE" provider
+is supplied with every JCE 1.2.1 installation, it still needs to be
+configured explicitly, either statically or dynamically, before its
+services can be accessed:<p>
+
+<ul>
+<li><b>Static registration of SunJCE provider</b>
+<p> Add the "SunJCE" provider to your list of approved providers. This
+is done statically by editing the security properties file
+
+<pre>
+  [Win32]
+    &lt;java-home&gt;\lib\security\java.security
+  [Solaris]
+    &lt;java-home&gt;/lib/security/java.security
+</pre>
+
+Here, as in the previous step,
+<tt>&lt;java-home&gt;</tt> refers to the directory where the JRE
+was installed. For example, if you have J2SDK v 1.2.2 
+installed on Solaris in a directory named <code>jdk1.2.2</code>, you
+need to edit the following file:
+
+<blockquote><pre>
+jdk1.2.2/jre/lib/security/java.security
+</pre></blockquote>
+
+Similarly, if you have 
+Java<SUP><FONT SIZE="-2">TM</FONT></SUP> 2 Runtime Environment v 1.2.2 
+installed on Solaris in a directory named <code>jre1.2.2</code>,
+you need to edit this file:
+
+<blockquote><pre>
+jre1.2.2/lib/security/java.security
+</pre></blockquote>
+
+<p> One of the types of properties you can set in <code>java.security</code>
+is of the following form:
+
+<pre>
+    security.provider.<i>n</i>=<i>providerClassName</i>
+</pre>
+
+<p> <p>The <code>java.security</code> file 
+should have a statement of that form for 
+each provider to be registered statically.
+Each such statement declares a provider, and specifies its preference order
+<i>n</i>. The preference order is the order in which providers are
+searched for requested algorithms (when no specific provider is 
+requested). The order is 1-based; 1 is the most preferred, followed
+by 2, and so on.
+
+<p>J2SE comes standard with a provider named "SUN", which is
+automatically configured as a static provider, as follows:
+
+<pre>
+  security.provider.1=sun.security.provider.Sun
+</pre>
+
+<p> To configure other providers, follow this line with 
+other lines of the proper format, replacing
+<code><i>providerClassName</i></code> with the
+fully qualified "master class name" you obtain
+from the provider vendor,
+and substituting <code><i>n</i></code> with the priority that you would like to
+assign to the provider.
+
+<p> For example, if you would like to configure "SunJCE" as
+your second preferred provider, add the following line to the
+<code>java.security</code> file after the line for the "Sun" provider:
+
+<pre>
+  security.provider.2=com.sun.crypto.provider.SunJCE
+</pre>
+
+<li><b>Dynamic registration of SunJCE provider</b>
+<p> To dynamically register the SunJCE provider (instead of
+statically), add the following lines of code at the beginning of your program:
+<pre>
+    Security.addProvider(
+       new com.sun.crypto.provider.SunJCE());
+</pre>
+
+<P> This type of registration is not persistent.
+</ul>
+
+
+</ol>
+
+
+<p><p>
+
+<hr>
+
+<p>
+
+</P>
+
+
+<!-- end main page content -->
+
+
+</TD>
+
+<!-- gutter spacing for right side of the page -->
+
+<TD WIDTH="30">
+<IMG SRC="/images/pixel.gif" WIDTH="30" HEIGHT="1" ALT="">
+</TD>
+</TR>
+</TABLE>
+
+<!-- server side include for page footer -->
+
+<!--#include virtual="/share/include/normal.footer.v4.0.html"-->
+
+<!-- end server side include for footer -->
+
+</BODY>
+</HTML>
+
+
+
+
+

@@ -1,0 +1,225 @@
+# Copyright (C) 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
+
+# Please email any bugs, comments, and/or additions to this file to:
+# bug-dejagnu@prep.ai.mit.edu
+
+# This file was written by Rob Savoye. (rob@welcomehome.org)
+
+#
+# Find the linker script for the current target. Returns a string
+# suitable to pass to $CC or $CXX to use a liblgoss based linker script,
+# or NULL if there is no support.
+#
+proc libgloss_script { } {
+    global srcdir
+    global target_cpu
+    global LDFLAGS
+    global CFLAGS
+    global CXXFLAGS
+    global target_info
+
+    # sanity check
+    if ![info exists LDFLAGS] {
+	set LDFLAGS ""
+    }
+    if ![info exists CFLAGS] {
+	set CFLAGS ""
+    }
+
+     if ![info exists CXXFLAGS] {
+	set CXXFLAGS ""
+    }
+
+    # find the linker script. first we look at the config
+    # data and hope to find it all ready for us to use. if
+    # that fails, then look in the LDFLAGS and CFLAGS variables that
+    # get set in the global site.exp file.
+    if [info exists target_info(target,name)] {
+	set script $target_info(target,name).ld
+    } else {
+	if [regexp -- "-T.*\.ld" ${LDFLAGS} script] {
+	    string trimleft ${script} "-T"
+	}
+	if [regexp -- "-T.*\.ld" ${CFLAGS} script] {
+	    string trimleft ${script} "-T"
+	}
+	if [regexp -- "-T.*\.ld" ${CXXFLAGS} script] {
+	    string trimleft ${script} "-T"
+	}
+    }
+
+    if ![info exists script] {
+	warning "Couldn't find the linker script name for target"
+	return ""
+    }
+    
+    # if we're on a remote host, we can't search for the file, so use the
+    # linker script in the path.
+    if [is3way] {
+	return "-T${script}"
+    }
+    
+    # search for the general directories
+    foreach i ".. ../.. ../../.. ../../../.." {
+	verbose "Looking for a ${srcdir}/${i}/libgloss/${target_cpu}/${script}" 2
+	if [file exists ${srcdir}/$i/libgloss/${target_cpu}/${script} ] {
+	    verbose "Found ${srcdir}/${i}/libgloss/${target_cpu}/${script}." 3
+	    return "-T${srcdir}/${i}/libgloss/${target_cpu}/${script}"
+	}
+    }
+
+    # we didn't find the script, so we have to hope it's installed
+    return "-T${script}"
+}
+
+#
+# Find all the pieces of libgloss for testing the GNU development tools
+# needed to use $CC or $CXX. It returns a string suitable to pass to 
+# $CC or $CXX to get a fully linked binary for the target.
+#
+proc libgloss_flags { } {
+    global target_alias
+    global target_cpu
+    global srcdir
+    global base_dir
+
+    # libgloss doesn't work native
+    if [isnative] {
+	return ""
+    }
+
+    # if we're on a remote host, we can't search for the file, so we can only
+    # use an installed compiler, so we don't add any paths here.
+    if [is3way] {
+	return "[libgloss_script]"
+    }
+    
+    # search for the general directories
+    foreach i ".. ../.. ../../.. ../../../.." {
+	if [file exists ${base_dir}/${i}/${target_alias}/libgloss/${target_cpu} ] {
+	    verbose "Found ${base_dir}/${i}/${target_alias}/libgloss/${target_cpu}." 3
+	    return  "-L${base_dir}/${i}/${target_alias}/libgloss/${target_cpu} [libgloss_script]"
+	}
+    }
+    
+    # we didn't find any support at all
+    return "[libgloss_script]"
+}
+
+#
+# Find the C libraries
+#
+proc newlib_flags { } {
+    global base_dir
+    global srcdir
+    global target_alias
+
+    # if we're on a remote host, we can't search for the file, so use the
+    # newlib already installed.
+    if [is3way] {
+	return ""
+    }
+
+    # search for the general directories
+    foreach i ".. ../.. ../../.. ../../../.." {
+	verbose "Looking for a ${base_dir}/${i}/${target_alias}/newlib/targ-include" 2
+	if [file exists ${base_dir}/${i}/${target_alias}/newlib/targ-include ] {
+	    verbose "Found ${base_dir}/${i}/${target_alias}/newlib/targ-include." 3
+	    set incls1 "-I${base_dir}/${i}/${target_alias}/newlib/targ-include"
+	}
+	verbose "Looking for a ${srcdir}/${i}/newlib/libc/include" 2
+	if [file exists ${srcdir}/${i}/newlib/libc/include ] {
+	    verbose "Found ${srcdir}/${i}/newlib/libc/include." 3
+	    set incls2 "-I${srcdir}/${i}/newlib/libc/include"
+	}
+    }
+
+    # search for the general directories
+    foreach i ".. ../.. ../../.. ../../../.." {
+	verbose "Looking for a ${base_dir}/${i}/newlib" 2
+	if [file exists ${base_dir}/${i}/newlib ] {
+	    verbose "Found ${base_dir}/${i}/newlib." 3
+	    return "-B${base_dir}/${i}/newlib/ ${incls1} ${incls2}"
+	}
+    }
+    return ""
+}
+
+#
+# Find all the pieces of libgloss for testing the GNU development tools
+# needed to use $LD. This gets fun cause we have to guess the name of the
+# BSP for this target. If returns a string suitable to pass to LD to get
+# a fully linked binary for the target. It also sets two global variables,
+# CRT0 is the path to the startup file, and
+# BSP is the path to the support library.
+#
+proc libgloss_ld {} {
+#proc gloss_ld {} {
+    global target_cpu
+    global srcdir
+    global base_dir
+    global CRT0
+    global BSP
+
+    # libgloss doesn't work native
+    if [isnative] {
+	return ""
+    }
+
+#    set ldflags ""
+    # search for the general directories
+    foreach i ".. ../.. ../../.. ../../../.." {
+	if ![info exists gloss_srcdir] {
+	    if [file exists ${srcdir}/$i/libgloss/${target_cpu} ] {
+		verbose "Found ${srcdir}/$i/libgloss/${target_cpu}." 3
+		set gloss_srcdir "$i/libgloss/${target_cpu}"
+	    }
+	}
+	if ![info exists gloss_objdir] {
+	    if [file exists ${base_dir}/$i/libgloss/${target_cpu} ] {
+		verbose "Found ${base_dir}/$i/libgloss/${target_cpu}." 3
+		set gloss_objdir "$i/libgloss/${target_cpu}"
+		append ldflags " -L${gloss_objdir} "
+	    }
+	}
+    }
+
+    # find the crt0
+    if [file exists ${gloss_objdir}/crt0.o] {
+	verbose "Found ${base_dir}/$i/libgloss/${target_cpu}." 3
+	set CRT0 "$i/libgloss/${target_cpu}"
+	append ldflags " ${gloss_objdir}/crt0.o "
+    } else {
+	perror "No crt0.o built for this target"
+    }
+    
+    # find the BSP (currently an object, it may become an archive soon)
+    foreach i "[list_targets]" {
+	if [info exists target_info($i,name}] {
+	    if [file exists ${gloss_objdir}/${target_info}($i,name).o ] {
+		set BSP "${target_info}($i,name).o"
+		append ldflags " -lc -l ${target_info}($i,name).o -lc "
+	    }
+	}
+    }
+    if [expr ![info exists gloss_srcdir] || ![info exists gloss_srcdir]] {
+	warning "No libgloss support in build tree"
+	return ""
+    } else {
+	return "${ldflags}"
+    }
+}

@@ -22,35 +22,21 @@ AuthorizationRef gAuthRef = NULL;
 
 #ifndef NO_CFUserNotification
 
-CFMutableArrayRef gPendedNonsecureKexts = NULL;  // must release
-CFMutableArrayRef gPendedKextloadOperations = NULL;  // must release
-CFMutableArrayRef gScheduledNonsecureKexts = NULL;  // must release
-
-pid_t gFork_pid = -1;
-
-CFUserNotificationRef gSecurityNotification = NULL;  // must release
-CFUserNotificationRef gFailureNotification = NULL;  // must release
-KXKextRef gSecurityAlertKext = NULL;        // don't release
-Boolean gResendSecurityAlertKextPersonalities = false;
-CFOptionFlags gSecurityAlertResponse = 0;
-CFOptionFlags gFailureAlertResponse = 0;
-PTLockRef gUserAuthorizationLock = NULL;               // must release
-Boolean gWaitingForAuthorization = false;
-Boolean gAuthorizationReady = false;
-OSStatus auth_result = errAuthorizationSuccess;
+CFMutableArrayRef gPendedNonsecureKextPaths = NULL;  // must release
+CFMutableDictionaryRef gNotifiedNonsecureKextPaths = NULL;  // must release
+CFRunLoopSourceRef gCurrentNotificationRunLoopSource = NULL;   // must release
+CFUserNotificationRef gCurrentNotification = NULL;   // must release
 
 #endif /* NO_CFUserNotification */
-
-extern char ** environ;
 
 static KXKextManagerError __kextd_load_kext(KXKextRef theKext,
     const char * kmod_name);
 #ifndef NO_CFUserNotification
-static void _kextd_poll_alert_response(void);
-static void _kextd_raise_security_alert(KXKextRef aKext);
-static void _kextd_raise_failure_alert(KXKextRef aKext);
-void _kextd_launch_authorization(void);
-void * _kextd_authorize_user(void * arg);
+extern void kextd_clear_all_notifications(void);
+void kextd_check_notification_queue(void * info);
+void kextd_handle_finished_notification(CFUserNotificationRef userNotification,
+    CFOptionFlags responseFlags);
+static void _kextd_raise_security_notification(CFStringRef kextPath);
 #endif /* NO_CFUserNotification */
 
 extern char * CFURLCopyCString(CFURLRef anURL);
@@ -71,7 +57,7 @@ extern KXKextManagerError _KXKextManagerLoadKextUsingOptions(
     const char * kernel_file,
     const char * patch_dir,
     const char * symbol_dir,
-    Boolean do_load,
+    IOOptionBits load_options,
     Boolean do_start_kext,
     int     interactive_level,
     Boolean ask_overwrite_symbols,
@@ -79,6 +65,17 @@ extern KXKextManagerError _KXKextManagerLoadKextUsingOptions(
     Boolean get_addrs_from_kernel,
     unsigned int num_addresses,
     char ** addresses);
+
+// load_options
+enum 
+{
+    kKXKextManagerLoadNone	= false,
+    kKXKextManagerLoadKernel	= true,
+    kKXKextManagerLoadPrelink	= 2,
+    kKXKextManagerLoadKextd	= 3
+};
+
+#define	KEXTCACHE_COMMAND	"/usr/sbin/kextcache -Flrc"
 
 /*******************************************************************************
 *
@@ -106,14 +103,6 @@ Boolean kextd_launch_kernel_request_thread(void)
         goto finish;
     }
 
-    gUserAuthorizationLock = PTLockCreate();
-    if (!gUserAuthorizationLock) {
-        kextd_error_log("failed to create kernel request queue lock");
-        result = false;
-        goto finish;
-    }
-
-
     pthread_attr_init(&kernel_request_thread_attr);
     pthread_create(&kernel_request_thread,
         &kernel_request_thread_attr,
@@ -127,9 +116,6 @@ finish:
         }
         if (gRunLoopSourceLock) {
             PTLockFree(gRunLoopSourceLock);
-        }
-        if (gUserAuthorizationLock) {
-            PTLockFree(gUserAuthorizationLock);
         }
     }
 
@@ -309,8 +295,27 @@ void kextd_handle_kernel_request(void * info)
         free(load_request);
 
         if (kmod_name) {
-            kextd_load_kext(kmod_name, NULL);
+	    KXKextManagerError load_result;
+	    static boolean_t have_signalled_load = FALSE;
+
+            kextd_load_kext(kmod_name, &load_result);
             free(kmod_name);
+
+	    if ((load_result == kKXKextManagerErrorNone ||
+		    load_result == kKXKextManagerErrorAlreadyLoaded)
+		    && !have_signalled_load
+		    && (getppid() > 1)) {
+		// ppid == 1 => parent is no longer waiting
+		have_signalled_load = TRUE;
+		int ret;
+		if (g_verbose_level >= 1) {
+		    kextd_log("running kextcache");
+		}
+		ret = system(KEXTCACHE_COMMAND);
+		if (ret != 0) {
+		    kextd_error_log("kextcache exec(%d)", ret);
+		}
+	    }
         }
 
         PTLockTakeLock(gKernelRequestQueueLock);
@@ -419,7 +424,7 @@ static KXKextManagerError __kextd_load_kext(KXKextRef theKext,
 
     load_result = _KXKextManagerPrepareKextForLoading(
         gKextManager, theKext, NULL /* kext_name */,
-        true /* check loaded for dependencies */, true /* do_load */,
+        false /* check loaded for dependencies */, true /* do_load */,
         inauthenticKexts);
 
     if (load_result == kKXKextManagerErrorCache) {
@@ -439,41 +444,34 @@ static KXKextManagerError __kextd_load_kext(KXKextRef theKext,
 
     } else if (load_result == kKXKextManagerErrorAuthentication) {
 
-        if (logged_in_uid == -1) {
-            CFIndex count, i;
-            Boolean addIt = true;
-
-            count = CFArrayGetCount(gPendedNonsecureKexts);
-            for (i = 0; i < count; i++) {
-                KXKextRef scanKext = (KXKextRef)
-                    CFArrayGetValueAtIndex(gPendedNonsecureKexts, i);
-
-                if (scanKext == theKext) {
-                    addIt = false;
-                    break;
+        inauthentic_kext_count = CFArrayGetCount(inauthenticKexts);
+        if (inauthentic_kext_count) {
+            for (k = 0; k < inauthentic_kext_count; k++) {
+                KXKextRef thisKext = (KXKextRef)CFArrayGetValueAtIndex(
+                    inauthenticKexts, k);
+                CFStringRef kextPath = NULL; // must release
+                kextPath = KXKextCopyAbsolutePath(thisKext);
+                if (!kextPath) {
+                    load_result = kKXKextManagerErrorNoMemory;
+                    goto finish;
                 }
-            }
-            if (addIt) {
-                CFArrayAppendValue(gPendedNonsecureKexts, theKext);
-            }
-            goto post_load;
-
-        } else {
-
-            inauthentic_kext_count = CFArrayGetCount(inauthenticKexts);
-            if (inauthentic_kext_count) {
-                for (k = 0; k < inauthentic_kext_count; k++) {
-                    KXKextRef thisKext = (KXKextRef)CFArrayGetValueAtIndex(
-                        inauthenticKexts, k);
-                    CFArrayAppendValue(gScheduledNonsecureKexts, thisKext);
+                if (!CFDictionaryGetValue(gNotifiedNonsecureKextPaths, kextPath)) {
+                    CFArrayAppendValue(gPendedNonsecureKextPaths, kextPath);
+                    CFDictionarySetValue(gNotifiedNonsecureKextPaths, kextPath,
+                        kCFBooleanTrue);
                 }
-                PTLockTakeLock(gRunLoopSourceLock);
-                CFRunLoopSourceSignal(gNonsecureKextRunLoopSource);
-                CFRunLoopWakeUp(gMainRunLoop);
-                PTLockUnlock(gRunLoopSourceLock);
-                goto post_load;
+                if (kextPath) {
+                    CFRelease(kextPath);
+                    kextPath = NULL;
+                }
             }
         }
+
+        if (logged_in_uid != -1) {
+            CFRunLoopSourceSignal(gNotificationQueueRunLoopSource);
+            CFRunLoopWakeUp(gMainRunLoop);
+        }
+        goto post_load;
 
 #endif /* NO_CFUserNotification */
 
@@ -488,7 +486,7 @@ static KXKextManagerError __kextd_load_kext(KXKextRef theKext,
         g_kernel_file, // kernel file
         g_patch_dir,
         g_symbol_dir,
-        true,  // do load
+        kKXKextManagerLoadKextd,     // load_options
         true,  // call the start routine
         false, // not interactive; don't confirm each load stage
         false, // not interactive; don't ask to overwrite symbols
@@ -511,6 +509,7 @@ post_load:
             kextd_error_log("failed to notify IOCatalogue that %s loaded",
                 kmod_name);
         }
+
         goto finish;
     }
 
@@ -530,75 +529,6 @@ finish:
     if (inauthenticKexts) CFRelease(inauthenticKexts);
     return load_result;
 }
-
-/*******************************************************************************
-*
-*******************************************************************************/
-#ifndef NO_CFUserNotification
-
-void kextd_resend_nonsecure_personalities(void)
-{
-    CFMutableArrayRef allKextPersonalities = NULL;  // must release
-    CFArrayRef thisKextPersonalities = NULL;        // must release
-    CFIndex inauthentic_kext_count = 0;
-    CFIndex k;
-
-   /* First send personalities down for all pended nonsecure kexts.
-    */
-    allKextPersonalities = CFArrayCreateMutable(kCFAllocatorDefault,
-        0, &kCFTypeArrayCallBacks);
-    if (!allKextPersonalities) {
-        goto finish;
-    }
-
-    inauthentic_kext_count = CFArrayGetCount(gPendedNonsecureKexts);
-    if (inauthentic_kext_count && logged_in_uid != -1) {
-
-        for (k = 0; k < inauthentic_kext_count; k++) {
-            KXKextRef thisKext = (KXKextRef)CFArrayGetValueAtIndex(
-                gPendedNonsecureKexts, k);
-
-            if (thisKextPersonalities) {
-                CFRelease(thisKextPersonalities);
-                thisKextPersonalities = NULL;
-            }
-
-            thisKextPersonalities = KXKextCopyPersonalitiesArray(thisKext);
-            if (!thisKextPersonalities) {
-                goto finish;
-            }
-
-            CFArrayAppendArray(allKextPersonalities, thisKextPersonalities,
-                CFRangeMake(0, CFArrayGetCount(thisKextPersonalities)));
-            KXKextManagerRequalifyKext(gKextManager, thisKext);
-        }
-    }
-
-    CFArrayRemoveAllValues(gPendedNonsecureKexts);
-
-    if (KXKextManagerSendPersonalitiesToCatalog(gKextManager,
-           allKextPersonalities) != kKXKextManagerErrorNone) {
-
-        kextd_error_log("can't send kext personalities to kernel");
-        goto finish;
-    }
-
-   /* Now schedule all pended nonsecure kext load operations to be redone.
-    */
-    PTLockTakeLock(gRunLoopSourceLock);
-    CFRunLoopSourceSignal(gNonsecureKextRunLoopSource);
-    CFRunLoopWakeUp(gMainRunLoop);
-    PTLockUnlock(gRunLoopSourceLock);
-
-finish:
-
-    if (thisKextPersonalities) CFRelease(thisKextPersonalities);
-    if (allKextPersonalities)  CFRelease(allKextPersonalities);
-
-    return;
-}
-
-#endif /* NO_CFUserNotification */
 
 /*******************************************************************************
 * This function is executed in the main thread after its run loop gets
@@ -876,18 +806,12 @@ kern_return_t _kextmanager_user_did_log_in(
 
     logged_in_uid = euid;
 
-    if (AuthorizationCreateFromExternalForm(&authref,
-	    &gAuthRef) != errAuthorizationSuccess) {
-
-        result = KERN_FAILURE;
-        goto finish;
-    }
-
 #ifndef NO_CFUserNotification
-    kextd_resend_nonsecure_personalities();
-#endif /* NO_CFUserNotification */
+    CFRunLoopSourceSignal(gNotificationQueueRunLoopSource);
+    CFRunLoopWakeUp(gMainRunLoop);
+#endif NO_CFUserNotification
 
-finish:
+//finish:
 
     gClientUID = -1;
 
@@ -904,34 +828,146 @@ kern_return_t _kextmanager_user_will_log_out(
 {
     kern_return_t result = KERN_SUCCESS;
 
-   /* Drop any panels awaiting user input.
-    */
-    if (gSecurityNotification) {
-        CFUserNotificationCancel(gSecurityNotification);
-        CFRelease(gSecurityNotification);
-        gSecurityNotification = NULL;
-    }
-    if (gFailureNotification) {
-        CFUserNotificationCancel(gFailureNotification);
-        CFRelease(gFailureNotification);
-        gFailureNotification = NULL;
-    }
-    gSecurityAlertKext = NULL;
-    gResendSecurityAlertKextPersonalities = false;
+#ifndef NO_CFUserNotification
+    kextd_clear_all_notifications();
+#endif NO_CFUserNotification
 
-    PTLockTakeLock(gUserAuthorizationLock);
-    gWaitingForAuthorization = false;
-    gAuthorizationReady = false;
-    PTLockUnlock(gUserAuthorizationLock);
-
-    if (gAuthRef) {
-        AuthorizationFree(gAuthRef, 0);
-        gAuthRef = NULL;
-    }
     logged_in_uid = -1;
     gClientUID = -1;
 
     return result;
+}
+
+#ifndef NO_CFUserNotification
+
+/*******************************************************************************
+*
+*******************************************************************************/
+void kextd_check_notification_queue(void * info)
+{
+    CFStringRef kextPath = NULL;  // do not release
+
+    if (logged_in_uid == -1) {
+        return;
+    }
+
+    if (gCurrentNotificationRunLoopSource) {
+        return;
+    }
+
+    if (CFArrayGetCount(gPendedNonsecureKextPaths)) {
+        kextPath = (CFStringRef)CFArrayGetValueAtIndex(gPendedNonsecureKextPaths, 0);
+        _kextd_raise_security_notification(kextPath);
+        CFArrayRemoveValueAtIndex(gPendedNonsecureKextPaths, 0);
+    }
+
+//finish:
+
+    return;
+}
+
+/*******************************************************************************
+*
+*******************************************************************************/
+void kextd_handle_finished_notification(CFUserNotificationRef userNotification,
+    CFOptionFlags responseFlags)
+{
+
+    if (gCurrentNotification) {
+        CFRelease(gCurrentNotification);
+        gCurrentNotification = NULL;
+    }
+
+    if (gCurrentNotificationRunLoopSource) {
+        CFRunLoopRemoveSource(gMainRunLoop, gCurrentNotificationRunLoopSource,
+            kCFRunLoopDefaultMode);
+        CFRelease(gCurrentNotificationRunLoopSource);
+        gCurrentNotificationRunLoopSource = NULL;
+    }
+
+    CFRunLoopSourceSignal(gNotificationQueueRunLoopSource);
+    CFRunLoopWakeUp(gMainRunLoop);
+
+    return;
+}
+
+/*******************************************************************************
+*
+*******************************************************************************/
+static void _kextd_raise_security_notification(CFStringRef kextPath)
+{
+    CFMutableDictionaryRef alertDict = NULL;  // must release
+    CFMutableArrayRef alertMessageArray = NULL; // must release
+    CFURLRef iokitFrameworkBundleURL = NULL;  // must release
+    SInt32 userNotificationError = 0;
+
+    alertDict = CFDictionaryCreateMutable(
+        kCFAllocatorDefault, 0,
+        &kCFTypeDictionaryKeyCallBacks,
+        &kCFTypeDictionaryValueCallBacks);
+    if (!alertDict) {
+        goto finish;
+    }
+
+    iokitFrameworkBundleURL = CFURLCreateWithFileSystemPath(
+        kCFAllocatorDefault,
+        CFSTR("/System/Library/Frameworks/IOKit.framework"),
+        kCFURLPOSIXPathStyle, true);
+    if (!iokitFrameworkBundleURL) {
+        goto finish;
+    }
+
+    alertMessageArray = CFArrayCreateMutable(kCFAllocatorDefault, 0,
+        &kCFTypeArrayCallBacks);
+    if (!alertMessageArray) {
+        goto finish;
+    }
+
+   /* This is the localized format string for the alert message.
+    */
+    CFArrayAppendValue(alertMessageArray,
+        CFSTR("The system extension \""));
+    CFArrayAppendValue(alertMessageArray, kextPath);
+    CFArrayAppendValue(alertMessageArray,
+        CFSTR("\" was installed improperly and cannot be used. "
+              "Please try reinstalling it, or contact the product's vendor "
+              "for an update."));
+
+    CFDictionarySetValue(alertDict, kCFUserNotificationLocalizationURLKey,
+        iokitFrameworkBundleURL);
+    CFDictionarySetValue(alertDict, kCFUserNotificationAlertHeaderKey,
+        CFSTR("System extension cannot be used."));
+    CFDictionarySetValue(alertDict, kCFUserNotificationDefaultButtonTitleKey,
+        CFSTR("OK"));
+    CFDictionarySetValue(alertDict, kCFUserNotificationAlertMessageKey,
+        alertMessageArray);
+
+    gCurrentNotification = CFUserNotificationCreate(kCFAllocatorDefault,
+        0 /* time interval */, kCFUserNotificationCautionAlertLevel,
+        &userNotificationError, alertDict);
+    if (!gCurrentNotification) {
+        kextd_error_log(
+            "error creating user notification (%d)", userNotificationError);
+        goto finish;
+    }
+
+     gCurrentNotificationRunLoopSource = CFUserNotificationCreateRunLoopSource(
+         kCFAllocatorDefault, gCurrentNotification,
+         &kextd_handle_finished_notification, 5 /* FIXME: cheesy! */);
+    if (!gCurrentNotificationRunLoopSource) {
+        CFRelease(gCurrentNotification);
+        gCurrentNotification = NULL;
+    }
+    CFRunLoopAddSource(gMainRunLoop, gCurrentNotificationRunLoopSource,
+        kCFRunLoopDefaultMode);
+
+finish:
+
+    if (alertDict)               CFRelease(alertDict);
+    if (alertMessageArray)       CFRelease(alertMessageArray);
+    if (iokitFrameworkBundleURL) CFRelease(iokitFrameworkBundleURL);
+
+    return;
 }
 
 /*******************************************************************************
@@ -951,286 +987,6 @@ kern_return_t _kextmanager_get_logged_in_userid(
     return result;
 }
 
-/*******************************************************************************
-* This function is executed in the main thread after its run loop gets
-* kicked by a client request.
-*******************************************************************************/
-#ifndef NO_CFUserNotification
-
-void kextd_handle_pended_kextload(void * info)
-{
-    CFDictionaryRef loadDataDict = NULL;  // must release
-    CFDataRef loadData = NULL; // must release
-    CFDataRef dataValue = NULL;   // scratch value, don't release
-    const char * data_value = NULL;     // scratch value, don't free
-    CFArrayRef argvArray = NULL;  // don't release, from loadDataDict
-    CFStringRef errorString = NULL;  // must release
-    Boolean scheduleAnother = false;
-    Boolean waitingForAuthorization = false;
-    Boolean authorizationReady = false;
-    FILE *ext_auth_mbox = NULL;
-    char *kextd_ext_auth_env = NULL;
-
-    PTLockTakeLock(gUserAuthorizationLock);
-    waitingForAuthorization = gWaitingForAuthorization;
-    authorizationReady = gAuthorizationReady;
-    PTLockUnlock(gUserAuthorizationLock);
-
-    if (gFork_pid != -1) {
-
-        pid_t wait_pid;
-        int status = 0;  // always clear status before calling wait!
-
-        wait_pid = waitpid(gFork_pid, &status, WUNTRACED | WNOHANG);
-        if (wait_pid) {
-            gFork_pid = -1;
-
-            if (WIFEXITED(status)) {
-                /* do nothing, just checking it's ok */
-            } else if (WIFSIGNALED(status)) {
-                kextd_error_log("forked kextload task exited by signal (%d)",
-                    WTERMSIG(status));
-            } else if (WIFSTOPPED(status)) {
-                kextd_error_log("forked kextload load task has stopped");
-            } else {
-                kextd_error_log("unknown result from forked kextload task");
-            }
-        }
-
-       /* Ping the pended kextload run loop source in case there are
-        * any more ops.
-        */
-        sleep(1);  // don't spin too fast
-        scheduleAnother = true;
-
-    } else if (logged_in_uid != -1 && waitingForAuthorization) {
-
-       /* Wait for a pending authorization doing anything following.
-        */
-        sleep(1);  // don't spin too fast
-        scheduleAnother = true;
-
-    } else if (logged_in_uid != -1 && (authorizationReady || 
-        gSecurityNotification || gFailureNotification) ) {
-
-       /* Wait for an a finished authorization or pending alert to complete
-        * before running kextload, which puts up the same authorization/alert.
-        */
-        _kextd_poll_alert_response();
-        scheduleAnother = true;
-
-    } else if (gSecurityAlertKext && gResendSecurityAlertKextPersonalities) {
-
-        KXKextManagerSendKextPersonalitiesToCatalog(
-            gKextManager, gSecurityAlertKext, NULL, false /* interactive */,
-            KXKextManagerGetSafeBootMode(gKextManager));
-
-        gSecurityAlertKext = NULL;
-        gResendSecurityAlertKextPersonalities = false;
-        scheduleAnother = true;
-
-    } else  if (CFArrayGetCount(gScheduledNonsecureKexts) && logged_in_uid != -1) {
-
-        KXKextRef thisKext = NULL;  // don't release
-        thisKext = (KXKextRef)CFArrayGetValueAtIndex(gScheduledNonsecureKexts, 0);
-        if (!thisKext) {
-            scheduleAnother = true;
-            goto finish;
-        }
-        CFArrayRemoveValueAtIndex(gScheduledNonsecureKexts, 0);
-
-       /* The kext might have been fixed in a prior go through the run loop.
-        */
-        if (KXKextIsAuthentic(thisKext)) {
-            scheduleAnother = true;
-            goto finish;
-        }
-        _kextd_raise_security_alert(thisKext);
-        scheduleAnother = true;
-
-    } else if (CFArrayGetCount(gPendedKextloadOperations) && logged_in_uid != -1) {
-
-        const char * working_dir = NULL;  // don't free
-        int k_argc = 0;
-        AuthorizationExternalForm auth_ext_form;
-
-       /* Handle any single pended load from kextload.
-        */
-        loadData = (CFDataRef)CFArrayGetValueAtIndex(
-            gPendedKextloadOperations, 0);
-        if (loadData) {
-            CFRetain(loadData);
-            CFArrayRemoveValueAtIndex(gPendedKextloadOperations, 0);
-        } else {
-            kextd_error_log("can't get pended kextload operation data");
-            scheduleAnother = true;
-            goto finish;
-        }
-
-        gFork_pid = -1;
-
-        loadDataDict = CFPropertyListCreateFromXMLData(
-            kCFAllocatorDefault, loadData,
-            kCFPropertyListImmutable, &errorString);
-        if (!loadDataDict) {
-            if (errorString) {
-                CFIndex length = CFStringGetLength(errorString);
-                char * error_string = (char *)malloc((1+length) * sizeof(char));
-                if (!error_string) {
-                    goto finish;
-                }
-                if (CFStringGetCString(errorString, error_string,
-                    length, kCFStringEncodingMacRoman)) {
-                    kextd_error_log("error reading kextload operation data: %s",
-                        error_string);
-                } else {
-                    kextd_error_log(
-                        "unknown error reading kextload operation data");
-                }
-                free(error_string);
-            }
-            goto finish;
-        }
-
-        dataValue = (CFDataRef)CFDictionaryGetValue(loadDataDict,
-            CFSTR("workingDir"));
-        if (!dataValue) {
-            goto finish;
-        }
-        working_dir = CFDataGetBytePtr(dataValue);
-        // don't release working_dir
-
-        argvArray = (CFArrayRef)CFDictionaryGetValue(loadDataDict,
-            CFSTR("argv"));
-        if (!argvArray) {
-            goto finish;
-        }
-        k_argc = CFArrayGetCount(argvArray);
-        if (k_argc <= 1) {
-            goto finish;
-        }
-        
-        if (errAuthorizationSuccess == AuthorizationMakeExternalForm(gAuthRef, &auth_ext_form))
-        {
-            do {
-                ext_auth_mbox = tmpfile();
-                if (!ext_auth_mbox)
-                    break;
-                if (fwrite(&auth_ext_form, sizeof(auth_ext_form), 1, ext_auth_mbox) != 1)
-                {
-                    fclose(ext_auth_mbox); 
-                    break;
-                }
-                fflush(ext_auth_mbox);
-                asprintf(&kextd_ext_auth_env, "KEXTD_AUTHORIZATION=%d", fileno(ext_auth_mbox));
-            } while (0);
-        }
-
-
-        gFork_pid = fork();
-        if (gFork_pid < 0) {
-            kextd_error_log("can't fork child process to run kextload");
-            gFork_pid = -1;
-            goto finish;
-        } else if (gFork_pid == 0) {
-            // child
-            char ** k_argv = NULL;      // must free
-            char kextd_launch[100];     // WARNING: Fixed-length buffer!
-            int env_length = 0;
-            char ** envp = NULL;
-            char ** envp_copy = NULL;
-            char ** kextload_env = NULL; // must free
-            int i;
-
-           /* Set up argv.
-            */
-            k_argv = (char **)malloc((1 + k_argc) * sizeof(char *));
-            if (!k_argv) {
-                kextd_error_log("can't build argv array for kextload");
-                exit(-1);
-            }
-
-            bzero(k_argv, (1 + k_argc) * sizeof(char *));
-
-            for (i = 0; i < k_argc; i++) {
-                dataValue = (CFDataRef)CFArrayGetValueAtIndex(argvArray, i);
-                data_value = CFDataGetBytePtr(dataValue);
-                k_argv[i] = (char *)data_value;
-            }
-
-           /* Set up the environment.
-            */
-            for (env_length = 0, envp = environ; *envp; envp++) {
-                env_length++;
-            }
-            env_length++;  // add 1 for KEXT_LAUNCH_USERID
-            if (ext_auth_mbox >= 0)
-                env_length++;  // add 1 for KEXT_AUTHORIZATION
-            env_length++;  // add 1 for terminating NULL
-
-            kextload_env = (char **)malloc(env_length * sizeof(char *));
-            if (!kextload_env) {
-                kextd_error_log("can't build environment for kextload");
-                exit(-1);
-            }
-
-            bzero(kextload_env, env_length * sizeof(char *));
-
-            for (envp = environ, envp_copy = kextload_env;
-                 *envp; envp++, envp_copy++) {
-
-                *envp_copy = *envp;
-            }
-
-            sprintf(kextd_launch, "KEXTD_LAUNCH_USERID=%d", logged_in_uid);
-            *envp_copy++ = kextd_launch;
-            if (kextd_ext_auth_env)
-                *envp_copy++ = kextd_ext_auth_env;
-            *envp_copy++ = NULL;
-
-            if (execve(k_argv[0], k_argv, kextload_env) == -1) {
-                kextd_error_log("can't exec kextload (%s)", strerror(errno));
-                exit(-1);  // exit the child immediately
-            }
-            if (k_argv) {
-                free(k_argv);
-                k_argv = NULL;
-            }
-            if (kextload_env) {
-                free(kextload_env);
-                kextload_env = NULL;
-            }
-
-        } else {
-            // parent; schedule a call to waitpid() later through the run loop
-            scheduleAnother = true;
-            goto finish;
-        }
-    }
-
-finish:
-
-    if (ext_auth_mbox)
-        fclose(ext_auth_mbox);
-    if (kextd_ext_auth_env) {
-        free(kextd_ext_auth_env);
-        kextd_ext_auth_env = NULL;
-    }
-
-    if (loadData)     CFRelease(loadData);
-    if (loadDataDict) CFRelease(loadDataDict);
-    if (errorString)  CFRelease(errorString);
-
-    if (scheduleAnother) {
-        PTLockTakeLock(gRunLoopSourceLock);
-        CFRunLoopSourceSignal(gNonsecureKextRunLoopSource);
-        CFRunLoopWakeUp(gMainRunLoop);
-        PTLockUnlock(gRunLoopSourceLock);
-    }
-
-    return;
-}
-
 #endif /* NO_CFUserNotification */
 
 /*******************************************************************************
@@ -1243,334 +999,36 @@ kern_return_t _kextmanager_record_nonsecure_kextload(
 {
     kern_return_t result = KERN_SUCCESS;
 #ifndef NO_CFUserNotification
-    CFDataRef loadData = NULL;  // must release
+    CFStringRef kextPath = NULL; // must release
 
-    loadData = CFDataCreate(kCFAllocatorDefault, load_data, load_data_length);
-    if (!loadData) {
+    kextPath = CFStringCreateWithCString(kCFAllocatorDefault, load_data,
+        kCFStringEncodingMacRoman);
+    if (!kextPath) {
         result = KERN_FAILURE;
         goto finish;
     }
 
-    CFArrayAppendValue(gPendedKextloadOperations, loadData);
+    if (!CFDictionaryGetValue(gNotifiedNonsecureKextPaths, kextPath)) {
+        CFArrayAppendValue(gPendedNonsecureKextPaths, kextPath);
+        CFDictionarySetValue(gNotifiedNonsecureKextPaths, kextPath,
+            kCFBooleanTrue);
+    }
 
+    if (logged_in_uid != -1) {
+        CFRunLoopSourceSignal(gNotificationQueueRunLoopSource);
+        CFRunLoopWakeUp(gMainRunLoop);
+    }
+
+#else
+    result = KERN_FAILURE;
 #endif /* NO_CFUserNotification */
 
 
 finish:
 
 #ifndef NO_CFUserNotification
-    if (loadData) CFRelease(loadData);
+    if (kextPath) CFRelease(kextPath);
 #endif /* NO_CFUserNotification */
     gClientUID = -1;
     return result;
 }
-
-#ifndef NO_CFUserNotification
-
-/*******************************************************************************
-*
-*******************************************************************************/
-static void _kextd_raise_security_alert(KXKextRef aKext)
-{
-    CFMutableDictionaryRef alertDict = NULL;  // must release
-    CFMutableArrayRef alertMessageArray = NULL; // must release
-    CFURLRef iokitFrameworkBundleURL = NULL;  // must release
-    SInt32 userNotificationError = 0;
-
-    gResendSecurityAlertKextPersonalities = false;
-
-    alertDict = CFDictionaryCreateMutable(
-        kCFAllocatorDefault, 0,
-        &kCFTypeDictionaryKeyCallBacks,
-        &kCFTypeDictionaryValueCallBacks);
-    if (!alertDict) {
-        goto finish;
-    }
-
-    iokitFrameworkBundleURL = CFURLCreateWithFileSystemPath(
-        kCFAllocatorDefault,
-        CFSTR("/System/Library/Frameworks/IOKit.framework"),
-        kCFURLPOSIXPathStyle, true);
-    if (!iokitFrameworkBundleURL) {
-        goto finish;
-    }
-
-    alertMessageArray = CFArrayCreateMutable(kCFAllocatorDefault, 0,
-        &kCFTypeArrayCallBacks);
-    if (!alertMessageArray) {
-        goto finish;
-    }
-
-   /* This is the localized format string for the alert message.
-    */
-    CFArrayAppendValue(alertMessageArray,
-        CFSTR("The file \""));
-    CFArrayAppendValue(alertMessageArray, KXKextGetBundleDirectoryName(aKext));
-    CFArrayAppendValue(alertMessageArray,
-        CFSTR("\" has problems that may reduce the security of "
-            "your computer. You should contact the manufacturer of the "
-            "product you are using for a new version. If you are sure the "
-            "file is OK, you can allow the application to use it, or fix "
-            "it and then use it. If you click Don't Use, any other files "
-            "that depend on this file will not be used."));
-
-    CFDictionarySetValue(alertDict, kCFUserNotificationLocalizationURLKey,
-        iokitFrameworkBundleURL);
-    CFDictionarySetValue(alertDict, kCFUserNotificationAlertHeaderKey,
-        CFSTR("The program you are using needs to use a system file that may "
-              "reduce the security of your computer."));
-    CFDictionarySetValue(alertDict, kCFUserNotificationDefaultButtonTitleKey,
-        CFSTR("Don't Use"));
-    CFDictionarySetValue(alertDict, kCFUserNotificationAlternateButtonTitleKey,
-        CFSTR("Fix and Use"));
-    CFDictionarySetValue(alertDict, kCFUserNotificationOtherButtonTitleKey,
-        CFSTR("Use"));
-    CFDictionarySetValue(alertDict, kCFUserNotificationAlertMessageKey,
-        alertMessageArray);
-
-    gSecurityAlertResponse = 0;
-
-    gSecurityNotification = CFUserNotificationCreate(kCFAllocatorDefault,
-        0 /* time interval */, kCFUserNotificationCautionAlertLevel,
-        &userNotificationError, alertDict);
-    if (!gSecurityNotification) {
-        kextd_error_log(
-            "error creating user notification (%d)", userNotificationError);
-        goto finish;
-    }
-
-    gSecurityAlertKext = aKext;
-
-    PTLockTakeLock(gRunLoopSourceLock);
-    CFRunLoopSourceSignal(gNonsecureKextRunLoopSource);
-    CFRunLoopWakeUp(gMainRunLoop);
-    PTLockUnlock(gRunLoopSourceLock);
-
-finish:
-
-    if (alertDict)               CFRelease(alertDict);
-    if (alertMessageArray)       CFRelease(alertMessageArray);
-    if (iokitFrameworkBundleURL) CFRelease(iokitFrameworkBundleURL);
-
-    return;
-}
-
-/*******************************************************************************
-*
-*******************************************************************************/
-static void _kextd_raise_failure_alert(KXKextRef aKext)
-{
-    CFMutableDictionaryRef alertDict = NULL;  // must release
-    CFMutableArrayRef alertMessageArray = NULL; // must release
-    CFURLRef iokitFrameworkBundleURL = NULL;  // must release
-    SInt32 userNotificationError = 0;
-
-    alertDict = CFDictionaryCreateMutable(
-        kCFAllocatorDefault, 0,
-        &kCFTypeDictionaryKeyCallBacks,
-        &kCFTypeDictionaryValueCallBacks);
-    if (!alertDict) {
-        goto finish;
-    }
-
-    iokitFrameworkBundleURL = CFURLCreateWithFileSystemPath(
-        kCFAllocatorDefault,
-        CFSTR("/System/Library/Frameworks/IOKit.framework"),
-        kCFURLPOSIXPathStyle, true);
-    if (!iokitFrameworkBundleURL) {
-        goto finish;
-    }
-
-    alertMessageArray = CFArrayCreateMutable(kCFAllocatorDefault, 0,
-        &kCFTypeArrayCallBacks);
-    if (!alertMessageArray) {
-        goto finish;
-    }
-
-   /* This is the localized format string for the alert message.
-    */
-    CFArrayAppendValue(alertMessageArray,
-        CFSTR("The file \""));
-    CFArrayAppendValue(alertMessageArray, KXKextGetBundleDirectoryName(aKext));
-    CFArrayAppendValue(alertMessageArray,
-        CFSTR("\" could not be fixed, but it will be used anyway."));
-    CFDictionarySetValue(alertDict, kCFUserNotificationLocalizationURLKey,
-        iokitFrameworkBundleURL);
-    CFDictionarySetValue(alertDict, kCFUserNotificationAlertHeaderKey,
-        CFSTR("File Access Error"));
-    CFDictionarySetValue(alertDict, kCFUserNotificationDefaultButtonTitleKey,
-        CFSTR("OK"));
-    CFDictionarySetValue(alertDict, kCFUserNotificationAlertMessageKey,
-        alertMessageArray);
-
-    gFailureAlertResponse = 0;
-
-    gFailureNotification = CFUserNotificationCreate(kCFAllocatorDefault,
-        0 /* time interval */, kCFUserNotificationCautionAlertLevel,
-        &userNotificationError, alertDict);
-    if (!gFailureNotification) {
-        kextd_error_log(
-            "error creating user notification (%d)", userNotificationError);
-        goto finish;
-    }
-
-    PTLockTakeLock(gRunLoopSourceLock);
-    CFRunLoopSourceSignal(gNonsecureKextRunLoopSource);
-    CFRunLoopWakeUp(gMainRunLoop);
-    PTLockUnlock(gRunLoopSourceLock);
-
-finish:
-
-    if (alertDict)               CFRelease(alertDict);
-    if (alertMessageArray)       CFRelease(alertMessageArray);
-    if (iokitFrameworkBundleURL) CFRelease(iokitFrameworkBundleURL);
-
-    return;
-}
-
-/*******************************************************************************
-*
-*******************************************************************************/
-static void _kextd_poll_alert_response(void)
-{
-    int userNotificationResult = 0;
-    Boolean authorizationReady = false;
-
-    PTLockTakeLock(gUserAuthorizationLock);
-    authorizationReady = gAuthorizationReady;
-    PTLockUnlock(gUserAuthorizationLock);
-
-    if (authorizationReady && gSecurityAlertKext) {
-        PTLockTakeLock(gUserAuthorizationLock);
-        gWaitingForAuthorization = false;
-        gAuthorizationReady = false;
-        PTLockUnlock(gUserAuthorizationLock);
-
-        if (auth_result != errAuthorizationSuccess) {
-            gResendSecurityAlertKextPersonalities = false;
-            gSecurityAlertKext = NULL;
-            goto finish;
-        }
-
-       KXKextManagerRequalifyKext(gKextManager, gSecurityAlertKext);
-
-       if (gSecurityAlertResponse == kCFUserNotificationAlternateResponse) {
-            KXKextManagerError makeSecureResult = _KXKextMakeSecure(gSecurityAlertKext);
-
-            if (makeSecureResult == kKXKextManagerErrorNone) {
-                gResendSecurityAlertKextPersonalities = true;
-            } else if (makeSecureResult == kKXKextManagerErrorFileAccess) {
-                KXKextMarkAuthentic(gSecurityAlertKext);
-                _kextd_raise_failure_alert(gSecurityAlertKext);
-            } else {
-                gSecurityAlertKext = NULL;
-            }
-            goto finish;
-        } else if (gSecurityAlertResponse == kCFUserNotificationOtherResponse) {
-            KXKextMarkAuthentic(gSecurityAlertKext);
-            gResendSecurityAlertKextPersonalities = true;
-            goto finish;
-        }
-
-    } else if (gFailureNotification && gSecurityAlertKext) {
-
-        userNotificationResult = CFUserNotificationReceiveResponse(
-            gFailureNotification, 1, &gFailureAlertResponse);
-
-        if (userNotificationResult != 0) {
-            // still waiting....
-            goto finish;
-        } else {
-            gResendSecurityAlertKextPersonalities = true;
-            CFRelease(gFailureNotification);
-            gFailureNotification = NULL;
-        }
-
-    } else if (gSecurityNotification && gSecurityAlertKext) {
-
-        userNotificationResult = CFUserNotificationReceiveResponse(
-            gSecurityNotification, 1, &gSecurityAlertResponse);
-
-        if (userNotificationResult != 0) {
-            // still waiting....
-            goto finish;
-        } else {
-            CFRelease(gSecurityNotification);
-            gSecurityNotification = NULL;
-        }
-
-        if (gSecurityAlertResponse == kCFUserNotificationDefaultResponse) {
-            // The default response is to not load the kext.
-            gResendSecurityAlertKextPersonalities = false;
-            gSecurityAlertKext = NULL;
-            goto finish;
-        } else if (gSecurityAlertResponse == kCFUserNotificationAlternateResponse ||
-                   gSecurityAlertResponse == kCFUserNotificationOtherResponse) {
-
-            PTLockTakeLock(gUserAuthorizationLock);
-            gWaitingForAuthorization = true;
-            gAuthorizationReady = false;
-            PTLockUnlock(gUserAuthorizationLock);
-
-            _kextd_launch_authorization();
-        }
-    }
-
-finish:
-    return;
-}
-
-/*******************************************************************************
-*
-*******************************************************************************/
-void _kextd_launch_authorization(void)
-{
-    pthread_attr_t auth_thread_attr;
-    pthread_t      auth_request_thread;
-
-    pthread_attr_init(&auth_thread_attr);
-    pthread_create(&auth_request_thread,
-        &auth_thread_attr,
-        _kextd_authorize_user, NULL);
-    pthread_detach(auth_request_thread);
-}
-
-/*******************************************************************************
-*
-*******************************************************************************/
-void * _kextd_authorize_user(void * arg)
-{
-    uid_t real_euid = geteuid();
-    AuthorizationItem fixkextright = { "system.kext.make_secure", 0,
-        NULL, 0 };
-    const AuthorizationItemSet fixkextrightset = { 1, &fixkextright };
-    int flags = kAuthorizationFlagExtendRights |
-        kAuthorizationFlagInteractionAllowed;
-
-    if (seteuid(logged_in_uid) != 0) {
-        kextd_error_log("call to seteuid() failed");
-        auth_result = errAuthorizationDenied;
-        PTLockTakeLock(gUserAuthorizationLock);
-        gWaitingForAuthorization = false;
-        gAuthorizationReady = true;
-        PTLockUnlock(gUserAuthorizationLock);
-        goto finish;  // okay to do this, no lock is held
-    }
-
-    auth_result = AuthorizationCopyRights(gAuthRef, &fixkextrightset,
-        NULL, flags, NULL);
-
-    seteuid(real_euid);
-
-    PTLockTakeLock(gUserAuthorizationLock);
-    gWaitingForAuthorization = false;
-    gAuthorizationReady = true;
-    PTLockUnlock(gUserAuthorizationLock);
-
-finish:
-
-    pthread_exit(NULL);
-    return NULL;
-}
-
-#endif /* NO_CFUserNotification */

@@ -1,9 +1,9 @@
 /*
- * "$Id: cancel.c,v 1.1.1.3 2002/06/06 22:13:20 jlovell Exp $"
+ * "$Id: cancel.c,v 1.1.1.11 2003/04/29 00:15:18 jlovell Exp $"
  *
  *   "cancel" command for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -51,16 +51,17 @@ main(int  argc,			/* I - Number of command-line arguments */
   http_t	*http;		/* HTTP connection to server */
   int		i;		/* Looping var */
   int		job_id;		/* Job ID */
+  int		num_dests;	/* Number of destinations */
+  cups_dest_t	*dests;		/* Destinations */
   char		*dest,		/* Destination printer */
-		*host,		/* Host name */
-		*job;		/* Job ID pointer */
-  char		name[255];	/* Printer name */
+		*job,		/* Job ID pointer */
+		*user;		/* Cancel jobs for a user */
+  int		purge;		/* Purge or cancel jobs? */
   char		uri[1024];	/* Printer or job URI */
   ipp_t		*request;	/* IPP request */
   ipp_t		*response;	/* IPP response */
   ipp_op_t	op;		/* Operation */
   cups_lang_t	*language;	/* Language */
-  http_encryption_t encryption;	/* Encryption? */
 
 
  /*
@@ -68,10 +69,13 @@ main(int  argc,			/* I - Number of command-line arguments */
   */
 
   op         = IPP_CANCEL_JOB;
+  purge      = 0;
   job_id     = 0;
   dest       = NULL;
+  user       = NULL;
   http       = NULL;
-  encryption = cupsEncryption();
+  num_dests  = 0;
+  dests      = NULL;
 
  /*
   * Process command-line arguments...
@@ -82,19 +86,20 @@ main(int  argc,			/* I - Number of command-line arguments */
       switch (argv[i][1])
       {
         case 'E' : /* Encrypt */
-#ifdef HAVE_LIBSSL
-	    encryption = HTTP_ENCRYPT_REQUIRED;
+#ifdef HAVE_SSL
+	    cupsSetEncryption(HTTP_ENCRYPT_REQUIRED);
 
 	    if (http)
-	      httpEncryption(http, encryption);
+	      httpEncryption(http, HTTP_ENCRYPT_REQUIRED);
 #else
             fprintf(stderr, "%s: Sorry, no encryption support compiled in!\n",
 	            argv[0]);
-#endif /* HAVE_LIBSSL */
+#endif /* HAVE_SSL */
 	    break;
 
         case 'a' : /* Cancel all jobs */
-	    op = IPP_PURGE_JOBS;
+	    purge = 1;
+	    op    = IPP_PURGE_JOBS;
 	    break;
 
         case 'h' : /* Connect to host */
@@ -102,7 +107,7 @@ main(int  argc,			/* I - Number of command-line arguments */
 	      httpClose(http);
 
 	    if (argv[i][2] != '\0')
-	      http = httpConnectEncrypt(argv[i] + 2, ippPort(), encryption);
+              cupsSetServer(argv[i] + 2);
 	    else
 	    {
 	      i ++;
@@ -113,19 +118,15 @@ main(int  argc,			/* I - Number of command-line arguments */
 		return (1);
               }
 	      else
-		http = httpConnectEncrypt(argv[i], ippPort(), encryption);
-	    }
-
-	    if (http == NULL)
-	    {
-	      perror("cancel: Unable to connect to server");
-	      return (1);
+                cupsSetServer(argv[i]);
 	    }
 	    break;
 
         case 'u' : /* Username */
+	    op = IPP_PURGE_JOBS;
+
 	    if (argv[i][2] != '\0')
-	      cupsSetUser(argv[i] + 2);
+	      user = argv[i] + 2;
 	    else
 	    {
 	      i ++;
@@ -136,7 +137,7 @@ main(int  argc,			/* I - Number of command-line arguments */
 		return (1);
               }
 	      else
-		cupsSetUser(argv[i]);
+		user = argv[i];
 	    }
 	    break;
 
@@ -150,52 +151,65 @@ main(int  argc,			/* I - Number of command-line arguments */
       * Cancel a job or printer...
       */
 
-      if (isdigit(argv[i][0]))
+      if (num_dests == 0)
+        num_dests = cupsGetDests(&dests);
+
+      if (strcmp(argv[i], "-") == 0)
       {
+       /*
+        * Delete the current job...
+	*/
+
+        dest   = "";
+	job_id = 0;
+      }
+      else if (cupsGetDest(argv[i], NULL, num_dests, dests) != NULL)
+      {
+       /*
+        * Delete the current job on the named destination...
+	*/
+
+        dest   = argv[i];
+	job_id = 0;
+      }
+      else if ((job = strrchr(argv[i], '-')) != NULL && isdigit(job[1]))
+      {
+       /*
+        * Delete the specified job ID.
+	*/
+
+        dest   = NULL;
+	op     = IPP_CANCEL_JOB;
+        job_id = atoi(job + 1);
+      }
+      else if (isdigit(argv[i][0]))
+      {
+       /*
+        * Delete the specified job ID.
+	*/
+
         dest   = NULL;
 	op     = IPP_CANCEL_JOB;
         job_id = atoi(argv[i]);
       }
-      else if (argv[i][0] == '-')
-      {
-        dest   = "";
-	job_id = 0;
-      }
       else
       {
-        strlcpy(name, argv[i], sizeof(name));
+       /*
+        * Bad printer name!
+	*/
 
-	dest   = name;
-        job_id = 0;
-
-	if ((job = strrchr(name, '-')) != NULL)
-	  if (isdigit(job[1]))
-	  {
-	    *job++ = '\0';
-	    job_id = atoi(job);
-	  }
-	    
-	if (job_id)
-	  op = IPP_CANCEL_JOB;
-
-        if ((host = strchr(name, '@')) != NULL)
-	{
-	 /*
-	  * Reconnect to the named host...
-	  */
-
-          if (http != NULL)
-            httpClose(http);
-
-	  *host++ = '\0';
-
-	  if ((http = httpConnectEncrypt(host, ippPort(), encryption)) == NULL)
-	  {
-	    perror("cancel: Unable to connect to server");
-	    return (1);
-	  }
-	}
+        fprintf(stderr, "cancel: Unknown destination \"%s\"!\n", argv[i]);
+	return (1);
       }
+
+     /*
+      * For Solaris LP compatibility, ignore a destination name after
+      * cancelling a specific job ID...
+      */
+
+      if (job_id && (i + 1) < argc &&
+          cupsGetDest(argv[i + 1], NULL, num_dests, dests) != NULL)
+        i ++;
 
      /*
       * Open a connection to the server...
@@ -203,7 +217,7 @@ main(int  argc,			/* I - Number of command-line arguments */
 
       if (http == NULL)
 	if ((http = httpConnectEncrypt(cupsServer(), ippPort(),
-	                               encryption)) == NULL)
+	                               cupsEncryption())) == NULL)
 	{
 	  fputs("cancel: Unable to contact server!\n", stderr);
 	  return (1);
@@ -247,8 +261,18 @@ main(int  argc,			/* I - Number of command-line arguments */
 	             uri);
       }
 
-      ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME,
-                   "requesting-user-name", NULL, cupsUser());
+      if (user)
+      {
+	ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME,
+                     "requesting-user-name", NULL, user);
+	ippAddBoolean(request, IPP_TAG_OPERATION, "my-jobs", 1);
+      }
+      else
+	ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME,
+                     "requesting-user-name", NULL, cupsUser());
+
+      if (op == IPP_PURGE_JOBS)
+	ippAddBoolean(request, IPP_TAG_OPERATION, "purge-jobs", purge);
 
      /*
       * Do the request and get back a response...
@@ -276,10 +300,85 @@ main(int  argc,			/* I - Number of command-line arguments */
       ippDelete(response);
     }
 
+  if (num_dests == 0 && op == IPP_PURGE_JOBS)
+  {
+   /*
+    * Open a connection to the server...
+    */
+
+    if (http == NULL)
+      if ((http = httpConnectEncrypt(cupsServer(), ippPort(),
+	                             cupsEncryption())) == NULL)
+      {
+	fputs("cancel: Unable to contact server!\n", stderr);
+	return (1);
+      }
+
+   /*
+    * Build an IPP request, which requires the following
+    * attributes:
+    *
+    *    attributes-charset
+    *    attributes-natural-language
+    *    printer-uri + job-id *or* job-uri
+    *    [requesting-user-name]
+    */
+
+    request = ippNew();
+
+    request->request.op.operation_id = op;
+    request->request.op.request_id   = 1;
+
+    language = cupsLangDefault();
+
+    ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_CHARSET,
+              	 "attributes-charset", NULL, cupsLangEncoding(language));
+
+    ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_LANGUAGE,
+                 "attributes-natural-language", NULL, language->language);
+
+    ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI,
+	         "printer-uri", NULL, "ipp://localhost/printers/");
+
+    if (user)
+    {
+      ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME,
+                   "requesting-user-name", NULL, user);
+      ippAddBoolean(request, IPP_TAG_OPERATION, "my-jobs", 1);
+    }
+    else
+      ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME,
+                   "requesting-user-name", NULL, cupsUser());
+
+    ippAddBoolean(request, IPP_TAG_OPERATION, "purge-jobs", purge);
+
+   /*
+    * Do the request and get back a response...
+    */
+
+    response = cupsDoRequest(http, request, "/admin/");
+
+    if (response == NULL ||
+        response->request.status.status_code > IPP_OK_CONFLICT)
+    {
+      fprintf(stderr, "cancel: %s failed: %s\n",
+	      op == IPP_PURGE_JOBS ? "purge-jobs" : "cancel-job",
+              response ? ippErrorString(response->request.status.status_code) :
+		         ippErrorString(cupsLastError()));
+
+      if (response)
+	ippDelete(response);
+
+      return (1);
+    }
+
+    ippDelete(response);
+  }
+
   return (0);
 }
 
 
 /*
- * End of "$Id: cancel.c,v 1.1.1.3 2002/06/06 22:13:20 jlovell Exp $".
+ * End of "$Id: cancel.c,v 1.1.1.11 2003/04/29 00:15:18 jlovell Exp $".
  */

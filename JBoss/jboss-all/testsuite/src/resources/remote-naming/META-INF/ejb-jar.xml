@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<!DOCTYPE ejb-jar PUBLIC "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 1.1//EN"
+    "http://java.sun.com/j2ee/dtds/ejb-jar_1_1.dtd">
+
+<ejb-jar>
+    <display-name>ENC Remote Tests</display-name>
+    <enterprise-beans>
+        <session>
+            <description>A remote session bean used by the ENC testsuite</description>
+            <ejb-name>RemoteENCBean</ejb-name>
+            <ejb-class>org.jboss.test.naming.ejb.TestENCBean</ejb-class>
+            <home>org.jboss.test.naming.interfaces.TestENCHome</home>
+            <remote>org.jboss.test.naming.interfaces.TestENC</remote>
+            <session-type>Stateless</session-type>
+            <transaction-type>Container</transaction-type>
+        </session>
+    </enterprise-beans>
+</ejb-jar>

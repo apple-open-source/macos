@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,10 +12,10 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Uwe Steinmann                                               |
+   | Author: Uwe Steinmann <Uwe.Steinmann@fernuni-hagen.de>               |
    +----------------------------------------------------------------------+
  */
-/* $Id: php_cpdf.h,v 1.1.1.4 2001/12/14 22:12:04 zarzycki Exp $ */
+/* $Id: php_cpdf.h,v 1.1.1.6 2003/07/18 18:07:30 zarzycki Exp $ */
 
 #ifndef PHP_CPDF_H
 #define PHP_CPDF_H
@@ -28,8 +28,6 @@
 #ifdef T
 #undef T
 #endif
-
-#include <cpdflib.h>
 
 extern zend_module_entry cpdf_module_entry;
 #define cpdf_module_ptr &cpdf_module_entry

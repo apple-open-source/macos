@@ -21,25 +21,17 @@
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-icmp.c,v 1.1.1.2 2002/05/29 00:05:36 landonf Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-icmp.c,v 1.1.1.3 2003/03/17 18:42:17 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <sys/param.h>
-#include <sys/time.h>
-#include <sys/socket.h>
-
-struct mbuf;
-struct rtentry;
-
-#include <netinet/in.h>
+#include <tcpdump-stdinc.h>
 
 #include <stdio.h>
 #include <string.h>
-#include <netdb.h>		/* for MAXHOSTNAMELEN on some platforms */
 
 #include "interface.h"
 #include "addrtoname.h"
@@ -71,7 +63,7 @@ struct icmp {
 
 		/* ICMP_UNREACH_NEEDFRAG -- Path MTU Discovery (RFC1191) */
 		struct ih_pmtu {
-			u_int16_t ipm_void;    
+			u_int16_t ipm_void;
 			u_int16_t ipm_nextmtu;
 		} ih_pmtu;
 	} icmp_hun;
@@ -286,6 +278,15 @@ icmp_print(const u_char *bp, u_int plen, const u_char *bp2)
 	TCHECK(dp->icmp_code);
 	switch (dp->icmp_type) {
 
+	case ICMP_ECHO:
+	case ICMP_ECHOREPLY:
+		TCHECK(dp->icmp_seq);
+		(void)snprintf(buf, sizeof(buf), "echo %s seq %u",
+			dp->icmp_type == ICMP_ECHO ?
+			"request" : "reply",
+			EXTRACT_16BITS(&dp->icmp_seq));
+		break;
+
 	case ICMP_UNREACH:
 		TCHECK(dp->icmp_ip.ip_dst);
 		switch (dp->icmp_code) {
@@ -303,7 +304,7 @@ icmp_print(const u_char *bp, u_int plen, const u_char *bp2)
 			oip = &dp->icmp_ip;
 			hlen = IP_HL(oip) * 4;
 			ouh = (struct udphdr *)(((u_char *)oip) + hlen);
-			dport = ntohs(ouh->uh_dport);
+			dport = EXTRACT_16BITS(&ouh->uh_dport);
 			switch (oip->ip_p) {
 
 			case IPPROTO_TCP:
@@ -448,46 +449,52 @@ icmp_print(const u_char *bp, u_int plen, const u_char *bp2)
 	case ICMP_MASKREPLY:
 		TCHECK(dp->icmp_mask);
 		(void)snprintf(buf, sizeof(buf), "address mask is 0x%08x",
-		    (unsigned)ntohl(dp->icmp_mask));
+		    EXTRACT_32BITS(&dp->icmp_mask));
 		break;
 
 	case ICMP_TSTAMP:
 		TCHECK(dp->icmp_seq);
 		(void)snprintf(buf, sizeof(buf),
 		    "time stamp query id %u seq %u",
-		    (unsigned)ntohs(dp->icmp_id),
-		    (unsigned)ntohs(dp->icmp_seq));
+		    EXTRACT_16BITS(&dp->icmp_id),
+		    EXTRACT_16BITS(&dp->icmp_seq));
 		break;
 
 	case ICMP_TSTAMPREPLY:
 		TCHECK(dp->icmp_ttime);
 		(void)snprintf(buf, sizeof(buf),
-		    "time stamp reply id %u seq %u : org 0x%lx recv 0x%lx xmit 0x%lx",
-		    (unsigned)ntohs(dp->icmp_id),
-		    (unsigned)ntohs(dp->icmp_seq),
-		    (unsigned long)ntohl(dp->icmp_otime),
-		    (unsigned long)ntohl(dp->icmp_rtime),
-		    (unsigned long)ntohl(dp->icmp_ttime));
+		    "time stamp reply id %u seq %u : org 0x%x recv 0x%x xmit 0x%x",
+		    EXTRACT_16BITS(&dp->icmp_id),
+		    EXTRACT_16BITS(&dp->icmp_seq),
+		    EXTRACT_32BITS(&dp->icmp_otime),
+		    EXTRACT_32BITS(&dp->icmp_rtime),
+		    EXTRACT_32BITS(&dp->icmp_ttime));
 		break;
 
 	default:
 		str = tok2str(icmp2str, "type-#%d", dp->icmp_type);
 		break;
 	}
-	(void)printf("icmp: %s", str);
+	(void)printf("icmp %d: %s", plen, str);
 	if (vflag) {
+		u_int16_t sum, icmp_sum;
 		if (TTEST2(*bp, plen)) {
-			if (in_cksum((u_short*)dp, plen, 0))
-				printf(" (wrong icmp csum)");
+			sum = in_cksum((u_short*)dp, plen, 0);
+			if (sum != 0) {
+				icmp_sum = EXTRACT_16BITS(&dp->icmp_cksum);
+				(void)printf(" (wrong icmp cksum %x (->%x)!)",
+					     icmp_sum,
+					     in_cksum_shouldbe(icmp_sum, sum));
+			}
 		}
 	}
- 	if (vflag > 1 && !ICMP_INFOTYPE(dp->icmp_type)) {
- 		bp += 8;
- 		(void)printf(" for ");
- 		ip = (struct ip *)bp;
- 		snaplen = snapend - bp;
- 		ip_print(bp, ntohs(ip->ip_len));
- 	}
+	if (vflag > 1 && !ICMP_INFOTYPE(dp->icmp_type)) {
+		bp += 8;
+		(void)printf(" for ");
+		ip = (struct ip *)bp;
+		snaplen = snapend - bp;
+		ip_print(bp, EXTRACT_16BITS(&ip->ip_len));
+	}
 	return;
 trunc:
 	fputs("[|icmp]", stdout);

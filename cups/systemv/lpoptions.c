@@ -1,9 +1,9 @@
 /*
- * "$Id: lpoptions.c,v 1.2 2002/05/14 22:39:30 jlovell Exp $"
+ * "$Id: lpoptions.c,v 1.1.1.11 2003/04/11 21:07:53 jlovell Exp $"
  *
  *   Printer option program for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -138,17 +138,17 @@ main(int  argc,			/* I - Number of command-line arguments */
 	    }
 	    break;
 
+        case 'E' : /* Encrypt connection */
+	    cupsSetEncryption(HTTP_ENCRYPT_REQUIRED);
+	    break;
+
 	case 'l' : /* -l (list options) */
             if (dest == NULL)
 	    {
 	      if (num_dests == 0)
 		num_dests = cupsGetDests(&dests);
 
-	      for (i = num_dests, dest = dests; i > 0; i --, dest ++)
-	        if (dest->is_default)
-		  break;
-
-              if (i == 0)
+	      if ((dest = cupsGetDest(NULL, NULL, num_dests, dests)) == NULL)
 	        dest = dests;
 	    }
 
@@ -260,26 +260,34 @@ main(int  argc,			/* I - Number of command-line arguments */
 	    if (num_dests == 0)
 	      num_dests = cupsGetDests(&dests);
 
-            if ((dest = cupsGetDest(printer, instance, num_dests, dests)) == NULL)
+            if ((dest = cupsGetDest(printer, instance, num_dests, dests)) != NULL)
 	    {
-	      if (instance)
-		fprintf(stderr, "lpoptions: No such printer/instance: %s/%s\n",
-		        printer, instance);
-	      else
-		fprintf(stderr, "lpoptions: No such printer: %s\n", printer);
+              cupsFreeOptions(dest->num_options, dest->options);
 
-	      return (1);
+             /*
+	      * If we are "deleting" the default printer, then just set the
+	      * number of options to 0; if it is also the system default
+	      * then cupsSetDests() will remove it for us...
+	      */
+
+	      if (dest->is_default)
+	      {
+		dest->num_options = 0;
+		dest->options     = NULL;
+	      }
+	      else
+	      {
+		num_dests --;
+
+		j = dest - dests;
+		if (j < num_dests)
+		  memcpy(dest, dest + 1, (num_dests - j) * sizeof(cups_dest_t));
+	      }
 	    }
 
-            cupsFreeOptions(dest->num_options, dest->options);
-	    num_dests --;
-
-	    j = dest - dests;
-	    if (j < num_dests)
-	      memcpy(dest, dest + 1, (num_dests - j) * sizeof(cups_dest_t));
-
 	    cupsSetDests(num_dests, dests);
-	    dest = NULL;
+	    dest    = NULL;
+	    changes = -1;
 	    break;
 
 	default :
@@ -293,18 +301,16 @@ main(int  argc,			/* I - Number of command-line arguments */
     num_dests = cupsGetDests(&dests);
 
   if (dest == NULL)
-    for (i = 0; i < num_dests; i ++)
-      if (dests[i].is_default)
-      {
-        dest = dests + i;
-
-	for (j = 0; j < dest->num_options; j ++)
-	  if (cupsGetOption(dest->options[j].name, num_options, options) == NULL)
-	    num_options = cupsAddOption(dest->options[j].name,
-	                                dest->options[j].value,
-	                                num_options, &options);
-	break;
-      }
+  {
+    if ((dest = cupsGetDest(NULL, NULL, num_dests, dests)) != NULL)
+    {
+      for (j = 0; j < dest->num_options; j ++)
+	if (cupsGetOption(dest->options[j].name, num_options, options) == NULL)
+	  num_options = cupsAddOption(dest->options[j].name,
+	                              dest->options[j].value,
+	                              num_options, &options);
+    }
+  }
 
   if (dest == NULL)
     return (0);
@@ -422,15 +428,15 @@ list_options(cups_dest_t *dest)	/* I - Destination to list */
 void
 usage(void)
 {
-  puts("Usage: lpoptions -d printer");
-  puts("       lpoptions [-p printer] -l");
-  puts("       lpoptions -p printer -o option[=value] ...");
-  puts("       lpoptions -x printer");
+  puts("Usage: lpoptions [-h server] [-E] -d printer");
+  puts("       lpoptions [-h server] [-E] [-p printer] -l");
+  puts("       lpoptions [-h server] [-E] -p printer -o option[=value] ...");
+  puts("       lpoptions [-h server] [-E] -x printer");
 
   exit(1);
 }
 
 
 /*
- * End of "$Id: lpoptions.c,v 1.2 2002/05/14 22:39:30 jlovell Exp $".
+ * End of "$Id: lpoptions.c,v 1.1.1.11 2003/04/11 21:07:53 jlovell Exp $".
  */

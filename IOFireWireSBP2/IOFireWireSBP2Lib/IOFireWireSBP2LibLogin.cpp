@@ -341,10 +341,6 @@ UInt32 IOFireWireSBP2LibLogin::release( void )
 	{
 		delete this;
     }
-    else if( fRefCount < 0 )
-	{
-        fRefCount = 0;
-	}
 	
 	return retVal;
 }

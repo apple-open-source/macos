@@ -1,22 +1,23 @@
 #
-# $Id: Makefile.am,v 1.1.1.2 2001/04/24 18:49:10 wsanchez Exp $
+# $Id: Makefile.am,v 1.2 2003/08/02 01:43:30 rbraun Exp $
 #
 
-AUTOMAKE_OPTIONS = foreign
+AUTOMAKE_OPTIONS = foreign nostdinc
 
-EXTRA_DIST = getdate.y \
-       Makefile.b32 Makefile.b32.resp Makefile.m32 Makefile.vc6 \
-       libcurl.def dllinit.c curllib.dsp curllib.dsw
+EXTRA_DIST = getdate.y Makefile.b32 Makefile.b32.resp Makefile.m32	    \
+       Makefile.vc6 Makefile.riscos libcurl.def curllib.dsp	    \
+       curllib.dsw config-vms.h config-win32.h config-riscos.h config-mac.h \
+       config.h.in ca-bundle.crt README.encoding README.memoryleak
 
 lib_LTLIBRARIES = libcurl.la
 
-# Some flags needed when trying to cause warnings ;-)
-# CFLAGS = -DMALLOCDEBUG -g # -Wall #-pedantic
+# we use srcdir/include for the static global include files
+# we use builddir/lib for the generated lib/config.h file to get found
+# we use srcdir/lib for the lib-private header files
+INCLUDES = -I$(top_srcdir)/include -I$(top_builddir)/lib -I$(top_srcdir)/lib
 
-INCLUDES = -I$(top_srcdir)/include
+VERSION=-version-info 2:2:0
 
-
-libcurl_la_LDFLAGS = -version-info 2:0:0
 # This flag accepts an argument of the form current[:revision[:age]]. So,
 # passing -version-info 3:12:1 sets current to 3, revision to 12, and age to
 # 1.
@@ -45,21 +46,27 @@ libcurl_la_LDFLAGS = -version-info 2:0:0
 # set age to 0.
 #
 
-libcurl_la_SOURCES = \
-arpa_telnet.h  file.c         getpass.h      netrc.h        timeval.c \
-base64.c       file.h         hostip.c       progress.c     timeval.h \
-base64.h       formdata.c     hostip.h       progress.h     \
-cookie.c       formdata.h     http.c         sendf.c        \
-cookie.h       ftp.c          http.h         sendf.h        url.c \
-dict.c         ftp.h          if2ip.c        speedcheck.c   url.h \
-dict.h         getdate.c      if2ip.h        speedcheck.h   urldata.h \
-getdate.h      ldap.c         ssluse.c       version.c \
-getenv.c       ldap.h         ssluse.h       \
-escape.c       mprintf.c      telnet.c       \
-escape.h       getpass.c      netrc.c        telnet.h       \
-getinfo.c transfer.c strequal.c strequal.h easy.c \
-security.h security.c krb4.c krb4.h memdebug.c memdebug.h inet_ntoa_r.h \
-http_chunks.c http_chunks.h
+if NO_UNDEFINED
+# The -no-undefined flag is CRUCIAL for this to build fine on Cygwin. If we
+# find a case in which we need to remove this flag, we should most likely
+# write a configure check that detects when this flag is needed and when its
+# not.
+libcurl_la_LDFLAGS = -no-undefined $(VERSION)
+else
+libcurl_la_LDFLAGS = $(VERSION)
+endif
+
+libcurl_la_SOURCES = arpa_telnet.h file.c getpass.h netrc.h timeval.c	\
+base64.c file.h hostip.c progress.c timeval.h base64.h formdata.c	\
+hostip.h progress.h cookie.c formdata.h http.c sendf.c cookie.h ftp.c	\
+http.h sendf.h url.c dict.c ftp.h if2ip.c speedcheck.c url.h dict.h	\
+getdate.c if2ip.h speedcheck.h urldata.h getdate.h ldap.c ssluse.c	\
+version.c getenv.c ldap.h ssluse.h escape.c mprintf.c telnet.c escape.h	\
+getpass.c netrc.c telnet.h getinfo.c getinfo.h transfer.c strequal.c	\
+strequal.h easy.c security.h security.c krb4.c krb4.h memdebug.c	\
+memdebug.h inet_ntoa_r.h http_chunks.c http_chunks.h strtok.c strtok.h	\
+connect.c connect.h llist.c llist.h hash.c hash.h multi.c		\
+content_encoding.c content_encoding.h
 
 noinst_HEADERS = setup.h transfer.h
 
@@ -68,3 +75,14 @@ $(srcdir)/getdate.c: getdate.y
 	cd $(srcdir) && \
 	  $(YACC) $(YFLAGS) getdate.y; \
 	  mv -f y.tab.c getdate.c
+
+install-data-hook:
+	@if test -n "$(DSTROOT)@CURL_CA_BUNDLE@"; then \
+	  $(mkinstalldirs) `dirname $(DESTDIR)$(DSTROOT)@CURL_CA_BUNDLE@`; \
+	  @INSTALL_DATA@ $(srcdir)/ca-bundle.crt $(DESTDIR)$(DSTROOT)@CURL_CA_BUNDLE@; \
+        fi
+
+# this hook is mainly for non-unix systems to build even if configure
+# isn't run
+dist-hook:
+	cp $(srcdir)/ca-bundle.h.in $(distdir)/ca-bundle.h

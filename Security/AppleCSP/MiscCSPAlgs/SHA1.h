@@ -23,6 +23,9 @@
 extern "C" {
 #endif
 
+#define SHA1_DIGEST_SIZE		20	/* in bytes */
+#define SHA1_BLOCK_SIZE			64	/* in bytes */
+
 /*
  * Opaque sha1 object handle.
  */

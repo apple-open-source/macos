@@ -278,7 +278,7 @@ void server_end( struct server *serp )
    if ( PROC_EXITED( serp->svr_exit_status ) || 
          PROC_SIGNALED( serp->svr_exit_status ) )
    {
-      char *death_type = PROC_EXITED( serp->svr_exit_status ) ? "exited"
+      const char *death_type = PROC_EXITED( serp->svr_exit_status ) ? "exited"
            : "died" ;
       if ( debug.on )
       {
@@ -293,7 +293,7 @@ void server_end( struct server *serp )
                   SVC_ID( sp ), serp->svr_pid, SVC_ID( conn_sp ), death_type ) ;
       }
       
-      /* Added this for when acceptint wait=yes services */
+      /* Added this for when accepting wait=yes services */
       if( SVC_WAITS( sp ) )
          FD_SET( SVC_FD( sp ), &ps.rws.socket_mask ) ;
 

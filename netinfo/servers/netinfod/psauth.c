@@ -40,7 +40,7 @@ typedef struct PWServerError {
 } PWServerError;
 
 
-int getnameinfo(const struct sockaddr *, size_t, char *, size_t, char *, size_t, int);
+int getnameinfo(const struct sockaddr *, socklen_t, char *, size_t, char *, size_t, int);
 typedef int sasl_cbproc();
 int getrealm(void *context /*__attribute__((unused))*/, 
 		    int id,
@@ -333,7 +333,9 @@ getsecret(sasl_conn_t *conn,
 	  int id,
 	  sasl_secret_t **psecret)
 {
+	/*
     char *password = NULL;
+	*/
     size_t len = 0;
 	sasl_secret_t *xsec = NULL;
     

@@ -1,0 +1,397 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!DOCTYPE html
+          PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+   <meta name="AUTHOR" content="bkoz@gcc.gnu.org (Benjamin Kosnik)" />
+   <meta name="KEYWORDS" content="c++, libstdc++, gdb, g++, debug" />
+   <meta name="DESCRIPTION" content="Debugging C++ binaries" />
+   <meta name="GENERATOR" content="vi and ten fingers" />
+   <!-- APPLE LOCAL begin libstdc++ debug mode documentation -->
+   <title>Debugging with the libstdc++ debug mode</title>
+   <!-- APPLE LOCAL end libstdc++ debug mode documentation -->
+<link rel="StyleSheet" href="lib3styles.css" />
+</head>
+<body>
+  
+<!-- APPLE LOCAL begin libstdc++ debug mode documentation -->
+<h1 class="centered"><a name="top">Debugging with the libstdc++ debug mode</a></h1>
+<!-- APPLE LOCAL end libstdc++ debug mode documentation -->
+
+<!-- ####################################################### -->
+<!-- APPLE LOCAL begin libstdc++ debug mode documentation -->
+<p>By default, libstdc++ is built with efficiency in mind, and
+  therefore performs little or no error checking that is not required
+  by the C++ standard. This means that programs that incorrectly use
+  the C++ standard library will exhibit behavior that is not portable
+  and may not even be predictable, because they tread into
+  implementation-specific or undefined behavior. This includes uses of
+  memory that has already been freed and other memory-smashing
+  bugs. To detect some of these errors before they can become
+  problematic, libstdc++ offers a debug mode that provides additional
+  checking of library facilities, and will report errors in the use of
+  libstdc++ as soon as they can be detected by emitting a description
+  of the problem to standard error and aborting the program. </p>
+
+<p>The libstdc++ debug mode performs checking for many areas of the C++
+  standard, but the focus is on checking interactions among standard
+  iterators, containers, and algorithms, including:</p>
+
+  <ul>
+    <li><em>Safe iterators</em>: Iterators keep track of the
+    container whose elements they reference, so errors such as
+    incrementing a past-the-end iterator or dereferencing an iterator
+    that points to a container that has been destructed are diagnosed
+    immediately.</li>
+    
+    <li><em>Algorithm preconditions</em>: Algorithms attempt to
+    validate their input parameters to detect errors as early as
+    possible. For instance, the <code>sort</code> algorithm requires
+    that its iterator parameters <code>first</code>
+    and <code>last</code> form a valid iterator range, and that the
+    predicate is a strict weak ordering; the libstdc++ debug mode will
+    detect an error if either of these conditions can be shown not to
+    hold.</li>
+  </ul>
+
+<h2 class="left">Using the libstdc++ debug mode</h2>
+<p>To use the libstdc++ debug mode, compile your application with the
+  compiler flag <code>-D_GLIBCXX_DEBUG</code>. Note that this flag
+  changes the sizes and behavior of standard class templates such
+  as <code>std::vector</code>, and therefore you can only link code
+  compiled with debug mode and code compiled without debug mode if no
+  instantiation of a container is passed between the two translation
+  units. This does <em>not</em> mean that you are required to
+  recompile your entire application: for instance, if one source file
+  uses <code>std::vector</code> but <code>std::vector</code> doesn't
+  occur in its public interface, that file can be recompiled in debug
+  mode even if the rest of the program is not compiled in debug
+  mode.</p>
+
+<p>How much should you recompile to use debug mode? Generally, you'll
+  want to recompile your entire application to enable the debug mode's
+  extra run-time checking globally. However, if there is a particular
+  self-contained module that needs checking, recompile only that
+  module. If in fact the module was not self-contained, the result
+  will be a link error.</p>
+
+<h2 class="left">Using the debugging containers without debug mode</h2>
+<p>When it is not feasible to recompile your application, or
+  only specific containers need checking, debugging containers are
+  available as GNU extensions. These debugging containers are
+  functionally equivalent to the containers used in debug mode,
+  e.g., <code>__gnu_debug::vector&lt;int&gt;</code> is equivalent
+  to <code>std::vector&lt;int&gt;</code> in debug mode, but
+  the <code>__gnu_debug</code> versions can be used in either release
+  or debug mode without changing semantics. However, unlike the
+  containers in namespace 
+  <code>std</code>, these containers may not be specialized, because
+  they are introduced into namespace <code>std</code> with a using
+  declaration. Note that the <code>std::basic_string</code> template (of
+  which <code>std::string</code> and <code>std::wstring</code> are
+  instantiations) differs from the other containers in this area,
+  because using <code>__gnu_debug::basic_string</code>
+  (resp. <code>__gnu_debug::string</code>
+  and <code>__gnu_debug::wstring</code>) is the only way to get a
+  fully-debugging string, and is therefore not equivalent to
+  <code>std::basic_string</code> in debug mode. The following table
+  provides the names and headers of the debugging containers:
+
+<table title="Debugging containers" border="1">
+  <tr>
+    <th>Container</th>
+    <th>Header</th>
+    <th>Debug container</th>
+    <th>Debug header</th>
+  </tr>
+  <tr>
+    <td>std::bitset</td>
+    <td>&lt;bitset&gt;</td>
+    <td>__gnu_debug::bitset</td>
+    <td>&lt;debug/bitset&gt;</td>
+  </tr>
+  <tr>
+    <td>std::deque</td>
+    <td>&lt;deque&gt;</td>
+    <td>__gnu_debug::deque</td>
+    <td>&lt;debug/deque&gt;</td>
+  </tr>
+  <tr>
+    <td>std::list</td>
+    <td>&lt;list&gt;</td>
+    <td>__gnu_debug::list</td>
+    <td>&lt;debug/list&gt;</td>
+  </tr>
+  <tr>
+    <td>std::map</td>
+    <td>&lt;map&gt;</td>
+    <td>__gnu_debug::map</td>
+    <td>&lt;debug/map&gt;</td>
+  </tr>
+  <tr>
+    <td>std::multimap</td>
+    <td>&lt;map&gt;</td>
+    <td>__gnu_debug::multimap</td>
+    <td>&lt;debug/map&gt;</td>
+  </tr>
+  <tr>
+    <td>std::multiset</td>
+    <td>&lt;set&gt;</td>
+    <td>__gnu_debug::multiset</td>
+    <td>&lt;debug/set&gt;</td>
+  </tr>
+  <tr>
+    <td>std::set</td>
+    <td>&lt;set&gt;</td>
+    <td>__gnu_debug::set</td>
+    <td>&lt;debug/set&gt;</td>
+  </tr>
+  <tr>
+    <td>std::string</td>
+    <td>&lt;string&gt;</td>
+    <td>__gnu_debug::string</td>
+    <td>&lt;debug/string&gt;</td>
+  </tr>
+  <tr>
+    <td>std::wstring</td>
+    <td>&lt;string&gt;</td>
+    <td>__gnu_debug::wstring</td>
+    <td>&lt;debug/string&gt;</td>
+  </tr>
+  <tr>
+    <td>std::basic_string</td>
+    <td>&lt;string&gt;</td>
+    <td>__gnu_debug::basic_string</td>
+    <td>&lt;debug/string&gt;</td>
+  </tr>
+  <tr>
+    <td>std::vector</td>
+    <td>&lt;vector&gt;</td>
+    <td>__gnu_debug::vector</td>
+    <td>&lt;debug/vector&gt;</td>
+  </tr>
+  <tr>
+    <td>__gnu_cxx::hash_map</td>
+    <td>&lt;ext/hash_map&gt;</td>
+    <td>__gnu_debug::hash_map</td>
+    <td>&lt;debug/hash_map&gt;</td>
+  </tr>
+  <tr>
+    <td>__gnu_cxx::hash_multimap</td>
+    <td>&lt;ext/hash_map&gt;</td>
+    <td>__gnu_debug::hash_multimap</td>
+    <td>&lt;debug/hash_map&gt;</td>
+  </tr>
+  <tr>
+    <td>__gnu_cxx::hash_set</td>
+    <td>&lt;ext/hash_set&gt;</td>
+    <td>__gnu_debug::hash_set</td>
+    <td>&lt;debug/hash_set&gt;</td>
+  </tr>
+  <tr>
+    <td>__gnu_cxx::hash_multiset</td>
+    <td>&lt;ext/hash_set&gt;</td>
+    <td>__gnu_debug::hash_multiset</td>
+    <td>&lt;debug/hash_set&gt;</td>
+  </tr>
+</table>
+
+<h2 class="left">Debug mode semantics</h2>
+<p>A program that does uses the C++ standard library correctly
+  will maintain the same semantics under debug mode as it had with
+  the normal (release) library. All functional and exception-handling
+  guarantees made by the normal library also hold for the debug mode
+  library, with one exception: performance guarantees made by the
+  normal library may not hold in the debug mode library. For
+  instance, erasing an element in a <code>std::list</code> is a
+  constant-time operation in normal library, but in debug mode it is
+  linear in the number of iterators that reference that particular
+  list. So while your (correct) program won't change its results, it 
+  is likely to execute more slowly.</p>
+
+<p>libstdc++ includes many extensions to the C++ standard library. In
+  some cases the extensions are obvious, such as the hashed
+  associative containers, whereas other extensions give predictable
+  results to behavior that would otherwise be undefined, such as
+  throwing an exception when a <code>std::basic_string</code> is
+  constructed from a NULL character pointer. This latter category also
+  includes implementation-defined and unspecified semantics, such as
+  the growth rate of a vector. Use of these extensions is not
+  considered incorrect, so code that relies on them will not be
+  rejected by debug mode. However, use of these extensions may affect
+  the portability of code to other implementations of the C++ standard
+  library, and is therefore somewhat hazardous. For this reason, the
+  libstdc++ debug mode offers a "pedantic" mode (similar to
+  GCC's <code>-pedantic</code> compiler flag) that attempts to emulate
+  the semantics guaranteed by the C++ standard. In pedantic mode, for
+  instance, constructing a <code>std::basic_string</code> with a NULL
+  character pointer would result in an exception under normal mode or
+  non-pedantic debug mode (this is a libstdc++ extension), whereas
+  under pedantic debug mode libstdc++ would signal an error. To enable
+  the pedantic debug mode, compile your program with
+  both <code>-D_GLIBCXX_DEBUG</code>
+  and <code>-D_GLIBCXX_DEBUG_PEDANTIC</code>. Note
+  that <code>_GLIBCXX_DEBUG_PEDANTIC</code> also affects the
+  containers in the <code>__gnu_debug</code> namespace, so
+  specifying <code>_GLIBCXX_DEBUG_PEDANTIC</code>
+  without <code>-D_GLIBCXX_DEBUG</code> will make
+  the <code>__gnu_debug</code> containers more pedantic but will
+  leave the containers in namespace <code>std</code> unchecked.</p>
+
+<p>The following library components provide extra debugging
+  capabilities in debug mode:</p>
+<ul>
+  <li><code>std::bitset</code></li>
+  <li><code>std::deque</code></li>
+  <li><code>__gnu_cxx::hash_map</code></li>
+  <li><code>__gnu_cxx::hash_multimap</code></li>
+  <li><code>__gnu_cxx::hash_multiset</code></li>
+  <li><code>__gnu_cxx::hash_set</code></li>
+  <li><code>std::list</code></li>
+  <li><code>std::map</code></li>
+  <li><code>std::multimap</code></li>
+  <li><code>std::multiset</code></li>
+  <li><code>std::set</code></li>
+  <li><code>std::vector</code></li>
+</ul>
+<!-- APPLE LOCAL end libstdc++ debug mode documentation -->
+
+<h2 class="left"><a name="mem">Tips for memory leak hunting</a></h2>
+
+<p>There are various third party memory tracing and debug utilities
+   that can be used to provide detailed memory allocation information
+   about C++ code. An exhaustive list of tools is not going to be
+   attempted, but includes <code>mtrace</code>, <code>valgrind</code>,
+   <code>mudflap</code>, and <code>purify</code>. Also highly
+   recommended are <code>libcwd</code> and some other one that I
+   forget right now.
+</p>
+
+<p>Regardless of the memory debugging tool being used, there is one
+   thing of great importance to keep in mind when debugging C++ code
+   that uses <code>new</code> and <code>delete</code>:
+   there are different kinds of allocation schemes that can be used by
+   <!-- APPLE LOCAL begin libstdc++ documentation -->
+   <code> std::allocator </code>. For implementation details, see
+   this <a href="ext/howto.html#3">document</a> and look specifically for
+   <code>GLIBCPP_FORCE_NEW</code>. 
+   <!-- APPLE LOCAL end libstdc++ documentation -->
+</p>
+
+<p>In a nutshell, the default allocator used by <code>
+   std::allocator</code> is a high-performance pool allocator, and can
+   give the mistaken impression that memory is being leaked, when in
+   <!-- APPLE LOCAL begin libstdc++ documentation -->
+   reality the memory is still being used by the library and is reclaimed
+   after program termination.
+   <!-- APPLE LOCAL end libstdc++ documentation -->
+</p>
+
+<p>For valgrind, there are some specific items to keep in mind. First
+   of all, use a version of valgrind that will work with current GNU
+   C++ tools: the first that can do this is valgrind 1.0.4, but later
+   versions should work at least as well. Second of all, use a
+   completely unoptimized build to avoid confusing valgrind. Third,
+   use GLIBCPP_FORCE_NEW to keep extraneous pool allocation noise from
+   cluttering debug information. 
+</p>
+
+<p>Fourth, it may be necessary to force deallocation in other
+   libraries as well, namely the "C" library. On linux, this can be
+   accomplished with the appropriate use of the
+   <code>__cxa_atexit</code> or <code>atexit</code> functions.
+</p>
+
+<pre>
+   #include &lt;cstdlib&gt;
+
+   extern "C" void __libc_freeres(void);
+
+   void do_something() { }
+
+   int main()
+   {
+     atexit(__libc_freeres);
+     do_something();
+     return 0;
+   }
+</pre>
+
+
+<p>or, using <code>__cxa_atexit</code>:</p>
+
+<pre>
+   extern "C" void __libc_freeres(void);
+   extern "C" int __cxa_atexit(void (*func) (void *), void *arg, void *d);
+
+   void do_something() { }
+
+   int main()
+   {
+      extern void* __dso_handle __attribute__ ((__weak__));
+      __cxa_atexit((void (*) (void *)) __libc_freeres, NULL, 
+                   &amp;__dso_handle ? __dso_handle : NULL);
+      do_test();
+      return 0;
+   }
+</pre>
+
+<p>Suggested valgrind flags, given the suggestions above about setting
+   up the runtime environment, library, and test file, might be:
+</p>
+<!-- APPLE LOCAL begin libstdc++ documentation -->
+<pre> 
+   valgrind -v --num-callers=20 --leak-check=yes --leak-resolution=high --show-reachable=yes a.out
+</pre>
+<!-- APPLE LOCAL end libstdc++ documentation -->
+
+<h3 class="left"><a name="gdb">Some gdb strategies</a></h3>
+<!-- APPLE LOCAL begin libstdc++ documentation -->
+<p>Many options are available for gdb itself: please see <a
+   href="http://sources.redhat.com/gdb/current/onlinedocs/gdb_13.html#SEC109">
+   "GDB features for C++" </a> in the gdb documentation. Also
+   recommended: the other parts of this manual.
+</p>
+<!-- APPLE LOCAL end libstdc++ documentation -->
+
+<p>These settings can either be switched on in at the gdb command
+   line, or put into a .gdbint file to establish default debugging
+   characteristics, like so:
+</p>
+
+<pre>
+   set print pretty on
+   set print object on
+   set print static-members on
+   set print vtbl on
+   set print demangle on
+   set demangle-style gnu-v3
+</pre>
+
+
+<h3 class="left"><a name="verbterm">Tracking uncaught exceptions</a></h3>
+<p>The <a href="19_diagnostics/howto.html#4">verbose termination handler</a>
+   gives information about uncaught exceptions which are killing the
+   program.  It is described in the linked-to page.
+</p>
+
+
+<p>Return <a href="#top">to the top of the page</a> or
+   <a href="http://gcc.gnu.org/libstdc++/">to the libstdc++ homepage</a>.
+</p>
+
+
+<!-- ####################################################### -->
+
+<hr />
+<p class="fineprint"><em>
+See <a href="17_intro/license.html">license.html</a> for copying conditions.
+Comments and suggestions are welcome, and may be sent to
+<a href="mailto:libstdc++@gcc.gnu.org">the libstdc++ mailing list</a>.
+</em></p>
+
+
+</body>
+</html>

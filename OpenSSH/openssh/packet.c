@@ -37,7 +37,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: packet.c,v 1.96 2002/06/23 21:10:02 deraadt Exp $");
+RCSID("$OpenBSD: packet.c,v 1.104 2003/04/01 10:22:21 markus Exp $");
 
 #include "xmalloc.h"
 #include "buffer.h"
@@ -134,6 +134,7 @@ void
 packet_set_connection(int fd_in, int fd_out)
 {
 	Cipher *none = cipher_by_name("none");
+
 	if (none == NULL)
 		fatal("packet_set_connection: cannot load cipher 'none'");
 	connection_in = fd_in;
@@ -402,6 +403,7 @@ packet_set_encryption_key(const u_char *key, u_int keylen,
     int number)
 {
 	Cipher *cipher = cipher_by_number(number);
+
 	if (cipher == NULL)
 		fatal("packet_set_encryption_key: unknown cipher number %d", number);
 	if (keylen < 20)
@@ -443,6 +445,7 @@ void
 packet_put_char(int value)
 {
 	char ch = value;
+
 	buffer_append(&outgoing_packet, &ch, 1);
 }
 void
@@ -561,7 +564,7 @@ set_newkeys(int mode)
 	CipherContext *cc;
 	int encrypt;
 
-	debug("newkeys: mode %d", mode);
+	debug2("set_newkeys: mode %d", mode);
 
 	if (mode == MODE_OUT) {
 		cc = &send_context;
@@ -571,7 +574,7 @@ set_newkeys(int mode)
 		encrypt = CIPHER_DECRYPT;
 	}
 	if (newkeys[mode] != NULL) {
-		debug("newkeys: rekeying");
+		debug("set_newkeys: rekeying");
 		cipher_cleanup(cc);
 		enc  = &newkeys[mode]->enc;
 		mac  = &newkeys[mode]->mac;
@@ -837,7 +840,7 @@ packet_read_poll1(void)
 	cp = buffer_ptr(&input);
 	len = GET_32BIT(cp);
 	if (len < 1 + 2 + 2 || len > 256 * 1024)
-		packet_disconnect("Bad packet length %d.", len);
+		packet_disconnect("Bad packet length %u.", len);
 	padded_len = (len + 8) & ~7;
 
 	/* Check if the packet has been entirely received. */
@@ -933,9 +936,9 @@ packet_read_poll2(u_int32_t *seqnr_p)
 		packet_length = GET_32BIT(cp);
 		if (packet_length < 1 + 4 || packet_length > 256 * 1024) {
 			buffer_dump(&incoming_packet);
-			packet_disconnect("Bad packet length %d.", packet_length);
+			packet_disconnect("Bad packet length %u.", packet_length);
 		}
-		DBG(debug("input: packet len %d", packet_length+4));
+		DBG(debug("input: packet len %u", packet_length+4));
 		buffer_consume(&input, block_size);
 	}
 	/* we have a partial packet of block_size bytes */
@@ -994,7 +997,8 @@ packet_read_poll2(u_int32_t *seqnr_p)
 		buffer_clear(&incoming_packet);
 		buffer_append(&incoming_packet, buffer_ptr(&compression_buffer),
 		    buffer_len(&compression_buffer));
-		DBG(debug("input: len after de-compress %d", buffer_len(&incoming_packet)));
+		DBG(debug("input: len after de-compress %d",
+		    buffer_len(&incoming_packet)));
 	}
 	/*
 	 * get packet type, implies consume.
@@ -1102,6 +1106,7 @@ u_int
 packet_get_char(void)
 {
 	char ch;
+
 	buffer_get(&incoming_packet, &ch, 1);
 	return (u_char) ch;
 }
@@ -1135,6 +1140,7 @@ void *
 packet_get_raw(int *length_ptr)
 {
 	int bytes = buffer_len(&incoming_packet);
+
 	if (length_ptr != NULL)
 		*length_ptr = bytes;
 	return buffer_ptr(&incoming_packet);
@@ -1207,6 +1213,7 @@ packet_disconnect(const char *fmt,...)
 	char buf[1024];
 	va_list args;
 	static int disconnecting = 0;
+
 	if (disconnecting)	/* Guard against recursive invocations. */
 		fatal("packet_disconnect called recursively.");
 	disconnecting = 1;
@@ -1218,6 +1225,9 @@ packet_disconnect(const char *fmt,...)
 	va_start(args, fmt);
 	vsnprintf(buf, sizeof(buf), fmt, args);
 	va_end(args);
+
+	/* Display the error locally */
+	log("Disconnecting: %.100s", buf);
 
 	/* Send the disconnect message to the other side, and wait for it to get sent. */
 	if (compat20) {
@@ -1238,8 +1248,6 @@ packet_disconnect(const char *fmt,...)
 	/* Close the connection. */
 	packet_close();
 
-	/* Display the error locally and exit. */
-	log("Disconnecting: %.100s", buf);
 	fatal_cleanup();
 }
 
@@ -1249,6 +1257,7 @@ void
 packet_write_poll(void)
 {
 	int len = buffer_len(&output);
+
 	if (len > 0) {
 		len = write(connection_out, buffer_ptr(&output), len);
 		if (len <= 0) {
@@ -1305,16 +1314,26 @@ packet_not_very_much_data_to_write(void)
 		return buffer_len(&output) < 128 * 1024;
 }
 
+static void
+packet_set_tos(int interactive)
+{
+	int tos = interactive ? IPTOS_LOWDELAY : IPTOS_THROUGHPUT;
+
+	if (!packet_connection_is_on_socket() ||
+	    !packet_connection_is_ipv4())
+		return;
+	if (setsockopt(connection_in, IPPROTO_IP, IP_TOS, &tos,
+	    sizeof(tos)) < 0)
+		error("setsockopt IP_TOS %d: %.100s:",
+		    tos, strerror(errno));
+}
+
 /* Informs that the current session is interactive.  Sets IP flags for that. */
 
 void
 packet_set_interactive(int interactive)
 {
 	static int called = 0;
-#if defined(IP_TOS) && !defined(IP_TOS_IS_BROKEN)
-	int lowdelay = IPTOS_LOWDELAY;
-	int throughput = IPTOS_THROUGHPUT;
-#endif
 
 	if (called)
 		return;
@@ -1325,35 +1344,12 @@ packet_set_interactive(int interactive)
 
 	/* Only set socket options if using a socket.  */
 	if (!packet_connection_is_on_socket())
-		return;
-	/*
-	 * IPTOS_LOWDELAY and IPTOS_THROUGHPUT are IPv4 only
-	 */
-	if (interactive) {
-		/*
-		 * Set IP options for an interactive connection.  Use
-		 * IPTOS_LOWDELAY and TCP_NODELAY.
-		 */
-#if defined(IP_TOS) && !defined(IP_TOS_IS_BROKEN)
-		if (packet_connection_is_ipv4()) {
-			if (setsockopt(connection_in, IPPROTO_IP, IP_TOS,
-			    &lowdelay, sizeof(lowdelay)) < 0)
-				error("setsockopt IPTOS_LOWDELAY: %.100s",
-				    strerror(errno));
-		}
-#endif
+	if (interactive)
 		set_nodelay(connection_in);
-	} else if (packet_connection_is_ipv4()) {
-		/*
-		 * Set IP options for a non-interactive connection.  Use
-		 * IPTOS_THROUGHPUT.
-		 */
 #if defined(IP_TOS) && !defined(IP_TOS_IS_BROKEN)
-		if (setsockopt(connection_in, IPPROTO_IP, IP_TOS, &throughput,
-		    sizeof(throughput)) < 0)
-			error("setsockopt IPTOS_THROUGHPUT: %.100s", strerror(errno));
+	packet_set_tos(interactive);
 #endif
-	}
+
 }
 
 /* Returns true if the current connection is interactive. */
@@ -1368,6 +1364,7 @@ int
 packet_set_maxsize(int s)
 {
 	static int called = 0;
+
 	if (called) {
 		log("packet_set_maxsize: called twice: old %d new %d",
 		    max_packet_size, s);

@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: file.c,v 1.1.1.2 2001/07/06 22:38:42 conrad Exp $
+ * $Id: file.c,v 1.2 2003/05/14 15:05:59 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/sysctl.h>
@@ -50,6 +50,7 @@
 #include <netsmb/smb_conn.h>
 #include <cflib.h>
 
+#ifndef APPLE
 int
 smb_read(struct smb_ctx *ctx, smbfh fh, off_t offset, size_t count, char *dst)
 {
@@ -78,3 +79,4 @@ smb_write(struct smb_ctx *ctx, smbfh fh, off_t offset, size_t count,
 		return -1;
 	return rwrq.ioc_cnt;
 }
+#endif /* !APPLE */

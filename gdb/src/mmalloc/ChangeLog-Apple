@@ -1,0 +1,114 @@
+2003-04-21  Klee Dienes  <kdienes@apple.com>
+
+	* mmalloc.h (mmalloc_findbase): Add "suggested baseaddr" as an
+	optional second argument; 0 means "use default".
+	* mmap-sup.c (mmalloc_findbase): Ditto.
+	* attach.c (mmalloc_findbase): Pass suggested baseaddr.
+
+2003-02-23  Klee Dienes  <kdienes@apple.com>
+
+	* mmprivate.h (__mmalloc_remap_core): Remove.	
+	* check-sup.c (mmalloc_check_create): Propagate the child's
+	flags to the parent.
+	* attach.c (MAP_PRIVATE_OR_SHARED): Copy from mmap-sup.c.
+	(reuse): Add BASEADDR parameter.
+	(mmalloc_attach): Require the caller to provide an explicit
+	address at which to map the pool, rather than assuming that an
+	address big enough to hold a pool descriptor will also be big
+	enough to hold the resulting pool.
+	* detach.c (mmalloc_detach): Properly sync, unmap, and close any
+	memory-mapped file associated with the pool.
+	* mmap-sup.c (__mmalloc_remap_core): Remove.
+	(mmalloc_findbase): Implement a Mach-specific variant that
+	searches the VM space for open regions.
+	(__mmalloc_mmap_morecore): Check to make sure the memory region
+	being mapped is not already allocated (mmap does not check, at
+	least on Darwin).
+	
+2002-12-14  Klee Dienes  <kdienes@apple.com>
+
+	* pagecheck-sup.c (alloc_buffer): Store one longword of
+	MAGIC_GUARD even if check_info_guard is not set.
+	(validate_buffer): Check for one longword of MAGIC_GUARD even if
+	check_info_guard is not set.
+
+2002-11-30  Klee Dienes  <kdienes@apple.com>
+
+	* mmap-sup.c (mmalloc_endpoints): Handle nested mmalloc pools.
+	* mmalloc.h (mmalloc_endpoints): Add prototype.
+	
+2002-11-08  Klee Dienes  <kdienes@apple.com>
+
+	* pagecheck-sup.c (mmalloc_pagecheck_zero_free): New variable.
+	If set, realloc and free will zero out the old memory as well as mark
+	it as unreadable.
+	(mfree_pagecheck): Honor mmalloc_pagecheck_zero_free.
+	(mrealloc_pagecheck): Honor mmalloc_pagecheck_zero_free.
+
+2002-11-05  Klee Dienes  <kdienes@apple.com>
+
+	* Makefile.in: Add configure variables for PAGECHECK_SRC and
+	PAGECHECK_OBJ; use them in CFILES and OFILES.
+	* configure.in: Add host-check to determine if we should build
+	pagecheck-sup.o.
+	* po/Make-in: Revert to use @USE_NLS@ to match FSF sources.
+	
+2002-11-01  Klee Dienes  <kdienes@apple.com>
+
+	* pagecheck-sup.c: New file.  Implements a page-protection-based
+	debugging malloc.  See the comments in pagecheck-sup.c.
+
+	* Makefile.in: Add pagecheck-sup.c, pagecheck-sup.o.  
+	* mmalloc.h: Add prototype for mmalloc_pagecheck_create.
+	* mm.c: Add pagecheck-sup.
+	
+2002-11-01  Klee Dienes  <kdienes@apple.com>
+
+	* Makefile.in: Convert to build using "traditional" library
+	structure, instead of using mm.c.
+	* attach.c: Include mmprivate.h _before_ trying to evaluate HAVE_MMAP.
+	(mmalloc_attach): Include the 'flags' parameter in the
+	non-HAVE_MMAP case.
+	* check-sup.c: Include stdlib.h and string.h.
+	* detach.c: Include stdlib.h.
+	* malloc-sup.c: Include stdlib.h and string.h.
+	* mm.c: Move __mmalloc_default_mdp to mmalloc.c.  Remove unistd.h;
+	move to individual .c files.
+	* mmalloc.c: Move __mmalloc_default_mdp from mm.c.
+	* mmap-sup.c: Include config.h _before_ trying to evaluate
+	HAVE_MMAP.  Remove X3J11-bait at the end of the file.
+	* mmprivate.h: Include config.h.
+	* mvalloc.c: Include unistd.h, if available.
+
+2002-05-16  Klee Dienes  <kdienes@apple.com>
+
+	* Makefile.in: add check-sup.c
+
+	* mmprivate.h: add malloc, free, and realloc hooks to mmalloc
+	pools, to better support a mmalloc pool that dispatches to system
+	malloc with minimal intervention.  also add a "child" mmalloc, to
+	support implementing mmcheckf by "chaining" a checking mmalloc
+	pool on top of a lower-level implementation pool.
+
+	* mmcheck.c: add abort() to the mmcheck and mmcheckf calls, to
+	ensure they're not being used inadvertently (they will cause
+	random memory corruption if they are)
+
+	* mmap-sup.c: add mmalloc_endpoints, to support detecting the
+	memory range used by a mmap-based mmalloc pool.
+
+	* attach.c, mmap-sup.c: allow MMALLOC_SHARED or MMALLOC_PRIVATE to
+	be used when opening a pool to determine the behavior used by
+	mmap().
+
+	* mmalloc.h: add declaration for mmalloc_endpoints, mmalloc_check_create.
+
+	* mfree.c: use the new mfree_hook if present
+	* mmalloc.c: use the new mmalloc_hook if present
+
+	* malloc-sup.c: use the new mfree/mmalloc/mrealloc hooks to
+	implement a mmalloc pool that simply dispatches to the system
+	malloc.
+
+	* check-sup.c: implement a "checked" malloc pool, using the child
+	pool as the basis for allocating objects.

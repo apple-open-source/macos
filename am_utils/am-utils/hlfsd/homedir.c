@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: homedir.c,v 1.1.1.1 2002/05/15 01:22:19 jkh Exp $
+ * $Id: homedir.c,v 1.1.1.2 2002/07/15 19:43:05 zarzycki Exp $
  *
  * HLFSD was written at Columbia University Computer Science Department, by
  * Erez Zadok <ezk@cs.columbia.edu> and Alexander Dupuy <dupuy@cs.columbia.edu>
@@ -182,13 +182,13 @@ homedir(int userid, int groupid)
    *
    */
   am_set_mypid();		/* for logging routines */
-  if ((old_groupid = setegid(groupid)) < 0) {
-    plog(XLOG_WARNING, "could not setegid to %d: %m", groupid);
+  if ((old_groupid = setgid(groupid)) < 0) {
+    plog(XLOG_WARNING, "could not setgid to %d: %m", groupid);
     return linkval;
   }
   if ((old_userid = seteuid(userid)) < 0) {
     plog(XLOG_WARNING, "could not seteuid to %d: %m", userid);
-    setegid(old_groupid);
+    setgid(old_groupid);
     return linkval;
   }
   if (hlfsd_stat(linkval, &homestat) < 0) {
@@ -196,14 +196,14 @@ homedir(int userid, int groupid)
       /* don't use recursive mkdirs here */
       if (mkdir(linkval, PERS_SPOOLMODE) < 0) {
 	seteuid(old_userid);
-	setegid(old_groupid);
+	setgid(old_groupid);
 	plog(XLOG_WARNING, "can't make directory %s: %m", linkval);
 	return alt_spooldir;
       }
       /* fall through to testing the disk space / quota */
     } else {			/* the home dir itself must not exist then */
       seteuid(old_userid);
-      setegid(old_groupid);
+      setgid(old_groupid);
       plog(XLOG_WARNING, "bad link to %s: %m", linkval);
       return alt_spooldir;
     }
@@ -219,12 +219,12 @@ homedir(int userid, int groupid)
    */
   if (hlfsd_diskspace(linkval) < 0) {
     seteuid(old_userid);
-    setegid(old_groupid);
+    setgid(old_groupid);
     plog(XLOG_WARNING, "no more space in %s: %m", linkval);
     return alt_spooldir;
   } else {
     seteuid(old_userid);
-    setegid(old_groupid);
+    setgid(old_groupid);
     return linkval;
   }
 }

@@ -32,9 +32,8 @@
  */
 
 #import "IOFireWireLibPhysicalAddressSpace.h"
+#import "IOFireWireLibDevice.h"
 #import <exception>
-
-#define MIN(a,b) ((a < b) ? a : b)
 
 namespace IOFireWireLib {
 	
@@ -79,7 +78,7 @@ namespace IOFireWireLib {
 	IUnknownVTbl**
 	PhysicalAddressSpace::Alloc(
 		Device& 	inUserClient,
-		KernPhysicalAddrSpaceRef		inAddrSpaceRef,
+		UserObjectHandle		inAddrSpaceRef,
 		UInt32		 					inSize, 
 		void* 							inBackingStore, 
 		UInt32 							inFlags)
@@ -139,9 +138,9 @@ namespace IOFireWireLib {
 	}
 	
 #pragma mark -
-	PhysicalAddressSpace::PhysicalAddressSpace( Device& inUserClient, KernPhysicalAddrSpaceRef inKernPhysicalAddrSpaceRef,
+	PhysicalAddressSpace::PhysicalAddressSpace( Device& inUserClient, UserObjectHandle inKernPhysicalAddrSpaceRef,
 				UInt32 inSize, void* inBackingStore, UInt32 inFlags)
-	: IOFireWireIUnknown( reinterpret_cast<IUnknownVTbl*>(& sInterface) ),
+	: IOFireWireIUnknown( reinterpret_cast<const IUnknownVTbl &>( sInterface ) ),
 	  mUserClient(inUserClient),
 	  mKernPhysicalAddrSpaceRef(inKernPhysicalAddrSpaceRef),
 	  mSize(inSize),
@@ -153,24 +152,25 @@ namespace IOFireWireLib {
 		inUserClient.AddRef() ;
 
 		if (!mKernPhysicalAddrSpaceRef)
-			throw std::exception() ;
+			throw kIOReturnNoMemory ;
 		
-		IOReturn error = ::IOConnectMethodScalarIScalarO( mUserClient.GetUserClientConnection(), 
-								kPhysicalAddrSpace_GetSegmentCount, 1, 1, mKernPhysicalAddrSpaceRef, 
-								& mSegmentCount) ;
-		if ( mSegmentCount == 0)
-			throw std::exception() ;
+		IOReturn error = ::IOConnectMethodScalarIScalarO(   mUserClient.GetUserClientConnection(), 
+															mUserClient.MakeSelectorWithObject( kPhysicalAddrSpace_GetSegmentCount_d, 
+																mKernPhysicalAddrSpaceRef ), 
+															0, 1, & mSegmentCount) ;
+		if ( error || mSegmentCount == 0)
+			throw error ;
 			
 		mSegments = new IOPhysicalAddress[mSegmentCount] ;
 		if (!mSegments)
-			throw std::exception() ;
+			throw kIOReturnNoMemory ;
 
 		mSegmentLengths = new IOByteCount[mSegmentCount] ;
 		{
 			if (!mSegmentLengths)
 			{
 				delete mSegments ;
-				throw std::exception() ;
+				throw kIOReturnNoMemory ;
 			}
 		}
 		
@@ -179,7 +179,7 @@ namespace IOFireWireLib {
 						mSegmentCount, mSegments, mSegmentLengths, & mSegmentCount) ;
 
 		if (error)
-			throw std::exception() ;
+			throw error ;
 
 		mFWAddress = FWAddress(0, mSegments[0], 0) ;
 	}
@@ -187,12 +187,8 @@ namespace IOFireWireLib {
 	PhysicalAddressSpace::~PhysicalAddressSpace()
 	{
 		// call user client to delete our addr space ref here (if not yet released)
-		IOConnectMethodScalarIScalarO(
-			mUserClient.GetUserClientConnection(),
-			kPhysicalAddrSpace_Release,
-			1,
-			0,
-			mKernPhysicalAddrSpaceRef) ;
+		IOConnectMethodScalarIScalarO(  mUserClient.GetUserClientConnection(), 
+										kReleaseUserObject, 1, 0, mKernPhysicalAddrSpaceRef ) ;
 		
 		delete[] mSegments ;
 		delete[] mSegmentLengths ;
@@ -206,7 +202,7 @@ namespace IOFireWireLib {
 		IOByteCount			outSegmentLengths[],
 		IOPhysicalAddress	outSegments[])
 	{
-		*ioSegmentCount = MIN(*ioSegmentCount, mSegmentCount) ;
+		*ioSegmentCount = *ioSegmentCount <? mSegmentCount ;
 		
 		bcopy(mSegmentLengths, outSegmentLengths, (*ioSegmentCount)*sizeof(UInt32)) ;
 		bcopy(mSegments, outSegments, (*ioSegmentCount) * sizeof(IOPhysicalAddress)) ;

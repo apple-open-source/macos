@@ -1,4 +1,28 @@
 /*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * sys-bsd.c - System-dependent procedures for setting up
  * PPP interfaces on bsd-4.4-ish systems (including 386BSD, NetBSD, etc.)
  *
@@ -20,7 +44,7 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#define RCSID	"$Id: sys-MacOSX.c,v 1.7 2002/06/27 23:59:56 callie Exp $"
+#define RCSID	"$Id: sys-MacOSX.c,v 1.24 2003/09/21 03:05:21 callie Exp $"
 
 /* -----------------------------------------------------------------------------
   Includes
@@ -34,16 +58,20 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <signal.h>
+#include <util.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/sockio.h>
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/param.h>
+#include <sys/wait.h>
 #ifdef PPP_FILTER
 #include <net/bpf.h>
 #endif
 #include <net/if.h>
+#include <net/if_types.h>
 #include <mach-o/dyld.h>
 #include <dirent.h>
 #include <NSSystemDirectories.h>
@@ -58,17 +86,26 @@
 #include <net/route.h>
 #include <net/if_dl.h>
 #include <netinet/in.h>
+#include <netinet/in_var.h>
+#include <netinet6/nd6.h>
 #include <netinet/if_ether.h>
 #include <syslog.h>
 #include <sys/un.h>
 #include <pthread.h>
+#include <IOKit/IOKitLib.h>
+#include <IOKit/network/IOEthernetInterface.h>
+#include <IOKit/network/IONetworkInterface.h>
+#include <IOKit/network/IOEthernetController.h>
+
 
 #include "pppd.h"
 #include "fsm.h"
 #include "ipcp.h"
 #include "lcp.h"
-
-
+#ifdef EAP
+#include "eap.h"
+#endif
+#include "../vpnd/RASSchemaDefinitions.h"
 
 /* -----------------------------------------------------------------------------
  Definitions
@@ -87,40 +124,41 @@
 #define N_SYNC_PPP 14
 #endif
 
+/*
+ * If PPP_DRV_NAME is not defined, use the default "ppp" as the device name.
+ */
+#if !defined(PPP_DRV_NAME)
+#define PPP_DRV_NAME	"ppp"
+#endif /* !defined(PPP_DRV_NAME) */
+
 /* -----------------------------------------------------------------------------
  Forward declarations
 ----------------------------------------------------------------------------- */
 
 static int get_flags (int fd);
 static void set_flags (int fd, int flags);
-static int translate_speed (int bps);
-static int baud_rate_of (int speed);
-static void close_route_table (void);
-static int open_route_table (void);
-static int read_route_table (struct rtentry *rt);
-static int defaultroute_exists (struct rtentry *rt);
-//static int get_ether_addr (u_int32_t ipaddr, struct sockaddr *hwaddr,
-//			   char *name, int namelen);
-static void decode_version (char *buf, int *version, int *mod, int *patch);
 static int set_kdebugflag(int level);
-static int ppp_registered(void);
 static int make_ppp_unit(void);
 /* Prototypes for procedures local to this file. */
 static int get_ether_addr __P((u_int32_t, struct sockaddr_dl *));
 static int connect_pfppp();
-static void sys_pidchange(void *arg, int pid);
+//static void sys_pidchange(void *arg, int pid);
 static void sys_phasechange(void *arg, int phase);
 int sys_getconsoleuser(uid_t *uid);
 static void sys_exitnotify(void *arg, int exitcode);
 int publish_keyentry(CFStringRef key, CFStringRef entry, CFTypeRef value);
-int publish_numentry(CFStringRef entry, int val);
-int publish_strentry(CFStringRef entry, char *str, int encoding);
+int publish_dictnumentry(CFStringRef dict, CFStringRef entry, int val);
+int publish_dictstrentry(CFStringRef dict, CFStringRef entry, char *str, int encoding);
 int unpublish_keyentry(CFStringRef key, CFStringRef entry);
-int unpublish_entity(CFStringRef entity);
-int unpublish_entry(CFStringRef entry);
+int unpublish_dict(CFStringRef dict);
+int publish_dns_entry(CFStringRef str, CFStringRef property, int clean);
+int unpublish_dictentry(CFStringRef dict, CFStringRef entry);
 static void sys_eventnotify(void *param, int code);
 static void sys_timeremaining(void *param, int info);
-
+static void sys_authpeersuccessnotify(void *param, int info);
+int publish_stateaddr(u_int32_t o, u_int32_t h, u_int32_t m);
+int route_interface(int cmd, struct in_addr host, struct in_addr mask, char iftype, char *ifname, int is_host);
+int route_gateway(int cmd, struct in_addr dest, struct in_addr mask, struct in_addr gateway, int use_gway_flag);
 /* -----------------------------------------------------------------------------
  Globals
 ----------------------------------------------------------------------------- */
@@ -145,11 +183,13 @@ static fd_set 		ready_fds;		/* set of fds currently ready (out of select) */
 static int 		max_in_fd;		/* highest fd set in in_fds */
 
 static int 		if_is_up;		/* the interface is currently up */
+static int		ipv4_plumbed = 0; 	/* is ipv4 plumbed on the interface ? */
 static u_int32_t 	ifaddrs[2];		/* local and remote addresses we set */
 static u_int32_t 	default_route_gateway;	/* gateway addr for default route */
 static u_int32_t 	proxy_arp_addr;		/* remote addr for proxy arp */
 SCDynamicStoreRef	cfgCache = 0;		/* configd session */
 CFStringRef		serviceidRef = 0;	/* service id ref */
+CFStringRef		serveridRef = 0;	/* server id ref */
 
 extern u_char		inpacket_buf[];		/* borrowed from main.c */
 
@@ -157,9 +197,9 @@ static u_int32_t 	connecttime;		/* time when connection occured */
 int			looped;			/* 1 if using loop */
 int	 		ppp_sockfd = -1;	/* fd for PF_PPP socket */
 char 			*serviceid = NULL; 	/* configuration service ID to publish */
+char 			*serverid = NULL; 	/* server ID that spwaned this service */
 bool			tempserviceid = 0;	/* use a temporary created serviceid ? */
 bool	 		noload = 0;		/* don't load the kernel extension */
-bool	 		forcedetach = 0;	/* force detach from terminal, regardless of nodetach/updetach settings */
 bool                    looplocal = 0;  /* Don't loop local traffic destined to the local address some applications rely on this default behavior */
 
 double	 		timeScaleSeconds;	/* scale factor for machine absolute time to seconds */
@@ -168,10 +208,10 @@ double	 		timeScaleMicroSeconds;	/* scale factor for machine absolute time to mi
 option_t sys_options[] = {
     { "serviceid", o_string, &serviceid,
       "Service ID to publish"},
+    { "serverid", o_string, &serverid,
+      "Server ID that spawned this service."},
     { "nopppload", o_bool, &noload,
       "Don't try to load PPP NKE", 1},
-    { "forcedetach", o_bool, &forcedetach,
-      "Force detach from terminal", 1},
     { "looplocal", o_bool, &looplocal,
       "Loop local traffic destined to the local address", 1},
     { "nolooplocal", o_bool, &looplocal,
@@ -231,8 +271,6 @@ void sys_init()
 {
     int 		err, flags;
     struct sockaddr_un	adr;
-    struct sockaddr_ppp 	pppaddr;
-    char 		str[16];
     mach_timebase_info_data_t   timebaseInfo;
 
     openlog("pppd", LOG_PID | LOG_NDELAY, LOG_PPP);
@@ -259,52 +297,43 @@ void sys_init()
     ip_sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (ip_sockfd < 0)
 	fatal("Couldn't create IP socket: %m(%d)", errno);
-        
-#if 1
-    csockfd = socket(AF_LOCAL, SOCK_STREAM, 0);
-    if (csockfd < 0)
-        fatal("Couldn't create PPPController local socket: %m");
-
-    bzero(&adr, sizeof(adr));
-    adr.sun_family = AF_LOCAL;
-    strcpy(adr.sun_path, PPP_PATH);
-
-    if (err = connect(csockfd,  (struct sockaddr *)&adr, sizeof(adr)) < 0) {
-        warning("Couldn't connect to PPPController \n");
-        csockfd = -1;
-    }
-#endif
 
     // serviceid is required if we want pppd to publish information into the cache
-#if 1
     if (!serviceid) {
-        sprintf(str, "ppp-%d", getpid());
+
+        CFUUIDRef       uuid;
+        CFStringRef	strref;
+        char 		str[100];
+        
+        uuid = CFUUIDCreate(NULL);
+        strref = CFUUIDCreateString(NULL, uuid);
+        CFStringGetCString(strref, str, sizeof(str), kCFStringEncodingUTF8);
+
         if (serviceid = malloc(strlen(str) + 1))
             strcpy(serviceid, str);
         else 
             fatal("Couldn't allocate memory to create temporary service id: %m(%d)", errno);
         tempserviceid = 1;
+
+        CFRelease(strref);
+        CFRelease(uuid);
     }        
-#endif
+
     serviceidRef = CFStringCreateWithFormat(NULL, NULL, CFSTR("%s"), serviceid);
     if (!serviceidRef) 
         fatal("Couldn't allocate memory to create service id reference: %m(%d)", errno);
-
-
-    // if force detach is specified, remove nodetach option.
-    // we don't want to block configd with bad config files
-    if (forcedetach)
-        nodetach = updetach = 0;
-        
+            
     //sys_pidchange(0, getpid());
     cfgCache = SCDynamicStoreCreate(0, CFSTR("pppd"), 0, 0);
     if (cfgCache == 0)
         fatal("SCDynamicStoreCreate failed: %s", SCErrorString(SCError()));
     // if we are going to detach, wait to publish pid
-    if (!detach)
-        publish_numentry(CFSTR("pid"), getpid());
+    if (nodetach)
+        publish_dictnumentry(kSCEntNetPPP, CFSTR("pid"), getpid());
     //publish_entry(kSCPropNetPPPStatus, CFSTR("Initializing"));
-    publish_numentry(kSCPropNetPPPStatus, phase);
+    publish_dictnumentry(kSCEntNetPPP, kSCPropNetPPPStatus, phase);
+    if (serverid)
+    	publish_dictstrentry(kSCEntNetInterface, CFSTR("ServerID"), serverid, kCFStringEncodingMacRoman);
     //unpublish_entry(kSCPropNetPPPLastCause);
     //unpublish_entry(kSCPropNetPPPDeviceLastCause);
     //add_notifier(&pidchange, sys_pidchange, 0);
@@ -314,13 +343,26 @@ void sys_init()
     // only send event if started siwth serviceid option
     // PPPController knows only about serviceid based connections
     if (!tempserviceid) {
+
+        csockfd = socket(AF_LOCAL, SOCK_STREAM, 0);
+        if (csockfd < 0)
+            fatal("Couldn't create PPPController local socket: %m");
+    
+        bzero(&adr, sizeof(adr));
+        adr.sun_family = AF_LOCAL;
+        strcpy(adr.sun_path, PPP_PATH);
+    
+        if (err = connect(csockfd,  (struct sockaddr *)&adr, sizeof(adr)) < 0) {
+            warning("Couldn't connect to PPPController \n");
+            csockfd = -1;
+        }
+
         add_notifier(&ip_up_notify, sys_eventnotify, (void*)PPP_EVT_IPCP_UP);
         add_notifier(&ip_down_notify, sys_eventnotify, (void*)PPP_EVT_IPCP_DOWN);
         add_notifier(&lcp_up_notify, sys_eventnotify, (void*)PPP_EVT_LCP_UP);
         add_notifier(&lcp_down_notify, sys_eventnotify, (void*)PPP_EVT_LCP_DOWN);
         add_notifier(&lcp_lowerup_notify, sys_eventnotify, (void*)PPP_EVT_LOWERLAYER_UP);
         add_notifier(&lcp_lowerdown_notify, sys_eventnotify, (void*)PPP_EVT_LOWERLAYER_DOWN);
-        add_notifier(&lcp_timeremaining_notify, sys_timeremaining, 0);
         add_notifier(&auth_start_notify, sys_eventnotify, (void*)PPP_EVT_AUTH_STARTED);
         add_notifier(&auth_withpeer_fail_notify, sys_eventnotify, (void*)PPP_EVT_AUTH_FAILED);
         add_notifier(&auth_withpeer_success_notify, sys_eventnotify, (void*)PPP_EVT_AUTH_SUCCEDED);
@@ -336,6 +378,9 @@ void sys_init()
         add_notifier(&stop_notify, sys_eventnotify, (void*)PPP_EVT_STOPPED);
         add_notifier(&cont_notify, sys_eventnotify, (void*)PPP_EVT_CONTINUED);
     }
+
+    add_notifier(&lcp_timeremaining_notify, sys_timeremaining, 0);
+    add_notifier(&auth_peer_success_notify, sys_authpeersuccessnotify, 0);
 
     if (mach_timebase_info(&timebaseInfo) == KERN_SUCCESS) {	// returns scale factor for ns
         timeScaleMicroSeconds = ((double) timebaseInfo.numer / (double) timebaseInfo.denom) / 1000;
@@ -366,6 +411,7 @@ void sys_cleanup()
     }
     if (ifaddrs[0] != 0)
 	cifaddr(0, ifaddrs[0], ifaddrs[1]);
+
     if (default_route_gateway)
 	cifdefaultroute(0, 0, default_route_gateway);
     if (proxy_arp_addr)
@@ -376,7 +422,14 @@ void sys_cleanup()
 ----------------------------------------------------------------------------- */
 void sys_close()
 {
-    close(ip_sockfd);
+    if (ip_sockfd != -1) {
+	close(ip_sockfd);
+	ip_sockfd = -1;
+    }
+    if (ppp_sockfd != -1) {
+        close(ppp_sockfd);
+        ppp_sockfd = -1;
+    }
 }
 
 /* ----------------------------------------------------------------------------- 
@@ -415,13 +468,15 @@ we installed the notifier with the event as the parameter
 void sys_eventnotify(void *param, int code)
 {
     struct ppp_msg_hdr	*msg;
-    int 		servlen = strlen(serviceid);
-    int 		totlen = sizeof(struct ppp_msg_hdr) + servlen + 8;
+    int 		servlen, totlen;
     u_char 		*p;
     
     if (csockfd == -1)
         return;
         
+    servlen = strlen(serviceid);
+    totlen = sizeof(struct ppp_msg_hdr) + servlen + 8;
+
     p = malloc(totlen);
     if (!p) {
 	warning("no memory to send event to PPPController");
@@ -493,15 +548,6 @@ the steps detailed in the README.MacOSX file.\n";
 }
 
 /* ----------------------------------------------------------------------------- 
-new_fd is the fd of a tty
------------------------------------------------------------------------------ */
-static void set_ppp_fd (int new_fd)
-{
-    SYSDEBUG ((LOG_DEBUG, "setting ppp_fd to %d\n", new_fd));
-    ppp_fd = new_fd;
-}
-
-/* ----------------------------------------------------------------------------- 
 ----------------------------------------------------------------------------- */
 static int still_ppp(void)
 {
@@ -531,8 +577,8 @@ make a new ppp unit for ppp_sockfd
 ----------------------------------------------------------------------------- */
 static int make_ppp_unit()
 {
-    struct sockaddr_ppp 	pppaddr;
     int x;
+    char name[32];
 
     ifunit = req_unit;
     x = ioctl(ppp_sockfd, PPPIOCNEWUNIT, &ifunit);
@@ -540,9 +586,15 @@ static int make_ppp_unit()
         warning("Couldn't allocate PPP unit %d as it is already in use");
         ifunit = -1;
         x = ioctl(ppp_sockfd, PPPIOCNEWUNIT, &ifunit);
+
+
     }
     if (x < 0)
         error("Couldn't create new ppp unit: %m");
+    else {
+        slprintf(name, sizeof(name), "%s%d", PPP_DRV_NAME, ifunit);
+        publish_dictstrentry(kSCEntNetPPP, kSCPropInterfaceName, name, kCFStringEncodingMacRoman);
+    }
 
     return x;
 }
@@ -578,8 +630,12 @@ int connect_pfppp()
 /* ----------------------------------------------------------------------------- 
 Turn the serial port into a ppp interface
 ----------------------------------------------------------------------------- */
-int establish_ppp_tty (int tty_fd)
+int tty_establish_ppp (int tty_fd)
 {
+    int new_fd;
+    
+    // First, turn the device into ppp link
+
     /* Ensure that the tty device is in exclusive mode.  */
     if (ioctl(tty_fd, TIOCEXCL, 0) < 0) {
         if ( ! ok_error ( errno ))
@@ -595,48 +651,65 @@ int establish_ppp_tty (int tty_fd)
         }
     }
 
-    return 0;
+    // Then, then do the generic link work, and get a generic fd back
+
+    new_fd = generic_establish_ppp(tty_fd);
+    if (new_fd == -1) {
+        // Restore the previous line discipline
+        if (ioctl(tty_fd, TIOCSETD, &ttydisc) < 0)
+            if ( ! ok_error (errno))
+                error("ioctl(TIOCSETD, TTYDISC): %m");
+        return -1;
+    }
+
+    set_flags(new_fd, get_flags(ppp_fd) & ~(SC_RCV_B7_0 | SC_RCV_B7_1 | SC_RCV_EVNP | SC_RCV_ODDP));
+
+    return new_fd;
 }
 
 /* -----------------------------------------------------------------------------
 Restore the serial port to normal operation.
 This shouldn't call die() because it's called from die()
 ----------------------------------------------------------------------------- */
-void disestablish_ppp_tty(int tty_fd)
+void tty_disestablish_ppp(int tty_fd)
 {
-    int 	x;
+        
+    if (!hungup) {
         
         // Flush the tty output buffer so that the TIOCSETD doesn't hang.
-	//if (tcflush(tty_fd, TCIOFLUSH) < 0)
-	//    warning("tcflush failed: %m");
-    
+        //if (tcflush(tty_fd, TCIOFLUSH) < 0)
+        //    warning("tcflush failed: %m");
+        
         // Restore the previous line discipline
-    if (ioctl(tty_fd, TIOCSETD, &ttydisc) < 0) {
-        if ( ! ok_error (errno))
-            error("ioctl(TIOCSETD, TTYDISC): %m");
+        if (ioctl(tty_fd, TIOCSETD, &ttydisc) < 0) {
+            if ( ! ok_error (errno))
+                error("ioctl(TIOCSETD, TTYDISC): %m");
+        }
+        
+        if (ioctl(tty_fd, TIOCNXCL, 0) < 0) {
+            if ( ! ok_error (errno))
+                warning("ioctl(TIOCNXCL): %m(%d)", errno);
+        }
+
+	// Reset non-blocking mode on fd
+	if (initfdflags != -1 && fcntl(tty_fd, F_SETFL, initfdflags) < 0) {
+	    if ( ! ok_error (errno))
+		warning("Couldn't restore device fd flags: %m");
+	}
     }
-    
-    if (ioctl(tty_fd, TIOCNXCL, 0) < 0) {
-        if ( ! ok_error (errno))
-            warning("ioctl(TIOCNXCL): %m(%d)", errno);
-    }
+
+    initfdflags = -1;
+
+    generic_disestablish_ppp(tty_fd);
 }
 
 /* ----------------------------------------------------------------------------- 
-perform
+generic code to establish ppp interface
 ----------------------------------------------------------------------------- */
-int establish_ppp (int fd)
+int generic_establish_ppp (int fd)
 {
-    int 		x, flags, s = -1, link = 0, ret;
-    struct sockaddr_ppp pppaddr;
-
-    // use the hook to establish the ppp connection. establishment mechanism depends on the device	
-    if (dev_establish_ppp_hook)
-        if (ret = (*dev_establish_ppp_hook)(fd))
-            return ret;
-        
-    // when the device is setup as a ppp link, then do the generic link work
-    
+    int flags, s = -1, link = 0;
+            
     // Open another instance of the ppp socket and connect the link to it
     if (ioctl(fd, PPPIOCGCHAN, &link) == -1) {
         error("Couldn't get link number: %m");
@@ -660,7 +733,9 @@ int establish_ppp (int fd)
     flags = fcntl(s, F_GETFL);
     if (flags == -1 || fcntl(s, F_SETFL, flags | O_NONBLOCK) == -1)
         warning("Couldn't set ppp socket link to nonblock: %m");
-    set_ppp_fd(s);
+
+    /* set the ppp_fd socket now */
+    ppp_fd = s;
 
     if (!looped)
         ifunit = -1;
@@ -686,47 +761,35 @@ int establish_ppp (int fd)
     // Enable debug in the driver if requested.
     set_kdebugflag (kdebugflag);
 
-    set_flags(ppp_fd, get_flags(ppp_fd) & ~(SC_RCV_B7_0 | SC_RCV_B7_1 | SC_RCV_EVNP | SC_RCV_ODDP));
-
     return ppp_fd;
 
  err_close:
     close(s);
     
  err:
-    // use the hook to disestablish the ppp connection	
-    if (dev_disestablish_ppp_hook)
-        (*dev_disestablish_ppp_hook)(fd);
-
     return -1;
 }
 
 /* -----------------------------------------------------------------------------
 Restore the serial port to normal operation.
 This shouldn't call die() because it's called from die()
+fd is the file descriptor of the device
 ----------------------------------------------------------------------------- */
-void disestablish_ppp(int fd)
+void generic_disestablish_ppp(int fd)
 {
     int 	x;
     
-    if (!hungup) {
-        
-        // use the hook to disestablish the ppp connection	
-        if (dev_disestablish_ppp_hook)
-            (*dev_disestablish_ppp_hook)(fd);
-
-	/* Reset non-blocking mode on fd. */
-	if (initfdflags != -1 && fcntl(fd, F_SETFL, initfdflags) < 0) {
-	    if ( ! ok_error (errno))
-		warning("Couldn't restore device fd flags: %m");
-	}
-    }
-
-    initfdflags = -1;
     close(ppp_fd);
     ppp_fd = -1;
-    if (!looped && ifunit >= 0 && ioctl(ppp_sockfd, PPPIOCDETACH, &x) < 0)
-        error("Couldn't release PPP unit ppp_sockfd %d: %m", ppp_sockfd);
+    if (demand) {
+	looped = 1;
+        set_flags(ppp_sockfd, get_flags(ppp_sockfd) | SC_LOOP_TRAFFIC);
+    }
+    else {
+        unpublish_dictentry(kSCEntNetPPP, kSCPropInterfaceName);
+        if (ifunit >= 0 && ioctl(ppp_sockfd, PPPIOCDETACH, &x) < 0)
+            error("Couldn't release PPP unit ppp_sockfd %d: %m", ppp_sockfd);
+    }
     if (!multilink)
         remove_fd(ppp_sockfd);
 }
@@ -946,32 +1009,12 @@ int open_ppp_loopback()
 }
 
 /* -----------------------------------------------------------------------------
-reconfigure the interface in loopback mode again
------------------------------------------------------------------------------ */
-void restore_loop()
-{
-    looped = 1;
-    set_flags(ppp_sockfd, get_flags(ppp_sockfd) | SC_LOOP_TRAFFIC);
-}
-
-
-/* -----------------------------------------------------------------------------
 Output PPP packet
 ----------------------------------------------------------------------------- */
 void output(int unit, u_char *p, int len)
 {
-    if (debug) {
-        // don't log lcp-echo/reply and time-remaining packets in the RUNNING PHASE
-        if ((*(u_short*)(p + 2) == PPP_LCP) 
-              && ((*(p + 4) == ECHOREQ) || (*(p + 4) == ECHOREP) || (*(p + 4) == TIMEREMAINING))
-              && (phase == PHASE_RUNNING)) {
 
-        }
-        else {
-            dbglog("sent %P", p, len);
-            //info("sent %P", p, len);
-        }
-    }
+    dump_packet("sent", p, len);
     
     // don't write FF03
     len -= 2;
@@ -1051,8 +1094,7 @@ return 1 is fd is set (i.e. select returned with this file descriptor set)
 ----------------------------------------------------------------------------- */
 bool is_ready_fd(int fd)
 {
-
-    return FD_ISSET(fd, &ready_fds);
+    return (FD_ISSET(fd, &ready_fds) != 0);
 }
 
 /* -----------------------------------------------------------------------------
@@ -1103,15 +1145,9 @@ int get_loop_output()
 /* -----------------------------------------------------------------------------
 configure the transmit characteristics of the ppp interface
  ----------------------------------------------------------------------------- */
-void ppp_send_config(int unit,int  mtu, u_int32_t asyncmap, int pcomp, int accomp)
+void tty_send_config(int mtu, u_int32_t asyncmap, int pcomp, int accomp)
 {
     u_int x;
-    struct ifreq ifr;
-
-    strlcpy(ifr.ifr_name, ifname, sizeof (ifr.ifr_name));
-    ifr.ifr_mtu = mtu;
-    if (ioctl(ip_sockfd, SIOCSIFMTU, (caddr_t) &ifr) < 0)
-	fatal("ioctl(SIOCSIFMTU): %m");
 
     if (!still_ppp())
 	return;
@@ -1124,15 +1160,66 @@ void ppp_send_config(int unit,int  mtu, u_int32_t asyncmap, int pcomp, int accom
     x = pcomp? x | SC_COMP_PROT: x &~ SC_COMP_PROT;
     x = accomp? x | SC_COMP_AC: x &~ SC_COMP_AC;
     x = sync_serial ? x | SC_SYNC : x & ~SC_SYNC;
-    x = looplocal ? x | SC_LOOP_LOCAL : x & ~SC_LOOP_LOCAL;
     if (ioctl(ppp_fd, PPPIOCSFLAGS, (caddr_t) &x) < 0)
 	fatal("ioctl(PPPIOCSFLAGS): %m");
         
-    publish_numentry(kSCPropNetPPPLCPCompressionPField, pcomp);
-    publish_numentry(kSCPropNetPPPLCPCompressionACField, accomp);
-    publish_numentry(kSCPropNetPPPLCPMTU, mtu);
-    publish_numentry(kSCPropNetPPPLCPTransmitACCM, asyncmap);
+    publish_dictnumentry(kSCEntNetPPP, kSCPropNetPPPLCPCompressionPField, pcomp);
+    publish_dictnumentry(kSCEntNetPPP, kSCPropNetPPPLCPCompressionACField, accomp);
+    publish_dictnumentry(kSCEntNetPPP, kSCPropNetPPPLCPTransmitACCM, asyncmap);
 }
+
+/* -----------------------------------------------------------------------------
+configure the transmit characteristics of the ppp interface
+function used for synchronous links, asyncmap is irrelevant
+ ----------------------------------------------------------------------------- */
+void generic_send_config(int mtu, u_int32_t asyncmap, int pcomp, int accomp)
+{
+    u_int x;
+
+    if (!still_ppp())
+	return;
+
+    if (ioctl(ppp_fd, PPPIOCGFLAGS, (caddr_t) &x) < 0)
+	fatal("ioctl (PPPIOCGFLAGS): %m");
+    x = pcomp? x | SC_COMP_PROT: x &~ SC_COMP_PROT;
+    x = accomp? x | SC_COMP_AC: x &~ SC_COMP_AC;
+    if (ioctl(ppp_fd, PPPIOCSFLAGS, (caddr_t) &x) < 0)
+	fatal("ioctl(PPPIOCSFLAGS): %m");
+        
+    publish_dictnumentry(kSCEntNetPPP, kSCPropNetPPPLCPCompressionPField, pcomp);
+    publish_dictnumentry(kSCEntNetPPP, kSCPropNetPPPLCPCompressionACField, accomp);
+}
+
+/* -----------------------------------------------------------------------------
+set the MTU on the PPP network interface
+----------------------------------------------------------------------------- */
+void netif_set_mtu(int unit, int mtu)
+{
+    struct ifreq ifr;
+
+    strlcpy(ifr.ifr_name, ifname, sizeof (ifr.ifr_name));
+    ifr.ifr_mtu = mtu;
+    if (ioctl(ip_sockfd, SIOCSIFMTU, (caddr_t) &ifr) < 0)
+	error("ioctl (SIOCSIFMTU): %m");
+
+    publish_dictnumentry(kSCEntNetPPP, kSCPropNetPPPLCPMTU, mtu);
+}
+
+/* -----------------------------------------------------------------------------
+get the MTU on the PPP network interface 
+----------------------------------------------------------------------------- */
+int netif_get_mtu(int unit)
+{
+    struct ifreq ifr;
+
+    strlcpy(ifr.ifr_name, ifname, sizeof (ifr.ifr_name));
+    if (ioctl(ip_sockfd, SIOCGIFMTU, (caddr_t) &ifr) < 0) {
+	error("ioctl (SIOCGIFMTU): %m");
+        return 0;
+    }
+    return ifr.ifr_mtu;
+}
+
 
 /* -----------------------------------------------------------------------------
 stop traffic on this link
@@ -1169,7 +1256,7 @@ void ppp_cont(int unit)
 /* -----------------------------------------------------------------------------
 set the extended transmit ACCM for the interface
 ----------------------------------------------------------------------------- */
-void ppp_set_xaccm(int unit, ext_accm accm)
+void tty_set_xaccm(ext_accm accm)
 {
     if (!still_ppp())
 	return;
@@ -1180,7 +1267,7 @@ void ppp_set_xaccm(int unit, ext_accm accm)
 /* -----------------------------------------------------------------------------
 configure the receive-side characteristics of the ppp interface.
 ----------------------------------------------------------------------------- */
-void ppp_recv_config(int unit, int mru, u_int32_t asyncmap, int pcomp, int accomp)
+void tty_recv_config(int mru, u_int32_t asyncmap, int pcomp, int accomp)
 {
     int x;
 
@@ -1196,8 +1283,31 @@ void ppp_recv_config(int unit, int mru, u_int32_t asyncmap, int pcomp, int accom
     x = !accomp? x | SC_REJ_COMP_AC: x &~ SC_REJ_COMP_AC;
     if (ioctl(ppp_fd, PPPIOCSFLAGS, (caddr_t) &x) < 0)
 	fatal("ioctl(PPPIOCSFLAGS): %m");
-    publish_numentry(kSCPropNetPPPLCPMRU, mru);
-    publish_numentry(kSCPropNetPPPLCPReceiveACCM, asyncmap);
+
+    publish_dictnumentry(kSCEntNetPPP, kSCPropNetPPPLCPMRU, mru);
+    publish_dictnumentry(kSCEntNetPPP, kSCPropNetPPPLCPReceiveACCM, asyncmap);
+}
+
+/* -----------------------------------------------------------------------------
+configure the receive-side characteristics of the ppp interface.
+function used for synchronous links, asyncmap is irrelevant
+----------------------------------------------------------------------------- */
+void generic_recv_config(int mru, u_int32_t asyncmap, int pcomp, int accomp)
+{
+    int x;
+
+    if (!still_ppp())
+	return;
+
+    if (ioctl(ppp_fd, PPPIOCSMRU, (caddr_t) &mru) < 0)
+	fatal("ioctl(PPPIOCSMRU): %m");
+    if (ioctl(ppp_fd, PPPIOCGFLAGS, (caddr_t) &x) < 0)
+	fatal("ioctl (PPPIOCGFLAGS): %m");
+    x = !accomp? x | SC_REJ_COMP_AC: x &~ SC_REJ_COMP_AC;
+    if (ioctl(ppp_fd, PPPIOCSFLAGS, (caddr_t) &x) < 0)
+	fatal("ioctl(PPPIOCSFLAGS): %m");
+
+    publish_dictnumentry(kSCEntNetPPP, kSCPropNetPPPLCPMRU, mru);
 }
 
 /* -----------------------------------------------------------------------------
@@ -1278,6 +1388,8 @@ int get_ppp_stats(int u, struct pppd_stats *stats)
     }
     stats->bytes_in = req.stats.p.ppp_ibytes;
     stats->bytes_out = req.stats.p.ppp_obytes;
+    stats->pkts_in = req.stats.p.ppp_ipackets;
+    stats->pkts_out = req.stats.p.ppp_opackets;
     return 1;
 }
 
@@ -1327,7 +1439,7 @@ int sifvjcomp(int u, int vjcomp, int cidcomp, int maxcid)
 	error("ioctl(PPPIOCSMAXCID): %m");
 	return 0;
     }
-    publish_numentry(kSCPropNetPPPIPCPCompressionVJ, vjcomp);
+    publish_dictnumentry(kSCEntNetPPP, kSCPropNetPPPIPCPCompressionVJ, vjcomp);
     return 1;
 }
 
@@ -1369,7 +1481,23 @@ int sifnpmode(int u, int proto, enum NPmode mode)
 }
 
 /* -----------------------------------------------------------------------------
-Config the interface down and disable IP
+Set the mode for filtering protocol addresses
+----------------------------------------------------------------------------- */
+int sifnpafmode(int u, int proto, enum NPAFmode mode)
+{
+    struct npafioctl npi;
+
+    npi.protocol = proto;
+    npi.mode = mode;
+    if (ioctl(ppp_sockfd, PPPIOCSNPAFMODE, &npi) < 0) {
+	error("ioctl(set NPAF %d mode to %d): %m", proto, mode);
+	return 0;
+    }
+    return 1;
+}
+
+/* -----------------------------------------------------------------------------
+Config the interface down
 ----------------------------------------------------------------------------- */
 int sifdown(int u)
 {
@@ -1377,11 +1505,21 @@ int sifdown(int u)
     int rv;
     struct npioctl npi;
 
-    rv = 1;
     npi.protocol = PPP_IP;
-    npi.mode = NPMODE_ERROR;
-    ioctl(ppp_sockfd, PPPIOCSNPMODE, (caddr_t) &npi);
-    /* ignore errors, because ppp_fd might have been closed by now. */
+    if ((ioctl(ppp_sockfd, PPPIOCGNPMODE, (caddr_t) &npi) == 0)	
+        && (npi.mode != NPMODE_DROP)) {
+        return 0;
+    }
+
+    npi.protocol = PPP_IPV6;
+    if ((ioctl(ppp_sockfd, PPPIOCGNPMODE, (caddr_t) &npi) == 0)	
+        && (npi.mode != NPMODE_DROP)) {
+        return 0;
+    }
+
+    /* ipv4 and ipv4 are both down. take the interface down now */
+    
+    rv = 1;
 
     strlcpy(ifr.ifr_name, ifname, sizeof (ifr.ifr_name));
     if (ioctl(ip_sockfd, SIOCGIFFLAGS, (caddr_t) &ifr) < 0) {
@@ -1414,6 +1552,20 @@ int sifaddr(int u, u_int32_t o, u_int32_t h, u_int32_t m)
     struct ifaliasreq ifra;
     struct ifreq ifr;
 
+// XXX from sys/sockio.h
+#define SIOCPROTOATTACH _IOWR('i', 80, struct ifreq)    /* attach proto to interface */
+#define SIOCPROTODETACH _IOWR('i', 81, struct ifreq)    /* detach proto from interface */
+
+    // first plumb ip over ppp
+    if (ipv4_plumbed == 0) {
+        strlcpy(ifr.ifr_name, ifname, sizeof (ifr.ifr_name));
+        if (ioctl(ip_sockfd, SIOCPROTOATTACH, (caddr_t) &ifr) < 0) {
+            error("Couldn't plumb IP to the interface: %d %m", errno);
+            //return 0;
+        }
+        ipv4_plumbed = 1;
+    }
+    
     strlcpy(ifra.ifra_name, ifname, sizeof(ifra.ifra_name));
     SET_SA_FAMILY(ifra.ifra_addr, AF_INET);
     ((struct sockaddr_in *) &ifra.ifra_addr)->sin_addr.s_addr = o;
@@ -1441,7 +1593,19 @@ int sifaddr(int u, u_int32_t o, u_int32_t h, u_int32_t m)
     ifaddrs[1] = h;
     
     publish_stateaddr(o, h, m);
-    return 1;
+
+    if (looplocal) {
+	struct in_addr o1;
+        struct in_addr mask;
+        
+        set_flags(ppp_sockfd, get_flags(ppp_sockfd) | SC_LOOP_LOCAL);
+        // add a route for our local address via our interface
+        o1.s_addr = o;
+        mask.s_addr = 0;
+        route_interface(RTM_ADD, o1, mask, IFT_PPP, ifname, 1);
+    }
+
+   return 1;
 }
 
 /* -----------------------------------------------------------------------------
@@ -1450,9 +1614,14 @@ Clear the interface IP addresses, and delete routes
  ----------------------------------------------------------------------------- */
 int cifaddr(int u, u_int32_t o, u_int32_t h)
 {
+    struct ifreq ifr;
     struct ifaliasreq ifra;
 
-    unpublish_entity(kSCEntNetIPv4);
+// XXX from sys/sockio.h
+#define SIOCPROTOATTACH _IOWR('i', 80, struct ifreq)    /* attach proto to interface */
+#define SIOCPROTODETACH _IOWR('i', 81, struct ifreq)    /* detach proto from interface */
+
+    unpublish_dict(kSCEntNetIPv4);
 
     ifaddrs[0] = 0;
     strlcpy(ifra.ifra_name, ifname, sizeof(ifra.ifra_name));
@@ -1466,29 +1635,317 @@ int cifaddr(int u, u_int32_t o, u_int32_t h)
 	    warning("Couldn't delete interface address: %m");
 	return 0;
     }
+
+#if 0
+    // unplumb ip from ppp
+    strlcpy(ifr.ifr_name, ifname, sizeof (ifr.ifr_name));
+    if (ioctl(ip_sockfd, SIOCPROTODETACH, (caddr_t) &ifr) < 0) {
+        error("Couldn't unplumb IP from the interface: %m");
+	return 0;
+    }
+#endif
+
     return 1;
 }
+
+#ifdef INET6
+/* -----------------------------------------------------------------------------
+Config the interface IPv6 addresses
+----------------------------------------------------------------------------- */
+int sif6addr (int unit, eui64_t our_eui64, eui64_t his_eui64)
+{
+    int ifindex, s;
+    struct in6_ifreq ifr6;
+    struct in6_aliasreq addreq6;
+
+// XXX from sys/sockio.h
+#define SIOCPROTOATTACH_IN6 _IOWR('i', 110, struct in6_aliasreq)    /* attach proto to interface */
+#define SIOCPROTODETACH_IN6 _IOWR('i', 111, struct in6_ifreq)    /* detach proto from interface */
+#define SIOCPROTOATTACH _IOWR('i', 80, struct ifreq)    /* attach proto to interface */
+#define SIOCPROTODETACH _IOWR('i', 81, struct ifreq)    /* detach proto from interface */
+#define SIOCLL_START _IOWR('i', 130, struct in6_aliasreq)    /* start aquiring linklocal on interface */
+#define SIOCLL_STOP _IOWR('i', 131, struct in6_ifreq)    /* deconfigure linklocal from interface */
+
+    s = socket(AF_INET6, SOCK_DGRAM, 0);
+    if (s < 0) {
+        error("Can't create IPv6 socket: %m");
+        return 0;
+    }
+
+    /* actually, this part is not kame local - RFC2553 conformant */
+    ifindex = if_nametoindex(ifname);
+    if (ifindex == 0) {
+	error("sifaddr6: no interface %s", ifname);
+	return 0;
+    }
+
+    strlcpy(ifr6.ifr_name, ifname, sizeof(ifr6.ifr_name));
+    if (ioctl(s, SIOCPROTOATTACH_IN6, &ifr6) < 0) {
+        error("sif6addr: can't attach IPv6 protocol: %m");
+        close(s);
+        return 0;
+    }
+
+    memset(&addreq6, 0, sizeof(addreq6));
+    strlcpy(addreq6.ifra_name, ifname, sizeof(addreq6.ifra_name));
+
+    /* my addr */
+    addreq6.ifra_addr.sin6_family = AF_INET6;
+    addreq6.ifra_addr.sin6_len = sizeof(struct sockaddr_in6);
+    addreq6.ifra_addr.sin6_addr.s6_addr[0] = 0xfe;
+    addreq6.ifra_addr.sin6_addr.s6_addr[1] = 0x80;
+    memcpy(&addreq6.ifra_addr.sin6_addr.s6_addr[8], &our_eui64,
+	sizeof(our_eui64));
+    /* KAME ifindex hack */
+    *(u_int16_t *)&addreq6.ifra_addr.sin6_addr.s6_addr[2] = htons(ifindex);
+
+    /* his addr */
+    addreq6.ifra_dstaddr.sin6_family = AF_INET6;
+    addreq6.ifra_dstaddr.sin6_len = sizeof(struct sockaddr_in6);
+    addreq6.ifra_dstaddr.sin6_addr.s6_addr[0] = 0xfe;
+    addreq6.ifra_dstaddr.sin6_addr.s6_addr[1] = 0x80;
+    memcpy(&addreq6.ifra_dstaddr.sin6_addr.s6_addr[8], &his_eui64,
+	sizeof(our_eui64));
+    /* KAME ifindex hack */
+    *(u_int16_t *)&addreq6.ifra_dstaddr.sin6_addr.s6_addr[2] = htons(ifindex);
+
+    /* prefix mask: 128bit */
+    addreq6.ifra_prefixmask.sin6_family = AF_INET6;
+    addreq6.ifra_prefixmask.sin6_len = sizeof(struct sockaddr_in6);
+    memset(&addreq6.ifra_prefixmask.sin6_addr, 0xff,
+	sizeof(addreq6.ifra_prefixmask.sin6_addr));
+
+    /* address lifetime (infty) */
+    addreq6.ifra_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME;
+    addreq6.ifra_lifetime.ia6t_vltime = ND6_INFINITE_LIFETIME;
+
+    if (ioctl(s, SIOCLL_START, &addreq6) < 0) {
+        error("sif6addr: can't set LL address: %m");
+        close(s);
+        return 0;
+    }
+
+    close(s);
+
+    return 1;
+}
+
+/* -----------------------------------------------------------------------------
+Clear the interface IPv6 addresses
+ ----------------------------------------------------------------------------- */
+int cif6addr (int unit, eui64_t our_eui64, eui64_t his_eui64)
+{
+    int s;
+    struct ifreq ifr;
+    struct in6_ifreq ifr6;
+
+// XXX from sys/sockio.h
+#define SIOCPROTOATTACH_IN6 _IOWR('i', 110, struct in6_aliasreq)    /* attach proto to interface */
+#define SIOCPROTODETACH_IN6 _IOWR('i', 111, struct in6_ifreq)    /* detach proto from interface */
+#define SIOCPROTOATTACH _IOWR('i', 80, struct ifreq)    /* attach proto to interface */
+#define SIOCPROTODETACH _IOWR('i', 81, struct ifreq)    /* detach proto from interface */
+#define SIOCLL_START _IOWR('i', 130, struct in6_aliasreq)    /* start aquiring linklocal on interface */
+#define SIOCLL_STOP _IOWR('i', 131, struct in6_ifreq)    /* deconfigure linklocal from interface */
+
+    s = socket(AF_INET6, SOCK_DGRAM, 0);
+    if (s < 0) {
+        error("Can't create IPv6 socket: %m");
+        return 0;
+    }
+
+    /* first try old ioctl */
+    strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+    if (ioctl(s, SIOCPROTODETACH, &ifr) < 0) {
+        /* then new ioctl */
+        strlcpy(ifr6.ifr_name, ifname, sizeof(ifr6.ifr_name));
+        if (ioctl(s, SIOCLL_STOP, &ifr6) < 0) {
+            warning("Can't stop LL address: %m");
+        }
+        strlcpy(ifr6.ifr_name, ifname, sizeof(ifr6.ifr_name));
+        if (ioctl(s, SIOCPROTODETACH_IN6, &ifr6) < 0) {
+            warning("Can't detach IPv6 protocol: %m");
+        }
+        
+        close(s);
+        return 0;
+    }
+
+    close(s);
+
+    return 1;
+}
+
+/* -----------------------------------------------------------------------------
+Returns an iterator containing the primary (built-in) Ethernet interface. 
+The caller is responsible for releasing the iterator after the caller is done with it.
+ ----------------------------------------------------------------------------- */
+static kern_return_t FindPrimaryEthernetInterfaces(io_iterator_t *matchingServices)
+{
+    kern_return_t  kernResult; 
+    mach_port_t   masterPort;
+    CFMutableDictionaryRef matchingDict;
+    CFMutableDictionaryRef propertyMatchDict;
+    
+    // Retrieve the Mach port used to initiate communication with I/O Kit
+    kernResult = IOMasterPort(MACH_PORT_NULL, &masterPort);
+    if (kernResult != KERN_SUCCESS) {
+        error("Can't create IOKit MasterPort (%d)\n", kernResult);
+        return kernResult;
+    }
+    
+    // Ethernet interfaces are instances of class kIOEthernetInterfaceClass. 
+    // IOServiceMatching is a convenience function to create a dictionary with the key kIOProviderClassKey and 
+    // the specified value.
+    matchingDict = IOServiceMatching(kIOEthernetInterfaceClass);
+    if (matchingDict) {
+    
+        // Each IONetworkInterface object has a Boolean property with the key kIOPrimaryInterface. Only the
+        // primary (built-in) interface has this property set to TRUE.
+        
+        // IOServiceGetMatchingServices uses the default matching criteria defined by IOService. This considers
+        // only the following properties plus any family-specific matching in this order of precedence 
+        // (see IOService::passiveMatch):
+        //
+        // kIOProviderClassKey (IOServiceMatching)
+        // kIONameMatchKey (IOServiceNameMatching)
+        // kIOPropertyMatchKey
+        // kIOPathMatchKey
+        // kIOMatchedServiceCountKey
+        // family-specific matching
+        // kIOBSDNameKey (IOBSDNameMatching)
+        // kIOLocationMatchKey
+        
+        // The IONetworkingFamily does not define any family-specific matching. This means that in            
+        // order to have IOServiceGetMatchingServices consider the kIOPrimaryInterface property, we must
+        // add that property to a separate dictionary and then add that to our matching dictionary
+        // specifying kIOPropertyMatchKey.
+            
+        propertyMatchDict = CFDictionaryCreateMutable( kCFAllocatorDefault, 0,
+                                                       &kCFTypeDictionaryKeyCallBacks,
+                                                       &kCFTypeDictionaryValueCallBacks);
+        if (propertyMatchDict) {
+        
+            // Set the value in the dictionary of the property with the given key, or add the key 
+            // to the dictionary if it doesn't exist. This call retains the value object passed in.
+            CFDictionarySetValue(propertyMatchDict, CFSTR(kIOPrimaryInterface), kCFBooleanTrue); 
+            
+            // Now add the dictionary containing the matching value for kIOPrimaryInterface to our main
+            // matching dictionary. This call will retain propertyMatchDict, so we can release our reference 
+            // on propertyMatchDict after adding it to matchingDict.
+            CFDictionarySetValue(matchingDict, CFSTR(kIOPropertyMatchKey), propertyMatchDict);
+            CFRelease(propertyMatchDict);
+        }
+    }
+    
+    // IOServiceGetMatchingServices retains the returned iterator, so release the iterator when we're done with it.
+    // IOServiceGetMatchingServices also consumes a reference on the matching dictionary so we don't need to release
+    // the dictionary explicitly.
+    kernResult = IOServiceGetMatchingServices(masterPort, matchingDict, matchingServices);    
+        
+    return kernResult;
+}
+    
+/* -----------------------------------------------------------------------------
+Get the mac address of the primary interface
+----------------------------------------------------------------------------- */
+static kern_return_t GetPrimaryMACAddress(UInt8 *MACAddress)
+{
+    io_object_t  intfService;
+    io_object_t  controllerService;
+    kern_return_t kernResult = KERN_FAILURE;
+    io_iterator_t intfIterator;
+
+    kernResult = FindPrimaryEthernetInterfaces(&intfIterator);
+    if (kernResult != KERN_SUCCESS)
+        return kernResult;
+
+    // Initialize the returned address
+    bzero(MACAddress, kIOEthernetAddressSize);
+    
+    // IOIteratorNext retains the returned object, so release it when we're done with it.
+    while (intfService = IOIteratorNext(intfIterator)) {
+    
+        CFTypeRef MACAddressAsCFData;        
+
+        // IONetworkControllers can't be found directly by the IOServiceGetMatchingServices call, 
+        // since they are hardware nubs and do not participate in driver matching. In other words,
+        // registerService() is never called on them. So we've found the IONetworkInterface and will 
+        // get its parent controller by asking for it specifically.
+        
+        // IORegistryEntryGetParentEntry retains the returned object, so release it when we're done with it.
+        kernResult = IORegistryEntryGetParentEntry( intfService,
+                                                    kIOServicePlane,
+                                                    &controllerService );
+
+        if (kernResult == KERN_SUCCESS) {
+        
+            // Retrieve the MAC address property from the I/O Registry in the form of a CFData
+            MACAddressAsCFData = IORegistryEntryCreateCFProperty( controllerService,
+                                                                  CFSTR(kIOMACAddress),
+                                                                  kCFAllocatorDefault, 0);
+            if (MACAddressAsCFData) {
+                // Get the raw bytes of the MAC address from the CFData
+                CFDataGetBytes(MACAddressAsCFData, CFRangeMake(0, kIOEthernetAddressSize), MACAddress);
+                CFRelease(MACAddressAsCFData);
+            }
+                
+            // Done with the parent Ethernet controller object so we release it.
+            IOObjectRelease(controllerService);
+        }
+        
+        // Done with the Ethernet interface object so we release it.
+        IOObjectRelease(intfService);
+    }
+    
+    IOObjectRelease(intfIterator);
+
+    return kernResult;
+}
+
+/* -----------------------------------------------------------------------------
+Convert 48-bit Ethernet address into 64-bit EUI
+ ----------------------------------------------------------------------------- */
+int
+ether_to_eui64(eui64_t *p_eui64)
+{
+    static u_int8_t allzero[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+    static u_int8_t allone[8] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
+    kern_return_t err;
+    UInt8  addr[kIOEthernetAddressSize];
+ 
+    err = GetPrimaryMACAddress(addr);
+    if (err != KERN_SUCCESS) {
+        warning("Can't get hardware interface address for en0 (error = %d)\n", err);
+        return 0;
+    }
+    
+    /* check for invalid MAC address */
+     if (bcmp(addr, allzero, ETHER_ADDR_LEN) == 0)
+            return 0;
+    if (bcmp(addr, allone, ETHER_ADDR_LEN) == 0)
+            return 0;
+
+    /* And convert the EUI-48 into EUI-64, per RFC 2472 [sec 4.1] */
+    p_eui64->e8[0] = addr[0] | 0x02;
+    p_eui64->e8[1] = addr[1];
+    p_eui64->e8[2] = addr[2];
+    p_eui64->e8[3] = 0xFF;
+    p_eui64->e8[4] = 0xFE;
+    p_eui64->e8[5] = addr[3];
+    p_eui64->e8[6] = addr[4];
+    p_eui64->e8[7] = addr[5];
+
+    return 1;
+}
+
+#endif
 
 /* -----------------------------------------------------------------------------
 assign a default route through the address given 
 ----------------------------------------------------------------------------- */
 int sifdefaultroute(int u, u_int32_t l, u_int32_t g)
-{
-    CFNumberRef		num;
-    CFStringRef		key;
-    int			ret = ENOMEM, val = 1;
-    
-    key = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceidRef, kSCEntNetIPv4);
-    if (key) {
-        num = CFNumberCreate(NULL, kCFNumberIntType, &val);
-        if (num) {
-            ret = publish_keyentry(key, CFSTR("OverridePrimary"), num);
-            CFRelease(num);
-            ret = 0;
-        }
-        CFRelease(key);
-    }
-    return ret;
+{    
+    return publish_dictnumentry(kSCEntNetIPv4, kSCPropNetOverridePrimary, 1);
 }
 
 /* -----------------------------------------------------------------------------
@@ -1496,19 +1953,10 @@ delete a default route through the address given
 ----------------------------------------------------------------------------- */
 int cifdefaultroute(int u, u_int32_t l, u_int32_t g)
 {
-    CFStringRef		key;
-    int			ret = ENOMEM;
-
-    key = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceidRef, kSCEntNetIPv4);
-    if (key) {
-        ret = unpublish_keyentry(key, CFSTR("OverridePrimary"));
-        CFRelease(key);
-        ret = 0;
-    }
-    return ret;
+    return unpublish_dictentry(kSCEntNetIPv4, kSCPropNetOverridePrimary);
 }
 
-/* -----------------------------------------------------------------------------
+/* ----------------------------------------------------------------------------
 publish ip addresses using configd cache mechanism
 use new state information model
 ----------------------------------------------------------------------------- */
@@ -1575,60 +2023,84 @@ int publish_stateaddr(u_int32_t o, u_int32_t h, u_int32_t m)
 }
 
 /* -----------------------------------------------------------------------------
- add the default route and DNS, using configd cache mechanism.
+ add a search domain, using configd cache mechanism.
 ----------------------------------------------------------------------------- */
-int publish_dns(u_int32_t dns1, u_int32_t dns2)
+int publish_dns_entry(CFStringRef str, CFStringRef property, int clean)
 {
-    int				i;
-    struct in_addr		dnsaddr[2];
-    CFMutableArrayRef		array;
-    CFMutableDictionaryRef	dns_dict;
-    CFStringRef			str;
+    CFMutableArrayRef		mutable_array;
+    CFArrayRef			array = NULL;
+    CFMutableDictionaryRef	dict = NULL;
+    CFStringRef			key = NULL;
+    CFPropertyListRef		ref;
+    int				ret = 0;
 
-    // ppp daemons without services are not published in the cache
     if (cfgCache == NULL)
         return 0;
 
-    if ((dns_dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks)) == 0)
-        return 0;
-   
-    dnsaddr[0].s_addr = dns1;
-    dnsaddr[1].s_addr = dns2;
+    key = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceidRef, kSCEntNetDNS);
+    if (!key) 
+        goto end;
+        
+    if (ref = SCDynamicStoreCopyValue(cfgCache, key)) {
+        dict = CFDictionaryCreateMutableCopy(0, 0, ref);
+        CFRelease(ref);
+    } else
+        dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        
+    if (!dict || (CFGetTypeID(dict) != CFDictionaryGetTypeID()))
+        goto end;
 
-    /* set the DNS servers */
-    if (array = CFArrayCreateMutable(NULL, 2, &kCFTypeArrayCallBacks)) {
-        for (i = 0; i < 2; i++) {
-            if (dnsaddr[i].s_addr) {
-                if (str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&dnsaddr[i]))) {
-                    CFArrayAppendValue(array, str);
-                    CFRelease(str);
-                }
-            }
-        }
-        CFDictionarySetValue(dns_dict, kSCPropNetDNSServerAddresses, array);
-        CFRelease(array);
-    }
+    if (!clean)
+        array = CFDictionaryGetValue(dict, property);
+    if (array && (CFGetTypeID(array) == CFArrayGetTypeID()))
+        mutable_array = CFArrayCreateMutableCopy(NULL, CFArrayGetCount(array) + 1, array);
+    else
+        mutable_array = CFArrayCreateMutable(NULL, 1, &kCFTypeArrayCallBacks);
+
+    if (!mutable_array) 
+        goto end;
     
-    /* update the store now */
-    if (str = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceidRef, kSCEntNetDNS)) {
-        
-        /* now add/delete all at once, to avoid unecessary notifications */
-        if (SCDynamicStoreSetValue(cfgCache, str, dns_dict) == 0)
-            warning("SCDynamicStoreSetValue DNS %s failed: %s\n", ifname, SCErrorString(SCError()));
-        
-        CFRelease(str);
-    }
+    CFArrayAppendValue(mutable_array, str);
+    CFDictionarySetValue(dict, property, mutable_array);
+    CFRelease(mutable_array);
     
-    CFRelease(dns_dict);
-    return 1;
+    if (SCDynamicStoreSetValue(cfgCache, key, dict))
+        ret = 1;
+    else
+        warning("SCDynamicStoreSetValue DNS %s failed: %s\n", ifname, SCErrorString(SCError()));
+
+end:
+    if (key)  
+        CFRelease(key);
+    if (dict)  
+        CFRelease(dict);
+    return ret;
 }
+
 
 /* -----------------------------------------------------------------------------
 set dns information
 ----------------------------------------------------------------------------- */
 int sifdns(u_int32_t dns1, u_int32_t dns2)
-{
-    return publish_dns(dns1, dns2);
+{    
+    CFStringRef		str;
+    struct in_addr	dnsaddr[2];
+    int			result, i, clean = 1;
+    
+    dnsaddr[0].s_addr = dns1;
+    dnsaddr[1].s_addr = dns2;
+
+    for (i = 0; i < 2; i++) {
+        result = 0;
+        if (str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT), IP_LIST(&dnsaddr[i]))) {
+            result = publish_dns_entry(str, kSCPropNetDNSServerAddresses, clean);
+            CFRelease(str);
+        }
+        if (result == 0)
+            break;
+        clean = 0;
+    }
+    return result;
 }
 
 /* -----------------------------------------------------------------------------
@@ -1636,7 +2108,7 @@ clear dns information
 ----------------------------------------------------------------------------- */
 int cifdns(u_int32_t dns1, u_int32_t dns2)
 {
-    return unpublish_entity(kSCEntNetDNS);
+    return unpublish_dict(kSCEntNetDNS);
 }
 
 
@@ -2005,8 +2477,80 @@ int sys_loadplugin(char *arg)
     return ret;
 }
 
+#ifdef EAP
 /* -----------------------------------------------------------------------------
-publish a dictionnary entry in the cache
+----------------------------------------------------------------------------- */
+int sys_eaploadplugin(char *arg, eap_ext *eap)
+{
+    char		path[MAXPATHLEN];
+    int 		ret = -1;
+    CFBundleRef		bundle;
+    CFURLRef		url;
+    CFDictionaryRef	dict;
+
+    if (arg[0] == '/') {
+        strcpy(path, arg);
+    }
+    else {
+        strcpy(path, "/System/Library/Extensions/");
+        strcat(path, arg);
+    } 
+
+    url = CFURLCreateFromFileSystemRepresentation(NULL, path, strlen(path), TRUE);
+    if (url) {        
+
+        dict = CFBundleCopyInfoDictionaryForURL(url);
+        if (dict) {
+            CFNumberRef	num;
+            CFStringRef	str;
+            int		i;
+       
+            bzero(eap, sizeof(eap_ext));
+            num = CFDictionaryGetValue(dict, CFSTR("EAPType"));
+            if (num && (CFGetTypeID(num) == CFNumberGetTypeID())) {
+                CFNumberGetValue(num, kCFNumberSInt32Type, &i);
+                eap->type = i;
+            }
+
+            str = CFDictionaryGetValue(dict, CFSTR("EAPName"));
+            if (str && (CFGetTypeID(str) == CFStringGetTypeID())) {
+                eap->name = malloc(CFStringGetLength(str) + 1);
+                if (eap->name) 
+                    CFStringGetCString((CFStringRef)str, eap->name, CFStringGetLength(str) + 1, kCFStringEncodingUTF8);
+            }
+            CFRelease(dict);
+
+            bundle =  CFBundleCreate(NULL, url);
+            if (bundle) {
+    
+                if (CFBundleLoadExecutable(bundle)) {
+                
+                    eap->init = CFBundleGetFunctionPointerForName(bundle, CFSTR("Init"));
+                    eap->dispose = CFBundleGetFunctionPointerForName(bundle, CFSTR("Dispose"));
+                    eap->process = CFBundleGetFunctionPointerForName(bundle, CFSTR("Process"));
+                    eap->free = CFBundleGetFunctionPointerForName(bundle, CFSTR("Free"));
+                    eap->attribute = CFBundleGetFunctionPointerForName(bundle, CFSTR("GetAttribute"));
+                    eap->interactive_ui = CFBundleGetFunctionPointerForName(bundle, CFSTR("InteractiveUI"));
+                    eap->print_packet = CFBundleGetFunctionPointerForName(bundle, CFSTR("PrintPacket"));
+    
+                    // keep a ref to release later
+                    eap->plugin = bundle;
+    
+                    ret = 0;
+                }
+                
+                if (ret)
+                    CFRelease(bundle);
+            }
+        }
+        CFRelease(url);
+    }
+    return ret;
+}
+#endif
+
+/* -----------------------------------------------------------------------------
+publish a dictionnary entry in the cache, given a key
 ----------------------------------------------------------------------------- */
 int publish_keyentry(CFStringRef key, CFStringRef entry, CFTypeRef value)
 {
@@ -2037,15 +2581,15 @@ int publish_keyentry(CFStringRef key, CFStringRef entry, CFTypeRef value)
  }
 
 /* -----------------------------------------------------------------------------
-publish a dictionnary entry in the cache
+publish a numerical entry in the cache, given a dictionary
 ----------------------------------------------------------------------------- */
-int publish_numentry(CFStringRef entry, int val)
+int publish_dictnumentry(CFStringRef dict, CFStringRef entry, int val)
 {
     int			ret = ENOMEM;
     CFNumberRef		num;
     CFStringRef		key;
 
-    key = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceidRef, kSCEntNetPPP);
+    key = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceidRef, dict);
     if (key) {
         num = CFNumberCreate(NULL, kCFNumberIntType, &val);
         if (num) {
@@ -2059,15 +2603,16 @@ int publish_numentry(CFStringRef entry, int val)
 }
 
 /* -----------------------------------------------------------------------------
-publish a dictionnary entry in the cache
+publish a string entry in the cache, given a dictionary
 ----------------------------------------------------------------------------- */
-int publish_strentry(CFStringRef entry, char *str, int encoding)
+int publish_dictstrentry(CFStringRef dict, CFStringRef entry, char *str, int encoding)
 {
+    
     int			ret = ENOMEM;
     CFStringRef 	ref;
     CFStringRef		key;
     
-    key = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceidRef, kSCEntNetPPP);
+    key = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceidRef, dict);
     if (key) {
         ref = CFStringCreateWithCString(NULL, str, encoding);
         if (ref) {
@@ -2081,7 +2626,7 @@ int publish_strentry(CFStringRef entry, char *str, int encoding)
 }
 
 /* -----------------------------------------------------------------------------
-unpublish a disctionnary entry from the cache
+unpublish a dictionnary entry from the cache, given the dict key
 ----------------------------------------------------------------------------- */
 int unpublish_keyentry(CFStringRef key, CFStringRef entry)
 {
@@ -2107,7 +2652,7 @@ int unpublish_keyentry(CFStringRef key, CFStringRef entry)
 /* -----------------------------------------------------------------------------
 unpublish a complete dictionnary from the cache
 ----------------------------------------------------------------------------- */
-int unpublish_entity(CFStringRef entity)
+int unpublish_dict(CFStringRef dict)
 {
     int			ret = ENOMEM;
     CFStringRef		key;
@@ -2115,7 +2660,7 @@ int unpublish_entity(CFStringRef entity)
     if (cfgCache == NULL)
         return 0;
             
-    key = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceidRef, entity);
+    key = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceidRef, dict);
     if (key) {
         ret = !SCDynamicStoreRemoveValue(cfgCache, key);
         CFRelease(key);
@@ -2124,14 +2669,14 @@ int unpublish_entity(CFStringRef entity)
 }
 
 /* -----------------------------------------------------------------------------
-publish a dictionnary entry in the cache
+unpublish a dictionnary entry from the cache, given the dict name
 ----------------------------------------------------------------------------- */
-int unpublish_entry(CFStringRef entry)
+int unpublish_dictentry(CFStringRef dict, CFStringRef entry)
 {
     int			ret = ENOMEM;
     CFStringRef		key;
     
-    key = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceidRef, kSCEntNetPPP);
+    key = SCDynamicStoreKeyCreateNetworkServiceEntity(0, kSCDynamicStoreDomainState, serviceidRef, dict);
     if (key) {
         ret = unpublish_keyentry(key, entry);
         CFRelease(key);
@@ -2179,25 +2724,24 @@ void sys_phasechange(void *arg, int p)
 
     // publish DEAD status when we exit only, to avoid race conditions
     if (p != PHASE_DEAD)
-        publish_numentry(kSCPropNetPPPStatus, p);
+        publish_dictnumentry(kSCEntNetPPP, kSCPropNetPPPStatus, p);
         
     if (p == PHASE_ESTABLISH) {
         connecttime = mach_absolute_time() * timeScaleSeconds;
-        publish_numentry(kSCPropNetPPPConnectTime, connecttime);
+        publish_dictnumentry(kSCEntNetPPP, kSCPropNetPPPConnectTime, connecttime);
         if (maxconnect)
-            publish_numentry(CFSTR("DisconnectTime"), connecttime + maxconnect);
+            publish_dictnumentry(kSCEntNetPPP, kSCPropNetPPPDisconnectTime, connecttime + maxconnect);
     }
 
     if (p == PHASE_SERIALCONN) {
-        unpublish_entry(CFSTR("RetryConnectTime"));
+        unpublish_dictentry(kSCEntNetPPP, kSCPropNetPPPRetryConnectTime);
     }
 
     if (p == PHASE_WAITONBUSY) {
-        publish_numentry(CFSTR("RetryConnectTime"), redialtimer + (mach_absolute_time() * timeScaleSeconds));
+        publish_dictnumentry(kSCEntNetPPP, kSCPropNetPPPRetryConnectTime, redialtimer + (mach_absolute_time() * timeScaleSeconds));
     }
 
     if (p == PHASE_RUNNING || p == PHASE_DORMANT) {
-        publish_strentry(kSCPropInterfaceName, ifname, kCFStringEncodingMacRoman);
         //publish_numentry(kSCPropNetPPPLastCause, status);
         if (p == PHASE_DORMANT)
             sys_eventnotify((void*)PPP_EVT_DISCONNECTED, status);
@@ -2206,18 +2750,29 @@ void sys_phasechange(void *arg, int p)
     if (p == PHASE_HOLDOFF)
         sys_eventnotify((void*)PPP_EVT_DISCONNECTED, status);
 
-    if (p == PHASE_TERMINATE) {
-        unpublish_entry(kSCPropInterfaceName);
-        unpublish_entry(kSCPropNetPPPConnectTime);
-        unpublish_entry(CFSTR("DisconnectTime"));
+    if (p == PHASE_DISCONNECT) {
+        unpublish_dictentry(kSCEntNetPPP, CFSTR("AuthPeerName") /*kSCPropNetPPPAuthPeerName*/);
+        unpublish_dictentry(kSCEntNetPPP, kSCPropNetPPPCommRemoteAddress);
+        unpublish_dictentry(kSCEntNetPPP, kSCPropNetPPPConnectTime);
+        unpublish_dictentry(kSCEntNetPPP, kSCPropNetPPPDisconnectTime);
     }
+}
+
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+void sys_authpeersuccessnotify(void *param, int info)
+{
+    struct auth_peer_success_info *peerinfo = (struct auth_peer_success_info *)info;
+
+    publish_dictstrentry(kSCEntNetPPP, CFSTR("AuthPeerName") /*kSCPropNetPPPAuthPeerName*/, peerinfo->name, kCFStringEncodingUTF8);
 }
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 void sys_timeremaining(void *param, int info)
 {
-    struct lcp_timeremaining_info *timeinfo = (struct lcp_timeremaininge_info *)info;
+    struct lcp_timeremaining_info *timeinfo = (struct lcp_timeremaining_info *)info;
     u_int32_t	val = 0, curtime = mach_absolute_time() * timeScaleSeconds;
     
     if (timeinfo->time == 0xFFFFFFFF) {
@@ -2235,9 +2790,9 @@ void sys_timeremaining(void *param, int info)
     }
     
     if (val)
-        publish_numentry(CFSTR("DisconnectTime"), val);
+        publish_dictnumentry(kSCEntNetPPP, kSCPropNetPPPDisconnectTime, val);
     else
-        unpublish_entry(CFSTR("DisconnectTime"));
+        unpublish_dictentry(kSCEntNetPPP, kSCPropNetPPPDisconnectTime);
 
 }
 
@@ -2291,22 +2846,25 @@ void sys_publish_status(u_long status, u_long devstatus)
 }
 
 /* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+void sys_publish_remoteaddress(char *addr)
+{
+    
+    if (addr)
+        publish_dictstrentry(kSCEntNetPPP, kSCPropNetPPPCommRemoteAddress, addr, kCFStringEncodingUTF8);
+}
+
+/* -----------------------------------------------------------------------------
 our pid has changed, reinit things
 ----------------------------------------------------------------------------- */
 void sys_reinit()
 {
     
-    // reopen opens now our session to the cache
-    // serviceid paramater is required for publishing information into the cache.
-    // a user could be willin to publish everything itself, without pppd help
-    if (serviceid == NULL)
-        return;
-        
     cfgCache = SCDynamicStoreCreate(0, CFSTR("pppd"), 0, 0);
     if (cfgCache == 0)
         fatal("SCDynamicStoreCreate failed: %s", SCErrorString(SCError()));
     
-    publish_numentry(CFSTR("pid"), getpid());
+    publish_dictnumentry(kSCEntNetPPP, CFSTR("pid"), getpid());
 }
 
 /* ----------------------------------------------------------------------------- 
@@ -2316,24 +2874,26 @@ void sys_exitnotify(void *arg, int exitcode)
 {
    
     // unpublish the various info about the connection
-    unpublish_entry(kSCPropNetPPPLCPCompressionPField);
-    unpublish_entry(kSCPropNetPPPLCPCompressionACField);
-    unpublish_entry(kSCPropNetPPPLCPMTU);
-    unpublish_entry(kSCPropNetPPPLCPMRU);
-    unpublish_entry(kSCPropNetPPPLCPReceiveACCM);
-    unpublish_entry(kSCPropNetPPPLCPTransmitACCM);
-    unpublish_entry(kSCPropNetPPPIPCPCompressionVJ);
-    unpublish_entry(CFSTR("pid"));
-    unpublish_entry(kSCPropNetPPPConnectTime);
-    unpublish_entity(kSCEntNetDNS);
-    unpublish_entry(kSCPropInterfaceName);
+    unpublish_dictentry(kSCEntNetPPP, kSCPropNetPPPLCPCompressionPField);
+    unpublish_dictentry(kSCEntNetPPP, kSCPropNetPPPLCPCompressionACField);
+    unpublish_dictentry(kSCEntNetPPP, kSCPropNetPPPLCPMTU);
+    unpublish_dictentry(kSCEntNetPPP, kSCPropNetPPPLCPMRU);
+    unpublish_dictentry(kSCEntNetPPP, kSCPropNetPPPLCPReceiveACCM);
+    unpublish_dictentry(kSCEntNetPPP, kSCPropNetPPPLCPTransmitACCM);
+    unpublish_dictentry(kSCEntNetPPP, kSCPropNetPPPIPCPCompressionVJ);
+    unpublish_dictentry(kSCEntNetPPP, CFSTR("pid"));
+    unpublish_dictentry(kSCEntNetPPP, kSCPropNetPPPConnectTime);
+    unpublish_dictentry(kSCEntNetPPP, kSCPropInterfaceName);
+
+    unpublish_dict(kSCEntNetDNS);
+    unpublish_dict(kSCEntNetInterface);
 
     /* publish status at the end to avoid race conditions with the controller */
-    publish_numentry(kSCPropNetPPPStatus, PHASE_DEAD);
+    publish_dictnumentry(kSCEntNetPPP, kSCPropNetPPPStatus, PHASE_DEAD);
     sys_eventnotify((void*)PPP_EVT_DISCONNECTED, exitcode);
 
     if (tempserviceid) {
-    	unpublish_entity(kSCEntNetPPP);
+    	unpublish_dict(kSCEntNetPPP);
     }
     
     if (cfgCache) {
@@ -2346,3 +2906,118 @@ void sys_exitnotify(void *arg, int exitcode)
         csockfd = -1;
     }
 }
+
+/* -----------------------------------------------------------------------------
+add/remove a route via an interface
+----------------------------------------------------------------------------- */
+int
+route_interface(int cmd, struct in_addr host, struct in_addr addr_mask, char iftype, char *ifname, int is_host)
+{
+    int 			len, iflen;
+    int 			rtm_seq = 0;
+    struct {
+	struct rt_msghdr	hdr;
+	struct sockaddr_in	dst;
+	struct sockaddr_dl	iface;
+        struct sockaddr_in	mask;
+    } rtmsg;
+    
+    int 			sockfd = -1;
+
+    if ((sockfd = socket(PF_ROUTE, SOCK_RAW, AF_INET)) < 0) {
+	error("route_interface: open routing socket failed, %m");
+	return (0);
+    }
+
+    memset(&rtmsg, 0, sizeof(rtmsg));
+    rtmsg.hdr.rtm_type = cmd;
+    rtmsg.hdr.rtm_flags = RTF_UP | RTF_STATIC;
+    if (is_host)
+        rtmsg.hdr.rtm_flags |= RTF_HOST;
+    rtmsg.hdr.rtm_version = RTM_VERSION;
+    rtmsg.hdr.rtm_seq = ++rtm_seq;
+    rtmsg.hdr.rtm_addrs = RTA_DST | RTA_GATEWAY;
+    rtmsg.dst.sin_len = sizeof(rtmsg.dst);
+    rtmsg.dst.sin_family = AF_INET;
+    rtmsg.dst.sin_addr = host;
+    iflen = MIN(strlen(ifname), sizeof(rtmsg.iface.sdl_data));
+    rtmsg.iface.sdl_len = sizeof(rtmsg.iface);
+    rtmsg.iface.sdl_family = AF_LINK;
+    rtmsg.iface.sdl_type = iftype;
+    rtmsg.iface.sdl_nlen = iflen;
+    strncpy(rtmsg.iface.sdl_data, ifname, iflen);
+    
+    // if addr_mask non-zero add it
+    if (addr_mask.s_addr != 0) {
+        rtmsg.hdr.rtm_addrs |= RTA_NETMASK;
+        rtmsg.mask.sin_len = sizeof(rtmsg.mask);
+        rtmsg.mask.sin_family = AF_INET;
+        rtmsg.mask.sin_addr = addr_mask;
+    }
+
+    len = sizeof(rtmsg);
+    rtmsg.hdr.rtm_msglen = len;
+    if (write(sockfd, &rtmsg, len) < 0) {
+	error("route_interface: write routing socket failed, %m");
+	close(sockfd);
+	return (0);
+    }
+
+    close(sockfd);
+    return (1);
+}
+
+/* -----------------------------------------------------------------------------
+    add/remove a route via a gateway
+----------------------------------------------------------------------------- */
+int
+route_gateway(int cmd, struct in_addr dest, struct in_addr mask, struct in_addr gateway, int use_gway_flag)
+{
+    int 			len;
+    int 			rtm_seq = 0;
+
+    struct {
+	struct rt_msghdr	hdr;
+	struct sockaddr_in	dst;
+        struct sockaddr_in	gway;
+        struct sockaddr_in	mask;
+    } rtmsg;
+   
+    int 			sockfd = -1;
+    
+    if ((sockfd = socket(PF_ROUTE, SOCK_RAW, AF_INET)) < 0) {
+	syslog(LOG_INFO, "host_gateway: open routing socket failed, %s",
+	       strerror(errno));
+	return (0);
+    }
+
+    memset(&rtmsg, 0, sizeof(rtmsg));
+    rtmsg.hdr.rtm_type = cmd;
+    rtmsg.hdr.rtm_flags = RTF_UP | RTF_STATIC;
+    if (use_gway_flag)
+        rtmsg.hdr.rtm_flags |= RTF_GATEWAY;
+    rtmsg.hdr.rtm_version = RTM_VERSION;
+    rtmsg.hdr.rtm_seq = ++rtm_seq;
+    rtmsg.hdr.rtm_addrs = RTA_DST | RTA_NETMASK | RTA_GATEWAY;
+    rtmsg.dst.sin_len = sizeof(rtmsg.dst);
+    rtmsg.dst.sin_family = AF_INET;
+    rtmsg.dst.sin_addr = dest;
+    rtmsg.gway.sin_len = sizeof(rtmsg.gway);
+    rtmsg.gway.sin_family = AF_INET;
+    rtmsg.gway.sin_addr = gateway;
+    rtmsg.mask.sin_len = sizeof(rtmsg.mask);
+    rtmsg.mask.sin_family = AF_INET;
+    rtmsg.mask.sin_addr = mask;
+
+    len = sizeof(rtmsg);
+    rtmsg.hdr.rtm_msglen = len;
+    if (write(sockfd, &rtmsg, len) < 0) {
+	syslog(LOG_ERR, "host_gateway: write routing socket failed, %s", strerror(errno));
+	close(sockfd);
+	return (0);
+    }
+
+    close(sockfd);
+    return (1);
+}
+

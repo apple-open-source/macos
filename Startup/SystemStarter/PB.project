@@ -33,7 +33,7 @@
     LANGUAGE = English; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
     NEXTSTEP_BUILDTOOL = /usr/bin/gnumake; 
-    NEXTSTEP_COMPILEROPTIONS = "-traditional-cpp -Wall -Werror"; 
+    NEXTSTEP_COMPILEROPTIONS = "-Wall -Werror"; 
     NEXTSTEP_INSTALLDIR = /sbin; 
     NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
     NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 

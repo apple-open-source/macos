@@ -17,20 +17,7 @@
 #include <ufs/ufs/dinode.h>      /* ufs/ffs/fs.h */
 #include <ufs/ffs/fs.h>          /* BBSIZE, SBSIZE */
 
-///m:temp:added:start:workaround:awaiting-disk_label-deprecation-from-"disk.h"
-#define _BSD_DEV_DISK_LABEL_
-#define MAXDNMLEN 24
-#define NLABELS 4
-///m:temp:added:stop::workaround:awaiting-disk_label-deprecation-from-"disk.h"
-#ifndef linux
-#include <dev/disk.h>            // DKIOCNUMBLKS, DKIOCBLKSIZE
-#else
-#include <linux/fs.h>            /* BLKGETSIZE ioctl */
-#ifdef __powerpc__
-#define __ppc__
-#endif
-#define DKIOCNUMBLKS BLKGETSIZE
-#endif
+#include <sys/disk.h>            /* DKIOCGETBLOCKSIZE ioctl */
 
 #include <sys/disklabel.h>       /* struct disklabel */
 
@@ -87,20 +74,15 @@ int dkdisklabelregenerate(int fd, struct disklabel * lp, int newblksize)
     int blksize;
     int error;
     int index;
-    int numblks;
+    long long numblks;
 
     /* obtain the size of the media (in blocks) */
-    if ( (error = ioctl(fd, DKIOCNUMBLKS, &numblks)) < 0 )
+    if ( (error = ioctl(fd, DKIOCGETBLOCKCOUNT, &numblks)) < 0 )
         return(error);
 
-#ifdef linux
-    // Linux always uses 512 byte blocks (that's what mke2fs does)
-    blksize = DEV_BSIZE;
-#else
     /* obtain the block size of the media */
-    if ( (error = ioctl(fd, DKIOCBLKSIZE, &blksize)) < 0 )
+    if ( (error = ioctl(fd, DKIOCGETBLOCKSIZE, &blksize)) < 0 )
         return(error);
-#endif
 
     /* adjust the size of the media with newblksize should it be specified */
     if (newblksize)

@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/sh.h,v 1.2 2001/06/28 23:22:56 bbraun Exp $ */
+/* $Header: /cvs/root/tcsh/tcsh/sh.h,v 1.3 2003/01/17 04:17:27 nicolai Exp $ */
 /*
  * sh.h: Catch it all globals and includes file!
  */
@@ -14,11 +14,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -38,6 +34,12 @@
 #define _h_sh
 
 #include "config.h"
+
+#ifndef HAVE_QUAD
+#ifdef __GNUC__
+#define HAVE_QUAD	1
+#endif
+#endif
 
 #ifndef EXTERN
 # define EXTERN extern
@@ -107,12 +109,12 @@ typedef int sigret_t;
 /*
  * Return true if the path is absolute
  */
-#ifndef WINNT_NATIVE
-# define ABSOLUTEP(p)	(*(p) == '/')
-#else /* WINNT_NATIVE */
+#if defined(WINNT_NATIVE) || defined(__CYGWIN__)
 # define ABSOLUTEP(p)	((p)[0] == '/' || \
-			 (Isalpha((p)[0]) && (p)[1] == ':' && (p)[2] == '/'))
-#endif /* WINNT_NATIVE */
+    (Isalpha((p)[0]) && (p)[1] == ':'))
+#else /* !WINNT_NATIVE && !__CYGWIN__ */
+# define ABSOLUTEP(p)	(*(p) == '/')
+#endif /* WINNT_NATIVE || __CYGWIN__ */
 
 /*
  * Fundamental definitions which may vary from system to system.
@@ -189,12 +191,12 @@ typedef int sigret_t;
 # endif /* __EMX__ || WINNT_NATIVE */
 #endif /* !PATHSEP */
 
-#ifdef __HP_CXD_SPP
+#if defined(__HP_CXD_SPP) && !defined(__hpux)
 # include <sys/cnx_stat.h>
 # define stat stat64
 # define fstat fstat64
 # define lstat lstat64
-#endif /* __HP_CXD_SPP */
+#endif /* __HP_CXD_SPP && !__hpux */
 
 /*
  * This macro compares the st_dev field of struct stat. On aix on ibmESA
@@ -268,8 +270,10 @@ typedef int sigret_t;
  * by now, but in some systems we use the
  * old routines...
  */
+# if !defined(__APPLE__)
 # define getpgrp __getpgrp
 # define setpgrp __setpgrp
+# endif
 # include <unistd.h>
 # undef getpgrp
 # undef setpgrp
@@ -279,7 +283,7 @@ typedef int sigret_t;
  * redefines malloc(), so we define the following
  * to avoid it.
  */
-# if defined(linux) || defined(sgi) || defined(_OSD_POSIX)
+# if defined(SYSMALLOC) || defined(linux) || defined(sgi) || defined(_OSD_POSIX)
 #  define NO_FIX_MALLOC
 #  include <stdlib.h>
 # else /* linux */
@@ -297,7 +301,7 @@ typedef int sigret_t;
 # include <limits.h>
 #endif /* POSIX && !WINNT_NATIVE */
 
-#if SYSVREL > 0 || defined(_IBMR2) || defined(_MINIX)
+#if SYSVREL > 0 || defined(_IBMR2) || defined(_MINIX) || defined(linux)
 # if !defined(pyr) && !defined(stellar)
 #  include <time.h>
 #  ifdef _MINIX
@@ -393,8 +397,12 @@ typedef int sigret_t;
 # include <netinet/in.h>
 # include <arpa/inet.h>
 # include <sys/socket.h>
-# if defined(_SS_SIZE) || defined(_SS_MAXSIZE)
-#  define INET6
+# if (defined(_SS_SIZE) || defined(_SS_MAXSIZE)) && !defined(NO_SS_FAMILY)
+#  if !defined(__APPLE__) /* Damnit, where is getnameinfo() folks? */
+#   if !defined(sgi)
+#    define INET6
+#   endif /* sgi */
+#  endif /* __APPLE__ */
 # endif
 # include <sys/uio.h>	/* For struct iovec */
 #endif /* REMOTEHOST */
@@ -544,7 +552,7 @@ extern void		DebugFree	__P((ptr_t, char *, int));
 # if defined(SCO) && (SYSVREL > 3)
 #  include <sys/socket.h>
 # else
-#  define MAXHOSTNAMELEN 255
+#  define MAXHOSTNAMELEN 256
 # endif
 #endif /* MAXHOSTNAMELEN */
 
@@ -593,6 +601,7 @@ EXTERN bool    is2atty IZERO;	/* is file descriptor 2 a tty (didfds mode) */
 EXTERN bool    arun IZERO;	/* Currently running multi-line-aliases */
 EXTERN int     implicit_cd IZERO;/* implicit cd enabled?(1=enabled,2=verbose) */
 EXTERN bool    inheredoc IZERO;	/* Currently parsing a heredoc */
+EXTERN bool    windowchg IZERO;	/* We received a window change event */
 
 /*
  * Global i/o info
@@ -602,8 +611,12 @@ EXTERN int     onelflg IZERO;	/* 2 -> need line for -t, 1 -> exit on read */
 extern Char   *ffile;		/* Name of shell file for $0 */
 extern bool    dolzero;		/* if $?0 should return true... */
 
+#if defined(FILEC) && defined(TIOCSTI)
+extern bool    filec;
+#endif /* FILEC && TIOCSTI */
+
 extern char *seterr;		/* Error message from scanner/parser */
-#ifndef BSD4_4
+#if !defined(BSD4_4) && !defined(__linux__)
 extern int errno;		/* Error from C library routines */
 #endif
 extern int exitset;

@@ -35,7 +35,7 @@
 
 struct module
 {
-   char *name ;
+   const char *name ;
    status_e (*initializer)() ;
 } ;
 
@@ -45,7 +45,7 @@ static const struct module program_modules[] =
    {
       { "signal",                       signal_init       },
       { "environment",                  initenv           },
-      { CHAR_NULL }
+      { CHAR_NULL,                      NULL              }
    } ;
 
 
@@ -53,13 +53,16 @@ static bool_int have_stderr ;
 
 #define STDERR_FD                  2
 
-static void set_fd_limit();
+static void set_fd_limit(void);
 
 /*
  * This function is invoked when a system call fails during initialization.
  * A message is printed to stderr, and the program is terminated
  */
-static void syscall_failed( char *call )
+#ifdef __GNUC__
+__attribute__ ((noreturn))
+#endif
+static void syscall_failed( const char *call )
 {
    char *err ;
 
@@ -79,17 +82,18 @@ static void syscall_failed( char *call )
  * Open all descriptors in the range 0..MAX_PASS_FD (except STDERR_FD)
  * to /dev/null.
  * STDERR_FD should not be 0.
+ *
+ * msg() cannot be used from this function, as it has not been initialized yet.
  */
 static void setup_file_descriptors(void)
 {
    int   fd ;
    int   new_fd ;
    int   null_fd ;
-   const char *func = "setup_file_descriptors" ;
 
    if ( Smorefds(3) == SIO_ERR )
    {
-      msg( LOG_CRIT, func, "Smorefds: %m" ) ;
+      syscall_failed("Smorefds");
       exit( 1 ) ;
    }
 
@@ -99,9 +103,9 @@ static void setup_file_descriptors(void)
     * Close all unneeded descriptors
     */
    for ( fd = STDERR_FD + 1 ; fd < ps.ros.max_descriptors ; fd++ )
-      if ( close( fd ) && errno != EBADF )
+      if ( Sclose( fd ) && errno != EBADF )
       {
-         msg( LOG_CRIT, func, "close: %m" ) ;
+         syscall_failed("Sclose");
          exit( 1 ) ;
       }
    
@@ -112,7 +116,7 @@ static void setup_file_descriptors(void)
    if ( new_fd != -1 )
    {
       have_stderr = TRUE ;
-      (void) close( new_fd ) ;
+      (void) Sclose( new_fd ) ;
    }
 
    if ( ( null_fd = open( "/dev/null", O_RDONLY ) ) == -1 )
@@ -127,60 +131,46 @@ static void setup_file_descriptors(void)
    }
 
    if ( null_fd > MAX_PASS_FD )
-      (void) close( null_fd ) ;
+      (void) Sclose( null_fd ) ;
 }
 
 
-
-static void set_fd_limit()
+/* msg() cannot be used in this function, as it has not been initialized yet. */
+static void set_fd_limit(void)
 {
 #ifdef RLIMIT_NOFILE
    struct rlimit rl ;
-   const char *func = "set_fd_limit" ;
-   int maxfd = getdtablesize();
-
+   rlim_t maxfd ;
+    
    /*
     * Set the soft file descriptor limit to the hard limit.
     */
    if ( getrlimit( RLIMIT_NOFILE, &rl ) == -1 )
    {
-      msg( LOG_CRIT, func, "getrlimit: %m" ) ;
+      syscall_failed("getrlimit(RLIMIT_NOFILE)");
       exit( 1 ) ;
    }
+
+   maxfd = rl.rlim_max;
+   if ( rl.rlim_max == RLIM_INFINITY ) 
+      rl.rlim_max = FD_SETSIZE;
 
    /* XXX: a dumb way to prevent fd_set overflow possibilities; the rest
     * of xinetd should be changed to use an OpenBSD inetd-like fd_grow(). */
    if ( rl.rlim_max > FD_SETSIZE )
       rl.rlim_max = FD_SETSIZE;
-
-#ifdef __APPLE__
-   /* Mac OS X's getrlimit() doesn't actually return the maximum you can
-    * set your max fd's to.  By default, it returns 256 in rlim_max, and
-    * you can set it up to whatever the sysctl kern.maxfiles is set to.
-    * This is 12288 on 10.1.4, and FD_SETSIZE is 1024.
-    */
-   rl.rlim_max = FD_SETSIZE;
-#endif
+     
    rl.rlim_cur = rl.rlim_max ;
    if ( setrlimit( RLIMIT_NOFILE, &rl ) == -1 )
    {
-      msg(LOG_CRIT, func, "setrlimit failed");
-      ps.ros.max_descriptors = ps.ros.orig_max_descriptors = maxfd;
+      syscall_failed("setrlimit(RLIMIT_NOFILE)");
+      ps.ros.max_descriptors = FD_SETSIZE;
+      ps.ros.orig_max_descriptors = FD_SETSIZE;
       return ;
    }
 
-   ps.ros.orig_max_descriptors = rl.rlim_cur ;
+   ps.ros.orig_max_descriptors = maxfd ;
    ps.ros.max_descriptors = rl.rlim_max ;
-
-   /* handle wonky getrlimit/setrlimit implementations (Mac OS X) */
-   if ( ps.ros.max_descriptors < rl.rlim_max )
-      ps.ros.max_descriptors = rl.rlim_max;
-
-   /* Handle RLIM_INFINITY */
-   if ( ps.ros.orig_max_descriptors > maxfd )
-      ps.ros.orig_max_descriptors = maxfd ;
-   if ( ps.ros.max_descriptors > maxfd )
-      ps.ros.max_descriptors = maxfd ;
 #else      /* ! RLIMIT_NOFILE */
    ps.ros.max_descriptors = getdtablesize() ;
 #endif   /* RLIMIT_NOFILE */
@@ -213,6 +203,33 @@ static void init_common( int argc, char *argv[] )
    (void) umask( umask( 077 ) | 022 ) ;
 }
 
+/* Create the pidfile. 
+ * This is called after msg_init(), and potentially after 
+ * we've become_daemon() (depending on if we're in debug or not-forking)
+ */
+static void create_pidfile(void)
+{
+   int    pidfd;
+   FILE  *pidfile;
+
+   if ( ps.ros.pid_file ) {
+      unlink(ps.ros.pid_file);
+      pidfd = open(ps.ros.pid_file, O_EXCL|O_CREAT|O_WRONLY,
+         S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
+      if (pidfd >= 0) { /* successfully created file */
+         pidfile = fdopen(pidfd, "w");
+         if (pidfile) {
+            fchmod(pidfd, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
+            fprintf(pidfile, "%d\n", getpid());
+            fclose(pidfile);
+         } else {
+            msg(LOG_DEBUG, "create_pidfile", "fdopen failed: %m");
+            Sclose(pidfd);
+         }
+      } else
+         msg(LOG_DEBUG, "create_pidfile", "open failed: %m");
+   }
+}
 
 /*
  * Become a daemon by forking a new process. The parent process exits.
@@ -222,8 +239,6 @@ static void become_daemon(void)
    int   tries ;
    int   pid ;
    const char  *func = "become_daemon" ;
-   int   pidfd;
-   FILE  *pidfile;
 
    /*
     * First fork so that the parent will think we have exited
@@ -246,30 +261,7 @@ static void become_daemon(void)
       else if ( pid == 0 )
          break ;
       else
-      {
-         if ( ps.ros.pid_file ) {
-            unlink(ps.ros.pid_file);
-            pidfd = open(ps.ros.pid_file, O_EXCL|O_CREAT|O_WRONLY,
-               S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
-            if (pidfd >= 0) { /* successfully created file */
-               pidfile = fdopen(pidfd, "w");
-               if (pidfile) {
-                  fchmod(pidfd, S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH);
-                  fprintf(pidfile, "%d\n", pid);
-                  fclose(pidfile);
-               } else {
-                  perror("fdopen");
-                  close(pidfd);
-               }
-            } else
-               perror("open");
-         }
-
-#ifndef DEBUG_DAEMON
-         sleep( 3 ) ;   /* give some time to the daemon to initialize */
-#endif
          exit( 0 ) ;
-      }
    }
 
    (void) dup2( 0, STDERR_FD ) ;
@@ -317,7 +309,7 @@ static void init_rw_state( void )
  */
 void init_daemon( int argc, char *argv[] )
 {
-   char *fail = NULL;
+   const char *fail = NULL;
 
    debug.on = 0;
    memset(&ps, 0, sizeof(ps));
@@ -347,8 +339,9 @@ void init_daemon( int argc, char *argv[] )
 
    init_common( argc, argv ) ;
 
-   if ( ! debug.on )
+   if ( ! debug.on && !dont_fork )
       become_daemon() ;
+   create_pidfile();
    
    init_rw_state() ;
 }

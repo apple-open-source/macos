@@ -22,13 +22,13 @@
  * These notices must be retained in any copies of any part of this
  * documentation and/or software.
  *
- * $Id: md5c.c,v 1.1 2001/06/10 22:31:57 conrad Exp $
+ * $Id: md5c.c,v 1.2 2003/05/06 21:54:46 lindak Exp $
  *
  * This code is the same as the code published by RSA Inc.  It has been
  * edited for clarity and style only.
  */
 
-#warning XXX enable xnu/bsd/kern/md5c.c and delete this extra copy
+/* XXX enable xnu/bsd/kern/md5c.c and delete this extra copy */
 
 #include <sys/types.h>
 

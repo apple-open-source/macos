@@ -975,7 +975,6 @@ void KHTMLPart::clear()
     d->m_decoder->deref();
   d->m_decoder = 0;
 
-#if !APPLE_CHANGES
   {
     ConstFrameIt it = d->m_frames.begin();
     ConstFrameIt end = d->m_frames.end();
@@ -983,14 +982,29 @@ void KHTMLPart::clear()
     {
       if ( (*it).m_part )
       {
+#if !APPLE_CHANGES
         partManager()->removePart( (*it).m_part );
-        delete (KParts::ReadOnlyPart *)(*it).m_part;
+#endif
+        (*it).m_part->deref();
       }
     }
   }
-#endif
-
   d->m_frames.clear();
+
+  {
+    ConstFrameIt it = d->m_objects.begin();
+    ConstFrameIt end = d->m_objects.end();
+    for(; it != end; ++it )
+    {
+      if ( (*it).m_part )
+      {
+#if !APPLE_CHANGES
+        partManager()->removePart( (*it).m_part );
+#endif
+        (*it).m_part->deref();
+      }
+    }
+  }
   d->m_objects.clear();
 
 #ifndef Q_WS_QWS
@@ -1407,7 +1421,11 @@ void KHTMLPart::begin( const KURL &url, int xOffset, int yOffset )
   args.yOffset = yOffset;
   d->m_extension->setURLArgs( args );
 
-  d->m_referrer = url.url();
+  KURL ref(url);
+  ref.setUser(QSTRING_NULL);
+  ref.setPass(QSTRING_NULL);
+  ref.setRef(QSTRING_NULL);
+  d->m_referrer = ref.protocol().startsWith("http") ? ref.url() : "";
   m_url = url;
   KURL baseurl;
 
@@ -1501,8 +1519,12 @@ void KHTMLPart::write( const char *str, int len )
         if (!d->m_encoding.isNull())
             d->m_decoder->setEncoding(d->m_encoding.latin1(),
                 d->m_haveEncoding ? Decoder::UserChosenEncoding : Decoder::EncodingFromHTTPHeader);
-        else
-            d->m_decoder->setEncoding(settings()->encoding().latin1(), Decoder::DefaultEncoding);
+        else {
+            // Inherit the default encoding from the parent frame if there is one.
+            const char *defaultEncoding = parentPart()
+                ? parentPart()->d->m_decoder->encoding() : settings()->encoding().latin1();
+            d->m_decoder->setEncoding(defaultEncoding, Decoder::DefaultEncoding);
+        }
 #if APPLE_CHANGES
         if (d->m_doc)
             d->m_doc->setDecoder(d->m_decoder);
@@ -1532,8 +1554,13 @@ void KHTMLPart::write( const char *str, int len )
   if (jScript())
     jScript()->appendSourceFile(m_url.url(),decoded);
   Tokenizer* t = d->m_doc->tokenizer();
+
+  // parsing some of the page can result in running a script which
+  // could possibly destroy the part. To avoid this, ref it temporarily.
+  ref();
   if(t)
     t->write( decoded, true );
+  deref();
 }
 
 void KHTMLPart::write( const QString &str )
@@ -1781,9 +1808,9 @@ void KHTMLPart::checkEmitLoadEvent()
   // All frames completed -> set their domain to the frameset's domain
   // This must only be done when loading the frameset initially (#22039),
   // not when following a link in a frame (#44162).
-  if ( d->m_doc && d->m_doc->isHTMLDocument() )
+  if ( d->m_doc )
   {
-    DOMString domain = static_cast<HTMLDocumentImpl*>(d->m_doc)->domain();
+    DOMString domain = d->m_doc->domain();
     ConstFrameIt it = d->m_frames.begin();
     ConstFrameIt end = d->m_frames.end();
     for (; it != end; ++it )
@@ -1792,10 +1819,10 @@ void KHTMLPart::checkEmitLoadEvent()
       if ( p && p->inherits( "KHTMLPart" ))
       {
         KHTMLPart* htmlFrame = static_cast<KHTMLPart *>(p);
-        if (htmlFrame->d->m_doc && htmlFrame->d->m_doc->isHTMLDocument() )
+        if (htmlFrame->d->m_doc)
         {
           kdDebug() << "KHTMLPart::checkCompleted setting frame domain to " << domain.string() << endl;
-          static_cast<HTMLDocumentImpl*>(htmlFrame->d->m_doc)->setDomain( domain );
+          htmlFrame->d->m_doc->setDomain( domain );
         }
       }
     }
@@ -1878,9 +1905,10 @@ void KHTMLPart::scheduleHistoryNavigation( int steps )
     }
 }
 
-void KHTMLPart::cancelRedirection()
+void KHTMLPart::cancelRedirection(bool cancelWithLoadInProgress)
 {
     if (d) {
+        d->m_cancelWithLoadInProgress = cancelWithLoadInProgress;
         d->m_scheduledRedirection = noRedirectionScheduled;
         d->m_redirectionTimer.stop();
     }
@@ -2190,21 +2218,65 @@ bool KHTMLPart::findTextNext( const QString &str, bool forward, bool caseSensiti
 
 QString KHTMLPart::selectedText() const
 {
+    // FIXME: This whole function should use the render tree and not the DOM tree, since elements could
+    // be hidden using CSS, or additional generated content could be added.  For now, we just make sure
+    // text objects walk their renderers' TextRuns, so that we at least get the whitespace stripped out properly
+    // and obey CSS visibility for text runs.
   bool hasNewLine = true;
+  bool addedSpace = true;
   QString text;
   DOM::Node n = d->m_selectionStart;
   while(!n.isNull()) {
       if(n.nodeType() == DOM::Node::TEXT_NODE) {
-        QString str = n.nodeValue().string();
-        hasNewLine = false;
-        if(n == d->m_selectionStart && n == d->m_selectionEnd)
-          text = str.mid(d->m_startOffset, d->m_endOffset - d->m_startOffset);
-        else if(n == d->m_selectionStart)
-          text = str.mid(d->m_startOffset);
-        else if(n == d->m_selectionEnd)
-          text += str.left(d->m_endOffset);
-        else
-          text += str;
+          if (hasNewLine) {
+              addedSpace = true;
+              hasNewLine = false;
+          }
+          QString str = n.nodeValue().string();
+          int start = (n == d->m_selectionStart) ? d->m_startOffset : -1;
+          int end = (n == d->m_selectionEnd) ? d->m_endOffset : -1;
+          RenderObject* renderer = n.handle()->renderer();
+          if (renderer && renderer->isText()) {
+              if (renderer->style()->whiteSpace() == khtml::PRE) {
+                  int runStart = (start == -1) ? 0 : start;
+                  int runEnd = (end == -1) ? str.length() : end;
+                  text += str.mid(runStart, runEnd-runStart);
+                  addedSpace = str[runEnd-1].direction() == QChar::DirWS;
+              }
+              else {
+                  RenderText* textObj = static_cast<RenderText*>(n.handle()->renderer());
+                  TextRunArray runs = textObj->textRuns();
+                  if (runs.count() == 0 && str.length() > 0 && !addedSpace) {
+                      // We have no runs, but we do have a length.  This means we must be
+                      // whitespace that collapsed away at the end of a line.
+                      text += " ";
+                      addedSpace = true;
+                  }
+                  else {
+                      addedSpace = false;
+                      for (unsigned i = 0; i < runs.count(); i++) {
+                          int runStart = (start == -1) ? runs[i]->m_start : start;
+                          int runEnd = (end == -1) ? runs[i]->m_start + runs[i]->m_len : end;
+                          runEnd = QMIN(runEnd, runs[i]->m_start + runs[i]->m_len);
+                          bool spaceBetweenRuns = false;
+                          if (runStart >= runs[i]->m_start &&
+                              runStart < runs[i]->m_start + runs[i]->m_len) {
+                              text += str.mid(runStart, runEnd - runStart);
+                              start = -1;
+                              spaceBetweenRuns = i+1 < runs.count() && runs[i+1]->m_start > runEnd;
+                              addedSpace = str[runEnd-1].direction() == QChar::DirWS;
+                          }
+                          if (end != -1 && runEnd >= end)
+                              break;
+
+                          if (spaceBetweenRuns && !addedSpace) {
+                              text += " ";
+                              addedSpace = true;
+                          }
+                      }
+                  }
+              }
+          }
       }
       else {
         // This is our simple HTML -> ASCII transformation:
@@ -2996,7 +3068,7 @@ bool KHTMLPart::processObjectRequest( khtml::ChildFrame *child, const KURL &_url
 #if !APPLE_CHANGES
       partManager()->removePart( (KParts::ReadOnlyPart *)child->m_part );
 #endif
-      delete (KParts::ReadOnlyPart *)child->m_part;
+      child->m_part->deref();
     }
 
     child->m_serviceType = mimetype;
@@ -3984,7 +4056,7 @@ void KHTMLPart::setZoomFactor (int percent)
       QApplication::setOverrideCursor( waitCursor );
 #endif
     if (d->m_doc->styleSelector())
-      d->m_doc->styleSelector()->computeFontSizes(d->m_doc->paintDeviceMetrics(), d->m_zoomFactor);
+      d->m_doc->styleSelector()->computeFontSizes(d->m_doc->paintDeviceMetrics());
     d->m_doc->recalcStyle( NodeImpl::Force );
 #if !APPLE_CHANGES
     QApplication::restoreOverrideCursor();

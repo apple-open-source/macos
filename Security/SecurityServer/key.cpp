@@ -30,12 +30,12 @@
 // Note that this doesn't decode the blob (yet).
 //
 Key::Key(Database &db, const KeyBlob *blob)
-: SecurityServerAcl(keyAcl, CssmAllocator::standard())
+: SecurityServerAcl(keyAcl, CssmAllocator::standard()), mDigest(Server::csp().allocator())
 {
     // perform basic validation on the incoming blob
 	assert(blob);
     blob->validate(CSSMERR_APPLEDL_INVALID_KEY_BLOB);
-    switch (blob->version) {
+    switch (blob->version()) {
 #if defined(COMPAT_OSX_10_0)
     case blob->version_MacOS_10_0:
         break;
@@ -53,7 +53,8 @@ Key::Key(Database &db, const KeyBlob *blob)
 	mValidBlob = true;
 	mValidKey = false;
     mValidUID = false;
-    debug("SSkey", "%p created from blob version %lx", this, blob->version);
+    secdebug("SSkey", "%p (handle 0x%lx) created from blob version %lx",
+		this, handle(), blob->version());
 }
 
 
@@ -62,7 +63,7 @@ Key::Key(Database &db, const KeyBlob *blob)
 //
 Key::Key(Database *db, const CssmKey &newKey, uint32 moreAttributes,
 	const AclEntryPrototype *owner)
-: SecurityServerAcl(keyAcl, CssmAllocator::standard())
+: SecurityServerAcl(keyAcl, CssmAllocator::standard()), mDigest(Server::csp().allocator())
 {
 	if (moreAttributes & CSSM_KEYATTR_PERMANENT) {
 		// better have a database to make it permanent in...
@@ -85,8 +86,8 @@ Key::Key(Database *db, const CssmKey &newKey, uint32 moreAttributes,
 		cssmSetInitial(*owner);					// specified
 	else
 		cssmSetInitial(new AnyAclSubject());	// defaulted
-    debug("SSkey", "%p created from key alg=%ld use=0x%lx attr=0x%lx db=%p",
-        this, mKey.algorithm(), mKey.usage(), mAttributes, db);
+    secdebug("SSkey", "%p (handle 0x%lx) created from key alg=%ld use=0x%lx attr=0x%lx db=%p",
+        this, handle(), mKey.header().algorithm(), mKey.header().usage(), mAttributes, db);
 }
 
 
@@ -95,11 +96,12 @@ Key::Key(Database *db, const CssmKey &newKey, uint32 moreAttributes,
 //
 void Key::setup(const CssmKey &newKey, uint32 moreAttributes)
 {
-    CssmKey::Header &header = mKey.header();
+	mKey = CssmClient::Key(Server::csp(), newKey, false);
+    CssmKey::Header &header = mKey->header();
     
 	// copy key header
 	header = newKey.header();
-    mAttributes = header.attributes() | moreAttributes;
+    mAttributes = (header.attributes() & ~forcedAttributes) | moreAttributes;
 	
 	// apply initial values of derived attributes (these are all in managedAttributes)
     if (!(mAttributes & CSSM_KEYATTR_EXTRACTABLE))
@@ -108,19 +110,14 @@ void Key::setup(const CssmKey &newKey, uint32 moreAttributes)
         mAttributes |= CSSM_KEYATTR_ALWAYS_SENSITIVE;
 
     // verify internal/external attribute separation
-    assert(!(header.attributes() & managedAttributes));
-
-	// copy key data field, using the CSP's allocator (so the release operation works later)
-	mKey.KeyData = CssmAutoData(Server::csp().allocator(), newKey).release();
+    assert((header.attributes() & managedAttributes) == forcedAttributes);
 }
 
 
 Key::~Key()
 {
     CssmAllocator::standard().free(mBlob);
-    if (mValidKey)
-        Server::csp()->freeKey(mKey);
-    debug("SSkey", "%p destroyed", this);
+    secdebug("SSkey", "%p destroyed", this);
 }
 
 
@@ -128,14 +125,14 @@ Key::~Key()
 // Form a KeySpec with checking and masking
 //
 Key::KeySpec::KeySpec(uint32 usage, uint32 attrs)
-	: CssmClient::KeySpec(usage, attrs & ~managedAttributes)
+	: CssmClient::KeySpec(usage, (attrs & ~managedAttributes) | forcedAttributes)
 {
 	if (attrs & generatedAttributes)
 		CssmError::throwMe(CSSMERR_CSP_INVALID_KEYATTR_MASK);
 }
 
 Key::KeySpec::KeySpec(uint32 usage, uint32 attrs, const CssmData &label)
-	: CssmClient::KeySpec(usage, attrs & ~managedAttributes, label)
+	: CssmClient::KeySpec(usage, (attrs & ~managedAttributes) | forcedAttributes, label)
 {
 	if (attrs & generatedAttributes)
 		CssmError::throwMe(CSSMERR_CSP_INVALID_KEYATTR_MASK);
@@ -146,7 +143,7 @@ Key::KeySpec::KeySpec(uint32 usage, uint32 attrs, const CssmData &label)
 // Retrieve the actual CssmKey value for the key object.
 // This will decode its blob if needed (and appropriate).
 //
-CssmKey &Key::keyValue()
+CssmClient::Key Key::keyValue()
 {
     decode();
     return mKey;
@@ -165,33 +162,21 @@ void Key::decode()
         
         // decode the key
         void *publicAcl, *privateAcl;
-        database()->decodeKey(mBlob, mKey, publicAcl, privateAcl);
+		CssmKey key;
+        database()->decodeKey(mBlob, key, publicAcl, privateAcl);
+		mKey = CssmClient::Key(Server::csp(), key);
         importBlob(publicAcl, privateAcl);
         // publicAcl points into the blob; privateAcl was allocated for us
         CssmAllocator::standard().free(privateAcl);
         
         // extract managed attribute bits
-        mAttributes = mKey.attributes() & managedAttributes;
-        mKey.clearAttribute(managedAttributes);
+        mAttributes = mKey.header().attributes() & managedAttributes;
+        mKey.header().clearAttribute(managedAttributes);
+		mKey.header().setAttribute(forcedAttributes);
 
         // key is valid now
 		mValidKey = true;
 	}
-}
-
-
-//
-// Retrieve the header (only) of a key.
-// This is taking the clear header from the blob *without* verifying it.
-//
-CssmKey::Header &Key::keyHeader()
-{
-    if (mValidKey) {
-        return mKey.header();
-    } else {
-        assert(mValidBlob);
-        return mBlob->header;
-    }
 }
 
 
@@ -202,10 +187,38 @@ void Key::returnKey(Handle &h, CssmKey::Header &hdr)
 {
     // return handle
     h = handle();
+	
+	// obtain the key header, from the valid key or the blob if no valid key
+	if (mValidKey) {
+		hdr = mKey.header();
+	} else {
+		assert(mValidBlob);
+		hdr = mBlob->header;
+		n2hi(hdr);	// correct for endian-ness
+	}
     
-    // return header with external attributes merged
-    hdr = keyHeader();
+    // adjust for external attributes
+	hdr.clearAttribute(forcedAttributes);
     hdr.setAttribute(mAttributes);
+}
+
+
+//
+// Generate the canonical key digest.
+// This is defined by a CSP feature that we invoke here.
+//
+const CssmData &Key::canonicalDigest()
+{
+	if (!mDigest) {
+		CssmClient::PassThrough ctx(Server::csp());
+		ctx.key(keyValue());
+		CssmData *digest = NULL;
+		ctx(CSSM_APPLECSP_KEYDIGEST, (const void *)NULL, &digest);
+		assert(digest);
+		mDigest.set(*digest);	// takes ownership of digest data
+		Server::csp().allocator().free(digest);	// the CssmData itself
+	}
+	return mDigest.get();
 }
 
 
@@ -228,6 +241,7 @@ KeyBlob *Key::blob()
         
         // assemble external key form
         CssmKey externalKey = mKey;
+		externalKey.clearAttribute(forcedAttributes);
         externalKey.setAttribute(mAttributes);
 
         // encode the key and replace blob
@@ -266,7 +280,7 @@ void Key::instantiateAcl()
 	decode();
 }
 
-void Key::noticeAclChange()
+void Key::changedAcl()
 {
 	mValidBlob = false;
 }

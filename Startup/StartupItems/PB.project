@@ -7,7 +7,6 @@
             Accounting, 
             Apache, 
             AppleShare, 
-            AppleTalk, 
             AppServices, 
             AuthServer, 
             ConfigServer, 
@@ -16,7 +15,6 @@
             DirectoryServices, 
             Disks, 
             IPServices, 
-            LDAP, 
             LoginWindow, 
             mDNSResponder, 
             NetInfo, 
@@ -26,7 +24,6 @@
             NFS, 
             NIS, 
             Portmap, 
-            Sendmail, 
             SystemLog, 
             SystemTuning
         ); 

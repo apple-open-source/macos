@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -292,7 +293,7 @@ NIS_query(void *c, dsrecord *pattern, dsrecord **list)
 	char *key, *val, *lastkey;
 	int status, keylen, vallen, lastlen;
 	char scratch[4096];
-	int single_item = 0;
+	int single_item, stamp;
 
 	if (c == NULL) return 1;
 	if (pattern == NULL) return 1;
@@ -300,6 +301,8 @@ NIS_query(void *c, dsrecord *pattern, dsrecord **list)
 
 	*list = NULL;
 	lastrec = NULL;
+	single_item = 0;
+	stamp = 0;
 
 	ap = (agent_private *)c;
 
@@ -315,6 +318,24 @@ NIS_query(void *c, dsrecord *pattern, dsrecord **list)
 
 	map = categoryMap[cat];
 	if (map == NULL) return 1;
+
+	k = cstring_to_dsdata(STAMP_KEY);
+	a = dsrecord_attribute(pattern, k, SELECT_META_ATTRIBUTE);
+	dsdata_release(k);
+	if (a != NULL)
+	{
+		dsrecord_remove_attribute(pattern, a, SELECT_META_ATTRIBUTE);
+		stamp = 1;
+	}
+	dsattribute_release(a);
+
+	if (stamp == 1)
+	{
+		item = dsrecord_new();
+		add_validation(item);
+		*list = item;
+		return 0;
+	}
 
 	k = cstring_to_dsdata(SINGLE_KEY);
 	a = dsrecord_attribute(pattern, k, SELECT_META_ATTRIBUTE);

@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -34,6 +35,7 @@
 #include <rpc/xdr.h>
 #include <net/if.h>
 #include <ctype.h>
+#include <errno.h>
 #include "clib.h"
 #include "sys_interfaces.h"
 
@@ -1224,7 +1226,11 @@ getparent(ni_private *oldni, ni_private **newni)
 		ni_clear(ni);
 		if (get_daddr(dupni, ".", ni) == 0) 
 		{
-			if (oldni->abort == 1) break;
+			if (oldni->abort == 1)
+			{
+				ni_free(dupni);
+				break;
+			}
 		}
 		else
 		{
@@ -1318,10 +1324,7 @@ ni_addrtag(
 
 
 void *
-ni_new(
-       void *oldni,
-       const char *domain
-       )
+ni_new(void *oldni, const char *domain)
 {
 	ni_private *ni;
 	ni_status status;
@@ -1329,78 +1332,78 @@ ni_new(
 	struct sockaddr_in sin;
 	struct hostent *he;
 
-	if (oldni == NULL) {
-		ni = ni_alloc();
-		if (!connectlocal(ni)) {
-			free(ni);
-			return (NULL);
+	if (domain == NULL) return NULL;
+
+	sep = index(domain, '@');
+	if (sep != NULL)
+	{
+		tag  = strncpy((char *)malloc(sep - domain + 1), domain, sep - domain);
+		tag[sep - domain] = '\0';
+		addr = strcpy ((char *)malloc(strlen(sep + 1)), sep + 1);
+		sin.sin_addr.s_addr = inet_addr(addr);
+		if (sin.sin_addr.s_addr == INADDR_NONE)
+		{
+			he = gethostbyname(addr);
+			if (he == NULL)
+			{
+				free(addr);
+				free(tag);
+				return NULL;
+			}
+
+			bcopy(he->h_addr_list[0], &sin.sin_addr.s_addr, he->h_length);
 		}
-		if (strcmp(domain, "..") == 0) {
+
+		ni = ni_connect(&sin, tag);
+		free(addr);
+		free(tag);
+
+		return (void *)ni;
+	}
+
+	ni = NULL;
+
+	if (oldni == NULL)
+	{
+		ni = ni_alloc();
+		if (connectlocal(ni) == 0)
+		{
+			free(ni);
+			return NULL;
+		}
+
+		if (strcmp(domain, ".") == 0) return (void *)ni;
+
+		if (strcmp(domain, "..") == 0)
+		{
 			oldni = ni;
 			status = getparent((ni_private *)oldni, &ni);
 			ni_free(oldni);
-			if (status != NI_OK) {
-				return (NULL);
-			}
-		} else if ((sep = index(domain, '@')) != NULL) {
-			free(ni);
-			tag  = strncpy((char *)malloc(sep-domain+1), domain, sep-domain);
-			tag[sep-domain] = '\0';
-			addr = strcpy ((char *)malloc(strlen(sep+1)), sep+1);
-			sin.sin_addr.s_addr = inet_addr(addr);
-			if (sin.sin_addr.s_addr == INADDR_NONE) {
-				he = gethostbyname(addr);
-				if (he == NULL) {
-					free(addr);
-					free(tag);
-					return (NULL);
-				}
-				bcopy(he->h_addr_list[0], &sin.sin_addr.s_addr, he->h_length);
-			}
-			ni = ni_connect(&sin, tag);
-			free(addr);
-			free(tag);
-		} else if (strcmp(domain, ".") != 0) {
-			/*
-			 * nothing else makes sense
-			 */
-			free(ni);
-			return (NULL);
+			if (status != NI_OK) return NULL;
+			return (void *)ni;
 		}
-	} else {
-		if (strcmp(domain, "..") == 0) {
-			status = getparent((ni_private *)oldni, &ni);
-			if (status != NI_OK) {
-				return (NULL);
-			}
-		} else if ((sep = index(domain, '@')) != NULL) {
-			tag  = strncpy((char *)malloc(sep-domain+1), domain, sep-domain);
-			tag[sep-domain] = '\0';
-			addr = strcpy ((char *)malloc(strlen(sep+1)), sep+1);
-			sin.sin_addr.s_addr = inet_addr(addr);
-			if (sin.sin_addr.s_addr == INADDR_NONE) {
-				he = gethostbyname(addr);
-				if (he == NULL) {
-					free(addr);
-					free(tag);
-					return (NULL);
-				}
-				bcopy(he->h_addr_list[0], &sin.sin_addr.s_addr, he->h_length);
-			}
-			ni = ni_connect(&sin, tag);
-			free(addr);
-			free(tag);
-		} else {
-			ni = ni_alloc();
-			*ni = *NIP(oldni);
-			ni_clear(ni);
-			if (!get_daddr(oldni, (ni_name)domain, ni))  {
-				ni_free(ni);
-				ni = NULL;
-			}
-		}
+
+		ni_free(ni);
+		return NULL;
 	}
-	return ((void *)ni);
+
+	if (strcmp(domain, "..") == 0)
+	{
+		status = getparent((ni_private *)oldni, &ni);
+		if (status != NI_OK) return NULL;
+		return (void *)ni;
+	}
+
+	ni = ni_alloc();
+	*ni = *NIP(oldni);
+	ni_clear(ni);
+	if (!get_daddr(oldni, (ni_name)domain, ni))
+	{
+		ni_free(ni);
+		return NULL;
+	}
+
+	return (void *)ni;
 }
 
 
@@ -2178,8 +2181,11 @@ socket_open(
 	    int proto
 	    )
 {
+	struct sockaddr_in bindsin;
 	int sock;
 	int reuse = 1;
+
+	memset(&bindsin, 0, sizeof(bindsin));
 
 	/*
 	 * If no port number given ask the pmap for one
@@ -2199,11 +2205,23 @@ socket_open(
 	if (sock < 0) {
 		return (-1);
 	}
-	(void)bindresvport(sock, (struct sockaddr_in *)0);
+	if (-1 == bindresvport(sock, NULL) && errno == EADDRNOTAVAIL) {
+		/* XXX - we're hitting this case way too often under load */
+		/* fail gracefully: some address is better than none most of the time */
+		syslog(LOG_DEBUG, "Libinfo[%s():%d] bindresvport(): %m", __func__, __LINE__);
+		if (-1 == bind(sock, &bindsin, sizeof(bindsin))) {
+			/* The system is really sad now if it can't give me any address... */
+			syslog(LOG_DEBUG, "Libinfo[%s():%d] bind(): %m", __func__, __LINE__);
+			(void)close(sock);
+			return -1;
+		}
+	}
 	setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, &reuse, sizeof(int));
+	setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(int));
 	if (proto == IPPROTO_TCP) {
 		if (connect(sock, (struct sockaddr *)raddr,
 			    sizeof(*raddr)) < 0) {
+			syslog(LOG_DEBUG, "Libinfo[%s():%d] connect(): %m", __func__, __LINE__);
 			(void)close(sock);
 			return (-1);
 		}

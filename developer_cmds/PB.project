@@ -26,7 +26,7 @@
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
     NEXTSTEP_BUILDDIR = "/tmp/$(NAME)/Build"; 
     NEXTSTEP_BUILDTOOL = /bin/gnumake; 
-    NEXTSTEP_COMPILEROPTIONS = "-Wmost -Werror -DRHAPSODY"; 
+    NEXTSTEP_COMPILEROPTIONS = "-Wall -DRHAPSODY"; 
     NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
     NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
     PDO_UNIX_BUILDTOOL = $NEXT_ROOT/Developer/bin/make; 

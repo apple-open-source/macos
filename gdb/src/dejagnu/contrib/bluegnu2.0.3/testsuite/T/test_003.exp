@@ -1,0 +1,3 @@
+
+verbose "t003.exp == $lArgs"
+pass "t003.exp == $lArgs"

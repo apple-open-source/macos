@@ -1,27 +1,11 @@
 /*
- * Copyright (c) 1984,1985,1989,1994,1995,1996,1999  Mark Nudelman
- * All rights reserved.
+ * Copyright (C) 1984-2002  Mark Nudelman
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice in the documentation and/or other materials provided with 
- *    the distribution.
+ * You may distribute under the terms of either the GNU General Public
+ * License or the Less License, as specified in the README file.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT 
- * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR 
- * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE 
- * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN 
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * For more information about less, or for information on how to 
+ * contact the author, see the README file.
  */
 
 
@@ -30,6 +14,9 @@
  */
 
 #include "less.h"
+#if MSDOS_COMPILER==WIN32C
+#include <windows.h>
+#endif
 #include "position.h"
 #include "option.h"
 #include "cmd.h"
@@ -37,6 +24,7 @@
 extern int erase_char, kill_char;
 extern int sigs;
 extern int quit_at_eof;
+extern int quit_if_one_screen;
 extern int squished;
 extern int hit_eof;
 extern int sc_width;
@@ -50,6 +38,7 @@ extern int ignore_eoi;
 extern int secure;
 extern int hshift;
 extern int show_attn;
+extern int more_mode;
 extern char *every_first_cmd;
 extern char *curr_altfilename;
 extern char version[];
@@ -65,6 +54,7 @@ extern char *editor;
 extern char *editproto;
 #endif
 extern int screen_trashed;	/* The screen has been overwritten */
+extern int shift_count;
 
 static char ungot[UNGOT_SIZE];
 static char *ungotp = NULL;
@@ -228,6 +218,10 @@ exec_mca()
 		if (secure)
 			break;
 		edit_list(cbuf);
+#if TAGS
+		/* If tag structure is loaded then clean it up. */
+		cleantags();
+#endif
 		break;
 #endif
 #if SHELL_ESCAPE
@@ -298,7 +292,7 @@ mca_char(c)
 		 * Terminated by a non-digit.
 		 */
 		if ((c < '0' || c > '9') && 
-		  editchar(c, EC_PEEK|EC_NOHISTORY|EC_NOCOMPLETE) == A_INVALID)
+		  editchar(c, EC_PEEK|EC_NOHISTORY|EC_NOCOMPLETE|EC_NORIGHTLEFT) == A_INVALID)
 		{
 			/*
 			 * Not part of the number.
@@ -370,7 +364,7 @@ mca_char(c)
 			 * If so, display the complete name and stop 
 			 * accepting chars until user hits RETURN.
 			 */
-			struct option *o;
+			struct loption *o;
 			char *oname;
 			int lc;
 
@@ -483,12 +477,16 @@ mca_char(c)
 		flag = 0;
 		switch (c)
 		{
-		case CONTROL('E'): /* ignore END of file */
 		case '*':
+			if (more_mode)
+				break;
+		case CONTROL('E'): /* ignore END of file */
 			flag = SRCH_PAST_EOF;
 			break;
-		case CONTROL('F'): /* FIRST file */
 		case '@':
+			if (more_mode)
+				break;
+		case CONTROL('F'): /* FIRST file */
 			flag = SRCH_FIRST_FILE;
 			break;
 		case CONTROL('K'): /* KEEP position */
@@ -607,10 +605,11 @@ prompt()
 	/*
 	 * If the -E flag is set and we've hit EOF on the last file, quit.
 	 */
-	if (quit_at_eof == OPT_ONPLUS && hit_eof && 
-	    !(ch_getflags() & CH_HELPFILE) && 
+	if ((quit_at_eof == OPT_ONPLUS || quit_if_one_screen) &&
+	    hit_eof && !(ch_getflags() & CH_HELPFILE) && 
 	    next_ifile(curr_ifile) == NULL_IFILE)
 		quit(QUIT_OK);
+	quit_if_one_screen = FALSE;
 #if 0 /* This doesn't work well because some "te"s clear the screen. */
 	/*
 	 * If the -e flag is set and we've hit EOF on the last file,
@@ -621,6 +620,13 @@ prompt()
 		quit(QUIT_OK);
 #endif
 
+#if MSDOS_COMPILER==WIN32C
+	/* 
+	 * In Win32, display the file name in the window title.
+	 */
+	if (!(ch_getflags() & CH_HELPFILE))
+		SetConsoleTitle(pr_expand("Less?f - %f.", 0));
+#endif
 	/*
 	 * Select the proper prompt and display it.
 	 */
@@ -845,6 +851,7 @@ commands()
 	PARG parg;
 	IFILE old_ifile;
 	IFILE new_ifile;
+	char *tagfile;
 
 	search_type = SRCH_FORW;
 	wscroll = (sc_height + 1) / 2;
@@ -1122,6 +1129,9 @@ commands()
 			{
 				ch_flush();
 				clr_linenum();
+#if HILITE_SEARCH
+				clr_hilite();
+#endif
 			}
 			/* FALLTHRU */
 		case A_REPAINT:
@@ -1359,6 +1369,13 @@ commands()
 			/*
 			 * Examine next file.
 			 */
+#if TAGS
+			if (ntags())
+			{
+				error("No next file", NULL_PARG);
+				break;
+			}
+#endif
 			if (number <= 0)
 				number = 1;
 			if (edit_next(number))
@@ -1375,6 +1392,13 @@ commands()
 			/*
 			 * Examine previous file.
 			 */
+#if TAGS
+			if (ntags())
+			{
+				error("No previous file", NULL_PARG);
+				break;
+			}
+#endif
 			if (number <= 0)
 				number = 1;
 			if (edit_prev(number))
@@ -1382,6 +1406,48 @@ commands()
 				parg.p_string = (number > 1) ? "(N-th) " : "";
 				error("No %sprevious file", &parg);
 			}
+			break;
+
+		case A_NEXT_TAG:
+#if TAGS
+			if (number <= 0)
+				number = 1;
+			tagfile = nexttag(number);
+			if (tagfile == NULL)
+			{
+				error("No next tag", NULL_PARG);
+				break;
+			}
+			if (edit(tagfile) == 0)
+			{
+				POSITION pos = tagsearch();
+				if (pos != NULL_POSITION)
+					jump_loc(pos, jump_sline);
+			}
+#else
+			error("Command not available", NULL_PARG);
+#endif
+			break;
+
+		case A_PREV_TAG:
+#if TAGS
+			if (number <= 0)
+				number = 1;
+			tagfile = prevtag(number);
+			if (tagfile == NULL)
+			{
+				error("No previous tag", NULL_PARG);
+				break;
+			}
+			if (edit(tagfile) == 0)
+			{
+				POSITION pos = tagsearch();
+				if (pos != NULL_POSITION)
+					jump_loc(pos, jump_sline);
+			}
+#else
+			error("Command not available", NULL_PARG);
+#endif
 			break;
 
 		case A_INDEX_FILE:
@@ -1395,6 +1461,8 @@ commands()
 			break;
 
 		case A_REMOVE_FILE:
+			if (ch_getflags() & CH_HELPFILE)
+				break;
 			old_ifile = curr_ifile;
 			new_ifile = getoff_ifile(curr_ifile);
 			if (new_ifile == NULL_IFILE)
@@ -1510,8 +1578,11 @@ commands()
 			goto again;
 
 		case A_LSHIFT:
-			if (number <= 0)
-				number = 8;
+			if (number > 0)
+				shift_count = number;
+			else
+				number = (shift_count > 0) ?
+					shift_count : sc_width / 2;
 			if (number > hshift)
 				number = hshift;
 			hshift -= number;
@@ -1519,8 +1590,11 @@ commands()
 			break;
 
 		case A_RSHIFT:
-			if (number <= 0)
-				number = 8;
+			if (number > 0)
+				shift_count = number;
+			else
+				number = (shift_count > 0) ?
+					shift_count : sc_width / 2;
 			hshift += number;
 			screen_trashed = 1;
 			break;

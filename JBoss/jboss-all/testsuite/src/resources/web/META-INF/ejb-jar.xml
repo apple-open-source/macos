@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE ejb-jar PUBLIC
+   "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 2.0//EN"
+   "http://java.sun.com/dtd/ejb-jar_2_0.dtd">
+
+<ejb-jar>
+   <description>WebApp Integration Tests</description>
+
+    <enterprise-beans>
+        <session>
+            <description>Referenced Bean0</description>
+            <ejb-name>ENCBean0</ejb-name>
+            <home>org.jboss.test.web.interfaces.StatelessSessionHome</home>
+            <remote>org.jboss.test.web.interfaces.StatelessSession</remote>
+            <local-home>org.jboss.test.web.interfaces.StatelessSessionLocalHome</local-home>
+            <local>org.jboss.test.web.interfaces.StatelessSessionLocal</local>
+            <ejb-class>org.jboss.test.web.ejb.StatelessSessionBean</ejb-class>
+            <session-type>Stateless</session-type>
+            <transaction-type>Container</transaction-type>
+        </session>
+        <session>
+            <description>Referenced Bean1</description>
+            <ejb-name>ENCBean1</ejb-name>
+            <home>org.jboss.test.web.interfaces.StatelessSessionHome</home>
+            <remote>org.jboss.test.web.interfaces.StatelessSession</remote>
+            <local-home>org.jboss.test.web.interfaces.StatelessSessionLocalHome</local-home>
+            <local>org.jboss.test.web.interfaces.StatelessSessionLocal</local>
+            <ejb-class>org.jboss.test.web.ejb.StatelessSessionBean</ejb-class>
+            <session-type>Stateless</session-type>
+            <transaction-type>Container</transaction-type>
+        </session>
+        <session>
+            <description>A secured EJB</description>
+            <ejb-name>SecuredEJB</ejb-name>
+            <home>org.jboss.test.web.interfaces.StatelessSessionHome</home>
+            <remote>org.jboss.test.web.interfaces.StatelessSession</remote>
+            <ejb-class>org.jboss.test.web.ejb.StatelessSessionBean</ejb-class>
+            <session-type>Stateless</session-type>
+            <transaction-type>Container</transaction-type>
+        </session>
+        <session>
+            <description>A unsecured EJB</description>
+            <ejb-name>UnsecuredEJB</ejb-name>
+            <home>org.jboss.test.web.interfaces.StatelessSessionHome</home>
+            <remote>org.jboss.test.web.interfaces.StatelessSession</remote>
+            <ejb-class>org.jboss.test.web.ejb.StatelessSessionBean2</ejb-class>
+            <session-type>Stateless</session-type>
+            <transaction-type>Container</transaction-type>
+            <ejb-ref>
+                <ejb-ref-name>ejb/Session</ejb-ref-name>
+                <ejb-ref-type>Session</ejb-ref-type>
+                <home>org.jboss.test.web.interfaces.StatelessSessionHome</home>
+                <remote>org.jboss.test.web.interfaces.StatelessSession</remote>
+                <ejb-link>SecuredEJB</ejb-link>
+            </ejb-ref>
+        </session>
+        <session>
+            <description>An EJB for testing in vm call optimization</description>
+            <ejb-name>OptimizedEJB</ejb-name>
+            <home>org.jboss.test.web.interfaces.StatelessSessionHome</home>
+            <remote>org.jboss.test.web.interfaces.StatelessSession</remote>
+            <local-home>org.jboss.test.web.interfaces.StatelessSessionLocalHome</local-home>
+            <local>org.jboss.test.web.interfaces.StatelessSessionLocal</local>
+            <ejb-class>org.jboss.test.web.ejb.StatelessSessionBean2</ejb-class>
+            <session-type>Stateless</session-type>
+            <transaction-type>Container</transaction-type>
+        </session>
+        <session>
+            <description>An EJB for testing in vm call not optimizated</description>
+            <ejb-name>NotOptimizedEJB</ejb-name>
+            <home>org.jboss.test.web.interfaces.StatelessSessionHome</home>
+            <remote>org.jboss.test.web.interfaces.StatelessSession</remote>
+            <local-home>org.jboss.test.web.interfaces.StatelessSessionLocalHome</local-home>
+            <local>org.jboss.test.web.interfaces.StatelessSessionLocal</local>
+            <ejb-class>org.jboss.test.web.ejb.StatelessSessionBean2</ejb-class>
+            <session-type>Stateless</session-type>
+            <transaction-type>Container</transaction-type>
+        </session>
+        <session>
+            <description>An EJB for testing stateful persistence</description>
+            <ejb-name>StatefulEJB</ejb-name>
+            <home>org.jboss.test.web.interfaces.StatelessSessionHome</home>
+            <remote>org.jboss.test.web.interfaces.StatelessSession</remote>
+            <ejb-class>org.jboss.test.web.ejb.StatelessSessionBean2</ejb-class>
+            <session-type>Stateful</session-type>
+            <transaction-type>Container</transaction-type>
+        </session>
+
+      <entity>
+         <ejb-name>Entity</ejb-name>
+         <home>org.jboss.test.web.interfaces.EntityHome</home>
+         <remote>org.jboss.test.web.interfaces.Entity</remote>
+         <ejb-class>org.jboss.test.web.ejb.EntityBean</ejb-class>
+         <persistence-type>Container</persistence-type>
+         <prim-key-class>org.jboss.test.web.interfaces.EntityPK</prim-key-class>
+         <reentrant>False</reentrant>
+         <cmp-version>1.x</cmp-version>
+         <cmp-field>
+            <field-name>the_key</field-name>
+         </cmp-field>
+         <cmp-field>
+            <field-name>the_value</field-name>
+         </cmp-field>
+      </entity>
+    </enterprise-beans>
+
+    <assembly-descriptor>
+        <!-- Security constraints for the SecuredEJB -->
+        <security-role>
+            <description>An anonymous unauthenticated user</description>
+            <role-name>Anonymous</role-name>
+        </security-role>
+        <security-role>
+            <description>An authenticated user</description>
+            <role-name>AuthorizedUser</role-name>
+        </security-role>
+
+        <!-- The methods an Anonymous user can access -->
+        <method-permission>
+            <role-name>Anonymous</role-name>
+            <method>
+                <ejb-name>SecuredEJB</ejb-name>
+                <method-name>create</method-name>
+            </method>
+            <method>
+                <ejb-name>SecuredEJB</ejb-name>
+                <method-name>echo</method-name>
+            </method>
+        </method-permission>
+
+        <!-- The methods an AuthorizedUser user can access -->
+        <method-permission>
+            <role-name>AuthorizedUser</role-name>
+            <method>
+                <ejb-name>SecuredEJB</ejb-name>
+                <method-name>*</method-name>
+            </method>
+        </method-permission>
+    </assembly-descriptor>
+</ejb-jar>

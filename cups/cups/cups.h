@@ -1,9 +1,9 @@
 /*
- * "$Id: cups.h,v 1.1.1.5 2002/04/08 07:19:18 jlovell Exp $"
+ * "$Id: cups.h,v 1.1.1.14 2003/07/23 02:33:32 jlovell Exp $"
  *
  *   API definitions for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -48,7 +48,10 @@ extern "C" {
  * Constants...
  */
 
-#  define CUPS_VERSION		1.0115
+#  define CUPS_VERSION		1.0120
+#  define CUPS_VERSION_MAJOR	1
+#  define CUPS_VERSION_MINOR	1
+#  define CUPS_VERSION_PATCH	20
 #  define CUPS_DATE_ANY		-1
 
 
@@ -78,7 +81,8 @@ enum					/* Not a typedef'd enum so we can OR */
   CUPS_PRINTER_VARIABLE = 0x8000,	/* Can do variable sizes */
   CUPS_PRINTER_IMPLICIT = 0x10000,	/* Implicit class */
   CUPS_PRINTER_DEFAULT = 0x20000,	/* Default printer on network */
-  CUPS_PRINTER_OPTIONS = 0xfffc		/* ~(CLASS | REMOTE | IMPLICIT) */
+  CUPS_PRINTER_FAX = 0x40000,		/* Fax queue */
+  CUPS_PRINTER_OPTIONS = 0x6fffc	/* ~(CLASS | REMOTE | IMPLICIT) */
 };
 
 typedef struct				/**** Printer Options ****/
@@ -166,6 +170,7 @@ extern void		cupsSetServer(const char *server);
 extern void		cupsSetUser(const char *user);
 extern const char	*cupsUser(void);
 
+
 #  ifdef __cplusplus
 }
 #  endif /* __cplusplus */
@@ -173,5 +178,5 @@ extern const char	*cupsUser(void);
 #endif /* !_CUPS_CUPS_H_ */
 
 /*
- * End of "$Id: cups.h,v 1.1.1.5 2002/04/08 07:19:18 jlovell Exp $".
+ * End of "$Id: cups.h,v 1.1.1.14 2003/07/23 02:33:32 jlovell Exp $".
  */

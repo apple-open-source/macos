@@ -1,0 +1,109 @@
+<!-- #include "header.html"
+  #PAGETITLE#="Kerberos for Macintosh 5.0 Release Notes"
+  #BASEHREF#="" 
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML> 
+<HEAD>  
+	<TITLE> Kerberos for Macintosh 5.0 Release Notes </TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#0000FF" VLINK="#663399">
+<CENTER>
+	<TABLE BORDER=0 CELLSPACING=8>
+		<TR> 
+			<TD><IMG SRC="http://web.mit.edu/macdev/www/is-logo.gif" ALT="MIT Information Systems"></TD>
+			<TD><BR><H1>Macintosh Development</H1></TD> 
+		</TR>
+	</TABLE> <P>
+	[<A HREF="http://web.mit.edu/macdev/www/macdev.html">Home</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/about.html">About Us</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/people.html">People</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/support.html">MIT Support Library</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/kerberos.html">MIT Kerberos for Macintosh</A>] <BR>
+	[<A HREF="http://web.mit.edu/macdev/www/applications.html">Applications</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/macosx.html">Mac OS X</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/documentation.html">Miscellaneous Documentation</A>]
+	[<A HREF="http://web.mit.edu/is/">Information Systems</A>] </P> 
+</CENTER> <HR>
+<!-- end include -->
+<TABLE BORDER=0 CELLSPACING=4>
+  <TR> 
+    <TD><IMG SRC="graphics/ThreeHeadsAndKey.gif"></TD>
+    <TD><B><FONT SIZE="+3">Kerberos for Macintosh 5.0 Release Notes</FONT></B></TD>
+  </TR>
+</TABLE>
+<BLOCKQUOTE>
+<P><B>Kerberos for Macintosh 5.0</B> is a major new version of Kerberos for Macintosh for Mac OS X.  It is only available as part of Mac OS X 10.3 (Panther).</P>
+  
+<P><B>System Requirements for Kerberos for Macintosh 5.0</B>
+<UL>
+	<LI>Mac OS X 10.3 or later (KfM 5.0 included with operating system)
+	
+</UL>
+  
+<P>
+<P><B>New Features and Changes in Kerberos for Macintosh 5.0</B></P>
+
+<I>General</I>
+<UL TYPE="disc">
+	<LI>Includes MIT Kerberos v5 1.3.1</LI>
+	<LI>Apple KDC based on MIT KDC ships with Mac OS X Server (includes integration with other services on Mac OS X server)</LI>
+	<LI>Standard MIT KDC binaries are included with Mac OS X client but not configured</LI>
+	<LI>kadmin, ktutil tools now included</LI>
+	<LI>Improved Windows interoperability: TCP support added to client libraries and KDC, RC4 crypto system, Microsoft set-password protocol</LI>
+	<LI>Support for DNS lookups of KDCs</LI>
+	<LI>Kerberos configuration file can now be located in /etc/krb5.conf</LI>
+	<LI>Kerberos v4 now based on MIT's core v4 compatibility library</LI>
+	<LI>No longer prompts for Kerberos login in command-line environments</LI>
+	<LI>Many bug fixes and feature improvements</LI>
+</UL>
+
+<I>Kerberos Login Dialog</I>
+<UL TYPE="disc">
+	<LI>Redesigned, streamlined Kerberos Login dialog</LI>
+	<LI>Rewritten entirely in Cocoa</LI>
+	<LI>UI for getting addressless tickets (NAT mode) in Login dialog</LI>
+	<LI>UI for getting renewable tickets and setting renewable lifetime in Login dialog</LI>
+	<LI>Kerberos Login dialog badged to show which application presented it</LI>
+	<LI>New realms can be entered directly into dialog (for DNS support)</LI>
+	<LI>Localized for French, German, and Japanese</LI>
+</UL>
+
+<I>Kerberos Application</I>
+<UL TYPE="disc">
+	<LI>Improved appearance and performance</LI>
+	<LI>New icon with better key status visibility</LI>
+	<LI>Support for setting defaults for addressless tickets, renewable tickets, and renewable lifetime</LI>
+	<LI>Optionally will automatically renew renewable tickets</LI>
+	<LI>Support for adding DNS realms in the Edit Favorite Realms dialog</LI>
+	<LI>Double-click on ticket entries to display ticket information window</LI>
+	<LI>Will work without a configuration file being present</LI>
+</UL>
+
+
+<P><B>Useful Webpages</B></P>
+
+<UL>
+
+	<LI><A HREF="faq.html">Kerberos for Macintosh FAQs</A>
+	<LI><A HREF="osx-kerberos-extras.html">Mac OS X Kerberos Extras</A>
+	<LI><A HREF="documentation.html">Kerberos for Macintosh Documentation</A> - information on using the KfM components and their features.
+
+</UL>
+
+</BLOCKQUOTE>
+<!-- #include "footer.html" -->
+<HR> 
+<P> 
+	<FONT SIZE="+1"> <B> 
+		Questions or comments? Send mail to <A HREF="mailto:macdev@mit.edu">macdev@mit.edu</A> 
+	</B> </FONT> <BR>
+	Last updated on $Date: 2003/10/01 20:39:11 $ <BR> 
+	Last modified by $Author: smcguire $<BR>
+
+</P>
+<!-- Begin MIT-use only web reporting counter -->
+	<IMG SRC="http://counter.mit.edu/tally" WIDTH=1 HEIGHT=1 ALT="">
+<!-- End MIT-use only web reporting counter -->
+</BODY> </HTML>
+<!-- end include -->

@@ -29,8 +29,6 @@
 #include <mach/vm_region.h>
 #include <mach/machine/vm_param.h>
 
-#include <mmalloc.h>
-
 #include "defs.h"
 #include "inferior.h"
 #include "target.h"
@@ -40,6 +38,13 @@
 #include "gdbcore.h"                /* for core_ops */
 #include "symfile.h"
 #include "objfiles.h"
+#include "gdb_assert.h"
+#include "gdb_stat.h"
+#include "regcache.h"
+
+#if USE_MMALLOC
+#include <mmalloc.h>
+#endif
 
 #include "macosx-nat-dyld.h"
 #include "macosx-nat-dyld-path.h"
@@ -50,6 +55,7 @@
 #include "macosx-nat-dyld-info.h"
 #include "macosx-nat-dyld-path.h"
 #include "macosx-nat-dyld-process.h"
+#include "cached-symfile.h"
 
 #if WITH_CFM
 #include "macosx-nat-cfm.h"
@@ -57,36 +63,7 @@
 
 #define MAPPED_SYMFILES (USE_MMALLOC && HAVE_MMAP)
 
-FILE *dyld_stderr = NULL;
-int dyld_debug_flag = 0;
-
-/* These two record where we actually found dyld.  We need to do this 
-   detection before we build all the data structures for shared libraries,
-   so we need to keep it around on the side. */
-
-CORE_ADDR dyld_addr = 0;
-CORE_ADDR dyld_slide = 0;
-
-extern int inferior_auto_start_cfm_flag;
-
-static int dyld_starts_here_p (vm_address_t addr);
-static void macosx_locate_dyld (bfd *exec_bfd);
-
-void dyld_debug (const char *fmt, ...)
-{
-  va_list ap;
-  if (dyld_debug_flag >= 1) {
-    va_start (ap, fmt);
-    fprintf (dyld_stderr, "[%d dyld]: ", getpid ());
-    vfprintf (dyld_stderr, fmt, ap);
-    va_end (ap);
-    fflush (dyld_stderr);
-  }
-}
-
-bfd *sym_bfd;
-
-extern struct target_ops exec_ops;
+#define INVALID_ADDRESS ((CORE_ADDR) (-1))
 
 extern macosx_inferior_status *macosx_status;
 
@@ -101,10 +78,51 @@ int dyld_print_basenames_flag = 0;
 char *dyld_load_rules = NULL;
 char *dyld_minimal_load_rules = NULL;
 
-int macosx_dyld_update ();
+FILE *dyld_stderr = NULL;
+int dyld_debug_flag = 0;
 
-const char
-*dyld_debug_error_string (enum dyld_debug_return ret)
+extern int inferior_auto_start_cfm_flag;
+
+int dyld_stop_on_shlibs_added = 1;
+int dyld_stop_on_shlibs_updated = 1;
+int dyld_combine_shlibs_added = 1;
+
+struct dyld_raw_info
+{
+  CORE_ADDR name;
+  CORE_ADDR addr;
+  CORE_ADDR slide;
+};
+
+void clear_gdbarch_swap (struct gdbarch *);
+void swapout_gdbarch_swap (struct gdbarch *);
+void swapin_gdbarch_swap (struct gdbarch *);
+
+static
+void dyld_info_read_raw
+(struct macosx_dyld_thread_status *status,
+ struct dyld_raw_info **rinfo, unsigned int *rninfo);
+
+static int dyld_starts_here_p (vm_address_t addr);
+
+static
+int dyld_info_process_raw
+(struct dyld_objfile_entry *entry, CORE_ADDR name, CORE_ADDR slide, CORE_ADDR header);
+
+void dyld_debug (const char *fmt, ...)
+{
+  va_list ap;
+  if (dyld_debug_flag >= 1) {
+    va_start (ap, fmt);
+    fprintf (dyld_stderr, "[%d dyld]: ", getpid ());
+    vfprintf (dyld_stderr, fmt, ap);
+    va_end (ap);
+    fflush (dyld_stderr);
+  }
+}
+
+const char *
+dyld_debug_error_string (enum dyld_debug_return ret)
 {
   switch (ret) {
   case DYLD_SUCCESS: return "DYLD_SUCCESS";
@@ -115,8 +133,8 @@ const char
   }  
 }
 
-const char
-*dyld_debug_event_string (enum dyld_event_type type)
+const char *
+dyld_debug_event_string (enum dyld_event_type type)
 {
   switch (type) {
   case DYLD_IMAGE_ADDED: return "DYLD_IMAGE_ADDED";
@@ -130,35 +148,32 @@ const char
 }
 
 void
-dyld_print_status_info (struct macosx_dyld_thread_status *s, unsigned int mask)
+dyld_print_status_info (struct macosx_dyld_thread_status *s, unsigned int mask, const char *args)
 {
-  if (!s->uses_dyld)
-    {
-      warning ("This executable doesn't use the dynamic linker.");
-      return;
-    }
-    
   switch (s->state) {
   case dyld_clear:
-    ui_out_text (uiout, "The DYLD shared library state has not yet been initialized.\n");
+    ui_out_text (uiout,
+		 "The DYLD shared library state has not yet been initialized.\n");
     break;
   case dyld_initialized:
     ui_out_text (uiout,
-       "The DYLD shared library state has been initialized from the "
-       "executable's shared library information.  All symbols should be "
-       "present, but the addresses of some symbols may move when the program "
-       "is executed, as DYLD may relocate library load addresses if "
-       "necessary.\n");
+		 "The DYLD shared library state has been initialized from the "
+		 "executable's shared library information.  All symbols should be "
+		 "present, but the addresses of some symbols may move when the program "
+		 "is executed, as DYLD may relocate library load addresses if "
+		 "necessary.\n");
     break;
   case dyld_started:
-    ui_out_text (uiout, "DYLD shared library information has been read from the DYLD debugging thread.\n");
+    ui_out_text (uiout,
+		 "DYLD shared library information has been read from "
+		 "the DYLD debugging thread.\n");
     break;
   default:
     internal_error (__FILE__, __LINE__, "invalid value for s->dyld_state");
     break;
   }
 
-  dyld_print_shlib_info (&s->current_info, mask);
+  dyld_print_shlib_info (&s->current_info, mask, 1, args);
 }
 
 void
@@ -167,10 +182,9 @@ macosx_clear_start_breakpoint ()
   remove_solib_event_breakpoints ();
 }
 
-extern char *dyld_symbols_prefix;
-
 static
-CORE_ADDR lookup_dyld_address (const char *s)
+CORE_ADDR lookup_dyld_address
+(macosx_dyld_thread_status *status, const char *s)
 {
   struct minimal_symbol *msym = NULL;
   CORE_ADDR sym_addr;
@@ -180,34 +194,36 @@ CORE_ADDR lookup_dyld_address (const char *s)
   msym = lookup_minimal_symbol (ns, NULL, NULL);
   xfree (ns);
 
-  if (msym == NULL) {
-    error ("unable to locate symbol \"%s%s\"", dyld_symbols_prefix, s);
-  }
+  if (msym == NULL)
+    return (CORE_ADDR) -1;
+  
   sym_addr = SYMBOL_VALUE_ADDRESS (msym);
-  return sym_addr + dyld_slide;
+  return (sym_addr + status->dyld_slide);
 }
 
 static
-unsigned int lookup_dyld_value (const char *s)
+unsigned int lookup_dyld_value
+(macosx_dyld_thread_status *status, const char *s)
 {
-  return read_memory_unsigned_integer (lookup_dyld_address (s), 4);
+  CORE_ADDR addr = lookup_dyld_address (status, s);
+  if (addr == (CORE_ADDR) -1)
+    return -1;
+  return read_memory_unsigned_integer (addr, 4);
 }
 
 void
-macosx_init_addresses ()
+macosx_init_addresses (macosx_dyld_thread_status *s)
 {
-  
-  macosx_status->dyld_status.object_images = lookup_dyld_address ("object_images");
-  macosx_status->dyld_status.library_images = lookup_dyld_address ("library_images");
-  macosx_status->dyld_status.state_changed_hook 
-    = lookup_dyld_address ("gdb_dyld_state_changed");
+  s->object_images = lookup_dyld_address (s, "object_images");
+  s->library_images = lookup_dyld_address (s, "library_images");
+  s->state_changed_hook = lookup_dyld_address (s, "gdb_dyld_state_changed");
 
-  macosx_status->dyld_status.dyld_version = lookup_dyld_value ("gdb_dyld_version");
+  s->dyld_version = lookup_dyld_value (s, "gdb_dyld_version");
 
-  macosx_status->dyld_status.nobject_images = lookup_dyld_value ("gdb_nobject_images");
-  macosx_status->dyld_status.nlibrary_images = lookup_dyld_value ("gdb_nlibrary_images");
-  macosx_status->dyld_status.object_image_size = lookup_dyld_value ("gdb_object_image_size");
-  macosx_status->dyld_status.library_image_size = lookup_dyld_value ("gdb_library_image_size");
+  s->nobject_images = lookup_dyld_value (s, "gdb_nobject_images");
+  s->nlibrary_images = lookup_dyld_value (s, "gdb_nlibrary_images");
+  s->object_image_size = lookup_dyld_value (s, "gdb_object_image_size");
+  s->library_image_size = lookup_dyld_value (s, "gdb_library_image_size");
 }
 
 static int
@@ -216,7 +232,7 @@ dyld_starts_here_p (vm_address_t addr)
   vm_address_t address =  addr;
   vm_size_t size = 0;
   vm_region_basic_info_data_64_t info;
-  mach_msg_type_number_t info_cnt;
+  mach_msg_type_number_t info_cnt = sizeof (vm_region_basic_info_data_64_t);
   kern_return_t ret;
   mach_port_t object_name;
   vm_address_t data;
@@ -228,37 +244,37 @@ dyld_starts_here_p (vm_address_t addr)
   ret = vm_region (macosx_status->task, &address, &size, VM_REGION_BASIC_INFO,
 		  (vm_region_info_t) &info, &info_cnt, &object_name);
 
-  if (ret != KERN_SUCCESS) {
+  if (ret != KERN_SUCCESS)
     return 0;
-  }
 
   /* If it is not readable, it is not dyld. */
   
-  if ((info.protection & VM_PROT_READ) == 0) {
+  if ((info.protection & VM_PROT_READ) == 0)
     return 0; 
-  }
 
   ret = vm_read (macosx_status->task, address, size, &data, &data_count);
 
-  if (ret != KERN_SUCCESS) {
-    ret = vm_deallocate (mach_task_self (), data, data_count);
-    return 0; 
-  }
+  if (ret != KERN_SUCCESS)
+    {
+      /* Don't vm_deallocate the memory here, you didn't successfully get
+	 it, and deallocating it will cause a crash. */
+      return 0; 
+    }
 
   /* If the vm region is too small to contain a mach_header, it also can't be
      where dyld is loaded */
 
-  if (data_count < sizeof (struct mach_header)){
-    ret = vm_deallocate (mach_task_self (), data, data_count);
-    return 0;
-  }
+  if (data_count < sizeof (struct mach_header))
+    {
+      ret = vm_deallocate (mach_task_self (), data, data_count);
+      return 0;
+    }
 
   mh = (struct mach_header *) data;
 
-  /* If the magic number is right and the size of this
-   * region is big enough to cover the mach header and
-   * load commands assume it is correct.
-   */
+  /* If the magic number is right and the size of this region is big
+     enough to cover the mach header and load commands, assume it is
+     correct. */
 
   if (mh->magic != MH_MAGIC ||
       mh->filetype != MH_DYLINKER ||
@@ -269,278 +285,498 @@ dyld_starts_here_p (vm_address_t addr)
   }
 
   /* Looks like dyld! */
-  ret = vm_deallocate(mach_task_self(), data, data_count);
+  ret = vm_deallocate (mach_task_self(), data, data_count);
 
   return 1;
 }
 
-/*
- * macosx_locate_dyld - This is set to the SOLIB_ADD
- *   macro in nm-macosx.h, and called when have created the
- *   inferior and are about to run it.  It locates the dylinker 
- *   in the executable, and updates the dyld part of our data
- *   structures.
- */
+/* Tries to find the name string for the dynamic linker passed as
+   `abfd'.  Returns 1 if it found a name (and returns name in
+   *name). Return 0 if no name was found; -1 if there was an error. */
 
-static void
-macosx_locate_dyld (bfd *exec_bfd)
+static int
+macosx_lookup_dyld_name (bfd *abfd, const char **rname)
 {
-  char *dyld_name = NULL;
-  CORE_ADDR dyld_default_addr = 0x0;
-  int got_default_address;
-  struct cleanup *old_cleanups = NULL;
   struct mach_o_data_struct *mdata = NULL;
+  char *name = NULL;
   unsigned int i;
-  struct objfile *objfile;
 
-  CHECK_FATAL (macosx_status != NULL);
+  if (abfd == NULL)
+    return -1;
+  if (! bfd_mach_o_valid (abfd))
+    return -1;
 
-  /* Find where dyld is located in this binary.  We proceed in three steps.  
+  mdata = abfd->tdata.mach_o_data;
 
-     First we read the load commands of the executable to find the objfile 
-     for the dylinker.  If we can't find the exec_bfd (for instance if you
-     do attach without pointing gdb at the executable), we default to
-     /usr/lib/dyld.
-
-     Then we find the default load address from the dylinker.
-
-     Finally we see if the dylinker is in fact loaded there, and
-     if not, look through the mapped regions until we find it. 
-  */
-
-  if (exec_bfd != NULL)
-    {
-      int uses_dyld = 0;
-
-      mdata = exec_bfd->tdata.mach_o_data;
-      if (mdata == NULL)
-	error ("macosx_set_start_breakpoint: target data for exec bfd == NULL\n");
+  CHECK_FATAL (mdata != NULL);
+  CHECK_FATAL (rname != NULL);
       
-      for (i = 0; i < mdata->header.ncmds; i++) 
-	{
-	  struct bfd_mach_o_load_command *cmd = &mdata->commands[i];
+  for (i = 0; i < mdata->header.ncmds; i++) 
+    {
+      struct bfd_mach_o_load_command *cmd = &mdata->commands[i];
 	  
-	  if (cmd->type == BFD_MACH_O_LC_LOAD_DYLINKER)
+      if (cmd->type == BFD_MACH_O_LC_LOAD_DYLINKER)
+	{
+	  bfd_mach_o_dylinker_command *dcmd = &cmd->command.dylinker;
+	      
+	  name = xmalloc (dcmd->name_len + 1);
+	      
+	  bfd_seek (abfd, dcmd->name_offset, SEEK_SET);
+	  if (bfd_bread (name, dcmd->name_len, abfd) != dcmd->name_len) 
 	    {
-	      bfd_mach_o_dylinker_command *dcmd = &cmd->command.dylinker;
-	      
-              uses_dyld = 1;
-	      dyld_name = xmalloc (dcmd->name_len + 1);
-	      
-	      bfd_seek (exec_bfd, dcmd->name_offset, SEEK_SET);
-	      if (bfd_bread (dyld_name, dcmd->name_len, exec_bfd) != dcmd->name_len) 
-		{
-		  warning ("Unable to find library name for LC_LOAD_DYLINKER "
-			   "or LD_ID_DYLINKER command; ignoring");
-		  xfree (dyld_name);
-		  continue;
-		}
-	      else
-		{
-		  old_cleanups = make_cleanup (xfree, dyld_name);
-		  break;
-		}
+	      warning ("Unable to find library name for LC_LOAD_DYLINKER "
+		       "or LD_ID_DYLINKER command; ignoring");
+	      xfree (name);
+	      continue;
+	    }
+	  else
+	    {
+	      break;
 	    }
 	}
-      /* If we didn't find a load command for dyld, that means the program was
-	 built statically.  So there is no use doing any more of our dyld stuff. */
-      
-      if (uses_dyld)
-	{	
-	  macosx_status->dyld_status.uses_dyld = 1;
-	}
-      else
-	{
-	  macosx_status->dyld_status.uses_dyld = 0;
-	  return;
-	}
-    
     }
-  
-  /* If for some reason we can't find  the name, look for it with the
-     default name. */
-  
-  if (dyld_name == NULL)
-    dyld_name = "/usr/lib/dyld";
-  
-  /* Okay, we have found the name of the dylinker, now let's find the objfile 
-     associated with it... */
-  
-  got_default_address = 0;
-  
-  ALL_OBJFILES (objfile)
+
+  *rname = name;
+  return (name == NULL) ? 0 : 1;
+}
+
+/* Searches the target address space for dyld itself, returning it in
+   'value'.  Returns 1 if it found dyld, 0 if it didn't, -1 if there
+   was an error.  If 'hint' is not INVALID_ADDRESS, check there first
+   as a hint for where to find dyld. */
+
+static int
+macosx_locate_dyld (CORE_ADDR *value, CORE_ADDR hint)
+{
+  if ((hint != INVALID_ADDRESS) && dyld_starts_here_p (hint))
     {
-      if (strcmp (dyld_name, objfile->name) == 0) 
-	{
-	  asection *text_section 
-	    = bfd_get_section_by_name (objfile->obfd, "LC_SEGMENT.__TEXT");
-	  dyld_default_addr = bfd_section_vma (objfile->obfd, text_section);
-	  got_default_address = 1;
-	  break;
-	}
-    }
-  
-  if (!got_default_address)
-    error ("macosx_set_start_breakpoint: Couldn't find address of dylinker: %s.",
-	   dyld_name);
-  
-  /* Now let's see if dyld is at its default address: */
-  
-  if (dyld_starts_here_p (dyld_default_addr))
-    {
-      dyld_addr = dyld_default_addr;
-      dyld_slide = 0;
+     *value = hint;
+     return 1;
     }
   else
     {
-      kern_return_t ret_val;
+      kern_return_t kret = KERN_SUCCESS;
       vm_region_basic_info_data_t info;
-      int info_cnt;
+      int info_cnt = sizeof (vm_region_basic_info_data_t);
       vm_address_t test_addr = VM_MIN_ADDRESS;
-      vm_size_t size;
-      mach_port_t object_name;
+      vm_size_t size = 0;
+      mach_port_t object_name = PORT_NULL;
       task_t target_task = macosx_status->task;
       
       do 
 	{
-	  ret_val = vm_region (target_task, &test_addr, 
-			       &size, VM_REGION_BASIC_INFO,
-			       (vm_region_info_t) &info, &info_cnt, 
-			       &object_name);
+	  kret = vm_region (target_task, &test_addr, 
+			    &size, VM_REGION_BASIC_INFO,
+			    (vm_region_info_t) &info, &info_cnt, 
+			    &object_name);
 	  
-	  if (ret_val != KERN_SUCCESS) {
-	    /* Implies end of vm_region, usually. */
-	    break;
-	  }
+	  if (kret != KERN_SUCCESS)
+	    return -1;
 	  
 	  if (dyld_starts_here_p (test_addr))
 	    {
-	      dyld_addr = test_addr;
-	      dyld_slide = test_addr - dyld_default_addr;
-	      break;
+	      *value = test_addr;
+	      return 1;
 	    }
 	  
 	  test_addr += size;
 	  
 	} while (size != 0);
     }
+
+  return 0;
+}
   
-  if (old_cleanups)
-    do_cleanups (old_cleanups);
+/* Determine the address where the current target expected DYLD to be
+   loaded.  This is used when first guessing the address of dyld for
+   symbol loading on dynamic executables, and also to compute the
+   proper slide to be applied to values found in the dyld memory
+   itself.  Returns 1 if it found the address, 0 if it did not. */
+
+int macosx_locate_dyld_static (macosx_dyld_thread_status *s, CORE_ADDR *value)
+{
+  struct objfile *objfile = NULL;
+  const char *dyld_name = s->dyld_name;
+
+  if (dyld_name == NULL)
+    dyld_name = "/usr/lib/dyld";
+  
+  ALL_OBJFILES (objfile)
+    {
+      if (strcmp (dyld_name, bfd_get_filename (objfile->obfd)) == 0) 
+	{
+	  asection *text_section
+	    = bfd_get_section_by_name (objfile->obfd, "LC_SEGMENT.__TEXT");
+	  *value = bfd_section_vma (objfile->obfd, text_section);
+	  return 1;
+	}
+    }
+  return 0;
+}
+
+/* Locates the dylinker in the executable, and updates the dyld part
+   of our data structures.
+
+   This function should be able to be called at any time, and should
+   always do as much of the right thing as possible based on the
+   information available at the time. */
+
+void
+macosx_dyld_init (macosx_dyld_thread_status *s, bfd *exec_bfd)
+{
+  CORE_ADDR static_dyld_address = INVALID_ADDRESS;
+  CORE_ADDR dyld_address = INVALID_ADDRESS;
+  CORE_ADDR prev_dyld_address = INVALID_ADDRESS;
+  int ret = 0;
+
+  /* Once dyld_slide is set, we have already done everything that
+     needs to be done.  At least for the moment, it's not possible for dyld to
+     be moved once the program is executing.  */
+
+  if (s->dyld_slide != INVALID_ADDRESS)
+    return;
+
+  /* Now find dyld's name.  Get it from the exec_bfd if we have
+     it, if we don't find it here, then we will look again in
+     memory once we have found dyld. */
+
+  if (s->dyld_name == NULL)
+    macosx_lookup_dyld_name (exec_bfd, &s->dyld_name);
+
+  /* Find the location of the dyld to be used, if it hasn't been found already. */
+  /* Store the old value, so we'll know if it was changed. */
+
+  prev_dyld_address = s->dyld_addr;
+
+  /* Take our best guess as to where to look for dyld, just as an
+     optimization. */
+
+  macosx_locate_dyld_static (s, &static_dyld_address);
+  if (s->dyld_addr != INVALID_ADDRESS)
+    ret = macosx_locate_dyld (&dyld_address, s->dyld_addr);
+  else if (static_dyld_address != INVALID_ADDRESS)
+    ret = macosx_locate_dyld (&dyld_address, s->dyld_addr);
+  else
+    ret = macosx_locate_dyld (&dyld_address, s->dyld_addr);
+
+  /* If we didn't find dyld, there's no point continuing. */
+
+  if (ret != 1)
+    return;
+  CHECK_FATAL (dyld_address != INVALID_ADDRESS);
+
+  /* Now grub for dyld's name in memory if we haven't found it already. */
+  if ((s->dyld_name == NULL) && (dyld_address != INVALID_ADDRESS))
+    {
+      struct mach_header header;
+      target_read_memory (dyld_address, (char *) &header, sizeof (struct mach_header));
+      s->dyld_name = dyld_find_dylib_name (dyld_address, header.ncmds);
+    }
+
+  /* Once we know the address at which dyld was loaded, we can try to
+     read in the symbols for it, and then hopefully find the static
+     address and use it to compute the slide. */
+
+  if (dyld_address != prev_dyld_address)
+    {
+      s->dyld_addr = dyld_address;
+      macosx_dyld_update (1);
+      macosx_locate_dyld_static (s, &static_dyld_address);
+    }
+
+  
+  /* If we were able to find the slide, finish the dyld
+     initialization, by setting up the data structures and inserting
+     the dyld_gdb_state_changed breakpoint. */
+
+  if (static_dyld_address != INVALID_ADDRESS)
+    {
+      s->dyld_addr = dyld_address;
+      s->dyld_slide = dyld_address - static_dyld_address;
+
+      macosx_init_addresses (s);
+      macosx_set_start_breakpoint (s, exec_bfd);
+
+      breakpoints_changed ();
+    }
 }
 
 void
-macosx_set_start_breakpoint (bfd *exec_bfd)
+macosx_set_start_breakpoint (macosx_dyld_thread_status *s, bfd *exec_bfd)
 {
-  struct breakpoint *b;
-  struct symtab_and_line sal;
-  char *ns = NULL;
+  struct macosx_dyld_thread_status *status = &macosx_status->dyld_status;
 
-  xasprintf (&ns, "%s%s", dyld_symbols_prefix, "gdb_dyld_state_changed");
- 
-  macosx_locate_dyld (exec_bfd);
-
-  /* If this executable doesn't use the dylinker, then macosx_locate_dyld
-     will set the uses_dyld flag to 0, and we should just exit.  This is
-     not an error condition, since it it possible to build a static executable
-     that doesn't use the dynamic linker at all. */
-     
-  if (!macosx_status->dyld_status.uses_dyld)
-    return;
+  if (status->dyld_breakpoint == NULL) {
     
-  macosx_init_addresses ();
+    struct symtab_and_line sal;
+    char *ns = NULL;
 
-  INIT_SAL (&sal);
-  sal.pc = macosx_status->dyld_status.state_changed_hook;
-  b = set_momentary_breakpoint (sal, NULL, bp_shlib_event);
-  b->disposition = disp_donttouch;
-  b->thread = -1;
-  b->addr_string = ns;
+    xasprintf (&ns, "%s%s", dyld_symbols_prefix, "gdb_dyld_state_changed");
+    
+    init_sal (&sal);
+    sal.pc = status->state_changed_hook;
+    status->dyld_breakpoint = set_momentary_breakpoint
+      (sal, null_frame_id, bp_shlib_event);
+    status->dyld_breakpoint->disposition = disp_donttouch;
+    status->dyld_breakpoint->thread = -1;
+    status->dyld_breakpoint->addr_string = ns;
 
-  breakpoints_changed ();
+    breakpoints_changed ();
+  }
+}
 
+#if defined (__powerpc__) || defined (__ppc__)
+static ULONGEST FETCH_ARGUMENT (int i)
+{
+  return read_register (3 + i);
+}
+#elif defined (__i386__)
+static ULONGEST FETCH_ARGUMENT (int i)
+{
+  CORE_ADDR stack = read_register (SP_REGNUM);
+  return read_memory_unsigned_integer (stack + (4 * (i + 1)), 4);
+}
+#elif defined (__sparc__)
+static ULONGEST FETCH_ARGUMENT (int i)
+{
+  return read_register (O0_REGNUM + i);
+}
+#elif defined (__hppa__) || defined (__hppa)
+static ULONGEST FETCH_ARGUMENT (int i)
+{
+  return read_register (R0_REGNUM + 26 - i);
+}
+#else
+#error unknown architecture
+#endif
+
+static CORE_ADDR extend_slide (CORE_ADDR addr, CORE_ADDR slide)
+{
+  CORE_ADDR orig = (addr - slide) & 0xffffffff;
+  return (addr - orig);
 }
 
 int
-macosx_try_start_dyld ()
+macosx_solib_add (const char *filename, int from_tty,
+		  struct target_ops *targ, int loadsyms)
 {
-  CHECK_FATAL (macosx_status != NULL);
+  struct macosx_dyld_thread_status *dyld_status = NULL;
+  struct macosx_cfm_thread_status *cfm_status = NULL;
+  int libraries_changed = 0;
+  int notify = 0;
 
-  return macosx_dyld_update (0);
+  CHECK_FATAL (macosx_status != NULL);
+  dyld_status = &macosx_status->dyld_status;
+  cfm_status = &macosx_status->cfm_status;
+
+  macosx_dyld_init (dyld_status, exec_bfd);
+
+  if ((dyld_status->dyld_event_breakpoint != NULL) 
+      && (dyld_status->dyld_event_breakpoint->address == read_pc ()))
+    {
+      CORE_ADDR event_addr = FETCH_ARGUMENT (0);
+      int type = read_memory_unsigned_integer (event_addr, 4);
+      CORE_ADDR addr_1 = read_memory_unsigned_integer (event_addr + 4, 4);
+      CORE_ADDR slide_1 = read_memory_unsigned_integer (event_addr + 8, 4);
+      slide_1 = extend_slide (addr_1, slide_1);
+      CORE_ADDR name_1 = INVALID_ADDRESS;
+
+      switch (type) {
+      case DYLD_IMAGE_ADDED:
+	{
+	  struct dyld_objfile_entry tentry;
+	  struct dyld_raw_info *rinfo = NULL;
+	  unsigned int nrinfo = 0;
+	  unsigned int i = 0;
+
+	  dyld_info_read_raw (dyld_status, &rinfo, &nrinfo);
+	  for (i = 0; i < nrinfo; i++) {
+	    if (addr_1 == rinfo[i].addr) {
+	      CHECK_FATAL (slide_1 == rinfo[i].slide);
+	      name_1 = rinfo[i].name;
+	    }
+	  }
+	  xfree (rinfo);
+
+	  dyld_objfile_entry_clear (&tentry);
+	  tentry.allocated = 1;
+	  tentry.reason = dyld_reason_dyld;
+	  tentry.dyld_valid = 1;
+	  
+	  if (dyld_info_process_raw (&tentry, name_1, slide_1, addr_1) == 1)
+	    {
+	      struct dyld_objfile_entry *pentry = NULL;
+	      struct objfile *objfile = NULL;
+	      unsigned int shlibnum = 0;
+
+	      dyld_merge_shlib (dyld_status, &dyld_status->path_info,
+				&dyld_status->current_info, &tentry);
+	      dyld_prune_shlib (dyld_status, &dyld_status->path_info,
+				&dyld_status->current_info, &tentry);
+
+	      pentry = dyld_objfile_entry_alloc (&dyld_status->current_info);
+	      *pentry = tentry;
+	      CHECK_FATAL (dyld_entry_shlib_num (&dyld_status->current_info, pentry, &shlibnum) == 0);
+
+	      dyld_update_shlibs (dyld_status, &dyld_status->path_info,
+				  &dyld_status->current_info);
+	      CHECK_FATAL (dyld_resolve_shlib_num (&dyld_status->current_info, shlibnum, &pentry, &objfile) == 0);
+
+	      if (dyld_combine_shlibs_added)
+		dyld_status->dyld_event_counter++;
+	      else
+		notify = 1;
+	      
+	      if (ui_out_is_mi_like_p (uiout))
+		{
+		  ui_out_notify_begin (uiout, "shlibs-added");
+		  dyld_print_entry_info (&tentry, shlibnum, 0);
+		  ui_out_notify_end (uiout);
+		}
+	    }
+	}
+	
+      case DYLD_MODULE_BOUND:
+      case DYLD_MODULE_REMOVED:
+      case DYLD_MODULE_REPLACED:
+      case DYLD_PAST_EVENTS_END:
+	break;
+	
+      case DYLD_IMAGE_REMOVED:
+	libraries_changed = macosx_dyld_update (0);
+	notify = libraries_changed && dyld_stop_on_shlibs_updated;
+	break;
+	
+      default:
+	warning ("unknown dyld event type %s (%x); updating dyld state",
+		 dyld_debug_event_string (type), type);
+	libraries_changed = macosx_dyld_update (0);
+	notify = libraries_changed && dyld_stop_on_shlibs_updated;
+	break;
+      }
+    }
+  else if ((dyld_status->dyld_breakpoint != NULL) 
+	   && (dyld_status->dyld_breakpoint->address == read_pc ()))
+    {
+#if 0
+      /* For now, just leave the breakpoint enabled, until we get around
+	 to adding code to re-enable the breakpoint if the user sets
+	 the flag to combine shared library messages. */
+
+      /* Disable this breakpoint, unless we need it set in order to
+	 allow GDB to notify the user when a complete batch of shared
+	 library events has been received.  We can't just delete the
+	 breakpoint, as then stop_bpstat() would have no idea why we
+	 stopped here. */
+
+      if (! dyld_combine_shlibs_added)
+	disable_breakpoint (dyld_status->dyld_breakpoint);
+#endif
+
+      /* Only do a full update if the event breakpoint isn't being used. */
+
+      if (dyld_status->dyld_event_breakpoint == NULL)
+	{
+	  libraries_changed = macosx_dyld_update (0);
+	  notify = libraries_changed && dyld_stop_on_shlibs_updated;
+	}
+      else
+	{
+	  if (dyld_status->dyld_event_counter > 0)
+	    libraries_changed = 1;
+	  notify = libraries_changed && dyld_stop_on_shlibs_added;
+	  dyld_status->dyld_event_counter = 0;
+	}	  
+
+
+      if (dyld_status->dyld_event_breakpoint == NULL)
+	{
+	  struct symtab_and_line sal;
+	  char *ns = NULL;
+
+	  xasprintf (&ns, "%s%s", dyld_symbols_prefix, "send_event");
+    
+	  init_sal (&sal);
+	  sal.pc = lookup_dyld_address (dyld_status, "send_event");
+	  dyld_status->dyld_event_breakpoint = set_momentary_breakpoint
+	    (sal, null_frame_id, bp_shlib_event);
+	  dyld_status->dyld_event_breakpoint->disposition = disp_donttouch;
+	  dyld_status->dyld_event_breakpoint->thread = -1;
+	  dyld_status->dyld_event_breakpoint->addr_string = ns;
+
+	  breakpoints_changed ();
+	}
+    }
+  else if ((cfm_status->cfm_breakpoint != NULL) 
+	   && (cfm_status->cfm_breakpoint->address == read_pc ()))
+    {
+      /* no cfm support for incremental update yet */
+      libraries_changed = macosx_dyld_update (0);
+      notify = libraries_changed && dyld_stop_on_shlibs_updated;
+    }
+  else
+    {
+      /* initial update */
+      libraries_changed = macosx_dyld_update (0);
+      notify = libraries_changed && dyld_stop_on_shlibs_updated;
+    }
+
+  return notify;
 }
 
-static
-void info_dyld_command (char *args, int from_tty)
+void macosx_dyld_thread_init (macosx_dyld_thread_status *s)
 {
-  CHECK_FATAL (macosx_status != NULL);
-  dyld_print_status_info (&macosx_status->dyld_status, dyld_reason_dyld);
-}
+  s->dyld_name = NULL;
+  s->dyld_addr = INVALID_ADDRESS;
+  s->dyld_slide = INVALID_ADDRESS;
 
-static
-void info_sharedlibrary_command (char *args, int from_tty)
-{
-  CHECK_FATAL (macosx_status != NULL);
-  dyld_print_status_info (&macosx_status->dyld_status, dyld_reason_all);
+  s->dyld_version = 0;
+  s->dyld_breakpoint = NULL;
+  s->dyld_event_breakpoint = NULL;
+  s->dyld_event_counter = 0;
 }
 
 void
 macosx_add_shared_symbol_files ()
 {
-  struct dyld_objfile_info *result = NULL;
- 
   CHECK_FATAL (macosx_status != NULL);
-  if (!macosx_status->dyld_status.uses_dyld)
-    {
-      warning ("This executable doesn't use the dynamic linker.");
-      return;
-    }
-    
-  result = &macosx_status->dyld_status.current_info;
-
-  dyld_load_libraries (&macosx_status->dyld_status.path_info, result);
-
-  update_section_tables (&current_target);
-  update_section_tables (&exec_ops);
-
-  reread_symbols ();
-  breakpoint_re_set ();
-  re_enable_breakpoints_in_shlibs (0);
+  macosx_dyld_update (0);
 }
 
 void
-macosx_init_dyld (struct macosx_dyld_thread_status *s, struct objfile *o)
+macosx_init_dyld (struct macosx_dyld_thread_status *s,
+		  struct objfile *o, bfd *abfd)
 {
-  struct dyld_objfile_info previous_info, new_info;
+  struct dyld_objfile_entry *e;
+  unsigned int i;
+  struct dyld_objfile_info previous_info;
+
+  DYLD_ALL_OBJFILE_INFO_ENTRIES (&s->current_info, e, i)
+    if (e->reason & dyld_reason_executable_mask) {
+      dyld_objfile_entry_clear (e);
+    }
 
   dyld_init_paths (&s->path_info);
 
   dyld_objfile_info_init (&previous_info);
-  dyld_objfile_info_init (&new_info);
 
   dyld_objfile_info_copy (&previous_info, &s->current_info);
   dyld_objfile_info_free (&s->current_info);
 
-  if (dyld_preload_libraries_flag) {
-    dyld_add_inserted_libraries (&s->current_info, &s->path_info);
-    if ((o != NULL) && (o->obfd != NULL)) {
-      dyld_add_image_libraries (&s->current_info, o->obfd);
-    }
-  }
-
-  {
+  if (o != NULL) {
     struct dyld_objfile_entry *e;
     e = dyld_objfile_entry_alloc (&s->current_info);
     e->text_name_valid = 1;
     e->reason = dyld_reason_executable;
-    if (o  != NULL)
+    if (o != NULL)
       {
+	e->abfd = o->obfd;
         e->objfile = o;
         e->load_flag = o->symflags;
-        if (o->obfd != NULL)
-          {
-            e->text_name = xstrdup (bfd_get_filename (o->obfd));
-            e->abfd = o->obfd;
-          }
+      }
+    if (e->abfd != NULL)
+      {
+	e->text_name = xstrdup (bfd_get_filename (e->abfd));
       }
     e->loaded_from_memory = 0;
     e->loaded_name = e->text_name;
@@ -548,27 +784,26 @@ macosx_init_dyld (struct macosx_dyld_thread_status *s, struct objfile *o)
     e->loaded_addrisoffset = 1;
   }
 
-  dyld_update_shlibs (s, &s->path_info, &previous_info, &s->current_info, &new_info);
+  if (dyld_preload_libraries_flag) {
+    dyld_add_inserted_libraries (&s->current_info, &s->path_info);
+    if (abfd != NULL) {
+      dyld_add_image_libraries (&s->current_info, abfd);
+    }
+  }
+
+  dyld_merge_shlibs (s, &s->path_info, &previous_info, &s->current_info);
+  dyld_update_shlibs (s, &s->path_info, &s->current_info);
+
   dyld_objfile_info_free (&previous_info);
  
-  dyld_objfile_info_copy (&s->current_info, &new_info);
-  dyld_objfile_info_free (&new_info);
-
   s->state = dyld_initialized;
 }
 
 void
-macosx_init_dyld_symfile (struct objfile *o)
+macosx_init_dyld_symfile (struct objfile *o, bfd *abfd)
 {
   CHECK_FATAL (macosx_status != NULL);
-  macosx_init_dyld (&macosx_status->dyld_status, o);
-}
-
-static
-void macosx_dyld_init_command (char *args, int from_tty)
-{
-  CHECK_FATAL (macosx_status != NULL);
-  macosx_init_dyld (&macosx_status->dyld_status, symfile_objfile);
+  macosx_init_dyld (&macosx_status->dyld_status, o, abfd);
 }
 
 static
@@ -579,45 +814,38 @@ void dyld_cache_purge_command (char *exp, int from_tty)
 }
 
 static
-void dyld_info_process_raw
-(struct dyld_objfile_info *info, unsigned char *buf)
+int dyld_info_process_raw
+(struct dyld_objfile_entry *entry, CORE_ADDR name, CORE_ADDR slide, CORE_ADDR header)
 {
-  CORE_ADDR name, header, slide;
-
   struct mach_header headerbuf;
   char *namebuf = NULL;
-
-  struct dyld_objfile_entry *entry;
   int errno;
-
-  name = extract_unsigned_integer (buf, 4);
-  slide = extract_unsigned_integer (buf + 4, 4);
-  header = extract_unsigned_integer (buf + 8, 4);
 
   target_read_memory (header, (char *) &headerbuf, sizeof (struct mach_header));
 
   switch (headerbuf.filetype) {
   case 0:
-    return;
+    return 0;
   case MH_EXECUTE:
-    target_read_string (name, &namebuf, 1024, &errno);
-    break;
   case MH_DYLIB:
   case MH_DYLINKER:
   case MH_BUNDLE:
-    target_read_string (name, &namebuf, 1024, &errno);
     break;
   case MH_FVMLIB:
   case MH_PRELOAD:
-    target_read_string (name, &namebuf, 1024, &errno);
-    return;
+    return 0;
   default:
     warning ("Ignored unknown object module at 0x%lx (offset 0x%lx) with type 0x%lx\n",
              (unsigned long) header, (unsigned long) slide, (unsigned long) headerbuf.filetype);
-    return;
+    return 0;
   }
 
-  entry = dyld_objfile_entry_alloc (info);
+  target_read_string (name, &namebuf, 1024, &errno);
+
+  if (errno != 0) {
+    xfree (namebuf);
+    namebuf = NULL;
+  }
 
   if (namebuf != NULL) {
 
@@ -625,7 +853,28 @@ void dyld_info_process_raw
     if (s != NULL) {
       *s = '\0';
     }
+  }
 
+  if (namebuf == NULL) {
+
+    namebuf = xmalloc (256);
+    CORE_ADDR curpos = header + sizeof (struct mach_header);
+    struct load_command cmd;
+    struct dylib_command dcmd;
+    int i;
+
+    for (i = 0; i < headerbuf.ncmds; i++) {
+      target_read_memory (curpos, (char *) &cmd, sizeof (struct load_command));
+      if (cmd.cmd == LC_ID_DYLIB) {
+	target_read_memory (curpos, (char *) &dcmd, sizeof (struct dylib_command));
+	target_read_memory (curpos + dcmd.dylib.name.offset, namebuf, 256);
+	break;
+      }
+      curpos += cmd.cmdsize;
+    }
+  }
+
+  if (namebuf != NULL) {
     entry->dyld_name = xstrdup (namebuf);
     entry->dyld_name_valid = 1;
   }
@@ -659,88 +908,185 @@ void dyld_info_process_raw
     internal_error (__FILE__, __LINE__, "Unknown object module at 0x%lx (offset 0x%lx) with type 0x%lx\n",
                     (unsigned long) header, (unsigned long) slide, (unsigned long) headerbuf.filetype);
   }
+
+  return 1;
 }
 
 static
 void dyld_info_read_raw
-(struct macosx_dyld_thread_status *status, struct dyld_objfile_info *info, int dyldonly)
+(struct macosx_dyld_thread_status *status,
+ struct dyld_raw_info **rinfo, unsigned int *rninfo)
 {
+  struct dyld_raw_info *info = NULL;
+  unsigned int ninfo = 0;
+  unsigned int nsize = 0;
+
   CORE_ADDR library_images_addr;
   CORE_ADDR object_images_addr;
-  unsigned int i, nread;
+  unsigned char *buf = NULL;
 
-  {
-    struct dyld_objfile_entry *entry;
+  unsigned long library_size = status->nlibrary_images * status->library_image_size;
+  unsigned long object_size = status->nobject_images * status->object_image_size;
+  unsigned int i;
 
-    entry = dyld_objfile_entry_alloc (info);
+  *rinfo = NULL;
+  *rninfo = 0;
 
-    entry->dyld_name = xstrdup ("/usr/lib/dyld");
-    entry->dyld_name_valid = 1;
-    entry->prefix = "__dyld_";
-
-    entry->dyld_addr = dyld_addr;
-    entry->dyld_slide = dyld_slide;
-    entry->dyld_index = 0;
-    entry->dyld_valid = 1;
-
-    entry->reason = dyld_reason_dyld;
-  }
-
-  if (dyldonly) {
+  if (status->dyld_slide == INVALID_ADDRESS)
     return;
-  }
 
-  macosx_init_addresses ();
+  if ((status->library_images == INVALID_ADDRESS)
+      || (status->library_image_size == 0)
+      || (status->nlibrary_images > 8192)
+      || (status->library_image_size > 8192))
+    {
+      warning ("error parsing dyld data");
+      return;
+    }
+
+  if ((status->object_images == INVALID_ADDRESS)
+      || (status->object_image_size == 0)
+      || (status->nobject_images > 8192)
+      || (status->object_image_size > 8192))
+    {
+      warning ("error parsing dyld data");
+      return;
+    }
+
+  if (library_size > object_size)
+      buf = xmalloc (library_size + 8);
+  else
+      buf = xmalloc (object_size + 8);
+
+  info = xmalloc (sizeof (struct dyld_raw_info) * 4);
+  nsize = 4;
 
   library_images_addr = status->library_images;
-
   while (library_images_addr != NULL) {
 
-    size_t size = status->nlibrary_images * status->library_image_size;
-    unsigned char *buf = NULL;
-    size_t nimages = 0;
+    unsigned long nimages = 0;
+    target_read_memory (library_images_addr, buf, library_size + 8);
 
-    buf = xmalloc (size + 8);
-    target_read_memory (library_images_addr, buf, size + 8);
-
-    nimages = extract_unsigned_integer (buf + size, 4);
-    library_images_addr = extract_unsigned_integer (buf + size + 4, 4);
+    nimages = extract_unsigned_integer (buf + library_size, 4);
+    library_images_addr = extract_unsigned_integer (buf + library_size + 4, 4);
    
     if (nimages > status->nlibrary_images) {
-      error ("image specifies an invalid number of libraries (%ld)", nimages);
+      warning ("image specifies an invalid number of libraries (%lu > %lu)",
+	       nimages, status->nlibrary_images);
+      break;
     }
 
-    for (i = 0, nread = 0; i < nimages; i++, nread++) {
-      dyld_info_process_raw (info, (buf + (i * status->library_image_size)));
+    for (i = 0; i < nimages; i++) {
+      char *ebuf = buf + (i * status->library_image_size);
+      while (nsize <= ninfo) {
+	nsize *= 2;
+	info = xrealloc (info, sizeof (struct dyld_raw_info) * nsize);
+      }
+      info[ninfo].name = extract_unsigned_integer (ebuf, 4);
+      info[ninfo].slide = extract_unsigned_integer (ebuf + 4, 4);
+      info[ninfo].addr = extract_unsigned_integer (ebuf + 8, 4);
+      info[ninfo].slide = extend_slide (info[ninfo].addr, info[ninfo].slide);
+      ninfo++;
     }
-
-    xfree (buf);
   }
 
   object_images_addr = status->object_images;
-
   while (object_images_addr != NULL) {
 
-    size_t size = status->nobject_images * status->object_image_size;
-    unsigned char *buf = NULL;
-    size_t nimages = 0;
+    unsigned long nimages = 0;
+    target_read_memory (object_images_addr, buf, object_size + 8);
 
-    buf = xmalloc (size + 8);
-    target_read_memory (object_images_addr, buf, size + 8);
-
-    nimages = extract_unsigned_integer (buf + size, 4);
-    object_images_addr = extract_unsigned_integer (buf + size + 4, 4);
+    nimages = extract_unsigned_integer (buf + object_size, 4);
+    object_images_addr = extract_unsigned_integer (buf + object_size + 4, 4);
    
     if (nimages > status->nobject_images) {
-      error ("image specifies an invalid number of objects (%ld)", nimages);
+      warning ("image specifies an invalid number of libraries (%lu > %lu)",
+	       nimages, status->nobject_images);
+      break;
     }
 
-    for (i = 0, nread = 0; i < nimages; i++, nread++) {
-      dyld_info_process_raw (info, (buf + (i * status->object_image_size)));
+    for (i = 0; i < nimages; i++) {
+      char *ebuf = buf + (i * status->object_image_size);
+      while (nsize <= ninfo) {
+	nsize *= 2;
+	info = xrealloc (info, sizeof (struct dyld_raw_info) * nsize);
+      }
+      info[ninfo].name = extract_unsigned_integer (ebuf, 4);
+      info[ninfo].slide = extract_unsigned_integer (ebuf + 4, 4);
+      info[ninfo].addr = extract_unsigned_integer (ebuf + 8, 4);
+      info[ninfo].slide = extend_slide (info[ninfo].addr, info[ninfo].slide);
+      ninfo++;
     }
-
-    xfree (buf);
   }
+
+  *rinfo = info;
+  *rninfo = ninfo;
+}
+
+static
+void dyld_info_read
+(struct macosx_dyld_thread_status *status, struct dyld_objfile_info *info, int dyldonly)
+{
+  struct dyld_raw_info *rinfo = NULL;
+  int reserved = -1;
+  unsigned int nrinfo = 0;
+  unsigned int i = 0;
+  
+  if (! dyldonly)
+    {
+      struct dyld_objfile_entry *entry = dyld_objfile_entry_alloc (info);
+      reserved = entry - info->entries;
+    }
+
+  if (status->dyld_addr != INVALID_ADDRESS)
+    {
+      const char *dyld_name = NULL;
+      struct dyld_objfile_entry *entry = NULL;
+
+      entry = dyld_objfile_entry_alloc (info);
+      dyld_name = (status->dyld_name != NULL) ? status->dyld_name : "/usr/lib/dyld";
+
+      entry->dyld_name = xstrdup (dyld_name);
+      entry->dyld_name_valid = 1;
+      entry->prefix = dyld_symbols_prefix;
+
+      entry->dyld_addr = status->dyld_addr;
+      if (status->dyld_slide != INVALID_ADDRESS)
+	entry->dyld_slide = status->dyld_slide;
+      else
+	entry->dyld_slide = 0;
+
+      entry->dyld_index = 0;
+      entry->dyld_valid = 1;
+      entry->reason = dyld_reason_dyld;
+    }
+
+  if (dyldonly)
+    return;
+
+  dyld_info_read_raw (status, &rinfo, &nrinfo);
+
+  for (i = 0; i < nrinfo; i++) {
+    struct dyld_objfile_entry tentry;
+    struct dyld_objfile_entry *pentry = NULL;
+    dyld_objfile_entry_clear (&tentry);
+    tentry.allocated = 1;
+    tentry.reason = dyld_reason_dyld;
+    if (dyld_info_process_raw (&tentry, rinfo[i].name, rinfo[i].slide, rinfo[i].addr) == 1) {
+      if ((tentry.reason & dyld_reason_executable_mask) && (reserved >= 0)) {
+	pentry = &info->entries[reserved];
+	reserved = -1;
+      } else {
+	pentry = dyld_objfile_entry_alloc (info);
+      }
+      *pentry = tentry;
+    }
+  }
+
+  xfree (rinfo);
+
+  if (reserved >= 0)
+    dyld_objfile_entry_clear (&info->entries[reserved]);
 }
 
 int
@@ -749,47 +1095,53 @@ macosx_dyld_update (int dyldonly)
   int ret;
   int libraries_changed;
 
-  struct dyld_objfile_info previous_info, new_info, saved_info;
+  struct dyld_objfile_info previous_info, saved_info, *current_info;
+  struct macosx_dyld_thread_status *status;
 
   CHECK_FATAL (macosx_status != NULL);
+  status = &macosx_status->dyld_status;
+  current_info = &status->current_info;
 
   dyld_objfile_info_init (&previous_info);
-  dyld_objfile_info_init (&new_info);
+  dyld_objfile_info_init (&saved_info);
 
-  dyld_objfile_info_copy (&previous_info, &macosx_status->dyld_status.current_info);
+  dyld_objfile_info_copy (&previous_info, current_info);
   dyld_objfile_info_copy (&saved_info, &previous_info);
 
-  dyld_objfile_info_free (&macosx_status->dyld_status.current_info);
-  dyld_objfile_info_init (&macosx_status->dyld_status.current_info);
+  dyld_objfile_info_free (current_info);
+  dyld_objfile_info_init (current_info);
 
-  dyld_info_read_raw (&macosx_status->dyld_status, &macosx_status->dyld_status.current_info, dyldonly);
+  dyld_info_read (status, current_info, dyldonly);
   if (inferior_auto_start_cfm_flag)
-    ret = cfm_update (macosx_status->task, &macosx_status->dyld_status.current_info);
-  dyld_update_shlibs (&macosx_status->dyld_status, &macosx_status->dyld_status.path_info,
-                      &previous_info, &macosx_status->dyld_status.current_info, &new_info);
+    ret = cfm_update (macosx_status->task, current_info);
+
+  dyld_merge_shlibs (status, &status->path_info, &previous_info, current_info);
+  dyld_update_shlibs (status, &status->path_info, current_info);
 
   if (dyld_filter_events_flag) {
-    libraries_changed = dyld_objfile_info_compare (&saved_info, &new_info);
+    libraries_changed = dyld_objfile_info_compare (&saved_info, current_info);
   } else {
     libraries_changed = 1;
   }
 
   dyld_objfile_info_free (&saved_info);
   dyld_objfile_info_free (&previous_info);
-  dyld_objfile_info_copy (&macosx_status->dyld_status.current_info, &new_info);
-  dyld_objfile_info_free (&new_info);
+
+  if (ui_out_is_mi_like_p (uiout) && libraries_changed)
+    {
+      ui_out_notify_begin (uiout, "shlibs-updated");
+      ui_out_notify_end (uiout);
+    }
 
   return libraries_changed;
 }
 
-static
-void macosx_dyld_update_command (char *args, int from_tty)
+static void
+macosx_dyld_update_command (char *args, int from_tty)
 {
   macosx_dyld_update (0);
+  macosx_init_dyld (&macosx_status->dyld_status, symfile_objfile, exec_bfd);
 }
-
-extern int dyld_resolve_shlib_num
-(struct dyld_objfile_info *s, unsigned int num, struct dyld_objfile_entry **eptr, struct objfile **optr);
 
 static void
 map_shlib_numbers
@@ -803,20 +1155,41 @@ map_shlib_numbers
     error_no_arg ("one or more shlib numbers");
 
   p = args;
-  for (;;) {
-    while (isspace (*p) && (*p != '\0'))
-      p++;
-    if (! isdigit (*p))
-      break;
-    while ((!isspace (*p)) && (*p != '\0'))
-      p++;
-  }
+  while (isspace (*p) && (*p != '\0'))
+    p++;
+
+  if (strncmp (p, "all ", 4) == 0)
+    p += 4;
+  else
+    {
+      for (;;) {
+	while (isspace (*p) && (*p != '\0'))
+	  p++;
+	if (! isdigit (*p))
+	  break;
+	while ((!isspace (*p)) && (*p != '\0'))
+	  p++;
+      }
+    }
   val = p;
+
   if ((*p != '\0') && (p > args)) {
     p[-1] = '\0';
   }
 
   p = args;
+
+  if (strcmp (p, "all") == 0)
+    {
+      struct dyld_objfile_entry *e;
+      unsigned int n;
+
+      DYLD_ALL_OBJFILE_INFO_ENTRIES (info, e, n)
+	(* function) (d, e, e->objfile, val);
+
+      return;
+    }
+
   while (*p)
     {
       struct dyld_objfile_entry *e;
@@ -825,19 +1198,21 @@ map_shlib_numbers
 
       match = 0;
       p1 = p;
+      num = get_number_or_range (&p);
 
-      num = get_number_or_range (&p1);
-      if (num == 0)
-	warning ("bad shlib number at or near '%s'", p);
+      if (num == 0) {
+	warning ("bad shlib number at or near '%s'", p1);
+	return;
+      }
 
       ret = dyld_resolve_shlib_num (info, num, &e, &o);
 
-      if (ret < 0)
+      if (ret < 0) {
 	warning ("no shlib %d", num);
+	return;
+      }
 
       (* function) (d, e, o, val);
-      
-      p = p1;
     }
 }
 
@@ -848,59 +1223,88 @@ add_helper (struct dyld_path_info *d, struct dyld_objfile_entry *e, struct objfi
     e->load_flag = OBJF_SYM_ALL;
 }
 
-static
-void dyld_add_symbol_file_command (char *args, int from_tty)
+static void
+dyld_add_symbol_file_command (char *args, int from_tty)
 {
-  struct dyld_objfile_info original_info, modified_info, new_info;
+  struct dyld_objfile_info original_info, modified_info;
 
   dyld_objfile_info_init (&original_info);
   dyld_objfile_info_init (&modified_info);
-  dyld_objfile_info_init (&new_info);
 
   dyld_objfile_info_copy (&original_info, &macosx_status->dyld_status.current_info);
   dyld_objfile_info_copy (&modified_info, &macosx_status->dyld_status.current_info);
 
   map_shlib_numbers (args, add_helper, &macosx_status->dyld_status.path_info, &modified_info);
 
+  dyld_merge_shlibs (&macosx_status->dyld_status, &macosx_status->dyld_status.path_info,
+		     &original_info, &modified_info);
   dyld_update_shlibs (&macosx_status->dyld_status, &macosx_status->dyld_status.path_info,
-                      &original_info, &modified_info, &new_info);
+		      &modified_info);
   
-  dyld_objfile_info_copy (&macosx_status->dyld_status.current_info, &new_info);
+  dyld_objfile_info_copy (&macosx_status->dyld_status.current_info, &modified_info);
 
   dyld_objfile_info_free (&original_info);
   dyld_objfile_info_free (&modified_info);
-  dyld_objfile_info_free (&new_info);
 }
 
-static
-void remove_helper (struct dyld_path_info *d, struct dyld_objfile_entry *e, struct objfile *o, const char *arg)
+static void
+remove_helper (struct dyld_path_info *d, struct dyld_objfile_entry *e, struct objfile *o, const char *arg)
 {
   if (e != NULL)
     e->load_flag = OBJF_SYM_NONE | dyld_minimal_load_flag (d, e);
 }
 
-static
-void dyld_remove_symbol_file_command (char *args, int from_tty)
+static void
+specify_symfile_helper (struct dyld_path_info *d, struct dyld_objfile_entry *e, struct objfile *o, const char *arg)
 {
-  struct dyld_objfile_info original_info, modified_info, new_info;
+  e->user_name = xstrdup (arg);
+}
+
+static void dyld_specify_symbol_file_command (char *args, int from_tty)
+{
+  struct dyld_objfile_info original_info, modified_info;
 
   dyld_objfile_info_init (&original_info);
   dyld_objfile_info_init (&modified_info);
-  dyld_objfile_info_init (&new_info);
+
+  dyld_objfile_info_copy (&original_info, &macosx_status->dyld_status.current_info);
+  dyld_objfile_info_copy (&modified_info, &macosx_status->dyld_status.current_info);
+
+  map_shlib_numbers (args, specify_symfile_helper, &macosx_status->dyld_status.path_info, &modified_info);
+
+  dyld_merge_shlibs (&macosx_status->dyld_status, &macosx_status->dyld_status.path_info,
+		     &original_info, &modified_info);
+  dyld_update_shlibs (&macosx_status->dyld_status, &macosx_status->dyld_status.path_info,
+                      &modified_info);
+  
+  dyld_objfile_info_copy (&macosx_status->dyld_status.current_info, &modified_info);
+
+  dyld_objfile_info_free (&original_info);
+  dyld_objfile_info_free (&modified_info);
+}
+
+static
+void dyld_remove_symbol_file_command (char *args, int from_tty)
+{
+  struct dyld_objfile_info original_info, modified_info;
+
+  dyld_objfile_info_init (&original_info);
+  dyld_objfile_info_init (&modified_info);
 
   dyld_objfile_info_copy (&original_info, &macosx_status->dyld_status.current_info);
   dyld_objfile_info_copy (&modified_info, &macosx_status->dyld_status.current_info);
 
   map_shlib_numbers (args, remove_helper, &macosx_status->dyld_status.path_info, &modified_info);
 
+  dyld_merge_shlibs (&macosx_status->dyld_status, &macosx_status->dyld_status.path_info,
+		     &original_info, &modified_info);
   dyld_update_shlibs (&macosx_status->dyld_status, &macosx_status->dyld_status.path_info,
-                      &original_info, &modified_info, &new_info);
+                      &modified_info);
   
-  dyld_objfile_info_copy (&macosx_status->dyld_status.current_info, &new_info);
+  dyld_objfile_info_copy (&macosx_status->dyld_status.current_info, &modified_info);
 
   dyld_objfile_info_free (&original_info);
   dyld_objfile_info_free (&modified_info);
-  dyld_objfile_info_free (&new_info);
 }
         
 static void
@@ -916,29 +1320,30 @@ set_load_state_helper (struct dyld_path_info *d, struct dyld_objfile_entry *e, s
 static void
 dyld_set_load_state_command (char *args, int from_tty)
 {
-  struct dyld_objfile_info original_info, modified_info, new_info;
+  struct dyld_objfile_info original_info, modified_info;
 
   dyld_objfile_info_init (&original_info);
   dyld_objfile_info_init (&modified_info);
-  dyld_objfile_info_init (&new_info);
 
   dyld_objfile_info_copy (&original_info, &macosx_status->dyld_status.current_info);
   dyld_objfile_info_copy (&modified_info, &macosx_status->dyld_status.current_info);
 
   map_shlib_numbers (args, set_load_state_helper, &macosx_status->dyld_status.path_info, &modified_info);
 
+  dyld_merge_shlibs (&macosx_status->dyld_status, &macosx_status->dyld_status.path_info,
+                      &original_info, &modified_info);
   dyld_update_shlibs (&macosx_status->dyld_status, &macosx_status->dyld_status.path_info,
-                      &original_info, &modified_info, &new_info);
+                      &modified_info);
   
-  dyld_objfile_info_copy (&macosx_status->dyld_status.current_info, &new_info);
+  dyld_objfile_info_copy (&macosx_status->dyld_status.current_info, &modified_info);
 
   dyld_objfile_info_free (&original_info);
   dyld_objfile_info_free (&modified_info);
-  dyld_objfile_info_free (&new_info);
 }
         
 static void
-section_info_helper (struct dyld_path_info *d, struct dyld_objfile_entry *e, struct objfile *o, const char *arg)
+section_info_helper (struct dyld_path_info *d, struct dyld_objfile_entry *e,
+		     struct objfile *o, const char *arg)
 {
   int ret;
 
@@ -951,20 +1356,15 @@ section_info_helper (struct dyld_path_info *d, struct dyld_objfile_entry *e, str
 
   if (e != NULL) {
 #if WITH_CFM
-    if (e->cfm_connection != 0) {
+    if (e->cfm_container != 0) {
 
-      NCFragConnectionInfo connection;
       NCFragContainerInfo container;
       struct cfm_parser *parser;
       unsigned long section_index;
       
       parser = &macosx_status->cfm_status.parser;
 
-      ret = cfm_fetch_connection_info (parser, e->cfm_connection, &connection);
-      if (ret != 0)
-        return;
-
-      ret = cfm_fetch_container_info (parser, connection.container, &container);
+      ret = cfm_fetch_container_info (parser, e->cfm_container, &container);
       if (ret != 0)
         return;
 
@@ -975,7 +1375,7 @@ section_info_helper (struct dyld_path_info *d, struct dyld_objfile_entry *e, str
           NCFragSectionInfo section;
           NCFragInstanceInfo instance;
 
-          ret = cfm_fetch_connection_section_info (parser, e->cfm_connection, section_index, &section, &instance);
+          ret = cfm_fetch_container_section_info (parser, e->cfm_container, section_index, &section);
           if (ret != 0)
             break;
 
@@ -1013,19 +1413,41 @@ section_info_helper (struct dyld_path_info *d, struct dyld_objfile_entry *e, str
 static void
 dyld_section_info_command (char *args, int from_tty)
 {
-  map_shlib_numbers (args, section_info_helper, &macosx_status->dyld_status.path_info, &macosx_status->dyld_status.current_info);
+  map_shlib_numbers (args, section_info_helper,
+		     &macosx_status->dyld_status.path_info,
+		     &macosx_status->dyld_status.current_info);
 }
         
-
-static void
-info_cfm_command (char *args, int from_tty)
+static
+void info_sharedlibrary_command (char *args, int from_tty)
 {
   CHECK_FATAL (macosx_status != NULL);
-  dyld_print_status_info (&macosx_status->dyld_status, dyld_reason_cfm);
+  dyld_print_status_info (&macosx_status->dyld_status, dyld_reason_all_mask | dyld_reason_user, args);
+}
+
+static
+void info_sharedlibrary_all_command (char *args, int from_tty)
+{
+  CHECK_FATAL (macosx_status != NULL);
+  dyld_print_shlib_info (&macosx_status->dyld_status.current_info, dyld_reason_all_mask | dyld_reason_user, 1, args);
+}
+
+static
+void info_sharedlibrary_dyld_command (char *args, int from_tty)
+{
+  CHECK_FATAL (macosx_status != NULL);
+  dyld_print_shlib_info (&macosx_status->dyld_status.current_info, dyld_reason_dyld, 1, args);
 }
 
 static void
-info_raw_cfm_command (char *args, int from_tty)
+info_sharedlibrary_cfm_command (char *args, int from_tty)
+{
+  CHECK_FATAL (macosx_status != NULL);
+  dyld_print_shlib_info (&macosx_status->dyld_status.current_info, dyld_reason_cfm, 1, args);
+}
+
+static void
+info_sharedlibrary_raw_cfm_command (char *args, int from_tty)
 {
   task_t task = macosx_status->task;
   struct dyld_objfile_info info;
@@ -1033,7 +1455,7 @@ info_raw_cfm_command (char *args, int from_tty)
   dyld_objfile_info_init (&info);
   cfm_update (task, &info);
 
-  dyld_print_shlib_info (&info, dyld_reason_cfm);
+  dyld_print_shlib_info (&info, dyld_reason_cfm, 1, args);
 }
 
 int
@@ -1045,7 +1467,7 @@ dyld_lookup_and_bind_function (char *name)
   int name_len;
   CORE_ADDR ret_addr;
 
-  if (!target_has_execution)
+  if (! target_has_execution)
     return 0;
 
   /* Chicken and egg problem, need NSLookupAndBindSymbol already...
@@ -1083,99 +1505,128 @@ dyld_lookup_and_bind_function (char *name)
 }
 
 #if MAPPED_SYMFILES
-static void dyld_cache_symfiles (const char *dir, struct dyld_objfile_info *info)
+
+static void
+cache_symfiles_helper (struct dyld_path_info *d, struct dyld_objfile_entry *e, struct objfile *o, const char *arg)
 {
-  CORE_ADDR mapaddr = 0xc0000000;
-  unsigned int i, j;
+  struct objfile *old = NULL;
+  struct objfile *new = NULL;
+  bfd *abfd;
 
-  CHECK_FATAL (info != NULL);
-
-  for (i = 0; i < info->nents; i++)
+  if (e != NULL)
     {
-      struct dyld_objfile_entry *e = &info->entries[i];
-      if (! e->allocated) { continue; }
-      if (e->objfile) 
-	{
-	  struct section_addr_info addrs;
-	  struct objfile *objfile = NULL;
-	  struct symtab *s = NULL;
-	  struct partial_symtab *p = NULL;
-	  char *symsfilename = NULL;
-	  char *filename = NULL;
-	  PTR md = NULL;
-	  int fd = -1;
-	  size_t start, end;
+      old = e->objfile;
+      abfd =e->abfd;
+      new = cache_bfd (e->abfd, e->prefix, e->load_flag, 0, 0, arg);
+    }
+  else
+    {
+      CHECK_FATAL (o != NULL);
+      old = o;
+      abfd =o->obfd;
+      new = cache_bfd (o->obfd, o->prefix, o->symflags, 0, 0, arg);
+    }
 
-	  filename = bfd_get_filename (e->abfd);
-	  symsfilename = concat (dir, "/", basename (filename), ".syms", (char *) NULL);
+  if (new == NULL) {
+    warning ("unable to move objfile");
+    return;
+  }
 
-	  printf ("Mapping \"%s\" at 0x%lx ... ", symsfilename, (unsigned long) mapaddr);
-
-	  fd = open (symsfilename, O_RDWR | O_CREAT | O_TRUNC, 0666);
-	  if (fd < 0)
-	    {
-	      warning ("Unable to open \"%s\"", filename);
-	      continue;
-	    }
-
-	  md = mmalloc_attach (fd, (void *) (unsigned long) mapaddr, 0);
-	  if (md == NULL)
-	    {
-	      warning ("Unable to map symbol file at 0x%lx", (unsigned long) mapaddr);
-	      continue;
-	    }
-
-	  objfile = create_objfile_from_mmalloc_pool (e->abfd, md, fd, mapaddr);
-	  if (objfile == NULL)
-	    {
-	      warning ("Unable to create objfile");
-	      continue;
-	    }
-
-	  objfile->symflags = e->load_flag;
-	  objfile->flags = 0;
-	  objfile->obfd = e->abfd;
-	  objfile->name = mstrsave (objfile->md, filename);
-	  objfile->mtime = bfd_get_mtime (e->abfd);
-	  objfile->prefix = e->prefix;
-	
-	  if (build_objfile_section_table (objfile))
-	    error ("Unable to find the file sections in `%s': %s",
-		   objfile->name, bfd_errmsg (bfd_get_error ()));
+  if (e != NULL)
+    {
+      if (e->reason & dyld_reason_executable_mask) {
+	CHECK_FATAL (e->objfile == symfile_objfile);
+	symfile_objfile = new;
+      }
+      e->objfile = new;
+    }
       
-	  for (j = 0; j < MAX_SECTIONS; j++) 
-	    {
-	      addrs.other[i].name = NULL;
-	      addrs.other[i].addr = e->dyld_slide;
-	      addrs.other[i].sectindex = 0;
-	    }
-
-	  syms_from_objfile (objfile, &addrs, 0, 0);
-
-	  ALL_OBJFILE_PSYMTABS (objfile, p)
-	    s = PSYMTAB_TO_SYMTAB (p);
-
-	  objfile_demangle_msymbols (objfile);
-
-	  mmalloc_endpoints (md, &start, &end);
-	  if (start != mapaddr)
-	    abort ();
-	  mapaddr = end;
-
-	  printf ("endpoint is 0x%lx\n", end);
-	}
-    }    
+  if (old != NULL)
+    unlink_objfile (old);
 }
+
 #endif /* MAPPED_SYMFILES */
 
 static void
-dyld_cache_symfiles_command (char *arg, int from_tty)
+dyld_cache_symfiles_command (char *args, int from_tty)
 {
 #if MAPPED_SYMFILES
-  dyld_cache_symfiles (arg, &macosx_status->dyld_status.current_info);
+  map_shlib_numbers (args, cache_symfiles_helper, 
+		     &macosx_status->dyld_status.path_info,
+		     &macosx_status->dyld_status.current_info);
 #else /* ! MAPPED_SYMFILES */
   error ("Cached symfiles not supported on this configuration of GDB.");
 #endif /* MAPPED_SYMFILES */
+}
+
+static void
+dyld_cache_symfile_command (char *args, int from_tty)
+{
+#if MAPPED_SYMFILES
+  bfd *abfd = NULL;
+  struct objfile *objfile = NULL;
+  const char *filename = NULL;
+  const char *dest = NULL;
+  char **argv = NULL;
+  struct cleanup *cleanups;
+  const char *prefix;
+
+  argv = buildargv (args);
+  if (argv == NULL)
+    nomem (0);
+  cleanups = make_cleanup_freeargv (argv);
+  if ((argv[0] == NULL) || (argv[1] == NULL) || ((argv[2] != NULL) && (argv[3] != NULL)))
+    error ("usage: cache-symfile <source> <target> [prefix]");
+  filename = argv[0];
+  dest = argv[1];
+  prefix = argv[2];
+
+  abfd = symfile_bfd_open (filename, 0);
+  if (abfd == NULL)
+    error ("unable to open BFD for \"%s\"", filename);
+  objfile = cache_bfd (abfd, prefix, OBJF_SYM_ALL, 0, 0, dest);
+  free_objfile (objfile);
+#else /* ! MAPPED_SYMFILES */
+  error ("Cached symfiles not supported on this configuration of GDB.");
+#endif /* MAPPED_SYMFILES */
+}
+
+void
+update_section_tables (struct target_ops *target, struct dyld_objfile_info *info)
+{
+  struct dyld_objfile_entry *e;
+  struct obj_section *osection;
+  int nsections, csection, osections;
+  unsigned int i;
+
+  nsections = 0;
+  DYLD_ALL_OBJFILE_INFO_ENTRIES (info, e, i) {
+    if (e->objfile == NULL)
+      continue;
+    ALL_OBJFILE_OSECTIONS (e->objfile, osection)
+      nsections++;
+  }
+
+  osections = target->to_sections_end - target->to_sections;
+  target_resize_to_sections (target, nsections - osections);
+  gdb_assert ((target->to_sections + nsections) == target->to_sections_end);
+
+  csection = 0;
+  DYLD_ALL_OBJFILE_INFO_ENTRIES (info, e, i) {
+    if (e->objfile == NULL)
+      continue;
+    ALL_OBJFILE_OSECTIONS (e->objfile, osection) {
+      gdb_assert (osection != NULL);
+      gdb_assert (osection->objfile != NULL);
+      target->to_sections[csection].addr = osection->addr;
+      target->to_sections[csection].endaddr = osection->endaddr;
+      target->to_sections[csection].the_bfd_section = osection->the_bfd_section;
+      target->to_sections[csection].bfd = osection->objfile->obfd;
+      csection++;
+    }
+  }
+
+  gdb_assert ((target->to_sections + csection) == target->to_sections_end);
 }
 
 struct cmd_list_element *dyldlist = NULL;
@@ -1183,6 +1634,21 @@ struct cmd_list_element *setshliblist = NULL;
 struct cmd_list_element *showshliblist = NULL;
 struct cmd_list_element *infoshliblist = NULL;
 struct cmd_list_element *shliblist = NULL;
+struct cmd_list_element *maintenanceshliblist = NULL;
+
+static void
+maintenance_sharedlibrary_command (char *arg, int from_tty)
+{
+  printf_unfiltered ("\"maintenance sharedlibrary\" must be followed by the name of a sharedlibrary command.\n");
+  help_list (maintenanceshliblist, "maintenance sharedlibrary ", -1, gdb_stdout);
+}
+
+static void
+sharedlibrary_command (char *arg, int from_tty)
+{
+  printf_unfiltered ("\"sharedlibrary\" must be followed by the name of a sharedlibrary command.\n");
+  help_list (shliblist, "sharedlibrary ", -1, gdb_stdout);
+}
 
 void
 _initialize_macosx_nat_dyld ()
@@ -1191,12 +1657,13 @@ _initialize_macosx_nat_dyld ()
 
   dyld_stderr = fdopen (fileno (stderr), "w+");
 
-  add_prefix_cmd ("sharedlibrary", class_run, not_just_help_class_command,
-                  "Command prefix for shared library manipulation",
+  add_prefix_cmd ("sharedlibrary", class_run, sharedlibrary_command,
+                  "Commands for shared library manipulation.",
                   &shliblist, "sharedlibrary ", 0, &cmdlist);
 
-  add_cmd ("init", class_run, macosx_dyld_init_command,
-           "Init DYLD libraries to initial guesses.", &shliblist);
+  add_prefix_cmd ("sharedlibrary", class_maintenance, maintenance_sharedlibrary_command,
+		  "Commands for internal sharedlibrary manipulation.",
+		  &maintenanceshliblist, "maintenance sharedlibrary ", 0, &maintenancelist);
 
   add_cmd ("add-symbol-file", class_run, dyld_add_symbol_file_command,
            "Add a symbol file.", &shliblist);
@@ -1204,14 +1671,17 @@ _initialize_macosx_nat_dyld ()
   add_cmd ("remove-symbol-file", class_run, dyld_remove_symbol_file_command,
            "Remove a symbol file.", &shliblist);
 
+  add_cmd ("specify-symbol-file", class_run, dyld_specify_symbol_file_command,
+           "Specify the symbol file for a sharedlibrary entry.", &shliblist);
+
   add_cmd ("set-load-state", class_run, dyld_set_load_state_command,
            "Set the load level of a library (given by the index from \"info sharedlibrary\").", &shliblist);
 
   add_cmd ("section-info", class_run, dyld_section_info_command,
-           "Get the section info for a library (given by index).", &shliblist);
+           "Get the section info for a library (given by the index from \"info sharedlibrary\").", &shliblist);
 
   add_cmd ("cache-purge", class_obscure, dyld_cache_purge_command,
-           "Purge all symbols for DYLD images cached by GDB.", &shliblist);
+           "Purge all symbols for DYLD images cached by GDB.", &maintenanceshliblist);
 
   add_cmd ("update", class_run, macosx_dyld_update_command,
            "Process all pending DYLD events.", &shliblist);
@@ -1220,9 +1690,10 @@ _initialize_macosx_nat_dyld ()
                   "Generic command for shlib information.",
                   &infoshliblist, "info sharedlibrary ", 0, &infolist);
 
-  add_cmd ("cfm", no_class, info_cfm_command, "Show current CFM state.", &infoshliblist);
-  add_cmd ("raw-cfm", no_class, info_raw_cfm_command, "Show current CFM state.", &infoshliblist);
-  add_cmd ("dyld", no_class, info_dyld_command, "Show current DYLD state.", &infoshliblist);  
+  add_cmd ("all", no_class, info_sharedlibrary_all_command, "Show current DYLD state.", &infoshliblist);  
+  add_cmd ("dyld", no_class, info_sharedlibrary_dyld_command, "Show current DYLD state.", &infoshliblist);  
+  add_cmd ("cfm", no_class, info_sharedlibrary_cfm_command, "Show current CFM state.", &infoshliblist);
+  add_cmd ("raw-cfm", no_class, info_sharedlibrary_raw_cfm_command, "Show current CFM state.", &infoshliblist);
 
   add_prefix_cmd ("sharedlibrary", no_class, not_just_help_class_command,
                   "Generic command for setting shlib settings.",
@@ -1316,6 +1787,24 @@ unless you know what you are doing.",
   dyld_minimal_load_rules = xstrdup ("\"dyld\" \"CarbonCore$\\\\|CarbonCore_[^/]*$\" all \".*\" \"dyld$\" extern \".*\" \".*\" none");
   dyld_load_rules = xstrdup ("\".*\" \".*\" all");
 
+  cmd = add_set_cmd ("stop-on-shlibs-added", class_support, var_zinteger,
+		     (char *) &dyld_stop_on_shlibs_added,
+		     "Set if a shlib event should be reported on a shlibs-added event.", &setshliblist);
+  add_show_from_set (cmd, &showshliblist);
+
+  cmd = add_set_cmd ("stop-on-shlibs-updated", class_support, var_zinteger,
+		     (char *) &dyld_stop_on_shlibs_updated,
+		     "Set if a shlib event should be reported on a shlibs-updated event.", &setshliblist);
+  add_show_from_set (cmd, &showshliblist);
+
+  cmd = add_set_cmd ("combine-shlibs-added", class_support, var_zinteger,
+		     (char *) &dyld_combine_shlibs_added,
+		     "Set if GDB should combine shlibs-added events from the same image into a single event.", &setshliblist);
+  add_show_from_set (cmd, &showshliblist);
+
   add_cmd ("cache-symfiles", class_run, dyld_cache_symfiles_command,
+           "Generate persistent caches of symbol files for the current executable state", &shliblist);
+
+  add_cmd ("cache-symfile", class_run, dyld_cache_symfile_command,
            "Generate persistent caches of symbol files for the current executable state", &shliblist);
 }

@@ -31,6 +31,8 @@
 #import <pthread.h>
 #import <mach/mach.h>
 #include <mach/vm_statistics.h>
+#import <malloc/malloc.h>
+#import <stdlib.h>
 
 extern void spin_lock(int *);
 
@@ -38,7 +40,8 @@ static inline void *allocate_pages(unsigned bytes) {
     void *address;
     if (vm_allocate(mach_task_self(), (vm_address_t *)&address, bytes, 
                     VM_MAKE_TAG(VM_MEMORY_ANALYSIS_TOOL)| TRUE)) {
-	address = 0;
+	malloc_printf("malloc[%d]: Out of memory while stack logging\n", getpid());
+	abort();
     } 
     return (void *)address;
 }

@@ -1,0 +1,36 @@
+
+puts "DEBUG: lib/helloworld.exp is being loaded"
+
+proc helloworld_version {args} {
+    puts "DEBUG: helloworld_version executed with arguments ${args}"
+}
+
+proc helloworld_load {args} {
+    puts "DEBUG: helloworld_load executed with arguments ${args}"
+}
+
+proc helloworld_finish {args} {
+    puts "DEBUG: helloworld_finish executed with arguments ${args}"
+}
+
+proc helloworld_exit {args} {
+    puts "DEBUG: helloworld_exit executed with arguments ${args}"
+}
+
+proc helloworld_start {args} {
+    puts "DEBUG: helloworld_start executed with arguments ${args}"
+}
+
+proc helloworld_init {args} {
+    puts "DEBUG: helloworld_init executed with arguments ${args}"
+}
+
+proc helloworld_option_proc {args} {
+    puts "DEBUG: helloworld_option_proc (command line option processing) executed with arguments ${args}"
+}
+
+proc helloworld_option_help {args} {
+    puts "DEBUG: helloworld_option_help (command line option help) executed with arguments ${args}"
+}
+
+

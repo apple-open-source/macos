@@ -1,0 +1,146 @@
+From VM Sat Oct 14 00:29:43 2000
+Return-Path: <mailman-users-admin@python.org>
+Delivered-To: bxxxxx@mail.wooz.org
+Received: from ns1.beopen.com (unknown [208.185.174.104])
+	by mail.wooz.org (Postfix) with ESMTP id DF2B1D38CD
+	for <yyyyy@wooz.org>; Sat, 14 Oct 2000 00:16:04 -0400 (EDT)
+Received: from dinsdale.python.org (dinsdale.cnri.reston.va.us [132.151.1.21])
+	by ns1.beopen.com (8.9.3/8.9.3) with ESMTP id VAA04124
+	for <bxxxxx@beopen.com>; Fri, 13 Oct 2000 21:17:08 -0700 (PDT)
+	(envelope-from mailman-users-admin@python.org)
+Received: from dinsdale.python.org (localhost [127.0.0.1])
+	by dinsdale.python.org (Postfix) with ESMTP id 46F711D08C
+	for <bxxxxx@beopen.com>; Sat, 14 Oct 2000 00:15:15 -0400 (EDT)
+Delivered-To: mailman-users-admin@python.org
+Received: from banzai.nfg.nl (banzai.nfg.nl [194.109.206.156])
+	by dinsdale.python.org (Postfix) with ESMTP id 201661D08C
+	for <mailman-users-admin@python.org>; Sat, 14 Oct 2000 00:14:45 -0400 (EDT)
+Received: from localhost (localhost)
+	by banzai.nfg.nl (8.9.3/8.9.3/Debian 8.9.3-21) with internal id GAB17388;
+	Sat, 14 Oct 2000 06:14:45 +0200
+Message-Id: <200010140414.GAB17388@banzai.nfg.nl>
+Auto-Submitted: auto-generated (failure)
+Errors-To: mailman-users-owner@python.org
+Precedence: bulk
+List-Help: <mailto:mailman-users-request@python.org?subject=help>
+List-Post: <mailto:mailman-users@python.org>
+List-Subscribe: <http://www.python.org/mailman/listinfo/mailman-users>,
+	<mailto:mailman-users-request@python.org?subject=subscribe>
+List-Id: Mailman mailing list management users <mailman-users.python.org>
+List-Unsubscribe: <http://www.python.org/mailman/listinfo/mailman-users>,
+	<mailto:mailman-users-request@python.org?subject=unsubscribe>
+List-Archive: <http://www.python.org/pipermail/mailman-users/>
+From: Mail Delivery Subsystem <MAILER-DAEMON@banzai.nfg.nl>
+Sender: mailman-users-owner@python.org
+To: mailman-users-admin@python.org
+To: postmaster@banzai.nfg.nl
+Subject: Returned mail: Too many hops 26 (25 max): from mailman-users-admin@python.org via localhost, to zzzzz@nfg.nl
+Date: Sat, 14 Oct 2000 06:14:45 +0200
+X-BeenThere: mailman-users@python.org
+X-Mailman-Version: 2.0beta6
+
+The original message was received at Sat, 14 Oct 2000 06:14:45 +0200
+from uucp@localhost
+
+   ----- The following addresses had permanent fatal errors -----
+zzzzz@shaft.coal.nl
+    (expanded from: zzzzz@nfg.nl)
+
+   ----- Transcript of session follows -----
+554 Too many hops 26 (25 max): from mailman-users-admin@python.org via localhost, to zzzzz@nfg.nl
+
+   ----- Message header follows -----
+
+Return-Path: <mailman-users-admin@python.org>
+Received: (from uucp@localhost)
+	by banzai.nfg.nl (8.9.3/8.9.3/Debian 8.9.3-21) with UUCP id GAA17388
+	for zzzzz@nfg.nl; Sat, 14 Oct 2000 06:14:45 +0200
+Received: by shaft.coal.nl (Postfix, from userid 10)
+	id A9BAE1B30B; Sat, 14 Oct 2000 06:06:08 +0200 (CEST)
+Received: (from uucp@localhost)
+	by banzai.nfg.nl (8.9.3/8.9.3/Debian 8.9.3-21) with UUCP id XAA25085
+	for zzzzz@nfg.nl; Fri, 13 Oct 2000 23:55:54 +0200
+Received: by shaft.coal.nl (Postfix, from userid 10)
+	id 62E251B307; Fri, 13 Oct 2000 23:46:43 +0200 (CEST)
+Received: (from uucp@localhost)
+	by banzai.nfg.nl (8.9.3/8.9.3/Debian 8.9.3-21) with UUCP id XAA20156
+	for zzzzz@nfg.nl; Fri, 13 Oct 2000 23:35:01 +0200
+Received: by shaft.coal.nl (Postfix, from userid 10)
+	id 247881B308; Fri, 13 Oct 2000 23:26:09 +0200 (CEST)
+Received: (from uucp@localhost)
+	by banzai.nfg.nl (8.9.3/8.9.3/Debian 8.9.3-21) with UUCP id XAA15152
+	for zzzzz@nfg.nl; Fri, 13 Oct 2000 23:15:47 +0200
+Received: by shaft.coal.nl (Postfix, from userid 10)
+	id E91F81B308; Fri, 13 Oct 2000 23:06:29 +0200 (CEST)
+Received: (from uucp@localhost)
+	by banzai.nfg.nl (8.9.3/8.9.3/Debian 8.9.3-21) with UUCP id WAA09896
+	for zzzzz@nfg.nl; Fri, 13 Oct 2000 22:54:42 +0200
+Received: by shaft.coal.nl (Postfix, from userid 10)
+	id 51CA11B308; Fri, 13 Oct 2000 22:45:24 +0200 (CEST)
+Received: (from uucp@localhost)
+	by banzai.nfg.nl (8.9.3/8.9.3/Debian 8.9.3-21) with UUCP id WAA04651
+	for zzzzz@nfg.nl; Fri, 13 Oct 2000 22:34:41 +0200
+Received: by shaft.coal.nl (Postfix, from userid 10)
+	id 6C48F1B308; Fri, 13 Oct 2000 22:25:19 +0200 (CEST)
+Received: (from uucp@localhost)
+	by banzai.nfg.nl (8.9.3/8.9.3/Debian 8.9.3-21) with UUCP id WAA31892
+	for zzzzz@nfg.nl; Fri, 13 Oct 2000 22:14:14 +0200
+Received: by shaft.coal.nl (Postfix, from userid 10)
+	id 8ABF91B308; Fri, 13 Oct 2000 22:04:33 +0200 (CEST)
+Received: (from uucp@localhost)
+	by banzai.nfg.nl (8.9.3/8.9.3/Debian 8.9.3-21) with UUCP id VAA26727
+	for zzzzz@nfg.nl; Fri, 13 Oct 2000 21:54:10 +0200
+Received: by shaft.coal.nl (Postfix, from userid 10)
+	id A44BC1B308; Fri, 13 Oct 2000 21:44:57 +0200 (CEST)
+Received: (from uucp@localhost)
+	by banzai.nfg.nl (8.9.3/8.9.3/Debian 8.9.3-21) with UUCP id VAA21600
+	for zzzzz@nfg.nl; Fri, 13 Oct 2000 21:33:40 +0200
+Received: by shaft.coal.nl (Postfix, from userid 10)
+	id 56B311B308; Fri, 13 Oct 2000 21:24:00 +0200 (CEST)
+Received: (from uucp@localhost)
+	by banzai.nfg.nl (8.9.3/8.9.3/Debian 8.9.3-21) with UUCP id VAA16279
+	for zzzzz@nfg.nl; Fri, 13 Oct 2000 21:13:21 +0200
+Received: by shaft.coal.nl (Postfix, from userid 10)
+	id 409701B308; Fri, 13 Oct 2000 21:04:32 +0200 (CEST)
+Received: (from uucp@localhost)
+	by banzai.nfg.nl (8.9.3/8.9.3/Debian 8.9.3-21) with UUCP id UAA11084
+	for zzzzz@nfg.nl; Fri, 13 Oct 2000 20:53:53 +0200
+Received: by shaft.coal.nl (Postfix, from userid 10)
+	id 05A9E1B307; Fri, 13 Oct 2000 20:44:14 +0200 (CEST)
+Received: from dinsdale.python.org (dinsdale.cnri.reston.va.us [132.151.1.21])
+	by banzai.nfg.nl (8.9.3/8.9.3/Debian 8.9.3-21) with ESMTP id UAA08474
+	for <zzzzz@nfg.nl>; Fri, 13 Oct 2000 20:41:13 +0200
+X-Authentication-Warning: banzai.nfg.nl: Host dinsdale.cnri.reston.va.us [132.151.1.21] claimed to be dinsdale.python.org
+Received: from dinsdale.python.org (localhost [127.0.0.1])
+	by dinsdale.python.org (Postfix) with ESMTP
+	id A1F631CFCC; Fri, 13 Oct 2000 14:38:00 -0400 (EDT)
+Delivered-To: mailman-users@python.org
+Received: from raptor.ebuilt.net (unknown [216.237.34.38])
+	by dinsdale.python.org (Postfix) with ESMTP id 7D3B21CDB9
+	for <mailman-users@python.org>; Fri, 13 Oct 2000 14:35:02 -0400 (EDT)
+Received: by raptor.ebuilt.net with Internet Mail Service (5.5.2650.21)
+	id <4V699WRN>; Fri, 13 Oct 2000 11:35:00 -0700
+Message-ID: <AA1E32BC8A58D411A2CB0050DACEDA43750916@raptor.ebuilt.net>
+From: "Young, Roger" <RYoung@eBuilt.com>
+To: mailman-users@python.org
+X-Mailer: Internet Mail Service (5.5.2650.21)
+Subject: [Mailman-Users] auto responder
+Sender: mailman-users-admin@python.org
+Errors-To: mailman-users-admin@python.org
+X-BeenThere: mailman-users@python.org
+X-Mailman-Version: 2.0beta6
+Precedence: bulk
+List-Help: <mailto:mailman-users-request@python.org?subject=help>
+List-Post: <mailto:mailman-users@python.org>
+List-Subscribe: <http://www.python.org/mailman/listinfo/mailman-users>,
+	<mailto:mailman-users-request@python.org?subject=subscribe>
+List-Id: Mailman mailing list management users <mailman-users.python.org>
+List-Unsubscribe: <http://www.python.org/mailman/listinfo/mailman-users>,
+	<mailto:mailman-users-request@python.org?subject=unsubscribe>
+List-Archive: <http://www.python.org/pipermail/mailman-users/>
+Date: Fri, 13 Oct 2000 11:34:51 -0700
+
+   ----- Message body suppressed -----
+
+
+

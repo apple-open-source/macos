@@ -193,60 +193,10 @@ private:
 	CSPKeyInfoProvider *infoProvider(
 		const CssmKey	&key);
 		
+	void pkcs8InferKeyHeader(
+		CssmKey			&key);
+	
 };	/* AppleCSPSession */
 
-/*
- * Class to provide key-specific info. Each module dealing with keys
- * implements one of these. It's sort of like a CSP-specific CSPContext
- * without the Context object. AppleCSPSession finds one of these by
- * querying module-specific subclasses, looking for one in which 
- * the constructor succeeds. 
- */
-class CSPKeyInfoProvider 
-{
-protected:
-	CSPKeyInfoProvider(
-		const CssmKey &cssmKey) : mKey(cssmKey) { }
-public:
-	/* 
-	 * This is the public way to construct - returns NULL if key is 
-	 * not handled. Static declaration per subclass.
-	 *
-	 * static CSPKeyInfoProvider *provider(
-	 *	const CssmKey &cssmKey);
-	 */	 
-	virtual ~CSPKeyInfoProvider() { }
-	
-	/* cook up a Binary key */
-	virtual void CssmKeyToBinary(
-		BinaryKey			**binKey) = 0;	// RETURNED
-		
-	/* obtain key size in bits */
-	virtual void QueryKeySizeInBits(
-		CSSM_KEY_SIZE		&keySize) = 0;	// RETURNED
-
-protected:
-	const CssmKey			&mKey;
-};
-
-/*
- * CSPKeyInfoProvider for symmetric keys (handled directly by
- * the session). 
- */
-class SymmetricKeyInfoProvider : public CSPKeyInfoProvider 
-{
-private:
-	SymmetricKeyInfoProvider(
-		const CssmKey		&cssmKey);
-public:
-	static CSPKeyInfoProvider *provider(
-		const CssmKey &cssmKey);
-		
-	~SymmetricKeyInfoProvider() { }
-	void CssmKeyToBinary(
-		BinaryKey			**binKey);	// RETURNED
-	void QueryKeySizeInBits(
-		CSSM_KEY_SIZE		&keySize);	// RETURNED
-};
 
 #endif //_APPLE_CSP_SESSION_H_

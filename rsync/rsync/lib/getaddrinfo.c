@@ -396,7 +396,6 @@ getaddrinfo(hostname, servname, hints, res)
 	for (i = 0; afdl[i].a_af; i++) {
 		if (inet_pton(afdl[i].a_af, hostname, pton)) {
 			u_long v4a;
-			u_char pfx;
 
 			switch (afdl[i].a_af) {
 			case AF_INET:
@@ -409,10 +408,13 @@ getaddrinfo(hostname, servname, hints, res)
 				break;
 #ifdef INET6
 			case AF_INET6:
+			{
+				u_char pfx;
 				pfx = ((struct in6_addr *)pton)->s6_addr[0];
 				if (pfx == 0 || pfx == 0xfe || pfx == 0xff)
 					pai->ai_flags &= ~AI_CANONNAME;
 				break;
+			}
 #endif
 			}
 			
@@ -473,10 +475,13 @@ get_name(addr, afd, res, numaddr, pai, port0)
 	u_short port = port0 & 0xffff;
 	struct hostent *hp;
 	struct addrinfo *cur;
-	int error = 0, h_error;
+	int error = 0;
 	
 #ifdef INET6
-	hp = getipnodebyaddr(addr, afd->a_addrlen, afd->a_af, &h_error);
+	{
+		int h_error;
+		hp = getipnodebyaddr(addr, afd->a_addrlen, afd->a_af, &h_error);
+	}
 #else
 	hp = gethostbyaddr(addr, afd->a_addrlen, AF_INET);
 #endif

@@ -116,7 +116,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSerialFamily;
-				MODULE_VERSION = 6.0.1d19;
+				MODULE_VERSION = 6.0.1d20;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "-Wno-format -fpermissive";
 				OTHER_LDFLAGS = "";
@@ -159,7 +159,7 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>6.0.1d19</string>
+	<string>6.0.1d20</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSerialBSDClient</key>
@@ -214,6 +214,7 @@
 			isa = PBXShellScriptBuildPhase;
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "mkdir -p \"${DERIVED_SOURCES_DIR}/IOKit\" && ln -sf \"${SRCROOT}/IOSerialFamily.kmodproj\" \"${DERIVED_SOURCES_DIR}/IOKit/serial\";\nscript=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -229,6 +230,7 @@
 				A0147847011B0EC802CA285C,
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		021C9E49000BD0CF11CA285C = {
 			fileRef = 021C9E37000BD0CF11CA285C;
@@ -282,6 +284,7 @@
 			files = (
 			);
 			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		021C9E51000BD0CF11CA285C = {
 			buildActionMask = 2147483647;
@@ -290,6 +293,7 @@
 				021C9E54000BD0CF11CA285C,
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		021C9E52000BD0CF11CA285C = {
 			fileRef = 021C9E33000BD0CF11CA285C;
@@ -312,12 +316,14 @@
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		021C9E56000BD0CF11CA285C = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		021C9E57000BD0CF11CA285C = {
 			buildActionMask = 2147483647;
@@ -328,6 +334,7 @@
 			isa = PBXShellScriptBuildPhase;
 			neededFileNames = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
@@ -341,7 +348,6 @@
 				021C9E5A000BD1ED11CA285C,
 				021C9E5B000BD1ED11CA285C,
 				021C9E66000BD2B811CA285C,
-				A05A28E401B566E102CA285C,
 				021C9E5C000BD1ED11CA285C,
 				021C9E5D000BD1ED11CA285C,
 				021C9E5E000BD1ED11CA285C,
@@ -371,6 +377,7 @@
 			files = (
 			);
 			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		021C9E5B000BD1ED11CA285C = {
 			buildActionMask = 8;
@@ -384,24 +391,28 @@
 				021C9E65000BD2B811CA285C,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		021C9E5C000BD1ED11CA285C = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		021C9E5D000BD1ED11CA285C = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		021C9E5E000BD1ED11CA285C = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 		021C9E61000BD2B811CA285C = {
 			fileRef = 021C9E38000BD0CF11CA285C;
@@ -438,9 +449,11 @@
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/serial";
 			dstSubfolderSpec = 0;
 			files = (
+				A040A34B039BF5A802CA285C,
 				021C9E67000BD2B811CA285C,
 			);
 			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		021C9E67000BD2B811CA285C = {
 			fileRef = 021C9E38000BD0CF11CA285C;
@@ -519,16 +532,7 @@
 			settings = {
 			};
 		};
-		A05A28E401B566E102CA285C = {
-			buildActionMask = 8;
-			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/PrivateHeaders/serial";
-			dstSubfolderSpec = 0;
-			files = (
-				A05A28E501B566E102CA285C,
-			);
-			isa = PBXCopyFilesBuildPhase;
-		};
-		A05A28E501B566E102CA285C = {
+		A040A34B039BF5A802CA285C = {
 			fileRef = A0147846011B0EC802CA285C;
 			isa = PBXBuildFile;
 			settings = {

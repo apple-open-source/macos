@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -126,7 +124,7 @@ enum bool verbose)
     enum byte_sex host_byte_sex;
     enum bool swapped;
     unsigned long opcode;
-    int i, num, do_completers;
+    unsigned int i, num, do_completers;
     char *format, c;
     int jbsr;
     unsigned long sect_offset;
@@ -475,7 +473,7 @@ enum bool verbose)
 
 	if(reloc_found && r_extern == 1){
 	    if(symbols[r_symbolnum].n_un.n_strx < 0 ||
-	       symbols[r_symbolnum].n_un.n_strx >= strings_size)
+	       (unsigned long)symbols[r_symbolnum].n_un.n_strx >= strings_size)
 		name = "bad string offset";
 	    else
 		name = strings + symbols[r_symbolnum].n_un.n_strx;
@@ -623,7 +621,7 @@ unsigned long pc,
 struct relocation_info *relocs,
 unsigned long nrelocs)
 {
-    int i;
+    unsigned long i;
     struct relocation_info *rp;
     unsigned long r_type, r_address;
   

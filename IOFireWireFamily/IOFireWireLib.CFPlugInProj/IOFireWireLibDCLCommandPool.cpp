@@ -8,6 +8,15 @@
  */
 /*
 	$Log: IOFireWireLibDCLCommandPool.cpp,v $
+	Revision 1.11  2003/07/21 10:01:29  niels
+	*** empty log message ***
+	
+	Revision 1.10  2003/07/21 06:53:10  niels
+	merge isoch to TOT
+	
+	Revision 1.9.14.1  2003/07/01 20:54:23  niels
+	isoch merge
+	
 	Revision 1.9  2002/09/25 00:27:33  niels
 	flip your world upside-down
 	
@@ -15,45 +24,42 @@
 	fix user space hang (when devices are unplugged and a DCL program is running)
 	
 */
+
 #import "IOFireWireLibDCLCommandPool.h"
+#import "IOFireWireLibDevice.h"
+#import <mach/mach.h>
 #import <pthread.h>
 
 namespace IOFireWireLib {
 	
-	DCLCommandPoolCOM::Interface	DCLCommandPoolCOM::sInterface = {
+	TraditionalDCLCommandPoolCOM::Interface	TraditionalDCLCommandPoolCOM::sInterface = {
 		INTERFACEIMP_INTERFACE,
 		1, 0, //vers, rev
 	
-		DCLCommandPoolCOM::SAllocate,
-		&DCLCommandPoolCOM::SAllocateWithOpcode,
-		
-		&DCLCommandPoolCOM::SAllocateTransferPacketDCL,
-		&DCLCommandPoolCOM::SAllocateTransferBufferDCL,
-	
-		&DCLCommandPoolCOM::SAllocateSendPacketStartDCL,
-		&DCLCommandPoolCOM::SAllocateSendPacketWithHeaderStartDCL,
-		&DCLCommandPoolCOM::SAllocateSendBufferDCL,
-		&DCLCommandPoolCOM::SAllocateSendPacketDCL,
-	
-		&DCLCommandPoolCOM::SAllocateReceivePacketStartDCL,
-		&DCLCommandPoolCOM::SAllocateReceivePacketDCL,
-		&DCLCommandPoolCOM::SAllocateReceiveBufferDCL,
-	
-		&DCLCommandPoolCOM::SAllocateCallProcDCL,
-		&DCLCommandPoolCOM::SAllocateLabelDCL,
-		&DCLCommandPoolCOM::SAllocateJumpDCL,
-		&DCLCommandPoolCOM::SAllocateSetTagSyncBitsDCL,
-		&DCLCommandPoolCOM::SAllocateUpdateDCLListDCL,
-		&DCLCommandPoolCOM::SAllocatePtrTimeStampDCL,
-	
-		&DCLCommandPoolCOM::SFree,
-		
-		&DCLCommandPoolCOM::SGetSize,
-		&DCLCommandPoolCOM::SSetSize,
-		&DCLCommandPoolCOM::SGetBytesRemaining
+		SAllocate,
+		SAllocateWithOpcode,
+		SAllocateTransferPacketDCL,
+		SAllocateTransferBufferDCL,
+		SAllocateSendPacketStartDCL,
+		SAllocateSendPacketWithHeaderStartDCL,
+		SAllocateSendBufferDCL,
+		SAllocateSendPacketDCL,
+		SAllocateReceivePacketStartDCL,
+		SAllocateReceivePacketDCL,
+		SAllocateReceiveBufferDCL,
+		SAllocateCallProcDCL,
+		SAllocateLabelDCL,
+		SAllocateJumpDCL,
+		SAllocateSetTagSyncBitsDCL,
+		SAllocateUpdateDCLListDCL,
+		SAllocatePtrTimeStampDCL,
+		SFree,
+		SGetSize,
+		SSetSize,
+		SGetBytesRemaining
 	} ;
 	
-	DCLCommandPool::DCLCommandPool( IUnknownVTbl* interface, Device& inUserClient, IOByteCount inSize )
+	TraditionalDCLCommandPool::TraditionalDCLCommandPool( const IUnknownVTbl & interface, Device& inUserClient, IOByteCount inSize )
 	: IOFireWireIUnknown( interface ),
 	mUserClient(inUserClient)
 	{
@@ -64,27 +70,35 @@ namespace IOFireWireLib {
 		mAllocatedBlocks		= CFArrayCreateMutable(kCFAllocatorDefault, 0, nil) ;
 		mAllocatedBlockSizes	= CFArrayCreateMutable(kCFAllocatorDefault, 0, nil) ;
 	
-		mStorage = new UInt8[inSize] ;
-	
-		if(mStorage)
-		{
-			mBytesRemaining = inSize ;
-	
-			CFArrayAppendValue(mFreeBlocks, mStorage) ;
-			CFArrayAppendValue(mFreeBlockSizes, (const void*) inSize) ;
-		}
+//		mStorage = new UInt8[inSize] ;
+		IOReturn		error = vm_allocate ( mach_task_self (), (vm_address_t *) & mStorage, inSize, true /*anywhere*/ ) ;
+		if ( error )
+			throw error ;
+			
+		if ( ! mStorage )
+			throw kIOReturnVMError ;
+		
+		DebugLog( "TraditionalDCLCommandPool::TraditionalDCLCommandPool mStorage=%p, mStorageSize=%lu\n", mStorage, mStorageSize ) ;
+		
+		mBytesRemaining = inSize ;
+		mStorageSize = inSize ;
+
+		::CFArrayAppendValue ( mFreeBlocks, mStorage ) ;
+		::CFArrayAppendValue ( mFreeBlockSizes, (const void *) inSize ) ;
 		
 		pthread_mutex_init( & mMutex, nil ) ;
 	}
 		
-	DCLCommandPool::~DCLCommandPool()
+	TraditionalDCLCommandPool::~TraditionalDCLCommandPool()
 	{
 		Lock() ;
 	
 		if (mStorage)
 		{
-			delete[] mStorage ;
+//			delete[] mStorage ;
+			vm_deallocate ( mach_task_self (), (vm_address_t) mStorage, mStorageSize ) ;
 			mStorage = nil ;
+			mStorageSize = 0 ;
 		}
 		
 		if (mFreeBlocks)
@@ -104,7 +118,7 @@ namespace IOFireWireLib {
 	}
 	
 	DCLCommand*
-	DCLCommandPool::Allocate(
+	TraditionalDCLCommandPool::Allocate(
 		IOByteCount 					inSize )
 	{
 		UInt32 				blockSize ;
@@ -158,7 +172,7 @@ namespace IOFireWireLib {
 	}
 	
 	IOReturn
-	DCLCommandPool::AllocateWithOpcode(
+	TraditionalDCLCommandPool::AllocateWithOpcode(
 		DCLCommand* 		inDCL, 
 		DCLCommand** 		outDCL, 
 		UInt32 					opcode, ... )
@@ -167,13 +181,13 @@ namespace IOFireWireLib {
 	}
 	
 	DCLCommand*
-	DCLCommandPool::AllocateTransferPacketDCL(
+	TraditionalDCLCommandPool::AllocateTransferPacketDCL(
 		DCLCommand*		inDCL,
 		UInt32					inOpcode,
 		void*					inBuffer,
 		IOByteCount				inSize)
 	{
-		DCLTransferPacketStruct*	newDCL = (DCLTransferPacketStruct*) Allocate( sizeof(DCLTransferPacketStruct) ) ;
+		DCLTransferPacket*	newDCL = (DCLTransferPacket*) Allocate( sizeof(DCLTransferPacket) ) ;
 	
 		if (!newDCL)
 		{
@@ -194,7 +208,7 @@ namespace IOFireWireLib {
 	}
 	
 	DCLCommand*
-	DCLCommandPool::AllocateTransferBufferDCL(
+	TraditionalDCLCommandPool::AllocateTransferBufferDCL(
 		DCLCommand*		inDCL, 
 		UInt32 					inOpcode, 
 		void* 					inBuffer, 
@@ -202,7 +216,7 @@ namespace IOFireWireLib {
 		IOByteCount 			inPacketSize, 
 		UInt32 					inBufferOffset)
 	{
-		DCLTransferBufferStruct*	newDCL = (DCLTransferBufferStruct*) Allocate( sizeof(DCLTransferBufferStruct) ) ;
+		DCLTransferBuffer*	newDCL = (DCLTransferBuffer*) Allocate( sizeof(DCLTransferBuffer) ) ;
 	
 		if (!newDCL)
 			return nil ;
@@ -222,7 +236,7 @@ namespace IOFireWireLib {
 	}
 	
 	DCLCommand*
-	DCLCommandPool::AllocateSendPacketStartDCL(
+	TraditionalDCLCommandPool::AllocateSendPacketStartDCL(
 		DCLCommand* 		inDCL, 
 		void*					inBuffer,
 		IOByteCount				inSize)
@@ -231,7 +245,7 @@ namespace IOFireWireLib {
 	}
 	
 	DCLCommand*
-	DCLCommandPool::AllocateSendPacketWithHeaderStartDCL(
+	TraditionalDCLCommandPool::AllocateSendPacketWithHeaderStartDCL(
 		DCLCommand* 		inDCL, 
 		void*					inBuffer,
 		IOByteCount				inSize)
@@ -240,7 +254,7 @@ namespace IOFireWireLib {
 	}
 	
 	DCLCommand*
-	DCLCommandPool::AllocateSendBufferDCL(	// not implemented
+	TraditionalDCLCommandPool::AllocateSendBufferDCL(	// not implemented
 		DCLCommand* 		inDCL, 
 		void*					inBuffer,
 		IOByteCount				inSize,
@@ -251,7 +265,7 @@ namespace IOFireWireLib {
 	}
 	
 	DCLCommand*
-	DCLCommandPool::AllocateSendPacketDCL(
+	TraditionalDCLCommandPool::AllocateSendPacketDCL(
 		DCLCommand* 		inDCL,
 		void*					inBuffer,
 		IOByteCount				inSize)
@@ -260,7 +274,7 @@ namespace IOFireWireLib {
 	}
 	
 	DCLCommand*
-	DCLCommandPool::AllocateReceivePacketStartDCL(
+	TraditionalDCLCommandPool::AllocateReceivePacketStartDCL(
 		DCLCommand* 		inDCL, 
 		void*					inBuffer,
 		IOByteCount				inSize)
@@ -269,7 +283,7 @@ namespace IOFireWireLib {
 	}
 	
 	DCLCommand*
-	DCLCommandPool::AllocateReceivePacketDCL(
+	TraditionalDCLCommandPool::AllocateReceivePacketDCL(
 		DCLCommand* 		inDCL,
 		void*					inBuffer,
 		IOByteCount				inSize)
@@ -278,7 +292,7 @@ namespace IOFireWireLib {
 	}
 	
 	DCLCommand*
-	DCLCommandPool::AllocateReceiveBufferDCL( // not implemented
+	TraditionalDCLCommandPool::AllocateReceiveBufferDCL( // not implemented
 		DCLCommand* 			inDCL, 
 		void*					inBuffer,
 		IOByteCount				inSize,
@@ -289,12 +303,12 @@ namespace IOFireWireLib {
 	}
 	
 	DCLCommand*
-	DCLCommandPool::AllocateCallProcDCL(
+	TraditionalDCLCommandPool::AllocateCallProcDCL(
 		DCLCommand* 			inDCL, 
 		DCLCallCommandProc*		inProc,
 		UInt32					inProcData)
 	{
-		DCLCallProcStruct*	newDCL = (DCLCallProcStruct*) Allocate(sizeof(DCLCallProcStruct)) ;
+		DCLCallProc*	newDCL = (DCLCallProc*) Allocate(sizeof(DCLCallProc)) ;
 		
 		if (!newDCL)
 			return nil ;
@@ -311,10 +325,10 @@ namespace IOFireWireLib {
 	}
 	
 	DCLCommand*
-	DCLCommandPool::AllocateLabelDCL(
+	TraditionalDCLCommandPool::AllocateLabelDCL(
 		DCLCommand* 		inDCL)
 	{
-		DCLLabelStruct*	newDCL = (DCLLabelStruct*) Allocate(sizeof(DCLLabelStruct)) ;
+		DCLLabel*	newDCL = (DCLLabel*) Allocate(sizeof(DCLLabel)) ;
 		
 		if (newDCL)
 		{
@@ -329,11 +343,11 @@ namespace IOFireWireLib {
 	}
 	
 	DCLCommand*
-	DCLCommandPool::AllocateJumpDCL(
+	TraditionalDCLCommandPool::AllocateJumpDCL(
 		DCLCommand* 		inDCL, 
 		DCLLabel*			pInJumpDCLLabel)
 	{
-		DCLJumpStruct*	newDCL = (DCLJumpStruct*) Allocate( sizeof(DCLJumpStruct)) ;
+		DCLJump*	newDCL = (DCLJump*) Allocate( sizeof(DCLJump)) ;
 	
 		if (newDCL)
 		{
@@ -349,12 +363,12 @@ namespace IOFireWireLib {
 	}
 	
 	DCLCommand*
-	DCLCommandPool::AllocateSetTagSyncBitsDCL(
+	TraditionalDCLCommandPool::AllocateSetTagSyncBitsDCL(
 		DCLCommand* 		inDCL, 
 		UInt16					inTagBits,
 		UInt16					inSyncBits)
 	{
-		DCLSetTagSyncBitsStruct*	newDCL = (DCLSetTagSyncBitsStruct*) Allocate(sizeof(DCLSetTagSyncBitsStruct)) ;
+		DCLSetTagSyncBits*	newDCL = (DCLSetTagSyncBits*) Allocate(sizeof(DCLSetTagSyncBits)) ;
 		
 		if (newDCL)
 		{
@@ -371,12 +385,12 @@ namespace IOFireWireLib {
 	}
 	
 	DCLCommand*
-	DCLCommandPool::AllocateUpdateDCLListDCL(
+	TraditionalDCLCommandPool::AllocateUpdateDCLListDCL(
 		DCLCommand* 		inDCL, 
 		DCLCommand**			inDCLCommandList,
 		UInt32					inNumDCLCommands)
 	{
-		DCLUpdateDCLListStruct*	newDCL = (DCLUpdateDCLListStruct*) Allocate(sizeof(DCLUpdateDCLListStruct)) ;
+		DCLUpdateDCLList*	newDCL = (DCLUpdateDCLList*) Allocate(sizeof(DCLUpdateDCLList)) ;
 		
 		if (newDCL)
 		{
@@ -393,11 +407,11 @@ namespace IOFireWireLib {
 	}
 	
 	DCLCommand*
-	DCLCommandPool::AllocatePtrTimeStampDCL(
+	TraditionalDCLCommandPool::AllocatePtrTimeStampDCL(
 		DCLCommand* 		inDCL, 
 		UInt32*					inTimeStampPtr)
 	{
-		DCLPtrTimeStampStruct*	newDCL = (DCLPtrTimeStampStruct*) Allocate(sizeof(DCLPtrTimeStampStruct)) ;
+		DCLPtrTimeStamp*	newDCL = (DCLPtrTimeStamp*) Allocate(sizeof(DCLPtrTimeStamp)) ;
 		
 		if (newDCL)
 		{
@@ -413,7 +427,7 @@ namespace IOFireWireLib {
 	}
 	
 	void
-	DCLCommandPool::Free(
+	TraditionalDCLCommandPool::Free(
 		DCLCommand* 				inDCL )
 	{
 		Lock() ;
@@ -428,9 +442,12 @@ namespace IOFireWireLib {
 			// 2. if found, return block to free list
 			
 			CFIndex index = 0 ;
-			while ( (index < CFArrayGetCount(mFreeBlocks)) && (CFArrayGetValueAtIndex(mFreeBlocks, index) <= inDCL) )
-				++index ;
-	
+			{
+				CFIndex count = ::CFArrayGetCount( mFreeBlocks ) ;
+				while ( (index < count) && (CFArrayGetValueAtIndex(mFreeBlocks, index) <= inDCL) )
+					++index ;
+			}
+			
 			// update free space counter to reflect returning block to free list
 			mBytesRemaining += foundBlockSize ;
 	
@@ -447,7 +464,7 @@ namespace IOFireWireLib {
 	}
 	
 	Boolean
-	DCLCommandPool::SetSize(
+	TraditionalDCLCommandPool::SetSize(
 		IOByteCount 					inSize )
 	{
 		// trying to make buffer smaller than space we've already allocated
@@ -456,24 +473,30 @@ namespace IOFireWireLib {
 		
 		if (inSize > mStorageSize)
 		{
-			UInt8*	newStorage = new UInt8[inSize] ;
-			if (!newStorage)
+			UInt8*	newStorage = 0 ;// = new UInt8[inSize] ;
+			IOReturn error = vm_allocate ( mach_task_self (), (vm_address_t *) & newStorage, inSize, true /*anywhere*/ ) ;
+			if ( error )
+				return false ;
+				
+			if ( ! newStorage )
 				return false ;
 			
 			Lock() ;
 			
-			CFArrayAppendValue(mFreeBlocks, mStorage + mStorageSize) ;
-			CFArrayAppendValue(mFreeBlockSizes, (const void*)(inSize - mStorageSize) ) ;
+			::CFArrayAppendValue ( mFreeBlocks, mStorage + mStorageSize ) ;
+			::CFArrayAppendValue ( mFreeBlockSizes, (const void *)( inSize - mStorageSize ) ) ;
+			
 			CoalesceFreeBlocks() ;			
 	
 			mBytesRemaining += inSize - mStorageSize ;
 			
-			bcopy(mStorage, newStorage, mStorageSize) ;
-			
-			mStorageSize = inSize ;
-	
-			delete[] mStorage ;
+			bcopy ( mStorage, newStorage, mStorageSize ) ;
+
+//			delete[] mStorage ;
+			vm_deallocate ( mach_task_self (), (vm_address_t) mStorage, mStorageSize ) ;
+				
 			mStorage = newStorage ;
+			mStorageSize = inSize ;
 			
 			Unlock() ;
 		}
@@ -482,19 +505,19 @@ namespace IOFireWireLib {
 	}
 
 	void
-	DCLCommandPool::Lock()
+	TraditionalDCLCommandPool::Lock()
 	{
 		pthread_mutex_lock( & mMutex ) ;
 	}
 	
 	void
-	DCLCommandPool::Unlock()
+	TraditionalDCLCommandPool::Unlock()
 	{
 		pthread_mutex_unlock( & mMutex ) ;
 	}
 	
 	void
-	DCLCommandPool::CoalesceFreeBlocks()
+	TraditionalDCLCommandPool::CoalesceFreeBlocks()
 	{		
 		UInt32			freeBlockCount	 	= CFArrayGetCount(mFreeBlocks) ;
 		UInt32			index				= 1 ;
@@ -525,26 +548,26 @@ namespace IOFireWireLib {
 	}
 	
 	// ============================================================
-	// DCLCommandPoolCOM
+	// TraditionalDCLCommandPoolCOM
 	// ============================================================
 	
-	DCLCommandPoolCOM::DCLCommandPoolCOM( Device& inUserClient, IOByteCount inSize)
-	: DCLCommandPool( reinterpret_cast<IUnknownVTbl*>( & sInterface ), inUserClient, inSize )
+	TraditionalDCLCommandPoolCOM::TraditionalDCLCommandPoolCOM( Device& inUserClient, IOByteCount inSize)
+	: TraditionalDCLCommandPool( reinterpret_cast<const IUnknownVTbl &>( sInterface ), inUserClient, inSize )
 	{
 	}
 	
-	DCLCommandPoolCOM::~DCLCommandPoolCOM()
+	TraditionalDCLCommandPoolCOM::~TraditionalDCLCommandPoolCOM()
 	{
 	}
 	
 	IUnknownVTbl**
-	DCLCommandPoolCOM::Alloc(
+	TraditionalDCLCommandPoolCOM::Alloc(
 		Device&	inUserClient, 
 		IOByteCount			 			inSize)
 	{
-		DCLCommandPoolCOM *	me = nil;
+		TraditionalDCLCommandPoolCOM *	me = nil;
 		try {
-			me = new DCLCommandPoolCOM(inUserClient, inSize) ;
+			me = new TraditionalDCLCommandPoolCOM(inUserClient, inSize) ;
 		} catch(...) {
 		}
 
@@ -552,7 +575,7 @@ namespace IOFireWireLib {
 	}
 	
 	HRESULT
-	DCLCommandPoolCOM::QueryInterface(REFIID iid, void ** ppv )
+	TraditionalDCLCommandPoolCOM::QueryInterface(REFIID iid, void ** ppv )
 	{
 		HRESULT		result = S_OK ;
 		*ppv = nil ;
@@ -578,16 +601,16 @@ namespace IOFireWireLib {
 	// --- static methods ------------------
 	//
 	DCLCommand*
-	DCLCommandPoolCOM::SAllocate(
+	TraditionalDCLCommandPoolCOM::SAllocate(
 		Ref						self, 
 		IOByteCount 			inSize )
 	{
-		return IOFireWireIUnknown::InterfaceMap<DCLCommandPoolCOM>::GetThis(self)->Allocate(inSize) ;
+		return IOFireWireIUnknown::InterfaceMap<TraditionalDCLCommandPoolCOM>::GetThis(self)->Allocate(inSize) ;
 	}
 	
 	
 	IOReturn
-	DCLCommandPoolCOM::SAllocateWithOpcode(
+	TraditionalDCLCommandPoolCOM::SAllocateWithOpcode(
 		Ref						self, 
 		DCLCommand* 		inDCL, 
 		DCLCommand** 		outDCL, 
@@ -597,25 +620,25 @@ namespace IOFireWireLib {
 		va_list 	va ;
 	
 		va_start(va, opcode) ;
-		result = IOFireWireIUnknown::InterfaceMap<DCLCommandPoolCOM>::GetThis(self)->AllocateWithOpcode(inDCL, outDCL, opcode, va) ;
+		result = IOFireWireIUnknown::InterfaceMap<TraditionalDCLCommandPoolCOM>::GetThis(self)->AllocateWithOpcode(inDCL, outDCL, opcode, va) ;
 		va_end(va) ;
 	
 		return result ;
 	}
 	
 	DCLCommand*
-	DCLCommandPoolCOM::SAllocateTransferPacketDCL(
+	TraditionalDCLCommandPoolCOM::SAllocateTransferPacketDCL(
 		Ref						self, 
 		DCLCommand*		inDCL,
 		UInt32					inOpcode,
 		void*					inBuffer,
 		IOByteCount				inSize)
 	{
-		return IOFireWireIUnknown::InterfaceMap<DCLCommandPoolCOM>::GetThis(self)->AllocateTransferPacketDCL(inDCL, inOpcode, inBuffer, inSize) ;
+		return IOFireWireIUnknown::InterfaceMap<TraditionalDCLCommandPoolCOM>::GetThis(self)->AllocateTransferPacketDCL(inDCL, inOpcode, inBuffer, inSize) ;
 	}
 	
 	DCLCommand*
-	DCLCommandPoolCOM::SAllocateTransferBufferDCL(
+	TraditionalDCLCommandPoolCOM::SAllocateTransferBufferDCL(
 		Ref 	self, 
 		DCLCommand* 				inDCL, 
 		UInt32 							inOpcode, 
@@ -624,31 +647,31 @@ namespace IOFireWireLib {
 		IOByteCount 					inPacketSize, 
 		UInt32 							inBufferOffset)
 	{
-		return IOFireWireIUnknown::InterfaceMap<DCLCommandPoolCOM>::GetThis(self)->AllocateTransferBufferDCL(inDCL, inOpcode, inBuffer, inSize, inPacketSize, inBufferOffset) ;
+		return IOFireWireIUnknown::InterfaceMap<TraditionalDCLCommandPoolCOM>::GetThis(self)->AllocateTransferBufferDCL(inDCL, inOpcode, inBuffer, inSize, inPacketSize, inBufferOffset) ;
 	}
 	
 	DCLCommand*
-	DCLCommandPoolCOM::SAllocateSendPacketStartDCL(
+	TraditionalDCLCommandPoolCOM::SAllocateSendPacketStartDCL(
 		Ref						self, 
 		DCLCommand* 		inDCL, 
 		void*					inBuffer,
 		IOByteCount				inSize)
 	{
-		return IOFireWireIUnknown::InterfaceMap<DCLCommandPoolCOM>::GetThis(self)->AllocateSendPacketStartDCL(inDCL, inBuffer, inSize) ;
+		return IOFireWireIUnknown::InterfaceMap<TraditionalDCLCommandPoolCOM>::GetThis(self)->AllocateSendPacketStartDCL(inDCL, inBuffer, inSize) ;
 	}
 	
 	DCLCommand*
-	DCLCommandPoolCOM::SAllocateSendPacketWithHeaderStartDCL(
+	TraditionalDCLCommandPoolCOM::SAllocateSendPacketWithHeaderStartDCL(
 		Ref						self, 
 		DCLCommand* 		inDCL, 
 		void*					inBuffer,
 		IOByteCount				inSize)
 	{
-		return IOFireWireIUnknown::InterfaceMap<DCLCommandPoolCOM>::GetThis(self)->AllocateSendPacketWithHeaderStartDCL(inDCL, inBuffer, inSize) ;
+		return IOFireWireIUnknown::InterfaceMap<TraditionalDCLCommandPoolCOM>::GetThis(self)->AllocateSendPacketWithHeaderStartDCL(inDCL, inBuffer, inSize) ;
 	}
 	
 	DCLCommand*
-	DCLCommandPoolCOM::SAllocateSendBufferDCL(		// currently does nothing
+	TraditionalDCLCommandPoolCOM::SAllocateSendBufferDCL(		// currently does nothing
 		Ref						self, 
 		DCLCommand* 		inDCL, 
 		void*					inBuffer,
@@ -656,41 +679,41 @@ namespace IOFireWireLib {
 		IOByteCount				inPacketSize,
 		UInt32					inBufferOffset)
 	{
-		return IOFireWireIUnknown::InterfaceMap<DCLCommandPoolCOM>::GetThis(self)->AllocateSendBufferDCL(inDCL, inBuffer, inSize, inPacketSize, inBufferOffset) ;
+		return IOFireWireIUnknown::InterfaceMap<TraditionalDCLCommandPoolCOM>::GetThis(self)->AllocateSendBufferDCL(inDCL, inBuffer, inSize, inPacketSize, inBufferOffset) ;
 	}
 	
 	DCLCommand*
-	DCLCommandPoolCOM::SAllocateSendPacketDCL(
+	TraditionalDCLCommandPoolCOM::SAllocateSendPacketDCL(
 		Ref						self, 
 		DCLCommand* 		inDCL,
 		void*					inBuffer,
 		IOByteCount				inSize)
 	{
-		return IOFireWireIUnknown::InterfaceMap<DCLCommandPoolCOM>::GetThis(self)->AllocateSendPacketDCL(inDCL, inBuffer, inSize) ;
+		return IOFireWireIUnknown::InterfaceMap<TraditionalDCLCommandPoolCOM>::GetThis(self)->AllocateSendPacketDCL(inDCL, inBuffer, inSize) ;
 	}
 	
 	DCLCommand*
-	DCLCommandPoolCOM::SAllocateReceivePacketStartDCL(
+	TraditionalDCLCommandPoolCOM::SAllocateReceivePacketStartDCL(
 		Ref						self, 
 		DCLCommand* 		inDCL, 
 		void*					inBuffer,
 		IOByteCount				inSize)
 	{
-		return IOFireWireIUnknown::InterfaceMap<DCLCommandPoolCOM>::GetThis(self)->AllocateReceivePacketStartDCL(inDCL, inBuffer, inSize) ;
+		return IOFireWireIUnknown::InterfaceMap<TraditionalDCLCommandPoolCOM>::GetThis(self)->AllocateReceivePacketStartDCL(inDCL, inBuffer, inSize) ;
 	}
 	
 	DCLCommand*
-	DCLCommandPoolCOM::SAllocateReceivePacketDCL(
+	TraditionalDCLCommandPoolCOM::SAllocateReceivePacketDCL(
 		Ref						self, 
 		DCLCommand* 		inDCL,
 		void*					inBuffer,
 		IOByteCount				inSize)
 	{
-		return IOFireWireIUnknown::InterfaceMap<DCLCommandPoolCOM>::GetThis(self)->AllocateReceivePacketDCL(inDCL, inBuffer, inSize) ;
+		return IOFireWireIUnknown::InterfaceMap<TraditionalDCLCommandPoolCOM>::GetThis(self)->AllocateReceivePacketDCL(inDCL, inBuffer, inSize) ;
 	}
 	
 	DCLCommand*
-	DCLCommandPoolCOM::SAllocateReceiveBufferDCL(	// currently does nothing
+	TraditionalDCLCommandPoolCOM::SAllocateReceiveBufferDCL(	// currently does nothing
 		Ref						self, 
 		DCLCommand* 			inDCL, 
 		void*					inBuffer,
@@ -698,92 +721,92 @@ namespace IOFireWireLib {
 		IOByteCount				inPacketSize,
 		UInt32					inBufferOffset)
 	{
-		return IOFireWireIUnknown::InterfaceMap<DCLCommandPoolCOM>::GetThis(self)->AllocateReceiveBufferDCL(inDCL, inBuffer, inSize, inPacketSize, inBufferOffset) ;
+		return IOFireWireIUnknown::InterfaceMap<TraditionalDCLCommandPoolCOM>::GetThis(self)->AllocateReceiveBufferDCL(inDCL, inBuffer, inSize, inPacketSize, inBufferOffset) ;
 	}
 	
 	DCLCommand*
-	DCLCommandPoolCOM::SAllocateCallProcDCL(
+	TraditionalDCLCommandPoolCOM::SAllocateCallProcDCL(
 		Ref						self, 
 		DCLCommand* 			inDCL, 
 		DCLCallCommandProc*		inProc,
 		UInt32					inProcData)
 	{
-		return IOFireWireIUnknown::InterfaceMap<DCLCommandPoolCOM>::GetThis(self)->AllocateCallProcDCL(inDCL, inProc, inProcData) ;
+		return IOFireWireIUnknown::InterfaceMap<TraditionalDCLCommandPoolCOM>::GetThis(self)->AllocateCallProcDCL(inDCL, inProc, inProcData) ;
 	}
 	
 	DCLCommand*
-	DCLCommandPoolCOM::SAllocateLabelDCL(
+	TraditionalDCLCommandPoolCOM::SAllocateLabelDCL(
 		Ref						self, 
 		DCLCommand* 			inDCL)
 	{
-		return IOFireWireIUnknown::InterfaceMap<DCLCommandPoolCOM>::GetThis(self)->AllocateLabelDCL(inDCL) ;
+		return IOFireWireIUnknown::InterfaceMap<TraditionalDCLCommandPoolCOM>::GetThis(self)->AllocateLabelDCL(inDCL) ;
 	}
 		
 	DCLCommand*
-	DCLCommandPoolCOM::SAllocateJumpDCL(
+	TraditionalDCLCommandPoolCOM::SAllocateJumpDCL(
 		Ref						self, 
 		DCLCommand* 			inDCL, 
 		DCLLabel*				pInJumpDCLLabel)
 	{
-		return IOFireWireIUnknown::InterfaceMap<DCLCommandPoolCOM>::GetThis(self)->AllocateJumpDCL(inDCL, pInJumpDCLLabel) ;
+		return IOFireWireIUnknown::InterfaceMap<TraditionalDCLCommandPoolCOM>::GetThis(self)->AllocateJumpDCL(inDCL, pInJumpDCLLabel) ;
 	}
 	
 	DCLCommand*
-	DCLCommandPoolCOM::SAllocateSetTagSyncBitsDCL(
+	TraditionalDCLCommandPoolCOM::SAllocateSetTagSyncBitsDCL(
 		Ref						self, 
 		DCLCommand* 		inDCL, 
 		UInt16					inTagBits,
 		UInt16					inSyncBits)
 	{
-		return IOFireWireIUnknown::InterfaceMap<DCLCommandPoolCOM>::GetThis(self)->AllocateSetTagSyncBitsDCL(inDCL, inTagBits, inSyncBits) ;
+		return IOFireWireIUnknown::InterfaceMap<TraditionalDCLCommandPoolCOM>::GetThis(self)->AllocateSetTagSyncBitsDCL(inDCL, inTagBits, inSyncBits) ;
 	}
 	
 	DCLCommand*
-	DCLCommandPoolCOM::SAllocateUpdateDCLListDCL(
+	TraditionalDCLCommandPoolCOM::SAllocateUpdateDCLListDCL(
 		Ref						self, 
 		DCLCommand* 		inDCL, 
 		DCLCommand**			inDCLCommandList,
 		UInt32					inNumCommands)
 	{
-		return IOFireWireIUnknown::InterfaceMap<DCLCommandPoolCOM>::GetThis(self)->AllocateUpdateDCLListDCL(inDCL, inDCLCommandList, inNumCommands) ;
+		return IOFireWireIUnknown::InterfaceMap<TraditionalDCLCommandPoolCOM>::GetThis(self)->AllocateUpdateDCLListDCL(inDCL, inDCLCommandList, inNumCommands) ;
 	}
 	
 	DCLCommand*
-	DCLCommandPoolCOM::SAllocatePtrTimeStampDCL(
+	TraditionalDCLCommandPoolCOM::SAllocatePtrTimeStampDCL(
 		Ref						self, 
 		DCLCommand* 		inDCL, 
 		UInt32*					inTimeStampPtr)
 	{
-		return IOFireWireIUnknown::InterfaceMap<DCLCommandPoolCOM>::GetThis(self)->AllocatePtrTimeStampDCL(inDCL, inTimeStampPtr) ;
+		return IOFireWireIUnknown::InterfaceMap<TraditionalDCLCommandPoolCOM>::GetThis(self)->AllocatePtrTimeStampDCL(inDCL, inTimeStampPtr) ;
 	}
 	
 	void
-	DCLCommandPoolCOM::SFree(
+	TraditionalDCLCommandPoolCOM::SFree(
 		Ref 	self, 
 		DCLCommand* 				inDCL )
 	{
-		IOFireWireIUnknown::InterfaceMap<DCLCommandPoolCOM>::GetThis(self)->Free(inDCL) ;
+		IOFireWireIUnknown::InterfaceMap<TraditionalDCLCommandPoolCOM>::GetThis(self)->Free(inDCL) ;
 	}
 	
 	IOByteCount
-	DCLCommandPoolCOM::SGetSize(
+	TraditionalDCLCommandPoolCOM::SGetSize(
 		Ref 	self )
 	{
-		return IOFireWireIUnknown::InterfaceMap<DCLCommandPoolCOM>::GetThis(self)->mStorageSize ;
+		return IOFireWireIUnknown::InterfaceMap<TraditionalDCLCommandPoolCOM>::GetThis(self)->mStorageSize ;
 	}
 	
 	Boolean
-	DCLCommandPoolCOM::SSetSize(
+	TraditionalDCLCommandPoolCOM::SSetSize(
 		Ref 	self, 
 		IOByteCount 					inSize )
 	{
-		return IOFireWireIUnknown::InterfaceMap<DCLCommandPoolCOM>::GetThis(self)->SetSize(inSize) ;
+		return IOFireWireIUnknown::InterfaceMap<TraditionalDCLCommandPoolCOM>::GetThis(self)->SetSize(inSize) ;
 	}
 	
 	IOByteCount
-	DCLCommandPoolCOM::SGetBytesRemaining(
+	TraditionalDCLCommandPoolCOM::SGetBytesRemaining(
 		Ref 	self )
 	{
-		return IOFireWireIUnknown::InterfaceMap<DCLCommandPoolCOM>::GetThis(self)->mBytesRemaining ;
+		return IOFireWireIUnknown::InterfaceMap<TraditionalDCLCommandPoolCOM>::GetThis(self)->mBytesRemaining ;
 	}
 }

@@ -1,4 +1,28 @@
 /*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  *  DNSRegistrationThread.cpp
  *  DSNSLPlugins
  *
@@ -11,6 +35,7 @@
 #include "mDNSPlugin.h"
 
 #include "LinkAddresses.h"
+#include "CNSLTimingUtils.h"
 
 #define kOurSpecialRegRef -1
 
@@ -20,11 +45,18 @@ typedef struct DNSRegData {
 
 } DNSRegData;
 
+const CFStringRef	kDNSSCDynamicStoreKeySAFE_CFSTR = CFSTR("com.apple.DirectoryServices.DNS");
+const CFStringRef	kWorkstationTypeSAFE_CFSTR = CFSTR("_workstation._tcp.");
+const CFStringRef	kWorkstationPortSAFE_CFSTR = CFSTR("9");
+
+const CFStringRef	kSpaceLeftBracketSAFE_CFSTR = CFSTR(" [");
+const CFStringRef	kRightBracketSAFE_CFSTR = CFSTR("]");
+const CFStringRef	kZeroedMACAddressSAFE_CFSTR = CFSTR("0:0:0:0:0:0");
+
 static void RegisterEntityCallBack(CFNetServiceRef theEntity, CFStreamError* error, void* info);
-CFStringRef CopyCancelRegDescription( void* info );
-CFStringRef CopyRegistrationDescription( void* info );
-void CancelRegThread(CFRunLoopTimerRef timer, void *info);
-boolean_t SystemConfigurationNetworkChangedCallBack(SCDynamicStoreRef session, void *callback_argument);
+CFStringRef CopyCancelRegDescription( const void* info );
+CFStringRef CopyRegistrationDescription( const void* info );
+boolean_t SystemConfigurationNameChangedCallBack(SCDynamicStoreRef session, void *callback_argument);
 
 DNSRegistrationThread::DNSRegistrationThread(	mDNSPlugin* parentPlugin )
 //    : DSLThread()
@@ -91,119 +123,78 @@ void DNSRegistrationThread::Initialize( CFRunLoopRef idleRunLoopRef )
 	mRunLoopRef = idleRunLoopRef;
 
     if ( !mSCRef )
-        mSCRef = ::SCDynamicStoreCreate(NULL, CFSTR("com.apple.DirectoryServices.DNS"), NULL, NULL);
-}
+        mSCRef = ::SCDynamicStoreCreate(NULL, kDNSSCDynamicStoreKeySAFE_CFSTR, NULL, NULL);
+
+	SInt32				scdStatus			= 0;
+	CFStringRef			key					= 0;
+	Boolean				setStatus			= FALSE;
+    CFMutableArrayRef	notifyKeys			= CFArrayCreateMutable(	kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+    CFMutableArrayRef	notifyPatterns		= CFArrayCreateMutable(	kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+    
+    // name changes
+    DBGLOG( "RegisterForNetworkChange for SCDynamicStoreKeyCreateComputerName:\n" );
+    key = SCDynamicStoreKeyCreateComputerName(NULL);
+    CFArrayAppendValue(notifyKeys, key);
+    CFRelease(key);
 /*
-void* DNSRegistrationThread::Run( void )
-{
-    // We just want to set up and do a CFRunLoop
-    Initialize();
-    DBGLOG("DNSRegistrationThread::Run called, just going to start up a CFRunLoop\n" );
-    mRunLoopRef = CFRunLoopGetCurrent();
-        
-    if ( !mSCRef )
-        mSCRef = ::SCDynamicStoreCreate(NULL, CFSTR("com.apple.DirectoryServices.DNS"), NULL, NULL);
-    
-    CFRunLoopTimerContext 		c = {0, this, NULL, NULL, NULL};
-    CFRunLoopTimerRef 			timer = CFRunLoopTimerCreate(NULL, 1.0e20, 0, 0, 0, CancelRegThread, (CFRunLoopTimerContext*)&c);
-    CFRunLoopAddTimer(mRunLoopRef, timer, kCFRunLoopDefaultMode);
-    
-    CFRunLoopRun();
-    
-    DBGLOG("DNSRegistrationThread::Run, CFRunLoop finished - exiting thread\n" );
-    
-    return NULL;
+    DBGLOG( "RegisterForNetworkChange for SCDynamicStoreKeyCreateHostNames:\n" );
+    key = SCDynamicStoreKeyCreateHostNames(NULL);
+    CFArrayAppendValue(notifyKeys, key);
+    CFRelease(key);
+*/	
+    setStatus = SCDynamicStoreSetNotificationKeys(mSCRef, notifyKeys, notifyPatterns);
+
+    CFRelease(notifyKeys);
+    CFRelease(notifyPatterns);
+
+    if ( mRunLoopRef )
+    {
+        ::CFRunLoopAddCommonMode( mRunLoopRef, kCFRunLoopDefaultMode );
+        scdStatus = ::SCDynamicStoreNotifyCallback( mSCRef, mRunLoopRef, SystemConfigurationNameChangedCallBack, this );
+        DBGLOG( "NSLRequestMgrThread::RegisterForNetworkChanges, SCDynamicStoreNotifyCallback returned %ld\n", scdStatus );
+    }
+    else
+        DBGLOG( "NSLRequestMgrThread::RegisterForNetworkChanges, No Current Run Loop, couldn't store Notify callback\n" );
 }
-*/
+
 // we want to set this up so that we will keep some special services registered (e.g. MacManager's workstation
 // and we want to also keep track of the machine name since we'll want to keep this changing its registration when
 // the machine changes.
-void DNSRegistrationThread::RegisterHostedServices( void )
+tDirStatus DNSRegistrationThread::RegisterHostedServices( void )
 {
-//    if ( !mListOfServicesToRegisterManually )
-    {
-        // just create a service for MacManager
-//        mListOfServicesToRegisterManually = CFArrayCreateMutable( NULL, 1, &kCFTypeArrayCallBacks );		// only allowing 1 item for now!
-        
-//        CFArrayAddValue( mListOfServicesToRegisterManually, newService );
+	tDirStatus			registrationStatus = eDSNoErr;
+	CFStringEncoding	encoding;
+	CFStringRef			computerName = SCDynamicStoreCopyComputerName(NULL, &encoding);
+	
+	if ( computerName )
+	{
+		CFStringRef	ethernetAddress = CreateComputerNameEthernetString(computerName);
+		
+		if ( ethernetAddress )
+		{
+			char	ethernetAddressStr[1024] = {0,};
+			CFStringGetCString( ethernetAddress, ethernetAddressStr, sizeof(ethernetAddressStr), kCFStringEncodingUTF8 );
+			DBGLOG( "DNSRegistrationThread::RegisterHostedServices, registering %s\n", ethernetAddressStr );
+			
+			registrationStatus = PerformRegistration( ethernetAddress, kWorkstationTypeSAFE_CFSTR, kEmptySAFE_CFSTR, NULL, kWorkstationPortSAFE_CFSTR, &mOurSpecialRegKey );
+			
+			if ( mOurSpecialRegKey )
+			{
+				CFStringGetCString( mOurSpecialRegKey, ethernetAddressStr, sizeof(ethernetAddressStr), kCFStringEncodingUTF8 );
+				DBGLOG( "DNSRegistrationThread::RegisterHostedServices set mOurSpecialRegKey to %s\n", ethernetAddressStr );
+			}
 
-        CFStringEncoding	encoding;
-        CFStringRef			computerName = SCDynamicStoreCopyComputerName(NULL, &encoding);
-        
-        if ( computerName )
-        {
-            CFStringRef	ethernetAddress = CreateComputerNameEthernetString(computerName);
-            
-            if ( ethernetAddress )
-            {
-                PerformRegistration( ethernetAddress, CFSTR("_workstation._tcp."), CFSTR(""), NULL, CFSTR("9"), &mOurSpecialRegKey );
-//                PerformRegistration( ethernetAddress, CFSTR("_workstation._tcp."), CFSTR("local."), NULL, CFSTR("9"), &mOurSpecialRegKey );
-                ::CFRelease( ethernetAddress );
-            }
-            else
-                DBGLOG("DNSRegistrationThread::RegisterHostedServices Could't get Ethernet Address!\n" );
-            
-            ::CFRelease( computerName );
-        }
-        else
-            DBGLOG("DNSRegistrationThread::RegisterHostedServices Could't get computer name!\n" );
-    }
-}
-
-CFStringRef	DNSRegistrationThread::CreateComputerNameEthernetString( CFStringRef computerName )
-{
-    CFMutableStringRef		modString = CFStringCreateMutableCopy( NULL, 0, computerName );
-    CFStringRef				macAddress = CreateMacAddressString();
-    
-    CFStringAppend( modString, CFSTR(" [") );
-    if ( macAddress )
-        CFStringAppend( modString, macAddress );
-    else
-        CFStringAppend( modString, CFSTR("0:0:0:0:0:0") );
-        
-    CFStringAppend( modString, CFSTR("]") );
-
-    if ( macAddress )
-        CFRelease( macAddress );
-        
-    if ( getenv( "NSLDEBUG" ) )
-    {
-        DBGLOG( "DNSRegistrationThread::CreateComputerNameEthernetString created new composite name\n" );
-        CFShow( modString );
-    }
-    
-    return modString;
-}
-
-CFStringRef DNSRegistrationThread::CreateMacAddressString( void )
-{
-    LinkAddresses_t *	link_addrs;
-    char*				macAddrCString = NULL;
-    CFStringRef			macAddrStringRef = NULL;
-    
-    link_addrs = LinkAddresses_create();
-    if (link_addrs) 
-    {
-        int i;
-        for (i = 0; i < link_addrs->count; i++) 
-        {
-            struct sockaddr_dl * sdl = link_addrs->list[i];
-
-            macAddrCString = sockaddr_dl_create_macaddr_string( sdl, "en0" );
-            
-            if ( macAddrCString )
-                break;
-        }
-        LinkAddresses_free(&link_addrs);
-    }
-    
-    if ( macAddrCString )
-    {
-        macAddrStringRef = CFStringCreateWithCString( NULL, macAddrCString, kCFStringEncodingUTF8 );
-        free( macAddrCString );
-    }
-
-    return macAddrStringRef;
+			::CFRelease( ethernetAddress );
+		}
+		else
+			DBGLOG("DNSRegistrationThread::RegisterHostedServices Could't get Ethernet Address!\n" );
+		
+		::CFRelease( computerName );
+	}
+	else
+		DBGLOG("DNSRegistrationThread::RegisterHostedServices Could't get computer name!\n" );
+	
+	return registrationStatus;
 }
 
 tDirStatus DNSRegistrationThread::PerformRegistration( 	CFStringRef nameRef, 
@@ -220,25 +211,25 @@ tDirStatus DNSRegistrationThread::PerformRegistration( 	CFStringRef nameRef,
     while (!mRunLoopRef)
     {
         DBGLOG("DNSRegistrationThread::PerformRegistration, waiting for mRunLoopRef\n");
-        usleep(500000);
+        SmartSleep(500000);
     }    
     
     CFStringRef		modDomainRef = NULL;
     CFStringRef		modTypeRef = NULL;
     
-    if ( CFStringCompare( domainRef, CFSTR(""), 0 ) != kCFCompareEqualTo && !CFStringHasSuffix( domainRef, CFSTR(".") ) )
+    if ( CFStringCompare( domainRef, kEmptySAFE_CFSTR, 0 ) != kCFCompareEqualTo && !CFStringHasSuffix( domainRef, kDotSAFE_CFSTR ) )
     {
         // we need to pass fully qualified domains (i.e. local. not local)
         modDomainRef = CFStringCreateMutableCopy( NULL, 0, domainRef );
         CFStringAppendCString( (CFMutableStringRef)modDomainRef, ".", kCFStringEncodingUTF8 );
     }
 
-    if ( !CFStringHasSuffix( typeRef, CFSTR("._tcp.") ) )
+    if ( !CFStringHasSuffix( typeRef, kDotUnderscoreTCPSAFE_CFSTR ) )
     {
         // need to convert this to the appropriate DNS style.  I.E. _afp._tcp. not afp
-        modTypeRef = CFStringCreateMutableCopy( NULL, 0, CFSTR("_") );
+        modTypeRef = CFStringCreateMutableCopy( NULL, 0, kUnderscoreSAFE_CFSTR );
         CFStringAppend( (CFMutableStringRef)modTypeRef, typeRef );
-        CFStringAppend( (CFMutableStringRef)modTypeRef, CFSTR("._tcp.") );
+        CFStringAppend( (CFMutableStringRef)modTypeRef, kDotUnderscoreTCPSAFE_CFSTR );
     }
     
 	CFStreamError error = {(CFStreamErrorDomain)0, 0};
@@ -252,7 +243,7 @@ tDirStatus DNSRegistrationThread::PerformRegistration( 	CFStringRef nameRef,
 	{
 		// we are just going to make the key be the name.type.location
 		CFStringAppend( serviceKey, nameRef );
-		CFStringAppend( serviceKey, CFSTR(".") );
+		CFStringAppend( serviceKey, kDotSAFE_CFSTR );
 		CFStringAppend( serviceKey, (modTypeRef)?modTypeRef:typeRef );
 		CFStringAppend( serviceKey, (modDomainRef)?modDomainRef:domainRef );
 	}
@@ -264,11 +255,17 @@ tDirStatus DNSRegistrationThread::PerformRegistration( 	CFStringRef nameRef,
 #ifdef USE_REF_COUNT_FOR_DUP_REGISTRATIONS
 		regData->fCount++;			// we will just bump the counter, if we don't do this, then multiple registrations be ignored
 									// and the first deregistration will deregister all previous registrations
+		char	serviceKeyStr[1024] = {0,};
+		CFStringGetCString( serviceKey, serviceKeyStr, sizeof(serviceKeyStr), kCFStringEncodingUTF8 );
+		DBGLOG( "DNSRegistrationThread::PerformRegistration, service: %s (0x%x) is now registered %ld times\n", serviceKeyStr, regData->fCFNetServiceRef, regData->fCount );
 #endif
 	}
 	else
 	{
 		DBGLOG("DNSRegistrationThread::PerformRegistration, port is %ld\n", port );
+        if ( GetParentPlugin()->GetComputerNameString() && CFStringCompare( GetParentPlugin()->GetComputerNameString(), nameRef, 0 ) == kCFCompareEqualTo )
+			nameRef = kEmptySAFE_CFSTR;	// use default
+
 		entity = CFNetServiceCreate(NULL, (modDomainRef)?modDomainRef:domainRef, (modTypeRef)?modTypeRef:typeRef, nameRef, port);
 		
 		if ( protocolSpecificData )
@@ -278,9 +275,9 @@ tDirStatus DNSRegistrationThread::PerformRegistration( 	CFStringRef nameRef,
 	
 		mode = 'A';
 		{
-			CFRetain( nameRef );
-			CFNetServiceClientContext c = {0, (void*)nameRef, NULL, NULL, CopyRegistrationDescription};
-			CFNetServiceSetClient(entity, RegisterEntityCallBack, &c);
+			CFNetServiceClientContext c = {0, NULL, NULL, NULL, CopyRegistrationDescription};
+			if ( !CFNetServiceSetClient( entity, RegisterEntityCallBack, &c) )
+				syslog( LOG_ERR, "DS Rendezvous was unable to register a service with CFNetService!\n" );
 			CFNetServiceScheduleWithRunLoop(entity, mRunLoopRef, kCFRunLoopDefaultMode);
 		}
 		
@@ -301,6 +298,10 @@ tDirStatus DNSRegistrationThread::PerformRegistration( 	CFStringRef nameRef,
 			regData->fCount = 1;
 			regData->fCFNetServiceRef = entity;
 			::CFDictionaryAddValue( mRegisteredServicesTable, serviceKey, (const void*)regData );
+
+			char	serviceKeyStr[1024] = {0,};
+			CFStringGetCString( serviceKey, serviceKeyStr, sizeof(serviceKeyStr), kCFStringEncodingUTF8 );
+			DBGLOG( "DNSRegistrationThread::PerformRegistration, registering with CFNetService: %s (0x%x)\n", serviceKeyStr, regData->fCFNetServiceRef );
 		}
 	}
 			
@@ -329,29 +330,31 @@ tDirStatus DNSRegistrationThread::PerformDeregistration( CFDictionaryRef service
     CFStringRef		nameOfService = NULL;			/* Service's name (must be unique per domain (should be UTF8) */
     CFStringRef		typeOfService = NULL;			/* Service Type (i.e. afp, lpr etc) */
 
-	nameOfService = (CFStringRef)::CFDictionaryGetValue( service, CFSTR(kDSNAttrRecordName) );
-	domainRef = (CFStringRef)::CFDictionaryGetValue( service, CFSTR(kDS1AttrLocation) );
-	if ( !domainRef )
-		domainRef = CFSTR("");		// just deregister local
-//		domainRef = CFSTR("local.");		// just deregister local
-		
-	typeOfService = (CFStringRef)::CFDictionaryGetValue( service, CFSTR(kDS1AttrServiceType) );
-	if ( !typeOfService )
-		typeOfService = (CFStringRef)::CFDictionaryGetValue( service, CFSTR(kDSNAttrRecordType) );
+	nameOfService = (CFStringRef)::CFDictionaryGetValue( service, kDSNAttrRecordNameSAFE_CFSTR );
+	if ( !nameOfService )
+		nameOfService = kEmptySAFE_CFSTR;		// just deregister Copmuter Name
 
-    if ( CFStringCompare( domainRef, CFSTR(""), 0 ) != kCFCompareEqualTo && !CFStringHasSuffix( domainRef, CFSTR(".") ) )
+	domainRef = (CFStringRef)::CFDictionaryGetValue( service, kDS1AttrLocationSAFE_CFSTR );
+	if ( !domainRef )
+		domainRef = kEmptySAFE_CFSTR;		// just deregister local
+		
+	typeOfService = (CFStringRef)::CFDictionaryGetValue( service, kDS1AttrServiceTypeSAFE_CFSTR );
+	if ( !typeOfService )
+		typeOfService = (CFStringRef)::CFDictionaryGetValue( service, kDSNAttrRecordTypeSAFE_CFSTR );
+
+    if ( CFStringCompare( domainRef, kEmptySAFE_CFSTR, 0 ) != kCFCompareEqualTo && !CFStringHasSuffix( domainRef, kDotSAFE_CFSTR ) )
     {
         // we need to pass fully qualified domains (i.e. local. not local)
         modDomainRef = CFStringCreateMutableCopy( NULL, 0, domainRef );
         CFStringAppendCString( (CFMutableStringRef)modDomainRef, ".", kCFStringEncodingUTF8 );
     }
 
-    if ( !CFStringHasSuffix( typeOfService, CFSTR("._tcp.") ) )
+    if ( !CFStringHasSuffix( typeOfService, kDotUnderscoreTCPSAFE_CFSTR ) )
     {
         // need to convert this to the appropriate DNS style.  I.E. _afp._tcp. not afp
-        modTypeRef = CFStringCreateMutableCopy( NULL, 0, CFSTR("_") );
+        modTypeRef = CFStringCreateMutableCopy( NULL, 0, kUnderscoreSAFE_CFSTR );
         CFStringAppend( (CFMutableStringRef)modTypeRef, typeOfService );
-        CFStringAppend( (CFMutableStringRef)modTypeRef, CFSTR("._tcp.") );
+        CFStringAppend( (CFMutableStringRef)modTypeRef, kDotUnderscoreTCPSAFE_CFSTR );
     }
     
 	CFMutableStringRef		serviceKey = CFStringCreateMutable( NULL, 0 );
@@ -360,7 +363,7 @@ tDirStatus DNSRegistrationThread::PerformDeregistration( CFDictionaryRef service
 	{
 		// we are just going to make the key be the name._type._tcp.location.
 		CFStringAppend( serviceKey, nameOfService );
-		CFStringAppend( serviceKey, CFSTR(".") );
+		CFStringAppend( serviceKey, kDotSAFE_CFSTR );
 		CFStringAppend( serviceKey, (modTypeRef)?modTypeRef:typeOfService );
 		CFStringAppend( serviceKey, (modDomainRef)?modDomainRef:domainRef );
 	
@@ -389,8 +392,14 @@ tDirStatus DNSRegistrationThread::PerformDeregistration( CFStringRef serviceKey 
 	CFNetServiceRef entity = NULL;
     tDirStatus		status = eDSRecordNotFound;
 
-    if ( (regData = (DNSRegData*)::CFDictionaryGetValue( mRegisteredServicesTable, serviceKey )) != NULL )
+    if ( serviceKey && (regData = (DNSRegData*)::CFDictionaryGetValue( mRegisteredServicesTable, serviceKey )) != NULL )
     {
+		{
+			char	serviceKeyStr[1024] = {0,};
+			CFStringGetCString( serviceKey, serviceKeyStr, sizeof(serviceKeyStr), kCFStringEncodingUTF8 );
+			DBGLOG( "DNSRegistrationThread::PerformDeregistration, deregistering CFNetService: %s (0x%x)\n", serviceKeyStr, regData->fCFNetServiceRef );
+		}
+		
 		entity = regData->fCFNetServiceRef;
 		
 		if ( entity && regData->fCount == 1 )
@@ -398,7 +407,9 @@ tDirStatus DNSRegistrationThread::PerformDeregistration( CFStringRef serviceKey 
 			::CFDictionaryRemoveValue( mRegisteredServicesTable, serviceKey );
         
 			CFNetServiceUnscheduleFromRunLoop( entity, mRunLoopRef, kCFRunLoopDefaultMode );		// need to unschedule from run loop
-			CFNetServiceSetClient( entity, NULL, NULL );
+			if ( !CFNetServiceSetClient( entity, NULL, NULL ) )
+				syslog( LOG_ERR, "DS Rendezvous was unable to unregister a service with CFNetService!\n" );
+				
 			CFNetServiceCancel( entity );
 			CFRelease( entity );
 
@@ -408,19 +419,19 @@ tDirStatus DNSRegistrationThread::PerformDeregistration( CFStringRef serviceKey 
 		else
 		{
 			regData->fCount--;	// decrement this
-			DBGLOG( "DNSRegistrationThread::PerformDeregistration, this service is now registered %ld times\n", regData->fCount );
+			DBGLOG( "DNSRegistrationThread::PerformDeregistration, service is now registered %ld times\n", regData->fCount );
 		}
     }
-	else
-		DBGLOG( "DNSRegistrationThread::PerformDeregistration couldn't locate service in RegisteredServicesTable!\n" );
     
     return status;
 }
 
-boolean_t SystemConfigurationNetworkChangedCallBack(SCDynamicStoreRef session, void *callback_argument)
+boolean_t SystemConfigurationNameChangedCallBack(SCDynamicStoreRef session, void *callback_argument)
 {                       
     DNSRegistrationThread* regThread = (DNSRegistrationThread*)callback_argument;
     
+	DBGLOG( "SystemConfigurationNameChangedCallBack called\n" );
+
     regThread->PerformDeregistration( regThread->GetOurSpecialRegKey() );		// deregister old service, since the name isn't valid
     regThread->RegisterHostedServices();						// register with current name
     
@@ -432,7 +443,7 @@ static void RegisterEntityCallBack(CFNetServiceRef theEntity, CFStreamError* err
     DBGLOG( "Registration is finished error: (%d, %ld).\n", error->domain, error->error);
 }
 
-CFStringRef CopyCancelRegDescription( void* info )
+CFStringRef CopyCancelRegDescription( const void* info )
 {
     DBGLOG( "CopyCancelRegDescription called\n" );
     CFNetServiceRef	theEntity = (CFNetServiceRef)info;
@@ -442,21 +453,74 @@ CFStringRef CopyCancelRegDescription( void* info )
     return description;
 }
 
-CFStringRef CopyRegistrationDescription( void* info )
+CFStringRef CopyRegistrationDescription( const void* info )
 {
-    CFStringRef	description = (CFStringRef)info;
+    CFStringRef	description = kDNSSCDynamicStoreKeySAFE_CFSTR;
     DBGLOG( "CopyRegistrationDescription called\n" );
     
     CFRetain( description );
     return description;
 }
 
-void CancelRegThread(CFRunLoopTimerRef timer, void *info) 
+CFStringRef	CreateComputerNameEthernetString( CFStringRef computerName )
 {
-    DNSRegistrationThread* 		regThread = (DNSRegistrationThread*)info;
+	CFMutableStringRef		modString = NULL;
+	
+	if ( computerName )
+	{
+		CFStringRef				macAddress = CreateMacAddressString();
+		modString = CFStringCreateMutableCopy( NULL, 0, computerName );
     
-    DBGLOG("CancelBrowse called\n" );
-    regThread->Cancel();
+		CFStringAppend( modString, kSpaceLeftBracketSAFE_CFSTR );
+		if ( macAddress )
+			CFStringAppend( modString, macAddress );
+		else
+			CFStringAppend( modString, kZeroedMACAddressSAFE_CFSTR );
+			
+		CFStringAppend( modString, kRightBracketSAFE_CFSTR );
+	
+		if ( macAddress )
+			CFRelease( macAddress );
+			
+		if ( getenv( "NSLDEBUG" ) )
+		{
+			DBGLOG( "DNSRegistrationThread::CreateComputerNameEthernetString created new composite name\n" );
+			CFShow( modString );
+		}
+    }
+	
+    return modString;
+}
+
+CFStringRef	CreateMacAddressString( void )
+{
+    LinkAddresses_t *	link_addrs;
+    char*				macAddrCString = NULL;
+    CFStringRef			macAddrStringRef = NULL;
+    
+    link_addrs = LinkAddresses_create();
+    if (link_addrs) 
+    {
+        int i;
+        for (i = 0; i < link_addrs->count; i++) 
+        {
+            struct sockaddr_dl * sdl = link_addrs->list[i];
+
+            macAddrCString = sockaddr_dl_create_macaddr_string( sdl, "en0" );
+            
+            if ( macAddrCString )
+                break;
+        }
+        LinkAddresses_free(&link_addrs);
+    }
+    
+    if ( macAddrCString )
+    {
+        macAddrStringRef = CFStringCreateWithCString( NULL, macAddrCString, kCFStringEncodingUTF8 );
+        free( macAddrCString );
+    }
+
+    return macAddrStringRef;
 }
 
 

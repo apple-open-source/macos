@@ -1,0 +1,640 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		06AA1264FFB2107B11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		06AA1265FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		06AA1266FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+//060
+//061
+//062
+//063
+//064
+//080
+//081
+//082
+//083
+//084
+		089C1669FE841209C02AAC07 = {
+			buildStyles = (
+				06AA1265FFB2107B11CA28AA,
+				06AA1266FFB2107B11CA28AA,
+			);
+			isa = PBXProject;
+			mainGroup = 089C166AFE841209C02AAC07;
+			projectDirPath = "";
+			targets = (
+				089C1673FE841209C02AAC07,
+				58531EF7035E28F304CA2A11,
+			);
+		};
+		089C166AFE841209C02AAC07 = {
+			children = (
+				58531ECE035E0DBE04CA2A11,
+				58531EE9035E0DCE04CA2A11,
+				58531EDB035E0DC804CA2A11,
+				089C167CFE841241C02AAC07,
+				19C28FB6FE9D52B211CA2CBB,
+			);
+			isa = PBXGroup;
+			name = IOADBFamily;
+			refType = 4;
+		};
+		089C1673FE841209C02AAC07 = {
+			buildPhases = (
+				58531F00035E407F04CA2A11,
+				089C1674FE841209C02AAC07,
+				58531F01035E40BF04CA2A11,
+				089C1676FE841209C02AAC07,
+				089C1677FE841209C02AAC07,
+				089C1679FE841209C02AAC07,
+				06AA1264FFB2107B11CA28AA,
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOADBFamily;
+				MODULE_VERSION = 7.0.2;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOADBFamily;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+				581B9AA4035F3CD704CA2A11,
+			);
+			isa = PBXBundleTarget;
+			name = IOADBFamily;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = IOADBFamily;
+			productReference = 0B81C263FFB7832611CA28AA;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IOADBFamily</string>
+	<key>CFBundleGetInfoString</key>
+	<string>7.0.2, Copyright Apple Computer, Inc. 2000-2002</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.iokit.IOADBFamily</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>7.0.2</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>7.0.2</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>IOPMUADBController</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOADBFamily</string>
+			<key>IOClass</key>
+			<string>IOPMUADBController</string>
+			<key>IONameMatch</key>
+			<string>adb</string>
+			<key>IOProviderClass</key>
+			<string>AppleMacIODevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleCompatibleVersion</key>
+	<string>1.0.0b1</string>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>1.1</string>
+		<key>com.apple.kernel.mach</key>
+		<string>1.1</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Console</string>
+</dict>
+</plist>
+";
+			shouldUseHeadermap = 1;
+		};
+		089C1674FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				58531ED6035E0DBE04CA2A11,
+				58531ED9035E0DBE04CA2A11,
+				58531EE3035E0DC804CA2A11,
+				58531EE4035E0DC804CA2A11,
+				58531EE5035E0DC804CA2A11,
+				58531EE6035E0DC804CA2A11,
+				58531EE7035E0DC804CA2A11,
+				58531EEE035E0DCE04CA2A11,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1676FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				58531ED5035E0DBE04CA2A11,
+				58531ED7035E0DBE04CA2A11,
+				58531ED8035E0DBE04CA2A11,
+				58531EDA035E0DBE04CA2A11,
+				58531EED035E0DCE04CA2A11,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1677FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1679FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C167CFE841241C02AAC07 = {
+			children = (
+				089C167DFE841241C02AAC07,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			refType = 4;
+		};
+		089C167DFE841241C02AAC07 = {
+			children = (
+				089C167EFE841241C02AAC07,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			refType = 4;
+		};
+		089C167EFE841241C02AAC07 = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			name = English;
+			path = English.lproj/InfoPlist.strings;
+			refType = 4;
+		};
+//080
+//081
+//082
+//083
+//084
+//0B0
+//0B1
+//0B2
+//0B3
+//0B4
+		0B81C263FFB7832611CA28AA = {
+			isa = PBXBundleReference;
+			path = IOADBFamily.kext;
+			refType = 3;
+		};
+//0B0
+//0B1
+//0B2
+//0B3
+//0B4
+//190
+//191
+//192
+//193
+//194
+		19C28FB6FE9D52B211CA2CBB = {
+			children = (
+				0B81C263FFB7832611CA28AA,
+				58531EF8035E28F304CA2A11,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+//190
+//191
+//192
+//193
+//194
+//580
+//581
+//582
+//583
+//584
+		581B9AA4035F3CD704CA2A11 = {
+			isa = PBXTargetDependency;
+			target = 58531EF7035E28F304CA2A11;
+		};
+		58531ECE035E0DBE04CA2A11 = {
+			children = (
+				58531ECF035E0DBE04CA2A11,
+				58531ED0035E0DBE04CA2A11,
+				58531ED1035E0DBE04CA2A11,
+				58531ED2035E0DBE04CA2A11,
+				58531ED3035E0DBE04CA2A11,
+				58531ED4035E0DBE04CA2A11,
+			);
+			isa = PBXGroup;
+			path = IOADBBus;
+			refType = 4;
+		};
+		58531ECF035E0DBE04CA2A11 = {
+			isa = PBXFileReference;
+			path = IOADBBus.cpp;
+			refType = 4;
+		};
+		58531ED0035E0DBE04CA2A11 = {
+			isa = PBXFileReference;
+			path = IOADBBusPriv.h;
+			refType = 4;
+		};
+		58531ED1035E0DBE04CA2A11 = {
+			isa = PBXFileReference;
+			path = IOADBController.cpp;
+			refType = 4;
+		};
+		58531ED2035E0DBE04CA2A11 = {
+			isa = PBXFileReference;
+			path = IOADBControllerUserClient.cpp;
+			refType = 4;
+		};
+		58531ED3035E0DBE04CA2A11 = {
+			isa = PBXFileReference;
+			path = IOADBControllerUserClient.h;
+			refType = 4;
+		};
+		58531ED4035E0DBE04CA2A11 = {
+			isa = PBXFileReference;
+			path = IOADBDevice.cpp;
+			refType = 4;
+		};
+		58531ED5035E0DBE04CA2A11 = {
+			fileRef = 58531ECF035E0DBE04CA2A11;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		58531ED6035E0DBE04CA2A11 = {
+			fileRef = 58531ED0035E0DBE04CA2A11;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		58531ED7035E0DBE04CA2A11 = {
+			fileRef = 58531ED1035E0DBE04CA2A11;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		58531ED8035E0DBE04CA2A11 = {
+			fileRef = 58531ED2035E0DBE04CA2A11;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		58531ED9035E0DBE04CA2A11 = {
+			fileRef = 58531ED3035E0DBE04CA2A11;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		58531EDA035E0DBE04CA2A11 = {
+			fileRef = 58531ED4035E0DBE04CA2A11;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		58531EDB035E0DC804CA2A11 = {
+			children = (
+				58531EDC035E0DC804CA2A11,
+			);
+			isa = PBXGroup;
+			path = IOKit;
+			refType = 4;
+		};
+		58531EDC035E0DC804CA2A11 = {
+			children = (
+				58531EDD035E0DC804CA2A11,
+				58531EDE035E0DC804CA2A11,
+				58531EDF035E0DC804CA2A11,
+				58531EE0035E0DC804CA2A11,
+				58531EE1035E0DC804CA2A11,
+			);
+			isa = PBXGroup;
+			path = adb;
+			refType = 4;
+		};
+		58531EDD035E0DC804CA2A11 = {
+			isa = PBXFileReference;
+			path = adb.h;
+			refType = 4;
+		};
+		58531EDE035E0DC804CA2A11 = {
+			isa = PBXFileReference;
+			path = IOADBBus.h;
+			refType = 4;
+		};
+		58531EDF035E0DC804CA2A11 = {
+			isa = PBXFileReference;
+			path = IOADBController.h;
+			refType = 4;
+		};
+		58531EE0035E0DC804CA2A11 = {
+			isa = PBXFileReference;
+			path = IOADBDevice.h;
+			refType = 4;
+		};
+		58531EE1035E0DC804CA2A11 = {
+			isa = PBXFileReference;
+			path = IOADBLib.h;
+			refType = 4;
+		};
+		58531EE3035E0DC804CA2A11 = {
+			fileRef = 58531EDD035E0DC804CA2A11;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		58531EE4035E0DC804CA2A11 = {
+			fileRef = 58531EDE035E0DC804CA2A11;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		58531EE5035E0DC804CA2A11 = {
+			fileRef = 58531EDF035E0DC804CA2A11;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		58531EE6035E0DC804CA2A11 = {
+			fileRef = 58531EE0035E0DC804CA2A11;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		58531EE7035E0DC804CA2A11 = {
+			fileRef = 58531EE1035E0DC804CA2A11;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		58531EE9035E0DCE04CA2A11 = {
+			children = (
+				58531EEA035E0DCE04CA2A11,
+			);
+			isa = PBXGroup;
+			path = platform;
+			refType = 4;
+		};
+		58531EEA035E0DCE04CA2A11 = {
+			children = (
+				58531EEB035E0DCE04CA2A11,
+				58531EEC035E0DCE04CA2A11,
+			);
+			isa = PBXGroup;
+			path = drvApplePMU;
+			refType = 4;
+		};
+		58531EEB035E0DCE04CA2A11 = {
+			isa = PBXFileReference;
+			path = IOPMUADBController.cpp;
+			refType = 4;
+		};
+		58531EEC035E0DCE04CA2A11 = {
+			isa = PBXFileReference;
+			path = IOPMUADBController.h;
+			refType = 4;
+		};
+		58531EED035E0DCE04CA2A11 = {
+			fileRef = 58531EEB035E0DCE04CA2A11;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		58531EEE035E0DCE04CA2A11 = {
+			fileRef = 58531EEC035E0DCE04CA2A11;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		58531EF3035E28F304CA2A11 = {
+			buildActionMask = 2147483647;
+			files = (
+				58531EFA035E3F7D04CA2A11,
+				58531EFB035E3F7E04CA2A11,
+				58531EFC035E3F7E04CA2A11,
+				58531EFD035E3F7F04CA2A11,
+				58531EFE035E3F8004CA2A11,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		58531EF4035E28F304CA2A11 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		58531EF5035E28F304CA2A11 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		58531EF6035E28F304CA2A11 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		58531EF7035E28F304CA2A11 = {
+			buildPhases = (
+				58531EF3035E28F304CA2A11,
+				58531EF4035E28F304CA2A11,
+				58531EF5035E28F304CA2A11,
+				58531F03035E417504CA2A11,
+				58531EF6035E28F304CA2A11,
+			);
+			buildSettings = {
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/adb";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = InstallHeaders;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = InstallHeaders;
+			productInstallPath = /usr/local/bin;
+			productName = InstallHeaders;
+			productReference = 58531EF8035E28F304CA2A11;
+			shouldUseHeadermap = 0;
+		};
+		58531EF8035E28F304CA2A11 = {
+			isa = PBXExecutableFileReference;
+			path = InstallHeaders;
+			refType = 3;
+		};
+		58531EFA035E3F7D04CA2A11 = {
+			fileRef = 58531EDD035E0DC804CA2A11;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		58531EFB035E3F7E04CA2A11 = {
+			fileRef = 58531EDE035E0DC804CA2A11;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		58531EFC035E3F7E04CA2A11 = {
+			fileRef = 58531EDF035E0DC804CA2A11;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		58531EFD035E3F7F04CA2A11 = {
+			fileRef = 58531EE0035E0DC804CA2A11;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		58531EFE035E3F8004CA2A11 = {
+			fileRef = 58531EE1035E0DC804CA2A11;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		58531F00035E407F04CA2A11 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		58531F01035E40BF04CA2A11 = {
+			buildActionMask = 2147483647;
+			files = (
+				58531F02035E40C604CA2A11,
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		58531F02035E40C604CA2A11 = {
+			fileRef = 089C167DFE841241C02AAC07;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		58531F03035E417504CA2A11 = {
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/adb";
+			dstSubfolderSpec = 0;
+			files = (
+				58531F04035E419A04CA2A11,
+				58531F05035E419A04CA2A11,
+				58531F06035E419A04CA2A11,
+				58531F07035E419A04CA2A11,
+				58531F08035E419A04CA2A11,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		58531F04035E419A04CA2A11 = {
+			fileRef = 58531EDD035E0DC804CA2A11;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		58531F05035E419A04CA2A11 = {
+			fileRef = 58531EDE035E0DC804CA2A11;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		58531F06035E419A04CA2A11 = {
+			fileRef = 58531EDF035E0DC804CA2A11;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		58531F07035E419A04CA2A11 = {
+			fileRef = 58531EE0035E0DC804CA2A11;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		58531F08035E419A04CA2A11 = {
+			fileRef = 58531EE1035E0DC804CA2A11;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+	};
+	rootObject = 089C1669FE841209C02AAC07;
+}

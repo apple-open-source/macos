@@ -2,8 +2,8 @@
 
   pack.c -
 
-  $Author: jkh $
-  $Date: 2002/05/27 17:59:44 $
+  $Author: melville $
+  $Date: 2003/05/14 14:09:13 $
   created at: Thu Feb 10 15:17:05 JST 1994
 
   Copyright (C) 1993-2000 Yukihiro Matsumoto
@@ -13,6 +13,12 @@
 #include "ruby.h"
 #include <sys/types.h>
 #include <ctype.h>
+
+#ifdef __BIG_ENDIAN__
+#define WORDS_BIGENDIAN
+#else
+#undef WORDS_BIGENDIAN
+#endif
 
 #define SIZE16 2
 #define SIZE32 4
@@ -1457,11 +1463,11 @@ pack_unpack(str, fmt)
 	  case 'U':
 	    if (len > send - s) len = send - s;
 	    while (len > 0 && s < send) {
-		int alen = len;
+		int alen = send - s;
 		unsigned long l;
 
 		l = utf8_to_uv(s, &alen);
-		s += alen; len -= alen;
+		s += alen; len--;
 		rb_ary_push(ary, rb_uint2inum(l));
 	    }
 	    break;

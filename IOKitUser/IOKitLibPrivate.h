@@ -32,3 +32,17 @@ iokit_user_client_trap(
                        void *p4,
                        void *p5,
                        void *p6 );
+
+kern_return_t
+IOServiceGetState(
+	io_service_t    service,
+	uint64_t *	state );
+
+// masks for getState()
+enum {
+    kIOServiceInactiveState	= 0x00000001,
+    kIOServiceRegisteredState	= 0x00000002,
+    kIOServiceMatchedState	= 0x00000004,
+    kIOServiceFirstPublishState	= 0x00000008,
+    kIOServiceFirstMatchState	= 0x00000010
+};

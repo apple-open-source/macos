@@ -3,7 +3,7 @@
 # utility procs formerly in init.tcl dealing with auto execution
 # of commands and can be auto loaded themselves.
 #
-# RCS: @(#) $Id: auto.tcl,v 1.1.1.2 2000/04/12 02:01:42 wsanchez Exp $
+# RCS: @(#) $Id: auto.tcl,v 1.1.1.3 2003/03/06 00:11:13 landonf Exp $
 #
 # Copyright (c) 1991-1993 The Regents of the University of California.
 # Copyright (c) 1994-1998 Sun Microsystems, Inc.
@@ -28,7 +28,8 @@ proc auto_reset {} {
 	if {[info exists auto_index($p)] && ![string match auto_* $p]
 		&& ([lsearch -exact {unknown pkg_mkIndex tclPkgSetup
 			tcl_findLibrary pkg_compareExtension
-			tclMacPkgSearch tclPkgUnknown} $p] < 0)} {
+			tclPkgUnknown tcl::MacOSXPkgUnknown
+			tcl::MacPkgUnknown} $p] < 0)} {
 	    rename $p {}
 	}
     }
@@ -60,7 +61,8 @@ proc tcl_findLibrary {basename version patch initScript enVarName varName} {
 
     # The C application may have hardwired a path, which we honor
     
-    if {[info exist the_library] && [string compare $the_library {}]} {
+    set variableSet [info exists the_library]
+    if {$variableSet && [string compare $the_library {}]} {
 	lappend dirs $the_library
     } else {
 
@@ -82,8 +84,10 @@ proc tcl_findLibrary {basename version patch initScript enVarName varName} {
 	# ../../lib/foo1.0	(From bin/arch directory in install hierarchy)
 	# ../library		(From unix directory in build hierarchy)
 	# ../../library		(From unix/arch directory in build hierarchy)
-	# ../../foo1.0b1/library (From unix directory in parallel build hierarchy)
-	# ../../../foo1.0b1/library (From unix/arch directory in parallel build hierarchy)
+	# ../../foo1.0.1/library
+	#		(From unix directory in parallel build hierarchy)
+	# ../../../foo1.0.1/library
+	#		(From unix/arch directory in parallel build hierarchy)
 
         set parentDir [file dirname [file dirname [info nameofexecutable]]]
         set grandParentDir [file dirname $parentDir]
@@ -91,11 +95,18 @@ proc tcl_findLibrary {basename version patch initScript enVarName varName} {
         lappend dirs [file join $grandParentDir lib $basename$version]
         lappend dirs [file join $parentDir library]
         lappend dirs [file join $grandParentDir library]
-        if {![regexp {.*[ab][0-9]*} $patch ver]} {
-            set ver $version
-        }
-        lappend dirs [file join $grandParentDir $basename$ver library]
-        lappend dirs [file join [file dirname $grandParentDir] $basename$ver library]
+        lappend dirs [file join $grandParentDir $basename$patch library]
+        lappend dirs [file join [file dirname $grandParentDir] \
+		$basename$patch library]
+
+	# 4. On MacOSX, check the directories in the tcl_pkgPath
+	if {[string equal $::tcl_platform(platform) "unix"] && \
+		[string equal $::tcl_platform(os) "Darwin"]} {
+	    foreach d $::tcl_pkgPath {
+		lappend dirs [file join $d $basename$version]
+		lappend dirs [file join $d $basename$version Resources Scripts]
+	    }
+	}
     }
     foreach i $dirs {
         set the_library $i
@@ -111,6 +122,9 @@ proc tcl_findLibrary {basename version patch initScript enVarName varName} {
                 append errors "$file: $msg\n$errorInfo\n"
             }
         }
+    }
+    if {!$variableSet} {
+	unset the_library
     }
     set msg "Can't find a usable $initScript in the following directories: \n"
     append msg "    $dirs\n\n"

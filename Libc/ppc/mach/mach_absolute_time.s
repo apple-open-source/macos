@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,15 +23,12 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#if defined(__ppc__)
+#define	__APPLE_API_PRIVATE
+#include <machine/cpu_capabilities.h>
+#undef	__APPLE_API_PRIVATE
+
 .text
-.align 2
+.align 4
 .globl _mach_absolute_time
 _mach_absolute_time:
-1:	mftbu	r3
-	mftb	r4
-	mftbu	r0
-	cmpw	r0,r3
-	bne-	1b
-	blr
-#endif
+    ba	_COMM_PAGE_ABSOLUTE_TIME

@@ -23,12 +23,12 @@ MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC
 MAKEFILE = tool.make
 NEXTSTEP_INSTALLDIR = /usr/bin
-LIBS = 
+LIBS = -lresolv
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-NEXTSTEP_PB_CFLAGS = -traditional-cpp -Wno-error
+NEXTSTEP_PB_CFLAGS = -no-cpp-precomp -Wno-error -DSUCKAGE=1000000000000
 
 
 NEXTSTEP_BUILD_OUTPUT_DIR = /tmp/$(NAME)/Build

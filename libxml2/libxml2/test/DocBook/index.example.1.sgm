@@ -1,0 +1,17 @@
+<!DOCTYPE index PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
+<index><title>Index</title>
+<indexdiv><title>D</title>
+<indexentry>
+  <primaryie>database (bibliographic), 253, 255</primaryie>
+  <secondaryie>structure, 255</secondaryie>
+  <secondaryie>tools, 259</secondaryie>
+</indexentry>
+<indexentry>
+  <primaryie>dates (language specific), 179</primaryie>
+</indexentry>
+<indexentry>
+  <primaryie>DC fonts, <emphasis>172</emphasis>, 177</primaryie>
+  <secondaryie>Math fonts, 177</secondaryie>
+</indexentry>
+</indexdiv>
+</index>

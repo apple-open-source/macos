@@ -1,7 +1,7 @@
 /* Generic string.h */
-/* $OpenLDAP: pkg/ldap/include/ac/string.h,v 1.36 2002/01/04 19:40:30 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/include/ac/string.h,v 1.36.2.2 2003/03/03 17:10:03 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, Redwood City, California, USA
+ * Copyright 1998-2003 The OpenLDAP Foundation, Redwood City, California, USA
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -20,7 +20,8 @@
 #else
 #	ifdef HAVE_STRING_H
 #		include <string.h>
-#	elif HAVE_STRINGS_H
+#	endif
+#	if defined(HAVE_STRINGS_H) && (!defined(HAVE_STRING_H) || defined(BOTH_STRINGS_H))
 #		include <strings.h>
 #	endif
 

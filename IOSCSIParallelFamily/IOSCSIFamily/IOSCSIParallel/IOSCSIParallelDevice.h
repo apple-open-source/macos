@@ -38,8 +38,15 @@
 #ifndef _IOSCSIPARALLELDEVICE_H
 #define _IOSCSIPARALLELDEVICE_H
 
+#include "SCSIDevice.h"
+#include "SCSIParallelTarget.h"
+#include "SCSIPublic.h"
+#include "IOSCSIDevice.h"
+
+#include <libkern/c++/OSNumber.h>
+
 class IOSCSIParallelController;
- 
+
 class IOSCSIParallelDevice : public IOSCSIDevice
 {
     OSDeclareDefaultStructors(IOSCSIParallelDevice)

@@ -35,61 +35,88 @@
  */
 
 #include <sys/cdefs.h>
+
+
 #ifndef lint
-#if 0
-static char sccsid[] = "@(#)misc.c	8.1 (Berkeley) 6/6/93";
+static const char sccsid[] = "@(#)misc.c	8.1 (Berkeley) 6/6/93";
 #endif
-__RCSID("$NetBSD: misc.c,v 1.4 1997/10/19 23:45:09 lukem Exp $");
-#endif /* not lint */
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
+
+#include <err.h>
 #include <errno.h>
-#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+
 #include "extern.h"
 
 void
 ierr()
 {
-	err(0, "%s: %s", fname, strerror(errno));
+	warn("%s", fname);
+	rval = 1;
 }
 
 void
 oerr()
 {
-	err(1, "stdout: %s", strerror(errno));
+	err(1, "stdout");
 }
 
-#if __STDC__
-#include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
-
-void
-#if __STDC__
-err(int fatal, const char *fmt, ...)
-#else
-err(fatal, fmt, va_alist)
-	int fatal;
-	char *fmt;
-	va_dcl
-#endif
+/*
+ * Print `len' bytes from the file associated with `mip', starting at
+ * absolute file offset `startoff'. May move map window.
+ */
+int
+mapprint(mip, startoff, len)
+	struct mapinfo *mip;
+	off_t startoff, len;
 {
-	va_list ap;
-#if __STDC__
-	va_start(ap, fmt);
-#else
-	va_start(ap);
-#endif
-	(void)fprintf(stderr, "tail: ");
-	(void)vfprintf(stderr, fmt, ap);
-	va_end(ap);
-	(void)fprintf(stderr, "\n");
-	if (fatal)
-		exit(1);
-	rval = 1;
+	int n;
+
+	while (len > 0) {
+		if (startoff < mip->mapoff || startoff >= mip->mapoff +
+		    mip->maplen) {
+			if (maparound(mip, startoff) != 0)
+				return (1);
+		}
+		n = (mip->mapoff + mip->maplen) - startoff;
+		if (n > len)
+			n = len;
+		WR(mip->start + (startoff - mip->mapoff), n);
+		startoff += n;
+		len -= n;
+	}
+	return (0);
+}
+
+/*
+ * Move the map window so that it contains the byte at absolute file
+ * offset `offset'. The start of the map window will be TAILMAPLEN
+ * aligned.
+ */
+int
+maparound(mip, offset)
+	struct mapinfo *mip;
+	off_t offset;
+{
+
+	if (mip->start != NULL && munmap(mip->start, mip->maplen) != 0)
+		return (1);
+
+	mip->mapoff = offset & ~((off_t)TAILMAPLEN - 1);
+	mip->maplen = TAILMAPLEN;
+	if (mip->maplen > mip->maxoff - mip->mapoff)
+		mip->maplen = mip->maxoff - mip->mapoff;
+	if (mip->maplen <= 0)
+		abort();
+	if ((mip->start = mmap(NULL, mip->maplen, PROT_READ, MAP_SHARED,
+	     mip->fd, mip->mapoff)) == MAP_FAILED)
+		return (1);
+
+	return (0);
 }

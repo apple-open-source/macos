@@ -54,7 +54,9 @@ sub do_6to4_setup
 	# Take the requested interface from the user
 	# Figure out addressing, etc.
 	#
-	$localadr4 = `ifconfig $ARGV[1] inet | grep inet`;
+	$localadr4 = `ifconfig $ARGV[1] inet | grep inet | grep -v "10.*.*.*"| \
+			grep -v "172.[^16-31].*.*" | grep -v "192.168.*.*" | \
+			grep -v "169.254.*.*" | grep -v alias`;
 	$localadr4 =~ s/^.*inet\s*//;
 	$localadr4 =~ s/\s.*$//;
 	chomp($localadr4);

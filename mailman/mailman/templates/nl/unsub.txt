@@ -1,0 +1,21 @@
+Bevestiging van uitschrijving van de mailinglijst %(listname)s
+
+Wij hebben een verzoek ontvangen %(remote)s voor het uitschrijven van uw
+e-mail adres, "%(email)s" van de %(listaddr)s mailinglijst. Om uw uitschrijving
+te bevestigen kunt u deze e-mail beantwoorden (replyen), waarbij u de
+onderwerp (subject) regel laat staan. Of bezoek de web pagina:
+
+    %(confirmurl)s
+
+Of stuur een bericht naar %(requestaddr)s , met de volgende regel
+-- en alleen deze regel --:
+
+    confirm %(cookie)s
+
+Opmerking: Dit bericht beantwoorden (replyen) is in de meeste gevallen
+voldoende. Waarbij u het onderwerp (subject) gewoon laat staan.
+
+Als u niet uitgeschreven wilt worden, kunt u dit bericht negeren.
+Wanneer u denkt dat u onterecht uitgeschreven wordt, of als u andere
+vragen heeft, stuur deze dan naar
+%(listadmin)s.

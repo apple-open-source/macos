@@ -814,15 +814,15 @@ Index
 * forms-check-number-of-fields:          Control File Format.
 * forms-delete-record:                   Forms Commands.
 * forms-enumerate:                       Miscellaneous.
-* forms-field-sep <1>:                   Data File Format.
-* forms-field-sep:                       Control File Format.
+* forms-field-sep <1>:                   Control File Format.
+* forms-field-sep:                       Data File Format.
 * forms-fields:                          Format Description.
 * forms-file:                            Control File Format.
 * forms-find-file:                       Entering and Exiting Forms Mode.
 * forms-find-file-other-window:          Entering and Exiting Forms Mode.
 * forms-first-record:                    Forms Commands.
-* forms-format-list <1>:                 Control File Format.
-* forms-format-list:                     Format Description.
+* forms-format-list <1>:                 Format Description.
+* forms-format-list:                     Control File Format.
 * forms-insert-after:                    Control File Format.
 * forms-insert-record:                   Forms Commands.
 * forms-jump-record:                     Forms Commands.
@@ -830,8 +830,8 @@ Index
 * forms-mode:                            Miscellaneous.
 * forms-mode-hooks:                      Entering and Exiting Forms Mode.
 * forms-modified-record-filter:          Control File Format.
-* forms-multi-line <1>:                  Data File Format.
-* forms-multi-line:                      Control File Format.
+* forms-multi-line <1>:                  Control File Format.
+* forms-multi-line:                      Data File Format.
 * forms-new-record-filter:               Control File Format.
 * forms-next-field:                      Forms Commands.
 * forms-next-record:                     Forms Commands.
@@ -839,8 +839,8 @@ Index
 * forms-prev-field:                      Forms Commands.
 * forms-prev-record:                     Forms Commands.
 * forms-print:                           Forms Commands.
-* forms-read-file-filter <1>:            Data File Format.
-* forms-read-file-filter:                Control File Format.
+* forms-read-file-filter <1>:            Control File Format.
+* forms-read-file-filter:                Data File Format.
 * forms-read-only:                       Control File Format.
 * forms-save-buffer:                     Forms Commands.
 * forms-search-backward:                 Forms Commands.

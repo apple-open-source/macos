@@ -1,16 +1,9 @@
 // !$*UTF8*$!
 {
-	00FE5D8DFEF9EE7911CA2CB3 = {
-		activeExec = 0;
-		executables = (
-			26EFAFA800D6E87E08CA2CE9,
-		);
-	};
-	00FE5D97FEF9EFA211CA2CB3 = {
-		activeExec = 0;
-	};
 	0A8198BE00571E3511CA2CEA = {
 		activeArgIndex = 2147483647;
+		activeArgIndices = (
+		);
 		argumentStrings = (
 		);
 		debuggerPlugin = GDBDebugging;
@@ -27,6 +20,8 @@
 	};
 	26EFAFA800D6E87E08CA2CE9 = {
 		activeArgIndex = 2147483647;
+		activeArgIndices = (
+		);
 		argumentStrings = (
 		);
 		debuggerPlugin = GDBDebugging;
@@ -43,12 +38,17 @@
 	};
 	3C561387FEEF59C211CA2CB3 = {
 		activeBuildStyle = 07B3C7DFFFA7A65311CA2CEA;
-		activeExecutable = 26EFAFA800D6E87E08CA2CE9;
+		activeExecutable = 0A8198BE00571E3511CA2CEA;
 		activeTarget = 3C5613D6FEEF59C211CA2CB3;
 		executables = (
 			26EFAFA800D6E87E08CA2CE9,
 			0A8198BE00571E3511CA2CEA,
 		);
+		perUserDictionary = {
+			PBXPerProjectTemplateStateSaveDate = 52354106;
+		};
+		projectwideBuildSettings = {
+		};
 		wantsIndex = 1;
 		wantsSCM = -1;
 	};

@@ -1,9 +1,9 @@
 /*
- * "$Id: mime.h,v 1.1.1.3 2002/06/06 22:13:18 jlovell Exp $"
+ * "$Id: mime.h,v 1.1.1.8 2003/04/11 21:07:49 jlovell Exp $"
  *
  *   MIME type/conversion database definitions for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -22,10 +22,11 @@
  *         WWW: http://www.cups.org
  */
 
-#ifndef _MIME_H_
-#  define _MIME_H_
+#ifndef _CUPS_MIME_H_
+#  define _CUPS_MIME_H_
 
 #  include <cups/ipp.h>
+#  include "file.h"
 
 
 /*
@@ -64,7 +65,8 @@ typedef enum
   MIME_MAGIC_SHORT,	/* Short/16-bit word matches */
   MIME_MAGIC_INT,	/* Integer/32-bit word matches */
   MIME_MAGIC_LOCALE,	/* Current locale matches string */
-  MIME_MAGIC_CONTAINS	/* File contains a string */
+  MIME_MAGIC_CONTAINS,	/* File contains a string */
+  MIME_MAGIC_ISTRING	/* Case-insensitive string matches */
 } mime_op_t;
 
 typedef struct mime_magic_str		/**** MIME Magic Data ****/
@@ -118,26 +120,28 @@ typedef struct				/**** MIME Database ****/
  */
 
 extern void		mimeDelete(mime_t *mime);
-#define mimeLoad(pathname)	mimeMerge((mime_t *)0, (pathname));
+#define mimeLoad(pathname,filterpath) \
+			mimeMerge((mime_t *)0, (pathname), (filterpath))
 extern mime_t		*mimeMerge(mime_t *mime, const char *pathname,
 			           const char *filterpath);
 extern mime_t		*mimeNew(void);
 
 extern mime_type_t	*mimeAddType(mime_t *mime, const char *super, const char *type);
 extern int		mimeAddTypeRule(mime_type_t *mt, const char *rule);
-extern mime_type_t	*mimeFileType(mime_t *mime, const char *pathname);
+extern mime_type_t	*mimeFileType(mime_t *mime, const char *pathname,
+			              int *compression);
 extern mime_type_t	*mimeType(mime_t *mime, const char *super, const char *type);
 
 extern mime_filter_t	*mimeAddFilter(mime_t *mime, mime_type_t *src, mime_type_t *dst,
 			               int cost, const char *filter);
 extern mime_filter_t	*mimeFilter(mime_t *mime, mime_type_t *src, mime_type_t *dst,
-			            int *num_filters);
+			            int *num_filters, int max_depth);
 
 #  ifdef _cplusplus
 }
 #  endif /* _cplusplus */
-#endif /* !_MIME_H_ */
+#endif /* !_CUPS_MIME_H_ */
 
 /*
- * End of "$Id: mime.h,v 1.1.1.3 2002/06/06 22:13:18 jlovell Exp $".
+ * End of "$Id: mime.h,v 1.1.1.8 2003/04/11 21:07:49 jlovell Exp $".
  */

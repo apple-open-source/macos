@@ -1,0 +1,20 @@
+<option type="enum" id="opt/@@DRVNAME@@-inputslot">
+  <!-- A multilingual <comments> block can appear here, too;
+       it should be treated as documentation for the user. -->
+  <arg_longname>
+   <en>Input Slot</en>
+  </arg_longname>
+  <arg_shortname>
+   <en>InputSlot</en><!-- backends only know <en> shortnames! -->
+  </arg_shortname>
+  <arg_execution>@@GROUP@@
+   <arg_order>100</arg_order>
+   <arg_spot>A</arg_spot>
+   <arg_postscript />
+   <arg_proto>&lt;&lt;/InputSlot(%s)&gt;&gt;setpagedevice</arg_proto>
+  </arg_execution>
+
+  @@OPTCONSTRAINTS@@
+  @@ENUMVALS@@
+
+</option>

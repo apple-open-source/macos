@@ -1,5 +1,5 @@
 -------------------------------------------------------------------------------
-things that still need to be fixed
+things that still need to be done
 -------------------------------------------------------------------------------
 
 update code base to pcmcia-cs-3.2+
@@ -13,48 +13,39 @@ fix rsrc_mgr.c it should be rewritten in terms of IOKit, ie IORangeAllocator
 	- release_mem_region(u_long base, u_long num);
 	- find_io_region
 	- release_io_region(u_long base, u_long num); aka, release_region
-	- fix the PCI code to handle the returning of used address space
         
 write and call a new macosx version of exit_pcmcia_cs()
 	- the pccard card family doesn't unload yet
-	
-write funky cis tuple code
-	- look for specific tuple and match against its data
-	- default enabler should check for card match and then
-	  patch cis data from info in the XML file
-	- it would be cool to be specify a specific configuration index 
-	  to use on a per card basis in the xml file
-	- the entry in xml wouldn't have to specify a class, 
-	  it could just do the patch (if that even works?)
 
-write a sample pccard16 driver
-	- test different types of matching
-
-write a simple sram driver
-	- create a nub of type IOBlockStorageDevice, look at DiskImages
-	- ApplePCCardSRAMDevice -> IOBlockStorageDevice -> IOMedia
-
-fix the Zoom Video code, it is not tested/complete.
+fix the Zoom Video code, it is not tested/complete?
 
 -------------------------------------------------------------------------------
 possible code enhancements - later (much later)
 -------------------------------------------------------------------------------
 
+implement AddSocketServices
+	- to replace register_ss_entry()
+	- move i82365.c into a seperate kext
+
+write a ds style driver interface for the ds ioctls? can probably use
+IORegistry and get/setProperties() hook to catch things, or io_connect
+
+write funky cis tuple code
+	- look for specific tuple and match against its data
+	- default enabler should check for card match and then
+	  patch cis data from info in the XML file
+	- the entry in xml wouldn't have to specify a class, 
+	  it could just do the patch (if that even works?)
+
+write a simple sram driver
+	- create a nub of type IOBlockStorageDevice, look at DiskImages
+	- ApplePCCardSRAMDevice -> IOBlockStorageDevice -> IOMedia
+	
 write code to create MTD driver nubs using using JEDEC tuples for matching
 	- they would need to get loaded first
 	- the MTD is not fully hooked up yet, search for mtd_req
 		-it might be easier to ditch the MTD code?
 	- workaround: make MTD drivers part of regular memory driver
-
-write a ds style driver interface for the ds ioctls? can probably use
-IORegistry and get/setProperties() hook to catch things, or io_connect
-
-write code to support IO offset registers for 16 bit cards, needed for
-adding in two cards that have overlapping io space requirements?
-
-implement AddSocketServices
-	- to replace register_ss_entry()
-	- move i82365.c into a seperate kext
 
 should change socket services to load in card services, ... on card
 insert we could have a lite weight dummy driver that adds a flag to
@@ -69,5 +60,5 @@ personalties depending on which controller/laptop we end up matching
 against. This might fit in well with breaking out socket services into
 a seperate kext.
 
-dma? not done on 9, should really do for X
+dma? not done on 9
 

@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -103,6 +101,10 @@ static module_state * _dyld_link_module(
 #define LINK_OPTION_BINDNOW 0x1
 #define LINK_OPTION_PRIVATE 0x2
 #define LINK_OPTION_RETURN_ON_ERROR 0x4
+#define LINK_OPTION_DONT_CALL_MOD_INIT 0x8
+#define LINK_OPTION_TRAILING_PHYS_NAME 0x10
+/* private flag - not in <mach-o/dyld.h> */
+#define LINK_OPTION_RELOC_JUST_THIS_MODULE 0x80000000
 
 static enum bool _dyld_unlink_module(
     module_state *module,
@@ -137,6 +139,9 @@ static enum bool _dyld_bind_fully_image_containing_address(
     unsigned long address);
 
 static enum bool _dyld_image_containing_address(
+    unsigned long address);
+
+static struct mach_header * _dyld_get_image_header_containing_address(
     unsigned long address);
 
 static void _dyld_moninit(
@@ -233,6 +238,13 @@ static int _dyld_NSGetExecutablePath(
 static enum bool _dyld_launched_prebound(
     void);
 
+static enum bool _dyld_all_twolevel_modules_prebound(
+    void);
+
+static void _dyld_install_link_edit_symbol_handlers(
+    object_image_register_proc newImageHandler,
+    object_image_locator_proc findDefinitionHandler);
+
 struct dyld_func {
     char *funcname;
     void (*address)(void);
@@ -272,6 +284,8 @@ struct dyld_func dyld_funcs[] = {
 	(void (*)(void))_dyld_bind_fully_image_containing_address },
     {"__dyld_image_containing_address",
 	(void (*)(void))_dyld_image_containing_address },
+    {"__dyld_get_image_header_containing_address",
+	(void (*)(void))_dyld_get_image_header_containing_address },
     {"__dyld_moninit",		(void (*)(void))_dyld_moninit },
     {"__dyld_fork_prepare",	(void (*)(void))_dyld_fork_prepare },
     {"__dyld_fork_parent",	(void (*)(void))_dyld_fork_parent },
@@ -308,9 +322,13 @@ struct dyld_func dyld_funcs[] = {
     {"__dyld_NSAddImage", (void (*)(void))_dyld_NSAddImage },
     {"__dyld__NSGetExecutablePath", (void (*)(void))_dyld_NSGetExecutablePath },
     {"__dyld_launched_prebound",(void (*)(void))_dyld_launched_prebound },
+    {"__dyld_all_twolevel_modules_prebound",
+	(void (*)(void))_dyld_all_twolevel_modules_prebound },
     {"__dyld_call_module_initializers_for_dylib",
 	(void (*)(void))_dyld_call_module_initializers_for_dylib },
     {"__dyld_mod_term_funcs", (void (*)(void))_dyld_mod_term_funcs },
+    {"__dyld_install_link_edit_symbol_handlers",
+	(void (*)(void))_dyld_install_link_edit_symbol_handlers },
     {NULL, 0}
 };
 
@@ -688,7 +706,7 @@ module_state **module)
 		link_library_module(defined_library_image, defined_image,
 		    defined_module, TRUE, FALSE, FALSE);
 	    /* the lock gets released in link_in_need_modules */
-	    link_in_need_modules(TRUE, TRUE);
+	    link_in_need_modules(TRUE, TRUE, NULL);
 	}
 	DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_lookup_and_bind_fully);
 }
@@ -746,8 +764,9 @@ unsigned long object_size,
 char *moduleName,
 unsigned long options)
 {
-    struct object_image *object_image;
+    struct object_image *object_image, *reloc_just_this_object_image;
     enum bool bind_now;
+    char *physical_name;
 
 	/* set lock for dyld data structures */
 	set_lock();
@@ -766,7 +785,14 @@ unsigned long options)
 	else
 	    return_on_error = FALSE;
 
-	object_image = map_bundle_image(moduleName, object_addr, object_size);
+	if((options & LINK_OPTION_TRAILING_PHYS_NAME) ==
+	   LINK_OPTION_TRAILING_PHYS_NAME)
+	    physical_name = moduleName + strlen(moduleName) + 1;
+	else
+	    physical_name = moduleName;
+
+	object_image = map_bundle_image(moduleName, physical_name, object_addr,
+					object_size);
 	if(object_image == NULL){
             DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_link_module);
 	    /* release lock for dyld data structures */
@@ -784,6 +810,33 @@ unsigned long options)
 	    object_image->image.private = TRUE;
 	else
 	    object_image->image.private = FALSE;
+
+	if((options & LINK_OPTION_DONT_CALL_MOD_INIT) ==
+	   LINK_OPTION_DONT_CALL_MOD_INIT)
+	    object_image->image.dont_call_mod_init = TRUE;
+	else
+	    object_image->image.dont_call_mod_init = FALSE;
+
+	if((options & LINK_OPTION_RELOC_JUST_THIS_MODULE) ==
+	   LINK_OPTION_RELOC_JUST_THIS_MODULE &&
+	   return_on_error == FALSE &&
+	   all_twolevel_modules_prebound == TRUE)
+	    reloc_just_this_object_image = object_image;
+	else
+	    reloc_just_this_object_image = NULL;
+
+	/*
+	 * If there is an object_image_register() function (installed by
+	 * ZeroLink) call it so it can associated this object_image with the
+	 * moduleName.  Note that object_image will be unique but the pointer
+	 * for moduleName and the name it points is what ever the user passed
+	 * and may not be unique.
+	 */
+	if(object_image_register != NULL){
+	    release_lock();
+	    (*object_image_register)(moduleName, object_image);
+	    set_lock();
+	}
 
 	/*
 	 * Load the dependent libraries.
@@ -857,7 +910,7 @@ unsigned long options)
 	 * NOTE: the lock gets released with link_in_need_modules( ,TRUE)
 	 */
 	if(return_on_error == TRUE){
-	    if(link_in_need_modules(FALSE, FALSE) == FALSE){
+	    if(link_in_need_modules(FALSE, FALSE, NULL) == FALSE){
 		/*
 		 * Back out the undefined symbols and coalesced symbols added by
 		 * link_object_module() after return_on_error was set.  Note
@@ -887,19 +940,23 @@ unsigned long options)
 	    }
 	}
 	else{
-	    (void)link_in_need_modules(FALSE, TRUE);
+	    (void)link_in_need_modules(FALSE, TRUE,
+				       reloc_just_this_object_image);
 	}
 
 	/*
 	 * Call the routine that gdb might have a break point on to let it
-	 * know it is time to re-read the internal dyld structures as defined
-	 * by <mach-o/dyld_gdb.h>
+	 * know it is time to re-read the internal dyld structures as defined.
+	 * If running there is an undefined handler recursively linking in new
+	 * bundles, don't tell gdb until the handler is finished.
 	 */
-	gdb_dyld_state_changed();
+	if(undefined_handler_recursion_level <= 1)
+	    gdb_dyld_state_changed();
 
 	DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_link_module);
 	return(&object_image->module);
 }
+
 
 static
 enum bool
@@ -1226,11 +1283,11 @@ unsigned long objc_module)
 				    FALSE, FALSE, FALSE);
 		resolve_undefineds(FALSE, FALSE);
 		relocate_modules_being_linked(FALSE);
-		check_and_report_undefineds();
+		check_and_report_undefineds(FALSE);
 		call_registered_funcs_for_add_images();
 		call_registered_funcs_for_linked_modules();
 		call_image_init_routines(FALSE);
-		call_module_initializers(FALSE, FALSE);
+		call_module_initializers(FALSE, FALSE, FALSE);
                 
 		DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_bind_objc_module);
 		/* release lock for dyld data structures */
@@ -1298,7 +1355,7 @@ unsigned long address)
 				return(TRUE);
 			    }
 			    link_object_module(&(p->images[i]), TRUE, FALSE);
-			    link_in_need_modules(TRUE, TRUE);
+			    link_in_need_modules(TRUE, TRUE, NULL);
 			    /* the lock gets released in link_in_need_modules */
 			    DYLD_TRACE_LIBFUNC_END(
 				DYLD_TRACE_bind_fully_image_containing_address);
@@ -1340,7 +1397,7 @@ unsigned long address)
 						    q->images[i].modules + j,
 						    TRUE, FALSE, FALSE);
 			    }
-			    link_in_need_modules(TRUE, TRUE);
+			    link_in_need_modules(TRUE, TRUE, NULL);
 			    /* the lock gets released in link_in_need_modules */
 			    DYLD_TRACE_LIBFUNC_END(
 				DYLD_TRACE_bind_fully_image_containing_address);
@@ -1368,9 +1425,25 @@ enum bool
 _dyld_image_containing_address(
 unsigned long address)
 {
-    unsigned long i, j;
+	if(_dyld_get_image_header_containing_address(address) != NULL)
+	    return(TRUE);
+	else
+	    return(FALSE);
+}
+
+/*
+ * _dyld_get_image_header_containing_address() is passed an address that might
+ * be in image managed by dyld.  If the address is found in an image the a
+ * pointer to the mach header of that image is returned else NULL is returned.
+ */
+static struct mach_header *
+_dyld_get_image_header_containing_address(
+unsigned long address)
+{
+    unsigned long i, j, ncmds, vmaddr_slide;
     struct object_images *p;
     struct library_images *q;
+    struct image *image;
     struct load_command *lc;
     struct segment_command *sg;
     enum bool first_object_image;
@@ -1395,21 +1468,22 @@ unsigned long address)
 		 * vmaddr_size.  Also split images are not contiguious in
 		 * memory and can't be tested with vmaddr_size.
 		 */
-		if((p->images[i].image.mh->flags & MH_SPLIT_SEGS) != 0 ||
+		image = &(p->images[i].image);
+		vmaddr_slide = image->vmaddr_slide;
+		if((image->mh->flags & MH_SPLIT_SEGS) != 0 ||
 		   first_object_image == TRUE){
-		    lc = (struct load_command *)((char *)p->images[i].image.mh +
+		    lc = (struct load_command *)((char *)image->mh +
 			    sizeof(struct mach_header));
-		    for(j = 0; j < p->images[i].image.mh->ncmds; j++){
+		    ncmds = image->mh->ncmds;
+		    for(j = 0; j < ncmds; j++){
 			switch(lc->cmd){
 			case LC_SEGMENT:
 			    sg = (struct segment_command *)lc;
-			    if(address >= sg->vmaddr +
-					  p->images[i].image.vmaddr_slide &&
-			       address < sg->vmaddr + sg->vmsize +
-					 p->images[i].image.vmaddr_slide){
+			    if(address >= sg->vmaddr + vmaddr_slide &&
+			       address < sg->vmaddr + sg->vmsize +vmaddr_slide){
 				/* release lock for dyld data structures */
 				release_lock();
-				return(TRUE);
+				return(image->mh);
 			    }
 			}
 			lc = (struct load_command *)((char *)lc + lc->cmdsize);
@@ -1417,55 +1491,56 @@ unsigned long address)
 		    first_object_image = FALSE;
 		}
 		else{
-		    if(address >= ((unsigned long)p->images[i].image.mh) &&
-		       address < ((unsigned long)p->images[i].image.mh) +
-				 p->images[i].image.vmaddr_size){
+		    if(address >= ((unsigned long)image->mh) &&
+		       address < ((unsigned long)image->mh) +
+				 image->vmaddr_size){
 			/* release lock for dyld data structures */
 			release_lock();
-			return(TRUE);
+			return(image->mh);
 		    }
 		}
 	    }
 	}
 	for(q = &library_images; q != NULL; q = q->next_images){
 	    for(i = 0; i < q->nimages; i++){
+		image = &(q->images[i].image);
+		vmaddr_slide = image->vmaddr_slide;
 		/*
 		 * Split images are not contiguious in memory and can't be
 		 * tested with vmaddr_size.
 		 */
-		if((q->images[i].image.mh->flags & MH_SPLIT_SEGS) != 0){
-		    lc = (struct load_command *)((char *)q->images[i].image.mh +
+		if((image->mh->flags & MH_SPLIT_SEGS) != 0){
+		    lc = (struct load_command *)((char *)image->mh +
 			    sizeof(struct mach_header));
-		    for(j = 0; j < q->images[i].image.mh->ncmds; j++){
+		    ncmds = image->mh->ncmds;
+		    for(j = 0; j < ncmds; j++){
 			switch(lc->cmd){
 			case LC_SEGMENT:
 			    sg = (struct segment_command *)lc;
-			    if(address >= sg->vmaddr +
-					  q->images[i].image.vmaddr_slide &&
-			       address < sg->vmaddr + sg->vmsize +
-					 q->images[i].image.vmaddr_slide){
+			    if(address >= sg->vmaddr + vmaddr_slide &&
+			       address < sg->vmaddr + sg->vmsize +vmaddr_slide){
 				/* release lock for dyld data structures */
 				release_lock();
-				return(TRUE);
+				return(image->mh);
 			    }
 			}
 			lc = (struct load_command *)((char *)lc + lc->cmdsize);
 		    }
 		}
 		else{
-		    if(address >= ((unsigned long)q->images[i].image.mh) &&
-		       address < ((unsigned long)q->images[i].image.mh) +
-				 q->images[i].image.vmaddr_size){
+		    if(address >= ((unsigned long)image->mh) &&
+		       address < ((unsigned long)image->mh) +
+				 image->vmaddr_size){
 			/* release lock for dyld data structures */
 			release_lock();
-			return(TRUE);
+			return(image->mh);
 		    }
 		}
 	    }
 	}
 	/* release lock for dyld data structures */
 	release_lock();
-	return(FALSE);
+	return(NULL);
 }
 
 /*
@@ -1730,7 +1805,7 @@ void)
 	    DYLD_TRACE_make_delayed_module_initializer_calls);
         
 	call_image_init_routines(TRUE);
-	call_module_initializers(TRUE, FALSE);
+	call_module_initializers(TRUE, FALSE, FALSE);
 
 	DYLD_TRACE_LIBFUNC_END(
 	    DYLD_TRACE_make_delayed_module_initializer_calls);
@@ -2027,6 +2102,7 @@ unsigned long options)
 
 	defined_symbol = NULL;
 	image_name = NULL;
+	defined_library_image = NULL;
 	/*
 	 * First find the dynamic library for this mach header and lookup the
 	 * the symbol_name in it if the mach header is a loaded dynamic library.
@@ -2164,16 +2240,18 @@ down:
 	 */
 	if(return_on_error == TRUE){
 	    clear_module_states_saved();
-	    if(defined_library_image->saved_module_states == NULL){
-		defined_library_image->saved_module_states =
-		    allocate(defined_library_image->nmodules *
-			     sizeof(module_state));
+	    if(defined_library_image != NULL){
+		if(defined_library_image->saved_module_states == NULL){
+		    defined_library_image->saved_module_states =
+			allocate(defined_library_image->nmodules *
+				 sizeof(module_state));
+		}
+		memcpy(defined_library_image->saved_module_states,
+		       defined_library_image->modules,
+		       defined_library_image->nmodules *
+			    sizeof(module_state));
+		defined_library_image->module_states_saved = TRUE;
 	    }
-	    memcpy(defined_library_image->saved_module_states,
-		   defined_library_image->modules,
-		   defined_library_image->nmodules *
-			sizeof(module_state));
-	    defined_library_image->module_states_saved = TRUE;
 	    if(defined_image->mh->filetype != MH_DYLIB){
 		object_image = (struct object_image *)
 				defined_image->outer_image;
@@ -2239,7 +2317,7 @@ down:
 	 * Now link in any needed modules to the level of binding specified in
 	 * the options.
 	 */
-	return_value = link_in_need_modules(bind_fully, FALSE);
+	return_value = link_in_need_modules(bind_fully, FALSE, NULL);
 
 	/*
 	 * Again if we are doing return on error and any needed library modules
@@ -2602,6 +2680,8 @@ _dyld_NSAddLibrary(
 char *dylib_name)
 {
     enum bool return_value;
+    enum bool tried_to_use_prebinding_post_launch;
+    enum bool already_loaded;
     char *p;
 
 	/* set lock for dyld data structures */
@@ -2610,16 +2690,69 @@ char *dylib_name)
         
 	p = allocate(strlen(dylib_name) + 1);
 	strcpy(p, dylib_name);
-	return_value = load_library_image(NULL, p, FALSE, FALSE, NULL);
+	return_value = load_library_image(NULL, p, FALSE, FALSE, NULL,
+					  &already_loaded, FALSE);
 	load_dependent_libraries();
+
+	/*
+	 * If when loading this library and its dependent libraries we tried to
+	 * use the prebinding then we need to cache this in a local variable.
+	 * Then we need to setup the libraries that can have their prebinding
+	 * used and undo those that could not.  Later we then need to cause the
+	 * image init routines and module init routines to be run in those
+	 * prebound libraries. 
+	 */
+	tried_to_use_prebinding_post_launch = 
+	    trying_to_use_prebinding_post_launch;
+	if(tried_to_use_prebinding_post_launch == TRUE){
+	    find_twolevel_prebound_lib_subtrees();
+	    undo_prebound_images(TRUE);
+	}
+
 	call_registered_funcs_for_add_images();
+
+	/*
+	 * Now cause the image init routines and module init routines to be run
+	 * in those prebound libraries if we used the prebinding in some of
+	 * them.
+	 */
+	if(tried_to_use_prebinding_post_launch == TRUE){
+	    /*
+	     * Now call the functions that were registered to be called when a
+	     * module gets linked.
+	     */
+	    call_registered_funcs_for_linked_modules();
+
+	    /*
+	     * Now call the image initialization routines for the images that
+	     * have modules newly being used in them.
+	     */
+	    call_image_init_routines(FALSE);
+
+	    /*
+	     * Now call module initialization routines for modules that have
+	     * been linked in from the post launch prebound libraries being used
+	     * prebound.
+	     */
+	    call_module_initializers(FALSE, FALSE, TRUE);
+
+	    /*
+	     * Now clear the trying_to_use_prebinding_post_launch variable and
+	     * any libraries that had the trying_to_use_prebinding_post_launch
+	     * field set.
+	     */
+	    clear_trying_to_use_prebinding_post_launch();
+	}
 
 	/*
 	 * Call the routine that gdb might have a break point on to let it
 	 * know it is time to re-read the internal dyld structures as defined
 	 * by <mach-o/dyld_gdb.h>
+	 * Skipping telling gdb if the NSAddLibrary command was a no-op because
+	 * the library is already loaded.
 	 */
-	gdb_dyld_state_changed();
+	if(already_loaded == FALSE)
+	    gdb_dyld_state_changed();
 
 	DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_NSAddLibrary);
 	/* release lock for dyld data structures */
@@ -2640,6 +2773,7 @@ _dyld_NSAddLibraryWithSearching(
 char *dylib_name)
 {
     enum bool return_value;
+    enum bool tried_to_use_prebinding_post_launch;
     char *p;
 
 	/* set lock for dyld data structures */
@@ -2649,9 +2783,59 @@ char *dylib_name)
 
 	p = allocate(strlen(dylib_name) + 1);
 	strcpy(p, dylib_name);
-	return_value = load_library_image(NULL, p, TRUE, FALSE, NULL);
+	return_value = load_library_image(NULL, p, TRUE, FALSE, NULL, NULL,
+					  FALSE);
 	load_dependent_libraries();
+
+	/*
+	 * If when loading this library and its dependent libraries we tried to
+	 * use the prebinding then we need to cache this in a local variable.
+	 * Then we need to setup the libraries that can have their prebinding
+	 * used and undo those that could not.  Later we then need to cause the
+	 * image init routines and module init routines to be run in those
+	 * prebound libraries. 
+	 */
+	tried_to_use_prebinding_post_launch = 
+	    trying_to_use_prebinding_post_launch;
+	if(tried_to_use_prebinding_post_launch == TRUE){
+	    find_twolevel_prebound_lib_subtrees();
+	    undo_prebound_images(TRUE);
+	}
+
 	call_registered_funcs_for_add_images();
+
+	/*
+	 * Now cause the image init routines and module init routines to be run
+	 * in those prebound libraries if we used the prebinding in some of
+	 * them.
+	 */
+	if(tried_to_use_prebinding_post_launch == TRUE){
+	    /*
+	     * Now call the functions that were registered to be called when a
+	     * module gets linked.
+	     */
+	    call_registered_funcs_for_linked_modules();
+
+	    /*
+	     * Now call the image initialization routines for the images that
+	     * have modules newly being used in them.
+	     */
+	    call_image_init_routines(FALSE);
+
+	    /*
+	     * Now call module initialization routines for modules that have
+	     * been linked in from the post launch prebound libraries being used
+	     * prebound.
+	     */
+	    call_module_initializers(FALSE, FALSE, TRUE);
+
+	    /*
+	     * Now clear the trying_to_use_prebinding_post_launch variable and
+	     * any libraries that had the trying_to_use_prebinding_post_launch
+	     * field set.
+	     */
+	    clear_trying_to_use_prebinding_post_launch();
+	}
         
 	DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_NSAddLibraryWithSearching);
 	/* release lock for dyld data structures */
@@ -2670,9 +2854,11 @@ char *dylib_name,
 unsigned long options)
 {
     enum bool return_value, force_searching, match_filename_by_installname;
+    enum bool tried_to_use_prebinding_post_launch;
     struct image *image;
     struct stat stat_buf;
     char *p;
+    enum bool already_loaded;
 
 	/* set lock for dyld data structures */
 	set_lock();
@@ -2685,7 +2871,8 @@ unsigned long options)
 	 * struct info.  If it is not loaded return NULL.
 	 */
 	if(options & ADDIMAGE_OPTION_RETURN_ONLY_IF_LOADED){
-	    return_value = is_library_loaded_by_name(dylib_name, NULL, &image);
+	    return_value = is_library_loaded_by_name(dylib_name, NULL, &image,
+						     FALSE);
 	    if(return_value == TRUE){
 		/* release lock for dyld data structures */
 		release_lock();
@@ -2698,7 +2885,7 @@ unsigned long options)
 		return(NULL);
 	    }
 	    return_value = is_library_loaded_by_stat(dylib_name, NULL,
-						     &stat_buf, &image);
+						     &stat_buf, &image, FALSE);
 	    if(return_value == TRUE){
 		DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_NSAddImage);
 		/* release lock for dyld data structures */
@@ -2729,7 +2916,8 @@ unsigned long options)
 	    match_filename_by_installname = FALSE;
 
 	return_value = load_library_image(NULL, p, force_searching,
-					  match_filename_by_installname,&image);
+					  match_filename_by_installname, &image,
+					  &already_loaded, FALSE);
 	if(return_on_error == TRUE && return_value == FALSE){
             DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_NSAddImage);
 	    /* release lock for dyld data structures */
@@ -2737,6 +2925,7 @@ unsigned long options)
             
 	    return(NULL);
 	}
+
 
 	return_value = load_dependent_libraries();
 	if(return_on_error == TRUE && return_value == FALSE){
@@ -2763,7 +2952,59 @@ unsigned long options)
 	    return_on_error = FALSE;
 	}
 
+	/*
+	 * If when loading this library and its dependent libraries we tried to
+	 * use the prebinding then we need to cache this in a local variable.
+	 * Then we need to setup the libraries that can have their prebinding
+	 * used and undo those that could not.  Later we then need to cause the
+	 * image init routines and module init routines to be run in those
+	 * prebound libraries. 
+	 */
+	tried_to_use_prebinding_post_launch = 
+	    trying_to_use_prebinding_post_launch;
+	if(tried_to_use_prebinding_post_launch == TRUE){
+	    find_twolevel_prebound_lib_subtrees();
+	    undo_prebound_images(TRUE);
+	}
+
+	/*
+	 * Now call the functions that were registered to be called when an
+	 * image gets added.
+	 */
 	call_registered_funcs_for_add_images();
+
+	/*
+	 * Now cause the image init routines and module init routines to be run
+	 * in those prebound libraries if we used the prebinding in some of
+	 * them.
+	 */
+	if(tried_to_use_prebinding_post_launch == TRUE){
+	    /*
+	     * Now call the functions that were registered to be called when a
+	     * module gets linked.
+	     */
+	    call_registered_funcs_for_linked_modules();
+
+	    /*
+	     * Now call the image initialization routines for the images that
+	     * have modules newly being used in them.
+	     */
+	    call_image_init_routines(FALSE);
+
+	    /*
+	     * Now call module initialization routines for modules that have
+	     * been linked in from the post launch prebound libraries being used
+	     * prebound.
+	     */
+	    call_module_initializers(FALSE, FALSE, TRUE);
+
+	    /*
+	     * Now clear the trying_to_use_prebinding_post_launch variable and
+	     * any libraries that had the trying_to_use_prebinding_post_launch
+	     * field set.
+	     */
+	    clear_trying_to_use_prebinding_post_launch();
+	}
 
 	/*
 	 * Release lock for dyld data structures.
@@ -2776,8 +3017,11 @@ unsigned long options)
 	 * Call the routine that gdb might have a break point on to let it
 	 * know it is time to re-read the internal dyld structures as defined
 	 * by <mach-o/dyld_gdb.h>
+	 * Skipping telling gdb if the NSAddImage command was a no-op because
+	 * the library is already loaded.
 	 */
-	gdb_dyld_state_changed();
+	 if(already_loaded == FALSE)
+	    gdb_dyld_state_changed();
     
 	DYLD_TRACE_LIBFUNC_END(DYLD_TRACE_NSAddImage);
 	return(image->mh);
@@ -2817,4 +3061,28 @@ _dyld_launched_prebound(
 void)
 {
 	return(prebinding);
+}
+
+static
+enum bool
+_dyld_all_twolevel_modules_prebound(
+void)
+{
+	return(all_twolevel_modules_prebound);
+}
+
+/*
+ * _dyld_install_link_edit_symbol_handlers() installs the private callbacks used
+ * by ZeroLink.  This may change in the future. ZeroLink must test that its
+ * call to _dyld_func_lookup() returns a non-NULL pointer when it gets this
+ * private function to see if it is present in the version of dyld it is using.
+ */
+static
+void
+_dyld_install_link_edit_symbol_handlers(
+object_image_register_proc newImageHandler,
+object_image_locator_proc findDefinitionHandler)
+{
+	object_image_register = newImageHandler;
+	object_image_locator = findDefinitionHandler;
 }

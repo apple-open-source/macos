@@ -29,7 +29,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-PUBLIC_HEADERS = ni.h ni_util.h nibind_prot.x ni_prot.x
+PRIVATE_HEADERS = ni.h ni_util.h nibind_prot.x ni_prot.x
 
 
 

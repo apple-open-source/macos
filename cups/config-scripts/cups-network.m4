@@ -1,9 +1,9 @@
 dnl
-dnl "$Id: cups-network.m4,v 1.4 2002/06/10 23:47:27 jlovell Exp $"
+dnl "$Id: cups-network.m4,v 1.1.1.9 2003/03/04 19:06:18 jlovell Exp $"
 dnl
 dnl   Networking stuff for the Common UNIX Printing System (CUPS).
 dnl
-dnl   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+dnl   Copyright 1997-2003 by Easy Software Products, all rights reserved.
 dnl
 dnl   These coded instructions, statements, and computer programs are the
 dnl   property of Easy Software Products and are protected by Federal
@@ -29,13 +29,20 @@ if test "$uname" != "IRIX"; then
 	AC_CHECK_LIB(nsl,gethostbyaddr,NETLIBS="$NETLIBS -lnsl")
 fi
 
-AC_CHECK_FUNCS(rresvport getifaddrs)
+AC_CHECK_FUNCS(rresvport getifaddrs hstrerror)
 
 AC_CHECK_MEMBER(struct sockaddr.sa_len,,,[#include <sys/socket.h>])
 AC_CHECK_HEADER(sys/sockio.h,AC_DEFINE(HAVE_SYS_SOCKIO_H))
 
 AC_SUBST(NETLIBS)
 
+maxfiles=4096
+
+AC_ARG_WITH(maxfiles, [  --with-maxfiles=N       set maximum number of file descriptors for CUPS. ],
+	maxfiles=$withval)
+
+AC_DEFINE_UNQUOTED(CUPS_MAX_FDS, $maxfiles)
+
 dnl
-dnl End of "$Id: cups-network.m4,v 1.4 2002/06/10 23:47:27 jlovell Exp $".
+dnl End of "$Id: cups-network.m4,v 1.1.1.9 2003/03/04 19:06:18 jlovell Exp $".
 dnl

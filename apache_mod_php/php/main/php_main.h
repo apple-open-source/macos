@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -18,7 +18,7 @@
  */
 
 
-/* $Id: php_main.h,v 1.1.1.5 2001/12/14 22:13:49 zarzycki Exp $ */
+/* $Id: php_main.h,v 1.1.1.8 2003/07/18 18:07:48 zarzycki Exp $ */
 
 
 #ifndef PHP_MAIN_H
@@ -31,7 +31,7 @@
 PHPAPI int php_request_startup(TSRMLS_D);
 PHPAPI void php_request_shutdown(void *dummy);
 PHPAPI void php_request_shutdown_for_exec(void *dummy);
-PHPAPI int php_module_startup(sapi_module_struct *sf);
+PHPAPI int php_module_startup(sapi_module_struct *sf, zend_module_entry *additional_modules, uint num_additional_modules);
 PHPAPI void php_module_shutdown(TSRMLS_D);
 PHPAPI void php_module_shutdown_for_exec(void);
 PHPAPI int php_module_shutdown_wrapper(sapi_module_struct *sapi_globals);
@@ -45,14 +45,12 @@ PHPAPI int php_lint_script(zend_file_handle *file TSRMLS_DC);
 PHPAPI void php_handle_aborted_connection(void);
 PHPAPI int php_handle_auth_data(const char *auth TSRMLS_DC);
 
+PHPAPI void php_html_puts(const char *str, uint siz TSRMLS_DC);
+
 extern void php_call_shutdown_functions(void);
 
 /* environment module */
 extern int php_init_environ(void);
 extern int php_shutdown_environ(void);
-
-#if defined(MBSTR_ENC_TRANS)
-#define php_treat_data mbstr_treat_data
-#endif
 
 #endif

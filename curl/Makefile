@@ -10,18 +10,17 @@ Extra_CC_Flags  = -fno-common
 GnuAfterInstall = install-strip
 
 # Don't ship libcurl (not supported)
-Extra_Environment   = includedir="/usr/local/include"			\
-		      libdir="/usr/local/lib"				\
-		      man3dir="/usr/local/share/man/man3"		\
-		      man5dir="/usr/local/share/man/man5"
-Extra_Install_Flags = includedir="$(DSTROOT)/usr/include"		\
-		      libdir="$(DSTROOT)/usr/lib"			\
-		      man3dir="$(DSTROOT)/usr/share/man/man3"	\
-		      man5dir="$(DSTROOT)/usr/share/man/man5"
+Extra_Environment   = AR='$(SRCROOT)/ar.sh' 
+
+# It's a Common Source project
+#
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
+lazy_install_source:: shadow_source
 
 install-strip:
+	strip -x $(DSTROOT)/usr/lib/libcurl.2.dylib
 	strip -S "$(DSTROOT)/usr/lib/libcurl.a"
 	rm -f "$(DSTROOT)/usr/lib/libcurl.la"
+	ln -s libcurl.2.dylib $(DSTROOT)/usr/lib/libcurl.2.0.2.dylib

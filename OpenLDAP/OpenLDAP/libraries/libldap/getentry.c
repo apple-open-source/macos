@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/getentry.c,v 1.20 2002/01/04 20:17:38 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/getentry.c,v 1.20.2.3 2003/03/03 17:10:04 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*  Portions
@@ -29,10 +29,6 @@ ldap_first_entry( LDAP *ld, LDAPMessage *chain )
 	assert( LDAP_VALID( ld ) );
 	assert( chain != NULL );
 
-	if( ld == NULL || chain == NULL ) {
-		return NULL;
-	}
-
 	return chain->lm_msgtype == LDAP_RES_SEARCH_ENTRY
 		? chain
 		: ldap_next_entry( ld, chain );
@@ -45,11 +41,7 @@ ldap_next_entry( LDAP *ld, LDAPMessage *entry )
 	assert( LDAP_VALID( ld ) );
 	assert( entry != NULL );
 
-	if ( ld == NULL || entry == NULL ) {
-		return NULL;
-	}
-
-	for (
+	for(
 		entry = entry->lm_chain;
 		entry != NULL;
 		entry = entry->lm_chain )
@@ -69,10 +61,6 @@ ldap_count_entries( LDAP *ld, LDAPMessage *chain )
 
 	assert( ld != NULL );
 	assert( LDAP_VALID( ld ) );
-
-	if ( ld == NULL ) {
-		return -1;
-	}
 
 	for ( i = 0; chain != NULL; chain = chain->lm_chain ) {
 		if( chain->lm_msgtype == LDAP_RES_SEARCH_ENTRY ) {
@@ -97,9 +85,7 @@ ldap_get_entry_controls(
 	assert( entry != NULL );
 	assert( sctrls != NULL );
 
-	if ( ld == NULL || sctrls == NULL ||
-		entry == NULL || entry->lm_msgtype != LDAP_RES_SEARCH_ENTRY )
-	{
+	if ( entry->lm_msgtype != LDAP_RES_SEARCH_ENTRY ) {
 		return LDAP_PARAM_ERROR;
 	}
 

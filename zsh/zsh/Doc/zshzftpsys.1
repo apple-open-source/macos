@@ -1,4 +1,4 @@
-.TH "ZSHZFTPSYS" "1" "October 26, 2001" "zsh 4\&.0\&.4"
+.TH "ZSHZFTPSYS" "1" "June 18, 2003" "zsh 4\&.1\&.1"
 .SH "NAME"
 zshzftpsys \- zftp function front\-end
 .\" Yodl file: Zsh/zftpsys.yo
@@ -172,7 +172,8 @@ Produce a long directory listing\&.  The arguments \fIdir\-options\fP and
 \fIdir\fP are passed directly to the server and their effect is
 implementation dependent, but specifying a particular remote directory
 \fIdir\fP is usually possible\&.  The output is passed through a pager
-given by the environment variable \fB$PAGER\fP or defaulting to `\fBmore\fP'\&.
+given by the environment variable \fB$PAGER\fP, or `\fBmore\fP' if that is not
+set\&.
 .RS
 .PP
 The directory is usually cached for re\-use\&.  In fact, two caches are
@@ -362,7 +363,7 @@ It is safest not to delete sessions while background commands using
 \fBzftransfer\fP \fIsess1\fP\fB:\fP\fIfile1\fP \fIsess2\fP\fB:\fP\fIfile2\fP
 Transfer files between two sessions; no local copy is made\&.  The file
 is read from the session \fIsess1\fP as \fIfile1\fP and written to session
-\fIsess1\fP as file \fIfile2\fP; \fIfile1\fP and \fIfile2\fP may be relative to
+\fIsess2\fP as file \fIfile2\fP; \fIfile1\fP and \fIfile2\fP may be relative to
 the current directories of the session\&.  Either \fIsess1\fP or \fIsess2\fP
 may be omitted (though the colon should be retained if there is a
 possibility of a colon appearing in the file name) and defaults to the
@@ -372,8 +373,8 @@ which case the basename of \fIfile1\fP will be added\&.  The sessions
 .RS
 .PP
 The operation is performed using pipes, so it is required that the
-connections still be valid in a subshell, which is not the case under some
-versions operating systems, presumably due to a system bug\&.
+connections still be valid in a subshell, which is not the case under 
+versions of some operating systems, presumably due to a system bug\&.
 .RE
 .RE
 .PP
@@ -392,7 +393,7 @@ directory where your zsh startup files live (usually \fB~\fP)\&.
 If given an argument, mark the current host, user and directory under the
 name \fIbookmark\fP for later use by \fBzfgoto\fP\&.  If there is no connection
 open, use the values for the last connection immediately before it was
-closed; it is an error if there is none\&.  Any existing bookmark
+closed; it is an error if there was none\&.  Any existing bookmark
 under the same name will be silently replaced\&.
 .RS
 .PP
@@ -520,8 +521,8 @@ Various styles are available using the standard shell style mechanism,
 described in
 \fIzshmodules\fP(1)\&. Briefly, the
 command `\fBzstyle ':zftp:*'\fP \fIstyle\fP \fIvalue\fP \&.\&.\&.'\&.
-defines the \fIstyle\fP to have value \fIvalue\fP (more than one may be
-given, although that is not useful in the cases described here)\&.  These
+defines the \fIstyle\fP to have value \fIvalue\fP; more than one value may be
+given, although that is not useful in the cases described here\&.  These
 values will then be used throughout the zftp function system\&.  For more
 precise control, the first argument, which gives a context in which the
 style applies, can be modified to include a particular function, as for

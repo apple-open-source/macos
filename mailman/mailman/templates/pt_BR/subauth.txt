@@ -1,0 +1,11 @@
+A sua autorização é requerida para a aprovação da requisição de inscrição
+na lista de discussão:
+
+    Para:  %(username)s
+    Lista: %(listname)s@%(hostname)s
+
+Para sua conveniência, visite:
+
+    %(admindb_url)s
+
+para processar a requisição.

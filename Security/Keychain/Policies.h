@@ -23,6 +23,7 @@
 #define _SECURITY_POLICY_H_
 
 #include <Security/SecRuntime.h>
+#include <Security/SecPolicy.h>
 #include <Security/cssmdata.h>
 #include <Security/tpclient.h>
 
@@ -42,15 +43,18 @@ class Policy : public SecCFObject
 {
 	NOCOPY(Policy)
 public:
+	SECCFFUNCTIONS(Policy, SecPolicyRef, errSecInvalidItemRef)
+
     Policy(TP supportingTp, const CssmOid &policyOid);
     
 public:
-    virtual ~Policy();
+    virtual ~Policy() throw();
     
     TP &tp()							{ return mTp; }
     const TP &tp() const				{ return mTp; }
     const CssmOid &oid() const			{ return mOid; }
     const CssmData &value() const		{ return mValue; }
+	CssmOwnedData &value()				{ return mValue; }
     
     bool operator < (const Policy& other) const;
     bool operator == (const Policy& other) const;

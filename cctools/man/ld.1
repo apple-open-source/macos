@@ -1,4 +1,4 @@
-.TH LD 1 "May 30, 2002" "Apple Computer, Inc."
+.TH LD 1 "September 10, 2003" "Apple Computer, Inc."
 .SH NAME
 ld \- Mach object file link editor
 .SH SYNOPSIS
@@ -204,7 +204,14 @@ static link time.  The flags to allow undefined references,
 .BI \-undefined " warning"
 and
 .BI \-undefined " suppress"
-can't be used.  The specific library definition recorded
+can't be used.
+When the environment variable
+.B MACOSX_DEPLOYMENT_TARGET
+is set to
+.B 10.3
+then
+.BI \-undefined " dynamic_lookup"
+can also be used.  The specific library definition recorded
 for each reference is the first library that has a definition as listed on the
 link line.  Listing an umbrella framework implies all of its sub-frameworks,
 sub-umbrellas and sub-libraries.  For any reference to a definition found in
@@ -566,6 +573,14 @@ indirectly through NIB files. This option can also be specified by setting the
 environment variable
 .SM LD_PREBIND_ALL_TWOLEVEL_MODULES.
 .TP
+.B \-noprebind_all_twolevel_modules
+Don't have the static linker,
+.IR ld (1),
+mark all modules from prebound two-level namespace dynamic libraries as used
+by the program.  This flag overrides the setting of the
+environment variable
+.SM LD_PREBIND_ALL_TWOLEVEL_MODULES.
+.TP
 .B \-nofixprebinding
 Have the static linker,
 .IR ld (1),
@@ -608,6 +623,22 @@ is of the form
 then that file is searched for in the same places, but without prepending
 `lib' or appending `.a' or `.dylib' to the filename.
 .TP
+.BI \-weak-l x
+The is the same as the
+.BI \-l x
+but forces the library and all references to it to be marked as weak imports.
+Care must be taken when using this as the use of the non-weak symbol references
+in an object file may cause the program to crash when the symbol or library is
+not present at execution time.
+.TP 
+.BI \-weak_library " file_name_path_to_library"
+This is the same as listing a file name path to a library on the link line
+except that it but forces the library and all references to it to be marked as
+weak imports.
+Care must be taken when using this as the use of the non-weak symbol references
+in an object file may cause the program to crash when the symbol or library is
+not present at execution time.
+.TP
 .BI \-L dir
 Add
 .I dir
@@ -618,6 +649,24 @@ are searched before the standard directories.
 .TP
 .B \-Z
 Do not search the standard directories when searching for libraries.
+.TP
+.B \-search_paths_first
+By default when the
+.B \-dynamic
+flag is in effect, the
+.BI \-l x
+and
+.BI \-weak-l x
+options first search for a file of the form
+.RI `lib x .dylib'
+in each directory in the library search path, then a file of the form
+.RI `lib x .a'
+is searched for in the library search paths.
+This option changes it so that in each path
+.RI `lib x .dylib'
+is searched for then
+.RI `lib x .a'
+before the next path in the library search path is searched.
 .TP 
 .BI "\-framework " name[,suffix]
 Specifies a framework to link against. Frameworks are dynamic shared libraries,
@@ -638,6 +687,14 @@ The placement of the
 option is significant, as it determines when and how the framework is searched. 
 If the optional suffix is specified the framework is first searched for the
 name with the suffix and then without.
+.TP
+.BI "\-weak_framework " name[,suffix]
+The is the same as the
+.BI "\-framework " name[,suffix]
+but forces the framework and all references to it to be marked as weak imports.
+Care must be taken when using this as the use of the non-weak symbol references
+in an object file may cause the program to crash when the symbol or framework is
+not present at execution time.
 .TP
 .BI \-F dir
 Add
@@ -663,6 +720,13 @@ specifies the path where the library normally resides.
 specifies the path of the library you want to use instead.
 For example, if you link to a library that depends upon the dynamic library libsys and you have libsys installed in a nondefault location, you would use this option:
 \fB\-dylib_file /lib/libsys_s.A.dylib:/me/lib/libsys_s.A.dylib\fR.
+.TP
+.BI \-executable_path " path_name"
+Specifies that
+.I path_name
+is is is used to replace
+.I @executable_path
+for dependent libraries.
 
 .PP
 The following options specify the output file format (the file type):
@@ -768,8 +832,8 @@ The following flags support segment specifications:
 Specifies the segment alignment.
 .I value
 is a hexadecimal number that must be an integral power of 2.
-The default is the target pagesize (currently 1000 hex for the PowerPC and 2000
-hex for i386).
+The default is the target pagesize (currently 1000 hex for the PowerPC and
+i386).
 .TP
 .BI "\-seg1addr" " addr"
 Specifies the starting address of the first segment in the output file.
@@ -887,7 +951,7 @@ where
 .I value 
 is a hexadecimal number rounded to the segment alignment.
 The default is the target pagesize (currently, 1000 hexadecimal for the PowerPC
-and 2000 hexadecimal for i386).
+and for i386).
 .TP
 .BI "\-stack_addr" " value"
 Specifies the initial address of the stack pointer
@@ -896,7 +960,7 @@ where
 .I value 
 is a hexadecimal number rounded to the segment alignment.
 The default segment alignment is the target pagesize (currently, 1000
-hexadecimal for the PowerPC and 2000 hexadecimal for i386).
+hexadecimal for the PowerPC and for i386).
 If
 .B \-stack_size
 is specified and 
@@ -915,7 +979,7 @@ where
 .I value 
 is a hexadecimal number rounded to the segment alignment.
 The default segment alignment is the target pagesize (currently, 1000
-hexadecimal for the PowerPC and 2000 hexadecimal for i386).
+hexadecimal for the PowerPC and for i386).
 If
 .B \-stack_addr
 is specified and 
@@ -1254,6 +1318,20 @@ or
 Which cause the treatment of undefined symbols as either, errors, warnings, or
 suppresses the checking of undefined symbols.
 The default is to treat undefined symbols as errors.
+When the environment variable
+.B MACOSX_DEPLOYMENT_TARGET
+is set to
+.B 10.3
+then
+.BI \-undefined " dynamic_lookup"
+can also be used to allow any undefined symbols to be looked up dynamically at
+runtime.  Use of a binary built with this flag requires a system with a dynamic
+linker from Mac OS X 10.3 or later.
+The flag
+.BI \-undefined " define_a_way"
+can also be used to cause the static linker to create a private definition for
+all undefined symbols.  This flag should only be used if it is known that the
+undefined symbols are not referenced as any use of them may cause a crash.
 .TP
 .BI  \-U " sym"
 Allow the symbol
@@ -1329,6 +1407,30 @@ invoke this option in this way:
 .TP
 .B \-Sn
 Don't strip any symbols.
+.TP
+.BI \-exported_symbols_list " filename"
+The specified
+.I filename
+contains lists of global symbol names that will remain as global symbols in the 
+output file.  All other global symbols will be treated as if they were marked as
+.I __private_extern__
+and will not be global in the output file. The symbol names listed in
+.I filename
+must be one per line. Leading and trailing white space are not part of the
+symbol name.  Lines starting with # are ignored, as are lines with only white
+space.
+.TP
+.BI \-unexported_symbols_list " filename"
+The specified
+.I filename
+contains lists of global symbol names that will not remain as global symbols in
+the output file.  The symbols will be treated as if they were marked as
+.I __private_extern__
+and will not be global in the output file. The symbol names listed in
+.I filename
+must be one per line. Leading and trailing white space are not part of the
+symbol name.  Lines starting with # are ignored, as are lines with only white
+space.
 
 .PP
 The remaining options are infrequently used:
@@ -1382,8 +1484,11 @@ is extra space left over, which is placed between the headers and the sections, 
 .B headerpad
 option specifies the minimum size of this padding, 
 which can be useful if the headers will be altered later.
-The default value is the 2 * sizeof(struct section) so the program
-/usr/bin/objcunique can always add two section headers.
+The default value is the larger of 2 * sizeof(struct section) so the program
+/usr/bin/objcunique can always add two section headers, or if the output is an
+MH_EXECUTE filetype and
+.B \-prebind
+is specified 3 times the size of the LC_PREBOUND_DYLIB load commands.
 The actual amount of pad will be as large as the amount of the first 
 segment's round-off.
 (That is, take the total size of the first segments' 
@@ -1499,7 +1604,7 @@ The argument
 is taken to be the symbol name of the dynamic shared library initialization
 routine.  If any module is used from the dynamic library the library
 initialization routine is called before any symbol is used from the library
-including C++ static initializers (and #pragma CALL_ON_MODULE_BIND routines).
+including C++ static initializers (and #pragma CALL_ON_LOAD routines).
 .TP
 .BI \-run_init_lazily
 This option is obsolete.
@@ -1518,7 +1623,7 @@ must be a positive non-zero number less than or equal to 65535, and
 .I .Y
 and
 .I .Z
-are optional and if present must be a positive non-zero numbers less than or
+are optional and if present must be non-negative numbers less than or
 equal to 255.
 If the compatibility version number is not specified, it has a
 value of 0 and no checking is done when the library is used.
@@ -1544,7 +1649,7 @@ must be a positive non-zero number less than or equal to 65535, and
 .I .Y
 and
 .I .Z
-are optional and if present must be a positive non-zero numbers less than or
+are optional and if present must be non-negative numbers less than or
 equal to 255.
 If the version number is not specified, it has a
 value of 0.
@@ -1555,6 +1660,14 @@ option when its
 .B \-dynamic
 option is set.
 .TP
+.BI \-single_module
+When building a dynamic library build the library so that it contains only
+one module.
+.TP
+.BI \-multi_module
+When building a dynamic library build the library so that it contains one
+module for each object file linked in.  This is the default.
+.TP
 .BI \-dylinker_install_name " name"
 For dynamic link editor files, specifies the name of the file
 the dynamic link editor will be installed in for programs that use it.
@@ -1564,13 +1677,14 @@ features in the output with respect to Mac OS X releases.
 .TP
 .B MACOSX_DEPLOYMENT_TARGET
 This is set to indicate the oldest Mac OS X version that that the output is to
-be used on.  When this is set to a release that is older that the current
+be used on.  When this is set to a release that is older than the current
 release features that are incompatible with that release will be disabled.  If
 a feature is seen in the input that can't be in the output due to this setting
 a warning is issued.  The current allowable values for this are
-.B 10.1
-and
+.B 10.1,
 .B 10.2
+and
+.B 10.3
 with the default being
 .B 10.1.
 .PP

@@ -223,7 +223,7 @@ dsstatus distinguishedNameRetrieveTransform(BackendDB *be, struct berval *dst, d
 
 			if (status != DSStatusOK)
 			{
-				snprintf(buf, sizeof(buf), "dSID=%lu", dsid);
+				snprintf(buf, sizeof(buf), "dSID=%u", dsid);
 				dst->bv_val = ch_strdup(buf);
 				dst->bv_len = strlen(dst->bv_val);
 				status = DSStatusOK;

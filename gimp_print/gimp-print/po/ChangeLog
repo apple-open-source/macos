@@ -1,0 +1,7 @@
+2003-01-24  gettextize  <bug-gnu-utils@gnu.org>
+
+	* Makefile.in.in: Upgrade to gettext-0.10.40.
+
+This ChangeLog is redundant. Please see the main ChangeLog for i18n changes.
+
+This file is present only to keep po/Makefile.in.in happy.

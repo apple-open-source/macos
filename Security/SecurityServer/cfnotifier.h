@@ -24,7 +24,6 @@
 
 #include "securityserver.h"
 
-
 //
 // A KeychainNotifier object can send keychain-related lock state broadcasts.
 //

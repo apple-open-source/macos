@@ -22,11 +22,11 @@
 
 #include "regcache.h"
 
-#include "nm-sysv4.h"
+#include "config/nm-sysv4.h"
 
 #undef USE_PROC_FS
 
-#include "nm-symmetry.h"
+#include "i386/nm-symmetry.h"
 
 #define PTRACE_READ_REGS(pid,regaddr) mptrace (XPT_RREGS, (pid), (regaddr), 0)
 #define PTRACE_WRITE_REGS(pid,regaddr) \
@@ -38,7 +38,7 @@
 
 /* We must fetch all the regs before storing, since we store all at once.  */
 
-#define CHILD_PREPARE_TO_STORE() read_register_bytes (0, NULL, REGISTER_BYTES)
+#define CHILD_PREPARE_TO_STORE() deprecated_read_register_bytes (0, NULL, REGISTER_BYTES)
 
 #define CHILD_WAIT
 struct target_waitstatus;

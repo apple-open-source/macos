@@ -1,6 +1,7 @@
-This is am-utils.info, produced by makeinfo version 4.0b from
+This is am-utils.info, produced by makeinfo version 4.1 from
 am-utils.texi.
 
+INFO-DIR-SECTION Administration
 START-INFO-DIR-ENTRY
 * Am-utils: (am-utils).          The Amd automounter suite of utilities
 END-INFO-DIR-ENTRY

@@ -11,8 +11,10 @@
 #     If the first line looks like this, the file is autoloaded as a
 #     function and that function will be called to generate the matches
 #     when completing for one of the commands whose <names> are given.
+#     The names may also be interspersed with `-T <assoc>' options
+#     specifying for which set of functions this should be added.
 #
-#   `#compdef -p <pattern>'
+#   `#compdef -[pP] <patterns ...>'
 #     This defines a function that should be called to generate matches
 #     for commands whose name matches <pattern>. Note that only one pattern
 #     may be given.
@@ -100,13 +102,15 @@ while [[ $# -gt 0 && $1 = -[dDiuC] ]]; do
   esac
 done
 
-# The associative array containing the definitions for the commands and
+# The associative arrays containing the definitions for the commands and
 # services.
-# Definitions for patterns will be stored in the associations `_patcomps'
-# and `_postpatcomps'. `_compautos' contains the names and options
-# for autoloaded functions that get options.
 
-typeset -gA _comps _services _patcomps _postpatcomps _compautos
+typeset -gA _comps _services _patcomps _postpatcomps
+
+# `_compautos' contains the names and options for autoloaded functions
+# that get options.
+
+typeset -gA _compautos
 
 # The associative array use to report information about the last
 # completion to the outside.
@@ -140,6 +144,7 @@ _comp_options=(
     NO_allexport
     NO_aliases
     NO_errexit
+    NO_octalzeroes
 )
 
 # And this one should be `eval'ed at the beginning of every entry point
@@ -217,8 +222,8 @@ compdef() {
 
   # Get the options.
 
-  if [[ $#* -eq 0 ]]; then
-    echo "$0: I needs arguments"
+  if (( ! $# )); then
+    echo "$0: I need arguments"
     return 1
   fi
 
@@ -247,8 +252,8 @@ compdef() {
   done
   shift OPTIND-1
 
-  if [[ $#* -eq 0 ]]; then
-    echo "$0: I needs arguments"
+  if (( ! $# )); then
+    echo "$0: I need arguments"
     return 1
   fi
 
@@ -257,14 +262,15 @@ compdef() {
     # and we define which services to use for the commands.
 
     if [[ "$1" = *\=* ]]; then
-      for i; do
-        if [[ "$i" = *\=* ]]; then
-	  cmd="${i%%\=*}"
-	  svc="${i#*\=}"
-          func="$_comps[${(k)_services[(R)$svc]:-$svc}]"
-          (( $+_services[$svc] )) && svc=$_services[$svc]
+      while (( $# )); do
+        if [[ "$1" = *\=* ]]; then
+	  cmd="${1%%\=*}"
+	  svc="${1#*\=}"
+          func="$_comps[${_services[(R)$svc]:-$svc}]"
+          [[ -n ${_services[$svc]} ]] &&
+              svc=${_services[$svc]}
 	  [[ -z "$func" ]] &&
-	    func="${_patcomps[(K)$svc][1]:-${_postpatcomps[(K)$svc][1]}}"
+	      func="${${_patcomps[(K)$svc][1]}:-${_postpatcomps[(K)$svc][1]}}"
           if [[ -n "$func" ]]; then
 	    _comps[$cmd]="$func"
 	    _services[$cmd]="$svc"
@@ -273,9 +279,10 @@ compdef() {
 	    ret=1
 	  fi
 	else
-	  echo "$0: invalid argument: $i"
+	  echo "$0: invalid argument: $1"
 	  ret=1
 	fi
+        shift
       done
 
       return ret
@@ -289,20 +296,6 @@ compdef() {
     shift
 
     case "$type" in
-    pattern)
-      if [[ $# -gt 1 ]]; then
-        echo "$0: only one pattern allowed"
-	return 1
-      fi
-      _patcomps[$1]="$func"
-      ;;
-    postpattern)
-      if [[ $# -gt 1 ]]; then
-        echo "$0: only one pattern allowed"
-	return 1
-      fi
-      _postpatcomps[$1]="$func"
-      ;;
     widgetkey)
       while [[ -n $1 ]]; do
 	if [[ $# -lt 3 ]]; then
@@ -321,7 +314,7 @@ compdef() {
 	fi
 	shift 3
       done
-      ;;	 
+      ;;
     key)
       if [[ $# -lt 2 ]]; then
         echo "$0: missing keys"
@@ -348,25 +341,45 @@ compdef() {
       done
       ;;
     *)
-      # For commands store the function name in the `_comps'
+      # For commands store the function name in the
       # associative array, command names as keys.
-      for i; do
-        if [[ "$i" = *\=* ]]; then
-	  cmd="${i%%\=*}"
-	  svc=yes
+      while (( $# )); do
+        if [[ "$1" = -N ]]; then
+          type=normal
+        elif [[ "$1" = -p ]]; then
+          type=pattern
+        elif [[ "$1" = -P ]]; then
+          type=postpattern
         else
-	  cmd="$i"
-	  svc=
+          case "$type" in
+          pattern)
+            _patcomps[$1]="$func"
+            ;;
+          postpattern)
+            _postpatcomps[$1]="$func"
+            ;;
+          *)
+            if [[ "$1" = *\=* ]]; then
+	      cmd="${1%%\=*}"
+	      svc=yes
+            else
+	      cmd="$1"
+	      svc=
+            fi
+            if [[ -z "$new" || -z "${_comps[$1]}" ]]; then
+              _comps[$cmd]="$func"
+	      [[ -n "$svc" ]] && _services[$cmd]="${1#*\=}"
+	    fi
+            ;;
+          esac
         fi
-        if [[ -z "$new" || "${+_comps[$i]}" -eq 0 ]]; then
-          _comps[$cmd]="$func"
-	  if [[ -n "$svc" ]]; then _services[$cmd]="${i#*\=}"; fi
-	fi
+        shift
       done
       ;;
     esac
   else
     # Handle the `-d' option, deleting.
+
     case "$type" in
     pattern)
       unset "_patcomps[$^@]"
@@ -378,7 +391,7 @@ compdef() {
       # Oops, cannot do that yet.
 
       echo "$0: cannot restore key bindings"
-      return 1v
+      return 1
       ;;
     *)
       unset "_comps[$^@]"

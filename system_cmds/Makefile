@@ -14,17 +14,17 @@ PROJECT_TYPE = Aggregate
 
 TOOLS = dynamic_pager.tproj ac.tproj accton.tproj arch.tproj at.tproj\
         atrun.tproj chkpasswd.tproj chpass.tproj dmesg.tproj\
-        getty.tproj halt.tproj hostinfo.tproj init.tproj iostat.tproj\
-        kgmon.tproj ktrace.tproj login.tproj mach_init.tproj\
-        makekey.tproj mkfile.tproj nvram.tproj passwd.tproj\
-        pwd_mkdb.tproj reboot.tproj shutdown.tproj sync.tproj\
-        sysctl.tproj update.tproj vipw.tproj zic.tproj zdump.tproj\
-        vm_stat.tproj zprint.tproj top.tproj latency.tproj\
-        sc_usage.tproj fs_usage.tproj kdump.tproj
+        getty.tproj hostinfo.tproj init.tproj iostat.tproj kgmon.tproj\
+        ktrace.tproj login.tproj mach_init.tproj makekey.tproj\
+        mkfile.tproj nvram.tproj passwd.tproj pwd_mkdb.tproj\
+        reboot.tproj shutdown.tproj sync.tproj sysctl.tproj\
+        update.tproj vipw.tproj zic.tproj zdump.tproj vm_stat.tproj\
+        zprint.tproj latency.tproj sc_usage.tproj fs_usage.tproj\
+        kdump.tproj sadc.tproj sar.tproj
 
 LIBRARIES = dp_notify_lib
 
-LEGACIES = fastboot.tproj nologin.tproj pagesize.tproj
+LEGACIES = nologin.tproj pagesize.tproj
 
 OTHERSRCS = Makefile.preamble Makefile README.rtf APPLE_LICENSE
 

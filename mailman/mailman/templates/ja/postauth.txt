@@ -1,0 +1,10 @@
+以下の投稿についてリスト管理者の承認が必要です．
+
+    リスト:  %(listname)s@%(hostname)s
+    発信者:  %(sender)s
+    件名:    %(subject)s
+    理由:    %(reason)s
+
+都合のよい時に，以下の URL で決済してください．
+
+    %(admindb_url)s

@@ -17,7 +17,7 @@
 #old cvs stuff.  please update before use.  may be deprecated.
 %define use_stable	1
 %if %{use_stable}
-  %define version 	3.4p1
+  %define version 	3.6.1p1
   %define cvs		%{nil}
   %define release 	2
 %else
@@ -181,8 +181,6 @@ CFLAGS="$RPM_OPT_FLAGS" \
             --with-pam \
             --with-tcp-wrappers \
             --with-ipv4-default \
-	    --sysconfdir=%{_sysconfdir}/ssh \
-	    --libexecdir=%{_libexecdir}/openssh \
 	    --with-privsep-path=%{_var}/empty/sshd \
 	    #leave this line for easy edits.
 
@@ -200,7 +198,7 @@ xmkmf
 %Install
 [ %{buildroot} != "/" ] && rm -rf %{buildroot}
 
-%makeinstall
+make install DESTDIR=%{buildroot}
 %makeinstall -C %{askpass} \
     BINDIR=%{_libexecdir} \
     MANPATH=%{_mandir} \
@@ -318,8 +316,16 @@ fi
 %defattr(-,root,root)
 %dir %{_sysconfdir}
 %config %{_sysconfdir}/ssh_config
-%{_bindir}/*
+%{_bindir}/scp
+%{_bindir}/sftp
+%{_bindir}/ssh
+%{_bindir}/slogin
+%{_bindir}/ssh-add
+%attr(2755,root,nobody) %{_bindir}/ssh-agent
+%{_bindir}/ssh-keygen
+%{_bindir}/ssh-keyscan
 %dir %{_libexecdir}
+%attr(4711,root,root) %{_libexecdir}/ssh-keysign
 %{_sbindir}/ssh-host-keygen
 %dir %{_defaultdocdir}/%{name}-%{version}
 %{_defaultdocdir}/%{name}-%{version}/CREDITS
@@ -330,10 +336,12 @@ fi
 %{_defaultdocdir}/%{name}-%{version}/TODO
 %{_defaultdocdir}/%{name}-%{version}/faq.html
 %{_mandir}/man1/*
+%{_mandir}/man8/ssh-keysign.8.gz
+%{_mandir}/man5/ssh_config.5.gz
  
 %Files server
 %defattr(-,root,root)
-%dir %attr(0700,root,root) %{_var}/empty/sshd
+%dir %{_var}/empty/sshd
 %config %{SVIdir}/sshd
 %config /etc/pam.d/sshd
 %config %{_sysconfdir}/moduli
@@ -341,6 +349,7 @@ fi
 %config %{SVIcdir}/sshd
 %{_libexecdir}/sftp-server
 %{_sbindir}/sshd
+%{_mandir}/man5/sshd_config.5.gz
 %{_mandir}/man8/sftp-server.8.gz
 %{_mandir}/man8/sshd.8.gz
  
@@ -355,4 +364,4 @@ fi
 * Mon Jan 01 1998 ...
 Template Version: 1.31
 
-$Id: openssh.spec,v 1.1.1.10 2002/06/26 18:33:40 zarzycki Exp $
+$Id: openssh.spec,v 1.1.1.13 2003/04/02 18:36:59 zarzycki Exp $

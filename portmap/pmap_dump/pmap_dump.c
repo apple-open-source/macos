@@ -25,6 +25,8 @@ static const char rcsid[] =
 #include <rpc/pmap_clnt.h>
 #include <rpc/pmap_prot.h>
 
+extern void get_myaddress(struct sockaddr_in *);
+
 static const char *protoname __P((u_long));
 
 int

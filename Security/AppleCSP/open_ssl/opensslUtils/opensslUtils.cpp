@@ -35,7 +35,7 @@
 #include <AppleCSP/AppleCSPUtils.h>
 #include <Security/logging.h>
 
-#define sslUtilsDebug(args...)	debug("sslUtils", ## args)
+#define sslUtilsDebug(args...)	secdebug("sslUtils", ## args)
 
 openSslException::openSslException(
 	int irtn, 
@@ -174,6 +174,10 @@ void throwRsaDsa(
 				case RSA_R_KEY_SIZE_TOO_SMALL:
 					cerr = CSSMERR_CSP_INVALID_ATTR_KEY_LENGTH; break;
 				case RSA_R_PADDING_CHECK_FAILED:
+				case RSA_R_BLOCK_TYPE_IS_NOT_01:
+				case RSA_R_BLOCK_TYPE_IS_NOT_02:
+				case RSA_R_DATA_GREATER_THAN_MOD_LEN:
+				case RSA_R_BAD_PAD_BYTE_COUNT:
 					cerr = CSSMERR_CSP_INVALID_DATA; break;
 				case RSA_R_RSA_OPERATIONS_NOT_SUPPORTED:
 					cerr = CSSMERR_CSP_FUNCTION_NOT_IMPLEMENTED; break;

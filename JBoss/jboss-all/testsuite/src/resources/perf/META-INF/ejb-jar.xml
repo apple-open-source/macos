@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE ejb-jar PUBLIC
+   "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 2.0//EN"
+   "http://java.sun.com/dtd/ejb-jar_2_0.dtd">
+
+<ejb-jar>
+   <description>Performance test</description>
+   <display-name>PerfTest</display-name>
+
+   <enterprise-beans>
+      <session>
+         <ejb-name>perf.Session</ejb-name>
+         <home>org.jboss.test.perf.interfaces.SessionHome</home>
+         <remote>org.jboss.test.perf.interfaces.Session</remote>
+         <ejb-class>org.jboss.test.perf.ejb.SessionBean</ejb-class>
+         <session-type>Stateful</session-type>
+         <transaction-type>Bean</transaction-type>
+      </session>
+      <session>
+         <ejb-name>perf.ClientSession</ejb-name>
+         <home>org.jboss.test.perf.interfaces.SessionHome</home>
+         <remote>org.jboss.test.perf.interfaces.Session</remote>
+         <ejb-class>org.jboss.test.perf.ejb.ClientSessionBean</ejb-class>
+         <session-type>Stateful</session-type>
+         <transaction-type>Container</transaction-type>
+         <ejb-ref>
+            <ejb-ref-name>ejb/Session</ejb-ref-name>
+            <ejb-ref-type>Session</ejb-ref-type>
+            <home>org.jboss.test.perf.interfaces.SessionHome</home>
+            <remote>org.jboss.test.perf.interfaces.Session</remote>
+            <ejb-link>perf.Session</ejb-link>
+         </ejb-ref>
+      </session>
+      <session>
+         <ejb-name>perf.PerfTestSession</ejb-name>
+         <home>org.jboss.test.perf.interfaces.PerfTestSessionHome</home>
+         <remote>org.jboss.test.perf.interfaces.PerfTestSession</remote>
+         <ejb-class>org.jboss.test.perf.ejb.PerfTestSessionBean</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Container</transaction-type>
+         <ejb-ref>
+            <ejb-ref-name>ejb/ProbeHome</ejb-ref-name>
+            <ejb-ref-type>Session</ejb-ref-type>
+            <home>org.jboss.test.perf.interfaces.SessionHome</home>
+            <remote>org.jboss.test.perf.interfaces.Session</remote>
+            <ejb-link>perf.Probe</ejb-link>
+         </ejb-ref>
+         <ejb-local-ref>
+            <ejb-ref-name>ejb/ProbeLocalHome</ejb-ref-name>
+            <ejb-ref-type>Session</ejb-ref-type>
+            <local-home>org.jboss.test.perf.interfaces.ProbeLocalHome</local-home>
+            <local>org.jboss.test.perf.interfaces.ProbeLocal</local>
+            <ejb-link>perf.Probe</ejb-link>
+         </ejb-local-ref>
+      </session>
+
+      <session>
+         <ejb-name>perf.Probe</ejb-name>
+         <home>org.jboss.test.perf.interfaces.ProbeHome</home>
+         <remote>org.jboss.test.perf.interfaces.Probe</remote>
+         <local-home>org.jboss.test.perf.interfaces.ProbeLocalHome</local-home>
+         <local>org.jboss.test.perf.interfaces.ProbeLocal</local>
+         <ejb-class>org.jboss.test.perf.ejb.ProbeBean</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Bean</transaction-type>
+      </session>
+      <session>
+         <ejb-name>perf.LocalProbe</ejb-name>
+         <local-home>org.jboss.test.perf.interfaces.ProbeLocalHome</local-home>
+         <local>org.jboss.test.perf.interfaces.ProbeLocal</local>
+         <ejb-class>org.jboss.test.perf.ejb.ProbeBean</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Bean</transaction-type>
+      </session>
+      <session>
+         <ejb-name>perf.ProbeCMT</ejb-name>
+         <home>org.jboss.test.perf.interfaces.ProbeHome</home>
+         <remote>org.jboss.test.perf.interfaces.Probe</remote>
+         <local-home>org.jboss.test.perf.interfaces.ProbeLocalHome</local-home>
+         <local>org.jboss.test.perf.interfaces.ProbeLocal</local>
+         <ejb-class>org.jboss.test.perf.ejb.ProbeBean</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Container</transaction-type>
+      </session>
+      <session>
+         <description>Transacted stateless session bean</description>
+         <ejb-name>perf.TxSession</ejb-name>
+         <home>org.jboss.test.perf.interfaces.TxSessionHome</home>
+         <remote>org.jboss.test.perf.interfaces.TxSession</remote>
+         <ejb-class>org.jboss.test.perf.ejb.TxSessionBean</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Container</transaction-type>
+      </session>
+
+      <entity>
+         <ejb-name>perfEntity</ejb-name>
+         <home>org.jboss.test.perf.interfaces.EntityHome</home>
+         <remote>org.jboss.test.perf.interfaces.Entity</remote>
+         <local-home>org.jboss.test.perf.interfaces.EntityLocalHome</local-home>
+         <local>org.jboss.test.perf.interfaces.EntityLocal</local>
+         <ejb-class>org.jboss.test.perf.ejb.EntityBean</ejb-class>
+         <persistence-type>Container</persistence-type>
+         <prim-key-class>org.jboss.test.perf.interfaces.EntityPK</prim-key-class>
+         <reentrant>True</reentrant>
+         <cmp-version>2.x</cmp-version>
+         <abstract-schema-name>Entity</abstract-schema-name>
+         <cmp-field>
+            <field-name>theKey</field-name>
+         </cmp-field>
+         <cmp-field>
+            <field-name>theValue</field-name>
+         </cmp-field>
+         <query>
+            <query-method>
+               <method-name>findInRange</method-name>
+               <method-params>
+                  <method-param>int</method-param>
+                  <method-param>int</method-param>
+               </method-params>
+            </query-method>
+            <ejb-ql><![CDATA[
+               SELECT OBJECT(e)
+               FROM Entity AS e
+               WHERE e.theKey >= ?1 AND e.theKey <= ?2
+               ]]>
+            </ejb-ql>
+         </query>
+      </entity>
+
+      <entity>
+         <description>A second deployment of Entity for the testClientSession</description>
+         <ejb-name>perfClientEntity</ejb-name>
+         <local-home>org.jboss.test.perf.interfaces.EntityLocalHome</local-home>
+         <local>org.jboss.test.perf.interfaces.EntityLocal</local>
+         <ejb-class>org.jboss.test.perf.ejb.EntityBean</ejb-class>
+         <persistence-type>Container</persistence-type>
+         <prim-key-class>org.jboss.test.perf.interfaces.EntityPK</prim-key-class>
+         <reentrant>True</reentrant>
+         <cmp-version>2.x</cmp-version>
+         <abstract-schema-name>ClientEntity</abstract-schema-name>
+         <cmp-field>
+            <field-name>theKey</field-name>
+         </cmp-field>
+         <cmp-field>
+            <field-name>theValue</field-name>
+         </cmp-field>
+         <query>
+            <query-method>
+               <method-name>findInRange</method-name>
+               <method-params>
+                  <method-param>int</method-param>
+                  <method-param>int</method-param>
+               </method-params>
+            </query-method>
+            <ejb-ql><![CDATA[
+               SELECT OBJECT(e)
+               FROM Entity AS e
+               WHERE e.theKey >= ?1 AND e.theKey <= ?2
+               ]]>
+            </ejb-ql>
+         </query>
+      </entity>
+
+      <entity>
+         <ejb-name>perfEntity2</ejb-name>
+         <home>org.jboss.test.perf.interfaces.Entity2Home</home>
+         <remote>org.jboss.test.perf.interfaces.Entity</remote>
+         <ejb-class>org.jboss.test.perf.ejb.Entity2Bean</ejb-class>
+         <persistence-type>Container</persistence-type>
+         <prim-key-class>org.jboss.test.perf.interfaces.Entity2PK</prim-key-class>
+         <reentrant>True</reentrant>
+         <cmp-version>1.x</cmp-version>
+         <cmp-field>
+            <field-name>key1</field-name>
+         </cmp-field>
+         <cmp-field>
+            <field-name>key2</field-name>
+         </cmp-field>
+         <cmp-field>
+            <field-name>key3</field-name>
+         </cmp-field>
+         <cmp-field>
+            <field-name>the_value</field-name>
+         </cmp-field>
+      </entity>
+
+   </enterprise-beans>
+
+    <assembly-descriptor>
+        <container-transaction>
+            <method>
+                <ejb-name>perf.TxSession</ejb-name>
+                <method-name>requiredToSupports</method-name>
+            </method>
+            <method>
+                <ejb-name>perf.TxSession</ejb-name>
+                <method-name>txRequired</method-name>
+            </method>
+            <method>
+                <ejb-name>perf.TxSession</ejb-name>
+                 <method-name>requiredToMandatory</method-name>
+            </method>
+            <method>
+                <ejb-name>perf.TxSession</ejb-name>
+                <method-name>requiredToRequiresNew</method-name>
+            </method>
+            <trans-attribute>Required</trans-attribute>
+        </container-transaction>
+        
+        <container-transaction>
+            <method>
+                <ejb-name>perf.TxSession</ejb-name>
+                <method-name>txSupports</method-name>
+            </method>
+            <trans-attribute>Supports</trans-attribute>
+        </container-transaction>
+        
+        <container-transaction>
+            <method>
+                <ejb-name>perf.TxSession</ejb-name>
+                <method-name>txMandatory</method-name>
+            </method>
+            <trans-attribute>Mandatory</trans-attribute>
+        </container-transaction>
+          
+        <container-transaction>
+            <method>
+                <ejb-name>perf.TxSession</ejb-name>
+                <method-name>*</method-name>
+            </method>
+            <method>
+                <ejb-name>perf.TxSession</ejb-name>
+                <method-name>txRequiresNew</method-name>
+            </method>
+            <trans-attribute>RequiresNew</trans-attribute>
+        </container-transaction>
+
+        <container-transaction>
+            <method>
+                <ejb-name>perf.TxSession</ejb-name>
+                <method-name>txNever</method-name>
+            </method>
+            <trans-attribute>Never</trans-attribute>
+        </container-transaction>
+        
+        <container-transaction>
+            <method>
+                <ejb-name>perf.TxSession</ejb-name>
+                <method-name>txNotSupported</method-name>
+            </method>
+            <trans-attribute>NotSupported</trans-attribute>
+        </container-transaction>
+    </assembly-descriptor>
+
+</ejb-jar>
+

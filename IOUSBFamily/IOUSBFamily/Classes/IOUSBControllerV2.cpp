@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,6 +22,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+
 //================================================================================================
 //
 //   Headers
@@ -42,6 +42,17 @@
 //
 #define super IOUSBController
 
+// Copied from IOUSBController
+enum {
+    kSetupSent  = 0x01,
+    kDataSent   = 0x02,
+    kStatusSent = 0x04,
+    kSetupBack  = 0x10,
+    kDataBack   = 0x20,
+    kStatusBack = 0x40
+};
+
+#define USEDYNAMICCOMMAND 1
 //================================================================================================
 //
 //   IOKit Constructors and Destructors
@@ -58,6 +69,197 @@ OSDefineAbstractStructors(IOUSBControllerV2, IOUSBController)
 //
 //================================================================================================
 //
+
+bool 
+IOUSBControllerV2::init(OSDictionary * propTable)
+{
+    if (!super::init(propTable))  return false;
+    
+    // allocate our expansion data
+    if (!_v2ExpansionData)
+    {
+	_v2ExpansionData = (V2ExpansionData *)IOMalloc(sizeof(V2ExpansionData));
+	if (!_v2ExpansionData)
+	    return false;
+	bzero(_v2ExpansionData, sizeof(V2ExpansionData));
+    }
+	
+    // Use other controller INIT routine to override this.
+    // This needs to be set before start.
+    _controllerSpeed = kUSBDeviceSpeedHigh;
+        
+    return (true);
+}
+
+void IOUSBControllerV2::clearTTHandler( OSObject *target,
+//void clearTTHandler( OSObject *target,
+		    void *parameter,
+                    IOReturn	status,
+                    UInt32	bufferSizeRemaining)
+{
+    IOUSBController *	me = (IOUSBController *)target;
+    IOUSBCommand 	*command = (IOUSBCommand *)parameter;
+    UInt8		sent, back, todo;
+    
+    USBLog(5,"clearTTHandler: status (%lx)", status);
+//    USBLog(1,"clearTTHandler this:%p, command:%p", me, command);
+
+    sent = (command->GetStage() & 0x0f) << 4;
+    back = command->GetStage() & 0xf0;
+    todo = sent ^ back; /* thats xor */
+
+    if((todo & kSetupBack) != 0)
+    {
+	USBLog(2,"clearTTHandler: Setup comming back to us, check and forget");
+        command->SetStage(command->GetStage() | kSetupBack);
+    }
+    else
+    {
+        command->SetStage(0);
+	USBLog(5, "%s[%p]::clearTTHandler - about to free IOUSBDevRequest (%p)", me->getName(), me, command->GetRequest());
+	IOFree(command->GetRequest(), sizeof(IOUSBDevRequest));
+#if USEDYNAMICCOMMAND
+	USBLog(5,"clearTTHandler: We've already seen the setup, deallocate command (%p)", command);
+	me->_freeUSBCommandPool->returnCommand(command);   
+#else
+	USBLog(5,"clearTTHandler: We've already seen the setup, using static command");
+#endif
+    }
+    
+}
+
+
+OSMetaClassDefineReservedUsed(IOUSBControllerV2,  6);
+void IOUSBControllerV2::ClearTT(USBDeviceAddress fnAddress, UInt8 endpt, Boolean IN)
+{
+    UInt16 		wValue;
+    IOUSBDevRequest 	*clearRequest;
+    short 		hubAddress;
+    IOUSBCommand 	*clearCommand;
+    IOUSBCompletion	completion;
+    int 		i;
+
+    USBLog(5,"+%s[%p]::ClearTT", getName(), this);
+    hubAddress = _highSpeedHub[fnAddress];	// Address of its controlling hub.
+    if(hubAddress == 0)	// Its not a high speed device, it doesn't need a clearTT
+    {
+	USBLog(1,"-%s[%p]::ClearTT high speed device, returning", getName(), this);
+	return;
+    }
+
+#if USEDYNAMICCOMMAND
+    clearCommand = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
+    if ( clearCommand == NULL )
+    {
+	IncreaseCommandPool();
+	
+	clearCommand = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
+	if ( clearCommand == NULL )
+	{
+	    USBLog(1,"%s[%p]::ClearTT Could not get a IOUSBCommand",getName(),this);
+	    return;
+	}
+    }
+    USBLog(6, "%s[%p]::ClearTT V2 got command (%p)", getName(), this, clearCommand);
+#else
+    clearCommand = _v2ExpansionData->ClearTTCommand;
+    if ( clearCommand == NULL )
+    {
+	_v2ExpansionData->ClearTTCommand = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
+	clearCommand = _v2ExpansionData->ClearTTCommand;
+	if ( clearCommand == NULL )
+	{
+	    USBLog(1,"%s[%p]::ClearTT Could not get a IOUSBCommand",getName(),this);
+	    return;
+	}
+	USBLog(6,"%s[%p]::ClearTT gto static IOUSBCommand",getName(),this);
+    }
+
+    if(clearCommand->GetStage() != 0)
+    {
+	USBLog(1,"%s[%p]::ClearTT our command is in use, giving up",getName(),this);
+	return;
+    }
+
+#endif
+
+    
+    clearRequest = (IOUSBDevRequest*)IOMalloc(sizeof(IOUSBDevRequest));
+    if (!clearRequest)
+    {
+	USBLog(1,"%s[%p]::ClearTT Could not get a IOUSBDevRequest", getName(), this);
+#if USEDYNAMICCOMMAND
+	_freeUSBCommandPool->returnCommand(clearCommand);
+#endif
+	return;
+    }
+    USBLog(5, "%s[%p]::ClearTT - got IOUSBDevRequest (%p)", getName(), this, clearRequest);
+
+    wValue = (endpt & 0xf) | ( (fnAddress & 0x7f) << 4);
+    if(IN)
+    {
+	wValue  |= (1 << 15);
+    }
+    USBLog(5,"%s[%p]::ClearTT - V2 EP (%d) ADDR (%d) wValue (0x%x)", getName(), this, endpt, fnAddress, wValue);
+/*		
+3..0 Endpoint Number
+10..4 Device Address
+12..11 Endpoint Type	- Always controll == zero.
+14..13 Reserved, must be zero
+15 Direction, 1 = IN, 0 = OUT
+
+Endpoint Type
+00 Control
+01 Isochronous
+10 Bulk
+11 Interrupt
+
+*/
+
+/* Request details largely copied from AppleUSBHubPort::ClearTT */
+
+    clearRequest->bmRequestType = 0x23;
+    clearRequest->bRequest = 8;
+    clearRequest->wValue = wValue;
+    if(_v2ExpansionData->_multiTT[hubAddress])
+    {  // MultiTT hub needs port address here
+	clearRequest->wIndex = _highSpeedPort[fnAddress];
+    }
+    else
+    {  // Single TT hubs need 1 here
+	clearRequest->wIndex = 1;
+    }
+    clearRequest->wLength = 0;
+    clearRequest->pData = NULL;
+    clearRequest->wLenDone = 0;
+
+/* This copies large parts of IOUSBController::DeviceRequest, its not using IOUSBController::DeviceRequest */
+/* Because we're already inside the lock and don't want to go through the gate again. */
+
+    completion.target    = (void *)this;
+    completion.action    = (IOUSBCompletionAction) &clearTTHandler;
+    completion.parameter = clearCommand;
+    clearCommand->SetUSLCompletion(completion);
+
+    clearCommand->SetSelector(DEVICE_REQUEST);
+    clearCommand->SetRequest(clearRequest);
+    clearCommand->SetAddress(hubAddress);
+    clearCommand->SetEndpoint(0);
+    clearCommand->SetType(kUSBControl);
+    clearCommand->SetBuffer(0); 			// no buffer for device requests
+    clearCommand->SetClientCompletion(completion);
+    clearCommand->SetNoDataTimeout(5000);
+    clearCommand->SetCompletionTimeout(0);
+    clearCommand->SetStage(0);
+    
+    for (i=0; i < 10; i++)
+	clearCommand->SetUIMScratch(i, 0);
+
+    ControlTransaction(clearCommand);	// Wait for completion? Or just fire and forget?
+}
+
+
+
 IOReturn IOUSBControllerV2::OpenPipe(USBDeviceAddress address, UInt8 speed,
 						Endpoint *endpoint)
 {
@@ -202,8 +404,13 @@ IOUSBControllerV2::DOHSHubMaintenance(OSObject *owner, void *arg0, void *arg1, v
     USBDeviceAddress highSpeedHub = (USBDeviceAddress)(UInt32)arg0;
     UInt32 command = (UInt32)arg1;
     UInt32 flags = (UInt32)arg2;
+    UInt8 multi;
 
     USBLog(5,"%s[%p]::DOHSHubMaintenance, command: %d, flags: %d", me->getName(), me, command, flags);
+
+    multi = ((flags & kUSBHSHubFlagsMultiTT) != 0);
+    me->_v2ExpansionData->_multiTT[highSpeedHub] = multi;
+    USBLog(3,"%s[%p]::DOHSHubMaintenance hub at %d is multiTT:%d", me->getName(), me, highSpeedHub, me->_v2ExpansionData->_multiTT[highSpeedHub]);
 
     return me->UIMHubMaintenance(highSpeedHub, 0, command, flags);
 }
@@ -274,7 +481,6 @@ IOUSBControllerV2::GetMicroFrameNumber(void)
     return 0;			// not implemented
 }
 
-OSMetaClassDefineReservedUnused(IOUSBControllerV2,  6);
 OSMetaClassDefineReservedUnused(IOUSBControllerV2,  7);
 OSMetaClassDefineReservedUnused(IOUSBControllerV2,  8);
 OSMetaClassDefineReservedUnused(IOUSBControllerV2,  9);

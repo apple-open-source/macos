@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile,v 1.19 2002/07/21 22:06:30 jlovell Exp $"
+# "$Id: Makefile,v 1.24 2003/08/03 16:31:14 jlovell Exp $"
 #
 #   Filter makefile for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 1997-2002 by Easy Software Products.
+#   Copyright 1997-2003 by Easy Software Products.
 #
 #   These coded instructions, statements, and computer programs are the
 #   property of Easy Software Products and are protected by Federal
@@ -26,8 +26,9 @@
 
 include ../Makedefs
 
-TARGETS	=	hpgltops texttops pstops imagetops imagetoraster \
+FILTERS	=	gziptoany hpgltops texttops pstops imagetops imagetoraster \
 		rastertodymo rastertoepson rastertohp
+TARGETS	=	$(FILTERS)
 
 HPGLOBJS =	hpgl-attr.o hpgl-config.o hpgl-main.o hpgl-prolog.o \
 		hpgl-char.o hpgl-input.o hpgl-polygon.o hpgl-vector.o
@@ -37,15 +38,15 @@ IMAGEOBJS =	image-bmp.o image-colorspace.o image-gif.o image-jpeg.o \
 		image-zoom.o image.o raster.o
 FORMOBJS =	form-attr.o form-main.o form-ps.o form-text.o form-tree.o
 OBJS	=	$(HPGLOBJS) $(IMAGEOBJS) $(FORMOBJS) \
-		imagetops.o imagetoraster.o common.o pstops.o raster.o \
-		rastertodymo.o rastertoepson.o rastertohp.o texttops.o \
-		textcommon.o 
+		gziptoany.o imagetops.o imagetoraster.o common.o pstops.o \
+		rastertodymo.o rastertoepson.o rastertohp.o \
+		texttops.o textcommon.o 
 
 #
 # Make all targets...
 #
 
-all:	$(TARGETS)
+all:	$(TARGETS) libcupsimage.a
 
 
 #
@@ -53,7 +54,7 @@ all:	$(TARGETS)
 #
 
 clean:
-	$(RM) $(OBJS) $(TARGETS) $(LIBCUPSIMAGE)
+	$(RM) $(OBJS) $(TARGETS) $(LIBCUPSIMAGE) libcupsimage.a
 	$(RM) `basename $(LIBCUPSIMAGE) .2` libcupsimage.dylib
 
 
@@ -108,6 +109,15 @@ formtops:	$(FORMOBJS) common.o ../Makedefs ../cups/$(LIBCUPS)
 
 
 #
+# gziptoany
+#
+
+gziptoany:	gziptoany.o ../Makedefs
+	echo Linking $@...
+	$(CC) $(LDFLAGS) -o $@ gziptoany.o $(LIBZ)
+
+
+#
 # hpgltops
 #
 
@@ -148,8 +158,8 @@ libcupsimage.2.dylib:	$(IMAGEOBJS) ../Makedefs
 
 libcupsimage_s.a:	$(IMAGEOBJS) ../Makedefs
 	echo Linking $@...
-	$(DSO) $(DSOFLAGS) -o libcupsimage_s.o $(IMAGEOBJS) $(DSOLIBS) \
-		$(LINKCUPS) -lm
+	$(DSO) $(DSOFLAGS) -Wl,-berok -o libcupsimage_s.o $(IMAGEOBJS) \
+		$(DSOLIBS) -lm
 	$(RM) $@
 	$(AR) $(ARFLAGS) $@ libcupsimage_s.o
 
@@ -160,7 +170,7 @@ libcupsimage_s.a:	$(IMAGEOBJS) ../Makedefs
 
 libcupsimage.la:       $(IMAGEOBJS) ../Makedefs
 	echo Linking $@...
-	$(DSO) -o $(DSOFLAGS) $@ $(IMAGEOBJS:.o=.lo) $(DSOLIBS) \
+	$(DSO) $(DSOFLAGS) -o $@ $(IMAGEOBJS:.o=.lo) $(DSOLIBS) \
 		-rpath $(LIBDIR) -version-info 2:1
 
 
@@ -173,6 +183,16 @@ libcupsimage.a:	$(IMAGEOBJS) ../Makedefs
 	$(RM) $@
 	$(AR) $(ARFLAGS) $@ $(IMAGEOBJS)
 	$(RANLIB) $@
+
+
+#
+# testimage
+#
+
+testimage:	testimage.o libcupsimage.a ../Makedefs
+	echo Linking $@...
+	$(CC) $(LDFLAGS) -o $@ testimage.o libcupsimage.a \
+		$(IMGLIBS) $(DSOLIBS) $(LIBS)
 
 
 #
@@ -251,5 +271,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile,v 1.19 2002/07/21 22:06:30 jlovell Exp $".
+# End of "$Id: Makefile,v 1.24 2003/08/03 16:31:14 jlovell Exp $".
 #

@@ -28,7 +28,7 @@
 #
 # ----------------------------------------------------------------------
 
-class GDBMenuBar {
+itcl::class GDBMenuBar {
   inherit itk::Widget
 
   # ------------------------------------------------------------------
@@ -118,6 +118,9 @@ class GDBMenuBar {
       separator {
         menubar_add_menu_separator
       }
+      cascade {
+	eval menubar_add_cascade $args
+      }
       default {
         error "Invalid item type: $type"
       }
@@ -127,8 +130,24 @@ class GDBMenuBar {
   }
 
   # ------------------------------------------------------------------
-  #  PRIVATE METHOD:  menubar_new_menu - Add a new cascade menu to the
-  #                      main menu.
+  #  NAME:         private method GDBMenuBar::menubar_add_cascade
+  #  DESCRIPTION:  Create a new cascading menu in the current menu
+  #
+  #  ARGUMENTS:    menu_name - the name of the menu to be created
+  #                label     - label to be displayed for the menu
+  #                underline - which element to underline for shortcuts
+  #  RETURNS:      Nothing
+  # ------------------------------------------------------------------
+  private method menubar_add_cascade {menu_name label underline} {
+    set m [menu $current_menu.$menu_name -tearoff false]
+    $current_menu add cascade -menu $m -label $label \
+      -underline $underline
+    set current_menu $m
+  }
+
+  # ------------------------------------------------------------------
+  #  PRIVATE METHOD:  menubar_new_menu - Add a new menu to the main
+  #                      menu.
   #                      Also target this menu for subsequent
   #                      menubar_add_menu_command calls.
   #

@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE jbosscmp-jdbc PUBLIC
+   "-//JBoss//DTD JBOSSCMP-JDBC 3.0//EN"
+   "http://www.jboss.org/j2ee/dtd/jbosscmp-jdbc_3_0.dtd">
+
+<jbosscmp-jdbc>
+   <defaults>
+   <!--
+      <datasource>java:/MySqlDS</datasource>
+      <datasource-mapping>mySQL</datasource-mapping>
+      <datasource>java:/OracleDS</datasource>
+      <datasource-mapping>Oracle9i</datasource-mapping>
+      <datasource>java:/PostgresDS</datasource>
+      <datasource-mapping>PostgreSQL 7.2</datasource-mapping>
+   -->
+      <create-table>true</create-table>
+      <remove-table>true</remove-table>
+      <pk-constraint>true</pk-constraint>
+      <read-ahead>
+         <strategy>on-load</strategy>
+         <page-size>4</page-size>
+         <eager-load-group>*</eager-load-group>
+      </read-ahead>
+   </defaults>
+
+   <enterprise-beans>
+      <entity>
+         <ejb-name>LobEJB</ejb-name>
+         <table-name>lob</table-name>
+         <cmp-field>
+            <field-name>bigString</field-name>
+            <column-name>bigstring</column-name>
+            <!--    Oracle   
+            <jdbc-type>CLOB</jdbc-type>
+            <sql-type>CLOB</sql-type>
+            -->
+            <!-- We use getCharacterStream for CLOBs, which is unsupported by mysql -->
+            <!--    MySQL   
+            <jdbc-type>VARCHAR</jdbc-type>
+            <sql-type>MEDIUMTEXT</sql-type>
+            -->
+            <!--    Postgres 7.2  
+            <jdbc-type>CLOB</jdbc-type>
+            <sql-type>text</sql-type>
+            -->
+            <!-- hsqldb doesn't support CLOB jdbc types -->
+            <!--    hsqldb  -->
+            <jdbc-type>VARCHAR</jdbc-type>
+            <sql-type>VARCHAR(4000)</sql-type>
+            
+         </cmp-field>
+         <cmp-field>
+            <field-name>binaryData</field-name>
+            <column-name>binarydata</column-name>
+            <!--    Oracle  
+            <jdbc-type>BLOB</jdbc-type>
+            <sql-type>BLOB</sql-type>
+            -->
+            <!--    MySQL  
+            <jdbc-type>BLOB</jdbc-type>
+            <sql-type>BLOB</sql-type>
+            -->
+            <!--    Postgres 7.2  
+            <jdbc-type>BLOB</jdbc-type>
+            <sql-type>bytea</sql-type>
+            -->
+            <!-- hsqldb doesn't support BLOB jdbc types -->
+            <!--    hsqldb  -->
+            <jdbc-type>VARBINARY</jdbc-type>
+            <sql-type>VARBINARY</sql-type>
+            
+         </cmp-field>
+      </entity>
+   </enterprise-beans>
+</jbosscmp-jdbc>

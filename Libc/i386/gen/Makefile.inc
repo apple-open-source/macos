@@ -1,5 +1,9 @@
-SRCS+=  abs.c        ecvt.c       memcpy.s     strcat.c     strncat.c \
-	bcmp.c       ffs.c        memmove.s    strcmp.c     strncmp.c \
-	bcopy.s      insque.c     remque.c     strcpy.c     strncpy.c \
-	bzero.s      isinf.c      setjmperr.c  strlen.c     mcount.s  \
-	bcopy_init.c
+SRCS+=  bcopy.s \
+	bzero.s \
+	ecvt.c \
+	icacheinval.s \
+	isinf.c \
+	mcount.s \
+	memcpy.s \
+	memmove.s \
+	setjmperr.c

@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: autil.c,v 1.1.1.1 2002/05/15 01:21:54 jkh Exp $
+ * $Id: autil.c,v 1.1.1.2 2002/07/15 19:42:37 zarzycki Exp $
  *
  */
 
@@ -246,6 +246,7 @@ mf_mounted(mntfs *mf)
     if (mf->mf_ops->mounted) {
       (*mf->mf_ops->mounted) (mf);
     }
+
     mf->mf_fo = 0;
   }
 
@@ -268,6 +269,11 @@ am_mounted(am_node *mp)
   mntfs *mf = mp->am_mnt;
 
   mf_mounted(mf);
+
+#ifdef HAVE_FS_AUTOFS
+  if (mf->mf_flags & MFF_AUTOFS)
+    autofs_mounted(mp);
+#endif /* HAVE_FS_AUTOFS */
 
   /*
    * Patch up path for direct mounts
@@ -375,7 +381,7 @@ am_unmounted(am_node *mp)
     mf->mf_ops->umounted(mf);
 
   /*
-   * This is ugly, but essentially unavoidable
+   * This is ugly, but essentially unavoidable.
    * Sublinks must be treated separately as type==link
    * when the base type is different.
    */
@@ -389,11 +395,15 @@ am_unmounted(am_node *mp)
 
   /*
    * Clean up any directories that were made
-   * Don't do it for autofs, lest we deadlock
+   *
+   * If we remove the mount point of a pending mount, any queued access
+   * to it will fail. So don't do it in that case.
    */
   if (mf->mf_flags & MFF_MKMNT &&
-      !(mp->am_flags & AMF_AUTOFS))
-    rmdirs(mf->mf_mount);
+      !(mp->am_flags & AMF_REMOUNT)) {
+    plog(XLOG_INFO, "removing mountpoint directory '%s'", mf->mf_real_mount);
+    rmdirs(mf->mf_real_mount);
+  }
 
   /*
    * If this is a pseudo-directory then adjust the link count

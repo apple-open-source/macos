@@ -42,7 +42,7 @@
 set SRCHPATHS = "/"			# directories to be put in the database
 set LIBDIR = /usr/libexec		# for subprograms
 					# for temp files
-if (! $?TMPDIR) setenv TMPDIR /var/tmp
+if (! $?TMPDIR) setenv TMPDIR /tmp
 if (! $?DBDIR) setenv DBDIR /var/db
 set FCODES = $DBDIR/locate.database	# the database
 

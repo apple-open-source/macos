@@ -38,6 +38,8 @@
 #include <IOKit/graphics/IOGraphicsPrivate.h>
 #include <IOKit/graphics/IOFramebuffer.h>
 #include <IOKit/graphics/IODisplay.h>
+#include <IOKit/i2c/IOI2CInterface.h>
+#include <IOKit/i2c/PPCI2CInterface.h>
 
 #include "IOFramebufferUserClient.h"
 #include "IODisplayWrangler.h"
@@ -83,6 +85,10 @@ static SInt32		gIOFBSuspendCount;
 static IOFramebuffer *  gIOFBConsoleFramebuffer;
 bool			gIOFBDesktopModeAllowed = true;
 IOOptionBits		gIOFBLastClamshellState;
+const OSSymbol *	gIOFBGetSensorValueKey;
+const OSSymbol *	gIOFramebufferKey;
+
+#define	kIOFBGetSensorValueKey	"getSensorValue"
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -103,7 +109,7 @@ struct IOFramebufferPrivate
     UInt32			framePending;
     SInt32			xPending;
     SInt32			yPending;
-    IOGPoint			cursorHotSpotAdjust[ 2 ];
+    IOGPoint			cursorHotSpotAdjust[2];
 
     IOByteCount			gammaHeaderSize;
     UInt32			desiredGammaDataWidth;
@@ -135,7 +141,13 @@ struct IOFramebufferPrivate
     UInt8			mirrorState;
     UInt8			pendingSpeedChange;
 
+    UInt8			lli2c;
+    UInt8			cursorClutDependent;
+    UInt8			pad[2];
+
     UInt32			reducedSpeed;
+    IOService *			temperatureSensor;
+    IOI2CBusTiming		defaultI2CTiming;
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -216,6 +228,47 @@ public:
     virtual bool doUpdate( void );
 
     void displayModeChange( void );
+};
+
+class IOFramebufferSensor : public IOService
+{
+    OSDeclareDefaultStructors(IOFramebufferSensor)
+
+    IOFramebuffer * 	fFramebuffer;
+
+public:
+    static IOFramebufferSensor * withFramebuffer( IOFramebuffer * framebuffer );
+    virtual void free();
+
+    virtual IOReturn callPlatformFunction( const OSSymbol * functionName,
+					   bool waitForFunction,
+					   void *param1, void *param2,
+					   void *param3, void *param4 );
+
+    virtual IOReturn callPlatformFunction( const char * functionName,
+					   bool waitForFunction,
+					   void *param1, void *param2,
+					   void *param3, void *param4 );
+};
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+class IOFramebufferI2CInterface : public IOI2CInterface
+{
+    OSDeclareDefaultStructors(IOFramebufferI2CInterface)
+
+    IOFramebuffer *	fFramebuffer;
+    SInt32		fBusID;
+    UInt32              fSupportedTypes;
+    UInt32              fSupportedCommFlags;
+    
+public:
+    virtual bool start( IOService * provider );
+    virtual IOReturn startIO( IOI2CRequest * request );
+
+    static IOFramebufferI2CInterface * withFramebuffer( IOFramebuffer * framebuffer, 
+							OSDictionary * info );
+    static IOReturn create( IOFramebuffer * framebuffer );
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -551,7 +604,7 @@ IOReturn IOFramebuffer::extSetGammaTable(
     UInt32	expandCount = 0;
     IOByteCount	dataLen;
     UInt32      tryWidth;
-    UInt8 *	table;
+    UInt8 *	table = 0;
     bool	needAlloc;
 
     FBLOCK();
@@ -647,6 +700,7 @@ IOReturn IOFramebuffer::extSetGammaTable(
 	    ret = setGammaTable( __private->gammaChannelCount, __private->gammaDataCount, 
 				 __private->gammaDataWidth, __private->gammaData );
     
+	    updateCursorForCLUTSet();
 	    IODelete(__private->gammaData, UInt8, dataLen);
 	}
     }
@@ -691,6 +745,8 @@ IOReturn IOFramebuffer::extSetCLUTWithEntries( UInt32 index, IOOptionBits option
 		}
 		__private->clutData = table;
 	    }
+	    else
+		table = __private->clutData;
 	
 	    __private->clutIndex   = index;
 	    __private->clutOptions = options;
@@ -703,12 +759,32 @@ IOReturn IOFramebuffer::extSetCLUTWithEntries( UInt32 index, IOOptionBits option
 	while (false);
     }
     else
+    {
 	ret = setCLUTWithEntries( colors, index,
 				  dataLen / sizeof( IOColorEntry), options );
+	updateCursorForCLUTSet();
+    }
 
     FBUNLOCK();
 
     return (ret);
+}
+
+void IOFramebuffer::updateCursorForCLUTSet( void )
+{
+    if (__private->cursorClutDependent)
+    {
+	StdFBShmem_t *shmem = GetShmem(this);
+
+	SETSEMA(shmem);
+        if ((kIOFBHardwareCursorActive == shmem->hardwareCursorActive) 
+	 && !shmem->cursorShow)
+	{
+            setCursorImage( (void *) shmem->frame );
+            DisplayCursor(this);
+	}
+	CLEARSEMA(shmem, this);
+    }
 }
 
 void IOFramebuffer::deferredCLUTSetInterrupt( OSObject * owner,
@@ -746,6 +822,8 @@ void IOFramebuffer::checkDeferredCLUTSet( void )
 
 	IODelete(__private->clutData, UInt8, clutLen);
     }
+
+    updateCursorForCLUTSet();
 }
 
 IOReturn IOFramebuffer::createSharedCursor(
@@ -894,7 +972,11 @@ IOReturn IOFramebuffer::newUserClient(  task_t		owningTask,
                 theConnect->retain();
             }
             else if (serverConnect)
+	    {
                 newConnect = IOFramebufferSharedUserClient::withTask(owningTask);
+		if (newConnect)
+		    newConnect->retain();
+	    }
             else
                 err = kIOReturnNotOpen;
             break;
@@ -972,7 +1054,19 @@ IOReturn IOFramebuffer::extSetBounds( Bounds * bounds )
 
     shmem = GetShmem(this);
     if (shmem)
+    {
+        if (kIOFBHardwareCursorActive == shmem->hardwareCursorActive) 
+	{
+	    IOReturn err;
+            Point *  hs;
+            hs = &shmem->hotSpot[0 != shmem->frame];
+            err = _setCursorState(
+                      shmem->cursorLoc.x - hs->x - shmem->screenBounds.minx,
+                      shmem->cursorLoc.y - hs->y - shmem->screenBounds.miny, false );
+	}
+
         shmem->screenBounds = *bounds;
+    }
 
     FBUNLOCK();
 
@@ -1318,8 +1412,8 @@ IOReturn IOFramebuffer::_setCursorState( SInt32 x, SInt32 y, bool visible )
     StdFBShmem_t *shmem = GetShmem(this);
     IOReturn ret = kIOReturnUnsupported;
 
-    x -= __private->cursorHotSpotAdjust[ 0 ].x;
-    y -= __private->cursorHotSpotAdjust[ 0 ].y;
+    x -= __private->cursorHotSpotAdjust[0].x;
+    y -= __private->cursorHotSpotAdjust[0].y;
 
     if (kIOFBHardwareCursorActive == shmem->hardwareCursorActive)
         ret = setCursorState( x, y, visible );
@@ -1367,7 +1461,9 @@ void IOFramebuffer::moveCursor( Point * cursorLoc, int frame )
         }
     }
 
-    if (!haveVBLService)
+    if ((kIOFBHardwareCursorActive == 
+	    (shmem->hardwareCursorActive & (kIOFBHardwareCursorActive | kIOFBHardwareCursorInVRAM))) 
+    || !haveVBLService)
     {
         shmem->cursorLoc = *cursorLoc;
         shmem->frame = frame;
@@ -1450,7 +1546,7 @@ void IOFramebuffer::resetCursor( void )
     shmem = GetShmem(this);
     //    hwCursorLoaded = false;
     if (!shmem)
-        return ;
+        return;
 
     shmem->hardwareCursorActive = 0;
     frame = shmem->frame;
@@ -1606,7 +1702,7 @@ bool IOFramebuffer::convertCursorImage( void * cursorImage,
     volatile unsigned short *	cursPtr16;
     volatile unsigned int *	cursPtr32;
     SInt32 			x, lastx, y, lasty;
-    UInt32			width, height, lineBytes;
+    UInt32			width, height, lineBytes = 0;
     UInt32			index, numColors = 0;
     UInt32			alpha, red, green, blue;
     UInt16			s16;
@@ -1644,13 +1740,13 @@ bool IOFramebuffer::convertCursorImage( void * cursorImage,
 
     if (bytesPerPixel == 4)
     {
-        cursPtr32 = (volatile unsigned int *) __private->cursorImages[ frame ];
+        cursPtr32 = (volatile unsigned int *) __private->cursorImages[frame];
         cursPtr16 = 0;
     }
     else if (bytesPerPixel == 2)
     {
         cursPtr32 = 0;
-        cursPtr16 = (volatile unsigned short *) __private->cursorImages[ frame ];
+        cursPtr16 = (volatile unsigned short *) __private->cursorImages[frame];
     }
     else
         return (false);
@@ -1671,8 +1767,8 @@ bool IOFramebuffer::convertCursorImage( void * cursorImage,
         width = height = 16;
     // --
 
-    SInt32 adjX = 4 - shmem->hotSpot[ 0 != frame ].x;
-    SInt32 adjY = 4 - shmem->hotSpot[ 0 != frame ].y;
+    SInt32 adjX = 4 - shmem->hotSpot[0 != frame].x;
+    SInt32 adjY = 4 - shmem->hotSpot[0 != frame].y;
     if ((adjX < 0) || ((UInt32)(x + adjX) > width))
         adjX = 0;
     else
@@ -1680,8 +1776,8 @@ bool IOFramebuffer::convertCursorImage( void * cursorImage,
     if ((adjY < 0) || ((UInt32)(y + adjY) > height))
         adjY = 0;
 
-    __private->cursorHotSpotAdjust[ 0 != frame ].x = adjX;
-    __private->cursorHotSpotAdjust[ 0 != frame ].y = adjY;
+    __private->cursorHotSpotAdjust[0 != frame].x = adjX;
+    __private->cursorHotSpotAdjust[0 != frame].y = adjY;
 
     while ((width >> 1) >= (UInt32) x)
         width >>= 1;
@@ -1830,11 +1926,11 @@ bool IOFramebuffer::convertCursorImage( void * cursorImage,
                     /* Opaque cursor pixel.  Mark it. */
                     for (index = 0; index < numColors; index++)
                     {
-                        if ((red   == clut[ index ].red)
-                                && (green == clut[ index ].green)
-                                && (blue  == clut[ index ].blue))
+                        if ((red   == clut[index].red)
+                                && (green == clut[index].green)
+                                && (blue  == clut[index].blue))
                         {
-                            pixel = clut[ index ].index;
+                            pixel = clut[index].index;
                             break;
                         }
                     }
@@ -1843,11 +1939,11 @@ bool IOFramebuffer::convertCursorImage( void * cursorImage,
                         ok = (numColors < maxColors);
                         if (ok)
                         {
-                            pixel = hwDesc->colorEncodings[ numColors++ ];
-                            clut[ index ].red   = red;
-                            clut[ index ].green = green;
-                            clut[ index ].blue  = blue;
-                            clut[ index ].index = pixel;
+                            pixel = hwDesc->colorEncodings[numColors++];
+                            clut[index].red   = red;
+                            clut[index].green = green;
+                            clut[index].blue  = blue;
+                            clut[index].index = pixel;
                         }
                     }
                 }
@@ -1872,6 +1968,8 @@ bool IOFramebuffer::convertCursorImage( void * cursorImage,
         bzero_nc( dataOut, adjY * lineBytes );
         dataOut += adjY * lineBytes;
     }
+
+    __private->cursorClutDependent = (ok && !isDirect);
 
 #if 0
     if (ok)
@@ -1900,9 +1998,9 @@ bool IOFramebuffer::convertCursorImage( void * cursorImage,
 // Apple standard 8-bit CLUT
 
 #if 1
-extern UInt8 appleClut8[ 256 * 3 ];
+extern UInt8 appleClut8[256 * 3];
 #else
-UInt8 appleClut8[ 256 * 3 ] =
+UInt8 appleClut8[256 * 3] =
 {
     // 00
     0xFF,0xFF,0xFF, 0xFF,0xFF,0xCC,	0xFF,0xFF,0x99,	0xFF,0xFF,0x66,
@@ -2165,13 +2263,19 @@ bool IOFramebuffer::getIsUsable( void )
 
 IOReturn IOFramebuffer::postWake( IOOptionBits state )
 {
-    UInt32 value;
+    IOReturn ret;
+    UInt32   value;
 
     sleepConnectCheck = false;
 
     configPending = false;
 
-    return (getAttributeForConnection(0, kConnectionPostWake, &value));
+    ret = getAttributeForConnection(0, kConnectionPostWake, &value);
+
+    if (!captured)
+	getAttributeForConnection(0, kConnectionChanged, 0);
+
+    return (ret);
 }
 
 void IOFramebuffer::notifyServerAll( UInt8 state )
@@ -2774,6 +2878,8 @@ IOReturn IOFramebuffer::open( void )
 
     do
     {
+        if (gIOFBGate)
+	    FBLOCK();
         if (opened)
             continue;
         if (dead)
@@ -2793,8 +2899,27 @@ IOReturn IOFramebuffer::open( void )
                 root->release();
             }
             gIOFBDesktopModeAllowed = !data || (0 != (8 & *((UInt32 *) data->getBytesNoCopy())));
+
+	    OSIterator * iter = getMatchingServices(serviceMatching("IOAccelerator"));
+	    if (iter)
+	    {
+		IOService * accel;
+		while ((accel = OSDynamicCast(IOService, iter->getNextObject())))
+		    accel->requestProbe(kIOFBUserRequestProbe);
+
+		iter->release();
+	    }
         }
 
+	if (!gIOFramebufferKey)
+	    gIOFramebufferKey = OSSymbol::withCStringNoCopy("IOFramebuffer");
+	if (!gIOFramebufferKey)
+            continue;
+	if (!gIOFBGetSensorValueKey)
+	    gIOFBGetSensorValueKey = OSSymbol::withCStringNoCopy(kIOFBGetSensorValueKey);
+	if (!gIOFBGetSensorValueKey)
+            continue;
+	
         if (!gAllFramebuffers)
             continue;
         if (!gIOFBRootNotifier)
@@ -2832,12 +2957,14 @@ IOReturn IOFramebuffer::open( void )
         if (!gIOFBWorkLoop)
             continue;
         if (!gIOFBGate)
+	{
             gIOFBGate = IOFBGate::gate( this );
-        if (!gIOFBGate)
-            continue;
-        gIOFBWorkLoop->addEventSource( gIOFBGate );
+	    if (!gIOFBGate)
+		continue;
+	    gIOFBWorkLoop->addEventSource( gIOFBGate );
 
-        FBLOCK();
+	    FBLOCK();
+	}
 
         serverNotified   = true;
         serverState      = true;
@@ -2886,6 +3013,19 @@ IOReturn IOFramebuffer::open( void )
         err = getAttribute( kIOHardwareCursorAttribute, &value );
 	haveHWCursor = ((err == kIOReturnSuccess) && (0 != (kIOFBHWCursorSupported & value)));
 
+        clock_interval_to_deadline(40, kMicrosecondScale, 
+				    &__private->defaultI2CTiming.bitTimeout);
+        clock_interval_to_deadline(40, kMicrosecondScale, 
+				    &__private->defaultI2CTiming.byteTimeout);
+        clock_interval_to_deadline(40, kMicrosecondScale, 
+				    &__private->defaultI2CTiming.acknowledgeTimeout);
+        clock_interval_to_deadline(40, kMicrosecondScale, 
+				    &__private->defaultI2CTiming.startTimeout);
+
+        __private->lli2c = (kIOReturnSuccess == getAttributeForConnection(
+					0, kConnectionSupportsLLDDCSense, 
+					(UInt32 *) &__private->defaultI2CTiming));
+
 	if ((num = OSDynamicCast(OSNumber, getProperty(kIOFBGammaWidthKey))))
 	    __private->desiredGammaDataWidth = num->unsigned32BitValue();
 	if ((num = OSDynamicCast(OSNumber, getProperty(kIOFBGammaCountKey))))
@@ -2917,7 +3057,7 @@ IOReturn IOFramebuffer::open( void )
                 OSDictionary  * propMatch;
                 OSIterator    * iter;
 
-                matching = serviceMatching("IOFramebuffer");
+                matching = serviceMatching(gIOFramebufferKey);
                 if (!matching)
                     continue;
                 propMatch = OSDictionary::withCapacity(1);
@@ -2960,6 +3100,8 @@ IOReturn IOFramebuffer::open( void )
 	if (__private->paramHandler)
 	    setProperty(gIODisplayParametersKey, __private->paramHandler);
 
+        IOFramebufferI2CInterface::create( this );
+
         if (connectEnabled)
             IODisplayWrangler::makeDisplayConnects(this);
 
@@ -2992,7 +3134,8 @@ IOReturn IOFramebuffer::open( void )
     }
     while (false);
 
-    checkConnectionChange();
+    if (opened)
+	checkConnectionChange();
 
     if (gIOFBGate)
         FBUNLOCK();
@@ -3002,6 +3145,8 @@ IOReturn IOFramebuffer::open( void )
 
 IOReturn IOFramebuffer::postOpen( void )
 {
+    IOService * sensor = 0;
+
     if (__private->cursorAttributes)
     {
         __private->cursorAttributes->release();
@@ -3041,7 +3186,82 @@ IOReturn IOFramebuffer::postOpen( void )
 
     setProperty( kIOFBCursorInfoKey, __private->cursorAttributes );
 
+
+    UInt32 value[16];
+
+//#define kTempAttribute	kConnectionWSSB
+#define kTempAttribute	'thrm'
+
+    if (!__private->temperatureSensor
+     && (kIOReturnSuccess == getAttributeForConnection(0, kTempAttribute, &value[0])))
+    do
+    {
+	UInt32	   data;
+	OSNumber * num;
+
+        num = OSDynamicCast(OSNumber, getProperty(kIOFBDependentIDKey));
+        if (num && num->unsigned32BitValue())
+	    continue;
+
+	sensor = new IOService;
+	if (!sensor)
+	    continue;
+	if (!sensor->init())
+	    continue;
+
+#define kTempSensorName 	"temp-sensor"
+	sensor->setName(kTempSensorName);
+	sensor->setProperty("name", (void *) kTempSensorName, strlen(kTempSensorName) + 1);
+	sensor->setProperty("compatible", (void *) kTempSensorName, strlen(kTempSensorName) + 1);
+	sensor->setProperty("device_type", (void *) kTempSensorName, strlen(kTempSensorName) + 1);
+	sensor->setProperty("type", "temperature");
+	sensor->setProperty("location", "GPU");
+	data = 0xff000002;
+	sensor->setProperty("zone", &data, sizeof(data));
+	data = 0x00000001;
+	sensor->setProperty("version", &data, sizeof(data));
+
+	OSData * prop;
+	IOService * device;
+	data = 0x12345678;
+	if ((device = getProvider())
+  	 && (prop = OSDynamicCast(OSData, device->getProperty("AAPL,phandle"))))
+	    data = (*((UInt32 *) prop->getBytesNoCopy())) << 8;
+	sensor->setProperty("sensor-id", &data, sizeof(data));
+
+	if (!sensor->attach(this))
+	    continue;
+
+	sensor->registerService();
+	__private->temperatureSensor = sensor;
+    }
+    while (false);
+
+    if (sensor)
+	sensor->release();
+
     return (kIOReturnSuccess);
+}
+
+IOReturn IOFramebuffer::callPlatformFunction( const OSSymbol * functionName,
+						    bool waitForFunction,
+						    void *p1, void *p2,
+						    void *p3, void *p4 )
+{
+    UInt32   value[16];
+    IOReturn ret;
+
+    if (functionName != gIOFBGetSensorValueKey)
+	return (super::callPlatformFunction(functionName, waitForFunction, p1, p2, p3, p4));
+
+    FBLOCK();
+    ret = getAttributeForConnection(0, kTempAttribute, &value[0]);
+    FBUNLOCK();
+
+    if (kIOReturnSuccess == ret)
+	*((UInt32 *)p2) = ((value[0] & 0xffff) << 16);
+
+    return (ret);
 }
 
 IOWorkLoop * IOFramebuffer::getWorkLoop() const
@@ -3137,25 +3357,22 @@ IOReturn IOFramebuffer::doSetup( bool full )
     IODisplayModeID		mode;
     IOIndex			depth;
     IOPixelInformation		info;
-    IODisplayModeInformation	dmInfo;
     IODeviceMemory *		mem;
     IODeviceMemory *		fbRange;
     IOPhysicalAddress		base;
     UInt32			value;
+    bool			haveFB;
     PE_Video			newConsole;
 
     err = getAttribute( kIOHardwareCursorAttribute, &value );
     __private->cursorPanning = ((err == kIOReturnSuccess) && (0 != (kIOFBCursorPans & value)));
 
     err = getCurrentDisplayMode( &mode, &depth );
-    if (err)
-        IOLog("%s: getCurrentDisplayMode %d\n", getName(), err);
+    if (kIOReturnSuccess == err)
+	err = getPixelInformation( mode, depth, kIOFBSystemAperture, &info );
+    haveFB = ((kIOReturnSuccess == err) && (info.activeWidth >= 128)); 
 
-    err = getPixelInformation( mode, depth, kIOFBSystemAperture, &info );
-    if (err)
-        IOLog("%s: getPixelInformation %d\n", getName(),  err);
-
-    if (full && (clutValid == false) && (info.pixelType == kIOCLUTPixels))
+    if (full && haveFB && (clutValid == false) && (info.pixelType == kIOCLUTPixels))
     {
         IOColorEntry	*	tempTable;
         int			i;
@@ -3170,18 +3387,18 @@ IOReturn IOFramebuffer::doSetup( bool full )
                     UInt32	lum;
 
                     lum = 0x0101 * i;
-                    tempTable[ i ].red   = lum;
-                    tempTable[ i ].green = lum;
-                    tempTable[ i ].blue  = lum;
+                    tempTable[i].red   = lum;
+                    tempTable[i].green = lum;
+                    tempTable[i].blue  = lum;
                 }
                 else
                 {
-                    tempTable[ i ].red   = (appleClut8[ i * 3 + 0 ] << 8)
-                                           | appleClut8[ i * 3 + 0 ];
-                    tempTable[ i ].green = (appleClut8[ i * 3 + 1 ] << 8)
-                                           | appleClut8[ i * 3 + 1 ];
-                    tempTable[ i ].blue  = (appleClut8[ i * 3 + 2 ] << 8)
-                                           | appleClut8[ i * 3 + 2 ];
+                    tempTable[i].red   = (appleClut8[i * 3 + 0] << 8)
+                                           | appleClut8[i * 3 + 0];
+                    tempTable[i].green = (appleClut8[i * 3 + 1] << 8)
+                                           | appleClut8[i * 3 + 1];
+                    tempTable[i].blue  = (appleClut8[i * 3 + 2] << 8)
+                                           | appleClut8[i * 3 + 2];
                 }
             }
             setCLUTWithEntries( tempTable, 0, 256, 1 * kSetCLUTImmediately );
@@ -3216,7 +3433,7 @@ IOReturn IOFramebuffer::doSetup( bool full )
             base = vramMap->getVirtualAddress();
 
         // console now available
-        if (info.activeWidth >= 128 && (this == gIOFBConsoleFramebuffer) || !gIOFBConsoleFramebuffer)
+        if (haveFB && (this == gIOFBConsoleFramebuffer) || !gIOFBConsoleFramebuffer)
         {
             newConsole.v_baseAddr	= base;
             newConsole.v_rowBytes	= info.bytesPerRow;
@@ -3229,10 +3446,8 @@ IOReturn IOFramebuffer::doSetup( bool full )
             gIOFBConsoleFramebuffer	= this;
         }
 
-        (void) getInformationForDisplayMode( mode, &dmInfo );
-        DEBG(thisIndex, " using (%ldx%ld@%ldHz,%ld bpp)\n",
-             info.activeWidth, info.activeHeight,
-             (dmInfo.refreshRate + 0x8000) >> 16, info.bitsPerPixel );
+        DEBG(thisIndex, " using (%ldx%ld,%ld bpp)\n",
+             info.activeWidth, info.activeHeight, info.bitsPerPixel );
     }
 
     if (full)
@@ -3240,7 +3455,7 @@ IOReturn IOFramebuffer::doSetup( bool full )
 
     if (fbRange)
         fbRange->release();
-    if (vramMap)
+    if (vramMap && haveFB)
         setupCursor( &info );
 
     return (kIOReturnSuccess);
@@ -3513,6 +3728,13 @@ IOReturn IOFramebuffer::setAttribute( IOSelect attribute, UInt32 value )
                     next = this;
                     do
                     {
+                        next->getAttributeForConnection( 0, kConnectionChanged, 0 );
+                    }
+                    while ((next = next->getNextDependent()) && (next != this));
+
+                    next = this;
+                    do
+                    {
                         next->checkConnectionChange();
                     }
                     while ((next = next->getNextDependent()) && (next != this));
@@ -3605,7 +3827,7 @@ bool IOFramebuffer::serializeInfo( OSSerialize * s )
 
     for (modeNum = 0; modeNum < modeCount; modeNum++)
     {
-        err = getInformationForDisplayMode( modeIDs[ modeNum ], &info );
+        err = getInformationForDisplayMode( modeIDs[modeNum], &info );
         if (err)
             continue;
 
@@ -3628,7 +3850,7 @@ bool IOFramebuffer::serializeInfo( OSSerialize * s )
         {
             for (aperture = 0; ; aperture++)
             {
-                err = getPixelInformation( modeIDs[ modeNum ], depthNum,
+                err = getPixelInformation( modeIDs[modeNum], depthNum,
                                            aperture, &pixelInfo );
                 if (err)
                     break;
@@ -3662,7 +3884,7 @@ bool IOFramebuffer::serializeInfo( OSSerialize * s )
             }
         }
 
-        sprintf( keyBuf, "%lx", modeIDs[ modeNum ] );
+        sprintf( keyBuf, "%lx", modeIDs[modeNum] );
         infoDict->setObject( keyBuf, modeDict );
         modeDict->release();
     }
@@ -3874,10 +4096,26 @@ IOReturn IOFramebuffer::setAttributeForConnection( IOIndex connectIndex,
     return (kIOReturnSuccess);
 }
 
-IOReturn IOFramebuffer::getAttributeForConnection( IOIndex /* connectIndex */,
-        IOSelect /* attribute */, UInt32  * /* value */ )
+IOReturn IOFramebuffer::getAttributeForConnection( IOIndex connectIndex,
+        IOSelect attribute, UInt32 * value )
 {
-    return (kIOReturnUnsupported);
+    IOReturn err;
+
+    switch( attribute )
+    {
+        case kConnectionSupportsHLDDCSense:
+	    if (__private->lli2c)
+	    {
+		err = kIOReturnSuccess;
+		break;
+	    }
+	    // fall thru
+	default:
+	    err = kIOReturnUnsupported;
+	    break;
+    }
+
+    return( err );
 }
 
 //// HW Cursors
@@ -3955,21 +4193,760 @@ IOReturn IOFramebuffer::enableDDCRaster( bool /* enable */ )
     return (kIOReturnUnsupported);
 }
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 //// IOHighLevelDDCSense
 
-bool IOFramebuffer::hasDDCConnect( IOIndex /* connectIndex */ )
+enum { kDDCBlockSize = 128 };
+
+bool IOFramebuffer::hasDDCConnect( IOIndex connectIndex )
 {
-    return (kIOReturnUnsupported);
+    return (__private->lli2c);
 }
 
-IOReturn IOFramebuffer::getDDCBlock( IOIndex /* connectIndex */, UInt32 /* blockNumber */,
-                                     IOSelect /* blockType */, IOOptionBits /* options */,
-                                     UInt8 * /* data */, IOByteCount * /* length */ )
+IOReturn IOFramebuffer::getDDCBlock( IOIndex bus, UInt32 blockNumber,
+					IOSelect blockType, IOOptionBits options,
+					UInt8 * data, IOByteCount * length )
 {
-    return (kIOReturnUnsupported);
+    UInt8		startAddress;
+    IOReturn		err;
+    UInt32		badsums, timeouts;
+    IOI2CBusTiming *	timing = &__private->defaultI2CTiming;
+
+    if (!__private->lli2c)
+	return (kIOReturnUnsupported);
+    
+    // Assume that we have already attempted to stop DDC1
+    
+    // Read the requested block (Block 1 is at 0x0, each additional block is at 0x80 offset)
+    startAddress = kDDCBlockSize * (blockNumber - 1);
+    if (length)
+	*length = kDDCBlockSize;
+    
+    // Attempt to read the DDC data
+    //  1.	If the error is a timeout, then it will attempt one more time.  If it gets another timeout, then
+    //  	it will return a timeout error to the caller.
+    //
+    //  2.  If the error is a bad checksum error, it will attempt to read the block up to 2 more times.
+    //		If it still gets an error, then it will return a bad checksum error to the caller.  
+    i2cSend9Stops(bus, timing);
+    badsums = timeouts = 0;
+    do
+    {
+	err = readDDCBlock(bus, timing, 0xa0, startAddress, data);
+	if (kIOReturnSuccess == err)
+	    break;
+	IOLog("readDDCBlock returned error\n");
+	i2cSend9Stops(bus, timing);
+
+	// We got an error.   Determine what kind
+	if (kIOReturnNotResponding == err)
+	{
+	    IOLog("timeout\n");
+	    timeouts++;
+	}
+	else if (kIOReturnUnformattedMedia == err)
+	{
+	    IOLog("bad sum\n");
+	    badsums++;
+	}
+	else
+	    break;
+    }
+    while ((timeouts < 2) && (badsums < 4));
+
+    return (err);
 }
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+//
+//      doI2CRequest(), 
+//
+
+IOReturn IOFramebuffer::doI2CRequest( UInt32 bus, IOI2CBusTiming * timing, IOI2CRequest * request )
+{
+    IOReturn err = kIOReturnError;	// Assume failure
+
+    if (!__private->lli2c)
+	return (kIOReturnUnsupported);
+
+    if (!timing)
+	timing = &__private->defaultI2CTiming;
+    
+    if (request->sendTransactionType == kIOI2CSimpleTransactionType)
+    {
+	if ( request->sendAddress & 0x01 )
+	{
+	    // Read Transaction
+	    //
+	    err = i2cReadData(bus, timing, request->sendAddress, request->sendBytes, (UInt8 *) request->sendBuffer);
+	}
+	else
+	{
+	    // Read Transaction
+	    //
+	    err = i2cWriteData(bus, timing, request->sendAddress, request->sendBytes, (UInt8 *) request->sendBuffer);
+	}
+    }
+
+    // Now, let's check to see if there is a csReplyType
+    //
+    if (request->replyTransactionType == kIOI2CDDCciReplyTransactionType )
+    {
+	err = i2cReadDDCciData(bus, timing, request->replyAddress, request->replyBytes, (UInt8 *) request->replyBuffer);
+    }
+    else if (request->replyTransactionType == kIOI2CSimpleTransactionType )
+    {
+	err = i2cReadData(bus, timing, request->replyAddress, request->replyBytes, (UInt8 *) request->replyBuffer);
+    }
+
+    request->result = err;
+    if (request->completion)
+        (*request->completion)(request);
+
+    err = kIOReturnSuccess;
+
+    return (err);
+}
+
+/*
+    with thanks to:
+    File:	GraphicsCoreUtils.c
+    Written by:	Sean Williams, Kevin Williams, Fernando Urbina
+*/
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+//
+//      stopDDC1SendCommand(), 
+//
+//	The VESA spec for DDC says a display in DDC1 will transition from DDC1 to DDC2 when a valid DDC2
+//	command is received.
+//	DDC1 constantly spews data on the data line if syncs are active...bad for macintosh sensing
+//	DDC2 only sends data when requested.
+//	The VESA spec illustrates the manner to do this.
+//	Read the first byte of data, send a Nack and a Stop.
+//	This routine does that.
+//
+//	There is a delay of two vertical clock periods where the clock line is forced low. The 
+//	NEC XE15 monitor has a controller that sometimes pulls the clockline low and never releases it.
+//	This is bad, DDC will fail, and the monitor sensing algorithim will think a mono 1152x870 display
+//	is attached. This isn't part of the spec but it fixes the NEC XE15.
+//
+
+IOReturn IOFramebuffer::stopDDC1SendCommand(IOIndex bus, IOI2CBusTiming * timing)
+{
+    UInt8	data;
+    IOReturn	err = kIOReturnSuccess; 
+    UInt8	address;
+
+    // keep clock line low for 2 vclocks....keeps NEC XE15 from locking clock line low
+    // 640x480@67hz has a veritcal frequency of 15 ms
+    // 640x480@60hz has a vertical frequency of 16.7 ms
+    // Lower the clock line for 34 milliseconds
+
+    setDDCClock(bus, kIODDCLow);
+    IOSleep( 34 );
+
+    address = 0;
+    err = i2cWrite(bus, timing, 0xa0, 1, &address);
+
+    if (kIOReturnSuccess == err)
+    {			
+	i2cStart(bus, timing);
+	
+	i2cSendByte(bus, timing, 0xa1 );
+	
+	err = i2cWaitForAck(bus, timing);
+	if (kIOReturnSuccess == err)
+	    err = i2cReadByte(bus, timing, &data);
+    }
+    
+    i2cSendNack(bus, timing);
+    i2cStop(bus, timing);
+
+    return (err);
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+//
+// 	i2cReadData()
+//
+//	The parameters are described as follows:
+//
+//			-> deviceAddress	device's I2C address
+//			-> count		# of bytes to read
+//			<- buffer		buffer for the data
+
+IOReturn IOFramebuffer::i2cReadData(IOIndex bus, IOI2CBusTiming * timing,
+				    UInt8 deviceAddress, UInt8 count, UInt8 * buffer)
+{
+    IOReturn	err = kIOReturnError;
+    UInt32	attempts = 10;
+    
+    while ((kIOReturnSuccess != err) && (attempts-- > 0))
+    {
+	// Attempt to read the I2C data
+	i2cSend9Stops(bus, timing);
+	err = i2cRead(bus, timing, deviceAddress, count, buffer);
+    }
+    
+    return (err);
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+//
+// 	i2cWriteData()
+//
+//	The parameters are described as follows:
+//
+//			-> deviceAddress	device's I2C address
+//			-> count		# of bytes to read
+//			-> buffer		buffer for the data
+
+IOReturn IOFramebuffer::i2cWriteData(IOIndex bus, IOI2CBusTiming * timing, UInt8 deviceAddress, UInt8 count, UInt8 * buffer)
+{
+    IOReturn	err = kIOReturnError;
+    UInt32	attempts = 10;
+    
+    while ((kIOReturnSuccess != err) && (attempts-- > 0))
+    {
+	// Attempt to write the I2C data
+	i2cSend9Stops(bus, timing);
+	err = i2cWrite(bus, timing, deviceAddress, count, buffer);
+    }
+    
+    return (err);
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+//
+//      WaitForDDCDataLine()
+//
+//	Watch the DDC data line and see if it is toggling. If the data line is toggling, it means
+//	1) DDC display is connected
+//	2) DDC controller in the display is ready to receive commands.
+//
+//			-> waitTime		max duration that the DDC data line should be watched
+
+void IOFramebuffer::waitForDDCDataLine(IOIndex bus, IOI2CBusTiming * timing, UInt32 waitTime)
+{
+    AbsoluteTime	now, expirationTime;
+    UInt32		dataLine;
+
+    setDDCData(bus, kIODDCTristate);		// make sure data line is tristated
+
+    // Set up the timeout timer...watch DDC data line for waitTime, see if it changes
+    clock_interval_to_deadline(waitTime, kMillisecondScale, &expirationTime);
+			    
+    dataLine = readDDCData(bus);		// read present state of dataline
+    
+    while (true)
+    {
+	if (dataLine != readDDCData(bus))
+	    break;
+	
+	clock_get_uptime(&now);
+	if (CMP_ABSOLUTETIME(&now, &expirationTime) > 0)
+	    break;
+    }
+}
+	
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+//
+//      readDDCBlock()
+//	Read one block of DDC data
+//
+//	The parameters are described as follows:
+//
+//			-> deviceAddress	device's I2C address
+//			-> startAddress		start address to get data from
+//			<- data			a block of EDID data
+
+IOReturn IOFramebuffer::readDDCBlock(IOIndex bus, IOI2CBusTiming * timing, UInt8 deviceAddress, UInt8 startAddress, UInt8 * data)
+{
+    IOReturn	err;
+    UInt32 	i;
+    UInt8 	sum = 0;
+    
+    // First, send the address/data as a write
+    err = i2cWrite(bus, timing, deviceAddress, 1, &startAddress);
+    if (kIOReturnSuccess != err)
+	goto ErrorExit;
+    
+    // Now, read the I2C data
+    err = i2cRead(bus, timing, deviceAddress, kDDCBlockSize, data);
+    if (kIOReturnSuccess != err)
+	goto ErrorExit;
+    
+    for (i = 0; i < kDDCBlockSize; i++)
+	sum += data[i];
+			    
+    if (sum)
+	err = kIOReturnUnformattedMedia;
+    
+ErrorExit:
+
+    return (err);
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+//
+//      i2cStart()
+//	Start a I2C transaction
+
+void IOFramebuffer::i2cStart(IOIndex bus, IOI2CBusTiming * timing)
+{
+    // Generates a Start condition:
+    
+    // Set DATA and CLK high and enabled
+    setDDCData(bus, kIODDCHigh);
+    setDDCClock(bus, kIODDCHigh);
+
+    IODelay( 100 );
+    
+    // Bring DATA low
+    setDDCData(bus, kIODDCLow);
+    IODelay( 100 );
+    
+    // Bring CLK low
+    setDDCClock(bus, kIODDCLow);
+    IODelay( 100 );
+}	
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+//
+//      i2cStop()
+
+void IOFramebuffer::i2cStop(IOIndex bus, IOI2CBusTiming * timing)
+{
+    // Generate a low to high transition on DATA
+    // while SCL is high
+    
+    // Bring DATA and CLK low
+    IODelay( 200 );
+    setDDCData(bus, kIODDCLow);
+    setDDCClock(bus, kIODDCLow);
+
+    IODelay( 100 );
+    
+    // Bring CLK High
+    setDDCClock(bus, kIODDCHigh);
+    IODelay( 200 );
+    
+    // Bring DATA High
+    setDDCData(bus, kIODDCHigh);
+    IODelay( 100 );
+
+    // Release Bus
+
+    setDDCData(bus, kIODDCTristate);
+    setDDCClock(bus, kIODDCTristate);
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+//
+//      i2cSendAck()
+//	Send an ACK to acknowledge we received the data
+
+void IOFramebuffer::i2cSendAck(IOIndex bus, IOI2CBusTiming * timing)
+{
+    // Here, we have to make sure that the CLK is low while
+    // we bring DATA low and pulse CLK
+    setDDCClock(bus, kIODDCLow);
+
+    // This routine will release the bus by
+    // tristating the CLK and DATA lines
+    IODelay(20);
+
+    // should we wait for the SDA to be high before going on???
+
+    IODelay( 40 );
+
+    // Bring SDA low
+    setDDCData(bus, kIODDCLow);
+    IODelay( 100 );
+    
+    // pulse the CLK
+    setDDCClock(bus, kIODDCHigh);
+    IODelay( 200 );
+    setDDCClock(bus, kIODDCLow);
+    IODelay( 40 );
+    
+    // Release SDA,
+    setDDCData(bus, kIODDCTristate);
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+//
+//      i2cSendNack()
+//	Send an ACK to acknowledge we received the data
+
+void IOFramebuffer::i2cSendNack(IOIndex bus, IOI2CBusTiming * timing)
+{
+    // Here, we have to make sure that the CLK is low while
+    // we bring DATA high and pulse CLK
+    setDDCClock(bus, kIODDCLow);
+
+    // This routine will release the bus by
+    // tristating the CLK and DATA lines
+    IODelay( 20 );
+    // should we wait for the SDA to be high before going on???
+
+    IODelay( 40 );
+
+    // Bring SDA high
+    setDDCData(bus, kIODDCHigh);
+    IODelay( 100 );
+    
+    // pulse the CLK
+    setDDCClock(bus, kIODDCHigh);
+    IODelay( 200 );
+    setDDCClock(bus, kIODDCLow);
+    IODelay( 40 );
+    
+    // Release SDA,
+    setDDCData(bus, kIODDCTristate);
+    IODelay( 100 );
+    IODelay( 100 );
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+//
+//      i2cWaitForAck()
+//	This routine will poll the SDA line looking for a LOW value and when it finds it, it will pulse
+//	the CLK.
+
+IOReturn IOFramebuffer::i2cWaitForAck(IOIndex bus, IOI2CBusTiming * timing)
+{
+    AbsoluteTime	now, expirationTime;
+    IOReturn		err = kIOReturnSuccess;
+    
+    IODelay( 40 );
+    
+    // Set up a watchdog timer that will time us out, in case we never see the SDA LOW.
+    clock_interval_to_deadline(1, kMillisecondScale, &expirationTime);
+
+    while ((0 != readDDCData(bus)) && (kIOReturnSuccess == err))
+    {
+	clock_get_uptime(&now);
+	if (CMP_ABSOLUTETIME(&now, &expirationTime) > 0)
+	    err = kIOReturnNotResponding;				// Timed Out
+    }
+    
+    // OK, now pulse the clock (SDA is not enabled), the CLK
+    // should be low here.
+    IODelay( 40 );
+    setDDCClock(bus, kIODDCHigh);
+    IODelay( 200 );
+    setDDCClock(bus, kIODDCLow);
+    IODelay( 40 );
+
+    return (err);
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+//
+//      i2cSendByte()
+//	Send a byte of data
+//
+
+void IOFramebuffer::i2cSendByte(IOIndex bus, IOI2CBusTiming * timing, UInt8 data)
+{
+    UInt8	valueToSend;
+    int		i;
+    
+    // CLK should be low when entering this routine
+    // and will be low when exiting
+    
+    for ( i = 0 ; i < 8; i++ )
+    {
+	// Wait a bit
+	IODelay( 100 );
+
+	// Get the bit
+	valueToSend = ( data >> (7 - i)) & 0x01;
+
+	// Send it out
+	setDDCData(bus, valueToSend);
+	
+	// Wait for 40 us and then pulse the clock
+	
+	IODelay( 40 );
+	// Raise the CLK line
+	setDDCClock(bus, kIODDCHigh);
+
+	IODelay( 200 );
+	// Lower the clock line
+	setDDCClock(bus, kIODDCLow);
+	
+	// Wait a bit
+	IODelay( 40 );
+    }
+    
+    // Tristate the DATA while keeping CLK low
+    setDDCData(bus, kIODDCTristate);
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+//
+//      i2cReadByte()
+//	Read a byte of data
+
+IOReturn IOFramebuffer::i2cReadByte(IOIndex bus, IOI2CBusTiming * timing, UInt8 *data)
+{
+    AbsoluteTime	now, expirationTime;
+    IOReturn		err = kIOReturnSuccess;
+    UInt32		i;
+    UInt32		value;
+
+    // Make sure that DATA is Tristated and that Clock is low
+    setDDCClock(bus, kIODDCLow);
+    setDDCData(bus, kIODDCTristate);
+    
+    for (i = 0 ; (kIOReturnSuccess == err) && (i < 8); i++)
+    {
+	// Wait for 1 msec and then pulse the clock
+	IODelay( 100 );
+	// Release the CLK line
+	setDDCClock(bus, kIODDCTristate);
+	
+	// Wait for a slow device by reading the SCL line until it is high
+	// (A slow device will keep it low).  The DDC spec suggests a timeout
+	// of 2ms here.
+	// Setup for a timeout
+	clock_interval_to_deadline(2, kMillisecondScale, &expirationTime);
+
+	while ((0 == readDDCClock(bus)) && (kIOReturnSuccess == err))
+	{
+	    clock_get_uptime(&now);
+	    if (CMP_ABSOLUTETIME(&now, &expirationTime) > 0)
+		err = kIOReturnNotResponding;			// Timed Out
+	}
+
+	// Read the data
+	value = readDDCData(bus);
+	*data |= (value << (7-i));
+	
+	//we keep clock high for when sending bits....so do same here. Ensures display sees clock.
+	// reach 100% success rate with NEC XE15
+	
+	IODelay( 200 );
+	// Lower the clock line
+	setDDCClock(bus, kIODDCLow);
+	IODelay( 40 );
+    }
+    
+    return (err);
+}		
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+//
+//      i2cWaitForBus()
+//	Tristate DDC Clk and DDC Data lines
+
+IOReturn IOFramebuffer::i2cWaitForBus(IOIndex bus, IOI2CBusTiming * timing)
+{
+    // should we wait for the bus here?
+    
+    setDDCClock(bus, kIODDCTristate);
+    setDDCData(bus, kIODDCTristate);
+    IODelay( 200 );
+    
+    return kIOReturnSuccess;
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+//
+// 	i2cReadDDCciData()
+//
+//	The parameters are described as follows:
+//
+//			-> deviceAddress				device's I2C address
+//			-> count						# of bytes to read
+//			<- buffer						buffer for the data
+//
+
+IOReturn IOFramebuffer::i2cReadDDCciData(IOIndex bus, IOI2CBusTiming * timing, UInt8 deviceAddress, UInt8 count, UInt8 *buffer)
+{
+    // This is a funky call that encodes the length of the transaction in the response. 
+    // According to the VESA DDC/ci spec, the low 7 bits of second byte returned by the display 
+    // will contain the length of the message less the checksum.  The card should then attempt to read 
+    // that length plus the checksum but should not exceed "count" bytes.  
+    // If the size exceeds "count", then the buffer should be filled with "count" bytes and the
+    // transaction should be completed without copying more bytes into the buffer.
+    
+    IOReturn 	err = kIOReturnSuccess;
+    UInt32	i;
+    UInt8	readLength;
+    UInt32	bufferSize;
+    Boolean	reportShortRead = false;
+    
+    // Assume that the bufferSize == count
+    bufferSize = count;
+    
+    err = i2cWaitForBus(bus, timing);
+    if( kIOReturnSuccess != err ) goto ErrorExit;
+	    
+    i2cStart(bus, timing);
+    
+    i2cSendByte(bus, timing, deviceAddress | 0x01 );
+	    
+    err = i2cWaitForAck(bus, timing);
+    if( kIOReturnSuccess != err ) goto ErrorExit;
+	    
+    for ( i = 0; i < bufferSize; i++ )
+    {
+	err = i2cReadByte(bus, timing, &buffer[i] );
+	if( kIOReturnSuccess != err ) goto ErrorExit;
+	
+	i2cSendAck(bus, timing);
+	
+	if ( i == 1 )
+	{
+	    // We have read the 2nd byte, so adjust the
+	    // bufferSize accordingly
+	    //
+	    readLength = buffer[i] & 0x07;
+	    if ( (readLength + 1) <= count )
+	    {
+		// The read amount is less than our bufferSize, so
+		// adjust that size
+		//
+		bufferSize = (readLength + 1);
+	    }
+	    else
+	    {
+		// The amount to read  > than our bufferSize
+		// so only read up to our buffer size and remember to
+		// report that we didn't read all the data
+		//
+		reportShortRead = true;
+	    }
+	}
+    }
+
+    
+ErrorExit:
+    i2cSendNack(bus, timing);
+    i2cStop(bus, timing);
+		    
+    if ( reportShortRead )
+	    err = kIOReturnOverrun;
+	    
+    return (err);
+
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+//
+//      i2cRead()
+//	Read a bunch of data via I2C
+//
+//	The parameters are described as follows:
+//
+//			-> deviceAddress		device's I2C address
+//			-> numberOfBytes		number of bytes to read
+//			<- data				the requested number of bytes of data
+
+IOReturn IOFramebuffer::i2cRead(IOIndex bus, IOI2CBusTiming * timing, UInt8 deviceAddress, UInt8 numberOfBytes, UInt8 * data)
+{
+    IOReturn 	err = kIOReturnSuccess;
+    int		i;
+    
+    err = i2cWaitForBus(bus, timing);
+    if (kIOReturnSuccess != err)
+	goto ErrorExit;
+	    
+    i2cStart(bus, timing);
+    
+    i2cSendByte(bus, timing, deviceAddress | 0x01 );
+	    
+    err = i2cWaitForAck(bus, timing);
+    if (kIOReturnSuccess != err)
+	goto ErrorExit;
+	    
+    for (i = 0; i < numberOfBytes; i++)
+    {
+	data[i] = 0;
+	err = i2cReadByte(bus, timing, &data[i] );
+	if (kIOReturnSuccess != err)
+	    break;
+	if (i != (numberOfBytes - 1))
+	    i2cSendAck(bus, timing);
+    }
+    
+ErrorExit:
+    i2cSendNack(bus, timing);
+    i2cStop(bus, timing);
+		    
+    return (err);
+}
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+//
+// 	i2cWrite()
+//	Write a bunch of data via I2C
+//
+//	The parameters are described as follows:
+//
+//			-> deviceAddress		device's I2C address
+//			-> numberOfBytes		number of bytes to write
+//			-> data				the number of bytes of data
+
+IOReturn IOFramebuffer::i2cWrite(IOIndex bus, IOI2CBusTiming * timing, UInt8 deviceAddress, UInt8 numberOfBytes, UInt8 * data)
+{
+    IOReturn 	err = kIOReturnSuccess;
+    UInt32	i;
+    
+    err = i2cWaitForBus(bus, timing);
+    if (kIOReturnSuccess != err)
+	goto ErrorExit;
+	    
+    i2cStart(bus, timing);
+    
+    i2cSendByte(bus, timing, deviceAddress);
+	    
+    err = i2cWaitForAck(bus, timing);
+    if (kIOReturnSuccess != err)
+	goto ErrorExit;
+	    
+    for (i = 0; i < numberOfBytes; i++)
+    {
+	i2cSendByte(bus, timing, data[i] );
+	err = i2cWaitForAck(bus, timing);
+	if (kIOReturnSuccess != err)
+	    break;
+    }
+
+		    
+ErrorExit:
+
+    if (kIOReturnSuccess != err)
+	i2cStop(bus, timing);
+	    
+    return (err);
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+//
+//      i2cSend9Stops()
+//
+//	Assume we are reading the DDC data, and display misses a few clocks, we send ack, display misses ack
+//	The display might still be holding down the data line. Whenever we get an error, send nine stops.
+//	If the display is waiting for a clock before going to the next bit, the stop will be interpreted
+//	as a clock. It will go onto the next bit. Whenever it has finished writing the eigth bit, the
+//	next stop will look like a stop....the display will release the bus.
+//	8 bits, 9 stops. The display should see at least one stop....
+
+void IOFramebuffer::i2cSend9Stops(IOIndex bus, IOI2CBusTiming * timing)
+{
+    for (UInt32 i = 0; i < 9; i++)
+	i2cStop(bus, timing);
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #undef super
@@ -4150,8 +5127,333 @@ bool IOFramebufferParameterHandler::doUpdate( void )
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-OSMetaClassDefineReservedUnused(IOFramebuffer, 0);
+#undef super
+#define super IOI2CInterface
+
+OSDefineMetaClassAndStructors(IOFramebufferI2CInterface, IOI2CInterface)
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+IOFramebufferI2CInterface * IOFramebufferI2CInterface::withFramebuffer(
+    IOFramebuffer * framebuffer, OSDictionary * info )
+{
+    IOFramebufferI2CInterface * interface;
+
+    interface = new IOFramebufferI2CInterface;
+    info = OSDictionary::withDictionary(info);
+
+    if (interface && info)
+    {
+        interface->fFramebuffer = framebuffer;
+        if (!interface->init(info)
+                || !interface->attach(framebuffer)
+                || !interface->start(framebuffer)
+           )
+        {
+            interface->detach( framebuffer );
+            interface->release();
+            interface = 0;
+        }
+    }
+    if (info)
+	info->release();
+
+    return (interface);
+}
+
+bool IOFramebufferI2CInterface::start( IOService * provider )
+{
+    bool       ok = false;
+    OSNumber * num;
+
+    if (!super::start(provider))
+        return (false);
+
+    do
+    {
+	num = OSDynamicCast(OSNumber, getProperty(kIOI2CInterfaceIDKey));
+	if (!num)
+	    break;
+	fBusID = num->unsigned32BitValue();
+
+	num = OSDynamicCast(OSNumber, getProperty(kIOI2CBusTypeKey));
+	if (!num)
+	    setProperty(kIOI2CBusTypeKey, (UInt64) kIOI2CBusTypeI2C, 32);
+
+	num = OSDynamicCast(OSNumber, getProperty(kIOI2CTransactionTypesKey));
+	if (num)
+	    fSupportedTypes = num->unsigned32BitValue();
+	else
+	{
+	    fSupportedTypes = ((1 << kIOI2CNoTransactionType)
+                             | (1 << kIOI2CSimpleTransactionType)
+                             | (1 << kIOI2CDDCciReplyTransactionType)
+                             | (1 << kIOI2CCombinedTransactionType));
+	    setProperty(kIOI2CTransactionTypesKey, (UInt64) fSupportedTypes, 32);
+	}
+
+	num = OSDynamicCast(OSNumber, getProperty(kIOI2CSupportedCommFlagsKey));
+	if (num)
+	    fSupportedCommFlags = num->unsigned32BitValue();
+	else
+	{
+	    fSupportedCommFlags = kIOI2CUseSubAddressCommFlag;
+	    setProperty(kIOI2CSupportedCommFlagsKey, (UInt64) fSupportedCommFlags, 32);
+	}
+
+	UInt64 id = (((UInt64) (UInt32) fFramebuffer) << 32) | fBusID;
+	registerI2C(id);
+
+	ok = true;
+    }
+    while (false);
+
+    return (ok);
+}
+
+IOReturn IOFramebufferI2CInterface::startIO( IOI2CRequest * request )
+{
+    IOReturn	 	err;
+
+    FBLOCK();
+    do
+    {
+        if (0 == ((1 << request->sendTransactionType) & fSupportedTypes))
+        {
+            err = kIOReturnUnsupportedMode;
+            continue;
+        }
+        if (0 == ((1 << request->replyTransactionType) & fSupportedTypes))
+        {
+            err = kIOReturnUnsupportedMode;
+            continue;
+        }
+        if (request->commFlags != (request->commFlags & fSupportedCommFlags))
+        {
+            err = kIOReturnUnsupportedMode;
+            continue;
+        }
+
+	err = fFramebuffer->doI2CRequest( fBusID, 0, request );
+    }
+    while (false);
+
+    if (kIOReturnSuccess != err)
+    {
+	request->result = err;
+	if (request->completion)
+	    (*request->completion)(request);
+
+	err = kIOReturnSuccess;
+    }
+
+    FBUNLOCK();
+
+    return (err);
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+#if __ppc__
+
+class AppleOnboardI2CInterface : public IOI2CInterface
+{
+    OSDeclareDefaultStructors(AppleOnboardI2CInterface)
+
+    class PPCI2CInterface * fInterface;
+    SInt32		    fPort;
+
+public:
+    virtual bool start( IOService * provider );
+    virtual IOReturn startIO( IOI2CRequest * request );
+
+    static AppleOnboardI2CInterface * withInterface( PPCI2CInterface * interface, SInt32 port );
+};
+
+#undef super
+#define super IOI2CInterface
+
+OSDefineMetaClassAndStructors(AppleOnboardI2CInterface, IOI2CInterface)
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+AppleOnboardI2CInterface * AppleOnboardI2CInterface::withInterface(
+    PPCI2CInterface * onboardInterface, SInt32 port )
+{
+    AppleOnboardI2CInterface * interface;
+    UInt64 id = (((UInt64) (UInt32) onboardInterface) << 32) | port;
+
+    interface = new AppleOnboardI2CInterface;
+    if (interface)
+    {
+        interface->fInterface = onboardInterface;
+        interface->fPort = port;
+        if (!interface->init()
+                || !interface->attach(onboardInterface)
+                || !interface->start(onboardInterface)
+           )
+        {
+            interface->detach( onboardInterface );
+            interface->release();
+            interface = 0;
+        }
+        else
+            interface->registerI2C(id);
+    }
+    return (interface);
+}
+
+bool AppleOnboardI2CInterface::start( IOService * provider )
+{
+    if (!super::start(provider))
+        return (false);
+
+    setProperty(kIOI2CBusTypeKey,
+                (UInt64) kIOI2CBusTypeI2C, 32);
+    setProperty(kIOI2CTransactionTypesKey,
+                (UInt64) ((1 << kIOI2CNoTransactionType)
+                          | (1 << kIOI2CSimpleTransactionType)
+                          | (1 << kIOI2CDDCciReplyTransactionType)
+                          | (1 << kIOI2CCombinedTransactionType)), 32);
+    setProperty(kIOI2CSupportedCommFlagsKey,
+                (UInt64) kIOI2CUseSubAddressCommFlag, 32);
+
+    return (true);
+}
+
+IOReturn AppleOnboardI2CInterface::startIO( IOI2CRequest * request )
+{
+    IOReturn err = kIOReturnSuccess;
+
+    do
+    {
+        // Open the interface and sets it in the wanted mode:
+
+        fInterface->openI2CBus(fPort);
+
+        // the i2c driver does not support well read in interrupt mode
+        // so it is better to "go polling" (read does not timeout on errors
+        // in interrupt mode).
+        fInterface->setPollingMode(true);
+
+        if (request->sendBytes && (kIOI2CNoTransactionType != request->sendTransactionType))
+        {
+            if (kIOI2CCombinedTransactionType == request->sendTransactionType)
+                fInterface->setCombinedMode();
+            else if (kIOI2CUseSubAddressCommFlag & request->commFlags)
+                fInterface->setStandardSubMode();
+            else
+                fInterface->setStandardMode();
+
+            if (!fInterface->writeI2CBus(request->sendAddress >> 1, request->sendSubAddress,
+                                         (UInt8 *) request->sendBuffer, request->sendBytes))
+                err = kIOReturnNotWritable;
+        }
+
+        if (request->replyBytes && (kIOI2CNoTransactionType != request->replyTransactionType))
+        {
+            if (kIOI2CCombinedTransactionType == request->replyTransactionType)
+                fInterface->setCombinedMode();
+            else if (kIOI2CUseSubAddressCommFlag & request->commFlags)
+                fInterface->setStandardSubMode();
+            else
+                fInterface->setStandardMode();
+
+            if (!fInterface->readI2CBus(request->replyAddress >> 1, request->replySubAddress,
+                                        (UInt8 *) request->replyBuffer, request->replyBytes))
+                err = kIOReturnNotReadable;
+        }
+
+        fInterface->closeI2CBus();
+    }
+    while (false);
+
+    request->result = err;
+
+    err = kIOReturnSuccess;
+
+    return (err);
+}
+
+#endif	/* __ppc__ */
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+IOReturn IOFramebufferI2CInterface::create( IOFramebuffer * framebuffer )
+{
+    IOReturn			err = kIOReturnSuccess;
+    IOI2CInterface *		interface;
+    UInt32			idx;
+    OSArray *			busArray;
+    OSArray *			interfaceIDArray;
+    OSDictionary *		dict;
+    OSObject *			num;
+    bool			ok = true;
+
+    interfaceIDArray = OSArray::withCapacity(1);
+    if (!interfaceIDArray)
+        return (kIOReturnNoMemory);
+
+    busArray = OSDynamicCast(OSArray, framebuffer->getProperty(kIOFBI2CInterfaceInfoKey));
+    do
+    {
+	if (!busArray)
+	    continue;
+        for (idx = 0; (dict = OSDynamicCast(OSDictionary, busArray->getObject(idx))); idx++)
+        {
+            interface = IOFramebufferI2CInterface::withFramebuffer(framebuffer, dict);
+            if (!interface)
+                break;
+            num = interface->getProperty(kIOI2CInterfaceIDKey);
+            if (num)
+                interfaceIDArray->setObject(num);
+            else
+                break;
+        }
+
+        ok = (idx == busArray->getCount());
+    }
+    while (false);
+
+#if __ppc__
+    OSData * data = OSDynamicCast( OSData, framebuffer->getProvider()->getProperty("iic-address"));
+    if (data && (!framebuffer->getProperty(kIOFBDependentIDKey))
+            && (0x8c == *((UInt32 *) data->getBytesNoCopy())) /*iMac*/)
+    {
+        do
+        {
+            PPCI2CInterface * onboardInterface =
+                (PPCI2CInterface*) getResourceService()->getProperty("PPCI2CInterface.i2c-uni-n");
+            if (!onboardInterface)
+                continue;
+
+            interface = AppleOnboardI2CInterface::withInterface( onboardInterface, 1 );
+            if (!interface)
+                break;
+            num = interface->getProperty(kIOI2CInterfaceIDKey);
+            if (num)
+                interfaceIDArray->setObject(num);
+            else
+                break;
+        }
+        while (false);
+    }
+#endif
+
+    if (ok && interfaceIDArray->getCount())
+        framebuffer->setProperty(kIOFBI2CInterfaceIDsKey, interfaceIDArray);
+
+    interfaceIDArray->release();
+
+    return (err);
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+OSMetaClassDefineReservedUsed(IOFramebuffer, 0);
+
 OSMetaClassDefineReservedUnused(IOFramebuffer, 1);
 OSMetaClassDefineReservedUnused(IOFramebuffer, 2);
 OSMetaClassDefineReservedUnused(IOFramebuffer, 3);

@@ -1,5 +1,7 @@
 /* Target-dependent code for the Mitsubishi m32r for GDB, the GNU debugger.
-   Copyright 1996, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+
+   Copyright 1996, 1998, 1999, 2000, 2001, 2003 Free Software
+   Foundation, Inc.
 
    This file is part of GDB.
 
@@ -21,7 +23,6 @@
 #include "defs.h"
 #include "frame.h"
 #include "inferior.h"
-#include "obstack.h"
 #include "target.h"
 #include "value.h"
 #include "bfd.h"
@@ -387,11 +388,12 @@ m32r_init_extra_frame_info (struct frame_info *fi)
 
   memset (fi->fsr.regs, '\000', sizeof fi->fsr.regs);
 
-  if (PC_IN_CALL_DUMMY (fi->pc, fi->frame, fi->frame))
+  if (DEPRECATED_PC_IN_CALL_DUMMY (fi->pc, fi->frame, fi->frame))
     {
       /* We need to setup fi->frame here because run_stack_dummy gets it wrong
          by assuming it's always FP.  */
-      fi->frame = generic_read_register_dummy (fi->pc, fi->frame, SP_REGNUM);
+      fi->frame = deprecated_read_register_dummy (fi->pc, fi->frame,
+						  SP_REGNUM);
       fi->framesize = 0;
       return;
     }
@@ -426,20 +428,20 @@ m32r_init_extra_frame_info (struct frame_info *fi)
 void
 m32r_virtual_frame_pointer (CORE_ADDR pc, long *reg, long *offset)
 {
-  struct frame_info fi;
+  struct frame_info *fi = deprecated_frame_xmalloc ();
+  struct cleanup *old_chain = make_cleanup (xfree, fi);
 
   /* Set up a dummy frame_info. */
-  fi.next = NULL;
-  fi.prev = NULL;
-  fi.frame = 0;
-  fi.pc = pc;
+  fi->next = NULL;
+  fi->prev = NULL;
+  fi->frame = 0;
+  fi->pc = pc;
 
   /* Analyze the prolog and fill in the extra info.  */
-  m32r_init_extra_frame_info (&fi);
-
+  m32r_init_extra_frame_info (fi);
 
   /* Results will tell us which type of frame it uses.  */
-  if (fi.using_frame_pointer)
+  if (fi->using_frame_pointer)
     {
       *reg = FP_REGNUM;
       *offset = 0;
@@ -449,6 +451,7 @@ m32r_virtual_frame_pointer (CORE_ADDR pc, long *reg, long *offset)
       *reg = SP_REGNUM;
       *offset = 0;
     }
+  do_cleanups (old_chain);
 }
 
 /* Function: find_callers_reg
@@ -462,19 +465,19 @@ CORE_ADDR
 m32r_find_callers_reg (struct frame_info *fi, int regnum)
 {
   for (; fi; fi = fi->next)
-    if (PC_IN_CALL_DUMMY (fi->pc, fi->frame, fi->frame))
-      return generic_read_register_dummy (fi->pc, fi->frame, regnum);
+    if (DEPRECATED_PC_IN_CALL_DUMMY (fi->pc, fi->frame, fi->frame))
+      return deprecated_read_register_dummy (fi->pc, fi->frame, regnum);
     else if (fi->fsr.regs[regnum] != 0)
       return read_memory_integer (fi->fsr.regs[regnum],
 				  REGISTER_RAW_SIZE (regnum));
   return read_register (regnum);
 }
 
-/* Function: frame_chain
-   Given a GDB frame, determine the address of the calling function's frame.
-   This will be used to create a new GDB frame struct, and then
-   INIT_EXTRA_FRAME_INFO and INIT_FRAME_PC will be called for the new frame.
-   For m32r, we save the frame size when we initialize the frame_info.  */
+/* Function: frame_chain Given a GDB frame, determine the address of
+   the calling function's frame.  This will be used to create a new
+   GDB frame struct, and then INIT_EXTRA_FRAME_INFO and
+   DEPRECATED_INIT_FRAME_PC will be called for the new frame.  For
+   m32r, we save the frame size when we initialize the frame_info.  */
 
 CORE_ADDR
 m32r_frame_chain (struct frame_info *fi)
@@ -482,13 +485,13 @@ m32r_frame_chain (struct frame_info *fi)
   CORE_ADDR fn_start, callers_pc, fp;
 
   /* is this a dummy frame? */
-  if (PC_IN_CALL_DUMMY (fi->pc, fi->frame, fi->frame))
+  if (DEPRECATED_PC_IN_CALL_DUMMY (fi->pc, fi->frame, fi->frame))
     return fi->frame;		/* dummy frame same as caller's frame */
 
   /* is caller-of-this a dummy frame? */
   callers_pc = FRAME_SAVED_PC (fi);	/* find out who called us: */
   fp = m32r_find_callers_reg (fi, FP_REGNUM);
-  if (PC_IN_CALL_DUMMY (callers_pc, fp, fp))
+  if (DEPRECATED_PC_IN_CALL_DUMMY (callers_pc, fp, fp))
     return fp;			/* dummy frame's frame may bear no relation to ours */
 
   if (find_pc_partial_function (fi->pc, 0, &fn_start, 0))
@@ -527,7 +530,7 @@ m32r_pop_frame (struct frame_info *frame)
 {
   int regnum;
 
-  if (PC_IN_CALL_DUMMY (frame->pc, frame->frame, frame->frame))
+  if (DEPRECATED_PC_IN_CALL_DUMMY (frame->pc, frame->frame, frame->frame))
     generic_pop_dummy_frame ();
   else
     {
@@ -554,8 +557,8 @@ m32r_pop_frame (struct frame_info *frame)
 CORE_ADDR
 m32r_frame_saved_pc (struct frame_info *fi)
 {
-  if (PC_IN_CALL_DUMMY (fi->pc, fi->frame, fi->frame))
-    return generic_read_register_dummy (fi->pc, fi->frame, PC_REGNUM);
+  if (DEPRECATED_PC_IN_CALL_DUMMY (fi->pc, fi->frame, fi->frame))
+    return deprecated_read_register_dummy (fi->pc, fi->frame, PC_REGNUM);
   else
     return m32r_find_callers_reg (fi, RP_REGNUM);
 }

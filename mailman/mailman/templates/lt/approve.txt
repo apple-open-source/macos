@@ -1,0 +1,13 @@
+Jûsø uþklausa, gauta adresu %(requestaddr)s:
+
+    %(cmd)s
+
+nukreipta asmeniui, priþiûrinèiam diskusijø forumà.
+
+Viena ið prieþasèiø, kodël tai ávyko, galëjo bûti
+Jûsø bandymas prisijungti prie 'uþdaro' diskusijø forumo.
+
+Apie minëto asmens sprendimà Jums bus praneðta el. paðtu.
+
+
+Visais klausimais praðome kreiptis á administratoriø %(adminaddr)s.

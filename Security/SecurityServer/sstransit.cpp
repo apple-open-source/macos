@@ -23,9 +23,11 @@
 // MIG IPC client calls, plus their supporting machinery.
 //
 #include "sstransit.h"
+#include <Security/cspclient.h>
+#include <Security/ktracecodes.h>
+#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 
-namespace Security
-{
+namespace Security {
 
 using MachPlusPlus::check;
 using MachPlusPlus::VMGuard;
@@ -65,7 +67,7 @@ CssmList chunkCopy(CssmList &list, CssmAllocator &alloc)
 // In addition to collecting the context into a contiguous blob for transmission,
 // we also evaluate CssmCryptoData callbacks at this time.
 //
-SendContext::SendContext(const Context &ctx) : context(ctx)
+SendContext::SendContext(const Security::Context &ctx) : context(ctx)
 {
 	CssmCryptoData cryptoDataValue;	// holding area for CssmCryptoData element
 	IFDEBUG(uint32 cryptoDataUsed = 0);
@@ -102,6 +104,67 @@ SendContext::SendContext(const Context &ctx) : context(ctx)
 }
 
 
+//
+// Copy an AccessCredentials for shipment.
+// In addition, scan the samples for "special" database locking samples
+// and translate certain items for safe shipment. Note that this overwrites
+// part of the CssmList value (CSPHandle -> SS/KeyHandle), but we do it on
+// the COPY, so that's okay.
+//
+DatabaseAccessCredentials::DatabaseAccessCredentials(const AccessCredentials *creds, CssmAllocator &alloc)
+	: Copier<AccessCredentials>(creds, alloc)
+{
+	if (creds) {
+		for (uint32 n = 0; n < value()->samples().length(); n++) {
+			TypedList sample = value()->samples()[n];
+			sample.checkProper();
+			switch (sample.type()) {
+			case CSSM_SAMPLE_TYPE_KEYCHAIN_LOCK:
+			case CSSM_SAMPLE_TYPE_KEYCHAIN_CHANGE_LOCK:
+				sample.snip();	// skip sample type
+				sample.checkProper();
+				if (sample.type() == CSSM_WORDID_SYMMETRIC_KEY) {
+					secdebug("SSclient", "key sample encountered");
+					// proper form is sample[1] = DATA:CSPHandle, sample[2] = DATA:CSSM_KEY
+					if (sample.length() != 3
+						|| sample[1].type() != CSSM_LIST_ELEMENT_DATUM
+						|| sample[2].type() != CSSM_LIST_ELEMENT_DATUM)
+							CssmError::throwMe(CSSM_ERRCODE_INVALID_SAMPLE_VALUE);
+					mapKeySample(
+						*sample[1].data().interpretedAs<CSSM_CSP_HANDLE>(CSSM_ERRCODE_INVALID_SAMPLE_VALUE),
+						*sample[2].data().interpretedAs<CssmKey>(CSSM_ERRCODE_INVALID_SAMPLE_VALUE));
+				}
+				break;
+			default:
+				break;
+			}
+		}
+	}
+}
+
+void DatabaseAccessCredentials::mapKeySample(CSSM_CSP_HANDLE &cspHandle, CssmKey &key)
+{
+	// if the key belongs to the AppleCSPDL, look it up and write the SS KeyHandle
+	// into the CSPHandle element for transmission
+	if (key.header().cspGuid() == gGuidAppleCSPDL) {
+		// @@@ can't use CssmClient (it makes its own attachments)
+		CSSM_CC_HANDLE ctx;
+		if (CSSM_RETURN err = CSSM_CSP_CreatePassThroughContext(cspHandle, &key, &ctx))
+			CssmError::throwMe(err);
+		KeyHandle ssKey;
+		CSSM_RETURN passthroughError =
+			CSSM_CSP_PassThrough(ctx, CSSM_APPLESCPDL_CSP_GET_KEYHANDLE, NULL, (void **)&ssKey);
+		CSSM_DeleteContext(ctx);	// ignore error
+		if (passthroughError)
+			CssmError::throwMe(passthroughError);
+		// we happen to know that they're both uint32 values
+		assert(sizeof(CSSM_CSP_HANDLE) >= sizeof(KeyHandle));
+		cspHandle = ssKey;
+		secdebug("SSclient", "key sample mapped to key 0x%lx", ssKey);
+	}
+}
+
+
 namespace SecurityServer
 {
 
@@ -112,7 +175,7 @@ DbHandle ClientSession::createDb(const DLDbIdentifier &dbId,
     const AccessCredentials *cred, const AclEntryInput *owner,
     const DBParameters &params)
 {
-	Copier<AccessCredentials> creds(cred, internalAllocator);
+	DatabaseAccessCredentials creds(cred, internalAllocator);
 	Copier<AclEntryPrototype> proto(&owner->proto(), internalAllocator);
     DataWalkers::DLDbFlatIdentifier ident(dbId);
     Copier<DataWalkers::DLDbFlatIdentifier> id(&ident, internalAllocator);
@@ -124,7 +187,7 @@ DbHandle ClientSession::createDb(const DLDbIdentifier &dbId,
 DbHandle ClientSession::decodeDb(const DLDbIdentifier &dbId,
     const AccessCredentials *cred, const CssmData &blob)
 {
-	Copier<AccessCredentials> creds(cred, internalAllocator);
+	DatabaseAccessCredentials creds(cred, internalAllocator);
     DataWalkers::DLDbFlatIdentifier ident(dbId);
     Copier<DataWalkers::DLDbFlatIdentifier> id(&ident, internalAllocator);
 	DbHandle db;
@@ -143,10 +206,16 @@ void ClientSession::releaseDb(DbHandle db)
 	IPC(ucsp_client_releaseDb(UCSP_ARGS, db));
 }
 
+void ClientSession::getDbSuggestedIndex(DbHandle db, CssmData &index, CssmAllocator &alloc)
+{
+	DataOutput outBlob(index, alloc);
+	IPC(ucsp_client_getDbIndex(UCSP_ARGS, db, DATA(outBlob)));
+}
+
 void ClientSession::authenticateDb(DbHandle db, DBAccessType type,
 	const AccessCredentials *cred)
 {
-    Copier<AccessCredentials> creds(cred, internalAllocator);
+    DatabaseAccessCredentials creds(cred, internalAllocator);
 	IPC(ucsp_client_authenticateDb(UCSP_ARGS, db, COPY(creds)));
 }
 
@@ -170,6 +239,11 @@ void ClientSession::changePassphrase(DbHandle db, const AccessCredentials *cred)
 void ClientSession::lock(DbHandle db)
 {
 	IPC(ucsp_client_lockDb(UCSP_ARGS, db));
+}
+
+void ClientSession::lockAll (bool forSleep)
+{
+        IPC(ucsp_client_lockAll (UCSP_ARGS, forSleep));
 }
 
 void ClientSession::unlock(DbHandle db)
@@ -310,6 +384,8 @@ void ClientSession::encrypt(const Context &context, KeyHandle key,
 void ClientSession::decrypt(const Context &context, KeyHandle key,
 	const CssmData &cipher, CssmData &clear, CssmAllocator &alloc)
 {
+    Debug::trace (kSecTraceUCSPServerDecryptBegin);
+    
 	SendContext ctx(context);
 	DataOutput clearOut(clear, alloc);
 	IPC(ucsp_client_decrypt(UCSP_ARGS, CONTEXT(ctx), key, DATA(cipher), DATA(clearOut)));
@@ -369,7 +445,8 @@ void ClientSession::deriveKey(DbHandle db, const Context &context, KeyHandle bas
     switch (context.algorithm()) {
     case CSSM_ALGID_PKCS5_PBKDF2: {
         typedef CSSM_PKCS5_PBKDF2_PARAMS Params;
-        Copier<Params> params(param.interpretedAs<Params> (sizeof(Params)), internalAllocator);
+        Copier<Params> params(param.interpretedAs<Params>(CSSM_ERRCODE_INVALID_INPUT_POINTER),
+			internalAllocator);
         IPC(ucsp_client_deriveKey(UCSP_ARGS, db, CONTEXT(ctx), baseKey,
             COPY(creds), COPY(proto), COPY(params), DATA(paramOutput),
             keyUsage, keyAttr, &newKey, &newHeader));
@@ -382,6 +459,16 @@ void ClientSession::deriveKey(DbHandle db, const Context &context, KeyHandle bas
             keyUsage, keyAttr, &newKey, &newHeader));
         break; }
     }
+}
+
+
+//
+// Digest generation
+//
+void ClientSession::getKeyDigest(KeyHandle key, CssmData &digest, CssmAllocator &allocator)
+{
+	DataOutput dig(digest, allocator);
+	IPC(ucsp_client_getKeyDigest(UCSP_ARGS, key, DATA(dig)));
 }
 
 
@@ -511,6 +598,23 @@ void ClientSession::changeDbOwner(DbHandle db, const AccessCredentials &cred,
 
 
 //
+// Database key management
+//
+void ClientSession::extractMasterKey(DbHandle db, const Context &context, DbHandle sourceDb,
+	uint32 keyUsage, uint32 keyAttr,
+	const AccessCredentials *cred, const AclEntryInput *owner,
+	KeyHandle &newKey, CssmKey::Header &newHeader, CssmAllocator &alloc)
+{
+    SendContext ctx(context);
+	Copier<AccessCredentials> creds(cred, internalAllocator);
+	Copier<AclEntryPrototype> proto(&owner->proto(), internalAllocator);
+	IPC(ucsp_client_extractMasterKey(UCSP_ARGS, db, CONTEXT(ctx), sourceDb,
+		COPY(creds), COPY(proto),
+		keyUsage, keyAttr, &newKey, &newHeader));
+}
+
+
+//
 // Authorization subsystem entry
 //
 void ClientSession::authCreate(const AuthorizationItemSet *rights,
@@ -577,25 +681,44 @@ void ClientSession::authInternalize(const AuthorizationExternalForm &extForm,
 
 
 //
-// Session management API
+// Get session information (security session status)
 //
 void ClientSession::getSessionInfo(SecuritySessionId &sessionId, SessionAttributeBits &attrs)
 {
     IPC(ucsp_client_getSessionInfo(UCSP_ARGS, &sessionId, &attrs));
 }
 
+
+//
+// Create a new session.
+//
+// Caveat: This discards all SecurityServer held state for this process, including
+// authorizations, database handles, etc. If you are multi-threaded at this point,
+// and other threads have talked to SecurityServer, they will leak a few resources
+// (mach ports and the like). Nothing horrendous, unless you create masses of sessions
+// that way (which we wouldn't exactly recommend for other reasons).
+//
+// Hacker's note: This engages in an interesting dance with SecurityServer's state tracking.
+// If you don't know the choreography, don't change things here until talking to an expert.
+//
+// Yes, if the client had multiple threads each of which has talked to SecurityServer,
+// the reply ports for all but the calling thread will leak. If that ever turns out to
+// be a real problem, we can fix it by keeping a (locked) set of client replyPorts to ditch.
+// Hardly worth it, though. This is a rare call.
+//
 void ClientSession::setupSession(SessionCreationFlags flags, SessionAttributeBits attrs)
 {
+	mGlobal().thread().replyPort.destroy(); // kill this thread's reply port
+	mGlobal.reset();			// kill existing cache (leak all other threads)
 	mSetupSession = true;		// global flag to Global constructor
-	mGlobal.reset();			// kill existing cache, all threads
-	IPC(ucsp_client_setupSession(UCSP_ARGS, flags, attrs));
+	IPC(ucsp_client_setupSession(UCSP_ARGS, flags, attrs)); // reinitialize and call
 }
 
 
 //
 // Notification subsystem
 //
-void ClientSession::requestNotification(Port receiver, NotifyDomain domain, NotifyEvents events)
+void ClientSession::requestNotification(Port receiver, Listener::Domain domain, Listener::EventMask events)
 {
     IPC(ucsp_client_requestNotification(UCSP_ARGS, receiver, domain, events));
 }
@@ -605,13 +728,13 @@ void ClientSession::stopNotification(Port port)
     IPC(ucsp_client_stopNotification(UCSP_ARGS, port.port()));
 }
 
-void ClientSession::postNotification(NotifyDomain domain, NotifyEvent event, const CssmData &data)
+void ClientSession::postNotification(Listener::Domain domain, Listener::Event event, const CssmData &data)
 {
     IPC(ucsp_client_postNotification(UCSP_ARGS, domain, event, DATA(data)));
 }
 
 OSStatus ClientSession::dispatchNotification(const mach_msg_header_t *message,
-    ConsumeNotification *consumer, void *context)
+    ConsumeNotification *consumer, void *context) throw()
 {
     struct Message {
         mach_msg_header_t Head;
@@ -625,14 +748,63 @@ OSStatus ClientSession::dispatchNotification(const mach_msg_header_t *message,
         mach_msg_type_number_t dataCnt;
         uint32 sender;
     } *msg = (Message *)message;
-    
-    OSStatus status = consumer(msg->domain, msg->event, msg->data.address, msg->dataCnt, context);
-    
+
+	OSStatus status;
+	try
+	{
+		status = consumer(msg->domain, msg->event, msg->data.address, msg->dataCnt, context);
+	}
+	catch (const CssmCommonError &err) { status = err.osStatus(); }
+	catch (const std::bad_alloc &) { status = memFullErr; }
+	catch (...) { status = internalComponentErr; }
+
     mig_deallocate((vm_offset_t) msg->data.address, msg->dataCnt);
     msg->data.address = (vm_offset_t) 0;
     msg->data.size = (mach_msg_size_t) 0;
 
     return status;
+}
+
+
+//
+// authorizationdbGet/Set/Remove
+//
+void ClientSession::authorizationdbGet(const AuthorizationString rightname, CssmData &rightDefinition, CssmAllocator &alloc)
+{
+	DataOutput definition(rightDefinition, alloc);
+	IPC(ucsp_client_authorizationdbGet(UCSP_ARGS, rightname, DATA(definition)));
+}
+
+void ClientSession::authorizationdbSet(const AuthorizationBlob &auth, const AuthorizationString rightname, uint32_t rightDefinitionLength, const void *rightDefinition)
+{
+	// @@@ DATA_IN in transition.cpp is not const void *
+	IPC(ucsp_client_authorizationdbSet(UCSP_ARGS, auth, rightname, const_cast<void *>(rightDefinition), rightDefinitionLength));
+}
+
+void ClientSession::authorizationdbRemove(const AuthorizationBlob &auth, const AuthorizationString rightname)
+{
+	IPC(ucsp_client_authorizationdbRemove(UCSP_ARGS, auth, rightname));
+}
+
+
+//
+// Miscellaneous administrative calls
+//
+void ClientSession::addCodeEquivalence(const CssmData &oldHash, const CssmData &newHash,
+	const char *name, bool forSystem /* = false */)
+{
+	IPC(ucsp_client_addCodeEquivalence(UCSP_ARGS, DATA(oldHash), DATA(newHash),
+		name, forSystem));
+}
+
+void ClientSession::removeCodeEquivalence(const CssmData &hash, const char *name, bool forSystem /* = false */)
+{
+	IPC(ucsp_client_removeCodeEquivalence(UCSP_ARGS, DATA(hash), name, forSystem));
+}
+
+void ClientSession::setAlternateSystemRoot(const char *path)
+{
+	IPC(ucsp_client_setAlternateSystemRoot(UCSP_ARGS, path));
 }
 
 

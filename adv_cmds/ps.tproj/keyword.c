@@ -95,6 +95,8 @@ VAR var[] = {
 	{"cputime", "", "time"},
 	{"f", "F", NULL, 0, pvar, NULL, 7, POFF(p_flag), INT, "x"},
 	{"flags", "", "f"},
+	{"gid", "GID", NULL, 0, evar, NULL, UIDLEN, EOFF(e_ucred.cr_gid),
+		UINT, UIDFMT},
 	{"ignored", "", "sigignore"},
 	{"inblk", "INBLK",
 		NULL, USER, rvar, NULL, 4, ROFF(ru_inblock), LONG, "ld"},

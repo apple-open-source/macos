@@ -1,11 +1,9 @@
-dnl $Id: config.m4,v 1.1.1.2 2001/07/19 00:19:12 zarzycki Exp $
-dnl config.m4 for extension gmp
+dnl
+dnl $Id: config.m4,v 1.1.1.4 2003/03/11 01:09:20 zarzycki Exp $
+dnl
 
-dnl If your extension references something external, use with:
-
-PHP_ARG_WITH(gmp, for gmp support,
-dnl Make sure that the comment is aligned:
-[  --with-gmp              Include gmp support])
+PHP_ARG_WITH(gmp, for GNU MP support,
+[  --with-gmp              Include GNU MP support])
 
 if test "$PHP_GMP" != "no"; then
 
@@ -19,9 +17,9 @@ if test "$PHP_GMP" != "no"; then
     AC_MSG_ERROR(Unable to locate gmp.h)
   fi
   PHP_ADD_INCLUDE($GMP_DIR/include)
-	
 
-  PHP_EXTENSION(gmp, $ext_shared)
+  PHP_NEW_EXTENSION(gmp, gmp.c, $ext_shared)
   AC_DEFINE(HAVE_GMP, 1, [ ])
-  PHP_ADD_LIBRARY_WITH_PATH(gmp, $GMP_DIR/lib)
+  PHP_SUBST(GMP_SHARED_LIBADD)
+  PHP_ADD_LIBRARY_WITH_PATH(gmp, $GMP_DIR/lib, GMP_SHARED_LIBADD)
 fi

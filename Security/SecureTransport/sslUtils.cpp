@@ -17,7 +17,7 @@
 
 
 /*
-	File:		sslutil.c
+	File:		sslutils.ccpp
 
 	Contains:	Misc. SSL utility functions
 
@@ -120,12 +120,9 @@ const char *protocolVersStr(SSLProtocolVersion prot)
 {
 	switch(prot) {
  	case SSL_Version_Undetermined: return "SSL_Version_Undetermined";
- 	case SSL_Version_3_0_With_2_0_Hello: return "SSL_Version_3_0_With_2_0_Hello";
- 	case SSL_Version_3_0_Only: return "SSL_Version_3_0_Only";
  	case SSL_Version_2_0: return "SSL_Version_2_0";
  	case SSL_Version_3_0: return "SSL_Version_3_0";
  	case TLS_Version_1_0: return "TLS_Version_1_0";
- 	case TLS_Version_1_0_Only: return "TLS_Version_1_0_Only";
  	default: sslErrorLog("protocolVersStr: bad prot\n"); return "BAD PROTOCOL";
  	}
  	return NULL;	/* NOT REACHED */
@@ -201,3 +198,104 @@ OSStatus sslRand(SSLContext *ctx, SSLBuffer *buf)
 	return serr;
 }
 
+/*
+ * Given a protocol version sent by peer, determine if we accept that version
+ * and downgrade if appropriate (which can not be done for the client side).
+ */
+OSStatus sslVerifyProtVersion(
+	SSLContext 			*ctx,
+	SSLProtocolVersion	peerVersion,	// sent by peer
+	SSLProtocolVersion 	*negVersion)	// final negotiated version if return success
+{
+	OSStatus ortn = noErr;
+	
+	switch(peerVersion) {
+		case SSL_Version_2_0:
+			if(ctx->versionSsl2Enable) {
+				*negVersion = SSL_Version_2_0;
+			}
+			else {
+				/* SSL2 is the best peer can do but we don't support it */
+				ortn = errSSLNegotiation;
+			}
+			break;
+		case SSL_Version_3_0:
+			if(ctx->versionSsl3Enable) {
+				*negVersion = SSL_Version_3_0;
+			}
+			/* downgrade if possible */
+			else if(ctx->protocolSide == SSL_ClientSide) {
+				/* client side - no more negotiation possible */
+				ortn = errSSLNegotiation;
+			}
+			else if(ctx->versionSsl2Enable) {
+				/* server downgrading to SSL2 */
+				*negVersion = SSL_Version_2_0;
+			}
+			else {
+				/* Peer requested SSL3, we don't support SSL2 or SSL3 */
+				ortn = errSSLNegotiation;
+			}
+			break;
+		case TLS_Version_1_0:
+			if(ctx->versionTls1Enable) {
+				*negVersion = TLS_Version_1_0;
+			}
+			/* downgrade if possible */
+			else if(ctx->protocolSide == SSL_ClientSide) {
+				/* 
+				 * Client side - no more negotiation possible 
+				 * Note this actually implies a pretty serious server
+				 * side violation; it's sending back a protocol version
+				 * HIGHER than we requested 
+				 */
+				ortn = errSSLNegotiation;
+			}
+			else if(ctx->versionSsl3Enable) {
+				/* server downgrading to SSL3 */
+				*negVersion = SSL_Version_3_0;
+			}
+			else if(ctx->versionSsl2Enable) {
+				/* server downgrading to SSL2 */
+				*negVersion = SSL_Version_2_0;
+			}
+			else {
+				/* we appear not to support any protocol */
+				sslErrorLog("sslVerifyProtVersion: no protocols supported\n");
+				ortn = errSSLNegotiation;
+			}
+			break;
+		default:
+			ortn = errSSLNegotiation;
+			break;
+		
+	}
+	return ortn;
+}
+
+/*
+ * Determine max enabled protocol, i.e., the one we try to negotiate for.
+ * Only returns an error (paramErr) if NO protocols are enabled, which can
+ * in fact happen by malicious or ignorant use of SSLSetProtocolVersionEnabled().
+ */
+OSStatus sslGetMaxProtVersion(
+	SSLContext 			*ctx,
+	SSLProtocolVersion	*version)	// RETURNED
+{
+	OSStatus ortn = noErr;
+	if(ctx->versionTls1Enable) {
+		*version = TLS_Version_1_0;
+	}
+	else if(ctx->versionSsl3Enable) {
+		*version =  SSL_Version_3_0;
+	}
+	else if(ctx->versionSsl2Enable) {
+		*version =  SSL_Version_2_0;
+	}
+	else {
+		ortn = paramErr;
+	}
+	return ortn;
+}
+
+ 

@@ -20,6 +20,8 @@
 // dlclient - client interface to CSSM DLs and their operations
 //
 #include <Security/dlclient.h>
+#include <Security/aclclient.h>
+#include <Security/ssclient.h>
 
 using namespace CssmClient;
 
@@ -97,11 +99,23 @@ DbImpl::create()
 	if (mActive)
 		CssmError::throwMe(CSSMERR_DL_DATASTORE_ALREADY_EXISTS);
 
-	assert(mDbInfo != nil);
+	if (mDbInfo == nil) {
+		// handle a missing (null) mDbInfo as an all-zero one
+		static const CSSM_DBINFO nullDbInfo = { };
+		mDbInfo = &nullDbInfo;
+	}
 	mHandle.DLHandle = dl()->handle();
-	check(CSSM_DL_DbCreate(mHandle.DLHandle, name(), dbLocation(), mDbInfo,
+	
+	if (!mResourceControlContext && mAccessCredentials) {
+		AclFactory::AnyResourceContext ctx(mAccessCredentials);
+		check(CSSM_DL_DbCreate(mHandle.DLHandle, name(), dbLocation(), mDbInfo,
+							mAccessRequest, &ctx,
+							mOpenParameters, &mHandle.DBHandle));
+	} else {
+		check(CSSM_DL_DbCreate(mHandle.DLHandle, name(), dbLocation(), mDbInfo,
 							mAccessRequest, mResourceControlContext,
 							mOpenParameters, &mHandle.DBHandle));
+	}
 	mActive = true;
 }
 
@@ -141,6 +155,18 @@ DbImpl::deleteDb()
 	// This call does not require the receiver to be active.
 	check(CSSM_DL_DbDelete(dl()->handle(), name(), dbLocation(),
 						   mAccessCredentials));
+}
+
+void
+DbImpl::rename(const char *newName)
+{
+	// Deactivate so the db gets closed if it was open.
+	deactivate();
+    if (::rename(name(), newName))
+		UnixError::throwMe(errno);
+
+	// Change our DbName to reflect this rename.
+	mDbName = DbName(newName, mDbName.dbLocation());
 }
 
 void
@@ -202,41 +228,15 @@ DbImpl::insert(CSSM_DB_RECORDTYPE recordType, const CSSM_DB_RECORD_ATTRIBUTE_DAT
 	return uniqueId;
 }
 
-#if 0
-// @@@ These methods have been moved to DbUniqueRecord.
-void
-DbImpl::deleteRecord(const DbUniqueRecord &uniqueId)
+
+//
+// Generic Passthrough interface
+//
+void DbImpl::passThrough(uint32 passThroughId, const void *in, void **out)
 {
-	check(CSSM_DL_DataDelete(handle(), uniqueId));
+	check(CSSM_DL_PassThrough(handle(), passThroughId, in, out));
 }
 
-void
-DbImpl::modify(CSSM_DB_RECORDTYPE recordType, DbUniqueRecord &uniqueId,
-				 const CSSM_DB_RECORD_ATTRIBUTE_DATA *attributes,
-				 const CSSM_DATA *data,
-				 CSSM_DB_MODIFY_MODE modifyMode)
-{
-	check(CSSM_DL_DataModify(handle(), recordType, uniqueId,
-							 attributes,
-							 data, modifyMode));
-}
-
-void
-DbImpl::get(const DbUniqueRecord &uniqueId, DbAttributes *attributes,
-			  ::CssmDataContainer *data)
-{
-	if (attributes)
-		attributes->deleteValues();
-
-	if (data)
-		data->clear();
-
-	// @@@ Fix the const_cast here.
-	check(CSSM_DL_DataGetFromUniqueRecordId(handle(), uniqueId,
-											attributes,
-											data));
-}
-#endif
 
 //
 // Passthrough functions (only implemented by AppleCSPDL).
@@ -296,6 +296,24 @@ DbImpl::changePassphrase(const CSSM_ACCESS_CREDENTIALS *cred)
 	CSSM_APPLECSPDL_DB_CHANGE_PASSWORD_PARAMETERS params;
 	params.accessCredentials = const_cast<CSSM_ACCESS_CREDENTIALS *>(cred);
 	check(CSSM_DL_PassThrough(handle(), CSSM_APPLECSPDL_DB_CHANGE_PASSWORD, &params, NULL));
+}
+
+bool
+DbImpl::getUnlockKeyIndex(CssmData &index)
+{
+	try {
+		SecurityServer::DbHandle dbHandle;
+		if (CSSM_DL_PassThrough(handle(),
+			CSSM_APPLECSPDL_DB_GET_HANDLE, NULL, (void **)&dbHandle))
+				return false;	// can't get index
+		SecurityServer::ClientSession ss(allocator(), allocator());
+		ss.getDbSuggestedIndex(dbHandle, index);
+		return true;
+	} catch (const CssmError &error) {
+		if (error.cssmError() == CSSMERR_DL_DATASTORE_DOESNOT_EXIST)
+			return false;
+		throw;
+	}
 }
 
 
@@ -378,6 +396,8 @@ DbDbCursorImpl::next(DbAttributes *attributes, ::CssmDataContainer *data, DbUniq
 									  unique);
 		if (result == CSSM_OK)
 			mActive = true;
+		else if (data != NULL)
+			data->invalidate ();
 	}
 	else
 	{
@@ -386,6 +406,11 @@ DbDbCursorImpl::next(DbAttributes *attributes, ::CssmDataContainer *data, DbUniq
 									 attributes,
 									 data,
 									 unique);
+		
+		if (result != CSSM_OK && data != NULL)
+		{
+			data->invalidate ();
+		}
 	}
 
 	if (result == CSSMERR_DL_ENDOFDATA)
@@ -488,9 +513,17 @@ DbUniqueRecordImpl::get(DbAttributes *attributes,
 		data->clear();
 
 	// @@@ Fix the allocators for attributes and data.
-	check(CSSM_DL_DataGetFromUniqueRecordId(database()->handle(), mUniqueId,
+	CSSM_RETURN result;
+	result = CSSM_DL_DataGetFromUniqueRecordId(database()->handle(), mUniqueId,
 											attributes,
-											data));
+											data);
+											
+	if (result != CSSM_OK && data != NULL) // the data returned is no longer valid
+	{
+		data->invalidate ();
+	}
+	
+	check(result);
 }
 
 void

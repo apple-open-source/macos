@@ -1,0 +1,8 @@
+Notes on Axis<->.Net interoperability
+------------------------------
+
+- unprefixed name attributes of wsdl:definitions are not supported by .net
+
+- Axis leaves port number out in wsdl generation.
+
+- fields are upper case in wsdl, but lower case in instances (fixed temporarily).

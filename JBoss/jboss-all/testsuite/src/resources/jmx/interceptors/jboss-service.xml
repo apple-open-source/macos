@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--DOCTYPE server
+    PUBLIC "-//JBoss//DTD MBean Service 3.2//EN"
+    "http://www.jboss.org/j2ee/dtd/jboss-service_3_2.dtd"
+
+This instance goes beyond the jboss-service_3_2.dtd model
+due to its use of the embedded <interceptors> element in the
+ClientInterceptors attribute of the JRMPProxyFactory config.
+-->
+
+<server>
+   <!-- The xmbean with the hand generated descriptor -->
+   <mbean code="org.jboss.test.jmx.interceptors.SecuredService"
+      name="jboss.test:service=SecuredXMBean"
+      xmbean-dd="META-INF/secured-xmbean.xml" />
+
+   <!-- The JRMP invoker proxy configuration for the naming service -->
+   <mbean code="org.jboss.invocation.jrmp.server.JRMPProxyFactory"
+      name="jboss.test:service=proxyFactory,type=jrmp,target=Naming">
+      <!-- Use the standard JRMPInvoker from conf/jboss-service.xxml -->
+      <attribute name="InvokerName">jboss:service=invoker,type=jrmp</attribute>
+      <attribute name="TargetName">jboss.test:service=Naming,secured=true,persistent=true</attribute>
+      <attribute name="JndiName">secure/Naming</attribute>
+      <attribute name="ExportedInterface">org.jnp.interfaces.Naming</attribute>
+      <attribute name="ClientInterceptors">
+          <interceptors>
+             <interceptor>org.jboss.proxy.ClientMethodInterceptor</interceptor>
+             <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+             <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+          </interceptors>
+      </attribute>
+      <depends>jboss:service=invoker,type=jrmp</depends>
+   </mbean>
+   <!-- A custom deployment of the JBoss JNDI naming service -->
+   <mbean code="org.jboss.naming.NamingService"
+      name="jboss.test:service=Naming,secured=true,persistent=true"
+      xmbean-dd="META-INF/naming-xmbean.xml">
+      <!-- We do not need to expose the naming bootstrap port -->
+      <attribute name="Port">-1</attribute>
+      <!-- Don't override the default naming service -->
+      <attribute name="InstallGlobalService">false</attribute>
+   </mbean>
+</server>

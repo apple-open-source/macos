@@ -1,7 +1,7 @@
 /* value.c - routines for dealing with values */
-/* $OpenLDAP: pkg/ldap/servers/slapd/value.c,v 1.47 2002/01/14 00:43:20 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/value.c,v 1.47.2.10 2003/04/25 15:54:16 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -31,15 +31,35 @@ value_add(
 		;	/* NULL */
 
 	if ( *vals == NULL ) {
-		*vals = (BerVarray) ch_malloc( (nn + 1)
+		*vals = (BerVarray) SLAP_MALLOC( (nn + 1)
 		    * sizeof(struct berval) );
+		if( *vals == NULL ) {
+#ifdef NEW_LOGGING
+			 LDAP_LOG( OPERATION, ERR,
+		      "value_add: SLAP_MALLOC failed.\n", 0, 0, 0 );
+#else
+			Debug(LDAP_DEBUG_TRACE,
+		      "value_add: SLAP_MALLOC failed.\n", 0, 0, 0 );
+#endif
+			return LBER_ERROR_MEMORY;
+		}
 		n = 0;
 	} else {
 		for ( n = 0; (*vals)[n].bv_val != NULL; n++ ) {
 			;	/* Empty */
 		}
-		*vals = (BerVarray) ch_realloc( (char *) *vals,
+		*vals = (BerVarray) SLAP_REALLOC( (char *) *vals,
 		    (n + nn + 1) * sizeof(struct berval) );
+		if( *vals == NULL ) {
+#ifdef NEW_LOGGING
+			 LDAP_LOG( OPERATION, ERR,
+		      "value_add: SLAP_MALLOC failed.\n", 0, 0, 0 );
+#else
+			Debug(LDAP_DEBUG_TRACE,
+		      "value_add: SLAP_MALLOC failed.\n", 0, 0, 0 );
+#endif
+			return LBER_ERROR_MEMORY;
+		}
 	}
 
 	v2 = *vals + n;
@@ -53,6 +73,88 @@ value_add(
 	return LDAP_SUCCESS;
 }
 
+int
+value_add_one( 
+    BerVarray *vals,
+    struct berval *addval
+)
+{
+	int	n;
+	BerVarray v2;
+
+	if ( *vals == NULL ) {
+		*vals = (BerVarray) SLAP_MALLOC( 2 * sizeof(struct berval) );
+		if( *vals == NULL ) {
+#ifdef NEW_LOGGING
+			 LDAP_LOG( OPERATION, ERR,
+		      "value_add_one: SLAP_MALLOC failed.\n", 0, 0, 0 );
+#else
+			Debug(LDAP_DEBUG_TRACE,
+		      "value_add_one: SLAP_MALLOC failed.\n", 0, 0, 0 );
+#endif
+			return LBER_ERROR_MEMORY;
+		}
+		n = 0;
+	} else {
+		for ( n = 0; (*vals)[n].bv_val != NULL; n++ ) {
+			;	/* Empty */
+		}
+		*vals = (BerVarray) SLAP_REALLOC( (char *) *vals,
+		    (n + 2) * sizeof(struct berval) );
+		if( *vals == NULL ) {
+#ifdef NEW_LOGGING
+			 LDAP_LOG( OPERATION, ERR,
+		      "value_add_one: SLAP_MALLOC failed.\n", 0, 0, 0 );
+#else
+			Debug(LDAP_DEBUG_TRACE,
+		      "value_add_one: SLAP_MALLOC failed.\n", 0, 0, 0 );
+#endif
+			return LBER_ERROR_MEMORY;
+		}
+	}
+
+	v2 = *vals + n;
+	ber_dupbv(v2, addval);
+
+	v2++;
+	v2->bv_val = NULL;
+	v2->bv_len = 0;
+
+	return LDAP_SUCCESS;
+}
+
+int
+value_validate(
+	MatchingRule *mr,
+	struct berval *in,
+	const char **text )
+{
+	int rc;
+
+	if( mr == NULL ) {
+		*text = "inappropriate matching request";
+		return LDAP_INAPPROPRIATE_MATCHING;
+	}
+
+	if( mr->smr_syntax == NULL ) {
+		*text = "no assertion syntax";
+		return LDAP_INVALID_SYNTAX;
+	}
+
+	if( ! mr->smr_syntax->ssyn_validate ) {
+		*text = "no syntax validator";
+		return LDAP_INVALID_SYNTAX;
+	}
+
+	rc = (mr->smr_syntax->ssyn_validate)( mr->smr_syntax, in );
+
+	if( rc != LDAP_SUCCESS ) {
+		*text = "value is invalid";
+		return LDAP_INVALID_SYNTAX;
+	}
+
+	return LDAP_SUCCESS;
+}
 
 int
 value_normalize(
@@ -74,7 +176,8 @@ value_normalize(
 		mr = ad->ad_type->sat_ordering;
 		break;
 	case SLAP_MR_SUBSTR:
-		mr = ad->ad_type->sat_substr;
+		/* normalize substrings per the the equality rule */
+		mr = ad->ad_type->sat_equality;
 		break;
 	case SLAP_MR_EXT:
 	default:
@@ -86,6 +189,92 @@ value_normalize(
 	if( mr == NULL ) {
 		*text = "inappropriate matching request";
 		return LDAP_INAPPROPRIATE_MATCHING;
+	}
+
+	/* we only support equality matching of binary attributes */
+	/* This is suspect, flexible certificate matching will hit this */
+	if( slap_ad_is_binary( ad ) && usage != SLAP_MR_EQUALITY ) {
+		*text = "inappropriate binary matching";
+		return LDAP_INAPPROPRIATE_MATCHING;
+	}
+
+	if( mr->smr_normalize ) {
+		rc = (mr->smr_normalize)( usage,
+			ad->ad_type->sat_syntax,
+			mr, in, out );
+
+		if( rc != LDAP_SUCCESS ) {
+			*text = "unable to normalize value";
+			return LDAP_INVALID_SYNTAX;
+		}
+
+	} else if ( mr->smr_syntax->ssyn_normalize ) {
+		rc = (mr->smr_syntax->ssyn_normalize)(
+			ad->ad_type->sat_syntax,
+			in, out );
+
+		if( rc != LDAP_SUCCESS ) {
+			*text = "unable to normalize value";
+			return LDAP_INVALID_SYNTAX;
+		}
+
+	} else {
+		ber_dupbv( out, in );
+	}
+
+	return LDAP_SUCCESS;
+}
+
+int
+value_validate_normalize(
+	AttributeDescription *ad,
+	unsigned usage,
+	struct berval *in,
+	struct berval *out,
+	const char **text )
+{
+	int rc;
+	MatchingRule *mr;
+
+	switch( usage & SLAP_MR_TYPE_MASK ) {
+	case SLAP_MR_NONE:
+	case SLAP_MR_EQUALITY:
+		mr = ad->ad_type->sat_equality;
+		break;
+	case SLAP_MR_ORDERING:
+		mr = ad->ad_type->sat_ordering;
+		break;
+	case SLAP_MR_SUBSTR:
+		/* normalize substrings per the the equality rule */
+		mr = ad->ad_type->sat_equality;
+		break;
+	case SLAP_MR_EXT:
+	default:
+		assert( 0 );
+		*text = "internal error";
+		return LDAP_OTHER;
+	}
+
+	if( mr == NULL ) {
+		*text = "inappropriate matching request";
+		return LDAP_INAPPROPRIATE_MATCHING;
+	}
+
+	if( mr->smr_syntax == NULL ) {
+		*text = "no assertion syntax";
+		return LDAP_INVALID_SYNTAX;
+	}
+
+	if( ! mr->smr_syntax->ssyn_validate ) {
+		*text = "no syntax validator";
+		return LDAP_INVALID_SYNTAX;
+	}
+
+	rc = (mr->smr_syntax->ssyn_validate)( mr->smr_syntax, in );
+
+	if( rc != LDAP_SUCCESS ) {
+		*text = "value is invalid";
+		return LDAP_INVALID_SYNTAX;
 	}
 
 	/* we only support equality matching of binary attributes */
@@ -137,6 +326,8 @@ value_match(
 	struct berval nv1 = { 0, NULL };
 	struct berval nv2 = { 0, NULL };
 
+	assert( mr != NULL );
+
 	if( !mr->smr_match ) {
 		return LDAP_INAPPROPRIATE_MATCHING;
 	}
@@ -183,7 +374,6 @@ int value_find_ex(
 	int	i;
 	int rc;
 	struct berval nval = { 0, NULL };
-	struct berval nval_tmp;
 	MatchingRule *mr = ad->ad_type->sat_equality;
 
 	if( mr == NULL || !mr->smr_match ) {
@@ -203,9 +393,13 @@ int value_find_ex(
 		flags |= SLAP_MR_VALUE_SYNTAX_CONVERTED_MATCH;
 	}
 
-	if( mr->smr_syntax->ssyn_normalize ) {
+	if( !(flags & SLAP_MR_VALUE_NORMALIZED_MATCH) &&
+		mr->smr_syntax->ssyn_normalize ) {
+		struct berval nval_tmp = { 0, NULL };
+
 		rc = mr->smr_syntax->ssyn_normalize(
-			mr->smr_syntax, nval.bv_val == NULL ? val : &nval, &nval_tmp );
+			mr->smr_syntax,
+			nval.bv_val == NULL ? val : &nval, &nval_tmp );
 
 		free(nval.bv_val);
 		nval = nval_tmp;

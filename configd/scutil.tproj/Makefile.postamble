@@ -64,6 +64,7 @@
 #	the include path (defaults to -I.)
 #    DEBUG_BUILD_LDFLAGS, OPTIMIZE_BUILD_LDFLAGS, PROFILE_BUILD_LDFLAGS: flags
 #	passed to ld/libtool (defaults to nothing)
+WARNING_CFLAGS=-Wall
 
 
 # Library and Framework projects only:

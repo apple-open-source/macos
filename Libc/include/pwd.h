@@ -114,17 +114,18 @@ struct passwd {
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
-struct passwd	*getpwuid __P((uid_t));
-struct passwd	*getpwnam __P((const char *));
-int		 getpwuid_r __P((uid_t, struct passwd *, char *, size_t, struct passwd **));
-int		 getpwnam_r __P((const char *, struct passwd *, char *, size_t, struct passwd **));
+struct passwd	*getpwuid(uid_t);
+struct passwd	*getpwnam(const char *);
+int		 getpwuid_r(uid_t, struct passwd *, char *, size_t, struct passwd **);
+int		 getpwnam_r(const char *, struct passwd *, char *, size_t, struct passwd **);
 #ifndef _POSIX_SOURCE
-struct passwd	*getpwent __P((void));
+struct passwd	*getpwent(void);
 #ifndef _XOPEN_SOURCE
-int		 setpassent __P((int));
+int		 setpassent(int);
+char 		*user_from_uid(uid_t, int);
 #endif
-int		 setpwent __P((void));
-void		 endpwent __P((void));
+int		 setpwent(void);
+void		 endpwent(void);
 #endif
 __END_DECLS
 

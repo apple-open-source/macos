@@ -1,0 +1,52 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from .././gimpprint.texi on 22 January 2003 -->
+
+<TITLE>GIMP-Print - ESC/P2 Introduction</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_34.html">previous</A>, <A HREF="gimpprint_36.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H2><A NAME="SEC50" HREF="gimpprint_toc.html#TOC50">C.1  Introduction to ESC/P2</A></H2>
+<P>
+<A NAME="IDX191"></A>
+
+</P>
+<P>
+This is a description of the ESC/P2 raster commands used by the
+gimp-print plugin and Ghostscript driver, which is a subset of the
+complete command set.  The full documents are found on
+@url{http://www.ercipd.com/isv/edr_docs.htm}.  Note that these are
+<STRONG>not</STRONG> always correct, and are certainly not complete.
+
+</P>
+<P>
+All ESCP/2 raster commands begin with the <SAMP>`ESC'</SAMP> character (1b hex),
+followed by either one or two command characters and arguments where
+applicable.  Older commands generally have one command character.  Newer
+commands usually have a <SAMP>`('</SAMP> (left parenthesis) followed by a
+command character and a byte count for the arguments that follow.  The
+byte count is a 16-bit (2 byte) binary integer, in little endian order.
+
+</P>
+<P>
+All arguments listed here are of the form <SAMP>`name[bytes]'</SAMP> where
+<SAMP>`[bytes]'</SAMP> is the number of bytes that comprise the argument.  The
+arguments themselves are usually one, two, or four byte integers, always
+little endian (the least significant bits come first).  Presumably this
+is to match Intel processors.
+
+</P>
+<P>
+In some cases, the same command sequence identifies different versions
+of the same command, depending upon the number of bytes of arguments.
+
+</P>
+
+<P><HR><P>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_34.html">previous</A>, <A HREF="gimpprint_36.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+</BODY>
+</HTML>

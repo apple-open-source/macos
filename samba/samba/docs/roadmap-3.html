@@ -1,0 +1,215 @@
+<!--#include virtual="/samba/header.html" -->
+
+<h3>Roadmap to 3.0</h3>
+<p><em>Page Last Updated</em> : 5 Mar, 2003
+<p><em>Estimated shipdate</em> : When it is ready.
+<p><em>Current Alpha Release</em> : <a href="/samba/ftp/alpha/samba-3.0alpha22.tar.gz">Samba-3.0alpha22</a>
+
+<h3>Road to 3.0</h3>
+
+<ul>
+  <li>(5th Mar, 2003) <em>Samba-3.0alpha22 RPMS for Redhat 6.x, 7.x and 8.0 available</em>
+  <p>Binary packages for RedHat Linux 6.x, 7.x and 8.0 systems of the Samba 3.0alpha22
+  release are ready for download from the 
+  <a href="http://download.samba.org/samba/ftp/Binary_Packages/RedHat">Binary_Packages/RedHat</a> directory.
+  </li>
+</ul>
+
+<ul>
+  <li>(26th Nov, 2002) <em>Samba-3.0alpha21 RPMS for Redhat 7.x and 8.0 available</em>
+  <p>Binary packages for RedHat Linux 7.x and 8.0 systems of the Samba 3.0alpha21
+  release are ready for download from the 
+  <a href="http://download.samba.org/samba/ftp/Binary_Packages/RedHat">Binary_Packages/RedHat</a> directory.
+  </li>
+</ul>
+
+<ul>
+  <li>(26th Sept, 2002) <em>SAMBA_3_0 cvs branch</em>
+  <p>With the release of 3.0alpha20, the SAMBA_3_0 cvs branch is now being
+  officially maintained in an effort to stabilize certain features.  If you would
+  like to continue to test the soon-to-be-3.0 code base, please use this branch
+  tag when checking out the cvs tree.
+</ul>
+
+<h3>Roadmap Overview</h3>
+
+<p>This is a feature list/roadmap for the 3.0 release.  A lot of discussion
+has gone on about this.  Implementation is a separate discussion :-)
+If a feature is already done, I marked it as "Req".  It should be obvious
+from this roadmap that one the major hurdles for releasing the 3.0 code base
+is the completion of documentation updates.  
+
+<ul>
+  <li>X = done
+  <li>o = TODO
+  <li>- = unknown
+</ul>
+
+<p>
+Some features have been through basic testing that have
+<b>o</b>'s beneath testing column since we are not done.
+Items are ordered by maturity, not by importance.  If it
+is marked as <em>Required</em>, then it must be completed
+for a stable 3.0 release.
+
+<p>
+<table border="0" width="100%">
+  <tr>
+    <td width=50%><h3>Feature</h3></td>
+    <td align=center><h3>Required?</h3></td>
+    <td align=center><h3>Code</h3></td>
+    <td align=center><h3>Test</h3></td>
+    <td align=center><h3>Document</h3></td>
+  </tr>
+
+  <tr>
+    <td><em><u>Release Delaying Features</u></em></td>
+  </tr>
+
+  <tr>
+    <td width=50%>UNICODE support</td>
+    <td align=center>yes</td>
+    <td align=center>X</td>
+    <td align=center>X</td>
+    <td align=center>o</td>
+  </tr>
+
+  <tr>
+    <td width=50%>Windows 2000 AD client support</td>
+    <td align=center>yes</td>
+    <td align=center>X</td>
+    <td align=center>X</td>
+    <td align=center>o</td>
+  </tr>
+
+  <tr>
+    <td width=50%>winbind dual-daemon implementation</td>
+    <td align=center>yes</td>
+    <td align=center>X</td>
+    <td align=center>X</td>
+    <td align=center>o</td>
+  </tr>
+
+  <tr>
+    <td width=50%>pluggable passdb support</td>
+    <td align=center>yes</td>
+    <td align=center>X</td>
+    <td align=center>X</td>
+    <td align=center>X</td>
+  </tr>
+  
+  <tr>
+    <td width=50%>Windows NT 4.0 Style Trust Relationship</td>
+    <td align=center>yes</td>
+    <td align=center>X</td>
+    <td align=center>o</td>
+    <td align=center>o</td>
+  </tr>
+
+  <tr>
+    <td width=50%>NTLMv2</td>
+    <td align=center>yes</td>
+    <td align=center>X</td>
+    <td align=center>o</td>
+    <td align=center>o</td>
+  </tr>
+
+  <tr>
+    <td width=50%>One Time Migration script from a Windows NT
+      4.0 PDC to a Samba PDC</td>
+    <td align=center>yes</td>
+    <td align=center>X</td>
+    <td align=center>o</td>
+    <td align=center>o</td>
+  </tr>
+
+  <tr>
+    <td width=50%>Winbind working with Samba PDC</td>
+    <td align=center>yes</td>
+    <td align=center>X</td>
+    <td align=center>o</td>
+    <td align=center>o</td>
+  </tr>
+
+  <tr>
+    <td width=50%>Loadable RPC implementations</td>
+    <td align=center>yes</td>
+    <td align=center>X</td>
+    <td align=center>o</td>
+    <td align=center>o</td>
+  </tr>
+
+  <tr>
+    <td width=50%>hook for utilizing a centralized winbindd id map database</td>
+    <td align=center>yes</td>
+    <td align=center>o</td>
+    <td align=center>o</td>
+    <td align=center>o</td>
+  </tr>
+
+  <tr>
+    <td width=50%>Group Mapping support(privileges need some work, etc...)</td>
+    <td align=center>yes</td>
+    <td align=center>o</td>
+    <td align=center>o</td>
+    <td align=center>o</td>
+  </tr>
+
+  <tr>
+    <td width=50%>Publishing printers in AD (probably will make 3.0 but will not delay release)</td>
+    <td align=center>yes</td>
+    <td align=center>X</td>
+    <td align=center>o</td>
+    <td align=center>o</td>
+  </tr>
+
+  <tr>
+    <td><em><u>Non-Release Delaying Features</u></em></td>
+  </tr>
+
+  <tr>
+    <td width=50%>Stackable VFS</td>
+    <td align=center>no</td>
+    <td align=center>X</td>
+    <td align=center>o</td>
+    <td align=center>X</td>
+  </tr>
+    <td width=50%>SAM replication (full implementation still lacks
+      some decoding work; post 3.0)</td>
+    <td align=center>no</td>
+    <td align=center>-</td>
+    <td align=center>-</td>
+    <td align=center>-</td>
+  </tr>
+
+  <tr>
+    <td width=50%>SMB signing (needs more research; not a show stopper)</td>
+    <td align=center>no</td>
+    <td align=center>-</td>
+    <td align=center>-</td>
+    <td align=center>-</td>
+  </tr>
+
+  <tr>
+    <td width=50%>schannel, ntlmv2 sign &amp; seal (needs more research)</td>
+    <td align=center>no</td>
+    <td align=center>in-progress</td>
+    <td align=center>-</td>
+    <td align=center>-</td>
+  </tr>
+
+</table>
+
+
+<p>
+Plus the following interesting, but non-show stopping projects
+
+<ul>
+  <li>background updates of print queues via a dedicated process
+  <li>WINS replication with Windows NT WINS servers
+  <li>alternative backend for WINS database (there is a patch that still needs some work)
+</ul>
+
+
+
+<!--#include virtual="/samba/footer.html" -->

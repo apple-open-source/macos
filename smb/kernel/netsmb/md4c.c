@@ -26,6 +26,7 @@
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <netsmb/md4.h>
+#include <netsmb/smb.h>
 
 typedef unsigned char *POINTER;
 typedef u_int16_t UINT2;
@@ -87,7 +88,7 @@ static unsigned char PADDING[64] = {
 
 /* MD4 initialization. Begins an MD4 operation, writing a new context.
  */
-void MD4Init (context)
+PRIVSYM void MD4Init (context)
 MD4_CTX *context;                                        /* context */
 {
   context->count[0] = context->count[1] = 0;
@@ -104,7 +105,7 @@ MD4_CTX *context;                                        /* context */
      operation, processing another message block, and updating the
      context.
  */
-void MD4Update (context, input, inputLen)
+PRIVSYM void MD4Update (context, input, inputLen)
 MD4_CTX *context;                                        /* context */
 const unsigned char *input;                                /* input block */
 unsigned int inputLen;                     /* length of input block */
@@ -139,7 +140,7 @@ unsigned int inputLen;                     /* length of input block */
 }
 
 /* MD4 padding. */
-void MD4Pad (context)
+PRIVSYM void MD4Pad (context)
 MD4_CTX *context;                                        /* context */
 {
   unsigned char bits[8];
@@ -161,7 +162,7 @@ MD4_CTX *context;                                        /* context */
 /* MD4 finalization. Ends an MD4 message-digest operation, writing the
      the message digest and zeroizing the context.
  */
-void MD4Final (digest, context)
+PRIVSYM void MD4Final (digest, context)
 unsigned char digest[16];                         /* message digest */
 MD4_CTX *context;                                        /* context */
 {

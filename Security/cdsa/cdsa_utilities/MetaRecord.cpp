@@ -46,12 +46,6 @@ MetaRecord::MetaRecord(CSSM_DB_RECORDTYPE inRelationID,
 					   const CSSM_DB_SCHEMA_ATTRIBUTE_INFO *inAttributeInfo) :
     mRecordType(inRelationID)
 {
-	// XXX Is there any particular reason not to allow this?
-#if 0
-	if (inNumberOfAttributes == 0 || inAttributeInfo == NULL)
-		CssmError::throwMe(CSSMERR_DL_UNSUPPORTED_NUM_ATTRIBUTES);
-#endif
-
 	try {
 		for (uint32 anIndex = 0; anIndex < inNumberOfAttributes; anIndex++)
 		{
@@ -84,12 +78,6 @@ MetaRecord::~MetaRecord()
 void
 MetaRecord::setRecordAttributeInfo(const CSSM_DB_RECORD_ATTRIBUTE_INFO &inInfo)
 {
-	// XXX Is there any particular reason not to allow this?
-#if 0
-    if (inInfo.NumberOfAttributes == 0 || inInfo.AttributeInfo == NULL)
-        CssmError::throwMe(CSSMERR_DL_UNSUPPORTED_NUM_ATTRIBUTES);
-#endif
-
     for (uint32 anIndex = 0; anIndex < inInfo.NumberOfAttributes; anIndex++)
     {
         switch (inInfo.AttributeInfo[anIndex].AttributeNameFormat)
@@ -322,7 +310,7 @@ MetaRecord::attributeIndex(const CSSM_DB_ATTRIBUTE_INFO &inAttributeInfo) const
 				for(it = mNameStringMap.begin();
 				    it != mNameStringMap.end();
 					it++) {
-						printf("name %s val %ul\n", it->first.c_str(), it->second);
+						printf("name %s val %lu\n", it->first.c_str(), it->second);
 				}
 				#endif
 				CssmError::throwMe(CSSMERR_DL_INVALID_FIELD_NAME);

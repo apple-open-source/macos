@@ -28,7 +28,7 @@
 #
 # ----------------------------------------------------------------------
 
-class TdumpWin {
+itcl::class TdumpWin {
   inherit ManagedWin GDBWin
 
   # ------------------------------------------------------------------
@@ -58,10 +58,10 @@ class TdumpWin {
     itk_component add stext {
       iwidgets::scrolledtext $itk_interior.stext -hscrollmode $mode \
 	-vscrollmode $mode -textfont global/fixed \
-	-background [pref get gdb/font/normal_bg]
+	-background $::Colors(bg)
     } {}
     [$itk_component(stext) component text] configure \
-      -background [pref get gdb/font/normal_bg]
+      -background $::Colors(bg)
     pack $itk_component(stext) -side left -expand yes -fill both
     update dummy
   }

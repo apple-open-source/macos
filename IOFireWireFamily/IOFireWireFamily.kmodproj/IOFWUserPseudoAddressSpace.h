@@ -32,6 +32,15 @@
  */
 /*
 	$Log: IOFWUserPseudoAddressSpace.h,v $
+	Revision 1.4  2003/07/24 06:30:58  collin
+	*** empty log message ***
+	
+	Revision 1.3  2003/07/21 06:52:59  niels
+	merge isoch to TOT
+	
+	Revision 1.2.14.1  2003/07/01 20:54:07  niels
+	isoch merge
+	
 	Revision 1.2  2002/10/18 23:29:44  collin
 	fix includes, fix cast which fails on new compiler
 	
@@ -52,10 +61,6 @@
 
 // private
 #import "IOFireWireLibPriv.h"
-
-// system
-#import <IOKit/OSMessageNotification.h>
-#import <IOKit/IOLocks.h>
 
 using namespace IOFireWireLib ;
 
@@ -201,6 +206,7 @@ public:
     virtual bool 						serialize(OSSerialize *s) const;
 #endif
 	virtual void						free() ;
+	void								exporterCleanup ();
 
 	// --- IOFWPseudoAddressSpace ----------
 	// override deactivate so we can delete any notification related structures...

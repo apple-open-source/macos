@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,10 +12,10 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Author: Hartmut Holzgraefe <hartmut@six.de>                          |
+   | Author: Hartmut Holzgraefe <hholzgra@php.net>                        |
    +----------------------------------------------------------------------+
  */
-/* $Id: levenshtein.c,v 1.1.1.5 2001/12/14 22:13:23 zarzycki Exp $ */
+/* $Id: levenshtein.c,v 1.1.1.8 2003/07/18 18:07:43 zarzycki Exp $ */
 
 #include "php.h"
 #include <stdlib.h>
@@ -40,33 +40,31 @@ static int reference_levdist(const char *s1, int l1,
 	if((l1>LEVENSHTEIN_MAX_LENTH)||(l2>LEVENSHTEIN_MAX_LENTH))
 		return -1;
 
-	if(!(p1=emalloc(l2*sizeof(int)))) {
+	if(!(p1=emalloc((l2+1)*sizeof(int)))) {
 		return -2;
 	}
-	if(!(p2=emalloc(l2*sizeof(int)))) {
+	if(!(p2=emalloc((l2+1)*sizeof(int)))) {
 		free(p1);
 		return -2;
 	}
 
-	p1[0]=(s1[0]==s2[0])?0:cost_rep;
+	for(i2=0;i2<=l2;i2++)
+		p1[i2] = i2*cost_ins;
 
-	for(i2=1;i2<l2;i2++)
-		p1[i2]=i2*cost_ins;
-
-	for(i1=1;i1<l1;i1++)
+	for(i1=0;i1<l1;i1++)
 		{
-			p2[0]=i1*cost_del;
-			for(i2=1;i2<l2;i2++)
+			p2[0]=p1[0]+cost_del;
+			for(i2=0;i2<l2;i2++)
 				{
-					c0=p1[i2-1]+((s1[i1]==s2[i2])?0:cost_rep);
-					c1=p1[i2]+cost_del; if(c1<c0) c0=c1;
-					c2=p2[i2-1]+cost_ins; if(c2<c0) c0=c2;				
-					p2[i2]=c0;
+					c0=p1[i2]+((s1[i1]==s2[i2])?0:cost_rep);
+					c1=p1[i2+1]+cost_del; if(c1<c0) c0=c1;
+					c2=p2[i2]+cost_ins; if(c2<c0) c0=c2;				
+					p2[i2+1]=c0;
 				}
 			tmp=p1; p1=p2; p2=tmp;
 		}
 
-	c0=p1[l2-1];
+	c0=p1[l2];
 
 	efree(p1);
 	efree(p2);
@@ -79,10 +77,12 @@ static int reference_levdist(const char *s1, int l1,
  */
 static int custom_levdist(char *str1, char *str2, char *callback_name) 
 {
-		php_error(E_WARNING, "the general Levenshtein support is not there yet");
-		/* not there yet */
+	TSRMLS_FETCH();
 
-		return -1;
+	php_error_docref(NULL TSRMLS_CC, E_WARNING, "The general Levenshtein support is not there yet");
+	/* not there yet */
+
+	return -1;
 }
 /* }}} */
 
@@ -101,9 +101,8 @@ PHP_FUNCTION(levenshtein)
 		convert_to_string_ex(str1);
 		convert_to_string_ex(str2);
 
-		distance = reference_levdist((*str1)->value.str.val, (*str1)->value.str.len, 
-																 (*str2)->value.str.val, (*str2)->value.str.len,
-																 1, 1, 1);
+		distance = reference_levdist(Z_STRVAL_PP(str1), Z_STRLEN_PP(str1), 
+									 Z_STRVAL_PP(str2), Z_STRLEN_PP(str2), 1, 1, 1);
 
 		break;
 
@@ -117,12 +116,10 @@ PHP_FUNCTION(levenshtein)
 		convert_to_long_ex(cost_rep);
 		convert_to_long_ex(cost_del);
 		
-		distance = reference_levdist((*str1)->value.str.val, (*str1)->value.str.len, 
-																 (*str2)->value.str.val, (*str2)->value.str.len,
-																 (*cost_ins)->value.lval,
-																 (*cost_rep)->value.lval,
-																 (*cost_del)->value.lval
-																);
+		distance = reference_levdist(Z_STRVAL_PP(str1), Z_STRLEN_PP(str1),
+									 Z_STRVAL_PP(str2), Z_STRLEN_PP(str2),
+									 Z_LVAL_PP(cost_ins), Z_LVAL_PP(cost_rep),
+									 Z_LVAL_PP(cost_del));
 		
 		break;
 
@@ -134,10 +131,8 @@ PHP_FUNCTION(levenshtein)
 		convert_to_string_ex(str2);
 		convert_to_string_ex(callback_name);
 
-		distance = custom_levdist((*str1)->value.str.val
-																, (*str2)->value.str.val
-																, (*callback_name)->value.str.val
-																);
+		distance = custom_levdist(Z_STRVAL_PP(str1), Z_STRVAL_PP(str2),
+								  Z_STRVAL_PP(callback_name));
 		break;
 
 	default: 
@@ -145,7 +140,7 @@ PHP_FUNCTION(levenshtein)
 	}	
 
 	if(distance<0) {
-		php_error(E_WARNING, "levenshtein(): argument string(s) too long");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Argument string(s) too long");
 	}
 	
 	RETURN_LONG(distance);
@@ -157,6 +152,6 @@ PHP_FUNCTION(levenshtein)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

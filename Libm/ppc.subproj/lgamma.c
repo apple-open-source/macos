@@ -137,9 +137,9 @@
 *     order.                                                                   *
 *******************************************************************************/
 
-static double d1 = -5.772156649015328605195174e-1;
+static const double d1 = -5.772156649015328605195174e-1;
 
-static double p1[8] = { 4.945235359296727046734888e+0,
+static const double p1[8] = { 4.945235359296727046734888e+0,
                         2.018112620856775083915565e+2,
                         2.290838373831346393026739e+3,
                         1.131967205903380828685045e+4,
@@ -153,7 +153,7 @@ static double p1[8] = { 4.945235359296727046734888e+0,
 *     order.                                                                   *
 *******************************************************************************/
 
-static double q1[8] = { 6.748212550303777196073036e+1,
+static const double q1[8] = { 6.748212550303777196073036e+1,
                         1.113332393857199323513008e+3,
                         7.738757056935398733233834e+3,
                         2.763987074403340708898585e+4,
@@ -167,9 +167,9 @@ static double q1[8] = { 6.748212550303777196073036e+1,
 *     order.                                                                   *
 *******************************************************************************/
 
-static double d2 = 4.227843350984671393993777e-1;
+static const double d2 = 4.227843350984671393993777e-1;
 
-static double p2[8] = { 4.974607845568932035012064e+0,
+static const double p2[8] = { 4.974607845568932035012064e+0,
                         5.424138599891070494101986e+2,
                         1.550693864978364947665077e+4,
                         1.847932904445632425417223e+5,
@@ -183,7 +183,7 @@ static double p2[8] = { 4.974607845568932035012064e+0,
 *     order.                                                                   *
 *******************************************************************************/
 
-static double q2[8] = { 1.830328399370592604055942e+2,
+static const double q2[8] = { 1.830328399370592604055942e+2,
                         7.765049321445005871323047e+3,
                         1.331903827966074194402448e+5,
                         1.136705821321969608938755e+6,
@@ -197,9 +197,9 @@ static double q2[8] = { 1.830328399370592604055942e+2,
 *     order.                                                                   *
 *******************************************************************************/
 
-static double d4 = 1.791759469228055000094023e+0;
+static const double d4 = 1.791759469228055000094023e+0;
 
-static double p4[8] = { 1.474502166059939948905062e+04,
+static const double p4[8] = { 1.474502166059939948905062e+04,
                         2.426813369486704502836312e+06,
                         1.214755574045093227939592e+08,
                         2.663432449630976949898078e+09,
@@ -213,7 +213,7 @@ static double p4[8] = { 1.474502166059939948905062e+04,
 *     order.                                                                   *
 *******************************************************************************/
 
-static double q4[8] = { 2.690530175870899333379843e+03,
+static const double q4[8] = { 2.690530175870899333379843e+03,
                         6.393885654300092398984238e+05,
                         4.135599930241388052042842e+07,
                         1.120872109616147941376570e+09,
@@ -226,7 +226,7 @@ static double q4[8] = { 2.690530175870899333379843e+03,
 *     Coefficients for minimax approximation over [12, xbig].                  *
 *******************************************************************************/
 
-static double c[7] = { -1.910444077728e-03,
+static const double c[7] = { -1.910444077728e-03,
                         8.4171387781295e-04,
                        -5.952379913043012e-04,
                         7.93650793500350248e-04,
@@ -234,12 +234,12 @@ static double c[7] = { -1.910444077728e-03,
                         8.333333333333333331554247e-02,
                         5.7083835261e-03 };
 
-static double LogSqrt2pi = 0.9189385332046727417803297e+0;
-static double xbig       = 2.55e+305;
-static double Root4xbig  = 2.25e+76;
-static double eps        = 2.22e-16;
-static double pnt68      = 0.6796875e+0;
-static hexdouble Huge    = HEXDOUBLE(0x7FF00000, 0x00000000);
+static const double LogSqrt2pi = 0.9189385332046727417803297e+0;
+static const double xbig       = 2.55e+305;
+static const double Root4xbig  = 2.25e+76;
+static const double eps        = 2.22e-16;
+static const double pnt68      = 0.6796875e+0;
+static const hexdouble Huge    = HEXDOUBLE(0x7FF00000, 0x00000000);
 
 static const double twoTo52      = 4503599627370496.0;                  // 2^52
 static const double pi  =  3.14159265358979311600e+00; /* 0x400921FB, 0x54442D18 */
@@ -260,8 +260,8 @@ static double lgammaApprox ( double x )
                       corrector, xMinus1, xMinus2, xMinus4; 
       hexdouble OldEnvironment;
       
-      fegetenvd( OldEnvironment.d );               // save environment, set default
-      fesetenvd( 0.0 );
+      FEGETENVD( OldEnvironment.d );               // save environment, set default
+      FESETENVD( 0.0 );
       
 /*******************************************************************************
 *     The next switch will decipher what sort of argument we have. If argument *
@@ -272,18 +272,18 @@ static double lgammaApprox ( double x )
             {
             case FP_NAN:
                   x *= 2.0;                  /* quiets NaN */
-                  fesetenvd( OldEnvironment.d );         //   restore caller's environment
+                  FESETENVD( OldEnvironment.d );         //   restore caller's environment
                   return x;
                   
             case FP_ZERO:
                   x = Huge.d;
                   OldEnvironment.i.lo |= FE_DIVBYZERO;
-                  fesetenvd( OldEnvironment.d );
+                  FESETENVD( OldEnvironment.d );
                   return x;
 
             case FP_INFINITE:
                   x = Huge.d;
-                  fesetenvd( OldEnvironment.d );
+                  FESETENVD( OldEnvironment.d );
                   return x;
                   
             default:                  /*      NORMALNUM and DENORMALNUM      */
@@ -308,7 +308,7 @@ static double lgammaApprox ( double x )
             if ( x <= -twoTo52 ) // big negative integer?
                 {
                 OldEnvironment.i.lo |= FE_DIVBYZERO;
-                fesetenvd( OldEnvironment.d );
+                FESETENVD( OldEnvironment.d );
                 return Huge.d;
                 }
                 
@@ -319,13 +319,13 @@ static double lgammaApprox ( double x )
             if ( IsItAnInt == 0.0 ) // negative integer?
                 {
                 OldEnvironment.i.lo |= FE_DIVBYZERO;
-                fesetenvd( OldEnvironment.d );
+                FESETENVD( OldEnvironment.d );
                 return Huge.d;
                 }
             else
                 a = sin ( pi * IsItAnInt );
             
-            fesetenvd( OldEnvironment.d );
+            FESETENVD( OldEnvironment.d );
             return log ( pi / fabs ( a * x ) ) - lgammaApprox ( -x );
             }
       
@@ -337,7 +337,7 @@ static double lgammaApprox ( double x )
       if ( x > xbig )
             {
             OldEnvironment.i.lo |= FE_OVERFLOW;
-            fesetenvd( OldEnvironment.d );
+            FESETENVD( OldEnvironment.d );
             return Huge.d;
             }
 
@@ -349,7 +349,7 @@ static double lgammaApprox ( double x )
 
       if ( y <= eps )
             {
-            fesetenvd( OldEnvironment.d );
+            FESETENVD( OldEnvironment.d );
             return ( - log ( y ) );
             }
 
@@ -443,7 +443,7 @@ static double lgammaApprox ( double x )
             result += y * ( corrector - 1.0 );
             }
       
-      fesetenvd( OldEnvironment.d );
+      FESETENVD( OldEnvironment.d );
       x = rint ( x ); // INEXACT set as a side effect for non integer x  
       return result;
       }
@@ -458,13 +458,13 @@ double lgamma ( double x )
         double y1 = trunc ( -x );
         hexdouble OldEnvironment;
         
-        fegetenvd( OldEnvironment.d );               // save environment, set default
-        fesetenvd( 0.0 );
+        FEGETENVD( OldEnvironment.d );               // save environment, set default
+        FESETENVD( 0.0 );
         
         if ( y1 == trunc ( y1 * 0.5 ) * 2.0 ) 
             signgam = -1;
             
-        fesetenvd( OldEnvironment.d );
+        FESETENVD( OldEnvironment.d );
     }
     
     return g;
@@ -482,24 +482,17 @@ double lgamma_r ( double x, int *psigngam )
         double y1 = trunc ( -x );
         hexdouble OldEnvironment;
         
-        fegetenvd( OldEnvironment.d );               // save environment, set default
-        fesetenvd( 0.0 );
+        FEGETENVD( OldEnvironment.d );               // save environment, set default
+        FESETENVD( 0.0 );
         
         if ( y1 == trunc ( y1 * 0.5 ) * 2.0 && psigngam) 
             *psigngam = -1;
             
-        fesetenvd( OldEnvironment.d );
+        FESETENVD( OldEnvironment.d );
     }
     
     return g;
 }
-
-#ifdef notdef
-float lgammaf ( float x )
-{
-    return (float)lgamma ( x );
-}
-#endif
 
 #else       /* __APPLE_CC__ version */
 #error Version gcc-932 or higher required.  Compilation terminated.

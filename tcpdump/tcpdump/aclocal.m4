@@ -1,4 +1,4 @@
-dnl @(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/aclocal.m4,v 1.1.1.2 2002/05/29 00:05:27 landonf Exp $ (LBL)
+dnl @(#) $Header: /cvs/root/tcpdump/tcpdump/aclocal.m4,v 1.1.1.3 2003/03/17 18:42:16 rbraun Exp $ (LBL)
 dnl
 dnl Copyright (c) 1995, 1996, 1997, 1998
 dnl	The Regents of the University of California.  All rights reserved.
@@ -157,6 +157,51 @@ AC_DEFUN(AC_LBL_C_INIT,
     fi
 ])
 
+#
+# Try compiling a sample of the type of code that appears in
+# gencode.c with "inline", "__inline__", and "__inline".
+#
+# Autoconf's AC_C_INLINE, at least in autoconf 2.13, isn't good enough,
+# as it just tests whether a function returning "int" can be inlined;
+# at least some versions of HP's C compiler can inline that, but can't
+# inline a function that returns a struct pointer.
+#
+AC_DEFUN(AC_LBL_C_INLINE,
+    [AC_MSG_CHECKING(for inline)
+    AC_CACHE_VAL(ac_cv_lbl_inline, [
+	ac_cv_lbl_inline=""
+	ac_lbl_cc_inline=no
+	for ac_lbl_inline in inline __inline__ __inline
+	do
+	    AC_TRY_COMPILE(
+		[#define inline $ac_lbl_inline
+		static inline struct iltest *foo(void);
+		struct iltest {
+		    int iltest1;
+		    int iltest2;
+		};
+
+		static inline struct iltest *
+		foo()
+		{
+		    static struct iltest xxx;
+
+		    return &xxx;
+		}],,ac_lbl_cc_inline=yes,)
+	    if test "$ac_lbl_cc_inline" = yes ; then
+		break;
+	    fi
+	done
+	if test "$ac_lbl_cc_inline" = yes ; then
+	    ac_cv_lbl_inline=$ac_lbl_inline
+	fi])
+    if test ! -z "$ac_cv_lbl_inline" ; then
+	AC_MSG_RESULT($ac_cv_lbl_inline)
+    else
+	AC_MSG_RESULT(no)
+    fi
+    AC_DEFINE_UNQUOTED(inline, $ac_cv_lbl_inline, [Define as token for inline if inlining supported])])
+
 dnl
 dnl Use pfopen.c if available and pfopen() not in standard libraries
 dnl Require libpcap
@@ -191,9 +236,9 @@ AC_DEFUN(AC_LBL_LIBPCAP,
     AC_MSG_CHECKING(for local pcap library)
     libpcap=FAIL
     lastdir=FAIL
-    places=`ls .. | sed -e 's,/$,,' -e 's,^,../,' | \
+    places=`ls $srcdir/.. | sed -e 's,/$,,' -e "s,^,$srcdir/../," | \
 	egrep '/libpcap-[[0-9]]*.[[0-9]]*(.[[0-9]]*)?([[ab]][[0-9]]*)?$'`
-    for dir in $places ../libpcap libpcap ; do
+    for dir in $places $srcdir/../libpcap $srcdir/libpcap ; do
 	    basedir=`echo $dir | sed -e 's/[[ab]][[0-9]]*$//'`
 	    if test $lastdir = $basedir ; then
 		    dnl skip alphas when an actual release is present
@@ -211,6 +256,36 @@ AC_DEFUN(AC_LBL_LIBPCAP,
 	    AC_CHECK_LIB(pcap, main, libpcap="-lpcap")
 	    if test $libpcap = FAIL ; then
 		    AC_MSG_ERROR(see the INSTALL doc for more info)
+	    fi
+	    dnl
+	    dnl Good old Red Hat Linux puts "pcap.h" in
+	    dnl "/usr/include/pcap"; had the LBL folks done so,
+	    dnl that would have been a good idea, but for
+	    dnl the Red Hat folks to do so just breaks source
+	    dnl compatibility with other systems.
+	    dnl
+	    dnl We work around this by assuming that, as we didn't
+	    dnl find a local libpcap, libpcap is in /usr/lib or
+	    dnl /usr/local/lib and that the corresponding header
+	    dnl file is under one of those directories; if we don't
+	    dnl find it in either of those directories, we check to
+	    dnl see if it's in a "pcap" subdirectory of them and,
+	    dnl if so, add that subdirectory to the "-I" list.
+	    dnl
+	    AC_MSG_CHECKING(for extraneous pcap header directories)
+	    if ! test \( -r /usr/local/include/pcap.h -o \
+			 -r /usr/include/pcap.h \); then
+		if test -r /usr/local/include/pcap/pcap.h; then
+		    d="/usr/local/include/pcap"
+		elif test -r /usr/include/pcap/pcap.h; then
+		    d="/usr/include/pcap"
+		fi
+	    fi
+	    if test -z $d ; then
+		AC_MSG_RESULT(not found)
+	    else
+		$2="-I$d $$2"
+		AC_MSG_RESULT(found -- -I$d added)
 	    fi
     else
 	    $1=$libpcap
@@ -235,8 +310,29 @@ AC_DEFUN(AC_LBL_LIBPCAP,
 		    AC_MSG_RESULT(yes)
 		    LIBS="$LIBS -I:$pseexe"
 	    fi
+	    #
+	    # We need "-lodm" and "-lcfg", as libpcap requires them on
+	    # AIX, and we just build a static libpcap.a and thus can't
+	    # arrange that when you link with libpcap you automatically
+	    # link with those libraries.
+	    #
+	    LIBS="$LIBS -lodm -lcfg"
 	    ;;
-    esac])
+    esac
+
+    dnl
+    dnl Check for "pcap_list_datalinks()", "pcap_set_datalink()",
+    dnl and "pcap_datalink_name_to_val()".
+    dnl
+    AC_CHECK_FUNC(pcap_list_datalinks,
+	AC_DEFINE(HAVE_PCAP_LIST_DATALINKS),
+	LIBOBJS="$LIBOBJS datalinks.o")
+    AC_CHECK_FUNC(pcap_set_datalink,
+	AC_DEFINE(HAVE_PCAP_SET_DATALINK))
+    AC_CHECK_FUNC(pcap_datalink_name_to_val,
+	AC_DEFINE(HAVE_PCAP_DATALINK_NAME_TO_VAL),
+	LIBOBJS="$LIBOBJS dlnames.o")
+])
 
 dnl
 dnl Define RETSIGTYPE and RETSIGVAL
@@ -265,10 +361,10 @@ AC_DEFUN(AC_LBL_TYPE_SIGNAL,
 	    ;;
 
     *)
-	    dnl prefer sigset() to sigaction()
-	    AC_CHECK_FUNCS(sigset)
-	    if test $ac_cv_func_sigset = no ; then
-		    AC_CHECK_FUNCS(sigaction)
+	    dnl prefer sigaction() to sigset()
+	    AC_CHECK_FUNCS(sigaction)
+	    if test $ac_cv_func_sigaction = no ; then
+		    AC_CHECK_FUNCS(sigset)
 	    fi
 	    ;;
     esac])
@@ -549,7 +645,8 @@ EOF
 dnl
 dnl If using gcc and the file .devel exists:
 dnl	Compile with -g (if supported) and -Wall
-dnl	If using gcc 2, do extra prototype checking
+dnl	If using gcc 2 or later, do extra prototype checking and some other
+dnl	checks
 dnl	If an os prototype include exists, symlink os-proto.h to it
 dnl
 dnl usage:
@@ -575,7 +672,7 @@ AC_DEFUN(AC_LBL_DEVEL,
 			    fi
 			    $1="$$1 -Wall"
 			    if test $ac_cv_lbl_gcc_vers -gt 1 ; then
-				    $1="$$1 -Wmissing-prototypes -Wstrict-prototypes"
+				    $1="$$1 -Wmissing-prototypes -Wstrict-prototypes -Wwrite-strings -W"
 			    fi
 		    fi
 	    else
@@ -612,6 +709,11 @@ dnl
 dnl results:
 dnl
 dnl	LIBS
+dnl
+dnl XXX - "AC_LBL_LIBRARY_NET" was redone to use "AC_SEARCH_LIBS"
+dnl rather than "AC_LBL_CHECK_LIB", so this isn't used any more.
+dnl We keep it around for reference purposes in case it's ever
+dnl useful in the future.
 dnl
 
 define(AC_LBL_CHECK_LIB,

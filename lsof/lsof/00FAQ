@@ -3,7 +3,8 @@
 
 **********************************************************************
 | The latest release of lsof is always available via anonymous ftp   |
-| from vic.cc.purdue.edu.  Look in pub/lsof.README for its location. |
+| from lsof.itap.purdue.edu.  Look in pub/lsof.README for its        |
+| location.                                                          |
 **********************************************************************
 
 ______________________________________________________________________
@@ -12,7 +13,7 @@ This file contains frequently asked questions about lsof and answers
 to them.
 
 Vic Abell <abe@purdue.edu>
-November 7, 2001
+June 10, 2003
 ______________________________________________________________________
 
 Table of Contents:
@@ -28,6 +29,10 @@ Table of Contents:
 1.4	How do I report an lsof bug?
 1.5	Where can I get the lsof FAQ?
 1.5.1	How timely is the on-line FAQ?
+1.6	Is there a test suite?
+1.7	Is lsof vulnerable to the standard I/O descriptor attack?
+1.8	Can I alter lsof's make(1) behavior?
+1.9	Is there an lsof license?
 
 2.0	Lsof Ports
 2.1	What ports exist?
@@ -37,78 +42,129 @@ Table of Contents:
 2.4	Why isn't there an SGI IRIX port?
 
 3.0	Lsof Problems
-3.1	Why doesn't lsof report full path names?
-3.1.1	Why do lsof -r reports show different path names?
-3.1.2	Why does lsof report the wrong path names?
-3.1.3	Why doesn't lsof report path names for unlinked (rm'd) files?
-3.1.4	Why doesn't lsof report the "correct" hard linked file path
+3.1	Configuration Problems
+3.2	Compilation Problems
+3.2.1	Why does the compiler complain about missing header files?
+3.2.2   Why does gcc complain about the contents of header files
+	distributed by the system's vendor?
+3.2.3	Other header file problems
+3.3	Why doesn't lsof report full path names?
+3.3.1	Why do lsof -r reports show different path names?
+3.3.2	Why does lsof report the wrong path names?
+3.3.3	Why doesn't lsof report path names for unlinked (rm'd) files?
+3.3.4	Why doesn't lsof report the "correct" hard linked file path
 	name?
-3.2	Why is lsof so slow?
-3.3	Why doesn't lsof's setgid or setuid permission work?
-3.4	Does lsof have security problems?
-3.5	Will lsof show remote hosts using files via NFS?
-3.6	Why doesn't lsof report locks held on NFS files?
-3.6.1	Why does lsof report a one byte lock on byte zero as a full
+3.4	Why is lsof so slow?
+3.5	Why doesn't lsof's setgid or setuid permission work?
+3.6	Does lsof have security problems?
+3.7	Will lsof show remote hosts using files via NFS?
+3.8	Why doesn't lsof report locks held on NFS files?
+3.8.1	Why does lsof report a one byte lock on byte zero as a full
 	file lock?
-3.7	Why does lsof report different values for open files on the
+3.9	Why does lsof report different values for open files on the
 	same file system (the automounter phenomenon)?
-3.8	Why don't lsof and netstat output match?
-3.8.1	Why can't lsof find accesses to some TCP and UDP ports?
-3.9	Why does lsof update the device cache file?
-3.10	Why doesn't lsof report state for UDP socket files?
-3.11	I am editing a file with vi; why doesn't lsof find the file?
-3.12	Why doesn't lsof report TCP/TPI window and queue sizes for my
+3.10	Why don't lsof and netstat output match?
+3.10.1	Why can't lsof find accesses to some TCP and UDP ports?
+3.11	Why does lsof update the device cache file?
+3.12	Why doesn't lsof report state for UDP socket files?
+3.13	I am editing a file with vi; why doesn't lsof find the file?
+3.14	Why doesn't lsof report TCP/TPI window and queue sizes for my
 	dialect?
-3.13	What does "no more information" in the NAME column mean?
-3.14	Why doesn't lsof find a process that ps finds?
-3.15	Why doesn't -V report a search failure?
-3.16	Portmap problems
-3.16.1	Why isn't a name displayed for the portmap registration?
-3.16.2	How can I display only portmap registrations?
-3.16.3	Why doesn't lsof report portmap registrations for some ports?
-3.17	Why is `lsof | wc` bigger than my system's open file limit?
-3.18	Why doesn't lsof report file offset (position)?
-3.18.1	What does lsof report for size when the file doesn't really have
+3.15	What does "no more information" in the NAME column mean?
+3.16	Why doesn't lsof find a process that ps finds?
+3.17	Why doesn't -V report a search failure?
+3.18	Portmap problems
+3.18.1	Why isn't a name displayed for the portmap registration?
+3.18.2	How can I display only portmap registrations?
+3.18.3	Why doesn't lsof report portmap registrations for some ports?
+3.19	Why is `lsof | wc` bigger than my system's open file limit?
+3.20	Why doesn't lsof report file offset (position)?
+3.20.1	What does lsof report for size when the file doesn't really have
 	one?
-3.19	Problems with path name arguments
-3.19.1	How do I ask lsof to search a file system?
-3.19.2	Why doesn't lsof find all the open files in a file system?
-3.19.3	Why does the lsof exit code report it didn't find open files
+3.21	Problems with path name arguments
+3.21.1	How do I ask lsof to search a file system?
+3.21.2	Why doesn't lsof find all the open files in a file system?
+3.21.3	Why does the lsof exit code report it didn't find open files
 	when some files were listed?
-3.19.4	Why won't lsof find all the open files in a directory?
-3.19.5	Why are the +D and +d options so slow?
-3.19.6	Why do the +D and +d options produce warning messages?
-3.20	Why can't my C compiler find the rpcent structure definition?
-3.21	Why doesn't lsof report fully on file "foo" on UNIX dialect
+3.21.4	Why won't lsof find all the open files in a directory?
+3.21.5	Why are the +D and +d options so slow?
+3.21.6	Why do the +D and +d options produce warning messages?
+3.22	Why can't my C compiler find the rpcent structure definition?
+3.23	Why doesn't lsof report fully on file "foo" on UNIX dialect
 	"bar?"
-3.22	Why do I get a complaint when I execute lsof that some library
+3.24	Why do I get a complaint when I execute lsof that some library
 	file can't be found?
-3.23	Why does lsof complain it can't open files?
-3.24	Why does lsof warn "compiled for x ... y; this is z."?
-3.25	How can I disable the kernel identity check?
-3.26	Why don't ps(1) and lsof agree on the owner of a process?
-3.27	Why doesn't lsof find an open socket file whose connection
+3.25	Why does lsof complain it can't open files?
+3.26	Why does lsof warn "compiled for x ... y; this is z."?
+3.27	How can I disable the kernel identity check?
+3.28	Why don't ps(1) and lsof agree on the owner of a process?
+3.29	Why doesn't lsof find an open socket file whose connection
 	state is past CLOSE_WAIT?
-3.28	Why don't machine.h definitions work when the surrounding
+3.30	Why don't machine.h definitions work when the surrounding
 	comments are removed?
-3.29	What do "can't read inpcb at 0x...", "no protocol control
+3.31	What do "can't read inpcb at 0x...", "no protocol control
 	block", "no PCB, CANTSENDMORE, CANTRCVMORE", etc. mean?
-3.30	What do the "unknown file system type" warnings mean?
-3.31	Installation
-3.31.1	How do I install lsof?
-3.31.2	How do I install a common lsof when I have machines that
+3.32	What do the "unknown file system type" warnings mean?
+3.33	Installation
+3.33.1	How do I install lsof?
+3.33.2	How do I install a common lsof when I have machines that
 	need differently constructed lsof binaries?
-3.32	Why do lsof 4.53 and above reject device cache files built
+3.34	Why do lsof 4.53 and above reject device cache files built
 	by earlier lsof revisions?
-3.33	What does "like dev special /dev..." mean in VCHR NAME columns?
-3.34	Why does an lsof make fail because of undefined symbols?
-3.35	Command Regular Expressions (REs)
-3.35.1	What are basic and extended regular expressions?
-3.35.2	Why can't I put a slash in a command regular expression?
-3.35.3	Why does lsof say my command regular expression wasn't found?
-3.36	Why doesn't lsof report on shared memory segments?
-3.37	Why does lsof report two instances of itself?
-3.38	Why does lsof report '\n' in device cache file error messages?
+3.35	What do "like block special" and "like character special" mean
+	in the NAME column?
+3.36	Why does an lsof make fail because of undefined symbols?
+3.37	Command Regular Expressions (REs)
+3.37.1	What are basic and extended regular expressions?
+3.37.2	Why can't I put a slash in a command regular expression?
+3.37.3	Why does lsof say my command regular expression wasn't found?
+3.38	Why doesn't lsof report on shared memory segments?
+3.39	Why does lsof report two instances of itself?
+3.40	Why does lsof report '\n' in device cache file error messages?
+3.41	Kernel Symbol and Address Problems
+3.41.1	What does "lsof: WARNING: name cache hash size length error: 0"
+	mean?
+3.41.2	Why does lsof produce "garbage" output?
+3.42    Why does lsof report open files when run as super user that
+	it doesn't report when run with lesser privileges?
+3.43	Test Suite Problems
+3.43.1	Errors all tests can report:
+3.43.1.1 Why do tests complain "ERROR!!!  can't execute ../lsof"?
+3.43.1.2 Why do tests complain "ERROR!!! can't find ..." a file?
+3.43.1.3 Why do some tests fail to compile?
+3.43.1.4 Why do some tests always fail?
+3.43.1.5 Why does the test suite say it hasn't been validated on
+	 my dialect?
+3.43.3.41 Why do the tests complain they can't stat() or open()
+	 /dev/mem or /dev/kmem?
+3.43.2	LTbigf test issues
+3.43.2.1 Why does the LTbigf test say that the dialect doesn't
+	 support large files?
+3.43.2.2 Why does LTbigf complain about operations on its config.LTbigf*
+	 file?
+3.43.2.3 Why does LTbigf warn that lsof doesn't return file offsets?
+3.43.3	Why does the LTbasic test complain "ERROR!!! lsof this ..."
+	and "ERROR!!!  lsof that ..."?
+3.43.4	LTnfs test issues
+3.43.4.1 Why does the LTnfs test complain "couldn't find NFS file ..."?
+3.43.5	LTnlink test issues
+3.43.5.1 Why does the LTnlink test complain that its test file is on
+	 an NFS file system?
+3.43.5.2 Why does LTnlink delay and report "waiting for link count
+	 update: ..."?
+3.43.6	LTdnlc test issues
+3.43.6.1 Why won't the LTdnlc test run?
+3.43.6.2 What does the LTdnlc test mean by "... <path> found: 100.00%"?
+3.43.6.3 Why does the DNLC test fail?
+3.43.7	Why hasn't the test suite been qualified for 64 bit HP-UX
+	11 when lsof is compiled with gcc?
+3.43.8	LTszoff test issues
+3.43.8.1 Why does LTszoff warn that lsof doesn't return file offsets?
+3.43.9	LTlock test issues
+3.44	File descriptor list (the ``-d'' option) problems
+3.44.1	Why does lsof reject a ``-d'' FD list?
+3.44.2	Why are file descriptors other than those in my FD list
+	reported?
 
 4.0	AIX Problems
 4.1	What is the Stale Segment ID bug and why is -X needed?
@@ -124,10 +180,17 @@ Table of Contents:
 	CANTRCVMORE" in a socket file's NAME column?
 4.9	When the -X option is used on AIX 4.3.3, why does lsof disable
 	it, saying "WARNING: user struct mismatch; -X option disabled?"
-4.10	Why doesn't the -X option work on my AIX 5L or 5.1 system?
+4.10	Why doesn't the -X option work on my AIX 5L or 5.[12] system?
 4.11	Why doesn't /usr/bin/oslevel report the correct AIX version?
 4.11.1	Why doesn't /usr/bin/oslevel report the correct AIX version
 	on AIX 5.1?
+4.12    Why does lsof for AIX 5.1 or above Power architecture
+	complain about kernel bit size?
+4.13	What can't gcc be used to compile lsof on the ia64 architecture
+	for AIX 5 and above?
+4.14	Why does lsof get a segmentation fault when compiled with gcc
+	for a 64 bit Power architecture AIX 5.1 kernel?
+4.15	Why does lsof ignore AFS on my AIX system?
 
 5.0	Apple Darwin Problems
 5.1	Why does Configure have to check out CVS kernel header files?
@@ -137,6 +200,8 @@ Table of Contents:
 	file checkout?
 5.1.3	How can I supply the missing Apple Darwin kernel header files
 	myself?
+5.1.4   Why aren't some Apple Darwin kernel header files accessible
+	via CVS?
 5.2	Why doesn't Apple Darwin lsof report text file information?
 5.3	Why doesn't Apple Darwin lsof support IPv6?
 5.4     Why does lsof complain about a mismatch between the release
@@ -155,6 +220,8 @@ Table of Contents:
 	UNIX 5.1 files?
 7.6	Why doesn't lsof report link count, node number, and size
 	for some Tru64 5.x CFS files?
+7.7     Why does lsof say it can't read the kernel name list or
+	proc table on Digital UNIX 4.x or Tru64 UNIX?
 
 8.0	FreeBSD Problems
 8.1	Why doesn't lsof report on open kernfs files?
@@ -165,21 +232,19 @@ Table of Contents:
 9.1	What do /dev/kmem-based and PSTAT-based mean?
 9.2	/dev/kmem-based HP-UX lsof Questions
 9.2.1	Why doesn't a /dev/kmem-based HP-UX lsof compilation use -O?
-9.2.2	Why doesn't /dev/kmem-based lsof report HP-UX 10.20 locks
-	correctly?
-9.2.3	Why doesn't the /dev/kmem-based CCITT support work under 10.x?
-9.2.4	Why can't /dev/kmem-based lsof be compiled with `cc -Aa` or
+9.2.2	Why doesn't the /dev/kmem-based CCITT support work under 10.x?
+9.2.3	Why can't /dev/kmem-based lsof be compiled with `cc -Aa` or
 	`gcc -ansi` under HP-UX 10.x?
-9.2.5	Why does /dev/kmem-based lsof complain about no C compiler?
-9.2.6	Why does Configure complain about q4 for /dev/kmem-based lsof
+9.2.4	Why does /dev/kmem-based lsof complain about no C compiler?
+9.2.5	Why does Configure complain about q4 for /dev/kmem-based lsof
 	for HP-UX 11?
-9.2.7	When compiling /dev/kmem-based lsof for HP-UX 11 what do the
+9.2.6	When compiling /dev/kmem-based lsof for HP-UX 11 what do the
 	"aCC runtime: ERROR..." messages mean?
-9.2.8	Why doesn't /dev/kmem-based lsof for HP-UX 11 report VxFS file
+9.2.7	Why doesn't /dev/kmem-based lsof for HP-UX 11 report VxFS file
 	link counts, node numbers, and sizes correctly?
-9.2.9	Why can't /dev/kmem-based lsof be built with gcc for 64 bit
+9.2.8	Why can't /dev/kmem-based lsof be built with gcc for 64 bit
 	HP-UX 11?
-9.2.9.1	How can I acquire a gcc for building lsof for 64 bit HP-UX 11?
+9.2.8.1	How can I acquire a gcc for building lsof for 64 bit HP-UX 11?
 9.3	PSTAT-based HP-UX lsof Questions
 9.3.1	Why does PSTAT-based lsof complain about pst_static and
 	other PSTAT structures?
@@ -203,10 +268,17 @@ Table of Contents:
 	for all processes?
 10.2.6	Why won't Customize offer to change HASDCACHE or WARNDEVACCESS
 	for /proc-based lsof?
-10.2.7	Why can't lsof find files on an inaccessible NFS file system?
+10.2.7	/proc-based lsof Linux NFS questions
+10.2.7.1 Why can't lsof find files on an accessible NFS file system?
+10.2.7.2 Why can't lsof find files on an inaccessible NFS file system?
 
 11.0	NetBSD Problems
 11.1	Why doesn't lsof report on open kernfs files?
+11.2	Why doesn't lsof report on open files on: file descriptor
+	file systems; /proc file systems; 9660 (CD-ROM) file systems;
+	MS-DOS (floppy disk) file systems; or kernel file systems?
+11.3    Why does lsof produce confusing results for nullfs file
+	systems?
 
 12.0	NEXTSTEP and OPENSTEP Problems
 12.1	Why can't lsof report on 3.1 lockf() or fcntl(F_SETLK)
@@ -215,10 +287,12 @@ Table of Contents:
 
 13.0	OpenBSD Problems
 13.1	Why doesn't lsof support kernfs on my OpenBSD system?
-13.2	Will lsof work on OpenBSD on non-Intel-based architectures?
+13.2	Will lsof work on OpenBSD on non-x86-based architectures?
 13.3	<sys/pipe.h> problems
 13.3.1	Why does the compiler claim nbpg isn't defined?
 13.3.2	What value should I assign to nbpg?
+13.4	Why doesn't lsof report on open MS-DOS file system (floppy
+	disk) files?
 
 14.0	Output problems
 14.1	Why do the lsof column sizes change?
@@ -231,6 +305,9 @@ Table of Contents:
 	IPv6, to be displayed in IPv6 notation?
 14.5	Why does lsof output \x, ^x, or \xnn for characters
 	sometimes?
+14.5.1  Why is space considered a non-printable character in command
+	names?
+14.6	Why doesn't lsof print all the characters of a command name?
 
 15.0	Pyramid Version Problems
 15.0.5	Statement of deprecation
@@ -248,7 +325,7 @@ Table of Contents:
 16.1.1	How can I avoid segmentation faults when compiling lsof?
 16.1.2	Where is libsocket.a?
 16.1.3	Why do I get "warning C4200" messages when I compile lsof?
-16.2	SCO UnixWare Problems
+16.2	SCO|Caldera UnixWare Problems
 16.2.1  Why doesn't lsof compile on my UnixWare 7.1.1 or above
 	system?
 16.2.2	Why does lsof complain about node_self() on my UnixWare
@@ -268,7 +345,7 @@ Table of Contents:
 17.0.5	Statement of deprecation
 17.1	My Sun gcc-compiled lsof doesn't work -- why?
 17.2	How can I make lsof compile with gcc under Solaris 2.[456],
-	2.5.1, 7, or 8?
+	2.5.1, 7, 8 or 9?
 17.3	Why does Solaris Sun C complain about system header files?
 17.4	Why doesn't lsof work under my Solaris 2.4 system?
 17.5	Where are the Solaris header files?
@@ -278,19 +355,19 @@ Table of Contents:
 17.9	Why doesn't Solaris make generate .o files?
 17.10	Why does lsof report some Solaris 2.3 and 2.4 lock types as `N'?
 17.11	Why does lsof Configure say "WARNING: no cc in ..."?
-17.12	Solaris 7 and 8 Problems
+17.12	Solaris 7, 8 and 9 Problems
 17.12.1	Why does lsof say the compiler isn't adequate for Solaris
-	7 or 8?
-17.12.2	Why does Solaris 7 or 8 lsof say "FATAL: lsof was compiled
+	7, 8 or 9?
+17.12.2 Why does Solaris 7, 8 or 9 lsof say "FATAL: lsof was compiled
 	for..."?
 17.12.3	How do I build lsof for a 64 bit Solaris kernel under a 32
 	bit Solaris kernel?
-17.12.4	How do I install lsof for Solaris 7 or 8?
-17.12.5	Why does my Solaris 7 or 8 system say it cannot execute lsof?
-17.12.6	How do I build a gcc that will produce 64 bit Solaris 7 and
-	8 executables?
-17.12.7	Why does lsof on my Solaris 7 or 8 system say, "can't read
-	namelist from /dev/ksyms?"
+17.12.4	How do I install lsof for Solaris 7, 8 or 9?
+17.12.5 Why does my Solaris 7, 8 or 9 system say it cannot execute
+	lsof?
+17.12.6 What gcc will produce 64 bit Solaris 7, 8 and 9 executables?
+17.12.7 Why does lsof on my Solaris 7, 8 or 9 system say, "can't
+	read namelist from /dev/ksyms?"
 17.13	Solaris and COMMON
 17.13.1	What does COMMON mean in the NAME column for a Solaris VCHR
 	file?
@@ -307,6 +384,14 @@ Table of Contents:
 17.19	Large file problems
 17.19.1	Why does lsof complain it can't stat(2) a Solaris 2.5.1
 	large file?
+17.20   Why does lsof get a segmentation fault on 64 bit Solaris
+	8 using NIS+?
+17.21	Will lsof crash the Solaris kernel?
+17.22   Why does lsof on Solaris 7, 8, or 9 report a kvm_open()
+	failure?
+17.23	Solaris and SAM-FS
+17.23.1	Why does Solaris lsof report "(limited SAM-FS info)"?
+17.23.2	Why can't lsof locate named SAM-FS files?
 
 18.0	Lsof Features
 18.1	Why doesn't lsof doesn't report on /proc entries on my
@@ -338,8 +423,10 @@ ______________________________________________________________________
 
 1.2	Where do I get lsof?
 
-	Lsof is available via anonymous ftp from vic.cc.purdue.edu.
+	Lsof is available via anonymous ftp from lsof.itap.purdue.edu.
 	Look in the pub/tools/unix/lsof sub-directory.
+
+	    ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof
 
 	Compressed and gzip'd tar files with PGP certificates are
 	available.
@@ -348,21 +435,19 @@ ______________________________________________________________________
 
 	The lsof distribution is currently mirrored at:
 
+	    ftp://ftp.ayamura.org/pub/lsof/
 	    ftp://ftp.cerias.purdue.edu/pub/tools/unix/sysutils/lsof
 	    ftp://ftp.cert.dfn.de/pub/tools/admin/lsof
 	    ftp://ftp.crc.ca/pub/packages/lsof
-	    ftp://ftp.cetis.hvu.nl/pub/lsof/
 	    ftp://ftp.fu-berlin.de/pub/unix/tools/lsof
 	    ftp://ftp.sunet.se/pub/unix/admin/lsof
 	    ftp://ftp.tau.ac.il/pub/unix/admin
 	    ftp://ftp.tu-darmstadt.de/pub/sysadmin/lsof
 	    ftp://ftp.tux.org/pub/sites/vic.cc.purdue.edu/tools/unix/lsof
-	    ftp://ftp.uni-mainz.de/pub/misc/lsof
 	    ftp://gd.tuwien.ac.at/utils/admin-tools/lsof
 	    ftp://sunsite.ualberta.ca/pub/Mirror/lsof
 	    ftp://the.wiretapped.net/pub/security/host-security/lsof/
-	    ftp://wuarchive.wustl.edu/packages/security/lsof
-	    http://kaizo.org/mirrors/lsof
+	    http://kaizo.org/pub/lsof
 
 1.2.2	Are lsof executables available?
 
@@ -388,7 +473,7 @@ ______________________________________________________________________
 
 	2.  If you want to use an lsof binary on multiple systems,
 	    they must be running the same dialect OS version and
-	    have the same patches.
+	    have the same patches and feature support.
 
 1.2.3   Why can't I get the sum(1) result reported in
 	README.lsof_<revision>?
@@ -426,15 +511,15 @@ ______________________________________________________________________
 	distribution (See "Where can I get lsof?).  There is a
 	manual page, copious documentation in files whose names
 	begin with 00, and a copy of this FAQ in the file 00FAQ
-	(perhaps slightly less recent that this file if you're
+	(perhaps slightly less recent than this file if you're
 	reading it via a web browser.)
 
 	Two URLs provide some documentation that appears in the
 	lsof distribution:
 
-	FAQ: ftp://vic.cc.purdue.edu/pub/tools/unix/lsof/FAQ
+	FAQ: ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof/FAQ
 
-	man page: ftp://vic.cc.purdue.edu/pub/tools/unix/lsof/lsof_man
+	man page: ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof/lsof_man
 
 1.4	How do I report an lsof bug?
 
@@ -451,11 +536,11 @@ ______________________________________________________________________
 
 	   o  Download the latest revision from:
 
-    		ftp://vic.cc.purdue.edu/pub/tools/unix/lsof
+    		ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof
 
-	   o  While connected to vic.cc.purdue.edu, check for patches:
+	   o  While connected to lsof.itap.purdue.edu, check for patches:
 
-		ftp://vic.cc.purdue.edu/pub/tools/unix/lsof/patches
+		ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof/patches
 
 	   o  If patches exist, install them in the latest revision
 	      you just downloaded.  Then build the latest revision
@@ -470,7 +555,7 @@ ______________________________________________________________________
 	This lsof FAQ is available in the file 00FAQ in the lsof
 	distribution and at the URL:
 
-	    ftp://vic.cc.purdue.edu/pub/tools/unix/lsof/FAQ
+	    ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof/FAQ
 
 1.5.1	How timely is the on-line FAQ?
 
@@ -483,6 +568,131 @@ ______________________________________________________________________
 	<abe@purdue.edu>.  I may be able to point you at a pre-release
 	distribution that contains the support of interest.
 
+1.6	Is there a test suite?
+
+	Yes, as of lsof revision 4.63 there's an automated lsof
+	test suite in the tests/ sub-directory of the lsof top-level
+	directory.
+
+	More information on using the test suite, what it does,
+	and how to configure it may be found in the 00TEST file of
+	the lsof distribution.  That file also explains where the
+	test suite has been tested.
+
+	Frequently asked questions about the test suite will be
+	asked and answered here in the FAQ.  (See "Test Suite
+	Problems.")
+
+	After lsof has been configured with the Configure script,
+	lsof can be made and tested with:
+
+	    $ make test
+
+	Under normal conditions -- i.e., unless the lsof tree has
+	been cleaned or purged severly -- all tests or individual
+	tests may be used by:
+
+	    $ cd test
+	    $ make
+	 or
+	    $ <run a single test>	(See 00TEST.)
+
+1.7	Is lsof vulnerable to the standard I/O descriptor attack?
+
+	Lsof revisions 4.63 and above are not vulnerable.
+
+	Lsof revisions 4.62 and below are vulnerable, but no damage
+	scenarios have so far been demonstrated.
+
+	The standard I/O descriptor attack is a local programmed
+	assault on setuid and setgid programs that tricks them into
+	opening a sensitive file with write access on a standard
+	descriptor, usually stderr (2), and writing error messages
+	to stderr.  If the attacker can control the content of the
+	error message, the attacker may gain elevated privileges.
+
+	The attack was first described in Pine Internet Advisory
+	PINE-CERT-20020401, available at:
+
+	    http://www.pine.nl/advisories/pine-cert-20020401.txt
+
+	If you are using an lsof revision below 4.63, you should
+	remove any setuid or setgid permissions you might have
+	given its executable.  Then you should upgrade to lsof
+	revision 4.63.
+
+1.8	Can I alter lsof's make(1) behavior?
+
+	Yes.  There are at least two ways to do that.
+
+	You can put replacements for lsof Makefile strings in your
+	environment.  If you specify the -e make option, make will
+	give environment variable values precedence over strings
+	from the Makefile.  For example, to change the compiler
+	string CC from the environment, you might do this with the
+	Bourne shell:
+
+	    $ CC=foobar; export CC
+	    $ make -e
+
+	You can also replace lsof Makefile strings in the make
+	command invocation.  Here's the previous example done that
+	way:
+
+	    $ make CC=foobar
+
+	Changing the CFGF, CFGL, and DEBUG strings used in lsof
+	Makefiles, either from the environment or from the make
+	invocation, can significantly alter lsof make(1) behavior.
+	I commonly use DEBUG to change the -O option to -g so I
+	can build an lsof executable for debugging -- e.g.,
+
+	    $ make DEBUG=-g
+	
+	(Look for DEBUG in this FAQ for other examples of its use.)
+
+	Consult the Makefiles to see what CFGL, CFGL, and other
+	lsof Makefile strings contain, and to see what influence
+	their alteration might have on lsof make(1) behavior.
+
+1.9	Is there an lsof license?
+
+	No.
+
+	The only restriction on the use or redistribution of lsof
+	is contained in this copyright statement, found in every
+	lsof source file.  (The copyright year in or format of the
+	notice may vary slightly.)
+
+	/*
+	 * Copyright 2002 Purdue Research Foundation, West Lafayette,
+	 * Indiana 47907.  All rights reserved.
+	 *
+	 * Written by Victor A. Abell
+	 *
+	 * This software is not subject to any license of the American
+	 * Telephone and Telegraph Company or the Regents of the
+	 * University of California.
+	 *
+	 * Permission is granted to anyone to use this software for
+	 * any purpose on any computer system, and to alter it and
+	 * redistribute it freely, subject to the following
+	 * restrictions:
+	 *
+	 * 1. Neither the authors nor Purdue University are responsible
+	 *    for any consequences of the use of this software.
+	 *
+	 * 2. The origin of this software must not be misrepresented,
+	 *    either by explicit claim or by omission.  Credit to the
+	 *    authors and Purdue University must appear in documentation
+	 *    and sources.
+	 *
+	 * 3. Altered versions must be plainly marked as such, and must
+	 *    not be misrepresented as being the original software.
+	 *
+	 * 4. This notice may not be removed or altered.
+	 */
+
 
 2.0	Lsof Ports
 
@@ -490,25 +700,26 @@ ______________________________________________________________________
 
 	The pub/lsof.README file carries the latest port information:
 
-	    AIX 4.3.[23], 5L, and 5.1
-	    Apple Darwin 1.[23] and 1.4 for Power Macintosh systems
-	    BSDI BSD/OS 4.1 for Intel-based systems
+	    AIX 4.3.[23], 5L, and 5.[12]
+	    Apple Darwin 1.[2-5], 5.x and 6.x for Power Macintosh systems
+	    BSDI BSD/OS 4.3.1 for x86-based systems
 	    DEC OSF/1, Digital UNIX, Tru64 UNIX 4.0, and 5.[01]
-	    FreeBSD 4.[234] and 5.0 for Intel-based systems
+	    FreeBSD 4.[2345678] and 5.[01] for x86-based systems
+	    FreeBSD 5.[01] for Alpha and Sparc64 based systems
 	    HP-UX 11.00 and 11.11
-	    Linux 2.1.72 and above for Intel-based systems
-	    NetBSD 1.5 for Alpha, Intel, and SPARC-based systems
+	    Linux 2.1.72 and above for x86-based systems
+	    NetBSD 1.[456] for Alpha, x86, and SPARC-based systems
 	    NEXTSTEP 3.[13]
-	    OpenBSD 2.[89] and 3.0 for Intel-based systems
+	    OpenBSD 2.[89] and 3.[0123] for x86-based systems
+	    OpenStep 4.x
 	    Caldera OpenUNIX 8
-	    SCO OpenServer Release 5.0.[46] for Intel-based systems
-	    SCO UnixWare 7.1.1 for Intel-based systems
-	    Solaris 2.6, 7, 8, and 9 BETA
+	    SCO OpenServer Release 5.0.[46] for x86-based systems
+	    SCO|Caldera UnixWare 7.1.[13] for x86-based systems
+	    Solaris 2.6, 7, 8, and 9
 
 	Lsof version 4 predecessors, versions 3 and 4, may support
-	older version of some dialects.  You can find their
-	distributions on vic.cc.purdue.edu in the pub/tools/unix/lsof/OLD
-	subdirectory.
+	older version of some dialects.  Contact me via e-mail if
+	you're interested in their distributions.
 
 2.2	What about a new port?
 
@@ -525,15 +736,15 @@ ______________________________________________________________________
 	I don't incorporate these contributions into my lsof
 	distribution.
 
-	However, I do make these contributions available in the
-	directory:
+	However, I do make descriptions of these contributions
+	available.  You can find them in the 00INDEX and README
+	files at:
 
-		pub/tools/unix/lsof/contrib
-
-	on vic.cc.purdue.edu.
+	    ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof/contrib
 
 	Consult the 00INDEX file in the contrib/ directory for a
-	list of the available contributions.
+	list of the available contributions and consult README
+	there for information on how to obtain them.
 
 2.3	Why isn't there an AT&T SVR4 port?
 
@@ -551,10 +762,12 @@ ______________________________________________________________________
 	If you're interested in an SVR4 version of lsof, here are
 	some existing ports you might consider:
 
-		DC/OSx
-		Reliant UNIX
-		SCO UnixWare
-		Solaris
+	    DC/OSx (This obsolete port is only available upon
+		    special request.)
+	    Reliant UNIX (This obsolete port is only available
+			  upon special request.)
+	    SCO|Caldera UnixWare (This is the most likely choice.)
+	    Solaris
 
 2.4	Why isn't there an SGI IRIX port?
 
@@ -564,11 +777,13 @@ ______________________________________________________________________
 	to access.
 
 	At IRIX 6.5 I decided the obstacles were too large for me
-	to overcome, and I stopped supporting lsof on IRIX.  You'll
-	find the sources for last revision of lsof (4.36) for IRIX
-	via anonymous ftp at vic.cc.purdue.edu in:
-
-	    pub/tools/unix/lsof/OLD/src/lsof_4.36.irix.tar.gz
+	to overcome, and I stopped supporting lsof on IRIX.  I have
+	sources to the last revision of lsof (4.36) for IRIX, but
+	that version of lsof does not work on IRIX 6.5 and is
+	vulnerable to the standard I/O descriptor attack.  (See
+	the "Is lsof vulnerable to the standard I/O descriptor
+	attack?" Q&A for more information.) Contact me to discuss
+	obtaining those sources.
 
 	If you wish to pursue the issue, don't contact me, contact
 	SGI.  This case was opened with SGI on the subject:
@@ -587,7 +802,112 @@ ______________________________________________________________________
 
 3.0	Lsof Problems
 
-3.1	Why doesn't lsof report full path names?
+3.1	Configuration Problems
+
+3.2	Compilation Problems
+
+3.2.1	Why does the compiler complain about missing header files?
+
+	When you use make to build lsof, the compiler may complain
+	that it can't find header files -- e.g.,
+
+	    $ make
+	    (cd lib; make DEBUG="-O" CFGF="-DAIXA=0 -DAIXV=4330 \
+	    -DLSOF_VSTR=\"4.3.3.0\"")
+	    gcc  -DAIXA=0 -DAIXV=4330 -DLSOF_VSTR="4.3.3.0" -O \
+	    -c ckkv.c
+	    In file included from ckkv.c:33: ../machine.h:70: \
+	    sys/types.h: A file or directory in the path name \
+	    does not exist. \
+
+       That type of complaint doesn't represent an lsof problem.
+       It represents a problem with a missing system header file
+       that probably should be found in /usr/include or in the
+       system source tree.
+
+       As a first step try using find(1) to locate the problem
+       header file.  If it's a system header file and can't be
+       found, here are some possible causes:
+
+	1. The file set, RPM or package containing the header files
+	   has not been installed.  instructions for doing that
+	   are specific to the UNIX dialect and beyond the scope
+	   of this document.
+
+	2. If the compiler is gcc, the private gcc header files:
+
+	   * May not have been installed;
+	   
+	   * May have been installed incorrectly;
+	   
+	   * May not have been updated properly after the last
+	     compiler or system update;
+	     
+	   * Ones from a previous installation may not have been
+	     removed.
+	     
+	   A path leading to the gcc private header files can be
+	   found with `gcc -v`.  Consult the gcc documentation for
+	   instructions on proper installation of the private gcc
+	   header files.
+
+	3. On some dialects -- e.g., FreeBSD, NetBSD, OpenBSD --
+	   lsof may need to use header files that are located in
+	   the system source tree -- /sys or /usr/src/sys, for
+	   example.  Make sure the system source tree has been
+	   installed.
+
+3.2.2   Why does gcc complain about the contents of header files
+	distributed by the system's vendor?
+
+	When you use make to build lsof and gcc to compile it, gcc
+	may complain that it finds errors in system header files
+	-- e.g.,
+
+	    $ make
+	    (cd lib; make DEBUG="-O" CFGF="-Dsolaris=80000 \
+	     -DHASPR_GWINDOWS -m64 -DHASIPv6 -DHAS_VSOCK \
+	     -DLSOF_VSTR=\"5.8\"")
+	     gcc -Dsolaris=80000  -DHASPR_GWINDOWS -m64 -DHASIPv6 \
+	     -DHAS_VSOCK -DLSOF_VSTR="5.8"  -O  -c  dvch.c
+	    In file included from /usr/include/sys/proc.h:31, \
+             from /homes/abe/gnu/gcc-3.2.1/lib/gcc-lib/sparcv9-sun-solaris2/ \
+	     3.2.1/include/sys/user.h:267, from /usr/include/kvm.h:13, \
+	     from ../dlsof.h:53, from ../lsof.h:172, from dvch.c:43: \
+	     /homes/abe/gnu/gcc-3.2.1/lib/gcc-lib/sparcv9-sun-solaris2/\
+	      3.2.1/include/sys/task.h:59: parse error before "uint_t"
+
+	Errors like the above are most likely not problems in the
+	system's header files, but in the private copies of them
+	that were created when gcc was made or installed.  Note
+	the presense of
+	".../gcc-3.2.1/lib/gcc-lib/sparcv9-sun-solaris2/3.2.1/include/..."
+	in the paths for user.h and task.h.  It indicates both
+	header files are gcc-specific.
+
+	To solve errors like this requires comparing the header
+	files in the vendor's /usr/include tree to the gcc-specific
+	ones in gcc's private gcc-lib/.../include tree.  It may be
+	necessary to regenerate gcc-specific header files, correct
+	them or remove them.  See the gcc distribution for the
+	appropriate tools.
+
+	A possible temporary work-around is to direct gcc to use
+	the vendor's header files instead of its temporary ones by
+	declaring -I/usr/include in the compilation flags.
+
+3.2.3	Other header file problems
+
+	Don't overlook any vendor tools that might validate the
+	vendor header files installed on the system  -- e.g., the
+	Solaris pkgchk tool can be used to check the header files
+	that were installed from the SUNWhea package.
+
+	For other header file problems contact me at <abe@purdue.edu>.
+	Please follow the reporting guidelines in the "How do I
+	report an lsof bug?" section of this FAQ.
+
+3.3	Why doesn't lsof report full path names?
 
 	Lsof reports the full path name when it is specified as a
 	search argument for open files that match the argument.
@@ -619,7 +939,7 @@ ______________________________________________________________________
 		Reliant UNIX
 		Caldera OpenUNIX
 		SCO OpenServer
-		SCO UnixWare
+		SCO|Caldera UnixWare
 		Solaris 2.x, 7, and 8
 
 	As far as I can determine, AFS path lookups don't share in
@@ -683,7 +1003,7 @@ ______________________________________________________________________
 	and you may get an appreciation of what a file system
 	directory tree search would cost.
 
-3.1.1	Why do lsof -r reports show different path names?
+3.3.1	Why do lsof -r reports show different path names?
 
 	When you run lsof with its repeat (``-r'') option, you may
 	notice that the extent to which it reports path names for
@@ -692,7 +1012,7 @@ ______________________________________________________________________
 	the cache and causing entries to be removed from and added
 	to it.
 
-3.1.2	Why does lsof report the wrong path names?
+3.3.2	Why does lsof report the wrong path names?
 
 	Under some circumstances lsof may report an incorrect path
 	name component, especially for files in a rapidly changing
@@ -716,7 +1036,7 @@ ______________________________________________________________________
 	BSDI, FreeBSD, NetBSD, OpenBSD, Tru64 UNIX, and also use
 	a capability ID to further identify name cache entries.
 
-3.1.3	Why doesn't lsof report path names for unlinked (rm'd) files?
+3.3.3	Why doesn't lsof report path names for unlinked (rm'd) files?
 
 	Lsof never reports a path names for a file that has been
 	unlinked from its parent directory -- e.g., deleted via
@@ -739,7 +1059,7 @@ ______________________________________________________________________
 	can tell lsof to display only files whose link count is
 	less than one (i.e., zero).
 
-3.1.4	Why doesn't lsof report the "correct" hard linked file path
+3.3.4	Why doesn't lsof report the "correct" hard linked file path
 	name?
 
 	When lsof reports a rightmost path name component for a
@@ -753,7 +1073,7 @@ ______________________________________________________________________
 	to the kernel are the device and node numbers, and they're
 	the same for all the hard linked names.
 
-3.2	Why is lsof so slow?
+3.4	Why is lsof so slow?
 
 	Lsof may appear to be slow if network address to host name
 	resolution is slow.  This can happen, for example, when
@@ -785,12 +1105,13 @@ ______________________________________________________________________
 	mean that lsof won't report full or partial path names,
 	just file system and character device names.
 
-	AIX lsof may be slow to start because of its oslevel identity
-	comparison.  See the "Why does AIX lsof start so slowly?"
-	and "Why does lsof warn "compiled for x ... y; this is z.?"
-	sections for more information.
+	Older AIX lsof may be slow to start because of its oslevel
+	identity comparison.  (Newer AIX lsof uses uname(2).)  See
+	the "Why does AIX lsof start so slowly?" and "Why does lsof
+	warn "compiled for x ... y; this is z.?" sections for more
+	information.
 
-3.3	Why doesn't lsof's setgid or setuid permission work?
+3.5	Why doesn't lsof's setgid or setuid permission work?
 
 	If you install lsof on an NFS file system that has been
 	mounted with the nosuid option, lsof may not be able to
@@ -800,7 +1121,7 @@ ______________________________________________________________________
 	The only solution is to install lsof on a file system that
 	doesn't inhibit setgid or setuid permission.
 
-3.4	Does lsof have security problems?
+3.6	Does lsof have security problems?
 
 	I don't think so.  However, lsof does usually start with
 	setgid permission, and sometimes with setuid-root permission.
@@ -844,7 +1165,7 @@ ______________________________________________________________________
 	information about device cache file handling and the risks
 	associated with the file.
 
-3.5	Will lsof show remote hosts using files via NFS?
+3.7	Will lsof show remote hosts using files via NFS?
 
 	No.  Remember, lsof displays open files for the processes
 	of the host on which it runs.  If the host on which lsof
@@ -852,7 +1173,7 @@ ______________________________________________________________________
 	that are accessing files on the server leave no process
 	records on the server for lsof to examine.
 
-3.6	Why doesn't lsof report locks held on NFS files?
+3.8	Why doesn't lsof report locks held on NFS files?
 
 	Generally lock information held by local processes on remote
 	NFS files is not recorded by the UNIX dialect kernel.  Hence,
@@ -863,7 +1184,7 @@ ______________________________________________________________________
 	does report on locks held by local processes on remotely
 	mounted NFS files.
 
-3.6.1	Why does lsof report a one byte lock on byte zero as a full
+3.8.1	Why does lsof report a one byte lock on byte zero as a full
 	file lock?
 	
 	When a process has a lock of length one, starting at byte
@@ -871,7 +1192,7 @@ ______________________________________________________________________
 	That's because most UNIX dialects represent both locks the
 	same way in their file lock (flock or eflock) structures.
 
-3.7	Why does lsof report different values for open files on the
+3.9	Why does lsof report different values for open files on the
 	same file system (the automounter phenomenon)?
 
 	On UNIX dialects where file systems may be mounted by an
@@ -915,7 +1236,7 @@ ______________________________________________________________________
 	the only reference type is the temporary automounter one,
 	fuser will often be silent about it.
 
-3.8	Why don't lsof and netstat output match?
+3.10	Why don't lsof and netstat output match?
 
 	Lsof and netstat output don't match because lsof reports
 	the network information it finds in open file system objects
@@ -931,25 +1252,38 @@ ______________________________________________________________________
 	connection has been closed at the application layer and is
 	now being closed at the TCP/IP protocol layer.
 
-3.8.1	Why can't lsof find accesses to some TCP and UDP ports?
+3.10.1	Why can't lsof find accesses to some TCP and UDP ports?
 
-	Kernel implementations sometimes set aside TCP and UDP
-	ports for communicating with support activities running in
-	application layer servers -- the automountd and amd daemons,
-	and the NFS biod and nfsd daemons are examples.  Netstat
-	may report the ports are in use, but lsof doesn't.
+	Lsof stands for LiSt Open Files.  If there is no open file
+	connected to a TCP or UDP port, lsof won't find it.  That's
+	the most common reason why lsof doesn't find a port netstat
+	might report open.
 
-	These kernel ports are not associated with file system
-	objects, may be set aside by the kernel on demand, and
-	sometimes are never released.  Because they aren't associated
-	with open file system objects, they are transparent to
-	lsof.  After all, lsof does stand for LiSt Open Files, and
-	there are no open files associated with these kernel ports.
+	One reason I've found on some UNIX dialects is that their
+	kernels set aside TCP and UDP ports for communicating with
+	support activities, running in application layer servers
+	-- the automounter daemons, and the NFS biod and nfsd
+	daemons are examples.  Netstat may report the ports are in
+	use, but lsof doesn't.
 
-	I don't know a way to determine when ports reported by
-	netstat but not by lsof are reserved by the kernel.
+	Another reason is that netstat may also be able to report
+	a port is open on a particular dialect, because it uses a
+	source of data different from what lsof uses -- e.g.,
+	netstat might examine kernel tables or use streams messages
+	to MIB2, while lsof relies on the information it finds in
+	open file structures and their descendants.
 
-3.9	Why does lsof update the device cache file?
+	Sometimes it's possible to search the data netstat and lsof
+	use.  For example, on Linux /proc/tcp and /proc/udp can be
+	examined.  There might an entry there for a particular
+	protocol and port, but if the line on which the port appears
+	doesn't have an inode number that matches an inode number
+	of an open file, lsof won't be able to identify the process
+	using the port.
+
+	This is a tough question to which there is no easy answer.
+
+3.11	Why does lsof update the device cache file?
 
 	At the end of the lsof output you may see the message:
 
@@ -965,18 +1299,22 @@ ______________________________________________________________________
 	device directory node has changed, or if it cannot find a
 	device in the cache.
 
-3.10	Why doesn't lsof report state for UDP socket files?
+3.12	Why doesn't lsof report state for UDP socket files?
 
-	Lsof reports UDP TPI connection state -- TS_IDLE, TS_BOUND,
-	etc. -- for a limited set of dialects, including DC/OSx,
-	Reliant UNIX, Solaris 2.x, 7, 8, and 9 BETA.  TPI state is
-	stream-based TCP/IP information that isn't available in
-	many dialects.
+	Lsof reports UDP TPI connection state -- TS_IDLE (Idle),
+	TS_BOUND (Bound), etc. -- for some, but not all dialects.
+	TPI state is stream-based TCP/IP information that isn't
+	available in many dialects.
 
-	The general rule is if netstat(1) reports TPI state, lsof
-	will too.
+	A fairly weak general rule is if netstat(1) reports UDP
+	TPI state, lsof may be able to report it, too.  But don't
+	be surprised if lsof fails to report UDP TPI state for your
+	dialect.  Other factors influence lsof's ability to report
+	UDP TPI state, including the availability of state number
+	data in kernel structures, and state number to state name
+	conversion data.
 
-3.11	I am editing a file with vi; why doesn't lsof find the file?
+3.13	I am editing a file with vi; why doesn't lsof find the file?
 
 	Vi doesn't have the file open.  It opens the file, makes
 	a temporary copy (usually in /tmp or /usr/tmp), and does
@@ -988,7 +1326,7 @@ ______________________________________________________________________
 	an open reference to the file from the vi process, because
 	there is none.
 
-3.12	Why doesn't lsof report TCP/TPI window and queue sizes for my
+3.14	Why doesn't lsof report TCP/TPI window and queue sizes for my
 	dialect?
 
 	Lsof only reports TCP/TPI window sizes for Solaris, because
@@ -1016,7 +1354,7 @@ ______________________________________________________________________
 	knew to be a constant zero or whose origin I couldn't
 	determine.  OSR is a dialect in this category.
 
-3.13	What does "no more information" in the NAME column mean?
+3.15	What does "no more information" in the NAME column mean?
 
 	When lsof can find no successor structures -- a gnode,
 	inode, socket, or vnode -- connected to the file structure
@@ -1042,7 +1380,7 @@ ______________________________________________________________________
 	NAME column messages, the appearance of a few should be no
 	cause for alarm.
 
-3.14	Why doesn't lsof find a process that ps finds?
+3.16	Why doesn't lsof find a process that ps finds?
 
 	If lsof fails to display open files for a process that ps
 	indicates exists, there may be several reasons for the
@@ -1059,7 +1397,7 @@ ______________________________________________________________________
 	process, making lsof unable to find all relevant process
 	structures.  Try repeating the lsof request.
 
-3.15	Why doesn't -V report a search failure?
+3.17	Why doesn't -V report a search failure?
 
 	The usual reason that -V won't report a search failure is
 	that lsof located the search item, but was prevented from
@@ -1068,16 +1406,30 @@ ______________________________________________________________________
 
 	For example, this lsof invocation:
 
-		$ lsof -V -i TCP@foobar -a -d 999
+	    $ lsof -V -i TCP@foobar -a -d 999
 
-	may not report that it can't find the Internet address
-	TCP@foobar, even if there is an open file connected to that
-	address, unless the open file also has a file descriptor
-	number of 999 (the ``-a -d 999'' options).
+	won't report it can't find the Internet address TCP@foobar,
+	even if there is an open file connected to that address,
+	unless the open file also has a file descriptor number of
+	999 (the ``-a -d 999'' options).
 
-3.16	Portmap problems
+	Compile-time options can also affect -V results in much the
+	same way.  For example, if HASSECURITY and HASNOSOCKSECURITY
+	are defined at compile time, this lsof invocation, run by a
+	non-root user:
 
-3.16.1	Why isn't a name displayed for the portmap registration?
+	    $ lsof -V -c inetd
+
+	won't report that it can't find the inetd command, even if
+	there is a process running the inetd command, because the
+	HASSECURITY and HASNOSOCKSECURITY options prevent the
+	listing of all but the socket files of another user, and
+	no socket file selector (e.g., "-i") was specified.
+
+
+3.18	Portmap problems
+
+3.18.1	Why isn't a name displayed for the portmap registration?
 
 	When portmap registration reporting is enabled, any time
 	there is a registration for a local TCP or UDP port, lsof
@@ -1098,7 +1450,7 @@ ______________________________________________________________________
 	-h`) will show the default.  Lsof is distributed with
 	reporting disabled by default.
 
-3.16.2	How can I display only portmap registrations?
+3.18.2	How can I display only portmap registrations?
 
 	Lsof doesn't have an option that will display only TCP or
 	UDP ports with portmap registrations.  The +M option only
@@ -1134,7 +1486,7 @@ ______________________________________________________________________
 	But be careful to use the ``Mi'' ordering, since ``iM''
 	implies M is an address argument to `i'.
 
-3.16.3	Why doesn't lsof report portmap registrations for some ports?
+3.18.3	Why doesn't lsof report portmap registrations for some ports?
 
 	Lsof reports portmap registrations for local TCP and UDP
 	ports only.  It identifies local ports this way:
@@ -1165,7 +1517,7 @@ ______________________________________________________________________
 	different interfaces), and the foreign Internet address
 	isn't INADDR_LOOPBACK (127.0.0.1).
 
-3.17	Why is `lsof | wc` bigger than my system's open file limit?
+3.19	Why is `lsof | wc` bigger than my system's open file limit?
 
 	There is a strong temptation to count open files by piping
 	lsof output to wc.  If your purpose is to compare the number
@@ -1188,11 +1540,11 @@ ______________________________________________________________________
 	You might also consider using use lsof's field output with
 	+ff, selecting the file struct address with -FF, and
 	processing the output with an AWK or Perl script.  See the
-	list_fields.awk and list_fields.perl scripts in the scripts/
-	subdirectory of the lsof distribution for hints on file
-	struct post-processing filters.
+	list_fields.awk, list_fields.perl, and shared.perl5 scripts
+	in the scripts/ subdirectory of the lsof distribution for
+	hints on file struct post-processing filters.
 
-3.18	Why doesn't lsof report file offset (position)?
+3.20	Why doesn't lsof report file offset (position)?
 
 	Lsof won't report a file offset (position) value if the -s
 	option has been specified, or if the dialect doesn't support
@@ -1223,9 +1575,10 @@ ______________________________________________________________________
 	When in doubt about the behavior of lsof in reporting file
 	offset information, do some carefully measured experiments,
 	consult the lsof sources, or contact me at <abe@purdue.edu>
-	to discuss the matter.
+	to discuss the matter.  Please follow the reporting guidelines
+	in the "How do I report an lsof bug?" section of this FAQ.
 
-3.18.1	What does lsof report for size when the file doesn't really have
+3.20.1	What does lsof report for size when the file doesn't really have
 	one?
 
 	When a file has no true size -- e.g., it's a socket, a
@@ -1239,9 +1592,9 @@ ______________________________________________________________________
 	write-only files; and the sum of the buffers sizes for
 	read-write files.
 
-3.19	Problems with path name arguments
+3.21	Problems with path name arguments
 
-3.19.1	How do I ask lsof to search a file system?
+3.21.1	How do I ask lsof to search a file system?
 
 	You can ask lsof to search for all open files on a file
 	system by specifying its mounted path name as an lsof
@@ -1298,7 +1651,7 @@ ______________________________________________________________________
 	was added to lsof, +f was selected as the analogue to the
 	fuser -c option.  (Sorry for the potential confusion.)
 
-3.19.2	Why doesn't lsof find all the open files in a file system?
+3.21.2	Why doesn't lsof find all the open files in a file system?
 
 	Lsof may not find all the open files in a file system for
 	several reasons.
@@ -1330,7 +1683,7 @@ ______________________________________________________________________
 	
 	(/usr is a directory in the / file system.)
 
-3.19.3	Why does the lsof exit code report it didn't find open files
+3.21.3	Why does the lsof exit code report it didn't find open files
 	when some files were listed?
 
 	Sometimes lsof will list some open files, yet return a
@@ -1359,7 +1712,7 @@ ______________________________________________________________________
 	
 	All matches were credited to /sysprog; none to spcuna:/sysprog.
 
-3.19.4	Why won't lsof find all the open files in a directory?
+3.21.4	Why won't lsof find all the open files in a directory?
 
 	When you give lsof a simple directory path name argument
 	(not a file system mounted-on name), you are asking it to
@@ -1378,7 +1731,7 @@ ______________________________________________________________________
 	produce warning messages?" for an explanation of some
 	process authority limitations of +D and +d.
 
-3.19.5	Why are the +D and +d options so slow?
+3.21.5	Why are the +D and +d options so slow?
 
 	The +D and +d options cause lsof to build a path name search
 	list for a specified directory.  +D causes lsof to descend
@@ -1444,7 +1797,7 @@ ______________________________________________________________________
 	produce warning messages?" for an explanation of some
 	process authority limitations of +D and +d.
 
-3.19.6	Why do the +D and +d options produce warning messages?
+3.21.6	Why do the +D and +d options produce warning messages?
 
 	+D and +d option processing is limited by the authority of
 	the lsof process -- i.e., lsof can only examine (with
@@ -1474,7 +1827,7 @@ ______________________________________________________________________
 	warnings, and if you have super-user power, su and use lsof
 	with +D or +d as root.
 
-3.20	Why can't my C compiler find the rpcent structure definition?
+3.22	Why can't my C compiler find the rpcent structure definition?
 
 	When you try to compile lsof your compiler may complain
 	that the rpcent structure is undefined.  The complaints
@@ -1503,7 +1856,7 @@ ______________________________________________________________________
 	have replaced.  (I think BIND replaces <resolv.h>,
 	<sys/bitypes.h>, <sys/cdefs.h> -- and maybe others.)
 
-3.21	Why doesn't lsof report fully on file "foo" on UNIX dialect
+3.23	Why doesn't lsof report fully on file "foo" on UNIX dialect
 	"bar?"
 
 	Lsof sometimes won't report much information on a given
@@ -1515,9 +1868,11 @@ ______________________________________________________________________
 
 	If you encounter such a situation, send me e-mail at
 	<abe@purdue.edu> and we may be able to devise an addition
-	to lsof that will report on the file in question.
+	to lsof that will report on the file in question.  Please
+	follow the reporting guidelines in the "How do I report an
+	lsof bug?" section of this FAQ.
 
-3.22	Why do I get a complaint when I execute lsof that some library
+3.24	Why do I get a complaint when I execute lsof that some library
 	file can't be found?
 
 	On systems where the LIBPATH (or the equivalent) environment
@@ -1547,7 +1902,7 @@ ______________________________________________________________________
 	library files exist at one or more of the search paths.
 
 
-3.23	Why does lsof complain it can't open files?
+3.25	Why does lsof complain it can't open files?
 
 	When lsof begins execution, unless it has been asked to
 	report only help or version information, typically it will
@@ -1564,7 +1919,7 @@ ______________________________________________________________________
 	necessary files for reading.  See the Installing Lsof
 	section of 00README for more information.
 
-3.24	Why does lsof warn "compiled for x ... y; this is z."?
+3.26	Why does lsof warn "compiled for x ... y; this is z."?
 
 	Unless warnings are suppressed (with -w) or the kernel
 	identity check symbol (HASKERNIDCK) definition has been
@@ -1602,7 +1957,7 @@ ______________________________________________________________________
 	to suppress the /usr/bin/oslevel test.  See "Why does AIX
 	lsof start so slowly?" for more information.
 
-3.25	How can I disable the kernel identity check?
+3.27	How can I disable the kernel identity check?
 
 	The kernel identity check is controlled by the HASKERNIDCK
 	definition.  When it is defined, most dialects (exclusion:
@@ -1619,7 +1974,7 @@ ______________________________________________________________________
 	risk of executing an lsof that may produce warning messages,
 	error messages, incorrect output, or no output at all.
 
-3.26	Why don't ps(1) and lsof agree on the owner of a process?
+3.28	Why don't ps(1) and lsof agree on the owner of a process?
 
 	Generally the user ID lsof reports in its USER column is
 	the process effective user ID, as found in the process
@@ -1639,7 +1994,7 @@ ______________________________________________________________________
 	confusion is over a process whose application has changed
 	to an effective user ID different from the real one.
 
-3.27	Why doesn't lsof find an open socket file whose connection
+3.29	Why doesn't lsof find an open socket file whose connection
 	state is past CLOSE_WAIT?
 
 	TCP/IP connections in states past CLOSE_WAIT -- e.g.,
@@ -1649,7 +2004,7 @@ ______________________________________________________________________
 	state advances from CLOSE_WAIT, sometimes the open file
 	associated with the connection is deleted.
 
-3.28	Why don't machine.h definitions work when the surrounding
+3.30	Why don't machine.h definitions work when the surrounding
 	comments are removed?
 
 	The machine.h header files in dialect subdirectories have
@@ -1671,7 +2026,7 @@ ______________________________________________________________________
 	consult the source code for hints on how the symbol is
 	used.
 
-3.29	What do "can't read inpcb at 0x...", "no protocol control
+3.31	What do "can't read inpcb at 0x...", "no protocol control
 	block", "no PCB, CANTSENDMORE, CANTRCVMORE", etc. mean?
 
 	Sometimes lsof will report "can't read inpcb at 0x00000000",
@@ -1693,7 +2048,7 @@ ______________________________________________________________________
 	inpcb" message, it means lsof couldn't read inpcb contents
 	from the indicated address in kernel memory.
 
-3.30	What do the "unknown file system type" warnings mean?
+3.32	What do the "unknown file system type" warnings mean?
 
 	Lsof may report a message similar to"
 
@@ -1726,9 +2081,9 @@ ______________________________________________________________________
 	a short name in the warning message -- e.g., "nfs3" -- if
 	possible.
 
-3.28	Installation
+3.33	Installation
 
-3.31.1	How do I install lsof?
+3.33.1	How do I install lsof?
 
 	There is no "standard" way to install lsof.  Too much
 	depends on local conditions for me to be able to provide
@@ -1738,9 +2093,9 @@ ______________________________________________________________________
 
 	To install lsof you will need to consider these questions:
 
-	*  Who should be able to use lsof?  (See HASSECURITY in
-	   the "Security" section of 00README.)
-	
+	*  Who should be able to use lsof?  (See HASSECURITY and
+	    HASNOSOCKSECURITY in the "Security" section of 00README.)
+
 	*  Where should lsof be installed?  This is a decision
 	   mostly dictated by local conditions.  Somewhere in
 	   /usr/local -- etc/ or sbin/ -- is a common choice.
@@ -1756,7 +2111,7 @@ ______________________________________________________________________
 	   common lsof when I have machines that need differently
 	   constructed lsof binaries?"
 
-3.31.2	How do I install a common lsof when I have machines that
+3.33.2	How do I install a common lsof when I have machines that
 	need differently constructed lsof binaries?
 
 	A dilemma that faces some system administrators when they
@@ -1778,7 +2133,7 @@ ______________________________________________________________________
 	One answer is to install three things in /usr/local/sbin:
 	1) a 32 bit lsof as lsof32; 2) a 64 bit lsof as lsof64;
 	and 3) an lsof script.  The script might look like this
-	one, based on work by Amir J. Katz <amir_katz@bmc.com>:
+	one, based on work by Amir J. Katz:
 
 	    #!/bin/sh
 	    x=`/usr/bin/getconf KERNEL_BITS`  # returns 32 or 64
@@ -1797,8 +2152,8 @@ ______________________________________________________________________
 	    fi
 
 	Solaris users should consult "How do I install lsof for
-	Solaris 7 or 8?" for information on a similar trick using
-	the Solaris isaexec command.
+	Solaris 7, 8 or 9?" for information on a similar trick
+	using the Solaris isaexec command.
 
 	Users of other dialects might be able to use a command like
 	uname(1) that can identify a distinguishing feature of the
@@ -1806,7 +2161,7 @@ ______________________________________________________________________
 	names.  For example, use `uname -r` and install binaries
 	with suffixes that match `uname -r` output.
 
-3.32	Why do lsof 4.53 and above reject device cache files built
+3.34	Why do lsof 4.53 and above reject device cache files built
 	by earlier lsof revisions?
 
 	When lsof revisions 4.53 run and encounter a device cache
@@ -1828,28 +2183,29 @@ ______________________________________________________________________
 	rebuilds the device cache file with the correct header
 	line.
 
-3.33	What does "like dev special /dev..." mean in VCHR NAME columns?
+3.35	What do "like block special" and "like character special" mean
+	in the NAME column?
 
-	When lsof revision 4.53 and above comes across an open VCHR
-	file whose device, raw device and inode place it somewhere
-	other than /dev (or /devices), lsof doesn't report the /dev
-	special device name in the NAME column.  Instead lsof
-	reports the file system name and device or path name in
-	the NAME column and parenthetically adds "like dev special
-	<path>".
+	When lsof comes across an open block or character file
+	whose device, raw device and inode place it somewhere other
+	than /dev (or /devices), lsof doesn't report the /dev (or
+	/devices) name in the NAME column.  Instead lsof reports
+	the file system name and device or path name in the NAME
+	column and parenthetically adds "like block special <path>"
+	or "like character special <path>".
 
-	The value for <path> will point to a device special file
-	in /dev (or /devices) whose raw device number matches that
-	of the open VCHR file being reported, but whose device
+	The value for <path> will point to a block or character
+	device in /dev (or /devices) whose raw device number matches
+	that of the open file being reported, but whose device
 	number or node number (or both) don't match.
 
-	Such an open VCHR file is connected to a device special
-	file that has been created in a directory other than /dev
-	(or /devices.)  See mknod(8) for information on how such
-	device special files are created.  (Generally one needs
-	root power to create device special files with mknod.)
+	Such an open file is connected to a device node that has
+	been created in a directory other than /dev (or /devices.)
+	See mknod(8) for information on how such nodes are created.
+	(Generally one needs root power to create device nodes with
+	mknod.)
 
-3.34	Why does an lsof make fail because of undefined symbols?
+3.36	Why does an lsof make fail because of undefined symbols?
 
 	When lsof is compiled via the `make` step and the final
 	load step fails because of missing symbols, the problem
@@ -1910,9 +2266,9 @@ ______________________________________________________________________
 	`printenv` output.  If you've located the libraries lsof
 	names, send me that information, too.
 
-3.35	Command Regular Expressions (REs)
+3.37	Command Regular Expressions (REs)
 
-3.35.1	What are basic and extended regular expressions?
+3.37.1	What are basic and extended regular expressions?
 
 	Lsof's ``-c'' option allows the specification of regular
 	expressions (REs), enclosed in two slash ('/') characters and
@@ -1956,7 +2312,7 @@ ______________________________________________________________________
 	for ed(1), egrep(1), sed(1), and possibly regex(5) or
 	regex(7).
 
-3.35.2	Why can't I put a slash in a command regular expression?
+3.37.2	Why can't I put a slash in a command regular expression?
 
 	Since a UNIX command name is the last part of a path to
 	the command's executable, the lsof command regular expression
@@ -1974,7 +2330,7 @@ ______________________________________________________________________
 	the second slash isn't an lsof command RE modifier -- 'b',
 	'i', or 'x'.
 
-3.35.3	Why does lsof say my command regular expression wasn't found?
+3.37.3	Why does lsof say my command regular expression wasn't found?
 
 	When you use both forms of lsof's -c option --
 	``-c <command>'' and ``-c /RE/[m]'' -- and ask that lsof
@@ -1993,7 +2349,7 @@ ______________________________________________________________________
 	The ``-clsof'' option matched first, so the ``-c/^..o.$/
 	option wasn't tested.
 
-3.36	Why doesn't lsof report on shared memory segments?
+3.38	Why doesn't lsof report on shared memory segments?
 
 	Lsof reports on shared memory segments only if they're
 	associated with an open file.  That's consistent with lsof's
@@ -2004,11 +2360,11 @@ ______________________________________________________________________
 	and their associated processes wouldn't be useful.  But it
 	calls for a new tool, not more baggage for lsof.
 
-3.37	Why does lsof report two instances of itself?
+3.39	Why does lsof report two instances of itself?
 
 	When you ask lsof to report all open files and it has
 	permission to do so, you may see two lsof processes in the
-	ouput.  The processes are connected via pipes -- e.g.,
+	output.  The processes are connected via pipes -- e.g.,
 	here's an HP-UX 11 example.
 
 	    COMMAND     PID USER   FD   TYPE     DEVICE ...
@@ -2035,7 +2391,7 @@ ______________________________________________________________________
 	the child process is used and how you can specify lsof
 	options to avoid it.  (Caution: that may be risky.)
 
-3.38	Why does lsof report '\n' in device cache file error messages?
+3.40	Why does lsof report '\n' in device cache file error messages?
 
 	Lsof revisions prior to 4.58 may report '\n' in error
 	messages it delivers about problems in the device cache
@@ -2061,16 +2417,527 @@ ______________________________________________________________________
 	"line" has been added as a prefix to denote that what
 	follows is a line from the device cache file.
 
+3.41	Kernel Symbol and Address Problems
+
+3.41.1	What does "lsof: WARNING: name cache hash size length error: 0"
+	mean?
+
+	When run on some systems, lsof may issue this warning:
+
+	    lsof: WARNING: name cache hash size length error: 0
+
+	That is an example from a FreeBSD system where lsof reads
+	the kernel's _nchash variable and finds its value is zero.
+
+	Similar warnings include:
+
+	    WARNING: kernel name cache size:
+	    WARNING: can't read kernel's name cache:
+	    WARNING: no name cache address
+	    WARNING: name cache hash size length error:
+	    WARNING: unusable name cache size:
+
+	These warnings are issued when lsof is attempting to read
+	the kernel's name cache information.  They are usually the
+	result of a mis-match between the addresses for kernel
+	symbols lsof gets via nlist(2) and the addresses in use by
+	the kernel.
+
+	Lsof usually gets kernel symbol addresses from what it
+	believes to be the kernel boot file.  In FreeBSD, for
+	example, that's the path returned by getbootfile(3), usually
+	/kernel.  The boot file can have other names in other UNIX
+	dialects -- /unix, /vmunix, /bsd, /netbsd, /mach, /stand/vmunix,
+	etc.
+
+	Lsof will get incorrect (mismatched) addresses from the
+	boot file if it has been replaced by a newer one which
+	hasn't yet been booted -- e.g., if this is done in FreeBSD:
+
+	    # mv /kernel /kernel.OLD
+	    # mv /kernel.NEW /kernel
+
+	Until the FreeBSD system is rebooted, the booted kernel is
+	/kernel.OLD, but getbootfile() says it is /kernel.  If
+	symbol addresses important to lsof in /kernel.OLD and
+	/kernel don't match, the lsof WARNING messages result.
+
+3.41.2	Why does lsof produce "garbage" output?
+
+	Kernel name cache warnings may not be the only sign that
+	lsof is using incorrect symbol addresses to read kernel
+	values.  If there's no reasonable test lsof can make on
+	what it reads from the kernel, it may issue other warnings
+	or even report nonsensical results.
+
+	The warnings may appear on STDERR, such as:
+
+	    lsof: can't read proc table info
+
+	Or the warnings may appear in the NAME column as messages
+	saying lsof can't read or interpret some kernel structure --
+	e.g.,
+
+	    ... NAME
+	    ... can't read file struct from 0x12345
+
+	One possible work-around is to point lsof's kernel symbol
+	address gathering at the proper boot file.  That can be
+	done with lsof's -k option -- e.g.,
+
+	    $ lsof -k /kernel.OLD
+
+	The best work-around is to make sure the standard boot file
+	is properly sited -- e.g., if you've moved a new /kernel
+	in place, boot it.
+
+3.42    Why does lsof report open files when run as super user that
+	it doesn't report when run with lesser privileges?
+
+	The most likely cause is that the HASSECURITY option was
+	selected when the lsof executable was built.
+
+	If HASSECURITY is defined when lsof is built, and lsof is
+	run with the privileges of a non-ROOT user, it will only
+	list open files belonging to the user.  The same lsof
+	executable, when run with root user privileges, will list
+	all open files.
+
+	However, if HASSECURITY and HASNOSOCKSECURITY are both
+	defined when lsof is built, lsof will list open files
+	belonging to the user and will also list anyone else's open
+	socket files, provided their listing is selected with the
+	"-i" option.
+
+	So first ask yourself if the process whose open files lsof
+	won't list belong to a user other than the one under which
+	you're running lsof, and are not open socket files.  If
+	either is true, use lsof's help (-h or -?) option and look
+	for a line near the bottom of the help panel that says:
+
+	    "... can list all files..."
+
+	If the leading "..." says "Only root" then HASSECURITY was
+	defined when lsof was built.  If the trailing "..." says
+	", but anyone can list socket files" then HASNOSOCKSECURITY
+	was also defined.
+
+	Should you want an lsof not built with HASSECURITY defined,
+	rerun the lsof Configure script.  If you let Configure do
+	customization, make sure you answer 'n' when it asks if
+	you want to enable HASSECURITY and HASNOSOCKSECURITY.  If
+	you don't need to do customization, you can rebuild lsof
+	with the "-n" option to Configure.  Here's an example of
+	such a rebuild sequence:
+
+	    $ Configure -clean
+	    $ Configure -n <dialect-abbreviation>
+	    $ make
+
+	More information on the HASSECURITY and HASNOSOCKSECURITY
+	options may be found in the "Security" section of the
+	00README file of the lsof distribution.
+
+3.43	Test Suite Problems
+
+3.43.1	Errors all tests can report:
+
+3.43.1.1 Why do tests complain "ERROR!!!  can't execute ../lsof"?
+
+	All tests in the test suite expect an executable lsof file
+	to exist in the tests parent directory, ../lsof.
+
+	If there's none there, the tests/Makefile has a rule to
+	make it, but there are probably circumstances where that
+	rule may fail.
+
+	The work-around is to re-Configure and re-make lsof, then
+	run the test suite.
+
+3.43.1.2 Why do tests complain "ERROR!!! can't find ..." a file?
+
+	Many tests create (or use from a supplied environment
+	variable path) a test file and use lsof to find it.  When
+	lsof can't file the file, the tests report the error with
+	messages of the form:
+
+	    ERROR!!!  can't find ... : <some file path>
+	 or
+	    ERROR!!!  lsof couldn't find ...
+	
+	These type of error messages mean that the lsof field output
+	delivered to the test didn't contain a file that the test
+	could identify as the one it intended lsof to find.  It
+	might also mean that the process information -- command
+	name, PID or parent PID -- didn't match what the test
+	expected.
+
+	This could imply a bug in the test or a bug in lsof.  Try
+	using lsof to find a known file that is open.  For example,
+	while in the tests sub-directory, do this:
+
+	    $ sleep 30 < Makefile
+	    $ ../lsof Makefile
+
+	If lsof doesn't report that Makefile is open, then the
+	fault may be with lsof.  If lsof reports the file is open,
+	search further in the test code for the failure cause.
+
+3.43.1.3 Why do some tests fail to compile?
+
+	If a test suite program fails to compile, it may be because
+	I've never had an opportunity to compile the test on the
+	particular UNIX version you are using.
+
+	See Appendix B in 00TEST for a list of the UNIX dialects
+	where the test suite has been validate.
+
+3.43.1.4 Why do some tests always fail?
+
+	There are several tests in the optional group that have
+	conflicting or special requirements:
+
+	    LTbigf      needs a dialect and file system that support
+			large files.
+
+	    LTlock      won't work if the tests/ sub-directory is
+			on an NFS file system.
+
+	    LTnfs       won't work if the tests/ sub-directory is
+			not on an NFS file system.
+
+	So for two tests in particular, LTlock and LTnfs, one will
+	generally fail.
+
+	Some failing tests can be run successfully by supplying to
+	them a path to the appropriate type of file system with
+	the -p option.
+
+3.43.1.5 Why does the test suite say it hasn't been validated on
+	 my dialect?
+
+	When you use the test suite's Makefile, directly or from
+	the parent lsof Makefile, it may issue this complaint:
+
+	    !!!WARNING!!!
+
+	    This dialect or its particular version may not have
+	    been validated with the lsof test suite.  Consequently
+	    some tests may fail or may not even compile.
+
+	    !!!WARNING!!!
+
+	You are then given the opportunity to answer 'y' to have
+	the test suite run continue.
+
+	This message means that the tests/TestDB file in the tests
+	sub-directory doesn't show that the test suite has been
+	run with the combination of compiler flags found in
+	tests/config.cflags.  The tests might nor run; they may
+	encounter compiler failures.
+
+	See 00TEST for more information on the UNIX dialects where
+	the test suite has been validated and on the workings of
+	TestDB and its supporting scripts.
+
+3.43.1.6 Why do the tests complain they can't stat() or open()
+	 /dev/mem or /dev/kmem?
+
+	When the tests detect that lsof for the dialect reads its
+	information from kernel memory (i.e., the LT_KMEM definition
+	is present in tests/config.cflags), and when the lsof
+	executable path is ../lsof, the tests make sure they can
+	stat() and open() for read access the relevant kernel memory
+	devices, /dev/kmem and possibly /dev/mem.
+
+	If those stat() or open() operations fail, the tests issue
+	an error message and quit.  The message explains why the
+	system rejected the operation in terms of system "errno"
+	symbols and messages.  More often than not the explanation
+	will be that the process lacks permission to access the
+	indicated device node.
+
+	One work-around is to give the lsof executable being tested
+	the necessary permission -- e.g., via chgrp, chmod, etc.
+	-- and set its path in the LT_LSOF_PATH environment variable.
+	(See 00TEST.)
+
+	Another work-around is to make sure the process that runs
+	the tests has the necessary permissions -- e.g., run it as
+	root, or enable the process login to access the resources.
+	For example, I can run the tests on my personal work-station
+	because /dev/kmem and /dev/mem are readable by the "kmem"
+	group and my login is in that group.
+
+
+3.43.2	LTbigf test issues
+
+3.43.2.1 Why does the LTbigf test say that the dialect doesn't
+	 support large files?
+
+	Large file support is defined dialect by dialect in the
+	lsof source files and Configure script.  If large file
+	support isn't defined there, it isn't defined in the LTbigf
+	test.
+
+	If you think that's wrong for a particular dialect, contact
+	me via e-mail.
+
+3.43.2.2 Why does LTbigf complain about operations on its config.LTbigf*
+	 file?
+
+	The LTbigf must be able to write a large file test (size
+	> 32 bits) and seek within it and the process file ulimit
+	size must permit the operation.  If the default location
+	for the test file, tests/, isn't on a file system enabled
+	for large file operations or if the process ulimit file
+	block size is too small, lsof will get file operation
+	errors, particularly when seeking
+
+	There may be a work-around.  Specify the path to a file
+	LTbigf can write in a file system enabled for large file
+	operations a the -poption.  Make sure that the ulimit file
+	block size permits writing a large file.  For example,
+	presuming /scratch23 is large-file-enabled, and presuming
+	you have permission to raise the ulimit file block size,
+	this shell commands will allow the LTbigf test to run on
+	AIX:
+
+	    $ ./LTbigf -p /scratch23/abe/bigfile
+
+	(Note: syntax for the ulimit command varies by dialect and
+	by shell.  Discovering the proper variant is left to the
+	reader.)
+
+	More information on this subject can be found in the LTbigf
+	description in the 00TEST file.  If course, the LTbigf.c
+	source file in tests/ is the ultimate source of information,
+
+3.43.2.3 Why does LTbigf warn that lsof doesn't return file offsets?
+
+	On some dialects (e.g., Linux) lsof can't report file
+	offsets, because the data access method underlying lsof
+	doesn't provide them.  If LTbigf knows that lsof can't
+	report file offsets for the dialect, it issues this warning:
+
+	    LTbigf ... WARNING!!!  lsof can't return file offsets
+			for this dialect, so offset tests have
+			been disabled.
+	
+	LTbigf then performs the size test and skips the offset
+	tests.
+
+	For more information see 00TEST and the "Why doesn't
+	/proc-based lsof report file offsets (positions)?" Q&A of
+	this file.
+
+3.43.3	Why does the LTbasic test complain "ERROR!!! lsof this ..."
+	and "ERROR!!!  lsof that ..."?
+
+	The LTbasic test program uses lsof to examine a running
+	lsof process.  It looks for the lsof current working
+	directory, executable (if possible), and kernel memory file
+	(if applicable).
+
+	Failures to find those things result in error messages.
+	More information on their production can be found in the
+	LTbasic.c source file.
+
+3.43.4	NFS test issues
+
+3.43.4.1 Why does the LTnfs test complain "couldn't find NFS file ..."?
+
+	The LTnfs test must work with an NFS test file.  After it
+	opens the file it asks lsof to find it on an NFS file system.
+	If the file isn't on an NFS file system, lsof won't find it,
+	and the NFS test script complains and fails.
+
+	The work-around is to use -p option to supply a path to a
+	regular NFS file (not a directory)  that is on an NFS file
+	system that LTnfs can read.  Presuming /share/bin/file is
+	such a file and can be opened for reading by the LTnfs
+	test, this sample shell command could be used to run the
+	LTnfs test successfully:
+
+	    $ ./LTnfs -p /share/bin/file
+
+	(If the NFS file system is enabled for large files, the
+	NFS test will produce the error message described in the
+	following Q&A.)
+
+3.43.5	LTnlink test issues
+
+3.43.5.1 Why does the LTnlink test complain that its test file is on
+	 an NFS file system?
+
+	The LTnlink test may complain:
+
+	    LTnlink ... WARNING!!!  test file <path> is NFS mounted.
+
+	and then issue an explanation and a hint about using the
+	-p option.
+
+	The LTnlist test does this because of the way NFS file
+	links are managed when an NFS file is unlinked and the
+	unlinking process still has the file open.  Unlike with
+	files on a local file system, when an NFS file that is
+	still open is unlinked, its link count is not reduced.
+
+	The file name is changed to a name of the form .nfsxxxx
+	and the link count is left unchanged until the process
+	holding the file open closes it.  That's done by NFS so it
+	can keep proper track of the file on NFS clients and servers.
+
+	Since the link count isn't reduced when the LTnlink test
+	program closes the NFS test file it still has open, lsof
+	won't find it for LTnlink with a link count of zero.
+	Consequently, LTnlink disables that test section and issues
+	its warning.
+
+	The warning suggests that the unlink test section can be
+	run by giving LTnlink a path to a test file with the -p
+	option.  That path must name a file LTnlink can write and
+	unlink.  Presuming /scratch23/abe/nlinkfile is on a local
+	file system and the LTnlink test can write to it and unlink
+	it, this sample shell command can be used to run the complete
+	LTnlink test successfully:
+
+	    $ LTnlink -p /scratch23/abe/nlinkfile
+
+3.43.5.2 Why does LTnlink delay and report "waiting for link count
+	 update: ..."?
+
+	On some UNIX dialects and file system combinations the
+	updating of link count after a file has been unlinked can
+	be delayed.  Consequently, lsof won't be able to report
+	the updated link count to LTnlink for a while.
+
+	When lsof doesn't report the proper link count to LTnlink,
+	it sleeps and repeats the lsof call, using the "waiting
+	for link count update: ..." message as a signal that it is
+	waiting for the expected lsof response.  The wait cycle
+	duration is limited to approximately one minute.
+
+3.43.6	LTdnlc test issues
+
+3.43.6.1 Why won't the LTdnlc test run?
+
+	Lsof is unable to access the DNLC cache on AIX, because the
+	kernel symbols for the DNLC aren't exported.  Contact IBM
+	to learn why that decision was made.
+
+	The LTdnlc test may fail on other dialects.  Failure causes
+	include: a busy system with a DNLC that is changing rapidly;
+	path name components too large for the DNLC.  (Many DNLC
+	implementations will only store path name components if
+	they are 31 characters or less.)
+
+3.43.6.2 What does the LTdnlc test mean by "... <path> found: 100.00%"?
+
+	Even when it succeeds the LTdnlc test will report:
+
+	  LTdnlc ... /export/home/abe/src/lsof4/tests found: 100.00%
+
+	This message means that the LTdnlc test asked lsof to find
+	the file at the indicated path five times and lsof found
+	the full path name in the indicated percentage of calls.
+	The LTdnlc test considers it a failure if the percentage
+	falls below 50.0%
+
+3.43.6.3 Why does the DNLC test fail?
+
+	The DNLC test may fail when some component of the lsof
+	tests/ sub-directory can't be cached by the kernel DNLC.
+	Some kernels have a limit on the length of individual
+	components (typically) 32.
+
+3.43.7	Why hasn't the test suite been qualified for 64 bit HP-UX
+	11 when lsof is compiled with gcc?
+
+	When I attempted to qualify lsof for HP-UX 11, compiled
+	with gcc 3.0, the LTsock test failed.  I traced the failure
+	to a gcc compilation error.  Because Tsock is an important
+	test, I didn't feel that the test suite was qualified if
+	it failed.
+
+	LTsock compiles and runs correctly on 64 bit HP-UX 11 when
+	compiled with HP's ANSI-C.
+
+3.43.8	LTszoff test issues
+
+3.43.8.1 Why does LTszoff warn that lsof doesn't return file offsets?
+
+	On some dialects (e.g., Linux) lsof can't report file
+	offsets, because the data access method underlying lsof
+	doesn't provide them.  If LTszoff knows that lsof can't
+	report file offsets for the dialect, it issues this warning:
+
+	    LTszoff ... WARNING!!!  lsof can't return file offsets
+			  for this dialect, so offset tests have
+			  been disabled.
+	
+	LTszoff then performs the size test and skips the offset
+	tests.
+
+	For more information see 00TEST and the "Why doesn't
+	/proc-based lsof report file offsets (positions)?" Q&A of
+	this file.
+
+3.43.9	LTlock test issues
+
+3.44	File descriptor list (the ``-d'' option) problems
+
+3.44.1	Why does lsof reject a ``-d'' FD list?
+
+	Lsof rejects ``-d'' FD lists that contain both exclusions
+	and inclusions with messages like:
+
+	    lsof: exclude in an include list: ^1
+	    lsof: include in an exclude list: 2
+
+	That's because ``-d'' FD lists are processed as ORed lists,
+	so it makes no sense for them to contain both exclusions
+	and inclusions.
+	
+	I.e.,, if a ``-d'' FD list were to contain ``^cwd,1'', the
+	``^cwd'' member is useless, because the ``1'' member
+	dominates by saying "include only FD 1".  That effectively
+	excludes ``cwd'' FD.
+
+	Note that lists may have multiple members of the same type,
+	exclude or include.  They are processed as an ORed set.
+	If an FD isn't excluded by any member of an exclude list,
+	it is selected.  If an FD is included by any member of an
+	include list, it is selected.
+
+3.44.2	Why are file descriptors other than those in my FD list
+	reported?
+
+	The FD list that follows ``-d'' excludes or includes file
+	descriptors, but unless the ``-a'' (AND) option is specified,
+	the FD list selections are ORed to the other selections.
+
+	For example, the following lsof command will cause all file
+	descriptors to be listed for the lsof command, and all but
+	the cwd descriptor for all other commands, probably not
+	what was intended.
+
+	    $ lsof -clsof -d^cwd
+
+	Hint: use ``-a'' -- e.g.,
+
+	    $ lsof -clsof -a -d^cwd
+
 
 4.0	AIX Problems
 
 4.1	What is the Stale Segment ID bug and why is -X needed?
 
-	Kevin Ruderman <rudi@acs.bu.edu> reports that he has been
-	informed by IBM that processes using the AIX 3.2.x,
-	4.1[.12345]], 4.2[.1], and 4.3.x kernel's readx() function
-	can cause other AIX processes to hang because of what
-	appears to be file system corruption.
+	Kevin Ruderman reports that he has been informed by IBM
+	that processes using the AIX 3.2.x, 4.1[.12345]], 4.2[.1],
+	and 4.3.x kernel's readx() function can cause other AIX
+	processes to hang because of what appears to be file system
+	corruption.
 
 	This failure, known as the Stale Segment ID bug, is caused
 	by an error in the AIX kernel's journalled segment memory
@@ -2112,7 +2979,7 @@ ______________________________________________________________________
 4.1.1	Stale Segment ID APAR
 
 	Here are the details of the Stale Segment ID bug and IBM's
-	response, provided by Kevin Ruderman <rudi@acs.bu.edu>.
+	response, provided by Kevin Ruderman.
 
 	AIX V3
 	  APAR=ix49183
@@ -2212,8 +3079,7 @@ ______________________________________________________________________
 	4.1x programs with gcc for using getuser(), check the
 	Configure script.
 
-	Stuart D. Gathman <stuart@bmsi.com> identified this gcc
-	AIX alignment problem.
+	Stuart D. Gathman identified this gcc AIX alignment problem.
 
 4.3	Gcc and AIX 4.2[.1]
 
@@ -2224,9 +3090,9 @@ ______________________________________________________________________
 	above, doesn't exist in 4.2[.1].
 
 	The AIX lsof machine.h header file has a work-around,
-	provided by Henry Grebler <henryg@optimation.com.au>, that
-	bypasses gcc alignment problems.  Later versions of gcc
-	(e.g., 2.8.x) will probably bypass the problems as well.
+	provided by Henry Grebler, that bypasses gcc alignment
+	problems.  Later versions of gcc (e.g., 2.8.x) will probably
+	bypass the problems as well.
 
 4.4	Why won't lsof's Configure allow the use of gcc for AIX
 	below 4.1?
@@ -2247,10 +3113,9 @@ ______________________________________________________________________
 	of AIXWindows, designed for more efficient data transfers
 	between the X server and its clients.
 
-	Henry Grebler <henryg@optimation.com.au> and David J. Wilson
-	<davidw@optimation.com.au> alerted me to the existence of
-	these files.  Mike Feldman <feldman@charm.urbana.mcd.mot.com>
-	and others helped me identify them as SMT sockets.
+	Henry Grebler and David J. Wilson alerted me to the existence
+	of these files.  Mike Feldman and others helped me identify
+	them as SMT sockets.
 
 	The curious reader can find more about SMT sockets in
 	/usr/lpp/X11/README.SMT.
@@ -2262,6 +3127,10 @@ ______________________________________________________________________
 	/usr/bin/oslevel.  That comparison can sometimes take a
 	long time to complete, depending on the system's maintenance
 	level and how recently it was examined with oslevel.
+
+	AIX revisions 4.67 and above for AIX 5 and above don't use
+	oslevel to determine the kernel identity.  They use uname(2)
+	instead, and it is much faster.
 
 	You can skip the oslevel test by suppressing warning messages
 	with lsof's -w option.  Doing that carries with it the risk
@@ -2358,16 +3227,16 @@ ______________________________________________________________________
 	to run lsof.  Compiling lsof on the target system is the
 	preferred way to get a matching binary.
 
-4.10	Why doesn't the -X option work on my AIX 5L or 5.1 system?
+4.10	Why doesn't the -X option work on my AIX 5L or 5.[12] system?
 
-	If your AIX 5L or 5.1 system uses the ia64 architecture,
+	If your AIX 5L or 5.[12] system uses the ia64 architecture,
 	lsof needs setuid-root permission to be able to do the
 	processing that -X requires.
 
 	Check the output of `uname -a` to determine the architecture
 	type.
 
-	The workaround is to give lsof setuid-root permission.
+	The work-around is to give lsof setuid-root permission.
 
 4.11	Why doesn't /usr/bin/oslevel report the correct AIX version?
 
@@ -2412,16 +3281,113 @@ ______________________________________________________________________
 	xlsmp.msg.en_US.rte and xlsmp.rte.  If you can't do that,
 	you'll have to put up with the run-time complaint.
 
+4.12    Why does lsof for AIX 5.1 or above Power architecture
+	complain about kernel bit size?
+
+	When you run an lsof binary on an AIX 5.1 or above Power
+	system, it might complain:
+
+	    lsof: FATAL: compiled for a 32 bit kernel.
+		  The bit size of this kernel is 64.
+	or
+	    exec: 0509-036 Cannot load program ./lsof because of
+			   the following errors:
+	          0509-032 Cannot run a 64-bit program on a 32-bit
+			   machine.
+
+	Starting at lsof revision 4.61, lsof binaries for Power
+	architecture systems running AIX 5.1 or above are closely
+	tied to the kernel bit size.  Lsof must do that so it can
+	read and understand kernel structures.
+
+	Lsof's Configure script tunes the lsof configuration so
+	that the binary built in the make(1) step is adjusted to
+	the kernel bit size.
+
+	An lsof binary knows the bit size for which it was constructed,
+	tests the bit size of the kernel under which it is running,
+	and objects if the two sizes don't match.  To see the bit
+	size for which lsof was constructed, run it with its -v
+	option and look for these lines in the output:
+
+	    configuration info: 32 bit kernel
+	 or
+	    configuration info: 64 bit kernel
+
+	(Note: these lines will appear only in -v output for AIX
+	5.1 and above lsof binaries, built for Power architecture.)
+
+	You can see the kernel bit size test method in the aix
+	stanza of the lsof Configure script and in the get_kernel_access()
+	function of the lsof .../dialects/aix/dproc.c source file.
+
+	There is more information on pre-defining the kernel bit
+	size when building lsof in Configure, 00PORTING, and
+	00XCONFIG.
+
+	The only work-around is to use an lsof binary built to
+	match the running kernel bit size.
+
+4.13	What can't gcc be used to compile lsof on the ia64 architecture
+	for AIX 5 and above?
+
+	Gcc can't be used to compile lsof on the ia64 architecture
+	for AIX 5 and above because I haven't had access to a system
+	that has a working gcc compiler.  The gcc compiler on my
+	one and only ia64 AIX 5.1 test system, provided by IBM,
+	didn't work at all.
+
+4.14	Why does lsof get a segmentation fault when compiled with gcc
+	for a 64 bit Power architecture AIX 5.1 kernel?
+
+	When lsof is configured with the lsof "aixgcc" Configure
+	abbreviation, the resulting lsof executable may cause a
+	segmentation violation when it is run.  I've observed this
+	with gcc version 2.9-aix43-010414-7.
+
+	As far as I have been able to tell, the segmentation fault
+	is the result of a gcc compilation, loading, or library
+	error.  Watching lsof run with gcc's companion debugger,
+	gdb, shows no error in the lsof source code that might
+	explain the fault.
+
+	The only work-around I know is to use the IBM C compiler
+	in place of gcc -- i.e., use the "aix" lsof Configure
+	abbreviation.
+
+4.15	Why does lsof ignore AFS on my AIX system?
+
+	The lsof Configure script quits on AIX when AFS is present,
+	the AIX version is greater than 4.3.3.0 or the AFS version
+	is greater than 3.5.  That's because I have no test systems
+	available for those AIX and AFS version combinations.
+
+	When the lsof Configure script detects an AIX and AFS
+	version combination that is unsupported, it will report:
+
+	  !!!FATAL: Lsof does not support AFS on this combination of
+		    AIX and AFS versions.  To disable AFS, set the
+		    value of the AIX_HAS_AFS environment variable to
+		    "no".
+
+	The only work-around is to set the AIX_HAS_AFS environment
+	variable as explained in the error message:
+
+	    $ AIX_HAS_NSF=no; export AIX_HAS_NFS
+	    $ ./Configure -n aix
+
 
 5.0	Apple Darwin Problems
 
 5.1	Why does Configure have to check out CVS kernel header files?
 
-	When lsof was ported to Apple Darwin by Allan Nathanson
-	<ajn@apple.com> at revision 4.53, some kernel header files
-	needed by lsof weren't being exported by the developers.
-	Allan provided a shell script, get-xnu-headers.sh, to check
-	them out from the CVS root.  I enhanced that script.
+	When lsof was ported to Apple Darwin by Allan Nathanson at
+	revision 4.53, some kernel header files needed by lsof
+	weren't being exported by the developers.  (That's still
+	true at lsof revision 4.65.) Allan provided a shell script,
+	get-xnu-headers.sh, to check them out from the CVS root.
+	I enhanced that script.  Allan and I have updated it as
+	new Apple Darwin releases have appeared.
 
 	If all the header files exist, the Configure script will
 	avoid the CVS checkout steps.
@@ -2442,19 +3408,16 @@ ______________________________________________________________________
 5.1.2	What CVS branch should I specify for Apple Darwin kernel header
 	file checkout?
 
-	The suggested branches, xnu-3 for Public Beta (Kodiak1H39)
-	and xnu-3-1 for Darwin 1.2.1, should be sufficient.  You
-	can tell which Darwin version you are running with the
-	"-a" option to the uname command -- e.g.,
+	I know no reliable method for translating kernel header
+	file CVS locations to the version numbers reported by uname.
 
-	    $ uname -a
-	    Darwin <host_name> 1.2 Darwin Kernel Version 1.2: \
-	    Wed Aug 30 23:32:53 PDT 2000; \
-	    root:xnu/xnu-103.obj~1/RELEASE_PPC \
-	    Power Macintosh powerpc
+	For Darwin 1.4 I've used "xnu-4-2" and "xnu-9-1".  For
+	Darwin 5.5 I've used Apple-201-14.
 
-	The "xnu-103" after "root:xnu" corresponds to the xnu-3
-	branch.
+	To make a correct choice you need to know the Max OS X
+	version that corresponds to the Darwin kernel version,
+	reported by uname, and make an appropriate selection from
+	the menu provided by the get-xnu-headers.sh shell script.
 
 5.1.3	How can I supply the missing Apple Darwin kernel header files
 	myself?
@@ -2464,18 +3427,42 @@ ______________________________________________________________________
 	You should be able to duplicate that tree if you can obtain
 	the missing header files yourself.
 
-	The missing header files are identified in the darwin stanza
-	of the lsof Configure script.  Look for this comment:
+	The required header files are identified in the darwin
+	stanza of the lsof Configure script.  Look for this comment:
 
-	    # Make sure XNU headers are present.
+	    # Do Darwin version-specific stuff.
 
-	The next line sets the shell variable LSOF_TMP1 to a list
-	of the header files.  The list includes their paths relative
-	to the head of an include tree.  The following shell code
-	checks for the header files in their "standard" location
-	and in dialects/darwin/include.  If any are missing,
-	Configure calls the get-xnu-headers.sh script to fetch a
-	matching set.
+	Following that is a shell "case" statement setting the
+	Configure script LSOF_TMP1 shell variable to the list of
+	header files required for the appropriate Darwin version.
+
+	After this comment:
+
+	    Make sure XNU headers are present.
+
+	the Configure script checks for the header files in their
+	"standard" locations and in dialects/darwin/include.  If
+	any are missing, Configure calls the get-xnu-headers.sh
+	script to fetch a matching set.
+
+5.1.4   Why aren't some Apple Darwin kernel header files accessible
+	via CVS?
+
+	As of March 2003 some Apple Darwin kernel header files are
+	no longer accessible via lsof's Darwin get-xnu-headers.sh
+	shell script.  (The list produced by the script shows what
+	is available and unavailable.)
+
+	This loss of header file access is the result of a
+	re-organization of the Apple Darwin CVS archive,  After
+	the re-organization the shell script can't easily access
+	"tagged" header files.
+
+	I don't know a work-around.  Fortunately the header files
+	for recent Darwin kernels are accessible -- e.g., the Darwin
+	6.2 (Max OS X 10.2.2), Darwin 6.3 (Max OS X 10.2.3) and
+	Darwin 6.4 (Max OS X 10.2.4) header files can be retrieved
+	by the lsof get-xnu-headers.sh shell script.
 
 5.2	Why doesn't Apple Darwin lsof report text file information?
 
@@ -2545,13 +3532,12 @@ ______________________________________________________________________
 	then attempts to lstat(2) the random paths, gets error
 	replies from lstat(2), and complains about the paths.
 
-	Duncan McEwan <duncan@Comp.VUW.AC.NZ> discovered this error
-	and has reported it to DEC.  Duncan also supplied a work-
-	an alternate readdir() function as a work-around.  I've
-	incorporated his readdir() in dialects/osf/ddev.c (as the
-	static ReadDir() function) with some slight modifications,
-	and enabled its use when the USELOCALREADDIR symbol is
-	defined.
+	Duncan McEwan discovered this error and has reported it to
+	DEC.  Duncan also supplied a work- an alternate readdir()
+	function as a work-around.  I've incorporated his readdir()
+	in dialects/osf/ddev.c (as the static ReadDir() function)
+	with some slight modifications, and enabled its use when
+	the USELOCALREADDIR symbol is defined.
 
 	The Configure script defines USELOCALREADDIR for Digital
 	UNIX version and 3.2.  If you don't want to use Duncan's
@@ -2577,9 +3563,8 @@ ______________________________________________________________________
 	    _OtsRemainder32
 	    *** Exit 1
 
-	Chris Eleveld <chris@sector7.com> reports this happens on
-	Digital UNIX V3.2 systems after the Fortran compiler has
-	been installed.
+	Chris Eleveld reports this happens on Digital UNIX V3.2
+	systems after the Fortran compiler has been installed.
 
 	The best work-around seems to be to remove -lmld from the
 	CFGL string in the Makefile produced by Configure -- i.e.,
@@ -2678,10 +3663,10 @@ ______________________________________________________________________
 	5.1, lsof's handling of the cache had to be completely
 	redone.  As part of the DNLC redesign a name cache entry
 	parameter lsof formerly used to locate the file system root
-	of a path was removed.  With help from Chang Song
-	<song@zk3.dec.com> I've been able to implement an alternate
-	method for detecting the root of these file system types:
-	AdvFS (MSFS), CDFS, DVDFS, FDFS, NFS, NFS3, and UFS.
+	of a path was removed.  With help from Chang Song I've been
+	able to implement an alternate method for detecting the
+	root of these file system types:  AdvFS (MSFS), CDFS, DVDFS,
+	FDFS, NFS, NFS3, and UFS.
 
 	When lsof doesn't know how to identify the root for a file
 	system type, it will resort to the " -- " incomplete path
@@ -2694,6 +3679,32 @@ ______________________________________________________________________
 	CFS files as recorded in their kernel node structure's
 	cached attributes.  Sometimes not all attributes are cached
 	on the system where lsof runs, so lsof cannot report them.
+
+7.7     Why does lsof say it can't read the kernel name list or
+	proc table on Digital UNIX 4.x or Tru64 UNIX?
+
+	By default on Digital UNIX 4 and Tru64 UNIX lsof reads the
+	addresses for kernel symbols with the knlist(3) function.
+	That function can fail, for example, when the kloadsrv
+	daemon isn't running or is malfunctioning.  When that
+	happens, lsof may abort with one of these error messages:
+
+	    lsof: can't read kernel name list from knlist(3): ...
+	  or
+	    lsof: can't read proc table info
+
+	The first message suggests a complete knlist(3) or kloadsrv
+	failure; the second, a partial one.
+
+	If you know the name of the file from which the running
+	system was booted, e.g., /vmunix, you can use lsof's -k
+	option to direct it to read kernel symbol addresses from
+	the name list of that file --
+
+	    $ lsof -k /vmunix ...
+
+	If that works, then knlist(3) is malfunctioning and you
+	need to fix it.
 
 
 8.0	FreeBSD Problems
@@ -2811,41 +3822,17 @@ ______________________________________________________________________
 
 	If the Configure compiler test fails, the C compiler will
 	complain that it doesn't support -O.  You can suppress that
-	complaint by editing the Makefile produced by Configure
-	and removing the
+	complaint with this make invocation:
 
-	    DEBUG=	-O
+	    $ make DEBUG=""
 	
-	make string.
+9.2.2	Why doesn't the /dev/kmem-based CCITT support work under 10.x?
 
-9.2.2	Why doesn't the /dev/kmem-based lsof report HP-UX 10.20 locks
-	correctly?
+	Pasi Kaara, who originally provided the HP-UX CCITT support,
+	reports that it no longer works under HP-UX 10.x.
+	Consequently, at lsof revision 4.02 it has been disabled.
 
-	Lsof doesn't report the length of HP-UX 10.20 locks -- byte
-	or full file -- correctly under HP-UX 10.20 because the
-	kernel structure lsof examines to determine that a process
-	has a lock on a vnode (the locklist structure from
-	<sys/vnode.h>) contains incorrect lock start and end byte
-	values.
-	
-	Even though this appears to be a kernel bug, HP-UX locks
-	seem to work correctly.  All I can conclude is that the
-	correct lock information is stored somewhere else in the
-	kernel, in a place not visible to lsof.
-
-	As a consequence of this incorrect locklist structure
-	information, lsof always reports all locks with a byte-level
-	`r' (read) or `w' (write) lock indication, and never reports
-	a full-file read (`R') or write (`W') lock.
-
-9.2.3	Why doesn't the /dev/kmem-based CCITT support work under 10.x?
-
-	Pasi Kaara <Pasi.Kaara@atk.tpo.fi>, who originally provided
-	the HP-UX CCITT support, reports that it no longer works
-	under HP-UX 10.x.  Consequently, at lsof revision 4.02 it
-	has been disabled.
-
-9.2.4	Why can't /dev/kmem-based lsof be compiled with `cc -Aa` or
+9.2.3	Why can't /dev/kmem-based lsof be compiled with `cc -Aa` or
 	`gcc -ansi` under HP-UX 10.x?
 
 	Some HP-UX 10.x header files, needed by lsof, can't be
@@ -2856,7 +3843,7 @@ ______________________________________________________________________
 	This ANSI-C obstacle extends to using the -Aa option of
 	the HP C compiler and the -ansi option of gcc.
 
-9.2.5	Why does /dev/kmem-based lsof complain about no C compiler?
+9.2.4	Why does /dev/kmem-based lsof complain about no C compiler?
 
 	Lsof's Configure script looks in /bin and /usr/ccs/bin for
 	an HP C compiler, because it needs to know if the compiler
@@ -2876,7 +3863,7 @@ ______________________________________________________________________
 	the path to it.  Consult the 00XCONFIG file of the lsof
 	distribution for more information.
 
-9.2.6	Why does Configure complain about q4 for /dev/kmem-based lsof
+9.2.5	Why does Configure complain about q4 for /dev/kmem-based lsof
 	for HP-UX 11?
 
 	When you run Configure on an HP-UX 11 system, it may complain:
@@ -2892,87 +3879,91 @@ ______________________________________________________________________
 
 	This message states that Configure cannot use q4 from
 	/usr/contrib/bin to examine the kernel's boot image for
-	the ipis_s structure.  That structure was introduced in
-	early 1999.  Patch bundle B.11.00.43 and patches PHNE_20008
-	and PHNE_20735 appear to be responsible for ipis_s.
+	the ipis_s structure.  Maybe q4 hasn't been installed, or
+	perhaps Configure can't execute it.
 
-	Note: q4 may also fail if it can't execute nm -- e.g., it
-	can't find /usr/bin/nm, or you have a conflicting, private
-	version of nm earlier in your path.
+	Lsof needs to gather information about ipis_s to determine
+	if the ipis_s structure is defined in the kernel boot image,
+	if the ipis_s structure of the kernel boot image has an
+	ipis_msgsqueued member, and if the ipc_s structure of the
+	kernel boot image uses has an ipc_ipis member.
 
 	The ipis_s structure isn't described in any header file
 	HP-UX releases with HP-UX 11.  It appears in the private
 	lsof header file .../dialects/hpux/kmem/hpux11/ipc_s.h.
-	I had to create ipc_s.h during the lsof port to HP-UX 11
-	by using q4.  Lsof gets local and remote connection addresses
-	(IP and port numbers) from ipc_s, so an incorrect ipc_s
-	definition may cause incorrect reporting of TCP/IP connection
-	addresses.  It definitely will cause incorrect reporting
-	on 32 bit kernels.  In any case lsof should be compiled
-	with a correct ipc_s definition no matter the kernel bit
-	size, so the Configure script always tests for it when the
-	HP-UX version is 11.
+	Lsof gets local and remote connection addresses (IP and
+	port numbers) from ipc_s, so an incorrect ipc_s definition
+	may cause incorrect reporting of TCP/IP connection addresses.
+	It definitely will cause incorrect reporting on 32 bit
+	kernels.  In any case lsof should be compiled with a correct
+	ipc_s definition no matter the kernel bit size, so the
+	Configure script always tests for it when the HP-UX version
+	is 11.
 
-	Over the long run -- e.g., after the current patch has been
-	replaced by yet another one -- using q4 is the most reliable
-	way to tell if ipis_s exists and what it contains.
+	For lsof's Configure script to gather the necessary ipis_s
+	information q4 needs to be installed in /usr/contrib/bin
+	and the kernel boot image, /stand/vmunix, needs to have
+	been processed with pxdb.  If either is untrue, lsof issues
+	the above error message, perhaps preceded by q4 messages.
+	(Note: lsof's use of q4 may also fail if q4 can't execute
+	nm -- e.g., it can't find /usr/bin/nm, or there is a
+	conflicting, private version of nm earlier in the path.)
 
-	Unfortunately, q4 needs to be installed in /usr/contrib/bin
-	and the kernel boot image, /stand/vmunix, needs to be
-	processed with pxdb.  If either is untrue, lsof issues the
-	above error message, perhaps preceded by q4 messages.  For
-	example, if /stand/vmunix hasn't been processed by pxdb,
-	the q4 messages will include:
+	If /stand/vmunix hasn't been processed by pxdb, the q4
+	messages will include:
 
 	    q4: (error) vmunix not pxdb'd
 	or
 	    q4: (warning) /stand/vmunix has not been processed by pxdb.
 
-	To be able to complete HP-UX configuration of lsof, you
-	must determine if the ipis_s structure is defined in your
-	kernel, if the ipis_s structure of your kernel has an
-	ipis_msgsqueued member, and if the ipc_s structure of your
-	kernel uses has an ipc_ipis member.  That means you may
-	have to process /stand/vmunix with pxdb, and perhaps install
-	q4 and run it on /stand/vmunix.
+	It's possible to make a suitable private copy of /stand/vmunix
+	for configuring lsof.  That requires /opt/langtools/bin/pxdb
+	or the q4 version of pxdb from /usr/contrib/bin/q4pxdb.
+	The path to the result is supplied to the lsof Configure
+	script in the HPUX_BOOTFILE environment variable.  Configure
+	still requires /usr/contrib/bin/q4.
 
-	If you must run q4 to determine the state of ipis_s and
-	ipc_s, use these q4 commands:
+	The following sample Bourne shell commands make a private
+	copy of /stand/vmunix in /tmp, process it with pxdb or
+	q4pxdb, and supply its path to lsof's Configure script in
+	HPUX_BOOTFILE.
+
+	    $ cp /stand/vmunix /tmp/vmunix.lsof
+
+	    $ /opt/langtools/bin/pxdb /tmp/vmunix.lsof
+	  or
+	    $ /usr/contrib/bin/q4pxdb /tmp/vmunix.lsof
+
+	    ... pxdb messages ...
+	    $ HPUX_BOOTFILE=/tmp/vmunix.lsof Configure -n hpux
+
+	It may also be necessary to use q4 outside the lsof Configure
+	script.  In that case q4 can be to determine the state of
+	ipis_s and ipc_s with these q4 commands:
 
 	    $ /usr/contrib/bin/q4 /stand/vmunix
 	    ...
-	    q4> fields -c struct ipis_s
-	    ...
 	    q4> fields -c struct ipc_s
+	    ...
+	    q4> fields -c struct ipis_s
 
 	Look in the q4 output for the ipc_ipis member of the ipc_s
-	structure, and look in the ipis_s structure for the
-	ipis_msgsqueued member.  If ipc_s has ipc_ipis but ipis_s
-	lacks ipis_msgsqueued, set HPUX_IPC_S_PATCH environment
+	structure, and look in the q4 output for the ipis_s structure
+	for the ipis_msgsqueued member.  If ipc_s has ipc_ipis but
+	ipis_s lacks ipis_msgsqueued, set HPUX_IPC_S_PATCH environment
 	variable to "1".  If ipc_s has ipc_ipis and ipis_s has
 	ipis_msgsqueued, set HPUX_IPC_S_PATCH to "2" -- e.g.,
 
 	    $ HPUX_IPC_S_PATCH=1 Configure -n hpux
 	  or
 	    $ HPUX_IPC_S_PATCH=2 Configure -n hpux
-	  or
-	    % setenv HPUX_IPC_S_PATCH 1
-	    % Configure -n hpux
-	  or
-	    % setenv HPUX_IPC_S_PATCH 2
-	    % Configure -n hpux
 
-	(Use setenv if your shell is csh.)
-
-	If ipc_s has no ipc_ipis member, set HPUX_IPC_S_PATCH
-	to "N" -- e.g., use this Configure step:
+	If ipc_s has no ipc_ipis member, set HPUX_IPC_S_PATCH to
+	"N" -- e.g., use this Configure step:
 
 	    $ HPUX_IPC_S_PATCH=N Configure -n hpux
-	or
-	    % setenv HPUX_IPC_S_PATCH N
-	    % Configure -n hpux
 
-9.2.7	When compiling /dev/kmem-based lsof for HP-UX 11 what do the
+9.2.6	When compiling /dev/kmem-based lsof for HP-UX 11 what do the
 	"aCC runtime: ERROR..." messages mean?
 
 	When the lsof Makefile asks the HP-UX unbundled compiler
@@ -2991,12 +3982,12 @@ ______________________________________________________________________
 
 	This is a bug in the HP-UX national language support.
 	(Notice the last message with "locales" in it?)  Complain
-	to HP -- then use this workaround before executing make:
+	to HP -- then use this work-around before executing make:
 
 	    $ unset LANG
 	    $ make
 
-9.2.8	Why doesn't /dev/kmem-based lsof for HP-UX 11 report VxFS file
+9.2.7	Why doesn't /dev/kmem-based lsof for HP-UX 11 report VxFS file
 	link counts, node numbers, and sizes correctly?
 
 	This is usually the result of running an lsof binary whose
@@ -3027,10 +4018,10 @@ ______________________________________________________________________
 	The current response I have gotten from HP is that no
 	<sys/fs/vx_inode.h> update will be provided for OnlineJFS.
 
-	I've addressed this problem temporarily with a workaround
+	I've addressed this problem temporarily with a work-around
 	(hack) in lsof revision 4.57.
 
-9.2.9	Why can't /dev/kmem-based lsof be built with gcc for 64 bit
+9.2.8	Why can't /dev/kmem-based lsof be built with gcc for 64 bit
 	HP-UX 11?
 
 	When Configure is given the "hpuxgcc" abbreviation, the
@@ -3055,7 +4046,7 @@ ______________________________________________________________________
 	be able to get a gcc for HP-UX 11 that can produce ELF-64
 	executables.
 
-9.2.9.1	How can I acquire a gcc for building lsof for 64 bit HP-UX 11?
+9.2.8.1	How can I acquire a gcc for building lsof for 64 bit HP-UX 11?
 
 	Check this HP URL:
 
@@ -3220,11 +4211,10 @@ ______________________________________________________________________
 	it can't report file offsets (positions).
 
 	After revision 4.52 the /dev/kmem-based Linux sources for
-	lsof are no longer distributed.  They may be found at:
+	lsof are no longer distributed.  Information about them
+	may be found in the 00INDEX and README files at:
 
-	    vic.cc.purdue.edu
-	in
-	    pub/tools/unix/lsof/OLD/src/lsof_4.52.linux.tar.gz
+	    ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof/OLD/src
 
 10.2	/proc-based Linux lsof Questions
 
@@ -3362,7 +4352,39 @@ ______________________________________________________________________
 	the state of device cache processing or /dev node accessibility
 	warnings.
 
-10.2.7	Why can't lsof find files on an inaccessible NFS file system?
+10.2.7	/proc-based lsof Linux NFS questions
+
+10.2.7.1 Why can't lsof find files on an accessible NFS file system?
+
+	On occasion lsof may be unable to identify that an open
+	file is on an NFS file system.  This is most likely the
+	result of a bug in the way the Linux kernel supplies
+	information to the reader of /proc/mounts (lsof) -- sometimes
+	that pseudo-file is truncated by the kernel.
+
+	One way to see if this is the case is to search for the
+	NFS file system in /proc/mounts -- e.g.,
+
+	    $ grep <NFS_file_system_mount_point> /proc/mounts
+
+	If you get no output or the third word of the output isn't
+	"nfs", then lsof won't consider the file system an NFS file
+	system.
+
+	A second test is to look at the end of /proc/mounts --
+	e.g.,
+
+	    $ tail /proc/mounts
+
+	If tail reports "# truncated" then /proc/mounts is incomplete
+	because of a Linux kernel bug.  The bug is documented at:
+
+	    http://www.xss.co.at/sysinfo/mounts.html
+
+	The bug is fixed in Linux kernel 2.4.18, and possibly in
+	some earlier Linux kernel versions.
+
+10.2.7.2 Why can't lsof find files on an inaccessible NFS file system?
 
 	If lsof issues this message about a Linux file system,
 	mounted from an NFS server:
@@ -3396,6 +4418,85 @@ ______________________________________________________________________
 	Lsof doesn't report on open NetBSD kernfs files because the
 	structures lsof needs aren't defined in the kernfs.h header
 	file in /sys/misc/kernfs.
+
+11.2	Why doesn't lsof report on open files on: file descriptor
+	file systems; /proc file systems; 9660 (CD-ROM) file systems;
+	MS-DOS (floppy disk) file systems; or kernel file systems?
+
+	Lsof is not able to report on open files on certain file
+	system if /usr/src/sys/msdosfs didn't exist when the lsof
+	Configure script ran and lsof was made.  /usr/src/sys/msdosfs
+	contains header files lsof needs for collecting data on
+	certain file system files.
+
+	You can tell if an lsof executable above) lacks support
+	for a file system if the following test of `lsof -v` produces
+	nothing:
+
+	    $ lsof -v 2>&1 | grep <support_enabled_definition>
+	
+	The <support-enabled_definition> will be:
+
+	    File System Type	Definition	Note
+	    ----------------	----------	----
+	    File descriptor	HASFDESCFS
+	    /proc		HASPROCFS
+	    9660		HAS9660FS
+	    MS-DOS		HASMSDOSFS	(lsof 4.61 and above)
+	    Kernel		HASKERNFS
+
+	The work-around is to install /usr/src/sys, rerun the lsof
+	Configure script, and remake lsof.
+
+11.3    Why does lsof produce confusing results for nullfs file
+	systems?
+
+	Consider this report from /sbin/mount:
+
+	    /usr/home on /home type null (local)
+
+	(According to /sbin/mount /usr/home is the mounted-on device
+	and /home is the mounted-on directory.)
+
+	When lsof is asked to report on open files on /home, it
+	will report them as files on /usr/home instead.  That's an
+	artifact of the NetBSD kernel's dynamic name lookup cache
+	(DNLC) and the way the kernel handles nullfs mounted-on
+	directories.
+
+	While lsof will report all open files on /home when given
+	/home as a file system directory argument, even though
+	reporting them as located on /usr/home, lsof will not find
+	the same files when asked to report on all open files on
+	/usr/home when given /usr/home as a file system device
+	argument.  That's because from the mount perspective
+	/usr/home is equivalent to a device, but from the device
+	perspective it is still a directory.
+
+	So, what this lsof command reports:
+
+	    $ lsof /home
+	    ... NAME
+	    ... /usr/home/...
+
+	Won't be duplicated by this lsof command:
+
+	    $ lsof /usr/home
+
+	Another way to look at this confusing /home and /usr/home
+	example is to consider what stat(2) reports.  For /home
+	stat(2) reports a device doublet that matches what lsof
+	finds in open file node structures, while the device doublet
+	stat(2) reports for /usr/home won't match what lsof finds.
+	Nor does the mode reported by stat(2) indicate a block
+	devices, as is the expected case.
+
+	There is no simple answer to this confusion, nor is there
+	even a simple explanation.  Simply be aware that when
+	supplying file system arguments to lsof on NetBSD, use the
+	mounted-on directory name for a nullfs as the lsof argument,
+	and don't be surprised when the NAME column reports the
+	mounted-on device name.
 
 
 12.0	NEXTSTEP and OPENSTEP Problems
@@ -3441,13 +4542,13 @@ ______________________________________________________________________
 	when it finds kt_name.
 
 	The kernfs.h header file is scheduled to be updated in the
-	OpenBSD 2.1 release, according to Kenneth Stailey
-	<kstailey@disclosure.com>, who authored its changes.
+	OpenBSD 2.1 release, according to Kenneth Stailey, who
+	authored its changes.
 
-13.2	Will lsof work on OpenBSD on non-Intel-based architectures?
+13.2	Will lsof work on OpenBSD on non-x86-based architectures?
 
 	I've not tested lsof on an OpenBSD system that uses a
-	non-Intel-based architecture, but I've had one report that
+	non-x86-based architecture, but I've had one report that
 	lsof 4.33 compiles and works on OpenBSD for the pmax
 	architecture (decstation 3100).
 
@@ -3472,11 +4573,10 @@ ______________________________________________________________________
 	nbpg.
 
 	Lsof revisions 4.46 and above have a hack to dlsof.h,
-	developed by Volker Borchert <bt@teknon.de> that avoids
-	the compiler problem for SPARC OpenBSD 2.3.  The hack might
-	work for other OpenBSD SPARC versions, but hasn't been
-	tested there.
-	
+	developed by Volker Borchert that avoids the compiler
+	problem for SPARC OpenBSD 2.3.  The hack might work for
+	other OpenBSD SPARC versions, but hasn't been tested there.
+
 	If you want to enable the hack for your OpenBSD SPARC
 	version, modify this code in .../dialects/n+obsd/dlsof.h:
 
@@ -3505,6 +4605,24 @@ ______________________________________________________________________
 
 	Check <machine/param.h> and other OpenBSD documentation to
 	determine the correct nbpg assignment.
+
+13.4	Why doesn't lsof report on open MS-DOS file system (floppy
+	disk) files?
+
+	Lsof is not able to report on open MS-DOS file system files
+	if /usr/src/sys/msdosfs didn't exist when the lsof Configure
+	script ran and lsof was made.  /usr/src/sys/msdosfs contains
+	header files lsof needs for collecting data on MS-DOS file
+	system files.
+
+	You can tell if an lsof executable (revisions 4.61 and
+	above) lacks MS-DOS file system support if the following
+	command reports nothing:
+
+	    $ lsof -v 2>&1 | grep HASMSDOSFS
+
+	The work-around is to install /usr/src/sys, rerun the lsof
+	Configure script, and remake lsof.
 
 
 14.0	Output Problems
@@ -3623,16 +4741,39 @@ ______________________________________________________________________
 	    non-printable in the COMMAND column (``\x20'') and
 	    printable elsewhere."
 
+14.5.1  Why is space considered a non-printable character in command
+	names?
+
+	Space is considered an unprintable character in command
+	names because it is sometimes possible to hide the full
+	command name from scripts that parse ps(1) output by
+	embedding a space in the name.
+
+14.6	Why doesn't lsof print all the characters of a command name?
+
+	By default lsof prints the first nine characters of the
+	names of commands associated with processes.  If more
+	characters are required, the "w" value of the "+c w" option
+	may be used to specify a larger width.
+	
+	If "w" is zero ('0') lsof will print all characters of all
+	command names, replacing non-printable characters as
+	discussed in the answer to " Why does lsof output \x, ^x,
+	or \xnn for characters sometimes?"
+	
+	See the answer to the "Why is space considered a non-printable
+	character in command names?" question for an explanation
+	of why spaces are replaced by the ``\x20'' representation
+	in command names.
+
+
 15.0	Pyramid Version Problems
 
 15.0.5	Statement of deprecation
 
 	As of lsof revision 4.52 support for all Pyramid versions
-	has been dropped.  The last revision containing Pyramid
-	support, 4.51, is available via anonymous ftp at
-	vic.cc.purdue.edu in:
-
-	    pub/tools/unix/lsof/OLD/src/lsof_4.51.pyramid.tar.gz
+	has been dropped.  Contact me via e-mail if you're interested
+	in obtaining the last lsof Pyramid distribution.
 
 15.1	DC/OSx Problems
 
@@ -3727,15 +4868,12 @@ ______________________________________________________________________
 	That appears to happen because of the -Ox optimization
 	action requested in the lsof Makefile.
 
-	Try changing -Ox to -O in the DEBUG string of the Makefile
-	that Configure generates for you -- e.g., change
+	Try changing -Ox to -O with this make invocation:
 
-		DEBUG=  -Ox
-	to
-		DEBUG=  -O
+	    $ make DEBUG=-O
 
-	Bela Lubkin <belal@sco.COM> supplied this tip and Steve
-	Williams <stevew@innotts.co.uk> verified it.
+	Bela Lubkin supplied this tip and Steve Williams verified
+	it.
 
 16.1.2	Where is libsocket.a?
 
@@ -3788,7 +4926,7 @@ ______________________________________________________________________
 
 	You can ignore these messages.
 
-16.2	SCO UnixWare Problems
+16.2	SCO|Caldera UnixWare Problems
 
 16.2.1  Why doesn't lsof compile on my UnixWare 7.1.1 or above
 	system?
@@ -3807,7 +4945,7 @@ ______________________________________________________________________
 	cluster system to be able to develop changes to lsof that
 	would make it compile and work there.
 
-	If you have anon-stop cluster UnixWare 7.1.1 system, want
+	If you have a non-stop cluster UnixWare 7.1.1 system, want
 	lsof for it, and can offer me a test account on the system,
 	please contact me via e-mail at <abe@purdue.edu>.
 
@@ -3956,12 +5094,8 @@ ______________________________________________________________________
 
 	Lsof support for SunOS 4.1.x was last tested at revision
 	4.51.  The last lsof distribution that included  SunOS
-	4.1.x sources was revision 4.52.
-
-	The lsof revision 4.51 distribution for SunOS 4.1.x is
-	available via anonymous ftp from vic.cc.purdue.edu at:
-
-	    pub/tools/unix/lsof/OLD/src/lsof_4.51.sun.tar.gz
+	4.1.x sources was revision 4.52.  Contact me via e-mail
+	if you're interested in obtaining it.
 
 17.1	My Sun gcc-compiled lsof doesn't work -- why?
 
@@ -3970,15 +5104,15 @@ ______________________________________________________________________
 	produce a working lsof.
 
 	If your Sun gcc-compiled lsof doesn't report anything, or
-	reports ``can't read proc table,'' check that the gcc
-	fixincludes or fixinc.svr4 (Solaris 2.x, 7, and 8) step
-	was run on the system where you're using gcc to compile
-	lsof.  As an alternative, if you have the SunPro C compiler
-	available, use it to compile lsof -- e.g., use the solariscc
-	Configure abbreviations.
+	reports ``can't read proc table,'' or gcc refuses to compile
+	lsof without error, check that the gcc step that "fixes"
+	Sun header files was run on the system where you're using
+	gcc to compile lsof.  As an alternative, if you have the
+	SunPro C 5.0 compiler or later available, use it to compile
+	lsof -- e.g., use the solariscc Configure abbreviations.
 
 17.2	How can I make lsof compile with gcc under Solaris 2.[456],
-	2.5.1, 7, or 8?
+	2.5.1, 7, 8 or 9?
 
 	Presuming your gcc-specific header files are wrong for
 	Solaris, edit the lsof Configure-generated Makefile and
@@ -4001,8 +5135,8 @@ ______________________________________________________________________
 		CFGF=   -Dsolaris=20501 -D__STDC__=0 -I/usr/include ...
 
 	This is only a temporary work-around.  You really should
-	rerun gcc's fixinc.svr4 script to update your gcc-specific
-	header files or install gcc 2.8.0, which has no need for
+	instruct gcc to to update your gcc-specific header files
+	or install a recent gcc (e.g., 3.2), which has no need for
 	private copies of Solaris include files.
 
 17.3	Why does Solaris Sun C complain about system header files?
@@ -4062,8 +5196,7 @@ ______________________________________________________________________
 	putting this work-around into effect.  If it doesn't succeed
 	for you, please contact me.
 
-	I thank Leif Hedstrom <leif@infoseek.com> for identifying the
-	offending patches.
+	I thank Leif Hedstrom for identifying the offending patches.
 
 17.5	Where are the Solaris header files?
 
@@ -4102,7 +5235,7 @@ ______________________________________________________________________
 	kernel is changing rapidly.
 
 	Lsof doesn't need KERNELBASE at Solaris 2.5 and above,
-	because it has a Kernelbase value whose address lsof can
+	because it has a KERNELBASE value whose address lsof can
 	find with /dev/ksyms and whose value it can read with
 	kvm_read().  Under Solaris 2.5 /usr/src/uts has moved to
 	/usr/platform.
@@ -4138,7 +5271,7 @@ ______________________________________________________________________
 	    My Sun gcc-compiled lsof doesn't work -- why?
 
 	    How can I make lsof compile with gcc under Solaris 2.[456],
-	    2.5.1, or 7?
+	    2.5.1, 7, 8 or 9?
 
 	    Why does Solaris Sun C complain about system header files?
 
@@ -4220,32 +5353,28 @@ ______________________________________________________________________
 	(SOLARIS_CCDIR should be the full path to the directory
 	containing your cc.)
 
-17.12	Solaris 7 and 8 Problems
+17.12	Solaris 7, 8 and 9 Problems
 
 17.12.1	Why does lsof say the compiler isn't adequate for Solaris
-	7 or 8?
+	7, 8 or 9?
 
-	Solaris 7 and 8 kernels come in two flavors, 32 and 64 bit.
-	64 bit kernels run on machines that support the SPARC v9
-	instruction set architecture.  Separate executables for
+	Solaris 7, 8 and 9 kernels come in two flavors, 32 and 64
+	bit.  64 bit kernels run on machines that support the SPARC
+	v9 instruction set architecture.  Separate executables for
 	some programs, -- e.g., ones using libkvm like lsof -- must
 	be built for 32 and 64 bit kernels.
 
-	Previous Sun (e.g., SC4.0) and gcc (e.g., 2.8.0) compilers
-	will build lsof for 32 bit kernels, but they won't build
-	it for 64 bit kernels.  The only compilers that will build
-	lsof for 64 bit Solaris 7 and 8 kernels are the Sun WorkShop
-	Compilers C 5.0 and an appropriately built gcc -- the gcc
-	2.96 August 14, 2000 snapshot is known to work.  (See the
-	"How do I build a gcc that will produce 64 bit Solaris 7
-	and 8 executables?" section for tips on building an
-	appropriate gcc.)
+	Previous Sun (e.g., SC4.0) and earlier gcc compilers will
+	build lsof for 32 bit kernels, but they won't build it for
+	64 bit kernels.  Compilers that will build lsof for 64 bit
+	Solaris 7, 8 and 9 kernels are the Sun WorkShop Compilers
+	C 5.0 and above, and recent gcc versions, e.g., 3.2.
 
 	When given the ``-xarch=v9'' flag, the C 5.0 compiler and
-	associated loader and 64 bit libraries will build a 64 bit
-	lsof executable; when given the "-m64" or "-mcpu=v9"
-	(deprecated) flags, an appropriate gcc 2.96 compiler will
-	build a 64 bit lsof executable.
+	above, and associated loader and 64 bit libraries will
+	build a 64 bit lsof executable; when given the "-m64" or
+	"-mcpu=v9" (deprecated) flags, an appropriate gcc compiler
+	will build a 64 bit lsof executable.
 
 	When the lsof Configure script detects a 64 bit kernel is
 	in use (e.g., by executing `/bin/isainfo -kv`), and when
@@ -4274,10 +5403,10 @@ ______________________________________________________________________
 	  !                                                         !
 	  !!!WARNING!!!==========!!!WARNING!!!==========!!!WARNING!!!
 
-17.12.2	Why does Solaris 7 or 8 lsof say "FATAL: lsof was compiled
+17.12.2 Why does Solaris 7, 8 or 9 lsof say "FATAL: lsof was compiled
 	for..."?
 
-	Solaris 7 or 8 lsof may say:
+	Solaris 7, 8 or 9 lsof may say:
 
 	    lsof: FATAL: lsof was compiled for a xx bit kernel,
 		  but this machine has booted a yy bit kernel.
@@ -4293,19 +5422,20 @@ ______________________________________________________________________
 	libkvm.
 
 	Depending on the instruction sets for which you need Solaris
-	7 or 8 lsof, you may need two or more versions of lsof,
+	7, 8 or 9 lsof, you may need two or more versions of lsof,
 	compiled for each kernel size, installed for use with
 	/usr/lib/isaexec.  See the "How do I install lsof for
-	Solaris 7 or 8?" section of this document for more information
-	on that.
+	Solaris 7, 8 or 9?" section of this document for more
+	information on that.
 
 17.12.3	How do I build lsof for a 64 bit Solaris kernel under a 32
 	bit Solaris kernel?
 
-	If your Solaris system has an appropriate compiler (WorkShop
-	Compilers C 5.0) and the 64 bit libraries have been installed,
-	you can force lsof's Configure script to build a 64 bit
-	version of lsof with:
+	If your Solaris system has an appropriate compiler (e.g.,
+	WorkShop Compilers C 5.0 and above, or a recent gcc like
+	3.2) and the 64 bit libraries have been installed, you can
+	force lsof's Configure script to build a 64 bit version of
+	lsof with:
 
 	    $ SOLARIS_KERNBITS=64 Configure -n solariscc
 	
@@ -4313,7 +5443,7 @@ ______________________________________________________________________
 	lsof cross-configuration support, described in the 00XCONFIG
 	file of the lsof distribution.
 
-17.12.4	How do I install lsof for Solaris 7 or 8?
+17.12.4	How do I install lsof for Solaris 7, 8 or 9?
 
 	If you are installing lsof where it will be used only under
 	the bit size kernel for which it was built, no special
@@ -4347,10 +5477,11 @@ ______________________________________________________________________
 	or more lsof executables are being installed, with or
 	without the /usr/lib/isaexec hard link.
 
-17.12.5	Why does my Solaris 7 or 8 system say it cannot execute lsof?
+17.12.5 Why does my Solaris 7, 8 or 9 system say it cannot execute
+	lsof?
 
-	When you attempt to execute lsof, your Solaris 7 or 8 shell
-	may complain:
+	When you attempt to execute lsof, your Solaris 7, 8 or 9
+	shell may complain:
 
 	    ksh: ./lsof: cannot execute
 
@@ -4382,40 +5513,28 @@ ______________________________________________________________________
 	generate Makefiles that can be used with make to build an
 	appropriate lsof executable.
 
-	To compile a 64 bit lsof, you must have a Sun compiler that
-	supports the -xarch-sparcv9 option -- i.e., WorkShop
-	Compilers C 5.0 or higher.
+	To compile a 64 bit lsof, you must have an appropriate
+	compiler -- i.e., Sun WorkShop Compilers C 5.0 or higher
+	or a recent gcc like 3.2.
 
-17.12.6	How do I build a gcc that will produce 64 bit Solaris 7 and
-	8 executables?
+17.12.6 What gcc will produce 64 bit Solaris 7, 8 and 9 executables?
+	8 and 9 executables?
 
-	It is possible to enable sparcv9 support in some recent
-	gcc versions so they can build 64 bit lsof binaries.  It
-	takes experience at building gcc and a compiler capable of
-	generating sparcv9 code (e.g., Sun's WorkShop 5 or higher
-	or a gcc already capable of generating sparcv9 code).
+	Properly built and installed recent gcc versions -- e.g.,
+	3.2 -- will build lsof for 64 bit Solaris kernels.
 
-	Gcc developers strongly warn that result will be neither
-	reliable nor stable.  However, I've managed to build versions
-	of gcc 2.95, 2.96, and 3.0 on 64 bit Solaris 8 that produced
-	a working lsof.
+	If you update your gcc version to 3.2 or later, make sure
+	the private gcc header files become current -- i.e., clear
+	out any private header files from a previous gcc or Solaris
+	installation before installing the new ones, or build to
+	a new --prefix root and replace the old root with it after
+	the build and installation are complete.
 
-	The sources for my latest build of gcc 3.0, came from
-	ftp.gnu.org.  I set CC=/opt/SUNWspro/bin/cc in the environment
-	and gave gcc's configure script these options:
-
-	    --host=sparcv9-sun-solaris2 --enable-languages=c
-
-	(You may need to specify other options such as --prefix=<dir>.)
-
-	If you need more help, consult a gcc expert.  (I'm NOT one.)
-
-
-17.12.7	Why does lsof on my Solaris 7 or 8 system say, "can't read
-	namelist from /dev/ksyms?"
+17.12.7 Why does lsof on my Solaris 7, 8 or 9 system say, "can't
+	read namelist from /dev/ksyms?"
 
 	You're probably trying to use an lsof executable built for
-	an earlier Solaris release on a 64 bit Solaris 7 or 8
+	an earlier Solaris release on a 64 bit Solaris 7, 8 or 9
 	kernel.  The output from `lsof -v` will tell you the build
 	environment of your lsof executable.  You should also have
 	gotten a warning message that lsof is compiled for a
@@ -4425,13 +5544,13 @@ ______________________________________________________________________
 	    lsof: WARNING: compiled for Solaris release X; this is Y
 
 	You need to build lsof on the system where you want to use
-	it.  For 64 bit Solaris 7 and 8 you need a compiler that
+	it.  For 64 bit Solaris 7, 8 and 9 you need a compiler that
 	can generate 64 bit Solaris executables -- e.g., the Sun
-	Workshop 5 C compiler, or the August 14, 2000 snapshot for
-	gcc 2.96.  See the "Why does lsof say the compiler isn't
-	adequate for Solaris 7 or 8?" section and the ones following
-	it for a discussion of building lsof for 64 bit Solaris 7
-	or 8.
+	Workshop 5 C compiler or later, or a recent gcc version
+	like 3.2.  See the "Why does lsof say the compiler isn't
+	adequate for Solaris 7, 8 or 9?" section and the ones
+	following it for a discussion of building lsof for 64 bit
+	Solaris 7, 8 or 9.
 
 17.13	Solaris and COMMON
 
@@ -4481,10 +5600,9 @@ ______________________________________________________________________
 
 17.14	Why don't lsof and Solaris pfiles reports always match?
 
-	/usr/proc/bin/pfiles for Solaris 2.6, 7, 8 BETA, and 8
-	BETA-Refresh also reports information on open files for
-	processes.  Sometimes the information it reports differs
-	from what lsof reports.
+	/usr/proc/bin/pfiles for Solaris 2.6, 7, 8, and 9 also
+	reports information on open files for processes.  Sometimes
+	the information it reports differs from what lsof reports.
 
 	There are several reasons why this might be true.  First,
 	because pfiles is a Sun product, based on Sun kernel
@@ -4564,8 +5682,8 @@ ______________________________________________________________________
 	Consult mount_ufs(1M) for more information on the logging
 	and noatime options.
 
-	(My thanks to Casper Dik <Casper.Dik@holland.sun.com> for
-	this tip on improving the performance of UFS logging.)
+	(My thanks to Casper Dik for this tip on improving the
+	performance of UFS logging.)
 
 17.17	Why is lsof so slow on my Solaris 8 or 9 system?
 
@@ -4595,7 +5713,7 @@ ______________________________________________________________________
 
 	The solution is simple -- ignore negative DNLC cache keys.
 	They don't represent path name components lsof can use.
-	Lsof revisions 4.51 and above have an addition that ignores
+	Lsof revisions 4.50 and above have an addition that ignores
 	them and the performance of those lsof revisions improves
 	significantly when presented with negative DNLC cache keys.
 
@@ -4671,7 +5789,7 @@ ______________________________________________________________________
 	Once these files are in place, run lsof's Configure script
 	for the solaris or solariscc abbreviation.  Configure will
 	locate the appropriate VxFS 3.4 Update 2 files and set up
-	for the making of an lsof that will properaly display open
+	for the making of an lsof that will properly display open
 	VxFS 3.4 file information.
 
 17.18.1	Why does lsof report "vx_inode: vxfsu_get_ioffsets error"
@@ -4711,6 +5829,116 @@ ______________________________________________________________________
 	as an argument to lsof on Solaris 2.5.1.  Instead use a
 	combination of lsof and grep to achieve the same results,
 	albeit more clumsily.
+
+17.20   Why does lsof get a segmentation fault on 64 bit Solaris
+	8 using NIS+?
+
+	I have received a report from Gary Craig that lsof produces
+	a segmentation fault on his 64 bit Solaris 8 system using
+	NIS+.  Via an independent test program we have exonerated
+	lsof and tracked the fault to the NIS+ __nis_server_name()
+	function in the C name server library, -lnsl.
+
+	Lsof causes the __nis_server_name() NIS+ function to be
+	called by calling getservent() to read entries of the port
+	number to service name map.
+
+	The only Sun bug ID that appears to describe the problem
+	is 4304244, although its text is unclear enough to leave
+	room for doubt.
+
+	Until Sun eliminates the __nis_server_name() segmentation
+	fault cause, a work-around for lsof is to use its "-P"
+	option, causing lsof to avoid port to service name lookups.
+
+17.21	Will lsof crash the Solaris kernel?
+
+	I've received and investigated one report that it has when
+	the Sun hardware (a QME interface) was faulty.  Today (May
+	23, 2002) I've learned that Sun has reports of kernel
+	crashes caused by adb, lsof, and mdb.
+
+	The Sun investigation pinpointed a problem in the /dev/kmem
+	kernel driver and there is a Sun bug report, 4344513, about
+	the problem.  There is a fix in Solaris 9, and patches for
+	Solaris 7 and 8 (SPARC and x86).
+
+	To see if your Solaris system is fixed, look for a
+	/devices/pseudo/*allkmem node.
+
+	Extensive address filtering was added to lsof revision 4.50
+	to forestall what I then (July 2001) believed to be only
+	the possibility that lsof might crash Solaris.  However,
+	the filtering isn't perfect, since a filtered address might
+	become invalid after lsof has filtered it but before lsof
+	has delivered it to /dev/kmem.  That filtering work is
+	described in .../dialects/sun/solaris_kaddr_filters, also
+	available at:
+
+	ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof/solaris_kaddr_filters
+
+	The best and safest work-around is to upgrade to Solaris
+	9 or install an appropriate patch or its equivalent from
+	this list:
+
+	    Solaris	SPARC		x86
+	    Version	Patch		Patch
+	    =======	=====		=====
+	       7	106541-20	106542-20
+	       8	108528-14	108529-14
+
+17.22   Why does lsof on Solaris 7, 8, or 9 report a kvm_open()
+	failure?
+
+	When lsof is started on some Solaris 7, 8, and 9 systems
+	it may report:
+
+	    lsof: kvm_open (namelist=default, core=default): \
+		  No such file or directory
+
+	Lsof revisions 4.65 and later will first report:
+
+	    lsof: cannot stat /dev/allkmem
+
+	The second message, not delivered in lsof revisions below
+	4.65, explains the cause of the kvm_open() failure; it
+	can't find /dev/allkmem.
+
+	/dev/allkmem is a device added to Solaris 7 and 8 in patches
+	and in the Solaris 9 FCS.  See the preceding "Will lsof
+	crash the Solaris kernel?" section for more information on
+	/dev/allkmem and the patches.
+
+	The kvm_open(3KVM) function in the KVM library of patched
+	Solaris 7 and 8 systems and in Solaris 9 expects to find
+	/dev/allkmem and exits on error when it does not.
+
+	If you have installed the patch that updated your KVM
+	library to a version that expects /dev/allkmem to be present
+	and it is not, you may need to reconfigure your system's
+	devices with devfsadm(1M) or enter "boot -r" to the OpenBoot
+	monitor's prompt (usually "ok").
+
+17.23	Solaris and SAM-FS
+
+17.23.1	Why does Solaris lsof report "(limited SAM-FS info)"?
+
+	Lsof 4.68 and above report "(limited SAM-FS info)" on
+	Solaris in the NAME column after the path or file system
+	name for all files it finds on SAM-FS file systems.
+
+	That's because no more information is known about the
+	composition of the nodes that follow SAM-FS vnodes.  If
+	you can provide that information, please contact me via
+	e-mail at <abe@purdue.edu>.
+
+17.23.2	Why can't lsof locate named SAM-GS files?
+
+	Solaris lsof 4.68 and above can't locate files on SAM-FS
+	file systems when the files are named as lsof arguments
+	because lsof doesn't know how to locate open SAM-FS file
+	device and node number information.  (See also 'Why does
+	Solaris lsof report "(limited SAM-FS info)?')
 
 
 18.0	Lsof Features
@@ -4800,8 +6028,7 @@ ______________________________________________________________________
 	when lsof doesn't detect the removal, lsof may not be able
 	to identify socket files when executed by the affected user
 	ID.  Only certain dialects are at risk to this attack --
-	e.g., SCO OpenServer and Solaris 2.x, 7, 8 BETA, and 8
-	BETA-Refresh.
+	e.g., SCO OpenServer and Solaris 2.x, 7, 8, and 9.
 
 	If you're tracking a network intruder with lsof, that could
 	be important to you.  If you suspect that someone has
@@ -4851,9 +6078,9 @@ ______________________________________________________________________
 	    #define HASPERSDC "/tmp/.lsof_%u_%l_pers"
 
 	Thus the /tmp personal device cache file path for login
-	"abe" on host "vic.cc.purdue.edu" would be:
+	"abe" on host "lsof.itap.purdue.edu" would be:
 
-	    /tmp/.lsof_abe_vic.cc.purdue.edu_pers
+	    /tmp/.lsof_abe_lsof.itap.purdue.edu_pers
 
 	You can add the User ID (UID) with the "%U" conversion and
 	the first host name component with the ``%L'' conversion.
@@ -4870,7 +6097,7 @@ ______________________________________________________________________
 
 	When the lsof process is setuid-root or its real UID is
 	root, presuming root's home directory is `/' and the host's
-	name is ``vic.cc.purdue.edu'', the extended format yields:
+	name is ``lsof.itap.purdue.edu'', the extended format yields:
 
 	    /.lsof_vic
 

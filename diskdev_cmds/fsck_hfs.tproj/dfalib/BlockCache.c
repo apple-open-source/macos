@@ -96,7 +96,7 @@ GetVolumeBlock (SVCB *volume, UInt64 blockNum, GetBlockOptions options, BlockDes
 
 		mdb = (HFSMasterDirectoryBlock *)block->buffer;
 		signature = SWAP_BE16(mdb->drSigWord);
-		if (signature == kHFSPlusSigWord )
+		if (signature == kHFSPlusSigWord || signature == kHFSXSigWord)
 			SWAP_HFSPLUSVH(block->buffer);
 		else if (signature == kHFSSigWord)
 			SWAP_HFSMDB(block->buffer);
@@ -130,7 +130,7 @@ ReleaseVolumeBlock (SVCB *volume, BlockDescriptor *block, ReleaseBlockOptions op
 	 */
 	if (!(options & kSkipEndianSwap)) {
 		signature = ((HFSMasterDirectoryBlock *)block->buffer)->drSigWord;
-		if (signature == kHFSPlusSigWord)
+		if (signature == kHFSPlusSigWord || signature == kHFSXSigWord)
 			SWAP_HFSPLUSVH(block->buffer);
 		else if (signature == kHFSSigWord)
 			SWAP_HFSMDB(block->buffer);
@@ -178,7 +178,7 @@ GetFileBlock (SFCB *file, UInt32 blockNum, GetBlockOptions options, BlockDescrip
 	offset = (SInt64) ((UInt64) diskBlock) << kSectorShift;
 
 	result = CacheRead (cache, offset, file->fcbBlockSize, &buffer);
-	if (result) return (result);
+	if (result)  return (result);
 
 	block->blockHeader = buffer;
 	block->buffer = buffer->Buffer;

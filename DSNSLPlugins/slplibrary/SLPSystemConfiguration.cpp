@@ -1,11 +1,32 @@
 /*
- *  SLPSystemConfiguration.cpp
- *  NSLPlugins
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
- *  Created by imlucid on Fri Sep 21 2001.
- *  Copyright (c) 2001 Apple Computer. All rights reserved.
- *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
  */
+ 
+/*!
+ *  @header SLPSystemConfiguration
+ */
+ 
 #include <stdio.h>
 #include <string.h>
 #include <sys/un.h>
@@ -16,16 +37,53 @@
 #include "mslpd_store.h"
 #include "mslp_dat.h"
 #include "mslplib.h"     /* Definitions specific to the mslplib  */
-//#include "mslpd.h"
-//#include "mslpd_mask.h"
-
-//#include "mslpd_parse.h"
 
 #include "SLPSystemConfiguration.h"
 #include "SLPDALocator.h"
+#include "CNSLTimingUtils.h"
 
 #define DHCPTAG_SLP_DIRECTORY_AGENT		78
 #define DHCPTAG_SLP_SERVICE_SCOPE		79
+
+const CFStringRef	kSLPTagSAFE_CFSTR = CFSTR("com.apple.slp");
+const CFStringRef	kSLPTimeOfFirstStartSAFE_CFSTR = CFSTR("com.apple.slp.timeOfFirstStart");
+
+Boolean IsNetworkSetToTriggerDialup( void )
+{
+	SCNetworkConnectionFlags	connectionFlags;
+	Boolean						dialupWillBeTriggered = true;
+	struct sockaddr_in			addr;
+	
+	::memset( &addr, 0, sizeof(addr) );
+	addr.sin_family			= AF_INET;
+	addr.sin_addr.s_addr	= htonl( inet_addr("239.255.255.253") );
+	
+	SCNetworkCheckReachabilityByAddress( (struct sockaddr*)&addr, sizeof(addr), &connectionFlags );
+
+	if (connectionFlags & kSCNetworkFlagsReachable)
+		SLP_LOG( SLP_LOG_DEBUG, "CSLPPlugin::IsNetworkSetToTriggerDialup, flag: kSCNetworkFlagsReachable\n" );
+	else
+		SLP_LOG( SLP_LOG_DEBUG, "CSLPPlugin::IsNetworkSetToTriggerDialup, flag: !kSCNetworkFlagsReachable\n" );
+	
+	if (connectionFlags & kSCNetworkFlagsConnectionRequired)
+		SLP_LOG( SLP_LOG_DEBUG, "CSLPPlugin::IsNetworkSetToTriggerDialup, flag: kSCNetworkFlagsConnectionRequired\n" );
+	else
+		SLP_LOG( SLP_LOG_DEBUG, "CSLPPlugin::IsNetworkSetToTriggerDialup, flag: !kSCNetworkFlagsConnectionRequired\n" );
+	
+	if (connectionFlags & kSCNetworkFlagsTransientConnection)
+		SLP_LOG( SLP_LOG_DEBUG, "CSLPPlugin::IsNetworkSetToTriggerDialup, flag: kSCNetworkFlagsTransientConnection\n" );
+	else
+		SLP_LOG( SLP_LOG_DEBUG, "CSLPPlugin::IsNetworkSetToTriggerDialup, flag: !kSCNetworkFlagsTransientConnection\n" );
+	
+	if ( (connectionFlags & kSCNetworkFlagsReachable) && !(connectionFlags & kSCNetworkFlagsConnectionRequired) && !(connectionFlags & kSCNetworkFlagsTransientConnection) )
+	{
+		SLP_LOG( SLP_LOG_DEBUG, "CSLPPlugin::IsNetworkSetToTriggerDialup found address reachable w/o dialup required\n" );
+		dialupWillBeTriggered = false;
+	}
+	
+	return dialupWillBeTriggered;
+}
+
 
 boolean_t SLPSystemConfigurationNetworkChangedCallBack(SCDynamicStoreRef session, void *callback_argument);
 
@@ -43,7 +101,6 @@ EXPORT void InitializeSLPSystemConfigurator( CFRunLoopRef runLoopRef )
 EXPORT void DeleteRegFileIfFirstStartupSinceBoot( void )
 {
 // We are just going to have Directory Services delete the file
-//	SLPSystemConfiguration::TheSLPSC()->CheckIfFirstLaunchSinceReboot();	// if this is first time, clean up some stuff
 }
 
 EXPORT CFStringRef CopyCurrentActivePrimaryInterfaceName( void )
@@ -143,7 +200,7 @@ void SLPSystemConfiguration::SetEncodedScopeToRegisterIn( const char* scope, boo
         &&	strlen(mEncodedScopeToRegisterIn) == strlen(scope)
         &&	memcmp( mEncodedScopeToRegisterIn, scope, strlen(scope) == 0 ) )
     {
-        // cool, we already have this thank you.  Just return
+        // we already have this so return
         return;
     }
     
@@ -173,7 +230,7 @@ void SLPSystemConfiguration::Initialize( void )
 	SLP_LOG( SLP_LOG_CONFIG, "SLPSystemConfiguration::Initialize\n" );
     if ( !mSCRef )
     {
-        mSCRef = ::SCDynamicStoreCreate(NULL, CFSTR("com.apple.slp"), NULL, NULL);
+        mSCRef = ::SCDynamicStoreCreate(NULL, kSLPTagSAFE_CFSTR, NULL, NULL);
         
         if ( !mSCRef )
             SLP_LOG( SLP_LOG_ERR, "SLPSystemConfiguration, mSCRef is NULL after a call to SCDynamicStoreCreate!" );
@@ -204,7 +261,6 @@ SInt32 SLPSystemConfiguration::RegisterForNetworkChange( void )
 {
 	SInt32				scdStatus			= 0;
 	CFStringRef			ipKey				= 0;	//ip changes key
-//	CFStringRef			computerNameKey 	= 0;	//computer name changes key
 	CFMutableArrayRef	notifyKeys			= 0;
 	CFMutableArrayRef	notifyPatterns		= 0;
 	Boolean				setStatus			= FALSE;
@@ -222,49 +278,12 @@ SInt32 SLPSystemConfiguration::RegisterForNetworkChange( void )
 		notifyPatterns	= CFArrayCreateMutable(	kCFAllocatorDefault,
 												0,
 												&kCFTypeArrayCallBacks);
-		//CFArrayAppendValue(notifyPatterns, kSCCompAnyRegex); //formerly kSCDRegexKey
-												
-        // ip changes
-//        if ( WantIPChangeNotification() )
-        {
-            SLP_LOG( SLP_LOG_DEBUG, "RegisterForNetworkChange for kSCEntNetIPv4:\n" );
-            ipKey = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetIPv4);
-            CFArrayAppendValue(notifyKeys, ipKey);
-            CFRelease(ipKey);
-        }
-#if 0        
-        // AppleTalk changes
-//		if ( WantAppleTalkChangeNotification() )
-        {
-            SLP_LOG( SLP_LOG_DEBUG, "RegisterForNetworkChange for kSCEntNetAppleTalk:\n" );
-            atKey = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetAppleTalk);
-            CFArrayAppendValue(notifyKeys, atKey);
-            CFRelease(atKey);
-        }
-        
-        // computer name changes
-//		if ( WantAppleTalkChangeNotification() )
-        {
-            SLP_LOG( SLP_LOG_DEBUG, "RegisterForNetworkChange for kSCPropNetAppleTalkComputerName:\n" );
-            atKey = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCPropNetAppleTalkComputerName);
-            CFArrayAppendValue(notifyKeys, atKey);
-            CFRelease(atKey);
-        }
-        // DNS changed
-		//dnsKey = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetDNS);
-		//CFArrayAppendValue(notifyKeys, dnsKey);
-		//CFRelease(dnsKey);
-               
-        // NIS changed
-		//nisKey = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetNIS);
-		//CFArrayAppendValue(notifyKeys, nisKey);
-		//CFRelease(nisKey);
 
-		//same mechanism that lookupd daemon currently uses to restart itself
-		//although in our case we simply stop and allow any client through our
-		//framework to restart us when required
-		//CFArrayAppendValue(notifyKeys, CFSTR("File:/var/run/nibindd.pid"));
-#endif
+		SLP_LOG( SLP_LOG_DEBUG, "RegisterForNetworkChange for kSCEntNetIPv4:\n" );
+		ipKey = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetIPv4);
+		CFArrayAppendValue(notifyKeys, ipKey);
+		CFRelease(ipKey);
+
         setStatus = SCDynamicStoreSetNotificationKeys(mSCRef, notifyKeys, notifyPatterns);
 		CFRelease(notifyKeys);
 		CFRelease(notifyPatterns);
@@ -277,12 +296,6 @@ SInt32 SLPSystemConfiguration::RegisterForNetworkChange( void )
         }
         else
             SLP_LOG( SLP_LOG_DEBUG, "No Current Run Loop, couldn't store Notify callback\n" );
-//		setStatus = SCDynamicStoreNotifySignal( mSCDStore, getpid(), SIGHUP);
-		
-//		aPIDString = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%d"), (uInt32)getpid());
-//		setStatus = SCDynamicStoreAddTemporaryValue( mSCDStore, CFSTR("DirectoryService:PID"), aPIDString );
-//   		CFRelease(aPIDString);
-		
 	} // SCDSessionRef okay
 
 	return scdStatus;
@@ -320,7 +333,7 @@ CFStringRef SLPSystemConfiguration::CopyCurrentActivePrimaryInterfaceName( void 
         if ( !dict )
         {
             SLP_LOG( SLP_LOG_DROP, "CopyCurrentActivePrimaryInterfaceName, coudn't get the interface dictionary, sleep a second and try again\n" );
-            sleep(1);
+            SmartSleep(1*USEC_PER_SEC);
             retryNum++;
         }
     }
@@ -390,7 +403,7 @@ void SLPSystemConfiguration::CheckIfFirstLaunchSinceReboot( void )
 	@result TRUE if the key was added; FALSE if the key was already
 		present in the "dynamic store" or if an error was encountered.
  */
-	if ( SCDynamicStoreAddValue( mSCRef, CFSTR("com.apple.slp.timeOfFirstStart"), dateRef ) )
+	if ( SCDynamicStoreAddValue( mSCRef, kSLPTimeOfFirstStartSAFE_CFSTR, dateRef ) )
     {
         // this wasn't there before
         if ( SLPGetProperty("com.sun.slp.regfile") )
@@ -413,9 +426,8 @@ void SLPSystemConfiguration::CheckIfFirstLaunchSinceReboot( void )
 
 void SLPSystemConfiguration::DeterminePreconfiguredRegistrationScopeInformation( void )
 {
-    // we had better figure this out then
     SLP_LOG( SLP_LOG_DEBUG, "SLPSystemConfiguration::DeterminePreconfiguredRegistrationScopeInformation" );
-    // this data should be gotten in the following priority:
+    // this data should be retrieved in the following priority:
     // 1) Are we specifically configured via DirectoryServices
     // 2) Do we have info from DHCP?
     // 2) Have we been set locally via com.apple.slp.defaultRegistrationScope (lower priority as it is older tech)
@@ -446,10 +458,9 @@ void SLPSystemConfiguration::DeterminePreconfiguredRegistrationScopeInformation(
 
 void SLPSystemConfiguration::DeterminePreconfiguredDAAgentInformation( void )
 {
-    // we had better figure this out then
     SLP_LOG( SLP_LOG_DEBUG, "SLPSystemConfiguration::DeterminePreconfiguredDAAgentInformation" );
     
-    // this data should be gotten in the following priority:
+    // this data should be retrieved in the following priority:
     // 1) Are we specifically configured via DirectoryServices
     // 2) Do we have info from DHCP?
     // 2) Have we been set locally via com.apple.slp.defaultRegistrationScope (lower priority as it is older tech)
@@ -489,7 +500,7 @@ void SLPSystemConfiguration::DeterminePreconfiguredDAAgentInformation( void )
             
             pcDA = get_next_string("(",pcDAs,&iOffset,&cDelim);
             
-             if ( pcDA )
+			if ( pcDA )
             {
                 pcScopes = get_next_string(")",pcDAs,&iOffset,&cDelim);
 
@@ -502,11 +513,11 @@ void SLPSystemConfiguration::DeterminePreconfiguredDAAgentInformation( void )
                 }
                 
                 SLP_LOG( SLP_LOG_DEBUG, "...Using DAAgent info from config file, scope: %s", pcScopes );      
-            //    if (!pcDA || !pcScopes) { /* eventually we will run out: clean up & exit */
+
                 if (!pcDA) { /* eventually we will run out: clean up & exit */
-                SLPFree(pcDA);
-                SLPFree(pcScopes);
-                break;
+					SLPFree(pcDA);
+					SLPFree(pcScopes);
+					break;
                 }
                 
                 /* skip over the ',' between terms */
@@ -518,7 +529,6 @@ void SLPSystemConfiguration::DeterminePreconfiguredDAAgentInformation( void )
                 SLP_LOG( SLP_LOG_DEBUG, "...Using DAAgent info from config file, da: %s", pcDA );      
             }
             
-        //    sin.sin_addr = get_in_addr_by_name(pcDA);
             if ( pcDA )
             {
                 struct in_addr addr = get_in_addr_by_name(pcDA);
@@ -534,10 +544,6 @@ void SLPSystemConfiguration::DeterminePreconfiguredDAAgentInformation( void )
             * started.  We will forward all our adverts to it anyway, as we start
             * up.
             */
-        //    if (dat_daadvert_in(pdat,sin,pcScopes,SDGetTime()) < 0) {
-        //      LOG(SLP_LOG_ERR,"dat_init: could not add a preconfigured DA");
-        //    }
-        
         } while (1);
     }
 }
@@ -681,15 +687,10 @@ void SLPSystemConfiguration::ParseScopeListInfoFromDHCPData( CFDataRef scopeList
 }
 
 
-void SLPSystemConfiguration::HandleAppleTalkNotification( void )
-{
-
-}
-
 void SLPSystemConfiguration::HandleIPv4Notification( void )
 {
 	if ( mCurInterface )
-		free( mCurInterface );
+		free( (void*)mCurInterface );
 		
 	CalculateOurIPAddress( &mCurIPAddr, &mCurInterface );
 }
@@ -697,7 +698,7 @@ void SLPSystemConfiguration::HandleIPv4Notification( void )
 void SLPSystemConfiguration::HandleInterfaceNotification( void )
 {
 	if ( mCurInterface )
-		free( mCurInterface );
+		free( (void*)mCurInterface );
 
 	CalculateOurIPAddress( &mCurIPAddr, &mCurInterface );
 }
@@ -706,8 +707,6 @@ void SLPSystemConfiguration::HandleDHCPNotification( void )
 {
 
 }
-
-
 
 boolean_t SLPSystemConfigurationNetworkChangedCallBack(SCDynamicStoreRef session, void *callback_argument)
 {                       
@@ -719,27 +718,22 @@ boolean_t SLPSystemConfigurationNetworkChangedCallBack(SCDynamicStoreRef session
 	
 	changedKeys = SCDynamicStoreCopyNotifiedKeys(session);
 	
-    for ( CFIndex i = 0; i < ::CFArrayGetCount(changedKeys); i++ )
-    {
-        if ( CFStringHasSuffix( (CFStringRef)::CFArrayGetValueAtIndex( changedKeys, i ), kSCEntNetAppleTalk ) )
-            config->HandleAppleTalkNotification();
-        else if ( CFStringHasSuffix( (CFStringRef)::CFArrayGetValueAtIndex( changedKeys, i ), kSCEntNetIPv4 ) )
-            config->HandleIPv4Notification();
-        else if ( CFStringHasSuffix( (CFStringRef)::CFArrayGetValueAtIndex( changedKeys, i ), kSCEntNetInterface ) )
-            config->HandleInterfaceNotification();
-        else if ( CFStringHasSuffix( (CFStringRef)::CFArrayGetValueAtIndex( changedKeys, i ), kSCEntNetDHCP ) )
-            config->HandleDHCPNotification();
-    }
-    
-    if ( changedKeys )
+	if ( changedKeys )
+	{
+		CFIndex		numKeys = ::CFArrayGetCount(changedKeys);
+		
+		for ( CFIndex i = 0; i < numKeys; i++ )
+		{
+			if ( CFStringHasSuffix( (CFStringRef)::CFArrayGetValueAtIndex( changedKeys, i ), kSCEntNetIPv4 ) )
+				config->HandleIPv4Notification();
+			else if ( CFStringHasSuffix( (CFStringRef)::CFArrayGetValueAtIndex( changedKeys, i ), kSCEntNetInterface ) )
+				config->HandleInterfaceNotification();
+			else if ( CFStringHasSuffix( (CFStringRef)::CFArrayGetValueAtIndex( changedKeys, i ), kSCEntNetDHCP ) )
+				config->HandleDHCPNotification();
+		}
+		
 		::CFRelease( changedKeys );
-
+	}
+	
 	return true;				// return whether everything went ok
 }// SLPSystemConfigurationNetworkChangedCallBack
-
-
-
-
-
-
-

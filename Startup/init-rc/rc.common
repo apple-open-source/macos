@@ -39,7 +39,7 @@ CheckForNetwork()
     local test
 
     if [ -z "${NETWORKUP:=}" ]; then
-	test=$(ifconfig -a inet 2>/dev/null | sed -n -e '/127.0.0.1/d' -e '/0.0.0.0/d' -e '/inet/p' | wc -l)
+	test=$(ifconfig -a inet 2>/dev/null | sed -n -e '/tunnel inet/d' -e '/127.0.0.1/d' -e '/0.0.0.0/d' -e '/inet/p' | wc -l)
 	if [ "${test}" -gt 0 ]; then
 	    NETWORKUP="-YES-"
 	else
@@ -118,7 +118,7 @@ purgedir() {
 ##########################
 # Get host configuration #
 ##########################
-. /etc/hostconfig
+[ -f /etc/hostconfig ] && . /etc/hostconfig
 
 ##
 # Enable coredumps if requested.

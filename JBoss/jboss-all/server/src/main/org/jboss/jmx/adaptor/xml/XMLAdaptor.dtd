@@ -1,0 +1,126 @@
+<!-- 
+This DTD describes who the list JMX Calls XML files has
+to look like. Please NOTE that the order of the second
+level elements (operation calls) doesn't have to be in
+a particular order.
+-->
+
+<!-- 
+The jmx element is the root element of the jmx.xml file.
+
+ATTENTION: The elements doesn't have to be in a particular
+order.
+ATTENTION: when the invokeXML( Element ) is used one of
+the inner elements of this root element must be handed
+over.
+-->
+<!ELEMENT jmx (create-mbean?, invoke?)>
+
+  <!--
+  This operation creates a MBean. Note that the operation
+  contains the name of the operation to be invoked and that
+  you have to have a Object Name. You can either set an
+  attribute "name" or add the "object-name" element.
+  -->
+  <!ELEMENT create-mbean (object-name?, constructor?, attribute*)>
+  
+    <!--
+    The Object Name is to create a Name for an MBean.
+    The Object Name can contain either a "name" attribute
+    having the info for the ObjectName (<domain name>:<property>*)
+    form or it can contains the "domain" attribute and a list
+    of properties.
+    -->
+    <!ELEMENT object-name (property*)>
+    
+      <!--
+      Contains the Property for the Object Name. It must
+      contain a "key" attribute for the given value.
+      -->
+      <!ELEMENT property (property-value)>
+      
+        <!--
+        Contains the Property Value for the Object Name
+        -->
+        <!ELEMENT property-value (#PCDATA)>
+    
+    <!--
+    Constructor contains the information about a specific, not default
+    Constructor. If you use the no-args constructor you do not have
+    to specify the constructor here
+    -->
+    <!ELEMENT constructor (argument*)>
+    
+      <!--
+      Contains the Argument for a Constructor. It has to have
+      an attribute "type" which is either the fully qualified class
+      or the regular datatype name for primitives.
+      -->
+      <!ELEMENT argument (argument-value)>
+      
+        <!--
+        Contains the Argument Value for a Constructor Argument
+        -->
+        <!ELEMENT argument-value (#PCDATA)>
+    
+    <!--
+    Attribute contains the value to be set on the given MBean.
+    It has to have a "name" attribute which must map an attribute
+    in the MBean (case sensitive).
+    -->
+    <!ELEMENT attribute (attribute-value)>
+    
+      <!--
+      Contains the Attribute value to be set on the given MBean
+      -->
+      <!ELEMENT attribute-value (#PCDATA)>
+      
+  <!--
+  Invokes a method on the given MBean
+  -->
+  <!ELEMENT invoke (object-name, attribute*)>
+
+  <!--
+  Returns one or serveral attributes form the given MBean.
+  In this case the attributes child (value) is ignored.
+  -->
+  <!ELEMENT get-attribute (object-name, attribute*)>
+
+  <!--
+  Sets and Returns one or serveral attributes form the given MBean
+  -->
+  <!ELEMENT set-attribute (object-name, attribute*)>
+
+  <!--
+  Returns the number of registered MBeans
+  -->
+  <!ELEMENT mbean-count (object-name)>
+
+  <!--
+  Returns the MBean Info object of the given MBean
+  -->
+  <!ELEMENT mbean-info (object-name)>
+
+  <!--
+  Returns the Object Instance object of the given MBean
+  -->
+  <!ELEMENT object-instance (object-name)>
+
+  <!--
+  Returns true if the given MBean implements or extends the given
+  class. Must contain an attribute "code" containing the full
+  qualified path to check against.
+  -->
+  <!ELEMENT is-instance-of (object-name)>
+
+  <!--
+  Returns true if a MBean with this Object Name is registered.
+  -->
+  <!ELEMENT is-registered (object-name)>
+
+  <!--
+  Unregister the given MBean.
+  -->
+  <!ELEMENT unregister-mbean (object-name)>
+
+

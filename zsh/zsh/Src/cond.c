@@ -147,9 +147,14 @@ evalcond(Estate state)
 		singsub(&rt);
 		untokenize(rt);
 	    }
-	    fprintf(xtrerr, " %s %s %s", left, condstr[ctype], rt);
-	} else
-	    fprintf(xtrerr, " -%c %s", ctype, left);
+	    fputc(' ',xtrerr);
+	    quotedzputs(left, xtrerr);
+	    fprintf(xtrerr, " %s ", condstr[ctype]);
+	    quotedzputs(rt, xtrerr);
+	} else {
+	    fprintf(xtrerr, " -%c ", ctype);
+	    quotedzputs(left, xtrerr);
+	}
     }
 
     if (ctype >= COND_EQ && ctype <= COND_GE) {
@@ -324,6 +329,8 @@ static struct stat st;
 static struct stat *
 getstat(char *s)
 {
+    char *us;
+
 /* /dev/fd/n refers to the open file descriptor n.  We always use fstat *
  * in this case since on Solaris /dev/fd/n is a device special file     */
     if (!strncmp(s, "/dev/fd/", 8)) {
@@ -332,7 +339,9 @@ getstat(char *s)
         return &st;
     }
 
-    if (stat(unmeta(s), &st))
+    if (!(us = unmeta(s)))
+        return NULL;
+    if (stat(us, &st))
 	return NULL;
     return &st;
 }

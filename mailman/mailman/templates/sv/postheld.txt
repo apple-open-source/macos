@@ -1,0 +1,16 @@
+Du skickade ett e-postbrev till '%(listname)s' med ämnet
+
+    %(subject)s
+
+Det hålls tills vidare tillbaka tills moderatorn kan läsa det för att
+godkänna eller avslå det.
+
+Anledningen till att brevet hålls tillbaka är:
+
+    %(reason)s
+
+Antingen kommer ditt e-postbrev att skickas ut på listan eller också får du 
+det i retur med en förklaring till varför det inte skickades ut. Önskar du att
+dra tillbaka ditt e-postbrev, gå in på följande URL:
+
+    %(confirmurl)s

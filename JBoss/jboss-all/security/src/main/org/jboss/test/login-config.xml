@@ -1,0 +1,416 @@
+<?xml version='1.0'?>
+<!DOCTYPE policy PUBLIC
+      "-//JBoss//DTD JBOSS Security Config 3.0//EN"
+      "http://www.jboss.org/j2ee/dtd/security_config.dtd">
+
+<!-- Tests of the behvior of the control flags with multiple
+login modules.
+
+1) Required - The LoginModule is required to succeed.
+			If it succeeds or fails, authentication still continues
+			to proceed down the LoginModule list.
+
+2) Requisite - The LoginModule is required to succeed.
+			If it succeeds, authentication continues down the
+			LoginModule list.  If it fails,
+			control immediately returns to the application
+			(authentication does not proceed down the
+			LoginModule list).
+
+3) Sufficient - The LoginModule is not required to
+			succeed.  If it does succeed, control immediately
+			returns to the application (authentication does not
+			proceed down the LoginModule list).
+			If it fails, authentication continues down the
+			LoginModule list.
+
+4) Optional - The LoginModule is not required to
+			succeed.  If it succeeds or fails,
+			authentication still continues to proceed down the
+			LoginModule list.
+-->
+<policy>
+
+    <application-policy name = "case1">
+       <authentication>
+          <login-module code = "org.jboss.test.TestLoginModule"
+             flag = "required">
+             <module-option name = "name">1.1</module-option>
+             <module-option name = "succeed">true</module-option>
+             <module-option name = "throwEx">false</module-option>
+          </login-module>
+          <login-module code = "org.jboss.test.TestLoginModule"
+             flag = "optional">
+             <module-option name = "name">1.2</module-option>
+             <module-option name = "succeed">false</module-option>
+             <module-option name = "throwEx">true</module-option>
+          </login-module>
+       </authentication>
+    </application-policy>
+
+    <application-policy name = "case2">
+       <authentication>
+          <login-module code = "org.jboss.test.TestLoginModule"
+             flag = "optional">
+             <module-option name = "name">2.1</module-option>
+             <module-option name = "succeed">true</module-option>
+             <module-option name = "throwEx">false</module-option>
+          </login-module>
+          <login-module code = "org.jboss.test.TestLoginModule"
+             flag = "optional">
+             <module-option name = "name">2.2</module-option>
+             <module-option name = "succeed">false</module-option>
+             <module-option name = "throwEx">true</module-option>
+          </login-module>
+       </authentication>
+    </application-policy>
+
+    <application-policy name = "case3">
+       <authentication>
+          <login-module code = "org.jboss.test.TestLoginModule"
+             flag = "optional">
+             <module-option name = "name">3.1</module-option>
+             <module-option name = "succeed">false</module-option>
+             <module-option name = "throwEx">false</module-option>
+          </login-module>
+          <login-module code = "org.jboss.test.TestLoginModule"
+             flag = "optional">
+             <module-option name = "name">3.2</module-option>
+             <module-option name = "succeed">false</module-option>
+             <module-option name = "throwEx">true</module-option>
+          </login-module>
+       </authentication>
+    </application-policy>
+
+    <application-policy name = "case4">
+       <authentication>
+          <login-module code = "org.jboss.test.TestLoginModule"
+             flag = "optional">
+             <module-option name = "name">4.1</module-option>
+             <module-option name = "succeed">false</module-option>
+             <module-option name = "throwEx">false</module-option>
+          </login-module>
+          <login-module code = "org.jboss.test.TestLoginModule"
+             flag = "optional">
+             <module-option name = "name">4.2</module-option>
+             <module-option name = "succeed">false</module-option>
+             <module-option name = "throwEx">false</module-option>
+          </login-module>
+       </authentication>
+    </application-policy>
+
+    <application-policy name = "case5">
+       <authentication>
+          <login-module code = "org.jboss.test.TestLoginModule"
+             flag = "requisite">
+             <module-option name = "name">5.1</module-option>
+             <module-option name = "succeed">false</module-option>
+             <module-option name = "throwEx">false</module-option>
+          </login-module>
+          <login-module code = "org.jboss.test.TestLoginModule"
+             flag = "optional">
+             <module-option name = "name">5.2</module-option>
+             <module-option name = "succeed">true</module-option>
+             <module-option name = "throwEx">false</module-option>
+          </login-module>
+       </authentication>
+    </application-policy>
+
+    <application-policy name = "case6">
+       <authentication>
+          <login-module code = "org.jboss.test.TestLoginModule"
+             flag = "sufficient">
+             <module-option name = "name">6.1</module-option>
+             <module-option name = "succeed">true</module-option>
+             <module-option name = "throwEx">false</module-option>
+          </login-module>
+          <login-module code = "org.jboss.test.TestLoginModule"
+             flag = "optional">
+             <module-option name = "name">6.2</module-option>
+             <module-option name = "succeed">false</module-option>
+             <module-option name = "throwEx">true</module-option>
+          </login-module>
+       </authentication>
+   </application-policy>
+
+   <application-policy name = "case7">
+      <authentication>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "sufficient">
+            <module-option name = "name">7.1</module-option>
+            <module-option name = "succeed">false</module-option>
+            <module-option name = "throwEx">true</module-option>
+         </login-module>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "optional">
+            <module-option name = "name">7.2</module-option>
+            <module-option name = "succeed">true</module-option>
+            <module-option name = "throwEx">false</module-option>
+         </login-module>
+      </authentication>
+   </application-policy>
+
+   <application-policy name = "case8">
+      <authentication>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "requisite">
+            <module-option name = "name">8.1</module-option>
+            <module-option name = "succeed">false</module-option>
+            <module-option name = "throwEx">true</module-option>
+         </login-module>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "optional">
+            <module-option name = "name">8.2</module-option>
+            <module-option name = "succeed">true</module-option>
+            <module-option name = "throwEx">false</module-option>
+         </login-module>
+      </authentication>
+   </application-policy>
+
+   <application-policy name = "case9">
+      <authentication>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "requisite">
+            <module-option name = "name">9.1</module-option>
+            <module-option name = "succeed">true</module-option>
+            <module-option name = "throwEx">false</module-option>
+         </login-module>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "optional">
+            <module-option name = "name">9.2</module-option>
+            <module-option name = "succeed">false</module-option>
+            <module-option name = "throwEx">true</module-option>
+         </login-module>
+      </authentication>
+   </application-policy>
+
+   <application-policy name = "case10">
+      <authentication>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "required">
+            <module-option name = "name">10.1</module-option>
+            <module-option name = "succeed">true</module-option>
+            <module-option name = "throwEx">false</module-option>
+         </login-module>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "required">
+            <module-option name = "name">10.2</module-option>
+            <module-option name = "succeed">false</module-option>
+            <module-option name = "throwEx">true</module-option>
+         </login-module>
+      </authentication>
+   </application-policy>
+
+   <application-policy name = "case11">
+      <authentication>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "sufficient">
+            <module-option name = "name">11.1</module-option>
+            <module-option name = "succeed">false</module-option>
+            <module-option name = "throwEx">true</module-option>
+         </login-module>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "required">
+            <module-option name = "name">11.2</module-option>
+            <module-option name = "succeed">true</module-option>
+            <module-option name = "throwEx">false</module-option>
+         </login-module>
+      </authentication>
+   </application-policy>
+
+   <application-policy name = "case12">
+      <authentication>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "sufficient">
+            <module-option name = "name">12.1</module-option>
+            <module-option name = "succeed">true</module-option>
+            <module-option name = "throwEx">false</module-option>
+         </login-module>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "required">
+            <module-option name = "name">12.2</module-option>
+            <module-option name = "succeed">false</module-option>
+            <module-option name = "throwEx">true</module-option>
+         </login-module>
+      </authentication>
+   </application-policy>
+
+   <application-policy name = "case13">
+      <authentication>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "required">
+            <module-option name = "name">13.1</module-option>
+            <module-option name = "succeed">true</module-option>
+            <module-option name = "throwEx">true</module-option>
+         </login-module>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "required">
+            <module-option name = "name">13.2</module-option>
+            <module-option name = "succeed">true</module-option>
+            <module-option name = "throwEx">false</module-option>
+         </login-module>
+      </authentication>
+   </application-policy>
+
+   <application-policy name = "case14">
+      <authentication>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "required">
+            <module-option name = "name">14.1</module-option>
+            <module-option name = "succeed">false</module-option>
+            <module-option name = "initEx">true</module-option>
+         </login-module>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "optional">
+            <module-option name = "name">14.2</module-option>
+            <module-option name = "succeed">true</module-option>
+            <module-option name = "throwEx">false</module-option>
+         </login-module>
+      </authentication>
+   </application-policy>
+
+   <application-policy name = "case15">
+      <authentication>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "sufficient">
+            <module-option name = "name">15.1</module-option>
+            <module-option name = "succeed">false</module-option>
+         </login-module>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "optional">
+            <module-option name = "name">15.2</module-option>
+            <module-option name = "succeed">false</module-option>
+            <module-option name = "initEx">true</module-option>
+         </login-module>
+      </authentication>
+   </application-policy>
+
+   <application-policy name = "case16">
+      <authentication>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "sufficient">
+            <module-option name = "name">16.1</module-option>
+            <module-option name = "succeed">true</module-option>
+         </login-module>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "optional">
+            <module-option name = "name">16.2</module-option>
+            <module-option name = "succeed">false</module-option>
+            <module-option name = "initEx">true</module-option>
+         </login-module>
+      </authentication>
+   </application-policy>
+
+   <application-policy name = "case17">
+      <authentication>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "optional">
+            <module-option name = "name">17.1</module-option>
+            <module-option name = "initEx">true</module-option>
+         </login-module>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "optional">
+            <module-option name = "name">17.2</module-option>
+            <module-option name = "succeed">true</module-option>
+         </login-module>
+      </authentication>
+   </application-policy>
+
+   <application-policy name = "case18">
+      <authentication>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "requisite">
+            <module-option name = "name">18.1</module-option>
+            <module-option name = "initEx">true</module-option>
+         </login-module>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "optional">
+            <module-option name = "name">18.2</module-option>
+            <module-option name = "succeed">false</module-option>
+         </login-module>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "required">
+            <module-option name = "name">18.3</module-option>
+            <module-option name = "succeed">false</module-option>
+         </login-module>
+      </authentication>
+   </application-policy>
+
+   <application-policy name = "case19">
+      <authentication>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "optional">
+            <module-option name = "name">19.1</module-option>
+            <module-option name = "throwEx">true</module-option>
+         </login-module>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "sufficient">
+            <module-option name = "name">19.2</module-option>
+            <module-option name = "throwEx">true</module-option>
+         </login-module>
+      </authentication>
+   </application-policy>
+
+   <application-policy name = "case20">
+      <authentication>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "required">
+            <module-option name = "name">20.1</module-option>
+            <module-option name = "succeed">true</module-option>
+            <module-option name = "throwEx">false</module-option>
+         </login-module>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "required">
+            <module-option name = "name">20.2</module-option>
+            <module-option name = "succeed">false</module-option>
+            <module-option name = "throwEx">true</module-option>
+         </login-module>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "required">
+            <module-option name = "name">20.3</module-option>
+            <module-option name = "succeed">false</module-option>
+            <module-option name = "throwEx">true</module-option>
+         </login-module>
+      </authentication>
+   </application-policy>
+
+   <application-policy name = "case21">
+      <authentication>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "sufficient">
+            <module-option name = "name">21.1</module-option>
+            <module-option name = "succeed">false</module-option>
+         </login-module>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "sufficient">
+            <module-option name = "name">21.2</module-option>
+            <module-option name = "succeed">false</module-option>
+         </login-module>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "optional">
+            <module-option name = "name">21.3</module-option>
+            <module-option name = "succeed">false</module-option>
+         </login-module>
+      </authentication>
+   </application-policy>
+
+   <application-policy name = "case22">
+      <authentication>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "sufficient">
+            <module-option name = "name">22.1</module-option>
+            <module-option name = "throwEx">true</module-option>
+         </login-module>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "required">
+            <module-option name = "name">22.2</module-option>
+            <module-option name = "throwEx">true</module-option>
+         </login-module>
+         <login-module code = "org.jboss.test.TestLoginModule"
+            flag = "required">
+            <module-option name = "name">22.3</module-option>
+            <module-option name = "throwEx">true</module-option>
+         </login-module>
+      </authentication>
+   </application-policy>
+</policy>

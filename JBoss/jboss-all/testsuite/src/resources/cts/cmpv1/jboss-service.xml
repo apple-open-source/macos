@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<server>
+  <mbean code="org.jboss.test.cts.service.CtsCmpService"
+         name="jboss.test:service=CtsCmpServiceV1">
+    <attribute name="HomeJndiName">v1/local/CtsCmp2Bean</attribute>
+    <depends>jboss.j2ee:service=EJB,jndiName=v1/CtsCmp2Bean</depends>
+  </mbean>
+</server>

@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -44,9 +47,6 @@
 	A string which does not start with a leading "/" character
 	specifies a file relative to the default system preferences
 	directory.
-
-	The APIs provided by this framework communicate with the "configd"
-	daemon for any tasks requiring synchronization and/or notification.
  */
 
 
@@ -104,8 +104,6 @@ SCPreferencesCreate		(
 		should block waiting for another process to complete its update
 		operation and release its lock.
 	@result TRUE if the lock was obtained; FALSE if an error occurred.
-
-	XXXXX: old API error codes included kSCStatusPrefsBusy, kSCStatusAccessError, and kSCStatusStale
  */
 Boolean
 SCPreferencesLock		(
@@ -121,11 +119,13 @@ SCPreferencesLock		(
 		This function commits any changes to permanent storage. An
 		implicit call to SCPreferencesLock/SCPreferencesUnlock will
 		be made if exclusive access has not already been established.
+
+		Note:  This routine commits changes to persistent storage.
+		Call SCPreferencesApplyChanges() to apply the changes
+		to the running system.
 	@param session An SCPreferencesRef handle that should be used for
 		all API calls.
 	@result TRUE if the lock was obtained; FALSE if an error occurred.
-
-	XXXXX: old API error codes included kSCStatusAccessError, kSCStatusStale
  */
 Boolean
 SCPreferencesCommitChanges	(

@@ -1,0 +1,19 @@
+<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook V4.1//EN" [
+<!ENTITY title SYSTEM "title.sgml">
+<!ENTITY history SYSTEM "history.sgml">
+<!ENTITY gimp SYSTEM "gimp.sgml">
+<!ENTITY cups SYSTEM "cups.sgml">
+<!ENTITY utils SYSTEM "utils.sgml">
+<!ENTITY gfdl  SYSTEM "gfdl.sgml">
+]>
+<book>
+&title;
+&history;
+&gimp;
+&cups;
+&utils;
+&gfdl;
+</book>
+
+
+

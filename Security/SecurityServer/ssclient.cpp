@@ -38,6 +38,7 @@ namespace SecurityServer {
 UnixPlusPlus::StaticForkMonitor ClientSession::mHasForked;
 ModuleNexus<ClientSession::Global> ClientSession::mGlobal;
 bool ClientSession::mSetupSession;
+const char *ClientSession::mContactName;
 
 
 //
@@ -65,7 +66,7 @@ void ClientSession::activate()
 	// (that has not exec'ed), our apparent connection to SecurityServer
 	// is just a mirage, and we better reset it.
 	if (mHasForked()) {
-		debug("SSclnt", "process has forked (now pid=%d) - resetting connection object", getpid());
+		secdebug("SSclnt", "process has forked (now pid=%d) - resetting connection object", getpid());
 		mGlobal.reset();
 	}
 		
@@ -74,11 +75,29 @@ void ClientSession::activate()
     Thread &thread = global.thread();
     if (!thread) {
 		// first time for this thread - use abbreviated registration
-		IPCN(ucsp_client_setup(UCSP_ARGS, mach_task_self(), ""));
+		IPCN(ucsp_client_setupThread(UCSP_ARGS, mach_task_self()));
         thread.registered = true;
         global.serverPort.requestNotify(thread.replyPort, MACH_NOTIFY_DEAD_NAME, true);
-        debug("SSclnt", "Thread registered with SecurityServer");
+        secdebug("SSclnt", "Thread registered with %s", mContactName);
 	}
+}
+
+
+//
+// The contactName method allows the caller to explicitly override the bootstrap
+// name under which SecurityServer is located. Use this only with great caution,
+// and probably only for debugging.
+// Note that no explicit locking is done here. It is the caller's responsibility
+// to make sure this is called from thread-safe context before the real dance begins.
+//
+void ClientSession::contactName(const char *name)
+{
+	mContactName = name;
+}
+
+const char *ClientSession::contactName() const
+{
+	return mContactName;
 }
 
 
@@ -92,36 +111,42 @@ void ClientSession::activate()
 ClientSession::Global::Global()
 {
     // find server port
-	Bootstrap myBootstrap;
-    serverPort = myBootstrap.lookup("SecurityServer");
-	debug("SSclnt", "contacting SecurityServer at port %d", serverPort.port());
+	IFDEBUG(if (!mContactName) mContactName = getenv(SECURITYSERVER_BOOTSTRAP_ENV));
+	if (!mContactName)
+		mContactName = SECURITYSERVER_BOOTSTRAP_NAME;
+    secdebug("SSclnt", "Locating %s", mContactName);
+    serverPort = Bootstrap().lookup(mContactName);
+	secdebug("SSclnt", "contacting %s at port %d", mContactName, serverPort.port());
     
     // send identification/setup message
     string extForm;
     try {
         myself = OSXCode::main();
         extForm = myself->encode();
-        debug("SSclnt", "my OSXCode extForm=%s", extForm.c_str());
+        secdebug("SSclnt", "my OSXCode extForm=%s", extForm.c_str());
     } catch (...) {
         // leave extForm empty
-        debug("SSclnt", "failed to obtain my own OSXCode");
+        secdebug("SSclnt", "failed to obtain my own OSXCode");
     }
+
+	ClientSetupInfo info = { SSPROTOVERSION };
+	
     // cannot use UCSP_ARGS here because it uses mGlobal() -> deadlock
     Thread &thread = this->thread();
 	
 	if (mSetupSession) {
-		debug("SSclnt", "sending session setup request");
+		secdebug("SSclnt", "sending session setup request");
 		mSetupSession = false;
 		IPCN(ucsp_client_setupNew(serverPort, thread.replyPort, &rcode,
-			mach_task_self(), extForm.c_str(), &serverPort.port()));
-		debug("SSclnt", "new session server port is %d", serverPort.port());
-	} else {	
+			mach_task_self(), info, extForm.c_str(), &serverPort.port()));
+		secdebug("SSclnt", "new session server port is %d", serverPort.port());
+	} else {
 		IPCN(ucsp_client_setup(serverPort, thread.replyPort, &rcode,
-			mach_task_self(), extForm.c_str()));
+			mach_task_self(), info, extForm.c_str()));
 	}
     thread.registered = true;	// as a side-effect of setup call above
 	serverPort.requestNotify(thread.replyPort, MACH_NOTIFY_DEAD_NAME, true);
-	debug("SSclnt", "contact with SecurityServer established");
+	secdebug("SSclnt", "contact with %s established", mContactName);
 }
 
 
@@ -131,10 +156,9 @@ ClientSession::Global::Global()
 void ClientSession::terminate()
 {
 	// currently defunct
-	debug("SSclnt", "ClientSession::terminate() call ignored");
+	secdebug("SSclnt", "ClientSession::terminate() call ignored");
 }
 
 
 } // end namespace SecurityServer
-
 } // end namespace Security

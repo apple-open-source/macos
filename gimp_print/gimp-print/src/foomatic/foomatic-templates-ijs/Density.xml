@@ -1,0 +1,24 @@
+<option type="float" id="opt/@@DRVNAME@@-density">
+  <!-- A multilingual <comments> block can appear here, too;
+       it should be treated as documentation for the user. -->
+  <arg_longname>
+   <en>Density</en>
+  </arg_longname>
+  <arg_shortname>
+   <en>Density</en><!-- backends only know <en> shortnames! -->
+  </arg_shortname>
+  <arg_execution>@@GROUP@@
+   <arg_order>160</arg_order>
+   <arg_spot>B</arg_spot>
+   <arg_substitution />
+   <arg_proto>Density=%s,</arg_proto>
+  </arg_execution>
+  <constraints>
+     <constraint sense="true">
+      <driver>@@DRVNAME@@</driver>
+      <arg_defval>@@DEFVAL@@</arg_defval>
+     </constraint>
+  </constraints>
+  <arg_max>@@MAXVAL@@</arg_max>
+  <arg_min>@@MINVAL@@</arg_min>
+</option>

@@ -1,4 +1,4 @@
-/* @(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/nameser.h,v 1.1.1.2 2002/05/29 00:05:32 landonf Exp $ (LBL) */
+/* @(#) $Header: /cvs/root/tcpdump/tcpdump/nameser.h,v 1.1.1.3 2003/03/17 18:42:16 rbraun Exp $ (LBL) */
 /*
  * Copyright (c) 1983, 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,14 +34,14 @@
  *      @(#)nameser.h	8.2 (Berkeley) 2/16/94
  * -
  * Portions Copyright (c) 1993 by Digital Equipment Corporation.
- * 
+ *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies, and that
  * the name of Digital Equipment Corporation not be used in advertising or
  * publicity pertaining to distribution of the document or software without
  * specific, written prior permission.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS" AND DIGITAL EQUIPMENT CORP. DISCLAIMS ALL
  * WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES
  * OF MERCHANTABILITY AND FITNESS.   IN NO EVENT SHALL DIGITAL EQUIPMENT
@@ -75,6 +75,7 @@
  * Internet nameserver port number
  */
 #define NAMESERVER_PORT	53
+#define MULTICASTDNS_PORT	5353
 
 /*
  * Currently defined opcodes
@@ -231,7 +232,7 @@ typedef struct {
  */
 #define INDIR_MASK	0xc0	/* 11.... */
 #define EDNS0_MASK	0x40	/* 01.... */
-#  define EDNS0_ELT_BITLABEL 0x01 
+#  define EDNS0_ELT_BITLABEL 0x01
 
 /*
  * Structure for passing resource records around.

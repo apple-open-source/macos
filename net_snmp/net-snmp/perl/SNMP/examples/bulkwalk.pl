@@ -1,6 +1,6 @@
 #!/usr/local/bin/perl
 #
-# $Id: bulkwalk.pl,v 1.1.1.1 2002/02/04 22:07:08 jkh Exp $
+# $Id: bulkwalk.pl,v 1.1.1.2 2003/05/29 00:03:11 rbraun Exp $
 #
 
 use SNMP;

@@ -1,4 +1,4 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblutil/setproctitle.c,v 1.9 1999/09/08 17:06:31 kdz Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblutil/setproctitle.c,v 1.9.2.1 2002/09/17 02:45:09 kurt Exp $ */
 #include "portable.h"
 
 #ifndef HAVE_SETPROCTITLE
@@ -42,15 +42,8 @@ void setproctitle( const char *fmt, ... )
 
 	va_start(ap, fmt);
 
-#ifdef HAVE_VSNPRINTF
 	buf[sizeof(buf) - 1] = '\0';
 	vsnprintf( buf, sizeof(buf)-1, fmt, ap );
-#elif HAVE_VPRINTF
-	vsprintf( buf, fmt, ap ); /* hope it's not too long */
-#else
-	/* use doprnt() */
-	chokeme = "choke me!  I don't have a doprnt() manual handy";
-#endif
 
 	va_end(ap);
 

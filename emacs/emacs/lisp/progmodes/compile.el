@@ -1,6 +1,7 @@
 ;;; compile.el --- run compiler as inferior of Emacs, parse error messages
 
-;; Copyright (C) 1985, 86, 87, 93, 94, 95, 96, 97, 98, 1999, 2001 Free Software Foundation, Inc.
+;; Copyright (C) 1985, 86, 87, 93, 94, 95, 96, 97, 98, 1999, 2001
+;;  Free Software Foundation, Inc.
 
 ;; Author: Roland McGrath <roland@gnu.org>
 ;; Maintainer: FSF
@@ -113,6 +114,11 @@ many new errors.
 It should read in the source files which have errors and set
 `compilation-error-list' to a list with an element for each error message
 found.  See that variable for more info.")
+
+(defvar compilation-parse-errors-filename-function nil
+  "Function to call to post-process filenames while parsing error messages.
+It takes one arg FILENAME which is the name of a file as found
+in the compilation output, and should return a transformed file name.")
 
 ;;;###autoload
 (defvar compilation-process-setup-function nil
@@ -820,14 +826,24 @@ Returns the compilation buffer created."
 	    (funcall compilation-process-setup-function))
 	;; Start the compilation.
 	(if (fboundp 'start-process)
-	    (let* ((process-environment
-		    ;; Don't override users' setting of $EMACS.
-		    (if (getenv "EMACS")
-			process-environment
-		      (cons "EMACS=t" process-environment)))
+	    (let* ((process-environment process-environment)
 		   (proc (start-process-shell-command (downcase mode-name)
 						      outbuf
 						      command)))
+	      ;; Set the terminal type
+	      (setq process-environment
+		    (if (and (boundp 'system-uses-terminfo)
+			     system-uses-terminfo)
+			(list "TERM=dumb" "TERMCAP="
+			      (format "COLUMNS=%d" (window-width)))
+		      (list "TERM=emacs"
+			    (format "TERMCAP=emacs:co#%d:tc=unknown:"
+				    (window-width)))))
+	      ;; Set the EMACS variable, but
+	      ;; don't override users' setting of $EMACS.
+	      (if (getenv "EMACS")
+		  (setq process-environment
+			(cons "EMACS=t" process-environment)))
 	      (set-process-sentinel proc 'compilation-sentinel)
 	      (set-process-filter proc 'compilation-filter)
 	      (set-marker (process-mark proc) (point) outbuf)
@@ -877,7 +893,10 @@ exited abnormally with code %d\n"
 		 (select-window window)
 		 (enlarge-window (- compilation-window-height
 				    (window-height))))
-	     (select-window w))))))
+	     ;; The enlarge-window above may have deleted W, if
+	     ;; compilation-window-height is large enough.
+	     (when (window-live-p w)
+	       (select-window w)))))))
 
 (defvar compilation-minor-mode-map
   (let ((map (make-sparse-keymap)))
@@ -1873,6 +1892,13 @@ An error message with no file name and no file name has been seen earlier"))
 			 (file-name-absolute-p filename)
 			 (setq filename
 			       (concat comint-file-name-prefix filename)))
+
+		    ;; If compilation-parse-errors-filename-function is
+		    ;; defined, use it to process the filename.
+		    (when compilation-parse-errors-filename-function
+		      (setq filename
+			    (funcall compilation-parse-errors-filename-function
+				     filename)))
 
 		    ;; Some compilers (e.g. Sun's java compiler, reportedly)
 		    ;; produce bogus file names like "./bar//foo.c" for file

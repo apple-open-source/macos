@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -35,13 +35,20 @@ extern "C" {
 
 	The Session API provides specialized applications access to Session management and inquiry
     functions. This is a specialized API that should not be of interest to most people.
+	
+	The Security subsystem separates all processes into Security "sessions". Each process is in
+	exactly one session, and session membership inherits across fork/exec. Sessions form boundaries
+	for security-related state such as authorizations, keychain lock status, and the like.
+	Typically, each successful login (whether graphical or through ssh & friends) creates
+	a separate session. System daemons (started at system startup) belong to the "root session"
+	which has no user nor graphics access.
     
-    If you do not know what "Session" means in the context of MacOS Authorization and security,
-    please check with your documentation and come back when you have figured it out - we won't
-    explain it here.
-    
-    This API is tentative, preliminary, incomplete, internal, and subject to change.
-    You have been warned.
+	Sessions are identified with SecuritySessionIds. A session has a set of attributes
+	that are set on creation and can be retrieved with SessionGetInfo().
+	
+	There are similar session concepts in the system, related but not necessarily
+	completely congruous. In particular, graphics sessions track security sessions
+	(but only for graphic logins).
 */
 
 
@@ -51,8 +58,7 @@ extern "C" {
         Different sessions have different identifiers; beyond that, you can't
         tell anything from these values.
     SessionIds can be compared for equality as you'd expect, but you should be careful
-        to use attribute bits wherever appropriate. For example, don't rely on there being
-        "the" graphical login session - some day, we may have more than one...
+        to use attribute bits wherever appropriate.
 */
 typedef UInt32 SecuritySessionId;
 
@@ -65,7 +71,7 @@ typedef UInt32 SecuritySessionId;
 */
 enum {
     noSecuritySession                      = 0,     /* definitely not a valid SecuritySessionId */
-    callerSecuritySession                  = -1     /* the Session I (the caller) am in */
+    callerSecuritySession = ((SecuritySessionId)-1)     /* the Session I (the caller) am in */
 };
 
 
@@ -82,6 +88,7 @@ enum {
     sessionHasTTY                          = 0x0020, /* /dev/tty is available */
     sessionIsRemote                        = 0x1000, /* session was established over the network */
 
+	// the following bits are used internally; do not try to set them
     sessionWasInitialized                  = 0x8000  /* session has been set up by its leader */
 };
 
@@ -116,7 +123,9 @@ enum {
 
 /*!
     @function SessionGetInfo
-    Obtain information about a session.
+    Obtain information about a session. You can ask about any session whose
+	identifier you know. Use the callerSecuritySession constant to ask about
+	your own session (the one your process is in).
 
     @param session (input) The Session you are asking about. Can be one of the
         special constants defined above.
@@ -138,15 +147,23 @@ OSStatus SessionGetInfo(SecuritySessionId session,
 
 /*!
     @function SessionCreate
-    This (very specialized) function creates and/or initializes a security session.
-        It always sets up the session that the calling process belongs to - you cannot
-        create a session for someone else.
+    This (very specialized) function creates a security session.
+	Upon completion, the new session contains the calling process (and none other).
+	You cannot create a session for someone else, and cannot avoid being placed
+	into the new session. This is (currently) the only call that changes a process's
+	session membership.
     By default, a new bootstrap subset port is created for the calling process. The process
-        acquires this new port as its bootstrap port, which all its children will inherit.
-        If you happen to have created the subset port on your own, you can pass the
-        sessionKeepCurrentBootstrap flag, and SessionCreate will use it. Note however that
-        you cannot supersede a prior SessionCreate call that way; only a single SessionCreate
-        call is allowed for each Session (however made).
+    acquires this new port as its bootstrap port, which all its children will inherit.
+    If you happen to have created the subset port on your own, you can pass the
+    sessionKeepCurrentBootstrap flag, and SessionCreate will use it. Note however that
+    you cannot supersede a prior SessionCreate call that way; only a single SessionCreate
+    call is allowed for each Session (however made).
+	This call will discard any security information established for the calling process.
+	In particular, any authorization handles acquired will become invalid, and so will any
+	keychain related information. We recommend that you call SessionCreate before
+	making any other security-related calls that establish rights of any kind, to the
+	extent this is practical. Also, we strongly recommend that you do not perform
+	security-related calls in any other threads while calling SessionCreate.
     
     @param flags Flags controlling how the session is created.
     

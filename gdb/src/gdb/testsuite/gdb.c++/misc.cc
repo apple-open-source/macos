@@ -570,7 +570,12 @@ main()
 
   use_methods ();
 
+#if defined (__APPLE__) && defined (__i386__)
+  /* Work around #3082048 (x86 gcc crashes on pointer-to-member). */
+  return 0;
+#else
   return foo.*pmi;
+#endif
 }
 
 /* Create an instance for some classes, otherwise they get optimized away.  */

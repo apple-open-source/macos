@@ -1,6 +1,6 @@
 /* Target-dependent code for GDB, the GNU debugger.
 
-   Copyright 2001, 2002 Free Software Foundation, Inc.
+   Copyright 2001, 2002, 2003 Free Software Foundation, Inc.
 
    Contributed by D.J. Barrow (djbarrow@de.ibm.com,barrow_dj@yahoo.com)
    for IBM Deutschland Entwicklung GmbH, IBM Corporation.
@@ -150,7 +150,7 @@ s390_memset_extra_info (struct frame_extra_info *fextra_info)
 
 
 
-char *
+const char *
 s390_register_name (int reg_nr)
 {
   static char *register_names[] = {
@@ -285,12 +285,12 @@ s390_get_frame_info (CORE_ADDR pc, struct frame_extra_info *fextra_info,
   save_link_regidx = subtract_sp_regidx = 0;
   if (fextra_info)
     {
-      if (fi && fi->frame)
+      if (fi && get_frame_base (fi))
 	{
-          orig_sp = fi->frame;
+          orig_sp = get_frame_base (fi);
           if (! init_extra_info && fextra_info->initialised)
             orig_sp += fextra_info->stack_bought;
-	  saved_regs = fi->saved_regs;
+	  saved_regs = get_frame_saved_regs (fi);
 	}
       if (init_extra_info || !fextra_info->initialised)
 	{
@@ -316,18 +316,19 @@ s390_get_frame_info (CORE_ADDR pc, struct frame_extra_info *fextra_info,
       if (instr[0] == S390_SYSCALL_OPCODE && test_pc == pc)
 	{
 	  good_prologue = 1;
-	  if (saved_regs && fextra_info && fi->next && fi->next->extra_info
-	      && fi->next->extra_info->sigcontext)
+	  if (saved_regs && fextra_info && get_next_frame (fi)
+	      && get_frame_extra_info (get_next_frame (fi))
+	      && get_frame_extra_info (get_next_frame (fi))->sigcontext)
 	    {
 	      /* We are backtracing from a signal handler */
-	      save_reg_addr = fi->next->extra_info->sigcontext +
+	      save_reg_addr = get_frame_extra_info (get_next_frame (fi))->sigcontext +
 		REGISTER_BYTE (S390_GP0_REGNUM);
 	      for (regidx = 0; regidx < S390_NUM_GPRS; regidx++)
 		{
 		  saved_regs[S390_GP0_REGNUM + regidx] = save_reg_addr;
 		  save_reg_addr += S390_GPR_SIZE;
 		}
-	      save_reg_addr = fi->next->extra_info->sigcontext +
+	      save_reg_addr = get_frame_extra_info (get_next_frame (fi))->sigcontext +
 		(GDB_TARGET_IS_ESAME ? S390X_SIGREGS_FP0_OFFSET :
 		 S390_SIGREGS_FP0_OFFSET);
 	      for (regidx = 0; regidx < S390_NUM_FPRS; regidx++)
@@ -771,10 +772,10 @@ s390_function_start (struct frame_info *fi)
 {
   CORE_ADDR function_start = 0;
 
-  if (fi->extra_info && fi->extra_info->initialised)
-    function_start = fi->extra_info->function_start;
-  else if (fi->pc)
-    function_start = get_pc_function_start (fi->pc);
+  if (get_frame_extra_info (fi) && get_frame_extra_info (fi)->initialised)
+    function_start = get_frame_extra_info (fi)->function_start;
+  else if (get_frame_pc (fi))
+    function_start = get_pc_function_start (get_frame_pc (fi));
   return function_start;
 }
 
@@ -787,14 +788,14 @@ s390_frameless_function_invocation (struct frame_info *fi)
   struct frame_extra_info fextra_info, *fextra_info_ptr;
   int frameless = 0;
 
-  if (fi->next == NULL)		/* no may be frameless */
+  if (get_next_frame (fi) == NULL)		/* no may be frameless */
     {
-      if (fi->extra_info)
-	fextra_info_ptr = fi->extra_info;
+      if (get_frame_extra_info (fi))
+	fextra_info_ptr = get_frame_extra_info (fi);
       else
 	{
 	  fextra_info_ptr = &fextra_info;
-	  s390_get_frame_info (s390_sniff_pc_function_start (fi->pc, fi),
+	  s390_get_frame_info (s390_sniff_pc_function_start (get_frame_pc (fi), fi),
 			       fextra_info_ptr, fi, 1);
 	}
       frameless = ((fextra_info_ptr->stack_bought == 0));
@@ -829,11 +830,10 @@ s390_is_sigreturn (CORE_ADDR pc, struct frame_info *sighandler_fi,
       if (sighandler_fi)
 	{
 	  if (s390_frameless_function_invocation (sighandler_fi))
-	    orig_sp = sighandler_fi->frame;
+	    orig_sp = get_frame_base (sighandler_fi);
 	  else
 	    orig_sp = ADDR_BITS_REMOVE ((CORE_ADDR)
-					read_memory_integer (sighandler_fi->
-							     frame,
+					read_memory_integer (get_frame_base (sighandler_fi),
 							     S390_GPR_SIZE));
 	  if (orig_sp && sigcaller_pc)
 	    {
@@ -881,36 +881,35 @@ s390_is_sigreturn (CORE_ADDR pc, struct frame_info *sighandler_fi,
   for the moment.
   For some reason the blockframe.c calls us with fi->next->fromleaf
   so this seems of little use to us. */
-void
+CORE_ADDR
 s390_init_frame_pc_first (int next_fromleaf, struct frame_info *fi)
 {
   CORE_ADDR sigcaller_pc;
-
-  fi->pc = 0;
+  CORE_ADDR pc = 0;
   if (next_fromleaf)
     {
-      fi->pc = ADDR_BITS_REMOVE (read_register (S390_RETADDR_REGNUM));
+      pc = ADDR_BITS_REMOVE (read_register (S390_RETADDR_REGNUM));
       /* fix signal handlers */
     }
-  else if (fi->next && fi->next->pc)
-    fi->pc = s390_frame_saved_pc_nofix (fi->next);
-  if (fi->pc && fi->next && fi->next->frame &&
-      s390_is_sigreturn (fi->pc, fi->next, NULL, &sigcaller_pc))
+  else if (get_next_frame (fi) && get_frame_pc (get_next_frame (fi)))
+    pc = s390_frame_saved_pc_nofix (get_next_frame (fi));
+  if (pc && get_next_frame (fi) && get_frame_base (get_next_frame (fi))
+      && s390_is_sigreturn (pc, get_next_frame (fi), NULL, &sigcaller_pc))
     {
-      fi->pc = sigcaller_pc;
+      pc = sigcaller_pc;
     }
-
+  return pc;
 }
 
 void
 s390_init_extra_frame_info (int fromleaf, struct frame_info *fi)
 {
-  fi->extra_info = frame_obstack_alloc (sizeof (struct frame_extra_info));
-  if (fi->pc)
-    s390_get_frame_info (s390_sniff_pc_function_start (fi->pc, fi),
-			 fi->extra_info, fi, 1);
+  frame_extra_info_zalloc (fi, sizeof (struct frame_extra_info));
+  if (get_frame_pc (fi))
+    s390_get_frame_info (s390_sniff_pc_function_start (get_frame_pc (fi), fi),
+			 get_frame_extra_info (fi), fi, 1);
   else
-    s390_memset_extra_info (fi->extra_info);
+    s390_memset_extra_info (get_frame_extra_info (fi));
 }
 
 /* If saved registers of frame FI are not known yet, read and cache them.
@@ -923,17 +922,19 @@ s390_frame_init_saved_regs (struct frame_info *fi)
 
   int quick;
 
-  if (fi->saved_regs == NULL)
+  if (get_frame_saved_regs (fi) == NULL)
     {
       /* zalloc memsets the saved regs */
       frame_saved_regs_zalloc (fi);
-      if (fi->pc)
+      if (get_frame_pc (fi))
 	{
-	  quick = (fi->extra_info && fi->extra_info->initialised
-		   && fi->extra_info->good_prologue);
-	  s390_get_frame_info (quick ? fi->extra_info->function_start :
-			       s390_sniff_pc_function_start (fi->pc, fi),
-			       fi->extra_info, fi, !quick);
+	  quick = (get_frame_extra_info (fi)
+		   && get_frame_extra_info (fi)->initialised
+		   && get_frame_extra_info (fi)->good_prologue);
+	  s390_get_frame_info (quick
+			       ? get_frame_extra_info (fi)->function_start
+			       : s390_sniff_pc_function_start (get_frame_pc (fi), fi),
+			       get_frame_extra_info (fi), fi, !quick);
 	}
     }
 }
@@ -945,33 +946,35 @@ s390_frame_args_address (struct frame_info *fi)
 {
 
   /* Apparently gdb already knows gdb_args_offset itself */
-  return fi->frame;
+  return get_frame_base (fi);
 }
 
 
 static CORE_ADDR
 s390_frame_saved_pc_nofix (struct frame_info *fi)
 {
-  if (fi->extra_info && fi->extra_info->saved_pc_valid)
-    return fi->extra_info->saved_pc;
+  if (get_frame_extra_info (fi) && get_frame_extra_info (fi)->saved_pc_valid)
+    return get_frame_extra_info (fi)->saved_pc;
 
-  if (generic_find_dummy_frame (fi->pc, fi->frame))
-    return generic_read_register_dummy (fi->pc, fi->frame, S390_PC_REGNUM);
+  if (deprecated_generic_find_dummy_frame (get_frame_pc (fi),
+					   get_frame_base (fi)))
+    return deprecated_read_register_dummy (get_frame_pc (fi),
+					   get_frame_base (fi), S390_PC_REGNUM);
 
   s390_frame_init_saved_regs (fi);
-  if (fi->extra_info)
+  if (get_frame_extra_info (fi))
     {
-      fi->extra_info->saved_pc_valid = 1;
-      if (fi->extra_info->good_prologue
-          && fi->saved_regs[S390_RETADDR_REGNUM])
-        fi->extra_info->saved_pc
+      get_frame_extra_info (fi)->saved_pc_valid = 1;
+      if (get_frame_extra_info (fi)->good_prologue
+          && get_frame_saved_regs (fi)[S390_RETADDR_REGNUM])
+        get_frame_extra_info (fi)->saved_pc
           = ADDR_BITS_REMOVE (read_memory_integer
-                              (fi->saved_regs[S390_RETADDR_REGNUM],
+                              (get_frame_saved_regs (fi)[S390_RETADDR_REGNUM],
                                S390_GPR_SIZE));
       else
-        fi->extra_info->saved_pc
+        get_frame_extra_info (fi)->saved_pc
           = ADDR_BITS_REMOVE (read_register (S390_RETADDR_REGNUM));
-      return fi->extra_info->saved_pc;
+      return get_frame_extra_info (fi)->saved_pc;
     }
   return 0;
 }
@@ -981,19 +984,20 @@ s390_frame_saved_pc (struct frame_info *fi)
 {
   CORE_ADDR saved_pc = 0, sig_pc;
 
-  if (fi->extra_info && fi->extra_info->sig_fixed_saved_pc_valid)
-    return fi->extra_info->sig_fixed_saved_pc;
+  if (get_frame_extra_info (fi)
+      && get_frame_extra_info (fi)->sig_fixed_saved_pc_valid)
+    return get_frame_extra_info (fi)->sig_fixed_saved_pc;
   saved_pc = s390_frame_saved_pc_nofix (fi);
 
-  if (fi->extra_info)
+  if (get_frame_extra_info (fi))
     {
-      fi->extra_info->sig_fixed_saved_pc_valid = 1;
+      get_frame_extra_info (fi)->sig_fixed_saved_pc_valid = 1;
       if (saved_pc)
 	{
 	  if (s390_is_sigreturn (saved_pc, fi, NULL, &sig_pc))
 	    saved_pc = sig_pc;
 	}
-      fi->extra_info->sig_fixed_saved_pc = saved_pc;
+      get_frame_extra_info (fi)->sig_fixed_saved_pc = saved_pc;
     }
   return saved_pc;
 }
@@ -1001,19 +1005,19 @@ s390_frame_saved_pc (struct frame_info *fi)
 
 
 
-/* We want backtraces out of signal handlers so we don't
-   set thisframe->signal_handler_caller to 1 */
+/* We want backtraces out of signal handlers so we don't set
+   (get_frame_type (thisframe) == SIGTRAMP_FRAME) to 1 */
 
 CORE_ADDR
 s390_frame_chain (struct frame_info *thisframe)
 {
   CORE_ADDR prev_fp = 0;
 
-  if (thisframe->prev && thisframe->prev->frame)
-    prev_fp = thisframe->prev->frame;
-  else if (generic_find_dummy_frame (thisframe->pc, thisframe->frame))
-    return generic_read_register_dummy (thisframe->pc, thisframe->frame,
-                                        S390_SP_REGNUM);
+  if (deprecated_generic_find_dummy_frame (get_frame_pc (thisframe),
+					   get_frame_base (thisframe)))
+    return deprecated_read_register_dummy (get_frame_pc (thisframe),
+					   get_frame_base (thisframe),
+					   S390_SP_REGNUM);
   else
     {
       int sigreturn = 0;
@@ -1021,7 +1025,7 @@ s390_frame_chain (struct frame_info *thisframe)
       struct frame_extra_info prev_fextra_info;
 
       memset (&prev_fextra_info, 0, sizeof (prev_fextra_info));
-      if (thisframe->pc)
+      if (get_frame_pc (thisframe))
 	{
 	  CORE_ADDR saved_pc, sig_pc;
 
@@ -1045,28 +1049,28 @@ s390_frame_chain (struct frame_info *thisframe)
 							 frame_pointer_saved_pc
 							 ? 11 : 15)),
 					 S390_GPR_SIZE);
-	  thisframe->extra_info->sigcontext = sregs;
+	  get_frame_extra_info (thisframe)->sigcontext = sregs;
 	}
       else
 	{
-	  if (thisframe->saved_regs)
+	  if (get_frame_saved_regs (thisframe))
 	    {
 	      int regno;
 
               if (prev_fextra_info.frame_pointer_saved_pc
-                  && thisframe->saved_regs[S390_FRAME_REGNUM])
+                  && get_frame_saved_regs (thisframe)[S390_FRAME_REGNUM])
                 regno = S390_FRAME_REGNUM;
               else
                 regno = S390_SP_REGNUM;
 
-	      if (thisframe->saved_regs[regno])
+	      if (get_frame_saved_regs (thisframe)[regno])
                 {
                   /* The SP's entry of `saved_regs' is special.  */
                   if (regno == S390_SP_REGNUM)
-                    prev_fp = thisframe->saved_regs[regno];
+                    prev_fp = get_frame_saved_regs (thisframe)[regno];
                   else
                     prev_fp =
-                      read_memory_integer (thisframe->saved_regs[regno],
+                      read_memory_integer (get_frame_saved_regs (thisframe)[regno],
                                            S390_GPR_SIZE);
                 }
 	    }
@@ -1152,8 +1156,8 @@ s390_store_return_value (struct type *valtype, char *valbuf)
     {
       if (TYPE_LENGTH (valtype) == 4
           || TYPE_LENGTH (valtype) == 8)
-        write_register_bytes (REGISTER_BYTE (S390_FP0_REGNUM), valbuf,
-                              TYPE_LENGTH (valtype));
+        deprecated_write_register_bytes (REGISTER_BYTE (S390_FP0_REGNUM),
+					 valbuf, TYPE_LENGTH (valtype));
       else
         error ("GDB is unable to return `long double' values "
                "on this architecture.");
@@ -1163,8 +1167,8 @@ s390_store_return_value (struct type *valtype, char *valbuf)
       value =
 	s390_promote_integer_argument (valtype, valbuf, reg_buff, &arglen);
       /* Everything else is returned in GPR2 and up. */
-      write_register_bytes (REGISTER_BYTE (S390_GP0_REGNUM + 2), value,
-			    arglen);
+      deprecated_write_register_bytes (REGISTER_BYTE (S390_GP0_REGNUM + 2),
+				       value, arglen);
     }
 }
 static int
@@ -1191,7 +1195,7 @@ gdb_print_insn_s390 (bfd_vma memaddr, disassemble_info * info)
 
 /* Not the most efficent code in the world */
 int
-s390_fp_regnum ()
+s390_fp_regnum (void)
 {
   int regno = S390_SP_REGNUM;
   struct frame_extra_info fextra_info;
@@ -1206,7 +1210,7 @@ s390_fp_regnum ()
 }
 
 CORE_ADDR
-s390_read_fp ()
+s390_read_fp (void)
 {
   return read_register (s390_fp_regnum ());
 }
@@ -1220,14 +1224,14 @@ s390_pop_frame_regular (struct frame_info *frame)
   write_register (S390_PC_REGNUM, FRAME_SAVED_PC (frame));
 
   /* Restore any saved registers.  */
-  if (frame->saved_regs)
+  if (get_frame_saved_regs (frame))
     {
       for (regnum = 0; regnum < NUM_REGS; regnum++)
-        if (frame->saved_regs[regnum] != 0)
+        if (get_frame_saved_regs (frame)[regnum] != 0)
           {
             ULONGEST value;
             
-            value = read_memory_unsigned_integer (frame->saved_regs[regnum],
+            value = read_memory_unsigned_integer (get_frame_saved_regs (frame)[regnum],
                                                   REGISTER_RAW_SIZE (regnum));
             write_register (regnum, value);
           }
@@ -1235,7 +1239,7 @@ s390_pop_frame_regular (struct frame_info *frame)
       /* Actually cut back the stack.  Remember that the SP's element of
          saved_regs is the old SP itself, not the address at which it is
          saved.  */
-      write_register (S390_SP_REGNUM, frame->saved_regs[S390_SP_REGNUM]);
+      write_register (S390_SP_REGNUM, get_frame_saved_regs (frame)[S390_SP_REGNUM]);
     }
 
   /* Throw away any cached frame information.  */
@@ -1248,7 +1252,7 @@ s390_pop_frame_regular (struct frame_info *frame)
    Used in the contexts of the "return" command, and of 
    target function calls from the debugger.  */
 void
-s390_pop_frame ()
+s390_pop_frame (void)
 {
   /* This function checks for and handles generic dummy frames, and
      calls back to our function for ordinary frames.  */
@@ -1577,9 +1581,9 @@ s390_push_arguments (int nargs, struct value **args, CORE_ADDR sp,
           {
             /* When we store a single-precision value in an FP register,
                it occupies the leftmost bits.  */
-            write_register_bytes (REGISTER_BYTE (S390_FP0_REGNUM + fr),
-                                  VALUE_CONTENTS (arg),
-                                  TYPE_LENGTH (type));
+            deprecated_write_register_bytes (REGISTER_BYTE (S390_FP0_REGNUM + fr),
+					     VALUE_CONTENTS (arg),
+					     TYPE_LENGTH (type));
             fr += 2;
           }
         else if (is_simple_arg (type)
@@ -1597,10 +1601,10 @@ s390_push_arguments (int nargs, struct value **args, CORE_ADDR sp,
         else if (is_double_arg (type)
                  && gr <= 5)
           {
-            write_register_gen (S390_GP0_REGNUM + gr,
-                                VALUE_CONTENTS (arg));
-            write_register_gen (S390_GP0_REGNUM + gr + 1,
-                                VALUE_CONTENTS (arg) + 4);
+            deprecated_write_register_gen (S390_GP0_REGNUM + gr,
+					   VALUE_CONTENTS (arg));
+            deprecated_write_register_gen (S390_GP0_REGNUM + gr + 1,
+					   VALUE_CONTENTS (arg) + 4);
             gr += 2;
           }
         else
@@ -1700,7 +1704,7 @@ s390_store_struct_return (CORE_ADDR addr, CORE_ADDR sp)
 
 
 
-static unsigned char *
+const static unsigned char *
 s390_breakpoint_from_pc (CORE_ADDR *pcptr, int *lenptr)
 {
   static unsigned char breakpoint[] = { 0x0, 0x1 };
@@ -1764,6 +1768,10 @@ s390_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   /* Yes: create a new gdbarch for the specified machine type.  */
   gdbarch = gdbarch_alloc (&info, NULL);
 
+  /* NOTE: cagney/2002-12-06: This can be deleted when this arch is
+     ready to unwind the PC first (see frame.c:get_prev_frame()).  */
+  set_gdbarch_deprecated_init_frame_pc (gdbarch, init_frame_pc_default);
+
   set_gdbarch_believe_pcc_promotion (gdbarch, 0);
   set_gdbarch_char_signed (gdbarch, 0);
 
@@ -1775,8 +1783,8 @@ s390_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   /* We can't do this */
   set_gdbarch_frame_num_args (gdbarch, frame_num_args_unknown);
   set_gdbarch_store_struct_return (gdbarch, s390_store_struct_return);
-  set_gdbarch_extract_return_value (gdbarch, s390_extract_return_value);
-  set_gdbarch_store_return_value (gdbarch, s390_store_return_value);
+  set_gdbarch_deprecated_extract_return_value (gdbarch, s390_extract_return_value);
+  set_gdbarch_deprecated_store_return_value (gdbarch, s390_store_return_value);
   /* Amount PC must be decremented by after a breakpoint.
      This is often the number of bytes in BREAKPOINT
      but not always.  */
@@ -1792,7 +1800,7 @@ s390_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   set_gdbarch_breakpoint_from_pc (gdbarch, s390_breakpoint_from_pc);
   set_gdbarch_skip_prologue (gdbarch, s390_skip_prologue);
   set_gdbarch_init_extra_frame_info (gdbarch, s390_init_extra_frame_info);
-  set_gdbarch_init_frame_pc_first (gdbarch, s390_init_frame_pc_first);
+  set_gdbarch_deprecated_init_frame_pc_first (gdbarch, s390_init_frame_pc_first);
   set_gdbarch_read_fp (gdbarch, s390_read_fp);
   /* This function that tells us whether the function invocation represented
      by FI does not have a frame on the stack associated with it.  If it
@@ -1813,24 +1821,20 @@ s390_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   set_gdbarch_num_regs (gdbarch, S390_NUM_REGS);
   set_gdbarch_cannot_fetch_register (gdbarch, s390_cannot_fetch_register);
   set_gdbarch_cannot_store_register (gdbarch, s390_cannot_fetch_register);
-  set_gdbarch_get_saved_register (gdbarch, generic_get_saved_register);
   set_gdbarch_use_struct_convention (gdbarch, s390_use_struct_convention);
-  set_gdbarch_frame_chain_valid (gdbarch, func_frame_chain_valid);
   set_gdbarch_register_name (gdbarch, s390_register_name);
   set_gdbarch_stab_reg_to_regnum (gdbarch, s390_stab_reg_to_regnum);
   set_gdbarch_dwarf_reg_to_regnum (gdbarch, s390_stab_reg_to_regnum);
   set_gdbarch_dwarf2_reg_to_regnum (gdbarch, s390_stab_reg_to_regnum);
-  set_gdbarch_extract_struct_value_address
+  set_gdbarch_deprecated_extract_struct_value_address
     (gdbarch, generic_cannot_extract_struct_value_address);
 
   /* Parameters for inferior function calls.  */
   set_gdbarch_call_dummy_p (gdbarch, 1);
-  set_gdbarch_use_generic_dummy_frames (gdbarch, 1);
   set_gdbarch_call_dummy_length (gdbarch, 0);
-  set_gdbarch_call_dummy_location (gdbarch, AT_ENTRY_POINT);
   set_gdbarch_call_dummy_address (gdbarch, entry_point_address);
   set_gdbarch_call_dummy_start_offset (gdbarch, 0);
-  set_gdbarch_pc_in_call_dummy (gdbarch, pc_in_call_dummy_at_entry_point);
+  set_gdbarch_deprecated_pc_in_call_dummy (gdbarch, deprecated_pc_in_call_dummy_at_entry_point);
   set_gdbarch_push_dummy_frame (gdbarch, generic_push_dummy_frame);
   set_gdbarch_push_arguments (gdbarch, s390_push_arguments);
   set_gdbarch_save_dummy_frame_tos (gdbarch, generic_save_dummy_frame_tos);
@@ -1842,8 +1846,6 @@ s390_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
   set_gdbarch_sizeof_call_dummy_words (gdbarch,
                                        sizeof (s390_call_dummy_words));
   set_gdbarch_call_dummy_words (gdbarch, s390_call_dummy_words);
-  set_gdbarch_coerce_float_to_double (gdbarch,
-                                      standard_coerce_float_to_double);
 
   switch (info.bfd_arch_info->mach)
     {
@@ -1876,7 +1878,7 @@ s390_gdbarch_init (struct gdbarch_info info, struct gdbarch_list *arches)
 
 
 void
-_initialize_s390_tdep ()
+_initialize_s390_tdep (void)
 {
 
   /* Hook us into the gdbarch mechanism.  */

@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -135,6 +136,7 @@ dsengine_detach(dsengine *s, dsrecord *r, u_int32_t dsid)
 	r->index = NULL;
 
 	status = dsstore_save(s->store, r);
+	if (status == DSStatusOK) dsstore_notify(s->store);
 
 	return status;
 }
@@ -161,6 +163,7 @@ dsengine_attach(dsengine *s, dsrecord *r, u_int32_t dsid)
 	r->index = NULL;
 
 	status = dsstore_save(s->store, r);
+	if (status == DSStatusOK) dsstore_notify(s->store);
 
 	return status;
 }
@@ -188,6 +191,7 @@ dsengine_set_parent(dsengine *s, dsrecord *r, u_int32_t dsid)
 
 	r->super = dsid;
 	status = dsstore_save(s->store, r);
+	if (status == DSStatusOK) dsstore_notify(s->store);
 
 	return status;
 }
@@ -225,6 +229,7 @@ dsengine_create(dsengine *s, dsrecord *r, u_int32_t dsid)
 		status = dsstore_save(s->store, parent);
 
 	dsrecord_release(parent);
+	if (status == DSStatusOK) dsstore_notify(s->store);
 
 	return status;
 }
@@ -303,6 +308,7 @@ dsengine_save(dsengine *s, dsrecord *r)
 {
 	u_int32_t i;
 	dsrecord *parent;
+	dsstatus status;
 
 	if (s == NULL) return DSStatusInvalidStore;
 
@@ -321,7 +327,10 @@ dsengine_save(dsengine *s, dsrecord *r)
 	dsindex_insert_record(parent->index, r);
 
 	dsrecord_release(parent);
-	return dsstore_save(s->store, r);
+	status = dsstore_save(s->store, r);
+	if (status == DSStatusOK) dsstore_notify(s->store);
+
+	return status;
 }
 
 /*
@@ -332,6 +341,7 @@ dsengine_save_fast(dsengine *s, dsrecord *r)
 {
 	u_int32_t i;
 	dsrecord *parent;
+	dsstatus status;
 
 	if (s == NULL) return DSStatusInvalidStore;
 
@@ -350,7 +360,10 @@ dsengine_save_fast(dsengine *s, dsrecord *r)
 	dsindex_insert_record(parent->index, r);
 
 	dsrecord_release(parent);
-	return dsstore_save_fast(s->store, r, 0);
+	status = dsstore_save_fast(s->store, r, 0);
+	if (status == DSStatusOK) dsstore_notify(s->store);
+
+	return status;
 }
 
 /*
@@ -361,6 +374,7 @@ dsengine_save_attribute(dsengine *s, dsrecord *r, dsattribute *a, u_int32_t asel
 {
 	u_int32_t i;
 	dsrecord *parent;
+	dsstatus status;
 
 	if (s == NULL) return DSStatusInvalidStore;
 
@@ -379,7 +393,10 @@ dsengine_save_attribute(dsengine *s, dsrecord *r, dsattribute *a, u_int32_t asel
 	dsindex_insert_record(parent->index, r);
 
 	dsrecord_release(parent);
-	return dsstore_save_attribute(s->store, r, a, asel);
+	status = dsstore_save_attribute(s->store, r, a, asel);
+	if (status == DSStatusOK) dsstore_notify(s->store);
+
+	return status;
 }
 
 /*
@@ -391,12 +408,17 @@ dsengine_remove(dsengine *s, u_int32_t dsid)
 	u_int32_t i, n, *kids;
 	dsrecord *r, *parent;
 	dsstatus status;
+	char *ns;
 
 	if (s == NULL) return DSStatusInvalidStore;
 
 	r = dsstore_fetch(s->store, dsid);
 	if (r == NULL) return DSStatusOK;
 	
+	/* PROTECT FROM MULTIPLE NOTIFICATIONS */
+	ns = s->store->notification_name;
+	s->store->notification_name = NULL;
+
 	if (r->sub_count > 0)
 	{
 		n = r->sub_count;
@@ -410,6 +432,7 @@ dsengine_remove(dsengine *s, u_int32_t dsid)
 			if (status != DSStatusOK)
 			{
 				free(kids);
+				s->store->notification_name = ns;
 				return status;
 			}
 		}
@@ -418,12 +441,17 @@ dsengine_remove(dsengine *s, u_int32_t dsid)
 	}
 
 	i = dsstore_record_super(s->store, dsid);
-	if (i == IndexNull) return DSStatusInvalidPath;
+	if (i == IndexNull)
+	{
+		s->store->notification_name = ns;
+		return DSStatusInvalidPath;
+	}
 
 	parent = dsstore_fetch(s->store, i);
 	if (parent == NULL)
 	{
 		/* XXX Parent doesn't exist! */
+		s->store->notification_name = ns;
 		return DSStatusInvalidPath;
 	}
 
@@ -442,10 +470,15 @@ dsengine_remove(dsengine *s, u_int32_t dsid)
 	if (status != DSStatusOK)
 	{
 		/* XXX can't save changes to parent! */
+		s->store->notification_name = ns;
 		return status;
 	}
 
 	status = dsstore_remove(s->store, dsid);
+
+	s->store->notification_name = ns;
+	if (status == DSStatusOK) dsstore_notify(s->store);
+
 	return status;
 }
 
@@ -518,6 +551,8 @@ dsengine_move(dsengine *s, u_int32_t dsid, u_int32_t pdsid)
 		return status;
 	}
 
+	dsstore_notify(s->store);
+
 	return DSStatusOK;
 }
 	
@@ -530,6 +565,7 @@ dsengine_copy(dsengine *s, u_int32_t dsid, u_int32_t pdsid)
 	dsrecord *r, *x;
 	u_int32_t *kids, i, count;
 	dsstatus status;
+	char *ns;
 
 	if (s == NULL) return DSStatusInvalidStore;
 	
@@ -544,11 +580,16 @@ dsengine_copy(dsengine *s, u_int32_t dsid, u_int32_t pdsid)
 	x->sub_count = 0;
 	x->sub = NULL;
 
+	/* PROTECT FROM MULTIPLE NOTIFICATIONS */
+	ns = s->store->notification_name;
+	s->store->notification_name = NULL;
+
 	status = dsengine_create(s, x, pdsid);
 	if (status != DSStatusOK)
 	{
 		/* XXX Can't add new record! */
 		dsrecord_release(x);
+		s->store->notification_name = ns;
 		return status;
 	}
 		
@@ -559,9 +600,13 @@ dsengine_copy(dsengine *s, u_int32_t dsid, u_int32_t pdsid)
 		{
 			/* XXX Can't add child! */
 			dsrecord_release(x);
+			s->store->notification_name = ns;
 			return status;
 		}
 	}
+
+	s->store->notification_name = ns;
+	dsstore_notify(s->store);
 
 	return DSStatusOK;
 }
@@ -748,14 +793,17 @@ dsengine_match(dsengine *s, u_int32_t dsid, dsdata *key, dsdata *val, u_int32_t 
 }
 
 static dsstatus
-dsengine_pathutil(dsengine *s, u_int32_t dsid, dsrecord *path, u_int32_t *match, u_int32_t create)
+dsengine_pathutil(dsengine *s, u_int32_t dsid, dsrecord *path, u_int32_t *match, u_int32_t *create)
 {
-	u_int32_t i, n, c;
+	u_int32_t i, n, c, do_create;
 	dsstatus status;
 	dsattribute *a;
 	dsdata *k, *v;
 	dsrecord *r;
 	dsdata *keyname, *dot, *dotdot;
+
+	do_create = *create;
+	*create = 0;
 
 	*match = (u_int32_t)-1;
 
@@ -813,7 +861,7 @@ dsengine_pathutil(dsengine *s, u_int32_t dsid, dsrecord *path, u_int32_t *match,
 
 		if (c == (u_int32_t)-1)
 		{
-			if (create == 0)
+			if (do_create == 0)
 			{
 				dsdata_release(keyname);
 				dsdata_release(dot);
@@ -823,6 +871,7 @@ dsengine_pathutil(dsengine *s, u_int32_t dsid, dsrecord *path, u_int32_t *match,
 			else
 			{
 				/* Create the path component */
+				*create = 1;
 				r = dsrecord_new();
 				dsrecord_append_attribute(r, a, SELECT_ATTRIBUTE);
 				status = dsengine_create(s, r, n);
@@ -884,7 +933,10 @@ dsengine_path(dsengine *s, u_int32_t dsid, u_int32_t **list)
 dsstatus
 dsengine_pathmatch(dsengine *s, u_int32_t dsid, dsrecord *path, u_int32_t *match)
 {
-	return dsengine_pathutil(s, dsid, path, match, 0);
+	int x;
+
+	x = 0;
+	return dsengine_pathutil(s, dsid, path, match, &x);
 }
 
 /*
@@ -895,7 +947,26 @@ dsengine_pathmatch(dsengine *s, u_int32_t dsid, dsrecord *path, u_int32_t *match
 dsstatus
 dsengine_pathcreate(dsengine *s, u_int32_t dsid, dsrecord *path, u_int32_t *match)
 {
-	return dsengine_pathutil(s, dsid, path, match, 1);
+	dsstatus status;
+	char *ns;
+	u_int32_t create;
+
+	/* PROTECT FROM MULTIPLE NOTIFICATIONS */
+	ns = s->store->notification_name;
+	s->store->notification_name = NULL;
+
+	create = 1;
+	status = dsengine_pathutil(s, dsid, path, match, &create);
+
+	s->store->notification_name = ns;
+
+	if ((status == DSStatusOK) && (create != 0))
+	{
+		/* Send notification */
+		dsstore_notify(s->store);
+	}
+
+	return status;
 }
 
 /*

@@ -1,0 +1,19 @@
+Eieren av epostlisten %(listname)s inviterer din epostadresse "%(email)s"
+til å bli med på epostlisten %(listname)s på %(hostname)s.
+Du kan takke ja til invitasjonen enkelt å greit ved å bare svare på denne
+eposten, så lenge Subject: feltet beholdes.
+
+Du kan også takke ja ved å gå inn på følgende webside:
+
+    %(confirmurl)s
+
+Eller du kan sende følgende linje -- og bare denne ene linjen -- i en epost
+til %(requestaddr)s:
+
+    confirm %(cookie)s
+
+Merk at bare å svare på denne eposten med epostprogrammet ditt bør fungere
+helt greit.
+
+Hvis du vil takke nei til invitasjonen, kan du bare slette denne eposten.
+Har du noen spørsmål, vennligst send dem til %(listowner)s.

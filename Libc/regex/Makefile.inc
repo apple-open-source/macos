@@ -6,11 +6,16 @@
 
 CFLAGS+=-DPOSIX_MISTAKE
 
-SRCS+=	regcomp.c regerror.c regexec.c regfree.c
+.include "Makefile.fbsd_begin"
+FBSDSRCS= regcomp.c regerror.c regexec.c regfree.c
+FBSDORIGHDRS= cclass.h cname.h engine.c regex2.h utils.h
+.include "Makefile.fbsd_end"
 
 .if ${LIB} == "c"
-MAN3+=	regex.3
-MAN7+=	re_format.7
+.include "Makefile.fbsd_begin"
+FBSDMAN3= regex.3
+FBSDMAN7= re_format.7
+.include "Makefile.fbsd_end"
 
 MLINKS+=regex.3 regcomp.3 regex.3 regexec.3 regex.3 regerror.3
 MLINKS+=regexec.3 regfree.3

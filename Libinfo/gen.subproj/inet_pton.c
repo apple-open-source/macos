@@ -16,7 +16,7 @@
  */
 
 #if defined(LIBC_SCCS) && !defined(lint)
-static char rcsid[] = "$Id: inet_pton.c,v 1.2 2002/01/17 22:22:25 majka Exp $";
+static char rcsid[] = "$Id: inet_pton.c,v 1.3 2003/04/10 18:53:29 majka Exp $";
 #endif /* LIBC_SCCS and not lint */
 
 #ifdef HAVE_CONFIG_H
@@ -30,6 +30,7 @@ static char rcsid[] = "$Id: inet_pton.c,v 1.2 2002/01/17 22:22:25 majka Exp $";
 #include <arpa/inet.h>
 #include <arpa/nameser.h>
 #include <string.h>
+#include <stdlib.h>
 #include <errno.h>
 
 #define IN6ADDRSZ              16
@@ -78,21 +79,37 @@ static int	inet_pton6 __P((const char *src, u_char *dst));
  *	Paul Vixie, 1996.
  */
 int
-inet_pton(af, src, dst)
-	int af;
-	const char *src;
-	void *dst;
+inet_pton(int af, const char *src, void *dst)
 {
-	switch (af) {
-	case AF_INET:
-		return (inet_pton4(src, dst));
+	int status;
+	char *p, *s;
+
+	switch (af)
+	{
+		case AF_INET: return (inet_pton4(src, dst));
+
 #ifdef INET6
-	case AF_INET6:
-		return (inet_pton6(src, dst));
-#endif 
-	default:
-		errno = EAFNOSUPPORT;
-		return (-1);
+		case AF_INET6:
+			/* Ignore trailing %xxx (interface specification) */
+
+			p = NULL;
+			s = (char *)src;
+
+			if (src != NULL) p = strrchr(src, '%');
+			if (p != NULL)
+			{
+				s = strdup(src);
+				s[p - src] = '\0';
+			}
+
+			status = inet_pton6(s, dst);
+			if (p != NULL) free(s);
+			return status;
+#endif
+
+		default:
+			errno = EAFNOSUPPORT;
+			return -1;
 	}
 	/* NOTREACHED */
 }

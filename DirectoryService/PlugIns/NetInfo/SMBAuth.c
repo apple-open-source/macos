@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -23,26 +26,15 @@
 /*!
  * @header SMBAuth
  */
-#include "TimConditional.h"
-#ifdef TIM_CLIENT_PRESENT
 
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
-#include "md4.h"
-
+#include <stdio.h>
+#include <sys/types.h>
+#include <openssl/md4.h>
+#include <openssl/des.h>
 #include "SMBAuth.h"
-
-#include <TimClient/Buffer.h>
-
-typedef long KeysArray[32];
-
-typedef struct EncryptBlk
-{
-	unsigned long 	keyHi;
-	unsigned long 	keyLo;
-
-} EncryptBlk;
 
 // utility functions prototypes
 #ifdef __cplusplus
@@ -54,54 +46,15 @@ void CStringToUnicode(char *cstr, u_int16_t *unicode);
 void MD4Encode(unsigned char *output, unsigned char *input, unsigned int len);
 void strnupper(char *str, int maxlen);
 void DESEncode(void *str, void *data);
-void des_set_odd_parity(unsigned char *key);
-void str_to_key(unsigned char *str, unsigned char *key);
+void str_to_key(unsigned char *str, unsigned char key[8]);
 
 #ifdef __cplusplus
 }
 #endif
 
-extern void desKeySched(EncryptBlk *, long *, short);
-extern void desEncode(long *, char *);
-extern void desDecode (long *, char *);
-
 #define kDESVersion1	1
 
-unsigned char odd_parity[256]={
-	1,  1,  2,  2,  4,  4,  7,  7,  8,  8, 11, 11, 13, 13, 14, 14,
-	16, 16, 19, 19, 21, 21, 22, 22, 25, 25, 26, 26, 28, 28, 31, 31,
-	32, 32, 35, 35, 37, 37, 38, 38, 41, 41, 42, 42, 44, 44, 47, 47,
-	49, 49, 50, 50, 52, 52, 55, 55, 56, 56, 59, 59, 61, 61, 62, 62,
-	64, 64, 67, 67, 69, 69, 70, 70, 73, 73, 74, 74, 76, 76, 79, 79,
-	81, 81, 82, 82, 84, 84, 87, 87, 88, 88, 91, 91, 93, 93, 94, 94,
-	97, 97, 98, 98, 100, 100, 103, 103, 104, 104, 107, 107, 109, 109, 110, 110,
-	112, 112, 115, 115, 117, 117, 118, 118, 121, 121, 122, 122, 124, 124, 127, 127,
-	128, 128, 131, 131, 133, 133, 134, 134, 137, 137, 138, 138, 140, 140, 143, 143,
-	145, 145, 146, 146, 148, 148, 151, 151, 152, 152, 155, 155, 157, 157, 158, 158,
-	161, 161, 162, 162, 164, 164, 167, 167, 168, 168, 171, 171, 173, 173, 174, 174,
-	176, 176, 179, 179, 181, 181, 182, 182, 185, 185, 186, 186, 188, 188, 191, 191,
-	193, 193, 194, 194, 196, 196, 199, 199, 200, 200, 203, 203, 205, 205, 206, 206,
-	208, 208, 211, 211, 213, 213, 214, 214, 217, 217, 218, 218, 220, 220, 223, 223,
-	224, 224, 227, 227, 229, 229, 230, 230, 233, 233, 234, 234, 236, 236, 239, 239,
-	241, 241, 242, 242, 244, 244, 247, 247, 248, 248, 251, 251, 253, 253, 254, 254};
-
 // Utility functions
-
-void BinaryFromHexString(char * sourceString, unsigned int maxLen, unsigned char* outBinary)
-{
-	//char* resultString = NULL;
-	Buffer* sourceBuff = bufferFromDataNoCopy(sourceString,maxLen);
-	Buffer* resultBuff = bufferFromHexBuffer(sourceBuff);
-	//resultString = bufferToString(resultBuff);
-	if (resultBuff != NULL)
-	{
-		memmove(outBinary,resultBuff->data,resultBuff->length);
-	}
-	bufferRelease(sourceBuff);
-	bufferRelease(resultBuff);
-
-	//return resultString;
-}
 
 void CalculateP24(unsigned char *P21, unsigned char *C8, unsigned char *P24)
 {
@@ -196,24 +149,12 @@ void CStringToUnicode(char *cstr, u_int16_t *unicode)
 
 void MD4Encode(unsigned char *output, unsigned char *input, unsigned int len)
 {
-
-  MD4_CTX context = {};
-
-  MD4Init (&context);
-  MD4Update (&context, (unsigned char *)input, len);
-  MD4Final (output, &context);
-}
-
-char* HexStringFromBinary(unsigned char * sourceString, unsigned int len)
-{
-	char* resultString = NULL;
-	Buffer* sourceBuff = bufferFromDataNoCopy(sourceString,len);
-	Buffer* resultBuff = bufferToHexBuffer(sourceBuff);
-	resultString = bufferToString(resultBuff);
-	bufferRelease(sourceBuff);
-	bufferRelease(resultBuff);
 	
-	return resultString;
+	MD4_CTX context = {};
+	
+	MD4_Init (&context);
+	MD4_Update (&context, (unsigned char *)input, len);
+	MD4_Final (output, &context);
 }
 
 void strnupper(char *str, int maxlen)
@@ -231,23 +172,17 @@ void strnupper(char *str, int maxlen)
 
 void DESEncode(void *str, void *data)
 {
-	KeysArray theKeyArray = {};
-	unsigned char	key[8] = {};
+	des_key_schedule theKeyArray;
+	unsigned char	key[8]	= {};
+	des_cblock output;
 
 	str_to_key((unsigned char *)str, key);
-	desKeySched((EncryptBlk *)key, theKeyArray, kDESVersion1);
-	desEncode(theKeyArray, (char *)data);
+	des_set_key_unchecked((const_des_cblock *)key, theKeyArray);
+	des_ecb_encrypt((const_des_cblock *)data,  &output, theKeyArray, kDESVersion1);
+	memcpy(data,output,8);
 }
 
-void des_set_odd_parity(unsigned char *key)
-{
-	int i;
-
-	for (i=0; i<8; i++)
-		key[i]=odd_parity[key[i]];
-}
-
-void str_to_key(unsigned char *str, unsigned char *key)
+void str_to_key(unsigned char *str, unsigned char key[8])
 {
 	int i;
 	key[0] = str[0]>>1;
@@ -261,6 +196,6 @@ void str_to_key(unsigned char *str, unsigned char *key)
 	for (i=0;i<8;i++) {
 		key[i] = (key[i]<<1);
 	}
-	des_set_odd_parity(key);
+	des_set_odd_parity((des_cblock *)&key); //des_cblock *key // typedef unsigned char des_cblock[8];
 }
-#endif
+

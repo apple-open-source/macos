@@ -1,5 +1,5 @@
 ;;; gnus-util.el --- utility functions for Gnus
-;; Copyright (C) 1996, 1997, 1998, 1999, 2000
+;; Copyright (C) 1996, 1997, 1998, 1999, 2000, 2002
 ;;        Free Software Foundation, Inc.
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
@@ -1002,6 +1002,11 @@ Entries without port tokens default to DEFAULTPORT."
     (if start
 	(remove-text-properties start end properties object))
     t))
+
+(defvar gnus-directory-sep-char-regexp "/"
+  "The regexp of directory separator character.
+If you find some problem with the directory separator character, try
+\"[/\\\\\]\" for some systems.")
 
 (provide 'gnus-util)
 

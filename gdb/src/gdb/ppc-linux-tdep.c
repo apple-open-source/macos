@@ -1,7 +1,7 @@
 /* Target-dependent code for GDB, the GNU debugger.
 
    Copyright 1986, 1987, 1989, 1991, 1992, 1993, 1994, 1995, 1996,
-   1997, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1997, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -31,6 +31,7 @@
 #include "objfiles.h"
 #include "regcache.h"
 #include "value.h"
+#include "osabi.h"
 
 #include "solib-svr4.h"
 #include "ppc-tdep.h"
@@ -106,10 +107,11 @@ static int ppc_linux_at_sigtramp_return_path (CORE_ADDR pc);
 /* Determine if pc is in a signal trampoline...
 
    Ha!  That's not what this does at all.  wait_for_inferior in
-   infrun.c calls IN_SIGTRAMP in order to detect entry into a signal
-   trampoline just after delivery of a signal.  But on GNU/Linux,
-   signal trampolines are used for the return path only.  The kernel
-   sets things up so that the signal handler is called directly.
+   infrun.c calls PC_IN_SIGTRAMP in order to detect entry into a
+   signal trampoline just after delivery of a signal.  But on
+   GNU/Linux, signal trampolines are used for the return path only.
+   The kernel sets things up so that the signal handler is called
+   directly.
 
    If we use in_sigtramp2() in place of in_sigtramp() (see below)
    we'll (often) end up with stop_pc in the trampoline and prev_pc in
@@ -141,11 +143,16 @@ static int ppc_linux_at_sigtramp_return_path (CORE_ADDR pc);
    first instruction long after the fact, just in case the observed
    behavior is ever fixed.)
 
-   IN_SIGTRAMP is called from blockframe.c as well in order to set
-   the signal_handler_caller flag.  Because of our strange definition
-   of in_sigtramp below, we can't rely on signal_handler_caller getting
-   set correctly from within blockframe.c.  This is why we take pains
-   to set it in init_extra_frame_info().  */
+   PC_IN_SIGTRAMP is called from blockframe.c as well in order to set
+   the frame's type (if a SIGTRAMP_FRAME).  Because of our strange
+   definition of in_sigtramp below, we can't rely on the frame's type
+   getting set correctly from within blockframe.c.  This is why we
+   take pains to set it in init_extra_frame_info().
+
+   NOTE: cagney/2002-11-10: I suspect the real problem here is that
+   the get_prev_frame() only initializes the frame's type after the
+   call to INIT_FRAME_INFO.  get_prev_frame() should be fixed, this
+   code shouldn't be working its way around a bug :-(.  */
 
 int
 ppc_linux_in_sigtramp (CORE_ADDR pc, char *func_name)
@@ -317,14 +324,14 @@ ppc_linux_skip_trampoline_code (CORE_ADDR pc)
 CORE_ADDR
 ppc_linux_frame_saved_pc (struct frame_info *fi)
 {
-  if (fi->signal_handler_caller)
+  if ((get_frame_type (fi) == SIGTRAMP_FRAME))
     {
       CORE_ADDR regs_addr =
 	read_memory_integer (fi->frame + PPC_LINUX_REGS_PTR_OFFSET, 4);
       /* return the NIP in the regs array */
       return read_memory_integer (regs_addr + 4 * PPC_LINUX_PT_NIP, 4);
     }
-  else if (fi->next && fi->next->signal_handler_caller)
+  else if (fi->next && (get_frame_type (fi->next) == SIGTRAMP_FRAME))
     {
       CORE_ADDR regs_addr =
 	read_memory_integer (fi->next->frame + PPC_LINUX_REGS_PTR_OFFSET, 4);
@@ -346,9 +353,11 @@ ppc_linux_init_extra_frame_info (int fromleaf, struct frame_info *fi)
          this is a signal frame by looking to see if the pc points
          at trampoline code */
       if (ppc_linux_at_sigtramp_return_path (fi->pc))
-	fi->signal_handler_caller = 1;
+	deprecated_set_frame_type (fi, SIGTRAMP_FRAME);
       else
-	fi->signal_handler_caller = 0;
+	/* FIXME: cagney/2002-11-10: Is this double bogus?  What
+           happens if the frame has previously been marked as a dummy?  */
+	deprecated_set_frame_type (fi, NORMAL_FRAME);
     }
 }
 
@@ -366,7 +375,7 @@ ppc_linux_frameless_function_invocation (struct frame_info *fi)
 void
 ppc_linux_frame_init_saved_regs (struct frame_info *fi)
 {
-  if (fi->signal_handler_caller)
+  if ((get_frame_type (fi) == SIGTRAMP_FRAME))
     {
       CORE_ADDR regs_addr;
       int i;
@@ -404,232 +413,10 @@ CORE_ADDR
 ppc_linux_frame_chain (struct frame_info *thisframe)
 {
   /* Kernel properly constructs the frame chain for the handler */
-  if (thisframe->signal_handler_caller)
+  if ((get_frame_type (thisframe) == SIGTRAMP_FRAME))
     return read_memory_integer ((thisframe)->frame, 4);
   else
     return rs6000_frame_chain (thisframe);
-}
-
-/* FIXME: Move the following to rs6000-tdep.c (or some other file where
-   it may be used generically by ports which use either the SysV ABI or
-   the EABI */
-
-/* Structures 8 bytes or less long are returned in the r3 & r4
-   registers, according to the SYSV ABI. */
-int
-ppc_sysv_abi_use_struct_convention (int gcc_p, struct type *value_type)
-{
-  return (TYPE_LENGTH (value_type) > 8);
-}
-
-/* round2 rounds x up to the nearest multiple of s assuming that s is a
-   power of 2 */
-
-#undef round2
-#define round2(x,s) ((((long) (x) - 1) & ~(long)((s)-1)) + (s))
-
-/* Pass the arguments in either registers, or in the stack. Using the
-   ppc sysv ABI, the first eight words of the argument list (that might
-   be less than eight parameters if some parameters occupy more than one
-   word) are passed in r3..r10 registers.  float and double parameters are
-   passed in fpr's, in addition to that. Rest of the parameters if any
-   are passed in user stack. 
-
-   If the function is returning a structure, then the return address is passed
-   in r3, then the first 7 words of the parametes can be passed in registers,
-   starting from r4. */
-
-CORE_ADDR
-ppc_sysv_abi_push_arguments (int nargs, struct value **args, CORE_ADDR sp,
-			     int struct_return, CORE_ADDR struct_addr)
-{
-  int argno;
-  int greg, freg;
-  int argstkspace;
-  int structstkspace;
-  int argoffset;
-  int structoffset;
-  struct value *arg;
-  struct type *type;
-  int len;
-  char old_sp_buf[4];
-  CORE_ADDR saved_sp;
-
-  greg = struct_return ? 4 : 3;
-  freg = 1;
-  argstkspace = 0;
-  structstkspace = 0;
-
-  /* Figure out how much new stack space is required for arguments
-     which don't fit in registers.  Unlike the PowerOpen ABI, the
-     SysV ABI doesn't reserve any extra space for parameters which
-     are put in registers. */
-  for (argno = 0; argno < nargs; argno++)
-    {
-      arg = args[argno];
-      type = check_typedef (VALUE_TYPE (arg));
-      len = TYPE_LENGTH (type);
-
-      if (TYPE_CODE (type) == TYPE_CODE_FLT)
-	{
-	  if (freg <= 8)
-	    freg++;
-	  else
-	    {
-	      /* SysV ABI converts floats to doubles when placed in
-	         memory and requires 8 byte alignment */
-	      if (argstkspace & 0x4)
-		argstkspace += 4;
-	      argstkspace += 8;
-	    }
-	}
-      else if (TYPE_CODE (type) == TYPE_CODE_INT && len == 8)	/* long long */
-	{
-	  if (greg > 9)
-	    {
-	      greg = 11;
-	      if (argstkspace & 0x4)
-		argstkspace += 4;
-	      argstkspace += 8;
-	    }
-	  else
-	    {
-	      if ((greg & 1) == 0)
-		greg++;
-	      greg += 2;
-	    }
-	}
-      else
-	{
-	  if (len > 4
-	      || TYPE_CODE (type) == TYPE_CODE_STRUCT
-	      || TYPE_CODE (type) == TYPE_CODE_UNION)
-	    {
-	      /* Rounding to the nearest multiple of 8 may not be necessary,
-	         but it is safe.  Particularly since we don't know the
-	         field types of the structure */
-	      structstkspace += round2 (len, 8);
-	    }
-	  if (greg <= 10)
-	    greg++;
-	  else
-	    argstkspace += 4;
-	}
-    }
-
-  /* Get current SP location */
-  saved_sp = read_sp ();
-
-  sp -= argstkspace + structstkspace;
-
-  /* Allocate space for backchain and callee's saved lr */
-  sp -= 8;
-
-  /* Make sure that we maintain 16 byte alignment */
-  sp &= ~0x0f;
-
-  /* Update %sp before proceeding any further */
-  write_register (SP_REGNUM, sp);
-
-  /* write the backchain */
-  store_address (old_sp_buf, 4, saved_sp);
-  write_memory (sp, old_sp_buf, 4);
-
-  argoffset = 8;
-  structoffset = argoffset + argstkspace;
-  freg = 1;
-  greg = 3;
-  /* Fill in r3 with the return structure, if any */
-  if (struct_return)
-    {
-      char val_buf[4];
-      store_address (val_buf, 4, struct_addr);
-      memcpy (&registers[REGISTER_BYTE (greg)], val_buf, 4);
-      greg++;
-    }
-  /* Now fill in the registers and stack... */
-  for (argno = 0; argno < nargs; argno++)
-    {
-      arg = args[argno];
-      type = check_typedef (VALUE_TYPE (arg));
-      len = TYPE_LENGTH (type);
-
-      if (TYPE_CODE (type) == TYPE_CODE_FLT)
-	{
-	  if (freg <= 8)
-	    {
-	      if (len > 8)
-		printf_unfiltered (
-				    "Fatal Error: a floating point parameter #%d with a size > 8 is found!\n", argno);
-	      memcpy (&registers[REGISTER_BYTE (FP0_REGNUM + freg)],
-		      VALUE_CONTENTS (arg), len);
-	      freg++;
-	    }
-	  else
-	    {
-	      /* SysV ABI converts floats to doubles when placed in
-	         memory and requires 8 byte alignment */
-	      /* FIXME: Convert floats to doubles */
-	      if (argoffset & 0x4)
-		argoffset += 4;
-	      write_memory (sp + argoffset, (char *) VALUE_CONTENTS (arg), len);
-	      argoffset += 8;
-	    }
-	}
-      else if (TYPE_CODE (type) == TYPE_CODE_INT && len == 8)	/* long long */
-	{
-	  if (greg > 9)
-	    {
-	      greg = 11;
-	      if (argoffset & 0x4)
-		argoffset += 4;
-	      write_memory (sp + argoffset, (char *) VALUE_CONTENTS (arg), len);
-	      argoffset += 8;
-	    }
-	  else
-	    {
-	      if ((greg & 1) == 0)
-		greg++;
-
-	      memcpy (&registers[REGISTER_BYTE (greg)],
-		      VALUE_CONTENTS (arg), 4);
-	      memcpy (&registers[REGISTER_BYTE (greg + 1)],
-		      VALUE_CONTENTS (arg) + 4, 4);
-	      greg += 2;
-	    }
-	}
-      else
-	{
-	  char val_buf[4];
-	  if (len > 4
-	      || TYPE_CODE (type) == TYPE_CODE_STRUCT
-	      || TYPE_CODE (type) == TYPE_CODE_UNION)
-	    {
-	      write_memory (sp + structoffset, VALUE_CONTENTS (arg), len);
-	      store_address (val_buf, 4, sp + structoffset);
-	      structoffset += round2 (len, 8);
-	    }
-	  else
-	    {
-	      memset (val_buf, 0, 4);
-	      memcpy (val_buf, VALUE_CONTENTS (arg), len);
-	    }
-	  if (greg <= 10)
-	    {
-	      *(int *) &registers[REGISTER_BYTE (greg)] = 0;
-	      memcpy (&registers[REGISTER_BYTE (greg)], val_buf, 4);
-	      greg++;
-	    }
-	  else
-	    {
-	      write_memory (sp + argoffset, val_buf, 4);
-	      argoffset += 4;
-	    }
-	}
-    }
-
-  target_store_registers (-1);
-  return sp;
 }
 
 /* ppc_linux_memory_remove_breakpoints attempts to remove a breakpoint
@@ -759,7 +546,7 @@ ppc_sysv_abi_push_arguments (int nargs, struct value **args, CORE_ADDR sp,
 int
 ppc_linux_memory_remove_breakpoint (CORE_ADDR addr, char *contents_cache)
 {
-  unsigned char *bp;
+  const unsigned char *bp;
   int val;
   int bplen;
   char old_contents[BREAKPOINT_MAX];
@@ -819,4 +606,128 @@ ppc_linux_svr4_fetch_link_map_offsets (void)
     }
 
   return lmp;
+}
+
+enum {
+  ELF_NGREG = 48,
+  ELF_NFPREG = 33,
+  ELF_NVRREG = 33
+};
+
+enum {
+  ELF_GREGSET_SIZE = (ELF_NGREG * 4),
+  ELF_FPREGSET_SIZE = (ELF_NFPREG * 8)
+};
+
+void
+ppc_linux_supply_gregset (char *buf)
+{
+  int regi;
+  struct gdbarch_tdep *tdep = gdbarch_tdep (current_gdbarch); 
+
+  for (regi = 0; regi < 32; regi++)
+    supply_register (regi, buf + 4 * regi);
+
+  supply_register (PC_REGNUM, buf + 4 * PPC_LINUX_PT_NIP);
+  supply_register (tdep->ppc_lr_regnum, buf + 4 * PPC_LINUX_PT_LNK);
+  supply_register (tdep->ppc_cr_regnum, buf + 4 * PPC_LINUX_PT_CCR);
+  supply_register (tdep->ppc_xer_regnum, buf + 4 * PPC_LINUX_PT_XER);
+  supply_register (tdep->ppc_ctr_regnum, buf + 4 * PPC_LINUX_PT_CTR);
+  if (tdep->ppc_mq_regnum != -1)
+    supply_register (tdep->ppc_mq_regnum, buf + 4 * PPC_LINUX_PT_MQ);
+  supply_register (tdep->ppc_ps_regnum, buf + 4 * PPC_LINUX_PT_MSR);
+}
+
+void
+ppc_linux_supply_fpregset (char *buf)
+{
+  int regi;
+  struct gdbarch_tdep *tdep = gdbarch_tdep (current_gdbarch); 
+
+  for (regi = 0; regi < 32; regi++)
+    supply_register (FP0_REGNUM + regi, buf + 8 * regi);
+
+  /* The FPSCR is stored in the low order word of the last doubleword in the
+     fpregset.  */
+  supply_register (tdep->ppc_fpscr_regnum, buf + 8 * 32 + 4);
+}
+
+/*
+  Use a local version of this function to get the correct types for regsets.
+*/
+
+static void
+fetch_core_registers (char *core_reg_sect,
+		      unsigned core_reg_size,
+		      int which,
+		      CORE_ADDR reg_addr)
+{
+  if (which == 0)
+    {
+      if (core_reg_size == ELF_GREGSET_SIZE)
+	ppc_linux_supply_gregset (core_reg_sect);
+      else
+	warning ("wrong size gregset struct in core file");
+    }
+  else if (which == 2)
+    {
+      if (core_reg_size == ELF_FPREGSET_SIZE)
+	ppc_linux_supply_fpregset (core_reg_sect);
+      else
+	warning ("wrong size fpregset struct in core file");
+    }
+}
+
+/* Register that we are able to handle ELF file formats using standard
+   procfs "regset" structures.  */
+
+static struct core_fns ppc_linux_regset_core_fns =
+{
+  bfd_target_elf_flavour,	/* core_flavour */
+  default_check_format,		/* check_format */
+  default_core_sniffer,		/* core_sniffer */
+  fetch_core_registers,		/* core_read_registers */
+  NULL				/* next */
+};
+
+static void
+ppc_linux_init_abi (struct gdbarch_info info,
+                    struct gdbarch *gdbarch)
+{
+  struct gdbarch_tdep *tdep = gdbarch_tdep (gdbarch);
+
+  /* Until November 2001, gcc was not complying to the SYSV ABI for
+     returning structures less than or equal to 8 bytes in size. It was
+     returning everything in memory. When this was corrected, it wasn't
+     fixed for native platforms.  */
+  set_gdbarch_use_struct_convention (gdbarch,
+                                   ppc_sysv_abi_broken_use_struct_convention);
+
+  if (tdep->wordsize == 4)
+    {
+      /* Note: kevinb/2002-04-12: See note in rs6000_gdbarch_init regarding
+	 *_push_arguments().  The same remarks hold for the methods below.  */
+      set_gdbarch_frameless_function_invocation (gdbarch,
+        ppc_linux_frameless_function_invocation);
+      set_gdbarch_frame_chain (gdbarch, ppc_linux_frame_chain);
+      set_gdbarch_frame_saved_pc (gdbarch, ppc_linux_frame_saved_pc);
+
+      set_gdbarch_frame_init_saved_regs (gdbarch,
+                                         ppc_linux_frame_init_saved_regs);
+      set_gdbarch_init_extra_frame_info (gdbarch,
+                                         ppc_linux_init_extra_frame_info);
+
+      set_gdbarch_memory_remove_breakpoint (gdbarch,
+                                            ppc_linux_memory_remove_breakpoint);
+      set_solib_svr4_fetch_link_map_offsets
+        (gdbarch, ppc_linux_svr4_fetch_link_map_offsets);
+    }
+}
+
+void
+_initialize_ppc_linux_tdep (void)
+{
+  gdbarch_register_osabi (bfd_arch_powerpc, 0, GDB_OSABI_LINUX,
+			  ppc_linux_init_abi);
+  add_core_fns (&ppc_linux_regset_core_fns);
 }

@@ -5,10 +5,10 @@
 '\" See the file "license.terms" for information on usage and redistribution
 '\" of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 '\" 
-'\" RCS: @(#) $Id: expr.n,v 1.1.1.3 2000/12/06 23:03:53 wsanchez Exp $
+'\" RCS: @(#) $Id: expr.n,v 1.1.1.5 2003/07/22 23:11:04 landonf Exp $
 '\" 
 .so man.macros
-.TH expr n 8.3 Tcl "Tcl Built-In Commands"
+.TH expr n 8.4 Tcl "Tcl Built-In Commands"
 .BS
 '\" Note:  do not modify the .SH NAME line immediately below!
 .SH NAME
@@ -54,6 +54,13 @@ following are valid floating-point numbers:  2.1, 3., 6e4, 7.91e+16.
 If no numeric interpretation is possible, then an operand is left
 as a string (and only a limited set of operators may be applied to
 it).
+.PP
+.VS 8.4
+On 32-bit systems, integer values MAX_INT (0x7FFFFFFF) and MIN_INT
+(-0x80000000) will be represented as 32-bit values, and integer values
+outside that range will be represented as 64-bit values (if that is
+possible at all.)
+.VE 8.4
 .PP
 Operands may be specified in any of the following ways:
 .IP [1]
@@ -133,6 +140,12 @@ in which case string comparison is used.
 \fB==\0\0!=\fR
 Boolean equal and not equal.  Each operator produces a zero/one result.
 Valid for all operand types.
+.VS 8.4
+.TP 20
+\fBeq\0\0ne\fR
+Boolean string equal and string not equal.  Each operator produces a
+zero/one result.  The operand types are interpreted only as strings.
+.VE 8.4
 .TP 20
 \fB&\fR
 Bit-wise AND.  Valid for integer operands only.
@@ -181,14 +194,15 @@ the Tcl parser will evaluate both \fB[a]\fR and \fB[b]\fR before
 invoking the \fBexpr\fR command.
 .SH "MATH FUNCTIONS"
 .PP
-Tcl supports the following mathematical functions in expressions:
+Tcl supports the following mathematical functions in expressions, all
+of which work solely with floating-point numbers unless otherwise noted:
 .DS
 .ta 3c 6c 9c
 \fBabs\fR	\fBcosh\fR	\fBlog\fR	\fBsqrt\fR
 \fBacos\fR	\fBdouble\fR	\fBlog10\fR	\fBsrand\fR
 \fBasin\fR	\fBexp\fR	\fBpow\fR	\fBtan\fR
 \fBatan\fR	\fBfloor\fR	\fBrand\fR	\fBtanh\fR
-\fBatan2\fR	\fBfmod\fR	\fBround\fR
+\fBatan2\fR	\fBfmod\fR	\fBround\fR	\fBwide\fR
 \fBceil\fR	\fBhypot\fR	\fBsin\fR
 \fBcos\fR	\fBint\fR	\fBsinh\fR
 .DE
@@ -199,22 +213,25 @@ Returns the absolute value of \fIarg\fR.  \fIArg\fR may be either
 integer or floating-point, and the result is returned in the same form.
 .TP
 \fBacos(\fIarg\fB)\fR
-Returns the arc cosine of \fIarg\fR, in the range [0,pi]
-radians. \fIArg\fR should be in the range [-1,1].
+Returns the arc cosine of \fIarg\fR, in the range [\fI0\fR,\fIpi\fR]
+radians. \fIArg\fR should be in the range [\fI-1\fR,\fI1\fR].
 .TP
 \fBasin(\fIarg\fB)\fR
-Returns the arc sine of \fIarg\fR, in the range [-pi/2,pi/2] radians.
-\fIArg\fR should be in the range [-1,1].
+Returns the arc sine of \fIarg\fR, in the range [\fI-pi/2\fR,\fIpi/2\fR]
+radians.  \fIArg\fR should be in the range [\fI-1\fR,\fI1\fR].
 .TP
 \fBatan(\fIarg\fB)\fR
-Returns the arc tangent of \fIarg\fR, in the range [-pi/2,pi/2] radians.
+Returns the arc tangent of \fIarg\fR, in the range [\fI-pi/2\fR,\fIpi/2\fR]
+radians.
 .TP
-\fBatan2(\fIx, y\fB)\fR
-Returns the arc tangent of \fIy\fR/\fIx\fR, in the range [-pi,pi]
-radians.  \fIx\fR and \fIy\fR cannot both be 0.
+\fBatan2(\fIy, x\fB)\fR
+Returns the arc tangent of \fIy\fR/\fIx\fR, in the range [\fI-pi\fR,\fIpi\fR]
+radians.  \fIx\fR and \fIy\fR cannot both be 0.  If \fIx\fR is greater
+than \fI0\fR, this is equivalent to \fBatan(\fIy/x\fB)\fR.
 .TP
 \fBceil(\fIarg\fB)\fR
-Returns the smallest integer value not less than \fIarg\fR.
+Returns the smallest integral floating-point value (i.e. with a zero
+fractional part) not less than \fIarg\fR.
 .TP
 \fBcos(\fIarg\fB)\fR
 Returns the cosine of \fIarg\fR, measured in radians.
@@ -224,15 +241,16 @@ Returns the hyperbolic cosine of \fIarg\fR.  If the result would cause
 an overflow, an error is returned.
 .TP
 \fBdouble(\fIarg\fB)\fR
-If \fIarg\fR is a floating value, returns \fIarg\fR, otherwise converts
-\fIarg\fR to floating and returns the converted value.
+If \fIarg\fR is a floating-point value, returns \fIarg\fR, otherwise converts
+\fIarg\fR to floating-point and returns the converted value.
 .TP
 \fBexp(\fIarg\fB)\fR
-Returns the exponential of \fIarg\fR, defined as e**\fIarg\fR.  If the
-result would cause an overflow, an error is returned.
+Returns the exponential of \fIarg\fR, defined as \fIe\fR**\fIarg\fR.
+If the result would cause an overflow, an error is returned.
 .TP
 \fBfloor(\fIarg\fB)\fR
-Returns the largest integral value not greater than \fIarg\fR.
+Returns the largest integral floating-point value (i.e. with a zero
+fractional part) not greater than \fIarg\fR.
 .TP
 \fBfmod(\fIx, y\fB)\fR
 Returns the floating-point remainder of the division of \fIx\fR by
@@ -240,11 +258,16 @@ Returns the floating-point remainder of the division of \fIx\fR by
 .TP
 \fBhypot(\fIx, y\fB)\fR
 Computes the length of the hypotenuse of a right-angled triangle
-(\fIx\fR*\fIx\fR+\fIy\fR*\fIy\fR).
+\fBsqrt(\fIx\fR*\fIx\fR+\fIy\fR*\fIy\fB)\fR.
 .TP
 \fBint(\fIarg\fB)\fR
-If \fIarg\fR is an integer value, returns \fIarg\fR, otherwise converts
-\fIarg\fR to integer by truncation and returns the converted value.
+.VS 8.4
+If \fIarg\fR is an integer value of the same width as the machine
+word, returns \fIarg\fR, otherwise
+converts \fIarg\fR to an integer (of the same size as a machine word,
+i.e. 32-bits on 32-bit systems, and 64-bits on 64-bit systems) by
+truncation and returns the converted value.
+.VE 8.4
 .TP
 \fBlog(\fIarg\fB)\fR
 Returns the natural logarithm of \fIarg\fR.  \fIArg\fR must be a
@@ -259,10 +282,13 @@ Computes the value of \fIx\fR raised to the power \fIy\fR.  If \fIx\fR
 is negative, \fIy\fR must be an integer value.
 .TP
 \fBrand()\fR
-Returns a floating point number from zero to just less than one or,
-in mathematical terms, the range [0,1).  The seed comes from the
-internal clock of the machine or may be set manual with the srand
-function.
+Returns a pseudo-random floating-point value in the range (\fI0\fR,\fI1\fR).  
+The generator algorithm is a simple linear congruential generator that
+is not cryptographically secure.  Each result from \fBrand\fR completely
+determines all future results from subsequent calls to \fBrand\fR, so
+\fBrand\fR should not be used to generate a sequence of secrets, such as
+one-time passwords.  The seed of the generator is initialized from the
+internal clock of the machine or may be set with the \fBsrand\fR function.
 .TP
 \fBround(\fIarg\fB)\fR
 If \fIarg\fR is an integer value, returns \fIarg\fR, otherwise converts
@@ -280,14 +306,20 @@ Returns the square root of \fIarg\fR.  \fIArg\fR must be non-negative.
 .TP
 \fBsrand(\fIarg\fB)\fR
 The \fIarg\fR, which must be an integer, is used to reset the seed for
-the random number generator.  Returns the first random number from
-that seed.  Each interpreter has it's own seed.
+the random number generator of \fBrand\fR.  Returns the first random
+number (see \fBrand()\fR) from that seed.  Each interpreter has its own seed.
 .TP
 \fBtan(\fIarg\fB)\fR
 Returns the tangent of \fIarg\fR, measured in radians.
 .TP
 \fBtanh(\fIarg\fB)\fR
 Returns the hyperbolic tangent of \fIarg\fR.
+.TP
+\fBwide(\fIarg\fB)\fR
+.VS 8.4
+Converts \fIarg\fR to an integer value at least 64-bits wide (by sign-extension
+if \fIarg\fR is a 32-bit number) if it is not one already.
+.VE 8.4
 .PP
 In addition to these predefined functions, applications may
 define additional functions using \fBTcl_CreateMathFunc\fR().
@@ -332,7 +364,10 @@ returns \fB4.0\fR, not \fB4\fR.
 .PP
 String values may be used as operands of the comparison operators,
 although the expression evaluator tries to do comparisons as integer
-or floating-point when it can.
+or floating-point when it can,
+.VS 8.4
+except in the case of the \fBeq\fR and \fBne\fR operators.
+.VE 8.4
 If one of the operands of a comparison is a string and the other
 has a numeric value, the numeric operand is converted back to
 a string using the C \fIsprintf\fR format specifier
@@ -349,6 +384,9 @@ Because of Tcl's tendency to treat values as numbers whenever
 possible, it isn't generally a good idea to use operators like \fB==\fR
 when you really want string comparison and the values of the
 operands could be arbitrary;  it's better in these cases to use
+.VS 8.4
+the \fBeq\fR or \fBne\fR operators, or
+.VE 8.4
 the \fBstring\fR command instead.
 
 .SH "PERFORMANCE CONSIDERATIONS"
@@ -382,6 +420,9 @@ The most expensive code is required for
 unbraced expressions that contain command substitutions.
 These expressions must be implemented by generating new code
 each time the expression is executed.
+
+.SH "SEE ALSO"
+array(n), string(n), Tcl(n)
 
 .SH KEYWORDS
 arithmetic, boolean, compare, expression, fuzzy comparison

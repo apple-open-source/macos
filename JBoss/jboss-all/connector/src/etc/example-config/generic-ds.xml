@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- ===================================================================== -->
+<!--                                                                       -->
+<!--  Generic datasource configuration showing all possibilities           -->
+<!--                                                                       -->
+<!-- ===================================================================== -->
+
+<!-- $Id: generic-ds.xml,v 1.1.2.1 2003/04/22 20:34:33 d_jencks Exp $ -->
+
+
+<datasources>
+  <local-tx-datasource>
+    <jndi-name>GenericDS</jndi-name>
+    <connection-url>[jdbc: url for use with Driver class]</connection-url>
+    <driver-class>[fully qualified class name of java.sql.Driver implementation]</driver-class>
+    <user-name>x</user-name>
+    <password>y</password>
+    <!-- you can include connection properties that will get passed in 
+     the DriverManager.getConnection(props) call-->
+    <!-- look at your Driver docs to see what these might be -->
+    <connection-property name="char.encoding">UTF-8</connection-property>
+    <transaction-isolation>TRANSACTION_SERIALIZABLE</transaction-isolation>
+
+    <!--pooling parameters-->
+    <min-pool-size>5</min-pool-size>
+    <max-pool-size>100</max-pool-size>
+    <blocking-timeout-millis>5000</blocking-timeout-millis>
+    <idle-timeout-minutes>15</idle-timeout-minutes>
+
+    <!-- pooling criteria.  USE AT MOST ONE-->
+    <!--  If you don't use JAAS login modules or explicit login 
+     getConnection(usr,pw) but rely on user/pw specified above, 
+     don't specify anything here -->
+
+    <!-- If you supply the usr/pw from a JAAS login module -->
+    <security-domain>MyRealm</security-domain>
+
+    <!-- if your app supplies the usr/pw explicitly getConnection(usr, pw) -->
+    <application-managed-security/>
+
+    <!--Anonymous depends elements are copied verbatim into the ConnectionManager mbean config-->
+    <depends>myapp.service:service=DoSomethingService</depends>
+
+  </local-tx-datasource>
+
+  <!-- you can include regular mbean configurations like this one -->
+  <mbean code="org.jboss.tm.XidFactory" 
+	 name="jboss:service=XidFactory">
+    <attribute name="Pad">true</attribute>
+  </mbean>
+
+
+  <!-- Here's an xa example -->
+  <xa-tx-datasource>
+    <jndi-name>GenericXADS</jndi-name>
+    <xa-datasource-class>[fully qualified name of class implementing javax.sql.XADataSource goes here]</xa-datasource-class>
+    <xa-datasource-property name="SomeProperty">SomePropertyValue</xa-datasource-property>
+    <xa-datasource-property name="SomeOtherProperty">SomeOtherValue</xa-datasource-property>
+
+    <user-name>x</user-name>
+    <password>y</password>
+    <transaction-isolation>TRANSACTION_SERIALIZABLE</transaction-isolation>
+
+
+
+    <!--pooling parameters-->
+    <min-pool-size>5</min-pool-size>
+    <max-pool-size>100</max-pool-size>
+    <blocking-timeout-millis>5000</blocking-timeout-millis>
+    <idle-timeout-minutes>15</idle-timeout-minutes>
+
+    <!-- pooling criteria.  USE AT MOST ONE-->
+    <!--  If you don't use JAAS login modules or explicit login 
+     getConnection(usr,pw) but rely on user/pw specified above, 
+     don't specify anything here -->
+
+    <!-- If you supply the usr/pw from a JAAS login module -->
+    <security-domain/>
+
+    <!-- if your app supplies the usr/pw explicitly getConnection(usr, pw) -->
+    <application-managed-security/>
+
+  </xa-tx-datasource>
+
+
+
+
+</datasources>

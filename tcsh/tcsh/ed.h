@@ -1,4 +1,4 @@
-/* $Header: /cvs/Darwin/src/live/tcsh/tcsh/ed.h,v 1.1.1.2 2001/06/28 23:10:47 bbraun Exp $ */
+/* $Header: /cvs/root/tcsh/tcsh/ed.h,v 1.1.1.3 2003/01/17 03:41:06 nicolai Exp $ */
 /*
  * ed.h: Editor declarations and globals
  */
@@ -14,11 +14,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -132,8 +128,11 @@ EXTERN Char *Mark;		/* the emacs "mark" (dot is Cursor) */
 EXTERN Char DoingArg;		/* true if we have an argument */
 EXTERN int Argument;		/* "universal" argument value */
 EXTERN KEYCMD LastCmd;		/* previous command executed */
-EXTERN Char KillBuf[INBUFSIZE];	/* kill buffer */
-EXTERN Char *LastKill;		/* points to end of kill buffer */
+EXTERN CStr *KillRing;		/* kill ring */
+EXTERN int KillRingMax;		/* max length of kill ring */
+EXTERN int KillRingLen;		/* current length of kill ring */
+EXTERN int KillPos;		/* points to next kill */
+EXTERN int YankPos;		/* points to next yank */
 
 EXTERN Char UndoBuf[INBUFSIZE];
 EXTERN Char *UndoPtr;
@@ -184,39 +183,6 @@ EXTERN Char T_HasMeta;		/* true if we have a meta key */
 #define min(x,y)	(((x)<(y))?(x):(y))
 #define max(x,y)	(((x)>(y))?(x):(y))
 
-/*
- * Terminal dependend data structures
- */
-typedef struct {
-#ifdef WINNT_NATIVE
-    int dummy;
-#else /* !WINNT_NATIVE */
-# if defined(POSIX) || defined(TERMIO)
-#  ifdef POSIX
-    struct termios d_t;
-#  else
-    struct termio d_t;
-#  endif /* POSIX */
-# else /* SGTTY */
-#  ifdef TIOCGETP
-    struct sgttyb d_t;
-#  endif /* TIOCGETP */
-#  ifdef TIOCGETC
-    struct tchars d_tc;
-#  endif /* TIOCGETC */
-#  ifdef TIOCGPAGE
-    struct ttypagestat d_pc;
-#  endif /* TIOCGPAGE */
-#  ifdef TIOCLGET
-    int d_lb;
-#  endif /* TIOCLGET */
-# endif /* POSIX || TERMIO */
-# ifdef TIOCGLTC
-    struct ltchars d_ltc;
-# endif /* TIOCGLTC */
-#endif /* WINNT_NATIVE */
-} ttydata_t;
-
 #define MODE_INSERT	0
 #define MODE_REPLACE	1
 #define MODE_REPLACE_1	2
@@ -247,6 +213,7 @@ typedef struct {
 } ttyperm_t[NN_IO][M_NN];
 
 extern ttyperm_t ttylist;
+#include "ed.term.h"
 #include "ed.decls.h"
 
 #endif /* _h_ed */

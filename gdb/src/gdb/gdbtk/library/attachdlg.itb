@@ -7,7 +7,7 @@
 #   Copyright (C) 1999 Cygnus Solutions
 #
 
-body AttachDlg::constructor {args} {
+itcl::body AttachDlg::constructor {args} {
 
   window_name "Attach To Process"
   build_win
@@ -15,7 +15,7 @@ body AttachDlg::constructor {args} {
 
 }
 
-body AttachDlg::build_win {} {
+itcl::body AttachDlg::build_win {} {
   
   # CHOOSE_PID: the list box with list or processes.  Also an entry
   # for typing in the PID by hand.
@@ -114,7 +114,7 @@ body AttachDlg::build_win {} {
 #  METHOD:  doit - This accepts the attach command.
 # ------------------------------------------------------------------
 
-body AttachDlg::doit {} {
+itcl::body AttachDlg::doit {} {
   set AttachDlg::last_button 1
   set AttachDlg::last_pid [$itk_component(pid_entry) get]
   set AttachDlg::symbol_file [$itk_component(symbol_file) get]
@@ -126,7 +126,7 @@ body AttachDlg::doit {} {
 #  METHOD:  cancel - unpost the dialog box without attaching.
 # ------------------------------------------------------------------
 
-body AttachDlg::cancel {} {
+itcl::body AttachDlg::cancel {} {
   set AttachDlg::last_button 0
   set AttachDlg::last_pid {}
   unpost
@@ -136,7 +136,7 @@ body AttachDlg::cancel {} {
 #  METHOD:  choose_symbol_file - Query for a new symbol file.
 # ------------------------------------------------------------------
 
-body AttachDlg::choose_symbol_file {} {
+itcl::body AttachDlg::choose_symbol_file {} {
   set file [tk_getOpenFile -parent . -title "Load New Executable"]
   if {$file != ""} {
     $itk_component(symbol_file) configure -state normal
@@ -155,7 +155,7 @@ body AttachDlg::choose_symbol_file {} {
 #           point we should steal some C code to do it by hand.
 # ------------------------------------------------------------------
 
-body AttachDlg::list_pids {{pattern *}} {
+itcl::body AttachDlg::list_pids {{pattern *}} {
   global tcl_platform
 
   switch $tcl_platform(os) {
@@ -204,7 +204,7 @@ You will have to enter the PID by hand."
 #           and insert the associated PID into the entry form.
 # ------------------------------------------------------------------
 
-body AttachDlg::select_pid {} {
+itcl::body AttachDlg::select_pid {} {
   set hit [$itk_component(choose_pid) curselection]
   if {$hit != ""} {
     $itk_component(pid_entry) clear
@@ -216,7 +216,7 @@ body AttachDlg::select_pid {} {
 #  METHOD:  clear_pid_selection - Clear the current PID selection.
 # ------------------------------------------------------------------
 
-body AttachDlg::clear_pid_selection {} {
+itcl::body AttachDlg::clear_pid_selection {} {
   $itk_component(choose_pid) selection clear 0 end
   $itk_component(pid_entry) selection range 0 end
 }
@@ -225,7 +225,7 @@ body AttachDlg::clear_pid_selection {} {
 #  METHOD:  filter_pid_selection - Filters the pid box.
 # ------------------------------------------------------------------
 
-body AttachDlg::filter_pid_selection {} {
+itcl::body AttachDlg::filter_pid_selection {} {
   
   list_pids [$itk_component(pid_filter) get]
 }

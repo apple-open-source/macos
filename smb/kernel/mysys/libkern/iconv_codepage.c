@@ -268,6 +268,7 @@ static int
 iconv_codepage_open(struct iconv_converter_class *dcp,
 	struct iconv_cspair *csp, struct iconv_cspair *cspf, void **dpp)
 {
+	#pragma unused(cspf)
 	struct iconv_codepage *dp;
 
 	dp = (struct iconv_codepage *)kobj_create((struct kobj_class*)dcp, M_ICONV, M_WAITOK);
@@ -341,6 +342,7 @@ iconv_codepage_conv(void *d2p, const char **inbuf,
 static const char *
 iconv_codepage_name(struct iconv_converter_class *dcp)
 {
+	#pragma unused(dcp)
 	return "codepage";
 }
 

@@ -1,7 +1,7 @@
 /* config.c - bdb backend configuration file routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/config.c,v 1.18 2002/01/29 03:53:48 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/config.c,v 1.18.2.5 2003/03/05 23:48:33 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -68,10 +68,9 @@ bdb_db_config(
 
 	/* lock detect configuration */
 	} else if ( strcasecmp( argv[0], "lockdetect" ) == 0 ) {
-#ifndef NO_THREADS
-		if ( argc < 3 ) {
+		if ( argc < 2 ) {
 			fprintf( stderr, "%s: line %d: "
-				"missing parameters in \"lockDetect <policy> <seconds>\" line\n",
+				"missing parameters in \"lockDetect <policy>\" line\n",
 				fname, lineno );
 			return 1;
 		}
@@ -93,23 +92,10 @@ bdb_db_config(
 
 		} else {
 			fprintf( stderr, "%s: line %d: "
-				"bad policy (%s) in \"lockDetect <policy> <seconds>\" line\n",
+				"bad policy (%s) in \"lockDetect <policy>\" line\n",
 				fname, lineno, argv[1] );
 			return 1;
 		}
-
-		bdb->bi_lock_detect_seconds = strtol( argv[2], NULL, 0 );
-		if( bdb->bi_lock_detect_seconds < 1 ) {
-			fprintf( stderr, "%s: line %d: "
-				"bad seconds (%s) in \"lockDetect <policy> <seconds>\" line\n",
-				fname, lineno, argv[2] );
-			return 1;
-		}
-#else
-		fprintf( stderr, "%s: line %d: "
-			"NO THREADS: lockDetect line ignored\n",
-			fname, lineno );
-#endif
 
 	/* mode with which to create new database files */
 	} else if ( strcasecmp( argv[0], "mode" ) == 0 ) {
@@ -140,7 +126,7 @@ bdb_db_config(
 		if( rc != LDAP_SUCCESS ) return 1;
 
 	/* size of the cache in entries */
-         } else if ( strcasecmp( argv[0], "cachesize" ) == 0 ) {
+        } else if ( strcasecmp( argv[0], "cachesize" ) == 0 ) {
                  if ( argc < 2 ) {
                          fprintf( stderr,
                  "%s: line %d: missing size in \"cachesize <size>\" line\n",
@@ -148,6 +134,29 @@ bdb_db_config(
                          return( 1 );
                  }
                  bdb->bi_cache.c_maxsize = atoi( argv[1] );
+
+	/* depth of search stack cache in units of (IDL)s */
+        } else if ( strcasecmp( argv[0], "searchstack" ) == 0 ) {
+                 if ( argc < 2 ) {
+                         fprintf( stderr,
+                 "%s: line %d: missing depth in \"searchstack <depth>\" line\n",
+                             fname, lineno );
+                         return( 1 );
+                 }
+                 bdb->bi_search_stack_depth = atoi( argv[1] );
+
+#ifdef SLAP_IDL_CACHE
+	/* size of the IDL cache in entries */
+        } else if ( strcasecmp( argv[0], "idlcachesize" ) == 0 ) {
+                 if ( argc < 2 ) {
+                         fprintf( stderr,
+                 "%s: line %d: missing size in \"idlcachesize <size>\" line\n",
+                             fname, lineno );
+                         return( 1 );
+                 }
+		 if ( !( slapMode & SLAP_TOOL_MODE ) )
+	                 bdb->bi_idl_cache_max_size = atoi( argv[1] );
+#endif
 
 	/* anything else */
 	} else {

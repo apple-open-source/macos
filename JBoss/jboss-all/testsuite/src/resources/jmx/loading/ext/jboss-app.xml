@@ -1,0 +1,6 @@
+<jboss-app>
+   <module>
+      <service>external.sar</service>
+   </module>
+</jboss-app>
+

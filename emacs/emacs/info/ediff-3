@@ -52,8 +52,8 @@ Index
 * >:                                     Quick Help Commands.
 * ?:                                     Quick Help Commands.
 * @:                                     Quick Help Commands.
-* a:                                     Quick Help Commands.
 * A:                                     Quick Help Commands.
+* a:                                     Quick Help Commands.
 * ab:                                    Quick Help Commands.
 * ac:                                    Quick Help Commands.
 * B:                                     Quick Help Commands.
@@ -76,9 +76,9 @@ Index
 * ediff-after-setup-windows-hook:        Hooks.
 * ediff-auto-refine:                     Refinement of Difference Regions.
 * ediff-auto-refine-limit:               Refinement of Difference Regions.
-* ediff-autostore-merges <1>:            Session Groups.
+* ediff-autostore-merges <1>:            Merging and diff3.
 * ediff-autostore-merges <2>:            Hooks.
-* ediff-autostore-merges:                Merging and diff3.
+* ediff-autostore-merges:                Session Groups.
 * ediff-before-flag-bol:                 Highlighting Difference Regions.
 * ediff-before-flag-mol:                 Highlighting Difference Regions.
 * ediff-before-session-group-setup-hook: Hooks.
@@ -171,8 +171,8 @@ Index
 * ediff-prepare-buffer-hook:             Hooks.
 * ediff-profile:                         Other Session Commands.
 * ediff-quit-hook:                       Hooks.
-* ediff-quit-merge-hook <1>:             Hooks.
-* ediff-quit-merge-hook:                 Merging and diff3.
+* ediff-quit-merge-hook <1>:             Merging and diff3.
+* ediff-quit-merge-hook:                 Hooks.
 * ediff-quit-session-group-hook:         Hooks.
 * ediff-quit-widened:                    Narrowing.
 * ediff-regions-linewise:                Major Entry Points.
@@ -190,16 +190,16 @@ Index
 * ediff-show-registry:                   Other Session Commands.
 * ediff-split-window-function:           Miscellaneous.
 * ediff-start-narrowed:                  Narrowing.
-* ediff-startup-hook <1>:                Quick Help Customization.
-* ediff-startup-hook <2>:                Hooks.
-* ediff-startup-hook:                    Notes on Heavy-duty Customization.
+* ediff-startup-hook <1>:                Notes on Heavy-duty Customization.
+* ediff-startup-hook <2>:                Quick Help Customization.
+* ediff-startup-hook:                    Hooks.
 * ediff-suspend-hook:                    Hooks.
-* ediff-toggle-multiframe <1>:           Other Session Commands.
-* ediff-toggle-multiframe:               Window and Frame Configuration.
+* ediff-toggle-multiframe <1>:           Window and Frame Configuration.
+* ediff-toggle-multiframe:               Other Session Commands.
 * ediff-toggle-read-only-function:       Miscellaneous.
 * ediff-unselect-hook:                   Hooks.
-* ediff-use-last-dir <1>:                Major Entry Points.
-* ediff-use-last-dir:                    Miscellaneous.
+* ediff-use-last-dir <1>:                Miscellaneous.
+* ediff-use-last-dir:                    Major Entry Points.
 * ediff-use-long-help-message:           Quick Help Customization.
 * ediff-version-control-package:         Support for Version Control.
 * ediff-wide-control-frame-rightward-shift: Window and Frame Configuration.
@@ -231,8 +231,8 @@ Index
 * h:                                     Quick Help Commands.
 * i:                                     Quick Help Commands.
 * j:                                     Quick Help Commands.
-* m:                                     Quick Help Commands.
 * M:                                     Quick Help Commands.
+* m:                                     Quick Help Commands.
 * Merging files and buffers:             Introduction.
 * mode-line.el:                          Customizing the Mode Line.
 * Multi-file patches:                    Session Groups.
@@ -241,8 +241,8 @@ Index
 * Patching files and buffers:            Introduction.
 * pcl-cvs.el:                            Support for Version Control.
 * q:                                     Quick Help Commands.
-* r:                                     Quick Help Commands.
 * R:                                     Quick Help Commands.
+* r:                                     Quick Help Commands.
 * ra:                                    Quick Help Commands.
 * rb:                                    Quick Help Commands.
 * rc:                                    Quick Help Commands.
@@ -250,8 +250,8 @@ Index
 * s:                                     Quick Help Commands.
 * SPC:                                   Quick Help Commands.
 * uniquify.el:                           Customizing the Mode Line.
-* v:                                     Quick Help Commands.
 * V:                                     Quick Help Commands.
+* v:                                     Quick Help Commands.
 * vc.el:                                 Support for Version Control.
 * wa:                                    Quick Help Commands.
 * wb:                                    Quick Help Commands.

@@ -29,12 +29,16 @@
 #import "html_documentimpl.h"
 #import "render_canvas.h"
 #import "render_frames.h"
+#import "render_image.h"
+#import "render_list.h"
+#import "render_style.h"
 #import "render_table.h"
 #import "render_text.h"
 #import "khtmlpart_p.h"
 #import "khtmlview.h"
 #import "kjs_window.h"
 #import "misc/htmlattrs.h"
+#import "csshelper.h"
 
 #import "WebCoreBridge.h"
 #import "WebCoreViewFactory.h"
@@ -67,18 +71,24 @@ using khtml::MouseDoubleClickEvent;
 using khtml::MouseMoveEvent;
 using khtml::MousePressEvent;
 using khtml::MouseReleaseEvent;
+using khtml::parseURL;
+using khtml::PRE;
+using khtml::RenderCanvas;
+using khtml::RenderImage;
+using khtml::RenderLayer;
+using khtml::RenderListItem;
 using khtml::RenderObject;
 using khtml::RenderPart;
-using khtml::RenderCanvas;
 using khtml::RenderStyle;
+using khtml::RenderTableCell;
 using khtml::RenderText;
 using khtml::RenderWidget;
-using khtml::RenderTableCell;
-using khtml::RenderLayer;
+using khtml::TextRunArray;
 using khtml::VISIBLE;
 
 using KIO::Job;
 
+using KJS::SavedBuiltins;
 using KJS::SavedProperties;
 using KJS::ScheduledAction;
 using KJS::Window;
@@ -173,12 +183,20 @@ QString KWQKHTMLPart::generateFrameName()
     return QString::fromNSString([_bridge generateFrameName]);
 }
 
+void KWQKHTMLPart::provisionalLoadStarted()
+{
+    // we don't want to wait until we get an actual http response back
+    // to cancel pending redirects, otherwise they might fire before
+    // that happens.
+    cancelRedirection(true);
+}
+
 bool KWQKHTMLPart::openURL(const KURL &url)
 {
     // FIXME: The lack of args here to get the reload flag from
     // indicates a problem in how we use KHTMLPart::processObjectRequest,
     // where we are opening the URL before the args are set up.
-    [_bridge loadURL:url.url().getNSString()
+    [_bridge loadURL:url.getNSURL()
             referrer:[_bridge referrer]
               reload:NO
               target:nil
@@ -190,7 +208,7 @@ bool KWQKHTMLPart::openURL(const KURL &url)
 
 void KWQKHTMLPart::openURLRequest(const KURL &url, const URLArgs &args)
 {
-    [_bridge loadURL:url.url().getNSString()
+    [_bridge loadURL:url.getNSURL()
             referrer:[_bridge referrer]
               reload:args.reload
               target:args.frameName.getNSString()
@@ -199,10 +217,10 @@ void KWQKHTMLPart::openURLRequest(const KURL &url, const URLArgs &args)
           formValues:nil];
 }
 
-void KWQKHTMLPart::didNotOpenURL(const QString &URL)
+void KWQKHTMLPart::didNotOpenURL(const KURL &URL)
 {
     if (_submittedFormURL == URL) {
-        _submittedFormURL = QString::null;
+        _submittedFormURL = KURL();
     }
 }
 
@@ -256,7 +274,7 @@ HTMLFormElementImpl *KWQKHTMLPart::currentForm() const
 }
 
 // Either get cached regexp or build one that matches any of the labels.
-// The regexp we build is of the form:   [[:<:]](STR1|STR2|STRN)[[:>:]]
+// The regexp we build is of the form:  (STR1|STR2|STRN)
 QRegExp *regExpForLabels(NSArray *labels)
 {
     // Parallel arrays that we use to cache regExps.  In practice the number of expressions
@@ -264,6 +282,7 @@ QRegExp *regExpForLabels(NSArray *labels)
     static const unsigned int regExpCacheSize = 4;
     static NSMutableArray *regExpLabels = nil;
     static QPtrList <QRegExp> regExps;
+    static QRegExp wordRegExp = QRegExp("\\w");
 
     QRegExp *result;
     if (!regExpLabels) {
@@ -273,17 +292,34 @@ QRegExp *regExpForLabels(NSArray *labels)
     if (cacheHit != NSNotFound) {
         result = regExps.at(cacheHit);
     } else {
-        QString pattern("[[:<:]](");
+        QString pattern("(");
         unsigned int numLabels = [labels count];
         unsigned int i;
         for (i = 0; i < numLabels; i++) {
             QString label = QString::fromNSString([labels objectAtIndex:i]);
+
+            bool startsWithWordChar = false;
+            bool endsWithWordChar = false;
+            if (label.length() != 0) {
+                startsWithWordChar = wordRegExp.search(label.at(0)) >= 0;
+                endsWithWordChar = wordRegExp.search(label.at(label.length() - 1)) >= 0;
+            }
+            
             if (i != 0) {
                 pattern.append("|");
             }
+            // Search for word boundaries only if label starts/ends with "word characters".
+            // If we always searched for word boundaries, this wouldn't work for languages
+            // such as Japanese.
+            if (startsWithWordChar) {
+                pattern.append("\\b");
+            }
             pattern.append(label);
+            if (endsWithWordChar) {
+                pattern.append("\\b");
+            }
         }
-        pattern.append(")[[:>:]]");
+        pattern.append(")");
         result = new QRegExp(pattern, false);
     }
 
@@ -497,8 +533,6 @@ void KWQKHTMLPart::recordFormValue(const QString &name, const QString &value, HT
 
 void KWQKHTMLPart::submitForm(const KURL &url, const URLArgs &args)
 {
-    QString URLString = url.url();    
-    
     // The form multi-submit logic here is only right when we are submitting a form that affects this frame.
     // Eventually when we find a better fix we can remove this altogether.
     WebCoreBridge *target = args.frameName.isEmpty() ? _bridge : [_bridge findFrameNamed:args.frameName.getNSString()];
@@ -516,14 +550,14 @@ void KWQKHTMLPart::submitForm(const KURL &url, const URLArgs &args)
         // This flag prevents these from happening.
         // Note that the flag is reset in setView()
         // since this part may get reused if it is pulled from the b/f cache.
-        if (_submittedFormURL == URLString) {
+        if (_submittedFormURL == url) {
             return;
         }
-        _submittedFormURL = URLString;
+        _submittedFormURL = url;
     }
 
     if (!args.doPost()) {
-        [_bridge loadURL:URLString.getNSString()
+        [_bridge loadURL:url.getNSURL()
 	        referrer:[_bridge referrer] 
                   reload:args.reload
   	          target:args.frameName.getNSString()
@@ -532,7 +566,7 @@ void KWQKHTMLPart::submitForm(const KURL &url, const URLArgs &args)
               formValues:_formValuesAboutToBeSubmitted];
     } else {
         ASSERT(args.contentType().startsWith("Content-Type: "));
-        [_bridge postWithURL:URLString.getNSString()
+        [_bridge postWithURL:url.getNSURL()
 	            referrer:[_bridge referrer] 
                       target:args.frameName.getNSString()
                         data:[NSData dataWithBytes:args.postData.data() length:args.postData.size()]
@@ -571,6 +605,7 @@ void KHTMLPart::frameDetached()
     for (FrameIt it = parentFrames.begin(); it != end; ++it) {
         if ((*it).m_part == this) {
             parentFrames.remove(it);
+            deref();
             break;
         }
     }
@@ -578,7 +613,7 @@ void KHTMLPart::frameDetached()
 
 void KWQKHTMLPart::urlSelected(const KURL &url, int button, int state, const URLArgs &args)
 {
-    [_bridge loadURL:url.url().getNSString()
+    [_bridge loadURL:url.getNSURL()
             referrer:[_bridge referrer]
               reload:args.reload
               target:args.frameName.getNSString()
@@ -603,9 +638,9 @@ ReadOnlyPart *KWQKHTMLPart::createPart(const ChildFrame &child, const KURL &url,
         }
         
         KWQPluginPart *newPart = new KWQPluginPart;
-        newPart->setWidget(new QWidget([_bridge viewForPluginWithURLString:url.url().getNSString()
+        newPart->setWidget(new QWidget([_bridge viewForPluginWithURL:url.getNSURL()
                                                           attributes:attributesArray
-                                                             baseURLString:d->m_doc->baseURL().getNSString()
+                                                             baseURL:KURL(d->m_doc->baseURL()).getNSURL()
                                                             MIMEType:child.m_args.serviceType.getNSString()]));
         return newPart;
     } else {
@@ -620,11 +655,14 @@ ReadOnlyPart *KWQKHTMLPart::createPart(const ChildFrame &child, const KURL &url,
             marginHeight = o->getMarginHeight();
         }
         WebCoreBridge *childBridge = [_bridge createChildFrameNamed:child.m_name.getNSString()
-                                                            withURL:url.url().getNSString()
+                                                            withURL:url.getNSURL()
                                                          renderPart:child.m_frame
                                                     allowsScrolling:allowsScrolling
                                                         marginWidth:marginWidth
                                                        marginHeight:marginHeight];
+	// This call needs to return an object with a ref, since the caller will expect to own it.
+	// childBridge owns the only ref so far.
+	[childBridge part]->ref();
         return [childBridge part];
     }
 }
@@ -638,19 +676,19 @@ void KWQKHTMLPart::setView(KHTMLView *view)
 	d->m_doc->detach();
     }
 
+    if (view) {
+	view->ref();
+    }
     if (d->m_view) {
 	d->m_view->deref();
     }
     d->m_view = view;
-    if (d->m_view) {
-	d->m_view->ref();
-    }
     setWidget(view);
     
     // Only one form submission is allowed per view of a part.
     // Since this part may be getting reused as a result of being
     // pulled from the back/forward cache, reset this flag.
-    _submittedFormURL = QString::null;
+    _submittedFormURL = KURL();
 }
 
 KHTMLView *KWQKHTMLPart::view() const
@@ -722,13 +760,13 @@ void KWQKHTMLPart::redirectionTimerStartedOrStopped()
     }
     
     if (d->m_redirectionTimer.isActive()) {
-        [_bridge reportClientRedirectToURL:d->m_redirectURL.getNSString()
+        [_bridge reportClientRedirectToURL:KURL(d->m_redirectURL).getNSURL()
                                      delay:d->m_delayRedirect
                                   fireDate:[d->m_redirectionTimer.getNSTimer() fireDate]
                                lockHistory:d->m_redirectLockHistory
                                isJavaScriptFormAction:d->m_executingJavaScriptFormAction];
     } else {
-        [_bridge reportClientRedirectCancelled];
+        [_bridge reportClientRedirectCancelled:d->m_cancelWithLoadInProgress];
     }
 }
 
@@ -736,7 +774,7 @@ void KWQKHTMLPart::paint(QPainter *p, const QRect &rect)
 {
 #ifndef NDEBUG
     bool isPrinting = (p->device()->devType() == QInternal::Printer);
-    if (!isPrinting) {
+    if (!isPrinting && xmlDocImpl() && !xmlDocImpl()->ownerElement()) {
         p->fillRect(rect.x(), rect.y(), rect.width(), rect.height(), QColor(0xFF, 0, 0));
     }
 #endif
@@ -759,7 +797,7 @@ void KWQKHTMLPart::paintSelectionOnly(QPainter *p, const QRect &rect)
 
 void KWQKHTMLPart::adjustPageHeight(float *newBottom, float oldTop, float oldBottom, float bottomLimit)
 {
-    RenderCanvas *root = static_cast<khtml::RenderCanvas *>(xmlDocImpl()->renderer());
+    RenderCanvas *root = static_cast<RenderCanvas *>(xmlDocImpl()->renderer());
     if (root) {
         // Use a printer device, with painting disabled for the pagination phase
         QPainter painter(true);
@@ -785,7 +823,7 @@ RenderObject *KWQKHTMLPart::renderer()
 
 QString KWQKHTMLPart::userAgent() const
 {
-    NSString *us = [_bridge userAgentForURL:m_url.url().getNSString()];
+    NSString *us = [_bridge userAgentForURL:m_url.getNSURL()];
          
     if (us)
         return QString::fromNSString(us);
@@ -900,6 +938,23 @@ NSView *KWQKHTMLPart::nextKeyViewForWidget(QWidget *startingWidget, KWQSelection
     return partForNode(node)->nextKeyView(node, direction);
 }
 
+bool KWQKHTMLPart::currentEventIsMouseDownInWidget(QWidget *candidate)
+{
+    switch ([[NSApp currentEvent] type]) {
+        case NSLeftMouseDown:
+        case NSRightMouseDown:
+        case NSOtherMouseDown:
+            break;
+        default:
+            return NO;
+    }
+
+    NodeImpl *node = nodeForWidget(candidate);
+    ASSERT(node);
+    return partForNode(node)->nodeUnderMouse() == node;
+}
+
+
 QMap<int, ScheduledAction*> *KWQKHTMLPart::pauseActions(const void *key)
 {
     if (d->m_doc && d->m_jscript) {
@@ -927,11 +982,12 @@ bool KWQKHTMLPart::canCachePage()
     // 1.  We're not a frame or frameset.
     // 2.  The page has no unload handler.
     // 3.  The page has no password fields.
-    if (d->m_doc &&
-        (d->m_frames.count() ||
+    // 4.  The URL for the page is https.
+    if (d->m_frames.count() ||
         parentPart() ||
-        d->m_doc->hasWindowEventListener (EventImpl::UNLOAD_EVENT) ||
-        d->m_doc->hasPasswordField())) {
+        m_url.protocol().startsWith("https") || 
+	(d->m_doc && (d->m_doc->hasWindowEventListener(EventImpl::UNLOAD_EVENT) ||
+		      d->m_doc->hasPasswordField()))) {
         return false;
     }
     return true;
@@ -942,17 +998,13 @@ void KWQKHTMLPart::saveWindowProperties(SavedProperties *windowProperties)
     Window *window = Window::retrieveWindow(this);
     if (window)
         window->saveProperties(*windowProperties);
-    else
-        ERROR("NULL window");
 }
 
 void KWQKHTMLPart::saveLocationProperties(SavedProperties *locationProperties)
 {
     Window *window = Window::retrieveWindow(this);
     if (window)
-        window->saveProperties(*locationProperties);
-    else
-        ERROR("NULL window");
+        window->location()->saveProperties(*locationProperties);
 }
 
 void KWQKHTMLPart::restoreWindowProperties(SavedProperties *windowProperties)
@@ -960,8 +1012,6 @@ void KWQKHTMLPart::restoreWindowProperties(SavedProperties *windowProperties)
     Window *window = Window::retrieveWindow(this);
     if (window)
         window->restoreProperties(*windowProperties);
-    else
-        ERROR("NULL window");
 }
 
 void KWQKHTMLPart::restoreLocationProperties(SavedProperties *locationProperties)
@@ -969,8 +1019,20 @@ void KWQKHTMLPart::restoreLocationProperties(SavedProperties *locationProperties
     Window *window = Window::retrieveWindow(this);
     if (window)
         window->location()->restoreProperties(*locationProperties);
-    else
-        ERROR("NULL window");
+}
+
+void KWQKHTMLPart::saveInterpreterBuiltins(SavedBuiltins &interpreterBuiltins)
+{
+    if (jScript() && jScript()->interpreter()) {
+	jScript()->interpreter()->saveBuiltins(interpreterBuiltins);
+    }
+}
+
+void KWQKHTMLPart::restoreInterpreterBuiltins(const SavedBuiltins &interpreterBuiltins)
+{
+    if (jScript() && jScript()->interpreter()) {
+	jScript()->interpreter()->restoreBuiltins(interpreterBuiltins);
+    }
 }
 
 void KWQKHTMLPart::openURLFromPageCache(KWQPageState *state)
@@ -980,6 +1042,7 @@ void KWQKHTMLPart::openURLFromPageCache(KWQPageState *state)
     KURL *url = [state URL];
     SavedProperties *windowProperties = [state windowProperties];
     SavedProperties *locationProperties = [state locationProperties];
+    SavedBuiltins *interpreterBuiltins = [state interpreterBuiltins];
     QMap<int, ScheduledAction*> *actions = [state pausedActions];
     
     cancelRedirection();
@@ -1032,11 +1095,21 @@ void KWQKHTMLPart::openURLFromPageCache(KWQPageState *state)
     
     d->m_doc = doc;
     d->m_doc->ref();
+    
+    Decoder *decoder = doc->decoder();
+    if (decoder) {
+        decoder->ref();
+    }
+    if (d->m_decoder) {
+        d->m_decoder->deref();
+    }
+    d->m_decoder = decoder;
 
     updatePolicyBaseURL();
         
     restoreWindowProperties (windowProperties);
     restoreLocationProperties (locationProperties);
+    restoreInterpreterBuiltins (*interpreterBuiltins);
 
     if (actions)
         resumeActions (actions, state);
@@ -1137,7 +1210,7 @@ void KWQKHTMLPart::setPolicyBaseURL(const DOMString &s)
 
 QString KWQKHTMLPart::requestedURLString() const
 {
-    return QString::fromNSString([_bridge requestedURL]);
+    return QString::fromNSString([_bridge requestedURLString]);
 }
 
 QString KWQKHTMLPart::incomingReferrer() const
@@ -1163,7 +1236,7 @@ void KWQKHTMLPart::forceLayoutForPageWidth(float pageWidth)
 {
     // Dumping externalRepresentation(_part->renderer()).ascii() is a good trick to see
     // the state of things before and after the layout
-    RenderCanvas *root = static_cast<khtml::RenderCanvas *>(xmlDocImpl()->renderer());
+    RenderCanvas *root = static_cast<RenderCanvas *>(xmlDocImpl()->renderer());
     if (root) {
         // This magic is basically copied from khtmlview::print
         root->setWidth((int)ceil(pageWidth));
@@ -1176,8 +1249,12 @@ void KWQKHTMLPart::sendResizeEvent()
 {
     KHTMLView *v = d->m_view;
     if (v) {
+        // Sending an event can result in the destruction of the view and part.
+        // We ref so that happens after we return from the KHTMLView function.
+        v->ref();
 	QResizeEvent e;
-	d->m_view->resizeEvent(&e);
+	v->resizeEvent(&e);
+        v->deref();
     }
 }
 
@@ -1386,7 +1463,8 @@ bool KWQKHTMLPart::passWidgetMouseDownEventToWidget(QWidget* widget)
                 superview = [superview superview];
                 ASSERT(superview);
                 if ([superview isKindOfClass:[NSControl class]]) {
-                    if ([(NSControl *)superview currentEditor] == view) {
+                    NSControl *control = superview;
+                    if ([control currentEditor] == view) {
                         view = superview;
                     }
                     break;
@@ -1614,7 +1692,8 @@ int KWQKHTMLPart::stateForCurrentEvent()
 
 void KWQKHTMLPart::mouseDown(NSEvent *event)
 {
-    if (!d->m_view || _sendingEventToSubview) {
+    KHTMLView *v = d->m_view;
+    if (!v || _sendingEventToSubview) {
         return;
     }
 
@@ -1630,11 +1709,16 @@ void KWQKHTMLPart::mouseDown(NSEvent *event)
     // the bridge. It's unclear which is better.
     _firstResponderAtMouseDownTime = [[_bridge firstResponder] retain];
 
-    QMouseEvent kEvent(QEvent::MouseButtonPress, QPoint([event locationInWindow]),
-        buttonForCurrentEvent(), stateForCurrentEvent(), [event clickCount]);
     _mouseDownMayStartDrag = false;
     _mouseDownMayStartSelect = false;
-    d->m_view->viewportMousePressEvent(&kEvent);
+
+    // Sending an event can result in the destruction of the view and part.
+    // We ref so that happens after we return from the KHTMLView function.
+    v->ref();
+    QMouseEvent kEvent(QEvent::MouseButtonPress, QPoint([event locationInWindow]),
+        buttonForCurrentEvent(), stateForCurrentEvent(), [event clickCount]);
+    v->viewportMousePressEvent(&kEvent);
+    v->deref();
     
     [_firstResponderAtMouseDownTime release];
     _firstResponderAtMouseDownTime = oldFirstResponderAtMouseDownTime;
@@ -1646,15 +1730,20 @@ void KWQKHTMLPart::mouseDown(NSEvent *event)
 
 void KWQKHTMLPart::mouseDragged(NSEvent *event)
 {
-    if (!d->m_view || _sendingEventToSubview) {
+    KHTMLView *v = d->m_view;
+    if (!v || _sendingEventToSubview) {
         return;
     }
 
     NSEvent *oldCurrentEvent = _currentEvent;
     _currentEvent = [event retain];
 
+    // Sending an event can result in the destruction of the view and part.
+    // We ref so that happens after we return from the KHTMLView function.
+    v->ref();
     QMouseEvent kEvent(QEvent::MouseMove, QPoint([event locationInWindow]), Qt::LeftButton, Qt::LeftButton);
-    d->m_view->viewportMouseMoveEvent(&kEvent);
+    v->viewportMouseMoveEvent(&kEvent);
+    v->deref();
     
     ASSERT(_currentEvent == event);
     [event release];
@@ -1663,28 +1752,35 @@ void KWQKHTMLPart::mouseDragged(NSEvent *event)
 
 void KWQKHTMLPart::mouseUp(NSEvent *event)
 {
-    if (!d->m_view || _sendingEventToSubview) {
+    KHTMLView *v = d->m_view;
+    if (!v || _sendingEventToSubview) {
         return;
     }
 
     NSEvent *oldCurrentEvent = _currentEvent;
     _currentEvent = [event retain];
 
+    // Sending an event can result in the destruction of the view and part.
+    // We ref so that happens after we return from the KHTMLView function.
+    v->ref();
     // Our behavior here is a little different that Qt. Qt always sends
     // a mouse release event, even for a double click. To correct problems
     // in khtml's DOM click event handling we do not send a release here
     // for a double click. Instead we send that event from KHTMLView's
-    // viewportMouseDoubleClickEvent.
+    // viewportMouseDoubleClickEvent. Note also that the third click of
+    // a triple click is treated as a single click, but the fourth is then
+    // treated as another double click. Hence the "% 2" below.
     int clickCount = [event clickCount];
     if (clickCount > 0 && clickCount % 2 == 0) {
         QMouseEvent doubleClickEvent(QEvent::MouseButtonDblClick, QPoint([event locationInWindow]),
             buttonForCurrentEvent(), stateForCurrentEvent(), clickCount);
-        d->m_view->viewportMouseDoubleClickEvent(&doubleClickEvent);
+        v->viewportMouseDoubleClickEvent(&doubleClickEvent);
     } else {
         QMouseEvent releaseEvent(QEvent::MouseButtonRelease, QPoint([event locationInWindow]),
             buttonForCurrentEvent(), stateForCurrentEvent(), clickCount);
-        d->m_view->viewportMouseReleaseEvent(&releaseEvent);
+        v->viewportMouseReleaseEvent(&releaseEvent);
     }
+    v->deref();
     
     ASSERT(_currentEvent == event);
     [event release];
@@ -1731,70 +1827,211 @@ void KWQKHTMLPart::doFakeMouseUpAfterWidgetTracking(NSEvent *downEvent)
 
 void KWQKHTMLPart::mouseMoved(NSEvent *event)
 {
+    KHTMLView *v = d->m_view;
     // Reject a mouse moved if the button is down - screws up tracking during autoscroll
-    // These happen because WK sometimes has to fake up moved events.
-    if (!d->m_view || d->m_bMousePressed) {
+    // These happen because WebKit sometimes has to fake up moved events.
+    if (!v || d->m_bMousePressed) {
         return;
     }
     
     NSEvent *oldCurrentEvent = _currentEvent;
     _currentEvent = [event retain];
     
+    // Sending an event can result in the destruction of the view and part.
+    // We ref so that happens after we return from the KHTMLView function.
+    v->ref();
     QMouseEvent kEvent(QEvent::MouseMove, QPoint([event locationInWindow]), 0, stateForCurrentEvent());
-    d->m_view->viewportMouseMoveEvent(&kEvent);
+    v->viewportMouseMoveEvent(&kEvent);
+    v->deref();
     
     ASSERT(_currentEvent == event);
     [event release];
     _currentEvent = oldCurrentEvent;
 }
 
+bool KWQKHTMLPart::sendContextMenuEvent(NSEvent *event)
+{
+    DocumentImpl *doc = d->m_doc;
+    KHTMLView *v = d->m_view;
+    if (!doc || !v) {
+        return false;
+    }
+
+    NSEvent *oldCurrentEvent = _currentEvent;
+    _currentEvent = [event retain];
+    
+    QMouseEvent qev(QEvent::MouseButtonPress, QPoint([event locationInWindow]),
+        buttonForCurrentEvent(), stateForCurrentEvent(), [event clickCount]);
+
+    int xm, ym;
+    v->viewportToContents(qev.x(), qev.y(), xm, ym);
+
+    NodeImpl::MouseEvent mev(qev.stateAfter(), NodeImpl::MousePress);
+    doc->prepareMouseEvent(false, xm, ym, &mev);
+
+    // Sending an event can result in the destruction of the view and part.
+    // We ref so that happens after we return from the KHTMLView function.
+    v->ref();
+    bool swallowEvent = v->dispatchMouseEvent(EventImpl::CONTEXTMENU_EVENT,
+        mev.innerNode.handle(), true, 0, &qev, true, NodeImpl::MousePress);
+    v->deref();
+
+    ASSERT(_currentEvent == event);
+    [event release];
+    _currentEvent = oldCurrentEvent;
+
+    return swallowEvent;
+}
+
+struct ListItemInfo {
+    unsigned start;
+    unsigned end;
+};
+
+static NSFileWrapper *fileWrapperForElement(ElementImpl *e)
+{
+    RenderImage *renderer = static_cast<RenderImage *>(e->renderer());
+    NSImage *image = renderer->pixmap().image();
+    NSData *tiffData = [image TIFFRepresentationUsingCompression:NSTIFFCompressionLZW factor:0.0];
+
+    NSFileWrapper *wrapper = [[NSFileWrapper alloc] initRegularFileWithContents:tiffData];
+    [wrapper setPreferredFilename:@"image.tiff"];
+
+    return [wrapper autorelease];
+}
+
+static ElementImpl *listParent(ElementImpl *item)
+{
+    // Ick!  Avoid use of item->id() which confuses ObjC++.
+    unsigned short _id = Node(item).elementId();
+    
+    while (_id != ID_UL && _id != ID_OL) {
+        item = static_cast<ElementImpl *>(item->parentNode());
+        if (!item)
+            break;
+        _id = Node(item).elementId();
+    }
+    return item;
+}
+
+static NodeImpl* isTextFirstInListItem(NodeImpl *e)
+{
+    if (Node(e).nodeType() != Node::TEXT_NODE)
+        return 0;
+    NodeImpl* par = e->parentNode();
+    while (par) {
+        if (par->firstChild() != e)
+            return 0;
+        if (Node(par).elementId() == ID_LI)
+            return par;
+        e = par;
+        par = par->parentNode();
+    }
+    return 0;
+}
+
+#define BULLET_CHAR 0x2022
+#define SQUARE_CHAR 0x25AA
+#define CIRCLE_CHAR 0x25E6
+
 NSAttributedString *KWQKHTMLPart::attributedString(NodeImpl *_startNode, int startOffset, NodeImpl *endNode, int endOffset)
 {
+    if (_startNode == nil) {
+        return nil;
+    }
+    
     NSMutableAttributedString *result = [[[NSMutableAttributedString alloc] init] autorelease];
 
     bool hasNewLine = true;
+    bool addedSpace = true;
     bool hasParagraphBreak = true;
-
+    const ElementImpl *linkStartNode = 0;
+    unsigned linkStartLocation = 0;
+    QPtrList<ElementImpl> listItems;
+    QValueList<ListItemInfo> listItemLocations;
+    float maxMarkerWidth = 0;
+    
     Node n = _startNode;
+    
+    // If the first item is the entire text of a list item, use the list item node as the start of the 
+    // selection, not the text node.  The user's intent was probably to select the list.
+    if (n.nodeType() == Node::TEXT_NODE && startOffset == 0) {
+        NodeImpl *startListNode = isTextFirstInListItem(_startNode);
+        if (startListNode){
+            _startNode = startListNode;
+            n = _startNode;
+        }
+    }
+    
     while (!n.isNull()) {
         RenderObject *renderer = n.handle()->renderer();
         if (renderer) {
+            RenderStyle *style = renderer->style();
+            NSFont *font = style->font().getNSFont();
             if (n.nodeType() == Node::TEXT_NODE) {
-                NSFont *font = nil;
-                RenderStyle *style = renderer->style();
-                if (style) {
-                    font = style->font().getNSFont();
+                if (hasNewLine) {
+                    addedSpace = true;
+                    hasNewLine = false;
                 }
-    
-                QString str = n.nodeValue().string();
-    
                 QString text;
-                if(n == _startNode && n == endNode && startOffset >=0 && endOffset >= 0)
-                    text = str.mid(startOffset, endOffset - startOffset);
-                else if(n == _startNode && startOffset >= 0)
-                    text = str.mid(startOffset);
-                else if(n == endNode && endOffset >= 0)
-                    text = str.left(endOffset);
-                else
-                    text = str;
-    
-                text = text.stripWhiteSpace();
+                QString str = n.nodeValue().string();
+                int start = (n == _startNode) ? startOffset : -1;
+                int end = (n == endNode) ? endOffset : -1;
+                if (renderer->isText()) {
+                    if (renderer->style()->whiteSpace() == PRE) {
+                        int runStart = (start == -1) ? 0 : start;
+                        int runEnd = (end == -1) ? str.length() : end;
+                        text += str.mid(runStart, runEnd-runStart);
+                        addedSpace = str[runEnd-1].direction() == QChar::DirWS;
+                    }
+                    else {
+                        RenderText* textObj = static_cast<RenderText*>(renderer);
+                        TextRunArray runs = textObj->textRuns();
+                        if (runs.count() == 0 && str.length() > 0 && !addedSpace) {
+                            // We have no runs, but we do have a length.  This means we must be
+                            // whitespace that collapsed away at the end of a line.
+                            text += " ";
+                            addedSpace = true;
+                        }
+                        else {
+                            addedSpace = false;
+                            for (unsigned i = 0; i < runs.count(); i++) {
+                                int runStart = (start == -1) ? runs[i]->m_start : start;
+                                int runEnd = (end == -1) ? runs[i]->m_start + runs[i]->m_len : end;
+                                runEnd = QMIN(runEnd, runs[i]->m_start + runs[i]->m_len);
+                                bool spaceBetweenRuns = false;
+                                if (runStart >= runs[i]->m_start &&
+                                    runStart < runs[i]->m_start + runs[i]->m_len) {
+                                    text += str.mid(runStart, runEnd - runStart);
+                                    start = -1;
+                                    spaceBetweenRuns = i+1 < runs.count() && runs[i+1]->m_start > runEnd;
+                                    addedSpace = str[runEnd-1].direction() == QChar::DirWS;
+                                }
+                                if (end != -1 && runEnd >= end)
+                                    break;
+
+                                if (spaceBetweenRuns && !addedSpace) {
+                                    text += " ";
+                                    addedSpace = true;
+                                }
+                            }
+                        }
+                    }
+                }
+                
                 text.replace('\\', renderer->backslashAsCurrencySymbol());
-                if (text.length() > 1)
-                    text += ' ';
     
                 if (text.length() > 0) {
-                    hasNewLine = false;
                     hasParagraphBreak = false;
-                    NSMutableDictionary *attrs = nil;
-                    if (font) {
-                        attrs = [[NSMutableDictionary alloc] init];
-                        [attrs setObject:font forKey:NSFontAttributeName];
-                        if (style && style->color().isValid())
-                            [attrs setObject:style->color().getNSColor() forKey:NSForegroundColorAttributeName];
-                        if (style && style->backgroundColor().isValid())
-                            [attrs setObject:style->backgroundColor().getNSColor() forKey:NSBackgroundColorAttributeName];
-                    }
+                    NSMutableDictionary *attrs;
+
+                    attrs = [[NSMutableDictionary alloc] init];
+                    [attrs setObject:font forKey:NSFontAttributeName];
+                    if (style && style->color().isValid())
+                        [attrs setObject:style->color().getNSColor() forKey:NSForegroundColorAttributeName];
+                    if (style && style->backgroundColor().isValid())
+                        [attrs setObject:style->backgroundColor().getNSColor() forKey:NSBackgroundColorAttributeName];
+
                     NSAttributedString *partialString = [[NSAttributedString alloc] initWithString:text.getNSString() attributes:attrs];
                     [attrs release];
                     [result appendAttributedString: partialString];                
@@ -1805,17 +2042,90 @@ NSAttributedString *KWQKHTMLPart::attributedString(NodeImpl *_startNode, int sta
                 QString text;
                 unsigned short _id = n.elementId();
                 switch(_id) {
+                    case ID_A:
+                        // Note the start of the <a> element.  We will add the NSLinkAttributeName
+                        // attribute to the attributed string when navigating to the next sibling 
+                        // of this node.
+                        linkStartLocation = [result length];
+                        linkStartNode = static_cast<ElementImpl*>(n.handle());
+                        break;
+
                     case ID_BR:
                         text += "\n";
                         hasNewLine = true;
                         break;
     
+                    case ID_LI:
+                        {
+                            QString listText;
+                            ElementImpl *itemParent = listParent(static_cast<ElementImpl *>(n.handle()));
+                            
+                            if (!hasNewLine)
+                                listText += '\n';
+                            hasNewLine = true;
+    
+                            listItems.append(static_cast<ElementImpl*>(n.handle()));
+                            ListItemInfo info;
+                            info.start = [result length];
+                            info.end = 0;
+                            listItemLocations.append (info);
+                            
+                            listText += '\t';
+                            if (itemParent){
+                                // Ick!  Avoid use of itemParent->id() which confuses ObjC++.
+                                khtml::RenderListItem *listRenderer = static_cast<khtml::RenderListItem*>(renderer);
+
+                                maxMarkerWidth = MAX([font pointSize], maxMarkerWidth);
+                                switch(listRenderer->style()->listStyleType()) {
+                                    case khtml::DISC:
+                                        listText += ((QChar)BULLET_CHAR);
+                                        break;
+                                    case khtml::CIRCLE:
+                                        listText += ((QChar)CIRCLE_CHAR);
+                                        break;
+                                    case khtml::SQUARE:
+                                        listText += ((QChar)SQUARE_CHAR);
+                                        break;
+                                    case khtml::LNONE:
+                                        break;
+                                    default:
+                                        QString marker = listRenderer->markerStringValue();
+                                        listText += marker;
+                                        // Use AppKit metrics.  Will be rendered by AppKit.
+                                        float markerWidth = [font widthOfString: marker.getNSString()];
+                                        maxMarkerWidth = MAX(markerWidth, maxMarkerWidth);
+                                }
+
+                                listText += ' ';
+                                listText += '\t';
+    
+                                NSMutableDictionary *attrs;
+            
+                                attrs = [[NSMutableDictionary alloc] init];
+                                [attrs setObject:font forKey:NSFontAttributeName];
+                                if (style && style->color().isValid())
+                                    [attrs setObject:style->color().getNSColor() forKey:NSForegroundColorAttributeName];
+                                if (style && style->backgroundColor().isValid())
+                                    [attrs setObject:style->backgroundColor().getNSColor() forKey:NSBackgroundColorAttributeName];
+            
+                                NSAttributedString *partialString = [[NSAttributedString alloc] initWithString:listText.getNSString() attributes:attrs];
+                                [attrs release];
+                                [result appendAttributedString: partialString];                
+                                [partialString release];
+                            }
+                        }
+                        break;
+
+                    case ID_OL:
+                    case ID_UL:
+                        if (!hasNewLine)
+                            text += "\n";
+                        hasNewLine = true;
+                        break;
+
                     case ID_TD:
                     case ID_TH:
                     case ID_HR:
-                    case ID_OL:
-                    case ID_UL:
-                    case ID_LI:
                     case ID_DD:
                     case ID_DL:
                     case ID_DT:
@@ -1823,7 +2133,7 @@ NSAttributedString *KWQKHTMLPart::attributedString(NodeImpl *_startNode, int sta
                     case ID_BLOCKQUOTE:
                     case ID_DIV:
                         if (!hasNewLine)
-                            text += "\n";
+                            text += '\n';
                         hasNewLine = true;
                         break;
                     case ID_P:
@@ -1835,11 +2145,20 @@ NSAttributedString *KWQKHTMLPart::attributedString(NodeImpl *_startNode, int sta
                     case ID_H5:
                     case ID_H6:
                         if (!hasNewLine)
-                            text += "\n";
-                        if (!hasParagraphBreak)
-                            text += "\n";
+                            text += '\n';
+                        if (!hasParagraphBreak) {
+                            text += '\n';
                             hasParagraphBreak = true;
+                        }
                         hasNewLine = true;
+                        break;
+                        
+                    case ID_IMG:
+                        NSFileWrapper *fileWrapper = fileWrapperForElement(static_cast<ElementImpl *>(n.handle()));
+                        NSTextAttachment *attachment = [[NSTextAttachment alloc] initWithFileWrapper:fileWrapper];
+                        NSAttributedString *iString = [NSAttributedString attributedStringWithAttachment:attachment];
+                        [result appendAttributedString: iString];
+                        [attachment release];
                         break;
                 }
                 NSAttributedString *partialString = [[NSAttributedString alloc] initWithString:text.getNSString()];
@@ -1852,8 +2171,9 @@ NSAttributedString *KWQKHTMLPart::attributedString(NodeImpl *_startNode, int sta
             break;
 
         Node next = n.firstChild();
-        if (next.isNull())
+        if (next.isNull()){
             next = n.nextSibling();
+        }
 
         while (next.isNull() && !n.parentNode().isNull()) {
             QString text;
@@ -1862,12 +2182,45 @@ NSAttributedString *KWQKHTMLPart::attributedString(NodeImpl *_startNode, int sta
 
             unsigned short _id = n.elementId();
             switch(_id) {
+                case ID_A:
+                    // End of a <a> element.  Create an attributed string NSLinkAttributeName attribute
+                    // for the range of the link.  Note that we create the attributed string from the DOM, which
+                    // will have corrected any illegally nested <a> elements.
+                    if (linkStartNode && n.handle() == linkStartNode){
+                        DOMString href = parseURL(linkStartNode->getAttribute(ATTR_HREF));
+                        KURL kURL = KWQ(linkStartNode->getDocument()->view()->part())->completeURL(href.string());
+                        
+                        NSURL *URL = kURL.getNSURL();
+                        [result addAttribute:NSLinkAttributeName value:URL range:NSMakeRange(linkStartLocation, [result length]-linkStartLocation)];
+                        linkStartNode = 0;
+                    }
+                    break;
+                
+                case ID_OL:
+                case ID_UL:
+                    if (!hasNewLine)
+                        text += '\n';
+                    hasNewLine = true;
+                    break;
+
+                case ID_LI:
+                    {
+                        int i, count = listItems.count();
+                        for (i = 0; i < count; i++){
+                            if (listItems.at(i) == n.handle()){
+                                listItemLocations[i].end = [result length];
+                                break;
+                            }
+                        }
+                    }
+                    if (!hasNewLine)
+                        text += '\n';
+                    hasNewLine = true;
+                    break;
+
                 case ID_TD:
                 case ID_TH:
                 case ID_HR:
-                case ID_OL:
-                case ID_UL:
-                case ID_LI:
                 case ID_DD:
                 case ID_DL:
                 case ID_DT:
@@ -1875,7 +2228,7 @@ NSAttributedString *KWQKHTMLPart::attributedString(NodeImpl *_startNode, int sta
                 case ID_BLOCKQUOTE:
                 case ID_DIV:
                     if (!hasNewLine)
-                        text += "\n";
+                        text += '\n';
                     hasNewLine = true;
                     break;
                 case ID_P:
@@ -1887,7 +2240,7 @@ NSAttributedString *KWQKHTMLPart::attributedString(NodeImpl *_startNode, int sta
                 case ID_H5:
                 case ID_H6:
                     if (!hasNewLine)
-                        text += "\n";
+                        text += '\n';
                     // An extra newline is needed at the start, not the end, of these types of tags,
                     // so don't add another here.
                     hasNewLine = true;
@@ -1901,7 +2254,74 @@ NSAttributedString *KWQKHTMLPart::attributedString(NodeImpl *_startNode, int sta
 
         n = next;
     }
+    
+    // Apply paragraph styles from outside in.  This ensures that nested lists correctly
+    // override their parent's paragraph style.
+    {
+        unsigned i, count = listItems.count();
+        ElementImpl *e;
+        ListItemInfo info;
 
+#ifdef POSITION_LIST
+        NodeImpl *containingBlock;
+        int containingBlockX, containingBlockY;
+        
+        // Determine the position of the outermost containing block.  All paragraph
+        // styles and tabs should be relative to this position.  So, the horizontal position of 
+        // each item in the list (in the resulting attributed string) will be relative to position 
+        // of the outermost containing block.
+        if (count > 0){
+            containingBlock = _startNode;
+            while (containingBlock->renderer()->isInline()){
+                containingBlock = containingBlock->parentNode();
+            }
+            containingBlock->renderer()->absolutePosition(containingBlockX, containingBlockY);
+        }
+#endif
+        
+        for (i = 0; i < count; i++){
+            e = listItems.at(i);
+            info = listItemLocations[i];
+            
+            if (info.end < info.start)
+                info.end = [result length];
+                
+            RenderObject *r = e->renderer();
+            RenderStyle *style = r->style();
+
+            int rx;
+            NSFont *font = style->font().getNSFont();
+            float pointSize = [font pointSize];
+
+#ifdef POSITION_LIST
+            int ry;
+            r->absolutePosition(rx, ry);
+            rx -= containingBlockX;
+            
+            // Ensure that the text is indented at least enough to allow for the markers.
+            rx = MAX(rx, (int)maxMarkerWidth);
+#else
+            rx = (int)MAX(maxMarkerWidth, pointSize);
+#endif
+
+            // The bullet text will be right aligned at the first tab marker, followed
+            // by a space, followed by the list item text.  The space is arbitrarily
+            // picked as pointSize*2/3.  The space on the first line of the text item
+            // is established by a left aligned tab, on subsequent lines it's established
+            // by the head indent.
+            NSMutableParagraphStyle *mps = [[NSMutableParagraphStyle alloc] init];
+            [mps setFirstLineHeadIndent: 0];
+            [mps setHeadIndent: rx];
+            [mps setTabStops:[NSArray arrayWithObjects:
+                        [[[NSTextTab alloc] initWithType:NSRightTabStopType location:rx-(pointSize*2/3)] autorelease],
+                        [[[NSTextTab alloc] initWithType:NSLeftTabStopType location:rx] autorelease],
+                        nil]];
+            [result addAttribute:NSParagraphStyleAttributeName value:mps range:NSMakeRange(info.start, info.end-info.start)];
+            [mps release];
+        }
+    }
+
+    //NSLog (@"%@", result);
     return result;
 }
 
@@ -1977,3 +2397,19 @@ QChar KWQKHTMLPart::backslashAsCurrencySymbol() const
     }
     return codec->backslashAsCurrencySymbol();
 }
+
+NSColor *KWQKHTMLPart::bodyBackgroundColor(void) const
+{
+    HTMLDocumentImpl *doc = docImpl();
+    
+    if (doc){
+        HTMLElementImpl *body = doc->body();
+        QColor bgColor =  body->renderer()->style()->backgroundColor();
+        
+        if (bgColor.isValid())
+            return bgColor.getNSColor();
+    }
+    return nil;
+}
+
+

@@ -3,11 +3,12 @@
     FILESTABLE = {
         H_FILES = (IOPMLib.h); 
         FRAMEWORKS = (CoreFoundation.framework, SystemConfiguration.framework);
-        OTHER_LINKED = (IOPMLib.c, IOPMEnergyPrefs.c); 
+        OTHER_LINKED = (IOPMLib.c, IOPMEnergyPrefs.c, IOPMAutoWake.c, 
+IOPMRepeatingPower.c); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, pma.c, sleep.c); 
         PRECOMPILED_HEADERS = (); 
-        PROJECT_HEADERS = (IOPMLib.h, IOPMLibPrivate.h); 
-        PUBLIC_HEADERS = (IOPMLib.h); 
+        PROJECT_HEADERS = (IOPMLib.h, IOPMLibPrivate.h, IOPMKeys.h); 
+        PUBLIC_HEADERS = (IOPMLib.h, IOPMKeys.h); 
         SUBPROJECTS = (); 
     }; 
     LANGUAGE = English; 

@@ -1,0 +1,312 @@
+.Dd August 3, 2003
+.Os "Mac OS X"
+.Dt BLESS 8
+.Sh NAME
+.Nm bless
+.Nd set volume bootability and startup disk options
+.Sh SYNOPSIS
+.Nm bless
+.Fl help
+.Pp
+.Nm bless
+.Fl folder Ar directory
+.Op Fl folder9 Ar directory
+.Op Fl mount Ar directory
+.Op Fl bootinfo Ar file
+.Op Fl bootBlocks | Fl bootBlockFile Ar file
+.Op Fl save9
+.Op Fl saveX
+.Op Fl use9
+.Op Fl system Ar file
+.Op Fl systemfile Ar file
+.Op Fl label Ar name | Fl labelfile Ar file
+.Op Fl openfolder Ar directory
+.Op Fl setBoot
+.Op Fl quiet | verbose
+.Pp
+.Nm bless
+.Fl device Ar device
+.Oo
+.Fl format Op Ar fstype
+.Op Fl fsargs Ar args
+.Op Fl label Ar name | Fl labelfile Ar file
+.Oc
+.Op Fl bootBlockFile Ar file
+.Op Fl mount Ar directory
+.Op Fl wrapper Ar file
+.Op Fl startupfile Ar file
+.Op Fl system Ar file
+.Op Fl setBoot
+.Op Fl quiet | verbose
+.Pp
+.Nm bless
+.Fl info Op Ar directory
+.Op Fl getBoot
+.Op Fl bootBlocks
+.Op Fl plist
+.Op Fl quiet | verbose
+.Op Fl version
+.Sh DESCRIPTION
+.Nm bless
+is used to set volume bootability characteristics for PowerPC-based
+Macintoshes. It can also modify Open Firmware to select a different
+device to boot off of.
+.Nm bless
+has 3 modes of execution: Folder Mode, Device Mode, and Info Mode.
+Folder Mode allows you to select a folder on a mounted volume to act as the
+.Do blessed Dc
+system folder, and optionally update Open Firmware to boot from that volume.
+Device Mode is normally only used to format and setup a volume for
+the first time. Info Mode will print out the currently\-blessed folder(s)
+of a volume, or if no mountpoint is specified, the volume that OF is set to boot from.
+.Pp
+Additionally,
+.Fl help
+can be used to display the command-line usage summary.
+.Ss FOLDER MODE
+Folder Mode has the following options:
+.Bl -tag -width "xopenfolderxdirectory" -compact
+.It Fl folder Ar directory
+A blessed Mac OS X/Darwin system folder, containing a
+.Pa BootX
+secondary loader for New World machines.
+.It Fl folder9 Ar directory
+A Mac OS 9/Classic system folder. If both
+.Fl folder
+and
+.Fl folder9
+are given, preference can be given to boot into Mac OS 9
+by also using the
+.Fl use9
+flag.
+.It Fl mount Ar directory
+In lieu of specifying folders to bless,
+.Fl mount
+can be given, and the pre\-existing blessed folders are used.
+.It Fl bootinfo Ar file
+Create a
+.Pa BootX
+file in the Mac OS X/Darwin system folder using
+.Ar file
+as a source.
+.It Fl bootBlocks
+Set the boot blocks on the volume. This is required for booting
+Mac OS 9. Boot blocks can be retrieved from the
+.Pa System
+file in the blessed Mac OS 9 system folder, or can be specified more directly
+using the
+.Fl bootBlockFile
+or
+.Fl system
+flags.
+.It Fl bootBlockFile Ar file
+Extract boot blocks from
+.Pa file
+\&. The first 1024 bytes are read from the data fork of that file.
+.It Fl save9
+Used if no
+.Fl folder9
+flag was given, but if the pre\-existing Mac OS 9 system folder
+should be preserved.
+.It Fl saveX
+Used if no
+.Fl folder
+flag was given, but if the pre\-existing Mac OS X/Darwin system folder
+should be preserved.
+.It Fl use9
+Used if both
+.Fl folder
+and
+.Fl folder9
+were given, but Mac OS 9 should be the default for the volume.
+.It Fl system Ar file
+Extract boot blocks from the
+.Pa file
+System file, using the Carbon resource manager. This will fail under Darwin,
+where Carbon is not present.
+.It Fl systemfile Ar file
+Data fork System file to place in blessed System Folder
+.It Fl label Ar name
+Render a text label used in the OpenFirmware-based OS picker
+.It Fl labelfile Ar file
+Use a pre-rendered label used for the OpenFirmware-based OS picker
+.It Fl openfolder Ar directory
+Specify a folder to be opened in the Finder when the volume is attached
+.It Fl setBoot
+Set the system to boot off the specified partition. This is implemented in
+a platform-specific manner. On Darwin PPC, the Open Firmware
+.Em boot-device
+variable is modified. On Darwin x86, the MBR partition map is
+adjusted to mark the specified partition as active
+.It Fl setOF
+Set the
+.Em boot-device
+Open Firmware variable to boot off the volume containing. This option is
+deprecated in favor of the more generic
+.Fl setBoot
+option.
+.It Fl quiet
+Do not print any output
+.It Fl verbose
+Print verbose output
+.El
+.Ss DEVICE MODE
+Device Mode has the following options:
+.Bl -tag -width "xopenfolderxdirectory" -compact
+.It Fl device Ar device
+Open the block device
+.Ar device
+\&. No volumes should be mounted from
+.Ar device
+\&.
+.It Fl format Op Ar fstype
+Format the device using the
+.Ar fstype
+filesystem, or if it is not given, default to
+HFS+ with an HFS wrapper.
+.It Fl fsargs Ar arg
+Additional arguments to newfs for the given filesystem
+.It Fl label Ar name
+Give the filesystem the label while formatting, or set an OF-cased OS picker label
+.It Fl labelfile Ar file
+Use a pre-rendered label used for the OpenFirmware-based OS picker
+.Ar name
+(in UTF-8 encoding)
+.It Fl bootBlockFile Ar file
+Extract boot blocks from
+.Pa file
+\&. The first 1024 bytes are read from the data fork of that file.
+.It Fl mount Ar directory
+Use
+.Ar directory
+as a temporary mount point for the HFS wrapper.
+.It Fl wrapper Ar file
+Mount the wrapper on
+.Fl mount
+and write
+.Ar file
+into the wrapper as the default System file.
+.It Fl system Ar file
+Override the
+.Ar file
+specifications for
+.Fl bootBlockFile
+and
+.Fl wrapper
+and use this file instead for both those functions.
+.It Fl xcoff Ar file
+Add the
+.Ar file
+as the HFS+ StartupFile, and update the partition map to
+reflect it's location on disk. This is necessary for Old World
+booting. This option is deprecated in favor of the more generic
+.Fl startupfile
+option
+.It Fl setBoot
+Set the system to boot off the specified partition. This is implemented in
+a platform-specific manner. On Darwin PPC, the Open Firmware
+.Em boot-device
+variable is modified. On Darwin x86, the MBR partition map is
+adjusted to mark the specified partition as active
+.It Fl setOF
+Set the
+.Em boot-device
+Open Firmware variable to boot off the volume containing. This option is
+deprecated in favor of the more generic
+.Fl setBoot
+option.
+.It Fl startupfile Ar file
+Add the
+.Ar file
+as the HFS+ StartupFile, and update other information on disk as appropriate
+for the startup file type.
+.It Fl quiet
+Do not print any output
+.It Fl verbose
+Print verbose output
+.El
+.Ss INFO MODE
+Info Mode has the following options:
+.Bl -tag -width "xopenfolderxdirectory" -compact
+.It Fl info Op Ar directory
+Print out the blessed system folder for
+.Ar directory
+\&. If
+.Ar directory
+is not specified, print information for the current
+.Em boot-device
+(which may not necessarily be
+.So
+/
+.Sc
+\&.
+.It Fl setBoot
+Print out which device will be used on next boot, according to the
+.Em boot-device
+Open Firmware variable. This option will take into account that
+OF might be pointing to an auxiliary booter partition, and will print out the corresponding root partition for those cases.
+.It Fl bootBlocks
+Print out salient fields from the boot blocks of the volume.
+.It Fl plist
+Output all information in Property List (.plist) format, suitable
+for parsing by CoreFoundation. This is most useful when
+.Nm bless
+is executed from another program and its standard output must be parsed.
+.It Fl quiet
+Do not print any output
+.It Fl verbose
+Print verbose output
+.It Fl version
+Print bless version and exit immediately
+.El
+.Sh FILES
+.Bl -tag -width /usr/standalone/ppc/bootx.bootinfo -compact
+.It Pa /usr/standalone/ppc/bootx.bootinfo
+Secondary loader with XML headers, used with
+.Fl bootinfo
+flag. Used for booting New World PPC-based Macintoshes
+.It Pa /System/Library/CoreServices
+Typical blessed folder for Mac OS X and Darwin
+.El
+.Sh EXAMPLES
+.Ss FOLDER MODE
+To bless a volume with only Mac OS 9:
+.Bd -ragged -offset indent
+.Nm bless
+.Fl folder9
+.Qo /Volumes/Mac OS 9/System Folder Qc
+.Fl bootBlockFile
+.Qo /usr/share/misc/bootblockdata Qc
+.Ed
+.Pp
+To bless a volume with only Mac OS X or Darwin, and create the BootX file:
+.Bd -ragged -offset indent
+.Nm bless
+.Fl folder
+.Qo /Volumes/Mac OS X/System/Library/CoreServices Qc
+.Fl bootinfo
+.Qo /Volumes/Mac OS X/usr/standalone/ppc/bootx.bootinfo Qc
+.Ed
+.Pp
+To set a volume containing either Mac OS 9 and Mac OS X to be
+the active volume:
+.Bd -ragged -offset indent
+.Nm bless
+.Fl mount
+.Qo /Volumes/Mac OS Qc
+.Fl setBoot
+.Ed
+.Ss INFO MODE
+To gather information about the currently selected volume (as
+determined by Open Firmware), suitable for piping to a program capable
+of parsing Property Lists:
+.Bd -ragged -offset indent
+.Nm bless
+.Fl info
+.Fl plist
+.Fl bootBlocks
+.Ed
+.Sh SEE ALSO
+.Xr mount 8 ,
+.Xr newfs 8 ,
+.Xr nvram 8

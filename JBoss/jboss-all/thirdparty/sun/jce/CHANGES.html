@@ -1,0 +1,198 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+    <!--#config timefmt="%d-%b-%y" -->
+    <title>JCE 1.2.1 -- Summary of Changes and Enhancements</title>
+</HEAD>
+
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#0000FF" ALINK="#FF0000" VLINK="#660066">
+
+<!-- server side include for top part of page -->
+
+<!--#include virtual="/share/include/normal.header.v4.0.html"-->
+
+<!-- end server side include for top of page -->
+
+
+<!-- begin table for main body navigation and content -->
+
+<TABLE BORDER="0" CELLSPACING="0" CELLPADDING="0" WIDTH="100%">
+<TR ALIGN="left" VALIGN="top">
+<TD>
+<BR CLEAR="all">
+<!-- server side include for main java.sun.com navigation -->
+
+<!--#include virtual="/share/include/navigate.v4.0.html"-->
+
+<!-- end server side include for main java.sun.com navigation -->
+
+</TD>
+<TD WIDTH="100%" VALIGN="top">
+
+<!-- page headline -->
+
+<!--
+Changed typical page headline to accommodate graphic
+-->
+
+<table>
+<tr>
+<td align="left" width=80%>
+<FONT SIZE="+2">
+<strong>Java<SUP><FONT SIZE="-2">TM</FONT></SUP> Cryptography Extension (JCE) 1.2.1</strong>
+</FONT>
+</td>
+</tr>
+</table>
+
+
+<!-- end page headline -->
+
+<!-- main page content -->
+
+<P>
+<strong><font size=+1>Summary of Changes and Enhancements</font></strong>
+<p> 
+<hr>
+<p> This document lists all the changes and enhancements since the JCE 1.2 release.
+ 
+<p> The major new feature in JCE 1.2.1 is the exportability. This feature is 
+further explained in the section <a href=#new_features>New Features</a>. There 
+are also a few new methods and classes in JCE 1.2.1.  
+
+<p> This document is divided into the following sections:
+
+<ul>
+<li><a href=#new_features>New Features</a>
+<li><a href=#new_classes>New Classes</a>
+<li><a href=#new_methods>New Methods</a>
+</ul>
+
+<p>
+
+<ol>
+
+<li><strong><font size=+1><a name=new_features>New Features</a></font></strong>
+
+<ol type=a>
+
+<li> <big><b>Made JCE exportable</b></big>. The JCE 1.2.1 framework is digitally signed. 
+A provider must be signed by a trusted entity. Otherwise, the provider cannot be plugged 
+into the JCE 1.2.1 framework. The JCE 1.2.1 framework and providers do mutual authentication 
+at runtime. JCE 1.2.1 introduces an architecture which allows flexible cryptographic 
+strength to be configured via jurisdiction policy files. This new feature doesn't cause any API changes, 
+so it is transparent to JCE application developers. 
+Note: The JCE 1.2.1 software
+from Sun Microsystems has a single distribution for both domestic and 
+global users. The bundled jurisdiction policy files contain no restrictions 
+on cryptographic strengths.<p>
+<p> 
+<b>Note for Cryptographic Service Providers (CSPs, also known as "providers")</b>: 
+The document 
+<A HREF="doc/guide/HowToImplAProvider.html">How to Implement a Provider for 
+Java<SUP><FONT SIZE=-2>TM</FONT></SUP> Cryptography Extension 1.2.1</A>
+contains information about how to ensure your provider will work with the JCE 1.2.1 framework.
+
+<p> 
+<li> <big><b>Added</b></big> support for <i>key wrapping</i>.<p>
+
+<li> <big><b>Added</b></big> support for <i>key usage control</i>.<p>
+
+</ol>
+
+<p>
+
+<li><strong><font size=+1><a name=new_classes>New Classes</a></font></strong>
+
+<ol type=a>
+
+<li> <big><b>Added</b></big>
+<a href="doc/apidoc/javax/crypto/ExemptionMechanism.html"><code>javax.crypto.ExemptionMechanism</code></a>. An applet or application utilizing an
+exemption mechanism (such as key recovery) implemented by a provider
+may be allowed to use cryptography of greater strength than 
+that allowed by default
+(based on jurisdiction policy files).
+
+<p><i>Justification</i>: Customer request.<p>
+
+<p> <b>Note for CSPs</b>: Added corresponding SPI class <a href="doc/apidoc/javax/crypto/ExemptionMechanismSpi.html"><code>javax.crypto.ExemptionMechanismSpi</code></a>.
+
+<p> Note: The SunJCE provider does not provide an implementation for this 
+class.
+
+</ol>
+
+<p>
+
+<li><strong><font size=+1><a name=new_methods>New Methods</a></font></strong>
+
+<ol type=a>
+
+<li> <big><b>Added</b></big>
+<a href="doc/apidoc/javax/crypto/Cipher.html#wrap(java.security.Key)"><code>wrap(java.security.Key key)</code></a> and <a href="doc/apidoc/javax/crypto/Cipher.html#unwrap(byte[], java.lang.String, int)"><code>unwrap(byte[] wrappedKey)</code></a> methods to <a href="doc/apidoc/javax/crypto/Cipher.html"><code>javax.crypto.Cipher</code></a>, which allow users to do key wrapping.
+
+<p> <i>Justification</i>: Customer request.<p>
+
+<p> <b>Note for CSPs</b>: Added corresponding SPI methods <a href="doc/apidoc/javax/crypto/CipherSpi.html#engineWrap(java.security.Key)"><code>engineWrap(java.security.Key key)</code></a> and <a href="doc/apidoc/javax/crypto/CipherSpi.html#engineUnwrap(byte[], java.lang.String, int)"><code>engineUnwrap(byte[] wrappedKey)</code></a> in <a href="doc/apidoc/javax/crypto/CipherSpi.html"><code>javax.crypto.CipherSpi</code></a>.
+<p>
+<li> <big><b>Added</b></big>
+<a href="doc/apidoc/javax/crypto/Cipher.html#init(int, java.security.cert.Certificate)"><code>init(int opmode, java.security.cert.Certificate certificate)</code></a> and <a href="doc/apidoc/javax/crypto/Cipher.html#init(int, java.security.cert.Certificate, java.security.SecureRandom)"><code>init(int opmode, java.security.cert.Certificate certificate, java.security.SecureRandom random)</code></a> methods to <a href="doc/apidoc/javax/crypto/Cipher.html"><code>javax.crypto.Cipher</code></a>, which enable a Cipher to be initialized from a key within
+a certificate (rather than from a key directly), and which
+may enforce key usage control.
+
+<p> <i>Justification</i>: Customer request.<p>
+<p> 
+<li> <big><b>Added</b></big>
+<a href="doc/apidoc/javax/crypto/CipherSpi.html#engineGetKeySize(java.security.Key)"><code>engineGetKeySize(java.security.Key key)</code></a> in <a href="doc/apidoc/javax/crypto/CipherSpi.html"><code>javax.crypto.CipherSpi</code></a>, which returns the size of the given key.
+
+<p> <i>Justification</i>: In order to enforce jurisdiction policies, the JCE needs to know the key size. The <a href="doc/apidoc/javax/crypto/CipherSpi.html"><code>CipherSpi</code></a> class is the best place to add this method. Note: this is a protected SPI method. There is no corresponding API method.
+
+<p> <b>Note for CSPs</b>: This method must be overridden by the CSP if the CSP may be exported to a country whose government mandates cryptographic 
+restrictions. For such a country, a JCE 1.2.1 framework vendor may create a
+download bundle that includes
+jurisdiction policy files that specify required cryptographic restrictions. 
+Users in that country could download the bundle, 
+and the JCE 1.2.1 framework will enforce the specified restrictions. 
+Such enforcement requires calls to <code>engineGetKeySize</code>.
+
+</ol>
+
+<p>
+
+</ol>
+
+
+<p>
+
+<p>
+<br>
+
+</P>
+<hr>
+
+<!-- end main page content -->
+
+
+</TD>
+
+<!-- gutter spacing for right side of the page -->
+
+<TD WIDTH="30">
+<IMG SRC="/images/pixel.gif" WIDTH="30" HEIGHT="1" ALT="">
+</TD>
+</TR>
+</TABLE>
+
+<!-- server side include for page footer -->
+
+<!--#include virtual="/share/include/normal.footer.v4.0.html"-->
+
+<!-- end server side include for footer -->
+
+</BODY>
+</HTML>
+
+
+
+
+

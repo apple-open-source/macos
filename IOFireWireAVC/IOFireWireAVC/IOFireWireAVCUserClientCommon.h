@@ -26,6 +26,8 @@
 #ifndef _IOKIT_IOFIREWIREAVCUSERCLIENTCOMMON_H_
 #define _IOKIT_IOFIREWIREAVCUSERCLIENTCOMMON_H_
 
+#include <IOKit/avc/IOFireWireAVCConsts.h>
+
 #define kIOFireWireAVCLibConnection 13
 
 enum IOFWAVCUserClientCommandCodes {
@@ -36,6 +38,10 @@ enum IOFWAVCUserClientCommandCodes {
     kIOFWAVCUserClientAVCCommand,				// kIOUCStructIStructO -1,-1
     kIOFWAVCUserClientAVCCommandInGen,			// kIOUCStructIStructO -1,-1
     kIOFWAVCUserClientUpdateAVCCommandTimeout,	// kIOUCScalarIScalarO 0,0
+    kIOFWAVCUserClientMakeP2PInputConnection,	// KIOUCScalarIScalarO 1, 0
+    kIOFWAVCUserClientBreakP2PInputConnection,	// KIOUCScalarIScalarO 1, 0
+    kIOFWAVCUserClientMakeP2POutputConnection,	// KIOUCScalarIScalarO 1, 0
+    kIOFWAVCUserClientBreakP2POutputConnection,	// KIOUCScalarIScalarO 1, 0
     kIOFWAVCUserClientNumCommands
 };
 
@@ -52,6 +58,13 @@ enum IOFWAVCProtocolUserClientCommandCodes {
     kIOFWAVCProtocolUserClientUpdateOutputMasterPlug,	// kIOUCScalarIScalarO 2, 0
     kIOFWAVCProtocolUserClientReadInputMasterPlug,		// kIOUCScalarIScalarO 0, 1
     kIOFWAVCProtocolUserClientUpdateInputMasterPlug,	// kIOUCScalarIScalarO 2, 0
+    kIOFWAVCProtocolUserClientPublishAVCUnitDirectory,	// kIOUCScalarIScalarO 0, 0
+	kIOFWAVCProtocolUserClientSetSubunitPlugSignalFormat, // kIOUCScalarIScalarO 4, 0
+	kIOFWAVCProtocolUserClientGetSubunitPlugSignalFormat, // kIOUCScalarIScalarO 3, 1
+	kIOFWAVCProtocolUserClientConnectTargetPlugs,		// kIOUCStructIStructO
+	kIOFWAVCProtocolUserClientDisconnectTargetPlugs,	// kIOUCScalarIScalarO 6, 0
+	kIOFWAVCProtocolUserClientGetTargetPlugConnection,	// kIOUCStructIStructO
+	kIOFWAVCProtocolUserClientAVCRequestNotHandled,		// kIOUCScalarIStructI 4, -1
     kIOFWAVCProtocolUserClientNumCommands
 };
 
@@ -59,7 +72,43 @@ enum IOFWAVCProtocolUserClientAsyncCommandCodes {
     kIOFWAVCProtocolUserClientSetAVCRequestCallback,   		// kIOUCScalarIScalarO 2, 0
     kIOFWAVCProtocolUserClientAllocateInputPlug,			// kIOUCScalarIScalarO 1, 1
     kIOFWAVCProtocolUserClientAllocateOutputPlug,			// kIOUCScalarIScalarO 1, 1
+    kIOFWAVCProtocolUserClientInstallAVCCommandHandler,		// kIOUCScalarIScalarO 4, 0
+    kIOFWAVCProtocolUserClientAddSubunit,					// kIOUCScalarIScalarO 5, 1
     kIOFWAVCProtocolUserClientNumAsyncCommands
 };
+
+typedef struct _AVCConnectTargetPlugsInParams
+{
+	UInt32 sourceSubunitTypeAndID;
+	IOFWAVCPlugTypes sourcePlugType;
+	UInt32 sourcePlugNum;
+	UInt32 destSubunitTypeAndID;
+	IOFWAVCPlugTypes destPlugType;
+	UInt32 destPlugNum;
+	bool lockConnection;
+	bool permConnection;
+}AVCConnectTargetPlugsInParams;
+
+typedef struct _AVCConnectTargetPlugsOutParams
+{
+	UInt32 sourcePlugNum;
+	UInt32 destPlugNum;
+}AVCConnectTargetPlugsOutParams;
+
+typedef struct _AVCGetTargetPlugConnectionInParams
+{
+	UInt32 subunitTypeAndID;
+	IOFWAVCPlugTypes plugType;
+	UInt32 plugNum;
+}AVCGetTargetPlugConnectionInParams;
+
+typedef struct _AVCGetTargetPlugConnectionOutParams
+{
+	UInt32 connectedSubunitTypeAndID;
+	IOFWAVCPlugTypes connectedPlugType;
+	UInt32 connectedPlugNum;
+	bool lockConnection;
+	bool permConnection;
+}AVCGetTargetPlugConnectionOutParams;
 
 #endif // _IOKIT_IOFIREWIREAVCUSERCLIENTCOMMON_H_

@@ -3,25 +3,28 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <sys/types.h>
+#include <sys/errno.h>
+#import <sys/stat.h>
 #import <syslog.h>
 #import <unistd.h>
 #import <stdlib.h>
@@ -126,7 +129,12 @@ nfsproc_getattr_2_svc(nfs_fh *fh, struct svc_req *req)
 			fhtoc(fh));
 		astat.status = NFSERR_NOENT;
 	}
-	else astat.status = [n nfsStatus];
+	else
+	{
+		/* Allow a getattr to succeed even if a previous mount attempt was canceled: */
+		astat.status = [n nfsStatus];
+		if (astat.status == ECANCELED) astat.status = NFS_OK;
+	}
 
 	if (astat.status != NFS_OK)
 	{
@@ -135,8 +143,14 @@ nfsproc_getattr_2_svc(nfs_fh *fh, struct svc_req *req)
 	}
 
 	sys_msg(debug_proc, LOG_DEBUG, "    name = %s", [[n name] value]);
-
 	astat.attrstat_u.attributes = [n attributes];
+	if ((astat.attrstat_u.attributes.mode & S_IFMT) == S_IFLNK) {
+		sys_msg(debug_proc, LOG_DEBUG, "    (Link flags: %s; %s,%s)",
+			(astat.attrstat_u.attributes.mode & S_ISVTX) ? "trigger" : "not trigger",
+			(astat.attrstat_u.attributes.mode & S_ISUID) ? "mounted" : "not mounted",
+			(astat.attrstat_u.attributes.mode & S_ISGID) ? "needs auth." : "no auth. needed");
+	}
+
 	sys_msg(debug_proc, LOG_DEBUG, "<- getattr");
 	return(&astat);
 }
@@ -175,7 +189,12 @@ nfsproc_lookup_2_svc(diropargs *args, struct svc_req *req)
 	[s release];
 
 	if (n == nil) res.status = NFSERR_NOENT;
-	else res.status = [n nfsStatus];
+	else
+	{
+		/* Allow a lookup to succeed even if a previous mount attempt was canceled: */
+		res.status = [n nfsStatus];
+		if (res.status == ECANCELED) res.status = NFS_OK;
+	}
 	if (res.status != NFS_OK)
 	{
 		sys_msg(debug_proc, LOG_DEBUG, "<- lookup (res=%d)", res.status);
@@ -188,6 +207,12 @@ nfsproc_lookup_2_svc(diropargs *args, struct svc_req *req)
 		fhtoc(&res.diropres_u.diropres.file));
 
 	res.diropres_u.diropres.attributes = [n attributes];
+	if ((res.diropres_u.diropres.attributes.mode & S_IFMT) == S_IFLNK) {
+		sys_msg(debug_proc, LOG_DEBUG, "    (Link flags: %s; %s,%s)",
+			(res.diropres_u.diropres.attributes.mode & S_ISVTX) ? "trigger" : "not trigger",
+			(res.diropres_u.diropres.attributes.mode & S_ISUID) ? "mounted" : "not mounted",
+			(res.diropres_u.diropres.attributes.mode & S_ISGID) ? "needs auth." : "no auth. needed");
+	}
 
 	sys_msg(debug_proc, LOG_DEBUG, "<- lookup");
 	return(&res);
@@ -276,7 +301,7 @@ nfsproc_readlink_2_svc(nfs_fh *fh, struct svc_req *req)
 		
 		if (status != 0)
 		{
-			res.status = NFSERR_NOENT;
+			res.status = (status == ECANCELED) ? ECANCELED : NFSERR_NOENT;
 			sys_msg(debug_proc, LOG_DEBUG, "<- readlink (2)");
 			return(&res);
 		}
@@ -474,9 +499,53 @@ nfsstat *
 nfsproc_remove_2_svc(diropargs *args, struct svc_req *req)
 {
 	static nfsstat status;
+	struct file_handle *ifh;
+	Vnode *n;
+	String *s;
+	uid_t uid = -2;	/* default = nobody */
+	
+	if (req->rq_cred.oa_flavor == AUTH_UNIX)
+	{
+		struct authunix_parms *aup;
+		aup = (struct authunix_parms *)req->rq_clntcred;
+		uid = aup->aup_uid;
+	}
 
-	sys_msg(debug_proc, LOG_DEBUG, "-- remove");
-	status = NFSERR_ROFS;
+	ifh = (struct file_handle *) &(args->dir);
+	
+	sys_msg(debug_proc, LOG_DEBUG, "-> remove");
+	sys_msg(debug_proc, LOG_DEBUG, "    dir fh = %s", fhtoc(&(args->dir)));
+	sys_msg(debug_proc, LOG_DEBUG, "    file = %s", args->name);
+	sys_msg(debug_proc, LOG_DEBUG, "	requesting uid = %ld", uid);
+
+	if (uid != 0) {
+		sys_msg(debug, LOG_ERR, "remove request from unauthorized uid %ld", uid);
+		status = NFSERR_ACCES;
+		return(&status);
+	}
+	
+	n = [controller vnodeWithID:ifh->node_id];
+	if (n == nil)
+	{
+		sys_msg(debug, LOG_ERR, "remove for non-existent dir handle %s",
+			fhtoc(&(args->dir)));
+		status = NFSERR_NOENT;
+	}
+	else status = [n nfsStatus];
+	if (status != NFS_OK)
+	{
+		sys_msg(debug_proc, LOG_DEBUG, "<- remove (error %d)", status);
+		return(&status);
+	}
+
+	s = [String uniqueString:args->name];
+	status = [n remove:s];
+	[s release];
+
+	if (status != NFS_OK)
+		sys_msg(debug_proc, LOG_DEBUG, "<- remove (res=%d)", status);
+	else
+		sys_msg(debug_proc, LOG_DEBUG, "<- remove");
 	return(&status);
 }
 

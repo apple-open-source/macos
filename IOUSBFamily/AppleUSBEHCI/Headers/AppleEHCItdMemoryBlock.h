@@ -21,7 +21,26 @@
  * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
+*
+*	$Id: AppleEHCItdMemoryBlock.h,v 1.4 2003/08/20 19:41:32 nano Exp $
+*
+*	$Log: AppleEHCItdMemoryBlock.h,v $
+*	Revision 1.4  2003/08/20 19:41:32  nano
+*	
+*	Bug #:
+*	New version's of Nima's USB Prober (2.2b17)
+*	3382540  Panther: Ejecting a USB CardBus card can freeze a machine
+*	3358482  Device Busy message with Modems and IOUSBFamily 201.2.14 after sleep
+*	3385948  Need to implement device recovery on High Speed Transaction errors to full speed devices
+*	3377037  USB EHCI: returnTransactions can cause unstable queue if transactions are aborted
+*	
+*	Also, updated most files to use the id/log functions of cvs
+*	
+*	Submitted by: nano
+*	Reviewed by: rhoads/barryt/nano
+*	
  */
+
 #include <IOKit/IOBufferMemoryDescriptor.h>
 
 #include "AppleUSBEHCI.h"

@@ -1,7 +1,7 @@
 /* init.c - initialize ldap backend */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/init.c,v 1.29 2002/01/12 16:35:01 ando Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/init.c,v 1.29.2.3 2003/02/09 16:31:38 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /* This is an altered version */
@@ -64,6 +64,8 @@ ldap_back_initialize(
     BackendInfo	*bi
 )
 {
+	bi->bi_controls = slap_known_controls;
+
 	bi->bi_open = 0;
 	bi->bi_config = 0;
 	bi->bi_close = 0;
@@ -129,19 +131,24 @@ ldap_back_db_init(
 
 static void
 conn_free( 
-	struct ldapconn *lc
+	void *v_lc
 )
 {
+	struct ldapconn *lc = v_lc;
 	ldap_unbind( lc->ld );
 	if ( lc->bound_dn.bv_val ) {
 		ch_free( lc->bound_dn.bv_val );
+	}
+	if ( lc->cred.bv_val ) {
+		ch_free( lc->cred.bv_val );
 	}
 	ch_free( lc );
 }
 
 void
-mapping_free ( struct ldapmapping *mapping )
+mapping_free( void *v_mapping )
 {
+	struct ldapmapping *mapping = v_mapping;
 	ch_free( mapping->src.bv_val );
 	ch_free( mapping->dst.bv_val );
 	ch_free( mapping );
@@ -172,7 +179,7 @@ ldap_back_db_destroy(
 			li->bindpw = NULL;
 		}
                 if (li->conntree) {
-			avl_free( li->conntree, (AVL_FREE) conn_free );
+			avl_free( li->conntree, conn_free );
 		}
 #ifdef ENABLE_REWRITE
 		if (li->rwinfo) {
@@ -180,14 +187,14 @@ ldap_back_db_destroy(
 		}
 #else /* !ENABLE_REWRITE */
 		if (li->suffix_massage) {
-  			ber_bvecfree( li->suffix_massage );
+  			ber_bvarray_free( li->suffix_massage );
  		}
 #endif /* !ENABLE_REWRITE */
 
 		avl_free( li->oc_map.remap, NULL );
-		avl_free( li->oc_map.map, (AVL_FREE) mapping_free );
+		avl_free( li->oc_map.map, mapping_free );
 		avl_free( li->at_map.remap, NULL );
-		avl_free( li->at_map.map, (AVL_FREE) mapping_free );
+		avl_free( li->at_map.map, mapping_free );
 		
 		ldap_pvt_thread_mutex_unlock( &li->conn_mutex );
 		ldap_pvt_thread_mutex_destroy( &li->conn_mutex );

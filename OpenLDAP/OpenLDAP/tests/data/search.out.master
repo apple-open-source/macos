@@ -1,18 +1,16 @@
 dn: cn=Barbara Jensen,ou=Information Technology Division,ou=People,o=Universit
  y of Michigan,c=US
-objectclass: top
-objectclass: person
 objectclass: OpenLDAPperson
 cn: Barbara Jensen
 cn: Babs Jensen
-sn: Jensen
+sn:: IEplbnNlbiA=
 uid: bjensen
 title: Mythical Manager, Research Systems
 postaladdress: ITD Prod Dev & Deployment $ 535 W. William St. Room 4212 $ Ann 
  Arbor, MI 48103-4943
 seealso: cn=All Staff,ou=Groups,o=University of Michigan,c=US
 userpassword:: YmplbnNlbg==
-mail: bjensen@mailgw.umich.edu
+mail: bjensen@mailgw.example.com
 homepostaladdress: 123 Wesley $ Ann Arbor, MI 48103
 description: Mythical manager of the rsdd unix project
 drink: water
@@ -23,8 +21,6 @@ telephonenumber: +1 313 555 9022
 
 dn: cn=Bjorn Jensen,ou=Information Technology Division,ou=People,o=University 
  of Michigan,c=US
-objectclass: top
-objectclass: person
 objectclass: OpenLDAPperson
 cn: Bjorn Jensen
 cn: Biiff Jensen
@@ -37,7 +33,7 @@ drink: Iced Tea
 description: Hiker, biker
 title: Director, Embedded Systems
 postaladdress: Info Tech Division $ 535 W. William St. $ Ann Arbor, MI 48103
-mail: bjorn@mailgw.umich.edu
+mail: bjorn@mailgw.example.com
 homephone: +1 313 555 5444
 pager: +1 313 555 4474
 facsimiletelephonenumber: +1 313 555 2177
@@ -104,8 +100,6 @@ member: cn=John Doe,ou=Information Technology Division,ou=People,o=University
 
 dn: cn=James A Jones 1,ou=Alumni Association,ou=People,o=University of Michiga
  n,c=US
-objectclass: top
-objectclass: person
 objectclass: OpenLDAPperson
 cn: James A Jones 1
 cn: James Jones
@@ -120,7 +114,7 @@ homephone: +1 313 555 4772
 description: Outstanding
 title: Mad Cow Researcher, UM Alumni Association
 pager: +1 313 555 3923
-mail: jaj@mail.alumni.umich.edu
+mail: jaj@mail.alumni.example.com
 facsimiletelephonenumber: +1 313 555 4332
 telephonenumber: +1 313 555 0895
 
@@ -217,17 +211,14 @@ cn: Alumni Assoc Staff
 objectclass: groupofnames
 
 dn: ou=Alumni Association,ou=People,o=University of Michigan,c=US
-objectclass: top
 objectclass: organizationalUnit
 ou: Alumni Association
 
 dn: ou=Groups,o=University of Michigan,c=US
-objectclass: top
 objectclass: organizationalUnit
 ou: Groups
 
 dn: ou=Information Technology Division,ou=People,o=University of Michigan,c=US
-objectclass: top
 objectclass: organizationalUnit
 ou: Information Technology Division
 
@@ -245,7 +236,6 @@ member: cn=John Doe,ou=Information Technology Division,ou=People,o=University
  of Michigan,c=US
 
 dn: cn=Manager,o=University of Michigan,c=US
-objectClass: top
 objectClass: person
 cn: Manager
 cn: Directory Manager
@@ -255,12 +245,10 @@ description: Manager of the directory
 userPassword:: c2VjcmV0
 
 dn: ou=People,o=University of Michigan,c=US
-objectclass: top
 objectclass: organizationalUnit
 ou: People
 
 dn: o=University of Michigan,c=US
-objectclass: top
 objectclass: organization
 objectclass: domainRelatedObject
 l: Ann Arbor, Michigan
@@ -274,5 +262,10 @@ description: The University of Michigan at Ann Arbor
 postaladdress: University of Michigan $ 535 W. William St. $ Ann Arbor, MI 481
  09 $ US
 telephonenumber: +1 313 764-1817
-associateddomain: umich.edu
+associateddomain: example.com
+
+dn: cn=Ursula Hampster,ou=Alumni Association,ou=People,o=University of Michiga
+ n,c=US
+objectClass: OpenLDAPperson
+uid: uham
 

@@ -34,22 +34,33 @@
  ***/
 
 /*
- * GeneralName, used in AuthorityKeyID and SubjectAltName.
+ * GeneralName, used in AuthorityKeyID, SubjectAltName, and 
+ * IssuerAltName. 
  *
  * For now, we just provide explicit support for the types which are
  * represented as IA5Strings, OIDs, and octet strings. Constructed types
  * such as EDIPartyName and x400Address are not explicitly handled
- * right now and must be encoded and decoded by the caller. In those
- * cases the CE_GeneralName.name.Data field represents the BER contents
- * octets; CE_GeneralName.name,Length is the length of the contents; the 
- * tag of the field is not needed - the BER encoding uses context-specific
- * implicit tagging. The berEncoded field is set to CSSM_TRUE in these
- * case. Simple types have berEncoded = CSSM_FALS. 
+ * right now and must be encoded and decoded by the caller. (See exception
+ * for Name and OtherName, below). In those cases the CE_GeneralName.name.Data field 
+ * represents the BER contents octets; CE_GeneralName.name.Length is the 
+ * length of the contents; the tag of the field is not needed - the BER 
+ * encoding uses context-specific implicit tagging. The berEncoded field 
+ * is set to CSSM_TRUE in these case. Simple types have berEncoded = CSSM_FALSE. 
+ *
+ * In the case of a GeneralName in the form of a Name, we parse the Name
+ * into a CSSM_X509_NAME and place a pointer to the CSSM_X509_NAME in the
+ * CE_GeneralName.name.Data field. CE_GeneralName.name.Length is set to 
+ * sizeof(CSSM_X509_NAME). In this case berEncoded is false. 
+ *
+ * In the case of a GeneralName in the form of a OtherName, we parse the fields
+ * into a CE_OtherName and place a pointer to the CE_OtherName in the
+ * CE_GeneralName.name.Data field. CE_GeneralName.name.Length is set to 
+ * sizeof(CE_OtherName). In this case berEncoded is false. 
  *
  *      GeneralNames ::= SEQUENCE SIZE (1..MAX) OF GeneralName
  *
  *      GeneralName ::= CHOICE {
- *           otherName                       [0]     OtherName (i.e., OID),
+ *           otherName                       [0]     OtherName
  *           rfc822Name                      [1]     IA5String,
  *           dNSName                         [2]     IA5String,
  *           x400Address                     [3]     ORAddress,
@@ -78,6 +89,11 @@ typedef enum {
 	GNT_IPAddress,
 	GNT_RegisteredID
 } CE_GeneralNameType;
+
+typedef struct {
+	CSSM_OID				typeId;
+	CSSM_DATA				value;		// unparsed, BER-encoded
+} CE_OtherName;
 
 typedef struct {
 	CE_GeneralNameType		nameType;	// GNT_RFC822Name, etc.
@@ -147,6 +163,35 @@ typedef uint16 CE_KeyUsage;
 #define CE_KU_CRLSign			0x0200
 #define CE_KU_EncipherOnly	 	0x0100
 #define CE_KU_DecipherOnly	 	0x0080
+
+/*
+ *  id-ce-cRLReason OBJECT IDENTIFIER ::= { id-ce 21 }
+ *
+ *   -- reasonCode ::= { CRLReason }
+ *
+ *   CRLReason ::= ENUMERATED {
+ *  	unspecified             (0),
+ *      keyCompromise           (1),
+ *     	cACompromise            (2),
+ *    	affiliationChanged      (3),
+ *   	superseded              (4),
+ *  	cessationOfOperation    (5),
+ * 		certificateHold         (6),
+ *		removeFromCRL           (8) }
+ *
+ * CSSM OID = CSSMOID_CrlReason
+ *
+ */
+typedef uint32 CE_CrlReason;
+
+#define CE_CR_Unspecified			0
+#define CE_CR_KeyCompromise			1
+#define CE_CR_CACompromise			2
+#define CE_CR_AffiliationChanged	3
+#define CE_CR_Superseded			4
+#define CE_CR_CessationOfOperation	5
+#define CE_CR_CertificateHold		6
+#define CE_CR_RemoveFromCRL	 		8
 
 /*
  * id-ce-subjectAltName OBJECT IDENTIFIER ::=  { id-ce 17 }
@@ -235,7 +280,7 @@ typedef struct {
  *
  * We only support down to the level of Qualifier, and then only the CPSuri
  * choice. UserNotice is transmitted to and from this library as a raw
- * CSSM_DATA representing the Contents octets of the BER-encoded UserNotice sequence. 
+ * CSSM_DATA containing the BER-encoded UserNotice sequence. 
  */
 
 typedef struct {
@@ -265,6 +310,128 @@ typedef struct {
 typedef uint16 CE_NetscapeCertType;
 
 /*
+ * CRLDistributionPoints.
+ *
+ *   id-ce-cRLDistributionPoints OBJECT IDENTIFIER ::=  { id-ce 31 }
+ *
+ *   cRLDistributionPoints ::= {
+ *        CRLDistPointsSyntax }
+ *
+ *   CRLDistPointsSyntax ::= SEQUENCE SIZE (1..MAX) OF DistributionPoint
+ *
+ *   NOTE: RFC 2459 claims that the tag for the optional DistributionPointName
+ *   is IMPLICIT as shown here, but in practice it is EXPLICIT. It has to be -
+ *   because the underlying type also uses an implicit tag for distinguish
+ *   between CHOICEs.
+ *
+ *   DistributionPoint ::= SEQUENCE {
+ *        distributionPoint       [0]     DistributionPointName OPTIONAL,
+ *        reasons                 [1]     ReasonFlags OPTIONAL,
+ *        cRLIssuer               [2]     GeneralNames OPTIONAL }
+ *
+ *   DistributionPointName ::= CHOICE {
+ *        fullName                [0]     GeneralNames,
+ *        nameRelativeToCRLIssuer [1]     RelativeDistinguishedName }
+ *
+ *   ReasonFlags ::= BIT STRING {
+ *        unused                  (0),
+ *        keyCompromise           (1),
+ *        cACompromise            (2),
+ *        affiliationChanged      (3),
+ *        superseded              (4),
+ *        cessationOfOperation    (5),
+ *        certificateHold         (6) }
+ *
+ * CSSM OID = CSSMOID_CrlDistributionPoints
+ */
+ 
+/*
+ * Note that this looks similar to CE_CrlReason, but that's an enum and this
+ * is an OR-able bit string.
+ */
+typedef uint8 CE_CrlDistReasonFlags;
+
+#define CE_CD_Unspecified			0x80
+#define CE_CD_KeyCompromise			0x40
+#define CE_CD_CACompromise			0x20
+#define CE_CD_AffiliationChanged	0x10
+#define CE_CD_Superseded			0x08
+#define CE_CD_CessationOfOperation	0x04
+#define CE_CD_CertificateHold		0x02
+
+typedef enum {
+	CE_CDNT_FullName,
+	CE_CDNT_NameRelativeToCrlIssuer
+} CE_CrlDistributionPointNameType;
+
+typedef struct {
+	CE_CrlDistributionPointNameType		nameType;
+	union {
+		CE_GeneralNames					*fullName;
+		CSSM_X509_RDN_PTR				rdn;
+	};
+} CE_DistributionPointName;
+
+/*
+ * The top-level CRLDistributionPoint.
+ * All fields are optional; NULL pointers indicate absence. 
+ */
+typedef struct {
+	CE_DistributionPointName			*distPointName;
+	CSSM_BOOL							reasonsPresent;
+	CE_CrlDistReasonFlags				reasons;
+	CE_GeneralNames						*crlIssuer;
+} CE_CRLDistributionPoint;
+
+typedef struct {
+	uint32								numDistPoints;
+	CE_CRLDistributionPoint				*distPoints;
+} CE_CRLDistPointsSyntax;
+
+
+/*** CRL extensions ***/
+
+/*
+ * cRLNumber, an integer.
+ *
+ * CSSM OID = CSSMOID_CrlNumber
+ */
+typedef uint32 CE_CrlNumber;
+
+/*
+ * deltaCRLIndicator, an integer.
+ *
+ * CSSM OID = CSSMOID_DeltaCrlIndicator
+ */
+typedef uint32 CE_DeltaCrl;
+
+/*
+ * IssuingDistributionPoint
+ *
+ * id-ce-issuingDistributionPoint OBJECT IDENTIFIER ::= { id-ce 28 }
+ *
+ * issuingDistributionPoint ::= SEQUENCE {
+ *      distributionPoint       [0] DistributionPointName OPTIONAL,
+ *		onlyContainsUserCerts   [1] BOOLEAN DEFAULT FALSE,
+ *      onlyContainsCACerts     [2] BOOLEAN DEFAULT FALSE,
+ *      onlySomeReasons         [3] ReasonFlags OPTIONAL,
+ *      indirectCRL             [4] BOOLEAN DEFAULT FALSE }
+ *
+ * CSSM OID = CSSMOID_IssuingDistributionPoint
+ */
+typedef struct {
+	CE_DistributionPointName	*distPointName;		// optional
+	CSSM_BOOL					onlyUserCertsPresent;
+	CSSM_BOOL					onlyUserCerts;
+	CSSM_BOOL					onlyCACertsPresent;
+	CSSM_BOOL					onlyCACerts;
+	CSSM_BOOL					onlySomeReasonsPresent;
+	CE_CrlDistReasonFlags		onlySomeReasons;
+	CSSM_BOOL					indirectCrlPresent;
+	CSSM_BOOL					indirectCrl;
+} CE_IssuingDistributionPoint;
+
+/*
  * An enumerated list identifying one of the above per-extension
  * structs.
  */
@@ -273,26 +440,38 @@ typedef enum {
 	DT_SubjectKeyID,			// CE_SubjectKeyID
 	DT_KeyUsage,				// CE_KeyUsage
 	DT_SubjectAltName,			// implies CE_GeneralName
+	DT_IssuerAltName,			// implies CE_GeneralName
 	DT_ExtendedKeyUsage,		// CE_ExtendedKeyUsage
 	DT_BasicConstraints,		// CE_BasicConstraints
 	DT_CertPolicies,			// CE_CertPolicies
 	DT_NetscapeCertType,		// CE_NetscapeCertType
+	DT_CrlNumber,				// CE_CrlNumber
+	DT_DeltaCrl,				// CE_DeltaCrl
+	DT_CrlReason,				// CE_CrlReason
+	DT_CrlDistributionPoints,	// CE_CRLDistPointsSyntax
+	DT_IssuingDistributionPoint,// CE_IssuingDistributionPoint
 	DT_Other					// unknown, raw data as a CSSM_DATA
 } CE_DataType;
 
 /*
- * One unified representation of all the cert extensions we know about.
+ * One unified representation of all the cert adn CRL extensions we know about.
  */
 typedef union {
-	CE_AuthorityKeyID		authorityKeyID;
-	CE_SubjectKeyID			subjectKeyID;
-	CE_KeyUsage				keyUsage;
-	CE_GeneralNames			subjectAltName;
-	CE_ExtendedKeyUsage		extendedKeyUsage;
-	CE_BasicConstraints		basicConstraints;
-	CE_CertPolicies			certPolicies;
-	CE_NetscapeCertType		netscapeCertType;
-	CSSM_DATA				rawData;			// unknown, not decoded
+	CE_AuthorityKeyID			authorityKeyID;
+	CE_SubjectKeyID				subjectKeyID;
+	CE_KeyUsage					keyUsage;
+	CE_GeneralNames				subjectAltName;
+	CE_GeneralNames				issuerAltName;
+	CE_ExtendedKeyUsage			extendedKeyUsage;
+	CE_BasicConstraints			basicConstraints;
+	CE_CertPolicies				certPolicies;
+	CE_NetscapeCertType			netscapeCertType;
+	CE_CrlNumber				crlNumber;
+	CE_DeltaCrl					deltaCrl;
+	CE_CrlReason				crlReason;
+	CE_CRLDistPointsSyntax		crlDistPoints;
+	CE_IssuingDistributionPoint	issuingDistPoint;
+	CSSM_DATA					rawData;			// unknown, not decoded
 } CE_Data;
 
 typedef struct {

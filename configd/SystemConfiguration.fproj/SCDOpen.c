@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -56,7 +59,6 @@ __SCDynamicStoreCopyDescription(CFTypeRef cf) {
 static void
 __SCDynamicStoreDeallocate(CFTypeRef cf)
 {
-	CFIndex				keyCnt;
 	int				oldThreadState;
 	int				sc_status;
 	kern_return_t			status;
@@ -66,44 +68,6 @@ __SCDynamicStoreDeallocate(CFTypeRef cf)
 	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("__SCDynamicStoreDeallocate:"));
 
 	(void) pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, &oldThreadState);
-
-	/* Remove notification keys */
-	keyCnt = CFSetGetCount(storePrivate->keys);
-	if (keyCnt > 0) {
-		const void	**watchedKeys;
-		CFArrayRef	keysToRemove;
-		CFIndex	i;
-
-		watchedKeys = CFAllocatorAllocate(NULL, keyCnt * sizeof(CFStringRef), 0);
-		CFSetGetValues(storePrivate->keys, watchedKeys);
-		keysToRemove = CFArrayCreate(NULL, watchedKeys, keyCnt, &kCFTypeArrayCallBacks);
-		CFAllocatorDeallocate(NULL, watchedKeys);
-		for (i=0; i<keyCnt; i++) {
-			(void) SCDynamicStoreRemoveWatchedKey(store,
-							      CFArrayGetValueAtIndex(keysToRemove, i),
-							      FALSE);
-		}
-		CFRelease(keysToRemove);
-	}
-
-	/* Remove regex notification keys */
-	keyCnt = CFSetGetCount(storePrivate->reKeys);
-	if (keyCnt > 0) {
-		const void	**watchedKeys;
-		CFArrayRef	keysToRemove;
-		CFIndex	i;
-
-		watchedKeys = CFAllocatorAllocate(NULL, keyCnt * sizeof(CFStringRef), 0);
-		CFSetGetValues(storePrivate->reKeys, watchedKeys);
-		keysToRemove = CFArrayCreate(NULL, watchedKeys, keyCnt, &kCFTypeArrayCallBacks);
-		CFAllocatorDeallocate(NULL, watchedKeys);
-		for (i=0; i<keyCnt; i++) {
-		       (void) SCDynamicStoreRemoveWatchedKey(store,
-							     CFArrayGetValueAtIndex(keysToRemove, i),
-							     TRUE);
-		}
-		CFRelease(keysToRemove);
-	}
 
 	/* Remove/cancel any outstanding notification requests. */
 	(void) SCDynamicStoreNotifyCancel(store);
@@ -133,7 +97,7 @@ __SCDynamicStoreDeallocate(CFTypeRef cf)
 
 	/* release any keys being watched */
 	CFRelease(storePrivate->keys);
-	CFRelease(storePrivate->reKeys);
+	CFRelease(storePrivate->patterns);
 
 	return;
 }
@@ -157,7 +121,6 @@ static const CFRuntimeClass __SCDynamicStoreClass = {
 
 static pthread_once_t initialized	= PTHREAD_ONCE_INIT;
 
-
 static void
 __SCDynamicStoreInitialize(void) {
 	__kSCDynamicStoreTypeID = _CFRuntimeRegisterClass(&__SCDynamicStoreClass);
@@ -165,76 +128,76 @@ __SCDynamicStoreInitialize(void) {
 }
 
 
-SCDynamicStoreRef
+SCDynamicStorePrivateRef
 __SCDynamicStoreCreatePrivate(CFAllocatorRef		allocator,
 			     const CFStringRef		name,
 			     SCDynamicStoreCallBack	callout,
 			     SCDynamicStoreContext	*context)
 {
-	SCDynamicStorePrivateRef	store;
-	UInt32				size;
+	uint32_t			size;
+	SCDynamicStorePrivateRef	storePrivate;
 
 	/* initialize runtime */
 	pthread_once(&initialized, __SCDynamicStoreInitialize);
 
 	/* allocate session */
 	size  = sizeof(SCDynamicStorePrivate) - sizeof(CFRuntimeBase);
-	store = (SCDynamicStorePrivateRef)_CFRuntimeCreateInstance(allocator,
-								   __kSCDynamicStoreTypeID,
-								   size,
-								   NULL);
-	if (!store) {
+	storePrivate = (SCDynamicStorePrivateRef)_CFRuntimeCreateInstance(allocator,
+									  __kSCDynamicStoreTypeID,
+									  size,
+									  NULL);
+	if (!storePrivate) {
 		return NULL;
 	}
 
 	/* server side of the "configd" session */
-	store->server = MACH_PORT_NULL;
+	storePrivate->server = MACH_PORT_NULL;
 
 	/* flags */
-	store->locked = FALSE;
-
-	/* SCDKeys being watched */
-	store->keys   = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
-	store->reKeys = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
+	storePrivate->locked = FALSE;
 
 	/* Notification status */
-	store->notifyStatus		= NotifierNotRegistered;
+	storePrivate->notifyStatus			= NotifierNotRegistered;
 
 	/* "client" information associated with SCDynamicStoreCreateRunLoopSource() */
-	store->rlsRefs				= 0;
-	store->rls				= NULL;
-	store->rlsFunction			= callout;
-	store->rlsContext.info			= NULL;
-	store->rlsContext.retain		= NULL;
-	store->rlsContext.release		= NULL;
-	store->rlsContext.copyDescription	= NULL;
+	storePrivate->rlsRefs				= 0;
+	storePrivate->rls				= NULL;
+	storePrivate->rlsFunction			= callout;
+	storePrivate->rlsContext.info			= NULL;
+	storePrivate->rlsContext.retain			= NULL;
+	storePrivate->rlsContext.release		= NULL;
+	storePrivate->rlsContext.copyDescription	= NULL;
 	if (context) {
-		bcopy(context, &store->rlsContext, sizeof(SCDynamicStoreContext));
+		bcopy(context, &storePrivate->rlsContext, sizeof(SCDynamicStoreContext));
 		if (context->retain) {
-			store->rlsContext.info = (void *)context->retain(context->info);
+			storePrivate->rlsContext.info = (void *)context->retain(context->info);
 		}
 	}
 
 	/* "client" information associated with SCDynamicStoreNotifyCallback() */
-	store->callbackFunction		= NULL;
-	store->callbackArgument		= NULL;
-	store->callbackPort		= NULL;
-	store->callbackRunLoop		= NULL;
-	store->callbackRunLoopSource	= NULL;
+	storePrivate->callbackFunction			= NULL;
+	storePrivate->callbackArgument			= NULL;
+	storePrivate->callbackPort			= NULL;
+	storePrivate->callbackRunLoop			= NULL;
+	storePrivate->callbackRunLoopSource		= NULL;
+
+	/* "server" information associated with SCDynamicStoreSetNotificationKeys() */
+	storePrivate->keys				= CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
+	storePrivate->patterns				= CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
 
 	/* "server" information associated with SCDynamicStoreNotifyMachPort(); */
-	store->notifyPort		= MACH_PORT_NULL;
-	store->notifyPortIdentifier	= 0;
+	storePrivate->notifyPort			= MACH_PORT_NULL;
+	storePrivate->notifyPortIdentifier		= 0;
 
 	/* "server" information associated with SCDynamicStoreNotifyFileDescriptor(); */
-	store->notifyFile		= -1;
-	store->notifyFileIdentifier	= 0;
+	storePrivate->notifyFile			= -1;
+	storePrivate->notifyFileIdentifier		= 0;
 
 	/* "server" information associated with SCDynamicStoreNotifySignal(); */
-	store->notifySignal		= 0;
-	store->notifySignalTask		= TASK_NULL;
+	storePrivate->notifySignal			= 0;
+	storePrivate->notifySignalTask			= TASK_NULL;
 
-	return (SCDynamicStoreRef)store;
+	return storePrivate;
 }
 
 
@@ -244,30 +207,32 @@ SCDynamicStoreCreate(CFAllocatorRef		allocator,
 		     SCDynamicStoreCallBack	callout,
 		     SCDynamicStoreContext	*context)
 {
-	SCDynamicStoreRef		store;
 	SCDynamicStorePrivateRef	storePrivate;
 	kern_return_t			status;
 	mach_port_t			bootstrap_port;
+	CFBundleRef			bundle;
+	CFStringRef			bundleID	= NULL;
 	mach_port_t			server;
 	char				*server_name;
-	CFDataRef			xmlName;		/* serialized name */
+	CFDataRef			utfName;		/* serialized name */
 	xmlData_t			myNameRef;
 	CFIndex				myNameLen;
 	int				sc_status;
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreCreate:"));
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  name = %@"), name);
+	if (_sc_verbose) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreCreate:"));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  name = %@"), name);
+	}
 
 	/*
 	 * allocate and initialize a new session
 	 */
-	store        = __SCDynamicStoreCreatePrivate(allocator, name, callout, context);
-	storePrivate = (SCDynamicStorePrivateRef)store;
+	storePrivate = __SCDynamicStoreCreatePrivate(allocator, name, callout, context);
 
 	status = task_get_bootstrap_port(mach_task_self(), &bootstrap_port);
 	if (status != KERN_SUCCESS) {
 		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("task_get_bootstrap_port(): %s"), mach_error_string(status));
-		CFRelease(store);
+		CFRelease(storePrivate);
 		_SCErrorSet(status);
 		return NULL;
 	}
@@ -284,51 +249,85 @@ SCDynamicStoreCreate(CFAllocatorRef		allocator,
 			break;
 		case BOOTSTRAP_UNKNOWN_SERVICE :
 			/* service not currently registered, try again later */
-			CFRelease(store);
+			CFRelease(storePrivate);
 			_SCErrorSet(status);
 			return NULL;
 			break;
 		default :
 #ifdef	DEBUG
-			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("bootstrap_status: %s"), mach_error_string(status));
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("bootstrap_look_up() failed: status=%d"), status);
 #endif	/* DEBUG */
-			CFRelease(store);
+			CFRelease(storePrivate);
 			_SCErrorSet(status);
 			return NULL;
 	}
 
 	/* serialize the name */
-	if (!_SCSerialize(name, &xmlName, (void **)&myNameRef, &myNameLen)) {
+	bundle = CFBundleGetMainBundle();
+	if (bundle) {
+		bundleID = CFBundleGetIdentifier(bundle);
+		if (bundleID) {
+			CFRetain(bundleID);
+		} else {
+			CFURLRef	url;
+
+			url = CFBundleCopyExecutableURL(bundle);
+			if (url) {
+				bundleID = CFURLCopyPath(url);
+				CFRelease(url);
+			}
+		}
+	}
+
+	if (bundleID) {
+		CFStringRef	fullName;
+
+		if (CFEqual(bundleID, CFSTR("/"))) {
+			CFRelease(bundleID);
+			bundleID = CFStringCreateWithFormat(NULL, NULL, CFSTR("(%d)"), getpid());
+		}
+
+		fullName = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@:%@"), bundleID, name);
+		name = fullName;
+		CFRelease(bundleID);
+	} else {
+		CFRetain(name);
+	}
+
+	if (!_SCSerializeString(name, &utfName, (void **)&myNameRef, &myNameLen)) {
+		CFRelease(name);
 		_SCErrorSet(kSCStatusFailed);
 		return NULL;
 	}
+	CFRelease(name);
 
 	/* open a new session with the server */
 	status = configopen(server, myNameRef, myNameLen, &storePrivate->server, (int *)&sc_status);
 
 	/* clean up */
-	CFRelease(xmlName);
+	CFRelease(utfName);
 
 	if (status != KERN_SUCCESS) {
 		if (status != MACH_SEND_INVALID_DEST)
 			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("configopen(): %s"), mach_error_string(status));
-		CFRelease(store);
+		CFRelease(storePrivate);
 		_SCErrorSet(status);
 		return NULL;
 	}
 
 	if (sc_status != kSCStatusOK) {
-		CFRelease(store);
+		CFRelease(storePrivate);
 		_SCErrorSet(sc_status);
-		return FALSE;
+		return NULL;
 	}
 
 	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  server port = %d"), storePrivate->server);
-	return store;
+	return (SCDynamicStoreRef)storePrivate;
 }
 
 
 CFTypeID
 SCDynamicStoreGetTypeID(void) {
+	pthread_once(&initialized, __SCDynamicStoreInitialize);	/* initialize runtime */
 	return __kSCDynamicStoreTypeID;
 }

@@ -5,7 +5,7 @@
 #                            | (__| |_| |  _ <| |___ 
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 2000, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 2002, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # In order to be useful for every potential user, curl and libcurl are
 # dual-licensed under the MPL and the MIT/X-derivate licenses.
@@ -18,7 +18,7 @@
 # This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 # KIND, either express or implied.
 #
-# $Id: Makefile,v 1.1.1.2 2001/04/24 18:48:59 wsanchez Exp $
+# $Id: Makefile,v 1.1.1.3 2002/11/26 19:07:36 zarzycki Exp $
 #############################################################################
 
 all:
@@ -34,22 +34,28 @@ borland:
 	cd src & make -f Makefile.b32
 
 mingw32:
-	cd lib & make -f Makefile.m32
-	cd src & make -f Makefile.m32
+	cd lib & make -f Makefile.m32 ZLIB=1
+	cd src & make -f Makefile.m32 ZLIB=1
 
 mingw32-ssl:
-	cd lib & make -f Makefile.m32 SSL=1
-	cd src & make -f Makefile.m32 SSL=1
+	cd lib & make -f Makefile.m32 SSL=1 ZLIB=1
+	cd src & make -f Makefile.m32 SSL=1 ZLIB=1
 
 vc:
 	cd lib
-	nmake -f Makefile.vc6
+	nmake -f Makefile.vc6 cfg=release
 	cd ..\src
 	nmake -f Makefile.vc6
 
 vc-ssl:
 	cd lib
-	nmake -f Makefile.vc6 release-ssl
+	nmake -f Makefile.vc6 cfg=release-ssl
+	cd ..\src
+	nmake -f Makefile.vc6 cfg=release-ssl
+
+vc-ssl-dll:
+	cd lib
+	nmake -f Makefile.vc6 cfg=release-ssl-dll
 	cd ..\src
 	nmake -f Makefile.vc6
 

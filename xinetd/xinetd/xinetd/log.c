@@ -29,15 +29,15 @@
 
 static char ipv6_ret[NI_MAXHOST];
 
-char *xaddrname(const union xsockaddr *inaddr)
+const char *xaddrname(const union xsockaddr *inaddr)
 {
-   int len = 0;
+   unsigned int len = 0;
    if( inaddr->sa.sa_family == AF_INET )  len = sizeof(struct sockaddr_in);
    if( inaddr->sa.sa_family == AF_INET6 ) len = sizeof(struct sockaddr_in6);
    memset(ipv6_ret, 0, sizeof(ipv6_ret));
    if( getnameinfo(&inaddr->sa, len, ipv6_ret, sizeof(ipv6_ret), NULL, 
          0, NI_NUMERICHOST) )
-      return "<unknown>";
+      strncpy(ipv6_ret, "<unknown>", NI_MAXHOST);
    return ipv6_ret;
 }
 
@@ -167,7 +167,7 @@ void svc_log_exit( struct service *sp, const struct server *serp )
    if ( SC_LOGS_EXITS( scp ) )
    {
       int num  = 0;
-      char *s ;
+      const char *s ;
 
       if ( PROC_EXITED( exit_status ) )
       {
@@ -220,7 +220,8 @@ void svc_log_exit( struct service *sp, const struct server *serp )
  * going through the proper channels (i.e. log_{success,failure} and log_exit)
  */
 /* VARARGS3 */
-void svc_logprint( struct service *sp, char *line_id, const char *fmt, ...)
+void svc_logprint( struct service *sp, const char *line_id, 
+                   const char *fmt, ...)
 {
    char     buf[ LOGBUF_SIZE ] ;
    int      bufsize = sizeof( buf ) ;

@@ -250,6 +250,47 @@ status_e wait_parser( pset_h values,
    return( OK ) ;
 }
 
+#ifdef HAVE_DNSREGISTRATION
+status_e mdns_parser( pset_h values, 
+                      struct service_config *scp, 
+                      enum assign_op op )
+{
+   char *val = (char *) pset_pointer( values, 0 ) ;
+   const char *func = "mdns_parser" ;
+
+   if ( EQ( val, "yes" ) )
+      scp->sc_mdns = YES ;
+   else if ( EQ( val, "no" ) )
+      scp->sc_mdns = NO ;
+   else
+   {
+      parsemsg( LOG_ERR, func, "Bad value for mdns: %s", val ) ;
+      return( FAILED );
+   }
+   return( OK ) ;
+}
+#endif
+
+#ifdef HAVE_SESSIONCREATE
+status_e sessioncreate_parser( pset_h values, 
+                      struct service_config *scp, 
+                      enum assign_op op )
+{
+   char *val = (char *) pset_pointer( values, 0 ) ;
+   const char *func = "session_parser" ;
+
+   if ( EQ( val, "yes" ) )
+      scp->sc_sessioncreate = YES ;
+   else if ( EQ( val, "no" ) )
+      scp->sc_sessioncreate = NO ;
+   else
+   {
+      parsemsg( LOG_ERR, func, "Bad value for session_create: %s", val ) ;
+      return( FAILED );
+   }
+   return( OK ) ;
+}
+#endif
 
 status_e user_parser( pset_h values, 
                       struct service_config *scp, 
@@ -409,6 +450,7 @@ status_e server_args_parser( pset_h values,
    if ( count == 0 )
    {
        missing_attr_msg("server_args_parser", "server_args");
+       free( (char *) argv ) ;
        return FAILED;
    }
    
@@ -931,7 +973,7 @@ static status_e parse_log_flags( pset_h values,
                                   enum assign_op op, 
                                   mask_t *maskp, 
                                   const struct name_value options[], 
-                                  char *name )
+                                  const char *name )
 {
    if ( op == SET_EQ )
    {
@@ -989,6 +1031,14 @@ static status_e parse_inet_addresses( pset_h values,
    for ( u = 0 ; u < pset_count( values ) ; u++ )
    {
       register char *str_addr = (char *) pset_pointer( values, u ) ;
+
+      if (strchr(str_addr, ','))
+      {
+         parsemsg( LOG_ERR, func, 
+             "Address: %s has a comma in it - remove the comma", 
+             str_addr ) ;
+         return( FAILED );
+      }
 
       if ( (*addrlist_func)( addr_set, str_addr ) == FAILED )
       {
@@ -1174,26 +1224,30 @@ status_e bind_parser( pset_h values,
    char *adr = (char *)pset_pointer(values, 0);
    const char *func = "bind_parser";
    struct addrinfo hints, *res, *ressave;
-   int numeric, addr_cnt = 0;
+   int addr_cnt = 0;
 
    memset(&hints, 0, sizeof(hints));
    hints.ai_flags = AI_CANONNAME;
+
+   /*
+    * Use tcp to cut down returned address records. Get addrinfo normally
+    * returns 2 address records, one for each socket type.
+    */
+   hints.ai_socktype = SOCK_STREAM;
+   
    if (check_hostname(adr) == 0)
    {
       hints.ai_family = AF_INET;
       hints.ai_flags |= AI_NUMERICHOST;
-      numeric = 1;
    }
    else if (strchr(adr, ':'))
    {
       hints.ai_family = AF_INET6;
       hints.ai_flags |= AI_NUMERICHOST;
-      numeric = 2;
    }
    else
    {
       hints.ai_family = AF_UNSPEC;
-      numeric = 0;
    }
    
    if( getaddrinfo(adr, NULL, &hints, &res) < 0 ) {
@@ -1226,7 +1280,7 @@ status_e bind_parser( pset_h values,
       {
          parsemsg(LOG_ERR, func, "can't allocate space for bind addr");
          return( FAILED );
-      }
+      } 
       memcpy(scp->sc_bind_addr, res->ai_addr, res->ai_addrlen);
    }	   
    else

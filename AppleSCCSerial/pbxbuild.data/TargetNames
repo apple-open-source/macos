@@ -1,0 +1,5 @@
+if [ "${Target}" = "AppleSCCSerial" ]; then
+	Targets='AppleSCCSerial'
+else
+	Targets='AppleSCCSerial'
+fi

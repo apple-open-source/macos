@@ -1310,10 +1310,12 @@ with SIGHUP.")
   frames_discard_buffer (buf);
   Vinhibit_quit = tem;
 
-  /* Delete any auto-save file, if we saved it in this session.  */
+  /* Delete any auto-save file, if we saved it in this session.
+     But not if the buffer is modified.  */
   if (STRINGP (b->auto_save_file_name)
       && b->auto_save_modified != 0
-      && BUF_SAVE_MODIFF (b) < b->auto_save_modified)
+      && BUF_SAVE_MODIFF (b) < b->auto_save_modified
+      && BUF_SAVE_MODIFF (b) < BUF_MODIFF (b))
     {
       Lisp_Object tem;
       tem = Fsymbol_value (intern ("delete-auto-save-files"));
@@ -1444,7 +1446,9 @@ record_buffer (buf)
 }
 
 DEFUN ("set-buffer-major-mode", Fset_buffer_major_mode, Sset_buffer_major_mode, 1, 1, 0,
-  "Set an appropriate major mode for BUFFER, according to `default-major-mode'.\n\
+  "Set an appropriate major mode for BUFFER.\n\
+For the *scratch* buffer use `initial-major-mode', otherwise choose a\n\
+mode according to `default-major-mode'.\n\
 Use this function before selecting the buffer, since it may need to inspect\n\
 the current buffer's major mode.")
   (buffer)
@@ -1453,10 +1457,17 @@ the current buffer's major mode.")
   int count;
   Lisp_Object function;
 
-  function = buffer_defaults.major_mode;
-  if (NILP (function) && NILP (Fget (current_buffer->major_mode, Qmode_class)))
-    function = current_buffer->major_mode;
-
+  if (STRINGP (XBUFFER (buffer)->name)
+      && strcmp (XSTRING (XBUFFER (buffer)->name)->data, "*scratch*") == 0)
+    function = find_symbol_value (intern ("initial-major-mode"));
+  else
+    {
+      function = buffer_defaults.major_mode;
+      if (NILP (function)
+	  && NILP (Fget (current_buffer->major_mode, Qmode_class)))
+	function = current_buffer->major_mode;
+    }
+  
   if (NILP (function) || EQ (function, Qfundamental_mode))
     return Qnil;
 
@@ -5381,17 +5392,17 @@ Automatically becomes buffer-local when set in any fashion.\n");
   DEFVAR_PER_BUFFER ("scroll-up-aggressively",
 		     &current_buffer->scroll_up_aggressively, Qnil,
     "*If a number, scroll display up aggressively.\n\
-If scrolling a window because point is above the window start, choose\n\
+If scrolling a window because point is below the window end, choose\n\
 a new window start so that point ends up that fraction of the window's\n\
-height from the top of the window.\n\
+height from the bottom of the window.\n\
 Automatically becomes buffer-local when set in any fashion.");
   
   DEFVAR_PER_BUFFER ("scroll-down-aggressively",
 		     &current_buffer->scroll_down_aggressively, Qnil,
     "*If a number, scroll display down aggressively.\n\
-If scrolling a window because point is below the window end, choose\n\
+If scrolling a window because point is above the window start, choose\n\
 a new window start so that point ends up that fraction of the window's\n\
-height from the bottom of the window.\n\
+height from the top of the window.\n\
 Automatically becomes buffer-local when set in any fashion.");
   
 /*DEFVAR_LISP ("debug-check-symbol", &Vcheck_symbol,

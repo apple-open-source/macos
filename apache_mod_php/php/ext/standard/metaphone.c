@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Thies C. Arntzen <thies@thieso.net>						  |
+   | Author: Thies C. Arntzen <thies@thieso.net>                          |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: metaphone.c,v 1.1.1.5 2001/12/14 22:13:24 zarzycki Exp $ */
+/* $Id: metaphone.c,v 1.1.1.8 2003/07/18 18:07:43 zarzycki Exp $ */
 
 /*
 	Based on CPANs "Text-Metaphone-1.96" by Michael G Schwern <schwern@pobox.com> 
@@ -25,28 +25,23 @@
 #include "php.h"
 #include "php_metaphone.h"
 
-static int metaphone(char *word, int max_phonemes, char **phoned_word, int traditional);
-
-PHP_FUNCTION(metaphone);
+static int metaphone(char *word, int word_len, int max_phonemes, char **phoned_word, int traditional);
 
 /* {{{ proto string metaphone(string text, int phones)
    Break english phrases down into their phonemes */
 PHP_FUNCTION(metaphone)
 {
-	pval **pstr, **pphones;
+	char *str;
 	char *result = 0;
-	int phones = 0;
+	int str_len;
+	long phones = 0;
 
-	if (zend_get_parameters_ex(2, &pstr, &pphones) == SUCCESS) {
-		convert_to_long_ex(pphones);
-		phones = (*pphones)->value.lval;
-	} else if (zend_get_parameters_ex(1, &pstr) == FAILURE) {
-		WRONG_PARAM_COUNT;
+	if (zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s|l", &str, &str_len,
+							  &phones) == FAILURE) {
+		return;
 	}
 
-	convert_to_string_ex(pstr);
-
-	if (metaphone((*pstr)->value.str.val, phones, &result, 1) == 0) {
+	if (metaphone(str, str_len, phones, &result, 1) == 0) {
 		RETVAL_STRING(result, 0);
 	} else {
 		if (result) {
@@ -143,8 +138,19 @@ static char Lookahead(char *word, int how_far)
 }
 
 
-/* phonize one letter */
-#define Phonize(c)	{(*phoned_word)[p_idx++] = c;}
+/* phonize one letter
+ * We don't know the buffers size in advance. On way to solve this is to just
+ * re-allocate the buffer size. We're using an extra of 2 characters (this
+ * could be one though; or more too). */
+#define Phonize(c)	{ \
+						if (p_idx >= max_buffer_len) { \
+							if (NULL == (*phoned_word = erealloc(*phoned_word, max_buffer_len + 2))) { \
+								return -1; \
+							} \
+							max_buffer_len += 2; \
+						} \
+						(*phoned_word)[p_idx++] = c; \
+					}
 /* Slap a null character on the end of the phoned word */
 #define End_Phoned_Word	{(*phoned_word)[p_idx] = '\0';}
 /* How long is the phoned word? */
@@ -155,10 +161,11 @@ static char Lookahead(char *word, int how_far)
 
 /* {{{ metaphone
  */
-static int metaphone(char *word, int max_phonemes, char **phoned_word, int traditional)
+static int metaphone(char *word, int word_len, int max_phonemes, char **phoned_word, int traditional)
 {
 	int w_idx = 0;				/* point in the phonization we're at. */
 	int p_idx = 0;				/* end of the phoned phrase */
+	int max_buffer_len = 0;		/* maximum length of the destination buffer */
 
 /*-- Parameter checks --*/
 	/* Negative phoneme length is meaningless */
@@ -175,11 +182,13 @@ static int metaphone(char *word, int max_phonemes, char **phoned_word, int tradi
 
 /*-- Allocate memory for our phoned_phrase --*/
 	if (max_phonemes == 0) {	/* Assume largest possible */
-		*phoned_word = emalloc(sizeof(char) * strlen(word) + 1);
+		max_buffer_len = word_len;
+		*phoned_word = safe_emalloc(sizeof(char), word_len, 1);
 		if (!*phoned_word)
 			return -1;
 	} else {
-		*phoned_word = emalloc(sizeof(char) * max_phonemes + 1);
+		max_buffer_len = max_phonemes;
+		*phoned_word = safe_emalloc(sizeof(char), max_phonemes, 1);
 		if (!*phoned_word)
 			return -1;
 	}
@@ -468,6 +477,6 @@ static int metaphone(char *word, int max_phonemes, char **phoned_word, int tradi
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

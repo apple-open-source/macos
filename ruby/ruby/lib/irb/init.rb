@@ -1,8 +1,8 @@
 #
 #   irb/init.rb - irb initialize module
 #   	$Release Version: 0.7.3$
-#   	$Revision: 1.1.1.1 $
-#   	$Date: 2002/05/27 17:59:49 $
+#   	$Revision: 1.1.1.2 $
+#   	$Date: 2003/05/14 13:58:49 $
 #   	by Keiju ISHITSUKA(keiju@ishitsuka.com)
 #
 # --
@@ -56,6 +56,12 @@ module IRB
 	:RETURN => "%s\n"
       },
       :DEFAULT => {
+	:PROMPT_I => "%N(%m):%03n:%i> ",
+	:PROMPT_S => "%N(%m):%03n:%i%l ",
+	:PROMPT_C => "%N(%m):%03n:%i* ",
+	:RETURN => "=> %s\n"
+      },
+      :CLASSIC => {
 	:PROMPT_I => "%N(%m):%03n:%i> ",
 	:PROMPT_S => "%N(%m):%03n:%i%l ",
 	:PROMPT_C => "%N(%m):%03n:%i* ",

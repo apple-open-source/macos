@@ -41,7 +41,7 @@
 #include <sys/fcntl.h>
 #include <sys/stat.h>
 #include <mach/boolean.h>
-#include <dev/disk.h>
+#include <sys/disk.h>
 
 void
 usage()

@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE jboss PUBLIC
+   "-//JBoss//DTD JBOSS 3.2//EN"
+   "http://www.jboss.org/j2ee/dtd/jboss_3_2.dtd">
+
+<jboss>
+   <container-configurations>
+      <container-configuration extends="Standard Stateful SessionBean">
+         <!-- Override the cache policy to allow a max of one bean -->
+         <container-name>MaxOne Stateful Session</container-name>
+         <container-cache-conf>
+            <cache-policy>org.jboss.ejb.plugins.LRUStatefulContextCachePolicy</cache-policy>
+            <cache-policy-conf>
+               <min-capacity>1</min-capacity>
+               <max-capacity>1</max-capacity>
+               <!-- Times are in seconds -->
+               <!-- How often to check for beans with an expired max-bean-life -->
+               <remover-period>20</remover-period>
+               <!-- How often to check for beans with an expired max-bean-age -->
+               <overager-period>15</overager-period>
+               <!-- How long before a bean is a candidate for passivation -->
+               <max-bean-age>15</max-bean-age>
+               <!-- How long before a passivated bean is a candidate for removal -->
+               <max-bean-life>45</max-bean-life>
+            </cache-policy-conf>
+         </container-cache-conf>
+      </container-configuration>
+
+      <container-configuration extends="Standard Stateless SessionBean">
+         <container-name>Strictly Pooled Stateless SessionBean</container-name>
+         <container-pool-conf>
+            <MaximumSize>5</MaximumSize>
+            <MinimumSize>1</MinimumSize>
+            <strictMaximumSize>true</strictMaximumSize>
+         </container-pool-conf>
+      </container-configuration>
+
+      <container-configuration extends="Standard Stateful SessionBean">
+         <container-name>Strictly Pooled Stateful SessionBean</container-name>
+         <container-pool-conf>
+            <MaximumSize>5</MaximumSize>
+            <MinimumSize>1</MinimumSize>
+            <strictMaximumSize>true</strictMaximumSize>
+         </container-pool-conf>
+      </container-configuration>
+
+      <container-configuration extends="Standard Message Driven Bean">
+         <container-name>Strictly Pooled Message Driven Bean</container-name>
+         <container-pool-conf>
+            <MaximumSize>5</MaximumSize>
+            <MinimumSize>1</MinimumSize>
+            <strictMaximumSize>true</strictMaximumSize>
+         </container-pool-conf>
+      </container-configuration>
+
+   </container-configurations>
+
+   <enterprise-beans>
+      <session>
+         <ejb-name>StatefulSessionBean</ejb-name>
+         <jndi-name>ejbcts/StatefulSessionBean</jndi-name>
+         <configuration-name>MaxOne Stateful Session</configuration-name>
+      </session>
+      <session>
+         <ejb-name>FacadeStatefulSessionBean</ejb-name>
+         <jndi-name>ejbcts/FacadeStatefulSessionBean</jndi-name>
+      </session>
+      <session>
+         <ejb-name>StatelessSessionBean</ejb-name>
+         <jndi-name>ejbcts/StatelessSessionHome</jndi-name>
+      </session>
+      <session>
+         <ejb-name>StrictlyPooledStatelessBean</ejb-name>
+         <jndi-name>ejbcts/StrictlyPooledStatelessBean</jndi-name>
+         <configuration-name>Strictly Pooled Stateless SessionBean</configuration-name>
+      </session>
+      <session>
+         <ejb-name>StrictlyPooledStatefulBean</ejb-name>
+         <jndi-name>ejbcts/StrictlyPooledStatefulBean</jndi-name>
+         <configuration-name>Strictly Pooled Stateful SessionBean</configuration-name>
+      </session>
+      <session>
+         <ejb-name>CallerSessionBean</ejb-name>
+         <jndi-name>ejbcts/CallerSessionHome</jndi-name>
+         <ejb-ref>
+            <ejb-ref-name>ejb/CalleeHome</ejb-ref-name>
+            <jndi-name>ejbcts/CalleeSessionHome</jndi-name>
+         </ejb-ref>
+      </session>
+      <session>
+         <ejb-name>CalleeSessionBean</ejb-name>
+         <jndi-name>ejbcts/CalleeSessionHome</jndi-name>
+         <invoker-bindings>
+            <invoker>
+               <invoker-proxy-binding-name>call-by-value-jrmp</invoker-proxy-binding-name>
+            </invoker>
+         </invoker-bindings>
+      </session>
+
+      <entity>
+         <ejb-name>BMPBean</ejb-name>
+         <jndi-name>ejbcts/BMPBean</jndi-name>
+         <resource-ref>
+            <res-ref-name>datasource</res-ref-name>
+            <resource-name>datasource</resource-name>
+         </resource-ref>
+      </entity>
+      <entity>
+         <ejb-name>BMPCallbackBean</ejb-name>
+         <jndi-name>ejbcts/BMPCallbackBean</jndi-name>
+         <resource-ref>
+            <res-ref-name>datasource</res-ref-name>
+            <resource-name>datasource</resource-name>
+         </resource-ref>
+      </entity>
+      <entity>
+         <ejb-name>CMPBean</ejb-name>
+         <jndi-name>ejbcts/CMPBean</jndi-name>
+      </entity>
+
+      <message-driven>
+         <ejb-name>StrictlyPooledMDB</ejb-name>
+         <destination-jndi-name>queue/A</destination-jndi-name>
+         <configuration-name>Strictly Pooled Message Driven Bean</configuration-name>
+      </message-driven>
+   </enterprise-beans>
+
+   <invoker-proxy-bindings>
+      <invoker-proxy-binding>
+         <name>call-by-value-jrmp</name>
+         <invoker-mbean>jboss:service=invoker,type=jrmp</invoker-mbean>
+         <proxy-factory>org.jboss.proxy.ejb.ProxyFactory</proxy-factory>
+         <proxy-factory-config>
+           <client-interceptors>
+              <home>
+                 <interceptor>org.jboss.proxy.ejb.HomeInterceptor</interceptor>
+                 <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+                 <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+                 <interceptor>org.jboss.invocation.ByValueInvokerInterceptor</interceptor>
+              </home>
+              <bean>
+                 <interceptor>org.jboss.proxy.ejb.StatelessSessionInterceptor</interceptor>
+                 <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+                 <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+                 <interceptor>org.jboss.invocation.ByValueInvokerInterceptor</interceptor>
+              </bean>
+           </client-interceptors>
+         </proxy-factory-config>
+      </invoker-proxy-binding>
+   </invoker-proxy-bindings>
+</jboss>

@@ -8,7 +8,7 @@
 
 @c The edition number appears in several places in this file
 @set EDITION   Fourteenth
-@set EMACSVER  21.1
+@set EMACSVER  21.2
 
 @ifnottex
 This is the @value{EDITION} edition of the @cite{GNU Emacs Manual},
@@ -23,7 +23,7 @@ Published by the Free Software Foundation
 59 Temple Place, Suite 330
 Boston, MA  02111-1307 USA
 
-Copyright (C) 1985, 1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001
+Copyright (C) 1985,1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001,2002
    Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
@@ -60,12 +60,12 @@ Software Foundation raise funds for GNU development.''
 @center Richard Stallman
 @page
 @vskip 0pt plus 1filll
-Copyright @copyright{} 1985, 1986, 1987, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001
+Copyright @copyright{} 1985, 1986, 1987, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
    Free Software Foundation, Inc.
 @sp 2
 @value{EDITION} Edition @*
 Updated for Emacs Version @value{EMACSVER}, @*
-August 2000
+March 2002
 
 ISBN 1-882114-06-X
 @sp 1
@@ -99,7 +99,7 @@ Emacs is the extensible, customizable, self-documenting real-time
 display editor.  This Info file describes how to edit with Emacs and
 some of how to customize it; it corresponds to GNU Emacs version
 @value{EMACSVER}.
-For information on extending Emacs, see @ref{,Emacs Lisp,, elisp, The
+For information on extending Emacs, see @ref{Top, Emacs Lisp,, elisp, The
 Emacs Lisp Reference Manual}.
 @end ifnottex
 
@@ -576,7 +576,9 @@ Running Debuggers Under Emacs
 Maintaining Programs
 
 * Change Log::	        Maintaining a change history for your program.
+@ignore
 * Authors::             Maintaining the Emacs @file{AUTHORS} file.
+@end ignore
 * Tags::	        Go direct to any function in your program in one
 			  command.  Tags remembers which file it is in.
 * Emerge::	        A convenient way of merging two versions of a program.

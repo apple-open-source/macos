@@ -1,5 +1,5 @@
 
-/*  A Bison parser, made from zend_ini_parser.y
+/*  A Bison parser, made from Zend/zend_ini_parser.y
     by GNU Bison version 1.28  */
 
 #define YYBISON 1  /* Identify Bison output.  */
@@ -17,18 +17,17 @@
 #define	CFG_TRUE	260
 #define	CFG_FALSE	261
 
-#line 1 "zend_ini_parser.y"
 
 /*
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2002 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 0.92 of the Zend license,     |
+   | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        |
    | available at through the world-wide-web at                           |
-   | http://www.zend.com/license/0_92.txt.                                |
+   | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
    | license@zend.com so we can mail you a copy immediately.              |
@@ -38,7 +37,7 @@
 */
 
 
-/* $Id: zend_ini_parser.c,v 1.2 2002/03/21 09:17:04 zarzycki Exp $ */
+/* $Id: zend_ini_parser.c,v 1.4 2003/07/22 19:56:23 zarzycki Exp $ */
 
 #define DEBUG_CFG_PARSER 0
 #include "zend.h"
@@ -77,7 +76,6 @@ zval yylval;
 #ifndef ZTS
 extern int ini_lex(zval *ini_lval TSRMLS_DC);
 extern FILE *ini_in;
-extern int ini_lineno;
 extern void init_cfg_scanner(void);
 #endif
 
@@ -161,13 +159,13 @@ static void ini_error(char *str)
 		fprintf(stderr, "PHP:  %s", error_buf);
 #endif
 	} else {
-		zend_error(E_CORE_WARNING, error_buf);
+		zend_error(E_WARNING, error_buf);
 	}
 	efree(error_buf);
 }
 
 
-int zend_parse_ini_file(zend_file_handle *fh, zend_bool unbuffered_errors, zend_ini_parser_cb_t ini_parser_cb, void *arg)
+ZEND_API int zend_parse_ini_file(zend_file_handle *fh, zend_bool unbuffered_errors, zend_ini_parser_cb_t ini_parser_cb, void *arg)
 {
 	int retval;
 	zend_ini_parser_param ini_parser_param;
@@ -261,8 +259,8 @@ static const short yyrhs[] = {    17,
 
 #if YYDEBUG != 0
 static const short yyrline[] = { 0,
-   190,   192,   195,   204,   205,   206,   210,   212,   213,   214,
-   215,   216,   219,   221,   222,   223,   224,   225,   228
+   189,   191,   194,   203,   204,   205,   209,   211,   212,   213,
+   214,   215,   218,   220,   221,   222,   223,   224,   227
 };
 #endif
 
@@ -326,7 +324,7 @@ static const short yycheck[] = {     0,
 #define YYPURE 1
 
 /* -*-C-*-  Note some compilers choke on comments on `#line' lines.  */
-#line 3 "/usr/share/bison.simple"
+
 /* This file comes from bison-1.28.  */
 
 /* Skeleton output parser for bison,
@@ -540,7 +538,7 @@ __yy_memcpy (char *to, char *from, unsigned int count)
 #endif
 #endif
 
-#line 217 "/usr/share/bison.simple"
+
 
 /* The user can define YYPARSE_PARAM as the name of an argument to be passed
    into yyparse.  The argument should have type void *.
@@ -869,7 +867,6 @@ yyreduce:
   switch (yyn) {
 
 case 3:
-#line 196 "zend_ini_parser.y"
 {
 #if DEBUG_CFG_PARSER
 			printf("'%s' = '%s'\n", yyvsp[-2].value.str.val, yyvsp[0].value.str.val);
@@ -880,68 +877,53 @@ case 3:
 		;
     break;}
 case 4:
-#line 204 "zend_ini_parser.y"
 { ZEND_INI_PARSER_CB(&yyvsp[0], NULL, ZEND_INI_PARSER_ENTRY, ZEND_INI_PARSER_ARG); free(yyvsp[0].value.str.val); ;
     break;}
 case 5:
-#line 205 "zend_ini_parser.y"
 { ZEND_INI_PARSER_CB(&yyvsp[0], NULL, ZEND_INI_PARSER_SECTION, ZEND_INI_PARSER_ARG); free(yyvsp[0].value.str.val); ;
     break;}
 case 7:
-#line 211 "zend_ini_parser.y"
 { yyval = yyvsp[0]; ;
     break;}
 case 8:
-#line 212 "zend_ini_parser.y"
 { yyval = yyvsp[0]; ;
     break;}
 case 9:
-#line 213 "zend_ini_parser.y"
 { yyval = yyvsp[0]; ;
     break;}
 case 10:
-#line 214 "zend_ini_parser.y"
 { yyval = yyvsp[0]; ;
     break;}
 case 11:
-#line 215 "zend_ini_parser.y"
 { yyval.value.str.val = strdup(""); yyval.value.str.len=0; yyval.type = IS_STRING; ;
     break;}
 case 12:
-#line 216 "zend_ini_parser.y"
 { yyval.value.str.val = strdup(""); yyval.value.str.len=0; yyval.type = IS_STRING; ;
     break;}
 case 13:
-#line 220 "zend_ini_parser.y"
 { yyval = yyvsp[0]; ;
     break;}
 case 14:
-#line 221 "zend_ini_parser.y"
 { zend_ini_do_op('|', &yyval, &yyvsp[-2], &yyvsp[0]); ;
     break;}
 case 15:
-#line 222 "zend_ini_parser.y"
 { zend_ini_do_op('&', &yyval, &yyvsp[-2], &yyvsp[0]); ;
     break;}
 case 16:
-#line 223 "zend_ini_parser.y"
 { zend_ini_do_op('~', &yyval, &yyvsp[0], NULL); ;
     break;}
 case 17:
-#line 224 "zend_ini_parser.y"
 { zend_ini_do_op('!', &yyval, &yyvsp[0], NULL); ;
     break;}
 case 18:
-#line 225 "zend_ini_parser.y"
 { yyval = yyvsp[-1]; ;
     break;}
 case 19:
-#line 229 "zend_ini_parser.y"
 { zend_ini_get_constant(&yyval, &yyvsp[0]); ;
     break;}
 }
    /* the action file gets copied in in place of this dollarsign */
-#line 543 "/usr/share/bison.simple"
+
 
   yyvsp -= yylen;
   yyssp -= yylen;
@@ -1161,4 +1143,3 @@ yyerrhandle:
     }
   return 1;
 }
-#line 237 "zend_ini_parser.y"

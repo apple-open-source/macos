@@ -1,4 +1,4 @@
-/*	$OpenBSD: readconf.h,v 1.43 2002/06/08 05:17:01 markus Exp $	*/
+/*	$OpenBSD: readconf.h,v 1.46 2003/04/01 10:22:21 markus Exp $	*/
 
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
@@ -47,6 +47,15 @@ typedef struct {
 #if defined(AFS) || defined(KRB5)
 	int     kerberos_tgt_passing;	/* Try Kerberos TGT passing. */
 #endif
+
+#ifdef GSSAPI
+	int 	gss_authentication;
+	int	gss_deleg_creds;
+#ifdef GSI
+	int	gss_globus_deleg_limited_proxy;
+#endif /* GSI */
+#endif /* GSSAPI */
+
 #ifdef AFS
 	int     afs_token_passing;	/* Try AFS token passing. */
 #endif
@@ -99,6 +108,8 @@ typedef struct {
 	int     num_remote_forwards;
 	Forward remote_forwards[SSH_MAX_FORWARDS_PER_DIRECTION];
 	int	clear_forwardings;
+
+	int	enable_ssh_keysign;
 	int	no_host_authentication_for_localhost;
 }       Options;
 

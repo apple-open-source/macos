@@ -1,7 +1,7 @@
 /* ====================================================================
  * The Apache Software License, Version 1.1
  *
- * Copyright (c) 2000-2002 The Apache Software Foundation.  All rights
+ * Copyright (c) 2000-2003 The Apache Software Foundation.  All rights
  * reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -280,7 +280,7 @@ static int check_user_access(request_rec *r)
 	if (strcmp(w, "file-owner") == 0) {
 #if defined(WIN32) || defined(NETWARE) || defined(OS2)
             ap_log_rerror(APLOG_MARK, APLOG_NOERRNO|APLOG_INFO, r,
-                          "'Require file-user' not supported "
+                          "'Require file-owner' not supported "
                           "on this platform, ignored");
             continue;
 #else

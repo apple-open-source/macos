@@ -185,7 +185,7 @@ static OSStatus ssl3DecryptRecord(
     		*payload, 
     		&ctx->readCipher, 
     		ctx)) != 0)
-    {   SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);
+    {   SSLFatalSessionAlert(SSL_AlertDecryptionFail, ctx);
         return err;
     }
     
@@ -195,10 +195,10 @@ static OSStatus ssl3DecryptRecord(
     if (ctx->readCipher.symCipher->blockSize > 0)
     {   /* padding can't be equal to or more than a block */
         if (payload->data[payload->length - 1] >= ctx->readCipher.symCipher->blockSize)
-        {   SSLFatalSessionAlert(SSL_AlertUnexpectedMsg, ctx);
+        {   SSLFatalSessionAlert(SSL_AlertDecryptionFail, ctx);
         	sslErrorLog("DecryptSSLRecord: bad padding length (%d)\n", 
         		(unsigned)payload->data[payload->length - 1]);
-            return errSSLProtocol;
+            return errSSLDecryptionFail;
         }
         content.length -= 1 + payload->data[payload->length - 1];  
 						/* Remove block size padding */
@@ -210,7 +210,7 @@ static OSStatus ssl3DecryptRecord(
         if ((err = SSLVerifyMac(type, content, 
 				payload->data + content.length, ctx)) != 0)
         {   SSLFatalSessionAlert(SSL_AlertBadRecordMac, ctx);
-            return err;
+            return errSSLBadRecordMac;
         }
     
     *payload = content;     /* Modify payload buffer to indicate content length */

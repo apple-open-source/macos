@@ -41,12 +41,39 @@ extern char * CFURLCopyCString(CFURLRef anURL);
 
 extern const char * progname;
 
-/* Open Firmware has an upper limit of 8MB on file transfers,
+/* Open Firmware has an upper limit of 16MB on file transfers,
  * so we'll limit ourselves just beneath that.
  */
-#define kMkxtDefaultSize ((8 * 1024 * 1024) - 256)
+#define kOpenFirmwareMaxFileSize (16 * 1024 * 1024)
 
+typedef struct {
+    unsigned long length;
+    u_int8_t * start;
+    u_int8_t * end;
+    u_int8_t * compression_loc;
+} archive_file;
 
+static int resizeArchive(archive_file * archive, unsigned long increaseBy)
+{
+    unsigned long compression_offset =
+        archive->compression_loc - archive->start;
+    unsigned long new_length;
+
+    if (increaseBy < archive->length) {
+        new_length = 2 * archive->length;
+    } else {
+        new_length = archive->length + increaseBy;
+    }
+
+    archive->start = (u_int8_t *)realloc(archive->start, new_length);
+    if (!archive->start) {
+        return 0;
+    }
+    archive->length = new_length;
+    archive->end = archive->start + archive->length;
+    archive->compression_loc = archive->start + compression_offset;
+    return 1;
+}
 
 /*******************************************************************************
 *
@@ -56,14 +83,14 @@ extern const char * progname;
 // readable or the size is 0, then just return immediately
 static int compressFile(
     const char *fileName,
-    u_int8_t * archiveStart,
-    u_int8_t * archiveEnd,
+    archive_file * archive,
     mkext_file * file,
-    u_int8_t ** compression_dst,
     const char * archName,
     cpu_type_t archCPU,
     cpu_subtype_t archSubtype,
-    int verbose_level)
+    int verbose_level,
+    unsigned long * uncompressedSize,
+    unsigned long * compressedSize)
 {
     int result = 1;
     struct stat statbuf;
@@ -85,7 +112,7 @@ static int compressFile(
         goto finish;
     }
 
-    if (!compression_dst || !*compression_dst) {
+    if (!archive->compression_loc) {
         fprintf(stderr, "no data to compress\n");
         result = 0;
         goto finish;
@@ -128,30 +155,66 @@ static int compressFile(
         goto finish;
     }
 
+    if (uncompressedSize) {
+        *uncompressedSize = size;
+    }
+
     if (verbose_level >= 2) {
         fprintf(stdout, "compressing %s %ld => ", fileName, (size_t)size);
     }
 
-    dstend = compress_lzss(*compression_dst, archiveEnd - *compression_dst,
-        data, size);
+    dstend = compress_lzss(archive->compression_loc,
+        archive->end - archive->compression_loc, data, size);
     if (!dstend) {
-        if (verbose_level >= 2) {
-            fprintf(stdout, "\n\n");
+        if (!resizeArchive(archive, size * 2)) {
+            fprintf(stderr, "failed to resize archive buffer\n");
+            result = 0;
+            goto finish;
         }
-        fprintf(stderr, "resulting mkext file would be too large; aborting\n");
-        result = -1;
-        goto finish; // FIXME: mkextcache used to exit with EX_SOFTWARE
+        dstend = compress_lzss(archive->compression_loc,
+            archive->end - archive->compression_loc, data, size);
+        if (!dstend) {
+            fprintf(stderr, "2nd try at compression after resize failed\n");
+            result = 0;
+            goto finish;
+        }
     }
-    file->offset       = NXSwapHostLongToBig(*compression_dst - archiveStart);
+
+    if (archive->length > kOpenFirmwareMaxFileSize) {
+        fflush(stdout);
+        fprintf(stderr, "archive would be too large; aborting\n");
+        fflush(stderr);
+        result = -1;
+        goto finish;
+    }
+
+    file->offset       = NXSwapHostLongToBig(archive->compression_loc - archive->start);
     file->realsize     = NXSwapHostLongToBig((size_t) size);
-    file->compsize     = NXSwapHostLongToBig(dstend - *compression_dst);
+    file->compsize     = NXSwapHostLongToBig(dstend - archive->compression_loc);
     file->modifiedsecs = NXSwapHostLongToBig(statbuf.st_mtimespec.tv_sec);
 
-    if (dstend >= *compression_dst + size) {
+    if (dstend >= archive->compression_loc + size) {
+        if (size > archive->end - archive->compression_loc) {
+            if (!resizeArchive(archive, size - (archive->end - archive->compression_loc))) {
+                fprintf(stderr, "failed to resize archive buffer\n");
+                result = 0;
+                goto finish;
+            }
+        }
         // Compression grew the code so copy in clear - already compressed?
         file->compsize = 0;
-        memcpy(*compression_dst, data, (size_t) size);
-        dstend = *compression_dst + size;
+        memcpy(archive->compression_loc, data, (size_t) size);
+        dstend = archive->compression_loc + size;
+    }
+
+    if (archive->length > kOpenFirmwareMaxFileSize) {
+        fprintf(stderr, "archive would be too large; aborting\n");
+        result = -1;
+        goto finish;
+    }
+
+    if (compressedSize) {
+        *compressedSize = dstend - archive->compression_loc;
     }
 
     if (file->compsize && verbose_level >= 3) {
@@ -159,8 +222,8 @@ static int compressFile(
 
         chkbuf = (u_int8_t *)malloc((size_t)size);
 
-        chklen = decompress_lzss(chkbuf, *compression_dst,
-            dstend - *compression_dst);
+        chklen = decompress_lzss(chkbuf, archive->compression_loc,
+            dstend - archive->compression_loc);
         if (chklen != (size_t)size) {
             if (verbose_level >= 2) {
                 fprintf(stdout, "\n\n");
@@ -197,7 +260,7 @@ static int compressFile(
         goto finish; // FIXME: mkextcache use to exit with EX_SOFTWARE
     }
 
-    *compression_dst = dstend;
+    archive->compression_loc = dstend;
 
 finish:
     if (fd != -1) {
@@ -211,16 +274,12 @@ finish:
     return result;
 }
 
-
-
 /*******************************************************************************
 *
 *******************************************************************************/
 static Boolean addKextToMkextArchive(KXKextRef aKext,
-    mkext_header *mkextArchive,
-    u_int8_t *archiveEnd,
+    archive_file *archive,
     mkext_kext *curkext,
-    u_int8_t **compression_dst,
     const char * archName,
     cpu_type_t archCPU,
     cpu_subtype_t archSubtype,
@@ -234,6 +293,8 @@ static Boolean addKextToMkextArchive(KXKextRef aKext,
     const char * executable_path = NULL;    // don't free; set to one of following
     const char * empty_executable_path = "";    // don't free
     char * alloced_executable_path = NULL; // must free
+    unsigned long uncompressedSize;
+    unsigned long compressedSize;
 
     kextBundle = KXKextGetBundle(aKext);
     if (!kextBundle) {
@@ -256,9 +317,9 @@ static Boolean addKextToMkextArchive(KXKextRef aKext,
         goto finish;
     }
 
-    switch (compressFile(info_dict_path, 
-        (u_int8_t *)mkextArchive, archiveEnd, &curkext->plist, compression_dst,
-        archName, archCPU, archSubtype, verbose_level)) {
+    switch (compressFile(info_dict_path, archive,
+        &curkext->plist, archName, archCPU, archSubtype, verbose_level,
+        &uncompressedSize, &compressedSize)) {
 
       case -1:
         /* terminating error; log nothing, just wrap up */
@@ -300,9 +361,9 @@ static Boolean addKextToMkextArchive(KXKextRef aKext,
    /* Note this function must be called even with no executable file in
     * order to set up the mkext file's data structures.
     */
-    switch (compressFile(executable_path,
-        (u_int8_t *)mkextArchive, archiveEnd, &curkext->module, compression_dst,
-        archName, archCPU, archSubtype, verbose_level)) {
+    switch (compressFile(executable_path, archive, &curkext->module,
+        archName, archCPU, archSubtype, verbose_level,
+        &uncompressedSize, &compressedSize)) {
 
       case -1:
         /* terminating error; log nothing, just wrap up */
@@ -333,27 +394,24 @@ finish:
 /*******************************************************************************
 *
 *******************************************************************************/
-Boolean createMkextArchive(CFDictionaryRef kextDict,
+ssize_t createMkextArchive(
+    int fd,
+    CFDictionaryRef kextDict,
     const char * mkextFilename,
     const char * archName,
     cpu_type_t archCPU,
     cpu_subtype_t archSubtype,
     int verbose_level)
 {
-    Boolean result = true;
     CFIndex count = 0;
     CFIndex i;
-    int fd = -1;
+    ssize_t bytes_written = -1;
 
     mkext_header * mkextArchive = 0;
-    u_int8_t * mkextArchiveEnd = 0;
     u_int8_t * adler_point = 0;
 
     KXKextRef * kexts = NULL;  // must release
-    kern_return_t kern_result;
-    vm_address_t archive_vm_addr = 0;  // must vm_deallocate
-
-    u_int8_t * compression_dst;
+    archive_file archive;
 
     const char * output_filename = NULL; // don't free
 
@@ -363,32 +421,23 @@ Boolean createMkextArchive(CFDictionaryRef kextDict,
         output_filename = mkextFilename;
     }
 
-    fd = open(output_filename, O_WRONLY|O_CREAT|O_TRUNC, 0666);
-    if (-1 == fd) {
-        fprintf(stderr, "can't create %s - %s\n", output_filename,
-            strerror(errno));
-        result = false;
-        goto finish;  // FIXME: mkextcache used to exit with EX_CANTCREAT
-    }
-
+    archive.start = NULL;
     count = CFDictionaryGetCount(kextDict);
     if (!count) {
         fprintf(stderr, "couldn't find any valid bundles to archive\n");
-        result = false;
         goto finish;  // FIXME: mkextcache used to exit with EX_NOINPUT
     }
 
-    kern_result = vm_allocate(mach_task_self(),
-                      &archive_vm_addr, kMkxtDefaultSize, VM_FLAGS_ANYWHERE);
-    if (kern_result != KERN_SUCCESS) {
-        fprintf(stderr, "failed to allocate address space - %s\n",
-            mach_error_string(kern_result));
-        result = false;
+    archive.start = (u_int8_t *)malloc(kOpenFirmwareMaxFileSize);
+    if (!archive.start) {
+        fprintf(stderr, "failed to allocate address space\n");
         goto finish;  // FIXME: mkextcache used to exit with EX_OSERR
     }
 
-    mkextArchive = (mkext_header *)archive_vm_addr;
-    mkextArchiveEnd = (u_int8_t *)(archive_vm_addr + kMkxtDefaultSize);
+    archive.length = kOpenFirmwareMaxFileSize;
+    archive.end = archive.start + kOpenFirmwareMaxFileSize;
+
+    mkextArchive = (mkext_header *)archive.start;
     mkextArchive->magic = NXSwapHostIntToBig(MKEXT_MAGIC);
     mkextArchive->signature = NXSwapHostIntToBig(MKEXT_SIGN);
     mkextArchive->version = NXSwapHostIntToBig(0x01008000);   // 'vers' 1.0.0
@@ -396,18 +445,15 @@ Boolean createMkextArchive(CFDictionaryRef kextDict,
     mkextArchive->cputype = NXSwapHostIntToBig(archCPU);
     mkextArchive->cpusubtype = NXSwapHostIntToBig(archSubtype);
 
-    adler_point = (UInt8 *)&mkextArchive->version;
-
     // Set the pointer for the compressed data stream to the
     // first byte after the kext list in the header section.
-    compression_dst = (u_int8_t *)&mkextArchive->kext[count];
+    archive.compression_loc = (u_int8_t *)&mkextArchive->kext[count];
 
    /* Prepare to iterate over the kexts in the dictionary.
     */
     kexts = (KXKextRef *)malloc(count * sizeof(KXKextRef));
     if (!kexts) {
         fprintf(stderr, "memory allocation failure\n");
-        result = true;
         goto finish;
     }
     CFDictionaryGetKeysAndValues(kextDict, NULL, (const void **)kexts);
@@ -415,25 +461,27 @@ Boolean createMkextArchive(CFDictionaryRef kextDict,
     for (i = 0; i < count; i++) {
         KXKextRef thisKext = kexts[i];
 
-        result = addKextToMkextArchive(thisKext,
-            mkextArchive, mkextArchiveEnd,
-            &mkextArchive->kext[i], &compression_dst,
-            archName, archCPU, archSubtype, verbose_level);
-        if (!result) {
+        // keep resetting this in case the archive buffer
+        // gets reallocated :-O
+        mkextArchive = (mkext_header *)archive.start;
+        if (! addKextToMkextArchive(thisKext, &archive,
+            &mkextArchive->kext[i],
+            archName, archCPU, archSubtype, verbose_level)) {
             // addKextToMkextArchive() printed an error message
             goto finish;
         }
     }
 
-    mkextArchive->length = NXSwapHostIntToBig(compression_dst -
+    adler_point = (UInt8 *)&mkextArchive->version;
+    mkextArchive->length = NXSwapHostIntToBig(archive.compression_loc -
         (u_int8_t *)mkextArchive);
     mkextArchive->adler32 = NXSwapHostIntToBig(local_adler32(adler_point,
-        compression_dst - adler_point));
+        archive.compression_loc - adler_point));
 
     if (fd != -1) {
-        ssize_t bytes_written = 0;
         ssize_t bytes_length = 0;
 
+        bytes_written = 0;
         bytes_length = NXSwapBigIntToHost(mkextArchive->length);
         while (bytes_written < bytes_length) {
             int write_result;
@@ -442,7 +490,7 @@ Boolean createMkextArchive(CFDictionaryRef kextDict,
             if (write_result < 0) {
                 fprintf(stderr, "write failed for %s - %s\n", output_filename,
                     strerror(errno));
-                result = false;
+                bytes_written = -1;
                 goto finish;  // FIXME: mkextcache used to exit with EX_IOERR
             }
             bytes_written += write_result;
@@ -459,21 +507,24 @@ Boolean createMkextArchive(CFDictionaryRef kextDict,
     }
 
 finish:
-    if (!result && fd != -1) {
-        if (-1 == unlink(output_filename)) {
-            fprintf(stderr, "can't remove file %s - %s\n", output_filename,
-                strerror(errno));
-        }
-    }
-
-    if (fd != -1) {
-        close(fd);
-    }
     if (kexts)  free(kexts);
-    if (archive_vm_addr) {
-        kern_result = vm_deallocate(mach_task_self(), archive_vm_addr,
-            kMkxtDefaultSize);
+    if (archive.start) {
+        free(archive.start);
     }
 
-    return result;
+    return bytes_written;
+}
+
+
+/*******************************************************************************
+* Returns true if the file is an acceptable size,
+* or false if it's too large.
+*******************************************************************************/
+Boolean checkMkextArchiveSize( ssize_t size )
+{
+    if (size > kOpenFirmwareMaxFileSize) {
+        return false;
+    } else {
+        return true;
+    }
 }

@@ -59,6 +59,9 @@
 #include <sys/param.h>
 #include <signal.h>
 #include <errno.h>
+#if defined(__DYNAMIC__)
+extern int _sigaction_nobind (int sig, const struct sigaction *nsv, struct sigaction *osv);
+#endif
 
 static int sigvec__(signo, sv, osv, bind)
 	int signo;

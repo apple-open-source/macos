@@ -454,11 +454,15 @@ IOCFSerialize(CFTypeRef object, CFOptionFlags options)
     CFMutableDataRef		data;
     CFMutableDictionaryRef	idrefDict;
     Boolean			ok;
+    CFDictionaryKeyCallBacks	idrefCallbacks;
 
     if ((!object) || (options)) return 0;
 
+    idrefCallbacks = kCFTypeDictionaryKeyCallBacks;
+    // only use pointer equality for these keys
+    idrefCallbacks.equal = NULL;
     idrefDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
-                              &kCFTypeDictionaryKeyCallBacks,
+                              &idrefCallbacks,
                               &kCFTypeDictionaryValueCallBacks);
     data = CFDataCreateMutable(kCFAllocatorDefault, 0);
     assert(data && idrefDict);

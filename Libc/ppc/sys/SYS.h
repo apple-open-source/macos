@@ -118,7 +118,7 @@ LEAF(_##name)					@\
 	li	r0,SYS_##name			@\
 	sc					@\
 	b	1f   				@\
-	b	2f				@\
+	blr					@\
 1:	BRANCH_EXTERN(cerror)			@\
 .text						\
 2:	nop

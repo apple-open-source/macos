@@ -33,34 +33,37 @@ class KCCursorImpl : public SecCFObject, public CssmAutoQuery
 {
     NOCOPY(KCCursorImpl)
 public:
+	SECCFFUNCTIONS(KCCursorImpl, SecKeychainSearchRef, errSecInvalidSearchRef)
+
     friend class KCCursor;
 protected:
 	KCCursorImpl(const StorageManager::KeychainList &searchList, SecItemClass itemClass, const SecKeychainAttributeList *attrList);
 	KCCursorImpl(const StorageManager::KeychainList &searchList, const SecKeychainAttributeList *attrList);
 
 public:
-	virtual ~KCCursorImpl();
+	virtual ~KCCursorImpl() throw();
 	bool next(Item &item);
 
 private:
 	StorageManager::KeychainList mSearchList;
 	StorageManager::KeychainList::iterator mCurrent;
 	CssmClient::DbCursor mDbCursor;
+	bool mAllFailed;
 };
 
 
-class KCCursor : public RefPointer<KCCursorImpl>
+class KCCursor : public SecPointer<KCCursorImpl>
 {
 public:
     KCCursor() {}
     
-    KCCursor(KCCursorImpl *impl) : RefPointer<KCCursorImpl>(impl) {}
+    KCCursor(KCCursorImpl *impl) : SecPointer<KCCursorImpl>(impl) {}
 
     KCCursor(const StorageManager::KeychainList &searchList, const SecKeychainAttributeList *attrList)
-	: RefPointer<KCCursorImpl>(new KCCursorImpl(searchList, attrList)) {}
+	: SecPointer<KCCursorImpl>(new KCCursorImpl(searchList, attrList)) {}
 
     KCCursor(const StorageManager::KeychainList &searchList, SecItemClass itemClass, const SecKeychainAttributeList *attrList)
-	: RefPointer<KCCursorImpl>(new KCCursorImpl(searchList, itemClass, attrList)) {}
+	: SecPointer<KCCursorImpl>(new KCCursorImpl(searchList, itemClass, attrList)) {}
 
 	typedef KCCursorImpl Impl;
 };

@@ -11,7 +11,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: error.test,v 1.1.1.4 2000/12/06 23:04:05 wsanchez Exp $
+# RCS: @(#) $Id: error.test,v 1.1.1.5 2003/03/06 00:12:49 landonf Exp $
 
 if {[lsearch [namespace children] ::tcltest] == -1} {
     package require tcltest
@@ -44,6 +44,8 @@ test error-1.2 {simple errors from commands} {
 test error-1.3 {simple errors from commands} {
     catch {format [string index]} b
     set errorInfo
+    # this used to return '... while executing ...', but
+    # string index is fully compiled as of 8.4a3
 } {wrong # args: should be "string index string charIndex"
     while executing
 "string index"}

@@ -28,6 +28,8 @@
 
 #include <PBKDF2/HMACSHA1.h>
 #include <PBKDF2/pbkdf2.h>
+#include <PBKDF2/pbkdDigest.h>
+#include <MiscCSPAlgs/pkcs12Derive.h>
 #include "AppleCSPSession.h"
 #include "AppleCSPUtils.h"
 #include "cspdebugging.h"
@@ -124,9 +126,7 @@ void AppleCSPSession::DeriveKey_PBKDF2(
  * Member function initially declared for CSPAbstractPluginSession;
  * we're overriding the null version in CSPFullPluginSession.
  *
- * Currently we only support one derive key algorithm - 
- * CSSM_ALGID_PKCS5_PBKDF2, with PRF CSSM_PKCS5_PBKDF2_PRF_HMAC_SHA1 
- * PRF. We'll generate any type of key (for now). 
+ * We'll generate any type of key (for now). 
  */
 void AppleCSPSession::DeriveKey(
 	CSSM_CC_HANDLE CCHandle,
@@ -142,6 +142,8 @@ void AppleCSPSession::DeriveKey(
 	switch(context.algorithm()) {
 		case CSSM_ALGID_PKCS5_PBKDF2:
 		case CSSM_ALGID_DH:
+		case CSSM_ALGID_PKCS12_PBE_ENCR:
+		case CSSM_ALGID_PKCS12_PBE_MAC:
 			break;
 		/* maybe more here, later */
 		default:
@@ -197,6 +199,12 @@ void AppleCSPSession::DeriveKey(
 				keyData,
 				*this);
 			break;
+		case CSSM_ALGID_PKCS12_PBE_ENCR:
+		case CSSM_ALGID_PKCS12_PBE_MAC:
+			DeriveKey_PKCS12(context,
+				Param,
+				keyData);
+			break;
 		/* maybe more here, later */
 		default:
 			assert(0);
@@ -211,7 +219,8 @@ void AppleCSPSession::DeriveKey(
 		CSSM_KEYCLASS_SESSION_KEY, 
 		KeyAttr, 
 		KeyUsage);
-	hdr.LogicalKeySizeInBits = reqKeySize;
+	/* handle derived size < requested size, legal for Diffie-Hellman */
+	hdr.LogicalKeySizeInBits = keyData->Length * 8;
 	
 	if(keyStorage == CKS_Ref) {
 		/* store and convert to ref key */

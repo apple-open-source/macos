@@ -1,9 +1,9 @@
 /*
- * "$Id: classes.h,v 1.1.1.2 2002/02/10 04:51:31 jlovell Exp $"
+ * "$Id: classes.h,v 1.1.1.6 2002/12/24 00:07:26 jlovell Exp $"
  *
  *   Printer class definitions for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -39,5 +39,5 @@ extern void		SaveAllClasses(void);
 
 
 /*
- * End of "$Id: classes.h,v 1.1.1.2 2002/02/10 04:51:31 jlovell Exp $".
+ * End of "$Id: classes.h,v 1.1.1.6 2002/12/24 00:07:26 jlovell Exp $".
  */

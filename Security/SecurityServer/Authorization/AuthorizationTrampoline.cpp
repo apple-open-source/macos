@@ -64,7 +64,7 @@ int main(int argc, const char *argv[])
 	const char *pathToTool = argv[1];
 	const char *mboxFdText = argv[2];
 	const char **restOfArguments = argv + 3;
-	debug("authtramp", "trampoline(%s,%s)", pathToTool, mboxFdText);
+	secdebug("authtramp", "trampoline(%s,%s)", pathToTool, mboxFdText);
 
     // read the external form
     AuthorizationExternalForm extForm;
@@ -81,7 +81,7 @@ int main(int argc, const char *argv[])
 	AuthorizationRef auth;
 	if (OSStatus error = AuthorizationCreateFromExternalForm(&extForm, &auth))
 		fail(error);
-	debug("authtramp", "authorization recovered");
+	secdebug("authtramp", "authorization recovered");
 	
 	// are we allowed to do this?
 	AuthorizationItem right = { EXECUTERIGHT, 0, NULL, 0 };
@@ -110,10 +110,10 @@ int main(int argc, const char *argv[])
 	// note how this overwrites a known-existing argv element (that we copied earlier)
 	*(--restOfArguments) = pathToTool;
 	
-	debug("authtramp", "trampoline executes %s", pathToTool);
+	secdebug("authtramp", "trampoline executes %s", pathToTool);
 	Syslog::notice("executing %s", pathToTool);
 	execv(pathToTool, (char *const *)restOfArguments);
-	debug("authexec", "exec(%s) failed (errno=%d)", pathToTool, errno);
+	secdebug("authexec", "exec(%s) failed (errno=%d)", pathToTool, errno);
 	
 	// report failure
 	OSStatus error = errAuthorizationToolExecuteFailure;
@@ -125,6 +125,6 @@ int main(int argc, const char *argv[])
 void fail(OSStatus cause)
 {
 	write(1, &cause, sizeof(cause));	// ignore error - can't do anything if error
-	debug("authtramp", "trampoline aborting with status %ld", cause);
+	secdebug("authtramp", "trampoline aborting with status %ld", cause);
 	exit(1);
 }

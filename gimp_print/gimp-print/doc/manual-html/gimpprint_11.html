@@ -1,0 +1,86 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from .././gimpprint.texi on 22 January 2003 -->
+
+<TITLE>GIMP-Print - Main functions</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_10.html">previous</A>, <A HREF="gimpprint_12.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H2><A NAME="SEC16" HREF="gimpprint_toc.html#TOC16">4.1  Main functions</A></H2>
+<P>
+<A NAME="IDX14"></A>
+
+</P>
+<P>
+These functions are essential to the correct functioning of
+libgimpprint.  All or most other functions in the library depend
+absolutely upon them.  In the case of <CODE>stp_init</CODE>, this function
+<EM>must</EM> be called before any of the other functions in the library.
+
+</P>
+
+<P>
+<A NAME="IDX15"></A>
+<DL>
+<DT><U>Function:</U> int <B>stp_init</B> <I>(void)</I>
+<DD><A NAME="IDX16"></A>
+
+</P>
+<P>
+This function initialises the libgimpprint library. It must be called before
+any of the other libgimpprint functions are called. It is responsible for
+setting up message catalogues (for internationalisation). This function
+may be called more than once, at any stage during the execution of a
+program.
+
+</P>
+<P>
+It returns zero on success, nonzero on failure.
+</DL>
+
+</P>
+<P>
+<CODE>stp_init</CODE> might be used as follows:
+
+</P>
+
+<PRE>
+int
+main (int argc, char **argv)
+{
+  stp_init();
+
+  ...
+
+}
+</PRE>
+
+<P>
+<A NAME="IDX17"></A>
+<DL>
+<DT><U>Function:</U> void * <B>stp_malloc</B> <I>(size_t <VAR>size</VAR>)</I>
+<DD><A NAME="IDX18"></A>
+
+</P>
+<P>
+Where <VAR>size</VAR> is the amount of memory to allocate (in bytes).
+
+</P>
+<P>
+This function allocates memory. It will always return a pointer to the
+allocated memory. It will not return on failure.
+
+</P>
+<P>
+It returns a pointer to the allocated memory.
+</DL>
+
+</P>
+<P><HR><P>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_10.html">previous</A>, <A HREF="gimpprint_12.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+</BODY>
+</HTML>

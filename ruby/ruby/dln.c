@@ -2,16 +2,15 @@
 
   dln.c -
 
-  $Author: jkh $
-  $Date: 2002/05/27 17:59:43 $
+  $Author: melville $
+  $Date: 2003/05/14 13:58:42 $
   created at: Tue Jan 18 17:05:06 JST 1994
 
   Copyright (C) 1993-2000 Yukihiro Matsumoto
 
 **********************************************************************/
 
-#include "config.h"
-#include "defines.h"
+#include "ruby.h"
 #include "dln.h"
 
 #ifdef __CHECKER__
@@ -20,8 +19,9 @@
 #undef USE_DLN_DLOPEN
 #endif
 
+#ifdef USE_DLN_A_OUT
 char *dln_argv0;
-void rb_loaderror();
+#endif
 
 #ifdef _AIX
 #pragma alloca
@@ -81,7 +81,7 @@ char *getenv();
 
 int eaccess();
 
-#if defined(HAVE_DLOPEN) && !defined(USE_DLN_A_OUT) && !defined(_AIX)
+#if defined(HAVE_DLOPEN) && !defined(USE_DLN_A_OUT) && !defined(_AIX) && !defined(__APPLE__)
 /* dynamic load with dlopen() */
 # define USE_DLN_DLOPEN
 #endif
@@ -1222,6 +1222,11 @@ void*
 dln_load(file)
     const char *file;
 {
+#if !defined(_AIX) && !defined(NeXT)
+    const char *error = 0;
+#define DLN_ERROR() (error = dln_strerror(), strcpy(ALLOCA_N(char, strlen(error) + 1), error))
+#endif
+
 #if defined _WIN32 && !defined __CYGWIN__
     HINSTANCE handle;
     char winfile[MAXPATHLEN];
@@ -1236,8 +1241,8 @@ dln_load(file)
     strcpy(winfile, file);
 
     /* Load file */
-    if ((handle =
-	LoadLibraryExA(winfile, NULL, LOAD_WITH_ALTERED_SEARCH_PATH)) == NULL) {
+    if ((handle = LoadLibrary(winfile)) == NULL) {
+	error = dln_strerror();
 	goto failed;
     }
 
@@ -1250,6 +1255,7 @@ dln_load(file)
 #else
 #ifdef USE_DLN_A_OUT
     if (load(file) == -1) {
+	error = dln_strerror();
 	goto failed;
     }
     return 0;
@@ -1274,10 +1280,12 @@ dln_load(file)
 
 	/* Load file */
 	if ((handle = (void*)dlopen(file, RTLD_LAZY|RTLD_GLOBAL)) == NULL) {
+	    error = dln_strerror();
 	    goto failed;
 	}
 
 	if ((init_fct = (void(*)())dlsym(handle, buf)) == NULL) {
+	    error = DLN_ERROR();
 	    dlclose(handle);
 	    goto failed;
 	}
@@ -1386,12 +1394,9 @@ dln_load(file)
 	NSLinkModule(obj_file, file, NSLINKMODULE_OPTION_BINDNOW);
 
 	/* lookup the initial function */
-	/*NSIsSymbolNameDefined require function name without "_" */
-	if(NSIsSymbolNameDefined(buf + 1)) {
+	if(!NSIsSymbolNameDefined(buf)) {
 	    rb_loaderror("Failed to lookup Init function %.200s",file);
-	}
-
-	/* NSLookupAndBindSymbol require function name with "_" !! */
+	}	
 	init_fct = NSAddressOfSymbol(NSLookupAndBindSymbol(buf));
 	(*init_fct)();
 
@@ -1496,14 +1501,14 @@ dln_load(file)
 #endif /* __MACOS__ */
 
 #ifndef DLN_DEFINED
-    rb_notimplement("dynamic link not supported");
+    rb_notimplement();
 #endif
 
 #endif /* USE_DLN_A_OUT */
 #endif
 #if !defined(_AIX) && !defined(NeXT)
   failed:
-    rb_loaderror("%s - %s", dln_strerror(), file);
+    rb_loaderror("%s - %s", error, file);
 #endif
 }
 

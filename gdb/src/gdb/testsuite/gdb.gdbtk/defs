@@ -276,14 +276,14 @@ proc gdbtk_dotests {file args} {
 
 proc gdbtk_test_done {} {
   global _test env
-  
+
   if {$_test(logfile) != ""} {
     close $_test(logfile)
   }
 
   set env(GDBTK_TEST_RUNNING) 0
   if {![info exists _test(interactive)] || !$_test(interactive)} {
-    gdb_force_quit
+    gdbtk_force_quit
   }
 }
 

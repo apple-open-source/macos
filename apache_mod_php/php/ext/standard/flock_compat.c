@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Sascha Schumann <sascha@schumann.cx>                        |
+   | Author: Sascha Schumann <sascha@schumann.cx>                         |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: flock_compat.c,v 1.1.1.4 2001/12/14 22:13:20 zarzycki Exp $ */
+/* $Id: flock_compat.c,v 1.1.1.7 2003/07/18 18:07:43 zarzycki Exp $ */
 
 #include <php.h>
 #include <errno.h>
@@ -25,6 +25,7 @@
 #if HAVE_STRUCT_FLOCK
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/file.h>
 #endif
 
 #ifdef PHP_WIN32
@@ -32,8 +33,22 @@
 #include <io.h>
 #endif
 
+#ifdef NETWARE
+#ifdef NEW_LIBC
+#include <netinet/in.h>
+#else
+#include <sys/socket.h>
+#endif
+#endif
+
 #ifndef HAVE_FLOCK
-int flock(int fd, int operation)
+PHPAPI int flock(int fd, int operation)
+{
+	return php_flock(fd, operation);
+}
+#endif /* !defined(HAVE_FLOCK) */
+
+PHPAPI int php_flock(int fd, int operation)
 #if HAVE_STRUCT_FLOCK
 {
 	struct flock flck;
@@ -149,7 +164,6 @@ int flock(int fd, int operation)
 	return 0;
 }
 #endif
-#endif /* !defined(HAVE_FLOCK) */
 
 #if !(HAVE_INET_ATON)
 /* {{{ inet_aton
@@ -220,6 +234,6 @@ int inet_aton(const char *cp, struct in_addr *ap)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

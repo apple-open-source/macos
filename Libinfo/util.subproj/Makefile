@@ -12,10 +12,10 @@ NAME = util
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Component
 
-CFILES = getgrouplist.c glob.c hton.c putpwpasswd.c pwcache.c rcmd.c\
+CFILES = glob.c hton.c putpwpasswd.c pwcache.c rcmd.c\
          rcmdsh.c
 
-OTHERSRCS = Makefile Makefile.preamble Makefile.postamble rcmd.3
+OTHERSRCS = Makefile Makefile.preamble Makefile.postamble rcmd.3 hosts.equiv.5
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

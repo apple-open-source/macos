@@ -37,7 +37,7 @@
 # if	!defined(lint)
 static char copyright[] =
 "@(#) Copyright 1997 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: dvch.c,v 1.13 2001/08/03 15:09:47 abe Exp $";
+static char *rcsid = "$Id: dvch.c,v 1.14 2002/02/26 15:16:22 abe Exp abe $";
 # endif	/* !defined(lint) */
 
 #include "../lsof.h"
@@ -1325,7 +1325,7 @@ write_dcache()
 	if (BNdev) {
 	    for (i = 0; i < BNdev; i++) {
 		dp = BSdev[i];
-		(void) snpf(buf, sizeof(buf), "%x %ld %s\n", (int)dp->rdev,
+		(void) snpf(buf, sizeof(buf), "%lx %ld %s\n", (long)dp->rdev,
 		    (long)dp->inode, dp->name);
 		if (wr2DCfd(buf, &DCcksum))
 		    return;

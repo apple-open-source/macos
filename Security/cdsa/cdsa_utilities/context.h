@@ -27,6 +27,7 @@
 #include <Security/cssmalloc.h>
 #include <Security/cssmwalkers.h>
 #include <Security/cssmacl.h>	// to serialize/copy access credentials
+#include <Security/cssmdates.h>
 
 #ifdef _CPP_CONTEXT
 # pragma export on
@@ -46,8 +47,7 @@ namespace Security
 //
 class Context : public PodWrapper<Context, CSSM_CONTEXT> {
 public:
-    Context(CSSM_CONTEXT_TYPE type, CSSM_ALGORITHMS algorithmId)
-    { ContextType = type; AlgorithmType = algorithmId; }
+    Context(CSSM_CONTEXT_TYPE type, CSSM_ALGORITHMS algorithmId);
 
     uint32 attributesInUse() const { return NumberOfAttributes; }
     CSSM_CONTEXT_TYPE type() const { return ContextType; }
@@ -103,10 +103,13 @@ public:
         operator CSSM_DL_DB_HANDLE &() const
         {
 			assert(baseType() == CSSM_ATTRIBUTE_DATA_DL_DB_HANDLE);
-			if (Attribute.DLDbHandle == NULL)
+			if (Attribute.DLDBHandle == NULL)
 				CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_DL_DB_HANDLE);
-			return *Attribute.DLDbHandle;
+			return *Attribute.DLDBHandle;
 		}
+        operator CssmDate & () const
+        { assert(baseType() == CSSM_ATTRIBUTE_DATA_DATE);
+		  return CssmDate::overlay(*Attribute.Date); }
         // @@@ etc. etc. - add yours today!
 
         void operator = (uint32 value) { Attribute.Uint32 = value; }
@@ -214,6 +217,7 @@ namespace DataWalkers
 template <class Action>
 void walk(Action &operate, CSSM_CONTEXT_ATTRIBUTE &attr)
 {
+	operate(attr);
     switch (attr.AttributeType & CSSM_ATTRIBUTE_TYPE_MASK) {
         case CSSM_ATTRIBUTE_DATA_CSSM_DATA:
             walk(operate, attr.Attribute.Data); break;
@@ -232,13 +236,20 @@ void walk(Action &operate, CSSM_CONTEXT_ATTRIBUTE &attr)
         case CSSM_ATTRIBUTE_DATA_VERSION:
             walk(operate, attr.Attribute.Version); break;
         case CSSM_ATTRIBUTE_DATA_DL_DB_HANDLE:
-            walk(operate, attr.Attribute.DLDbHandle); break;
+            walk(operate, attr.Attribute.DLDBHandle); break;
         case CSSM_ATTRIBUTE_NONE:
         case CSSM_ATTRIBUTE_DATA_UINT32:
             break;
         default:
-            assert(false);	// unexpected type
+			secdebug("walkers", "invalid attribute (%lx) in context", attr.AttributeType);
+			break;
     }
+}
+
+template <class Action>
+void walk(Action &operate, Context::Attr &attr)
+{
+	walk(operate, static_cast<CSSM_CONTEXT_ATTRIBUTE &>(attr));
 }
 
 } // end namespace DataWalkers

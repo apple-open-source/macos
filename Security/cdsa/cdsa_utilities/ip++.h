@@ -35,6 +35,7 @@
 #include "timeflow.h"
 #include <sys/types.h>
 #include <sys/ioctl.h>
+#include <sys/un.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <fcntl.h>
@@ -113,6 +114,27 @@ public:
 
 
 //
+// UNIX Domain Socket addresses, for those who care.
+// An "UNAddress", such as it were, is simply a string.
+//
+class UNSockAddress : public sockaddr_un {
+public:
+	UNSockAddress();
+	UNSockAddress(const char *path);
+	UNSockAddress(const std::string &path);
+	
+	string path() const;
+	operator string () const		{ return path(); }
+
+    // automatically convert to struct sockaddr * for use in system calls
+    operator struct sockaddr * ()
+    { return reinterpret_cast<struct sockaddr *>(this); }
+    operator const struct sockaddr * () const
+    { return reinterpret_cast<const struct sockaddr *>(this); }
+};
+
+
+//
 // An IP socket.
 // This inherits all functionality of a FileDesc, so I/O is fun and easy.
 // Socket is "passive"; it doesn't own any resources and does nothing on destruction.
@@ -123,21 +145,27 @@ public:
 class Socket : public FileDesc {
 public:
     Socket() { }
-    explicit Socket(int type, int protocol = 0);
+	explicit Socket(int domain, int type, int protocol = 0);
+    explicit Socket(int type);
     
     Socket &operator = (int fd)				{ setFd(fd); return *this; }
     
     // basic open (socket system call)
-    void open(int type, int protocol = 0);
+	void open(int domain, int type, int protocol = 0);
+	void open(int type)						{ open(AF_INET, type, 0); }
     
     // standard socket operations
     void bind(const IPSockAddress &addr);	// to this socket address
     void bind(const IPAddress &addr = IPAddress::any, IPPort port = 0);
+	void bind(const UNSockAddress &addr);	// to this UNIX domain socket
     void listen(int backlog = 1);
     void accept(Socket &s);
     void accept(Socket &s, IPSockAddress &peer);
+    void accept(Socket &s, UNSockAddress &peer);
+	bool connect(const struct sockaddr *peer);
     bool connect(const IPSockAddress &peer);
     bool connect(const IPAddress &addr, IPPort port);
+	bool connect(const UNSockAddress &peer);
     void connect(const Host &host, IPPort port);	// any address of this host
     void shutdown(int type);
     enum { shutdownRead = 0, shutdownWrite = 1, shutdownBoth = 2 };
@@ -173,7 +201,7 @@ public:
 #endif
 
 protected:
-    void prepare(int fdFlags, int type, int protocol = 0);
+    void prepare(int fdFlags, int domain, int type, int protocol = 0);
 };
 
 

@@ -25,7 +25,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: monitor_wrap.c,v 1.11 2002/06/19 18:01:00 markus Exp $");
+RCSID("$OpenBSD: monitor_wrap.c,v 1.24 2003/04/01 10:22:21 markus Exp $");
 
 #include <openssl/bn.h>
 #include <openssl/dh.h>
@@ -33,13 +33,14 @@ RCSID("$OpenBSD: monitor_wrap.c,v 1.11 2002/06/19 18:01:00 markus Exp $");
 #include "ssh.h"
 #include "dh.h"
 #include "kex.h"
-#include "auth.h"
+#include "auth-options.h"
 #include "buffer.h"
 #include "bufaux.h"
 #include "packet.h"
 #include "mac.h"
 #include "log.h"
 #include "zlib.h"
+#include "auth.h"
 #include "monitor.h"
 #include "monitor_wrap.h"
 #include "xmalloc.h"
@@ -50,6 +51,10 @@ RCSID("$OpenBSD: monitor_wrap.c,v 1.11 2002/06/19 18:01:00 markus Exp $");
 #include "auth.h"
 #include "channels.h"
 #include "session.h"
+
+#ifdef GSSAPI
+#include "ssh-gss.h"
+#endif
 
 /* Imports */
 extern int compat20;
@@ -62,8 +67,8 @@ extern Buffer input, output;
 void
 mm_request_send(int socket, enum monitor_reqtype type, Buffer *m)
 {
-	u_char buf[5];
 	u_int mlen = buffer_len(m);
+	u_char buf[5];
 
 	debug3("%s entering: type %d", __func__, type);
 
@@ -79,8 +84,8 @@ void
 mm_request_receive(int socket, Buffer *m)
 {
 	u_char buf[4];
-	ssize_t res;
 	u_int msg_len;
+	ssize_t res;
 
 	debug3("%s entering", __func__);
 
@@ -207,7 +212,7 @@ mm_getpwnamallow(const char *login)
 	return (pw);
 }
 
-char* mm_auth2_read_banner(void)
+char *mm_auth2_read_banner(void)
 {
 	Buffer m;
 	char *banner;
@@ -312,7 +317,7 @@ mm_key_allowed(enum mm_keytype type, char *user, char *host, Key *key)
 	Buffer m;
 	u_char *blob;
 	u_int len;
-	int allowed = 0;
+	int allowed = 0, have_forced = 0;
 
 	debug3("%s entering", __func__);
 
@@ -333,6 +338,11 @@ mm_key_allowed(enum mm_keytype type, char *user, char *host, Key *key)
 	mm_request_receive_expect(pmonitor->m_recvfd, MONITOR_ANS_KEYALLOWED, &m);
 
 	allowed = buffer_get_int(&m);
+
+	/* fake forced command */
+	auth_clear_options();
+	have_forced = buffer_get_int(&m);
+	forced_command = have_forced ? xstrdup("true") : NULL;
 
 	/* Send potential debug messages */
 	mm_send_debug(&m);
@@ -411,7 +421,7 @@ mm_newkeys_from_blob(u_char *blob, int blen)
 	enc->key = buffer_get_string(&b, &enc->key_len);
 	enc->iv = buffer_get_string(&b, &len);
 	if (len != enc->block_size)
-		fatal("%s: bad ivlen: expected %d != %d", __func__,
+		fatal("%s: bad ivlen: expected %u != %u", __func__,
 		    enc->block_size, len);
 
 	if (enc->name == NULL || cipher_by_name(enc->name) != enc->cipher)
@@ -425,7 +435,7 @@ mm_newkeys_from_blob(u_char *blob, int blen)
 	mac->enabled = buffer_get_int(&b);
 	mac->key = buffer_get_string(&b, &len);
 	if (len > mac->key_len)
-		fatal("%s: bad mac key length: %d > %d", __func__, len,
+		fatal("%s: bad mac key length: %u > %d", __func__, len,
 		    mac->key_len);
 	mac->key_len = len;
 
@@ -436,7 +446,7 @@ mm_newkeys_from_blob(u_char *blob, int blen)
 
 	len = buffer_len(&b);
 	if (len != 0)
-		error("newkeys_from_blob: remaining bytes in blob %d", len);
+		error("newkeys_from_blob: remaining bytes in blob %u", len);
 	buffer_free(&b);
 	return (newkey);
 }
@@ -446,7 +456,6 @@ mm_newkeys_to_blob(int mode, u_char **blobp, u_int *lenp)
 {
 	Buffer b;
 	int len;
-	u_char *buf;
 	Enc *enc;
 	Mac *mac;
 	Comp *comp;
@@ -484,14 +493,14 @@ mm_newkeys_to_blob(int mode, u_char **blobp, u_int *lenp)
 	buffer_put_cstring(&b, comp->name);
 
 	len = buffer_len(&b);
-	buf = xmalloc(len);
-	memcpy(buf, buffer_ptr(&b), len);
-	memset(buffer_ptr(&b), 0, len);
-	buffer_free(&b);
 	if (lenp != NULL)
 		*lenp = len;
-	if (blobp != NULL)
-		*blobp = buf;
+	if (blobp != NULL) {
+		*blobp = xmalloc(len);
+		memcpy(*blobp, buffer_ptr(&b), len);
+	}
+	memset(buffer_ptr(&b), 0, len);
+	buffer_free(&b);
 	return len;
 }
 
@@ -600,7 +609,7 @@ int
 mm_pty_allocate(int *ptyfd, int *ttyfd, char *namebuf, int namebuflen)
 {
 	Buffer m;
-	u_char *p;
+	char *p;
 	int success = 0;
 
 	buffer_init(&m);
@@ -705,7 +714,7 @@ mm_chall_setup(char **name, char **infotxt, u_int *numprompts,
 	*name = xstrdup("");
 	*infotxt = xstrdup("");
 	*numprompts = 1;
-	*prompts = xmalloc(*numprompts * sizeof(char*));
+	*prompts = xmalloc(*numprompts * sizeof(char *));
 	*echo_on = xmalloc(*numprompts * sizeof(u_int));
 	(*echo_on)[0] = 0;
 }
@@ -715,7 +724,7 @@ mm_bsdauth_query(void *ctx, char **name, char **infotxt,
    u_int *numprompts, char ***prompts, u_int **echo_on)
 {
 	Buffer m;
-	int res;
+	u_int success;
 	char *challenge;
 
 	debug3("%s: entering", __func__);
@@ -725,8 +734,8 @@ mm_bsdauth_query(void *ctx, char **name, char **infotxt,
 
 	mm_request_receive_expect(pmonitor->m_recvfd, MONITOR_ANS_BSDAUTHQUERY,
 	    &m);
-	res = buffer_get_int(&m);
-	if (res == -1) {
+	success = buffer_get_int(&m);
+	if (success == 0) {
 		debug3("%s: no challenge", __func__);
 		buffer_free(&m);
 		return (-1);
@@ -772,7 +781,8 @@ mm_skey_query(void *ctx, char **name, char **infotxt,
    u_int *numprompts, char ***prompts, u_int **echo_on)
 {
 	Buffer m;
-	int len, res;
+	int len;
+	u_int success;
 	char *p, *challenge;
 
 	debug3("%s: entering", __func__);
@@ -782,8 +792,8 @@ mm_skey_query(void *ctx, char **name, char **infotxt,
 
 	mm_request_receive_expect(pmonitor->m_recvfd, MONITOR_ANS_SKEYQUERY,
 	    &m);
-	res = buffer_get_int(&m);
-	if (res == -1) {
+	success = buffer_get_int(&m);
+	if (success == 0) {
 		debug3("%s: no challenge", __func__);
 		buffer_free(&m);
 		return (-1);
@@ -853,7 +863,7 @@ mm_auth_rsa_key_allowed(struct passwd *pw, BIGNUM *client_n, Key **rkey)
 	Key *key;
 	u_char *blob;
 	u_int blen;
-	int allowed = 0;
+	int allowed = 0, have_forced = 0;
 
 	debug3("%s entering", __func__);
 
@@ -864,6 +874,11 @@ mm_auth_rsa_key_allowed(struct passwd *pw, BIGNUM *client_n, Key **rkey)
 	mm_request_receive_expect(pmonitor->m_recvfd, MONITOR_ANS_RSAKEYALLOWED, &m);
 
 	allowed = buffer_get_int(&m);
+
+	/* fake forced command */
+	auth_clear_options();
+	have_forced = buffer_get_int(&m);
+	forced_command = have_forced ? xstrdup("true") : NULL;
 
 	if (allowed && rkey != NULL) {
 		blob = buffer_get_string(&m, &blen);
@@ -937,3 +952,231 @@ mm_auth_rsa_verify_response(Key *key, BIGNUM *p, u_char response[16])
 
 	return (success);
 }
+
+#ifdef KRB4
+int
+mm_auth_krb4(Authctxt *authctxt, void *_auth, char **client, void *_reply)
+{
+	KTEXT auth, reply;
+ 	Buffer m;
+	u_int rlen;
+	int success = 0;
+	char *p;
+
+	debug3("%s entering", __func__);
+	auth = _auth;
+	reply = _reply;
+
+	buffer_init(&m);
+	buffer_put_string(&m, auth->dat, auth->length);
+
+	mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_KRB4, &m);
+	mm_request_receive_expect(pmonitor->m_recvfd, MONITOR_ANS_KRB4, &m);
+
+	success = buffer_get_int(&m);
+	if (success) {
+		*client = buffer_get_string(&m, NULL);
+		p = buffer_get_string(&m, &rlen);
+		if (rlen >= MAX_KTXT_LEN)
+			fatal("%s: reply from monitor too large", __func__);
+		reply->length = rlen;
+		memcpy(reply->dat, p, rlen);
+		memset(p, 0, rlen);
+		xfree(p);
+	}
+	buffer_free(&m);
+	return (success);
+}
+#endif
+
+#ifdef KRB5
+int
+mm_auth_krb5(void *ctx, void *argp, char **userp, void *resp)
+{
+	krb5_data *tkt, *reply;
+	Buffer m;
+	int success;
+
+	debug3("%s entering", __func__);
+	tkt = (krb5_data *) argp;
+	reply = (krb5_data *) resp;
+
+	buffer_init(&m);
+	buffer_put_string(&m, tkt->data, tkt->length);
+
+	mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_KRB5, &m);
+	mm_request_receive_expect(pmonitor->m_recvfd, MONITOR_ANS_KRB5, &m);
+
+	success = buffer_get_int(&m);
+	if (success) {
+		u_int len;
+
+		*userp = buffer_get_string(&m, NULL);
+		reply->data = buffer_get_string(&m, &len);
+		reply->length = len;
+	} else {
+		memset(reply, 0, sizeof(*reply));
+		*userp = NULL;
+	}
+
+	buffer_free(&m);
+	return (success);
+}
+#endif
+#ifdef GSSAPI
+OM_uint32
+mm_ssh_gssapi_server_ctx(Gssctxt **ctx, gss_OID oid) {
+        Buffer m;
+        OM_uint32 major;
+                
+        /* Client doesn't get to see the context */
+        *ctx=NULL;
+
+        buffer_init(&m);
+        buffer_put_string(&m,oid->elements,oid->length);
+
+        mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_GSSSETUP, &m);
+        mm_request_receive_expect(pmonitor->m_recvfd, MONITOR_ANS_GSSSETUP, &m);
+
+        major=buffer_get_int(&m);
+
+	buffer_free(&m);
+        return(major);
+}
+
+OM_uint32
+mm_ssh_gssapi_accept_ctx(Gssctxt *ctx, gss_buffer_desc *in,
+                         gss_buffer_desc *out, OM_uint32 *flags) {
+ 
+        Buffer m;
+        OM_uint32 major;
+
+        buffer_init(&m);
+        buffer_put_string(&m, in->value, in->length);
+
+        mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_GSSSTEP, &m);
+        mm_request_receive_expect(pmonitor->m_recvfd, MONITOR_ANS_GSSSTEP, &m);
+
+        major=buffer_get_int(&m);
+        out->value=buffer_get_string(&m,&out->length);
+        if (flags) *flags=buffer_get_int(&m);
+
+	buffer_free(&m);
+	
+        return(major);
+}
+
+int
+mm_ssh_gssapi_userok(char *user) {
+        Buffer m;
+        int authenticated = 0;
+
+        buffer_init(&m);
+        
+        mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_GSSUSEROK, &m);
+        mm_request_receive_expect(pmonitor->m_recvfd, MONITOR_ANS_GSSUSEROK,
+                                  &m);
+
+        authenticated = buffer_get_int(&m);
+
+        buffer_free(&m);
+        debug3("%s: user %sauthenticated",__func__, authenticated ? "" : "not ");
+        return(authenticated);
+}
+
+OM_uint32
+mm_ssh_gssapi_sign(Gssctxt *ctx, gss_buffer_desc *data, gss_buffer_desc *hash) {
+        Buffer m;
+        OM_uint32 major;
+
+        buffer_init(&m);
+        buffer_put_string(&m, data->value, data->length);
+
+        mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_GSSSIGN, &m);
+        mm_request_receive_expect(pmonitor->m_recvfd, MONITOR_ANS_GSSSIGN, &m);
+
+        major=buffer_get_int(&m);
+        hash->value = buffer_get_string(&m, &hash->length);
+
+	buffer_free(&m);
+	
+        return(major);
+}
+
+char *
+mm_ssh_gssapi_last_error(Gssctxt *ctx, OM_uint32 *major, OM_uint32 *minor) {
+	Buffer m;
+	OM_uint32 maj,min;
+	char *errstr;
+	
+	buffer_init(&m);
+
+	mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_GSSERR, &m);
+	mm_request_receive_expect(pmonitor->m_recvfd, MONITOR_ANS_GSSERR, &m);
+
+	maj = buffer_get_int(&m);
+	min = buffer_get_int(&m);
+
+	if (major) *major=maj;
+	if (minor) *minor=min;
+	
+	errstr=buffer_get_string(&m,NULL);
+
+	buffer_free(&m);
+	
+	return(errstr);
+}	
+
+OM_uint32
+mm_gss_indicate_mechs(OM_uint32 *minor_status, gss_OID_set *mech_set)
+{
+        Buffer m;
+	OM_uint32 major,minor;
+	int count;
+	gss_OID_desc oid;
+        u_int length;
+
+	buffer_init(&m);
+
+	mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_GSSMECHS, &m);
+        mm_request_receive_expect(pmonitor->m_recvfd, MONITOR_ANS_GSSMECHS,
+				  &m);
+        major=buffer_get_int(&m);
+	count=buffer_get_int(&m);
+	
+        gss_create_empty_oid_set(&minor,mech_set);
+	while(count-->0) {
+	    oid.elements=buffer_get_string(&m,&length);
+	    oid.length=length;
+	    gss_add_oid_set_member(&minor,&oid,mech_set);
+	}
+
+	buffer_free(&m);
+	
+        return(major);
+}
+
+int
+mm_ssh_gssapi_localname(char **lname)
+{
+        Buffer m;
+
+	buffer_init(&m);
+        mm_request_send(pmonitor->m_recvfd, MONITOR_REQ_GSSLOCALNAME, &m);
+
+        debug3("%s: waiting for MONITOR_ANS_GSSLOCALNAME", __func__);
+        mm_request_receive_expect(pmonitor->m_recvfd, MONITOR_ANS_GSSLOCALNAME,
+                                  &m);
+
+	*lname = buffer_get_string(&m, NULL);
+
+        buffer_free(&m);
+	if (lname[0] == '\0') {
+	    debug3("%s: gssapi identity mapping failed", __func__);
+	} else {
+	    debug3("%s: gssapi identity mapped to %s", __func__, *lname);
+	}
+	
+        return(0);
+}	
+#endif /* GSSAPI */

@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -76,7 +74,7 @@ struct thread_command *thread_command)
 	    }
 #endif
 #ifdef __i386__
-	    if(flavor == i386_THREAD_STATE){
+	    if(flavor == (unsigned long)i386_THREAD_STATE){
 		cpu = (i386_thread_state_t *)p;
 		return(cpu->eip);
 	    }

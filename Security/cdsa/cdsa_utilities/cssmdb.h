@@ -37,14 +37,6 @@ namespace Security
 {
 
 
-#if 0
-//
-// XXX Obsolete --mb
-//
-// some prototypes for utility functions
-CSSM_RETURN						AddFooToIntelList( void** theIntelListToAddItTo, unsigned long* theNumberOfThingsAlreadyInTheList, const void* theThingToAdd, size_t theSizeOfTheThingToAdd);
-#endif
-
 //
 // Template class to build and maintain external arrays.
 // Feel free to add and vector<> member functions and behaviours as needed.
@@ -245,7 +237,7 @@ class CssmAutoDbRecordAttributeInfo: public CssmDbRecordAttributeInfo, public Ar
 public:
 	CssmAutoDbRecordAttributeInfo(uint32 capacity = 0, CssmAllocator &allocator = CssmAllocator::standard()) :
 	CssmDbRecordAttributeInfo(),
-	ArrayBuilder<CssmDbAttributeInfo>(static_cast<CssmDbAttributeInfo *>(AttributeInfo),
+	ArrayBuilder<CssmDbAttributeInfo>(CssmDbAttributeInfo::overlayVar(AttributeInfo),
 									  NumberOfAttributes, capacity, allocator) {}
 };
 
@@ -428,7 +420,7 @@ public:
 								  CssmAllocator &valueAllocator = CssmAllocator::standard(),
 								  CssmAllocator &dataAllocator = CssmAllocator::standard()) :
 	CssmDbRecordAttributeData(),
-	ArrayBuilder<CssmDbAttributeData>(static_cast<CssmDbAttributeData *>(AttributeData),
+	ArrayBuilder<CssmDbAttributeData>(CssmDbAttributeData::overlayVar(AttributeData),
 									  NumberOfAttributes, capacity, dataAllocator),
 	mValueAllocator(valueAllocator) {}
 	~CssmAutoDbRecordAttributeData();
@@ -522,7 +514,7 @@ class CssmAutoQuery : public CssmQuery, public ArrayBuilder<CssmSelectionPredica
 public:
 	CssmAutoQuery(const CSSM_QUERY &query, CssmAllocator &allocator = CssmAllocator::standard());
 	CssmAutoQuery(uint32 capacity = 0, CssmAllocator &allocator = CssmAllocator::standard()) :
-	ArrayBuilder<CssmSelectionPredicate>(static_cast<CssmSelectionPredicate *>(SelectionPredicate),
+	ArrayBuilder<CssmSelectionPredicate>(CssmSelectionPredicate::overlayVar(SelectionPredicate),
 										 NumSelectionPredicates,
 										 capacity, allocator) {}
 	~CssmAutoQuery();
@@ -557,10 +549,10 @@ protected:
         const char *dbName() const { return mDbName.dbName().c_str(); }
         const CssmNetAddress *dbLocation() const { return mDbName.dbLocation(); }
 
-        // operators
+        // comparison (simple lexicographic)
         bool operator < (const Impl &other) const
-		{ return (mCssmSubserviceUid < other.mCssmSubserviceUid ||
-					(!(other.mCssmSubserviceUid < mCssmSubserviceUid) && mDbName < other.mDbName)); }
+		{ return mCssmSubserviceUid < other.mCssmSubserviceUid ||
+			(mCssmSubserviceUid == other.mCssmSubserviceUid && mDbName < other.mDbName); }
 
         bool operator == (const Impl &other) const
 		{ return mCssmSubserviceUid == other.mCssmSubserviceUid && mDbName == other.mDbName; }
@@ -586,6 +578,8 @@ public:
 	{ return mImpl && other.mImpl ? *mImpl < *other.mImpl : mImpl.get() < other.mImpl.get(); }
 	bool operator ==(const DLDbIdentifier &other) const
 	{ return mImpl && other.mImpl ? *mImpl == *other.mImpl : mImpl.get() == other.mImpl.get(); }
+	DLDbIdentifier &operator =(const DLDbIdentifier &other)
+	{ mImpl = other.mImpl; return *this; }
 
     // Accessors
     const CssmSubserviceUid &ssuid() const { return mImpl->ssuid(); }

@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,12 +12,12 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
+   | Authors: Rasmus Lerdorf <rasmus@php.net>                             |
    |          Jim Winstead <jimw@php.net>                                 |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_db.h,v 1.1.1.5 2001/12/14 22:12:09 zarzycki Exp $ */
+/* $Id: php_db.h,v 1.1.1.8 2003/07/18 18:07:30 zarzycki Exp $ */
 
 
 #ifndef PHP_DB_H
@@ -52,14 +52,13 @@ typedef struct dbm_info {
 #endif
 
 dbm_info *php_find_dbm(pval *id TSRMLS_DC);
-int php_dbm_close(zend_rsrc_list_entry *rsrc TSRMLS_DC);
+void php_dbm_close(zend_rsrc_list_entry *rsrc TSRMLS_DC);
 dbm_info *php_dbm_open(char *filename, char *mode TSRMLS_DC);
-int php_dbm_insert(dbm_info *info, char *key, char *value TSRMLS_DC);
 char *php_dbm_fetch(dbm_info *info, char *key TSRMLS_DC);
-int php_dbm_replace(dbm_info *info, char *key, char *value TSRMLS_DC);
-int php_dbm_exists(dbm_info *info, char *key);
-int php_dbm_delete(dbm_info *info, char *key);
-char *php_dbm_first_key(dbm_info *info);
+int php_dbm_insert_replace(dbm_info *info, char *key, char *value, int replace_mode TSRMLS_DC);
+int php_dbm_exists(dbm_info *info, char *key TSRMLS_DC);
+int php_dbm_delete(dbm_info *info, char *key TSRMLS_DC);
+char *php_dbm_first_key(dbm_info *info TSRMLS_DC);
 char *php_dbm_nextkey(dbm_info *info, char *key TSRMLS_DC);
 
 /* db file functions */

@@ -1,4 +1,6 @@
-dnl ## $Id: config.m4,v 1.1.1.4 2001/12/14 22:15:27 zarzycki Exp $ -*- sh -*-
+dnl
+dnl $Id: config.m4,v 1.1.1.6 2003/03/11 01:09:39 zarzycki Exp $
+dnl
 
 RESULT=no
 AC_MSG_CHECKING(for Roxen/Pike support)
@@ -28,8 +30,7 @@ AC_ARG_WITH(roxen,
    
 	PHP_ADD_INCLUDE($PIKE_INCLUDE_DIR)
 	AC_DEFINE(HAVE_ROXEN,1,[Whether you use Roxen])
-	PHP_SAPI=roxen
-	PHP_BUILD_SHARED
+	PHP_SELECT_SAPI(roxen, shared, roxen.c)
 	INSTALL_IT="\$(INSTALL) -m 0755 $SAPI_SHARED $PIKE_MODULE_DIR/PHP4.so"
 	RESULT="yes
 	Pike binary used:      $PIKE
@@ -52,6 +53,7 @@ if test "$RESULT" != "no" ; then
  ])
  AC_MSG_RESULT($RESULT)
 fi
+
 dnl ## Local Variables:
 dnl ## tab-width: 4
 dnl ## End:

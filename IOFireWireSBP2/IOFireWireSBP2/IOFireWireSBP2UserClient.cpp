@@ -463,8 +463,6 @@ IOExternalAsyncMethod* IOFireWireSBP2UserClient::getAsyncTargetAndMethodForIndex
 IOReturn IOFireWireSBP2UserClient::clientClose( void )
 {
     FWKLOG(( "IOFireWireSBP2UserClient : clientClose\n" ));
-
-	bool has_provider = (getProvider() != NULL);
 	
     if( fLogin )
     {
@@ -475,26 +473,30 @@ IOReturn IOFireWireSBP2UserClient::clientClose( void )
 
     if( fOpened )
     {
-		if( has_provider )
+		// as long as we have the provider open we should not get terminated
+		
+		IOService * provider = getProvider();
+		
+		if( provider )
 		{
 			flushAllManagementORBs();
-			fProviderLUN->close(this);
+			
+			IOFireWireController * control = (((IOFireWireSBP2LUN*)provider)->getFireWireUnit())->getController();
+
+			// reset bus - aborts orbs
+			control->resetBus();
+		
+			provider->close(this);
         }
 		
 		fOpened = false;
     }
     
+	// from here on we cannot assume our provider is valid
+	
 	fStarted = false;
 	
     terminate( kIOServiceRequired );
-	
-	if( has_provider )
-	{
-		IOFireWireController * control = (fProviderLUN->getFireWireUnit())->getController();
-
-		// reset bus - aborts orbs and forces FW to remove unused object
-		control->resetBus();
-	}
 	
 	return kIOReturnSuccess;
 }
@@ -538,7 +540,7 @@ IOReturn IOFireWireSBP2UserClient::open
 IOReturn IOFireWireSBP2UserClient::openWithSessionRef( IOFireWireSessionRef sessionRef, void *, void *, void *, void *, void * )
 {
     IOReturn status = kIOReturnSuccess;
-	IOService * service;
+	IOService * service = NULL;
 
     FWKLOG(( "IOFireWireSBP2UserClient : open\n" ));
 
@@ -1397,7 +1399,7 @@ IOReturn IOFireWireSBP2UserClient::createORB
 	( IOFireWireSBP2ORB ** outORBRef, void *, void *, void *, void *, void * )
 {
     IOReturn status = kIOReturnSuccess;
-    IOFireWireSBP2ORB * orb;
+    IOFireWireSBP2ORB * orb = NULL;
     
     if( !fLogin )
         status = kIOReturnError;
@@ -1906,7 +1908,7 @@ IOReturn IOFireWireSBP2UserClient::createMgmtORB
 	( IOFireWireSBP2ManagementORB ** outORBRef, void *, void *, void *, void *, void * )
 {
     IOReturn status = kIOReturnSuccess;
-    IOFireWireSBP2ManagementORB * orb;
+    IOFireWireSBP2ManagementORB * orb = NULL;
     
     if( !fProviderLUN )
         status = kIOReturnError;
@@ -2023,7 +2025,7 @@ IOReturn IOFireWireSBP2UserClient::setMgmtORBManageeORB
 
     FWKLOG(( "IOFireWireSBP2UserClient : setMgmtORBManageeORB\n" ));
 	IOFireWireSBP2ManagementORB * mgmtORB;
-	IOFireWireSBP2ORB * manageeORB;
+	IOFireWireSBP2ORB * manageeORB = NULL;
 		
 	if( status == kIOReturnSuccess )
 	{
@@ -2059,7 +2061,7 @@ IOReturn IOFireWireSBP2UserClient::setMgmtORBManageeLogin
 
     FWKLOG(( "IOFireWireSBP2UserClient : setMgmtORBManageeLogin\n" ));
 	IOFireWireSBP2ManagementORB * orb;
-	IOFireWireSBP2Login * manageeLogin;
+	IOFireWireSBP2Login * manageeLogin = NULL;
 		
 	if( status == kIOReturnSuccess )
 	{
@@ -2109,7 +2111,7 @@ IOReturn IOFireWireSBP2UserClient::setMgmtORBResponseBuffer
 		}
 	}
 	
-	IOMemoryDescriptor * memory;
+	IOMemoryDescriptor * memory = NULL;
 	
 	if( status == kIOReturnSuccess )
     {

@@ -4,13 +4,15 @@ AUTOMAKE_OPTIONS = cygnus
 
 DOCFILES = aoutx.texi  archive.texi archures.texi \
 	bfdt.texi  cache.texi coffcode.texi \
-	core.texi elf.texi elfcode.texi  format.texi  libbfd.texi  \
+	core.texi elf.texi elfcode.texi  format.texi \
+	libbfd.texi bfdwin.texi bfdio.texi \
 	opncls.texi  reloc.texi  section.texi  \
 	syms.texi  targets.texi init.texi hash.texi linker.texi \
 	mmo.texi
 
 PROTOS = archive.p archures.p bfd.p \
 	 core.p format.p \
+	bfdio.p bfdwin.p \
 	libbfd.p opncls.p reloc.p \
 	section.p syms.p targets.p  \
 	format.p  core.p init.p
@@ -22,6 +24,7 @@ IPROTOS = cache.ip libbfd.ip reloc.ip init.ip archures.ip coffcode.ip
 # you don't need these three:
 SRCDOC = $(srcdir)/../aoutx.h  $(srcdir)/../archive.c \
 	$(srcdir)/../archures.c $(srcdir)/../bfd.c \
+	$(srcdir)/../bfdio.c $(srcdir)/../bfdwin.c \
 	$(srcdir)/../cache.c $(srcdir)/../coffcode.h \
 	$(srcdir)/../corefile.c $(srcdir)/../elf.c \
 	$(srcdir)/../elfcode.h  $(srcdir)/../format.c \
@@ -34,19 +37,19 @@ SRCDOC = $(srcdir)/../aoutx.h  $(srcdir)/../archive.c \
 SRCPROT = $(srcdir)/../archive.c $(srcdir)/../archures.c \
 	$(srcdir)/../bfd.c $(srcdir)/../coffcode.h $(srcdir)/../corefile.c \
 	$(srcdir)/../format.c $(srcdir)/../libbfd.c \
+	$(srcdir)/../bfdio.c $(srcdir)/../bfdwin.c \
 	$(srcdir)/../opncls.c $(srcdir)/../reloc.c \
 	$(srcdir)/../section.c $(srcdir)/../syms.c \
-	$(srcdir)/../targets.c $(srcdir)/../init.c
+	$(srcdir)/../targets.c $(srcdir)/../init.c \
+	$(srcdir)/../cache.c
 
 SRCIPROT = $(srcdir)/../cache.c $(srcdir)/../libbfd.c \
+	$(srcdir)/../bfdio.c $(srcdir)/../bfdwin.c \
 	$(srcdir)/../reloc.c $(srcdir)/../cpu-h8300.c \
 	$(srcdir)/../cpu-i960.c $(srcdir)/../archures.c \
 	$(srcdir)/../init.c
 
 TEXIDIR = $(srcdir)/../../texinfo/fsf
-
-# where to find makeinfo, preferably one designed for texinfo-2
-MAKEINFO=../../texinfo/makeinfo/makeinfo
 
 info_TEXINFOS = bfd.texinfo
 
@@ -146,6 +149,18 @@ s-libbfd: $(MKDOC) $(srcdir)/../libbfd.c $(srcdir)/doc.str
 	touch s-libbfd
 libbfd.texi: s-libbfd
 
+s-bfdio: $(MKDOC) $(srcdir)/../bfdio.c $(srcdir)/doc.str
+	./$(MKDOC) -f $(srcdir)/doc.str < $(srcdir)/../bfdio.c >bfdio.tmp
+	$(srcdir)/../../move-if-change bfdio.tmp bfdio.texi
+	touch s-bfdio
+bfdio.texi: s-bfdio
+
+s-bfdwin: $(MKDOC) $(srcdir)/../bfdwin.c $(srcdir)/doc.str
+	./$(MKDOC) -f $(srcdir)/doc.str < $(srcdir)/../bfdwin.c >bfdwin.tmp
+	$(srcdir)/../../move-if-change bfdwin.tmp bfdwin.texi
+	touch s-bfdwin
+bfdwin.texi: s-bfdwin
+
 s-opncls: $(MKDOC) $(srcdir)/../opncls.c $(srcdir)/doc.str
 	./$(MKDOC) -f $(srcdir)/doc.str  <$(srcdir)/../opncls.c >opncls.tmp
 	$(srcdir)/../../move-if-change opncls.tmp opncls.texi
@@ -198,6 +213,8 @@ LIBBFD_H_DEP = \
 	$(srcdir)/../libbfd-in.h	\
 	$(srcdir)/../init.c		\
 	$(srcdir)/../libbfd.c		\
+	$(srcdir)/../bfdio.c		\
+	$(srcdir)/../bfdwin.c		\
 	$(srcdir)/../cache.c		\
 	$(srcdir)/../reloc.c		\
 	$(srcdir)/../archures.c		\
@@ -212,11 +229,12 @@ libbfd.h: $(LIBBFD_H_DEP)
 	  case $$file in \
 	    *-in.h) cat $$file >> $@ ;; \
 	    */header.sed) break ;; \
-	    */proto.str) break ;; \
-	    *) ./$(MKDOC) -i -f $(srcdir)/proto.str < $$file >> $@ ;; \
+	    *)	echo $$file | sed -e 's,.*/,,' -e 's,^,/* Extracted from ,' \
+				-e 's,$$,.  */,' >> $@ ; \
+		./$(MKDOC) -i -f $(srcdir)/proto.str < $$file >> $@ ;; \
 	  esac; \
 	done
-	echo "#endif" >> $@
+	echo "#endif /* __LIBBFD_H__ */" >> $@
 
 LIBCOFF_H_DEP = \
 	$(srcdir)/../libcoff-in.h	\
@@ -231,8 +249,9 @@ libcoff.h: $(LIBCOFF_H_DEP)
 	  case $$file in \
 	    *-in.h) cat $$file >> $@ ;; \
 	    */header.sed) break ;; \
-	    */proto.str) break ;; \
-	    *) ./$(MKDOC) -i -f $(srcdir)/proto.str < $$file >> $@ ;; \
+	    *)	echo $$file | sed -e 's,.*/,,' -e 's,^,/* Extracted from ,' \
+				-e 's,$$,.  */,' >> $@ ; \
+		./$(MKDOC) -i -f $(srcdir)/proto.str < $$file >> $@ ;; \
 	  esac; \
 	done
 
@@ -241,7 +260,10 @@ BFD_H_DEP = \
 	$(srcdir)/../init.c 		\
 	$(srcdir)/../opncls.c 		\
 	$(srcdir)/../libbfd.c 		\
+	$(srcdir)/../bfdio.c		\
+	$(srcdir)/../bfdwin.c		\
 	$(srcdir)/../section.c 		\
+	$(srcdir)/../cache.c 		\
 	$(srcdir)/../archures.c		\
 	$(srcdir)/../reloc.c		\
 	$(srcdir)/../syms.c		\
@@ -250,6 +272,8 @@ BFD_H_DEP = \
 	$(srcdir)/../corefile.c		\
 	$(srcdir)/../targets.c		\
 	$(srcdir)/../format.c		\
+	$(srcdir)/../linker.c		\
+	$(srcdir)/../simple.c		\
 	$(srcdir)/header.sed		\
 	$(srcdir)/proto.str		\
 	$(srcdir)/../version.h		\
@@ -261,8 +285,9 @@ bfd.h: $(BFD_H_DEP)
 	  case $$file in \
 	    *-in.h) cat $$file >> $@ ;; \
 	    */header.sed) break ;; \
-	    */proto.str) break ;; \
-	    *) ./$(MKDOC) -f $(srcdir)/proto.str < $$file >> $@ ;; \
+	    *)	echo $$file | sed -e 's,.*/,,' -e 's,^,/* Extracted from ,' \
+				-e 's,$$,.  */,' >> $@ ; \
+		./$(MKDOC) -f $(srcdir)/proto.str < $$file >> $@ ;; \
 	  esac; \
 	done
 	echo "#ifdef __cplusplus" >> $@

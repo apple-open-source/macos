@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -98,7 +96,7 @@ enum bool verbose)
     enum bool swapped;
     unsigned long opcode;
     int isdual;
-    int i;
+    unsigned long i;
     struct i860_opcode *op;
 
 	host_byte_sex = get_host_byte_sex();
@@ -391,7 +389,7 @@ enum bool verbose)
 			    "%lu\n", i);
 		    continue;
 		}
-		if(relocs[i].r_address == addr - sect_addr){
+		if((unsigned long)relocs[i].r_address == addr - sect_addr){
 		    rp = &relocs[i];
 		    if(rp->r_type == I860_RELOC_HIGH ||
 		       rp->r_type == I860_RELOC_HIGHADJ ||

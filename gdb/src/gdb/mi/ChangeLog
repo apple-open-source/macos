@@ -1,3 +1,165 @@
+2003-01-13  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-cmd-env.c: Update copyright.
+
+2003-01-13  Elena Zannoni  <ezannoni@redhat.com>
+
+	* mi-main.c (mi_cmd_exec_return): Use print_stack_frame instead of
+	show_and_print_stack_frame.
+
+2003-01-09  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-cmd-env.c: Include "gdb_string.h" instead of <string.h>.
+	Move all includes to after "defs.h".
+
+2002-12-13  Jeff Johnston  <jjohnstn@redhat.com>
+
+	* mi-cmds.c (-environment-directory) Change to use mi_cmd_env_dir,
+	(-environment-cd): Change to use mi_cmd_env_cd,.
+	(-environment-pwd): Change to use mi_cmd_env_pwd.
+	(-environment-path): Change to use mi_cmd_env_path.
+	* mi-cmds.h (mi_cmd_env_cd, mi_cmd_env_dir): New prototypes.
+	(mi_cmd_env_path, mi_cmd_env_pwd): Ditto.
+	* mi-cmd-env.c: New file.  Part of fix for PR gdb/741.
+	* gdbmi.texinfo (environment-cd): Update output and example.
+	(environment-pwd): Ditto.
+	(environment-dir): Update output, description, and examples.
+	(environment-path): Ditto.
+
+2002-11-29  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi/mi-cmd-stack.c, mi/mi-main.c: Update to use
+	deprecated_selected_frame.
+
+2002-11-13  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-main.c (mi_cmd_data_write_register_values): Use
+	deprecated_write_register_bytes instead of write_register_bytes.
+
+2002-11-11  Jeff Johnston  <jjohnstn@redhat.com>
+
+	* gdbmi.texinfo (-var-assign): Add comments about interaction
+	with -var-update and add an example.  Part of fix for gdb/702.
+
+2002-11-08  Jeff Johnston  <jjohnstn@redhat.com>
+
+	* mi-main.c (mi_command_loop): Initialize raw_stdout and gdb_stdout 
+	only if mi version is <= 1.
+	(mi_init_ui): Initialize raw_stdout and gdb_stdout if mi version 
+	is > 1 so startup message is treated as console output.  This is 
+	part of fix for PR gdb/604.
+
+2002-11-06  Jeff Johnston  <jjohnstn@redhat.com>
+
+	* mi-cmd-var.c (mi_cmd_var_create): Change the function used to 
+	parse the frame addr from parse_and_eval_address() to 
+	string_to_core_addr().  This is a fix for PR gdb/494.
+
+2002-10-23  Jeff Johnston  <jjohnstn@redhat.com>
+
+	* mi-cmd-var.c: Change all remaining occurrences of ui_out_tuple_begin 
+	to make_cleanup_ui_out_tuple_begin_end.  Change all remaining 
+	occurrences of ui_out_list_begin to make_cleanup_ui_out_list_begin_end.
+	Use do_cleanups instead of ui_out_list_end or ui_out_tuple_end.  This 
+	is a fix for PR gdb/680.
+	* mi-cmd-stack.c: Ditto.
+	* mi-main.c: Ditto.
+
+2002-10-22  Keith Seitz  <keiths@redhat.com>
+
+	* mi-main.c (mi_cmd_thread_select): Only return MI_CMD_CAUGHT_ERROR
+	when we really did catch an error(). If we got GDB_RC_FAIL, return
+	MI_CMD_ERROR instead.
+
+2002-10-03  Jeff Johnston  <jjohnstn@redhat.com>
+
+	* gdbmi.texinfo: Fix examples that show frames to remove
+	extraneous blank in level field.  Part of fix for PR gdb/192.
+        
+2002-10-03  Jeff Johnston  <jjohnstn@redhat.com>
+        
+	* mi-cmd-var.c (mi_cmd_var_update): Fix for PR gdb/672.  For m2, 
+	output list begin and end for "changelist" rather than tuple begin/end.
+	(varobj_update_one): For m2, add tuple begin and end for varobj 
+	update output.
+
+2002-10-02  Elena Zannoni  <ezannoni@redhat.com>
+
+	* mi-main.c (mi_cmd_exec_return): Don't use
+	return_command_wrapper, use return_command instead.
+	(mi_cmd_exec_interrupt): Don't use
+	interrupt_target_command_wrapper, use interrupt_target_command
+	instead.
+	(return_command_wrapper, interrupt_target_command_wrapper):
+	Delete.
+	Include frame.h.
+
+2002-10-01  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-main.c (mi2_command_loop): New function.
+	(mi0_command_loop): Delete function.
+	(_initialize_mi_main): Recognize, and default to, "mi2".  Do not
+	recognize "mi0".
+	* mi-out.c (mi_table_begin): Remove mi0 code.
+	(mi_table_body, mi_table_end): Ditto.
+	(mi_table_header, mi_open, mi_close): Ditto.
+
+2002-09-29  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-out.c (mi_version): New function.
+	* mi-out.h (mi_version): Declare.
+
+2002-09-27  Andrew Cagney  <ac131313@redhat.com>
+
+	From 2002-07-12 Mo DeJong <supermo@bayarea.net>
+	* gdbmi.texinfo (var-evaluate-expression): Note that
+	var-list-children must be invoked before child variable
+	values can be evaluated.
+
+2002-09-26  Elena Zannoni  <ezannoni@redhat.com>
+
+        * mi-cmd-disas.c (dump_insns): Add text only output for CLI.
+        (do_mixed_source_and_assembly): Ditto.
+
+2002-09-11  Keith Seitz  <keiths@redhat.com>
+
+	* mi-main.c (mi_cmd_data_list_register_names): Use cleanups
+	for the uiout list. Do the cleanups when returning an error.
+	(mi_cmd_data_list_changed_registers): Ditto.
+	(mi_cmd_data_list_register_values): Use cleanups for the uiout list
+	and tuples. Do the cleanups when returning errors.
+
+2002-07-29  Andrew Cagney  <ac131313@redhat.com>
+
+
+	* mi-cmd-var.c: Include "gdb_string.h".
+	* mi-cmd-disas.c: Ditto.
+
+2002-06-17  Keith Seitz  <keiths@redhat.com>
+
+	* gdbmi.texinfo: Update command examples with real MI behavior.
+
+2002-05-20  Keith Seitz  <keiths@redhat.com>
+
+	* mi-main.c (captured_mi_execute_command): Add uiout parameter.
+	"data" is now a structure which is used to pass data to/from this
+	function to mi_execute_command.
+	Modify function to comply with requirements from catch_exceptions.
+	Store real return result and command's return result in data.
+	(mi_execute_command): Use catch_exceptions.
+	Use enum to handle actions to be performed instead of overloading
+	catch_errors return result and the mi return result.
+
+2002-04-14  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-main.c (mi_cmd_exec_return): 
+
+2002-04-09  Andrew Cagney  <ac131313@redhat.com>
+
+	* mi-main.c (register_changed_p): Use frame_register_read instead
+	of read_relative_register_raw_bytes.
+	(get_register): Delete out-of-date comment.
+
 2002-04-07  Elena Zannoni  <ezannoni@redhat.com>
 
         * mi-cmd-disas.c: Run through indent.

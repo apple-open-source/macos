@@ -43,7 +43,7 @@
 #define COLLECT_INTERVAL		15	
 #else
 #define COLLECT_INTERVAL		collectInterval	
-#endif	ENTROPY_QUICK_UPDATE
+#endif	//ENTROPY_QUICK_UPDATE
 
 using namespace UnixPlusPlus;
 
@@ -104,7 +104,7 @@ void EntropyManager::collectEntropy()
     char buffer[timingsToCollect];
     for (unsigned n = 0; n < size; n++)
         buffer[n] = timings[n].tv_nsec;	// truncating to LSB
-	debug("entropy", "Entropy size %d: %02x %02x %02x %02x %02x %02x %02x %02x...",
+	secdebug("entropy", "Entropy size %d: %02x %02x %02x %02x %02x %02x %02x %02x...",
 		(int)size, 
 		(unsigned char)buffer[0], (unsigned char)buffer[1], (unsigned char)buffer[2],
 		(unsigned char)buffer[3], (unsigned char)buffer[4], (unsigned char)buffer[5],
@@ -119,14 +119,14 @@ void EntropyManager::collectEntropy()
 void EntropyManager::updateEntropyFile()
 {
     if (Time::now() >= mNextUpdate) {
-        char buffer[entropyFileSize];
         try {
-            debug("entropy", "updating %s", mEntropyFilePath.c_str());
+			mNextUpdate = Time::now() + Time::Interval(updateInterval);
+            secdebug("entropy", "updating %s", mEntropyFilePath.c_str());
+        	char buffer[entropyFileSize];
 			random(buffer, entropyFileSize);
             AutoFileDesc entropyFile(mEntropyFilePath.c_str(), O_WRONLY | O_TRUNC | O_CREAT, 0600);
             if (entropyFile.write(buffer) != entropyFileSize)
                 Syslog::warning("short write on entropy file %s", mEntropyFilePath.c_str());
-            mNextUpdate += updateInterval;
         } catch (...) {
             Syslog::warning("error writing entropy file %s", mEntropyFilePath.c_str());
         }

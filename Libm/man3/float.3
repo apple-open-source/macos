@@ -1,0 +1,168 @@
+.\" Copyright (c) 1985, 1991 The Regents of the University of California.
+.\" All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\" 3. All advertising materials mentioning features or use of this software
+.\"    must display the following acknowledgement:
+.\"	This product includes software developed by the University of
+.\"	California, Berkeley and its contributors.
+.\" 4. Neither the name of the University nor the names of its contributors
+.\"    may be used to endorse or promote products derived from this software
+.\"    without specific prior written permission.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.\"     from: @(#)floor.3	6.5 (Berkeley) 4/19/91
+.\"	$Id: float.3,v 1.2 2003/08/17 20:36:46 scp Exp $
+.\"
+.Dd August 13, 2003
+.Dt FLOAT 3
+.Os
+.Sh NAME
+.Nm float
+.Nd functions with single-precision floating-point arguments
+.Sh DESCRIPTION
+The following functions are available in single precision. The functions conform to the
+ISO/IEC 9899:1999(E) standard. They are similar to the corresponding double-precision
+functions (which have the same name, without the "f" at the end). The double-precision
+functions have their own pages. Wherever the double-precision functions use a double-precision
+floating-point value (as an argument or return value), these functions use a single-precision
+floating-point value.
+.Pp
+To use these functions you must add an additional flag to the link step that produces the
+executable binary. Specify "-lmx".
+.Pp
+.Fn acosf
+.Pp
+.Fn acoshf
+.Pp
+.Fn asinf
+.Pp
+.Fn asinhf
+.Pp
+.Fn atanf
+.Pp
+.Fn atan2f
+.Pp
+.Fn atanhf
+.Pp
+.Fn cbrtf
+.Pp
+.Fn cosf
+.Pp
+.Fn coshf
+.Pp
+.Fn erff
+.Pp
+.Fn erfcf
+.Pp
+.Fn hypotf
+.Pp
+.Fn logf
+.Pp
+.Fn log2f
+.Pp
+.Fn log10f
+.Pp
+.Fn log1p
+.Pp
+.Fn powf
+.Pp
+.Fn sinf
+.Pp
+.Fn sinhf
+.Pp
+.Fn sqrtf
+.Pp
+.Fn tanf
+.Pp
+.Fn tanhf
+.Pp
+The following functions are also available in single precision. The 
+functions conform to the ISO/IEC 9899:1999(E) standard. Each one has 
+its own page, which it shares with its corresponding double-precision 
+function (which has the same name, without the "f" on the end). The page 
+can be found under both names.
+.Pp
+You do not need to specify the "-lmx" flag to use these functions.
+.Pp
+.Fn ceilf
+.Pp
+.Fn copysignf
+.Pp
+.Fn expf
+.Pp
+.Fn exp2f
+.Pp
+.Fn expm1f
+.Pp
+.Fn fabsf
+.Pp
+.Fn fdimf
+.Pp
+.Fn floorf
+.Pp
+.Fn fmaf
+.Pp
+.Fn fmaxf
+.Pp
+.Fn fminf
+.Pp
+.Fn fmodf
+.Pp
+.Fn frexpf
+.Pp
+.Fn ilogbf
+.Pp
+.Fn ldexpf
+.Pp
+.Fn lgammaf
+.Pp
+.Fn llrintf
+.Pp
+.Fn llroundf
+.Pp
+.Fn logbf
+.Pp
+.Fn lrintf
+.Pp
+.Fn lround
+.Pp
+.Fn modff
+.Pp
+.Fn nanf
+.Pp
+.Fn nextafterf
+.Pp
+.Fn remainderf
+.Pp
+.Fn remquof
+.Pp
+.Fn rintf
+.Pp
+.Fn roundf
+.Pp
+.Fn scalblnf
+.Pp
+.Fn scalbnf
+.Pp
+.Fn tgammaf
+.Pp
+.Fn truncf

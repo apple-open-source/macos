@@ -53,7 +53,7 @@
 *        10 Sep 01   ali  added more comments.                                  *
 *        09 Sep 01   ali  added macros to detect PowerPC and correct compiler.  *
 *        06 Sep 01   ram  added #ifdef __ppc__.                                 *
-*        16 Jul 01   ram  Replaced __setflm with fegetenvd/fesetenvd.           *
+*        16 Jul 01   ram  Replaced __setflm with FEGETENVD/FESETENVD.           *
 *                          replaced DblInHex typedef with hexdouble.            *
 *        09 Oct 94   ali  made environmental changes to use __setflm            *
 *                         instead of _feprocentry.                              *
@@ -144,9 +144,9 @@ static double __logb (  double x  )
       else if ( x == 0.0 ) 
       {                                                  // zero
             hexdouble OldEnvironment;
-            fegetenvd( OldEnvironment.d );             // raise zero divide for DOMAIN error
+            FEGETENVD( OldEnvironment.d );             // raise zero divide for DOMAIN error
             OldEnvironment.i.lo |= FE_DIVBYZERO;
-            fesetenvd( OldEnvironment.d );
+            FESETENVD( OldEnvironment.d );
             return ( minusInf.d );			 // return -infinity
       }
       else 
@@ -220,7 +220,7 @@ static long int ___signbitd ( double arg )
    low quotient result to the location pointed to by the int pointer
    argument, quo:  -127 <= iquo <= +127.
    
-   This function calls:  __fpclassifyd, logb, scalbn, __fabs, signbitd.
+   This function calls:  __fpclassifyd, logb, scalbn, __FABS, signbitd.
 ***********************************************************************/
 
 double remquo ( double x, double y, int *quo)
@@ -235,16 +235,16 @@ double remquo ( double x, double y, int *quo)
       hexdouble     OldEnvironment;
       int           newexc;
 
-      fegetenvd ( OldEnvironment.d );
-      fesetenvd ( 0.0 );
+      FEGETENVD ( OldEnvironment.d );
+      FESETENVD ( 0.0 );
       OldEnv = OldEnvironment.i.lo;
       
       *quo = 0;                                       /* initialize quotient result */
       iclx = ___fpclassifyd(x);
       icly = ___fpclassifyd(y);
       if ((iclx & icly) >= FP_NORMAL)    {            /* x,y both nonzero finite case */
-         x1 = __fabs(x);                              /* work with absolute values */
-         absy = __fabs(y);
+         x1 = __FABS(x);                              /* work with absolute values */
+         absy = __FABS(y);
          iquo = 0;                                    /* zero local quotient */
          iscx = (long int) __logb(x1);                  /* get binary exponents */
          iscy = (long int) __logb(absy);
@@ -292,19 +292,19 @@ double remquo ( double x, double y, int *quo)
     else if ((iclx == FP_INFINITE)||(icly == FP_ZERO)) {    /* invalid result */
          rslt = nan(REM_NAN);
             OldEnvironment.i.lo |= SET_INVALID;
-            fesetenvd( OldEnvironment.d );
+            FESETENVD( OldEnvironment.d );
          goto ret;
     }
     else                                              /* trivial cases (finite REM infinite   */
          rslt = x;                                    /*  or  zero REM nonzero) with *quo = 0 */
   ret:
-      fegetenvd( OldEnvironment.d );
+      FEGETENVD( OldEnvironment.d );
       newexc = OldEnvironment.i.lo & FE_ALL_EXCEPT;
       OldEnvironment.i.lo = OldEnv;
       if ((newexc & FE_INVALID) != 0)
             OldEnvironment.i.lo |= SET_INVALID;
       OldEnvironment.i.lo |=  newexc & ( FE_INEXACT | FE_DIVBYZERO | FE_UNDERFLOW | FE_OVERFLOW );
-      fesetenvd( OldEnvironment.d );
+      FESETENVD( OldEnvironment.d );
       return rslt;
 }
 
@@ -322,16 +322,16 @@ float remquof ( float x, float y, int *quo)
       hexdouble     OldEnvironment;
       int           newexc;
     
-      fegetenvd ( OldEnvironment.d );
-      fesetenvd ( 0.0 );
+      FEGETENVD ( OldEnvironment.d );
+      FESETENVD ( 0.0 );
       OldEnv = OldEnvironment.i.lo;
       
       *quo = 0;                                       /* initialize quotient result */
       iclx = __fpclassifyf(x);
       icly = __fpclassifyf(y);
       if ((iclx & icly) >= FP_NORMAL)    {            /* x,y both nonzero finite case */
-         x1 = __fabsf(x);                              /* work with absolute values */
-         absy = __fabsf(y);
+         x1 = __FABSF(x);                              /* work with absolute values */
+         absy = __FABSF(y);
          iquo = 0;                                    /* zero local quotient */
          iscx = (long int) logbf(x1);                  /* get binary exponents */
          iscy = (long int) logbf(absy);
@@ -379,19 +379,19 @@ float remquof ( float x, float y, int *quo)
     else if ((iclx == FP_INFINITE)||(icly == FP_ZERO)) {    /* invalid result */
          rslt = nanf(REM_NAN);
             OldEnvironment.i.lo |= SET_INVALID;
-            fesetenvd( OldEnvironment.d );
+            FESETENVD( OldEnvironment.d );
          goto ret;
     }
     else                                              /* trivial cases (finite REM infinite   */
          rslt = x;                                    /*  or  zero REM nonzero) with *quo = 0 */
   ret:
-      fegetenvd( OldEnvironment.d );
+      FEGETENVD( OldEnvironment.d );
       newexc = OldEnvironment.i.lo & FE_ALL_EXCEPT;
       OldEnvironment.i.lo = OldEnv;
       if ((newexc & FE_INVALID) != 0)
             OldEnvironment.i.lo |= SET_INVALID;
       OldEnvironment.i.lo |=  newexc & ( FE_INEXACT | FE_DIVBYZERO | FE_UNDERFLOW | FE_OVERFLOW );
-      fesetenvd( OldEnvironment.d );
+      FESETENVD( OldEnvironment.d );
       return rslt;
 }
 
@@ -440,15 +440,15 @@ double fmod ( double x, double y )
     hexdouble     OldEnvironment;
     int           newexc;
     
-    fegetenvd( OldEnvironment.d );
-    fesetenvd( 0.0 );
+    FEGETENVD( OldEnvironment.d );
+    FESETENVD( 0.0 );
     OldEnv = OldEnvironment.i.lo;
     
     iclx = __fpclassifyd(x);
     icly = __fpclassifyd(y);
     if ((iclx & icly) >= FP_NORMAL)    {              /* x,y both nonzero finite case */
-         x1 = __fabs(x);                              /* work with absolute values */
-         absy = __fabs(y);
+         x1 = __FABS(x);                              /* work with absolute values */
+         absy = __FABS(y);
          if (absy > x1) {
               rslt = x;                               /* trivial case */
                   goto ret;
@@ -484,19 +484,19 @@ double fmod ( double x, double y )
     else if ((iclx == FP_INFINITE)||(icly == FP_ZERO)) {    /* invalid result */
          rslt = nan(REM_NAN);
             OldEnvironment.i.lo |= SET_INVALID;
-            fesetenvd ( OldEnvironment.d );
+            FESETENVD ( OldEnvironment.d );
          goto ret;
     }
     else                                              /* trivial cases (finite MOD infinite   */
          rslt = x;                                    /*  or  zero REM nonzero) with *quo = 0 */
   ret:
-    fegetenvd (OldEnvironment.d );
+    FEGETENVD (OldEnvironment.d );
     newexc = OldEnvironment.i.lo & FE_ALL_EXCEPT;
     OldEnvironment.i.lo = OldEnv;
     if ((newexc & FE_INVALID) != 0)
           OldEnvironment.i.lo |= SET_INVALID;
     OldEnvironment.i.lo |=  newexc & ( FE_INEXACT | FE_DIVBYZERO | FE_UNDERFLOW | FE_OVERFLOW );
-    fesetenvd (OldEnvironment.d );
+    FESETENVD (OldEnvironment.d );
     return rslt;
 }
 
@@ -511,15 +511,15 @@ float fmodf ( float x, float y )
     hexdouble     OldEnvironment;
     int           newexc;
     
-    fegetenvd( OldEnvironment.d );
-    fesetenvd( 0.0 );
+    FEGETENVD( OldEnvironment.d );
+    FESETENVD( 0.0 );
     OldEnv = OldEnvironment.i.lo;
     
     iclx = __fpclassifyf(x);
     icly = __fpclassifyf(y);
     if ((iclx & icly) >= FP_NORMAL)    {              /* x,y both nonzero finite case */
-         x1 = __fabsf(x);                              /* work with absolute values */
-         absy = __fabsf(y);
+         x1 = __FABSF(x);                              /* work with absolute values */
+         absy = __FABSF(y);
          if (absy > x1) {
               rslt = x;                               /* trivial case */
                   goto ret;
@@ -555,19 +555,19 @@ float fmodf ( float x, float y )
     else if ((iclx == FP_INFINITE)||(icly == FP_ZERO)) {    /* invalid result */
          rslt = nanf(REM_NAN);
             OldEnvironment.i.lo |= SET_INVALID;
-            fesetenvd ( OldEnvironment.d );
+            FESETENVD ( OldEnvironment.d );
          goto ret;
     }
     else                                              /* trivial cases (finite MOD infinite   */
          rslt = x;                                    /*  or  zero REM nonzero) with *quo = 0 */
   ret:
-    fegetenvd (OldEnvironment.d );
+    FEGETENVD (OldEnvironment.d );
     newexc = OldEnvironment.i.lo & FE_ALL_EXCEPT;
     OldEnvironment.i.lo = OldEnv;
     if ((newexc & FE_INVALID) != 0)
           OldEnvironment.i.lo |= SET_INVALID;
     OldEnvironment.i.lo |=  newexc & ( FE_INEXACT | FE_DIVBYZERO | FE_UNDERFLOW | FE_OVERFLOW );
-    fesetenvd (OldEnvironment.d );
+    FESETENVD (OldEnvironment.d );
     return rslt;
 }
 

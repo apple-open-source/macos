@@ -1,21 +1,12 @@
-/*	$NetBSD: getopt.c,v 1.5 1998/02/03 03:44:22 perry Exp $	*/
-
 #include <sys/cdefs.h>
-#ifndef lint
-__RCSID("$NetBSD: getopt.c,v 1.5 1998/02/03 03:44:22 perry Exp $");
-#endif /* not lint */
+__RCSID("$FreeBSD: src/usr.bin/getopt/getopt.c,v 1.10 2002/09/04 23:29:01 dwmalone Exp $");
 
-#include <errno.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <stdlib.h>
-
-int	main __P((int, char **));
+#include <unistd.h>
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	int c;
 	int status = 0;
@@ -37,5 +28,5 @@ main(argc, argv)
 	for (; optind < argc; optind++)
 		printf(" %s", argv[optind]);
 	printf("\n");
-	exit(status);
+	return status;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,8 +22,8 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * Copyright (c) 1990, 1993
+/*-
+ * Copyright (c) 1990, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
  * This code is derived from software contributed to Berkeley by
@@ -58,6 +58,10 @@
  * SUCH DAMAGE.
  */
 
+#if defined(LIBC_SCCS) && !defined(lint)
+static char sccsid[] = "@(#)bt_overflow.c	8.5 (Berkeley) 7/16/94";
+#endif /* LIBC_SCCS and not lint */
+#include <sys/cdefs.h>
 
 #include <sys/param.h>
 
@@ -90,7 +94,7 @@
  *
  * Parameters:
  *	t:	tree
- *	p:	pointer to { pgno_t, size_t }
+ *	p:	pointer to { pgno_t, u_int32_t }
  *	buf:	storage address
  *	bufsz:	storage size
  *
@@ -102,15 +106,16 @@ __ovfl_get(t, p, ssz, buf, bufsz)
 	BTREE *t;
 	void *p;
 	size_t *ssz;
-	char **buf;
+	void **buf;
 	size_t *bufsz;
 {
 	PAGE *h;
 	pgno_t pg;
-	size_t nb, plen, sz;
+	size_t nb, plen;
+	u_int32_t sz;
 
 	memmove(&pg, p, sizeof(pgno_t));
-	memmove(&sz, (char *)p + sizeof(pgno_t), sizeof(size_t));
+	memmove(&sz, (char *)p + sizeof(pgno_t), sizeof(u_int32_t));
 	*ssz = sz;
 
 #ifdef DEBUG
@@ -119,7 +124,8 @@ __ovfl_get(t, p, ssz, buf, bufsz)
 #endif
 	/* Make the buffer bigger as necessary. */
 	if (*bufsz < sz) {
-		if ((*buf = (char *)realloc(*buf, sz)) == NULL)
+		*buf = (char *)(*buf == NULL ? malloc(sz) : reallocf(*buf, sz));
+		if (*buf == NULL)
 			return (RET_ERROR);
 		*bufsz = sz;
 	}
@@ -163,7 +169,8 @@ __ovfl_put(t, dbt, pg)
 	PAGE *h, *last;
 	void *p;
 	pgno_t npg;
-	size_t nb, plen, sz;
+	size_t nb, plen;
+	u_int32_t sz;
 
 	/*
 	 * Allocate pages and copy the key/data record into them.  Store the
@@ -202,7 +209,7 @@ __ovfl_put(t, dbt, pg)
  *
  * Parameters:
  *	t:	tree
- *	p:	pointer to { pgno_t, size_t }
+ *	p:	pointer to { pgno_t, u_int32_t }
  *
  * Returns:
  *	RET_ERROR, RET_SUCCESS
@@ -214,10 +221,11 @@ __ovfl_delete(t, p)
 {
 	PAGE *h;
 	pgno_t pg;
-	size_t plen, sz;
+	size_t plen;
+	u_int32_t sz;
 
 	memmove(&pg, p, sizeof(pgno_t));
-	memmove(&sz, (char *)p + sizeof(pgno_t), sizeof(size_t));
+	memmove(&sz, (char *)p + sizeof(pgno_t), sizeof(u_int32_t));
 
 #ifdef DEBUG
 	if (pg == P_INVALID || sz == 0)

@@ -279,7 +279,8 @@ void InlineFlowBox::verticallyAlignBoxes(int& heightOfBlock)
     int maxAscent = 0;
     int maxDescent = 0;
 
-    // Figure out if we're in strict mode.
+    // Figure out if we're in strict mode.  Note that we can't simply use !style()->htmlHacks(),
+    // because that would match almost strict mode as well.
     RenderObject* curr = object();
     while (curr && !curr->element())
         curr = curr->container();
@@ -336,14 +337,14 @@ void InlineFlowBox::computeLogicalBoxHeights(int& maxPositionTop, int& maxPositi
 {
     if (isRootInlineBox()) {
         // Examine our root box.
-        setHeight(object()->lineHeight(m_firstLine));
+        setHeight(object()->lineHeight(m_firstLine, true));
         bool isTableCell = object()->isTableCell();
         if (isTableCell) {
             RenderTableCell* tableCell = static_cast<RenderTableCell*>(object());
-            setBaseline(tableCell->RenderBlock::baselinePosition(m_firstLine));
+            setBaseline(tableCell->RenderBlock::baselinePosition(m_firstLine, true));
         }
         else
-            setBaseline(object()->baselinePosition(m_firstLine));
+            setBaseline(object()->baselinePosition(m_firstLine, true));
         if (hasTextChildren() || strictMode) {
             int ascent = baseline();
             int descent = height() - ascent;
@@ -563,6 +564,17 @@ void InlineFlowBox::paintDecorations(QPainter *p, int _x, int _y,
     RenderStyle* styleToUse = object()->style(m_firstLine);
     int deco = parent() ? styleToUse->textDecoration() : styleToUse->textDecorationsInEffect();
     if (deco != TDNONE && shouldDrawDecoration(object())) {
+#if APPLE_CHANGES
+        // Set up the appropriate text-shadow effect for the decoration.
+        // FIXME: Support multiple shadow effects.  Need more from the CG API before we can do this.
+        bool setShadow = false;
+        if (styleToUse->textShadow()) {
+            p->setShadow(styleToUse->textShadow()->x, styleToUse->textShadow()->y,
+                         styleToUse->textShadow()->blur, styleToUse->textShadow()->color);
+            setShadow = true;
+        }
+#endif
+        
         // We must have child boxes and have decorations defined.
         _tx += borderLeft() + paddingLeft();
         int w = m_width - (borderLeft() + paddingLeft() + borderRight() + paddingRight());
@@ -582,5 +594,10 @@ void InlineFlowBox::paintDecorations(QPainter *p, int _x, int _y,
             p->setPen(linethrough);
             p->drawLineForText(_tx, _ty, 2*m_baseline/3, w);
         }
+
+#if APPLE_CHANGES
+        if (setShadow)
+            p->clearShadow();
+#endif
     }
 }

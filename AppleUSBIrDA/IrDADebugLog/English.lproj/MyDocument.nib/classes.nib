@@ -1,0 +1,20 @@
+{
+    IBClasses = (
+        {
+            CLASS = ExpenseDataSource; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {tableView = id; }; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            ACTIONS = {createNewLogItem = id; deleteSelectedLogItem = id; startTimer = id; }; 
+            CLASS = MyDocument; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {tableview = id; totalField = id; }; 
+            SUPERCLASS = NSDocument; 
+        }, 
+        {CLASS = MySound; LANGUAGE = ObjC; SUPERCLASS = Sound; }
+    ); 
+    IBVersion = 1; 
+}

@@ -1,0 +1,7 @@
+Ihre Email mit dem Betreff/Subject
+
+    %(subject)s
+
+wurde von der Mailing-Liste %(listname)s erfolgreich verarbeitet.
+
+Informationsseite der Liste: %(listinfo_url)s

@@ -19,6 +19,7 @@
 #include "defs.h"
 #include "value.h"
 #include "varobj.h"
+#include "objc-lang.h"
 #include "wrapper.h"
 
 /* Use this struct to pass arguments to wrapper routines. We assume
@@ -56,6 +57,10 @@ static int wrap_parse_exp_1 (char *);
 
 static int wrap_evaluate_expression (char *);
 
+static int wrap_print_expression (char *a);
+
+static int wrap_evaluate_type (char *);
+
 static int wrap_value_fetch_lazy (char *);
 
 static int wrap_value_equal (char *);
@@ -66,11 +71,15 @@ static int wrap_value_subscript (char *);
 
 static int wrap_value_ind (char *opaque_arg);
 
+static int wrap_value_cast (char *);
+
 static int do_captured_value_struct_elt (struct ui_out *uiout, void *data);
 
 static int wrap_parse_and_eval_type (char *);
 
 static int wrap_varobj_get_value (char *a);
+
+static int wrap_value_objc_target_type (char *);
 
 int
 gdb_parse_exp_1 (char **stringptr, struct block *block, int comma,
@@ -108,17 +117,29 @@ int
 gdb_evaluate_expression (struct expression *exp, struct value **value)
 {
   struct gdb_wrapper_arguments args;
+  int old_unwind;
+  int retval;
   args.args[0].pointer = exp;
+
+  /* The expression may contain a function, and we certainly don't want
+     a crash in the function to leave the stack in a funny state. */
+
+  old_unwind = set_unwind_on_signal (1);
 
   if (!catch_errors ((catch_errors_ftype *) wrap_evaluate_expression, &args,
 		     "", RETURN_MASK_ERROR))
     {
       /* An error occurred */
-      return 0;
+      retval = 0;
+    }
+  else
+    {
+      *value = (struct value *) args.result.pointer;
+      retval = 1;
     }
 
-  *value = (struct value *) args.result.pointer;
-  return 1;
+  set_unwind_on_signal (old_unwind);
+  return retval;
 }
 
 static int
@@ -128,6 +149,78 @@ wrap_evaluate_expression (char *a)
 
   (args)->result.pointer =
     (char *) evaluate_expression ((struct expression *) args->args[0].pointer);
+  return 1;
+}
+
+
+int
+gdb_print_expression (struct expression *exp, struct ui_file *stb)
+{
+  struct gdb_wrapper_arguments args;
+
+  args.args[0].pointer = exp;
+  args.args[1].pointer = stb;
+
+  if (!catch_errors ((catch_errors_ftype *) wrap_print_expression, &args,
+		     "", RETURN_MASK_ERROR))
+    {
+      /* An error occurred */
+      return 0;
+    }
+
+  return 1;
+}
+
+static int
+wrap_print_expression (char *a)
+{
+  struct gdb_wrapper_arguments *args = (struct gdb_wrapper_arguments *) a;
+  struct expression *exp;
+  struct ui_file *stb;
+
+  exp = (struct expression *) (args)->args[0].pointer;
+  stb = (struct ui_file *) (args)->args[1].pointer;
+
+  print_expression (exp, stb);
+  return 1;
+}
+
+int
+gdb_evaluate_type (struct expression *exp, struct value **value)
+{
+  struct gdb_wrapper_arguments args;
+  int old_unwind;
+  int retval;
+  args.args[0].pointer = exp;
+
+  /* The expression may contain a function, and we certainly don't want
+     a crash in the function to leave the stack in a funny state. */
+
+  old_unwind = set_unwind_on_signal (1);
+
+  if (!catch_errors ((catch_errors_ftype *) wrap_evaluate_type, &args,
+		     "", RETURN_MASK_ERROR))
+    {
+      /* An error occurred */
+      retval = 0;
+    }
+  else
+    {
+      *value = (struct value *) args.result.pointer;
+      retval = 1;
+    }
+
+  set_unwind_on_signal (old_unwind);
+  return retval;
+}
+
+static int
+wrap_evaluate_type (char *a)
+{
+  struct gdb_wrapper_arguments *args = (struct gdb_wrapper_arguments *) a;
+
+  (args)->result.pointer =
+    (char *) evaluate_type ((struct expression *) args->args[0].pointer);
   return 1;
 }
 
@@ -279,6 +372,39 @@ wrap_value_ind (char *opaque_arg)
 }
 
 int
+gdb_value_cast (struct type *type, struct value *in_val, struct value **out_val)
+{
+  struct gdb_wrapper_arguments args;
+
+  args.args[0].pointer = type;
+  args.args[1].pointer = in_val;
+
+  if (!catch_errors ((catch_errors_ftype *) wrap_value_cast, &args,
+		     "", RETURN_MASK_ERROR))
+    {
+      /* An error occurred */
+      return 0;
+    }
+
+  *out_val = (struct value *) args.result.pointer;
+  return 1;
+}
+
+static int
+wrap_value_cast (char *opaque_arg)
+{
+  struct gdb_wrapper_arguments *args = (struct gdb_wrapper_arguments *) opaque_arg;
+  struct type *type;
+  struct value *val;
+
+  type = (struct type *) (args)->args[0].pointer;
+  val = (struct value *) (args)->args[1].pointer;
+
+  (args)->result.pointer = value_cast (type, val);
+  return 1;
+}
+
+int
 gdb_parse_and_eval_type (char *p, int length, struct type **type)
 {
   struct gdb_wrapper_arguments args;
@@ -394,3 +520,47 @@ safe_execute_command (char *command, int from_tty)
     return 1;
 }
 
+static int 
+wrap_value_objc_target_type (char *a)
+{
+  struct gdb_wrapper_arguments *args = (struct gdb_wrapper_arguments *) a;
+
+  struct value * val = (struct val *) args->args[0].pointer;
+
+  (args)->result.pointer = value_objc_target_type (val);
+
+  return 1;
+}
+
+int
+safe_value_objc_target_type (struct value *val, struct type **dynamic_type)
+{
+  struct gdb_wrapper_arguments args;
+  struct ui_file *saved_gdb_stderr;
+  static struct ui_file *null_stderr = NULL;
+
+  /* suppress error messages 
+     FIXME: Consolidate this with the use in value_rtti_target_type
+     and elsewhere where we want to suppress the messages. */
+
+  if (null_stderr == NULL)
+    null_stderr = ui_file_new ();
+
+  saved_gdb_stderr = gdb_stderr;
+  gdb_stderr = null_stderr;
+
+  args.args[0].pointer = val;
+
+  if (!catch_errors ((catch_errors_ftype *) wrap_value_objc_target_type, &args,
+		     "", RETURN_MASK_ALL))
+    {
+      /* An error occurred */
+      return 0;
+    }
+
+  gdb_stderr = saved_gdb_stderr;
+
+  *dynamic_type = (struct type *) args.result.pointer;
+  
+    return 1;
+}

@@ -1,4 +1,4 @@
-/* Copyright (c) 1993-2000
+/* Copyright (c) 1993-2002
  *      Juergen Weigert (jnweiger@immd4.informatik.uni-erlangen.de)
  *      Michael Schroeder (mlschroe@immd4.informatik.uni-erlangen.de)
  * Copyright (c) 1987 Oliver Laumann
@@ -22,7 +22,7 @@
  */
 
 #include "rcs.h"
-RCS_ID("$Id: pty.c,v 1.1.1.1 2001/12/14 22:08:29 bbraun Exp $ FAU")
+RCS_ID("$Id: pty.c,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU")
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -93,6 +93,14 @@ static char TtyProto[] = "/dev/ttyXY";
 #endif
 
 static void initmaster __P((int));
+
+#if defined(sun)
+/* sun's utmp_update program opens the salve side, thus corrupting
+ */
+int pty_preopen = 1;
+#else
+int pty_preopen = 0;
+#endif
 
 /*
  *  Open all ptys with O_NOCTTY, just to be on the safe side
@@ -244,10 +252,17 @@ char **ttyn;
   register int f;
   char *m, *ptsname();
   int unlockpt __P((int)), grantpt __P((int));
+#if defined(HAVE_GETPT) && defined(linux)
+  int getpt __P((void));
+#endif
   sigret_t (*sigcld)__P(SIGPROTOARG);
 
   strcpy(PtyName, "/dev/ptmx");
+#if defined(HAVE_GETPT) && defined(linux)
+  if ((f = getpt()) == -1)
+#else
   if ((f = open(PtyName, O_RDWR | O_NOCTTY)) == -1)
+#endif
     return -1;
 
   /*
@@ -274,10 +289,6 @@ char **ttyn;
 #if defined(_AIX) && defined(HAVE_DEV_PTC) && !defined(PTY_DONE)
 #define PTY_DONE
 
-#ifdef _IBMR2
-int aixhack = -1;
-#endif
-
 int
 OpenPTY(ttyn)
 char **ttyn;
@@ -296,16 +307,29 @@ char **ttyn;
     }
   initmaster(f);
 # ifdef _IBMR2
-  if (aixhack >= 0)
-    close(aixhack);
-  if ((aixhack = open(TtyName, O_RDWR | O_NOCTTY)) < 0)
-    {
-      close(f);
-      return -1;
-    }
+  pty_preopen = 1;
 # endif
   *ttyn = TtyName;
   return f;
+}
+#endif
+
+/***************************************************************/
+
+#if defined(HAVE_OPENPTY) && !defined(PTY_DONE)
+#define PTY_DONE
+int
+OpenPTY(ttyn)
+char **ttyn;
+{
+  int f, s;
+  if (openpty(&f, &s, TtyName, NULL, NULL) != 0)
+    return -1;
+  close(s);
+  initmaster(f);
+  pty_preopen = 1;
+  *ttyn = TtyName;
+  return f;    
 }
 #endif
 

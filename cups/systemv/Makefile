@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile,v 1.7 2002/07/21 22:06:30 jlovell Exp $"
+# "$Id: Makefile,v 1.10 2003/08/15 06:46:01 jlovell Exp $"
 #
 #   System V commands makefile for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+#   Copyright 1997-2003 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
 #   property of Easy Software Products and are protected by Federal
@@ -24,10 +24,11 @@
 
 include ../Makedefs
 
-TARGETS	=	accept cancel cupsaddsmb lp lpadmin lpinfo lpmove \
-		lpoptions lppasswd lpstat
-OBJS	=	accept.o cancel.o cupsaddsmb.o lp.o lpadmin.o \
-		lpinfo.o lpmove.o lpoptions.o lppasswd.o lpstat.o
+TARGETS	=	accept cancel cupsaddsmb cupstestppd lp lpadmin lpinfo \
+		lpmove lpoptions lppasswd lpstat
+OBJS	=	accept.o cancel.o cupsaddsmb.o cupstestppd.o lp.o \
+		lpadmin.o lpinfo.o lpmove.o lpoptions.o lppasswd.o \
+		lpstat.o
 
 
 #
@@ -68,6 +69,7 @@ install:	all
 	$(INSTALL_BIN) lpmove $(SBINDIR)
 	$(INSTALL_DIR) $(BINDIR)
 	$(INSTALL_BIN) cancel $(BINDIR)
+	$(INSTALL_BIN) cupstestppd $(BINDIR)
 	$(RM) $(BINDIR)/disable
 	$(LN) ../sbin/accept $(BINDIR)/disable
 	$(RM) $(BINDIR)/enable
@@ -76,7 +78,7 @@ install:	all
 	$(INSTALL_BIN) lpoptions $(BINDIR)
 	$(INSTALL_BIN) lpstat $(BINDIR)
 	$(INSTALL_BIN) lppasswd $(BINDIR)
-	-$(INSTALL_BIN) -m 4755 -o $(CUPS_USER) -g $(CUPS_GROUP) lppasswd $(BINDIR)
+	-$(INSTALL_BIN) -m 4755 -o root -g $(CUPS_GROUP) lppasswd $(BINDIR)
 	if test "x$(SYMROOT)" != "x"; then \
 		$(INSTALL_DIR) $(SYMROOT); \
 		for file in $(TARGETS); do \
@@ -114,6 +116,15 @@ cancel:	cancel.o ../cups/$(LIBCUPS)
 cupsaddsmb:	cupsaddsmb.o ../cups/$(LIBCUPS)
 	echo Linking $@...
 	$(CC) $(LDFLAGS) -o cupsaddsmb cupsaddsmb.o $(LIBS)
+
+
+#
+# cupstestppd
+#
+
+cupstestppd:	cupstestppd.o ../cups/$(LIBCUPS)
+	echo Linking $@...
+	$(CC) $(LDFLAGS) -o $@ cupstestppd.o $(LIBS)
 
 
 #
@@ -187,5 +198,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile,v 1.7 2002/07/21 22:06:30 jlovell Exp $".
+# End of "$Id: Makefile,v 1.10 2003/08/15 06:46:01 jlovell Exp $".
 #

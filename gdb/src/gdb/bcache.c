@@ -1,7 +1,8 @@
 /* Implement a cached obstack.
    Written by Fred Fish <fnf@cygnus.com>
    Rewritten by Jim Blandy <jimb@cygnus.com>
-   Copyright 1999, 2000 Free Software Foundation, Inc.
+
+   Copyright 1999, 2000, 2002 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -20,13 +21,59 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
+#include "defs.h"
+#include "gdb_obstack.h"
+#include "bcache.h"
+#include "gdb_string.h"		/* For memcpy declaration */
+
 #include <stddef.h>
 #include <stdlib.h>
 
-#include "defs.h"
-#include "obstack.h"
-#include "bcache.h"
-#include "gdb_string.h"		/* For memcpy declaration */
+/* The type used to hold a single bcache string.  The user data is
+   stored in d.data.  Since it can be any type, it needs to have the
+   same alignment as the most strict alignment of any type on the host
+   machine.  I don't know of any really correct way to do this in
+   stock ANSI C, so just do it the same way obstack.h does.  */
+
+struct bstring
+{
+  struct bstring *next;
+  size_t length;
+
+  union
+  {
+    char data[1];
+    double dummy;
+  }
+  d;
+};
+
+
+/* The structure for a bcache itself.  The bcache is initialized, in
+   bcache_xmalloc(), by filling it with zeros and then setting the
+   corresponding obstack's malloc() and free() methods.  */
+
+struct bcache
+{
+  /* All the bstrings are allocated here.  */
+  struct obstack cache;
+
+  void *pool;
+
+  /* How many hash buckets we're using.  */
+  unsigned int num_buckets;
+  
+  /* Hash buckets.  This table is allocated using malloc, so when we
+     grow the table we can return the old table to the system.  */
+  struct bstring **bucket;
+
+  /* Statistics.  */
+  unsigned long unique_count;	/* number of unique strings */
+  long total_count;	/* total number of strings cached, including dups */
+  long unique_size;	/* size of unique strings, in bytes */
+  long total_size;      /* total number of bytes cached, including dups */
+  long structure_size;	/* total size of bcache, including infrastructure */
+};
 
 /* The old hash function was stolen from SDBM. This is what DB 3.0 uses now,
  * and is better than the old one. 
@@ -84,7 +131,7 @@ expand_hash_table (struct bcache *bcache)
   /* Allocate the new table.  */
   {
     size_t new_size = new_num_buckets * sizeof (new_buckets[0]);
-    new_buckets = (struct bstring **) xmalloc (new_size);
+    new_buckets = (struct bstring **) xmmalloc (bcache->pool, new_size);
     memset (new_buckets, 0, new_size);
 
     bcache->structure_size -= (bcache->num_buckets
@@ -111,7 +158,7 @@ expand_hash_table (struct bcache *bcache)
 
   /* Plug in the new table.  */
   if (bcache->bucket)
-    xfree (bcache->bucket);
+    xmfree (bcache->pool, bcache->bucket);
   bcache->bucket = new_buckets;
   bcache->num_buckets = new_num_buckets;
 }
@@ -165,19 +212,43 @@ bcache (const void *addr, int length, struct bcache *bcache)
 }
 
 
-/* Freeing bcaches.  */
+/* Allocating and freeing bcaches.  */
+
+void
+bcache_specify_allocation_with_arg
+(struct bcache *b, void * (* alloc) (void *, size_t),
+ void (* free) (void *, void *), void *arg)
+{
+  obstack_specify_allocation_with_arg (&b->cache, 0, 0, alloc, free, arg);
+}
+
+void
+bcache_specify_allocation
+(struct bcache *b, void * (* alloc) (size_t),
+ void (* free) (void *))
+{
+  obstack_specify_allocation (&b->cache, 0, 0, alloc, free);
+}
+
+struct bcache *
+bcache_xmalloc (void *pool)
+{
+  /* Allocate the bcache pre-zeroed.  */
+  struct bcache *b = (struct bcache *) xmcalloc (pool, 1, sizeof (struct bcache));
+  b->pool = pool;
+  obstack_specify_allocation_with_arg (&b->cache, 0, 0, xmmalloc, xmfree, pool);
+  return b;
+}
 
 /* Free all the storage associated with BCACHE.  */
 void
-free_bcache (struct bcache *bcache)
+bcache_xfree (struct bcache *bcache)
 {
+  if (bcache == NULL)
+    return;
   obstack_free (&bcache->cache, 0);
-  if (bcache->bucket)
-    xfree (bcache->bucket);
-
-  /* This isn't necessary, but at least the bcache is always in a
-     consistent state.  */
-  memset (bcache, 0, sizeof (*bcache));
+  xmfree (bcache->pool, bcache->bucket);
+  xmfree (bcache->pool, bcache);
 }
 
 
@@ -289,4 +360,10 @@ print_bcache_statistics (struct bcache *c, char *type)
     printf_filtered ("(not applicable)\n");
   printf_filtered ("    Maximum hash chain length: %3d\n", max_chain_length);
   printf_filtered ("\n");
+}
+
+int
+bcache_memory_used (struct bcache *bcache)
+{
+  return obstack_memory_used (&bcache->cache);
 }

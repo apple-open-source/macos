@@ -132,7 +132,7 @@ UPLOADING
 
   Upload all data on stdin to a specified ftp site:
 
-        curl -t ftp://ftp.upload.com/myfile
+        curl -T - ftp://ftp.upload.com/myfile
 
   Upload data from a specified file, login with user and password:
 
@@ -157,7 +157,7 @@ UPLOADING
 
   Upload all data on stdin to a specified http site:
 
-        curl -t http://www.upload.com/myfile
+        curl -T - http://www.upload.com/myfile
 
   Note that the http server must've been configured to accept PUT before this
   can be done successfully.
@@ -246,25 +246,25 @@ POST (HTTP)
   -F accepts parameters like -F "name=contents". If you want the contents to
   be read from a file, use <@filename> as contents. When specifying a file,
   you can also specify the file content type by appending ';type=<mime type>'
-  to the file name. You can also post the contents of several files in one field.
-  For example, the field name 'coolfiles' is used to send three  files, with
-  different content types using the following syntax:
+  to the file name. You can also post the contents of several files in one
+  field.  For example, the field name 'coolfiles' is used to send three files,
+  with different content types using the following syntax:
 
         curl -F "coolfiles=@fil1.gif;type=image/gif,fil2.txt,fil3.html" \
         http://www.post.com/postit.cgi
 
   If the content-type is not specified, curl will try to guess from the file
-  extension  (it only knows a few), or use the previously specified type
-  (from an earlier file if several files are specified in a list) or else it
-  will  using the default type 'text/plain'.
+  extension (it only knows a few), or use the previously specified type (from
+  an earlier file if several files are specified in a list) or else it will
+  using the default type 'text/plain'.
 
   Emulate a fill-in form with -F. Let's say you fill in three fields in a
   form. One field is a file name which to post, one field is your name and one
   field is a file description. We want to post the file we have written named
   "cooltext.txt". To let curl do the posting of this data instead of your
-  favourite browser, you have to read the HTML source of the form page and find
-  the names of the input fields. In our example, the input field names are
-  'file', 'yourname' and 'filedescription'.
+  favourite browser, you have to read the HTML source of the form page and
+  find the names of the input fields. In our example, the input field names
+  are 'file', 'yourname' and 'filedescription'.
 
         curl -F "file=@cooltext.txt" -F "yourname=Daniel" \
              -F "filedescription=Cool text file with cool text inside" \
@@ -404,12 +404,28 @@ SPEED LIMIT
   To have curl abort the download if the speed is slower than 3000 bytes per
   second for 1 minute, run:
 
-        curl -y 3000 -Y 60 www.far-away-site.com
+        curl -Y 3000 -y 60 www.far-away-site.com
 
   This can very well be used in combination with the overall time limit, so
   that the above operatioin must be completed in whole within 30 minutes:
 
-        curl -m 1800 -y 3000 -Y 60 www.far-away-site.com
+        curl -m 1800 -Y 3000 -y 60 www.far-away-site.com
+
+  Forcing curl not to transfer data faster than a given rate is also possible,
+  which might be useful if you're using a limited bandwidth connection and you
+  don't want your transfer to use all of it.
+
+  Make curl transfer data no faster than 10 kilobytes per second:
+
+        curl --limit-rate 10K www.far-away-site.com
+
+    or
+
+        curl --limit-rate 10240 www.far-away-site.com
+
+  Or prevent curl from uploading data faster than 1 megabyte per second:
+
+        curl -T upload --limit-rate 1M ftp://uploadshereplease.com
 
 CONFIG FILE
 
@@ -548,7 +564,7 @@ HTTPS
   from sites that require valid certificates. The only drawback is that the
   certificate needs to be in PEM-format. PEM is a standard and open format to
   store certificates with, but it is not used by the most commonly used
-  browsers (Netscape and MSEI both use the so called PKCS#12 format). If you
+  browsers (Netscape and MSIE both use the so called PKCS#12 format). If you
   want curl to use the certificates you use with your (favourite) browser, you
   may need to download/compile a converter that can convert your browser's
   formatted certificates to PEM formatted ones. This kind of converter is
@@ -567,8 +583,8 @@ HTTPS
 
   Many older SSL-servers have problems with SSLv3 or TLS, that newer versions
   of OpenSSL etc is using, therefore it is sometimes useful to specify what
-  SSL-version curl should use. Use -3 or -2 to specify that exact SSL version
-  to use:
+  SSL-version curl should use. Use -3, -2 or -1 to specify that exact SSL
+  version to use (for SSLv3, SSLv2 or TLSv1 respectively):
 
         curl -2 https://secure.site.com/
 
@@ -591,7 +607,7 @@ HTTPS
     Run the 'openssl' application to convert the certificate. If you cd to the
     openssl installation, you can do it like:
 
-     # ./apps/openssl pkcs12 -certfile [file you saved] -out [PEMfile]
+     # ./apps/openssl pkcs12 -in [file you saved] -clcerts -out [PEMfile]
 
 
 RESUMING FILE TRANSFERS
@@ -601,15 +617,15 @@ RESUMING FILE TRANSFERS
 
  Continue downloading a document:
 
-        curl -c -o file ftp://ftp.server.com/path/file
+        curl -C - -o file ftp://ftp.server.com/path/file
 
  Continue uploading a document(*1):
 
-        curl -c -T file ftp://ftp.server.com/path/file
+        curl -C - -T file ftp://ftp.server.com/path/file
 
  Continue downloading a document from a web server(*2):
 
-        curl -c -o file http://www.server.com/
+        curl -C - -o file http://www.server.com/
 
  (*1) = This requires that the ftp server supports the non-standard command
         SIZE. If it doesn't, curl will say so.
@@ -668,8 +684,14 @@ LDAP
   and offer ldap:// support.
 
   LDAP is a complex thing and writing an LDAP query is not an easy task. I do
-  advice you to dig up the syntax description for that elsewhere, RFC 1959 if
-  no other place is better.
+  advice you to dig up the syntax description for that elsewhere. Two places
+  that might suit you are:
+
+  Netscape's "Netscape Directory SDK 3.0 for C Programmer's Guide Chapter 10:
+  Working with LDAP URLs":
+  http://developer.netscape.com/docs/manuals/dirsdk/csdk30/url.htm
+
+  RFC 2255, "The LDAP URL Format" http://www.rfc-editor.org/rfc/rfc2255.txt
 
   To show you an example, this is now I can get all people from my local LDAP
   server that has a certain sub-domain in their email address:
@@ -683,7 +705,7 @@ ENVIRONMENT VARIABLES
 
   Curl reads and understands the following environment variables:
 
-        HTTP_PROXY, HTTPS_PROXY, FTP_PROXY, GOPHER_PROXY
+        http_proxy, HTTPS_PROXY, FTP_PROXY, GOPHER_PROXY
 
   They should be set for protocol-specific proxies. General proxy should be
   set with
@@ -710,9 +732,9 @@ NETRC
   passwords, so therefor most unix programs won't read this file unless it is
   only readable by yourself (curl doesn't care though).
 
-  Curl supports .netrc files if told so (using the -n/--netrc option). This is
-  not restricted to only ftp, but curl can use it for all protocols where
-  authentication is used.
+  Curl supports .netrc files if told so (using the -n/--netrc and
+  --netrc-optional options). This is not restricted to only ftp,
+  but curl can use it for all protocols where authentication is used.
 
   A very simple .netrc file could look something like:
 
@@ -756,6 +778,17 @@ TELNET
   You might want the -N/--no-buffer option to switch off the buffered output
   for slow connections or similar.
 
+  Pass options to the telnet protocol negotiation, by using the -t option. To
+  tell the server we use a vt100 terminal, try something like:
+
+        curl -tTTYPE=vt100 telnet://remote.server.com
+
+  Other interesting options for it -t include:
+
+   - XDISPLOC=<X display> Sets the X display location.
+
+   - NEW_ENV=<var,val> Sets an environment variable.
+
   NOTE: the telnet protocol does not specify any way to login with a specified
   user and password so curl can't do that automatically. To do that, you need
   to track when the login prompt is received and send the username and
@@ -783,19 +816,39 @@ PERSISTANT CONNECTIONS
 MAILING LISTS
 
   For your convenience, we have several open mailing lists to discuss curl,
-  its development and things relevant to this.
+  its development and things relevant to this. Get all info at
+  http://curl.haxx.se/mail/. The lists available are:
 
-  To subscribe to the main curl list, mail curl-request@contactor.se with
-  "subscribe <fill in your email address>" in the body.
+  curl-users
 
-  To subscribe to the curl-library users/deverlopers list, follow the
-  instructions at http://curl.haxx.se/mail/
+    Users of the command line tool. How to use it, what doesn't work, new
+    features, related tools, questions, news, installations, compilations,
+    running, porting etc.
 
-  To subscribe to the curl-announce list, to only get information about new
-  releases, follow the instructions at http://curl.haxx.se/mail/
+  curl-library
 
-  To subscribe to the curl-and-PHP list in which curl using with PHP is
-  discussed, follow the instructions at http://curl.haxx.se/mail/
+    Developers using or developing libcurl. Bugs, extensions, improvements.
+
+  curl-announce
+
+    Low-traffic. Only announcements of new public versions.
+
+  curl-and-PHP
+
+    Using the curl functions in PHP. Everything curl with a PHP angle. Or PHP
+    with a curl angle.
+
+  curl-commits
+
+    Receives notifications on all CVS commits done to the curl source module.
+    This can become quite a large amount of mails during intense development,
+    be aware. This is for us who like email...
+
+  curl-www-commits
+
+    Receives notifications on all CVS commits done to the curl www module
+    (basicly the web site).  This can become quite a large amount of mails
+    during intense changing, be aware. This is for us who like email...
 
   Please direct curl questions, feature requests and trouble reports to one of
   these mailing lists instead of mailing any individual.

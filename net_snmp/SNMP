@@ -7,7 +7,7 @@
 . /etc/rc.common
 
 if [ "${SNMPSERVER:=-NO-}" = "-YES-" ]; then
-    ConsoleMessage "Starting SNMP server"
+    ConsoleMessage "Starting SNMP service"
 
     /usr/sbin/snmpd
 fi

@@ -1,11 +1,32 @@
 /*
- *  SLPDARegisterer.cpp
- *  NSLPlugins
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
- *  Created by karnold on Mon Mar 19 2001.
- *  Copyright (c) 2001 __CompanyName__. All rights reserved.
- *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
  */
+ 
+/*!
+ *  @header SLPDARegisterer
+ */
+ 
 #include "mslp_sd.h"
 #include "slp.h"
 #include "mslp.h"
@@ -14,11 +35,10 @@
 #include "mslpd.h"
 #include "slpipc.h"
 
-#include <Carbon/Carbon.h>
-
 #include "SLPDefines.h"
 #include "URLUtilities.h"
 #include "SLPDARegisterer.h"
+#include "CNSLTimingUtils.h"
 
 static SLPDARegisterer*	gRegisterer = NULL;
 
@@ -190,10 +210,11 @@ RegData::~RegData()
 }
 
 pthread_mutex_t	SLPDARegisterer::mQueueLock;
+const CFStringRef kSLPDARegistererTaskSAFE_CFSTR = CFSTR("SLPDARegisterer Task");
 
 CFStringRef SLPDARegistererCopyDesctriptionCallback ( const void *item )
 {
-    return CFSTR("SLPDARegisterer Task");
+    return kSLPDARegistererTaskSAFE_CFSTR;
 }
 
 Boolean SLPDARegistererEqualCallback ( const void *item1, const void *item2 )
@@ -202,7 +223,7 @@ Boolean SLPDARegistererEqualCallback ( const void *item1, const void *item2 )
 }
 
 SLPDARegisterer::SLPDARegisterer( SLPHandle serverState )
-	: LThread(threadOption_Default)
+	: DSLThread()
 {
 	CFArrayCallBacks	callBack;
     
@@ -304,7 +325,6 @@ void* SLPDARegisterer::Run()
                             StartSLPUDPListener( mServerState );
                             StartSLPTCPListener( mServerState );
                         }
-    //                   mRegisterAllServices = true;		// don't set this explicitly now that we can propigate particular registrations...                    
                         SDUnlock( mServerState->pvMutex );
                     }
                     else if ( mRegisterAllServices )
@@ -350,7 +370,7 @@ void* SLPDARegisterer::Run()
                                 
                                 if (!list_subset(regData->mScopeListPtr,SLPGetProperty("net.slp.useScopes"))) 
                                 {
-                                    char		newScopeList[2*kMaxSizeOfParam];		// this has GOT to be big enough... (I know, shoot me later)
+                                    char		newScopeList[2*kMaxSizeOfParam];		// this should be big enough...
                                     
                                     sprintf( newScopeList, "%s,%s", SLPGetProperty("net.slp.useScopes"), regData->mScopeListPtr );
                             
@@ -423,7 +443,7 @@ void* SLPDARegisterer::Run()
                     task = NULL;
                 }
                 else
-                sleep(1);
+					SmartSleep(60*USEC_PER_SEC);
             }
         }
         
@@ -471,4 +491,3 @@ static void store_free(SAStore store) {
   SLPFree(store.values);
   SLPFree(store.attrlist);
 }    
-

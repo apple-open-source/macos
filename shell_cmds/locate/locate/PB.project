@@ -4,7 +4,7 @@
         FRAMEWORKS = (); 
         H_FILES = (locate.h, pathnames.h); 
         OTHER_LINKED = (locate.c); 
-        OTHER_SOURCES = (Makefile, Makefile.preamble, Makefile.postamble, locate.1, updatedb.csh); 
+        OTHER_SOURCES = (Makefile, Makefile.preamble, Makefile.postamble, locate.1, locate.updatedb.8, updatedb.csh); 
         SUBPROJECTS = (); 
     }; 
     LANGUAGE = English; 

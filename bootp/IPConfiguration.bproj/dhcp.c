@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -88,6 +91,7 @@ typedef struct {
     dhcp_time_secs_t	lease_expiration;
     boolean_t		lease_is_infinite;
     dhcp_lease_t	lease_length;
+    boolean_t		must_broadcast;
     struct dhcp * 	request;
     int			request_size;
     struct saved_pkt	saved;
@@ -155,11 +159,13 @@ static __inline__ boolean_t
 get_server_identifier(dhcpol_t * options, struct in_addr * server_ip)
 {
     struct in_addr * 	ipaddr_p;
+    int			len;
 
     ipaddr_p = (struct in_addr *) 
-	dhcpol_find(options, dhcptag_server_identifier_e, NULL, NULL);
-    if (ipaddr_p)
+	dhcpol_find(options, dhcptag_server_identifier_e, &len, NULL);
+    if (ipaddr_p != NULL && len >= 4) {
 	*server_ip = *ipaddr_p;
+    }
     return (ipaddr_p != NULL);
 }
 
@@ -167,10 +173,19 @@ static __inline__ boolean_t
 get_lease(dhcpol_t * options, dhcp_lease_t * lease_time)
 {
     dhcp_lease_t *	lease_p;
+    int			len = 0;
 
     lease_p = (dhcp_lease_t *)
-	dhcpol_find(options, dhcptag_lease_time_e, NULL, NULL);
-    if (lease_p) {
+	dhcpol_find(options, dhcptag_lease_time_e, &len, NULL);
+    if (lease_p == NULL || len < 4) {
+	lease_p = (dhcp_lease_t *)
+	    dhcpol_find(options, dhcptag_renewal_t1_time_value_e, &len, NULL);
+	if (lease_p == NULL || len < 4) {
+	    lease_p = dhcpol_find(options, dhcptag_rebinding_t2_time_value_e, 
+				  &len, NULL);
+	}
+    }
+    if (lease_p != NULL && len >= 4) {
 	*lease_time = dhcp_lease_ntoh(*lease_p);
     }
     return (lease_p != NULL);
@@ -316,19 +331,40 @@ static struct dhcp *
 make_dhcp_request(struct dhcp * request, int pkt_size,
 		  dhcp_msgtype_t msg, 
 		  u_char * hwaddr, u_char hwtype, u_char hwlen, 
-		  void * cid, int cid_len,
+		  void * cid, int cid_len, boolean_t must_broadcast,
 		  dhcpoa_t * options_p)
 {
     char * 	buf = NULL;
     u_char 	cid_type = 0;
 
+    /* if no client id was specified, use the hardware address */
+    if (cid == NULL || cid_len == 0) {
+	cid = hwaddr;
+	cid_len = hwlen;
+	cid_type = hwtype;
+    }
+
     bzero(request, pkt_size);
-    request->dp_op = BOOTREQUEST;
     request->dp_htype = hwtype;
-    request->dp_hlen = hwlen;
-    if (G_must_broadcast)
+    request->dp_op = BOOTREQUEST;
+
+    switch (hwtype) {
+    default:
+    case ARPHRD_ETHER:
+	request->dp_hlen = hwlen;
+	bcopy(hwaddr, request->dp_chaddr, hwlen);
+	break;
+    case ARPHRD_IEEE1394:
+	request->dp_hlen = 0; /* RFC 2855 */
+	if (cid == hwaddr) {
+	    /* if client id is the hardware address, set the right type */
+	    cid_type = ARPHRD_IEEE1394_EUI64;
+	}
+	break;
+    }
+    if (must_broadcast || G_must_broadcast) {
 	request->dp_flags = htons(DHCP_FLAGS_BROADCAST);
-    bcopy(hwaddr, request->dp_chaddr, hwlen);
+    }
     bcopy(G_rfc_magic, request->dp_options, sizeof(G_rfc_magic));
     dhcpoa_init(options_p, request->dp_options + sizeof(G_rfc_magic),
 		pkt_size - sizeof(struct dhcp) - sizeof(G_rfc_magic));
@@ -362,13 +398,6 @@ make_dhcp_request(struct dhcp * request, int pkt_size,
 		    dhcpoa_err(options_p));
 	    goto err;
 	}
-    }
-
-    /* if no client id was specified, use the hardware address */
-    if (cid == NULL || cid_len == 0) {
-	cid = hwaddr;
-	cid_len = hwlen;
-	cid_type = hwtype;
     }
 
     /* add the client identifier to the request packet */
@@ -501,7 +530,7 @@ inform_success(Service_t * service_p)
 	
     option = dhcpol_find(&inform->saved.options, dhcptag_subnet_mask_e,
 			 &len, NULL);
-    if (option) {
+    if (option != NULL && len >= 4) {
 	inform->our_mask = *((struct in_addr *)option);
 	
 	/* reset the interface address with the new mask */
@@ -537,6 +566,7 @@ inform_request(Service_t * service_p, IFEventID_t event_id, void * event_data)
 					      if_link_arptype(if_p),
 					      if_link_length(if_p), 
 					      NULL, 0,
+					      FALSE,
 					      &options);
 	  if (inform->request == NULL) {
 	      my_log(LOG_ERR, "INFORM %s: make_dhcp_request failed",
@@ -566,6 +596,7 @@ inform_request(Service_t * service_p, IFEventID_t event_id, void * event_data)
 				      (bootp_receive_func_t *)inform_request,
 				      service_p, (void *)IFEventID_data_e);
 	  inform->saved.rating = 0;
+	  inform->xid++;
 #if 0
 	  dhcpol_free(&inform->saved.options);
 	  bzero(&inform->saved, sizeof(inform->saved));
@@ -592,7 +623,7 @@ inform_request(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	      inform_success(service_p);
 	      break;
 	  }
-	  inform->request->dp_xid = htonl(++inform->xid);
+	  inform->request->dp_xid = htonl(inform->xid);
 	  inform->request->dp_secs 
 	      = htons((u_short)(timer_current_secs() - inform->start_secs));
 #ifdef DEBUG
@@ -910,11 +941,13 @@ inform_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 				  &arpc->ip_addr,
 				  arpc->hwaddr,
 				  NULL);
-	  service_remove_address(service_p);
 	  my_log(LOG_ERR, "INFORM %s: %s", if_name(if_p), 
 		 msg);
+#if 0
+	  service_remove_address(service_p);
 	  inform_failed(service_p, ipconfig_status_address_in_use_e,
 			msg);
+#endif 0
 	  break;
       }
       case IFEventID_media_e: {
@@ -1101,6 +1134,7 @@ dhcp_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	      break;
 	  }
 	  bzero(dhcp, sizeof(*dhcp));
+	  dhcp->must_broadcast = (if_link_arptype(if_p) == ARPHRD_IEEE1394);
 	  dhcpol_init(&dhcp->saved.options);
 	  service_p->private = dhcp;
 
@@ -1142,7 +1176,7 @@ dhcp_thread(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	      bcopy(cid, dhcp->client_id, dhcp->client_id_len);
 	  }
 
-	  dhcp->idstr = identifierToString(if_link_arptype(if_p), 
+	  dhcp->idstr = identifierToString(if_link_dhcptype(if_p), 
 					   if_link_address(if_p), 
 					   if_link_length(if_p));
 	  if (dhcp->idstr == NULL) {
@@ -1371,7 +1405,6 @@ dhcp_init(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  dhcp_cstate_t	prev_state = dhcp->state;
 
 	  dhcp->state = dhcp_cstate_init_e;
-	  dhcp->start_secs = current_time;
 
 	  /* clean-up anything that might have come before */
 	  dhcp_cancel_pending_events(service_p);
@@ -1383,11 +1416,15 @@ dhcp_init(Service_t * service_p, IFEventID_t event_id, void * event_data)
 					    if_link_address(if_p), 
 					    if_link_arptype(if_p),
 					    if_link_length(if_p),
-					    dhcp->client_id, dhcp->client_id_len,
+					    dhcp->client_id, 
+					    dhcp->client_id_len,
+					    dhcp->must_broadcast,
 					    &options);
 	  if (dhcp->request == NULL) {
 	      my_log(LOG_ERR, "DHCP %s: INIT make_dhcp_request failed",
 		     if_name(if_p));
+	      status = ipconfig_status_allocation_failed_e;
+	      goto error;
 	  }
 	  if (dhcpoa_add(&options, dhcptag_lease_time_e,
 			 sizeof(lease_option), &lease_option) 
@@ -1414,7 +1451,9 @@ dhcp_init(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	  if (prev_state != dhcp_cstate_init_reboot_e) {
 	      dhcp->wait_secs = G_initial_wait_secs;
 	      dhcp->try = 0;
+	      dhcp->start_secs = current_time;
 	  }
+	  dhcp->xid++;
 	  dhcp->gathering = FALSE;
 	  dhcpol_free(&dhcp->saved.options);
 	  bzero(&dhcp->saved, sizeof(dhcp->saved));
@@ -1453,7 +1492,7 @@ dhcp_init(Service_t * service_p, IFEventID_t event_id, void * event_data)
 	      dhcp_no_server(service_p, IFEventID_start_e, NULL);
 	      break; /* out of switch */
 	  }
-	  dhcp->request->dp_xid = htonl(++dhcp->xid);
+	  dhcp->request->dp_xid = htonl(dhcp->xid);
 	  dhcp->request->dp_secs 
 	      = htons((u_short)(current_time - dhcp->start_secs));
 #ifdef DEBUG
@@ -1607,7 +1646,9 @@ dhcp_init_reboot(Service_t * service_p, IFEventID_t evid, void * event_data)
 					    if_link_address(if_p), 
 					    if_link_arptype(if_p),
 					    if_link_length(if_p), 
-					    dhcp->client_id, dhcp->client_id_len,
+					    dhcp->client_id, 
+					    dhcp->client_id_len,
+					    dhcp->must_broadcast,
 					    &options);
 	  if (dhcp->request == NULL) {
 	      status = ipconfig_status_allocation_failed_e;
@@ -1646,6 +1687,7 @@ dhcp_init_reboot(Service_t * service_p, IFEventID_t evid, void * event_data)
 	  dhcp->gathering = FALSE;
 	  dhcpol_free(&dhcp->saved.options);
 	  bzero(&dhcp->saved, sizeof(dhcp->saved));
+	  dhcp->xid++;
 	  dhcp->saved.our_ip = our_ip;
 	  (void)service_enable_autoaddr(service_p);
 	  bootp_client_enable_receive(dhcp->client,
@@ -1685,7 +1727,7 @@ dhcp_init_reboot(Service_t * service_p, IFEventID_t evid, void * event_data)
 	      dhcp_init(service_p, IFEventID_start_e, NULL);
 	      break; /* ouf of case */
 	  }
-	  dhcp->request->dp_xid = htonl(++dhcp->xid);
+	  dhcp->request->dp_xid = htonl(dhcp->xid);
 	  dhcp->request->dp_secs 
 	      = htons((u_short)(current_time - dhcp->start_secs));
 #ifdef DEBUG
@@ -1835,7 +1877,9 @@ dhcp_select(Service_t * service_p, IFEventID_t evid, void * event_data)
 					    if_link_address(if_p), 
 					    if_link_arptype(if_p),
 					    if_link_length(if_p), 
-					    dhcp->client_id, dhcp->client_id_len,
+					    dhcp->client_id, 
+					    dhcp->client_id_len,
+					    dhcp->must_broadcast,
 					    &options);
 	  if (dhcp->request == NULL) {
 	      my_log(LOG_ERR, "DHCP %s: SELECT make_dhcp_request failed",
@@ -1931,7 +1975,6 @@ dhcp_select(Service_t * service_p, IFEventID_t evid, void * event_data)
 
 	  if (verify_packet(pkt, dhcp->xid, if_p, &reply_msgtype,
 			    &server_ip, &is_dhcp) == FALSE
-	      || server_ip.s_addr == 0
 	      || is_dhcp == FALSE) {
 	      /* reject the packet */
 	      break; /* out of switch */
@@ -1970,7 +2013,9 @@ dhcp_select(Service_t * service_p, IFEventID_t evid, void * event_data)
 				    (void *)dhcp->saved.pkt, 
 				    dhcp->saved.pkt_size, NULL);
 	  dhcp->saved.our_ip = pkt->data->dp_yiaddr;
-	  dhcp->saved.server_ip = server_ip;
+	  if (server_ip.s_addr != 0) {
+	      dhcp->saved.server_ip = server_ip;
+	  }
 	  dhcp->saved.is_dhcp = TRUE;
 	  dhcp_bound(service_p, IFEventID_start_e, NULL);
 	  break;
@@ -2094,7 +2139,7 @@ dhcp_bound(Service_t * service_p, IFEventID_t event_id, void * event_data)
     /* set the interface's address and output the status */
     option = dhcpol_find(&dhcp->saved.options, dhcptag_subnet_mask_e, 
 			 &len, NULL);
-    if (option) {
+    if (option != NULL && len >= 4) {
 	mask = *((struct in_addr *)option);
     }
 
@@ -2187,7 +2232,9 @@ dhcp_decline(Service_t * service_p, IFEventID_t event_id, void * event_data)
 					    if_link_address(if_p), 
 					    if_link_arptype(if_p),
 					    if_link_length(if_p), 
-					    dhcp->client_id, dhcp->client_id_len,
+					    dhcp->client_id, 
+					    dhcp->client_id_len,
+					    FALSE,
 					    &options);
 	  if (dhcp->request == NULL) {
 	      status = ipconfig_status_allocation_failed_e;
@@ -2303,7 +2350,9 @@ dhcp_renew_rebind(Service_t * service_p, IFEventID_t event_id, void * event_data
 					    if_link_address(if_p), 
 					    if_link_arptype(if_p),
 					    if_link_length(if_p), 
-					    dhcp->client_id, dhcp->client_id_len,
+					    dhcp->client_id, 
+					    dhcp->client_id_len,
+					    FALSE,
 					    &options);
 	  if (dhcp->request == NULL) {
 	      status = ipconfig_status_allocation_failed_e;
@@ -2477,6 +2526,7 @@ dhcp_release(Service_t * service_p)
 				      if_link_arptype(if_p),
 				      if_link_length(if_p), 
 				      dhcp->client_id, dhcp->client_id_len,
+				      FALSE,
 				      &options);
     if (dhcp->request == NULL) {
 	return;

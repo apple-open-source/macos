@@ -1,0 +1,96 @@
+{
+    IBClasses = (
+        {
+            ACTIONS = {Refresh = id; SaveOutput = id; ToggleAutoRefresh = id; }; 
+            CLASS = BusProbeController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {BusProbeOutputOV = id; RefreshButton = id; RefreshCheckBox = id; }; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            ACTIONS = {Refresh = id; SaveOutput = id; ToggleAutoRefresh = id; TogglePlane = id; }; 
+            CLASS = IORegistryController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                IORegDetailedOutput = id; 
+                IORegDetailedOutputDrawer = id; 
+                IORegOutputOV = id; 
+                PlanePopUpButton = id; 
+                RefreshButton = id; 
+                RefreshCheckBox = id; 
+            }; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {
+            ACTIONS = {Refresh = id; SaveOutput = id; }; 
+            CLASS = KernelExtensionsController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {KextOutputTable = id; KextTypePopUpButton = id; }; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {CLASS = LoggerEntry; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            ACTIONS = {
+                ChooseTab = id; 
+                ClearOutput = id; 
+                MarkOutput = id; 
+                Refresh = id; 
+                SaveOutput = id; 
+                ToggleIORegDetaiLDrawer = id; 
+            }; 
+            CLASS = MainApplicationController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                BPController = id; 
+                BusProbeOutput = id; 
+                IORegController = id; 
+                IORegDetailedOutputDrawer = id; 
+                IORegistryOutput = id; 
+                KEController = id; 
+                KernelExtensionsOutput = id; 
+                LoggerController = id; 
+                MainTabView = id; 
+                USBLoggerOutput = id; 
+            }; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {CLASS = TableViewWithCopying; LANGUAGE = ObjC; SUPERCLASS = NSTableView; }, 
+        {
+            ACTIONS = {
+                ChangeLoggingLevel = id; 
+                ClearOutput = id; 
+                FilterOutput = id; 
+                MarkOutput = id; 
+                SaveOutput = id; 
+                Start = id; 
+                Stop = id; 
+                ToggleDumping = id; 
+            }; 
+            CLASS = USBLoggerController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                DumpCheckBox = id; 
+                FilterProgressIndicator = id; 
+                FilterTextField = id; 
+                LoggerOutputTV = id; 
+                LoggingLevelPopUp = id; 
+                StartStopButton = id; 
+            }; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {
+            ACTIONS = {FilterOutput = id; }; 
+            CLASS = USBLoggerFilterWindowController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                FilterOutput = id; 
+                FilterProgressIndicator = id; 
+                FilterTextField = id; 
+                LoggerController = id; 
+            }; 
+            SUPERCLASS = NSObject; 
+        }
+    ); 
+    IBVersion = 1; 
+}

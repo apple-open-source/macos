@@ -32,6 +32,7 @@
  */
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <CoreFoundation/CFDateFormatter.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCValidation.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
@@ -42,7 +43,7 @@
 
 /* 
  * This is the command line interface to Energy Saver Preferences in
- * /var/db/SystemConfiguration/com.apple.PowerManagement.xml
+ * /Library/Preferences/SystemConfiguration/com.apple.PowerManagement.plist
  *
  * Courtesy of Soren Spies:
  * usage as of Mon Oct 29, 2001  06:19:43 PM
@@ -70,23 +71,26 @@
  */
 
 // CLArgs
-#define	ARG_DIM             "dim"
+#define    ARG_DIM             "dim"
 #define ARG_SLEEP           "sleep"
 #define ARG_SPINDOWN        "spindown"
 #define ARG_REDUCE          "slower"
 #define ARG_WOMP            "womp"
 #define ARG_BOOT            "boot"
 #define ARG_POWERBUTTON     "powerbutton"
+#define ARG_LIDWAKE         "lidwake"
 
 #define ARG_REDUCE2         "reduce"
 #define ARG_DPS             "dps"
 #define ARG_RING            "ring"
 #define ARG_AUTORESTART     "autorestart"
+#define ARG_WAKEONACCHANGE  "acwake"
 
 // get options
 #define ARG_CAP             "cap"
 #define ARG_DISK            "disk"
 #define ARG_LIVE            "live"
+#define ARG_SCHED           "sched"
 
 // return values for parseArgs
 #define kParseBadArgs                   -1
@@ -97,9 +101,14 @@
 #define kInconsistentDiskSetting        2
 #define kConsistentSleepSettings        0
 
-#define kNUM_PM_FEATURES	8
+// day-of-week constants for repeating power events
+#define daily_mask              (kIOPMMonday|kIOPMTuesday|kIOPMWednesday|kIOPMThursday|kIOPMFriday|kIOPMSaturday|kIOPMSunday)
+#define weekday_mask            (kIOPMMonday|kIOPMTuesday|kIOPMWednesday|kIOPMThursday|kIOPMFriday)
+#define weekend_mask            (kIOPMSaturday|kIOPMSunday)
+
+#define kNUM_PM_FEATURES    11
 /* list of all features */
-char	*all_features[kNUM_PM_FEATURES] =
+char    *all_features[kNUM_PM_FEATURES] =
 { 
     kIOPMDisplaySleepKey, 
     kIOPMDiskSleepKey, 
@@ -108,7 +117,10 @@ char	*all_features[kNUM_PM_FEATURES] =
     kIOPMDynamicPowerStepKey, 
     kIOPMWakeOnLANKey, 
     kIOPMWakeOnRingKey, 
-    kIOPMRestartOnPowerLossKey
+    kIOPMWakeOnACChangeKey,
+    kIOPMRestartOnPowerLossKey,
+    kIOPMSleepOnPowerButtonKey,
+    kIOPMWakeOnClamshellKey
 };
 
 enum ArgumentType {
@@ -120,12 +132,13 @@ static void usage(void)
 {
     printf("Usage:  pmset [-b | -c | -a] <action> <minutes> [[<opts>] <action> <minutes>...]\n");
     printf("        pmset -g [disk | cap | live]\n");
-    printf("                -c adjust settings used while connected to a charger\n");
-    printf("                -b adjust settings used when running off a battery\n");
-    printf("                -a (default) adjust settings for both\n");
-    printf("                <action> is one of: dim, sleep, spindown (with an argument of minutes)\n");
-    printf("                    or: reduce, dps, womp, ring, autorestart (with a 1 or 0 argument)\n");
-    printf("                eg. pmset -c dim 5 sleep 15 spindown 10 autorestart 1 womp 1\n");
+    printf("           -c adjust settings used while connected to a charger\n");
+    printf("           -b adjust settings used when running off a battery\n");
+    printf("           -a (default) adjust settings for both\n");
+    printf("           <action> is one of: dim, sleep, spindown (with an argument of minutes)\n");
+    printf("               or: reduce, dps, womp, ring, autorestart, powerbutton, lidwake, acwake\n");
+    printf("                                                    (with a 1 or 0 argument)\n");
+    printf("           eg. pmset -c dim 5 sleep 15 spindown 10 autorestart 1 womp 1\n");
 }
 
 static IOReturn setRootDomainProperty(CFStringRef key, CFTypeRef val) {
@@ -151,8 +164,8 @@ static IOReturn setRootDomainProperty(CFStringRef key, CFTypeRef val) {
 
 static io_registry_entry_t getCudaPMURef(void)
 {
-    io_iterator_t	            tmp = NULL;
-    io_registry_entry_t	        cudaPMU = NULL;
+    io_iterator_t               tmp = NULL;
+    io_registry_entry_t         cudaPMU = NULL;
     mach_port_t                 masterPort;
     
     IOMasterPort(bootstrap_port,&masterPort);
@@ -177,115 +190,6 @@ static io_registry_entry_t getCudaPMURef(void)
     return cudaPMU;
 }
 
-
-// Todo: PMFeatureIsSupported is duplicated code from 
-// IOKitUser/pwr_mgt.subproj/IOPMEnergyPrefs.c:IOPMFunctionIsAvailable
-// We should make the IOKitUser function
-// available as a private header and eliminate this one.
-static int PMFeatureIsSupported(CFStringRef f,CFStringRef power_source)
-{
-    CFDictionaryRef		        supportedFeatures = NULL;
-    CFPropertyListRef           izzo;
-    io_registry_entry_t		    registry_entry;
-    io_iterator_t		        tmp;
-    mach_port_t                   masterPort;
-    IOReturn                    ret = 0;
-
-    IOMasterPort(bootstrap_port, &masterPort);    
-    
-    IOServiceGetMatchingServices(masterPort, IOServiceNameMatching("IOPMrootDomain"), &tmp);
-    registry_entry = IOIteratorNext(tmp);
-    IOObjectRelease(tmp);
-    
-    supportedFeatures = IORegistryEntryCreateCFProperty(registry_entry, CFSTR("Supported Features"),
-                            kCFAllocatorDefault, NULL);
-    IOObjectRelease(registry_entry);
-    
-    if(CFEqual(f, CFSTR(kIOPMDisplaySleepKey))
-        || CFEqual(f, CFSTR(kIOPMSystemSleepKey))
-        || CFEqual(f, CFSTR(kIOPMDiskSleepKey)))
-    {
-        ret = 1;
-        goto IOPMFunctionIsAvailable_exitpoint;
-    }
-    
-    // reduce processor speed
-    if(CFEqual(f, CFSTR(kIOPMReduceSpeedKey)))
-    {
-        if(!supportedFeatures) return kIOReturnError;
-        if(CFDictionaryGetValue(supportedFeatures, f))
-            ret = 1;
-        else ret = 0;
-        goto IOPMFunctionIsAvailable_exitpoint;
-    }
-
-    // dynamic powerstep
-    if(CFEqual(f, CFSTR(kIOPMDynamicPowerStepKey)))
-    {
-        if(!supportedFeatures) return kIOReturnError;
-        if(CFDictionaryGetValue(supportedFeatures, f))
-            ret = 1;
-        else ret = 0;
-        goto IOPMFunctionIsAvailable_exitpoint;
-    }
-
-    // wake on magic packet
-    if(CFEqual(f, CFSTR(kIOPMWakeOnLANKey)))
-    {
-        // Check for WakeOnLAN property in supportedFeatures
-        // Radar 2946434 WakeOnLAN is only supported when running on AC power. It's automatically disabled
-        // on battery power, and thus shouldn't be offered as a checkbox option.
-        if(CFDictionaryGetValue(supportedFeatures, CFSTR("WakeOnMagicPacket"))
-                && (!power_source || !CFEqual(CFSTR(kIOPMBatteryPowerKey), power_source)))
-        {
-            ret = 1;
-        } else {
-            ret = 0;
-        }
-        goto IOPMFunctionIsAvailable_exitpoint;       
-    }
-
-    if(CFEqual(f, CFSTR(kIOPMWakeOnRingKey)))
-    {
-        // Check for WakeOnRing property under PMU
-        registry_entry = getCudaPMURef();
-        if((izzo = IORegistryEntryCreateCFProperty(registry_entry, CFSTR("WakeOnRing"),
-                            kCFAllocatorDefault, NULL)))
-        {
-            CFRelease(izzo);
-            IOObjectRelease(registry_entry);
-            ret = 1;
-        } else {
-            IOObjectRelease(registry_entry);    
-            ret = 0;
-        }
-        goto IOPMFunctionIsAvailable_exitpoint;        
-    }
-
-    // restart on power loss
-    if(CFEqual(f, CFSTR(kIOPMRestartOnPowerLossKey)))
-    {
-        registry_entry = getCudaPMURef();
-        // Check for fileserver property under PMU
-        if((izzo = IORegistryEntryCreateCFProperty(registry_entry, CFSTR("FileServer"),
-                            kCFAllocatorDefault, NULL)))
-        { 
-            CFRelease(izzo);
-            IOObjectRelease(registry_entry);
-            ret = 1;
-        } else {
-            IOObjectRelease(registry_entry);       
-            ret = 0;
-        }
-        goto IOPMFunctionIsAvailable_exitpoint;
-    }
-        
- IOPMFunctionIsAvailable_exitpoint:
-    if(supportedFeatures) CFRelease(supportedFeatures);
-    IOObjectRelease(masterPort);
-    return ret;
-}
-
 static void print_setting_value(CFTypeRef a)
 {
     int n;
@@ -296,17 +200,17 @@ static void print_setting_value(CFTypeRef a)
         printf("%d", n);    
     } else if(isA_CFBoolean(a))
     {
-	printf("%d", CFBooleanGetValue(a));    
-    } else printf("oops - print_setting_value came unprepared\n");
+        printf("%d", CFBooleanGetValue(a));    
+    } else printf("oops - print_setting_value unknown data type\n");
 }
 
 static void show_pm_settings_dict(CFDictionaryRef d)
 {
-    int 				count;
-    int					i;
-    char				*ps;
-    CFStringRef				*keys;
-    CFTypeRef				*vals;
+    int                 count;
+    int                 i;
+    char                *ps;
+    CFStringRef             *keys;
+    CFTypeRef               *vals;
 
     count = CFDictionaryGetCount(d);
     keys = (CFStringRef *)malloc(count * sizeof(void *));
@@ -319,24 +223,30 @@ static void show_pm_settings_dict(CFDictionaryRef d)
         ps = (char *)CFStringGetCStringPtr(keys[i], 0);
         if(!ps) continue; // with for loop
 
-	if (strcmp(ps, kIOPMDisplaySleepKey) == 0)
-		    printf(" dim\t\t");  
-	else if (strcmp(ps, kIOPMDiskSleepKey) == 0)
-		    printf(" spindown\t");  
-	else if (strcmp(ps, kIOPMSystemSleepKey) == 0)
-		    printf(" sleep\t\t");  
-	else if (strcmp(ps, kIOPMWakeOnLANKey) == 0)
-		    printf(" womp\t\t");  
-	else if (strcmp(ps, kIOPMWakeOnRingKey) == 0)
-		    printf(" ring\t\t");  
-	else if (strcmp(ps, kIOPMRestartOnPowerLossKey) == 0)
-		    printf(" autorestart\t");  
-	else if (strcmp(ps, kIOPMReduceSpeedKey) == 0)
-		    printf(" reduce\t\t");  
-	else if (strcmp(ps, kIOPMDynamicPowerStepKey) == 0)
-		    printf(" dps\t\t");  
-	else
-		  printf("Error.  Unknown string.\n");
+    if (strcmp(ps, kIOPMDisplaySleepKey) == 0)
+            printf(" dim\t\t");  
+    else if (strcmp(ps, kIOPMDiskSleepKey) == 0)
+            printf(" spindown\t");  
+    else if (strcmp(ps, kIOPMSystemSleepKey) == 0)
+            printf(" sleep\t\t");  
+    else if (strcmp(ps, kIOPMWakeOnLANKey) == 0)
+            printf(" womp\t\t");  
+    else if (strcmp(ps, kIOPMWakeOnRingKey) == 0)
+            printf(" ring\t\t");  
+    else if (strcmp(ps, kIOPMRestartOnPowerLossKey) == 0)
+            printf(" autorestart\t");  
+    else if (strcmp(ps, kIOPMReduceSpeedKey) == 0)
+            printf(" reduce\t\t");  
+    else if (strcmp(ps, kIOPMDynamicPowerStepKey) == 0)
+            printf(" dps\t\t");  
+    else if (strcmp(ps, kIOPMSleepOnPowerButtonKey) == 0)
+            printf(" powerbutton\t");
+    else if (strcmp(ps, kIOPMWakeOnClamshellKey) == 0)
+            printf(" lidwake\t");
+    else if (strcmp(ps, kIOPMWakeOnACChangeKey) == 0)
+            printf(" acwake\t\t");
+    else
+            printf("Error.  Unknown setting.\t");
   
         print_setting_value(vals[i]);  
         printf("\n");
@@ -359,28 +269,32 @@ static void show_supported_pm_features(char *power_source)
         if(!isA_CFString(feature)) return;
         source = CFStringCreateWithCStringNoCopy(NULL, power_source, NULL, kCFAllocatorNull);
         if(!isA_CFString(source)) return;
-        if( PMFeatureIsSupported(feature, source) )
+        if( IOPMFeatureIsAvailable(feature, source) )
         {
-
-	  if (strcmp(all_features[i], kIOPMSystemSleepKey) == 0)
-	    printf(" sleep\n");  
-	  else if (strcmp(all_features[i], kIOPMRestartOnPowerLossKey) == 0)
-	    printf(" autorestart\n");  
-	  else if (strcmp(all_features[i], kIOPMDiskSleepKey) == 0)
-	    printf(" spindown\n");  
-	  else if (strcmp(all_features[i], kIOPMWakeOnLANKey) == 0)
-	    printf(" womp\n");  
-	  else if (strcmp(all_features[i], kIOPMWakeOnRingKey) == 0)
-	    printf(" ring\n");  
-	  else if (strcmp(all_features[i], kIOPMDisplaySleepKey) == 0)
-	    printf(" dim\n");  
-	  else if (strcmp(all_features[i], kIOPMReduceSpeedKey) == 0)
-	    printf(" reduce\n");  
-	  else if (strcmp(all_features[i], kIOPMDynamicPowerStepKey) == 0)
-	    printf(" dps\n");  
-	  else
-	    printf("Error.  Unknown capability string.\n");
-
+          if (strcmp(all_features[i], kIOPMSystemSleepKey) == 0)
+            printf(" sleep\n");  
+          else if (strcmp(all_features[i], kIOPMRestartOnPowerLossKey) == 0)
+            printf(" autorestart\n");  
+          else if (strcmp(all_features[i], kIOPMDiskSleepKey) == 0)
+            printf(" spindown\n");  
+          else if (strcmp(all_features[i], kIOPMWakeOnLANKey) == 0)
+            printf(" womp\n");  
+          else if (strcmp(all_features[i], kIOPMWakeOnRingKey) == 0)
+            printf(" ring\n");  
+          else if (strcmp(all_features[i], kIOPMDisplaySleepKey) == 0)
+            printf(" dim\n");  
+          else if (strcmp(all_features[i], kIOPMReduceSpeedKey) == 0)
+            printf(" reduce\n");  
+          else if (strcmp(all_features[i], kIOPMDynamicPowerStepKey) == 0)
+            printf(" dps\n");  
+          else if (strcmp(all_features[i], kIOPMSleepOnPowerButtonKey) == 0)
+            printf(" powerbutton\n");
+          else if (strcmp(all_features[i], kIOPMWakeOnClamshellKey) == 0)
+            printf(" lidwake\n");
+          else if (strcmp(all_features[i], kIOPMWakeOnACChangeKey) == 0)
+            printf(" acwake\n");
+          else
+            printf("Error.  Unknown capability string.\n");
         }
         CFRelease(feature);
         CFRelease(source);
@@ -389,14 +303,14 @@ static void show_supported_pm_features(char *power_source)
 
 static void show_disk_pm_settings(void)
 {
-    CFDictionaryRef		es = NULL;
-    int				num_profiles, num_newlines;
-    int				i;
-    char 			*ps;
-    CFStringRef			*keys;
-    CFDictionaryRef		*values;
+    CFDictionaryRef     es = NULL;
+    int                 num_profiles, num_newlines;
+    int                 i;
+    char                *ps;
+    CFStringRef         *keys;
+    CFDictionaryRef     *values;
 
-    // read settings file from /var/db/SystemConfiguration/com.apple.PowerManagement.xml
+    // read settings file from /Library/Preferences/SystemConfiguration/com.apple.PowerManagement.plist
     es = IOPMCopyPMPreferences();
     if(!isA_CFDictionary(es)) return;
     
@@ -424,8 +338,8 @@ static void show_disk_pm_settings(void)
 
 static void show_live_pm_settings(void)
 {
-    SCDynamicStoreRef		ds;
-    CFDictionaryRef		live;
+    SCDynamicStoreRef        ds;
+    CFDictionaryRef        live;
 
     ds = SCDynamicStoreCreate(NULL, CFSTR("pmset"), NULL, NULL);
 
@@ -437,6 +351,224 @@ static void show_live_pm_settings(void)
 
     CFRelease(live);
     CFRelease(ds);
+}
+
+static CFDictionaryRef
+getPowerEvent(int type, CFDictionaryRef     events)
+{
+    if(type)
+        return (CFDictionaryRef)isA_CFDictionary(CFDictionaryGetValue(events, CFSTR(kIOPMRepeatingPowerOnKey)));
+    else
+        return (CFDictionaryRef)isA_CFDictionary(CFDictionaryGetValue(events, CFSTR(kIOPMRepeatingPowerOffKey)));
+}
+static int
+getRepeatingDictionaryMinutes(CFDictionaryRef event)
+{
+    int val;
+    CFNumberRef tmp_num;    
+    tmp_num = (CFNumberRef)CFDictionaryGetValue(event, CFSTR(kIOPMPowerEventTimeKey));
+    CFNumberGetValue(tmp_num, kCFNumberIntType, &val);
+    return val;    
+}
+static int
+getRepeatingDictionaryDayMask(CFDictionaryRef event)
+{
+    int val;
+    CFNumberRef tmp_num;
+    tmp_num = (CFNumberRef)CFDictionaryGetValue(event, CFSTR(kIOPMDaysOfWeekKey));
+    CFNumberGetValue(tmp_num, kCFNumberIntType, &val);
+    return val;
+}
+static CFStringRef
+getRepeatingDictionaryType(CFDictionaryRef event)
+{
+    return (CFStringRef)CFDictionaryGetValue(event, CFSTR(kIOPMPowerEventTypeKey));
+}
+
+static void
+print_time_of_day_to_buf(int m, char *buf)
+{
+    int         hours, minutes, afternoon;
+    
+    hours = m/60;
+    minutes = m%60;
+    afternoon = 0;
+    if(hours >= 12) afternoon = 1; 
+    if(hours > 12) hours-=12;
+
+    sprintf(buf, "%d:%d%d%cM", hours,
+            minutes/10, minutes%10,
+            (afternoon? 'P':'A'));    
+}
+
+static void
+print_days_to_buf(int d, char *buf)
+{
+    switch(d) {
+        case daily_mask:
+            sprintf(buf, "every day");
+            break;
+
+        case weekday_mask:                        
+            sprintf(buf, "weekdays only");
+            break;
+            
+        case weekend_mask:
+            sprintf(buf, "weekends only");
+            break;
+
+        case  0x01 :                        
+            sprintf(buf, "Monday");
+            break;
+ 
+        case  0x02 :                        
+            sprintf(buf, "Tuesday");
+            break;
+
+        case 0x04 :                       
+            sprintf(buf, "Wednesday");
+            break;
+
+        case  0x08 :                       
+            sprintf(buf, "Thursday");
+            break;
+ 
+        case 0x10 :
+            sprintf(buf, "Friday");
+            break;
+
+        case 0x20 :                      
+            sprintf(buf, "Saturday");
+            break;
+       
+        case  0x40 :
+            sprintf(buf, "Sunday");
+            break;
+
+        default:
+            sprintf(buf, "Some days");
+            break;       
+    }
+}
+
+static void print_repeating_report(CFDictionaryRef repeat)
+{
+    CFDictionaryRef     on, off;
+    char                time_buf[20];
+    char                day_buf[20];
+
+    // assumes validly formatted dictionary - doesn't do any error checking
+    on = getPowerEvent(1, repeat);
+    off = getPowerEvent(0, repeat);
+
+    if(on || off)
+    {
+        printf("Repeating power events:\n");
+        if(on)
+        {
+            print_time_of_day_to_buf(getRepeatingDictionaryMinutes(on), time_buf);
+            print_days_to_buf(getRepeatingDictionaryDayMask(on), day_buf);
+        
+            printf("  %s at %s %s\n",
+                CFStringGetCStringPtr(getRepeatingDictionaryType(on), kCFStringEncodingMacRoman),
+                time_buf, day_buf);
+        }
+        
+        if(off)
+        {
+            print_time_of_day_to_buf(getRepeatingDictionaryMinutes(off), time_buf);
+            print_days_to_buf(getRepeatingDictionaryDayMask(off), day_buf);
+        
+            printf("  %s at %s %s\n",
+                CFStringGetCStringPtr(getRepeatingDictionaryType(off), kCFStringEncodingMacRoman),
+                time_buf, day_buf);
+        }
+        fflush(stdout);
+    }
+}
+
+static void
+print_cfdate_to_buf(CFDateRef date, char *buf)
+{
+    CFGregorianDate           g;
+    CFTimeZoneRef             tz;
+    int                       afternoon;
+        
+    tz = CFTimeZoneCopySystem();
+    g = CFAbsoluteTimeGetGregorianDate(CFDateGetAbsoluteTime(date), tz);
+    CFRelease(tz);   
+
+    afternoon = 0;
+    if(g.hour >= 12) afternoon = 1; 
+    if(g.hour > 12) g.hour-=12;
+    
+    sprintf(buf, "%d/%d/%d %d:%d%d:%d%d%cM",
+            g.month, g.day, g.year,
+            g.hour, g.minute/10, g.minute%10, (int)g.second/10, (int)g.second%10,
+            afternoon?'P':'A');
+}
+
+static void
+print_scheduled_report(CFArrayRef events)
+{
+    CFDictionaryRef     ev;
+    int                 count, i;
+    char                date_buf[40];
+    char                name_buf[255];
+    char                type_buf[40];
+    CFStringRef         type;
+    CFStringRef         author;
+//    CFDateFormatterRef  formatter;
+//    CFStringRef         cf_str_date;
+    
+    if(!events || !(count = CFArrayGetCount(events))) return;
+    
+    printf("Scheduled power events:\n");
+    for(i=0; i<count; i++)
+    {
+        ev = (CFDictionaryRef)CFArrayGetValueAtIndex(events, i);
+        
+// CFDateFormatter insists upon formatting date in GMT timezone.
+// That's hard to read. Skipping for now.
+/*
+        formatter = CFDateFormatterCreate(kCFAllocatorDefault, CFLocaleGetSystem(),
+                kCFDateFormatterShortStyle, kCFDateFormatterMediumStyle);
+        cf_str_date = CFDateFormatterCreateStringWithDate(kCFAllocatorDefault,
+                formatter, CFDictionaryGetValue(ev, CFSTR(kIOPMPowerEventTimeKey)));
+        date_buf[0] = 0;
+        if(cf_str_date) 
+            CFStringGetCString(cf_str_date, date_buf, 40, kCFStringEncodingMacRoman);
+*/
+        print_cfdate_to_buf(CFDictionaryGetValue(ev, CFSTR(kIOPMPowerEventTimeKey)), date_buf);
+        
+        author = CFDictionaryGetValue(ev, CFSTR(kIOPMPowerEventAppNameKey));
+        name_buf[0] = 0;
+        if(isA_CFString(author)) 
+            CFStringGetCString(author, name_buf, 255, kCFStringEncodingMacRoman);
+
+        type = CFDictionaryGetValue(ev, CFSTR(kIOPMPowerEventTypeKey));
+        type_buf[0] = 0;
+        if(isA_CFString(type)) 
+            CFStringGetCString(type, type_buf, 40, kCFStringEncodingMacRoman);
+        
+        printf("  %s at %s by %s\n", type_buf, date_buf, name_buf);
+    }
+}
+ 
+
+static void show_scheduled_events(void)
+{
+    CFDictionaryRef     repeatingEvents;
+    CFArrayRef          scheduledEvents;
+ 
+    repeatingEvents = IOPMCopyRepeatingPowerEvents();
+    scheduledEvents = IOPMCopyScheduledPowerEvents();
+
+    if(repeatingEvents) print_repeating_report(repeatingEvents);
+    if(scheduledEvents) print_scheduled_report(scheduledEvents);
+    
+    if(!repeatingEvents && !scheduledEvents)
+        printf("No scheduled events.\n"); fflush(stdout);
 }
 
 static int checkAndSetIntValue(char *valstr, CFStringRef settingKey, int apply,
@@ -475,8 +607,8 @@ static int parseArgs(int argc, char* argv[], CFMutableDictionaryRef settings)
     int j;
     int apply = 0;
     IOReturn kr;
-    CFMutableDictionaryRef	battery = NULL;
-    CFMutableDictionaryRef	ac = NULL;
+    CFMutableDictionaryRef  battery = NULL;
+    CFMutableDictionaryRef  ac = NULL;
 
     if(argc == 1)
         return kParseBadArgs;
@@ -535,6 +667,10 @@ static int parseArgs(int argc, char* argv[], CFMutableDictionaryRef settings)
                     {
                         // show capabilities (when the machine is running on AC power)
                         show_supported_pm_features(kIOPMACPowerKey);
+                    } else if(!strcmp(argv[i], ARG_SCHED))
+                    {
+                        // show scheduled repeating and one-time sleep/wakeup events
+                        show_scheduled_events();
                     }
                     
                     // return immediately - don't handle any more setting arguments
@@ -560,28 +696,6 @@ static int parseArgs(int argc, char* argv[], CFMutableDictionaryRef settings)
                 }
 
                 i++;
-            } else if(0 == strcmp(argv[i], ARG_POWERBUTTON))
-            {
-                CFBooleanRef    b;
-                // Tell IOPMrootDomain to ignore/pay attention to power button sleep requests
-                if(argv[i+1])
-                {
-                    char            *endptr = NULL;
-                    long            val;
-
-                    val = strtol(argv[i+1], &endptr, 10);
-
-                    if((0 != *endptr) || !val)
-                        b = kCFBooleanFalse;
-                    else b = kCFBooleanTrue;
-                }    
-
-                kr= setRootDomainProperty(CFSTR("DisablePowerButtonSleep"), b);
-                if(kr != kIOReturnSuccess) {
-                    printf("pmset: Error 0x%x setting DisablePowerButtonSleep property\n", kr);
-                }
-                        
-                i+=2;
             } else if(0 == strcmp(argv[i], ARG_DIM))
             {
                 if(-1 == checkAndSetIntValue(argv[i+1], CFSTR(kIOPMDisplaySleepKey), apply, 0, ac, battery))
@@ -622,6 +736,19 @@ static int parseArgs(int argc, char* argv[], CFMutableDictionaryRef settings)
             {
                 if(-1 == checkAndSetIntValue(argv[i+1], CFSTR(kIOPMRestartOnPowerLossKey), apply, 1, ac, battery))
                     return kParseBadArgs;
+                i+=2;
+            } else if(0 == strcmp(argv[i], ARG_WAKEONACCHANGE))
+            {
+                if(-1 == checkAndSetIntValue(argv[i+1], CFSTR(kIOPMWakeOnACChangeKey), apply, 1, ac, battery))
+                    return kParseBadArgs;
+                i+=2;
+            } else if(0 == strcmp(argv[i], ARG_POWERBUTTON))
+            {
+                if(-1 == checkAndSetIntValue(argv[i+1], CFSTR(kIOPMSleepOnPowerButtonKey), apply, 1, ac, battery));
+                i+=2;
+            } else if(0 == strcmp(argv[i], ARG_LIDWAKE))
+            {
+                if(-1 == checkAndSetIntValue(argv[i+1], CFSTR(kIOPMWakeOnClamshellKey), apply, 1, ac, battery));
                 i+=2;
             } else return kParseBadArgs;
         } // if
@@ -684,8 +811,8 @@ static void checkSettingConsistency(CFDictionaryRef profiles)
     int                 i;
     int                 ret;
     char                buf[100];
-    CFStringRef			*keys;
-    CFDictionaryRef		*values;
+    CFStringRef         *keys;
+    CFDictionaryRef     *values;
     
     num_profiles = CFDictionaryGetCount(profiles);
     keys = (CFStringRef *)malloc(num_profiles * sizeof(void *));
@@ -719,8 +846,8 @@ static void checkSettingConsistency(CFDictionaryRef profiles)
 }
 
 int main(int argc, char *argv[]) {
-    IOReturn			ret;
-    CFMutableDictionaryRef	es;
+    IOReturn                ret;
+    CFMutableDictionaryRef  es;
 
     if(!(es=IOPMCopyPMPreferences()))
     {

@@ -13,7 +13,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: proc.test,v 1.1.1.4 2000/12/06 23:04:16 wsanchez Exp $
+# RCS: @(#) $Id: proc.test,v 1.1.1.5 2003/03/06 00:13:08 landonf Exp $
 
 if {[lsearch [namespace children] ::tcltest] == -1} {
     package require tcltest
@@ -96,6 +96,11 @@ test proc-1.7 {Tcl_ProcObjCmd, check that formal parameter names are not array e
             puts "$z=z, $a(1)=$a(1)"
         }} msg] $msg
 } {1 {procedure "p" has formal parameter "a(1)" that is an array element}}
+test proc-1.8 {Tcl_ProcObjCmd, check that formal parameter names are simple names} {
+    catch {rename p ""}
+    list [catch {proc p {b:a b::a} { 
+    }} msg] $msg
+} {1 {procedure "p" has formal parameter "b::a" that is not a simple name}}
 
 test proc-2.1 {TclFindProc, simple proc name and proc not in namespace} {
     catch {eval namespace delete [namespace children :: test_ns_*]}
@@ -159,7 +164,7 @@ test proc-3.4 {TclObjInterpProc, procs execute in the namespace in which they we
 test proc-3.5 {TclObjInterpProc, any old result is reset before appending error msg about missing arguments} {
     proc p {x} {info commands 3m}
     list [catch {p} msg] $msg
-} {1 {no value given for parameter "x" to "p"}}
+} {1 {wrong # args: should be "p x"}}
 
 catch {eval namespace delete [namespace children :: test_ns_*]}
 catch {rename p ""}
@@ -293,6 +298,32 @@ test proc-4.7 {TclCreateProc, procbody obj, inconsitent arg default value} {
     catch {rename t ""}
     set result
 } {procedure "t": formal parameter "z" has default value inconsistent with precompiled body}
+
+test proc-5.1 {Bytecompiling noop; test for correct argument substitution} {
+    proc p args {} ; # this will be bytecompiled into t
+    proc t {} {
+	set res {}
+	set a 0
+	set b 0
+	trace add variable a read {append res a ;#}
+	trace add variable b write {append res b ;#}
+	p $a ccccccw {bfe} {$a} [incr b] [incr a] {[incr b]} {$a} hello
+	set res
+    }
+    set result [t]
+    catch {rename p ""}
+    catch {rename t ""}
+    set result
+} {aba}    
+
+test proc-6.1 {ProcessProcResultCode: Bug 647307 (negative return code)} {
+    proc a {} {return -code -5}
+    proc b {} a
+    set result [catch b]
+    rename a {}
+    rename b {}
+    set result
+} -5
 
 # cleanup
 catch {rename p ""}

@@ -112,14 +112,14 @@ void gdb_testz(char *arg, int from_tty)
     if (!arg || !*arg)
     	return;
 	
-    regnum = target_map_name_to_register (arg, 2);
+    regnum = frame_map_name_to_regnum (arg, 2);
     if (regnum < 0)
 	gdb_error("undefined");
 	
     if (REGISTER_NAME(regnum) == NULL || *(REGISTER_NAME(regnum)) == '\0')
 	gdb_error("undefined for machine");
     
-    if (read_relative_register_raw_bytes(regnum, raw_buffer))
+    if (frame_register_read(selected_frame, regnum, raw_buffer))
 	gdb_error("value not available");
 
     if (REGISTER_CONVERTIBLE(regnum)) {

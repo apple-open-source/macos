@@ -136,6 +136,13 @@ void copyData(
 	CssmAllocator		&allocator);
 
 /*
+ * Compare two CSSM_DATAs, return CSSM_TRUE if identical.
+ */
+CSSM_BOOL cspCompareCssmData(
+	const CSSM_DATA 	*data1,
+	const CSSM_DATA 	*data2);
+
+/*
  * This takes care of mallocing the and KeyLabel field. 
  */
 void copyCssmHeader(
@@ -167,6 +174,9 @@ void cspGenSha1Hash(
 	const void 		*inData,
 	size_t			inDataLen,
 	void			*out);			// caller mallocs, digest goes here
+
+void cspVerifyKeyTimes(
+	const CSSM_KEYHEADER &hdr);
 
 #ifdef	__cplusplus
 }

@@ -1,0 +1,38 @@
+Epostlisten `%(listname)s' er nå opprettet. Her følger litt
+grunnleggende informasjon om listen.
+
+Administrasjonspassordet er:
+
+    %(password)s
+
+Dette passordet er nødvendig for å konfigurere epostlisten. Du må også
+ha det for å behandle forespørsler til listen, f.eks. godkjenne epost
+hvis du velger å begrense listen til å være en moderert liste.
+
+
+Du kan konfigurere listen på følgende webside:
+
+    %(admin_url)s
+
+Websiden for medlemmer på listen er:
+
+    %(listinfo_url)s
+
+Du kan til og med gjøre din personlige tilpasning på disse sidene fra
+listens konfigurasjonsside, men da må du kunne skrive HTML-kode.
+
+Det finnes også et epostbasert grensesnitt for medlemmer (ikke
+administratorer) av listen. Du kan få mer informasjon om det ved å
+sende en epost til:
+
+    %(requestaddr)s
+
+med kun ordet 'help' som innhold eller i emnefeltet.
+
+For å fjerne noen fra listen, gå inn på listens webside, og klikk på
+eller skriv inn medlemmets epostadresse. Der medlemmet skulle ha
+skrevet inn passordet sitt, skriver du ditt administrasjonspassord.
+Du kan også f.eks. stoppe distribusjon til dette medlemmet, endre til
+sammendrag-modus, osv. på denne måten.
+
+Du kan nå systemadminstrator på %(siteowner)s.

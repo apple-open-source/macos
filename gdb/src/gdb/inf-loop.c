@@ -66,6 +66,15 @@ inferior_event_handler (enum inferior_event_type event_type,
 	  /* pop_target (); */
 	  discard_all_continuations ();
 	  do_exec_error_cleanups (ALL_CLEANUPS);
+          /* FIXME: We don't really have enough information to know
+             what happened to the inferior here.  However, we are
+             treating it like the target is not running, so we better
+             set target_executing to 0 or we will get into lots of
+             trouble later on...  Most of the time, this is in fact
+             the case.  For instance, we messed up in insert_breakpoints
+             and errored out to here.  */
+
+          target_executing = 0;	  
 	  display_gdb_prompt (0);
 	}
       break;

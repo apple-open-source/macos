@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -46,7 +49,7 @@
 #include "DeviceOnHold.h"
 
 
-#define kIODeviceSupportsHoldKey	"DeviceSupportsHold"
+#define kIODeviceSupportsHoldKey	"V92Modem"
 
 
 typedef struct {
@@ -111,7 +114,6 @@ static const CFRuntimeClass __DeviceOnHoldClass = {
 
 static pthread_once_t initialized	= PTHREAD_ONCE_INIT;
 
-
 static void
 __DeviceOnHoldInitialize(void)
 {
@@ -120,11 +122,11 @@ __DeviceOnHoldInitialize(void)
 }
 
 
-DeviceOnHoldRef
+static DeviceOnHoldPrivateRef
 __DeviceOnHoldCreatePrivate(CFAllocatorRef	allocator)
 {
-	DeviceOnHoldPrivateRef		devicePrivate;
-	UInt32				size;
+	DeviceOnHoldPrivateRef	devicePrivate;
+	uint32_t		size;
 
 	/* initialize runtime */
 	pthread_once(&initialized, __DeviceOnHoldInitialize);
@@ -142,7 +144,14 @@ __DeviceOnHoldCreatePrivate(CFAllocatorRef	allocator)
 	devicePrivate->name	= NULL;
 	devicePrivate->sock	= -1;
 
-	return (DeviceOnHoldRef)devicePrivate;
+	return devicePrivate;
+}
+
+
+CFTypeID
+DeviceOnHoldGetTypeID(void) {
+	pthread_once(&initialized, __DeviceOnHoldInitialize);	/* initialize runtime */
+	return __kDeviceOnHoldTypeID;
 }
 
 
@@ -158,7 +167,7 @@ IsDeviceOnHoldSupported(CFStringRef	deviceName,	// "modem"
 			CFDictionaryRef	options)
 {
 	CFMutableDictionaryRef	deviceToMatch;
-	u_int32_t		deviceSupportsHoldValue;
+	uint32_t		deviceSupportsHoldValue;
 	kern_return_t		kr;
 	mach_port_t		masterPort;
 	io_iterator_t 		matchingServices;
@@ -183,7 +192,7 @@ IsDeviceOnHoldSupported(CFStringRef	deviceName,	// "modem"
 			goto errorExit;
 		}
 
-		for ( ; service = IOIteratorNext(matchingServices) ; IOObjectRelease(service)) {
+		for ( ; (service = IOIteratorNext(matchingServices)) ; IOObjectRelease(service)) {
 			io_string_t	path;
 
 			kr = IORegistryEntryGetPath(service, kIOServicePlane, path);
@@ -225,7 +234,6 @@ DeviceOnHoldCreate(CFAllocatorRef	allocator,
 		   CFStringRef		deviceName,	// "modem"
 		   CFDictionaryRef	options)
 {
-	DeviceOnHoldRef		device		= NULL;
 	DeviceOnHoldPrivateRef	devicePrivate;
 	int			status;
 
@@ -233,22 +241,20 @@ DeviceOnHoldCreate(CFAllocatorRef	allocator,
 		return NULL;
 	}
 
-	device = __DeviceOnHoldCreatePrivate(allocator);
-	if (!device) {
+	devicePrivate = __DeviceOnHoldCreatePrivate(allocator);
+	if (!devicePrivate) {
 		return NULL;
 	}
-
-	devicePrivate = (DeviceOnHoldPrivateRef)device;
 
 	status = MOHInit(&devicePrivate->sock, deviceName);
 	if (status != 0) {
-		CFRelease(device);
+		CFRelease(devicePrivate);
 		return NULL;
 	}
 
-	devicePrivate->name = CFRetain(deviceName);
+	devicePrivate->name = CFStringCreateCopy(NULL, deviceName);
 
-	return device;
+	return (DeviceOnHoldRef)devicePrivate;
 }
 
 

@@ -1,0 +1,1939 @@
+<HTML
+><HEAD
+><TITLE
+>xmlmemory</TITLE
+><META
+NAME="GENERATOR"
+CONTENT="Modular DocBook HTML Stylesheet Version 1.76b+
+"><LINK
+REL="HOME"
+TITLE="Gnome XML Library Reference Manual"
+HREF="book1.html"><LINK
+REL="UP"
+TITLE="Libxml Library Reference"
+HREF="libxml-lib.html"><LINK
+REL="PREVIOUS"
+TITLE="debugXML"
+HREF="libxml-debugxml.html"><LINK
+REL="NEXT"
+TITLE="xmlregexp"
+HREF="libxml-xmlregexp.html"></HEAD
+><BODY
+CLASS="REFENTRY"
+BGCOLOR="#FFFFFF"
+TEXT="#000000"
+LINK="#0000FF"
+VLINK="#840084"
+ALINK="#0000FF"
+><DIV
+CLASS="NAVHEADER"
+><TABLE
+WIDTH="100%"
+BORDER="0"
+BGCOLOR="#000000"
+CELLPADDING="1"
+CELLSPACING="0"
+><TR
+><TH
+COLSPAN="4"
+ALIGN="center"
+><FONT
+COLOR="#FFFFFF"
+SIZE="5"
+>Gnome XML Library Reference Manual</FONT
+></TH
+></TR
+><TR
+><TD
+WIDTH="25%"
+BGCOLOR="#C00000"
+ALIGN="left"
+><A
+HREF="libxml-debugxml.html"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+>&#60;&#60;&#60; Previous Page</B
+></FONT
+></A
+></TD
+><TD
+WIDTH="25%"
+BGCOLOR="#0000C0"
+ALIGN="center"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+><A
+HREF="book1.html"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+>Home</B
+></FONT
+></A
+></B
+></FONT
+></TD
+><TD
+WIDTH="25%"
+BGCOLOR="#00C000"
+ALIGN="center"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+><A
+HREF="libxml-lib.html"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+>Up</B
+></FONT
+></A
+></B
+></FONT
+></TD
+><TD
+WIDTH="25%"
+BGCOLOR="#C00000"
+ALIGN="right"
+><A
+HREF="libxml-xmlregexp.html"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+>Next Page &#62;&#62;&#62;</B
+></FONT
+></A
+></TD
+></TR
+></TABLE
+></DIV
+><H1
+><A
+NAME="LIBXML-XMLMEMORY">xmlmemory</H1
+><DIV
+CLASS="REFNAMEDIV"
+><A
+NAME="AEN27280"
+></A
+><H2
+>Name</H2
+>xmlmemory&nbsp;--&nbsp;</DIV
+><DIV
+CLASS="REFSYNOPSISDIV"
+><A
+NAME="AEN27283"><H2
+>Synopsis</H2
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="SYNOPSIS"
+>&#13;
+
+#define     <A
+HREF="libxml-xmlmemory.html#DEBUG-MEMORY-CAPS"
+>DEBUG_MEMORY</A
+>
+void        (<A
+HREF="libxml-xmlmemory.html#XMLFREEFUNC"
+>*xmlFreeFunc</A
+>)                  (void *mem);
+void*       (<A
+HREF="libxml-xmlmemory.html#XMLMALLOCFUNC"
+>*xmlMallocFunc</A
+>)                (<GTKDOCLINK
+HREF="SIZE-T"
+>size_t</GTKDOCLINK
+> size);
+void*       (<A
+HREF="libxml-xmlmemory.html#XMLREALLOCFUNC"
+>*xmlReallocFunc</A
+>)               (void *mem,
+                                             <GTKDOCLINK
+HREF="SIZE-T"
+>size_t</GTKDOCLINK
+> size);
+char*       (<A
+HREF="libxml-xmlmemory.html#XMLSTRDUPFUNC"
+>*xmlStrdupFunc</A
+>)                (const char *str);
+int         <A
+HREF="libxml-xmlmemory.html#XMLMEMSETUP"
+>xmlMemSetup</A
+>                     (<A
+HREF="libxml-xmlmemory.html#XMLFREEFUNC"
+>xmlFreeFunc</A
+> freeFunc,
+                                             <A
+HREF="libxml-xmlmemory.html#XMLMALLOCFUNC"
+>xmlMallocFunc</A
+> mallocFunc,
+                                             <A
+HREF="libxml-xmlmemory.html#XMLREALLOCFUNC"
+>xmlReallocFunc</A
+> reallocFunc,
+                                             <A
+HREF="libxml-xmlmemory.html#XMLSTRDUPFUNC"
+>xmlStrdupFunc</A
+> strdupFunc);
+int         <A
+HREF="libxml-xmlmemory.html#XMLMEMGET"
+>xmlMemGet</A
+>                       (<A
+HREF="libxml-xmlmemory.html#XMLFREEFUNC"
+>xmlFreeFunc</A
+> *freeFunc,
+                                             <A
+HREF="libxml-xmlmemory.html#XMLMALLOCFUNC"
+>xmlMallocFunc</A
+> *mallocFunc,
+                                             <A
+HREF="libxml-xmlmemory.html#XMLREALLOCFUNC"
+>xmlReallocFunc</A
+> *reallocFunc,
+                                             <A
+HREF="libxml-xmlmemory.html#XMLSTRDUPFUNC"
+>xmlStrdupFunc</A
+> *strdupFunc);
+int         <A
+HREF="libxml-xmlmemory.html#XMLINITMEMORY"
+>xmlInitMemory</A
+>                   (void);
+int         <A
+HREF="libxml-xmlmemory.html#XMLMEMUSED"
+>xmlMemUsed</A
+>                      (void);
+void        <A
+HREF="libxml-xmlmemory.html#XMLMEMDISPLAY"
+>xmlMemDisplay</A
+>                   (<GTKDOCLINK
+HREF="FILE-CAPS"
+>FILE</GTKDOCLINK
+> *fp);
+void        <A
+HREF="libxml-xmlmemory.html#XMLMEMSHOW"
+>xmlMemShow</A
+>                      (<GTKDOCLINK
+HREF="FILE-CAPS"
+>FILE</GTKDOCLINK
+> *fp,
+                                             int nr);
+void        <A
+HREF="libxml-xmlmemory.html#XMLMEMORYDUMP"
+>xmlMemoryDump</A
+>                   (void);
+#define     <A
+HREF="libxml-globals.html#XMLMALLOC"
+>xmlMalloc</A
+>                       (size)
+#define     <A
+HREF="libxml-globals.html#XMLREALLOC"
+>xmlRealloc</A
+>                      (ptr, size)
+#define     <A
+HREF="libxml-globals.html#XMLMEMSTRDUP"
+>xmlMemStrdup</A
+>                    (str)
+void*       <A
+HREF="libxml-xmlmemory.html#XMLMALLOCLOC"
+>xmlMallocLoc</A
+>                    (<GTKDOCLINK
+HREF="SIZE-T"
+>size_t</GTKDOCLINK
+> size,
+                                             const char *file,
+                                             int line);
+void*       <A
+HREF="libxml-xmlmemory.html#XMLREALLOCLOC"
+>xmlReallocLoc</A
+>                   (void *ptr,
+                                             <GTKDOCLINK
+HREF="SIZE-T"
+>size_t</GTKDOCLINK
+> size,
+                                             const char *file,
+                                             int line);
+char*       <A
+HREF="libxml-xmlmemory.html#XMLMEMSTRDUPLOC"
+>xmlMemStrdupLoc</A
+>                 (const char *str,
+                                             const char *file,
+                                             int line);</PRE
+></TD
+></TR
+></TABLE
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN27318"
+></A
+><H2
+>Description</H2
+><P
+></P
+></DIV
+><DIV
+CLASS="REFSECT1"
+><A
+NAME="AEN27321"
+></A
+><H2
+>Details</H2
+><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN27323"
+></A
+><H3
+><A
+NAME="DEBUG-MEMORY-CAPS"
+></A
+>DEBUG_MEMORY</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>#define DEBUG_MEMORY</PRE
+></TD
+></TR
+></TABLE
+><P
+>DEBUG_MEMORY replaces the allocator with a collect and debug
+shell to the libc allocator.
+DEBUG_MEMORY should only be activated when debugging 
+libxml i.e. if libxml has been configured with --with-debug-mem too.</P
+><P
+></P
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN27329"
+></A
+><H3
+><A
+NAME="XMLFREEFUNC"
+></A
+>xmlFreeFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        (*xmlFreeFunc)                  (void *mem);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Signature for a <GTKDOCLINK
+HREF="FREE"
+>free</GTKDOCLINK
+>() implementation.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN27336"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>mem</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> an already allocated block of memory</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN27345"
+></A
+><H3
+><A
+NAME="XMLMALLOCFUNC"
+></A
+>xmlMallocFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void*       (*xmlMallocFunc)                (<GTKDOCLINK
+HREF="SIZE-T"
+>size_t</GTKDOCLINK
+> size);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Signature for a <GTKDOCLINK
+HREF="MALLOC"
+>malloc</GTKDOCLINK
+>() implementation.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN27353"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>size</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the size requested in bytes</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN27362"
+></A
+><H3
+><A
+NAME="XMLREALLOCFUNC"
+></A
+>xmlReallocFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void*       (*xmlReallocFunc)               (void *mem,
+                                             <GTKDOCLINK
+HREF="SIZE-T"
+>size_t</GTKDOCLINK
+> size);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Signature for a <GTKDOCLINK
+HREF="REALLOC"
+>realloc</GTKDOCLINK
+>() implementation.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN27370"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>mem</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> an already allocated block of memory</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>size</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the new size requested in bytes</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN27383"
+></A
+><H3
+><A
+NAME="XMLSTRDUPFUNC"
+></A
+>xmlStrdupFunc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>char*       (*xmlStrdupFunc)                (const char *str);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Signature for an <GTKDOCLINK
+HREF="STRDUP"
+>strdup</GTKDOCLINK
+>() implementation.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN27390"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>str</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> a zero terminated string</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>the copy of the string or NULL in case of error.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN27403"
+></A
+><H3
+><A
+NAME="XMLMEMSETUP"
+></A
+>xmlMemSetup ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlMemSetup                     (<A
+HREF="libxml-xmlmemory.html#XMLFREEFUNC"
+>xmlFreeFunc</A
+> freeFunc,
+                                             <A
+HREF="libxml-xmlmemory.html#XMLMALLOCFUNC"
+>xmlMallocFunc</A
+> mallocFunc,
+                                             <A
+HREF="libxml-xmlmemory.html#XMLREALLOCFUNC"
+>xmlReallocFunc</A
+> reallocFunc,
+                                             <A
+HREF="libxml-xmlmemory.html#XMLSTRDUPFUNC"
+>xmlStrdupFunc</A
+> strdupFunc);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Override the default memory access functions with a new set
+This has to be called before any other libxml routines !</P
+><P
+>Should this be blocked if there was already some allocations
+done ?</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN27414"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>freeFunc</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> the <GTKDOCLINK
+HREF="FREE"
+>free</GTKDOCLINK
+>() function to use</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>mallocFunc</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> the <GTKDOCLINK
+HREF="MALLOC"
+>malloc</GTKDOCLINK
+>() function to use</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>reallocFunc</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> the <GTKDOCLINK
+HREF="REALLOC"
+>realloc</GTKDOCLINK
+>() function to use</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>strdupFunc</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> the <GTKDOCLINK
+HREF="STRDUP"
+>strdup</GTKDOCLINK
+>() function to use</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>0 on success</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN27443"
+></A
+><H3
+><A
+NAME="XMLMEMGET"
+></A
+>xmlMemGet ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlMemGet                       (<A
+HREF="libxml-xmlmemory.html#XMLFREEFUNC"
+>xmlFreeFunc</A
+> *freeFunc,
+                                             <A
+HREF="libxml-xmlmemory.html#XMLMALLOCFUNC"
+>xmlMallocFunc</A
+> *mallocFunc,
+                                             <A
+HREF="libxml-xmlmemory.html#XMLREALLOCFUNC"
+>xmlReallocFunc</A
+> *reallocFunc,
+                                             <A
+HREF="libxml-xmlmemory.html#XMLSTRDUPFUNC"
+>xmlStrdupFunc</A
+> *strdupFunc);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Return the memory access functions set currently in use</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN27453"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>freeFunc</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> the <GTKDOCLINK
+HREF="FREE"
+>free</GTKDOCLINK
+>() function in use</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>mallocFunc</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> the <GTKDOCLINK
+HREF="MALLOC"
+>malloc</GTKDOCLINK
+>() function in use</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>reallocFunc</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> the <GTKDOCLINK
+HREF="REALLOC"
+>realloc</GTKDOCLINK
+>() function in use</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>strdupFunc</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+> the <GTKDOCLINK
+HREF="STRDUP"
+>strdup</GTKDOCLINK
+>() function in use</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>0 on success</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN27482"
+></A
+><H3
+><A
+NAME="XMLINITMEMORY"
+></A
+>xmlInitMemory ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlInitMemory                   (void);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Initialize the memory layer.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN27488"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>0 on success</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN27497"
+></A
+><H3
+><A
+NAME="XMLMEMUSED"
+></A
+>xmlMemUsed ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>int         xmlMemUsed                      (void);</PRE
+></TD
+></TR
+></TABLE
+><P
+>returns the amount of memory currently allocated</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN27503"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>an int representing the amount of memory allocated.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN27512"
+></A
+><H3
+><A
+NAME="XMLMEMDISPLAY"
+></A
+>xmlMemDisplay ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        xmlMemDisplay                   (<GTKDOCLINK
+HREF="FILE-CAPS"
+>FILE</GTKDOCLINK
+> *fp);</PRE
+></TD
+></TR
+></TABLE
+><P
+>show in-extenso the memory blocks allocated</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN27519"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>fp</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a FILE descriptor used as the output file, if NULL, the result is
+written to the file .memorylist</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN27528"
+></A
+><H3
+><A
+NAME="XMLMEMSHOW"
+></A
+>xmlMemShow ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        xmlMemShow                      (<GTKDOCLINK
+HREF="FILE-CAPS"
+>FILE</GTKDOCLINK
+> *fp,
+                                             int nr);</PRE
+></TD
+></TR
+></TABLE
+><P
+>show a show display of the memory allocated, and dump
+the <TT
+CLASS="PARAMETER"
+><I
+>nr</I
+></TT
+> last allocated areas which were not freed</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN27536"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>fp</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  a FILE descriptor used as the output file</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>nr</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  number of entries to dump</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN27549"
+></A
+><H3
+><A
+NAME="XMLMEMORYDUMP"
+></A
+>xmlMemoryDump ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void        xmlMemoryDump                   (void);</PRE
+></TD
+></TR
+></TABLE
+><P
+>Dump in-extenso the memory blocks allocated to the file .memorylist</P
+><P
+></P
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN27555"
+></A
+><H3
+><A
+NAME="XMLMALLOC"
+></A
+>xmlMalloc()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>#define     xmlMalloc(size)</PRE
+></TD
+></TR
+></TABLE
+><P
+>Wrapper for the <GTKDOCLINK
+HREF="MALLOC"
+>malloc</GTKDOCLINK
+>() function used in the XML library.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN27562"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>size</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  number of bytes to allocate</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN27571"
+></A
+><H3
+><A
+NAME="XMLREALLOC"
+></A
+>xmlRealloc()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>#define     xmlRealloc(ptr, size)</PRE
+></TD
+></TR
+></TABLE
+><P
+>Wrapper for the <GTKDOCLINK
+HREF="REALLOC"
+>realloc</GTKDOCLINK
+>() function used in the XML library.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN27578"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ptr</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  pointer to the existing allocated area</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>size</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  number of bytes to allocate</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN27591"
+></A
+><H3
+><A
+NAME="XMLMEMSTRDUP"
+></A
+>xmlMemStrdup()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>#define     xmlMemStrdup(str)</PRE
+></TD
+></TR
+></TABLE
+><P
+>Wrapper for the <GTKDOCLINK
+HREF="STRDUP"
+>strdup</GTKDOCLINK
+>() function, <A
+HREF="libxml-parser.html#XMLSTRDUP"
+>xmlStrdup</A
+>() is usually preferred.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN27599"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>str</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  pointer to the existing string</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN27608"
+></A
+><H3
+><A
+NAME="XMLMALLOCLOC"
+></A
+>xmlMallocLoc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void*       xmlMallocLoc                    (<GTKDOCLINK
+HREF="SIZE-T"
+>size_t</GTKDOCLINK
+> size,
+                                             const char *file,
+                                             int line);</PRE
+></TD
+></TR
+></TABLE
+><P
+>a <GTKDOCLINK
+HREF="MALLOC"
+>malloc</GTKDOCLINK
+>() equivalent, with logging of the allocation info.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN27616"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>size</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an int specifying the size in byte to allocate.</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>file</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the file name or NULL</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>line</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the line number</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN27633"
+></A
+><H3
+><A
+NAME="XMLREALLOCLOC"
+></A
+>xmlReallocLoc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>void*       xmlReallocLoc                   (void *ptr,
+                                             <GTKDOCLINK
+HREF="SIZE-T"
+>size_t</GTKDOCLINK
+> size,
+                                             const char *file,
+                                             int line);</PRE
+></TD
+></TR
+></TABLE
+><P
+>a <GTKDOCLINK
+HREF="REALLOC"
+>realloc</GTKDOCLINK
+>() equivalent, with logging of the allocation info.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN27641"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>ptr</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the initial memory block pointer</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>size</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  an int specifying the size in byte to allocate.</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>file</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the file name or NULL</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>line</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the line number</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+><HR><DIV
+CLASS="REFSECT2"
+><A
+NAME="AEN27662"
+></A
+><H3
+><A
+NAME="XMLMEMSTRDUPLOC"
+></A
+>xmlMemStrdupLoc ()</H3
+><TABLE
+BORDER="0"
+BGCOLOR="#D6E8FF"
+WIDTH="100%"
+CELLPADDING="6"
+><TR
+><TD
+><PRE
+CLASS="PROGRAMLISTING"
+>char*       xmlMemStrdupLoc                 (const char *str,
+                                             const char *file,
+                                             int line);</PRE
+></TD
+></TR
+></TABLE
+><P
+>a <GTKDOCLINK
+HREF="STRDUP"
+>strdup</GTKDOCLINK
+>() equivalent, with logging of the allocation info.</P
+><P
+></P
+><DIV
+CLASS="INFORMALTABLE"
+><A
+NAME="AEN27669"><P
+></P
+><TABLE
+BORDER="0"
+WIDTH="100%"
+BGCOLOR="#FFD0D0"
+CELLSPACING="0"
+CELLPADDING="4"
+CLASS="CALSTABLE"
+><TBODY
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>str</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the initial string pointer</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>file</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the file name or NULL</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><TT
+CLASS="PARAMETER"
+><I
+>line</I
+></TT
+>&nbsp;:</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>  the line number</TD
+></TR
+><TR
+><TD
+WIDTH="20%"
+ALIGN="RIGHT"
+VALIGN="TOP"
+><SPAN
+CLASS="emphasis"
+><I
+CLASS="EMPHASIS"
+>Returns</I
+></SPAN
+> :</TD
+><TD
+WIDTH="80%"
+ALIGN="LEFT"
+VALIGN="TOP"
+>a pointer to the new string or NULL if allocation error occurred.</TD
+></TR
+></TBODY
+></TABLE
+><P
+></P
+></DIV
+></DIV
+></DIV
+><DIV
+CLASS="NAVFOOTER"
+><BR
+CLEAR="all"><BR><TABLE
+WIDTH="100%"
+BORDER="0"
+BGCOLOR="#000000"
+CELLPADDING="1"
+CELLSPACING="0"
+><TR
+><TD
+WIDTH="25%"
+BGCOLOR="#C00000"
+ALIGN="left"
+><A
+HREF="libxml-debugxml.html"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+>&#60;&#60;&#60; Previous Page</B
+></FONT
+></A
+></TD
+><TD
+WIDTH="25%"
+BGCOLOR="#0000C0"
+ALIGN="center"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+><A
+HREF="book1.html"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+>Home</B
+></FONT
+></A
+></B
+></FONT
+></TD
+><TD
+WIDTH="25%"
+BGCOLOR="#00C000"
+ALIGN="center"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+><A
+HREF="libxml-lib.html"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+>Up</B
+></FONT
+></A
+></B
+></FONT
+></TD
+><TD
+WIDTH="25%"
+BGCOLOR="#C00000"
+ALIGN="right"
+><A
+HREF="libxml-xmlregexp.html"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+>Next Page &#62;&#62;&#62;</B
+></FONT
+></A
+></TD
+></TR
+><TR
+><TD
+COLSPAN="2"
+ALIGN="left"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+>debugXML</B
+></FONT
+></TD
+><TD
+COLSPAN="2"
+ALIGN="right"
+><FONT
+COLOR="#FFFFFF"
+SIZE="3"
+><B
+>xmlregexp</B
+></FONT
+></TD
+></TR
+></TABLE
+></DIV
+></BODY
+></HTML
+>

@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -30,7 +33,13 @@
 /*
  * Modification History
  *
- * June 1, 2001			Allan Nathanson <ajn@apple.com>
+ * 16 July 2003			Allan Nathanson (ajn@apple.com)
+ * - changes to facilitate cross-compilation to earlier releases
+ *
+ * 5 May 2003			Allan Nathanson (ajn@apple.com)
+ * - switch back to "extern const CFStringRef ..."
+ *
+ * 1 June 2001			Allan Nathanson <ajn@apple.com>
  * - public API conversion
  *
  * 27 Apr 2001			Allan Nathanson (ajn@apple.com)
@@ -47,25 +56,28 @@
 
 char copyright_string[] =
 "/*\n"
-" * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.\n"
+" * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.\n"
 " *\n"
-" * @APPLE_LICENSE_HEADER_START@\n"
-" * \n"
-" * The contents of this file constitute Original Code as defined in and\n"
-" * are subject to the Apple Public Source License Version 1.1 (the\n"
-" * \"License\").  You may not use this file except in compliance with the\n"
-" * License.  Please obtain a copy of the License at\n"
-" * http://www.apple.com/publicsource and read it before using this file.\n"
-" * \n"
-" * This Original Code and all software distributed under the License are\n"
-" * distributed on an \"AS IS\" basis, WITHOUT WARRANTY OF ANY KIND, EITHER\n"
-" * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,\n"
-" * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,\n"
-" * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the\n"
-" * License for the specific language governing rights and limitations\n"
-" * under the License.\n"
-" * \n"
-" * @APPLE_LICENSE_HEADER_END@\n"
+" * @APPLE_LICENSE_HEADER_START@
+" * 
+" * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+" * 
+" * This file contains Original Code and/or Modifications of Original Code
+" * as defined in and that are subject to the Apple Public Source License
+" * Version 2.0 (the 'License'). You may not use this file except in
+" * compliance with the License. Please obtain a copy of the License at
+" * http://www.opensource.apple.com/apsl/ and read it before using this
+" * file.
+" * 
+" * The Original Code and all software distributed under the License are
+" * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+" * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+" * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+" * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+" * Please see the License for the specific language governing rights and
+" * limitations under the License.
+" * 
+" * @APPLE_LICENSE_HEADER_END@
 " */\n";
 
 
@@ -77,6 +89,8 @@ typedef enum {
 	FUTURE,
 	END
 } controlType;
+
+#define SC_SCHEMA_DECLARATION	"SC_SCHEMA_DECLARATION"
 
 #define KEY_PREFIX		"kSC"
 
@@ -106,8 +120,10 @@ typedef enum {
 #define CFNUMBER_BOOL		"CFNumber (0 or 1)"
 #define CFSTRING		"CFString"
 
+#define ACSPENABLED		"ACSPEnabled"		// Apple Client Server Protocol
 #define ACTIVE			"Active"
 #define ADDRESSES		"Addresses"
+#define AFTER			"After"
 #define AIRPORT			"AirPort"
 #define ALERT			"Alert"
 #define ALLOWNETCREATION	"AllowNetCreation"
@@ -116,6 +132,7 @@ typedef enum {
 #define APPLETALK		"AppleTalk"
 #define AUTH			"Auth"
 #define AUTOMATIC		"Automatic"
+#define BEFORE			"Before"
 #define BINDINGMETHODS		"BindingMethods"
 #define BOOTP			"BOOTP"
 #define BROADCAST		"Broadcast"
@@ -152,11 +169,13 @@ typedef enum {
 #define DISCONNECTONIDLETIMER	"DisconnectOnIdleTimer"
 #define DISCONNECTONLOGOUT	"DisconnectOnLogout"
 #define DISCONNECTONSLEEP	"DisconnectOnSleep"
+#define DISCONNECTTIME		"DisconnectTime"
 #define DISPLAYTERMINALWINDOW	"DisplayTerminalWindow"
 #define DNS			"DNS"
 #define DOMAIN 			"Domain"
 #define DOMAINNAME		"DomainName"
 #define DOMAINSEPARATOR		"DomainSeparator"
+#define EAP			"EAP"
 #define ECHOENABLED		"EchoEnabled"
 #define ECHOFAILURE		"EchoFailure"
 #define ECHOINTERVAL		"EchoInterval"
@@ -167,6 +186,8 @@ typedef enum {
 #define ETHERNET		"Ethernet"
 #define EXCEPTIONSLIST		"ExceptionsList"
 #define FILE			"File"
+#define FIREWIRE		"FireWire"
+#define FLAGS			"Flags"
 #define FTPENABLE		"FTPEnable"
 #define FTPPASSIVE		"FTPPassive"
 #define FTPPORT			"FTPPort"
@@ -193,10 +214,14 @@ typedef enum {
 #define INTERFACE		"Interface"
 #define INTERFACENAME		"InterfaceName"
 #define INTERFACES		"Interfaces"
+#define IP			"IP"
 #define IPCP			"IPCP"
 #define IPV4			"IPv4"
 #define IPV6			"IPv6"
+#define IPSEC			"IPSec"
 #define JOINMODE		"JoinMode"
+#define KEYCHAIN		"Keychain"
+#define L2TP			"L2TP"
 #define LASTCAUSE		"LastCause"
 #define LASTUPDATED		"LastUpdated"
 #define LCP			"LCP"
@@ -210,6 +235,8 @@ typedef enum {
 #define OPTIONS			"Options"
 #define MODEM			"Modem"
 #define MRU			"MRU"
+#define MSCHAP1			"MSCHAP1"
+#define MSCHAP2			"MSCHAP2"
 #define MTU			"MTU"
 #define NAME			"Name"
 #define NETINFO			"NetInfo"
@@ -234,9 +261,11 @@ typedef enum {
 #define PPTP			"PPTP"
 #define PREFERRED		"Preferred"
 #define PREFERREDNETWORK	"PreferredNetwork"
+#define PREFIXLENGTH		"PrefixLength"
 #define PREFS			"Prefs"
 #define PRIMARYINTERFACE	"PrimaryInterface"
 #define PRIMARYSERVICE		"PrimaryService"
+#define PROMPT			"Prompt"
 #define PROTOCOL		"Protocol"
 #define PROXIES			"Proxies"
 #define PULSEDIAL		"PulseDial"
@@ -245,11 +274,14 @@ typedef enum {
 #define REDIALCOUNT		"RedialCount"
 #define REDIALENABLED		"RedialEnabled"
 #define REDIALINTERVAL		"RedialInterval"
+#define RELAY			"Relay"
 #define REMINDER		"Reminder"
 #define REMINDERTIME		"ReminderTime"
 #define REMOTEADDRESS		"RemoteAddress"
+#define RETRYCONNECTTIME	"RetryConnectTime"
 #define ROOTSEPARATOR		"RootSeparator"
 #define ROUTER			"Router"
+#define ROUTERADVERTISEMENT	"RouterAdvertisement"
 #define RTSPENABLE		"RTSPEnable"
 #define RTSPPORT		"RTSPPort"
 #define RTSPPROXY		"RTSPProxy"
@@ -266,6 +298,7 @@ typedef enum {
 #define SESSIONTIMER		"SessionTimer"
 #define SETS			"Sets"
 #define SETUP			"Setup"
+#define	SHAREDSECRET		"SharedSecret"
 #define SOCKSENABLE		"SOCKSEnable"
 #define SOCKSPORT		"SOCKSPort"
 #define SOCKSPROXY		"SOCKSProxy"
@@ -274,6 +307,7 @@ typedef enum {
 #define SPEED			"Speed"
 #define STATE			"State"
 #define STATUS			"Status"
+#define STF			"6to4"
 #define STRONGEST		"Strongest"
 #define SUBNETMASKS		"SubnetMasks"
 #define SUBTYPE			"SubType"
@@ -281,6 +315,7 @@ typedef enum {
 #define SYSTEM			"System"
 #define TERMINALSCRIPT		"TerminalScript"
 #define TRANSMITACCM		"TransmitACCM"
+#define TRANSPORT		"Transport"
 #define TYPE			"Type"
 #define UID			"UID"
 #define USERDEFINEDNAME		"UserDefinedName"
@@ -291,10 +326,10 @@ typedef enum {
 
 struct {
     int				control;
-    unsigned char *		prefix;
-    unsigned char *		key;
-    unsigned char *		value;
-    unsigned char *		type;
+    const char *		prefix;
+    const char *		key;
+    const char *		value;
+    const char *		type;
 } names[] = {
     { COMMENT, "/*\n * Reserved Keys\n */", NULL, NULL },
     { REGULAR, RESV, LINK,	"__LINK__", CFSTRING },
@@ -335,16 +370,21 @@ struct {
     { DEFINE , NETENT, DHCP, NULL, CFDICTIONARY },
     { REGULAR, NETENT, DNS, NULL, CFDICTIONARY },
     { REGULAR, NETENT, ETHERNET, NULL, CFDICTIONARY },
+    { DEFINE , NETENT, FIREWIRE, NULL, CFDICTIONARY },
     { REGULAR, NETENT, INTERFACE, NULL, CFDICTIONARY },
     { REGULAR, NETENT, IPV4, NULL, CFDICTIONARY },
     { REGULAR, NETENT, IPV6, NULL, CFDICTIONARY },
+    { DEFINE , NETENT, L2TP, NULL, CFDICTIONARY },
     { REGULAR, NETENT, LINK, NULL, CFDICTIONARY },
     { REGULAR, NETENT, MODEM, NULL, CFDICTIONARY },
     { REGULAR, NETENT, NETINFO, NULL, CFDICTIONARY },
     { FUTURE , NETENT, NIS, NULL, CFDICTIONARY },
     { REGULAR, NETENT, PPP, NULL, CFDICTIONARY },
     { REGULAR, NETENT, PPPOE, NULL, CFDICTIONARY },
+    { DEFINE , NETENT, PPPSERIAL, NULL, CFDICTIONARY },
+    { DEFINE , NETENT, PPTP, NULL, CFDICTIONARY },
     { REGULAR, NETENT, PROXIES, NULL, CFDICTIONARY },
+    { DEFINE , NETENT, STF, NULL, CFDICTIONARY },
     { COMMENT, "", NULL, NULL, NULL },
 
     { COMMENT, "/*\n * " KEY_PREFIX COMP NETWORK " Properties\n */", NULL },
@@ -371,9 +411,13 @@ struct {
     { DEFINE , NETPROP AIRPORT, SAVEPASSWORDS, NULL, CFNUMBER_BOOL },
     { COMMENT, "", NULL, NULL, NULL },
     { COMMENT, "/* " KEY_PREFIX NETPROP AIRPORT JOINMODE " values */", NULL, NULL, NULL },
+    { DEFINE , NETVAL AIRPORT JOINMODE, AUTOMATIC, NULL, NULL },
     { DEFINE , NETVAL AIRPORT JOINMODE, PREFERRED, NULL, NULL },
     { DEFINE , NETVAL AIRPORT JOINMODE, RECENT, NULL, NULL },
     { DEFINE , NETVAL AIRPORT JOINMODE, STRONGEST, NULL, NULL },
+    { COMMENT, "", NULL, NULL, NULL },
+    { COMMENT, "/* " KEY_PREFIX NETPROP AIRPORT PASSWORD ENCRYPTION " values */", NULL, NULL, NULL },
+    { DEFINE , NETVAL AIRPORT AUTH PASSWORD ENCRYPTION, KEYCHAIN, NULL, NULL },
     { COMMENT, "", NULL, NULL, NULL },
 
     { COMMENT, "/*\n * " KEY_PREFIX NETENT APPLETALK " Entity Keys\n */", NULL, NULL, NULL },
@@ -406,6 +450,10 @@ struct {
     { DEFINE , NETPROP ETHERNET, MTU, NULL, CFNUMBER },
     { COMMENT, "", NULL, NULL, NULL },
 
+    { COMMENT, "/*\n * " KEY_PREFIX NETENT FIREWIRE " (Hardware) Entity Keys\n */", NULL, NULL, NULL },
+    { COMMENT, "/* RESERVED FOR FUTURE USE */", NULL, NULL, NULL },
+    { COMMENT, "", NULL, NULL, NULL },
+
     { COMMENT, "/*\n * " KEY_PREFIX NETENT INTERFACE " Entity Keys\n */", NULL },
     { REGULAR, NETPROP INTERFACE, DEVICENAME, NULL, CFSTRING },
     { REGULAR, NETPROP INTERFACE, HARDWARE, NULL, CFSTRING },
@@ -415,12 +463,15 @@ struct {
     { COMMENT, "", NULL, NULL, NULL },
     { COMMENT, "/* " KEY_PREFIX NETPROP INTERFACE TYPE " values */", NULL, NULL, NULL },
     { REGULAR, NETVAL INTERFACE TYPE, ETHERNET, NULL, NULL },
+    { DEFINE , NETVAL INTERFACE TYPE, FIREWIRE, NULL, NULL },
     { REGULAR, NETVAL INTERFACE TYPE, PPP, NULL, NULL },
+    { DEFINE , NETVAL INTERFACE TYPE, STF, NULL, NULL },
     { COMMENT, "", NULL, NULL, NULL },
     { COMMENT, "/* " KEY_PREFIX NETPROP SERVICE SUBTYPE " values (for " PPP ") */", NULL, NULL, NULL },
     { REGULAR, NETVAL INTERFACE SUBTYPE, PPPOE, NULL, NULL },
     { REGULAR, NETVAL INTERFACE SUBTYPE, PPPSERIAL, NULL, NULL },
     { DEFINE , NETVAL INTERFACE SUBTYPE, PPTP, NULL, NULL },
+    { DEFINE , NETVAL INTERFACE SUBTYPE, L2TP, NULL, NULL },
     { COMMENT, "", NULL, NULL, NULL },
 
     { COMMENT, "/*\n * " KEY_PREFIX NETENT IPV4 " Entity Keys\n */", NULL, NULL, NULL },
@@ -444,6 +495,20 @@ struct {
     { COMMENT, "/*\n * " KEY_PREFIX NETENT IPV6 " Entity Keys\n */", NULL, NULL, NULL },
     { REGULAR, NETPROP IPV6, ADDRESSES, NULL, CFARRAY_CFSTRING },
     { REGULAR, NETPROP IPV6, CONFIGMETHOD, NULL, CFSTRING },
+    { DEFINE , NETPROP IPV6, DESTADDRESSES, NULL, CFARRAY_CFSTRING },
+    { DEFINE , NETPROP IPV6, FLAGS, NULL, CFNUMBER },
+    { DEFINE , NETPROP IPV6, PREFIXLENGTH, NULL, CFARRAY_CFNUMBER },
+    { DEFINE , NETPROP IPV6, ROUTER, NULL, CFSTRING },
+    { COMMENT, "", NULL, NULL, NULL },
+    { COMMENT, "/* " KEY_PREFIX NETPROP IPV6 CONFIGMETHOD " values */", NULL, NULL, NULL },
+    { DEFINE , NETVAL IPV6 CONFIGMETHOD, AUTOMATIC, NULL, NULL },
+    { DEFINE , NETVAL IPV6 CONFIGMETHOD, MANUAL, NULL, NULL },
+    { DEFINE , NETVAL IPV6 CONFIGMETHOD, ROUTERADVERTISEMENT, NULL, NULL },
+    { DEFINE , NETVAL IPV6 CONFIGMETHOD, STF, NULL, NULL },
+    { COMMENT, "", NULL, NULL, NULL },
+
+    { COMMENT, "/*\n * " KEY_PREFIX NETENT STF " Entity Keys\n */", NULL, NULL, NULL },
+    { DEFINE , NETPROP STF, RELAY, NULL, CFSTRING },
     { COMMENT, "", NULL, NULL, NULL },
 
     { COMMENT, "/*\n * " KEY_PREFIX NETENT LINK " Entity Keys\n */", NULL, NULL, NULL },
@@ -493,6 +558,7 @@ struct {
     { COMMENT, "", NULL, NULL, NULL },
 
     { COMMENT, "/*\n * " KEY_PREFIX NETENT PPP " Entity Keys\n */", NULL, NULL, NULL },
+    { DEFINE , NETPROP PPP, ACSPENABLED, NULL, CFNUMBER_BOOL },
     { DEFINE , NETPROP PPP, CONNECTTIME, NULL, CFNUMBER },
     { DEFINE , NETPROP PPP, DEVICE LASTCAUSE, NULL, CFNUMBER },
     { REGULAR, NETPROP PPP, DIALONDEMAND, NULL, CFNUMBER_BOOL },
@@ -500,25 +566,39 @@ struct {
     { REGULAR, NETPROP PPP, DISCONNECTONIDLETIMER, NULL, CFNUMBER },
     { REGULAR, NETPROP PPP, DISCONNECTONLOGOUT, NULL, CFNUMBER_BOOL },
     { DEFINE , NETPROP PPP, DISCONNECTONSLEEP, NULL, CFNUMBER_BOOL },
+    { DEFINE , NETPROP PPP, DISCONNECTTIME, NULL, CFNUMBER },
     { REGULAR, NETPROP PPP, IDLEREMINDERTIMER, NULL, CFNUMBER },
     { REGULAR, NETPROP PPP, IDLEREMINDER, NULL, CFNUMBER_BOOL },
     { DEFINE , NETPROP PPP, LASTCAUSE, NULL, CFNUMBER },
     { REGULAR, NETPROP PPP, LOGFILE, NULL, CFSTRING },
     { DEFINE , NETPROP PPP, PLUGINS, NULL, CFARRAY_CFSTRING },
+    { DEFINE , NETPROP PPP, RETRYCONNECTTIME, NULL, CFNUMBER },
     { DEFINE , NETPROP PPP, SESSIONTIMER, NULL, CFNUMBER },
-    { DEFINE , NETPROP PPP, STATUS, NULL, CFSTRING },
+    { DEFINE , NETPROP PPP, STATUS, NULL, CFNUMBER },
     { DEFINE , NETPROP PPP, USE SESSIONTIMER, NULL, CFNUMBER_BOOL },
     { REGULAR, NETPROP PPP, VERBOSELOGGING, NULL, CFNUMBER_BOOL },
     { COMMENT, "", NULL, NULL, NULL },
 
     { COMMENT, "/* " AUTH ": */", NULL, NULL, NULL },
+    { DEFINE , NETPROP PPP, AUTH EAP PLUGINS, NULL, CFARRAY_CFSTRING },
     { REGULAR, NETPROP PPP, AUTH NAME, NULL, CFSTRING },
     { REGULAR, NETPROP PPP, AUTH PASSWORD, NULL, CFSTRING },
     { REGULAR, NETPROP PPP, AUTH PASSWORD ENCRYPTION, NULL, CFSTRING },
+    { DEFINE , NETPROP PPP, AUTH PROMPT, NULL, CFSTRING },
     { REGULAR, NETPROP PPP, AUTH PROTOCOL, NULL, CFARRAY_CFSTRING },
+    { COMMENT, "", NULL, NULL, NULL },
+    { COMMENT, "/* " KEY_PREFIX NETPROP PPP AUTH PASSWORD ENCRYPTION " values */", NULL, NULL, NULL },
+    { DEFINE , NETVAL PPP AUTH PASSWORD ENCRYPTION, KEYCHAIN, NULL, NULL },
+    { COMMENT, "", NULL, NULL, NULL },
+    { COMMENT, "/* " KEY_PREFIX NETPROP PPP AUTH PROMPT " values */", NULL, NULL, NULL },
+    { DEFINE , NETVAL PPP AUTH PROMPT, BEFORE, NULL, CFSTRING },
+    { DEFINE , NETVAL PPP AUTH PROMPT, AFTER, NULL, CFSTRING },
     { COMMENT, "", NULL, NULL, NULL },
     { COMMENT, "/* " KEY_PREFIX NETPROP PPP AUTH PROTOCOL " values */", NULL, NULL, NULL },
     { REGULAR, NETVAL PPP AUTH PROTOCOL, CHAP, NULL, CFSTRING },
+    { DEFINE , NETVAL PPP AUTH PROTOCOL, EAP, NULL, CFSTRING },
+    { DEFINE , NETVAL PPP AUTH PROTOCOL, MSCHAP1, NULL, CFSTRING },
+    { DEFINE , NETVAL PPP AUTH PROTOCOL, MSCHAP2, NULL, CFSTRING },
     { REGULAR, NETVAL PPP AUTH PROTOCOL, PAP, NULL, CFSTRING },
 
     { COMMENT, "\n/* " COMM ": */", NULL, NULL, NULL },
@@ -558,6 +638,23 @@ struct {
     { COMMENT, "/* RESERVED FOR FUTURE USE */", NULL, NULL, NULL },
     { COMMENT, "", NULL, NULL, NULL },
 
+    { COMMENT, "/*\n * " KEY_PREFIX NETENT PPTP " Entity Keys\n */", NULL, NULL, NULL },
+    { COMMENT, "/* RESERVED FOR FUTURE USE */", NULL, NULL, NULL },
+    { COMMENT, "", NULL, NULL, NULL },
+
+    { COMMENT, "/*\n * " KEY_PREFIX NETENT L2TP " Entity Keys\n */", NULL, NULL, NULL },
+    { DEFINE , NETPROP L2TP, IPSEC SHAREDSECRET, NULL, CFSTRING },
+    { DEFINE , NETPROP L2TP, IPSEC SHAREDSECRET ENCRYPTION, NULL, CFSTRING },
+    { DEFINE , NETPROP L2TP, TRANSPORT, NULL, CFSTRING },
+    { COMMENT, "", NULL, NULL, NULL },
+    { COMMENT, "/* " KEY_PREFIX NETPROP L2TP IPSEC SHAREDSECRET ENCRYPTION " values */", NULL, NULL, NULL },
+    { DEFINE , NETVAL L2TP IPSEC SHAREDSECRET ENCRYPTION, KEYCHAIN, NULL, NULL },
+    { COMMENT, "", NULL, NULL, NULL },
+    { COMMENT, "/* " KEY_PREFIX NETPROP L2TP TRANSPORT " values */", NULL, NULL, NULL },
+    { DEFINE , NETVAL L2TP TRANSPORT, IP, NULL, NULL },
+    { DEFINE , NETVAL L2TP TRANSPORT, IPSEC, NULL, NULL },
+    { COMMENT, "", NULL, NULL, NULL },
+
     { COMMENT, "/*\n * " KEY_PREFIX NETENT PROXIES " Entity Keys\n */", NULL, NULL, NULL },
     { REGULAR, NETPROP PROXIES, EXCEPTIONSLIST, NULL, CFARRAY_CFSTRING },
     { REGULAR, NETPROP PROXIES, FTPENABLE, NULL, CFNUMBER_BOOL },
@@ -583,12 +680,6 @@ struct {
 
     { COMMENT, "/*\n " KEY_PREFIX COMP USERS " Entity Keys\n */", NULL, NULL, NULL },
     { REGULAR, USERSENT, CONSOLEUSER, NULL, NULL },
-    { COMMENT, "", NULL, NULL, NULL },
-
-    { COMMENT, "/*\n " KEY_PREFIX USERSPROP CONSOLEUSER " Properties\n */", NULL, NULL, NULL },
-    { REGULAR, USERSPROP CONSOLEUSER, NAME, NULL, CFSTRING },
-    { REGULAR, USERSPROP CONSOLEUSER, UID, NULL, CFSTRING },
-    { REGULAR, USERSPROP CONSOLEUSER, GID, NULL, CFSTRING },
     { COMMENT, "", NULL, NULL, NULL },
 
     { COMMENT, "/*\n * " KEY_PREFIX COMP SYSTEM " Properties\n */", NULL, NULL, NULL },
@@ -617,31 +708,43 @@ struct {
     { DEFINE , DYNAMICSTORE NETPROP, SERVICEIDS, NULL, CFARRAY_CFSTRING },
     { COMMENT, "", NULL, NULL, NULL },
 
-    /* obsolete keys */
-    { OBSOLETE, "Cache" DOMAIN, FILE, "File:", NULL },
-    { OBSOLETE, "Cache" DOMAIN, PLUGIN, "Plugin:", NULL },
-    { OBSOLETE, "Cache" DOMAIN, SETUP, "Setup:", NULL },
-    { OBSOLETE, "Cache" DOMAIN, STATE, "State:", NULL },
-    { OBSOLETE, "Cache" DOMAIN, PREFS, "Prefs:", NULL },
-    { OBSOLETE, "Cache" SETUPPROP, CURRENTSET, NULL, CFSTRING },
-    { OBSOLETE, "Cache" SETUPPROP, LASTUPDATED, NULL, NULL },
-    { OBSOLETE, "Cache" NETPROP, INTERFACES, NULL, CFARRAY_CFSTRING },
-    { OBSOLETE, "Cache" NETPROP, PRIMARYINTERFACE, NULL, CFSTRING },
-    { OBSOLETE, "Cache" NETPROP, SERVICEIDS, NULL, CFARRAY_CFSTRING },
+    { COMMENT, "/*\n * Obsolete schema definitions which will be removed \"soon\".\n */", NULL },
+    { OBSOLETE, USERSPROP CONSOLEUSER, NAME, NULL, CFSTRING },
+    { OBSOLETE, USERSPROP CONSOLEUSER, UID, NULL, CFNUMBER },
+    { OBSOLETE, USERSPROP CONSOLEUSER, GID, NULL, CFNUMBER },
+    { COMMENT, "", NULL, NULL, NULL },
 
     { END, NULL, NULL, NULL, NULL },
 };
 
+static inline void
+setmax(int *max, char **maxstr, char *str)
+{
+    int l;
+
+    l = strlen(str);
+    if (l > *max) {
+	if (*maxstr) free(*maxstr);
+	*maxstr = strdup(str);
+	*max = l;
+    }
+    return;
+}
+
 enum {
-    gen_extern_e,
-    gen_init_e,
     gen_header_e,
+    gen_hfile_e,
+    gen_cfile_e,
 };
 
 void
 dump_names(int type)
 {
     int i;
+    int maxkbuf = 0;
+    char *maxkstr = NULL;
+    int maxvbuf = 0;
+    char *maxvstr = NULL;
 
     for (i = 0; TRUE; i++) {
 	switch (names[i].control) {
@@ -650,9 +753,14 @@ dump_names(int type)
 		break;
 	    }
 	    case COMMENT: {
-		if (type != gen_extern_e && type != gen_init_e) {
+		switch (type) {
+		case gen_header_e:
+		case gen_hfile_e:
 		    if (names[i].prefix)
 			printf("%s\n", names[i].prefix);
+		    break;
+		default:
+		    break;
 		}
 		break;
 	    }
@@ -678,6 +786,31 @@ dump_names(int type)
 		    else
 			printf("#define %-40s %-40s\n",
 			       kbuf, vbuf);
+		    break;
+		case gen_hfile_e:
+		    snprintf(kbuf, sizeof(kbuf), "(" KEY_PREFIX "%s%s);",
+			     names[i].prefix, names[i].key);
+		    setmax(&maxkbuf, &maxkstr, kbuf);
+
+		    snprintf(vbuf, sizeof(vbuf), "\"%s\"",
+			     names[i].value ? names[i].value : names[i].key);
+		    setmax(&maxvbuf, &maxvstr, vbuf);
+
+		    printf("SC_SCHEMA_DECLARATION%-42s /* %-17s %-30s */\n",
+			   kbuf,
+			   names[i].type ? names[i].type : "",
+			   vbuf);
+		    break;
+		case gen_cfile_e:
+		    snprintf(kbuf, sizeof(kbuf), KEY_PREFIX "%s%s",
+			     names[i].prefix, names[i].key);
+
+		    if (names[i].value)
+			printf("const CFStringRef %-45s = CFSTR(\"%s\");\n",
+			       kbuf, names[i].value);
+		    else
+			printf("const CFStringRef %-45s = CFSTR(\"%s\");\n",
+			       kbuf, names[i].key);
 		    break;
 		default:
 		    break;
@@ -707,21 +840,29 @@ dump_names(int type)
 			printf("#define %-40s %-40s\n",
 			       kbuf, vbuf);
 		    break;
-		case gen_extern_e:
+		case gen_hfile_e:
+		    snprintf(kbuf, sizeof(kbuf), "(" KEY_PREFIX "%s%s);",
+			     names[i].prefix, names[i].key);
+		    setmax(&maxkbuf, &maxkstr, kbuf);
+
+		    snprintf(vbuf, sizeof(vbuf), "\"%s\"",
+			     names[i].value ? names[i].value : names[i].key);
+		    setmax(&maxvbuf, &maxvstr, vbuf);
+
+		    printf("SC_SCHEMA_DECLARATION%-42s /* %-17s %-30s */\n",
+			   kbuf,
+			   names[i].type ? names[i].type : "",
+			   vbuf);
+		    break;
+		case gen_cfile_e:
 		    snprintf(kbuf, sizeof(kbuf), KEY_PREFIX "%s%s",
 			     names[i].prefix, names[i].key);
 
-		    printf("volatile CFStringRef " KEY_PREFIX "%s%s = NULL;\n",
-			   names[i].prefix, names[i].key);
-		    break;
-		case gen_init_e:
-		    snprintf(kbuf, sizeof(kbuf), KEY_PREFIX "%s%s",
-			     names[i].prefix, names[i].key);
 		    if (names[i].value)
-			printf("   *((void **)&%s) = (void *)CFSTR(\"%s\");\n",
+			printf("const CFStringRef %-45s = CFSTR(\"%s\");\n",
 			       kbuf, names[i].value);
 		    else
-			printf("   *((void **)&%s) = (void *)CFSTR(\"%s\");\n",
+			printf("const CFStringRef %-45s = CFSTR(\"%s\");\n",
 			       kbuf, names[i].key);
 		    break;
 		default:
@@ -730,25 +871,33 @@ dump_names(int type)
 		break;
 	    }
 	    case OBSOLETE: {
+		static int nObsolete = 0;
 		char kbuf[256];
+		char vbuf[256];
 
 		switch (type) {
-		case gen_extern_e:
+		case gen_hfile_e:
+		    if (nObsolete++ == 0) {
+			printf("#ifndef  SCSTR\n");
+			printf("#include <CoreFoundation/CFString.h>\n");
+			printf("#define  SCSTR(s) CFSTR(s)\n");
+			printf("#endif\n");
+		    }
+
 		    snprintf(kbuf, sizeof(kbuf), KEY_PREFIX "%s%s",
 			     names[i].prefix, names[i].key);
 
-		    printf("volatile CFStringRef " KEY_PREFIX "%s%s = NULL;\n",
-			   names[i].prefix, names[i].key);
-		    break;
-		case gen_init_e:
-		    snprintf(kbuf, sizeof(kbuf), KEY_PREFIX "%s%s",
-			     names[i].prefix, names[i].key);
 		    if (names[i].value)
-			printf("   *((void **)&%s) = (void *)CFSTR(\"%s\");\n",
-			       kbuf, names[i].value);
+			snprintf(vbuf, sizeof(vbuf), "SCSTR(\"%s\")",
+				 names[i].value);
 		    else
-			printf("   *((void **)&%s) = (void *)CFSTR(\"%s\");\n",
-			       kbuf, names[i].key);
+			snprintf(vbuf, sizeof(vbuf), "SCSTR(\"%s\")",
+				 names[i].key);
+
+		    printf("#define %-40s %-40s /* %s */\n",
+			   kbuf,
+			   vbuf,
+			   names[i].type ? names[i].type : "");
 		    break;
 		default:
 		    break;
@@ -758,14 +907,26 @@ dump_names(int type)
 	    case FUTURE: {
 		char kbuf[256];
 
-		if (type == gen_header_e) {
+		switch (type) {
+		case gen_header_e:
 		    snprintf(kbuf, sizeof(kbuf), KEY_PREFIX "%s%s",
 			     names[i].prefix, names[i].key);
 
-		    printf("/* #define %-37s %-40s /* %s */\n",
+		    printf("// #define %-37s %-40s /* %s */\n",
 			   kbuf,
 			   "SCSTR(\"???\") */",
 			   "RESERVED FOR FUTURE USE");
+		    break;
+		case gen_hfile_e:
+		    snprintf(kbuf, sizeof(kbuf), "(" KEY_PREFIX "%s%s);",
+			     names[i].prefix, names[i].key);
+		    setmax(&maxkbuf, &maxkstr, kbuf);
+
+		    printf("// SC_SCHEMA_DECLARATION%-39s /* %s */\n",
+			   kbuf, "RESERVED FOR FUTURE USE");
+		    break;
+		default:
+		    break;
 		}
 		break;
 	    }
@@ -775,6 +936,12 @@ dump_names(int type)
 	}
     }
  done:
+    switch (type) {
+    case gen_hfile_e:
+	fprintf(stderr, "max key: length = %2d, string = %s\n", maxkbuf, maxkstr);
+	fprintf(stderr, "max val: length = %2d, string = %s\n", maxvbuf, maxvstr);
+	break;
+    }
     return;
 }
 
@@ -786,7 +953,7 @@ main(int argc, char * argv[])
     if (argc >= 2)
 	type = argv[1];
 
-    if (strcmp(type, "header") == 0) {
+    if (strcmp(type, "header-x") == 0) {
 	printf("%s\n", copyright_string);
 	printf("/*\n * This file is automatically generated\n * DO NOT EDIT!\n */\n\n");
 
@@ -798,7 +965,7 @@ main(int argc, char * argv[])
 	printf(" *       #import <SystemConfiguration/SystemConfiguration.h>\n");
 	printf(" */\n\n");
 
-	printf("#ifndef _SCSCHEMADEFINITIONS_H\n#define _SCSCHEMADEFINITIONS_H\n\n");
+	printf("#ifndef _SCSCHEMADEFINITIONS_10_1_H\n#define _SCSCHEMADEFINITIONS_10_1_H\n\n");
 
 	printf("#ifndef  SCSTR\n");
 	printf("#include <CoreFoundation/CFString.h>\n");
@@ -807,6 +974,42 @@ main(int argc, char * argv[])
 
 	printf("\n");
 	dump_names(gen_header_e);
+	printf("#endif /* _SCSCHEMADEFINITIONS_10_1_H */\n");
+    }
+    else if (strcmp(type, "header") == 0) {
+	printf("%s\n", copyright_string);
+	printf("/*\n * This file is automatically generated\n * DO NOT EDIT!\n */\n\n");
+
+	printf("/*\n");
+	printf(" * Note: For Cocoa/Obj-C/Foundation programs accessing these preference\n");
+	printf(" *       keys you may want to consider the following:\n");
+	printf(" *\n");
+	printf(" *       #define " SC_SCHEMA_DECLARATION "(x)\t\textern NSString * x\n");
+	printf(" *       #import <SystemConfiguration/SystemConfiguration.h>\n");
+	printf(" */\n\n");
+
+	printf("#ifndef _SCSCHEMADEFINITIONS_H\n#define _SCSCHEMADEFINITIONS_H\n\n");
+
+	printf("#ifndef SC_SCHEMA_DECLARATION\n");
+	printf("#ifndef SCSTR\n");
+	printf("#include <CoreFoundation/CFString.h>\n");
+	printf("#define " SC_SCHEMA_DECLARATION "(x)\textern const CFStringRef x\n");
+	printf("#else\n");
+	printf("#import <Foundation/NSString.h>\n");
+	printf("#define " SC_SCHEMA_DECLARATION "(x)\textern NSString * x\n");
+	printf("#endif\n");
+	printf("#endif\n");
+
+	printf("\n");
+	dump_names(gen_hfile_e);
+
+	printf("#include <AvailabilityMacros.h>\n");
+	printf("#if MAC_OS_X_VERSION_10_3 > MAC_OS_X_VERSION_MIN_REQUIRED\n");
+	printf("  #if MAC_OS_X_VERSION_10_1 <= MAC_OS_X_VERSION_MIN_REQUIRED\n");
+	printf("    #include <SystemConfiguration/SCSchemaDefinitions_10_1.h>\n");
+	printf("  #endif\n");
+	printf("#endif\n\n");
+
 	printf("#endif /* _SCSCHEMADEFINITIONS_H */\n");
     }
     else if (strcmp(type, "cfile") == 0) {
@@ -817,20 +1020,7 @@ main(int argc, char * argv[])
 	printf("\n");
 	printf("#include <CoreFoundation/CFString.h>\n");
 	printf("\n");
-	dump_names(gen_extern_e);
-	printf("\n");
-	printf("__private_extern__\nvoid\n__Initialize(void)\n");
-	printf("{\n");
-	printf("   static Boolean initialized = FALSE;\n");
-	printf("\n");
-	printf("   if (initialized)\n");
-	printf("      return;\n");
-	printf("\n");
-	dump_names(gen_init_e);
-	printf("\n");
-	printf("   initialized = TRUE;\n");
-	printf("   return;\n");
-	printf("}\n");
+	dump_names(gen_cfile_e);
     }
     exit(0);
     return (0);

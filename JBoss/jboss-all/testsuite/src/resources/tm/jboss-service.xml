@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<server>
+  <mbean code="org.jboss.test.tm.mbean.TMTest"
+         name="jboss.test:test=TransactionManagerUnitTestCase"/>
+</server>

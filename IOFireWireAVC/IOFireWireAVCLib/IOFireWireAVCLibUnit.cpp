@@ -26,8 +26,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "IOFireWireAVCLib.h"
-#include "IOFireWireAVCConsts.h"
+#include <IOKit/avc/IOFireWireAVCLib.h>
+#include <IOKit/avc/IOFireWireAVCConsts.h>
 #include "IOFireWireAVCLibConsumer.h"
 #include "IOFireWireAVCUserClientCommon.h"
 #include "IOFireWireAVCLibUnit.h"
@@ -724,6 +724,34 @@ static IOReturn updateAVCCommandTimeout( void * self )
 	return IOConnectMethodScalarIScalarO( me->fConnection, kIOFWAVCUserClientUpdateAVCCommandTimeout, 0, 0);
 }
 
+static IOReturn makeP2PInputConnection(void * self, UInt32 inputPlug, UInt32 chan)
+{
+    AVCUnit *me = AVCUnit_getThis(self);
+	return IOConnectMethodScalarIScalarO( me->fConnection, kIOFWAVCUserClientMakeP2PInputConnection, 2, 0, inputPlug, chan);
+
+}
+
+static IOReturn breakP2PInputConnection(void * self, UInt32 inputPlug)
+{
+    AVCUnit *me = AVCUnit_getThis(self);
+	return IOConnectMethodScalarIScalarO( me->fConnection, kIOFWAVCUserClientBreakP2PInputConnection, 1, 0, inputPlug);
+
+}
+
+static IOReturn makeP2POutputConnection(void * self, UInt32 outputPlug, UInt32 chan, IOFWSpeed speed)
+{
+    AVCUnit *me = AVCUnit_getThis(self);
+	return IOConnectMethodScalarIScalarO( me->fConnection, kIOFWAVCUserClientMakeP2POutputConnection, 3, 0, outputPlug, chan, speed);
+
+}
+
+static IOReturn breakP2POutputConnection(void * self, UInt32 outputPlug)
+{
+    AVCUnit *me = AVCUnit_getThis(self);
+	return IOConnectMethodScalarIScalarO( me->fConnection, kIOFWAVCUserClientBreakP2POutputConnection, 1, 0, outputPlug);
+
+}
+
 
 //
 // static interface table for IOCFPlugInInterface
@@ -751,7 +779,7 @@ static IOFireWireAVCLibUnitInterface sUnitInterface =
 	&queryInterface,
 	&addRef,
 	&release,
-	3, 0, // version/revision
+	4, 0, // version/revision
 	&open,
 	&openWithSessionRef,
 	&getSessionRef,
@@ -765,7 +793,11 @@ static IOFireWireAVCLibUnitInterface sUnitInterface =
     &GetProtocolInterface,
 	&getAsyncConnectionPlugCounts,
 	&createConsumerPlug,
-    &updateAVCCommandTimeout
+    &updateAVCCommandTimeout,
+    &makeP2PInputConnection,
+    &breakP2PInputConnection,
+    &makeP2POutputConnection,
+    &breakP2POutputConnection    
 };
 
 // IOFireWireAVCLibUnitFactory

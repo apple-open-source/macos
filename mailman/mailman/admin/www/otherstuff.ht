@@ -1,0 +1,36 @@
+Title: Mailman Logos and Papers
+Links: links.h rant-links.h
+
+<h3>Rants</h3>
+
+<p>Here are some random rants on Mailman, email, list servers, and
+other fun topics.  They should be considered the opinions of the
+authors of the articles only.
+
+<ul>
+    <li><a href="jwzrebuttal.html">Mailman Considered Beneficial</a>,
+        a rebuttal to the (in)famous JWZ article.
+</ul>
+
+<h3>Papers</h3>
+
+<p>A number of papers and other material presented at
+<a href="http://www.foretec.com/python/workshops/1998-11/proceedings.html">
+the 7th International Python Conference</a> and the 12th Usenix LISA
+conference are available
+<a href="http://sourceforge.net/project/showfiles.php?group_id=103"
+>here</a>.
+
+<h3>Logos</h3>
+
+The Dragon De Monsyne created and donated two logos for Mailman which
+you can use to link back to the Mailman website.
+
+<table>
+<tr><td><img src="images/logo-sm.jpg"></td>
+    <td><img src="images/logo-lg.jpg"></td>
+</tr><tr><td><center>Small Logo (110x35)</center></td>
+	 <td><center>Large Logo (247x93)</center></td>
+</tr>
+</table>
+

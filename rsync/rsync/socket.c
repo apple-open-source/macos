@@ -34,8 +34,10 @@
 #include "rsync.h"
 
 
-/* Establish a proxy connection on an open socket to a web roxy by
- * using the CONNECT method. */
+/**
+ * Establish a proxy connection on an open socket to a web proxy by
+ * using the HTTP CONNECT method.
+ **/
 static int establish_proxy_connection(int fd, char *host, int port)
 {
 	char buffer[1024];
@@ -68,7 +70,7 @@ static int establish_proxy_connection(int fd, char *host, int port)
 			buffer);
 		return -1;
 	}
-	for (cp = &buffer[5]; isdigit(*cp) || (*cp == '.'); cp++)
+	for (cp = &buffer[5]; isdigit(* (unsigned char *) cp) || (*cp == '.'); cp++)
 		;
 	while (*cp == ' ')
 		cp++;
@@ -122,12 +124,14 @@ int try_bind_local(int s,
 	for (r = bres_all; r; r = r->ai_next) {
 		if (bind(s, r->ai_addr, r->ai_addrlen) == -1)
 			continue;
+		freeaddrinfo(bres_all);
 		return s;
 	}
 
 	/* no error message; there might be some problem that allows
 	 * creation of the socket but not binding, perhaps if the
 	 * machine has no ipv6 address of this name. */
+	freeaddrinfo(bres_all);
 	return -1;
 }
 
@@ -182,6 +186,10 @@ int open_socket_out(char *host, int port, const char *bind_address,
 		*cp++ = '\0';
 		strcpy(portbuf, cp);
 		h = buffer;
+		if (verbose >= 2) {
+			rprintf(FINFO, "connection via http proxy %s port %s\n",
+				h, portbuf);
+		}
 	} else {
 		snprintf(portbuf, sizeof(portbuf), "%d", port);
 		h = host;
@@ -325,7 +333,8 @@ static int open_socket_in(int type, int port, const char *bind_address,
 			close(s);
 			continue;
 		}
-		
+
+		freeaddrinfo(all_ai);
 		return s;
 	}
 
@@ -365,7 +374,7 @@ int is_a_socket(int fd)
 }
 
 
-void start_accept_loop(int port, int (*fn)(int ))
+void start_accept_loop(int port, int (*fn)(int, int))
 {
 	int s;
 	extern char *bind_address;
@@ -387,6 +396,7 @@ void start_accept_loop(int port, int (*fn)(int ))
 	   for each incoming connection */
 	while (1) {
 		fd_set fds;
+		pid_t pid;
 		int fd;
 		struct sockaddr_storage addr;
 		socklen_t addrlen = sizeof addr;
@@ -418,15 +428,29 @@ void start_accept_loop(int port, int (*fn)(int ))
                 while (waitpid(-1, NULL, WNOHANG) > 0);
 #endif
 
-		if (fork()==0) {
+		if ((pid = fork()) == 0) {
+			int ret;
 			close(s);
 			/* open log file in child before possibly giving
 			   up privileges  */
 			log_open();
-			_exit(fn(fd));
+			ret = fn(fd, fd);
+			close_all();
+			_exit(ret);
+		} else if (pid < 0) {
+			rprintf(FERROR,
+				RSYNC_NAME
+				": could not create child server process: %s\n",
+				strerror(errno));
+			close(fd);
+			/* This might have happened because we're
+			 * overloaded.  Sleep briefly before trying to
+			 * accept again. */
+			sleep(2);
+		} else {
+			/* Parent doesn't need this fd anymore. */
+			close(fd);
 		}
-
-		close(fd);
 	}
 }
 
@@ -475,9 +499,9 @@ struct
 
 	
 
-/****************************************************************************
-set user socket options
-****************************************************************************/
+/**
+ * Set user socket options
+ **/
 void set_socket_options(int fd, char *options)
 {
 	char *tok;
@@ -535,9 +559,9 @@ void set_socket_options(int fd, char *options)
 	free(options);
 }
 
-/****************************************************************************
-become a daemon, discarding the controlling terminal
-****************************************************************************/
+/**
+ * Become a daemon, discarding the controlling terminal
+ **/
 void become_daemon(void)
 {
 	int i;
@@ -567,14 +591,15 @@ void become_daemon(void)
 }
 
 
-/*******************************************************************
-this is like socketpair but uses tcp. It is used by the Samba
-regression test code
-The function guarantees that nobody else can attach to the socket,
-or if they do that this function fails and the socket gets closed
-returns 0 on success, -1 on failure
-the resulting file descriptors are symmetrical
- ******************************************************************/
+/**
+ * This is like socketpair but uses tcp. It is used by the Samba
+ * regression test code.
+ * 
+ * The function guarantees that nobody else can attach to the socket,
+ * or if they do that this function fails and the socket gets closed
+ * returns 0 on success, -1 on failure the resulting file descriptors
+ * are symmetrical.
+ **/
 static int socketpair_tcp(int fd[2])
 {
 	int listener;
@@ -590,7 +615,7 @@ static int socketpair_tcp(int fd[2])
 	if ((listener = socket(PF_INET, SOCK_STREAM, 0)) == -1) goto failed;
 
         memset(&sock2, 0, sizeof(sock2));
-#ifdef HAVE_SOCK_SIN_LEN
+#ifdef HAVE_SOCKADDR_LEN
         sock2.sin_len = sizeof(sock2);
 #endif
         sock2.sin_family = PF_INET;

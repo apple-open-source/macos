@@ -1,4 +1,4 @@
-/*	$KAME: grabmyaddr.c,v 1.28 2001/12/12 15:29:12 sakane Exp $	*/
+/*	$KAME: grabmyaddr.c,v 1.35 2003/01/14 07:07:36 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -144,9 +144,7 @@ grab_myaddrs()
 #endif
 #endif
 
-#if defined(YIPS_DEBUG)
-	char _addr1_[NI_MAXHOST];
-#endif
+	char addr1[NI_MAXHOST];
 
 	if (getifaddrs(&ifa0)) {
 		plog(LLV_ERROR, LOCATION, NULL,
@@ -168,8 +166,9 @@ grab_myaddrs()
 
 		if (!suitable_ifaddr(ifap->ifa_name, ifap->ifa_addr)) {
 			plog(LLV_ERROR, LOCATION, NULL,
-				"unsuitable ifaddr: %s\n",
-				saddr2str(ifap->ifa_addr));
+				"unsuitable address: %s %s\n",
+				ifap->ifa_name,
+				saddrwop2str(ifap->ifa_addr));
 			continue;
 		}
 
@@ -198,18 +197,25 @@ grab_myaddrs()
 #endif
 #endif
 		if (getnameinfo(p->addr, p->addr->sa_len,
-				_addr1_, sizeof(_addr1_),
+				addr1, sizeof(addr1),
 				NULL, 0,
 				NI_NUMERICHOST | niflags))
-		strcpy(_addr1_, "(invalid)");
+		strlcpy(addr1, "(invalid)", sizeof(addr1));
 		plog(LLV_DEBUG, LOCATION, NULL,
 			"my interface: %s (%s)\n",
-			_addr1_, ifap->ifa_name);
+			addr1, ifap->ifa_name);
 		q = find_myaddr(old, p);
-		if (q)
+		if (q) {
 			p->sock = q->sock;
-		else
+#ifdef IKE_NAT_T
+			p->nattsock = q->nattsock;
+#endif
+		} else {
 			p->sock = -1;
+#ifdef IKE_NAT_T
+			p->nattsock = -1;
+#endif
+		}
 		p->next = lcconf->myaddrs;
 		lcconf->myaddrs = p;
 	}
@@ -232,9 +238,7 @@ grab_myaddrs()
 #endif
 #endif
 
-#if defined(YIPS_DEBUG)
-	char _addr1_[NI_MAXHOST];
-#endif
+	char addr1[NI_MAXHOST];
 
 	maxif = if_maxindex() + 1;
 	len = maxif * sizeof(struct sockaddr_storage) * 4; /* guess guess */
@@ -285,8 +289,10 @@ grab_myaddrs()
 		case AF_INET6:
 #endif
 			if (!suitable_ifaddr(ifr->ifr_name, &ifr->ifr_addr)) {
-				plog(LLV_DEBUG, LOCATION, NULL,
-					"unsuitable ifaddr %s\n");
+				plog(LLV_ERROR, LOCATION, NULL,
+					"unsuitable address: %s %s\n",
+					ifr->ifr_name,
+					saddrwop2str(&ifr->ifr_addr));
 				continue;
 			}
 
@@ -313,13 +319,13 @@ grab_myaddrs()
 #endif
 #endif
 			if (getnameinfo(p->addr, p->addr->sa_len,
-					_addr1_, sizeof(_addr1_),
+					addr1, sizeof(addr1),
 					NULL, 0,
 					NI_NUMERICHOST | niflags))
-			strcpy(_addr1_, "(invalid)");
+			strlcpy(addr1, "(invalid)", sizeof(addr1));
 			plog(LLV_DEBUG, LOCATION, NULL,
 				"my interface: %s (%s)\n",
-				_addr1_, ifr->ifr_name);
+				addr1, ifr->ifr_name);
 			q = find_myaddr(old, p);
 			if (q)
 				p->sock = q->sock;
@@ -426,7 +432,7 @@ update_myaddrs()
 		plog(LLV_ERROR, LOCATION, NULL,
 			"routing socket version mismatch\n");
 		close(lcconf->rtsock);
-		lcconf->rtsock = 0;
+		lcconf->rtsock = -1;
 		return 0;
 	}
 	switch (rtm->rtm_type) {
@@ -610,6 +616,19 @@ getsockmyaddr(my)
 		 && memcmp(my, p->addr, my->sa_len) == 0) {
 			break;
 		}
+#ifdef IKE_NAT_T
+		if (my->sa_family == p->addr->sa_family &&
+			my->sa_family == AF_INET &&
+			((struct sockaddr_in*)my)->sin_addr.s_addr ==
+			((struct sockaddr_in*)p->addr)->sin_addr.s_addr &&
+			((struct sockaddr_in*)my)->sin_port == htons(PORT_ISAKMP_NATT))
+		{
+			plog(LLV_DEBUG, LOCATION, NULL,
+				"picked natt socket (%d - %s) for sending\n",
+				p->nattsock, saddr2str(my));
+			return p->nattsock;
+		}
+#endif
 	}
 	if (!p)
 		p = lastresort;

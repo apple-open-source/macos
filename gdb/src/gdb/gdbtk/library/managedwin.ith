@@ -12,7 +12,7 @@
 # GNU General Public License for more details.
 
 
-class ManagedWin {
+itcl::class ManagedWin {
   inherit itk::Widget
   
   public {
@@ -52,6 +52,10 @@ class ManagedWin {
     method _freeze_me {}
     method _thaw_me {}
 
+    # Should this window be reopened when we startup?
+    method _ignore_on_save {} { return 0 }
+
+    # Should this window's size be remembered?
     proc dont_remember_size {} { return 0 }
   }
 

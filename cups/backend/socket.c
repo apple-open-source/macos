@@ -1,9 +1,9 @@
 /*
- * "$Id: socket.c,v 1.9.2.2 2002/12/05 22:56:05 jlovell Exp $"
+ * "$Id: socket.c,v 1.12 2003/07/08 01:27:20 jlovell Exp $"
  *
  *   AppSocket backend for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -58,8 +58,8 @@
 #  include <netdb.h>
 #endif /* WIN32 */
 
-static int printFile(int fdin, int fileOut, int socket);
-static void getSocketOptions(const char *uri, int *bidiP);
+static int printFile(int fdin, int fileOut, int socket, int waitEOF);
+static void getSocketOptions(const char *uri, int *bidiP, int *waitEOFP);
 static int sendUrgentReset(int socket);
 static void sighup_handler(int sig);
 
@@ -68,6 +68,41 @@ static void sighup_handler(int sig);
  * a reset signal to the printer.
  */
 static int gSocketOut = -1;
+
+/*
+ * Some OS's don't have hstrerror(), most notably Solaris...
+ */
+
+#ifndef HAVE_HSTRERROR
+#  define hstrerror cups_hstrerror
+
+const char *					/* O - Error string */
+cups_hstrerror(int error)			/* I - Error number */
+{
+  static const char * const errors[] =
+		{
+		  "OK",
+		  "Host not found.",
+		  "Try again.",
+		  "Unrecoverable lookup error.",
+		  "No data associated with name."
+		};
+
+
+  if (error < 0 || error > 4)
+    return ("Unknown hostname lookup error.");
+  else
+    return (errors[error]);
+}
+#endif /* !HAVE_HSTRERROR */
+
+
+/*
+ * Local functions...
+ */
+
+void	print_backchannel(const unsigned char *buffer, size_t nbytes);
+
 
 /*
  * 'main()' - Send a file to the printer or server.
@@ -94,6 +129,7 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
   struct sockaddr_in addr;	/* Socket address */
   struct hostent *hostaddr;	/* Host address */
   int           bidi;		/* If true send the backchannel data to stdout else stderr. */
+  int           waitEOF;	/* If true wait for eof to be sent. */
 #if defined(HAVE_SIGACTION) && !defined(HAVE_SIGSET)
   struct sigaction action;	/* Actions for POSIX signals */
 #endif /* HAVE_SIGACTION && !HAVE_SIGSET */
@@ -105,20 +141,27 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
 
   setbuf(stderr, NULL);
 
-#ifdef HAVE_SIGSET /* Use System V signals over POSIX to avoid bugs */
-  sigset(SIGHUP, sighup_handler);
+ /*
+  * Ignore SIGPIPE and catch SIGHUP signals...
+  */
 
+#ifdef HAVE_SIGSET
+  sigset(SIGPIPE, SIG_IGN);
+  sigset(SIGHUP, sighup_handler);
 #elif defined(HAVE_SIGACTION)
+  memset(&action, 0, sizeof(action));
+  action.sa_handler = SIG_IGN;
+  sigaction(SIGPIPE, &action, NULL);
+
   memset(&action, 0, sizeof(action));
   sigemptyset(&action.sa_mask);
   sigaddset(&action.sa_mask, SIGHUP);
   action.sa_handler = sighup_handler;
   sigaction(SIGHUP, &action, NULL);
-  
 #else
+  signal(SIGPIPE, SIG_IGN);
   signal(SIGHUP, sighup_handler);
 #endif /* HAVE_SIGSET */
-
 
  /*
   * Check command-line...
@@ -177,7 +220,7 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
   if ((hostaddr = httpGetHostByName(hostname)) == NULL)
   {
     fprintf(stderr, "ERROR: Unable to locate printer \'%s\' - %s\n",
-            hostname, strerror(errno));
+            hostname, hstrerror(h_errno));
     return (1);
   }
 
@@ -266,11 +309,11 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
      */
     gSocketOut = fd;
     
-    getSocketOptions(argv[0], &bidi);
+    getSocketOptions(argv[0], &bidi, &waitEOF);
 
     if (bidi) fprintf(stderr, "DEBUG: socket bidirectional enabled.\n");
 
-    (void) printFile(fp, bidi ? STDOUT_FILENO : -1, fd);
+    (void) printFile(fp, bidi ? STDOUT_FILENO : -1, fd, waitEOF);
     
     /* We're done with the socket so we'll clear the global
      * used by the HUP signal handler.
@@ -296,7 +339,7 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
   return (0);
 }
 
-static int printFile(int fdin, int fileOut, int socket)
+static int printFile(int fdin, int fileOut, int socket, int waitEOF)
 {
   char fileBuffer[16 * 1024];
   char socketReadBuffer[1 * 1024];
@@ -393,7 +436,8 @@ static int printFile(int fdin, int fileOut, int socket)
            * shutdown the socket and wait for the other end to finish...
            */
           fputs("INFO: Print file sent, waiting for printer to finish...\n", stderr);
-          shutdown(socket, 1);
+          if (!waitEOF)
+            shutdown(socket, 1);
         } else {
           perror("ERROR: socket reading from input steam");
           err = errno;
@@ -482,12 +526,15 @@ static int printFile(int fdin, int fileOut, int socket)
       
   }
 
+  if (waitEOF)
+    shutdown(socket, 1);
+
   fprintf(stderr, "DEBUG: socket finished sending file, err = %d.\n", err);
 
   return err;
 }
 
-static void getSocketOptions(const char *uri, int *bidiP)
+static void getSocketOptions(const char *uri, int *bidiP, int *waitEOFP)
 {
   char method[255];	/* Method in URI */
   char hostname[1024];	/* Hostname */
@@ -499,7 +546,9 @@ static void getSocketOptions(const char *uri, int *bidiP)
   char optionName[255];	/* Name of option */
   char value[255];	/* Value of option */
   char *ptr = NULL;     /* Pointer into name or value */
-  int bidi = false;
+
+  /* Initialize the arguments passed in */
+  *bidiP = *waitEOFP = false;
 
   /* Extract the device name and options from the URI...
    */
@@ -524,10 +573,11 @@ static void getSocketOptions(const char *uri, int *bidiP)
       /*
       * Get the name...
       */
-      for (ptr = optionName; *options && *options != '=';)
+      for (ptr = optionName; *options && *options != '=' && *options != '+'; )
         *ptr++ = *options++;
 
       *ptr = '\0';
+      *value = '\0';
                 
       if (*options == '=')
       {
@@ -545,20 +595,27 @@ static void getSocketOptions(const char *uri, int *bidiP)
           options ++;
           
       }
-      else
+      else if (*options == '+')
       {
-        value[0] = '\0';
+        options ++;
       }
-      
+
       if (strcasecmp(optionName, "bidi") == 0)
       {
-        bidi = true;
+        *bidiP = *value == '\0' || 
+                 strcasecmp(value, "on") == 0  ||
+                 strcasecmp(value, "yes") == 0 ||
+                 strcasecmp(value, "true") == 0;
+      }
+      else if (strcasecmp(optionName, "waiteof") == 0)
+      {
+        *waitEOFP = *value == '\0' || 
+                    strcasecmp(value, "on") == 0  ||
+                    strcasecmp(value, "yes") == 0 || 
+                    strcasecmp(value, "true") == 0;
       }
     } 
   }
-  
-  if (bidiP) *bidiP = bidi;
-  
 }
 
 static int sendUrgentReset(int socket)
@@ -598,5 +655,43 @@ static void sighup_handler(int sig)
 
 
 /*
- * End of "$Id: socket.c,v 1.9.2.2 2002/12/05 22:56:05 jlovell Exp $".
+ * 'print_backchannel()' - Print the contents of a back-channel buffer.
+ */
+
+void
+print_backchannel(const unsigned char *buffer,	/* I - Data buffer */
+                  size_t              nbytes)	/* I - Number of bytes */
+{
+  char	line[255],				/* Formatted line */
+	*lineptr;				/* Pointer into line */
+
+
+  for (lineptr = line; nbytes > 0; buffer ++, nbytes --)
+  {
+    if (*buffer < 0x20 || *buffer >= 0x7f)
+    {
+      snprintf(lineptr, sizeof(line) - (lineptr - line), "<%02X>", *buffer);
+      lineptr += strlen(lineptr);
+    }
+    else
+      *lineptr++ = *buffer;
+
+    if ((lineptr - line) > 72)
+    {
+      *lineptr = '\0';
+      fprintf(stderr, "DEBUG: DATA: %s\n", line);
+      lineptr = line;
+    }
+  }
+
+  if (lineptr > line)
+  {
+    *lineptr = '\0';
+    fprintf(stderr, "DEBUG: DATA: %s\n", line);
+  }
+}
+
+
+/*
+ * End of "$Id: socket.c,v 1.12 2003/07/08 01:27:20 jlovell Exp $".
  */

@@ -1,0 +1,65 @@
+.\" $Id: gimpprint.3.in,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $
+.\" Copyright (C) 2000-2002 Roger Leigh <roger@whinlatter.uklinux.net>
+.\"
+.\" This program is free software; you can redistribute it and/or modify
+.\" it under the terms of the GNU General Public License as published by
+.\" the Free Software Foundation; either version 2, or (at your option)
+.\" any later version.
+.\"
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public License
+.\" along with this program; if not, write to the Free Software
+.\" Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+.TH GIMPPRINT 3 "@RELEASE_DATE@" "Version @GIMPPRINT_VERSION@" "Gimp-Print Manual Pages"
+.SH NAME
+\fBgimpprint\fR - High quality raster image printing library
+.SH SYNOPSIS
+\fB#include <gimp-print/gimp-print.h>\fR
+.SH DESCRIPTION
+The \fBgimpprint\fR library routines give programmers an interface to print
+high quality bitmap images on most modern printers.  It includes drivers which
+provide printing quality for UNIX/Linux on a par with proprietary
+vendor-supplied drivers in many cases, and can be used for many of the most
+demanding printing tasks.
+.SH COPYRIGHT
+Copyright \(co 2001 Michael Sweet (mike@easysw.com) and Robert Krawitz
+(rlk@alum.mit.edu)
+.PP
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+.PP
+This manual page was written by Roger Leigh (roger@whinlatter.uklinux.net)
+.SH SEE ALSO
+.BR gimpprint-color (7),
+.BR gimpprint-dithers (7),
+.BR gimpprint-imagetypes (7),
+.BR gimpprint-inktypes (7),
+.BR gimpprint-mediasizes (7),
+.BR gimpprint-mediasources (7),
+.BR gimpprint-mediatypes (7),
+.BR gimpprint-models (7),
+.BR gimpprint-resolutions (7).
+.PP
+The full documentation for
+.B Gimp-Print
+is maintained as a Texinfo manual.  If the
+.B info
+and
+.B Gimp-Print
+programs are properly installed at your site, the command
+.IP
+.B info gimp-print
+.PP
+should give you access to the complete manual.
+.\"#
+.\"# The following sets edit modes for GNU EMACS
+.\"# Local Variables:
+.\"# mode:nroff
+.\"# fill-column:79
+.\"# End:

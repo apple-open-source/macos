@@ -1,6 +1,0 @@
-{
-  Description     = "AppleTalk networking";
-  Provides        = ("AppleTalk");
-  Requires        = ("Network", "Network Configuration");
-  OrderPreference = "None";
-}

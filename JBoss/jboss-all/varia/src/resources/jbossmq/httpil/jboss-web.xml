@@ -1,0 +1,4 @@
+<jboss-web>
+   <security-domain>java:/jaas/jbossmq-httpil</security-domain>
+</jboss-web>
+

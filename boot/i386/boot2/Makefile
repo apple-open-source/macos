@@ -7,7 +7,9 @@ include ../MakePaths.dir
 
 OPTIM = -Os
 CFLAGS	= $(RC_CFLAGS) $(OPTIM) $(MORECPP) -arch i386 -g -Wmost -Werror \
-          -fno-builtin -DSAIO_INTERNAL_USER -static
+          -fno-builtin -DSAIO_INTERNAL_USER -static \
+	  -fomit-frame-pointer -mpreferred-stack-boundary=2 \
+	  -fno-align-functions
 DEFINES=
 CONFIG = hd
 SYMDIR = $(SYMROOT)
@@ -24,6 +26,7 @@ AS = as
 LD = ld
 # LIBS= -lc_static
 LIBS= -L$(SYMDIR) -lsaio -lsa -lrcz 
+LIBDEP= $(SYMDIR)/libsaio.a $(SYMDIR)/libsa.a $(SYMDIR)/librcz.a
 
 OTHER_FILES =
 
@@ -32,13 +35,13 @@ VPATH = $(OBJROOT):$(SYMROOT)
 
 # The ordering is important;
 # boot2.o must be first.
-OBJS = boot2.o boot.o graphics.o drivers.o prompt.o options.o
+OBJS = boot2.o boot.o graphics.o drivers.o prompt.o options.o lzss.o
 # button.o browser.o scrollbar.o == NOTYET	
 
 UTILDIR = ../util
 SFILES = boot2.s
 CFILES = boot.c graphics.c drivers.c prompt.c options.c
-HFILES = boot.h
+HFILES = boot.h appleClut8.h appleboot.h
 OTHERFILES = Makefile
 ALLSRC = $(FOREIGNSRC) $(FOREIGNBIN) $(SFILES) $(CFILES) \
 	$(HFILES) $(OTHERFILES)
@@ -48,7 +51,7 @@ MAXBOOTSIZE = 65024
 
 all: $(DIRS_NEEDED) boot
 
-boot: machOconv $(OBJS)
+boot: machOconv $(OBJS) $(LIBDEP)
 	$(LD) -static -preload -segaddr __TEXT $(BOOT2ADDR) -segalign 20 \
 		-o $(SYMROOT)/boot.sys $(OBJS) $(LIBS) -lcc_kext
 	machOconv $(SYMROOT)/boot.sys $(SYMROOT)/boot

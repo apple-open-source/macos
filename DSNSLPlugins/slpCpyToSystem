@@ -1,0 +1,3 @@
+sudo rm -rf /System/Library/Frameworks/DirectoryService.framework/Resources/Plugins/SLP.dsplug
+sudo cp -r ./build/SLP.dsplug /System/Library/Frameworks/DirectoryService.framework/Resources/Plugins/
+

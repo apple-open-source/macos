@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -27,7 +28,7 @@
 #include <mach/mach_error.h>
 #include <sys/file.h>
 #include <mach-o/loader.h>
-#include <architecture/byte_order.h>
+#include <libkern/OSByteOrder.h>
 #include <unistd.h>
 
 int	infile, outfile;
@@ -42,7 +43,7 @@ static unsigned long swap(
 )
 {
     if (swap_ends)
-	return NXSwapLong(x);
+	return OSSwapInt32(x);
     else
 	return x;
 }
@@ -80,7 +81,7 @@ usage:
 	perror("read mach header");
 	exit(1);
     }
-    if (nc < sizeof (mh)) {
+    if (nc < (int)sizeof (mh)) {
 	fprintf(stderr, "read mach header: premature EOF %d\n", nc);
 	exit(1);
     }
@@ -103,7 +104,7 @@ usage:
 	perror("read load commands");
 	exit(1);
     }
-    if (nc < swap(mh.sizeofcmds)) {
+    if (nc < (int)swap(mh.sizeofcmds)) {
 	fprintf(stderr, "read load commands: premature EOF %d\n", nc);
 	exit(1);
     }
@@ -135,13 +136,13 @@ usage:
 		perror("read segment data");
 		exit(1);
 	    }
-	    if (nc < swap(scp->filesize)) {
+	    if (nc < (int)swap(scp->filesize)) {
 		fprintf(stderr, "read segment data: premature EOF %d\n", nc);
 		exit(1);
 	    }
 
 	    nc = write(outfile, (void *)data, vmsize);
-	    if (nc < vmsize) {
+	    if (nc < (int)vmsize) {
 		perror("write segment data");
 		exit(1);
 	    }

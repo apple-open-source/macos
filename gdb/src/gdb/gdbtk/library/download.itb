@@ -17,7 +17,7 @@
 #
 # ----------------------------------------------------------------------
 
-body Download::constructor {args} {
+itcl::body Download::constructor {args} {
   global gdb_pretty_name
   debug $args
   eval itk_initialize $args
@@ -54,7 +54,7 @@ body Download::constructor {args} {
 # ------------------------------------------------------------------
 #  METHOD:  update_download - update the download meters
 # ------------------------------------------------------------------
-body Download::update_download { sec num tot } {
+itcl::body Download::update_download { sec num tot } {
 
   # Loop through all the sections, marking each as either done or
   # updating its meter. This will mark all previous sections prior to
@@ -77,7 +77,7 @@ body Download::update_download { sec num tot } {
 # ------------------------------------------------------------------
 #  METHOD:  done - notification that the download is really complete
 # ------------------------------------------------------------------
-body Download::done { {msg ""} } {
+itcl::body Download::done { {msg ""} } {
   bell
 
   if {$msg == ""} {
@@ -108,7 +108,7 @@ body Download::done { {msg ""} } {
 # ------------------------------------------------------------------
 #  METHOD:  cancel - cancel the download
 # ------------------------------------------------------------------
-body Download::cancel {} {
+itcl::body Download::cancel {} {
   debug "canceling the download"
   set ::download_cancel_ok 1
 }
@@ -116,15 +116,15 @@ body Download::cancel {} {
 # ------------------------------------------------------------------
 #  DESTRUCTOR - destroy window containing widget
 # ------------------------------------------------------------------
-body Download::destructor {} {
+itcl::body Download::destructor {} {
   remove_hook download_progress_hook "$this update_download"
 }
 
-body Download::do_download_hooks {} {
+itcl::body Download::do_download_hooks {} {
   set ::download_timer(ok) 1
 }
 
-body Download::download_hash { section num } {
+itcl::body Download::download_hash { section num } {
   global download_timer
   debug "sec=$section num=$num tot=$total_bytes ok=$::download_cancel_ok"
   ::update
@@ -145,7 +145,7 @@ body Download::download_hash { section num } {
 }
 
 # Download the executable. Return zero for success, and non-zero for error.
-body Download::download_it { } {
+itcl::body Download::download_it { } {
   global gdb_exe_name gdb_downloading gdb_loaded
   global gdb_target_name gdb_pretty_name
   global gdb_running
@@ -194,7 +194,7 @@ body Download::download_it { } {
     set f $gdb_exe_name
   }
   if {! [file exists $f]} {
-    tk_messageBox -icon error -title GDB -type ok -modal task\
+    tk_messageBox -icon error -title GDB -type ok \
       -message "Request to download non-existent executable $gdb_exe_name"
     set gdb_downloading 0
     gdbtk_idle

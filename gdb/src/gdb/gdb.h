@@ -51,8 +51,10 @@ enum gdb_rc gdb_breakpoint (char *address, char *condition,
 			    int hardwareflag, int tempflag,
 			    int thread, int ignore_count, int futureflag);
 
-/* Switch thread and print notification. */
-enum gdb_rc gdb_thread_select (struct ui_out *uiout, char *tidstr);
+/* Switch thread and print notification (if PRINT is 1). */
+enum gdb_rc gdb_thread_select (struct ui_out *uiout, char *tidstr, int print);
+
+struct cleanup *make_cleanup_restore_current_thread (ptid_t inferior_ptid, int print);
 
 /* Print a list of known thread ids. */
 enum gdb_rc gdb_list_thread_ids (struct ui_out *uiout);

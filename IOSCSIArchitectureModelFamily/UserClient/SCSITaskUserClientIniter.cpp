@@ -26,8 +26,8 @@
 #include <libkern/c++/OSArray.h>
 #include <libkern/c++/OSDictionary.h>
 #include <IOKit/IOKitKeys.h>
-#include <IOKit/scsi-commands/IOSCSIProtocolInterface.h>
-#include <IOKit/scsi-commands/IOSCSIPeripheralDeviceNub.h>
+#include <IOKit/scsi/IOSCSIProtocolInterface.h>
+#include <IOKit/scsi/IOSCSIPeripheralDeviceNub.h>
 #include "SCSITaskLib.h"
 #include "SCSITaskLibPriv.h"
 #include "SCSITaskUserClientIniter.h"

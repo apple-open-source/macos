@@ -63,13 +63,16 @@ public:
 	void 				Enable ( void );
 	void 				Disable ( void );
 	void 				CancelTimeout ( void );
+	bool				Rearm ( void );
 	
 	IOReturn 			SetTimeout (
 							SCSIParallelTaskIdentifier	taskIdentifier,
 						  	UInt32					 	timeoutInMS = kTimeoutValueNone );
 	
-	bool				Rearm ( void );
-	SCSIParallelTask *	GetExpiredTask ( void );
+	void				RemoveTask (
+							SCSIParallelTaskIdentifier	taskIdentifier );
+	
+	SCSIParallelTaskIdentifier	GetExpiredTask ( void );
 	
 	
 protected:
@@ -80,6 +83,7 @@ protected:
 	SCSIParallelTask *	GetNextTask ( SCSIParallelTask * task );
 	void				SetNextTask ( SCSIParallelTask * task, SCSIParallelTask * next );
 	UInt32				GetTimeoutDuration ( SCSIParallelTask * task );
+	
 	
 private:
 	

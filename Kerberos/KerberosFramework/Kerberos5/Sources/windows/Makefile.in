@@ -1,0 +1,47 @@
+BUILDTOP=..
+NO_OUTPRE=1
+
+#
+# Makefile that recurses into cns subdirectory.
+#
+all-windows::
+	@echo Making in windows\lib
+	cd lib
+	$(MAKE) -$(MFLAGS)
+	@echo Making in windows\cns
+	cd ..\cns
+	$(MAKE) -$(MFLAGS)
+	@echo Making in windows\wintel
+	cd ..\wintel
+	$(MAKE) -$(MFLAGS)
+	@echo Making in windows\gss
+	cd ..\gss
+	$(MAKE) -$(MFLAGS)
+	@echo Making in windows\gina
+	cd ..\gina
+	$(MAKE) -$(MFLAGS)
+	@echo Making in windows\ms2mit
+	cd ..\ms2mit
+	$(MAKE) -$(MFLAGS)
+	cd ..
+
+clean-windows::
+	@echo Making clean in windows\lib
+	cd lib
+	$(MAKE) -$(MFLAGS) clean
+	@echo Making clean in windows\cns
+	cd ..\cns
+	$(MAKE) -$(MFLAGS) clean
+	@echo Making clean in windows\wintel
+	cd ..\wintel
+	$(MAKE) -$(MFLAGS) clean
+	@echo Making clean in windows\gss
+	cd ..\gss
+	$(MAKE) -$(MFLAGS) clean
+	@echo Making clean in windows\gina
+	cd ..\gina
+	$(MAKE) -$(MFLAGS) clean
+	@echo Making clean in windows\ms2mit
+	cd ..\ms2mit
+	$(MAKE) -$(MFLAGS) clean
+	cd ..

@@ -1,0 +1,31 @@
+<!-- updated to en 2.1 -->
+Dieser Text kann sogenannte
+<a href="http://www.python.org/doc/current/lib/typesseq-strings.html">Python
+format strings</a> nach dem Muster <b>%(attribut)s</b>
+enthalten, die durch listenspezifische Werte ersetzt werden.
+
+Mögliche derartige "Attribute" sind:
+
+<ul>
+    <li><b>real_name</b> - Der "hübsche" Name der Liste;
+üblicherweise der Listenname in Groß-/Kleinschreibung.
+
+    <li><b>list_name</b> - Der Name der Liste für diverse URLs,
+wo die Groß-/Kleinschreibung wichtig ist.
+
+    <li><b>host_name</b> - Der FQDN (fully qualified domain
+name) des Listservers.
+
+    <li><b>web_page_url</b> - Die Basis-URL für Mailman. Daran
+wird zB <em>listinfo/%(list_name)s</em> angehängt, um die
+URL der Infoseite der Liste zu erhalten.
+
+    <li><b>description</b> - Eine kurze Beschreibung der
+Mailingsliste.
+
+    <li><b>info</b> - Die ausführliche Beschreibung der
+Mailingliste.
+
+    <li><b>cgiext</b> - Die Dateinamenerweiterung für CGI
+scripts.
+</ul>

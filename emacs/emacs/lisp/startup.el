@@ -480,7 +480,11 @@ or `CVS', and any subdirectory that contains a file named `.nosearch'."
 
 	;; Don't do this if we failed to create the initial frame,
 	;; for instance due to a dense colormap.
-	(when frame-initial-frame
+	(when (or frame-initial-frame
+		  ;; If frame-initial-frame has no meaning, do this anyway.
+		  (not (and window-system
+			    (not noninteractive)
+			    (not (eq window-system 'pc)))))
 	  ;; Modify the initial frame based on what .emacs puts into
 	  ;; ...-frame-alist.
 	  (if (fboundp 'frame-notice-user-settings)
@@ -791,7 +795,12 @@ or `CVS', and any subdirectory that contains a file named `.nosearch'."
     (when (or (memq system-type '(ms-dos windows-nt))
 	      (and (memq window-system '(x))
 		   (fboundp 'x-backspace-delete-keys-p)
-		   (x-backspace-delete-keys-p)))
+		   (x-backspace-delete-keys-p))
+	      ;; If the terminal Emacs is running on has erase char
+	      ;; set to ^H, use the Backspace key for deleting
+	      ;; backward and, and the Delete key for deleting forward.
+	      (and (null window-system)
+		   (eq tty-erase-char 8)))
       (setq-default normal-erase-is-backspace t)
       (normal-erase-is-backspace-mode 1)))
 

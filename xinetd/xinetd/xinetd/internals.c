@@ -50,7 +50,7 @@ static void dump_services( int fd )
 void dump_internal_state(void)
 {
    int dump_fd ;
-   char *dump_file = DUMP_FILE ;
+   const char *dump_file = DUMP_FILE ;
    time_t current_time ;
    int fd ;
    unsigned u ;
@@ -66,7 +66,15 @@ void dump_internal_state(void)
       return ;
    }
    
-   Sbuftype( dump_fd, SIO_LINEBUF ) ;
+   if (Sbuftype( dump_fd, SIO_LINEBUF ) == SIO_ERR )
+   {
+       /*
+	* If the above function failed, Sprint will most likely
+	* fail, too. Output a message for troubleshooting and quit.
+	*/
+       msg( LOG_ERR, func, "failed setting up sio buffering: %m" ) ;
+       return;
+   }
 
    /*
     * Print the program name, version, and timestamp.
@@ -137,7 +145,7 @@ void dump_internal_state(void)
    Sputchar( dump_fd, '\n' ) ;
 
    Sprint( dump_fd, "END OF DUMP\n\n" ) ;
-   Sclose( dump_fd ) ;
+   Sclose( dump_fd );
 
    msg( LOG_INFO, func, "generated state dump in file %s", dump_file ) ;
 }

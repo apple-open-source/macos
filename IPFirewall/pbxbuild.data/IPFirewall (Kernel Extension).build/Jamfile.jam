@@ -34,7 +34,7 @@ export deferred MODULE_START = IPFirewall_start ;
 export deferred MODULE_STOP = IPFirewall_stop ;
 export deferred MODULE_VERSION = 1.2.1 ;
 export deferred OPTIMIZATION_CFLAGS = -Os ;
-export deferred OTHER_CFLAGS = -DKERNEL=1 -DIPDIVERT=1 -DIPFIREWALL_DEFAULT_TO_ACCEPT=1 -DIPV6FIREWALL_DEFAULT_TO_ACCEPT=1 -DIPFIREWALL_FORWARD -traditional-cpp ;
+export deferred OTHER_CFLAGS = -DKERNEL=1 -DIPDIVERT=1 -DIPFIREWALL_DEFAULT_TO_ACCEPT=1 -DIPV6FIREWALL_DEFAULT_TO_ACCEPT=1 -DIPFIREWALL_FORWARD -no-cpp-precomp ;
 export deferred OTHER_LDFLAGS =  ;
 export deferred OTHER_REZFLAGS =  ;
 export deferred PREBINDING = YES ;

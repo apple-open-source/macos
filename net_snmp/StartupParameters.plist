@@ -5,7 +5,7 @@
   OrderPreference = "None";
   Messages =
   {
-    start = "Starting SNMP server";
-    stop  = "Stopping SNMP server";
+    start = "Starting SNMP service";
+    stop  = "Stopping SNMP service";
   };
 }

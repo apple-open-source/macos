@@ -1,0 +1,134 @@
+$Id: RELEASE-PLAN-4.1.txt,v 1.9 2002/05/15 04:42:31 remm Exp $
+
+                      Release Plan for Apache Tomcat 4.1
+                      ==================================
+
+
+Introduction:
+------------
+
+This document is a release plan for the *final* release of Apache Tomcat 4.1.
+
+The goal of the Apache Tomcat 4.1 final release is to provide a stable
+container that supports 100% of the mandatory requirements of the Servlet 2.3
+and JSP 1.2 specifications, as well as to improve and add many useful 
+additional features on top of the existing Apache Tomcat 4.0 releases.
+
+Apache Tomcat 4.1 includes the following major new features over 
+Apache Tomcat 4.0:
+
+* JMX based administration features
+* JSP and Struts based administration web application
+* New Coyote HTTP/1.1 connector
+* New Coyote JK2 AJP 1.3 connector
+* Rewritten Jasper JSP page compiler
+* Performance and memory efficiency improvements
+* Enhanced manager application support for integration with development tools
+* Custom Ant tasks to interact with the manager application directly 
+  from build.xml scripts
+* Many other miscanellous improvements
+
+Apache Tomcat 4.1 will use the build numbering and release process first used 
+in the Apache HTTPd 2.0.x project.
+Milestone builds, numbered 4.1.x, will be released as needed and will 
+recieve a stability rating after a one week testing period. The rating can be
+either: Alpha, Beta, or Stable.
+
+This Release Plan proposes the following schedule:
+
+  Friday, April 26, 2002          Apache Tomcat 4.1.0
+
+In order to complete final release, all outstanding Bugzilla bug reports
+against Tomcat 4.1 above NORMAL severity need to be fixed or deferred for 
+later releases.
+
+This Release Plan proposes the following classification of current outstanding
+bug reports in the bug tracking system, sorted by component and their ID
+numbers in our bug tracking system at:
+
+  http://nagoya.apache.org/bugzilla/
+
+Please review the bug reports, and their classification as "must have",
+"nice to have", or "address later".  Lobbying for changes in classification
+can take place on the TOMCAT-DEV mailing list.  In addition, if you have a
+bug report or enhancement that you wish to have considered prior to final
+release, please submit a bug report as quickly as possible.
+
+
+
+Bugs That Must Be Addressed Before Final Release:
+------------------------------------------------
+
+Catalina
+--------
+
+5735 HTTP connector running out of processors under heavy load
+5829 StandardManager needs to cope with sessions throwing exception in 
+     read/write
+5895 Not all sessions receives HttpSessionListener.sessionDestroyed(event) 
+     using FileStore
+7656 Webapplications deployed using PUT don't survive a tomcat restart
+8087 HttpSessionAttributeListener.attributeRemoved() not working with 
+     URLRewriting
+
+Jasper
+------
+
+4964 popBody() is called before doEndTag() is called in a BodyTag
+5793 variable element in tld with TagExtraInfo class
+7059 Jasper compiler holds pointers to jars in WEB-INF/lib: cannot delete
+7989 <jsp:setProperty> and <jsp:getProperty> ignore information from 
+     <jsp:useBean>
+
+Nice To Have Fixes Before Final Release:
+---------------------------------------
+
+Catalina
+--------
+
+4350 SSLAuthenticator did not associate SSO session
+5199 <jsp:param> in <jsp:include> section not correct
+5352 JDBCRealm does not work with CLIENT-CERT auth-method
+5551 MANAGER: add system information query
+5603 ServletContext.getResourcePaths() returns extra slashes
+5704 CgiServlet corrupting images?
+5758 Server-side includes do not work properly
+5762 CGI servlet misses to include port number in HTTP_HOST environment 
+     variable
+5764 Key Information Missing--Automatic Application Deployment
+5858 Add tomcat dir to java.library.path
+5899 HTTP POST parameters ignored in CGIServlet.java
+6185 JNDIRealm working with IPlanet 5.1
+6206 Sixteen Lifecycle implementers disagree with Lifecycle API docs
+6229 Need way to specify where to write catalina.out
+6281 JDBCRealm+Form Login+URL re-writing session=broken
+6299 SSI problem with multiple include statements in one file
+6431 JNDIRealm.getRoles() should return more than a single role attribute
+6797 Class loader fails if it can't read entire tree upto a classfile
+6884 Need Better Error Handling in WebappClassLoader.validateJarFile
+7043 database user and password for JDBC Based Store 
+7080 Interbase JDBCRealm - Bug # 5564 - Have a safe fix
+7082 Calling an RMI Server from a servlet produces stack trace
+7116 JDBC realm doesn't handle NULLpasswords
+7139 Typo in manager.xml documentation
+7359 Classloader problems with RMI
+7360 res-sharing-scope not supported
+7445 Can not set verbosity property of the FileLogger via server.xml 
+     configuration file
+7984 class org.apache.catalina.logger.FileLogger should be public
+8323 No support for running the 64 bit JVM
+
+Jasper
+------
+
+6858 Easy & Significant Performance Improvement
+7160 Jasper compiles files to same classname
+7993 parameters in <jsp:plugin> for jsp Document do not work
+8005 Bad Param passing with jsp:include
+
+
+Unconfirmed Bugs (Awaiting Reproducible Failure Case):
+-----------------------------------------------------
+
+
+

@@ -1,9 +1,9 @@
 dnl
-dnl "$Id: cups-openslp.m4,v 1.1.1.3 2002/06/06 22:12:35 jlovell Exp $"
+dnl "$Id: cups-openslp.m4,v 1.1.1.7 2002/12/24 00:05:00 jlovell Exp $"
 dnl
 dnl   OpenSLP configuration stuff for the Common UNIX Printing System (CUPS).
 dnl
-dnl   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+dnl   Copyright 1997-2003 by Easy Software Products, all rights reserved.
 dnl
 dnl   These coded instructions, statements, and computer programs are the
 dnl   property of Easy Software Products and are protected by Federal
@@ -44,5 +44,5 @@ AC_SUBST(LIBSLP)
 
 
 dnl
-dnl End of "$Id: cups-openslp.m4,v 1.1.1.3 2002/06/06 22:12:35 jlovell Exp $".
+dnl End of "$Id: cups-openslp.m4,v 1.1.1.7 2002/12/24 00:05:00 jlovell Exp $".
 dnl

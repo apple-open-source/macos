@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE ejb-jar PUBLIC "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 2.0//EN" "http://java.sun.com/j2ee/dtds/ejb-jar_2_0.dtd">
+
+<ejb-jar>
+<display-name>Threading Test</display-name>
+<enterprise-beans>
+<entity>
+<display-name>Test</display-name>
+<ejb-name>threads</ejb-name>
+<home>org.jboss.test.threading.interfaces.EJBThreadsHome</home>
+<remote>org.jboss.test.threading.interfaces.EJBThreads</remote>
+<ejb-class>org.jboss.test.threading.ejb.EJBThreadsBean</ejb-class>
+<transaction-type>Container</transaction-type>
+<persistence-type>Container</persistence-type>
+<prim-key-class>java.lang.String</prim-key-class>
+<primkey-field>id</primkey-field>
+<reentrant>False</reentrant>
+<cmp-field>
+<field-name>id</field-name>
+</cmp-field>
+</entity>
+</enterprise-beans>
+<assembly-descriptor>
+
+ <container-transaction>
+ <method>
+                <ejb-name>threads</ejb-name>
+                 <method-name>*</method-name>
+            </method>
+            <trans-attribute>Required</trans-attribute>
+</container-transaction>
+</assembly-descriptor>
+</ejb-jar>

@@ -1,4 +1,4 @@
-# Copyright 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+# Copyright 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -34,7 +34,6 @@ set bug_id 0
 set testfile "call-rt-st"
 set srcfile ${testfile}.c
 set binfile ${objdir}/${subdir}/${testfile}
-
 
 # Test depends on printf, which the sparclet stub doesn't support.  
 if { [istarget "sparclet-*-*"] } {
@@ -114,13 +113,13 @@ if ![runto_main] then {
 
 
 gdb_test "break loop_count" \
-    "Breakpoint.* file .*call-rt-st.c, line 106\\." \
+    "Breakpoint.* file .*call-rt-st.c, line 10\[67\]\\." \
     "breakpoint loop_count"
 
 
 send_gdb "continue\n"
 gdb_expect {
- -re  "Continuing\\..*Breakpoint.*loop_count \\(\\) at.*call-rt-st.c:106\[ \t\r\n\]+106\[\t \]+for \\(index=0; index.4; index..\\);\[\r\n \]+$gdb_prompt $" {
+ -re  "Continuing\\..*Breakpoint.*loop_count \\(\\) at.*call-rt-st.c:10\[67\]\[ \t\r\n\]+10\[67\]\[\t \]+for \\(index=0; index.4; index..\\);\[\r\n \]+$gdb_prompt $" {
                  pass "continue to loop_count"}
       -re ".*$gdb_prompt $" { fail "continue to loop_count"}           
       timeout           { fail "(timeout) continue to loop_count"}
@@ -128,9 +127,9 @@ gdb_expect {
 
 send_gdb "finish\n"
 gdb_expect {
- -re  "Run till exit from .0  loop_count \\(\\) at.*call-rt-st.c:106\[ \t\r\n\]+main \\(\\) at.*call-rt-st.c:617\[ \t\r\n\]+617\[\t \]+return 0;.*$gdb_prompt $" {
+ -re  "Run till exit from .0  loop_count \\(\\) at.*call-rt-st.c:10\[67\]\[ \t\r\n\]+main \\(\\) at.*call-rt-st.c:617\[ \t\r\n\]+617\[\t \]+return 0;.*$gdb_prompt $" {
                  pass "finish out from  loop_count (line 617)"}
- -re  "Run till exit from .0  loop_count \\(\\) at.*call-rt-st.c:106\[ \t\r\n\]+main \\(\\) at.*call-rt-st.c:615\[ \t\r\n\]+615\[\t \]+loop_count.*$gdb_prompt $" {
+ -re  "Run till exit from .0  loop_count \\(\\) at.*call-rt-st.c:10\[67\]\[ \t\r\n\]+main \\(\\) at.*call-rt-st.c:615\[ \t\r\n\]+615\[\t \]+loop_count.*$gdb_prompt $" {
                  pass "finish out from  loop_count (line 615)"}
       -re ".*$gdb_prompt $" { fail "finish out from loop_count"}           
       timeout           { fail "(timeout)finish out from loop_count"}
@@ -176,7 +175,7 @@ if ![gdb_skip_stdio_test "print print_one_large_struct(...)"] {
 if {![gdb_skip_float_test "print print_one_double(*d1)"] && \
         ![gdb_skip_stdio_test "print print_one_double(*d1)"] } {
     print_struct_call "print_one_double(*d1)" \
-            ".*Contents of one_double_t:\[ \r\n\]+1\\.111110\[ \r\n\]+.\[0-9\]+ = \\{double1 = 1\\.11111\\}"
+	    ".*Contents of one_double_t:\[ \r\n\]+1\\.111110\[ \r\n\]+.\[0-9\]+ = \\{double1 = 1\\.111\[0-9\]*\\}"
 }
 
 if {![gdb_skip_float_test "print print_two_floats(*f3)"] && \

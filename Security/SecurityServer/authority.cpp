@@ -27,7 +27,10 @@
 
 #include "AuthorizationWalkers.h"
 
-using Authorization::Right;
+using Authorization::AuthItemSet;
+using Authorization::AuthItemRef;
+using Authorization::AuthValue;
+using Authorization::AuthValueOverlay;
 
 //
 // The global dictionary of extant AuthorizationTokens
@@ -52,10 +55,11 @@ Authority::~Authority()
 //
 // Create an authorization token.
 //
-AuthorizationToken::AuthorizationToken(Session &ssn, const CredentialSet &base)
+AuthorizationToken::AuthorizationToken(Session &ssn, const CredentialSet &base, const security_token_t &securityToken)
 	: session(ssn), mBaseCreds(base), mTransferCount(INT_MAX), 
-	mCreatorUid(Server::connection().process.uid()),
-    mCreatorCode(Server::connection().process.clientCode()), mInfoSet(NULL)
+	mCreatorUid(securityToken.val[0]),
+    mCreatorCode(Server::connection().process.clientCode()),
+	mCreatorPid(Server::connection().process.pid())
 {
     // generate our (random) handle
     Server::active().random(mHandle);
@@ -68,9 +72,9 @@ AuthorizationToken::AuthorizationToken(Session &ssn, const CredentialSet &base)
 	session.addAuthorization(this);
 	
     // all ready
-	IFDEBUG(debug("SSauth", "Authorization %p created using %d credentials; owner=%s",
+	secdebug("SSauth", "Authorization %p created using %d credentials; owner=%s",
 		this, int(mBaseCreds.size()),
-        mCreatorCode ? mCreatorCode->encode().c_str() : "unknown"));
+        mCreatorCode ? mCreatorCode->encode().c_str() : "unknown");
 }
 
 AuthorizationToken::~AuthorizationToken()
@@ -82,14 +86,7 @@ AuthorizationToken::~AuthorizationToken()
     if (session.removeAuthorization(this))
         delete &session;
 
-    // remove stored context
-    if (mInfoSet)
-    {
-        debug("SSauth", "Authorization %p destroying context @%p", this, mInfoSet);
-        CssmAllocator::standard().free(mInfoSet); // @@@ switch to sensitive allocator
-    }
-    
-	debug("SSauth", "Authorization %p destroyed", this);
+	secdebug("SSauth", "Authorization %p destroyed", this);
 }
 
 
@@ -134,7 +131,8 @@ void AuthorizationToken::Deleter::remove()
 // must hold Session::mCredsLock
 CredentialSet AuthorizationToken::effectiveCreds() const
 {
-    IFDEBUG(debug("SSauth", "Authorization %p grabbing session %p creds %p", this, &session, &session.authCredentials()));
+    secdebug("SSauth", "Authorization %p grabbing session %p creds %p",
+		this, &session, &session.authCredentials());
     CredentialSet result = session.authCredentials();
 	for (CredentialSet::const_iterator it = mBaseCreds.begin(); it != mBaseCreds.end(); it++)
 		if (!(*it)->isShared())
@@ -149,12 +147,12 @@ CredentialSet AuthorizationToken::effectiveCreds() const
 // must hold Session::mCredsLock
 void AuthorizationToken::mergeCredentials(const CredentialSet &add)
 {
-    debug("SSauth", "Authorization %p merge creds %p", this, &add);
+    secdebug("SSauth", "Authorization %p merge creds %p", this, &add);
 	for (CredentialSet::const_iterator it = add.begin(); it != add.end(); it++) {
         mBaseCreds.erase(*it);
         mBaseCreds.insert(*it);
     }
-    debug("SSauth", "Authorization %p merged %d new credentials for %d total",
+    secdebug("SSauth", "Authorization %p merged %d new credentials for %d total",
 		this, int(add.size()), int(mBaseCreds.size()));
 }
 
@@ -167,7 +165,7 @@ void AuthorizationToken::addProcess(Process &proc)
 {
 	StLock<Mutex> _(mLock);
 	mUsingProcesses.insert(&proc);
-	debug("SSauth", "Authorization %p added process %p(%d)", this, &proc, proc.pid());
+	secdebug("SSauth", "Authorization %p added process %p(%d)", this, &proc, proc.pid());
 }
 
 
@@ -182,8 +180,8 @@ bool AuthorizationToken::endProcess(Process &proc)
 	StLock<Mutex> _(mLock);
 	assert(mUsingProcesses.find(&proc) != mUsingProcesses.end());
 	mUsingProcesses.erase(&proc);
-	IFDEBUG(debug("SSauth", "Authorization %p removed process %p(%d)%s",
-		this, &proc, proc.pid(), mUsingProcesses.empty() ? " FINAL" : ""));
+	secdebug("SSauth", "Authorization %p removed process %p(%d)%s",
+		this, &proc, proc.pid(), mUsingProcesses.empty() ? " FINAL" : "");
 	return mUsingProcesses.empty();
 }
 
@@ -202,55 +200,60 @@ bool AuthorizationToken::mayInternalize(Process &, bool countIt)
 	if (mTransferCount > 0) {
 		if (countIt) {
 			mTransferCount--;
-			debug("SSauth", "Authorization %p decrement intcount to %d", this, mTransferCount);
+			secdebug("SSauth", "Authorization %p decrement intcount to %d", this, mTransferCount);
 		}
 		return true;
 	}
 	return false;
 }
 
-AuthorizationItemSet &
-AuthorizationToken::infoSet()
+AuthItemSet
+AuthorizationToken::infoSet(AuthorizationString tag)
 {
     StLock<Mutex> _(mLock); // consider a separate lock
-    MutableRightSet tempInfoSet(mInfoSet); // turn no info into empty set
+ 	
+	AuthItemSet tempSet;
+ 	
+	if (tag)
+	{
+		AuthItemSet::iterator found = find_if(mInfoSet.begin(), mInfoSet.end(), 
+					Authorization::FindAuthItemByRightName(tag));
+		if (found != mInfoSet.end())
+			tempSet.insert(AuthItemRef(*found));
 
-    AuthorizationItemSet *returnSet = Copier<AuthorizationItemSet>(tempInfoSet, CssmAllocator::standard()).keep();
-    debug("SSauth", "Authorization %p returning context %p", this, returnSet);
-    return *returnSet;
+	}
+	else
+		tempSet = mInfoSet;
+
+	secdebug("SSauth", "Authorization %p returning copy of context %s%s.", this, tag ? "for tag " : "", tag ? "" : tag);
+	
+	return tempSet;
 }
 
 void
-AuthorizationToken::setInfoSet(AuthorizationItemSet &newInfoSet)
+AuthorizationToken::setInfoSet(AuthItemSet &newInfoSet)
 {
-    StLock<Mutex> _(mLock); // consider a separate lock
-    if (mInfoSet)
-        CssmAllocator::standard().free(mInfoSet); // @@@ move to sensitive allocator
-    debug("SSauth", "Authorization %p context %p -> %p", this, mInfoSet, &newInfoSet);
-    mInfoSet = &newInfoSet;
+	StLock<Mutex> _(mLock); // consider a separate lock
+    secdebug("SSauth", "Authorization %p setting new context", this);
+    mInfoSet = newInfoSet;
 }
 
 // This is destructive (non-merging)
 void
 AuthorizationToken::setCredentialInfo(const Credential &inCred)
 {
-    StLock<Mutex> _(mLock);
-
-    MutableRightSet dstInfoSet;
+    AuthItemSet dstInfoSet;
     char uid_string[16]; // fit a uid_t(u_int32_t)
-	
+ 	
     if (snprintf(uid_string, sizeof(uid_string), "%u", inCred->uid()) >=
-		sizeof(uid_string))
+		int(sizeof(uid_string)))
         uid_string[0] = '\0';
-    Right uidHint("uid", uid_string ? strlen(uid_string) + 1 : 0, uid_string );
-    dstInfoSet.push_back(uidHint);
-
-    const char *user = inCred->username().c_str();
-    Right userHint("username", user ? strlen(user) + 1 : 0, user );
-    dstInfoSet.push_back(userHint);
-
-    AuthorizationItemSet *newInfoSet = Copier<AuthorizationItemSet>(dstInfoSet, CssmAllocator::standard()).keep();
-    CssmAllocator::standard().free(mInfoSet); // @@@ move to sensitive allocator
-    mInfoSet = newInfoSet;
+    AuthItemRef uidHint("uid", AuthValueOverlay(uid_string ? strlen(uid_string) + 1 : 0, uid_string), 0);
+    dstInfoSet.insert(uidHint);
+ 
+    AuthItemRef userHint("username", AuthValueOverlay(inCred->username()), 0);
+    dstInfoSet.insert(userHint);
+ 
+	setInfoSet(dstInfoSet);
 }
 

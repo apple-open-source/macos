@@ -180,8 +180,8 @@ static status_e handle_io( psi_h iter,
 
          FD_CLR( chp->ch_local_socket, maskp ) ;
          FD_CLR( chp->ch_remote_socket, maskp ) ;
-         (void) close( chp->ch_remote_socket ) ;
-         (void) close( chp->ch_local_socket ) ;
+         (void) Sclose( chp->ch_remote_socket ) ;
+         (void) Sclose( chp->ch_local_socket ) ;
          psi_remove( iter ) ;
          FREE_CHANNEL( chp ) ;
          break ;
@@ -236,14 +236,14 @@ static void connection_request( struct intercept_s *ip, channel_s **chpp )
          if ( result != AC_OK )
          {
             svc_log_failure( sp, cop, result ) ;
-            (void) close( sd ) ;
+            (void) Sclose( sd ) ;
             return ;
          }
       }
 
       if ( ( chp = int_newconn( ip, &csin, sd ) ) == NULL )
       {
-         (void) close( sd ) ;
+         (void) Sclose( sd ) ;
          return ;
       }
       

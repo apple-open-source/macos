@@ -2227,12 +2227,6 @@ extern "C" IOReturn _IONDRVLibrariesInitialize( IOService * provider )
     OSArray *   maps = 0;
     data = 0;
 
-#if IOGRAPHICS_F1
-#warning IOGRAPHICS_F1
-    PE_Video		bootDisplay;
-    IOService::getPlatform()->getConsoleInfo( &bootDisplay);
-#endif
-
     for (i = 0; i < numMaps; i++)
     {
 	IODeviceMemory * mem;
@@ -2246,19 +2240,6 @@ extern "C" IOReturn _IONDRVLibrariesInitialize( IOService * provider )
 	    maps = OSArray::withCapacity(numMaps);
         if (!maps)
             continue;
-
-#if IOGRAPHICS_F1
-        // set up a 1-1 mapping for the BAT map of the console device
-        // remove this soon
-        if ((0 != provider->getProperty("AAPL,boot-display"))
-	 && ((0xf0000000 & mem->getPhysicalAddress()) == (0xf0000000 & bootDisplay.v_baseAddr)))
-	{
-            if ((map = mem->map(kIOMapReference)))
-                map->release();
-            else
-                mem->setMapping(kernel_task, mem->getPhysicalAddress());
-        }
-#endif
 
 	map = mem->map();
 	if (!map)

@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/utf-8-conv.c,v 1.5 2002/01/15 07:07:46 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/utf-8-conv.c,v 1.5.2.3 2003/03/03 17:10:05 kurt Exp $ */
 /*
- * Copyright 2000-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 2000-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -17,6 +17,10 @@
  * PUBLIC LICENSE, OR OTHER PRIOR WRITTEN CONSENT FROM NOVELL, COULD SUBJECT
  * THE PERPETRATOR TO CRIMINAL AND CIVIL LIABILITY. 
  ******************************************************************************/
+/* Note: A verbatim copy of version 2.0.1 of the OpenLDAP Public License 
+ * can be found in the file "build/LICENSE-2.0.1" in this distribution
+ * of OpenLDAP Software.
+ */
 
 /*
  * UTF-8 Conversion Routines
@@ -87,7 +91,7 @@ ldap_x_utf8_to_wc ( wchar_t *wchar, const char *utf8char )
 	/* Get UTF-8 sequence length from 1st byte */
 	utflen = LDAP_UTF8_CHARLEN2(utf8char, utflen);
 	
-	if( utflen==0 || utflen > LDAP_MAX_UTF8_LEN )
+	if( utflen==0 || utflen > (int)LDAP_MAX_UTF8_LEN )
 		return -1;								 	/* Invalid input */
 
 	/* First byte minus length tag */
@@ -132,7 +136,7 @@ ldap_x_utf8s_to_wcs ( wchar_t *wcstr, const char *utf8str, size_t count )
 		/* Get UTF-8 sequence length from 1st byte */
 		utflen = LDAP_UTF8_CHARLEN2(utf8str, utflen);
 		
-		if( utflen==0 || utflen > LDAP_MAX_UTF8_LEN )
+		if( utflen==0 || utflen > (int)LDAP_MAX_UTF8_LEN )
 			return -1;								 	/* Invalid input */
 
 		/* First byte minus length tag */

@@ -1,15 +1,32 @@
 /*
-	File:		SLPRegistrar.h
-
-	Contains:	Class to deal with all registered services, cached requests and db access
-
-	Written by:	Kevin Arnold
-
-	Copyright:	© 1997 - 2000 by Apple Computer, Inc., all rights reserved.
-
-	Change History (most recent first):
-
-*/
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+ 
+/*!
+ *  @header SLPRegistrar
+ *  Class to deal with all registered services, cached requests and db access
+ */
 
 #define USE_SLPREGISTRAR
 #ifdef USE_SLPREGISTRAR
@@ -21,10 +38,7 @@
 #include <pthread.h>	// for pthread_*_t
 #include <unistd.h>		// for _POSIX_THREADS
 
-#include <CoreServices/CoreServices.h>
-
-#include "LThread.h"
-//#include "SimpleList.h"
+#include <DirectoryServiceCore/DSLThread.h>
 
 #define DO_TIME_CHECKS_ON_TTLS	1
 #define kTimeBetweenTTLTimeChecks 5*60	// seconds - five minutes
@@ -203,7 +217,6 @@ public:
 #ifdef USE_SA_ONLY_FEATURES
 	SLPInternalError	RegisterServicesWithDA( DAInfo* daToRegisterWith );
 #endif //#ifdef USE_SA_ONLY_FEATURES	
-//	ServiceInfoListObj*	GetListOfServiceInfos( void ) { return mListOfServiceInfos; };
 	
 	char*		CliqueScopePtr( void ) { return mCliqueScope; };
 	char*		CliqueServiceTypePtr( void ) { return mCliqueServiceType; };
@@ -215,20 +228,14 @@ public:
 
 protected:
 	void		ClearRegisteredServicesFile( void );			// this just deletes the file
-	Boolean		GetRegFileSpec( FSSpec* regFile );
 	
-	SLPInternalError	OpenRegisteredServicesFile( const FSSpec& fileToOpen, short* refNum );	// this will create the file if needed
-	SLPInternalError	CloseRegisteredServicesFile( short refNum);
-
 	SLPInternalError	SaveCurrentTimeStamp( short refNum );
 	SLPInternalError	SaveRegisteredServiceToFile( ServiceInfo* serviceToSave, short refNum );
 	Boolean		LoadListOfServiceInfosIfNecessary();
-	SLPInternalError	ReadInListOfServiceInfosFromFile( const FSSpec& fileToReadIn );
 	
 private:
 	CFMutableSetRef	mSetOfServiceInfos;
-//	LArray*		mListOfServiceInfos;	// this is a sorted array of Service Infos belonging
-										// to this clique.
+
 	char*		mCliqueScope;			// scope for this clique
 	char*		mCliqueServiceType;
 	char*		mCachedReplyForClique;
@@ -244,7 +251,7 @@ private:
 
 class NotificationObject;
 
-class SLPRAdminNotifier : public LThread
+class SLPRAdminNotifier : public DSLThread
 {
 public:
     SLPRAdminNotifier();
@@ -289,7 +296,6 @@ public:
     UInt32			dataLen;
 };
 
-SLPInternalError GetSLPRegFolderSpec( FSSpec* regFolderSpec );
 void AddToServiceReply( Boolean usingTCP, ServiceInfo* serviceInfo, char* requestHeader, UInt16 length, SLPInternalError& error, char** replyPtr );
 
 #endif // #ifndef _SLPRegistrar_

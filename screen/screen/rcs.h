@@ -1,4 +1,4 @@
-/* Copyright (c) 1993-2000
+/* Copyright (c) 1993-2002
  *      Juergen Weigert (jnweiger@immd4.informatik.uni-erlangen.de)
  *      Michael Schroeder (mlschroe@immd4.informatik.uni-erlangen.de)
  * Copyright (c) 1987 Oliver Laumann
@@ -19,7 +19,7 @@
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA
  *
  ****************************************************************
- * $Id: rcs.h,v 1.1.1.1 2001/12/14 22:08:29 bbraun Exp $ FAU
+ * $Id: rcs.h,v 1.1.1.2 2003/03/19 21:16:19 landonf Exp $ FAU
  */
 
 /*
@@ -27,7 +27,7 @@
  *
  * jw 9.2.92
  **************************************************
- * RCS_ID("$Id: rcs.h,v 1.1.1.1 2001/12/14 22:08:29 bbraun Exp $ FAU");
+ * RCS_ID("$Id: rcs.h,v 1.1.1.2 2003/03/19 21:16:19 landonf Exp $ FAU");
  */
 
 #ifndef __RCS_H__

@@ -87,7 +87,7 @@ CSSStyleSelector::CSSStyleSelector( DocumentImpl* doc, QString userStyleSheet, S
 {
     init();
 
-    KHTMLView* view = doc->view();
+    view = doc->view();
     strictParsing = _strictParsing;
     settings = view ? view->part()->settings() : 0;
     if(!defaultStyle) loadDefaultStyle(settings);
@@ -100,8 +100,8 @@ CSSStyleSelector::CSSStyleSelector( DocumentImpl* doc, QString userStyleSheet, S
     userSheet = 0;
     paintDeviceMetrics = doc->paintDeviceMetrics();
 
-	if(paintDeviceMetrics) // this may be null, not everyone uses khtmlview (Niko)
-	    computeFontSizes(paintDeviceMetrics, view ? view->part()->zoomFactor() : 100);
+    if (paintDeviceMetrics) // this may be null, not everyone uses khtmlview (Niko)
+        computeFontSizes(paintDeviceMetrics);
         
     if ( !userStyleSheet.isEmpty() ) {
         userSheet = new DOM::CSSStyleSheetImpl(doc);
@@ -251,13 +251,7 @@ void CSSStyleSelector::clear()
 
 #define MAXFONTSIZES 15
 
-void CSSStyleSelector::computeFontSizes(QPaintDeviceMetrics* paintDeviceMetrics,  int zoomFactor)
-{
-    computeFontSizesFor(paintDeviceMetrics, zoomFactor, m_fontSizes, false);
-    computeFontSizesFor(paintDeviceMetrics, zoomFactor, m_fixedFontSizes, true);
-}
-
-void CSSStyleSelector::computeFontSizesFor(QPaintDeviceMetrics* paintDeviceMetrics, int zoomFactor, QValueList<int>& fontSizes, bool isFixed)
+void CSSStyleSelector::computeFontSizes(QPaintDeviceMetrics* paintDeviceMetrics)
 {
 #if APPLE_CHANGES
     // We don't want to scale the settings by the dpi.
@@ -268,27 +262,25 @@ void CSSStyleSelector::computeFontSizesFor(QPaintDeviceMetrics* paintDeviceMetri
     if (toPix  < 96./72.) toPix = 96./72.;
 #endif
 
-    fontSizes.clear();
+    m_fontSizes.clear();
     const float factor = 1.2;
     float scale = 1.0 / (factor*factor*factor);
     float mediumFontSize;
     float minFontSize;
     if (!khtml::printpainter) {
-        scale *= zoomFactor / 100.0;
-	if (isFixed)
-	    mediumFontSize = settings->mediumFixedFontSize() * toPix;
-	else
-	    mediumFontSize = settings->mediumFontSize() * toPix;
-        minFontSize = settings->minFontSize() * toPix;
+        mediumFontSize = settings->mediumFontSize() * toPix;
+        minFontSize = toPix;
+        m_fixedScaleFactor = (settings->mediumFixedFontSize() * toPix) / mediumFontSize;
     }
     else {
         // ## depending on something / configurable ?
         mediumFontSize = 12;
-        minFontSize = 6;
+        minFontSize = 1;
+        m_fixedScaleFactor = 1.0;
     }
 
     for ( int i = 0; i < MAXFONTSIZES; i++ ) {
-        fontSizes << int(KMAX( mediumFontSize * scale + 0.5f, minFontSize));
+        m_fontSizes << int(KMAX( mediumFontSize * scale + 0.5f, minFontSize));
         scale *= factor;
     }
 }
@@ -428,6 +420,9 @@ RenderStyle *CSSStyleSelector::styleForElement(ElementImpl *e)
 	    }
         }
 
+        // Clean up our style object's display and text decorations (among other fixups).
+        adjustRenderStyle(style, e);
+        
         if ( numPseudoProps ) {
 	    fontDirty = false;
             //qDebug("%d applying %d pseudo props", e->cssTagId(), pseudoProps->count() );
@@ -438,6 +433,7 @@ RenderStyle *CSSStyleSelector::styleForElement(ElementImpl *e)
 		    //We have to do this for all pseudo styles
 		    RenderStyle *pseudoStyle = style->pseudoStyle;
 		    while ( pseudoStyle ) {
+                        checkForGenericFamilyChange(pseudoStyle, style);
 			pseudoStyle->htmlFont().update( paintDeviceMetrics );
 			pseudoStyle = pseudoStyle->pseudoStyle;
 		    }
@@ -454,17 +450,21 @@ RenderStyle *CSSStyleSelector::styleForElement(ElementImpl *e)
                 }
 
                 RenderStyle* oldStyle = style;
-		style = pseudoStyle;
+                RenderStyle* oldParentStyle = parentStyle;
+                parentStyle = style;
+                style = pseudoStyle;
                 if ( pseudoStyle ) {
                     DOM::CSSProperty *prop = pseudoProps[i]->prop;
                     applyRule( prop->m_id, prop->value() );
                 }
                 style = oldStyle;
+                parentStyle = oldParentStyle;
             }
 
 	    if ( fontDirty ) {
 		RenderStyle *pseudoStyle = style->pseudoStyle;
 		while ( pseudoStyle ) {
+                    checkForGenericFamilyChange(pseudoStyle, style);
 		    pseudoStyle->htmlFont().update( paintDeviceMetrics );
 		    pseudoStyle = pseudoStyle->pseudoStyle;
 		}
@@ -472,35 +472,68 @@ RenderStyle *CSSStyleSelector::styleForElement(ElementImpl *e)
         }
     }
 
-    // Mutate the display to BLOCK or TABLE for certain cases, e.g., if someone attempts to
-    // position or float an inline, compact, or run-in.  Cache the original display, since it
-    // may be needed for positioned elements that have to compute their static normal flow
-    // positions.
+    // Now adjust all our pseudo-styles.
+    RenderStyle *pseudoStyle = style->pseudoStyle;
+    while (pseudoStyle) {
+        adjustRenderStyle(pseudoStyle, 0);
+        pseudoStyle = pseudoStyle->pseudoStyle;
+    }
+
+    // Now return the style.
+    return style;
+}
+
+void CSSStyleSelector::adjustRenderStyle(RenderStyle* style, DOM::ElementImpl *e)
+{
+    // Cache our original display.
     style->setOriginalDisplay(style->display());
-    if (style->display() != NONE && style->display() != BLOCK && style->display() != TABLE &&
-        (style->position() == ABSOLUTE || style->position() == FIXED || style->floating() != FNONE)) {
-        if (style->display() == INLINE_TABLE)
-            style->setDisplay(TABLE);
-        else if (style->display() == LIST_ITEM) {
-            // It is a WinIE bug that floated list items lose their bullets, so we'll emulate the quirk,
-            // but only in quirks mode.
-            if (!strictParsing && style->floating() != FNONE)
+
+    if (style->display() != NONE && e) {
+        // If we have a <td> that specifies a float property, in quirks mode we just drop the float
+        // property.
+        // Sites also commonly use display:inline/block on <td>s and <table>s.  In quirks mode we force
+        // these tags to retain their display types.
+        if (!strictParsing) {
+            if (e->id() == ID_TD) {
+                style->setDisplay(TABLE_CELL);
+                style->setFloating(FNONE);
+            }
+            else if (e->id() == ID_TABLE)
+                style->setDisplay(style->isDisplayInlineType() ? INLINE_TABLE : TABLE);
+        }
+
+        // Mutate the display to BLOCK or TABLE for certain cases, e.g., if someone attempts to
+        // position or float an inline, compact, or run-in.  Cache the original display, since it
+        // may be needed for positioned elements that have to compute their static normal flow
+        // positions.  We also force inline-level roots to be block-level.
+        // FIXME: For now we do not mutate pseudo styles.  This is because we do not yet support the
+        // ability to position and float generated content.  This is per the CSS 2 spec, but it's changing
+        // in CSS2.1.  For now, we will just support CSS2.
+        if (style->display() != BLOCK && style->display() != TABLE && style->display() != BOX &&
+            (style->position() == ABSOLUTE || style->position() == FIXED || style->floating() != FNONE ||
+             e->getDocument()->documentElement() == e)) {
+            if (style->display() == INLINE_TABLE)
+                style->setDisplay(TABLE);
+            else if (style->display() == INLINE_BOX)
+                style->setDisplay(BOX);
+            else if (style->display() == LIST_ITEM) {
+                // It is a WinIE bug that floated list items lose their bullets, so we'll emulate the quirk,
+                // but only in quirks mode.
+                if (!strictParsing && style->floating() != FNONE)
+                    style->setDisplay(BLOCK);
+            }
+            else
                 style->setDisplay(BLOCK);
         }
-        else
-            style->setDisplay(BLOCK);
     }
 
     // Finally update our text decorations in effect, but don't allow text-decoration to percolate through
     // tables, inline blocks, inline tables, or run-ins.
-    if (style->display() == TABLE || style->display() == INLINE_TABLE || style->display() == RUN_IN)
-        // || style->display() == INLINE_BLOCK) FIXME!
+    if (style->display() == TABLE || style->display() == INLINE_TABLE || style->display() == RUN_IN
+        || style->display() == INLINE_BLOCK || style->display() == INLINE_BOX)
         style->setTextDecorationsInEffect(style->textDecoration());
     else
         style->addToTextDecorationsInEffect(style->textDecoration());
-
-    // Now return the style.
-    return style;
 }
 
 unsigned int CSSStyleSelector::addInlineDeclarations(DOM::ElementImpl* e,
@@ -1324,7 +1357,7 @@ void CSSOrderedPropertyList::append(DOM::CSSStyleDeclarationImpl *decl, uint sel
 // -------------------------------------------------------------------------------------
 // this is mostly boring stuff on how to apply a certain rule to the renderstyle...
 
-static Length convertToLength( CSSPrimitiveValueImpl *primitiveValue, RenderStyle *style, QPaintDeviceMetrics *paintDeviceMetrics, bool *ok = 0 )
+static Length convertToLength( CSSPrimitiveValueImpl *primitiveValue, RenderStyle *style, QPaintDeviceMetrics *paintDeviceMetrics, CSSStyleSelector* selector, bool *ok = 0 )
 {
     Length l;
     if ( !primitiveValue ) {
@@ -1702,14 +1735,10 @@ void CSSStyleSelector::applyRule( int id, DOM::CSSValueImpl *value )
         if(!primitiveValue) break;
 	int id = primitiveValue->getIdent();
 	EDisplay d;
-	if ( id == CSS_VAL_NONE) {
+	if (id == CSS_VAL_NONE)
 	    d = NONE;
-	} else if ( id == CSS_VAL_INLINE_BLOCK ) {
-	    // inline-block is not supported at the moment, so we just ignore it.
-	    return;
-	} else {
+	else
 	    d = EDisplay(primitiveValue->getIdent() - CSS_VAL_INLINE);
-	}
 
         style->setDisplay(d);
         //kdDebug( 6080 ) << "setting display to " << d << endl;
@@ -2047,8 +2076,8 @@ void CSSStyleSelector::applyRule( int id, DOM::CSSValueImpl *value )
 
         EWhiteSpace s;
         switch(primitiveValue->getIdent()) {
-        case CSS_VAL__KONQ_NOWRAP:
-            s = KONQ_NOWRAP;
+        case CSS_VAL__KHTML_NOWRAP:
+            s = KHTML_NOWRAP;
             break;
         case CSS_VAL_NOWRAP:
             s = NOWRAP;
@@ -2176,7 +2205,7 @@ void CSSStyleSelector::applyRule( int id, DOM::CSSValueImpl *value )
                 return;
             int ident = primitiveValue->getIdent();
             if ( ident ) {
-                if ( ident == CSS_VAL__KONQ_TEXT )
+                if ( ident == CSS_VAL__KHTML_TEXT )
                     col = element->getDocument()->textColor();
                 else if ( ident == CSS_VAL_TRANSPARENT ) {
                     col = QColor();
@@ -2184,12 +2213,9 @@ void CSSStyleSelector::applyRule( int id, DOM::CSSValueImpl *value )
                 }
                 else
                     col = colorForCSSValue( ident );
-            } else if ( primitiveValue->primitiveType() == CSSPrimitiveValue::CSS_RGBCOLOR ) {
-#if !APPLE_CHANGES
-                if(qAlpha(primitiveValue->getRGBColorValue()))
-#endif
+            } else if ( primitiveValue->primitiveType() == CSSPrimitiveValue::CSS_RGBCOLOR )
                     col.setRgb(primitiveValue->getRGBColorValue());
-            } else {
+            else {
                 return;
             }
         }
@@ -2608,7 +2634,7 @@ void CSSStyleSelector::applyRule( int id, DOM::CSSValueImpl *value )
 		    align = SUB; break;
 		case CSS_VAL_SUPER:
 		    align = SUPER; break;
-		case CSS_VAL__KONQ_BASELINE_MIDDLE:
+		case CSS_VAL__KHTML_BASELINE_MIDDLE:
 		    align = BASELINE_MIDDLE; break;
 		default:
 		    return;
@@ -2633,33 +2659,30 @@ void CSSStyleSelector::applyRule( int id, DOM::CSSValueImpl *value )
         FontDef fontDef = style->htmlFont().fontDef;
         float oldSize;
         float size = 0;
-        int minFontSize = settings->minFontSize();
-
-        if(parentNode) {
-            oldSize = parentStyle->htmlFont().fontDef.floatSize();
-        } else
+        
+        bool parentIsAbsoluteSize = false;
+        if (parentNode) {
+            oldSize = parentStyle->htmlFont().fontDef.specifiedSize;
+            parentIsAbsoluteSize = parentStyle->htmlFont().fontDef.isAbsoluteSize;
+        }
+        else
             oldSize = m_fontSizes[3];
 
-        if (value->cssValueType() == CSSValue::CSS_INHERIT) {
+        if (value->cssValueType() == CSSValue::CSS_INHERIT)
             size = oldSize;
-        } else if (primitiveValue->getIdent()) {
-	    // keywords are being used.  Pick the correct default
-	    // based off the font family.
-	    QValueList<int>& fontSizes = (fontDef.genericFamily == FontDef::eMonospace) ?
-					 m_fixedFontSizes : m_fontSizes;
-	   
-            switch(primitiveValue->getIdent())
-            {
-            case CSS_VAL_XX_SMALL: size = fontSizes[0]; break;
-            case CSS_VAL_X_SMALL:  size = fontSizes[1]; break;
-            case CSS_VAL_SMALL:    size = fontSizes[2]; break;
-            case CSS_VAL_MEDIUM:   size = fontSizes[3]; break;
-            case CSS_VAL_LARGE:    size = fontSizes[4]; break;
-            case CSS_VAL_X_LARGE:  size = fontSizes[5]; break;
-            case CSS_VAL_XX_LARGE: size = fontSizes[6]; break;
-            case CSS_VAL__KONQ_XXX_LARGE:  size = ( fontSizes[6]*5 )/3; break;
+        else if (primitiveValue->getIdent()) {
+            // keywords are being used.  Pick the correct default
+            // based off the font family.
+            switch (primitiveValue->getIdent()) {
+            case CSS_VAL_XX_SMALL: size = m_fontSizes[0]; break;
+            case CSS_VAL_X_SMALL:  size = m_fontSizes[1]; break;
+            case CSS_VAL_SMALL:    size = m_fontSizes[2]; break;
+            case CSS_VAL_MEDIUM:   size = m_fontSizes[3]; break;
+            case CSS_VAL_LARGE:    size = m_fontSizes[4]; break;
+            case CSS_VAL_X_LARGE:  size = m_fontSizes[5]; break;
+            case CSS_VAL_XX_LARGE: size = m_fontSizes[6]; break;
+            case CSS_VAL__KHTML_XXX_LARGE:  size = ( m_fontSizes[6]*5 )/3; break;
             case CSS_VAL_LARGER:
-                // FIXME: Larger/smaller should actually apply a scale to the logical size.  It 		// should not simply be transforming the current size.
                 size = oldSize * 1.2;
                 break;
             case CSS_VAL_SMALLER:
@@ -2669,43 +2692,29 @@ void CSSStyleSelector::applyRule( int id, DOM::CSSValueImpl *value )
                 return;
             }
 
-            // This is a "logical" font size in the sense that it is relative to some UA default.
-            // Since the UA default can vary depending on the font family (e.g., monospace could be 11pt
-            // but serif could be 20pt), we don't set our size specified bit.
-            if (primitiveValue->getIdent() != CSS_VAL_LARGER &&
-                primitiveValue->getIdent() != CSS_VAL_SMALLER) {
-                // FIXME: Technically this should be logical too and apply a scale
-                // to logical sizes when no explicit size is specified,
-                // but until the above simplistic 1.2 mult/division calculation is
-                // improved, we have to ignore these cases. 
-                fontDef.sizeSpecified = false;
-                fontDef.logicalSize = primitiveValue->getIdent() - CSS_VAL_XX_SMALL;
-            }
-            else
-                fontDef.sizeSpecified = true;
-
+            fontDef.isAbsoluteSize = parentIsAbsoluteSize && 
+                                    (primitiveValue->getIdent() == CSS_VAL_LARGER ||
+                                     primitiveValue->getIdent() == CSS_VAL_SMALLER);
         } else {
-            fontDef.sizeSpecified = true;
             int type = primitiveValue->primitiveType();
-            if(type > CSSPrimitiveValue::CSS_PERCENTAGE && type < CSSPrimitiveValue::CSS_DEG) {
-                size = primitiveValue->computeLengthFloat(parentStyle, paintDeviceMetrics);
-                if (!khtml::printpainter && element && element->getDocument()->view())
-                    size *= element->getDocument()->view()->part()->zoomFactor() / 100.0;
-            } else if(type == CSSPrimitiveValue::CSS_PERCENTAGE)
+            fontDef.isAbsoluteSize = parentIsAbsoluteSize ||
+                                          (type != CSSPrimitiveValue::CSS_PERCENTAGE &&
+                                           type != CSSPrimitiveValue::CSS_EMS && 
+                                           type != CSSPrimitiveValue::CSS_EXS);
+            if (type > CSSPrimitiveValue::CSS_PERCENTAGE && type < CSSPrimitiveValue::CSS_DEG)
+                size = primitiveValue->computeLengthFloat(parentStyle, paintDeviceMetrics, false);
+            else if(type == CSSPrimitiveValue::CSS_PERCENTAGE)
                 size = (primitiveValue->getFloatValue(CSSPrimitiveValue::CSS_PERCENTAGE)
                         * oldSize) / 100;
             else
                 return;
         }
 
-        if(size <= 0) return;
-
-        // we never want to get smaller than the minimum font size to keep fonts readable
-        if(size < minFontSize ) size = minFontSize;
+        if (size <= 0) return;
 
         //kdDebug( 6080 ) << "computed raw font size: " << size << endl;
 
-        fontDef.setSize(size);
+        setFontSize(fontDef, size);
         if (style->setFontDef( fontDef ))
 	    fontDirty = true;
         return;
@@ -2798,7 +2807,7 @@ void CSSStyleSelector::applyRule( int id, DOM::CSSValueImpl *value )
         }
         if(!primitiveValue) return;
         if(primitiveValue->getIdent())
-            style->setTextAlign( (ETextAlign) (primitiveValue->getIdent() - CSS_VAL__KONQ_AUTO) );
+            style->setTextAlign( (ETextAlign) (primitiveValue->getIdent() - CSS_VAL__KHTML_AUTO) );
 	return;
     }
 
@@ -2820,10 +2829,10 @@ void CSSStyleSelector::applyRule( int id, DOM::CSSValueImpl *value )
 	    RectImpl *rect = primitiveValue->getRectValue();
 	    if ( !rect )
 		break;
-	    top = convertToLength( rect->top(), style, paintDeviceMetrics );
-	    right = convertToLength( rect->right(), style, paintDeviceMetrics );
-	    bottom = convertToLength( rect->bottom(), style, paintDeviceMetrics );
-	    left = convertToLength( rect->left(), style, paintDeviceMetrics );
+	    top = convertToLength( rect->top(), style, paintDeviceMetrics, this );
+	    right = convertToLength( rect->right(), style, paintDeviceMetrics, this );
+	    bottom = convertToLength( rect->bottom(), style, paintDeviceMetrics, this );
+	    left = convertToLength( rect->left(), style, paintDeviceMetrics, this );
 
 	} else if ( primitiveValue->getIdent() != CSS_VAL_AUTO ) {
 	    break;
@@ -2903,7 +2912,7 @@ void CSSStyleSelector::applyRule( int id, DOM::CSSValueImpl *value )
                 face = static_cast<FontFamilyValueImpl *>(val)->fontName();
             else if (val->primitiveType() == CSSPrimitiveValue::CSS_IDENT) {
                 switch (val->getIdent()) {
-                    case CSS_VAL__KONQ_BODY:
+                    case CSS_VAL__KHTML_BODY:
                         face = settings->stdFontName();
                         break;
                     case CSS_VAL_SERIF:
@@ -2997,7 +3006,7 @@ void CSSStyleSelector::applyRule( int id, DOM::CSSValueImpl *value )
         style->setTextDecoration(t);
         break;
     }
-    case CSS_PROP__KONQ_FLOW_MODE:
+    case CSS_PROP__KHTML_FLOW_MODE:
         if(value->cssValueType() == CSSValue::CSS_INHERIT)
         {
             if(!parentNode) return;
@@ -3007,7 +3016,7 @@ void CSSStyleSelector::applyRule( int id, DOM::CSSValueImpl *value )
         if(!primitiveValue) return;
         if(primitiveValue->getIdent())
         {
-            style->setFlowAroundFloats( primitiveValue->getIdent() == CSS_VAL__KONQ_AROUND_FLOATS );
+            style->setFlowAroundFloats( primitiveValue->getIdent() == CSS_VAL__KHTML_AROUND_FLOATS );
             return;
         }
         break;
@@ -3126,6 +3135,172 @@ void CSSStyleSelector::applyRule( int id, DOM::CSSValueImpl *value )
     case CSS_PROP_OUTLINE:
 //    case CSS_PROP_PAUSE:
         break;
+
+    // CSS3 Properties
+    case CSS_PROP_TEXT_SHADOW: {
+        if (value->cssValueType() == CSSValue::CSS_INHERIT) {
+            if (!parentNode) return;
+            style->setTextShadow(parentStyle->textShadow() ? new ShadowData(*parentStyle->textShadow()) : 0);
+            return;
+        }
+
+        if (primitiveValue) { // none
+            style->setTextShadow(0);
+            return;
+        }
+        
+        if (!value->isValueList()) return;
+        CSSValueListImpl *list = static_cast<CSSValueListImpl *>(value);
+        int len = list->length();
+        for (int i = 0; i < len; i++) {
+            ShadowValueImpl *item = static_cast<ShadowValueImpl*>(list->item(i));
+
+            int x = item->x->computeLength(style, paintDeviceMetrics);
+            int y = item->y->computeLength(style, paintDeviceMetrics);
+            int blur = item->blur ? item->blur->computeLength(style, paintDeviceMetrics) : 0;
+            QColor col = khtml::transparentColor;
+            if (item->color) {
+                int ident = item->color->getIdent();
+                if (ident)
+                    col = colorForCSSValue( ident );
+                else if (item->color->primitiveType() == CSSPrimitiveValue::CSS_RGBCOLOR)
+                    col.setRgb(item->color->getRGBColorValue());
+            }
+            ShadowData* shadowData = new ShadowData(x, y, blur, col);
+            style->setTextShadow(shadowData, i != 0);
+        }
+
+        return;
+    }
+    case CSS_PROP__KHTML_OPACITY:
+        if (value->cssValueType() == CSSValue::CSS_INHERIT) {
+            if (!parentNode) return;
+            style->setOpacity(parentStyle->opacity());
+        }
+        if (!primitiveValue || primitiveValue->primitiveType() != CSSPrimitiveValue::CSS_NUMBER)
+            return; // Error case.
+        
+        // Clamp opacity to the range 0-1
+        style->setOpacity(QMIN(1.0f, QMAX(0, primitiveValue->getFloatValue(CSSPrimitiveValue::CSS_NUMBER))));
+        return;
+    case CSS_PROP__KHTML_BOX_ALIGN:
+        if (value->cssValueType() == CSSValue::CSS_INHERIT) {
+            if(!parentNode) return;
+            style->setBoxAlign(parentStyle->boxAlign());
+            return;
+        }
+        if (!primitiveValue) return;
+        switch (primitiveValue->getIdent()) {
+            case CSS_VAL_STRETCH:
+                style->setBoxAlign(BSTRETCH);
+                break;
+            case CSS_VAL_START:
+                style->setBoxAlign(BSTART);
+                break;
+            case CSS_VAL_END:
+                style->setBoxAlign(BEND);
+                break;
+            case CSS_VAL_CENTER:
+                style->setBoxAlign(BCENTER);
+                break;
+            case CSS_VAL_BASELINE:
+                style->setBoxAlign(BBASELINE);
+                break;
+            default:
+                return;
+        }
+        return;        
+    case CSS_PROP__KHTML_BOX_DIRECTION:
+        if (value->cssValueType() == CSSValue::CSS_INHERIT) {
+            if(!parentNode) return;
+            style->setBoxDirection(parentStyle->boxDirection());
+            return;
+        }
+        if (!primitiveValue) return;
+        if (primitiveValue->getIdent() == CSS_VAL_NORMAL)
+            style->setBoxDirection(BNORMAL);
+        else
+            style->setBoxDirection(BREVERSE);
+        return;        
+    case CSS_PROP__KHTML_BOX_LINES:
+        if (value->cssValueType() == CSSValue::CSS_INHERIT) {
+            if(!parentNode) return;
+            style->setBoxLines(parentStyle->boxLines());
+            return;
+        }
+        if(!primitiveValue) return;
+        if (primitiveValue->getIdent() == CSS_VAL_SINGLE)
+            style->setBoxLines(SINGLE);
+        else
+            style->setBoxLines(MULTIPLE);
+        return;     
+    case CSS_PROP__KHTML_BOX_ORIENT:
+        if (value->cssValueType() == CSSValue::CSS_INHERIT) {
+            if(!parentNode) return;
+            style->setBoxOrient(parentStyle->boxOrient());
+            return;
+        }
+        if (!primitiveValue) return;
+        if (primitiveValue->getIdent() == CSS_VAL_HORIZONTAL ||
+            primitiveValue->getIdent() == CSS_VAL_INLINE_AXIS)
+            style->setBoxOrient(HORIZONTAL);
+        else
+            style->setBoxOrient(VERTICAL);
+        return;     
+    case CSS_PROP__KHTML_BOX_PACK:
+        if (value->cssValueType() == CSSValue::CSS_INHERIT) {
+            if(!parentNode) return;
+            style->setBoxPack(parentStyle->boxPack());
+            return;
+        }
+        if (!primitiveValue) return;
+        switch (primitiveValue->getIdent()) {
+            case CSS_VAL_START:
+                style->setBoxPack(BSTART);
+                break;
+            case CSS_VAL_END:
+                style->setBoxPack(BEND);
+                break;
+            case CSS_VAL_CENTER:
+                style->setBoxPack(BCENTER);
+                break;
+            case CSS_VAL_JUSTIFY:
+                style->setBoxPack(BJUSTIFY);
+                break;
+            default:
+                return;
+        }
+        return;        
+    case CSS_PROP__KHTML_BOX_FLEX:
+        if (value->cssValueType() == CSSValue::CSS_INHERIT) {
+            if(!parentNode) return;
+            style->setBoxFlex(parentStyle->boxFlex());
+            return;
+        }
+        if (!primitiveValue || primitiveValue->primitiveType() != CSSPrimitiveValue::CSS_NUMBER)
+            return; // Error case.
+        style->setBoxFlex(primitiveValue->getFloatValue(CSSPrimitiveValue::CSS_NUMBER));
+        return;
+    case CSS_PROP__KHTML_BOX_FLEX_GROUP:
+        if (value->cssValueType() == CSSValue::CSS_INHERIT) {
+            if(!parentNode) return;
+            style->setBoxFlexGroup(parentStyle->boxFlexGroup());
+            return;
+        }
+        if (!primitiveValue || primitiveValue->primitiveType() != CSSPrimitiveValue::CSS_NUMBER)
+            return; // Error case.
+        style->setBoxFlexGroup((unsigned int)(primitiveValue->getFloatValue(CSSPrimitiveValue::CSS_NUMBER)));
+        return;        
+    case CSS_PROP__KHTML_BOX_ORDINAL_GROUP:
+        if (value->cssValueType() == CSSValue::CSS_INHERIT) {
+            if(!parentNode) return;
+            style->setBoxOrdinalGroup(parentStyle->boxOrdinalGroup());
+            return;
+        }
+        if (!primitiveValue || primitiveValue->primitiveType() != CSSPrimitiveValue::CSS_NUMBER)
+            return; // Error case.
+        style->setBoxOrdinalGroup((unsigned int)(primitiveValue->getFloatValue(CSSPrimitiveValue::CSS_NUMBER)));
+        return;      
     default:
         return;
     }
@@ -3136,7 +3311,7 @@ void CSSStyleSelector::checkForGenericFamilyChange(RenderStyle* aStyle, RenderSt
 {
   const FontDef& childFont = aStyle->htmlFont().fontDef;
   
-  if (childFont.sizeSpecified || !aParentStyle)
+  if (childFont.isAbsoluteSize || !aParentStyle)
     return;
 
   const FontDef& parentFont = aParentStyle->htmlFont().fontDef;
@@ -3150,23 +3325,42 @@ void CSSStyleSelector::checkForGenericFamilyChange(RenderStyle* aStyle, RenderSt
     return;
 
   // We know the parent is monospace or the child is monospace, and that font
-  // size was unspecified.  We want to alter our font size to use the correct
-  // logicalSize font for our family.
-  int minFontSize = settings->minFontSize();
-  const QValueList<int>& fontSizes = (childFont.genericFamily == FontDef::eMonospace) ? m_fixedFontSizes : m_fontSizes;
-  int size = 0;
-  if (childFont.logicalSize < 0 || childFont.logicalSize > 7) // Should never happen; I'm being paranoid.
-      size = fontSizes[3]; 
-  if (childFont.logicalSize == 7) // KONQ_XX_LARGE
-      size = (fontSizes[6]*5)/3;
-  else
-      size = fontSizes[childFont.logicalSize]; 
-  if (size < minFontSize)
-    size = minFontSize;
+  // size was unspecified.  We want to scale our font size as appropriate.
+  float size = (parentFont.genericFamily == FontDef::eMonospace) ? 
+      childFont.specifiedSize/m_fixedScaleFactor :
+      childFont.specifiedSize*m_fixedScaleFactor;
   
   FontDef newFontDef(childFont);
-  newFontDef.setSize(size);
+  setFontSize(newFontDef, size);
   aStyle->setFontDef(newFontDef);
+}
+
+void CSSStyleSelector::setFontSize(FontDef& fontDef, float size)
+{
+    fontDef.specifiedSize = size;
+    fontDef.computedSize = getComputedSizeFromSpecifiedSize(fontDef.isAbsoluteSize, size);
+}
+
+float CSSStyleSelector::getComputedSizeFromSpecifiedSize(bool isAbsoluteSize, float specifiedSize)
+{
+    // We never want to get smaller than the minimum font size to keep fonts readable
+    // however we always allow the page to set an explicit pixel size that is smaller,
+    // since sites will mis-render otherwise (e.g., http://www.gamespot.com with a 9px minimum).
+    // Note to Konq folks: you may not like this interpretation of minimum font size, since you
+    // expose the pref in your GUI.  I have used APPLE_CHANGES to preserve the old behavior of
+    // always enforcing a minimum font size. -dwh
+    int minSize = settings->minFontSize();
+    float zoomPercent = (!khtml::printpainter && view) ? view->part()->zoomFactor()/100.0f : 1.0f;
+    float zoomedSize = specifiedSize * zoomPercent;
+#if APPLE_CHANGES
+    if (zoomedSize < minSize && (specifiedSize >= minSize || !isAbsoluteSize))
+        zoomedSize = minSize;
+#else
+    if (zoomedSize < minSize)
+        zoomedSize = minSize;
+#endif
+    
+    return KMAX(zoomedSize, 1.0f);
 }
 
 } // namespace khtml

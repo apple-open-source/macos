@@ -3,8 +3,16 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 38;
+	objectVersion = 39;
 	objects = {
+		0028DF700314031A00DD2B5A = {
+			expectedFileType = text;
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = APPLE_LICENSE;
+			refType = 4;
+			sourceTree = "<group>";
+		};
 		002AF54202075A4B00DD2B5B = {
 			buildPhases = (
 			);
@@ -23,16 +31,19 @@
 			isa = PBXAggregateTarget;
 			name = "DS Agent";
 			productName = "DS Bundle";
-			shouldUseHeadermap = 0;
 		};
 		002AF54302075A8C00DD2B5B = {
 			isa = PBXTargetDependency;
 			target = 0050C33301F8A66600DD2B5B;
+			targetProxy = 6182220F04C34CF4006415CA;
 		};
 		002AF54402075B0A00DD2B5B = {
+			expectedFileType = wrapper.cfbundle;
+			fallbackIsa = PBXFileReference;
 			isa = PBXBundleReference;
 			path = ShellScript.bundle;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		002AF54602075B0A00DD2B5B = {
 			buildPhases = (
@@ -88,7 +99,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		002AF54702075B0A00DD2B5B = {
 			buildActionMask = 2147483647;
@@ -129,20 +139,19 @@
 			buildActionMask = 8;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "#copy actual bundle code two levels up like old style PBWO\n#since lookupd doesn't look further than the top level directory\nmv \"${DSTROOT}/System/Library/PrivateFrameworks/NetInfo.framework/Versions/A/Resources/lookupd/Agents/DS.bundle/Contents/MacOS/DS\" \"${DSTROOT}/System/Library/PrivateFrameworks/NetInfo.framework/Versions/A/Resources/lookupd/Agents/DS.bundle/DS\"\nmkdir \"${DSTROOT}/System/Library/PrivateFrameworks/NetInfo.framework/Versions/A/Resources/lookupd/Agents/DS.bundle/Resources\"\nchmod 755 \"${DSTROOT}/System/Library/PrivateFrameworks/NetInfo.framework/Versions/A/Resources/lookupd/Agents/DS.bundle/Resources\"\nmv \"${DSTROOT}/System/Library/PrivateFrameworks/NetInfo.framework/Versions/A/Resources/lookupd/Agents/DS.bundle/Contents/Info.plist\" \"${DSTROOT}/System/Library/PrivateFrameworks/NetInfo.framework/Versions/A/Resources/lookupd/Agents/DS.bundle/Resources/Info-macos.plist\"\nchmod 644 \"${DSTROOT}/System/Library/PrivateFrameworks/NetInfo.framework/Versions/A/Resources/lookupd/Agents/DS.bundle/Resources/Info-macos.plist\"\nrmdir \"${DSTROOT}/System/Library/PrivateFrameworks/NetInfo.framework/Versions/A/Resources/lookupd/Agents/DS.bundle/Contents/MacOS\"\nrmdir \"${DSTROOT}/System/Library/PrivateFrameworks/NetInfo.framework/Versions/A/Resources/lookupd/Agents/DS.bundle/Contents\"";
 		};
 		0050C32701F8A54C00DD2B5B = {
+			buildSettings = {
+			};
 			buildStyles = (
 				0050C32901F8A54C00DD2B5B,
 				0050C32A01F8A54C00DD2B5B,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 0050C32801F8A54C00DD2B5B;
 			productRefGroup = 0050C33101F8A66600DD2B5B;
@@ -155,18 +164,25 @@
 		};
 		0050C32801F8A54C00DD2B5B = {
 			children = (
+				0028DF700314031A00DD2B5A,
 				0050C32D01F8A5BD00DD2B5B,
 				0050C32B01F8A5BD00DD2B5B,
 				0050C33101F8A66600DD2B5B,
 			);
 			isa = PBXGroup;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0050C32901F8A54C00DD2B5B = {
 			buildRules = (
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				ZERO_LINK = YES;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
@@ -176,6 +192,8 @@
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
@@ -184,16 +202,22 @@
 			children = (
 				0050C32C01F8A5BD00DD2B5B,
 				0050C33001F8A5FB00DD2B5B,
+				61097B5204901A7B008420C1,
+				61097B5404901A99008420C1,
 			);
 			isa = PBXGroup;
 			name = "External Frameworks";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0050C32C01F8A5BD00DD2B5B = {
+			expectedFileType = wrapper.framework;
+			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
 			name = DirectoryService.framework;
 			path = /System/Library/Frameworks/DirectoryService.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		0050C32D01F8A5BD00DD2B5B = {
 			children = (
@@ -202,17 +226,27 @@
 			isa = PBXGroup;
 			name = Source;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0050C32E01F8A5BD00DD2B5B = {
+			expectedFileType = sourcecode.c.c;
+			fileEncoding = 30;
+			indentWidth = 4;
 			isa = PBXFileReference;
 			path = DS.c;
 			refType = 4;
+			sourceTree = "<group>";
+			tabWidth = 4;
+			usesTabs = 1;
 		};
 		0050C33001F8A5FB00DD2B5B = {
+			expectedFileType = wrapper.framework;
+			fallbackIsa = PBXFileReference;
 			isa = PBXFrameworkReference;
 			name = NetInfo.framework;
 			path = /System/Library/PrivateFrameworks/NetInfo.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		0050C33101F8A66600DD2B5B = {
 			children = (
@@ -222,11 +256,15 @@
 			isa = PBXGroup;
 			name = Products;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0050C33201F8A66600DD2B5B = {
+			expectedFileType = wrapper.cfbundle;
+			fallbackIsa = PBXFileReference;
 			isa = PBXBundleReference;
 			path = DS.bundle;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		0050C33301F8A66600DD2B5B = {
 			buildPhases = (
@@ -245,7 +283,6 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = DS;
 				SECTORDER_FLAGS = "";
-				USE_GCC3 = NO;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = bundle;
 			};
@@ -287,7 +324,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		0050C33401F8A66600DD2B5B = {
 			buildActionMask = 2147483647;
@@ -316,6 +352,8 @@
 			files = (
 				0050C33A01F8AC4F00DD2B5B,
 				0050C33B01F8AC4F00DD2B5B,
+				61097B5304901A7B008420C1,
+				61097B5504901A99008420C1,
 			);
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -348,6 +386,61 @@
 		005F902902BAD37600DD2B5A = {
 			isa = PBXTargetDependency;
 			target = 002AF54602075B0A00DD2B5B;
+			targetProxy = 6182220E04C34CF4006415CA;
+		};
+//000
+//001
+//002
+//003
+//004
+//610
+//611
+//612
+//613
+//614
+		61097B5204901A7B008420C1 = {
+			expectedFileType = wrapper.framework;
+			fallbackIsa = PBXFileReference;
+			isa = PBXFrameworkReference;
+			name = SystemConfiguration.framework;
+			path = /System/Library/Frameworks/SystemConfiguration.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		61097B5304901A7B008420C1 = {
+			fileRef = 61097B5204901A7B008420C1;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		61097B5404901A99008420C1 = {
+			expectedFileType = wrapper.framework;
+			fallbackIsa = PBXFileReference;
+			isa = PBXFrameworkReference;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		61097B5504901A99008420C1 = {
+			fileRef = 61097B5404901A99008420C1;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		6182220E04C34CF4006415CA = {
+			containerPortal = 0050C32701F8A54C00DD2B5B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 002AF54602075B0A00DD2B5B;
+			remoteInfo = ShellScript;
+		};
+		6182220F04C34CF4006415CA = {
+			containerPortal = 0050C32701F8A54C00DD2B5B;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 0050C33301F8A66600DD2B5B;
+			remoteInfo = Bundle;
 		};
 	};
 	rootObject = 0050C32701F8A54C00DD2B5B;

@@ -1,0 +1,807 @@
+<?xml version="1.0"?>
+
+<!--
+   | JBoss, the OpenSource EJB server
+   |
+   | Distributable under LGPL license.
+   | See terms of license at gnu.org.
+-->
+
+<!--
+ This file contains the list of weblogic-ejb-jar.xml elements
+ supported by WebLogicConverter when porting applications from
+ WebLogic 6.1.
+ 
+ @author <a href="mailto:aloubyansky@hotmail.com">Alex Loubyansky</a>
+
+The structure:
+
+<weblogic-elements>
+
+   <weblogic-element>
+      <since-version/>
+      <element-name/>
+      <range-of-values>
+         <value/>
+      </range-of-values>
+      <default-value/>
+      <requirements/>
+      <parent-elements>
+         <element-name/>
+      </parent-elements>
+      <deployment-file/>
+      <function/>
+      <examples>
+         <example-ref>
+            <element-name/>
+         </example-ref>
+         <example/>
+      </examples>
+      <jboss-elements>
+         <jboss-element>
+            <element-name/>
+            <deployment-file/>
+         </jboss-element>
+      </jboss-elements>
+   </weblogic-element>
+
+</weblogic-elements>
+-->
+
+<weblogic-elements>
+
+   <weblogic-element>
+      <element-name>weblogic-ejb-jar</element-name>
+      <parent-elements>
+         <!-- root -->
+      </parent-elements>
+      <deployment-file>weblogic-ejb-jar.xml</deployment-file>
+      <function>
+         weblogic-ejb-jar is the root element of the weblogic component of the
+         EJB deployment descriptor.
+      </function>
+      <jboss-elements/>
+   </weblogic-element>
+
+   <weblogic-element>
+      <element-name>weblogic-enterprise-bean</element-name>
+      <parent-elements>
+         <element-name>weblogic-ejb-jar</element-name>
+      </parent-elements>
+      <deployment-file>weblogic-ejb-jar.xml</deployment-file>
+      <function>
+         Contains deployment information for a bean.
+      </function>
+      <jboss-elements>
+         <jboss-element>
+            <element-name>entity</element-name>
+            <deployment-file>jboss.xml</deployment-file>
+         </jboss-element>
+         <jboss-element>
+            <element-name>session</element-name>
+            <deployment-file>jboss.xml</deployment-file>
+         </jboss-element>
+         <jboss-element>
+            <element-name>message-driven</element-name>
+            <deployment-file>jboss.xml</deployment-file>
+         </jboss-element>
+      </jboss-elements>
+   </weblogic-element>
+
+   <weblogic-element>
+      <element-name>ejb-name</element-name>
+      <range-of-values>
+         <value>Name of an EJB defined in ejb-jar.xml</value>
+      </range-of-values>
+      <requirements>
+         Required element in method stanza. The name must conform to the
+         lexical rules for an NMTOKEN.
+      </requirements>
+      <parent-elements>
+         <element-name>method</element-name>
+      </parent-elements>
+      <deployment-file>weblogic-ejb-jar.xml</deployment-file>
+      <function>
+         ejb-name specifies the name of an EJB to which WebLogic Server applies
+         isolation level properties. This name is assigned by the ejb-jar
+         file's deployment descriptor. The name must be unique among the names
+         of the enterprise beans in the same ejb.jar file. The enterprise bean
+         code does not depend on the name; therefore the name can be changed
+         during the application-assembly process without breaking the 
+         enterprise bean's function. There is no built-in relationship between
+         the ejb-name in the deployment descriptor and the JNDI name that the
+         deployer will assign to the enterprise bean's home.
+      </function>
+      <examples>
+         <example-ref>
+            <element-name>method</element-name>
+         </example-ref>
+      </examples>
+      <jboss-elements>
+         <jboss-element>
+            <element-name>ejb-name</element-name>
+            <deployment-file>jboss.xml</deployment-file>
+         </jboss-element>
+         <jboss-element>
+            <element-name>configuration-name</element-name>
+            <deployment-file>jboss.xml</deployment-file>
+         </jboss-element>
+         <jboss-element>
+            <element-name>mdb-client-id</element-name>
+            <deployment-file>jboss.xml</deployment-file>
+         </jboss-element>
+      </jboss-elements>
+   </weblogic-element>
+
+   <weblogic-element>
+      <element-name>entity-descriptor</element-name>
+      <range-of-values>
+         <value>XML stanza</value>
+      </range-of-values>
+      <requirements>
+         One entity-descriptor stanza is required for each entity EJB in the .jar.
+      </requirements>
+      <parent-elements>
+         <element-name>weblogic-enterprise-bean</element-name>
+      </parent-elements>
+      <deployment-file>weblogic-ejb-jar.xml</deployment-file>
+      <function>
+         The entity-descriptor element specifies the following deployment
+         parameters that are applicable to an entity bean:
+         - pool
+         - entity-cache
+         - persistence
+         - entity-clustering
+      </function>
+      <examples>
+         <example>
+            The following example shows the structure of the entity-descriptor stanza:
+            &lt;entity-descriptor&gt;
+               &lt;entity-cache&gt;...&lt;/entity-cache&gt;
+               &lt;persistence&gt;...&lt;/persistence&gt;
+               &lt;entity-clustering&gt;...&lt;/entity-clustering&gt;
+            &lt;/entity-descriptor&gt;
+         </example>
+      </examples>
+      <jboss-elements>
+         <jboss-element>
+            <element-name>entity</element-name>
+            <deployment-file>jboss.xml</deployment-file>
+         </jboss-element>
+      </jboss-elements>
+   </weblogic-element>
+
+   <weblogic-element>
+      <element-name>entity-cache</element-name>
+      <range-of-values>
+         <value>XML stanza</value>
+      </range-of-values>
+      <requirements>
+         Optional element. Valid only for entity beans.
+      </requirements>
+      <parent-elements>
+         <element-name>entity-descriptor</element-name>
+      </parent-elements>
+      <deployment-file>weblogic-ejb-jar.xml</deployment-file>
+      <function>
+         The entity-cache element defines the following options used to cache
+         entity EJB instances within WebLogic Server:
+         - max-beans-in-cache
+         - idle-timeout-seconds
+         - read-timeout-seconds
+         - concurrency-strategy
+      </function>
+      <examples>
+         <example>
+            The entity-cache stanza is shown here:
+               &lt;entity-descriptor&gt;
+                  &lt;entity-cache&gt;
+                     &lt;max-beans-in-cache&gt;...&lt;/max-beans-in-cache&gt;
+                     &lt;idle-timeout-seconds&gt;...&lt;/idle-timeout-seconds&gt;
+                     &lt;read-timeout-seconds&gt;...&lt;read-timeout-seconds&gt;
+                     &lt;concurrency-strategy&gt;...&lt;/concurrency-strategy&gt;
+                  &lt;/entity-cache&gt;
+                  &lt;persistence&gt;...&lt;/persistence&gt;
+                  &lt;entity-clustering&gt;...&lt;/entity-clustering&gt;
+               &lt;/entity-descriptor&gt;
+         </example>
+      </examples>
+      <jboss-elements>
+         <jboss-element>
+            <element-name>read-only</element-name>
+            <deployment-file>jboss.xml</deployment-file>
+         </jboss-element>
+         <jboss-element>
+            <element-name>commit-option</element-name>
+            <deployment-file>jboss.xml</deployment-file>
+         </jboss-element>
+      </jboss-elements>
+   </weblogic-element>
+
+   <weblogic-element>
+      <element-name>read-timeout-seconds</element-name>
+      <range-of-values>
+         <value>0</value>
+         <value>maxSeconds</value>
+      </range-of-values>
+      <default-value>600</default-value>
+      <requirements>
+         Optional element. Valid only for entity EJBs.
+      </requirements>
+      <parent-elements>
+         <element-name>entity-cache</element-name>
+      </parent-elements>
+      <deployment-file>weblogic-ejb-jar.xml</deployment-file>
+      <function>
+         The read-timeout-seconds element specifies the number of seconds
+         between ejbLoad() calls on a Read-Only entity bean. By default,
+         read-timeout-seconds is set to 600, and WebLogic Server calls
+         ejbLoad() only when the bean is brought into the cache.
+      </function>
+      <examples>
+         <example>
+            The following entry causes WebLogic Server to call ejbLoad() for
+            instances of the AccountBean class only when the instance is first
+            brought into the cache:
+            &lt;weblogic-enterprise-bean&gt;
+               &lt;ejb-name&gt;AccountBean&lt;/ejb-name&gt;
+               &lt;entity-descriptor&gt;
+                  &lt;entity-cache&gt;
+                     &lt;read-timeout-seconds&gt;0&lt;/read-timeout-seconds&gt;
+                  &lt;/entity-cache&gt;
+               &lt;/entity-descriptor&gt;
+            &lt;/weblogic-enterprise-bean&gt;
+         </example>
+      </examples>
+      <jboss-elements>
+         <jboss-element>
+            <element-name>commit-option</element-name>
+            <deployment-file>jboss.xml</deployment-file>
+         </jboss-element>
+         <jboss-element>
+            <element-name>optiond-refresh-rate</element-name>
+            <deployment-file>jboss.xml</deployment-file>
+         </jboss-element>
+      </jboss-elements>
+   </weblogic-element>
+
+   <weblogic-element>
+      <element-name>concurrency-strategy</element-name>
+      <range-of-values>
+         <value>Exclusive</value>
+         <value>Database</value>
+         <value>ReadOnly</value>
+         <value>Optimistic</value>
+      </range-of-values>
+      <default-value>Database</default-value>
+      <requirements>
+         Optional element. Valid only for entity EJBs.
+      </requirements>
+      <parent-elements>
+         <element-name>entity-cache</element-name>
+      </parent-elements>
+      <deployment-file>weblogic-ejb-jar.xml</deployment-file>
+      <function>
+         The concurrency-strategy element specifies how the container should
+         manage concurrent access to an entity bean. Set this element to one
+         of four values:
+         - Exclusive causes WebLogic Server to place an exclusive lock on
+           cached entity EJB instances when the bean is associated with a
+           transaction. Other requests for the EJB instance are block until
+           the transaction completes. This option was the default locking
+           behavior for WebLogic Server versions 3.1 through 5.1.
+         - Database causes WebLogic Server to defer locking requests for an
+           entity EJB to the underlying datastore. With the Database
+           concurrency strategy, WebLogic Server allocates a separate entity
+           bean instance and allows locking and caching to be handled by the
+           database. This is the default option.
+         - ReadOnly used for read-only entity beans. Activates a new instance
+           for each transaction so that requests proceed in parallel. WebLogic
+           Server calls ejbLoad() for ReadOnly beans are based on the
+           read-timeout-seconds parameter.
+         - Optimistic holds no locks in the EJB container or database during a
+           transaction. The EJB container verifies that none of the data
+           updated by a transaction has changed before committing the
+           transaction. If any updated data changed, the EJB container rolls
+           back the transaction.
+      </function>
+      <examples>
+         <example>
+            The following entry identifies the AccountBean class as a
+            read-only entity EJB:
+            &lt;weblogic-enterprise-bean&gt;
+               &lt;ejb-name&gt;AccountBean&lt;/ejb-name&gt;
+               &lt;entity-descriptor&gt;
+                  &lt;entity-cache&gt;
+                     &lt;concurrency-strategy&gt;ReadOnly&lt;/concurrency-strategy&gt;
+                  &lt;/entity-cache&gt;
+               &lt;/entity-descriptor&gt;
+            &lt;/weblogic-enterprise-bean&gt;
+         </example>
+      </examples>
+      <jboss-elements>
+         <jboss-element>
+            <element-name>commit-option</element-name>
+            <deployment-file>jboss.xml</deployment-file>
+         </jboss-element>
+      </jboss-elements>
+   </weblogic-element>
+
+   <weblogic-element>
+      <element-name>reference-descriptor</element-name>
+      <range-of-values>
+         <value>XML stanza</value>
+      </range-of-values>
+      <default-value>n/a</default-value>
+      <requirements>
+         Optional element.
+      </requirements>
+      <parent-elements>
+         <element-name>weblogic-enterprise-bean</element-name>
+      </parent-elements>
+      <deployment-file>weblogic-ejb-jar.xml</deployment-file>
+      <function>
+         The reference-descriptor element maps references in the ejb-jar.xml
+         file to the JNDI names of actual resource factories and EJBs available
+         in WebLogic Server.
+      </function>
+      <examples>
+         <example>
+            The reference-descriptor stanza contains one or more additional
+            stanzas to define resource factory references and EJB references.
+            The following shows the organization of these elements:
+            &lt;reference-descriptor&gt;
+               &lt;resource-description&gt;
+               ...
+               &lt;/resource-description&gt;
+               &lt;ejb-reference-description&gt;
+               ...
+               &lt;/ejb-reference-description&gt;
+            &lt;/reference-descriptor&gt;
+         </example>
+      </examples>
+      <jboss-elements>
+         <jboss-element>
+            <element-name>ejb-ref</element-name>
+            <deployment-file>jboss.xml</deployment-file>
+         </jboss-element>
+         <jboss-element>
+            <element-name>ejb-local-ref</element-name>
+            <deployment-file>jboss.xml</deployment-file>
+         </jboss-element>
+         <jboss-element>
+            <element-name>resource-ref</element-name>
+            <deployment-file>jboss.xml</deployment-file>
+         </jboss-element>
+         <jboss-element>
+            <element-name>resource-env-ref</element-name>
+            <deployment-file>jboss.xml</deployment-file>
+         </jboss-element>
+      </jboss-elements>
+   </weblogic-element>
+
+   <weblogic-element>
+      <element-name>resource-description</element-name>
+      <range-of-values>
+         <value>XML stanza</value>
+      </range-of-values>
+      <default-value>n/a</default-value>
+      <requirements>
+         Optional element.
+      </requirements>
+      <parent-elements>
+         <element-name>reference-descriptor</element-name>
+      </parent-elements>
+      <deployment-file>weblogic-ejb-jar.xml</deployment-file>
+      <function>
+         The resource-description element maps a resource reference defined in
+         ejb-jar.xml to the JNDI name of an actual resource available in
+         WebLogic Server.
+      </function>
+      <examples>
+         <example>
+            The resource-description stanza can contain additional elements as
+            shown here:
+            &lt;reference-descriptor&gt;
+               &lt;resource-description&gt;
+                  &lt;res-ref-name&gt;. . .&lt;/res-ref-name&gt;
+                  &lt;jndi-name&gt;...&lt;/jndi-name&gt;
+               &lt;/resource-description&gt;
+               &lt;ejb-reference-description&gt;
+                  &lt;ejb-ref-name&gt;. . .&lt;/ejb-ref-name&gt;
+                  &lt;jndi-name&gt;. . .&lt;/jndi-name&gt;
+               &lt;/ejb-reference-description&gt;
+            &lt;/reference-descriptor&gt;
+         </example>
+      </examples>
+      <jboss-elements>
+         <jboss-element>
+            <element-name>resource-ref</element-name>
+            <deployment-file>jboss.xml</deployment-file>
+         </jboss-element>
+      </jboss-elements>
+   </weblogic-element>
+
+   <weblogic-element>
+      <element-name>res-ref-name</element-name>
+      <range-of-values>
+         <value>A valid resource reference name from the ejb-jar.xml file</value>
+      </range-of-values>
+      <default-value>n/a</default-value>
+      <requirements>
+         Required element if the EJB specifies resource references in ejb-jar.xml
+      </requirements>
+      <parent-elements>
+         <element-name>resource-description</element-name>
+      </parent-elements>
+      <deployment-file>weblogic-ejb-jar.xml</deployment-file>
+      <function>
+         The res-ref-name element specifies the name of a resource factory
+         reference. This is the reference that the EJB provider places within
+         the ejb-jar.xml deployment file.
+      </function>
+      <examples>
+         <example-ref>
+            <element-name>resource-description</element-name>
+         </example-ref>
+      </examples>
+      <jboss-elements>
+         <jboss-element>
+            <element-name>res-ref-name</element-name>
+            <deployment-file>jboss.xml</deployment-file>
+         </jboss-element>
+      </jboss-elements>
+   </weblogic-element>
+
+   <weblogic-element>
+      <element-name>jndi-name</element-name>
+      <range-of-values>
+         <value>Valid JNDI name</value>
+      </range-of-values>
+      <default-value>n/a</default-value>
+      <requirements>
+         Required in resource-description and ejb-reference-description.
+      </requirements>
+      <parent-elements>
+         <element-name>resource-description</element-name>
+         <element-name>ejb-reference-description</element-name>
+      </parent-elements>
+      <deployment-file>weblogic-ejb-jar.xml</deployment-file>
+      <function>
+         jndi-name specifies the JNDI name of an actual EJB, resource, or
+         reference available in WebLogic Server.
+      </function>
+      <examples>
+         <example-ref>
+            <element-name>resource-description</element-name>
+            <element-name>ejb-reference-description</element-name>
+         </example-ref>
+      </examples>
+      <jboss-elements>
+         <jboss-element>
+            <element-name>jndi-name</element-name>
+            <deployment-file>jboss.xml</deployment-file>
+         </jboss-element>
+      </jboss-elements>
+   </weblogic-element>
+
+   <weblogic-element>
+      <element-name>resource-env-description</element-name>
+      <range-of-values>
+         <value>XML stanza</value>
+      </range-of-values>
+      <default-value>n/a</default-value>
+      <requirements>
+         Optional element.
+      </requirements>
+      <parent-elements>
+         <element-name>reference-descriptor</element-name>
+      </parent-elements>
+      <deployment-file>weblogic-ejb-jar.xml</deployment-file>
+      <function>
+         The resource-env-description element maps a resource environment
+         reference defined in ejb-jar.xml to the JNDI name of an actual
+         resource available in WebLogic Server.
+      </function>
+      <examples>
+         <example>
+            The resource-env-description stanza can contain additional elements
+            as shown here:
+            &lt;reference-descriptor&gt;
+               &lt;resource-env-description&gt;
+                  &lt;res-env-ref-name&gt;. . .&lt;/res-env-ref-name&gt;
+                  &lt;jndi-name&gt;...&lt;/jndi-name&gt;
+               &lt;/reference-env-description&gt;
+            &lt;/reference-descriptor&gt;
+         </example>
+      </examples>
+      <jboss-elements>
+         <jboss-element>
+            <element-name>resource-env-ref</element-name>
+            <deployment-file>jboss.xml</deployment-file>
+         </jboss-element>
+      </jboss-elements>
+   </weblogic-element>
+
+   <weblogic-element>
+      <element-name>res-env-ref-name</element-name>
+      <range-of-values>
+         <value>A valid resource environment reference name from the ejb-jar.xml file</value>
+      </range-of-values>
+      <default-value>n/a</default-value>
+      <requirements>
+         A valid resource environment reference name from the ejb-jar.xml file
+      </requirements>
+      <parent-elements>
+         <element-name>resource-env-description</element-name>
+      </parent-elements>
+      <deployment-file>weblogic-ejb-jar.xml</deployment-file>
+      <function>
+         The res-env-ref-name element specifies the name of a resource
+         environment reference.
+      </function>
+      <examples>
+         <example-ref>
+            <element-name>resource-description</element-name>
+         </example-ref>
+      </examples>
+      <jboss-elements>
+         <jboss-element>
+            <element-name>resource-env-ref-name</element-name>
+            <deployment-file>jboss.xml</deployment-file>
+         </jboss-element>
+      </jboss-elements>
+   </weblogic-element>
+
+   <weblogic-element>
+      <element-name>ejb-reference-description</element-name>
+      <range-of-values>
+         <value>XML stanza</value>
+      </range-of-values>
+      <requirements>
+         Optional element
+      </requirements>
+      <parent-elements>
+         <element-name>reference-descriptor</element-name>
+      </parent-elements>
+      <deployment-file>weblogic-ejb-jar.xml</deployment-file>
+      <function>
+         The ejb-reference-description element maps the JNDI name in the
+         WebLogic Server of an EJB that is referenced by the bean in the
+         ejb-reference element.
+      </function>
+      <examples>
+         <example>
+            The ejb-reference-description stanza is shown here:
+            &lt;ejb-reference-description&gt;
+               &lt;ejb-ref-name>AdminBean&lt;/ejb-ref-name&gt;
+               &lt;jndi-name>payroll.AdminBean&lt;/jndi-name&gt;
+            &lt;/ejb-reference-description&gt;
+         </example>
+      </examples>
+      <jboss-elements>
+         <jboss-element>
+            <element-name>ejb-ref</element-name>
+            <deployment-file>jboss.xml</deployment-file>
+         </jboss-element>
+      </jboss-elements>
+   </weblogic-element>
+
+   <weblogic-element>
+      <element-name>ejb-ref-name</element-name>
+      <requirements>
+         Optional element
+      </requirements>
+      <parent-elements>
+         <element-name>ejb-reference-description</element-name>
+      </parent-elements>
+      <deployment-file>weblogic-ejb-jar.xml</deployment-file>
+      <function>
+         The ejb-ref-name element specifies a resource reference name. This
+         element is the reference that the EJB provider places within the
+         ejb-jar.xml deployment file.
+      </function>
+      <examples>
+         <example>
+            The ejb-ref-name stanza is shown here:
+            &lt;ejb-reference-description&gt;
+               &lt;ejb-ref-name>AdminBean&lt;/ejb-ref-name&gt;
+               &lt;jndi-name>payroll.AdminBean&lt;/jndi-name&gt;
+            &lt;/ejb-reference-description&gt;
+         </example>
+      </examples>
+      <jboss-elements>
+         <jboss-element>
+            <element-name>ejb-ref-name</element-name>
+            <deployment-file>jboss.xml</deployment-file>
+         </jboss-element>
+      </jboss-elements>
+   </weblogic-element>
+
+   <weblogic-element>
+      <element-name>ejb-local-reference-description</element-name>
+      <requirements>
+         Optional element
+      </requirements>
+      <parent-elements>
+         <element-name>reference-descriptor</element-name>
+      </parent-elements>
+      <deployment-file>weblogic-ejb-jar.xml</deployment-file>
+      <function>
+         The ejb-local-reference-description element maps the JNDI name of an
+         EJB in theWebLogic Server that is referenced by the bean in the
+         ejb-local-ref element.
+      </function>
+      <examples>
+         <example>
+            The following example shows the ejb-local-reference-description element.
+            &lt;ejb-local-reference-description&gt;
+               &lt;ejb-ref-name&gt;AdminBean&lt;/ejb-ref-name&gt;
+               &lt;jndi-name&gt;payroll.AdminBean&lt;/jndi-name&gt;
+            &lt;/ejb-local-reference-description&gt;
+         </example>
+      </examples>
+      <jboss-elements>
+         <jboss-element>
+            <element-name>ejb-local-ref</element-name>
+            <deployment-file>jboss.xml</deployment-file>
+         </jboss-element>
+      </jboss-elements>
+   </weblogic-element>
+
+   <weblogic-element>
+      <element-name>local-jndi-name</element-name>
+      <range-of-values>
+         <value>Valid JNDI name</value>
+      </range-of-values>
+      <default-value>n/a</default-value>
+      <requirements>
+         Required if the bean has a local home.
+      </requirements>
+      <parent-elements>
+         <element-name>weblogic-enterprise-bean</element-name>
+      </parent-elements>
+      <deployment-file>weblogic-ejb-jar.xml</deployment-file>
+      <function>
+         The local-jndi-name element specifies a jndi-name for a bean's local
+         home. If a bean has both a remote and a local home, then it must have
+         two JNDI names; one for each home.
+      </function>
+      <examples>
+         <example>
+            The following example specifies the local-jndi-name element.
+            &lt;local-jndi-name&gt;weblogic.jndi.WLInitialContext
+            &lt;/local-jndi-name&gt;
+         </example>
+      </examples>
+      <jboss-elements>
+         <jboss-element>
+            <element-name>local-jndi-name</element-name>
+            <deployment-file>jboss.xml</deployment-file>
+         </jboss-element>
+      </jboss-elements>
+   </weblogic-element>
+
+   <weblogic-element>
+      <element-name>stateless-session-descriptor</element-name>
+      <range-of-values>
+         <value>XML stanza</value>
+      </range-of-values>
+      <default-value>n/a</default-value>
+      <requirements>
+         One stateless-session-descriptor element is required for each
+         stateless session EJB in the JAR file.
+      </requirements>
+      <parent-elements>
+         <element-name>weblogic-enterprise-bean</element-name>
+      </parent-elements>
+      <deployment-file>weblogic-ejb-jar.xml</deployment-file>
+      <function>
+         The stateless-session-descriptor element defines deployment parameters,
+         such as caching, clustering, and persistence for stateless session
+         EJBs in WebLogic Server.
+      </function>
+      <examples>
+         <example>
+            The following example shows the structure of the
+            stateless-session-descriptor stanza:
+            &lt;stateless-session-descriptor&gt;
+               &lt;pool&gt;...&lt;/pool&gt;
+               &lt;stateless-clustering&gt;...&lt;/stateless-clustering&gt;
+            &lt;/stateless-session-descriptor&gt;
+         </example>
+      </examples>
+      <jboss-elements>
+         <jboss-element>
+            <element-name>session</element-name>
+            <deployment-file>jboss.xml</deployment-file>
+         </jboss-element>
+      </jboss-elements>
+   </weblogic-element>
+
+   <weblogic-element>
+      <element-name>stateful-session-descriptor</element-name>
+      <range-of-values>
+         <value>XML stanza</value>
+      </range-of-values>
+      <default-value>n/a</default-value>
+      <requirements>
+         One stateful-session-descriptor stanza is required for each stateful
+         session EJB in the .jar.
+      </requirements>
+      <parent-elements>
+         <element-name>weblogic-enterprise-bean</element-name>
+      </parent-elements>
+      <deployment-file>weblogic-ejb-jar.xml</deployment-file>
+      <function>
+         The stateful-session-descriptor element specifies the following
+         deployment parameters that are applicable for stateful session EJBs
+         in WebLogic Server:
+         - stateful-session-cache
+         - persistent-store-dir
+         - stateful-session-clustering
+         - allow-concurrent-calls
+      </function>
+      <examples>
+         <example>
+            The following example shows the structure of the
+            stateful-session-descriptor stanza:
+            &lt;stateful-session-descriptor&gt;
+               &lt;stateful-session-cache&gt;...&lt;/stateful-session-cache&gt;
+               &lt;persistence&gt;...&lt;/persistence&gt;
+               &lt;allow-concurrent-calls&gt;...&lt;/allow-concurrent-calls&gt;
+               &lt;persistent-store-dir&gt;/weblogic/myserver&lt;/persistent-store-dir&gt;
+               &lt;stateful-session-clustering&gt;...&lt;/stateful-session-clustering&gt;
+            &lt;/stateful-session-descriptor&gt;
+         </example>
+      </examples>
+      <jboss-elements>
+         <jboss-element>
+            <element-name>session</element-name>
+            <deployment-file>jboss.xml</deployment-file>
+         </jboss-element>
+         <jboss-element>
+            <element-name>container-configuration</element-name>
+            <deployment-file>jboss.xml</deployment-file>
+         </jboss-element>
+      </jboss-elements>
+   </weblogic-element>
+
+   <weblogic-element>
+      <element-name>message-driven-descriptor</element-name>
+      <range-of-values>
+         <value>XML stanza</value>
+      </range-of-values>
+      <default-value>n/a</default-value>
+      <parent-elements>
+         <element-name>weblogic-enterprise-bean</element-name>
+      </parent-elements>
+      <deployment-file>weblogic-ejb-jar.xml</deployment-file>
+      <function>
+         The message-driven-descriptor element associates a message-driven bean
+         with a JMS destination in WebLogic Server. This element specifies the
+         following deployment parameters:
+         - pool
+         - destination-jndi-name
+         - initial-context-factory
+         - provider-url
+         - connection-factory-jndi-name
+      </function>
+      <examples>
+         <example>
+            The following example shows the structure of the
+            message-driven-descriptor stanza:
+            &lt;message-driven-descriptor&gt;
+               &lt;destination-jndi-name&gt;...&lt;/destination-jndi-name&gt;
+            &lt;/message-driven-descriptor&gt;
+         </example>
+      </examples>
+      <jboss-elements>
+         <jboss-element>
+            <element-name>message-driven</element-name>
+            <deployment-file>jboss.xml</deployment-file>
+         </jboss-element>
+      </jboss-elements>
+   </weblogic-element>
+
+</weblogic-elements>

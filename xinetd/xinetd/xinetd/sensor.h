@@ -13,5 +13,6 @@
 void init_sensor( void );
 void process_sensor( const struct service *, const union xsockaddr *);
 status_e check_sensor( const union xsockaddr * );
+void destroy_global_access_list( void );
 
 #endif

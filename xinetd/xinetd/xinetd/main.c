@@ -23,8 +23,11 @@
 #include "service.h"
 #include "sconf.h"
 #include "xtimer.h"
-#include "sio.h"
+#include "sensor.h"
 
+#ifdef __GNUC__
+__attribute__ ((noreturn))
+#endif
 static void main_loop(void);
 static void find_bad_fd(void) ;
 
@@ -43,7 +46,6 @@ int main( int argc, char *argv[] )
 {
    const char            *func = "main" ;
 
-   sio_init();
    init_daemon( argc, argv ) ;
    init_services() ;
 
@@ -175,7 +177,6 @@ static void main_loop(void)
 }
 
 
-
 /*
  * This function identifies if any of the fd's in the socket mask
  * is bad. We use it in case select(2) returns EBADF
@@ -239,6 +240,8 @@ void quit_program(void)
    struct service_config *scp = NULL;
    const char *func = "quit_program" ;
 
+   destroy_global_access_list() ;
+   
    for ( u = 0 ; u < pset_count( SERVICES( ps ) ) ; u++ ) {
       scp = SVC_CONF( SP(pset_pointer(SERVICES(ps), u)) );
       

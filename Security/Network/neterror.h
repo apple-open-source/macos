@@ -47,4 +47,4 @@ public:
 }	// end namespace Security
 
 
-#endif _H_NETERROR
+#endif /* _H_NETERROR */

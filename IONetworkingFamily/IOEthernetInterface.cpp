@@ -50,9 +50,10 @@ extern "C" {
 #include <net/if_dl.h>
 #include <net/if_types.h>
 #include <net/dlil.h>
+#include <net/bpf.h>
+#include <netinet/if_ether.h>
 #include <sys/sockio.h>
 #include <sys/malloc.h>
-void arpwhohas(struct arpcom * ac, struct in_addr * addr);
 }
 
 //---------------------------------------------------------------------------
@@ -268,6 +269,9 @@ bool IOEthernetInterface::initIfnet(struct ifnet * ifp)
 
     // Set defaults suitable for Ethernet interfaces.
 
+    ifp->if_baudrate = 10000000;
+    ifp->if_family   = APPLE_IF_FAM_ETHERNET;
+
     setInterfaceType( IFT_ETHER );
     setMaxTransferUnit( ETHERMTU );
     setMediaAddressLength( ETHER_ADDR_LEN );
@@ -466,7 +470,7 @@ SInt32 IOEthernetInterface::performCommand( IONetworkController * ctr,
         case SIOCDELMULTI:
         case SIOCSIFADDR:
         case SIOCSIFMTU:
-
+        case SIOCSIFLLADDR:
             ret = (int) ctr->executeCommand(
                              this,            /* client */
                              (IONetworkController::Action)
@@ -529,6 +533,11 @@ int IOEthernetInterface::performGatedCommand(void * target,
         case SIOCSIFMTU:
             ret = self->syncSIOCSIFMTU( ctr, ifr );
             break;
+
+        case SIOCSIFLLADDR:
+            ret = self->syncSIOCSIFLLADDR( ctr, ifr->ifr_addr.sa_data,
+                                           ifr->ifr_addr.sa_len );
+            break;
     }
 
     return ret;
@@ -576,6 +585,15 @@ IOReturn IOEthernetInterface::enableController(IONetworkController * ctr)
         // Restore multicast filter settings.
 
         syncSIOCADDMULTI(ctr);
+
+        // Re-apply the user supplied link-level address.
+
+        OSData * lladdr = OSDynamicCast(OSData, getProperty(kIOMACAddress));
+        if ( lladdr && lladdr->getLength() == ETHER_ADDR_LEN )
+        {
+            ctr->setHardwareAddress( lladdr->getBytesNoCopy(),
+                                     lladdr->getLength() );
+        }
 
         _ctrEnabled = true;
 
@@ -767,6 +785,61 @@ int IOEthernetInterface::syncSIOCSIFMTU( IONetworkController * ctr,
     }
 
     return error;
+}
+
+//---------------------------------------------------------------------------
+
+int IOEthernetInterface::syncSIOCSIFLLADDR( IONetworkController * ctr,
+                                            const char * lladdr, int len )
+{
+    struct ifnet *       ifp = getIfnet();
+    struct sockaddr_dl * sdl;
+    struct ifaddr *      ifa;
+    IOReturn             ret;
+
+    ifa = ifnet_addrs[ifp->if_index - 1];
+    if (ifa == NULL)
+        return (EINVAL);
+
+    sdl = (struct sockaddr_dl *)ifa->ifa_addr;
+    if (sdl == NULL)
+        return (EINVAL);
+
+    if (len != sdl->sdl_alen)   /* don't allow length to change */
+        return (EINVAL);
+
+    if (_ctrEnabled != true)    /* reject if interface is down */
+        return (ENETDOWN);
+
+    //
+    // Inform the Ethernet driver about the address change.
+    //
+
+    ret = ctr->setHardwareAddress( lladdr, len );
+
+    if ( ret == kIOReturnSuccess )
+    {
+        bcopy(lladdr, _arpcom->ac_enaddr, len);
+        bcopy(lladdr, LLADDR(sdl), len);
+        setProperty(kIOMACAddress, (void *)lladdr, len);
+
+        DLOG("%s: SIOCSIFLLADDR %02x:%02x:%02x:%02x:%02x:%02x\n",
+              ctr->getName(),
+              lladdr[0], lladdr[1], lladdr[2],
+              lladdr[3], lladdr[4], lladdr[5]);
+
+        /*
+         * Also send gratuitous ARPs to notify other nodes about
+         * the address change.
+         */
+        TAILQ_FOREACH(ifa, &ifp->if_addrhead, ifa_link) {
+            if (ifa->ifa_addr != NULL &&
+                ifa->ifa_addr->sa_family == AF_INET)
+                arp_ifinit(_arpcom, ifa);
+        }
+    }
+
+    return errnoFromReturn( ret );
 }
 
 //---------------------------------------------------------------------------
@@ -1144,5 +1217,18 @@ bool IOEthernetInterface::willTerminate( IOService *  provider,
         _ctrEnabled = false;
     }
 
+    return ret;
+}
+
+//---------------------------------------------------------------------------
+
+IOReturn IOEthernetInterface::attachToDataLinkLayer( IOOptionBits options,
+                                                     void *       parameter )
+{
+    IOReturn ret = super::attachToDataLinkLayer( options, parameter );
+    if ( ret == kIOReturnSuccess )
+    {
+        bpfattach( getIfnet(), DLT_EN10MB, sizeof(struct ether_header) );
+    }
     return ret;
 }

@@ -1,5 +1,3 @@
-/*	$NetBSD: extern.h,v 1.5 1997/10/20 00:56:04 lukem Exp $	*/
-
 /*-
  * Copyright (c) 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,20 +31,21 @@
  * SUCH DAMAGE.
  *
  *	@(#)extern.h	8.1 (Berkeley) 6/6/93
+ * $FreeBSD: src/usr.bin/tr/extern.h,v 1.5 2002/06/14 15:56:52 tjr Exp $
  */
+
+#include <limits.h>
+#define	NCHARS	(UCHAR_MAX + 1)		/* Number of possible characters. */
+#define	OOBCH	(UCHAR_MAX + 1)		/* Out of band character value. */
 
 typedef struct {
 	enum { STRING1, STRING2 } which;
 	enum { EOS, INFINITE, NORMAL, RANGE, SEQUENCE, SET } state;
 	int	 cnt;			/* character count */
 	int	 lastch;		/* last character */
-	int	equiv[2];		/* equivalence set */
+	int	equiv[NCHARS];		/* equivalence set */
 	int	*set;			/* set of characters */
-	unsigned char	*str;		/* user's string */
+	char	*str;			/* user's string */
 } STR;
 
-#include <limits.h>
-#define	NCHARS	(UCHAR_MAX + 1)		/* Number of possible characters. */
-#define	OOBCH	(UCHAR_MAX + 1)		/* Out of band character value. */
-
-int	 next __P((STR *));
+int	 next(STR *);

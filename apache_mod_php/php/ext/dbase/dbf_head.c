@@ -21,8 +21,8 @@ dbhead_t *get_dbf_head(int fd)
 {
 	dbhead_t *dbh;
 	struct dbf_dhead  dbhead;
-	dbfield_t *dbf, *cur_f;
-	int ret, nfields, offset;
+	dbfield_t *dbf, *cur_f, *tdbf;
+	int ret, nfields, offset, gf_retval;
 
 	if ((dbh = (dbhead_t *)malloc(sizeof(dbhead_t))) == NULL)
 		return NULL;
@@ -42,21 +42,33 @@ dbhead_t *get_dbf_head(int fd)
 		dbhead.dbh_date[DBH_DATE_MONTH],
 		dbhead.dbh_date[DBH_DATE_DAY]);
 
-	dbh->db_nfields = nfields = (dbh->db_hlen - sizeof(struct dbf_dhead)) /
-				sizeof(struct dbf_dfield);
-
-	/* get all the field info */
-	dbf = (dbfield_t *)malloc(sizeof(dbfield_t) * nfields);
-
+	/* malloc enough memory for the maximum number of fields:
+	   32 * 1024 = 32K dBase5 (for Win) seems to allow that many */
+	tdbf = (dbfield_t *)malloc(sizeof(dbfield_t)*1024);
+	
 	offset = 1;
-	for (cur_f = dbf; cur_f < &dbf[nfields] ; cur_f++) {
-		if (get_dbf_field(dbh, cur_f) < 0) {
+	nfields = 0;
+	gf_retval = 0;
+	for (cur_f = tdbf; gf_retval < 2 && nfields < 1024; cur_f++) {
+		gf_retval = get_dbf_field(dbh, cur_f);
+
+		if (gf_retval < 0) {
 			free_dbf_head(dbh);
 			return NULL;
 		}
-		cur_f->db_foffset = offset;
-		offset += cur_f->db_flen;
+		if (gf_retval != 2 ) {
+			cur_f->db_foffset = offset;
+			offset += cur_f->db_flen;
+			nfields++;
+		}
 	}
+	dbh->db_nfields = nfields;
+	
+	/* malloc the right amount of space for records, copy and destroy old */
+	dbf = (dbfield_t *)malloc(sizeof(dbfield_t)*nfields);
+	memcpy(dbf, tdbf, sizeof(dbfield_t)*nfields);
+	free(tdbf);
+
 	dbh->db_fields = dbf;
 
 	return dbh;
@@ -124,6 +136,12 @@ int get_dbf_field(dbhead_t *dbh, dbfield_t *dbf)
 		return ret;
 	}
 
+	/* Check for the '0Dh' field terminator , if found return '2'
+	   which will tell the loop we are at the end of fields */
+	if (dbfield.dbf_name[0]==0x0d) {
+		return 2;
+	}
+
 	/* build the field name */
 	copy_crimp(dbf->db_fname, dbfield.dbf_name, DBF_NAMELEN);
 
@@ -135,6 +153,7 @@ int get_dbf_field(dbhead_t *dbh, dbfield_t *dbf)
 		break;
 	    default:
 	    	dbf->db_flen = get_short(dbfield.dbf_flen);
+		break;
 	}
 
 	if ((dbf->db_format = get_dbf_f_fmt(dbf)) == NULL) {
@@ -228,9 +247,10 @@ dbhead_t *dbf_open(char *dp, int o_flags TSRMLS_DC)
 
 	cp = dp;
 	if ((fd = VCWD_OPEN(cp, o_flags|O_BINARY)) < 0) {
-		cp = (char *)malloc(256);
-		strcpy(cp, dp); strcat(cp, ".dbf");
+		cp = (char *)malloc(MAXPATHLEN);  /* So where does this get free()'d?  -RL */
+		strncpy(cp, dp, MAXPATHLEN-5); strcat(cp, ".dbf");
 		if ((fd = VCWD_OPEN(cp, o_flags)) < 0) {
+			free(cp);
 			perror("open");
 			return NULL;
 		}
@@ -266,6 +286,6 @@ void dbf_head_info(dbhead_t *dbh)
  * tab-width: 4
  * c-basic-offset: 4
  * End:
- * vim600: sw=4 ts=4 tw=78 fdm=marker
- * vim<600: sw=4 ts=4 tw=78
+ * vim600: sw=4 ts=4 fdm=marker
+ * vim<600: sw=4 ts=4
  */

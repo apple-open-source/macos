@@ -1,0 +1,76 @@
+int val = 10;
+String name = "bla";
+
+   Class[] getInterfaces ()
+   {
+      return new Class[] {org.jboss.varia.deployment.TestInterface.class};
+   }
+   
+   void create () 
+   {
+      System.out.println ("Create called on me");
+   }
+   
+   void stop () 
+   {
+      System.out.println ("stop called on me");
+   }
+
+   void doSimple() 
+   {
+      System.out.println ("doSimple called");
+   }
+   int returnInt()
+   {
+      System.out.println ("returnInt called");
+      return 25;
+   }
+   
+   String returnString()
+   {
+      System.out.println ("returnString called");
+      return "asdf";
+   }
+   
+   String getROString()
+   {
+      System.out.println ("getROString called");
+      return "this is a RO String";
+   }
+   
+   String getRWString()
+   {
+      return super.name;
+   }
+   void setRWString(String bla)
+   {
+      System.out.println ("setRWString called. Old value : " + super.name);    
+      super.name = bla;
+   }
+   
+   void setWOString(String bla)
+   {
+      System.out.println ("setWOString called with " + bla);
+   }
+   
+   int getROInt()
+   {
+      System.out.println ("getROInt called");
+      return 101010;
+   }
+   
+   int getRWInt()
+   {
+      System.out.println ("getRWInt called");
+      return super.val;
+   }
+   void setRWInt(int bla)
+   {
+      System.out.println ("setRWInt called. Old value: " + super.val);
+      super.val = bla;
+   }
+   
+   void setWOInt(int bla)
+   {
+      System.out.println ("setWOInt called with " + bla);
+   }

@@ -1,5 +1,6 @@
 /* Generate a core file for the inferior process.
-   Copyright 2001, 2002 Free Software Foundation, Inc.
+
+   Copyright 2001, 2002, 2003 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -23,7 +24,6 @@
 #include "inferior.h"
 #include "gdbcore.h"
 #include "elf-bfd.h"
-#include <sys/procfs.h>
 #include "symfile.h"
 #include "objfiles.h"
 
@@ -158,25 +158,14 @@ default_gcore_target (void)
     return bfd_get_target (exec_bfd);
 }
 
-/*
- * Default method for stack segment (preemptable by target).
- */
+/* Function: derive_stack_segment
 
-static int (*override_derive_stack_segment) (bfd_vma *, bfd_vma *);
-
-extern void
-preempt_derive_stack_segment (int (*override_func) (bfd_vma *, bfd_vma *))
-{
-  override_derive_stack_segment = override_func;
-}
-
-/* Function: default_derive_stack_segment
    Derive a reasonable stack segment by unwinding the target stack. 
    
    Returns 0 for failure, 1 for success.  */
 
 static int 
-default_derive_stack_segment (bfd_vma *bottom, bfd_vma *top)
+derive_stack_segment (bfd_vma *bottom, bfd_vma *top)
 {
   bfd_vma tmp_vma;
   struct frame_info *fi, *tmp_fi;
@@ -191,7 +180,7 @@ default_derive_stack_segment (bfd_vma *bottom, bfd_vma *top)
     return 0;	/* Can't succeed without current frame. */
 
   /* Save frame pointer of TOS frame. */
-  *top = fi->frame;
+  *top = get_frame_base (fi);
   /* If current stack pointer is more "inner", use that instead. */
   if (INNER_THAN (read_sp (), *top))
     *top = read_sp ();
@@ -201,7 +190,7 @@ default_derive_stack_segment (bfd_vma *bottom, bfd_vma *top)
     fi = tmp_fi;
 
   /* Save frame pointer of prev-most frame. */
-  *bottom = fi->frame;
+  *bottom = get_frame_base (fi);
 
   /* Now canonicalize their order, so that 'bottom' is a lower address
    (as opposed to a lower stack frame). */
@@ -215,36 +204,15 @@ default_derive_stack_segment (bfd_vma *bottom, bfd_vma *top)
   return 1;	/* success */
 }
 
-static int
-derive_stack_segment (bfd_vma *bottom, bfd_vma *top)
-{
-  if (override_derive_stack_segment)
-    return override_derive_stack_segment (bottom, top);
-  else
-    return default_derive_stack_segment (bottom, top);
-}
+/* Function: derive_heap_segment
 
-/*
- * Default method for heap segment (preemptable by target).
- */
-
-static int (*override_derive_heap_segment) (bfd *, bfd_vma *, bfd_vma *);
-
-extern void
-preempt_derive_heap_segment (int (*override_func) (bfd *, 
-						   bfd_vma *, bfd_vma *))
-{
-  override_derive_heap_segment = override_func;
-}
-
-/* Function: default_derive_heap_segment
    Derive a reasonable heap segment by looking at sbrk and
    the static data sections.
    
    Returns 0 for failure, 1 for success.  */
 
 static int 
-default_derive_heap_segment (bfd *abfd, bfd_vma *bottom, bfd_vma *top)
+derive_heap_segment (bfd *abfd, bfd_vma *bottom, bfd_vma *top)
 {
   bfd_vma top_of_data_memory = 0;
   bfd_vma top_of_heap = 0;
@@ -269,7 +237,7 @@ default_derive_heap_segment (bfd *abfd, bfd_vma *bottom, bfd_vma *top)
   for (sec = abfd->sections; sec; sec = sec->next)
     {
       if (bfd_get_section_flags (abfd, sec) & SEC_DATA ||
-	  strcmp (".bss", bfd_get_section_name (abfd, sec)) == 0)
+	  strcmp (".bss", bfd_section_name (abfd, sec)) == 0)
 	{
 	  sec_vaddr = bfd_get_section_vma (abfd, sec);
 	  sec_size = bfd_get_section_size_before_reloc (sec);
@@ -278,8 +246,19 @@ default_derive_heap_segment (bfd *abfd, bfd_vma *bottom, bfd_vma *top)
 	}
     }
   /* Now get the top-of-heap by calling sbrk in the inferior.  */
-  if ((sbrk = find_function_in_inferior ("sbrk")) == NULL)
+  if (lookup_minimal_symbol ("sbrk", NULL, NULL) != NULL)
+    {
+      if ((sbrk = find_function_in_inferior ("sbrk", builtin_type_voidptrfuncptr)) == NULL)
+	return 0;
+    }
+  else if (lookup_minimal_symbol ("_sbrk", NULL, NULL) != NULL)
+    {
+      if ((sbrk = find_function_in_inferior ("_sbrk", builtin_type_voidptrfuncptr)) == NULL)
+	return 0;
+    }
+  else
     return 0;
+
   if ((zero = value_from_longest (builtin_type_int, (LONGEST) 0)) == NULL)
     return 0;
   if ((sbrk = call_function_by_hand (sbrk, 1, &zero)) == NULL)
@@ -297,15 +276,6 @@ default_derive_heap_segment (bfd *abfd, bfd_vma *bottom, bfd_vma *top)
     return 0;	/* No additional heap space needs to be saved. */
 }
 
-static int
-derive_heap_segment (bfd *abfd, bfd_vma *bottom, bfd_vma *top)
-{
-  if (override_derive_heap_segment)
-    return override_derive_heap_segment (abfd, bottom, top);
-  else
-    return default_derive_heap_segment (abfd, bottom, top);
-}
-
 /* ARGSUSED */
 static void
 make_output_phdrs (bfd *obfd, asection *osec, void *ignored)
@@ -314,7 +284,7 @@ make_output_phdrs (bfd *obfd, asection *osec, void *ignored)
   int p_type;
 
   /* FIXME: these constants may only be applicable for ELF.  */
-  if (strncmp (osec->name, "load", 4) == 0)
+  if (strncmp (bfd_section_name (obfd, osec), "load", 4) == 0)
     p_type = PT_LOAD;
   else
     p_type = PT_NOTE;
@@ -452,7 +422,7 @@ gcore_copy_callback (bfd *obfd, asection *osec, void *ignored)
   if (size == 0)
     return;	/* Read-only sections are marked as zero-size.
 		   We don't have to copy their contents. */
-  if (strncmp ("load", bfd_get_section_name (obfd, osec), 4) != 0)
+  if (strncmp ("load", bfd_section_name (obfd, osec), 4) != 0)
     return;	/* Only interested in "load" sections. */
 
   if ((memhunk = xmalloc (size)) == NULL)

@@ -5,9 +5,9 @@
 #		folder and creates a top-level HTML page to them
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2001/11/30 22:43:15 $
+# Last Updated: $Date: 2002/09/13 22:17:40 $
 # 
-# Copyright (c) 1999-2001 Apple Computer, Inc.  All Rights Reserved.
+# Copyright (c) 1999-2002 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
 # subject to the Apple Public Source License Version 1.1 (the "License").
 # You may not use this file except in compliance with the License.  Please
@@ -22,30 +22,34 @@
 # the specific language governing rights and limitations under the
 # License.
 #
-# $Revision: 1.5 $
+# $Revision: 1.8 $
 ######################################################################
-use Cwd;
-use File::Find;
-use File::Copy;
-
 my $pathSeparator;
 my $isMacOS;
-my $scriptDir;
-my $framesetFileName;
-my $masterTOCFileName;
+my $modulesPath;
+
 BEGIN {
+	use FindBin qw ($Bin);
+	
     if ($^O =~ /MacOS/i) {
-            $pathSeparator = ":";
-            $isMacOS = 1;
+		$pathSeparator = ":";
+		$isMacOS = 1;
+		#$Bin seems to return a colon after the path on certain versions of MacPerl
+		#if it's there we take it out. If not, leave it be
+		#WD-rpw 05/09/02
+		($modulesPath = $FindBin::Bin) =~ s/([^:]*):$/$1/;
     } else {
-            $pathSeparator = "/";
-            $isMacOS = 0;
+		$pathSeparator = "/";
+		$isMacOS = 0;
     }
+	$modulesPath = "$FindBin::Bin"."$pathSeparator"."Modules";
 }
 
 use strict;
-use FindBin qw ($Bin);
-use lib "$Bin"."$pathSeparator"."Modules";
+use Cwd;
+use File::Find;
+use File::Copy;
+use lib $modulesPath;
 
 # Modules specific to gatherHeaderDoc
 use HeaderDoc::DocReference;
@@ -69,10 +73,18 @@ my $preferencesConfigFileName = "com.apple.headerDoc2HTML.config";
 my $homeDir;
 my $usersPreferencesPath;
 #added WD-rpw 07/30/01 to support running on MacPerl
-if ($^O =~ /MacOS/i)  {
-	require "FindFolder.pl";
-	$homeDir = MacPerl::FindFolder("D");	#D = Desktop. Arbitrary place to put things
-	$usersPreferencesPath = MacPerl::FindFolder("P");	#P = Preferences
+#modified WD-rpw 07/01/02 to support the MacPerl 5.8.0
+if ($^O =~ /MacOS/i) {
+	eval {
+		require "FindFolder.pl";
+		$homeDir = MacPerl::FindFolder("D");	#D = Desktop. Arbitrary place to put things
+		$usersPreferencesPath = MacPerl::FindFolder("P");	#P = Preferences
+	};
+	if ($@) {
+		import Mac::Files;
+		$homeDir = Mac::Files::FindFolder(kOnSystemDisk(), kDesktopFolderType());
+		$usersPreferencesPath = Mac::Files::FindFolder(kOnSystemDisk(), kPreferencesFolderType());
+	}
 } else {
 	$homeDir = (getpwuid($<))[7];
 	$usersPreferencesPath = $homeDir.$pathSeparator."Library".$pathSeparator."Preferences";
@@ -90,6 +102,8 @@ my %config = (
 
 %config = &updateHashFromConfigFiles(\%config,\@configFiles);
 
+my $framesetFileName;
+my $masterTOCFileName;
 if (defined $config{"defaultFrameName"}) {
 	$framesetFileName = $config{"defaultFrameName"};
 } 
@@ -106,6 +120,7 @@ if (($#ARGV == 0) && (-d $ARGV[0])) {
 
 	if ($^O =~ /MacOS/i) {
 		find(\&getFiles, $inputDir);
+		$inputDir =~ s/([^:]*):$/$1/;	#WD-rpw 07/01/02
 	} else {
 		$inputDir =~ s|(.*)/$|$1|; # get rid of trailing slash, if any
 		if ($inputDir !~ /^\//) { # not absolute path -- !!! should check for ~
@@ -140,7 +155,7 @@ foreach my $file (@inputFiles) {
     open (INFILE, "<$file") || die "Can't open $file: $!\n";
     my $fileString = <INFILE>;
     close INFILE;
-    if ($fileString =~ /<--\s+(headerDoc\s*=.*?)-->/) {
+    if ($fileString =~ /<\!--\s+(headerDoc\s*=.*?)-->/) {
         my $fullComment = $1;
         my @pairs = split(/;/, $fullComment);
         my $docRef = HeaderDoc::DocReference->new;
@@ -169,7 +184,7 @@ foreach my $file (@inputFiles) {
             push (@classFramesetRefs, $docRef);
         } elsif ($tmpType eq "intf"){
             push (@protocolFramesetRefs, $docRef);
-        } elsif ($tmpType eq "ObjCCategory"){
+        } elsif ($tmpType eq "cat"){
             push (@categoryFramesetRefs, $docRef);
         } else {
             my $tmpName = $docRef->name();
@@ -237,7 +252,8 @@ sub printMasterTOC {
     if (($localDebug) && length($categoriesLinkString)) {print "\$categoriesLinkString is '$categoriesLinkString'\n";};
     
     # put together header/footer with linkString--could use template
-    my $htmlHeader = "<html><head><title>Header Documentation</title></head><body bgcolor=\"#cccccc\"><h1>Header Documentation</h1><hr><br>\n";
+    my $htmlHeader = "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0 Transitional//EN\"\n    \"http://www.w3.org/TR/1998/REC-html40-19980424/loose.dtd\">\n";
+    $htmlHeader .= "<html>\n<head>\n    <title>Header Documentation</title>\n	<meta name=\"generator\" content=\"HeaderDoc\">\n</head>\n<body bgcolor=\"#cccccc\"><h1>Header Documentation</h1><hr><br>\n";
     my $headerSection = "<h2>Headers</h2>\n<blockquote>\n".$headersLinkString."\n</blockquote>\n";
     my $classesSection = '';
     if (length($classesLinkString)) {

@@ -1,4 +1,28 @@
 /*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * mslpd_reader.c : Serialized registration file reader for mslpd.
  *
  *   This file transforms the serialized reg file into the store for
@@ -91,6 +115,9 @@
  *   This data structure is static, but requires little space.
  */
 
+ /*
+	Portions Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ */
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
@@ -148,8 +175,6 @@ SLPInternalError process_regfile(SAStore *pstore, const char *pcFile)
 	char pcLine[MAXLINE];
 	int count = 0;  /* used for counting lines */
 	int item  = 0;  /* used for keeping track of most recent entry index */
-//	const char *pcSL = SLPGetProperty("net.slp.useScopes");
-//	const char *pcSL = SLPGetProperty("com.apple.slp.defaultRegistrationScope");
     const char *pcSL = GetEncodedScopeToRegisterIn();
 	assert(pcSL); /* the scope list has to be defined at this point! */
 
@@ -669,7 +694,6 @@ static SLPInternalError fill_attrs(FILE *fp, char *pcLine, SAStore *pstore, int 
         pcTrim = list_pack(pcTemp);
         SLPFree(pcTemp);
         
-#if 1
         // we don't care if the scope is in the scope list or not, we'll just add it to the scope
         // list right now!
         if (!list_subset(pcTrim, SLPGetProperty("net.slp.useScopes"))) 
@@ -682,18 +706,6 @@ static SLPInternalError fill_attrs(FILE *fp, char *pcLine, SAStore *pstore, int 
         } 
     
         pstore->scope[item] = pcTrim;
-#else
-        if (!list_subset(pcTrim,pcSL)) 
-        {
-            mslplog(SLP_LOG_ERR, "fill_attrs: unconfigured scope in service registration", pcLine);
-            SLPFree(pcTrim);
-            pstore->scope[item] = safe_malloc(strlen(pcSL)+1,pcSL,strlen(pcSL));
-        } 
-        else 
-        {
-            pstore->scope[item] = pcTrim;
-        }
-#endif
     } 
     else 
     {

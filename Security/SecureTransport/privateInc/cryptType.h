@@ -174,6 +174,13 @@ typedef struct {
 extern const SSLCipherMapping SSL2CipherMap[];
 extern const unsigned SSL2CipherMapCount;
 
+/* Default size of server-generated Diffie-Hellman parameters and keys */
+#ifdef	NDEBUG
+#define SSL_DH_DEFAULT_PRIME_SIZE	1024			/* in bits */
+#else
+#define SSL_DH_DEFAULT_PRIME_SIZE	512				/* in bits */
+#endif
+
 #ifdef __cplusplus
 }
 #endif

@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(mknod, 3)
-	blr
 

@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -30,7 +33,9 @@
  * - initial revision
  */
 
+#include <getopt.h>
 #include <unistd.h>
+#include <sysexits.h>
 
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
@@ -39,11 +44,20 @@
 Boolean	apply	= TRUE;
 
 
+static struct option longopts[] = {
+//	{ "debug",		no_argument,		0,	'd' },
+//	{ "verbose",		no_argument,		0,	'v' },
+//	{ "do-not-apply",	no_argument,		0,	'n' },
+	{ "help",		no_argument,		0,	'?' },
+	{ 0,			0,                      0,	0 }
+};
+
+
 void
 usage(const char *command)
 {
 	SCPrint(TRUE, stderr, CFSTR("usage: %s [-n] new-set-name\n"), command);
-	return;
+	exit (EX_USAGE);
 }
 
 
@@ -67,7 +81,7 @@ main(int argc, char **argv)
 
 	/* process any arguments */
 
-	while ((opt = getopt(argc, argv, "dvn")) != -1)
+	while ((opt = getopt_long(argc, argv, "dvn", longopts, NULL)) != -1)
 		switch(opt) {
 		case 'd':
 			_sc_debug = TRUE;
@@ -146,7 +160,7 @@ main(int argc, char **argv)
 	}
 
 	/* check for set with matching name */
-	for (i=0; i<nSets; i++) {
+	for (i = 0; i < nSets; i++) {
 		CFStringRef	key  = (CFStringRef)    setKeys[i];
 		CFDictionaryRef	dict = (CFDictionaryRef)setVals[i];
 
@@ -163,7 +177,7 @@ main(int argc, char **argv)
 	}
 
 	/* check for set with matching user-defined name */
-	for (i=0; i<nSets; i++) {
+	for (i = 0; i < nSets; i++) {
 		CFStringRef	key  = (CFStringRef)    setKeys[i];
 		CFDictionaryRef	dict = (CFDictionaryRef)setVals[i];
 
@@ -177,18 +191,15 @@ main(int argc, char **argv)
 		}
 	}
 
-	if (argc == 2) {
-		SCPrint(TRUE, stderr, CFSTR("Set \"%@\" not available.\n"), newSet);
-	} else {
-		usage(command);
+	if (argc == 1) {
+		SCPrint(TRUE, stderr, CFSTR("Set \"%@\" not available.\n\n"), newSet);
 	}
 
-	SCPrint(TRUE, stderr, CFSTR("\n"));
 	SCPrint(TRUE, stderr,
 		CFSTR("Defined sets include:%s\n"),
 		(currentMatched > 0) ? " (* == current set)" : "");
 
-	for (i=0; i<nSets; i++) {
+	for (i = 0; i < nSets; i++) {
 		CFStringRef	key  = (CFStringRef)    setKeys[i];
 		CFDictionaryRef	dict = (CFDictionaryRef)setVals[i];
 		CFStringRef	udn  = CFDictionaryGetValue(dict, kSCPropUserDefinedName);

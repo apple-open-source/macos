@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -31,6 +34,9 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <mach/mach_time.h>	// for dsTimeStamp
+#include <syslog.h>			// for syslog()
+
 
 
 //--------------------------------------------------------------------------------------------------
@@ -1028,3 +1034,107 @@ tDirStatus dsAuthBufferGetDataListPriv ( tDataBufferPtr inAuthBuff, tDataListPtr
 	return( tResult );
 
 } // dsAuthBufferGetDataListPriv
+
+
+// --------------------------------------------------------------------------------
+//	BinaryToHexConversion
+// --------------------------------------------------------------------------------
+void BinaryToHexConversion( const unsigned char *inBinary, unsigned long inLength, char *outHexStr )
+{
+    const unsigned char		   *sptr	= inBinary;
+    char					   *tptr	= outHexStr;
+    unsigned long 				index	= 0;
+    char 						high;
+	char						low;
+    
+    for ( index = 0; index < inLength; index++ )
+    {
+        high	= (*sptr & 0xF0) >> 4;
+        low		= (*sptr & 0x0F);
+        
+        if ( high >= 0x0A )
+            *tptr++ = (high - 0x0A) + 'A';
+        else
+            *tptr++ = high + '0';
+            
+        if ( low >= 0x0A )
+            *tptr++ = (low - 0x0A) + 'A';
+        else
+            *tptr++ = low + '0';
+            
+        sptr++;
+    }
+    
+    *tptr = '\0';
+}
+
+
+// --------------------------------------------------------------------------------
+//	HexToBinaryConversion
+// --------------------------------------------------------------------------------
+
+void HexToBinaryConversion( const char *inHexStr, unsigned long *outLength, unsigned char *outBinary )
+{
+    unsigned char	   *tptr = outBinary;
+    unsigned char		val;
+    
+    while ( *inHexStr && *(inHexStr+1) )
+    {
+        if ( *inHexStr >= 'A' )
+            val = (*inHexStr - 'A' + 0x0A) << 4;
+        else
+            val = (*inHexStr - '0') << 4;
+        
+        inHexStr++;
+        
+        if ( *inHexStr >= 'A' )
+            val += (*inHexStr - 'A' + 0x0A);
+        else
+            val += (*inHexStr - '0');
+        
+        inHexStr++;
+        
+        *tptr++ = val;
+    }
+    
+    *outLength = (tptr - outBinary);
+}
+
+//--------------------------------------------------------------------------------------------------
+//	Name:	dsTimestamp
+//
+//--------------------------------------------------------------------------------------------------
+// Actually, [gettimeofday] is not so great, since it uses the calendar clock and has to call into the kernel. 
+// mach_absolute_time() doesn't call into the kernel (on platforms where it doesn't have to...) 
+// This is done for you by mach_absolute_time() and mach_timebase_info().
+
+double dsTimestamp(void)
+{
+	static uint32_t	num		= 0;
+	static uint32_t	denom	= 0;
+	uint64_t		now;
+	
+	if (denom == 0) 
+	{
+		struct mach_timebase_info tbi;
+		kern_return_t r;
+		r = mach_timebase_info(&tbi);
+		if (r != KERN_SUCCESS) 
+		{
+			syslog( LOG_ALERT, "Warning: mach_timebase_info FAILED! - error = %u\n", r);
+			return 0;
+		}
+		else
+		{
+			num		= tbi.numer;
+			denom	= tbi.denom;
+		}
+	}
+	now = mach_absolute_time();
+	
+//	return (double)(now * (double)num / denom / NSEC_PER_SEC);	// return seconds
+	return (double)(now * (double)num / denom / NSEC_PER_USEC);	// return microsecs
+//	return (double)(now * (double)num / denom);	// return nanoseconds
+}
+
+

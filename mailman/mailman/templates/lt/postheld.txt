@@ -1,0 +1,10 @@
+Jûsø laiðkas diskusijø forumui tema: %(subject)s
+Laukia forumo %(listname)s priþiûrëtojo patvirtinimo.
+
+To prieþastis yra:
+
+    %(reason)s
+
+Laiðkas pateks á forumà arba Jums bus praneðta apie priþiûrëtojo sprendimà.
+
+Iðtrinti laiðkà galite adresu: %(confirmurl)s

@@ -23,6 +23,8 @@
 #include "parsesup.h"
 #include "nvlists.h"
 
+static int get_next_inet_entry( int fd, pset_h sconfs, 
+                          struct service_config *defaults);
 
 void parse_inet_conf_file( int fd, struct configuration *confp )
 {
@@ -46,15 +48,15 @@ int get_next_inet_entry( int fd, pset_h sconfs,
    char *line = next_line(fd);
    struct service_config *scp;
    unsigned u, i;
-   char *func = "get_next_inet_entry";
+   const char *func = "get_next_inet_entry";
    char *name = NULL, *rpcvers = NULL, *rpcproto = NULL;
    char *group, *proto, *stype;
    const struct name_value *nvp;
    struct protoent *pep ;
    struct passwd *pw ;
    struct group *grp ;
-   char *dot = ".";
-   char *slash = "/";
+   const char *dot = ".";
+   const char *slash = "/";
    pset_h args;
    
    if( line == CHAR_NULL )
@@ -79,14 +81,17 @@ int get_next_inet_entry( int fd, pset_h sconfs,
       if( pset_add(args, p) == NULL )
       {
          parsemsg( LOG_CRIT, func, ES_NOMEM );
+         pset_destroy(args);
          return -1;
       }
    }
+   str_endparse( strp );
 
    /* get the service name */
    name = new_string((char *)pset_pointer( args, 0 ));
    if( name == NULL ) {
       parsemsg( LOG_ERR, func, "inetd.conf - Invalid service name" );
+      pset_destroy(args);
       return -1;
    }
 
@@ -100,8 +105,15 @@ int get_next_inet_entry( int fd, pset_h sconfs,
    if( scp == NULL )
    {
       pset_destroy(args);
+      free( name );
       return -1;
    }
+   /*
+    * sc_alloc makes its own copy of name. At this point, sc_alloc worked
+    * so we will free our copy to avoid leaks.
+    */
+   free( name );
+
    /* Replicate inetd behavior in this regard.  Also makes sure the
     * service actually works on system where setgroups(0,NULL) doesn't
     * work.
@@ -113,6 +125,8 @@ int get_next_inet_entry( int fd, pset_h sconfs,
    stype = (char *)pset_pointer(args, 1);
    if( stype == NULL ) {
       parsemsg( LOG_ERR, func, "inetd.conf - Invalid socket type" );
+      pset_destroy(args);
+      sc_free(scp);
       return -1;
    }
    nvp = nv_find_value( socket_types, stype );
@@ -135,6 +149,7 @@ int get_next_inet_entry( int fd, pset_h sconfs,
 
       if( rpcvers == NULL ) {
          pset_destroy(args);
+         sc_free(scp);
          return -1;
          /* uh oh */
       }
@@ -143,11 +158,13 @@ int get_next_inet_entry( int fd, pset_h sconfs,
       if( p && parse_int(rpcvers, 10, '-', &rpcmin) == 0 ) {
          if( parse_base10(p + 1, &rpcmax) || rpcmin > rpcmax ) {
             pset_destroy(args);
+            sc_free(scp);
             return -1;
          }
       } else {
          if( parse_base10(rpcvers, &rpcmin) ) {
             pset_destroy(args);
+            sc_free(scp);
             return -1;
          }
 
@@ -205,6 +222,7 @@ int get_next_inet_entry( int fd, pset_h sconfs,
    p = (char *)pset_pointer(args, 3);
    if ( p == NULL ) {
       parsemsg( LOG_ERR, func, "inetd.conf - No value specified for wait" );
+      sc_free(scp);
       return -1;
    }
    if ( EQ( p, "wait" ) )
@@ -218,6 +236,7 @@ int get_next_inet_entry( int fd, pset_h sconfs,
    p = (char *)pset_pointer(args, 4);
    if ( p == NULL ) {
       parsemsg( LOG_ERR, func, "inetd.conf - No value specified for user" );
+      sc_free(scp);
       return -1;
    }
    if( (group = strstr(p, dot)) )
@@ -254,6 +273,7 @@ int get_next_inet_entry( int fd, pset_h sconfs,
    p = (char *)pset_pointer(args, 5);
    if ( p == NULL ) {
       parsemsg( LOG_ERR, func, "inetd.conf - No value specified for user" );
+      sc_free(scp);
       return -1;
    }
    if( EQ( p, "internal" ) ) 
@@ -393,7 +413,8 @@ int get_next_inet_entry( int fd, pset_h sconfs,
       return -1;
    }
 
-   parsemsg( LOG_ERR, __FUNCTION__, "added service %s", scp->sc_name);
+   pset_destroy(args);
+   parsemsg( LOG_DEBUG, func, "added service %s", scp->sc_name);
    return 0;
 }
 

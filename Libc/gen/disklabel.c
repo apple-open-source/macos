@@ -71,8 +71,10 @@
 #include <unistd.h>
 #include <ctype.h>
 
-static int	error __P((int));
-static int	gettype __P((char *, char **));
+#ifdef unused
+static int	error(int);
+#endif // unused
+static int	gettype(char *, char **);
 
 struct disklabel *
 getdiskbyname(name)
@@ -192,6 +194,7 @@ gettype(t, names)
 	return (0);
 }
 
+#ifdef unused
 static int
 error(err)
 	int err;
@@ -205,3 +208,4 @@ error(err)
 	(void)write(STDERR_FILENO, p, strlen(p));
 	(void)write(STDERR_FILENO, "\n", 1);
 }
+#endif // unused

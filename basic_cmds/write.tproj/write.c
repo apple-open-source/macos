@@ -1,44 +1,93 @@
-/* 
- * Copyright (c) 1995 NeXT Computer, Inc. All Rights Reserved
- *
+/*
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
  * This code is derived from software contributed to Berkeley by
  * Jef Poskanzer and Craig Leres of the Lawrence Berkeley Laboratory.
  *
- * The NEXTSTEP Software License Agreement specifies the terms
- * and conditions for redistribution.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. All advertising materials mentioning features or use of this software
+ *    must display the following acknowledgement:
+ *	This product includes software developed by the University of
+ *	California, Berkeley and its contributors.
+ * 4. Neither the name of the University nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
  *
- *	@(#)write.c	8.2 (Berkeley) 4/27/95
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
  */
 
+#ifndef lint
+static const char copyright[] =
+"@(#) Copyright (c) 1989, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
+#endif
+
+#if 0
+#ifndef lint
+static char sccsid[] = "@(#)write.c	8.1 (Berkeley) 6/6/93";
+#endif
+#endif
+
+#include <sys/cdefs.h>
+__RCSID("$FreeBSD: src/usr.bin/write/write.c,v 1.17 2002/09/04 23:29:09 dwmalone Exp $");
 
 #include <sys/param.h>
 #include <sys/signal.h>
 #include <sys/stat.h>
 #include <sys/file.h>
 #include <sys/time.h>
-
-#include <err.h>
-#include <utmp.h>
 #include <ctype.h>
+#include <err.h>
+#include <locale.h>
+#include <paths.h>
 #include <pwd.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <utmp.h>
 
-extern int errno;
+void done(int);
+void do_write(char *, char *, uid_t);
+static void usage(void);
+int term_chk(char *, int *, time_t *, int);
+void wr_fputs(unsigned char *s);
+void search_utmp(char *, char *, char *, uid_t);
+int utmp_chk(char *, char *);
 
-main(argc, argv)
-	int argc;
-	char **argv;
+int
+main(int argc, char **argv)
 {
-	register char *cp;
+	char *cp;
 	time_t atime;
 	uid_t myuid;
 	int msgsok, myttyfd;
-	char tty[MAXPATHLEN], *mytty, *ttyname();
-	void done();
+	char tty[MAXPATHLEN], *mytty;
+
+	(void)setlocale(LC_CTYPE, "");
+
+	while (getopt(argc, argv, "") != -1)
+		usage();
+	argc -= optind;
+	argv += optind;
 
 	/* check that sender has write enabled */
 	if (isatty(fileno(stdin)))
@@ -51,7 +100,7 @@ main(argc, argv)
 		errx(1, "can't find your tty");
 	if (!(mytty = ttyname(myttyfd)))
 		errx(1, "can't find your tty's name");
-	if (cp = strrchr(mytty, '/'))
+	if ((cp = rindex(mytty, '/')))
 		mytty = cp + 1;
 	if (term_chk(mytty, &msgsok, &atime, 1))
 		exit(1);
@@ -62,37 +111,41 @@ main(argc, argv)
 
 	/* check args */
 	switch (argc) {
-	case 2:
-		search_utmp(argv[1], tty, mytty, myuid);
+	case 1:
+		search_utmp(argv[0], tty, mytty, myuid);
 		do_write(tty, mytty, myuid);
 		break;
-	case 3:
-		if (!strncmp(argv[2], "/dev/", 5))
-			argv[2] += 5;
-		if (utmp_chk(argv[1], argv[2]))
-			errx(1, "%s is not logged in on %s",
-			    argv[1], argv[2]);
-		if (term_chk(argv[2], &msgsok, &atime, 1))
+	case 2:
+		if (!strncmp(argv[1], _PATH_DEV, strlen(_PATH_DEV)))
+			argv[1] += strlen(_PATH_DEV);
+		if (utmp_chk(argv[0], argv[1]))
+			errx(1, "%s is not logged in on %s", argv[0], argv[1]);
+		if (term_chk(argv[1], &msgsok, &atime, 1))
 			exit(1);
 		if (myuid && !msgsok)
-			errx(1, "%s has messages disabled on %s",
-			    argv[1], argv[2]);
-		do_write(argv[2], mytty, myuid);
+			errx(1, "%s has messages disabled on %s", argv[0], argv[1]);
+		do_write(argv[1], mytty, myuid);
 		break;
 	default:
-		(void)fprintf(stderr, "usage: write user [tty]\n");
-		exit(1);
+		usage();
 	}
-	done();
-	/* NOTREACHED */
+	done(0);
+	return (0);
+}
+
+static void
+usage(void)
+{
+	(void)fprintf(stderr, "usage: write user [tty]\n");
+	exit(1);
 }
 
 /*
  * utmp_chk - checks that the given user is actually logged in on
  *     the given tty
  */
-utmp_chk(user, tty)
-	char *user, *tty;
+int
+utmp_chk(char *user, char *tty)
 {
 	struct utmp u;
 	int ufd;
@@ -122,9 +175,8 @@ utmp_chk(user, tty)
  * Special case for writing to yourself - ignore the terminal you're
  * writing from, unless that's the only terminal with messages enabled.
  */
-search_utmp(user, tty, mytty, myuid)
-	char *user, *tty, *mytty;
-	uid_t myuid;
+void
+search_utmp(char *user, char *tty, char *mytty, uid_t myuid)
 {
 	struct utmp u;
 	time_t bestatime, atime;
@@ -132,7 +184,7 @@ search_utmp(user, tty, mytty, myuid)
 	char atty[UT_LINESIZE + 1];
 
 	if ((ufd = open(_PATH_UTMP, O_RDONLY)) < 0)
-		err(1, "%s", _PATH_UTMP);
+		err(1, "utmp");
 
 	nloggedttys = nttys = 0;
 	bestatime = 0;
@@ -166,24 +218,22 @@ search_utmp(user, tty, mytty, myuid)
 			return;
 		}
 		errx(1, "%s has messages disabled", user);
-	} else if (nttys > 1)
-		warnx("%s is logged in more than once; writing to %s",
-		    user, tty);
+	} else if (nttys > 1) {
+		warnx("%s is logged in more than once; writing to %s", user, tty);
+	}
 }
 
 /*
  * term_chk - check that a terminal exists, and get the message bit
  *     and the access time
  */
-term_chk(tty, msgsokP, atimeP, showerror)
-	char *tty;
-	int *msgsokP, showerror;
-	time_t *atimeP;
+int
+term_chk(char *tty, int *msgsokP, time_t *atimeP, int showerror)
 {
 	struct stat s;
 	char path[MAXPATHLEN];
 
-	(void)sprintf(path, "/dev/%s", tty);
+	(void)snprintf(path, sizeof(path), "%s%s", _PATH_DEV, tty);
 	if (stat(path, &s) < 0) {
 		if (showerror)
 			warn("%s", path);
@@ -197,24 +247,24 @@ term_chk(tty, msgsokP, atimeP, showerror)
 /*
  * do_write - actually make the connection
  */
-do_write(tty, mytty, myuid)
-	char *tty, *mytty;
-	uid_t myuid;
+void
+do_write(char *tty, char *mytty, uid_t myuid)
 {
-	register char *login, *nows;
-	register struct passwd *pwd;
-	time_t now, time();
-	char *getlogin(), path[MAXPATHLEN], host[MAXHOSTNAMELEN], line[512];
-	void done();
+	const char *login;
+	char *nows;
+	struct passwd *pwd;
+	time_t now;
+	char path[MAXPATHLEN], host[MAXHOSTNAMELEN], line[512];
 
 	/* Determine our login name before the we reopen() stdout */
-	if ((login = getlogin()) == NULL)
-		if (pwd = getpwuid(myuid))
+	if ((login = getlogin()) == NULL) {
+		if ((pwd = getpwuid(myuid)))
 			login = pwd->pw_name;
 		else
 			login = "???";
+	}
 
-	(void)sprintf(path, "/dev/%s", tty);
+	(void)snprintf(path, sizeof(path), "%s%s", _PATH_DEV, tty);
 	if ((freopen(path, "w", stdout)) == NULL)
 		err(1, "%s", path);
 
@@ -238,7 +288,7 @@ do_write(tty, mytty, myuid)
  * done - cleanup and exit
  */
 void
-done()
+done(int n)
 {
 	(void)printf("EOF\r\n");
 	exit(0);
@@ -248,26 +298,32 @@ done()
  * wr_fputs - like fputs(), but makes control characters visible and
  *     turns \n into \r\n
  */
-wr_fputs(s)
-	register char *s;
+void
+wr_fputs(unsigned char *s)
 {
-	register char c;
 
-#define	PUTC(c)	if (putchar(c) == EOF) goto err;
+#define	PUTC(c)	if (putchar(c) == EOF) err(1, NULL);
 
 	for (; *s != '\0'; ++s) {
-		c = toascii(*s);
-		if (c == '\n') {
+		if (*s == '\n') {
 			PUTC('\r');
-			PUTC('\n');
-		} else if (!isprint(c) && !isspace(c) && c != '\007') {
-			PUTC('^');
-			PUTC(c^0x40);	/* DEL to ?, others to alpha */
-		} else
-			PUTC(c);
+		} else if (((*s & 0x80) && *s < 0xA0) ||
+			   /* disable upper controls */
+			   (!isprint(*s) && !isspace(*s) &&
+			    *s != '\a' && *s != '\b')
+			  ) {
+			if (*s & 0x80) {
+				*s &= ~0x80;
+				PUTC('M');
+				PUTC('-');
+			}
+			if (iscntrl(*s)) {
+				*s ^= 0x40;
+				PUTC('^');
+			}
+		}
+		PUTC(*s);
 	}
 	return;
-
-err:	err(1, NULL);
 #undef PUTC
 }

@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/servers/slurpd/fm.c,v 1.16 2002/01/04 20:17:57 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slurpd/fm.c,v 1.16.2.5 2003/03/26 15:45:13 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*
@@ -26,6 +26,7 @@
 #include <ac/stdlib.h>
 #include <ac/string.h>
 #include <ac/signal.h>
+#include <ac/socket.h>
 
 #include "slurp.h"
 #include "globals.h"
@@ -36,7 +37,6 @@
  */
 static char *get_record LDAP_P(( FILE * ));
 static void populate_queue LDAP_P(( char *f ));
-static RETSIGTYPE set_shutdown LDAP_P((int));
 
 
 /*
@@ -53,18 +53,19 @@ fm(
 )
 {
     int rc;
+    int i;
+    fd_set readfds;
 
     /* Set up our signal handlers:
      * SIG{TERM,INT,HUP} causes a shutdown
-     * LDAP_SIGUSR1 - does nothing, used to wake up sleeping threads.
-	 * LDAP_SIGUSR2 - causes a shutdown
      */
-    (void) SIGNAL( LDAP_SIGUSR1, do_nothing );
-    (void) SIGNAL( LDAP_SIGUSR2, set_shutdown );
-    (void) SIGNAL( SIGTERM, set_shutdown );
-    (void) SIGNAL( SIGINT, set_shutdown );
+    (void) SIGNAL( SIGTERM, slurp_set_shutdown );
+    (void) SIGNAL( SIGINT, slurp_set_shutdown );
 #ifdef SIGHUP
-    (void) SIGNAL( SIGHUP, set_shutdown );
+    (void) SIGNAL( SIGHUP, slurp_set_shutdown );
+#endif
+#if defined(SIGBREAK) && defined(HAVE_NT_SERVICE_MANAGER)
+    (void) SIGNAL( SIGBREAK, do_nothing );
 #endif
 
     if ( sglob->one_shot_mode ) {
@@ -87,25 +88,42 @@ fm(
 	populate_queue( sglob->slurpd_replogfile );
     }
 
+    FD_ZERO( &readfds );
 
     while ( !sglob->slurpd_shutdown ) {
 	if ( file_nonempty( sglob->slapd_replogfile )) {
 	    /* New work found - copy to slurpd replog file */
+#ifdef NEW_LOGGING
+    	LDAP_LOG ( SLURPD, ARGS, 
+			"fm: new work in %s\n", sglob->slapd_replogfile, 0, 0 );
+#else
 	    Debug( LDAP_DEBUG_ARGS, "new work in %s\n",
 		    sglob->slapd_replogfile, 0, 0 );
+#endif
 	    if (( rc = copy_replog( sglob->slapd_replogfile,
 		    sglob->slurpd_replogfile )) == 0 )  {
 		populate_queue( sglob->slurpd_replogfile );
 	    } else {
 		if ( rc < 0 ) {
+#ifdef NEW_LOGGING
+    		LDAP_LOG ( SLURPD, CRIT, 
+				"fm: Fatal error while copying replication log\n" , 0, 0, 0);
+#else
 		    Debug( LDAP_DEBUG_ANY,
 			    "Fatal error while copying replication log\n",
 			    0, 0, 0 );
+#endif
 		    sglob->slurpd_shutdown = 1;
 		}
 	    }
 	} else {
-	    ldap_pvt_thread_sleep( sglob->no_work_interval );
+	    struct timeval tv;
+
+    	    FD_SET( sglob->wake_sds[0], &readfds );
+	    tv.tv_sec = sglob->no_work_interval;
+	    tv.tv_usec = 0;
+
+	    rc = select( sglob->wake_sds[0]+1, &readfds, NULL, NULL, &tv );
 	}
 
 	/* Garbage-collect queue */
@@ -116,16 +134,32 @@ fm(
 	    FILE *fp, *lfp;
 	    if (( rc = acquire_lock( sglob->slurpd_replogfile, &fp,
 		    &lfp )) < 0 ) {
+#ifdef NEW_LOGGING
+   		LDAP_LOG ( SLURPD, ERR, 
+			"fm: Error: cannot acquire lock on \"%s\" for trimming\n",
+			sglob->slurpd_replogfile, 0, 0 );
+#else
 		Debug( LDAP_DEBUG_ANY,
 			"Error: cannot acquire lock on \"%s\" for trimming\n",
 			sglob->slurpd_replogfile, 0, 0 );
+#endif
 	    } else {
 		sglob->rq->rq_write( sglob->rq, fp );
 		(void) relinquish_lock( sglob->slurpd_replogfile, fp, lfp );
 	    }
 	}
     }
+    sglob->rq->rq_lock( sglob->rq );			/* lock queue */
+    ldap_pvt_thread_cond_broadcast( &(sglob->rq->rq_more) );	/* wake repl threads */
+    for ( i = 0; i < sglob->num_replicas; i++ ) {
+	(sglob->replicas[ i ])->ri_wake( sglob->replicas[ i ]);
+    }
+    sglob->rq->rq_unlock( sglob->rq );			/* unlock queue */
+#ifdef NEW_LOGGING
+	LDAP_LOG ( SLURPD, RESULTS, "fm: exiting\n", 0, 0, 0 );
+#else
     Debug( LDAP_DEBUG_ARGS, "fm: exiting\n", 0, 0, 0 );
+#endif
     return NULL;
 }
 
@@ -135,20 +169,13 @@ fm(
 /*
  * Set a global flag which signals that we're shutting down.
  */
-static RETSIGTYPE
-set_shutdown(int sig)
+RETSIGTYPE
+slurp_set_shutdown(int sig)
 {
-    int	i;
-
     sglob->slurpd_shutdown = 1;				/* set flag */
-    ldap_pvt_thread_kill( sglob->fm_tid, LDAP_SIGUSR1 );	/* wake up file mgr */
-    sglob->rq->rq_lock( sglob->rq );			/* lock queue */
-    ldap_pvt_thread_cond_broadcast( &(sglob->rq->rq_more) );	/* wake repl threads */
-    for ( i = 0; i < sglob->num_replicas; i++ ) {
-	(sglob->replicas[ i ])->ri_wake( sglob->replicas[ i ]);
-    }
-    sglob->rq->rq_unlock( sglob->rq );			/* unlock queue */
-    (void) SIGNAL_REINSTALL( sig, set_shutdown );	/* reinstall handlers */
+    tcp_write( sglob->wake_sds[1], "0", 1);		/* wake up file mgr */
+
+    (void) SIGNAL_REINSTALL( sig, slurp_set_shutdown );	/* reinstall handlers */
 }
 
 
@@ -179,9 +206,15 @@ populate_queue(
     char	*p;
 
     if ( acquire_lock( f, &fp, &lfp ) < 0 ) {
+#ifdef NEW_LOGGING
+	LDAP_LOG ( SLURPD, ERR, 
+		"populate_queue: error: can't lock file \"%s\": %s\n", 
+		f, sys_errlist[ errno ], 0 );
+#else
 	Debug( LDAP_DEBUG_ANY,
 		"error: can't lock file \"%s\": %s\n",
 		f, sys_errlist[ errno ], 0 );
+#endif
 	return;
     }
 
@@ -190,9 +223,15 @@ populate_queue(
      * the queue.
      */
     if ( fseek( fp, sglob->srpos, 0 ) < 0 ) {
+#ifdef NEW_LOGGING
+	LDAP_LOG ( SLURPD, ERR, 
+		"populate_queue: error: can't seek to offset %ld in file \"%s\"\n", 
+		sglob->srpos, f, 0 );
+#else
 	Debug( LDAP_DEBUG_ANY,
 		"error: can't seek to offset %ld in file \"%s\"\n",
 		sglob->srpos, f, 0 );
+#endif
     } else {
     while (( p = get_record( fp )) != NULL ) {
 	if ( sglob->rq->rq_add( sglob->rq, p ) < 0 ) {
@@ -201,9 +240,15 @@ populate_queue(
 	    if (( t = strchr( p, '\n' )) != NULL ) {
 		*t = '\0';
 	    }
+#ifdef NEW_LOGGING
+		LDAP_LOG ( SLURPD, ERR, 
+			"populate_queue: error: malformed replog entry "
+			"(begins with \"%s\")\n", p, 0, 0 );
+#else
 	    Debug( LDAP_DEBUG_ANY,
 		    "error: malformed replog entry (begins with \"%s\")\n",
 		    p, 0, 0 );
+#endif
 	}
 	free( p );
 	ldap_pvt_thread_yield();

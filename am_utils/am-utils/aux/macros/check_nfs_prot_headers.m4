@@ -53,8 +53,10 @@ case "${host_os}" in
 			ac_cv_nfs_prot_headers=aix4 ;;
 	aix4.2* )
 			ac_cv_nfs_prot_headers=aix4_2 ;;
-	aix* )
+	aix4.3* )
 			ac_cv_nfs_prot_headers=aix4_3 ;;
+	aix* )
+			ac_cv_nfs_prot_headers=aix5_1 ;;
 	osf[[1-3]]* )
 			ac_cv_nfs_prot_headers=osf2 ;;
 	osf4* )

@@ -1,5 +1,3 @@
-/*	$NetBSD: echo.c,v 1.8 1997/11/05 21:19:56 cgd Exp $	*/
-
 /*
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,34 +31,29 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT(
+static char const copyright[] =
 "@(#) Copyright (c) 1989, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)echo.c	8.1 (Berkeley) 5/31/93";
-#else
-__RCSID("$NetBSD: echo.c,v 1.8 1997/11/05 21:19:56 cgd Exp $");
 #endif
 #endif /* not lint */
+#include <sys/cdefs.h>
+__RCSID("$FreeBSD: src/bin/echo/echo.c,v 1.13 2002/06/30 05:13:53 obrien Exp $");
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-int	main __P((int, char *[]));
-
 /* ARGSUSED */
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
-	int nflag;
+	int nflag;	/* if not set, output a trailing newline. */
 
 	/* This utility may NOT do getopt(3) option parsing. */
 	if (*++argv && !strcmp(*argv, "-n")) {
@@ -70,13 +63,31 @@ main(argc, argv)
 	else
 		nflag = 0;
 
-	while (*argv) {
-		(void)printf("%s", *argv);
+	while (argv[0] != NULL) {
+
+		/*
+		 * If the next argument is NULL then this is this
+		 * the last argument, therefore we need to check
+		 * for a trailing \c.
+		 */
+		if (argv[1] == NULL) {
+			size_t len;
+			
+			len = strlen(argv[0]);
+			/* is there room for a '\c' and is there one? */
+			if (len >= 2 &&
+			    argv[0][len - 2] == '\\' &&
+			    argv[0][len - 1] == 'c') {
+				/* chop it and set the no-newline flag. */
+				argv[0][len - 2] = '\0';
+				nflag = 1;
+			}
+		}
+		(void)printf("%s", argv[0]);
 		if (*++argv)
-			(void)putchar(' ');
+			putchar(' ');
 	}
 	if (!nflag)
-		(void)putchar('\n');
-	exit(0);
-	/* NOTREACHED */
+		putchar('\n');
+	return 0;
 }

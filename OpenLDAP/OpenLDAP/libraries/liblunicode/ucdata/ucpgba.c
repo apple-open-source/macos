@@ -21,9 +21,9 @@
  */
 #ifndef lint
 #ifdef __GNUC__
-static char rcsid[] __attribute__ ((unused)) = "$Id: ucpgba.c,v 1.2 2002/07/15 23:45:14 majka Exp $";
+static char rcsid[] __attribute__ ((unused)) = "$Id: ucpgba.c,v 1.3 2003/07/18 01:10:28 jtownsen Exp $";
 #else
-static char rcsid[] = "$Id: ucpgba.c,v 1.2 2002/07/15 23:45:14 majka Exp $";
+static char rcsid[] = "$Id: ucpgba.c,v 1.3 2003/07/18 01:10:28 jtownsen Exp $";
 #endif
 #endif
 

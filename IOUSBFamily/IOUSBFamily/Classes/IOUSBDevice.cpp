@@ -1,5 +1,4 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +21,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 
 //================================================================================================
 //
@@ -71,11 +71,11 @@ extern "C" {
 #define _portHasBeenReset		_expansionData->_portHasBeenReset
 #define _deviceterminating		_expansionData->_deviceterminating
 #define _getConfigLock			_expansionData->_getConfigLock
-#define _doneWaiting			_expansionData->_doneWaiting
-#define _notifiedWhileBooting		_expansionData->_notifiedWhileBooting
 #define _workLoop			_expansionData->_workLoop
 #define _notifierHandlerTimer		_expansionData->_notifierHandlerTimer
 #define _notificationType		_expansionData->_notificationType
+#define _suspendInProgress		_expansionData->_suspendInProgress
+#define _portHasBeenSuspended		_expansionData->_portHasBeenSuspended
 
 #define kNotifyTimerDelay		30000	// in milliseconds = 30 seconds
 #define kUserLoginDelay			20000	// in milliseconds = 20 seconds
@@ -86,7 +86,6 @@ extern "C" {
 //
 //================================================================================================
 //
-extern uid_t	console_user;
 
 
 //================================================================================================
@@ -390,16 +389,15 @@ IOUSBDevice::free()
     {
         if ( _getConfigLock )
             IORecursiveLockFree(_getConfigLock);
-
+    
         if (_workLoop)
         {
             _workLoop->release();
             _workLoop = NULL;
         }
-
-        IOFree(_expansionData, sizeof(ExpansionData));
+	IOFree(_expansionData, sizeof(ExpansionData));
     }
-
+    
     super::free();
 }
 
@@ -432,7 +430,7 @@ IOUSBDevice::start( IOService * provider )
     _endpointZero.wMaxPacketSize = HostToUSBWord(_descriptor.bMaxPacketSize0);
     _endpointZero.bInterval = 0;
 
-    _pipeZero = IOUSBPipe::ToEndpoint(&_endpointZero, _speed, _address, _controller);
+    _pipeZero = IOUSBPipe::ToEndpoint(&_endpointZero, this, _controller);
 
     // See if we have the allowNumConfigsOfZero errata. Some devices have an incorrect device descriptor
     // that specifies a bNumConfigurations value of 0.  We allow those devices to enumerate if we know
@@ -687,7 +685,7 @@ IOUSBDevice::ResetDevice()
     retain();
    _portHasBeenReset = false;
     
-    USBLog(3, "+%s[%p] ResetDevice for port %d", getName(), this, _portNumber );
+    USBLog(5, "+%s[%p] ResetDevice for port %d", getName(), this, _portNumber );
     thread_call_enter( _doPortResetThread );
 
     // Should we do a commandSleep/Wakeup here?
@@ -705,7 +703,7 @@ IOUSBDevice::ResetDevice()
         retries++;
     }
     
-    USBLog(3, "-%s[%p] ResetDevice for port %d", getName(), this, _portNumber );
+    USBLog(5, "-%s[%p] ResetDevice for port %d", getName(), this, _portNumber );
 
     _resetInProgress = false;
     release();
@@ -945,9 +943,12 @@ IOUSBDevice::GetFullConfigurationDescriptor(UInt8 index)
     {
         int 				len;
         IOUSBConfigurationDescHeader	temp;
+        UInt16				idVendor = USBToHostWord(_descriptor.idVendor);
+        UInt16				idProduct = USBToHostWord(_descriptor.idProduct);
 	
 	// 2755742 - workaround for a ill behaved device
-	if ((USBToHostWord(_descriptor.idVendor) == 0x3f0) && (USBToHostWord(_descriptor.idProduct) == 0x1001))
+        // Also do this for Fujitsu scanner VID = 0x4C5 PID = 0x1040
+	if ( ((idVendor == 0x3f0) && (idProduct == 0x1001)) || ((idVendor == 0x4c5) && (idProduct == 0x1040)) )
 	{
 	    USBLog(3, "%s[%p]::GetFullConfigurationDescriptor - assuming config desc length of 39", getName(), this);
 	    len = 39;
@@ -969,7 +970,7 @@ IOUSBDevice::GetFullConfigurationDescriptor(UInt8 index)
 
         if(!localConfigPointer)
         {
-            USBError(1, "%s[%p]::GetFullConfigurationDescriptor - unable to get memory buffer", getName(), this);
+            USBError(1, "%s[%p]::GetFullConfigurationDescriptor - unable to get memory buffer (capacity requested: %d)", getName(), this, len);
             IORecursiveLockUnlock(_getConfigLock);
             return NULL;
         }
@@ -1369,6 +1370,11 @@ IOUSBDevice::matchPropertyTable(OSDictionary * table, SInt32 *score)
     OSString	*userClientInitMatchKey;
     char	logString[256]="";
     
+    if ( table == NULL )
+    {
+        return false;
+    }
+
     bool	vendorPropertyExists = table->getObject(kUSBVendorID);
     bool	productPropertyExists = table->getObject(kUSBProductID);
     bool	deviceReleasePropertyExists = table->getObject(kUSBDeviceReleaseNumber);
@@ -1793,7 +1799,7 @@ IOUSBDevice::GetStringDescriptor(UInt8 index, char *buf, int maxLen, UInt16 lang
 
     USBLog(5, "%s[%p]::GetStringDescriptor Got string descriptor %d, length %d, got %d", getName(), this,
            index, desc[0], request.wLength);
-    
+
     // The following code tries to translate the Unicode string to ascii, but it does a 
     // poor job (in that it does not deal with characters that have the high byte set.
     //
@@ -1895,21 +1901,38 @@ IOUSBDevice::message( UInt32 type, IOService * provider,  void * argument )
                 _usbPlaneParent->release();
             }
             else
+            {
                 err = kIOReturnNoDevice;
+            }
             
            break;
             
         case kIOUSBMessagePortHasBeenResumed:
             // Forward the message to our clients
             //
+            USBLog(5,"%s[%p]: kIOUSBMessagePortHasBeenResumed",getName(),this);
+
+            // Note that we set the following so that the SuspendDevice() loop breaks out on a resume
+            // as well.  This vaiable should be called _portHasBeenSuspendedOrResumed
+            //
+            _portHasBeenSuspended = true;
+            
             messageClients( kIOUSBMessagePortHasBeenResumed, this, _portNumber);
             break;
-            
+
+        case kIOUSBMessagePortHasBeenSuspended:
+            USBLog(5,"%s[%p]: kIOUSBMessagePortHasBeenSuspended with error: 0x%x",getName(),this, * (IOReturn *) argument);
+            _portHasBeenSuspended = true;
+
+            // Forward the message to our clients
+            //
+            messageClients( kIOUSBMessagePortHasBeenSuspended, this, _portNumber);
+            break;
+
         case kIOMessageServiceIsTerminated:
             USBLog(5,"%s[%p]: kIOMessageServiceIsTerminated",getName(),this);
             _deviceterminating = true;
             break;
-
         case kIOMessageServiceIsSuspended:
         case kIOMessageServiceIsResumed:
         case kIOMessageServiceIsRequestingClose:
@@ -2001,72 +2024,64 @@ IOUSBDevice::DisplayUserNotificationForDeviceEntry(OSObject *owner, IOTimerEvent
 void
 IOUSBDevice::DisplayUserNotificationForDevice ()
 {
+    kern_return_t	notificationError = kIOReturnSuccess;
+
+    // We will attempt to display the notification.  If we get an error, we will use a timer to fire the notification again
+    // at some other point, until we don't get an error.
+    //
     USBLog(3,"%s[%p]DisplayUserNotificationForDevice notificationType: %d",getName(), this, _notificationType );
 
-    
-    if (0 == console_user)
+    switch ( _notificationType )
     {
-        USBLog(3,"%s[%p]DisplayUserNotificationForDevice nobody logged in", getName(), this);
-        _notifierHandlerTimer->setTimeoutMS (kNotifyTimerDelay);	// No one logged in yet (except maybe root) reset the timer to fire later.
-        _notifiedWhileBooting = TRUE;
+        case kUSBNotEnoughPowerNotificationType:
+            IOLog("USB Notification:  The device \"%s\" cannot operate because there is not enough power available\n",getName());
+            notificationError = KUNCUserNotificationDisplayNotice(
+                                                                  0,		// Timeout in seconds
+                                                                  0,		// Flags (for later usage)
+                                                                  "",		// iconPath (not supported yet)
+                                                                  "",		// soundPath (not supported yet)
+                                                                  "/System/Library/Extensions/IOUSBFamily.kext",		// localizationPath
+                                                                  "USB Low Power Header",		// the header
+                                                                  "USB Low Power Notice",		// the notice - look in Localizable.strings
+                                                                  "OK");
+            break;
+
+        case kUSBIndividualOverCurrentNotificationType:
+            IOLog("USB Notification:  The device \"%s\" has caused an overcurrent condition.  The port it is attached to has been disabled\n",getName());
+            notificationError = KUNCUserNotificationDisplayNotice(
+                                                                  0,		// Timeout in seconds
+                                                                  0,		// Flags (for later usage)
+                                                                  "",		// iconPath (not supported yet)
+                                                                  "",		// soundPath (not supported yet)
+                                                                  "/System/Library/Extensions/IOUSBFamily.kext",		// localizationPath
+                                                                  "USB OverCurrent Header",					// the header
+                                                                  "USB Individual OverCurrent Notice",				// the notice - look in Localizable.strings
+                                                                  "OK");
+            break;
+
+        case kUSBGangOverCurrentNotificationType:
+            IOLog("USB Notification:  The device \"%s\" has caused an overcurrent condition.  The hub it is attached to has been disabled\n",getName());
+            notificationError = KUNCUserNotificationDisplayNotice(
+                                                                  0,		// Timeout in seconds
+                                                                  0,		// Flags (for later usage)
+                                                                  "",		// iconPath (not supported yet)
+                                                                  "",		// soundPath (not supported yet)
+                                                                  "/System/Library/Extensions/IOUSBFamily.kext",		// localizationPath
+                                                                  "USB OverCurrent Header",					// the header
+                                                                  "USB Gang OverCurrent Notice",				// the notice - look in Localizable.strings
+                                                                  "OK");
+            break;
     }
-    else
+
+    // Check to see if we succeeded
+    //
+    if ( notificationError != kIOReturnSuccess )
     {
-        if (!_doneWaiting && _notifiedWhileBooting)
-        {
-            USBLog(3,"%s[%p]DisplayUserNotificationForDevice waiting for login", getName(), this);
-            // The next time this function is called we'll check the state and display the dialog as needed
-            //
-            _notifierHandlerTimer->setTimeoutMS (kUserLoginDelay);	// Someone has logged in. Delay the notifier so it does not apear behind the login screen.
-            _doneWaiting = TRUE;
-        }
-        else
-        {
-            USBLog(3,"%s[%p]DisplayUserNotificationForDevice displaying notification (%d)", getName(), this, _notificationType);
-            _notifiedWhileBooting = FALSE;
+        // Bummer, we couldn't do it.  Set the time so that we try again later
+        //
+        USBLog(3,"%s[%p]DisplayUserNotificationForDevice returned error 0x%x", getName(), this, notificationError);
 
-            switch ( _notificationType )
-            {
-                case kUSBNotEnoughPowerNotificationType:
-                    IOLog("USB Notification:  The device \"%s\" cannot operate because there is not enough power available\n",getName());
-                    KUNCUserNotificationDisplayNotice(
-                                              0,		// Timeout in seconds
-                                              0,		// Flags (for later usage)
-                                              "",		// iconPath (not supported yet)
-                                              "",		// soundPath (not supported yet)
-                                              "/System/Library/Extensions/IOUSBFamily.kext",		// localizationPath
-                                              "USB Low Power Header",		// the header
-                                              "USB Low Power Notice",		// the notice - look in Localizable.strings
-                                              "OK");
-                    break;
-                    
-                case kUSBIndividualOverCurrentNotificationType:
-                    IOLog("USB Notification:  The device \"%s\" has caused an overcurrent condition.  The port it is attached to has been disabled\n",getName());
-                    KUNCUserNotificationDisplayNotice(
-                                                      0,		// Timeout in seconds
-                                                      0,		// Flags (for later usage)
-                                                      "",		// iconPath (not supported yet)
-                                                      "",		// soundPath (not supported yet)
-                                                      "/System/Library/Extensions/IOUSBFamily.kext",		// localizationPath
-                                                      "USB OverCurrent Header",					// the header
-                                                      "USB Individual OverCurrent Notice",				// the notice - look in Localizable.strings
-                                                      "OK");
-                    break;
-
-                case kUSBGangOverCurrentNotificationType:
-                    IOLog("USB Notification:  The device \"%s\" has caused an overcurrent condition.  The hub it is attached to has been disabled\n",getName());
-                    KUNCUserNotificationDisplayNotice(
-                                                      0,		// Timeout in seconds
-                                                      0,		// Flags (for later usage)
-                                                      "",		// iconPath (not supported yet)
-                                                      "",		// soundPath (not supported yet)
-                                                      "/System/Library/Extensions/IOUSBFamily.kext",		// localizationPath
-                                                      "USB OverCurrent Header",					// the header
-                                                      "USB Gang OverCurrent Notice",				// the notice - look in Localizable.strings
-                                                      "OK");
-                    break;
-            }
-        }
+        _notifierHandlerTimer->setTimeoutMS (kNotifyTimerDelay);	// No one logged in yet (except maybe root) reset the timer to fire later.
     }
 
     return;
@@ -2156,16 +2171,46 @@ OSMetaClassDefineReservedUsed(IOUSBDevice,  2);
 IOReturn
 IOUSBDevice::SuspendDevice( bool suspend )
 {
+    UInt32	retries = 0;
 
-    if (_deviceterminating)
+    if ( _suspendInProgress )
     {
-        USBLog(1, "%s[%p]::SuspendDevice - while terminating!", getName(),  this);
+        USBLog(5, "%s[%p]::SuspendDevice(%d) while in progress", getName(), this, _portNumber );
+        return kIOReturnNotPermitted;
+    }
+
+    if ( isInactive() )
+    {
+        USBLog(1, "%s[%p]::SuspendDevice - while inactive!", getName(), this);
         return kIOReturnNotResponding;
     }
 
-    retain();
+    _suspendInProgress = true;
     
+    retain();
+    _portHasBeenSuspended = false;
+
+    USBLog(5, "+%s[%p]::SuspendDevice for port %d", getName(), this, _portNumber );
     thread_call_enter1( _doPortSuspendThread, (thread_call_param_t) suspend );
+
+    // Should we do a commandSleep/Wakeup here?
+    //
+    while ( !_portHasBeenSuspended && retries < 200 )
+    {
+        IOSleep(50);
+
+        if ( isInactive() )
+        {
+            USBLog(3, "+%s[%p]::SuspendDevice isInactive() while waiting for suspend to finish", getName(), this );
+            break;
+        }
+
+        retries++;
+    }
+
+    USBLog(5, "-%s[%p]::SuspendDevice for port %d", getName(), this, _portNumber );
+
+    _suspendInProgress = false;
 
     return kIOReturnSuccess;
 }
@@ -2283,7 +2328,7 @@ IOUSBDevice::ProcessPortReset()
     }
     
    // Recreate pipe 0 object
-    _pipeZero = IOUSBPipe::ToEndpoint(&_endpointZero, _speed, _address, _controller);
+    _pipeZero = IOUSBPipe::ToEndpoint(&_endpointZero, this, _controller);
     if (!_pipeZero)
     {
         USBError(1,"%s[%p]::ProcessPortReset DANGER could not recreate pipe Zero after reset");
@@ -2510,7 +2555,7 @@ IOUSBDevice::GetPipeZero(void)
 IOUSBPipe * 
 IOUSBDevice::MakePipe(const IOUSBEndpointDescriptor *ep) 
 {
-    return IOUSBPipe::ToEndpoint(ep, _speed, _address, _controller); 
+    return IOUSBPipe::ToEndpoint(ep, this, _controller); 
 }
 
 

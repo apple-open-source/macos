@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -118,15 +121,12 @@ struct msdosfsmount {
 	u_int8_t  pm_lu[128];   /* Local lower->upper table */
 	u_int8_t  pm_d2u[128];  /* DOS->local table */
 	u_int8_t  pm_u2d[128];  /* Local->DOS table */
+	u_int8_t pm_label[64];	/* Volume name/label */
+	u_long pm_label_cluster; /* logical cluster within root that contains the label */
+	u_long pm_label_offset;	/* byte offset of label within above cluster */
 };
 /* Byte offset in FAT on filesystem pmp, cluster cn */
 #define	FATOFS(pmp, cn)	((cn) * (pmp)->pm_fatmult / (pmp)->pm_fatdiv)
-
-#define set_pmuid(PMP)		do { \
-    if (((PMP)->pm_uid != console_user) && \
-        ((PMP)->pm_mountp->mnt_flag & MNT_UNKNOWNPERMISSIONS)) \
-            (PMP)->pm_uid = console_user; \
-} while(0)
 
 #define	VFSTOMSDOSFS(mp)	((struct msdosfsmount *)mp->mnt_data)
 
@@ -217,6 +217,7 @@ struct msdosfsmount {
 
 int msdosfs_init __P((struct vfsconf *vfsp));
 int msdosfs_mountroot __P((void));
+uid_t get_pmuid(struct msdosfsmount *pmp, uid_t current_user);
 
 #endif /* KERNEL */
 
@@ -236,6 +237,8 @@ struct msdosfs_args {
 	u_int8_t  lu[128];      /* Local lower->upper table */
 	u_int8_t  d2u[128];     /* DOS->local table */
 	u_int8_t  u2d[128];     /* Local->DOS table */
+	long	secondsWest;	/* for GMT<->local time conversions */
+	u_int8_t  label[64];	/* Volume label in UTF-8 */
 };
 
 /*
@@ -250,14 +253,18 @@ struct msdosfs_args {
 #define MSDOSFSMNT_U2WTABLE     0x10    /* Local->Unicode and local<->DOS   */
 					/* tables loaded                    */
 #define MSDOSFSMNT_ULTABLE      0x20    /* Local upper<->lower table loaded */
+#define MSDOSFSMNT_SECONDSWEST	0x40	/* Use secondsWest for GMT<->local time conversion */
+#define MSDOSFSMNT_LABEL		0x80	/* UTF-8 volume label in label[]; deprecated */
+
 /* All flags above: */
 #define	MSDOSFSMNT_MNTOPT \
 	(MSDOSFSMNT_SHORTNAME|MSDOSFSMNT_LONGNAME|MSDOSFSMNT_NOWIN95 \
-	 /*|MSDOSFSMNT_GEMDOSFS*/|MSDOSFSMNT_U2WTABLE|MSDOSFSMNT_ULTABLE)
+	 /*|MSDOSFSMNT_GEMDOSFS*/|MSDOSFSMNT_U2WTABLE|MSDOSFSMNT_ULTABLE \
+	 |MSDOSFSMNT_SECONDSWEST|MSDOSFSMNT_LABEL)
 #define	MSDOSFSMNT_RONLY	0x80000000	/* mounted read-only	*/
 #define	MSDOSFSMNT_WAITONFAT	0x40000000	/* mounted synchronous	*/
 #define	MSDOSFS_FATMIRROR	0x20000000	/* FAT is mirrored */
 
-#define MSDOSFS_ARGSMAGIC	0xe4eff300
+#define MSDOSFS_ARGSMAGIC	0xe4eff301
 
 #endif /* !_MSDOSFS_MSDOSFSMOUNT_H_ */

@@ -21,14 +21,14 @@ fi
 
 case "$arch" in
     ppc)
-        gdb="${GDB_ROOT}/usr/libexec/gdb/gdb-powerpc-apple-macos10"
+        gdb="${GDB_ROOT}/usr/libexec/gdb/gdb-powerpc-apple-darwin"
         ;;
     i386)
-        gdb="${GDB_ROOT}/usr/libexec/gdb/gdb-i386-apple-macos10"
+        gdb="${GDB_ROOT}/usr/libexec/gdb/gdb-i386-apple-darwin"
         ;;
     *)
         echo "Unknown architecture '$arch'; using 'ppc' instead.";
-        gdb="${GDB_ROOT}/usr/libexec/gdb/gdb-powerpc-apple-macos10"
+        gdb="${GDB_ROOT}/usr/libexec/gdb/gdb-powerpc-apple-darwin"
         ;;
 esac
 

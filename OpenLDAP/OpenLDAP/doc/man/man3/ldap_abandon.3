@@ -1,9 +1,11 @@
-.TH LDAP_ABANDON 3 "13 January 2002" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man3/ldap_abandon.3,v 1.7 2002/01/13 11:55:55 hyc Exp $
-.\" Copyright 1998-2002 The OpenLDAP Foundation All Rights Reserved.
+.TH LDAP_ABANDON 3 "RELEASEDATE" "OpenLDAP LDVERSION"
+.\" $OpenLDAP: pkg/ldap/doc/man/man3/ldap_abandon.3,v 1.7.2.5 2003/05/05 16:00:45 kurt Exp $
+.\" Copyright 1998-2003 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ldap_abandon, ldap_abandon_ext \- Abandon an LDAP operation in progress
+.SH LIBRARY
+OpenLDAP LDAP (libldap, -lldap)
 .SH SYNOPSIS
 .nf
 .B #include <ldap.h>
@@ -13,6 +15,7 @@ ldap_abandon, ldap_abandon_ext \- Abandon an LDAP operation in progress
 .BI "int ldap_abandon_ext(LDAP *" ld ", int " msgid ","
 .RS
 .BI "LDAPControl *" sctrls "[], LDAPControl *" cctrls "[]);"
+.RE
 .fi
 .SH DESCRIPTION
 The
@@ -55,9 +58,9 @@ See
 .BR ldap_error (3)
 for details.
 .SH SEE ALSO
-.BR ldap(3),
-.BR ldap_result(3),
-.B ldap_error(3)
+.BR ldap (3),
+.BR ldap_result (3),
+.BR ldap_error (3)
 .SH ACKNOWLEDGEMENTS
 .B	OpenLDAP
 is developed and maintained by The OpenLDAP Project (http://www.openldap.org/).

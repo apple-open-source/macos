@@ -1,0 +1,38 @@
+Tere tulemast listi %(real_name)s@%(host_name)s!
+%(welcome)s
+
+Listi postitamiseks on aadress
+
+  %(emailaddr)s
+
+Taustinfot listi kohta saab aadressil
+
+  %(listinfo_url)s
+
+Kui soovite listi tellimust katkestada või tellimuse profiili
+muuta (näiteks listikirjade kättetoimetamise moodust, parooli
+vahetada, vmt), siis külastage aadressi
+
+  %(optionsurl)s
+%(umbrella)s
+
+Neid toimingud on võimalik teha ka meili teel. Selleks tuleb
+aadressile
+
+  %(real_name)s-request@%(host_name)s
+
+saata kiri, mille sisuks üksainus sõna - help
+
+Vastuseks saate listserverilt kasutusjuhendi.
+
+Profiili muutmiseks (k.a. parooli enda muutmiseks) või listi
+tellimuse katkestamiseks on vaja parooli. Teie parool on:
+
+  %(password)s
+
+Üldjuhul saadab Mailman teile meeldetuletusi teie %(host_name)s
+listide paroolide kohta kord kuus, kuid teil on võimalus nende
+meeldetuletuste saamisest loobuda.
+
+See meeldetuletus sisaldab ka juhendeid tellimuse katkestamiseks
+ning tellimuse profiili muutmiseks.

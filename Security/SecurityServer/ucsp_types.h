@@ -32,6 +32,7 @@ using namespace SecurityServer;
 
 typedef void *Data;
 typedef void *Pointer;
+typedef void *BasePointer;
 
 typedef const char *CssmString;
 
@@ -43,6 +44,7 @@ typedef AclEntryInput *AclEntryInputPtr;
 typedef AclEntryInfo *AclEntryInfoPtr;
 typedef AclOwnerPrototype *AclOwnerPrototypePtr;
 typedef AccessCredentials *AccessCredentialsPtr;
+typedef void *ParamInputPtr;
 typedef void *VoidPtr;
 
 typedef DataWalkers::DLDbFlatIdentifier DLDbIdentBlob;
@@ -69,5 +71,12 @@ inline CSSM_KEY &outTrans(CssmKey &key) { return key; }
 		return MIG_SERVER_DIED;
 
 #define UseStaticTemplates 0
+
+
+//
+// MIG-used byte swapping macros
+//
+#define __NDR_convert__int_rep__BasePointer__defined
+#define __NDR_convert__int_rep__BasePointer(a, f)	/* do not flip */
 
 } // end namespace Security

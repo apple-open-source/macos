@@ -103,7 +103,6 @@ mach_host_self()
 
 int mach_init_doit(int forkchild)
 {
-	mach_msg_type_number_t host_info_size;
 	host_t host;
 
 	/*
@@ -139,14 +138,6 @@ int mach_init_doit(int forkchild)
 	/*
 	 *	Cache some other valuable system constants
 	 */
-
-#ifdef HOST_MACH_MSG_TRAP	
-	host_info_size = 0;
-        _host_mach_msg_trap_return_ = host_info(host,
-                                           HOST_MACH_MSG_TRAP,
-                                           0,
-                                           &host_info_size);
-#endif
 
 	(void)host_page_size(host, &vm_page_size);
 

@@ -56,9 +56,9 @@
 #elif BYTE_ORDER == LITTLE_ENDIAN
 
     /* HFS is always big endian, make swaps actually swap */
-    #define SWAP_BE16(__a) 					NXSwapBigShortToHost (__a)
-    #define SWAP_BE32(__a) 					NXSwapBigLongToHost (__a)
-    #define SWAP_BE64(__a) 					NXSwapBigLongLongToHost (__a)
+    #define SWAP_BE16(__a) 				NXSwapBigShortToHost (__a)
+    #define SWAP_BE32(__a) 				NXSwapBigLongToHost (__a)
+    #define SWAP_BE64(__a) 				NXSwapBigLongLongToHost (__a)
     
     #define SWAP_HFSMDB(__a)				hfs_swap_HFSMasterDirectoryBlock ((__a))
     #define SWAP_HFSPLUSVH(__a)				hfs_swap_HFSPlusVolumeHeader ((__a))

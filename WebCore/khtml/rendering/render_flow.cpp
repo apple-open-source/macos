@@ -120,10 +120,6 @@ void RenderFlow::addChild(RenderObject *newChild, RenderObject *beforeChild)
     kdDebug( 6040 ) << "current height = " << m_height << endl;
 #endif
 
-    // Make sure we don't append things after :after-generated content if we have it.
-    if (!beforeChild && lastChild() && lastChild()->style()->styleType() == RenderStyle::AFTER)
-        beforeChild = lastChild();
-    
     if (continuation())
         return addChildWithContinuation(newChild, beforeChild);
     return addChildToFlow(newChild, beforeChild);
@@ -151,10 +147,11 @@ void RenderFlow::detach(RenderArena* renderArena)
     RenderBox::detach(renderArena);
 }
 
-InlineBox* RenderFlow::createInlineBox(bool makePlaceHolderBox)
+InlineBox* RenderFlow::createInlineBox(bool makePlaceHolderBox, bool isRootLineBox)
 {
-    if (isReplaced() || makePlaceHolderBox)          // Inline tables and inline blocks
-        return RenderBox::createInlineBox(false);    // (or positioned element placeholders).
+    if (!isRootLineBox &&
+	(isReplaced() || makePlaceHolderBox))                     // Inline tables and inline blocks
+        return RenderBox::createInlineBox(false, isRootLineBox);  // (or positioned element placeholders).
 
     InlineFlowBox* flowBox = 0;
     if (isInlineFlow())
@@ -253,7 +250,8 @@ void RenderFlow::repaint(bool immediate)
         if (firstLineBox() && firstLineBox()->topOverflow() < 0) {
             int ow = style() ? style()->outlineWidth() : 0;
             repaintRectangle(-ow, -ow+firstLineBox()->topOverflow(),
-                             overflowWidth(false)+ow*2, overflowHeight(false)+ow*2, immediate);
+                             overflowWidth(false)+ow*2,
+                             overflowHeight(false)+ow*2-firstLineBox()->topOverflow(), immediate);
         }
         else
             return RenderBox::repaint(immediate);

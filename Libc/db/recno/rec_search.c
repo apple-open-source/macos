@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,7 +22,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
+/*-
  * Copyright (c) 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -55,6 +55,10 @@
  * SUCH DAMAGE.
  */
 
+#if defined(LIBC_SCCS) && !defined(lint)
+static char sccsid[] = "@(#)rec_search.c	8.4 (Berkeley) 7/14/94";
+#endif /* LIBC_SCCS and not lint */
+#include <sys/cdefs.h>
 
 #include <sys/types.h>
 
@@ -87,8 +91,8 @@ __rec_search(t, recno, op)
 	recno_t recno;
 	enum SRCHOP op;
 {
-	register indx_t index;
-	register PAGE *h;
+	indx_t index;
+	PAGE *h;
 	EPGNO *parent;
 	RINTERNAL *r;
 	pgno_t pg;
@@ -112,8 +116,7 @@ __rec_search(t, recno, op)
 			total += r->nrecs;
 		}
 
-		if (__bt_push(t, pg, index - 1) == RET_ERROR)
-			return (NULL);
+		BT_PUSH(t, pg, index - 1);
 		
 		pg = r->pgno;
 		switch (op) {

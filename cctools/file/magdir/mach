@@ -24,7 +24,8 @@
 >12	lelong		6		dynamically linked shared library
 >12	lelong		7		dynamic linker
 >12	lelong		8		bundle
->12	lelong		>8
+>12	lelong		9		dynamically linked shared library stub
+>12	lelong		>9
 >>12	lelong		x		filetype=%ld
 >4	lelong		<0
 >>4	lelong		x		architecture=%ld
@@ -58,7 +59,8 @@
 >12	belong		6		dynamically linked shared library
 >12	belong		7		dynamic linker
 >12	belong		8		bundle
->12	belong		>8
+>12	belong		9		dynamically linked shared library stub
+>12	belong		>9
 >>12	belong		x		filetype=%ld
 >4	belong		<0
 >>4	belong		x		architecture=%ld

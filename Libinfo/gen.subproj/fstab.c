@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -46,7 +47,7 @@
 #include <sys/stat.h>
 #include <sys/mount.h>
 
-static FILE *_fs_fp;
+static FILE *_fs_fp = NULL;
 static struct fstab _fs_fstab;
 static struct fstab _root_fstab;
 static char _root_fstype[MFSNAMELEN];
@@ -181,7 +182,7 @@ static int fstabscan()
 	}
 
         for (;;) {
-		if (!(cp = fgets(line, sizeof(line), _fs_fp)))
+		if (!(cp = fgets(line, MAXLINELENGTH, _fs_fp)))
 			return(0);
 /* OLD_STYLE_FSTAB */
 		if (!strpbrk(cp, " \t")) {
@@ -191,11 +192,11 @@ static int fstabscan()
 				continue;
 #endif
 			_fs_fstab.fs_file = strtok((char *)NULL, ":\n");
-                        /* Only list the root filesystem once */
-                        if (!(strcmp(_fs_fstab.fs_file, "/"))) {
-                            continue;
-                        }
-                        _fs_fstab.fs_type = strtok((char *)NULL, ":\n");
+			/* Only list the root filesystem once */
+			if (!_fs_fstab.fs_file || !(strcmp(_fs_fstab.fs_file, "/"))) {
+				continue;
+			}
+			_fs_fstab.fs_type = strtok((char *)NULL, ":\n");
 			if (_fs_fstab.fs_type) {
 				if (!strcmp(_fs_fstab.fs_type, FSTAB_XX))
 					continue;

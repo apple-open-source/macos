@@ -25,13 +25,10 @@
 #include <Security/utilities.h>
 #include <Security/cssmlist.h>
 #include <Security/cssmalloc.h>
+#include <list>
 
-#ifdef _CPP_CSSMCRED
-#pragma export on
-#endif
+namespace Security {
 
-namespace Security
-{
 
 //
 // PodWrappers for samples and sample groups
@@ -58,6 +55,11 @@ public:
 
 	const CssmSample &operator [] (uint32 n) const
 	{ assert(n < length()); return CssmSample::overlay(Samples[n]); }
+	
+public:
+	// extract all samples of a given sample type. return true if any found
+	// note that you get a shallow copy of the sample structures for temporary use ONLY
+	bool collect(CSSM_SAMPLE_TYPE sampleType, list<CssmSample> &samples) const;
 };
 
 
@@ -122,6 +124,7 @@ namespace DataWalkers
 template <class Action>
 void walk(Action &operate, CssmSample &sample)
 {
+	operate(sample);
 	walk(operate, sample.value());
 	if (sample.verifier())
 		walk(operate, sample.verifier());
@@ -135,7 +138,9 @@ void walk(Action &operate, const CssmSample &sample)
 template <class Action>
 void walk(Action &operate, SampleGroup &samples)
 {
-	operate(samples.Samples, samples.length() * sizeof(CssmSample));
+	operate(samples);
+	operate.blob(const_cast<CSSM_SAMPLE * &>(samples.Samples),
+		samples.length() * sizeof(CSSM_SAMPLE));
 	for (uint32 n = 0; n < samples.length(); n++)
 		walk(operate, samples[n]);
 }
@@ -155,14 +160,13 @@ template <class Action>
 CSSM_ACCESS_CREDENTIALS *walk(Action &operate, CSSM_ACCESS_CREDENTIALS * &cred)
 { return walk(operate, AccessCredentials::overlayVar(cred)); }
 
+template <class Action>
+AutoCredentials *walk(Action &operate, AutoCredentials * &cred)
+{ return (AutoCredentials *)walk(operate, (AccessCredentials * &)cred); }
+
 
 } // end namespace DataWalkers
-
 } // end namespace Security
-
-#ifdef _CPP_CSSMCRED
-#pragma export off
-#endif
 
 
 #endif //_CSSMCRED

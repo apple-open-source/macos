@@ -7,15 +7,15 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = ApplePS2Mouse ;
-export deferred SRCROOT = /Volumes/Users/markaria/Active/ApplePS2Mouse ;
+export deferred SRCROOT = /Volumes/MacOS/Build/ApplePS2Mouse ;
 
 # User-defined project-wide settings for project
 
 # Target "ApplePS2Mouse"
 
-export deferred _INFO_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/Info.plist" ;
-export deferred _PKGINFO_FILE_PATH = "$(SRCROOT)/pbxbuild.data/PkgInfo" ;
-export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/pbdevelopment.plist" ;
+export deferred _INFO_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/ApplePS2Mouse.build/Info.plist" ;
+export deferred _PKGINFO_FILE_PATH = "$(SRCROOT)/pbxbuild.data/ApplePS2Mouse.build/PkgInfo" ;
+export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/ApplePS2Mouse.build/pbdevelopment.plist" ;
 
 # Implicitly computed build settings for target "ApplePS2Mouse"
 export deferred CLONE_HEADERS = NO ;
@@ -31,7 +31,7 @@ export deferred KERNEL_MODULE = YES ;
 export deferred LIBRARY_SEARCH_PATHS =  ;
 export deferred MODULE_IOKIT = YES ;
 export deferred MODULE_NAME = com.apple.driver.ApplePS2Mouse ;
-export deferred MODULE_VERSION = 1.0.1 ;
+export deferred MODULE_VERSION = 1.0.3 ;
 export deferred OTHER_CFLAGS = -fpermissive ;
 export deferred OTHER_LDFLAGS =  ;
 export deferred OTHER_REZFLAGS =  ;
@@ -57,7 +57,7 @@ commitdeferred ;
 BeginBundle "<ApplePS2Mouse>ApplePS2Mouse.kext" ;
 
 # Script Build Phase Files
-SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/BPTag000-script.sh" ;
+SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/ApplePS2Mouse.build/BPTag000-script.sh" ;
 ProcessScriptBuildPhaseFiles "<ApplePS2Mouse>ApplePS2Mouse.kext" : "$(SCRIPT_BUILD_PHASE_FILES)" : "" : BPTag000 ;
 
 # Headers
@@ -82,7 +82,7 @@ REZ_FILES = ;
 ProcessRezFiles "<ApplePS2Mouse>ApplePS2Mouse.kext" : "$(REZ_FILES)" : BPTag004 : BPTag005 ;
 
 # Script Build Phase Files
-SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/BPTag006-script.sh" ;
+SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/ApplePS2Mouse.build/BPTag006-script.sh" ;
 ProcessScriptBuildPhaseFiles "<ApplePS2Mouse>ApplePS2Mouse.kext" : "$(SCRIPT_BUILD_PHASE_FILES)" : BPTag005 : BPTag006 ;
 
 EndBundle "<ApplePS2Mouse>ApplePS2Mouse.kext" ;

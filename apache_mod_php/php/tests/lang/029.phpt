@@ -1,16 +1,14 @@
 --TEST--
 OO Bug Test (Bug #7515)
---POST--
---GET--
+--SKIPIF--
+<?php if(version_compare(zend_version(), "2.0.0-dev", '<')) echo "skip Zend Engine 2 needed\n"; ?>
+--INI--
+error_reporting=2039
 --FILE--
 <?php
 class obj {
 	function method() {}
-    }
-
-function test($o_copy) {
-	$o_copy->root->set_in_copied_o=TRUE;
- 	var_dump($o_copy);?><BR><?php }
+}
 
 $o->root=new obj();
 
@@ -25,6 +23,14 @@ ob_start();
 var_dump($o);
 $y=ob_get_contents();
 ob_end_clean();
-echo ($x==$y) ? 'success':'failure'; ?>
+if ($x == $y) {
+    print "success";
+} else {
+    print "failure
+x=$x
+y=$y
+";
+}
+?>
 --EXPECT--
 success

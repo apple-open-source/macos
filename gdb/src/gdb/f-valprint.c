@@ -74,11 +74,13 @@ f77_get_dynamic_lowerbound (struct type *type, int *lower_bound)
   switch (TYPE_ARRAY_LOWER_BOUND_TYPE (type))
     {
     case BOUND_BY_VALUE_ON_STACK:
-      current_frame_addr = selected_frame->frame;
+      current_frame_addr = get_frame_base (deprecated_selected_frame);
       if (current_frame_addr > 0)
 	{
-	  *lower_bound = read_memory_unsigned_integer
-	    (current_frame_addr + TYPE_ARRAY_LOWER_BOUND_VALUE (type), 4);
+	  *lower_bound =
+	    read_memory_integer (current_frame_addr +
+				 TYPE_ARRAY_LOWER_BOUND_VALUE (type),
+				 4);
 	}
       else
 	{
@@ -96,12 +98,14 @@ f77_get_dynamic_lowerbound (struct type *type, int *lower_bound)
       break;
 
     case BOUND_BY_REF_ON_STACK:
-      current_frame_addr = selected_frame->frame;
+      current_frame_addr = get_frame_base (deprecated_selected_frame);
       if (current_frame_addr > 0)
 	{
-	  ptr_to_lower_bound = read_memory_unsigned_integer
-	    (current_frame_addr + TYPE_ARRAY_LOWER_BOUND_VALUE (type), 4);
-	  *lower_bound = read_memory_unsigned_integer (ptr_to_lower_bound, 4);
+	  ptr_to_lower_bound =
+	    read_memory_typed_address (current_frame_addr +
+				       TYPE_ARRAY_LOWER_BOUND_VALUE (type),
+				       builtin_type_void_data_ptr);
+	  *lower_bound = read_memory_integer (ptr_to_lower_bound, 4);
 	}
       else
 	{
@@ -128,11 +132,13 @@ f77_get_dynamic_upperbound (struct type *type, int *upper_bound)
   switch (TYPE_ARRAY_UPPER_BOUND_TYPE (type))
     {
     case BOUND_BY_VALUE_ON_STACK:
-      current_frame_addr = selected_frame->frame;
+      current_frame_addr = get_frame_base (deprecated_selected_frame);
       if (current_frame_addr > 0)
 	{
-	  *upper_bound = read_memory_unsigned_integer
-	    (current_frame_addr + TYPE_ARRAY_UPPER_BOUND_VALUE (type), 4);
+	  *upper_bound =
+	    read_memory_integer (current_frame_addr +
+				 TYPE_ARRAY_UPPER_BOUND_VALUE (type),
+				 4);
 	}
       else
 	{
@@ -155,12 +161,14 @@ f77_get_dynamic_upperbound (struct type *type, int *upper_bound)
       break;
 
     case BOUND_BY_REF_ON_STACK:
-      current_frame_addr = selected_frame->frame;
+      current_frame_addr = get_frame_base (deprecated_selected_frame);
       if (current_frame_addr > 0)
 	{
-	  ptr_to_upper_bound = read_memory_unsigned_integer
-	    (current_frame_addr + TYPE_ARRAY_UPPER_BOUND_VALUE (type), 4);
-	  *upper_bound = read_memory_unsigned_integer (ptr_to_upper_bound, 4);
+	  ptr_to_upper_bound =
+	    read_memory_typed_address (current_frame_addr +
+				       TYPE_ARRAY_UPPER_BOUND_VALUE (type),
+				       builtin_type_void_data_ptr);
+	  *upper_bound = read_memory_integer (ptr_to_upper_bound, 4);
 	}
       else
 	{
@@ -554,7 +562,7 @@ list_all_visible_commons (char *funname)
 
   while (tmp != NULL)
     {
-      if (STREQ (tmp->owning_function, funname))
+      if (strcmp (tmp->owning_function, funname) == 0)
 	printf_filtered ("%s\n", tmp->name);
 
       tmp = tmp->next;
@@ -579,7 +587,7 @@ info_common_command (char *comname, int from_tty)
      first make sure that it is visible and if so, let 
      us display its contents */
 
-  fi = selected_frame;
+  fi = deprecated_selected_frame;
 
   if (fi == NULL)
     error ("No frame selected");
@@ -587,7 +595,7 @@ info_common_command (char *comname, int from_tty)
   /* The following is generally ripped off from stack.c's routine 
      print_frame_info() */
 
-  func = find_pc_function (fi->pc);
+  func = find_pc_function (get_frame_pc (fi));
   if (func)
     {
       /* In certain pathological cases, the symtabs give the wrong
@@ -604,7 +612,7 @@ info_common_command (char *comname, int from_tty)
          be any minimal symbols in the middle of a function.
          FIXME:  (Not necessarily true.  What about text labels) */
 
-      struct minimal_symbol *msymbol = lookup_minimal_symbol_by_pc (fi->pc);
+      struct minimal_symbol *msymbol = lookup_minimal_symbol_by_pc (get_frame_pc (fi));
 
       if (msymbol != NULL
 	  && (SYMBOL_VALUE_ADDRESS (msymbol)
@@ -616,7 +624,7 @@ info_common_command (char *comname, int from_tty)
   else
     {
       register struct minimal_symbol *msymbol =
-      lookup_minimal_symbol_by_pc (fi->pc);
+      lookup_minimal_symbol_by_pc (get_frame_pc (fi));
 
       if (msymbol != NULL)
 	funname = SYMBOL_NAME (msymbol);
@@ -635,7 +643,7 @@ info_common_command (char *comname, int from_tty)
 
   if (the_common)
     {
-      if (STREQ (comname, BLANK_COMMON_NAME_LOCAL))
+      if (strcmp (comname, BLANK_COMMON_NAME_LOCAL) == 0)
 	printf_filtered ("Contents of blank COMMON block:\n");
       else
 	printf_filtered ("Contents of F77 COMMON block '%s':\n", comname);
@@ -671,7 +679,7 @@ there_is_a_visible_common_named (char *comname)
   if (comname == NULL)
     error ("Cannot deal with NULL common name!");
 
-  fi = selected_frame;
+  fi = deprecated_selected_frame;
 
   if (fi == NULL)
     error ("No frame selected");

@@ -87,30 +87,39 @@ public:
 
     /*!
      * @typedef IntValueChangeHandler
-     * @abstract Handler function used to make a notificaion when a value is to be changed.
-     * @param target Reference supplied when the handler was registered
-     * @param audioControl The IOAudioControl that is changing
-	 * @param oldValue The old value of the control
-     * @param newValue The new value the control is being changed to
-	 * @result Must return kIOReturnSuccess when the hardware is successfully updated
+     * @abstract Handler function used to make a notification when a value is to be changed.
+     * @param target Reference supplied when the handler was registered.
+     * @param audioControl The IOAudioControl that is changing.
+	 * @param oldValue The old value of the control.
+     * @param newValue The new value the control is being changed to.
+	 * @result Must return kIOReturnSuccess when the hardware is successfully updated.
      */
     typedef IOReturn (*IntValueChangeHandler)(OSObject *target, IOAudioControl *audioControl, SInt32 oldValue, SInt32 newValue);
     typedef IOReturn (*DataValueChangeHandler)(OSObject *target, IOAudioControl *audioControl, const void *oldData, UInt32 oldDataSize, const void *newData, UInt32 newDataSize);
     typedef IOReturn (*ObjectValueChangeHandler)(OSObject *target, IOAudioControl *audioControl, OSObject *oldValue, OSObject *newValue);
     
 protected:
-    /*! @var workLoop The IOWorkLoop for the audio driver - shared from the IOAudioDevice */
+    /*! @var workLoop 
+        The IOWorkLoop for the audio driver - shared from the IOAudioDevice. 
+    */
     IOWorkLoop 		*workLoop;
-    /*! @var commandGate The IOCommandGate for this control - attached to the driver's IOWorkLoop */
+    /*! @var commandGate 
+        The IOCommandGate for this control - attached to the driver's IOWorkLoop.
+    */
     IOCommandGate	*commandGate;
     
-    /*! @var isStarted Internal state keeping track of when the IOAudioControl has been started */
+    /*! @var isStarted 
+        Internal state keeping track of when the IOAudioControl has been started. 
+    */
     bool		isStarted;
 
-    /*! @var controlID An optional identifier that can be used to identify the control */
+    /*! @var controlID 
+        An optional identifier that can be used to identify the control. 
+    */
     UInt32 		controlID;
-    /*! @var channelID The ID of the channel this control affects - may be kIOAudioControlChannelIDAll if 
-     *   it represents all channels*/
+    /*! @var channelID 
+        The ID of the channel this control affects - may be 	kIOAudioControlChannelIDAll if it represents all channels.
+    */
     UInt32		channelID;
     
     UInt32		type;
@@ -135,7 +144,9 @@ protected:
     
     OSObject	*valueChangeTarget;
     
-    /*! @var clients A list of user clients that have requested value change notifications */ 
+    /*! @var clients
+        A list of user clients that have requested value change notifications. 
+    */ 
     OSSet		*userClients;
 
 protected:
@@ -145,11 +156,15 @@ protected:
     
 public:
 	virtual void sendChangeNotification(UInt32 notificationType);
+	// Call the setReadOnlyFlag() function to say that a control is read only.
+	// This call cannot be undone, so if a control is only temporarily unsetable,
+	// do not use this call but instead return an error from the control handler.
+	virtual void setReadOnlyFlag();
 
 private:
     OSMetaClassDeclareReservedUsed(IOAudioControl, 0);
+    OSMetaClassDeclareReservedUsed(IOAudioControl, 1);
 
-    OSMetaClassDeclareReservedUnused(IOAudioControl, 1);
     OSMetaClassDeclareReservedUnused(IOAudioControl, 2);
     OSMetaClassDeclareReservedUnused(IOAudioControl, 3);
     OSMetaClassDeclareReservedUnused(IOAudioControl, 4);
@@ -177,7 +192,7 @@ public:
 
     /*!
      * @function withAttributes
-     * @abstract Static function that allocates a new IOAudioControl with the given attributes
+     * @abstract Static function that allocates a new IOAudioControl with the given attributes.
      * @param type The type of the control.  Common, known types are defined in IOAudioTypes.h.  They currently
      *  consist of kIOAudioControlTypeLevel, kIOAudioControlTypeToggle, kIOAudioControlTypeSelector.
      * @param channelID The ID of the channel(s) that the control acts on.  Common IDs are located in IOAudioTypes.h.
@@ -188,7 +203,7 @@ public:
      * @param usage An optional value specifying how the control will be used.  Currently defined usages are kIOAudioControlUsageInput, 
      *  kIOAudioControlUsageOutput and kIOAudioControlUsagePassThru.  This value is used when a control is set as a default control
      *  on an IOAudioEngine.
-     * @result Returns a newly allocated and initialized IOAudioControl
+     * @result Returns a newly allocated and initialized IOAudioControl.
      */
     static IOAudioControl *withAttributes(UInt32 type,
                                           OSObject *initialValue,
@@ -200,7 +215,7 @@ public:
 
     /*!
      * @function init
-     * @abstract Initializes a newly allocated IOAudioControl with the given attributes
+     * @abstract Initializes a newly allocated IOAudioControl with the given attributes.
      * @param type The type of the control.  Common, known types are defined in IOAudioTypes.h.  They currently
      *  consist of kIOAudioControlTypeLevel, kIOAudioControlTypeToggle, kIOAudioControlTypeSelector.
      * @param channelID The ID of the channel(s) that the control acts on.  Common IDs are located in IOAudioTypes.h.
@@ -213,7 +228,7 @@ public:
      *  on an IOAudioEngine.
      * @param properties Standard property list passed to the init() function of any new IOService.  This dictionary
      *  gets stored in the registry entry for this instance.
-     * @result Returns true on success
+     * @result Returns true on success.
      */
     virtual bool init(UInt32 type,
                       OSObject *initialValue,
@@ -234,12 +249,12 @@ public:
 
     /*!
      * @function start
-     * @abstract Called to start a newly created IOAudioControl
+     * @abstract Starts a newly created IOAudioControl.
      * @discussion This is called automatically by IOAudioPort when addAudioControl() is called or by IOAudioEngine 
      *  when addDefaultAudioControl() is called.  It will only be called by the first call to either addAudioControl() or
      *  addDefaultAudioControl().
-     * @param provider The IOAudioPort or IOAudioEngine that owns this control
-     * @result Returns true on success
+     * @param provider The IOAudioPort or IOAudioEngine that owns this control.
+     * @result Returns true on success.
      */
     virtual bool start(IOService *provider);
     
@@ -247,76 +262,77 @@ public:
 
     /*!
      * @function getIsStarted
-     * @abstract Returns true after start() has been called
-     * @discussion Used by IOAudioPort and IOAudioEngine to decide if the control needs to be started
+     * @abstract Returns true after start() has been called.
+     * @discussion Used by IOAudioPort and IOAudioEngine to decide if the control needs to be started.
      */
     virtual bool getIsStarted();
 
     /*!
      * @function stop
-     * @abstract Called to stop the control when the provider is going away
-     * @param provider The IOAudioPort or IOAudioEngine that owns this control
+     * @abstract Stops the control when the provider is going away.
+     * @param provider The IOAudioPort or IOAudioEngine that owns this control.
      */
     virtual void stop(IOService *provider);
     
     /*!
      * @function getWorkLoop
-     * @abstract Returns the IOWorkLoop for the whole audio driver
+     * @abstract Returns the IOWorkLoop for the whole audio driver.
      */
     virtual IOWorkLoop *getWorkLoop();
 
     /*!
      * @function getCommandGate
-     * @abstract Returns the IOCommandGate for this IOAudioControl
+     * @abstract Returns the IOCommandGate for this IOAudioControl.
      */
     virtual IOCommandGate *getCommandGate();
 
     /*!
      * @function newUserClient
-     * @abstract Called to create a new user client object for this IOAudioControl instance
-     * @discussion This is called automatically by IOKit when a user process opens a connection to this
+     * @abstract Creates a new user client object for this IOAudioControl instance.
+     * @discussion This is called automatically by I/O Kit when a user process opens a connection to this
      *  IOAudioControl.  This is typically done when the user process needs to register for value change
      *  notifications.  This implementation allocates a new IOAudioControlUserClient object.  There is no
      *  need to call this directly.
-     * @param task The task requesting the new user client
-     * @param securityID Optional security paramater passed in by the client - ignored
-     * @param type Optional user client type passed in by the client - 0 for the default user client type
-     * @param handler The new IOUserClient * must be stored in this param on a successful completion
+     * @param task The task requesting the new user client.
+     * @param securityID Optional security paramater passed in by the client - ignored.
+     * @param type Optional user client type passed in by the client - 0 for the default user client type.
+     * @param handler The new IOUserClient * must be stored in this param on a successful completion.
      * @result Returns kIOReturnSuccess on success.  May also result kIOReturnError or kIOReturnNoMemory.
      */
     virtual IOReturn newUserClient(task_t task, void *securityID, UInt32 type, IOUserClient **handler);
 
     /*!
-     * @abstract Called by newUserClient() to create a new IOAudioControlUserClient instance
-     * @discussion This function may be overridden by subclasses that need to add functionality
+     * @function createUserClient
+     * @abstract Creates a new IOAudioControlUserClient instance.
+     * @discussion This function is called by newUserClient() to create a new IOAudioControlUserClient instance.  This function may be overridden by subclasses that need to add functionality
      *  to the IOAudioControlUserClient.  In that case, they must subclass IOAudioControlUserClient
      *  and return a new, initialized instance of that subclass.
-     * @param task The task requesting the new user client
-     * @param securityID Optional security paramater passed in by the client - ignored
-     * @param type Optional user client type passed in by the client
+     * @param task The task requesting the new user client.
+     * @param securityID Optional security paramater passed in by the client - ignored.
+     * @param type Optional user client type passed in by the client.
      * @param newUserClient The IOAudioControlUserClient * must be stored in this param on a successful
-     *  completion
-     * @result Returns kIOReturnSuccess on success
+     *  completion.
+     * @result Returns kIOReturnSuccess on success.
      */
     virtual IOReturn createUserClient(task_t task, void *securityID, UInt32 type, IOAudioControlUserClient **newUserClient);
     
     /*!
      * @function clientClosed
      * @abstract Called automatically by the IOAudioControlUserClient when a user client closes its
-     *  connection to the control
-     * @param client The user client object that has disconnected
+     *  connection to the control.
+     * @param client The user client object that has disconnected.
      */
     virtual void clientClosed(IOAudioControlUserClient *client);
 
     /*!
      * @function setProperties
-     * @abstract Called to change a property of this IOService 
+     * @abstract Changes a property of this IOService. 
      * @discussion This is called when the user client changes a property of this 
      *  IOAudioControl.  In this case it is used to change the value.  This function
      *  looks for that property and then calls setValue() through the IOCommandGate and
      *  setValueAction().
-     * @param properties An OSDictionary containing the properties to change
-     * @result Returns kIOReturnSuccess on success
+     * @param properties An OSDictionary containing the properties to change.
+     * @result Returns kIOReturnSuccess on success.
      */
     virtual IOReturn setProperties(OSObject *properties);
     
@@ -324,34 +340,34 @@ public:
     virtual void setValueChangeHandler(DataValueChangeHandler dataValueChangeHandler, OSObject *target);
     virtual void setValueChangeHandler(ObjectValueChangeHandler objectValueChangeHandler, OSObject *target);
 
-    virtual void IOAudioControl::setValueChangeTarget(OSObject *target);
+    virtual void setValueChangeTarget(OSObject *target);
 
     /*!
      * @function flushValue
      * @abstract Forces the control to be flushed out to the hardware.
      * @discussion This function calls performValueChange() directly with the current value of the IOAudioControl.
-     * @result Returns the result of performValueChange() - kIOReturnSuccess on success
+     * @result Returns the result of performValueChange() - kIOReturnSuccess on success.
      */
     virtual IOReturn flushValue();
 
     /*!
      * @function setValueAction
-     * @abstract IOCommandGate Action which calls setValue() while holding the IOCommandGate
-     * @discussion This is needed to allow setValue() to be called on the IOWorkLoop
-     * @param owner The owner of the IOCommandGate (the IOAudioControl in this case)
-     * @param arg1 The new value for the IOAudioControl
-     * @result Returns the result of setValue() - kIOReturnSuccess on success
+     * @abstract IOCommandGate Action which calls setValue() while holding the IOCommandGate.
+     * @discussion This is needed to allow setValue() to be called on the IOWorkLoop.
+     * @param owner The owner of the IOCommandGate (the IOAudioControl in this case).
+     * @param arg1 The new value for the IOAudioControl.
+     * @result Returns the result of setValue() - kIOReturnSuccess on success.
      */
     static IOReturn setValueAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
 
     /*!
      * @function setValue
-     * @abstract Sets the value for this control
+     * @abstract Sets the value for this control.
      * @discussion When the control's value is changed, a call is made to performValueChange().  If that call
      *  succeeds, the value is set and sendValueChangeNotification() is called to send a notification to the
      *  user clients.  This function must be called on the IOWorkLoop.
-     * @param newValue The new value for this control
-     * @result Returns kIOReturnSuccess if the value is successfully set
+     * @param newValue The new value for this control.
+     * @result Returns kIOReturnSuccess if the value is successfully set.
      */
     virtual IOReturn setValue(OSObject *newValue);
     
@@ -359,19 +375,20 @@ public:
     
     /*!
      * @function hardwareValueChanged
-     * @abstract Updates the value for this control and sends out the value changed notification
+     * @abstract Updates the value for this control and sends out the value changed notification.
      * @discussion This is designed to be called by the driver when it detects that the hardware's value has
      *  changed without driver intervention (e.g. when an external event causes the change).  The difference between
      *  hardwareValueChanged() and setValue() is that hardwareValueChanged() doesn't call performValueChange() which 
      *  sends a message back to the driver to cause it to change the hardware with the new value.  This function must
      *  be called on the IOWorkLoop.
-     * @param newValue The new value for this control
-     * @result Returns kIOReturnSuccess if the value is successfully updated
+     * @param newValue The new value for this control.
+     * @result Returns kIOReturnSuccess if the value is successfully updated.
      */
     virtual IOReturn hardwareValueChanged(OSObject *newValue);
 
     /*!
-     * @function getValue Returns the current value of the control
+     * @function getValue 
+     * @abstract Returns the current value of the control.
      */
     virtual OSObject *getValue();
     virtual SInt32 getIntValue();
@@ -379,12 +396,14 @@ public:
     virtual UInt32 getDataLength();
 
     /*!
-     * @function getControlID Returns the control ID for the control
+     * @function getControlID 
+     * @abstract Returns the control ID for the control.
      */
     virtual UInt32 getControlID();
 
     /*!
-     * @function getChannelID Returns the channel ID for the control
+     * @function getChannelID 
+     * @abstract Returns the channel ID for the control.
      */
     virtual UInt32 getChannelID();
     
@@ -399,62 +418,68 @@ public:
 protected:
     /*!
      * @function sendValueChangeNotification
-     * @abstract Called when the value has changed for the control
-     * @discussion This function sends out the value change notification to the user clients
+     * @abstract Called when the value has changed for the control.
+     * @discussion This function sends out the value change notification to the user clients.
      */
     virtual void sendValueChangeNotification();
     
     /*!
-     * @function setChannelName Called at init time to set the channel name for this IOAudioControl
+     * @function setChannelName 
+     * @abstract Called at init time to set the channel name for this IOAudioControl.
      */
     virtual void setChannelName(const char *channelName);
 
     /*!
-     * @function setChannelID Called at init time to set the channel ID for this IOAudioControl
+     * @function setChannelID 
+     * @abstract Called at init time to set the channel ID for this IOAudioControl.
      */
     virtual void setChannelID(UInt32 newChannelID);
     virtual void setChannelNumber(SInt32 channelNumber);
 
     /*!
-     * @function setType Called at init time to set the control type
+     * @function setSubType 
+     * @abstract Called at init time to set the control subType.
      */
     virtual void setType(UInt32 type);
 
     /*!
-     * @function setSubType Called at init time to set the control subType
+     * @function setType 
+     * @abstract Called at init time to set the control type.
      */
     virtual void setSubType(UInt32 subType);
 
     /*!
-     * @function setUsage Called at init time to set the control usage
+     * @function setUsage 
+     * @abstract Called at init time to set the control usage.
      */
     virtual void setUsage(UInt32 usage);
 
     /*!
      * @function setControlID
-     * @abstract Sets the controlID for this control
+     * @abstract Sets the controlID for this control.
      * @discussion The control ID is an optional attribute that can be used to track IOAudioControls.  A typical
      *  use is for the IOAudioDevice to assign a unique controlID to each control that it creates and then
      *  do a switch statement on the id of the control when it gets an audioControlValueChanged() notification.
      *  Typically the control ID is set when the object is created and doesn't need to be called again.
-     * @param cntrlID The control ID for the control
+     * @param cntrlID The control ID for the control.
      */
     virtual void setControlID(UInt32 cntrlID);
     
     /*!
      * @function validateValue
-     * @abstract Called by setValue() to verify that the value is valid
-     * @param newValue The new value to be verified
-     * @result Returns kIOReturnSuccess if the value is valid
+     * @abstract Called by setValue() to verify that the value is valid.
+     * @param newValue The new value to be verified.
+     * @result Returns kIOReturnSuccess if the value is valid.
      */
     virtual IOReturn validateValue(OSObject *newValue);
     
     /*!
      * @function updateValue
-     * @abstract Called by setValue() in order to update the value and the registry.  It also calls
+     * @abstract Called by setValue() in order to update the value and the registry.
+     * @discussion It also calls
      *  sendValueChangedNotification() to send notifications to the user clients.
-     * @param newValue The new value to b updated
-     * @result Returns kIOReturnSuccess if the value is successfully updated
+     * @param newValue The new value to b updated.
+     * @result Returns kIOReturnSuccess if the value is successfully updated.
      */
     virtual IOReturn updateValue(OSObject *newValue);
     
@@ -464,27 +489,27 @@ protected:
      * @function performValueChange
      * @abstract Called by setValue() to make the call to the valueChangeHandler
      *  to update the hardware.
-     * @result Returns the result of the handler call (or kIOReturnError on an error)
+     * @result Returns the result of the handler call (or kIOReturnError on an error).
      */
     virtual IOReturn performValueChange(OSObject *newValue);
 
     /*!
      * @function addUserClientAction
-     * @abstract IOCommandGate Action which calls addUserClient() while holding the IOCommandGate
-     * @discussion This is needed to allow addUserClient() to be called on the IOWorkLoop
-     * @param owner The owner of the IOCommandGate (the IOAudioControl in this case)
-     * @param arg1 The IOAudioControlUserClient to be added
-     * @result Returns the result of addUserClient() - kIOReturnSuccess on success
+     * @abstract IOCommandGate Action which calls addUserClient() while holding the IOCommandGate.
+     * @discussion This is needed to allow addUserClient() to be called on the IOWorkLoop.
+     * @param owner The owner of the IOCommandGate (the IOAudioControl in this case).
+     * @param arg1 The IOAudioControlUserClient to be added.
+     * @result Returns the result of addUserClient() - kIOReturnSuccess on success.
      */
     static IOReturn addUserClientAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
     
     /*!
      * @function removeUserClientAction
-     * @abstract IOCommandGate Action which calls removeUserClient() while holding the IOCommandGate
-     * @discussion This is needed to allow removeUserClient() to be called on the IOWorkLoop
-     * @param owner The owner of the IOCommandGate (the IOAudioControl in this case)
-     * @param arg1 The IOAudioControlUserClient to be removed
-     * @result Returns the result of removeUserClient() - kIOReturnSuccess on success
+     * @abstract IOCommandGate Action which calls removeUserClient() while holding the IOCommandGate.
+     * @discussion This is needed to allow removeUserClient() to be called on the IOWorkLoop.
+     * @param owner The owner of the IOCommandGate (the IOAudioControl in this case).
+     * @param arg1 The IOAudioControlUserClient to be removed.
+     * @result Returns the result of removeUserClient() - kIOReturnSuccess on success.
      */
     static IOReturn removeUserClientAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4);
     
@@ -495,22 +520,22 @@ protected:
 
     /*!
      * @function addUserClient
-     * @abstract Called on the IOWorkLoop to add a new IOAudioControlUserClient
+     * @abstract Called on the IOWorkLoop to add a new IOAudioControlUserClient.
      * @discussion There is no need to call this directly.  It is called on the workLoop 
      *  by newUserClient() through addUserClientAction().
-     * @param newUserClient The IOAudioControlUserClientto be added
-     * @result Returns kIOReturnSuccess on success
+     * @param newUserClient The IOAudioControlUserClientto be added.
+     * @result Returns kIOReturnSuccess on success.
      */
     virtual IOReturn addUserClient(IOAudioControlUserClient *newUserClient);
     
     /*!
      * @function removeUserClient
-     * @abstract Called on the IOWorkLoop to remove an IOAudioControlUserClient
+     * @abstract Called on the IOWorkLoop to remove an IOAudioControlUserClient.
      * @discussion This is called on the IOWorkLoop by clientClosed() through
      *  removeUserClientAction() when the user client is going away.  It should
      *  not be called directly. 
-     * @param userClient The IOAudioControlUserClient to be removed
-     * @result Returns kIOReturnSuccess on success
+     * @param userClient The IOAudioControlUserClient to be removed.
+     * @result Returns kIOReturnSuccess on success.
      */
     virtual IOReturn removeUserClient(IOAudioControlUserClient *userClient);
     

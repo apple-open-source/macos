@@ -1,0 +1,17 @@
+@node Problems, Appendices, Programs, Top
+@chapter Reporting Bugs
+@cindex bugs
+@cindex problems
+
+If you find a bug in GIMP-Print or have any suggestions for modification
+or improvement, please send electronic mail to the GIMP-Print bug
+reporting address @footnote{@value{BUGADDR}}.  Include the version
+number, which you can find by running @w{@samp{gimpprint-config
+--version}}.  Also include in your message the output that the program
+produced and the output you expected, if applicable, otherwise the best
+description of the problem that you can provide.
+
+If you have other questions, comments or suggestions about GIMP-Print,
+contact the developers via electronic mail to the GIMP-Print mailing
+list @footnote{@value{MAILLIST}}.  They will try to help you out,
+although they may not have time to fix your problems.

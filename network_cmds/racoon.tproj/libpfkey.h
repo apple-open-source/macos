@@ -46,11 +46,11 @@ int pfkey_send_getspi __P((int, u_int, u_int, struct sockaddr *,
 int pfkey_send_update __P((int, u_int, u_int, struct sockaddr *,
 	struct sockaddr *, u_int32_t, u_int32_t, u_int,
 	caddr_t, u_int, u_int, u_int, u_int, u_int, u_int32_t, u_int64_t,
-	u_int64_t, u_int64_t, u_int32_t));
+	u_int64_t, u_int64_t, u_int32_t, u_int16_t));
 int pfkey_send_add __P((int, u_int, u_int, struct sockaddr *,
 	struct sockaddr *, u_int32_t, u_int32_t, u_int,
 	caddr_t, u_int, u_int, u_int, u_int, u_int, u_int32_t, u_int64_t,
-	u_int64_t, u_int64_t, u_int32_t));
+	u_int64_t, u_int64_t, u_int32_t, u_int16_t));
 int pfkey_send_delete __P((int, u_int, u_int,
 	struct sockaddr *, struct sockaddr *, u_int32_t));
 int pfkey_send_delete_all __P((int, u_int, u_int,

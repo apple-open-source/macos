@@ -1,10 +1,30 @@
 /*
- *  CSMBPlugin.cpp
- *  DSSMBPlugIn
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
- *  Created by imlucid on Wed Aug 15 2001.
- *  Copyright (c) 2001 __MyCompanyName__. All rights reserved.
- *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+ 
+/*!
+ *  @header CSMBPlugin
  */
 
 #include <stdio.h>
@@ -16,24 +36,21 @@
 
 #include <Security/Authorization.h>
 
+#include "CNSLDirNodeRep.h"
 #include "CSMBPlugin.h"
 #include "CSMBNodeLookupThread.h"
 #include "CSMBServiceLookupThread.h"
-#include "TGetCFBundleResources.h"
 #include "CommandLineUtilities.h"
+#include "CNSLTimingUtils.h"
 
-#define kCommandParamsID				129
-#define kServiceTypeStrID				1
-#define kNMBLookupToolPath				2
-#define kTemplateConfFilePathStrID		3
-#define kConfFilePathStrID				4
-
-//#define kListClassPathStrID				2
-//#define kLookupWorkgroupsJCIFSCommand	3
 #define kDefaultGroupName			"WORKGROUP"
 
-static Boolean			sNMBLookupToolIsAvailable = false;
+#define	kMaxNumLMBsForAggressiveSearch	0		// more than 10 LMBs in your subnet, we take it easy.
 
+const char* GetCodePageStringForCurrentSystem( void );
+
+static Boolean			sNMBLookupToolIsAvailable = false;
+static CSMBPlugin*		gPluginInstance = NULL;
 const CFStringRef	gBundleIdentifier = CFSTR("com.apple.DirectoryService.SMB");
 const char*			gProtocolPrefixString = "SMB";
 
@@ -49,24 +66,32 @@ CFUUIDRef ModuleFactoryUUID = CFUUIDGetConstantUUIDWithBytes ( NULL, \
 static CDSServerModule* _Creator ( void )
 {
 	DBGLOG( "Creating new SMB Plugin\n" );
-    return( new CSMBPlugin );
+    gPluginInstance = new CSMBPlugin;
+	return( gPluginInstance );
 }
 
 CDSServerModule::tCreator CDSServerModule::sCreator = _Creator;
+
+void AddNode( CFStringRef nodeNameRef )
+{
+	gPluginInstance->AddNode( nodeNameRef );
+}
 
 CSMBPlugin::CSMBPlugin( void )
     : CNSLPlugin()
 {
 	DBGLOG( "CSMBPlugin::CSMBPlugin\n" );
     mNodeListIsCurrent = false;
+	mNodeSearchInProgress = false;
 	mLocalNodeString = NULL;
-    mServiceTypeString = NULL;
-	mTemplateConfFilePath = NULL;
-	mConfFilePath = NULL;
-    mNMBLookupToolPath = NULL;
 	mWINSServer = NULL;
-	mWINSWorkgroups = NULL;
 	mBroadcastAddr = NULL;
+	mOurLMBs = NULL;
+	mAllKnownLMBs = NULL;
+	mListOfLMBsInProgress = NULL;
+	mInitialSearch = true;
+	mNeedFreshLookup = true;
+	mCurrentSearchCanceled = false;
 }
 
 CSMBPlugin::~CSMBPlugin( void )
@@ -81,135 +106,43 @@ CSMBPlugin::~CSMBPlugin( void )
 		free( mWINSServer );
 	mWINSServer = NULL;
 	
-	if ( mWINSWorkgroups )
-		CFRelease( mWINSWorkgroups );
-	mWINSWorkgroups = NULL;
-	
-	if ( mTemplateConfFilePath )
-		free( mTemplateConfFilePath );
-	mTemplateConfFilePath = NULL;
-	
-	if ( mConfFilePath )
-		free( mConfFilePath );
-	mConfFilePath = NULL;
-
 	if ( mBroadcastAddr )
 		free( mBroadcastAddr );
 	mBroadcastAddr = NULL;
+	
+	if ( mOurLMBs )
+		CFRelease( mOurLMBs );
+	mOurLMBs = NULL;
+	
+	if ( mAllKnownLMBs )
+		CFRelease( mAllKnownLMBs );
+	mAllKnownLMBs = NULL;
+	
+	if ( mListOfLMBsInProgress )
+		CFRelease( mListOfLMBsInProgress );
+	mListOfLMBsInProgress = NULL;
 }
 
 sInt32 CSMBPlugin::InitPlugin( void )
 {
-    char				resBuff[256] = {0};
-    SInt32				len;
     sInt32				siResult	= eDSNoErr;
     // need to see if this is installed!
     struct stat			data;
     int 				result = eDSNoErr;
-    
+	
+
+	mLMBDiscoverer	= new LMBDiscoverer();
+	mLMBDiscoverer->Initialize();
+	
+	pthread_mutex_init( &mNodeStateLock, NULL );
 	DBGLOG( "CSMBPlugin::InitPlugin\n" );
 	
-    if ( siResult == eDSNoErr && !mNMBLookupToolPath )
-    {
-        DBGLOG( "CSMBPlugin::InitPlugin getting kNMBLookupToolPath\n" );
-        len = OurResources()->GetIndString( resBuff, kCommandParamsID, kNMBLookupToolPath );
-        
-        if ( len > 0 )
-        {
-            mNMBLookupToolPath = (char *) malloc( len + 1 );
-            if ( mNMBLookupToolPath )
-                strcpy( mNMBLookupToolPath, resBuff );
-            else
-            {
-                siResult = memFullErr;
-                DBGLOG( "CSMBPlugin::InitPlugin returning memFullErr\n" );
-            }
-        }
-        else
-        {
-            siResult = kNSLBadReferenceErr;
-            DBGLOG( "CSMBPlugin::InitPlugin couldn't load a resource (kNMBLookupToolPath) returning kNSLBadReferenceErr, len=%ld\n", len );
-        }
-    }
-
-    if ( siResult == eDSNoErr && !mServiceTypeString )
-    {
-        DBGLOG( "CSMBPlugin::InitPlugin getting kServiceTypeStrID\n" );
-        len = OurResources()->GetIndString( resBuff, kCommandParamsID, kServiceTypeStrID );
-        
-        if ( len > 0 )
-        {
-            mServiceTypeString = (char *) malloc( len + 1 );
-            if ( mServiceTypeString )
-                strcpy( mServiceTypeString, resBuff );
-            else
-            {
-                siResult = memFullErr;
-                DBGLOG( "CSMBPlugin::InitPlugin returning memFullErr\n" );
-            }
-        }
-        else
-        {
-            siResult = kNSLBadReferenceErr;
-            DBGLOG( "CSMBPlugin::InitPlugin couldn't load a resource (service type) returning kNSLBadReferenceErr, len=%ld\n", len );
-        }
-    }
-    
-    if ( siResult == eDSNoErr && !mTemplateConfFilePath )
-    {
-        DBGLOG( "CSMBPlugin::InitPlugin getting kTemplateConfFilePathStrID\n" );
-        len = OurResources()->GetIndString( resBuff, kCommandParamsID, kTemplateConfFilePathStrID );
-        
-        if ( len > 0 )
-        {
-            mTemplateConfFilePath = (char *) malloc( len + 1 );
-            if ( mTemplateConfFilePath )
-			{
-                strcpy( mTemplateConfFilePath, resBuff );
-            }
-			else
-            {
-                siResult = memFullErr;
-                DBGLOG( "CSMBPlugin::InitPlugin returning memFullErr\n" );
-            }
-        }
-        else
-        {
-            siResult = kNSLBadReferenceErr;
-            DBGLOG( "CSMBPlugin::InitPlugin couldn't load a resource (mTemplateConfFilePath) returning kNSLBadReferenceErr, len=%ld\n", len );
-        }
-    }
-    
-    if ( siResult == eDSNoErr && !mConfFilePath )
-    {
-        DBGLOG( "CSMBPlugin::InitPlugin getting kConfFilePathStrID\n" );
-        len = OurResources()->GetIndString( resBuff, kCommandParamsID, kConfFilePathStrID );
-        
-        if ( len > 0 )
-        {
-            mConfFilePath = (char *) malloc( len + 1 );
-            if ( mConfFilePath )
-                strcpy( mConfFilePath, resBuff );
-            else
-            {
-                siResult = memFullErr;
-                DBGLOG( "CSMBPlugin::InitPlugin returning memFullErr\n" );
-            }
-        }
-        else
-        {
-            siResult = kNSLBadReferenceErr;
-            DBGLOG( "CSMBPlugin::InitPlugin couldn't load a resource (mConfFilePath) returning kNSLBadReferenceErr, len=%ld\n", len );
-        }
-    }
-    
     if ( siResult == eDSNoErr )
     {
-        result = stat( mNMBLookupToolPath, &data );
+        result = stat( kNMBLookupToolPath, &data );
         if ( result < 0 )
         {
-            DBGLOG( "SMB couldn't find nmblookup tool: %s (should be at:%s?)\n", strerror(errno), mNMBLookupToolPath );
-//            siResult = kNSLBadReferenceErr;
+            DBGLOG( "SMB couldn't find nmblookup tool: %s (should be at:%s?)\n", strerror(errno), kNMBLookupToolPath );
         }
         else
             sNMBLookupToolIsAvailable = true;
@@ -228,38 +161,62 @@ sInt32 CSMBPlugin::InitPlugin( void )
 				strcpy( mLocalNodeString, kDefaultGroupName );
 			}
 		}
-		
-		AddNode( mLocalNodeString, true );
     }
-
+	
     return siResult;
 }
 
+void CSMBPlugin::ActivateSelf( void )
+{
+    DBGLOG( "CSMBPlugin::ActivateSelf called\n" );
+
+	OurLMBDiscoverer()->EnableSearches();
+
+	CNSLPlugin::ActivateSelf();
+}
+
+void CSMBPlugin::DeActivateSelf( void )
+{
+	// we are getting deactivated.  We want to tell the slpd daemon to shutdown as
+	// well as deactivate our DA Listener
+    DBGLOG( "CSMBPlugin::DeActivateSelf called\n" );
+	
+	OurLMBDiscoverer()->DisableSearches();
+	OurLMBDiscoverer()->ClearLMBCache();				// no longer valid
+	OurLMBDiscoverer()->ResetOurBroadcastAddress();	
+	OurLMBDiscoverer()->ClearBadLMBList();
+	
+	mInitialSearch = true;	// starting from scratch
+	mNeedFreshLookup = true;
+	mCurrentSearchCanceled = true;
+	ZeroLastNodeLookupStartTime();		// force this to start again
+	mNodeSearchInProgress = false;
+
+	CNSLPlugin::DeActivateSelf();
+}
+
+
+#pragma mark -
 #define kMaxSizeOfParam 1024
 void CSMBPlugin::ReadConfigFile( void )
 {
 	// we can see if there is a config file, if so then see if they have a WINS server specified
 	DBGLOG( "CSMBPlugin::ReadConfigFile\n" );
-    FILE *fp;
-    char buf[kMaxSizeOfParam];
-    
-	if ( mConfFilePath )
-		fp = fopen(mConfFilePath,"r");
-	else
-		fp = fopen("/etc/smb.conf","r");
+    FILE *	fp;
+    char 	buf[kMaxSizeOfParam];
+	
+	fp = fopen(kConfFilePath,"r");
 	
     if (fp == NULL) 
 	{
         DBGLOG( "CSMBPlugin::ReadConfigFile, couldn't open conf file, copy temp to conf\n" );
-		if ( mTemplateConfFilePath && mConfFilePath )
-		{
-			char		command[256];
-			
-			snprintf( command, sizeof(command), "/bin/cp %s %s\n", mTemplateConfFilePath, mConfFilePath );
-			executecommand( command );
 
-			fp = fopen(mConfFilePath,"r");
-		}
+		char		command[256];
+		
+		snprintf( command, sizeof(command), "/bin/cp %s %s\n", kTemplateConfFilePath, kConfFilePath );
+		executecommand( command );
+
+		fp = fopen(kConfFilePath,"r");
 		
 		if (fp == NULL) 
 			return;
@@ -274,7 +231,7 @@ void CSMBPlugin::ReadConfigFile( void )
     
 		if ( buf[strlen(buf)-1] == '\n' )
 			buf[strlen(buf)-1] = '\0';
-			
+					
         pcKey = strstr( buf, "wins server" );
 
         if ( pcKey )
@@ -294,6 +251,7 @@ void CSMBPlugin::ReadConfigFile( void )
 					mWINSServer = (char*)malloc(strlen(pcKey)+1);
 					strcpy( mWINSServer, pcKey );
 					DBGLOG( "CSMBPlugin::ReadConfigFile, WINS Server is %s\n", mWINSServer );
+					mLMBDiscoverer->SetWinsServer(mWINSServer);
 				}
 			}
 			continue;
@@ -322,6 +280,8 @@ void CSMBPlugin::ReadConfigFile( void )
     }
 
     fclose(fp);
+	
+	WriteToConfigFile(kBrowsingConfFilePath);			// need to update the browsing config file with the appropriate codepage
 }
 
 void CSMBPlugin::WriteWorkgroupToFile( FILE* fp )
@@ -348,38 +308,66 @@ void CSMBPlugin::WriteWINSToFile( FILE* fp )
 	}
 }
 
-void CSMBPlugin::WriteToConfigFile( void )
+void CSMBPlugin::WriteCodePageToFile( FILE* fp )
+{
+	char	winsLine[kMaxSizeOfParam];
+	
+	sprintf( winsLine, "  dos charset = %s\n", GetCodePageStringForCurrentSystem() );
+	
+	fputs( winsLine, fp );
+}
+
+void CSMBPlugin::WriteUnixCharsetToFile( FILE* fp )
+{
+	char	winsLine[kMaxSizeOfParam];
+		
+	sprintf( winsLine, "  unix charset = %s\n", GetCodePageStringForCurrentSystem() );
+	
+	fputs( winsLine, fp );
+}
+
+void CSMBPlugin::WriteDisplayCharsetToFile( FILE* fp )
+{
+	char	winsLine[kMaxSizeOfParam];
+	
+	sprintf( winsLine, "  display charset = %s\n", GetCodePageStringForCurrentSystem() );
+	
+	fputs( winsLine, fp );
+}
+
+void CSMBPlugin::WriteToConfigFile( const char* pathToConfigFile )
 {
 	// we can see if there is a config file, if so then see if they have a WINS server specified
-	DBGLOG( "CSMBPlugin::WriteToConfigFile\n" );
+	DBGLOG( "CSMBPlugin::WriteToConfigFile [%s]\n", pathToConfigFile );
     FILE		*sourceFP = NULL, *destFP = NULL;
     char		buf[kMaxSizeOfParam];
     Boolean		writtenWINS = false;
 	Boolean		writtenWorkgroup = false;
+	Boolean		writeCodePage = (strcmp( kBrowsingConfFilePath, pathToConfigFile ) == 0);	// only update the browsing config's code page
+	Boolean		writeUnixCharset = writeCodePage;
+	Boolean		writeDisplayCharset = writeCodePage;
 	
-	if ( mConfFilePath )
-		sourceFP = fopen(mConfFilePath,"r+");
-	else
-		sourceFP = fopen("/etc/smb.conf","r+");
+	sourceFP = fopen(kConfFilePath,"r+");
 	
     if (sourceFP == NULL) 
 	{
         DBGLOG( "CSMBPlugin::WriteToConfigFile, couldn't open conf file, copy temp to conf\n" );
-		if ( mTemplateConfFilePath && mConfFilePath )
-		{
-			char		command[256];
-			
-			snprintf( command, sizeof(command), "/bin/cp %s %s\n", mTemplateConfFilePath, mConfFilePath );
-			executecommand( command );
 
-			sourceFP = fopen(mConfFilePath,"r+");
-		}
+		char		command[256];
+		
+		snprintf( command, sizeof(command), "/bin/cp %s %s\n", kTemplateConfFilePath, kConfFilePath );
+		executecommand( command );
+
+		sourceFP = fopen(kConfFilePath,"r+");
 		
 		if (sourceFP == NULL) 
 			return;
     }
     
-	destFP = fopen( "/tmp/smb.conf.temp", "w" );
+	if ( strcmp( kConfFilePath, pathToConfigFile ) == 0 )
+		destFP = fopen( kTempConfFilePath, "w" );		// if we are writing to the config file, need to modify the temp and copy over
+	else
+		destFP = fopen( pathToConfigFile, "w" );			// otherwise we'll just copy and modify straight into the new file
 	
 	if ( !destFP )
 	{
@@ -394,7 +382,7 @@ void CSMBPlugin::WriteToConfigFile( void )
 	{
         char *pcKey = NULL;
         
-        if (buf[0] == '\n' || buf[0] == '\0' || buf[0] == '#' || buf[0] == ';' || (writtenWorkgroup && writtenWINS) )
+        if (buf[0] == '\n' || buf[0] == '\0' || buf[0] == '#' || buf[0] == ';' || (writtenWorkgroup && writtenWINS && !writeCodePage && !writeUnixCharset && !writeDisplayCharset) )
 		{
 			fputs( buf, destFP );
 			continue;
@@ -403,15 +391,37 @@ void CSMBPlugin::WriteToConfigFile( void )
 		if ( strstr( buf, "[homes]" ) || strstr( buf, "[public]" ) || strstr( buf, "[printers]" )  )
 		{
 			// ok, we've passed where this data should go, write out whatever we have left
+			if ( writeUnixCharset )
+			{
+				WriteUnixCharsetToFile( destFP );
+				writeUnixCharset = false;
+			}
+				
+			if ( writeDisplayCharset )
+			{
+				WriteDisplayCharsetToFile( destFP );
+				writeDisplayCharset = false;
+			}
+				
+			if ( writeCodePage )
+			{
+				WriteCodePageToFile( destFP );
+				writeCodePage = false;
+			}
+				
 			if ( !writtenWorkgroup )
+			{
 				WriteWorkgroupToFile( destFP );
+				writtenWorkgroup = true;
+			}
 			
 			if ( !writtenWINS )
+			{
 				WriteWINSToFile( destFP );
+				writtenWINS = true;
+			}
 				
 			fputs( buf, destFP );			// now add the line we read
-			writtenWorkgroup = true;
-			writtenWINS = true;
 			
 			continue;
 		}
@@ -433,6 +443,21 @@ void CSMBPlugin::WriteToConfigFile( void )
 
 			continue;
 		}
+		else if ( writeCodePage && (pcKey = strstr( buf, "dos charset" )) != NULL )
+		{
+			WriteCodePageToFile( destFP );
+			writeCodePage = false;
+		}
+		else if ( writeUnixCharset && (pcKey = strstr( buf, "unix charset" )) != NULL )
+		{
+			WriteUnixCharsetToFile( destFP );
+			writeUnixCharset = false;
+		}
+		else if ( writeDisplayCharset && (pcKey = strstr( buf, "display charset" )) != NULL )
+		{
+			WriteDisplayCharsetToFile( destFP );
+			writeDisplayCharset = false;
+		}
 		else
 			fputs( buf, destFP );			// now add the line we read		
     }
@@ -440,15 +465,17 @@ void CSMBPlugin::WriteToConfigFile( void )
     fclose(sourceFP);
     fclose(destFP);
 
+	if ( strcmp( kConfFilePath, pathToConfigFile ) == 0 )	// if we are writing to the config file, need to modify the temp and copy over
 	{
 		char		command[256];
 		
-		snprintf( command, sizeof(command), "/bin/mv /tmp/smb.conf.temp %s\n", (mConfFilePath)?mConfFilePath:"/etc/smb.conf" );
+		snprintf( command, sizeof(command), "/bin/mv %s %s\n", kTempConfFilePath, kConfFilePath );
 
 		executecommand( command );
 	}
 }
 
+#pragma mark -
 sInt32 CSMBPlugin::GetDirNodeInfo( sGetDirNodeInfo *inData )
 {
     sInt32				siResult			= eNotHandledByThisNode;	// plugins can override
@@ -471,17 +498,16 @@ sInt32 CSMBPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 	try
 	{
 		if ( inData == nil ) throw( (sInt32)eDSNullParameter );
-
+		if ( mOpenRefTable == nil ) throw ( (sInt32)eDSNodeNotFound );
+		
 		const void*				dictionaryResult	= NULL;
 		CNSLDirNodeRep*			nodeDirRep			= NULL;
 		
-	//    if( !::CFDictionaryGetValueIfPresent( mOpenRefTable, (const void*)inData->fInNodeRef, &dictionaryResult ) )
 		dictionaryResult = ::CFDictionaryGetValue( mOpenRefTable, (const void*)inData->fInNodeRef );
 		if( !dictionaryResult )
 			DBGLOG( "CSMBPlugin::DoPlugInCustomCall called but we couldn't find the nodeDirRep!\n" );
 	
 		nodeDirRep = (CNSLDirNodeRep*)dictionaryResult;
-	
 	
 		if ( nodeDirRep )
 		{
@@ -540,8 +566,6 @@ sInt32 CSMBPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 				{
 					DBGLOG( "CSMBPlugin::DoPlugInCustomCall kWriteSMBConfigData\n" );
 
-					//here we accept an XML blob to replace the current config file
-					//need to make xmlData large enough to receive the data
 					sInt32		dataLength = (sInt32) bufLen - sizeof( AuthorizationExternalForm );
 					Boolean		configChanged = false;
 					
@@ -581,11 +605,14 @@ sInt32 CSMBPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 							mLocalNodeString = newWorkgroupString;
 							
 							configChanged = true;
+						} else {
+							// if we are the same string, we need to free it
+							free( newWorkgroupString );
 						}
 					}
 					else if ( newWorkgroupString )
 					{
-						// Huh? we shouldn't be called if we don't have a mLocalNodeString!
+						// we shouldn't be called if we don't have a mLocalNodeString!
 						mLocalNodeString = newWorkgroupString;
 							
 						configChanged = true;
@@ -597,6 +624,7 @@ sInt32 CSMBPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 						{
 							free( mWINSServer );
 							mWINSServer = newWINSServer;
+							mLMBDiscoverer->SetWinsServer(mWINSServer);
 							
 							configChanged = true;
 						}
@@ -604,6 +632,7 @@ sInt32 CSMBPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 					else if ( newWINSServer )
 					{
 						mWINSServer = newWINSServer;
+						mLMBDiscoverer->SetWinsServer(mWINSServer);
 							
 						configChanged = true;
 					}
@@ -611,13 +640,15 @@ sInt32 CSMBPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 					{
 						free( mWINSServer );
 						mWINSServer = NULL;
+						mLMBDiscoverer->SetWinsServer(mWINSServer);
 
 						configChanged = true;
 					}
 
 					if ( configChanged )
 					{
-						WriteToConfigFile();
+						WriteToConfigFile(kConfFilePath);
+						WriteToConfigFile(kBrowsingConfFilePath);
 
 						if ( !(mState & kActive) || (mState & kInactive) )
 						{
@@ -628,7 +659,9 @@ sInt32 CSMBPlugin::DoPlugInCustomCall ( sDoPlugInCustomCall *inData )
 						
 						if ( (mState & kActive) && mActivatedByNSL )
 						{
-							AddNode( mLocalNodeString, true );	// add our local reg node
+							DBGLOG( "CSMBPlugin::DoPlugInCustomCall (mState & kActive) && mActivatedByNSL so starting a new fresh node lookup.\n" );
+							mNeedFreshLookup = true;
+							OurLMBDiscoverer()->ClearLMBCache();
 							StartNodeLookup();					// and then start all over
 						}
 					}
@@ -660,16 +693,35 @@ sInt32 CSMBPlugin::HandleNetworkTransition( sHeader *inData )
 {
     sInt32					siResult			= eDSNoErr;
 
-    if ( mBroadcastAddr )
-        free( mBroadcastAddr );
-    mBroadcastAddr = NULL;
-	
-	siResult = CNSLPlugin::HandleNetworkTransition( inData );
+	DBGLOG( "CSMBPlugin::HandleNetworkTransition called\n" );
+
+	if ( mActivatedByNSL && IsActive() )
+	{
+		DBGLOG( "CSMBPlugin::HandleNetworkTransition cleaning up data and calling CNSLPlugin::HandleNetworkTransition\n" );
+
+		if ( mBroadcastAddr )
+			free( mBroadcastAddr );
+		mBroadcastAddr = NULL;
+		
+		OurLMBDiscoverer()->ClearLMBCache();				// no longer valid
+		OurLMBDiscoverer()->ResetOurBroadcastAddress();	
+		OurLMBDiscoverer()->ClearBadLMBList();
+		
+		mInitialSearch = true;	// starting from scratch
+		mNeedFreshLookup = true;
+		mCurrentSearchCanceled = true;
+		ZeroLastNodeLookupStartTime();		// force this to start again
+		
+		siResult = CNSLPlugin::HandleNetworkTransition( inData );
+	}
+	else
+		DBGLOG( "CSMBPlugin::HandleNetworkTransition skipped, mActivatedByNSL: %d, IsActive: %d\n", mActivatedByNSL, IsActive() );
 
     return ( siResult );
 }
 
-#define kMaxTimeToWait	60	// 1 minute?
+#pragma mark -
+#define kMaxTimeToWait	10	// in seconds
 sInt32 CSMBPlugin::FillOutCurrentState( sDoPlugInCustomCall *inData )
 {
 	sInt32					siResult	= eDSNoErr;
@@ -681,17 +733,14 @@ sInt32 CSMBPlugin::FillOutCurrentState( sDoPlugInCustomCall *inData )
 
 	try
 	{
-		if ( !mNodeListIsCurrent )
+		if ( !mNodeListIsCurrent && !mNodeSearchInProgress )
 		{
-			NewNodeLookup();
+			StartNodeLookup();
 			
 			int	i = 0;
 			while ( !mNodeListIsCurrent && i++ < kMaxTimeToWait )
-				sleep(1);
+				SmartSleep(1*USEC_PER_SEC);
 		}
-
-		if ( !mNodeListIsCurrent )
-			throw( ePlugInCallTimedOut );
 			
 		workgroupDataLen = 0;
 		workgroupData = MakeDataBufferOfWorkgroups( &workgroupDataLen );
@@ -829,7 +878,7 @@ CFStringRef CSMBPlugin::GetBundleIdentifier( void )
     return gBundleIdentifier;
 }
 
-// this is used for top of the node's path "NSL"
+// this is used for top of the node's path "SMB"
 const char*	CSMBPlugin::GetProtocolPrefixString( void )
 {		
     return gProtocolPrefixString;
@@ -854,61 +903,113 @@ Boolean CSMBPlugin::IsLocalNode( const char *inNode )
     return result;
 }
 
-void CSMBPlugin::AddWINSWorkgroup( const char* workgroup )
+void CSMBPlugin::NodeLookupIsCurrent( void )
 {
-	if ( !mWINSWorkgroups )
-		mWINSWorkgroups = CFDictionaryCreateMutable( NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks );
-		
-	if ( !mWINSWorkgroups )
-		return;
-		
-	CFStringRef		tempString = CFStringCreateWithCString( NULL, workgroup, kCFStringEncodingUTF8 );
-	
-	if ( tempString )
-	{
-		CFDictionaryAddValue( mWINSWorkgroups, tempString, tempString );		// key and value are the same, we don't care
-		CFRelease( tempString );
-	}
+	LockNodeState();
+	mNodeListIsCurrent = true;
+	mNodeSearchInProgress = false;
+
+	if ( mCurrentSearchCanceled )
+		mInitialSearch = true;		// if this search was canceled, we want to start again
+	else
+		mInitialSearch = false;
+
+	UnLockNodeState();
 }
 
 void CSMBPlugin::NewNodeLookup( void )
 {
 	DBGLOG( "CSMBPlugin::NewNodeLookup\n" );
-    
-	mNodeListIsCurrent = false;
-
-	// First add our local scope
-    AddNode( GetLocalNodeString() );		// always register the default registration node
 	
-    if ( sNMBLookupToolIsAvailable )
-    {
-        CSMBNodeLookupThread* newLookup = new CSMBNodeLookupThread( this );
-        
-        newLookup->Resume();
-    }
-    
-    if ( !sNMBLookupToolIsAvailable )
-        DBGLOG( "CSMBPlugin::NewNodeLookup, ignoring as the SMB library isn't available\n" );
+	LockNodeState();
+	if ( !mNodeSearchInProgress )
+	{
+		mNodeListIsCurrent = false;
+		mNodeSearchInProgress = true;
+		mNeedFreshLookup = false;
+		mCurrentSearchCanceled = false;
+		// First add our local scope
+		AddNode( GetLocalNodeString() );		// always register the default registration node
+		
+		if ( sNMBLookupToolIsAvailable )
+		{
+			CSMBNodeLookupThread* newLookup = new CSMBNodeLookupThread( this );
+			
+			newLookup->Resume();
+		}
+		
+		if ( !sNMBLookupToolIsAvailable )
+			DBGLOG( "CSMBPlugin::NewNodeLookup, ignoring as the SMB library isn't available\n" );
+	}
+	else if ( mNeedFreshLookup )
+	{
+		DBGLOG( "CSMBPlugin::NewNodeLookup, we need a fresh lookup, but one is still in progress\n" );
+		ZeroLastNodeLookupStartTime();		// force this to start again
+	}
+	
+	UnLockNodeState();
 }
 
 void CSMBPlugin::NewServiceLookup( char* serviceType, CNSLDirNodeRep* nodeDirRep )
 {
-	DBGLOG( "CSMBPlugin::NewServicesLookup\n" );
+	DBGLOG( "CSMBPlugin::NewServiceLookup\n" );
 
     if ( sNMBLookupToolIsAvailable )
     {
-        if ( mServiceTypeString && serviceType && strcmp( serviceType, mServiceTypeString ) == 0 )
+        if ( serviceType && strcmp( serviceType, kServiceTypeString ) == 0 )
         {
-            CSMBServiceLookupThread* newLookup = new CSMBServiceLookupThread( this, serviceType, nodeDirRep );
-            
-            // if we have too many threads running, just queue this search object and run it later
-            if ( OKToStartNewSearch() )
-                newLookup->Resume();
-            else
-                QueueNewSearch( newLookup );
+			CFStringRef	workgroupRef = nodeDirRep->GetNodeName();
+			
+			CFArrayRef listOfLMBs = OurLMBDiscoverer()->CopyBroadcastResultsForLMB( workgroupRef );
+			
+			if ( listOfLMBs )
+			{
+				char	workgroup[256];
+				CFStringGetCString( nodeDirRep->GetNodeName(), workgroup, sizeof(workgroup), kCFStringEncodingUTF8 );
+				DBGLOG( "CSMBPlugin::NewServiceLookup doing lookup on %ld LMBs responsible for %s\n", CFArrayGetCount(listOfLMBs), workgroup );
+				for ( CFIndex i=CFArrayGetCount(listOfLMBs)-1; i>=0; i-- )
+				{
+					CFStringRef lmbNameRef = (CFStringRef)CFArrayGetValueAtIndex( listOfLMBs, i );
+
+//					if ( !OurLMBDiscoverer()->IsLMBOnBadList( lmbNameRef ) )
+					{
+						CSMBServiceLookupThread* newLookup = new CSMBServiceLookupThread( this, serviceType, nodeDirRep, lmbNameRef );
+				
+						// if we have too many threads running, just queue this search object and run it later
+						if ( OKToStartNewSearch() )
+							newLookup->Resume();
+						else
+							QueueNewSearch( newLookup );
+
+						// just fire off the one search
+						break;
+					}
+				}
+				
+				CFRelease( listOfLMBs ); // release the list now that we're done with it
+			}
+			else if ( GetWinsServer() )	// if we have a WINS server, go ahead and try with a cached name, this may get resolved properly and not be on our subnet
+			{
+				CFStringRef	cachedLMB = OurLMBDiscoverer()->CopyOfCachedLMBForWorkgroup( nodeDirRep->GetNodeName() );
+
+				if ( cachedLMB )
+				{
+					CSMBServiceLookupThread* newLookup = new CSMBServiceLookupThread( this, serviceType, nodeDirRep, cachedLMB );
+			
+					// if we have too many threads running, just queue this search object and run it later
+					if ( OKToStartNewSearch() )
+						newLookup->Resume();
+					else
+						QueueNewSearch( newLookup );
+					
+					CFRelease( cachedLMB );
+				}
+				else
+					syslog( LOG_INFO, "CSMBPlugin::NewServiceLookup, no cached LMB\n" );
+			}
         }
         else if ( serviceType )
-            DBGLOG( "CSMBPlugin::NewServicesLookup skipping as we don't support lookups on type:%s\n", serviceType );
+            DBGLOG( "CSMBPlugin::NewServiceLookup skipping as we don't support lookups on type:%s\n", serviceType );
     }
 }
 
@@ -917,307 +1018,9 @@ Boolean CSMBPlugin::OKToOpenUnPublishedNode( const char* parentNodeName )
 	return false;
 }
 
-Boolean CSMBPlugin::IsWINSWorkgroup( const char* workgroup )
+#pragma mark -
+void CSMBPlugin::ClearLMBForWorkgroup( CFStringRef workgroupRef, CFStringRef lmbNameRef )
 {
-	Boolean		isWINSWorkgroup = false;
-	
-	if ( GetWinsServer() && mWINSWorkgroups )
-	{
-		CFStringRef		tempString = CFStringCreateWithCString( NULL, workgroup, kCFStringEncodingUTF8 );
-		
-		if ( tempString )
-		{
-			isWINSWorkgroup = ( CFDictionaryGetValue( mWINSWorkgroups, tempString ) != NULL );
-			CFRelease( tempString );
-		}
-	}
-	
-	return isWINSWorkgroup;
-}
-
-const char* CSMBPlugin::GetBroadcastAdddress( void )
-{
-	if ( !mBroadcastAddr )
-	{
-		char*		address = NULL;
-		sInt32		status = GetPrimaryInterfaceBroadcastAdrs( &address );
-		
-		if ( status )
-			DBGLOG( "CSMBPlugin::GetPrimaryInterfaceBroadcastAdrs returned error: %ld\n", status );
-		else
-		{
-			SCNetworkConnectionFlags	connectionFlags;
-			
-			DBGLOG( "CSMBPlugin::GetPrimaryInterfaceBroadcastAdrs returned Broadcast Address: %s\n", address );
-			
-			SCNetworkCheckReachabilityByName( address, &connectionFlags );
-			
-			if ( (connectionFlags & kSCNetworkFlagsReachable) && !(connectionFlags & kSCNetworkFlagsConnectionRequired) && !(connectionFlags & kSCNetworkFlagsTransientConnection) )
-			{
-				DBGLOG( "CSMBPlugin::GetBroadcastAdddress found address reachable w/o dialup required\n" );
-				mBroadcastAddr = address;
-			}
-			else
-			{
-				DBGLOG( "CSMBPlugin::GetBroadcastAdddress found address not reachable w/o dialup being initiated, ignoreing\n" );
-				free( address );
-			}
-		}
-	}
-	
-	return mBroadcastAddr;
-}
-
-/************************************
- * GetPrimaryInterfaceBroadcastAdrs *
-*************************************
-
-	Return the IP addr of the primary interface broadcast address.
-*/
-
-sInt32 CSMBPlugin::GetPrimaryInterfaceBroadcastAdrs( char** broadcastAddr )
-{
-	CFArrayRef			subnetMasks = NULL;
-	CFDictionaryRef		globalDict = NULL;
-	CFStringRef			key = NULL;
-	CFStringRef			primaryService = NULL, router = NULL;
-	CFDictionaryRef		serviceDict = NULL;
-	SCDynamicStoreRef	store = NULL;
-	sInt32				status = 0;
-	CFStringRef			subnetMask = NULL;
-	CFArrayRef			addressPieces = NULL, subnetMaskPieces = NULL;
-	
-	
-	do {
-		store = SCDynamicStoreCreate(NULL, CFSTR("getPrimary"), NULL, NULL);
-		if (!store) {
-			DBGLOG("SCDynamicStoreCreate() failed: %s\n", SCErrorString(SCError()) );
-			status = -1;
-			break;
-		}
-	
-		key = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
-								kSCDynamicStoreDomainState,
-								kSCEntNetIPv4);
-		
-		globalDict = (CFDictionaryRef)SCDynamicStoreCopyValue(store, key);
-		CFRelease( key );
-		
-		if (!globalDict) {
-			DBGLOG("SCDynamicStoreCopyValue() failed: %s\n", SCErrorString(SCError()) );
-			status = -1;
-			break;
-		}
-	
-		primaryService = (CFStringRef)CFDictionaryGetValue(globalDict,
-							kSCDynamicStorePropNetPrimaryService);
-		if (!primaryService) {
-			DBGLOG("no primary service: %s\n", SCErrorString(SCError()) );
-
-			status = -1;
-			break;
-		}
-	
-		key = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL,
-								kSCDynamicStoreDomainState,
-								primaryService,
-								kSCEntNetIPv4);
-		serviceDict = (CFDictionaryRef)SCDynamicStoreCopyValue(store, key);
-		
-		CFRelease(key);
-		if (!serviceDict) {
-			DBGLOG("SCDynamicStoreCopyValue() failed: %s\n", SCErrorString(SCError()) );
-			status = -1;
-			break;
-		}
-	
-		CFArrayRef	addressList = (CFArrayRef)CFDictionaryGetValue(serviceDict, kSCPropNetIPv4Addresses);
-		
-		router = (CFStringRef)CFDictionaryGetValue(serviceDict,
-						kSCPropNetIPv4Router);
-		if (!router) {
-			
-			if ( addressList && CFArrayGetCount(addressList) > 0 )
-			{
-				// no router, just use our address instead.
-				router = (CFStringRef)CFArrayGetValueAtIndex( addressList, 0 );
-			}	
-			else
-			{
-				DBGLOG("no router\n" );
-				status = -1;
-				break;
-
-			}
-		}
-		
-		subnetMasks = (CFArrayRef)CFDictionaryGetValue(serviceDict,
-						kSCPropNetIPv4SubnetMasks);
-		if (!subnetMasks) {
-			DBGLOG("no subnetMasks\n" );
-			status = -1;
-			break;
-		}
-	
-		addressPieces = CFStringCreateArrayBySeparatingStrings( NULL, router, CFSTR(".") );
-	
-		if ( subnetMasks )
-		{
-			subnetMask = (CFStringRef)CFArrayGetValueAtIndex(subnetMasks, 0);
-	
-			subnetMaskPieces = CFStringCreateArrayBySeparatingStrings( NULL, subnetMask, CFSTR(".") );
-		}
-		
-		char	bcastAddr[256] = {0};
-		for (int j=0; j<CFArrayGetCount(addressPieces); j++)
-		{
-			int	addr = CFStringGetIntValue((CFStringRef)CFArrayGetValueAtIndex(addressPieces, j));
-			int mask = CFStringGetIntValue((CFStringRef)CFArrayGetValueAtIndex(subnetMaskPieces, j));
-			int invMask = (~mask & 255);
-			int bcast = invMask | addr;
-			
-			char	bcastPiece[5];
-			snprintf( bcastPiece, sizeof(bcastPiece), "%d.", bcast );
-			strcat( bcastAddr, bcastPiece );
-		}
-		
-		bcastAddr[strlen(bcastAddr)-1] = '\0';
-		
-		*broadcastAddr = (char*)malloc(strlen(bcastAddr)+1);
-		strcpy( *broadcastAddr, bcastAddr );
-	} while (false);
-	
-	if ( serviceDict )
-		CFRelease( serviceDict );
-
-	if ( globalDict )
-		CFRelease( globalDict );
-
-	if ( store )
-		CFRelease( store );
-		
-	if ( addressPieces )
-		CFRelease( addressPieces );
-	
-	if ( subnetMaskPieces )
-		CFRelease( subnetMaskPieces );
-		
-	return status;
-
-}
-
-
-Boolean ExceptionInResult( const char* resultPtr )
-{
-    // for now we are just going to strstr for "Exception"
-    return (strstr(resultPtr, "Exception") != 0 || strncmp(resultPtr, "dyld: sh:", strlen("dyld: sh:")) == 0 );
-}
-
-/***************
- * IsIPAddress *
- ***************
- 
- Verifies a CString is a legal dotted-quad format. If it fails, it returns the 
- partial IP address that was collected.
- 
-*/
-
-int IsIPAddress(const char* adrsStr, long *ipAdrs)
-{
-	short	i,accum,numOctets,lastDotPos;
-	long	tempAdrs;
-	register char	c;
-	char	localCopy[20];					// local copy of the adrsStr
-	
-	strncpy(localCopy, adrsStr,sizeof(localCopy)-1);
-	*ipAdrs = tempAdrs = 0;
-	numOctets = 1;
-	accum = 0;
-	lastDotPos = -1;
-	for (i = 0; localCopy[i] != 0; i++)	{	// loop 'til it hits the NUL
-		c = localCopy[i];					// pulled this out of the comparison part of the for so that it is more obvious	// KA - 5/29/97
-		if (c == '.')	{
-			if (i - lastDotPos <= 1)	return 0;	// no digits
-			if (accum > 255) 			return 0;	// only 8 bits, guys
-			*ipAdrs = tempAdrs = (tempAdrs<<8) + accum; // copy back result so far
-			accum = 0; 
-			lastDotPos = i;							
-			numOctets++;								// bump octet counter
-		}
-		else if ((c >= '0') && (c <= '9'))	{
-			accum = accum * 10 + (c - '0');				// [0-9] is OK
-		}
-		else return 0;								// bogus character
-	}
-	
-	if (accum > 255) return 0;						// if not too big...
-	tempAdrs = (tempAdrs<<8) + accum;					// add in the last byte
-	*ipAdrs = tempAdrs;									// return real IP adrs
-
-	if (numOctets != 4)									// if wrong count
-		return 0;									// 	return FALSE;
-	else if (i-lastDotPos <= 1)							// if no last byte
-		return 0;									//  return FALSE
-	else	{											// if four bytes
-		return 1;									// say it worked
-	}
-}
-
-/*************
- * IsDNSName *
- *************
- 
- Verify a CString is a valid dot-format DNS name. Check that:
- 
- ¥  the name only contains letters, digits, hyphens, and dots; 
- ¥	no label begins or ends with a "-";
- ¥	the name doesn't begin with ".";
- ¥	labels are between 1 and 63 characters long;
- ¥	the entire length isn't > 255 characters;
- ¥	allow "." as a legal name
- ¥	will NOT allow an all-numeric name (ie, 1.2.3.4 will fail)
- .	must have at least ONE dot
-*/
-
-Boolean IsDNSName(char* theName)
-{
-	short	i;
-	short	len;
-	short	lastDotPos;
-	short	lastDashPos;
-	register char 	c;
-	Boolean seenAlphaChar;
-	
-	if ( !strstr(theName, ".") )
-		return FALSE;
-		
-	if ((strlen(theName) == 1) && (theName[0] == '.')) return TRUE;	// "." is legal...
-	len = 0; 
-	lastDotPos = -1;					// just "before" the start of string
-	lastDashPos = -1;				
-	seenAlphaChar = FALSE;
-	for (i = 0; c = theName[i]; i++, len++)	{
-	
-		if (len > 255)	return FALSE;	// whole name is too long
-		
-		if (c == '-')	{
-			if (lastDotPos == i-1) return FALSE;	// no leading "-" in labels 
-			lastDashPos = i;
-		}
-		else if (c == '.')	{			// check label lengths
-			if (lastDashPos == i-1)	 	 return FALSE; // trailing "-" in label
-			if (i - lastDotPos - 1 > 63) return FALSE; // label too long
-			if (i - lastDotPos <= 1) 	 return FALSE; // zero length label
-			lastDotPos = i;
-		}		
-		else if (isdigit(c))	{ 		// any numeric chars are OK
-			// nothing
-		}
-		else if (isalpha(c))	{ 		// lower or upper case, too.
-			seenAlphaChar = TRUE;
-		}
-		else return FALSE;				// but nothing else
-	}
-	return seenAlphaChar;
+	OurLMBDiscoverer()->ClearLMBForWorkgroup( workgroupRef, lmbNameRef );
 }
 

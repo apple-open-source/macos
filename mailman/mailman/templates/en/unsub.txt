@@ -1,0 +1,23 @@
+Mailing list removal confirmation notice for mailing list %(listname)s
+
+We have received a request%(remote)s for the removal of your email
+address, "%(email)s" from the %(listaddr)s mailing list.  To confirm
+that you want to be removed from this mailing list, simply reply to
+this message, keeping the Subject: header intact.  Or visit this web
+page:
+
+    %(confirmurl)s
+
+Or include the following line -- and only the following line -- in a
+message to %(requestaddr)s:
+
+    confirm %(cookie)s
+
+Note that simply sending a `reply' to this message should work from
+most mail readers, since that usually leaves the Subject: line in
+the right form (additional "Re:" text in the Subject: is okay).
+
+If you do not wish to be removed from this list, please simply
+disregard this message.  If you think you are being maliciously
+removed from the list, or have any other questions, send them to
+%(listadmin)s.

@@ -4,7 +4,7 @@
 # Synopsis: Holds header-wide comments parsed by headerDoc
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2001/11/30 22:43:17 $
+# Last Updated: $Date: 2003/07/29 19:17:32 $
 # 
 # Copyright (c) 1999-2001 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
@@ -73,6 +73,9 @@ sub _initialize {
 
     $self->{CLASSES} = ();
     $self->{CLASSESDIR} = undef;
+    $self->{UPDATED}= undef;
+    $self->{COPYRIGHT}= "";
+    $self->{HTMLMETA}= "";
     $self->{CATEGORIES}= ();
     $self->{CATEGORIESDIR} = undef;
     $self->{PROTOCOLS}= ();
@@ -94,6 +97,16 @@ sub outputDir {
 	    $self->categoriesDir("$rootOutputDir$pathSeparator"."Categories");
     }
     return $self->{OUTPUTDIR};
+}
+
+sub fullpath {
+    my $self = shift;
+
+    if (@_) {
+        my $fullpath = shift;
+        $self->{FULLPATH} = $fullpath;
+    }
+    return $self->{FULLPATH};
 }
 
 sub classesDir {
@@ -173,6 +186,104 @@ sub categoriesDir {
     return $self->{CATEGORIESDIR};
 }
 
+sub availability {
+    my $self = shift;
+
+    if (@_) {
+        $self->{AVAILABILITY} = shift;
+    }
+    return $self->{AVAILABILITY};
+}
+
+sub updated {
+    my $self = shift;
+    my $localDebug = 0;
+    
+    if (@_) {
+	my $updated = shift;
+        # $self->{UPDATED} = shift;
+	my $month; my $day; my $year;
+
+	$month = $day = $year = $updated;
+
+	print "updated is $updated\n" if ($localDebug);
+	if (!($updated =~ /\d\d\d\d-\d\d-\d\d/ )) {
+	    if (!($updated =~ /\d\d-\d\d-\d\d\d\d/ )) {
+		if (!($updated =~ /\d\d-\d\d-\d\d/ )) {
+		    my $filename = $HeaderDoc::headerObject->filename();
+		    print "$filename:0:Bogus date format: $updated.\n";
+		    print "Valid formats are MM-DD-YYYY, MM-DD-YY, and YYYY-MM-DD\n";
+		    return $self->{UPDATED};
+		} else {
+		    $month =~ s/(\d\d)-\d\d-\d\d/$1/smg;
+		    $day =~ s/\d\d-(\d\d)-\d\d/$1/smg;
+		    $year =~ s/\d\d-\d\d-(\d\d)/$1/smg;
+
+		    my $century;
+		    $century = `date +%C`;
+		    $century *= 100;
+		    $year += $century;
+		    # $year += 2000;
+		    print "YEAR: $year" if ($localDebug);
+		}
+	    } else {
+		print "03-25-2003 case.\n" if ($localDebug);
+		    $month =~ s/(\d\d)-\d\d-\d\d\d\d/$1/smg;
+		    $day =~ s/\d\d-(\d\d)-\d\d\d\d/$1/smg;
+		    $year =~ s/\d\d-\d\d-(\d\d\d\d)/$1/smg;
+	    }
+	} else {
+		    $year =~ s/(\d\d\d\d)-\d\d-\d\d/$1/smg;
+		    $month =~ s/\d\d\d\d-(\d\d)-\d\d/$1/smg;
+		    $day =~ s/\d\d\d\d-\d\d-(\d\d)/$1/smg;
+	}
+	$month =~ s/\n*//smg;
+	$day =~ s/\n*//smg;
+	$year =~ s/\n*//smg;
+	$month =~ s/\s*//smg;
+	$day =~ s/\s*//smg;
+	$year =~ s/\s*//smg;
+
+	# Check the validity of the modification date
+
+	my $invalid = 0;
+	my $mdays = 28;
+	if ($month == 2) {
+		if ($year % 4) {
+			$mdays = 28;
+		} elsif ($year % 100) {
+			$mdays = 29;
+		} elsif ($year % 400) {
+			$mdays = 28;
+		} else {
+			$mdays = 29;
+		}
+	} else {
+		my $bitcheck = (($month & 1) ^ (($month & 8) >> 3));
+		if ($bitcheck) {
+			$mdays = 31;
+		} else {
+			$mdays = 30;
+		}
+	}
+
+	if ($month > 12 || $month < 1) { $invalid = 1; }
+	if ($day > $mdays || $day < 1) { $invalid = 1; }
+	if ($year < 1970) { $invalid = 1; }
+
+	if ($invalid) {
+		my $filename = $HeaderDoc::headerObject->filename();
+		print "$filename:0:Invalid date (year = $year, month = $month, day = $day).\n";
+		print "$filename:0:Valid formats are MM-DD-YYYY, MM-DD-YY, and YYYY-MM-DD\n";
+		return $self->{UPDATED};
+	} else {
+		$self->{UPDATED} = "$year-$month-$day";
+		print "date set to ".$self->{UPDATED}."\n" if ($localDebug);
+	}
+    }
+    return $self->{UPDATED};
+}
+
 sub categories {
     my $self = shift;
 
@@ -218,6 +329,76 @@ sub removeFromCategories {
 	}
 	# we set it directly since the accessor will not allow us to set an empty array
 	@{ $self->{CATEGORIES} } = @tempArray;
+}
+
+sub headerCopyrightOwner {
+    my $self = shift;
+
+    if (@_) {     
+	my $test = shift;
+	$self->{COPYRIGHT} = $test;
+    }
+    return $self->{COPYRIGHT};
+}
+
+sub HTMLmeta {
+    my $self = shift;
+
+    if (@_) {
+	my $text = shift;
+
+	if ($text =~ /=/) {
+		# @meta blah="blah" this="that"
+		#    becomes
+		# <meta blah="blah" this="that">
+		$text =~ s/\n.*//smg;
+		$self->{HTMLMETA} .= "<meta $text>\n";
+	} else {
+		# @meta nameparm contentparm
+		#    becomes
+		# <meta name="nameparm" content="contentparm">
+		$text =~ /^(.*?)\s/;
+		my $name = $1;
+		$text =~ s/^$name\s+//;
+		$text =~ s/\n.*//smg;
+
+		$self->{HTMLMETA} .= "<meta name=\"$name\" content=\"$text\">\n";
+	}
+    }
+    
+    return $self->{HTMLMETA};
+}
+
+sub metaFileText {
+    my $self = shift;
+    my $text = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+
+    $text .= "<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n";
+    $text .= "<plist version=\"1.0\">\n";
+    $text .= "<dict>\n";
+
+    my $title = $self->name();
+
+    if (!("$title" eq "")) {
+	$text .= "<key>BookTitle</key>\n";
+	$text .= "<string>$title HeaderDoc Reference</string>\n";
+    }
+    $text .= "<key>WriterEmail</key>\n";
+    $text .= "<key>techpubs\@group.apple.com</key>\n";
+    $text .= "<key>ProductionEmail</key>\n";
+    $text .= "<key></key>\n";
+    $text .= "<key>EDD_Name</key>\n";
+    $text .= "<string>ProceduralC.EDD</string>\n";
+    $text .= "<key>EDD_Version</key>\n";
+    $text .= "<string>3.31</string>\n";
+    $text .= "<key>ReleaseDateFooter</key>\n";
+    my $date = `date +"%B %Y"`;
+    $date =~ s/\n//smg;
+    $text .= "<string>$date</string>\n";
+    $text .= "</dict>\n";
+    $text .= "</plist>\n";
+
+    return $text;
 }
 
 sub writeHeaderElements {
@@ -329,16 +510,35 @@ sub createTOCFile {
     my $outputFileName = "toc.html";    
     my $outputFile = "$rootDir$pathSeparator$outputFileName";    
     my $fileString = $self->tocString();    
-    my $filename = $self->name();    
+    my $name = $self->name();    
+    my $filename = $self->filename();    
 
 	open(OUTFILE, ">$outputFile") || die "Can't write $outputFile.\n$!\n";
     if ($isMacOS) {MacPerl::SetFileInfo('MSIE', 'TEXT', "$outputFile");};
-	print OUTFILE "<html><head><title>Documentation for $filename</title></head>\n";
-	print OUTFILE "<body bgcolor=\"#cccccc\">\n";
+	print OUTFILE "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0 Transitional//EN\"\n    \"http://www.w3.org/TR/1998/REC-html40-19980424/loose.dtd\">\n";
+	print OUTFILE "<html>";
+	print OUTFILE "<style type=\"text/css\">";
+	print OUTFILE "<!--";
+	print OUTFILE "a:link {text-decoration: none; font-family: Verdana, Geneva, Helvetica, Arial, sans-serif; font-size: small}";
+	print OUTFILE "a:visited {text-decoration: none; font-family: Verdana, Geneva, Helvetica, Arial, sans-serif; font-size: small}";
+	print OUTFILE "a:active {text-decoration: none; font-family: Verdana, Geneva, Helvetica, Arial, sans-serif; font-size: small}";
+	print OUTFILE "a:hover {text-decoration: underline; font-family: Verdana, Geneva, Helvetica, Arial, sans-serif; font-size: small}";
+	print OUTFILE "h4 {text-decoration: none; font-family: Verdana,Geneva,Arial,Helvetica,sans-serif; size: tiny; font-weight: bold}"; # bold
+	print OUTFILE "-->";
+	print OUTFILE "</style>";
+	print OUTFILE "<head>\n    <title>Documentation for $name</title>\n	<meta name=\"generator\" content=\"HeaderDoc\">\n</head>\n";
+	print OUTFILE "<body bgcolor=\"#cccccc\" link=\"#000099\" vlink=\"#660066\"\n";
+	print OUTFILE "leftmargin=\"0\" topmargin=\"0\" marginwidth=\"1\"\n";
+	print OUTFILE "marginheight=\"0\">\n";
+
+	print OUTFILE "<table width=\"100%\">";
+	print OUTFILE "<tr bgcolor=\"#999999\"><td>&nbsp;</td></tr>";
+	print OUTFILE "</table><br>";
+
 	print OUTFILE "<table border=\"0\" cellpadding=\"0\" cellspacing=\"2\" width=\"148\">\n";
 	print OUTFILE "<tr><td colspan=\"2\"><font size=\"5\" color=\"#330066\"><b>$tocTitlePrefix</b></font></td></tr>\n";
 	print OUTFILE "<tr><td width=\"15\"></td><td><b><font size=\"+1\">$filename</font></b></td></tr>\n";
-	print OUTFILE "</table><hr>\n";
+	print OUTFILE "</table><br>\n";
 	print OUTFILE $fileString;
 	print OUTFILE "</body></html>\n";
 	close OUTFILE;
@@ -361,7 +561,7 @@ sub tocString {
 	        my $safeName = $name;
 	        # for now, always shorten long names since some files may be moved to a Mac for browsing
             if (1 || $isMacOS) {$safeName = &safeName(filename => $name);};
-	        $tocString .= "<nobr>&nbsp;<a href = \"Classes/$safeName/$defaultFrameName\" target =\"_top\">$name</a></nobr><br>\n";
+	        $tocString .= "<nobr>&nbsp;<a href=\"Classes/$safeName/$defaultFrameName\" target=\"_top\">$name</a></nobr><br>\n";
 	    }
     }
     if (@protocols) {
@@ -371,7 +571,7 @@ sub tocString {
 	        my $safeName = $name;
 	        # for now, always shorten long names since some files may be moved to a Mac for browsing
             if (1 || $isMacOS) {$safeName = &safeName(filename => $name);};
-	        $tocString .= "<nobr>&nbsp;<a href = \"Protocols/$safeName/$defaultFrameName\" target =\"_top\">$name</a></nobr><br>\n";
+	        $tocString .= "<nobr>&nbsp;<a href=\"Protocols/$safeName/$defaultFrameName\" target=\"_top\">$name</a></nobr><br>\n";
 	    }
     }
     if (@categories) {
@@ -381,10 +581,18 @@ sub tocString {
 	        my $safeName = $name;
 	        # for now, always shorten long names since some files may be moved to a Mac for browsing
             if (1 || $isMacOS) {$safeName = &safeName(filename => $name);};
-	        $tocString .= "<nobr>&nbsp;<a href = \"Categories/$safeName/$defaultFrameName\" target =\"_top\">$name</a></nobr><br>\n";
+	        $tocString .= "<nobr>&nbsp;<a href=\"Categories/$safeName/$defaultFrameName\" target=\"_top\">$name</a></nobr><br>\n";
 	    }
     }
-    $tocString .= "<br><hr><a href=\"$compositePageName\" target =\"_blank\">[Printable HTML Page]</a>\n";
+    $tocString .= "<br><hr><a href=\"$compositePageName\" target=\"_blank\">[Printable HTML Page]</a>\n";
+    my $availability = $self->availability();
+    my $updated = $self->updated();
+    if (length($updated)) {
+	$tocString .= "<p><i>Availability: $availability</i><p>";
+    }
+    if (length($updated)) {
+	$tocString .= "<p><i>Updated: $updated</i><p>";
+    }
     return $tocString;
 }
 
@@ -392,7 +600,7 @@ sub docNavigatorComment {
     my $self = shift;
     my $name = $self->name();
     
-    return "<-- headerDoc=Header; name=$name-->";
+    return "<!-- headerDoc=Header; name=$name-->";
 }
 
 ################## Misc Functions ###################################
@@ -401,7 +609,11 @@ sub docNavigatorComment {
 sub objName { # used for sorting
    my $obj1 = $a;
    my $obj2 = $b;
-   return ($obj1->name() cmp $obj2->name());
+   if ($HeaderDoc::sort_entries) {
+        return ($obj1->name() cmp $obj2->name());
+   } else {
+        return (1 cmp 2);
+   }
 }
 
 ##################### Debugging ####################################

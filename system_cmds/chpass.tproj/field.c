@@ -286,3 +286,84 @@ p_shell(p, pw, ep)
 	}
 	return (0);
 }
+
+#ifdef DIRECTORY_SERVICE
+void
+d_change(struct display *d, FILE *fp)
+{
+	fprintf(fp, "Change [month day year]: %s\n", ttoa(d->pw->pw_change));
+}
+
+void
+d_class(struct display *d, FILE *fp)
+{
+	fprintf(fp, "Class: %s\n", d->pw->pw_class);
+}
+
+void
+d_expire(struct display *d, FILE *fp)
+{
+	fprintf(fp, "Expire [month day year]: %s\n", ttoa(d->pw->pw_expire));
+}
+
+void
+d_fullname(struct display *d, FILE *fp)
+{
+	fprintf(fp, "Full Name: %s\n", d->fullname);
+}
+
+void
+d_gid(struct display *d, FILE *fp)
+{
+	fprintf(fp, "Gid [# or name]: %d\n", d->pw->pw_gid);
+}
+
+void
+d_hdir(struct display *d, FILE *fp)
+{
+	fprintf(fp, "Home directory: %s\n", d->pw->pw_dir);
+}
+
+void
+d_homephone(struct display *d, FILE *fp)
+{
+	fprintf(fp, "Home Phone: %s\n", d->homephone);
+}
+
+void
+d_login(struct display *d, FILE *fp)
+{
+	fprintf(fp, "Login: %s\n", d->pw->pw_name);
+}
+
+void
+d_location(struct display *d, FILE *fp)
+{
+	fprintf(fp, "Location: %s\n", d->location);
+}
+
+void
+d_officephone(struct display *d, FILE *fp)
+{
+	fprintf(fp, "Office Phone: %s\n", d->officephone);
+}
+
+void
+d_passwd(struct display *d, FILE *fp)
+{
+	fprintf(fp, "Password: %s\n", d->pw->pw_passwd);
+}
+
+void
+d_shell(struct display *d, FILE *fp)
+{
+	fprintf(fp, "Shell: %s\n", *d->pw->pw_shell ? d->pw->pw_shell
+		: _PATH_BSHELL);
+}
+
+void
+d_uid(struct display *d, FILE *fp)
+{
+	fprintf(fp, "Uid [#]: %d\n", d->pw->pw_uid);
+}
+#endif /* DIRECTORY_SERVICE */

@@ -1,0 +1,20 @@
+Your address "%(email)s" has been invited to join the %(listname)s
+mailing list at %(hostname)s by the %(listname)s mailing list owner.
+You may accept the invitation by simply replying to this message,
+keeping the Subject: header intact.
+
+You can also visit this web page:
+
+    %(confirmurl)s
+
+Or you should include the following line -- and only the following
+line -- in a message to %(requestaddr)s:
+
+    confirm %(cookie)s
+
+Note that simply sending a `reply' to this message should work from
+most mail readers.
+
+If you want to decline this invitation, please simply disregard this
+message.  If you have any questions, please send them to
+%(listowner)s.

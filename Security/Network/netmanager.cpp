@@ -80,10 +80,10 @@ void Manager::start(Transfer *xfer)
         xfer->mState = Transfer::active;
         xfer->observe(Observer::transferStarting);
         mActiveTransfers++;
-        debug("netmanager", "%ld active transfers", mActiveTransfers);
+        secdebug("netmanager", "%ld active transfers", mActiveTransfers);
     } catch (...) {
         xfer->mState = Transfer::failed;
-        debug("netmanager", "Transfer %p failed to start", xfer);
+        secdebug("netmanager", "Transfer %p failed to start", xfer);
         throw;
     }
 }
@@ -104,17 +104,17 @@ void Manager::abort(Transfer *xfer)
     switch (xfer->state()) {
     case Transfer::active:
         try {
-            debug("netmanager", "xfer %p request abort", xfer);
+            secdebug("netmanager", "xfer %p request abort", xfer);
             xfer->abort();
         } catch (...) {
-            debug("netmanager", "xfer %p failed to abort; forcing the issue", xfer);
+            secdebug("netmanager", "xfer %p failed to abort; forcing the issue", xfer);
             xfer->Transfer::abort();
         }
         break;
     case Transfer::finished:
     case Transfer::failed:
         // no longer running; ignore cancel request
-        debug("netmanager", "xfer %p abort ignored (already done)", xfer);
+        secdebug("netmanager", "xfer %p abort ignored (already done)", xfer);
         break;
     default:
         assert(false);		// mustn't call in this state
@@ -133,7 +133,7 @@ void Manager::done(Transfer *xfer)
     assert(xfer->state() == Transfer::finished || xfer->state() == Transfer::failed);
     assert(mActiveTransfers > 0);
     mActiveTransfers--;
-    debug("netmanager", "%ld active transfers", mActiveTransfers);
+    secdebug("netmanager", "%ld active transfers", mActiveTransfers);
 }
 
 
@@ -182,7 +182,7 @@ Connection *Manager::pickConnection(const HostTarget &host)
             return connection;				// good to go
         }
         // if validate returned false, the connection has self-destructed (so ignore it)
-        debug("netmanager", "%p connection %p failed to validate",
+        secdebug("netmanager", "%p connection %p failed to validate",
             this, connection);
     }
     return NULL;	// no joy, caller must make a new one
@@ -222,13 +222,13 @@ void Manager::clearTimer(Timer *timer)
 void Manager::runTimers()
 {
     while (Timer *top = static_cast<Timer *>(mTimers.pop(Time::now()))) {
-        debug("netmanager", "%p timer %p executing at %.3f",
+        secdebug("netmanager", "%p timer %p executing at %.3f",
             this, top, Time::now().internalForm());
         try {
             top->action();
-            debug("machsrvtime", "%p timer %p done", this, top);
+            secdebug("machsrvtime", "%p timer %p done", this, top);
         } catch (...) {
-            debug("machsrvtime",
+            secdebug("machsrvtime",
                 "%p server timer %p failed with exception", this, top);
         }
     }
@@ -242,7 +242,7 @@ void Manager::step()
 {
     prepare();
     if (!mEngine.isEmpty()) {
-        debug("mgrstep", "operations step");
+        secdebug("mgrstep", "operations step");
         mEngine();
     }
 }
@@ -253,7 +253,7 @@ void Manager::step()
 //
 void Manager::run(Time::Absolute stopTime)
 {
-    debug("netmanager",
+    secdebug("netmanager",
 		"starting run with %ld active transfers", mActiveTransfers);
     while (mActiveTransfers > 0) {
         prepare();
@@ -262,7 +262,7 @@ void Manager::run(Time::Absolute stopTime)
         if (Time::now() > stopTime)
             break;
     }
-    debug("netmanager", "ending run");
+    secdebug("netmanager", "ending run");
 }
 
 void Manager::run()
@@ -278,7 +278,7 @@ void Manager::prepare()
 {
     // clear the morgue
     if (!mMorgue.empty()) {
-        debug("netmanager",
+        secdebug("netmanager",
             "clearing morgue of %ld connections", mMorgue.size());
         for (set<Connection *>::iterator it = mMorgue.begin(); it != mMorgue.end(); it++)
             delete *it;

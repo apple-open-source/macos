@@ -2,7 +2,7 @@
 .de Id
 .ds Dt \\$4
 ..
-.Id $Id: patch.man,v 1.1.1.2 2000/05/06 22:44:52 wsanchez Exp $
+.Id $Id: patch.man,v 1.1.1.3 2003/05/08 18:38:03 rbraun Exp $
 .ds = \-\^\-
 .de Sp
 .if t .sp .3
@@ -70,6 +70,10 @@ or if a context diff contains lines ending in \s-1CRLF\s0
 or is encapsulated one or more times by prepending
 "\fB\- \fP" to lines starting with "\fB\-\fP" as specified by Internet RFC 934,
 this is taken into account.
+After removing indenting or encapsulation,
+lines beginning with
+.B #
+are ignored, as they are considered to be comments.
 .PP
 With context diffs, and to a lesser extent with normal diffs,
 .B patch
@@ -185,19 +189,19 @@ and the best name otherwise.
 .B " \(bu"
 If
 .B patch
-is not ignoring \s-1RCS\s0, ClearCase, and \s-1SCCS\s0 (see the
+is not ignoring \s-1RCS\s0, ClearCase, Perforce, and \s-1SCCS\s0 (see the
 .BI "\-g\ " num
 or
 .BI \*=get= num
 option), and no named files exist
-but an \s-1RCS\s0, ClearCase, or \s-1SCCS\s0 master is found,
+but an \s-1RCS\s0, ClearCase, Perforce, or \s-1SCCS\s0 master is found,
 .B patch
 selects the first named file
-with an \s-1RCS\s0, ClearCase, or \s-1SCCS\s0 master.
+with an \s-1RCS\s0, ClearCase, Perforce, or \s-1SCCS\s0 master.
 .TP
 .B " \(bu"
 If no named files exist,
-no \s-1RCS\s0, ClearCase, or \s-1SCCS\s0 master was found,
+no \s-1RCS\s0, ClearCase, Perforce, or \s-1SCCS\s0 master was found,
 some names are given,
 .B patch
 is not conforming to \s-1POSIX\s0,
@@ -362,14 +366,14 @@ This option controls
 .BR patch 's
 actions when a file is under \s-1RCS\s0 or \s-1SCCS\s0 control,
 and does not exist or is read-only and matches the default version,
-or when a file is under ClearCase control and does not exist.
+or when a file is under ClearCase or Perforce control and does not exist.
 If
 .I num
 is positive,
 .B patch
 gets (or checks out) the file from the revision control system; if zero,
 .B patch
-ignores \s-1RCS\s0, ClearCase, and \s-1SCCS\s0
+ignores \s-1RCS\s0, ClearCase, Perforce, and \s-1SCCS\s0
 and does not get the file; and if negative,
 .B patch
 asks the user whether to get the file.
@@ -411,6 +415,9 @@ See also
 Send output to
 .I outfile
 instead of patching files in place.
+Do not use this option if
+.I outfile
+is one of the files to be patched.
 .TP
 \fB\-p\fP\fInum\fP  or  \fB\*=strip\fP\fB=\fP\fInum\fP
 Strip the smallest prefix containing
@@ -458,7 +465,8 @@ when intuiting file names from diff headers.
 Do not remove files that are empty after patching.
 .TP
 .B " \(bu"
-Do not ask whether to get files from \s-1RCS\s0, ClearCase, or \s-1SCCS\s0.
+Do not ask whether to get files from \s-1RCS\s0, ClearCase, Perforce,
+or \s-1SCCS\s0.
 .TP
 .B " \(bu"
 Require that all options precede the files in the command line.
@@ -715,7 +723,8 @@ do not get confused by the patched files' times.
 .B PATCH_GET
 This specifies whether
 .B patch
-gets missing or read-only files from \s-1RCS\s0, ClearCase, or \s-1SCCS\s0
+gets missing or read-only files from \s-1RCS\s0, ClearCase, Perforce,
+or \s-1SCCS\s0
 by default; see the
 .B \-g
 or
@@ -1097,7 +1106,7 @@ Spaces are significant in the following list, and operands are required.
 .fi
 .SH BUGS
 Please report bugs via email to
-.BR <bug-gnu-utils@gnu.org> .
+.BR <bug-patch@gnu.org> .
 .PP
 .B patch
 could be smarter about partial matches, excessively deviant offsets and
@@ -1115,13 +1124,15 @@ thinks it is a reversed patch, and offers to un-apply the patch.
 This could be construed as a feature.
 .SH COPYING
 Copyright
-.if t \(co
+.ie t \(co
+.el (C)
 1984, 1985, 1986, 1988 Larry Wall.
 .br
 Copyright
-.if t \(co
-1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998
-Free Software Foundation, Inc.
+.ie t \(co
+.el (C)
+1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
+2000, 2001, 2002 Free Software Foundation, Inc.
 .PP
 Permission is granted to make and distribute verbatim copies of
 this manual provided the copyright notice and this permission notice

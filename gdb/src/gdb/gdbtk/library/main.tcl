@@ -1,5 +1,5 @@
 # GDBtk (Insight) entry point
-# Copyright 1997, 1998, 1999 Cygnus Solutions
+# Copyright 1997, 1998, 1999, 2002 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -33,46 +33,61 @@
 # Note: GDBTK_LIBRARY will be set in tcl_findLibrary before main.tcl is called.
 
 set gdb_plugins ""
-
 if {[info exists auto_path]} {
   if {[lsearch -exact $auto_path $GDBTK_LIBRARY] < 0} {
     lappend auto_path $GDBTK_LIBRARY
   }
-  # In any case, add the plugins directory if it exists
-  if {[file exists [file join $GDBTK_LIBRARY plugins]]} {
-    set gdb_plugins [file join $GDBTK_LIBRARY plugins]
-    lappend auto_path $gdb_plugins
+
+  # Add default plugins directory, which will be [name of exe]/../../lib/insight1.0
+  set exename [info nameofexecutable]
+  set dir [file join [file dirname [file dirname $exename]] lib insight1.0]
+  if {[file exists $dir]} {
+    lappend gdb_plugins $dir
+    lappend auto_path $dir
+  }
+  # Add any user-specified plugins directories
+  if {[info exists env(INSIGHT_PLUGINS)]} {
+    set dirs [split $env(INSIGHT_PLUGINS) :]
+    lappend gdb_plugins $dirs
+    lappend auto_path $dirs
   }
 }
+
 
 # Require the packages we need.  Most are loaded already, but this will catch 
 # any odd errors... :
-package require Tcl 8.0
-package require Tk 8.0
-package require Itcl 3.0
-package require Itk 3.0
-package require Gdbtk 1.0
-package require combobox 1.0
+
+foreach p {{Tcl 8.0} {Tk 8.0} {Itcl 3.0} {Itk 3.0} {Gdbtk 1.0} {combobox 1.0} {debug 1.0}} {
+  if {[catch {package require [lindex $p 0] [lindex $p 1]} msg]} {
+    if {![info exists ::env(GDBTK_TEST_RUNNING)] || $::env(GDBTK_TEST_RUNNING) == 0} {
+      if {$::tcl_platform(platform) != "windows"} {
+	puts stderr "Error: $msg"
+      }
+      catch {tk_messageBox -title Error -message $msg -icon error -type ok}
+    }
+    exit -1
+  } else {
+    #puts "Loaded [lindex $p 0] $msg"
+  }
+}
 
 namespace import itcl::*
-
 namespace import debug::*
 
-# Setup iwidgets path, if needed
+# Finally, load Iwidgets
 if {[info exists IWIDGETS_LIBRARY]} {
   lappend auto_path $IWIDGETS_LIBRARY
 }
-
-if {[catch {package require Iwidgets 3.0} errMsg]} {
-  set msg "Could not find the Iwidgets libraries.\n\nGot nameofexec: [info nameofexecutable]\nError(s) were: \n$errMsg"
-
+if {[catch {package require Iwidgets} msg]} {
   if {![info exists ::env(GDBTK_TEST_RUNNING)] || $::env(GDBTK_TEST_RUNNING) == 0} {
-    puts stderr $msg
-  } else {
-    tk_messageBox -title Error -message $msg -icon error -type ok
+    if {$::tcl_platform(platform) != "windows"} {
+      puts stderr "Error: $msg"
+    }
+    catch {tk_messageBox -title Error -message $msg -icon error -type ok}
   }
-  exit
+  exit -1
 }
+
 
 # Environment variables controlling debugging:
 # GDBTK_TRACE
@@ -107,12 +122,6 @@ if {[info exists env(GDBTK_DEBUG)] && $env(GDBTK_DEBUG) != 0} {
   } else {
     ::debug::logfile "insight.log"
   }
-}
-
-if {$tcl_platform(platform) == "unix"} {
-#  tix resetoptions TK TK
-#  tk_setPalette tan
-  tix resetoptions TixGray [tix cget -fontset]
 }
 
 # For testing

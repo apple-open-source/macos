@@ -1,0 +1,88 @@
+/* config.h.in.  Generated automatically from configure.in by autoheader.  */
+
+/* Define to empty if the keyword does not work.  */
+#undef const
+
+/* Define if you have the ANSI C header files.  */
+#undef STDC_HEADERS
+
+/* Define this if SYSV IPC is available (e.g. msgget, etc.) */
+#undef HAVE_SYSVIPC
+
+/* Define this if internet-domain sockets are available */
+#undef HAVE_INTERNET_DOMAIN_SOCKETS
+
+/* Define this if berkeley unix-domain sockets are available */
+#undef HAVE_UNIX_DOMAIN_SOCKETS
+
+/* Define this if using Xauth authentication */
+#undef HAVE_XAUTH
+
+#undef socklen_t
+
+/* The number of bytes in a long.  */
+#undef SIZEOF_LONG
+
+/* Define if you have the getcwd function.  */
+#undef HAVE_GETCWD
+
+/* Define if you have the memcmp function.  */
+#undef HAVE_MEMCMP
+
+/* Define if you have the msgget function.  */
+#undef HAVE_MSGGET
+
+/* Define if you have the <bsd/sgtty.h> header file.  */
+#undef HAVE_BSD_SGTTY_H
+
+/* Define if you have the <libintl.h> header file.  */
+#undef HAVE_LIBINTL_H
+
+/* Define if you have the <sgtty.h> header file.  */
+#undef HAVE_SGTTY_H
+
+/* Define if you have the <string.h> header file.  */
+#undef HAVE_STRING_H
+
+/* Define if you have the <sys/select.h> header file.  */
+#undef HAVE_SYS_SELECT_H
+
+/* Define if you have the <sys/socket.h> header file.  */
+#undef HAVE_SYS_SOCKET_H
+
+/* Define if you have the <sys/time.h> header file.  */
+#undef HAVE_SYS_TIME_H
+
+/* Define if you have the <sys/types.h> header file.  */
+#undef HAVE_SYS_TYPES_H
+
+/* Define if you have the <sys/un.h> header file.  */
+#undef HAVE_SYS_UN_H
+
+/* Define if you have the <unistd.h> header file.  */
+#undef HAVE_UNISTD_H
+
+/* Define if you have the intl library (-lintl).  */
+#undef HAVE_LIBINTL
+
+/* Define if you have the nsl library (-lnsl).  */
+#undef HAVE_LIBNSL
+
+/* Define if you have the resolv library (-lresolv).  */
+#undef HAVE_LIBRESOLV
+
+/* Define if you have the socket library (-lsocket).  */
+#undef HAVE_LIBSOCKET
+#define CONST const
+
+#if (defined(linux) && defined(HAVE_BSD_SGTTY)) || (!defined(linux) && defined(HAVE_SGTTY))
+#define USE_LITOUT
+#else
+#define DONT_USE_LITOUT
+#endif
+
+/* From XEmacs config.h.in */
+#ifndef BITS_PER_CHAR
+#define BITS_PER_CHAR 8
+#endif
+#define LONGBITS (SIZEOF_LONG * BITS_PER_CHAR)

@@ -157,6 +157,7 @@ public:
     void interruptOccurred(IOInterruptEventSource * src, int i);
 
     void dumpWindows();
+    void dumpConfigRegisters();
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -230,6 +231,25 @@ ApplePCCardSample::start(IOService * provider)
 	IOLog("%s: provider is not of class IOPCCard16Device?\n", getName());
 	return false;
     }
+
+//#define CHANGE_VERSION_ONE 1
+#ifdef  CHANGE_VERSION_ONE
+    OSArray *vers1 = OSArray::withCapacity(2);
+    if (vers1) {
+	const OSSymbol *str = OSSymbol::withCString("test vendor");
+	if (str) {
+	    vers1->setObject((OSSymbol *)str);
+	    str->release();
+	}
+	str = OSSymbol::withCString("test card type");
+	if (str) {
+	    vers1->setObject((OSSymbol *)str);
+	    str->release();
+	}
+	provider->setProperty("VersionOneInfo", vers1);
+	vers1->release();
+    }
+#endif
 
     cardPresent = true;
 
@@ -328,6 +348,7 @@ ApplePCCardSample::start(IOService * provider)
     }
 
     dumpWindows();
+    dumpConfigRegisters();
 
     IOLog("ApplePCCardSample::start(provider=%p, this=%p) ending\n", provider, this);
 
@@ -581,7 +602,6 @@ ApplePCCardSample::dumpWindows()
 		return;
 	    }
 
-	    // I don't think the data path width even matters on apple hardware, but ...
 	    if (attributes & IO_DATA_PATH_WIDTH == IO_DATA_PATH_WIDTH_16) {
 		int l = windowMap[i]->getLength(); l = l > 0x10 ? 0x10 : l;
 		for (int j=0; j < l; j++,j++) {
@@ -596,4 +616,52 @@ ApplePCCardSample::dumpWindows()
 	    IOLog("\n");
 	}
     }
+}
+
+
+// attribute memory usually only makes use of even byte addresses
+#define ATTRIBUTE_SIZE 0x1000
+
+void
+ApplePCCardSample::dumpConfigRegisters()
+{
+    if (!cardPresent) {
+	IOLog("%s::dumpConfigRegisters, the card is not present\n", getName());
+	return;
+    }
+
+    config_info_t config;
+    if (!nub->getConfigurationInfo(&config)) {
+	IOLog("%s:dumpConfigRegisters, getConfigurationInfo failed\n", getName());
+	return;
+    }
+
+    OSData * temp = OSData::withCapacity(ATTRIBUTE_SIZE >> 1);
+    
+    conf_reg_t reg;
+    reg.Function = 0;		// this should always be zero when used this way
+    reg.Action = CS_READ;	// read (or CS_WRITE)
+    reg.Offset = 0;		// offset into attribute memory
+    reg.Value = 0;		// value return (or value to write)
+
+    for (int i=0; i < (ATTRIBUTE_SIZE - (int)config.ConfigBase); i += 2) {
+	     
+	reg.Offset = i;
+	int ret = CardServices(AccessConfigurationRegister, nub->getCardServicesHandle(), &reg);
+	if (ret != CS_SUCCESS) {
+	    IOLog("%s::dumpConfigRegisters failed %d.\n", getName(), ret);
+	    break;
+	}
+	UInt8 byte = (UInt8)reg.Value;
+	temp->appendBytes(&byte, 1);
+    }
+
+    // make us visible at user level so we can read these properties
+    registerService();  
+
+    // set properties for dump_cisreg to pickup
+    setProperty("Configuration Registers Base Address", config.ConfigBase, 32);
+    setProperty("Configuration Registers Present Mask", config.Present, 32);
+    setProperty("Attribute Memory", temp);
+    temp->release();
 }

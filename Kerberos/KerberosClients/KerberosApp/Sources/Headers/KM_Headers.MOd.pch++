@@ -1,0 +1,46 @@
+// ===========================================================================
+//	KM_Headers.MOd.pch++
+// ===========================================================================
+//
+//	Precompiled header for CodeWarrior Mach-O Kerberos.app debugging build
+//
+//	Based on the PowerPlant precompiled header
+
+
+	
+#pragma precompile_target "KM_Headers.MOd"
+
+#pragma once on
+
+//  MW suggests these defines for Carbon targets
+//	Carbon Target
+#define PP_Target_Carbon		1
+
+#define PP_Target_Classic		(!PP_Target_Carbon)
+
+#define TARGET_API_MAC_CARBON	PP_Target_Carbon
+#define TARGET_API_MAC_OS8		PP_Target_Classic
+#define TARGET_API_MAC_OSX		PP_Target_Carbon
+
+#define PP_Uses_PowerPlant_Namespace	0
+#define PP_Supports_Pascal_Strings		1
+#define PP_StdDialogs_Option	PP_StdDialogs_NavServicesOnly
+#define	PP_Uses_Old_Integer_Types		0
+#define PP_Obsolete_AllowTargetSwitch	0
+#define PP_Obsolete_ThrowExceptionCode	0
+#define PP_Warn_Obsolete_Classes		1
+
+#define PP_Suppress_Notes_22			1
+
+#define PP_Uses_Periodical_Timers		1
+
+#include <PP_DebugHeaders.cp>
+
+#define MACDEV_DEBUG 1
+//#include <Debug.h>
+#include <UDebugging.h>
+
+#if TARGET_RT_MAC_MACHO
+	#define RunningUnderMacOSX() 	true
+	#define RunningUnderClassic() 	false
+#endif

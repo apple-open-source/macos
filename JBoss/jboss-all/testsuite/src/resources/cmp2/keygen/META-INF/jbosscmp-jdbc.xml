@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE jbosscmp-jdbc PUBLIC "-//JBoss//DTD JBOSSCMP-JDBC 3.2//EN" "http://www.jboss.org/j2ee/dtd/jbosscmp-jdbc_3_2.dtd">
+<jbosscmp-jdbc>
+   <defaults>
+      <remove-table>true</remove-table>
+      <read-ahead><strategy>none</strategy></read-ahead>
+      <list-cache-max>0</list-cache-max>
+   </defaults>
+   <enterprise-beans>
+      <entity>
+         <ejb-name>TestUUIDKeyGenEJB</ejb-name>
+         <entity-command name="key-generator"/>
+      </entity>
+      <entity>
+         <ejb-name>TestPkSqlEJB</ejb-name>
+         <unknown-pk>
+            <unknown-pk-class>java.lang.Long</unknown-pk-class>
+            <column-name>PKSQL_ID</column-name>
+            <jdbc-type>BIGINT</jdbc-type>
+            <sql-type>BIGINT</sql-type>
+         </unknown-pk>
+         <entity-command name="sysTime" class="org.jboss.ejb.plugins.cmp.jdbc.keygen.JDBCPkSqlCreateCommand">
+            <attribute name="pk-sql">CALL "java.lang.System.currentTimeMillis"()</attribute>
+         </entity-command>
+      </entity>
+      <entity>
+         <ejb-name>TestHsqldbEJB</ejb-name>
+         <pk-constraint>false</pk-constraint>
+         <unknown-pk>
+            <unknown-pk-class>java.lang.Integer</unknown-pk-class>
+            <column-name>HSQLDB_ID</column-name>
+            <jdbc-type>INTEGER</jdbc-type>
+            <sql-type>INTEGER</sql-type>
+            <auto-increment/>
+         </unknown-pk>
+         <entity-command name="hsqldb-fetch-key"/>
+      </entity>
+      <entity>
+         <ejb-name>TestHsqldbIntegerEJB</ejb-name>
+         <pk-constraint>false</pk-constraint>
+         <cmp-field>
+            <field-name>key</field-name>
+            <auto-increment/>
+         </cmp-field>
+         <entity-command name="hsqldb-fetch-key"/>
+      </entity>
+      <entity>
+         <ejb-name>InvalidHsqldbIntegerEJB</ejb-name>
+         <pk-constraint>false</pk-constraint>
+         <cmp-field>
+            <field-name>key</field-name>
+            <auto-increment/>
+         </cmp-field>
+      </entity>
+      <!-- definition for Hypersonic SQL -->
+      <entity>
+         <ejb-name>TestOtherEJB</ejb-name>
+         <datasource>java:/DefaultDS</datasource>
+         <datasource-mapping>Hypersonic SQL</datasource-mapping>
+         <pk-constraint>false</pk-constraint>
+         <unknown-pk>
+            <unknown-pk-class>java.lang.Integer</unknown-pk-class>
+            <column-name>OTHER_ID</column-name>
+            <jdbc-type>INTEGER</jdbc-type>
+            <sql-type>INTEGER</sql-type>
+            <auto-increment/>
+         </unknown-pk>
+         <entity-command name="hsqldb-fetch-key"/>
+      </entity>
+      <!-- definition for Oracle 8 and 9 -->
+      <!--
+      <entity>
+         <ejb-name>TestOtherEJB</ejb-name>
+         <datasource>java:/OracleDS</datasource>
+         <datasource-mapping>Oracle9i</datasource-mapping>
+         <unknown-pk>
+            <unknown-pk-class>java.lang.Integer</unknown-pk-class>
+            <column-name>OTHER_ID</column-name>
+            <jdbc-type>INTEGER</jdbc-type>
+            <sql-type>NUMBER(10)</sql-type>
+         </unknown-pk>
+         <entity-command name="oracle-test" class="org.jboss.ejb.plugins.cmp.jdbc.keygen.JDBCOracleCreateCommand">
+            <attribute name="sequence">TEST_SEQUENCE</attribute>
+         </entity-command>
+      </entity>
+      -->
+      <!-- definition for SQL Server 2000 -->
+      <!--
+      <entity>
+         <ejb-name>TestOtherEJB</ejb-name>
+         <datasource>java:/MSSQLDS</datasource>
+         <datasource-mapping>MS SQLSERVER2000</datasource-mapping>
+         <unknown-pk>
+            <unknown-pk-class>java.lang.Integer</unknown-pk-class>
+            <column-name>OTHER_ID</column-name>
+            <jdbc-type>INTEGER</jdbc-type>
+            <sql-type>INTEGER</sql-type>
+            <auto-increment/>
+         </unknown-pk>
+         <entity-command name="mssql-fetch-key"/>
+      </entity>
+      -->
+      <!-- definition for PostgreSQL 7.3 Driver -->
+      <!--
+      <entity>
+         <ejb-name>TestOtherEJB</ejb-name>
+         <datasource>java:/PostgresDS</datasource>
+         <datasource-mapping>PostgreSQL 7.2</datasource-mapping>
+         <create-table>false</create-table>
+         <remove-table>false</remove-table>
+         <unknown-pk>
+            <unknown-pk-class>java.lang.Integer</unknown-pk-class>
+            <column-name>OTHER_ID</column-name>
+            <jdbc-type>INTEGER</jdbc-type>
+            <sql-type>SERIAL</sql-type>
+            <auto-increment/>
+         </unknown-pk>
+         <entity-command name="postgresql-fetch-seq"/>
+      </entity>
+      -->
+   </enterprise-beans>
+</jbosscmp-jdbc>

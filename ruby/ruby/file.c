@@ -2,8 +2,8 @@
 
   file.c -
 
-  $Author: jkh $
-  $Date: 2002/05/27 17:59:43 $
+  $Author: melville $
+  $Date: 2003/05/14 13:58:43 $
   created at: Mon Nov 15 12:24:34 JST 1993
 
   Copyright (C) 1993-2000 Yukihiro Matsumoto
@@ -267,7 +267,7 @@ rb_stat_inspect(self)
 {
     VALUE str;
     int i;
-    struct {
+    static struct {
         char *name;
         VALUE (*func)();
     } member[] = {
@@ -1271,7 +1271,7 @@ rb_file_s_expand_path(argc, argv)
 #endif
 	}
     }
-#if defined DOSISH
+#if defined DOSISH || __CYGWIN__
     /* skip drive letter */
     else if (ISALPHA(s[0]) && s[1] == ':' && isdirsep(s[2])) {
 	while (*s && !isdirsep(*s)) {
@@ -1359,7 +1359,7 @@ rb_file_s_expand_path(argc, argv)
     return fname;
 
   toolong:
-    rb_raise(rb_eArgError, "argument too long (size=%d)", RSTRING(fname)->len);
+    rb_raise(rb_eArgError, "argument too long (size=%ld)", RSTRING(fname)->len);
     return Qnil;		/* not reached */
 }
 
@@ -2060,13 +2060,14 @@ is_absolute_path(path)
     const char *path;
 {
     if (path[0] == '/') return 1;
-# if defined DOSISH
+# if defined DOSISH || defined __CYGWIN__
     if (path[0] == '\\') return 1;
     if (strlen(path) > 2 && path[1] == ':') return 1;
 # endif
     return 0;
 }
 
+#ifndef DOSISH
 static int
 path_check_1(path)
     char *path;
@@ -2091,7 +2092,7 @@ path_check_1(path)
     for (;;) {
 	if (stat(path, &st) == 0 && (st.st_mode & 002)) {
            if (p) *p = '/';
-	    return 0;
+	   return 0;
 	}
 	s = strrchr(path, '/');
 	if (p) *p = '/';
@@ -2100,11 +2101,13 @@ path_check_1(path)
 	*p = '\0';
     }
 }
+#endif
 
 int
 rb_path_check(path)
     char *path;
 {
+#ifndef DOSISH
     char *p, *pend;
     const char sep = PATH_SEP_CHAR;
 
@@ -2127,6 +2130,7 @@ rb_path_check(path)
 	p = pend + 1;
 	pend = strchr(p, sep);
     }
+#endif
     return 1;
 }
 
@@ -2194,6 +2198,7 @@ rb_find_file_ext(filep, ext)
 	VALUE str = RARRAY(rb_load_path)->ptr[i];
 
 	Check_SafeStr(str);
+	if (RSTRING(str)->len == 0) return 0;
 	path = RSTRING(str)->ptr;
 	for (j=0; ext[j]; j++) {
 	    fname = rb_str_dup(*filep);
@@ -2241,6 +2246,10 @@ rb_find_file(path)
 	if (file_load_ok(f)) return path;
     }
 
+    if (rb_safe_level() >= 4) {
+	rb_raise(rb_eSecurityError, "loading from non-absolute path %s", f);
+    }
+
     if (rb_load_path) {
 	int i;
 
@@ -2254,15 +2263,23 @@ rb_find_file(path)
 	    }
 	}
 	tmp = rb_ary_join(tmp, rb_str_new2(PATH_SEP));
-	lpath = STR2CSTR(tmp);
-	if (rb_safe_level() >= 2 && !rb_path_check(lpath)) {
-	    rb_raise(rb_eSecurityError, "loading from unsafe path %s", lpath);
+	if (RSTRING(tmp)->len == 0) {
+	    lpath = 0;
+	}
+	else {
+	    lpath = STR2CSTR(tmp);
+	    if (rb_safe_level() >= 2 && !rb_path_check(lpath)) {
+		rb_raise(rb_eSecurityError, "loading from unsafe path %s", lpath);
+	    }
 	}
     }
     else {
 	lpath = 0;
     }
 
+    if (!lpath) {
+	return 0;		/* no path, no load */
+    }
     f = dln_find_file(f, lpath);
     if (file_load_ok(f)) {
 	return rb_str_new2(f);

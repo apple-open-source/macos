@@ -276,7 +276,7 @@ OSErr DVCloseDriver( DVDeviceRefNum refNum );
 //
 // DV event notification
 //
-// kInvalidDVDeviceRefNum can be used as a wild card refNum, for notifications about all
+// kEveryDVDeviceRefNum can be used as a wild card refNum, for notifications about all
 // devices - especially handy when there aren't any yet!
 //
 OSErr DVNewNotification( DVDeviceRefNum refNum, DVNotifyProc notifyProc,

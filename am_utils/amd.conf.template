@@ -1,0 +1,41 @@
+# -*- text -*-
+# A SAMPLE CONFIGURATION FILE FOR AMD
+
+[ global ]
+normalize_hostnames =		no
+print_pid =			yes
+pid_file =			/var/run/amd.pid
+restart_mounts =		yes
+unmount_on_exit =		yes
+auto_dir =			/host
+cache_duration =		300
+karch =				ppc
+arch =				mac
+os =				macosx
+osver =				10
+full_os =			10.2
+vendor =			apple
+print_version =			yes
+log_file =			/var/log/amd
+nfs_retry_interval =		8
+nfs_retransmit_counter =	11
+dismount_interval =		120
+log_options =			fatal,error,user,warn,info,map,stats,all
+#ldap_base =			"ou=Marketing, o=AMD Ltd, c=US"
+#ldap_hostports =		ldap.your.domain:389
+ldap_cache_seconds =		0
+ldap_cache_maxmem =		131072
+map_reload_interval =		3600 
+browsable_dirs =		yes
+map_options =			cache:=all
+#map_type =			file|hesiod|ndbm|nis|nisplus|passwd|union|ldap
+mount_type =			nfs
+fully_qualified_hosts =		no
+#nfs_vers =			2
+#nfs_proto =			udp
+##############################################################################
+
+# Mounts
+[ /host ]
+map_name =                      /etc/amd.map
+map_options =                   cache:=all

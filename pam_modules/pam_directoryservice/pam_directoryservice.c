@@ -3,33 +3,34 @@
  * Portions Copyright (c) 2001 PADL Software Pty Ltd. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * Portions Copyright (c) 2000 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- *
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
 #include <sys/types.h>
 #include <sys/time.h>
-#include <stddef.h>		// for offsetof()
-#include <stdlib.h>		// for malloc()
-#include <string.h>		// for strcmp()
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
 #include <time.h>
-#include <unistd.h>		// for crypt()
+#include <unistd.h>
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 #include <mach/message.h>
@@ -40,9 +41,9 @@
 #define PAM_SM_SESSION
 /* #define PAM_SM_PASSWORD */
 
-#include <security/pam_modules.h>
-#include <security/_pam_macros.h>
-#include <security/pam_mod_misc.h>
+#include <pam/pam_modules.h>
+#include <pam/_pam_macros.h>
+#include <pam/pam_mod_misc.h>
 
 #define PASSWORD_PROMPT	"Password:"
 #define OLD_PASSWORD_PROMPT "Enter login(DirectoryService) password:"
@@ -250,16 +251,18 @@ pam_sm_authenticate(pam_handle_t * pamh, int flags, int argc,
     int status;
     const char *user;
     const char *password;
-    struct options options;
+    int options;
+    int i;
 
-    pam_std_option(&options, NULL, argc, argv);
+    for(i = 0; (i < argc) && argv[i]; i++)
+       pam_std_option(&options, argv[i]);
 
     status = pam_get_user(pamh, &user, NULL);
     if (status != PAM_SUCCESS) {
 	return status;
     }
 
-    status = pam_get_pass(pamh, &password, PASSWORD_PROMPT, &options);
+    status = pam_get_pass(pamh, &password, PASSWORD_PROMPT, options);
     if (status != PAM_SUCCESS) {
 	return status;
     }
@@ -294,4 +297,3 @@ pam_sm_close_session(pam_handle_t * pamh, int flags,
     return PAM_SUCCESS;
 }
 
-PAM_MODULE_ENTRY("pam_directoryservice");

@@ -1,9 +1,9 @@
 <?php
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2002 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -13,583 +13,842 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Stig Bakken <ssb@fast.no>                                   |
+   | Authors: Ilia Alshanetsky <iliaa@php.net>                            |
+   |          Preston L. Bannister <pbannister@php.net>                   |
+   |          Marcus Boerger <helly@php.net>                              |
+   |          Derick Rethans <derick@php.net>                             |
+   |          Sander Roobol <sander@php.net>                              |
+   | (based on version by: Stig Bakken <ssb@fast.no>)                     |
    | (based on the PHP 3 test framework by Rasmus Lerdorf)                |
    +----------------------------------------------------------------------+
  */
 
 /*
+	Require exact specification of PHP executable to test (no guessing!).
+	Die if any internal errors encountered in test script.
+	Regularized output for simpler post-processing of output.
+	Optionally output error lines indicating the failing test source and log
+	for direct jump with MSVC or Emacs.
+*/
+
+/*
  * TODO:
- * - look for test-specific php.ini files
- * - implement module skipping for PEAR
  * - do not test PEAR components if base class and/or component class cannot be instanciated
  */
 
-ob_implicit_flush();
 
-define('TEST_PASSED', 0);
-define('TEST_FAILED', -1);
-define('TEST_SKIPPED', -2);
-define('TEST_INTERNAL_ERROR', -3);
+/* Sanity check to ensure that pcre extension needed by this script is avaliable.
+ * In the event it is not, print a nice error message indicating that this script will
+ * not run without it.
+ */
 
-define('EXT_DIR_NAME','/php4/ext/');
-define('EXT_DIR_NAME_LEN',strlen(EXT_DIR_NAME));
+if (!extension_loaded("pcre")) {
+	echo <<<NO_PCRE_ERROR
 
-initialize();
-/*
-$opts = parse_options(&$argc, &$argv);
-if ($opts['help']) {
-    usage();
-    exit;
-}
-*/
-set_time_limit(280);
++-----------------------------------------------------------+
+|                       ! ERROR !                           |
+| The test-suite requires that you have pcre extension      |
+| enabled. To enable this extension either compile your PHP |
+| with --with-pcre-regex or if you've compiled pcre as a    |
+| shared module load it via php.ini.                        |
++-----------------------------------------------------------+
 
-if(!isset($_SERVER['argc'])) {
-	echo "\nWARNING: register_argc_argv seems to be set 'off' in php.ini\n\n";
-}
-        
-@do_testing($_SERVER['argc'], $_SERVER['argv']);
-
+NO_PCRE_ERROR;
 exit;
+}
 
-/*****************************************************************************/
+// change into the PHP source directory.
 
-function usage()
+if (getenv('TEST_PHP_SRCDIR')) {
+	@chdir(getenv('TEST_PHP_SRCDIR'));
+}
+
+$cwd = getcwd();
+set_time_limit(0);
+
+// delete as much output buffers as possible
+while(@ob_end_clean());
+if (ob_get_level()) echo "Not all buffers were deleted.\n";
+
+error_reporting(E_ALL);
+ini_set('magic_quotes_runtime',0); // this would break tests by modifying EXPECT sections
+
+if (ini_get('safe_mode')) {
+	echo <<< SAFE_MODE_WARNING
+
++-----------------------------------------------------------+
+|                       ! WARNING !                         |
+| You are running the test-suite with "safe_mode" ENABLED ! |
+|                                                           |
+| Chances are high that no test will work at all,           |
+| depending on how you configured "safe_mode" !             |
++-----------------------------------------------------------+
+
+
+SAFE_MODE_WARNING;
+}
+
+// Don't ever guess at the PHP executable location.
+// Require the explicit specification.
+// Otherwise we could end up testing the wrong file!
+
+if (getenv('TEST_PHP_EXECUTABLE')) {
+	$php = getenv('TEST_PHP_EXECUTABLE');
+	if ($php=='auto') {
+		$php = $cwd.'/sapi/cli/php';
+		putenv("TEST_PHP_EXECUTABLE=$php");
+	}
+}
+if (!file_exists($php)) {
+	error("environment variable TEST_PHP_EXECUTABLE must be set to specify PHP executable!");
+}
+
+if (getenv('TEST_PHP_LOG_FORMAT')) {
+	$log_format = strtoupper(getenv('TEST_PHP_LOG_FORMAT'));
+} else {
+	$log_format = 'LEOD';
+}
+
+if (function_exists('is_executable') && !@is_executable($php)) {
+	error("invalid PHP executable specified by TEST_PHP_EXECUTABLE  = " . $php);
+}
+
+// Check whether a detailed log is wanted.
+if (getenv('TEST_PHP_DETAILED')) {
+	define('DETAILED', getenv('TEST_PHP_DETAILED'));
+} else {
+	define('DETAILED', 0);
+}
+
+// Check whether user test dirs are requested.
+if (getenv('TEST_PHP_USER')) {
+	$user_tests = explode (',', getenv('TEST_PHP_USER'));
+} else {
+	$user_tests = array();
+}
+
+// Get info from php
+$info_file = realpath(dirname(__FILE__)) . '/run-test-info.php';
+@unlink($info_file);
+$php_info = '<?php echo "
+PHP_SAPI    : " . PHP_SAPI . "
+PHP_VERSION : " . phpversion() . "
+ZEND_VERSION: " . zend_version() . "
+PHP_OS      : " . PHP_OS . "
+INI actual  : " . realpath(get_cfg_var("cfg_file_path")) . "
+More .INIs  : " . (function_exists(\'php_ini_scanned_files\') ? str_replace("\n","", php_ini_scanned_files()) : "** not determined **"); ?>';
+save_text($info_file, $php_info);
+$ini_overwrites = array(
+		'mbstring.script_encoding=pass',
+		'output_handler=',
+		'zlib.output_compression=Off',
+		'open_basedir=',
+		'safe_mode=0',
+		'disable_functions=',
+		'output_buffering=Off',
+		'error_reporting=2047',
+		'display_errors=1',
+		'log_errors=0',
+		'html_errors=0',
+		'track_errors=1',
+		'report_memleaks=1',
+		'docref_root=/phpmanual/',
+		'docref_ext=.html',
+		'error_prepend_string=',
+		'error_append_string=',
+		'auto_prepend_file=',
+		'auto_append_file=',
+		'magic_quotes_runtime=0',
+	);
+$info_params = array();
+settings2array($ini_overwrites,$info_params);
+settings2params($info_params);
+$php_info = `$php $info_params $info_file`;
+@unlink($info_file);
+define('TESTED_PHP_VERSION', `$php -r 'echo PHP_VERSION;'`);
+
+// Write test context information.
+
+echo "
+=====================================================================
+CWD         : $cwd
+PHP         : $php $php_info
+Extra dirs  : ";
+foreach ($user_tests as $test_dir) {
+	echo "{$test_dir}\n              ";
+}
+echo "
+=====================================================================
+";
+
+// Determine the tests to be run.
+
+$test_files = array();
+$test_results = array();
+$GLOBALS['__PHP_FAILED_TESTS__'] = array();
+
+// If parameters given assume they represent selected tests to run.
+if (isset($argc) && $argc > 1) {
+	for ($i=1; $i<$argc; $i++) {
+		$testfile = realpath($argv[$i]);
+		if (is_dir($testfile)) {
+			find_files($testfile);
+		} else if (preg_match("/\.phpt$/", $testfile)) {
+			$test_files[] = $testfile;
+		}
+	}
+	$test_files = array_unique($test_files);
+
+	// Run selected tests.
+	if (count($test_files)) {
+		usort($test_files, "test_sort");
+		echo "Running selected tests.\n";
+		foreach($test_files AS $name) {
+			$test_results[$name] = run_test($php,$name);
+		}
+		if (getenv('REPORT_EXIT_STATUS') == 1 and ereg('FAILED( |$)', implode(' ', $test_results))) {
+			exit(1);
+		}
+		exit(0);
+	}
+}
+
+// Compile a list of all test files (*.phpt).
+$test_files = array();
+$exts_to_test = get_loaded_extensions();
+$exts_tested = count($exts_to_test);
+$exts_skipped = 0;
+$ignored_by_ext = 0;
+sort($exts_to_test);
+$test_dirs = array('tests', 'pear', 'ext');
+
+foreach ($test_dirs as $dir) {
+	find_files("{$cwd}/{$dir}", ($dir == 'ext'));
+}
+
+foreach ($user_tests as $dir) {
+	find_files($dir, ($dir == 'ext'));
+}
+
+function find_files($dir,$is_ext_dir=FALSE,$ignore=FALSE)
 {
-    dowriteln("Usage: run-tests.php [-d] [-h] [dir|file...]");
+	global $test_files, $exts_to_test, $ignored_by_ext, $exts_skipped, $exts_tested;
+
+	$o = opendir($dir) or error("cannot open directory: $dir");
+	while (($name = readdir($o)) !== FALSE) {
+		if (is_dir("{$dir}/{$name}") && !in_array($name, array('.', '..', 'CVS'))) {
+			$skip_ext = ($is_ext_dir && !in_array($name, $exts_to_test));
+			if ($skip_ext) {
+				$exts_skipped++;
+			}
+			find_files("{$dir}/{$name}", FALSE, $ignore || $skip_ext);
+		}
+
+		// Cleanup any left-over tmp files from last run.
+		if (substr($name, -4) == '.tmp') {
+			@unlink("$dir/$name");
+			continue;
+		}
+
+		// Otherwise we're only interested in *.phpt files.
+		if (substr($name, -5) == '.phpt') {
+			if ($ignore) {
+				$ignored_by_ext++;
+			} else {
+				$testfile = realpath("{$dir}/{$name}");
+				$test_files[] = $testfile;
+			}
+		}
+	}
+	closedir($o);
+}
+
+function test_sort($a, $b) {
+	global $cwd;
+
+	$ta = strpos($a, "{$cwd}/tests")===0 ? 1 + (strpos($a, "{$cwd}/tests/run-test")===0 ? 1 : 0) : 0;
+	$tb = strpos($b, "{$cwd}/tests")===0 ? 1 + (strpos($b, "{$cwd}/tests/run-test")===0 ? 1 : 0) : 0;
+	if ($ta == $tb) {
+		return strcmp($a, $b);
+	} else {
+		return $tb - $ta;
+	}
+}
+
+$test_files = array_unique($test_files);
+usort($test_files, "test_sort");
+
+$start_time = time();
+
+echo "TIME START " . date('Y-m-d H:i:s', $start_time) . "
+=====================================================================
+";
+
+foreach ($test_files as $name) {
+	$test_results[$name] = run_test($php,$name);
+}
+
+$end_time = time();
+
+// Summarize results
+
+if (0 == count($test_results)) {
+	echo "No tests were run.\n";
+	return;
+}
+
+$n_total = count($test_results);
+$n_total += $ignored_by_ext;
+
+$sum_results = array('PASSED'=>0, 'WARNED'=>0, 'SKIPPED'=>0, 'FAILED'=>0);
+foreach ($test_results as $v) {
+	$sum_results[$v]++;
+}
+$sum_results['SKIPPED'] += $ignored_by_ext;
+$percent_results = array();
+while (list($v,$n) = each($sum_results)) {
+	$percent_results[$v] = (100.0 * $n) / $n_total;
+}
+
+echo "
+=====================================================================
+TIME END " . date('Y-m-d H:i:s', $end_time);
+
+$summary = "
+=====================================================================
+TEST RESULT SUMMARY
+---------------------------------------------------------------------
+Exts skipped    : " . sprintf("%4d",$exts_skipped) . "
+Exts tested     : " . sprintf("%4d",$exts_tested) . "
+---------------------------------------------------------------------
+Number of tests : " . sprintf("%4d",$n_total) . "
+Tests skipped   : " . sprintf("%4d (%2.1f%%)",$sum_results['SKIPPED'],$percent_results['SKIPPED']) . "
+Tests warned    : " . sprintf("%4d (%2.1f%%)",$sum_results['WARNED'],$percent_results['WARNED']) . "
+Tests failed    : " . sprintf("%4d (%2.1f%%)",$sum_results['FAILED'],$percent_results['FAILED']) . "
+Tests passed    : " . sprintf("%4d (%2.1f%%)",$sum_results['PASSED'],$percent_results['PASSED']) . "
+---------------------------------------------------------------------
+Time taken      : " . sprintf("%4d seconds", $end_time - $start_time) . "
+=====================================================================
+";
+echo $summary;
+
+$failed_test_summary = '';
+if (count($GLOBALS['__PHP_FAILED_TESTS__'])) {
+	$failed_test_summary .= "
+=====================================================================
+FAILED TEST SUMMARY
+---------------------------------------------------------------------
+";
+	foreach ($GLOBALS['__PHP_FAILED_TESTS__'] as $failed_test_data) {
+		$failed_test_summary .=  $failed_test_data['test_name'] . $failed_test_data['info'] . "\n";
+	}
+	$failed_test_summary .=  "=====================================================================\n";
+}
+
+if ($failed_test_summary && !getenv('NO_PHPTEST_SUMMARY')) {
+	echo $failed_test_summary;
+}
+
+define('PHP_QA_EMAIL', 'php-qa@lists.php.net');
+define('QA_SUBMISSION_PAGE', 'http://qa.php.net/buildtest-process.php');
+
+/* We got failed Tests, offer the user to send and e-mail to QA team, unless NO_INTERACTION is set */
+if (!getenv('NO_INTERACTION')) {
+	$fp = fopen("php://stdin", "r+");
+	echo "\nPlease allow this report to be sent to the PHP QA\nteam. This will give us a better understanding in how\n";
+	echo "PHP's test cases are doing.  Note that the report will include\ndetailed configuration data about your system\n";
+	echo "so if you are worried about exposing sensitive data,\nsave this to a file first and remove any sensitive data\n";
+	echo "and then send this file to php-qa@lists.php.net.\n";
+	echo "(choose \"s\" to just save the results to a file)? [Yns]: ";
+	flush();
+	$user_input = fgets($fp, 10);
+	$just_save_results = (strtolower($user_input[0]) == 's');
+	
+	if ($just_save_results || strlen(trim($user_input)) == 0 || strtolower($user_input[0]) == 'y') {
+		/*  
+		 * Collect information about the host system for our report
+		 * Fetch phpinfo() output so that we can see the PHP enviroment
+		 * Make an archive of all the failed tests
+		 * Send an email
+		 */
+		
+		/* Ask the user to provide an email address, so that QA team can contact the user */
+		if (!strncasecmp($user_input, 'y', 1) || strlen(trim($user_input)) == 0) {
+			echo "\nPlease enter your email address.\n(You address will be mangled so that it will not go out on any\nmailinglist in plain text): ";
+			flush();
+			$fp = fopen("php://stdin", "r+");
+			$user_email = trim(fgets($fp, 1024));
+			$user_email = str_replace("@", " at ", str_replace(".", " dot ", $user_email));
+		}
+		
+		$failed_tests_data = '';
+		$sep = "\n" . str_repeat('=', 80) . "\n";
+		
+		$failed_tests_data .= $failed_test_summary . "\n";
+		$failed_tests_data .= $summary . "\n";
+
+		if ($sum_results['FAILED']) {
+			foreach ($GLOBALS['__PHP_FAILED_TESTS__'] as $test_info) {
+				$failed_tests_data .= $sep . $test_info['name'] . $test_info['info'];
+				$failed_tests_data .= $sep . file_get_contents(realpath($test_info['output']));
+				$failed_tests_data .= $sep . file_get_contents(realpath($test_info['diff']));
+				$failed_tests_data .= $sep . "\n\n";
+			}
+			$status = "failed";
+		} else {
+			$status = "success";
+		}
+		
+		$failed_tests_data .= "\n" . $sep . 'BUILD ENVIRONMENT' . $sep;
+		$failed_tests_data .= "OS:\n". PHP_OS. "\n\n";
+		$ldd = $automake = $autoconf = $libtool = $compiler = 'N/A';
+
+		if (substr(PHP_OS, 0, 3) != "WIN") {
+			$automake = shell_exec('automake --version');
+			$autoconf = shell_exec('autoconf --version');
+			/* Always use the generated libtool - Mac OSX uses 'glibtool' */
+			$libtool = shell_exec('./libtool --version');
+			/* Try the most common flags for 'version' */
+			$flags = array('-v', '-V', '--version');
+			$cc_status=0;
+			foreach($flags AS $flag) {
+				system(getenv('CC')." $flag >/dev/null 2>&1", $cc_status);
+				if ($cc_status == 0) {
+					$compiler = shell_exec(getenv('CC')." $flag 2>&1");
+					break;
+				}
+			}
+			$ldd = shell_exec("ldd $php");
+		}
+		$failed_tests_data .= "Automake:\n$automake\n";
+		$failed_tests_data .= "Autoconf:\n$autoconf\n";
+		$failed_tests_data .= "Libtool:\n$libtool\n";
+		$failed_tests_data .= "Compiler:\n$compiler\n";
+		$failed_tests_data .= "Bison:\n". @shell_exec('bison --version'). "\n";
+		$failed_tests_data .= "Libraries:\n$ldd\n";
+		$failed_tests_data .= "\n";
+		
+		if (isset($user_email)) {
+			$failed_tests_data .= "User's E-mail: ".$user_email."\n\n";
+		}	
+		
+		$failed_tests_data .= $sep . "PHPINFO" . $sep;
+		$failed_tests_data .= shell_exec($php.' -dhtml_errors=0 -i');
+		
+		$compression = 0;
+		
+		if ($just_save_results || !mail_qa_team($failed_tests_data, $compression, $status)) {
+			$output_file = 'php_test_results_' . date('Ymd') . ( $compression ? '.txt.gz' : '.txt' );
+			$fp = fopen($output_file, "w");
+			fwrite($fp, $failed_tests_data);
+			fclose($fp);
+		
+			if (!$just_save_results) {
+			    echo "\nThe test script was unable to automatically send the report to PHP's QA Team\n";
+			}
+
+			echo "Please send ".$output_file." to ".PHP_QA_EMAIL." manually, thank you.\n";
+		} else {
+			fwrite($fp, "\nThank you for helping to make PHP better.\n");
+			fclose($fp);
+		}	
+	}
+}
+ 
+if (getenv('REPORT_EXIT_STATUS') == 1 and $sum_results['FAILED']) {
+	exit(1);
+}
+
+//
+// Send Email to QA Team
+//
+
+function mail_qa_team($data, $compression, $status = FALSE)
+{
+	$url_bits = parse_url(QA_SUBMISSION_PAGE);
+	if (empty($url_bits['port'])) $url_bits['port'] = 80;
+	
+	$data = "php_test_data=" . urlencode(base64_encode(preg_replace("/[\\x00]/", "[0x0]", $data)));
+	$data_length = strlen($data);
+	
+	$fs = fsockopen($url_bits['host'], $url_bits['port'], $errno, $errstr, 10);
+	if (!$fs) {
+		return FALSE;
+	}
+
+	$php_version = urlencode(TESTED_PHP_VERSION);
+
+	echo "\nPosting to {$url_bits['host']} {$url_bits['path']}\n";
+	fwrite($fs, "POST ".$url_bits['path']."?status=$status&version=$php_version HTTP/1.1\r\n");
+	fwrite($fs, "Host: ".$url_bits['host']."\r\n");
+	fwrite($fs, "User-Agent: QA Browser 0.1\r\n");
+	fwrite($fs, "Content-Type: application/x-www-form-urlencoded\r\n");
+	fwrite($fs, "Content-Length: ".$data_length."\r\n\r\n");
+	fwrite($fs, $data);
+	fwrite($fs, "\r\n\r\n");
+	fclose($fs);
+
+	return 1;
+} 
+ 
+ 
+//
+//  Write the given text to a temporary file, and return the filename.
+//
+
+function save_text($filename,$text)
+{
+	$fp = @fopen($filename,'w') or error("Cannot open file '" . $filename . "' (save_text)");
+	fwrite($fp,$text);
+	fclose($fp);
+	if (1 < DETAILED) echo "
+FILE $filename {{{
+$text
+}}} 
+";
+}
+
+//
+//  Write an error in a format recognizable to Emacs or MSVC.
+//
+
+function error_report($testname,$logname,$tested) 
+{
+	$testname = realpath($testname);
+	$logname  = realpath($logname);
+	switch (strtoupper(getenv('TEST_PHP_ERROR_STYLE'))) {
+	case 'MSVC':
+		echo $testname . "(1) : $tested\n";
+		echo $logname . "(1) :  $tested\n";
+		break;
+	case 'EMACS':
+		echo $testname . ":1: $tested\n";
+		echo $logname . ":1:  $tested\n";
+		break;
+	}
+}
+
+//
+//  Run an individual test case.
+//
+
+function run_test($php,$file)
+{
+	global $log_format, $info_params, $ini_overwrites;
+
+	if (DETAILED) echo "
+=================
+TEST $file
+";
+
+	// Load the sections of the test file.
+	$section_text = array(
+		'TEST'   => '(unnamed test)',
+		'SKIPIF' => '',
+		'GET'    => '',
+		'ARGS'   => '',
+	);
+
+	$fp = @fopen($file, "r") or error("Cannot open test file: $file");
+
+	$section = '';
+	while (!feof($fp)) {
+		$line = fgets($fp);
+
+		// Match the beginning of a section.
+		if (ereg('^--([A-Z]+)--',$line,$r)) {
+			$section = $r[1];
+			$section_text[$section] = '';
+			continue;
+		}
+		
+		// Add to the section text.
+		$section_text[$section] .= $line;
+	}
+	fclose($fp);
+
+	$shortname = str_replace($GLOBALS['cwd'].'/', '', $file);
+	$tested = trim($section_text['TEST'])." [$shortname]";
+
+	$tmp = realpath(dirname($file));
+	$tmp_skipif = $tmp . uniqid('/phpt.');
+	$tmp_file   = ereg_replace('\.phpt$','.php',$file);
+	$tmp_post   = $tmp . uniqid('/phpt.');
+
+	@unlink($tmp_skipif);
+	@unlink($tmp_file);
+	@unlink($tmp_post);
+
+	// unlink old test results	
+	@unlink(ereg_replace('\.phpt$','.diff',$file));
+	@unlink(ereg_replace('\.phpt$','.log',$file));
+	@unlink(ereg_replace('\.phpt$','.exp',$file));
+	@unlink(ereg_replace('\.phpt$','.out',$file));
+
+	// Reset environment from any previous test.
+	putenv("REDIRECT_STATUS=");
+	putenv("QUERY_STRING=");
+	putenv("PATH_TRANSLATED=");
+	putenv("SCRIPT_FILENAME=");
+	putenv("REQUEST_METHOD=");
+	putenv("CONTENT_TYPE=");
+	putenv("CONTENT_LENGTH=");
+
+	// Check if test should be skipped.
+	$info = '';
+	$warn = false;
+	if (array_key_exists('SKIPIF', $section_text)) {
+		if (trim($section_text['SKIPIF'])) {
+			save_text($tmp_skipif, $section_text['SKIPIF']);
+			$output = `$php $info_params $tmp_skipif`;
+			@unlink($tmp_skipif);
+			if (eregi("^skip", trim($output))) {
+				echo "SKIP $tested";
+				$reason = (ereg("^skip[[:space:]]*(.+)\$", trim($output))) ? ereg_replace("^skip[[:space:]]*(.+)\$", "\\1", trim($output)) : FALSE;
+				if ($reason) {
+					echo " (reason: $reason)\n";
+				} else {
+					echo "\n";
+				}
+				return 'SKIPPED';
+			}
+			if (eregi("^info", trim($output))) {
+				$reason = (ereg("^info[[:space:]]*(.+)\$", trim($output))) ? ereg_replace("^info[[:space:]]*(.+)\$", "\\1", trim($output)) : FALSE;
+				if ($reason) {
+					$info = " (info: $reason)";
+					$tested .= $info;
+				}
+			}
+			if (eregi("^warn", trim($output))) {
+				$reason = (ereg("^warn[[:space:]]*(.+)\$", trim($output))) ? ereg_replace("^warn[[:space:]]*(.+)\$", "\\1", trim($output)) : FALSE;
+				if ($reason) {
+					$warn = true; /* only if there is a reason */
+					$info = " (warn: $reason)";
+					$tested .= $info;
+				}
+			}
+		}
+	}
+
+	// Default ini settings
+	$ini_settings = array();
+	// additional ini overwrites
+	//$ini_overwrites[] = 'setting=value';
+	settings2array($ini_overwrites, $ini_settings);
+
+	// Any special ini settings 
+	// these may overwrite the test defaults...
+	if (array_key_exists('INI', $section_text)) {
+		settings2array(preg_split( "/[\n\r]+/", $section_text['INI']), $ini_settings);
+	}
+	settings2params($ini_settings);
+
+	// We've satisfied the preconditions - run the test!
+	save_text($tmp_file,$section_text['FILE']);
+	if (array_key_exists('GET', $section_text)) {
+		$query_string = trim($section_text['GET']);
+	} else {
+		$query_string = '';
+	}
+
+	putenv("REDIRECT_STATUS=1");
+	putenv("QUERY_STRING=$query_string");
+	putenv("PATH_TRANSLATED=$tmp_file");
+	putenv("SCRIPT_FILENAME=$tmp_file");
+
+	$args = $section_text['ARGS'] ? ' -- '.$section_text['ARGS'] : '';
+
+	if (array_key_exists('POST', $section_text) && !empty($section_text['POST'])) {
+
+		$post = trim($section_text['POST']);
+		save_text($tmp_post,$post);
+		$content_length = strlen($post);
+
+		putenv("REQUEST_METHOD=POST");
+		putenv("CONTENT_TYPE=application/x-www-form-urlencoded");
+		putenv("CONTENT_LENGTH=$content_length");
+
+		$cmd = "$php$ini_settings -f $tmp_file 2>&1 < $tmp_post";
+
+	} else {
+
+		putenv("REQUEST_METHOD=GET");
+		putenv("CONTENT_TYPE=");
+		putenv("CONTENT_LENGTH=");
+
+		$cmd = "$php$ini_settings -f $tmp_file$args 2>&1";
+	}
+
+	if (DETAILED) echo "
+CONTENT_LENGTH  = " . getenv("CONTENT_LENGTH") . "
+CONTENT_TYPE    = " . getenv("CONTENT_TYPE") . "
+PATH_TRANSLATED = " . getenv("PATH_TRANSLATED") . "
+QUERY_STRING    = " . getenv("QUERY_STRING") . "
+REDIRECT_STATUS = " . getenv("REDIRECT_STATUS") . "
+REQUEST_METHOD  = " . getenv("REQUEST_METHOD") . "
+SCRIPT_FILENAME = " . getenv("SCRIPT_FILENAME") . "
+COMMAND $cmd
+";
+
+	$out = `$cmd`;
+
+	@unlink($tmp_post);
+
+	// Does the output match what is expected?
+	$output = trim($out);
+	$output = preg_replace('/\r\n/',"\n",$output);
+
+	if (isset($section_text['EXPECTF']) || isset($section_text['EXPECTREGEX'])) {
+		if (isset($section_text['EXPECTF'])) {
+			$wanted = trim($section_text['EXPECTF']);
+		} else {
+			$wanted = trim($section_text['EXPECTREGEX']);
+		}
+		$wanted_re = preg_replace('/\r\n/',"\n",$wanted);
+		if (isset($section_text['EXPECTF'])) {
+			$wanted_re = preg_quote($wanted_re, '/');
+			// Stick to basics
+			$wanted_re = str_replace("%s", ".+?", $wanted_re); //not greedy
+			$wanted_re = str_replace("%i", "[+\-]?[0-9]+", $wanted_re);
+			$wanted_re = str_replace("%d", "[0-9]+", $wanted_re);
+			$wanted_re = str_replace("%x", "[0-9a-fA-F]+", $wanted_re);
+			$wanted_re = str_replace("%f", "[+\-]?\.?[0-9]+\.?[0-9]*(E-?[0-9]+)?", $wanted_re);
+			$wanted_re = str_replace("%c", ".", $wanted_re);
+			// %f allows two points "-.0.0" but that is the best *simple* expression
+		}
+/* DEBUG YOUR REGEX HERE
+		var_dump($wanted_re);
+		print(str_repeat('=', 80) . "\n");
+		var_dump($output);
+*/
+		if (preg_match("/^$wanted_re\$/s", $output)) {
+			@unlink($tmp_file);
+			echo "PASS $tested\n";
+			return 'PASSED';
+		}
+
+	} else {
+		$wanted = trim($section_text['EXPECT']);
+		$wanted = preg_replace('/\r\n/',"\n",$wanted);
+	// compare and leave on success
+		$ok = (0 == strcmp($output,$wanted));
+		if ($ok) {
+			@unlink($tmp_file);
+			echo "PASS $tested\n";
+			return 'PASSED';
+		}
+	}
+
+	// Test failed so we need to report details.
+	if ($warn) {
+		echo "WARN $tested\n";
+	} else {
+		echo "FAIL $tested\n";
+	}
+
+	$GLOBALS['__PHP_FAILED_TESTS__'][] = array(
+						'name' => $file,
+						'test_name' => $tested,
+						'output' => ereg_replace('\.phpt$','.log', $file),
+						'diff'   => ereg_replace('\.phpt$','.diff', $file),
+						'info'   => $info
+						);
+
+	// write .exp
+	if (strpos($log_format,'E') !== FALSE) {
+		$logname = ereg_replace('\.phpt$','.exp',$file);
+		$log = fopen($logname,'w') or error("Cannot create test log - $logname");
+		fwrite($log,$wanted);
+		fclose($log);
+	}
+
+	// write .out
+	if (strpos($log_format,'O') !== FALSE) {
+		$logname = ereg_replace('\.phpt$','.out',$file);
+		$log = fopen($logname,'w') or error("Cannot create test log - $logname");
+		fwrite($log,$output);
+		fclose($log);
+	}
+
+	// write .diff
+	if (strpos($log_format,'D') !== FALSE) {
+		$logname = ereg_replace('\.phpt$','.diff',$file);
+		$log = fopen($logname,'w') or error("Cannot create test log - $logname");
+		fwrite($log,generate_diff($wanted,$output));
+		fclose($log);
+	}
+
+	// write .log
+	if (strpos($log_format,'L') !== FALSE) {
+		$logname = ereg_replace('\.phpt$','.log',$file);
+		$log = fopen($logname,'w') or error("Cannot create test log - $logname");
+		fwrite($log,"
+---- EXPECTED OUTPUT
+$wanted
+---- ACTUAL OUTPUT
+$output
+---- FAILED
+");
+		fclose($log);
+		error_report($file,$logname,$tested);
+	}
+
+	return $warn ? 'WARNED' : 'FAILED';
+}
+
+function generate_diff($wanted,$output)
+{
+	$w = explode("\n", $wanted);
+	$o = explode("\n", $output);
+	$w1 = array_diff_assoc($w,$o);
+	$o1 = array_diff_assoc($o,$w);
+	$w2 = array();
+	$o2 = array();
+	foreach($w1 as $idx => $val) $w2[sprintf("%03d<",$idx)] = sprintf("%03d- ", $idx+1).$val;
+	foreach($o1 as $idx => $val) $o2[sprintf("%03d>",$idx)] = sprintf("%03d+ ", $idx+1).$val;
+	$diff = array_merge($w2, $o2);
+	ksort($diff);
+	return implode("\r\n", $diff);
+}
+
+function error($message)
+{
+	echo "ERROR: {$message}\n";
+	exit(1);
+}
+
+function settings2array($settings, &$ini_settings)
+{
+	foreach($settings as $setting) {
+		if (strpos($setting, '=')!==false) {
+			$setting = explode("=", $setting, 2);
+			$name = trim(strtolower($setting[0]));
+			$value = trim($setting[1]);
+			$ini_settings[$name] = $value;
+		}
+	}
+}
+
+function settings2params(&$ini_settings)
+{
+	if (count($ini_settings)) {
+		$settings = '';
+		foreach($ini_settings as $name => $value) {
+			$value = addslashes($value);
+			$settings .= " -d \"$name=$value\"";
+		}
+		$ini_settings = $settings;
+	} else {
+		$ini_settings = '';
+	}
 }
 
 /*
- * Please use dowrite() and dowriteln() for all screen output.
- * This makes it easier to convert to HTML output later.
+ * Local variables:
+ * tab-width: 4
+ * c-basic-offset: 4
+ * End:
+ * vim600: fdm=marker
+ * vim: noet sw=4 ts=4
  */
-
-function dowrite($str)
-{
-    global $term_bold, $term_norm;
-    $str = str_replace("%b", $term_bold, $str);
-    $str = str_replace("%B", $term_norm, $str);
-    print $str;
-}
-
-function dowriteln($str)
-{
-    dowrite("$str\n");
-}
-
-function create_compiled_in_modules_list()  {
-    global $compiled_in_modules;
-    $compiled_in_modules = @get_loaded_extensions();
-}
-
-function extract_module_name_from_path($path)   {
-    if ($pos1=strpos($path,EXT_DIR_NAME)) {
-           $pos3=strpos($path,'/',$pos1+EXT_DIR_NAME_LEN);
-           return substr($path,$pos2=$pos1+EXT_DIR_NAME_LEN,$pos3-$pos2);
-    }
-}
-
-
-function create_found_tests_4_modules_list() {
-   global $modules_2_test,$testdirs;
-
-   foreach ($testdirs AS $path) {
-       if ($mod_name=extract_module_name_from_path($path))
-           $modules_2_test[$mod_name]=TRUE;
-   }
-}
-
-function create_modules_2_test_list() {
-    global $compiled_in_modules,$modules_2_test,$modules_available;
-    foreach ($compiled_in_modules AS $value)
-        if ($modules_2_test[$value]) $modules_available[]=$value;
-}
-
-
-
-function in_path($program)
-{
-    global $HTTP_ENV_VARS;
-    if (substr(PHP_OS, 0, 3) == "WIN") {
-        $delim = ";";
-        $ext = ".exe";
-    } else {
-        $delim = ":";
-        $ext = "";
-    }
-    $slash = DIRECTORY_SEPARATOR;
-    $path_components = explode($delim, $HTTP_ENV_VARS['PATH']);
-    foreach ($path_components as $path) {
-        $test = "{$path}{$slash}php{$ext}";
-        if (@is_executable($test)) {
-            return $test;
-        }
-    }
-    return false;
-}
-
-
-function initialize()
-{
-    global $term, $windows_p, $php, $skip, $testdirs, $tmpfile,
-        $skipped, $failed, $passed, $total, $term_bold, $term_norm,
-        $tests_in_dir;
-
-    // XXX Should support HTML output as well.
-    $php = "";
-    if((substr(PHP_OS, 0, 3) == "WIN")) {
-        $ext = ".exe";
-        $windows_p = true;
-        $term = getenv("COMSPEC");
-    } else {
-        $ext = "";
-        $term = getenv("TERM");
-        if (ereg('^(xterm|vt220)', $term)) {
-            $term_bold = sprintf("%c%c%c%c", 27, 91, 49, 109);
-            $term_norm = sprintf("%c%c%c", 27, 91, 109);
-        } elseif (ereg('^vt100', $term)) {
-            $term_bold = sprintf("%c%c%c%c", 27, 91, 49, 109);
-            $term_norm = sprintf("%c%c%c", 27, 91, 109);
-        } else {
-            $term_bold = $term_norm = "";
-        }
-    }
-
-    if (isset($GLOBALS["TOP_BUILDDIR"]) && @is_executable($GLOBALS["TOP_BUILDDIR"]."/php{$ext}")) {
-        $php = $GLOBALS["TOP_BUILDDIR"]."/php{$ext}";
-    } elseif (@is_executable("./php{$ext}")) {
-        $php = getcwd() . "/php{$ext}";
-    }
-    if (empty($php)) {
-        $php = in_path("php");
-    }
-    if (empty($php)) {
-        dowriteln("Unable to find PHP executable (php{$ext}).");
-        dowriteln("Please build PHP as a CGI executable or make sure it is");
-        dowriteln("available in the PATH environment variable.");
-        exit;
-    }
-
-    create_compiled_in_modules_list();
-
-    $skip = array(
-        "CVS" => 1
-    );
-    $testdirs = array();
-    $tmpfile = array();
-    $tests_in_dir = array();
-
-    register_shutdown_function("delete_tmpfiles");
-
-    $skipped = $failed = $passed = $total = 0;
-}
-
-function &parse_options(&$argc, &$argv)
-{
-    $options = array();
-    while ($argc > 0 && ($opt = substr($argv[0], 0, 2)) == "--") {
-        $opt = array_shift($argv);
-        $argc--;
-        if ($arg == "--") {
-            return $options;
-        }
-        if (ereg('^--([^=]+)=(.*)$', $opt, $matches)) {
-            $opt = $matches[1];
-            $arg = $matches[2];
-        } else {
-            $arg = true;
-        }
-        $options[$opt] = $arg;
-    }
-    return $options;
-}
-
-function do_testing($argc, &$argv)
-{
-    global $term, $windows_p, $php, $skip, $testdirs, $tmpfile, $opts,
-        $skipped, $failed, $passed, $total, $term_bold, $term_norm, $skipped_extensions;
-
-    if ($argc > 1) {
-        if (is_dir($argv[1])) {
-            $dir = $argv[1];
-        } else {
-            for ($i = 1; $i < $argc; $i++) {
-                switch (run_test($argv[$i])) {
-                    case TEST_SKIPPED:
-                    case TEST_INTERNAL_ERROR:
-                        $skipped++;
-                        break;
-                    case TEST_FAILED:
-                        $failed++;
-                        break;
-                    case TEST_PASSED:
-                        $passed++;
-                        break;
-                }
-                $total++;
-            }
-        }
-    } else {
-        // $dir = $GLOBALS["TOP_SRCDIR"]; // XXX ??? where should this variable be set?
-        $dir=str_replace('\\','/',trim(($windows_p ? getenv("TEST_DIR"):`pwd`)));
-    }
-    if (isset($dir) && $dir) {
-        find_testdirs($dir);
-
-        create_found_tests_4_modules_list();
-        create_modules_2_test_list();
-
-        for ($i = 0; $i < sizeof($testdirs); $i++) {
-            run_tests_in_dir($testdirs[$i]);
-        }
-    }
-
-    $counting = $total - $skipped;
-
-    if ($counting <= 0) {
-        dowriteln("No tests were run.");
-        return;
-    }
-
-    $total_d = (double)$total;
-    $counting_d = (double)$counting;
-    $passed_p  = 100 * ($passed / $counting_d);
-    $failed_p  = 100 * ($failed / $counting_d);
-    $skipped_p = 100 * ($skipped / $total_d);
-    $passed_pstr = sprintf($passed_p < 10.0 ? "%1.1f" : "%3.0f", $passed_p);
-    $failed_pstr = sprintf($failed_p < 10.0 ? "%1.1f" : "%3.0f", $failed_p);
-    $skipped_pstr = sprintf($skipped_p < 10.0 ? "%1.1f" : "%3.0f", $skipped_p);
-
-    dowriteln("TEST RESULT SUMMARY");
-    dowriteln("=============================");
-    dowriteln(sprintf("Number of tests:  %4d", $total));
-    dowriteln(sprintf("Tests skipped:    %4d (%s%%)", $skipped, $skipped_pstr));
-    dowriteln(sprintf("Tests failed:     %4d (%s%%)", $failed, $failed_pstr));
-    dowriteln(sprintf("Tests passed:     %4d (%s%%)", $passed, $passed_pstr));
-    dowriteln("=============================");
-    dowriteln("Skipped ".sizeof($skipped_extensions)." extensions.");
-    dowriteln("PHP Version: ".phpversion());
-}
-
-function find_testdirs($dir = '.', $first_pass = true)
-{
-    global $testdirs, $skip;
-
-    if ($first_pass && is_dir($dir)) {
-        $testdirs[] = $dir;
-    }
-    $dp = @opendir($dir);
-    if (!$dp) {
-        print "Warning: could not open directory $dir\n";
-        return false;
-    }
-    while ($ent = readdir($dp)) {
-        $path = "$dir/$ent";
-
-        if ((isset($skip[$ent]) && $skip[$ent])
-            || substr($ent, 0, 1) == "."
-            || !is_dir($path)
-
-            ) {
-            continue;
-            }
-
-        if (strstr("/$path/", "/tests/")) {
-            $testdirs[] = $path;
-        }
-        find_testdirs($path, false);
-    }
-    closedir($dp);
-
-}
-
-function run_tests_in_dir($dir = '.')
-{
-    global $skip, $skipped, $failed, $passed, $total, $opts, $tests_in_dir,$modules_available,$skipped_extensions;
-    $dp = opendir($dir);
-    if (!$dp) {
-        print "Warning: could not run tests in $dir\n";
-        return false;
-    }
-    $testfiles = array();
-    while ($ent = readdir($dp)) {
-        if ((isset($skip[$ent]) && $skip[$ent]) || substr($ent, 0, 1) == "." || substr($ent, -5) != ".phpt") {
-            continue;
-        }
-        $testfiles[] = "$dir/$ent";
-        if(isset($tests_in_dir[$dir]))  $tests_in_dir[$dir]++; else $tests_in_dir[$dir]=1;
-    }
-    closedir($dp);
-    if (isset($tests_in_dir[$dir]) && ($tests_in_dir[$dir] == 0)) {
-        return true;
-    }
-    $oskipped = $skipped;
-    if (sizeof($testfiles) == 0) {
-        return;
-    }
-
-    if ($mod_name=extract_module_name_from_path($dir))   {
-        if ($ext_found=in_array($mod_name,$modules_available))
-             dowriteln("Testing extension: $mod_name");
-        else $skipped_extensions[$mod_name]=TRUE;
-    }
-
-    if (!isset($ext_found) or $ext_found!==FALSE) {
-        dowriteln("%bRunning tests in $dir%B");
-        dowriteln("=================".str_repeat("=", strlen($dir)));
-        sort($testfiles);
-        for ($i = 0; $i < sizeof($testfiles); $i++) {
-            switch (run_test($testfiles[$i])) {
-                case TEST_SKIPPED:
-                case TEST_INTERNAL_ERROR:
-                    $skipped++;
-                    break;
-                case TEST_FAILED:
-                    $failed++;
-                    break;
-                case TEST_PASSED:
-                    $passed++;
-                    break;
-            }
-            $total++;
-        }
-        if ($oskipped + (isset($tests_in_dir[$dir])?$tests_in_dir[$dir]:0)  == $skipped) {
-            $skippednow = $skipped - $oskipped;
-            dowriteln("[all $skippednow test(s) skipped]");
-        }
-       dowriteln("");
-    }
-
-    return true;
-}
-
-function skip_headers($fp)
-{
-    while (!feof($fp)) {
-        if (trim(fgets($fp, 1024)) == "") {
-            break;
-        }
-    }
-}
-
-function delete_tmpfiles()
-{
-    global $tmpfile;
-    reset($tmpfile);
-    while (list($k, $v) = each($tmpfile)) {
-        if (file_exists($v)) {
-           //print "unlink($v): "; var_dump(unlink($v));
-            unlink($v);
-        }
-    }
-}
-
-/**
- * Compares two files, ignoring blank lines.
- *
- * @param $file1 string name of first file to compare
- * @param $file2 string name of second file to compare
- *
- * @return bool whether the files were "equal"
- */
-function compare_results($file1, $file2)
-{
-        $data1 = $data2 = "";
-    if (!($fp1 = @fopen($file1, "r")) || !($fp2 = @fopen($file2, "r"))) {
-        return false;
-    }
-
-    while (!(feof($fp1) || feof($fp2))) {
-        if (!feof($fp1) && trim($line1 = fgets($fp1, 10240)) != "") {
-            //print "adding line1 $line1\n";
-
-            $data1 .= trim($line1);
-        }
-        if (!feof($fp2) && trim($line2 = fgets($fp2, 10240)) != "") {
-            //print "adding line2 $line2\n";
-
-            $data2 .= trim($line2);
-        }
-    }
-    fclose($fp1);
-    fclose($fp2);
-    if ((trim($data1) != trim($data2))
-        || ($data1=='' && $data2=='')) {
-       //print "data1=";var_dump($data1);
-       //print "data2=";var_dump($data2);
-        return false;
-    }
-    return true;
-}
-
-function run_test($file)
-{
-    global $php, $tmpfile, $term_bold, $term_norm, $term, $windows_p;
-
-    $variables = array("TEST", "POST", "GET", "FILE", "EXPECT", "SKIPIF",
-                       "OUTPUT");
-    $fp = @fopen($file, "r");
-    if (!$fp) {
-        return TEST_INTERNAL_ERROR;
-    }
-    $tmpdir = dirname($file);
-    $tmpfix = "phpt.";
-    $tmpfile["FILE"] = tempnam($tmpdir, $tmpfix);
-    $tmpfile["SKIPIF"] = tempnam($tmpdir, $tmpfix);
-    $tmpfile["POST"] = tempnam($tmpdir, $tmpfix);
-
-    $tmpfile["EXPECT"] = tempnam($tmpdir, $tmpfix);
-    $tmpfile["OUTPUT"] = tempnam($tmpdir, $tmpfix);
-
-
-    while ($line = fgets($fp, 4096)) {
-        if (ereg('^--([A-Z]+)--', $line, $matches)) {
-            $var = $matches[1];
-            if (isset($tmpfile[$var]) && $tmpfile[$var]) {
-                $fps[$var] = @fopen($tmpfile[$var], "w");
-            } else {
-                $$var = '';
-            }
-        } else {
-            if (isset($var) && $var) {
-                if ($var == "POST") {
-                    $line = trim($line);
-                }
-                if (isset($fps[$var]) && $fps[$var]) {
-                    fwrite($fps[$var], $line);
-                } else {
-                    $$var .= $line;
-                }
-            }
-        }
-    }
-    if(isset($fps) && is_array($fps)) {
-        reset($fps);
-        while (list($k, $v) = each($fps)) {
-            if (is_resource($v)) {
-                fclose($v);
-            }
-        }
-    }
-    putenv("PHP_TEST=1");
-    putenv("REDIRECT_STATUS=1");
-    putenv("CONTENT_LENGTH=");
-    putenv("QUERY_STRING=".(isset($GET)?$GET:""));
-    $include_path = ini_get("include_path");
-    if (isset($fps["SKIPIF"])) {
-        $tmpfile["SKIPIF_OUTPUT"] = tempnam($tmpdir, $tmpfix);
-        putenv("REQUEST_METHOD=GET");
-        putenv("CONTENT_TYPE=");
-        putenv("PATH_TRANSLATED=$tmpfile[SKIPIF]");
-        putenv("SCRIPT_FILENAME=$tmpfile[SKIPIF]");
-        $skipifcmd = "$php -q -f $tmpfile[SKIPIF] > $tmpfile[SKIPIF_OUTPUT]";
-        system($skipifcmd, $ret);
-        $sp = @fopen($tmpfile["SKIPIF_OUTPUT"], "r");
-        if ($sp) {
-            skip_headers($sp);
-            $skip = trim(fgets($sp, 1024));
-            fclose($sp);
-            if ($skip == "skip") {
-                delete_tmpfiles();
-                return TEST_SKIPPED;
-            }
-        }
-    }
-    putenv("PATH_TRANSLATED=$tmpfile[FILE]");
-    putenv("SCRIPT_FILENAME=$tmpfile[FILE]");
-    if (isset($fps["POST"])) {
-        putenv("REQUEST_METHOD=POST");
-        putenv("CONTENT_TYPE=application/x-www-form-urlencoded");
-        putenv("CONTENT_LENGTH=".filesize($tmpfile["POST"]));
-    } else {
-        putenv("REQUEST_METHOD=GET");
-        putenv("CONTENT_TYPE=");
-        putenv("CONTENT_LENGTH=");
-    }
-    if (isset($fps["POST"])) {
-        if(!$windows_p) {
-            $cmd = "2>&1 $php -q $tmpfile[FILE] < $tmpfile[POST]";
-        }
-        else {
-            $cmd = "$term /c " . realpath($php) ." -q $tmpfile[FILE] < $tmpfile[POST]";
-        }
-    } else {
-        if(!$windows_p) {
-            $cmd = "2>&1 $php -q $tmpfile[FILE]";
-        }
-        else {
-            $cmd = "$term /c " . realpath($php) ." -q $tmpfile[FILE]";;
-        }
-    }
-    $ofp = @fopen($tmpfile["OUTPUT"], "w");
-    if (!$ofp) {
-        dowriteln("Error: could not write to output file");
-        delete_tmpfiles();
-        return TEST_INTERNAL_ERROR;
-    }
-    //echo $cmd;
-    $cp = popen($cmd, "r");
-    if (!$cp) {
-        dowriteln("Error: could not execute: $cmd");
-        delete_tmpfiles();
-        return TEST_INTERNAL_ERROR;
-    }
-    skip_headers($cp);
-    while ($data = fread($cp, 2048)) {
-        fwrite($ofp, $data);
-    }
-    fclose($ofp);
-    pclose($cp);
-    $desc = isset($TEST)?trim($TEST):"";
-    $outfile = ereg_replace('\.phpt$', '.out', $file);
-    $expectfile = ereg_replace('\.phpt$', '.exp', $file);
-    $phpfile = ereg_replace('\.phpt$', '.php', $file);
-    if (compare_results($tmpfile["OUTPUT"], $tmpfile["EXPECT"])) {
-        $status = TEST_PASSED;
-        $text = "passed";
-        $pre = $post = "";
-        if (file_exists($outfile)) {
-            unlink($outfile);
-        }
-        if (file_exists($expectfile)) {
-            unlink($expectfile);
-        }
-        if (file_exists($phpfile)) {
-            unlink($phpfile);
-        }
-    } else {
-        //system("env");
-        $status = TEST_FAILED;
-        $text = "failed";
-        $pre = $term_bold;
-        $post = $term_norm;
-        $desc .= " (".basename($file).")";
-        if (file_exists($outfile)) {
-            unlink($outfile);
-        }
-        copy($tmpfile["OUTPUT"], $outfile);
-        copy($tmpfile["EXPECT"], $expectfile);
-        copy($tmpfile["FILE"], $phpfile);
-    }
-    dowriteln(sprintf("%s%-68s ... %s%s", $pre, substr($desc, 0, 68),
-                    $text, $post));
-//    if ($status == TEST_FAILED) {
-//        for ($i = 0; $i < sizeof($variables); $i++) {
-//            $var = $variables[$i];
-//            print "$var:\n";
-//            if ($tmpfile[$var]) {
-//                if (file_exists($tmpfile[$var])) {
-//                    system("cat ".$tmpfile[$var]);
-//                }
-//            } else {
-//                print $$var;
-//            }
-//        }
-//        print "--\n\n";
-//    }
-    delete_tmpfiles();
-    return $status;
-}
-
 ?>

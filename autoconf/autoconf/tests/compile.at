@@ -1,6 +1,24 @@
-#							-*- autoconf -*-
+#							-*- Autotest -*-
 
 AT_BANNER([Low level compiling/preprocessing macros.])
+
+# Copyright 2000, 2001 Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+# 02111-1307, USA.
+
 
 # Since the macros which compile are required by most tests, check
 # them first.  But remember that looking for a compiler is even more
@@ -53,191 +71,74 @@ c
 AT_CLEANUP
 
 
-## ------------ ##
-## Extensions.  ##
-## ------------ ##
+## ---------------------- ##
+## AC_REQUIRE & AC_LANG.  ##
+## ---------------------- ##
 
-# As far as we know only `foo', `foo.exe' are possible executable,
-# and `foo.o', `foo.obj' are possible object files.  Autoconf must not
-# know that, but it is OK for the test suite to take this into account.
-AT_CHECK_MACRO([Extensions],
-[[AC_PROG_CC
-case $ac_exeext in
-  '' | '.exe' ) ;;
-  * ) AC_MSG_ERROR([suspicious executable suffix: $ac_exeext]);;
-esac
-
-case $ac_objext in
-  'o' | 'obj' ) ;;
-  * ) AC_MSG_ERROR([suspicious object suffix: $ac_objext]);;
-esac
-AS_EXIT([0])
-]])
-
-
-
-## -------------------------- ##
-## Broken/missing compilers.  ##
-## -------------------------- ##
-
-
-# Check that Autoconf correctly diagnoses broken compilers, and in
-# particular, if it does not exit 77, the test suite is in trouble...
-# FIXME: Once a precise message decided, check stderr of configure.
-AT_SETUP([Broken/missing compilers])
+AT_SETUP([AC_REQUIRE & AC_LANG])
 
 AT_DATA([configure.ac],
-[[AC_INIT
-CC=no-such-compiler
-AC_PROG_CC
+[[AC_DEFUN([AC_F77_1],
+[AC_LANG_PUSH([Fortran 77])
+if test $ac_ext != f; then
+  AC_MSG_ERROR([F77_1: current shell language is $ac_ext, expected Fortran])
+fi
+AC_LANG_POP
+])
+
+
+AC_DEFUN([AC_F77_2],
+[AC_LANG_PUSH([Fortran 77])
+AC_REQUIRE([AC_F77_1])
+if test $ac_ext != f; then
+  AC_MSG_ERROR([F77_2: current shell language is $ac_ext, expected Fortran])
+fi
+AC_LANG_POP
+])
+
+AC_INIT
+AC_F77_2
+AS_EXIT(0)
 ]])
 
 AT_CHECK_AUTOCONF
-AT_CHECK_CONFIGURE([], 77, ignore, ignore)
+AT_CHECK_CONFIGURE
 
 AT_CLEANUP
 
 
-## ------------ ##
-## C keywords.  ##
-## ------------ ##
+## --------------- ##
+## AC_RUN_IFELSE.  ##
+## --------------- ##
 
-# GCC supports `const', `volatile', and `inline'.
-AT_CHECK_MACRO([C keywords],
-[[AC_PROG_CC
-AC_C_CONST
-AC_C_INLINE
-AC_C_VOLATILE
-case $GCC,$ac_cv_c_const,$ac_cv_c_inline,$ac_cv_c_volatile in
- yes,*no*)
-   AC_MSG_ERROR([failed to detect `const', `inline' or `volatile' support]);;
-esac
+AT_SETUP([AC_RUN_IFELSE])
+
+AT_DATA([configure.ac],
+[[AC_INIT
+
+AC_RUN_IFELSE([AC_LANG_PROGRAM([], [exit (0)])],
+              [],
+              [AC_MSG_ERROR([saw `exit 0' as a failure])])
+
+AC_RUN_IFELSE([AC_LANG_PROGRAM([], [exit (2)])],
+              [AC_MSG_ERROR([saw `exit 2' as a success])],
+              [status=$?
+test $status != 2 &&
+  AC_MSG_ERROR([did not get as 2 exit status: $status])])
+
+# The old stinky one.
+AC_TRY_RUN([int main () { exit (3); }],
+           [AC_MSG_ERROR([saw `exit 3' as a success])],
+           [status=$?
+test $status != 3 &&
+  AC_MSG_ERROR([did not get 3 as exit status: $status])])
+
 ]])
 
-
-
-## --------------------------------- ##
-## AC_PROG_CPP requires AC_PROG_CC.  ##
-## --------------------------------- ##
-
-# Must invoke AC_PROG_CC.
-AT_CHECK_MACRO([AC_PROG_CPP requires AC_PROG_CC],
-[[AC_PROG_CPP
-test -z "$CC" &&
-   AC_MSG_ERROR([looked for a C preprocessor without looking for a compiler])
-]])
-
-
-
-## --------------------------- ##
-## AC_PROG_CPP with warnings.  ##
-## --------------------------- ##
-
-
-# It's Ok for strict preprocessors to produce warnings.
-
-AT_SETUP([AC_PROG_CPP with warnings])
-
-AT_DATA([mycpp],
-[[#! /bin/sh
-echo noise >&2
-exec ${1+"$@"}
-]])
-
-chmod +x mycpp
-
-_AT_CHECK_AC_MACRO(
-[[AC_PROG_CPP
-# If the preprocessor is not strict, just ignore
-test "x$ac_c_preproc_warn_flag" = xyes &&
-  AC_MSG_ERROR([preprocessor has no warning option], 77)
-CPP="./mycpp $CPP"
-AC_CHECK_HEADERS(stdio.h autoconf_io.h)]])
-
-AT_CHECK_DEFINES(
-[/* #undef HAVE_AUTOCONF_IO_H */
-#define HAVE_STDIO_H 1
-])
+AT_CHECK_AUTOCONF
+AT_CHECK_CONFIGURE([-q])
 
 AT_CLEANUP
-
-
-## ------------------------------ ##
-## AC_PROG_CPP without warnings.  ##
-## ------------------------------ ##
-
-AT_SETUP([AC_PROG_CPP without warnings])
-
-# Ignore if /lib/cpp doesn't work
-AT_CHECK([/lib/cpp </dev/null || exit 77], [], [ignore], [ignore])
-
-# A cpp which exit status is meaningless.
-AT_DATA([mycpp],
-[[#! /bin/sh
-/lib/cpp ${1+"$@"}
-exit 0
-]])
-
-chmod +x mycpp
-
-_AT_CHECK_AC_MACRO(
-[[CPP=./mycpp
-AC_PROG_CPP
-test "x$ac_c_preproc_warn_flag" != xyes &&
-  AC_MSG_ERROR([failed to detect preprocessor warning option])
-AC_CHECK_HEADERS(stdio.h autoconf_io.h)]])
-
-AT_CHECK_DEFINES(
-[/* #undef HAVE_AUTOCONF_IO_H */
-#define HAVE_STDIO_H 1
-])
-
-AT_CLEANUP
-
-
-
-## -------------------- ##
-## AC_PROG_CPP via CC.  ##
-## -------------------- ##
-
-
-# It's Ok for strict preprocessors to produce warnings.
-
-AT_SETUP([AC_PROG_CPP via CC])
-
-# Ignore if /lib/cpp doesn't work
-AT_CHECK([/lib/cpp </dev/null || exit 77], [], [ignore], [ignore])
-
-AT_DATA([mycc],
-[[#! /bin/sh
-echo "Annoying copyright message" >&2
-exec "$@"
-]])
-
-chmod +x mycc
-
-# We go through the following contortions, in order to have the
-# configure script go down the same codepaths as it would during a
-# normal CPP selection check.  If we explicitly set CPP, it goes down
-# a different codepath.
-_AT_CHECK_AC_MACRO(
-[[AC_PROG_CC
-CC="./mycc $CC"
-AC_PROG_CPP
-# The test $CC compiler should have been selected.
-test "$CPP" != "$CC -E" &&
-  AC_MSG_ERROR([error messages on stderr cause the preprocessor selection to fail])
-
-# Exercise CPP.
-AC_CHECK_HEADERS(stdio.h autoconf_io.h)]])
-
-AT_CHECK_DEFINES(
-[/* #undef HAVE_AUTOCONF_IO_H */
-#define HAVE_STDIO_H 1
-])
-
-AT_CLEANUP
-
 
 ## ------------------ ##
 ## AC_TRY_LINK_FUNC.  ##
@@ -248,30 +149,3 @@ AT_CHECK_MACRO([AC_TRY_LINK_FUNC],
                   [AC_MSG_ERROR([cannot find `printf'])])
 AC_TRY_LINK_FUNC(Be_doomed_if_your_libc_has_a_function_named_like_this,
                  [AC_MSG_ERROR([found a nonexistent function])])])
-
-
-
-## --------------------- ##
-## Fortran 77 Compiler.  ##
-## --------------------- ##
-
-
-AT_CHECK_MACRO([GNU Fortran 77],
-[[AC_LANG(Fortran 77)
-AC_LANG_COMPILER
-
-if AC_TRY_COMMAND([$F77 --version | grep GNU >&2]); then
-  # Be sure to remove files which might be created by compilers that
-  # don't support --version.
-  rm -f a.exe a.out
-  # Has GNU in --version.
-  test "$G77" != yes &&
-    AC_MSG_ERROR([failed to recognize GNU Fortran 77 compiler])
-else
-  # Be sure to remove files which might be created by compilers that
-  # don't support --version.
-  rm -f a.exe a.out
-  # Has not.
-  test "$G77" = yes &&
-    AC_MSG_ERROR([incorrectly recognized a GNU Fortran 77 compiler])
-fi]])

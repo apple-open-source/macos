@@ -1,21 +1,22 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
- *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -30,15 +31,38 @@
 #include <IOKit/hidsystem/IOHIDParameter.h>
 #include <IOKit/pwr_mgt/RootDomain.h>
 #include <libkern/OSByteOrder.h>
-
+#include "IOHIDSystem.h"
 #include "IOHIDPointingDevice.h"
 
 #ifndef abs
 #define abs(_a)	((_a >= 0) ? _a : -_a)
 #endif
 
+#define FRAME_RATE		(67 << 16)
+#define SCREEN_RESOLUTION	(96 << 16)
+    
 #define SCROLL_CLEAR_THRESHOLD_MS 	500
 #define SCROLL_EVENT_THRESHOLD_MS 	300
+
+#define _scrollAcceleration	((ExpansionData *)_reserved)->scrollAcceleration
+#define _scrollScaleSegments 	((ExpansionData *)_reserved)->scrollScaleSegments
+#define _scrollScaleSegCount 	((ExpansionData *)_reserved)->scrollScaleSegCount
+#define _scrollTimeDeltas1	((ExpansionData *)_reserved)->scrollTimeDeltas1
+#define _scrollTimeDeltas2	((ExpansionData *)_reserved)->scrollTimeDeltas2
+#define _scrollTimeDeltas3	((ExpansionData *)_reserved)->scrollTimeDeltas3
+#define _scrollTimeDeltaIndex1	((ExpansionData *)_reserved)->scrollTimeDeltaIndex1
+#define _scrollTimeDeltaIndex2	((ExpansionData *)_reserved)->scrollTimeDeltaIndex2
+#define _scrollTimeDeltaIndex3	((ExpansionData *)_reserved)->scrollTimeDeltaIndex3
+#define _scrollLastDeltaAxis1	((ExpansionData *)_reserved)->scrollLastDeltaAxis1
+#define _scrollLastDeltaAxis2	((ExpansionData *)_reserved)->scrollLastDeltaAxis2
+#define _scrollLastDeltaAxis3	((ExpansionData *)_reserved)->scrollLastDeltaAxis3
+#define _scrollLastEventTime1	((ExpansionData *)_reserved)->scrollLastEventTime1
+#define _scrollLastEventTime2	((ExpansionData *)_reserved)->scrollLastEventTime2
+#define _scrollLastEventTime3	((ExpansionData *)_reserved)->scrollLastEventTime3
+#define _hidPointingNub		((ExpansionData *)_reserved)->hidPointingNub
+#define _isSeized		((ExpansionData *)_reserved)->isSeized
+#define _openClient		((ExpansionData *)_reserved)->openClient
+
 
 static bool GetOSDataValue (OSData * data, UInt32 * value);
 static bool SetupAcceleration (OSData * data, IOFixed desired, IOFixed resolution, void ** scaleSegments, IOItemCount * scaleSegCount);
@@ -48,7 +72,7 @@ static IOHIDPointingDevice * CreateHIDPointingDeviceNub(IOService * owner, UInt8
 {
     IOHIDPointingDevice 	*nub = 0;
 
-    nub = IOHIDPointingDevice::newPointingDevice(buttons, resolution, scroll);
+    nub = IOHIDPointingDevice::newPointingDevice(owner, buttons, resolution, scroll);
                         
     if (nub &&
         (!nub->attach(owner) || 
@@ -109,6 +133,8 @@ bool IOHIPointing::init(OSDictionary * properties)
     
     _hidPointingNub = 0;
     
+    _isSeized = false;
+    
     // default to right mouse button generating unique events
     _buttonMode = NX_RightButton;
     
@@ -139,9 +165,18 @@ bool IOHIPointing::start(IOService * provider)
     }
   }
 
+  /*
+   * RY: Publish a property containing the button Count.  This will
+   * will be used to determine whether or not the button
+   * behaviors can be modified.
+   */
+  if (buttonCount() > 1)
+  {
+     setProperty(kIOHIDPointerButtonCountKey, buttonCount(), 32);
+  }
+
   // create a IOHIDPointingDevice to post events to the HID Manager
-  if (!OSDynamicCast(IOHIDDevice, provider)) 
-        _hidPointingNub = CreateHIDPointingDeviceNub(this, buttonCount(), resolution() >> 16, false); 
+  _hidPointingNub = CreateHIDPointingDeviceNub(this, buttonCount(), resolution() >> 16, false); 
         
   /*
    * IOHIPointing serves both as a service and a nub (we lead a double
@@ -191,19 +226,46 @@ bool IOHIPointing::open(IOService *                client,
                         AbsolutePointerEventAction apeAction,
                         ScrollWheelEventAction     sweAction)
 {
-  if (super::open(client, options))
-  {
+    if (client == this) {
+        return super::open(_openClient, options);
+    }
+    
+    return open(client, 
+                options,
+                0, 
+                (RelativePointerEventCallback)rpeAction, 
+                (AbsolutePointerEventCallback)apeAction, 
+                (ScrollWheelEventCallback)sweAction);
+}
+
+bool IOHIPointing::open(IOService *			client,
+                      IOOptionBits			options,
+                      void *				refcon,
+                      RelativePointerEventCallback	rpeCallback,
+                      AbsolutePointerEventCallback	apeCallback,
+                      ScrollWheelEventCallback		sweCallback)
+{
+    if (client == this) return true;
+
+    _openClient = client;
+
+    bool returnValue = open(this, options, 
+                            (RelativePointerEventAction)_relativePointerEvent, 
+                            (AbsolutePointerEventAction)_absolutePointerEvent, 
+                            (ScrollWheelEventAction)_scrollWheelEvent);    
+
+    if (!returnValue)
+        return false;
+
     // Note: client object is already retained by superclass' open()
     _relativePointerEventTarget = client;
-    _relativePointerEventAction = rpeAction;
+    _relativePointerEventAction = (RelativePointerEventAction)rpeCallback;
     _absolutePointerEventTarget = client;
-    _absolutePointerEventAction = apeAction;
+    _absolutePointerEventAction = (AbsolutePointerEventAction)apeCallback;
     _scrollWheelEventTarget = client;
-    _scrollWheelEventAction = sweAction;
-    return true;
-  }
+    _scrollWheelEventAction = (ScrollWheelEventAction)sweCallback;
 
-  return false;
+    return true;
 }
 
 void IOHIPointing::close(IOService * client, IOOptionBits)
@@ -214,6 +276,28 @@ void IOHIPointing::close(IOService * client, IOOptionBits)
   _absolutePointerEventTarget = 0;
   super::close(client);
 } 
+
+IOReturn IOHIPointing::message( UInt32 type, IOService * provider,
+                                void * argument) 
+{
+    IOReturn ret = kIOReturnSuccess;
+    
+    switch(type)
+    {
+        case kIOHIDSystemDeviceSeizeRequestMessage:
+            if (OSDynamicCast(IOHIDDevice, provider))
+            {
+                _isSeized = (bool)argument;
+            }
+            break;
+            
+        default:
+            ret = super::message(type, provider, argument);
+            break;
+    }
+    
+    return ret;
+}
 
 IOReturn IOHIPointing::powerStateWillChangeTo( IOPMPowerFlags powerFlags,
                         unsigned long newState, IOService * device )
@@ -319,10 +403,8 @@ static void AccelerateScrollAxis(int * 		axisp,
     IOFixed maxTimeDeltaMS = (SCROLL_EVENT_THRESHOLD_MS << 16);
     IOFixed maxDeviceDelta = (40 << 16);
     
-    IOFixed frameRate		= (67 << 16);
-    IOFixed screenResolution	= (72 << 16);
-    IOFixed devScale 		= IOFixedDivide(resolution, frameRate);
-    IOFixed crsrScale		= IOFixedDivide(screenResolution, frameRate);
+    IOFixed devScale 		= IOFixedDivide(resolution, FRAME_RATE);
+    IOFixed crsrScale		= IOFixedDivide(SCREEN_RESOLUTION, FRAME_RATE);
 
     scaledTime = (maxDeviceDelta - 
                     IOFixedMultiply(
@@ -493,6 +575,12 @@ bool IOHIPointing::resetScroll()
     return true;
 }
 
+static void ScalePressure(int *pressure, int pressureMin, int pressureMax)
+{    
+    *pressure = (*pressure / (pressureMax - pressureMin)) * 0xffff;
+}
+
+
 void IOHIPointing::dispatchAbsolutePointerEvent(Point *		newLoc,
                                                 Bounds *	bounds,
                                                 UInt32		buttonState,
@@ -508,14 +596,18 @@ void IOHIPointing::dispatchAbsolutePointerEvent(Point *		newLoc,
     
     IOLockLock(_deviceLock);
 
-    if (buttonState & 1) {
+    if( buttonState & 1)
         buttons |= EV_LB;
-    }
 
-    if (buttonCount() > 1) {
-        if (buttonState & -2) {	// any other buttons
+    if( buttonCount() > 1) {
+	if( buttonState & 2)	// any others down
             buttons |= EV_RB;
-        }
+	// Other magic bit reshuffling stuff.  It seems there was space
+	// left over at some point for a "middle" mouse button between EV_LB and EV_RB
+	if(buttonState & 4)
+            buttons |= 2;
+	// Add in the rest of the buttons in a linear fasion...
+	buttons |= buttonState & ~0x7;
     }
 
     if ((_pressureThresholdToClick < 255) && ((pressure - pressureMin) > ((pressureMax - pressureMin) * _pressureThresholdToClick / 256))) {
@@ -549,28 +641,24 @@ void IOHIPointing::dispatchAbsolutePointerEvent(Point *		newLoc,
 
     if (!_contactToMove || (pressure > pressureMin)) {
         pressure -= pressureMin;
-        if (pressure > 255) {
-            pressure = 255;
-        }
+        
+        ScalePressure(&pressure, pressureMin, pressureMax);
+
         if (_convertAbsoluteToRelative) {
-            if (_relativePointerEventAction && _relativePointerEventTarget) {
-                (*_relativePointerEventAction)(_relativePointerEventTarget,
-                                              buttons,
-                                              dx,
-                                              dy,
-                                              ts);
-            }
+            _relativePointerEvent(  this,
+                                    buttons,
+                                    dx,
+                                    dy,
+                                    ts);
         } else {
-            if (_absolutePointerEventAction && _absolutePointerEventTarget) {
-                (*_absolutePointerEventAction)(_absolutePointerEventTarget,
-                                              buttons,
-                                              newLoc,
-                                              bounds,
-                                              proximity,
-                                              pressure,
-                                              stylusAngle,
-                                              ts);
-            }
+            _absolutePointerEvent(  this,
+                                    buttons,
+                                    newLoc,
+                                    bounds,
+                                    proximity,
+                                    pressure,
+                                    stylusAngle,
+                                    ts);
         }
     }
 
@@ -589,7 +677,13 @@ void IOHIPointing::dispatchRelativePointerEvent(int        dx,
     // post the raw event to the IOHIDPointingDevice
     if (_hidPointingNub)
         _hidPointingNub->postMouseEvent(buttonState, dx, dy, 0);
-
+        
+    if (_isSeized)
+    {
+        IOLockUnlock( _deviceLock);
+        return;
+    }
+    
     buttons = 0;
 
     if( buttonState & 1)
@@ -632,14 +726,11 @@ void IOHIPointing::dispatchRelativePointerEvent(int        dx,
     }
     IOLockUnlock( _deviceLock);
 
-    if (_relativePointerEventAction)          /* upstream call */
-    {
-      (*_relativePointerEventAction)(_relativePointerEventTarget,
-                       /* buttons */ buttons,
-                       /* deltaX */  dx,
-                       /* deltaY */  dy,
-                       /* atTime */  ts);
-    }
+    _relativePointerEvent(this,
+            /* buttons */ buttons,
+            /* deltaX */  dx,
+            /* deltaY */  dy,
+            /* atTime */  ts);
 }
 
 void IOHIPointing::dispatchScrollWheelEvent(short deltaAxis1,
@@ -662,6 +753,12 @@ void IOHIPointing::dispatchScrollWheelEvent(short deltaAxis1,
     if (_hidPointingNub)
         _hidPointingNub->postMouseEvent(0, 0, 0, deltaAxis1);
         
+    if (_isSeized)
+    {
+        IOLockUnlock( _deviceLock);
+        return;
+    }
+        
     // scaleScrollAxes is expecting ints.  Since
     // shorts are smaller than ints, we cannot
     // cast a short to an int.
@@ -674,13 +771,11 @@ void IOHIPointing::dispatchScrollWheelEvent(short deltaAxis1,
     
     IOLockUnlock( _deviceLock);
     
-    if (_scrollWheelEventAction) {
-        (*_scrollWheelEventAction)(_scrollWheelEventTarget,
-                                   (short) dAxis1,
-                                   (short) dAxis2,
-                                   (short) dAxis3,
-                                   ts);
-    }
+    _scrollWheelEvent(	this,
+                        (short) dAxis1,
+                        (short) dAxis2,
+                        (short) dAxis3,
+                        ts);
 }
 
 bool IOHIPointing::updateProperties( void )
@@ -699,11 +794,13 @@ bool IOHIPointing::updateProperties( void )
 
 IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
 {
-    OSData *	data;
-    OSString *  accelKey;
-    IOReturn	err = kIOReturnSuccess;
+    OSData *		data;
+    OSNumber * 		number;
+    OSString *  	accelKey;
+    IOReturn		err = kIOReturnSuccess;
     bool		updated = false;
     UInt8 *		bytes;
+    UInt32		value;
 
     if( dict->getObject(kIOHIDResetPointerKey))
 	resetPointer();
@@ -712,16 +809,36 @@ IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
 
     IOLockLock( _deviceLock);
     
-    if( accelKey && (data = OSDynamicCast( OSData, dict->getObject(accelKey)))) {
-        setupForAcceleration( *((IOFixed *)data->getBytesNoCopy()) );
+    if( accelKey && 
+        ((number = OSDynamicCast( OSNumber, dict->getObject(accelKey))) || 
+         (data = OSDynamicCast( OSData, dict->getObject(accelKey))))) 
+    {
+        value = (number) ? number->unsigned32BitValue() : 
+                            *((UInt32 *) (data->getBytesNoCopy()));
+        setupForAcceleration( value );
         updated = true;
-    } else if( (data = OSDynamicCast( OSData,
+    } 
+    else if( (number = OSDynamicCast( OSNumber,
+		dict->getObject(kIOHIDPointerAccelerationKey))) ||
+             (data = OSDynamicCast( OSData,
 		dict->getObject(kIOHIDPointerAccelerationKey)))) {
 
-	setupForAcceleration( *((IOFixed *)data->getBytesNoCopy()) );
+        value = (number) ? number->unsigned32BitValue() : 
+                            *((UInt32 *) (data->getBytesNoCopy()));
+                            
+	setupForAcceleration( value );
 	updated = true;
-        if( accelKey)
-            dict->setObject( accelKey, data );
+        if( accelKey) {
+            // If this is an OSData object, create an OSNumber to store in the registry
+            if (!number)
+            {
+                number = OSNumber::withNumber(value, 32);
+        	dict->setObject( accelKey, number );
+                number->release();
+            }
+            else
+                dict->setObject( accelKey, number );
+        }
 
     }
     
@@ -729,32 +846,42 @@ IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
     if( dict->getObject(kIOHIDScrollResetKey))
 	resetScroll();
         
-    if ((data = OSDynamicCast( OSData, dict->getObject(kIOHIDScrollAccelerationKey)))) {
-        setupScrollForAcceleration( *((IOFixed *)data->getBytesNoCopy()) );
+    if ((number = OSDynamicCast( OSNumber, dict->getObject(kIOHIDScrollAccelerationKey))) ||
+        (data = OSDynamicCast( OSData, dict->getObject(kIOHIDScrollAccelerationKey))))
+    {
+        value = (number) ? number->unsigned32BitValue() : *((UInt32 *) (data->getBytesNoCopy()));
+        setupScrollForAcceleration( value );
     }
 
     IOLockUnlock( _deviceLock);
 
-    if ((data = OSDynamicCast(OSData,
-                              dict->getObject(kIOHIDPointerConvertAbsoluteKey)))) {
-        bytes = (UInt8 *) data->getBytesNoCopy();
-        _convertAbsoluteToRelative = (bytes[0] != 0) ? true : false;
+    if ((number = OSDynamicCast(OSNumber,
+                              dict->getObject(kIOHIDPointerConvertAbsoluteKey))) ||
+        (data = OSDynamicCast(OSData,
+                              dict->getObject(kIOHIDPointerConvertAbsoluteKey))))
+    {
+        value = (number) ? number->unsigned32BitValue() : *((UInt32 *) (data->getBytesNoCopy()));
+        _convertAbsoluteToRelative = (value != 0) ? true : false;
         updated = true;
     }
 
-    if ((data = OSDynamicCast(OSData,
-                              dict->getObject(kIOHIDPointerContactToMoveKey)))) {
-        bytes = (UInt8 *) data->getBytesNoCopy();
-        _contactToMove = (bytes[0] != 0) ? true : false;
+    if ((number = OSDynamicCast(OSNumber,
+                              dict->getObject(kIOHIDPointerContactToMoveKey))) ||
+        (data = OSDynamicCast(OSData,
+                              dict->getObject(kIOHIDPointerContactToMoveKey))))
+    {
+        value = (number) ? number->unsigned32BitValue() : *((UInt32 *) (data->getBytesNoCopy()));
+        _contactToMove = (value != 0) ? true : false;
         updated = true;
     }
 
-    if ((data = OSDynamicCast(OSData,
-                              dict->getObject(kIOHIDPointerButtonMode))))
+    if ((number = OSDynamicCast(OSNumber, dict->getObject(kIOHIDPointerButtonMode))) ||
+        (data = OSDynamicCast(OSData, dict->getObject(kIOHIDPointerButtonMode))))
 	{
-		UInt32 	value;
+		value = (number) ? number->unsigned32BitValue() : 
+                                            *((UInt32 *) (data->getBytesNoCopy())) ;
         
-		if (GetOSDataValue(data, &value) && getProperty(kIOHIDPointerButtonCountKey))
+		if (getProperty(kIOHIDPointerButtonCountKey))
 		{
 			if (value == kIOHIDButtonMode_BothLeftClicks)
 				_buttonMode = NX_OneButton;
@@ -889,8 +1016,6 @@ bool SetupAcceleration (OSData * data, IOFixed desired, IOFixed resolution, void
     UInt32	count;
     Boolean	lower;
 
-    SInt32	frameRate		=  (67 << 16);
-    SInt32	screenResolution	=  (72 << 16);
     SInt32	devScale, crsrScale;
     SInt32	scaledX1, scaledY1;
     SInt32	scaledX2, scaledY2;
@@ -915,8 +1040,8 @@ bool SetupAcceleration (OSData * data, IOFixed desired, IOFixed resolution, void
 	
     highTable = (const UInt16 *) data->getBytesNoCopy();
 
-    devScale = IOFixedDivide( resolution, frameRate );
-    crsrScale = IOFixedDivide( screenResolution, frameRate );
+    devScale = IOFixedDivide( resolution, FRAME_RATE );
+    crsrScale = IOFixedDivide( SCREEN_RESOLUTION, FRAME_RATE );
 
     scaledX1 = scaledY1 = 0;
 
@@ -1143,3 +1268,69 @@ void ScaleAxes (void * scaleSegments, int * axis1p, IOFixed *axis1Fractp, int * 
     else
 	*axis2Fractp = dy | 0xffff0000;
 } 
+
+void IOHIPointing::_relativePointerEvent( IOHIPointing * self,
+				    int        buttons,
+                       /* deltaX */ int        dx,
+                       /* deltaY */ int        dy,
+                       /* atTime */ AbsoluteTime ts)
+{
+    RelativePointerEventCallback rpeCallback;
+    rpeCallback = (RelativePointerEventCallback)self->_relativePointerEventAction;
+
+    if (rpeCallback)
+        (*rpeCallback)(self->_relativePointerEventTarget,
+                                    buttons,
+                                    dx,
+                                    dy,
+                                    ts,
+                                    self,
+                                    0);
+}
+
+  /* Tablet event reporting */
+void IOHIPointing::_absolutePointerEvent(IOHIPointing * self,
+				    int        buttons,
+                 /* at */           Point *    newLoc,
+                 /* withBounds */   Bounds *   bounds,
+                 /* inProximity */  bool       proximity,
+                 /* withPressure */ int        pressure,
+                 /* withAngle */    int        stylusAngle,
+                 /* atTime */       AbsoluteTime ts)
+{
+    AbsolutePointerEventCallback apeCallback;
+    apeCallback = (AbsolutePointerEventCallback)self->_absolutePointerEventAction;
+
+    if (apeCallback)
+        (*apeCallback)(self->_absolutePointerEventTarget,
+                                buttons,
+                                newLoc,
+                                bounds,
+                                proximity,
+                                pressure,
+                                stylusAngle,
+                                ts,
+                                self,
+                                0);
+
+}
+
+  /* Mouse scroll wheel event reporting */
+void IOHIPointing::_scrollWheelEvent(IOHIPointing *self,
+                                short deltaAxis1,
+                                short deltaAxis2,
+                                short deltaAxis3,
+                                AbsoluteTime ts)
+{
+    ScrollWheelEventCallback sweCallback;
+    sweCallback = (ScrollWheelEventCallback)self->_scrollWheelEventAction;
+    
+    if (sweCallback)
+        (*sweCallback)(self->_scrollWheelEventTarget,
+                                (short) deltaAxis1,
+                                (short) deltaAxis2,
+                                (short) deltaAxis3,
+                                ts,
+                                self,
+                                0);
+}

@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(sigwait, 2)
-	blr
 

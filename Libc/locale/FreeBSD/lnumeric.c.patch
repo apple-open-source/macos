@@ -1,0 +1,11 @@
+--- lnumeric.c.orig	Tue May 20 15:21:44 2003
++++ lnumeric.c	Wed Jun 11 13:13:11 2003
+@@ -54,7 +54,7 @@
+ 	int ret;
+ 
+ 	ret = __part_load_locale(name, &_numeric_using_locale,
+-		_numeric_locale_buf, "LC_NUMERIC",
++		&_numeric_locale_buf, "LC_NUMERIC",
+ 		LCNUMERIC_SIZE, LCNUMERIC_SIZE,
+ 		(const char **)&_numeric_locale);
+ 	if (ret != _LDP_ERROR)

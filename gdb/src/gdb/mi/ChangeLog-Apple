@@ -1,22 +1,331 @@
+2003-08-08  Jim Ingham (jingham@apple.com)
+
+	* mi-main.c (mi_execute_async_cli_command): Use 
+	safe_execute_command not execute_command so we can discard
+	the async callbacks if we get an error.
+
+2003-06-10  Jim Ingham (jingham@apple.com)
+
+	* mi-main.c (mi_cmd_thread_set_pc): Check both old_fun and
+	new_fun to make sure they aren't null before testing to see
+	whether they are the same.
+
+2003-06-01  Jim Ingham (jingham@apple.com)
+
+	* mi-main.c (mi_cmd_data_assign): Lock the scheduler when we 
+	run evaluate expression in case the evaluation calls functions.
+	(data_evaluate_expression): ditto.
+	
+2003-05-13  Jim Ingham (jingham@apple.com)
+
+	* mi-main.c (mi_cmd_thread_set_pc): Set stop_pc to the new value of
+	the pc so we will continue over breakpoints properly.
+
+2003-05-06  Jim Ingham (jingham@apple.com)
+
+	* mi-cmd-var.c (prepare_tmp_mi_out): Set up the tmp_mi_out if that
+	hasn't been done already (or if someone has switched the mi interpreter).
+	(mi_cmd_var_create): Use the tmp_miout to suppress output from varobj_create
+	in case the creation calls crash.
+
+2003-05-02  Jason Molenda  (jmolenda@apple.com)
+
+	* mi-main.c (mi_cmd_thread_set_pc): When -thread-set-pc is being
+	used to jump from an obsolete function to a new function, update
+	the pic base register with a correct value.
+
+2003-05-01  Jim Ingham (jingham@apple.com)
+
+	* mi-cmd-var.c (mi_cmd_var_create): Make the "+" style variable
+	actually work.
+	(mi_report_var_creation): Report the block start & block end.
+	(mi_cmd_var_info_block): Report both line number & address, and use
+	ui_out_field_core_addr for the addresses.
+	(mi_cmd_var_update): Initialize the tmp_miout if needed.
+	(varobj_update_one): Swap in the tmp_miout before running
+	varobj_update so we don't dump "reason" messages into the changelist
+	if the varobj has a function & the call crashes.
+
+	* mi-main.c (mi_cmd_thread_set_pc): Return the new FP and PC.
+
+2003-04-30  Jim Ingham (jingham@apple.com)
+
+	* mi-main.c (mi_cmd_thread_set_pc): Have to reselect the current
+	frame, since flush_cached_frame leaves it NULL, but the register
+	printing code throws an internal_error if this is not set.
+
+2003-04-24  Jim Ingham (jingham@apple.com)
+
+	* mi-main.c (mi_cmd_thread_set_pc): Just test that the function name
+	matches, not full function symbol, for "moving to another function".
+	Fix & Continue moves to a different function with the same name, and we
+	don't want an error in that case.
+
+2003-04-23  Jim Ingham (jingham@apple.com)
+
+	* mi-cmd-stack.c (mi_interp_stack_changed_hook): Use
+	gdb_interpreter_ui_out instead of grubbing around in
+	the interpreter structure directly.
+	(mi_interp_frame_changed_hook): Ditto.
+	(mi_interp_context_hook): Ditto.
+
+	* mi-main.c (mi_cmd_thread_set_pc): New function, sets the
+	pc for a given thread.
+	(mi_cmd_thread_select): Pass print arguent to gdb_thread_select.
+	* mi-cmds.{c,h}: Add -thread-set-pc.
+
+2003-04-22  Jim Ingham (jingham@apple.com)
+
+	* mi-main.c (route_output_through_mi): New function.
+	(output_async_notification): New function.
+	(output_control_change_notification): Route these notifications
+	through the mi (since the console-quoted may be in force and we don't
+	want to end up quoting the notifications.
+	(mi_interp_read_one_line_hook): Use output_async_notification.
+	(mi_interp_run_command_hook): Ditto.
+	(mi_cmd_interpreter_exec): Treat console & console-quoted as the
+	same for running the target.
+
+2003-04-17  Jason Molenda  (jmolenda@apple.com)
+
+	* mi-cmd-var.c (mi_cmd_var_evaluate_expression): Only change
+	unwindonsignal setting if -u parameter is passed.
+	* mi-main.c (mi_cmd_data_evaluate_expression): Ditto.
+
+2003-03-25  Jim Ingham  (jingham@apple.com)
+
+	A final detail from the 2003-03-18 changes. We need to make
+	sure that the mi async continuation doesn't blow away - or
+	get out of order with - an exec continuation registered by
+	another function. The finish continuation is a prime example.
+	
+	* mi-main.c (captured_mi_execute_command): Changed context to
+	parse, since we should call the same variable the same thing if
+	possible.
+	
+	(mi_execute_async_cli_command): The continuation has to be
+	registered BEFORE the command is executed to keep the order right.
+	If the command doesn't run, then discard it.  Also store the head
+	of the cleanup chain so that our continuation will only clean up
+	back to there.
+	(mi_exec_async_cli_cmd_continuation): ditto.
+	(mi_interpreter_exec_continuation): ditto.
+	(setup_continuation_arg): manage the cleanup as well.
+	
+2003-03-18  Jason Molenda  (jmolenda@apple.com)
+
+	* mi-cmds.c (mi_cmds): Add entry for "file-fix-file".
+
+2003-03-18  Jim Ingham  <jingham@apple.com>
+
+	This set of changes adds a feature - mi command timings, and
+	reworks how the command token is stored away for asynchronous
+	commands - by storing it in the continuation argument rather
+	than trying to pass it around in globals behind the command's
+	backs.
+
+	* mi-cmds.{c,h}: add administrative bits for mi-enable-timings.
+	* mi-main.c (mi_cmd_enable_timings): New function .
+	* (mi_command_completes_while_target_executing): New function.
+	* (mi_interpreter_exec_bp_cmd): New function.
+	* (setup_continuation_arg): New function.
+	* (free_continuation_arg): New function.
+	* (timestamp): New function.
+	* (print_diff_now): New function.
+	* (copy_timestamp): New function.
+	* (print_diff): New function.
+	* (wallclock_diff): New function.
+	* (user_diff): New function.
+	* (system_diff): New function.
+	* (mi_cmd_exec_interrupt): Don't fiddle with the command tokens,
+	just print your completion message.
+	* (mi_cmd_exec_status): ditto.
+	* (mi_cmd_target_select): The rewind & "\n" are taken care of by
+	captured_mi_execute_command now.
+	* (captured_mi_execute_command): print timing differences.  Also
+	handle the rewind & "\n" for MI_CMD_QUIET commands to reduce code
+	duplication.
+	* (mi_execute_command): remove redundant gdb_flush.
+	* (mi_cmd_execute): Handle passing the token & timestamp to the lower
+	layers through current_command_ts & current_command_token.
+	* (mi_execute_async_cli_command): If the command set the target running
+	pass the token and timestamp to the continuation.  Also segregate the
+	asyn & non-async cases totally.  They only shared one line - execute_command
+	and splitting on that made the code hard to read.
+	* (mi_cmd_interpreter_exec): ditto.  Also don't reschedule continuation
+	if run from mi_interpreter_exec_bp_cmd.
+	* (mi_execute_async_cli_command_continuation): Handle printing the timestamp, also
+	if the target is again set running, make a new timestamp and forward
+	it to the new continuation.
+	* (mi_interpreter_exec_continuation): ditto.
+	* (_mi_initialize): Add a gdb "set" variable controling the timing
+	so people can turn it on and off in their .gdbinit.
+	* mi-parse.h: Define struct mi_timestamp, add it to mi_parse.
+	* mi-parse.c(mi_parse_free): Cleanup cmd_timestamp from mi_parse.
+	
+2003-03-03  Jim Ingham  <jingham@apple.com>
+
+	* mi-cmd-break.c (mi_cmd_break_catch): Implement the -break-catch
+	command.
+	* mi-cmds.c: Add mi_cmd_break_catch to the commands table.
+	* mi-cmds.h: And define the ftype for mi_cmd_break_catch.
+
+2003-02-03  Jim Ingham  <jingham@apple.com>
+
+	* mi-cmd-var.c (mi_report_var_creation): add another argument,
+	is_root, and subsume all variable reporting into this function.
+	That way we can preserve the old reporting order (and not give
+	the testsuite heartburn).
+
+2003-01-23  Jim Ingham   <jingham@apple.com>
+
+	* mi-cmds.c: Add record for exec-status command.
+	* mi-cmds.h: Add declaration for mi_cmd_exec_status.
+	* mi-main.c (mi_cmd_exec_status): New function, return
+	the current state of the inferior.
+	(mi_execute_command): Use the return code that the
+	command actually returned (args.rc).
+	(mi_cmd_execute): Allow exec-status while the inferior
+	is running.
+
+2003-01-21  Jim Ingham   <jingham@apple.com>
+
+        * mi-cmd-var.c (mi_report_var_creation): Take out the in_scope
+        part, so this will work for both parent & child variables.
+        (mi_cmd_var_create): Add back in the in_scope.
+        (mi_cmd_var_list_children): Use mi_report_var_creation rather
+        than replicating most of the code here.
+
+2002-12-16  Jason Molenda  (jmolenda@apple.com)
+
+	* mi-main.c (mi_command_loop): Take MI version arg, as per the
+	current FSF sources.
+	(mi0_command_loop, mi1_command_loop, mi2_command_loop): Call
+	mi_command_loop() with the correct MI version, as per the FSF srcs.
+	(mi_interpreter_resume): Assign the correct MI version command
+	loop based on DATA, the stored cookie containing mi_version.
+
+2002-12-12  Klee Dienes  <kdienes@apple.com>
+
+	* mi-cmd-stack.c (mi_cmd_stack_list_frames_lite): Fix typo.
+
+2002-12-11  Klee Dienes  <kdienes@apple.com>
+
+	* mi-cmd-stack.c (mi_cmd_stack_list_frames_lite): Update argument
+	parsing.  Pass 'unlimited' for the COUNT_LIMIT to
+	FAST_COUNT_STACK_DEPTH.
+	(mi_cmd_stack_info_depth): Update to the new call for
+	FAST_COUNT_STACK_DEPTH.
+
+2002-12-07  Klee Dienes  <kdienes@apple.com>
+
+	* mi-cmd-stack.c (mi_cmd_stack_list_frames_lite): Replace
+	FRAME_FP with get_frame_base.
+
+2002-11-21  Klee Dienes  <kdienes@apple.com>
+
+	* mi-main.c (miunspec_interp): Contains what used to be mi_interp.
+	(mi_interp) Renamed to miunspec_interp.  mi_interp is now a
+	generic pointer that points to the MI interpreter being used
+	during an MI context callback.
+	(_initialize_main): Create miunspec_interp.  Set the MI value for
+	mi2_interp to '2'.
+	(mi_cmd_interpreter_exec): Set mi_interp to the current MI
+	interpreter for the duration of the inferior-exec call.
+
+2002-10-30  Jim Ingham   <jingham@apple.com>
+
+	Changes to allow varobjs to follow the C++ dynamic type.
+	
+	* mi-cmd-var.c (mi_report_var_creation, mi_var_list_children):
+	report dynamic_type.
+	* (varobj_update_one): Handle the case where a child changes its
+	dynamic type.  Report this, and delete the children.  Also use the
+	new varobj_update interface.
+
+	Other little cleanups:
+	
+	* mi-cmd-var.c (mi_report_var_creation, mi_var_list_children,
+	mi_var_info_type): free the type strings, these are malloc'ed
+	copies that we are handed, these are ui_file_xstrdup'ed, and must
+	be freed.
+	
+	* (mi_cmd_var_list_children): Handle the case of no arguments (used
+	to crash).
+	
+2002-10-30  Klee Dienes <kdienes@apple.com>
+
+	* mi-main.c (mi_cmd_exec_interrupt): Replace call to
+	interrupt_target_command with an explicit SIGINT to the inferior
+	(this seems a bit hackish, but just code that was accidentally
+	misplaced in a source merge, so for now I'm just re-adding it
+	as-is).
+
+2002-10-25  Jason Molenda  (jmolenda@apple.com)
+
+	* mi-cmd-var.c (mi_cmd_var_list_children): CHILDREN is a list,
+	not a tuple.
+	(mi_cmd_var_update): CHANGELIST is a list, not a tuple (this is a
+	mi2 vs mi1 difference at the FSF, but I don't want to waste time
+	supporting the broken mi1 behavior locally).
+	(varobj_update_one): VAROBJ is a named tuple, not an anonymous one
+	like the FSF.
+
+	* mi-cmd-stack.c (print_syms_for_block): Each
+	variable/varobj/variable+value are printed in their own
+	anonymous tuples (not a list).
+
+	* mi-cmd-disas.c (mi_cmd_disassemble): Hack around broken find_line_pc
+	replacement.
+	
+2002-10-24  Jason Molenda  (jmolenda@apple.com)
+
+	* mi-cmd-stack.c (mi_cmd_stack_info_depth): Pass non-zero limit to
+	FAST_COUNT_STACK_DEPTH to indicate a specified limit, or 0 for 
+	unlimited.
+
+2002-10-17  Jason Molenda  (jmolenda@apple.com)
+
+	* mi-cmd-var.c (mi_cmd_var_update): Remove duplicated "changelist"
+	initializer.
+
+2002-10-14  Klee Dienes <kdienes@apple.com>
+
+	* mi-out.c (mi_table_begin): Re-add support for mi0.
+	(mi_table_body): Ditto.
+	(mi_table_end): Ditto.
+	(mi_table_header): Ditto.
+	(mi_open): Ditto.
+	(mi_close): Ditto.
+	
+2002-07-16  Jim Ingham <jingham@apple.com>
+
+	* mi-cmd-stack.c (mi_cmd_stack_list_frames): Convert to use the
+	new version of the FAST_COUNT_STACK_DEPTH, and unify frame
+	printing in mi_print_frame_info_lite.
+	(mi_cmd_stack_info_depth): Convert to use new version of
+	FAST_COUNT_STACK_DEPTH.
+	(mi_print_frame_info_lite): New function, standard printer for the
+	list frames & list frames lite commands.
+	
 2002-06-10  Jim Ingham <jingham@apple.com>
 
-      * mi-stack-cmd.c (list_args_or_locals): endaddr should be a 
-      CORE_ADDR.
+	* mi-cmd-stack.c (list_args_or_locals): endaddr should be a
+	CORE_ADDR.
       
 2002-06-07  Jim Ingham <jingham@apple.com>
 
-      * mi-out.c: Add the mi versions of notify_begin and
-      notify_end.
+	* mi-out.c: Add the mi versions of notify_begin and notify_end.
 
 2002-05-30  Rab Hagy <rhagy@apple.com>
 
-      * mi-main.c (mi_verify_command): clean up output
-      * mi-cmd-var.c: added "unsigned" format specification
+	* mi-main.c (mi_verify_command): clean up output * mi-cmd-var.c:
+	added "unsigned" format specification
       
 2002-04-24  James Ingham <jingham@apple.com>
 
-      * mi-cmd-var.c (mi_report_var_creation): Use varobj_in_scope_p to figure
-      out whether a variable is in scope.
+	* mi-cmd-var.c (mi_report_var_creation): Use varobj_in_scope_p to
+	figure out whether a variable is in scope.
 
 2002-04-17  James Ingham <jingham@apple.com>
 

@@ -60,4 +60,4 @@ private:
 }	// end namespace Security
 
 
-#endif _H_MULTIPLEXOBSERVER
+#endif /* _H_MULTIPLEXOBSERVER */

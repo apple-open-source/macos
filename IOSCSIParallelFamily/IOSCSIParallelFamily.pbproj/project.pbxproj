@@ -65,6 +65,7 @@
 				06AA1262FFB20DD611CA28AA,
 				06AA1263FFB20DD611CA28AA,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 089C166AFE841209C02AAC07;
 			projectDirPath = "";
@@ -72,15 +73,12 @@
 				089C1673FE841209C02AAC07,
 				F5DD57490246911101CE15B2,
 				F5DF5C520246952E01CE15B2,
-				5C84EA3002CAA48105CE68BB,
-				F5E88B0D0246CD4301CE15B2,
 			);
 		};
 		089C166AFE841209C02AAC07 = {
 			children = (
 				F5DF5C59024696C101CE15B2,
 				F5DF5C580246965F01CE15B2,
-				089C167CFE841241C02AAC07,
 				19C28FB6FE9D52B211CA2CBB,
 			);
 			isa = PBXGroup;
@@ -103,7 +101,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIParallelFamily;
-				MODULE_VERSION = 1.2.4;
+				MODULE_VERSION = 1.3.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -113,10 +111,8 @@
 				WRAPPER_EXTENSION = kext;
 			};
 			dependencies = (
+				ACEE3AC50471C97C0005C2E0,
 				F5E88AE60246B16D01CE15B2,
-				F5E88AE70246B16D01CE15B2,
-				5C84EF6F02CAA69905CE68BB,
-				5C3DF36D0263ABF605CE15BF,
 			);
 			isa = PBXBundleTarget;
 			name = IOSCSIParallelFamily;
@@ -132,7 +128,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOSCSIParallelFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2.4, Copyright Apple Computer, Inc. 1998-2003</string>
+	<string>1.3.0, Copyright Apple Computer, Inc. 1998-2003</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -144,11 +140,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.4</string>
+	<string>1.3.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.4</string>
+	<string>1.3.0</string>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.2.0</string>
 	<key>OSBundleLibraries</key>
@@ -156,18 +152,17 @@
 		<key>com.apple.iokit.IOSCSIArchitectureModelFamily</key>
 		<string>1.0.0</string>
 		<key>com.apple.kernel.iokit</key>
-		<string>1.0.0</string>
+		<string>6.9.9</string>
 		<key>com.apple.kernel.libkern</key>
-		<string>1.0.0</string>
+		<string>6.9.9</string>
 		<key>com.apple.kernel.mach</key>
-		<string>1.0.0</string>
+		<string>6.9.9</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Local-Root</string>
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -213,29 +208,6 @@
 			isa = PBXRezBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		089C167CFE841241C02AAC07 = {
-			children = (
-				089C167DFE841241C02AAC07,
-			);
-			isa = PBXGroup;
-			name = Resources;
-			refType = 4;
-		};
-		089C167DFE841241C02AAC07 = {
-			children = (
-				089C167EFE841241C02AAC07,
-			);
-			isa = PBXVariantGroup;
-			name = InfoPlist.strings;
-			refType = 4;
-		};
-		089C167EFE841241C02AAC07 = {
-			fileEncoding = 10;
-			isa = PBXFileReference;
-			name = English;
-			path = English.lproj/InfoPlist.strings;
-			refType = 4;
-		};
 //080
 //081
 //082
@@ -266,8 +238,6 @@
 				0A5A7D55FFB780D811CA28AA,
 				F5DD57480246911101CE15B2,
 				F5DF5C510246952E01CE15B2,
-				F5E88B0B0246CD4301CE15B2,
-				5C84EA3102CAA48105CE68BB,
 			);
 			isa = PBXGroup;
 			name = Products;
@@ -283,371 +253,6 @@
 //5C2
 //5C3
 //5C4
-		5C3DF36D0263ABF605CE15BF = {
-			isa = PBXTargetDependency;
-			target = F5E88B0D0246CD4301CE15B2;
-		};
-		5C3DF36F0263ABF605CE15BF = {
-			fileRef = F5E88B0B0246CD4301CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5C84EA2902CAA31205CE68BB = {
-			children = (
-				5CB1854A02CABACF05CE68BB,
-				5CB1854B02CABACF05CE68BB,
-				5C84EA3302CAA5C405CE68BB,
-				5C84EA3202CAA5C405CE68BB,
-				5C84EA3502CAA5C405CE68BB,
-				5C84EA3402CAA5C405CE68BB,
-				5C84EA3702CAA5C405CE68BB,
-				5C84EA3602CAA5C405CE68BB,
-				5C84EA3E02CAA5ED05CE68BB,
-				5C84EA4202CAA60E05CE68BB,
-				5C84EA4102CAA60E05CE68BB,
-			);
-			isa = PBXGroup;
-			name = IOSCSILib;
-			path = "";
-			refType = 4;
-		};
-		5C84EA2A02CAA32E05CE68BB = {
-			children = (
-				5C84EF6202CAA64005CE68BB,
-				5C84EF6302CAA64005CE68BB,
-				5C84EF6402CAA64005CE68BB,
-				5C84EF6502CAA64005CE68BB,
-				5C84EF6602CAA64005CE68BB,
-				5C84EF6C02CAA65105CE68BB,
-			);
-			isa = PBXGroup;
-			name = IOSCSIUserClient;
-			refType = 4;
-		};
-		5C84EA2B02CAA48105CE68BB = {
-			buildActionMask = 2147483647;
-			files = (
-				5C84EA3902CAA5C405CE68BB,
-				5C84EA3B02CAA5C405CE68BB,
-				5C84EA3D02CAA5C405CE68BB,
-			);
-			isa = PBXHeadersBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		5C84EA2C02CAA48105CE68BB = {
-			buildActionMask = 2147483647;
-			files = (
-				5C84EA4002CAA5ED05CE68BB,
-			);
-			isa = PBXResourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		5C84EA2D02CAA48105CE68BB = {
-			buildActionMask = 2147483647;
-			files = (
-				5C84EA3802CAA5C405CE68BB,
-				5C84EA3A02CAA5C405CE68BB,
-				5C84EA3C02CAA5C405CE68BB,
-			);
-			isa = PBXSourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		5C84EA2E02CAA48105CE68BB = {
-			buildActionMask = 2147483647;
-			files = (
-				5C84EF6002CAA61005CE68BB,
-				5C84EF6102CAA61005CE68BB,
-			);
-			isa = PBXFrameworksBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		5C84EA2F02CAA48105CE68BB = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXRezBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		5C84EA3002CAA48105CE68BB = {
-			buildPhases = (
-				5C84EA2B02CAA48105CE68BB,
-				5C84EA2C02CAA48105CE68BB,
-				5C84EA2D02CAA48105CE68BB,
-				5C84EA2E02CAA48105CE68BB,
-				5C84EA2F02CAA48105CE68BB,
-			);
-			buildSettings = {
-				HEADER_SEARCH_PATHS = "\"$(SRCROOT)/IOSCSIFamily.kextproj/IOSCSIFamily.kmodproj\"";
-				OTHER_LDFLAGS = "-bundle";
-				PRODUCT_NAME = IOSCSILib;
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-				WRAPPER_EXTENSION = plugin;
-			};
-			dependencies = (
-			);
-			isa = PBXBundleTarget;
-			name = IOSCSILib;
-			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
-			productName = IOSCSILib;
-			productReference = 5C84EA3102CAA48105CE68BB;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string>IOSCSILib</string>
-	<key>CFBundleGetInfoString</key>
-	<string></string>
-	<key>CFBundleIconFile</key>
-	<string></string>
-	<key>CFBundleIdentifier</key>
-	<string>com.apple.iokit.IOSCSILib</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string></string>
-	<key>CFBundlePackageType</key>
-	<string>BNDL</string>
-	<key>CFBundleShortVersionString</key>
-	<string>1.2.4</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>1.2.4</string>
-	<key>CFPlugInDynamicRegistration</key>
-	<string>NO</string>
-	<key>CFPlugInFactories</key>
-	<dict>
-		<key>3408E48A-0F44-11D4-B9C4-0050E4C6426F</key>
-		<string>IOSCSILibFactory</string>
-	</dict>
-	<key>CFPlugInTypes</key>
-	<dict>
-		<key>B4291228-0F0F-11D4-9126-0050E4C6426F</key>
-		<array>
-			<string>3408E48A-0F44-11D4-B9C4-0050E4C6426F</string>
-		</array>
-	</dict>
-	<key>Personality</key>
-	<dict>
-		<key>IOProviderClass</key>
-		<string>IOSCSIDevice</string>
-	</dict>
-</dict>
-</plist>
-";
-			shouldUseHeadermap = 0;
-		};
-		5C84EA3102CAA48105CE68BB = {
-			isa = PBXBundleReference;
-			path = IOSCSILib.plugin;
-			refType = 3;
-		};
-		5C84EA3202CAA5C405CE68BB = {
-			isa = PBXFileReference;
-			name = IOCDBCommandClass.cpp;
-			path = IOSCSIFamily/IOSCSILib.bproj/IOCDBCommandClass.cpp;
-			refType = 4;
-		};
-		5C84EA3302CAA5C405CE68BB = {
-			isa = PBXFileReference;
-			name = IOCDBCommandClass.h;
-			path = IOSCSIFamily/IOSCSILib.bproj/IOCDBCommandClass.h;
-			refType = 4;
-		};
-		5C84EA3402CAA5C405CE68BB = {
-			isa = PBXFileReference;
-			name = IOSCSIDeviceClass.cpp;
-			path = IOSCSIFamily/IOSCSILib.bproj/IOSCSIDeviceClass.cpp;
-			refType = 4;
-		};
-		5C84EA3502CAA5C405CE68BB = {
-			isa = PBXFileReference;
-			name = IOSCSIDeviceClass.h;
-			path = IOSCSIFamily/IOSCSILib.bproj/IOSCSIDeviceClass.h;
-			refType = 4;
-		};
-		5C84EA3602CAA5C405CE68BB = {
-			isa = PBXFileReference;
-			name = IOSCSIIUnknown.cpp;
-			path = IOSCSIFamily/IOSCSILib.bproj/IOSCSIIUnknown.cpp;
-			refType = 4;
-		};
-		5C84EA3702CAA5C405CE68BB = {
-			isa = PBXFileReference;
-			name = IOSCSIIUnknown.h;
-			path = IOSCSIFamily/IOSCSILib.bproj/IOSCSIIUnknown.h;
-			refType = 4;
-		};
-		5C84EA3802CAA5C405CE68BB = {
-			fileRef = 5C84EA3202CAA5C405CE68BB;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5C84EA3902CAA5C405CE68BB = {
-			fileRef = 5C84EA3302CAA5C405CE68BB;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5C84EA3A02CAA5C405CE68BB = {
-			fileRef = 5C84EA3402CAA5C405CE68BB;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5C84EA3B02CAA5C405CE68BB = {
-			fileRef = 5C84EA3502CAA5C405CE68BB;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5C84EA3C02CAA5C405CE68BB = {
-			fileRef = 5C84EA3602CAA5C405CE68BB;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5C84EA3D02CAA5C405CE68BB = {
-			fileRef = 5C84EA3702CAA5C405CE68BB;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5C84EA3E02CAA5ED05CE68BB = {
-			children = (
-				5C84EA3F02CAA5ED05CE68BB,
-			);
-			isa = PBXVariantGroup;
-			name = InfoPlist.strings;
-			path = "";
-			refType = 4;
-		};
-		5C84EA3F02CAA5ED05CE68BB = {
-			isa = PBXFileReference;
-			name = English;
-			path = IOSCSIFamily/IOSCSILib.bproj/English.lproj/InfoPlist.strings;
-			refType = 4;
-		};
-		5C84EA4002CAA5ED05CE68BB = {
-			fileRef = 5C84EA3E02CAA5ED05CE68BB;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5C84EA4102CAA60E05CE68BB = {
-			isa = PBXFrameworkReference;
-			name = CoreFoundation.framework;
-			path = /System/Library/Frameworks/CoreFoundation.framework;
-			refType = 0;
-		};
-		5C84EA4202CAA60E05CE68BB = {
-			isa = PBXFrameworkReference;
-			name = IOKit.framework;
-			path = /System/Library/Frameworks/IOKit.framework;
-			refType = 0;
-		};
-		5C84EF6002CAA61005CE68BB = {
-			fileRef = 5C84EA4102CAA60E05CE68BB;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5C84EF6102CAA61005CE68BB = {
-			fileRef = 5C84EA4202CAA60E05CE68BB;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5C84EF6202CAA64005CE68BB = {
-			isa = PBXFileReference;
-			name = IOCDBUserClient.cpp;
-			path = IOSCSIFamily/IOSCSIFamily.kextproj/IOSCSIFamily.kmodproj/IOCDBUserClient.cpp;
-			refType = 4;
-		};
-		5C84EF6302CAA64005CE68BB = {
-			isa = PBXFileReference;
-			name = IOCDBUserClient.h;
-			path = IOSCSIFamily/IOSCSIFamily.kextproj/IOSCSIFamily.kmodproj/IOCDBUserClient.h;
-			refType = 4;
-		};
-		5C84EF6402CAA64005CE68BB = {
-			isa = PBXFileReference;
-			name = IOSCSIUserClient.cpp;
-			path = IOSCSIFamily/IOSCSIFamily.kextproj/IOSCSIFamily.kmodproj/IOSCSIUserClient.cpp;
-			refType = 4;
-		};
-		5C84EF6502CAA64005CE68BB = {
-			isa = PBXFileReference;
-			name = IOSCSIUserClient.h;
-			path = IOSCSIFamily/IOSCSIFamily.kextproj/IOSCSIFamily.kmodproj/IOSCSIUserClient.h;
-			refType = 4;
-		};
-		5C84EF6602CAA64005CE68BB = {
-			isa = PBXFileReference;
-			name = IOSCSIUserClientIniter.cpp;
-			path = IOSCSIFamily/IOSCSIFamily.kextproj/IOSCSIFamily.kmodproj/IOSCSIUserClientIniter.cpp;
-			refType = 4;
-		};
-		5C84EF6702CAA64005CE68BB = {
-			fileRef = 5C84EF6202CAA64005CE68BB;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5C84EF6802CAA64005CE68BB = {
-			fileRef = 5C84EF6302CAA64005CE68BB;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5C84EF6902CAA64005CE68BB = {
-			fileRef = 5C84EF6402CAA64005CE68BB;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5C84EF6A02CAA64005CE68BB = {
-			fileRef = 5C84EF6502CAA64005CE68BB;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5C84EF6B02CAA64005CE68BB = {
-			fileRef = 5C84EF6602CAA64005CE68BB;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5C84EF6C02CAA65105CE68BB = {
-			children = (
-				5C84EF6D02CAA65105CE68BB,
-			);
-			isa = PBXVariantGroup;
-			name = InfoPlist.strings;
-			path = "";
-			refType = 4;
-		};
-		5C84EF6D02CAA65105CE68BB = {
-			isa = PBXFileReference;
-			name = English;
-			path = IOSCSIFamily/IOSCSIFamily.kextproj/IOSCSIFamily.kmodproj/English.lproj/InfoPlist.strings;
-			refType = 4;
-		};
-		5C84EF6E02CAA65105CE68BB = {
-			fileRef = 5C84EF6C02CAA65105CE68BB;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5C84EF6F02CAA69905CE68BB = {
-			isa = PBXTargetDependency;
-			target = 5C84EA3002CAA48105CE68BB;
-		};
 		5C91D3F403809FFE05CE70BB = {
 			isa = PBXFileReference;
 			path = IOSCSIParallelFamilyDebugging.h;
@@ -687,272 +292,86 @@
 			settings = {
 			};
 		};
-		5CB1852802CAA75005CE68BB = {
-			fileRef = 5C84EA3102CAA48105CE68BB;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5CB1852902CAA78F05CE68BB = {
-			buildActionMask = 8;
-			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/scsi/scsi-device";
-			dstSubfolderSpec = 0;
-			files = (
-				5CB1852F02CAA7FB05CE68BB,
-				5CB1853002CAA7FB05CE68BB,
-				5CB1853102CAA7FB05CE68BB,
-				5CB1853202CAA7FB05CE68BB,
-				5CB1853302CAA7FB05CE68BB,
-			);
-			isa = PBXCopyFilesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		5CB1852A02CAA79A05CE68BB = {
-			buildActionMask = 8;
-			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/scsi/scsi-parallel";
-			dstSubfolderSpec = 0;
-			files = (
-				5CB1853402CAA83905CE68BB,
-				5CB1853502CAA83905CE68BB,
-				5CB1853602CAA83905CE68BB,
-				5CB1853702CAA83905CE68BB,
-				5CB1853802CAA83905CE68BB,
-			);
-			isa = PBXCopyFilesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		5CB1852B02CAA7A105CE68BB = {
-			buildActionMask = 8;
-			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/cdb";
-			dstSubfolderSpec = 0;
-			files = (
-				5CB1853902CAA85D05CE68BB,
-				5CB1853A02CAA85D05CE68BB,
-				5CB1853B02CAA85D05CE68BB,
-				5CB1853C02CAA85D05CE68BB,
-				5CB1853D02CAA85D05CE68BB,
-			);
-			isa = PBXCopyFilesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		5CB1852C02CAA7A605CE68BB = {
-			buildActionMask = 8;
-			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/scsi";
-			dstSubfolderSpec = 0;
-			files = (
-				5CB1853E02CAA88D05CE68BB,
-				5CB1853F02CAA88D05CE68BB,
-				5CB1854002CAA88D05CE68BB,
-				5CB1854102CAA88D05CE68BB,
-				5CB1854202CAA88D05CE68BB,
-			);
-			isa = PBXCopyFilesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		5CB1852D02CAA7B205CE68BB = {
-			buildActionMask = 8;
-			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/cdb";
-			dstSubfolderSpec = 0;
-			files = (
-				5CB1854E02CABB1205CE68BB,
-				5CB1854F02CABB1205CE68BB,
-				5CB1854302CAA8A905CE68BB,
-				5CB1854402CAA8A905CE68BB,
-			);
-			isa = PBXCopyFilesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		5CB1852E02CAA7B605CE68BB = {
-			buildActionMask = 8;
-			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/scsi/scsi-device";
-			dstSubfolderSpec = 0;
-			files = (
-				5CB1854502CAA8CD05CE68BB,
-				5CB1854602CAA8CD05CE68BB,
-				5CB1854702CAA8CD05CE68BB,
-			);
-			isa = PBXCopyFilesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		5CB1852F02CAA7FB05CE68BB = {
-			fileRef = F5DF5C6D0246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5CB1853002CAA7FB05CE68BB = {
-			fileRef = F5DF5C6A0246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5CB1853102CAA7FB05CE68BB = {
-			fileRef = F5DF5C640246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5CB1853202CAA7FB05CE68BB = {
-			fileRef = F5DF5C690246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5CB1853302CAA7FB05CE68BB = {
-			fileRef = F5DF5C610246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5CB1853402CAA83905CE68BB = {
-			fileRef = F5DF5C6C0246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5CB1853502CAA83905CE68BB = {
-			fileRef = F5DF5C6B0246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5CB1853602CAA83905CE68BB = {
-			fileRef = F5E88B1B0246D11D01CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5CB1853702CAA83905CE68BB = {
-			fileRef = F5DF5C660246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5CB1853802CAA83905CE68BB = {
-			fileRef = F5DF5C670246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5CB1853902CAA85D05CE68BB = {
-			fileRef = F5DF5C5B0246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5CB1853A02CAA85D05CE68BB = {
-			fileRef = F5DF5C5C0246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5CB1853B02CAA85D05CE68BB = {
-			fileRef = F5DF5C5D0246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5CB1853C02CAA85D05CE68BB = {
-			fileRef = F5DF5C5E0246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5CB1853D02CAA85D05CE68BB = {
-			fileRef = F5DF5C5F0246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5CB1853E02CAA88D05CE68BB = {
-			fileRef = F5DF5C600246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5CB1853F02CAA88D05CE68BB = {
-			fileRef = F5DF5C620246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5CB1854002CAA88D05CE68BB = {
-			fileRef = F5DF5C630246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5CB1854102CAA88D05CE68BB = {
-			fileRef = F5DF5C650246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5CB1854202CAA88D05CE68BB = {
-			fileRef = F5DF5C680246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5CB1854302CAA8A905CE68BB = {
-			fileRef = F5DF5C5B0246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5CB1854402CAA8A905CE68BB = {
-			fileRef = F5DF5C5C0246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5CB1854502CAA8CD05CE68BB = {
-			fileRef = F5DF5C6D0246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5CB1854602CAA8CD05CE68BB = {
-			fileRef = F5DF5C6A0246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5CB1854702CAA8CD05CE68BB = {
-			fileRef = F5DF5C690246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5CB1854A02CABACF05CE68BB = {
-			isa = PBXFileReference;
-			name = IOCDBLib.h;
-			path = IOSCSIFamily/IOSCSILib.bproj/IOCDBLib.h;
-			refType = 4;
-		};
-		5CB1854B02CABACF05CE68BB = {
-			isa = PBXFileReference;
-			name = IOSCSILib.h;
-			path = IOSCSIFamily/IOSCSILib.bproj/IOSCSILib.h;
-			refType = 4;
-		};
-		5CB1854E02CABB1205CE68BB = {
-			fileRef = 5CB1854A02CABACF05CE68BB;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		5CB1854F02CABB1205CE68BB = {
-			fileRef = 5CB1854B02CABACF05CE68BB;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 //5C0
 //5C1
 //5C2
 //5C3
 //5C4
+//AC0
+//AC1
+//AC2
+//AC3
+//AC4
+		AC443605047AB2180003FFD2 = {
+			buildActionMask = 8;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/scsi/spi";
+			dstSubfolderSpec = 0;
+			files = (
+				5C9E29FB02BE857305CE15BF,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		AC8CA7A4047B192C00E15A64 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = CDBCommand.h;
+			path = IOSCSIFamily/IOSCSIParallel/CDBCommand.h;
+			refType = 4;
+		};
+		AC8CA7A5047B192C00E15A64 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = IOCDBCommand.h;
+			path = IOSCSIFamily/IOSCSIParallel/IOCDBCommand.h;
+			refType = 4;
+		};
+		AC8CA7A6047B192C00E15A64 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = IOCDBDevice.h;
+			path = IOSCSIFamily/IOSCSIParallel/IOCDBDevice.h;
+			refType = 4;
+		};
+		AC8CA7A7047B192C00E15A64 = {
+			fileRef = AC8CA7A4047B192C00E15A64;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC8CA7A8047B192C00E15A64 = {
+			fileRef = AC8CA7A5047B192C00E15A64;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		AC8CA7A9047B192C00E15A64 = {
+			fileRef = AC8CA7A6047B192C00E15A64;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		ACEE3AC20471C7A20005C2E0 = {
+			fileRef = F5E88B160246CD9C01CE15B2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		ACEE3AC30471C7A20005C2E0 = {
+			fileRef = F5E88B150246CD9C01CE15B2;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		ACEE3AC50471C97C0005C2E0 = {
+			isa = PBXTargetDependency;
+			target = F5DF5C520246952E01CE15B2;
+		};
+//AC0
+//AC1
+//AC2
+//AC3
+//AC4
 //F50
 //F51
 //F52
@@ -1024,24 +443,12 @@
 			settings = {
 			};
 		};
-		F5C5DDD50247CF6D01CE15B2 = {
-			buildActionMask = 8;
-			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/scsi-parallel";
-			dstSubfolderSpec = 0;
-			files = (
-				5C9E29FB02BE857305CE15BF,
-			);
-			isa = PBXCopyFilesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 1;
-		};
 		F5C5DDE20247D0EA01CE15B2 = {
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				5C3DF36F0263ABF605CE15BF,
 				F5C5DDE30247D13501CE15B2,
-				5CB1852802CAA75005CE68BB,
 			);
 			isa = PBXCopyFilesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1073,7 +480,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSCSIFamily;
-				MODULE_VERSION = 1.2.4;
+				MODULE_VERSION = 1.3.0;
 				OTHER_CFLAGS = "-fpermissive";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1097,7 +504,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOSCSIFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.2.4, Copyright Apple Computer, Inc. 1998-2003</string>
+	<string>1.3.0, Copyright Apple Computer, Inc. 1998-2003</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1109,52 +516,45 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.4</string>
+	<string>1.3.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.4</string>
+	<string>1.3.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
-		<key>IOSCSIUserClient</key>
+		<key>IOSCSIParallelInterfaceProtocolTransport</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.iokit.IOSCSIFamily</string>
 			<key>IOClass</key>
-			<string>IOSCSIUserClientIniter</string>
-			<key>IOMatchCategory</key>
-			<string>IOSCSIUserClient</string>
+			<string>IOSCSIParallelInterfaceProtocolTransport</string>
 			<key>IOProviderClass</key>
 			<string>IOSCSIDevice</string>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>IOCFPlugInTypes</key>
-				<dict>
-					<key>B4291228-0F0F-11D4-9126-0050E4C6426F</key>
-					<string>IOSCSIParallelFamily.kext/Contents/PlugIns/IOSCSILib.plugin</string>
-				</dict>
-				<key>IOUserClientClass</key>
-				<string>IOSCSIUserClient</string>
-			</dict>
+			<key>Physical Interconnect</key>
+			<string>SCSI Parallel Interface</string>
+			<key>Physical Interconnect Location</key>
+			<string>Internal/External</string>
 		</dict>
 	</dict>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.0.3</string>
 	<key>OSBundleLibraries</key>
 	<dict>
+		<key>com.apple.iokit.IOSCSIArchitectureModelFamily</key>
+		<string>1.0.0</string>
 		<key>com.apple.kernel.iokit</key>
-		<string>1.0.0b1</string>
+		<string>6.9.9</string>
 		<key>com.apple.kernel.libkern</key>
-		<string>1.0.0b1</string>
+		<string>6.9.9</string>
 		<key>com.apple.kernel.mach</key>
-		<string>1.0.0b1</string>
+		<string>6.9.9</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Local-Root</string>
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		F5DD574A0246911101CE15B2 = {
 			buildActionMask = 2147483647;
@@ -1172,28 +572,20 @@
 		F5DD574B0246911101CE15B2 = {
 			buildActionMask = 2147483647;
 			files = (
-				F5DF5C720246979701CE15B2,
-				F5DF5C730246979701CE15B2,
-				F5DF5C740246979701CE15B2,
-				F5DF5C750246979701CE15B2,
-				F5DF5C760246979701CE15B2,
-				F5DF5C770246979701CE15B2,
 				F5DF5C780246979701CE15B2,
-				F5DF5C790246979701CE15B2,
-				F5DF5C7A0246979701CE15B2,
 				F5DF5C7B0246979701CE15B2,
-				F5DF5C7C0246979701CE15B2,
 				F5E88B1D0246D11D01CE15B2,
 				F5DF5C7D0246979701CE15B2,
 				F5DF5C7E0246979701CE15B2,
-				F5DF5C7F0246979701CE15B2,
 				F5DF5C800246979701CE15B2,
 				F5DF5C810246979701CE15B2,
 				F5DF5C820246979701CE15B2,
 				F5DF5C830246979701CE15B2,
 				F5DF5C840246979701CE15B2,
-				5C84EF6802CAA64005CE68BB,
-				5C84EF6A02CAA64005CE68BB,
+				ACEE3AC20471C7A20005C2E0,
+				AC8CA7A7047B192C00E15A64,
+				AC8CA7A8047B192C00E15A64,
+				AC8CA7A9047B192C00E15A64,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1205,9 +597,7 @@
 				F5DF5C860246979701CE15B2,
 				F5DF5C870246979701CE15B2,
 				F5E88B1E0246D11D01CE15B2,
-				5C84EF6702CAA64005CE68BB,
-				5C84EF6902CAA64005CE68BB,
-				5C84EF6B02CAA64005CE68BB,
+				ACEE3AC30471C7A20005C2E0,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1215,7 +605,6 @@
 		F5DD574D0246911101CE15B2 = {
 			buildActionMask = 2147483647;
 			files = (
-				5C84EF6E02CAA65105CE68BB,
 			);
 			isa = PBXResourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1251,17 +640,11 @@
 				F5DF5C540246952E01CE15B2,
 				F5DF5C550246952E01CE15B2,
 				F5DF5C560246952E01CE15B2,
-				F5C5DDD50247CF6D01CE15B2,
-				5CB1852902CAA78F05CE68BB,
-				5CB1852A02CAA79A05CE68BB,
-				5CB1852B02CAA7A105CE68BB,
-				5CB1852C02CAA7A605CE68BB,
-				5CB1852D02CAA7B205CE68BB,
-				5CB1852E02CAA7B605CE68BB,
+				AC443605047AB2180003FFD2,
 			);
 			buildSettings = {
 				INSTALLHDRS_COPY_PHASE = YES;
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/scsi";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/IOKit/scsi/spi";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1274,10 +657,9 @@
 			);
 			isa = PBXToolTarget;
 			name = InstallHeaders;
-			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/scsi";
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/IOKit/scsi";
 			productName = InstallHeaders;
 			productReference = F5DF5C510246952E01CE15B2;
-			shouldUseHeadermap = 0;
 		};
 		F5DF5C530246952E01CE15B2 = {
 			buildActionMask = 2147483647;
@@ -1309,13 +691,11 @@
 		};
 		F5DF5C580246965F01CE15B2 = {
 			children = (
-				5C84EA2A02CAA32E05CE68BB,
-				F5E88B510246D82E01CE15B2,
-				5C84EA2902CAA31205CE68BB,
 				F5E88B140246CD9C01CE15B2,
+				F5E88B510246D82E01CE15B2,
 			);
 			isa = PBXGroup;
-			name = IOSCSIFamily;
+			name = "IOSCSIFamily (Obsolete)";
 			refType = 4;
 		};
 		F5DF5C59024696C101CE15B2 = {
@@ -1334,70 +714,16 @@
 			name = IOSCSIParallelInterface;
 			refType = 4;
 		};
-		F5DF5C5B0246979701CE15B2 = {
-			isa = PBXFileReference;
-			name = CDBCommand.h;
-			path = IOSCSIFamily/IOSCSIParallel/CDBCommand.h;
-			refType = 4;
-		};
-		F5DF5C5C0246979701CE15B2 = {
-			isa = PBXFileReference;
-			name = CDBPublic.h;
-			path = IOSCSIFamily/IOSCSIParallel/CDBPublic.h;
-			refType = 4;
-		};
-		F5DF5C5D0246979701CE15B2 = {
-			isa = PBXFileReference;
-			name = IOCDBCommand.h;
-			path = IOSCSIFamily/IOSCSIParallel/IOCDBCommand.h;
-			refType = 4;
-		};
-		F5DF5C5E0246979701CE15B2 = {
-			isa = PBXFileReference;
-			name = IOCDBDevice.h;
-			path = IOSCSIFamily/IOSCSIParallel/IOCDBDevice.h;
-			refType = 4;
-		};
-		F5DF5C5F0246979701CE15B2 = {
-			isa = PBXFileReference;
-			name = IOCDBInterface.h;
-			path = IOSCSIFamily/IOSCSIParallel/IOCDBInterface.h;
-			refType = 4;
-		};
-		F5DF5C600246979701CE15B2 = {
-			isa = PBXFileReference;
-			name = IOSCSICommand_Reference.h;
-			path = IOSCSIFamily/IOSCSIParallel/IOSCSICommand_Reference.h;
-			refType = 4;
-		};
 		F5DF5C610246979701CE15B2 = {
 			isa = PBXFileReference;
 			name = IOSCSICommand.h;
 			path = IOSCSIFamily/IOSCSIParallel/IOSCSICommand.h;
 			refType = 4;
 		};
-		F5DF5C620246979701CE15B2 = {
-			isa = PBXFileReference;
-			name = IOSCSIController_Reference.h;
-			path = IOSCSIFamily/IOSCSIParallel/IOSCSIController_Reference.h;
-			refType = 4;
-		};
-		F5DF5C630246979701CE15B2 = {
-			isa = PBXFileReference;
-			name = IOSCSIDevice_Reference.h;
-			path = IOSCSIFamily/IOSCSIParallel/IOSCSIDevice_Reference.h;
-			refType = 4;
-		};
 		F5DF5C640246979701CE15B2 = {
 			isa = PBXFileReference;
 			name = IOSCSIDevice.h;
 			path = IOSCSIFamily/IOSCSIParallel/IOSCSIDevice.h;
-			refType = 4;
-		};
-		F5DF5C650246979701CE15B2 = {
-			isa = PBXFileReference;
-			name = IOSCSIDeviceInterface.h;
-			path = IOSCSIFamily/IOSCSIParallel/IOSCSIDeviceInterface.h;
 			refType = 4;
 		};
 		F5DF5C660246979701CE15B2 = {
@@ -1410,12 +736,6 @@
 			isa = PBXFileReference;
 			name = IOSCSIParallelDevice.h;
 			path = IOSCSIFamily/IOSCSIParallel/IOSCSIParallelDevice.h;
-			refType = 4;
-		};
-		F5DF5C680246979701CE15B2 = {
-			isa = PBXFileReference;
-			name = IOSCSIParallelInterface.h;
-			path = IOSCSIFamily/IOSCSIParallel/IOSCSIParallelInterface.h;
 			refType = 4;
 		};
 		F5DF5C690246979701CE15B2 = {
@@ -1466,68 +786,14 @@
 			path = IOSCSIFamily/IOSCSIParallel/queueHelpers.cpp;
 			refType = 4;
 		};
-		F5DF5C720246979701CE15B2 = {
-			fileRef = F5DF5C5B0246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5DF5C730246979701CE15B2 = {
-			fileRef = F5DF5C5C0246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5DF5C740246979701CE15B2 = {
-			fileRef = F5DF5C5D0246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5DF5C750246979701CE15B2 = {
-			fileRef = F5DF5C5E0246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5DF5C760246979701CE15B2 = {
-			fileRef = F5DF5C5F0246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5DF5C770246979701CE15B2 = {
-			fileRef = F5DF5C600246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		F5DF5C780246979701CE15B2 = {
 			fileRef = F5DF5C610246979701CE15B2;
 			isa = PBXBuildFile;
 			settings = {
 			};
 		};
-		F5DF5C790246979701CE15B2 = {
-			fileRef = F5DF5C620246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5DF5C7A0246979701CE15B2 = {
-			fileRef = F5DF5C630246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		F5DF5C7B0246979701CE15B2 = {
 			fileRef = F5DF5C640246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5DF5C7C0246979701CE15B2 = {
-			fileRef = F5DF5C650246979701CE15B2;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -1540,12 +806,6 @@
 		};
 		F5DF5C7E0246979701CE15B2 = {
 			fileRef = F5DF5C670246979701CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5DF5C7F0246979701CE15B2 = {
-			fileRef = F5DF5C680246979701CE15B2;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -1602,152 +862,6 @@
 			isa = PBXTargetDependency;
 			target = F5DD57490246911101CE15B2;
 		};
-		F5E88AE70246B16D01CE15B2 = {
-			isa = PBXTargetDependency;
-			target = F5DF5C520246952E01CE15B2;
-		};
-		F5E88B0B0246CD4301CE15B2 = {
-			isa = PBXBundleReference;
-			path = IOSCSIParallelInterfaceProtocolTransport.kext;
-			refType = 3;
-		};
-		F5E88B0D0246CD4301CE15B2 = {
-			buildPhases = (
-				F5E88B0E0246CD4301CE15B2,
-				F5E88B0F0246CD4301CE15B2,
-				F5E88B100246CD4301CE15B2,
-				F5E88B110246CD4301CE15B2,
-				F5E88B120246CD4301CE15B2,
-				F5E88B130246CD4301CE15B2,
-			);
-			buildSettings = {
-				INSTALLHDRS_COPY_PHASE = YES;
-				KERNEL_MODULE = YES;
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.iokit.IOSCSIParallelInterfaceProtocolTransport;
-				MODULE_VERSION = 1.2.4;
-				PRODUCT_NAME = IOSCSIParallelInterfaceProtocolTransport;
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-				WRAPPER_EXTENSION = kext;
-			};
-			dependencies = (
-			);
-			isa = PBXBundleTarget;
-			name = IOSCSIParallelInterfaceProtocolTransport;
-			productName = IOSCSIParallelInterfaceProtocolTransport;
-			productReference = F5E88B0B0246CD4301CE15B2;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string>IOSCSIParallelInterfaceProtocolTransport</string>
-	<key>CFBundleGetInfoString</key>
-	<string>1.2.4, Copyright Apple Computer, Inc., 2001-2003</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
-	<key>CFBundleIdentifier</key>
-	<string>com.apple.iokit.IOSCSIParallelInterfaceProtocolTransport</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>IOSCSIParallelInterfaceProtocolTransport</string>
-	<key>CFBundlePackageType</key>
-	<string>KEXT</string>
-	<key>CFBundleShortVersionString</key>
-	<string>1.2.4</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>1.2.4</string>
-	<key>IOKitPersonalities</key>
-	<dict>
-		<key>IOSCSIParallelInterfaceProtocolTransport</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IOSCSIParallelInterfaceProtocolTransport</string>
-			<key>IOClass</key>
-			<string>IOSCSIParallelInterfaceProtocolTransport</string>
-			<key>IOProviderClass</key>
-			<string>IOSCSIDevice</string>
-			<key>Physical Interconnect</key>
-			<string>SCSI</string>
-			<key>Physical Interconnect Location</key>
-			<string>Internal/External</string>
-		</dict>
-	</dict>
-	<key>OSBundleLibraries</key>
-	<dict>
-		<key>com.apple.iokit.IOSCSIArchitectureModelFamily</key>
-		<string>1.0.0</string>
-		<key>com.apple.iokit.IOSCSIFamily</key>
-		<string>1.0.3</string>
-	</dict>
-	<key>OSBundleRequired</key>
-	<string>Local-Root</string>
-</dict>
-</plist>
-";
-			shouldUseHeadermap = 0;
-		};
-		F5E88B0E0246CD4301CE15B2 = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			generatedFileNames = (
-			);
-			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
-		};
-		F5E88B0F0246CD4301CE15B2 = {
-			buildActionMask = 2147483647;
-			files = (
-				F5E88B170246CD9C01CE15B2,
-			);
-			isa = PBXHeadersBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5E88B100246CD4301CE15B2 = {
-			buildActionMask = 2147483647;
-			files = (
-				F5E88B180246CD9C01CE15B2,
-			);
-			isa = PBXSourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5E88B110246CD4301CE15B2 = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXResourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5E88B120246CD4301CE15B2 = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXFrameworksBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F5E88B130246CD4301CE15B2 = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			generatedFileNames = (
-			);
-			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
-		};
 		F5E88B140246CD9C01CE15B2 = {
 			children = (
 				F5E88B160246CD9C01CE15B2,
@@ -1755,6 +869,7 @@
 			);
 			isa = PBXGroup;
 			name = IOSCSIParallelInterfaceProtocolTransport;
+			path = "";
 			refType = 4;
 		};
 		F5E88B150246CD9C01CE15B2 = {
@@ -1768,18 +883,6 @@
 			name = IOSCSIParallelInterfaceProtocolTransport.h;
 			path = IOSCSIFamily/IOSCSIParallelInterfaceProtocolTransport/IOSCSIParallelInterfaceProtocolTransport.h;
 			refType = 4;
-		};
-		F5E88B170246CD9C01CE15B2 = {
-			fileRef = F5E88B160246CD9C01CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5E88B180246CD9C01CE15B2 = {
-			fileRef = F5E88B150246CD9C01CE15B2;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 		F5E88B1B0246D11D01CE15B2 = {
 			isa = PBXFileReference;
@@ -1807,10 +910,12 @@
 		};
 		F5E88B510246D82E01CE15B2 = {
 			children = (
-				F5E88B520246D82E01CE15B2,
 				F5E88B530246D82E01CE15B2,
+				F5DF5C660246979701CE15B2,
 				F5DF5C6F0246979701CE15B2,
+				F5E88B1B0246D11D01CE15B2,
 				F5E88B1C0246D11D01CE15B2,
+				F5DF5C670246979701CE15B2,
 				F5DF5C700246979701CE15B2,
 				F5DF5C710246979701CE15B2,
 			);
@@ -1818,56 +923,21 @@
 			name = IOSCSIParallel;
 			refType = 4;
 		};
-		F5E88B520246D82E01CE15B2 = {
-			children = (
-				F5DF5C5B0246979701CE15B2,
-				F5DF5C5C0246979701CE15B2,
-				F5DF5C5D0246979701CE15B2,
-				F5DF5C5E0246979701CE15B2,
-				F5DF5C5F0246979701CE15B2,
-			);
-			isa = PBXGroup;
-			name = cdb;
-			refType = 4;
-		};
 		F5E88B530246D82E01CE15B2 = {
 			children = (
-				F5DF5C600246979701CE15B2,
-				F5DF5C620246979701CE15B2,
-				F5DF5C630246979701CE15B2,
-				F5DF5C650246979701CE15B2,
-				F5DF5C680246979701CE15B2,
-				F5E88B540246D82E01CE15B2,
-				F5E88B550246D82E01CE15B2,
-			);
-			isa = PBXGroup;
-			name = scsi;
-			refType = 4;
-		};
-		F5E88B540246D82E01CE15B2 = {
-			children = (
-				F5DF5C6D0246979701CE15B2,
-				F5DF5C6A0246979701CE15B2,
-				F5DF5C640246979701CE15B2,
+				AC8CA7A4047B192C00E15A64,
+				AC8CA7A5047B192C00E15A64,
+				AC8CA7A6047B192C00E15A64,
 				F5DF5C690246979701CE15B2,
+				F5DF5C6A0246979701CE15B2,
+				F5DF5C6D0246979701CE15B2,
+				F5DF5C6B0246979701CE15B2,
+				F5DF5C6C0246979701CE15B2,
+				F5DF5C640246979701CE15B2,
 				F5DF5C610246979701CE15B2,
 			);
 			isa = PBXGroup;
-			name = "scsi-device";
-			path = "";
-			refType = 4;
-		};
-		F5E88B550246D82E01CE15B2 = {
-			children = (
-				F5DF5C6C0246979701CE15B2,
-				F5DF5C6B0246979701CE15B2,
-				F5E88B1B0246D11D01CE15B2,
-				F5DF5C660246979701CE15B2,
-				F5DF5C670246979701CE15B2,
-			);
-			isa = PBXGroup;
-			name = "scsi-parallel";
-			path = "";
+			name = Headers;
 			refType = 4;
 		};
 	};

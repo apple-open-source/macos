@@ -21,18 +21,14 @@
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-pim.c,v 1.1.1.2 2002/05/29 00:05:40 landonf Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-pim.c,v 1.1.1.3 2003/03/17 18:42:18 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <sys/param.h>
-#include <sys/time.h>
-#include <sys/socket.h>
-
-#include <netinet/in.h>
+#include <tcpdump-stdinc.h>
 
 /*
  * XXX: We consider a case where IPv6 is not ready yet for portability,
@@ -56,7 +52,6 @@ struct pim {
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 
 #include "interface.h"
 #include "addrtoname.h"
@@ -127,7 +122,7 @@ pimv1_join_prune_print(register const u_char *bp, register u_int len)
 		bp += 12;
 		len -= 12;
 		for (njp = 0; njp < (njoin + nprune); njp++) {
-			char *type;
+			const char *type;
 
 			if (njp < njoin)
 				type = "Join ";
@@ -447,7 +442,7 @@ static int
 pimv2_addr_print(const u_char *bp, enum pimv2_addrtype at, int silent)
 {
 	int af;
-	char *afstr;
+	const char *afstr;
 	int len, hdrlen;
 
 	TCHECK(bp[0]);
@@ -584,7 +579,36 @@ pimv2_print(register const u_char *bp, register u_int len)
 				(void)printf(")");
 				break;
 
+			case 2:		/* LAN Prune Delay */
+				(void)printf(" (LAN-Prune-Delay: ");
+				if (olen != 4) {
+					(void)printf("!olen=%d!)", olen);
+				} else {
+					char t_bit;
+					u_int16_t lan_delay, override_interval;
+					lan_delay = EXTRACT_16BITS(&bp[4]);
+					override_interval = EXTRACT_16BITS(&bp[6]);
+					t_bit = (lan_delay & 0x8000)? 1 : 0;
+					lan_delay &= ~0x8000;
+					(void)printf("T-bit=%d lan-delay=%dms override-interval=%dms)",
+					t_bit, lan_delay, override_interval);
+				}
+				break;
+
+			case 18:	/* Old DR-Priority */
+				if (olen == 4)
+					(void)printf(" (OLD-DR-Priority: %d)",
+							EXTRACT_32BITS(&bp[4]));
+				else
+					goto unknown;
+				break;
+
+
 			case 19:	/* DR-Priority */
+				if (olen == 0) {
+					(void)printf(" (OLD-bidir-capable)");
+					break;
+				}
 				(void)printf(" (DR-Priority: ");
 				if (olen != 4) {
 					(void)printf("!olen=%d!)", olen);
@@ -614,6 +638,7 @@ pimv2_print(register const u_char *bp, register u_int len)
 				break;
 
 			default:
+			unknown:
 				if (vflag)
 					(void)printf(" [Hello option %d]", otype);
 			}

@@ -14,7 +14,7 @@ STATIC = -static
 ifeq "mwccppc" "$(notdir $(CC))"
   CFLAGS = $(OFLAG) -g -I../include -I$(SRCROOT)
 else
-  CFLAGS = $(STATIC) $(OFLAG) -g -Wall -Wno-precomp -I../include -I$(SRCROOT) \
+  CFLAGS = $(STATIC) $(OFLAG) -g -Wall -I../include -I$(SRCROOT) \
 	   $(X_CFLAGS)
 endif
 
@@ -55,9 +55,10 @@ USRBINDIR = /usr/bin
 
 CFILES = main.c ofile_print.c m68k_disasm.c i860_disasm.c \
 	 m88k_disasm.c i386_disasm.c ppc_disasm.c hppa_disasm.c \
-	 sparc_disasm.c print_objc.c
+	 sparc_disasm.c print_objc.c notify.c
 HFILES = otool.h ofile_print.h m68k_disasm.h i860_disasm.h \
-	 sparc_disasm.h m88k_disasm.h i386_disasm.h ppc_disasm.h hppa_disasm.h
+	 sparc_disasm.h m88k_disasm.h i386_disasm.h ppc_disasm.h hppa_disasm.h \
+	 notify.h
 OBJS = $(CFILES:.c=.o) ofile.o vers.o
 INSTALL_FILES = $(CFILES) $(HFILES) Makefile notes
 

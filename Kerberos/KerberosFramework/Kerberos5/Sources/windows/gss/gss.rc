@@ -1,0 +1,33 @@
+/*+*************************************************************************
+**
+**	Gss
+**	
+**	Tests the gssapi dll.
+**
+***************************************************************************/
+
+#include <windows.h>
+#include <winver.h>
+
+#define GSS_CONNECT_NAME            102
+#define GSS_OK                      100
+#define GSS_CANCEL                  101
+
+gss ICON gss.ico
+
+OPENGSSAPIDLG DIALOG 63, 65, 330, 71
+STYLE DS_ABSALIGN | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Open GSSAPI Connection"
+FONT 8, "MS Sans Serif"
+BEGIN
+	CONTROL "Host Port Service:", -1, "STATIC", NOT WS_GROUP, 5, 10, 60, 10
+	CONTROL "Example: foo 34000 sample@foo.bar.com", -1, "STATIC", NOT WS_GROUP, 70, 25, 256, 10
+	CONTROL "", GSS_CONNECT_NAME, "COMBOBOX", CBS_DROPDOWN | WS_VSCROLL | WS_GROUP | WS_TABSTOP, 70, 9, 256, 60
+	CONTROL "Test", GSS_OK, "BUTTON", WS_GROUP | WS_TABSTOP | BS_DEFPUSHBUTTON, 70, 50, 51, 14
+	CONTROL "Exit", GSS_CANCEL, "BUTTON", WS_TABSTOP, 150, 50, 51, 14
+END
+
+#include "..\version.rc"
+
+TestTrackerMOTD TEXT ver_serv.txt
+

@@ -1,0 +1,7 @@
+#ifndef _IOKIT_IOFIREWIREIPLIBUNIT_H_
+#define _IOKIT_IOFIREWIREIPLIBUNIT_H_
+
+#include <IOKit/IOKitLib.h>
+
+
+#endif

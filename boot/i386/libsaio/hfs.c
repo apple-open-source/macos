@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -29,6 +32,8 @@
 
 #include <sl.h>
 #include <hfs/hfs_format.h>
+
+#include "hfs.h"
 
 #define kBlockSize (0x200)
 
@@ -117,8 +122,6 @@ long HFSInitPartition(CICell ih)
         return 0;
     }
 
-    verbose("HFSInitPartition: %x\n", ih);
-
 #ifdef __i386__
     if (!gTempStr) gTempStr = (char *)malloc(4096);
     if (!gLinkTemp) gLinkTemp = (char *)malloc(64);
@@ -183,7 +186,10 @@ long HFSInitPartition(CICell ih)
     Read(ih, (long)gHFSPlusHeader, kBlockSize);
 
     // Not a HFS[+] volume.
-    if (SWAP_BE16(gHFSPlus->signature) != kHFSPlusSigWord) return -1;
+    if (SWAP_BE16(gHFSPlus->signature) != kHFSPlusSigWord) {
+	verbose("HFS signature was not present.\n");
+	return -1;
+    }
 
     gIsHFSPlus = 1;
     gCacheBlockSize = gBlockSize = SWAP_BE32(gHFSPlus->blockSize);
@@ -215,10 +221,10 @@ long HFSLoadFile(CICell ih, char * filePath)
     char entry[512];
     long dirID, result, length, flags;
 
-    if (HFSInitPartition(ih) == -1) return -1;
-
     verbose("Loading HFS%s file: [%s] from %x.\n",
             (gIsHFSPlus ? "+" : ""), filePath, ih);
+
+    if (HFSInitPartition(ih) == -1) return -1;
 
     dirID = kHFSRootFolderID;
     // Skip a lead '\'.  Start in the system folder if there are two.
@@ -226,14 +232,18 @@ long HFSLoadFile(CICell ih, char * filePath)
         if (filePath[1] == '/') {
             if (gIsHFSPlus) dirID = SWAP_BE32(((long *)gHFSPlus->finderInfo)[5]);
             else dirID = SWAP_BE32(gHFSMDB->drFndrInfo[5]);
-            if (dirID == 0) return -1;
+            if (dirID == 0) {
+		return -1;
+	    }
             filePath++;
         }
         filePath++;
     }
 
     result = ResolvePathToCatalogEntry(filePath, &flags, entry, dirID, 0);
-    if ((result == -1) || ((flags & kFileTypeMask) != kFileTypeFlat)) return -1;
+    if ((result == -1) || ((flags & kFileTypeMask) != kFileTypeFlat)) {
+	return -1;
+    }
 
 #if 0 // Not yet for Intel. System.config/Default.table will fail this check.
     // Check file owner and permissions.
@@ -241,7 +251,9 @@ long HFSLoadFile(CICell ih, char * filePath)
 #endif
 
     result = ReadFile(entry, &length);
-    if (result == -1) return -1;
+    if (result == -1) {
+	return -1;
+    }
 
     return length;
 }
@@ -377,7 +389,7 @@ static long ResolvePathToCatalogEntry(char * filePath, long * flags,
     // Copy the file name to gTempStr
     cnt = 0;
     while ((filePath[cnt] != '/') && (filePath[cnt] != '\0')) cnt++;
-    strncpy(gTempStr, filePath, cnt);
+    strlcpy(gTempStr, filePath, cnt+1);
 
     // Move restPath to the right place.
     if (filePath[cnt] != '\0') cnt++;
@@ -387,7 +399,9 @@ static long ResolvePathToCatalogEntry(char * filePath, long * flags,
     // restPath is the rest of the path if any.
 
     result = ReadCatalogEntry(gTempStr, dirID, entry, dirIndex);
-    if (result == -1) return -1;
+    if (result == -1) {
+	return -1;
+    }
 
     GetCatalogEntryInfo(entry, flags, 0);
 

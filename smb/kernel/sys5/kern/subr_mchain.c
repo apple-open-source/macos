@@ -60,7 +60,7 @@ MODULE_VERSION(libmchain, 1);
 /*
  * Various helper functions
  */
-int
+PRIVSYM int
 m_fixhdr(struct mbuf *m0)
 {
 	struct mbuf *m = m0;
@@ -74,7 +74,7 @@ m_fixhdr(struct mbuf *m0)
 	return len;
 }
 
-int
+PRIVSYM int
 mb_init(struct mbchain *mbp)
 {
 	struct mbuf *m;
@@ -88,7 +88,7 @@ mb_init(struct mbchain *mbp)
 	return 0;
 }
 
-void
+PRIVSYM void
 mb_initm(struct mbchain *mbp, struct mbuf *m)
 {
 	bzero(mbp, sizeof(*mbp));
@@ -96,7 +96,7 @@ mb_initm(struct mbchain *mbp, struct mbuf *m)
 	mbp->mb_mleft = M_TRAILINGSPACE(m);
 }
 
-void
+PRIVSYM void
 mb_done(struct mbchain *mbp)
 {
 	if (mbp->mb_top) {
@@ -105,7 +105,7 @@ mb_done(struct mbchain *mbp)
 	}
 }
 
-struct mbuf *
+PRIVSYM struct mbuf *
 mb_detach(struct mbchain *mbp)
 {
 	struct mbuf *m;
@@ -115,7 +115,7 @@ mb_detach(struct mbchain *mbp)
 	return m;
 }
 
-int
+PRIVSYM int
 mb_fixhdr(struct mbchain *mbp)
 {
 	return mbp->mb_top->m_pkthdr.len = m_fixhdr(mbp->mb_top);
@@ -127,13 +127,13 @@ mb_fixhdr(struct mbchain *mbp)
  * Return pointer to the object placeholder or NULL if any error occured.
  * Note: size should be <= MLEN 
  */
-caddr_t
+PRIVSYM caddr_t
 mb_reserve(struct mbchain *mbp, int size)
 {
 	struct mbuf *m, *mn;
 	caddr_t bpos;
 
-	if (size > MLEN)
+	if (size > (int)MLEN)
 		panic("mb_reserve: size = %d\n", size);
 	m = mbp->mb_cur;
 	if (mbp->mb_mleft < size) {
@@ -153,7 +153,7 @@ mb_reserve(struct mbchain *mbp, int size)
 }
 
 #ifdef APPLE
-int
+PRIVSYM int
 mb_put_padbyte(struct mbchain *mbp)
 {
 	caddr_t dst;
@@ -169,55 +169,55 @@ mb_put_padbyte(struct mbchain *mbp)
 }
 #endif
 
-int
+PRIVSYM int
 mb_put_uint8(struct mbchain *mbp, u_int8_t x)
 {
 	return mb_put_mem(mbp, (caddr_t)&x, sizeof(x), MB_MSYSTEM);
 }
 
-int
+PRIVSYM int
 mb_put_uint16be(struct mbchain *mbp, u_int16_t x)
 {
 	x = htobes(x);
 	return mb_put_mem(mbp, (caddr_t)&x, sizeof(x), MB_MSYSTEM);
 }
 
-int
+PRIVSYM int
 mb_put_uint16le(struct mbchain *mbp, u_int16_t x)
 {
 	x = htoles(x);
 	return mb_put_mem(mbp, (caddr_t)&x, sizeof(x), MB_MSYSTEM);
 }
 
-int
+PRIVSYM int
 mb_put_uint32be(struct mbchain *mbp, u_int32_t x)
 {
 	x = htobel(x);
 	return mb_put_mem(mbp, (caddr_t)&x, sizeof(x), MB_MSYSTEM);
 }
 
-int
+PRIVSYM int
 mb_put_uint32le(struct mbchain *mbp, u_int32_t x)
 {
 	x = htolel(x);
 	return mb_put_mem(mbp, (caddr_t)&x, sizeof(x), MB_MSYSTEM);
 }
 
-int
+PRIVSYM int
 mb_put_int64be(struct mbchain *mbp, int64_t x)
 {
 	x = htobeq(x);
 	return mb_put_mem(mbp, (caddr_t)&x, sizeof(x), MB_MSYSTEM);
 }
 
-int
+PRIVSYM int
 mb_put_int64le(struct mbchain *mbp, int64_t x)
 {
 	x = htoleq(x);
 	return mb_put_mem(mbp, (caddr_t)&x, sizeof(x), MB_MSYSTEM);
 }
 
-int
+PRIVSYM int
 mb_put_mem(struct mbchain *mbp, c_caddr_t source, int size, int type)
 {
 	struct mbuf *m;
@@ -274,7 +274,7 @@ mb_put_mem(struct mbchain *mbp, c_caddr_t source, int size, int type)
 	return 0;
 }
 
-int
+PRIVSYM int
 mb_put_mbuf(struct mbchain *mbp, struct mbuf *m)
 {
 	mbp->mb_cur->m_next = m;
@@ -292,7 +292,7 @@ mb_put_mbuf(struct mbchain *mbp, struct mbuf *m)
 /*
  * copies a uio scatter/gather list to an mbuf chain.
  */
-int
+PRIVSYM int
 mb_put_uio(struct mbchain *mbp, struct uio *uiop, int size)
 {
 	long left;
@@ -326,7 +326,7 @@ mb_put_uio(struct mbchain *mbp, struct uio *uiop, int size)
 /*
  * Routines for fetching data from an mbuf chain
  */
-int
+PRIVSYM int
 md_init(struct mdchain *mdp)
 {
 	struct mbuf *m;
@@ -340,7 +340,7 @@ md_init(struct mdchain *mdp)
 	return 0;
 }
 
-void
+PRIVSYM void
 md_initm(struct mdchain *mdp, struct mbuf *m)
 {
 	bzero(mdp, sizeof(*mdp));
@@ -348,7 +348,7 @@ md_initm(struct mdchain *mdp, struct mbuf *m)
 	mdp->md_pos = mtod(m, u_char*);
 }
 
-void
+PRIVSYM void
 md_done(struct mdchain *mdp)
 {
 	if (mdp->md_top) {
@@ -361,7 +361,7 @@ md_done(struct mdchain *mdp)
  * Append a separate mbuf chain. It is caller responsibility to prevent
  * multiple calls to fetch/record routines.
  */
-void
+PRIVSYM void
 md_append_record(struct mdchain *mdp, struct mbuf *top)
 {
 	struct mbuf *m;
@@ -381,7 +381,7 @@ md_append_record(struct mdchain *mdp, struct mbuf *top)
 /*
  * Put next record in place of existing
  */
-int
+PRIVSYM int
 md_next_record(struct mdchain *mdp)
 {
 	struct mbuf *m;
@@ -396,19 +396,19 @@ md_next_record(struct mdchain *mdp)
 	return 0;
 }
 
-int
+PRIVSYM int
 md_get_uint8(struct mdchain *mdp, u_int8_t *x)
 {
 	return md_get_mem(mdp, x, 1, MB_MINLINE);
 }
 
-int
+PRIVSYM int
 md_get_uint16(struct mdchain *mdp, u_int16_t *x)
 {
 	return md_get_mem(mdp, (caddr_t)x, 2, MB_MINLINE);
 }
 
-int
+PRIVSYM int
 md_get_uint16le(struct mdchain *mdp, u_int16_t *x)
 {
 	u_int16_t v;
@@ -419,7 +419,7 @@ md_get_uint16le(struct mdchain *mdp, u_int16_t *x)
 	return error;
 }
 
-int
+PRIVSYM int
 md_get_uint16be(struct mdchain *mdp, u_int16_t *x) {
 	u_int16_t v;
 	int error = md_get_uint16(mdp, &v);
@@ -429,13 +429,13 @@ md_get_uint16be(struct mdchain *mdp, u_int16_t *x) {
 	return error;
 }
 
-int
+PRIVSYM int
 md_get_uint32(struct mdchain *mdp, u_int32_t *x)
 {
 	return md_get_mem(mdp, (caddr_t)x, 4, MB_MINLINE);
 }
 
-int
+PRIVSYM int
 md_get_uint32be(struct mdchain *mdp, u_int32_t *x)
 {
 	u_int32_t v;
@@ -447,7 +447,7 @@ md_get_uint32be(struct mdchain *mdp, u_int32_t *x)
 	return error;
 }
 
-int
+PRIVSYM int
 md_get_uint32le(struct mdchain *mdp, u_int32_t *x)
 {
 	u_int32_t v;
@@ -459,13 +459,13 @@ md_get_uint32le(struct mdchain *mdp, u_int32_t *x)
 	return error;
 }
 
-int
+PRIVSYM int
 md_get_int64(struct mdchain *mdp, int64_t *x)
 {
 	return md_get_mem(mdp, (caddr_t)x, 8, MB_MINLINE);
 }
 
-int
+PRIVSYM int
 md_get_int64be(struct mdchain *mdp, int64_t *x)
 {
 	int64_t v;
@@ -477,7 +477,7 @@ md_get_int64be(struct mdchain *mdp, int64_t *x)
 	return error;
 }
 
-int
+PRIVSYM int
 md_get_int64le(struct mdchain *mdp, int64_t *x)
 {
 	int64_t v;
@@ -489,7 +489,7 @@ md_get_int64le(struct mdchain *mdp, int64_t *x)
 	return error;
 }
 
-int
+PRIVSYM int
 md_get_mem(struct mdchain *mdp, caddr_t target, int size, int type)
 {
 	struct mbuf *m = mdp->md_cur;
@@ -510,7 +510,7 @@ md_get_mem(struct mdchain *mdp, caddr_t target, int size, int type)
 				s = mdp->md_pos = mtod(m, caddr_t);
 			continue;
 		}
-		if (count > size)
+		if ((int)count > size)
 			count = size;
 		size -= count;
 		mdp->md_pos += count;
@@ -535,7 +535,7 @@ md_get_mem(struct mdchain *mdp, caddr_t target, int size, int type)
 	return 0;
 }
 
-int
+PRIVSYM int
 md_get_mbuf(struct mdchain *mdp, int size, struct mbuf **ret)
 {
 	struct mbuf *m = mdp->md_cur, *rm;
@@ -548,7 +548,7 @@ md_get_mbuf(struct mdchain *mdp, int size, struct mbuf **ret)
 	return 0;
 }
 
-int
+PRIVSYM int
 md_get_uio(struct mdchain *mdp, struct uio *uiop, int size)
 {
 	char *uiocp;

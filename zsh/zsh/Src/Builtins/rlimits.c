@@ -44,12 +44,17 @@ enum {
 
 # include "rlimits.h"
 
-# if defined(RLIM_T_IS_QUAD_T) || defined(RLIM_T_IS_LONG_LONG) || defined(RLIM_T_IS_UNSIGNED)
 static rlim_t
 zstrtorlimt(const char *s, char **t, int base)
 {
     rlim_t ret = 0;
- 
+
+    if (strcmp(s, "unlimited") == 0) {
+	if (t)
+	    *t = (char *) s + 9;
+	return RLIM_INFINITY;
+    }
+# if defined(RLIM_T_IS_QUAD_T) || defined(RLIM_T_IS_LONG_LONG) || defined(RLIM_T_IS_UNSIGNED)
     if (!base) {
 	if (*s != '0')
 	    base = 10;
@@ -67,11 +72,11 @@ zstrtorlimt(const char *s, char **t, int base)
 	    ret = ret * base + (idigit(*s) ? (*s - '0') : (*s & 0x1f) + 9);
     if (t)
 	*t = (char *)s;
+# else /* !RLIM_T_IS_QUAD_T && !RLIM_T_IS_LONG_LONG && !RLIM_T_IS_UNSIGNED */
+    ret = zstrtol(s, t, base);
+# endif /* !RLIM_T_IS_QUAD_T && !RLIM_T_IS_LONG_LONG && !RLIM_T_IS_UNSIGNED */
     return ret;
 }
-# else /* !RLIM_T_IS_QUAD_T && !RLIM_T_IS_LONG_LONG && !RLIM_T_IS_UNSIGNED */
-#  define zstrtorlimt(a, b, c)	zstrtol((a), (b), (c))
-# endif /* !RLIM_T_IS_QUAD_T && !RLIM_T_IS_LONG_LONG && !RLIM_T_IS_UNSIGNED */
 
 /* Display resource limits.  hard indicates whether `hard' or `soft'  *
  * limits should be displayed.  lim specifies the limit, or may be -1 *
@@ -170,38 +175,38 @@ printulimit(int lim, int hard, int head)
 	break;
 /* If RLIMIT_VMEM and RLIMIT_RSS are defined and equal, avoid *
  * duplicate case statement.  Observed on QNX Neutrino 6.1.0. */
-# if defined(RLIMIT_RSS) && (!defined(RLIMIT_VMEM) || RLIMIT_VMEM != RLIMIT_RSS)
+# if defined(HAVE_RLIMIT_RSS) && !defined(RLIMIT_VMEM_IS_RSS)
     case RLIMIT_RSS:
 	if (head)
 	    printf("resident set size (kbytes) ");
 	if (limit != RLIM_INFINITY)
 	    limit /= 1024;
 	break;
-# endif /* RLIMIT_RSS */
-# ifdef RLIMIT_MEMLOCK
+# endif /* HAVE_RLIMIT_RSS */
+# ifdef HAVE_RLIMIT_MEMLOCK
     case RLIMIT_MEMLOCK:
 	if (head)
 	    printf("locked-in-memory size (kb) ");
 	if (limit != RLIM_INFINITY)
 	    limit /= 1024;
 	break;
-# endif /* RLIMIT_MEMLOCK */
-# ifdef RLIMIT_NPROC
+# endif /* HAVE_RLIMIT_MEMLOCK */
+# ifdef HAVE_RLIMIT_NPROC
     case RLIMIT_NPROC:
 	if (head)
 	    printf("processes                  ");
 	break;
-# endif /* RLIMIT_NPROC */
-# ifdef RLIMIT_NOFILE
+# endif /* HAVE_RLIMIT_NPROC */
+# ifdef HAVE_RLIMIT_NOFILE
     case RLIMIT_NOFILE:
 	if (head)
 	    printf("file descriptors           ");
 	break;
-# endif /* RLIMIT_NOFILE */
-# ifdef RLIMIT_VMEM
+# endif /* HAVE_RLIMIT_NOFILE */
+# ifdef HAVE_RLIMIT_VMEM
     case RLIMIT_VMEM:
 	if (head)
-#  if defined(RLIMIT_RSS) && RLIMIT_VMEM == RLIMIT_RSS
+#  if defined(HAVE_RLIMIT_RSS) && defined(RLIMIT_VMEM_IS_RSS)
 	    printf("memory size (kb)           ");
 #  else
 	    printf("virtual memory size (kb)   ");
@@ -209,49 +214,55 @@ printulimit(int lim, int hard, int head)
 	if (limit != RLIM_INFINITY)
 	    limit /= 1024;
 	break;
-# endif /* RLIMIT_VMEM */
-# if defined RLIMIT_AS && RLIMIT_AS != RLIMIT_VMEM
+# endif /* HAVE_RLIMIT_VMEM */
+# if defined HAVE_RLIMIT_AS && !defined(RLIMIT_VMEM_IS_AS)
     case RLIMIT_AS:
 	if (head)
 	    printf("address space (kb)         ");
 	if (limit != RLIM_INFINITY)
 	    limit /= 1024;
 	break;
-# endif /* RLIMIT_AS */
-# ifdef RLIMIT_TCACHE
+# endif /* HAVE_RLIMIT_AS */
+# ifdef HAVE_RLIMIT_TCACHE
     case RLIMIT_TCACHE:
 	if (head)
 	    printf("cached threads             ");
 	break;
-# endif /* RLIMIT_TCACHE */
-# ifdef RLIMIT_AIO_OPS
+# endif /* HAVE_RLIMIT_TCACHE */
+# ifdef HAVE_RLIMIT_AIO_OPS
     case RLIMIT_AIO_OPS:
 	if (head)
 	    printf("AIO operations             ");
 	break;
-# endif /* RLIMIT_AIO_OPS */
-# ifdef RLIMIT_AIO_MEM
+# endif /* HAVE_RLIMIT_AIO_OPS */
+# ifdef HAVE_RLIMIT_AIO_MEM
     case RLIMIT_AIO_MEM:
 	if (head)
 	    printf("AIO locked-in-memory (kb)  ");
 	if (limit != RLIM_INFINITY)
 	    limit /= 1024;
 	break;
-# endif /* RLIMIT_AIO_MEM */
-# ifdef RLIMIT_SBSIZE
+# endif /* HAVE_RLIMIT_AIO_MEM */
+# ifdef HAVE_RLIMIT_SBSIZE
     case RLIMIT_SBSIZE:
 	if (head)
 	    printf("socket buffer size (kb)    ");
 	if (limit != RLIM_INFINITY)
 	    limit /= 1024;
 	break;
-# endif /* RLIMIT_SBSIZE */
-# ifdef RLIMIT_PTHREAD
+# endif /* HAVE_RLIMIT_SBSIZE */
+# ifdef HAVE_RLIMIT_PTHREAD
     case RLIMIT_PTHREAD:
 	if (head)
 	    printf("threads per process        ");
 	break;
-# endif /* RLIMIT_PTHREAD */
+# endif /* HAVE_RLIMIT_PTHREAD */
+# ifdef HAVE_RLIMIT_LOCKS
+    case RLIMIT_LOCKS:
+	if (head)
+	    printf("file locks                 ");
+	break;
+# endif /* HAVE_RLIMIT_LOCKS */
     }
     /* display the limit */
     if (limit == RLIM_INFINITY)
@@ -278,15 +289,15 @@ printulimit(int lim, int hard, int head)
 
 /**/
 static int
-bin_limit(char *nam, char **argv, char *ops, int func)
+bin_limit(char *nam, char **argv, Options ops, int func)
 {
     char *s;
     int hard, limnum, lim;
     rlim_t val;
     int ret = 0;
 
-    hard = ops['h'];
-    if (ops['s'] && !*argv)
+    hard = OPT_ISSET(ops,'h');
+    if (OPT_ISSET(ops,'s') && !*argv)
 	return setlimits(NULL);
     /* without arguments, display limits */
     if (!*argv) {
@@ -348,9 +359,10 @@ bin_limit(char *nam, char **argv, char *ops, int func)
 	    /* memory-type resource -- `k' and `M' modifiers are permitted,
 	    meaning (respectively) 2^10 and 2^20. */
 	    val = zstrtorlimt(s, &s, 10);
-	    if (!*s || ((*s == 'k' || *s == 'K') && !s[1]))
-		val *= 1024L;
-	    else if ((*s == 'M' || *s == 'm') && !s[1])
+	    if (!*s || ((*s == 'k' || *s == 'K') && !s[1])) {
+		if (val != RLIM_INFINITY)
+		    val *= 1024L;
+	    } else if ((*s == 'M' || *s == 'm') && !s[1])
 		val *= 1024L * 1024;
 	    else {
 		zwarnnam("limit", "unknown scaling factor: %s", s, 0);
@@ -374,7 +386,7 @@ bin_limit(char *nam, char **argv, char *ops, int func)
 	    return 1;
 	} else
 	    limits[lim].rlim_cur = val;
-	if (ops['s'] && zsetlimit(lim, "limit"))
+	if (OPT_ISSET(ops,'s') && zsetlimit(lim, "limit"))
 	    ret++;
     }
     return ret;
@@ -385,13 +397,13 @@ bin_limit(char *nam, char **argv, char *ops, int func)
 
 /**/
 static int
-bin_unlimit(char *nam, char **argv, char *ops, int func)
+bin_unlimit(char *nam, char **argv, Options ops, int func)
 {
     int hard, limnum, lim;
     int ret = 0;
     uid_t euid = geteuid();
 
-    hard = ops['h'];
+    hard = OPT_ISSET(ops,'h');
     /* Without arguments, remove all limits. */
     if (!*argv) {
 	for (limnum = 0; limnum != RLIM_NLIMITS; limnum++) {
@@ -403,7 +415,7 @@ bin_unlimit(char *nam, char **argv, char *ops, int func)
 	    } else
 		limits[limnum].rlim_cur = limits[limnum].rlim_max;
 	}
-	if (ops['s'])
+	if (OPT_ISSET(ops,'s'))
 	    ret += setlimits(nam);
 	if (ret)
 	    zwarnnam(nam, "can't remove hard limits", NULL, 0);
@@ -437,7 +449,7 @@ bin_unlimit(char *nam, char **argv, char *ops, int func)
 		    limits[lim].rlim_max = RLIM_INFINITY;
 	    } else
 		limits[lim].rlim_cur = limits[lim].rlim_max;
-	    if (ops['s'] && zsetlimit(lim, nam))
+	    if (OPT_ISSET(ops,'s') && zsetlimit(lim, nam))
 		ret++;
 	}
     }
@@ -448,7 +460,7 @@ bin_unlimit(char *nam, char **argv, char *ops, int func)
 
 /**/
 static int
-bin_ulimit(char *name, char **argv, char *ops, int func)
+bin_ulimit(char *name, char **argv, Options ops, int func)
 {
     int res, resmask = 0, hard = 0, soft = 0, nres = 0;
     char *options;
@@ -497,31 +509,35 @@ bin_ulimit(char *name, char **argv, char *ops, int func)
 		case 'c':
 		    res = RLIMIT_CORE;
 		    break;
-# ifdef RLIMIT_RSS
+# ifdef HAVE_RLIMIT_RSS
 		case 'm':
 		    res = RLIMIT_RSS;
 		    break;
-# endif /* RLIMIT_RSS */
-# ifdef RLIMIT_MEMLOCK
+# endif /* HAVE_RLIMIT_RSS */
+# ifdef HAVE_RLIMIT_MEMLOCK
 		case 'l':
 		    res = RLIMIT_MEMLOCK;
 		    break;
-# endif /* RLIMIT_MEMLOCK */
-# ifdef RLIMIT_NOFILE
+# endif /* HAVE_RLIMIT_MEMLOCK */
+# ifdef HAVE_RLIMIT_NOFILE
 		case 'n':
 		    res = RLIMIT_NOFILE;
 		    break;
-# endif /* RLIMIT_NOFILE */
-# ifdef RLIMIT_NPROC
+# endif /* HAVE_RLIMIT_NOFILE */
+# ifdef HAVE_RLIMIT_NPROC
 		case 'u':
 		    res = RLIMIT_NPROC;
 		    break;
-# endif /* RLIMIT_NPROC */
-# ifdef RLIMIT_VMEM
+# endif /* HAVE_RLIMIT_NPROC */
+# if defined(HAVE_RLIMIT_VMEM) || defined(HAVE_RLIMIT_AS)
 		case 'v':
+#  ifdef HAVE_RLIMIT_VMEM
 		    res = RLIMIT_VMEM;
+#  else
+		    res = RLIMIT_AS;
+#  endif
 		    break;
-# endif /* RLIMIT_VMEM */
+# endif /* HAVE_RLIMIT_VMEM */
 		default:
 		    /* unrecognised limit */
 		    zwarnnam(name, "bad option: -%c", NULL, *options);
@@ -559,18 +575,24 @@ bin_ulimit(char *name, char **argv, char *ops, int func)
 		break;
 	    case RLIMIT_DATA:
 	    case RLIMIT_STACK:
-# ifdef RLIMIT_RSS
+# ifdef HAVE_RLIMIT_RSS
 	    case RLIMIT_RSS:
-# endif /* RLIMIT_RSS */
-# ifdef RLIMIT_MEMLOCK
+# endif /* HAVE_RLIMIT_RSS */
+# ifdef HAVE_RLIMIT_MEMLOCK
 	    case RLIMIT_MEMLOCK:
-# endif /* RLIMIT_MEMLOCK */
-# ifdef RLIMIT_VMEM
+# endif /* HAVE_RLIMIT_MEMLOCK */
+/* If RLIMIT_VMEM and RLIMIT_RSS are defined and equal, avoid *
+ * duplicate case statement.  Observed on QNX Neutrino 6.1.0. */
+# if defined(HAVE_RLIMIT_VMEM) && !defined(RLIMIT_VMEM_IS_RSS)
 	    case RLIMIT_VMEM:
-# endif /* RLIMIT_VMEM */
-# ifdef RLIMIT_AIO_MEM
+# endif /* HAVE_RLIMIT_VMEM */
+/* ditto RLIMIT_VMEM and RLIMIT_AS */
+# if defined(HAVE_RLIMIT_AS) && !defined(RLIMIT_VMEM_IS_AS)
+	    case RLIMIT_AS:
+# endif /* HAVE_RLIMIT_AS */
+# ifdef HAVE_RLIMIT_AIO_MEM
 	    case RLIMIT_AIO_MEM:
-# endif /* RLIMIT_AIO_MEM */
+# endif /* HAVE_RLIMIT_AIO_MEM */
 		limit *= 1024;
 		break;
 	    }

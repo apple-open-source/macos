@@ -1,7 +1,8 @@
 /* DWARF debugging format support for GDB.
-   Copyright 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002
-   Free Software Foundation, Inc.
+
+   Copyright 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
+   2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+
    Written by Fred Fish at Cygnus Support.  Portions based on dbxread.c,
    mipsread.c, coffread.c, and dwarfread.c from a Data General SVR4 gdb port.
 
@@ -62,115 +63,37 @@
 
 /* Complaints that can be issued during DWARF debug info reading. */
 
-struct complaint no_bfd_get_N =
+static void
+bad_die_ref_complaint (int arg1, const char *arg2, int arg3)
 {
-  "DIE @ 0x%x \"%s\", no bfd support for %d byte data object", 0, 0
-};
+  complaint (&symfile_complaints,
+	     "DIE @ 0x%x \"%s\", reference to DIE (0x%x) outside compilation unit",
+	     arg1, arg2, arg3);
+}
 
-struct complaint malformed_die =
+static void
+unknown_attribute_form_complaint (int arg1, const char *arg2, int arg3)
 {
-  "DIE @ 0x%x \"%s\", malformed DIE, bad length (%d bytes)", 0, 0
-};
+  complaint (&symfile_complaints,
+	     "DIE @ 0x%x \"%s\", unknown attribute form (0x%x)", arg1, arg2,
+	     arg3);
+}
 
-struct complaint bad_die_ref =
+static void
+dup_user_type_definition_complaint (int arg1, const char *arg2)
 {
-  "DIE @ 0x%x \"%s\", reference to DIE (0x%x) outside compilation unit", 0, 0
-};
+  complaint (&symfile_complaints,
+	     "DIE @ 0x%x \"%s\", internal error: duplicate user type definition",
+	     arg1, arg2);
+}
 
-struct complaint unknown_attribute_form =
+static void
+bad_array_element_type_complaint (int arg1, const char *arg2, int arg3)
 {
-  "DIE @ 0x%x \"%s\", unknown attribute form (0x%x)", 0, 0
-};
-
-struct complaint unknown_attribute_length =
-{
-  "DIE @ 0x%x \"%s\", unknown attribute length, skipped remaining attributes", 0, 0
-};
-
-struct complaint unexpected_fund_type =
-{
-  "DIE @ 0x%x \"%s\", unexpected fundamental type 0x%x", 0, 0
-};
-
-struct complaint unknown_type_modifier =
-{
-  "DIE @ 0x%x \"%s\", unknown type modifier %u", 0, 0
-};
-
-struct complaint volatile_ignored =
-{
-  "DIE @ 0x%x \"%s\", type modifier 'volatile' ignored", 0, 0
-};
-
-struct complaint const_ignored =
-{
-  "DIE @ 0x%x \"%s\", type modifier 'const' ignored", 0, 0
-};
-
-struct complaint botched_modified_type =
-{
-  "DIE @ 0x%x \"%s\", botched modified type decoding (mtype 0x%x)", 0, 0
-};
-
-struct complaint op_deref2 =
-{
-  "DIE @ 0x%x \"%s\", OP_DEREF2 address 0x%x not handled", 0, 0
-};
-
-struct complaint op_deref4 =
-{
-  "DIE @ 0x%x \"%s\", OP_DEREF4 address 0x%x not handled", 0, 0
-};
-
-struct complaint basereg_not_handled =
-{
-  "DIE @ 0x%x \"%s\", BASEREG %d not handled", 0, 0
-};
-
-struct complaint dup_user_type_allocation =
-{
-  "DIE @ 0x%x \"%s\", internal error: duplicate user type allocation", 0, 0
-};
-
-struct complaint dup_user_type_definition =
-{
-  "DIE @ 0x%x \"%s\", internal error: duplicate user type definition", 0, 0
-};
-
-struct complaint missing_tag =
-{
-  "DIE @ 0x%x \"%s\", missing class, structure, or union tag", 0, 0
-};
-
-struct complaint bad_array_element_type =
-{
-  "DIE @ 0x%x \"%s\", bad array element type attribute 0x%x", 0, 0
-};
-
-struct complaint subscript_data_items =
-{
-  "DIE @ 0x%x \"%s\", can't decode subscript data items", 0, 0
-};
-
-struct complaint unhandled_array_subscript_format =
-{
-  "DIE @ 0x%x \"%s\", array subscript format 0x%x not handled yet", 0, 0
-};
-
-struct complaint unknown_array_subscript_format =
-{
-  "DIE @ 0x%x \"%s\", unknown array subscript format %x", 0, 0
-};
-
-struct complaint not_row_major =
-{
-  "DIE @ 0x%x \"%s\", array not row major; not handled correctly", 0, 0
-};
-
-struct complaint missing_at_name =
-{
-  "DIE @ 0x%x, AT_name tag missing", 0, 0
-};
+  complaint (&symfile_complaints,
+	     "DIE @ 0x%x \"%s\", bad array element type attribute 0x%x", arg1,
+	     arg2, arg3);
+}
 
 typedef unsigned int DIE_REF;	/* Reference to a DIE */
 
@@ -184,10 +107,6 @@ typedef unsigned int DIE_REF;	/* Reference to a DIE */
 
 #ifndef LCC_PRODUCER
 #define LCC_PRODUCER "NCR C/C++"
-#endif
-
-#ifndef CHILL_PRODUCER
-#define CHILL_PRODUCER "GNU Chill "
 #endif
 
 /* Flags to target_to_host() that tell whether or not the data object is
@@ -441,7 +360,7 @@ static const struct language_defn *cu_language_defn;
 /* Forward declarations of static functions so we don't have to worry
    about ordering within this file.  */
 
-static void free_utypes (PTR);
+static void free_utypes (void *);
 
 static int attribute_size (unsigned int);
 
@@ -451,19 +370,19 @@ static void add_enum_psymbol (struct dieinfo *, struct objfile *);
 
 static void handle_producer (char *);
 
-static void
-read_file_scope (struct dieinfo *, char *, char *, struct objfile *);
+static void read_file_scope (struct dieinfo *, char *, char *,
+			     struct objfile *);
 
-static void
-read_func_scope (struct dieinfo *, char *, char *, struct objfile *);
+static void read_func_scope (struct dieinfo *, char *, char *,
+			     struct objfile *);
 
-static void
-read_lexical_block_scope (struct dieinfo *, char *, char *, struct objfile *);
+static void read_lexical_block_scope (struct dieinfo *, char *, char *,
+				      struct objfile *);
 
 static void scan_partial_symbols (char *, char *, struct objfile *);
 
-static void
-scan_compilation_units (char *, char *, file_ptr, file_ptr, struct objfile *);
+static void scan_compilation_units (char *, char *, file_ptr, file_ptr,
+				    struct objfile *);
 
 static void add_partial_symbol (struct dieinfo *, struct objfile *);
 
@@ -479,8 +398,8 @@ static void read_ofile_symtab (struct partial_symtab *);
 
 static void process_dies (char *, char *, struct objfile *);
 
-static void
-read_structure_scope (struct dieinfo *, char *, char *, struct objfile *);
+static void read_structure_scope (struct dieinfo *, char *, char *,
+				  struct objfile *);
 
 static struct type *decode_array_element_type (char *);
 
@@ -494,8 +413,8 @@ static void read_tag_string_type (struct dieinfo *dip);
 
 static void read_subroutine_type (struct dieinfo *, char *, char *);
 
-static void
-read_enumeration (struct dieinfo *, char *, char *, struct objfile *);
+static void read_enumeration (struct dieinfo *, char *, char *,
+			      struct objfile *);
 
 static struct type *struct_type (struct dieinfo *, char *, char *,
 				 struct objfile *);
@@ -522,8 +441,8 @@ static struct type *alloc_utype (DIE_REF, struct type *);
 
 static struct symbol *new_symbol (struct dieinfo *, struct objfile *);
 
-static void
-synthesize_typedef (struct dieinfo *, struct objfile *, struct type *);
+static void synthesize_typedef (struct dieinfo *, struct objfile *,
+				struct type *);
 
 static int locval (struct dieinfo *);
 
@@ -620,9 +539,6 @@ set_cu_language (struct dieinfo *dip)
       break;
     case LANG_C_PLUS_PLUS:
       cu_language = language_cplus;
-      break;
-    case LANG_CHILL:
-      cu_language = language_chill;
       break;
     case LANG_MODULA2:
       cu_language = language_m2;
@@ -786,7 +702,7 @@ lookup_utype (DIE_REF die_ref)
   utypeidx = (die_ref - dbroff) / 4;
   if ((utypeidx < 0) || (utypeidx >= numutypes))
     {
-      complain (&bad_die_ref, DIE_ID, DIE_NAME);
+      bad_die_ref_complaint (DIE_ID, DIE_NAME, die_ref);
     }
   else
     {
@@ -828,12 +744,14 @@ alloc_utype (DIE_REF die_ref, struct type *utypep)
   if ((utypeidx < 0) || (utypeidx >= numutypes))
     {
       utypep = dwarf_fundamental_type (current_objfile, FT_INTEGER);
-      complain (&bad_die_ref, DIE_ID, DIE_NAME);
+      bad_die_ref_complaint (DIE_ID, DIE_NAME, die_ref);
     }
   else if (*typep != NULL)
     {
       utypep = *typep;
-      complain (&dup_user_type_allocation, DIE_ID, DIE_NAME);
+      complaint (&symfile_complaints,
+		 "DIE @ 0x%x \"%s\", internal error: duplicate user type allocation",
+		 DIE_ID, DIE_NAME);
     }
   else
     {
@@ -854,7 +772,7 @@ alloc_utype (DIE_REF die_ref, struct type *utypep)
 
    SYNOPSIS
 
-   static void free_utypes (PTR dummy)
+   static void free_utypes (void *dummy)
 
    DESCRIPTION
 
@@ -864,7 +782,7 @@ alloc_utype (DIE_REF die_ref, struct type *utypep)
  */
 
 static void
-free_utypes (PTR dummy)
+free_utypes (void *dummy)
 {
   xfree (utypes);
   utypes = NULL;
@@ -978,7 +896,9 @@ struct_type (struct dieinfo *dip, char *thisdie, char *enddie,
     default:
       /* Should never happen */
       TYPE_CODE (type) = TYPE_CODE_UNDEF;
-      complain (&missing_tag, DIE_ID, DIE_NAME);
+      complaint (&symfile_complaints,
+		 "DIE @ 0x%x \"%s\", missing class, structure, or union tag",
+		 DIE_ID, DIE_NAME);
       break;
     }
   /* Some compilers try to be helpful by inventing "fake" names for
@@ -1027,6 +947,7 @@ struct_type (struct dieinfo *dip, char *thisdie, char *enddie,
 			  &objfile->type_obstack);
 	  FIELD_TYPE (list->field) = decode_die_type (&mbr);
 	  FIELD_BITPOS (list->field) = 8 * locval (&mbr);
+	  FIELD_STATIC_KIND (list->field) = 0;
 	  /* Handle bit fields. */
 	  FIELD_BITSIZE (list->field) = mbr.at_bit_size;
 	  if (BITS_BIG_ENDIAN)
@@ -1190,7 +1111,7 @@ decode_array_element_type (char *scan)
   scan += SIZEOF_ATTRIBUTE;
   if ((nbytes = attribute_size (attribute)) == -1)
     {
-      complain (&bad_array_element_type, DIE_ID, DIE_NAME, attribute);
+      bad_array_element_type_complaint (DIE_ID, DIE_NAME, attribute);
       typep = dwarf_fundamental_type (current_objfile, FT_INTEGER);
     }
   else
@@ -1217,7 +1138,7 @@ decode_array_element_type (char *scan)
 	  typep = decode_mod_u_d_type (scan);
 	  break;
 	default:
-	  complain (&bad_array_element_type, DIE_ID, DIE_NAME, attribute);
+	  bad_array_element_type_complaint (DIE_ID, DIE_NAME, attribute);
 	  typep = dwarf_fundamental_type (current_objfile, FT_INTEGER);
 	  break;
 	}
@@ -1305,7 +1226,9 @@ decode_subscript_data_item (char *scan, char *end)
       if (nexttype == NULL)
 	{
 	  /* Munged subscript data or other problem, fake it. */
-	  complain (&subscript_data_items, DIE_ID, DIE_NAME);
+	  complaint (&symfile_complaints,
+		     "DIE @ 0x%x \"%s\", can't decode subscript data items",
+		     DIE_ID, DIE_NAME);
 	  nexttype = dwarf_fundamental_type (current_objfile, FT_INTEGER);
 	}
       rangetype = create_range_type ((struct type *) NULL, indextype,
@@ -1319,13 +1242,17 @@ decode_subscript_data_item (char *scan, char *end)
     case FMT_UT_C_X:
     case FMT_UT_X_C:
     case FMT_UT_X_X:
-      complain (&unhandled_array_subscript_format, DIE_ID, DIE_NAME, format);
+      complaint (&symfile_complaints,
+		 "DIE @ 0x%x \"%s\", array subscript format 0x%x not handled yet",
+		 DIE_ID, DIE_NAME, format);
       nexttype = dwarf_fundamental_type (current_objfile, FT_INTEGER);
       rangetype = create_range_type ((struct type *) NULL, nexttype, 0, 0);
       typep = create_array_type ((struct type *) NULL, nexttype, rangetype);
       break;
     default:
-      complain (&unknown_array_subscript_format, DIE_ID, DIE_NAME, format);
+      complaint (&symfile_complaints,
+		 "DIE @ 0x%x \"%s\", unknown array subscript format %x", DIE_ID,
+		 DIE_NAME, format);
       nexttype = dwarf_fundamental_type (current_objfile, FT_INTEGER);
       rangetype = create_range_type ((struct type *) NULL, nexttype, 0, 0);
       typep = create_array_type ((struct type *) NULL, nexttype, rangetype);
@@ -1363,7 +1290,9 @@ dwarf_read_array_type (struct dieinfo *dip)
   if (dip->at_ordering != ORD_row_major)
     {
       /* FIXME:  Can gdb even handle column major arrays? */
-      complain (&not_row_major, DIE_ID, DIE_NAME);
+      complaint (&symfile_complaints,
+		 "DIE @ 0x%x \"%s\", array not row major; not handled correctly",
+		 DIE_ID, DIE_NAME);
     }
   if ((sub = dip->at_subscr_data) != NULL)
     {
@@ -1393,7 +1322,7 @@ dwarf_read_array_type (struct dieinfo *dip)
 	{
 	  /* Double ick!  Not only is a type already in our slot, but
 	     someone has decorated it.  Complain and leave it alone. */
-	  complain (&dup_user_type_definition, DIE_ID, DIE_NAME);
+	  dup_user_type_definition_complaint (DIE_ID, DIE_NAME);
 	}
     }
 }
@@ -1491,7 +1420,7 @@ read_tag_string_type (struct dieinfo *dip)
          is a blank one.  If not, complain and leave it alone. */
       if (TYPE_CODE (utype) != TYPE_CODE_UNDEF)
 	{
-	  complain (&dup_user_type_definition, DIE_ID, DIE_NAME);
+	  dup_user_type_definition_complaint (DIE_ID, DIE_NAME);
 	  return;
 	}
     }
@@ -1557,7 +1486,7 @@ read_subroutine_type (struct dieinfo *dip, char *thisdie, char *enddie)
     }
   else
     {
-      complain (&dup_user_type_definition, DIE_ID, DIE_NAME);
+      dup_user_type_definition_complaint (DIE_ID, DIE_NAME);
     }
 }
 
@@ -1694,6 +1623,7 @@ enum_type (struct dieinfo *dip, struct objfile *objfile)
 	  list = new;
 	  FIELD_TYPE (list->field) = NULL;
 	  FIELD_BITSIZE (list->field) = 0;
+	  FIELD_STATIC_KIND (list->field) = 0;
 	  FIELD_BITPOS (list->field) =
 	    target_to_host (scan, TARGET_FT_LONG_SIZE (objfile), GET_SIGNED,
 			    objfile);
@@ -1772,7 +1702,8 @@ read_func_scope (struct dieinfo *dip, char *thisdie, char *enddie,
      FIXME: Add code to handle AT_abstract_origin tags properly.  */
   if (dip->at_name == NULL)
     {
-      complain (&missing_at_name, DIE_ID);
+      complaint (&symfile_complaints, "DIE @ 0x%x, AT_name tag missing",
+		 DIE_ID);
       return;
     }
 
@@ -1822,8 +1753,7 @@ handle_producer (char *producer)
   else
     {
       processing_gcc_compilation =
-	STREQN (producer, GPLUS_PRODUCER, strlen (GPLUS_PRODUCER))
-	|| STREQN (producer, CHILL_PRODUCER, strlen (CHILL_PRODUCER));
+	STREQN (producer, GPLUS_PRODUCER, strlen (GPLUS_PRODUCER));
     }
 
   /* Select a demangling style if we can identify the producer and if
@@ -2206,10 +2136,14 @@ locval (struct dieinfo *dip)
 	  break;
 	case OP_DEREF2:
 	  /* pop, deref and push 2 bytes (as a long) */
-	  complain (&op_deref2, DIE_ID, DIE_NAME, stack[stacki]);
+	  complaint (&symfile_complaints,
+		     "DIE @ 0x%x \"%s\", OP_DEREF2 address 0x%lx not handled",
+		     DIE_ID, DIE_NAME, stack[stacki]);
 	  break;
 	case OP_DEREF4:	/* pop, deref and push 4 bytes (as a long) */
-	  complain (&op_deref4, DIE_ID, DIE_NAME, stack[stacki]);
+	  complaint (&symfile_complaints,
+		     "DIE @ 0x%x \"%s\", OP_DEREF4 address 0x%lx not handled",
+		     DIE_ID, DIE_NAME, stack[stacki]);
 	  break;
 	case OP_ADD:		/* pop top 2 items, add, push result */
 	  stack[stacki - 1] += stack[stacki];
@@ -2278,7 +2212,7 @@ read_ofile_symtab (struct partial_symtab *pst)
   if (LNFOFF (pst))
     {
       if (bfd_seek (abfd, LNFOFF (pst), SEEK_SET) ||
-	  (bfd_bread ((PTR) lnsizedata, sizeof (lnsizedata), abfd)
+	  (bfd_bread (lnsizedata, sizeof (lnsizedata), abfd)
 	   != sizeof (lnsizedata)))
 	{
 	  error ("can't read DWARF line number table size");
@@ -2659,8 +2593,8 @@ scan_partial_symbols (char *thisdie, char *enddie, struct objfile *objfile)
 		      temp = dbbase + di.at_sibling - dbroff;
 		      if ((temp < thisdie) || (temp >= enddie))
 			{
-			  complain (&bad_die_ref, DIE_ID, DIE_NAME,
-				    di.at_sibling);
+			  bad_die_ref_complaint (DIE_ID, DIE_NAME,
+						 di.at_sibling);
 			}
 		      else
 			{
@@ -3178,7 +3112,9 @@ decode_modified_type (char *modifiers, unsigned int modcount, int mtype)
 	    }
 	  break;
 	default:
-	  complain (&botched_modified_type, DIE_ID, DIE_NAME, mtype);
+	  complaint (&symfile_complaints,
+		     "DIE @ 0x%x \"%s\", botched modified type decoding (mtype 0x%x)",
+		     DIE_ID, DIE_NAME, mtype);
 	  typep = dwarf_fundamental_type (current_objfile, FT_INTEGER);
 	  break;
 	}
@@ -3196,16 +3132,22 @@ decode_modified_type (char *modifiers, unsigned int modcount, int mtype)
 	  typep = lookup_reference_type (typep);
 	  break;
 	case MOD_const:
-	  complain (&const_ignored, DIE_ID, DIE_NAME);	/* FIXME */
+	  complaint (&symfile_complaints,
+		     "DIE @ 0x%x \"%s\", type modifier 'const' ignored", DIE_ID,
+		     DIE_NAME);	/* FIXME */
 	  break;
 	case MOD_volatile:
-	  complain (&volatile_ignored, DIE_ID, DIE_NAME);	/* FIXME */
+	  complaint (&symfile_complaints,
+		     "DIE @ 0x%x \"%s\", type modifier 'volatile' ignored",
+		     DIE_ID, DIE_NAME);	/* FIXME */
 	  break;
 	default:
 	  if (!(MOD_lo_user <= (unsigned char) modifier
 		&& (unsigned char) modifier <= MOD_hi_user))
 	    {
-	      complain (&unknown_type_modifier, DIE_ID, DIE_NAME, modifier);
+	      complaint (&symfile_complaints,
+			 "DIE @ 0x%x \"%s\", unknown type modifier %u", DIE_ID,
+			 DIE_NAME, modifier);
 	    }
 	  break;
 	}
@@ -3347,7 +3289,9 @@ decode_fund_type (unsigned int fundtype)
       typep = dwarf_fundamental_type (current_objfile, FT_INTEGER);
       if (!(FT_lo_user <= fundtype && fundtype <= FT_hi_user))
 	{
-	  complain (&unexpected_fund_type, DIE_ID, DIE_NAME, fundtype);
+	  complaint (&symfile_complaints,
+		     "DIE @ 0x%x \"%s\", unexpected fundamental type 0x%x",
+		     DIE_ID, DIE_NAME, fundtype);
 	}
     }
 
@@ -3445,7 +3389,9 @@ basicdieinfo (struct dieinfo *dip, char *diep, struct objfile *objfile)
   if ((dip->die_length < SIZEOF_DIE_LENGTH) ||
       ((diep + dip->die_length) > (dbbase + dbsize)))
     {
-      complain (&malformed_die, DIE_ID, DIE_NAME, dip->die_length);
+      complaint (&symfile_complaints,
+		 "DIE @ 0x%x \"%s\", malformed DIE, bad length (%ld bytes)",
+		 DIE_ID, DIE_NAME, dip->die_length);
       dip->die_length = 0;
     }
   else if (dip->die_length < (SIZEOF_DIE_LENGTH + SIZEOF_DIE_TAG))
@@ -3511,7 +3457,9 @@ completedieinfo (struct dieinfo *dip, struct objfile *objfile)
       diep += SIZEOF_ATTRIBUTE;
       if ((nbytes = attribute_size (attr)) == -1)
 	{
-	  complain (&unknown_attribute_length, DIE_ID, DIE_NAME);
+	  complaint (&symfile_complaints,
+		     "DIE @ 0x%x \"%s\", unknown attribute length, skipped remaining attributes",
+		     DIE_ID, DIE_NAME);
 	  diep = end;
 	  continue;
 	}
@@ -3668,7 +3616,7 @@ completedieinfo (struct dieinfo *dip, struct objfile *objfile)
 	  diep += strlen (diep) + 1;
 	  break;
 	default:
-	  complain (&unknown_attribute_form, DIE_ID, DIE_NAME, form);
+	  unknown_attribute_form_complaint (DIE_ID, DIE_NAME, form);
 	  diep = end;
 	  break;
 	}
@@ -3725,7 +3673,9 @@ target_to_host (char *from, int nbytes, int signextend,	/* FIXME:  Unused */
       rtnval = bfd_get_8 (objfile->obfd, (bfd_byte *) from);
       break;
     default:
-      complain (&no_bfd_get_N, DIE_ID, DIE_NAME, nbytes);
+      complaint (&symfile_complaints,
+		 "DIE @ 0x%x \"%s\", no bfd support for %d byte data object",
+		 DIE_ID, DIE_NAME, nbytes);
       rtnval = 0;
       break;
     }
@@ -3780,7 +3730,7 @@ attribute_size (unsigned int attr)
       nbytes = TARGET_FT_POINTER_SIZE (objfile);
       break;
     default:
-      complain (&unknown_attribute_form, DIE_ID, DIE_NAME, form);
+      unknown_attribute_form_complaint (DIE_ID, DIE_NAME, form);
       nbytes = -1;
       break;
     }

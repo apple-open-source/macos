@@ -183,4 +183,4 @@ private:
 }	// end namespace Security
 
 
-#endif _H_STREAMS
+#endif /* _H_STREAMS */

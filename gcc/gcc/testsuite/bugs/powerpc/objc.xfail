@@ -1,0 +1,571 @@
+###
+### List of failing tests with Radar bug numbers
+### <radarNum>: <test name>
+### test name should be exactly as it appears html summary reports
+### including any trailing #<number>
+###
+### When the bug is fixed and the test passes, it will be a
+### analyzed non-fail. You should then comment out the test in this
+### file and make sure the Radar bug is closed.
+###
+###------------------------------------------------------------------
+#3243382: objc.dg/const-cfstring-1.m execution test
+#3221851: objc/execute/va_method.m execution,  -O0 
+#3221851: objc/execute/va_method.m execution,  -O1 
+#3221851: objc/execute/va_method.m execution,  -O2 
+#3221851: objc/execute/va_method.m execution,  -O3 -fomit-frame-pointer 
+#3221851: objc/execute/va_method.m execution,  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions 
+#3221851: objc/execute/va_method.m execution,  -O3 -fomit-frame-pointer -funroll-loops 
+#3221851: objc/execute/va_method.m execution,  -O3 -g 
+#3221851: objc/execute/va_method.m execution,  -Os 
+#3221858: objc.dg/class-2.m  (test for errors, line 14)
+#3221858: objc.dg/class-2.m (test for excess errors)
+#3221858: objc.dg/encode-1.m execution test
+#3221858: objc.dg/method-2.m  (test for warnings, line 25)
+#3221858: objc.dg/method-2.m  (test for warnings, line 27)
+#3221858: objc.dg/method-2.m (test for excess errors)
+#3221858: objc.dg/proto-hier-1.m  (test for warnings, line 51)
+#3221858: objc.dg/proto-lossage-1.m  (test for warnings, line 38)
+#3245863: objc.dg/bitfield-1.m execution test
+#3245863: objc.dg/bitfield-2.m execution test
+#3245863: objc.dg/call-super-1.m execution test
+#3245863: objc.dg/call-super-3.m execution test
+#3245863: objc.dg/const-str-3.m execution test
+#3245863: objc.dg/const-str-4.m execution test
+#3245863: objc.dg/defs.m execution test
+#3245863: objc.dg/desig-init-1.m execution test
+#3245863: objc.dg/encode-2.m execution test
+#3245863: objc.dg/method-3.m execution test
+#3245863: objc.dg/nested-func-1.m execution test
+#3245863: objc.dg/sizeof-1.m execution test
+#3245863: objc.dg/zero-link-3.m execution test
+#3245863: objc/execute/accessing_ivars.m execution,  -O0
+#3245863: objc/execute/accessing_ivars.m execution,  -O1
+#3245863: objc/execute/accessing_ivars.m execution,  -O2
+#3245863: objc/execute/accessing_ivars.m execution,  -O3 -fomit-frame-pointer
+#3245863: objc/execute/accessing_ivars.m execution,  -O3 -g
+#3245863: objc/execute/accessing_ivars.m execution,  -Os
+#3245863: objc/execute/accessing_ivars.m execution,  -gfull
+#3245863: objc/execute/bycopy-2.m execution,  -O0
+#3245863: objc/execute/bycopy-2.m execution,  -O1
+#3245863: objc/execute/bycopy-2.m execution,  -O2
+#3245863: objc/execute/bycopy-2.m execution,  -O3 -fomit-frame-pointer
+#3245863: objc/execute/bycopy-2.m execution,  -O3 -g
+#3245863: objc/execute/bycopy-2.m execution,  -Os
+#3245863: objc/execute/bycopy-2.m execution,  -gfull
+#3245863: objc/execute/enumeration-1.m execution,  -O0
+#3245863: objc/execute/enumeration-1.m execution,  -O1
+#3245863: objc/execute/enumeration-1.m execution,  -O2
+#3245863: objc/execute/enumeration-1.m execution,  -O3 -fomit-frame-pointer
+#3245863: objc/execute/enumeration-1.m execution,  -O3 -g
+#3245863: objc/execute/enumeration-1.m execution,  -Os
+#3245863: objc/execute/enumeration-1.m execution,  -gfull
+#3245863: objc/execute/enumeration-2.m execution,  -O0
+#3245863: objc/execute/enumeration-2.m execution,  -O1
+#3245863: objc/execute/enumeration-2.m execution,  -O2
+#3245863: objc/execute/enumeration-2.m execution,  -O3 -fomit-frame-pointer
+#3245863: objc/execute/enumeration-2.m execution,  -O3 -g
+#3245863: objc/execute/enumeration-2.m execution,  -Os
+#3245863: objc/execute/enumeration-2.m execution,  -gfull
+#3245863: objc/execute/fdecl.m execution,  -O0
+#3245863: objc/execute/fdecl.m execution,  -O1
+#3245863: objc/execute/fdecl.m execution,  -O2
+#3245863: objc/execute/fdecl.m execution,  -O3 -fomit-frame-pointer
+#3245863: objc/execute/fdecl.m execution,  -O3 -g
+#3245863: objc/execute/fdecl.m execution,  -Os
+#3245863: objc/execute/fdecl.m execution,  -gfull
+#3245863: objc/execute/formal_protocol-1.m execution,  -O0
+#3245863: objc/execute/formal_protocol-1.m execution,  -O1
+#3245863: objc/execute/formal_protocol-1.m execution,  -O2
+#3245863: objc/execute/formal_protocol-1.m execution,  -O3 -fomit-frame-pointer
+#3245863: objc/execute/formal_protocol-1.m execution,  -O3 -g
+#3245863: objc/execute/formal_protocol-1.m execution,  -Os
+#3245863: objc/execute/formal_protocol-1.m execution,  -gfull
+#3245863: objc/execute/formal_protocol-2.m execution,  -O0
+#3245863: objc/execute/formal_protocol-2.m execution,  -O1
+#3245863: objc/execute/formal_protocol-2.m execution,  -O2
+#3245863: objc/execute/formal_protocol-2.m execution,  -O3 -fomit-frame-pointer
+#3245863: objc/execute/formal_protocol-2.m execution,  -O3 -g
+#3245863: objc/execute/formal_protocol-2.m execution,  -Os
+#3245863: objc/execute/formal_protocol-2.m execution,  -gfull
+#3245863: objc/execute/formal_protocol-3.m execution,  -O0
+#3245863: objc/execute/formal_protocol-3.m execution,  -O1
+#3245863: objc/execute/formal_protocol-3.m execution,  -O2
+#3245863: objc/execute/formal_protocol-3.m execution,  -O3 -fomit-frame-pointer
+#3245863: objc/execute/formal_protocol-3.m execution,  -O3 -g
+#3245863: objc/execute/formal_protocol-3.m execution,  -Os
+#3245863: objc/execute/formal_protocol-3.m execution,  -gfull
+#3245863: objc/execute/formal_protocol-4.m execution,  -O0
+#3245863: objc/execute/formal_protocol-4.m execution,  -O1
+#3245863: objc/execute/formal_protocol-4.m execution,  -O2
+#3245863: objc/execute/formal_protocol-4.m execution,  -O3 -fomit-frame-pointer
+#3245863: objc/execute/formal_protocol-4.m execution,  -O3 -g
+#3245863: objc/execute/formal_protocol-4.m execution,  -Os
+#3245863: objc/execute/formal_protocol-4.m execution,  -gfull
+#3245863: objc/execute/formal_protocol-5.m execution,  -O0
+#3245863: objc/execute/formal_protocol-5.m execution,  -O1
+#3245863: objc/execute/formal_protocol-5.m execution,  -O2
+#3245863: objc/execute/formal_protocol-5.m execution,  -O3 -fomit-frame-pointer
+#3245863: objc/execute/formal_protocol-5.m execution,  -O3 -g
+#3245863: objc/execute/formal_protocol-5.m execution,  -Os
+#3245863: objc/execute/formal_protocol-5.m execution,  -gfull
+#3245863: objc/execute/formal_protocol-7.m execution,  -O0
+#3245863: objc/execute/formal_protocol-7.m execution,  -O1
+#3245863: objc/execute/formal_protocol-7.m execution,  -O2
+#3245863: objc/execute/formal_protocol-7.m execution,  -O3 -fomit-frame-pointer
+#3245863: objc/execute/formal_protocol-7.m execution,  -O3 -g
+#3245863: objc/execute/formal_protocol-7.m execution,  -Os
+#3245863: objc/execute/formal_protocol-7.m execution,  -gfull
+#3245863: objc/execute/initialize.m execution,  -O0
+#3245863: objc/execute/initialize.m execution,  -O1
+#3245863: objc/execute/initialize.m execution,  -O2
+#3245863: objc/execute/initialize.m execution,  -O3 -fomit-frame-pointer
+#3245863: objc/execute/initialize.m execution,  -O3 -g
+#3245863: objc/execute/initialize.m execution,  -Os
+#3245863: objc/execute/initialize.m execution,  -gfull
+#3245863: objc/execute/load-2.m execution,  -O0
+#3245863: objc/execute/load-2.m execution,  -O1
+#3245863: objc/execute/load-2.m execution,  -O2
+#3245863: objc/execute/load-2.m execution,  -O3 -fomit-frame-pointer
+#3245863: objc/execute/load-2.m execution,  -O3 -g
+#3245863: objc/execute/load-2.m execution,  -Os
+#3245863: objc/execute/load-2.m execution,  -gfull
+#3245863: objc/execute/load-3.m execution,  -O0
+#3245863: objc/execute/load-3.m execution,  -O1
+#3245863: objc/execute/load-3.m execution,  -O2
+#3245863: objc/execute/load-3.m execution,  -O3 -fomit-frame-pointer
+#3245863: objc/execute/load-3.m execution,  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions
+#3245863: objc/execute/load-3.m execution,  -O3 -fomit-frame-pointer -funroll-loops
+#3245863: objc/execute/load-3.m execution,  -O3 -g
+#3245863: objc/execute/load-3.m execution,  -Os
+#3245863: objc/execute/load-3.m execution,  -gfull
+#3245863: objc/execute/load.m execution,  -O0
+#3245863: objc/execute/load.m execution,  -O1
+#3245863: objc/execute/load.m execution,  -O2
+#3245863: objc/execute/load.m execution,  -O3 -fomit-frame-pointer
+#3245863: objc/execute/load.m execution,  -O3 -g
+#3245863: objc/execute/load.m execution,  -Os
+#3245863: objc/execute/load.m execution,  -gfull
+#3245863: objc/execute/no_clash.m execution,  -O0
+#3245863: objc/execute/no_clash.m execution,  -O1
+#3245863: objc/execute/no_clash.m execution,  -O2
+#3245863: objc/execute/no_clash.m execution,  -O3 -fomit-frame-pointer
+#3245863: objc/execute/no_clash.m execution,  -O3 -g
+#3245863: objc/execute/no_clash.m execution,  -Os
+#3245863: objc/execute/no_clash.m execution,  -gfull
+#3245863: objc/execute/np-1.m execution,  -O0
+#3245863: objc/execute/np-1.m execution,  -O1
+#3245863: objc/execute/np-1.m execution,  -O2
+#3245863: objc/execute/np-1.m execution,  -O3 -fomit-frame-pointer
+#3245863: objc/execute/np-1.m execution,  -O3 -g
+#3245863: objc/execute/np-1.m execution,  -Os
+#3245863: objc/execute/np-1.m execution,  -gfull
+#3245863: objc/execute/private.m execution,  -O0
+#3245863: objc/execute/private.m execution,  -O1
+#3245863: objc/execute/private.m execution,  -O2
+#3245863: objc/execute/private.m execution,  -O3 -fomit-frame-pointer
+#3245863: objc/execute/private.m execution,  -O3 -g
+#3245863: objc/execute/private.m execution,  -Os
+#3245863: objc/execute/private.m execution,  -gfull
+#3245863: objc/execute/protocol.m execution,  -O0
+#3245863: objc/execute/protocol.m execution,  -O1
+#3245863: objc/execute/protocol.m execution,  -O2
+#3245863: objc/execute/protocol.m execution,  -O3 -fomit-frame-pointer
+#3245863: objc/execute/protocol.m execution,  -O3 -g
+#3245863: objc/execute/protocol.m execution,  -Os
+#3245863: objc/execute/protocol.m execution,  -gfull
+#3219701: objc.dg/special/unclaimed-category-1.m unclaimed-category-1a.o (test for excess errors)
+#3219701: objc/execute/IMP.m compilation,  -O0
+#3219701: objc/execute/IMP.m compilation,  -O1
+#3219701: objc/execute/IMP.m compilation,  -O2
+#3219701: objc/execute/IMP.m compilation,  -O3 -fomit-frame-pointer
+#3219701: objc/execute/IMP.m compilation,  -O3 -g
+#3219701: objc/execute/IMP.m compilation,  -Os
+#3219701: objc/execute/_cmd.m compilation,  -O0
+#3219701: objc/execute/_cmd.m compilation,  -O1
+#3219701: objc/execute/_cmd.m compilation,  -O2
+#3219701: objc/execute/_cmd.m compilation,  -O3 -fomit-frame-pointer
+#3219701: objc/execute/_cmd.m compilation,  -O3 -g
+#3219701: objc/execute/_cmd.m compilation,  -Os
+#3219701: objc/execute/class-1.m compilation,  -O0 
+#3219701: objc/execute/class-1.m compilation,  -O1 
+#3219701: objc/execute/class-1.m compilation,  -O2 
+#3219701: objc/execute/class-1.m compilation,  -O3 -fomit-frame-pointer 
+#3219701: objc/execute/class-1.m compilation,  -O3 -g 
+#3219701: objc/execute/class-1.m compilation,  -Os 
+#3219701: objc/execute/class-10.m compilation,  -O0 
+#3219701: objc/execute/class-10.m compilation,  -O1 
+#3219701: objc/execute/class-10.m compilation,  -O2 
+#3219701: objc/execute/class-10.m compilation,  -O3 -fomit-frame-pointer 
+#3219701: objc/execute/class-10.m compilation,  -O3 -g 
+#3219701: objc/execute/class-10.m compilation,  -Os 
+#3219701: objc/execute/class-11.m compilation,  -O0 
+#3219701: objc/execute/class-11.m compilation,  -O1 
+#3219701: objc/execute/class-11.m compilation,  -O2 
+#3219701: objc/execute/class-11.m compilation,  -O3 -fomit-frame-pointer 
+#3219701: objc/execute/class-11.m compilation,  -O3 -g 
+#3219701: objc/execute/class-11.m compilation,  -Os 
+#3219701: objc/execute/class-12.m compilation,  -O0 
+#3219701: objc/execute/class-12.m compilation,  -O1 
+#3219701: objc/execute/class-12.m compilation,  -O2 
+#3219701: objc/execute/class-12.m compilation,  -O3 -fomit-frame-pointer 
+#3219701: objc/execute/class-12.m compilation,  -O3 -g 
+#3219701: objc/execute/class-12.m compilation,  -Os 
+#3219701: objc/execute/class-13.m compilation,  -O0 
+#3219701: objc/execute/class-13.m compilation,  -O1 
+#3219701: objc/execute/class-13.m compilation,  -O2 
+#3219701: objc/execute/class-13.m compilation,  -O3 -fomit-frame-pointer 
+#3219701: objc/execute/class-13.m compilation,  -O3 -g 
+#3219701: objc/execute/class-13.m compilation,  -Os 
+#3219701: objc/execute/class-14.m compilation,  -O0 
+#3219701: objc/execute/class-14.m compilation,  -O1 
+#3219701: objc/execute/class-14.m compilation,  -O2 
+#3219701: objc/execute/class-14.m compilation,  -O3 -fomit-frame-pointer 
+#3219701: objc/execute/class-14.m compilation,  -O3 -g 
+#3219701: objc/execute/class-14.m compilation,  -Os 
+#3219701: objc/execute/class-2.m compilation,  -O0 
+#3219701: objc/execute/class-2.m compilation,  -O1 
+#3219701: objc/execute/class-2.m compilation,  -O2 
+#3219701: objc/execute/class-2.m compilation,  -O3 -fomit-frame-pointer 
+#3219701: objc/execute/class-2.m compilation,  -O3 -g 
+#3219701: objc/execute/class-2.m compilation,  -Os 
+#3219701: objc/execute/class-3.m compilation,  -O0 
+#3219701: objc/execute/class-3.m compilation,  -O1 
+#3219701: objc/execute/class-3.m compilation,  -O2 
+#3219701: objc/execute/class-3.m compilation,  -O3 -fomit-frame-pointer 
+#3219701: objc/execute/class-3.m compilation,  -O3 -g 
+#3219701: objc/execute/class-3.m compilation,  -Os 
+#3219701: objc/execute/class-4.m compilation,  -O0 
+#3219701: objc/execute/class-4.m compilation,  -O1 
+#3219701: objc/execute/class-4.m compilation,  -O2 
+#3219701: objc/execute/class-4.m compilation,  -O3 -fomit-frame-pointer 
+#3219701: objc/execute/class-4.m compilation,  -O3 -g 
+#3219701: objc/execute/class-4.m compilation,  -Os 
+#3219701: objc/execute/class-5.m compilation,  -O0 
+#3219701: objc/execute/class-5.m compilation,  -O1 
+#3219701: objc/execute/class-5.m compilation,  -O2 
+#3219701: objc/execute/class-5.m compilation,  -O3 -fomit-frame-pointer 
+#3219701: objc/execute/class-5.m compilation,  -O3 -g 
+#3219701: objc/execute/class-5.m compilation,  -Os 
+#3219701: objc/execute/class-6.m compilation,  -O0 
+#3219701: objc/execute/class-6.m compilation,  -O1 
+#3219701: objc/execute/class-6.m compilation,  -O2 
+#3219701: objc/execute/class-6.m compilation,  -O3 -fomit-frame-pointer 
+#3219701: objc/execute/class-6.m compilation,  -O3 -g 
+#3219701: objc/execute/class-6.m compilation,  -Os 
+#3219701: objc/execute/class-7.m compilation,  -O0 
+#3219701: objc/execute/class-7.m compilation,  -O1 
+#3219701: objc/execute/class-7.m compilation,  -O2 
+#3219701: objc/execute/class-7.m compilation,  -O3 -fomit-frame-pointer 
+#3219701: objc/execute/class-7.m compilation,  -O3 -g 
+#3219701: objc/execute/class-7.m compilation,  -Os 
+#3219701: objc/execute/class-8.m compilation,  -O0 
+#3219701: objc/execute/class-8.m compilation,  -O1 
+#3219701: objc/execute/class-8.m compilation,  -O2 
+#3219701: objc/execute/class-8.m compilation,  -O3 -fomit-frame-pointer 
+#3219701: objc/execute/class-8.m compilation,  -O3 -g 
+#3219701: objc/execute/class-8.m compilation,  -Os 
+#3219701: objc/execute/class-9.m compilation,  -O0 
+#3219701: objc/execute/class-9.m compilation,  -O1 
+#3219701: objc/execute/class-9.m compilation,  -O2 
+#3219701: objc/execute/class-9.m compilation,  -O3 -fomit-frame-pointer 
+#3219701: objc/execute/class-9.m compilation,  -O3 -g 
+#3219701: objc/execute/class-9.m compilation,  -Os 
+#3221811: objc/execute/class_self-1.m execution,  -O0 
+#3221811: objc/execute/class_self-1.m execution,  -O1 
+#3221811: objc/execute/class_self-1.m execution,  -O2 
+#3221811: objc/execute/class_self-1.m execution,  -O3 -fomit-frame-pointer 
+#3221811: objc/execute/class_self-1.m execution,  -O3 -g 
+#3221811: objc/execute/class_self-1.m execution,  -Os 
+#3221811: objc/execute/class_self-2.m execution,  -O0 
+#3221811: objc/execute/class_self-2.m execution,  -O1 
+#3221811: objc/execute/class_self-2.m execution,  -O2 
+#3221811: objc/execute/class_self-2.m execution,  -O3 -fomit-frame-pointer 
+#3221811: objc/execute/class_self-2.m execution,  -O3 -g 
+#3221811: objc/execute/class_self-2.m execution,  -Os 
+#3221811: objc/execute/many_args_method.m execution,  -O0 
+#3221811: objc/execute/many_args_method.m execution,  -O1 
+#3221811: objc/execute/many_args_method.m execution,  -O2 
+#3221811: objc/execute/many_args_method.m execution,  -O3 -fomit-frame-pointer 
+#3221811: objc/execute/many_args_method.m execution,  -O3 -g 
+#3221811: objc/execute/many_args_method.m execution,  -Os 
+#3221811: objc/execute/nested-3.m execution,  -O0 
+#3221811: objc/execute/nested-3.m execution,  -O1 
+#3221811: objc/execute/nested-3.m execution,  -O2 
+#3221811: objc/execute/nested-3.m execution,  -O3 -fomit-frame-pointer 
+#3221811: objc/execute/nested-3.m execution,  -O3 -g 
+#3221811: objc/execute/nested-3.m execution,  -Os 
+#3221811: objc/execute/np-2.m execution,  -O0 
+#3221811: objc/execute/np-2.m execution,  -O1 
+#3221811: objc/execute/np-2.m execution,  -O2 
+#3221811: objc/execute/np-2.m execution,  -O3 -fomit-frame-pointer 
+#3221811: objc/execute/np-2.m execution,  -O3 -g 
+#3221811: objc/execute/np-2.m execution,  -Os 
+#3221811: objc/execute/redefining_self.m execution,  -O0 
+#3221811: objc/execute/redefining_self.m execution,  -O1 
+#3221811: objc/execute/redefining_self.m execution,  -O2 
+#3221811: objc/execute/redefining_self.m execution,  -O3 -fomit-frame-pointer 
+#3221811: objc/execute/redefining_self.m execution,  -O3 -g 
+#3221811: objc/execute/redefining_self.m execution,  -Os 
+#3221811: objc/execute/root_methods.m compilation,  -O0 
+#3221811: objc/execute/root_methods.m compilation,  -O1 
+#3221811: objc/execute/root_methods.m compilation,  -O2 
+#3221811: objc/execute/root_methods.m compilation,  -O3 -fomit-frame-pointer 
+#3221811: objc/execute/root_methods.m compilation,  -O3 -g 
+#3221811: objc/execute/root_methods.m compilation,  -Os 
+#3221811: objc/execute/static-1.m execution,  -O0 
+#3221811: objc/execute/static-1.m execution,  -O1 
+#3221811: objc/execute/static-1.m execution,  -O2 
+#3221811: objc/execute/static-1.m execution,  -O3 -fomit-frame-pointer 
+#3221811: objc/execute/static-1.m execution,  -O3 -g 
+#3221811: objc/execute/static-1.m execution,  -Os 
+#3221811: objc/execute/static-2.m execution,  -O0 
+#3221811: objc/execute/static-2.m execution,  -O1 
+#3221811: objc/execute/static-2.m execution,  -O2 
+#3221811: objc/execute/static-2.m execution,  -O3 -fomit-frame-pointer 
+#3221811: objc/execute/static-2.m execution,  -O3 -g 
+#3221811: objc/execute/static-2.m execution,  -Os 
+#3256251: objc/execute/IMP.m compilation,  -gfull
+#3256251: objc/execute/_cmd.m compilation,  -gfull
+#3256251: objc/execute/class-1.m compilation,  -gfull
+#3256251: objc/execute/class-10.m compilation,  -gfull
+#3256251: objc/execute/class-11.m compilation,  -gfull
+#3256251: objc/execute/class-12.m compilation,  -gfull
+#3256251: objc/execute/class-13.m compilation,  -gfull
+#3256251: objc/execute/class-14.m compilation,  -gfull
+#3256251: objc/execute/class-2.m compilation,  -gfull
+#3256251: objc/execute/class-3.m compilation,  -gfull
+#3256251: objc/execute/class-4.m compilation,  -gfull
+#3256251: objc/execute/class-5.m compilation,  -gfull
+#3256251: objc/execute/class-6.m compilation,  -gfull
+#3256251: objc/execute/class-7.m compilation,  -gfull
+#3256251: objc/execute/class-8.m compilation,  -gfull
+#3256251: objc/execute/class-9.m compilation,  -gfull
+#3256251: objc/execute/class_self-1.m execution,  -gfull
+#3256251: objc/execute/class_self-2.m execution,  -gfull
+#3256251: objc/execute/many_args_method.m execution,  -gfull
+#3256251: objc/execute/nested-3.m execution,  -gfull
+#3256251: objc/execute/np-2.m execution,  -gfull
+#3256251: objc/execute/object_is_class.m compilation,  -gfull
+#3256251: objc/execute/object_is_meta_class.m compilation,  -gfull
+#3256251: objc/execute/redefining_self.m execution,  -gfull
+#3256251: objc/execute/root_methods.m compilation,  -gfull
+#3256251: objc/execute/static-1.m execution,  -gfull
+#3256251: objc/execute/static-2.m execution,  -gfull
+#3256251: objc/execute/va_method.m compilation,  -gfull
+#3243351: objc/execute/object_is_class.m compilation,  -O0
+#3243351: objc/execute/object_is_class.m compilation,  -O1
+#3243351: objc/execute/object_is_class.m compilation,  -O2
+#3243351: objc/execute/object_is_class.m compilation,  -O3 -fomit-frame-pointer
+#3243351: objc/execute/object_is_class.m compilation,  -O3 -g
+#3243351: objc/execute/object_is_class.m compilation,  -Os
+#3243351: objc/execute/object_is_meta_class.m compilation,  -O0
+#3243351: objc/execute/object_is_meta_class.m compilation,  -O1
+#3243351: objc/execute/object_is_meta_class.m compilation,  -O2
+#3243351: objc/execute/object_is_meta_class.m compilation,  -O3 -fomit-frame-pointer
+#3243351: objc/execute/object_is_meta_class.m compilation,  -O3 -g
+#3243351: objc/execute/object_is_meta_class.m compilation,  -Os
+#3243364: objc/execute/va_method.m compilation,  -O0
+#3243364: objc/execute/va_method.m compilation,  -O1
+#3243364: objc/execute/va_method.m compilation,  -O2
+#3243364: objc/execute/va_method.m compilation,  -O3 -fomit-frame-pointer
+#3243364: objc/execute/va_method.m compilation,  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions
+#3243364: objc/execute/va_method.m compilation,  -O3 -fomit-frame-pointer -funroll-loops
+#3243364: objc/execute/va_method.m compilation,  -O3 -g
+#3243364: objc/execute/va_method.m compilation,  -Os
+#3256270: objc/execute/string1.m compilation,  -O0 
+#3256270: objc/execute/string1.m compilation,  -O1 
+#3256270: objc/execute/string1.m compilation,  -O2 
+#3256270: objc/execute/string1.m compilation,  -O3 -fomit-frame-pointer 
+#3256270: objc/execute/string1.m compilation,  -O3 -g 
+#3256270: objc/execute/string1.m compilation,  -Os 
+#3256270: objc/execute/string2.m compilation,  -O0 
+#3256270: objc/execute/string2.m compilation,  -O1 
+#3256270: objc/execute/string2.m compilation,  -O2 
+#3256270: objc/execute/string2.m compilation,  -O3 -fomit-frame-pointer 
+#3256270: objc/execute/string2.m compilation,  -O3 -g 
+#3256270: objc/execute/string2.m compilation,  -Os 
+#3256270: objc/execute/string3.m compilation,  -O0 
+#3256270: objc/execute/string3.m compilation,  -O1 
+#3256270: objc/execute/string3.m compilation,  -O2 
+#3256270: objc/execute/string3.m compilation,  -O3 -fomit-frame-pointer 
+#3256270: objc/execute/string3.m compilation,  -O3 -g 
+#3256270: objc/execute/string3.m compilation,  -Os 
+#3256270: objc/execute/string4.m compilation,  -O0 
+#3256270: objc/execute/string4.m compilation,  -O1 
+#3256270: objc/execute/string4.m compilation,  -O2 
+#3256270: objc/execute/string4.m compilation,  -O3 -fomit-frame-pointer 
+#3256270: objc/execute/string4.m compilation,  -O3 -g 
+#3256270: objc/execute/string4.m compilation,  -Os 
+#3256251: objc/execute/string1.m compilation,  -gfull
+#3256251: objc/execute/string2.m compilation,  -gfull
+#3256251: objc/execute/string3.m compilation,  -gfull
+#3256251: objc/execute/string4.m compilation,  -gfull
+#3256129: objc/execute/class-7.m execution,  -O0
+#3256129: objc/execute/class-7.m execution,  -O1
+#3256129: objc/execute/class-7.m execution,  -O2
+#3256129: objc/execute/class-7.m execution,  -O3 -fomit-frame-pointer
+#3256129: objc/execute/class-7.m execution,  -O3 -g
+#3256129: objc/execute/class-7.m execution,  -Os
+#3256129: objc/execute/class-7.m execution,  -gfull
+#3221858: objc.dg/class-1.m  (test for errors, line 15)
+#3221858: objc.dg/class-1.m  (test for errors, line 18)
+#3221858: objc.dg/naming-2.m  (test for errors, line 11)
+#3221858: objc.dg/naming-2.m  (test for errors, line 9)
+#3221858: objc.dg/objc.c (test for excess errors)
+###------------------------------------------------------------------
+#3256251: objc/execute/bf-1.m compilation,  -O0
+#3256251: objc/execute/bf-1.m compilation,  -O1
+#3256251: objc/execute/bf-1.m compilation,  -O2
+#3256251: objc/execute/bf-1.m compilation,  -O3 -fomit-frame-pointer
+#3256251: objc/execute/bf-1.m compilation,  -O3 -g
+#3256251: objc/execute/bf-1.m compilation,  -Os
+#3256251: objc/execute/bf-10.m compilation,  -O0
+#3256251: objc/execute/bf-10.m compilation,  -O1
+#3256251: objc/execute/bf-10.m compilation,  -O2
+#3256251: objc/execute/bf-10.m compilation,  -O3 -fomit-frame-pointer
+#3256251: objc/execute/bf-10.m compilation,  -O3 -g
+#3256251: objc/execute/bf-10.m compilation,  -Os
+#3256251: objc/execute/bf-11.m compilation,  -O0
+#3256251: objc/execute/bf-11.m compilation,  -O1
+#3256251: objc/execute/bf-11.m compilation,  -O2
+#3256251: objc/execute/bf-11.m compilation,  -O3 -fomit-frame-pointer
+#3256251: objc/execute/bf-11.m compilation,  -O3 -g
+#3256251: objc/execute/bf-11.m compilation,  -Os
+#3256251: objc/execute/bf-12.m compilation,  -O0 
+#3256251: objc/execute/bf-12.m compilation,  -O1 
+#3256251: objc/execute/bf-12.m compilation,  -O2 
+#3256251: objc/execute/bf-12.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-12.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-12.m compilation,  -Os 
+#3256251: objc/execute/bf-13.m compilation,  -O0 
+#3256251: objc/execute/bf-13.m compilation,  -O1 
+#3256251: objc/execute/bf-13.m compilation,  -O2 
+#3256251: objc/execute/bf-13.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-13.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-13.m compilation,  -Os 
+#3256251: objc/execute/bf-14.m compilation,  -O0 
+#3256251: objc/execute/bf-14.m compilation,  -O1 
+#3256251: objc/execute/bf-14.m compilation,  -O2 
+#3256251: objc/execute/bf-14.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-14.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-14.m compilation,  -Os 
+#3256251: objc/execute/bf-15.m compilation,  -O0 
+#3256251: objc/execute/bf-15.m compilation,  -O1 
+#3256251: objc/execute/bf-15.m compilation,  -O2 
+#3256251: objc/execute/bf-15.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-15.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-15.m compilation,  -Os 
+#3256251: objc/execute/bf-16.m compilation,  -O0 
+#3256251: objc/execute/bf-16.m compilation,  -O1 
+#3256251: objc/execute/bf-16.m compilation,  -O2 
+#3256251: objc/execute/bf-16.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-16.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-16.m compilation,  -Os 
+#3256251: objc/execute/bf-17.m compilation,  -O0 
+#3256251: objc/execute/bf-17.m compilation,  -O1 
+#3256251: objc/execute/bf-17.m compilation,  -O2 
+#3256251: objc/execute/bf-17.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-17.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-17.m compilation,  -Os 
+#3256251: objc/execute/bf-18.m compilation,  -O0 
+#3256251: objc/execute/bf-18.m compilation,  -O1 
+#3256251: objc/execute/bf-18.m compilation,  -O2 
+#3256251: objc/execute/bf-18.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-18.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-18.m compilation,  -Os 
+#3256251: objc/execute/bf-19.m compilation,  -O0 
+#3256251: objc/execute/bf-19.m compilation,  -O1 
+#3256251: objc/execute/bf-19.m compilation,  -O2 
+#3256251: objc/execute/bf-19.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-19.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-19.m compilation,  -Os 
+#3256251: objc/execute/bf-2.m compilation,  -O0 
+#3256251: objc/execute/bf-2.m compilation,  -O1 
+#3256251: objc/execute/bf-2.m compilation,  -O2 
+#3256251: objc/execute/bf-2.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-2.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-2.m compilation,  -Os 
+#3256251: objc/execute/bf-20.m compilation,  -O0 
+#3256251: objc/execute/bf-20.m compilation,  -O1 
+#3256251: objc/execute/bf-20.m compilation,  -O2 
+#3256251: objc/execute/bf-20.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-20.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-20.m compilation,  -Os 
+#3256251: objc/execute/bf-21.m compilation,  -O0 
+#3256251: objc/execute/bf-21.m compilation,  -O1 
+#3256251: objc/execute/bf-21.m compilation,  -O2 
+#3256251: objc/execute/bf-21.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-21.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-21.m compilation,  -Os 
+#3256251: objc/execute/bf-3.m compilation,  -O0 
+#3256251: objc/execute/bf-3.m compilation,  -O1 
+#3256251: objc/execute/bf-3.m compilation,  -O2 
+#3256251: objc/execute/bf-3.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-3.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-3.m compilation,  -Os 
+#3256251: objc/execute/bf-4.m compilation,  -O0 
+#3256251: objc/execute/bf-4.m compilation,  -O1 
+#3256251: objc/execute/bf-4.m compilation,  -O2 
+#3256251: objc/execute/bf-4.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-4.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-4.m compilation,  -Os 
+#3256251: objc/execute/bf-5.m compilation,  -O0 
+#3256251: objc/execute/bf-5.m compilation,  -O1 
+#3256251: objc/execute/bf-5.m compilation,  -O2 
+#3256251: objc/execute/bf-5.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-5.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-5.m compilation,  -Os 
+#3256251: objc/execute/bf-6.m compilation,  -O0 
+#3256251: objc/execute/bf-6.m compilation,  -O1 
+#3256251: objc/execute/bf-6.m compilation,  -O2 
+#3256251: objc/execute/bf-6.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-6.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-6.m compilation,  -Os 
+#3256251: objc/execute/bf-7.m compilation,  -O0 
+#3256251: objc/execute/bf-7.m compilation,  -O1 
+#3256251: objc/execute/bf-7.m compilation,  -O2 
+#3256251: objc/execute/bf-7.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-7.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-7.m compilation,  -Os 
+#3256251: objc/execute/bf-8.m compilation,  -O0 
+#3256251: objc/execute/bf-8.m compilation,  -O1 
+#3256251: objc/execute/bf-8.m compilation,  -O2 
+#3256251: objc/execute/bf-8.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-8.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-8.m compilation,  -Os 
+#3256251: objc/execute/bf-9.m compilation,  -O0 
+#3256251: objc/execute/bf-9.m compilation,  -O1 
+#3256251: objc/execute/bf-9.m compilation,  -O2 
+#3256251: objc/execute/bf-9.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bf-9.m compilation,  -O3 -g 
+#3256251: objc/execute/bf-9.m compilation,  -Os 
+#3256251: objc/execute/bycopy-3.m compilation,  -O0 
+#3256251: objc/execute/bycopy-3.m compilation,  -O1 
+#3256251: objc/execute/bycopy-3.m compilation,  -O2 
+#3256251: objc/execute/bycopy-3.m compilation,  -O3 -fomit-frame-pointer 
+#3256251: objc/execute/bycopy-3.m compilation,  -O3 -g 
+#3256251: objc/execute/bycopy-3.m compilation,  -Os 
+#3256251: objc/execute/bf-1.m compilation,  -gfull
+#3256251: objc/execute/bf-10.m compilation,  -gfull
+#3256251: objc/execute/bf-11.m compilation,  -gfull
+#3256251: objc/execute/bf-12.m compilation,  -gfull
+#3256251: objc/execute/bf-13.m compilation,  -gfull
+#3256251: objc/execute/bf-14.m compilation,  -gfull
+#3256251: objc/execute/bf-15.m compilation,  -gfull
+#3256251: objc/execute/bf-16.m compilation,  -gfull
+#3256251: objc/execute/bf-17.m compilation,  -gfull
+#3256251: objc/execute/bf-18.m compilation,  -gfull
+#3256251: objc/execute/bf-19.m compilation,  -gfull
+#3256251: objc/execute/bf-2.m compilation,  -gfull
+#3256251: objc/execute/bf-20.m compilation,  -gfull
+#3256251: objc/execute/bf-21.m compilation,  -gfull
+#3256251: objc/execute/bf-3.m compilation,  -gfull
+#3256251: objc/execute/bf-4.m compilation,  -gfull
+#3256251: objc/execute/bf-5.m compilation,  -gfull
+#3256251: objc/execute/bf-6.m compilation,  -gfull
+#3256251: objc/execute/bf-7.m compilation,  -gfull
+#3256251: objc/execute/bf-8.m compilation,  -gfull
+#3256251: objc/execute/bf-9.m compilation,  -gfull
+#3256251: objc/execute/bycopy-3.m compilation,  -gfull
+#3252510: objc.dg/try-catch-2.m (test for excess errors)

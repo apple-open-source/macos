@@ -171,7 +171,14 @@ namespace eval Session {
     set values(dirs) $gdb_source_path
     set values(pwd) $gdb_current_directory
     set values(target) $gdb_target_name
+    set values(target_cmd) $::gdb_target_cmd
 
+    # these prefs need to be made session-dependent
+    set values(run_attach) [pref get gdb/src/run_attach]
+    set values(run_load) [pref get gdb/src/run_load]
+    set values(run_run) [pref get gdb/src/run_run]
+    set values(run_cont) [pref get gdb/src/run_cont]
+    
     # Breakpoints.
     set values(breakpoints) [_serialize_bps]
 
@@ -194,8 +201,6 @@ namespace eval Session {
   # the session, as returned by Session::list_names.
   #
   proc load {name} {
-    global gdb_target_name
-
     # gdb sessions are named after the executable.
     set key gdb/session/$name
 
@@ -230,6 +235,12 @@ namespace eval Session {
       set values($k) [pref getd $key/$k]
     }
 
+    # reset these back to their defaults
+    pref set gdb/src/run_attach          0
+    pref set gdb/src/run_load            0
+    pref set gdb/src/run_run             1
+    pref set gdb/src/run_cont            0
+
     if {! [info exists values(executable)] || $values(executable) != $name} {
       # No such session.
       return
@@ -244,7 +255,7 @@ namespace eval Session {
     }
 
     if {[info exists values(pwd)]} {
-      gdb_cmd "cd $values(pwd)"
+      catch {gdb_cmd "cd $values(pwd)"}
     }
 
     if {[info exists values(args)]} {
@@ -258,7 +269,17 @@ namespace eval Session {
     if {[info exists values(target)]} {
       debug "Restoring Target: $values(target)"
       set gdb_target_name $values(target)
+      debug "Restoring Target_Cmd: $values(target_cmd)"
+      set ::gdb_target_cmd $values(target_cmd)
+      set_baud
     }
+    
+    if {[info exists values(run_attach)]} {
+      pref set gdb/src/run_attach $values(run_attach)
+      pref set gdb/src/run_load $values(run_load)
+      pref set gdb/src/run_run $values(run_run)
+      pref set gdb/src/run_cont $values(run_cont)
+    } 
   }
 
   #

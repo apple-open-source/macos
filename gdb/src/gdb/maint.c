@@ -1,5 +1,5 @@
 /* Support for GDB maintenance commands.
-   Copyright 1992, 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002
+   Copyright 1992, 1993, 1994, 1995, 1996, 1997, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
    Written by Fred Fish at Cygnus Support.
 
@@ -118,8 +118,18 @@ maintenance_dump_me (char *args, int from_tty)
 static void
 maintenance_internal_error (char *args, int from_tty)
 {
-  internal_error (__FILE__, __LINE__,
-		  "internal maintenance");
+  internal_error (__FILE__, __LINE__, "%s", (args == NULL ? "" : args));
+}
+
+/* Stimulate the internal error mechanism that GDB uses when an
+   internal problem is detected.  Allows testing of the mechanism.
+   Also useful when the user wants to drop a core file but not exit
+   GDB. */
+
+static void
+maintenance_internal_warning (char *args, int from_tty)
+{
+  internal_warning (__FILE__, __LINE__, "%s", (args == NULL ? "" : args));
 }
 
 /* Someday we should allow demangling for things other than just
@@ -143,16 +153,13 @@ maintenance_demangle (char *args, int from_tty)
     {
       switch (current_language->la_language)
 	{
-	case language_cplus:
-	default:
-	  demangled = cplus_demangle (args, DMGL_ANSI | DMGL_PARAMS);
-	  break;
 	case language_objc:
 	case language_objcplus:
 	  demangled = objc_demangle (args);
 	  break;
-	case language_chill:
-	  demangled = chill_demangle (args);
+	case language_cplus:
+	default:
+	  demangled = cplus_demangle (args, DMGL_ANSI | DMGL_PARAMS);
 	  break;
 	}
       if (demangled != NULL)
@@ -304,9 +311,9 @@ print_bfd_flags (flagword flags)
 }
 
 static void
-print_section_info (const char *name, flagword flags, 
-		    CORE_ADDR addr, CORE_ADDR endaddr, 
-		    unsigned long filepos)
+maint_print_section_info (const char *name, flagword flags, 
+			  CORE_ADDR addr, CORE_ADDR endaddr, 
+			  unsigned long filepos)
 {
   /* FIXME-32x64: Need print_address_numeric with field width.  */
   printf_filtered ("    0x%s", paddr (addr));
@@ -334,7 +341,7 @@ print_bfd_section_info (bfd *abfd,
 
       addr = bfd_section_vma (abfd, asect);
       endaddr = addr + bfd_section_size (abfd, asect);
-      print_section_info (name, flags, addr, endaddr, asect->filepos);
+      maint_print_section_info (name, flags, addr, endaddr, asect->filepos);
     }
 }
 
@@ -350,7 +357,7 @@ print_objfile_section_info (bfd *abfd,
       || match_substring (string, name)
       || match_bfd_flags (string, flags))
     {
-      print_section_info (name, flags, asect->addr, asect->endaddr, 
+      maint_print_section_info (name, flags, asect->addr, asect->endaddr, 
 			  asect->the_bfd_section->filepos);
     }
 }
@@ -631,16 +638,60 @@ maintenance_show_cmd (char *args, int from_tty)
   cmd_show_list (maintenance_show_cmdlist, from_tty, "");
 }
 
-#ifdef NOTYET
 /* Profiling support.  */
 
 static int maintenance_profile_p;
 
+#if defined (HAVE_MONSTARTUP) && defined (HAVE__MCLEANUP)
+
+static int profiling_state;
+
+static void
+mcleanup_wrapper (void)
+{
+  extern void _mcleanup (void);
+
+  if (profiling_state)
+    _mcleanup ();
+}
+
 static void
 maintenance_set_profile_cmd (char *args, int from_tty, struct cmd_list_element *c)
 {
-  maintenance_profile_p = 0;
-  warning ("\"maintenance set profile\" command not supported.\n");
+  if (maintenance_profile_p == profiling_state)
+    return;
+
+  profiling_state = maintenance_profile_p;
+
+  if (maintenance_profile_p)
+    {
+      static int profiling_initialized;
+
+      extern void monstartup (unsigned long, unsigned long);
+      extern char _etext;
+      extern int main();
+
+      if (!profiling_initialized)
+	{
+	  atexit (mcleanup_wrapper);
+	  profiling_initialized = 1;
+	}
+
+      /* "main" is now always the first function in the text segment, so use
+	 its address for monstartup.  */
+      monstartup ((unsigned long) &main, (unsigned long) &_etext);
+    }
+  else
+    {
+      extern void _mcleanup (void);
+      _mcleanup ();
+    }
+}
+#else
+static void
+maintenance_set_profile_cmd (char *args, int from_tty, struct cmd_list_element *c)
+{
+  error ("Profiling support is not available on this system.");
 }
 #endif
 
@@ -653,7 +704,7 @@ _initialize_maint_cmds (void)
 		  "Commands for use by GDB maintainers.\n\
 Includes commands to dump specific internal GDB structures in\n\
 a human readable form, to cause GDB to deliberately dump core,\n\
-to test internal functions such as the C++/ObjC/Chill demangler, etc.",
+to test internal functions such as the C++/ObjC demangler, etc.",
 		  &maintenancelist, "maintenance ", 0,
 		  &cmdlist);
 
@@ -699,7 +750,7 @@ Configure variables internal to GDB that aid in GDB's maintenance",
 #ifndef _WIN32
   add_cmd ("dump-me", class_maintenance, maintenance_dump_me,
 	   "Get fatal error; make debugger dump its core.\n\
-GDB sets it's handling of SIGQUIT back to SIG_DFL and then sends\n\
+GDB sets its handling of SIGQUIT back to SIG_DFL and then sends\n\
 itself a SIGQUIT signal.",
 	   &maintenancelist);
 #endif
@@ -709,8 +760,13 @@ itself a SIGQUIT signal.",
 Cause GDB to behave as if an internal error was detected.",
 	   &maintenancelist);
 
+  add_cmd ("internal-warning", class_maintenance, maintenance_internal_warning,
+	   "Give GDB an internal warning.\n\
+Cause GDB to behave as if an internal warning was reported.",
+	   &maintenancelist);
+
   add_cmd ("demangle", class_maintenance, maintenance_demangle,
-	   "Demangle a C++/ObjC/Chill mangled name.\n\
+	   "Demangle a C++/ObjC mangled name.\n\
 Call internal GDB demangler routine to demangle a C++ link name\n\
 and prints the result.",
 	   &maintenancelist);
@@ -794,17 +850,12 @@ passes without a response from the target, an error occurs.", &setlist),
 		      &showlist);
 
 
-#ifdef NOTYET
-  /* FIXME: cagney/2001-09-24: A patch introducing a
-     add_set_boolean_cmd() is pending, the below should probably use
-     it.  A patch implementing profiling is pending, this just sets up
-     the framework.  */
-  tmpcmd = add_set_cmd ("profile", class_maintenance,
-			var_boolean, &maintenance_profile_p,
-			"Set internal profiling.\n\
-When enabled GDB is profiled.",
-			&maintenance_set_cmdlist);
-  set_cmd_sfunc (tmpcmd, maintenance_set_profile_cmd);
-  add_show_from_set (tmpcmd, &maintenance_show_cmdlist);
-#endif
+  add_setshow_boolean_cmd ("profile", class_maintenance,
+			   &maintenance_profile_p,
+			   "Set internal profiling.\n"
+			   "When enabled GDB is profiled.",
+			   "Show internal profiling.\n",
+			   maintenance_set_profile_cmd, NULL,
+			   &maintenance_set_cmdlist,
+			   &maintenance_show_cmdlist);
 }

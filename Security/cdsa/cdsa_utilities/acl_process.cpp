@@ -19,25 +19,17 @@
 //
 // acl_process - Process-attribute ACL subject type.
 //
-#ifdef __MWERKS__
-#define _CPP_ACL_PROCESS
-#endif
-
 #include <Security/acl_process.h>
+#include <Security/endian.h>
 #include <algorithm>
 
-#include <cstdio>	// testing
-
 
 //
-// Validate a credential set against this subject
+// Validate a credential set against this subject.
+// No credential is required for this match.
 //
-bool ProcessAclSubject::validate(const AclValidationContext &context,
-    const TypedList &sample) const
+bool ProcessAclSubject::validate(const AclValidationContext &context) const
 {
-    if (sample.length() != 1)	// no-argument sample
-		CssmError::throwMe(CSSM_ERRCODE_INVALID_SAMPLE_VALUE);
-    
     // reality check (internal structure was validated when created)
     assert(select.uses(CSSM_ACL_MATCH_BITS));
     
@@ -101,6 +93,10 @@ ProcessAclSubject *ProcessAclSubject::Maker::make(const TypedList &list) const
 ProcessAclSubject *ProcessAclSubject::Maker::make(Version, Reader &pub, Reader &priv) const
 {
     AclProcessSubjectSelector selector; pub(selector);
+	n2hi(selector.version);
+	n2hi(selector.mask);
+	n2hi(selector.uid);
+	n2hi(selector.gid);
 	return new ProcessAclSubject(selector);
 }
 
@@ -115,7 +111,12 @@ void ProcessAclSubject::exportBlob(Writer::Counter &pub, Writer::Counter &priv)
 
 void ProcessAclSubject::exportBlob(Writer &pub, Writer &priv)
 {
-    pub(select);
+	AclProcessSubjectSelector temp;
+	temp.version = h2n (select.version);
+	temp.mask = h2n (select.mask);
+	temp.uid = h2n (select.uid);
+	temp.gid = h2n (select.gid);
+    pub(temp);
 }
 
 

@@ -1,0 +1,28 @@
+# This is a list of toolchains that are supported on this board.
+set_board_info target_install {powerpc-eabi}
+
+# Load the generic configuration for this board, This will define a basic
+# set of routines needed by the tool to communicate with the board.
+load_generic_config "sim"
+
+# basic-sim.exp is a basic description for the standard Cygnus simulator.
+load_base_board_description "basic-sim"
+
+# The name of the simulator is "ppc".
+setup_sim ppc
+
+# No multilib flags needed by default.
+process_multilib_options ""
+
+# The compiler used to build for this board. This has *nothing* to do
+# with what compiler is tested if we're testing gcc.
+set_board_info compiler  "[find_gcc]"
+
+set_board_info cflags  "[libgloss_include_flags] [newlib_include_flags]"
+set_board_info ldflags  "-msim [libgloss_link_flags] [newlib_link_flags]"
+
+# No support for signals on this target.
+set_board_info gdb,nosignals 1;
+
+# Can't call functions from GDB.
+# set_board_info gdb,cannot_call_functions 1

@@ -1,0 +1,573 @@
+<!-- $Id: mqstress.xml,v 1.1 2002/03/07 08:56:15 pra Exp $ -->
+<!--
+
+ Contains a number of "stress" tests for JBossMQ. These should normally
+ not be run during JBoss tests, but by JBossMQ developers. Most of them
+ depends on the ability to start and stop JBoss from within ant.
+
+ The version propertys must be manually updated when build/build.xml is
+ changed.
+
+
+  The set of tests to run here:
+ 
+  1. Test exception listener by bringing the server down and up.
+  -  mq-test-exception-listener (stress.iterationcount)
+
+  2. Test queue, by bringing server down halfway and up again. 
+  - mq-test-queue (stress.iterationcount)
+
+  3. Test massive usage of queue (50 000 by default). 
+  - mq-test-queue-massive (uses massive.iterationcount)
+
+  4. Test durable sub, bring the server down halfway and up again. 
+  - mq-test-durable (stress.iterationcount)
+
+  5. Test two subscriptions on one clientID, same as above
+  -  mq-test-durable-multiple (stress.iterationcount)
+
+  6. Test bad behaving durable subs. 
+  - mq-test-durable-bad (jbosstest.iterationcount)
+
+  7. Massive test of topic
+  - mq-test-massive  (uses massive.iterationcount)
+
+  8. Massive test of topic with a bad subscriber 
+  - mq-test-massive-failsub (uses massive.iterationcount)
+
+-->
+
+<!-- Must be syncronized with build/build.xml -->
+   
+    <property name="version.major" value="3"/>
+    <property name="version.minor" value="0"/>
+    <property name="version.revision" value="0"/>
+    <property name="version.tag" value="beta2"/>
+    <property name="version.name" value="HEAD"/>
+
+    <!-- Module name(s) & version -->
+    <property name="run.name" value="jboss"/>
+    <property name="run.version" value="${version.major}.${version.minor}.${version.revision}${version.tag}"/>
+
+    <property name="run.output" value="${project.root}/build/output"/>
+    <property name="run.id" value="${run.name}-${run.version}"/>
+    <property name="run.root" value="${run.output}/${run.id}/bin"/>
+    <property name="run.sleep" value="50"/><!-- seconds -->
+    <property name="shutdown.sleep" value="20"/><!-- seconds -->
+
+    <!-- propertys that are larger than test defaults -->
+    <property name="stress.iterationcount" value="1000"/>
+    <property name="massive.iterationcount" value="50000"/>
+    <property name="massive.junit.jvm.options" value="-Xmx256m"/>
+    <property name="massive.timeout" value="3400000"/>
+
+
+<target name="setup-jboss">
+  <!-- have to copy in jbossmq-service.xml, since redeploye does not work -->
+</target>
+<target name="restore-jboss">
+  <!-- Copy old jbossmq-service.xml back -->
+</target>
+
+<!--
+ Start JBoss.
+-->
+<target name="start-jboss">
+     <echo>Starting JBoss</echo>
+      <java 
+	    jar="${run.root}/run.jar" 
+	    fork="yes" 
+	    dir="${run.root}"
+	    output="${build.testlog}/run.log"
+	    >
+          <jvmarg value="-Xmx256m"/>
+<!--       Here we should have tools.jar
+          <classpath>
+            <pathelement location="${build.classes}"/>
+            <pathelement location="${build.resources}"/>
+            <path refid="tests.classpath"/>
+           </classpath>
+-->
+        </java>
+</target>
+
+<!--
+ Stop JBoss.
+-->
+<target name="stop-jboss">
+         <echo>Stopping JBoss</echo>
+         <java jar="${run.root}/shutdown.jar"
+	       fork="yes" 
+	    dir="${run.root}">
+<!--
+          <arg value="localhost"/>
+          <arg value="1099"/>
+-->
+        </java>
+</target>
+
+<!-- Should be made into a test where many connection are created but not
+     properly release. Then a check on threads in the server should be done 
+-->
+<target name="failClient" depends="jars">
+      <java 
+	    classname="org.jboss.test.jbossmq.stress.ClientFailTest" 
+	    fork="yes" 
+	    dir="${module.output}"
+	    >
+            <sysproperty key="log4j.properties" file="${build.resources}/log4j.properties"/>
+       
+          <classpath>
+            <pathelement location="${build.classes}"/>
+            <pathelement location="${build.resources}"/>
+            <path refid="tests.classpath"/>
+           </classpath>
+        </java>
+
+
+</target>
+
+<!--
+  Test excepion listener. Two tests:
+  1. Create a subscriber with an ex listener. DO NOT send any messages. Take
+     the server down and up and send messages and see if it gets them.
+  2. Create a subscriber with an ex listener. Send half of the messages.
+     Take the server up and down and publish rest. Test if the listener got
+     them all.
+
+-->
+<target name="mq-test-exception-listener" depends="jars">
+<!-- Test ex listener without any message being sent before shutdown -->
+    <parallel>
+      <sequential>
+        <antcall target="start-jboss"/>
+      </sequential>
+      <sequential>
+        <sleep seconds="${run.sleep}"/><!-- Provide some time for JBoss and listener to tart -->
+        <sleep seconds="${run.sleep}"/><!-- Provide some time for JBoss and listener to tart -->
+        <antcall target="stop-jboss"/>
+        <sleep seconds="${shutdown.sleep}"/>
+        <antcall target="start-jboss"/>
+      </sequential>
+      <sequential>
+        <sleep seconds="${run.sleep}"/><!-- Provide some time for JBoss and listener to tart -->
+        <sleep seconds="${run.sleep}"/><!-- Provide some time for JBoss and listener to tart -->
+        <sleep seconds="${run.sleep}"/><!-- Provide some time for JBoss and listener to tart -->
+        <echo>Publishing two</echo>
+        <call target="mq-test-publish-two"/>
+      </sequential>
+      <sequential>
+        <echo>Waiting for JBoss to activate (${run.sleep} seconds)</echo>
+        <!-- need something to wait until jboss is up, or timeout -->
+        <sleep seconds="${run.sleep}"/>
+
+        <echo>Starting Listener</echo>
+        <call target="mq-test-run-ex-listener"/>
+        <antcall target="stop-jboss"/>
+        <sleep seconds="${shutdown.sleep}"/>
+      </sequential>
+    </parallel>
+
+<!-- Test ex listener with message being sent before shutdown -->
+    <parallel>
+      <sequential>
+        <antcall target="start-jboss"/>
+      </sequential>
+      <sequential>
+        <sleep seconds="${run.sleep}"/><!-- Provide some time for JBoss and listener to tart -->
+        <sleep seconds="${run.sleep}"/><!-- Provide some time for JBoss and listener to tart -->
+        <echo>Publishing one</echo>
+        <call target="mq-test-publish-one"/>
+        <antcall target="stop-jboss"/>
+        <sleep seconds="${shutdown.sleep}"/>
+        <antcall target="start-jboss"/>
+      </sequential>
+      <sequential>
+        <sleep seconds="${run.sleep}"/><!-- Provide some time for JBoss and listener to tart -->
+        <sleep seconds="${run.sleep}"/><!-- Provide some time for JBoss and listener to tart -->
+        <sleep seconds="${run.sleep}"/><!-- Provide some time for JBoss and listener to tart -->
+        <echo>Publishing one</echo>
+        <call target="mq-test-publish-one"/>
+      </sequential>
+      <sequential>
+        <echo>Waiting for JBoss to activate (${run.sleep} seconds)</echo>
+        <!-- need something to wait until jboss is up, or timeout -->
+        <sleep seconds="${run.sleep}"/>
+
+        <echo>Starting Listener</echo>
+        <call target="mq-test-run-ex-listener"/>
+        <antcall target="stop-jboss"/>
+        <sleep seconds="${shutdown.sleep}"/>
+      </sequential>
+    </parallel>
+
+</target>
+<!-- Helpet target to test ex listener -->
+<target name="mq-test-run-ex-listener">
+  <antcall target="mq-one-test">
+    <param name="test" value="org.jboss.test.jbossmq.stress.ExceptionListenerTest"/>
+  </antcall>
+</target>
+<target name="mq-test-publish-one">
+  <antcall target="mq-one-test">
+    <param name="test" value="org.jboss.test.jbossmq.stress.RunPublishOne"/>
+  </antcall>
+</target>
+
+<target name="mq-test-publish-two">
+  <antcall target="mq-one-test">
+    <param name="test" value="org.jboss.test.jbossmq.stress.RunPublishTwo"/>
+  </antcall>
+</target>
+
+<!--
+ Test queue subscription by setting one up. Publish half the messages and
+ then take the sub down. Then we take the server down and up and take a new
+  queue sub up. It should receive all the messages sent when it was down.
+ Also test the servers ability to restore messages for durables.
+-->
+<target name="mq-test-queue" depends="jars">
+    <parallel>
+      <sequential>
+        <antcall target="start-jboss"/>
+      </sequential>
+
+      <sequential>
+        <echo>Waiting for JBoss to activate (${run.sleep} seconds)</echo>
+        <!-- need something to wait until jboss is up, or timeout -->
+        <sleep seconds="${run.sleep}"/>
+
+        <!-- start the testsuite (it will generate reports by default) -->
+        <echo>Starting JBoss/Testsuite</echo>
+        <call target="mq-test-queue-one"/>
+
+        <!-- shutdown the server -->
+        <echo>Stopping JBoss</echo>
+        <antcall target="stop-jboss"/>
+      </sequential>
+    </parallel>
+    <parallel>
+      <sequential>
+        <antcall target="start-jboss"/>
+      </sequential>
+
+      <sequential>
+        <echo>Waiting for JBoss to activate (${run.sleep} seconds)</echo>
+        <!-- need something to wait until jboss is up, or timeout -->
+        <sleep seconds="${run.sleep}"/>
+
+        <!-- start the testsuite (it will generate reports by default) -->
+        <echo>Starting JBoss/Testsuite</echo>
+        <call target="mq-test-queue-two"/>
+
+        <!-- shutdown the server -->
+        <echo>Stopping JBoss</echo>
+        <antcall target="stop-jboss"/>
+      </sequential>
+    </parallel>
+
+</target>
+<!-- Helper targets to test queue -->
+<target name="mq-test-queue-one">
+  <antcall target="mq-one-test">
+    <param name="test" value="org.jboss.test.jbossmq.stress.QueueSubOne"/>
+  </antcall>
+</target>
+
+<target name="mq-test-queue-two">
+  <antcall target="mq-one-test">
+    <param name="test" value="org.jboss.test.jbossmq.stress.QueueSubTwo"/>
+  </antcall>
+</target>
+
+<!--
+ Does the same test as above but MASSIVE, and without bringing the server down.
+-->
+<target name="mq-test-queue-massive" depends="jars">
+
+  <parallel>
+      <sequential>
+        <antcall target="start-jboss"/>
+      </sequential>
+    <sequential>
+        <echo>Waiting for JBoss to activate (${run.sleep} seconds)</echo>
+        <!-- need something to wait until jboss is up, or timeout -->
+        <sleep seconds="${run.sleep}"/>
+        <antcall target="mq-one-test-massive">
+          <param name="test" value="org.jboss.test.jbossmq.stress.QueueTest"/>
+        </antcall>
+     <antcall target="stop-jboss"/>
+  </sequential>
+ </parallel>
+</target>
+
+<!--
+ Test durable subscription by setting one up. Publish half the messages and
+ then take the sub down. The we take the server down and up and take a new
+ durable sub up. It should receive all the messages sent when it was down.
+ Also test the servers ability to restore messages for durables.
+-->
+<target name="mq-test-durable">
+ <antcall target="mq-test-durable-runner">
+   <param name="test.one" value="mq-test-durable-one"/>
+   <param name="test.two" value="mq-test-durable-two"/>
+ </antcall>
+</target>
+
+<target name="mq-test-durable-multiple">
+ <antcall target="mq-test-durable-runner">
+   <param name="test.one" value="mq-test-mds-one"/>
+   <param name="test.two" value="mq-test-mds-two"/>
+ </antcall>
+</target>
+
+<target name="mq-test-durable-runner" depends="jars" if="test.one">
+    <parallel>
+      <sequential>
+        <antcall target="start-jboss"/>
+      </sequential>
+
+      <sequential>
+        <echo>Waiting for JBoss to activate (${run.sleep} seconds)</echo>
+        <!-- need something to wait until jboss is up, or timeout -->
+        <sleep seconds="${run.sleep}"/>
+
+        <!-- start the testsuite (it will generate reports by default) -->
+        <echo>Starting JBoss/Testsuite</echo>
+        <call target="${test.one}"/>
+
+        <!-- shutdown the server -->
+        <echo>Stopping JBoss</echo>
+        <antcall target="stop-jboss"/>
+      </sequential>
+    </parallel>
+    <parallel>
+      <sequential>
+        <antcall target="start-jboss"/>
+      </sequential>
+
+      <sequential>
+        <echo>Waiting for JBoss to activate (${run.sleep} seconds)</echo>
+        <!-- need something to wait until jboss is up, or timeout -->
+        <sleep seconds="${run.sleep}"/>
+
+        <!-- start the testsuite (it will generate reports by default) -->
+        <echo>Starting JBoss/Testsuite</echo>
+        <call target="${test.two}"/>
+
+        <!-- shutdown the server -->
+        <echo>Stopping JBoss</echo>
+        <antcall target="stop-jboss"/>
+      </sequential>
+    </parallel>
+
+</target>
+
+<target name="mq-test-durable-one">
+  <antcall target="mq-one-test">
+    <param name="test" value="org.jboss.test.jbossmq.stress.DurableSubOne"/>
+  </antcall>
+</target>
+
+<target name="mq-test-durable-two">
+  <antcall target="mq-one-test">
+    <param name="test" value="org.jboss.test.jbossmq.stress.DurableSubTwo"/>
+  </antcall>
+</target>
+
+<target name="mq-test-mds-one">
+  <antcall target="mq-one-test">
+    <param name="test" value="org.jboss.test.jbossmq.stress.MDSOne"/>
+  </antcall>
+</target>
+
+<target name="mq-test-mds-two">
+  <antcall target="mq-one-test">
+    <param name="test" value="org.jboss.test.jbossmq.stress.MDSTtwo"/>
+  </antcall>
+</target>
+<!--
+  Some test about durable subscriber.
+  1. Create a durable subscriber connection without discinnecting.
+  2. Create a durable susbscriber and disconnect - if this work, JBossMQ
+     garbage durable subs good.
+  3. Test a durable subscription.
+
+-->
+<target name="mq-test-durable-bad" depends="jars" >
+    <mkdir dir="${build.reports}"/>
+    <mkdir dir="${build.testlog}"/>
+    <parallel>
+      <sequential>
+        <antcall target="start-jboss"/>
+      </sequential>
+
+      <sequential>
+        <echo>Waiting for JBoss to activate (${run.sleep} seconds)</echo>
+        <!-- need something to wait until jboss is up, or timeout -->
+        <sleep seconds="${run.sleep}"/>
+    <junit dir="${module.output}"
+	   printsummary="${junit.printsummary}" 
+	   haltonerror="${junit.haltonerror}" 
+	   haltonfailure="${junit.haltonfailure}" 
+	   fork="${junit.fork}"
+	   timeout="${junit.timeout}"
+	   jvm="${junit.jvm}">
+
+      <jvmarg value="${junit.jvm.options}"/>
+      <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
+      <sysproperty key="log4j.properties" file="${build.resources}/log4j.properties"/>
+      <sysproperty key="jbosstest.threadcount" value="${jbosstest.threadcount}"/>
+      <sysproperty key="jbosstest.iterationcount" value="${jbosstest.iterationcount}"/>
+      <sysproperty key="jbosstest.beancount" value="${jbosstest.beancount}"/>
+
+
+      <classpath>
+        <pathelement location="${build.classes}"/>
+        <pathelement location="${build.resources}"/>
+        <path refid="tests.classpath"/>
+      </classpath>
+
+      <formatter classname="org.jboss.ant.taskdefs.XMLJUnitResultFormatter"
+		 extension=".xml" usefile="${junit.formatter.usefile}"/>
+
+      <test todir="${build.reports}" name="org.jboss.test.jbossmq.stress.FailedDurableSub"
+	    haltonerror="${junit.batchtest.haltonerror}" 
+	    haltonfailure="${junit.batchtest.haltonfailure}" 
+	    fork="${junit.batchtest.fork}"/>
+      <test todir="${build.reports}" name="org.jboss.test.jbossmq.stress.DurableSubscriberTest"
+	    haltonerror="${junit.batchtest.haltonerror}" 
+	    haltonfailure="${junit.batchtest.haltonfailure}" 
+	    fork="${junit.batchtest.fork}"/>
+
+    </junit>
+   <antcall target="stop-jboss"/>
+  </sequential>
+ </parallel>
+</target>
+
+<!--
+  Massive test of JBossMQ, should be run with a large iterator count,
+  a lot of memory for junit, a large junit.timeout and with resonable low
+  settings in jbossmq-service.xml
+
+ -Djunit.jvm.options=-Xmx256m -Djunit.timeout=3400000 -Dmassive.iterationcount=100000
+  
+    <mbean code="org.jboss.mq.server.MessageCache"
+	 name="jboss.mq:service=MessageCache">
+    <attribute name="HighMemoryMark">70</attribute>
+    <attribute name="MaxMemoryMark">120</attribute>
+    <depends optional-attribute-name="CacheStore">jboss.mq:service=CacheStore</depends>
+  </mbean>
+-->
+<target name="mq-test-massive" depends="jars">
+     <parallel>
+      <sequential>
+        <antcall target="start-jboss"/>
+      </sequential>
+    <sequential>
+        <echo>Waiting for JBoss to activate (${run.sleep} seconds)</echo>
+        <!-- need something to wait until jboss is up, or timeout -->
+        <sleep seconds="${run.sleep}"/>
+       <antcall target="mq-one-test-massive">
+         <param name="test" value="org.jboss.test.jbossmq.stress.MassiveTest"/>
+       </antcall>
+     <antcall target="stop-jboss"/>
+  </sequential>
+ </parallel>
+</target>
+
+<!--
+ Same above, but with a dangling subscription. 
+
+ FIXME: make antcallabe with param of class to test!!!
+-->
+<target name="mq-test-massive-failsub" depends="jars">
+     <parallel>
+      <sequential>
+        <antcall target="start-jboss"/>
+      </sequential>
+    <sequential>
+        <echo>Waiting for JBoss to activate (${run.sleep} seconds)</echo>
+        <!-- need something to wait until jboss is up, or timeout -->
+        <sleep seconds="${run.sleep}"/>
+       <antcall target="mq-one-test-massive">
+         <param name="test" value="org.jboss.test.jbossmq.stress.MassivFailingSub"/>
+       </antcall>
+     <antcall target="stop-jboss"/>
+  </sequential>
+ </parallel>
+</target>
+<!-- Should only be run from other targets, does not do init or build -->
+  <target name="mq-one-test" if="test" depends="init"
+	  description="Execute a single test.">
+    <mkdir dir="${build.reports}"/>
+    <mkdir dir="${build.testlog}"/>
+    <junit dir="${module.output}"
+	   printsummary="${junit.printsummary}" 
+	   haltonerror="${junit.haltonerror}" 
+	   haltonfailure="${junit.haltonfailure}" 
+	   fork="${junit.fork}"
+	   timeout="${junit.timeout}"
+	   jvm="${junit.jvm}">
+
+      <jvmarg value="${junit.jvm.options}"/>
+      <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
+      <sysproperty key="log4j.properties" file="${build.resources}/log4j.properties"/>
+      <sysproperty key="jbosstest.threadcount" value="${jbosstest.threadcount}"/>
+      <sysproperty key="jbosstest.iterationcount" value="${stress.iterationcount}"/>
+      <sysproperty key="jbosstest.beancount" value="${jbosstest.beancount}"/>
+      <sysproperty key="run.sleep" value="${run.sleep}"/>
+
+      <classpath>
+        <pathelement location="${build.classes}"/>
+        <pathelement location="${build.resources}"/>
+        <path refid="tests.classpath"/>
+      </classpath>
+
+      <formatter classname="org.jboss.ant.taskdefs.XMLJUnitResultFormatter"
+		 extension=".xml" usefile="${junit.formatter.usefile}"/>
+
+      <test todir="${build.reports}" name="${test}"
+		 haltonerror="${junit.batchtest.haltonerror}" 
+		 haltonfailure="${junit.batchtest.haltonfailure}" 
+		 fork="${junit.batchtest.fork}"/>
+    </junit>
+  </target>
+
+<!-- Should only be run from other targets, does not do init or build -->
+  <target name="mq-one-test-massive" if="test" depends="init"
+	  description="Execute a single test.">
+    <mkdir dir="${build.reports}"/>
+    <mkdir dir="${build.testlog}"/>
+    <junit dir="${module.output}"
+	   printsummary="${junit.printsummary}" 
+	   haltonerror="${junit.haltonerror}" 
+	   haltonfailure="${junit.haltonfailure}" 
+	   fork="${junit.fork}"
+	   timeout="${massive.timeout}"
+	   jvm="${junit.jvm}">
+
+      <jvmarg value="${massive.junit.jvm.options}"/>
+      <sysproperty key="jbosstest.deploy.dir" file="${build.lib}"/>
+      <sysproperty key="log4j.properties" file="${build.resources}/log4j.properties"/>
+      <sysproperty key="jbosstest.threadcount" value="${jbosstest.threadcount}"/>
+      <sysproperty key="jbosstest.iterationcount" value="${massive.iterationcount}"/>
+      <sysproperty key="jbosstest.beancount" value="${jbosstest.beancount}"/>
+      <sysproperty key="run.sleep" value="${run.sleep}"/>
+
+      <classpath>
+        <pathelement location="${build.classes}"/>
+        <pathelement location="${build.resources}"/>
+        <path refid="tests.classpath"/>
+      </classpath>
+
+      <formatter classname="org.jboss.ant.taskdefs.XMLJUnitResultFormatter"
+		 extension=".xml" usefile="${junit.formatter.usefile}"/>
+
+      <test todir="${build.reports}" name="${test}"
+		 haltonerror="${junit.batchtest.haltonerror}" 
+		 haltonfailure="${junit.batchtest.haltonfailure}" 
+		 fork="${junit.batchtest.fork}"/>
+    </junit>
+  </target>

@@ -1,0 +1,245 @@
+Mailman - The GNU Mailing List Management System
+Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
+59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+
+
+FRISSÍTÉS KORÁBBI VERZIÓKRÓL
+
+    A legtöbb esetben a Mailman frissítése nem több mint egy újabb
+    verzió telepítése a meglévõ verzióra. Azonban néhány esetben
+    saját kezüleg kell gondoskodni a módosításokról.
+
+    What you need to do depends on the version you are using and the
+    version you are upgrading to.  In all cases, you should first turn
+    off your mail and web access to your Mailman installation.  You're
+    essentially upgrading a database, and it's usually a good idea to
+    make sure the database cannot be modified in the middle of the
+    upgrade.
+
+    A következõket ajánlom
+
+    - Kapcsoljuk ki a bejövõ leveleket fogadó levelezõ démont. A legtöbb
+      távoli smtp kiszolgáló várakozó listába teszi a leveleket, ha a
+      25-ös port nem válaszol.
+
+    - Kapcsoljuk ki átmenetileg a Mailman webfelületét. Ez meg tehetjük,
+      úgy hogy a webkiszolgálót átmenetileg leállítjuk, vagy úgy hogy
+      a Mailman lapokhoz érkezõ kéréseket ideiglenesen átirányítjuk egy
+      "szolgáltatás nem érhetõ el" lapra. Ennek a beállításához kérjük
+      olvasd el a webszervered dokumentációját.
+
+    Mailman will NOT upgrade the template files for existing lists.
+    Chuq Von Rospach gives some useful advice in this message to the
+    users mailing list:
+
+    http://mail.python.org/pipermail/mailman-users/2000-September/006826.html
+
+    [Actually, the upgrade to MM2.1a2 /will/ shuffle template files,
+     deleting any that it detects are unchanged from the original
+     defaults (calculated via md5 checksums).]
+
+
+FRISSÍTÉS 2.0.x-RÕL 2.1-RE
+
+    A 2.1-es Mailman 
+    In Mailman 2.1, the qrunner subsystem has been completely
+    rewritten.  You no longer start qrunner from cron!  Instead, there
+    is a bin/mailmanctl script which is used to start, stop, and
+    restart mail delivery.  This script is appropriate to use as a
+    Unix init script.  Be sure to update your crontab with the new
+    cron/crontab.in file.
+
+    NOTE: It is very important that if you are upgrading from a
+    pre-MM2.1alpha2 system to a post-MM2.1alpha2 system that you let
+    the old qrunner process clear any and all messages sitting in the
+    qfiles/ directory *BEFORE* you upgrade.  Otherwise after the
+    upgrade, those messages will not get delivered, and I'm not
+    exactly sure yet how to upgrade those pending messages.
+
+    NOTE: When upgrading to Mailman 2.1beta1, you will need to
+    regenerate your aliases files.  There have been many changes to
+    the alias names, the programs they map to, and the name of the
+    wrapper script.  See README.<yourMTA> for details of making
+    Mailman work with your mail server.
+
+    To regenerate your aliases, use the bin/genaliases script.
+
+    Mailman 2.1 introduces multilingual (a.k.a. internationalization
+    or i18n) support.  Previously only one language per list was
+    supported, and it was assumed that this language would be English.
+    The upgrade script for Mailman 2.1 creates a subdirectory `en'
+    inside each lists/<listname> directory.  It then copies all the
+    .txt and .html files from lists/<listname> into
+    lists/<listname>/en.
+
+    If you have modified those templates to contain non-English text,
+    you will have to manually rename the en subdirectories to the
+    language code for the language of your templates.  Mailman's
+    upgrade script should handle cleaning up any templates which are
+    duplicates of the defaults, but you'll want to double check this
+    manually. 
+
+
+FRISSÍTÉS 2.0-RÓL 2.0.1-RE
+
+    Semmi mást nem kell csinálni, mint futtatni a "make install"
+    parancsot.
+
+
+UPGRADING FROM 2.0 beta to 2.0 final
+
+    You MUST re-run configure; running config.status is not sufficient
+    due to some recent changes in the autoconf scripts.  You can do a
+    head of config.status if you don't remember the options you
+    originally ran configure with.
+
+    The cron jobs for Mailman 2.0 final have changed considerably,
+    including the frequency with which they run.  You should reload
+    misc/crontab.in for the `mailman' user to get the right settings.
+    See the INSTALL file for details.
+
+    FAILURE TO DO THIS WILL RESULT IN A LESS THAN OPTIMALLY FUNCTIONAL
+    MAILMAN INSTALLATION.
+
+
+UPGRADING FROM 1.x to 2.x
+
+    In addition to the instructions above, I highly recommend that you
+    make sure your Mailman queue is cleared /before/ upgrading.
+
+    Mailman version 1.x had a cron script called run_queue which was
+    part of its bulk mailer.  With Mailman 2.x there is no default
+    bulk mailer (it lets the MTA handle this), and it is currently
+    unknown what the effects of upgrading are on the run_queue script,
+    but I'll bet it's not good. :)
+
+    The way to make sure that your Mailman queue is empty is to look
+    in your $prefix/data directory.  If you see any files that start
+    with "mm_q." you've still got messages waiting on the queue.  You
+    can run $prefix/cron/run_queue by hand until the queue is cleared.
+    Multiple invocations of this script won't help though; they lock
+    each other out.  Also, be warned that clearing the queue can take
+    a while and may cause a large load on your system (two reasons why
+    all this stuff has been redesigned in 2.x :).
+
+    You do not need to run "make update" if you are upgrading from
+    version 1.0 or 1.1 to version 2.0, since this is now run
+    automatically when you do a "make install".  However you should
+    modify your crontab entries to execute cron/qrunner instead of
+    cron/run_queue.  You can also safely remove the file
+    $prefix/cron/run_queue.
+
+    If you are upgrading from a pre-1.0 beta, you need to follow the
+    instructions below.
+
+
+UPGRADING FROM PRE-1.0 to 2.x
+
+    You need to do a few extra things to make sure that the file
+    system layout for the early 1.0 betas is upgraded to the 1.x
+    configuration.  There are two ways to do this.
+
+    First, from the source directory, after you've done a "make
+    install" you can run "make update".  "make update" creates a file
+    named "update.log" in the top level of the source distribution.
+    If the script that updates the Mailman filesystem encounters
+    something that is not resolvable, it will log info about this to
+    "update.log".  This is worth checking after the upgrade completes.
+
+    You can also just change to the installation directory (i.e. $prefix)
+    and run bin/update.  This is the same as above except that the
+    update.log file is not generated.
+
+    Check your crontab entry.  Remove any runs of obsolete scripts, in
+    particular cron/upvolumes_yearly, cron/upvolumes_monthly, or
+    cron/archive.
+
+
+WHAT "MAKE UPDATE" DOES
+
+    Below is an annotated listing of the things that "make update"
+    does.  Hopefully, this will help resolve any problems you are
+    having.
+
+    Note that it can't hurt to run "make update" each time you
+    upgrade, but if you're running version 1.0 or newer, it won't help
+    much either!
+
+    - To upgrade to 1.0b10, you will need to copy
+      templates/options.html to lists/<listname>/options.html for each
+      mailing list you have.  However, if you have edited the
+      options.html file, say from the Web interface, you will have to
+      merge these changes in manually.
+
+    - The upgrade to 1.0b7 included the removal of
+      Mailman/smtplib.py{,c} since Mailman now uses the default Python
+      1.5.2 version of smtplib.
+
+    - Archiving files are moved around as part of integrating
+      Pipermail into Mailman, as of 1.0b6.  In particular,
+
+      1) if a list has only a private mbox archive
+      $prefix/archives/private/<listname> is moved to 
+      $prefix/archives/private/<listname>.mbox/<listname> 
+
+      2) if a list has only a public mbox archive
+      $prefix/archives/public/<listname> is moved to
+      $prefix/archives/private/<listname>.mbox/<listname>
+
+      and a symlink is made that points
+      $prefix/archives/public/<listname>.mbox to
+      $prefix/archives/private/<listname>.mbox/<listname>
+
+      3) if a list has both private and public mbox archives, 
+      make update picks one of the above 2 configurations based on
+      whether or not the list currently is archived publicly.  It then
+      renames the other mbox to mbox.preb6.
+
+      4) if a list used recent CVS sources, where archives were placed in
+      $prefix/public_html/archives, then these are moved to
+      $prefix/archives/private/<listname> and a symlink is made from
+      $prefix/archives/public/<listname> to that spot if the list's
+      archives are public.  Also, a permissions-related security
+      problem is removed.
+
+      To integrate mbox archives of old lists, log in as user `mailman'
+      and run $prefix/bin/arch <listname> <path-to-mbox-archive>.
+
+      Also, by default, beta6 does both mbox and html based archiving,
+      but you can configure Mailman to do one, both, or neither.
+      Please see $prefix/Mailman/Defaults.py for details.
+
+      There was a short period of time when the CVS sources archiving
+      code was not organized into its own package.  The pickled
+      articles in the archives that were placed into archives during
+      this period stored the path to the module HyperArch, but that
+      module has moved.  You can quick fix this by running
+
+      ln -s $prefix/Mailman/Archiver/HyperArch.py \
+              $prefix/Mailman/HyperArch.py  
+
+    - If upgrading from version 1.0b4 or earlier, "make update" moves
+      list-specific templates.  For each list,
+      $prefix/templates/<listname>/* is moved to $prefix/lists/<listname>.
+      Please reference the generic templates in $prefix/templates to see
+      if any variables have changed (There shouldn't be many, only
+      options.html was updated from b5 to b6).
+
+      For really old versions of Mailman, you may not even have
+      <listname> subdirectories in $prefix/templates!  In this case
+      you will need to manually copy some files into your new list
+      directories.  Here's an example shell command that will do the
+      trick:
+
+      cp templates/{archives,handle_opts,listinfo,roster,subscribe}.html lists/<listname>
+
+    - Some modules that existed in previous versions, but that have
+      been replaced with newer (differently named) modules, are
+      removed.
+
+
+
+Local Variables:
+mode: indented-text
+indent-tabs-mode: nil
+End:

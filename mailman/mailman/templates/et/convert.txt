@@ -1,0 +1,32 @@
+%(listname)s listi teenindab nüüdsest uus meililistide haldamise
+tarkvara nimega "Mailman". Loodetavasti lahendab see probleemid,
+mis selle listi haldamise ja kasutamisega varem seotud olid.
+
+Kuidas see muutus teid mõjutab?
+
+1) Listi saadetavad kirjad tuleb saata aadressile:
+	%(listaddr)s.
+
+2) Teile genereeriti unikaalne parool, mille abil listserver
+identifitseerib teid meili teel saadetavate korraldustes.
+Parool saadetakse eraldi kirjaga, mis võib olla juba varem laekunud.
+Juhuks kui peaksite parooli unustama, saadetakse nüüdsest alates see
+parool teile iga kuu uuesti meeldetuletusena.
+
+3) Kui teil on ligipääs WWW-le, siis saate seda parooli kasutada
+listist lahkumiseks, listkirjade kättetoimetamise mooduse muutmiseks
+(referaadid või üksikkirjad) ning listi arhiiviga tutvumiseks.
+Veebilehe aadress, mille kaudu kõiki neid toiminguid teha saab on:
+    
+    %(listinfo_url)s
+
+4) Kui teil ei ole ligipääsu WWW-le, siis saate kõiki neid toiminguid
+teha ka meili teel. Saatke aadressile %(requestaddr)s kiri, mille
+teemaks või sisuks on ainult üks sõna - "help" (ilma jutumärkideta).
+Peagi saate automaatse vastuse, mis sisaldab edasisi juhendeid.
+
+Küsimuste või probleemidega pöörduge aadressile:
+	%(adminaddr)s.
+
+Selle teate genereeris ja saatis Mailman %(version)s. Mailmani
+kohta saab lähemat infot aadressilt http://www.list.org/

@@ -24,11 +24,11 @@
 #include "sysdep.h"
 #include "libbfd.h"
 
+#include "libiberty.h"
+
 #ifndef HAVE_GETPAGESIZE
 #define getpagesize() 2048
 #endif
-
-static size_t real_read PARAMS ((PTR, size_t, size_t, FILE *));
 
 /*
 SECTION
@@ -43,22 +43,22 @@ DESCRIPTION
 /* A routine which is used in target vectors for unsupported
    operations.  */
 
-boolean
+bfd_boolean
 bfd_false (ignore)
      bfd *ignore ATTRIBUTE_UNUSED;
 {
   bfd_set_error (bfd_error_invalid_operation);
-  return false;
+  return FALSE;
 }
 
 /* A routine which is used in target vectors for supported operations
    which do not actually do anything.  */
 
-boolean
+bfd_boolean
 bfd_true (ignore)
      bfd *ignore ATTRIBUTE_UNUSED;
 {
-  return true;
+  return TRUE;
 }
 
 /* A routine which is used in target vectors for unsupported
@@ -86,7 +86,6 @@ bfd_0u (ignore)
    return 0;
 }
 
-/*ARGUSED*/
 long
 bfd_0l (ignore)
      bfd *ignore ATTRIBUTE_UNUSED;
@@ -111,13 +110,13 @@ bfd_void (ignore)
 {
 }
 
-boolean
+bfd_boolean
 _bfd_nocore_core_file_matches_executable_p (ignore_core_bfd, ignore_exec_bfd)
      bfd *ignore_core_bfd ATTRIBUTE_UNUSED;
      bfd *ignore_exec_bfd ATTRIBUTE_UNUSED;
 {
   bfd_set_error (bfd_error_invalid_operation);
-  return false;
+  return FALSE;
 }
 
 /* Routine to handle core_file_failing_command entry point for targets
@@ -187,9 +186,9 @@ bfd_realloc (ptr, size)
     }
 
   if (ptr == NULL)
-    ret = xmalloc ((size_t) size);
+    ret = (PTR) xmalloc ((size_t) size);
   else
-    ret = xrealloc (ptr, (size_t) size);
+    ret = (PTR) xrealloc (ptr, (size_t) size);
 
   if (ret == NULL && (size_t) size != 0)
     bfd_set_error (bfd_error_no_memory);
@@ -229,7 +228,7 @@ INTERNAL_FUNCTION
 	bfd_write_bigendian_4byte_int
 
 SYNOPSIS
-	boolean bfd_write_bigendian_4byte_int (bfd *, unsigned int);
+	bfd_boolean bfd_write_bigendian_4byte_int (bfd *, unsigned int);
 
 DESCRIPTION
 	Write a 4 byte integer @var{i} to the output BFD @var{abfd}, in big
@@ -237,7 +236,7 @@ DESCRIPTION
 	archives.
 
 */
-boolean
+bfd_boolean
 bfd_write_bigendian_4byte_int (abfd, i)
      bfd *abfd;
      unsigned int i;
@@ -256,7 +255,7 @@ bfd_write_bigendian_4byte_int (abfd, i)
 
 /* FIXME: Should these take a count argument?
    Answer (gnu@cygnus.com):  No, but perhaps they should be inline
-                             functions in swap.h #ifdef __GNUC__. 
+                             functions in swap.h #ifdef __GNUC__.
                              Gprof them later and find out.  */
 
 /*
@@ -287,7 +286,7 @@ DESCRIPTION
 .{* Byte swapping macros for user section data.  *}
 .
 .#define bfd_put_8(abfd, val, ptr) \
-.                ((void) (*((unsigned char *)(ptr)) = (unsigned char)(val)))
+.                ((void) (*((unsigned char *) (ptr)) = (unsigned char) (val)))
 .#define bfd_put_signed_8 \
 .		bfd_put_8
 .#define bfd_get_8(abfd, ptr) \
@@ -336,7 +335,7 @@ DESCRIPTION
 .		 : (bits) == 64 ? bfd_put_64 (abfd, val, ptr)	\
 .		 : (abort (), (void) 0))
 .
-*/ 
+*/
 
 /*
 FUNCTION
@@ -484,7 +483,7 @@ bfd_putb16 (data, addr)
 
 void
 bfd_putl16 (data, addr)
-     bfd_vma data;             
+     bfd_vma data;
      register bfd_byte *addr;
 {
   addr[0] = (bfd_byte) data;
@@ -703,7 +702,7 @@ bfd_put_bits (data, addr, bits, big_p)
      bfd_vma data;
      bfd_byte *addr;
      int bits;
-     boolean big_p;
+     bfd_boolean big_p;
 {
   int i;
   int bytes;
@@ -725,7 +724,7 @@ bfd_vma
 bfd_get_bits (addr, bits, big_p)
      bfd_byte *addr;
      int bits;
-     boolean big_p;
+     bfd_boolean big_p;
 {
   bfd_vma data;
   int i;
@@ -748,7 +747,7 @@ bfd_get_bits (addr, bits, big_p)
 
 /* Default implementation */
 
-boolean
+bfd_boolean
 _bfd_generic_get_section_contents (abfd, section, location, offset, count)
      bfd *abfd;
      sec_ptr section;
@@ -757,26 +756,69 @@ _bfd_generic_get_section_contents (abfd, section, location, offset, count)
      bfd_size_type count;
 {
   if (count == 0)
-    return true;
+    return TRUE;
 
   if (offset + count > section->_raw_size)
     {
       bfd_set_error (bfd_error_invalid_operation);
-      return false;
+      return FALSE;
     }
 
   if (bfd_seek (abfd, section->filepos + offset, SEEK_SET) != 0
       || bfd_bread (location, count, abfd) != count)
-    return false;
+    return FALSE;
 
-  return true;
+  return TRUE;
+}
+
+bfd_boolean
+_bfd_generic_get_section_contents_in_window (abfd, section, w, offset, count)
+     bfd *abfd;
+     sec_ptr section;
+     bfd_window *w;
+     file_ptr offset;
+     bfd_size_type count;
+{
+  if (count == 0)
+    return TRUE;
+
+  if (abfd->xvec->_bfd_get_section_contents != _bfd_generic_get_section_contents)
+    {
+      /* We don't know what changes the bfd's get_section_contents
+	 method may have to make.  So punt trying to map the file
+	 window, and let get_section_contents do its thing.  */
+      /* @@ FIXME : If the internal window has a refcount of 1 and was
+	 allocated with malloc instead of mmap, just reuse it.  */
+      bfd_free_window (w);
+      w->i = (bfd_window_internal *) bfd_zmalloc (sizeof (bfd_window_internal));
+      if (w->i == NULL)
+	return FALSE;
+      w->i->data = (PTR) bfd_malloc (count);
+      if (w->i->data == NULL)
+	{
+	  free (w->i);
+	  w->i = NULL;
+	  return FALSE;
+	}
+      w->i->mapped = 0;
+      w->i->refcount = 1;
+      w->size = w->i->size = count;
+      w->data = w->i->data;
+      return bfd_get_section_contents (abfd, section, w->data, offset, count);
+    }
+
+  if ((bfd_size_type) (offset+count) > section->_raw_size
+      || (! bfd_get_file_window (abfd, section->filepos + offset, count, w, TRUE)))
+    return FALSE;
+
+  return TRUE;
 }
 
 /* This generic function can only be used in implementations where creating
    NEW sections is disallowed.  It is useful in patching existing sections
    in read-write files, though.  See other set_section_contents functions
    to see why it doesn't work for new sections.  */
-boolean
+bfd_boolean
 _bfd_generic_set_section_contents (abfd, section, location, offset, count)
      bfd *abfd;
      sec_ptr section;
@@ -785,13 +827,13 @@ _bfd_generic_set_section_contents (abfd, section, location, offset, count)
      bfd_size_type count;
 {
   if (count == 0)
-    return true;
+    return TRUE;
 
   if (bfd_seek (abfd, section->filepos + offset, SEEK_SET) != 0
       || bfd_bwrite (location, count, abfd) != count)
-    return false;
+    return FALSE;
 
-  return true;
+  return TRUE;
 }
 
 /*
@@ -817,20 +859,20 @@ bfd_log2 (x)
   return result;
 }
 
-boolean
+bfd_boolean
 bfd_generic_is_local_label_name (abfd, name)
      bfd *abfd;
      const char *name;
 {
   char locals_prefix = (bfd_get_symbol_leading_char (abfd) == '_') ? 'L' : '.';
 
-  return (name[0] == locals_prefix);
+  return name[0] == locals_prefix;
 }
 
 /*  Can be used from / for bfd_merge_private_bfd_data to check that
     endianness matches between input and output file.  Returns
-    true for a match, otherwise returns false and emits an error.  */
-boolean
+    TRUE for a match, otherwise returns FALSE and emits an error.  */
+bfd_boolean
 _bfd_generic_verify_endian_match (ibfd, obfd)
      bfd *ibfd;
      bfd *obfd;
@@ -849,10 +891,10 @@ _bfd_generic_verify_endian_match (ibfd, obfd)
       (*_bfd_error_handler) (msg, bfd_archive_filename (ibfd));
 
       bfd_set_error (bfd_error_wrong_format);
-      return false;
+      return FALSE;
     }
 
-  return true;
+  return TRUE;
 }
 
 /* Give a warning at runtime if someone compiles code which calls
@@ -870,7 +912,7 @@ warn_deprecated (what, file, line, func)
 
   if (~(size_t) func & ~mask)
     {
-      /* Note: seperate sentances in order to allow
+      /* Note: separate sentences in order to allow
 	 for translation into other languages.  */
       if (func)
 	fprintf (stderr, _("Deprecated %s called at %s line %d in %s\n"),

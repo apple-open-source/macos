@@ -38,7 +38,7 @@ class KeyImpl : public ObjectImpl, public AclBearer, public CssmKey
 {
 public:
 	KeyImpl(const CSP &csp);
-	KeyImpl(const CSP &csp, CSSM_KEY &key);
+	KeyImpl(const CSP &csp, const CSSM_KEY &key, bool copy = false);
 	KeyImpl(const CSP &csp, const CSSM_DATA &keyData);
 	virtual ~KeyImpl();
 	
@@ -71,21 +71,24 @@ public:
 	explicit Key(Impl *impl) : Object(impl) {}
 	
 	Key() : Object(NULL) {}
-	Key(const CSP &csp, CSSM_KEY &key)	: Object(new Impl(csp, key)) {}
-	Key(const CSP &csp, CSSM_DATA &keyData)	: Object(new Impl(csp, keyData)) {}
+	Key(const CSP &csp, const CSSM_KEY &key, bool copy = false)	: Object(new Impl(csp, key, copy)) {}
+	Key(const CSP &csp, const CSSM_DATA &keyData)	: Object(new Impl(csp, keyData)) {}
 
 	// Creates an inactive key, client must call activate() after this.
 	Key(const CSP &csp) : Object(new Impl(csp)) {}
 
-	Impl *operator ->() const { return (*this) ? &impl<Impl>() : NULL; }
-	Impl &operator *() const { return impl<Impl>(); }
+	Impl *operator ->() const			{ return (*this) ? &impl<Impl>() : NULL; }
+	Impl &operator *() const			{ return impl<Impl>(); }
 
 	// Conversion operators to CssmKey baseclass.
-	operator const CssmKey * () const { return (*this) ? &(**this) : NULL; }
-	operator const CssmKey & () const { return **this; }
+	operator const CssmKey * () const	{ return (*this) ? &(**this) : NULL; }
+	operator const CssmKey & () const	{ return **this; }
+	
+	// a few shortcuts to make life easier
+	CssmKey::Header &header() const		{ return (*this)->header(); }
 
 	// Creates an inactive key, client must call activate() after this.
-	CssmKey *makeNewKey(const CSP &csp) { (*this) = Key(csp); return &(**this); }
+	CssmKey *makeNewKey(const CSP &csp)	{ (*this) = Key(csp); return &(**this); }
     
     // inquiries
     CssmKeySize sizeInBits() const		{ return (*this)->sizeInBits(); }

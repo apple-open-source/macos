@@ -30,20 +30,21 @@
 #ifndef	_TP_ROOT_CERTS_H_
 #define _TP_ROOT_CERTS_H_
 
+/*
+ * As of 3/18/02, use of the built-in root certs is disabled by default. 
+ * Their use is enabled at in CSSM_TP_CertGroupVerify by the use of the 
+ * CSSM_TP_USE_INTERNAL_ROOT_CERTS bit in 
+ * CSSM_APPLE_TP_ACTION_DATA.ActionFlags.  The presence of the root certs 
+ * at all (at compile time) is controlled TP_ROOT_CERT_ENABLE.
+ */
+#define TP_ROOT_CERT_ENABLE		0
+
+#if		TP_ROOT_CERT_ENABLE
+
 #include <Security/cssmtype.h>
 #include <Security/globalizer.h>
 #include <Security/threading.h>
-
-/*
- * As of 3/18/02, use of the built-in root certs is disabled by default. 
- * Their use is enabled at in CSSM_TP_CertGroupVerify by the use of a 
- * private bit in CSSM_APPLE_TP_ACTION_DATA.ActionFlags. 
- * The presence of the root certs at all (at compile time) is controlled
- * TP_ROOT_CERT_ENABLE.
- */
-#define TP_ROOT_CERT_ENABLE		1
-
-#if		TP_ROOT_CERT_ENABLE
+#include "TPCertInfo.h"
 
 /*
  * Each one of these represents one known root cert.
@@ -70,6 +71,23 @@ private:
 	unsigned mNumRootCerts;
 	Mutex mLock;
 };
+
+
+/*
+ * Compare a root cert to a list of known embedded roots.
+ */
+extern "C" {
+
+CSSM_BOOL tp_isKnownRootCert(
+	TPCertInfo		*rootCert,			// raw cert to compare
+	CSSM_CL_HANDLE	clHand);
+	
+CSSM_BOOL tp_verifyWithKnownRoots(
+	CSSM_CL_HANDLE	clHand, 
+	CSSM_CSP_HANDLE	cspHand, 
+	TPCertInfo 		*certToVfy);		// last in chain, not root
+
+}
 
 #endif	/* TP_ROOT_CERT_ENABLE */
 

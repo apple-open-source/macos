@@ -60,7 +60,7 @@ public:
 public:
     class Environment : public virtual AclValidationEnvironment {
     public:
-		virtual bool verifyCodeSignature(const Signature *signature) = 0;
+		virtual bool verifyCodeSignature(const Signature *signature, const CssmData *comment) = 0;
     };
 
 public:

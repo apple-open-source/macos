@@ -1,4 +1,28 @@
 /*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * mslplib.h : Minimal SLP v2 User Agent internal definitions.
  *
  * Version: 1.10
@@ -23,6 +47,9 @@
  *
  * (c) Sun Microsystems, 1998, All Rights Reserved.
  * Author: Erik Guttman
+ */
+ /*
+	Portions Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  */
 
 /* configuration parameters conforms to draft-ietf-svrloc-api-05.txt */
@@ -49,13 +76,8 @@ typedef struct UA_State {
   struct timeval      tv;
   struct sockaddr_in  sinSendTo;
   MSLPConfig          config;
-//  DATable            *pdat;
   void               *pvMutex;
 } UA_State;
-
-#ifdef	__cplusplus
-//extern "C" {
-#endif
 
 extern EXPORT DATable* GetGlobalDATable( void );
 extern EXPORT DATable* GetGlobalDATableForRequester( void );
@@ -130,7 +152,7 @@ extern TESTEXPORT SLPInternalError process_reply(const char *pcSendBuf,
 			    
 /* ------------------------------------------------------- mslplib_prlist.c */
 extern void prlist_modify(char **ppcList, struct sockaddr_in sin);
-extern void recalc_sendBuf(char *pcBuf, int iLen, const char *pcList);
+extern int recalc_sendBuf(char *pcBuf, int iLen, const char *pcList);
 
 /* ------------------------------------------------------- mslplib_regipc.c */
 
@@ -145,7 +167,3 @@ extern SLPInternalError mslplib_Dereg(UA_State *puas, const char *pcURL, const c
 extern SLPInternalError mslplib_DelAttrs(const char *pcURL, const char *pcAttrs);
 
 #endif /* EXTRA_MSGS */
-
-#ifdef	__cplusplus
-//}
-#endif

@@ -2,8 +2,8 @@
 
   object.c -
 
-  $Author: jkh $
-  $Date: 2002/05/27 17:59:44 $
+  $Author: melville $
+  $Date: 2003/05/14 13:58:43 $
   created at: Thu Jul 15 12:01:24 JST 1993
 
   Copyright (C) 1993-2000 Yukihiro Matsumoto
@@ -114,8 +114,8 @@ rb_obj_dup(obj)
     VALUE dup;
 
     dup = rb_funcall(obj, clone, 0, 0);
-    if (TYPE(dup) != TYPE(obj)) {
-	rb_raise(rb_eTypeError, "dupulicated object must be same type");
+    if (TYPE(dup) != TYPE(obj) || rb_obj_class(dup) != rb_obj_class(obj)) {
+	rb_raise(rb_eTypeError, "dupulicated object must be same class");
     }
     if (!SPECIAL_CONST_P(dup)) {
 	OBJSETUP(dup, rb_obj_class(obj), BUILTIN_TYPE(obj));
@@ -666,7 +666,7 @@ rb_to_id(name)
       case T_FIXNUM:
 	id = FIX2INT(name);
 	if (!rb_id2name(id)) {
-	    rb_raise(rb_eArgError, "%d is not a symbol", id);
+	    rb_raise(rb_eArgError, "%lu is not a symbol", id);
 	}
 	break;
       case T_SYMBOL:
@@ -1026,7 +1026,7 @@ rb_str2cstr(str, len)
 	str = rb_str_to_str(str);
     }
     if (len) *len = RSTRING(str)->len;
-    else if (ruby_verbose && RSTRING(str)->len != strlen(RSTRING(str)->ptr)) {
+    else if (RTEST(ruby_verbose) && RSTRING(str)->len != strlen(RSTRING(str)->ptr)) {
 	rb_warn("string contains \\0 character");
     }
     return RSTRING(str)->ptr;

@@ -24,6 +24,9 @@ TO=${TMP}/to
 LOG=${TMP}/log
 RSYNC="$rsync_bin"
 
+# Berkley's nice.
+PATH="$PATH:/usr/ucb"
+
 runtest() {
     echo $ECHO_N "Test $1: $ECHO_C"
     if eval "$2"
@@ -42,7 +45,11 @@ printmsg() {
 
 
 rsync_ls_lR() {
-    find "$@" -print | sort | xargs $TLS
+    find "$@" -print | sort | xargs "$TOOLDIR/tls"
+}
+
+rsync_getgroups() { 
+    "$TOOLDIR/getgroups"
 }
 
 
@@ -95,13 +102,6 @@ hands_setup() {
 }
 
 
-hands_cleanup() {
-    rm -r "$TMP"
-}
-
-
-
-
 ####################
 # Many machines do not have "mkdir -p", so we have to build up long paths.
 # How boring.  
@@ -134,6 +134,11 @@ makepath () {
 # Run a test (in '$1') then compare directories $2 and $3 to see if
 # there are any difference.  If there are, explain them.
 
+# So normally basically $1 should be an rsync command, and $2 and $3
+# the source and destination directories.  This is only good when you
+# expect to transfer the whole directory exactly as is.  If some files
+# should be excluded, you might need to use something else.
+
 checkit() {
     failed=
 
@@ -152,7 +157,7 @@ checkit() {
     echo ""
     for f in `cd "$2"; find . -type f -print `
     do 
-        diff -u "$2"/"$f" "$3"/"$f" || failed=YES
+        diff -c "$2"/"$f" "$3"/"$f" || failed=YES
     done
 
     echo "-------------"
@@ -166,21 +171,6 @@ checkit() {
     else
 	return 1
     fi
-}
-
-
-# In fact, we need a more general feature of capturing all stderr/log files,
-# and dumping them if something goes wrong.
-
-checkforlogs() {
-  # skip it if we're under debian-test
-  if test -n "${Debian}" ; then return 0 ; fi
-
-  if [ -f $1 -a -s $1 ] ; then
-	echo "Failures have occurred.  $1 follows:" >&2
-	cat $1 >&2
-	exit 1
-  fi
 }
 
 
@@ -201,10 +191,15 @@ use chroot = no
 hosts allow = localhost, 127.0.0.1
 log file = $logfile
 
-[test-from] = $scratchdir/daemon-from/
+uid = 0
+gid = 0
+
+[test-from]
+	path = $FROM
 	read only = yes
 
-[test-to] = $scratchdir/daemon-to/
+[test-to]
+	path = $TO
 	read only = no
 EOF
 }
@@ -228,6 +223,7 @@ test_fail() {
 
 test_skipped() {
     echo "$@" >&2
+    echo "$@" > "$TMP/whyskipped"
     exit 77
 }
 
@@ -239,5 +235,44 @@ test_xfail() {
     exit 78
 }
 
-# be reproducible
-umask 077
+# Determine what shell command will appropriately test for links.
+ln -s foo "$scratchdir/testlink"
+for cmd in test /bin/test /usr/bin/test /usr/ucb/bin/test /usr/ucb/test
+do
+    for switch in -h -L
+    do
+        if $cmd $switch "$scratchdir/testlink" 2>/dev/null
+	then
+	    # how nice
+	    TEST_SYMLINK_CMD="$cmd $switch"
+	    # i wonder if break 2 is portable?
+	    break 2
+	fi
+   done
+done
+# ok, now get rid of it
+rm "$scratchdir/testlink"
+
+
+if [ "x$TEST_SYMLINK_CMD" = 'x' ]
+then
+    test_fail "Couldn't determine how to test for symlinks"
+else
+    echo "Testing for symlinks using '$TEST_SYMLINK_CMD'"
+fi
+	
+
+# Test whether something is a link, allowing for shell peculiarities
+is_a_link() {
+    # note the variable contains the first option and therefore is not quoted
+    $TEST_SYMLINK_CMD "$1"
+}
+
+
+# We need to set the umask to be reproducible.  Note also that when we
+# do some daemon tests as root, we will setuid() and therefore the
+# directory has to be writable by the nobody user in some cases.  The
+# best thing is probably to explicitly chmod those directories after
+# creation.
+ 
+umask 022

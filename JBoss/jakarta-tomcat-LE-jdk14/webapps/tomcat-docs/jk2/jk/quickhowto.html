@@ -1,0 +1,569 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html xmlns="http://www.w3.org/TR/xhtml1/strict">
+<head>
+<title>Quick Start HowTo</title>
+<meta content="1999-2002 The Apache Software Foundation" name="copyright"/>
+<meta content="$Date: 2002/11/26 16:08:48 $" name="last-changed"/>
+<meta content="Henri Gomez" name="author"/>
+<meta content="hgomez@apache.org" name="email"/>
+<link href="..//style.css" type="text/css" rel="stylesheet"/>
+<link href="../images/tomcat.ico" rel="shortcut icon"/>
+</head>
+<body link="#525D76" vlink="#525D76" alink="#525D76" text="#000000" bgcolor="#ffffff">
+<a name="TOP"/>
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr height="1">
+<td class="nil" height="1" bgcolor="#ffffff" width="150">
+<img hspace="0" vspace="0" height="1" width="150" border="0" src="../images/pixel.gif"/>
+</td>
+<td class="nil" height="1" bgcolor="#ffffff" width="*">
+<img hspace="0" vspace="0" height="1" width="370" border="0" src="../images/pixel.gif"/>
+</td>
+</tr>
+<tr>
+<td width="*" colspan="2" class="logo" bgcolor="#ffffff">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left">
+<img align="left" height="48" width="505" border="0" src="../images/jakarta.gif"/>
+</td>
+<td align="right">
+<img align="right" border="0" src="../images/mod_jk.jpg"/>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td colspan="2" width="*" align="right" class="head" bgcolor="#999999">
+<nobr>
+<a href="http://www.apache.org/" class="head">Apache Software Foundation</a> |
+                <a href="http://jakarta.apache.org/" class="head">Jakarta Project</a> |
+                <a href="http://jakarta.apache.org/tomcat/" class="head">Apache Tomcat</a>
+</nobr>
+</td>
+</tr>
+<tr>
+<td valign="top" width="150" bgcolor="#ffffff">
+<table class="menu" cellpadding="0" cellspacing="0" width="150" border="0">
+<tr height="1">
+<td class="nil" height="1" bgcolor="#cccccc" width="10">
+<img hspace="0" vspace="0" height="1" width="10" border="0" src="../images/pixel.gif"/>
+</td>
+<td class="nil" height="1" bgcolor="#cccccc" width="140">
+<img hspace="0" vspace="0" height="1" width="140" border="0" src="../images/pixel.gif"/>
+</td>
+</tr>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Presentation</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../index.html">Overview</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Commons</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../common/AJPv13.html">AJPv13</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../common/AJPv13-extensions-proposal.html">AJPv13 extensions Proposal</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../faq.html">FAQ</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">JK</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/quickhowto.html">Quick Start HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Introduction" class="menu">Introduction</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Minimum workers.properties" class="menu">Minimum workers.properties</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Minimum Apache WebServer configuration" class="menu">Minimum Apache WebServer configuration</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Minimum Domino WebServer configuration" class="menu">Minimum Domino WebServer configuration</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Minimum IIS WebServer configuration" class="menu">Minimum IIS WebServer configuration</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Minimum NES/iPlanet WebServer configuration" class="menu">Minimum NES/iPlanet WebServer configuration</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td width="10" bgcolor="#cccccc"/>
+<td width="140" bgcolor="#cccccc">
+<a href="#Test your configuration" class="menu">Test your configuration</a>
+</td>
+</tr>
+<tr height="1"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/aphowto.html">Apache HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/domhowto.html">Domino HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/iishowto.html">IIS HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/neshowto.html">Netscape/iPlanet HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk/workershowto.html">Workers HowTo</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">JK2</td>
+</tr>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Configuration in the Tomcat</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configtc.html">Configuration options</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configtcex.html">Examples</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Configuration in the Web Server</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configweb.html">Configuration file</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configwebcom.html">Components</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/configwebex.html">Examples</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Installation</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/installhowto.html">Installation of jk2 in the Web Server</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+<tr height="6">
+<td colspan="2" width="150" bgcolor="#d0d0d0">Howto</td>
+</tr>
+<tr>
+<td colspan="2" width="150" bgcolor="#cccccc">
+<nobr>
+<a class="menu" href="../jk2/confighowto.html">Quick Start JK2 Configuration Guide</a>
+</nobr>
+</td>
+</tr>
+<tr height="2"/>
+<tr height="6"/>
+</table>
+</td>
+<td class="body" valign="top" width="*" bgcolor="#ffffff">
+<a name="Introduction">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Introduction</td>
+</tr>
+</table>
+</a>
+<p class="section">
+  This document describes the configuration files used by JK on the
+  Web Server side for the 'impatients':
+    <ul>
+<li>
+    <b>
+<font color="#333333">workers.properties</font>
+</b> is a mandatory file used by the webserver and which
+    is the same for all JK implementations (Apache/IIS/NES).
+    </li>
+<li>
+    <b>
+<font color="#333333">WebServers</font>
+</b> add-ons to be set on the webserver side. 
+    </li>
+</ul>
+</p>
+<p class="section">        
+  We'll give here minimum servers configuration and an example <b>
+<font color="#333333">workers.properties</font>
+</b> 
+  to be able to install and check quickly your configuration.
+</p>
+<br/>
+<a name="Minimum workers.properties">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Minimum workers.properties</td>
+</tr>
+</table>
+</a>
+<p class="section">
+    Here is a minimum <b>
+<font color="#333333">workers.properties</font>
+</b>, using just ajp13 to connect your Apache webserver
+    to the Tomcat engine, complete documentation is available in <b>
+<a href="../jk/workershowto.html">Workers HowTo</a>
+</b>. 
+</p>
+<p class="section">
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen"># Define 1 real worker using ajp13</div>
+<code class="screen">
+<nobr>worker.list=worker1</nobr>
+</code>
+<br/>
+<div class="screen"># Set properties for worker1 (ajp13)</div>
+<code class="screen">
+<nobr>worker.worker1.type=ajp13</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker1.host=locahost</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker1.port=8009</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker1.lbfactor=50</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker1.cachesize=10</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker1.cache_timeout=600</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker1.socket_keepalive=1</nobr>
+</code>
+<br/>
+<code class="screen">
+<nobr>worker.worker1.socket_timeout=300</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+</p>
+<br/>
+<a name="Minimum Apache WebServer configuration">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Minimum Apache WebServer configuration</td>
+</tr>
+</table>
+</a>
+<p class="section">
+   Here is a minimun informations about Apache configuration, a 
+   complete documentation is available in <b>
+<a href="../jk/aphowto.html">Apache HowTo</a>
+</b>.
+</p>
+<p class="section">
+	You should first have <b>
+<font color="#333333">mod_jk.so</font>
+</b> (unix) or <b>
+<font color="#333333">mod_jk.dll</font>
+</b> (Windows) installed
+	in your Apache module directory (see your Apache documentation to locate it).
+</p>
+<p class="section">
+	Usual locations for modules directory on Unix:
+	<ul>
+<li>/usr/lib/apache/</li>
+<li>/usr/lib/apache2/</li>
+<li>/usr/local/apache/libexec/</li>
+</ul>
+</p>
+<p class="section">
+	Usual locations for modules directory on Windows :
+	<ul>
+<li>C:\Program Files\Apache Group\Apache\modules\</li>
+<li>C:\Program Files\Apache Group\Apache2\modules\</li>
+</ul>
+</p>
+<p class="section">
+	You'll find prebuilt binaries <b>
+<a href="http://jakarta.apache.org/builds/jakarta-tomcat-connectors/jk/release/v1.2.1/bin/">here</a>
+</b>
+</p>
+<p class="section">
+    Here is the minimum which should be set in <b>
+<font color="#333333">httpd.conf</font>
+</b> directly or 
+    included from another file:
+</p>
+<p class="section">
+	Usual locations for configuration directory on Unix:
+	<ul>
+<li>/etc/httpd/conf/</li>
+<li>/etc/httpd2/conf/</li>
+<li>/usr/local/apache/conf/</li>
+</ul>
+</p>
+<p class="section">
+	Usual locations for configuration directory on Windows :
+	<ul>
+<li>C:\Program Files\Apache Group\Apache\conf\</li>
+<li>C:\Program Files\Apache Group\Apache2\conf\</li>
+</ul>
+</p>
+<p class="section">
+<p class="screen">
+<div align="center">
+<table bgcolor="#cccccc" cellpadding="2" cellspacing="0" border="1" width="80%">
+<tr>
+<td align="left" bgcolor="#cccccc">
+<div class="screen"># Load mod_jk module</div>
+<div class="screen"># Update this path to match your modules location</div>
+<code class="screen">
+<nobr>LoadModule    jk_module  libexec/mod_jk.so</nobr>
+</code>
+<br/>
+<div class="screen"># Declare the module for &lt;IfModule directive&gt;</div>
+<code class="screen">
+<nobr>AddModule     mod_jk.c</nobr>
+</code>
+<br/>
+<div class="screen"># Where to find workers.properties</div>
+<div class="screen"># Update this path to match your conf directory location (put workers.properties next to httpd.conf)</div>
+<code class="screen">
+<nobr>JkWorkersFile /etc/httpd/conf/workers.properties</nobr>
+</code>
+<br/>
+<div class="screen"># Where to put jk logs</div>
+<div class="screen"># Update this path to match your logs directory location (put mod_jk.log next to access_log)</div>
+<code class="screen">
+<nobr>JkLogFile     /var/log/httpd/mod_jk.log</nobr>
+</code>
+<br/>
+<div class="screen"># Set the jk log level [debug/error/info]</div>
+<code class="screen">
+<nobr>JkLogLevel    info</nobr>
+</code>
+<br/>
+<div class="screen"># Select the log format</div>
+<code class="screen">
+<nobr>JkLogStampFormat "[%a %b %d %H:%M:%S %Y] "</nobr>
+</code>
+<br/>
+<div class="screen"># JkOptions indicate to send SSL KEY SIZE, </div>
+<code class="screen">
+<nobr>JkOptions     +ForwardKeySize +ForwardURICompat -ForwardDirectories</nobr>
+</code>
+<br/>
+<div class="screen"># JkRequestLogFormat set the request format </div>
+<code class="screen">
+<nobr>JkRequestLogFormat     "%w %V %T"</nobr>
+</code>
+<br/>
+<div class="screen"># Send everything for context /examples to worker named worker1 (ajp13)</div>
+<code class="screen">
+<nobr>JkMount  /examples/* worker1</nobr>
+</code>
+<br/>
+</td>
+</tr>
+</table>
+</div>
+</p>
+</p>
+<br/>
+<a name="Minimum Domino WebServer configuration">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Minimum Domino WebServer configuration</td>
+</tr>
+</table>
+</a>
+<p class="section">
+	A complete documentation is available in <b>
+<a href="../jk/domhowto.html">Domino HowTo</a>
+</b>.
+</p>
+<p class="todo">
+      This paragraph has not been written yet, but <b>you</b> can contribute to it.
+      </p>
+<br/>
+<a name="Minimum IIS WebServer configuration">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Minimum IIS WebServer configuration</td>
+</tr>
+</table>
+</a>
+<p class="section">
+	A complete documentation is available in <b>
+<a href="../jk/iishowto.html">IIS HowTo</a>
+</b>.
+</p>
+<p class="todo">
+      This paragraph has not been written yet, but <b>you</b> can contribute to it.
+      </p>
+<br/>
+<a name="Minimum NES/iPlanet WebServer configuration">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Minimum NES/iPlanet WebServer configuration</td>
+</tr>
+</table>
+</a>
+<p class="section">
+	A complete documentation is available in <b>
+<a href="../jk/neshowto.html">Netscape/iPlanet HowTo</a>
+</b>.
+</p>
+<p class="todo">
+      This paragraph has not been written yet, but <b>you</b> can contribute to it.
+      </p>
+<br/>
+<a name="Test your configuration">
+<table width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td align="left" valign="top" class="section" bgcolor="#525D76">
+<img border="0" vspace="0" hspace="0" align="left" valign="top" src="../images/corner.gif"/>Test your configuration</td>
+</tr>
+</table>
+</a>
+<p class="section">
+	(Re)start the Web server and browse to the <b>
+<a href="../">http://localhost/examples/</a>
+</b>
+</p>
+<br/>
+</td>
+</tr>
+</table>
+</body>
+</html>

@@ -36,8 +36,8 @@
 #include <IOKit/storage/IOStorageDeviceCharacteristics.h>
 
 // SCSI Architecture Model Family includes
-#include <IOKit/scsi-commands/SCSICommandOperationCodes.h>
-#include <IOKit/scsi-commands/SCSICmds_INQUIRY_Definitions.h>
+#include <IOKit/scsi/SCSICommandOperationCodes.h>
+#include <IOKit/scsi/SCSICmds_INQUIRY_Definitions.h>
 
 // SCSI Parallel Family includes
 #include "IOSCSIParallelInterfaceDevice.h"
@@ -167,8 +167,7 @@ IOSCSIParallelInterfaceDevice::start ( IOService * provider )
     setLocation ( unit );
 	
 	// The device and this driver have been succesfully configured
-	// and are ready to provide their services, call registerService to
-	// inform the system.
+	// and are ready to provide their services, call CreateSCSITargetDevice().
 	CreateSCSITargetDevice ( );
 	
 	return true;
@@ -294,10 +293,22 @@ IOReturn
 IOSCSIParallelInterfaceDevice::requestProbe ( IOOptionBits options )
 {
 	
-	// еее revisit me. Is this all we have to do to get rescanning
-	// to work?
-	registerService ( );
-	return kIOReturnSuccess;
+	// See if this device already has any opens on it.
+	if ( isOpen ( ) == false )
+	{
+		
+		// The device and this driver have been succesfully configured
+		// and are ready to provide their services, call CreateSCSITargetDevice().
+		CreateSCSITargetDevice ( );
+		
+		return kIOReturnSuccess;
+		
+	}
+	
+	else
+	{
+		return kIOReturnNotPermitted;
+	}
 	
 }
 
@@ -320,7 +331,7 @@ IOSCSIParallelInterfaceDevice::CreateTarget (
 							UInt32 						sizeOfHBAData )
 {
 	
-	IOSCSIParallelInterfaceDevice * newDevice = new IOSCSIParallelInterfaceDevice;
+	IOSCSIParallelInterfaceDevice * newDevice = OSTypeAlloc ( IOSCSIParallelInterfaceDevice );
 	
 	require_nonzero ( newDevice, DEVICE_CREATION_FAILURE );
 	

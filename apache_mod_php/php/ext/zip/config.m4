@@ -1,14 +1,11 @@
-dnl $Id: config.m4,v 1.1.1.1 2001/12/14 22:13:42 zarzycki Exp $
-dnl config.m4 for extension zziplib
+dnl
+dnl $Id: config.m4,v 1.1.1.3 2003/03/11 01:09:35 zarzycki Exp $
+dnl 
 
-PHP_ARG_WITH(zip,whether to include zziplib support, 
-[  --with-zip[=DIR]    Include zip support (requires zziplib >= 0.10.6).
-                          DIR is the zziplib install directory,
-                          default is /usr/local.])
-
+PHP_ARG_WITH(zip,for ZIP support, 
+[  --with-zip[=DIR]        Include ZIP support (requires zziplib >= 0.10.6).])
 
 if test "$PHP_ZIP" != "no"; then
-  PHP_EXTENSION(zip, $ext_shared)
   for i in $PHP_ZIP /usr/local /usr ; do
     if test -f $i/include/zzlib/zziplib.h; then
       ZZIPLIB_DIR=$i
@@ -25,15 +22,18 @@ if test "$PHP_ZIP" != "no"; then
 
   ZZIPLIB_LIBDIR=$ZZIPLIB_DIR/lib
 
-  PHP_TEMP_LDFLAGS(-L$ZZIPLIB_LIBDIR,[
-  AC_CHECK_LIB(zzip, zzip_open, [AC_DEFINE(HAVE_ZZIPLIB,1,[ ])],
-    [AC_MSG_ERROR(zziplib module requires zzlib >= 0.10.6.)])
+  PHP_CHECK_LIBRARY(zzip, zzip_open,
+  [
+    AC_DEFINE(HAVE_ZZIPLIB,1,[ ])
+  ], [
+    AC_MSG_ERROR(zziplib module requires zzlib >= 0.10.6.)
+  ], [
+    -L$ZZIPLIB_LIBDIR
   ])
 
-  PHP_SUBST(ZIP_SHARED_LIBADD)
   PHP_ADD_LIBRARY_WITH_PATH(zzip, $ZZIPLIB_LIBDIR, ZIP_SHARED_LIBADD)
-  
   PHP_ADD_INCLUDE($ZZIPLIB_INCDIR)
 
-  PHP_FOPENCOOKIE
+  PHP_NEW_EXTENSION(zip, zip.c, $ext_shared)
+  PHP_SUBST(ZIP_SHARED_LIBADD)
 fi

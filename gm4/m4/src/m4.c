@@ -369,7 +369,7 @@ main (int argc, char *const *argv, char *const *envp)
 
       case 'o':
 	if (!debug_set_output (optarg))
-	  error (0, errno, optarg);
+	  error (0, errno, "%s", optarg);
 	break;
 
       case 's':
@@ -466,7 +466,7 @@ main (int argc, char *const *argv, char *const *envp)
 	    fp = path_search (argv[optind]);
 	    if (fp == NULL)
 	      {
-		error (0, errno, argv[optind]);
+		error (0, errno, "%s", argv[optind]);
 		continue;
 	      }
 	    else

@@ -1,0 +1,29 @@
+.\" 
+.TH SKEL 1 "28th Jan 1993"
+.SH NAME
+calc \- a very dumb calculator to demonstrate
+.I deja-gnu
+.SH SYNOPSIS
+.B calc
+.SH DESCRIPTION
+.LP
+.B calc
+accepts the commands:
+.TP
+.B add #1 #2
+Add #1 and #2 and print the answer.
+.TP
+.B multiply #1 #2
+Multiply #1 and #2 and print the answer.
+.TP
+.B quit
+.br
+Exit
+.TP
+.B version
+Print a version string.
+.SH BUGS
+.LP
+.B multiply 2 n
+gives the wrong answer (unless n == 0).
+

@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 0.92 of the Zend license,     |
+   | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
    | available at through the world-wide-web at                           |
-   | http://www.zend.com/license/0_92.txt.                                |
+   | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
    | license@zend.com so we can mail you a copy immediately.              |
@@ -29,6 +29,8 @@
 #include "zend_variables.h"
 #include "zend_execute.h"
 
+
+BEGIN_EXTERN_C()
 #define ZEND_FN(name) zif_##name
 #define ZEND_NAMED_FUNCTION(name) void name(INTERNAL_FUNCTION_PARAMETERS)
 #define ZEND_FUNCTION(name) ZEND_NAMED_FUNCTION(ZEND_FN(name))
@@ -85,7 +87,7 @@
 #define INIT_CLASS_ENTRY(class_container, class_name, functions)	\
 	{																\
 		class_container.name = strdup(class_name);					\
-		class_container.name_length = sizeof(class_name)-1;			\
+		class_container.name_length = sizeof(class_name) - 1;		\
 		class_container.builtin_functions = functions;				\
 		class_container.handle_function_call = NULL;				\
 		class_container.handle_property_get = NULL;					\
@@ -95,7 +97,7 @@
 #define INIT_OVERLOADED_CLASS_ENTRY(class_container, class_name, functions, handle_fcall, handle_propget, handle_propset) \
 	{															\
 		class_container.name = strdup(class_name);				\
-		class_container.name_length = sizeof(class_name)-1;		\
+		class_container.name_length = sizeof(class_name) - 1;	\
 		class_container.builtin_functions = functions;			\
 		class_container.handle_function_call = handle_fcall;	\
 		class_container.handle_property_get = handle_propget;	\
@@ -122,6 +124,7 @@ ZEND_API int _zend_get_parameters_array_ex(int param_count, zval ***argument_arr
 #define ZEND_PARSE_PARAMS_QUIET 1<<1
 ZEND_API int zend_parse_parameters(int num_args TSRMLS_DC, char *type_spec, ...);
 ZEND_API int zend_parse_parameters_ex(int flags, int num_args TSRMLS_DC, char *type_spec, ...);
+ZEND_API char *zend_zval_type_name(zval *arg);
 
 /* End of parameter parsing API -- andrei */
 
@@ -134,6 +137,7 @@ ZEND_API zend_class_entry *zend_register_internal_class_ex(zend_class_entry *cla
 
 ZEND_API zend_module_entry *zend_get_module(int module_number);
 ZEND_API int zend_disable_function(char *function_name, uint function_name_length TSRMLS_DC);
+ZEND_API int zend_disable_class(char *class_name, uint class_name_length TSRMLS_DC);
 
 ZEND_API void zend_wrong_param_count(TSRMLS_D);
 ZEND_API zend_bool zend_is_callable(zval *callable, zend_bool syntax_only, char **callable_name);
@@ -244,6 +248,8 @@ ZEND_API int zend_set_hash_symbol(zval *symbol, char *name, int name_length,
                                   int is_ref, int num_symbol_tables, ...);
 
 #define add_method(arg, key, method)	add_assoc_function((arg), (key), (method))
+
+ZEND_API ZEND_FUNCTION(display_disabled_function);
 
 #if ZEND_DEBUG
 #define CHECK_ZVAL_STRING(z) \
@@ -415,6 +421,8 @@ ZEND_API int zend_set_hash_symbol(zval *symbol, char *name, int name_length,
 #define ZEND_RSHUTDOWN_FUNCTION		ZEND_MODULE_DEACTIVATE_D
 #define ZEND_MINFO_FUNCTION			ZEND_MODULE_INFO_D
 
+END_EXTERN_C()
+	
 #endif /* ZEND_API_H */
 
 

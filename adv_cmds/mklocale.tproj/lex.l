@@ -1,19 +1,48 @@
 %{
-/*
- * Copyright (c) 1995 NeXT Computer, Inc. All Rights Reserved
- *
+/*-
  * Copyright (c) 1993
  *	The Regents of the University of California.  All rights reserved.
  *
  * This code is derived from software contributed to Berkeley by
  * Paul Borman at Krystal Technologies.
  *
- * The NEXTSTEP Software License Agreement specifies the terms
- * and conditions for redistribution.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. All advertising materials mentioning features or use of this software
+ *    must display the following acknowledgement:
+ *	This product includes software developed by the University of
+ *	California, Berkeley and its contributors.
+ * 4. Neither the name of the University nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
  *
- *	@(#)lex.l	8.1 (Berkeley) 6/6/93
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
  */
 
+#ifndef lint
+#if 0
+static char sccsid[] = "@(#)lex.l	8.1 (Berkeley) 6/6/93";
+#endif
+#endif /* not lint */
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/mklocale/lex.l,v 1.7 2002/08/16 13:46:43 keichii Exp $");
 
 #include <ctype.h>
 #include <stdio.h>
@@ -21,6 +50,7 @@
 
 #include "ldef.h"
 #include "y.tab.h"
+#include "extern.h"
 %}
 
 ODIGIT	[0-7]
@@ -29,7 +59,7 @@ XDIGIT	[0-9a-fA-F]
 W	[\t\n\r ]
 
 %%
-\'.\'				{ yylval.rune = yytext[1];
+\'.\'				{ yylval.rune = (unsigned char)yytext[1];
 				  return(RUNE); }
 
 '\\a'				{ yylval.rune = '\a';
@@ -60,20 +90,38 @@ MAPUPPER			{ return(MAPUPPER); }
 TODIGIT				{ return(DIGITMAP); }
 INVALID				{ return(INVALID); }
 
-ALPHA				{ yylval.i = _A|_R|_G; return(LIST); }
-CONTROL				{ yylval.i = _C; return(LIST); }
-DIGIT				{ yylval.i = _D|_R|_G; return(LIST); }
-GRAPH				{ yylval.i = _G|_R; return(LIST); }
-LOWER				{ yylval.i = _L|_R|_G; return(LIST); }
-PUNCT				{ yylval.i = _P|_R|_G; return(LIST); }
-SPACE				{ yylval.i = _S; return(LIST); }
-UPPER				{ yylval.i = _U|_R|_G; return(LIST); }
-XDIGIT				{ yylval.i = _X|_R|_G; return(LIST); }
-BLANK				{ yylval.i = _B; return(LIST); }
-PRINT				{ yylval.i = _R; return(LIST); }
-IDEOGRAM			{ yylval.i = _I|_R|_G; return(LIST); }
-SPECIAL				{ yylval.i = _T|_R|_G; return(LIST); }
-PHONOGRAM			{ yylval.i = _Q|_R|_G; return(LIST); }
+ALPHA				{ yylval.i = _CTYPE_A|_CTYPE_R|_CTYPE_G;
+				  return(LIST); }
+CONTROL				{ yylval.i = _CTYPE_C;
+				  return(LIST); }
+DIGIT				{ yylval.i = _CTYPE_D|_CTYPE_R|_CTYPE_G;
+				  return(LIST); }
+GRAPH				{ yylval.i = _CTYPE_G|_CTYPE_R;
+				  return(LIST); }
+LOWER				{ yylval.i = _CTYPE_L|_CTYPE_R|_CTYPE_G;
+				  return(LIST); }
+PUNCT				{ yylval.i = _CTYPE_P|_CTYPE_R|_CTYPE_G;
+				  return(LIST); }
+SPACE				{ yylval.i = _CTYPE_S;
+				  return(LIST); }
+UPPER				{ yylval.i = _CTYPE_U|_CTYPE_R|_CTYPE_G;
+				  return(LIST); }
+XDIGIT				{ yylval.i = _CTYPE_X|_CTYPE_R|_CTYPE_G;
+				  return(LIST); }
+BLANK				{ yylval.i = _CTYPE_B;
+				  return(LIST); }
+PRINT				{ yylval.i = _CTYPE_R;
+				  return(LIST); }
+IDEOGRAM			{ yylval.i = _CTYPE_I|_CTYPE_R|_CTYPE_G;
+				  return(LIST); }
+SPECIAL				{ yylval.i = _CTYPE_T|_CTYPE_R|_CTYPE_G;
+				  return(LIST); }
+PHONOGRAM			{ yylval.i = _CTYPE_Q|_CTYPE_R|_CTYPE_G;
+				  return(LIST); }
+SWIDTH0				{ yylval.i = _CTYPE_SW0; return(LIST); }
+SWIDTH1				{ yylval.i = _CTYPE_SW1; return(LIST); }
+SWIDTH2				{ yylval.i = _CTYPE_SW2; return(LIST); }
+SWIDTH3				{ yylval.i = _CTYPE_SW3; return(LIST); }
 
 VARIABLE[\t ]			{ static char vbuf[1024];
 				  char *v = vbuf;
@@ -121,9 +169,9 @@ ENCODING			{ return(ENCODING); }
 %%
 
 #if	!defined(yywrap)
+int
 yywrap()
 {
 	return(1);
 }
 #endif
-

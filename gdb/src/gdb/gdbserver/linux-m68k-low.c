@@ -1,5 +1,5 @@
 /* GNU/Linux/m68k specific low level interface, for the remote server for GDB.
-   Copyright 1995, 1996, 1998, 1999, 2000, 2001, 2002
+   Copyright 1995, 1996, 1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -26,10 +26,10 @@
 #include <sys/reg.h>
 #endif
 
-int num_regs = 31;
+#define m68k_num_regs 29
 
 /* This table must line up with REGISTER_NAMES in tm-m68k.h */
-int regmap[] =
+static int m68k_regmap[] =
 {
 #ifdef PT_D0
   PT_D0 * 4, PT_D1 * 4, PT_D2 * 4, PT_D3 * 4,
@@ -52,14 +52,21 @@ int regmap[] =
 #endif
 };
 
-int
-cannot_store_register (int regno)
+static int
+m68k_cannot_store_register (int regno)
 {
-  return (regno >= num_regs);
+  return (regno >= m68k_num_regs);
 }
 
-int
-cannot_fetch_register (int regno)
+static int
+m68k_cannot_fetch_register (int regno)
 {
-  return (regno >= num_regs);
+  return (regno >= m68k_num_regs);
 }
+
+struct linux_target_ops the_low_target = {
+  m68k_num_regs,
+  m68k_regmap,
+  m68k_cannot_fetch_register,
+  m68k_cannot_store_register,
+};

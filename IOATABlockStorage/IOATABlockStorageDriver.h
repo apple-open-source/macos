@@ -1,33 +1,26 @@
 /*
- * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
- */
-
-/*
- * Copyright (c) 2000-2001 Apple Computer, Inc.  All rights reserved.
- *
- * HISTORY
- *
- *		09/28/2000	CJS		Started IOATABlockStorageDriver
- *							(ported Joe Liu's IOATAHDDrive)
- *
  */
 
 #ifndef _IO_ATA_BLOCKSTORAGE_DRIVER_H_
@@ -172,13 +165,26 @@ protected:
 	// binary compatibility instance variable expansion
 	struct ExpansionData
 	{
-		bool	fUseExtendedLBA;
-		bool	fPowerAckInProgress;
+		bool			fUseExtendedLBA;
+		bool			fPowerAckInProgress;
+		IONotifier *	fPowerDownNotifier;
 	};
 	ExpansionData * reserved;
 	
 	#define fUseExtendedLBA		reserved->fUseExtendedLBA
 	#define fPowerAckInProgress	reserved->fPowerAckInProgress
+	#define fPowerDownNotifier	reserved->fPowerDownNotifier
+
+public:
+		
+	// Called when system is going to power down
+	IOReturn		powerDownHandler (	void * 			refCon,
+										UInt32 			messageType,
+										IOService * 	provider,
+										void * 			messageArgument,
+										vm_size_t 		argSize );
+	
+protected:
 	
 	//-----------------------------------------------------------------------
 	// Static member functions
@@ -216,7 +222,7 @@ protected:
 	static void		sSaveStateData ( IOATACommand * cmd );
 	
 	static IOReturn	sValidateIdentifyData ( UInt8 * deviceIdentifyData );
-
+	
 	// The sSetWakeupResetOccurred method is used to safely set member variables
 	// behind the command gate.
 	static void				sSetWakeupResetOccurred ( IOATABlockStorageDriver * driver,
@@ -498,6 +504,16 @@ public:
 	virtual IOReturn reportWriteProtection ( bool * isWriteProtected );
 	
 	//-----------------------------------------------------------------------
+	// Gets the write cache state.
+	
+	IOReturn	getWriteCacheState ( bool * enabled );
+	
+	//-----------------------------------------------------------------------
+	// Sets the write cache state.
+	
+	IOReturn	setWriteCacheState ( bool enabled );
+	
+	//-----------------------------------------------------------------------
 	// Client calls this before making a request which could cause I/O to
 	// happen.
 	
@@ -526,7 +542,7 @@ public:
 	// Returns the device type.
 	
 	virtual const char * 	getDeviceTypeName ( void );
-
+	
 	//-----------------------------------------------------------------------
 	// Sends an ATA SMART command to the device.
 

@@ -12,7 +12,7 @@ NAME = df
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-CFILES = df.c
+CFILES = df.c vfslist.c
 
 OTHERSRCS = Makefile Makefile.preamble Makefile.postamble df.1
 

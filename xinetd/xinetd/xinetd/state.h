@@ -9,7 +9,7 @@
 #define STATE_H
 
 /*
- * $Id: state.h,v 1.1.1.2 2002/06/17 22:51:26 zarzycki Exp $
+ * $Id: state.h,v 1.1.1.4 2003/06/15 17:31:44 rbraun Exp $
  */
 
 #include "config.h"
@@ -36,8 +36,8 @@ struct read_only_state
    rlim_t      max_descriptors ;      /* original hard rlimit or OPEN_MAX    */
    rlim_t      process_limit ;        /* if 0, there is no limit             */
    int         cc_interval ;          /* # of seconds the cc gets invoked.   */
-   char       *pid_file ;             /* where the pidfile is located        */
-   char       *config_file ;
+   const char *pid_file ;             /* where the pidfile is located        */
+   const char *config_file ;
    int         is_superuser ;
    char      **Argv ;
    int         Argc ;

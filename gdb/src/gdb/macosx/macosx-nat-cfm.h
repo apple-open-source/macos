@@ -26,6 +26,7 @@ typedef struct NCFragConnectionInfo NCFragConnectionInfo;
 struct NCFragContainerInfo {
   unsigned long address;
   unsigned long length;
+  unsigned long next;
   unsigned long sectionCount;
   char name[66];
 };
@@ -71,12 +72,6 @@ cfm_fetch_universe_info
 (struct cfm_parser *parser, CORE_ADDR addr, NCFragUniverseInfo *info);
 
 extern long
-cfm_fetch_context_connections
-(struct cfm_parser *parser, CORE_ADDR addr,
- unsigned long requestedCount, unsigned long skipCount,
- unsigned long *totalCount_o, unsigned long *connectionIDs_o);
-
-extern long
 cfm_parse_connection_info
 (struct cfm_parser *parser, unsigned char *buf, size_t len, NCFragConnectionInfo *info);
 
@@ -93,9 +88,15 @@ cfm_fetch_container_info
 (struct cfm_parser *parser, CORE_ADDR addr, NCFragContainerInfo *info);
 
 extern long
-cfm_fetch_connection_section_info
+cfm_fetch_context_containers
+(struct cfm_parser *parser, CORE_ADDR addr,
+ unsigned long requestedCount, unsigned long skipCount,
+ unsigned long *totalCount_o, unsigned long *containerIDs_o);
+
+extern long
+cfm_fetch_container_section_info
 (struct cfm_parser *parser, CORE_ADDR addr, unsigned long sectionIndex,
- NCFragSectionInfo *section, NCFragInstanceInfo *instance);
+ NCFragSectionInfo *section);
 
 long
 cfm_update (task_t task, struct dyld_objfile_info *info);

@@ -29,7 +29,7 @@ void pset_compact( register pset_h pset )
 	}
 
 	/* See if we can reclaim some memory, make sure we are 2 below for some hysteresis */
-	if (( pset->max - pset->alloc_step - 2) > (int)pset_count( pset ))
+	if ((int)( pset->max - pset->alloc_step - 2) > (int)pset_count( pset ))
 	{	/* This rounds up to the next unit of steps */
 		POINTER *new_ptrs ;
 		unsigned new_max = ((pset_count( pset ) / pset->alloc_step) + 1)*pset->alloc_step;

@@ -37,7 +37,7 @@ namespace Syslog
 //
 // Open and initialize logging
 //
-void open(const char *ident, int facility, int options = 0)
+void open(const char *ident, int facility, int options /*= 0*/)
 {
 	::openlog(ident, options, facility);
 }

@@ -25,6 +25,7 @@
 
 #include <Security/acl_password.h>
 #include <Security/debugging.h>
+#include <Security/endian.h>
 #include <algorithm>
 
 

@@ -31,37 +31,29 @@
  *
  */
 
-// public
-#import <IOKit/firewire/IOFireWireLib.h>
+#import <IOKit/firewire/IOFireWireFamilyCommon.h>
 
-// private
+//#import "IOFireWireLibDevice.h"
+#import "IOFireWireLibIUnknown.h"
+#import "IOFireWireLib.h"
 #import "IOFireWireLibPriv.h"
-
-// system
-#import <CoreFoundation/CoreFoundation.h>
 
 namespace IOFireWireLib {
 
 	typedef ::IOFireWireLibCommandCallback	CommandCallback ;
 
+	class Device ;
 	class Cmd: public IOFireWireIUnknown
 	{		
 		public:
-//			typedef CommandSubmitResult		SubmitResult ;
+		
+			Cmd( const IUnknownVTbl & vtable, Device & userClient, io_object_t device,  const FWAddress & inAddr, 
+					CommandCallback callback, const bool failOnReset, const UInt32 generation, 
+					void * refCon, CommandSubmitParams* params ) ;
+			virtual ~Cmd() ;
 		
 		public:
-									Cmd(
-											IUnknownVTbl*					vtable,
-											Device& 						userClient, 
-											io_object_t 					device, 
-											const FWAddress& 				inAddr, 
-											CommandCallback				 	inCallback, 
-											const bool 						inFailOnReset, 
-											const UInt32 					inGeneration, 
-											void* 							inRefCon,
-											CommandSubmitParams*		params ) ;
-			virtual					~Cmd() ;
-			
+		
 			virtual HRESULT 		QueryInterface( REFIID iid, LPVOID* ppv ) ;
 			virtual void			SetTarget( const FWAddress&	addr) ;
 			virtual void			SetGeneration( UInt32 generation) ;
@@ -78,67 +70,42 @@ namespace IOFireWireLib {
 			static void				CommandCompletionHandler( void* refcon, IOReturn result, IOByteCount bytesTransferred ) ;									
 
 			// --- getters -----------------------
-			static IOReturn			SGetStatus(
-										IOFireWireLibCommandRef	self) ;
-			static UInt32			SGetTransferredBytes(
-										IOFireWireLibCommandRef	self) ;
-			static void				SGetTargetAddress(
-										IOFireWireLibCommandRef	self,
-										FWAddress*				outAddr) ;
+			static IOReturn			SGetStatus( IOFireWireLibCommandRef	self) ;
+			static UInt32			SGetTransferredBytes( IOFireWireLibCommandRef	self) ;
+			static void				SGetTargetAddress( IOFireWireLibCommandRef self, FWAddress* outAddr ) ;
+
 			// --- setters -----------------------
-			static void				SSetTarget(
-											IOFireWireLibCommandRef	self,
-											const FWAddress*	addr) ;
-			static void				SSetGeneration(
-											IOFireWireLibCommandRef	self,
-											UInt32					generation) ;
-			static void				SSetCallback(
-											IOFireWireLibCommandRef	self,
-											CommandCallback	inCallback) ;
-			static void				SSetRefCon(
-											IOFireWireLibCommandRef	self,
-											void*					refCon) ;
+			static void				SSetTarget ( IOFireWireLibCommandRef self, const FWAddress * addr ) ;
+			static void				SSetGeneration ( IOFireWireLibCommandRef self, UInt32 generation ) ;
+			static void				SSetCallback ( IOFireWireLibCommandRef self, CommandCallback callback ) ;
+			static void				SSetRefCon ( IOFireWireLibCommandRef self, void * refCon ) ;
 		
-			static const Boolean	SIsExecuting(
-											IOFireWireLibCommandRef	self) ;
-			static IOReturn			SSubmit(
-											IOFireWireLibCommandRef	self) ;
-			static IOReturn			SSubmitWithRefconAndCallback(
-											IOFireWireLibCommandRef	self,
-											void*	refCon,
-											CommandCallback	inCallback) ;
-			static IOReturn			SCancel(
-											IOFireWireLibCommandRef self,
-											IOReturn				reason) ;
-			static void				SSetBuffer(
-											IOFireWireLibCommandRef self,
-											UInt32					size,
-											void*					buf) ;
-			static void				SGetBuffer(
-											IOFireWireLibCommandRef	self,
-											UInt32*					outSize,
-											void**					outBuf) ;
-			static IOReturn			SSetMaxPacket(
-											IOFireWireLibCommandRef self,
-											IOByteCount				inMaxBytes) ;
-			static void				SSetFlags(
-											IOFireWireLibCommandRef	self,
-											UInt32					inFlags) ;
+			static const Boolean	SIsExecuting ( IOFireWireLibCommandRef self ) ;
+			static IOReturn			SSubmit ( IOFireWireLibCommandRef self ) ;
+			static IOReturn			SSubmitWithRefconAndCallback ( IOFireWireLibCommandRef self, void * refCon,
+											CommandCallback callback) ;
+			static IOReturn			SCancel ( IOFireWireLibCommandRef self, IOReturn reason ) ;
+			static void				SSetBuffer ( IOFireWireLibCommandRef self, UInt32 size, void * buf ) ;
+			static void				SGetBuffer ( IOFireWireLibCommandRef self, UInt32 * outSize, void ** outBuf) ;
+			static IOReturn			SSetMaxPacket ( IOFireWireLibCommandRef self, IOByteCount maxBytes ) ;
+			static void				SSetFlags ( IOFireWireLibCommandRef self, UInt32 flags ) ;
 
 		protected:
+		
 			static IOFireWireCommandInterface	sInterface ;
 	
 		protected:
-			Device&	mUserClient ;
+		
+			Device &						mUserClient ;
 			io_object_t						mDevice ;
 			io_async_ref_t					mAsyncRef ;
 			IOByteCount						mBytesTransferred ;	
 			Boolean							mIsExecuting ;
 			IOReturn						mStatus ;
 			void*							mRefCon ;
-			CommandCallback	mCallback ;
+			CommandCallback					mCallback ;
 			
-			CommandSubmitParams* 		mParams ;
+			CommandSubmitParams* 			mParams ;
 	} ;
 
 #pragma mark -

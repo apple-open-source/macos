@@ -1,22 +1,25 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -43,7 +46,7 @@ SCDynamicStoreCopyKeyList(SCDynamicStoreRef store, CFStringRef pattern)
 {
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 	kern_return_t			status;
-	CFDataRef			xmlPattern;	/* serialized pattern */
+	CFDataRef			utfPattern;	/* serialized pattern */
 	xmlData_t			myPatternRef;
 	CFIndex				myPatternLen;
 	xmlDataOut_t			xmlDataRef;	/* serialized data */
@@ -51,8 +54,10 @@ SCDynamicStoreCopyKeyList(SCDynamicStoreRef store, CFStringRef pattern)
 	int				sc_status;
 	CFArrayRef			allKeys;
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreCopyKeyList:"));
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  pattern = %@"), pattern);
+	if (_sc_verbose) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreCopyKeyList:"));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("  pattern = %@"), pattern);
+	}
 
 	if (!store) {
 		/* sorry, you must provide a session */
@@ -66,7 +71,7 @@ SCDynamicStoreCopyKeyList(SCDynamicStoreRef store, CFStringRef pattern)
 	}
 
 	/* serialize the pattern */
-	if (!_SCSerialize(pattern, &xmlPattern, (void **)&myPatternRef, &myPatternLen)) {
+	if (!_SCSerializeString(pattern, &utfPattern, (void **)&myPatternRef, &myPatternLen)) {
 		_SCErrorSet(kSCStatusFailed);
 		return NULL;
 	}
@@ -81,7 +86,7 @@ SCDynamicStoreCopyKeyList(SCDynamicStoreRef store, CFStringRef pattern)
 			    (int *)&sc_status);
 
 	/* clean up */
-	CFRelease(xmlPattern);
+	CFRelease(utfPattern);
 
 	if (status != KERN_SUCCESS) {
 		if (status != MACH_SEND_INVALID_DEST)
@@ -103,7 +108,7 @@ SCDynamicStoreCopyKeyList(SCDynamicStoreRef store, CFStringRef pattern)
 	}
 
 	/* un-serialize the list of keys */
-	if (!_SCUnserialize((CFPropertyListRef *)&allKeys, xmlDataRef, xmlDataLen)) {
+	if (!_SCUnserialize((CFPropertyListRef *)&allKeys, NULL, xmlDataRef, xmlDataLen)) {
 		_SCErrorSet(kSCStatusFailed);
 		return NULL;
 	}

@@ -1,3 +1,27 @@
+/*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 
 /*
  * mslp_net.c : This module contains general networking utility functions
@@ -25,6 +49,9 @@
  *
  * (c) Sun Microsystems, 1998, All Rights Reserved.
  * Author: Erik Guttman
+ */
+ /*
+	Portions Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  */
 
 #include <stdio.h>
@@ -58,7 +85,6 @@ EXPORT int readn(SOCKET fd, void *pv, size_t n)
     char   *pc   = (char *) pv;
     fd_set fds, allset;
     struct timeval tv = { 5, 0 };
-//    struct timeval tv = { 2, 0 };
     
     FD_ZERO(&allset);
     FD_SET(fd,&allset);
@@ -200,7 +226,7 @@ EXPORT int CalculateOurIPAddress( struct in_addr* ourIPAddr, const char** pcInte
             pthread_mutex_lock( &sock_ntopLock );	// sock_ntop is not reentrant or threadsafe!
             SLP_LOG( SLP_LOG_DEBUG, "Returning our IP Address as: %s, on interface: %s", sock_ntop(ifi->ifi_addr, sizeof(ifi->ifi_addr)), ifi->ifi_name );
             pthread_mutex_unlock( &sock_ntopLock );
-//                ourIPAddr->s_addr = ntohl( (struct sockaddr_in *)&(ifi->ifi_addr) );
+
             break;		// we are just grabbing the first one.  If we want all, we should continue and fill an in_addr array
         }
     }

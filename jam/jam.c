@@ -36,6 +36,10 @@
 # include "timestamp.h"
 # endif
 
+#ifdef APPLE_EXTENSIONS
+# include "timingdata.h"
+#endif
+
 /* Macintosh is "special" */
 
 # ifdef macintosh
@@ -127,7 +131,14 @@ struct globs globs = {
 #ifdef APPLE_EXTENSIONS
 	0,                      /* apple_jam_extensions */
 	0,			/* parsable_output */
+	0,			/* ascii_output_annotation */
+	0,			/* debug_parsable_output */
 	NULL,			/* cmdline_defines */
+	0,			/* enable_timings */
+        NULL,			/* timing_entry */
+        0.0,			/* header_scanning_time */
+        0,			/* headers_scanned */
+        0,                      /* num_targets_to_update */
 #endif
 # ifdef macintosh
 	{ 0, 0 }		/* debug - suppress tracing output */
@@ -145,8 +156,19 @@ int pbx_printf( const char * category_tag, const char * format, ... )
     int       result = 0;
 
     va_start(args, format);
-    if (category_tag != NULL)
-	printf("[%s]", category_tag);
+    if (category_tag != NULL) {
+	static int new_style = -1;
+	if (new_style == -1) {
+	    new_style = getenv("GCC_EMIT_LINE_PREFIXES") ? 1 : 0;
+	}
+	if (new_style) {
+	    /* Interlinear Annotation Anchor (\uFFF9), followed immediately by Interlinear Annotation Separator (\uFFFA), data, and Interlinear Annotation Terminator (\uFFFB). */
+	    printf("\357\277\271" "\357\277\272" "%s" "\357\277\273", category_tag);
+	}
+	else {
+	    printf("[%s]", category_tag);
+	}
+    }
     result = vprintf(format, args);
     va_end(args);
     return result;
@@ -296,6 +318,27 @@ char	**argv;
 	}
 	if( getenv( "ENABLE_APPLE_JAM_OUTPUT_ANNOTATION" ) != NULL ) {
 	    globs.parsable_output = 1;
+	    if( getenv( "DEBUG_APPLE_JAM_OUTPUT_ANNOTATION" ) != NULL ) {
+		globs.debug_parsable_output = 1;
+	    }
+	    if( getenv( "ASCII_OUTPUT_ANNOTATION" ) != NULL ) {
+		globs.ascii_output_annotation = 1;
+	    }
+	}
+
+	// To enable timings of each command run by jam, either set the 
+	// ENABLE_JAM_TIMINGS environment variable, or have a file named 
+	// ~/.jam-timings readable in your home dir.  The latter approach
+	// allows easier dynamic enabling of this while running Project Builder.
+	{
+	    char buf[1024];
+	    sprintf( buf, "%s/.jam-timings", getenv( "HOME" ) );
+	    if( getenv( "ENABLE_JAM_TIMINGS" ) != NULL || access( buf, R_OK ) != -1 ) {
+		globs.enable_timings = 1;
+		init_timing_data();
+		globs.timing_entry = create_timing_entry();
+		printf( "\njam timings enabled.  See table at end of each target's log.\n\n" );
+	    }
 	}
 #endif
 
@@ -368,6 +411,13 @@ char	**argv;
 
 	compile_builtins();
 
+#ifdef APPLE_EXTENSIONS
+	if( globs.enable_timings ) {
+	    append_timing_entry( globs.timing_entry, 0, "jam internals: compile_builtins()", NULL, NULL );
+	    globs.timing_entry = create_timing_entry();
+	}
+#endif
+
 	/* Parse ruleset */
 
 	for( n = 0; (s = getoptval( optv, 'f', n )) != NULL; n++ )
@@ -375,13 +425,23 @@ char	**argv;
 
 	if( !n )
 	    parse_file( "+" );
-
+	
 	status = yyanyerrors();
 
 	/* Manually touch -t targets */
 
 	for( n = 0; (s = getoptval( optv, 't', n )) != NULL; n++ )
 	    touchtarget( s );
+
+#ifdef APPLE_EXTENSIONS
+	if ( globs.enable_timings ) {
+	    // The target name variable was defined in the jamfile, hopefully.
+	    LIST *var_list = var_get( "TARGET_NAME" );
+	    if ( var_list ) {
+		set_timing_target_name( var_list->string );
+	    }
+	}
+#endif
 
 	/* Now make target */
 
@@ -399,6 +459,12 @@ char	**argv;
 
 #ifndef APPLE_EXTENSIONS
 	remakeifyArguments(argc, argv, newArgvBuffer);
+#endif
+	
+#ifdef APPLE_EXTENSIONS
+	if ( globs.enable_timings ) {
+	    print_timing_data();
+	}
 #endif
 
 	return status ? EXITBAD : EXITOK;

@@ -43,7 +43,6 @@ extern "C" {
 #define kCDDAFileSystemName				"cddafs"
 #define	kMountPointName					"Audio CD"
 #define kCDDAFileSystemMountType		"cddafs"
-#define kIOCDMediaTOC					"TOC"
 
 // (Un)Mount Stuff
 #define kMountCommand					"/sbin/mount"

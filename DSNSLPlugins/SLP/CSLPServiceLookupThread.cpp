@@ -1,33 +1,53 @@
 /*
- *  CSLPServiceLookupThread.cpp
- *  DSSLPPlugIn
+ * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
- *  Created by imlucid on Wed Aug 15 2001.
- *  Copyright (c) 2001 Apple Computer. All rights reserved.
- *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+ 
+/*!
+ *  @header CSLPServiceLookupThread
  */
 
-//#include <Carbon/Carbon.h>
 #include "CNSLPlugin.h"
 #include "CSLPServiceLookupThread.h"
 #include "CNSLDirNodeRep.h"
 #include "CNSLResult.h"
 #include "NSLDebugLog.h"
-
 #include "CSLPPlugin.h"
 #include "CommandLineUtilities.h"
 
-#define	kRecentsFolder		"Recent Servers"
-#define kFavoritesFolder	"Favorite Servers"
+#include <CoreServices/CoreServices.h>
 
 static pthread_mutex_t	gSLPNotifierLock;
 static Boolean			gLockInitialized = false;
+
+const CFStringRef		kDSNAttrDNSNameSAFE_CFSTR = CFSTR(kDSNAttrDNSName);
 
 SLPBoolean SLPServiceLookupNotifier( SLPHandle hSLP, const char* pcSrvURL, short unsigned int sLifeTime, SLPInternalError errCode, void* pvCookie );
 void AddHostNameIfPossible( CNSLResult* newResult );
 CFStringRef CreateHostNameFromURL( CFStringRef	urlStringRef );
 void HandleAttributeAddition( CNSLResult* newResult, char* keyStr, char* valueStr );
 char* CreateDecodedString( char* rawString );
+tDirStatus HexDecodeText( const char* encodedText, UInt16 encodedTextLen, char* decodedTextBuffer, UInt16* decodedTextBufferLen, Boolean* textChanged );
 
 CSLPServiceLookupThread::CSLPServiceLookupThread( CNSLPlugin* parentPlugin, char* serviceType, CNSLDirNodeRep* nodeDirRep )
     : CNSLServiceLookupThread( parentPlugin, serviceType, nodeDirRep )
@@ -178,18 +198,26 @@ SLPBoolean SLPServiceLookupNotifier( SLPHandle hSLP, const char* pcSrvURL, short
             CNSLResult* newResult = new CNSLResult();
             char		serviceType[256] = {0};
             long		numCharsToAdvance = 7;
-            char*		ourURLCopy = (char*)malloc( strlen(pcSrvURL) +1 );
-            
+			size_t		urlLen = strlen(pcSrvURL);
+			char		stackBuf[1024];
+            char*		ourURLCopy = stackBuf;
+            char*		nameTagPtr = NULL;
+			
+			if ( urlLen+1 > sizeof(stackBuf) )
+				ourURLCopy = (char*)malloc( urlLen+1 );
+				
             strcpy( ourURLCopy, pcSrvURL );
     
             
             for ( int i=0; ourURLCopy[i] != '\0' && strncmp( &ourURLCopy[i], ":/", 2 ) != 0; i++ )
                 serviceType[i] = ourURLCopy[i];
             
-            char*	namePtr = strstr( ourURLCopy, "/?NAME=" );
-            if ( !namePtr )
+            char*	namePtr = NULL;
+			
+			nameTagPtr = strstr( ourURLCopy, "/?NAME=" );
+            if ( !nameTagPtr )
             {
-                namePtr = strstr( ourURLCopy, "?NAME=" );
+                nameTagPtr = strstr( ourURLCopy, "?NAME=" );
                 numCharsToAdvance--;
             }
             
@@ -253,44 +281,65 @@ SLPBoolean SLPServiceLookupNotifier( SLPHandle hSLP, const char* pcSrvURL, short
                 }
             }
 #endif            
-            if ( namePtr)
+            if ( nameTagPtr)
             {
                 // ok, this is a hack registration to include the display name
                 DBGLOG( "SLPServiceLookupNotifier, found a ?NAME= tag and will try and pull out the display name (%s)\n", namePtr );
-//                *namePtr = '\0';						// don't return this as the url
-                namePtr += numCharsToAdvance;			// advance to the name
+				
+				namePtr = strstr( nameTagPtr, "&ZONE=" );
+				
+				if ( namePtr )
+					*namePtr = '\0';		// take off this legacy tag
+					
+                namePtr = nameTagPtr + numCharsToAdvance;			// now look at whats at the end of the name tag
                 
-                if ( !newResult->GetAttributeRef(CFSTR(kDSNAttrRecordName)) )		// only do this if we haven't found a name attribute
-                {
-                    DBGLOG( "SLPServiceLookupNotifier, display name raw is (%s)\n", namePtr );
-                    char		decodedName[256] = {0};
-                    UInt16		decodedNameLen = sizeof(decodedName) - 1;		// save room for null terminator
-                    Boolean		wasChanged;
-                    CFStringRef	nameRef = NULL;
-					
-                    char*	zonePtr = strstr( namePtr, "&ZONE=" );
-                    
-                    if ( zonePtr )
-                        *zonePtr = '\0';		// NULL out this Shareway IP zone info
-
-                    if ( NSLHexDecodeText( namePtr, strlen(namePtr), decodedName, &decodedNameLen, &wasChanged ) == noErr )
-                    {
-                        DBGLOG( "SLPServiceLookupNotifier hex decoded name to be: %s, using encoding %ld\n", decodedName, NSLGetSystemEncoding() );
-                        nameRef = CFStringCreateWithCString( NULL, decodedName, NSLGetSystemEncoding() );	// these are system encoded
-						//newResult->AddAttribute( kDSNAttrRecordName, decodedName );
-                    }
-                    else
-                    {
-                        DBGLOG( "SLPServiceLookupNotifier name not hex encoded, adding: %s, using encoding %ld\n", namePtr, NSLGetSystemEncoding() );
-                       // newResult->AddAttribute( kDSNAttrRecordName, namePtr );
-                        nameRef = CFStringCreateWithCString( NULL, namePtr, NSLGetSystemEncoding() );	// these are system encoded
-                    }
-					
-					newResult->AddAttribute( CFSTR(kDSNAttrRecordName), nameRef );
-					CFRelease( nameRef );
-                }
+				if ( namePtr[0] != '\0' )
+				{
+					if ( !newResult->GetAttributeRef(kDSNAttrRecordNameSAFE_CFSTR) )		// only do this if we haven't found a name attribute
+					{
+						DBGLOG( "SLPServiceLookupNotifier, display name raw is (%s)\n", namePtr );
+						char		decodedName[256] = {0};
+						UInt16		decodedNameLen = sizeof(decodedName) - 1;		// save room for null terminator
+						Boolean		wasChanged;
+						CFStringRef	nameRef = NULL;
+						
+						char*	zonePtr = strstr( namePtr, "&ZONE=" );
+						
+						if ( zonePtr )
+							*zonePtr = '\0';		// NULL out this Shareway IP zone info
+	
+						if ( HexDecodeText( namePtr, strlen(namePtr), decodedName, &decodedNameLen, &wasChanged ) == eDSNoErr )
+						{
+							DBGLOG( "SLPServiceLookupNotifier hex decoded name to be: %s, using encoding %ld\n", decodedName, NSLGetSystemEncoding() );
+							nameRef = CFStringCreateWithCString( NULL, decodedName, NSLGetSystemEncoding() );	// these are system encoded
+						}
+						else
+						{
+							DBGLOG( "SLPServiceLookupNotifier name not hex encoded, adding: %s, using encoding %ld\n", namePtr, NSLGetSystemEncoding() );
+	
+							nameRef = CFStringCreateWithCString( NULL, namePtr, NSLGetSystemEncoding() );	// these are system encoded
+						}
+						
+						if ( nameRef )
+						{
+							newResult->AddAttribute( kDSNAttrRecordNameSAFE_CFSTR, nameRef );
+							CFRelease( nameRef );
+						}
+						else
+						{
+							namePtr = NULL;					// set the pointer to null so we will use the hostname/ipaddress below
+							DBGLOG( "SLPServiceLookupNotifier couldn't create a CFString from the name, encoding issue perhaps?\n" );
+						}
+					}
+				}
+				else
+				{
+					*nameTagPtr = '\0';				// so we effectively blank the ?NAME= portion out
+					namePtr = NULL;					// and set the pointer to null so we will use the hostname/ipaddress below
+				}
             }
-            else
+            
+			if ( !namePtr )
             {
                 // We want to set the name to be the portion after the URL
                 namePtr = strstr( ourURLCopy, ":/" );
@@ -316,7 +365,7 @@ SLPBoolean SLPServiceLookupNotifier( SLPHandle hSLP, const char* pcSrvURL, short
             newResult->SetURL( ourURLCopy );
             newResult->SetServiceType( serviceType );
             
-            if ( !CFDictionaryGetValue( newResult->GetAttributeDict(), CFSTR(kDSNAttrDNSName) ) )
+            if ( !CFDictionaryGetValue( newResult->GetAttributeDict(), kDSNAttrDNSNameSAFE_CFSTR ) )
             {
                 // no host name, let's try and figure one out
                 AddHostNameIfPossible( newResult );
@@ -330,7 +379,8 @@ SLPBoolean SLPServiceLookupNotifier( SLPHandle hSLP, const char* pcSrvURL, short
             lookupObj->AddResult( newResult );
             wantMoreData = SLP_TRUE;					// still going!
                 
-            free( ourURLCopy );
+            if ( ourURLCopy != stackBuf )
+				free( ourURLCopy );
         }
         
         pthread_mutex_unlock( &gSLPNotifierLock );
@@ -343,7 +393,7 @@ void AddHostNameIfPossible( CNSLResult* newResult )
 {
     CFStringRef		hostNameRef = NULL;
     
-    if ( (hostNameRef = CreateHostNameFromURL( (CFStringRef)CFDictionaryGetValue( newResult->GetAttributeDict(), CFSTR(kDSNAttrDNSName) ) ) ) )
+    if ( (hostNameRef = CreateHostNameFromURL( (CFStringRef)CFDictionaryGetValue( newResult->GetAttributeDict(), kDSNAttrDNSNameSAFE_CFSTR ) ) ) )
     {
         if ( getenv("NSLDEBUG") )
         {
@@ -351,7 +401,7 @@ void AddHostNameIfPossible( CNSLResult* newResult )
             CFShow( hostNameRef );
         }
         
-        newResult->AddAttribute( CFSTR(kDSNAttrDNSName), hostNameRef );
+        newResult->AddAttribute( kDSNAttrDNSNameSAFE_CFSTR, hostNameRef );
         CFRelease( hostNameRef );
     }
 }
@@ -382,13 +432,20 @@ void HandleAttributeAddition( CNSLResult* newResult, char* keyStr, char* valueSt
         newResult->AddAttribute( kDSNAttrIPAddress, valuePtrToUse );
     else
     {
-        char*		dsNativeKeyType = (char*)malloc( strlen(kDSNativeAttrTypePrefix) + strlen(keyStr) + 1 );
+        char		stackBuf[256];
+		char*		dsNativeKeyType = stackBuf;
+		size_t		newKeyLen = strlen(kDSNativeAttrTypePrefix) + strlen(keyStr) + 1;
+		
+		if ( newKeyLen > (CFIndex)sizeof(stackBuf) )
+			dsNativeKeyType = (char*)malloc( newKeyLen );
+			
         strcpy( dsNativeKeyType, kDSNativeAttrTypePrefix );
         strcat( dsNativeKeyType, keyStr );
         
         newResult->AddAttribute( dsNativeKeyType, valuePtrToUse );
 
-        free( dsNativeKeyType );
+		if ( dsNativeKeyType != stackBuf )
+			free( dsNativeKeyType );
     }
 
     if ( decodedValue )
@@ -428,8 +485,7 @@ char* CreateDecodedString( char* rawString )
                     free( buffer );
                     return NULL;
                 }
-//                strncat( buffer, &curPtr[1], 1 );
-DBGLOG( "CreateDecodedString, first char %c should map to 0x%x\n", curPtr[1], temp1 );   
+
                 if ( curPtr[2] >= 'A' && curPtr[2] <= 'F' )
                     temp2 = (10 + (curPtr[2] - 'A'));
                 else if ( curPtr[2] >= '0' && curPtr[2] <= '9' )
@@ -441,12 +497,8 @@ DBGLOG( "CreateDecodedString, first char %c should map to 0x%x\n", curPtr[1], te
                     return NULL;
                 }
 
-DBGLOG( "CreateDecodedString, second char %c should map to 0x%x\n", curPtr[2], temp2 );   
-
                 newUniChar = temp1 + temp2;
                 strncat( buffer, &newUniChar, 1 );
-
-DBGLOG( "CreateDecodedString, chars to convert is %c%c, value converted to is 0x%x\n", curPtr[1], curPtr[2], newUniChar );                
 
                 curPtr+=3;   
             }
@@ -471,6 +523,85 @@ DBGLOG( "CreateDecodedString, chars to convert is %c%c, value converted to is 0x
 }
 
 
+char DecodeHexToChar( const char* oldHexTriplet, Boolean* wasHexTriplet  )
+{
+	char c, c1, c2;
+	
+	*wasHexTriplet = false;
+	
+	c = *oldHexTriplet;
 
-                            
+	if ( c == '%' )
+	{
+		// Convert %xx to ascii equivalent
+		c1 = tolower(oldHexTriplet[1]);
+		c2 = tolower(oldHexTriplet[2]);
+		if (isxdigit(c1) && isxdigit(c2)) 
+		{
+			c1 = isdigit(c1) ? c1 - '0' : c1 - 'a' + 10;
+			c2 = isdigit(c2) ? c2 - '0' : c2 - 'a' + 10;
+			c = (c1 << 4) | c2;
+			
+			*wasHexTriplet = true;
+		}
+	}
+	
+	return c;
+}
 
+/*****************
+ * HexDecodeText *
+ *****************
+ 
+ This function will change all encoded text (%XX) to its character equivalent.
+ 
+*/
+
+tDirStatus HexDecodeText( const char* encodedText, UInt16 encodedTextLen, char* decodedTextBuffer, UInt16* decodedTextBufferLen, Boolean* textChanged )
+{
+	const char*		curReadPtr = encodedText;
+	char*			curWritePtr = decodedTextBuffer;
+	tDirStatus		status = eDSNoErr;
+	Boolean			wasHex;
+	
+	if ( !encodedText || !decodedTextBuffer || !decodedTextBufferLen || !textChanged )
+		status = eDSNullParameter;
+	
+	*textChanged = false;	// preset
+	
+	while ( !status && (curReadPtr <= encodedText+encodedTextLen) )
+	{
+		if ( curWritePtr > decodedTextBuffer + *decodedTextBufferLen )
+		{
+			status = eDSBufferTooSmall;
+			break;
+		}
+		
+		if ( *curReadPtr == '%' )
+		{
+			*curWritePtr = DecodeHexToChar( curReadPtr, &wasHex );
+			
+			if ( !wasHex )
+				status = eDSInvalidAttributeType;
+			else
+			{
+				curWritePtr++;
+				curReadPtr += 3;
+				*textChanged = true;
+			}
+		}
+		else
+		{
+			*curWritePtr = *curReadPtr;
+			curWritePtr++;
+			curReadPtr++;
+		}
+	}
+	
+	if ( !status )
+		*decodedTextBufferLen = (curWritePtr-decodedTextBuffer)-1;	// <14>
+	else
+		*decodedTextBufferLen = 0;
+		
+	return status;
+}

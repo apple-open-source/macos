@@ -1,4 +1,28 @@
 /*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
     ipv6cp.h - PPP IPV6 Control Protocol.
     Copyright (C) 1999  Tommi Komulainen <Tommi.Komulainen@iki.fi>
 
@@ -90,7 +114,7 @@
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * $Id: ipv6cp.h,v 1.2 2002/03/13 22:44:43 callie Exp $
+ * $Id: ipv6cp.h,v 1.5 2003/08/14 00:00:30 callie Exp $
  */
 
 /*
@@ -109,7 +133,7 @@ typedef struct ipv6cp_options {
     int opt_local;		/* ourtoken set by option */
     int opt_remote;		/* histoken set by option */
     int use_ip;			/* use IP as interface identifier */
-#if defined(SOL2)
+#if defined(SOL2) || defined(__linux__) || defined(__APPLE__)
     int use_persistent;		/* use uniquely persistent value for address */
 #endif /* defined(SOL2) */
     int neg_vj;			/* Van Jacobson Compression? */

@@ -30,7 +30,7 @@ Policy::Policy(TP supportingTp, const CssmOid &policyOid)
     // value is as yet unimplemented
 }
 
-Policy::~Policy()
+Policy::~Policy() throw()
 {
 }
 

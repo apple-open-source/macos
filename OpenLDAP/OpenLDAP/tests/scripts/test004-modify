@@ -1,5 +1,5 @@
 #! /bin/sh
-# $OpenLDAP: pkg/ldap/tests/scripts/test004-modify,v 1.35 2002/01/21 05:35:04 kurt Exp $
+# $OpenLDAP: pkg/ldap/tests/scripts/test004-modify,v 1.35.2.6 2003/02/24 16:16:54 kurt Exp $
 
 SRCDIR="."
 if test $# -ge 1 ; then
@@ -8,6 +8,10 @@ fi
 BACKEND=bdb
 if test $# -ge 1 ; then
 	BACKEND=$1; shift
+fi
+MONITORDB=no
+if test $# -ge 1 ; then
+	MONITORDB=$1; shift
 fi
 WAIT=0
 if test $# -ge 1 ; then
@@ -25,7 +29,7 @@ echo "Cleaning up in $DBDIR..."
 rm -f $DBDIR/[!C]*
 
 echo "Running slapadd to build slapd database..."
-. $CONFFILTER $BACKEND < $CONF > $DBCONF
+. $CONFFILTER $BACKEND $MONITORDB < $CONF > $DBCONF
 $SLAPADD -f $DBCONF -l $LDIFORDERED
 RC=$?
 if test $RC != 0 ; then
@@ -46,10 +50,11 @@ for i in 0 1 2 3 4 5; do
 	$LDAPSEARCH -s base -b "$MONITOR" -h $LOCALHOST -p $PORT \
 		'objectclass=*' > /dev/null 2>&1
 	RC=$?
-	if test $RC = 1 ; then
-		echo "Waiting 5 seconds for slapd to start..."
-		sleep 5
+	if test $RC = 0 ; then
+		break
 	fi
+	echo "Waiting 5 seconds for slapd to start..."
+	sleep 5
 done
 
 if test $RC != 0 ; then
@@ -69,7 +74,19 @@ dn: cn=James A Jones 1,ou=Alumni Association,ou=People,o=University of Michigan,
 # EMBEDDED COMMENT
 changetype: modify
 add: drink
+drink: Pils
+-
+add: drink
 drink: Orange Juice
+-
+delete: drink
+drink: Pils
+-
+delete: sn
+sn: Jones
+-
+add: sn
+sn: Jones
 
 dn: cn=Bjorn Jensen,ou=Information Technology Division,ou=People,o=University of Michigan,c=US
 changetype: modify
@@ -83,6 +100,7 @@ drink: Iced Tea
 drink: Mad Dog 20/20
 
 dn: cn=ITD Staff,ou=Groups,o=University of Michigan,c=US
+changetype: modify
 delete: member
 member: cn=James A Jones 2,ou=Information Technology Division,ou=People,o=University of Michigan,c=US
 member: cn=Bjorn Jensen,ou=Information Technology Division,ou=People,o=University of Michigan,c=US
@@ -97,11 +115,11 @@ delete: member
 -
 add: member
 member: cn=Dorothy Stevens,ou=Alumni Association,ou=People,o=University of Michigan,c=US
+-
+delete: description
 
 dn: cn=Gern Jensen,ou=Information Technology Division,ou=People,o=University of Michigan,c=US
 changetype: add
-objectclass: top
-objectclass: person
 objectclass: OpenLDAPperson
 cn: Gern Jensen
 sn: Jensen
@@ -114,7 +132,7 @@ homepostaladdress: 844 Brown St. Apt. 4 $ Ann Arbor, MI 48104
 description: Very odd
 facsimiletelephonenumber: +1 313 555 7557
 telephonenumber: +1 313 555 8343
-mail: gjensen@mailgw.umich.edu
+mail: gjensen@mailgw.example.com
 homephone: +1 313 555 8844
 
 dn: cn=James A Jones 2,ou=Information Technology Division,ou=People,o=University of Michigan,c=US

@@ -132,7 +132,7 @@ void GAESContext::init(
 		set_key((u4byte *)keyData, keyLen * 8, &mAesKey);
 
 		/* save this raw key data */
-		memmove(mRawKey, keyData, mRawKeySize); 
+		memmove(mRawKey, keyData, keyLen); 
 		mRawKeySize = keyLen;
 	}
 

@@ -1,6 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/config.c,v 1.7 2002/02/02 09:10:35 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/config.c,v 1.7.2.1 2002/04/18 15:20:01 kurt Exp $ */
 /*
  *	 Copyright 1999, John C. Quillan, All rights reserved.
+ *	 Portions Copyright 2002, myinternet Limited. All rights reserved.
  *
  *	 Redistribution and use in source and binary forms are permitted only
  *	 as authorized by the OpenLDAP Public License.	A copy of this
@@ -9,17 +10,17 @@
  */
 
 #include "portable.h"
-/* init.c - initialize shell backend */
 	
 #include <stdio.h>
-/*	#include <ac/types.h>
-	#include <ac/socket.h>
-*/
+
+#include "slap.h"
+#ifdef HAVE_WIN32_ASPERL
+#include "asperl_undefs.h"
+#endif
 
 #include <EXTERN.h>
 #include <perl.h>
 
-#include "slap.h"
 #include "perl_back.h"
 
 
@@ -53,21 +54,35 @@ perl_back_db_config(
 			return( 1 );
 		}
 
-		strncpy(eval_str, argv[1], EVAL_BUF_SIZE );
+#ifdef PERL_IS_5_6
+		snprintf( eval_str, EVAL_BUF_SIZE, "use %s;", argv[1] );
+		eval_pv( eval_str, 0 );
 
-		perl_require_pv( strcat( eval_str, ".pm" ));
+		if (SvTRUE(ERRSV)) {
+			STRLEN n_a;
+
+			fprintf(stderr , "Error %s\n", SvPV(ERRSV, n_a)) ;
+		}
+#else
+		snprintf( eval_str, EVAL_BUF_SIZE, "%s.pm", argv[1] );
+		perl_require_pv( eval_str );
 
 		if (SvTRUE(GvSV(errgv))) {
 			fprintf(stderr , "Error %s\n", SvPV(GvSV(errgv), na)) ;
-
-		} else {
+		}
+#endif /* PERL_IS_5_6 */
+		else {
 			dSP; ENTER; SAVETMPS;
 			PUSHMARK(sp);
 			XPUSHs(sv_2mortal(newSVpv(argv[1], 0)));
 			PUTBACK;
 
+#ifdef PERL_IS_5_6
+			count = call_method("new", G_SCALAR);
+#else
 			count = perl_call_method("new", G_SCALAR);
-			
+#endif
+
 			SPAGAIN;
 
 			if (count != 1) {
@@ -87,9 +102,17 @@ perl_back_db_config(
 			return( 1 );
 		}
 
-		sprintf( eval_str, "push @INC, '%s';", argv[1] );
+		snprintf( eval_str, EVAL_BUF_SIZE, "push @INC, '%s';", argv[1] );
+#ifdef PERL_IS_5_6
+		loc_sv = eval_pv( eval_str, 0 );
+#else
 		loc_sv = perl_eval_pv( eval_str, 0 );
+#endif
 
+		/* XXX loc_sv return value is ignored. */
+
+	} else if ( strcasecmp( argv[0], "filterSearchResults" ) == 0 ) {
+		perl_back->pb_filter_search_results = 1;
 	} else {
 		/*
 		 * Pass it to Perl module if defined
@@ -108,7 +131,11 @@ perl_back_db_config(
 
 			PUTBACK ;
 
+#ifdef PERL_IS_5_6
+			count = call_method("config", G_SCALAR);
+#else
 			count = perl_call_method("config", G_SCALAR);
+#endif
 
 			SPAGAIN ;
 

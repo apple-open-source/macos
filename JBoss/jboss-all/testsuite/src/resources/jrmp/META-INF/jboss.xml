@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<!DOCTYPE jboss PUBLIC
+   "-//JBoss//DTD JBOSS 3.2//EN"
+   "http://www.jboss.org/j2ee/dtd/jboss_3_2.dtd">
+
+<!-- The jboss.xml descriptor for the jrmp-comp.jar ejb unit -->
+<jboss>
+   <enterprise-beans>
+      <session>
+         <ejb-name>StatelessSession</ejb-name>
+         <configuration-name>Standard Stateless SessionBean</configuration-name>
+         <invoker-bindings>
+            <invoker>
+               <invoker-proxy-binding-name>stateless-compression-invoker</invoker-proxy-binding-name>
+               <jndi-name>StatelessSession</jndi-name>
+            </invoker>
+         </invoker-bindings>
+      </session>
+   </enterprise-beans>
+
+   <invoker-proxy-bindings>
+      <invoker-proxy-binding>
+         <name>stateless-compression-invoker</name>
+         <invoker-mbean>jboss:service=invoker,type=jrmp,socketType=CompressionSocketFactory</invoker-mbean>
+         <proxy-factory>org.jboss.proxy.ejb.ProxyFactory</proxy-factory>
+         <proxy-factory-config>
+            <client-interceptors>
+               <home>
+                  <interceptor>org.jboss.proxy.ejb.HomeInterceptor</interceptor>
+                  <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+                  <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+                  <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+               </home>
+               <bean>
+                  <interceptor>org.jboss.proxy.ejb.StatelessSessionInterceptor</interceptor>
+                  <interceptor>org.jboss.proxy.SecurityInterceptor</interceptor>
+                  <interceptor>org.jboss.proxy.TransactionInterceptor</interceptor>
+                  <interceptor>org.jboss.invocation.InvokerInterceptor</interceptor>
+               </bean>
+            </client-interceptors>
+         </proxy-factory-config>
+      </invoker-proxy-binding>
+   </invoker-proxy-bindings>
+</jboss>

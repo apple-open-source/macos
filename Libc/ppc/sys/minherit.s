@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(minherit, 3)
-	blr
 

@@ -1,0 +1,255 @@
+2003-07-02  Igor Likhatchev (igor@apple.com)
+        * baseboards/macosx.exp: added setup_site_fail for Radars 3313204,3313491; removed 3223691.
+
+2003-07-01  Igor Likhatchev (igor@apple.com)
+	* baseboards/macosx.exp: added setup_site_fail for Radars 3310715,3311730
+
+2003-06-16  Jason Molenda  (jmolenda@apple.com)
+
+	* baseboards/macosx.exp: Remove site_xfail for test that was now
+	invalid.
+
+2003-06-13  Igor Likhatchev  (igor@apple.com)
+
+	* baseboards/macosx.exp: Test updates.
+
+2003-04-09  Jason Molenda  (jmolenda@apple.com)
+
+	* baseboards/macosx.exp: Test updates.
+
+2003-02-17  Jason Molenda  (jmolenda@apple.com)
+
+	* baseboards/macosx.exp: Remove old-style annotation from test names.
+	Remove unnecessary exceptions for gdb792.exp.
+
+2003-02-16  Jason Molenda  (jmolenda@apple.com)
+
+	* baseboards/macosx.exp: Test updates.
+
+2002-02-10  Klee Dienes  <kdienes@apple.com>
+
+	* baseboards/macosx.exp: Test updates.
+
+2002-02-03  Klee Dienes  <kdienes@apple.com>
+
+	* baseboards/macosx.exp: Test updates.
+
+2002-12-17  Klee Dienes  <kdienes@apple.com>
+
+	* baseboards/macosx.exp: Test updates.
+
+2002-12-16  Klee Dienes  <kdienes@apple.com>
+
+	* baseboards/macosx.exp: Test updates.
+
+2002-12-15  Klee Dienes  <kdienes@apple.com>
+
+	* baseboards/macosx.exp: Test updates.
+
+2002-12-11  Klee Dienes  <kdienes@apple.com>
+
+	* lib/framework.exp: Use site_bug_id to store the bug-id for a
+	site-specific bug, instead of overloading prms_id.  For now, assume
+	that all site-specific bugs are specified by a Radar ID.
+
+2002-12-11  Klee Dienes  <kdienes@apple.com>
+
+	* baseboards/macosx.exp: Test updates.
+
+2002-12-07  Klee Dienes  <kdienes@apple.com>
+
+	* baseboards/macosx.exp: Altivec test updates.
+
+2002-11-23  Klee Dienes  <kdienes@apple.com>
+
+	* baseboards/macosx.exp: Test updates.
+
+2002-11-21  Klee Dienes  <kdienes@apple.com>
+
+	* Makefile.in: Revert to FSF sources.
+	* aclocal.m4: Revert to FSF sources.
+	* configure: Revert to FSF sources.
+	* doc/Makefile.in: Revert to FSF sources.
+	* doc/configure: Revert to FSF sources.
+	* example/Makefile.in: Revert to FSF sources.
+	* example/calc/aclocal.m4: Revert to FSF sources.
+	* example/calc/configure: Revert to FSF sources.
+	* testsuite/Makefile.in: Revert to FSF sources.
+	* testsuite/libdejagnu/Makefile.in: Revert to FSF sources.
+
+2002-11-21  Klee Dienes  <kdienes@apple.com>
+
+	* baseboards/macosx.exp: Test updates.
+
+2002-11-19  Jason Molenda  (jmolenda@apple.com)
+
+	* baseboards/macosx.exp: Test updates.
+
+2002-11-08  Klee Dienes  <kdienes@apple.com>
+
+	* baseboards/macosx.exp: More test updates.
+
+2002-11-08  Klee Dienes  <kdienes@apple.com>
+
+	* baseboards/macosx.exp: Mark tests for 3094426 - gdb
+	future-break on selector doesn't work with hand-loaded shlib.
+
+2002-11-07  Klee Dienes  <kdienes@apple.com>
+
+	* runtest.exp: Rename --site-specific-xfail to --site-fail.
+	Clean up the argument processing:  --site-fail is now the same
+	as --site-fail=KFAIL; --site-fail= disables site-specific
+	failure-handling support.
+
+2002-11-07  Klee Dienes  <kdienes@apple.com>
+
+	* runtest.exp: New variables, site_xfail and site_pass,
+	control the default reporting values for triggered and un-triggered
+	site_fails.  Remove entry for '--si' in the optarg list, it
+	was not being hit before because of a missing '*' and shouldn't have
+	been there anyway (we use --site= syntax).  Allow the user to
+	specify 'site_xfail' with the '--site-specific-fail=' command-line
+	argument.
+	* lib/frameworks.exp: Convert to use site_xfail and site_pass.
+	* baseboards/macosx.exp: Lots of cleanup, reorganization.
+
+2002-11-06  Klee Dienes  <kdienes@apple.com>
+
+	* framework.exp (setup_site_xfail): Swap the order of the filename
+	and the architecture in the setup_site_xfail arguments.
+	(log_summary): Use 'info exists' instead of 'catch' to check for
+	the existence of the key.
+	* baseboards/macosx.exp: Update site-fail list; remove obsolete entries.
+	
+2002-10-31  Jason Molenda  (jmolenda@apple.com)
+
+        * baseboards/macosx.exp: Update altivec test case names.
+
+2002-10-28  Klee Dienes  <kdienes@apple.com>
+
+	* Makefile.in: Regenerate.
+	* aclocal.m4: Regenerate.
+	* doc/Makefile.in: Regenerate.
+	* example/Makefile.in: Regenerate.
+	* testsuite/Makefile.in: Regenerate.
+	* testsuite/libdejagnu/Makefile.in: Regenerate.
+
+2002-10-23  Klee Dienes  <kdienes@apple.com>
+
+	* lib/framework (fail): Fix syntax error in set array($key).
+
+2002-10-23  Klee Dienes  <kdienes@apple.com>
+
+	* lib/framework.exp (log_summary): Use $array($key) syntax instead
+	of 'array get', to avoid unfortunate glob behavior for test names
+	containing '['.
+	(fail): Ditto.
+
+2002-10-23  Klee Dienes  <kdienes@apple.com>
+
+	* baseboards/macosx.exp: Site-specific kfail updates.
+
+2002-10-23  Klee Dienes  <kdienes@apple.com>
+
+	* lib/framework.exp (fail): Declare global pf_prefix, to avoid
+	record_test using the last-set value of the global.  Store the
+	file as well as the test name in the array key.  Generate a KFAIL
+	instead of an XFAIL, to lessen confusion with the rest of the
+	dejagnu output.
+	(setup_site_xfail): Store the file as well as the test name in the
+	array key.
+	(log_summary): Generate KPASS instead of XPASS, to lessen
+	confusion with the rest of the dejagnu output.
+
+2002-10-23  Klee Dienes  <kdienes@apple.com>
+
+	* lib/framework.exp (log_summary): Check for site_xfails
+	before starting output, in case we weren't run with
+	--site-specific-xfails (or in case none were defined).
+	* baseboards/macosx.exp: Update site-fail for printcmds.exp to
+	use a1_0 instead of a1[0].
+
+2002-10-23  Klee Dienes  <kdienes@apple.com>
+
+	* baseboards/macosx.exp: Add i386 and gdb.apple/mi1-varobj.exp
+	site-specific failures.
+
+2002-10-23  Klee Dienes  <kdienes@apple.com>
+
+	* lib/framework.exp (unknown): Add new flag 'in_exit'; don't try
+	to do log_and_exit, if unknown was called from within exit, as
+	this leads to an infinite recursion.
+	(log_summary): Add XPASS entries for all site-specific XFAILS for
+	which the appropriate test file has been run, but which were not
+	triggered by any FAILs in the test-run.
+	(record_test): Store an array of 'seen' files, so we know which
+	site-specific tests to generate XFAILs for.
+	(setup_site_xfail): Store site_xfails as an array, not a list.
+	Add a field to store the architectures for which the XFAIL is
+	appropriate; also store a 'seen' flag to mark if the XFAIL has
+	been triggered.
+	(fail): Convert to use the new array.  Also check for the file and
+	the target to match the ones specified by setup_site_xfail.  Mark
+	the XFAIL as 'seen'.  Move the remote_close on timeout to the end
+	of the function.
+	
+2002-10-17  Klee Dienes  <kdienes@apple.com>
+	
+	* baseboards/rhapsody.exp: Remove.
+	* baseboards/macosx.exp: Remove obsolete setup_site_xfails.
+	Fill in bug-id fields for many existing setup_site_xfails.
+
+2002-10-16  Klee Dienes  <kdienes@apple.com>
+	
+	* lib/remote.exp: Add new global do_site_xfail, defaulting to
+	zero.  Match '--si' with do_site_xfail when processing arguments.
+	* lib/framework.exp: Disable setup_site_xfail if do_site_xfail
+	is not set.
+	* baseboards/macosx.exp: Add radar numbers for many
+	setup_site_xfail entries; remove many obsolete entries.
+
+2002-10-14  Klee Dienes  <kdienes@apple.com>
+	
+	* lib/remote.exp (remote_expect): Add 0.1-second sleep to
+	prevent random hangs.
+	* baseboards/macosx.exp: Add setup_site_xfail commands for
+	current failures.
+
+2002-10-14  Klee Dienes  <kdienes@apple.com>
+
+	* lib/framework.exp (setup_site_xfail): New command.
+	(clone_output): Suppress output of XPASS messages to the terminal.
+
+2002-09-30  Jason Molenda  (jmolenda@apple.com)
+
+	* lib/framework.exp (is_remote):  Add 'macosx' as a hardcoded native
+	host type.
+
+2002-09-19  Klee Dienes  (kdienes@apple.com)
+
+	* baseboards/macosx.exp: Update to use set_board_info() to set
+	all variables.
+
+2002-09-19  Jason Molenda  (jmolenda@apple.com)
+
+	* baseboards/macosx.exp: Declare -gfull cmd line parameter in the
+	correct place so tests that don't want debug info don't get it.
+
+2002-09-15  Jason Molenda  (jmolenda@apple.com)
+
+	* baseboards/macosx.exp: Pass -gfull to compiler to suppress some
+	edge case failures.
+
+2002-09-12  Jason Molenda  (jmolenda@apple.com)
+
+	* baseboards/macosx.exp: Drop -DPROTOTYPES and -traditional-cpp, add
+	-no-cpp-precomp.
+
+2002-08-30  Klee Dienes  <kdienes@apple.com>
+
+	* baseboards/macosx.exp: Add -DPROTOTYPES to the build flags. 
+
+2001-09-13  Jason Molenda  (jmolenda@apple.com)
+
+       * runtest.exp:  Hackjob to change default target from "unix" 
+        to "macosx".  An expedient, not correct, fix.  APPLE LOCAL.

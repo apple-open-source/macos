@@ -25,6 +25,7 @@
 
 #include <Security/cssmalloc.h>
 #include <Security/AtomicFile.h>
+#include <Security/endian.h>
 
 namespace Security
 {
@@ -33,20 +34,7 @@ namespace Security
 // Atom -- An Atom is a 32-bit unsigned integer value that is always internally
 // represented using network byte order.
 //
-class Atom
-{
-public:
-	typedef constVector<Atom> Vector;
-	
-	Atom() : mValue(0) {}
-	Atom(uint32 value) : mValue(htonl(value)) {}
-	
-	operator uint32 () const { return ntohl(mValue); }
-	Atom &operator = (uint32 value) { mValue = htonl(value); return *this; }
-	
-private:
-	uint32 mValue;
-};
+typedef Endian<uint32> Atom;
 
 enum {
 	AtomSize = sizeof(uint32) // XXX Why not just use sizeof(Atom)?

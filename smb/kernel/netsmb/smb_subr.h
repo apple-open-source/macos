@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_subr.h,v 1.3 2001/07/07 00:16:59 conrad Exp $
+ * $Id: smb_subr.h,v 1.4 2003/05/14 15:05:57 lindak Exp $
  */
 #ifndef _NETSMB_SMB_SUBR_H_
 #define _NETSMB_SMB_SUBR_H_
@@ -194,6 +194,7 @@ void *smb_zmalloc(unsigned long size, struct malloc_type *type, int flags);
 int  smb_encrypt(const u_char *apwd, u_char *C8, u_char *RN);
 int  smb_ntencrypt(const u_char *apwd, u_char *C8, u_char *RN);
 int  smb_maperror(int eclass, int eno);
+u_int32_t  smb_maperr32(u_int32_t eno);
 int  smb_put_dmem(struct mbchain *mbp, struct smb_vc *vcp,
 	const char *src, int len, int caseopt);
 int  smb_put_dstring(struct mbchain *mbp, struct smb_vc *vcp,

@@ -9,7 +9,7 @@ the file Tech.Notes for some information on the internals.
 
 Written by: Philip Hazel <ph10@cam.ac.uk>
 
-           Copyright (c) 1997-2000 University of Cambridge
+           Copyright (c) 1997-2003 University of Cambridge
 
 -----------------------------------------------------------------------------
 Permission is granted to anyone to use this software for any purpose on any
@@ -99,13 +99,11 @@ volatile int dummy;
 
 do
   {
-  const uschar *tcode = code + 3;
+  const uschar *tcode = code + 1 + LINK_SIZE;
   BOOL try_next = TRUE;
 
   while (try_next)
     {
-    try_next = FALSE;
-
     /* If a branch starts with a bracket or a positive lookahead assertion,
     recurse to set bits from within them. That's all for this branch. */
 
@@ -113,6 +111,7 @@ do
       {
       if (!set_start_bits(tcode, start_bits, caseless, cd))
         return FALSE;
+      try_next = FALSE;
       }
 
     else switch(*tcode)
@@ -120,14 +119,25 @@ do
       default:
       return FALSE;
 
+      /* Skip over callout */
+
+      case OP_CALLOUT:
+      tcode += 2;
+      break;
+
+      /* Skip over extended extraction bracket number */
+
+      case OP_BRANUMBER:
+      tcode += 3;
+      break;
+
       /* Skip over lookbehind and negative lookahead assertions */
 
       case OP_ASSERT_NOT:
       case OP_ASSERTBACK:
       case OP_ASSERTBACK_NOT:
-      try_next = TRUE;
-      do tcode += (tcode[1] << 8) + tcode[2]; while (*tcode == OP_ALT);
-      tcode += 3;
+      do tcode += GET(tcode, 1); while (*tcode == OP_ALT);
+      tcode += 1+LINK_SIZE;
       break;
 
       /* Skip over an option setting, changing the caseless flag */
@@ -135,7 +145,6 @@ do
       case OP_OPT:
       caseless = (tcode[1] & PCRE_CASELESS) != 0;
       tcode += 2;
-      try_next = TRUE;
       break;
 
       /* BRAZERO does the bracket, but carries on. */
@@ -145,9 +154,8 @@ do
       if (!set_start_bits(++tcode, start_bits, caseless, cd))
         return FALSE;
       dummy = 1;
-      do tcode += (tcode[1] << 8) + tcode[2]; while (*tcode == OP_ALT);
-      tcode += 3;
-      try_next = TRUE;
+      do tcode += GET(tcode,1); while (*tcode == OP_ALT);
+      tcode += 1+LINK_SIZE;
       break;
 
       /* Single-char * or ? sets the bit and tries the next item */
@@ -158,7 +166,6 @@ do
       case OP_MINQUERY:
       set_bit(start_bits, tcode[1], caseless, cd);
       tcode += 2;
-      try_next = TRUE;
       break;
 
       /* Single-char upto sets the bit and tries the next */
@@ -167,7 +174,6 @@ do
       case OP_MINUPTO:
       set_bit(start_bits, tcode[3], caseless, cd);
       tcode += 4;
-      try_next = TRUE;
       break;
 
       /* At least one single char sets the bit and stops */
@@ -181,6 +187,7 @@ do
       case OP_PLUS:
       case OP_MINPLUS:
       set_bit(start_bits, tcode[1], caseless, cd);
+      try_next = FALSE;
       break;
 
       /* Single character type sets the bits and stops */
@@ -188,31 +195,37 @@ do
       case OP_NOT_DIGIT:
       for (c = 0; c < 32; c++)
         start_bits[c] |= ~cd->cbits[c+cbit_digit];
+      try_next = FALSE;
       break;
 
       case OP_DIGIT:
       for (c = 0; c < 32; c++)
         start_bits[c] |= cd->cbits[c+cbit_digit];
+      try_next = FALSE;
       break;
 
       case OP_NOT_WHITESPACE:
       for (c = 0; c < 32; c++)
         start_bits[c] |= ~cd->cbits[c+cbit_space];
+      try_next = FALSE;
       break;
 
       case OP_WHITESPACE:
       for (c = 0; c < 32; c++)
         start_bits[c] |= cd->cbits[c+cbit_space];
+      try_next = FALSE;
       break;
 
       case OP_NOT_WORDCHAR:
       for (c = 0; c < 32; c++)
         start_bits[c] |= ~cd->cbits[c+cbit_word];
+      try_next = FALSE;
       break;
 
       case OP_WORDCHAR:
       for (c = 0; c < 32; c++)
         start_bits[c] |= cd->cbits[c+cbit_word];
+      try_next = FALSE;
       break;
 
       /* One or more character type fudges the pointer and restarts, knowing
@@ -221,12 +234,10 @@ do
       case OP_TYPEPLUS:
       case OP_TYPEMINPLUS:
       tcode++;
-      try_next = TRUE;
       break;
 
       case OP_TYPEEXACT:
       tcode += 3;
-      try_next = TRUE;
       break;
 
       /* Zero or more repeats of character types set the bits and then
@@ -274,7 +285,6 @@ do
         }
 
       tcode += 2;
-      try_next = TRUE;
       break;
 
       /* Character class: set the bits and either carry on or not,
@@ -292,16 +302,16 @@ do
           case OP_CRQUERY:
           case OP_CRMINQUERY:
           tcode++;
-          try_next = TRUE;
           break;
 
           case OP_CRRANGE:
           case OP_CRMINRANGE:
-          if (((tcode[1] << 8) + tcode[2]) == 0)
-            {
-            tcode += 5;
-            try_next = TRUE;
-            }
+          if (((tcode[1] << 8) + tcode[2]) == 0) tcode += 5;
+            else try_next = FALSE;
+          break;
+
+          default:
+          try_next = FALSE;
           break;
           }
         }
@@ -310,7 +320,7 @@ do
       }      /* End of switch */
     }        /* End of try_next loop */
 
-  code += (code[1] << 8) + code[2];   /* Advance to next branch */
+  code += GET(code, 1);   /* Advance to next branch */
   }
 while (*code == OP_ALT);
 return TRUE;
@@ -342,6 +352,8 @@ pcre_study(const pcre *external_re, int options, const char **errorptr)
 uschar start_bits[32];
 real_pcre_extra *extra;
 const real_pcre *re = (const real_pcre *)external_re;
+uschar *code = (uschar *)re + sizeof(real_pcre) +
+  (re->name_count * re->name_entry_size);
 compile_data compile_block;
 
 *errorptr = NULL;
@@ -358,9 +370,9 @@ if ((options & ~PUBLIC_STUDY_OPTIONS) != 0)
   return NULL;
   }
 
-/* For an anchored pattern, or an unchored pattern that has a first char, or a
-multiline pattern that matches only at "line starts", no further processing at
-present. */
+/* For an anchored pattern, or an unanchored pattern that has a first char, or
+a multiline pattern that matches only at "line starts", no further processing
+at present. */
 
 if ((re->options & (PCRE_ANCHORED|PCRE_FIRSTSET|PCRE_STARTLINE)) != 0)
   return NULL;
@@ -375,7 +387,7 @@ compile_block.ctypes = re->tables + ctypes_offset;
 /* See if we can find a fixed set of initial characters for the pattern. */
 
 memset(start_bits, 0, 32 * sizeof(uschar));
-if (!set_start_bits(re->code, start_bits, (re->options & PCRE_CASELESS) != 0,
+if (!set_start_bits(code, start_bits, (re->options & PCRE_CASELESS) != 0,
   &compile_block)) return NULL;
 
 /* Get an "extra" block and put the information therein. */

@@ -13,7 +13,7 @@
  * The University of Texas at Austin
  * Austin, Texas  78712
  *
- * $FreeBSD: src/gnu/usr.bin/man/manpath/manpath.c,v 1.12 2001/02/13 16:55:42 ru Exp $
+ * $FreeBSD: src/gnu/usr.bin/man/manpath/manpath.c,v 1.13 2002/10/27 02:12:52 kris Exp $
  */
 
 #define MANPATH_MAIN
@@ -492,6 +492,9 @@ get_manpath (perrs, path)
       len += strlen (*lp) + 1;
       lp++;
     }
+
+  if (!len)
+    return strdup("");
 
   manpathlist = (char *) malloc (len);
   if (manpathlist == NULL)

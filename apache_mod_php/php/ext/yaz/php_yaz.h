@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Adam Dickmeiss <adam@indexdata.dk>                          |
+   | Author: Adam Dickmeiss <adam@indexdata.dk>                           |
    +----------------------------------------------------------------------+
  */
 
-/* $Id: php_yaz.h,v 1.1.1.4 2001/12/14 22:13:42 zarzycki Exp $ */
+/* $Id: php_yaz.h,v 1.1.1.7 2003/07/18 18:07:47 zarzycki Exp $ */
 
 #ifndef PHP_YAZ_H
 #define PHP_YAZ_H
@@ -45,30 +45,24 @@ PHP_FUNCTION(yaz_range);
 PHP_FUNCTION(yaz_itemorder);
 PHP_FUNCTION(yaz_scan);
 PHP_FUNCTION(yaz_scan_result);
+PHP_FUNCTION(yaz_es_result);
 PHP_FUNCTION(yaz_present);
 PHP_FUNCTION(yaz_ccl_conf);
 PHP_FUNCTION(yaz_ccl_parse);
 PHP_FUNCTION(yaz_database);
 PHP_FUNCTION(yaz_sort);
+PHP_FUNCTION(yaz_schema);
 
 ZEND_BEGIN_MODULE_GLOBALS(yaz)
     int assoc_seq;
+    long max_links;
+    char *log_file;
 ZEND_END_MODULE_GLOBALS(yaz)
-
+    
 #ifdef ZTS
-# define YAZSLS_D	zend_mysql_globals *yaz_globals
-# define YAZSLS_DC	, YAZSLS_D
-# define YAZSLS_C	yaz_globals
-# define YAZSLS_CC , YAZSLS_C
-# define YAZSG(v) (yaz_globals->v)
-# define YAZSLS_FETCH()	zend_yaz_globals *yaz_globals = ts_resource(yaz_globals_id)
+#define YAZSG(v) TSRMG(yaz_globals_id, zend_yaz_globals *, v)
 #else
-# define YAZSLS_D
-# define YAZSLS_DC
-# define YAZSLS_C
-# define YAZSLS_CC
-# define YAZSG(v) (yaz_globals.v)
-# define YAZSLS_FETCH()
+#define YAZSG(v) (yaz_globals.v)
 #endif
 
 #else

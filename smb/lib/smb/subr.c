@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: subr.c,v 1.9 2002/05/14 22:20:06 lindak Exp $
+ * $Id: subr.c,v 1.11 2003/02/26 02:14:28 lindak Exp $
  */
 
 #include <sys/param.h>

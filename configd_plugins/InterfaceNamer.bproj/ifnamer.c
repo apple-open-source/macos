@@ -2,21 +2,24 @@
  * Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- *
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -74,6 +77,9 @@ static CFMutableArrayRef		S_dblist = NULL;
 static io_connect_t			S_connect = NULL;
 static io_iterator_t			S_iter = NULL;
 static IONotificationPortRef		S_notify = NULL;
+
+static void
+writeInterfaceList(CFArrayRef ilist);
 
 static void
 displayInterface(CFDictionaryRef if_dict);
@@ -296,35 +302,6 @@ read_file(char * filename, size_t * data_length)
     return (data);
 }
 
-static void
-write_file(char * filename, void * data, size_t data_length)
-{
-    char		path[MAXPATHLEN];
-    int			fd = -1;
-
-    snprintf(path, sizeof(path), "%s-", filename);
-    fd = open(path, O_WRONLY | O_TRUNC | O_CREAT, 0644);
-    if (fd < 0) {
-	SCLog(TRUE, LOG_INFO,
-	      CFSTR(MY_PLUGIN_NAME ": open(%s) failed, %s"),
-	      filename, strerror(errno));
-	goto done;
-    }
-
-    if (write(fd, data, data_length) != data_length) {
-	SCLog(TRUE, LOG_INFO,
-	      CFSTR(MY_PLUGIN_NAME ": write %s failed, %s"),
-	      filename, strerror(errno));
-	goto done;
-    }
-    rename(path, filename);
- done:
-    if (fd >= 0) {
-	close(fd);
-    }
-    return;
-}
-
 static CFPropertyListRef
 readPropertyList(char * filename)
 {
@@ -362,47 +339,84 @@ readPropertyList(char * filename)
     return (plist);
 }
 
-static void
-writePropertyList(char * filename, CFPropertyListRef plist)
-{
-    CFDataRef	data;
-
-    if (plist == NULL)
-	return;
-
-    data = CFPropertyListCreateXMLData(NULL, S_dblist);
-    if (data == NULL) {
-	return;
-    }
-    write_file(filename, (void *)CFDataGetBytePtr(data), CFDataGetLength(data));
-    CFRelease(data);
-    return;
-}
-
-#define NETWORK_INTERFACES_FILE	"/var/db/NetworkInterfaces.xml"
+#define	IFNAMER_ID			CFSTR("com.apple.SystemConfiguration.InterfaceNamer")
+#define	INTERFACES			CFSTR("Interfaces")
+#define	NETWORK_INTERFACES_PREFS	CFSTR("NetworkInterfaces.plist")
+#define	OLD_NETWORK_INTERFACES_FILE	"/var/db/NetworkInterfaces.xml"
 
 static CFMutableArrayRef
 readInterfaceList()
 {
-    CFPropertyListRef 	plist;
+    CFArrayRef		ilist;
+    CFMutableArrayRef 	plist = NULL;
+    SCPreferencesRef	prefs = NULL;
 
-    plist = readPropertyList(NETWORK_INTERFACES_FILE);
-    if (plist == NULL) {
+    prefs = SCPreferencesCreate(NULL, IFNAMER_ID, NETWORK_INTERFACES_PREFS);
+    if (!prefs) {
+	SCLog(TRUE, LOG_INFO,
+	      CFSTR(MY_PLUGIN_NAME ": SCPreferencesCreate failed, %s"),
+	      SCErrorString(SCError()));
 	return (NULL);
     }
-    if (isA_CFArray(plist) == FALSE) {
-	CFRelease(plist);
-	return (NULL);
+
+    ilist = SCPreferencesGetValue(prefs, INTERFACES);
+    if (isA_CFArray(ilist)) {
+	plist = CFArrayCreateMutableCopy(NULL, 0, ilist);
+    } else {
+	plist = (CFMutableArrayRef)readPropertyList(OLD_NETWORK_INTERFACES_FILE);
+	if (plist == NULL) {
+	    goto done;
+	}
+	if (isA_CFArray(plist) == NULL) {
+	    CFRelease(plist);
+	    goto done;
+	}
+	writeInterfaceList(plist);
+	(void)unlink(OLD_NETWORK_INTERFACES_FILE);
     }
-    return ((CFMutableArrayRef)plist);
+
+  done:
+    if (prefs) {
+	CFRelease(prefs);
+    }
+    return (plist);
 }
 
-
 static void
-writeInterfaceList()
+writeInterfaceList(CFArrayRef ilist)
 {
-    if (S_dblist)
-	writePropertyList(NETWORK_INTERFACES_FILE, S_dblist);
+    SCPreferencesRef	prefs = NULL;
+
+    if (isA_CFArray(ilist) == NULL) {
+	return;
+    }
+
+    prefs = SCPreferencesCreate(NULL, IFNAMER_ID, NETWORK_INTERFACES_PREFS);
+    if (prefs == NULL) {
+	SCLog(TRUE, LOG_INFO,
+	      CFSTR(MY_PLUGIN_NAME ": SCPreferencesCreate failed, %s"),
+	      SCErrorString(SCError()));
+	return;
+    }
+
+    if (!SCPreferencesSetValue(prefs, INTERFACES, ilist)) {
+	SCLog(TRUE, LOG_INFO,
+	      CFSTR(MY_PLUGIN_NAME ": SCPreferencesSetValue failed, %s"),
+	      SCErrorString(SCError()));
+	goto done;
+    }
+
+    if (!SCPreferencesCommitChanges(prefs)) {
+	SCLog(TRUE, LOG_INFO,
+	      CFSTR(MY_PLUGIN_NAME ": SCPreferencesCommitChanges failed, %s"),
+	      SCErrorString(SCError()));
+	goto done;
+    }
+
+done:
+	if (prefs) {
+	    CFRelease(prefs);
+	}
     return;
 }
 
@@ -412,7 +426,8 @@ CFDictionaryRef
 lookupInterfaceByType(CFArrayRef list, CFDictionaryRef if_dict, int * where)
 {
     CFDataRef	addr;
-    int 	i;
+    CFIndex	i;
+    CFIndex	n;
     CFNumberRef	type;
 
     if (where) {
@@ -427,7 +442,8 @@ lookupInterfaceByType(CFArrayRef list, CFDictionaryRef if_dict, int * where)
 	return (NULL);
     }
 
-    for (i = 0; i < CFArrayGetCount(list); i++) {
+    n = CFArrayGetCount(list);
+    for (i = 0; i < n; i++) {
 	CFDictionaryRef	dict = CFArrayGetValueAtIndex(list, i);
 	CFDataRef	a;
 	CFNumberRef	t;
@@ -451,7 +467,8 @@ lookupInterfaceByType(CFArrayRef list, CFDictionaryRef if_dict, int * where)
 CFDictionaryRef
 lookupInterfaceByUnit(CFArrayRef list, CFDictionaryRef if_dict, int * where)
 {
-    int 	i;
+    CFIndex 	i;
+    CFIndex	n;
     CFNumberRef	type;
     CFNumberRef	unit;
 
@@ -467,7 +484,8 @@ lookupInterfaceByUnit(CFArrayRef list, CFDictionaryRef if_dict, int * where)
 	return (NULL);
     }
 
-    for (i = 0; i < CFArrayGetCount(list); i++) {
+    n = CFArrayGetCount(list);
+    for (i = 0; i < n; i++) {
 	CFDictionaryRef	dict = CFArrayGetValueAtIndex(list, i);
 	CFNumberRef	t;
 	CFNumberRef	u;
@@ -506,7 +524,8 @@ pathIsAirPort(CFStringRef path)
 CFDictionaryRef
 lookupAirPortInterface(CFArrayRef list, int * where)
 {
-    int 	i;
+    CFIndex 	i;
+    CFIndex	n;
 
     if (where) {
 	*where = INDEX_BAD;
@@ -514,7 +533,8 @@ lookupAirPortInterface(CFArrayRef list, int * where)
     if (list == NULL) {
 	return (NULL);
     }
-    for (i = 0; i < CFArrayGetCount(list); i++) {
+    n = CFArrayGetCount(list);
+    for (i = 0; i < n; i++) {
 	CFDictionaryRef	dict = CFArrayGetValueAtIndex(list, i);
 	CFStringRef	path;
 
@@ -534,14 +554,15 @@ lookupAirPortInterface(CFArrayRef list, int * where)
 static void
 insertInterface(CFMutableArrayRef list, CFDictionaryRef if_dict)
 {
-    int 		i;
+    CFIndex		i;
     CFNumberRef		if_type;
     CFNumberRef		if_unit;
+    CFIndex		n	= CFArrayGetCount(list);
     CFComparisonResult	res;
 
     if_type = CFDictionaryGetValue(if_dict, CFSTR(kIOInterfaceType));
     if_unit = CFDictionaryGetValue(if_dict, CFSTR(kIOInterfaceUnit));
-    for (i = 0; i < CFArrayGetCount(list); i++) {
+    for (i = 0; i < n; i++) {
 	CFDictionaryRef	dict = CFArrayGetValueAtIndex(list, i);
 	CFNumberRef	type;
 	CFNumberRef	unit;
@@ -685,9 +706,10 @@ createNetworkStackObject(mach_port_t masterPort)
 static void
 printMacAddress(CFDataRef data)
 {
-    int i;
+    int		i;
+    CFIndex	n = CFDataGetLength(data);
 
-    for (i = 0; i < CFDataGetLength(data); i++) {
+    for (i = 0; i < n; i++) {
 	if (i != 0) printf(":");
 	printf("%02x", CFDataGetBytePtr(data)[i]);
     }
@@ -922,11 +944,12 @@ sort_interfaces_by_unit(CFMutableArrayRef if_list)
 static void
 name_interfaces(CFArrayRef if_list)
 {
-    int i;
+    CFIndex	i;
+    CFIndex	n = CFArrayGetCount(if_list);
 
     if (S_debug)
 	printf("\n");
-    for (i = 0; i < CFArrayGetCount(if_list); i++) {
+    for (i = 0; i < n; i++) {
 	CFDictionaryRef if_dict;
 	CFNumberRef	type;
 	CFNumberRef	unit;
@@ -1040,7 +1063,7 @@ name_interfaces(CFArrayRef if_list)
 	    CFRelease(unit);
 	}
     }
-    writeInterfaceList();
+    writeInterfaceList(S_dblist);
     return;
 }
 

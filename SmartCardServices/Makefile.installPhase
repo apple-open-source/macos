@@ -1,0 +1,59 @@
+# The other phases do nothing
+
+MAN_DIR=$(DSTROOT)/usr/share/man/man8
+PCSCDIR=$(DSTROOT)/usr/libexec/SmartCardServices
+PKCS11_DIR=$(DSTROOT)/Library/Application\ Support/Mozilla/
+
+build:
+	@echo null build.
+
+debug:
+	@echo null debug.
+
+profile:
+	@echo null profile.
+
+install:
+	mkdir -p $(PCSCDIR)
+	mkdir -p $(PCSCDIR)/drivers
+	mkdir -p $(PCSCDIR)/services
+	chmod 755 $(PCSCDIR)
+	cp -r installPhase/drivers/*.bundle $(PCSCDIR)/drivers/
+	chmod 644 $(PCSCDIR)/drivers/ccidDriver.bundle/Contents/Info.plist
+	/usr/bin/strip -S $(PCSCDIR)/drivers/ccidDriver.bundle/Contents/MacOS/ccidDriver
+	mkdir -p $(PCSCDIR)/StartupItem
+	cp -r installPhase/SmartcardServices $(PCSCDIR)/StartupItem
+	rm -rf $(PCSCDIR)/StartupItem/SmartcardServices/CVS
+	chmod 755 $(PCSCDIR)/StartupItem/SmartcardServices/SmartcardServices
+	chmod 644 $(PCSCDIR)/StartupItem/SmartcardServices/StartupParameters.plist
+
+
+# Copy over man pages
+
+	mkdir -p $(MAN_DIR)
+	cp installPhase/man/pcscd.8 $(MAN_DIR)
+	cp installPhase/man/pcsctool.8 $(MAN_DIR)
+	cp installPhase/man/pcsctest.8 $(MAN_DIR)
+
+# Deleting CVS subdirectories from the copy phase
+
+	rm -rf $(PCSCDIR)/drivers/ccidDriver.bundle/CVS
+	rm -rf $(PCSCDIR)/drivers/ccidDriver.bundle/Contents/CVS
+	rm -rf $(PCSCDIR)/drivers/ccidDriver.bundle/Contents/MacOS/CVS
+
+	mkdir -p $(PKCS11_DIR)
+	cp installPhase/PKCS11/pkcs11.shlb $(PKCS11_DIR)
+	chmod 755 $(PKCS11_DIR)/pkcs11.shlb
+
+# Copying over full Info.plist for cards
+
+	cp installPhase/services/Info.plist.commonAccessCard $(PCSCDIR)/services/commonAccessCard.bundle/Contents/Info.plist
+
+installhdrs:
+	@echo null installhdrs.
+
+installsrc:
+	@echo null installsrc.
+
+clean:
+	@echo null clean.  

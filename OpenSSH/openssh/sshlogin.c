@@ -39,7 +39,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: sshlogin.c,v 1.4 2002/06/23 03:30:17 deraadt Exp $");
+RCSID("$OpenBSD: sshlogin.c,v 1.5 2002/08/29 15:57:25 stevesk Exp $");
 
 #include "loginrec.h"
 
@@ -65,12 +65,12 @@ get_last_login_time(uid_t uid, const char *logname,
  */
 void
 record_login(pid_t pid, const char *ttyname, const char *user, uid_t uid,
-    const char *host, struct sockaddr * addr)
+    const char *host, struct sockaddr * addr, socklen_t addrlen)
 {
   struct logininfo *li;
 
   li = login_alloc_entry(pid, user, host, ttyname);
-  login_set_addr(li, addr, sizeof(struct sockaddr));
+  login_set_addr(li, addr, addrlen);
   login_login(li);
   login_free_entry(li);
 }
@@ -78,12 +78,12 @@ record_login(pid_t pid, const char *ttyname, const char *user, uid_t uid,
 #ifdef LOGIN_NEEDS_UTMPX
 void
 record_utmp_only(pid_t pid, const char *ttyname, const char *user,
-		 const char *host, struct sockaddr * addr)
+		 const char *host, struct sockaddr * addr, socklen_t addrlen)
 {
   struct logininfo *li;
 
   li = login_alloc_entry(pid, user, host, ttyname);
-  login_set_addr(li, addr, sizeof(struct sockaddr));
+  login_set_addr(li, addr, addrlen);
   login_utmp_only(li);
   login_free_entry(li);
 }

@@ -11,13 +11,18 @@ umask 022
 # Options for building the package
 # You can create a config.local with your customized options
 #
-# uncommenting TEST_DIR and using configure--prefix=/var/tmp and 
+# uncommenting TEST_DIR and using
+# configure --prefix=/var/tmp --with-privsep-path=/var/tmp/empty
+# and 
 # PKGNAME=tOpenSSH should allow testing a package without interfering
-# with a real OpenSSH package on a system.
+# with a real OpenSSH package on a system. This is not needed on systems
+# that support the -R option to pkgadd.
 #TEST_DIR=/var/tmp	# leave commented out for production build
 PKGNAME=OpenSSH
 SYSVINIT_NAME=opensshd
 MAKE=${MAKE:="make"}
+SSHDUID=67	# Default privsep uid
+SSHDGID=67	# Default privsep gid
 # uncomment these next two as needed
 #PERMIT_ROOT_LOGIN=no
 #X11_FORWARDING=yes
@@ -55,7 +60,7 @@ SYSTEM_DIR="/etc	\
 /var/tmp		\
 /tmp"
 
-# We may need to buiild as root so we make sure PATH is set up
+# We may need to build as root so we make sure PATH is set up
 # only set the path if it's not set already
 [ -d /usr/local/bin ]  &&  {
 	echo $PATH | grep ":/usr/local/bin"  > /dev/null 2>&1
@@ -96,6 +101,19 @@ do
         eval $confvar=`grep "^$confvar=" Makefile | cut -d = -f 2`
 done
 
+
+## Collect value of privsep user
+for confvar in SSH_PRIVSEP_USER
+do
+        eval $confvar=`awk '/#define[ \t]'$confvar'/{print $3}' config.h`
+done
+
+## Set privsep defaults if not defined
+if [ -z "$SSH_PRIVSEP_USER" ]
+then
+        SSH_PRIVSEP_USER=sshd
+fi
+
 ## Extract common info requires for the 'info' part of the package.
 VERSION=`./ssh -V 2>&1 | sed -e 's/,.*//'`
 
@@ -106,7 +124,8 @@ case ${UNAME_S} in
 		RCS_D=yes
 		DEF_MSG="(default: n)"
 		;;
-	*)	ARCH=`uname -m` ;;
+	*)	ARCH=`uname -m`
+		DEF_MSG="\n" ;;
 esac
 
 ## Setup our run level stuff while we are at it.
@@ -171,13 +190,16 @@ echo "Building postinstall file..."
 cat > postinstall << _EOF
 #! /sbin/sh
 #
-[ -f ${sysconfdir}/ssh_config ]  ||  \\
-	cp -p ${sysconfdir}/ssh_config.default ${sysconfdir}/ssh_config
-[ -f ${sysconfdir}/sshd_config ]  ||  \\
-	cp -p ${sysconfdir}/sshd_config.default ${sysconfdir}/sshd_config
-[ -f ${sysconfdir}/ssh_prng_cmds.default ]  &&  {
-	[ -f ${sysconfdir}/ssh_prng_cmds ]  ||  \\
-	cp -p ${sysconfdir}/ssh_prng_cmds.default ${sysconfdir}/ssh_prng_cmds
+[ -f \${PKG_INSTALL_ROOT}${sysconfdir}/ssh_config ]  ||  \\
+	cp -p \${PKG_INSTALL_ROOT}${sysconfdir}/ssh_config.default \\
+		\${PKG_INSTALL_ROOT}${sysconfdir}/ssh_config
+[ -f \${PKG_INSTALL_ROOT}${sysconfdir}/sshd_config ]  ||  \\
+	cp -p \${PKG_INSTALL_ROOT}${sysconfdir}/sshd_config.default \\
+		\${PKG_INSTALL_ROOT}${sysconfdir}/sshd_config
+[ -f \${PKG_INSTALL_ROOT}${sysconfdir}/ssh_prng_cmds.default ]  &&  {
+	[ -f \${PKG_INSTALL_ROOT}${sysconfdir}/ssh_prng_cmds ]  ||  \\
+	cp -p \${PKG_INSTALL_ROOT}${sysconfdir}/ssh_prng_cmds.default \\
+		\${PKG_INSTALL_ROOT}${sysconfdir}/ssh_prng_cmds
 }
 
 # make rc?.d dirs only if we are doing a test install
@@ -191,22 +213,74 @@ cat > postinstall << _EOF
 if [ "\${USE_SYM_LINKS}" = yes ]
 then
 	[ "$RCS_D" = yes ]  &&  \
-installf ${PKGNAME} $TEST_DIR/etc/rcS.d/K30${SYSVINIT_NAME}=../init.d/${SYSVINIT_NAME} s
-	installf ${PKGNAME} $TEST_DIR/etc/rc0.d/K30${SYSVINIT_NAME}=../init.d/${SYSVINIT_NAME} s
-	installf ${PKGNAME} $TEST_DIR/etc/rc1.d/K30${SYSVINIT_NAME}=../init.d/${SYSVINIT_NAME} s
-	installf ${PKGNAME} $TEST_DIR/etc/rc2.d/S98${SYSVINIT_NAME}=../init.d/${SYSVINIT_NAME} s
+installf ${PKGNAME} \${PKG_INSTALL_ROOT}$TEST_DIR/etc/rcS.d/K30${SYSVINIT_NAME}=../init.d/${SYSVINIT_NAME} s
+	installf ${PKGNAME} \${PKG_INSTALL_ROOT}$TEST_DIR/etc/rc0.d/K30${SYSVINIT_NAME}=../init.d/${SYSVINIT_NAME} s
+	installf ${PKGNAME} \${PKG_INSTALL_ROOT}$TEST_DIR/etc/rc1.d/K30${SYSVINIT_NAME}=../init.d/${SYSVINIT_NAME} s
+	installf ${PKGNAME} \${PKG_INSTALL_ROOT}$TEST_DIR/etc/rc2.d/S98${SYSVINIT_NAME}=../init.d/${SYSVINIT_NAME} s
 else
 	[ "$RCS_D" = yes ]  &&  \
-installf ${PKGNAME} $TEST_DIR/etc/rcS.d/K30${SYSVINIT_NAME}=$TEST_DIR/etc/init.d/${SYSVINIT_NAME} l
-	installf ${PKGNAME} $TEST_DIR/etc/rc0.d/K30${SYSVINIT_NAME}=$TEST_DIR/etc/init.d/${SYSVINIT_NAME} l
-	installf ${PKGNAME} $TEST_DIR/etc/rc1.d/K30${SYSVINIT_NAME}=$TEST_DIR/etc/init.d/${SYSVINIT_NAME} l
-	installf ${PKGNAME} $TEST_DIR/etc/rc2.d/S98${SYSVINIT_NAME}=$TEST_DIR/etc/init.d/${SYSVINIT_NAME} l
+installf ${PKGNAME} \${PKG_INSTALL_ROOT}$TEST_DIR/etc/rcS.d/K30${SYSVINIT_NAME}=$TEST_DIR/etc/init.d/${SYSVINIT_NAME} l
+	installf ${PKGNAME} \${PKG_INSTALL_ROOT}$TEST_DIR/etc/rc0.d/K30${SYSVINIT_NAME}=$TEST_DIR/etc/init.d/${SYSVINIT_NAME} l
+	installf ${PKGNAME} \${PKG_INSTALL_ROOT}$TEST_DIR/etc/rc1.d/K30${SYSVINIT_NAME}=$TEST_DIR/etc/init.d/${SYSVINIT_NAME} l
+	installf ${PKGNAME} \${PKG_INSTALL_ROOT}$TEST_DIR/etc/rc2.d/S98${SYSVINIT_NAME}=$TEST_DIR/etc/init.d/${SYSVINIT_NAME} l
 fi
 
 # If piddir doesn't exist we add it. (Ie. --with-pid-dir=/var/opt/ssh)
-[ -d $piddir ]  ||  installf ${PKGNAME} $TEST_DIR$piddir d 755 root sys
+[ -d $piddir ]  ||  installf ${PKGNAME} \${PKG_INSTALL_ROOT}$TEST_DIR$piddir d 755 root sys
 
 installf -f ${PKGNAME}
+
+# Use chroot to handle PKG_INSTALL_ROOT
+if [ ! -z "\${PKG_INSTALL_ROOT}" ]
+then
+	chroot="chroot \${PKG_INSTALL_ROOT}"
+fi
+# If this is a test build, we will skip the groupadd/useradd/passwd commands
+if [ ! -z "${TEST_DIR}" ]
+then
+	chroot=echo
+fi
+
+if egrep '^[ \t]*UsePrivilegeSeparation[ \t]+no' \${PKG_INSTALL_ROOT}/$sysconfdir/sshd_config >/dev/null
+then
+        echo "UsePrivilegeSeparation disabled in config, not creating PrivSep user"
+        echo "or group."
+else
+        echo "UsePrivilegeSeparation enabled in config (or defaulting to on)."
+
+        # create group if required
+        if cut -f1 -d: \${PKG_INSTALL_ROOT}/etc/group | egrep '^'$SSH_PRIVSEP_USER'\$' >/dev/null
+        then
+                echo "PrivSep group $SSH_PRIVSEP_USER already exists."
+        else
+		# Use gid of 67 if possible
+		if cut -f3 -d: \${PKG_INSTALL_ROOT}/etc/group | egrep '^'$SSHDGID'\$' >/dev/null
+		then
+			:
+		else
+			sshdgid="-g $SSHDGID"
+		fi
+                echo "Creating PrivSep group $SSH_PRIVSEP_USER."
+                \$chroot /usr/sbin/groupadd \$sshdgid $SSH_PRIVSEP_USER
+        fi
+
+        # Create user if required
+        if cut -f1 -d: \${PKG_INSTALL_ROOT}/etc/passwd | egrep '^'$SSH_PRIVSEP_USER'\$' >/dev/null
+        then
+                echo "PrivSep user $SSH_PRIVSEP_USER already exists."
+        else
+		# Use uid of 67 if possible
+		if cut -f3 -d: \${PKG_INSTALL_ROOT}/etc/passwd | egrep '^'$SSHDGID'\$' >/dev/null
+		then
+			:
+		else
+			sshduid="-u $SSHDUID"
+		fi
+                echo "Creating PrivSep user $SSH_PRIVSEP_USER."
+		\$chroot /usr/sbin/useradd -c 'SSHD PrivSep User' -s /bin/false -g $SSH_PRIVSEP_USER \$sshduid $SSH_PRIVSEP_USER
+		\$chroot /usr/bin/passwd -l $SSH_PRIVSEP_USER
+        fi
+fi
 
 [ "\${POST_INS_START}" = "yes" ]  &&  ${TEST_DIR}/etc/init.d/${SYSVINIT_NAME} start
 exit 0

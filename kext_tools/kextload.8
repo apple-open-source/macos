@@ -7,7 +7,11 @@
 .Sh SYNOPSIS
 .Nm
 .Op Fl h
-.Op Fl v Op 1-6
+[
+.Fl v Op 0-6
+|
+.Fl q
+]
 .Op Fl t
 .Op Fl i | I
 .Op Fl x
@@ -119,6 +123,8 @@ options for more information.
 .It Fl D
 Don't check the kernel for already loaded kexts
 when resolving dependencies.
+This behavior is now the default and so this option is
+deprecated and redundant.
 Note that this can result in load failures if a different
 version of a dependency is already loaded.
 This option is relevant only when loading a kext into the kernel.
@@ -194,6 +200,23 @@ kernel. Repeat for each personality desired, or use the
 option to have
 .Nm
 ask for each personality.
+.It Fl q
+Quiet mode; print no informational or error messages.
+This option excludes
+.Fl v .
+If
+.Nm
+is run with
+.Fl q
+in a way that might require user interaction,
+as with the
+.Fl i
+and
+.Fl I
+options,
+and some uses of
+.Fl n ,
+the program will silently exit with an error status.
 .It Fl r Ar directory
 Use
 .Ar directory
@@ -231,6 +254,10 @@ Verbose mode; print information about the kext scanning and loading
 process. Higher levels of verbosity include all lower levels.
 The levels of verbose output are these:
 .Bl -tag -width "xxx"
+.It 0
+suppresses informational messages (errors are still printed);
+see also
+.Fl q
 .It 1
 prints basic kext scanning information
 .It 2
@@ -244,12 +271,21 @@ prints detailed information on every kext encountered
 .It 6
 prints detailed load information
 .El
+If
+.Fl v
+is not specified only the essential information about the
+load operation is printed (such as whether the kext was
+already  loaded).
 .Pp
 A kext can also specify verbose printing for just itself
 using the OSBundleDebugLevel top-level info dictionary
 property.
 Its values are 1 and 2, for basic and detailed information,
 respectively.
+.Pp
+This option excludes
+.Fl
+q .
 .It Fl x
 Run
 .Nm
@@ -522,7 +558,9 @@ Upon failure, it prints an error message
 and continues processing any kexts if possible,
 then exits with a nonzero status.
 .Sh SEE ALSO 
+.Xr kextcache 8 ,
 .Xr kextd 8 ,
+.Xr kextstat 8 ,
 .Xr kextunload 8
 .Sh BUGS
 Upon encountering a kext with validation errors,

@@ -1,4 +1,4 @@
-/*	$KAME: sockmisc.h,v 1.11 2001/08/16 14:37:29 itojun Exp $	*/
+/*	$KAME: sockmisc.h,v 1.12 2001/12/07 08:39:39 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.

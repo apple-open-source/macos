@@ -1,5 +1,3 @@
-.\"	$NetBSD: ls.1,v 1.19 1998/06/01 21:11:28 hubertf Exp $
-.\"
 .\" Copyright (c) 1980, 1990, 1991, 1993, 1994
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
@@ -15,7 +13,7 @@
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
 .\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
+.\"    must display the following acknowledgment:
 .\"	This product includes software developed by the University of
 .\"	California, Berkeley and its contributors.
 .\" 4. Neither the name of the University nor the names of its contributors
@@ -35,8 +33,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)ls.1	8.7 (Berkeley) 7/29/94
+.\" $FreeBSD: src/bin/ls/ls.1,v 1.69 2002/08/21 17:32:34 trhodes Exp $
 .\"
-.Dd July 29, 1994
+.Dd May 19, 2002
 .Dt LS 1
 .Os
 .Sh NAME
@@ -44,8 +43,8 @@
 .Nd list directory contents
 .Sh SYNOPSIS
 .Nm
-.Op Fl ACFLRSTWacdfgiklnoqrstux1
-.Op Ar file ...
+.Op Fl ABCFGHLPRTWZabcdfghiklmnopqrstuwx1
+.Op Ar
 .Sh DESCRIPTION
 For each operand that names a
 .Ar file
@@ -73,75 +72,155 @@ The following options are available:
 .Bl -tag -width indent
 .It Fl A
 List all entries except for
-.Ql \&.
+.Pa \&.
 and
-.Ql \&.. .
+.Pa .. .
 Always set for the super-user.
+.It Fl B
+Force printing of non-printable characters (as defined by
+.Xr ctype 3
+and current locale settings) in file names as
+.Li \e Ns Va xxx ,
+where
+.Va xxx
+is the numeric value of the character in octal.
 .It Fl C
 Force multi-column output; this is the default when output is to a terminal.
 .It Fl F
-Display a slash (/) immediately after each pathname that is a directory,
-an asterisk (*) after each that is executable,
-an at sign (@) after each symbolic link,
-a percent sign (%) after each whiteout,
-an equal sign (=) after each socket,
-and a vertical bar (|) after each that is a
-.Tn FIFO . 
+Display a slash
+.Pq Ql /
+immediately after each pathname that is a directory,
+an asterisk
+.Pq Ql *
+after each that is executable,
+an at sign
+.Pq Ql @
+after each symbolic link,
+an equals sign
+.Pq Ql =
+after each socket,
+a percent sign
+.Pq Ql %
+after each whiteout,
+and a vertical bar
+.Pq Ql \&|
+after each that is a
+.Tn FIFO .
+.It Fl G
+Enable colorized output.
+This option is equivalent to defining
+.Ev CLICOLOR
+in the environment.
+(See below.)
+.It Fl H
+Symbolic links on the command line are followed.
+This option is assumed if
+none of the
+.Fl F , d ,
+or
+.Fl l
+options are specified.
 .It Fl L
 If argument is a symbolic link, list the file or directory the link references
 rather than the link itself.
+This option cancels the
+.Fl P
+option.
+.It Fl P
+If argument is a symbolic link, list the link itself rather than the
+object the link references.
+This option cancels the
+.Fl H
+and
+.Fl L
+options.
 .It Fl R
 Recursively list subdirectories encountered.
-.It Fl S
-Sort by size, largest file first.
 .It Fl T
-Display complete time information for the file, including
+When used with the
+.Fl l
+(lowercase letter
+.Dq ell )
+option, display complete time information for the file, including
 month, day, hour, minute, second, and year.
 .It Fl W
 Display whiteouts when scanning directories.
 .It Fl a
 Include directory entries whose names begin with a
-dot (.).
+dot
+.Pq Pa \&. .
+.It Fl b
+As
+.Fl B ,
+but use
+.Tn C
+escape codes whenever possible.
 .It Fl c
 Use time when file status was last changed for sorting or printing.
 .It Fl d
-Directories are listed as plain files (not searched recursively) and
-symbolic links in the argument list are not indirected through.
+Directories are listed as plain files (not searched recursively).
 .It Fl f
 Output is not sorted.
 .It Fl g
-Does nothing; kept for compatibility with older versions of
-.Xr ls 1 .
+This option is deprecated and is only available for compatibility
+with
+.Bx 4.3 ;
+it was used to display the group name in the long
+.Pq Fl l
+format output.
+.It Fl h
+When used with the
+.Fl l
+option, use unit suffixes: Byte, Kilobyte, Megabyte, Gigabyte, Terabyte
+and Petabyte in order to reduce the number of digits to three or less
+using base 2 for sizes.
 .It Fl i
 For each file, print the file's file serial number (inode number).
 .It Fl k
-Modifies the
+If the
 .Fl s
-option, causing the sizes to be reported in kilobytes.
+option is specified, print the file size allocation in kilobytes,
+not blocks.
+This option overrides the environment variable
+.Ev BLOCKSIZE .
 .It Fl l
-(The lowercase letter ``ell.'')  List in long format. (See below.)
+(The lowercase letter
+.Dq ell . )
+List in long format.
+(See below.)
 If the output is to a terminal, a total sum for all the file
 sizes is output on a line before the long listing.
+.It Fl m
+Stream output format; list files across the page, separated by commas.
 .It Fl n
-Display the user and group IDs numerically rather than converting
-to a user or group name in a long
+Display user and group IDs numerically rather than converting to a user
+or group name in a long
 .Pq Fl l
 output.
 .It Fl o
 Include the file flags in a long
 .Pq Fl l
 output.
+.It Fl p
+Write a slash
+.Pq Ql /
+after each filename if that file is a directory.
 .It Fl q
 Force printing of non-graphic characters in file names as
-the character `?'; this is the default when output is to a terminal.
+the character
+.Ql \&? ;
+this is the default when output is to a terminal.
 .It Fl r
 Reverse the order of the sort to get reverse
-lexicographical order or the smallest or oldest entries first.
+lexicographical order or the oldest entries first.
 .It Fl s
 Display the number of file system blocks actually used by each file, in units
 of 512 bytes, where partial units are rounded up to the next integer value.
 If the output is to a terminal, a total sum for all the file
 sizes is output on a line before the listing.
+The environment variable
+.Ev BLOCKSIZE
+overrides the unit size of 512 bytes.
 .It Fl t
 Sort by time modified (most recently modified
 first) before sorting the operands by lexicographical
@@ -153,45 +232,68 @@ of the file for sorting
 .Pq Fl t
 or printing
 .Pq Fl l .
+.It Fl w
+Force raw printing of non-printable characters.
+This is the default
+when output is not to a terminal.
 .It Fl x
-Multi-column output sorted across the page rather than down the page.
+The same as
+.Fl C ,
+except that the multi-column output is produced with entries sorted
+across, rather than down, the columns.
 .It Fl v
 Force unedited printing of non-graphic characters; this is the default when
 output is not to a terminal.
-.It Fl \&1
-(The numeric digit ``one.'')  Force output to be
+.It Fl 1
+(The numeric digit
+.Dq one . )
+Force output to be
 one entry per line.
 This is the default when
 output is not to a terminal.
 .El
 .Pp
 The
-.Fl 1 ,
-.Fl C ,
-.Fl l ,
+.Fl 1 , C , x ,
 and
-.Fl x
+.Fl l
 options all override each other; the last one specified determines
 the format used.
 .Pp
 The
-.Fl c ,
+.Fl c
 and
 .Fl u
 options override each other; the last one specified determines
 the file time used.
+.Pp
+The
+.Fl B , b , w ,
+and
+.Fl q
+options all override each other; the last one specified determines
+the format used for non-printable characters.
+.Pp
+The
+.Fl H , L
+and
+.Fl P
+options all override each other (either partially or fully); they
+are applied in the order specified.
 .Pp
 By default,
 .Nm
 lists one entry per line to standard
 output; the exceptions are to terminals or when the
 .Fl C
-option is specified.
+or
+.Fl x
+options are specified.
 .Pp
 File information is displayed with one or more
-<blank>s separating the information associated with the
-.Fl i ,
-.Fl s ,
+.Ao blank Ac Ns s
+separating the information associated with the
+.Fl i , s ,
 and
 .Fl l
 options.
@@ -211,6 +313,10 @@ number of 512-byte blocks used by the files in the directory is displayed
 on a line by itself immediately before the information for the files in the
 directory.
 .Pp
+If the modification time of the file is more than 6 months
+in the past or future, then the year of the last modification
+is displayed in place of the hour and minute fields.
+.Pp
 If the owner or group names are not a known user or group name,
 or the
 .Fl n
@@ -219,9 +325,10 @@ the numeric ID's are displayed.
 .Pp
 If the file is a character special or block special file,
 the major and minor device numbers for the file are displayed
-in the size field. If the file is a symbolic link the pathname of the
+in the size field.
+If the file is a symbolic link the pathname of the
 linked-to file is preceded by
-.Dq \-> .
+.Dq Li -> .
 .Pp
 The file mode printed under the
 .Fl l
@@ -241,10 +348,8 @@ Directory.
 Symbolic link.
 .It Sy s
 Socket link.
-.\" .It Sy p
-.\" .Tn FIFO .
-.It Sy w
-Whiteout.
+.It Sy p
+.Tn FIFO .
 .It Sy \-
 Regular file.
 .El
@@ -286,7 +391,8 @@ The file is executable or the directory is
 searchable.
 .It Sy \-
 The file is neither readable, writable, executable,
-nor set-user-ID nor set-group-ID mode, nor sticky. (See below.)
+nor set-user-ID nor set-group-ID mode, nor sticky.
+(See below.)
 .El
 .Pp
 These next two apply only to the third character in the last group
@@ -296,7 +402,8 @@ These next two apply only to the third character in the last group
 The sticky bit is set
 (mode
 .Li 1000 ) ,
-but not execute or search permission. (See
+but not execute or search permission.
+(See
 .Xr chmod 1
 or
 .Xr sticky 8 . )
@@ -310,24 +417,73 @@ or
 .Xr sticky 8 . )
 .El
 .El
-.Pp
-The
+.Sh EXAMPLES
+The following is how to do an
 .Nm
-utility exits 0 on success, and >0 if an error occurs.
-.Sh ENVIRONMENT VARIABLES
+listing sorted by size (and shows why
+.Nm
+does not need a separate option for this):
+.Pp
+.Dl "ls -l | sort -n +4"
+.Pp
+Additionally, the
+.Fl r
+flag to
+.Xr sort 1
+may be used
+to get the results sorted from largest to smallest (a reverse sort).
+.Sh DIAGNOSTICS
+.Ex -std
+.Sh ENVIRONMENT
 The following environment variables affect the execution of
-.Nm "" :
-.Bl -tag -width BLOCKSIZE
+.Nm :
+.Bl -tag -width ".Ev CLICOLOR_FORCE"
 .It Ev BLOCKSIZE
 If the environment variable
 .Ev BLOCKSIZE
-is set, and the
-.Fl k
-option is not specified, the block counts
+is set, the block counts
 (see
 .Fl s )
 will be displayed in units of that size block.
-.It COLUMNS
+.It Ev CLICOLOR
+Use
+\*[Ai]
+color sequences to distinguish file types.
+See
+.Ev LSCOLORS
+below.
+In addition to the file types mentioned in the
+.Fl F
+option some extra attributes (setuid bit set, etc.) are also displayed.
+The colorization is dependent on a terminal type with the proper
+.Xr termcap 5
+capabilities.
+The default
+.Dq Li cons25
+console has the proper capabilities,
+but to display the colors in an
+.Xr xterm 1 ,
+for example,
+the
+.Ev TERM
+variable must be set to
+.Dq Li xterm-color .
+Other terminal types may require similar adjustments.
+Colorization
+is silently disabled if the output isn't directed to a terminal
+unless the
+.Ev CLICOLOR_FORCE
+variable is defined.
+.It Ev CLICOLOR_FORCE
+Color sequences are normally disabled if the output isn't directed to
+a terminal.
+This can be overridden by setting this flag.
+The
+.Ev TERM
+variable still needs to reference a color capable terminal however
+otherwise it is not possible to determine which color sequences to
+use.
+.It Ev COLUMNS
 If this variable contains a string representing a
 decimal integer, it is used as the
 column position width for displaying
@@ -338,7 +494,119 @@ utility calculates how
 many pathname text columns to display
 based on the width provided.
 (See
-.Fl C . )
+.Fl C
+and
+.Fl x . )
+.It Ev LANG
+The locale to use when determining the order of day and month in the long
+.Fl l
+format output.
+See
+.Xr environ 7
+for more information.
+.It Ev LSCOLORS
+The value of this variable describes what color to use for which
+attribute when colors are enabled with
+.Ev CLICOLOR .
+This string is a concatenation of pairs of the format
+.Ar f Ns Ar b ,
+where
+.Ar f
+is the foreground color and
+.Ar b
+is the background color.
+.Pp
+The color designators are as follows:
+.Pp
+.Bl -tag -width 4n -offset indent -compact
+.It Sy a
+black
+.It Sy b
+red
+.It Sy c
+green
+.It Sy d
+brown
+.It Sy e
+blue
+.It Sy f
+magenta
+.It Sy g
+cyan
+.It Sy h
+light grey
+.It Sy A
+bold black, usually shows up as dark grey
+.It Sy B
+bold red
+.It Sy C
+bold green
+.It Sy D
+bold brown, usually shows up as yellow
+.It Sy E
+bold blue
+.It Sy F
+bold magenta
+.It Sy G
+bold cyan
+.It Sy H
+bold light grey; looks like bright white
+.It Sy x
+default foreground or background
+.El
+.Pp
+Note that the above are standard
+\*[Ai]
+colors.
+The actual display may differ
+depending on the color capabilities of the terminal in use.
+.Pp
+The order of the attributes are as follows:
+.Pp
+.Bl -enum -offset indent -compact
+.It
+directory
+.It
+symbolic link
+.It
+socket
+.It
+pipe
+.It
+executable
+.It
+block special
+.It
+character special
+.It
+executable with setuid bit set
+.It
+executable with setgid bit set
+.It
+directory writable to others, with sticky bit
+.It
+directory writable to others, without sticky bit
+.El
+.Pp
+The default is
+.Qq "exfxcxdxbxegedabagacad" ,
+i.e. blue foreground and
+default background for regular directories, black foreground and red
+background for setuid executables, etc.
+.It Ev LS_COLWIDTHS
+If this variable is set, it is considered to be a
+colon-delimited list of minimum column widths.
+Unreasonable
+and insufficient widths are ignored (thus zero signifies
+a dynamically sized column).
+Not all columns have changeable widths.
+The fields are,
+in order: inode, block count, number of links, user name,
+group name, flags, file size, file name.
+.It Ev TERM
+The
+.Ev CLICOLOR
+functionality depends on a terminal type with color capabilities.
 .It Ev TZ
 The timezone to use when displaying dates.
 See
@@ -351,17 +619,23 @@ files in order to be compatible with the
 .St -p1003.2
 specification.
 .Sh SEE ALSO
+.Xr chflags 1 ,
 .Xr chmod 1 ,
+.Xr sort 1 ,
+.Xr xterm 1 ,
+.Xr termcap 5 ,
 .Xr symlink 7 ,
 .Xr sticky 8
 .Sh STANDARDS
 The
 .Nm
-utility is expected to be a superset of the
-.St -p1003.2
-specification.
+utility conforms to
+.St -p1003.1-2001 .
 .Sh HISTORY
 An
 .Nm
-utility appeared in
-.At v5 .
+command appeared in
+.At v1 .
+.Sh BUGS
+To maintain backward compatibility, the relationships between the many
+options are quite complex.

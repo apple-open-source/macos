@@ -1,0 +1,514 @@
+# Makefile.in generated automatically by automake 1.4 from Makefile.am
+
+# Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
+# This Makefile.in is free software; the Free Software Foundation
+# gives unlimited permission to copy and/or distribute it,
+# with or without modifications, as long as this notice is preserved.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY, to the extent permitted by law; without
+# even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+# PARTICULAR PURPOSE.
+
+
+SHELL = @SHELL@
+
+srcdir = @srcdir@
+top_srcdir = @top_srcdir@
+VPATH = @srcdir@
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+
+bindir = @bindir@
+sbindir = @sbindir@
+libexecdir = @libexecdir@
+datadir = @datadir@
+sysconfdir = @sysconfdir@
+sharedstatedir = @sharedstatedir@
+localstatedir = @localstatedir@
+libdir = @libdir@
+infodir = @infodir@
+mandir = @mandir@
+includedir = @includedir@
+oldincludedir = /usr/include
+
+DESTDIR =
+
+pkgdatadir = $(datadir)/@PACKAGE@
+pkglibdir = $(libdir)/@PACKAGE@
+pkgincludedir = $(includedir)/@PACKAGE@
+
+top_builddir = ../..
+
+ACLOCAL = @ACLOCAL@
+AUTOCONF = @AUTOCONF@
+AUTOMAKE = @AUTOMAKE@
+AUTOHEADER = @AUTOHEADER@
+
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@ $(AM_INSTALL_PROGRAM_FLAGS)
+INSTALL_DATA = @INSTALL_DATA@
+INSTALL_SCRIPT = @INSTALL_SCRIPT@
+transform = @program_transform_name@
+
+NORMAL_INSTALL = :
+PRE_INSTALL = :
+POST_INSTALL = :
+NORMAL_UNINSTALL = :
+PRE_UNINSTALL = :
+POST_UNINSTALL = :
+host_alias = @host_alias@
+host_triplet = @host@
+ALL_LINGUAS = @ALL_LINGUAS@
+AS = @AS@
+AWK = @AWK@
+BISON_PROG = @BISON_PROG@
+BUILD_INCLUDED_LIBINTL = @BUILD_INCLUDED_LIBINTL@
+CATALOGS = @CATALOGS@
+CATOBJEXT = @CATOBJEXT@
+CC = @CC@
+CONVERT = @CONVERT@
+CUPS_BACKEND_BIN = @CUPS_BACKEND_BIN@
+CUPS_BIN = @CUPS_BIN@
+CUPS_CFLAGS = @CUPS_CFLAGS@
+CUPS_CONF = @CUPS_CONF@
+CUPS_CONFIG = @CUPS_CONFIG@
+CUPS_FILTER_BIN = @CUPS_FILTER_BIN@
+CUPS_INSTALL = @CUPS_INSTALL@
+CUPS_LIBS = @CUPS_LIBS@
+CUPS_MAN = @CUPS_MAN@
+CUPS_NOINST_BIN = @CUPS_NOINST_BIN@
+CUPS_PKG = @CUPS_PKG@
+CUPS_PPD_PS_LEVEL = @CUPS_PPD_PS_LEVEL@
+DATADIRNAME = @DATADIRNAME@
+DB2HTML = @DB2HTML@
+DB2PDF = @DB2PDF@
+DB2PS = @DB2PS@
+DLLTOOL = @DLLTOOL@
+DVIPDF = @DVIPDF@
+DVIPS = @DVIPS@
+ECHO = @ECHO@
+ESCPUTIL_BIN = @ESCPUTIL_BIN@
+ESCPUTIL_MAN = @ESCPUTIL_MAN@
+EXEEXT = @EXEEXT@
+FOOMATIC_3_NOINST_BIN = @FOOMATIC_3_NOINST_BIN@
+FOOMATIC_CONFIGURE = @FOOMATIC_CONFIGURE@
+FOOMATIC_INSTALL = @FOOMATIC_INSTALL@
+FOOMATIC_KITLOAD = @FOOMATIC_KITLOAD@
+FOOMATIC_NOINST_BIN = @FOOMATIC_NOINST_BIN@
+FOOMATIC_PPDFILE = @FOOMATIC_PPDFILE@
+GENCAT = @GENCAT@
+GIMPPRINT_BINARY_AGE = @GIMPPRINT_BINARY_AGE@
+GIMPPRINT_CFLAGS = @GIMPPRINT_CFLAGS@
+GIMPPRINT_CONFIG = @GIMPPRINT_CONFIG@
+GIMPPRINT_CURRENT_INTERFACE = @GIMPPRINT_CURRENT_INTERFACE@
+GIMPPRINT_DEPLIBS = @GIMPPRINT_DEPLIBS@
+GIMPPRINT_INTERFACE_AGE = @GIMPPRINT_INTERFACE_AGE@
+GIMPPRINT_LIBS = @GIMPPRINT_LIBS@
+GIMPPRINT_MAJOR_VERSION = @GIMPPRINT_MAJOR_VERSION@
+GIMPPRINT_MICRO_VERSION = @GIMPPRINT_MICRO_VERSION@
+GIMPPRINT_MINOR_VERSION = @GIMPPRINT_MINOR_VERSION@
+GIMPPRINT_VERSION = @GIMPPRINT_VERSION@
+GIMPTOOL = @GIMPTOOL@
+GIMP_BIN = @GIMP_BIN@
+GIMP_CFLAGS = @GIMP_CFLAGS@
+GIMP_CFLAGS_NOUI = @GIMP_CFLAGS_NOUI@
+GIMP_CONFIG = @GIMP_CONFIG@
+GIMP_DATA_DIR = @GIMP_DATA_DIR@
+GIMP_LIBS = @GIMP_LIBS@
+GIMP_LIBS_NOUI = @GIMP_LIBS_NOUI@
+GIMP_PLUGIN_DIR = @GIMP_PLUGIN_DIR@
+GIMP_PRINT_H = @GIMP_PRINT_H@
+GLIBC21 = @GLIBC21@
+GLIB_CFLAGS = @GLIB_CFLAGS@
+GLIB_CONFIG = @GLIB_CONFIG@
+GLIB_LIBS = @GLIB_LIBS@
+GMOFILES = @GMOFILES@
+GMSGFMT = @GMSGFMT@
+GNUCFLAGS = @GNUCFLAGS@
+GTK_CFLAGS = @GTK_CFLAGS@
+GTK_CONFIG = @GTK_CONFIG@
+GTK_LIBS = @GTK_LIBS@
+IJS_CFLAGS = @IJS_CFLAGS@
+IJS_CONFIG = @IJS_CONFIG@
+IJS_INSTALL = @IJS_INSTALL@
+IJS_LIBS = @IJS_LIBS@
+INSTOBJEXT = @INSTOBJEXT@
+INTLBISON = @INTLBISON@
+INTLLIBS = @INTLLIBS@
+INTLOBJS = @INTLOBJS@
+INTL_LIBTOOL_SUFFIX_PREFIX = @INTL_LIBTOOL_SUFFIX_PREFIX@
+LEX = @LEX@
+LIBGIMPPRINT_LIBS = @LIBGIMPPRINT_LIBS@
+LIBICONV = @LIBICONV@
+LIBREADLINE_DEPS = @LIBREADLINE_DEPS@
+LIBTOOL = @LIBTOOL@
+LIBTOOL_DEPS = @LIBTOOL_DEPS@
+LN_S = @LN_S@
+LTALLOCA = @LTALLOCA@
+LTLIBOBJS = @LTLIBOBJS@
+LT_AGE = @LT_AGE@
+LT_CURRENT = @LT_CURRENT@
+LT_RELEASE = @LT_RELEASE@
+LT_REVISION = @LT_REVISION@
+MAINT = @MAINT@
+MAINTAINER_CFLAGS = @MAINTAINER_CFLAGS@
+MAIN_BIN = @MAIN_BIN@
+MAIN_DAT = @MAIN_DAT@
+MAIN_MAN = @MAIN_MAN@
+MAIN_SCR = @MAIN_SCR@
+MAKEINFO = @MAKEINFO@
+MKINSTALLDIRS = @MKINSTALLDIRS@
+MSGFMT = @MSGFMT@
+OBJDUMP = @OBJDUMP@
+OBJEXT = @OBJEXT@
+PACKAGE = @PACKAGE@
+PERL = @PERL@
+PLUG_IN_PATH = @PLUG_IN_PATH@
+POFILES = @POFILES@
+POSUB = @POSUB@
+PRINT_VASPRINTF = @PRINT_VASPRINTF@
+RANLIB = @RANLIB@
+RELEASE_DATE = @RELEASE_DATE@
+RM = @RM@
+SAMPLE_IMAGES = @SAMPLE_IMAGES@
+STRIP = @STRIP@
+TESTPATTERN_BIN = @TESTPATTERN_BIN@
+TEST_BIN = @TEST_BIN@
+TEXI2HTML = @TEXI2HTML@
+USER_GUIDE = @USER_GUIDE@
+USE_INCLUDED_LIBINTL = @USE_INCLUDED_LIBINTL@
+USE_NLS = @USE_NLS@
+VERSION = @VERSION@
+YACC = @YACC@
+YACC_PROG = @YACC_PROG@
+cups_bindir = @cups_bindir@
+cups_conf_datadir = @cups_conf_datadir@
+cups_conf_serverbin = @cups_conf_serverbin@
+cups_conf_serverroot = @cups_conf_serverroot@
+cups_exec_prefix = @cups_exec_prefix@
+cups_prefix = @cups_prefix@
+gimp_plug_indir = @gimp_plug_indir@
+gimpprint_cflags = @gimpprint_cflags@
+gimpprint_libs = @gimpprint_libs@
+
+AUTOMAKE_OPTIONS = 1.4 gnu
+
+MAINT_CHARSET = latin1
+
+MAINCODE = canon.c					color.c						dither.c					escp2.c						escp2-data.c					lexmark.c					pcl.c						printers.c					ps.c						util.c						weave.c						dither-matrices.c
+
+
+MAINHEADERS = print.h					print-internal.h				print-intl-internal.h				quickmatrix257.h				ran.367.179.h					ran.509.131.h					print-dither.h					print-escp2.h
+
+
+MAINFILES = $(MAINCODE) $(MAINHEADERS)
+@BUILD_GHOST_TRUE@ALL_LOCAL_DEPS = $(srcdir)/$(addprefix gdevstp-,$(MAINCODE)) $(srcdir)/$(addprefix gdevstp-,$(MAINHEADERS))
+@BUILD_GHOST_FALSE@ALL_LOCAL_DEPS = 
+
+GHCODE = -e 's/print-printers.c/gdevstp-printers.c/' 	 -e 's/^\\\#include "\(gimp\-\)*\(.*\)\.h"$$/\\\#include "gdevstp-\2.h"/' 	 -e 's/^\\\#include <gimp-print\/gimp-print\(.*\)\.h>$$/\\\#include "gdevstp-print\1.h"/'
+
+
+CLEANFILES =   $(srcdir)/gdevstp-printers.c  $(srcdir)/gdevstp-ran.367.179.h  $(srcdir)/gdevstp-ran.509.131.h  $(srcdir)/gdevstp-color.c  $(srcdir)/gdevstp-print.h  $(srcdir)/gdevstp-print-internal.h  $(srcdir)/gdevstp-print-intl-internal.h  $(srcdir)/gdevstp-quickmatrix257.h  $(srcdir)/gdevstp-util.c  $(srcdir)/gdevstp-weave.c  $(srcdir)/gdevstp-canon.c  $(srcdir)/gdevstp-dither.c  $(srcdir)/gdevstp-print-dither.h  $(srcdir)/gdevstp-dither-matrices.c  $(srcdir)/gdevstp-escp2.c  $(srcdir)/gdevstp-print-escp2.h  $(srcdir)/gdevstp-escp2-data.c  $(srcdir)/gdevstp-lexmark.c  $(srcdir)/gdevstp-pcl.c  $(srcdir)/gdevstp-ps.c
+
+
+# End of old compatability cruft
+
+MAINTAINERCLEANFILES = Makefile.in
+
+EXTRA_DIST =  	COPYING 	Makefile 	Makefile.am 	README 	README.bsd 	contrib.mak.addon.in 	contrib.mak.addon.old 	debian-patch 	debian-patch-stp 	devs.mak.addon-5.10 	gdevstp.c
+
+
+AM_CFLAGS = $(GNUCFLAGS)
+INCLUDES = @IJS_CFLAGS@ @INCLUDES@ $(LIBGIMPPRINT_CFLAGS)
+LIBPRINTUT = $(top_builddir)/lib/libprintut.la
+LIBS = @IJS_LIBS@ @LIBS@ $(INTLLIBS)
+
+IJS_BIN = ijsgimpprint
+
+bin_PROGRAMS = @IJS_BIN@
+
+EXTRA_PROGRAMS = ijsgimpprint
+
+ijsgimpprint_LDADD = $(LIBPRINTUT) $(LIBGIMPPRINT_LIBS)
+ijsgimpprint_DEPENDENCIES = $(LIBGIMPPRINT_LIBS)
+mkinstalldirs = $(SHELL) $(top_srcdir)/scripts/mkinstalldirs
+CONFIG_HEADER = ../../config.h
+CONFIG_CLEAN_FILES =  contrib.mak.addon
+bin_PROGRAMS =  @IJS_BIN@
+PROGRAMS =  $(bin_PROGRAMS)
+
+
+DEFS = @DEFS@ -I. -I$(srcdir) -I../..
+CPPFLAGS = @CPPFLAGS@
+LDFLAGS = @LDFLAGS@
+ijsgimpprint_SOURCES = ijsgimpprint.c
+ijsgimpprint_OBJECTS =  ijsgimpprint.$(OBJEXT)
+ijsgimpprint_LDFLAGS = 
+CFLAGS = @CFLAGS@
+COMPILE = $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+CCLD = $(CC)
+LINK = $(LIBTOOL) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(LDFLAGS) -o $@
+DIST_COMMON =  README COPYING Makefile.am Makefile.in \
+contrib.mak.addon.in
+
+
+DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
+
+TAR = tar
+GZIP_ENV = --best
+SOURCES = ijsgimpprint.c
+OBJECTS = ijsgimpprint.$(OBJEXT)
+
+all: all-redirect
+.SUFFIXES:
+.SUFFIXES: .S .c .lo .o .obj .s
+$(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ Makefile.am $(top_srcdir)/configure.in $(ACLOCAL_M4) 
+	cd $(top_srcdir) && $(AUTOMAKE) --gnu --include-deps src/ghost/Makefile
+
+Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
+	cd $(top_builddir) \
+	  && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
+
+contrib.mak.addon: $(top_builddir)/config.status contrib.mak.addon.in
+	cd $(top_builddir) && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
+
+mostlyclean-binPROGRAMS:
+
+clean-binPROGRAMS:
+	-test -z "$(bin_PROGRAMS)" || rm -f $(bin_PROGRAMS)
+
+distclean-binPROGRAMS:
+
+maintainer-clean-binPROGRAMS:
+
+install-binPROGRAMS: $(bin_PROGRAMS)
+	@$(NORMAL_INSTALL)
+	$(mkinstalldirs) $(DESTDIR)$(bindir)
+	@list='$(bin_PROGRAMS)'; for p in $$list; do \
+	  if test -f $$p; then \
+	    echo " $(LIBTOOL)  --mode=install $(INSTALL_PROGRAM) $$p $(DESTDIR)$(bindir)/`echo $$p|sed 's/$(EXEEXT)$$//'|sed '$(transform)'|sed 's/$$/$(EXEEXT)/'`"; \
+	    $(LIBTOOL)  --mode=install $(INSTALL_PROGRAM) $$p $(DESTDIR)$(bindir)/`echo $$p|sed 's/$(EXEEXT)$$//'|sed '$(transform)'|sed 's/$$/$(EXEEXT)/'`; \
+	  else :; fi; \
+	done
+
+uninstall-binPROGRAMS:
+	@$(NORMAL_UNINSTALL)
+	list='$(bin_PROGRAMS)'; for p in $$list; do \
+	  rm -f $(DESTDIR)$(bindir)/`echo $$p|sed 's/$(EXEEXT)$$//'|sed '$(transform)'|sed 's/$$/$(EXEEXT)/'`; \
+	done
+
+.c.o:
+	$(COMPILE) -c $<
+
+# FIXME: We should only use cygpath when building on Windows,
+# and only if it is available.
+.c.obj:
+	$(COMPILE) -c `cygpath -w $<`
+
+.s.o:
+	$(COMPILE) -c $<
+
+.S.o:
+	$(COMPILE) -c $<
+
+mostlyclean-compile:
+	-rm -f *.o core *.core
+	-rm -f *.$(OBJEXT)
+
+clean-compile:
+
+distclean-compile:
+	-rm -f *.tab.c
+
+maintainer-clean-compile:
+
+.c.lo:
+	$(LIBTOOL) --mode=compile $(COMPILE) -c $<
+
+.s.lo:
+	$(LIBTOOL) --mode=compile $(COMPILE) -c $<
+
+.S.lo:
+	$(LIBTOOL) --mode=compile $(COMPILE) -c $<
+
+mostlyclean-libtool:
+	-rm -f *.lo
+
+clean-libtool:
+	-rm -rf .libs _libs
+
+distclean-libtool:
+
+maintainer-clean-libtool:
+
+ijsgimpprint$(EXEEXT): $(ijsgimpprint_OBJECTS) $(ijsgimpprint_DEPENDENCIES)
+	@rm -f ijsgimpprint$(EXEEXT)
+	$(LINK) $(ijsgimpprint_LDFLAGS) $(ijsgimpprint_OBJECTS) $(ijsgimpprint_LDADD) $(LIBS)
+
+tags: TAGS
+
+ID: $(HEADERS) $(SOURCES) $(LISP)
+	list='$(SOURCES) $(HEADERS)'; \
+	unique=`for i in $$list; do echo $$i; done | \
+	  awk '    { files[$$0] = 1; } \
+	       END { for (i in files) print i; }'`; \
+	here=`pwd` && cd $(srcdir) \
+	  && mkid -f$$here/ID $$unique $(LISP)
+
+TAGS:  $(HEADERS) $(SOURCES)  $(TAGS_DEPENDENCIES) $(LISP)
+	tags=; \
+	here=`pwd`; \
+	list='$(SOURCES) $(HEADERS)'; \
+	unique=`for i in $$list; do echo $$i; done | \
+	  awk '    { files[$$0] = 1; } \
+	       END { for (i in files) print i; }'`; \
+	test -z "$(ETAGS_ARGS)$$unique$(LISP)$$tags" \
+	  || (cd $(srcdir) && etags $(ETAGS_ARGS) $$tags  $$unique $(LISP) -o $$here/TAGS)
+
+mostlyclean-tags:
+
+clean-tags:
+
+distclean-tags:
+	-rm -f TAGS ID
+
+maintainer-clean-tags:
+
+distdir = $(top_builddir)/$(PACKAGE)-$(VERSION)/$(subdir)
+
+subdir = src/ghost
+
+distdir: $(DISTFILES)
+	@for file in $(DISTFILES); do \
+	  d=$(srcdir); \
+	  if test -d $$d/$$file; then \
+	    cp -pr $$/$$file $(distdir)/$$file; \
+	  else \
+	    test -f $(distdir)/$$file \
+	    || ln $$d/$$file $(distdir)/$$file 2> /dev/null \
+	    || cp -p $$d/$$file $(distdir)/$$file || :; \
+	  fi; \
+	done
+ijsgimpprint.o: ijsgimpprint.c ../../config.h \
+	../../include/gimp-print/gimp-print.h \
+	../../include/gimp-print/gimp-print-intl-internal.h
+
+info-am:
+info: info-am
+dvi-am:
+dvi: dvi-am
+check-am: all-am
+check: check-am
+installcheck-am:
+installcheck: installcheck-am
+install-exec-am: install-binPROGRAMS
+install-exec: install-exec-am
+
+install-data-am:
+install-data: install-data-am
+
+install-am: all-am
+	@$(MAKE) $(AM_MAKEFLAGS) install-exec-am install-data-am
+install: install-am
+uninstall-am: uninstall-binPROGRAMS
+uninstall: uninstall-am
+all-am: Makefile $(PROGRAMS) all-local
+all-redirect: all-am
+install-strip:
+	$(MAKE) $(AM_MAKEFLAGS) AM_INSTALL_PROGRAM_FLAGS=-s install
+installdirs:
+	$(mkinstalldirs)  $(DESTDIR)$(bindir)
+
+
+mostlyclean-generic:
+
+clean-generic:
+	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
+
+distclean-generic:
+	-rm -f Makefile $(CONFIG_CLEAN_FILES)
+	-rm -f config.cache config.log stamp-h stamp-h[0-9]*
+
+maintainer-clean-generic:
+	-test -z "$(MAINTAINERCLEANFILES)" || rm -f $(MAINTAINERCLEANFILES)
+mostlyclean-am:  mostlyclean-binPROGRAMS mostlyclean-compile \
+		mostlyclean-libtool mostlyclean-tags \
+		mostlyclean-generic
+
+mostlyclean: mostlyclean-am
+
+clean-am:  clean-binPROGRAMS clean-compile clean-libtool clean-tags \
+		clean-generic mostlyclean-am
+
+clean: clean-am
+
+distclean-am:  distclean-binPROGRAMS distclean-compile distclean-libtool \
+		distclean-tags distclean-generic clean-am
+	-rm -f libtool
+
+distclean: distclean-am
+
+maintainer-clean-am:  maintainer-clean-binPROGRAMS \
+		maintainer-clean-compile maintainer-clean-libtool \
+		maintainer-clean-tags maintainer-clean-generic \
+		distclean-am
+	@echo "This command is intended for maintainers to use;"
+	@echo "it deletes files that may require special tools to rebuild."
+
+maintainer-clean: maintainer-clean-am
+
+.PHONY: mostlyclean-binPROGRAMS distclean-binPROGRAMS clean-binPROGRAMS \
+maintainer-clean-binPROGRAMS uninstall-binPROGRAMS install-binPROGRAMS \
+mostlyclean-compile distclean-compile clean-compile \
+maintainer-clean-compile mostlyclean-libtool distclean-libtool \
+clean-libtool maintainer-clean-libtool tags mostlyclean-tags \
+distclean-tags clean-tags maintainer-clean-tags distdir info-am info \
+dvi-am dvi check check-am installcheck-am installcheck install-exec-am \
+install-exec install-data-am install-data install-am install \
+uninstall-am uninstall all-local all-redirect all-am all installdirs \
+mostlyclean-generic distclean-generic clean-generic \
+maintainer-clean-generic clean mostlyclean distclean maintainer-clean
+
+
+@SET_MAKE@
+
+all-local: $(ALL_LOCAL_DEPS)
+
+$(srcdir)/gdevstp-print.h: $(top_srcdir)/include/gimp-print/gimp-print.h
+	sed $(GHCODE) $< > $(srcdir)/$@
+
+$(srcdir)/gdevstp-print-internal.h: $(top_srcdir)/src/main/gimp-print-internal.h
+	echo '#define VERSION "@VERSION@"' > $(srcdir)/$@
+	echo '#define RELEASE_DATE "@RELEASE_DATE@"' >> $(srcdir)/$@
+	sed $(GHCODE) $< >> $(srcdir)/$@
+
+$(srcdir)/gdevstp-print-intl-internal.h: $(top_srcdir)/include/gimp-print/gimp-print-intl-internal.h
+	sed $(GHCODE) $< > $(srcdir)/$@
+
+gdevstp-%.h: $(srcdir)/../main/%.h Makefile
+	cd $(srcdir) ; sed $(GHCODE) $< > $@
+
+gdevstp-printers.c: ../main/print-printers.c
+	sed $(GHCODE) $< > $@
+
+gdevstp-%: $(srcdir)/../main/print-% Makefile
+	cd $(srcdir) ; sed $(GHCODE) $< > $@
+
+../main/print-printers.c: ../printdef/printdef $(srcdir)/../main/printers.xml
+	../printdef/printdef < $(srcdir)/../main/printers.xml > $(top_builddir)/src/main/print-printers.c
+
+printdefl.o: printdefy.o
+
+../printdef/printdef: $(addprefix ../printdef/, printdefl.l printdefy.y printdef.h)
+	cd ../printdef ; \
+	$(MAKE)
+
+$(LIBGIMPPRINT_LIBS):
+	cd ../main ; \
+	$(MAKE)
+
+# Tell versions [3.59,3.63) of GNU make to not export all variables.
+# Otherwise a system limit (for SysV at least) may be exceeded.
+.NOEXPORT:

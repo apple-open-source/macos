@@ -360,7 +360,7 @@ do_completion(Hookdef dummy, Compldat dat)
 	haspattern = 1;
     if (iforcemenu) {
 	if (nmatches)
-	    do_ambig_menu();
+            do_ambig_menu();
 	ret = !nmatches;
     } else if (useline < 0)
 	ret = selfinsert(zlenoargs);
@@ -553,6 +553,8 @@ callcompfunc(char *s, char *fn)
 	compparameter = compredirect = "";
 	if (ispar)
 	    compcontext = (ispar == 2 ? "brace_parameter" : "parameter");
+        else if (linwhat == IN_PAR)
+            compcontext = "assign_parameter";
 	else if (linwhat == IN_MATH) {
 	    if (insubscr) {
 		compcontext = "subscript";
@@ -618,6 +620,13 @@ callcompfunc(char *s, char *fn)
 	} else
 	    compwords = (char **) zcalloc(sizeof(char *));
 
+	if (compredirs)
+	    freearray(compredirs);
+        if (rdstrs)
+            compredirs = bld_list_array(rdstrs);
+        else
+            compredirs = (char **) zcalloc(sizeof(char *));
+
 	compparameter = ztrdup(compparameter);
 	compredirect = ztrdup(compredirect);
 	zsfree(compquote);
@@ -661,6 +670,10 @@ callcompfunc(char *s, char *fn)
 	    untokenize(ss);
 	    compsuffix = ztrdup(ss);
 	}
+        zsfree(complastprefix);
+        zsfree(complastsuffix);
+        complastprefix = ztrdup(compprefix);
+        complastsuffix = ztrdup(compsuffix);
 	zsfree(compiprefix);
 	zsfree(compisuffix);
 	if (parwb < 0) {
@@ -842,7 +855,8 @@ callcompfunc(char *s, char *fn)
 	}
 	startauto = ((compinsert &&
 		      !strcmp(compinsert, "automenu-unambiguous")) ||
-		     (bashlistfirst && (!compinsert || !*compinsert)));
+		     (bashlistfirst && isset(AUTOMENU) &&
+                      (!compinsert || !*compinsert)));
 	useexact = (compexact && !strcmp(compexact, "accept"));
 
 	if (!comptoend || !*comptoend)
@@ -1167,6 +1181,30 @@ rembslash(char *s)
     return t;
 }
 
+/* Remove one of every pair of single quotes, without copying. Return
+ * the number of removed quotes. */
+
+/**/
+mod_export int
+remsquote(char *s)
+{
+    int ret = 0, qa = (isset(RCQUOTES) ? 1 : 3);
+    char *t = s;
+
+    while (*s)
+	if (qa == 1 ?
+            (s[0] == '\'' && s[1] == '\'') :
+            (s[0] == '\'' && s[1] == '\\' && s[2] == '\'' && s[3] == '\'')) {
+            ret += qa;
+            *t++ = '\'';
+            s += qa + 1;
+	} else
+	    *t++ = *s++;
+    *t = '\0';
+
+    return ret;
+}
+
 /* This should probably be moved into tokenize(). */
 
 /**/
@@ -1236,7 +1274,8 @@ set_comp_sep(void)
     LinkList foo = newlinklist();
     LinkNode n;
     int owe = we, owb = wb, ocs = cs, swb, swe, scs, soffs, ne = noerrs;
-    int tl, got = 0, i = 0, cur = -1, oll = ll, sl, remq;
+    int tl, got = 0, i = 0, j, cur = -1, oll = ll, sl, css = 0;
+    int remq = 0, dq = 0, odq, sq = 0, osq, issq = 0, sqq = 0, lsq = 0, qa = 0;
     int ois = instring, oib = inbackt, noffs = lp, ona = noaliases;
     char *tmp, *p, *ns, *ol = (char *) line, sav, *qp, *qs, *ts, qc = '\0';
 
@@ -1258,8 +1297,37 @@ set_comp_sep(void)
     memcpy(tmp + 1, s, noffs);
     tmp[(scs = cs = 1 + noffs)] = 'x';
     strcpy(tmp + 2 + noffs, s + noffs);
-    if ((remq = (*compqstack == '\\')))
+
+    switch (*compqstack) {
+    case '\\':
+        remq = 1;
 	tmp = rembslash(tmp);
+        break;
+    case '\'':
+        issq = 1;
+        if (isset(RCQUOTES))
+            qa = 1;
+        else
+            qa = 3;
+
+        sq = remsquote(tmp);
+
+        break;
+    case '"':
+        for (j = 0, p = tmp; *p; p++, j++)
+            if (*p == '\\' && p[1] == '\\') {
+                dq++;
+                chuck(p);
+                if (j > cs) {
+                    cs++;
+                    css++;
+                }
+                if (!*p)
+                    break;
+            }
+    }
+    odq = dq;
+    osq = sq;
     inpush(dupstrspace(tmp), 0, NULL);
     line = (unsigned char *) tmp;
     ll = tl - 1;
@@ -1272,9 +1340,10 @@ set_comp_sep(void)
 
 	    if (!tokstr)
 		break;
-	    for (j = 0, p = tokstr; *p; p++)
+	    for (j = 0, p = tokstr; *p; p++) {
 		if (*p == Snull || *p == Dnull)
 		    j++;
+            }
 	    if (j & 1) {
 		tok = STRING;
 		if (p > tokstr && p[-1] == ' ')
@@ -1283,17 +1352,38 @@ set_comp_sep(void)
 	}
 	if (tok == ENDINPUT || tok == LEXERR)
 	    break;
-	if (tokstr && *tokstr)
+	if (tokstr && *tokstr) {
+            for (p = tokstr; dq && *p; p++) {
+                if (*p == Bnull) {
+                    dq--;
+                    if (p[1] == '\\')
+                        dq--;
+                }
+            }
+            if (issq) {
+                for (p = tokstr, lsq = 0; *p; p++) {
+                    if (sq && *p == Snull)
+                        sq -= qa;
+                    if (*p == '\'') {
+                        sq -= qa;
+                        lsq += qa;
+                    }
+                }
+            }
+            else
+                lsq = 0;
 	    addlinknode(foo, (p = ztrdup(tokstr)));
+        }
 	else
 	    p = NULL;
 	if (!got && !zleparse) {
 	    DPUTS(!p, "no current word in substr");
 	    got = 1;
 	    cur = i;
-	    swb = wb - 1;
-	    swe = we - 1;
-	    soffs = cs - swb;
+	    swb = wb - 1 - dq - sq;
+	    swe = we - 1 - dq - sq;
+            sqq = lsq;
+	    soffs = cs - swb - css;
 	    chuck(p + soffs);
 	    ns = dupstring(p);
 	}
@@ -1344,8 +1434,15 @@ set_comp_sep(void)
     for (p = ns, i = swb; *p; p++, i++) {
 	if (INULL(*p)) {
 	    if (i < scs) {
-		if (remq && *p == Bnull && p[1])
-		    swb -= 2;
+		if (*p == Bnull) {
+                    if (p[1] && remq)
+                        swb -= 2;
+                    if (odq) {
+                        swb--;
+                        if (p[1] == '\\')
+                            swb--;
+                    }
+                }
 	    }
 	    if (p[1] || *p != Bnull) {
 		if (*p == Bnull) {
@@ -1370,9 +1467,9 @@ set_comp_sep(void)
 	if (ql > rl)
 	    swb -= ql - rl;
     }
-    sav = s[(i = swb - 1)];
+    sav = s[(i = swb - 1 - sqq)];
     s[i] = '\0';
-    qp = rembslash(s);
+    qp = (issq ? dupstring(s) : rembslash(s));
     s[i] = sav;
     if (swe < swb)
 	swe = swb;
@@ -1383,11 +1480,14 @@ set_comp_sep(void)
 	if (strlen(ns) > swe - swb + 1)
 	    ns[swe - swb + 1] = '\0';
     }
-    qs = rembslash(s + swe);
+    qs = (issq ? dupstring(s + swe) : rembslash(s + swe));
     sl = strlen(ns);
     if (soffs > sl)
 	soffs = sl;
-
+    if (issq) {
+        remsquote(qp);
+        remsquote(qs);
+    }
     {
 	int set = CP_QUOTE | CP_QUOTING, unset = 0;
 
@@ -1432,6 +1532,10 @@ set_comp_sep(void)
 	    untokenize(ss);
 	    compsuffix = ztrdup(ss);
 	}
+        if ((i = strlen(compprefix)) &&
+            compprefix[i - 1] == '\\' && compprefix[i - 2] != '\\')
+            compprefix[i - 1] = '\0';
+        
 	tmp = tricat(compqiprefix, compiprefix, multiquote(qp, 1));
 	zsfree(compqiprefix);
 	compqiprefix = tmp;
@@ -1458,11 +1562,11 @@ set_comp_sep(void)
     return 0;
 }
 
-/* This stores the strings from the list in an array. */
+/* This builds an array from a list of strings. */
 
 /**/
-mod_export void
-set_list_array(char *name, LinkList l)
+mod_export char **
+bld_list_array(LinkList l)
 {
     char **a, **p;
     LinkNode n;
@@ -1472,7 +1576,16 @@ set_list_array(char *name, LinkList l)
 	*p++ = ztrdup((char *) getdata(n));
     *p = NULL;
 
-    setaparam(name, a);
+    return a;
+}
+
+/* This stores the strings from the list in an array. */
+
+/**/
+mod_export void
+set_list_array(char *name, LinkList l)
+{
+    setaparam(name, bld_list_array(l));
 }
 
 /* Get the words from a variable or a (list of words). */
@@ -1558,6 +1671,40 @@ get_data_arr(char *name, int keys)
     return ret;
 }
 
+static void
+addmatch(char *str, int flags, char ***dispp, int line)
+{
+    Cmatch cm = (Cmatch) zhalloc(sizeof(struct cmatch));
+    char **disp = *dispp;
+
+    memset(cm, 0, sizeof(struct cmatch));
+    cm->str = dupstring(str);
+    cm->flags = (flags |
+                 (complist ?
+                  ((strstr(complist, "packed") ? CMF_PACKED : 0) |
+                   (strstr(complist, "rows")   ? CMF_ROWS   : 0)) : 0));
+    if (disp) {
+        if (!*++disp)
+            disp = NULL;
+        if (disp)
+            cm->disp = dupstring(*disp);
+    } else if (line) {
+        cm->disp = dupstring("");
+        cm->flags |= CMF_DISPLINE;
+    }
+    mnum++;
+    ainfo->count++;
+    if (curexpl)
+        curexpl->count++;
+
+    addlinknode(matches, cm);
+
+    newmatches = 1;
+    mgroup->new = 1;
+
+    *dispp = disp;
+}
+
 /* This is used by compadd to add a couple of matches. The arguments are
  * the strings given via options. The last argument is the array with
  * the matches. */
@@ -1583,25 +1730,36 @@ addmatches(Cadata dat, char **argv)
     Brinfo bp, bpl = brbeg, obpl, bsl = brend, obsl;
     Heap oldheap;
 
-    if (!*argv && !(dat->aflags & CAF_ALL)) {
-	SWITCHHEAPS(oldheap, compheap) {
-	    /* Select the group in which to store the matches. */
-	    gflags = (((dat->aflags & CAF_NOSORT ) ? CGF_NOSORT  : 0) |
-		      ((dat->aflags & CAF_UNIQALL) ? CGF_UNIQALL : 0) |
-		      ((dat->aflags & CAF_UNIQCON) ? CGF_UNIQCON : 0));
-	    if (dat->group) {
-		endcmgroup(NULL);
-		begcmgroup(dat->group, gflags);
-	    } else {
-		endcmgroup(NULL);
-		begcmgroup("default", 0);
-	    }
-	    if (dat->mesg)
-		addmesg(dat->mesg);
-	} SWITCHBACKHEAPS(oldheap);
+    SWITCHHEAPS(oldheap, compheap) {
+        if (dat->dummies)
+            dat->aflags = ((dat->aflags | CAF_NOSORT | CAF_UNIQCON) &
+                           ~CAF_UNIQALL);
 
+        /* Select the group in which to store the matches. */
+        gflags = (((dat->aflags & CAF_NOSORT ) ? CGF_NOSORT  : 0) |
+                  ((dat->aflags & CAF_UNIQALL) ? CGF_UNIQALL : 0) |
+                  ((dat->aflags & CAF_UNIQCON) ? CGF_UNIQCON : 0));
+        if (dat->group) {
+            endcmgroup(NULL);
+            begcmgroup(dat->group, gflags);
+        } else {
+            endcmgroup(NULL);
+            begcmgroup("default", 0);
+        }
+        if (dat->mesg || dat->exp) {
+            curexpl = (Cexpl) zhalloc(sizeof(struct cexpl));
+            curexpl->always = !!dat->mesg;
+            curexpl->count = curexpl->fcount = 0;
+            curexpl->str = dupstring(dat->mesg ? dat->mesg : dat->exp);
+            if (dat->mesg)
+                addexpl(1);
+        } else
+            curexpl = NULL;
+    } SWITCHBACKHEAPS(oldheap);
+
+    if (!*argv && !dat->dummies && !(dat->aflags & CAF_ALL))
 	return 1;
-    }
+
     for (bp = brbeg; bp; bp = bp->next)
 	bp->curpos = ((dat->aflags & CAF_QUOTE) ? bp->pos : bp->qpos);
     for (bp = brend; bp; bp = bp->next)
@@ -1652,13 +1810,6 @@ addmatches(Cadata dat, char **argv)
 		dparr = NULL;
 	    dparl = newlinklist();
 	}
-	if (dat->exp) {
-	    curexpl = (Cexpl) zhalloc(sizeof(struct cexpl));
-	    curexpl->count = curexpl->fcount = 0;
-	    curexpl->str = dupstring(dat->exp);
-	} else
-	    curexpl = NULL;
-
 	/* Store the matcher in our stack of matchers. */
 	if (dat->match) {
 	    mst.next = mstack;
@@ -1841,19 +1992,6 @@ addmatches(Cadata dat, char **argv)
 		}
 	    }
 	}
-	/* Select the group in which to store the matches. */
-	gflags = (((dat->aflags & CAF_NOSORT ) ? CGF_NOSORT  : 0) |
-		  ((dat->aflags & CAF_UNIQALL) ? CGF_UNIQALL : 0) |
-		  ((dat->aflags & CAF_UNIQCON) ? CGF_UNIQCON : 0));
-	if (dat->group) {
-	    endcmgroup(NULL);
-	    begcmgroup(dat->group, gflags);
-	} else {
-	    endcmgroup(NULL);
-	    begcmgroup("default", 0);
-	}
-	if (dat->mesg)
-	    addmesg(dat->mesg);
 	if (*argv) {
 	    if (dat->pre)
 		dat->pre = dupstring(dat->pre);
@@ -1972,7 +2110,7 @@ addmatches(Cadata dat, char **argv)
 		for (bp = obsl; bp; bp = bp->next)
 		    bp->curpos += bsadd;
 
-		if ((cm = add_match_data(0, ms, lc, dat->ipre, NULL,
+		if ((cm = add_match_data(0, ms, s, lc, dat->ipre, NULL,
 					 dat->isuf, dat->pre, dat->prpre,
 					 dat->ppre, pline,
 					 dat->psuf, sline,
@@ -2020,37 +2158,14 @@ addmatches(Cadata dat, char **argv)
 	if (dat->dpar)
 	    set_list_array(dat->dpar, dparl);
 	if (dat->exp)
-	    addexpl();
+	    addexpl(0);
 	if (!hasallmatch && (dat->aflags & CAF_ALL)) {
-	    Cmatch cm = (Cmatch) zhalloc(sizeof(struct cmatch));
-
-	    memset(cm, 0, sizeof(struct cmatch));
-	    cm->str = dupstring("<all>");
-	    cm->flags = (dat->flags | CMF_ALL |
-			 (complist ?
-			  ((strstr(complist, "packed") ? CMF_PACKED : 0) |
-			   (strstr(complist, "rows")   ? CMF_ROWS   : 0)) : 0));
-	    if (disp) {
-		if (!*++disp)
-		    disp = NULL;
-		if (disp)
-		    cm->disp = dupstring(*disp);
-	    } else {
-		cm->disp = dupstring("");
-		cm->flags |= CMF_DISPLINE;
-	    }
-	    mnum++;
-	    ainfo->count++;
-	    if (curexpl)
-		curexpl->count++;
-
-	    addlinknode(matches, cm);
-
-	    newmatches = 1;
-	    mgroup->new = 1;
-
+            addmatch("<all>", dat->flags | CMF_ALL, &disp, 1);
 	    hasallmatch = 1;
 	}
+        while (dat->dummies--)
+            addmatch("", dat->flags | CMF_DUMMY, &disp, 0);
+
     } SWITCHBACKHEAPS(oldheap);
 
     /* We switched back to the current heap, now restore the stack of
@@ -2075,7 +2190,7 @@ addmatches(Cadata dat, char **argv)
 
 /**/
 mod_export Cmatch
-add_match_data(int alt, char *str, Cline line,
+add_match_data(int alt, char *str, char *orig, Cline line,
 	       char *ipre, char *ripre, char *isuf,
 	       char *pre, char *prpre,
 	       char *ppre, Cline pline,
@@ -2303,6 +2418,7 @@ add_match_data(int alt, char *str, Cline line,
     /* Allocate and fill the match structure. */
     cm = (Cmatch) zhalloc(sizeof(struct cmatch));
     cm->str = str;
+    cm->orig = dupstring(orig);
     cm->ppre = (ppre && *ppre ? ppre : NULL);
     cm->psuf = (psuf && *psuf ? psuf : NULL);
     cm->prpre = ((flags & CMF_FILE) && prpre && *prpre ? prpre : NULL);
@@ -2321,7 +2437,22 @@ add_match_data(int alt, char *str, Cline line,
 		 (complist ?
 		  ((strstr(complist, "packed") ? CMF_PACKED : 0) |
 		   (strstr(complist, "rows")   ? CMF_ROWS   : 0)) : 0));
+    cm->mode = 0;
+    cm->modec = '\0';
+    if ((flags & CMF_FILE) && orig[0] && orig[strlen(orig) - 1] != '/') {
+        struct stat buf;
+        char *pb;
 
+        pb = (char *) zhalloc((cm->prpre ? strlen(cm->prpre) : 0) +
+                              3 + strlen(orig));
+        sprintf(pb, "%s%s", (cm->prpre ? cm->prpre : "./"), orig);
+
+        if (!ztat(pb, &buf, 1)) {
+            cm->mode = buf.st_mode;
+            if ((cm->modec = file_type(buf.st_mode)) == ' ')
+                cm->modec = '\0';
+        }
+    }
     if ((*compqstack == '\\' && compqstack[1]) ||
 	(autoq && *compqstack && compqstack[1] == '\\'))
 	cm->flags |= CMF_NOSPACE;
@@ -2482,45 +2613,31 @@ endcmgroup(char **ylist)
 
 /**/
 mod_export void
-addexpl(void)
+addexpl(int always)
 {
     LinkNode n;
     Cexpl e;
 
     for (n = firstnode(expls); n; incnode(n)) {
 	e = (Cexpl) getdata(n);
-	if (e->count >= 0 && !strcmp(curexpl->str, e->str)) {
+	if (!strcmp(curexpl->str, e->str)) {
 	    e->count += curexpl->count;
 	    e->fcount += curexpl->fcount;
-
+            if (always) {
+                e->always = 1;
+                nmessages++;
+                newmatches = 1;
+                mgroup->new = 1;
+            }
 	    return;
 	}
     }
     addlinknode(expls, curexpl);
     newmatches = 1;
-}
-
-/* Add a message to the current group. Make sure it is shown. */
-
-/**/
-mod_export void
-addmesg(char *mesg)
-{
-    LinkNode n;
-    Cexpl e;
-
-    for (n = firstnode(expls); n; incnode(n)) {
-	e = (Cexpl) getdata(n);
-	if (e->count < 0 && !strcmp(mesg, e->str))
-	    return;
+    if (always) {
+        mgroup->new = 1;
+        nmessages++;
     }
-    e = (Cexpl) zhalloc(sizeof(*e));
-    e->count = e->fcount = -1;
-    e->str = dupstring(mesg);
-    addlinknode(expls, e);
-    newmatches = 1;
-    mgroup->new = 1;
-    nmessages++;
 }
 
 /* The comparison function for matches (used for sorting). */
@@ -2708,6 +2825,7 @@ dupmatch(Cmatch m, int nbeg, int nend)
     r = (Cmatch) zcalloc(sizeof(struct cmatch));
 
     r->str = ztrdup(m->str);
+    r->orig = ztrdup(m->orig);
     r->ipre = ztrdup(m->ipre);
     r->ripre = ztrdup(m->ripre);
     r->isuf = ztrdup(m->isuf);
@@ -2741,6 +2859,8 @@ dupmatch(Cmatch m, int nbeg, int nend)
     r->qipl = m->qipl;
     r->qisl = m->qisl;
     r->disp = ztrdup(m->disp);
+    r->mode = m->mode;
+    r->modec = m->modec;
 
     return r;
 }
@@ -2838,6 +2958,7 @@ permmatches(int last)
 		for (eq = g->expls; (o = *eq); eq++, ep++) {
 		    *ep = e = (Cexpl) zcalloc(sizeof(struct cexpl));
 		    e->count = (fi ? o->fcount : o->count);
+                    e->always = o->always;
 		    e->fcount = 0;
 		    e->str = ztrdup(o->str);
 		}
@@ -2898,6 +3019,7 @@ freematch(Cmatch m, int nbeg, int nend)
     if (!m) return;
 
     zsfree(m->str);
+    zsfree(m->orig);
     zsfree(m->ipre);
     zsfree(m->ripre);
     zsfree(m->isuf);

@@ -20,6 +20,8 @@
 
 #define NSLService CFMutableDictionaryRef
 
+@class NSLVnode;
+
 typedef enum {
 	kNetworkObjectTypeNone = 0,
 	kNetworkNeighborhood = 1,
@@ -42,36 +44,62 @@ struct SearchResultList {
 	InitSearchResultList(resultsptr, targetneighborhood);
 
 struct SearchResult {
-	TAILQ_ENTRY(SearchResult) sibling_link;
+	TAILQ_ENTRY(SearchResult) sr_link;
+	NSLResultType resultType;
 	NSLClientRef callerClientRef;
     NetworkObjectType objectType;
 	union {
 		NSLNeighborhood neighborhood;
 		NSLService service;
 	} result;
-    struct SearchResultList *searchResults;
 };
 
-#define INIT_SEARCHRESULT(resultptr, clientRef, type, resultslist) \
+#define INIT_SEARCHRESULT(resultptr, clientRef, type) \
 	(resultptr)->callerClientRef = (clientRef); \
-    (resultptr)->objectType = (type); \
-    (resultptr)->searchResults = (resultslist);
+    (resultptr)->objectType = (type);
+
+typedef struct _searchContext *SearchContextPtr;
+typedef void (*NewResultNotificationFunction)(SearchContextPtr);
+
+enum searchStatus {
+	kNoSearchActive = 0,
+	kSearchActive,
+	kCachedSearchComplete,
+	kInitialSearchComplete,
+	kSearchComplete
+};
+
+#define kSearchResultsBeingProcessed 0x00000001
 
 typedef struct _searchContext {
+	TAILQ_ENTRY(_searchContext) sc_link;
+	unsigned long searchFlags;
 	NSLClientRef searchClientRef;
 	NSLRequestRef searchRef;
+	NSLVnode *parent_vnode;
+	NetworkObjectType searchTargetType;
+	unsigned long searchGenerationNumber;
+	enum searchStatus searchState;
     struct SearchResultList *results;
-} SearchContext, *SearchContextPtr;
+    NewResultNotificationFunction notificationCallBack;
+    void *notificationClientRef;
+} SearchContext;
 
-#define INIT_SEARCHCONTEXT(contextptr, clientref, resultslist) \
+#define INIT_SEARCHCONTEXT(contextptr, parent, clientref, resultslist, generation, callback, notifyref) \
+	(contextptr)->searchFlags = 0; \
 	(contextptr)->searchClientRef = (clientref); \
-    (contextptr)->results = (resultslist);
+	(contextptr)->parent_vnode = (parent); \
+	(contextptr)->searchGenerationNumber = (generation); \
+    (contextptr)->results = (resultslist); \
+    (contextptr)->notificationCallBack = (callback); \
+    (contextptr)->notificationClientRef = (notifyref);
 
 extern pthread_mutexattr_t gDefaultMutexAttr;
 extern pthread_condattr_t gDefaultCondAttr;
 
 void InitSearchResultList(struct SearchResultList *resultsptr, NSLNeighborhood targetneighborhood);
-void WaitForSearchCompletion(struct SearchResultList *searchResults);
+void WaitForCachedSearchCompletion(SearchContextPtr callContext);
+void WaitForInitialSearchCompletion(SearchContextPtr callContext);
 int StartSearchForNeighborhoodsInNeighborhood( NSLNeighborhood ParentNeighborhood, SearchContextPtr callContext );
 int StartSearchForServicesInNeighborhood(NSLNeighborhood neighborhood, CFArrayRef serviceTypes, SearchContextPtr callContext );
 CFStringRef GetMainStringFromAttribute( CFDictionaryRef inDict, CFStringRef inKey );

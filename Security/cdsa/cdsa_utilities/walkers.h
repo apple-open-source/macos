@@ -34,19 +34,24 @@
 
 #include <Security/utilities.h>
 #include <Security/cssmalloc.h>
-#include <Security/memutils.h>
+#include <Security/memstreams.h>
+#include <Security/debugging.h>
 #include <set>
 
-#ifdef _CPP_WALKERS
-# pragma export on
+
+namespace Security {
+namespace DataWalkers {
+
+#define WALKERDEBUG 1
+
+
+#if defined(WALKERDEBUG)
+# define DEBUGWALK(who)	secdebug("walkers", "walk " who " %s@%p (%ld)", \
+									Debug::typeName(addr).c_str(), addr, size)
+#else
+# define DEBUGWALK(who)	/* nothing */
 #endif
 
-
-namespace Security
-{
-
-namespace DataWalkers
-{
 
 //
 // Standard operators for sizing, copying, and reinflating
@@ -54,9 +59,15 @@ namespace DataWalkers
 class SizeWalker : public LowLevelMemoryUtilities::Writer::Counter {
 public:
     template <class T>
-    void operator () (T *, size_t size = sizeof(T))
-    { LowLevelMemoryUtilities::Writer::Counter::insert(size); }
+	void operator () (T &obj, size_t size = sizeof(T)) { }
+
+    template <class T>
+    void operator () (T *addr, size_t size = sizeof(T))
+    { DEBUGWALK("size"); LowLevelMemoryUtilities::Writer::Counter::insert(size); }
     
+	void blob(void *addr, size_t size)
+	{ (*this)(addr, size); }
+
     void reserve(size_t space)
     { LowLevelMemoryUtilities::Writer::Counter::insert(space); }
     
@@ -69,12 +80,22 @@ public:
     CopyWalker() { }
     CopyWalker(void *base) : LowLevelMemoryUtilities::Writer(base) { }
     
+public:
+    template <class T>
+	void operator () (T &obj, size_t size = sizeof(T))
+	{ }
+
     template <class T>
     void operator () (T * &addr, size_t size = sizeof(T))
     {
+		DEBUGWALK("copy");
         if (addr)
             addr = reinterpret_cast<T *>(LowLevelMemoryUtilities::Writer::operator () (addr, size));
     }
+    
+	template <class T>
+	void blob(T * &addr, size_t size)
+	{ (*this)(addr, size); }
     
     static const bool needsRelinking = true;
     static const bool needsSize = true;
@@ -87,12 +108,21 @@ public:
     : mOffset(LowLevelMemoryUtilities::difference(ptr, base)) { }
 
     template <class T>
-    void operator () (T * &addr, size_t = 0)
+	void operator () (T &obj, size_t size = sizeof(T))
+	{ }
+
+    template <class T>
+    void operator () (T * &addr, size_t size = 0)
     {
+		DEBUGWALK("reconstitute");
         if (addr)
             addr = LowLevelMemoryUtilities::increment<T>(addr, mOffset);
     }
     
+	template <class T>
+	void blob(T * &addr, size_t size)
+	{ (*this)(addr, size); }
+	
     static const bool needsRelinking = true;
     static const bool needsSize = false;
     
@@ -107,8 +137,13 @@ public:
     CssmAllocator &allocator;
     
     template <class T>
+	void operator () (T &obj, size_t size = sizeof(T))
+	{ }
+
+    template <class T>
     void operator () (T * &addr, size_t size = sizeof(T))
     {
+		DEBUGWALK("chunkcopy");
 #if BUG_GCC
         T *copy = reinterpret_cast<T *>(allocator.malloc(size));
 #else
@@ -118,6 +153,10 @@ public:
         addr = copy;
     }
     
+	template <class T>
+	void blob(T * &addr, size_t size)
+	{ (*this)(addr, size); }
+	
     static const bool needsRelinking = true;
     static const bool needsSize = true;
 };
@@ -129,11 +168,19 @@ public:
     CssmAllocator &allocator;
     
     template <class T>
-    void operator () (T *addr, size_t = sizeof(T))
+	void operator () (T &obj, size_t size = 0)
+	{ }
+
+	template <class T>
+    void operator () (T *addr, size_t size = 0)
     {
+		DEBUGWALK("chunkfree");
         freeSet.insert(addr);
     }
     
+	void blob(void *addr, size_t size)
+	{ (*this)(addr, 0); }
+
     void free();
     ~ChunkFreeWalker() { free(); }
     
@@ -142,31 +189,6 @@ public:
 
 private:
     std::set<void *> freeSet;
-};
-
-
-//
-// The VirtualWalker class is a generic walker interface
-// for dynamic passing around.
-//
-class VirtualWalker {
-public:
-    VirtualWalker(bool nrl = false) : needsRelinking(nrl) { }
-    virtual ~VirtualWalker();
-    
-    virtual void operator () (void * &addr, size_t size) = 0;
-
-    const bool needsRelinking;
-};
-
-template <class Walker>
-class VirtualWalkerFor : public VirtualWalker {
-public:
-    VirtualWalkerFor(Walker &w, bool nrl = false) : VirtualWalker(nrl), walker(w) { }
-    void operator () (void * &addr, size_t size)
-    { walker(addr, size); }
-    
-    Walker &walker;
 };
 
 
@@ -299,8 +321,9 @@ public:
 
     ~Copier() { allocator.free(mValue); }
     
-    operator T *() const { return mValue; }
-    size_t length() const { return mLength; }
+	T *value() const		{ return mValue; }
+    operator T *() const	{ return value(); }
+    size_t length() const	{ return mLength; }
     
     T *keep() { T *result = mValue; mValue = NULL; return result; }	
     
@@ -325,8 +348,14 @@ T *walk(Action &operate, const T * &obj)
 
 
 //
-// The default walker assumes a flat data structure
+// The generic default walkers assume no structure, i.e. no recursive walks
 //
+template <class Action, class Type>
+void walk(Action &operate, Type &obj)
+{
+    operate(obj);
+}
+
 template <class Action, class Type>
 Type *walk(Action &operate, Type * &obj)
 {
@@ -336,11 +365,6 @@ Type *walk(Action &operate, Type * &obj)
 
 
 } // end namespace DataWalkers
-
 } // end namespace Security
-
-#ifdef _CPP_WALKERS
-# pragma export off
-#endif
 
 #endif //_H_WALKERS

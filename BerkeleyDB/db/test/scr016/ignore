@@ -1,0 +1,22 @@
+#
+# $Id: ignore,v 1.1.1.1 2003/02/15 04:56:19 zarzycki Exp $
+#
+# A list of tests to ignore
+
+# TestRpcServer is not debugged
+TestRpcServer
+
+# TestReplication is not debugged
+TestReplication
+
+# These are currently not working
+TestAppendRecno
+TestAssociate
+TestLogc
+TestConstruct02
+
+# TestUtil is used by the other tests, it does not stand on its own
+TestUtil
+
+# XA needs a special installation, it is not part of testall
+TestXAServlet

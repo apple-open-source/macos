@@ -1,0 +1,73 @@
+<?xml version="1.0"?>
+<!DOCTYPE ejb-jar PUBLIC
+      "-//Sun Microsystems, Inc.//DTD Enterprise JavaBeans 2.0//EN"
+      "http://java.sun.com/dtd/ejb-jar_2_0.dtd">
+
+<ejb-jar>
+   <display-name>Custom Proxy Security Tests</display-name>
+   <enterprise-beans>
+
+      <!-- Custom security proxy beans -->
+      <session>
+         <description>A secured session bean with read/write methods</description>
+         <ejb-name>ProxiedStatelessBean</ejb-name>
+         <home>org.jboss.test.security.interfaces.IOSessionHome</home>
+         <remote>org.jboss.test.security.interfaces.IOSession</remote>
+         <ejb-class>org.jboss.test.security.ejb.IOStatelessSessionBean</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Container</transaction-type>
+      </session>
+      <session>
+         <description>A secured session bean with read/write methods</description>
+         <ejb-name>ProxiedStatefulBean</ejb-name>
+         <home>org.jboss.test.security.interfaces.IOSessionHome</home>
+         <remote>org.jboss.test.security.interfaces.IOSession</remote>
+         <ejb-class>org.jboss.test.security.ejb.IOStatefulSessionBean</ejb-class>
+         <session-type>Stateful</session-type>
+         <transaction-type>Container</transaction-type>
+      </session>
+      <!--
+       <entity>
+           <description>A trival echo entity bean</description>
+           <ejb-name>ProxiedEntityBean</ejb-name>
+           <home>org.jboss.test.security.interfaces.EntityHome</home>
+           <remote>org.jboss.test.security.interfaces.Entity</remote>
+           <ejb-class>org.jboss.test.security.ejb.EntityBeanImpl</ejb-class>
+           <persistence-type>Bean</persistence-type>
+           <prim-key-class>java.lang.String</prim-key-class>
+           <reentrant>False</reentrant>
+       </entity>
+       -->
+   </enterprise-beans>
+
+   <assembly-descriptor>
+      <!-- The methods the Echo role can access
+      <method-permission>
+         <role-name>Echo</role-name>
+
+         <method>
+            <ejb-name>ProxiedEntityBean</ejb-name>
+            <method-name>*</method-name>
+         </method>
+      </method-permission>
+      -->
+
+      <!-- Anyone authorized user can access the ProxiedStatelessBean and
+          ProxiedStatefulBean beans in terms of declarative roles. The real
+          security checks are performed at the custom security proxy layer.
+      -->
+      <method-permission>
+         <unchecked/>
+         <method>
+            <ejb-name>ProxiedStatelessBean</ejb-name>
+            <method-name>*</method-name>
+         </method>
+         <method>
+            <ejb-name>ProxiedStatefulBean</ejb-name>
+            <method-name>*</method-name>
+         </method>
+      </method-permission>
+
+   </assembly-descriptor>
+
+</ejb-jar>

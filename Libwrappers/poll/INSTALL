@@ -1,0 +1,37 @@
+$Id: INSTALL,v 1.1.1.1 2003/07/21 16:20:21 zarzycki Exp $
+---------------------------------------------------------------------------
+
+			  Building and installing
+
+1) Edit the Makefile, adjusting any necessary definitions. Pay specific
+   attention to the value of PREFIX and the compiler settings.
+2) Type "make" to build the "libpoll.a" and "libpoll.so" libraries.
+3) Type "make install" to install the shared and static libraries in
+   $(PREFIX)/lib (default: /usr/local/lib) and the poll.h header file
+   in $(PREFIX)/include (default: /usr/local/include)
+
+
+			  Using the poll emulator
+
+Compiling:
+
+	To compile a program that wants the poll.h header file, you need
+	to include the appropriate "-I" option on the compiler command line.
+	If you set PREFIX to "/usr/local", then use "-I/usr/local/include".
+	For instance:
+
+		cc -c -I/usr/local/include mypollprog.c
+
+Linking:
+
+	To link a program that uses poll, you need to link against the
+	static or shared version of the library you built and installed.
+	Use the "-L" and "-l" options:
+
+		cc -o mypollprog mypollprog.o -L/usr/local/lib -lpoll
+
+        If you need to force static linkage, add "-static" (with gcc) to
+	force use of "libpoll.a":
+
+		cc -o mypollprog mypollprog.o -L/usr/local/lib -lpoll -static
+---------------------------------------------------------------------------

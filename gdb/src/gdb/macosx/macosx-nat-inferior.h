@@ -40,6 +40,11 @@ struct macosx_inferior_status
 };
 typedef struct macosx_inferior_status macosx_inferior_status;
 
+struct private_thread_info
+{
+  thread_t app_thread_port;
+};
+
 void macosx_check_new_threads ();
 ptid_t macosx_wait (struct macosx_inferior_status *inferior, 
                   struct target_waitstatus *status,

@@ -1,0 +1,558 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from .././gimpprint.texi on 22 January 2003 -->
+
+<TITLE>GIMP-Print - stp_vars_t functions</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_11.html">previous</A>, <A HREF="gimpprint_13.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H2><A NAME="SEC17" HREF="gimpprint_toc.html#TOC17">4.2  <CODE>stp_vars_t</CODE> functions</A></H2>
+<P>
+<A NAME="IDX19"></A>
+
+</P>
+<P>
+<DL>
+<DT><U>Data type:</U> void * <B>stp_vars_t</B>
+<DD><A NAME="IDX20"></A>
+This is an opaque data type, whose structure is not visible to the
+user.  This object contains all of the information about settings for
+a given printer, such as color (contrast, brightness), the type of
+printer, the dithering algorithm in use, and so forth.  Please see the
+<CODE>stp_set_*</CODE> and <CODE>stp_get_*</CODE> functions below for the
+accessors and mutators for this data type.
+</DL>
+
+</P>
+
+<P>
+<DL>
+<DT><U>Function:</U> stp_vars_t <B>stp_allocate_vars</B> <I>(void)</I>
+<DD><A NAME="IDX21"></A>
+Allocate a new <CODE>stp_vars_t</CODE> with default settings for all members.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> void <B>stp_copy_vars</B> <I>(stp_vars_t <VAR>vd</VAR>, const stp_vars_t <VAR>vs</VAR>)</I>
+<DD><A NAME="IDX22"></A>
+Copy the settings from <VAR>vs</VAR> to <VAR>vd</VAR>.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> stp_vars_t <B>stp_allocate_copy</B> <I>(const stp_vars_t <VAR>vs</VAR>)</I>
+<DD><A NAME="IDX23"></A>
+Allocate a new <CODE>stp_vars_t</CODE>, copying settings from <VAR>vs</VAR>.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> void <B>stp_free_vars</B> <I>(stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX24"></A>
+Free all resources associated with <VAR>vv</VAR>.  <VAR>vv</VAR> must not be
+used in any way following this call.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> const char * <B>stp_get_output_to</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX25"></A>
+<DT><U>Function:</U> void <B>stp_set_output_to</B> <I>(stp_vars_t <VAR>vv</VAR>, const char *<VAR>val</VAR>)</I>
+<DD><A NAME="IDX26"></A>
+<DT><U>Function:</U> void <B>stp_set_output_to_n</B> <I>(stp_vars_t <VAR>vv</VAR>, const char *<VAR>val</VAR>, int <VAR>bytes</VAR>)</I>
+<DD><A NAME="IDX27"></A>
+Get or set the name of the command that this job will be printed to.
+This is used by front ends; the driver library always prints to a
+stream provided by the front end and never uses this directly.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> const char * <B>stp_get_driver</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX28"></A>
+<DT><U>Function:</U> void <B>stp_set_driver</B> <I>(stp_vars_t <VAR>vv</VAR>, const char *<VAR>val</VAR>)</I>
+<DD><A NAME="IDX29"></A>
+<DT><U>Function:</U> void <B>stp_set_driver_n</B> <I>(stp_vars_t <VAR>vv</VAR>, const char *<VAR>val</VAR>, int <VAR>bytes</VAR>)</I>
+<DD><A NAME="IDX30"></A>
+Get or set the name of the driver (the type of printer).
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> const char * <B>stp_get_ppd_file</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX31"></A>
+<DT><U>Function:</U> void <B>stp_set_ppd_file</B> <I>(stp_vars_t <VAR>vv</VAR>, const char *<VAR>val</VAR>)</I>
+<DD><A NAME="IDX32"></A>
+<DT><U>Function:</U> void <B>stp_set_ppd_file_n</B> <I>(stp_vars_t <VAR>vv</VAR>, const char *<VAR>val</VAR>, int <VAR>bytes</VAR>)</I>
+<DD><A NAME="IDX33"></A>
+Get or set the name of the PPD file used by this print job.  Normally,
+only PostScript printers use PPD files.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> const char * <B>stp_get_resolution</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX34"></A>
+<DT><U>Function:</U> void <B>stp_set_resolution</B> <I>(stp_vars_t <VAR>vv</VAR>, const char *<VAR>val</VAR>)</I>
+<DD><A NAME="IDX35"></A>
+<DT><U>Function:</U> void <B>stp_set_resolution_n</B> <I>(stp_vars_t <VAR>vv</VAR>, const char *<VAR>val</VAR>, int <VAR>bytes</VAR>)</I>
+<DD><A NAME="IDX36"></A>
+Get or set the resolution to be used in this print job.  Different
+drivers support different resolutions, and many drivers support
+multiple quality settings for a given DPI resolution.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> const char * <B>stp_get_media_size</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX37"></A>
+<DT><U>Function:</U> void <B>stp_set_media_size</B> <I>(stp_vars_t <VAR>vv</VAR>, const char *<VAR>val</VAR>)</I>
+<DD><A NAME="IDX38"></A>
+<DT><U>Function:</U> void <B>stp_set_media_size_n</B> <I>(stp_vars_t <VAR>vv</VAR>, const char *<VAR>val</VAR>, int <VAR>bytes</VAR>)</I>
+<DD><A NAME="IDX39"></A>
+Get or set the name of the media size (e. g. A3, letter, legal) to be
+used in this print job.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> const char * <B>stp_get_media_type</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX40"></A>
+<DT><U>Function:</U> void <B>stp_set_media_type</B> <I>(stp_vars_t <VAR>vv</VAR>, const char *<VAR>val</VAR>)</I>
+<DD><A NAME="IDX41"></A>
+<DT><U>Function:</U> void <B>stp_set_media_type_n</B> <I>(stp_vars_t <VAR>vv</VAR>, const char *<VAR>val</VAR>, int <VAR>bytes</VAR>)</I>
+<DD><A NAME="IDX42"></A>
+Get or set the name of the media type (e. g. plain paper, photo
+quality inkjet paper) to be used in this print job.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> const char * <B>stp_get_media_source</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX43"></A>
+<DT><U>Function:</U> void <B>stp_set_media_source</B> <I>(stp_vars_t <VAR>vv</VAR>, const char *<VAR>val</VAR>)</I>
+<DD><A NAME="IDX44"></A>
+<DT><U>Function:</U> void <B>stp_set_media_source_n</B> <I>(stp_vars_t <VAR>vv</VAR>, const char *<VAR>val</VAR>, int <VAR>bytes</VAR>)</I>
+<DD><A NAME="IDX45"></A>
+Get or set the name of the media source (e. g. manual feed, tray A) to
+be used in this print job.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> const char * <B>stp_get_ink_type</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX46"></A>
+<DT><U>Function:</U> void <B>stp_set_ink_type</B> <I>(stp_vars_t <VAR>vv</VAR>, const char *<VAR>val</VAR>)</I>
+<DD><A NAME="IDX47"></A>
+<DT><U>Function:</U> void <B>stp_set_ink_type_n</B> <I>(stp_vars_t <VAR>vv</VAR>, const char *<VAR>val</VAR>, int <VAR>bytes</VAR>)</I>
+<DD><A NAME="IDX48"></A>
+Get or set the name of the ink type (e. g. four color standard, six
+color photo) to be used in this print job.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> const char * <B>stp_get_dither_algorithm</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX49"></A>
+<DT><U>Function:</U> void <B>stp_set_dither_algorithm</B> <I>(stp_vars_t <VAR>vv</VAR>, const char *<VAR>val</VAR>)</I>
+<DD><A NAME="IDX50"></A>
+<DT><U>Function:</U> void <B>stp_set_dither_algorithm_n</B> <I>(stp_vars_t <VAR>vv</VAR>, const char *<VAR>val</VAR>, int <VAR>bytes</VAR>)</I>
+<DD><A NAME="IDX51"></A>
+Get or set the dither algorithm to be used in this print job.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> int <B>stp_get_output_type</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX52"></A>
+<DT><U>Function:</U> void <B>stp_set_output_type</B> <I>(stp_vars_t <VAR>vv</VAR>, int <VAR>val</VAR>)</I>
+<DD><A NAME="IDX53"></A>
+Get or set the output type (color, grayscale, black and white) for
+this print job.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> int <B>stp_get_orientation</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX54"></A>
+<DT><U>Function:</U> void <B>stp_set_orientation</B> <I>(stp_vars_t <VAR>vv</VAR>, int <VAR>val</VAR>)</I>
+<DD><A NAME="IDX55"></A>
+Get or set the paper orientation for this print job.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> int <B>stp_get_left</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX56"></A>
+<DT><U>Function:</U> void <B>stp_set_left</B> <I>(stp_vars_t <VAR>vv</VAR>, int <VAR>val</VAR>)</I>
+<DD><A NAME="IDX57"></A>
+Get or set the left margin (in 1/72 inch units, or "points") for this
+print job.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> int <B>stp_get_top</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX58"></A>
+<DT><U>Function:</U> void <B>stp_set_top</B> <I>(stp_vars_t <VAR>vv</VAR>, int <VAR>val</VAR>)</I>
+<DD><A NAME="IDX59"></A>
+Get or set the top margin (in 1/72 inch units, or "points") for this
+print job.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> int <B>stp_get_image_type</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX60"></A>
+<DT><U>Function:</U> void <B>stp_set_image_type</B> <I>(stp_vars_t <VAR>vv</VAR>, int <VAR>val</VAR>)</I>
+<DD><A NAME="IDX61"></A>
+Get or set the image type (line art, continuous tone, solid colors)
+for this print job.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> int <B>stp_get_unit</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX62"></A>
+<DT><U>Function:</U> void <B>stp_set_unit</B> <I>(stp_vars_t <VAR>vv</VAR>, int <VAR>val</VAR>)</I>
+<DD><A NAME="IDX63"></A>
+Get or set the base unit (inches or centimeters) for this print job.
+This is provided for front ends; the package itself uses points as its
+unit of measurement.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> int <B>stp_get_page_width</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX64"></A>
+<DT><U>Function:</U> void <B>stp_set_page_width</B> <I>(stp_vars_t <VAR>vv</VAR>, int <VAR>val</VAR>)</I>
+<DD><A NAME="IDX65"></A>
+Get or set the width of the printed region of the page.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> int <B>stp_get_page_height</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX66"></A>
+<DT><U>Function:</U> void <B>stp_set_page_height</B> <I>(stp_vars_t <VAR>vv</VAR>, int <VAR>val</VAR>)</I>
+<DD><A NAME="IDX67"></A>
+Get or set the height of the printed region of the page.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> int <B>stp_get_input_color_model</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX68"></A>
+<DT><U>Function:</U> void <B>stp_set_input_color_model</B> <I>(stp_vars_t <VAR>vv</VAR>, int <VAR>val</VAR>)</I>
+<DD><A NAME="IDX69"></A>
+Get or set the color model (currently RGB or CMY) of the input to the
+driver.  Most front ends will use RGB input.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> int <B>stp_get_output_color_model</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX70"></A>
+<DT><U>Function:</U> void <B>stp_set_output_color_model</B> <I>(stp_vars_t <VAR>vv</VAR>, int <VAR>val</VAR>)</I>
+<DD><A NAME="IDX71"></A>
+Get or set the color model (currently RGB or CMY) of the output of the
+driver.  Most printers will use CMY.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> float <B>stp_get_scaling</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX72"></A>
+<DT><U>Function:</U> void <B>stp_set_scaling</B> <I>(stp_vars_t <VAR>vv</VAR>, float <VAR>val</VAR>)</I>
+<DD><A NAME="IDX73"></A>
+Get or set the scaling factor of the image.  If the scaling factor is
+greater than 0, it is interpreted as a percent (5.0-100.0 is the valid
+range) of the printable page region, using the more restrictive axis.
+For example, if the image to be printed should be 3" (wide) x 2"
+(high), and the printable page region is 8"x10.5", the scale factor
+should be 37.5 (3"/8").
+
+</P>
+<P>
+If the scaling is less than zero, it is interpreted as pixels per
+inch.
+
+</P>
+<P>
+It is likely that in the future this will be migrated into the front
+end.  There is no particular reason why the driver needs to know about
+this.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> float <B>stp_get_gamma</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX74"></A>
+<DT><U>Function:</U> void <B>stp_set_gamma</B> <I>(stp_vars_t <VAR>vv</VAR>, float <VAR>val</VAR>)</I>
+<DD><A NAME="IDX75"></A>
+Get or set the gamma of the print job (valid range: 0.1-4.0; default
+1.0).  Note that this is not the absolute gamma used by the print job;
+it is scaled by the gamma appropriate for the printer.  This is true
+for all of the numerical parameters.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> float <B>stp_get_brightness</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX76"></A>
+<DT><U>Function:</U> void <B>stp_set_brightness</B> <I>(stp_vars_t <VAR>vv</VAR>, float <VAR>val</VAR>)</I>
+<DD><A NAME="IDX77"></A>
+Get or set the brightness of the print job (valid range: 0.0-2.0;
+default: 1.0).  Any value other than 1.0 will result in some possible
+values not being used; if brightness is less than 1.0, no output point
+will be pure white, and if brightness is greater than 1.0, no output
+point will be pure black (or cyan, or magenta, or yellow).
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> float <B>stp_get_contrast</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX78"></A>
+<DT><U>Function:</U> void <B>stp_set_contrast</B> <I>(stp_vars_t <VAR>vv</VAR>, float <VAR>val</VAR>)</I>
+<DD><A NAME="IDX79"></A>
+Get or set the contrast of the print job (valid range: 0.0-4.0;
+default: 1.0).  Values less than 1.0 will result in pure white or
+black not being used (0.0 will make the entire image 50% gray).
+Values greater than 1.0 do not hard clip; while the contrast in the
+midtones increases, it only asymptotically approaches the limits.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> float <B>stp_get_cyan</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX80"></A>
+<DT><U>Function:</U> void <B>stp_set_cyan</B> <I>(stp_vars_t <VAR>vv</VAR>, float <VAR>val</VAR>)</I>
+<DD><A NAME="IDX81"></A>
+Get or set the cyan adjustment of the print job (range: 0.0-4.0; default:
+1.0).  This currently adjusts the gamma of the cyan curve.  It is
+scaled by the cyan adjustment for the printer model in question.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> float <B>stp_get_magenta</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX82"></A>
+<DT><U>Function:</U> void <B>stp_set_magenta</B> <I>(stp_vars_t <VAR>vv</VAR>, float <VAR>val</VAR>)</I>
+<DD><A NAME="IDX83"></A>
+Get or set the magenta adjustment of the print job (range: 0.0-4.0; default:
+1.0).  This currently adjusts the gamma of the magenta curve.  It is
+scaled by the magenta adjustment for the printer model in question.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> float <B>stp_get_yellow</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX84"></A>
+<DT><U>Function:</U> void <B>stp_set_yellow</B> <I>(stp_vars_t <VAR>vv</VAR>, float <VAR>val</VAR>)</I>
+<DD><A NAME="IDX85"></A>
+Get or set the yellow adjustment of the print job (range: 0.0-4.0; default:
+1.0).  This currently adjusts the gamma of the yellow curve.  It is
+scaled by the yellow adjustment for the printer model in question.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> float <B>stp_get_saturation</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX86"></A>
+<DT><U>Function:</U> void <B>stp_set_saturation</B> <I>(stp_vars_t <VAR>vv</VAR>, float <VAR>val</VAR>)</I>
+<DD><A NAME="IDX87"></A>
+Get or set the saturation of the print job (range: 0.0-9.0; default: 1.0).
+Saturation of 0.0 produces grayscale output using composite (CMY or
+CMYK, as appropriate for the printer) color.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> float <B>stp_get_density</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX88"></A>
+<DT><U>Function:</U> void <B>stp_set_density</B> <I>(stp_vars_t <VAR>vv</VAR>, float <VAR>val</VAR>)</I>
+<DD><A NAME="IDX89"></A>
+Get or set the density of the print job (range: 0.0-2.0; default:
+1.0).  This adjusts the amount of ink deposited in a linear fashion
+for all channels.  It is scaled by the density appropriate for the
+choice of printer, resolution, paper type, and other factors that the
+driver may deem appropriate.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> float <B>stp_get_app_gamma</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX90"></A>
+<DT><U>Function:</U> void <B>stp_set_app_gamma</B> <I>(stp_vars_t <VAR>vv</VAR>, float <VAR>val</VAR>)</I>
+<DD><A NAME="IDX91"></A>
+Get or set the gamma of the input (i. e. what the driving application
+uses).
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> void * <B>stp_get_lut</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX92"></A>
+<DT><U>Function:</U> void <B>stp_set_lut</B> <I>(stp_vars_t <VAR>vv</VAR>, void *<VAR>val</VAR>)</I>
+<DD><A NAME="IDX93"></A>
+Get or set the color lookup table for the print job.  This is useful
+outside of the library for computing a preview of the printed result.
+The lookup table itself should be treated as an opaque handle.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> unsigned char * <B>stp_get_cmap</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX94"></A>
+<DT><U>Function:</U> void <B>stp_set_cmap</B> <I>(stp_vars_t <VAR>vv</VAR>, unsigned char *<VAR>val</VAR>)</I>
+<DD><A NAME="IDX95"></A>
+Get or set the color map for the print job.  This is a table of R,G,B
+values for 8-bit indexed input.  This may be moved outside of the
+library in the future; in this case, the front end would be required
+to do its own mapping and supply true-color RGB to the driver.
+</DL>
+
+</P>
+<P>
+The following methods are used to perform output and error reporting
+by the driver.  The driver supplies a stream of output bytes; the
+front end is responsible for providing methods that accept this output
+and handle it appropriately.
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> stp_outfunc_t <B>stp_get_outfunc</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX96"></A>
+<DT><U>Function:</U> void <B>stp_set_outfunc</B> <I>(const stp_vars_t <VAR>vv</VAR>, stp_outfunc_t <VAR>val</VAR>)</I>
+<DD><A NAME="IDX97"></A>
+<DT><U>Function:</U> void * <B>stp_get_outdata</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX98"></A>
+<DT><U>Function:</U> void <B>stp_set_outdata</B> <I>(stp_vars_t <VAR>vv</VAR>, void *<VAR>val</VAR>)</I>
+<DD><A NAME="IDX99"></A>
+
+</P>
+<P>
+<DL>
+<DT><U>Data type:</U>  <B>stp_outfunc_t</B>
+<DD><A NAME="IDX100"></A>
+
+<PRE>
+typedef void (*stp_outfunc_t) (void *data,
+              const char *buffer, size_t bytes);
+</PRE>
+
+</DL>
+<P>
+Get or set the output function the driver will use.  The front end
+must supply a suitable function for accepting the output data.  The
+<CODE>stp_set_outdata</CODE> method provides a way of passing an appropriate
+object to the output function.
+</DL>
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> stp_outfunc_t <B>stp_get_errfunc</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX101"></A>
+<DT><U>Function:</U> void <B>stp_set_errfunc</B> <I>(const stp_vars_t <VAR>vv</VAR>, stp_outfunc_t <VAR>val</VAR>)</I>
+<DD><A NAME="IDX102"></A>
+<DT><U>Function:</U> void * <B>stp_get_errdata</B> <I>(const stp_vars_t <VAR>vv</VAR>)</I>
+<DD><A NAME="IDX103"></A>
+<DT><U>Function:</U> void <B>stp_set_errdata</B> <I>(stp_vars_t <VAR>vv</VAR>, void *<VAR>val</VAR>)</I>
+<DD><A NAME="IDX104"></A>
+Get or set the error reporting function that the driver will use.
+This is used to report errors or debugging information, and must be
+supplied.  A typical errfunc will simply print whatever it's passed to
+stderr.
+</DL>
+
+</P>
+<P>
+/*
+ * hue_map is an array of 49 doubles representing the mapping of hue
+ * from (0..6) to (0..6) in increments of .125.  The hue_map is in CMY space,
+ * so hue=0 is cyan.
+ */
+typedef void (*stp_convert_t)(const stp_vars_t vars, const unsigned char *in,
+                              unsigned short *out, int *zero_mask,
+                              int width, int bpp, const unsigned char *cmap,
+                              const double *hue_map, const double *lum_map,
+                              const double *sat_map);
+
+</P>
+<P>
+<DL>
+<DT><U>Function:</U> void <B>stp_merge_printvars</B> <I>(stp_vars_t <VAR>user</VAR>, const stp_vars_t <VAR>print</VAR>)</I>
+<DD><A NAME="IDX105"></A>
+
+</P>
+</DL>
+
+<P>
+<DL>
+<DT><U>Function:</U> void <B>stp_allocate_lut</B> <I>(stp_vars_t <VAR>v</VAR>, size_t <VAR>steps</VAR>)</I>
+<DD><A NAME="IDX106"></A>
+
+</P>
+</DL>
+
+<P>
+<DL>
+<DT><U>Function:</U> void <B>stp_free_lut</B> <I>(stp_vars_t <VAR>v</VAR>)</I>
+<DD><A NAME="IDX107"></A>
+
+</P>
+</DL>
+
+<P>
+<DL>
+<DT><U>Function:</U> void <B>stp_compute_lut</B> <I>(stp_vars_t <VAR>v</VAR>, size_t <VAR>steps</VAR>)</I>
+<DD><A NAME="IDX108"></A>
+
+</P>
+</DL>
+
+<P><HR><P>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_11.html">previous</A>, <A HREF="gimpprint_13.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+</BODY>
+</HTML>

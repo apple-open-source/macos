@@ -22,7 +22,8 @@
 #include "symtab.h"
 #include "gdbtypes.h"
 
-/* Enumeration for the format types */
+/* Enumeration for the format types.  If you add elements here, be sure
+   to update format_code in varobj.c to match.  */
 enum varobj_display_formats
   {
     FORMAT_NATURAL,		/* What gdb actually calls 'natural' */
@@ -54,8 +55,21 @@ enum varobj_languages
 /* String representations of gdb's known languages (defined in varobj.c) */
 extern char *varobj_language_string[];
 
+/* This represents the possible type-changed states: */
+
+enum varobj_type_change {
+  VAROBJ_TYPE_UNCHANGED,
+  VAROBJ_TYPE_CHANGED,
+  VAROBJ_DYNAMIC_TYPE_CHANGED
+};
+
 /* Struct thar describes a variable object instance */
 struct varobj;
+
+/* A linked list of varobjs.  Used to package the result of
+   varobj_update.  */
+
+struct varobj_changelist;
 
 /* API functions */
 
@@ -87,7 +101,11 @@ extern int varobj_get_num_children (struct varobj *var);
 extern int varobj_list_children (struct varobj *var,
 				 struct varobj ***childlist);
 
+extern int varobj_is_fake_child (struct varobj *var);
+
 extern char *varobj_get_type (struct varobj *var);
+
+extern char *varobj_get_dynamic_type (struct varobj *var);
 
 extern char *varobj_get_path_expr (struct varobj *var);
 
@@ -107,7 +125,11 @@ extern int varobj_in_scope_p (struct varobj *var);
 
 extern int varobj_pc_in_valid_block_p (struct varobj *var);
 
-extern int varobj_update (struct varobj **varp, struct varobj ***changelist);
+extern int varobj_update (struct varobj **varp, 
+			  struct varobj_changelist **changelist);
+
+extern struct varobj *varobj_changelist_pop (struct varobj_changelist *changelist, 
+			    enum varobj_type_change *type_changed);
 
 extern void varobj_get_valid_block (struct varobj *var, CORE_ADDR *start,
 				    CORE_ADDR *end);

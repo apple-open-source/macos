@@ -43,7 +43,7 @@ Listener::Listener(Process &proc, Port receiver, Domain dom, EventMask evs)
     // let's get told when the receiver port dies
     Server::active().notifyIfDead(receiver);
     
-    debug("notify", "%p created domain %ld events 0x%lx port %d",
+    secdebug("notify", "%p created domain %ld events 0x%lx port %d",
         this, domain, events, mNotificationPort.port());
 }
 
@@ -53,8 +53,7 @@ Listener::Listener(Process &proc, Port receiver, Domain dom, EventMask evs)
 //
 Listener::~Listener()
 {
-    mNotificationPort.deallocate();
-    debug("notify", "%p destroyed", this);
+    secdebug("notify", "%p destroyed", this);
 }
 
 
@@ -66,15 +65,15 @@ void Listener::notifyMe(Domain domain, Event event, const CssmData &data)
     if (domain != this->domain || !(event & events))
         return;		// not interested
     
-    debug("notify", "%p sending domain %ld event 0x%lx to port %d process %d",
+    secdebug("notify", "%p sending domain %ld event 0x%lx to port %d process %d",
         this, domain, event, mNotificationPort.port(), process.pid());
     
     // send mach message (via MIG simpleroutine)
-    if (kern_return_t rc = ucsp_notify_sender_notify(mNotificationPort,
+    if (IFDEBUG(kern_return_t rc =) ucsp_notify_sender_notify(mNotificationPort,
         MACH_SEND_TIMEOUT, 0,
         domain, event, data.data(), data.length(),
         0 /*@@@ placeholder for sender ID */))
-        debug("notify", "%p send failed (error=%d)", this, rc);
+        secdebug("notify", "%p send failed (error=%d)", this, rc);
 }
 
 
@@ -101,9 +100,9 @@ bool Listener::remove(Port port)
     if (range.first == range.second)
         return false;	// not one of ours
 
-    Server::active().notifyIfDead(port, false);
     for (Iterator it = range.first; it != range.second; it++)
         delete it->second;
     listeners.erase(range.first, range.second);
+	port.destroy();
     return true;	// got it
 }

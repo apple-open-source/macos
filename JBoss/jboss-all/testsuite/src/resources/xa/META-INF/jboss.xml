@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<jboss>
+     <secure>false</secure>
+     <container-configurations />
+     <resource-managers>
+       <resource-manager res-class="org.jboss.ejb.deployment.JDBCResource">
+	 <res-name>DB1</res-name>
+	 <res-jndi-name>java:/DefaultDS</res-jndi-name>
+       </resource-manager>
+       <resource-manager res-class="org.jboss.ejb.deployment.JDBCResource">
+	 <res-name>DB2</res-name>
+	 <res-jndi-name>java:/InstantDB</res-jndi-name>
+       </resource-manager>
+     </resource-managers>
+     <enterprise-beans>
+       <session>
+	 <ejb-name>XATest</ejb-name>
+	 <jndi-name>XATest</jndi-name>
+	 <configuration-name></configuration-name>
+	 <resource-ref>
+	   <res-ref-name>jdbc/DBConnection1</res-ref-name>
+	   <resource-name>DB1</resource-name>
+	 </resource-ref>
+	 <resource-ref>
+	   <res-ref-name>jdbc/DBConnection2</res-ref-name>
+	   <resource-name>DB2</resource-name>
+	 </resource-ref>
+       </session>
+     </enterprise-beans>
+   </jboss>

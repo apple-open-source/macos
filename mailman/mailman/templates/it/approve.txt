@@ -1,0 +1,16 @@
+La tua richiesta alla lista %(requestaddr)s:
+ 
+    %(cmd)s
+ 
+è stata inoltrata all'amministratore.
+ 
+Questo probabilmente perché stai cercando di iscriverti ad una 
+lista `chiusa'
+ 
+Riceverai una email di notifica sulla decisione 
+dell'amministratore riguardo la tua richiesta di iscrizione. 
+
+Ogni questione riguardante i principi secondo i quali l'amministratore 
+della lista prende queste decisioni, può essere inviata a: 
+ 
+    %(adminaddr)s                                                 

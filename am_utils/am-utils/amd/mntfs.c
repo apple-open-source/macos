@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: mntfs.c,v 1.1.1.1 2002/05/15 01:21:55 jkh Exp $
+ * $Id: mntfs.c,v 1.1.1.2 2002/07/15 19:42:38 zarzycki Exp $
  *
  */
 
@@ -73,6 +73,7 @@ init_mntfs(mntfs *mf, am_ops *ops, am_opts *mo, char *mp, char *info, char *auto
   mf->mf_fsflags = ops->nfs_fs_flags;
   mf->mf_fo = mo;
   mf->mf_mount = strdup(mp);
+  mf->mf_real_mount = strdup(mp);
   mf->mf_info = strdup(info);
   mf->mf_auto = strdup(auto_opts);
   mf->mf_mopts = strdup(mopts);
@@ -81,7 +82,9 @@ init_mntfs(mntfs *mf, am_ops *ops, am_opts *mo, char *mp, char *info, char *auto
   mf->mf_refc = 1;
 #ifdef HAVE_FS_AUTOFS
   /* Note: mo can be NULL for the root pseudo-mountpoint */
-  if (mo && mo->opt_mount_type && STREQ(mo->opt_mount_type, "autofs"))
+  if (mo && mo->opt_mount_type &&
+      STREQ(mo->opt_mount_type, "autofs") &&
+      amd_use_autofs)
     mf->mf_flags = MFF_AUTOFS;
   else
 #endif /* HAVE_FS_AUTOFS */
@@ -217,6 +220,8 @@ uninit_mntfs(mntfs *mf)
 
   if (mf->mf_mount)
     XFREE(mf->mf_mount);
+  if (mf->mf_real_mount)
+    XFREE(mf->mf_real_mount);
 
   /*
    * Clean up the file server

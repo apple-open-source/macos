@@ -1,0 +1,10 @@
+<!DOCTYPE para PUBLIC "-//OASIS//DTD DocBook V3.1//EN">
+<para>
+The equation 
+<informalequation>
+  <alt>e^(pi*i) + 1 = 0</alt>
+  <graphic fileref="figures/epi10"></graphic>
+</informalequation>
+is delightful because it joins together five of the most
+important mathematical constants.
+</para>

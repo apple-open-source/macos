@@ -27,7 +27,14 @@
  */
 
 #include <Security/oidscert.h>
- 
+
+/* required until PR-3347430 Security/cdsa/cdsa/oidscert.h is checked
+ * into TOT - pending public API review */
+extern "C" {
+	extern const CSSM_OID CSSMOID_X509V1IssuerNameStd, 
+		CSSMOID_X509V1SubjectNameStd;
+}
+
 static const uint8
 
 	/* Certificate OID Fields */
@@ -61,6 +68,8 @@ static const uint8
 	X509V1SubjectPublicKeyCStruct[]				= {INTEL_X509V3_CERT_R08, 20, INTEL_X509_C_DATATYPE},
 	X509V3CertificateExtensionsStruct[]			= {INTEL_X509V3_CERT_R08, 21},
 	X509V3CertificateExtensionsCStruct[]		= {INTEL_X509V3_CERT_R08, 21, INTEL_X509_C_DATATYPE},
+	X509V1SubjectNameStd[]						= {INTEL_X509V3_CERT_R08, 22},
+	X509V1IssuerNameStd[]						= {INTEL_X509V3_CERT_R08, 23},
 	
 	/* Signature OID Fields */
 	X509V1SignatureStruct[]						= {INTEL_X509V3_SIGN_R08, 0},
@@ -82,50 +91,68 @@ static const uint8
 const CSSM_OID
 
 	/* Certificate OIDS */
-	CSSMOID_X509V3SignedCertificate  						= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V3SignedCertificate},
-	CSSMOID_X509V3SignedCertificateCStruct  				= {INTEL_X509V3_CERT_R08_LENGTH+2,  (uint8 *)X509V3SignedCertificateCStruct},
-	CSSMOID_X509V3Certificate  							= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V3Certificate},
-	CSSMOID_X509V3CertificateCStruct  						= {INTEL_X509V3_CERT_R08_LENGTH+2,  (uint8 *)X509V3CertificateCStruct},
-	CSSMOID_X509V1Version  								= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V1Version},
-	CSSMOID_X509V1SerialNumber  							= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V1SerialNumber},
-	CSSMOID_X509V1IssuerName  							= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V1IssuerName},
-	CSSMOID_X509V1IssuerNameCStruct  					= {INTEL_X509V3_CERT_R08_LENGTH+2,  (uint8 *)X509V1IssuerNameCStruct},
-	CSSMOID_X509V1IssuerNameLDAP  						= {INTEL_X509V3_CERT_R08_LENGTH+2,  (uint8 *)X509V1IssuerNameLDAP},
-	CSSMOID_X509V1ValidityNotBefore  						= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V1ValidityNotBefore},
-	CSSMOID_X509V1ValidityNotAfter  						= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V1ValidityNotAfter},
-	CSSMOID_X509V1SubjectName  							= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V1SubjectName},
-	CSSMOID_X509V1SubjectNameCStruct  					= {INTEL_X509V3_CERT_R08_LENGTH+2,  (uint8 *)X509V1SubjectNameCStruct},
-	CSSMOID_X509V1SubjectNameLDAP  						= {INTEL_X509V3_CERT_R08_LENGTH+2,  (uint8 *)X509V1SubjectNameLDAP},
-	CSSMOID_CSSMKeyStruct  								= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)CSSMKeyStruct},
-	CSSMOID_X509V1SubjectPublicKeyCStruct  				= {INTEL_X509V3_CERT_R08_LENGTH+2,  (uint8 *)X509V1SubjectPublicKeyCStruct},
-	CSSMOID_X509V1SubjectPublicKeyAlgorithm  				= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V1SubjectPublicKeyAlgorithm},
-	CSSMOID_X509V1SubjectPublicKeyAlgorithmParameters  	= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V1SubjectPublicKeyAlgorithmParameters},
-	CSSMOID_X509V1SubjectPublicKey  						= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V1SubjectPublicKey},
-	CSSMOID_X509V1CertificateIssuerUniqueId  				= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V1CertificateIssuerUniqueId},
-	CSSMOID_X509V1CertificateSubjectUniqueId  				= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V1CertificateSubjectUniqueId},
-	CSSMOID_X509V3CertificateExtensionsStruct  				= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V3CertificateExtensionsStruct},
-	CSSMOID_X509V3CertificateExtensionsCStruct  				= {INTEL_X509V3_CERT_R08_LENGTH+2,  (uint8 *)X509V3CertificateExtensionsCStruct},
-	CSSMOID_X509V3CertificateNumberOfExtensions  			= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V3CertificateNumberOfExtensions},
-	CSSMOID_X509V3CertificateExtensionStruct  				= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V3CertificateExtensionStruct},
-	CSSMOID_X509V3CertificateExtensionCStruct  				= {INTEL_X509V3_CERT_R08_LENGTH+2,  (uint8 *)X509V3CertificateExtensionCStruct},
-	CSSMOID_X509V3CertificateExtensionId  					= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V3CertificateExtensionId},
-	CSSMOID_X509V3CertificateExtensionCritical  				= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V3CertificateExtensionCritical},
-	CSSMOID_X509V3CertificateExtensionType  				= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V3CertificateExtensionType},
-	CSSMOID_X509V3CertificateExtensionValue  				= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V3CertificateExtensionValue},
+	CSSMOID_X509V3SignedCertificate  			= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V3SignedCertificate},
+	CSSMOID_X509V3SignedCertificateCStruct  	= {INTEL_X509V3_CERT_R08_LENGTH+2,  
+													(uint8 *)X509V3SignedCertificateCStruct},
+	CSSMOID_X509V3Certificate  					= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V3Certificate},
+	CSSMOID_X509V3CertificateCStruct  			= {INTEL_X509V3_CERT_R08_LENGTH+2,  (uint8 *)X509V3CertificateCStruct},
+	CSSMOID_X509V1Version  						= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V1Version},
+	CSSMOID_X509V1SerialNumber  				= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V1SerialNumber},
+	CSSMOID_X509V1IssuerName  					= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V1IssuerName},
+	CSSMOID_X509V1IssuerNameStd  				= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V1IssuerNameStd},
+	CSSMOID_X509V1IssuerNameCStruct  			= {INTEL_X509V3_CERT_R08_LENGTH+2,  (uint8 *)X509V1IssuerNameCStruct},
+	CSSMOID_X509V1IssuerNameLDAP  				= {INTEL_X509V3_CERT_R08_LENGTH+2,  (uint8 *)X509V1IssuerNameLDAP},
+	CSSMOID_X509V1ValidityNotBefore  			= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V1ValidityNotBefore},
+	CSSMOID_X509V1ValidityNotAfter  			= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V1ValidityNotAfter},
+	CSSMOID_X509V1SubjectName  					= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V1SubjectName},
+	CSSMOID_X509V1SubjectNameStd  				= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V1SubjectNameStd},
+	CSSMOID_X509V1SubjectNameCStruct  			= {INTEL_X509V3_CERT_R08_LENGTH+2,  (uint8 *)X509V1SubjectNameCStruct},
+	CSSMOID_X509V1SubjectNameLDAP  				= {INTEL_X509V3_CERT_R08_LENGTH+2,  (uint8 *)X509V1SubjectNameLDAP},
+	CSSMOID_CSSMKeyStruct  						= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)CSSMKeyStruct},
+	CSSMOID_X509V1SubjectPublicKeyCStruct  		= {INTEL_X509V3_CERT_R08_LENGTH+2,  
+													(uint8 *)X509V1SubjectPublicKeyCStruct},
+	CSSMOID_X509V1SubjectPublicKeyAlgorithm  	= {INTEL_X509V3_CERT_R08_LENGTH+1,  
+													(uint8 *)X509V1SubjectPublicKeyAlgorithm},
+	CSSMOID_X509V1SubjectPublicKeyAlgorithmParameters = {INTEL_X509V3_CERT_R08_LENGTH+1,  
+													(uint8 *)X509V1SubjectPublicKeyAlgorithmParameters},
+	CSSMOID_X509V1SubjectPublicKey  			= {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V1SubjectPublicKey},
+	CSSMOID_X509V1CertificateIssuerUniqueId  	= {INTEL_X509V3_CERT_R08_LENGTH+1,  
+													(uint8 *)X509V1CertificateIssuerUniqueId},
+	CSSMOID_X509V1CertificateSubjectUniqueId  	= {INTEL_X509V3_CERT_R08_LENGTH+1,  
+													(uint8 *)X509V1CertificateSubjectUniqueId},
+	CSSMOID_X509V3CertificateExtensionsStruct  	= {INTEL_X509V3_CERT_R08_LENGTH+1,  
+													(uint8 *)X509V3CertificateExtensionsStruct},
+	CSSMOID_X509V3CertificateExtensionsCStruct  = {INTEL_X509V3_CERT_R08_LENGTH+2,  
+													(uint8 *)X509V3CertificateExtensionsCStruct},
+	CSSMOID_X509V3CertificateNumberOfExtensions = {INTEL_X509V3_CERT_R08_LENGTH+1,  
+													(uint8 *)X509V3CertificateNumberOfExtensions},
+	CSSMOID_X509V3CertificateExtensionStruct  	= {INTEL_X509V3_CERT_R08_LENGTH+1,  
+													(uint8 *)X509V3CertificateExtensionStruct},
+	CSSMOID_X509V3CertificateExtensionCStruct  	= {INTEL_X509V3_CERT_R08_LENGTH+2,  
+													(uint8 *)X509V3CertificateExtensionCStruct},
+	CSSMOID_X509V3CertificateExtensionId  		= {INTEL_X509V3_CERT_R08_LENGTH+1,  
+													(uint8 *)X509V3CertificateExtensionId},
+	CSSMOID_X509V3CertificateExtensionCritical  = {INTEL_X509V3_CERT_R08_LENGTH+1,  
+													(uint8 *)X509V3CertificateExtensionCritical},
+	CSSMOID_X509V3CertificateExtensionType  	= {INTEL_X509V3_CERT_R08_LENGTH+1,  
+													(uint8 *)X509V3CertificateExtensionType},
+	CSSMOID_X509V3CertificateExtensionValue  	= {INTEL_X509V3_CERT_R08_LENGTH+1,  
+													(uint8 *)X509V3CertificateExtensionValue},
 
 	/* Signature OID Fields */
-	CSSMOID_X509V1SignatureStruct  						= {INTEL_X509V3_SIGN_R08_LENGTH+1,  (uint8 *)X509V1SignatureStruct},
-	CSSMOID_X509V1SignatureCStruct  						= {INTEL_X509V3_SIGN_R08_LENGTH+2,  (uint8 *)X509V1SignatureCStruct},
-	CSSMOID_X509V1SignatureAlgorithm  					= {INTEL_X509V3_SIGN_R08_LENGTH+1,  (uint8 *)X509V1SignatureAlgorithm},
-	CSSMOID_X509V1SignatureAlgorithmTBS  					= {INTEL_X509V3_SIGN_R08_LENGTH+1,  (uint8 *)X509V1SignatureAlgorithmTBS},
-	CSSMOID_X509V1SignatureAlgorithmParameters  			= {INTEL_X509V3_SIGN_R08_LENGTH+1,  (uint8 *)X509V1SignatureAlgorithmParameters},
-	CSSMOID_X509V1Signature  							= {INTEL_X509V3_SIGN_R08_LENGTH+1,  (uint8 *)X509V1Signature},
+	CSSMOID_X509V1SignatureStruct  				= {INTEL_X509V3_SIGN_R08_LENGTH+1,  (uint8 *)X509V1SignatureStruct},
+	CSSMOID_X509V1SignatureCStruct  			= {INTEL_X509V3_SIGN_R08_LENGTH+2,  (uint8 *)X509V1SignatureCStruct},
+	CSSMOID_X509V1SignatureAlgorithm  			= {INTEL_X509V3_SIGN_R08_LENGTH+1,  (uint8 *)X509V1SignatureAlgorithm},
+	CSSMOID_X509V1SignatureAlgorithmTBS  		= {INTEL_X509V3_SIGN_R08_LENGTH+1,  (uint8 *)X509V1SignatureAlgorithmTBS},
+	CSSMOID_X509V1SignatureAlgorithmParameters 	= {INTEL_X509V3_SIGN_R08_LENGTH+1,  
+													(uint8 *)X509V1SignatureAlgorithmParameters},
+	CSSMOID_X509V1Signature  					= {INTEL_X509V3_SIGN_R08_LENGTH+1,  (uint8 *)X509V1Signature},
 	
 	/* Extension OID Fields */
-	CSSMOID_SubjectSignatureBitmap  						= {INTEL_X509V3_CERT_PRIVATE_EXTENSIONS_LENGTH+1,  (uint8 *)SubjectSignatureBitmap},
-	CSSMOID_SubjectPicture  								= {INTEL_X509V3_CERT_PRIVATE_EXTENSIONS_LENGTH+1,  (uint8 *)SubjectPicture},
-	CSSMOID_SubjectEmailAddress 							= {INTEL_X509V3_CERT_PRIVATE_EXTENSIONS_LENGTH+1,  (uint8 *)SubjectEmailAddress},
-	CSSMOID_UseExemptions  								= {INTEL_X509V3_CERT_PRIVATE_EXTENSIONS_LENGTH+1, (uint8 *)UseExemptions};
+	CSSMOID_SubjectSignatureBitmap  			= {INTEL_X509V3_CERT_PRIVATE_EXTENSIONS_LENGTH+1,  (uint8 *)SubjectSignatureBitmap},
+	CSSMOID_SubjectPicture  					= {INTEL_X509V3_CERT_PRIVATE_EXTENSIONS_LENGTH+1,  (uint8 *)SubjectPicture},
+	CSSMOID_SubjectEmailAddress 				= {INTEL_X509V3_CERT_PRIVATE_EXTENSIONS_LENGTH+1,  (uint8 *)SubjectEmailAddress},
+	CSSMOID_UseExemptions  						= {INTEL_X509V3_CERT_PRIVATE_EXTENSIONS_LENGTH+1, (uint8 *)UseExemptions};
 
 /***
  *** Apple addenda.
@@ -147,7 +174,8 @@ static const uint8
 	OID_HoldInstructionCode[]   		= { OID_EXTENSION, 23 },
 	OID_InvalidityDate[]        		= { OID_EXTENSION, 24 },
 	OID_DeltaCrlIndicator[]     		= { OID_EXTENSION, 27 },
-	OID_IssuingDistributionPoints[]     = { OID_EXTENSION, 28 },
+	OID_IssuingDistributionPoint[]      = { OID_EXTENSION, 28 },
+	OID_CertIssuer[] 				    = { OID_EXTENSION, 29 },
 	OID_NameConstraints[]       		= { OID_EXTENSION, 30 },
 	OID_CrlDistributionPoints[] 		= { OID_EXTENSION, 31 },
 	OID_CertificatePolicies[]   		= { OID_EXTENSION, 32 },
@@ -155,7 +183,14 @@ static const uint8
 	OID_AuthorityKeyIdentifier[]		= { OID_EXTENSION, 35 },
 	OID_PolicyConstraints[]     		= { OID_EXTENSION, 36 },
 	OID_ExtendedKeyUsage[] 				= { OID_EXTENSION, 37 },
-	OID_ExtendedUseCodeSigning[]		= { OID_EXTENSION, 37, 3 }
+	/* Individual OIDS appearing in an ExtendedKeyUsage extension */
+	OID_ExtendedKeyUsageAny[] 			= { OID_EXTENSION, 37, 0 },
+	OID_KP_ServerAuth[]					= { OID_KP, 1 },
+	OID_KP_ClientAuth[]					= { OID_KP, 2 },
+	OID_KP_ExtendedUseCodeSigning[]		= { OID_KP, 3 },
+	OID_KP_EmailProtection[]			= { OID_KP, 4 },
+	OID_KP_TimeStamping[]				= { OID_KP, 8 },
+	OID_KP_OCSPSigning[]				= { OID_KP, 9 }
 ;
 
 #define OID_PKCS_CE_LENGTH	OID_EXTENSION_LENGTH + 1
@@ -173,7 +208,10 @@ CSSMOID_CrlReason  				= { OID_PKCS_CE_LENGTH, (uint8 *)OID_CrlReason},
 CSSMOID_HoldInstructionCode  	= { OID_PKCS_CE_LENGTH, (uint8 *)OID_HoldInstructionCode},
 CSSMOID_InvalidityDate  		= { OID_PKCS_CE_LENGTH, (uint8 *)OID_InvalidityDate},
 CSSMOID_DeltaCrlIndicator  		= { OID_PKCS_CE_LENGTH, (uint8 *)OID_DeltaCrlIndicator},
-CSSMOID_IssuingDistributionPoints = { OID_PKCS_CE_LENGTH, (uint8 *)OID_IssuingDistributionPoints},
+CSSMOID_IssuingDistributionPoint = { OID_PKCS_CE_LENGTH, (uint8 *)OID_IssuingDistributionPoint},
+/* for backwards compatibility... */
+CSSMOID_IssuingDistributionPoints = { OID_PKCS_CE_LENGTH, (uint8 *)OID_IssuingDistributionPoint},
+CSSMOID_CertIssuer				= { OID_PKCS_CE_LENGTH, (uint8 *)OID_CertIssuer},
 CSSMOID_NameConstraints  		= { OID_PKCS_CE_LENGTH, (uint8 *)OID_NameConstraints},
 CSSMOID_CrlDistributionPoints  	= { OID_PKCS_CE_LENGTH, (uint8 *)OID_CrlDistributionPoints},
 CSSMOID_CertificatePolicies  	= { OID_PKCS_CE_LENGTH, (uint8 *)OID_CertificatePolicies},
@@ -181,8 +219,15 @@ CSSMOID_PolicyMappings  		= { OID_PKCS_CE_LENGTH, (uint8 *)OID_PolicyMappings},
 CSSMOID_PolicyConstraints  		= { OID_PKCS_CE_LENGTH, (uint8 *)OID_PolicyConstraints},
 CSSMOID_AuthorityKeyIdentifier  = { OID_PKCS_CE_LENGTH, (uint8 *)OID_AuthorityKeyIdentifier},
 CSSMOID_ExtendedKeyUsage  		= { OID_PKCS_CE_LENGTH, (uint8 *)OID_ExtendedKeyUsage},
-CSSMOID_ExtendedUseCodeSigning	= { OID_PKCS_CE_LENGTH+1, (uint8 *)OID_ExtendedUseCodeSigning};
+CSSMOID_ExtendedKeyUsageAny		= { OID_PKCS_CE_LENGTH+1, (uint8 *)OID_ExtendedKeyUsageAny},
+CSSMOID_ServerAuth				= { OID_KP_LENGTH+1, (uint8 *)OID_KP_ServerAuth},
+CSSMOID_ClientAuth				= { OID_KP_LENGTH+1, (uint8 *)OID_KP_ClientAuth},
+CSSMOID_ExtendedUseCodeSigning	= { OID_KP_LENGTH+1, (uint8 *)OID_KP_ExtendedUseCodeSigning},
+CSSMOID_EmailProtection			= { OID_KP_LENGTH+1, (uint8 *)OID_KP_EmailProtection},
+CSSMOID_TimeStamping			= { OID_KP_LENGTH+1, (uint8 *)OID_KP_TimeStamping},
+CSSMOID_OCSPSigning				= { OID_KP_LENGTH+1, (uint8 *)OID_KP_OCSPSigning}
 
+;
 
 /*
  * Netscape extensions.

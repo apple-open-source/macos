@@ -31,7 +31,7 @@
 # -----------------------------------------------------------------------------
 #
 
-class WarningDlg {
+itcl::class WarningDlg {
   inherit ManagedWin ModalDialog
 
   public {
@@ -50,7 +50,7 @@ class WarningDlg {
 # DESC: 
 #       Creates the warning dialog.
 # -----------------------------------------------------------------------------
-body WarningDlg::constructor {args} {
+itcl::body WarningDlg::constructor {args} {
   debug $args
   window_name "Warning"
   eval itk_initialize $args

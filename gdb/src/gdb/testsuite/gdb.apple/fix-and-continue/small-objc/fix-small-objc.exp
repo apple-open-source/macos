@@ -1,0 +1,140 @@
+# Copyright 2003
+# Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+
+# Please email any bugs, comments, and/or additions to this file to:
+# bug-gdb@prep.ai.mit.edu
+
+# This file was written by Jason Molenda (jmolenda@apple.com)
+
+if $tracelevel then {
+        strace $tracelevel
+}
+
+set b1suffix 1
+set b2suffix 2
+set b3suffix 3
+set b4suffix 4
+#set b1suffix ""
+#set b2suffix ""
+#set b3suffix ""
+#set b4suffix ""
+
+set prms_id 0
+set bug_id 0
+
+set testfile "a.out"
+set binfile ${objdir}/${subdir}/${testfile}
+
+set timeout 30
+
+remote_exec build "sh ${srcdir}/${subdir}/../set-up-objdir.sh ${srcdir}/${subdir} ${objdir}/${subdir}"
+
+remote_exec build "make -C ${objdir}/${subdir} stage1"
+
+gdb_exit
+gdb_start
+gdb_reinitialize_dir $srcdir/$subdir
+gdb_load ${binfile}
+
+# for F&C on Jaguar systems, we need a modified libobjc.
+gdb_test "set environ DYLD_LIBRARY_PATH /System/Library/PrivateFrameworks/ZeroLink.framework/Versions/Current/Resources" "" "set DYLD_LIBRARY_PATH"
+
+if ![runto_main] then { 
+  fail "small objc fix and continue tests suppressed"
+  return -1
+}
+
+gdb_test "next 6" ".*first_var says: hi v1.*Fix in class-bundlized.o version #2 here.*" "first version of object"
+
+# Build a new class.m
+
+gdb_test "shell make -C $objdir/$subdir stage2" ".*gcc.*reload-stub.o" "make version 2 of class.m"
+
+send_gdb "fix $objdir/$subdir/class-bundlized.o$b2suffix $objdir/$subdir/class.m\n"
+gdb_expect {
+  -re "objc: Both .* and .* have implementations of class MyClass.*Fix succeeded.*$gdb_prompt $" {
+    fail "fix version 2 of ObjC class without ObjC runtime warning"
+  }
+  -re ".*Fix succeeded.*$gdb_prompt $" {
+    pass "fix version 2 of ObjC class without ObjC runtime warning"
+  }
+  -re ".*$gdb_prompt $" {
+    fail "fix version 2 of ObjC class without ObjC runtime warning"
+  }
+  timeout {
+    fail "fix version 2 of ObjC class without ObjC runtime warning (timeout)"
+  }
+}
+
+gdb_test "n 10" "first_var says: hi v2.*second_var says: hi v2.*third_var says: hi v2.*Fix in class-bundlized.o version #3 here.*"  "create new objects, verify contents, version 2"
+
+# Build a newer class.m
+
+gdb_test "shell make -C $objdir/$subdir stage3" ".*gcc.*reload-stub.o" "make version 3 of class.m"
+
+send_gdb "fix $objdir/$subdir/class-bundlized.o$b3suffix $objdir/$subdir/class.m\n"
+gdb_expect {
+  -re "objc: Both .* and .* have implementations of class MyClass.*Fix succeeded.*$gdb_prompt $" {
+    fail "fix version 3 of ObjC class without ObjC runtime warning"
+  }
+  -re ".*Fix succeeded.*$gdb_prompt $" {
+    pass "fix version 3 of ObjC class without ObjC runtime warning"
+  }
+  -re ".*$gdb_prompt $" {
+    fail "fix version 3 of ObjC class without ObjC runtime warning"
+  }
+  timeout {
+    fail "fix version 3 of ObjC class without ObjC runtime warning (timeout)"
+  }
+}
+
+gdb_test "n 10" "first_var says: hi v3.*second_var says: hi v3.*third_var says: hi v3.*fourth_var says: hi v3.*"  "create new objects, verify contents, version 3"
+
+gdb_test "break '-\[MyClass sayHello\]'" "Breakpoint 2 at.*" "Set a breakpoint on -\[Myclass sayHello\]"
+gdb_test "next" "Breakpoint 2, .*" "Run to breakpoint in fixed class sayHello"
+gdb_test "finish" "Run till exit from .*" "Finish out of sayHello"
+
+# Now check the isa pointers...
+send_gdb "n 4\n"
+gdb_expect {
+  -re "first_var isa is ($hex).*second_var isa is ($hex).*third_var isa is ($hex).*fourth_var isa is ($hex).*$gdb_prompt $" {
+    pass "Get all four objects' isa pointers"
+    set first_var_isa $expect_out(1,string)
+    set second_var_isa $expect_out(2,string)
+    set third_var_isa $expect_out(3,string)
+    set fourth_var_isa $expect_out(4,string)
+  }
+  -re ".*$gdb_prompt $" {
+    fail "Get all four objects' isa pointers"
+  }
+  timeout {
+    fail "Get all four objects' isa pointers (timeout)"
+  }
+}
+
+if {$first_var_isa == $second_var_isa &&
+    $second_var_isa == $third_var_isa && \
+    $third_var_isa == $fourth_var_isa} then {
+    pass "All four objects have identical isa pointers."
+  } else {
+    fail "All four objects have identical isa pointers."
+  }
+
+gdb_exit
+
+return 0
+

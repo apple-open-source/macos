@@ -23,6 +23,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
  
+#if FIRELOGCORE
+
 #include "IOFireLogPriv.h"
 
 // FireLog
@@ -31,7 +33,6 @@
 
 void FireLog( const char *format, ... )
 {
-#if FIRELOG
     IOFireLog * firelog;
     va_list ap;
     va_start(ap, format);
@@ -41,10 +42,11 @@ void FireLog( const char *format, ... )
         firelog->logString( format, ap );
     
     va_end(ap);
-#endif
 }
 
-#if FIRELOG
+#endif
+
+#if FIRELOGCORE
 
 extern "C" {
 #include <kern/clock.h>
@@ -104,8 +106,8 @@ IOReturn IOFireLog::create( void )
         }
         else if( sFireLog != NULL ) // unnecessary
         {
-            IOLog( "Welcome to FireLog.\n" );
-            FireLog( "Welcome to FireLog.\n" );
+            IOLog( "Welcome to FireLog. (built %s %s)\n", __TIME__, __DATE__ );
+            FireLog( "Welcome to FireLog. (built %s %s)\n", __TIME__, __DATE__ );
         }
     }
     
@@ -187,10 +189,6 @@ IOReturn IOFireLog::initialize( void )
 
 void IOFireLog::free( void )
 { 
-
-    panic( "Somebody free()'d FireLog" );
-    
-#if 0   
     if( fLogDescriptor )
     {
         fLogDescriptor->release();
@@ -202,7 +200,6 @@ void IOFireLog::free( void )
         IOLockFree( fLock );
         fLock = NULL;
     }
-#endif
 
     OSObject::free();
 }
@@ -568,7 +565,7 @@ IOReturn IOFireLogPublisher::initWithController( IOFireWireController* controlle
 		// could pick some PCI cards
 		fFireLog->setMainController( fController );
     }
-	else if ( vendor_id = 0x104c )
+	else if ( vendor_id == 0x104c )
 	{
 		// Some G4 Towers
 		

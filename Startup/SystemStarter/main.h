@@ -38,5 +38,6 @@ extern int   gVerboseFlag;
 extern int   gSafeBootFlag;
 extern int   gNoRunFlag;
 extern pid_t gParentPID;
+extern int   gQuitOnNotification;
 
 #endif /* _MAIN_H_ */

@@ -1,0 +1,283 @@
+  DejaGnu is a framework for testing other programs. Its purpose is to
+provide a single front end for all tests.  Beyond this, DejaGnu offers
+several advantages for testing:
+
+        - The flexibility and consistency of the DejaGnu framework
+          make it easy to write tests for any program.
+
+        - DejaGnu provides a layer of abstraction which makes all
+          tests (if correctly written) portable to any host or target
+          where a program must be tested.  For instance, a test for
+          GDB can run (from any Unix based host) on any target
+          architecture supported by DejaGnu. Currently DejaGnu runs
+          tests on several single board computers, whose operating
+          software ranges from just a boot monitor to a full-fledged,
+          Unix-like realtime OS.
+
+        - DejaGnu is written in expect, which in turn uses Tcl
+          (Tool command language).  The framework comprises two parts:
+          the testing framework and the testsuites themselves. Tests
+          are usually written in expect using Tcl.
+
+  Bugs can be reported to bug-dejagnu@prep.ai.mit.edu.
+
+ 		      How To Configure and Build
+
+ To build DejaGnu, run the ``configure'' script here, e.g.:
+
+        ./configure MYHOSTTYPE
+
+followed by running ``make''.  (MYHOSTTYPE is a name for your host computer,
+for instance "sun4".  You can use the script ``config.sub'' to test whether
+a name is recognized; if it is, config.sub translates it to a triplet 
+specifying CPU, vendor, and OS.) This is used when you plan to
+configure and build in the source tree.
+
+  If you use a separate tree for object files, (the recommended way),
+then the --srcdir option must also be specified. This would also
+require that the configure script be run from the top level directory.
+
+	PATH/configure MYHOSTYPE --srcdir PATH/dejagnu
+
+where PATH is is the directory that the contains the sources.
+
+  To configure it so it gets installed somewhere other than the
+default of /usr/local, use the --prefix option.
+	
+	configure MYHOSTYPE --prefix [PATH]
+
+where PATH is the prefix used to install the programs. 
+
+  The configure testing and building will use the native compiler "cc"
+on your host machine. To change which compiler gets used (like gcc)
+set a the variable "CC" in your environment to point to it. 
+	
+	For csh users:		"setenv CC gcc"
+	For bourne shell users:	"CC=gcc;export CC"
+
+  Then when you compile, use "make CC=$CC". 
+
+See etc/cfg-paper.texi, etc/configure.texi, and/or the README files in
+various subdirectories, for more details. 
+
+ As DejaGnu is a Tcl program, there is nothing to build. However, the
+documentation is not built by default. Use these targets:
+"make info"	- Convert the texinfo document to something that can
+		  be used the GNU info program or info mode in emacs.
+"make dvi"	- Convert the texinfo document to something that can
+		  be printed. This produces dvi output.
+"make doc"	- This builds both.
+"make ps"	- This converts the dvi file into postscript. This
+		  requires a copy of dvips.
+"make install"	- This installs DejaGnu based on the --prefix option
+		  when configuring. Otherwise it defaults to
+		  /usr/local. See the DejaGnu manual for more
+		  information on installation.
+
+			  Changes from 1.1.1
+	1. Works with (included in release) Tcl 7.3 and Expect 5.6.
+	2. Much better error trapping and handling, including the
+	   execution of sub scripts.
+	3. Re-worked configuration subsystem.
+	4. Default handling for testing unknown targets.
+	5. New testsuite for expect and runtest.
+	6. More debugging procedures.
+
+                          Changes from 1.0
+
+	1. DejaGnu now conforms to POSIX 1003.3, a standard for
+	   testing frameworks.
+	2. A Tcl debugger written by Don Libes has been added.
+	3. Lots of bug fixes.
+
+                          Changes from 0.9
+
+        1. DejaGnu now installs itself like other utilities.
+        2. 700 G++ tests are included.
+        3. The bugs in the GCC tests have been fixed.
+        4. Testsuites are released separately.
+        5. Testsuite sources now reside with the within each tool's
+           source tree. 
+
+-------------------------------------------------------------------
+Here's is a posting on the Free OS testing project. (FROST)
+-------------------------------------------------------------------
+If you have built up your own tests for system calls, library
+routines, networking protocols, or common utilities, this posting
+offers you an opportunity to put them to good use.  You can do a good
+deed for the Linux community, the Berkeley UNIX community, and the
+wider world of free software users.
+
+Also, if you would like to learn some good test tools and strategies,
+and devote some time on a volunteer basis to writing tests -- perhaps
+a couple of weeks full-time, or a couple hours per week over a period
+of several months -- then here is a project you should get involved
+in.
+
+I am helping to coordinate a test effort for Linux.  In the following
+four sections of this message I will describe the goals, the process,
+the people trying to do it, and what you can do to help.
+
+Goals
+
+  Linux and BSD share a number of libraries and utilities, both
+  because BSD software was ported to Linux, and because several free
+  software (GNU) utilities have been ported to both operating
+  systems.
+
+  Linux shows startling differences and failures as you move from one
+  set of hardware to another.  People who hope to base their own
+  commercial products on Linux would like to see proof that it is
+  robust, portable, and standard-conforming.  The problem is that
+  cross-platform testing is very hard to do, and few decent test
+  suites exist either for free software or for UNIX.  (Look at all the
+  differences you find among systems that are SVID-conforming,
+  particularly at higher levels such as the utilities.)
+
+  Therefore, a number of us who are interested n Linux have decided to
+  enter the modern age of formal, automated software testing -- but in
+  a manner that is proper for the free software community.
+
+  Using DejaGnu, a test platform developed by Cygnus Support and
+  placed under the GPL, we want to collect the best tests we can from
+  people everywhere, and integrate them into suites that any user can
+  download, run, and interpret with a few commands.  DejaGnu already
+  runs under BSD, and Cygnus is porting it to Linux.
+
+  Our goal is to test as many parts of the system as possible,
+  including system calls (particularly for POSIX 1003.1 compliance),
+  libraries in the official distribution, networking protocols,
+  and utilities.  We need help with
+
+    1) integrating good tests donated by the community (and probably
+       written in a variety of programming languages and command
+       shells) into the DejaGnu framework, and
+
+    2) writing new tests for major functional areas for which no
+       adequate tests exist.
+
+  The tests we use will be placed under the GPL and distributed by
+  Cygnus Support along with DejaGnu.  H. J. Lu, who maintains the C
+  library for Linux, has offered to run the POSIX 1003.1 tests and as
+  many others as he can.
+
+Process
+
+  First let me summarize the advantages of using DejaGnu, a free
+  software product that will be the umbrella for all the tests, and
+  then explain how we plan to conduct this project.
+
+  Cygnus Support released DejaGnu to the public on January 3, along
+  with several test suites for GNU language tools.  The product is
+  designed for portability and easy cross-platform development and
+  execution.  It works more uniformly than typical tests using the
+  UNIX shell, and also supports interactive testing better than most
+  test platforms -- for instance, Cygnus has written over 1300 unit
+  tests for the gdb debugger using it.
+
+  The implementation of DejaGnu is based on tcl and expect, two simple
+  existing languages for writing commands.  You can develop new tests
+  in two major ways: by placing keyword-based comments in C source
+  code, or by writing tests in tcl.
+
+  While Cygnus is still increasing their body of tests for language
+  tools, they are also turning their resources toward the libraries
+  and GNU utilities.  While most of the tests are written at Cygnus,
+  they have reached out to communities of testers and are now porting
+  substantial sets of donated tests.
+
+  We are hoping to broaden this successful use of collaboration across
+  user communities.  We hope that suites of useful tests are sitting
+  in desk drawers out there.  We also hope to gather and mobilize
+  people who appreciate the value of formal tests in legitimizing free
+  software, and would like to help write them.
+
+  I am not an employee of Cygnus, but have volunteered to talk to
+  interested people and do an initial classification of tests, just to
+  offload some of this routine work from them.  I will discuss all
+  offers with Cygnus staff to find out what is most needed and decide
+  which tests to incorporate into DejaGnu.  There are several criteria
+  for choosing tests, including the degree to which an area is
+  covered, and its importance in the overall stability of the
+  operating system.  Some tests may have to be rejected just because
+  they are hard to fit into the DejaGnu model.
+
+People
+
+  Now you can find out why each of us got involved with this project.
+
+  Cygnus writes and distributes free software, selling support as a
+  means to make money.  The company is not directly in the business of
+  supporting operating systems or common UNIX utilities, so this kind
+  of testing is tangential to their main goals.  But they may want to
+  support those things in the future.  In any case, they would like to
+  see Linux do well, and this big test project will be a good
+  promotion for DejaGnu.
+  H. K. Lu, as a volunteer for Linux, has been using his own system to
+  implement, port, maintain, and ensure ANSI and POSIX compliance for
+  the C library (mostly the GNU C library along with the iostream
+  class from the g++ library).  He is looking for ways to validate the
+  work that he and many other contributors have put in.
+
+  As an editor at a publisher of computer books, my relationship to
+  Linux and BSD is even more distant than that of Cygnus.  But we are
+  thinking about putting out books about Linux, from either the Linux
+  Documentation Project or independent authors, and would like to make
+  sure Linux is stable enough to be documented.  The testing of
+  utilities is particularly important to me, because it can provide
+  quality assurance for our books, including the BSD version of UNIX
+  in a Nutshell.
+
+What you can do
+
+  We ask people who have written tests in the areas I have described
+  to donate them to this project and see them benefit the public.
+  Don't just send me stuff -- write or call to discuss what you've got
+  in general.  You also have to assign the tests to the Free Software
+  Foundation (a simple matter, so long as you are the owner of the
+  tests) so that they can be distributed under the GPL.
+
+  Also, please don't starting flaming about the GPL.  Either join our
+  project and donate your tests, or don't.  Personally, I do not take
+  a side in this war.
+
+  People who are interested in testing as a discipline, and have some
+  time to donate, are invited to contact me to help write tests.  Tell
+  me:
+
+        Your knowledge of computer languages and tools
+
+        Previous software test efforts you have engaged in, if any
+
+        How much time you can devote
+
+        What functional areas you think are important and have a
+        particular interest in
+
+  Cygnus staff will tell volunteers which areas need testing, and
+  offer guidance while you learn and apply DejaGnu.  The most
+  important trait for the project is rigorous thinking along the lines
+  of software quality (so the best preparation is to have done some
+  formal testing before).  You do not need to know any particular
+  language or tool; you can learn tcl or other aspects of DejaGnu
+  fairly quickly.
+
+  Contact information for me is in my signature.  I am at the phone
+  number during traditional U.S. business hours.  So send mail any
+  time, or try calling from Monday through Friday, 9:00 AM to 5:00 PM,
+  Eastern Daylight Saving Time (four hours later than Greenwich Mean
+  Time).
+
+  Feel free to distribute and repost this message elsewhere, in its
+  entirety.
+
+----------------------------------------------------------------------
+Andy Oram    O'Reilly & Associates, Inc.                 andyo@ora.com
+             90 Sherman Street, Cambridge, MA 02140     (617) 354-5800
+                                                    fax (617) 661-1116
+----------------------------------------------------------------------
+
+There is a new listserv based mailing list for the FROST project. To
+subscribe, send email to "listserv@cygnus.com" and the body should
+contain "SUBSCRIBE FROST <your name>". Messages sent to
+frost@cygnus.com go to the mailing list.

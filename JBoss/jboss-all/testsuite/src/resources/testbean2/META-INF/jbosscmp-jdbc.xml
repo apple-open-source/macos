@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE jbosscmp-jdbc PUBLIC
+   "-//JBoss//DTD JBOSSCMP-JDBC 3.0//EN"
+   "http://www.jboss.org/j2ee/dtd/jbosscmp-jdbc_3_0.dtd">
+
+<jbosscmp-jdbc>
+   <defaults>
+   <!--
+      <datasource>java:/PostgresDS</datasource>
+      <datasource-mapping>PostgreSQL 7.2</datasource-mapping>
+   -->
+      <create-table>true</create-table>
+      <remove-table>true</remove-table>
+      <pk-constraint>true</pk-constraint>
+   </defaults>
+
+   <enterprise-beans>
+      <entity>
+         <ejb-name>AllTypes</ejb-name>
+         <remove-table>true</remove-table>
+         <table-name>AllTypesTestBean2</table-name>
+
+         <query>
+            <query-method>
+               <method-name>findByMinInt</method-name>
+               <method-params>
+                  <method-param>int</method-param>
+               </method-params>
+            </query-method>
+            <jboss-ql>
+               SELECT OBJECT(a)
+               FROM alltypes a
+               WHERE a.anInt > ?1
+               ORDER BY a.anInt ASC
+            </jboss-ql>
+         </query>
+
+         <query>
+            <query-method>
+               <method-name>findByIntAndDouble</method-name>
+               <method-params>
+                  <method-param>int</method-param>
+                  <method-param>double</method-param>
+               </method-params>
+            </query-method>
+            <jboss-ql>
+               SELECT OBJECT(a)
+               FROM alltypes a
+               WHERE a.anInt=?1 AND a.aDouble=?2
+               ORDER BY a.aString
+            </jboss-ql>
+         </query>
+      </entity>
+   </enterprise-beans>
+</jbosscmp-jdbc>

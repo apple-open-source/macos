@@ -52,6 +52,12 @@ static void __KXKextRepositoryAuthenticateKextArray(
     __KXKextRepositoryRef aRepository,
     CFMutableArrayRef kexts,
     CFMutableArrayRef badKexts);
+static void __KXKextRepositoryCheckIntegrityOfKextArray(
+    __KXKextRepositoryRef aRepository,
+    CFMutableArrayRef kexts,
+    CFMutableArrayRef badKexts,
+    CFMutableArrayRef bomArray);
+
 
 /*******************************************************************************
 * Core Foundation Class Definition Stuff
@@ -147,8 +153,8 @@ void KXKextRepositoryEmpty(KXKextRepositoryRef aRepository)
         const char * repository_name =
             _KXKextRepositoryCopyCanonicalPathnameAsCString(aRepository);
         if (repository_name) {
-            (_KMLog(aRepository->manager))("emptying repository %s",
-                repository_name);
+            _KXKextManagerLogMessage(aRepository->manager,
+                "emptying repository %s", repository_name);
             free((char *)repository_name);
         }
     }
@@ -198,9 +204,8 @@ KXKextManagerError KXKextRepositoryReset(
         const char * repository_name =
             _KXKextRepositoryCopyCanonicalPathnameAsCString(aRepository);
         if (repository_name) {
-            (_KMLog(aRepository->manager))(
-                "resetting repository %s",
-                repository_name);
+            _KXKextManagerLogMessage(aRepository->manager,
+                "resetting repository %s", repository_name);
             free((char *)repository_name);
         }
     }
@@ -243,7 +248,7 @@ KXKextManagerError KXKextRepositoryReset(
         count = CFArrayGetCount(aRepository->badKexts);
         for (i = 0; i < count; i++) {
             KXKextRef thisKext = (KXKextRef)CFArrayGetValueAtIndex(
-                aRepository->candidateKexts, i);
+                aRepository->badKexts, i);
             CFURLRef kextURL = KXKextGetAbsoluteURL(thisKext);
             CFArrayAppendValue(kextURLs, kextURL);
         }
@@ -276,37 +281,33 @@ KXKextManagerError KXKextRepositoryReset(
                 result == kKXKextManagerErrorNotAKext) {
 
                 // kext is completely unusable, do not store in repository
-                continue;
-            } else {
-                if (result == kKXKextManagerErrorNone) {
-                    if (KXKextManagerGetLogLevel(aRepository->manager) >=
-                         kKXKextManagerLogLevelKexts) {
-                        const char * kext_name =
-                            _KXKextCopyBundlePathInRepositoryAsCString(newKext);
-                        if (kext_name) {
-                            (_KMLog(aRepository->manager))(
-                                "reset found valid extension %s",
-                                kext_name);
-                            free((char *)kext_name);
-                        }
-                    }
-                    CFArrayAppendValue(aRepository->candidateKexts, newKext);
-                } else {
-                    if (KXKextManagerGetLogLevel(aRepository->manager) >=
-                         kKXKextManagerLogLevelKexts) {
-                        const char * kext_name =
-                            _KXKextCopyBundlePathInRepositoryAsCString(newKext);
-                        if (kext_name) {
-                            (_KMLog(aRepository->manager))(
-                                "reset found invalid extension %s",
-                                kext_name);
-                            free((char *)kext_name);
-                        }
-                    }
-                    CFArrayAppendValue(aRepository->badKexts, newKext);
-                }
-                CFRelease(newKext);
-            }
+
+            } else if (result == kKXKextManagerErrorNone) {
+		if (KXKextManagerGetLogLevel(aRepository->manager) >=
+			kKXKextManagerLogLevelKexts) {
+		    const char * kext_name =
+			_KXKextCopyBundlePathInRepositoryAsCString(newKext);
+		    if (kext_name) {
+			_KXKextManagerLogMessage(aRepository->manager,
+			    "reset found valid extension %s", kext_name);
+			free((char *)kext_name);
+		    }
+		}
+		CFArrayAppendValue(aRepository->candidateKexts, newKext);
+	    } else {
+		if (KXKextManagerGetLogLevel(aRepository->manager) >=
+			kKXKextManagerLogLevelKexts) {
+		    const char * kext_name =
+			_KXKextCopyBundlePathInRepositoryAsCString(newKext);
+		    if (kext_name) {
+			_KXKextManagerLogMessage(aRepository->manager,
+			    "reset found invalid extension %s", kext_name);
+			free((char *)kext_name);
+		    }
+		}
+		CFArrayAppendValue(aRepository->badKexts, newKext);
+	    }
+	    CFRelease(newKext);
             result = kKXKextManagerErrorNone;
         }
 
@@ -335,7 +336,7 @@ void KXKextRepositoryAuthenticateKexts(KXKextRepositoryRef aRepository)
         const char * repository_name =
             _KXKextRepositoryCopyCanonicalPathnameAsCString(aRepository);
         if (repository_name) {
-            (_KMLog(aRepository->manager))(
+            _KXKextManagerLogMessage(aRepository->manager,
                 "authenticating extensions in repository %s",
                 repository_name);
             free((char *)repository_name);
@@ -363,6 +364,42 @@ void KXKextRepositoryAuthenticateKexts(KXKextRepositoryRef aRepository)
 /*******************************************************************************
 *
 *******************************************************************************/
+void KXKextRepositoryCheckIntegrityOfKexts(KXKextRepositoryRef aRepository, CFMutableArrayRef bomArray)
+{
+    if (KXKextManagerGetLogLevel(aRepository->manager) >=
+            kKXKextManagerLogLevelDetails) {
+
+        const char * repository_name =
+            _KXKextRepositoryCopyCanonicalPathnameAsCString(aRepository);
+        if (repository_name) {
+            _KXKextManagerLogMessage(aRepository->manager,
+                "checking integrity of extensions in repository %s",
+                repository_name);
+            free((char *)repository_name);
+        }
+    }
+
+    KXKextManagerDisableClearRelationships(aRepository->manager);
+
+    __KXKextRepositoryCheckIntegrityOfKextArray(aRepository,
+         aRepository->candidateKexts, aRepository->badKexts, bomArray);
+
+    if (KXKextManagerPerformsFullTests(aRepository->manager)) {
+         __KXKextRepositoryCheckIntegrityOfKextArray(aRepository,
+             aRepository->badKexts, NULL, bomArray);
+    }
+
+    KXKextManagerClearRelationships(aRepository->manager);
+
+    KXKextManagerEnableClearRelationships(aRepository->manager);
+
+    return;
+}
+
+
+/*******************************************************************************
+*
+*******************************************************************************/
 void KXKextRepositoryMarkKextsAuthentic(KXKextRepositoryRef aRepository)
 {
     CFIndex count, i;
@@ -371,7 +408,7 @@ void KXKextRepositoryMarkKextsAuthentic(KXKextRepositoryRef aRepository)
         const char * repository_name =
             _KXKextRepositoryCopyCanonicalPathnameAsCString(aRepository);
         if (repository_name) {
-            (_KMLog(aRepository->manager))(
+            _KXKextManagerLogMessage(aRepository->manager,
                 "marking extensions authentic in repository %s",
                 repository_name);
             free((char *)repository_name);
@@ -540,7 +577,8 @@ KXKextManagerError KXKextRepositoryWriteCache(
 
     cacheDictionary = _KXKextRepositoryCopyCacheDictionary(aRepository);
     if (!cacheDictionary) {
-        _KMErrLog(aRepository->manager)("cannot create kext cache data");
+        _KXKextManagerLogError(KXKextRepositoryGetManager(aRepository),
+            "cannot create kext cache data");
         result = kKXKextManagerErrorNoMemory;
         goto finish;
     }
@@ -548,7 +586,8 @@ KXKextManagerError KXKextRepositoryWriteCache(
     cacheData = CFPropertyListCreateXMLData(kCFAllocatorDefault,
          cacheDictionary);
     if (!cacheData) {
-        _KMErrLog(aRepository->manager)("cannot serialize kext cache data");
+        _KXKextManagerLogError(KXKextRepositoryGetManager(aRepository),
+            "cannot serialize kext cache data");
         result = kKXKextManagerErrorSerialization;
         goto finish;
     }
@@ -569,7 +608,8 @@ KXKextManagerError KXKextRepositoryWriteCache(
 
     outputGZFile = gzopen(cache_path, "w");
     if (!outputGZFile) {
-        _KMErrLog(aRepository->manager)("cannot open kext cache file %s for writing",
+        _KXKextManagerLogError(KXKextRepositoryGetManager(aRepository),
+            "cannot open kext cache file %s for writing",
             cache_path);
         if (errno == 0) {
             result = kKXKextManagerErrorNoMemory;
@@ -581,14 +621,16 @@ KXKextManagerError KXKextRepositoryWriteCache(
 
     bytes_written = gzwrite(outputGZFile, (void *)cache_data, cacheDataLength);
     if (bytes_written != cacheDataLength) {
-        _KMErrLog(aRepository->manager)("error writing kext cache file %s",
+        _KXKextManagerLogError(KXKextRepositoryGetManager(aRepository),
+            "error writing kext cache file %s",
             cache_path);
         result = kKXKextManagerErrorUnspecified;
         goto finish;
     }
 
     if (gzclose(outputGZFile) != Z_OK) {
-        _KMErrLog(aRepository->manager)("error closing kext cache file %s",
+        _KXKextManagerLogError(KXKextRepositoryGetManager(aRepository),
+            "error closing kext cache file %s",
             cache_path);
         result = kKXKextManagerErrorUnspecified;
         goto finish;
@@ -702,13 +744,13 @@ finish:
 KXKextManagerError _KXKextRepositoryInitWithCache(
     KXKextRepositoryRef aRepository,
     CFDictionaryRef     aDictionary,
+    CFURLRef            aDirectory,
     KXKextManagerRef    aManager)
 {
     KXKextManagerError result = kKXKextManagerErrorNone;
     CFNumberRef cacheVersion = NULL;        // don't release
     long int cache_version = 0;
     CFStringRef repositoryPath = NULL;      // don't release
-    CFURLRef aDirectory = NULL;             // must release
     CFURLRef absURL = NULL;                 // must release
     CFBooleanRef scansForKexts = NULL;  // don't release
     CFArrayRef kexts = NULL;                // don't release
@@ -741,7 +783,7 @@ KXKextManagerError _KXKextRepositoryInitWithCache(
     }
 
     if (cache_version > _kKXKextRepositoryCacheVersion) {
-        (_KMErrLog(aRepository->manager))(
+        _KXKextManagerLogError(KXKextRepositoryGetManager(aRepository),
             "cannot read cache version %d", cache_version);
         result = kKXKextManagerErrorInvalidArgument;
         goto finish;
@@ -754,19 +796,20 @@ KXKextManagerError _KXKextRepositoryInitWithCache(
         goto finish;
     }
 
-    aDirectory = CFURLCreateWithFileSystemPath(kCFAllocatorDefault,
-                repositoryPath, kCFURLPOSIXPathStyle, true);
-
-    if (!aDirectory) {
-        result = kKXKextManagerErrorNoMemory;
-        goto finish;
-    }
-
     absURL = PATH_CopyCanonicalizedURL(aDirectory);
     aRepository->repositoryPath = CFURLCopyFileSystemPath(absURL,
         kCFURLPOSIXPathStyle);
     if (!aRepository->repositoryPath) {
         result = kKXKextManagerErrorNoMemory;
+        goto finish;
+    }
+
+    if (CFStringCompare(repositoryPath, aRepository->repositoryPath, 0) !=
+        kCFCompareEqualTo) {
+
+        _KXKextManagerLogError(KXKextRepositoryGetManager(aRepository),
+            "cached repository path doesn't match that of repository");
+        result = kKXKextManagerErrorCache;
         goto finish;
     }
 
@@ -843,7 +886,7 @@ KXKextManagerError _KXKextRepositoryInitWithCache(
             if (KXKextManagerGetLogLevel(aRepository->manager) >=
                 kKXKextManagerLogLevelDetails) {
 
-                _KMLog(aRepository->manager)(
+                _KXKextManagerLogMessage(aRepository->manager,
                     "%s is not a kernel extension or is inaccessible",
                     kext_path ? kext_path : "(unknown)");
             }
@@ -858,11 +901,11 @@ KXKextManagerError _KXKextRepositoryInitWithCache(
                 kKXKextManagerLogLevelDetails) {
 
                 if (kextResult == kKXKextManagerErrorCache) {
-                    _KMLog(aRepository->manager)(
+                    _KXKextManagerLogMessage(aRepository->manager,
                         "added cache-inconsistent kernel extension %s",
                         kext_path ? kext_path : "(unknown)");
                 } else {
-                    _KMLog(aRepository->manager)(
+                    _KXKextManagerLogMessage(aRepository->manager,
                         "added invalid cached kernel extension %s",
                         kext_path ? kext_path : "(unknown)");
                 }
@@ -872,7 +915,8 @@ KXKextManagerError _KXKextRepositoryInitWithCache(
             if (KXKextManagerGetLogLevel(aRepository->manager) >=
                 kKXKextManagerLogLevelDetails) {
 
-                _KMLog(aRepository->manager)("added cached kernel extension %s",
+                _KXKextManagerLogMessage(aRepository->manager,
+                    "added cached kernel extension %s",
                     kext_path ? kext_path : "(unknown)");
             }
         }
@@ -889,14 +933,13 @@ KXKextManagerError _KXKextRepositoryInitWithCache(
             sizeof(repository_path_buffer), kCFStringEncodingMacRoman)) {
             repository_path = repository_path_buffer;
         }
-        _KMErrLog(aRepository->manager)(
+        _KXKextManagerLogError(KXKextRepositoryGetManager(aRepository),
             "repository cache problem found; scanning %s directly",
             repository_path ? repository_path : "(unknown)");
         KXKextRepositoryReset(aRepository);
     }
 
 finish:
-    if (aDirectory) CFRelease(aDirectory);
     if (absURL)     CFRelease(absURL);
     return result;
 }
@@ -990,7 +1033,7 @@ KXKextManagerError _KXKextRepositoryScanDirectoryForKexts(
         const char * directory_name =
             PATH_CanonicalizedCStringForURL(aDirectory);
         if (directory_name) {
-            (_KMLog(aRepository->manager))(
+            _KXKextManagerLogMessage(aRepository->manager,
                 "scanning directory %s",
                 directory_name);
             free((char *)directory_name);
@@ -1133,13 +1176,17 @@ KXKextManagerError _KXKextRepositoryScanDirectoryForKexts(
 
         CFURLRef  thisURL = NULL;         // don't release
         CFStringRef urlExtension = NULL;  // must release
+        CFStringRef bundleName = NULL;    // must release
 
         if (i == 0) break;
         i--;
 
         thisURL = CFArrayGetValueAtIndex(directoryContents, i);
 
+       /* Drop any URL that doesn't have a ".kext" extension.
+        */
         urlExtension = CFURLCopyPathExtension(thisURL);
+        bundleName = CFURLCopyLastPathComponent(thisURL);
 
         if (!urlExtension ||
             CFStringCompare(CFSTR("kext"), urlExtension, NULL) !=
@@ -1148,7 +1195,19 @@ KXKextManagerError _KXKextRepositoryScanDirectoryForKexts(
             CFArrayRemoveValueAtIndex(directoryContents, i);
         }
 
+
+       /* Drop any URL that starts with "." (including Finder
+        * metadata files, which start with "._.").
+        */
+
+        else if (!bundleName ||
+            CFStringHasPrefix(bundleName, CFSTR("."))) {
+
+            CFArrayRemoveValueAtIndex(directoryContents, i);
+        }
+
         if (urlExtension) CFRelease(urlExtension);
+        if (bundleName) CFRelease(bundleName);
     }
 
 
@@ -1193,14 +1252,14 @@ KXKextManagerError _KXKextRepositoryScanDirectoryForKexts(
                 result == kKXKextManagerErrorNotAKext) {
 
                 // kext is completely unusable, do not store in repository
-                continue;
+
             } else if (result == kKXKextManagerErrorNone) {
                 if (KXKextManagerGetLogLevel(aRepository->manager) >=
                      kKXKextManagerLogLevelKexts) {
                     const char * kext_name =
                         _KXKextCopyBundlePathInRepositoryAsCString(thisKext);
                     if (kext_name) {
-                        (_KMLog(aRepository->manager))(
+                        _KXKextManagerLogMessage(aRepository->manager,
                             "found valid extension %s",
                             kext_name);
                         free((char *)kext_name);
@@ -1210,7 +1269,6 @@ KXKextManagerError _KXKextRepositoryScanDirectoryForKexts(
                     CFArrayAppendValue(addedKextArray, thisKext);
                 }
 
-                CFRelease(thisKext);
             } else {
                 if (KXKextManagerGetLogLevel(aRepository->manager) >=
                      kKXKextManagerLogLevelKexts) {
@@ -1218,7 +1276,7 @@ KXKextManagerError _KXKextRepositoryScanDirectoryForKexts(
                     const char * kext_name =
                         _KXKextCopyBundlePathInRepositoryAsCString(thisKext);
                     if (kext_name) {
-                        (_KMLog(aRepository->manager))(
+                        _KXKextManagerLogMessage(aRepository->manager,
                             "found invalid extension %s",
                             kext_name);
                         free((char *)kext_name);
@@ -1227,8 +1285,8 @@ KXKextManagerError _KXKextRepositoryScanDirectoryForKexts(
                 if (notKextArray) {
                     CFArrayAppendValue(notKextArray, thisKext);
                 }
-                CFRelease(thisKext);
             }
+	    CFRelease(thisKext);
             result = kKXKextManagerErrorNone;
         }
 
@@ -1268,7 +1326,7 @@ KXKextManagerError _KXKextRepositoryScanDirectoryForKexts(
                 const char * kext_name =
                     _KXKextCopyBundlePathInRepositoryAsCString(rKext);
                 if (kext_name) {
-                    (_KMLog(aRepository->manager))(
+                    _KXKextManagerLogMessage(aRepository->manager,
                         "extension %s has been removed",
                         kext_name);
                     free((char *)kext_name);
@@ -1371,7 +1429,7 @@ void _KXKextRepositoryRemoveKext(KXKextRepositoryRef aRepository,
         const char * kext_name =
             _KXKextCopyBundlePathInRepositoryAsCString(aKext);
         if (kext_name && repository_name) {
-            (_KMLog(aRepository->manager))(
+            _KXKextManagerLogMessage(aRepository->manager,
                 "repository %s removing extension %s",
                 repository_name, kext_name);
         }
@@ -1452,7 +1510,7 @@ void _KXKextRepositoryDisqualifyKext(KXKextRepositoryRef aRepository,
         const char * kext_name =
             _KXKextCopyBundlePathInRepositoryAsCString(aKext);
         if (kext_name && repository_name) {
-            (_KMLog(aRepository->manager))(
+            _KXKextManagerLogMessage(aRepository->manager,
                 "repository %s disqualifying extension %s",
                 repository_name, kext_name);
         }
@@ -1505,7 +1563,7 @@ void _KXKextRepositoryRequalifyKext(KXKextRepositoryRef aRepository,
         const char * kext_name =
             _KXKextCopyBundlePathInRepositoryAsCString(aKext);
         if (kext_name && repository_name) {
-            (_KMLog(aRepository->manager))(
+            _KXKextManagerLogMessage(aRepository->manager,
                 "repository %s requalifying extension %s",
                 repository_name, kext_name);
         }
@@ -1894,7 +1952,7 @@ KXKextManagerError __KXKextRepositoryScanDirectory(
         const char * repository_name =
             _KXKextRepositoryCopyCanonicalPathnameAsCString(aRepository);
         if (repository_name) {
-            (_KMLog(aRepository->manager))(
+            _KXKextManagerLogMessage(aRepository->manager,
                 "scanning repository %s",
                 repository_name);
             free((char *)repository_name);
@@ -1971,7 +2029,7 @@ KXKextManagerError __KXKextRepositoryScanDirectory(
            /*****
             * Check the removed kexts and drop them from the arrays
             * of candidate & bad kexts.
-            */
+ */
             innerCount = CFArrayGetCount(removedPlugins);
             for (innerIndex = 0; innerIndex < innerCount; innerIndex++) {
                 KXKextRef rKext =
@@ -2044,6 +2102,37 @@ static void __KXKextRepositoryAuthenticateKextArray(
                 CFArrayAppendValue(badKexts, thisKext);
                 CFArrayRemoveValueAtIndex(kexts, i);
             }
+        }
+    }
+
+finish:
+    return;
+}
+
+static void __KXKextRepositoryCheckIntegrityOfKextArray(
+    __KXKextRepositoryRef aRepository,
+    CFMutableArrayRef kexts,
+    CFMutableArrayRef badKexts,
+    CFMutableArrayRef bomArray)
+{
+    CFIndex numKexts;
+    CFIndex i;
+
+    numKexts = CFArrayGetCount(kexts);
+    for (i = numKexts-1; i >= 0; i--) {
+        KXKextRef thisKext;
+        KXKextManagerError kextResult;
+
+        thisKext = (KXKextRef)CFArrayGetValueAtIndex(kexts, i);
+        kextResult = _KXKextCheckIntegrity(thisKext, bomArray);
+
+        if (kextResult == kKXKextManagerErrorNoMemory) {
+            goto finish;  // no point continuing!
+        }
+
+        if (kextResult != kKXKextManagerErrorNone && badKexts) {
+            CFArrayAppendValue(badKexts, thisKext);
+            CFArrayRemoveValueAtIndex(kexts, i);
         }
     }
 

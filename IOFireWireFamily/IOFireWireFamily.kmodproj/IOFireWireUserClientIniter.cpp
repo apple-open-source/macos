@@ -38,19 +38,14 @@
 #import <IOKit/IOService.h>
 #import <libkern/OSAtomic.h>
 
+#undef super
+#define super IOService
 
-OSDefineMetaClassAndStructors(IOFireWireUserClientIniter, IOService);
+OSDefineMetaClassAndStructors(IOFireWireUserClientIniter, super);
 OSMetaClassDefineReservedUnused(IOFireWireUserClientIniter, 0);
 OSMetaClassDefineReservedUnused(IOFireWireUserClientIniter, 1);
 OSMetaClassDefineReservedUnused(IOFireWireUserClientIniter, 2);
 OSMetaClassDefineReservedUnused(IOFireWireUserClientIniter, 3);
-
-UInt32						IOFireWireUserClientIniter::fHasUCIniter = false ;
-IOFireWireUserClientIniter*	IOFireWireUserClientIniter::fUCIniter = NULL ;
-OSDictionary*				IOFireWireUserClientIniter::fProviderMergeProperties = NULL ;
-OSDictionary*				IOFireWireUserClientIniter::fPropTable = NULL ;
-IOService*					IOFireWireUserClientIniter::fProvider = NULL ;
-
 
 // init
 //
@@ -62,7 +57,7 @@ IOFireWireUserClientIniter::init(OSDictionary * propTable)
 	fPropTable = propTable ;
 	fProvider = NULL ;
 	
-	return IOService::init(propTable) ;
+	return super::init(propTable) ;
 }
 
 // start
@@ -79,9 +74,8 @@ IOFireWireUserClientIniter::start(
 	}
 	
 	fProvider = provider ;
-
 	fProvider->retain();
-	
+
 	OSObject*	dictObj = getProperty("IOProviderMergeProperties");
 	
 	fProviderMergeProperties = OSDynamicCast(OSDictionary, dictObj);
@@ -126,6 +120,10 @@ IOFireWireUserClientIniter::start(
 
     return true ;
 }
+
+// stop
+//
+//
 
 void
 IOFireWireUserClientIniter::stop(IOService* provider)
@@ -223,7 +221,7 @@ IOFireWireUserClientIniter::copyDictionaryProperty(
 		srcIterator = OSCollectionIterator::withCollection(srcDictionary);
 		if (srcIterator)
 		{
-			while ( keyObject = OSDynamicCast(OSSymbol, srcIterator->getNextObject()) )
+			while ( (keyObject = OSDynamicCast(OSSymbol, srcIterator->getNextObject())) )
 			{
 				srcObject	= srcDictionary->getObject(keyObject);
 				if (OSDynamicCast(OSDictionary, srcObject))

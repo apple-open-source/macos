@@ -1,0 +1,27 @@
+AC_INIT(configure.in)
+CONFIG_RULES
+AC_PROG_AWK
+dnl
+AC_C_CONST
+AC_TYPE_UID_T
+AC_TYPE_OFF_T
+dnl
+dnl
+AC_HEADER_STDARG
+AC_CHECK_HEADERS(unistd.h paths.h regex.h regexp.h regexpr.h fcntl.h memory.h ifaddrs.h sys/filio.h)
+AC_CHECK_FUNCS(flock fchmod chmod strftime strptime geteuid setenv unsetenv getenv setsid gethostbyname2 getifaddrs)
+AC_REPLACE_FUNCS(vfprintf vsprintf strdup strcasecmp strerror memmove daemon getuid sscanf syslog)
+KRB5_AC_REGEX_FUNCS
+KRB5_NEED_PROTO([#include <time.h>],strptime)
+dnl
+KRB5_SIGTYPE
+CHECK_SIGNALS
+KRB5_SOCKADDR_SA_LEN
+KRB5_GETPEERNAME_ARGS
+KRB5_GETSOCKNAME_ARGS
+KRB5_BUILD_LIBRARY_WITH_DEPS
+KRB5_BUILD_LIBOBJS
+KRB5_BUILD_PROGRAM
+KRB5_RUN_FLAGS
+dnl
+V5_AC_OUTPUT_MAKEFILE(. error_tables asn.1 ccache keytab krb rcache os posix)

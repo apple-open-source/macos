@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- ===================================================================== -->
+<!--                                                                       -->
+<!--  JBoss Server Configuration                                           -->
+<!--                                                                       -->
+<!-- New ConnectionManager setup for Sybase ASE/ASA jConnect driver        -->
+<!-- Thanks to Marc Zampetti <zampetti@aol.net>                            -->
+<!-- This is a minimal example.  See the generic example for other stuff   -->
+<!-- ===================================================================== -->
+
+<!-- $Id: sybase-ds.xml,v 1.1.2.1 2003/05/22 21:40:50 d_jencks Exp $ -->
+
+
+<datasources>
+  <local-tx-datasource>
+    <jndi-name>jdbc/SybaseDB</jndi-name>
+    <!-- Sybase jConnect URL for the database. 
+    NOTE: The hostname and port are made up values. The optional
+          database name is provided, as well as some additinal Driver
+          parameters.
+    -->
+    <connection-url>jdbc:sybase:Tds:host.at.some.domain:5000/db_name?JCONNECT_VERSION=6</connection-url>
+    <driver-class>com.sybase.jdbc2.jdbc.SybDataSource</driver-class>
+    <user-name>x</user-name>
+    <password>y</password>
+    <exception-sorter-class-name>org.jboss.resource.adapter.jdbc.vendor.SybaseExceptionSorter</exception-sorter-class-name>
+  </local-tx-datasource>
+
+</datasources>

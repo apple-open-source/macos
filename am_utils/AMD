@@ -1,0 +1,19 @@
+#!/bin/sh
+
+##
+# Start AMD
+##
+
+. /etc/rc.common
+
+if [ "${AMDSERVER:=-NO-}" = "-YES-" ]; then
+    ConsoleMessage "Starting AMD server"
+
+    if [ ! -f /etc/amd.conf -a -r /etc/amd.conf.template ]; then
+        cp /etc/amd.conf.template /etc/amd.conf
+    fi
+    if [ ! -f /etc/amd.map -a -r /etc/amd.map.template ]; then
+        cp /etc/amd.map.template /etc/amd.map
+    fi
+    /usr/sbin/amd
+fi

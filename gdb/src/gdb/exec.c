@@ -36,6 +36,7 @@
 #endif
 
 #include <fcntl.h>
+#include <readline/readline.h>
 #include "gdb_string.h"
 
 #include "gdbcore.h"
@@ -79,7 +80,7 @@ void (*file_changed_hook) (char *);
 
 /* Prototypes for local functions */
 
-static void add_to_section_table (bfd *, sec_ptr, PTR);
+static void add_to_section_table (bfd *, sec_ptr, void *);
 
 static void exec_close (int);
 
@@ -89,7 +90,7 @@ static void set_section_command (char *, int);
 
 static void exec_files_info (struct target_ops *);
 
-static void bfdsec_to_vmap (bfd *, sec_ptr, PTR);
+static void bfdsec_to_vmap (bfd *, sec_ptr, void *);
 
 static int ignore (CORE_ADDR, char *);
 
@@ -114,7 +115,6 @@ int write_files = 0;
 #ifndef NEED_TEXT_START_END
 #define NEED_TEXT_START_END (0)
 #endif
-CORE_ADDR text_start = 0;
 CORE_ADDR text_end = 0;
 
 struct vmap *vmap;
@@ -176,10 +176,16 @@ exec_close (int quitting)
 
   if (exec_ops.to_sections)
     {
-      xfree (exec_ops.to_sections);
-      exec_ops.to_sections = NULL;
-      exec_ops.to_sections_end = NULL;
+      target_resize_to_sections
+	(&exec_ops, exec_ops.to_sections_end - exec_ops.to_sections);
     }
+
+#if 0
+#ifdef NM_NEXTSTEP
+  if (! quitting)
+    macosx_init_dyld_symfile (symfile_objfile, exec_bfd);
+#endif
+#endif
 }
 
 void
@@ -191,6 +197,19 @@ exec_file_clear (int from_tty)
   if (from_tty)
     printf_unfiltered ("No executable file now.\n");
 }
+
+#ifdef SOLIB_ADD
+/* Stub function for catch_errors around shared library hacking.  FROM_TTYP
+   is really an int * which points to from_tty.  */
+
+static int
+solib_add_stub (PTR from_ttyp)
+{
+  SOLIB_ADD (NULL, *(int *) from_ttyp, &current_target, auto_solib_add);
+  re_enable_breakpoints_in_shlibs (0);
+  return 0;
+}
+#endif /* SOLIB_ADD */
 
 /*  Process the first arg in ARGS as the new exec file.
 
@@ -241,6 +260,23 @@ exec_file_attach (char *filename, int from_tty)
 	     O_RDWR | O_BINARY : O_RDONLY | O_BINARY, 0, &scratch_pathname);
 	}
 #endif
+#ifdef NM_NEXTSTEP
+      if (scratch_chan < 0)
+	{
+	  /* Look for a wrapped executable of the form Foo.app/Contents/MacOS/Foo,
+	     where the user gave us up to Foo.app.  The ".app" is optional. */
+
+	  char *wrapped_filename = macosx_filename_in_bundle (filename, 1);
+
+	  if (wrapped_filename != NULL)
+	    {
+	      scratch_chan = openp (getenv ("PATH"), 1, wrapped_filename,
+				    write_files ? O_RDWR | O_BINARY : O_RDONLY | O_BINARY, 0,
+				    &scratch_pathname);
+	      xfree (wrapped_filename);
+	    }
+	}
+#endif
       if (scratch_chan < 0)
 	perror_with_name (filename);
       exec_bfd = bfd_fdopenr (scratch_pathname, gnutarget, scratch_chan);
@@ -259,9 +295,9 @@ exec_file_attach (char *filename, int from_tty)
       if (bfd_check_format (exec_bfd, bfd_archive))
  	{
  	  bfd *abfd = NULL;
-#if defined (__ppc__)
+#if defined (TARGET_POWERPC)
  	  const bfd_arch_info_type *thisarch = bfd_lookup_arch (bfd_arch_powerpc, 0);
-#elif defined (__i386__)
+#elif defined (TARGET_I386)
  	  const bfd_arch_info_type *thisarch = bfd_lookup_arch (bfd_arch_i386, 0);
 #else
  	  const bfd_arch_info_type *thisarch = bfd_lookup_arch (bfd_arch_powerpc, 0);
@@ -341,7 +377,7 @@ exec_file_attach (char *filename, int from_tty)
 	  /* FIXME: The comment above does not match the code.  The
 	     code checks for sections with are either code *or*
 	     readonly.  */
-	  text_start = ~(CORE_ADDR) 0;
+	  CORE_ADDR text_start = ~(CORE_ADDR) 0;
 	  text_end = (CORE_ADDR) 0;
 	  for (p = exec_ops.to_sections; p < exec_ops.to_sections_end; p++)
 	    if (bfd_get_section_flags (p->bfd, p->the_bfd_section)
@@ -360,6 +396,15 @@ exec_file_attach (char *filename, int from_tty)
 
       push_target (&exec_ops);
 
+#ifdef NM_NEXTSTEP
+      macosx_init_dyld_symfile (symfile_objfile, exec_bfd);
+#endif
+
+#ifdef SOLIB_ADD
+      catch_errors (solib_add_stub, &from_tty, (char *) 0,
+		    RETURN_MASK_ALL);
+#endif
+  
       /* Tell display code (if any) about the changed file name.  */
       if (exec_file_display_hook)
 	(*exec_file_display_hook) (filename);
@@ -428,7 +473,7 @@ file_command (char *arg, int from_tty)
    we cast it back to its proper type.  */
 
 static void
-add_to_section_table (bfd *abfd, sec_ptr asect, PTR table_pp_char)
+add_to_section_table (bfd *abfd, sec_ptr asect, void *table_pp_char)
 {
   struct section_table **table_pp = (struct section_table **) table_pp_char;
   flagword aflag;
@@ -467,7 +512,7 @@ build_section_table (bfd *some_bfd, struct section_table **start,
 }
 
 static void
-bfdsec_to_vmap (bfd *abfd, sec_ptr sect, PTR arg3)
+bfdsec_to_vmap (bfd *abfd, sec_ptr sect, void *arg3)
 {
   struct vmap_and_bfd *vmap_bfd = (struct vmap_and_bfd *) arg3;
   struct vmap *vp;
@@ -545,10 +590,10 @@ xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int write,
 	     struct mem_attrib *attrib,
 	     struct target_ops *target)
 {
-  boolean res;
+  int res;
   struct section_table *p;
   CORE_ADDR nextsectaddr, memend;
-  boolean (*xfer_fn) (bfd *, sec_ptr, PTR, file_ptr, bfd_size_type);
+  int (*xfer_fn) (bfd *, sec_ptr, void *, file_ptr, bfd_size_type);
   asection *section = NULL;
 
   if (len <= 0)
@@ -571,26 +616,28 @@ xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int write,
 	  strcmp (section->name, p->the_bfd_section->name) != 0)
 	continue;		/* not the section we need */
       if (memaddr >= p->addr)
-	if (memend <= p->endaddr)
-	  {
-	    /* Entire transfer is within this section.  */
-	    res = xfer_fn (p->bfd, p->the_bfd_section, myaddr,
-			   memaddr - p->addr, len);
-	    return (res != 0) ? len : 0;
-	  }
-	else if (memaddr >= p->endaddr)
-	  {
-	    /* This section ends before the transfer starts.  */
-	    continue;
-	  }
-	else
-	  {
-	    /* This section overlaps the transfer.  Just do half.  */
-	    len = p->endaddr - memaddr;
-	    res = xfer_fn (p->bfd, p->the_bfd_section, myaddr,
-			   memaddr - p->addr, len);
-	    return (res != 0) ? len : 0;
-	  }
+        {
+	  if (memend <= p->endaddr)
+	    {
+	      /* Entire transfer is within this section.  */
+	      res = xfer_fn (p->bfd, p->the_bfd_section, myaddr,
+	  		     memaddr - p->addr, len);
+	      return (res != 0) ? len : 0;
+	    }
+	  else if (memaddr >= p->endaddr)
+	    {
+	      /* This section ends before the transfer starts.  */
+	      continue;
+	    }
+	  else
+	    {
+	      /* This section overlaps the transfer.  Just do half.  */
+	      len = p->endaddr - memaddr;
+	      res = xfer_fn (p->bfd, p->the_bfd_section, myaddr,
+	  		     memaddr - p->addr, len);
+	      return (res != 0) ? len : 0;
+	    }
+        }
       else
 	nextsectaddr = min (nextsectaddr, p->addr);
     }
@@ -607,7 +654,6 @@ print_section_info_objfile (struct objfile *o)
 {
   struct obj_section *p;
 
-#ifdef UI_OUT
   ui_out_list_begin (uiout, "section-info");
   ui_out_text (uiout, "\t");
   ui_out_field_string (uiout, "filename", bfd_get_filename (o->obfd));
@@ -640,17 +686,15 @@ print_section_info_objfile (struct objfile *o)
     }
   ui_out_list_end (uiout); /* "sections" */
   ui_out_list_end (uiout); /* "section-info" */
-#else
-#error must support UI_OUT
-#endif
 }
 
 void
 print_section_info (struct target_ops *t, bfd *abfd)
 {
   struct section_table *p;
+  /* FIXME: "016l" is not wide enough when TARGET_ADDR_BIT > 64.  */
+  char *fmt = TARGET_ADDR_BIT <= 32 ? "08l" : "016l";
 
-#ifdef UI_OUT
   ui_out_list_begin (uiout, "section-info");
   ui_out_text (uiout, "\t");
   ui_out_field_string (uiout, "filename", bfd_get_filename (abfd));
@@ -690,32 +734,6 @@ print_section_info (struct target_ops *t, bfd *abfd)
     }
   ui_out_list_end (uiout); /* "sections" */
   ui_out_list_end (uiout); /* "section-info" */
-#else
-  printf_filtered ("\t`%s', ", bfd_get_filename (abfd));
-  wrap_here ("        ");
-  printf_filtered ("file type %s.\n", bfd_get_target (abfd));
-  if (abfd == exec_bfd)
-    {
-      printf_filtered ("\tEntry point: ");
-      print_address_numeric (bfd_get_start_address (abfd), 1, gdb_stdout);
-      printf_filtered ("\n");
-    }
-  for (p = t->to_sections; p < t->to_sections_end; p++)
-    {
-      /* FIXME-32x64 need a print_address_numeric with field width */
-      printf_filtered ("\t%s", local_hex_string_custom ((unsigned long) p->addr, "08l"));
-      printf_filtered (" - %s", local_hex_string_custom ((unsigned long) p->endaddr, "08l"));
-      if (info_verbose)
-	printf_filtered (" @ %s",
-			 local_hex_string_custom ((unsigned long) p->the_bfd_section->filepos, "08l"));
-      printf_filtered (" is %s", bfd_section_name (p->bfd, p->the_bfd_section));
-      if (p->bfd != abfd)
-	{
-	  printf_filtered (" in %s", bfd_get_filename (p->bfd));
-	}
-      printf_filtered ("\n");
-    }
-#endif
 }
 
 static void
@@ -861,14 +879,11 @@ Specify the filename of the executable file.";
   exec_ops.to_open = exec_open;
   exec_ops.to_close = exec_close;
   exec_ops.to_attach = find_default_attach;
-  exec_ops.to_require_attach = find_default_require_attach;
-  exec_ops.to_require_detach = find_default_require_detach;
   exec_ops.to_xfer_memory = xfer_memory;
   exec_ops.to_files_info = exec_files_info;
   exec_ops.to_insert_breakpoint = ignore;
   exec_ops.to_remove_breakpoint = ignore;
   exec_ops.to_create_inferior = find_default_create_inferior;
-  exec_ops.to_clone_and_follow_inferior = find_default_clone_and_follow_inferior;
   exec_ops.to_stratum = file_stratum;
   exec_ops.to_has_memory = 1;
   exec_ops.to_make_corefile_notes = exec_make_note_section;

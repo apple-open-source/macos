@@ -1,0 +1,26 @@
+Du, eller någon som utgav sig för att vara dig, har bett om att få
+lösenordet för e-postlistan %(fqdn_lname)s skickat till sig. Du behöver
+detta lösenord för att ändra på dina inställningar för listan
+(till exempel ändra lösenordord, få sammandrag skickat till dig med 
+jämna mellanrum istället etc). Lösenorden gör det också enklare för dig 
+att avanmäla dig från listan om detta skulle bli aktuellt.
+
+Du är medlem med e-postadressen: %(user)s
+
+Ditt lösenord på e-postlistan %(listname)s är: %(password)s
+
+För att ändra dina inställningar för denna lista, logga in på din
+personliga webbsida för listan:
+
+    %(options_url)s
+
+Du har också möjlighet att göra dessa ändringar via e-post genom att
+skicka ett e-postbrev till:
+
+    %(requestaddr)s
+
+med ordet "help" som innehåll eller i ämnesfältet. Du kommer då att få ta 
+emot ett automatiskt svar från systemet med närmare instruktioner.
+
+Har du frågor eller kommentarer? Kontakta listadministratören för
+%(listname)s på %(owneraddr)s.

@@ -1,0 +1,265 @@
+# Copyright (C) 92, 93, 94, 95, 1996 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+# Please email any bugs, comments, and/or additions to this file to:
+# bug-dejagnu@prep.ai.mit.edu
+
+# This file was written by Rob Savoye. (rob@welcomehome.org)
+
+#
+# set target variables only if needed.
+#
+global targetname
+global connectmode
+global env
+global checktask
+
+if ![info exists targetname] {
+    if [info exists env(TARGETNAME)] {
+	set targetname $env(TARGETNAME)
+    } else {
+	puts stderr "ERROR: Need a target name for the vxworks board."
+	puts stderr "       Use the --name option\n"
+	exit 1
+    }
+}
+
+# The default connect program to use.
+if ![info exists connectmode] {
+    set connectmode "telnet"
+    warning "Using default of $connectmode for target communication."
+}
+
+if ![info exists checktask] {
+    set checktask "fp"
+}
+
+#
+# Compute a path to vxworks' value for it
+#
+# We use a default ftp device called "filesys" to load files from.
+# This way it works without NFS.
+# This proc may be overridden by the user.  The typical thing to do is use
+# a different name for the device, but it might also return a different path
+# to PROG.
+#
+# ??? This is experimental.  This kind of thing can't be specified on the
+# command line, but neither can specifying the kinds of transformations that
+# one might want to do without actually passing tcl code at which point it
+# makes just as much sense to stick it in a config file.
+#
+if { [info procs vxworks_transform_path] == "" } {
+    proc vxworks_transform_path { prog } {
+	return "filesys:$prog"
+    }
+}
+
+#
+# Load a file into vxworks
+#
+# The result is:
+#  0 - success
+#  1 - failed (eg: link failed so testcase should fail)
+# -1 - unresolved (eg: timeout, bad passwd)
+# -2 - unsupported (not used)
+# -3 - untested (not used)
+#
+proc vxworks_ld { shell_id prog } { 
+    global shell_prompt
+    global expect_out
+    global logname
+    global passwd
+    global decimal hex
+
+    set timeout 100	;# for this call only
+    set result -7	;# -7 is a local value meaning "not done"
+    set tries 0
+    set maxtries 3
+
+    set prog [vxworks_transform_path $prog]
+
+    if { $passwd != "" } {
+	send -i $shell_id "iam \"$logname\",\"$passwd\"\r"
+    } else {
+	send -i $shell_id "iam \"$logname\"\r"
+    }
+    expect {
+	-i $shell_id "iam*value = 0 = 0x0*$shell_prompt" {
+	    verbose "Set default user." 2
+	}
+	-i $shell_id timeout {
+	    # ??? This is really an error.  It's not clear whether `perror'
+	    # or `warning' should be used here.  There are *lots* of other
+	    # cases like this.
+	    perror "Couldn't set default user."
+	    set result -1
+	}
+    }
+
+    # We always want to exit the program via the code at the end.
+    # If the load fails we want `expect_out' stored in the log and this
+    # saves duplicating that code.
+
+    while { $result == -7 } {
+	verbose "Loading $prog into vxworks."
+	send -i $shell_id "ld < $prog\r"
+	incr tries
+	expect {
+	    -i $shell_id "Login incorrect." {
+		if { $tries == $maxtries } {
+		    perror "Login failed."
+		    set result -1
+		    break
+		}
+		if [string match "" $passwd] {
+		    stty -echo
+		    warning "Login failed for default user"
+		    send_user "Type in password (for $logname) please: "
+		    expect_user -re "(.*)\n"
+		    send_user "\n"
+		    set passwd "$expect_out(1,string)"
+		    stty echo
+		}
+		send -i $shell_id "iam \"$logname\",\"$passwd\"\r"
+		expect {
+		    -i $shell_id "iam*value = 0 = 0x0*$shell_prompt " {
+			verbose "Set new user and password" 2
+		    }
+		    -i $shell_id timeout {
+			perror "Couldn't set user and password (timed out)."
+			set result -1
+		    }
+		}
+	    }
+	    -i $shell_id -re "USER.*command not understood" {
+		perror "Need to set the user and password."
+		set result -1
+	    }
+	    -i $shell_id -re "ld <.*undefined symbol:.*$shell_prompt $" {
+		# This is an error in the testcase, don't call perror.
+		warning "Undefined symbol, $prog not loaded."
+		set result 1
+	    }
+	    -i $shell_id -re "ld <.*can't open input.*$shell_prompt $" {
+		perror "Can't access $prog."
+		set result -1
+	    }
+	    -i $shell_id -re "ld <.*value = ${decimal} = ${hex}.*$shell_prompt $" {
+		verbose "Loaded $prog into vxworks."
+		set result 0
+	    }
+	    -i $shell_id -re "ld <\[^\r\]*\r(.*)$shell_prompt $" {
+		warning "Load failed: $expect_out(1,string)"
+		set result -1
+	    }
+	    -i $shell_id timeout { 
+		warning "Timed out trying load $prog."
+		set result -1
+	    }
+	}
+    }
+    
+    if { $result && [info exists expect_out(buffer)] } {
+	send_log "$expect_out(buffer)"
+    }
+    return $result
+}
+
+#
+# Start a thread (process) executing
+#
+# The result is:
+#  0 - success
+#  1 - failed (eg: testcase aborted)
+# -1 - unresolved (eg: timeout)
+# -2 - unsupported (not used)
+# -3 - untested (not used)
+#
+proc vxworks_spawn { shell_id function } {
+    global shell_prompt
+    global checktask
+
+    # There isn't a command to wait for a thread to finish, so we have to keep
+    # polling.  Bummer.
+
+    set timeout 20	;# for this call only
+
+    send -i $shell_id "sp $function\r"
+    expect {
+	-i $shell_id -re "sp $function.*task spawned:.*name = (\[a-z0-9\]+).*value = (\[0-9\]+).*$shell_prompt $" {
+	    set name $expect_out(1,string)
+	    set value $expect_out(2,string)
+	    verbose "$function running, name $name, value $value"
+	    set tries 0
+	    set maxtries 100	;# Don't hang on testcases with infinite loops.
+	    set result -7	;# "not done"
+	    while { $result == -7 } {
+		# Get the task's frame pointer.
+		# VxWorks will return -1 if the task isn't running.
+		send -i $shell_id "$checktask \"$name\"\r"
+		incr tries
+		expect {
+		    -i $shell_id -re "task $value - aborted.*$shell_prompt $" {
+			# FIXME: It's not clear we'll ever get here.
+			verbose "$function aborted"
+			set result 1
+		    }
+		    -i $shell_id -re ".*AbOrT.*$shell_prompt $" {
+			# This requires support from the environment to
+			# redefine abort() to print this.
+			verbose "$function aborted"
+			set result 1
+		    }
+		    # This is here to try to cope with apparently flaky h/w.
+		    -i $shell_id -re ".*Bus Error.*$" {
+			# This is potentially an error in the testcase,
+			# don't call perror.
+			warning "Bus Error."
+			# Delete the task (it's still around).
+			send -i $shell_id "td $name\r"
+			set result 1
+		    }
+		    -i $shell_id -re "value = \[0-9\]+.*$shell_prompt $" {
+			# Task is still running.
+			if { $tries == $maxtries } {
+			    warning "$function started, won't stop"
+			    set result -1
+			} else {
+			    catch "exec sleep 1"
+			}
+		    }
+		    -i $shell_id -re "value = -1.*$shell_prompt $" {
+			# Task is no longer running.
+			set result 0
+		    }
+		    -i $shell_id timeout { 
+			warning "$function started, can't determine status (timed out)"
+			set result -1
+		    }
+		}
+	    }
+	}
+	-i $shell_id timeout { 
+	    warning "Couldn't run $function (timed out)"
+	    set result -1
+	}
+    }
+
+    if { $result && [info exists expect_out(buffer)] } {
+	send_log "$expect_out(buffer)"
+    }
+    return $result
+}

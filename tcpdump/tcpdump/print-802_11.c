@@ -22,18 +22,14 @@
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-802_11.c,v 1.1.1.1 2002/05/29 00:05:33 landonf Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-802_11.c,v 1.1.1.2 2003/03/17 18:42:16 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <sys/param.h>
-#include <sys/time.h>
-#include <sys/socket.h>
-
-#include <netinet/in.h>
+#include <tcpdump-stdinc.h>
 
 #include <stdio.h>
 #include <pcap.h>
@@ -47,11 +43,17 @@ static const char rcsid[] =
 
 #include "ieee802_11.h"
 
-#define RATEStoBUF(p, buf) \
+#define PRINT_RATES(p) \
 do { \
-	int z = 0; \
-	for (z = 0 ; z < p.rates.length ; z++) \
-		snprintf(buf, sizeof(buf), "%s %2.1f", buf, (.5 * (p.rates.rate[z] & 0x7f))); \
+	int z; \
+	const char *sep = " ["; \
+	for (z = 0; z < p.rates.length ; z++) { \
+		printf("%s%2.1f", sep, (.5 * (p.rates.rate[z] & 0x7f))); \
+		if (p.rates.rate[z] & 0x80) printf("*"); \
+		sep = " "; \
+	} \
+	if (p.rates.length != 0) \
+		printf(" Mbit]"); \
 } while (0)
 
 static const char *auth_alg_text[]={"Open System","Shared Key","EAP"};
@@ -112,7 +114,7 @@ static const char *reason_text[] = {
 	NULL
 };
 
-static int wep_print(const u_char *p,u_int length)
+static int wep_print(const u_char *p)
 {
 	u_int32_t iv;
 
@@ -131,9 +133,7 @@ static int parse_elements(struct mgmt_body_t *pbody,const u_char *p,int offset)
 {
 	for (;;) {
 		if (!TTEST2(*(p + offset), 1))
-			return 0;
-		if (*(p + offset) == 0xff)
-			break;
+			return 1;
 		switch (*(p + offset)) {
 		case E_SSID:
 			if (!TTEST2(*(p+offset), 2))
@@ -211,14 +211,11 @@ static int parse_elements(struct mgmt_body_t *pbody,const u_char *p,int offset)
  * Print Handle functions for the management frame types
  *********************************************************************************/
 
-static int handle_beacon(u_int16_t fc, const struct mgmt_header_t *pmh,
-    const u_char *p)
+static int handle_beacon(u_int16_t fc, const u_char *p)
 {
 	struct mgmt_body_t pbody;
 	int offset = 0;
-	char buf[128];
 
-	memset(buf, 0, sizeof(buf));
 	memset(&pbody, 0, sizeof(pbody));
 
 	if (!TTEST2(*p, 12))
@@ -233,10 +230,11 @@ static int handle_beacon(u_int16_t fc, const struct mgmt_header_t *pmh,
 	if (!parse_elements(&pbody,p,offset))
 		return 0;
 
-	RATEStoBUF(pbody, buf);
-
-	printf("%s (%s) [%s Mbit] %s CH: %x %s",
-	    subtype_text[FC_SUBTYPE(fc)], pbody.ssid.ssid, buf,
+	printf("%s (", subtype_text[FC_SUBTYPE(fc)]);
+	fn_print(pbody.ssid.ssid, NULL);
+	printf(")");
+	PRINT_RATES(pbody);
+	printf(" %s CH: %u%s",
 	    CAPABILITY_ESS(pbody.capability_info) ? "ESS" : "IBSS",
 	    pbody.ds.channel,
 	    CAPABILITY_PRIVACY(pbody.capability_info) ? ", PRIVACY" : "" );
@@ -244,14 +242,11 @@ static int handle_beacon(u_int16_t fc, const struct mgmt_header_t *pmh,
 	return 1;
 }
 
-static int handle_assoc_request(u_int16_t fc, const struct mgmt_header_t *pmh,
-    const u_char *p)
+static int handle_assoc_request(u_int16_t fc, const u_char *p)
 {
 	struct mgmt_body_t pbody;
 	int offset = 0;
-	char buf[128];
 
-	memset(buf, 0, sizeof(buf));
 	memset(&pbody, 0, sizeof(pbody));
 
 	if (!TTEST2(*p, 4))
@@ -264,15 +259,14 @@ static int handle_assoc_request(u_int16_t fc, const struct mgmt_header_t *pmh,
 	if (!parse_elements(&pbody,p,offset))
 		return 0;
 
-	RATEStoBUF(pbody,buf);
-
-	printf("%s (%s) [%s Mbit] ",
-	    subtype_text[FC_SUBTYPE(fc)], pbody.ssid.ssid,buf);
+	printf("%s (", subtype_text[FC_SUBTYPE(fc)]);
+	fn_print(pbody.ssid.ssid, NULL);
+	printf(")");
+	PRINT_RATES(pbody);
 	return 1;
 }
 
-static int handle_assoc_response(u_int16_t fc, const struct mgmt_header_t *pmh,
-    const u_char *p)
+static int handle_assoc_response(u_int16_t fc, const u_char *p)
 {
 	struct mgmt_body_t pbody;
 	int offset = 0;
@@ -291,7 +285,7 @@ static int handle_assoc_response(u_int16_t fc, const struct mgmt_header_t *pmh,
 	if (!parse_elements(&pbody,p,offset))
 		return 0;
 
-	printf("%s AID(%x) :%s: %s   ", subtype_text[FC_SUBTYPE(fc)],
+	printf("%s AID(%x) :%s: %s", subtype_text[FC_SUBTYPE(fc)],
 	    ((u_int16_t)(pbody.aid << 2 )) >> 2 ,
 	    CAPABILITY_PRIVACY(pbody.capability_info) ? " PRIVACY " : "",
 	    (pbody.status_code < 19 ? status_text[pbody.status_code] : "n/a"));
@@ -300,8 +294,7 @@ static int handle_assoc_response(u_int16_t fc, const struct mgmt_header_t *pmh,
 }
 
 
-static int handle_reassoc_request(u_int16_t fc, const struct mgmt_header_t *pmh,
-    const u_char *p)
+static int handle_reassoc_request(u_int16_t fc, const u_char *p)
 {
 	struct mgmt_body_t pbody;
 	int offset = 0;
@@ -320,48 +313,41 @@ static int handle_reassoc_request(u_int16_t fc, const struct mgmt_header_t *pmh,
 	if (!parse_elements(&pbody,p,offset))
 		return 0;
 
-	printf("%s (%s) AP : %s",subtype_text[FC_SUBTYPE(fc)], pbody.ssid.ssid, etheraddr_string( pbody.ap ));
+	printf("%s (", subtype_text[FC_SUBTYPE(fc)]);
+	fn_print(pbody.ssid.ssid, NULL);
+	printf(") AP : %s", etheraddr_string( pbody.ap ));
 
 	return 1;
 }
 
-static int handle_reassoc_response(u_int16_t fc, const struct mgmt_header_t *pmh,
-    const u_char *p)
+static int handle_reassoc_response(u_int16_t fc, const u_char *p)
 {
 	/* Same as a Association Reponse */
-	return handle_assoc_response(fc,pmh,p);
+	return handle_assoc_response(fc, p);
 }
 
-static int handle_probe_request(u_int16_t fc, const struct mgmt_header_t *pmh,
-    const u_char *p)
+static int handle_probe_request(u_int16_t fc, const u_char *p)
 {
 	struct mgmt_body_t  pbody;
 	int offset = 0;
-	char buf[128];
-
-	memset(buf, 0, sizeof(buf));
 
 	memset(&pbody, 0, sizeof(pbody));
 
 	if (!parse_elements(&pbody, p, offset))
 		return 0;
 
-	RATEStoBUF(pbody, buf);
-
-	printf("%s (%s) [%s Mbit] ", subtype_text[FC_SUBTYPE(fc)],
-	    pbody.ssid.ssid,buf);
+	printf("%s (", subtype_text[FC_SUBTYPE(fc)]);
+	fn_print(pbody.ssid.ssid, NULL);
+	printf(")");
+	PRINT_RATES(pbody);
 
 	return 1;
 }
 
-static int handle_probe_response(u_int16_t fc, const struct mgmt_header_t *pmh,
-    const u_char *p)
+static int handle_probe_response(u_int16_t fc, const u_char *p)
 {
 	struct mgmt_body_t  pbody;
 	int offset = 0;
-	char buf[128];
-
-	memset(buf, 0, sizeof(buf));
 
 	memset(&pbody, 0, sizeof(pbody));
 
@@ -377,22 +363,24 @@ static int handle_probe_response(u_int16_t fc, const struct mgmt_header_t *pmh,
 	if (!parse_elements(&pbody, p, offset))
 		return 0;
 
-	printf("%s (%s) CH: %x %s", subtype_text[FC_SUBTYPE(fc)], pbody.ssid.ssid,pbody.ds.channel,
-	    CAPABILITY_PRIVACY(pbody.capability_info) ? ",PRIVACY " : "" );
+	printf("%s (", subtype_text[FC_SUBTYPE(fc)]);
+	fn_print(pbody.ssid.ssid, NULL);
+	printf(") ");
+	PRINT_RATES(pbody);
+	printf(" CH: %u%s", pbody.ds.channel,
+	    CAPABILITY_PRIVACY(pbody.capability_info) ? ", PRIVACY" : "" );
 
 	return 1;
 }
 
-static int handle_atim(u_int16_t fc, const struct mgmt_header_t *pmh,
-    const u_char *p)
+static int handle_atim(void)
 {
 	/* the frame body for ATIM is null. */
 	printf("ATIM");
 	return 1;
 }
 
-static int handle_disassoc(u_int16_t fc, const struct mgmt_header_t *pmh,
-    const u_char *p)
+static int handle_disassoc(u_int16_t fc, const u_char *p)
 {
 	struct mgmt_body_t  pbody;
 	int offset = 0;
@@ -404,14 +392,13 @@ static int handle_disassoc(u_int16_t fc, const struct mgmt_header_t *pmh,
 	pbody.reason_code = EXTRACT_LE_16BITS(p);
 	offset += 2;
 
-	printf("%s: %s ", subtype_text[FC_SUBTYPE(fc)],
+	printf("%s: %s", subtype_text[FC_SUBTYPE(fc)],
 	    pbody.reason_code < 10 ? reason_text[pbody.reason_code] : "Reserved" );
 
 	return 1;
 }
 
-static int handle_auth(u_int16_t fc, const struct mgmt_header_t *pmh,
-    const u_char *p)
+static int handle_auth(u_int16_t fc, const u_char *p)
 {
 	struct mgmt_body_t  pbody;
 	int offset = 0;
@@ -482,36 +469,36 @@ static int handle_deauth(u_int16_t fc, const struct mgmt_header_t *pmh,
 
 
 static int mgmt_body_print(u_int16_t fc, const struct mgmt_header_t *pmh,
-    const u_char *p, u_int length)
+    const u_char *p)
 {
 	switch (FC_SUBTYPE(fc)) {
 	case ST_ASSOC_REQUEST:
-		return (handle_assoc_request(fc, pmh, p));
+		return (handle_assoc_request(fc, p));
 	case ST_ASSOC_RESPONSE:
-		return (handle_assoc_response(fc, pmh, p));
+		return (handle_assoc_response(fc, p));
 	case ST_REASSOC_REQUEST:
-		return (handle_reassoc_request(fc, pmh, p));
+		return (handle_reassoc_request(fc, p));
 	case ST_REASSOC_RESPONSE:
-		return (handle_reassoc_response(fc, pmh, p));
+		return (handle_reassoc_response(fc, p));
 	case ST_PROBE_REQUEST:
-		return (handle_probe_request(fc, pmh, p));
+		return (handle_probe_request(fc, p));
 	case ST_PROBE_RESPONSE:
-		return (handle_probe_response(fc, pmh, p));
+		return (handle_probe_response(fc, p));
 	case ST_BEACON:
-		return (handle_beacon(fc, pmh, p));
+		return (handle_beacon(fc, p));
 	case ST_ATIM:
-		return (handle_atim(fc, pmh, p));
+		return (handle_atim());
 	case ST_DISASSOC:
-		return (handle_disassoc(fc, pmh, p));
+		return (handle_disassoc(fc, p));
 	case ST_AUTH:
 		if (!TTEST2(*p, 3))
 			return 0;
 		if ((p[0] == 0 ) && (p[1] == 0) && (p[2] == 0)) {
 			printf("Authentication (Shared-Key)-3 ");
-			return (wep_print(p, length));
+			return (wep_print(p));
 		}
 		else
-			return (handle_auth(fc, pmh, p));
+			return (handle_auth(fc, p));
 	case ST_DEAUTH:
 		return (handle_deauth(fc, pmh, p));
 		break;
@@ -527,7 +514,7 @@ static int mgmt_body_print(u_int16_t fc, const struct mgmt_header_t *pmh,
  * Handles printing all the control frame types
  *********************************************************************************/
 
-static int ctrl_body_print(u_int16_t fc,const u_char *p, u_int length)
+static int ctrl_body_print(u_int16_t fc, const u_char *p)
 {
 	switch (FC_SUBTYPE(fc)) {
 	case CTRL_PS_POLL:
@@ -603,31 +590,77 @@ static int ctrl_body_print(u_int16_t fc,const u_char *p, u_int length)
  *    1    |  1      |  RA    | TA     | DA     | SA
  */
 
-static void data_header_print(u_int16_t fc,const u_char *p, u_int length)
+static void
+data_header_print(u_int16_t fc, const u_char *p, const u_int8_t **srcp,
+    const u_int8_t **dstp)
 {
+	switch (FC_SUBTYPE(fc)) {
+	case DATA_DATA:
+	case DATA_NODATA:
+		break;
+	case DATA_DATA_CF_ACK:
+	case DATA_NODATA_CF_ACK:
+		printf("CF Ack ");
+		break;
+	case DATA_DATA_CF_POLL:
+	case DATA_NODATA_CF_POLL:
+		printf("CF Poll ");
+		break;
+	case DATA_DATA_CF_ACK_POLL:
+	case DATA_NODATA_CF_ACK_POLL:
+		printf("CF Ack/Poll ");
+		break;
+	}
+
 #define ADDR1  (p + 4)
 #define ADDR2  (p + 10)
 #define ADDR3  (p + 16)
 #define ADDR4  (p + 24)
 
 	if (!FC_TO_DS(fc)) {
-		if (!FC_FROM_DS(fc))
+		if (!FC_FROM_DS(fc)) {
+			if (srcp != NULL)
+				*srcp = ADDR2;
+			if (dstp != NULL)
+				*dstp = ADDR1;
+			if (!eflag)
+				return;
 			printf("DA:%s SA:%s BSSID:%s ",
 			    etheraddr_string(ADDR1), etheraddr_string(ADDR2),
 			    etheraddr_string(ADDR3));
-		else
+		} else {
+			if (srcp != NULL)
+				*srcp = ADDR3;
+			if (dstp != NULL)
+				*dstp = ADDR1;
+			if (!eflag)
+				return;
 			printf("DA:%s BSSID:%s SA:%s ",
 			    etheraddr_string(ADDR1), etheraddr_string(ADDR2),
 			    etheraddr_string(ADDR3));
+		}
 	} else {
-		if (!FC_FROM_DS(fc))
+		if (!FC_FROM_DS(fc)) {
+			if (srcp != NULL)
+				*srcp = ADDR2;
+			if (dstp != NULL)
+				*dstp = ADDR3;
+			if (!eflag)
+				return;
 			printf("BSSID:%s SA:%s DA:%s ",
 			    etheraddr_string(ADDR1), etheraddr_string(ADDR2),
 			    etheraddr_string(ADDR3));
-		else
+		} else {
+			if (srcp != NULL)
+				*srcp = ADDR4;
+			if (dstp != NULL)
+				*dstp = ADDR3;
+			if (!eflag)
+				return;
 			printf("RA:%s TA:%s DA:%s SA:%s ",
 			    etheraddr_string(ADDR1), etheraddr_string(ADDR2),
 			    etheraddr_string(ADDR3), etheraddr_string(ADDR4));
+		}
 	}
 
 #undef ADDR1
@@ -637,17 +670,35 @@ static void data_header_print(u_int16_t fc,const u_char *p, u_int length)
 }
 
 
-static void mgmt_header_print(const u_char *p, u_int length)
+static void
+mgmt_header_print(const u_char *p, const u_int8_t **srcp,
+    const u_int8_t **dstp)
 {
 	const struct mgmt_header_t *hp = (const struct mgmt_header_t *) p;
+
+	if (srcp != NULL)
+		*srcp = hp->sa;
+	if (dstp != NULL)
+		*dstp = hp->da;
+	if (!eflag)
+		return;
 
 	printf("BSSID:%s DA:%s SA:%s ",
 	    etheraddr_string((hp)->bssid), etheraddr_string((hp)->da),
 	    etheraddr_string((hp)->sa));
 }
 
-static void ctrl_header_print(u_int16_t fc,const u_char *p, u_int length)
+static void
+ctrl_header_print(u_int16_t fc, const u_char *p, const u_int8_t **srcp,
+    const u_int8_t **dstp)
 {
+	if (srcp != NULL)
+		*srcp = NULL;
+	if (dstp != NULL)
+		*dstp = NULL;
+	if (!eflag)
+		return;
+
 	switch (FC_SUBTYPE(fc)) {
 	case CTRL_PS_POLL:
 		printf("BSSID:%s TA:%s ",
@@ -679,6 +730,7 @@ static void ctrl_header_print(u_int16_t fc,const u_char *p, u_int length)
 		break;
 	default:
 		printf("(H) Unknown Ctrl Subtype");
+		break;
 	}
 }
 
@@ -731,107 +783,114 @@ static int GetHeaderLength(u_int16_t fc)
 }
 
 /*
- * Print the 802.11 MAC header
+ * Print the 802.11 MAC header if eflag is set, and set "*srcp" and "*dstp"
+ * to point to the source and destination MAC addresses in any case if
+ * "srcp" and "dstp" aren't null.
  */
 static inline void
-ieee_802_11_print(u_int16_t fc, const u_char *p, u_int length)
+ieee_802_11_hdr_print(u_int16_t fc, const u_char *p, const u_int8_t **srcp,
+    const u_int8_t **dstp)
 {
+	if (vflag) {
+		if (FC_MORE_DATA(fc))
+			printf("More Data ");
+		if (FC_MORE_FLAG(fc))
+			printf("More Fragments ");
+		if (FC_POWER_MGMT(fc))
+			printf("Pwr Mgmt ");
+		if (FC_RETRY(fc))
+			printf("Retry ");
+		if (FC_ORDER(fc))
+			printf("Strictly Ordered ");
+		if (FC_WEP(fc))
+			printf("WEP Encrypted ");
+	}
+
 	switch (FC_TYPE(fc)) {
 	case T_MGMT:
-		mgmt_header_print(p, length);
+		mgmt_header_print(p, srcp, dstp);
 		break;
 
 	case T_CTRL:
-		ctrl_header_print(fc, p, length);
+		ctrl_header_print(fc, p, srcp, dstp);
 		break;
 
 	case T_DATA:
-		data_header_print(fc, p, length);
+		data_header_print(fc, p, srcp, dstp);
 		break;
 
 	default:
 		printf("(header) unknown IEEE802.11 frame type (%d)",
 		    FC_TYPE(fc));
+		*srcp = NULL;
+		*dstp = NULL;
 		break;
 	}
 }
 
-/*
- * This is the top level routine of the printer.  'p' is the points
- * to the ether header of the packet, 'h->tv' is the timestamp,
- * 'h->length' is the length of the packet off the wire, and 'h->caplen'
- * is the number of bytes actually captured.
- */
-void
-ieee802_11_if_print(u_char *user, const struct pcap_pkthdr *h, const u_char *p)
+static u_int
+ieee802_11_print(const u_char *p, u_int length, u_int caplen)
 {
-	u_int caplen = h->caplen;
-	u_int length = h->len;
 	u_int16_t fc;
 	u_int HEADER_LENGTH;
+	const u_int8_t *src, *dst;
 	u_short extracted_ethertype;
-
-	++infodelay;
-	ts_print(&h->ts);
 
 	if (caplen < IEEE802_11_FC_LEN) {
 		printf("[|802.11]");
-		goto out;
+		return caplen;
 	}
 
-	fc=EXTRACT_LE_16BITS(p);
+	fc = EXTRACT_LE_16BITS(p);
+	HEADER_LENGTH = GetHeaderLength(fc);
 
-	if (eflag)
-		ieee_802_11_print(fc, p, length);
+	if (caplen < HEADER_LENGTH) {
+		printf("[|802.11]");
+		return HEADER_LENGTH;
+	}
+
+	ieee_802_11_hdr_print(fc, p, &src, &dst);
 
 	/*
-	 * Some printers want to get back at the ethernet addresses,
-	 * and/or check that they're not walking off the end of the packet.
-	 * Rather than pass them all the way down, we set these globals.
+	 * Go past the 802.11 header.
 	 */
-	packetp = p;
-	snapend = p + caplen;
-
-	HEADER_LENGTH=GetHeaderLength(fc);
-
 	length -= HEADER_LENGTH;
 	caplen -= HEADER_LENGTH;
 	p += HEADER_LENGTH;
 
 	switch (FC_TYPE(fc)) {
 	case T_MGMT:
-		if (!mgmt_body_print(fc, (const struct mgmt_header_t *)packetp,
-		    p, length)) {
+		if (!mgmt_body_print(fc,
+		    (const struct mgmt_header_t *)(p - HEADER_LENGTH), p)) {
 			printf("[|802.11]");
-			goto out;
+			return HEADER_LENGTH;
 		}
 		break;
 
 	case T_CTRL:
-		if (!ctrl_body_print(fc, p - HEADER_LENGTH,
-		    length + HEADER_LENGTH)) {
+		if (!ctrl_body_print(fc, p - HEADER_LENGTH)) {
 			printf("[|802.11]");
-			goto out;
+			return HEADER_LENGTH;
 		}
 		break;
 
 	case T_DATA:
 		/* There may be a problem w/ AP not having this bit set */
- 		if (FC_WEP(fc)) {
-			if (!wep_print(p,length)) {
+		if (FC_WEP(fc)) {
+			if (!wep_print(p)) {
 				printf("[|802.11]");
-				goto out;
+				return HEADER_LENGTH;
 			}
 		} else {
-			if (llc_print(p, length, caplen, packetp + 10,
-			    packetp + 4, &extracted_ethertype) == 0) {
+			if (llc_print(p, length, caplen, dst, src,
+			    &extracted_ethertype) == 0) {
 				/*
 				 * Some kinds of LLC packet we cannot
 				 * handle intelligently
 				 */
 				if (!eflag)
-					ieee_802_11_print(fc, p - HEADER_LENGTH,
-					    length + HEADER_LENGTH);
+					ieee_802_11_hdr_print(fc, p - HEADER_LENGTH,
+					    NULL, NULL);
 				if (extracted_ethertype) {
 					printf("(LLC %s) ",
 					    etherproto_string(htons(extracted_ethertype)));
@@ -848,11 +907,103 @@ ieee802_11_if_print(u_char *user, const struct pcap_pkthdr *h, const u_char *p)
 		break;
 	}
 
-	if (xflag)
-		default_print(p, caplen);
- out:
-	putchar('\n');
-	--infodelay;
-	if (infoprint)
-		info(0);
+	return HEADER_LENGTH;
+}
+
+/*
+ * This is the top level routine of the printer.  'p' points
+ * to the 802.11 header of the packet, 'h->ts' is the timestamp,
+ * 'h->length' is the length of the packet off the wire, and 'h->caplen'
+ * is the number of bytes actually captured.
+ */
+u_int
+ieee802_11_if_print(const struct pcap_pkthdr *h, const u_char *p)
+{
+	return ieee802_11_print(p, h->len, h->caplen);
+}
+
+static u_int
+ieee802_11_radio_print(const u_char *p, u_int length, u_int caplen)
+{
+	u_int32_t caphdr_len;
+
+	caphdr_len = EXTRACT_32BITS(p + 4);
+	if (caphdr_len < 8) {
+		/*
+		 * Yow!  The capture header length is claimed not
+		 * to be large enough to include even the version
+		 * cookie or capture header length!
+		 */
+		printf("[|802.11]");
+		return caplen;
+	}
+
+	if (caplen < caphdr_len) {
+		printf("[|802.11]");
+		return caplen;
+	}
+
+	return caphdr_len + ieee802_11_print(p + caphdr_len,
+	    length - caphdr_len, caplen - caphdr_len);
+}
+
+#define PRISM_HDR_LEN		144
+
+#define WLANCAP_MAGIC_COOKIE_V1	0x80211001
+
+/*
+ * For DLT_PRISM_HEADER; like DLT_IEEE802_11, but with an extra header,
+ * containing information such as radio information, which we
+ * currently ignore.
+ *
+ * If, however, the packet begins with WLANCAP_MAGIC_COOKIE_V1, it's
+ * really DLT_IEEE802_11_RADIO (currently, on Linux, there's no
+ * ARPHRD_ type for DLT_IEEE802_11_RADIO, as there is a
+ * ARPHRD_IEEE80211_PRISM for DLT_PRISM_HEADER, so
+ * ARPHRD_IEEE80211_PRISM is used for DLT_IEEE802_11_RADIO, and
+ * the first 4 bytes of the header are used to indicate which it is).
+ */
+u_int
+prism_if_print(const struct pcap_pkthdr *h, const u_char *p)
+{
+	u_int caplen = h->caplen;
+	u_int length = h->len;
+	u_int32_t msgcode;
+
+	if (caplen < 4) {
+		printf("[|802.11]");
+		return caplen;
+	}
+
+	msgcode = EXTRACT_32BITS(p);
+	if (msgcode == WLANCAP_MAGIC_COOKIE_V1)
+		return ieee802_11_radio_print(p, length, caplen);
+	else {
+		if (caplen < PRISM_HDR_LEN) {
+			printf("[|802.11]");
+			return caplen;
+		}
+
+		return PRISM_HDR_LEN + ieee802_11_print(p + PRISM_HDR_LEN,
+		    length - PRISM_HDR_LEN, caplen - PRISM_HDR_LEN);
+	}
+}
+
+/*
+ * For DLT_IEEE802_11_RADIO; like DLT_IEEE802_11, but with an extra
+ * header, containing information such as radio information, which we
+ * currently ignore.
+ */
+u_int
+ieee802_11_radio_if_print(const struct pcap_pkthdr *h, const u_char *p)
+{
+	u_int caplen = h->caplen;
+	u_int length = h->len;
+
+	if (caplen < 8) {
+		printf("[|802.11]");
+		return caplen;
+	}
+
+	return ieee802_11_radio_print(p, length, caplen);
 }

@@ -127,11 +127,11 @@ enum
 };
 
 enum {
-    kAuthorizationPluginInterfaceVersion = 0,
+    kAuthorizationPluginInterfaceVersion = 0
 };
 
 enum {
-    kAuthorizationCallbacksVersion = 0,
+    kAuthorizationCallbacksVersion = 0
 };
 
 

@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: mount_fs.c,v 1.1.1.1 2002/05/15 01:22:21 jkh Exp $
+ * $Id: mount_fs.c,v 1.2 2003/07/15 23:50:20 rbraun Exp $
  *
  */
 
@@ -106,7 +106,9 @@ struct opt_tab mnt_flags[] =
 
   /*
    * Do not define MNT2_NFS_OPT_* entries here!  This is for generic
-   * mount(2) options only, not for NFS mount options.
+   * mount(2) options only, not for NFS mount options.  If you need to put
+   * something here, it's probably not the right place: see
+   * include/am_compat.h.
    */
 
   {0, 0}
@@ -142,6 +144,10 @@ compute_mount_flags(mntent_t *mntp)
 #endif /* defined(MNT2_GEN_OVERLAY) && defined(MNTOPT_OVERLAY) */
 #endif
 
+#ifdef MNT_AUTOMOUNTED
+  flags |= MNT_AUTOMOUNTED;
+#endif
+
   /*
    * Crack basic mount options
    */
@@ -166,12 +172,23 @@ compute_automounter_mount_flags(mntent_t *mntp)
   flags |= MNT2_GEN_OPT_AUTOMNTFS;
 #endif /* not MNT2_GEN_OPT_AUTOMNTFS */
 
+#ifdef MNT_AUTOMOUNTED
+  flags |= MNT_AUTOMOUNTED;
+#endif
+
   return flags;
 }
 
 
 int
 mount_fs(mntent_t *mnt, int flags, caddr_t mnt_data, int retry, MTYPE_TYPE type, u_long nfs_version, const char *nfs_proto, const char *mnttabname)
+{
+  return mount_fs2(mnt, mnt->mnt_dir, flags, mnt_data, retry, type, nfs_version, nfs_proto, mnttabname);
+}
+
+
+int
+mount_fs2(mntent_t *mnt, char *real_mntdir, int flags, caddr_t mnt_data, int retry, MTYPE_TYPE type, u_long nfs_version, const char *nfs_proto, const char *mnttabname)
 {
   int error = 0;
 #ifdef MOUNT_TABLE_ON_FILE
@@ -184,8 +201,13 @@ mount_fs(mntent_t *mnt, int flags, caddr_t mnt_data, int retry, MTYPE_TYPE type,
 # endif /* defined(MNTTAB_OPT_DEV) || (defined(HAVE_FS_NFS3) && defined(MNTTAB_OPT_VERS)) || defined(MNTTAB_OPT_PROTO) */
 #endif /* MOUNT_TABLE_ON_FILE */
 
+  char *old_mnt_dir;
+
+  old_mnt_dir = mnt->mnt_dir;
+  mnt->mnt_dir = real_mntdir;
+
   amuDebug(D_FULL) {
-    dlog("%s fstype " MTYPE_PRINTF_TYPE " (%s) flags %#x (%s)",
+    dlog("'%s' fstype " MTYPE_PRINTF_TYPE " (%s) flags %#x (%s)",
 	 mnt->mnt_dir, type, mnt->mnt_type, flags, mnt->mnt_opts);
   }
 
@@ -211,9 +233,9 @@ again:
        */
       errno = mkdirs(mnt->mnt_dir, 0555);
       if (errno != 0 && errno != EEXIST)
-	plog(XLOG_ERROR, "%s: mkdirs: %m", mnt->mnt_dir);
+	plog(XLOG_ERROR, "'%s': mkdirs: %m", mnt->mnt_dir);
       else {
-	plog(XLOG_WARNING, "extra mkdirs required for %s",
+	plog(XLOG_WARNING, "extra mkdirs required for '%s'",
 	     mnt->mnt_dir);
 	error = MOUNT_TRAP(type, mnt, flags, mnt_data);
       }
@@ -224,11 +246,11 @@ again:
        * points around which need to be removed before we
        * can mount something new in their place.
        */
-      errno = umount_fs(mnt->mnt_dir, mnttabname);
+      errno = umount_fs2(old_mnt_dir, mnt->mnt_dir, mnttabname);
       if (errno != 0)
-	plog(XLOG_ERROR, "%s: umount: %m", mnt->mnt_dir);
+	plog(XLOG_ERROR, "'%s': umount: %m", mnt->mnt_dir);
       else {
-	plog(XLOG_WARNING, "extra umount required for %s",
+	plog(XLOG_WARNING, "extra umount required for '%s'",
 	     mnt->mnt_dir);
 	error = MOUNT_TRAP(type, mnt, flags, mnt_data);
       }
@@ -267,6 +289,8 @@ again:
     append_opts(zopts, optsbuf);
   }
 # endif /* MNTTAB_OPT_DEV */
+
+  mnt->mnt_dir = old_mnt_dir;
 
 # if defined(HAVE_FS_NFS3) && defined(MNTTAB_OPT_VERS)
   /*
@@ -347,11 +371,7 @@ again:
  * fs_name:	remote file system name to mount
  */
 void
-#ifdef HAVE_TRANSPORT_TYPE_TLI
 compute_nfs_args(nfs_args_t *nap, mntent_t *mntp, int genflags, struct netconfig *nfsncp, struct sockaddr_in *ip_addr, u_long nfs_version, char *nfs_proto, am_nfs_handle_t *fhp, char *host_name, char *fs_name)
-#else /* not HAVE_TRANSPORT_TYPE_TLI */
-compute_nfs_args(nfs_args_t *nap, mntent_t *mntp, int genflags, struct sockaddr_in *ip_addr, u_long nfs_version, char *nfs_proto, am_nfs_handle_t *fhp, char *host_name, char *fs_name)
-#endif /* not HAVE_TRANSPORT_TYPE_TLI */
 {
   int acval = 0;
 #ifdef HAVE_FS_NFS3
@@ -601,12 +621,16 @@ compute_nfs_args(nfs_args_t *nap, mntent_t *mntp, int genflags, struct sockaddr_
   if (nap->rsize)
     nap->flags |= MNT2_NFS_OPT_RSIZE;
 #endif /* MNT2_NFS_OPT_RSIZE */
+  if (nfs_version == NFS_VERSION && nap->rsize > 8192)
+    nap->rsize = 8192;
 
   nap->wsize = hasmntval(mntp, MNTTAB_OPT_WSIZE);
 #ifdef MNT2_NFS_OPT_WSIZE
   if (nap->wsize)
     nap->flags |= MNT2_NFS_OPT_WSIZE;
 #endif /* MNT2_NFS_OPT_WSIZE */
+  if (nfs_version == NFS_VERSION && nap->wsize > 8192)
+    nap->wsize = 8192;
 
   nap->timeo = hasmntval(mntp, MNTTAB_OPT_TIMEO);
 #ifdef MNT2_NFS_OPT_TIMEO
@@ -716,6 +740,11 @@ compute_nfs_args(nfs_args_t *nap, mntent_t *mntp, int genflags, struct sockaddr_
   if (hasmntopt(mntp, MNTTAB_OPT_NOLOCK) != NULL)
     nap->flags |= MNT2_NFS_OPT_NONLM;
 #endif /* defined(MNT2_NFS_OPT_NONLM) && defined(MNTTAB_OPT_NOLOCK) */
+
+#if defined(MNT2_NFS_OPT_XLATECOOKIE) && defined(MNTTAB_OPT_XLATECOOKIE)
+  if (hasmntopt(mntp, MNTTAB_OPT_XLATECOOKIE) != NULL)
+    nap->flags |= MNT2_NFS_OPT_XLATECOOKIE;
+#endif /* defined(MNT2_NFS_OPT_XLATECOOKIE) && defined(MNTTAB_OPT_XLATECOOKIE) */
 
 #ifdef HAVE_NFS_ARGS_T_OPTSTR
   nap->optstr = mntp->mnt_opts;

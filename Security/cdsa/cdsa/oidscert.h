@@ -61,13 +61,15 @@ extern const CSSM_OID
 	CSSMOID_X509V3CertificateCStruct,
 	CSSMOID_X509V1Version,
 	CSSMOID_X509V1SerialNumber,
-	CSSMOID_X509V1IssuerName,
-	CSSMOID_X509V1IssuerNameCStruct,
+	CSSMOID_X509V1IssuerName,			// normalized & encoded
+	CSSMOID_X509V1IssuerNameStd,		// encoded
+	CSSMOID_X509V1IssuerNameCStruct,	// CSSM_X509_NAME
 	CSSMOID_X509V1IssuerNameLDAP,
 	CSSMOID_X509V1ValidityNotBefore,
 	CSSMOID_X509V1ValidityNotAfter,
-	CSSMOID_X509V1SubjectName,
-	CSSMOID_X509V1SubjectNameCStruct,
+	CSSMOID_X509V1SubjectName,			// normalized & encoded
+	CSSMOID_X509V1SubjectNameStd,		// encoded
+	CSSMOID_X509V1SubjectNameCStruct,	// CSSM_X509_NAME
 	CSSMOID_X509V1SubjectNameLDAP,
 	CSSMOID_CSSMKeyStruct,
 	CSSMOID_X509V1SubjectPublicKeyCStruct,
@@ -105,13 +107,13 @@ extern const CSSM_OID
  ***/
  
 /* 
- * Standard Cert extensions.
+ * Standard Cert and CRL extensions.
  */
 extern const CSSM_OID
 	CSSMOID_SubjectDirectoryAttributes,
 	CSSMOID_SubjectKeyIdentifier,
 	CSSMOID_KeyUsage,
-	CSSMOID_PrivateKeyUsagePeriod ,
+	CSSMOID_PrivateKeyUsagePeriod,
 	CSSMOID_SubjectAltName,
 	CSSMOID_IssuerAltName,
 	CSSMOID_BasicConstraints,
@@ -120,7 +122,9 @@ extern const CSSM_OID
 	CSSMOID_HoldInstructionCode,
 	CSSMOID_InvalidityDate,
 	CSSMOID_DeltaCrlIndicator,
+	CSSMOID_IssuingDistributionPoint,
 	CSSMOID_IssuingDistributionPoints,
+	CSSMOID_CertIssuer,
 	CSSMOID_NameConstraints,
 	CSSMOID_CrlDistributionPoints,
 	CSSMOID_CertificatePolicies,
@@ -128,8 +132,14 @@ extern const CSSM_OID
 	CSSMOID_PolicyConstraints,
 	CSSMOID_AuthorityKeyIdentifier,
 	CSSMOID_ExtendedKeyUsage,
-	CSSMOID_ExtendedUseCodeSigning;
-
+	CSSMOID_ExtendedKeyUsageAny,
+	CSSMOID_ServerAuth,
+	CSSMOID_ClientAuth,
+	CSSMOID_ExtendedUseCodeSigning,
+	CSSMOID_EmailProtection,
+	CSSMOID_TimeStamping,
+	CSSMOID_OCSPSigning;
+	
 /*
  * Netscape extensions.
  */

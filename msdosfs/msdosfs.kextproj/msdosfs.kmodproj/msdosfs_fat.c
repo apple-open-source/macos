@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -187,12 +190,13 @@ fatblock(pmp, ofs, bnp, sizep, bop)
  *  If cnp is null, nothing is returned.
  */
 int
-pcbmap(dep, findcn, bnp, cnp, sp)
+pcbmap(dep, findcn, numclusters, bnp, cnp, sp)
 	struct denode *dep;
 	u_long findcn;		/* file relative cluster to get		 */
+        u_long numclusters;	/* maximum number of contiguous clusters to map */
 	daddr_t *bnp;		/* returned filesys relative blk number	 */
 	u_long *cnp;		/* returned cluster number		 */
-	int *sp;		/* returned block size			 */
+	u_long *sp;		/* returned block size			 */
 {
 	int error;
 	u_long i;
@@ -207,6 +211,9 @@ pcbmap(dep, findcn, bnp, cnp, sp)
 	u_long bsize;
 
 	fc_bmapcalls++;
+
+        if (numclusters == 0)
+            panic("pcbmap: numclusters == 0");
 
 	/*
 	 * If they don't give us someplace to return a value then don't
@@ -301,17 +308,57 @@ pcbmap(dep, findcn, bnp, cnp, sp)
 		if ((cn | ~pmp->pm_fatmask) >= CLUST_RSRVD)
 			cn |= ~pmp->pm_fatmask;
 	}
+        
+        if ((cn | ~pmp->pm_fatmask) >= CLUST_RSRVD)
+            goto hiteof;
 
-	if (!MSDOSFSEOF(pmp, cn)) {
-		if (bp)
-			brelse(bp);
-		if (bnp)
-			*bnp = cntobn(pmp, cn);
-		if (cnp)
-			*cnp = cn;
-		fc_setcache(dep, FC_LASTMAP, i, cn);
-		return (0);
-	}
+        /*
+         * Return the block and cluster of the start of the range.
+         */
+        if (bnp)
+                *bnp = cntobn(pmp, cn);
+        if (cnp)
+                *cnp = cn;
+
+        /*
+        * See how many clusters are contiguous, up to numclusters.
+        */
+        for ( ; i < findcn + numclusters - 1; ++i) {
+                byteoffset = FATOFS(pmp, cn);
+                fatblock(pmp, byteoffset, &bn, &bsize, &bo);
+                if (bn != bp_bn) {
+                        if (bp)
+                                brelse(bp);
+                        error = meta_bread(pmp->pm_devvp, bn, bsize, NOCRED, &bp);
+                        if (error) {
+                                brelse(bp);
+                                return (error);
+                        }
+                        bp_bn = bn;
+                }
+                prevcn = cn;
+                if (FAT32(pmp))
+                        cn = getulong(&bp->b_data[bo]);
+                else
+                        cn = getushort(&bp->b_data[bo]);
+                if (FAT12(pmp) && (prevcn & 1))
+                        cn >>= 4;
+                cn &= pmp->pm_fatmask;
+                
+                if (cn != prevcn+1) {
+                    cn = prevcn;
+                    break;
+                }
+        }
+        
+        if (sp)
+            *sp = (i - findcn + 1) * pmp->pm_bpcluster;
+
+        fc_setcache(dep, FC_LASTMAP, i, cn);
+        
+        if (bp)
+                brelse(bp);
+        return 0;
 
 hiteof:;
 	if (cnp)
@@ -396,22 +443,6 @@ updatefats(pmp, bp, fatbn)
 	 * If we have an FSInfo block, update it.
 	 */
 	if (pmp->pm_fsinfo) {
-		u_long cn = pmp->pm_nxtfree;
-
-		if (pmp->pm_freeclustercount
-		    && (pmp->pm_inusemap[cn / N_INUSEBITS]
-			& (1 << (cn % N_INUSEBITS)))) {
-			/*
-			 * The cluster indicated in FSInfo isn't free
-			 * any longer.  Got get a new free one.
-			 */
-			for (cn = 0; cn < pmp->pm_maxcluster; cn += N_INUSEBITS)
-				if (pmp->pm_inusemap[cn / N_INUSEBITS] != (u_int)-1)
-					break;
-			pmp->pm_nxtfree = cn
-				+ ffs(pmp->pm_inusemap[cn / N_INUSEBITS]
-				      ^ (u_int)-1) - 1;
-		}
                 /*
                  * [2734381] The FSInfo sector occupies pm_BytesPerSec bytes on disk,
                  * but only 512 of those have meaningful contents.  There's no point
@@ -429,7 +460,8 @@ updatefats(pmp, bp, fatbn)
 			struct fsinfo *fp = (struct fsinfo *)bpn->b_data;
 
 			putulong(fp->fsinfree, pmp->pm_freeclustercount);
-			putulong(fp->fsinxtfree, pmp->pm_nxtfree);
+                        /* If we ever start using pmp->pm_nxtfree, then we should update it on disk: */
+			/* putulong(fp->fsinxtfree, pmp->pm_nxtfree); */
 			if (pmp->pm_flags & MSDOSFSMNT_WAITONFAT)
 				bwrite(bpn);
 			else
@@ -1056,7 +1088,7 @@ extendfile(dep, count)
     if (dep->de_fc[FC_LASTFC].fc_frcn == FCE_EMPTY &&
         dep->de_StartCluster != 0) {
         fc_lfcempty++;
-        error = pcbmap(dep, 0xffff, 0, &cn, 0);
+        error = pcbmap(dep, 0xffff, 1, NULL, &cn, NULL);
         /* we expect it to return E2BIG */
         if (error != E2BIG)
             return (error);

@@ -65,6 +65,22 @@ public:
 	operator bool() const		{ return DLHandle && DBHandle; }
 };
 
+inline bool operator < (const CSSM_DL_DB_HANDLE &h1, const CSSM_DL_DB_HANDLE &h2)
+{
+	return h1.DLHandle < h2.DLHandle
+		|| (h1.DLHandle == h2.DLHandle && h1.DBHandle < h2.DBHandle);
+}
+
+inline bool operator == (const CSSM_DL_DB_HANDLE &h1, const CSSM_DL_DB_HANDLE &h2)
+{
+	return h1.DLHandle == h2.DLHandle && h1.DBHandle == h2.DBHandle;
+}
+
+inline bool operator != (const CSSM_DL_DB_HANDLE &h1, const CSSM_DL_DB_HANDLE &h2)
+{
+	return h1.DLHandle != h2.DLHandle || h1.DBHandle != h2.DBHandle;
+}
+
 
 class CssmDlDbList : public PodWrapper<CssmDlDbList, CSSM_DL_DB_LIST> {
 public:

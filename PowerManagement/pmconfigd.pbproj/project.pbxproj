@@ -39,6 +39,7 @@
 				014CEA520018CE5811CA2923,
 				014CEA530018CE5811CA2923,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 08FB7794FE84155DC02AAC07;
 			projectDirPath = "";
@@ -61,12 +62,18 @@
 		};
 		08FB7795FE84155DC02AAC07 = {
 			children = (
+				A999C3F40450D9290018C661,
+				A999C3F50450D9290018C661,
+				A9E20B7B03EB129200CA28D7,
+				A9E20B7C03EB129200CA28D7,
 				40BE9CF2031ECBBC0ACA28D7,
 				40BE9CF3031ECBBC0ACA28D7,
 				40BE9CF4031ECBBC0ACA28D7,
 				40BE9CF5031ECBBC0ACA28D7,
 				40BE9CF6031ECBBC0ACA28D7,
 				40BE9CF7031ECBBC0ACA28D7,
+				A9FD4B72047C482B00FA82A6,
+				A9FD4B73047C482B00FA82A6,
 				40D4F0DB01F4A1F40ACA2928,
 			);
 			isa = PBXGroup;
@@ -176,7 +183,6 @@
 			productInstallPath = /usr/bin;
 			productName = pmset;
 			productReference = 40882BAE019747EA0ACA2928;
-			shouldUseHeadermap = 0;
 		};
 		40882BB0019747EA0ACA2928 = {
 			buildActionMask = 2147483647;
@@ -271,25 +277,27 @@
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.SystemConfiguration.PowerManagement</string>
 	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.31</string>
+	<string>6.49</string>
 	<key>CFBundleName</key>
 	<string>PowerManagement configd plugin</string>
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>6.31.3</string>
+	<string>6.49.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>6.31.3</string>
+	<string>6.49.0</string>
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 0;
 		};
 		409C6E8901A064020ACA2928 = {
 			buildActionMask = 2147483647;
 			files = (
+				A9E20B7E03EB129200CA28D7,
+				A999C3F70450D9290018C661,
+				A9FD4B75047C482B00FA82A6,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -308,6 +316,9 @@
 				40BE9CFB031ECC0B0ACA28D7,
 				40BE9CFC031ECC0B0ACA28D7,
 				40BE9CFD031ECC0B0ACA28D7,
+				A9E20B7D03EB129200CA28D7,
+				A999C3F60450D9290018C661,
+				A9FD4B74047C482B00FA82A6,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -365,7 +376,6 @@
 			isa = PBXAggregateTarget;
 			name = All;
 			productName = All;
-			shouldUseHeadermap = 0;
 		};
 		409C6E9A01A0B1A80ACA2928 = {
 			isa = PBXTargetDependency;
@@ -376,36 +386,42 @@
 			target = 409C6E8801A064020ACA2928;
 		};
 		40BE9CF2031ECBBC0ACA28D7 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = BatteryTimeRemaining.c;
 			path = pmconfigd/BatteryTimeRemaining.c;
 			refType = 2;
 		};
 		40BE9CF3031ECBBC0ACA28D7 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = BatteryTimeRemaining.h;
 			path = pmconfigd/BatteryTimeRemaining.h;
 			refType = 2;
 		};
 		40BE9CF4031ECBBC0ACA28D7 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = PMSettings.c;
 			path = pmconfigd/PMSettings.c;
 			refType = 2;
 		};
 		40BE9CF5031ECBBC0ACA28D7 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = PMSettings.h;
 			path = pmconfigd/PMSettings.h;
 			refType = 2;
 		};
 		40BE9CF6031ECBBC0ACA28D7 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = PSLowPower.c;
 			path = pmconfigd/PSLowPower.c;
 			refType = 2;
 		};
 		40BE9CF7031ECBBC0ACA28D7 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = PSLowPower.h;
 			path = pmconfigd/PSLowPower.h;
@@ -430,18 +446,21 @@
 			};
 		};
 		40D4F0DB01F4A1F40ACA2928 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = pmconfigd.c;
 			path = pmconfigd/pmconfigd.c;
 			refType = 2;
 		};
 		40D4F0DC01F4A1F40ACA2928 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = pmset.c;
 			path = pmset/pmset.c;
 			refType = 2;
 		};
 		40D4F0DD01F4A1F40ACA2928 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			name = pmset.1;
 			path = pmset/pmset.1;
@@ -465,6 +484,94 @@
 		};
 		40D4F0E101F4A21A0ACA2928 = {
 			fileRef = 40D4F0DD01F4A1F40ACA2928;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//400
+//401
+//402
+//403
+//404
+//A90
+//A91
+//A92
+//A93
+//A94
+		A999C3F40450D9290018C661 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = RepeatingAutoWake.c;
+			path = pmconfigd/RepeatingAutoWake.c;
+			refType = 2;
+		};
+		A999C3F50450D9290018C661 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = RepeatingAutoWake.h;
+			path = pmconfigd/RepeatingAutoWake.h;
+			refType = 2;
+		};
+		A999C3F60450D9290018C661 = {
+			fileRef = A999C3F40450D9290018C661;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A999C3F70450D9290018C661 = {
+			fileRef = A999C3F50450D9290018C661;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A9E20B7B03EB129200CA28D7 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = AutoWakeScheduler.c;
+			path = pmconfigd/AutoWakeScheduler.c;
+			refType = 4;
+		};
+		A9E20B7C03EB129200CA28D7 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = AutoWakeScheduler.h;
+			path = pmconfigd/AutoWakeScheduler.h;
+			refType = 4;
+		};
+		A9E20B7D03EB129200CA28D7 = {
+			fileRef = A9E20B7B03EB129200CA28D7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A9E20B7E03EB129200CA28D7 = {
+			fileRef = A9E20B7C03EB129200CA28D7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A9FD4B72047C482B00FA82A6 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = PrivateLib.c;
+			path = pmconfigd/PrivateLib.c;
+			refType = 4;
+		};
+		A9FD4B73047C482B00FA82A6 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			name = PrivateLib.h;
+			path = pmconfigd/PrivateLib.h;
+			refType = 4;
+		};
+		A9FD4B74047C482B00FA82A6 = {
+			fileRef = A9FD4B72047C482B00FA82A6;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		A9FD4B75047C482B00FA82A6 = {
+			fileRef = A9FD4B73047C482B00FA82A6;
 			isa = PBXBuildFile;
 			settings = {
 			};

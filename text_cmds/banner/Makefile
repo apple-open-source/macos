@@ -16,7 +16,7 @@ HFILES =
 
 CFILES = banner.c 
 
-OTHERSRCS = Makefile Makefile.preamble Makefile.postamble banner.1 banner.6
+OTHERSRCS = Makefile Makefile.preamble Makefile.postamble banner.6
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

@@ -51,7 +51,7 @@ extern "C" {
 
 
 /*!
-	@define kAuthorizationEmptyEnvironment
+	@defined kAuthorizationEmptyEnvironment
 	Parameter to specify to AuthorizationCreate when no environment is being provided.
 */
 #define kAuthorizationEmptyEnvironment	NULL
@@ -61,6 +61,14 @@ extern "C" {
 	@enum AuthorizationStatus
 	Error codes returned by Authorization API.
 */
+
+/*
+    Note: the comments that appear after these errors are used to create SecErrorMessages.strings.
+    The comments must not be multi-line, and should be in a form meaningful to an end user. If
+    a different or additional comment is needed, it can be put in the header doc format, or on a
+    line that does not start with errZZZ.
+*/
+
 enum {
 	errAuthorizationSuccess					= 0,      /* The operation completed successfully. */
     errAuthorizationInvalidSet				= -60001, /* The set parameter is invalid. */
@@ -68,14 +76,15 @@ enum {
     errAuthorizationInvalidTag				= -60003, /* The tag parameter is invalid. */
     errAuthorizationInvalidPointer			= -60004, /* The authorizedRights parameter is invalid. */
 	errAuthorizationDenied					= -60005, /* The authorization was denied. */
-	errAuthorizationCanceled				= -60006, /* The authorization was cancled by the user. */
+	errAuthorizationCanceled				= -60006, /* The authorization was cancelled by the user. */
 	errAuthorizationInteractionNotAllowed	= -60007, /* The authorization was denied since no user interaction was possible. */
 	errAuthorizationInternal                = -60008, /* something else went wrong */
 	errAuthorizationExternalizeNotAllowed	= -60009, /* authorization externalization denied */
 	errAuthorizationInternalizeNotAllowed	= -60010, /* authorization internalization denied */
 	errAuthorizationInvalidFlags            = -60011, /* invalid option flag(s) */
 	errAuthorizationToolExecuteFailure      = -60031, /* cannot execute privileged tool */
-	errAuthorizationToolEnvironmentError    = -60032  /* privileged tool environment error */
+	errAuthorizationToolEnvironmentError    = -60032, /* privileged tool environment error */
+	errAuthorizationBadAddress				= -60033, /* invalid socket address requested */
 };
 
 
@@ -127,16 +136,16 @@ typedef const char *AuthorizationString;
 
 
 /*!
-	@typedef AuthorizationItem
+	@struct AuthorizationItem
 	Each AuthorizationItem describes a single string-named item with optional
 	parameter value. The value must be contiguous memory of valueLength bytes;
 	internal structure is defined separately for each name.
 
-	@param name name of the item, as an AuthorizationString. Mandatory.
-	@param value Pointer to the optional parameter value associated with name.
+	@field name name of the item, as an AuthorizationString. Mandatory.
+	@field valueLength Number of bytes in parameter value. Must be 0 if no parameter value.
+	@field value Pointer to the optional parameter value associated with name.
 	Must be NULL if no parameter value.
-	@param valueLength Number of bytes in parameter value. Must be zero if no parameter.
-	@param reserved Reserved field. Must be set to NULL on creation. Do not modify after that.
+	@field flags Reserved field. Must be set to 0 on creation. Do not modify after that.
 */
 typedef struct {
 	AuthorizationString name;
@@ -147,11 +156,11 @@ typedef struct {
 
 
 /*!
-	@typedef AuthorizationItemSet
+	@struct AuthorizationItemSet
 	An AuthorizationItemSet structure represents a set of zero or more AuthorizationItems.  Since it is a set it should not contain any identical AuthorizationItems.
 
-	@param count Number of items identified by items.
-	@param items Pointer to an array of items.
+	@field count Number of items identified by items.
+	@field items Pointer to an array of items.
 */
 typedef struct {
 	UInt32 count;
@@ -161,7 +170,7 @@ typedef struct {
 
 
 /*!
-	@typedef AuthorizationExternalForm
+	@struct AuthorizationExternalForm
 	An AuthorizationExternalForm structure can hold the externalized form of
 	an AuthorizationRef. As such, it can be transmitted across IPC channels
 	to other processes, which can re-internalize it to recover a valid AuthorizationRef
@@ -223,7 +232,7 @@ typedef AuthorizationItemSet AuthorizationEnvironment;
 
 	errAuthorizationDenied -60005 The authorization for one or more of the requested rights was denied.
 
-	errAuthorizationCanceled -60006 The authorization was cancled by the user.
+	errAuthorizationCanceled -60006 The authorization was cancelled by the user.
 
 	errAuthorizationInteractionNotAllowed -60007 The authorization was denied since no interaction with the user was allowed.
 */
@@ -275,7 +284,7 @@ OSStatus AuthorizationFree(AuthorizationRef authorization, AuthorizationFlags fl
     @param rights (input) A rights set (see AuthorizationCreate).
     @param environment (input/optional) An AuthorizationItemSet containing enviroment state used when making the autorization decision.  See the AuthorizationEnvironment type for details.
     @param flags (input) options specified by the AuthorizationFlags enum.  set all unused bits to zero to allow for future expansion.
-    @param authorizedRights (output/optional) A pointer to a newly allocated AuthorizationInfoSet in which the authorized subset of rights are returned (authorizedRights should be deallocated by calling AuthorizationFreeInfoSet() when it is no longer needed).  If NULL the only information returned is the status.  Note that if the kAuthorizationFlagPreAuthorize flag was specified rights that could not be preauthorized are returned in authorizedRights, but their flags contains the kAuthorizationFlagCanNotPreAuthorize bit.
+    @param authorizedRights (output/optional) A pointer to a newly allocated AuthorizationInfoSet in which the authorized subset of rights are returned (authorizedRights should be deallocated by calling AuthorizationFreeItemSet() when it is no longer needed).  If NULL the only information returned is the status.  Note that if the kAuthorizationFlagPreAuthorize flag was specified rights that could not be preauthorized are returned in authorizedRights, but their flags contains the kAuthorizationFlagCanNotPreAuthorize bit.
 
     @result errAuthorizationSuccess 0 No error.
 
@@ -299,7 +308,7 @@ OSStatus AuthorizationCopyRights(AuthorizationRef authorization,
     @param authorization (input) The authorization object on which this operation is performed.
     @param tag (input/optional) An optional string tag specifing which sideband information should be returned.  When NULL is specified all available information is returned.
     @param flags (input) options specified by the AuthorizationFlags enum.  set all unused bits to zero to allow for future expansion.
-    @param info (output) A pointer to a newly allocated AuthorizationInfoSet in which the requested sideband infomation is returned (info should be deallocated by calling AuthorizationFreeInfoSet() when it is no longer needed).
+    @param info (output) A pointer to a newly allocated AuthorizationInfoSet in which the requested sideband infomation is returned (info should be deallocated by calling AuthorizationFreeItemSet() when it is no longer needed).
 
     @result errAuthorizationSuccess 0 No error.
 

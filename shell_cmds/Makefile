@@ -18,7 +18,7 @@ TOOLS = killall apply basename chroot date dirname echo env expr false\
         find getopt hostname id jot kill lastcomm logname mktemp nice\
         nohup printenv printf pwd renice script shlock sleep su\
         tee test time true uname users w whereis which who\
-        window xargs yes
+        xargs yes
 
 OTHERSRCS = PROJECT Makefile.preamble Makefile Makefile.postamble
 

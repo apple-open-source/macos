@@ -32,14 +32,14 @@
 /*
  *  zalloc.c - malloc functions.
  *
- *  Copyright (c) 1998-2000 Apple Computer, Inc.
+ *  Copyright (c) 1998-2003 Apple Computer, Inc.
  *
  *  DRI: Josh de Cesare
  */
 
 #include <libclite.h>
 
-#define ZALLOC_NODES    384
+#define ZALLOC_NODES    768
 
 #define ZDEBUG 0
 

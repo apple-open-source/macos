@@ -67,4 +67,4 @@ private:
 }	// end namespace Security
 
 
-#endif _H_BUFFERFIFO
+#endif /* _H_BUFFERFIFO */

@@ -45,7 +45,7 @@ gnus-13: 587766
 gnus-14: 636484
 gnus-15: 685230
 gnus-16: 710780
-gnus-17: 814236
+gnus-17: 814352
 
 Tag Table:
 (Indirect)
@@ -371,6 +371,6 @@ Node: Customization FAQ696898
 Node: Reading News FAQ705082
 Node: Reading Mail FAQ708407
 Node: Index710780
-Node: Key Index814236
+Node: Key Index814352
 
 End Tag Table

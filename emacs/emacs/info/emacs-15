@@ -1,7 +1,8 @@
-This is ../info/emacs, produced by makeinfo version 4.0 from emacs.texi.
+This is ../info/emacs, produced by makeinfo version 4.0f from
+emacs.texi.
 
    This is the Fourteenth edition of the `GNU Emacs Manual', updated
-for Emacs version 21.1.
+for Emacs version 21.2.
 
 INFO-DIR-SECTION Emacs
 START-INFO-DIR-ENTRY
@@ -11,9 +12,9 @@ END-INFO-DIR-ENTRY
    Published by the Free Software Foundation 59 Temple Place, Suite 330
 Boston, MA  02111-1307 USA
 
-   Copyright (C) 1985,
-1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001    Free Software
-Foundation, Inc.
+   Copyright (C)
+1985,1986,1987,1993,1994,1995,1996,1997,1998,1999,2000,2001,2002
+Free Software Foundation, Inc.
 
    Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.1 or
@@ -354,18 +355,19 @@ Editing Format Information
    There are two ways to alter the formatting information for a
 formatted text file: with keyboard commands, and with the mouse.
 
-   The easiest way to add properties to your document is by using the
-Text Properties menu.  You can get to this menu in two ways: from the
-Edit menu in the menu bar, or with `C-Mouse-2' (hold the <CTRL> key and
-press the middle mouse button).
+   The easiest way to add properties to your document is with the Text
+Properties menu.  You can get to this menu in two ways: from the Edit
+menu in the menu bar (use `<F10> e t' if you have no mouse), or with
+`C-Mouse-2' (hold the <CTRL> key and press the middle mouse button).
+There are also keyboard commands described in the following section.
 
    Most of the items in the Text Properties menu lead to other submenus.
 These are described in the sections that follow.  Some items run
 commands directly:
 
-`Remove Properties'
+`Remove Face Properties'
      Delete from the region all the text properties that the Text
-     Properties menu works with (`facemenu-remove-props').
+     Properties menu works with (`facemenu-remove-face-props').
 
 `Remove All'
      Delete _all_ text properties from the region
@@ -376,10 +378,10 @@ commands directly:
      (`list-text-properties-at').
 
 `Display Faces'
-     Display a list of all the defined faces.
+     Display a list of all the defined faces (`list-faces-display').
 
 `Display Colors'
-     Display a list of all the defined colors.
+     Display a list of all the defined colors (`list-colors-display').
 
 
 File: emacs,  Node: Format Faces,  Next: Format Colors,  Prev: Editing Format Info,  Up: Formatted Text

@@ -12,10 +12,10 @@ NAME = StartupItems
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Aggregate
 
-TOOLS = Accounting Apache AppleShare AppleTalk AppServices AuthServer\
+TOOLS = Accounting Apache AppleShare AppServices AuthServer\
         ConfigServer CoreGraphics Cron DirectoryServices Disks\
-        IPServices LDAP LoginWindow mDNSResponder NetInfo Network\
-        NetworkExtensions NetworkTime NFS NIS Portmap Sendmail SystemLog\
+        IPServices LoginWindow mDNSResponder NetInfo Network\
+        NetworkExtensions NetworkTime NFS NIS Portmap SystemLog\
         SystemTuning
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble

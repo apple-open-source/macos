@@ -33,6 +33,7 @@
 #define LAST_GP_REGNUM 31
 #define NUM_GP_REGS (LAST_GP_REGNUM - FIRST_GP_REGNUM + 1)
 #define SIZE_GP_REGS (NUM_GP_REGS * 4)
+#define SIZE_GP_REGS_64 (NUM_GP_REGS * 8)
 
 #define FIRST_FP_REGNUM 32
 #define LAST_FP_REGNUM 63
@@ -60,32 +61,42 @@
 #define LAST_SP_REGNUM LAST_VSP_REGNUM
 #define NUM_SP_REGS (LAST_SP_REGNUM - FIRST_SP_REGNUM + 1)
 #define SIZE_SP_REGS (NUM_SP_REGS * 4)
+#define SIZE_SP_REGS_64 ((NUM_SP_REGS * 4) + (5 * 4))
 
 #define NUM_REGS (NUM_GP_REGS + NUM_FP_REGS + NUM_VP_REGS + NUM_SP_REGS)
 
 #define REGISTER_BYTES (SIZE_GP_REGS + SIZE_FP_REGS + SIZE_VP_REGS + SIZE_SP_REGS)
+#define REGISTER_BYTES_64 (SIZE_GP_REGS_64 + SIZE_FP_REGS + SIZE_VP_REGS + SIZE_SP_REGS_64)
 
 #define IS_GP_REGNUM(regno) ((regno >= FIRST_GP_REGNUM) && (regno <= LAST_GP_REGNUM))
 #define IS_FP_REGNUM(regno) ((regno >= FIRST_FP_REGNUM) && (regno <= LAST_FP_REGNUM))
 #define IS_VP_REGNUM(regno) ((regno >= FIRST_VP_REGNUM) && (regno <= LAST_VP_REGNUM))
 
-#define IS_GSP_REGNUM(regno) ((regno >= FIRST_GSP_REGNUM) && (regno <= LAST_GSP_REGNUM))
+#define IS_GSP_REGNUM(regno) (((regno >= FIRST_GSP_REGNUM) && (regno <= LAST_GSP_REGNUM)) || (regno == VRSAVE_REGNUM))
 #define IS_FSP_REGNUM(regno) ((regno >= FIRST_FSP_REGNUM) && (regno <= LAST_FSP_REGNUM))
-#define IS_VSP_REGNUM(regno) ((regno >= FIRST_VSP_REGNUM) && (regno <= LAST_VSP_REGNUM))
+#define IS_VSP_REGNUM(regno) (((regno >= FIRST_VSP_REGNUM) && (regno <= LAST_VSP_REGNUM)) && (regno != VRSAVE_REGNUM))
+
+extern const unsigned int PPC_SIGCONTEXT_PC_OFFSET;
+extern const unsigned int PPC_SIGCONTEXT_SP_OFFSET;
+ 
+/* Default offset from SP where the LR is stored */
+
+#define	DEFAULT_LR_SAVE 8
 
 #include "defs.h"
 
 #include "tm-ppc-macosx.h"
 #include "ppc-macosx-thread-status.h"
 
-void ppc_macosx_fetch_sp_registers (unsigned char *rdata, gdb_ppc_thread_state_t *gp_regs);
-void ppc_macosx_store_sp_registers (unsigned char *rdata, gdb_ppc_thread_state_t *gp_regs);
-void ppc_macosx_fetch_gp_registers (unsigned char *rdata, gdb_ppc_thread_state_t *gp_regs);
-void ppc_macosx_store_gp_registers (unsigned char *rdata, gdb_ppc_thread_state_t *gp_regs);
-void ppc_macosx_fetch_fp_registers (unsigned char *rdata, gdb_ppc_thread_fpstate_t *fp_regs);
-void ppc_macosx_store_fp_registers (unsigned char *rdata, gdb_ppc_thread_fpstate_t *fp_regs);
-void ppc_macosx_fetch_vp_registers (unsigned char *rdata, gdb_ppc_thread_vpstate_t *vp_regs);
-void ppc_macosx_store_vp_registers (unsigned char *rdata, gdb_ppc_thread_vpstate_t *vp_regs);
+void ppc_macosx_fetch_gp_registers (gdb_ppc_thread_state_t *gp_regs);
+void ppc_macosx_store_gp_registers (gdb_ppc_thread_state_t *gp_regs);
+void ppc_macosx_fetch_gp_registers_64 (gdb_ppc_thread_state_64_t *gp_regs);
+void ppc_macosx_store_gp_registers_64 (gdb_ppc_thread_state_64_t *gp_regs);
+void ppc_macosx_fetch_fp_registers (gdb_ppc_thread_fpstate_t *fp_regs);
+void ppc_macosx_store_fp_registers (gdb_ppc_thread_fpstate_t *fp_regs);
+void ppc_macosx_fetch_vp_registers (gdb_ppc_thread_vpstate_t *vp_regs);
+void ppc_macosx_store_vp_registers (gdb_ppc_thread_vpstate_t *vp_regs);
+
 int ppc_macosx_stab_reg_to_regnum (int num);
 
 #endif /* __GDB_PPC_MACOSX_REGS_H__ */

@@ -1,3 +1,10 @@
+/*
+ * Copyright Patrick Powell 1995
+ * This code is based on code written by Patrick Powell (papowell@astart.com)
+ * It may be used for any purpose as long as this notice remains intact
+ * on all source code distributions
+ */
+
 /**************************************************************
  * Original:
  * Patrick Powell Tue Apr 11 09:48:21 PDT 1995
@@ -51,7 +58,7 @@
 
 #include "includes.h"
 
-RCSID("$Id: bsd-snprintf.c,v 1.1.1.2 2001/04/05 01:06:48 zarzycki Exp $");
+RCSID("$Id: bsd-snprintf.c,v 1.1.1.3 2003/04/02 18:36:59 zarzycki Exp $");
 
 #if defined(BROKEN_SNPRINTF)		/* For those with broken snprintf() */
 # undef HAVE_SNPRINTF

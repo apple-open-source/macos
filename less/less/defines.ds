@@ -1,27 +1,11 @@
 /*
- * Copyright (c) 1984,1985,1989,1994,1995,1996,1999  Mark Nudelman
- * All rights reserved.
+ * Copyright (C) 1984-2000  Mark Nudelman
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice in the documentation and/or other materials provided with 
- *    the distribution.
+ * You may distribute under the terms of either the GNU General Public
+ * License or the Less License, as specified in the README file.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT 
- * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR 
- * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE 
- * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN 
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * For more information about less, or for information on how to 
+ * contact the author, see the README file.
  */
 
 
@@ -130,10 +114,12 @@
 /*
  * LESSKEYFILE is the filename of the default lesskey output file 
  * (in the HOME directory).
+ * LESSKEYFILE_SYS is the filename of the system-wide lesskey output file.
  * DEF_LESSKEYINFILE is the filename of the default lesskey input 
  * (in the HOME directory).
  */
 #define	LESSKEYFILE		"_less"
+#define	LESSKEYFILE_SYS		"c:\\_sysless"
 #define	DEF_LESSKEYINFILE	"_lesskey"
 
 
@@ -183,6 +169,12 @@
  */
 #define	HAVE_SHELL	0
 
+/*
+ * Default shell metacharacters and meta-escape character.
+ */
+#define	DEF_METACHARS	"; *?\t\n'\"()<>|&"
+#define	DEF_METAESCAPE	""
+
 /* 
  * HAVE_DUP is 1 if your system has the dup() call.
  */
@@ -199,6 +191,7 @@
 #define	TERMBUF_SIZE	2048	/* Termcap buffer for tgetent */
 #define	TERMSBUF_SIZE	1024	/* Buffer to hold termcap strings */
 #define	TAGLINE_SIZE	512	/* Max size of line in tags file */
+#define	TABSTOP_MAX	32	/* Max number of custom tab stops */
 
 /* Define to `long' if <sys/types.h> doesn't define.  */
 #if MSDOS_COMPILER==BORLANDC
@@ -211,8 +204,6 @@
 /* Define as the return type of signal handlers (int or void).  */
 #define RETSIGTYPE void
 
-/* Define if you have the ANSI C header files.  */
-#define STDC_HEADERS	1
 
 /*
  * Regular expression library.
@@ -269,7 +260,7 @@
 #define MUST_DEFINE_OSPEED 0
 
 /* Define HAVE_LOCALE if you have locale.h and setlocale. */
-#define HAVE_LOCALE 1
+#define HAVE_LOCALE 0
 
 /* Define HAVE_TERMIOS_FUNCS if you have tcgetattr/tcsetattr */
 #define HAVE_TERMIOS_FUNCS 0
@@ -297,6 +288,13 @@
 /* Define if you have the sigsetmask function.  */
 #define HAVE_SIGSETMASK	0
 
+/* Define if you have the sigprocmask function.  */
+#define HAVE_SIGPROCMASK	0
+
+/* Define if you have the sigset_t type and sigemptyset macro */
+#define HAVE_SIGSET_T	0
+#define HAVE_SIGEMPTYSET	0
+
 /* Define if you have the stat function.  */
 #define HAVE_STAT 1
 
@@ -320,6 +318,9 @@
 
 /* Define if you have the <stdio.h> header file.  */
 #define HAVE_STDIO_H 1
+
+/* Define if you have the <stdlib> header file. */
+#define HAVE_STDLIB_H 1
 
 /* Define if you have the <string.h> header file.  */
 #define HAVE_STRING_H 1

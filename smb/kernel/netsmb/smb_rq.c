@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_rq.c,v 1.7 2002/07/25 01:29:15 sherri Exp $
+ * $Id: smb_rq.c,v 1.12 2003/09/19 20:45:43 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -51,8 +51,9 @@
 #include <netsmb/smb_rq.h>
 #include <netsmb/smb_subr.h>
 #include <netsmb/smb_tran.h>
-
 #include <netsmb/smb_compat4.h>
+
+#include <smbfs/smbfs.h>
 
 MALLOC_DEFINE(M_SMBRQ, "SMBRQ", "SMB request");
 
@@ -106,9 +107,15 @@ smb_rq_init(struct smb_rq *rqp, struct smb_connobj *layer, u_char cmd,
 		if (error)
 			return error;
 	}
+	rqp->sr_rexmit = SMBMAXRESTARTS; /* XXX could be cmd specific */
 	rqp->sr_cred = scred;
 	rqp->sr_mid = smb_vc_nextmid(rqp->sr_vc);
-	return smb_rq_new(rqp, cmd);
+	error = smb_rq_new(rqp, cmd);
+	if (!error) {
+		rqp->sr_flags |= SMBR_VCREF;
+		smb_vc_ref(rqp->sr_vc, scred->scr_p);
+	}
+	return (error);
 }
 
 static int
@@ -119,6 +126,7 @@ smb_rq_new(struct smb_rq *rqp, u_char cmd)
 	int error;
 
 	rqp->sr_sendcnt = 0;
+	rqp->sr_cmd = cmd;
 	mb_done(mbp);
 	md_done(&rqp->sr_rp);
 	error = mb_init(mbp);
@@ -143,6 +151,10 @@ smb_rq_new(struct smb_rq *rqp, u_char cmd)
 void
 smb_rq_done(struct smb_rq *rqp)
 {
+	if (rqp->sr_flags & SMBR_VCREF) {
+		rqp->sr_flags &= ~SMBR_VCREF;
+		smb_vc_rele(rqp->sr_vc, rqp->sr_cred);
+	}
 	mb_done(&rqp->sr_rq);
 	md_done(&rqp->sr_rp);
 	smb_sl_destroy(&rqp->sr_slock);
@@ -154,25 +166,60 @@ smb_rq_done(struct smb_rq *rqp)
  * Simple request-reply exchange
  */
 int
-smb_rq_simple(struct smb_rq *rqp)
+smb_rq_simple_timed(struct smb_rq *rqp, int timeout)
 {
-	struct smb_vc *vcp = rqp->sr_vc;
-	int error = EINVAL, i;
+	int error = EINVAL;
+	struct timeval tv;
 
-	for (i = 0; i < SMB_MAXRCN; i++) {
+	tv.tv_sec = SMB_RCNDELAY;
+	tv.tv_usec = 0;
+
+	for(;;) {
+		/* don't send any new requests if force unmount is underway */
+		if (rqp->sr_share && rqp->sr_share->ss_mount) {
+			if (rqp->sr_share->ss_mount->sm_status &
+			    SM_STATUS_FORCE)
+				return ENXIO;
+			if (rqp->sr_share->ss_mount->sm_mp &&
+			    (rqp->sr_share->ss_mount->sm_mp->mnt_kern_flag &
+			     MNTK_FRCUNMOUNT)) {
+				rqp->sr_share->ss_mount->sm_status |= SM_STATUS_FORCE;
+				wakeup(&rqp->sr_share->ss_mount->sm_status);
+				return ENXIO;
+			}
+		}
 		rqp->sr_flags &= ~SMBR_RESTART;
-		rqp->sr_timo = vcp->vc_timo;
+		rqp->sr_timo = timeout;	/* in seconds */
 		rqp->sr_state = SMBRQ_NOTSENT;
 		error = smb_rq_enqueue(rqp);
 		if (error)
-			return error;
+			break;
 		error = smb_rq_reply(rqp);
-		if (error == 0)
+		if (!error)
 			break;
-		if ((rqp->sr_flags & (SMBR_RESTART | SMBR_NORESTART)) != SMBR_RESTART)
+		if ((rqp->sr_flags & (SMBR_RESTART | SMBR_NORESTART)) !=
+		    SMBR_RESTART)
 			break;
+		if (rqp->sr_rexmit <= 0)
+			break;
+		if (rqp->sr_share && rqp->sr_share->ss_mount)
+			tsleep(&rqp->sr_share->ss_mount->sm_status, PRIBIO,
+			       "smb_timeo", tvtohz(&tv));
+		else
+			tsleep(NULL, PRIBIO, "smb_timeo", tvtohz(&tv));
+		rqp->sr_rexmit--;
+#ifdef XXX
+		timeout *= 2;
+#endif
 	}
-	return error;
+	return (error);
+}
+
+
+int
+smb_rq_simple(struct smb_rq *rqp)
+{
+	return (smb_rq_simple_timed(rqp, rqp->sr_vc->vc_timo));
 }
 
 static int
@@ -193,7 +240,7 @@ smb_rq_enqueue(struct smb_rq *rqp)
 				return EINTR;
 			continue;
 		}
-		if (smb_share_valid(ssp) || (ssp->ss_flags & SMBS_CONNECTED) == 0) {
+		if (smb_share_valid(ssp) || !(ssp->ss_flags & SMBS_CONNECTED)) {
 			SMBS_ST_UNLOCK(ssp);
 		} else {
 			SMBS_ST_UNLOCK(ssp);
@@ -326,6 +373,8 @@ smb_rq_reply(struct smb_rq *rqp)
 	u_int8_t tb;
 	int error, rperror = 0;
 
+	if (rqp->sr_timo == SMBNOREPLYWAIT)
+		return (smb_iod_removerq(rqp));
 	error = smb_iod_waitrq(rqp);
 	if (error)
 		return error;
@@ -333,17 +382,16 @@ smb_rq_reply(struct smb_rq *rqp)
 	if (error)
 		return error;
 	error = md_get_uint8(mdp, &tb);
-	if (rqp->sr_vc->vc_hflags2 & SMB_FLAGS2_ERR_STATUS) {
-		error = md_get_uint32le(mdp, &rqp->sr_error);
-	} else {
-		error = md_get_uint8(mdp, &rqp->sr_errclass);
-		error = md_get_uint8(mdp, &tb);
-		error = md_get_uint16le(mdp, &rqp->sr_serror);
-		if (!error)
-			rperror = smb_maperror(rqp->sr_errclass, rqp->sr_serror);
-	}
+	error = md_get_uint32le(mdp, &rqp->sr_error);
 	error = md_get_uint8(mdp, &rqp->sr_rpflags);
 	error = md_get_uint16le(mdp, &rqp->sr_rpflags2);
+	if (rqp->sr_rpflags2 & SMB_FLAGS2_ERR_STATUS) {
+		rperror = smb_maperr32(rqp->sr_error);
+	} else {
+		rqp->sr_errclass = rqp->sr_error & 0xff;
+		rqp->sr_serror = rqp->sr_error >> 16;
+		rperror = smb_maperror(rqp->sr_errclass, rqp->sr_serror);
+	}
 
 	error = md_get_uint32(mdp, &tdw);
 	error = md_get_uint32(mdp, &tdw);
@@ -399,6 +447,8 @@ smb_t2_init(struct smb_t2rq *t2p, struct smb_connobj *source, u_short setup,
 	t2p->t2_setup[0] = setup;
 	t2p->t2_fid = 0xffff;
 	t2p->t2_cred = scred;
+	t2p->t2_share = (source->co_level == SMBL_SHARE ?
+			 CPTOSS(source) : NULL); /* for smb up/down */
 	error = smb_rq_getenv(source, &t2p->t2_vc, NULL);
 	if (error)
 		return error;
@@ -580,6 +630,7 @@ smb_t2_request_int(struct smb_t2rq *t2p)
 	    SMB_COM_TRANSACTION : SMB_COM_TRANSACTION2, scred, &rqp);
 	if (error)
 		return error;
+	rqp->sr_timo = vcp->vc_timo;
 	rqp->sr_flags |= SMBR_MULTIPACKET;
 	t2p->t2_rq = rqp;
 	mbp = &rqp->sr_rq;
@@ -748,14 +799,39 @@ int
 smb_t2_request(struct smb_t2rq *t2p)
 {
 	int error = EINVAL, i;
+	struct timeval tv;
 
-	for (i = 0; i < SMB_MAXRCN; i++) {
+	tv.tv_sec = SMB_RCNDELAY;
+	tv.tv_usec = 0;
+      
+	for (i = 0;;) {
+		/* don't send any new requests if force unmount is underway  */
+		if (t2p->t2_share && t2p->t2_share->ss_mount) {
+			if (t2p->t2_share->ss_mount->sm_status &
+			    SM_STATUS_FORCE)
+				return ENXIO;
+			if (t2p->t2_share->ss_mount->sm_mp &&
+			    (t2p->t2_share->ss_mount->sm_mp->mnt_kern_flag &
+			     MNTK_FRCUNMOUNT)) {
+				t2p->t2_share->ss_mount->sm_status |= SM_STATUS_FORCE;
+				wakeup(&t2p->t2_share->ss_mount->sm_status);
+				return ENXIO;
+			}	
+		}
 		t2p->t2_flags &= ~SMBR_RESTART;
 		error = smb_t2_request_int(t2p);
-		if (error == 0)
+		if (!error)
 			break;
-		if ((t2p->t2_flags & (SMBT2_RESTART | SMBT2_NORESTART)) != SMBT2_RESTART)
+		if ((t2p->t2_flags & (SMBT2_RESTART | SMBT2_NORESTART)) !=
+		    SMBT2_RESTART)
 			break;
+		if (++i > SMBMAXRESTARTS)
+			break;
+		if (t2p->t2_share && t2p->t2_share->ss_mount)
+			tsleep(&t2p->t2_share->ss_mount->sm_status, PRIBIO,
+			       "smb_timeo", tvtohz(&tv));
+		else
+			tsleep(NULL, PRIBIO, "smb_timeo", tvtohz(&tv));
 	}
 	return error;
 }

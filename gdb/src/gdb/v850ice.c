@@ -50,12 +50,6 @@ struct MessageIO
 /* Prototypes for functions located in other files */
 extern void break_command (char *, int);
 
-extern void stepi_command (char *, int);
-
-extern void nexti_command (char *, int);
-
-extern void continue_command (char *, int);
-
 extern int (*ui_loop_hook) (int);
 
 /* Prototypes for local functions */
@@ -295,13 +289,13 @@ v850ice_wndproc (HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	  result = TRUE;
 	  break;
 	case STATE_CHANGE_STEPI:
-	  if (!catch_errors ((catch_errors_ftype *) ice_stepi, (PTR) (int) lParam, "",
+	  if (!catch_errors ((catch_errors_ftype *) ice_stepi, (int) lParam, "",
 			     RETURN_MASK_ALL))
 	    printf_unfiltered ("stepi errored\n");
 	  result = TRUE;
 	  break;
 	case STATE_CHANGE_NEXTI:
-	  if (!catch_errors ((catch_errors_ftype *) ice_nexti, (PTR) (int) lParam, "",
+	  if (!catch_errors ((catch_errors_ftype *) ice_nexti, (int) lParam, "",
 			     RETURN_MASK_ALL))
 	    printf_unfiltered ("nexti errored\n");
 	  result = TRUE;
@@ -566,7 +560,7 @@ v850ice_store_registers (int regno)
       return;
     }
 
-  regval = extract_unsigned_integer (&registers[REGISTER_BYTE (regno)],
+  regval = extract_unsigned_integer (&deprecated_registers[REGISTER_BYTE (regno)],
 				     REGISTER_RAW_SIZE (regno));
   strcpy (cmd, "reg ");
   if (!convert_register (regno, &cmd[4]))
@@ -903,14 +897,9 @@ init_850ice_ops (void)
   v850ice_ops.to_doc = "Debug a system controlled by a NEC 850 ICE.";
   v850ice_ops.to_open = v850ice_open;
   v850ice_ops.to_close = v850ice_close;
-  v850ice_ops.to_attach = NULL;
-  v850ice_ops.to_post_attach = NULL;
-  v850ice_ops.to_require_attach = NULL;
   v850ice_ops.to_detach = v850ice_detach;
-  v850ice_ops.to_require_detach = NULL;
   v850ice_ops.to_resume = v850ice_resume;
   v850ice_ops.to_wait = v850ice_wait;
-  v850ice_ops.to_post_wait = NULL;
   v850ice_ops.to_fetch_registers = v850ice_fetch_registers;
   v850ice_ops.to_store_registers = v850ice_store_registers;
   v850ice_ops.to_prepare_to_store = v850ice_prepare_to_store;
@@ -918,30 +907,16 @@ init_850ice_ops (void)
   v850ice_ops.to_files_info = v850ice_files_info;
   v850ice_ops.to_insert_breakpoint = v850ice_insert_breakpoint;
   v850ice_ops.to_remove_breakpoint = v850ice_remove_breakpoint;
-  v850ice_ops.to_terminal_init = NULL;
-  v850ice_ops.to_terminal_inferior = NULL;
-  v850ice_ops.to_terminal_ours_for_output = NULL;
-  v850ice_ops.to_terminal_ours = NULL;
-  v850ice_ops.to_terminal_info = NULL;
   v850ice_ops.to_kill = v850ice_kill;
   v850ice_ops.to_load = v850ice_load;
-  v850ice_ops.to_lookup_symbol = NULL;
-  v850ice_ops.to_create_inferior = NULL;
   v850ice_ops.to_mourn_inferior = v850ice_mourn;
-  v850ice_ops.to_can_run = 0;
-  v850ice_ops.to_notice_signals = 0;
-  v850ice_ops.to_thread_alive = NULL;
   v850ice_ops.to_stop = v850ice_stop;
-  v850ice_ops.to_pid_to_exec_file = NULL;
   v850ice_ops.to_stratum = process_stratum;
-  v850ice_ops.DONT_USE = NULL;
   v850ice_ops.to_has_all_memory = 1;
   v850ice_ops.to_has_memory = 1;
   v850ice_ops.to_has_stack = 1;
   v850ice_ops.to_has_registers = 1;
   v850ice_ops.to_has_execution = 1;
-  v850ice_ops.to_sections = NULL;
-  v850ice_ops.to_sections_end = NULL;
   v850ice_ops.to_magic = OPS_MAGIC;
 }
 

@@ -22,6 +22,7 @@ install-macosx-config:
 	chmod 755 $(DSTROOT)/private/etc/xinetd.d
 	install -m 644 xinetd.d/* $(DSTROOT)/private/etc/xinetd.d
 	install -m 644 xinetd.conf $(DSTROOT)/private/etc/xinetd.conf
+	install -m 644 inetd.conf $(DSTROOT)/private/etc/inetd.conf
 	mkdir -p $(DSTROOT)/sbin
 	install -m 755 sbin-service $(DSTROOT)/sbin/service
 #	mkdir -p $(DSTROOT)/System/Library/StartupItems

@@ -1,4 +1,28 @@
 /*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * tty.c - code for handling serial ports in pppd.
  *
  * Copyright (C) 2000 Paul Mackerras.
@@ -20,7 +44,7 @@
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
-#define RCSID	"$Id: tty.c,v 1.6 2002/06/27 23:59:56 callie Exp $"
+#define RCSID	"$Id: tty.c,v 1.9 2003/08/14 00:00:30 callie Exp $"
 
 #include <stdio.h>
 #include <ctype.h>
@@ -46,13 +70,33 @@
 #include <arpa/inet.h>
 #ifdef __APPLE__
 #include <termios.h>
+#include <sys/ioctl.h>
 #endif
 
 #include "pppd.h"
 #include "fsm.h"
 #include "lcp.h"
 
+void tty_process_extra_options __P((void));
+void tty_check_options __P((void));
+#ifdef __APPLE__
+int  connect_tty __P((int *));
+#else
+int  connect_tty __P((void));
+#endif
+void disconnect_tty __P((void));
+void tty_close_fds __P((void));
+void cleanup_tty __P((void));
+void tty_do_send_config __P((int, u_int32_t, int, int));
+
+#ifdef __APPLE__
+static void sighup_tty(void *, int);
+#endif
+static int setdevname __P((char *, char **, int));
+static int setspeed __P((char *, char **, int));
 static int setxonxoff __P((char **));
+static int setescape __P((char **));
+static void printescape __P((option_t *, void (*)(void *, char *,...),void *));
 static void finish_tty __P((void));
 static int start_charshunt __P((int, int));
 static void stop_charshunt __P((void *, int));
@@ -66,8 +110,8 @@ static void maybe_relock __P((void *, int));
 static int pty_master;		/* fd for master side of pty */
 static int pty_slave;		/* fd for slave side of pty */
 static int real_ttyfd;		/* fd for actual serial port (not pty) */
-
 static int ttyfd;		/* Serial port file descriptor */
+static char speed_str[16];	/* Serial port speed as string */
 
 mode_t tty_mode = (mode_t)-1;	/* Original access permissions to tty */
 int baud_rate;			/* Actual bits/second for serial device */
@@ -114,67 +158,192 @@ static int forcepty __P((char **));
 /* XXX */
 extern int privopen;		/* don't lock, open device as root */
 
+u_int32_t xmit_accm[8];		/* extended transmit ACCM */
+
 /* option descriptors */
 option_t tty_options[] = {
+    /* device name must be first, or change connect_tty() below! */
+    { "device name", o_wild, (void *) &setdevname,
+      "Serial port device name",
+      OPT_DEVNAM | OPT_PRIVFIX | OPT_NOARG  | OPT_A2STRVAL | OPT_STATIC,
+      devnam},
+
+    { "tty speed", o_wild, (void *) &setspeed,
+      "Baud rate for serial port",
+      OPT_PRIO | OPT_NOARG | OPT_A2STRVAL | OPT_STATIC, speed_str },
+
     { "lock", o_bool, &lockflag,
-      "Lock serial device with UUCP-style lock file", 1 },
+      "Lock serial device with UUCP-style lock file", OPT_PRIO | 1 },
     { "nolock", o_bool, &lockflag,
-      "Don't lock serial device", OPT_PRIV },
+      "Don't lock serial device", OPT_PRIOSUB | OPT_PRIV },
+
     { "init", o_string, &initializer,
-      "A program to initialize the device",
-      OPT_A2INFO | OPT_PRIVFIX, &initializer_info },
+      "A program to initialize the device", OPT_PRIO | OPT_PRIVFIX },
+
     { "connect", o_string, &connect_script,
-      "A program to set up a connection",
-      OPT_A2INFO | OPT_PRIVFIX, &connect_script_info },
+      "A program to set up a connection", OPT_PRIO | OPT_PRIVFIX },
+
  #ifdef __APPLE__
-    { "terminal", o_string, &terminal_script,
-      "A program to set up a terminal connection",
-      OPT_A2INFO | OPT_PRIVFIX | OPT_HIDE, &terminal_script_info },
     { "altconnect", o_string, &altconnect_script,
-      "A an alternate program to set up a connection",
-      OPT_A2INFO | OPT_PRIVFIX, &altconnect_script_info },
+      "A an alternate program to set up a connection", OPT_PRIO | OPT_PRIVFIX },
+
+    /* terminal needs to be hidden because it may contain the password */
+    { "terminal", o_string, &terminal_script,
+      "A program to set up a terminal connection", OPT_PRIO | OPT_PRIVFIX | OPT_HIDE },
+
     { "pty-delay", o_int, &pty_delay,
       "Timeout to wait for bytes on pty" },
     { "forcepty", o_special, (void *)forcepty,
       "Force usage of pty, even if devname is set"},
 #endif
-   { "disconnect", o_string, &disconnect_script,
-      "Program to disconnect serial device",
-      OPT_A2INFO | OPT_PRIVFIX, &disconnect_script_info },
+
+    { "disconnect", o_string, &disconnect_script,
+      "Program to disconnect serial device", OPT_PRIO | OPT_PRIVFIX },
+
     { "welcome", o_string, &welcomer,
-      "Script to welcome client",
-      OPT_A2INFO | OPT_PRIVFIX, &welcomer_info },
+      "Script to welcome client", OPT_PRIO | OPT_PRIVFIX },
+
     { "pty", o_string, &ptycommand,
       "Script to run on pseudo-tty master side",
-      OPT_A2INFO | OPT_PRIVFIX | OPT_DEVNAM, &ptycommand_info },
+      OPT_PRIO | OPT_PRIVFIX | OPT_DEVNAM },
+
     { "notty", o_bool, &notty,
       "Input/output is not a tty", OPT_DEVNAM | 1 },
+
     { "socket", o_string, &pty_socket,
-      "Send and receive over socket, arg is host:port", OPT_DEVNAM },
+      "Send and receive over socket, arg is host:port",
+      OPT_PRIO | OPT_DEVNAM },
+
     { "record", o_string, &record_file,
-      "Record characters sent/received to file" },
+      "Record characters sent/received to file", OPT_PRIO },
+
     { "crtscts", o_int, &crtscts,
-      "Set hardware (RTS/CTS) flow control", OPT_NOARG|OPT_VAL(1) },
-    { "nocrtscts", o_int, &crtscts,
-      "Disable hardware flow control", OPT_NOARG|OPT_VAL(-1) },
-    { "-crtscts", o_int, &crtscts,
-      "Disable hardware flow control", OPT_NOARG|OPT_VAL(-1) },
+      "Set hardware (RTS/CTS) flow control",
+      OPT_PRIO | OPT_NOARG | OPT_VAL(1) },
     { "cdtrcts", o_int, &crtscts,
-      "Set alternate hardware (DTR/CTS) flow control", OPT_NOARG|OPT_VAL(2) },
+      "Set alternate hardware (DTR/CTS) flow control",
+      OPT_PRIOSUB | OPT_NOARG | OPT_VAL(2) },
+    { "nocrtscts", o_int, &crtscts,
+      "Disable hardware flow control",
+      OPT_PRIOSUB | OPT_NOARG | OPT_VAL(-1) },
+    { "-crtscts", o_int, &crtscts,
+      "Disable hardware flow control",
+      OPT_PRIOSUB | OPT_ALIAS | OPT_NOARG | OPT_VAL(-1) },
     { "nocdtrcts", o_int, &crtscts,
-      "Disable hardware flow control", OPT_NOARG|OPT_VAL(-1) },
+      "Disable hardware flow control",
+      OPT_PRIOSUB | OPT_ALIAS | OPT_NOARG | OPT_VAL(-1) },
     { "xonxoff", o_special_noarg, (void *)setxonxoff,
-      "Set software (XON/XOFF) flow control" },
+      "Set software (XON/XOFF) flow control", OPT_PRIOSUB },
+
     { "modem", o_bool, &modem,
-      "Use modem control lines", 1 },
+      "Use modem control lines", OPT_PRIO | 1 },
     { "local", o_bool, &modem,
-      "Don't use modem control lines" },
+      "Don't use modem control lines", OPT_PRIOSUB | 0 },
+
     { "sync", o_bool, &sync_serial,
       "Use synchronous HDLC serial encoding", 1 },
+
     { "datarate", o_int, &max_data_rate,
-      "Maximum data rate in bytes/sec (with pty, notty or record option)" },
+      "Maximum data rate in bytes/sec (with pty, notty or record option)",
+      OPT_PRIO },
+
+    { "escape", o_special, (void *)setescape,
+      "List of character codes to escape on transmission",
+      OPT_A2PRINTER, (void *)printescape },
+
     { NULL }
 };
+
+
+struct channel tty_channel = {
+	tty_options,
+	&tty_process_extra_options,
+	&tty_check_options,
+	&connect_tty,
+	&disconnect_tty,
+	&tty_establish_ppp,
+	&tty_disestablish_ppp,
+	&tty_do_send_config,
+	&tty_recv_config,
+	&cleanup_tty,
+	&tty_close_fds
+#ifdef __APPLE__
+        ,
+	NULL
+#endif
+};
+
+/*
+ * setspeed - Set the serial port baud rate.
+ * If doit is 0, the call is to check whether this option is
+ * potentially a speed value.
+ */
+static int
+setspeed(arg, argv, doit)
+    char *arg;
+    char **argv;
+    int doit;
+{
+	char *ptr;
+	int spd;
+
+	spd = strtol(arg, &ptr, 0);
+	if (ptr == arg || *ptr != 0 || spd == 0)
+		return 0;
+	if (doit) {
+		inspeed = spd;
+		slprintf(speed_str, sizeof(speed_str), "%d", spd);
+	}
+	return 1;
+}
+
+
+/*
+ * setdevname - Set the device name.
+ * If doit is 0, the call is to check whether this option is
+ * potentially a device name.
+ */
+static int
+setdevname(cp, argv, doit)
+    char *cp;
+    char **argv;
+    int doit;
+{
+	struct stat statbuf;
+	char dev[MAXPATHLEN];
+
+	if (*cp == 0)
+		return 0;
+
+	if (strncmp("/dev/", cp, 5) != 0) {
+		strlcpy(dev, "/dev/", sizeof(dev));
+		strlcat(dev, cp, sizeof(dev));
+		cp = dev;
+	}
+
+	/*
+	 * Check if there is a character device by this name.
+	 */
+	if (stat(cp, &statbuf) < 0) {
+		if (!doit)
+			return errno != ENOENT;
+		option_error("Couldn't stat %s: %m", cp);
+		return 0;
+	}
+	if (!S_ISCHR(statbuf.st_mode)) {
+		if (doit)
+			option_error("%s is not a character device", cp);
+		return 0;
+	}
+
+	if (doit) {
+		strlcpy(devnam, cp, sizeof(devnam));
+		devstat = statbuf;
+		default_device = 0;
+	}
+  
+	return 1;
+}
 
 static int
 setxonxoff(argv)
@@ -188,20 +357,80 @@ setxonxoff(argv)
 }
 
 /*
+ * setescape - add chars to the set we escape on transmission.
+ */
+static int
+setescape(argv)
+    char **argv;
+{
+    int n, ret;
+    char *p, *endp;
+
+    p = *argv;
+    ret = 1;
+    while (*p) {
+	n = strtol(p, &endp, 16);
+	if (p == endp) {
+	    option_error("escape parameter contains invalid hex number '%s'",
+			 p);
+	    return 0;
+	}
+	p = endp;
+	if (n < 0 || n == 0x5E || n > 0xFF) {
+	    option_error("can't escape character 0x%x", n);
+	    ret = 0;
+	} else
+	    xmit_accm[n >> 5] |= 1 << (n & 0x1F);
+	while (*p == ',' || *p == ' ')
+	    ++p;
+    }
+    lcp_allowoptions[0].asyncmap = xmit_accm[0];
+    return ret;
+}
+
+static void
+printescape(opt, printer, arg)
+    option_t *opt;
+    void (*printer) __P((void *, char *, ...));
+    void *arg;
+{
+	int n;
+	int first = 1;
+
+	for (n = 0; n < 256; ++n) {
+		if (n == 0x7d)
+			n += 2;		/* skip 7d, 7e */
+		if (xmit_accm[n >> 5] & (1 << (n & 0x1f))) {
+			if (!first)
+				printer(arg, ",");
+			else
+				first = 0;
+			printer(arg, "%x", n);
+		}
+	}
+	if (first)
+		printer(arg, "oops # nothing escaped");
+}
+
+/*
  * tty_init - do various tty-related initializations.
  */
 void tty_init()
 {
     add_notifier(&pidchange, maybe_relock, 0);
-    add_options(tty_options);
+#ifdef __APPLE__
+    add_notifier(&sigreceived, sighup_tty, 0);
     real_ttyfd = -1;
+#endif
+    the_channel = &tty_channel;
+    xmit_accm[3] = 0x60000000;
 }
 
 /*
- * tty_device_check - work out which tty device we are using
+ * tty_process_extra_options - work out which tty device we are using
  * and read its options file.
  */
-void tty_device_check()
+void tty_process_extra_options()
 {
 	using_pty = notty || ptycommand != NULL || pty_socket != NULL;
 	if (using_pty)
@@ -238,8 +467,12 @@ tty_check_options()
 	struct stat statbuf;
 	int fdflags;
 
-	if (demand && (connect_script == 0) && (ptycommand == 0)) {
-		option_error("connect script is required for demand-dialling\n");
+	if (demand && (connect_script == 0)
+#ifdef __APPLE__
+        && (ptycommand == 0)
+#endif
+        ) {
+ 		option_error("connect script is required for demand-dialling\n");
 		exit(EXIT_OPTION_ERROR);
 	}
 	/* default holdoff to 0 if no connect script has been given */
@@ -333,9 +566,14 @@ int connect_tty()
 	/*
 	 * Lock the device if we've been asked to.
 	 */
+#ifndef __APPLE__
+        status = EXIT_LOCK_FAILED;
+#endif
 	if (lockflag && !privopen) {
 		if (lock(devnam) < 0) {
+#ifdef __APPLE__
                         status = EXIT_LOCK_FAILED;
+#endif
 			return -1;
                 }
 		locked = 1;
@@ -368,12 +606,14 @@ int connect_tty()
 		for (;;) {
 			/* If the user specified the device name, become the
 			   user before opening it. */
-			int err;
-			if (!devnam_info.priv && !privopen)
+			int err, prio;
+
+			prio = privopen? OPRIO_ROOT: tty_options[0].priority;
+			if (prio < OPRIO_ROOT)
 				seteuid(uid);
 			ttyfd = open(devnam, O_NONBLOCK | O_RDWR, 0);
 			err = errno;
-			if (!devnam_info.priv && !privopen)
+			if (prio < OPRIO_ROOT)
 				seteuid(0);
 			if (ttyfd >= 0)
 #ifdef __APPLE__
@@ -528,7 +768,7 @@ int connect_tty()
                                     return -2;
                                 } 
 #endif                          
-                                error("Connect script failed");
+				error("Connect script failed");
 				status = EXIT_CONNECT_FAILED;
 				return -1;
 			}
@@ -544,6 +784,16 @@ int connect_tty()
                         notify(connectscript_finished_notify, 0);
 #endif
 			info("Serial connection established.");
+
+#ifdef __APPLE__
+                        if (link_up_hook
+                            && ((*link_up_hook)() == 0)) {	
+                            // cancelled
+                            status = EXIT_USER_REQUEST;
+                            return -2;
+                        }
+                        link_up_done = 1;
+#endif
 		}
 
 		/* set line speed, flow control, etc.;
@@ -581,13 +831,13 @@ int connect_tty()
 #ifdef __APPLE__
 	/* run terminal script */
         /* script to connect to the host are different than script to connect the modem */
-	if (dev_terminal_window_hook || (terminal_script && terminal_script[0])) {
+	if (terminal_window_hook || (terminal_script && terminal_script[0])) {
                 if (kill_link) 
                     return -2;
                 notify(terminalscript_started_notify, 0);
 
-                if (dev_terminal_window_hook)
-                    *errorcode = (*dev_terminal_window_hook)(terminal_script, ttyfd, ttyfd);
+                if (terminal_window_hook)
+                    *errorcode = (*terminal_window_hook)(terminal_script, ttyfd, ttyfd);
                 else
                     *errorcode = device_script(terminal_script, ttyfd, ttyfd, 0);
 
@@ -618,11 +868,17 @@ int connect_tty()
 			warning("Welcome script failed");
 	}
 
+	/*
+	 * If we are initiating this connection, wait for a short
+	 * time for something from the peer.  This can avoid bouncing
+	 * our packets off his tty before he has it set up.
+	 */
 	if (connector != NULL || ptycommand != NULL)
 		listen_time = connect_delay;
 
 	return ttyfd;
 }
+
 
 void disconnect_tty()
 {
@@ -668,6 +924,20 @@ void cleanup_tty()
 		unlock();
 		locked = 0;
 	}
+}
+
+/*
+ * tty_do_send_config - set transmit-side PPP configuration.
+ * We set the extended transmit ACCM here as well.
+ */
+void
+tty_do_send_config(mtu, accm, pcomp, accomp)
+    int mtu;
+    u_int32_t accm;
+    int pcomp, accomp;
+{
+	tty_set_xaccm(xmit_accm);
+	tty_send_config(mtu, accm, pcomp, accomp);
 }
 
 /*
@@ -787,6 +1057,7 @@ start_charshunt(ifd, ofd)
 	if (getuid() != uid)
 	    fatal("setuid failed");
 	setgid(getgid());
+	sys_close();
 	if (!nodetach)
 	    log_to_fd = -1;
 	charshunt(ifd, ofd, record_file);
@@ -1123,52 +1394,59 @@ forcepty(argv)
         disconnect_script = 0;
         default_device = 1;
         devnam[0] = 0;
-        inspeed = 0;    
+        inspeed = 0;  
+        return 1;  
 }
 
 /* ----------------------------------------------------------------------------- 
 signal notifier
 ----------------------------------------------------------------------------- */
-int sighup_tty()
+static void
+sighup_tty(arg, sig)
+    void *arg;
+    int sig;
 {
     int state = 0;
 
-    if (real_ttyfd != -1) {
+    if (sig != SIGHUP)
+        return;
+        
+    if (real_ttyfd == -1)
+        return;
     
-        /* 
-            SIGHUP is received in the following cases :
-            - USER DISCONNECT : does nothing here, let the main handler start 
-                the disconnection procedure
-            - CARRIER goes down : calls to ioctl will succeed, then check line state,
-                and handle the link disconnection case
-            - HOT UNPLUG : any subsequent calls will return EIO
-                handle the link disconnection case
-            Note : signals are received only when CLOCAL is not set
-        */
-        
-        // always "user disconnection" if connection is on-hold
-        if (phase == PHASE_ONHOLD)
-            return 0;
+    /* 
+        SIGHUP is received in the following cases :
+        - USER DISCONNECT : does nothing here, let the main handler start 
+            the disconnection procedure
+        - CARRIER goes down : calls to ioctl will succeed, then check line state,
+            and handle the link disconnection case
+        - HOT UNPLUG : any subsequent calls will return EIO
+            handle the link disconnection case
+        Note : signals are received only when CLOCAL is not set
+    */
+    
+    // always "user disconnection" if connection is on-hold
+    if (phase == PHASE_ONHOLD)
+        return;
 
-        if (ioctl(real_ttyfd, TIOCMGET, &state) < 0) {
-            // IOSerialFamily returns EIO after HotUnplug
-            // but should probably disconnect for any error
-        }
-        
-        if ((state & TIOCM_CD) == 0) {
-            notice("Modem hangup");
-            hungup = 1;
-            // it's OK to get a hangup during terminate phase
-            if (phase != PHASE_TERMINATE) {
-                status = EXIT_HANGUP;
-            }
-            lcp_lowerdown(0);	/* serial link is no longer available */
-            link_terminated(0);
-            return 1;
-        }
+    if (ioctl(real_ttyfd, TIOCMGET, &state) < 0) {
+        // IOSerialFamily returns EIO after HotUnplug
+        // but should probably disconnect for any error
     }
     
-    return 0;
+    if ((state & TIOCM_CD) == 0) {
+        notice("Modem hangup");
+        hungup = 1;
+        // it's OK to get a hangup during terminate phase
+        if (phase != PHASE_TERMINATE) {
+            status = EXIT_HANGUP;
+        }
+        lcp_lowerdown(0);	/* serial link is no longer available */
+        link_terminated(0);
+        return;
+        }
+    
+    return;
 }
 
 #endif

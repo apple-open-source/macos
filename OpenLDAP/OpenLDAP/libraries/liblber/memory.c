@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblber/memory.c,v 1.46 2002/02/14 20:10:14 ando Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblber/memory.c,v 1.46.2.5 2003/03/03 17:10:04 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 #include "portable.h"
@@ -53,7 +53,7 @@ struct ber_mem_hdr {
 };
 
 /* Pattern at top of allocated space */
-#define LLBER_MEM_JUNK 0xdeaddadaU
+#define LBER_MEM_JUNK 0xdeaddadaU
 
 static const struct ber_mem_hdr ber_int_mem_hdr = { LBER_MEM_JUNK, 0, 0 };
 
@@ -531,7 +531,7 @@ ber_mem2bv(
 
 	ber_int_options.lbo_valid = LBER_INITIALIZED;
 
-	if( s == NULL || len == 0 ) {
+	if( s == NULL ) {
 		ber_errno = LBER_ERROR_PARAM;
 		return NULL;
 	}
@@ -674,22 +674,32 @@ ber_bvarray_add( BerVarray *a, BerValue *bv )
 			return 0;
 		}
 		n = 0;
+
 		*a = (BerValue *) LBER_MALLOC( 2 * sizeof(BerValue) );
+		if ( *a == NULL ) {
+			return -1;
+		}
+
 	} else {
+		BerVarray atmp;
 		BER_MEM_VALID( a );
 
 		for ( n = 0; *a != NULL && (*a)[n].bv_val != NULL; n++ ) {
-			;	/* NULL */
+			;	/* just count them */
 		}
 
 		if (bv == NULL) {
 			return n;
 		}
-		*a = (BerValue *) LBER_REALLOC( (char *) *a,
+
+		atmp = (BerValue *) LBER_REALLOC( (char *) *a,
 		    (n + 2) * sizeof(BerValue) );
-	}
-	if ( *a == NULL ) {
-		return -1;
+
+		if( atmp == NULL ) {
+			return -1;
+		}
+
+		*a = atmp;
 	}
 
 	(*a)[n++] = *bv;

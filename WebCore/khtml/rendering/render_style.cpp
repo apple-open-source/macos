@@ -31,6 +31,7 @@
 using namespace khtml;
 
 using DOM::DOMStringImpl;
+using DOM::DOMString;
 
 StyleSurroundData::StyleSurroundData()
     : margin( Fixed ), padding( Variable )
@@ -128,7 +129,81 @@ bool StyleBackgroundData::operator==(const StyleBackgroundData& o) const
 	outline == o.outline;
 }
 
+StyleFlexibleBoxData::StyleFlexibleBoxData()
+: Shared<StyleFlexibleBoxData>()
+{
+    flex = 0.0f;
+    flex_group = 1;
+    ordinal_group = 1;
+    align = BSTRETCH;
+    pack = BSTART;
+    orient = HORIZONTAL;
+    lines = SINGLE;
+    flexed_height = -1;
+}
 
+StyleFlexibleBoxData::StyleFlexibleBoxData(const StyleFlexibleBoxData& o)
+: Shared<StyleFlexibleBoxData>()
+{
+    flex = o.flex;
+    flex_group = o.flex_group;
+    ordinal_group = o.ordinal_group;
+    align = o.align;
+    pack = o.pack;
+    orient = o.orient;
+    lines = o.lines;
+    flexed_height = o.flexed_height;
+}
+
+bool StyleFlexibleBoxData::operator==(const StyleFlexibleBoxData& o) const
+{
+    return flex == o.flex && flex_group == o.flex_group &&
+           ordinal_group == o.ordinal_group && align == o.align &&
+           pack == o.pack && orient == o.orient && lines == o.lines &&
+           flexed_height == o.flexed_height;
+}
+
+StyleCSS3NonInheritedData::StyleCSS3NonInheritedData()
+:Shared<StyleCSS3NonInheritedData>(), opacity(1.0f)
+{
+    
+}
+
+StyleCSS3NonInheritedData::StyleCSS3NonInheritedData(const StyleCSS3NonInheritedData& o)
+:Shared<StyleCSS3NonInheritedData>(), opacity(o.opacity), flexibleBox(o.flexibleBox)
+{
+}
+
+bool StyleCSS3NonInheritedData::operator==(const StyleCSS3NonInheritedData& o) const
+{
+    return opacity == o.opacity && flexibleBox == o.flexibleBox;
+}
+
+StyleCSS3InheritedData::StyleCSS3InheritedData()
+:Shared<StyleCSS3InheritedData>(), textShadow(0)
+{
+
+}
+
+StyleCSS3InheritedData::StyleCSS3InheritedData(const StyleCSS3InheritedData& o)
+:Shared<StyleCSS3InheritedData>()
+{
+    textShadow = o.textShadow ? new ShadowData(*o.textShadow) : 0;
+}
+
+bool StyleCSS3InheritedData::operator==(const StyleCSS3InheritedData& o) const
+{
+    return shadowDataEquivalent(o);
+}
+
+bool StyleCSS3InheritedData::shadowDataEquivalent(const StyleCSS3InheritedData& o) const
+{
+    if (!textShadow && o.textShadow || textShadow && !o.textShadow)
+        return false;
+    if (textShadow && o.textShadow && (*textShadow != *o.textShadow))
+        return false;
+    return true;
+}
 
 StyleInheritedData::StyleInheritedData()
     : indent( Fixed ), line_height( -100, Percent ), style_image( 0 ),
@@ -174,7 +249,9 @@ RenderStyle::RenderStyle()
     visual = _default->visual;
     background = _default->background;
     surround = _default->surround;
-
+    css3NonInheritedData = _default->css3NonInheritedData;
+    css3InheritedData = _default->css3InheritedData;
+    
     inherited = _default->inherited;
 
     setBitDefaults();
@@ -191,7 +268,9 @@ RenderStyle::RenderStyle(bool)
     visual.init();
     background.init();
     surround.init();
-
+    css3NonInheritedData.init();
+    css3NonInheritedData.access()->flexibleBox.init();
+    css3InheritedData.init();
     inherited.init();
 
     pseudoStyle = 0;
@@ -202,12 +281,14 @@ RenderStyle::RenderStyle(const RenderStyle& o)
     : Shared<RenderStyle>(),
       inherited_flags( o.inherited_flags ), noninherited_flags( o.noninherited_flags ),
       box( o.box ), visual( o.visual ), background( o.background ), surround( o.surround ),
+      css3NonInheritedData( o.css3NonInheritedData ), css3InheritedData( o.css3InheritedData ),
       inherited( o.inherited ), pseudoStyle( 0 ), content( o.content )
 {
 }
 
 void RenderStyle::inheritFrom(const RenderStyle* inheritParent)
 {
+    css3InheritedData = inheritParent->css3InheritedData;
     inherited = inheritParent->inherited;
     inherited_flags = inheritParent->inherited_flags;
 }
@@ -238,6 +319,8 @@ bool RenderStyle::operator==(const RenderStyle& o) const
             visual == o.visual &&
             background == o.background &&
             surround == o.surround &&
+            css3NonInheritedData == o.css3NonInheritedData &&
+            css3InheritedData == o.css3InheritedData &&
             inherited == o.inherited);
 }
 
@@ -297,11 +380,9 @@ void RenderStyle::removePseudoStyle(PseudoId pid)
 
 bool RenderStyle::inheritedNotEqual( RenderStyle *other ) const
 {
-    return
-	(
-	    inherited_flags != other->inherited_flags ||
-	    inherited != other->inherited
-	    );
+    return inherited_flags != other->inherited_flags ||
+           inherited != other->inherited ||
+           css3InheritedData != other->css3InheritedData;
 }
 
 /*
@@ -340,12 +421,14 @@ RenderStyle::Diff RenderStyle::diff( const RenderStyle *other ) const
 
     if ( *box.get() != *other->box.get() ||
         *surround.get() != *other->surround.get() ||
+         *css3NonInheritedData->flexibleBox.get() != *other->css3NonInheritedData->flexibleBox.get() ||
         !(inherited->indent == other->inherited->indent) ||
         !(inherited->line_height == other->inherited->line_height) ||
         !(inherited->style_image == other->inherited->style_image) ||
         !(inherited->cursor_image == other->inherited->cursor_image) ||
         !(inherited->font == other->inherited->font) ||
         !(inherited->border_spacing == other->inherited->border_spacing) ||
+        !(inherited_flags._box_direction == other->inherited_flags._box_direction) ||
         !(inherited_flags._visuallyOrdered == other->inherited_flags._visuallyOrdered) ||
         !(inherited_flags._htmlHacks == other->inherited_flags._htmlHacks) ||
         !(noninherited_flags._position == other->noninherited_flags._position) ||
@@ -425,6 +508,8 @@ RenderStyle::Diff RenderStyle::diff( const RenderStyle *other ) const
         !(visual->clip == other->visual->clip) ||
         visual->hasClip != other->visual->hasClip ||
         visual->textDecoration != other->visual->textDecoration ||
+        css3NonInheritedData->opacity != other->css3NonInheritedData->opacity ||
+        !css3InheritedData->shadowDataEquivalent(*other->css3InheritedData.get()) ||
         !(visual->palette == other->visual->palette)
 	)
         return Visible;
@@ -457,6 +542,32 @@ void RenderStyle::setClip( Length top, Length right, Length bottom, Length left 
     data->clip.right = right;
     data->clip.bottom = bottom;
     data->clip.left = left;
+}
+
+bool RenderStyle::contentDataEquivalent(RenderStyle* otherStyle)
+{
+    ContentData* c1 = content;
+    ContentData* c2 = otherStyle->content;
+
+    while (c1 && c2) {
+        if (c1->_contentType != c2->_contentType)
+            return false;
+        if (c1->_contentType == CONTENT_TEXT) {
+            DOMString c1Str(c1->_content.text);
+            DOMString c2Str(c2->_content.text);
+            if (c1Str != c2Str)
+                return false;
+        }
+        else if (c1->_contentType == CONTENT_OBJECT) {
+            if (c1->_content.object != c2->_content.object)
+                return false;
+        }
+
+        c1 = c1->_nextContent;
+        c2 = c2->_nextContent;
+    }
+
+    return !c1 && !c2;
 }
 
 void RenderStyle::setContent(CachedObject* o, bool add)
@@ -553,4 +664,33 @@ void ContentData::clearContent()
         default:
             ;
     }
+}
+
+void RenderStyle::setTextShadow(ShadowData* val, bool add)
+{
+    StyleCSS3InheritedData* css3Data = css3InheritedData.access(); 
+    if (!add) {
+        delete css3Data->textShadow;
+        css3Data->textShadow = val;
+        return;
+    }
+
+    ShadowData* last = css3Data->textShadow;
+    while (last->next) last = last->next;
+    last->next = val;
+}
+
+ShadowData::ShadowData(const ShadowData& o)
+:x(o.x), y(o.y), blur(o.blur), color(o.color)
+{
+    next = o.next ? new ShadowData(*o.next) : 0;
+}
+
+bool ShadowData::operator==(const ShadowData& o) const
+{
+    if ((next && !o.next) || (!next && o.next) ||
+        (next && o.next && *next != *o.next))
+        return false;
+    
+    return x == o.x && y == o.y && blur == o.blur && color == o.color;
 }

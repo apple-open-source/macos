@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -364,7 +362,8 @@ struct load_command *load_commands)
 		    }
 		    break;
 		}
-	    	if(mh->cputype == CPU_TYPE_POWERPC){
+	    	if(mh->cputype == CPU_TYPE_POWERPC ||
+	    	   mh->cputype == CPU_TYPE_VEO){
 		    ppc_thread_state_t *cpu;
 		    ppc_float_state_t *fpu;
 		    ppc_exception_state_t *except;
@@ -936,7 +935,8 @@ struct load_command *load_commands)
 		    }
 		    break;
 		}
-	    	if(mh->cputype == CPU_TYPE_POWERPC){
+	    	if(mh->cputype == CPU_TYPE_POWERPC ||
+	    	   mh->cputype == CPU_TYPE_VEO){
 		    ppc_thread_state_t *cpu;
 		    ppc_float_state_t *fpu;
 		    ppc_exception_state_t *except;

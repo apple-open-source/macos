@@ -1,0 +1,232 @@
+total 266
+-rw-r--r--   1 janw     users        5396 Sep 19 21:10 Makefile.in
+-rw-r--r--   1 janw     users        8202 Sep 19 21:18 README.bluegnu
+-rw-r--r--   1 janw     users       12903 Aug  3  1998 README.dejagnu
+-rw-r--r--   1 janw     users         284 Aug  3  1998 TODO.dejagnu
+-rw-r--r--   1 janw     users       19640 Aug  3  1998 aclocal.m4
+-rwxr-xr-x   1 janw     users        3323 Sep 19 15:37 bluegnu
+-rwxr-xr-x   1 janw     users          43 Feb 11  1999 bluegnutk
+-rw-r--r--   1 janw     users        8456 Sep 17 18:17 bluegnutk.itcl
+-rw-r--r--   1 janw     users         839 Feb 11  1999 bluegnutk.rc
+-rw-r--r--   1 janw     users       10554 Sep 17 18:17 bluegnutkUtils.itcl
+-rwxr-xr--   1 janw     users       17007 Aug  3  1998 config.guess
+-rwxr-xr-x   1 janw     users       32591 Aug  3  1998 configure
+-rw-r--r--   1 janw     users         179 Aug  3  1998 configure.in
+-rw-r--r--   1 janw     users           0 Sep 19 21:55 contents
+drwxr-xr-x   2 janw     users        1024 Sep 19 21:15 contrib
+-rwxr-xr-x   1 janw     users        2204 Aug  3  1998 dejagnu
+drwxr-xr-x   2 janw     users        1024 Sep 19 21:55 doc
+drwxr-xr-x   3 janw     users        1024 Sep 19 21:55 example
+-rwxr-xr-x   1 janw     users        4772 Aug  3  1998 install-sh
+drwxr-xr-x   2 janw     users        1024 Sep 19 21:15 lib
+-rwxr-xr-x   1 janw     users         650 Aug  3  1998 mkinstalldirs
+-rwxr-xr--   1 janw     users        2102 Aug  3  1998 runtest
+-rwxr-xr--   1 janw     users       33061 Aug  3  1998 runtest.exp
+-rw-r--r--   1 janw     users        7843 Aug  3  1998 site.tmpl
+-rw-r--r--   1 janw     users       77247 Aug  3  1998 tcl-mode.el
+drwxr-xr-x   4 janw     users        1024 Sep 19 21:15 testsets
+drwxr-xr-x   7 janw     users        1024 Sep 19 21:55 testsuite
+
+contrib:
+total 45
+-rw-r--r--   1 janw     users         868 Aug  3  1998 README
+-rwxr-xr--   1 janw     users        1500 Aug  3  1998 test-g++
+-rwxr-xr--   1 janw     users        8256 Aug  3  1998 test-tool
+-rwxr-xr-x   1 janw     users       32055 Aug  3  1998 testit
+
+doc:
+total 1867
+-rw-r--r--   1 janw     users        4796 Sep 19 21:10 Makefile.in
+-rw-r--r--   1 janw     users        7917 Sep 19 21:10 README.tex
+-rw-r--r--   1 janw     users       10840 Sep 19 21:16 READMEdvi.dvi
+-rw-r--r--   1 janw     users          52 Sep 19 15:37 READMEdvi.tex
+-rw-r--r--   1 janw     users          23 Sep 19 21:10 READMEdvi.title
+-rw-r--r--   1 janw     users        9344 Sep 19 21:16 READMEtxt.dvi
+-rw-r--r--   1 janw     users          52 Sep 19 15:37 READMEtxt.tex
+-rwxr-xr-x   1 janw     users       22137 Aug  3  1998 configure
+-rw-r--r--   1 janw     users         125 Aug  3  1998 configure.in
+-rw-r--r--   1 janw     users        3289 Sep 18 21:42 dejagnu.1
+-rw-r--r--   1 janw     users      263684 Sep 19 21:52 dejagnu.dvi
+-rw-r--r--   1 janw     users        2041 Sep 19 21:52 dejagnu.info
+-rw-r--r--   1 janw     users       49656 Sep 19 21:52 dejagnu.info-1
+-rw-r--r--   1 janw     users       50053 Sep 19 21:52 dejagnu.info-2
+-rw-r--r--   1 janw     users       47866 Sep 19 21:52 dejagnu.info-3
+-rw-r--r--   1 janw     users      651210 Sep 19 21:52 dejagnu.pdf
+-rw-r--r--   1 janw     users      438510 Sep 19 21:52 dejagnu.ps
+-rw-r--r--   1 janw     users      139117 Aug  3  1998 dejagnu.texi
+-rw-r--r--   1 janw     users       11008 Sep 19 21:52 notice.html
+-rw-r--r--   1 janw     users       78227 Sep 19 21:20 notice.pdf
+-rw-r--r--   1 janw     users       95621 Sep 19 21:20 notice.ps
+
+example:
+total 29
+-rw-r--r--   1 janw     users        2297 Feb 11  1999 Makefile.in
+drwxr-xr-x   3 janw     users        1024 Sep 19 21:55 calc
+-rwxr-xr-x   1 janw     users       23014 Aug  3  1998 configure
+-rw-r--r--   1 janw     users         159 Aug  3  1998 configure.in
+
+example/calc:
+total 37
+-rw-r--r--   1 janw     users        3336 Feb 11  1999 Makefile.in
+-rw-r--r--   1 janw     users         416 Aug  3  1998 calc.1
+-rw-r--r--   1 janw     users        1380 Aug  3  1998 calc.c
+-rw-r--r--   1 janw     users         225 Aug  3  1998 calc.h.in
+-rwxr-xr-x   1 janw     users       25611 Aug  3  1998 configure
+-rw-r--r--   1 janw     users         363 Aug  3  1998 configure.in
+drwxr-xr-x   4 janw     users        1024 Sep 19 21:15 testsuite
+
+example/calc/testsuite:
+total 2
+drwxr-xr-x   2 janw     users        1024 Sep 19 21:15 calc.test
+drwxr-xr-x   2 janw     users        1024 Sep 19 21:15 config
+
+example/calc/testsuite/calc.test:
+total 2
+-rw-r--r--   1 janw     users        1151 Aug  3  1998 calc.exp
+
+example/calc/testsuite/config:
+total 1
+-rw-r--r--   1 janw     users         825 Aug  3  1998 unix.exp
+
+lib:
+total 274
+-rw-r--r--   1 janw     users        2776 Sep 18 19:53 BlueGnu_target.itcl
+-rw-r--r--   1 janw     users        2183 Sep 18 19:53 Default_target.itcl
+-rw-r--r--   1 janw     users        5795 Sep 18 19:53 Types.itcl
+-rw-r--r--   1 janw     users         561 Sep 17 18:18 bluegnu.itcl
+-rw-r--r--   1 janw     users        2959 Aug  3  1998 bug.exp
+-rw-r--r--   1 janw     users        5353 Aug  3  1998 debugger.exp
+-rw-r--r--   1 janw     users        1890 Aug  3  1998 dejagnu.itcl
+-rw-r--r--   1 janw     users       31724 Aug  3  1998 dejagnu.tcl
+-rw-r--r--   1 janw     users       27666 Aug  3  1998 dg.exp
+-rw-r--r--   1 janw     users         340 Aug  3  1998 foo.itcl
+-rw-r--r--   1 janw     users       15692 Aug  3  1998 framework.exp
+-rw-r--r--   1 janw     users        6926 Aug  3  1998 libgloss.exp
+-rw-r--r--   1 janw     users        1499 Sep 17 18:18 nonexpect.itcl
+-rw-r--r--   1 janw     users       22986 Aug  3  1998 remote.exp
+-rw-r--r--   1 janw     users        1069 Aug  3  1998 serverUtils.itcl
+-rw-r--r--   1 janw     users       14175 Aug  3  1998 target.exp
+-rw-r--r--   1 janw     users         537 Sep 17 18:18 tclIndex
+-rw-r--r--   1 janw     users        9084 Sep 17 18:18 testSessionApplication.itcl
+-rw-r--r--   1 janw     users       34819 Sep 17 18:18 testSessionClasses.itcl
+-rw-r--r--   1 janw     users       36461 Sep 17 18:18 testSessionFramework.itcl
+-rw-r--r--   1 janw     users         476 Sep 17 18:18 testSessionUtils.itcl
+-rw-r--r--   1 janw     users        5357 Aug  3  1998 udi.exp
+-rw-r--r--   1 janw     users        2923 Aug  3  1998 util-defs.exp
+-rw-r--r--   1 janw     users       11309 Aug  3  1998 utils.exp
+-rw-r--r--   1 janw     users        7377 Aug  3  1998 vrtx.exp
+-rw-r--r--   1 janw     users        7603 Aug  3  1998 vxworks.exp
+
+testsets:
+total 3
+drwxr-xr-x   4 janw     users        1024 Sep 19 21:15 BlueGnu
+drwxr-xr-x   3 janw     users        1024 Sep 19 21:15 examples
+-rw-r--r--   1 janw     users         190 Sep 18 19:53 tclIndex
+
+testsets/BlueGnu:
+total 29
+-rw-r--r--   1 janw     users         257 Sep 18 19:53 appendQueue.itcl
+-rw-r--r--   1 janw     users        4325 Sep 18 19:53 clone_output.itcl
+-rw-r--r--   1 janw     users        1364 Sep 18 19:53 locateFile.itcl
+-rw-r--r--   1 janw     users         918 Sep 18 19:53 namespaceVariables.itcl
+-rw-r--r--   1 janw     users         152 Sep 18 19:53 prependQueue.itcl
+-rw-r--r--   1 janw     users         686 Sep 18 19:53 runtest.itcl
+-rw-r--r--   1 janw     users         659 Sep 18 19:53 testNaming.itcl
+drwxr-xr-x   2 janw     users        1024 Sep 19 21:15 ts001
+drwxr-xr-x   2 janw     users        1024 Sep 19 21:15 ts002
+-rw-r--r--   1 janw     users         968 Sep 18 19:53 types.itcl
+-rw-r--r--   1 janw     users       13282 Sep 18 19:53 verbose.itcl
+
+testsets/BlueGnu/ts001:
+total 1
+-rw-r--r--   1 janw     users          20 Sep 18 19:53 A.itcl
+
+testsets/BlueGnu/ts002:
+total 1
+-rw-r--r--   1 janw     users          20 Sep 18 19:53 A.itcl
+
+testsets/examples:
+total 7
+drwxr-xr-x   2 janw     users        1024 Sep 19 21:15 lib
+-rw-r--r--   1 janw     users          54 Sep 18 19:53 tc001
+-rw-r--r--   1 janw     users          73 Sep 18 19:53 tc002
+-rw-r--r--   1 janw     users          97 Sep 18 19:53 ts_001
+-rw-r--r--   1 janw     users         181 Sep 18 19:53 ts_002
+-rw-r--r--   1 janw     users          76 Sep 18 19:53 ts_003
+-rw-r--r--   1 janw     users         228 Sep 18 19:53 versionTcl.itcl
+
+testsets/examples/lib:
+total 2
+-rw-r--r--   1 janw     users        1358 Sep 18 19:53 benchmark.itcl
+
+testsuite:
+total 45
+-rw-r--r--   1 janw     users        3155 Sep 18 20:39 Makefile.in
+drwxr-xr-x   3 janw     users        1024 Sep 19 21:15 T
+drwxr-xr-x   3 janw     users        1024 Sep 19 21:15 bluegnu.all
+drwxr-xr-x   2 janw     users        1024 Sep 19 21:15 config
+-rwxr-xr-x   1 janw     users       34637 Aug  3  1998 configure
+-rw-r--r--   1 janw     users         166 Aug  3  1998 configure.in
+drwxr-xr-x   2 janw     users        1024 Sep 19 21:15 lib
+drwxr-xr-x   2 janw     users        1024 Sep 19 21:15 tools
+
+testsuite/T:
+total 10
+-rw-r--r--   1 janw     users         232 Aug  3  1998 env.exp
+-rw-r--r--   1 janw     users        1355 Aug  3  1998 env.iexp
+-rw-r--r--   1 janw     users         129 Aug  3  1998 foo.exp
+drwxr-xr-x   2 janw     users        1024 Sep 19 21:15 subT
+-rw-r--r--   1 janw     users         132 Aug  3  1998 test_000.exp
+-rw-r--r--   1 janw     users         484 Aug  3  1998 test_001.exp
+-rw-r--r--   1 janw     users         453 Aug  3  1998 test_002.exp
+-rw-r--r--   1 janw     users          55 Aug  3  1998 test_003.exp
+-rw-r--r--   1 janw     users          34 Aug  3  1998 test_004.exp
+
+testsuite/T/subT:
+total 1
+-rw-r--r--   1 janw     users         391 Aug  3  1998 test_002.exp
+
+testsuite/bluegnu.all:
+total 32
+-rw-r--r--   1 janw     users        2431 Aug  3  1998 clone_output.test
+-rw-r--r--   1 janw     users        2908 Aug  3  1998 config.test
+-rw-r--r--   1 janw     users        1893 Aug  3  1998 default_procs.tcl
+-rw-r--r--   1 janw     users        1580 Aug  3  1998 libs.exp
+-rw-r--r--   1 janw     users        3486 Aug  3  1998 options.exp
+-rw-r--r--   1 janw     users        4938 Aug  3  1998 remote.test
+-rw-r--r--   1 janw     users         407 Aug  3  1998 stats-sub.exp
+-rw-r--r--   1 janw     users        1626 Aug  3  1998 stats.exp
+-rw-r--r--   1 janw     users        6001 Aug  3  1998 target.test
+drwxr-xr-x   4 janw     users        1024 Sep 19 21:15 topdir
+-rw-r--r--   1 janw     users        2750 Aug  3  1998 utils.test
+
+testsuite/bluegnu.all/topdir:
+total 2
+drwxr-xr-x   3 janw     users        1024 Sep 19 21:15 subdir1
+drwxr-xr-x   2 janw     users        1024 Sep 19 21:15 subdir2
+
+testsuite/bluegnu.all/topdir/subdir1:
+total 3
+-rw-r--r--   1 janw     users          31 Aug  3  1998 subfile1
+-rw-r--r--   1 janw     users          32 Aug  3  1998 subfile2
+drwxr-xr-x   2 janw     users        1024 Sep 19 21:15 subsubdir1
+
+testsuite/bluegnu.all/topdir/subdir1/subsubdir1:
+total 1
+-rw-r--r--   1 janw     users          32 Aug  3  1998 subsubfile1
+
+testsuite/bluegnu.all/topdir/subdir2:
+total 1
+-rw-r--r--   1 janw     users          32 Aug  3  1998 subfile2
+
+testsuite/config:
+total 2
+-rw-r--r--   1 janw     users        2008 Aug  3  1998 default.exp
+
+testsuite/lib:
+total 5
+-rw-r--r--   1 janw     users        5114 Aug  3  1998 libsup.exp
+
+testsuite/tools:
+total 1
+-rw-r--r--   1 janw     users         609 Aug  3  1998 env.exp

@@ -1,0 +1,70 @@
+#
+# "$Id: cups-gimpprint.list.in,v 1.1.1.1 2003/01/27 19:05:31 jlovell Exp $"
+#
+# EPM list file for CUPS drivers; EPM is available at:
+#
+#     http://www.easysw.com/epm/
+#
+# YOU MUST CONFIGURE GIMP-PRINT WITH --disable-shared!
+#
+# Copyright 2001 by Michael Sweet
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+#
+
+# Basic product info...
+%product GIMP-print drivers for CUPS
+%copyright 1997-2001 by Michael Sweet and Robert Krawitz
+%vendor Michael Sweet and Robert Krawitz
+%version @GIMPPRINT_VERSION@
+%readme README
+%license COPYING
+%requires cups
+
+# Directories
+$prefix=@cups_prefix@
+$bindir=@cups_bindir@
+$datadir=@cups_datadir@
+$libdir=@cups_libdir@
+$sysconfdir=@cups_sysconfdir@
+
+# MIME type file for printer command files...
+f 0444 root sys $sysconfdir/cups/command.types src/cups/command.types
+
+# PPD files for printer drivers...
+f 0444 root sys $datadir/cups/model/en src/cups/ppd/C/*.ppd
+f 0444 root sys $datadir/cups/model/en src/cups/ppd/C/*.ppd.gz
+
+# Data file for calibration
+f 0444 root sys $datadir/cups/data/calibrate.ppm src/cups/calibrate.ppm
+
+# User commands...
+f 0555 root sys $bindir/cups-calibrate src/cups/cups-calibrate
+
+# Backends for printer drivers...
+f 0555 root sys $libdir/cups/backend/canon src/cups/canon
+f 0555 root sys $libdir/cups/backend/epson src/cups/epson
+
+# Filters for printer drivers...
+f 0555 root sys $libdir/cups/filter/commandtocanon src/cups/commandtocanon
+f 0555 root sys $libdir/cups/filter/commandtoepson src/cups/commandtoepson
+f 0555 root sys $libdir/cups/filter/rastertoprinter src/cups/rastertoprinter
+
+# Reload PPD database after installation...
+%postinstall /etc/software/init.d/cups restart
+
+#
+# End of "$Id: cups-gimpprint.list.in,v 1.1.1.1 2003/01/27 19:05:31 jlovell Exp $"
+#

@@ -12,7 +12,11 @@
 \&.\|.\|.
 .Op Fl h
 .Op Fl p
-.Op Fl v Op 1-6
+[
+.Fl v Op 0-6
+|
+.Fl q
+]
 [
 extension
 ]
@@ -68,12 +72,20 @@ Don't remove personalities when unloading
 option).
 New load requests for devices driven by the kext
 may result in the same kext being loaded at any time.
-.It Fl v Op 1-6
+.It Fl q
+Quiet mode; print no informational or error messages.
+This option excludes
+.Fl v .
+.It Fl v Op 0-6
 Verbose mode; print information about the kext scanning and loading
 process (note that this is generally not useful when unloading).
 See the man page for
 .Xr kextload 8
 to see what each verbose level prints.
+This option excludes
+.Fl
+q .
+.El
 .Sh DIAGNOSTICS
 .Nm
 exits with a zero status upon success,
@@ -90,6 +102,7 @@ or that another kext has a dependency on it.
 You can check these conditions using
 .Xr kextstat 8 .
 .Sh SEE ALSO 
+.Xr kextcache 8 ,
 .Xr kextd 8 ,
 .Xr kextload 8 ,
 .Xr kextstat 8

@@ -16,6 +16,8 @@
  */
 
 #include <Security/SecACL.h>
+#include <Security/ACL.h>
+#include <Security/Access.h>
 
 #include "SecBridge.h"
 
@@ -31,7 +33,7 @@ SecACLGetTypeID(void)
 {
 	BEGIN_SECAPI
 
-	return gTypes().acl.typeId;
+	return gTypes().ACL.typeID;
 
 	END_SECAPI1(_kCFRuntimeNotATypeID)
 }
@@ -45,11 +47,18 @@ OSStatus SecACLCreateFromSimpleContents(SecAccessRef accessRef,
 	SecACLRef *newAcl)
 {
 	BEGIN_SECAPI
-	RefPointer<Access> access = gTypes().access.required(accessRef);
-	RefPointer<ACL> acl = new ACL(*access, cfString(description), *promptSelector);
-	setApplications(acl, applicationList);
+	SecPointer<Access> access = Access::required(accessRef);
+	SecPointer<ACL> acl = new ACL(*access, cfString(description), *promptSelector);
+	if (applicationList) {
+		// application-list + prompt
+		acl->form(ACL::appListForm);
+		setApplications(acl, applicationList);
+	} else {
+		// allow-any
+		acl->form(ACL::allowAllForm);
+	}
 	access->add(acl.get());
-	Required(newAcl) = gTypes().acl.handle(*acl);
+	Required(newAcl) = acl->handle();
 	END_SECAPI	
 }
 
@@ -59,10 +68,16 @@ OSStatus SecACLCreateFromSimpleContents(SecAccessRef accessRef,
 OSStatus SecACLRemove(SecACLRef aclRef)
 {
 	BEGIN_SECAPI
-	gTypes().acl.required(aclRef)->remove();
+	ACL::required(aclRef)->remove();
 	END_SECAPI	
 }
 
+
+static SecTrustedApplicationRef
+convert(const SecPointer<TrustedApplication> &trustedApplication)
+{
+	return *trustedApplication;
+}
 
 /*!
  */
@@ -71,7 +86,7 @@ OSStatus SecACLCopySimpleContents(SecACLRef aclRef,
 	CFStringRef *promptDescription, CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR *promptSelector)
 {
 	BEGIN_SECAPI
-	RefPointer<ACL> acl = gTypes().acl.required(aclRef);
+	SecPointer<ACL> acl = ACL::required(aclRef);
 	switch (acl->form()) {
 	case ACL::allowAllForm:
 		Required(applicationList) = NULL;
@@ -82,7 +97,7 @@ OSStatus SecACLCopySimpleContents(SecACLRef aclRef,
 		break;
 	case ACL::appListForm:
 		Required(applicationList) =
-			makeCFArray(gTypes().trustedApplication, acl->applications());
+			makeCFArray(convert, acl->applications());
 		Required(promptDescription) = makeCFString(acl->promptDescription());
 		Required(promptSelector) = acl->promptSelector();
 		break;
@@ -97,7 +112,7 @@ OSStatus SecACLSetSimpleContents(SecACLRef aclRef,
 	CFStringRef description, const CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR *promptSelector)
 {
 	BEGIN_SECAPI
-	RefPointer<ACL> acl = gTypes().acl.required(aclRef);
+	SecPointer<ACL> acl = ACL::required(aclRef);
 	acl->promptDescription() = description ? cfString(description) : "";
 	acl->promptSelector() = promptSelector ? *promptSelector : ACL::defaultSelector;
 	if (applicationList) {
@@ -123,7 +138,7 @@ static void setApplications(ACL *acl, CFArrayRef applicationList)
 	//@@@ should really use STL iterator overlay on CFArray. By hand...
 	CFIndex count = CFArrayGetCount(applicationList);
 	for (CFIndex n = 0; n < count; n++)
-		appList.push_back(gTypes().trustedApplication.required(
+		appList.push_back(TrustedApplication::required(
 			SecTrustedApplicationRef(CFArrayGetValueAtIndex(applicationList, n))));
 }
 
@@ -135,7 +150,7 @@ OSStatus SecACLGetAuthorizations(SecACLRef acl,
 	CSSM_ACL_AUTHORIZATION_TAG *tags, uint32 *tagCount)
 {
 	BEGIN_SECAPI
-	AclAuthorizationSet auths = gTypes().acl.required(acl)->authorizations();
+	AclAuthorizationSet auths = ACL::required(acl)->authorizations();
 	if (Required(tagCount) < auths.size()) {	// overflow
 		*tagCount = auths.size();				// report size required
 		CssmError::throwMe(paramErr);
@@ -149,7 +164,7 @@ OSStatus SecACLSetAuthorizations(SecACLRef aclRef,
 	CSSM_ACL_AUTHORIZATION_TAG *tags, uint32 tagCount)
 {
 	BEGIN_SECAPI
-	RefPointer<ACL> acl = gTypes().acl.required(aclRef);
+	SecPointer<ACL> acl = ACL::required(aclRef);
 	if (acl->isOwner())		// can't change rights of the owner ACL
 		MacOSError::throwMe(errSecInvalidOwnerEdit);
 	AclAuthorizationSet &auths = acl->authorizations();

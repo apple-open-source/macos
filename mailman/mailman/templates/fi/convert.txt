@@ -1,0 +1,41 @@
+%(listname)s postituslistalle on juuri suoritettu iso muutos. 
+Se k‰ytt‰‰ uutta postituslistaohjelmaa nimelt‰‰n "Mailman".
+T‰m‰ toivottavasti ratkaisee monia ongelmia, joita on 
+ilmennyt t‰m‰n palvelun yll‰pidossa.
+
+Miten t‰m‰ vaikuttaa?
+
+1) Koko listalle tarkoitetut viestit tulee l‰hett‰‰: 
+
+%(listaddr)s.
+
+2) Sinulle on l‰hetetty umpim‰hk‰inen salasana, jotta 
+estett‰isiin muita irtisanomasta sinua listalta tiet‰m‰tt‰si. 
+Se l‰hetet‰‰n sinulle erillisen‰ viestin‰, jonka olet jo saanut. 
+ƒl‰ huolestu, jos unohdat t‰m‰n salasanan, sill‰ siit‰ 
+l‰hetet‰‰n sinulle muistutus s‰hkˆpostiisi joka kuukausi.
+
+3) Jos sinulla on www-yhteys, voit k‰ytt‰‰ sit‰ koska tahansa 
+sanoutuaksesi irti listalta, vaihtaaksesi koostetilaa, 
+tarkistaaksesi listalla ennen olleita aiheita 
+(jotka ovat saatavilla kun listalle on tullut n. p‰iv‰n 
+ajalta viestej‰), jne. WWW-osoite n‰ille toiminnoille on:
+
+    %(listinfo_url)s
+
+4) Ellei sinulla ole www-yhteytt‰, voit suorittaa n‰m‰ samat 
+toiminnot s‰hkˆpostin avulla. L‰het‰ viesti osoitteeseen 
+%(requestaddr)s laittamalla joko otsikkokentt‰‰n tai 
+viestikentt‰‰n sana "help" (ilman lainausmerkkej‰).
+Saat automaattisen vastauksen, joka sis‰lt‰‰ tarkemmat ohjeet.
+
+Ole hyv‰ ja osoita kaikki kysymykset tai ongelmat t‰st‰ 
+uudesta systeemist‰ osoitteeseen:
+
+%(adminaddr)s.
+
+T‰m‰ viesti oli automaattisesti luotu Mailman %(version)s. 
+Saadaksesi enemm‰n tietoa Mailman ohjelmistosta, vieraile 
+Mailman-ohjelmiston kotisivulla osoitteessa: 
+
+http://www.list.org/

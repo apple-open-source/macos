@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<jboss>
+
+    <enterprise-beans>
+      
+        <entity>
+            <ejb-name>AllTypes</ejb-name>
+			
+			<ejb-ref>
+			    <ejb-ref-name>ejb/stateful</ejb-ref-name>
+                <jndi-name>nextgen.StatefulSession</jndi-name>
+            </ejb-ref>
+            
+			<ejb-ref>
+			    <ejb-ref-name>ejb/stateless</ejb-ref-name>
+                <jndi-name>nextgen.StatelessSession</jndi-name>
+            </ejb-ref>
+            
+			<ejb-ref>
+			    <ejb-ref-name>ejb/entity</ejb-ref-name>
+                <jndi-name>nextgen.EnterpriseEntity</jndi-name>
+            </ejb-ref>
+        </entity>
+		
+    </enterprise-beans>
+
+</jboss>
+

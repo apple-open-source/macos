@@ -3,7 +3,7 @@
 
 ********************************************************************
 | The latest release of lsof is always available via anonymous ftp |
-| from vic.cc.purdue.edu.  Look in pub/tools/unix/lsof.            |
+| from lsof.itap.purdue.edu.  Look in pub/tools/unix/lsof.         |
 ********************************************************************
 
 		Contents
@@ -89,6 +89,14 @@
 		4.58, September 13, 2001
 		4.59, October 20, 2001
 		4.60, November 9, 2001
+		4.61, January 22, 2002
+		4.62, March 7, 2002
+		4.63, April 23, 2002
+		4.64, June 26, 2002
+		4.65, October 10, 2002
+		4.66, December 22, 2002
+		4.67, March 27, 2003
+		4.68, June 18, 2003
 
 
 Dialects Supported
@@ -99,23 +107,24 @@ selected Unix systems.  Version 4 is a source reorganization of
 version 3, itself a major revision of version 2.  Version 4 has
 been tested on:
 
-	AIX 4.3.[23], 5L, and 5.1
-	Apple Darwin 1.[23] and 1.4 for Power Macintosh systems
-	BSDI BSD/OS 4.1 for Intel-based systems
+	AIX 4.3.[23], 5L, and 5.[12]
+	Apple Darwin 1.[2-5], 5.x and 6.x for Power Macintosh systems
+	BSDI BSD/OS 4.3.1 for x86-based systems
 	DEC OSF/1, Digital UNIX, Tru64 UNIX 4.0, and 5.[01]
-	FreeBSD 4.[234] and 5.0 for Intel-based systems
+	FreeBSD 4.[2345678] and 5.[01] for x86-based systems
+	FreeBSD 5.[01] for Alpha and Sparc64 based systems
 	HP-UX 11.00 and 11.11
-	Linux 2.1.72 and above for Intel-based systems
-	NetBSD 1.5 for Alpha, Intel, and SPARC-based systems
+	Linux 2.1.72 and above for x86-based systems
+	NetBSD 1.[456] for Alpha, x86, and SPARC-based systems
 	NEXTSTEP 3.[13]
-	OpenBSD 2.[89] and 3.0 for Intel-based systems
+	OpenBSD 2.[89] and 3.[012] for x86-based systems
 	OPENSTEP 4.x
 	Caldera OpenUNIX 8
-	SCO OpenServer Release 5.0.[46] for Intel-based systems
-	SCO UnixWare 7.1.1 for Intel-based systems
-	Solaris 2.6, 7, 8, and 9 BETA
+	SCO OpenServer Release 5.0.[46] for x86-based systems
+	SCO|Caldera UnixWare 7.1.[13] for x86-based systems
+	Solaris 2.6, 7, 8, and 9
 
-(The pub/tools/unix/lsof/contrib directory on vic.cc.purdue.edu
+(The pub/tools/unix/lsof/contrib directory on lsof.itap.purdue.edu
 contains information on other ports.)
 
 If your favorite Unix dialect is not in the list, or if your version
@@ -125,24 +134,24 @@ of it is more recent than the ones listed, please contact me at
 Version 3 of lsof was tested on:
 
 	AIX 3.2.5, 4.1[.[1234]], and 4.2
-	BSDI BSD/OS 2.0, 2.0.1, and 2.1 for Intel-based systems
+	BSDI BSD/OS 2.0, 2.0.1, and 2.1 for x86-based systems
 	DC/OSx 1.1 for Pyramid systems
 	Digital UNIX (DEC OSF/1) 2.0, 3.0, 3.2, and 4.0
 	EP/IX 2.1.1 for the CDC 4680
-	FreeBSD 1.1.5.1, 2.0, 2.0.5, 2.1, 2.1.5 for Intel-based
+	FreeBSD 1.1.5.1, 2.0, 2.0.5, 2.1, 2.1.5 for x86-based
 		systems
 	HP-UX 8.x, 9.x, 10.01, 10.10, and 10.20
 	IRIX 5.2, 5.3, 6.0, 6.0.1, and 6.[124]
-	Linux through 2.0.27 for Intel-based systems
-	NetBSD 1.0, 1.1, and 1.2 for Intel and SPARC-based
+	Linux through 2.0.27 for x86-based systems
+	NetBSD 1.0, 1.1, and 1.2 for x86 and SPARC-based
 		systems
 	NEXTSTEP 2.1 and 3.[0123]
-	OpenBSD 1.2 and 2.0 for Intel-based systems
+	OpenBSD 1.2 and 2.0 for x86-based systems
 	Reliant UNIX 5.43 for Pyramid systems
 	RISC/os 4.52 for MIPS R2000-based systems
-	SCO OpenServer Release 1.1, 3.0, and 5.0.x for Intel-based 
+	SCO OpenServer Release 1.1, 3.0, and 5.0.x for x86-based 
 		systems
-	SCO UnixWare 2.1 and 2.1.1 for Intel-based systems
+	SCO UnixWare 2.1 and 2.1.1 for x86-based systems
 	Sequent PTX 2.1.[1569], 4.0.[23], 4.1.[024], 4.2[.1],
 		and 4.3
 	Solaris 2.[12345], 2.5.1, and 2.6-Beta
@@ -151,7 +160,7 @@ Version 3 of lsof was tested on:
 
 Version 3 and its predecessor, version 2, may be found at:
 
-	ftp://vic.cc.purdue.edu/pub/tools/unix/lsof/OLD
+	ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof/OLD
 
 
 How Lsof Works
@@ -436,7 +445,7 @@ Version 3 Release Notes
 See 00DIST in the last lsof 3 revision 3.88, for its complete
 set of release notes.  Lsof revision 3.88 may be found at:
 
-	ftp://vic.cc.purdue.edu/pub/tools/unix/lsof/OLD
+	ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof/OLD
 
 3.0		May 24, 1994
 		This is the first official release of lsof 3.
@@ -1048,8 +1057,8 @@ Supplement	Regenerated the 4.04 distribution to correct a non-
 		corrected in revision 4.18, previously made -R
 		unnecessary.
 
-		Enabled configuring for BSDI 4.0 per a suggestion
-		from Jeff Honig <jch@bsdi.com>.
+		Enabled configuring for BSDI BSD/OS 4.0 per a
+		suggestion from Jeff Honig <jch@bsdi.com>.
 
 		Enabled replacement of scoff_t with off64_t (scoff_t
 		is used to type r_size and r_localsize in the rnode
@@ -2168,9 +2177,9 @@ Supplement	Regenerated the 4.04 distribution to correct a non-
 
 		Enabled support for OpenBSD 2.6.
 
-		Enabled support for BSDI 4.1, based on a report from
-		Jeffrey C Honig <jch@bsdi.com> that only a Configure
-		script change is necessary.
+		Enabled support for BSDI BSD/OS 4.1, based on a
+		report from Jeffrey C Honig <jch@bsdi.com> that
+		only a Configure script change is necessary.
 
 		Enabled Configure script to use gcc for building
 		lsof for a 64 bit Solaris 7 and 8 kernels, if the
@@ -2351,7 +2360,7 @@ Supplement	Regenerated the 4.04 distribution to correct a non-
 		Improved NetBSD IPv6 configuration, based on a
 		suggestion from Thomas Klausner
 		<wiz@danbala.ifoer.tuwien.ac.at>.  Added code to
-		converted IPv4-mapped-in-IPv6 addresses to IPv4
+		convert IPv4-mapped-in-IPv6 addresses to IPv4
 		addresses.
 
 		Updated the information in 00FAQ and the HP-UX 11
@@ -2439,7 +2448,7 @@ Supplement	Regenerated the 4.04 distribution to correct a non-
 		Linux lsof to ignore file systems of types "autofs"
 		and "pipfs".
 
-		Based on a report and informatio supplied by Casper
+		Based on a report and information supplied by Casper
 		Dik <casper@holland.Sun.COM>, updated the ncache_load()
 		function in lib/rnch.c with new code that deals
 		with a post Solaris 8 change in kernel name cache
@@ -2580,7 +2589,7 @@ Supplement	Regenerated the 4.04 distribution to correct a non-
 		Terminated Pyramid, SunOS 4.1.x, and Ultrix support,
 		because test systems are no longer available.
 		Final Pyramid and Ultrix source code distributions
-		for lsof revision 4.51 may be found on vic.cc.purdue.edu
+		for lsof revision 4.51 may be found on lsof.itap.purdue.edu
 		in pub/tools/unix/lsof/OLD/src.  The no longer
 		supported SunOS 4.1.x source code is still distributed
 		with the Solaris source code.
@@ -2775,7 +2784,11 @@ Supplement	Regenerated the 4.04 distribution to correct a non-
 		Tested on FreeBSD 4.3-STABLE.
 
 		Dropped the *claim* that lsof works on UNIX dialects
-		where I no longer have test systems.
+		where I no longer have test systems: BSDI 2.1,
+		3.[01] and 4.0; DEC OSF/1, Digital UNIX and True
+		64 UNIX 2.0 and 3.2; FreeBSD 2.1.[67], 2.2[.x],
+		3.[012345] and 4.[01]; HP-UX 10.20; NetBSD 1.[234];
+		SCO OpenServer 5.0.5; and SCO UnixWare 7.0
 
 		Tested on Solaris 9 BETA, s81_36.
 
@@ -2784,12 +2797,12 @@ Supplement	Regenerated the 4.04 distribution to correct a non-
 		for the newly created and timeliest lsof FAQ
 		(00FAQ in the lsof distribution) at:
 
-		  ftp://vic.cc.purdue.edu/pub/tools/unix/lsof/FAQ
+		  ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof/FAQ
 
 		and the man page for the current lsof distribution
 		at:
 
-		  ftp://vic.cc.purdue.edu/pub/tools/unix/lsof/lsof_man
+		  ftp://lsof.itap.purdue.edu/pub/tools/unix/lsof/lsof_man
 
 		Based on a report from Steve Laubscher
 		<slaubs@woodward.com>, modified dlsof.h for PTX
@@ -2805,14 +2818,14 @@ Supplement	Regenerated the 4.04 distribution to correct a non-
 		handling.
 
 		Constructed a work-around for the HP-UX 11 optional
-		OnlineJFS package.  The workaround sadly requires
+		OnlineJFS package.  The work-around sadly requires
 		lsof to have a private version of the vx_inode
 		structure, since the OnlineJFS package doesn't
 		update <sys/fs/vx_inode.h>.  Troyan Krastev
 		<Troyan.Krastev@ricoh-usa.com> brought the bug to
 		my attention and Michael Bracewell
 		<michael@ra.TSS.PeachNet.EDU> provided a test system
-		where I developed the workaround.
+		where I developed the work-around.
 
 		Added locale support to lsof's isprint() test,
 		based on a suggestion from Dan Mercer <damercer@mmm.com>.
@@ -2881,7 +2894,7 @@ Supplement	Regenerated the 4.04 distribution to correct a non-
 		With the closing of the Sequent Synergy Links Lab
 		by IBM, terminated lsof support for PTX.  The last
 		tested PTX lsof revision, 4.58, is available on
-		vic.cc.purdue.edu in .../lsof/OLD/src.
+		lsof.itap.purdue.edu in .../lsof/OLD/src.
 
 		Adjusted for FreeBSD 5.0-CURRENT NFS header file
 		changes, based on a report from Jos Backus
@@ -2967,5 +2980,481 @@ Supplement	Regenerated the 4.04 distribution to correct a non-
 		Added +DAportable to CFLAGS for 32 bit HP-UX 11.
 		Amir Katz <Amir_Katz@bmc.com> suggested the addition.
 
+4.61		January 22, 2002
+		Updated field output example Perl scripts in the
+		scripts/ subdirectory to discover the lsof path,
+		starting at .. and proceeding through the PATH
+		environment variable's directories.
+
+		Added minor OSR Configure script fixes, provided
+		by Bela Lubkin <belal@caldera.com>.
+
+		In response to a report from Joshua Wright
+		<Joshua.Wright@jwu.edu> modified NetBSD and OpenBSD
+		Configure stanzas and sources so that lsof can be
+		built when there is no system source tree (e.g.,
+		/usr/src/sys).
+
+		In response to a report from Peter Valchev
+		<pvalchev@openbsd.org> improved the UVM test in
+		the OpenBSD Configure stanza.
+
+		Updated Configure script to recognize FreeBSD 4.5.
+		Updated for FreeBSD 5.0 procfs and pseudofs changes.
+
+		Updated HP-UX stanza to see if the compiler named
+		in the LSOF_CC environment variable is the bundled
+		compiler.  If it is, "-O" is omitted from the
+		compiler flags.
+
+		Updated Digital UNIX 4.x and Tru64 UNIX error message
+		related to kernel name list failures.  Added an FAQ
+		section about how a kloadsrv daemon failure can cause
+		knlist(3) to fail.  The condition was reported by
+		Douglas B. Jones <douglas@gpc.peachnet.edu>
+
+		Based on a report from Mark W. Eichin <eichin@thok.org>
+		made Linux lsof capable of handling and reporting
+		file sizes greater than 32 bits.
+
+		Tested on Solaris 9 BETA-Refresh.
+
+		Corrected a bug in the matching of IPv4 addresses,
+		mapped in IPv6 addresses, to an IPv4 parameter to
+		an -i option.
+
+		Ported to 64 bit Power AIX 5.1 kernel with advice
+		from David Clissold <cliss@austin.ibm.com> and Marc
+		Stephenson <marc@austin.ibm.com>, and on a test
+		system provided by Loc Le <lple@us.ibm.com>.
+
+4.62		March 7, 2002
+		Updated 00README to reflect the usefulness of gcc
+		for building AIX lsof.  Documented a report from
+		Brian L. Gentry <BGentry@nationsrent.com> of success
+		on AIX 4.3.3.  I documented my success on 32 bit
+		Power AIX 5.1 and my lack of success on ia64 AIX
+		5.1 and 64 bit Power AIX 5.1.
+
+		Improved UnixWare >=7.1.1 reporting of UNIX socket
+		NAME field information for NonStop Cluster systems
+		with a patch provided by John Hughes <john@Calva.COM>.
+		Offered John's improvement as a patch to lsof 4.61.
+
+		Corrected bugs in handling of open files on block
+		devices by OSR lsof.  The bugs were reported by
+		Bela Lubkin <filbo@deepthought.armory.com>.
+
+		Fixed bug in writing >32 bit device numbers for
+		block devices to the device cache file.
+
+		Added support for reporting block special nodes
+		not in /dev (or /devices).  That required "like
+		device special" be changed to "like block special"
+		and "like character special".  (00FAQ was updated.)
+
+		Based on a report from Peter Valchev <pvalchev@openbsd.org>
+		improved the definition of the source for NetBSD
+		and OpenBSD kernel symbols (the nlist() source
+		file).  NetBSD now defaults to getbootfile(3) if
+		it is available, /netbsd otherwise.  OpenBSD now
+		defaults to /dev/ksyms if it is available, /bsd
+		otherwise.
+
+		Made possible compilation under BSD/OS (BSDI) 5.0
+		with changes to Configure, dialects/bsdi/dlsof,
+		dialects/bsdi/dproc.c and lib/rnmh.c.  The changes
+		were suggested by Steven Hinkle <hinkle@bsdi.com>.
+		Note that these changes do not substantiate a claim
+		that lsof works on BSDI 5.0, because I haven't
+		tested it there.
+
+		Updated OpenUNIX private <sys/fs/memfs_mnode.h>,
+		based on a report from Larry Rosenman <ler@lerctr.org>
+		that it had been updated by Caldera patch OU800PK3.
+		Unfortunately the patch only corrects some of the
+		problems with the header file, so it is still
+		necessary to distribute a private patched version
+		of it with the lsof sources.
+
+		Applied a man page correction reported by Frederic
+		Delanoy <max_ok@yahoo.com>.
+
+		Corrected cast bugs related to using the HP-UX
+		bundled C compiler on HP-UX 11.11.
+
+4.63		April 23, 2002
+		Added HPUX_BOOTFILE environment variable for use
+		by the Configure script in determining HP-UX kernel
+		configuration information -- e.g., the state of
+		the ipis_s structure in the HP-UX 11 kernel.  The
+		change was suggested by Marc Bejarano <beej@alum.mit.edu>.
+		Marc also suggested some changes to the HP-UX
+		section in 00FAQ that discusses Configure's use of
+		q4 for HP-UX 11.
+
+		Fixed a bug in the Solaris lsof file system matching
+		code.  It was not reporting that VCHR files in
+		/devices were in / when /devices was in /, too.
+
+		Corrected bugs in device number, file size, file
+		offset, and raw device number field output generation.
+
+		Added recognition of OpenBSD 3.1 to the Configure
+		script with a suggestion from Peter Valchev
+		<pvalchev@sightly.net>.  Note that this change does
+		not constitute a claim that lsof works on OpenBSD
+		3.1, because I haven't tested it there.
+
+		Built an automated test suite.  (See 00TEST and
+		the tests/ sub-directory of the lsof main directory).
+		Bela Lubkin requested it.  Dale Talcott, John
+		Hughes, and Larry Rosenman helped me validate it
+		on their systems.
+
+		During the development of the test suite I discovered
+		the following lsof bugs or missing features, and
+		corrected or supplied them.
+
+		* Corrected the reporting of locks for:
+		  o Digital UNIX 4.0d and Tru64 Unix 5.[01];
+		  o HP-UX 10.30 and 11.00;
+		  o OpenUNIX 8;
+		  o UnixWare 7.1.1.
+
+		* Enabled HP-UX 10.30 and 11.00 to report open NFS
+		  file link counts.
+
+		* Corrected the reporting of UNIX domain socket
+		  names for Apple Darwin, FreeBSD 4.5 and above,
+		  NetBSD 1.4.1 and above, and for OpenBSD 3.0 and
+		  above.
+
+		* Enabled HP-UX 11.11 to stat(2) large files.
+
+		* Fixed handling of combination 32 and 64 bit
+		  device numbers in AIX 64 bit architectures.
+
+		Updated the AIX 4.3.3 NFS rnode recognition code,
+		first installed at revision 4.51.  It looks like
+		some IBM update has restored a single rnode structure
+		independent of the machine bit width.
+
+		Updated the NetBSD and OpenBSD sources so NetBSD
+		can process DTYPE_PIPE files, as OpenBSD was already
+		able to do.
+
+		Updated Darwin get-xnu-headers.sh script to reflect
+		information about a recent reorganization of the
+		Darwin CVS hierarchy, supplied by Allan Nathanson
+		<ajn@apple.com>.
+
+		Added defense against the standard I/O descriptor
+		attack.
+
+4.64		June 26, 2002
+		Corrected some FreeBSD pre-processor directives.
+		David O'Brien <obrien@NUXI.com> pointed them out.
+
+		Updated lsof's main() function to: 1) close all
+		open file descriptors above 2 before starting; and
+		2) to set a non-interfering umask.  Moved GET_MAX_FD
+		test from misc.c to proto.h, so that main() could
+		use it.  Added multiple-include protection to
+		proto.h.
+
+		Moved FAQ's test suite Q's & A's to a more appropriate
+		section.  Added a Q&A on HASSECURITY option and
+		its affect on searching for open files.  (That was
+		already in the man page.)
+
+		Updated hpux/kmem/dnode.c for HP-UX < 11 compilation
+		with information from John Dzubera <Zube@CS.ColoState.EDU>.
+		While lsof doesn't support HP-UX < 11 any more, I
+		try to avoid disabling it there when possible, and
+		a locking fix for HP-UX >= 11 in lsof 4.63
+		inadvertently disabled compilation of lsof for
+		HP-UX < 11.  Fixed long-standing bug in HP-UX 10.20
+		lock reporting.
+
+		Removed language from the test suite programs that
+		requires an ANSI-C compiler.  This allowed the test
+		suite to be validated with cc and gcc on the un-
+		supported HP-UX 10.20.
+
+		At the suggestion of Manuel Bouyer <bouyer@antioche.eu.org>
+		switched NetBSD and OpenBSD lsof from using nlist()
+		to using kvm_nlist().  Made the same change for
+		BSDI, Darwin, and FreeBSD.
+
+		Validated test suite on OpenStep 4.2.
+
+		In response to a suggestion from Jeff Stoner
+		<jstoner@blackboard.com> enhanced support for the
+		FD list of the -d option to allow it to be either
+		an exclusion or inclusion list, using the '^' prefix
+		to denote exclusions.
+
+		Made adjustments for FreeBSD 4.6 and 5.0-CURRENT.
+		Fixed a FreeBSD /etc/make.conf CFLAGS extraction
+		bug, reported by Kris Kennaway <kris@obsecurity.org>,
+		and new a bug in the fix, reported by Eric Cronin
+		<ecronin@eecs.umich.edu>
+
+		Added nullfs support for FreeBSD, NetBSD, and OpenBSD
+		at the request of Andrew Brown <atatat@atatdot.net>.
+
+		Modified all readmnt() functions to ignore mounted-on
+		directory names that don't begin with '/'.
+
+		Tested on NetBSD 1.6A and OpenBSD 3.1.
+
+		Upgraded to Solaris 9 FCS with two changes to the
+		BETA-Refresh support: 1) an adjustment to dnode.c
+		for a change in the so_so (sonode) structure; and
+		2) addition of Solaris 9 FCS specific DNLC code.
+		David Comay <David.Comay@Eng.Sun.COM> sent me the
+		dnode.c change and Casper Dik <Casper.Dik@sun.com>
+		helped with the new DNLC support code.
+
+		Applied OpenUNIX changes that permit lsof to compile
+		and run on the upcoming 8.0.1 release.  The changes
+		were supplied by Robert Lipe <robertl@caldera.com>.
+		Larry Rosenman <ler@lerctr.org> provided a test
+		system.
+
+		Added Solaris fd file system support.
+
+4.65		October 10, 2002
+		Adjusted for change in FreeBSD 5.0-CURRENT inode
+		structure, reported by David O'Brien <obrien@NUXI.com>.
+		Adjusted for changes in FreeBSD 5.0-CURRENT <sys/vnode.h>.
+		One change was reported by Anders Nordby
+		<anders@FreeBSD.org>.  Adjusted for FreeBSD 5.0-CURRENT
+		on sparc64 architecture.
+
+		Enhanced the error reporting of Solaris lsof when
+		it detects a kvm_open() failure, and added a 00FAQ
+		entry on the cause, based on a report from Peter
+		J. Bertoncini <pjb@anl.gov>.
+
+		Enabled compiling of lsof for NetBSD 1.5 with the
+		NULL file system, using a patch from Andrew Brown
+		<atatat@atatdot.net>.
+
+		Removed a hack in the LTbigf test program that was
+		once needed when it was compiled on Solaris 9 BETA-
+		Refresh with gcc.  The hack isn't needed on Solaris
+		9 FCS.  Janet Hempstead <jan@library.carleton.ca>
+		brought the need for this change to my attention.
+
+		Applied a patch, supplied by Andrew Brown
+		<atatat@atatdot.net>, that updates lsof for NetBSD
+		version 1.6F.  Corrected handling of the NetBSD
+		nullfs.
+
+		Updated to BSDI BSD/OS 4.3 on a test system kindly
+		provided by Terry Kennedy <terry@tmk.com>.
+
+		Updated to FreeBSD 4.7.
+
+		Updated to Apple Darwin 1.5, 5.x and 6.x with
+		patches supplied by Allan Nathanson <ajn@apple.com>.
+		The patches include IPv6 support.
+
+		Updated Configure to use the -bnolibpath loader
+		option when building lsof on a PowerPC, running
+		AIX 5 or greater.  Valdis Kletnieks
+		<Valdis.Kletnieks@vt.edu> informed me this was
+		needed.  Lsof for AIX 5.x was initially developed
+		on the IA64, where -bnolibpath can't be used and
+		I didn't think to restore it to PowerPC loads when
+		AIX 5.x became available for that architecture.
+
+		Updated to UnixWare 7.1.3 on a test system provided
+		by Larry Rosenman <ler@lerctr.org>.  Removed claims
+		that lsof works on OpenUNIX 8.0.1, because UnixWare
+		7.1.3 is the release name of OpenUNIX 8.0.1.
+
+		Based on a comment that his e-mail address was
+		wrong in the lsof distribution from Kenneth Stailey
+		<kstailey@disclosure.com>, removed all e-mail
+		addresses from lsof documentation files except this
+		one, 00DIST.  The addresses in 00DIST are used to
+		send revision release notices to those who contributed
+		to a revision, but the addresses in this file for
+		previous revisions and in other documentation files
+		sometimes grow stale and are never validated.
+
+4.66		December 22, 2002
+		Acquired Solaris 7 and 8 test systems, courtesy of
+		John Dzubera <Zube@CS.ColoState.EDU>.  Updated
+		00TEST and tests/TestDB accordingly.
+
+		Clarified FreeBSD 5.0 architecture claims at the
+		suggestion of David O'Brien <obrien@NUXI.com>.
+		Also implemented David's suggestion to change
+		Intel to x86.
+
+		Installed changes to DNLC handling in OSR lsof in
+		preparation for handling changes in the OSR 5.0.7
+		DNLC cache.  Information about the changes and
+		patches to handle them were supplied by Bela Lubkin
+		<filbo@deepthought.armory.com>.
+
+		Upgraded True 64 UNIX support to the 5.1B release
+		on a test system provided by Berkley Shands
+		<berkley@cse.wustl.edu>  Had to used relaxed ANSI
+		compilation because of an error in a system header
+		file and other lsof source usages.
+
+		Implemented the HASNOSOCKSECURITY compile-time
+		option.  When it and HASSECURITY are defined, lsof
+		will be built to list only the user's open files,
+		but will also list anyone else's open socket files,
+		provided the "-i" option selects their listing.
+		Updated the Customize script to ask about setting
+		HASNOSOCKSECURITY.  Left it undefined in all dialect
+		machine.h header files.  This change was requested
+		by Kenneth Stailey <kstailey@speakeasy.net> for
+		use with ntop.
+
+		Added support for OpenBSD 3.2 and its kernel trace
+		file.
+
+		Improved lsof help (-h) and version (-v) information
+		reporting.
+
+		Fixed a FreeBSD 4.7 and above off-by-two UNIX domain
+		socket path termination bug, reported by Ken Stailey
+		<kstailey@speakeasy.net>
+
+4.67		March 27, 2003
+		Began the transition of the lsof ftp server host
+		name from vic.cc.purdue.edu to lsof.itap.purdue.edu.
+		That reflects Purdue organizational changes.  This
+		first step makes the new name an alias to the old
+		one.   The old name, vic.cc.purdue.edu, will remain
+		usable for an extended period.
+
+		Corrected a revision number reference in section
+		17.17 of 00FAQ on the appearance of Solaris negative
+		DNLC caching handing.
+
+		Updated 00FAQ discussion of compilers for 64 bit
+		Solaris.
+
+		Validated test suite for 64 bit Solaris 8 and gcc.
+
+		At the request of Alek O. Komarnitsky <alek@komar.org>
+		added the "+c <width>" option to enable optional
+		changing of the COMMAND column output maximum width
+		from the default to <width>.  The default maximum
+		width remains CMDL, as defined in lsof.h.
+
+		Fixed three AIX kernel bit size detection bugs,
+		one in the AIX Configure script stanza, the second
+		and third in the AIX dproc.c get_kernel_access()
+		function.  The bugs were reported by Pierre-Yves
+		Fontaniere <pyf@cc.in2p3.fr>, who tested the fixes.
+
+		Added kernel event queue file support for FreeBSD,
+		NetBSD and OpenBSD.  Andrew Brown <atatat@atatdot.net>
+		supplied the code.
+
+		Updated to AIX 5.2 on a test system provided by
+		Dale Talcott <dtalcott@purdue.edu>.  Had to build
+		workarounds for two missing AIX 5.2 header files,
+		<j2/j2_snapshot> and <proc/proc_public.h>.  Corrected
+		an off-by-one UNIX socket addressing bug.  Taught
+		AIX lsof to handle both jfs and jfs2 files at the
+		same time.  Adjusted for an IBM mistake in the
+		sizing of the fdsinfo structure in <procinfo.h>
+		Toshiya Nakamura <TOSHIYAN@jp.ibm.com> helped test,
+
+		Updated to FreeBSD 4.8.  Corrected another bug in
+		FreeBSD UNIX domain socket name handling.
+
+		Corrected gcc build problems on HP-UX 11i, reported
+		by Yuliy Minchev <yuliy@mobiltel.bg>.
+
+		Updated BSDI BSD/OS support to 4.3.1.
+
+		Augmented a lock ID test on NetBSD to check if the
+		ID is an LWP pointer.
+
+4.68		June 18, 2003
+		Enhanced Configure script's cleanup operations.
+
+		Added support for OpenBSD 3.3, based on a report
+		from Peter Valchev <pvalchev@sightly.net>.
+
+		Improved the description of the detached PGP
+		signature certificate file in the main lsof README
+		file, based on a suggestion from Diana Stockdale
+		<diana@mpl.ucsd.edu>.
+
+		Installed a workaround for FreeBSD 5.0-CURRENT on
+		Alpha to avoid a compiler register use complaint.
+
+		Corrected a 'c' option error message.  Gnele
+		<blaadeleng@yahoo.com> reported the problem.
+
+		Upgraded EXT2FS and UFS support for NetBSD and
+		OpenBSD to handle new inode information, and the
+		fast UFS1 and UFS2 file systems.
+		
+		With the help of Andrew Brown <atatat@atatdot.net>
+		determined the NetBSD snapshot (1.6F) at which
+		<sys/mount.h> could be included under _KERNEL, thus
+		eliminating the lsof netexport.h hack.  The same
+		change applies to OpenBSD versions 3.3 and above.
+
+		Applied a patch from Armin Gruner <ag@muc.de> that
+		corrects the use of the HASPROCFS definition in the
+		FreeBSD dialect sources.
+
+		Corrected spelling errors in 00FAQ and in the
+		generated 00.README.FIRST_<version> file of the
+		distribution archive.  John Jackson <jrj@purdue.edu>
+		and Ray Phillips <r.phillips@jkmrc.uq.edu.au>
+		spotted and reported the errors.
+
+		Corrected a spelling error in a comment and incorrect
+		use of an alarm function in the LTsock test program.
+
+		At the suggestion of Stuart Anderson <sba@srl.caltech.edu>
+		added preliminary (and incomplete) SAM-FS file system
+		support to Solaris lsof.  Completion pends availability
+		of SAM-FS internals.
+
+		Fixed a Solaris device name printing bug, reported by
+		Ric Anderson <ric@tick.Telcom.Arizona.EDU>, only
+		visible when HASDCACHE is not defined.  Ric helped
+		test the fix.
+
+		Fixed an AIX kernel bit size handling bug related
+		to the NFS node (rnode) structure.
+
+		Corrected a print_kptr() function call error in the AIX
+		AFS code, reported by David Steiner
+		<david.r.steiner@Dartmouth.EDU>.  Upon further reflection
+		and because I no longer have appropriate AIX AFS test
+		systems, disabled AIX AFS support in the Configure script
+		for AIX versions above 4.3.3.0 or AIX AFS versions above 3.5.
+
+		Added support for FreeBSD 5.1.
+
+		With advice from Allan Nathanson <ajn@apple.com> adjusted
+		the Darwin get-xnu-headers.sh script to access the kernel
+		header files needed by lsof from a new form of the Apple
+		open source repositary.
+
+		Installed Linux and lsof library bug fixes and improvents,
+		supplied by Marian Jancar <mjancar@suse.cz>.  One Linux
+		improvement handles mount strings that have octal escapes
+		in them, eg., \040 for embedded blanks.  Marian tested the
+		changes.
+
 Vic Abell <abe@purdue.edu>
-November 9, 2001
+June 18, 2003

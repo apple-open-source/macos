@@ -31,7 +31,8 @@
  */
 
 // public
-#include <IOKit/firewire/IOFireWireDevice.h>
+#import <IOKit/firewire/IOFireWireDevice.h>
+#import <IOKit/firewire/IOFWDCLPool.h>
 
 // protected
 #include <IOKit/firewire/IOFireWireLink.h>
@@ -135,16 +136,16 @@ IOFWWorkLoop * IOFireWireLink::getFireWireWorkLoop() const
     return fWorkLoop;
 }
 
-void
-IOFireWireLink::closeIsochGate()
+IOFWDCLPool *
+IOFireWireLink :: createDCLPool ( 
+	UInt32				capacity )
 {
-	if ( fIsocInterruptEventSource )
-		fIsocInterruptEventSource->closeGate() ;
+	return NULL ;
 }
 
-void
-IOFireWireLink::openIsochGate()
+IOFWBufferFillIsochPort * 
+IOFireWireLink :: createBufferFillIsochPort ()
 {
-	if ( fIsocInterruptEventSource )
-		fIsocInterruptEventSource->openGate() ;
+	return NULL ;
 }
+ 

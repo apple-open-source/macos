@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -12,11 +12,11 @@
    | obtain it through the world-wide-web, please send a note to          |
    | license@php.net so we can mail you a copy immediately.               |
    +----------------------------------------------------------------------+
-   | Authors: Rasmus Lerdorf <rasmus@lerdorf.on.ca>                       |
+   | Author: Rasmus Lerdorf <rasmus@php.net>                              |
    +----------------------------------------------------------------------+
 */
 
-/* $Id: hg_comm.h,v 1.1.1.5 2001/12/14 22:12:23 zarzycki Exp $ */
+/* $Id: hg_comm.h,v 1.1.1.7 2003/07/18 18:07:33 zarzycki Exp $ */
 
 #ifndef HG_COMM_H
 #define HG_COMM_H
@@ -154,14 +154,14 @@ void fnDeleteAnchor(void *ptr1);
 void fnListAnchor(zend_llist *pAnchorList);
 zend_llist *fnCreateAnchorList(hw_objectID objID, char **anchors, char **docofanchorrec, char **reldestrec, int ancount, int anchormode);
 char *fnInsAnchorsIntoText(char *text, zend_llist *pAnchorList, char **bodytag, char **urlprefix);
-int fnCmpAnchors(const void *e1, const void *e2);
+int fnCmpAnchors(const void *e1, const void *e2 TSRMLS_DC);
 ANCHOR *fnAddAnchor(zend_llist *pAnchorList, int objectID, int start, int end);
 #else
 void fnDeleteAnchor(ANCHOR *ptr);
 void fnListAnchor(DLIST *pAnchorList);
 DLIST *fnCreateAnchorList(hw_objectID objID, char **anchors, char **docofanchorrec, char **reldestrec, int ancount, int anchormode);
 char *fnInsAnchorsIntoText(char *text, DLIST *pAnchorList, char **bodytag, char **urlprefix);
-int fnCmpAnchors(ANCHOR *a1, ANCHOR *a2);
+int fnCmpAnchors(ANCHOR *a1, ANCHOR *a2 TSRMLS_DC);
 ANCHOR *fnAddAnchor(DLIST *pAnchorList, int objectID, int start, int end);
 #endif
 extern void set_swap(int do_swap);

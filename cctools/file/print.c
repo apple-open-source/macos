@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -86,16 +84,17 @@ struct magic *m;
 
 	if (m->flag & INDIR)
 		(void) fprintf(stderr, "(%s,%d),",
-			       (m->in.type >= 0 && m->in.type < SZOF(typ)) ? 
+			       (m->in.type >= 0 &&
+				(size_t)m->in.type < SZOF(typ)) ? 
 					typ[(unsigned char) m->in.type] :
 					"*bad*",
 			       m->in.offset);
 
 	(void) fprintf(stderr, " %s%s", (m->flag & UNSIGNED) ? "u" : "",
-		       (m->type >= 0 && m->type < SZOF(typ)) ? 
+		       (m->type >= 0 && (size_t)m->type < SZOF(typ)) ? 
 				typ[(unsigned char) m->type] : 
 				"*bad*");
-	if (m->mask != ~0L)
+	if (m->mask != ~0UL)
 		(void) fprintf(stderr, " & %.8x", m->mask);
 
 	(void) fprintf(stderr, ",%c", m->reln);

@@ -8,7 +8,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclWinInt.h,v 1.1.1.4 2002/04/05 16:14:15 jevans Exp $
+ * RCS: @(#) $Id: tclWinInt.h,v 1.1.1.6 2003/07/09 01:34:10 landonf Exp $
  */
 
 #ifndef _TCLWININT
@@ -89,6 +89,24 @@ typedef struct TclWinProcs {
 	    CONST TCHAR *, DWORD, WCHAR *, TCHAR **);
     BOOL (WINAPI *setCurrentDirectoryProc)(CONST TCHAR *);
     BOOL (WINAPI *setFileAttributesProc)(CONST TCHAR *, DWORD);
+    /* 
+     * These two function pointers will only be set when
+     * Tcl_FindExecutable is called.  If you don't ever call that
+     * function, the application will crash whenever WinTcl tries to call
+     * functions through these null pointers.  That is not a bug in Tcl
+     * -- Tcl_FindExecutable is obligatory in recent Tcl releases.
+     */
+    BOOL (WINAPI *getFileAttributesExProc)(CONST TCHAR *, 
+	    GET_FILEEX_INFO_LEVELS, LPVOID);
+    BOOL (WINAPI *createHardLinkProc)(CONST TCHAR*, CONST TCHAR*, 
+				      LPSECURITY_ATTRIBUTES);
+    
+    INT (__cdecl *utimeProc)(CONST TCHAR*, struct _utimbuf *);
+    /* These two are also NULL at start; see comment above */
+    HANDLE (WINAPI *findFirstFileExProc)(CONST TCHAR*, UINT,
+					 LPVOID, UINT,
+					 LPVOID, DWORD);
+    BOOL (WINAPI *getVolumeNameForVMPProc)(CONST TCHAR*, TCHAR*, DWORD);
 } TclWinProcs;
 
 EXTERN TclWinProcs *tclWinProcs;
@@ -98,11 +116,30 @@ EXTERN TclWinProcs *tclWinProcs;
  * stubs table.
  */
 
+EXTERN void		TclWinEncodingsCleanup();
+EXTERN void		TclWinResetInterfaceEncodings();
 EXTERN void		TclWinInit(HINSTANCE hInst);
+EXTERN int              TclWinSymLinkCopyDirectory(CONST TCHAR* LinkOriginal,
+						   CONST TCHAR* LinkCopy);
+EXTERN int              TclWinSymLinkDelete(CONST TCHAR* LinkOriginal, 
+					    int linkOnly);
+EXTERN char TclWinDriveLetterForVolMountPoint(CONST WCHAR *mountPoint);
+#if defined(TCL_THREADS) && defined(USE_THREAD_ALLOC)
+EXTERN void		TclWinFreeAllocCache(void);
+EXTERN void		TclFreeAllocCache(void *);
+EXTERN Tcl_Mutex	*TclpNewAllocMutex(void);
+EXTERN void		*TclpGetAllocCache(void);
+EXTERN void		TclpSetAllocCache(void *);
+#endif /* TCL_THREADS */
+
+/* Needed by tclWinFile.c and tclWinFCmd.c */
+#ifndef FILE_ATTRIBUTE_REPARSE_POINT
+#define FILE_ATTRIBUTE_REPARSE_POINT 0x00000400
+#endif
+
+#include "tclIntPlatDecls.h"
 
 # undef TCL_STORAGE_CLASS
 # define TCL_STORAGE_CLASS DLLIMPORT
-
-#include "tclIntPlatDecls.h"
 
 #endif	/* _TCLWININT */

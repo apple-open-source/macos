@@ -1,21 +1,24 @@
 /*
- * Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -24,11 +27,30 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Mon Jun 25 2001.
- *  Copyright (c) 2001 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLGetParentDevice.c,v 1.4 2002/02/23 04:13:06 ssen Exp $
+ *  $Id: BLGetParentDevice.c,v 1.10 2003/07/22 22:35:04 ssen Exp $
  *
  *  $Log: BLGetParentDevice.c,v $
+ *  Revision 1.10  2003/07/22 22:35:04  ssen
+ *  Add function to get pmap type as well as parent device
+ *
+ *  Revision 1.9  2003/07/22 15:58:34  ssen
+ *  APSL 2.0
+ *
+ *  Revision 1.8  2003/04/19 00:11:12  ssen
+ *  Update to APSL 1.2
+ *
+ *  Revision 1.7  2003/04/16 23:57:33  ssen
+ *  Update Copyrights
+ *
+ *  Revision 1.6  2002/09/24 21:05:46  ssen
+ *  Eliminate use of deprecated constants
+ *
+ *  Revision 1.5  2002/06/11 00:50:49  ssen
+ *  All function prototypes need to use BLContextPtr. This is really
+ *  a minor change in all of the files.
+ *
  *  Revision 1.4  2002/02/23 04:13:06  ssen
  *  Update to context-based API
  *
@@ -67,10 +89,20 @@
 #include <CoreFoundation/CoreFoundation.h>
 
 #include "bless.h"
+#include "bless_private.h"
 
-int BLGetParentDevice(BLContext context,    unsigned char partitionDev[],
+int BLGetParentDevice(BLContextPtr context,    unsigned char partitionDev[],
+		      unsigned char parentDev[],
+		      unsigned long *partitionNum) {
+
+    return BLGetParentDeviceAndPartitionType(context, partitionDev, parentDev, partitionNum, NULL);
+}
+
+    
+int BLGetParentDeviceAndPartitionType(BLContextPtr context,    unsigned char partitionDev[],
 			 unsigned char parentDev[],
-			 unsigned long *partitionNum) {
+			 unsigned long *partitionNum,
+			BLPartitionType *partitionType) {
 
     kern_return_t           kret;
     mach_port_t             ourIOKitPort;
@@ -153,7 +185,7 @@ int BLGetParentDevice(BLContext context,    unsigned char partitionDev[],
         
             content = (CFStringRef)
                 IORegistryEntryCreateCFProperty(service2,
-                                                CFSTR(kIOMediaContent),
+                                                CFSTR(kIOMediaContentKey),
                                                 kCFAllocatorDefault, 0);
             
             
@@ -163,15 +195,19 @@ int BLGetParentDevice(BLContext context,    unsigned char partitionDev[],
             }
             
             if(CFStringCompare(content, CFSTR("Apple_partition_scheme"), 0)
-                != kCFCompareEqualTo) {
-                // not it. Next!
+                == kCFCompareEqualTo) {
+		if(partitionType) *partitionType = kBLPartitionType_APM;
+	    } else if(CFStringCompare(content, CFSTR("FDisk_partition_scheme"), 0)
+     == kCFCompareEqualTo) {
+		if(partitionType) *partitionType = kBLPartitionType_MBR;
+	    } else {
                 CFRelease(content);
                 continue;
             }
         
             CFRelease(content);
         
-            content = IORegistryEntryCreateCFProperty(service2, CFSTR(kIOBSDName),
+            content = IORegistryEntryCreateCFProperty(service2, CFSTR(kIOBSDNameKey),
                                                         kCFAllocatorDefault, 0);
         
         
@@ -184,13 +220,16 @@ int BLGetParentDevice(BLContext context,    unsigned char partitionDev[],
                 CFRelease(content);
                 return 4;
             }
-        
+
+	    CFRelease(content);
     
             sprintf(parentDev, "/dev/%s",par);
             break;
         }
 
-
+	if(parentDev[0] == '\0') {
+	    break;
+	}
     }
 
     if(parentDev[0] == '\0') {

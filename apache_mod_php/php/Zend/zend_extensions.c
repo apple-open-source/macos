@@ -2,12 +2,12 @@
    +----------------------------------------------------------------------+
    | Zend Engine                                                          |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1998-2001 Zend Technologies Ltd. (http://www.zend.com) |
+   | Copyright (c) 1998-2003 Zend Technologies Ltd. (http://www.zend.com) |
    +----------------------------------------------------------------------+
-   | This source file is subject to version 0.92 of the Zend license,     |
+   | This source file is subject to version 2.00 of the Zend license,     |
    | that is bundled with this package in the file LICENSE, and is        | 
    | available at through the world-wide-web at                           |
-   | http://www.zend.com/license/0_92.txt.                                |
+   | http://www.zend.com/license/2_00.txt.                                |
    | If you did not receive a copy of the Zend license and are unable to  |
    | obtain it through the world-wide-web, please send a note to          |
    | license@zend.com so we can mail you a copy immediately.              |
@@ -33,7 +33,7 @@ int zend_load_extension(char *path)
 	handle = DL_LOAD(path);
 	if (!handle) {
 #ifndef ZEND_WIN32
-		fprintf(stderr, "Failed loading %s:  %s\n", path, dlerror());
+		fprintf(stderr, "Failed loading %s:  %s\n", path, DL_ERROR());
 #else
 		fprintf(stderr, "Failed loading %s\n", path);
 #endif
@@ -41,16 +41,17 @@ int zend_load_extension(char *path)
 	}
 
 	extension_version_info = (zend_extension_version_info *) DL_FETCH_SYMBOL(handle, "extension_version_info");
-	new_extension = (zend_extension *) DL_FETCH_SYMBOL(handle, "zend_extension_entry");
-	if (!extension_version_info || !new_extension) {
-		/* Try to see if we can find the symbols with an underscore in front of them */
+	if (!extension_version_info) {
 		extension_version_info = (zend_extension_version_info *) DL_FETCH_SYMBOL(handle, "_extension_version_info");
+	}
+	new_extension = (zend_extension *) DL_FETCH_SYMBOL(handle, "zend_extension_entry");
+	if (!new_extension) {
 		new_extension = (zend_extension *) DL_FETCH_SYMBOL(handle, "_zend_extension_entry");
-
-		if (!extension_version_info || !new_extension) {
-			fprintf(stderr, "%s doesn't appear to be a valid Zend extension\n", path);
-			return FAILURE;
-		}
+	}
+	if (!extension_version_info || !new_extension) {
+		fprintf(stderr, "%s doesn't appear to be a valid Zend extension\n", path);
+		DL_UNLOAD(handle);
+		return FAILURE;
 	}
 
 
@@ -222,3 +223,64 @@ ZEND_API zend_extension *zend_get_extension(char *extension_name)
 	}
 	return NULL;
 }
+
+/*
+ * Support for dynamic loading of MH_BUNDLEs on Darwin / Mac OS X
+ *
+ */
+ 
+#if HAVE_MACH_O_DYLD_H
+
+void *zend_mh_bundle_load(char* bundle_path) 
+{
+	NSObjectFileImage bundle_image;
+	NSModule bundle_handle;
+	NSSymbol bundle_init_nssymbol;
+	void (*bundle_init)(void);
+
+	if (NSCreateObjectFileImageFromFile(bundle_path, &bundle_image) != NSObjectFileImageSuccess) {
+		return NULL;
+	}
+	
+	bundle_handle = NSLinkModule(bundle_image, bundle_path, NSLINKMODULE_OPTION_PRIVATE);
+	NSDestroyObjectFileImage(bundle_image);
+	
+	/* call the init function of the bundle */
+	bundle_init_nssymbol = NSLookupSymbolInModule(bundle_handle, "__init");
+	if (bundle_init_nssymbol != NULL) {
+		bundle_init = NSAddressOfSymbol(bundle_init_nssymbol);
+		bundle_init();
+	}
+	
+	return bundle_handle;
+}
+
+int zend_mh_bundle_unload(void *bundle_handle)
+{
+	NSSymbol bundle_fini_nssymbol;
+	void (*bundle_fini)(void);
+	
+	/* call the fini function of the bundle */
+	bundle_fini_nssymbol = NSLookupSymbolInModule(bundle_handle, "__fini");
+	if (bundle_fini_nssymbol != NULL) {
+		bundle_fini = NSAddressOfSymbol(bundle_fini_nssymbol);
+		bundle_fini();
+	}
+	
+	return (int) NSUnLinkModule(bundle_handle, NULL);
+}
+
+void *zend_mh_bundle_symbol(void *bundle_handle, const char *symbol_name)
+{
+	NSSymbol symbol;
+	symbol = NSLookupSymbolInModule(bundle_handle, symbol_name);
+	return NSAddressOfSymbol(symbol);
+}
+
+const char *zend_mh_bundle_error(void)
+{
+	/* Witness the state of the art error reporting */
+	return NULL;
+}
+
+#endif /* HAVE_MACH_O_DYLD_H */

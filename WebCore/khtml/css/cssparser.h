@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2003 Lars Knoll (knoll@kde.org)
  *
- * $Id: cssparser.h,v 1.15 2003/06/04 20:35:25 hyatt Exp $
+ * $Id: cssparser.h,v 1.16 2003/07/15 22:32:42 hyatt Exp $
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -123,8 +123,12 @@ namespace DOM {
 	bool parseShape( int propId, bool important );
 	bool parseFont(bool important);
 	CSSValueListImpl *parseFontFamily();
-	CSSPrimitiveValueImpl *parseColor();
+        CSSPrimitiveValueImpl *parseColor();
+	CSSPrimitiveValueImpl *parseColorFromValue(Value* val);
 
+        // CSS3 Parsing Routines (for properties specific to CSS3)
+        bool parseShadow(int propId, bool important);
+        
 	int yyparse( void );
     public:
 	bool strict;

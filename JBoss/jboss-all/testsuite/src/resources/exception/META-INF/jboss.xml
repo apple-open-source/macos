@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<jboss>
+    <container-configurations>
+        <container-configuration extends="Standard BMP EntityBean">
+            <container-name>EntityExceptionTester Container Configuration</container-name>
+            <commit-option>A</commit-option>
+        </container-configuration>
+    </container-configurations>
+
+   <enterprise-beans>
+      <session>
+         <ejb-name>EJBTestRunnerEJB</ejb-name>
+         <jndi-name>ejb/EJBTestRunner</jndi-name>
+      </session>
+
+      <session>
+         <ejb-name>ExceptionTesterEJB</ejb-name>
+         <jndi-name>exception/ExceptionTester</jndi-name>
+         <local-jndi-name>exception/ExceptionTesterLocal</local-jndi-name>
+      </session>
+
+      <entity>
+         <ejb-name>EntityExceptionTesterEJB</ejb-name>
+         <configuration-name>EntityExceptionTester Container Configuration</configuration-name>
+         <jndi-name>exception/EntityExceptionTester</jndi-name>
+         <local-jndi-name>exception/EntityExceptionTesterLocal</local-jndi-name>
+      </entity>
+   </enterprise-beans>
+</jboss>

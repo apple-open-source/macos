@@ -74,7 +74,11 @@ void HTMLDivElementImpl::parseAttribute(AttributeImpl *attr)
     {
         DOMString v = attr->value();
 	if ( strcasecmp( attr->value(), "middle" ) == 0 || strcasecmp( attr->value(), "center" ) == 0 )
-           addCSSProperty(CSS_PROP_TEXT_ALIGN, CSS_VAL__KONQ_CENTER);
+           addCSSProperty(CSS_PROP_TEXT_ALIGN, CSS_VAL__KHTML_CENTER);
+        else if (strcasecmp(attr->value(), "left") == 0)
+            addCSSProperty(CSS_PROP_TEXT_ALIGN, CSS_VAL__KHTML_LEFT);
+        else if (strcasecmp(attr->value(), "right") == 0)
+            addCSSProperty(CSS_PROP_TEXT_ALIGN, CSS_VAL__KHTML_RIGHT);
         else
             addCSSProperty(CSS_PROP_TEXT_ALIGN, v);
         break;
@@ -197,7 +201,11 @@ void HTMLParagraphElementImpl::parseAttribute(AttributeImpl *attr)
         {
             DOMString v = attr->value();
             if ( strcasecmp( attr->value(), "middle" ) == 0 || strcasecmp( attr->value(), "center" ) == 0 )
-                addCSSProperty(CSS_PROP_TEXT_ALIGN, CSS_VAL__KONQ_CENTER);
+                addCSSProperty(CSS_PROP_TEXT_ALIGN, CSS_VAL__KHTML_CENTER);
+            else if (strcasecmp(attr->value(), "left") == 0)
+                addCSSProperty(CSS_PROP_TEXT_ALIGN, CSS_VAL__KHTML_LEFT);
+            else if (strcasecmp(attr->value(), "right") == 0)
+                addCSSProperty(CSS_PROP_TEXT_ALIGN, CSS_VAL__KHTML_RIGHT);
             else
                 addCSSProperty(CSS_PROP_TEXT_ALIGN, v);
             break;

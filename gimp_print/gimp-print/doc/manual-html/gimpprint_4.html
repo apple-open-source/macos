@@ -1,0 +1,82 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from .././gimpprint.texi on 22 January 2003 -->
+
+<TITLE>GIMP-Print - Using libgimpprint</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_3.html">previous</A>, <A HREF="gimpprint_5.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H1><A NAME="SEC7" HREF="gimpprint_toc.html#TOC7">2  Using libgimpprint</A></H1>
+<P>
+<A NAME="IDX5"></A>
+
+</P>
+<P>
+This chapter describes how to write programs that use libgimpprint.
+
+</P>
+
+
+
+<H2><A NAME="SEC8" HREF="gimpprint_toc.html#TOC8">2.1  Code prerequisites</A></H2>
+<P>
+To use libgimpprint with a program, several steps must be taken:
+
+</P>
+
+<OL>
+<LI>Include the master libgimpprint header <CODE>&#60;gimp-print/gimp-print.h&#62;.</CODE>
+
+<LI>Call <CODE>stp_init()</CODE>.
+
+<LI>Link with libgimpprint.
+
+</OL>
+
+<P>
+The following is a short example program. It does not do anything useful,
+but it does everything required to link with libgimpprint and call other
+functions from libgimpprint.
+
+</P>
+
+<PRE>
+#include &#60;gimp-print/gimp-print.h&#62;
+
+int
+main (int argc, char *argv[])
+{
+  stp_init ();
+  return (0);
+}
+</PRE>
+
+
+
+<H2><A NAME="SEC9" HREF="gimpprint_toc.html#TOC9">2.2  Linking with libgimpprint</A></H2>
+
+<P>
+To link a program with libgimpprint, then <SAMP>`-lgimpprint'</SAMP> needs to be passed
+to the compiler when linking. For example, to compile and link <TT>`prog.c'</TT>
+the following commands would be used:
+
+</P>
+
+<PRE>
+gcc -c prog.c
+gcc -o prog -lgimpprint prog.o
+</PRE>
+
+<P>
+The compiler and linker flags needed may vary depending on the options
+GIMP-Print was configured with when it was built. The
+@command{gimpprint-config} script will give the correct parameters for
+the local installation (see section <A HREF="gimpprint_6.html#SEC11">3.1  @command{gimpprint-config}</A>).
+<P><HR><P>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_3.html">previous</A>, <A HREF="gimpprint_5.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+</BODY>
+</HTML>

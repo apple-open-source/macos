@@ -25,5 +25,4 @@
 #include "SYS.h"
 
 SYSCALL(acct, 1)
-	blr
 

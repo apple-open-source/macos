@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -50,13 +51,15 @@
  */
 
 #include "boot.h"
+#include "bootstruct.h"
+#include "sl.h"
 
 /*
  * The user asked for boot graphics.
  */
 BOOL gBootGraphics = NO;
-int  gBIOSDev;
 long gBootMode = kBootModeNormal;
+static char gBootKernelCacheFile[512];
 
 static BOOL gUnloadPXEOnExit = 0;
 
@@ -65,6 +68,11 @@ static BOOL gUnloadPXEOnExit = 0;
  * kernel after displaying the "boot:" prompt.
  */
 #define kBootErrorTimeout 5
+
+/*
+ * Default path to kernel cache file
+ */
+#define kDefaultCachePath "/System/Library/Caches/com.apple.kernelcaches/kernelcache"
 
 //==========================================================================
 // Zero the BSS.
@@ -82,35 +90,42 @@ static void zeroBSS()
 }
 
 //==========================================================================
+// Malloc error function
+
+static void malloc_error(char *addr, size_t size)
+{
+    printf("\nMemory allocation error (0x%x, 0x%x)\n",
+           (unsigned)addr, (unsigned)size);
+    asm("hlt");
+}
+
+//==========================================================================
 // execKernel - Load the kernel image (mach-o) and jump to its entry point.
 
-static int execKernel(int fd)
+static int ExecKernel(void *binary)
 {
-    register KERNBOOTSTRUCT * kbp = kernBootStruct;
-    static struct mach_header head;
     entry_t                   kernelEntry;
     int                       ret;
 
-    verbose("Loading kernel %s\n", kbp->bootFile);
+    bootArgs->kaddr = bootArgs->ksize = 0;
 
-    // Perform the actual load.
-
-    kbp->kaddr = kbp->ksize = 0;
-
-    ret = loadprog( kbp->kernDev, fd,
-                    &head,
-                    &kernelEntry,
-                    (char **) &kbp->kaddr,
-                    &kbp->ksize );
-    close(fd);
-    clearActivityIndicator();
+    ret = DecodeKernel(binary,
+                       &kernelEntry,
+                       (char **) &bootArgs->kaddr,
+                       &bootArgs->ksize );
 
     if ( ret != 0 )
         return ret;
 
+    // Reserve space for boot args
+    reserveKernBootStruct();
+
     // Load boot drivers from the specifed root path.
 
-    LoadDrivers("/");
+    if (!gHaveKernelCache) {
+          LoadDrivers("/");
+    }
+
     clearActivityIndicator();
 
     if (gErrors) {
@@ -130,10 +145,9 @@ static int execKernel(int fd)
         if ( APMPresent() ) APMConnect32();
     }
 
-	// Cleanup the PXE base code.
+    // Cleanup the PXE base code.
 
-	if ( gUnloadPXEOnExit )
-    {
+    if ( (gBootFileType == kNetworkDeviceType) && gUnloadPXEOnExit ) {
 		if ( (ret = nbpUnloadBaseCode()) != nbpStatusSuccess )
         {
         	printf("nbpUnloadBaseCode error %d\n", (int) ret);
@@ -147,7 +161,7 @@ static int execKernel(int fd)
 
     // Jump to kernel's entry point. There's no going back now.
 
-    startprog( kernelEntry );
+    startprog( kernelEntry, bootArgs );
 
     // Not reached
 
@@ -162,13 +176,13 @@ static void scanHardware()
     extern int  ReadPCIBusInfo(PCI_bus_info_t *);
     extern void PCI_Bus_Init(PCI_bus_info_t *);
 
-    ReadPCIBusInfo( &kernBootStruct->pciInfo );
+    ReadPCIBusInfo( &bootArgs->pciInfo );
     
     //
     // Initialize PCI matching support in the booter.
     // Not used, commented out to minimize code size.
     //
-    // PCI_Bus_Init( &kernBootStruct->pciInfo );
+    // PCI_Bus_Init( &bootArgs->pciInfo );
 }
 
 //==========================================================================
@@ -185,11 +199,14 @@ static void scanHardware()
 
 void boot(int biosdev)
 {
-    register KERNBOOTSTRUCT * kbp = kernBootStruct;
-    int      fd;
     int      status;
+    char     *bootFile;
 
     zeroBSS();
+
+    // Initialize malloc
+
+    malloc_init(0, 0, 0, malloc_error);
 
     // Enable A20 gate before accessing memory above 1Mb.
 
@@ -198,13 +215,7 @@ void boot(int biosdev)
     // Set reminder to unload the PXE base code. Neglect to unload
     // the base code will result in a hang or kernel panic.
 
-    if ( BIOS_DEV_TYPE(biosdev) == kBIOSDevTypeNetwork )
-        gUnloadPXEOnExit = 1;
-
-#if 0
     gUnloadPXEOnExit = 1;
-    biosdev  = 0x80;
-#endif
 
     // Record the device that the booter was loaded from.
 
@@ -227,17 +238,25 @@ void boot(int biosdev)
     // Display banner and show hardware info.
 
     setCursorPosition( 0, 0, 0 );
-    printf( bootBanner, kbp->convmem, kbp->extmem );
+    printf( bootBanner, bootArgs->convmem, bootArgs->extmem );
     printVBEInfo();
 
     // Parse args, load and start kernel.
 
     while (1)
     {
+        const char *val;
+        int len, trycache;
+        long flags, cachetime, time;
+        int ret = -1;
+
         // Initialize globals.
 
         sysConfigValid = 0;
         gErrors        = 0;
+
+        // Reset config space.
+        bootArgs->configEnd = bootArgs->config;
 
         getBootOptions();
         status = processBootOptions();
@@ -246,31 +265,83 @@ void boot(int biosdev)
 
         // Found and loaded a config file. Proceed with boot.
 
+        // Check for cache file.
+
+        if (getValueForKey(kKernelCacheKey, &val, &len)) {
+            strncpy(gBootKernelCacheFile, val, len);
+            gBootKernelCacheFile[len] = '\0';
+        } else {
+            strcpy(gBootKernelCacheFile, kDefaultCachePath);
+        }
+
+        trycache = (((gBootMode & kBootModeSafe) == 0) &&
+                    (gBootFileType == kBlockDeviceType) &&
+                    (gBootKernelCacheFile[0] != '\0'));
+
         printf("Loading Darwin/x86\n");
 
-        if ( (fd = openfile( kbp->bootFile, 0 )) >= 0 )
-        {
-            execKernel(fd);  // will not return on success
-        }
-        else
-        {
-            error("Can't find %s\n", kbp->bootFile);
+        if (trycache) do {
+      
+            // if we haven't found the kernel yet, don't use the cache
+            ret = GetFileInfo(NULL, bootArgs->bootFile, &flags, &time);
+            if ((ret != 0) || ((flags & kFileTypeMask) != kFileTypeFlat)) {
+                trycache = 0;
+                break;
+            }
+            ret = GetFileInfo(NULL, gBootKernelCacheFile, &flags, &cachetime);
+            if ((ret != 0) || ((flags & kFileTypeMask) != kFileTypeFlat)
+                || (cachetime < time)) {
+                trycache = 0;
+                break;
+            }
+            ret = GetFileInfo("/System/Library/", "Extensions", &flags, &time);
+            if ((ret == 0) && ((flags & kFileTypeMask) == kFileTypeDirectory)
+                && (cachetime < time)) {
+                trycache = 0;
+                break;
+            }
+        } while (0);
 
-            if ( BIOS_DEV_TYPE(gBIOSDev) == kBIOSDevTypeFloppy )
+        do {
+            if (trycache) {
+                bootFile = gBootKernelCacheFile;
+                verbose("Loading kernel cache %s\n", bootFile);
+                ret = LoadFile(bootFile);
+                if (ret >= 0) {
+                    break;
+                }
+            }
+            bootFile = bootArgs->bootFile;
+            verbose("Loading kernel %s\n", bootFile);
+            ret = LoadFile(bootFile);
+        } while (0);
+
+        clearActivityIndicator();
+
+        if (ret < 0) {
+            error("Can't find %s\n", bootFile);
+
+            if ( gBootFileType == kBIOSDevTypeFloppy )
             {
                 // floppy in drive, but failed to load kernel.
                 gBIOSDev = kBIOSDevTypeHardDrive;
                 initKernBootStruct( gBIOSDev );
                 printf("Attempt to load from hard drive.");
             }
-            else if ( BIOS_DEV_TYPE(gBIOSDev) == kBIOSDevTypeNetwork )
+            else if ( gBootFileType == kNetworkDeviceType )
             {
                 // Return control back to PXE. Don't unload PXE base code.
                 gUnloadPXEOnExit = 0;
                 break;
             }
+        } else {
+            /* Won't return if successful. */
+            ret = ExecKernel((void *)kLoadAddr);
         }
+
     } /* while(1) */
     
-    if (gUnloadPXEOnExit) nbpUnloadBaseCode();
+    if ((gBootFileType == kNetworkDeviceType) && gUnloadPXEOnExit) {
+	nbpUnloadBaseCode();
+    }
 }

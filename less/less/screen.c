@@ -1,27 +1,11 @@
 /*
- * Copyright (c) 1984,1985,1989,1994,1995,1996,1999  Mark Nudelman
- * All rights reserved.
+ * Copyright (C) 1984-2002  Mark Nudelman
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice in the documentation and/or other materials provided with 
- *    the distribution.
+ * You may distribute under the terms of either the GNU General Public
+ * License or the Less License, as specified in the README file.
  *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR 
- * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT 
- * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR 
- * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE 
- * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN 
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * For more information about less, or for information on how to 
+ * contact the author, see the README file.
  */
 
 
@@ -42,6 +26,7 @@
 #include <conio.h>
 #if MSDOS_COMPILER==DJGPPC
 #include <pc.h>
+extern int fd0;
 #endif
 #else
 #if MSDOS_COMPILER==WIN32C
@@ -81,6 +66,7 @@
 #endif
 #if OS2
 #include <sys/signal.h>
+#include "pckeys.h"
 #endif
 #if HAVE_SYS_STREAM_H
 #include <sys/stream.h>
@@ -103,6 +89,7 @@
 
 #if OS2
 #define	DEFAULT_TERM		"ansi"
+static char *windowid;
 #else
 #define	DEFAULT_TERM		"unknown"
 #endif
@@ -110,15 +97,20 @@
 #if MSDOS_COMPILER==MSOFTC
 static int videopages;
 static long msec_loops;
-#define	SETCOLORS(fg,bg)	_settextcolor(fg); _setbkcolor(bg);
+static int flash_created = 0;
+#define	SETCOLORS(fg,bg)	{ _settextcolor(fg); _setbkcolor(bg); }
 #endif
 
-#if MSDOS_COMPILER==BORLANDC || MSDOS_COMPILER==DJGPPC
+#if MSDOS_COMPILER==BORLANDC
 static unsigned short *whitescreen;
+static int flash_created = 0;
+#endif
+#if MSDOS_COMPILER==BORLANDC || MSDOS_COMPILER==DJGPPC
 #define _settextposition(y,x)   gotoxy(x,y)
 #define _clearscreen(m)         clrscr()
 #define _outtext(s)             cputs(s)
-#define	SETCOLORS(fg,bg)	textcolor(fg); textbackground(bg);
+#define	SETCOLORS(fg,bg)	{ textcolor(fg); textbackground(bg); }
+extern int sc_height;
 #endif
 
 #if MSDOS_COMPILER==WIN32C
@@ -163,8 +155,6 @@ public int bl_bg_color;
 static int sy_fg_color;		/* Color of system text (before less) */
 static int sy_bg_color;
 
-static int flash_created = 0;
-
 #else
 
 /*
@@ -208,10 +198,15 @@ public int so_s_width, so_e_width;	/* Printing width of standout seq */
 public int bl_s_width, bl_e_width;	/* Printing width of blink seq */
 public int above_mem, below_mem;	/* Memory retained above/below screen */
 public int can_goto_line;		/* Can move cursor to any line */
+public int clear_bg;		/* Clear fills with background color */
 public int missing_cap = 0;	/* Some capability is missing */
 
+static int attrmode = AT_NORMAL;
+
+#if !MSDOS_COMPILER
 static char *cheaper();
 static void tmodes();
+#endif
 
 /*
  * These two variables are sometimes defined in,
@@ -230,9 +225,12 @@ extern int quiet;		/* If VERY_QUIET, use visual bell for bell */
 extern int no_back_scroll;
 extern int swindow;
 extern int no_init;
+extern int more_mode;
+extern int no_keypad;
 extern int sigs;
 extern int wscroll;
 extern int screen_trashed;
+extern int tty;
 #if HILITE_SEARCH
 extern int hilite_search;
 #endif
@@ -271,7 +269,7 @@ raw_mode(on)
 		/*
 		 * Get terminal modes.
 		 */
-		tcgetattr(2, &s);
+		tcgetattr(tty, &s);
 
 		/*
 		 * Save modes and set certain variables dependent on modes.
@@ -426,7 +424,10 @@ raw_mode(on)
 		 */
 		s = save_term;
 	}
-	tcsetattr(2, TCSADRAIN, &s);
+#if HAVE_FSYNC
+	fsync(tty);
+#endif
+	tcsetattr(tty, TCSADRAIN, &s);
 #if MUST_SET_LINE_DISCIPLINE
 	if (!on)
 	{
@@ -436,7 +437,7 @@ raw_mode(on)
 		 * is therefore not restored, yet.  Restore the old
 		 * line discipline by hand.
 		 */
-		ioctl(2, TIOCSETD, &save_term.c_line);
+		ioctl(tty, TIOCSETD, &save_term.c_line);
 	}
 #endif
     }
@@ -452,7 +453,7 @@ raw_mode(on)
 		/*
 		 * Get terminal modes.
 		 */
-		ioctl(2, TCGETA, &s);
+		ioctl(tty, TCGETA, &s);
 
 		/*
 		 * Save modes and set certain variables dependent on modes.
@@ -488,7 +489,7 @@ raw_mode(on)
 		 */
 		s = save_term;
 	}
-	ioctl(2, TCSETAW, &s);
+	ioctl(tty, TCSETAW, &s);
     }
 #else
 #ifdef TIOCGETP
@@ -502,7 +503,7 @@ raw_mode(on)
 		/*
 		 * Get terminal modes.
 		 */
-		ioctl(2, TIOCGETP, &s);
+		ioctl(tty, TIOCGETP, &s);
 
 		/*
 		 * Save modes and set certain variables dependent on modes.
@@ -531,7 +532,7 @@ raw_mode(on)
 		 */
 		s = save_term;
 	}
-	ioctl(2, TIOCSETN, &s);
+	ioctl(tty, TIOCSETN, &s);
     }
 #else
 #ifdef _OSK
@@ -545,7 +546,7 @@ raw_mode(on)
 		/*
 		 * Get terminal modes.
 		 */
-		_gs_opt(2, &s);
+		_gs_opt(tty, &s);
 
 		/*
 		 * Save modes and set certain variables dependent on modes.
@@ -573,7 +574,7 @@ raw_mode(on)
 		 */
 		s = save_term;
 	}
-	_ss_opt(2, &s);
+	_ss_opt(tty, &s);
     }
 #else
 	/* MS-DOS, Windows, or OS2 */
@@ -584,6 +585,15 @@ raw_mode(on)
 	erase_char = '\b';
 #if MSDOS_COMPILER==DJGPPC
 	kill_char = CONTROL('U');
+	/*
+	 * So that when we shell out or run another program, its
+	 * stdin is in cooked mode.  We do not switch stdin to binary 
+	 * mode if fd0 is zero, since that means we were called before
+	 * tty was reopened in open_getchr, in which case we would be
+	 * changing the original stdin device outside less.
+	 */
+	if (fd0 != 0)
+		setmode(0, on ? O_BINARY : O_TEXT);
 #else
 	kill_char = ESC;
 #endif
@@ -706,6 +716,27 @@ scrsize()
 		_scrsize(s);
 		sys_width = s[0];
 		sys_height = s[1];
+		/*
+		 * When using terminal emulators for XFree86/OS2, the
+		 * _scrsize function does not work well.
+		 * Call the scrsize.exe program to get the window size.
+		 */
+		windowid = getenv("WINDOWID");
+		if (windowid != NULL)
+		{
+			FILE *fd = popen("scrsize", "rt");
+			if (fd != NULL)
+			{
+				int w, h;
+				fscanf(fd, "%i %i", &w, &h);
+				if (w > 0 && h > 0)
+				{
+					sys_width = w;
+					sys_height = h;
+				}
+				pclose(fd);
+			}
+		}
 	}
 #else
 #ifdef TIOCGWINSZ
@@ -829,7 +860,7 @@ special_key_str(key)
 {
 	static char tbuf[40];
 	char *s;
-#if MSDOS_COMPILER
+#if MSDOS_COMPILER || OS2
 	static char k_right[]		= { '\340', PCK_RIGHT, 0 };
 	static char k_left[]		= { '\340', PCK_LEFT, 0  };
 	static char k_ctl_right[]	= { '\340', PCK_CTL_RIGHT, 0  };
@@ -845,14 +876,57 @@ special_key_str(key)
 	static char k_backtab[]		= { '\340', PCK_SHIFT_TAB, 0 };
 	static char k_pagedown[]	= { '\340', PCK_PAGEDOWN, 0 };
 	static char k_pageup[]		= { '\340', PCK_PAGEUP, 0 };
-	static char k_alt_e[]		= { '\340', PCK_ALT_E, 0  };
 	static char k_f1[]		= { '\340', PCK_F1, 0 };
-#else
+#endif
+#if !MSDOS_COMPILER
 	char *sp = tbuf;
 #endif
 
 	switch (key)
 	{
+#if OS2
+	/*
+	 * If windowid is not NULL, assume less is executed in 
+	 * the XFree86 environment.
+	 */
+	case SK_RIGHT_ARROW:
+		s = windowid ? ltgetstr("kr", &sp) : k_right;
+		break;
+	case SK_LEFT_ARROW:
+		s = windowid ? ltgetstr("kl", &sp) : k_left;
+		break;
+	case SK_UP_ARROW:
+		s = windowid ? ltgetstr("ku", &sp) : k_up;
+		break;
+	case SK_DOWN_ARROW:
+		s = windowid ? ltgetstr("kd", &sp) : k_down;
+		break;
+	case SK_PAGE_UP:
+		s = windowid ? ltgetstr("kP", &sp) : k_pageup;
+		break;
+	case SK_PAGE_DOWN:
+		s = windowid ? ltgetstr("kN", &sp) : k_pagedown;
+		break;
+	case SK_HOME:
+		s = windowid ? ltgetstr("kh", &sp) : k_home;
+		break;
+	case SK_END:
+		s = windowid ? ltgetstr("@7", &sp) : k_end;
+		break;
+	case SK_DELETE:
+		if (windowid)
+		{
+			s = ltgetstr("kD", &sp);
+			if (s == NULL)
+			{
+				tbuf[0] = '\177';
+				tbuf[1] = '\0';
+				s = tbuf;
+			}
+		} else
+			s = k_delete;
+		break;
+#endif
 #if MSDOS_COMPILER
 	case SK_RIGHT_ARROW:
 		s = k_right;
@@ -881,6 +955,8 @@ special_key_str(key)
 	case SK_DELETE:
 		s = k_delete;
 		break;
+#endif
+#if MSDOS_COMPILER || OS2
 	case SK_INSERT:
 		s = k_insert;
 		break;
@@ -890,8 +966,17 @@ special_key_str(key)
 	case SK_CTL_RIGHT_ARROW:
 		s = k_ctl_right;
 		break;
+	case SK_CTL_BACKSPACE:
+		s = k_ctl_backspace;
+		break;
 	case SK_CTL_DELETE:
 		s = k_ctl_delete;
+		break;
+	case SK_F1:
+		s = k_f1;
+		break;
+	case SK_BACKTAB:
+		s = k_backtab;
 		break;
 #else
 	case SK_RIGHT_ARROW:
@@ -949,6 +1034,7 @@ get_term()
 	auto_wrap = 1;
 	ignaw = 0;
 	can_goto_line = 1;
+	clear_bg = 1;
 	/*
 	 * Set up default colors.
 	 * The xx_s_width and xx_e_width vars are already initialized to 0.
@@ -1051,6 +1137,7 @@ get_term()
 	ignaw = ltgetflag("xn");
 	above_mem = ltgetflag("da");
 	below_mem = ltgetflag("db");
+	clear_bg = ltgetflag("ut");
 
 	/*
 	 * Assumes termcap variable "sg" is the printing width of:
@@ -1095,12 +1182,12 @@ get_term()
 	sc_e_keypad = ltgetstr("ke", &sp);
 	if (sc_e_keypad == NULL)
 		sc_e_keypad = "";
-		
-	sc_init = ltgetstr("ti", &sp);
+
+	sc_init = more_mode ? NULL : ltgetstr("ti", &sp);
 	if (sc_init == NULL)
 		sc_init = "";
 
-	sc_deinit= ltgetstr("te", &sp);
+	sc_deinit= more_mode ? NULL : ltgetstr("te", &sp);
 	if (sc_deinit == NULL)
 		sc_deinit = "";
 
@@ -1414,21 +1501,15 @@ win32_deinit_term()
 	public void
 init()
 {
-	if (no_init)
-	{
-#if MSDOS_COMPILER==WIN32C
-		/* no_init or not, never trash win32 console colors. */
-		initcolor();
-		flush();
-#endif
-		return;
-	}
 #if !MSDOS_COMPILER
-	tputs(sc_init, sc_height, putchr);
-	tputs(sc_s_keypad, sc_height, putchr);
+	if (!no_init)
+		tputs(sc_init, sc_height, putchr);
+	if (!no_keypad)
+		tputs(sc_s_keypad, sc_height, putchr);
 #else
 #if MSDOS_COMPILER==WIN32C
-	win32_init_term();
+	if (!no_init)
+		win32_init_term();
 #endif
 	initcolor();
 	flush();
@@ -1442,24 +1523,22 @@ init()
 	public void
 deinit()
 {
-	if (no_init)
-	{
-#if MSDOS_COMPILER==WIN32C
-		/* no_init or not, never trash win32 console colors. */
-		SETCOLORS(sy_fg_color, sy_bg_color);
-#endif
-		return;
-	}
-
 	if (!init_done)
 		return;
 #if !MSDOS_COMPILER
-	tputs(sc_e_keypad, sc_height, putchr);
-	tputs(sc_deinit, sc_height, putchr);
+	if (!no_keypad)
+		tputs(sc_e_keypad, sc_height, putchr);
+	if (!no_init)
+		tputs(sc_deinit, sc_height, putchr);
 #else
+	/* Restore system colors. */
 	SETCOLORS(sy_fg_color, sy_bg_color);
 #if MSDOS_COMPILER==WIN32C
-	win32_deinit_term();
+	if (!no_init)
+		win32_deinit_term();
+#else
+	/* Need clreol to make SETCOLORS take effect. */
+	clreol();
 #endif
 #endif
 	init_done = 0;
@@ -1535,6 +1614,7 @@ add_line()
 #endif
 }
 
+#if 0
 /*
  * Remove the n topmost lines and scroll everything below it in the 
  * window upward.  This is needed to stop leaking the topmost line 
@@ -1588,6 +1668,105 @@ remove_top(n)
 	goto_line(sc_height - n - 1);
 #endif
 }
+#endif
+
+#if MSDOS_COMPILER==WIN32C
+/*
+ * Clear the screen.
+ */
+	static void
+win32_clear()
+{
+	/*
+	 * This will clear only the currently visible rows of the NT
+	 * console buffer, which means none of the precious scrollback
+	 * rows are touched making for faster scrolling.  Note that, if
+	 * the window has fewer columns than the console buffer (i.e.
+	 * there is a horizontal scrollbar as well), the entire width
+	 * of the visible rows will be cleared.
+	 */
+	COORD topleft;
+	DWORD nchars;
+	DWORD winsz;
+	CONSOLE_SCREEN_BUFFER_INFO csbi;
+
+	/* get the number of cells in the current buffer */
+	GetConsoleScreenBufferInfo(con_out, &csbi);
+	winsz = csbi.dwSize.X * (csbi.srWindow.Bottom - csbi.srWindow.Top + 1);
+	topleft.X = 0;
+	topleft.Y = csbi.srWindow.Top;
+
+	curr_attr = MAKEATTR(nm_fg_color, nm_bg_color);
+	FillConsoleOutputCharacter(con_out, ' ', winsz, topleft, &nchars);
+	FillConsoleOutputAttribute(con_out, curr_attr, winsz, topleft, &nchars);
+}
+
+/*
+ * Remove the n topmost lines and scroll everything below it in the 
+ * window upward.
+ */
+	public void
+win32_scroll_up(n)
+	int n;
+{
+	SMALL_RECT rcSrc, rcClip;
+	CHAR_INFO fillchar;
+	COORD topleft;
+	COORD new_org;
+	DWORD nchars;
+	DWORD size;
+	CONSOLE_SCREEN_BUFFER_INFO csbi;
+
+	if (n <= 0)
+		return;
+
+	if (n >= sc_height - 1)
+	{
+		win32_clear();
+		_settextposition(1,1);
+		return;
+	}
+
+	/* Get the extent of what will remain visible after scrolling. */
+	GetConsoleScreenBufferInfo(con_out, &csbi);
+	rcSrc.Left    = csbi.srWindow.Left;
+	rcSrc.Top     = csbi.srWindow.Top + n;
+	rcSrc.Right   = csbi.srWindow.Right;
+	rcSrc.Bottom  = csbi.srWindow.Bottom;
+
+	/* Get the clip rectangle. */
+	rcClip.Left   = rcSrc.Left;
+	rcClip.Top    = csbi.srWindow.Top;
+	rcClip.Right  = rcSrc.Right;
+	rcClip.Bottom = rcSrc.Bottom ;
+
+	/* Move the source text to the top of the screen. */
+	new_org.X = rcSrc.Left;
+	new_org.Y = 0;
+
+	/* Fill the right character and attributes. */
+	fillchar.Char.AsciiChar = ' ';
+	fillchar.Attributes = MAKEATTR(nm_fg_color, nm_bg_color);
+
+	/* Scroll the window. */
+	SetConsoleTextAttribute(con_out, fillchar.Attributes);
+	ScrollConsoleScreenBuffer(con_out, &rcSrc, &rcClip, new_org, &fillchar);
+
+	/* Clear remaining lines at bottom. */
+	topleft.X = csbi.dwCursorPosition.X;
+	topleft.Y = rcSrc.Bottom - n;
+	size = (n * csbi.dwSize.X) + (rcSrc.Right - topleft.X);
+	FillConsoleOutputCharacter(con_out, ' ', size, topleft,
+		&nchars);
+	FillConsoleOutputAttribute(con_out, fillchar.Attributes, size, topleft,
+		&nchars);
+	SetConsoleTextAttribute(con_out, curr_attr);
+
+	/* Move cursor n lines up from where it was. */
+	csbi.dwCursorPosition.Y -= n;
+	SetConsoleCursorPosition(con_out, csbi.dwCursorPosition);
+}
+#endif
 
 /*
  * Move cursor to lower left corner of screen.
@@ -1649,7 +1828,7 @@ goto_line(slinenum)
 #endif
 }
 
-#if MSDOS_COMPILER
+#if MSDOS_COMPILER==MSOFTC || MSDOS_COMPILER==BORLANDC
 /*
  * Create an alternate screen which is all white.
  * This screen is used to create a "flash" effect, by displaying it
@@ -1783,7 +1962,7 @@ vbell()
 beep()
 {
 #if !MSDOS_COMPILER
-	putchr('\7');
+	putchr(CONTROL('G'));
 #else
 #if MSDOS_COMPILER==WIN32C
 	MessageBeep(0);
@@ -1816,30 +1995,7 @@ clear()
 #else
 	flush();
 #if MSDOS_COMPILER==WIN32C
-	/*
-	 * This will clear only the currently visible rows of the NT
-	 * console buffer, which means none of the precious scrollback
-	 * rows are touched making for faster scrolling.  Note that, if
-	 * the window has fewer columns than the console buffer (i.e.
-	 * there is a horizontal scrollbar as well), the entire width
-	 * of the visible rows will be cleared.
-	 */
-    {
-	COORD topleft;
-	DWORD nchars;
-	DWORD winsz;
-	CONSOLE_SCREEN_BUFFER_INFO csbi;
-
-	/* get the number of cells in the current buffer */
-	GetConsoleScreenBufferInfo(con_out, &csbi);
-	winsz = csbi.dwSize.X * (csbi.srWindow.Bottom - csbi.srWindow.Top + 1);
-	topleft.X = 0;
-	topleft.Y = csbi.srWindow.Top;
-
-	curr_attr = MAKEATTR(nm_fg_color, nm_bg_color);
-	FillConsoleOutputCharacter(con_out, ' ', winsz, topleft, &nchars);
-	FillConsoleOutputAttribute(con_out, curr_attr, winsz, topleft, &nchars);
-    }
+	win32_clear();
 #else
 	_clearscreen(_GCLEARSCREEN);
 #endif
@@ -1906,40 +2062,61 @@ clear_eol()
 }
 
 /*
- * Clear the bottom line of the display.
- * Leave the cursor at the beginning of the bottom line.
+ * Clear the current line.
+ * Clear the screen if there's off-screen memory below the display.
  */
-	public void
-clear_bot()
+	static void
+clear_eol_bot()
 {
-	lower_left();
 #if MSDOS_COMPILER
-#if MSDOS_COMPILER==BORLANDC || MSDOS_COMPILER==DJGPPC
-	{
-		unsigned char save_attr;
-		struct text_info txinfo;
-
-		/*
-		 * Clear bottom, but with the background color of the text
-		 * window, not with background of stand-out color, so the the
-		 * bottom line stays stand-out only to the extent of prompt.
-		 */
-		gettextinfo(&txinfo);
-		save_attr = txinfo.attribute;
-		lower_left();
-		textbackground(nm_bg_color);
-		clear_eol();
-		textbackground(save_attr >> 4);
-	}
-#else
 	clear_eol();
-#endif
 #else
 	if (below_mem)
 		tputs(sc_eos_clear, 1, putchr);
 	else
 		tputs(sc_eol_clear, 1, putchr);
 #endif
+}
+
+/*
+ * Clear the bottom line of the display.
+ * Leave the cursor at the beginning of the bottom line.
+ */
+	public void
+clear_bot()
+{
+	/*
+	 * If we're in a non-normal attribute mode, temporarily exit
+	 * the mode while we do the clear.  Some terminals fill the
+	 * cleared area with the current attribute.
+	 */
+	lower_left();
+	switch (attrmode)
+	{
+	case AT_STANDOUT:
+		so_exit();
+		clear_eol_bot();
+		so_enter();
+		break;
+	case AT_UNDERLINE:
+		ul_exit();
+		clear_eol_bot();
+		ul_enter();
+		break;
+	case AT_BOLD:
+		bo_exit();
+		clear_eol_bot();
+		bo_enter();
+		break;
+	case AT_BLINK:
+		bl_exit();
+		clear_eol_bot();
+		bl_enter();
+		break;
+	default:
+		clear_eol_bot();
+		break;
+	}
 }
 
 /*
@@ -1954,6 +2131,7 @@ so_enter()
 	flush();
 	SETCOLORS(so_fg_color, so_bg_color);
 #endif
+	attrmode = AT_STANDOUT;
 }
 
 /*
@@ -1968,6 +2146,7 @@ so_exit()
 	flush();
 	SETCOLORS(nm_fg_color, nm_bg_color);
 #endif
+	attrmode = AT_NORMAL;
 }
 
 /*
@@ -1983,6 +2162,7 @@ ul_enter()
 	flush();
 	SETCOLORS(ul_fg_color, ul_bg_color);
 #endif
+	attrmode = AT_UNDERLINE;
 }
 
 /*
@@ -1997,6 +2177,7 @@ ul_exit()
 	flush();
 	SETCOLORS(nm_fg_color, nm_bg_color);
 #endif
+	attrmode = AT_NORMAL;
 }
 
 /*
@@ -2011,6 +2192,7 @@ bo_enter()
 	flush();
 	SETCOLORS(bo_fg_color, bo_bg_color);
 #endif
+	attrmode = AT_BOLD;
 }
 
 /*
@@ -2025,6 +2207,7 @@ bo_exit()
 	flush();
 	SETCOLORS(nm_fg_color, nm_bg_color);
 #endif
+	attrmode = AT_NORMAL;
 }
 
 /*
@@ -2039,6 +2222,7 @@ bl_enter()
 	flush();
 	SETCOLORS(bl_fg_color, bl_bg_color);
 #endif
+	attrmode = AT_BLINK;
 }
 
 /*
@@ -2053,8 +2237,10 @@ bl_exit()
 	flush();
 	SETCOLORS(nm_fg_color, nm_bg_color);
 #endif
+	attrmode = AT_NORMAL;
 }
 
+#if 0 /* No longer used */
 /*
  * Erase the character to the left of the cursor 
  * and move the cursor left.
@@ -2103,6 +2289,7 @@ backspace()
 #endif
 #endif
 }
+#endif /* 0 */
 
 /*
  * Output a plain backspace, without erasing the previous char.

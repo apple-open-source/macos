@@ -1,28 +1,29 @@
 /* ELF strtab with GC and suffix merging support.
-   Copyright 2001 Free Software Foundation, Inc.
+   Copyright 2001, 2002 Free Software Foundation, Inc.
    Written by Jakub Jelinek <jakub@redhat.com>.
 
-This file is part of BFD, the Binary File Descriptor library.
+   This file is part of BFD, the Binary File Descriptor library.
 
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "bfd.h"
 #include "sysdep.h"
 #include "libbfd.h"
 #include "elf-bfd.h"
 #include "hashtab.h"
+#include "libiberty.h"
 
 /* An entry in the strtab hash table.  */
 
@@ -147,7 +148,7 @@ bfd_size_type
 _bfd_elf_strtab_add (tab, str, copy)
      struct elf_strtab_hash *tab;
      const char *str;
-     boolean copy;
+     bfd_boolean copy;
 {
   register struct elf_strtab_hash_entry *entry;
 
@@ -158,7 +159,7 @@ _bfd_elf_strtab_add (tab, str, copy)
 
   BFD_ASSERT (tab->sec_size == 0);
   entry = (struct elf_strtab_hash_entry *)
-	  bfd_hash_lookup (&tab->table, str, true, copy);
+	  bfd_hash_lookup (&tab->table, str, TRUE, copy);
 
   if (entry == NULL)
     return (bfd_size_type) -1;
@@ -242,7 +243,7 @@ _bfd_elf_strtab_offset (tab, idx)
   return tab->array[idx]->u.index;
 }
 
-boolean
+bfd_boolean
 _bfd_elf_strtab_emit (abfd, tab)
      register bfd *abfd;
      struct elf_strtab_hash *tab;
@@ -250,7 +251,7 @@ _bfd_elf_strtab_emit (abfd, tab)
   bfd_size_type off = 1, i;
 
   if (bfd_bwrite ("", 1, abfd) != 1)
-    return false;
+    return FALSE;
 
   for (i = 1; i < tab->size; ++i)
     {
@@ -264,13 +265,13 @@ _bfd_elf_strtab_emit (abfd, tab)
 	continue;
 
       if (bfd_bwrite ((PTR) str, (bfd_size_type) len, abfd) != len)
-	return false;
+	return FALSE;
 
       off += len;
     }
 
   BFD_ASSERT (off == tab->sec_size);
-  return true;
+  return TRUE;
 }
 
 /* Compare two elf_strtab_hash_entry structures.  This is called via qsort.  */
@@ -351,7 +352,7 @@ _bfd_elf_strtab_finalize (tab)
 
   qsort (array, size, sizeof (struct elf_strtab_hash_entry *), cmplengthentry);
 
-  last4tab = htab_create (size * 4, NULL, last4_eq, NULL);
+  last4tab = htab_create_alloc (size * 4, NULL, last4_eq, NULL, calloc, free);
   if (last4tab == NULL)
     goto alloc_failure;
 

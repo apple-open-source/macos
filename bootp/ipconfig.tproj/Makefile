@@ -30,7 +30,8 @@ PROF_LIBS = $(LIBS)
 
 HEADER_PATHS = -I../bootplib
 FRAMEWORK_PATHS = -F$(NEXT_ROOT)/System/Library/PrivateFrameworks
-FRAMEWORKS = -framework CoreFoundation -framework SystemConfiguration
+FRAMEWORKS = -framework CoreFoundation -framework IOKit\
+             -framework SystemConfiguration
 
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc

@@ -9,7 +9,7 @@
 #
 # The information in this file is specific to a single platform.
 #
-# RCS: @(#) $Id: tclConfig.sh.in,v 1.1.1.2 2000/12/06 23:04:26 wsanchez Exp $
+# RCS: @(#) $Id: tclConfig.sh.in,v 1.1.1.3 2003/03/06 00:15:40 landonf Exp $
 
 TCL_DLL_FILE="@TCL_DLL_FILE@"
 
@@ -118,6 +118,10 @@ TCL_BUILD_LIB_SPEC='@TCL_BUILD_LIB_SPEC@'
 # installed directory.
 TCL_LIB_SPEC='@TCL_LIB_SPEC@'
 
+# String to pass to the compiler so that an extension can
+# find installed Tcl headers.
+TCL_INCLUDE_SPEC='@TCL_INCLUDE_SPEC@'
+
 # Indicates whether a version numbers should be used in -l switches
 # ("ok" means it's safe to use switches like -ltcl7.5;  "nodots" means
 # use switches like -ltcl75).  SunOS and FreeBSD require "nodots", for
@@ -172,3 +176,7 @@ TCL_BUILD_STUB_LIB_PATH='@TCL_BUILD_STUB_LIB_PATH@'
 
 # Path to the Tcl stub library in the install directory.
 TCL_STUB_LIB_PATH='@TCL_STUB_LIB_PATH@'
+
+# Flag, 1: we built Tcl with threads enables, 0 we didn't
+TCL_THREADS=@TCL_THREADS@
+

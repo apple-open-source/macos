@@ -12,7 +12,7 @@
 # GNU General Public License for more details.
 
 
-class ActionDlg {
+itcl::class ActionDlg {
   inherit ManagedWin
 
   # ------------------------------------------------------------------

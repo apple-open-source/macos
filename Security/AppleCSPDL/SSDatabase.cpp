@@ -56,6 +56,14 @@ SSDatabaseImpl::insert(CSSM_DB_RECORDTYPE recordType,
 }
 
 void
+SSDatabaseImpl::authenticate(CSSM_DB_ACCESS_TYPE inAccessRequest,
+						const CSSM_ACCESS_CREDENTIALS *inAccessCredentials)
+{
+	mClientSession.authenticateDb(dbHandle(), inAccessRequest,
+		AccessCredentials::overlay(inAccessCredentials));
+}
+
+void
 SSDatabaseImpl::lock()
 {
 	mClientSession.lock(dbHandle());
@@ -94,7 +102,7 @@ SSDatabaseImpl::setSettings(uint32 inIdleTimeout, bool inLockOnSleep)
 	// Reencode the db blob.
 	CssmDataContainer dbb(allocator());
 	mClientSession.encodeDb(mSSDbHandle, dbb, allocator());
-	mDbBlobId->modify(DBBlobRelationID, NULL, &dbb, CSSM_DB_MODIFY_ATTRIBUTE_NONE);
+	getDbBlobId(NULL)->modify(DBBlobRelationID, NULL, &dbb, CSSM_DB_MODIFY_ATTRIBUTE_NONE);
 }
 
 bool
@@ -111,7 +119,7 @@ SSDatabaseImpl::changePassphrase(const CSSM_ACCESS_CREDENTIALS *cred)
 	// Reencode the db blob.
 	CssmDataContainer dbb(allocator());
 	mClientSession.encodeDb(mSSDbHandle, dbb, allocator());
-	mDbBlobId->modify(DBBlobRelationID, NULL, &dbb, CSSM_DB_MODIFY_ATTRIBUTE_NONE);
+	getDbBlobId(NULL)->modify(DBBlobRelationID, NULL, &dbb, CSSM_DB_MODIFY_ATTRIBUTE_NONE);
 }
 
 DbHandle
@@ -121,7 +129,7 @@ SSDatabaseImpl::dbHandle()
 	if (mForked()) {
 		// re-establish the dbHandle with the SecurityServer
 		CssmDataContainer dbb(allocator());
-		mDbBlobId->get(NULL, &dbb);
+		getDbBlobId(&dbb);
 		mSSDbHandle = mClientSession.decodeDb(mIdentifier,
 			AccessCredentials::overlay(accessCredentials()), dbb);
 	}
@@ -172,7 +180,7 @@ SSDatabaseImpl::create(const DLDbIdentifier &dlDbIdentifier)
 		mSSDbHandle = mClientSession.createDb(dlDbIdentifier, cred, owner, dbParameters);
 		CssmDataContainer dbb(allocator());
 		mClientSession.encodeDb(mSSDbHandle, dbb, allocator());
-		mDbBlobId = Db::Impl::insert(DBBlobRelationID, NULL, &dbb);
+		Db::Impl::insert(DBBlobRelationID, NULL, &dbb);
 	}
 	catch(...)
 	{
@@ -187,11 +195,8 @@ SSDatabaseImpl::open(const DLDbIdentifier &dlDbIdentifier)
 	mIdentifier = dlDbIdentifier;
 	Db::Impl::open();
 
-	DbCursor cursor(SSDatabase(this));
-	cursor->recordType(DBBlobRelationID);
 	CssmDataContainer dbb(allocator());
-	if (!cursor->next(NULL, &dbb, mDbBlobId))
-		CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
+	getDbBlobId(&dbb);
 
 	mSSDbHandle = mClientSession.decodeDb(dlDbIdentifier, AccessCredentials::overlay(accessCredentials()), dbb);
 }
@@ -201,6 +206,20 @@ SSDatabaseImpl::newDbUniqueRecord()
 {
 	return new SSUniqueRecordImpl(SSDatabase(this));
 }
+
+CssmClient::DbUniqueRecord
+SSDatabaseImpl::getDbBlobId(CssmDataContainer *dbb)
+{
+	CssmClient::DbUniqueRecord dbBlobId;
+
+	DbCursor cursor(SSDatabase(this));
+	cursor->recordType(DBBlobRelationID);
+	if (!cursor->next(NULL, dbb, dbBlobId))
+		CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
+
+	return dbBlobId;
+}
+
 
 
 SSUniqueRecordImpl::SSUniqueRecordImpl(const SSDatabase &db)
@@ -217,4 +236,3 @@ SSUniqueRecordImpl::database() const
 {
 	return parent<SSDatabase>();
 }
-

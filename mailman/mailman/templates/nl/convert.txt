@@ -1,0 +1,32 @@
+De %(listname)s mailinglijst heeft zojuist een grote verandering ondergaan.
+Het werkt nu op een nieuw mailinglijst pakket genaamd "Mailman". Dit zal hopelijk
+veel problemen oplossen.
+hopefully solve a lot of problems that administering this list has
+presented.
+
+Hoe zal dit u betreffen?
+
+1) Mail die naar de lijst gestuurd wordt, moet gestuurd worden naar: %(listaddr)s.
+
+2) U zult een paswoord ontvangen om te voorkomen dat anderen u kunnen uitschrijven
+zonder dat u dat weet. Deze zal naar u toe gemaild worden in een apart e-mailtje, het
+kan ook zijn dat u deze al ontvangen heeft. Mocht u dit paswoord vergeten is dat geen
+probleem. Er zal iedere maand een herinnering via e-mail naar u toegezonden worden.
+
+3) Als u toegang heeft tot internet dan kunt u ten allen tijde zich uitschrijven van deze
+lijst, aan en uitzetten van de Digest mode, het archief van deze lijst bekijken (deze zal
+beschikbaar zijn zodra er een paar dagen gemaild is op de lijst), etc.
+Het adres voor deze bron is:
+
+    %(listinfo_url)s
+
+4) Als u geen toegang heeft tot internet dan kunt u deze dingen ook doen via e-mail.
+Stuur een e-mail naar %(requestaddr)s met als onderwerp of in de tekst het woord
+"help" (zonder aanhalingstekens). U ontvangt dan automatisch een antwoord waar verdere
+aanwijzingen in staan.
+
+Heeft u nog vragen of problemen met deze nieuwe setup, dan kunt u die richten aan:
+%(adminaddr)s.
+
+Dit bericht was automatisch gegenereerd door Mailman %(version)s. Voor meer informatie
+over de Mailman software, bezoek dan de Mailman homepage op: http://www.list.org/

@@ -1,8 +1,25 @@
 #!/bin/sh
 
 ##
-# This startup item does nothing; it exists only to denote
-# when the system is prepared to bring up loginwindow.
+# This startup item's main purpose is to signal
+# SystemStarter that we are now ready to start LoginWindow.
 ##
 
-true
+. /etc/rc.common
+
+
+StartService ()
+{
+    # leave cookie for Login Window
+    /usr/bin/touch /var/run/.systemStarterRunning
+}
+
+StopService ()
+{
+    return 0;
+}
+
+RestartService () { StartService; }
+
+
+RunService "$1"

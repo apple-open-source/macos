@@ -84,3 +84,9 @@ GNU programming tools
 
 Utilities
 * Bash: (bash).                     The GNU Bourne-Again SHell.
+
+GNU Packages
+* Tar: (tar).			Making tape (or disk) archives.
+
+Individual utilities
+* tar: (tar)tar invocation.                     Invoking GNU `tar'

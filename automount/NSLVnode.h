@@ -11,14 +11,25 @@
 @interface NSLVnode : Vnode
 {
 	unsigned long generation;
+	String *apparentName;
     NetworkObjectType NSLObjectType;
 	union {
 		NSLNeighborhood neighborhood;
 		NSLService service;
 	} NSLObject;
 	BOOL fixedEntry;
-	BOOL havePopulated;
 	BOOL beingPopulated;
+	BOOL havePopulated;
+	BOOL neighborhoodSearchStarted;
+	BOOL neighborhoodSearchComplete;
+	SearchContext neighborhoodSearchContext;
+	struct SearchResultList neighborhoodSearchResults;
+	BOOL servicesSearchStarted;
+	BOOL servicesSearchComplete;
+	SearchContext servicesSearchContext;
+	struct SearchResultList servicesSearchResults;
+	struct timeval lastNotification;
+	struct timeval lastSeen;
 	struct timeval ErrorTime;
     struct timeval lastUpdate;
 	unsigned long currentContentGeneration;
@@ -26,11 +37,16 @@
 
 - (NSLVnode *)init;
 
+- (String *)apparentName;
+- (void)setApparentName:(String *)n;
+
 - (NSLVnode *)newNeighborhoodWithName:(String *)newNeighborhoodname neighborhood:(NSLNeighborhood)neighborhood;
 - (NSLVnode *)newServiceWithName:(String *)newServiceName service:(NSLService)service serviceURL:(char *)serverURL;
 - (NSLVnode *)newSymlinkWithName:(String *)newSymlink target:(char *)target;
 
-- (void)invalidateRecursively:(BOOL)invalidateDescendants;
+- (void)triggerDeferredNotifications:(SearchContext *)searchContext;
+
+- (void)invalidateRecursively:(BOOL)invalidateDescendants notifyFinder:(BOOL)notifyFinder;
 
 - (unsigned long)getGeneration;
 - (void)setGeneration:(unsigned long)newGeneration;
@@ -43,8 +59,12 @@
 
 - (NSLService)getNSLService;
 
+- (void)stopSearchesInProgress;
+
 - (BOOL)fixedEntry;
 - (void)setFixedEntry:(BOOL)newFixedEntryStatus;
+
+- (BOOL)processSearchResults:(SearchContext *)searchContext;
 
 @end
 

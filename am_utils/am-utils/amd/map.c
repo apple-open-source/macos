@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: map.c,v 1.1.1.1 2002/05/15 01:21:55 jkh Exp $
+ * $Id: map.c,v 1.1.1.2 2002/07/15 19:42:38 zarzycki Exp $
  *
  */
 
@@ -49,7 +49,6 @@
 
 #define	smallest_t(t1, t2) (t1 != NEVER ? (t2 != NEVER ? (t1 < t2 ? t1 : t2) : t1) : t2)
 #define IGNORE_FLAGS (MFF_MOUNTING|MFF_UNMOUNTING|MFF_RESTART)
-#define NEVER (time_t) 0
 #define new_gen() (am_gen++)
 
 /*
@@ -1089,9 +1088,9 @@ timeout_mp(voidp v)
     mntfs *mf;
 
     /*
-     * Just continue if nothing mounted, or can't be timed out.
+     * Just continue if nothing mounted
      */
-    if (!mp || (mp->am_flags & AMF_NOTIMEOUT))
+    if (!mp)
       continue;
 
     /*
@@ -1099,6 +1098,17 @@ timeout_mp(voidp v)
      */
     mf = mp->am_mnt;
     if (!mf)
+      continue;
+
+#ifdef HAVE_FS_AUTOFS
+    if (mf->mf_flags & MFF_AUTOFS) {
+      if (now >= mp->am_ttl)
+	autofs_timeout_mp(mp);
+      t = smallest_t(t, mp->am_ttl);
+    }
+#endif /* HAVE_FS_AUTOFS */
+
+    if (mp->am_flags & AMF_NOTIMEOUT)
       continue;
 
     /*

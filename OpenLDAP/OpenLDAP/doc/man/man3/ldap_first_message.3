@@ -1,10 +1,12 @@
-.TH LDAP_FIRST_MESSAGE 3 "19 September 2001" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man3/ldap_first_message.3,v 1.2 2002/01/04 20:17:34 kurt Exp $
-.\" Copyright 1998-2002 The OpenLDAP Foundation All Rights Reserved.
+.TH LDAP_FIRST_MESSAGE 3 "RELEASEDATE" "OpenLDAP LDVERSION"
+.\" $OpenLDAP: pkg/ldap/doc/man/man3/ldap_first_message.3,v 1.2.2.4 2003/03/03 17:10:02 kurt Exp $
+.\" Copyright 1998-2003 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ldap_first_message, ldap_next_message, ldap_count_messages \- Stepping
 through messages in a result chain
+.SH LIBRARY
+OpenLDAP LDAP (libldap, -lldap)
 .SH SYNOPSIS
 .nf
 .ft B
@@ -71,12 +73,12 @@ NULL is returned.  If an error occurs in
 .BR ldap_count_messages() ,
 -1 is returned.
 .SH SEE ALSO
-.BR ldap(3),
-.BR ldap_search(3),
-.BR ldap_result(3),
-.BR ldap_parse_result(3),
-.BR ldap_first_entry(3),
-.BR ldap_first_reference(3)
+.BR ldap (3),
+.BR ldap_search (3),
+.BR ldap_result (3),
+.BR ldap_parse_result (3),
+.BR ldap_first_entry (3),
+.BR ldap_first_reference (3)
 .SH ACKNOWLEDGEMENTS
 .B	OpenLDAP
 is developed and maintained by The OpenLDAP Project (http://www.openldap.org/).

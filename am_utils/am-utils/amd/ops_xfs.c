@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: ops_xfs.c,v 1.1.1.1 2002/05/15 01:21:56 jkh Exp $
+ * $Id: ops_xfs.c,v 1.1.1.2 2002/07/15 19:42:40 zarzycki Exp $
  *
  */
 
@@ -74,7 +74,9 @@ am_ops xfs_ops =
   0,				/* xfs_umounted */
   find_amfs_auto_srvr,
   FS_MKMNT | FS_NOTIMEOUT | FS_UBACKGROUND | FS_AMQINFO, /* nfs_fs_flags */
-  FS_MKMNT | FS_NOTIMEOUT | FS_UBACKGROUND | FS_AMQINFO	 /* autofs_fs_flags */
+#ifdef HAVE_FS_AUTOFS
+  AUTOFS_XFS_FS_FLAGS,
+#endif /* HAVE_FS_AUTOFS */
 };
 
 
@@ -100,7 +102,7 @@ xfs_match(am_opts *fo)
 
 
 static int
-mount_xfs(char *dir, char *fs_name, char *opts, int on_autofs)
+mount_xfs(char *mntdir, char *real_mntdir, char *fs_name, char *opts, int on_autofs)
 {
   xfs_args_t xfs_args;
   mntent_t mnt;
@@ -117,7 +119,7 @@ mount_xfs(char *dir, char *fs_name, char *opts, int on_autofs)
    * Fill in the mount structure
    */
   memset((voidp) &mnt, 0, sizeof(mnt));
-  mnt.mnt_dir = dir;
+  mnt.mnt_dir = mntdir;
   mnt.mnt_fsname = fs_name;
   mnt.mnt_type = MNTTAB_TYPE_XFS;
   mnt.mnt_opts = opts;
@@ -138,7 +140,7 @@ mount_xfs(char *dir, char *fs_name, char *opts, int on_autofs)
   /*
    * Call generic mount routine
    */
-  return mount_fs(&mnt, flags, (caddr_t) &xfs_args, 0, type, 0, NULL, mnttab_file_name);
+  return mount_fs2(&mnt, real_mntdir, flags, (caddr_t) &xfs_args, 0, type, 0, NULL, mnttab_file_name);
 }
 
 
@@ -147,7 +149,7 @@ xfs_mount(am_node *am, mntfs *mf)
 {
   int error;
 
-  error = mount_xfs(mf->mf_mount, mf->mf_info, mf->mf_mopts,
+  error = mount_xfs(mf->mf_mount, mf->mf_real_mount, mf->mf_info, mf->mf_mopts,
 		    am->am_flags & AMF_AUTOFS);
   if (error) {
     errno = error;
@@ -162,5 +164,5 @@ xfs_mount(am_node *am, mntfs *mf)
 static int
 xfs_umount(am_node *am, mntfs *mf)
 {
-  return UMOUNT_FS(mf->mf_mount, mnttab_file_name);
+  return UMOUNT_FS(mf->mf_mount, mf->mf_real_mount, mnttab_file_name);
 }

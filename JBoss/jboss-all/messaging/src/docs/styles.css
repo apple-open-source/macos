@@ -1,0 +1,12 @@
+body {  margin-top: 0px; margin-right: 0px; margin-bottom: 0px; margin-left: 0px}
+p {  font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 10pt}
+td { font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 10pt }
+h1 {  font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 16pt; font-weight: bold}
+h2 { font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 12pt; font-weight: bold}
+a.undecorated { text-decoration: none; color: #000000}
+a.undecorated:hover { text-decoration: underline; color: #0000D0}
+h3 { font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 10pt; font-weight: bold ; font-style: italic}
+.footer {  font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 8pt}
+
+ul { font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 10pt }
+ol { font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 10pt }

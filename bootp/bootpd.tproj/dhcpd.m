@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -321,7 +324,7 @@ make_dhcp_reply(struct dhcp * reply, int pkt_size,
     return (NULL);
 }
 
-static __inline__ struct dhcp * 
+static struct dhcp * 
 make_dhcp_nak(struct dhcp * reply, int pkt_size, 
 	      struct in_addr server_id, dhcp_msgtype_t * msg_p, 
 	      char * nak_msg, struct dhcp * request, 
@@ -863,6 +866,12 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 		      S_remove_host(&entry);
 		      binding = dhcp_binding_none_e;
 		  }
+		  if (detect_other_dhcp_server) {
+		      my_log(LOG_INFO, 
+			     "dhcpd: detected another DHCP server %s, exiting",
+			     inet_ntoa(*server_id));
+		      exit(2);
+		  }
 		  goto no_reply;
 	      }
 	      
@@ -1180,6 +1189,19 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
     if (binding == dhcp_binding_temporary_e && modified) {
 	if (S_commit_mods() == FALSE)
 	    goto no_reply;
+    }
+    { /* check the seconds field */
+	u_int16_t	secs;
+	
+	secs = (u_int16_t)ntohs(rq->dp_secs);
+	if (secs < reply_threshold_seconds) {
+	    if (debug) {
+		printf("rp->dp_secs %d < threshold %d\n",
+		       secs, reply_threshold_seconds);
+	    }
+	    goto no_reply;
+	}
+	
     }
     if (reply) {
 	if (reply_msgtype == dhcp_msgtype_ack_e || 

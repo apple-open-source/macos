@@ -236,7 +236,7 @@ private:
     BPF_FUNC                 _outputFilterFunc;
     OSObject *               _outTarget;
     IOOutputAction           _outAction;
-	UInt32                   _clientVar[4];
+    UInt32                   _clientVar[4];
     OSDictionary *           _dataDict;
     struct mbuf *            _inputQHead;
     struct mbuf *            _inputQTail;
@@ -329,8 +329,8 @@ public:
     @param score Pointer to the current driver's probe score, not used.
     @result Returns true for a positive match, false otherwise. */
 
-    virtual bool matchPropertyTable( OSDictionary *	table,
-                                     SInt32       *	score );
+    virtual bool matchPropertyTable( OSDictionary * table,
+                                     SInt32       * score );
 
 /*! @function getController
     @abstract Return the provider, an IONetworkController object, that
@@ -931,9 +931,41 @@ public:
 
     virtual bool serializeProperties( OSSerialize * s ) const;
 
+/*! @function attachToDataLinkLayer
+    @abstract Attach the network interface to the data link layer.
+    @discussion This function is called by the family to attach the network
+    interface managed by an IONetworkInterface to the data link layer. This
+    call occurs after the interface initialization and setup, including the
+    assignment of an interface unit number. Prior to the data link attach,
+    services provided by an IONetworkInterface will be inaccessible to BSD
+    networking, though the object can be found in the I/O Kit registry.
+    Subclasses can extend this function to perform additional work that is
+    specific to a type of interface.
+    @param options Options for the attach call. None are currently defined.
+    @param parameter Parameter for the attach call. Not currently used.
+    @result kIOReturnSuccess is returned on success. */
+
+    virtual IOReturn attachToDataLinkLayer( IOOptionBits options,
+                                            void *       parameter );
+
+    OSMetaClassDeclareReservedUsed(IONetworkInterface, 0);
+
+/*! @function detachFromDataLinkLayer
+    @abstract Detach the network interface from the data link layer.
+    @discussion This function is called by the family to detach the network
+    interface managed by an IONetworkInterface from the data link layer.
+    This call is made when the interface is terminated, before the last close.
+    Subclasses can extend this function to perform additional work that is
+    specific to a type of interface.
+    @param options Options for the detach call. None are currently defined.
+    @param parameter Parameter for the detach call. Not currently used. */
+
+    virtual void detachFromDataLinkLayer( IOOptionBits options,
+                                          void *       parameter );
+
+    OSMetaClassDeclareReservedUsed(IONetworkInterface, 1);
+
     // Virtual function padding
-    OSMetaClassDeclareReservedUnused( IONetworkInterface,  0);
-    OSMetaClassDeclareReservedUnused( IONetworkInterface,  1);
     OSMetaClassDeclareReservedUnused( IONetworkInterface,  2);
     OSMetaClassDeclareReservedUnused( IONetworkInterface,  3);
     OSMetaClassDeclareReservedUnused( IONetworkInterface,  4);

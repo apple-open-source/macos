@@ -1,88 +1,165 @@
-/* 
- * Copyright (c) 1995 NeXT Computer, Inc. All Rights Reserved
- *
+/*
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
  * This code is derived from software contributed to Berkeley by
  * Tony Nardo of the Johns Hopkins University/Applied Physics Lab.
  *
- * The NEXTSTEP Software License Agreement specifies the terms
- * and conditions for redistribution.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. All advertising materials mentioning features or use of this software
+ *    must display the following acknowledgement:
+ *	This product includes software developed by the University of
+ *	California, Berkeley and its contributors.
+ * 4. Neither the name of the University nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
  *
- *	@(#)net.c	8.4 (Berkeley) 4/28/95
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
  */
 
-#include <sys/types.h>
+#if 0
+#ifndef lint
+static char sccsid[] = "@(#)net.c	8.4 (Berkeley) 4/28/95";
+#endif
+#endif
+
+#include <sys/cdefs.h>
+
+#include <sys/param.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <db.h>
-#include <unistd.h>
-#include <pwd.h>
-#include <utmp.h>
-#include <stdio.h>
+#include <sys/uio.h>
 #include <ctype.h>
+#include <db.h>
+#include <err.h>
+#include <netdb.h>
+#include <pwd.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <utmp.h>
 #include "finger.h"
 
+static void cleanup(int sig);;
+static int do_protocol(const char *name, const struct addrinfo *ai);
+static void trying(const struct addrinfo *ai);
+
 void
-netfinger(name)
-	char *name;
+netfinger(char *name)
 {
-	extern int lflag;
-	register FILE *fp;
-	register int c, lastc;
-	struct in_addr defaddr;
-	struct hostent *hp, def;
-	struct servent *sp;
-	struct sockaddr_in sin;
-	int s;
-	char *alist[1], *host;
+	int error, multi;
+	char *host;
+	struct addrinfo *ai, *ai0;
+	static struct addrinfo hint;
 
-	if (!(host = rindex(name, '@')))
+	host = strrchr(name, '@');
+	if (host == 0)
 		return;
-	*host++ = NULL;
-	if (isdigit(*host) && (defaddr.s_addr = inet_addr(host)) != -1) {
-		def.h_name = host;
-		def.h_addr_list = alist;
-		def.h_addr = (char *)&defaddr;
-		def.h_length = sizeof(struct in_addr);
-		def.h_addrtype = AF_INET;
-		def.h_aliases = 0;
-		hp = &def;
-	} else if (!(hp = gethostbyname(host))) {
-		(void)fprintf(stderr,
-		    "finger: unknown host: %s\n", host);
-		return;
-	}
-	if (!(sp = getservbyname("finger", "tcp"))) {
-		(void)fprintf(stderr, "finger: tcp/finger: unknown service\n");
-		return;
-	}
-	sin.sin_family = hp->h_addrtype;
-	bcopy(hp->h_addr, (char *)&sin.sin_addr, hp->h_length);
-	sin.sin_port = sp->s_port;
-	if ((s = socket(hp->h_addrtype, SOCK_STREAM, 0)) < 0) {
-		perror("finger: socket");
+	*host++ = '\0';
+	signal(SIGALRM, cleanup);
+	alarm(TIME_LIMIT);
+
+	hint.ai_flags = AI_CANONNAME;
+	hint.ai_family = family;
+	hint.ai_socktype = SOCK_STREAM;
+
+	error = getaddrinfo(host, "finger", &hint, &ai0);
+	if (error) {
+		warnx("%s: %s", host, gai_strerror(error));
 		return;
 	}
 
-	/* have network connection; identify the host connected with */
-	(void)printf("[%s]\n", hp->h_name);
-	if (connect(s, (struct sockaddr *)&sin, sizeof(sin)) < 0) {
-		perror("finger: connect");
-		(void)close(s);
-		return;
+	multi = (ai0->ai_next) != 0;
+
+	/* ai_canonname may not be filled in if the user specified an IP. */
+	if (ai0->ai_canonname == 0)
+		printf("[%s]\n", host);
+	else
+		printf("[%s]\n", ai0->ai_canonname);
+
+	for (ai = ai0; ai != 0; ai = ai->ai_next) {
+		if (multi)
+			trying(ai);
+
+		error = do_protocol(name, ai);
+		if (!error)
+			break;
 	}
+	alarm(0);
+	freeaddrinfo(ai0);
+}
+
+static int
+do_protocol(const char *name, const struct addrinfo *ai)
+{
+	int cnt, line_len, s;
+	FILE *fp;
+	int c, lastc;
+	struct iovec iov[3];
+	struct msghdr msg;
+	static char slash_w[] = "/W ";
+	static char neteol[] = "\r\n";
+
+	s = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
+	if (s < 0) {
+		warn("socket(%d, %d, %d)", ai->ai_family, ai->ai_socktype,
+		     ai->ai_protocol);
+		return -1;
+	}
+
+	msg.msg_name = (void *)ai->ai_addr;
+	msg.msg_namelen = ai->ai_addrlen;
+	msg.msg_iov = iov;
+	msg.msg_iovlen = 0;
+	msg.msg_control = 0;
+	msg.msg_controllen = 0;
+	msg.msg_flags = 0;
 
 	/* -l flag for remote fingerd  */
-	if (lflag)
-		write(s, "/W ", 3);
+	if (lflag) {
+		iov[msg.msg_iovlen].iov_base = slash_w;
+		iov[msg.msg_iovlen++].iov_len = 3;
+	}
 	/* send the name followed by <CR><LF> */
-	(void)write(s, name, strlen(name));
-	(void)write(s, "\r\n", 2);
+	iov[msg.msg_iovlen].iov_base = strdup(name);
+	iov[msg.msg_iovlen++].iov_len = strlen(name);
+	iov[msg.msg_iovlen].iov_base = neteol;
+	iov[msg.msg_iovlen++].iov_len = 2;
+
+	/*
+	 * -T disables data-on-SYN: compatibility option to finger broken
+	 * hosts.  Also, the implicit-open API is broken on IPv6, so do
+	 * the explicit connect there, too.
+	 */
+	if ((Tflag || ai->ai_addr->sa_family == AF_INET6)
+	    && connect(s, ai->ai_addr, ai->ai_addrlen) < 0) {
+		warn("connect");
+		close(s);
+		return -1;
+	}
+
+	if (sendmsg(s, &msg, 0) < 0) {
+		warn("sendmsg");
+		close(s);
+		return -1;
+	}
 
 	/*
 	 * Read from the remote system; once we're connected, we assume some
@@ -95,19 +172,27 @@ netfinger(name)
 	 * Otherwise, all high bits are stripped; if it isn't printable and
 	 * it isn't a space, we can simply set the 7th bit.  Every ASCII
 	 * character with bit 7 set is printable.
-	 */ 
+	 */
 	lastc = 0;
-	if ((fp = fdopen(s, "r")) != NULL)
+	if ((fp = fdopen(s, "r")) != NULL) {
+		cnt = 0;
+		line_len = 0;
 		while ((c = getc(fp)) != EOF) {
-			c &= 0x7f;
+			if (++cnt > OUTPUT_MAX) {
+				printf("\n\n Output truncated at %d bytes...\n",
+					cnt - 1);
+				break;
+			}
 			if (c == 0x0d) {
 				if (lastc == '\r')	/* ^M^M - skip dupes */
 					continue;
 				c = '\n';
 				lastc = '\r';
 			} else {
-				if (!isprint(c) && !isspace(c))
+				if (!isprint(c) && !isspace(c)) {
+					c &= 0x7f;
 					c |= 0x40;
+				}
 				if (lastc != '\r' || c != '\n')
 					lastc = c;
 				else {
@@ -116,9 +201,45 @@ netfinger(name)
 				}
 			}
 			putchar(c);
+			if (c != '\n' && ++line_len > _POSIX2_LINE_MAX) {
+				putchar('\\');
+				putchar('\n');
+				lastc = '\r';
+			}
+			if (lastc == '\n' || lastc == '\r')
+				line_len = 0;
 		}
-	if (lastc != '\n')
-		putchar('\n');
-	putchar('\n');
-	(void)fclose(fp);
+		if (ferror(fp)) {
+			/*
+			 * Assume that whatever it was set errno...
+			 */
+			warn("reading from network");
+		}
+		if (lastc != '\n')
+			putchar('\n');
+
+		fclose(fp);
+	}
+	return 0;
 }
+
+static void
+trying(const struct addrinfo *ai)
+{
+	char buf[NI_MAXHOST];
+
+	if (getnameinfo(ai->ai_addr, ai->ai_addrlen, buf, sizeof buf,
+			(char *)0, 0, NI_NUMERICHOST) != 0)
+		return;		/* XXX can't happen */
+
+	printf("Trying %s...\n", buf);
+}
+
+void
+cleanup(int sig)
+{
+#define	ERRSTR	"Timed out.\n"
+	write(STDERR_FILENO, ERRSTR, sizeof ERRSTR);
+	exit(1);
+}
+

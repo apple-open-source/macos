@@ -1,6 +1,7 @@
 /* Parameters for execution on a z8000 series machine.
-   Copyright 1992, 1993, 1994, 1998, 1999, 2000, 2001
-   Free Software Foundation, Inc.
+
+   Copyright 1992, 1993, 1994, 1998, 1999, 2000, 2001, 2002 Free
+   Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -18,6 +19,11 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
+
+/* NOTE: cagney/2002-11-24: This is a guess.  */
+#define DEPRECATED_USE_GENERIC_DUMMY_FRAMES 0
+#define CALL_DUMMY_LOCATION ON_STACK
+#define DEPRECATED_PC_IN_CALL_DUMMY(pc, sp, frame_address) deprecated_pc_in_call_dummy_on_stack (pc, sp, frame_address)
 
 #undef TARGET_INT_BIT
 #undef TARGET_LONG_BIT
@@ -102,9 +108,8 @@ extern int z8k_saved_pc_after_call (struct frame_info *frame);
 #define REGISTER_VIRTUAL_TYPE(N) \
  (REGISTER_VIRTUAL_SIZE(N) == 2? builtin_type_unsigned_int : builtin_type_long)
 
-/*#define INIT_FRAME_PC(x,y) init_frame_pc(x,y) */
-/* Initializer for an array of names of registers.
-   Entries beyond the first NUM_REGS are ignored.  */
+#define DEPRECATED_INIT_FRAME_PC(x,y) (init_frame_pc_noop (x, y))
+#define INIT_FRAME_PC_FIRST(x,y) (init_frame_pc_noop (x, y))
 
 #define REGISTER_NAMES  \
  {"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", \
@@ -142,19 +147,19 @@ extern int z8k_saved_pc_after_call (struct frame_info *frame);
    as doubles in d0/d1.  */
 
 
-#define EXTRACT_RETURN_VALUE(TYPE,REGBUF,VALBUF) \
+#define DEPRECATED_EXTRACT_RETURN_VALUE(TYPE,REGBUF,VALBUF) \
   memcpy(VALBUF, REGBUF + REGISTER_BYTE(2), TYPE_LENGTH(TYPE));
 
 /* Write into appropriate registers a function return value
    of type TYPE, given in virtual format. */
 
-#define STORE_RETURN_VALUE(TYPE,VALBUF) internal_error (__FILE__, __LINE__, "failed internal consistency check");
+#define DEPRECATED_STORE_RETURN_VALUE(TYPE,VALBUF) internal_error (__FILE__, __LINE__, "failed internal consistency check");
 
 /* Extract from an array REGBUF containing the (raw) register state
    the address in which a function should return its structure value,
    as a CORE_ADDR (or an expression that can be used as one).  */
 
-#define EXTRACT_STRUCT_VALUE_ADDRESS(REGBUF) (*(CORE_ADDR *)(REGBUF))
+#define DEPRECATED_EXTRACT_STRUCT_VALUE_ADDRESS(REGBUF) (*(CORE_ADDR *)(REGBUF))
 
 /* Describe the pointer in each stack frame to the previous stack frame
    (its caller).  */
@@ -276,9 +281,9 @@ int sim_z8001_mode;
 
 #define NO_STD_REGS
 
-extern void z8k_print_register_hook (int regno);
-#define	PRINT_REGISTER_HOOK(regno) z8k_print_register_hook(regno)
-
+extern void z8k_do_registers_info (int regnum, int all);
+#define DEPRECATED_DO_REGISTERS_INFO(REGNUM,ALL) \
+	z8k_do_registers_info (REGNUM, ALL)
 
 extern void z8k_set_pointer_size (int newsize);
 #define INIT_EXTRA_SYMTAB_INFO \

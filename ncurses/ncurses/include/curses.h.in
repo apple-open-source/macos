@@ -31,7 +31,7 @@
  *     and: Eric S. Raymond <esr@snark.thyrsus.com>                         *
  ****************************************************************************/
 
-/* $Id: curses.h.in,v 1.1.1.4 2002/02/15 21:54:44 jevans Exp $ */
+/* $Id: curses.h.in,v 1.2 2003/06/07 06:46:36 emoy Exp $ */
 
 #ifndef __NCURSES_H
 #define __NCURSES_H
@@ -279,10 +279,22 @@ typedef	chtype	attr_t;		/* ...must be at least as wide as chtype */
 #endif
 
 #ifndef _WCHAR_T
-typedef unsigned long wchar_t;
+#ifndef	__cplusplus
+#ifndef	_BSD_WCHAR_T_DEFINED_
+#define	_BSD_WCHAR_T_DEFINED_
+#ifdef	__WCHAR_TYPE__
+typedef	__WCHAR_TYPE__	wchar_t;
+#else	/* ! __WCHAR_TYPE__ */
+typedef	_BSD_WCHAR_T_	wchar_t;
+#endif	/* __WCHAR_TYPE__ */
+#endif	/* _BSD_WCHAR_T_DEFINED_ */
+#endif	/* __cplusplus */
 #endif /* _WCHAR_T */
 #ifndef _WINT_T
-typedef long int wint_t;
+#ifndef	_BSD_WINT_T_DEFINED_
+#define _BSD_WINT_T_DEFINED_
+typedef	_BSD_WINT_T_	wint_t;
+#endif
 #endif /* _WINT_T */
 
 #define CCHARW_MAX	5

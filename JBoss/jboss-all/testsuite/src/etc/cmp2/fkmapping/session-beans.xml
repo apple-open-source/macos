@@ -1,0 +1,9 @@
+      <session>
+         <description>JUnit Session Bean Test Runner</description>
+         <ejb-name>EJBTestRunnerEJB</ejb-name>
+         <home>net.sourceforge.junitejb.EJBTestRunnerHome</home>
+         <remote>net.sourceforge.junitejb.EJBTestRunner</remote>
+         <ejb-class>net.sourceforge.junitejb.EJBTestRunnerBean</ejb-class>
+         <session-type>Stateless</session-type>
+         <transaction-type>Bean</transaction-type>
+      </session>

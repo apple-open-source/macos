@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -27,6 +28,9 @@
 #import "RRObject.h"
 #import "Array.h"
 #import "NFSHeaders.h"
+
+#define URL_KEY_STRING "url=="
+#define AUTH_URL_KEY_STRING "authenticated_url=="
 
 @class Server;
 @class String;
@@ -45,13 +49,15 @@ struct file_handle
 
 @interface Vnode : RRObject
 {
-	String *path;
+	String *relpath;
+	String *fullpath;
 	String *name;
 	String *src;
 	String *link;
 	Server *server;
 	String *vfsType;
 	String *urlString;
+	String *authenticated_urlString;
 	BOOL mountInProgress;
 	BOOL mounted;
 	BOOL mountPathCreated;
@@ -72,8 +78,10 @@ struct file_handle
 	unsigned int nfsStatus;
 	struct MountProgressRecord mountInfo;
 	unsigned long transactionID;
+	BOOL marked;
 }
 
+- (String *)relativepath;
 - (String *)path;
 
 - (String *)name;
@@ -93,6 +101,8 @@ struct file_handle
 
 - (void)setUrlString:(String *)n;
 - (String *)urlString;
+/* debugURLString avoids dynamically creating a URL */
+- (String *)debugURLString;
 
 - (Map *)map;
 - (void)setMap:(Map *)m;
@@ -101,6 +111,7 @@ struct file_handle
 - (void)setAttributes:(struct fattr)a;
 
 - (void)resetTime;
+- (void)markDirectoryChanged;
 - (void)resetAllTimes;
 - (void)resetMountTime;
 
@@ -151,6 +162,7 @@ struct file_handle
 - (Vnode *)lookup:(String *)name;
 
 - (int)symlinkWithName:(char *)from to:(char *)to attributes:(struct nfsv2_sattr *)attributes;
+- (int)remove:(String *)name;
 
 - (Vnode *)parent;
 - (void)setParent:(Vnode *)p;
@@ -158,10 +170,18 @@ struct file_handle
 - (Array *)children;
 - (void)addChild:(Vnode *)child;
 - (void)removeChild:(Vnode *)child;
+- (BOOL)hasChildren;
 
 - (Array *)dirlist;
 
-- (void)invalidateRecursively:(BOOL)invalidateDescendants;
+- (BOOL)needsAuthentication;
+- (BOOL)serverMounted;
+- (BOOL)descendantMounted;
+
+- (BOOL)marked;
+- (void)setMarked:(BOOL)m;
+
+- (BOOL)checkForUnmount;
 
 @end
 

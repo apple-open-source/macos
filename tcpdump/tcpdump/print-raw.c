@@ -21,20 +21,14 @@
 
 #ifndef lint
 static const char rcsid[] =
-    "@(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/print-raw.c,v 1.1.1.2 2002/05/29 00:05:41 landonf Exp $ (LBL)";
+    "@(#) $Header: /cvs/root/tcpdump/tcpdump/print-raw.c,v 1.1.1.3 2003/03/17 18:42:19 rbraun Exp $ (LBL)";
 #endif
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include <sys/param.h>
-#include <sys/time.h>
-#include <sys/socket.h>
-#include <sys/file.h>
-#include <sys/ioctl.h>
-
-#include <netinet/in.h>
+#include <tcpdump-stdinc.h>
 
 #include <pcap.h>
 #include <stdio.h>
@@ -47,32 +41,13 @@ static const char rcsid[] =
  * The DLT_RAW packet has no header. It contains a raw IP packet.
  */
 
-void
-raw_if_print(u_char *user, const struct pcap_pkthdr *h, const u_char *p)
+u_int
+raw_if_print(const struct pcap_pkthdr *h, const u_char *p)
 {
-	u_int length = h->len;
-	u_int caplen = h->caplen;
-
-	++infodelay;
-	ts_print(&h->ts);
-
-	/*
-	 * Some printers want to get back at the link level addresses,
-	 * and/or check that they're not walking off the end of the packet.
-	 * Rather than pass them all the way down, we set these globals.
-	 */
-	packetp = p;
-	snapend = p + caplen;
-
 	if (eflag)
 		printf("ip: ");
 
-	ipN_print(p, length);
+	ipN_print(p, h->len);
 
-	if (xflag)
-		default_print(p, caplen);
-	putchar('\n');
-	--infodelay;
-	if (infoprint)
-		info(0);
+	return (0);
 }

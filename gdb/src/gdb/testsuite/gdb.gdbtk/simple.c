@@ -12,7 +12,7 @@ main(int argc, char * argv[])
      {
        int j = i % 3;
        int k = 3 - j;
-       strncpy (a[i], b[k], j);
+       strncpy (&a[i], &b[k], j);
        foo = (long) j * k / i + 2 * k * k * k;
      }
    return 0;

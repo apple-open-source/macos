@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- * $Id: mprintf.c,v 1.1.1.1 2001/02/15 19:52:30 wsanchez Exp $
+ * $Id: mprintf.c,v 1.1.1.2 2002/11/26 19:07:57 zarzycki Exp $
  *
  *************************************************************************
  *
@@ -24,88 +24,28 @@
  * - Max 128 parameters
  * - No 'long double' support.
  *
- *************************************************************************
- *
- *
- * 1998/01/10  (v2.8)
- *   Daniel
- *   - Updated version number.
- *   - Corrected a static non-zero prefixed width problem.
- *
- * 1998/11/17 - Daniel
- *   Added daprintf() and dvaprintf() for allocated printf() and vprintf().
- *   They return an allocated buffer with the result inside. The result must
- *   be free()ed!
- *
- * 1998/08/23 - breese
- *
- *   Converted all non-printable (and non-whitespace) characters into
- *   their decimal ASCII value preceeded by a '\' character
- *   (this only applies to snprintf family so far)
- *
- *   Added %S (which is the same as %#s)
- *
- * 1998/05/05 (v2.7)
- *
- *   Fixed precision and width qualifiers (%.*s)
- *
- *   Added support for snprintf()
- *
- *   Quoting (%#s) is disabled for the (nil) pointer
- *
- * 1997/06/09 (v2.6)
- *
- *   %#s means that the string will be quoted with "
- *   (I was getting tired of writing \"%s\" all the time)
- *
- *   [ERR] for strings changed to (nil)
- *
- * v2.5
- * - Added C++ support
- * - Prepended all internal functions with dprintf_
- * - Defined the booleans
- *
- * v2.4
- * - Added dvsprintf(), dvfprintf() and dvprintf().
- * - Made the formatting function available with the name _formatf() to enable
- *   other *printf()-inspired functions. (I considered adding a dmsprintf()
- *   that works like sprintf() but allocates the destination string and
- *   possibly enlarges it itself, but things like that should be done with the
- *   new _formatf() instead.)
- *
- * v2.3
- * - Small modifications to make it compile nicely at both Daniel's and
- *   Bjorn's place.
- *
- * v2.2
- * - Made it work with text to the right of the last %!
- * - Introduced dprintf(), dsprintf() and dfprintf().
- * - Float/double support enabled. This system is currently using the ordinary
- *   sprintf() function. NOTE that positional parameters, widths and precisions
- *   will still work like it should since the d-system takes care of that and
- *   passes that information re-formatted to the old sprintf().
- *
- * v2.1
- * - Fixed space padding (i.e %d was extra padded previously)
- * - long long output is supported
- * - alternate output is done correct like in %#08x
- *
- ****************************************************************************/
-
-static const char rcsid[] = "@(#)$Id: mprintf.c,v 1.1.1.1 2001/02/15 19:52:30 wsanchez Exp $";
-
-/*
- * To test:
- *
- * Use WIDTH, PRECISION and NUMBERED ARGUMENT combined.
+ * If you ever want truly portable and good *printf() clones, the project that
+ * took on from here is named 'Trio' and you find more details on the trio web
+ * page at http://daniel.haxx.se/trio/
  */
 
+
+#include "setup.h"
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <ctype.h>
 #include <string.h>
+
+#ifndef SIZEOF_LONG_LONG
+/* prevents warnings on picky compilers */
+#define SIZEOF_LONG_LONG 0
+#endif
+#ifndef SIZEOF_LONG_DOUBLE
+#define SIZEOF_LONG_DOUBLE 0
+#endif
+
 
 /* The last #include file should be: */
 #ifdef MALLOCDEBUG
@@ -446,7 +386,7 @@ static int dprintf_Pass1(char *format, va_stack_t *vto, char **endpos, va_list a
 	case '1': case '2': case '3': case '4':
 	case '5': case '6': case '7': case '8': case '9':
 	  flags |= FLAGS_WIDTH;
-	  width = strtol(--fmt, &fmt, 10);
+	  width = strtol(fmt-1, &fmt, 10);
 	  break;
 	case '*':  /* Special case */
 	  flags |= FLAGS_WIDTHPARAM;
@@ -759,9 +699,8 @@ static int dprintf_formatf(
 #if SIZEOF_LONG_LONG
       if(p->flags & FLAGS_LONGLONG) {
 	 /* long long */
-	num = p->data.lnum;
-	is_neg = num < 0;
-	num = is_neg ? (- num) : num;
+	is_neg = p->data.lnum < 0;
+	num = is_neg ? (- p->data.lnum) : p->data.lnum;
       }
       else
 #endif
@@ -864,7 +803,7 @@ static int dprintf_formatf(
 	    p->flags &= (~FLAGS_ALT);
 	  }
 	  else {
-	    str = "";
+	    str = (char *)"";
 	    len = 0;
 	  }
 	}
@@ -909,14 +848,14 @@ static int dprintf_formatf(
 	}
 	else {
 	  /* Write "(nil)" for a nil pointer.  */
-	  static char nil[] = "(nil)";
+	  static char strnil[] = "(nil)";
 	  register char *point;
 	  
-	  width -= sizeof(nil) - 1;
+	  width -= sizeof(strnil) - 1;
 	  if (p->flags & FLAGS_LEFT)
 	    while (width-- > 0)
 	      OUTCHAR(' ');
-	  for (point = nil; *point != '\0'; ++point)
+	  for (point = strnil; *point != '\0'; ++point)
 	    OUTCHAR(*point);
 	  if (! (p->flags & FLAGS_LEFT))
 	    while (width-- > 0)
@@ -1089,7 +1028,6 @@ static int alloc_addbyter(int output, FILE *data)
   infop->len++;
 
   return output; /* fputc() returns like this on success */
-
 }
 
 char *curl_maprintf(const char *format, ...)
@@ -1105,12 +1043,17 @@ char *curl_maprintf(const char *format, ...)
   va_start(ap_save, format);
   retcode = dprintf_formatf(&info, alloc_addbyter, format, ap_save);
   va_end(ap_save);
-  if(info.len) {
+  if(-1 == retcode) {
+    if(info.alloc)
+      free(info.buffer);
+    return NULL;
+  }
+  if(info.alloc) {
     info.buffer[info.len] = 0; /* we terminate this with a zero byte */
     return info.buffer;
   }
   else
-    return NULL;
+    return strdup("");
 }
 
 char *curl_mvaprintf(const char *format, va_list ap_save)
@@ -1123,13 +1066,18 @@ char *curl_mvaprintf(const char *format, va_list ap_save)
   info.alloc = 0;
 
   retcode = dprintf_formatf(&info, alloc_addbyter, format, ap_save);
-  info.buffer[info.len] = 0; /* we terminate this with a zero byte */
-  if(info.len) {
+  if(-1 == retcode) {
+    if(info.alloc)
+      free(info.buffer);
+    return NULL;
+  }
+
+  if(info.alloc) {
     info.buffer[info.len] = 0; /* we terminate this with a zero byte */
     return info.buffer;
   }
   else
-    return NULL;
+    return strdup("");
 }
 
 static int storebuffer(int output, FILE *data)
@@ -1151,7 +1099,9 @@ int curl_msprintf(char *buffer, const char *format, ...)
   return retcode;
 }
 
+#ifndef WIN32 /* not needed on win32 */
 extern int fputc(int, FILE *);
+#endif
 
 int curl_mprintf(const char *format, ...)
 {
@@ -1196,7 +1146,7 @@ int main()
 {
   char buffer[129];
   char *ptr;
-#ifdef SIZEOF_LONG_LONG
+#if SIZEOF_LONG_LONG>0
   long long hullo;
   dprintf("%3$12s %1$s %2$qd %4$d\n", "daniel", hullo, "stenberg", 65);
 #endif
@@ -1230,3 +1180,11 @@ int main()
 }
 
 #endif
+
+/*
+ * local variables:
+ * eval: (load-file "../curl-mode.el")
+ * end:
+ * vim600: fdm=marker
+ * vim: et sw=2 ts=2 sts=2 tw=78
+ */

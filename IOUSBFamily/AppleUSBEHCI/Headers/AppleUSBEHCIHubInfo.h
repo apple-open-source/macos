@@ -22,6 +22,8 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
+
 #ifndef _APPLEEHCIHUBINFO_H
 #define _APPLEEHCIHUBINFO_H
 

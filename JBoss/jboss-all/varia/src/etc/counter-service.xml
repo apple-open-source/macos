@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE server>
+<!-- $Id: counter-service.xml,v 1.4.2.1 2003/05/23 14:42:25 starksm Exp $ -->
+
+<server>
+
+  <!-- ==================================================================== -->
+  <!-- Counter Service                                                      -->
+  <!-- ==================================================================== -->
+
+  <mbean code="org.jboss.varia.counter.CounterService" 
+	 name=":service=Counter">
+  </mbean>
+
+</server>

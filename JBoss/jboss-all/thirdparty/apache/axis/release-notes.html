@@ -1,0 +1,92 @@
+<html>
+<head>
+<title>Axis Release Notes</title>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<style type="text/css">
+<!--
+.example { background:#ccccff }
+.xml { background:#eeeeee }
+body {  font-family: Verdana, Arial, Helvetica, sans-serif; margin-left: 40px}
+h2 {  text-decoration: underline; background-color: #DCE1FF; background-position: left; margin-left: -30px}
+h3 {  margin-left: -10px}
+h1 {  margin-left: -30px}
+-->
+</style>
+</head>
+<body>
+<h2>Axis 1.0 RC1 Release Notes</h2>
+
+<p>This is the <a href="http://xml.apache.org/axis/releases.html">RC1 release</a> 
+  of the <a href="http://xml.apache.org/axis"> Axis SOAP library</a>.</p>
+
+<h3>Rationale for Releasing Axis 1.0</h3>
+
+
+Many users have requested a v1.0 so that they can work from a relatively
+stable base. Some users have even remained on Apache SOAP until v1.0 of
+Axis is available. Now Axis has surpassed Apache SOAP in function,
+performance, and interoperability and, in particular, has passed Sun's 
+JAX-RPC and SAAJ compliance tests, we decided to ship v1.0 as it 
+currently stands.
+<p>
+However, this is far from the end of the road for Axis: there is more
+documentation to be written; the SOAP v1.2 spec. needs to be tracked to
+completion and implemented fully; major functional enhancements and
+architectural improvements are being considered. We particularly encourage
+you to submit improvements to the documentation, however large or small and
+in any format, to axis-dev@xml.apache.org. Also, interoperability
+is always a concern, so please report all <i>replicatable</i> bugs.</p>
+
+<p>
+The Axis Development Team
+</p>
+
+<h3>JAX-RPC</h3>
+<p>This release is intended to be 100% compliant with the 
+<a href="http://java.sun.com/xml/jaxrpc">JAX-RPC</a> and 
+<a href="http://java.sun.com/xml/saaj/">SAAJ</a> specifications from Sun.
+The Axis code has successfully passed the all of the JAX-RPC and SAAJ 
+TCK (Technology Compatibility Kit) tests.</p>
+
+<h3>Why AXIS over SOAP 2.2?</h3>
+
+<p>The Axis code has:</p>
+
+<ul>
+  <li>Significantly higher performance than Apache SOAP 2.2 
+  <li>Good interoperability with other SOAP implementations 
+  <li>A streaming-oriented model for message parsing (SAX, not DOM) 
+  <li>A modular, configurable message handling architecture 
+  <li>A pluggable transport framework 
+  <li>Support for WSDL generation and code generation from WSDL
+  <li>An extensive package and functional test suite 
+</ul>
+
+<h3>What's New?</h3>
+<p>Changes since beta-3</p>
+<ul>
+ <li>Axis now passes the JAX-RPC and SAAJ TCK test suites.
+ <li>Many bugs have been fixed.
+ <li>Axis now supports (almost) all XML Schema types in WSDL
+ <li>Some basic performance tuning has been done
+ <li>Attachments are now supported in WSDL2Java
+</ul>
+<p>Changes since beta-2:</p>
+<ul>
+ <li>Support for the new version of the DIME spec
+</ul>
+<p>Changes since alpha-3:</p>
+<ul>
+  <li>Closer to JAX-RPC compliance.</li>
+  <li>Support for <A href="docs/user-guide.html#AttachmentsReference">SOAP Messages with Attachments</a>.</li>
+  <li>Much better XML schema type support.</li>
+  <li>Document/literal support.</li>
+  <li>Now using the org.apache.commons.logging APIs as a common logging interface.</li>
+  <li>Many minor bug fixes.</li>
+</ul>
+
+<p>Please check out the included documentation and the <a href="http://xml.apache.org/axis/faq.html">FAQ</a> for more information.</a>
+</body>
+</html>
+
+

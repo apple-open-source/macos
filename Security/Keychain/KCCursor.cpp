@@ -39,7 +39,8 @@ using namespace CSSMDateTimeUtils;
 //
 KCCursorImpl::KCCursorImpl(const StorageManager::KeychainList &searchList, SecItemClass itemClass, const SecKeychainAttributeList *attrList) :
 	mSearchList(searchList),
-	mCurrent(mSearchList.begin())
+	mCurrent(mSearchList.begin()),
+	mAllFailed(true)
 {
     recordType(Schema::recordTypeFor(itemClass));
 
@@ -82,7 +83,8 @@ KCCursorImpl::KCCursorImpl(const StorageManager::KeychainList &searchList, SecIt
 
 KCCursorImpl::KCCursorImpl(const StorageManager::KeychainList &searchList, const SecKeychainAttributeList *attrList) :
 	mSearchList(searchList),
-	mCurrent(mSearchList.begin())
+	mCurrent(mSearchList.begin()),
+	mAllFailed(true)
 {
 	if (!attrList) // No additional selectionPredicates: we are done
 		return;
@@ -134,7 +136,7 @@ KCCursorImpl::KCCursorImpl(const StorageManager::KeychainList &searchList, const
 	}
 }
 
-KCCursorImpl::~KCCursorImpl()
+KCCursorImpl::~KCCursorImpl() throw()
 {
 }
 
@@ -143,6 +145,7 @@ KCCursorImpl::next(Item &item)
 {
 	DbAttributes dbAttributes;
 	DbUniqueRecord uniqueId;
+	OSStatus status = 0;
 
 	for (;;)
 	{
@@ -150,6 +153,11 @@ KCCursorImpl::next(Item &item)
 		{
 			if (mCurrent == mSearchList.end())
 			{
+				// If we got always failed when calling mDbCursor->next return the error from
+				// the last call to mDbCursor->next now
+				if (mAllFailed && status)
+					CssmError::throwMe(status);
+
 				// No more keychains to search so we are done.
 				return false;
 			}
@@ -161,14 +169,14 @@ KCCursorImpl::next(Item &item)
 		try
 		{
 			gotRecord = mDbCursor->next(&dbAttributes, NULL, uniqueId);
+			mAllFailed = false;
 		}
 		catch(const CssmCommonError &err)
 		{
-			OSStatus status = err.osStatus();
-			if (status != CSSMERR_DL_DATASTORE_DOESNOT_EXIST
-				&& status != CSSMERR_DL_INVALID_RECORDTYPE)
-				throw;
-
+			// Catch the last error we get and move on to the next keychain
+			// This error will be returned when we reach the end of our keychain list
+			// iff all calls to KCCursorImpl::next failed
+			status = err.osStatus();
 			gotRecord = false;
 		}
 

@@ -36,7 +36,7 @@
  *
  *	@(#)webdavd.h	8.1 (Berkeley) 6/5/93
  *
- * $Id: webdavd.h,v 1.9 2002/10/22 22:19:38 lutherj Exp $
+ * $Id: webdavd.h,v 1.19 2003/09/12 01:12:59 lutherj Exp $
  */
 
 #include <sys/cdefs.h>
@@ -85,7 +85,7 @@ struct file_array_element
 
 	int download_status;
 	int fd;
-	int uid;
+	uid_t uid;
 	int deleted;								/* flag to indicate whether this file was deleted */
 	char *uri;
 	int32_t modtime;
@@ -97,11 +97,11 @@ struct file_array_element
 
 #define CLEAR_GFILE_ENTRY(i) \
 	{ \
-		if (gfile_array[i].fd > 0) \
+		if (gfile_array[i].fd != -1) \
 		{ \
 			(void)close(gfile_array[i].fd); \
 		} \
-		gfile_array[i].fd = 0; \
+		gfile_array[i].fd = -1; \
 		gfile_array[i].uid = 0; \
 		gfile_array[i].deleted = 0; \
 		gfile_array[i].download_status = 0; \
@@ -156,6 +156,13 @@ struct webdav_stat_struct
 {
 	const char *orig_uri;
 	struct vattr *statbuf;
+	int uid;
+};
+
+struct webdav_refreshdir_struct
+{
+	struct file_array_element *file_array_elem;
+	int cache_appledoubleheader;	/* true if appledoubleheader property should be asked for and cached */
 };
 
 struct webdav_auth_struct
@@ -182,7 +189,8 @@ extern int webdav_open __P((int proxy_ok, struct webdav_cred *pcr, char *key,
 							webdav_filehandle_t * a_file_handle));
 
 extern int webdav_refreshdir __P((int proxy_ok, struct webdav_cred *pcr,
-								 webdav_filehandle_t file_handle, int * a_socket));
+								 webdav_filehandle_t file_handle, int * a_socket,
+								 int cache_appledoubleheader));
 
 
 extern int webdav_lookupinfo __P((int proxy_ok,struct webdav_cred *pcr,
@@ -224,6 +232,10 @@ extern int webdav_lock	__P((int proxy_ok, struct file_array_element * array_elem
 							 int * a_socket));
 
 extern void name_tempfile  __P((char *buf, char *seed_prefix));
+
+extern int webdav_invalidate_caches __P((void));
+
+extern int webdav_cachefile_init(void);
 
 /* Global Defines */
 
@@ -268,21 +280,34 @@ extern void name_tempfile  __P((char *buf, char *seed_prefix));
 #define WEBDAV_CACHE_LOW_TIMEOUT 300	/* 5 minutes */
 #define WEBDAV_CACHE_VALID_TIMEOUT 60	/* Number of seconds file is valid from lastvalidtime */
 
+#define APPLEDOUBLEHEADER_LENGTH 82		/* length of AppleDouble header property */
+
 /*
  * Global functions
  */
 extern void activate __P((int so, int proxy_ok, int * socketptr));
 extern void webdav_pulse_thread __P((void *arg));
+extern void webdav_kill(int message);
+extern int resolve_http_hostaddr(void);
+
 
 /* Global variables */
 extern int glast_array_element;
 extern FILE * logfile;
 extern struct file_array_element gfile_array[];
 extern pthread_mutex_t garray_lock;
-extern int gtimeout_val;
+extern unsigned int gtimeout_val;
 extern char * gtimeout_string;
 extern webdav_memcache_header_t gmemcache_header;
 extern char gmountpt[MAXPATHLEN];
 extern struct statfs gstatfsbuf;
 extern time_t gstatfstime;
-
+extern char *http_hostname, *proxy_server, *dest_server;
+extern char dest_path[MAXPATHLEN + 1];
+extern char *append_to_file;
+extern struct sockaddr_in http_sin;
+extern int proxy_ok, proxy_exception, dest_port, host_port, proxy_port;
+extern off_t webdav_first_read_len;
+extern char *gUserAgentHeader;
+extern uid_t process_uid;
+extern int gSuppressAllUI;

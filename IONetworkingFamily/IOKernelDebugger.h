@@ -71,7 +71,7 @@ typedef void (*IODebuggerTxHandler)( IOService * target,
     @constant kIODebuggerLockTaken Set if the debugger lock was taken. */
 
 typedef enum {
-    kIODebuggerLockTaken = 0x1,
+    kIODebuggerLockTaken = 0x1
 } IODebuggerLockState;
 
 /*! class IOKernelDebugger : public IOService

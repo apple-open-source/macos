@@ -14,11 +14,6 @@
  * Austin, Texas  78712
  */
 
-#ifndef lint
-static const char rcsid[] =
-  "$FreeBSD: src/gnu/usr.bin/man/man/man.c,v 1.56 2002/04/27 19:57:22 eric Exp $";
-#endif /* not lint */
-
 #define MAN_MAIN
 
 #include <sys/file.h>

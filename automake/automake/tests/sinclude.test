@@ -1,19 +1,37 @@
 #! /bin/sh
 
-# Test to see if `sinclude' works.
+# Test to see if `m4_sinclude' and `m4_include' works.
 
 . $srcdir/defs || exit 1
+
+set -e
+
+# Overwrite configure.in, because the default uses `sinclude' as package
+# name and this play havoc with Autoconf on some platforms (`sinclude'
+# is an m4 macro).
+cat > configure.in <<EOF
+AC_INIT([amsinclude], [1.0])
+AM_INIT_AUTOMAKE
+AC_CONFIG_FILES([Makefile])
+EOF
 
 mkdir sub
 cat > sub/p.m4 << 'END'
 AC_SUBST(MAGICALPIG)
 END
 
+cat > sub/h.m4 << 'END'
+AC_SUBST(MAGICALHOG)
+END
+
 : > Makefile.am
 
-$ACLOCAL || exit 1
-echo 'sinclude(sub/p.m4)' >> aclocal.m4
+$ACLOCAL
 
-$AUTOMAKE --Wno-error || exit 1
+echo 'm4_sinclude(sub/p.m4)' >> aclocal.m4
+echo 'm4_include(sub/h.m4)' >> aclocal.m4
+
+$AUTOMAKE
 
 grep MAGICALPIG Makefile.in
+grep MAGICALHOG Makefile.in

@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile,v 1.8 2002/07/21 22:06:29 jlovell Exp $"
+# "$Id: Makefile,v 1.11 2002/12/24 02:13:19 jlovell Exp $"
 #
 #   Backend makefile for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+#   Copyright 1997-2003 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
 #   property of Easy Software Products and are protected by Federal
@@ -128,7 +128,7 @@ scsi.o:	scsi.c scsi-irix.c scsi-linux.c
 
 serial:	serial.o ../cups/$(LIBCUPS)
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o serial serial.o $(LIBS)
+	$(CC) $(LDFLAGS) -o serial serial.o $(BACKLIBS) $(LIBS)
 
 
 #
@@ -146,7 +146,7 @@ socket:	socket.o ../cups/$(LIBCUPS)
 
 usb:	usb.o ../cups/$(LIBCUPS)
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o usb usb.o $(LIBS)
+	$(CC) $(LDFLAGS) -o usb usb.o $(BACKLIBS) $(LIBS)
 
 
 #
@@ -157,5 +157,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile,v 1.8 2002/07/21 22:06:29 jlovell Exp $".
+# End of "$Id: Makefile,v 1.11 2002/12/24 02:13:19 jlovell Exp $".
 #

@@ -1,0 +1,12 @@
+--- alloca.3.orig	Mon Apr 28 16:37:26 2003
++++ alloca.3	Mon May 19 14:22:55 2003
+@@ -41,6 +41,9 @@
+ .Sh LIBRARY
+ .Lb libc
+ .Sh SYNOPSIS
++.In alloca.h
++or
++.br
+ .In stdlib.h
+ .Ft void *
+ .Fn alloca "size_t size"

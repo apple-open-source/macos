@@ -1,0 +1,8 @@
+#include <KerberosSupport/ErrorList.r>
+
+resource 'ErrT' (128, "Notification Test")
+{
+	{
+		22221, "Notification Test Error 1", "Notification Test Error 1"
+	}
+};

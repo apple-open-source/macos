@@ -1,7 +1,7 @@
 /* result.c - shell backend result reading function */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-shell/result.c,v 1.14 2002/01/04 20:17:55 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-shell/result.c,v 1.14.2.2 2003/03/03 17:10:11 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -110,7 +110,7 @@ print_suffixes(
 {
 	int	i;
 
-	for ( i = 0; be->be_suffix[i] != NULL; i++ ) {
-		fprintf( fp, "suffix: %s\n", be->be_suffix[i]->bv_val );
+	for ( i = 0; be->be_suffix[i].bv_val != NULL; i++ ) {
+		fprintf( fp, "suffix: %s\n", be->be_suffix[i].bv_val );
 	}
 }

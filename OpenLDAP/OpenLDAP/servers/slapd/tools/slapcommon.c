@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/tools/slapcommon.c,v 1.23 2002/01/28 19:36:29 ando Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/tools/slapcommon.c,v 1.23.2.9 2003/03/24 03:40:52 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /* slapcommon.c - common routine for the slap tools */
@@ -47,7 +47,7 @@ usage( int tool )
 
 	switch( tool ) {
 	case SLAPADD:
-		options = "\t[-l ldiffile]\n";
+		options = "\t[-l ldiffile] [-u]\n";
 		break;
 
 	case SLAPCAT:
@@ -123,6 +123,7 @@ slap_tool_init(
 		case 'b':
 			base.bv_val = strdup( optarg );
 			base.bv_len = strlen( base.bv_val );
+			break;
 
 		case 'c':	/* enable continue mode */
 			continuemode++;
@@ -181,21 +182,33 @@ slap_tool_init(
 	 * initialize stuff and figure out which backend we're dealing with
 	 */
 
+#ifdef SLAPD_MODULES
+	if ( module_init() != 0 ) {
+		fprintf( stderr, "%s: module_init failed!\n", progname );
+		exit( EXIT_FAILURE );
+	}
+#endif
+		
 	rc = slap_init( mode, progname );
 
-	if (rc != 0 ) {
+	if ( rc != 0 ) {
 		fprintf( stderr, "%s: slap_init failed!\n", progname );
 		exit( EXIT_FAILURE );
 	}
 
 	rc = slap_schema_init();
 
-	if (rc != 0 ) {
+	if ( rc != 0 ) {
 		fprintf( stderr, "%s: slap_schema_init failed!\n", progname );
 		exit( EXIT_FAILURE );
 	}
 
-	read_config( conffile );
+	rc = read_config( conffile, 0 );
+
+	if ( rc != 0 ) {
+		fprintf( stderr, "%s: bad configuration file!\n", progname );
+		exit( EXIT_FAILURE );
+	}
 
 	if ( !nbackends ) {
 		fprintf( stderr, "No databases found in config file\n" );
@@ -204,14 +217,14 @@ slap_tool_init(
 
 	rc = glue_sub_init();
 
-	if (rc != 0 ) {
+	if ( rc != 0 ) {
 		fprintf( stderr, "Subordinate configuration error\n" );
 		exit( EXIT_FAILURE );
 	}
 
 	rc = slap_schema_check();
 
-	if (rc != 0 ) {
+	if ( rc != 0 ) {
 		fprintf( stderr, "%s: slap_schema_prep failed!\n", progname );
 		exit( EXIT_FAILURE );
 	}
@@ -237,17 +250,45 @@ slap_tool_init(
 		/* If the named base is a glue master, operate on the
 		 * entire context
 		 */
-		if (be->be_flags & SLAP_BFLAG_GLUE_INSTANCE)
+		if (SLAP_GLUE_INSTANCE(be)) {
 			nosubordinates = 1;
+		}
 
 	} else if ( dbnum == -1 ) {
+		if ( nbackends <= 0 ) {
+			fprintf( stderr, "No available databases\n" );
+			exit( EXIT_FAILURE );
+		}
+		
 		be = &backends[dbnum=0];
 		/* If just doing the first by default and it is a
 		 * glue subordinate, find the master.
 		 */
-		while (be->be_flags & SLAP_BFLAG_GLUE_SUBORDINATE) {
-			nosubordinates = 1;
+		while (SLAP_GLUE_SUBORDINATE(be) || SLAP_MONITOR(be)) {
+			if (SLAP_GLUE_SUBORDINATE(be)) {
+				nosubordinates = 1;
+			}
 			be++;
+			dbnum++;
+		}
+
+
+		if ( dbnum >= nbackends ) {
+			fprintf( stderr, "Available database(s) "
+					"do not allow %s\n", name );
+			exit( EXIT_FAILURE );
+		}
+		
+		if ( nosubordinates == 0 && dbnum > 0 ) {
+#ifdef NEW_LOGGING
+			LDAP_LOG( BACKEND, ERR, 
+"The first database does not allow %s; using the first available one (%d)\n",
+				name, dbnum + 1, 0 );
+#else
+			Debug( LDAP_DEBUG_ANY,
+"The first database does not allow %s; using the first available one (%d)\n",
+				name, dbnum + 1, 0 );
+#endif
 		}
 
 	} else if ( dbnum < 0 || dbnum > (nbackends-1) ) {
@@ -273,6 +314,18 @@ void slap_tool_destroy( void )
 {
 	slap_shutdown( be );
 	slap_destroy();
+#ifdef SLAPD_MODULES
+	if ( slapMode == SLAP_SERVER_MODE ) {
+	/* always false. just pulls in necessary symbol references. */
+		lutil_uuidstr(NULL, 0);
+	}
+	module_kill();
+#endif
+	schema_destroy();
+#ifdef HAVE_TLS
+	ldap_pvt_tls_destroy();
+#endif
+	config_destroy();
 
 #ifdef CSRIMALLOC
 	mal_dumpleaktrace( leakfile );

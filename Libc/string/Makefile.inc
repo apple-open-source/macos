@@ -1,17 +1,25 @@
 #	@(#)Makefile.inc	8.1 (Berkeley) 6/4/93
-# $FreeBSD: src/lib/libc/string/Makefile.inc,v 1.25 2001/10/10 02:17:35 ache Exp $
+# $FreeBSD: src/lib/libc/string/Makefile.inc,v 1.32 2002/11/18 09:50:56 ru Exp $
 
 .PATH: ${.CURDIR}/${MACHINE_ARCH}/string ${.CURDIR}/string
 
 CFLAGS+= -I${.CURDIR}/locale
 
+.include "Makefile.fbsd_begin"
 # machine-independent string sources
-MISRCS+=index.c       rindex.c      strcspn.c     strpbrk.c     strxfrm.c \
-	memccpy.c     rindix.c      strdup.c      strsep.c      swab.c \
-	memchr.c      strcasecmp.c  strerror.c    strspn.c \
-	memcmp.c      strchr.c      strftime.c    strstr.c \
-	memset.c      strcoll.c     strmode.c     strtok.c \
-	strlcat.c     strlcpy.c
+FBSDMISRCS+=bcmp.c bcopy.c bzero.c ffs.c index.c memccpy.c memchr.c memcmp.c \
+	memcpy.c memmove.c memset.c rindex.c stpcpy.c strcasecmp.c strcat.c \
+	strchr.c strcmp.c strcoll.c strcpy.c strcspn.c strdup.c strerror.c \
+	strlcat.c strlcpy.c strlen.c strmode.c strncat.c strncmp.c strncpy.c \
+	strcasestr.c strnstr.c \
+	strpbrk.c strrchr.c strsep.c strsignal.c strspn.c strstr.c strtok.c \
+	strxfrm.c swab.c wcscat.c wcschr.c wcscmp.c wcscoll.c wcscpy.c \
+	wcscspn.c \
+	wcslcat.c wcslcpy.c wcslen.c wcsncat.c wcsncmp.c wcsncpy.c wcspbrk.c \
+	wcsrchr.c wcsspn.c wcsstr.c wcstok.c wcswidth.c wcsxfrm.c wmemchr.c \
+	wmemcmp.c \
+	wmemcpy.c wmemmove.c wmemset.c
+.include "Makefile.fbsd_end"
 
 # machine-dependent string sources
 .if exists(${.CURDIR}/${MACHINE_ARCH}/string/Makefile.inc)
@@ -19,17 +27,22 @@ MISRCS+=index.c       rindex.c      strcspn.c     strpbrk.c     strxfrm.c \
 .endif
 
 .if ${LIB} == "c"
-MAN3+=	bcmp.3 bcopy.3 bstring.3 bzero.3 ffs.3 index.3 memccpy.3 memchr.3 \
+.include "Makefile.fbsd_begin"
+FBSDMAN3= bcmp.3 bcopy.3 bstring.3 bzero.3 ffs.3 index.3 memccpy.3 memchr.3 \
 	memcmp.3 memcpy.3 memmove.3 memset.3 rindex.3 strcasecmp.3 strcat.3 \
 	strchr.3 strcmp.3 strcoll.3 strcpy.3 strcspn.3 strdup.3 strerror.3 \
 	string.3 strlcpy.3 strlen.3 strmode.3 strpbrk.3 strrchr.3 strsep.3 \
-	strspn.3 strstr.3 strtok.3 strxfrm.3 swab.3 wmemchr.3
+	strspn.3 strstr.3 strtok.3 strxfrm.3 swab.3 wcscoll.3 wcstok.3 \
+	wcswidth.3 wcsxfrm.3 wmemchr.3
+.include "Makefile.fbsd_end"
 
 MLINKS+=strcasecmp.3 strncasecmp.3
 MLINKS+=strcat.3 strncat.3
 MLINKS+=strcmp.3 strncmp.3
+MLINKS+=strcpy.3 stpcpy.3
 MLINKS+=strcpy.3 strncpy.3
 MLINKS+=strerror.3 perror.3 strerror.3 sys_errlist.3 strerror.3 sys_nerr.3
+MLINKS+=strerror.3 strerror_r.3
 MLINKS+=strlcpy.3 strlcat.3
 MLINKS+=strtok.3 strtok_r.3
 MLINKS+=strstr.3 strcasestr.3

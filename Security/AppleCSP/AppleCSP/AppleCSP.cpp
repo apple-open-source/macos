@@ -382,6 +382,8 @@ void AppleCSPSession::addRefKey(
 	cssmKey.KeyHeader.BlobType = CSSM_KEYBLOB_REFERENCE;
 	cssmKey.KeyHeader.Format = CSSM_KEYBLOB_REF_FORMAT_INTEGER;
 	keyRefToCssmData(keyRef, cssmKey.KeyData, normAllocator);
+	secdebug("freeKey", "CSP addRefKey key %p keyData %p keyRef %p", 
+		&cssmKey, cssmKey.KeyData.Data, &binKey);
 }
 	
 // Given a CssmKey in reference form, obtain the associated
@@ -425,6 +427,7 @@ void AppleCSPSession::FreeKey(
 	CssmKey &KeyPtr,
 	CSSM_BOOL Delete)
 {
+
 	if((KeyPtr.blobType() == CSSM_KEYBLOB_REFERENCE) &&
 	   (KeyPtr.cspGuid() == plugin.myGuid())) {
 		// it's a ref key we generated - delete associated BinaryKey 
@@ -433,6 +436,8 @@ void AppleCSPSession::FreeKey(
 			StLock<Mutex> _(refKeyMapLock);
 			BinaryKey *binKey = lookupKeyRef(keyRef);
 			if(binKey != NULL) {
+				secdebug("freeKey", "CSP FreeKey key %p keyData %p binKey %p", 
+					&KeyPtr, KeyPtr.KeyData.Data, binKey);
 				try {
 					refKeyMap.erase(keyRef);
 					delete binKey;
@@ -441,6 +446,9 @@ void AppleCSPSession::FreeKey(
 					errorLog0("Error deleting/erasing known "
 							"ref key\n");
 				}
+			}
+			else {
+				secdebug("freeKey", "CSP freeKey unknown key");
 			}
 		}
 	}
@@ -480,32 +488,64 @@ void AppleCSPSession::PassThrough(
 			}
 
 			/* 
-			 * Ref key: obtain binary and blob 
-			 * Raw key: already have the blob
+			 * Ref key: obtain binary, ask it for blob 
+			 * Raw key: get info provider, ask it for the blob. This
+			 *          allows for an optimized path which avoids
+			 *		    converting to a BinaryKey. 
 			 */
-			CssmData rawBlob;
-			bool allocdRawBlob = false;	
+			CssmData blobToHash;
 			switch(key.blobType()) {
 				case CSSM_KEYBLOB_RAW:
-					/* trivial case */
-					rawBlob = CssmData::overlay(key.KeyData);
+				{
+					CSPKeyInfoProvider *provider = infoProvider(key);
+					bool converted = 
+						provider->getHashableBlob(privAllocator, blobToHash);
+					if(converted) {
+						/* took optimized case; proceed */
+						delete provider;
+						break;
+					}
+					
+					/* convert to BinaryKey and ask it to do the work */
+					BinaryKey *binKey;
+					CSSM_KEYATTR_FLAGS flags = 0;	// not used
+					provider->CssmKeyToBinary(NULL,	// no paramKey
+						flags,
+						&binKey);
+					binKey->mKeyHeader = 
+						CssmKey::Header::overlay(key.KeyHeader);
+					CSSM_KEYBLOB_FORMAT rawFormat;
+					rawFormat = CSSM_KEYBLOB_RAW_FORMAT_DIGEST;
+					CSSM_KEYATTR_FLAGS	attrFlags = 0;
+					binKey->generateKeyBlob(privAllocator,
+							blobToHash,
+							rawFormat,
+							*this, 
+							NULL,
+							attrFlags);
+					delete binKey;	
+					delete provider;
 					break;
+				}
 				case CSSM_KEYBLOB_REFERENCE:
 					{
 						BinaryKey &binKey = lookupRefKey(key);
 						CSSM_KEYBLOB_FORMAT rawFormat;
-						rawFormat = requestedKeyFormat(Context, key);
+						rawFormat = CSSM_KEYBLOB_RAW_FORMAT_DIGEST;
+						CSSM_KEYATTR_FLAGS attrFlags = 0;
 						binKey.generateKeyBlob(privAllocator,
-							rawBlob,
-							rawFormat);
+							blobToHash,
+							rawFormat,
+							*this,
+							NULL,
+							attrFlags);
 					}
-					allocdRawBlob = true;		// remember - we need to free
 					break;
 				default:
 					CssmError::throwMe(CSSMERR_CSP_INVALID_KEY);
 			}
 			
-			/* obtain sha1 hash of rawBlob */
+			/* obtain sha1 hash of blobToHash */
 			
 			CSSM_DATA_PTR outHash = NULL;
 			try {
@@ -516,15 +556,12 @@ void AppleCSPSession::PassThrough(
 				outHash->Length = SHA1_DIGEST_SIZE;
 			}
 			catch(...) {
-				if(allocdRawBlob) {
-					freeCssmData(rawBlob, privAllocator);
-				}
+				freeCssmData(blobToHash, privAllocator);
 				throw;
 			}
-			cspGenSha1Hash(rawBlob.data(), rawBlob.length(), outHash->Data);
-			if(allocdRawBlob) {
-				freeCssmData(rawBlob, privAllocator);
-			}
+			cspGenSha1Hash(blobToHash.data(), blobToHash.length(), 
+				outHash->Data);
+			freeCssmData(blobToHash, privAllocator);
 			*OutData = outHash;
 			return;
 		}
@@ -541,7 +578,14 @@ void AppleCSPSession::getKeySize(const CssmKey &key,
 	CSSM_KEY_SIZE &size)
 {
 	CSPKeyInfoProvider *provider = infoProvider(key);
-	provider->QueryKeySizeInBits(size);
+	try {
+		provider->QueryKeySizeInBits(size);
+	}
+	catch(...) {
+		/* don't leak this on error */
+		delete provider;
+		throw;
+	}
 	delete provider;
 }
 
@@ -610,80 +654,39 @@ CSPKeyInfoProvider *AppleCSPSession::infoProvider(
 	
 	#ifdef	BSAFE_CSP_ENABLE
 	/* Give BSAFE first shot, if it's here */
-	provider = BSafe::BSafeKeyInfoProvider::provider(key);
+	provider = BSafe::BSafeKeyInfoProvider::provider(key, *this);
 	if(provider != NULL) {
 		return provider;
 	}
 	#endif
 	
-	provider = RSAKeyInfoProvider::provider(key);
+	provider = RSAKeyInfoProvider::provider(key, *this);
 	if(provider != NULL) {
 		return provider;
 	}
 	
-	provider = SymmetricKeyInfoProvider::provider(key);
+	provider = SymmetricKeyInfoProvider::provider(key, *this);
 	if(provider != NULL) {
 		return provider;
 	}
 
 	#ifdef	CRYPTKIT_CSP_ENABLE
-	provider = CryptKit::FEEKeyInfoProvider::provider(key);
+	provider = CryptKit::FEEKeyInfoProvider::provider(key, *this);
 	if(provider != NULL) {
 		return provider;
 	}
 	#endif
 	
-	provider = DSAKeyInfoProvider::provider(key);
+	provider = DSAKeyInfoProvider::provider(key, *this);
+	if(provider != NULL) {
+		return provider;
+	}
+	
+	provider = DHKeyInfoProvider::provider(key, *this);
 	if(provider != NULL) {
 		return provider;
 	}
 	
 	CssmError::throwMe(CSSMERR_CSP_INVALID_KEY);
 }
-
-/*
- * CSPKeyInfoProvider for symmetric keys. 
- */
-CSPKeyInfoProvider *SymmetricKeyInfoProvider::provider(
-		const CssmKey &cssmKey)
-{
-	if(cssmKey.blobType() != CSSM_KEYBLOB_RAW) {
-		errorLog0("KeyInfoProvider deals only with RAW keys!\n");
-		CssmError::throwMe(CSSMERR_CSP_INTERNAL_ERROR);
-	}
-	if(cssmKey.keyClass() != CSSM_KEYCLASS_SESSION_KEY) {
-		/* that's all we need to know */
-		return NULL;
-	}
-	return new SymmetricKeyInfoProvider(cssmKey);
-}
- 
-SymmetricKeyInfoProvider::SymmetricKeyInfoProvider(
-	const CssmKey &cssmKey) :
-		CSPKeyInfoProvider(cssmKey)
-{
-}
-
-/* cook up a Binary key */
-void SymmetricKeyInfoProvider::CssmKeyToBinary(
-	BinaryKey **binKey)
-{
-	CASSERT(mKey.keyClass() == CSSM_KEYCLASS_SESSION_KEY);
-	SymmetricBinaryKey *symBinKey = new SymmetricBinaryKey(
-		mKey.KeyHeader.LogicalKeySizeInBits);
-	copyCssmData(mKey, 
-		symBinKey->mKeyData, 
-		symBinKey->mAllocator);
-	*binKey = symBinKey;
-}
-
-/* obtain key size in bits */
-void SymmetricKeyInfoProvider::QueryKeySizeInBits(
-	CSSM_KEY_SIZE &keySize)
-{
-	/* FIXME - do we ever need to calculate RC2 effective size here? */
-	keySize.LogicalKeySizeInBits = keySize.EffectiveKeySizeInBits =
-		mKey.length() * 8;
-}
-
 

@@ -1,0 +1,6 @@
+[ODBC Drivers]
+OpenLink (MT) = Installed
+
+[OpenLink (MT)]
+Driver = /home/openlink/lib/oplodbc.so.1
+Setup  = /home/openlink/lib/oplodbc.so.1

@@ -1,0 +1,11 @@
+--- lmonetary.c.orig	Tue May 20 15:21:44 2003
++++ lmonetary.c	Wed Jun 11 13:12:44 2003
+@@ -88,7 +88,7 @@
+ 	int ret;
+ 
+ 	ret = __part_load_locale(name, &_monetary_using_locale,
+-		_monetary_locale_buf, "LC_MONETARY",
++		&_monetary_locale_buf, "LC_MONETARY",
+ 		LCMONETARY_SIZE_FULL, LCMONETARY_SIZE_MIN,
+ 		(const char **)&_monetary_locale);
+ 	if (ret != _LDP_ERROR)

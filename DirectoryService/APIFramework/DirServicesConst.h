@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -95,6 +98,12 @@
 #define		kDSStdRecordTypePresetComputerLists	"dsRecTypeStandard:PresetComputerLists"
 
 /*!
+ * @defined kDSStdRecordTypeAutoServerSetup
+ * @discussion Used to discover automated server setup information.
+ */
+#define		kDSStdRecordTypeAutoServerSetup		"dsRecTypeStandard:AutoServerSetup"
+
+/*!
  * @defined kDSStdRecordTypePrintServiceUser
  * @discussion Record in the local node for storing quota usage for a user.
  */
@@ -135,6 +144,24 @@
 #define		kDSStdUserNamesMeta				"dsRecTypeStandard:MetaUserNames"
 #define		kDSStdRecordTypeMeta			"dsRecTypeStandard:AppleMetaRecord"
 
+/*!
+ * @defined kDSStdRecordTypePasswordServer
+ * @discussion Used to discover password servers via Rendezvous.
+ */
+#define		kDSStdRecordTypePasswordServer		"dsRecTypeStandard:PasswordServer"
+
+/*!
+ * @defined kDSStdRecordTypePeople
+ * @discussion Record type that contains "People" records used for contact information.
+ */
+#define		kDSStdRecordTypePeople			"dsRecTypeStandard:People"
+
+/*!
+ * @defined kDSStdRecordTypeLocations
+ * @discussion Location record type.
+ */
+#define		kDSStdRecordTypeLocations		"dsRecTypeStandard:Locations"
+
 // well known Attribute Types...
 #define		kDSStdAttrTypePrefix			"dsAttrTypeStandard:"
 #define		kDSNativeAttrTypePrefix			"dsAttrTypeNative:"
@@ -146,6 +173,56 @@
 #define		kDSNativeAuthMethodPrefix			"dsAuthMethodNative:"
 
 #define		kDSStdAuthClearText					"dsAuthMethodStandard:dsAuthClearText"
+
+/*!
+ * @defined kDSStdAuthGetKerberosPrincipal
+ * @discussion Kerberos Principal name.
+ */
+#define		kDSStdAuthGetKerberosPrincipal		"dsAuthMethodStandard:dsAuthGetKerberosPrincipal"
+
+/*!
+ * @defined kDSStdAuthMPPEMasterKeys
+ * @discussion Generated 40-bit or 128-bit master keys from MS-CHAPv2 credentials (RFC 3079).
+ */
+#define kDSStdAuthMPPEMasterKeys				"dsAuthMethodStandard:dsAuthMPPEMasterKeys"
+
+/*!
+ * @defined kDSValueNonCryptPasswordMarker
+ * @discussion Marker used for password attribute value indicating non-crypt authentication.
+ */
+#define		kDSValueNonCryptPasswordMarker	"********"
+
+/*!
+ * @defined kDSStdMachPortName
+ * @discussion Registered name used with mach_init for DirectoryService daemon.
+ */
+#define		kDSStdMachPortName	"com.apple.DirectoryService"
+
+/*!
+ * @defined kDSStdRecordTypeSharePoints
+ * @discussion Share point record type.
+ */
+#define		kDSStdRecordTypeSharePoints	"dsRecTypeStandard:SharePoints"
+
+/*!
+ * @defined kDS1AttrRelativeDNPrefix
+ * @discussion Used to map the first native LDAP attribute type required in the building of the
+ *  Relative Distinguished Name for LDAP record creation.
+ */
+#define		kDS1AttrRelativeDNPrefix	"dsAttrTypeStandard:RelativeDNPrefix"
+
+/*!
+ * @defined kDSStdAuthSetPolicyAsRoot
+ * @discussion A two-item buffer version of set policy for the password server.
+ */
+#define		kDSStdAuthSetPolicyAsRoot	"dsAuthMethodStandard:dsAuthSetPolicyAsRoot"
+
+/*!
+ * @defined kDSStdAuthGetEffectivePolicy
+ * @discussion Used to extract, from a password server, the actual policies that will be applied
+  *    to a user; a combination of global and user policies.
+ */
+#define		kDSStdAuthGetEffectivePolicy	"dsAuthMethodStandard:dsAuthGetEffectivePolicy"
 
 /*!
  * @defined kDSStdAuthCrypt
@@ -231,6 +308,96 @@
 #define		kDSStdAuthDIGEST_MD5				"dsAuthMethodStandard:dsAuthNodeDIGEST-MD5"
 
 /*!
+ * @defined kDSStdAuthSecureHash
+ * @discussion
+ *     Auth specifically using the secure hash.
+ */
+#define		kDSStdAuthSecureHash				"dsAuthMethodStandard:dsAuthSecureHash"
+
+/*!
+ * @defined kDSStdAuthReadSecureHash
+ * @discussion
+ *     Supports ONLY a root process to be able to directly read the secure hash of a user record.
+ */
+#define		kDSStdAuthReadSecureHash				"dsAuthMethodStandard:dsAuthReadSecureHash"
+
+/*!
+ * @defined kDSStdAuthWriteSecureHash
+ * @discussion
+ *     Supports ONLY a root process to be able to directly write the secure hash of a user record.
+ */
+#define		kDSStdAuthWriteSecureHash				"dsAuthMethodStandard:dsAuthWriteSecureHash"
+
+/*!
+ * @defined PDC_SMB_Constants
+ * @discussion
+ *     Related constants for supporting PDC SMB interaction with DS.
+ */
+#define		kDSStdAuthSMB_NT_UserSessionKey					"dsAuthMethodStandard:dsAuthSMBNTUserSessionKey"
+#define		kDSStdAuthSMBWorkstationCredentialSessionKey	"dsAuthMethodStandard:dsAuthSMBWorkstationCredentialSessionKey"
+#define		kDSStdAuthSetWorkstationPasswd					"dsAuthMethodStandard:dsAuthSetWorkstationPasswd"
+#define 	kDS1AttrSMBRID									"dsAttrTypeStandard:SMBRID"
+#define 	kDS1AttrSMBGroupRID								"dsAttrTypeStandard:SMBGroupRID"
+
+/*!
+ * @defined kDS1AttrSMBHomeDrive
+ * @discussion
+ *     Drive letter for homedirectory mount point.
+ */
+#define 	kDS1AttrSMBHomeDrive			"dsAttrTypeStandard:SMBHomeDrive"
+
+/*!
+ * @defined kDS1AttrSMBHome
+ * @discussion
+ *     UNC address of Windows homedirectory mount point (\\server\\sharepoint).
+ */
+#define 	kDS1AttrSMBHome					"dsAttrTypeStandard:SMBHome"
+
+/*!
+ * @defined kDS1AttrSMBScriptPath
+ * @discussion
+ *     Login script path.
+ */
+#define 	kDS1AttrSMBScriptPath			"dsAttrTypeStandard:SMBScriptPath"
+
+/*!
+ * @defined kDS1AttrSMBProfilePath
+ * @discussion
+ *     Desktop management info (dock, desktop links, etc).
+ */
+#define		kDS1AttrSMBProfilePath			"dsAttrTypeStandard:SMBProfilePath"
+
+/*!
+ * @defined kDS1AttrSMBUserWorkstations
+ * @discussion
+ *     List of workstations user can login from (machine account names).
+ */
+#define		kDS1AttrSMBUserWorkstations 	"dsAttrTypeStandard:SMBUserWorkstations"
+
+/*!
+ * @defined Account_Control_Flags
+ * @discussion
+ *     Set of account control flags.
+ */
+#define		kDS1AttrSMBAcctFlags			"dsAttrTypeStandard:SMBAccountFlags"
+#define		kDS1AttrSMBPWDLastSet			"dsAttrTypeStandard:SMBPasswordLastSet"
+#define		kDS1AttrSMBLogonTime			"dsAttrTypeStandard:SMBLogonTime"
+#define		kDS1AttrSMBLogoffTime			"dsAttrTypeStandard:SMBLogoffTime"
+#define		kDS1AttrSMBKickoffTime 			"dsAttrTypeStandard:SMBKickoffTime"
+
+/*!
+ * @defined kDS1AttrPasswordServerList
+ * @discussion Represents the attribute for storing the password server's replication information.
+ */
+#define		kDS1AttrPasswordServerList		"dsAttrTypeStandard:PasswordServerList"
+
+/*!
+ * @defined kDS1AttrAlternateDatastoreLocation
+ * @discussion Unix path used for determining where a user's email is stored.
+ */
+#define		kDS1AttrAlternateDatastoreLocation	"dsAttrTypeStandard:AlternateDatastoreLocation"
+
+/*!
  * @defined kDSStdAuthMSCHAP2
  * @discussion
  *     MS-CHAP2 is a mutual authentication method. The plug-in will generate the data to
@@ -251,9 +418,21 @@
  *     return digest for the client's challenge
  */
 #define		kDSStdAuthMSCHAP2				"dsAuthMethodStandard:dsAuthMSCHAP2"
+#define		kDSStdAuthMSCHAP1				"dsAuthMethodStandard:dsAuthMSCHAP1"
+#define		kDSStdAuthCHAP					"dsAuthMethodStandard:dsAuthCHAP"
 
 #define		kDSStdAuthMASKE_A				"dsAuthMethodStandard:dsAuthMASKE-A"
 #define		kDSStdAuthMASKE_B				"dsAuthMethodStandard:dsAuthMASKE-B"
+
+/*!
+ * @defined kDSStdAuthWithAuthorizationRef
+ * @discussion
+ *     Allows access to local directories as root with a valid AuthorizationRef.
+ *
+ *     The input buffer format:
+ *     externalized AuthorizationRef
+ */
+#define		kDSStdAuthWithAuthorizationRef				"dsAuthMethodStandard:dsAuthWithAuthorizationRef"
 
 /*!
  * @defined kDSStdAuthNewUser
@@ -337,16 +516,36 @@
 #define		kDSNAttrAuthenticationAuthority	"dsAttrTypeStandard:AuthenticationAuthority"
 
 /*!
- * @defined kDSValueDefaultAuthAuthority
+ * @defined kDS1AttrPasswordPolicyOptions
+ * @discussion Collection of password policy options in single attribute.
+ * Used in user presets record.
+ */
+#define		kDS1AttrPasswordPolicyOptions	"dsAttrTypeStandard:PasswordPolicyOptions"
+
+/*!
+ * @defined kDSValueAuthAuthorityDefault
  * @discussion The default value to use for the kDSNAttrAuthenticationAuthority attribute.
  *     When creating a user record, set this value for authentication authority before
  *     setting the password with dsDoDirNodeAuth.
  */
-#define		kDSValueAuthAuthorityDefault			kDSValueAuthAuthorityBasic
+#define		kDSValueAuthAuthorityDefault				kDSValueAuthAuthorityBasic
+//#define		kDSValueAuthAuthorityDefault				kDSValueAuthAuthorityShadowHash
 
-#define		kDSValueAuthAuthorityBasic				";basic;"
-#define		kDSValueAuthAuthorityLocalWindowsHash	";LocalWindowsHash;"
+#define		kDSValueAuthAuthorityBasic					";basic;"
+#define		kDSTagAuthAuthorityBasic					"basic"
+#define		kDSValueAuthAuthorityLocalWindowsHash		";LocalWindowsHash;"
+#define		kDSTagAuthAuthorityLocalWindowsHash			"LocalWindowsHash"
+#define		kDSValueAuthAuthorityShadowHash				";ShadowHash;"
+#define		kDSTagAuthAuthorityShadowHash				"ShadowHash"
+#define		kDSTagAuthAuthorityBetterHashOnly			"BetterHashOnly"
 #define		kDSValueAuthAuthorityPasswordServerPrefix	";ApplePasswordServer;"
+#define		kDSTagAuthAuthorityPasswordServer			"ApplePasswordServer"
+#define		kDSValueAuthAuthorityKerberosv5				";Kerberosv5;"
+#define		kDSTagAuthAuthorityKerberosv5				"Kerberosv5"
+#define		kDSValueAuthAuthorityLocalCachedUser		";LocalCachedUser;"
+#define		kDSTagAuthAuthorityLocalCachedUser			"LocalCachedUser"
+#define		kDSValueAuthAuthorityDisabledUser			";DisabledUser;"
+#define		kDSTagAuthAuthorityDisabledUser				"DisabledUser"
 
 //	Single Valued Attribute
 #define		kDS1AttrPassword				"dsAttrTypeStandard:Password"
@@ -369,10 +568,23 @@
 #define		kDS1AttrVFSLinkDir				"dsAttrTypeStandard:VFSLinkDir"
 #define		kDS1AttrChange					"dsAttrTypeStandard:Change"
 #define		kDS1AttrExpire					"dsAttrTypeStandard:Expire"
+#define		kDS1AttrRealUserID				"dsAttrTypeStandard:RealUserID"
 
 #define		kDSNAttrRecordAlias				"dsAttrTypeStandard:RecordAlias"
 #define		kDSNAttrGroupMembership			"dsAttrTypeStandard:GroupMembership"
 #define		kDSNAttrHomeDirectory			"dsAttrTypeStandard:HomeDirectory"
+
+/*!
+ *	@defined kDS1AttrXMLPlist
+ *	@discussion SA config settings plist.
+ */
+#define		kDS1AttrXMLPlist				"dsAttrTypeStandard:XMLPlist"
+
+/*!
+ *	@defined kDSNAttrKeywords
+ *	@discussion Keywords using for searching capability.
+ */
+#define		kDSNAttrKeywords				"dsAttrTypeStandard:Keywords"
 
 /*!
  *	@defined kDS1AttrHomeDirectoryQuota
@@ -380,6 +592,7 @@
  *		Found in user records (kDSStdRecordTypeUsers).
  */
 #define		kDS1AttrHomeDirectoryQuota		"dsAttrTypeStandard:HomeDirectoryQuota"
+#define		kDS1AttrHomeDirectorySoftQuota	"dsAttrTypeStandard:HomeDirectorySoftQuota"
 
 /*!
  *	@defined kDS1AttrAdminLimits
@@ -464,7 +677,37 @@
 
 //	Single valued - used to get a "auth" credential, to be used to authenticate
 //		to other Directory nodes.
-#define		kDS1AttrAuthCredential		"dsAttrTypeStandard:AuthCredential"
+#define		kDS1AttrAuthCredential			"dsAttrTypeStandard:AuthCredential"
+
+/*!
+ * @defined kDS1AttrNote
+ * @discussion Note attribute. Commonly used in printer records.
+ */
+#define		kDS1AttrNote					"dsAttrTypeStandard:Note"
+
+/*!
+ * @defined kDS1AttrDNSDomain
+ * @discussion DNS Resolver domain attribute.
+ */
+#define		kDS1AttrDNSDomain			"dsAttrTypeStandard:DNSDomain"
+
+/*!
+ * @defined kDS1AttrDNSNameServer
+ * @discussion DNS Resolver nameserver attribute.
+ */
+#define		kDS1AttrDNSNameServer			"dsAttrTypeStandard:DNSNameServer"
+
+/*!
+ * @defined kDSNAttrKDCAuthKey
+ * @discussion KDC master key RSA encrypted with realm public key.
+ */
+#define		kDSNAttrKDCAuthKey				"dsAttrTypeStandard:KDCAuthKey"
+
+/*!
+ * @defined kDS1AttrKDCConfigData
+ * @discussion Contents of the kdc.conf file.
+ */
+#define		kDS1AttrKDCConfigData			"dsAttrTypeStandard:KDCConfigData"
 
 //	used with directory nodes so that clients can "discover" the
 //	API capabilities for this Directory Node.
@@ -564,6 +807,94 @@
 #define		kDSNAttrState				"dsAttrTypeStandard:State"
 #define		kDSNAttrPostalCode			"dsAttrTypeStandard:PostalCode"
 
+/*!
+ * @defined kDSNAttrFaxNumber
+ * @discussion Represents the FAX numbers of a user or group.
+ * Usually found in user records (kDSStdRecordTypeUsers).
+ */
+#define		kDSNAttrFaxNumber					"dsAttrTypeStandard:FAXNumber"
+
+/*!
+ * @defined kDSNAttrMobileNumber
+ * @discussion Represents the mobile numbers of a user or group.
+ * Usually found in user records (kDSStdRecordTypeUsers).
+ */
+#define		kDSNAttrMobileNumber					"dsAttrTypeStandard:MobileNumber"
+
+/*!
+ * @defined kDSNAttrPagerNumber
+ * @discussion Represents the pager numbers of a user or group.
+ * Usually found in user records (kDSStdRecordTypeUsers).
+ */
+#define		kDSNAttrPagerNumber					"dsAttrTypeStandard:PagerNumber"
+
+/*!
+ * @defined kDSNAttrStreet
+ * @discussion Represents the street address of a user or group.
+ * Usually found in user records (kDSStdRecordTypeUsers).
+ */
+#define		kDSNAttrStreet					"dsAttrTypeStandard:Street"
+
+/*!
+ * @defined kDSNAttrDepartment
+ * @discussion Represents the department name of a user or group.
+ * Usually found in user records (kDSStdRecordTypeUsers).
+ */
+#define		kDSNAttrDepartment					"dsAttrTypeStandard:Department"
+
+/*!
+ * @defined kDSNAttrNickName
+ * @discussion Represents the nickname of a user or group.
+ * Usually found in user records (kDSStdRecordTypeUsers).
+ */
+#define		kDSNAttrNickName					"dsAttrTypeStandard:NickName"
+
+/*!
+ * @defined kDSNAttrJobTitle
+ * @discussion Represents the job title of a user.
+ * Usually found in user records (kDSStdRecordTypeUsers).
+ */
+#define		kDSNAttrJobTitle					"dsAttrTypeStandard:JobTitle"
+
+/*!
+ * @defined kDSNAttrIMHandle
+ * @discussion Represents the Instant Messaging handles of a user.
+ * Values should be prefixed with the appropriate IM type
+ * ie. AIM:, Jabber:, MSN:, Yahoo:, or ICQ:
+ * Usually found in user records (kDSStdRecordTypeUsers).
+ */
+#define		kDSNAttrIMHandle					"dsAttrTypeStandard:IMHandle"
+
+/*!
+ * @defined kDSNAttrBuilding
+ * @discussion Represents the building name for a user or group.
+ * Usually found in user records (kDSStdRecordTypeUsers).
+ */
+#define		kDSNAttrBuilding					"dsAttrTypeStandard:Building"
+
+/*!
+ * @defined kDSNAttrCountry
+ * @discussion Represents country of a record entry.
+ * Usually found in user records (kDSStdRecordTypeUsers).
+ */
+#define		kDSNAttrCountry						"dsAttrTypeStandard:Country"
+
+/*!
+ * @defined kDSNAttrNamePrefix
+ * @discussion Represents the title prefix of a user.
+ * ie. Mr., Ms., Mrs., Dr., etc.
+ * Usually found in user records (kDSStdRecordTypeUsers).
+ */
+#define		kDSNAttrNamePrefix					"dsAttrTypeStandard:NamePrefix"
+
+/*!
+ * @defined kDSNAttrNameSuffix
+ * @discussion Represents the name suffix of a user.
+ * ie. Jr., Sr., etc.
+ * Usually found in user records (kDSStdRecordTypeUsers).
+ */
+#define		kDSNAttrNameSuffix					"dsAttrTypeStandard:NameSuffix"
+
 // used for Setup Assistant automatic population
 #define		kDS1AttrSetupOccupation		"dsAttrTypeStandard:Occupation"
 #define		kDS1AttrSetupLocation		"dsAttrTypeStandard:SetupAssistantLocation"
@@ -571,8 +902,15 @@
 #define		kDS1AttrSetupAutoRegister	"dsAttrTypeStandard:SetupAssistantAutoRegister"
 
 #define		kDS1AttrMCXSettings			"dsAttrTypeStandard:MCXSettings"
+#define		kDSNAttrMCXSettings			"dsAttrTypeStandard:MCXSettings"
 #define		kDS1AttrMCXFlags			"dsAttrTypeStandard:MCXFlags"
 #define		kDSNAttrComputers			"dsAttrTypeStandard:Computers"
+
+//Caching
+#define		kDS1AttrCopyTimestamp				"dsAttrTypeStandard:CopyTimestamp"
+#define		kDS1AttrOriginalNodeName			"dsAttrTypeStandard:OriginalNodeName"
+#define		kDS1AttrOriginalNFSHomeDirectory	"dsAttrTypeStandard:OriginalNFSHomeDirectory"
+#define		kDSNAttrOriginalHomeDirectory		"dsAttrTypeStandard:OriginalHomeDirectory"
 
 // NSL
 #define		kDSNAttrURLForNSL			"dsAttrTypeStandard:URLForNSL"
@@ -581,6 +919,43 @@
 #define		kDS1AttrPrintServiceInfoXML		"dsAttrTypeStandard:PrintServiceInfoXML"
 #define		kDS1AttrPrintServiceInfoText	"dsAttrTypeStandard:PrintServiceInfoText"
 
+// Standard attrribute types for kDSStdRecordTypePrinters
+#define		kDS1AttrPrinterLPRHost			"dsAttrTypeStandard:PrinterLPRHost"
+#define		kDS1AttrPrinterLPRQueue			"dsAttrTypeStandard:PrinterLPRQueue"
+#define		kDS1AttrPrinterType				"dsAttrTypeStandard:PrinterType"
+
+/*!
+* @defined kDS1AttrPrinterMakeAndModel
+ * @discussion Single-valued attribute for definition of the Printer Make and Model.  An example
+ *              Value would be "HP LaserJet 2200".  This would be used to determine the proper PPD
+ *              file to be used when configuring a printer from the Directory.  This attribute
+ *              is based on the IPP Printing Specification RFC and IETF IPP-LDAP Printer Record.
+ */
+#define         kDS1AttrPrinterMakeAndModel             "dsAttrTypeStandard:PrinterMakeAndModel"
+
+/*!
+* @defined kDS1AttrPrinterURI
+ * @discussion Single-valued attribute that defines the URI of a printer "ipp://address" or
+ *              "smb://server/queue".  This is used when configuring a printer. This attribute
+ *				is based on the IPP Printing Specification RFC and IETF IPP-LDAP Printer Record.
+ */
+#define         kDS1AttrPrinterURI                      "dsAttrTypeStandard:PrinterURI"
+
+/*!
+* @defined kDS1AttrPrinterXRISupported
+ * @discussion Multi-valued attribute that defines additional URIs supported by a printer.
+ *              This is used when configuring a printer. This attribute is based on the IPP 
+ *				Printing Specification RFC and IETF IPP-LDAP Printer Record.
+ */
+#define         kDSNAttrPrinterXRISupported		"dsAttrTypeStandard:PrinterXRISupported"
+
+/*!
+* @defined kDS1AttrPrinter1284DeviceID
+ * @discussion Single-valued attribute that defines the IEEE 1284 DeviceID of a printer.
+ *              This is used when configuring a printer.
+ */
+#define         kDS1AttrPrinter1284DeviceID		"dsAttrTypeStandard:Printer1284DeviceID"
+
 /*!
  * @defined kDS1AttrPrintServiceUserData
  * @discussion Single-valued attribute for print quota configuration or statistics
@@ -588,5 +963,17 @@
  *		statistics records (kDSStdRecordTypePrintServiceUser).
  */
 #define		kDS1AttrPrintServiceUserData	"dsAttrTypeStandard:PrintServiceUserData"
+
+/*!
+ * @defined kDSNAttrLDAPReadReplicas
+ * @discussion List of LDAP server URLs which can each be used to read directory data.
+ */
+#define		kDSNAttrLDAPReadReplicas		"dsAttrTypeStandard:LDAPReadReplicas"
+
+/*!
+ * @defined kDSNAttrLDAPWriteReplicas
+ * @discussion List of LDAP server URLs which can each be used to write directory data.
+ */
+#define		kDSNAttrLDAPWriteReplicas		"dsAttrTypeStandard:LDAPWriteReplicas"
 
 #endif

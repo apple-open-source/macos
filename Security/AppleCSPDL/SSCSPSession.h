@@ -62,7 +62,8 @@ public:
 
 	void setupContext(CSPContext * &ctx, const Context &context,
 					  bool encoding);
-
+	
+	SSDatabase getDatabase(CSSM_DL_DB_HANDLE *aDLDbHandle);
 	SSDatabase getDatabase(const Context &context);
 
 	void makeReferenceKey(SecurityServer::KeyHandle inKeyHandle,

@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/include/ldap_pvt.h,v 1.58 2002/01/05 09:33:38 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/include/ldap_pvt.h,v 1.58.2.7 2003/03/05 23:48:31 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, Redwood City, California, USA
+ * Copyright 1998-2003 The OpenLDAP Foundation, Redwood City, California, USA
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -66,6 +66,16 @@ ldap_pvt_gethostbyaddr_a LDAP_P((
 	struct hostent **result,
 	int *herrno_ptr ));
 
+struct sockaddr;
+
+LDAP_F( int )
+ldap_pvt_get_hname LDAP_P((
+	const struct sockaddr * sa,
+	int salen,
+	char *name,
+	int namelen,
+	char **herr ));
+
 
 /* charray.c */
 
@@ -121,6 +131,15 @@ LDAP_F (void) ldap_pvt_hex_unescape LDAP_P(( char *s ));
 #define LDAP_HEX(c)			(LDAP_DIGIT(c) || \
 								LDAP_HEXLOWER(c) || LDAP_HEXUPPER(c))
 
+/* controls.c */
+struct ldapcontrol;
+LDAP_F (struct ldapcontrol *) ldap_control_dup LDAP_P((
+	const struct ldapcontrol *ctrl ));
+
+LDAP_F (struct ldapcontrol **) ldap_controls_dup LDAP_P((
+	struct ldapcontrol *const *ctrls ));
+
+
 #ifdef HAVE_CYRUS_SASL
 /* cyrus.c */
 struct sasl_security_properties; /* avoid pulling in <sasl.h> */
@@ -145,6 +164,10 @@ LDAP_F (int) ldap_open_internal_connection LDAP_P((
 	struct ldap **ldp, ber_socket_t *fdp ));
 
 /* search.c */
+LDAP_F( int ) ldap_pvt_put_filter LDAP_P((
+	BerElement *ber,
+	const char *str ));
+
 LDAP_F( char * )
 ldap_pvt_find_wildcard LDAP_P((	const char *s ));
 
@@ -158,7 +181,15 @@ ldap_pvt_str2upper LDAP_P(( char *str ));
 LDAP_F( char * )
 ldap_pvt_str2lower LDAP_P(( char *str ));
 
+LDAP_F( struct berval * )
+ldap_pvt_str2upperbv LDAP_P(( char *str, struct berval *bv ));
+
+LDAP_F( struct berval * )
+ldap_pvt_str2lowerbv LDAP_P(( char *str, struct berval *bv ));
+
 /* tls.c */
+LDAP_F (int) ldap_int_tls_config LDAP_P(( struct ldap *ld,
+	int option, const char *arg ));
 LDAP_F (int) ldap_pvt_tls_get_option LDAP_P(( struct ldap *ld,
 	int option, void *arg ));
 LDAP_F (int) ldap_pvt_tls_set_option LDAP_P(( struct ldap *ld,
@@ -166,14 +197,19 @@ LDAP_F (int) ldap_pvt_tls_set_option LDAP_P(( struct ldap *ld,
 
 LDAP_F (void) ldap_pvt_tls_destroy LDAP_P(( void ));
 LDAP_F (int) ldap_pvt_tls_init LDAP_P(( void ));
+LDAP_F (int) ldap_pvt_tls_init_def_ctx LDAP_P(( void ));
 LDAP_F (int) ldap_pvt_tls_accept LDAP_P(( Sockbuf *sb, void *ctx_arg ));
 LDAP_F (int) ldap_pvt_tls_inplace LDAP_P(( Sockbuf *sb ));
-LDAP_F (void *) ldap_pvt_tls_get_ctx LDAP_P(( Sockbuf *sb ));
+LDAP_F (void *) ldap_pvt_tls_sb_ctx LDAP_P(( Sockbuf *sb ));
 
 LDAP_F (int) ldap_pvt_tls_init_default_ctx LDAP_P(( void ));
 
-LDAP_F (char *) ldap_pvt_tls_get_peer LDAP_P(( void *ctx ));
-LDAP_F (char *) ldap_pvt_tls_get_peer_dn LDAP_P(( void *ctx ));
+typedef int LDAPDN_rewrite_dummy LDAP_P (( void *dn, unsigned flags ));
+
+LDAP_F (int) ldap_pvt_tls_get_my_dn LDAP_P(( void *ctx, struct berval *dn,
+	LDAPDN_rewrite_dummy *func, unsigned flags ));
+LDAP_F (int) ldap_pvt_tls_get_peer_dn LDAP_P(( void *ctx, struct berval *dn,
+	LDAPDN_rewrite_dummy *func, unsigned flags ));
 LDAP_F (int) ldap_pvt_tls_get_strength LDAP_P(( void *ctx ));
 
 LDAP_END_DECL

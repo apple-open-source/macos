@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<application>
+    <display-name>JBossTest Web Container Testsuite</display-name>
+
+    <module>
+       <web>
+           <description>Another war to test context-root matching</description>
+           <web-uri>wars/notjbosstest-web.war</web-uri>
+           <context-root>/jbosstest-not2</context-root>
+       </web>
+    </module>
+
+</application>
+

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<StateManager>
+	<Users>
+		<User>
+			<Name>john</Name>
+			<Password>needle</Password>
+			<Id>DurableSubscriberExample</Id>
+		</User>
+		<User>
+			<Name>guest</Name>
+			<Password>guest</Password>
+		</User>
+		<User>
+			<Name>nobody</Name>
+			<Password>nobody</Password>
+		</User>
+		<User>
+			<Name>dynsub</Name>
+			<Password>dynsub</Password>
+		</User>
+	</Users>
+	<Roles>
+		<Role name="guest">
+			<UserName>guest</UserName>
+			<UserName>john</UserName>
+		</Role>
+		<Role name="subscriber">
+			<UserName>john</UserName>
+		</Role>
+		<Role name="publisher">
+			<UserName>john</UserName>
+			<UserName>dynsub</UserName>
+		</Role>
+		<Role name="durpublisher">
+			<UserName>john</UserName>
+			<UserName>dynsub</UserName>
+		</Role>
+		<Role name="noacc">
+			<UserName>nobody</UserName>
+		</Role>
+	</Roles>
+	<DurableSubscriptions>
+	</DurableSubscriptions>
+</StateManager>

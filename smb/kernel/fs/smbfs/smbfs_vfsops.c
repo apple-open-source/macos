@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs_vfsops.c,v 1.18 2002/06/29 21:15:25 lindak Exp $
+ * $Id: smbfs_vfsops.c,v 1.31 2003/09/20 01:30:46 lindak Exp $
  */
 #ifndef APPLE
 #include "opt_nsmb.h"
@@ -47,6 +47,7 @@
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/malloc.h>
+#include <sys/sysctl.h>
 
 
 #ifdef APPLE
@@ -59,6 +60,9 @@
 #include <netsmb/smb_conn.h>
 #include <netsmb/smb_subr.h>
 #include <netsmb/smb_dev.h>
+#ifdef APPLE
+#include <netsmb/smb_sleephandler.h>
+#endif
 
 #include <fs/smbfs/smbfs.h>
 #include <fs/smbfs/smbfs_node.h>
@@ -100,7 +104,7 @@ SYSCTL_INT(_vfs_smbfs, OID_AUTO, version, CTLFLAG_RD, &smbfs_version, 0, "");
 SYSCTL_INT(_vfs_smbfs, OID_AUTO, debuglevel, CTLFLAG_RW, &smbfs_debuglevel, 0, "");
 #endif /* APPLE */
 
-static MALLOC_DEFINE(M_SMBFSHASH, "SMBFS hash", "SMBFS hash table");
+MALLOC_DEFINE(M_SMBFSHASH, "SMBFS hash", "SMBFS hash table");
 
 
 static int smbfs_mount(struct mount *, char *, caddr_t,
@@ -119,7 +123,7 @@ static int smbfs_uninit(struct vfsconf *vfsp);
 #endif /* APPLE */
 
 #if defined(APPLE) || __FreeBSD_version < 400009
-static int smbfs_vget(struct mount *mp, ino_t ino, struct vnode **vpp);
+static int smbfs_vget(struct mount *mp, void *ino, struct vnode **vpp);
 static int smbfs_fhtovp(struct mount *, struct fid *,
 #ifdef APPLE
 			struct mbuf *, struct vnode **, int *,
@@ -176,6 +180,7 @@ static int
 smbfs_mount(struct mount *mp, char *path, caddr_t data, 
 	struct nameidata *ndp, struct proc *p)
 {
+	#pragma unused(ndp)
 	struct smbfs_args args;		/* will hold data from mount request */
 	struct smbmount *smp = NULL;
 	struct smb_vc *vcp;
@@ -230,10 +235,12 @@ smbfs_mount(struct mount *mp, char *path, caddr_t data,
 	}
 	bzero(smp, sizeof(*smp));
 	mp->mnt_data = (qaddr_t)smp;
+	ssp->ss_mount = smp;
 	smp->sm_hash = hashinit(desiredvnodes, M_SMBFSHASH, &smp->sm_hashlen);
 	if (smp->sm_hash == NULL)
 		goto bad;
 	lockinit(&smp->sm_hashlock, PVFS, "smbfsh", 0, 0);
+	smp->sm_mp = mp;
 	smp->sm_share = ssp;
 	smp->sm_root = NULL;
 	smp->sm_args = args;
@@ -280,14 +287,19 @@ smbfs_mount(struct mount *mp, char *path, caddr_t data,
 	 * "funnel" keeps us from having to lock mountlist during scan.
 	 * The scan could be more cpu-efficient, but mounts are not a hot spot.
 	 * Scanning mountlist is more robust than using smb_vclist.
+	 *
+	 * Changed for multisession: we now allow the multple mounts if being
+	 * done by a different user OR if not on the desktop.
 	 */
-	for (mp2 = mountlist.cqh_first; mp2 != (void *)&mountlist;
-	     mp2 = mp2->mnt_list.cqe_next)
-		if (strncmp(mp2->mnt_stat.f_mntfromname,
-			    mp->mnt_stat.f_mntfromname, MNAMELEN) == 0) {
-			error = EBUSY;
-			goto bad;
-		}
+	if (!(mp->mnt_flag & MNT_DONTBROWSE))
+		for (mp2 = mountlist.cqh_first; mp2 != (void *)&mountlist;
+		     mp2 = mp2->mnt_list.cqe_next)
+			if (mp2->mnt_stat.f_owner == p->p_ucred->cr_uid &&
+			    !strncmp(mp2->mnt_stat.f_mntfromname,
+				     mp->mnt_stat.f_mntfromname, MNAMELEN)) {
+				error = EBUSY;
+				goto bad;
+			}
 	/* protect against invalid mount points */
 	smp->sm_args.mount_point[sizeof(smp->sm_args.mount_point) - 1] = '\0';
 	vfs_getnewfsid(mp);
@@ -329,25 +341,35 @@ smbfs_unmount(struct mount *mp, int mntflags, struct proc *p)
 
 	SMBVDEBUG("smbfs_unmount: flags=%04x\n", mntflags);
 	flags = 0;
-	if (mntflags & MNT_FORCE)
+	if (mntflags & MNT_FORCE) {
 		flags |= FORCECLOSE;
+		smp->sm_status |= SM_STATUS_FORCE;
+		wakeup(&smp->sm_status);
+	}
 	error = VFS_ROOT(mp, &vp);
 	if (error)
 		return (error);
-	if (vp->v_usecount > 2) {
-		printf("smbfs_unmount: usecnt=%d\n", (int)vp->v_usecount);
-		vput(vp);
-		return EBUSY;
-	}
 	error = vflush(mp, vp, flags);
 	if (error) {
 		vput(vp);
 		return error;
 	}
+	if (vp->v_usecount > 2  && !(flags & FORCECLOSE)) {
+		printf("smbfs_unmount: usecnt=%d\n", (int)vp->v_usecount);
+		vput(vp);
+		return EBUSY;
+	}
 	vput(vp);
 	vrele(vp);
 	vgone(vp);
+	if (flags & FORCECLOSE) {
+		/*
+		 * Shutdown all outstanding I/O requests on this share.
+		 */
+		smb_iod_shutdown_share(smp->sm_share);
+	}
 	smb_makescred(&scred, p, p->p_ucred);
+	smp->sm_share->ss_mount = NULL;
 	smb_share_put(smp->sm_share, &scred);
 	mp->mnt_data = (qaddr_t)0;
 
@@ -410,6 +432,11 @@ smbfs_start(mp, flags, p)
 	int flags;
 	struct proc *p;
 {
+#ifdef SMB_VNODE_DEBUG
+	#pragma unused(mp, p)
+#else
+	#pragma unused(mp, flags, p)
+#endif
 	SMBVDEBUG("flags=%04x\n", flags);
 	return 0;
 }
@@ -426,6 +453,7 @@ smbfs_quotactl(mp, cmd, uid, arg, p)
 	caddr_t arg;
 	struct proc *p;
 {
+	#pragma unused(mp, cmd, uid, arg, p)
 	SMBVDEBUG("return EOPNOTSUPP\n");
 	return EOPNOTSUPP;
 }
@@ -434,6 +462,7 @@ smbfs_quotactl(mp, cmd, uid, arg, p)
 int
 smbfs_init(struct vfsconf *vfsp)
 {
+	#pragma unused(vfsp)
 	smb_checksmp();
 
 #ifdef SMBFS_USEZONE
@@ -464,6 +493,7 @@ int
 smbfs_statfs(struct mount *mp, struct statfs *sbp, struct proc *p)
 {
 	struct smbmount *smp = VFSTOSMBFS(mp);
+	struct statfs *cachedstatfs = &smp->sm_statfsbuf;
 	struct smbnode *np = smp->sm_root;
 	struct smb_share *ssp = smp->sm_share;
 	struct smb_cred scred;
@@ -471,6 +501,16 @@ smbfs_statfs(struct mount *mp, struct statfs *sbp, struct proc *p)
 
 	if (np == NULL)
 		return EINVAL;
+
+	/* while there's a smbfs_smb_statfs request outstanding, sleep */
+	while (smp->sm_status & SM_STATUS_STATFS) {
+		smp->sm_status |= SM_STATUS_STATFS_WANTED;
+		(void) tsleep((caddr_t)&smp->sm_status, PRIBIO, "smbfs_statfs", 0);
+	}
+
+	/* we're making a request so grab the token */
+	smp->sm_status |= SM_STATUS_STATFS;
+
 #ifdef APPLE
 	/* Give the Finder et al a better hint */
 	sbp->f_iosize = 128 * 1024;	/* optimal transfer block size */
@@ -480,12 +520,25 @@ smbfs_statfs(struct mount *mp, struct statfs *sbp, struct proc *p)
 #endif /* APPLE */
 	smb_makescred(&scred, p, p->p_ucred);
 
-	if (SMB_DIALECT(SSTOVC(ssp)) >= SMB_DIALECT_LANMAN2_0)
-		error = smbfs_smb_statfs2(ssp, sbp, &scred);
-	else
-		error = smbfs_smb_statfs(ssp, sbp, &scred);
-	if (error)
-		return error;
+	/* time to update cached statfs data? */
+	if ((time_second - smp->sm_statfstime) > SM_MAX_STATFSTIME) {
+		/* yes, update cached statfs data */
+		if (SMB_DIALECT(SSTOVC(ssp)) >= SMB_DIALECT_LANMAN2_0)
+			error = smbfs_smb_statfs2(ssp, cachedstatfs, &scred);
+		else
+			error = smbfs_smb_statfs(ssp, cachedstatfs, &scred);
+		if (error)
+			goto releasetoken;
+		smp->sm_statfstime = time_second;
+	}
+	/* copy results from cached statfs */
+	sbp->f_bsize = cachedstatfs->f_bsize; /* fundamental file system block size */
+	sbp->f_blocks = cachedstatfs->f_blocks; /* total data blocks in file system */
+	sbp->f_bfree = cachedstatfs->f_bfree; /* free blocks in fs */
+	sbp->f_bavail = cachedstatfs->f_bavail; /* free blocks avail to non-superuser */
+	sbp->f_files = cachedstatfs->f_files; /* total file nodes in file system */
+	sbp->f_ffree = cachedstatfs->f_ffree; /* free file nodes in fs */
+
 	sbp->f_flags = 0;		/* copy of mount exported flags */
 	if (sbp != &mp->mnt_stat) {
 		sbp->f_fsid = mp->mnt_stat.f_fsid;	/* file system id */
@@ -495,7 +548,19 @@ smbfs_statfs(struct mount *mp, struct statfs *sbp, struct proc *p)
 		bcopy(mp->mnt_stat.f_mntfromname, sbp->f_mntfromname, MNAMELEN);
 	}
 	strncpy(sbp->f_fstypename, mp->mnt_vfc->vfc_name, MFSNAMELEN);
-	return 0;
+
+releasetoken:
+
+	/* we're done, so release the token */
+	smp->sm_status &= ~SM_STATUS_STATFS;
+	
+	/* if anyone else is waiting, wake them up */
+	if (smp->sm_status & SM_STATUS_STATFS_WANTED) {
+		smp->sm_status &= ~SM_STATUS_STATFS_WANTED;
+		wakeup((caddr_t)&smp->sm_status);
+	}
+
+	return error;
 }
 
 /*
@@ -565,9 +630,10 @@ loop:
 /* ARGSUSED */
 static int smbfs_vget(mp, ino, vpp)
 	struct mount *mp;
-	ino_t ino;
+	void *ino;
 	struct vnode **vpp;
 {
+	#pragma unused(mp, ino, vpp)
 	return (EOPNOTSUPP);
 }
 
@@ -584,6 +650,7 @@ static int smbfs_fhtovp(mp, fhp, nam, vpp, exflagsp, credanonp)
 	int *exflagsp;
 	struct ucred **credanonp;
 {
+	#pragma unused(mp, fhp, nam, vpp, exflagsp, credanonp)
 	return (EINVAL);
 }
 
@@ -596,6 +663,7 @@ smbfs_vptofh(vp, fhp)
 	struct vnode *vp;
 	struct fid *fhp;
 {
+	#pragma unused(vp, fhp)
 	return (EINVAL);
 }
 
@@ -603,6 +671,11 @@ smbfs_vptofh(vp, fhp)
 
 
 #ifdef APPLE
+
+/*
+ * smbfs_sysctl handles the VFS_CTL_QUERY request which tells interested
+ * parties if the connection with the remote server is up or down.
+ */
 static int
 smbfs_sysctl(name, namelen, oldp, oldlenp, newp, newlen, p)
 	int * name;
@@ -613,7 +686,44 @@ smbfs_sysctl(name, namelen, oldp, oldlenp, newp, newlen, p)
 	size_t newlen;
 	struct proc * p;
 {
-	return (EOPNOTSUPP);
+	#pragma unused(oldlenp, newp, newlen, p)
+
+	int error;
+	struct sysctl_req *req;
+	struct vfsidctl vc;
+	struct mount *mp;
+	struct smbmount *smp;
+	struct vfsquery vq;
+
+	/*
+	 * All names at this level are terminal.
+	 */
+	if (namelen > 1)
+		return (ENOTDIR);	/* overloaded */
+	switch (name[0]) {
+	    case VFS_CTL_QUERY:
+		req = oldp;	/* we're new style vfs sysctl. */
+		error = SYSCTL_IN(req, &vc, sizeof(vc));
+		if (error)
+			break;
+		mp = vfs_getvfs(&vc.vc_fsid);
+		if (!mp) {
+			error = ENOENT;
+		} else {
+			smp = VFSTOSMBFS(mp);
+			bzero(&vq, sizeof(vq));
+			if (smp && (smp->sm_status & SM_STATUS_DEAD))
+				vq.vq_flags |= VQ_DEAD;
+			else if (smp && (smp->sm_status & SM_STATUS_TIMEO))
+				vq.vq_flags |= VQ_NOTRESP;
+			error = SYSCTL_OUT(req, &vq, sizeof(vq));
+		}
+		break;
+	    default:
+		error = EOPNOTSUPP;
+		break;
+	}
+	return (error);
 }
 
 static char smbfs_name[MFSNAMELEN] = "smbfs";
@@ -753,6 +863,8 @@ smbfs_module_start(kmod_info_t *ki, void *data)
 		sysctl_register_oid(&sysctl__net_smb_fs_iconv_add);
 		sysctl_register_oid(&sysctl__net_smb_fs_iconv_cslist);
 		sysctl_register_oid(&sysctl__net_smb_fs_iconv_drvlist);
+
+		smbfs_install_sleep_wake_notifier();
 	}
 	thread_funnel_set(kernel_flock, funnel_state);
 	return (error);
@@ -788,6 +900,7 @@ smbfs_module_stop(kmod_info_t *ki, void *data)
 	SEND_EVENT(iconv, MOD_UNLOAD);
 
 	free(*smbfs_vnodeop_opv_desc.opv_desc_vector_p, M_TEMP);
+	smbfs_remove_sleep_wake_notifier();
 	thread_funnel_set(kernel_flock, funnel_state);
 	return (0);
 }

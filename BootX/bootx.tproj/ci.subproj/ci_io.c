@@ -34,8 +34,10 @@
 #include <sl_words.h>
 #include <libclite.h>
 
-void  putchar(int ch)
+int putchar(int ch)
 {
   if ((ch == '\r') || (ch == '\n')) CallMethod(0, 0, SLWordsIH, "slw_cr");
   else CallMethod(1, 0, SLWordsIH, "slw_emit", ch);
+  
+  return ch;
 }

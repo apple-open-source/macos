@@ -132,16 +132,9 @@ const void *MDSDictionary::lookup(
 	bool checkType,
 	CFTypeID type)
 {
-#if 0
-	CFStringRef cfKey = CFStringCreateWithCStringNoCopy(NULL,
-		key,
-		CFStringGetSystemEncoding(),
-		kCFAllocatorNull);
-#else
 	CFStringRef cfKey = CFStringCreateWithCString(NULL,
 		key,
 		CFStringGetSystemEncoding());
-#endif
 	if(cfKey == NULL) {
 		MPDebug("MDSDictionary::lookup: error creating CFString for key");
 		return NULL;

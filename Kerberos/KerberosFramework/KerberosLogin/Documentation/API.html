@@ -1,0 +1,5418 @@
+<!-- #include "header.html"
+  #PAGETITLE#="Kerberos Login API"
+  #BASEHREF#="" 
+-->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML> 
+<HEAD>  
+	<TITLE> Kerberos Login API</TITLE>
+</HEAD>
+<BODY BGCOLOR="#FFFFFF" TEXT="#000000" LINK="#0000FF" VLINK="#663399">
+<CENTER>
+	<TABLE BORDER=0 CELLSPACING=8>
+		<TR> 
+			<TD><IMG SRC="http://web.mit.edu/macdev/www/is-logo.gif" ALT="MIT Information Systems"></TD>
+			<TD><BR><H1>Macintosh Development</H1></TD> 
+		</TR>
+	</TABLE> <P>
+	[<A HREF="http://web.mit.edu/macdev/www/macdev.html">Home</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/about.html">About Us</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/people.html">People</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/support.html">MIT Support Library</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/kerberos.html">MIT Kerberos for Macintosh</A>] <BR>
+	[<A HREF="http://web.mit.edu/macdev/www/applications.html">Applications</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/macosx.html">Mac OS X</A>]
+	[<A HREF="http://web.mit.edu/macdev/www/documentation.html">Miscellaneous Documentation</A>]
+	[<A HREF="http://web.mit.edu/is/">Information Systems</A>] </P> 
+</CENTER> <HR>
+<!-- end include -->
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD>
+         <P><IMG ALT=""
+         SRC="../../../Common/Documentation/graphics/ThreeHeadsAndKey.gif"
+         WIDTH=32 HEIGHT=32 ALIGN=bottom>
+      </TD><TD>
+         <P><B><FONT SIZE="+3">Kerberos Login API</FONT></B>
+      </TD></TR>
+</TABLE></P>
+
+<BLOCKQUOTE>
+
+<P>
+<B>This documentation applies to Mac OS X 10.2 and later.</B>
+</P>
+
+<H2>Table of Contents</H2>
+
+<P><A HREF="#Types">Types</A></P>
+
+<UL>
+   <LI><A HREF="#PrincipalInfo">KLPrincipal</A>
+   
+   <LI><A HREF="#KLLoginOptions">KLLoginOptions</A>
+   
+   <LI><A HREF="#KLStatus">KLStatus</A>
+   
+   <LI><A HREF="#KLKerberosVersion">KLKerberosVersion</A>
+   
+   <LI><A HREF="#KLDefaultLoginOption">KLDefaultLoginOption</A>
+   
+   <LI><A HREF="#KLLoginMode">KLLoginMode</A>
+   
+   <LI><A HREF="#KLDialogIdentifier">KLDialogIdentifier</A>
+   
+   <LI><A HREF="#KLIndex">KLIndex</A>
+   
+   <LI><A HREF="#KLLifetime">KLLifetime</A>
+   
+   <LI><A HREF="#KLTime">KLTime</A>
+   
+   <LI><A HREF="#KLSize">KLSize</A>
+   
+   <LI><A HREF="#KLRefCon">KLRefCon</A>
+   
+   <LI><A HREF="#KLBoolean">KLBoolean</A>
+</UL>
+
+<P><A HREF="#Constants">Constants</A></P>
+
+<UL>
+   <LI><A HREF="#KerberosLoginApplicationOptions">Kerberos Version
+   Constants</A>
+   
+   <LI><A HREF="#DialogIdentifierConstants">Dialog Identifier
+   Constants</A>
+   
+   <LI><A HREF="#OptionIdentifierConstants">Option Identifier
+   Constants</A>
+   
+   <LI><A HREF="#RealmIndexConstants">Realm Index Constants</A>
+</UL>
+
+<P><A HREF="#LoginLibraryBehavior">Login Library Behavior</A></P>
+
+<P><A HREF="#TerminologyNotes">Terminology Notes</A></P>
+
+<P><A HREF="#HighLevelLoginFunctions">Functions</A></P>
+
+<UL>
+   <LI><A HREF="#HighLevelLoginFunctions">High-Level Login
+   Functions</A>
+   
+   <UL>
+      <LI><A HREF="#KLAcquireInitialTickets">KLAcquireInitialTickets</A>
+      
+      <LI><A HREF="#KLAcquireNewInitialTickets">KLAcquireNewInitialTickets</A>
+      
+      <LI><A HREF="#KLDestroyTickets">KLDestroyTickets</A>
+      
+      <LI><A HREF="#KLChangePassword">KLChangePassword</A>
+   </UL>
+   
+   <LI><A HREF="#LowLevelLoginFunctions">Low-Level Login Functions</A>
+   
+   <UL>
+      <LI><A HREF="#KLAcquireInitialTicketsWithPassword">KLAcquireInitialTicketsWithPassword</A>
+
+      <LI><A HREF="#KLAcquireNewInitialTicketsWithPassword">KLAcquireNewInitialTicketsWithPassword</A>
+      
+      <LI><A HREF="#KLAcquireNewInitialTicketCredentialsWithPassword">KLAcquireNewInitialTicketCredentialsWithPassword</A>
+      
+      <LI><A HREF="#KLStoreNewInitialTicketCredentials">KLStoreNewInitialTicketCredentials</A>
+      
+      <LI><A HREF="#KLVerifyInitialTickets">KLVerifyInitialTickets</A>
+
+      <LI><A HREF="#KLVerifyInitialTicketCredentials">KLVerifyInitialTicketCredentials</A>
+
+      <LI><A HREF="#KLAcquireNewInitialTicketsWithKeytab">KLAcquireNewInitialTicketsWithKeytab</A>
+
+      <LI><A HREF="#KLRenewInitialTickets">KLRenewInitialTickets</A>
+
+      <LI><A HREF="#KLValidateInitialTickets">KLValidateInitialTickets</A>
+      
+      <LI><A HREF="#KLLastChangedTime">KLLastChangedTime</A>
+      
+      <LI><A HREF="#KLCacheHasValidTickets">KLCacheHasValidTickets</A>
+      
+      <LI><A HREF="#KLTicketStartTime">KLTicketStartTime</A>
+      
+      <LI><A HREF="#KLTicketExpirationTime">KLTicketExpirationTime</A>
+      
+      <LI><A HREF="#KLSetSystemDefaultCache">KLSetSystemDefaultCache</A>
+      
+      <LI><A HREF="#KLHandleError">KLHandleError</A>
+      
+      <LI><A HREF="#KLGetErrorString">KLGetErrorString</A>
+      
+      <LI><A HREF="#KLCancelAllDialogs">KLCancelAllDialogs</A>
+   </UL>
+   
+   <LI><A HREF="#LowLevelChangePasswordFunctions">Low-Level Change
+   Password Functions</A>
+   
+   <UL>
+      <LI><A HREF="#KLChangePasswordWithPasswords">KLChangePasswordWithPasswords</A>
+   
+   </UL>
+   
+   <LI><A HREF="#ApplicationDefinedFunctions">Application Defined Functions</A>
+   
+   <UL>
+      <LI><A HREF="#KerberosLoginIdleCallback">KerberosLoginIdleCallback</A>
+   </UL>
+   
+   <LI><A HREF="#ApplicationConfigurationFunctions">Application Configuration Functions</A>
+   
+   <UL>
+      <LI><A HREF="#KLSetIdleCallback">KLSetIdleCallback</A>
+      
+      <LI><A HREF="#KLGetIdleCallback">KLGetIdleCallback</A>
+
+   </UL>
+   
+   <LI><A HREF="#LibraryConfigurationFunctions">Library Configuration Functions</A>
+   
+   <UL>
+      <LI><A HREF="#LibraryConfigurationFunctions">Description of configuration options, types, and allowed values</A>
+      
+      <LI><A HREF="#GetKerberosLoginOption">KLGetDefaultLoginOption</A>
+      
+      <LI><A HREF="#SetKerberosLoginOption">KLSetDefaultLoginOption</A>
+   
+   </UL>
+   
+   <LI><A HREF="#RealmsConfigurationFunctions">Realms Configuration Functions</A>
+   
+   <UL>
+      <LI><A HREF="#KLFindKerberosRealmByName">KLFindKerberosRealmByName</A>
+      
+      <LI><A HREF="#KLGetKerberosRealm">KLGetKerberosRealm</A>
+      
+      <LI><A HREF="#KLSetKerberosRealm">KLSetKerberosRealm</A>
+      
+      <LI><A HREF="#KLRemoveKerberosRealm">KLRemoveKerberosRealm</A>
+      
+      <LI><A HREF="#KLInsertKerberosRealm">KLInsertKerberosRealm</A>
+      
+
+      <LI><A HREF="#KLRemoveAllKerberosRealms">KLRemoveAllKerberosRealms</A>
+      
+      <LI><A HREF="#KLCountKerberosRealms">KLCountKerberosRealms</A>
+      
+
+      <LI><A HREF="#KLGetKerberosDefaultRealm">KLGetKerberosDefaultRealm</A>
+      
+
+      <LI><A HREF="#KLGetKerberosDefaultRealmByName">KLGetKerberosDefaultRealmByName</A>
+      
+
+      <LI><A HREF="#KLSetKerberosDefaultRealm">KLSetKerberosDefaultRealm</A>
+      
+
+      <LI><A HREF="#KLSetKerberosDefaultRealmByName">KLSetKerberosDefaultRealmByName</A>
+   
+   </UL>
+   
+   <LI><A HREF="#KLPrincipalInfoFunctions">KLPrincipal Functions</A>
+   
+   <UL>
+      <LI><A HREF="#KLCreatePrincipalFromTriplet">KLCreatePrincipalFromTriplet</A>
+      
+
+      <LI><A HREF="#KLCreatePrincipalFromString">KLCreatePrincipalFromString</A>
+      
+
+      <LI><A HREF="#KLGetTripletFromPrincipal">KLGetTripletFromPrincipal</A>
+      
+
+      <LI><A HREF="#KLGetStringFromPrincipal">KLGetStringFromPrincipal</A>
+      
+      <LI><A HREF="#KLGetDisplayStringFromPrincipal">KLGetDisplayStringFromPrincipal</A>
+      
+      <LI><A HREF="#KLComparePrincipal">KLComparePrincipal</A>
+      
+      <LI><A HREF="#KLDisposePrincipal">KLDisposePrincipal</A>
+   </UL>
+   
+   <LI><A HREF="#KLLoginOptionsFunctions">KLLoginOptions Functions</A>
+   
+   <UL>
+      <LI><A HREF="#KLCreateLoginOptions">KLCreateLoginOptions</A>
+      
+      <LI><A HREF="#KLLoginOptionsSetTicketLifetime">KLLoginOptionsSetTicketLifetime</A>
+      
+      <LI><A HREF="#KLLoginOptionsSetForwardable">KLLoginOptionsSetForwardable</A>
+      
+      <LI><A HREF="#KLLoginOptionsSetProxiable">KLLoginOptionsSetProxiable</A>
+      
+      <LI><A HREF="#KLLoginOptionsSetRenewableLifetime">KLLoginOptionsSetRenewableLifetime</A>
+      
+      <LI><A HREF="#KLLoginOptionsSetAddressless">KLLoginOptionsSetAddressless</A>
+      
+      <LI><A HREF="#KLLoginOptionsSetTicketStartTime">KLLoginOptionsSetTicketStartTime</A>
+      
+      <LI><A HREF="#KLLoginOptionsSetServiceName">KLLoginOptionsSetServiceName</A>
+      
+      <LI><A HREF="#KLDisposeLoginOptions">KLDisposeLoginOptions</A>
+   </UL>
+   
+   <LI><A HREF="#MiscFunctions">Miscellaneous Functions</A>
+   
+   <UL>
+      <LI><A HREF="#KLDisposeString">KLDisposeString</A>
+   </UL>
+   
+   <LI><A HREF="#InternalUseFunctions">Internal Use Functions</A>
+   
+   <UL>
+      <LI><A HREF="#__KLInternalAcquireTicketsForCache">__KLInternalAcquireTicketsForCache</A>
+   
+      <LI><A HREF="#__KLInternalAcquireNewKerberos4TicketsFromKerberos5Tickets">__KLInternalAcquireNewKerberos4TicketsFromKerberos5Tickets</A>
+   </UL>
+</UL>
+
+<P>
+<HR>
+</P>
+
+<H2><A NAME="Types"></A>Types</H2>
+
+<H3><A NAME="PrincipalInfo"></A>KLPrincipal</H3>
+
+<PRE><CODE>struct KLPrincipal;</CODE></PRE>
+
+<P><CODE>KLPrincipal</CODE> is an opaque structure. Use the
+<CODE>KLPrincipal</CODE> manipulation functions to get information
+about the principal contained in the structure.
+<CODE>KLPrincipal</CODE> should be capable of retaining and
+reproducing both Kerberos v4 and v5 representations of the fully
+qualified principal. <CODE>nil</CODE> is an acceptable value for a
+<CODE>KLPrincipal</CODE>.</P>
+
+<H3><A NAME="KLLoginOptions"></A>KLLoginOptions</H3>
+
+<PRE><CODE>struct </CODE>KLLoginOptions<CODE>;</CODE></PRE>
+
+<P>KLLoginOptions is an opaque structure. Use the KLLoginOptions
+manipulation functions to get information about the options contained
+in the structure. KLLoginOptions is used to determine ticket options
+for logging (eg: ticket lifetime).</P>
+
+<H3><A NAME="KLStatus"></A>KLStatus</H3>
+
+<P>The Kerberos Login Library error code type (an integer type).</P>
+
+<H3><A NAME="KLKerberosVersion"></A>KLKerberosVersion</H3>
+
+<P>A Kerberos version. One of KLEKerberosVersion (an integer type).
+</P>
+
+<H3><A NAME="KLDefaultLoginOption"></A>KLDefaultLoginOption</H3>
+
+<P>One of KLEDefaultLoginOptions, used to set default login options
+(an integer type). See KLGetDefaultLoginOptions or
+KLSetDefaultLoginOptions.</P>
+
+<H3><A NAME="KLLoginMode"></A>KLLoginMode</H3>
+
+<P>One of KLELoginMode (an integer type). Used to specifiy if the
+login dialog will come up in basic or advanced mode.</P>
+
+<H3><A NAME="KLDialogIdentifier"></A>KLDialogIdentifier</H3>
+
+<P>One of KLEDialogIdentifiers (an integer type). Used to tell the
+error dialog which dialog the error is for.</P>
+
+<H3><A NAME="KLIndex"></A>KLIndex</H3>
+
+<P>An index into the realm list (an integer type).</P>
+
+<H3><A NAME="KLLifetime"></A>KLLifetime</H3>
+
+<P>The ticket lifetime in seconds (an integer type).</P>
+
+<H3><A NAME="KLTime"></A>KLTime</H3>
+
+<P>Unix time (seconds since 1/1/1970 00:00:00 GMT) (an integer type).
+</P>
+
+<H3><A NAME="KLSize"></A>KLSize</H3>
+
+<P>The size of a buffer (for KLGetDefaultLoginOptions or
+KLSetDefaultLoginOptions) or the size of the realm list (returned by
+CountKerberosRealms). An integer type.</P>
+
+<H3><A NAME="KLRefCon"></A>KLRefCon</H3>
+
+<P>The application refCon which is returned to your application event
+filter (an integer type). Pass in a pointer to your globals.</P>
+
+<H3><A NAME="KLBoolean"></A>KLBoolean</H3>
+
+<P>A Boolean value (an integer type). 0 is false, everything else is
+true.</P>
+
+<P>&nbsp;</P>
+
+<P>
+<HR>
+</P>
+
+<H2><A NAME="Constants"></A>Constants</H2>
+
+<H3><A NAME="KerberosVersionConstants"></A>Kerberos Version Constants
+</H3>
+
+<P>These are used by the KLPrincipal and cache manipulation functions
+to specify protocol versions of Kerberos for credentials and
+principals. The Kerberos version is either represented as a bitfield
+of the versions (ie: <TT>kerberosVersion_V4 &amp;
+kerberosVersion_V5</TT> is represents both versions) or as one of two
+magic values. <TT>kerberosVersion_Any</TT> refers to one or more
+Kerberos version and <TT>kerberosVersion_All</TT> refers to all
+Kerberos versions which are valid for the current realm (ie: in a
+version 4-only realm, <TT>kerberosVersion_All</TT> would be
+equivalent to <TT>kerberosVersion_V4</TT>).</P>
+
+<PRE>enum KLEKerberosVersion {
+     kerberosVersion_Any     = 0,
+     kerberosVersion_V4      = 1,
+     kerberosVersion_V5      = 2,
+     kerberosVersion_All     = 0xFFFFFFFF
+};</PRE>
+
+<H3><A NAME="DialogIdentifierConstants"></A>Dialog Identifier
+Constants</H3>
+
+<P>These are used by Kerberos Login Event Filter functions to
+identify which dialog they were called from.</P>
+
+<PRE><CODE>num KLELoginDialogIdentifers {
+	loginLibrary_LoginDialog,
+	loginLibrary_OptionsDialog,
+	loginLibrary_ChangePasswordDialog,
+	loginLibrary_ProgressDialog,
+	loginLibrary_PrompterDialog,
+	loginLibrary_UnknownDialog = -1
+};</CODE></PRE>
+
+<H3><A NAME="OptionIdentifierConstants"></A>Option Identifier
+Constants</H3>
+
+<P>These constants are the configuration option flags used by
+<CODE>KLGetLoginOption()</CODE> and <CODE>KLSetLoginOption()</CODE> .
+For further descriptions of them, see
+<A HREF="#LibraryConfigurationFunctions">Library Configuration
+Functions</A>.</P>
+
+<PRE><CODE>enum KLEDefaultLoginOptions {
+	/* Initial values and ranges */
+	loginOption_LoginName                     = 'name',
+
+	loginOption_RememberPrincipal             = 'prin',
+	loginOption_RememberExtras                = 'extr',
+	
+	loginOption_MinimalTicketLifetime         = '-lif',
+	loginOption_MaximalTicketLifetime         = '+lif',
+	loginOption_DefaultTicketLifetime         = '0lif',
+	loginOption_LongTicketLifetimeDisplay     = 'hms ',
+
+	loginOption_DefaultRenewableTicket        = '0rtx',
+    loginOption_MinimalRenewableLifetime      = '-rlf',
+	loginOption_MaximalRenewableLifetime      = '+rlf',
+	loginOption_DefaultRenewableLifetime      = '0rlf',
+	
+	loginOption_DefaultForwardableTicket      = '0fwd',
+	loginOption_DefaultProxiableTicket		  = '0prx',
+    loginOption_DefaultAddresslessTicket      = '0adr'
+};</CODE></PRE>
+
+<H3><A NAME="RealmIndexConstants"></A>Realm Index Constants</H3>
+
+<P>These constants are the configuration option flags used by
+<CODE><A HREF="#InsertKerberosLoginRealm">KLInsertKerberosRealm</A>()</CODE>
+</P>
+
+<PRE><CODE>enum KLERealmListIndexes {
+     realmList_Start     = 0,
+     realmList_End       = 0xFFFF
+};</CODE>
+&nbsp;</PRE>
+
+<P>
+<HR>
+</P>
+
+<H2><A NAME="LoginLibraryBehavior"></A>Login Library Behavior</H2>
+
+<P><TABLE BORDER=1>
+   <TR>
+      <TD>
+         <P>
+      </TD><TD COLSPAN=2>
+         <P><CENTER>Principal specified</CENTER>
+      </TD><TD COLSPAN=2>
+         <P><CENTER>No principal specified</CENTER>
+      </TD></TR>
+   <TR>
+      <TD>
+         <P>
+      </TD><TD>
+         <P><CENTER>Valid tickets exist for it</CENTER>
+      </TD><TD>
+         <P><CENTER>No valid tickets exist for it</CENTER>
+      </TD><TD>
+         <P><CENTER>Valid tickets exist in system default cache
+         </CENTER>
+      </TD><TD>
+         <P><CENTER>No valid tickets in system default cache
+         </CENTER>
+      </TD></TR>
+   <TR>
+      <TD>
+         <P><CODE>KLAcquireInitialTickets()</CODE></P>
+         
+         <P><FONT SIZE="-1">(primarily for applications that need
+         service tickets)</FONT>
+      </TD><TD>
+         <UL>
+            <LI><FONT SIZE="-1">No user interface displayed</FONT>
+            
+            <LI><FONT SIZE="-1">No new tickets obtained</FONT>
+            
+            <LI><FONT SIZE="-1">System default cache unchanged</FONT>
+            
+            <LI><FONT SIZE="-1">Name of credential cache
+            corresponding to principal is returned</FONT>
+         </UL>
+      </TD><TD>
+         <UL>
+            <LI><FONT SIZE="-1">Displays user interface (with
+            non-editable principal)</FONT>
+            
+            <LI><FONT SIZE="-1">New tickets obtained</FONT>
+            
+            <LI><FONT SIZE="-1">Credential cache corresponding to
+            principal is made system default if no other tickets
+            exist in cache collection</FONT>
+            
+            <LI><FONT SIZE="-1">Name of new credential cache
+            corresponding to principal is returned</FONT>
+         </UL>
+      </TD><TD>
+         <UL>
+            <LI><FONT SIZE="-1">No user interface displayed</FONT>
+            
+            <LI><FONT SIZE="-1">No new tickets obtained</FONT>
+            
+            <LI><FONT SIZE="-1">System default cache unchanged</FONT>
+            
+            <LI><FONT SIZE="-1">Name of system default cache is
+            returned</FONT>
+         </UL>
+      </TD><TD>
+         <UL>
+            <LI><FONT SIZE="-1">Displays user interface(with editable
+            principal)</FONT>
+            
+            <LI><FONT SIZE="-1">New tickets obtained</FONT>
+            
+            <LI><FONT SIZE="-1">Credential cache corresponding to
+            principal is made system default</FONT>
+            
+            <LI><FONT SIZE="-1">Name of new credential cache
+            corresponding to principal is returned</FONT>
+         </UL>
+      </TD></TR>
+   <TR>
+      <TD>
+         <P><CODE>KLAcquireNewInitialTickets()</CODE></P>
+         
+         <P><FONT SIZE="-1">(primarily for management
+         applications)</FONT>
+      </TD><TD>
+         <UL>
+            <LI><FONT SIZE="-1">Displays user interface (with
+            non-editable principal)</FONT>
+            
+            <LI><FONT SIZE="-1">New tickets obtained, replacing
+            existing tickets</FONT>
+            
+            <LI><FONT SIZE="-1">System default cache unchanged</FONT>
+            
+            <LI><FONT SIZE="-1">Name of new credential cache
+            corresponding to principal is returned</FONT>
+         </UL>
+      </TD><TD>
+         <UL>
+            <LI><FONT SIZE="-1">Displays user interface (with
+            non-editable principal)</FONT>
+            
+            <LI><FONT SIZE="-1">New tickets obtained</FONT>
+            
+            <LI><FONT SIZE="-1">Credential cache corresponding to
+            principal is made system default if no other tickets
+            exist in cache collection</FONT>
+            
+            <LI><FONT SIZE="-1">Name of new credential cache
+            corresponding to principal is returned</FONT>
+         </UL>
+      </TD><TD>
+         <UL>
+            <LI><FONT SIZE="-1">Displays user interface(with editable
+            principal)</FONT>
+            
+            <LI><FONT SIZE="-1">New tickets obtained - if they are
+            for a principal already in the cache, they replace the
+            existing tickets</FONT>
+            
+            <LI><FONT SIZE="-1">Name of new credential cache
+            corresponding to principal is returned</FONT>
+         </UL>
+      </TD><TD>
+         <UL>
+            <LI><FONT SIZE="-1">Displays user interface(with editable
+            principal)</FONT>
+            
+            <LI><FONT SIZE="-1">New tickets obtained - if they are
+            for a principal already in the cache, they replace the
+            existing tickets</FONT>
+            
+            <LI><FONT SIZE="-1">Credential cache corresponding to
+            principal is made system default</FONT>
+            
+            <LI><FONT SIZE="-1">Name of new credential cache
+            corresponding to principal is returned</FONT>
+         </UL>
+      </TD></TR>
+</TABLE></P>
+
+<P><CODE>KLAcquireInitialTicketsWithPassword()</CODE> behaves identically to
+<CODE>KLAcquireInitialTickets()</CODE> with "principal specified," but the
+user interface is never displayed under any conditions.</P>
+
+<P><CODE>KLAcquireNewInitialTicketsWithPassword()</CODE> behaves identically
+to <CODE>KLAcquireNewInitialTickets()</CODE> with "principal specified," but
+the user interface is never displayed under any conditions.</P>
+
+<P><CODE>KLAcquireInitialTickets...()</CODE> does not set the system default
+cache when principal is non-nil because it's called when applications
+want service tickets, and we don't want the system default changing
+constantly. It will set the system default if there are no existing
+credential caches.</P>
+
+<P><CODE>KLAcquireNewInitialTickets...()</CODE> does not set the system
+default cache because we want to allow explicit renews that don't
+change the defaults.</P>
+
+<P>So if an explicit renew wants to change the defaults, it must call
+<CODE>KLAcquireNewInitialTickets...()</CODE> and a default cache changing
+function.</P>
+
+<P>Originally the Login Library API was going to change the
+"application default cache" as well, however, Kerberos 5 doesn't have
+the concept of application default caches -- only context default
+caches. The only way the Login API could have changed these is if the
+caller passed in the current Kerberos v5 context, and we decided it
+would be bad to have the Login API depend on Kerberos 5 structures.
+So instead a credentials cache name is returned by functions that
+attempt to acquire tickets, and it is up to the caller to change the
+application or context defaults using that information.</P>
+
+<P>
+<HR>
+</P>
+
+<H2><A NAME="TerminologyNotes"></A>Terminology Notes</H2>
+
+<P>The multiple uses of the word "cache" may be confusing. We have
+tried to distinguish between them by using different phrases. They
+are:</P>
+
+<P>"cache collection" - the conglomeration of all credential caches
+</P>
+
+<P>"credentials cache" - a single set of credentials for a specific
+principal and Kerberos version</P>
+
+<P>"system default cache" - a credentials cache that an
+application/service/context will use by default after the first time
+it is launched/created (in Kerberos v4, the application default cache
+will be set to the system default cache when the application is first
+launched; in v5 a context's default cache will be set the system
+default cache when the context is first created)</P>
+
+<P>
+<HR>
+</P>
+
+<H2><A NAME="HighLevelLoginFunctions"></A>High-Level Login Functions
+</H2>
+
+<H3><A NAME="KLAcquireInitialTickets"></A>KLAcquireInitialTickets</H3>
+
+<PRE><CODE>KLStatus KLAcquireInitialTickets (
+     KLPrincipal    inPrincipal,
+     KLLoginOptions inLoginOptions,
+     KLPrincipal   *outPrincipal
+     char         **outCredCacheName);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<P>The <CODE>KLAcquireInitialTickets()</CODE> function requires the
+following:</P>
+
+<UL>
+   <LI><CODE>inPrincipal</CODE> is either NULL or a pointer to
+   a valid <CODE>KLPrincipal</CODE>.
+
+   <LI><CODE>inLoginOptions</CODE> is either NULL or a pointer to
+   a valid <CODE>KLLoginOptions</CODE>.
+</UL>
+
+<H4>Effects:</H4>
+
+<P>The <CODE>KLAcquireInitialTickets()</CODE> function attempts to insure
+that a valid ticket-granting ticket is available in the cache
+collection, prompting the user to obtain a new one if necessary. Its
+main purpose is to be used by client applications that want to make
+sure some tickets exist before using a Kerberos service.</P>
+
+<P>If <CODE>inLoginOptions</CODE> is not <CODE>nil</CODE> and new tickets
+are obtained, they are obtained with the login options specified by 
+<CODE>inLoginOptions</CODE>.</P>
+
+<P>The name of the principal for which tickets are obtained (or
+found) is returned in <CODE>outPrincipal</CODE>.</P>
+
+<P>The name of the cache into which tickets are placed (or which is
+found if no new tickets are obtained) is returned in
+<CODE>outCredCacheName</CODE> so that the caller can change the
+application/context default cache if desired. This returned name can
+be used in Credential Cache API, Kerberos 4, or Kerberos 5 calls
+(if "API:" is prepended to the name). </P>
+
+<P>If <CODE>inPrincipal</CODE> is not <CODE>nil</CODE> (a principal
+is specified),</P>
+
+<UL>
+   <LI>and no valid tickets for that principal are in the cache
+   collection, <CODE>KLAcquireInitialTickets()</CODE> presents the 
+   Kerberos Login dialog to
+   obtain user information and then attempts to acquire tickets
+   with that information. If successful and no tickets at all were
+   previously in the cache, the cache containing those tickets is
+   made the system default cache;
+   
+   <LI>or, valid tickets for that principal are available in the
+   cache collection, no user interface is displayed.
+</UL>
+
+<P>If <CODE>inPrincipal</CODE> is <CODE>nil</CODE> (no principal is
+specified),</P>
+
+<UL>
+   <LI>and no valid tickets for any user are in the system default
+   cache, <CODE>KLAcquireInitialTickets()</CODE> presents the 
+   Kerberos Login dialog to obtain
+   user information and then attempts to acquire tickets with that
+   information. If successful, the credentials cache corresponding to
+   that principal is made the system default cache.
+   
+   <LI>or, valid tickets are available in the system default cache,
+   no user interface is displayed and the system default cache name
+   is returned.
+</UL>
+
+<P><CODE>KLAcquireInitialTickets()</CODE> does not necessarily present the
+user interface. If you always want to bring up the user interface,
+use <CODE>KLAcquireNewInitialTickets()</CODE>.</P>
+
+<P><CODE>KLAcquireInitialTickets()</CODE> will take care of presenting error
+dialogs to the user as necessary (ie: for problems such as unknown
+principal, incorrect password, etc.). You do not need to call
+<CODE>KLHandleError()</CODE> after this function.</P>
+
+<P>If both Kerberos v4 and Kerberos v5 are available for the realm of
+the principal, either both v4 and v5 ticket-granting tickets will be
+available in the cache collection (and the credentials cache
+containing them will possibly be set as the system default cache, as
+specified above) upon return, or <CODE>KLAcquireInitialTickets()</CODE> will
+return an error code.</P>
+
+<P>If both Kerberos v4 and Kerberos v5 are available for the realm of
+the principal, and valid tickets for only one version but not the
+other are available in the cache collection,
+<CODE>KLAcquireInitialTickets()</CODE> will treat this as the same as the no
+valid tickets case -- new tickets will be obtained for both Kerberos
+versions, replacing the current "orphan" ones.</P>
+
+<P>If only one of Kerberos v4 and Kerberos v5 is available for the
+realm of the principal, either a ticket-granting ticket for the
+appropriate version will be available in the cache collection (and
+the credentials cache containing them will be possibly set as the
+system default cache) as specified above upon return, or
+<CODE>KLAcquireInitialTickets()</CODE> will return an error
+code<CODE>.</CODE></P>
+
+<H4>Results:</H4>
+
+<P>If <CODE>KLAcquireInitialTickets()</CODE> returns <CODE>klNoErr</CODE>,
+then:</P>
+
+<UL>
+   <LI>tickets are available in the cache collection;
+   
+   <LI>if <CODE>outPrincipal</CODE> is not <CODE>nil</CODE>, a new
+   <CODE>KLPrincipal</CODE> is returned in
+   <CODE>*outPrincipal</CODE>. The returned <CODE>KLPrincipal</CODE>
+   should be freed using the <CODE>KLDisposePrincipal()</CODE>
+   function. If <CODE>outPrincipal</CODE> is <CODE>nil</CODE>,
+   nothing is returned.
+   
+   <LI>if <CODE>outCredCacheName</CODE> is not <CODE>nil</CODE>, a C
+   string containing one of the following is returned in
+   <CODE>*outCredCacheName</CODE>: the name of the credentials cache
+   corresponding to the principal; or if no principal was specified
+   and no new tickets were necessary, it is the name of the system
+   default credentials cache. The returned string should be freed
+   using the <CODE>KLDisposeString()</CODE> function. If
+   <CODE>outCredCacheName</CODE> is <CODE>nil</CODE>, nothing is
+   returned.
+</UL>
+
+<P>Otherwise, <CODE>outPrincipal</CODE> and
+<CODE>outCredCacheName</CODE> are unchanged and
+<CODE>KLAcquireInitialTickets()</CODE> returns one of the following error
+codes:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadPrincipalErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLPrincipal</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadLoginOptionsErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLLoginOptions</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klUserCanceledErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The user cancelled the dialog.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klRealmDoesNotExistErr</TT>
+      </TD><TD>
+         <P>The specified realm does not exist.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klFatalDialogErr</TT>
+      </TD><TD>
+         <P>The dialog failed to load because the resources are
+         corrupt or missing.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="AcquireNewTickets"></A>KLAcquireNewTickets</H3>
+
+<PRE><CODE>KLStatus KLAcquireNewInitialTickets (
+     KLPrincipal    inPrincipal,
+     KLLoginOptions inLoginOptions,
+     KLPrincipal   *outPrincipal
+     char         **outCredCacheName);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<P>The <CODE>KLAcquireNewInitialTickets()</CODE> function requires the
+following:</P>
+
+<UL>
+   <LI><CODE>inPrincipal</CODE> is either NULL or a pointer to
+   a valid <CODE>KLPrincipal</CODE>.
+
+   <LI><CODE>inLoginOptions</CODE> is either NULL or a pointer to
+   a valid <CODE>KLLoginOptions</CODE>.
+</UL>
+
+<H4>Effects:</H4>
+
+<P>The <CODE>KLAcquireNewInitialTickets()</CODE> function always attempts to
+get a new valid ticket-granting ticket, either for a new principal or
+replacing (renewing) the existing tickets for a principal already in
+the cache collection. The Kerberos Login dialog is
+always displayed. The main purpose of this function is to be used by
+administrative applications that want to provide a way to login new
+principals or renew existing tickets.</P>
+
+<P>The name of the principal for which tickets are obtained is
+returned in <CODE>outPrincipal</CODE>.</P>
+
+<P>The name of the cache into which tickets are placed is returned in
+<CODE>outCredCacheName</CODE> so that the caller can change the
+application/context default cache if desired. This returned name can
+be used in Credential Cache API, Kerberos 4, or Kerberos 5 calls 
+(if "API:" is prepended to the name).</P>
+
+<P>If <TT><CODE>inPrincipal</CODE></TT> is not <CODE>nil</CODE> (a
+principal is specified),</P>
+
+<UL>
+   <LI>and no valid tickets for that principal are in the cache
+   collection, <CODE>KLAcquireNewInitialTickets()</CODE> presents the Kerberos
+   Login dialog and then attempts to acquire tickets with that
+   information. If successful, a valid ticket-granting ticket for
+   that principal is placed in the cache collection. If successful
+   and there are no other tickets in the cache collection, the
+   credentials cache corresponding to that principal is made the
+   system default cache.
+   
+   <LI>or, valid tickets for that principal are available in the
+   cache collection, <CODE>KLAcquireNewInitialTickets()</CODE> presents the
+   Kerberos Login dialog and then attempts to acquire tickets with that
+   information. If successful, the principal's existing tickets are
+   replaced by a new ticket-granting ticket (possibly with a
+   different lifetime and different ticket properties). No change is
+   made to the system default cache. If unsuccessful, the principal's
+   existing tickets are unchanged.
+</UL>
+
+<P>If <CODE>inPrincipal</CODE> is <CODE>nil</CODE> (no principal is
+specified),</P>
+
+<UL>
+   <LI><CODE>KLAcquireNewInitialTickets()</CODE> presents the Kerberos
+   Login dialog and attempts to acquire tickets with that information. If
+   successful, a valid ticket-granting ticket for that principal is
+   placed in the cache collection. If the user enters a principal
+   with tickets already in the cache collection, that principal's
+   existing tickets are replaced by a new ticket-granting ticket
+   (possibly with a different lifetime and different ticket
+   properties) by a successful login attempt, or left alone if an
+   unsuccessful attempt is made. If successful and there are no other
+   tickets in the cache collection, the credentials cache
+   corresponding to that principal is made the system default cache.
+   If unsuccessful, no changes to the cache collection are made.
+</UL>
+
+<P><CODE>KLAcquireNewInitialTickets()</CODE> will take care of presenting
+error dialogs to the user as necessary (for problems such as unknown
+principal, incorrect password, etc.). You do not need to call
+<CODE>KLHandleError()</CODE> after this function.</P>
+
+<P>If both Kerberos v4 and Kerberos v5 are available for the realm of
+the principal, <CODE>KLAcquireNewInitialTickets()</CODE> will either return
+an error code, or both new v4 and new v5 ticket-granting tickets will
+be available in the cache collection and possibly set the credentials
+cache containing them to be the system default cache (as specified
+above) upon return of <CODE>KLAcquireNewInitialTickets()</CODE>.</P>
+
+<P>If both Kerberos v4 and Kerberos v5 are available for the realm of
+the principal, and valid tickets for only one version but not the
+other are available in the cache collection,
+<CODE>KLAcquireNewInitialTickets()</CODE> will treat this as the same as the
+no valid tickets case -- new tickets will be obtained for both
+Kerberos versions, replacing the current "orphan" ones.</P>
+
+<P>If only one of Kerberos v4 and Kerberos v5 is available for the
+realm of the principal, <CODE>KLAcquireNewInitialTickets()</CODE> will
+either return an error code, or an appropriate new ticket-granting
+ticket will be available in the credentials cache and possibly set
+the credentials cache containing them to be the system default cache
+(as specified above) upon return of
+<CODE>KLAcquireNewInitialTickets()</CODE>.</P>
+
+<H4>Results:</H4>
+
+<P>If <CODE>KLAcquireNewInitialTickets()</CODE> returns
+<CODE>klNoErr</CODE>, then:</P>
+
+<UL>
+   <LI>new tickets are available in the cache collection;
+   
+   <LI>if <CODE>outPrincipal</CODE> is not <CODE>nil</CODE>, a new
+   <CODE>KLPrincipal</CODE> is returned in
+   <CODE>*outPrincipal</CODE>. The returned <CODE>KLPrincipal</CODE>
+   should be freed using the <CODE>KLDisposePrincipal()</CODE>
+   function. If <CODE>outPrincipal</CODE> is <CODE>nil</CODE>,
+   nothing is returned.
+   
+   <LI>if <CODE>outCredCacheName</CODE> is not <CODE>nil</CODE>, a C
+   string containing the the name of the credentials cache into which
+   new tickets were placed is returned in
+   <CODE>*outCredCacheName</CODE>. The returned string should be
+   freed using the <CODE>KLDisposeString()</CODE> function. If
+   <CODE>outCredCacheName</CODE> is <CODE>nil</CODE>, nothing is
+   returned.
+</UL>
+
+<P>Otherwise, <CODE>outPrincipal</CODE> and <CODE>outCredCacheName
+</CODE>are unchanged and <CODE>KLAcquireNewInitialTickets()</CODE> returns
+one of the following error codes:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadPrincipalErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLPrincipal</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadLoginOptionsErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLLoginOptions</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klUserCanceledErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The user cancelled the dialog.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klRealmDoesNotExistErr</TT>
+      </TD><TD>
+         <P>The specified realm does not exist.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klFatalDialogErr</TT>
+      </TD><TD>
+         <P>The dialog failed to load because the resources are
+         corrupt or missing.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLDestroyTickets"></A>KLDestroyTickets</H3>
+
+<PRE><CODE>KLStatus KLDestroyTickets (
+	KLPrincipal inPrincipal);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<P>The <CODE>KLDestroyTickets()</CODE> function requires the
+following:</P>
+
+<UL>
+   <LI><CODE>inPrincipal</CODE> is either NULL or a pointer to
+   a valid <CODE>KLPrincipal</CODE>.
+</UL>
+
+<H4>Effects:</H4>
+
+<P><CODE>KLDestroyTickets()</CODE> removes all tickets, both for v4
+and v5, for the principal specified in the <CODE>inPrincipal</CODE>
+structure from the cache collection. If inPrincipal is nil (no
+principal is specified), <CODE>KLDestroyTickets()</CODE> removes all
+tickets in the system default cache.</P>
+
+<P>If the credentials cache removed was the system default cache,
+<CODE>KLDestroyTickets()</CODE> sets the system default cache to
+another credentials cache (exactly which credentials cache is
+implementation dependent; in the MIT Kerberos for Macintosh
+implementation, the defaults are switched as per the Credentials
+Cache API).</P>
+
+<H4>Results:</H4>
+
+<P>If <CODE>KLDestroyTickets()</CODE> returns <CODE>klNoErr</CODE>,
+then credentials for the specified principal (or system default
+cache) were located in the cache collection and successfully removed.
+</P>
+
+<P>Otherwise, the cache collection is unchanged, and
+<CODE>KLDestroyTickets()</CODE> returns one of the following error
+codes:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadPrincipalErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLPrincipal</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klPrincipalDoesNotExistErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The <TT>KLPrincipal</TT> passed in does not correspond to
+         any cache in the cache collection.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klSystemDefaultDoesNotExistErr</TT>
+      </TD><TD VALIGN=top>
+         <P>There is no system default cache (the cache collection is
+         empty).
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLChangePassword"></A>KLChangePassword</H3>
+
+<PRE><CODE>KLStatus KLChangePassword (
+	KLPrincipal inPrincipal);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<P>The <CODE>KLChangePassword()</CODE> function requires the
+following:</P>
+
+<UL>
+   <LI><CODE>inPrincipal</CODE> is a pointer to a valid <CODE>KLPrincipal</CODE>.
+</UL>
+
+<H4>Effects:</H4>
+
+<P>The <CODE>KLChangePassword()</CODE> function attempts to change
+the password of the principal specified by <CODE>inPrincipal</CODE>.
+</P>
+
+<P><CODE>KLChangePassword()</CODE> creates and displays the 
+Kerberos Change Password dialog</P>
+
+<P><CODE>KLChangePassword()</CODE> will take care of presenting error
+dialogs to the user as necessary (for problems such as unknown
+principal, incorrect password, etc.). You do not need to call
+<CODE>KLHandleError()</CODE> after this function.</P>
+
+<P><CODE>KLChangePassword()</CODE> will either return an error code,
+or the principal's Kerberos password will have been changed.</P>
+
+<H4>Results:</H4>
+
+<P>If <CODE>KLChangePassword()</CODE> returns <CODE>klNoErr</CODE>,
+then the principal's password has been changed.</P>
+
+<P>Otherwise, <CODE>KLChangePassword() </CODE>returns one of the
+following error codes:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadPrincipalErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLPrincipal</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klUserCanceledErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The user cancelled the dialog.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klRealmDoesNotExistErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The specified realm does not exist.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klFatalDialogErr</TT>
+      </TD><TD>
+         <P>The dialog failed to load because the resources are
+         corrupt or missing.
+      </TD></TR>
+</TABLE></P>
+
+<P>
+<HR>
+</P>
+
+<H2><A NAME="LowLevelLoginFunctions"></A>Low-Level Login Functions
+</H2>
+
+<H3><A NAME="KLAcquireInitialTicketsWithPassword"></A>KLAcquireInitialTicketsWithPassword
+</H3>
+
+<PRE><CODE>KLStatus KLAcquireInitialTicketsWithPassword (
+     KLPrincipal      inPrincipal,
+     KLLoginOptions   inLoginOptions,
+     const char      *inPassword,
+     char           **outCredCacheName);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<P>The <CODE>KLAcquireInitialTicketsWithPassword()</CODE> function requires
+the following:</P>
+
+<UL>
+    <LI><CODE>inPrincipal</CODE> is a pointer to
+   	a valid <CODE>KLPrincipal</CODE>.
+
+   <LI><CODE>inLoginOptions</CODE> is either NULL or a pointer to
+   a valid <CODE>KLLoginOptions</CODE>.
+
+	<LI><CODE>inPassword</CODE> points to a null-terminated C string;
+</UL>
+
+<H4>Effects:</H4>
+
+<P>The <CODE>KLAcquireInitialTicketsWithPassword()</CODE> function attempts
+to insure that the cache collection contains a valid ticket-granting
+ticket for the Kerberos principal specified by
+<CODE>inPrincipal</CODE>.  If your site uses hardware preauth,
+<CODE>KLAcquireInitialTicketsWithPassword()</CODE>will display a prompter
+dialog or prompt via the command line.  If no UI is available, it 
+will return an error.</P>
+
+<P>The name of the cache into which tickets are placed is returned in
+<CODE>outCredCacheName</CODE> so that the caller can change the
+application/context default cache if desired. This returned name can
+be used in Credential Cache API, Kerberos 4, or Kerberos 5 calls. The
+returned string must be freed by <TT>KLDisposeString()</TT>. If you
+pass in nil to this argument, the credentials cache name will not be
+allocated for you.</P>
+
+<P>If no valid ticket-granting ticket for the specified principal is
+available in the cache collection, then
+<CODE>KLAcquireInitialTicketsWithPassword()</CODE> will use the password in
+<CODE>inPassword</CODE> to attempt to acquire the tickets with the
+properties specified by <CODE>inLoginOptions</CODE>. If
+<TT>inLoginOptions</TT> is <TT>nil</TT>, the defaults (as specified
+by <CODE>KLSetDefaultLoginOption</CODE><TT>()</TT>) are used. If
+successful, and if no tickets at all were previously in the cache
+collection, the credentials cache corresponding to the principal is
+made the system default cache. If not successful, the cache
+collection is unchanged.</P>
+
+<P>If a valid ticket-granting ticket for the specified principal
+already exists in the cache collection, no action is taken beyond
+setting <CODE>outCredCacheName</CODE>.</P>
+
+<P>If both Kerberos v4 and Kerberos v5 are available for the realm of
+the principal, either both v4 and v5 ticket-granting tickets will be
+available in the cache collection (and possibly made the system
+default cache, as above) upon return, or
+<CODE>KLAcquireInitialTicketsWithPassword()</CODE> will return an error
+code.</P>
+
+<P>If both Kerberos v4 and Kerberos v5 are available for the realm of
+the principal, and valid tickets for only one version but not the
+other are available in the cache collection,
+<CODE>KLAcquireInitialTicketsWithPassword()</CODE> will treat this as the
+same as the no valid tickets case -- new tickets will be obtained for
+both Kerberos versions, replacing the current "orphan" ones.</P>
+
+<P>If only one of Kerberos v4 and Kerberos v5 is available for the
+realm of the principal, either a ticket-granting ticket for the
+appropriate Kerberos version will be available in the cache
+collection (and possibly made the system default cache, as above)
+upon return, or <CODE>KLAcquireInitialTicketsWithPassword()</CODE> will
+return an error code.</P>
+
+<H4>Results:</H4>
+
+<P>If <CODE>KLAcquireInitialTicketsWithPassword()</CODE> returns
+<CODE>klNoErr</CODE>, then:</P>
+
+<UL>
+   <LI>tickets for the desired principal are available in the cache
+   collection;
+   
+   <LI>if <CODE>outCredCacheName</CODE> is not <CODE>nil</CODE>, a C
+   string containing one of the following is returned in
+   <CODE>*outCredCacheName</CODE>: the name of the credentials cache
+   into which new tickets were placed; or if no new tickets were
+   necessary because credentials for the principal were already in
+   the cache collection, it is the name of the credentials cache
+   corresponding to the principal; or if no principal was specified
+   and no new tickets were necessary, it is the name of the system
+   default credentials cache. The returned string should be freed
+   using the <CODE>KLDisposeString()</CODE> function. If
+   <CODE>outCredCacheName</CODE> is <CODE>nil</CODE>, nothing is
+   returned.
+</UL>
+
+<P>Otherwise, <CODE>KLAcquireInitialTicketsWithPassword()</CODE> returns one
+of the following error codes:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadPrincipalErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLPrincipal</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klUserCanceledErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The user cancelled the dialog (only with hardware
+         preauth).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klRealmDoesNotExistErr</TT>
+      </TD><TD>
+         <P>The specified realm does not exist.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klFatalDialogErr</TT>
+      </TD><TD>
+         <P>Dialog failed to load because the resources are corrupt
+         or missing (only with hardware preauth).
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P>Any Kerberos 5 error
+      </TD><TD>
+         <P>Use <TT>KLHandleError ()</TT> or <TT>KLGetErrorString
+         ()</TT> to report these errors to the user.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P>Any Kerberos 4 error
+      </TD><TD>
+         <P>Use <TT>KLHandleError ()</TT> or <TT>KLGetErrorString
+         ()</TT> to report these errors to the user.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLAcquireNewInitialTicketsWithPassword"></A>KLAcquireNewInitialTicketsWithPassword
+</H3>
+
+<PRE><CODE>KLStatus KLAcquireNewInitialTicketsWithPassword (
+     KLPrincipal      inPrincipal,
+     KLLoginOptions   inLoginOptions,
+     const char      *inPassword,
+     char           **outCredCacheName);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<P>The <CODE>KLAcquireNewInitialTicketsWithPassword()</CODE> function
+requires the following:</P>
+
+<UL>
+   <LI><CODE>inPrincipal</CODE> is a pointer to
+   a valid <CODE>KLPrincipal</CODE>.
+
+   <LI><CODE>inLoginOptions</CODE> is either NULL or a pointer to
+   a valid <CODE>KLLoginOptions</CODE>.
+
+   <LI><CODE>inPassword</CODE> points to a nul-terminated C string;
+</UL>
+
+<H4>Effects:</H4>
+
+<P>The <CODE>KLAcquireNewInitialTicketsWithPassword()</CODE> function
+attempts to get a new valid ticket-granting ticket, either for a new
+principal or replacing (renewing) the existing tickets for a
+principal already in the cache collection.
+<CODE>KLAcquireNewInitialTicketsWithPassword()</CODE>will display a prompter
+dialog or prompt via the command line.  If no UI is available,
+it will return an error.</P>
+
+<P>The name of the cache into which tickets are placed is returned in
+<CODE>outCredCacheName</CODE> so that the caller can change the
+application/context default cache if desired. This returned name can
+be used in Credential Cache API, Kerberos 4, or Kerberos 5 calls. The
+returned string must be freed by <TT>KLDisposeString ()</TT>. If you
+pass in nil to this argument, the credentials cache name will not be
+allocated for you.</P>
+
+<P><CODE>KLAcquireNewInitialTicketsWithPassword()</CODE> will use the password
+in <CODE>inPassword</CODE> to attempt to acquire the tickets with the
+properties specified by <CODE>inLoginOptions</CODE>. If
+<TT>inLoginOptions</TT> is <TT>nil</TT>, the defaults (as specified
+by <CODE>KLSetDefaultLoginOption</CODE><TT><CODE> </CODE>()</TT>) are
+used. If successful, and if no tickets at all were previously in the
+cache collection, the credentials cache corresponding to the
+principal is made the system default cache. If not successful, the
+cache collection is unchanged.</P>
+
+<P><CODE>KLAcquireNewInitialTicketsWithPassword()</CODE> never changes the
+system default cache.</P>
+
+<P>If both Kerberos v4 and Kerberos v5 are available for the realm of
+the principal, either both new v4 and new v5 ticket-granting tickets
+will be available in the credentials cache upon return, or
+<CODE>KLAcquireNewInitialTicketsWithPassword()</CODE> will return an error
+code.</P>
+
+<P>If both Kerberos v4 and Kerberos v5 are available for the realm of
+the principal, and valid tickets for only one version but not the
+other are available in the cache collection,
+<CODE>KLAcquireNewInitialTicketsWithPassword()</CODE> will treat this as the
+same as the no valid tickets case -- new tickets will be obtained for
+both Kerberos versions, replacing the current "orphan" ones.</P>
+
+<P>If only one of Kerberos v4 and Kerberos v5 is available for the
+realm of the principal, either a ticket-granting ticket for the
+appropriate Kerberos version will be available in the cache
+collection upon return, or
+<CODE>KLAcquireNewInitialTicketsWithPassword()</CODE> will return an error
+code.</P>
+
+<H4>Results:</H4>
+
+<P>If <CODE>KLAcquireNewInitialTicketsWithPassword()</CODE> returns
+<CODE>klNoErr</CODE>, then:</P>
+
+<UL>
+   <LI>new tickets for the desired principal are available in the
+   cache collection.
+   
+   <LI>if <CODE>outCredCacheName</CODE> is not <CODE>nil</CODE>, a C
+   string containing the the name of the credentials cache into which
+   new tickets were placed is returned in
+   <CODE>*outCredCacheName</CODE>. The returned string should be
+   freed using the <CODE>KLDisposeString()</CODE> function. If
+   <CODE>outCredCacheName</CODE> is <CODE>nil</CODE>, nothing is
+   returned.
+</UL>
+
+<P>Otherwise, <CODE>KLAcquireNewInitialTicketsWithPassword()</CODE> returns
+one of the following error codes:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadPrincipalErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLPrincipal</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klUserCanceledErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The user cancelled the dialog (only with hardware
+         preauth).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klRealmDoesNotExistErr</TT>
+      </TD><TD>
+         <P>The specified realm does not exist.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klFatalDialogErr</TT>
+      </TD><TD>
+         <P>Dialog failed to load because the resources are corrupt
+         or missing (only with hardware preauth).
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P>Any Kerberos 5 error
+      </TD><TD>
+         <P>Use <TT>KLHandleError ()</TT> or <TT>KLGetErrorString
+         ()</TT> to report these errors to the user.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P>Any Kerberos 4 error
+      </TD><TD>
+         <P>Use <TT>KLHandleError ()</TT> or <TT>KLGetErrorString
+         ()</TT> to report these errors to the user.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLAcquireNewInitialTicketCredentialsWithPassword"></A>KLAcquireNewInitialTicketCredentialsWithPassword
+</H3>
+
+<PRE><CODE>KLStatus KLAcquireNewInitialTicketCredentialsWithPassword (
+		KLPrincipal         inPrincipal,
+		KLLoginOptions      inLoginOptions,
+		const char         *inPassword,
+		krb5_context        inV5Context,
+		KLBoolean          *outGotV4Credentials,
+		KLBoolean          *outGotV5Credentials,
+		CREDENTIALS        *outV4Credentials,
+		krb5_creds         *outV5Credentials);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<P>The <CODE>KLAcquireNewInitialTicketCredentialsWithPassword()</CODE> function
+requires the following:</P>
+
+<UL>
+   <LI>Kerberos Login Library API 2.2 (part of Kerberos for Macintosh
+   4.5) or later
+
+   <LI><CODE>inPassword</CODE> points to a nul-terminated C string;
+   
+   <LI><CODE>outV4Credentials</CODE> is either NULL or a pointer to
+   a caller-allocated <CODE>CREDENTIALS</CODE> structure.
+   
+   <LI><CODE>inV5Context</CODE> is either NULL or a valid <CODE>krb5_context</CODE>
+   which has been initialized with either <CODE>krb5_init_context()</CODE>
+   or <CODE>krb5_init_secure_context()</CODE>. <CODE>inV5Context</CODE> must be
+   a valid <CODE>krb5_context</CODE> if <CODE>inV5Credentials</CODE> is not <CODE>NULL</CODE>.
+   
+   <LI><CODE>outV5Credentials</CODE> is either NULL or a pointer to
+   a caller-allocated <CODE>krb5_creds</CODE> structure.
+</UL>
+
+<H4>Effects:</H4>
+
+<P>The <CODE>KLAcquireNewInitialTicketCredentialsWithPassword()</CODE> function
+attempts to get a new valid ticket-granting ticket for <CODE>inPrincipal</CODE>.
+<CODE>KLAcquireNewInitialTicketCredentialsWithPassword()</CODE> 
+will display a prompter dialog or prompt the user via the command line.
+If no UI is available, it will return an error.</P>
+
+<H4>Results:</H4>
+
+<P>If <CODE>KLAcquireNewInitialTicketCredentialsWithPassword()</CODE> returns
+<CODE>klNoErr</CODE>, then:</P>
+
+<UL>
+	<P>If <CODE>outGotV4Credentials</CODE> is non-NULL, it will be filled out
+	with a boolean value indicating whether Kerberos 4 credentials could be
+	obtained by the user.  </P>
+	
+	<P>If <CODE>outV4Credentials</CODE> is non-NULL and 
+	<CODE>outGotV4Credentials</CODE> is true, then Kerberos 4
+	credentials will be placed in <CODE>outV4Credentials</CODE>. </P>
+	
+	<P>If <CODE>outGotV5Credentials</CODE> is non-NULL, it will be filled out
+	with a boolean value indicating whether Kerberos 5 credentials could be
+	obtained by the user.  </P>
+	
+	<P>If <CODE>outV5Credentials</CODE> and <CODE>inV5Context</CODE> are 
+	both non-NULL and <CODE>outGotV5Credentials</CODE> is true, 
+	then Kerberos 5 credentials will be placed in <CODE>outV5Credentials</CODE>.  
+	Note that <CODE>inV5Context</CODE> is used to allocate the pointers
+	inside the <CODE>krb5_creds</CODE> structure and must be used to free 
+	<CODE>outV5Credentials</CODE> with <CODE>krb5_free_creds_contents()</CODE></P>
+</UL>
+
+<P>Otherwise, <CODE>KLAcquireNewInitialTicketCredentialsWithPassword()</CODE> returns
+one of the following error codes:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadPrincipalErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLPrincipal</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klUserCanceledErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The user cancelled the dialog (only with hardware
+         preauth).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klRealmDoesNotExistErr</TT>
+      </TD><TD>
+         <P>The specified realm does not exist.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klFatalDialogErr</TT>
+      </TD><TD>
+         <P>Dialog failed to load because the resources are corrupt
+         or missing (only with hardware preauth).
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P>Any Kerberos 5 error
+      </TD><TD>
+         <P>Use <TT>KLHandleError ()</TT> or <TT>KLGetErrorString
+         ()</TT> to report these errors to the user.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P>Any Kerberos 4 error
+      </TD><TD>
+         <P>Use <TT>KLHandleError ()</TT> or <TT>KLGetErrorString
+         ()</TT> to report these errors to the user.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLStoreNewInitialTicketCredentials"></A>KLStoreNewInitialTicketCredentials
+</H3>
+
+<PRE><CODE>KLStatus KLStoreNewInitialTicketCredentials (KLPrincipal     inPrincipal,
+                                             krb5_context    inV5Context,
+                                             CREDENTIALS    *inV4Credentials,
+                                             krb5_creds     *inV5Credentials,
+                                             char          **outCredCacheName);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<P>The <CODE>KLStoreNewInitialTicketCredentials()</CODE> function
+requires the following:</P>
+
+<UL>
+   <LI>Kerberos Login Library API 2.3 (part of Kerberos for Macintosh
+   5.0) or later
+
+   <LI><CODE>inPrincipal</CODE> points to a valid principal;
+   
+   <LI><CODE>inV4Credentials</CODE> is either NULL or points to a 
+   valid <CODE>CREDENTIALS</CODE> structure.
+   
+   <LI><CODE>inV5Credentials</CODE> is either NULL or points to a 
+   valid <CODE>krb5_creds</CODE> structure.
+
+   <LI><CODE>inV5Context</CODE> is either <CODE>NULL</CODE> or a valid <CODE>krb5_context</CODE>
+   which has been initialized with either <CODE>krb5_init_context()</CODE>
+   or <CODE>krb5_init_secure_context()</CODE>.  <CODE>inV5Context</CODE> must be
+   a valid <CODE>krb5_context</CODE> if <CODE>inV5Credentials</CODE> is not <CODE>NULL</CODE>.   
+</UL>
+
+<H4>Effects:</H4>
+
+<P>The <CODE>KLStoreNewInitialTicketCredentials()</CODE> stores the 
+Kerberos 4 and Kerberos 5 tickets in the  <CODE>inV5Credentials</CODE>
+and  <CODE>inV5Credentials</CODE> structures in a ccache corresponding to
+<CODE>inPrincipal</CODE>.  If there was already a ccache for <CODE>inPrincipal</CODE>,
+the contents of that cache are replaced (ie: <B>not</B> merged with) with
+the new credentials.</P>
+
+<H4>Results:</H4>
+
+<P>If <CODE>KLStoreNewInitialTicketCredentials()</CODE> returns
+<CODE>klNoErr</CODE>, then:</P>
+
+<UL>
+	<P>If <CODE>inV4Credentials</CODE> is not <CODE>NULL</CODE>, the ccache for
+	<CODE>inPrincipal</CODE> will contain the credentials in
+	<CODE>inV4Credentials</CODE>.</P>
+	
+	<P>If <CODE>inV5Credentials</CODE> is not <CODE>NULL</CODE>, the ccache for
+	<CODE>inPrincipal</CODE> will also contain the credentials in
+	<CODE>inV5Credentials</CODE>.</P>
+	
+   <LI>if <CODE>outCredCacheName</CODE> is not <CODE>NULL</CODE>, a C
+   string containing the the name of the credentials cache into which
+   new tickets were placed is returned in
+   <CODE>*outCredCacheName</CODE>. The returned string should be
+   freed using the <CODE>KLDisposeString()</CODE> function. If
+   <CODE>outCredCacheName</CODE> is <CODE>nil</CODE>, nothing is
+   returned.
+</UL>
+
+<P>Otherwise, <CODE>KLStoreNewInitialTicketCredentials()</CODE> returns
+one of the following error codes:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadPrincipalErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLPrincipal</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klRealmDoesNotExistErr</TT>
+      </TD><TD>
+         <P>The specified realm does not exist.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P>Any Kerberos 5 error
+      </TD><TD>
+         <P>Use <TT>KLHandleError ()</TT> or <TT>KLGetErrorString
+         ()</TT> to report these errors to the user.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P>Any Kerberos 4 error
+      </TD><TD>
+         <P>Use <TT>KLHandleError ()</TT> or <TT>KLGetErrorString
+         ()</TT> to report these errors to the user.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLVerifyInitialTickets"></A>KLVerifyInitialTickets
+</H3>
+
+<PRE><CODE>KLStatus KLVerifyInitialTickets (
+        KLPrincipal 	    inPrincipal,
+        KLBoolean           inFailIfNoHostKey,
+        char 	          **outCredCacheName);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<P>The <CODE>KLVerifyInitialTickets()</CODE> function
+requires the following:</P>
+
+<UL>
+   <LI>Kerberos Login Library API 2.2 (part of Kerberos for Macintosh 4.5) or later
+
+   <LI><CODE>inPrincipal</CODE> points to valid <CODE>KLPrincipal</CODE> structure or nil.
+</UL>
+
+<H4>Effects:</H4>
+
+<P><CODE>KLVerifyInitialTickets()</CODE> verifies that the credentials for the principal 
+<CODE>inPrincipal</CODE> are actually from the machine's local realm using
+the local machine's keytab (v5) or srvtab (v4).  If no host key is available and 
+<CODE>inFailIfNoHostKey</CODE> is <CODE>true</CODE>, then <CODE>KLVerifyInitialTicketCredentials()</CODE>
+will return an error, otherwise it will return success despite the fact that the tickets were 
+not entirely verified.</P>
+
+<P> This function is used to prevent the Zanarotti Attack. </P>
+
+<H4>Results:</H4>
+
+<P>If <CODE>KLVerifyInitialTicketCredentials()</CODE> returns
+<CODE>klNoErr</CODE>, then:</P>
+
+<UL>
+   <LI>The credentials were successfully verified or <CODE>inFailIfNoHostKey</CODE> is false.
+
+   <LI>if <CODE>outCredCacheName</CODE> is not <CODE>nil</CODE>, a C
+   string containing the the name of the credentials cache which 
+   was verified is returned in
+   <CODE>*outCredCacheName</CODE>. The returned string should be
+   freed using the <CODE>KLDisposeString()</CODE> function. If
+   <CODE>outCredCacheName</CODE> is <CODE>nil</CODE>, nothing is
+   returned.
+</UL>
+
+<P>Otherwise, <CODE>KLVerifyInitialTicketCredentials()</CODE> returns
+one of the following error codes:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadPrincipalErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLPrincipal</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klUserCanceledErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The user cancelled the dialog (only with hardware
+         preauth).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klRealmDoesNotExistErr</TT>
+      </TD><TD>
+         <P>The specified realm does not exist.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P>Any Kerberos 5 error
+      </TD><TD>
+         <P>Use <TT>KLHandleError ()</TT> or <TT>KLGetErrorString
+         ()</TT> to report these errors to the user.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P>Any Kerberos 4 error
+      </TD><TD>
+         <P>Use <TT>KLHandleError ()</TT> or <TT>KLGetErrorString
+         ()</TT> to report these errors to the user.
+      </TD></TR>
+</TABLE></P>
+
+
+<H3><A NAME="KLVerifyInitialTicketCredentials"></A>KLVerifyInitialTicketCredentials
+</H3>
+
+<PRE><CODE>KLStatus KLVerifyInitialTicketCredentials (
+        CREDENTIALS        *inV4Credentials,
+        krb5_creds 	       *inV5Credentials,
+        KLBoolean           inFailIfNoHostKey);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<P>The <CODE>KLVerifyInitialTicketCredentials()</CODE> function
+requires the following:</P>
+
+<UL>
+   <LI>Kerberos Login Library API 2.2 (part of Kerberos for Macintosh
+   4.5) or later
+
+   <LI><CODE>inV4Credentials</CODE> points to valid <CODE>CREDENTIALS</CODE> structure or nil.
+
+   <LI><CODE>inV5Credentials</CODE> points to valid <CODE>krb5_creds</CODE> structure or nil.
+</UL>
+
+<H4>Effects:</H4>
+
+<P><CODE>KLVerifyInitialTicketCredentials()</CODE> verifies that <CODE>inV4Credentials</CODE>
+and/or <CODE>inV5Credentials</CODE> are actually from the machine's local realm using
+the local machine's keytab (v5) or srvtab (v4).  If no host key is available and 
+<CODE>inFailIfNoHostKey</CODE> is <CODE>true</CODE>, then <CODE>KLVerifyInitialTicketCredentials()</CODE>
+will return an error, otherwise it will return success despite the fact that the tickets were 
+not entirely verified.</P>
+
+<P> This function is used to prevent the Zanarotti Attack. </P>
+
+<H4>Results:</H4>
+
+<P>If <CODE>KLVerifyInitialTicketCredentials()</CODE> returns
+<CODE>klNoErr</CODE>, then:</P>
+
+<UL>
+   <LI>The credentials were successfully verified or <CODE>inFailIfNoHostKey</CODE> is false.
+</UL>
+
+<P>Otherwise, <CODE>KLVerifyInitialTicketCredentials()</CODE> returns
+one of the following error codes:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klUserCanceledErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The user cancelled the dialog (only with hardware
+         preauth).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klRealmDoesNotExistErr</TT>
+      </TD><TD>
+         <P>The specified realm does not exist.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P>Any Kerberos 5 error
+      </TD><TD>
+         <P>Use <TT>KLHandleError ()</TT> or <TT>KLGetErrorString
+         ()</TT> to report these errors to the user.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P>Any Kerberos 4 error
+      </TD><TD>
+         <P>Use <TT>KLHandleError ()</TT> or <TT>KLGetErrorString
+         ()</TT> to report these errors to the user.
+      </TD></TR>
+</TABLE></P>
+
+
+<H3><A NAME="KLAcquireNewInitialTicketsWithKeytab"></A>KLAcquireNewInitialTicketsWithKeytab
+</H3>
+
+<PRE><CODE>KLStatus KLAcquireNewInitialTicketsWithKeytab (
+     KLPrincipal         inPrincipal,
+     KLLoginOptions      inLoginOptions,
+     const char         *inKeytabName,
+     char              **outCredCacheName);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<P>The <CODE>KLAcquireNewInitialTicketsWithKeytab()</CODE> function
+requires the following:</P>
+
+<UL>
+   <LI>Kerberos Login Library API 2.2 (part of Kerberos for Macintosh
+   4.5) or later
+
+   <LI><CODE>inKeytabName</CODE> points to a nul-terminated C string;
+</UL>
+
+<H4>Effects:</H4>
+
+<P><CODE>KLAcquireNewInitialTicketsWithKeytab()</CODE> will use the keytab
+in <CODE>inKeytab</CODE> to attempt to acquire the tickets with the
+properties specified by <CODE>inLoginOptions</CODE>. If
+<TT>inLoginOptions</TT> is <TT>nil</TT>, the defaults (as specified
+by <CODE>KLSetDefaultLoginOption</CODE><TT><CODE> </CODE>()</TT>) are
+used. </P>
+
+<P><CODE>KLAcquireNewInitialTicketsWithKeytab()</CODE> never changes the
+system default cache.</P>
+
+<H4>Results:</H4>
+
+<P>If <CODE>KLAcquireNewInitialTicketsWithKeytab()</CODE> returns
+<CODE>klNoErr</CODE>, then:</P>
+
+<UL>
+   <LI>new tickets for the desired principal are available in the
+   cache collection.
+   
+   <LI>if <CODE>outCredCacheName</CODE> is not <CODE>NULL</CODE>, a C
+   string containing the the name of the credentials cache into which
+   new tickets were placed is returned in
+   <CODE>*outCredCacheName</CODE>. The returned string should be
+   freed using the <CODE>KLDisposeString()</CODE> function. If
+   <CODE>outCredCacheName</CODE> is <CODE>nil</CODE>, nothing is
+   returned.
+</UL>
+
+<P>Otherwise, <CODE>KLAcquireNewInitialTicketsWithKeytab()</CODE> returns
+one of the following error codes:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadPrincipalErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLPrincipal</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klUserCanceledErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The user cancelled the dialog (only with hardware
+         preauth).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klRealmDoesNotExistErr</TT>
+      </TD><TD>
+         <P>The specified realm does not exist.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P>Any Kerberos 5 error
+      </TD><TD>
+         <P>Use <TT>KLHandleError ()</TT> or <TT>KLGetErrorString()</TT> 
+         to report these errors to the user.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P>Any Kerberos 4 error
+      </TD><TD>
+         <P>Use <TT>KLHandleError ()</TT> or <TT>KLGetErrorString
+         ()</TT> to report these errors to the user.
+      </TD></TR>
+</TABLE></P>
+
+
+<H3><A NAME="KLRenewInitialTickets"></A>KLRenewInitialTickets
+</H3>
+
+<PRE><CODE>KLStatus KLRenewInitialTickets (
+     KLPrincipal         inPrincipal,
+     KLLoginOptions      inLoginOptions,
+     KLPrincipal        *outPrincipal,
+     char              **outCredCacheName);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<P>The <CODE>KLRenewInitialTickets()</CODE> function
+requires the following:</P>
+
+<UL>
+   <LI>Kerberos Login Library API 2.2 (part of Kerberos for Macintosh
+   4.5) or later
+
+   <LI><CODE>inPrincipal</CODE> points to a valid <CODE>KLPrincipal</CODE>
+   for which there are renewable tickets in the credentials cache;
+</UL>
+
+<H4>Effects:</H4>
+
+<P><CODE>KLRenewInitialTickets()</CODE> attemps to renew tickets 
+for principal <CODE>inPrincipal</CODE> with the
+properties specified by <CODE>inLoginOptions</CODE>. If
+<CODE>inLoginOptions</CODE> is <CODE>NULL</CODE>, the defaults (as specified
+by <CODE>KLSetDefaultLoginOption()</CODE>) are used. </P>
+
+<P><CODE>KLRenewInitialTickets()</CODE> never changes the
+system default cache.</P>
+
+<H4>Results:</H4>
+
+<P>If <CODE>KLRenewInitialTickets()</CODE> returns
+<CODE>klNoErr</CODE>, then:</P>
+
+<UL>
+   <LI>Renewed tickets for the desired principal are available in the
+   cache collection.
+   
+   <LI>If <CODE>outPrincipal</CODE> is not <CODE>NULL</CODE>, the name 
+   of the principal for which tickets are obtained is returned in 
+   <CODE>outPrincipal</CODE>.  The returned principal should be
+   freed using the <CODE>KLDisposePrincipal()</CODE> function. If
+   <CODE>outPrincipal</CODE> is <CODE>NULL</CODE>, nothing is
+   returned.
+
+   <LI>If <CODE>outCredCacheName</CODE> is not <CODE>NULL</CODE>, a C
+   string containing the the name of the credentials cache into which
+   new tickets were placed is returned in
+   <CODE>*outCredCacheName</CODE>. The returned string should be
+   freed using the <CODE>KLDisposeString()</CODE> function. If
+   <CODE>outCredCacheName</CODE> is <CODE>NULL</CODE>, nothing is
+   returned.
+</UL>
+
+<P>Otherwise, <CODE>KLRenewInitialTickets()</CODE> returns
+one of the following error codes:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadPrincipalErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLPrincipal</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klUserCanceledErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The user cancelled the dialog (only with hardware
+         preauth).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klRealmDoesNotExistErr</TT>
+      </TD><TD>
+         <P>The specified realm does not exist.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P>Any Kerberos 5 error
+      </TD><TD>
+         <P>Use <TT>KLHandleError ()</TT> or <TT>KLGetErrorString
+         ()</TT> to report these errors to the user.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P>Any Kerberos 4 error
+      </TD><TD>
+         <P>Use <TT>KLHandleError ()</TT> or <TT>KLGetErrorString
+         ()</TT> to report these errors to the user.
+      </TD></TR>
+</TABLE></P>
+
+
+<H3><A NAME="KLValidateInitialTickets"></A>KLValidateInitialTickets
+</H3>
+
+<PRE><CODE>KLStatus KLValidateInitialTickets (
+     KLPrincipal         inPrincipal,
+     KLLoginOptions      inLoginOptions,
+     char              **outCredCacheName);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<P>The <CODE>KLValidateInitialTickets()</CODE> function
+requires the following:</P>
+
+<UL>
+   <LI>Kerberos Login Library API 2.2 (part of Kerberos for Macintosh
+   4.5) or later
+
+   <LI><CODE>inPrincipal</CODE> points to a valid <CODE>KLPrincipal</CODE>
+   for which there are postdated tickets in the credentials cache;
+</UL>
+
+<H4>Effects:</H4>
+
+<P><CODE>KLValidateInitialTickets()</CODE> attempts to validate tickets 
+for principal <CODE>inPrincipals</CODE> with the
+properties specified by <CODE>inLoginOptions</CODE>. If
+<TT>inLoginOptions</TT> is <TT>nil</TT>, the defaults (as specified
+by <CODE>KLSetDefaultLoginOption</CODE><TT><CODE> </CODE>()</TT>) are
+used. Tickets which were acquired post-dated must be validated before they 
+can be used.</P>
+
+<P><CODE>KLValidateInitialTickets()</CODE> never changes the
+system default cache.</P>
+
+<H4>Results:</H4>
+
+<P>If <CODE>KLValidateInitialTickets()</CODE> returns
+<CODE>klNoErr</CODE>, then:</P>
+
+<UL>
+   <LI>validated tickets for the desired principal are available in the
+   cache collection.
+   
+   <LI>if <CODE>outCredCacheName</CODE> is not <CODE>NULL</CODE>, a C
+   string containing the the name of the credentials cache into which
+   new tickets were placed is returned in
+   <CODE>*outCredCacheName</CODE>. The returned string should be
+   freed using the <CODE>KLDisposeString()</CODE> function. If
+   <CODE>outCredCacheName</CODE> is <CODE>nil</CODE>, nothing is
+   returned.
+</UL>
+
+<P>Otherwise, <CODE>KLValidateInitialTickets()</CODE> returns
+one of the following error codes:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadPrincipalErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLPrincipal</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klUserCanceledErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The user cancelled the dialog (only with hardware
+         preauth).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+    <TR>
+      <TD WIDTH=224>
+         <P><TT>klRealmDoesNotExistErr</TT>
+      </TD><TD>
+         <P>The specified realm does not exist.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P>Any Kerberos 5 error
+      </TD><TD>
+         <P>Use <TT>KLHandleError ()</TT> or <TT>KLGetErrorString
+         ()</TT> to report these errors to the user.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLLastChangedTime"></A>KLLastChangedTime</H3>
+
+<PRE><CODE>KLStatus KLLastChangedTime (
+     KLTime        *outLastChangedTime);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<P>The <CODE>KLLastChangedTime ()</CODE> function requires the
+following:</P>
+
+<UL>
+   <LI>Kerberos Login Library API 2.1 (part of Kerberos for Macintosh
+   3.5) or later
+</UL>
+
+<H4>Effects:</H4>
+
+<P><CODE>KLLastChangedTime()</CODE> returns the last time the state
+or validity of the cache collection changed in seconds since GMT
+midnight January 1, 1970.</P>
+
+<P><CODE>KLLastChangedTime()</CODE> should be used by applications
+which wish to frequently call <CODE>KLCacheHasValidTickets()</CODE>,
+<CODE>KLTicketStartTime()</CODE> or <CODE>KLExpirationTime()</CODE>.
+The time returned by <CODE>KLLastChangedTime()</CODE> will change if
+and only if the validity, start or expiration times of the cache
+collection changes. Your application can check this time to determine
+when you should call one of <CODE>KLCacheHasValidTickets()</CODE>,
+<CODE>KLTicketStartTime()</CODE> or <CODE>KLExpirationTime()</CODE>.
+</P>
+
+<P><CODE>KLCacheHasValidTickets()</CODE>,
+<CODE>KLTicketStartTime()</CODE> and <CODE>KLExpirationTime()</CODE>
+are <TT>O(n)</TT> where <TT>n</TT> is the number of caches in the
+cache collection. Calling them frequently may negatively impact the
+performance of your application. <CODE>KLLastChangedTime()</CODE> is
+<TT>O(1)</TT>, so your application can safely call it as often as
+every 1/60 of a second.</P>
+
+<P>If an error code is returned, <CODE>outLastChangedTime</CODE> is
+unchanged.</P>
+
+<H4>Results:</H4>
+
+<P>If no errors occur, <CODE>klNoErr</CODE> is returned. Other
+possible errors are:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klPreferencesReadErr</TT>
+      </TD><TD>
+         <P>The preferences file is inaccessible or corrupt.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLCacheHasValidTickets"></A>KLCacheHasValidTickets</H3>
+
+<PRE><CODE>KLStatus KLCacheHasValidTickets (
+	KLPrincipal         inPrincipal,
+     KLKerberosVersion   inKerberosVersion,
+     KLBoolean          *outFoundValidTickets,
+     KLPrincipal        *outPrincipal,
+     char              **outCredCacheName);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<P>The <CODE>KLCacheHasValidTickets()</CODE> function requires the
+following:</P>
+
+<UL>
+   <LI><CODE>outFoundValidTickets</CODE> is a valid pointer
+   (otherwise <TT>klParameterErr</TT> is returned).
+</UL>
+
+<H4>Effects:</H4>
+
+<P><CODE>KLCacheHasValidTickets()</CODE> looks in the cache
+collection to see if it contains valid ticket-granting tickets.</P>
+
+<P>If <CODE>inPrincipal</CODE> is not <CODE>nil</CODE> (a principal
+is specified), <CODE>KLCacheHasValidTickets()</CODE> returns in
+<CODE>outFoundValidTickets</CODE> whether there are valid tickets of
+the version specified by
+<TT><CODE>inKerberosVersion</CODE></TT><CODE> </CODE>in the cache
+collection for that principal. If <TT>outPrincipal</TT> is not
+<CODE>nil</CODE>, the principal is returned in <TT>outPrincipal</TT>.
+If <CODE>outCredCacheName</CODE> is not <CODE>nil</CODE>, the name of
+the credentials cache corresponding to that principal is returned in
+<CODE>outCredCacheName</CODE>.</P>
+
+<P>If <CODE>inPrincipal</CODE> is <CODE>nil</CODE> (no principal is
+specified), <CODE>KLCacheHasValidTickets()</CODE> returns in
+<CODE>outFoundValidTickets</CODE> whether or not any valid tickets of
+the version specified by <TT><CODE>inKerberosVersion </CODE></TT>are
+in the system default cache. If <TT>outPrincipal</TT> is not
+<CODE>nil</CODE>, the principal of the system default credentials
+cache is returned in <TT>outPrincipal</TT>. If
+<CODE>outCredCacheName</CODE> is not <CODE>nil</CODE>, the name of
+the system default credentials cache is returned in
+<CODE>outCredCacheName</CODE>.</P>
+
+<P>If <TT>outPrincipal</TT> is nil, nothing is returned in it.</P>
+
+<P>If <CODE>outCredCacheName</CODE> is <CODE>nil</CODE>, nothing is
+returned in it.</P>
+
+<P><TT><CODE>inKerberosVersion </CODE></TT>is
+<TT>kerberosVersion_All</TT>: If and only if valid tickets of all the
+versions of Kerberos supported by <TT>inPrincipal</TT>'s realm (or
+the realm of the system default cache's principal if <TT>inPrincipal
+== nil</TT>) exist for <TT>inPrincipal</TT>, then
+<CODE>outFoundValidTickets</CODE> is filled out as <CODE>true</CODE>.
+</P>
+
+<P><TT><CODE>inKerberosVersion </CODE></TT>is
+<TT>kerberosVersion_Any: </TT>If and only if valid tickets of any
+version of Kerberos supported by <TT>inPrincipal</TT>'s realm (or the
+realm of the system default cache's principal if <TT>inPrincipal ==
+nil</TT>) exist for <TT>inPrincipal</TT>, then
+<CODE>outFoundValidTickets</CODE> is filled out as <CODE>true</CODE>.
+</P>
+
+<P><TT><CODE>inKerberosVersion </CODE></TT>is one or more specific
+versions of Kerberos 'OR'ed together as a bitfield<TT>: </TT>if and
+only if valid tickets of the specified version(s) of Kerberos exist
+for <TT>inPrincipal </TT>(the system default cache's principal if
+<TT>inPrincipal == nil</TT>), then <CODE>outFoundValidTickets</CODE>
+is filled out as <CODE>true</CODE>.</P>
+
+<P>If no valid tickets are found of the version specified by
+<TT><CODE>inKerberosVersion</CODE></TT> (either no tickets for the
+principal exist, tickets do not exist for all the requested Kerberos
+versions, a ticket is expired, or a ticket is for an IP address
+different from the current one), <CODE>outFoundValidTickets</CODE> is
+filled out as <CODE>false</CODE><TT><CODE> </CODE></TT>and one of
+<TT>klNoCredentialsErr</TT>, <TT>klCredentialsExpiredErr</TT>, or
+<TT>klCredentialsBadAddressErr</TT> is returned.</P>
+
+<P>If an error code is returned, <TT>outPrincipal</TT> and
+<CODE>outCredCacheName</CODE> are unchanged.  For compatibility,
+<CODE>outFoundValidTickets</CODE> is set to false.</P>
+
+<H4>Results:</H4>
+
+<P>If no errors while searching the cache collection occurs,
+<CODE>klNoErr</CODE> is returned. Other possible errors are:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadPrincipalErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLPrincipal</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klInvalidVersionErr</TT>
+      </TD><TD>
+         <P>Invalid Kerberos version.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klPreferencesReadErr</TT>
+      </TD><TD>
+         <P>The preferences file is inaccessible or corrupt.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klV5InitializationFailedErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Failed to initialize a krb5 context.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klPrincipalDoesNotExistErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The <TT>KLPrincipal</TT> passed in does not correspond to
+         any cache in the cache collection.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klSystemDefaultDoesNotExistErr</TT>
+      </TD><TD VALIGN=top>
+         <P>There is no system default cache (the cache collection is
+         empty).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klCredentialsExpiredErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The credentials for the specified <TT>KLPrincipal</TT>
+         (or system default) are expired.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klCredentialsBadAddressErr</TT>
+      </TD><TD>
+         <P>The credentials for the specified <TT>KLPrincipal</TT>
+         (or system default) contain a different IP address from the
+         current one.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klNoCredentialsErr</TT>
+      </TD><TD>
+         <P>There are no credentials for the specified
+         <TT>KLPrincipal</TT> (or no system default).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klRealmDoesNotExistErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The specified realm does not exist.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLTicketStartTime"></A>KLTicketStartTime</H3>
+
+<PRE><CODE>KLStatus KLTicketStartTime (
+	KLPrincipal        inPrincipal,
+     KLKerberosVersion  inKerberosVersion,
+     KLTime            *outStartTime);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<P>The <CODE>KLTicketStartTime()</CODE> function requires the
+following:</P>
+
+<UL>
+   <LI>Kerberos Login Library API 2.1 (part of Kerberos for Macintosh
+   3.5) or later
+</UL>
+
+<H4>Effects:</H4>
+
+<P><CODE>KLTicketStartTime()</CODE> looks in the cache collection to
+return the maximum absolute start time of any valid ticket-granting
+tickets of the Kerberos version specified by
+<TT><CODE>inKerberosVersion</CODE></TT>. If
+<TT><A HREF="#KLCacheHasValidTickets">KLCacheHasValidTickets()</A></TT>
+would have returned false for the same <TT>inPrincipal</TT> and
+<TT><CODE>inKerberosVersion</CODE></TT>, 
+<CODE>KLTicketStartTime</CODE><TT>()</TT> returns
+<TT>klNoCredentialsErr</TT> or <TT>klCredentialsExpiredErr</TT>.</P>
+
+<P>If a principal is specified by <CODE>inPrincipal</CODE>, 
+<CODE>KLTicketStartTime()</CODE> returns the maximum absolute start
+time for that principal.</P>
+
+<P>If no is specified by <CODE>inPrincipal</CODE>, 
+<CODE>KLTicketStartTime()</CODE> returns the maximum absolute start
+time for the tickets in the system default cache (if one exists).
+</P>
+
+<P>If valid ticket-granting tickets exist, <CODE>outStartTime</CODE>
+is filled out with the absolute time the ticket-granting ticket first
+became valid in seconds since GMT midnight January 1, 1970.</P>
+
+<P>If tickets for multiple versions of Kerberos exist for the
+principal and <TT><CODE>inKerberosVersion</CODE></TT> is
+<TT>kerberosVersion_All</TT> or the aforementioned versions of
+Kerberos 'OR'ed together as a bitfield, the greater of the times for
+the two ticket-granting tickets is returned. If
+<TT><CODE>inKerberosVersion</CODE></TT> is
+<TT>kerberosVersion_Any</TT>, the minimum of the two expiration times
+is returned. Otherwise, the time for the specified version is
+returned.</P>
+
+<P>If an error occurs, <CODE>outStartTime</CODE> is unchanged.</P>
+
+<H4>Results:</H4>
+
+<P>If no errors while searching the cache collection occurs,
+<CODE>klNoErr</CODE> is returned. Other possible errors are:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadPrincipalErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLPrincipal</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klInvalidVersionErr</TT>
+      </TD><TD>
+         <P>Invalid Kerberos version.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klPrincipalDoesNotExistErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The <TT>KLPrincipal</TT> passed in does not correspond to
+         any cache in the cache collection.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klSystemDefaultDoesNotExistErr</TT>
+      </TD><TD VALIGN=top>
+         <P>There is no system default cache (the cache collection is
+         empty).
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klNoCredentialsErr</TT>
+      </TD><TD>
+         <P>The credentials for the specified <TT>KLPrincipal</TT>
+         and <TT>inKerberosVersion</TT> do not exist.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klCredentialsExpiredErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The credentials for the specified <TT>KLPrincipal</TT>
+         (or system default) are no longer valid.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klCredentialsBadAddressErr</TT>
+      </TD><TD>
+         <P>The credentials for the specified <TT>KLPrincipal</TT>
+         (or system default) contain a different IP address from the
+         current one.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klRealmDoesNotExistErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The specified realm does not exist.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLTicketExpirationTime"></A>KLTicketExpirationTime</H3>
+
+<PRE><CODE>KLStatus KLTicketExpirationTime (
+	KLPrincipal        inPrincipal,
+     KLKerberosVersion  inKerberosVersion,
+     KLTime            *outExpirationTime);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<P>The <CODE>KLTicketExpirationTime()</CODE> function requires the
+following:</P>
+
+<UL>
+	<LI> <CODE>inPrincipal</CODE> is either NULL or a valid
+	<CODE>KLPrincipal</CODE>.
+</UL>
+
+<H4>Effects:</H4>
+
+<P><CODE>KLTicketExpirationTime()</CODE> looks in the cache
+collection to return the minimum absolute expiration time of any
+valid ticket-granting tickets of the Kerberos version specified by
+<TT><CODE>inKerberosVersion</CODE></TT>. If
+<TT><A HREF="#KLCacheHasValidTickets">KLCacheHasValidTickets()</A></TT>
+would have returned false for the same <TT>inPrincipal</TT> and
+<TT><CODE>inKerberosVersion</CODE></TT>,
+<TT>KLTicketExpirationTime()</TT> returns <TT>klNoCredentialsErr</TT>
+or <TT>klCredentialsExpiredErr</TT>.</P>
+
+<P>If a principal is specified by <CODE>inPrincipal</CODE>,
+<CODE>KLTicketExpirationTime()</CODE> returns the minimum absolute
+expiration time for that principal.</P>
+
+<P>If no is specified by <CODE>inPrincipal</CODE>,
+<CODE>KLTicketExpirationTime()</CODE> returns the minimum absolute
+expiration time for the tickets in the system default cache (if one
+exists).</P>
+
+<P>If valid ticket-granting tickets exist,
+<CODE>outExpirationTime</CODE> is filled out with the absolute time
+the ticket-granting ticket is valid until (as opposed to the relative
+length of time the ticket will remain valid) in seconds since GMT
+midnight January 1, 1970.</P>
+
+<P>If tickets for multiple versions of Kerberos exist for the
+principal and <TT><CODE>inKerberosVersion</CODE></TT> is
+<TT>kerberosVersion_All</TT> or the aforementioned versions of
+Kerberos 'OR'ed together as a bitfield, the minimum of the times for
+the two ticket-granting tickets is returned. If
+<TT><CODE>inKerberosVersion</CODE></TT> is
+<TT>kerberosVersion_Any</TT>, the maximum of the ticket times is
+returned. Otherwise, the time for the specified version is returned.
+</P>
+
+<P>If an error occurs, <CODE>outExpirationTime</CODE> is unchanged.
+</P>
+
+<H4>Results:</H4>
+
+<P>If no errors while searching the cache collection occurs,
+<CODE>klNoErr</CODE> is returned. Other possible errors are:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadPrincipalErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLPrincipal</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klInvalidVersionErr</TT>
+      </TD><TD>
+         <P>Invalid Kerberos version.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klPrincipalDoesNotExistErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The <TT>KLPrincipal</TT> passed in does not correspond to
+         any cache in the cache collection.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klSystemDefaultDoesNotExistErr</TT>
+      </TD><TD VALIGN=top>
+         <P>There is no system default cache (the cache collection is
+         empty).
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klNoCredentialsErr</TT>
+      </TD><TD>
+         <P>The credentials for the specified <TT>KLPrincipal</TT>
+         and <TT>inKerberosVersion</TT> do not exist.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klCredentialsExpiredErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The credentials for the specified <TT>KLPrincipal</TT>
+         (or system default) are no longer valid.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klCredentialsBadAddressErr</TT>
+      </TD><TD>
+         <P>The credentials for the specified <TT>KLPrincipal</TT>
+         (or system default) contain a different IP address from the
+         current one.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klRealmDoesNotExistErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The specified realm does not exist.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLSetSystemDefaultCache"></A>KLSetSystemDefaultCache
+</H3>
+
+<PRE><CODE>KLStatus KLSetSystemDefaultCache (
+	KLPrincipal inPrincipal);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<P>The <CODE>KLSetSystemDefaultCache()</CODE> function requires the
+following:</P>
+
+<UL>
+	<LI> <CODE>inPrincipal</CODE> is a valid
+	<CODE>KLPrincipal</CODE>.	
+</UL>
+
+<H4>Effects:</H4>
+
+<P><CODE>KLSetSystemDefaultCache()</CODE> sets the system (global)
+default credentials cache to be the credentials cache which
+corresponds to the principal specified in <CODE>inPrincipal</CODE>,
+that is, to be the credentials cache that an
+application/service/context will use by default after the first time
+it is launched/created (in Kerberos v4, the application default cache
+will be set to the system default cache when the application is first
+launched; in v5 a context's default cache will be set the system
+default cache when the context is first created).</P>
+
+<P>If both Kerberos v4 and Kerberos v5 are available for the realm of
+the principal, the system default is set to the credentials cache
+corresponding to the specified principal for both v4 and v5.</P>
+
+<P>If only one of Kerberos v4 and Kerberos v5 is available for the
+realm of the principal, the appropriate version's system default is
+set to the credentials cache corresponding to the specified
+principal.</P>
+
+<H4>Results:</H4>
+
+<P>If there is a credentials cache corresponding to the specified
+principal and that credentials cache is set successfully as the
+system default, <CODE>klNoErr</CODE> is returned. Other possible
+errors are:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadPrincipalErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLPrincipal</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klPreferencesReadErr</TT>
+      </TD><TD>
+         <P>The preferences file is inaccessible or corrupt.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klV5InitializationFailedErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Failed to initialize a krb5 context.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klPrincipalDoesNotExistErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The <TT>KLPrincipal</TT> passed in does not correspond to
+         any cache in the cache collection.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klRealmDoesNotExistErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The specified realm does not exist.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLHandleError"></A>KLHandleError</H3>
+
+<PRE><CODE>KLStatus KLHandleError (
+	KLStatus           inError,
+	KLDialogIdentifier inDialogIdentifier,
+	KLBoolean          inShowAlert);</CODE></PRE>
+
+<H4>Effects:</H4>
+
+<P>The <CODE>KLHandleError()</CODE> function handles errors that
+occur while attempting to acquire tickets or change passwords. After
+you call <CODE>KLLoginDialogHandleEvents()</CODE> or
+<CODE>KLChangePasswordDialogHandleEvents()</CODE> to process events
+in a dialog, you use the information from the dialog to acquire
+tickets or change password for the user. If an error occurs while you
+are acquiring the tickets or changing the password, you must call
+<CODE>KLHandleError()</CODE> with an appropriate error code. This
+will ensure that the Login Library will behave correctly on
+subsequent calls -- for example, if the user typed an incorrect
+password, the password will be selected on the next call to
+<CODE>KLLoginDialogHandleEvents()</CODE> or
+<CODE>KLChangePasswordDialogHandleEvents()</CODE>.</P>
+
+<P>In general, you should call <CODE>KLHandleError()</CODE> with
+<CODE>inShowAlert</CODE> set to <CODE>true</CODE>, in which case
+Login Library will display an appropriate error message to the user.
+However, if for some reason you need to provide different user
+feedback, you should pass <CODE>false</CODE> in
+<CODE>inShowAlert</CODE>. In either case, you must call
+<CODE>KLHandleError()</CODE> with an appropriate error code.</P>
+
+<P><CODE>KLHandleError()</CODE> can distinguish which of the two
+dialogs it was called from by using the
+<CODE>inDialogIdentifier</CODE> parameter (see the
+<A HREF="#DialogIdentifierConstants">Dialog Identifier Constants</A>
+above) .</P>
+
+<P>Valid input values for <CODE>inError </CODE>are any error code
+returned by any Login Library function. Usually you only want to pass
+the error codes from <TT>KLAcquire*TicketsWithPassword()</TT> and
+<TT>KLChangePasswordWithPasswords().</TT></P>
+
+<H4>Results:</H4>
+
+<P><CODE>KLHandleError()</CODE> returns <CODE>klNoErr</CODE> if no
+error occurs, or one of the following error codes:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your error
+         code).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLGetErrorString"></A>KLGetErrorString</H3>
+
+<PRE><CODE>KLStatus KLGetErrorString (
+	KLStatus   inError,
+	char     **outString);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<P>The <CODE>KLHandleError()</CODE> function requires that:</P>
+
+<UL>
+   <LI><TT>inError</TT> be an error returned from a Kerberos Login
+   Library function.
+</UL>
+
+<H4>Effects:</H4>
+
+<P>The <CODE>KLGetErrorString ()</CODE> function takes a Kerberos
+Login Library error code and returns a C string containing a
+user-presentable message explaining the error. This is the same error
+message as would have been presented by <TT>KLHandleError ()</TT>.
+You will need to dispose of the string with <TT>KLDisposeString
+()</TT> after you are through using it.</P>
+
+<H4>Results:</H4>
+
+<P><CODE>KLGetErrorString()</CODE> returns <CODE>klNoErr</CODE> if no
+error occurs, or one of the following error codes:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your error
+         code).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLCancelAllDialogs"></A>KLCancelAllDialogs</H3>
+
+<PRE><CODE>KLStatus </CODE>KLCancelAllDialogs<CODE> (void);</CODE></PRE>
+
+<H4>Effects:</H4>
+
+<P>The <CODE>KLCancelAllDialogs()</CODE> function cancels
+all the login library dialogs on the screen when the function is
+called. This function should be called from an application event
+handler when a quit AppleEvent comes in. Note that if a Kerberos
+operation is in progress, the dialogs will cancel when the operation
+completes.</P>
+
+<P>You should not expect the dialogs to be gone when
+<CODE>KLCancelAllDialogs()</CODE> returns to the caller. You should
+instead wait until <TT>KLAcquireInitialTickets()</TT> or the relevant
+KClient call that popped up the dialog returns before exitting.</P>
+
+<H4>Results:</H4>
+
+<P><CODE>KLCancelAllDialogs()</CODE> returns
+<CODE>klNoErr</CODE> if no error occurs, or one of the following
+error codes:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klDialogDoesNotExist</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>No dialogs to cancel.
+      </TD></TR>
+</TABLE></P>
+
+<P>
+<HR>
+</P>
+
+<H2><A NAME="LowLevelChangePasswordFunctions"></A>Low-Level Password
+Dialog Functions</H2>
+
+<H3><A NAME="KLChangePasswordWithPasswords"></A>KLChangePasswordWithPasswords
+</H3>
+
+<PRE><CODE>KLStatus KLChangePasswordWithPasswords (
+	KLPrincipal inPrincipal,
+     const char *inOldPassword,
+     const char *inNewPassword);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<P>The <CODE>KLChangePasswordWithPasswords()</CODE> function requires
+the following:</P>
+
+<UL>
+	<LI> <CODE>inPrincipal</CODE> is a valid
+	<CODE>KLPrincipal</CODE>.
+	
+	<LI> <CODE>inOldPassword</CODE> is a valid C string.
+	
+	<LI> <CODE>inNewPassword</CODE> is a valid C string.
+</UL>
+
+<H4>Effects:</H4>
+
+<P>The <CODE>KLChangePasswordWithPasswords()</CODE> function attempts
+to change the Kerberos password for the principal specified by
+<CODE>inPrincipal</CODE>.
+<CODE>KLChangePasswordWithPasswords()</CODE> may display user interface
+if your site supports hardward preauth.  If it is unable to display
+a dialog or prompt via the command line, it will return an error.</P>
+
+<H4>Results:</H4>
+
+<P>If <CODE>KLChangePasswordWithPasswords()</CODE> returns
+<CODE>klNoErr</CODE>, then the password for the desired principal has
+been changed.</P>
+
+<P>Otherwise, the principal's passwords unchanged and
+<CODE>KLChangePasswordWithPasswords()</CODE> returns one of the
+following error codes:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadPrincipalErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLPrincipal</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadPasswordErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Password incorrect or <TT>nil</TT>.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klPreferencesReadErr</TT>
+      </TD><TD>
+         <P>The preferences file is inaccessible or corrupt.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klPasswordChangeFailedErr</TT>
+      </TD><TD>
+         <P>Change password operation failed.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P>Any Kerberos 5 error
+      </TD><TD>
+         <P>Use <TT>KLHandleError ()</TT> or <TT>KLGetErrorString
+         ()</TT> to report these errors to the user.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P>Any Kerberos 4 error
+      </TD><TD>
+         <P>Use <TT>KLHandleError ()</TT> or <TT>KLGetErrorString
+         ()</TT> to report these errors to the user.
+      </TD></TR>
+</TABLE></P>
+
+<P>
+<HR>
+</P>
+
+<H2><A NAME="ApplicationDefinedFunctions"></A>Application-Defined
+Functions</H2>
+
+<H3><A NAME="KerberosLoginIdleCallback"></A>KerberosLoginIdleCallback</H3>
+
+<PRE><CODE>void KerberosLoginIdleCallback (
+	      KLRefCon     inAppData);</CODE></PRE>
+
+<H4>Requires:</H4>
+<UL>
+   <LI>Mac OS 10.1 or greater (KfM 4.0 or greater)
+   <LI>Mach-O object formation (installing a PEF KerberosLoginIdleCallback will cause a crash)
+</UL>
+
+<P>A KerberosLoginIdleCallback function is guaranteed that</P>
+
+<UL>
+   <LI><CODE>inAppData</CODE> is the application data, as set by the
+   last call to <CODE>KLSetIdleCallback()</CODE>.
+</UL>
+
+<H4>Effects:</H4>
+
+<P>A KerberosLoginIdleCallback function is allowed to do anything
+that makes sense for the application to do.  Most importantly, 
+it can call <CODE>WaitNextEvent()</CODE> or receive Carbon/Cocoa events.
+It can cancel the dialogs by calling <TT>KLCancelAllDialogs ()</TT> 
+if it receives a quit event.</P>
+
+<P>A KerberosLoginIdleCallback function should not assume anything
+about the current resource file; if it needs to use resources, it
+must set the current resource file and restore it before returning.
+</P>
+
+<P>A KerberosLoginIdleCallback function should not block on resources
+in the callback.  This will hurt performance and possibly have confusing
+side effects.  For example, verify that there is an event in the queue
+before calling <CODE>WaitNextEvent()</CODE>.</P>
+
+
+<P>A Kerberos Login event filter function must not manipulate the 
+controlling terminal (ie: stdin, stdout and stderr).  The Kerberos
+Login library may be in the middle of reading a password from the
+controlling terminal.</P>
+
+<P>
+<HR>
+</P>
+
+<H2><A NAME="ApplicationConfigurationFunctions"></A>Application
+Configuration Functions</H2>
+
+<H3><A NAME="KLSetIdleCallback"></A>KLSetIdleCallback
+</H3>
+
+<PRE><CODE>KLStatus KLSetIdleCallback (
+	const KLIdleCallback inIdleCallback,
+	const KLRefCon       inIdleRefCon);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<UL>
+   <LI>Mac OS X 10.1 or later (KfM 4.0 or later)
+   <LI>the idling function passed in <CODE>inIdleCallback</CODE> is 
+   a Mach-O function pointer to a
+   valid KerberosLoginIdleCallback function (or <CODE>NULL</CODE>).
+</UL>
+
+<H4>Effects:</H4>
+
+<P>The <CODE>KLSetIdleCallback()</CODE> function sets the
+idling callback which is called while your application waits for the
+Login dialog.  If you wish to cancel the login dialogs from your
+application, you should call <CODE>KLCancelAllDialogs()</CODE> from
+the callback function.
+</P>
+
+<P>The meanings of the fields are</P>
+
+<UL>
+   <LI><CODE>inIdleCallback</CODE> is used as the idle function whenever
+   your application is waiting for KerberosLoginServer (the application
+   which presents the login dialog.  Pass in NULL to remove the idle callback.
+   
+   <LI><CODE>inIdleRefCon</CODE> is a value passed to the
+   subsequent calls to the idle callback; it is not interpreted by the
+   Login Library and its use is entirely up to the application
+</UL>
+
+<H4>Results:</H4>
+
+<P><CODE>KLSetIdleCallback()</CODE> returns
+<CODE>klNoErr</CODE> if no error occurs, or one of the following
+error codes:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLGetIdleCallback"></A>KLGetIdleCallback
+</H3>
+
+<PRE><CODE>KLStatus KLGetIdleCallback (
+	KLIdleCallback* outIdleCallback,
+	KLRefCon*       outIdleRefCon);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<UL>
+   <LI>Mac OS X 10.1 or later (KfM 4.0 or later)
+   <LI><CODE>outIdleCallback</CODE> and <CODE>outIdleRefCon</CODE> are
+   pointers to valid data or NULL.
+</UL>
+
+<H4>Effects:</H4>
+
+<P>The <CODE>KLGetIdleCallback()</CODE> function returns the
+idling callback which will be called while your application waits for the
+Login dialog. 
+</P>
+
+<P>The meanings of the fields are</P>
+
+<UL>
+   <LI><CODE>outIdleCallback</CODE> is used as the idle function whenever
+   your application is waiting for KerberosLoginServer (the application
+   which presents the login dialog. A value of NULL indicates no
+   idle callback is installed.
+   
+   <LI><CODE>outIdleRefCon</CODE> is a value passed to the
+   subsequent calls to the idle callback; it is not interpreted by the
+   Login Library and its use is entirely up to the application
+</UL>
+
+<H4>Results:</H4>
+
+<P><CODE>KLGetIdleCallback()</CODE> returns
+<CODE>klNoErr</CODE> if no error occurs, or one of the following
+error codes:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+</TABLE></P>
+
+
+<P>
+<HR>
+</P>
+
+<H2><A NAME="LibraryConfigurationFunctions"></A>Library Configuration
+Functions</H2>
+
+<P>Library configuration consists of a set of options and their
+values; all options are global. The options and their types and
+allowed values are:</P>
+
+<UL>
+   <LI><CODE>loginOption_LoginName</CODE><BR>
+   Type: char *<BR>
+   <BR>
+   This option determines what name is used in the username field in
+   the login dialog by default. Pass in a C string with
+   <TT>ioBufferSize</TT> set to the length of the string (not
+   including the NUL at the end). When getting this option you will
+   need to NUL-terminate the buffer after calling
+   KLGetDefaultLoginOption.<BR>
+   
+   
+   <LI><CODE>loginOption_RememberPrincipal</CODE><BR>
+   Type: KLBoolean<BR>
+   Range: 0, 1<BR>
+   <BR>
+   This option determines whether principal (username, instance, and
+   selected realm) will be remembered between successful logins. The
+   remembered principal can be overridden by an application by
+   passing the username, etc. to <CODE>KLLoginDialogBegin()</CODE>,
+   <CODE>KLAcquireTickets()</CODE>, or
+   <CODE>KLAcquireNewTickets()</CODE><BR>  
+   
+   
+   <LI><CODE>loginOption_RememberExtras</CODE><BR>
+   Type: KLBoolean<BR>
+   Range: 0, 1<BR>
+   <BR>  
+   This option determines whether "extra" settings, such as the
+   values of the Forwardable Tickets checkbox and Ticket Lifetime
+   slider, will be remembered between successful logins.<BR>
+  
+   
+   <LI><CODE>loginOption_MinimalTicketLifetime</CODE><BR>
+   Type: KLLifetime<BR>
+   Range: 0 .. 2^32 - 1<BR>
+   <BR>
+   This option determines the left end of the ticket lifetime slider
+   range in seconds.<BR>   
+   
+   
+   <LI><CODE>loginOption_MaximalTicketLifetime</CODE><BR>
+   Type: KLLifetime<BR>
+   Range: 0 .. 2^32 - 1<BR>
+   <BR>
+   This option determines the right end of the ticket lifetime slider
+   range in seconds.<BR>
+   
+   
+   <LI><CODE>loginOption_DefaultTicketLifetime</CODE><BR>
+   Type: KLLifetime<BR>
+   Range: minimal ticket lifetime .. maximal ticket lifetime<BR>
+   <BR>
+   This option determines the default value of the ticket lifetime
+   slider in seconds.<BR>
+   
+   
+   <LI><CODE>loginOption_LongTicketLifetimeDisplay</CODE><BR>
+   Type: KLBoolean<BR>
+   Range: 0, 1<BR>
+   <BR>
+   This option determines whether the ticket lifetime caption
+   displays time in long format (xx hours, yy minutes, zz seconds) or
+   short format (xx:yy:zz). Value of 0 means short lifetime display,
+   value of 1 means long lifetime display<BR>
+   
+   
+   <LI><CODE>loginOption_MinimalRenewableLifetime</CODE><BR>
+   Type: KLLifetime<BR>
+   Range: 0 .. 2^32 - 1<BR>
+   <BR>
+   This option determines the left end of the renewable lifetime slider
+   range in seconds.<BR>   
+   
+   
+   <LI><CODE>loginOption_MaximalRenewableLifetime</CODE><BR>
+   Type: KLLifetime<BR>
+   Range: 0 .. 2^32 - 1<BR>
+   <BR>
+   This option determines the right end of the renewable lifetime slider
+   range in seconds.<BR>
+   
+   
+   <LI><CODE>loginOption_DefaultRenewableLifetime</CODE><BR>
+   Type: KLLifetime<BR>
+   Range: minimal renewable lifetime .. maximal renewable lifetime<BR>
+   <BR>
+   This option determines the default value of the renewable lifetime
+   slider in seconds.<BR>
+   
+   
+   <LI><CODE>loginOption_DefaultRenewableTicket</CODE><BR>
+   Type: KLBoolean<BR>
+   Range: 0, 1<BR>
+   <BR>
+   This option determines the default value of the renewable ticket
+   checkbox.<BR>
+   
+   
+   <LI><CODE>loginOption_DefaultForwardableTicket</CODE><BR>
+   Type: KLBoolean<BR>
+   Range: 0, 1<BR>
+   <BR>
+   This option determines the default value of the forwardable ticket
+   checkbox.<BR>
+   
+   
+   <LI><CODE>loginOption_DefaultProxiableTicket</CODE><BR>
+   Type: KLBoolean<BR>
+   Range: 0, 1<BR>
+   <BR>
+   This option determines the default value of the proxiable ticket
+   checkbox.<BR>
+   
+
+   <LI><CODE>loginOption_DefaultAddresslessTicket</CODE><BR>
+   Type: KLBoolean<BR>
+   Range: 0, 1<BR>
+   <BR>
+   This option determines the default value of the addressless ticket 
+   checkbox.<BR>
+   
+
+</UL>
+
+<H3><A NAME="KLGetDefaultLoginOption"></A>KLGetDefaultLoginOption
+</H3>
+
+<PRE><CODE>KLStatus KLGetLoginOption (	
+	KLDefaultLoginOption   inOption,
+	void                  *ioBuffer,
+	KLSize                *ioBufferSize);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<UL>
+   <LI><CODE>ioBuffer</CODE> points to a buffer with at least
+   <CODE>*ioBufferSize</CODE> bytes of storage, or
+   <CODE>ioBuffer</CODE> is <CODE>nil</CODE>.
+</UL>
+
+<H4>Effects:</H4>
+
+<P>Returns the size and the value of the specified library option.
+</P>
+
+<P>If <CODE>ioBuffer</CODE> is not <CODE>nil</CODE>,
+<CODE>inOption</CODE> is a valid option, and
+<CODE>ioBufferSize</CODE> is sufficient to hold the value of the
+option (1 byte for KLBoolean values, 4 bytes for KLLifetime or
+KLLoginMode values), the value is put in <CODE>ioBuffer</CODE> and
+its actual size is returned in <CODE>ioBufferSize</CODE>.</P>
+
+<P>If <CODE>ioBuffer</CODE> is <CODE>nil</CODE> and
+<CODE>inOption</CODE> is a valid option, the size of the option is
+put returned in <CODE>ioBufferSize</CODE>.</P>
+
+<P>If <CODE>inOption</CODE> is not a valid option, or
+<CODE>ioBufferSize</CODE> is too small, <CODE>ioBuffer</CODE> and
+<CODE>ioBufferSize</CODE> are unchanged.</P>
+
+<H4>Results:</H4>
+
+<P>If successful, klNoErr is returned. Otherwise, one of the
+following error codes is returned instead:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klPreferencesReadErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The preferences file is inaccessible or corrupt.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klPreferencesWriteErr</TT>
+      </TD><TD>
+         <P>The preferences file is locked.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBufferTooSmallErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The buffer passed in is too small to hold the login
+         option.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klInvalidOptionErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The requested login option does not exist.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLSetDefaultLoginOption"></A>KLSetDefaultLoginOption
+</H3>
+
+<PRE><CODE>KLStatus KLSetLoginOption (
+	KLDefaultLoginOption  inOption,
+	void                 *inBuffer,
+	KLSize                inBufferSize);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<UL>
+   <LI><CODE>ioBuffer</CODE> points to a buffer with at least
+   <CODE>inBufferSize</CODE> bytes of storage
+</UL>
+
+<H4>Effects:</H4>
+
+<P>If <CODE>inOption</CODE> is a valid option,
+<CODE>inBufferSize</CODE> is the correct size for
+<CODE>inOption</CODE>, and value in <CODE>inBuffer</CODE> is in the
+valid range of <CODE>inOption</CODE>, then value of
+<CODE>inOption</CODE> is set to the value in <CODE>inBuffer</CODE>.
+Otherwise, no option values are changed.</P>
+
+<H4>Results:</H4>
+
+<P>If successful, klNoErr is returned. Otherwise, one of the
+following error codes is returned instead:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klPreferencesReadErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The preferences file is inaccessible or corrupt.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klPreferencesWriteErr</TT>
+      </TD><TD>
+         <P>The preferences file is locked.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBufferTooSmallErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The buffer passed in is too small to hold the login
+         option.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBufferTooLargeErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The buffer passed in is too large to refer to this login
+         option.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klInvalidOptionErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The requested login option does not exist.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadOptionValueErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The login option you have specified is invalid.
+      </TD></TR>
+</TABLE></P>
+
+<P>
+<HR>
+</P>
+
+<H2><A NAME="RealmsConfigurationFunctions"></A>Realms Configuration
+Functions</H2>
+
+<P>The functions below manipulate the list of realms displayed by the
+Login Library in pop-up menu of the login dialog. This list may be a
+subset of the realms listed in the Kerberos configuration file. The
+"default realm" is the realm that is selected in the pop-up menu by
+default.</P>
+
+<H3><A NAME="KLFindKerberosRealmByName"></A>KLFindKerberosRealmByName
+</H3>
+
+<PRE><CODE>KLStatus </CODE>KLFindKerberosRealmByName<CODE> (
+	char      *inRealmName,
+	KLIndex   *outIndex );</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<UL>
+   <LI><CODE>inRealmName</CODE> is a null-terminated C string
+</UL>
+
+<H4>Effects:</H4>
+
+<P>Finds the realm with the name inRealmName in the realm list and
+returns the index.</P>
+
+<P>Realm indices are 0-based.</P>
+
+<H4>Results:</H4>
+
+<P>If successful, klNoErr is returned. Otherwise, one of the
+following error codes is returned instead:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klPreferencesReadErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The preferences file is inaccessible or corrupt.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klNoRealmsErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The favorite realms list is empty.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klRealmDoesNotExistErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The specified realm does not exist.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLGetKerberosRealm"></A>KLGetKerberosRealm</H3>
+
+<PRE><CODE>KLStatus KLGetKerberosRealm (
+	KLIndex   inIndex,
+	char    **outRealmName);</CODE></PRE>
+
+<H4>Effects:</H4>
+
+<P>Reads the name of the realm with index <CODE>inIndex</CODE> in the
+realm list and returns it as a C string in <CODE>outRealmName</CODE>.
+The returned string should be freed using the
+<CODE>KLDisposeString()</CODE> function.</P>
+
+<P>Realm indices are 0-based.</P>
+
+<H4>Results:</H4>
+
+<P>If successful, klNoErr is returned. Otherwise, one of the
+following error codes is returned instead:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klPreferencesReadErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The preferences file is inaccessible or corrupt.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klNoRealmsErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The favorite realms list is empty.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klRealmDoesNotExistErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The specified realm does not exist.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLSetKerberosRealm"></A>KLSetKerberosRealm</H3>
+
+<PRE><CODE>KLStatus KLSetKerberosRealm (
+	KLIndex     inIndex,
+	const char *inRealmName);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<UL>
+   <LI><CODE>inRealmName</CODE> is a nul-terminated C string
+</UL>
+
+<H4>Effects:</H4>
+
+<P>Sets the name of the realm with index <CODE>inIndex</CODE> in the
+realm list to the name specified in <CODE>inRealmName</CODE>. Realm
+indices are 0-based.</P>
+
+<P><B>Note:</B> If another realm with the name <CODE>inRealmName</CODE> 
+is already in the list, <CODE>KLSetKerberosRealm</CODE> removes the old 
+entry before setting the entry at <CODE>inIndex</CODE>.  Because the old entry 
+may be before <CODE>inIndex</CODE> in the list, the realm name may actually 
+be placed at a different index (one less than <CODE>inIndex</CODE>).  
+As a result, you should either make sure you are setting only one realm 
+of each name, or you should not use <CODE>inIndex</CODE> after calling 
+<CODE>KLSetKerberosRealm</CODE>.</P>
+
+<H4>Results:</H4>
+
+<P>If successful, klNoErr is returned. Otherwise, one of the
+following error codes is returned instead:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klPreferencesReadErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The preferences file is inaccessible or corrupt.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klPreferencesWriteErr</TT>
+      </TD><TD>
+         <P>The preferences file is locked.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klNoRealmsErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The favorite realms list is empty.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klRealmDoesNotExistErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The specified realm does not exist.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLRemoveKerberosRealm"></A>KLRemoveKerberosRealm
+</H3>
+
+<PRE><CODE>KLStatus KLRemoveKerberosRealm (
+	KLIndex inIndex);</CODE></PRE>
+
+<H4>Effects:</H4>
+
+<P>Removes the realm specified by the index <CODE>inIndex</CODE> from
+the realm list. Realm indices are 0-based.</P>
+
+<P><B>Note:</B> Kerberos Login Library does not support removing the 
+Kerberos default realm (ie: the <CODE>default_realm</CODE>
+in the <CODE>lib_defaults</CODE> section of the Kerberos 
+Preferences).  If you attempt to remove the Kerberos default 
+realm from the realm list, it will be added back to the beginning of 
+the realm list.  If you want to remove this realm, please change 
+the Kerberos default realm. </P>
+
+<H4>Results:</H4>
+
+<P>If successful, klNoErr is returned. Otherwise, one of the
+following error codes is returned instead:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klPreferencesReadErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The preferences file is inaccessible or corrupt.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klPreferencesWriteErr</TT>
+      </TD><TD>
+         <P>The preferences file is locked.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klNoRealmsErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The favorite realms list is empty.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klRealmDoesNotExistErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The specified realm does not exist.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLInsertKerberosRealm"></A>KLInsertKerberosRealm
+</H3>
+
+<PRE><CODE>KLStatus KLInsertKerberosRealm (
+	KLIndex     inInsertBeforeIndex,
+	const char *inRealmName);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<UL>
+   <LI><CODE>inRealmName</CODE> is a nul-terminated C string
+</UL>
+
+<H4>Effects:</H4>
+
+<P>Inserts a realm with the name specified in
+<CODE>inRealmName</CODE> before index
+<CODE>inInsertBeforeIndex</CODE>, or at the end if
+<CODE>inInsertBeforeIndex</CODE> is equal to
+<CODE>KLCountKerberosRealms()</CODE>. Realm indices are 0-based.</P>
+
+<P><B>Note:</B> If another realm with the name <CODE>inRealmName</CODE> 
+is already in the list, <CODE>KLInsertKerberosRealm</CODE> moves the realm 
+before index <CODE>inInsertBeforeIndex</CODE>.  Because the old realm 
+may be before this index in the list, the new realm may actually 
+be placed at a different index (two less than <CODE>inInsertBeforeIndex</CODE>).  
+As a result, you should either make sure you are adding only one realm 
+of each name, or you should not use <CODE>inInsertBeforeIndex</CODE> after calling 
+<CODE>KLInsertKerberosRealm</CODE>.</P>
+
+<H4>Results:</H4>
+
+<P>If successful, klNoErr is returned. Otherwise, one of the
+following error codes is returned instead:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klPreferencesReadErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The preferences file is inaccessible or corrupt.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klPreferencesWriteErr</TT>
+      </TD><TD>
+         <P>The preferences file is locked.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klNoRealmsErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The favorite realms list is empty.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klRealmDoesNotExistErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The specified realm does not exist.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLRemoveAllKerberosRealms"></A>KLRemoveAllKerberosRealms
+</H3>
+
+<PRE><CODE>KLStatus KLRemoveAllKerberosRealms (void);</CODE></PRE>
+
+<H4>Effects:</H4>
+
+<P>Clears the entire realm list except for the Kerberos
+configuration default realm.</P>
+
+<P><B>Note:</B> Kerberos Login Library does not support removing the 
+Kerberos default realm (ie: the <CODE>default_realm</CODE>
+in the <CODE>lib_defaults</CODE> section of the Kerberos 
+Preferences).  If you attempt to remove the Kerberos default 
+realm from the realm list, it will be added to the beginning of 
+the realm list.  If you want to remove this realm, please change 
+the Kerberos default realm. </P>
+
+<H4>Results:</H4>
+
+<P>If successful, klNoErr is returned. Otherwise, one of the
+following error codes is returned instead:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klPreferencesReadErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The preferences file is inaccessible or corrupt.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klPreferencesWriteErr</TT>
+      </TD><TD>
+         <P>The preferences file is locked.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLCountKerberosRealms"></A>KLCountKerberosRealms
+</H3>
+
+<PRE><CODE>KLSize KLCountKerberosRealms (void);</CODE></PRE>
+
+<H4>Effects:</H4>
+
+<P>Returns the total number of realms in the list.</P>
+
+<H3><A NAME="KLGetKerberosDefaultRealm"></A>KLGetKerberosDefaultRealm
+</H3>
+
+<PRE><CODE>KLStatus KLGetKerberosDefaultRealm(
+     KLIndex *outIndex);</CODE></PRE>
+
+<H4>Effects:</H4>
+
+<P>Returns the index of the default realm in the login dialog box in
+<CODE>outIndex</CODE>. If there are no realms in the list, function
+returns a <CODE>klEmptyRealmListErr</CODE> error and
+<CODE>outIndex</CODE> is unchanged.</P>
+
+<P>Realm indices are 0-based.</P>
+
+<H4>Results:</H4>
+
+<P>If successful, klNoErr is returned. Otherwise, one of the
+following error codes is returned instead:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klPreferencesReadErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The preferences file is inaccessible or corrupt.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klNoRealmsErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The favorite realms list is empty.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klRealmDoesNotExistErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The specified realm does not exist.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLGetKerberosDefaultRealmByName"></A>KLGetKerberosDefaultRealmByName
+</H3>
+
+<PRE><CODE>KLStatus KLGetKerberosDefaultRealm (
+	char **outRealmName);</CODE></PRE>
+
+<H4>Effects:</H4>
+
+<P>Returns the name of the default realm in the login dialog box as a
+C string in <CODE>outRealmName</CODE>. The returned string should be
+freed using the <CODE>KLDisposeString()</CODE> function. If there are
+no realms in the list, function returns a
+<CODE>klEmptyRealmListErr</CODE> error and <CODE>outRealmName</CODE>
+is unchanged.</P>
+
+<H4>Results:</H4>
+
+<P>If successful, klNoErr is returned. Otherwise, one of the
+following error codes is returned instead:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klPreferencesReadErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The preferences file is inaccessible or corrupt.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klNoRealmsErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The favorite realms list is empty.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klRealmDoesNotExistErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The specified realm does not exist.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLSetKerberosDefaultRealm"></A>KLSetKerberosDefaultRealm
+</H3>
+
+<PRE><CODE>KLStatus KLSetKerberosDefaultRealm (
+	KLIndex inIndex);</CODE></PRE>
+
+<H4>Effects:</H4>
+
+<P>Sets the default realm in the login dialog box to be the realm
+specified by <CODE>inIndex</CODE>. Returns <CODE>noErr</CODE> if the
+index passed in is valid, or <CODE>paramErr</CODE> if the index is
+invalid (i.e. the index is out of range).</P>
+
+<P>Realm indices are 0-based.</P>
+
+<H4>Results:</H4>
+
+<P>If successful, klNoErr is returned. Otherwise, one of the
+following error codes is returned instead:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klPreferencesReadErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The preferences file is inaccessible or corrupt.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klPreferencesWriteErr</TT>
+      </TD><TD>
+         <P>The preferences file is locked.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klNoRealmsErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The favorite realms list is empty.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klRealmDoesNotExistErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The specified realm does not exist.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLSetKerberosDefaultRealmByName"></A>KLSetKerberosDefaultRealmByName
+</H3>
+
+<PRE><CODE>KLStatus KLSetKerberosDefaultRealmByName (
+	const char *inRealmName);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<UL>
+   <LI><CODE>inRealmName</CODE> is a null-terminated C string
+</UL>
+
+<H4>Effects:</H4>
+
+<P>Sets the default realm in the login dialog box to be the realm
+specified by <CODE>inRealmName</CODE>. Returns <CODE>noErr</CODE> if
+the name passed in is valid, or <CODE>paramErr</CODE> if the name is
+invalid (i.e. the index is not among the known realms).</P>
+
+<H4>Results:</H4>
+
+<P>If successful, klNoErr is returned. Otherwise, one of the
+following error codes is returned instead:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klPreferencesReadErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The preferences file is inaccessible or corrupt.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klPreferencesWriteErr</TT>
+      </TD><TD>
+         <P>The preferences file is locked.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klNoRealmsErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The favorite realms list is empty.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klRealmDoesNotExistErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The specified realm does not exist.
+      </TD></TR>
+</TABLE></P>
+
+<P>
+<HR>
+</P>
+
+<H2><A NAME="KLPrincipalInfoFunctions"></A>KLPrincipal Functions
+</H2>
+
+<H3><A NAME="KLCreatePrincipalFromTriplet"></A>KLCreatePrincipalFromTriplet
+</H3>
+
+<PRE><CODE>KLStatus KLCreatePrincipalFromTriplet(
+     const char  *inName,
+     const char  *inInstance,
+     const char  *inRealm,
+     KLPrincipal *outPrincipal);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<UL>
+   <LI><CODE>inName</CODE>, <CODE>inInstance</CODE>,
+   <CODE>inRealm</CODE> point to C strings;
+</UL>
+
+<H4>Effects:</H4>
+
+<P>Creates a new <CODE>KLPrincipal</CODE> to be used with other Login
+Library API functions from the triplet provided.</P>
+
+<P>The returned <CODE>KLPrincipal</CODE> should be freed using the
+<CODE>KLDisposePrincipal()</CODE> function.</P>
+
+<H4>Results:</H4>
+
+<P>If successful, klNoErr is returned. Otherwise, one of the
+following error codes is returned instead:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadPrincipalErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLPrincipal</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klV5InitializationFailedErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Failed to initialize a krb5 context.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P>Any error returned by a principal translation plugin
+      </TD><TD VALIGN=top>
+         <P>A principal translation returned an error.
+      </TD></TR>
+</TABLE></P>
+
+<P>Note that this function may return error codes reported by a principal translation function. Therefore, your code should expect to get an unknown error code, and be able to handle it gracefully -- by calling <CODE>KLGetErrorString()</CODE>.</P>
+
+<H3><A NAME="KLCreatePrincipalFromString"></A>KLCreatePrincipalFromString
+</H3>
+
+<PRE><CODE>KLStatus KLCreatePrincipalFromString(
+    const char        *inFullPrincipal,
+    KLKerberosVersion  inKerberosVersion,
+    KLPrincipal       *outPrincipal);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<UL>
+   <LI><CODE>inFullPrincipal</CODE> points to a C string;
+</UL>
+
+<H4>Effects:</H4>
+
+<P>Creates a new <CODE>KLPrincipal</CODE> to be used with other Login
+Library API functions from the string provided. The "string" form of
+a principal is "user/instance@realm" (for the v5 case) or
+"user.instance@realm".</P>
+
+<P>The <CODE>inKerberosVersion</CODE> parameter should be either
+<CODE>kerberosVersion_V4</CODE> or <CODE>kerberosVersion_V5</CODE>,
+specifying whether the string contains a Kerberos v4 or Kerberos v5
+principal (this affects how it is parsed).</P>
+
+<P>The returned <CODE>KLPrincipal</CODE> should be freed using the
+<CODE>KLDisposePrincipal()</CODE> function.</P>
+
+<H4>Results:</H4>
+
+<P>If successful, klNoErr is returned. Otherwise, one of the
+following error codes is returned instead:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadPrincipalErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLPrincipal</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klInvalidVersionErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid Kerberos version passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klV5InitializationFailedErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Failed to initialize a krb5 context.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLGetTripletFromPrincipal"></A>KLGetTripletFromPrincipal
+</H3>
+
+<PRE><CODE>KLStatus KLGetTripletFromPrincipal(
+    KLPrincipal   inPrincipal,
+    char        **outName,
+    char        **outInstance,
+    char        **outRealm);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<UL>
+   <LI><CODE>inPrincipal</CODE> is a valid <CODE>KLPrincipal</CODE>.
+</UL>
+
+<H4>Effects:</H4>
+
+<P>Returns three C strings representing a Kerberos triplet equivalent
+to the <CODE>KLPrincipal</CODE> passed in. Kerberos v5 principals
+with two or more instances are not currently supported.</P>
+
+<P><CODE>KLGetTripletFromPrincipal()</CODE> allocates the memory for
+the strings <CODE>outName</CODE>, <CODE>outInstance</CODE>, and
+<CODE>outRealm</CODE>. The strings returned should then be freed
+using the <CODE>KLDisposeString()</CODE> function.</P>
+
+<H4>Results:</H4>
+
+<P>If successful, klNoErr is returned. Otherwise, one of the
+following error codes is returned instead:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadPrincipalErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLPrincipal</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klV5InitializationFailedErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Failed to initialize a krb5 context.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLGetStringFromPrincipal"></A>KLGetStringFromPrincipal
+</H3>
+
+<PRE><CODE>KLStatus KLGetStringFromPrincipal(
+    KLPrincipal         inPrincipal,
+    KLKerberosVersion   inKerberosVersion,
+    char              **outFullPrincipal);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<P><LI><CODE>inPrincipal</CODE> is a valid <CODE>KLPrincipal</CODE>.</P>
+
+<P><LI><CODE>inKerberosVersion</CODE> is a valid <CODE>KLKerberosVersion</CODE>.</P>
+
+<H4>Effects:</H4>
+
+<P>Returns a C string representation of the <CODE>KLPrincipal</CODE>
+passed in (e.g. "user/instance@realm").</P>
+
+<P>The <CODE>inKerberosVersion</CODE> parameter should be either
+<CODE>kerberosVersion_V4</CODE> or <CODE>kerberosVersion_V5</CODE>,
+specifying which representation (Kerberos v4 or Kerberos v5) the
+string should use.</P>
+
+<P><CODE>KLGetStringFromPrincipal()</CODE> allocates the memory for
+the string <CODE>outFullPrincipal</CODE>. The string returned should
+then be freed using the <CODE>KLDisposeString()</CODE> function.</P>
+
+<P>If an error occurs <CODE>outFullPrincipal</CODE> is unchanged.
+</P>
+
+<H4>Results:</H4>
+
+<P>If successful, klNoErr is returned. Otherwise, one of the
+following error codes is returned instead:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadPrincipalErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLPrincipal</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klInvalidVersionErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid Kerberos version passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klV5InitializationFailedErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Failed to initialize a krb5 context.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLGetDisplayStringFromPrincipal"></A>KLGetDisplayStringFromPrincipal
+</H3>
+
+<PRE><CODE>KLStatus KLGetDisplayStringFromPrincipal(
+    KLPrincipal         inPrincipal,
+    KLKerberosVersion   inKerberosVersion,
+    char              **outFullPrincipal);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<P><LI><CODE>inPrincipal</CODE> is a valid <CODE>KLPrincipal</CODE>.</P>
+
+<P><LI><CODE>inKerberosVersion</CODE> is a valid <CODE>KLKerberosVersion</CODE>.</P>
+
+<H4>Effects:</H4>
+
+<P>Returns a C string representation of the <CODE>KLPrincipal</CODE>
+passed in (e.g. "user/instance@realm"), and removes any backslash characters
+used to quote special characters in the principal. The returned string cannot be
+converted back to a principal, and therefore should be used only for display purposes.</P>
+
+<P>The <CODE>inKerberosVersion</CODE> parameter should be either
+<CODE>kerberosVersion_V4</CODE> or <CODE>kerberosVersion_V5</CODE>,
+specifying which representation (Kerberos v4 or Kerberos v5) the
+string should use.</P>
+
+<P><CODE>KLGetStringFromPrincipal()</CODE> allocates the memory for
+the string <CODE>outFullPrincipal</CODE>. The string returned should
+then be freed using the <CODE>KLDisposeString()</CODE> function.</P>
+
+<P>If an error occurs <CODE>outFullPrincipal</CODE> is unchanged.
+</P>
+
+<H4>Results:</H4>
+
+<P>If successful, klNoErr is returned. Otherwise, one of the
+following error codes is returned instead:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadPrincipalErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLPrincipal</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klInvalidVersionErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid Kerberos version passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klV5InitializationFailedErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Failed to initialize a krb5 context.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLComparePrincipal"></A>KLComparePrincipal</H3>
+
+<PRE><CODE>KLStatus KLComparePrincipal(
+    KLPrincipal   inFirstPrincipal,
+    KLPrincipal   inSecondPrincipal,
+    KLBoolean    *outAreEquivalent);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<P><LI><CODE>inFirstPrincipal</CODE> and <CODE>inSecondPrincipal</CODE> are 
+valid <CODE>KLPrincipal</CODE>s.</P>
+
+<H4>Effects:</H4>
+
+<P>If no errors occur, <CODE>inFirstPrincipal</CODE> and
+<CODE>inSecondPrincipal</CODE> are equivalent, returns
+<CODE>true</CODE> in <CODE>outAreEquivalent</CODE>. Otherwise,
+returns <CODE>false</CODE>.</P>
+
+<P>If an error occurs, <CODE>outAreEquivalent</CODE> is unchanged.
+</P>
+
+<H4>Results:</H4>
+
+<P>If successful, klNoErr is returned. Otherwise, one of the
+following error codes is returned instead:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadPrincipalErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLPrincipal</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klV5InitializationFailedErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Failed to initialize a krb5 context.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLDisposePrincipal"></A>KLDisposePrincipal</H3>
+
+<PRE><CODE>KLStatus KLDisposePrincipal(
+     KLPrincipal inPrincipal);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<P><LI><CODE>inPrincipal</CODE> is a valid <CODE>KLPrincipal</CODE>s.</P>
+
+<H4>Effects:</H4>
+
+<P>Releases memory associated with the <CODE>KLPrincipal</CODE>
+passed in. The reference is no longer valid after the call to
+<CODE>KLDisposePrincipal()</CODE>.</P>
+
+<H4>Results:</H4>
+
+<P>If successful, klNoErr is returned. Otherwise, one of the
+following error codes is returned instead:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadPrincipalErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLPrincipal</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klPreferencesReadErr</TT>
+      </TD><TD>
+         <P>The preferences file is inaccessible or corrupt.
+      </TD></TR>
+</TABLE></P>
+
+<P>
+<HR>
+</P>
+
+<H2><A NAME="KLLoginOptionsFunctions"></A>KLLoginOptions Functions
+</H2>
+
+<H3><A NAME="KLCreateLoginOptions"></A>KLCreateLoginOptions</H3>
+
+<PRE><CODE>KLStatus </CODE>KLCreateLoginOptions <CODE>(
+     KLLoginOptions *outOptions);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<P>(none)</P>
+
+<H4>Effects:</H4>
+
+<P>Creates a new <CODE>KLLoginOptions</CODE> to be used with other
+Login Library API functions. The login options are set to the
+KerberosLogin defaults for those values.</P>
+
+<P>The returned <CODE>KLLoginOptions</CODE> should be freed using the
+<CODE>KLDisposeLoginOptions ()</CODE> function.</P>
+
+<H4>Results:</H4>
+
+<P>If successful, klNoErr is returned. Otherwise, one of the
+following error codes is returned instead:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadLoginOptionsErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLLoginOptions</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klPreferencesReadErr</TT>
+      </TD><TD>
+         <P>The preferences file is inaccessible or corrupt.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klV5InitializationFailedErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Failed to initialize a krb5 context.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLLoginOptionsSetTicketLifetime"></A>KLLoginOptionsSetTicketLifetime
+</H3>
+
+<PRE><CODE>KLStatus KLLoginOptionsSetTicketLifetime (
+     KLLoginOptions   ioOptions,
+     KLLifetime       inTicketLifetime);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<UL>
+   <LI><CODE>ioOptions</CODE> is a valid <TT>KLLoginOptions</TT>
+   created with <CODE>KLCreateLoginOptions ()</CODE>
+</UL>
+
+<H4>Effects:</H4>
+
+<P>Sets the ticket lifetime in the <TT>KLLoginOptions</TT> provided.
+</P>
+
+<H4>Results:</H4>
+
+<P>If successful, klNoErr is returned. Otherwise, one of the
+following error codes is returned instead:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadLoginOptionsErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLLoginOptions</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klPreferencesReadErr</TT>
+      </TD><TD>
+         <P>The preferences file is inaccessible or corrupt.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klV5InitializationFailedErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Failed to initialize a krb5 context.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLLoginOptionsSetForwardable"></A>KLLoginOptionsSetForwardable
+</H3>
+
+<PRE><CODE>KLStatus </CODE>KLLoginOptionsSetForwardable<CODE> (
+     KLLoginOptions   ioOptions,
+     KLBoolean        inProxiable);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<UL>
+   <LI><CODE>ioOptions</CODE> is a valid <TT>KLLoginOptions</TT>
+   created with <CODE>KLCreateLoginOptions ()</CODE>
+</UL>
+
+<H4>Effects:</H4>
+
+<P>Sets the forwardable tickets flag in the <TT>KLLoginOptions</TT>
+provided.</P>
+
+<H4>Results:</H4>
+
+<P>If successful, klNoErr is returned. Otherwise, one of the
+following error codes is returned instead:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadLoginOptionsErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLLoginOptions</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klPreferencesReadErr</TT>
+      </TD><TD>
+         <P>The preferences file is inaccessible or corrupt.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klV5InitializationFailedErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Failed to initialize a krb5 context.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLLoginOptionsSetProxiable"></A>KLLoginOptionsSetProxiable
+</H3>
+
+<PRE><CODE>KLStatus KLLoginOptionsSetProxiable (
+     KLLoginOptions   ioOptions,
+     KLBoolean        inProxiable);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<UL>
+   <LI><CODE>ioOptions</CODE> is a valid <TT>KLLoginOptions</TT>
+   created with <CODE>KLCreateLoginOptions ()</CODE>
+</UL>
+
+<H4>Effects:</H4>
+
+<P>Sets the proxiable tickets flag in the <TT>KLLoginOptions</TT>
+provided.</P>
+
+<H4>Results:</H4>
+
+<P>If successful, klNoErr is returned. Otherwise, one of the
+following error codes is returned instead:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadLoginOptionsErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLLoginOptions</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klPreferencesReadErr</TT>
+      </TD><TD>
+         <P>The preferences file is inaccessible or corrupt.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klV5InitializationFailedErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Failed to initialize a krb5 context.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLLoginOptionsSetRenewableLifetime"></A>KLLoginOptionsSetRenewableLifetime
+</H3>
+
+<PRE><CODE>KLStatus KLLoginOptionsSetRenewableLifetime (
+     KLLoginOptions   ioOptions,
+     KLLifetime       inRenewableLifetime);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<UL>
+   <LI>Kerberos Login Library API 2.2 (part of Kerberos for Macintosh
+   4.5) or later
+
+   <LI><CODE>ioOptions</CODE> is a valid <TT>KLLoginOptions</TT>
+   created with <CODE>KLCreateLoginOptions ()</CODE>
+</UL>
+
+<H4>Effects:</H4>
+
+<P>Sets the renewable lifetime in the <TT>KLLoginOptions</TT>
+provided.</P>
+
+<H4>Results:</H4>
+
+<P>If successful, klNoErr is returned. Otherwise, one of the
+following error codes is returned instead:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadLoginOptionsErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLLoginOptions</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klPreferencesReadErr</TT>
+      </TD><TD>
+         <P>The preferences file is inaccessible or corrupt.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klV5InitializationFailedErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Failed to initialize a krb5 context.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLLoginOptionsSetAddressless"></A>KLLoginOptionsSetAddressless
+</H3>
+
+<PRE><CODE>KLStatus KLLoginOptionsSetAddressless (
+     KLLoginOptions   ioOptions,
+     KLBoolean        inAddressless);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<UL>
+   <LI>Kerberos Login Library API 2.2 (part of Kerberos for Macintosh
+   4.5) or later
+
+   <LI><CODE>ioOptions</CODE> is a valid <TT>KLLoginOptions</TT>
+   created with <CODE>KLCreateLoginOptions ()</CODE>
+</UL>
+
+<H4>Effects:</H4>
+
+<P>Sets whether tickets contain in the <TT>KLLoginOptions</TT>
+provided.</P>
+
+<H4>Results:</H4>
+
+<P>If successful, klNoErr is returned. Otherwise, one of the
+following error codes is returned instead:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadLoginOptionsErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLLoginOptions</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klPreferencesReadErr</TT>
+      </TD><TD>
+         <P>The preferences file is inaccessible or corrupt.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klV5InitializationFailedErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Failed to initialize a krb5 context.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLLoginOptionsSetTicketStartTime"></A>KLLoginOptionsSetTicketStartTime
+</H3>
+
+<PRE><CODE>KLStatus KLLoginOptionsSetTicketStartTime (
+     KLLoginOptions   ioOptions,
+     KLTime           inStartTime);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<UL>
+   <LI>Kerberos Login Library API 2.2 (part of Kerberos for Macintosh
+   4.5) or later
+
+   <LI><CODE>ioOptions</CODE> is a valid <TT>KLLoginOptions</TT>
+   created with <CODE>KLCreateLoginOptions ()</CODE>
+</UL>
+
+<H4>Effects:</H4>
+
+<P>Sets the time when tickets become valid in the <TT>KLLoginOptions</TT>
+provided.</P>
+
+<H4>Results:</H4>
+
+<P>If successful, klNoErr is returned. Otherwise, one of the
+following error codes is returned instead:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadLoginOptionsErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLLoginOptions</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klPreferencesReadErr</TT>
+      </TD><TD>
+         <P>The preferences file is inaccessible or corrupt.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klV5InitializationFailedErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Failed to initialize a krb5 context.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLLoginOptionsSetServiceName"></A>KLLoginOptionsSetServiceName
+</H3>
+
+<PRE><CODE>KLStatus KLLoginOptionsSetServiceName (
+     KLLoginOptions   ioOptions,
+     const char      *inServiceName);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<UL>
+   <LI>Kerberos Login Library API 2.2 (part of Kerberos for Macintosh
+   4.5) or later
+
+   <LI><CODE>ioOptions</CODE> is a valid <TT>KLLoginOptions</TT>
+   created with <CODE>KLCreateLoginOptions ()</CODE>
+</UL>
+
+<H4>Effects:</H4>
+
+<P>Sets the service principal name in the <TT>KLLoginOptions</TT>
+provided.</P>
+
+<H4>Results:</H4>
+
+<P>If successful, klNoErr is returned. Otherwise, one of the
+following error codes is returned instead:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadLoginOptionsErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLLoginOptions</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klPreferencesReadErr</TT>
+      </TD><TD>
+         <P>The preferences file is inaccessible or corrupt.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klV5InitializationFailedErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Failed to initialize a krb5 context.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="KLDisposeLoginOptions"></A>KLDisposeLoginOptions</H3>
+
+<PRE><CODE>KLStatus </CODE>KLDisposeLoginOptions <CODE>(
+     KLLoginOptions inOptions);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<P>(none)</P>
+
+<H4>Effects:</H4>
+
+<P>Releases memory associated with the <CODE>KLLoginOptions</CODE>
+passed in. The reference is no longer valid after the call to
+<CODE>KLDisposeLoginOptions()</CODE>.</P>
+
+<H4>Results:</H4>
+
+<P>If successful, klNoErr is returned. Otherwise, one of the
+following error codes is returned instead:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadLoginOptionsErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLLoginOptions</TT> passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klPreferencesReadErr</TT>
+      </TD><TD>
+         <P>The preferences file is inaccessible or corrupt.
+      </TD></TR>
+</TABLE></P>
+
+<P>
+<HR>
+</P>
+
+<H2><A NAME="MiscFunctions"></A>Miscellaneous Functions</H2>
+
+<H3><A NAME="KLDisposeString"></A>KLDisposeString</H3>
+
+<PRE><CODE>KLStatus KLDisposeString(
+     char *inStringToDispose);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<UL>
+   <LI><CODE>inStringToDispose</CODE> is a string allocated by the
+   Login Library API.
+</UL>
+
+<H4>Effects:</H4>
+
+<P>Zeros the memory associated with the string passed in, and then
+releases the memory. (Zeroing the memory first is useful for when
+disposing of password strings allocated by the Login Library API.)
+The string may have been allocated by functions including
+<CODE>KLLoginDialogHandleEvents(),
+KLChangePasswordDialogHandleEvents(),
+KLGetStringFromPrincipal()</CODE> or
+<CODE>KLGetTripletFromPrincipal()</CODE>.</P>
+
+<H4>Results:</H4>
+
+<P>If successful, klNoErr is returned. Otherwise, one of the
+following error codes is returned instead:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+</TABLE></P>
+
+<P>
+<HR>
+</P>
+
+<H2><A NAME="InternalUseFunctions"></A>Internal Use Functions</H2>
+
+<H3><A NAME="__KLInternalAcquireTicketsForCache"></A>__KLInternalAcquireTicketsForCache
+</H3>
+
+<PRE><CODE>KLStatus __KLInternalAcquireTicketsForCache (
+     KLPrincipal         inPrincipal,
+     const char         *inCacheName,
+     KLKerberosVersion   inKerberosVersion,
+     KLPrincipal        *outPrincipal,				
+     char              **outCacheName);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<P>The <TT>__KLInternalAcquireTicketsForCache</TT> <CODE>()</CODE>
+function requires the following:</P>
+
+<UL>
+   <LI><TT>outCacheName</TT> and <TT>inCacheName</TT> are both
+   non-nil. <TT>inCacheName</TT> may be prefixed by the Kerberos 5
+   "API:" (<TT>__KLInternalAcquireTicketsForCache</TT> ( ) will
+   handle this case).
+   
+   <LI><TT>inKerberosVersion</TT> is a valid version of Kerberos.
+</UL>
+
+<H4>Effects:</H4>
+
+<P>The <TT>__KLInternalAcquireTicketsForCache</TT><CODE>()</CODE>
+function attempts to insure that a valid ticket-granting ticket of
+the Kerberos version <TT>inKerberosVersion</TT> is available in the
+cache <TT>inCacheName</TT> and, if specified, for the principal
+<TT>inPrincipal</TT>, prompting the user to obtain a new one if
+necessary. Its main purpose is to be used interally by Kerberos5 and
+Kerberos4 libraries to verify the existance of the appropriate ticket
+granting tickets for the current session before obtaining a Kerberos
+service ticket.</P>
+
+<P>The name of the principal for which tickets are obtained (or
+found) is returned in <CODE>outPrincipal</CODE>.</P>
+
+<P>The name of the cache into which tickets are placed (or which is
+found if no new tickets are obtained) is returned in
+<CODE>outCacheName</CODE> so that the caller can change the
+application/context default cache if desired. This returned name can
+be used in Credential Cache API, Kerberos 4, or Kerberos 5 calls.
+</P>
+
+<P>If <CODE>inPrincipal</CODE> is not <CODE>nil</CODE> (a principal
+is specified) and <TT>inKerberosVersion</TT> is a valid version for
+that principal (if not, <TT>klBadPrincipal</TT> is returned),</P>
+
+<UL>
+   <LI>and no valid tickets for that principal are in the the cache
+   specified by <TT>inCacheName</TT>,
+   <TT>__KLInternalAcquireTicketsForCache </TT><CODE>()</CODE>
+   presents the user interface as specified by
+   <CODE>KLLoginDialogBegin()</CODE> for obtaining user information
+   and then attempts to acquire tickets with that information into a
+   new cache. If successful and no tickets at all were previously in
+   the cache collection, the newly created cache is made the system
+   default cache;
+   
+   <LI>or, valid tickets for that principal are available in the
+   cache specified by <TT>inCacheName</TT>, no user interface is
+   displayed.
+</UL>
+
+<P>If <CODE>inPrincipal</CODE> is <CODE>nil</CODE> (no principal is
+specified),</P>
+
+<UL>
+   <LI>and no valid tickets for any user are in the cache specified
+   by <TT>inCacheName</TT>, <CODE>KLAcquireTickets()</CODE> presents
+   the user interface as specified by
+   <CODE>KLLoginDialogBegin()</CODE> for obtaining user information
+   and then attempts to acquire tickets with that information and
+   place them in a new cache. If successful and the cache collection
+   is empty, the credentials cache corresponding to that principal
+   are made the system default cache.
+   
+   <LI>or, valid tickets are available in the cache specified by
+   <TT>inCacheName</TT>, no user interface is displayed and
+   <TT>inCacheName</TT> is returned.
+</UL>
+
+<P><TT>__KLInternalAcquireTicketsForCache</TT><CODE>()</CODE> does
+not necessarily present the user interface. If you always want to
+bring up the user interface, use <CODE>KLAcquireNewTickets()</CODE>.
+</P>
+
+<P><TT>__KLInternalAcquireTicketsForCache</TT><CODE>()</CODE> will
+take care of presenting error dialogs to the user as necessary (for
+problems such as unknown principal, incorrect password, etc.). You do
+not need to call <CODE>KLHandleError()</CODE> after this function.
+</P>
+
+<P>If both Kerberos v4 and Kerberos v5 are available for the realm of
+the principal, either both v4 and v5 ticket-granting tickets will be
+available in the cache collection (and the credentials cache
+containing them will possibly be set as the system default cache, as
+specified above) upon return, or
+<TT>__KLInternalAcquireTicketsForCache</TT><CODE>()</CODE> will
+return an error code.</P>
+
+<P>If both Kerberos v4 and Kerberos v5 are available for the realm of
+the principal, and valid tickets for only one version but not the
+other are available in the cache collection,
+<TT>__KLInternalAcquireTicketsForCache</TT><CODE>()</CODE> will treat
+this as the same as the no valid tickets case -- new tickets will be
+obtained for both Kerberos versions, replacing the current "orphan"
+ones.</P>
+
+<P>If only one of Kerberos v4 and Kerberos v5 is available for the
+realm of the principal, either a ticket-granting ticket for the
+appropriate version will be available in the cache collection (and
+the credentials cache containing them will be possibly set as the
+system default cache) as specified above upon return, or
+<TT>__KLInternalAcquireTicketsForCache</TT><CODE>()</CODE> will
+return an error code<CODE>.</CODE></P>
+
+<H4>Results:</H4>
+
+<P>If <TT>__KLInternalAcquireTicketsForCache</TT><CODE>()</CODE>
+returns <CODE>klNoErr</CODE>, then:</P>
+
+<UL>
+   <LI>tickets are available in the cache collection specified by
+   <TT>outCacheName</TT>;
+   
+   <LI>if <CODE>outPrincipal</CODE> is not <CODE>nil</CODE>, a new
+   <CODE>KLPrincipal</CODE> is returned in
+   <CODE>*outPrincipal</CODE>. The returned <CODE>KLPrincipal</CODE>
+   should be freed using the <CODE>KLDisposePrincipal()</CODE>
+   function. If <CODE>outPrincipal</CODE> is <CODE>nil</CODE>,
+   nothing is returned.
+</UL>
+
+<P>Otherwise, <CODE>outPrincipal</CODE> and
+<CODE>outCredCacheName</CODE> are unchanged and
+<TT>__KLInternalAcquireTicketsForCache </TT><CODE>()</CODE> returns
+one of the following error codes:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadPrincipalErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLPrincipal</TT> passed into function or
+         version does not match principal.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klBadVersionErr</TT>
+      </TD><TD>
+         <P>Invalid Kerberos version passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klUserCanceledErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The user cancelled the dialog.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klRealmDoesNotExistErr</TT>
+      </TD><TD>
+         <P>The specified realm does not exist.
+      </TD></TR>
+</TABLE></P>
+
+<H3><A NAME="__KLInternalAcquireNewKerberos4TicketsFromKerberos5Tickets"></A>__KLInternalAcquireNewKerberos4TicketsFromKerberos5Tickets
+</H3>
+
+<PRE><CODE>KLStatus __KLInternalAcquireNewKerberos4TicketsFromKerberos5Tickets (
+        KLPrincipal       inPrincipal,
+		KLPrincipal		 *outPrincipal, 
+		char 			**outCredCacheName);</CODE></PRE>
+
+<H4>Requires:</H4>
+
+<P>The <CODE>__KLInternalAcquireNewKerberos4TicketsFromKerberos5Tickets()</CODE>
+function requires the following:</P>
+
+<UL>
+   <LI><CODE>inPrincipal</CODE> is a valid <CODE>KLPrincipal</CODE>.
+</UL>
+
+<H4>Effects:</H4>
+
+<P><CODE>__KLInternalAcquireNewKerberos4TicketsFromKerberos5Tickets()</CODE>
+attempts to obtain a new Kerberos 4 credential for <CODE>inPrincipal</CODE>
+from an existing  Kerberos 5 credential for the same principal using the 
+krb524 service.
+</P>
+
+<P>The name of the principal for which the Kerberos 4 ticket is obtained 
+is returned in <CODE>outPrincipal</CODE>.</P>
+
+<P>The name of the cache into which the Kerberos 4 ticket 
+is placed is returned in <CODE>outCacheName</CODE>.  This returned name can
+be used in Credential Cache API, Kerberos 4, or Kerberos 5 calls.
+</P>
+
+<H4>Results:</H4>
+
+<P>If <CODE>__KLInternalAcquireNewKerberos4TicketsFromKerberos5Tickets()</CODE>
+returns <CODE>klNoErr</CODE>, then:</P>
+
+<UL>
+   <LI>A new Kerberos 4 ticket is available in the cache collection specified by
+   <TT>outCacheName</TT>;
+   
+   <LI>if <CODE>outPrincipal</CODE> is not <CODE>nil</CODE>, a new
+   <CODE>KLPrincipal</CODE> is returned in
+   <CODE>*outPrincipal</CODE>. The returned <CODE>KLPrincipal</CODE>
+   should be freed using the <CODE>KLDisposePrincipal()</CODE>
+   function. If <CODE>outPrincipal</CODE> is <CODE>nil</CODE>,
+   nothing is returned.
+</UL>
+
+<P>Otherwise, <CODE>outPrincipal</CODE> and
+<CODE>outCredCacheName</CODE> are unchanged and
+<CODE>__KLInternalAcquireNewKerberos4TicketsFromKerberos5Tickets()</CODE> returns
+one of the following error codes:</P>
+
+<P><TABLE BORDER=0 CELLSPACING=4>
+   <TR>
+      <TD VALIGN=top WIDTH=224 HEIGHT=1>
+         <P><TT>klParameterErr</TT>
+      </TD><TD VALIGN=top HEIGHT=1>
+         <P>Invalid option passed into function (check your
+         variables).
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klBadPrincipalErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Invalid <TT>KLPrincipal</TT> passed into function or
+         version does not match principal.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klBadVersionErr</TT>
+      </TD><TD>
+         <P>Invalid Kerberos version passed into function.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klUserCanceledErr</TT>
+      </TD><TD VALIGN=top>
+         <P>The user cancelled the dialog.
+      </TD></TR>
+   <TR>
+      <TD VALIGN=top WIDTH=224>
+         <P><TT>klMemFullErr</TT>
+      </TD><TD VALIGN=top>
+         <P>Out of memory.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P><TT>klRealmDoesNotExistErr</TT>
+      </TD><TD>
+         <P>The specified realm does not exist.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P>Any Kerberos 5 error
+      </TD><TD>
+         <P>Use <TT>KLHandleError ()</TT> or <TT>KLGetErrorString
+         ()</TT> to report these errors to the user.
+      </TD></TR>
+   <TR>
+      <TD WIDTH=224>
+         <P>Any Kerberos 4 error
+      </TD><TD>
+         <P>Use <TT>KLHandleError ()</TT> or <TT>KLGetErrorString
+         ()</TT> to report these errors to the user.
+      </TD></TR>
+</TABLE></P>
+
+</BLOCKQUOTE>
+
+<!-- #include "footer.html" -->
+<HR> 
+<P> 
+	<FONT SIZE="+1"> <B> 
+		Questions or comments? Send mail to <A HREF="mailto:macdev@mit.edu">macdev@mit.edu</A> 
+	</B> </FONT> <BR>
+	Last updated on $Date: 2003/10/02 19:58:26 $ <BR> 
+	Last modified by $Author: smcguire $<BR>
+
+</P>
+<!-- Begin MIT-use only web reporting counter -->
+	<IMG SRC="//counter.mit.edu/tally" WIDTH=1 HEIGHT=1 ALT="">
+<!-- End MIT-use only web reporting counter -->
+</BODY> </HTML>
+<!-- end include -->

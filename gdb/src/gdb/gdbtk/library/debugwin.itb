@@ -21,7 +21,7 @@
 #
 # ARGS:		None are used yet.
 # -----------------------------------------------------------------------------
-body DebugWin::constructor {args} {
+itcl::body DebugWin::constructor {args} {
   debug $args
   window_name "Insight Debug" "Debug"
 
@@ -37,7 +37,7 @@ body DebugWin::constructor {args} {
 #
 # ARGS:		None
 # -----------------------------------------------------------------------------
-body DebugWin::destructor {} {
+itcl::body DebugWin::destructor {} {
   # notify debug code that window is going away
   ::debug::debugwin ""
 }
@@ -51,7 +51,7 @@ body DebugWin::destructor {} {
 #		file, if it exists. Notifies the debug functions in ::debug
 #		to send output here.
 # -----------------------------------------------------------------------------
-body DebugWin::build_win {} {
+itcl::body DebugWin::build_win {} {
   global gdb_ImageDir GDBTK_LIBRARY
 
   set top [winfo toplevel $itk_interior]
@@ -103,8 +103,7 @@ body DebugWin::build_win {} {
   $menu add cascade -menu $menu.help -label "Help" -underline 0
   set m [menu $menu.help]
   $m add command -label "Debugging Functions" -underline 0 \
-    -command {ManagedWin::open HtmlViewer -force -file debug.html \
-		-topics {{{"Debug Functions" debug.html}}}}
+    -command {open_help debug.html}
 
   $top configure -menu $menu
   
@@ -145,7 +144,7 @@ body DebugWin::build_win {} {
 #		func  - function name of caller
 #		msg   - message to display
 # -----------------------------------------------------------------------------
-body DebugWin::puts {level cls func msg} {
+itcl::body DebugWin::puts {level cls func msg} {
   # filter. check if we should display this message
   # for now we always let high-level messages through
   if {$level == "I"} {
@@ -197,7 +196,7 @@ body DebugWin::puts {level cls func msg} {
 #		func  - function name
 #		ar    - function arguments
 # -----------------------------------------------------------------------------
-body DebugWin::put_trace {enter level func ar} {
+itcl::body DebugWin::put_trace {enter level func ar} {
   set x [expr {$level * 2 - 2}]
   if {$enter} {
     $_t insert end "[string range $_bigstr 0 $x]$func " trace "$ar\n" args
@@ -215,7 +214,7 @@ body DebugWin::put_trace {enter level func ar} {
 # DESC:		Reads the contents of the debug log file, if it exists, into 
 #		the DebugWin. 
 # -----------------------------------------------------------------------------
-body DebugWin::loadlog {} {
+itcl::body DebugWin::loadlog {} {
   $_t delete 0.0 end
   # Now load in log file, if possible.
   # this is rather rude, using the logfile variable in the debug namespace
@@ -248,7 +247,7 @@ body DebugWin::loadlog {} {
 #	
 # DESC:		Re-sources all the .itb files.
 # -----------------------------------------------------------------------------
-body DebugWin::_source_all {} {
+itcl::body DebugWin::_source_all {} {
   foreach f [glob [file join $::GDBTK_LIBRARY *.itb]] {
     source $f
   }
@@ -261,7 +260,7 @@ body DebugWin::_source_all {} {
 #	
 # DESC:		Clears out the content of the debug window.
 # -----------------------------------------------------------------------------
-body DebugWin::_clear {} {
+itcl::body DebugWin::_clear {} {
   $_t delete 1.0 end
 }
 
@@ -272,7 +271,7 @@ body DebugWin::_clear {} {
 #	
 # DESC:		Changes the background of the current contents of the window.
 # -----------------------------------------------------------------------------
-body DebugWin::_mark_old {} {
+itcl::body DebugWin::_mark_old {} {
   $_t tag add marked 1.0 "end - 1c"
 }
 
@@ -283,7 +282,7 @@ body DebugWin::_mark_old {} {
 #	
 # DESC:		Changes the background of the current contents of the window.
 # -----------------------------------------------------------------------------
-body DebugWin::_save_contents {} {
+itcl::body DebugWin::_save_contents {} {
   set file [tk_getSaveFile -title "Choose debug window dump file" \
 	      -parent [winfo toplevel $itk_interior]]
   if {$file == ""} {
@@ -307,7 +306,7 @@ body DebugWin::_save_contents {} {
 #	
 # DESC:		Creates the Debug Window Options Dialog.
 # -----------------------------------------------------------------------------
-body DebugWinDOpts::constructor {args} {
+itcl::body DebugWinDOpts::constructor {args} {
     window_name "Debug Window Options"
     build_win
     eval itk_initialize $args 
@@ -321,7 +320,7 @@ body DebugWinDOpts::constructor {args} {
 #	
 # DESC:		Destroys the Debug Window Options Dialog.
 # -----------------------------------------------------------------------------
-body DebugWinDOpts::destructor {} {
+itcl::body DebugWinDOpts::destructor {} {
 }
 
 
@@ -334,13 +333,13 @@ body DebugWinDOpts::destructor {} {
 #		user to select which information is displayed in the debug 
 #		window and (eventually) how it looks.
 # -----------------------------------------------------------------------------
-body DebugWinDOpts::build_win {} {
+itcl::body DebugWinDOpts::build_win {} {
   wm title [winfo toplevel $itk_interior] "Debug Display Options"
   # initialize here so we can resource this file and update the list
   set _classes {DebugWin RegWin SrcBar SrcWin ToolBar WatchWin EmbeddedWin \
-		  ManagedWin GDBWin StackWin SrcTextWin VariableWin global \
+		  ManagedWin GDBWin StackWin SrcTextWin global \
 		  BpWin TargetSelection ModalDialog ProcessWin \
-		  GDBEventHandler MemWin}
+		  GDBEventHandler MemWin VarTree}
   set _classes [concat [lsort $_classes] others]
 
   set f [frame $itk_interior.f]
@@ -412,7 +411,7 @@ body DebugWinDOpts::build_win {} {
 # DESC:		Callback for selecting ALL classes. If the user selects ALL,
 #		deselect all the individual class checkbuttons.
 # -----------------------------------------------------------------------------
-body DebugWinDOpts::_all {} {
+itcl::body DebugWinDOpts::_all {} {
   switch $::gdbtk_de(filter_var) {
     ALL {
       set ::gdbtk_de(ALL) 1
@@ -457,7 +456,7 @@ body DebugWinDOpts::_all {} {
 #		log file through the new filter into the debug window. The
 #		button is disabled if there is no log file.
 # -----------------------------------------------------------------------------
-body DebugWinDOpts::_apply { done } {
+itcl::body DebugWinDOpts::_apply { done } {
   set dw [ManagedWin::find DebugWin]
   debug $dw
   if {$dw != ""} {

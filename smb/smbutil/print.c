@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: print.c,v 1.5 2002/03/15 03:40:20 lindak Exp $
+ * $Id: print.c,v 1.6 2003/05/14 15:06:01 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/errno.h>
@@ -49,6 +49,7 @@
 
 #include "common.h"
 
+#ifndef APPLE
 int
 cmd_print(int argc, char *argv[])
 {
@@ -159,6 +160,7 @@ reauth:
 		smb_error("an error while closing spool file\n", error);
 	return error ? 1 : 0;
 }
+#endif /* !APPLE */
 
 
 void

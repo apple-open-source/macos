@@ -25,6 +25,8 @@ provided test systems where I was able to do development work.
 	Jim Ankenbrandt
 	Richard Allen
 	Thomas Anders
+	Ric Anderson
+	Stuart Anderson
 	Marc Auslander
 	Tigran Aivazian
 	Jos Backus
@@ -36,8 +38,11 @@ provided test systems where I was able to do development work.
 	Bruce Beare
 	M. Jay Beck
 	Michael Beirne
+	Marc Bejarano
 	Steve Bellenot
+	Robert Benites
 	Ulrich Bernhard
+	Peter J. Bertoncini
 	Dave Bianchi
 	Mark Bixby
 	Allan Black
@@ -46,6 +51,7 @@ provided test systems where I was able to do development work.
 	Volker Borchert
 	Bill Bormann
 	Heddy Boubaker
+	Michael Bracewell
 	Kieran Broadfoot
 	Dean Brock
 	Andrew Brown
@@ -68,13 +74,16 @@ provided test systems where I was able to do development work.
 	A. Channing Clark
 	Axel Clauberg
 	John Clear
+	David Clissold
 	Richard Coley
 	John Colgrave
+	David Comay
 	Lionel Cons
 	Bob Cook
 	Patrick Connor
 	Jim Cooper
 	Doug Crabill
+	Eric Cronin
 	Dave Curry
 	Robert Dahlem
 	Guy Dallaire
@@ -82,6 +91,7 @@ provided test systems where I was able to do development work.
 	Ian Darwin
 	Carl E. Davidson
 	Will Day
+	Frederic Delanoy
 	Steve Dibbell
 	Hugh Dickins
 	David DiGiacomo
@@ -99,6 +109,7 @@ provided test systems where I was able to do development work.
 	Niklas Edmundsson
 	Philip Edwards
 	Robert Ehrlich
+	Mark W. Eichin
 	Doug Eldred
 	Scott Ellentuch
 	Tom Endo
@@ -111,11 +122,13 @@ provided test systems where I was able to do development work.
 	Ian Fitchet
 	Toralf Foerster
 	Bob Foertsch
+	Pierre-Yves Fontaniere
 	Ralph Forsythe
 	Mike Fraser
 	Curt Freeland
 	Terry Friedrichsen
 	Stuart D. Gathman
+	Brian L. Gentry
 	Dave Gilbert
 	Kurt Gollhardt
 	Roman Gollent
@@ -123,6 +136,7 @@ provided test systems where I was able to do development work.
 	Henry Grebler
 	Richard Green
 	Chaskiel Grundman
+	Armin Gruner
 	Robert Hall
 	Garner Halloran
 	Adam Hammer
@@ -132,10 +146,12 @@ provided test systems where I was able to do development work.
 	Steinar Haug
 	Sheldon Hearn
 	Wolfgang Hecht
+	Janet Hempstead
 	Michael Hennecke
 	Randolph J. Herber
 	Andrew Hill
 	Kurt Hillig
+	Steven Hinkle
 	Paul Hite
 	Billy Ho
 	Brett Hogden
@@ -154,10 +170,12 @@ provided test systems where I was able to do development work.
 	Mayer Ilovitz
 	John Jackson
 	Kurt Jaeger
+	Marian Jancar
 	Bruce Jerrick
 	Carl Johnson
 	Dion Johnson
 	Jeff Johnson
+	Douglas B. Jones
 	LaMont Jones
 	Peter Jordan
 	Arne H. Juul
@@ -168,6 +186,7 @@ provided test systems where I was able to do development work.
 	Henri Karrenbeld
 	Amir Katz
 	Henry Katz
+	Kris Kennaway
 	Terry Kennedy
 	Shane Kenney
 	Andrew Kephart
@@ -182,6 +201,7 @@ provided test systems where I was able to do development work.
 	Angelos D. Keromytis
 	Valdis Kletnieks
 	Chris Kordish
+	Alek O. Komarnitsky
 	Joseph Kowalski
 	Christian Krackowizer
 	Paul Kranenburg
@@ -201,7 +221,6 @@ provided test systems where I was able to do development work.
 	Tin Le
 	Diane Lebel
 	Francis Le Bourse
-	Michael Bracewell
 	Marty Leisner
 	Maciej Lesniewski
 	Stuart Levy
@@ -247,6 +266,7 @@ provided test systems where I was able to do development work.
 	Gary Millen
 	Timothy Miller
 	Davin Milun
+	Yuliy Minchev
 	Jim Mintha
 	Arkadiusz Miskiewicz
 	Nasser Momtaheni
@@ -257,10 +277,12 @@ provided test systems where I was able to do development work.
 	Jeffrey Mogul
 	Dave Morrison
 	Pat Myrto
+	Toshiya Nakamura
 	Allan Nathanson
 	Chance Neale
 	Dan Nelson
 	Bjorn S. Nilsson
+	Anders Nordby
 	Joseph J. Nuspl Jr.
 	David O'Brien
 	Alexandre Oliva
@@ -331,11 +353,15 @@ provided test systems where I was able to do development work.
 	Chang Song
 	John Speno
 	Kenneth Stailey
+	David Steiner
 	Charles Stephens
+	Marc Stephenson
 	Chip Stettler
 	Dave Stevens
 	Jeff Stewart
+	Diana Stockdale
 	Andreas Stolcke
+	Jeff Stoner
 	Sushila Subramanian
 	Jan Ole Suhr
 	Mike Sullivan
@@ -357,6 +383,7 @@ provided test systems where I was able to do development work.
 	Lars Tunkrans
 	Lenny Turetsky
 	Kevin Vajk
+	Peter Valchev
 	John R. Vanderpool
 	Peter Van Epp
 	Peter C. Vernam
@@ -377,11 +404,13 @@ provided test systems where I was able to do development work.
 	Joel White
 	Paul Wickman
 	Steve Williams
+	Steve Wilson
 	Erich Wimmer
 	Wally Winzer, Jr.
 	Patrick Wolfe
 	Stephen Woods
 	James Woodward
+	Joshua Wright
 	Sailu Yallapragada
 	Donna Yobs
 	Ron Young
@@ -394,4 +423,4 @@ and I apologize for the error.
 
 
 Vic Abell <abe@purdue.edu>
-November 1, 2001
+June 12, 2003

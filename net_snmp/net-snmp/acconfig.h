@@ -1,10 +1,10 @@
+#ifndef NET_SNMP_CONFIG_H
+#define NET_SNMP_CONFIG_H
+
 /* config.h:  a general config file */
 
-/* Define IN_UCD_SNMP_SOURCE if compiling inside the ucd-snmp source tree */
-#define IN_UCD_SNMP_SOURCE 1
-
-/* Our assigned enterprise number */
-#define ENTERPRISE_NUMBER 2021
+/* Default (SNMP) version number for the tools to use */
+#define DEFAULT_SNMP_VERSION 3
 
 /* don't change these values! */
 #define SNMPV1      0xAAAA       /* readable by anyone */
@@ -38,9 +38,6 @@
 
 /* define if you are using the MD5 code ...*/
 #undef USE_INTERNAL_MD5
-
-/* ... or define this if you're using openssl support */
-#undef USE_OPENSSL
 
 /* add in recent CMU library extensions (not complete) */
 #undef CMU_COMPATIBLE
@@ -80,11 +77,14 @@
 
 @TOP@
 
+/* define if you are embedding perl in the main agent */
+#undef NETSNMP_EMBEDDED_PERL
+
 /* define the system type include file here */
-#define SYSTEM_INCLUDE_FILE "s/generic.h"
+#define SYSTEM_INCLUDE_FILE <net-snmp/system/generic.h>
 
 /* define the machine (cpu) type include file here */
-#define MACHINE_INCLUDE_FILE "m/generic.h"
+#define MACHINE_INCLUDE_FILE <net-snmp/machine/generic.h>
 
 /* SNMPLIBDIR contains important files */
 
@@ -133,6 +133,9 @@
 /* If you don't have root access don't exit upon kmem errors */
 #undef NO_ROOT_ACCESS
 
+/* If we don't want to use kmem. */
+#undef NO_KMEM_USAGE
+
 /* If you don't want the agent to report on variables it doesn't have data for */
 #undef NO_DUMMY_VALUES
 
@@ -146,8 +149,14 @@
 
 @BOTTOM@
 
+/* define if you have getdevs() */
+#undef HAVE_GETDEVS
+
 /* define if you have <netinet/in_pcb.h> */
 #undef HAVE_NETINET_IN_PCB_H
+
+/* define if you have <sys/disklabel.h> */
+#undef HAVE_SYS_DISKLABEL_H
 
 /* define if you are using linux and /proc/net/dev has the compressed
    field, which exists in linux kernels 2.2 and greater. */
@@ -221,11 +230,32 @@
 /* nlist.n_value */
 #undef STRUCT_NLIST_HAS_N_VALUE
 
+/* ipstat structure tests */
+#undef STRUCT_IPSTAT_HAS_IPS_CANTFORWARD
+#undef STRUCT_IPSTAT_HAS_IPS_CANTFRAG
+#undef STRUCT_IPSTAT_HAS_IPS_DELIVERED
+#undef STRUCT_IPSTAT_HAS_IPS_FRAGDROPPED
+#undef STRUCT_IPSTAT_HAS_IPS_FRAGTIMEOUT
+#undef STRUCT_IPSTAT_HAS_IPS_LOCALOUT
+#undef STRUCT_IPSTAT_HAS_IPS_NOPROTO
+#undef STRUCT_IPSTAT_HAS_IPS_NOROUTE
+#undef STRUCT_IPSTAT_HAS_IPS_ODROPPED
+#undef STRUCT_IPSTAT_HAS_IPS_OFRAGMENTS
+#undef STRUCT_IPSTAT_HAS_IPS_REASSEMBLED
+
 /* vfsstat.f_frsize */
 #undef STRUCT_STATVFS_HAS_F_FRSIZE
 
 /* vfsstat.f_files */
 #undef STRUCT_STATVFS_HAS_F_FILES
+
+/* statfs inode structure tests*/
+#undef STRUCT_STATFS_HAS_F_FILES
+#undef STRUCT_STATFS_HAS_F_FFREE
+#undef STRUCT_STATFS_HAS_F_FAVAIL
+
+/* des_ks_struct.weak_key */
+#undef STRUCT_DES_KS_STRUCT_HAS_WEAK_KEY
 
 /* ifnet needs to have _KERNEL defined */
 #undef IFNET_NEEDS_KERNEL
@@ -241,17 +271,6 @@
 
 /* define if your compiler (processor) defines __FUNCTION__ for you */
 #undef HAVE_CPP_UNDERBAR_FUNCTION_DEFINED
-
-/* mib pointer to the top of the extensible tree.  This has been
- assigned to UCDavis by the iana group.  Optionally, point this to the
- location in the tree your company/organization has been allocated. */
-
-/* location of the extensible mib tree */
-#define EXTENSIBLEMIB 1,3,6,1,4,1,2021
-/* location of the extensible mib tree */
-#define EXTENSIBLEDOTMIB 1.3.6.1.4.1.2021
-/* count the above numbers */
-#define EXTENSIBLENUM 7
 
 /* Mib-2 tree Info */
 /* These are the system information variables. */
@@ -284,7 +303,7 @@
 /* (typically its "can't fork, no mem" problems) */
 #define ERRORMIBNUM 101
 
-/* The sub id of EXENSIBLEMIB returned to queries of
+/* The sub id of EXTENSIBLEMIB returned to queries of
    .iso.org.dod.internet.mgmt.mib-2.system.sysObjectID.0 */
 #define AGENTID 250
 
@@ -304,6 +323,8 @@
 #define LINUXID 10
 #define BSDIID 11
 #define OPENBSDID 12
+#define WIN32ID 13
+#define HPUX11ID 14
 #define UNKNOWNID 255
 
 #ifdef hpux9
@@ -311,6 +332,9 @@
 #endif
 #ifdef hpux10
 #define OSTYPE HPUX10ID
+#endif
+#ifdef hpux11
+#define OSTYPE HPUX11ID
 #endif
 #ifdef sunos4
 #define OSTYPE SUNOS4ID
@@ -336,7 +360,7 @@
 #ifdef linux
 #define OSTYPE LINUXID
 #endif
-#if defined(bsdi2) || defined(bsdi3)
+#if defined(bsdi2) || defined(bsdi3) || defined(bsdi4)
 #define OSTYPE BSDIID
 #endif
 #ifdef openbsd2
@@ -346,6 +370,33 @@
 #ifndef OSTYPE
 #define OSTYPE UNKNOWNID
 #endif
+
+/* The enterprise number has been assigned by the IANA group.   */
+/* Optionally, this may point to the location in the tree your  */
+/* company/organization has been allocated.                     */
+/* The assigned enterprise number for the NET_SNMP MIB modules. */
+#define ENTERPRISE_OID			8072
+#define ENTERPRISE_MIB			1,3,6,1,4,1,8072
+#define ENTERPRISE_DOT_MIB		1.3.6.1.4.1.8072
+#define ENTERPRISE_DOT_MIB_LENGTH	7
+
+/* The assigned enterprise number for sysObjectID. */
+#define SYSTEM_MIB		1,3,6,1,4,1,8072,3,2,OSTYPE
+#define SYSTEM_DOT_MIB		1.3.6.1.4.1.8072.3.2.OSTYPE
+#define SYSTEM_DOT_MIB_LENGTH	10
+
+/* The assigned enterprise number for notifications. */
+#define NOTIFICATION_MIB		1,3,6,1,4,1,8072,4
+#define NOTIFICATION_DOT_MIB		1.3.6.1.4.1.8072.4
+#define NOTIFICATION_DOT_MIB_LENGTH	8
+
+/* this is the location of the ucdavis mib tree.  It shouldn't be
+   changed, as the places it is used are expected to be constant
+   values or are directly tied to the UCD-SNMP-MIB. */
+#define UCDAVIS_OID		2021
+#define UCDAVIS_MIB		1,3,6,1,4,1,2021
+#define UCDAVIS_DOT_MIB		1.3.6.1.4.1.2021
+#define UCDAVIS_DOT_MIB_LENGTH	7
 
 /* how long to wait (seconds) for error querys before reseting the error trap.*/
 #define ERRORTIMELENGTH 600 
@@ -406,6 +457,12 @@
 /* configure options specified */
 #define CONFIGURE_OPTIONS ""
 
+/* got socklen_t? */
+#undef HAVE_SOCKLEN_T
+
+/* got in_addr_t? */
+#undef HAVE_IN_ADDR_T
+
 #ifndef HAVE_STRCHR
 #ifdef HAVE_INDEX
 # define strchr index
@@ -442,6 +499,11 @@
 #endif
 #endif
 
+/* If you have openssl 0.9.7 or above, you likely have AES support. */
+#undef USE_OPENSSL
+#if defined(USE_OPENSSL) && defined(HAVE_OPENSSL_AES_H) && defined(HAVE_AES_CFB128_ENCRYPT)
+#define HAVE_AES 1
+#endif
 
 /* define random functions */
 
@@ -483,6 +545,45 @@
 #undef LPSTAT_PATH
 #undef HAVE_PRINTCAP
 
+/*  Pluggable transports.  */
+
+/*  This is defined if support for the UDP/IP transport domain is
+    available.   */
+#undef SNMP_TRANSPORT_UDP_DOMAIN
+
+/*  This is defined if support for the TCP/IP transport domain is
+    available.  */
+#undef SNMP_TRANSPORT_TCP_DOMAIN
+
+/*  This is defined if support for the Unix transport domain
+    (a.k.a. "local IPC") is available.  */
+#undef SNMP_TRANSPORT_UNIX_DOMAIN
+
+/*  This is defined if support for the AAL5 PVC transport domain is
+    available.  */
+#undef SNMP_TRANSPORT_AAL5PVC_DOMAIN
+
+/*  This is defined if support for the IPX transport domain is
+    available.  */
+#undef SNMP_TRANSPORT_IPX_DOMAIN
+
+/*  This is defined if support for the UDP/IPv6 transport domain is
+    available.  */
+#undef SNMP_TRANSPORT_UDPIPV6_DOMAIN
+
+/*  This is defined if support for the TCP/IPv6 transport domain is
+    available.  */
+#undef SNMP_TRANSPORT_TCPIPV6_DOMAIN
+
+/* define this if the USM security module is available */
+#undef SNMP_SECMOD_USM
+
+/* define this if the KSM (kerberos based snmp) security module is available */
+#undef SNMP_SECMOD_KSM
+
+/* define this if we're using the new MIT crypto API */
+#undef MIT_NEW_CRYPTO
+
 /* define if you want to build with reentrant/threaded code */
 #undef NS_REENTRANT
 
@@ -503,7 +604,7 @@
 #include SYSTEM_INCLUDE_FILE
 #include MACHINE_INCLUDE_FILE
 
-#if defined(HAVE_NLIST) && defined(STRUCT_NLIST_HAS_N_VALUE) && !defined(DONT_USE_NLIST)
+#if defined(HAVE_NLIST) && defined(STRUCT_NLIST_HAS_N_VALUE) && !defined(DONT_USE_NLIST) && !defined(NO_KMEM_USAGE)
 #define CAN_USE_NLIST
 #endif
 
@@ -513,3 +614,4 @@
 
 #undef INET6
 
+#endif /* NET_SNMP_CONFIG_H */

@@ -13,9 +13,9 @@ PROJECTVERSION = 2.6
 PROJECT_TYPE = Aggregate
 LANGUAGE = English
 
-TOOLS = cap_mkdb.tproj finger.tproj fingerd.tproj last.tproj md.tproj\
-        mklocale.tproj pstat.tproj stty.tproj \
-        tty.tproj whois.tproj ps.tproj
+TOOLS = cap_mkdb.tproj colldef.tproj finger.tproj fingerd.tproj gencat.tproj \
+        last.tproj lsvfs.tproj md.tproj mklocale.tproj pstat.tproj stty.tproj \
+        tty.tproj whois.tproj ps.tproj usr-share-locale.tproj
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.include adv_cmds.rtf
 
@@ -28,7 +28,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-NEXTSTEP_PB_CFLAGS = -traditional-cpp -D__TEFLON__
+NEXTSTEP_PB_CFLAGS = -no-cpp-precomp -D__TEFLON__
 
 
 NEXTSTEP_BUILD_OUTPUT_DIR = /tmp

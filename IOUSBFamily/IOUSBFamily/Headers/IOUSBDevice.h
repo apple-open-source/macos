@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +22,7 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 #ifndef _IOKIT_IOUSBDEVICE_H
 #define _IOKIT_IOUSBDEVICE_H
 
@@ -57,6 +58,7 @@ class IOUSBDevice : public IOUSBNub
 {
     friend class IOUSBController;
     friend class IOUSBInterface;
+    friend class IOUSBPipe;
    
     OSDeclareDefaultStructors(IOUSBDevice)
 
@@ -89,11 +91,13 @@ protected:
         bool			_portHasBeenReset;
         bool			_deviceterminating;
         IORecursiveLock*	_getConfigLock;
-        bool			_doneWaiting;
-        bool			_notifiedWhileBooting;
+        bool                   _doneWaiting;                   // Obsolete
+        bool                   _notifiedWhileBooting;          // Obsolete
         IOWorkLoop *		_workLoop;
         IOTimerEventSource *	_notifierHandlerTimer;
         UInt32			_notificationType;
+        bool			_suspendInProgress;
+        bool			_portHasBeenSuspended;
     };
     ExpansionData * _expansionData;
 

@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblunicode/ure/ure.h,v 1.8 2002/01/04 20:17:43 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblunicode/ure/ure.h,v 1.8.2.1 2003/02/08 23:50:39 kurt Exp $ */
 /*
- * Copyright 2000-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 2000-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*
@@ -31,7 +31,7 @@
 #include "portable.h"
 
 /*
- * $Id: ure.h,v 1.2 2002/07/15 23:45:16 majka Exp $
+ * $Id: ure.h,v 1.3 2003/07/18 01:10:36 jtownsen Exp $
  */
 
 #include <stdio.h>

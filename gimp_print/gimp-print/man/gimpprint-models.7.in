@@ -1,0 +1,248 @@
+.\" t
+.\" $Id: gimpprint-models.7.in,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $
+.\" Copyright (C) 2000 Roger Leigh <roger@whinlatter.uklinux.net>
+.\"
+.\" This program is free software; you can redistribute it and/or modify
+.\" it under the terms of the GNU General Public License as published by
+.\" the Free Software Foundation; either version 2, or (at your option)
+.\" any later version.
+.\"
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public License
+.\" along with this program; if not, write to the Free Software
+.\" Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+.TH GIMPPRINT-MODELS 7 "@RELEASE_DATE@" "Version @GIMPPRINT_VERSION@" "Gimp-Print Manual Pages"
+.SH NAME
+gimpprint-models \- Gimp-Print printer drivers
+.SH DESCRIPTION
+Gimp-Print supports many different printer models specific.  The option names
+are case sensitive.
+.SH PRINTER MODELS
+.TS
+li li
+lb l.
+Model name	Description
+_
+bjc-30	CANON BJC 30
+bjc-50	CANON BJC 50
+bjc-55	CANON BJC 55
+bjc-80	CANON BJC 80
+bjc-85	CANON BJC 85
+bjc-210	CANON BJC 210
+bjc-240	CANON BJC 240
+bjc-250	CANON BJC 250
+bjc-1000	CANON BJC 1000
+bjc-2000	CANON BJC 2000
+bjc-3000	CANON BJC 3000
+bjc-4300	CANON BJC 4300
+bjc-4400	CANON BJC 4400 photo
+bjc-6000	CANON BJC 6000
+bjc-6100	CANON BJC 6100
+bjc-7000	CANON BJC 7000
+bjc-7100	CANON BJC 7100
+bjc-8200	CANON BJC 8200
+bjc-s400	CANON S400
+bjc-s450	CANON S450
+bjc-s800	CANON S800
+bjc-s4500	CANON S4500
+escp2-c20sx	EPSON Stylus C20SX
+escp2-c20ux	EPSON Stylus C20UX
+escp2-c40sx	EPSON Stylus C40SX
+escp2-c40ux	EPSON Stylus C40UX
+escp2-c41sx	EPSON Stylus C41SX
+escp2-c41ux	EPSON Stylus C41UX
+escp2-c42sx	EPSON Stylus C42SX
+escp2-c42ux	EPSON Stylus C42UX
+escp2-c60	EPSON Stylus C60
+escp2-c61	EPSON Stylus C61
+escp2-c62	EPSON Stylus C62
+escp2-c70	EPSON Stylus C70
+escp2-c80	EPSON Stylus C80
+escp2-c82	EPSON Stylus C82
+escp2	EPSON Stylus Color
+escp2-pro	EPSON Stylus Color Pro
+escp2-pro-xl	EPSON Stylus Color Pro XL
+escp2-400	EPSON Stylus Color 400
+escp2-440	EPSON Stylus Color 440
+escp2-460	EPSON Stylus Color 460
+escp2-480	EPSON Stylus Color 480
+escp2-500	EPSON Stylus Color 500
+escp2-580	EPSON Stylus Color 580
+escp2-600	EPSON Stylus Color 600
+escp2-640	EPSON Stylus Color 640
+escp2-660	EPSON Stylus Color 660
+escp2-670	EPSON Stylus Color 670
+escp2-680	EPSON Stylus Color 680
+escp2-740	EPSON Stylus Color 740
+escp2-760	EPSON Stylus Color 760
+escp2-777	EPSON Stylus Color 777
+escp2-800	EPSON Stylus Color 800
+escp2-850	EPSON Stylus Color 850
+escp2-860	EPSON Stylus Color 860
+escp2-880	EPSON Stylus Color 880
+escp2-83	EPSON Stylus Color 83
+escp2-900	EPSON Stylus Color 900
+escp2-980	EPSON Stylus Color 980
+escp2-1160	EPSON Stylus Color 1160
+escp2-1500	EPSON Stylus Color 1500
+escp2-1520	EPSON Stylus Color 1520
+escp2-3000	EPSON Stylus Color 3000
+escp2-photo	EPSON Stylus Photo
+escp2-700	EPSON Stylus Photo 700
+escp2-ex	EPSON Stylus Photo EX
+escp2-ex3	EPSON Stylus Photo EX3
+escp2-720	EPSON Stylus Photo 720
+escp2-750	EPSON Stylus Photo 750
+escp2-780	EPSON Stylus Photo 780
+escp2-785	EPSON Stylus Photo 785EPX
+escp2-790	EPSON Stylus Photo 790
+escp2-810	EPSON Stylus Photo 810
+escp2-820	EPSON Stylus Photo 820
+escp2-830	EPSON Stylus Photo 830
+escp2-870	EPSON Stylus Photo 870
+escp2-875	EPSON Stylus Photo 875
+escp2-890	EPSON Stylus Photo 890
+escp2-895	EPSON Stylus Photo 895
+escp2-915	EPSON Stylus Photo 915
+escp2-925	EPSON Stylus Photo 925
+escp2-950	EPSON Stylus Photo 950
+escp2-960	EPSON Stylus Photo 960
+escp2-1200	EPSON Stylus Photo 1200
+escp2-1270	EPSON Stylus Photo 1270
+escp2-1280	EPSON Stylus Photo 1280
+escp2-1290	EPSON Stylus Photo 1290
+escp2-2000	EPSON Stylus Photo 2000P
+escp2-2100	EPSON Stylus Photo 2100
+escp2-2200	EPSON Stylus Photo 2200
+escp2-5000	EPSON Stylus Pro 5000
+escp2-5500	EPSON Stylus Pro 5500
+escp2-7000	EPSON Stylus Pro 7000
+escp2-7500	EPSON Stylus Pro 7500
+escp2-7600	EPSON Stylus Pro 7600
+escp2-9000	EPSON Stylus Pro 9000
+escp2-9500	EPSON Stylus Pro 9500
+escp2-9600	EPSON Stylus Pro 9600
+escp2-10000	EPSON Stylus Pro 10000
+escp2-scan2000	EPSON Stylus Scan 2000
+escp2-scan2500	EPSON Stylus Scan 2500
+escp2-cx3200	EPSON Stylus CX-3200
+escp2-cx5200	EPSON Stylus CX-5200
+escp2-cl700	EPSON CL-700
+escp2-cl750	EPSON CL-750
+escp2-em900c	EPSON EM-900C
+escp2-em930c	EPSON EM-930C
+escp2-mc10000	EPSON MC-10000
+escp2-mc2000	EPSON MC-2000
+escp2-mc5000	EPSON MC-5000
+escp2-mc7000	EPSON MC-7000
+escp2-mc9000	EPSON MC-9000
+escp2-mj930c	EPSON MJ-930C
+escp2-mj5100c	EPSON MJ-5100C
+escp2-mj6000c	EPSON MJ-6000C
+escp2-mj8000c	EPSON MJ-8000C
+escp2-pm10000	EPSON PM-10000
+escp2-pm2000c	EPSON PM-2000C
+escp2-pm2200c	EPSON PM-2200C
+escp2-pm3000c	EPSON PM-3000C
+escp2-pm3300c	EPSON PM-3300C
+escp2-pm3500c	EPSON PM-3500C
+escp2-pm4000px	EPSON PM-4000PX
+escp2-pm5000c	EPSON PM-5000C
+escp2-pm7000c	EPSON PM-7000C
+escp2-pm700c	EPSON PM-700C
+escp2-pm730c	EPSON PM-730C
+escp2-pm750c	EPSON PM-750C
+escp2-pm760c	EPSON PM-760C
+escp2-pm770c	EPSON PM-770C
+escp2-pm780c	EPSON PM-780C
+escp2-pm790pt	EPSON PM-790PT
+escp2-pm800c	EPSON PM-800C
+escp2-pm850pt	EPSON PM-850PT
+escp2-pm880c	EPSON PM-880C
+escp2-pm9000c	EPSON PM-9000C
+escp2-pm950c	EPSON PM-950C
+escp2-px7000	EPSON PX-7000
+escp2-px9000	EPSON PX-9000
+pcl-desnj-230	HP DesignJet 230
+pcl-desnj-250	HP DesignJet 250
+pcl-desnj-430	HP DesignJet 430
+pcl-desnj-450	HP DesignJet 450
+pcl-desnj-455	HP DesignJet 455
+pcl-desnj-488	HP DesignJet 488
+pcl-desnj-700	HP DesignJet 700
+pcl-750	HP DesignJet 750C
+pcl-desnj-250	HP DesignJet 2500
+pcl-desnj-350	HP DesignJet 3500
+pcl-340	HP DeskJet 340
+pcl-400	HP DeskJet 400
+pcl-500	HP DeskJet 500
+pcl-501	HP DeskJet 500C
+pcl-520	HP DeskJet 520
+pcl-540	HP DeskJet 540C
+pcl-550	HP DeskJet 550C
+pcl-560	HP DeskJet 560C
+pcl-600	HP DeskJet 600/600C (Single Cartridge)
+pcl-601	HP DeskJet 600 series (2 Cartridge)
+pcl-690	HP DeskJet 690 series (Photo-Ink capable)
+pcl-810	HP DeskJet 810C
+pcl-812	HP DeskJet 812C
+pcl-840	HP DeskJet 840C
+pcl-842	HP DeskJet 842C
+pcl-845	HP DeskJet 845C
+pcl-850	HP DeskJet 850C
+pcl-855	HP DeskJet 855C
+pcl-870	HP DeskJet 870C
+pcl-890	HP DeskJet 890C
+pcl-895	HP DeskJet 895C
+pcl-900	HP DeskJet 900 series
+pcl-P1000	HP PhotoSmart P1000
+pcl-1100	HP DeskJet 1100C
+pcl-P1100	HP PhotoSmart P1100
+pcl-1120	HP DeskJet 1120C
+pcl-1200	HP DeskJet 1200C
+pcl-1220	HP DeskJet 1220C
+pcl-1600	HP DeskJet 1600C
+pcl-2000	HP DeskJet 2000 series
+pcl-2500	HP DeskJet 2500 series
+pcl-2	HP LaserJet II series
+pcl-3	HP LaserJet III series
+pcl-4	HP LaserJet 4 series
+pcl-4v	HP LaserJet 4V, 4Si
+pcl-5	HP LaserJet 5 series
+pcl-5si	HP LaserJet 5Si
+pcl-6	HP LaserJet 6 series
+lexmark-4076	Lexmark 4076 (PCL printer)
+lexmark-z42	Lexmark Z42
+lexmark-z43	Lexmark Z43
+lexmark-z52	Lexmark Z52
+lexmark-z53	Lexmark Z53
+.TE
+.SH COPYRIGHT
+Copyright \(co 2001 Michael Sweet (mike@easysw.com) and Robert Krawitz
+(rlk@alum.mit.edu)
+.PP
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+.PP
+This manual page was written by Roger Leigh (roger@whinlatter.uklinux.net)
+.SH SEE ALSO
+.BR gimpprint-color (7),
+.BR gimpprint-dithers (7),
+.BR gimpprint-imagetypes (7),
+.BR gimpprint-inktypes (7),
+.BR gimpprint-mediasizes (7),
+.BR gimpprint-mediasources (7),
+.BR gimpprint-mediatypes (7),
+.BR gimpprint-resolutions (7).
+.\"#
+.\"# The following sets edit modes for GNU EMACS
+.\"# Local Variables:
+.\"# mode:nroff
+.\"# fill-column:79
+.\"# End:

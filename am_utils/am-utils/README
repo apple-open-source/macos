@@ -61,7 +61,7 @@ This is a manual method that will let you build in any directory outside the
 am-utils source tree.  It requires that your "make" program understand
 VPATH.  This can be used multiple times to build am-utils concurrently in
 multiple (but different) directories.  In fact, the buildall script
-described above.
+described above does precisely that, using the A.* subdirectories.
 
 (4) If you need to configure am-utils with extra libraries and/or headers,
 for example to add hesiod support, do so as follows:

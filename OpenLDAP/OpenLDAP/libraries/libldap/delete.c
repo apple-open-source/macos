@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/delete.c,v 1.15 2002/01/04 20:17:38 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/delete.c,v 1.15.2.3 2003/03/03 17:10:04 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*  Portions
@@ -48,7 +48,11 @@ ldap_delete_ext(
 	int rc;
 	BerElement	*ber;
 
-	Debug( LDAP_DEBUG_TRACE, "ldap_delete\n", 0, 0, 0 );
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_delete_ext\n", 0,0,0 );
+#else
+	Debug( LDAP_DEBUG_TRACE, "ldap_delete_ext\n", 0, 0, 0 );
+#endif
 
 	assert( ld != NULL );
 	assert( LDAP_VALID( ld ) );
@@ -134,7 +138,11 @@ ldap_delete( LDAP *ld, LDAP_CONST char *dn )
 	 *	DelRequet ::= DistinguishedName,
 	 */
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_delete\n", 0,0,0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_delete\n", 0, 0, 0 );
+#endif
 
 	return ldap_delete_ext( ld, dn, NULL, NULL, &msgid ) == LDAP_SUCCESS
 		? msgid : -1 ;

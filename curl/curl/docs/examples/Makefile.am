@@ -1,12 +1,15 @@
 #
-# $Id: Makefile.am,v 1.1.1.2 2001/04/24 18:49:04 wsanchez Exp $
+# $Id: Makefile.am,v 1.1.1.3 2002/11/26 19:07:43 zarzycki Exp $
 #
 
 AUTOMAKE_OPTIONS = foreign no-dependencies
 
-EXTRA_DIST = 
-	README curlgtk.c sepheaders.c simple.c postit.c \
-	win32sockets.c persistant.c ftpget.c Makefile.example
+EXTRA_DIST = README curlgtk.c sepheaders.c simple.c postit2.c		\
+	     persistant.c ftpget.c Makefile.example			\
+	     multithread.c getinmemory.c ftpupload.c httpput.c		\
+	     simplessl.c ftpgetresp.c http-post.c post-callback.c	\
+	     multi-app.c multi-double.c multi-single.c multi-post.c	\
+	     fopen.c simplepost.c
 
 all:
 	@echo "done"

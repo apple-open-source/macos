@@ -1,7 +1,7 @@
 /* sockbuf.c - i/o routines with support for adding i/o layers. */
-/* $OpenLDAP: pkg/ldap/libraries/liblber/sockbuf.c,v 1.50 2002/01/04 20:17:37 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblber/sockbuf.c,v 1.50.2.3 2003/03/03 17:10:04 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 
@@ -311,11 +311,6 @@ ber_pvt_sb_do_write( Sockbuf_IO_Desc *sbiod, Sockbuf_Buf *buf_out )
 	buf_out->buf_ptr += ret;
 	if (buf_out->buf_ptr == buf_out->buf_end) {
 		buf_out->buf_end = buf_out->buf_ptr = 0;
-	}
-
-	if ( (ber_len_t)ret < to_go ) {
-		/* not enough data, so pretend no data was sent. */
-		return -1;
 	}
 
 	return ret;

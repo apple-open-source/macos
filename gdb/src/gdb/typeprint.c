@@ -1,6 +1,7 @@
 /* Language independent support for printing types for GDB, the GNU debugger.
-   Copyright 1986, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1998, 1999,
-   2000, 2001 Free Software Foundation, Inc.
+
+   Copyright 1986, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1998,
+   1999, 2000, 2001, 2003 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -20,7 +21,7 @@
    Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
-#include "obstack.h"
+#include "gdb_obstack.h"
 #include "bfd.h"		/* Binary File Description */
 #include "symtab.h"
 #include "gdbtypes.h"
@@ -90,17 +91,6 @@ typedef_print (struct type *type, struct symbol *new, struct ui_file *stream)
       type_print (type, "", stream, 0);
       break;
 #endif
-#ifdef _LANG_chill
-    case language_chill:
-      fprintf_filtered (stream, "SYNMODE ");
-      if (!TYPE_NAME (SYMBOL_TYPE (new)) ||
-	  !STREQ (TYPE_NAME (SYMBOL_TYPE (new)), SYMBOL_NAME (new)))
-	fprintf_filtered (stream, "%s = ", SYMBOL_SOURCE_NAME (new));
-      else
-	fprintf_filtered (stream, "<builtin> = ");
-      type_print (type, "", stream, 0);
-      break;
-#endif
     default:
       error ("Language not supported.");
     }
@@ -120,6 +110,28 @@ type_print (struct type *type, char *varstring, struct ui_file *stream,
 {
   LA_PRINT_TYPE (type, varstring, stream, show, 0);
 }
+
+/* Returns a xmalloc'ed string of the type name instead of printing it
+   to stdout.  */
+
+char *
+type_sprint (struct type *type, char *varstring, int show)
+{
+  struct ui_file *stb;
+  struct cleanup *wipe;
+  long length;
+  char *type_name;
+  
+  stb = mem_fileopen ();
+  wipe = make_cleanup_ui_file_delete (stb);
+
+  type_print (type, varstring, stb, show);
+  type_name = ui_file_xstrdup (stb, &length);
+  do_cleanups (wipe);
+
+  return type_name;
+}
+
 
 /* Print type of EXP, or last thing in value history if EXP == NULL.
    show is passed to type_print.  */

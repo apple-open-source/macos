@@ -1,21 +1,23 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -30,11 +32,23 @@
 #define IsRange() \
             (_usageMin != _usageMax)
 
-#define IsArrayElement(flags) \
-            ((flags & kHIDDataArrayBit) == kHIDDataArray)
+#define IsArrayElement(element) \
+            ((element->_flags & kHIDDataArrayBit) == kHIDDataArray)
 
 #define IsArrayReportHandler(reportHandler) \
             (reportHandler == _arrayReportHandler)
+
+#define IsArrayElementTheReportHandler(element) \
+            (element == element->_arrayReportHandler)
+            
+#define IsButtonElement(element) \
+            (element->_reportBits == 1)
+            
+#define IsDuplicateElement(element) \
+            (element->_duplicateReportHandler)
+            
+#define IsDuplicateReportHandler(reportHandler) \
+            (reportHandler == _duplicateReportHandler)
             
 #define GetArrayItemIndex(sel) \
             (sel - _logicalMin)
@@ -59,7 +73,16 @@ bool IOHIDElement::init( IOHIDDevice * owner, IOHIDElementType type )
     _type  = type;
     _reportSize = 0;
     _reportCount = 1;
-
+    _duplicateReportHandler = 0;    
+    _arrayReportHandler = 0;
+    _colArrayReportHandlers = 0;
+    _arrayItems = 0;
+    _duplicateElements = 0;
+    _oldArraySelectors = 0;
+    _usagePage = 0;
+    _usageMin = _usageMax = 0;
+    _isInterruptReportHandler = 0;
+    
     return true;
 }
 
@@ -72,7 +95,7 @@ IOHIDElement::buttonElement( IOHIDDevice *     owner,
                              HIDButtonCapabilitiesPtr  button,
                              IOHIDElement *    parent )
 {
-	IOHIDElement * element = new IOHIDElement;
+    IOHIDElement * element = new IOHIDElement;
 
     // Check arguments and call init().
 
@@ -99,7 +122,7 @@ IOHIDElement::buttonElement( IOHIDDevice *     owner,
         element->_usageMin = button->u.range.usageMin;
         element->_usageMax = button->u.range.usageMax;
         
-        if (!IsArrayElement(element->_flags))
+        if (!IsArrayElement(element))
         {
             element->_reportCount = 1;
         }
@@ -110,7 +133,7 @@ IOHIDElement::buttonElement( IOHIDDevice *     owner,
         element->_usageMax = button->u.notRange.usage;
     }
 
-    if (IsArrayElement(element->_flags))
+    if (IsArrayElement(element))
     {
         // RY: Hack to gain the logical min/max for
         // elements.
@@ -125,24 +148,36 @@ IOHIDElement::buttonElement( IOHIDDevice *     owner,
         // changes have been made to the HIDParser to
         // support this.
         element->_reportBits	= button->unitExponent;
-        element->_reportCount	= button->units;	
+        element->_reportCount	= button->units;
     }
     else
     {
         element->_reportBits     = 1;
         element->_units          = button->units;
         element->_unitExponent   = button->unitExponent;
+        
+        if (element->_reportCount > 1)
+        {
+            element->_duplicateReportHandler = element;
+            element->_duplicateElements = OSArray::withCapacity(element->_reportCount);        
+            
+            if (element->_duplicateElements == NULL)
+                goto BUTTON_ELEMENT_RELEASE;        
+        }
     }
 
     // Register with owner and parent, then spawn sub-elements.
 
-    if ( ( parent && ( parent->addChildElement(element) == false ) )
-    ||   ( owner->registerElement( element, &element->_cookie ) == false )
-    ||   ( element->createSubElements() == false ))
+    if ( ( parent && ( parent->addChildElement(element, IsArrayElement(element)) == true ) )
+    &&   ( owner->registerElement( element, &element->_cookie ) == true )
+    &&   ( element->createSubElements() == true ))
     {
-        element->release();
-        element = 0;
+        return element;
     }
+
+BUTTON_ELEMENT_RELEASE:
+    element->release();
+    element = 0;
 
     return element;
 }
@@ -189,10 +224,7 @@ IOHIDElement::valueElement( IOHIDDevice *     owner,
         element->_usageMin = value->u.range.usageMin;
         element->_usageMax = value->u.range.usageMax;
 
-        if (!IsArrayElement(element->_flags))
-        {
-            element->_reportCount = 1;
-        }
+        element->_reportCount = 1;
     }
     else
     {
@@ -200,15 +232,28 @@ IOHIDElement::valueElement( IOHIDDevice *     owner,
         element->_usageMax = value->u.notRange.usage;
     }
     
+    if (element->_reportCount > 1)
+    {
+        element->_duplicateReportHandler = element;
+        element->_duplicateElements = OSArray::withCapacity(element->_reportCount);        
+        
+        if (element->_duplicateElements == NULL)
+            goto VALUE_ELEMENT_RELEASE;        
+    }
+
+    
     // Register with owner and parent, then spawn sub-elements.
 
-    if ( ( owner->registerElement( element, &element->_cookie ) == false )
-    ||   ( ( parent && ( parent->addChildElement(element) == false ) ) ) 
-    ||   ( element->createSubElements() == false ))
+    if ( ( owner->registerElement( element, &element->_cookie ) == true )
+    &&   ( ( parent && ( parent->addChildElement(element, IsArrayElement(element)) == true ) ) ) 
+    &&   ( element->createSubElements() == true ))
     {
-        element->release();
-        element = 0;
+        return element;
     }
+
+VALUE_ELEMENT_RELEASE:
+    element->release();
+    element = 0;
 
     return element;
 }
@@ -219,7 +264,7 @@ IOHIDElement::valueElement( IOHIDDevice *     owner,
 IOHIDElement *
 IOHIDElement::collectionElement( IOHIDDevice *         owner,
                                  IOHIDElementType      type,
-                                 HIDCollectionNodePtr  collection,
+                                 HIDCollectionExtendedNodePtr  collection,
                                  IOHIDElement *        parent )
 {
 	IOHIDElement * element = new IOHIDElement;
@@ -236,9 +281,10 @@ IOHIDElement::collectionElement( IOHIDDevice *         owner,
 
     // Set HID properties.
 
-    element->_usagePage = collection->collectionUsagePage;
-    element->_usageMin  = collection->collectionUsage;
-    element->_usageMax  = collection->collectionUsage;
+    element->_usagePage     = collection->collectionUsagePage;
+    element->_usageMin      = collection->collectionUsage;
+    element->_usageMax      = collection->collectionUsage;
+    element->_collectionType = collection->data;
 
     // Register with owner and parent.
 
@@ -255,6 +301,41 @@ IOHIDElement::collectionElement( IOHIDDevice *         owner,
 //---------------------------------------------------------------------------
 // 
 
+IOHIDElement * IOHIDElement::reportHandlerElement(
+                                            IOHIDDevice *        owner,
+                                            IOHIDElementType     type,
+                                            UInt32               reportID,
+                                            UInt32               reportBits )
+{
+    IOHIDElement * element = new IOHIDElement;
+
+    if ( ( reportBits == 0 ) || ( element->init( owner, type ) == false ) )
+    {
+        element->release();
+        return 0;
+    }
+    
+    element->_isInterruptReportHandler	= true;
+    element->_flags 			= kHIDDataVariable | kHIDDataRelative;
+    element->_reportCount		= 1;
+    element->_reportID			= reportID;
+    element->_reportBits 		= element->_reportSize	= reportBits;
+    
+    // Register with owner.
+
+    if ( owner->registerElement( element, &element->_cookie ) == false )
+    {
+        element->release();
+        element = 0;
+    }
+    
+    return element;
+}
+
+
+//---------------------------------------------------------------------------
+// 
+
 IOHIDElement * IOHIDElement::newSubElement( UInt16 rangeIndex ) const
 {
     IOHIDElement * element = new IOHIDElement;
@@ -262,7 +343,6 @@ IOHIDElement * IOHIDElement::newSubElement( UInt16 rangeIndex ) const
     // Check arguments and call init().
 
     if ( (element == 0 ) ||
-         (rangeIndex == 0) ||
          ( element->init( _owner, _type ) == false ) )
     {
         if ( element ) element->release();
@@ -271,31 +351,39 @@ IOHIDElement * IOHIDElement::newSubElement( UInt16 rangeIndex ) const
 
     // Set HID properties.
 
-    element->_flags          = _flags;
-    element->_reportID       = _reportID;
-    element->_usagePage      = _usagePage;
-    element->_usageMin       = _usageMin;
-    element->_usageMax       = _usageMax;
-    element->_rangeIndex     = rangeIndex;
+    element->_flags          		= _flags;
+    element->_reportID       		= _reportID;
+    element->_usagePage      		= _usagePage;
+    element->_usageMin       		= _usageMin;
+    element->_usageMax       		= _usageMax;
+    element->_rangeIndex     		= rangeIndex;
+    element->_arrayReportHandler	= _arrayReportHandler;
 
-    
-    if ( IsArrayElement(_flags) )
+    element->_reportBits     		= _reportBits;
+    element->_reportStartBit 		= _reportStartBit + (rangeIndex * _reportBits);
+    element->_logicalMin     		= _logicalMin;
+    element->_logicalMax     		= _logicalMax;
+    element->_physicalMin    		= _physicalMin;
+    element->_physicalMax    		= _physicalMax;
+    element->_units          		= _units;
+    element->_unitExponent   		= _unitExponent;
+
+    // RY: Special handling for array elements.
+    // FYI, if this an array and button element, then we
+    // know that this is a dummy array element.  The start
+    // is not used to process the report, but instead used
+    // to identify the which arrayHandler is belongs to.
+    // Therefore, all subelements should contain the same
+    // start bit.
+    if ( IsArrayElement(this) && IsButtonElement(this) )
     {
-        element->_reportBits     = 1;
-        element->_logicalMin     = element->_physicalMin = 0;
-        element->_logicalMax     = element->_physicalMax = 1;
-        element->_reportStartBit = _reportStartBit;
+        element->_reportStartBit = _reportStartBit;        
     }
-    else 
-    {
-        element->_reportBits     = _reportBits;
-        element->_reportStartBit = _reportStartBit + (rangeIndex * _reportBits);
-        element->_logicalMin     = _logicalMin;
-        element->_logicalMax     = _logicalMax;
-        element->_physicalMin    = _physicalMin;
-        element->_physicalMax    = _physicalMax;
-        element->_units          = _units;
-        element->_unitExponent   = _unitExponent;
+    
+    if (_duplicateElements)
+    {        
+        _duplicateElements->setObject(element);
+        element->_duplicateReportHandler = _duplicateReportHandler;
     }
 
     // Register with owner and parent.
@@ -317,7 +405,7 @@ bool IOHIDElement::createSubElements()
 {
     IOHIDElement * element;
     UInt32         count = getRangeCount();
-    UInt32         index = 1;
+    UInt32         index = getStartingRangeIndex();
     bool           ret = true;
 
     while ( index < count)
@@ -357,6 +445,12 @@ void IOHIDElement::free()
         _arrayItems = 0;
     }
     
+    if ( _duplicateElements )
+    {
+        _duplicateElements->release();
+        _duplicateElements = 0;
+    }
+    
     if (_oldArraySelectors)
     {
         IOFree (_oldArraySelectors, sizeof(UInt32) * _reportCount);
@@ -375,7 +469,7 @@ void IOHIDElement::free()
 //---------------------------------------------------------------------------
 // 
 
-bool IOHIDElement::addChildElement( IOHIDElement * child )
+bool IOHIDElement::addChildElement( IOHIDElement * child, bool arrayHeader)
 {
 
     if ( _childArray == 0 )
@@ -386,17 +480,19 @@ bool IOHIDElement::addChildElement( IOHIDElement * child )
     if ( !_childArray ) 
         return false;
             
-    // Perform special processing if this is an array item.
-    // Basically we want to group all related array elements
-    // together.  This will help out for elements that are
-    // not part of a range.  Since collections can span 
-    // multiple reports, we will use the following as a 
-    // unique ID:
-    //	   Lower16bits: startBit
-    //	   Upper16bits: 
-    //		UpperByte: reportType
-    //		LowerByte: reportID
-    if ((child->_type != kIOHIDElementTypeCollection) && IsArrayElement(child->_flags))
+    // Perform special processing if this is an array item
+    // that doesn't directly handle the report.  Basically,
+    // we want to group all related array elements together.
+    // This will help out for elements that are not part of 
+    // a range.  Since collections can span multiple 
+    // reports, we will use the following as a unique ID:
+    //	    8bits: reportID
+    //	   32bits: startBit
+    //	   32bits: elementType
+    if ( (child->_type != kIOHIDElementTypeCollection) &&
+        IsArrayElement(child) &&
+        !IsArrayElementTheReportHandler(child) && 
+        (arrayHeader || !IsDuplicateElement(child)))
     {
         if (_colArrayReportHandlers ==0)
         {
@@ -407,10 +503,9 @@ bool IOHIDElement::addChildElement( IOHIDElement * child )
             return false;
 
         IOHIDElement *	arrayReportHandler;
-        char		uniqueID[33];
+        char		uniqueID[32];
         
-        sprintf(uniqueID, "%d",((child->_reportType << 24) | (child->_reportID << 16) | (child->_reportStartBit)));
-        uniqueID[32] = 0;
+        sprintf(uniqueID, "%4.4x%4.4x%4.4x",child->_type, child->_reportStartBit, child->_reportID);
         
         arrayReportHandler = _colArrayReportHandlers->getObject(uniqueID);
         
@@ -431,7 +526,6 @@ bool IOHIDElement::addChildElement( IOHIDElement * child )
 
             // Register this new element with this collection
             _colArrayReportHandlers->setObject(uniqueID, arrayReportHandler);
-            _childArray->setObject( arrayReportHandler );
             arrayReportHandler->release();
         }
                 
@@ -452,6 +546,7 @@ bool IOHIDElement::addChildElement( IOHIDElement * child )
 
     return true;
 }
+
 IOHIDElement * IOHIDElement::arrayHandlerElement(                                
                                 IOHIDDevice *    owner,
                                 IOHIDElementType type,
@@ -465,8 +560,7 @@ IOHIDElement * IOHIDElement::arrayHandlerElement(
     if ( (element == 0 ) ||
         ( element->init( owner, type ) == false ) )
     {
-        if ( element ) element->release();
-        return 0;
+        goto ARRAY_HANDLER_ELEMENT_RELEASE;
     }
 
     element->_arrayReportHandler = element;
@@ -484,14 +578,13 @@ IOHIDElement * IOHIDElement::arrayHandlerElement(
     element->_logicalMin     = child->_logicalMin;
     element->_logicalMax     = child->_logicalMax;
     element->_physicalMin    = child->_physicalMin;
-    element->_physicalMax    = child->_physicalMax;
-    
+    element->_physicalMax    = child->_physicalMax;    
                 
     // Allocate the array for the array elements.
-    element->_arrayItems = OSArray::withCapacity(child->getRangeCount() ? child->getRangeCount() : 4);
+    element->_arrayItems = OSArray::withCapacity((child->_usageMax - child->_usageMin) + 1);
 
     if (element->_arrayItems == NULL)
-        return false;
+        goto ARRAY_HANDLER_ELEMENT_RELEASE;
         
     // RY: Allocate a buffer that will contain the old Array selector.
     // This needed to compare the old report to the new report to
@@ -499,13 +592,28 @@ IOHIDElement * IOHIDElement::arrayHandlerElement(
     element->_oldArraySelectors = (UInt32 *)IOMalloc(sizeof(UInt32) * element->_reportCount);
     
     if (element->_oldArraySelectors == NULL)
-        return false;
-            
-    if ( owner->registerElement( element, &element->_cookie ) == false )
+        goto ARRAY_HANDLER_ELEMENT_RELEASE;
+
+    if (element->_reportCount > 1)
     {
-        element->release();
-        element = 0;
+        element->_duplicateReportHandler = element;
+        element->_duplicateElements = OSArray::withCapacity(element->_reportCount);        
+        
+        if (element->_duplicateElements == NULL)
+            goto ARRAY_HANDLER_ELEMENT_RELEASE;        
     }
+                        
+    if ( (owner->registerElement( element, &element->_cookie ) == true ) &&
+        ( parent && ( parent->addChildElement(element) == true )) &&
+        ( element->createSubElements() == true ))
+    {
+	return element;
+    }
+        
+    
+ARRAY_HANDLER_ELEMENT_RELEASE:
+    element->release();
+    element = 0;
     
     return element;
 }
@@ -536,12 +644,29 @@ bool IOHIDElement::serialize( OSSerialize * s ) const
 
         if ( _type == kIOHIDElementTypeCollection )
         {
+            entry->setProperty( kIOHIDElementCollectionTypeKey, _collectionType, 32 );
+            
             ret = true;
             break;
         }
 
+        entry->setProperty( kIOHIDElementSizeKey, (_reportBits * _reportCount), 32 );
+
+        if (_reportCount > 1)
+        {
+            entry->setProperty( kIOHIDElementReportSizeKey, _reportBits, 32 );
+            entry->setProperty( kIOHIDElementReportCountKey, _reportCount, 32 );
+        }
+
         entry->setProperty( kIOHIDElementValueLocationKey,
                             (UInt32) _elementValueLocation, 32 );
+                            
+        if ( _isInterruptReportHandler )
+        {
+            ret = true;
+            break;
+        }
+
         entry->setProperty( kIOHIDElementHasNullStateKey,
                             _flags & kHIDDataNullState );
         entry->setProperty( kIOHIDElementHasPreferredStateKey,
@@ -553,18 +678,20 @@ bool IOHIDElement::serialize( OSSerialize * s ) const
         entry->setProperty( kIOHIDElementIsWrappingKey,
                             _flags & kHIDDataWrap );
         entry->setProperty( kIOHIDElementIsArrayKey, 
-                            IsArrayElement(_flags) );
+                            IsArrayElement(this) );
         entry->setProperty( kIOHIDElementMaxKey, _logicalMax, 32 );
         entry->setProperty( kIOHIDElementMinKey, _logicalMin, 32 );
         entry->setProperty( kIOHIDElementScaledMaxKey, _physicalMax, 32 );
         entry->setProperty( kIOHIDElementScaledMinKey, _physicalMin, 32 );
-        entry->setProperty( kIOHIDElementSizeKey, (_reportBits * _reportCount), 32 );
-        entry->setProperty( kIOHIDElementReportSizeKey, _reportBits, 32 );
-        entry->setProperty( kIOHIDElementReportCountKey, _reportCount, 32 );
+                
+        if (_duplicateReportHandler)
+        {
+            entry->setProperty( kIOHIDElementDuplicateIndexKey, _rangeIndex, 32);
+        }
         
         // RY: No reason to publish the unit and unit exponent
         // for array elements.
-        if ( !IsArrayElement(_flags) )
+        if ( !IsArrayElement(this) )
         {
             entry->setProperty( kIOHIDElementUnitKey, _units, 32 );
             entry->setProperty( kIOHIDElementUnitExponentKey, _unitExponent, 32 );
@@ -729,12 +856,25 @@ bool IOHIDElement::processReport( UInt8                reportID,
     // Set next pointer to the next report handler in the chain.
     // If this is an array, set the report handler to the one
     // the array.
-    if (IsArrayElement(_flags) && !IsArrayReportHandler(this))
+    if (next)
     {
-        *next = _arrayReportHandler;
-        return false;
+        *next = _nextReportHandler;
+        
+        if (IsArrayElement(this) && !IsArrayReportHandler(this))
+        {
+            *next = _arrayReportHandler;
+            return false;
+        }
+        
+        // Verify incoming report size.
+
+        if ( _reportSize && ( reportBits < _reportSize ) )
+        {
+            *next = 0;
+            return false;
+        }
+
     }
-    *next = _nextReportHandler;
 
     do {
         // Ignore report that does not match our report ID.
@@ -742,14 +882,6 @@ bool IOHIDElement::processReport( UInt8                reportID,
         if ( _reportID != reportID )
             break;
         
-        // Verify incoming report size.
-
-        if ( _reportSize && ( reportBits < _reportSize ) )
-        {
-            *next = 0;
-            break;
-        }
-
         // The generation is incremented before and after
         // processing the report.  An odd value tells us
         // that the information is incomplete and should
@@ -762,10 +894,9 @@ bool IOHIDElement::processReport( UInt8                reportID,
         readReportBits( (UInt8 *) reportData,   /* source buffer      */
                        _elementValue->value,   /* destination buffer */
                        _reportStartBit,        /* source start bit   */
-                       (_reportBits * _reportCount),            /* bits to copy       */
+                       (_reportBits * _reportCount), /* bits to copy       */
                        (((SInt32)_logicalMin < 0) || ((SInt32)_logicalMax < 0)), /* should sign extend */
                        &changed );             /* did value change?  */
-                       
 
         // Set a timestamp to indicate the last modification time.
         // We should set the time stamp if the generation is 1 regardless if the value
@@ -773,13 +904,10 @@ bool IOHIDElement::processReport( UInt8                reportID,
         // timestamp
         if ( changed || (_flags & kHIDDataRelativeBit) || (_elementValue->generation == 1))
         {
-        
             _elementValue->timestamp = *timestamp;
 
-            // RY: see processArrayReport for explanation of why
-            // we parse this report twice.
-            if (IsArrayElement(_flags) && IsArrayReportHandler(this))
-                processArrayReport(reportData);
+            if (IsArrayElement(this) && IsArrayReportHandler(this))
+                processArrayReport(reportID, reportData, reportBits, timestamp);
 
             if ( _queueArray )
             {
@@ -815,7 +943,8 @@ bool IOHIDElement::createReport( UInt8           reportID,
 {
     bool handled = false;
 
-    *next = _nextReportHandler;
+    if (next)
+        *next = _nextReportHandler;
 
     do {
         // Ignore report that does not match our report ID.
@@ -834,7 +963,7 @@ bool IOHIDElement::createReport( UInt8           reportID,
 
             if ( reportData == 0 )
             {
-                *next = 0;
+                if (next) *next = 0;
                 break;
             }
 
@@ -845,33 +974,44 @@ bool IOHIDElement::createReport( UInt8           reportID,
         
 
         // Set next pointer to the next report handler in the chain.
-        // If this is an array, set the report handler to the one
-        // the array.
-        if (IsArrayElement(_flags) && !IsArrayReportHandler(this))
-        {
-            *next = _arrayReportHandler;
-            break;
+        // If this is an array or duplicate, set the next to the 
+        // appropriate handler.
+        if (next)
+        {            
+            if (IsArrayElement(this))
+            {
+                if (!IsArrayReportHandler(this))
+                {
+                    *next = _arrayReportHandler;
+                    break;
+                }
+                
+                // RY: Only bother creating an array report is this element
+                // is idle.
+                if (_transactionState == kIOHIDTransactionStateIdle)
+                    return createArrayReport(reportID, reportData, reportLength);
+            }            
+            else if (IsDuplicateElement(this))
+            {
+                if (!IsDuplicateReportHandler(this))
+                {
+                    *next = _duplicateReportHandler;
+                    break;
+                }
+                
+                // RY: Only bother creating a report if the duplicate report
+                // elements are idle.                
+                if (_transactionState == kIOHIDTransactionStateIdle)
+                    return createDuplicateReport(reportID, reportData, reportLength);
+            }
         }
 
-        // If this element has not been set, a out of bounds
+        // If this element has not been set, an out of bounds
         // value must be set.  This will cause the device
         // to ignore the report for this element.
         if ( _transactionState == kIOHIDTransactionStateIdle )
         {
-            if (!IsArrayElement(_flags))
-            {
                 setOutOfBoundsValue();
-            }
-            
-            // If the IOHIDLib is not modifying this element
-            // directly, have it run though the array elements
-            // and create a report;
-            else
-            {
-                createArrayReport(reportData);
-                handled = true;
-                break;
-            }
         }
 
         // Set the element value to the report.
@@ -920,8 +1060,20 @@ UInt32 IOHIDElement::getRangeCount() const
 {
     // FIXME - shouldn't we use logical min/max?
 
-    return ( _usageMax - _usageMin + 1 );
+    // Check to see if we have multiple elements with the same usage.
+    // If so, return the _reportCount
+    return (_reportCount > 1) ? _reportCount : (_usageMax-_usageMin + 1 );
 }
+
+//---------------------------------------------------------------------------
+// Return the number of elements in a usage range.
+
+UInt32 IOHIDElement::getStartingRangeIndex() const
+{
+    // Check to see if we have multiple elements with the same usage.
+    return (_reportCount > 1) ? 0 : 1;
+}
+
 
 //---------------------------------------------------------------------------
 // 
@@ -1027,8 +1179,8 @@ UInt32 IOHIDElement::setReportSize( UInt32 numberOfBits )
 void IOHIDElement::setOutOfBoundsValue()
 {
 
-    // Make sure we are only dealing with a non-array element value type
-    if ( _elementValue->totalSize == sizeof(IOHIDElementValue) && (_reportCount == 1)) {
+    // Make sure we are not dealing with long element value type
+    if ( _elementValue->totalSize == sizeof(IOHIDElementValue)) {
     
         // Simple case:  If the _logicalMin > 0, then we can just
         // set the elementValue to 0
@@ -1052,15 +1204,42 @@ void IOHIDElement::setOutOfBoundsValue()
     }
 }
 
-void IOHIDElement::createArrayReport(void * reportData) 
+bool IOHIDElement::createDuplicateReport(UInt8		reportID,
+                                        void *		reportData,
+                                        UInt32 *	reportLength)
 {
+    bool		pending = false;
     IOHIDElement 	*element;
+
+    // RY: Then, check the other duplicates to see if they are currently 
+    // pending.  
+    for (int i=0;  _duplicateElements && i<_duplicateElements->getCount(); i++) 
+    {
+        if ((element = _duplicateElements->getObject(i)) &&
+            (element->_transactionState == kIOHIDTransactionStatePending))
+        {
+            pending = true;
+        }
+        
+        element->createReport(reportID, reportData, reportLength, 0);
+    }
+    
+    return pending;
+}
+
+bool IOHIDElement::createArrayReport(UInt8	reportID,
+                                    void *	reportData,
+                                    UInt32 *	reportLength) 
+{
+    IOHIDElement 	*element, *arrayElement;
     bool		changed;
     UInt32		arraySel;
     UInt32		reportIndex = 0;
-    UInt32		startBit = _reportStartBit;
-        
-    for (int i=0; _arrayItems && i<_arrayItems->getCount(); i++)
+    
+    if (createDuplicateReport(reportID, reportData, reportLength))
+        return true;
+                        
+    for (int i=0; i<_arrayItems->getCount(); i++)
     {
         element = (IOHIDElement *)(_arrayItems->getObject(i));
 
@@ -1073,13 +1252,14 @@ void IOHIDElement::createArrayReport(void * reportData)
             continue;
 
         arraySel = GetArrayItemSel(i);
+
+        if (arrayElement = (_duplicateElements) ? _duplicateElements->getObject(reportIndex) : this)
+        {
+            arrayElement->_elementValue->value[0] = arraySel;
+            arrayElement->_transactionState = kIOHIDTransactionStatePending;
+            arrayElement->createReport(reportID, reportData, reportLength, 0);
+        }
         
-        writeReportBits( &arraySel,   		/* source buffer      */
-                    (UInt8 *) reportData,  	/* destination buffer */
-                    startBit,       		/* dst start bit      */                           
-                    _reportBits);		/* bits to copy       */            
-            
-        startBit += _reportBits;
         reportIndex ++;
         
         element->_transactionState = kIOHIDTransactionStateIdle;
@@ -1092,27 +1272,16 @@ void IOHIDElement::createArrayReport(void * reportData)
     // Clear out the remaining portions of the report for this array
     arraySel = 0;
     for (i=reportIndex; i<_reportCount; i++)
-    {
-        writeReportBits( &arraySel,   		/* source buffer      */
-                    (UInt8 *) reportData,  	/* destination buffer */
-                    startBit,       		/* dst start bit      */                           
-                    _reportBits);		/* bits to copy       */      
-        startBit += _reportBits;
+    {        
+        if (arrayElement = (_duplicateElements) ? _duplicateElements->getObject(reportIndex) : this)
+        {
+            arrayElement->_elementValue->value[0] = arraySel;
+            arrayElement->_transactionState = kIOHIDTransactionStatePending;
+            arrayElement->createReport(reportID, reportData, reportLength, 0);
+        }
     }
     
-    // RY: This is expensive, but let's fill in the elementValue for 
-    // this element.  Hopefully, a developer will find this usefull,
-    // as this will show exactly what was pushed to the device.
-    readReportBits( (UInt8 *) reportData,	// Src
-                _elementValue->value,		// Dst
-                _reportStartBit, 		// Src Start Bit
-                _reportBits * _reportCount,	// Bits to copy
-                (((SInt32)_logicalMin < 0) || 
-                ((SInt32)_logicalMax < 0)), 	// Should Sign extend
-                &changed ); 			// Changed
-    
-
-    
+    return true;
 }
 
 void IOHIDElement::setArrayElementValue(UInt32 index, UInt32 value)
@@ -1153,9 +1322,12 @@ void IOHIDElement::setArrayElementValue(UInt32 index, UInt32 value)
 
 }
 
-void IOHIDElement::processArrayReport(void * reportData) 
+bool IOHIDElement::processArrayReport(	UInt8			reportID,
+                                        void *			reportData,
+                                        UInt32			reportBits,
+                                        const AbsoluteTime *	timestamp)
 {
-    UInt32 	newArray[_reportCount];
+    IOHIDElement *element;
     UInt32	arraySel, prevArraySel;
     UInt32	iNewArray, iOldArray, startBit;
     bool	found, changed;
@@ -1169,28 +1341,23 @@ void IOHIDElement::processArrayReport(void * reportData)
             setArrayElementValue(i, 0);
     }
     
-    // RY: We parse the report here to pick of the individual array
-    // selector.  Since a arraySel can be as big as UInt32 we should
-    // pick them off one at a time with readReportBits.
-    // As you might notice we are duplicating the efforts of
-    // processReport.  This is the desired behavior, just in case
-    // we decided to expose the entire array report in the future.
-    bzero(newArray, (_reportCount * sizeof(UInt32)));
-    
-    startBit = _reportStartBit;
-    for (iNewArray = 0; iNewArray < _reportCount; iNewArray ++)
+    // RY: Process the arry selector elements.  If any of their values
+    // haven't changed, don't bother with any further processing.  
+    if (_duplicateElements)
     {
-        startBit += _reportBits * iNewArray;
+        changed = false;
+        for (iNewArray = 0; iNewArray < _reportCount; iNewArray ++)
+        {
+            if (element = _duplicateElements->getObject(iNewArray))
+            {
+                changed |= element->processReport(reportID, reportData, reportBits, timestamp, 0);
+            }
+        }
         
-        readReportBits( (UInt8 *) reportData,	// Src
-                    &newArray[iNewArray],	// Dst
-                    startBit, 			// Src Start Bit
-                    _reportBits,		// Bits to copy
-                    (((SInt32)_logicalMin < 0) || 
-                    ((SInt32)_logicalMax < 0)), // Should Sign extend
-                    &changed ); 		// Changed
+        if (!changed)
+            return changed;
     }
-                    
+                                    
     // Check the existing indexes against the originals
     for (iOldArray = 0; iOldArray < _reportCount; iOldArray ++)
     {
@@ -1206,7 +1373,8 @@ void IOHIDElement::processArrayReport(void * reportData)
 
         for (iNewArray = 0; iNewArray < _reportCount; iNewArray ++)
         {
-            if (arraySel == newArray[iNewArray])
+            element = (_duplicateElements) ? _duplicateElements->getObject(iNewArray) : this;
+            if (element && (arraySel == element->_elementValue->value[0]))
             {
                 found = true;
                 break;
@@ -1221,7 +1389,10 @@ void IOHIDElement::processArrayReport(void * reportData)
     // Now add new indexes to _oldArraySelectors
     for (iNewArray = 0; iNewArray < _reportCount; iNewArray ++)
     {
-        arraySel = newArray[iNewArray];
+        if (!(element = (_duplicateElements) ? _duplicateElements->getObject(iNewArray) : this))
+            continue;
+            
+        arraySel = element->_elementValue->value[0];
                 
         // If we've seen this value before,
         // we can break out of this loop.
@@ -1247,6 +1418,10 @@ void IOHIDElement::processArrayReport(void * reportData)
             
     // save the new array to _oldArraySelectors for future reference
     for (iOldArray = 0; iOldArray < _reportCount; iOldArray ++)
-        _oldArraySelectors[iOldArray] = newArray[iOldArray];
+    {
+        if (element = (_duplicateElements) ? _duplicateElements->getObject(iOldArray) : this)
+        _oldArraySelectors[iOldArray] = element->_elementValue->value[0];
+    }
 
+    return changed;
 }

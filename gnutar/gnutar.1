@@ -139,6 +139,8 @@ followed by the argument; single-letter options will consume
 successive command line arguments (see the
 .Sx EXAMPLES
 below).
+.Nm
+will properly handle option arguments passed either with or without a leading `=` (i.e. either --option=arg or --option arg).
 .Pp
 .Bl -tag -width "--preserve-permissions" -compact
 .It Fl -help
@@ -150,14 +152,33 @@ Restore the access times on files which are written to tape (note that
 this will change the inode-change time!).
 .It Fl b
 .It Fl -block-size Ar number
+.It Fl -blocking-factor Ar number
+.It Fl -record-size Ar size
 Sets the block size for reading or writing to
 .Ar number
 * 512-byte blocks.
+Or sets block size for reading or writing to
+.Ar size
+bytes which must be a multiple of 512.
 .It Fl B
-.It Fl -read-full-blocks
-Re-assemble short reads into full blocks (for reading
+.It Fl -read-full-records
+Re-assemble short reads into full records (for reading
 .Bx 4.2
 pipes).
+.It Fl -backup Ar control
+Backup files before removal.  Optionally, the user can specify a 
+.Ar control
+argument to control how
+.Nm
+performs the backups.
+Supported values are listed bellow in the
+.Sx ENVIRONMENT
+section.
+.It Fl -suffix Ar suffix
+Backup files before removal.
+Override the normal backup suffix (default: '~'), using 
+.Ar suffix
+instead.
 .It Fl C Ar directory
 .It Fl -directory Ar directory
 Change to
@@ -194,15 +215,16 @@ Archive file is local even if it has a colon.
 .It Fl -new-volume-script Ar file
 Run a script at the end of each archive volume (implies
 .Fl M ) .
-.It Fl -fast-read
-Stop after all non-wildcard extraction targets have been found
-in the archive.
 .It Fl G
 .It Fl -incremental
 Create/list/extract old GNU-format incremental backup.
 .It Fl g Ar file
 .It Fl -listed-incremental Ar file
 Create/list/extract new GNU-format incremental backup.
+.It Fl -group Ar name
+Force
+.Ar group
+as group for added files.
 .It Fl h
 .It Fl -dereference
 Don't write symlinks as symlinks; write the data of the files they name.
@@ -212,10 +234,7 @@ Ignore blocks of zeroes in archive (usually means End-Of-File).
 .It Fl -ignore-failed-read
 Don't exit with non-zero status on unreadable files.
 .It Fl j
-.It Fl y
-.It Fl -bzip
 .It Fl -bzip2
-.It Fl -bunzip2
 Filter the archive through
 .Xr bzip2 1 .
 .It Fl k
@@ -228,21 +247,24 @@ Begin at
 in the archive.
 .It Fl l
 .It Fl -one-file-system
-Stay in local filesystem when creating an archive (do not cross mount
+Stay in local file system when creating an archive (do not cross mount
 points).
 .It Fl L Ar number
 .It Fl -tape-length Ar number
 Change tapes after writing 
 .Ar number
 * 1024 bytes.
+.It Fl -mode Ar changes
+Force
+.Ar changes
+to file mode of added files.
 .It Fl m
 .It Fl -modification-time
 Don't extract file modified time.
 .It Fl M
 .It Fl -multi-volume
 Create/list/extract multi-volume archive.
-.It Fl n
-.It Fl -norecurse
+.It Fl -no-recursion
 Don't recurse into subdirectories when creating.
 .It Fl -volno-file Ar file
 File name with volume number to start with.
@@ -254,6 +276,12 @@ Only store files with creation time newer than
 .It Fl -newer-mtime Ar date
 Only store files with modification time newer than
 .Ar date .
+.It Fl -no-same-owner
+Do not preserve ownership when extracting files.  Extract them all as owned by the current user.
+.It Fl -no-same-permissions
+Do not extract permission information.  Extract them using the default permissions for the current user.
+.It Fl -numeric-owner
+Use numbers instead of names for owner/group names.
 .It Fl o
 .It Fl -old-archive
 .It Fl -portability
@@ -261,27 +289,45 @@ Write a V7 format archive, rather than POSIX format.
 .It Fl O
 .It Fl -to-stdout
 Extract files to standard output.
+.It Fl -owner Ar name
+Force
+.Ar name
+as owner for added files.
+.It Fl -overwrite
+Overwrite existing files when extracting.
+.It Fl -overwrite-dir
+Overwrite directory metadata when extracting.
 .It Fl p
 .It Fl -same-permissions
 .It Fl -preserve-permissions
-Extract all protection information.
+Extract all permission information.
 .It Fl -preserve
 Has the effect of
 .Fl p s .
 .It Fl P
-.It Fl -absolute-paths
+.It Fl -absolute-names
 Don't strip leading
 .Ql /
 from file names.
+.It Fl -posix
+Instructs
+.Nm
+to create a POSIX compliant `tar' archive.
 .It Fl R
-.It Fl -record-number
+.It Fl -block-number
 Show record number within archive with each message.
 .It Fl -remove-files
 Remove files after adding them to the archive.
+.It Fl -rsh-command Ar command
+Use
+.Ar command
+instead of rsh for remote archives/files.
 .It Fl s
 .It Fl -same-order
 .It Fl -preserve-order
 List of names to extract is sorted to match archive.
+.It Fl -same-owner
+Try to preserve ownership when extracting files.
 .It Fl -show-omitted-dirs
 Show directories which were omitted while processing the archive.
 .It Fl S
@@ -290,7 +336,6 @@ Handle
 .Dq sparse
 files efficiently.
 .It Fl T Ar file
-.It Fl I Ar file
 .It Fl -files-from Ar file
 Get names of files to extract or create from
 .Ar file ,
@@ -304,9 +349,10 @@ to expect null-terminated names; disables
 Prints total bytes written with
 .Fl -create .
 .It Fl U
-.It Fl -unlink
 .It Fl -unlink-first
 Unlink files before creating them.
+.It Fl -recursive-unlink
+Empty hierarchies prior to extracting directory.
 .It Fl v
 .It Fl -verbose
 Lists files written to archive with
@@ -319,6 +365,9 @@ lists file protection information along with file names with
 .It Fl -label Ar volume-name
 Create archive with the given
 .Ar volume-name .
+When used with list or extract, 
+.Ar volume-name
+is used as a globing pattern.
 .It Fl -version
 Print
 .Nm
@@ -338,6 +387,22 @@ Exclude files matching the
 .It Fl -exclude-from Ar file
 Exclude files listed in
 .Ar file .
+.It Fl -anchored
+Exclude patterns match file name start (default).
+.It Fl -no-anchored
+Exclude patterns match after any /.
+.It Fl -ignore-case
+Exclude patterns ignore case.
+.It Fl -no-ignore-case
+Exclude patterns are case sensitive (default).
+.It Fl -wildcards
+Exclude patterns use wildcards (default).
+.It Fl -no-wildcards
+Exclude patterns are plain strings.
+.It Fl -wildcards-match-slash
+Exclude pattern wildcards match '/' (default).
+.It Fl -no-wildcards-match-slash
+Exclude pattern wildcards do not match '/'.
 .It Fl Z
 .It Fl -compress
 .It Fl -uncompress
@@ -345,6 +410,7 @@ Filter the archive through
 .Xr compress 1 .
 .It Fl z
 .It Fl -gzip
+.It Fl -ungzip
 .It Fl -gunzip
 Filter the archive through
 .Xr gzip 1 .
@@ -355,9 +421,6 @@ Filter the archive through
 .Fl d
 to mean
 .Dq decompress ) .
-.It Fl -block-compress
-Block the output of compression program for tapes or floppies
-(otherwise writes will be of odd length, which device drivers may reject).
 .It Fl Xo
 .Op Cm 0 Ns - Ns Cm 7 Ns
 .Op Cm lmh
@@ -365,12 +428,65 @@ Block the output of compression program for tapes or floppies
 Specify tape drive and density.
 .El
 .Sh ENVIRONMENT
+The
+.Nm
+program examines the following environment variables.
+.Bl -tag -width "POSIXLY_CORRECT"
+.It Ev POSIXLY_CORRECT
+Normally,
+.Nm
+will process flag arguments that appear in the file list.
+If set in the environment, this causes
+.Nm
+to consider the first
+non-flag argument to terminate flag processing, as per the POSIX specification.
+.It Ev SHELL
+In interactive mode, a permissible response to the prompt is to
+request to spawn a subshell, which will be
+.Pa /bin/sh
+unless the
+.Ev SHELL
+variable is set.
+.It Ev SIMPLE_BACKUP_SUFFIX
+Sets the backup suffix used by 
+.Nm .
+Default is '~'.
+.It Ev TAPE
+Changes
+.Nm Ns 's
+default tape drive (which is still overridden by the
+.Fl f
+flag).
+.It TAR_OPTIONS
 The environment variable
 .Ev TAR_OPTIONS
 can hold a set of default options for
 .Nm .
 These options are interpreted first and can be overwritten by explicit command
 line parameters.
+.It TAR_RSH
+The TAR_RSH environment variable allows you to override the default
+shell used as the transport for
+.Nm .
+.It Ev VERSION_CONTROL
+Sets the backup method used by 
+.Nm .
+Possible values:
+.Bl -tag -width "--backup"
+.It t, numbered
+make numbered backups
+.It nil, existing
+numbered if numbered backups exist, simple otherwise
+.It never, simple
+always make simple backups
+.El
+Default behaviour is 'existing'.
+.El
+.Sh FILES
+.Bl -tag -width "/dev/sa0"
+.It Pa /dev/sa0
+The default tape drive.
+.El
 .Sh EXAMPLES
 To create an archive on tape drive
 .Pa /dev/sa0
@@ -457,67 +573,13 @@ To specify the correct time zone use either e.g.\&
 .Sq "13:15 CEST"
 or
 .Sq "13:15+200" .
-.Sh ENVIRONMENT
-The
-.Nm
-program examines the following environment variables.
-.Bl -tag -width "POSIXLY_CORRECT"
-.It Ev POSIXLY_CORRECT
-Normally,
-.Nm
-will process flag arguments that appear in the file list.
-If set in the environment, this causes
-.Nm
-to consider the first
-non-flag argument to terminate flag processing, as per the POSIX specification.
-.It Ev SHELL
-In interactive mode, a permissible response to the prompt is to
-request to spawn a subshell, which will be
-.Pa /bin/sh
-unless the
-.Ev SHELL
-variable is set.
-.It Ev TAPE
-Changes
-.Nm Ns 's
-default tape drive (which is still overridden by the
-.Fl f
-flag).
-.It TAR_RSH
-The TAR_RSH environment variable allows you to override the default
-shell used as the transport for
-.Nm .
-.El
-.Sh FILES
-.Bl -tag -width "/dev/sa0"
-.It Pa /dev/sa0
-The default tape drive.
-.El
-.Sh COMPATIBILITY
-The
-.Fl y
-is a
-.Fx
-localism.
-The GNU
-.Nm
-maintainer has now choosen
-.Fl j
-as the offical
-.Xr bzip2 1
-compression option in GNU
-.Nm
-1.13.18 and later.
-The
-.Fl I
-option is for compatibility with Solaris's
-.Nm .
 .Sh SEE ALSO
 .Xr bzip2 1 ,
 .Xr compress 1 ,
 .Xr gzip 1 ,
 .Xr pax 1 ,
-.Xr rmt 8
+.Xr rmt 8 ,
+info tar
 .Sh HISTORY
 The
 .Nm

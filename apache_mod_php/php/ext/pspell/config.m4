@@ -1,10 +1,13 @@
-dnl $Id: config.m4,v 1.1.1.3 2001/12/14 22:13:04 zarzycki Exp $
+dnl
+dnl $Id: config.m4,v 1.1.1.5 2003/03/11 01:09:31 zarzycki Exp $
+dnl
 
-PHP_ARG_WITH(pspell,whether to include pspell support,
-[  --with-pspell[=DIR]     Include PSPELL support.])
+PHP_ARG_WITH(pspell,for PSPELL support,
+[  --with-pspell[=DIR]     Include PSPELL support.
+                          This replaces the old ASPELL extension.])
 
 if test "$PHP_PSPELL" != "no"; then
-	PHP_EXTENSION(pspell, $ext_shared)
+	PHP_NEW_EXTENSION(pspell, pspell.c, $ext_shared)
 	if test "$PHP_PSPELL" != "yes"; then
 	    PSPELL_SEARCH_DIRS=$PHP_PSPELL
 	else

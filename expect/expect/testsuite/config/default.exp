@@ -1,0 +1,107 @@
+#   Copyright (C) 1988, 1990, 1991, 1992 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+# Please email any bugs, comments, and/or additions to this file to:
+# bug-dejagnu@prep.ai.mit.edu
+
+# This file was written by Rob Savoye. (rob@cygnus.com)
+
+global EXPECT
+if ![info exists EXPECT] then {
+    set EXPECT $objdir/expect
+}
+
+set eprompt "expect\[0-9.\]*> "
+global eprompt
+
+#
+# expect_version -- extract and print the version number of expect
+#
+proc expect_version { } {
+    global EXPECT
+
+    catch {exec echo "puts \[exp_version\]\n" | $EXPECT} version
+    if [info exists version] then {
+	clone_output "[which $EXPECT] version is $version\n"
+    unset version
+}
+}
+
+#
+# expect_exit -- exit the test driver for expect
+#
+proc expect_exit {} {
+}
+
+#
+# expect_start -- start expect
+#
+proc expect_start { } {
+    global spawn_id
+    global srcdir
+    global EXPECT
+    global eprompt 
+    global objdir
+    
+    set defs    "$srcdir/../tests/defs"
+    
+    if {[which $EXPECT] != 0} then {
+    spawn $EXPECT
+    } else {
+	error "Can't find $EXPECT"
+    }
+
+    expect {
+	-re "expect.*> " {
+	    verbose "Started the child expect shell"
+	}
+	timeout {
+	    error "Timed out starting the child expect shell."
+	}
+    }
+    
+    exp_send "set objdir $objdir\r"
+    verbose "Sourcing $defs..."
+    exp_send "source $defs\r"
+    expect {
+        -re ".*source $defs.*$" {
+            verbose "Sourced $defs"
+        }
+        "Error: couldn't read file*" {
+            error "Couldn't source $defs"
+            return -1
+        }
+        -re "$eprompt" {
+            verbose "Got prompt, sourced $defs"
+            }
+        timeout {
+            error "Timed out sourcing $defs."
+            return 1
+        }
+    }
+    
+    sleep 2
+    exp_send "set VERBOSE 1\r"
+    expect {
+        -re "set VERBOSE 1\[\r\n\]*1\[\r\n\]*$eprompt" {
+            verbose "Set verbose flag for tests"
+        }
+        timeout {
+            perror "Timed out setting verbose flag."
+        }
+    }
+    return $spawn_id
+}

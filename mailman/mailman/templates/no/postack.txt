@@ -1,0 +1,8 @@
+Din epost med emne:
+
+    %(subject)s
+
+ble uten problemer distribuert til alle på listen %(listname)s.
+
+Listens informasjonsside: %(listinfo_url)s
+Din personlige medlemsside: %(optionsurl)s

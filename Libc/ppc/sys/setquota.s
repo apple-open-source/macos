@@ -27,4 +27,3 @@
 #define	SYS_setquota	148
 
 SYSCALL(setquota, 2)
-	blr

@@ -21,38 +21,8 @@
 #ifndef _SECURITY_SECCFTYPES_H_
 #define _SECURITY_SECCFTYPES_H_
 
-#include <Security/Access.h>
-#include <Security/ACL.h>
-#include <Security/Certificate.h>
-#include <Security/CertificateRequest.h>
-#include <Security/Identity.h>
-#include <Security/IdentityCursor.h>
-#include <Security/Item.h>
-#include <Security/KCCursor.h>
-#include <Security/Keychains.h>
-#include <Security/KeyItem.h>
-#include <Security/Policies.h>
-#include <Security/PolicyCursor.h>
-#include <Security/Trust.h>
-#include <Security/TrustedApplication.h>
-
-//#include <Security/SecAccess.h>
-//#include <Security/SecCertificate.h>
-#include <Security/SecCertificateRequest.h>
-//#include <Security/SecIdentity.h>
-#include <Security/SecIdentitySearch.h>
-//#include <Security/SecKeychainItem.h>
-#include <Security/SecKeychainSearch.h>
-//#include <Security/SecKeychain.h>
-//#include <Security/SecKey.h>
-//#include <Security/SecPolicy.h>
-//#include <Security/SecACL.h>
-#include <Security/SecPolicySearch.h>
-#include <Security/SecTrust.h>
-//#include <Security/SecTrustedApplication.h>
-
-#include <Security/utilities.h>
-#include <map>
+#include <CoreFoundation/CFRuntime.h>
+#include <Security/globalizer.h>
 
 namespace Security
 {
@@ -60,24 +30,38 @@ namespace Security
 namespace KeychainCore
 {
 
-/* Singleton that registers all the CFClass<> instances with the CFRuntime.
+class CFClass : protected CFRuntimeClass
+{
+public:
+    CFClass(const char *name);
+
+private:
+    static void finalizeType(CFTypeRef cf);
+    static Boolean equalType(CFTypeRef cf1, CFTypeRef cf2);
+    static CFHashCode hashType(CFTypeRef cf);
+	static CFStringRef copyFormattingDescType(CFTypeRef cf, CFDictionaryRef dict);
+	static CFStringRef copyDebugDescType(CFTypeRef cf);
+
+public:
+    CFTypeID typeID;
+};
+
+/* Singleton that registers all the CFClass instances with the CFRuntime.
 
    To make something a CFTypeRef you need to make the actual object inheirit from SecCFObject and provide implementation of the virtual functions in that class.
    
    In addition to that you need to define an opque type for the C API like:
    typedef struct __OpaqueYourObject *YourObjectRef;
-   and in the C++ headers you define something like:
-   typedef CFClass<YourObject, YourObjectRef> YourObjectClass;
 
-   Add an instance of the YourObjectClass to the public section of SecCFTypes below to get it registered with the CFRuntime.
-   YourObjectClass yourObject;
+   Add an instance of CFClass to the public section of SecCFTypes below to get it registered with the CFRuntime.
+   CFClass yourObject;
 
-
-   In your C++ code you should use RefPointer<YourObject> to refer to instances of your class.  RefPointers are just like autopointers and implement * and -> semantics.  They refcount the underlying object.  So to create an instance or your new object you would do something like:
+   XXX
+   In your C++ code you should use SecPointer<YourObject> to refer to instances of your class.  SecPointers are just like autopointers and implement * and -> semantics.  They refcount the underlying object.  So to create an instance or your new object you would do something like:
    
-       RefPointer<YourObject> instance(new YourObject());
+       SecPointer<YourObject> instance(new YourObject());
 
-   RefPointers have copy semantics and if you subclass RefPointer and define a operator < on the subclass you can even safely store instances of your class in stl containers.
+   SecPointers have copy semantics and if you subclass SecPointer and define a operator < on the subclass you can even safely store instances of your class in stl containers.
 
 	Use then like this:
 		instance->somemethod();
@@ -87,15 +71,15 @@ namespace KeychainCore
 		YourObject *object = instance.get();
 
 	In the API glue you will need to use:
-		RefPointer<YourObject> instance;
+		SecPointer<YourObject> instance;
 		[...] get the instance somehow
-		return gTypes().yourObject.handle(*instance);
+		return instance->handle();
 		to return an opaque handle (the is a CFTypeRef) to your object.
 		
 	when you obtain an object as input use:
 		SecYourObjectRef ref;
-		RefPointer<YourObject> instance = gTypes().yourObject.required(ref);
-		to get a RefPointer to an instance of your object fro the external CFTypeRef.
+		SecPointer<YourObject> instance = YourObject::required(ref);
+		to get a SecPointer to an instance of your object from the external CFTypeRef.
 */
 class SecCFTypes
 {
@@ -103,41 +87,24 @@ public:
     SecCFTypes();
 
 public:
-	/* Add new instances of CFClass<> here that you want registered with the CF runtime. */
-
-	/* @@@ Error should be errSecInvalidAccessRef */
-	CFClass<Access, SecAccessRef, errSecInvalidItemRef> access;
-	/* @@@ Error should be errSecInvalidTrustedApplicationRef */
-	CFClass<ACL, SecACLRef, errSecInvalidItemRef> acl;
-	/* @@@ Error should be errSecInvalidCertificateRef */
-	CFClass<Certificate, SecCertificateRef, errSecInvalidItemRef> certificate;
-	/* @@@ Error should be errSecInvalidCertificateRequestRef */
-	CFClass<CertificateRequest, SecCertificateRequestRef, errSecInvalidItemRef> certificateRequest;
-	/* @@@ Error should be errSecInvalidIdentityRef */
-	CFClass<Identity, SecIdentityRef, errSecInvalidItemRef> identity;
-	CFClass<IdentityCursor, SecIdentitySearchRef, errSecInvalidSearchRef> identityCursor;
-	CFClass<ItemImpl, SecKeychainItemRef, errSecInvalidItemRef> item;
-	CFClass<KCCursorImpl, SecKeychainSearchRef, errSecInvalidSearchRef> cursor;
-	CFClass<KeychainImpl, SecKeychainRef, errSecInvalidKeychain> keychain;
-	/* @@@ Error should be errSecInvalidKeyRef */
-	CFClass<KeyItem, SecKeyRef, errSecInvalidItemRef> keyItem;
-	/* @@@ Error should be errSecInvalidPolicyRef */
-	CFClass<Policy, SecPolicyRef, errSecInvalidItemRef> policy;
-	/* @@@ Error should be errSecInvalidPolicySearchRef */
-	CFClass<PolicyCursor, SecPolicySearchRef, errSecInvalidSearchRef> policyCursor;
-	/* @@@ Error should be errSecInvalidTrustRef */
-	CFClass<Trust, SecTrustRef, errSecInvalidItemRef> trust;
-	/* @@@ Error should be errSecInvalidTrustedApplicationRef */
-	CFClass<TrustedApplication, SecTrustedApplicationRef, errSecInvalidItemRef> trustedApplication;
-
-public:
-    Mutex mapLock;
-    typedef std::map<SecCFObject *, const SecCFType *> Map;
-    Map map;
+	/* Add new instances of CFClass here that you want registered with the CF runtime. */
+	CFClass Access;
+	CFClass ACL;
+	CFClass Certificate;
+	CFClass CertificateRequest;
+	CFClass Identity;
+	CFClass IdentityCursor;
+	CFClass ItemImpl;
+	CFClass KCCursorImpl;
+	CFClass KeychainImpl;
+	CFClass KeyItem;
+	CFClass Policy;
+	CFClass PolicyCursor;
+	CFClass Trust;
+	CFClass TrustedApplication;
 };
 
-
-extern ModuleNexus<SecCFTypes> gTypes;
+extern SecCFTypes &gTypes();
 
 } // end namespace KeychainCore
 

@@ -41,6 +41,9 @@
 #include "event-top.h"
 #include "parser-defs.h"
 #include "top.h"
+#include "regcache.h"
+#include "reggroups.h"
+#include <ctype.h>
 
 #ifndef PROCESS_COMPLETER
 #define PROCESS_COMPLETER noop_completer
@@ -48,17 +51,23 @@
 
 extern char **process_completer (char *, char *);
 
- /* Functions exported for general use: */
-
-void nofp_registers_info (char *, int);
+/* Functions exported for general use, in inferior.h: */
 
 void all_registers_info (char *, int);
 
 void registers_info (char *, int);
 
-/* Local functions: */
+void nexti_command (char *, int);
+
+void stepi_command (char *, int);
 
 void continue_command (char *, int);
+
+void interrupt_target_command (char *args, int from_tty);
+
+/* Local functions: */
+
+static void nofp_registers_info (char *, int);
 
 static void print_return_value (int struct_return, struct type *value_type);
 
@@ -78,8 +87,6 @@ static void float_info (char *, int);
 
 static void detach_command (char *, int);
 
-static void interrupt_target_command (char *args, int from_tty);
-
 static void unset_environment_command (char *, int);
 
 static void set_environment_command (char *, int);
@@ -97,10 +104,6 @@ static void jump_command (char *, int);
 static void step_1 (int, int, char *);
 static void step_1_continuation (struct continuation_arg *arg);
 
-void nexti_command (char *, int);
-
-void stepi_command (char *, int);
-
 static void next_command (char *, int);
 
 static void step_command (char *, int);
@@ -117,7 +120,7 @@ void _initialize_infcmd (void);
 
 #define GO_USAGE   "Usage: go <location>\n"
 
-static void breakpoint_auto_delete_contents (PTR);
+static void breakpoint_auto_delete_contents (void *);
 
 #define ERROR_NO_INFERIOR \
    if (!target_has_execution) error ("The program is not being run.");
@@ -192,7 +195,7 @@ CORE_ADDR step_range_end;	/* Exclusive */
    This is how we know when we step into a subroutine call,
    and how to set the frame for the breakpoint used to step out.  */
 
-CORE_ADDR step_frame_address;
+struct frame_id step_frame_id;
 
 /* Our notion of the current stack pointer.  */
 
@@ -288,7 +291,7 @@ construct_inferior_arguments (struct gdbarch *gdbarch, int argc, char **argv)
 
       /* We over-compute the size.  It shouldn't matter.  */
       for (i = 0; i < argc; ++i)
-	length += 2 * strlen (argv[i]) + 1;
+	length += 2 * strlen (argv[i]) + 1 + 2 * (argv[i][0] == '\0');
 
       result = (char *) xmalloc (length);
       out = result;
@@ -298,11 +301,20 @@ construct_inferior_arguments (struct gdbarch *gdbarch, int argc, char **argv)
 	  if (i > 0)
 	    *out++ = ' ';
 
-	  for (cp = argv[i]; *cp; ++cp)
+	  /* Need to handle empty arguments specially.  */
+	  if (argv[i][0] == '\0')
 	    {
-	      if (strchr (special, *cp) != NULL)
-		*out++ = '\\';
-	      *out++ = *cp;
+	      *out++ = '\'';
+	      *out++ = '\'';
+	    }
+	  else
+	    {
+	      for (cp = argv[i]; *cp; ++cp)
+		{
+		  if (strchr (special, *cp) != NULL)
+		    *out++ = '\\';
+		  *out++ = *cp;
+		}
 	    }
 	}
       *out = '\0';
@@ -485,6 +497,21 @@ Start it from the beginning? "))
      the value now.  */
   target_create_inferior (exec_file, get_inferior_args (),
 			  environ_vector (inferior_environ));
+
+  if (ptid_equal (inferior_ptid, null_ptid))
+    {
+      /* The target didn't manage to start for some reason.  Just in case
+	 we didn't clean up, let's set target_executing to 0 here. */
+      target_executing = 0;
+      
+      if (event_loop_p && target_can_async_p ())
+        {
+          /* Simulate synchronous execution */
+          async_enable_stdin (0);
+        }
+
+    }
+      
 }
 
 
@@ -644,7 +671,7 @@ step_1 (int skip_subroutines, int single_inst, char *count_string)
 	  frame = get_current_frame ();
 	  if (!frame)		/* Avoid coredump here.  Why tho? */
 	    error ("No current frame");
-	  step_frame_address = FRAME_FP (frame);
+	  step_frame_id = get_frame_id (frame);
 	  step_sp = read_sp ();
 
 	  if (!single_inst)
@@ -763,7 +790,7 @@ step_once (int skip_subroutines, int single_inst, int count)
       frame = get_current_frame ();
       if (!frame)		/* Avoid coredump here.  Why tho? */
 	error ("No current frame");
-      step_frame_address = FRAME_FP (frame);
+      step_frame_id = get_frame_id (frame);
       step_sp = read_sp ();
 
       if (!single_inst)
@@ -844,14 +871,6 @@ jump_command (char *arg, int from_tty)
   if (event_loop_p && async_exec && !target_can_async_p ())
     error ("Asynchronous execution not supported on this target.");
 
-  /* If we are not asked to run in the bg, then prepare to run in the
-     foreground, synchronously. */
-  if (event_loop_p && !async_exec && target_can_async_p ())
-    {
-      /* Simulate synchronous execution */
-      async_disable_stdin ();
-    }
-
   if (!arg)
     error_no_arg ("starting address");
 
@@ -903,6 +922,14 @@ jump_command (char *arg, int from_tty)
       printf_filtered ("Continuing at ");
       print_address_numeric (addr, 1, gdb_stdout);
       printf_filtered (".\n");
+    }
+
+  /* If we are not asked to run in the bg, then prepare to run in the
+     foreground, synchronously. */
+  if (event_loop_p && !async_exec && target_can_async_p ())
+    {
+      /* Simulate synchronous execution */
+      async_disable_stdin ();
     }
 
   clear_proceed_status ();
@@ -980,7 +1007,7 @@ signal_command (char *signum_exp, int from_tty)
    pointed to by arg (which is really a bpstat *).  */
 
 static void
-breakpoint_auto_delete_contents (PTR arg)
+breakpoint_auto_delete_contents (void *arg)
 {
   breakpoint_auto_delete (*(bpstat *) arg);
 }
@@ -1008,10 +1035,11 @@ breakpoint_auto_delete_contents (PTR arg)
    will eventually be popped when we do hit the dummy end breakpoint).  */
 
 int
-run_stack_dummy (CORE_ADDR addr, char *buffer)
+run_stack_dummy (CORE_ADDR addr, struct regcache *buffer)
 {
   struct cleanup *old_cleanups = make_cleanup (null_cleanup, 0);
   int saved_async = 0;
+  struct ptid saved_ptid = inferior_ptid;
 
   /* Now proceed, having reached the desired place.  */
   clear_proceed_status ();
@@ -1021,34 +1049,35 @@ run_stack_dummy (CORE_ADDR addr, char *buffer)
       struct breakpoint *bpt;
       struct symtab_and_line sal;
 
-      INIT_SAL (&sal);		/* initialize to zeroes */
+      init_sal (&sal);		/* initialize to zeroes */
       if (CALL_DUMMY_LOCATION == AT_ENTRY_POINT)
 	{
 	  sal.pc = CALL_DUMMY_ADDRESS ();
 	}
       else
 	{
+	  /* If defined, CALL_DUMMY_BREAKPOINT_OFFSET is where we need
+	     to put a breakpoint instruction.  If not, the call dummy
+	     already has the breakpoint instruction in it.
+
+	     ADDR IS THE ADDRESS of the call dummy plus the
+	     CALL_DUMMY_START_OFFSET, so we need to subtract the
+	     CALL_DUMMY_START_OFFSET.  */
 	  sal.pc = addr - CALL_DUMMY_START_OFFSET + CALL_DUMMY_BREAKPOINT_OFFSET;
 	}
       sal.section = find_pc_overlay (sal.pc);
 
-      /* Set up a FRAME for the dummy frame so we can pass it to
-         set_momentary_breakpoint.  We need to give the breakpoint a
-         frame in case there is only one copy of the dummy (e.g.
-         CALL_DUMMY_LOCATION == AFTER_TEXT_END).  */
-      flush_cached_frames ();
-      set_current_frame (create_new_frame (read_fp (), sal.pc));
-
-      /* If defined, CALL_DUMMY_BREAKPOINT_OFFSET is where we need to put
-         a breakpoint instruction.  If not, the call dummy already has the
-         breakpoint instruction in it.
-
-         addr is the address of the call dummy plus the CALL_DUMMY_START_OFFSET,
-         so we need to subtract the CALL_DUMMY_START_OFFSET.  */
-      bpt = set_momentary_breakpoint (sal,
-				      get_current_frame (),
-				      bp_call_dummy);
-      bpt->disposition = disp_del;
+      {
+	/* Set up a frame ID for the dummy frame so we can pass it to
+	   set_momentary_breakpoint.  We need to give the breakpoint a
+	   frame ID so that the breakpoint code can correctly
+	   re-identify the dummy breakpoint.  */
+	struct frame_id frame = frame_id_build (read_fp (), sal.pc);
+	/* Create a momentary breakpoint at the return address of the
+           inferior.  That way it breaks when it returns.  */
+	bpt = set_momentary_breakpoint (sal, frame, bp_call_dummy);
+	bpt->disposition = disp_del;
+      }
 
       /* If all error()s out of proceed ended up calling normal_stop (and
          perhaps they should; it already does in the special case of error
@@ -1081,8 +1110,7 @@ run_stack_dummy (CORE_ADDR addr, char *buffer)
     return 2;
 
   /* On normal return, the stack dummy has been popped already.  */
-
-  memcpy (buffer, stop_registers, REGISTER_BYTES);
+  regcache_cpy_no_passthrough (buffer, stop_registers);
   return 0;
 }
 
@@ -1133,7 +1161,7 @@ until_next_command (int from_tty)
     }
 
   step_over_calls = STEP_OVER_ALL;
-  step_frame_address = FRAME_FP (frame);
+  step_frame_id = get_frame_id (frame);
   step_sp = read_sp ();
 
   step_multi = 0;		/* Only one call to proceed */
@@ -1167,9 +1195,40 @@ until_command (char *arg, int from_tty)
     }
 
   if (arg)
-    until_break_command (arg, from_tty);
+    until_break_command (arg, from_tty, 0);
   else
     until_next_command (from_tty);
+}
+
+static void
+advance_command (char *arg, int from_tty)
+{
+  int async_exec = 0;
+
+  if (!target_has_execution)
+    error ("The program is not running.");
+
+  if (arg == NULL)
+    error_no_arg ("a location");
+
+  /* Find out whether we must run in the background.  */
+  if (arg != NULL)
+    async_exec = strip_bg_char (&arg);
+
+  /* If we must run in the background, but the target can't do it,
+     error out.  */
+  if (event_loop_p && async_exec && !target_can_async_p ())
+    error ("Asynchronous execution not supported on this target.");
+
+  /* If we are not asked to run in the bg, then prepare to run in the
+     foreground, synchronously.  */
+  if (event_loop_p && !async_exec && target_can_async_p ())
+    {
+      /* Simulate synchronous execution.  */
+      async_disable_stdin ();
+    }
+
+  until_break_command (arg, from_tty, 1);
 }
 
 
@@ -1300,19 +1359,19 @@ finish_command (char *arg, int from_tty)
     error ("The \"finish\" command does not take any arguments.");
   if (!target_has_execution)
     error ("The program is not running.");
-  if (selected_frame == NULL)
+  if (deprecated_selected_frame == NULL)
     error ("No selected frame.");
 
-  frame = get_prev_frame (selected_frame);
+  frame = get_prev_frame (deprecated_selected_frame);
   if (frame == 0)
     error ("\"finish\" not meaningful in the outermost frame.");
 
   clear_proceed_status ();
 
-  sal = find_pc_line (frame->pc, 0);
-  sal.pc = frame->pc;
+  sal = find_pc_line (get_frame_pc (frame), 0);
+  sal.pc = get_frame_pc (frame);
 
-  breakpoint = set_momentary_breakpoint (sal, frame, bp_finish);
+  breakpoint = set_momentary_breakpoint (sal, get_frame_id (frame), bp_finish);
 
   if (!event_loop_p || !target_can_async_p ())
     old_chain = make_cleanup_delete_breakpoint (breakpoint);
@@ -1321,14 +1380,15 @@ finish_command (char *arg, int from_tty)
 
   /* Find the function we will return from.  */
 
-  function = find_pc_function (selected_frame->pc);
+  function = find_pc_function (get_frame_pc (deprecated_selected_frame));
 
   /* Print info on the selected frame, including level number
      but not source.  */
   if (from_tty)
     {
       printf_filtered ("Run till exit from ");
-      print_stack_frame (selected_frame, selected_frame_level, 0);
+      print_stack_frame (deprecated_selected_frame,
+			 frame_relative_level (deprecated_selected_frame), 0);
     }
 
   /* If running asynchronously and the target support asynchronous
@@ -1587,32 +1647,50 @@ path_command (char *dirname, int from_tty)
 #ifdef REGISTER_NAMES
 char *gdb_register_names[] = REGISTER_NAMES;
 #endif
-/* Print out the machine register regnum. If regnum is -1,
-   print all registers (fpregs == 1) or all non-float registers
-   (fpregs == 0).
+/* Print out the machine register regnum. If regnum is -1, print all
+   registers (print_all == 1) or all non-float and non-vector
+   registers (print_all == 0).
 
    For most machines, having all_registers_info() print the
-   register(s) one per line is good enough. If a different format
-   is required, (eg, for MIPS or Pyramid 90x, which both have
-   lots of regs), or there is an existing convention for showing
-   all the registers, define the macro DO_REGISTERS_INFO(regnum, fp)
-   to provide that format.  */
+   register(s) one per line is good enough.  If a different format is
+   required, (eg, for MIPS or Pyramid 90x, which both have lots of
+   regs), or there is an existing convention for showing all the
+   registers, define the architecture method PRINT_REGISTERS_INFO to
+   provide that format.  */
 
 void
-do_registers_info (int regnum, int fpregs)
+default_print_registers_info (struct gdbarch *gdbarch,
+			      struct ui_file *file,
+			      struct frame_info *frame,
+			      int regnum, int print_all)
 {
-  register int i;
-  int numregs = NUM_REGS + NUM_PSEUDO_REGS;
-  char *raw_buffer = (char*) alloca (MAX_REGISTER_RAW_SIZE);
-  char *virtual_buffer = (char*) alloca (MAX_REGISTER_VIRTUAL_SIZE);
+  int i;
+  const int numregs = NUM_REGS + NUM_PSEUDO_REGS;
+  char *raw_buffer = alloca (MAX_REGISTER_RAW_SIZE);
+  char *virtual_buffer = alloca (MAX_REGISTER_VIRTUAL_SIZE);
+
+  if (DEPRECATED_DO_REGISTERS_INFO_P ())
+    {
+      DEPRECATED_DO_REGISTERS_INFO (regnum, print_all);
+      return;
+    }
 
   for (i = 0; i < numregs; i++)
     {
-      /* Decide between printing all regs, nonfloat regs, or specific reg.  */
+      /* Decide between printing all regs, non-float / vector regs, or
+         specific reg.  */
       if (regnum == -1)
 	{
-	  if (TYPE_CODE (REGISTER_VIRTUAL_TYPE (i)) != TYPE_CODE_INT && !fpregs)
-	    continue;
+	  if (print_all)
+	    {
+	      if (!gdbarch_register_reggroup_p (gdbarch, i, all_reggroup))
+		continue;
+	    }
+	  else
+	    {
+	      if (!gdbarch_register_reggroup_p (gdbarch, i, general_reggroup))
+		continue;
+	    }
 	}
       else
 	{
@@ -1625,16 +1703,19 @@ do_registers_info (int regnum, int fpregs)
       if (REGISTER_NAME (i) == NULL || *(REGISTER_NAME (i)) == '\0')
 	continue;
 
-      fputs_filtered (REGISTER_NAME (i), gdb_stdout);
-      print_spaces_filtered (15 - strlen (REGISTER_NAME (i)), gdb_stdout);
+      fputs_filtered (REGISTER_NAME (i), file);
+      print_spaces_filtered (15 - strlen (REGISTER_NAME (i)), file);
 
       /* Get the data in raw format.  */
-      if (read_relative_register_raw_bytes (i, raw_buffer))
+      if (! frame_register_read (frame, i, raw_buffer))
 	{
-	  printf_filtered ("*value not available*\n");
+	  fprintf_filtered (file, "*value not available*\n");
 	  continue;
 	}
 
+      /* FIXME: cagney/2002-08-03: This code shouldn't be necessary.
+         The function frame_register_read() should have returned the
+         pre-cooked register so no conversion is necessary.  */
       /* Convert raw data to virtual format if necessary.  */
       if (REGISTER_CONVERTIBLE (i))
 	{
@@ -1647,41 +1728,43 @@ do_registers_info (int regnum, int fpregs)
 		  REGISTER_VIRTUAL_SIZE (i));
 	}
 
-      /* If virtual format is floating, print it that way, and in raw hex.  */
+      /* For floating and vector registers, print the value in natural
+	 format, followed by the contents of the register in hex.  For
+	 all other registers, pring the contents of the register in
+	 hex, followed by the natural (integer) value. */
 
-      if (TYPE_CODE (REGISTER_VIRTUAL_TYPE (i)) != TYPE_CODE_INT)
+      if ((TYPE_CODE (REGISTER_VIRTUAL_TYPE (i)) == TYPE_CODE_FLT)
+	  || TYPE_VECTOR (REGISTER_VIRTUAL_TYPE (i)))
 	{
-	  register int j;
+	  int j;
 
 	  val_print (REGISTER_VIRTUAL_TYPE (i), virtual_buffer, 0, 0,
-		     gdb_stdout, 0, 1, 0, Val_pretty_default);
+		     file, 0, 1, 0, Val_pretty_default);
 
-	  printf_filtered ("\t(raw 0x");
+	  fprintf_filtered (file, "\t(raw 0x");
 	  for (j = 0; j < REGISTER_RAW_SIZE (i); j++)
 	    {
-	      register int idx = TARGET_BYTE_ORDER == BFD_ENDIAN_BIG ? j
-	      : REGISTER_RAW_SIZE (i) - 1 - j;
-	      printf_filtered ("%02x", (unsigned char) raw_buffer[idx]);
+	      int idx;
+	      if (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG)
+		idx = j;
+	      else
+		idx = REGISTER_RAW_SIZE (i) - 1 - j;
+	      fprintf_filtered (file, "%02x", (unsigned char) raw_buffer[idx]);
 	    }
-	  printf_filtered (")");
+	  fprintf_filtered (file, ")");
 	}
-      /* Else print as integer in hex and in decimal.  */
       else
 	{
+          /* Print the register in hex.  */
 	  val_print (REGISTER_VIRTUAL_TYPE (i), virtual_buffer, 0, 0,
-		     gdb_stdout, 'x', 1, 0, Val_pretty_default);
-	  printf_filtered ("\t");
+		     file, 'x', 1, 0, Val_pretty_default);
+          /* Also print it according to its natural format.  */
+	  fprintf_filtered (file, "\t");
 	  val_print (REGISTER_VIRTUAL_TYPE (i), virtual_buffer, 0, 0,
-		     gdb_stdout, 0, 1, 0, Val_pretty_default);
+		     file, 0, 1, 0, Val_pretty_default);
 	}
 
-      /* The SPARC wants to print even-numbered float regs as doubles
-         in addition to printing them as floats.  */
-#ifdef PRINT_REGISTER_HOOK
-      PRINT_REGISTER_HOOK (i);
-#endif
-
-      printf_filtered ("\n");
+      fprintf_filtered (file, "\n");
     }
 }
 
@@ -1693,43 +1776,99 @@ registers_info (char *addr_exp, int fpregs)
 
   if (!target_has_registers)
     error ("The program has no registers now.");
-  if (selected_frame == NULL)
+  if (deprecated_selected_frame == NULL)
     error ("No selected frame.");
 
   if (!addr_exp)
     {
-      DO_REGISTERS_INFO (-1, fpregs);
+      gdbarch_print_registers_info (current_gdbarch, gdb_stdout,
+				    deprecated_selected_frame, -1, fpregs);
       return;
     }
 
-  do
+  while (*addr_exp != '\0')
     {
+      char *start;
+      const char *end;
+
+      /* Keep skipping leading white space.  */
+      if (isspace ((*addr_exp)))
+	{
+	  addr_exp++;
+	  continue;
+	}
+
+      /* Discard any leading ``$''.  Check that there is something
+         resembling a register following it.  */
       if (addr_exp[0] == '$')
 	addr_exp++;
+      if (isspace ((*addr_exp)) || (*addr_exp) == '\0')
+	error ("Missing register name");
+
+      /* Find the start/end of this register name/num/group.  */
+      start = addr_exp;
+      while ((*addr_exp) != '\0' && !isspace ((*addr_exp)))
+	addr_exp++;
       end = addr_exp;
-      while (*end != '\0' && *end != ' ' && *end != '\t')
-	++end;
-      numregs = NUM_REGS + NUM_PSEUDO_REGS;
+      
+      /* Figure out what we've found and display it.  */
 
-      regnum = target_map_name_to_register (addr_exp, end - addr_exp);
-      if (regnum >= 0)
-	goto found;
+      /* A register name?  */
+      {
+	int regnum = frame_map_name_to_regnum (start, end - start);
+	if (regnum >= 0)
+	  {
+	    gdbarch_print_registers_info (current_gdbarch, gdb_stdout,
+					  deprecated_selected_frame, regnum, fpregs);
+	    continue;
+	  }
+      }
+	
+      /* A register number?  (how portable is this one?).  */
+      {
+	char *endptr;
+	int regnum = strtol (start, &endptr, 0);
+	if (endptr == end
+	    && regnum >= 0
+	    && regnum < NUM_REGS + NUM_PSEUDO_REGS)
+	  {
+	    gdbarch_print_registers_info (current_gdbarch, gdb_stdout,
+					  deprecated_selected_frame, regnum, fpregs);
+	    continue;
+	  }
+      }
 
-      regnum = numregs;
+      /* A register group?  */
+      {
+	struct reggroup *const *group;
+	for (group = reggroups (current_gdbarch);
+	     (*group) != NULL;
+	     group++)
+	  {
+	    /* Don't bother with a length check.  Should the user
+	       enter a short register group name, go with the first
+	       group that matches.  */
+	    if (strncmp (start, reggroup_name ((*group)), end - start) == 0)
+	      break;
+	  }
+	if ((*group) != NULL)
+	  {
+	    int regnum;
+	    for (regnum = 0; regnum < NUM_REGS + NUM_PSEUDO_REGS; regnum++)
+	      {
+		if (gdbarch_register_reggroup_p (current_gdbarch, regnum,
+						 (*group)))
+		  gdbarch_print_registers_info (current_gdbarch,
+						gdb_stdout, deprecated_selected_frame,
+						regnum, fpregs);
+	      }
+	    continue;
+	  }
+      }
 
-      if (*addr_exp >= '0' && *addr_exp <= '9')
-	regnum = atoi (addr_exp);	/* Take a number */
-      if (regnum >= numregs)	/* Bad name, or bad number */
-	error ("%.*s: invalid register", end - addr_exp, addr_exp);
-
-    found:
-      DO_REGISTERS_INFO (regnum, fpregs);
-
-      addr_exp = end;
-      while (*addr_exp == ' ' || *addr_exp == '\t')
-	++addr_exp;
+      /* Nothing matched.  */
+      error ("Invalid register `%.*s'", (int) (end - start), start);
     }
-  while (*addr_exp != '\0');
 }
 
 void
@@ -1738,10 +1877,45 @@ all_registers_info (char *addr_exp, int from_tty)
   registers_info (addr_exp, 1);
 }
 
-void
+static void
 nofp_registers_info (char *addr_exp, int from_tty)
 {
   registers_info (addr_exp, 0);
+}
+
+static void
+print_vector_info (struct gdbarch *gdbarch, struct ui_file *file,
+		   struct frame_info *frame, const char *args)
+{
+  if (!target_has_registers)
+    error ("The program has no registers now.");
+  if (deprecated_selected_frame == NULL)
+    error ("No selected frame.");
+
+  if (gdbarch_print_vector_info_p (gdbarch))
+    gdbarch_print_vector_info (gdbarch, file, frame, args);
+  else
+    {
+      int regnum;
+      int printed_something = 0;
+
+      for (regnum = 0; regnum < NUM_REGS + NUM_PSEUDO_REGS; regnum++)
+	{
+	  if (gdbarch_register_reggroup_p (gdbarch, regnum, vector_reggroup))
+	    {
+	      printed_something = 1;
+	      gdbarch_print_registers_info (gdbarch, file, frame, regnum, 1);
+	    }
+	}
+      if (!printed_something)
+	fprintf_filtered (file, "No vector information\n");
+    }
+}
+
+static void
+vector_info (char *args, int from_tty)
+{
+  print_vector_info (current_gdbarch, gdb_stdout, deprecated_selected_frame, args);
 }
 
 
@@ -1864,14 +2038,7 @@ detach_command (char *args, int from_tty)
 
 /* Stop the execution of the target while running in async mode, in
    the backgound. */
-
 void
-interrupt_target_command_wrapper (char *args, int from_tty)
-{
-  interrupt_target_command (args, from_tty);
-}
-
-static void
 interrupt_target_command (char *args, int from_tty)
 {
   if (event_loop_p && target_can_async_p ())
@@ -1883,9 +2050,46 @@ interrupt_target_command (char *args, int from_tty)
 
 /* ARGSUSED */
 static void
-float_info (char *addr_exp, int from_tty)
+print_float_info (struct gdbarch *gdbarch, struct ui_file *file,
+		  struct frame_info *frame, const char *args)
 {
-  PRINT_FLOAT_INFO ();
+  if (!target_has_registers)
+    error ("The program has no registers now.");
+  if (deprecated_selected_frame == NULL)
+    error ("No selected frame.");
+
+  if (gdbarch_print_float_info_p (gdbarch))
+    gdbarch_print_float_info (gdbarch, file, frame, args);
+  else
+    {
+#ifdef FLOAT_INFO
+#if GDB_MULTI_ARCH > GDB_MULTI_ARCH_PARTIAL
+#error "FLOAT_INFO defined in multi-arch"
+#endif
+      FLOAT_INFO;
+#else
+      int regnum;
+      int printed_something = 0;
+
+      for (regnum = 0; regnum < NUM_REGS + NUM_PSEUDO_REGS; regnum++)
+	{
+	  if (gdbarch_register_reggroup_p (gdbarch, regnum, float_reggroup))
+	    {
+	      printed_something = 1;
+	      gdbarch_print_registers_info (gdbarch, file, frame, regnum, 1);
+	    }
+	}
+      if (!printed_something)
+	fprintf_filtered (file, "\
+No floating-point info available for this processor.\n");
+#endif
+    }
+}
+
+static void
+float_info (char *args, int from_tty)
+{
+  print_float_info (current_gdbarch, gdb_stdout, deprecated_selected_frame, args);
 }
 
 /* ARGSUSED */
@@ -2017,10 +2221,14 @@ Argument N means do this N times (or till program stops for another reason).");
 
   c = add_com ("until", class_run, until_command,
 	       "Execute until the program reaches a source line greater than the current\n\
-or a specified line or address or function (same args as break command).\n\
-Execution will also stop upon exit from the current stack frame.");
+or a specified location (same args as break command) within the current frame.");
   set_cmd_completer (c, location_completer);
   add_com_alias ("u", "until", class_run, 1);
+
+  c = add_com ("advance", class_run, advance_command,
+	       "Continue the program up to the given location (same form as args for break command).\n\
+Execution will also stop upon exit from the current stack frame.");
+  set_cmd_completer (c, location_completer);
 
   c = add_com ("jump", class_run, jump_command,
 	       "Continue program being debugged at specified line or address.\n\
@@ -2054,7 +2262,7 @@ the breakpoint won't break until the Nth time it is reached).");
   c = add_com ("run", class_run, run_command,
 	   "Start debugged program.  You may specify arguments to give it.\n\
 If 'start-with-shell' is set to 1, args may include \"*\", or \"[...]\";\n\
-they will be expanded using \"sh\".  Input and output redirection with
+they will be expanded using \"sh\".  Input and output redirection with\n\
 \">\", \"<\", or \">>\" will also be allowed.\n\n\
 With no arguments, uses arguments last specified (with \"run\" or \"set args\").\n\
 To cancel previous arguments and run with no arguments,\n\
@@ -2087,6 +2295,9 @@ Register name as argument means describe only that register.");
 
   add_info ("float", float_info,
 	    "Print the status of the floating point unit\n");
+
+  add_info ("vector", vector_info,
+	    "Print the status of the vector unit\n");
 
   inferior_environ = make_environ ();
   init_environ (inferior_environ);

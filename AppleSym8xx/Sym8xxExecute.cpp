@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -108,7 +105,7 @@ void Sym8xxSCSIController::Sym8xxProcessIODone()
     Nexus			*nexus;
     IODoneMailBox		*pMailBox;
     
- 
+
     /*
      * The IODone mailbox contains an index into our Nexus pointer tables.
      *
@@ -134,7 +131,7 @@ void Sym8xxSCSIController::Sym8xxProcessIODone()
      */
     adapter->nexusPtrsVirt[pMailBox->nexus] = (Nexus *) -1;
     adapter->nexusPtrsPhys[pMailBox->nexus] = (Nexus *) -1;
-    SCRIPT_VAR(R_ld_IOdone_mailbox)       = 0;
+    SCRIPT_VAR(R_ld_IOdone_mailbox)         = 0;
 
     /*
      * Wake up the client's thread to do post-processing
@@ -198,6 +195,8 @@ void Sym8xxSCSIController::Sym8xxCompleteSRB( SRB *srb )
     }
     
     scsiCommand->setResults( &scsiResults, negResult );
+    if ( srb->srbIOMD )		// make sure ->srbIOMD is non-zero before calling complete()
+	    (srb->srbIOMD)->complete();
     scsiCommand->complete();
 }
    
@@ -1191,7 +1190,7 @@ void  Sym8xxSCSIController::Sym8xxCheckRequestSense( SRB *srb )
 {
     IOSCSIParallelCommand	*scsiCommand;
     IOMemoryDescriptor          *reqSenseDesc;
-    
+
     scsiCommand = srb->scsiCommand;
     
     scsiCommand->getPointers( &reqSenseDesc, 0, 0, true );
@@ -1262,32 +1261,48 @@ bool Sym8xxSCSIController::Sym8xxCancelMailBox( Nexus *nexusCancel )
  *-----------------------------------------------------------------------------*/
 void  Sym8xxSCSIController::Sym8xxCancelMailBox( UInt32 target, UInt32 lun, bool fReschedule )
 {
-    UInt32		tag;
-    UInt32		tagPos;
-    UInt32		tagShift;
-
-    UInt32		i;
+    UInt32		i, j;
 
     SRB			*srb;
     Nexus		*nexus;
     Nexus		*nexusPhys;
 
-    tagPos = offsetof(Nexus, tag) & 0x03;
-    tagShift  = 24 - (tagPos << 3);
 
     for ( i=0; i < MAX_SCHED_MAILBOXES; i++ )
     {
         nexusPhys = (Nexus *)OSSwapHostToLittleInt32( (UInt32)adapter->schedMailBox[i] );
         if ( (nexusPhys != (Nexus *)kMailBoxEmpty) && (nexusPhys != (Nexus *)kMailBoxCancel) )
         {
-            /* 
-             * Read the 'tag' byte given Nexus physical address from the mailBox. 
-             * Look-up the virtual address of the corresponding Nexus struct.
-             */                
-            tag     = ml_phys_read((UInt32)&nexusPhys->tag - tagPos);
-            tag     = (tag >> tagShift) & 0xff;
+	    /*
+	     *	There is a 1-to-1 correspondence between adapter->nexusPtrsPhys[] and
+	     *	adapter->nexusPtrsVirt[].  The value that gets placed in adapter->schedMailBox[]
+	     *	is a (byte-reversed) nexusPtrsPhys[] element.  The above loop (index *i*) scans
+	     *	the known ->schedMailBox[] list, retrieving nexusPhysPtrs (essentially).  Since
+	     *	nexusPtrsPhys[i] and nexusPtrsVirt[i] point to the same place, if you can find
+	     *	the nexusPtrsPhys[i] offset, you then also know, and can make virtual memory
+	     *	accesses using the nexusPtrsVirt[] equivalent.
+	     *
+	     *	Previously the code was using the nexusPhys pointer and used ml_phys_read()
+	     *	to get the "tag" value stored in the nexus, which is the equivalent of the [i].
+	     *	Since we don't want to use ml_phys_read() any more (64-bit concerns), we instead
+	     *	opt for the brute-force method of scanning the list of nexusPtrsPhys[], looking
+	     *	for a match from the value we pull out of adapter->schedMailBox[].  Once we find
+	     *	a match, the equivalent nexusPtrsVirt[] value is the right value to use.
+	     */
 
-            nexus = adapter->nexusPtrsVirt[tag];
+	    for ( nexus = (Nexus *)-1, j = 0; j < MAX_SCHED_MAILBOXES; j++ )
+	    {
+		if ( adapter->nexusPtrsPhys[j] == nexusPhys )
+		{
+		    nexus = adapter->nexusPtrsVirt[j];
+		    break;
+		}
+	    }
+
+	    // nexusPtrsVirt[] elements are set to -1 if its not in use
+	    // if, by some chance, we don't find a match in the previous loop,
+	    // we'll continue with the next ->schedMailBox
+
             if ( nexus == (Nexus *)-1 )
             {
                 continue;

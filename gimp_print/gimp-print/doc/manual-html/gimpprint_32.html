@@ -1,0 +1,723 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from .././gimpprint.texi on 22 January 2003 -->
+
+<TITLE>GIMP-Print - What is perfect weaving?</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_31.html">previous</A>, <A HREF="gimpprint_33.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H3><A NAME="SEC47" HREF="gimpprint_toc.html#TOC47">B.2.4  What makes a "perfect" weave?</A></H3>
+<P>
+<A NAME="IDX188"></A>
+
+</P>
+<P>
+So what causes the perfect weave cases to be perfect, and the other
+cases not to be?  In all the perfect cases above, @math{S} and @math{J}
+are relatively prime (i.e. their greatest common divisor (GCD) is 1).
+As we mentioned above, @math{S=6} and @math{J=4} have a common factor,
+which causes the overprinting.  Where @math{S} and @math{J} have a GCD
+of 1, they have no common factor other than 1 and, as a result, no
+overprinting occurs.  If @math{S} and @math{J} are not relatively prime,
+their common factor will cause overprinting.
+
+</P>
+<P>
+We can work out the greatest common divisor of a pair of natural numbers
+using Euler's algorithm:
+
+</P>
+
+<UL>
+<LI>Start with the two numbers:                        (e.g.)  9,  24
+
+<LI>Swap them if necessary so that the larger one comes first: 24,   9
+
+<LI>Subtract the second number from the first:                 15,   9
+
+<LI>Repeat until the first number becomes smaller:              6,   9
+
+<LI>Swap the numbers again, so the larger one comes first:      9,   6
+
+<LI>Subtract again:                                             3,   6
+
+<LI>Swap:                                                       6,   3
+
+<LI>Subtract:                                                   3,   3
+
+<LI>And again:                                                  0,   3
+
+<LI>When one of the numbers becomes 0, the other number is the GCD of the two numbers you started with.
+
+</UL>
+
+<P>
+These repeated subtractions can be done with C's <SAMP>`%'</SAMP> operator, so we
+can write this in C as follows:
+
+</P>
+
+<PRE>
+unsigned int
+gcd(unsigned int x, unsigned int y)
+{
+    if (y == 0)
+        return x;
+    while (x != 0) {
+        if (y &#62; x)
+            swap (&#38;x, &#38;y);
+        x %= y;
+    }
+    return y;
+}
+</PRE>
+
+<P>
+<SAMP>`gcd(S,J)'</SAMP> will feature quite prominently in our weaving algorithm.
+
+</P>
+<P>
+If @math{0 &#60;= j &#60; J}, there should only be a single pair @math{(p, j)}
+for any given row number.  If @math{S} and @math{J} are not relatively
+prime, this assumption breaks down.  (For conciseness, let
+@math{G=GCD(S,J)}.)
+
+</P>
+<P>
+@math{S=8},  @math{J=6},  @math{G=2}:
+
+</P>
+
+<PRE>
+0 *-------*-------*-------*-------*-------*
+1       *-------*-------*-------*-------*-------*
+2             *-------*-------*-------*-------*-------*
+3                   *-------*-------*-------*-------*-------*
+4                         ^-------^-------^-------*-------*-------*
+5                               ^-------^-------^-------*-------*-------*
+</PRE>
+
+<P>
+In this case, jets 0, 1 and 2 of pass @math{p+4} collide with jets 3, 4
+and 5 of pass @math{p}.
+
+</P>
+<P>
+How can we calculate these numbers?  Suppose we were to print using
+fewer jets, say @math{J/G} jets.  The greatest common divisor of
+@math{J/G} and @math{S} is 1, enabling a perfect weave.  But to get a
+perfect weave, we also have to advance the paper by a factor of @math{G}
+less:
+
+</P>
+
+<PRE>
+0 *-------*-------*       -       -       -
+1    *-------*-------*       -       -       -
+2       *-------*-------*       -       -       -
+3          *-------*-------*       -       -       -
+4             *-------*-------*       -       -       -
+5                *-------*-------*       -       -       -
+</PRE>
+
+<P>
+If we left the paper advance alone, we'd get a sparse weave; only one
+row can be printed every @math{G} rows:
+
+</P>
+
+<PRE>
+0 *-------*-------*       -       -       -
+1       *-------*-------*       -       -       -
+2             *-------*-------*       -       -       -
+3                   *-------*-------*       -       -       -
+4                         *-------*-------*       -       -       -
+5                               *-------*-------*       -       -       -
+               ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^
+              These rows need filling in.
+</PRE>
+
+<P>
+The rows that would have been printed by the jets we've now omitted
+(shown as <SAMP>`-'</SAMP>) are printed by other jets on later passes.
+
+</P>
+<P>
+Let's analyse this.  Consider how a pass @math{p} could collide with
+pass 0.  Pass @math{p} starts at offset @math{p*J}.  Pass 0 prints at
+rows which are multiples of @math{S}.  If @math{p*J} is exactly
+divisible by @math{S}, a collision has occurred, unless @math{p*J &#62;=
+J*S} (which will happen when we finish a pass block).
+
+</P>
+<P>
+So, we want to find @math{p} and @math{q} such that @math{p*J=q*S} and
+@math{p} is minimised.  Then @math{p} is the number of rows before a
+collision, and @math{q} is the number of jets in pass 0 which are not
+involved in the collision.  To do this, we find the lowest common
+multiple of @math{J} and @math{S}, which is @math{L=J*S/G}.  @math{L/J}
+is the number of rows before a collision, and @math{L/S} is the number
+of jets in the first pass not involved in the collision.
+
+</P>
+<P>
+Thus, we see that the first @math{J/G} rows printed by a given pass are
+not overprinted by any later pass.  However, the rest of the rows
+printed by pass @math{p} are overprinted by the first
+@math{J-(J/G)} jets of pass @math{p+(S/G)}.  We will use @math{C}
+to refer to @math{S/G}, the number of rows after which a collision
+occurs.
+
+</P>
+<P>
+Another example:
+
+</P>
+<P>
+@math{S=6},  @math{J=9},  @math{G=3},  @math{C=S/G=2}:
+
+</P>
+
+<PRE>
+0 *-----*-----*-----*-----*-----*-----*-----*-----*
+1          *-----*-----*-----*-----*-----*-----*-----*-----*
+2                   ^-----^-----^-----^-----^-----^-----*-----*-----*
+3                            ^-----^-----^-----^-----^-----^-----*-----*-----*
+4                                     ^-----^-----^-----^-----^-----^-----*-----
+5                                              ^-----^-----^-----^-----^-----^--
+         ^^ ^^ ^^ ^^ ^^ ^^ ^^ ^^ ^^ ^^ ^^ ^^ ^^ ^^ ^^ ^^ ^^ ^^ ^^ ^^ ^^ ^^ ^^ ^^
+              These rows need filling in.
+</PRE>
+
+<P>
+In this case, the first @math{J-(J/G) = 9-9/3 = 6} jets of pass
+@math{p+(6/3)=p+2} collide with the last 6 jets of pass @math{p}.  Only
+one row in every @math{G=2} rows is printed by this weave.
+
+</P>
+<P>
+@math{S=9},  @math{J=6},  @math{G=3},  @math{C=3}:
+
+</P>
+
+<PRE>
+0 *--------*--------*--------*--------*--------*
+1       *--------*--------*--------*--------*--------*
+2             *--------*--------*--------*--------*--------*
+3                   ^--------^--------^--------^--------*--------*
+4                         ^--------^--------^--------^--------*--------*
+5                               ^--------^--------^--------^--------*--------*
+</PRE>
+
+<P>
+Here, the first @math{J-(J/G) = 6-6/3 = 4} jets of pass
+@math{p+(9/3)=p+3} collide with the last 4 jets of pass @math{p}.
+
+</P>
+<P>
+Note that, in these overprinting cases, only rows divisible by @math{G}
+are ever printed.  The other rows, those not divisible by @math{G}, are
+not touched by this weave.
+
+</P>
+<P>
+We can modify our weave pattern to avoid overprinting any rows and
+simultaneously fill in the missing rows.  Instead of using @math{J}
+alone to determine the start of each pass from the previous pass, we
+adjust the starting position of some passes.  As mentioned before, we
+will divide the page into pass blocks, with @math{S} passes in each
+block.  This ensures that the first jet of the first pass in a block
+prints the row which the @math{J}th jet of the first pass of the
+previous block would have printed, if the print head had one extra jet.
+
+</P>
+<P>
+Looking back at an example of a perfect weave, we can divide it into
+pass blocks:
+
+</P>
+<P>
+@math{S=7},  @math{J=2},  @math{G=1}:
+
+</P>
+
+<PRE>
+                imaginary extra jet
+                |
+0 *------*      *      &#60;--start of pass block 0
+1   *------*    |
+2     *------*  |
+3       *------*|
+4         *-----|*
+5           *---|--*
+6             *-|----*
+                |
+7               *------*  &#60;--start of pass block 1
+8                 *------*
+9                   *------*
+</PRE>
+
+<P>
+We can now calculate the start of a given pass by reference to its pass
+block.  The first pass of pass block @math{b} always starts at row
+@math{(b*S*J)}.  The start row of each of the other passes in the block
+are calculated using offsets from this row.
+
+</P>
+<P>
+For the example above, there are 7 passes in each pass block, and their
+offsets are 0, 2, 4, 6, 8, 10 and 12.  The next pass block is offset
+@math{S*J=14} rows from the start of the current pass block.
+
+</P>
+<P>
+The simplest way to modify the "perfect" weave pattern to give a
+correct weave in cases where @math{G!=1} is to simply change any offsets
+which would result in a collision, until the collision disappears.
+Every printed row in the weave, as we have shown it up to now, is
+separated from each of its neighbouring printed rows by @math{G} blank
+rows.  We will add an extra offset to each colliding pass in such a way
+that we push the pass onto these otherwise blank rows.
+
+</P>
+<P>
+We have seen that, unless @math{G=1}, the plain weave pattern results in
+each pass colliding with the pass @math{S/G} passes before.  We will now
+subdivide our pass block into subblocks, each consisting of @math{B=S/G}
+passes.  There are therefore @math{G} subblocks in a pass block.
+
+</P>
+<P>
+For each subblock, the passes in that subblock have a constant offset
+added to them.  The offset is different for each subblock in a block.
+There are many ways we can choose the offsets, but the simplest is to
+make the offset equal to the subblock number (starting from 0).
+
+</P>
+<P>
+Thus, the passes in the first subblock in each pass block remain at the
+offsets we've already calculated from @math{J}.  The passes in the
+second subblock each have 1 added to their offset, the passes in the
+third subblock have 2 added, and so on.  Thus, the offset of pass
+@math{p} (numbered relative to the start of its pass block) is @math{p*J
++ floor(p/B)}.
+
+</P>
+<P>
+This gives us a weave pattern looking like this:
+
+</P>
+<P>
+@math{S=6},  @math{J=9},  @math{G=3},  @math{B=2}:
+
+</P>
+
+<PRE>
+0 *-----*-----*-----*-----*-----*-----*-----*-----*
+1 ^        *-----*-----*-----*-----*-----*-----*-----*-----*
+2 |              +-&#62; *-----*-----*-----*-----*-----*-----*-----*-----*
+3 |              |            *-----*-----*-----*-----*-----*-----*-----*-----*
+4 |              |                  +-&#62; *-----*-----*-----*-----*-----*-----*---
+5 |              |                  |            *-----*-----*-----*-----*-----*
+6 |              |                  |               +-&#62; *-----*-----*-----*-----
+7 |              |                  |               |            *-----*-----*--
+  |              |                  |             start of pass block 1
+  |              |                  |             (offset returns to 0)
+  |              |                  start of subblock 2 (offset 2 rows)
+  |              start of subblock 1 (following passes offset by 1 row)
+  start of passblock 0, subblock 0 (pass start calculated as p*J)
+</PRE>
+
+<P>
+@math{S=9},  @math{J=6},  @math{G=3},  @math{B=3}:
+
+</P>
+
+<PRE>
+0 *--------*--------*--------*--------*--------*
+1       *--------*--------*--------*--------*--------*
+2             *--------*--------*--------*--------*--------*
+3                    *--------*--------*--------*--------*--------*
+4                          *--------*--------*--------*--------*--------*
+5                                *--------*--------*--------*--------*--------*
+6                                       *--------*--------*--------*--------*---
+7                                             *--------*--------*--------*------
+8                                                   *--------*--------*--------*
+9                                                       *--------*--------*-----
+10                                                  \---/     *--------*--------
+11                                               small offset       *--------*--
+12                                                                         *----
+</PRE>
+
+<P>
+This method of choosing offsets for subblocks can result in an occasional
+small offset (as shown above) between one pass and the next, particularly
+when @math{G} is large compared to @math{J}.  For example:
+
+</P>
+<P>
+@math{S=8},  @math{J=4},  @math{G=4},  @math{B=2}:
+
+</P>
+
+<PRE>
+0 *-------*-------*-------*
+1     *-------*-------*-------*
+2          *-------*-------*-------*
+3              *-------*-------*-------*
+4                   *-------*-------*-------*
+5                       *-------*-------*-------*
+6                            *-------*-------*-------*
+7                                *-------*-------*-------*
+8                                 *-------*-------*-------*
+9                                \/   *-------*-------*-------*
+                              very small offset!
+</PRE>
+
+<P>
+We can plot the offset against the subblock number as follows:
+
+</P>
+
+<PRE>
+subblock number
+| offset
+| |
+| 0123
+0 *
+1  *
+2   *
+3    *
+0 *
+1  *
+2   *
+3    *
+</PRE>
+
+<P>
+The discontinuity in this plot results in the small offset between
+passes.
+
+</P>
+<P>
+As we said at the beginning, we want the offsets from each pass to the
+next to be as similar as possible.  We can fix this by calculating the
+offset for a given subblock b as follows:
+
+</P>
+
+<PRE>
+  offset(b) = 2*b             , if b &#60; ceiling(G/2)
+            = 2*(G-b)-1       , otherwise
+</PRE>
+
+<P>
+We can visualise this as follows, for @math{G=10}:
+
+</P>
+
+<PRE>
+  0123456789
+0 *
+1   *
+2     *
+3       *
+4         *
+5          *
+6        *
+7      *
+8    *
+9  *
+0 *
+1   *
+2     *
+3       *
+4         *
+5          *
+6        *
+7      *
+8    *
+9  *
+</PRE>
+
+<P>
+and for @math{G=11}:
+
+</P>
+
+<PRE>
+             1
+   01234567890
+ 0 *
+ 1   *
+ 2     *
+ 3       *
+ 4         *
+ 5           *
+ 6          *
+ 7        *
+ 8      *
+ 9    *
+10  *
+ 0 *
+ 1   *
+ 2     *
+ 3       *
+ 4         *
+ 5           *
+ 6          *
+ 7        *
+ 8      *
+ 9    *
+10  *
+</PRE>
+
+<P>
+This gives a weave looking like this:
+
+</P>
+<P>
+@math{S=12},  @math{J=6},  @math{G=6},  @math{B=2}:
+
+</P>
+
+<PRE>
+0 *-----------*-----------*-----------*-----------*-----------*
+1       *-----------*-----------*-----------*-----------*-----------*
+2               *-----------*-----------*-----------*-----------*-----------*
+3                     *-----------*-----------*-----------*-----------*---------
+4                             *-----------*-----------*-----------*-----------*-
+5                                   *-----------*-----------*-----------*-------
+6                                          *-----------*-----------*-----------*
+7                                                *-----------*-----------*------
+8                                                    *-----------*-----------*--
+9                                                          *-----------*--------
+10                                                             *-----------*----
+11                                                                   *----------
+12                                                                        *-----
+</PRE>
+
+<P>
+This method ensures that the offset between passes is always in the range
+@math{[J-2,J+2]}.
+
+</P>
+<P>
+(This might seem odd, but it occurs to me that a good weave pattern
+might also make a good score for bell ringers.  When church bells are
+rung, a list of "changes" are used.  For example, if 8 bells are being
+used, they will, at first, be rung in order: 12345678.  If the first
+change is for bells 5 and 6, the bells will then be rung in the order
+12346578.  If the second change is 1 and 2, the next notes are 21346578.
+After a long list of changes, the order the bells are rung in can become
+quite complex.
+
+</P>
+<P>
+For a group of bell-ringers to change the order of the notes, they must
+each either delay their bell's next ring, hasten it, or keep it the same
+as the time it takes to ring all the bells once.  The length of time
+between each ring of a given bell can only be changed a little each
+time, though; with an ink-jet weave pattern, we want the same to apply
+to the distance between passes.)
+
+</P>
+<P>
+Finally, knowing the number of jets @math{J} and their separation
+@math{S}, we can calculate the starting row of any given pass @math{p}
+as follows:
+
+</P>
+
+<PRE>
+passesperblock = S
+passblock = floor(p / passesperblock)
+offsetinpassblock = p - passblock * passesperblock
+subblocksperblock = gcd(S, J)
+passespersubblock = S / subblocksperblock
+subpassblock = floor(offsetinpassblock / passespersubblock)
+if subpassblock &#60; ceiling(subblocksperblock/2)
+    subblockoffset = 2*subpassblock
+else
+    subblockoffset = 2*(subblocksperblock-subpassblock)-1
+startingrow = passblock * S * J + offsetinpassblock * J + subblockoffset
+</PRE>
+
+<P>
+We can simplify this down to the following:
+
+</P>
+
+<PRE>
+subblocksperblock = gcd(S, J)
+subpassblock = floor((p % S) * subblocksperblock / S)
+if subpassblock * 2 &#60; subblocksperblock
+    subblockoffset = 2*subpassblock
+else
+    subblockoffset = 2*(subblocksperblock-subpassblock)-1
+startingrow = p * J + subblockoffset
+</PRE>
+
+<P>
+So the row number of jet @math{j} of pass @math{p} is
+
+</P>
+
+<PRE>
+subblocksperblock = gcd(S, J)
+
+subblockoffset(p)
+    = 2*subpassblock       , if subpassblock * 2 &#60; subblocksperblock
+    = 2*(subblocksperblock-subpassblock)-1      , otherwise
+      where
+      subpassblock = floor((p % S) * subblocksperblock / S)
+
+row(j, p) = p * J + subblockoffset(p) + j * S
+</PRE>
+
+<P>
+Together with the inequality @math{0 &#60;= j &#60; J}, we can use this
+definition in reverse to calculate the pass number containing a given
+row, @math{r}.  Working out the inverse definition involves a little
+guesswork, but one possible result is as follows.  Given a row,
+@math{r}, which is known to be the first row of a pass, we can calculate
+the pass number as follows:
+
+</P>
+
+<PRE>
+subblocksperblock = gcd(S, J)
+subblockoffset = r % subblocksperblock
+pass = (r - subblockoffset) / J
+</PRE>
+
+<P>
+If @math{G==1}, we can determine the pass number with this algorithm:
+
+</P>
+
+<PRE>
+offset = r % J
+pass = (r - offset) / J
+while (offset % S != 0)
+{
+  pass--
+  offset += J
+}
+jet = offset / S
+</PRE>
+
+<P>
+Generalising, we come up with this algorithm.  Given @math{r}, @math{S}
+and @math{J}:
+
+</P>
+
+<PRE>
+G = gcd(S, J)
+passespersubblock = S/G
+subblockoffset = r % G
+subpassblock = subblockoffset / 2  , if subblockoffset % 2 == 0
+             = G - (subblockoffset+1)/2    , otherwise
+baserow = r - subblockoffset - (subpassblock * passespersubblock * J)
+offset = baserow % J
+pass = (baserow - offset) / J
+while (offset % S != 0)
+{
+  offset += J
+  pass -= 1
+}
+subblockretreat = floor(pass / passespersubblock) % G
+pass -= subblockretreat * passespersubblock
+pass += subpassblock * passespersubblock
+jet = (r - subblockoffset - pass * J) / S
+</PRE>
+
+<P>
+Let's look at some examples of imperfect but correct weave patterns:
+
+</P>
+<P>
+@math{S=6},  @math{J=4},  @math{GCD=2},
+<BR>passesperblock=@math{S}=6,
+<BR>passespersubblock=@math{S/G}=6/2=3:
+
+</P>
+
+<PRE>
+0 *-----*-----*-----*
+1     *-----*-----*-----*
+2         *-----*-----*-----*
+3              *-----*-----*-----*
+4                  *-----*-----*-----*
+5                      *-----*-----*-----*
+6                         *-----*-----*-----*
+7                             *-----*-----*-----*
+8                                 *-----*-----*-----*
+9                                      *-----*-----*-----*
+10                                         *-----*-----*-----*
+11                                             *-----*-----*-----*
+12                                                *-----*-----*-----*
+13                                                    *-----*-----*-----*
+14                                                        *-----*-----*-----*
+15                                                             *-----*-----*----
+16                                                                 *-----*-----*
+17                                                                     *-----*--
+18                                                                        *-----
+19                                                                            *-
+</PRE>
+
+<P>
+@math{S=8},  @math{J=6},  @math{G=2},
+<BR>passesperblock=@math{S}=8,
+<BR>passespersubblock=@math{S/G}=8/2=4:
+
+</P>
+
+<PRE>
+0 *-------*-------*-------*-------*-------*
+1       *-------*-------*-------*-------*-------*
+2             *-------*-------*-------*-------*-------*
+3                   *-------*-------*-------*-------*-------*
+4                          *-------*-------*-------*-------*-------*
+5                                *-------*-------*-------*-------*-------*
+6                                      *-------*-------*-------*-------*-------*
+7                                            *-------*-------*-------*-------*--
+8                                                 *-------*-------*-------*-----
+9                                                       *-------*-------*-------
+10                                                            *-------*-------*-
+11                                                                  *-------*---
+12                                                                         *----
+</PRE>
+
+<P>
+@math{S=6},  @math{J=12},  @math{G=6},
+<BR>passesperblock=@math{S}=6,
+<BR>passespersubblock=@math{S/G}=6/6=1:
+
+</P>
+
+<PRE>
+0 *-----*-----*-----*-----*-----*-----*-----*-----*-----*-----*-----*
+1               *-----*-----*-----*-----*-----*-----*-----*-----*-----*-----*---
+2                             *-----*-----*-----*-----*-----*-----*-----*-----*-
+3                                          *-----*-----*-----*-----*-----*-----*
+4                                                    *-----*-----*-----*-----*--
+5                                                              *-----*-----*----
+6                                                                         *-----
+</PRE>
+
+<P>
+We have now solved the basic weaving problem.  There are two further
+refinements we need to consider: oversampling, and filling in the
+missing rows at the start of the weave.
+
+</P>
+<P><HR><P>
+Go to the <A HREF="gimpprint_1.html">first</A>, <A HREF="gimpprint_31.html">previous</A>, <A HREF="gimpprint_33.html">next</A>, <A HREF="gimpprint_47.html">last</A> section, <A HREF="gimpprint_toc.html">table of contents</A>.
+</BODY>
+</HTML>

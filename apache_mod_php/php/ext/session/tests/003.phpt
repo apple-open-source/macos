@@ -1,14 +1,22 @@
 --TEST--
-Session Object Deserialization
+session object deserialization
+--SKIPIF--
+<?php include('skipif.inc'); ?>
+--INI--
+session.use_cookies=0
+session.cache_limiter=
+register_globals=1
+session.serialize_handler=php
 --FILE--
-<?
+<?php
+error_reporting(E_ALL);
 
 class foo {
 	var $bar = "ok";
 	function method() { $this->yes++; }
 }
 
-session_id("test");
+session_id("abtest");
 session_start();
 session_decode('baz|O:3:"foo":2:{s:3:"bar";s:2:"ok";s:3:"yes";i:1;}arr|a:1:{i:3;O:3:"foo":2:{s:3:"bar";s:2:"ok";s:3:"yes";i:1;}}');
 

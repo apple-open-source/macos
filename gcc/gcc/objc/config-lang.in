@@ -1,5 +1,5 @@
-# Top level configure fragment for the GNU Objective-C Runtime Library.
-#   Copyright (C) 1997, 1998 Free Software Foundation, Inc.
+# Top level configure fragment for GNU Objective-C
+#   Copyright (C) 1997, 1998, 2000, 2001 Free Software Foundation, Inc.
 
 #This file is part of GNU CC.
 
@@ -24,7 +24,6 @@
 # language	- name of language as it would appear in $(LANGUAGES)
 # compilers	- value to add to $(COMPILERS)
 # stagestuff	- files to add to $(STAGESTUFF)
-# diff_excludes	- files to ignore when building diffs between two versions.
 
 language="objc"
 
@@ -32,4 +31,11 @@ compilers="cc1obj\$(exeext)"
 
 stagestuff=""
 
-diff_excludes="-x objc-parse.c -x objc-parse.y "
+# APPLE LOCAL begin libobjc
+# We use libobjc4 instead.  To build libobjc anyway, add
+# '--enable-libobjc' to the 'configure' command line.
+# target_libs=target-libobjc
+# APPLE LOCAL end libobjc
+
+# APPLE LOCAL Objective-C++
+gtfiles="\$(srcdir)/objc/objc-root.h \$(srcdir)/objc/objc-act.h \$(srcdir)/c-parse.in \$(srcdir)/c-tree.h \$(srcdir)/c-decl.c \$(srcdir)/c-objc-common.c \$(srcdir)/c-common.c \$(srcdir)/c-common.h \$(srcdir)/c-pragma.c \$(srcdir)/c-parse.in \$(srcdir)/objc/objc-act.c"

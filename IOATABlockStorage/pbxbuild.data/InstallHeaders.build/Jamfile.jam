@@ -74,7 +74,9 @@ else {
 }
 
 # Copy Files
-COPY_FILES = UserClientLib/ATASMARTLib.h ;
+COPY_FILES =
+	UserClientLib/ATASMARTLib.h
+	IOATAStorageDefines.h ;
 COPYFILES_DESTINATION_PATH = "$(INSTALL_ROOT)/$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/storage/ata" ;
 if $(DEPLOYMENT_POSTPROCESSING) = YES {
 	ProcessCopyFiles "<InstallHeaders>InstallHeaders$(TOOL_SUFFIX)" : "$(COPY_FILES)" : BPTag003 : BPTag004 ;
@@ -86,6 +88,12 @@ else {
 # Rez Files
 REZ_FILES = ;
 ProcessRezFiles "<InstallHeaders>InstallHeaders$(TOOL_SUFFIX)" : "$(REZ_FILES)" : BPTag004 : BPTag005 ;
+
+rule DefineHeaderDependencies
+{
+}
+
+DefineHeaderDependencies "<InstallHeaders>InstallHeaders$(TOOL_SUFFIX)" ;
 
 EndTool "<InstallHeaders>InstallHeaders$(TOOL_SUFFIX)" ;
 

@@ -88,7 +88,7 @@ main(int argc, char *argv[])
 	ni_name tag = NULL;
 	ni_namelist nl;
 	ni_index i;
-	int pid, localonly;
+	int pid, localonly, nctoken = -1;
 	int log_pri = LOG_NOTICE;
 	struct rlimit rlim;
 	char *netinfod_argv[16]; /* XXX */
@@ -206,6 +206,8 @@ main(int argc, char *argv[])
 	signal(SIGTERM, killchildren);
 	signal(SIGHUP, catchhup);
 	signal(SIGINT, SIG_IGN);
+
+	notify_register_signal(NETWORK_CHANGE_NOTIFICATION, SIGHUP, &nctoken);
 
 	writepid();
 

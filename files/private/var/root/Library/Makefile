@@ -14,3 +14,4 @@ install::
 install::
 	@echo "Installing $(Destination)"
 	$(_v) $(INSTALL_DIRECTORY) -m 700 "$(Destination)"
+	$(_v) $(INSTALL_FILE) -c .localized "$(Destination)"

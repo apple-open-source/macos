@@ -1,0 +1,3 @@
+%(member)s zosta³ z powodzeniem zapisany na listê %(listname)s.
+
+

@@ -81,4 +81,4 @@ private:
 }	// end namespace Security
 
 
-#endif _H_OBSERVER
+#endif /* _H_OBSERVER */

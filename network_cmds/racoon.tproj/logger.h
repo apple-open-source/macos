@@ -1,4 +1,4 @@
-/*	$KAME: logger.h,v 1.3 2000/09/13 04:50:27 itojun Exp $	*/
+/*	$KAME: logger.h,v 1.4 2000/10/04 17:41:01 itojun Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.

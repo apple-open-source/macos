@@ -4,7 +4,7 @@ IOUSBLib
 IOUSBUserClient
 AppleUSBCDCDriver
 AppleUSBComposite
-AppleUSBKeyboard
+IOUSBHIDDriverSafeBoot
 AppleUSBMergeNub
 IOUSBHIDDriver
 AppleUSBOHCI
@@ -12,6 +12,7 @@ AppleUSBEHCI
 AppleUSBOpticalMouse
 AppleUSBHub
 Configd Plugin
+KLog
 USB Prober
 IOUSBFamily'
 elif [ "${Target}" = "installhdrs" ]; then
@@ -26,10 +27,10 @@ elif [ "${Target}" = "AppleUSBComposite" ]; then
 	Targets='AppleUSBComposite'
 elif [ "${Target}" = "AppleUSBHub" ]; then
 	Targets='AppleUSBHub'
+elif [ "${Target}" = "IOUSBHIDDriverSafeBoot" ]; then
+	Targets='IOUSBHIDDriverSafeBoot'
 elif [ "${Target}" = "AppleUSBMouse" ]; then
 	Targets='AppleUSBMouse'
-elif [ "${Target}" = "AppleUSBKeyboard" ]; then
-	Targets='AppleUSBKeyboard'
 elif [ "${Target}" = "AppleUSBMergeNub" ]; then
 	Targets='AppleUSBMergeNub'
 elif [ "${Target}" = "AppleUSBOpticalMouse" ]; then
@@ -44,15 +45,18 @@ elif [ "${Target}" = "Configd Plugin" ]; then
 	Targets='Configd Plugin'
 elif [ "${Target}" = "UPS Test Tool" ]; then
 	Targets='UPS Test Tool'
+elif [ "${Target}" = "KLog" ]; then
+	Targets='KLog'
 elif [ "${Target}" = "USB Prober" ]; then
-	Targets='USB Prober'
+	Targets='KLog
+USB Prober'
 else
 	Targets='installhdrs
 IOUSBLib
 IOUSBUserClient
 AppleUSBCDCDriver
 AppleUSBComposite
-AppleUSBKeyboard
+IOUSBHIDDriverSafeBoot
 AppleUSBMergeNub
 IOUSBHIDDriver
 AppleUSBOHCI
@@ -60,6 +64,7 @@ AppleUSBEHCI
 AppleUSBOpticalMouse
 AppleUSBHub
 Configd Plugin
+KLog
 USB Prober
 IOUSBFamily'
 fi

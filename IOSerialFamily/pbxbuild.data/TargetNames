@@ -1,2 +1,9 @@
-Targets='installhdrs
+if [ "${Target}" = "IOSerialFamily" ]; then
+	Targets='installhdrs
 IOSerialFamily'
+elif [ "${Target}" = "installhdrs" ]; then
+	Targets='installhdrs'
+else
+	Targets='installhdrs
+IOSerialFamily'
+fi

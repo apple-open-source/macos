@@ -4,7 +4,7 @@
  *
  * This code is derived from the Stanford/CMU enet packet filter,
  * (net/enet.c) distributed as part of 4.3BSD, and code contributed
- * to Berkeley by Steven McCanne and Van Jacobson both of Lawrence 
+ * to Berkeley by Steven McCanne and Van Jacobson both of Lawrence
  * Berkeley Laboratory.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,7 +35,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * @(#) $Header: /cvs/Darwin/src/live/tcpdump/tcpdump/sll.h,v 1.1.1.1 2001/07/07 00:50:54 bbraun Exp $ (LBL)
+ * @(#) $Header: /cvs/root/tcpdump/tcpdump/sll.h,v 1.1.1.2 2003/03/17 18:42:20 rbraun Exp $ (LBL)
  */
 
 /*

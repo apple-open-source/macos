@@ -18,6 +18,9 @@ mail:*:6:
 bin:*:7:
 staff:*:20:root
 smmsp:*:25:
+lp:*:26:
+postfix:*:27:
+postdrop:*:28:
 guest:*:31:root
 utmp:*:45:
 uucp:*:66:
@@ -26,5 +29,9 @@ network:*:69:
 www:*:70:
 mysql:*:74:
 sshd:*:75:
+qtss:*:76:
+mailman:*:78:
+appserverusr:*:79:
 admin:*:80:root
+appserveradm:*:81:
 unknown:*:99:

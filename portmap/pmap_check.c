@@ -40,6 +40,7 @@ static const char rcsid[] =
 #endif
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -62,6 +63,9 @@ static const char rcsid[] =
 #define YPPROG          ((u_long) 100004)
 #define YPPROC_DOMAIN_NONACK ((u_long) 2)
 #define MOUNTPROC_MNT	((u_long) 1)
+
+extern void get_myaddress(struct sockaddr_in *);
+extern int hosts_ctl(char *, char *, char *, char *);
 
 static void logit __P((int, struct sockaddr_in *, u_long, u_long, const char *));
 static void toggle_verboselog __P((int));

@@ -23,7 +23,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: auth2.c,v 1.93 2002/05/31 11:35:15 markus Exp $");
+RCSID("$OpenBSD: auth2.c,v 1.96 2003/02/06 21:22:43 markus Exp $");
 
 #include "ssh2.h"
 #include "xmalloc.h"
@@ -35,6 +35,10 @@ RCSID("$OpenBSD: auth2.c,v 1.93 2002/05/31 11:35:15 markus Exp $");
 #include "dispatch.h"
 #include "pathnames.h"
 #include "monitor_wrap.h"
+
+#ifdef GSSAPI
+#include "ssh-gss.h"
+#endif
 
 /* import */
 extern ServerOptions options;
@@ -50,9 +54,13 @@ extern Authmethod method_pubkey;
 extern Authmethod method_passwd;
 extern Authmethod method_kbdint;
 extern Authmethod method_hostbased;
+extern Authmethod method_gssapi;
 
 Authmethod *authmethods[] = {
 	&method_none,
+#ifdef GSSAPI
+	&method_gssapi,
+#endif
 	&method_pubkey,
 	&method_passwd,
 	&method_kbdint,
@@ -102,7 +110,7 @@ input_service_request(int type, u_int32_t seq, void *ctxt)
 {
 	Authctxt *authctxt = ctxt;
 	u_int len;
-	int accept = 0;
+	int acceptit = 0;
 	char *service = packet_get_string(&len);
 	packet_check_eom();
 
@@ -111,14 +119,14 @@ input_service_request(int type, u_int32_t seq, void *ctxt)
 
 	if (strcmp(service, "ssh-userauth") == 0) {
 		if (!authctxt->success) {
-			accept = 1;
+			acceptit = 1;
 			/* now we can handle user-auth requests */
 			dispatch_set(SSH2_MSG_USERAUTH_REQUEST, &input_userauth_request);
 		}
 	}
 	/* XXX all other service requests are denied */
 
-	if (accept) {
+	if (acceptit) {
 		packet_start(SSH2_MSG_SERVICE_ACCEPT);
 		packet_put_cstring(service);
 		packet_send();
@@ -180,7 +188,14 @@ input_userauth_request(int type, u_int32_t seq, void *ctxt)
 	}
 	/* reset state */
 	auth2_challenge_stop(authctxt);
+
+#ifdef GSSAPI
+	dispatch_set(SSH2_MSG_USERAUTH_GSSAPI_TOKEN, NULL);
+	dispatch_set(SSH2_MSG_USERAUTH_GSSAPI_EXCHANGE_COMPLETE, NULL);
+#endif
+
 	authctxt->postponed = 0;
+        authctxt->server_caused_failure = 0;
 
 	/* try to authenticate user */
 	m = authmethod_lookup(method);
@@ -215,6 +230,13 @@ userauth_finish(Authctxt *authctxt, int authenticated, char *method)
 		authenticated = 0;
 #endif /* USE_PAM */
 
+#ifdef _UNICOS
+	if (authenticated && cray_access_denied(authctxt->user)) {
+		authenticated = 0;
+		fatal("Access denied for user %s.",authctxt->user);
+	}
+#endif /* _UNICOS */
+
 	/* Log before sending the reply */
 	auth_log(authctxt, authenticated, method, " ssh2");
 
@@ -231,15 +253,16 @@ userauth_finish(Authctxt *authctxt, int authenticated, char *method)
 		/* now we can break out */
 		authctxt->success = 1;
 	} else {
+		/* Do not count server configuration problems against the client */
+		if (!authctxt->server_caused_failure) {
 		if (authctxt->failures++ > AUTH_FAIL_MAX) {
-#ifdef WITH_AIXAUTHENTICATE
-			/* XXX: privsep */
-			loginfailed(authctxt->user,
-			    get_canonical_hostname(options.verify_reverse_mapping),
-			    "ssh");
-#endif /* WITH_AIXAUTHENTICATE */
 			packet_disconnect(AUTH_FAIL_MSG, authctxt->user);
+			}
 		}
+#ifdef _UNICOS
+		if (strcmp(method, "password") == 0)
+			cray_login_failure(authctxt->user, IA_UDBERR);
+#endif /* _UNICOS */
 		methods = authmethods_get();
 		packet_start(SSH2_MSG_USERAUTH_FAILURE);
 		packet_put_cstring(methods);

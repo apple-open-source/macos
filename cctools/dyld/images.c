@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -42,7 +40,6 @@ extern int add_profil(char *, int, int, int);
 #import <mach-o/loader.h>
 #import <mach-o/dyld_debug.h>
 #import <mach-o/dyld_gdb.h>
-#import "trace.h"
 #ifdef hppa
 #import <mach-o/hppa/reloc.h>
 #endif
@@ -69,6 +66,7 @@ extern char *realpath(const char *pathname, char resolvedname[MAXPATHLEN]);
 #endif
 
 #import "stuff/bool.h"
+#import "trace.h"
 #import "stuff/best_arch.h"
 #import "stuff/bytesex.h"
 #import "stuff/round.h"
@@ -290,7 +288,8 @@ static enum bool map_library_image(
     dev_t dev,
     ino_t ino,
     struct image **image_pointer,
-    enum bool match_filename_by_installname);
+    enum bool match_filename_by_installname,
+    enum bool reference_from_dylib);
 /*
  * In the rare case that some library filename is to be matched by install name
  * then some_libraries_match_filename_by_installname is set to TRUE and then
@@ -304,7 +303,8 @@ static enum bool is_library_loaded_by_matching_installname(
 static enum bool validate_library(
     char *dylib_name,
     struct dylib_command *dl,
-    struct library_image *li);
+    struct library_image *li,
+    enum bool reference_from_dylib);
 static enum bool set_prebound_state(
     struct prebound_dylib_command *pbdylib);
 
@@ -694,6 +694,7 @@ unsigned long *entry_point)
 	 */
 	object_image = new_object_image();
 	object_image->image.name = save_string(name);
+	object_image->image.physical_name = object_image->image.name;
 	executables_name = object_image->image.name;
 	object_image->image.vmaddr_slide = 0;
 	/* note the executable is not always contiguious in memory and should
@@ -739,10 +740,11 @@ unsigned long *entry_point)
 			   "DYLD_INSERT_LIBRARIES being set\n",
 			   executables_name);
 		prebinding = FALSE;
+		all_twolevel_modules_prebound = FALSE;
 		passed_dylib_name = allocate(strlen(dylib_name) + 1);
 		strcpy(passed_dylib_name, dylib_name);
 		(void)load_library_image(NULL, passed_dylib_name, FALSE, FALSE,
-					 NULL);
+					 NULL, NULL, FALSE);
 		if(p == NULL){
 		    break;
 		}
@@ -969,7 +971,9 @@ struct dylib_command *dl, /* allow NULL for NSAddLibrary() to use this */
 char *passed_dylib_name,
 enum bool force_searching,
 enum bool match_filename_by_installname,
-struct image **image_pointer)
+struct image **image_pointer,
+enum bool *already_loaded,
+enum bool reference_from_dylib)
 {
     char *dylib_name, *new_dylib_name, *constructed_name;
     int fd, errnum, save_errno;
@@ -988,7 +992,8 @@ struct image **image_pointer)
 	    dylib_name = (char *)dl + dl->dylib.name.offset;
 	else
 	    dylib_name = passed_dylib_name;
-        
+        if(already_loaded != NULL)
+	    *already_loaded = FALSE;
         DYLD_TRACE_IMAGES_NAMED_START(DYLD_TRACE_load_library_image,dylib_name);
 
 	/*
@@ -1001,6 +1006,8 @@ struct image **image_pointer)
 	    if(is_library_loaded_by_matching_installname(dylib_name, dl,
 		image_pointer) == TRUE){
 		DYLD_TRACE_IMAGES_END(DYLD_TRACE_load_library_image);
+		if(already_loaded != NULL)
+		    *already_loaded = TRUE;
 		return(TRUE);
 	    }
 	}
@@ -1064,7 +1071,8 @@ struct image **image_pointer)
 	/*
 	 * If the library is already loaded just return.
 	 */
-	if(is_library_loaded_by_name(dylib_name, dl, image_pointer) == TRUE){
+	if(is_library_loaded_by_name(dylib_name, dl, image_pointer,
+				     reference_from_dylib) == TRUE){
             DYLD_TRACE_IMAGES_END(DYLD_TRACE_load_library_image);
 	    if(passed_dylib_name != NULL)
 		free(passed_dylib_name);
@@ -1072,6 +1080,8 @@ struct image **image_pointer)
 		free(new_dylib_name);
 	    if(constructed_name != NULL)
 		free(constructed_name);
+	    if(already_loaded != NULL)
+		*already_loaded = TRUE;
 	    return(TRUE);
 	}
 
@@ -1202,8 +1212,8 @@ struct image **image_pointer)
 	/*
 	 * If the library is already loaded just return.
 	 */
-	if(is_library_loaded_by_stat(dylib_name, dl, &stat_buf, image_pointer)
-	   == TRUE){
+	if(is_library_loaded_by_stat(dylib_name, dl, &stat_buf, image_pointer,
+				     reference_from_dylib) == TRUE){
 	    close(fd);
             DYLD_TRACE_IMAGES_END(DYLD_TRACE_load_library_image);
 	    if(passed_dylib_name != NULL)
@@ -1212,6 +1222,8 @@ struct image **image_pointer)
 		free(new_dylib_name);
 	    if(constructed_name != NULL)
 		free(constructed_name);
+	    if(already_loaded != NULL)
+		*already_loaded = TRUE;
 	    return(TRUE);
 	}
 	/*
@@ -1311,7 +1323,10 @@ struct image **image_pointer)
 				     file_size, best_fat_arch->offset,
 				     best_fat_arch->size, stat_buf.st_dev,
 				     stat_buf.st_ino, image_pointer,
-				     match_filename_by_installname);
+				     match_filename_by_installname,
+				     reference_from_dylib);
+	    if(return_value == FALSE)
+		goto load_library_image_cleanup3;
             DYLD_TRACE_IMAGES_END(DYLD_TRACE_load_library_image);
             return(return_value);
 
@@ -1343,7 +1358,8 @@ struct image **image_pointer)
 	    return_value = map_library_image(dl, dylib_name, fd, file_addr,
 				     file_size, 0, file_size, stat_buf.st_dev,
 				     stat_buf.st_ino, image_pointer,
-				     match_filename_by_installname);
+				     match_filename_by_installname,
+				     reference_from_dylib);
 	    if(return_value == FALSE)
 		goto load_library_image_cleanup3;
 	    DYLD_TRACE_IMAGES_END(DYLD_TRACE_load_library_image);
@@ -1710,7 +1726,8 @@ unsigned long library_size,
 dev_t dev,
 ino_t ino,
 struct image **image_pointer,
-enum bool match_filename_by_installname)
+enum bool match_filename_by_installname,
+enum bool reference_from_dylib)
 {
     struct mach_header *mh;
     int errnum;
@@ -1819,6 +1836,7 @@ enum bool match_filename_by_installname)
 	 */
 	library_image = new_library_image(dyst->nmodtab);
 	library_image->image.name = dylib_name;
+	library_image->image.physical_name = library_image->image.name;
 	library_image->image.vmaddr_slide = slide_value;
 	library_image->image.vmaddr_size = high_addr - low_addr;
 	library_image->image.seg1addr = seg1addr;
@@ -1881,10 +1899,12 @@ enum bool match_filename_by_installname)
 		if(dyld_prebind_debug != 0)
 		    print("dyld: %s: prebinding disabled because library: %s "
 			  "got slid\n", executables_name, dylib_name);
-		notify_prebinding_agent();
+		if((mh->flags & MH_PREBOUND) == MH_PREBOUND)
+		    notify_prebinding_agent();
 	    }
 	    if(launched == FALSE)
 		prebinding = FALSE;
+	    all_twolevel_modules_prebound = FALSE;
 	    local_relocation(&(library_image->image));
 	    relocate_symbol_pointers_for_defined_externs(
 		&(library_image->image));
@@ -1901,6 +1921,7 @@ enum bool match_filename_by_installname)
 		       "prebound\n", executables_name, dylib_name);
 	    if(launched == FALSE)
 		prebinding = FALSE;
+	    all_twolevel_modules_prebound = FALSE;
 	}
 	else{
 	    /*
@@ -1917,13 +1938,28 @@ enum bool match_filename_by_installname)
 			  "used\n", executables_name, dylib_name);
 		if(launched == FALSE)
 		    prebinding = FALSE;
+		all_twolevel_modules_prebound = FALSE;
 	    }
 	    /*
 	     * The library is prebound.  If we have already launched the
 	     * program we can't use the prebinding and it must be undone.
 	     */
-	    if(launched == TRUE)
-		undo_prebinding_for_library(library_image);
+	    if(launched == TRUE){
+		/*
+		 * This library is prebound but we have already launched. We can
+		 * still try to use the prebinding if all the previously loaded
+		 * libraries were two-level and all the modules were prebound if
+		 * this library is also two-level.
+		 */
+		if(all_twolevel_modules_prebound == TRUE &&
+	           (mh->flags & MH_TWOLEVEL) == MH_TWOLEVEL){
+		    trying_to_use_prebinding_post_launch = TRUE;
+		    library_image->image.trying_to_use_prebinding_post_launch =
+			TRUE;
+		}
+		else
+		    undo_prebinding_for_library(library_image);
+	    }
 	}
 
 	/*
@@ -1946,11 +1982,21 @@ enum bool match_filename_by_installname)
 			print("dyld: %s: prebinding disabled because time "
 			       "stamp of library: %s did not match\n",
 			       executables_name, dylib_name);
-		    notify_prebinding_agent();
+		    if((mh->flags & MH_PREBOUND) == MH_PREBOUND)
+			notify_prebinding_agent();
 		    prebinding = FALSE;
 		}
 	    }
+	    if(reference_from_dylib == TRUE)
+		all_twolevel_modules_prebound = FALSE;
 	}
+
+	/*
+	 * If this library is not a two-level namespace library the that too
+	 * causes all_twolevel_modules_prebound to be set to FALSE.
+	 */
+	if((mh->flags & MH_TWOLEVEL) != MH_TWOLEVEL)
+	    all_twolevel_modules_prebound = FALSE;
 
 	/*
 	 * Set the segment protections on the library now that relocation is
@@ -1998,6 +2044,7 @@ map_library_image_cleanup:
 struct object_image *
 map_bundle_image(
 char *name,
+char *physical_name,
 char *object_addr,
 unsigned long object_size)
 {
@@ -2087,6 +2134,10 @@ unsigned long object_size)
 	 */
 	object_image = new_object_image();
 	object_image->image.name = save_string(name);
+	if(physical_name != name)
+	    object_image->image.physical_name = save_string(physical_name);
+	else
+	    object_image->image.physical_name = object_image->image.name;
 	object_image->image.vmaddr_slide = slide_value;
 	object_image->image.vmaddr_size = high_addr - low_addr;
 	object_image->image.seg1addr = seg1addr;
@@ -2204,7 +2255,7 @@ enum bool reset_lazy_references)
 	 */
 	if(object_image->image.private == FALSE){
 	    unlink_object_module(object_image, reset_lazy_references);
-	    check_and_report_undefineds();
+	    check_and_report_undefineds(FALSE);
 	}
 
 	/*
@@ -2227,9 +2278,10 @@ object_image->image.mh, object_image->image.vmaddr_size);
 
 	/*
 	 * Mark this object file image structure unused and clean it up.
-	 * TODO: reclaim the storage for the name:
-	unsave_string(object_image->image.name);
 	 */
+	if(object_image->image.name != object_image->image.physical_name)
+	    unsave_string(object_image->image.physical_name);
+	unsave_string(object_image->image.name);
 	memset(object_image, '\0', sizeof(struct object_image));
 	SET_LINK_STATE(object_image->module, UNUSED);
 
@@ -3557,7 +3609,8 @@ struct image *image)
 		else
 		    image_pointer = NULL;
 		if(load_library_image(dl_load, NULL, FALSE, FALSE,
-				      image_pointer) == FALSE &&
+				      image_pointer, NULL,
+				      mh->filetype == MH_DYLIB) == FALSE &&
 		   dl_load->cmd != LC_LOAD_WEAK_DYLIB &&
 		   return_on_error == TRUE){
 		    unload_remove_on_error_libraries();
@@ -3713,6 +3766,8 @@ struct library_image *library_image)
 	 */
 	if(library_image->image.umbrella_name != NULL){
 	    for(i = 0; i < library_image->image.ndependent_images; i++){
+		if(deps[i] == &(some_weak_library_image.image))
+		    continue;
 		mh = deps[i]->mh;
 		load_commands = (struct load_command *)((char *)(mh) +
 						    sizeof(struct mach_header));
@@ -4324,6 +4379,26 @@ void)
 }
 
 /*
+ * clear_trying_to_use_prebinding_post_launch() is called after a successful
+ * load of libraries when trying_to_use_prebinding_post_launch got set and
+ * some of the libraries may have had their prebinding used.
+ */
+void
+clear_trying_to_use_prebinding_post_launch(
+void)
+{
+    unsigned long i;
+    struct library_images *p;
+
+	for(p = &library_images; p != NULL; p = p->next_images){
+	    for(i = 0; i < p->nimages; i++){
+		p->images[i].image.trying_to_use_prebinding_post_launch = FALSE;
+	    }
+	}
+	trying_to_use_prebinding_post_launch = FALSE;
+}
+
+/*
  * check_image() checks the mach_header and load_commands of an image.
  * The image is assumed to be mapped into memory at the mach_header pointer for
  * a sizeof image_size.  The strings name and image_type are used for error
@@ -4376,8 +4451,8 @@ unsigned long *high_addr)
 	    link_edit_error(DYLD_FILE_FORMAT, EBADARCH, name);
 	    return(FALSE);
 	}
-	if(cpusubtype_combine(host_basic_info.cpu_type,
-			  host_basic_info.cpu_subtype, mh->cpusubtype) == -1){
+	if(cpusubtype_execute(host_basic_info.cpu_type,
+		      host_basic_info.cpu_subtype, mh->cpusubtype) == FALSE){
 	    error("bad CPU subtype in %s: %s", image_type, name);
 	    link_edit_error(DYLD_FILE_FORMAT, EBADARCH, name);
 	    return(FALSE);
@@ -4837,6 +4912,19 @@ char *string)
 	return(p);
 }
 
+/*
+ * unsave_string() is passed a string previously returned by save_string()
+ * above.  If the string is not in the string block it it free()ed.
+ */
+void
+unsave_string(
+char *string)
+{
+	if(string < string_block.strings ||
+	   string > string_block.strings + STRING_BLOCK_SIZE)
+	    free(string);
+}
+
 #ifdef __OPENSTEP__
 extern char *realpath(const char *pathname, char resolvedname[MAXPATHLEN]); 
 
@@ -5156,13 +5244,17 @@ unsigned long n)
  * validate_library() reports an error and returns FALSE if the loaded
  * library's compatibility_version is less than the one the load command
  * requires, or the timestaps do not match. Otherwise, returns TRUE.
+ * This routine will also set all_twolevel_modules_prebound to FALSE if
+ * dl is not NULL and the time stamps don't match and reference_from_dylib
+ * is TRUE.
  */
 static
 enum bool
 validate_library(
 char *dylib_name,
 struct dylib_command *dl,
-struct library_image *li)
+struct library_image *li,
+enum bool reference_from_dylib)
 {
 	if(dl != NULL &&
 	   dl->dylib.compatibility_version >
@@ -5190,10 +5282,13 @@ struct library_image *li)
 		    print("dyld: %s: prebinding disabled because time stamp of "
 			  "library: %s did not match\n", executables_name,
 			  dylib_name);
-		notify_prebinding_agent();
+		if((li->image.mh->flags & MH_PREBOUND) == MH_PREBOUND)
+		    notify_prebinding_agent();
 	    }
 	    if(launched == FALSE)
 		prebinding = FALSE;
+	    if(dl != NULL && reference_from_dylib == TRUE)
+		all_twolevel_modules_prebound = FALSE;
 	}
 	return(TRUE);
 }
@@ -5203,13 +5298,15 @@ struct library_image *li)
  * Also it validates the compatibility version and timestamp of the library
  * against the load command.  For two-level images that depend on this library,
  * image_pointer is the address of a pointer to an image struct to be set (if
- * not NULL) after if this image is loaded.
+ * not NULL) after if this image is loaded.  reference_from_dylib is TRUE when
+ * this library is referenced by another dylib and FALSE otherwise.
  */
 enum bool
 is_library_loaded_by_name(
 char *dylib_name,
 struct dylib_command *dl,
-struct image **image_pointer)
+struct image **image_pointer,
+enum bool reference_from_dylib)
 {
     unsigned long i;
     struct library_images *p;
@@ -5226,8 +5323,8 @@ struct image **image_pointer)
 	for(p = &library_images; p != NULL; p = p->next_images){
 	    for(i = 0; i < p->nimages; i++){
 		if(strcmp(dylib_name, p->images[i].image.name) == 0){
-		    if(validate_library(dylib_name, dl, &(p->images[i])) ==
-		       TRUE){
+		    if(validate_library(dylib_name, dl, &(p->images[i]),
+		 			reference_from_dylib) == TRUE){
 			if(image_pointer != NULL)
 			    *image_pointer = &(p->images[i].image);
 			return(TRUE);
@@ -5243,14 +5340,16 @@ struct image **image_pointer)
  * Also it validates the compatibility version and timestamp of the library
  * against the load command.  For two-level images that depend on this library,
  * image_pointer is the address of a pointer to an image struct to be set (if
- * not NULL) after if this image is loaded.
+ * not NULL) after if this image is loaded.  reference_from_dylib is TRUE when
+ * this library is referenced by another dylib and FALSE otherwise.
  */
 enum bool
 is_library_loaded_by_stat(
 char *dylib_name,
 struct dylib_command *dl,
 struct stat *stat_buf,
-struct image **image_pointer)
+struct image **image_pointer,
+enum bool reference_from_dylib)
 {
     unsigned long i;
     struct library_images *p;
@@ -5263,8 +5362,8 @@ struct image **image_pointer)
 	    for(i = 0; i < p->nimages; i++){
 		if(stat_buf->st_dev == p->images[i].dev &&
 		   stat_buf->st_ino == p->images[i].ino){
-		    if(validate_library(dylib_name, dl, &(p->images[i])) ==
-		       TRUE){
+		    if(validate_library(dylib_name, dl, &(p->images[i]),
+					reference_from_dylib) == TRUE){
 			if(image_pointer != NULL)
 			    *image_pointer = &(p->images[i].image);
 			return(TRUE);
@@ -5389,6 +5488,53 @@ void)
 }
 
 /*
+ * set_all_twolevel_modules_prebound() is called after the program is launched
+ * to set the all_twolevel_modules_prebound variable to TRUE if all the
+ * libraries are being used as two-level, prebound and all modules in them are
+ * bound.
+ */
+void
+set_all_twolevel_modules_prebound(
+void)
+{
+    unsigned long i;
+    struct library_images *q;
+
+	/*
+	 * If we are forcing flat namespace return leaving
+	 * all_twolevel_modules_prebound set to its initial value of FALSE.
+	 */
+	if(force_flat_namespace == TRUE){
+	    if(dyld_prebind_debug > 1)
+		printf("dyld: all_twolevel_modules_prebound is FALSE\n");
+	    return;
+	}
+	/*
+	 * Check to see that all the libraries are two-level, prebound and have
+	 * all of their modules bound.
+	 */
+	q = &library_images;
+	do{
+	    for(i = 0; i < q->nimages; i++){
+		if((q->images[i].image.mh->flags & MH_TWOLEVEL) !=
+		    MH_TWOLEVEL ||
+		   (q->images[i].image.mh->flags & MH_PREBOUND) !=
+		    MH_PREBOUND ||
+		   q->images[i].image.all_modules_linked != TRUE){
+		    if(dyld_prebind_debug > 1)
+			printf("dyld: all_twolevel_modules_prebound is "
+			       "FALSE\n");
+		    return;
+		}
+	    }
+	    q = q->next_images;
+	}while(q != NULL);
+	if(dyld_prebind_debug > 1)
+	    printf("dyld: all_twolevel_modules_prebound is TRUE\n");
+	all_twolevel_modules_prebound = TRUE;
+}
+
+/*
  * set_prebound_state() takes a prebound_dylib_command and sets the modules of
  * the specified library to the fully linked state for the linked modules.
  * If the prebound_dylib_command refers to a library that is not loaded or it
@@ -5403,7 +5549,7 @@ struct prebound_dylib_command *pbdylib)
     unsigned long i, j;
     char *name, *linked_modules, *install_name;
     struct library_images *q;
-    enum bool some_modules_linked;
+    enum bool some_modules_linked, all_modules_linked;
 
 	name = (char *)pbdylib + pbdylib->name.offset;
 	linked_modules = (char *)pbdylib + pbdylib->linked_modules.offset;
@@ -5424,13 +5570,18 @@ struct prebound_dylib_command *pbdylib)
 			prebinding = FALSE;
 			return(FALSE);
 		    }
+		    all_modules_linked = TRUE;
 		    for(j = 0; j < q->images[i].nmodules; j++){
 			if((linked_modules[j/8] >> (j%8)) & 1){
 			    SET_LINK_STATE(q->images[i].modules[j],
 					   FULLY_LINKED);
 			    some_modules_linked = TRUE;
 			}
+			else{
+			    all_modules_linked = FALSE;
+			}
 		    }
+		    q->images[i].image.all_modules_linked = all_modules_linked;
 		    q->images[i].image.prebound = TRUE;
 		    if(some_modules_linked == FALSE){
 			/* undo the prebinding of the lazy symbols pointers */
@@ -5473,7 +5624,7 @@ struct prebound_dylib_command *pbdylib)
  */
 void
 undo_prebound_images(
-void)
+enum bool post_launch_libraries_only)
 {
     unsigned long i;
     struct object_images *p;
@@ -5485,6 +5636,9 @@ void)
     struct nlist *symbols;
     char *strings;
     enum link_state link_state;
+
+	if(post_launch_libraries_only == TRUE)
+	    goto do_library_images;
 
 	/*
 	 * First undo the prebinding for the object images.
@@ -5572,6 +5726,7 @@ void)
 	    p = p->next_images;
 	}while(p != NULL);
 
+do_library_images:
 	/*
 	 * Second undo the prebinding for the library images.
 	 */
@@ -5581,6 +5736,12 @@ void)
 		/* if this image was not prebound skip it */
 		if((q->images[i].image.mh->flags & MH_PREBOUND) != MH_PREBOUND)
 		    continue;
+
+		if(post_launch_libraries_only == TRUE &&
+		   q->images[i].image.trying_to_use_prebinding_post_launch ==
+									FALSE)
+		    continue;
+
 		undo_prebinding_for_library(q->images + i);
 	    }
 	    q = q->next_images;
@@ -5609,7 +5770,7 @@ struct library_image *library_image)
 	 * module states to PREBOUND_UNLINKED.
 	 *
 	 * If this library and all dependents are two-level namespace and
-	 * prebound just set the module states to RELOCATED and leave the
+	 * prebound just set the module states to FULLY_LINKED and leave the
 	 * lazy symbols set.
 	 */
 	if(library_image->image.subtrees_twolevel_prebound == FALSE){
@@ -5654,6 +5815,7 @@ struct library_image *library_image)
 		SET_LINK_STATE(library_image->modules[j], FULLY_LINKED);
 		SET_FULLYBOUND_STATE(library_image->modules[j]);
 	    }
+	    library_image->image.all_modules_linked = TRUE;
 	}
 }
 
@@ -6477,4 +6639,20 @@ void)
 leave_notify_prebinding_agent:
 
 	DYLD_TRACE_IMAGES_END(DYLD_TRACE_notify_prebinding_agent);
+}
+
+/*
+ * We have our own gettimeofday() to avoid needing the notify API which is used
+ * by the code in libc.a for gettimeofday() but not in libc.a .
+ */
+#define __APPLE_API_PRIVATE
+#include <sys/syscall.h>
+int
+gettimeofday(
+struct timeval *tp,
+struct timezone *tzp)
+{
+	if(syscall(SYS_gettimeofday, tp, tzp) < 0)
+	    return(-1);
+	return(0);
 }

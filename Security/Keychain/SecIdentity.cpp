@@ -16,16 +16,19 @@
  */
 
 #include <Security/SecIdentity.h>
+#include <Security/SecIdentityPriv.h>
 
 #include "SecBridge.h"
-
+#include <Security/Certificate.h>
+#include <Security/Identity.h>
+#include <Security/KeyItem.h>
 
 CFTypeID
 SecIdentityGetTypeID(void)
 {
 	BEGIN_SECAPI
 
-	return gTypes().identity.typeId;
+	return gTypes().Identity.typeID;
 
 	END_SECAPI1(_kCFRuntimeNotATypeID)
 }
@@ -38,8 +41,8 @@ SecIdentityCopyCertificate(
 {
     BEGIN_SECAPI
 
-	RefPointer<Certificate> certificatePtr(gTypes().identity.required(identityRef)->certificate());
-	Required(certificateRef) = gTypes().certificate.handle(*certificatePtr);
+	SecPointer<Certificate> certificatePtr(Identity::required(identityRef)->certificate());
+	Required(certificateRef) = certificatePtr->handle();
 
     END_SECAPI
 }
@@ -52,8 +55,23 @@ SecIdentityCopyPrivateKey(
 {
     BEGIN_SECAPI
 
-	RefPointer<KeyItem> keyItemPtr(gTypes().identity.required(identityRef)->privateKey());
-	Required(privateKeyRef) = gTypes().keyItem.handle(*keyItemPtr);
+	SecPointer<KeyItem> keyItemPtr(Identity::required(identityRef)->privateKey());
+	Required(privateKeyRef) = keyItemPtr->handle();
+
+    END_SECAPI
+}
+
+OSStatus
+SecIdentityCreateWithCertificate(CFTypeRef keychainOrArray, SecCertificateRef certificateRef,
+            SecIdentityRef *identityRef)
+{
+    BEGIN_SECAPI
+
+	SecPointer<Certificate> certificatePtr(Certificate::required(certificateRef));
+	StorageManager::KeychainList keychains;
+	globals().storageManager.optionalSearchList(keychainOrArray, keychains);
+	SecPointer<Identity> identityPtr(new Identity(keychains, certificatePtr));
+	Required(identityRef) = identityPtr->handle();
 
     END_SECAPI
 }

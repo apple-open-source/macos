@@ -4,23 +4,24 @@
  * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- *
- * "Portions Copyright (c) 2000 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').	You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- *
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- *
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
  * @APPLE_LICENSE_HEADER_END@
  */
 /*		@(#)webdav_requestqueue.h	   *
@@ -58,6 +59,7 @@ typedef struct webdav_requestqueue_element_tag
 			int local;							/* local file descriptor */
 			off_t total_length;					/* size of the request */
 			int chunked;						/* indicates if info is chunked */
+			int connection_close;				/* indicates connection should be closed at end of download */
 		} download;								/* Struct used for download requests */
 	} element;
 } webdav_requestqueue_element_t;
@@ -80,15 +82,20 @@ typedef struct ThreadSocket ThreadSocket;
 /* Definitions */
 #define WEBDAV_REQUEST_TYPE 1
 #define WEBDAV_DOWNLOAD_TYPE 2
-#define WEBDAV_DOWNLOAD_LIMIT 4096
 
 /* Functions */
 
-extern void webdav_requestqueue_init();
+extern int webdav_requestqueue_init(void);
 extern int webdav_requestqueue_enqueue_request(int proxy_ok, int socket);
-extern int webdav_requestqueue_enqueue_download(int *remote, int local, off_t total_length,
-	int chunked, int *download_status);
+extern int webdav_requestqueue_enqueue_download(int remote, int local, off_t total_length,
+	int chunked, int *download_status, int connection_close);
 extern int webdav_request_thread(void *arg);
+
+#define WEBDAV_CONNECTION_UP 1
+#define WEBDAV_CONNECTION_DOWN 0
+extern int gconnectionstate_init(void);
+extern int get_gconnectionstate(void);
+extern void set_gconnectionstate(int bad);
 
 /* Global structures */
 

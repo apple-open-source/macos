@@ -83,11 +83,11 @@ mig_get_reply_port()
         pthread_t pself;
 #ifdef	CTHREADS_DEBUG
 	int d = cthread_debug;
-#endif	CTHREADS_DEBUG
+#endif	/* CTHREADS_DEBUG */
 
 #ifdef	CTHREADS_DEBUG
 	cthread_debug = FALSE;
-#endif	CTHREADS_DEBUG
+#endif	/* CTHREADS_DEBUG */
         pself = pthread_self();
         if ((pself != (pthread_t)NULL) && (pself->sig == _PTHREAD_SIG)) {
             if (pself->reply_port == MACH_PORT_NULL) {
@@ -99,7 +99,7 @@ mig_get_reply_port()
 	if (self == NO_CPROC) {
 #ifdef	CTHREADS_DEBUG
 		cthread_debug = d;
-#endif	CTHREADS_DEBUG
+#endif	/* CTHREADS_DEBUG */
 		return(_task_reply_port);
 	}
         if (self->reply_port == MACH_PORT_NULL) {
@@ -107,7 +107,7 @@ mig_get_reply_port()
         }
 #ifdef	CTHREADS_DEBUG
 	cthread_debug = d;
-#endif	CTHREADS_DEBUG
+#endif	/* CTHREADS_DEBUG */
 	return self->reply_port;
 }
 
@@ -124,11 +124,11 @@ mig_dealloc_reply_port(mach_port_t migport)
 	register mach_port_t port;
 #ifdef	CTHREADS_DEBUG
 	int d = cthread_debug;
-#endif	CTHREADS_DEBUG
+#endif	/* CTHREADS_DEBUG */
 
 #ifdef	CTHREADS_DEBUG
 	cthread_debug = FALSE;
-#endif	CTHREADS_DEBUG
+#endif	/* CTHREADS_DEBUG */
         pself = pthread_self();
         if ((pself != (pthread_t)NULL) && (pself->sig == _PTHREAD_SIG)) {
             port = pself->reply_port;
@@ -145,7 +145,7 @@ mig_dealloc_reply_port(mach_port_t migport)
 	if (self == NO_CPROC) {
 #ifdef	CTHREADS_DEBUG
 		cthread_debug = d;
-#endif	CTHREADS_DEBUG
+#endif	/* CTHREADS_DEBUG */
 		return;
 	}
 	ASSERT(self != NO_CPROC);
@@ -159,7 +159,7 @@ mig_dealloc_reply_port(mach_port_t migport)
 	}
 #ifdef	CTHREADS_DEBUG
 	cthread_debug = d;
-#endif	CTHREADS_DEBUG
+#endif	/* CTHREADS_DEBUG */
 }
 
 /*************************************************************

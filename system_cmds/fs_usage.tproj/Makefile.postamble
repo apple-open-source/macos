@@ -53,6 +53,9 @@
 # Some compiler flags can be overridden here for certain build situations.
 #
 #    WARNING_CFLAGS:  flag used to set warning level (defaults to -Wmost)
+
+WARNING_CFLAGS = -Wall
+
 #    DEBUG_SYMBOLS_CFLAGS:  debug-symbol flag passed to all builds (defaults
 #	to -g)
 #    DEBUG_BUILD_CFLAGS:  flags passed during debug builds (defaults to -DDEBUG)

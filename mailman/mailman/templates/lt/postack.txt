@@ -1,0 +1,5 @@
+Diskusijø forumas %(listname)s gavo Jûsø þinutæ tema (subject) 
+%(subject)s.
+
+Forumo informacija: %(listinfo_url)s
+Jûsø nustatymai: %(optionsurl)s

@@ -28,12 +28,13 @@
 
 #include <IOKit/IOUserClient.h>
 #include <IOKit/firewire/IOFWAddressSpace.h>
-#include "IOFireWireAVCUserClientCommon.h"
+#include <IOKit/avc/IOFireWireAVCUserClientCommon.h>
+#include <IOKit/avc/IOFireWireAVCTargetSpace.h>
 
 //#include <IOKit/firewire/IOFireWireController.h>
-class IOFireWireAVCRequestSpace;
 class IOFireWireNub;
 class IOFireWirePCRSpace;
+class IOFireWireAVCTargetSpace;
 
 class IOFireWireAVCProtocolUserClient : public IOUserClient
 {
@@ -47,17 +48,30 @@ protected:
 	bool						fStarted;
     IOFireWireNub *				fDevice;
     IOFireWireBus *				fBus;
-    IOFireWireAVCRequestSpace *	fAVCSpace;
-    OSAsyncReference			fAVCRequestCallbackAsyncRef;
     IOFireWirePCRSpace *		fPCRSpace;
+    IOFireWireAVCTargetSpace *	fAVCTargetSpace;
     OSSet *						fInputPlugs;
     OSSet *						fOutputPlugs;
     
-    static UInt32 avcRequestHandler(void *refcon, UInt16 nodeID, IOFWSpeed &speed,
-                                  FWAddress addr, UInt32 len, const void *buf, IOFWRequestRefCon requestRefcon);
     static void forwardPlugWrite(void *refcon, UInt16 nodeID, UInt32 plug, UInt32 oldVal, UInt32 newVal);
 
-    virtual IOReturn setAVCRequestCallback(OSAsyncReference asyncRef, UInt32 subUnitType, UInt32 subUnitID);
+	static void avcTargetCommandHandler(const AVCCommandHandlerInfo *pCmdInfo,
+									 UInt32 generation,
+									 UInt16 nodeID,
+									 const void *command,
+									 UInt32 cmdLen,
+									 IOFWSpeed &speed,
+									 UInt32 handlerSearchIndex);
+
+	static void avcSubunitPlugHandler(const AVCSubunitInfo *pSubunitInfo,
+								   IOFWAVCSubunitPlugMessages plugMessage,
+								   IOFWAVCPlugTypes plugType,
+								   UInt32 plugNum,
+								   UInt32 messageParams,
+								   UInt32 generation,
+								   UInt16 nodeID);
+
+	virtual IOReturn setAVCRequestCallback(OSAsyncReference asyncRef, UInt32 subUnitType, UInt32 subUnitID);
     virtual IOReturn sendAVCResponse(UInt32 generation, UInt16 nodeID, const char *buffer, UInt32 size);
     virtual IOReturn allocateInputPlug(OSAsyncReference asyncRef, void *userRefcon, UInt32 *plug);
     virtual IOReturn freeInputPlug(UInt32 plug);
@@ -71,8 +85,46 @@ protected:
     virtual IOReturn updateOutputMasterPlug(UInt32 oldVal, UInt32 newVal);
     virtual IOReturn readInputMasterPlug(UInt32 *val);
     virtual IOReturn updateInputMasterPlug(UInt32 oldVal, UInt32 newVal);
-    
-    virtual IOExternalMethod * getTargetAndMethodForIndex(IOService **target, UInt32 index);
+    virtual IOReturn publishAVCUnitDirectory(void);
+	virtual IOReturn installAVCCommandHandler(OSAsyncReference asyncRef, UInt32 subUnitTypeAndID, UInt32 opCode, UInt32 callback, UInt32 refCon);
+    virtual IOReturn addSubunit(OSAsyncReference asyncRef,
+								UInt32 subunitType,
+								UInt32 numSourcePlugs,
+								UInt32 numDestPlugs,
+								UInt32 callBack,
+								UInt32 refCon,
+								UInt32 *subUnitTypeAndID);
+	virtual IOReturn setSubunitPlugSignalFormat(UInt32 subunitTypeAndID,
+											 IOFWAVCPlugTypes plugType,
+											 UInt32 plugNum,
+											 UInt32 signalFormat);
+
+	virtual IOReturn getSubunitPlugSignalFormat(UInt32 subunitTypeAndID,
+											 IOFWAVCPlugTypes plugType,
+											 UInt32 plugNum,
+											 UInt32 *pSignalFormat);
+
+	virtual IOReturn connectTargetPlugs(AVCConnectTargetPlugsInParams *inParams,
+									 AVCConnectTargetPlugsOutParams *outParams);
+
+	virtual IOReturn disconnectTargetPlugs(UInt32 sourceSubunitTypeAndID,
+								   IOFWAVCPlugTypes sourcePlugType,
+								   UInt32 sourcePlugNum,
+								   UInt32 destSubunitTypeAndID,
+								   IOFWAVCPlugTypes destPlugType,
+								   UInt32 destPlugNum);
+
+	virtual IOReturn getTargetPlugConnection(AVCGetTargetPlugConnectionInParams *inParams,
+										  AVCGetTargetPlugConnectionOutParams *outParams);
+
+    virtual IOReturn AVCRequestNotHandled(UInt32 generation,
+										  UInt16 nodeID,
+										  IOFWSpeed speed,
+										  UInt32 handlerSearchIndex,
+										  const char *pCmdBuf,
+										  UInt32 cmdLen);
+
+	virtual IOExternalMethod * getTargetAndMethodForIndex(IOService **target, UInt32 index);
     virtual IOExternalAsyncMethod * getAsyncTargetAndMethodForIndex(IOService **target, UInt32 index);
 
     virtual void free();

@@ -1,4 +1,4 @@
-/*	$KAME: localconf.h,v 1.27 2001/08/09 07:32:19 sakane Exp $	*/
+/*	$KAME: localconf.h,v 1.28 2001/12/11 23:44:08 sakane Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -106,6 +106,8 @@ extern void initlcconf __P((void));
 extern void flushlcconf __P((void));
 extern vchar_t *getpskbyname __P((vchar_t *));
 extern vchar_t *getpskbyaddr __P((struct sockaddr *));
+extern vchar_t *getpsk __P((const char *str, const int len));
+extern vchar_t *getpskfromkeychain __P((const char *));
 extern void getpathname __P((char *, int, int, const char *));
 extern int sittype2doi __P((int));
 extern int doitype2doi __P((int));

@@ -1,7 +1,7 @@
 /* dtest.c - lber decoding test program */
-/* $OpenLDAP: pkg/ldap/libraries/liblber/dtest.c,v 1.27 2002/01/04 20:17:36 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblber/dtest.c,v 1.27.2.3 2003/05/22 22:22:36 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /* Portions
@@ -24,6 +24,7 @@
 #include <ac/string.h>
 #include <ac/socket.h>
 #include <ac/unistd.h>
+#include <ac/errno.h>
 
 #ifdef HAVE_CONSOLE_H
 #include <console.h>
@@ -40,7 +41,6 @@ int
 main( int argc, char **argv )
 {
 	char *s;
-	int rc;
 
 	ber_tag_t	tag;
 	ber_len_t	len;
@@ -68,18 +68,25 @@ main( int argc, char **argv )
 	ber_sockbuf_add_io( sb, &ber_sockbuf_io_fd, LBER_SBIOD_LEVEL_PROVIDER,
 		(void *)&fd );
 
-	if( (ber = ber_alloc_t(LBER_USE_DER)) == NULL ) {
+	ber = ber_alloc_t(LBER_USE_DER);
+	if( ber == NULL ) {
 		perror( "ber_alloc_t" );
 		return( EXIT_FAILURE );
 	}
 
-	if(( tag = ber_get_next( sb, &len, ber) ) == LBER_ERROR ) {
+	for (;;) {
+		tag = ber_get_next( sb, &len, ber);
+		if( tag != LBER_ERROR ) break;
+
+		if( errno == EWOULDBLOCK ) continue;
+		if( errno == EAGAIN ) continue;
+
 		perror( "ber_get_next" );
 		return( EXIT_FAILURE );
 	}
 
 	printf("decode: message tag 0x%lx and length %ld\n",
-	        (unsigned long) tag, (long) len );
+		(unsigned long) tag, (long) len );
 
 	for( s = argv[1]; *s; s++ ) {
 		char buf[128];
@@ -89,9 +96,9 @@ main( int argc, char **argv )
 
 		printf("decode: format %s\n", fmt );
 		len = sizeof(buf);
-		rc = ber_scanf( ber, fmt, &buf[0], &len );
+		tag = ber_scanf( ber, fmt, &buf[0], &len );
 
-		if( rc == LBER_ERROR ) {
+		if( tag == LBER_ERROR ) {
 			perror( "ber_scanf" );
 			return( EXIT_FAILURE );
 		}

@@ -1,5 +1,5 @@
 /* Common target dependent code for GDB on ARM systems.
-   Copyright 2002 Free Software Foundation, Inc.
+   Copyright 2002, 2003 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -25,25 +25,30 @@
    the user is concerned but do serve to get the desired values when
    passed to read_register.  */
 
-#define ARM_A1_REGNUM 0		/* first integer-like argument */
-#define ARM_A4_REGNUM 3		/* last integer-like argument */
-#define ARM_AP_REGNUM 11
-#define ARM_SP_REGNUM 13	/* Contains address of top of stack */
-#define ARM_LR_REGNUM 14	/* address to return to from a function call */
-#define ARM_PC_REGNUM 15	/* Contains program counter */
-#define ARM_F0_REGNUM 16	/* first floating point register */
-#define ARM_F3_REGNUM 19	/* last floating point argument register */
-#define ARM_F7_REGNUM 23	/* last floating point register */
-#define ARM_FPS_REGNUM 24	/* floating point status register */
-#define ARM_PS_REGNUM 25	/* Contains processor status */
+enum gdb_regnum {
+  ARM_A1_REGNUM = 0,		/* first integer-like argument */
+  ARM_A4_REGNUM = 3,		/* last integer-like argument */
+  ARM_AP_REGNUM = 11,
+  ARM_SP_REGNUM = 13,		/* Contains address of top of stack */
+  ARM_LR_REGNUM = 14,		/* address to return to from a function call */
+  ARM_PC_REGNUM = 15,		/* Contains program counter */
+  ARM_F0_REGNUM = 16,		/* first floating point register */
+  ARM_F3_REGNUM = 19,		/* last floating point argument register */
+  ARM_F7_REGNUM = 23, 		/* last floating point register */
+  ARM_FPS_REGNUM = 24,		/* floating point status register */
+  ARM_PS_REGNUM = 25,		/* Contains processor status */
+  ARM_FP_REGNUM = 11,		/* Frame register in ARM code, if used.  */
+  THUMB_FP_REGNUM = 7,		/* Frame register in Thumb code, if used.  */
+  ARM_NUM_ARG_REGS = 4, 
+  ARM_LAST_ARG_REGNUM = ARM_A4_REGNUM,
+  ARM_NUM_FP_ARG_REGS = 4,
+  ARM_LAST_FP_ARG_REGNUM = ARM_F3_REGNUM
+};
 
-#define ARM_FP_REGNUM 11	/* Frame register in ARM code, if used.  */
-#define THUMB_FP_REGNUM 7	/* Frame register in Thumb code, if used.  */
-
-#define ARM_NUM_ARG_REGS 	4
-#define ARM_LAST_ARG_REGNUM 	ARM_A4_REGNUM
-#define ARM_NUM_FP_ARG_REGS 	4
-#define ARM_LAST_FP_ARG_REGNUM	ARM_F3_REGNUM
+/* Used in target-specific code when we need to know the size of the
+   largest type of register we need to handle.  */
+#define ARM_MAX_REGISTER_RAW_SIZE	12
+#define ARM_MAX_REGISTER_VIRTUAL_SIZE	8
 
 /* Size of integer registers.  */
 #define INT_REGISTER_RAW_SIZE		4
@@ -99,23 +104,6 @@
 #define FLAG_C		0x20000000
 #define FLAG_V		0x10000000
 
-/* ABI variants that we know about.  If you add to this enum, please 
-   update the table of names in tm-arm.c.  */
-enum arm_abi
-{
-  ARM_ABI_UNKNOWN = 0,
-  ARM_ABI_EABI_V1,
-  ARM_ABI_EABI_V2,
-  ARM_ABI_LINUX,
-  ARM_ABI_NETBSD_AOUT,
-  ARM_ABI_NETBSD_ELF,
-  ARM_ABI_APCS,
-  ARM_ABI_FREEBSD,
-  ARM_ABI_WINCE,
-
-  ARM_ABI_INVALID	/* Keep this last.  */
-};
-
 /* Type of floating-point code in use by inferior.  There are really 3 models
    that are traditionally supported (plus the endianness issue), but gcc can
    only generate 2 of those.  The third is APCS_FLOAT, where arguments to
@@ -134,9 +122,6 @@ enum arm_float_model
 /* Target-dependent structure in gdbarch.  */
 struct gdbarch_tdep
 {
-  enum arm_abi arm_abi;		/* OS/ABI of inferior.  */
-  const char *abi_name;		/* Name of the above.  */
-
   enum arm_float_model fp_model; /* Floating point calling conventions.  */
 
   CORE_ADDR lowest_pc;		/* Lowest address at which instructions 
@@ -165,10 +150,3 @@ int arm_pc_is_thumb (CORE_ADDR);
 CORE_ADDR thumb_get_next_pc (CORE_ADDR);
 
 CORE_ADDR arm_get_next_pc (CORE_ADDR);
-
-/* How a OS variant tells the ARM generic code that it can handle an ABI
-   type. */
-void
-arm_gdbarch_register_os_abi (enum arm_abi abi,
-			     void (*init_abi)(struct gdbarch_info,
-					      struct gdbarch *));

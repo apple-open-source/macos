@@ -4,7 +4,7 @@
 # Synopsis: 	Used by gatherHeaderDoc.pl to hold references to doc 
 #		for individual headers and classes
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2001/11/30 22:43:17 $
+# Last Updated: $Date: 2003/01/31 23:54:39 $
 # 
 # Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
 # The contents of this file constitute Original Code as defined in and are
@@ -48,6 +48,7 @@ sub new {
 
 sub _initialize {
     my($self) = shift;
+    $self->{OUTPUTFORMAT} = undef;
     $self->{NAME} = undef;
     $self->{TYPE} = undef; # Header, CPPClass, etc
     $self->{PATH} = undef;
@@ -71,6 +72,16 @@ sub language {
         $self->{LANGUAGE} = shift;
     }
     return $self->{LANGUAGE};
+}
+
+
+sub outputformat {
+    my $self = shift;
+
+    if (@_) {
+        $self->{OUTPUTFORMAT} = shift;
+    }
+    return $self->{OUTPUTFORMAT};
 }
 
 

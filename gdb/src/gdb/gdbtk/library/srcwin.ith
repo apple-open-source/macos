@@ -23,7 +23,7 @@
 # should be returned and SrcWin should figure out what to do.
 # ----------------------------------------------------------------------
 
-class SrcWin {
+itcl::class SrcWin {
   inherit TopLevelWin GDBWin
 
   public {

@@ -1,4 +1,28 @@
 /*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
  * pppd.h - PPP daemon global declarations.
  *
  * Copyright (c) 1989 Carnegie Mellon University.
@@ -16,7 +40,7 @@
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * $Id: pppd.h,v 1.4 2002/05/23 01:09:20 callie Exp $
+ * $Id: pppd.h,v 1.16 2003/09/21 03:05:21 callie Exp $
  */
 
 /*
@@ -27,7 +51,6 @@
 #define __PPPD_H__
 
 #include <stdio.h>		/* for FILE */
-#include <syslog.h>
 #include <limits.h>		/* for NGROUPS_MAX */
 #include <sys/param.h>		/* for MAXPATHLEN and BSD4_4, if defined */
 #include <sys/types.h>		/* for u_int32_t, if defined */
@@ -37,6 +60,7 @@
 #else
 #include <net/ppp_defs.h>
 #endif
+#include "patchlevel.h"
 
 #if defined(__STDC__)
 #include <stdarg.h>
@@ -65,12 +89,13 @@
 /*
  * Option descriptor structure.
  */
-
+ 
 #ifdef __APPLE__
-#include <stdbool.h>
-#else
-typedef unsigned char	bool;
+// bool is defined in headers as 4 bytes
+#undef bool
 #endif
+
+typedef unsigned char	bool;
 
 enum opt_type {
 	o_special_noarg = 0,
@@ -79,6 +104,7 @@ enum opt_type {
 	o_int,
 	o_uint32,
 	o_string,
+	o_wild
 };
 
 typedef struct {
@@ -86,10 +112,14 @@ typedef struct {
 	enum opt_type type;
 	void	*addr;
 	char	*description;
-	int	flags;
+	unsigned int flags;
 	void	*addr2;
 	int	upper_limit;
 	int	lower_limit;
+	const char *source;
+	short int priority;
+	short int winner;
+	void	*addr3;
 } option_t;
 
 /* Values for flags */
@@ -98,28 +128,40 @@ typedef struct {
 #define OPT_NOARG	0x200	/* option doesn't take argument */
 #define OPT_OR		0x400	/* OR in argument to value */
 #define OPT_INC		0x800	/* increment value */
+#define OPT_A2OR	0x800	/* for o_bool, OR arg to *(u_char *)addr2 */
 #define OPT_PRIV	0x1000	/* privileged option */
 #define OPT_STATIC	0x2000	/* string option goes into static array */
 #define OPT_LLIMIT	0x4000	/* check value against lower limit */
 #define OPT_ULIMIT	0x8000	/* check value against upper limit */
 #define OPT_LIMITS	(OPT_LLIMIT|OPT_ULIMIT)
 #define OPT_ZEROOK	0x10000	/* 0 value is OK even if not within limits */
+#define OPT_HIDE	0x10000	/* for o_string, print value as ?????? */
+#define OPT_A2LIST	0x10000 /* for o_special, keep list of values */
+#define OPT_A2CLRB	0x10000 /* o_bool, clr val bits in *(u_char *)addr2 */
 #define OPT_NOINCR	0x20000	/* value mustn't be increased */
 #define OPT_ZEROINF	0x40000	/* with OPT_NOINCR, 0 == infinity */
-#define OPT_A2INFO	0x100000 /* addr2 -> option_info to update */
-#define OPT_A2COPY	0x200000 /* addr2 -> second location to rcv value */
-#define OPT_ENABLE	0x400000 /* use *addr2 as enable for option */
-#define OPT_PRIVFIX	0x800000 /* can't be overridden if noauth */
-#define OPT_PREPASS	0x1000000 /* do this opt in pre-pass to find device */
-#define OPT_INITONLY	0x2000000 /* option can only be set in init phase */
-#define OPT_DEVEQUIV	0x4000000 /* equiv to device name */
-#define OPT_DEVNAM	(OPT_PREPASS | OPT_INITONLY | OPT_DEVEQUIV)
-#define OPT_SEENIT	0x10000000 /* have seen this option already */
-#ifdef __APPLE__
-#define OPT_HIDE	0x20000000 /* this option needs to be hidden */
-#endif
+#define OPT_PRIO	0x80000	/* process option priorities for this option */
+#define OPT_PRIOSUB	0x100000 /* subsidiary member of priority group */
+#define OPT_ALIAS	0x200000 /* option is alias for previous option */
+#define OPT_A2COPY	0x400000 /* addr2 -> second location to rcv value */
+#define OPT_ENABLE	0x800000 /* use *addr2 as enable for option */
+#define OPT_A2CLR	0x1000000 /* clear *(bool *)addr2 */
+#define OPT_PRIVFIX	0x2000000 /* user can't override if set by root */
+#define OPT_INITONLY	0x4000000 /* option can only be set in init phase */
+#define OPT_DEVEQUIV	0x8000000 /* equiv to device name */
+#define OPT_DEVNAM	(OPT_INITONLY | OPT_DEVEQUIV)
+#define OPT_A2PRINTER	0x10000000 /* *addr2 is a fn for printing option */
+#define OPT_A2STRVAL	0x20000000 /* *addr2 points to current string value */
+#define OPT_NOPRINT	0x40000000 /* don't print this option at all */
 
 #define OPT_VAL(x)	((x) & OPT_VALUE)
+
+/* Values for priority */
+#define OPRIO_DEFAULT	0	/* a default value */
+#define OPRIO_CFGFILE	1	/* value from a configuration file */
+#define OPRIO_CMDLINE	2	/* value from the command line */
+#define OPRIO_SECFILE	3	/* value from options in a secrets file */
+#define OPRIO_ROOT	100	/* added to priority if OPT_PRIVFIX && root */
 
 #ifndef GIDSET_TYPE
 #define GIDSET_TYPE	gid_t
@@ -141,6 +183,8 @@ struct permitted_ip {
 struct pppd_stats {
     unsigned int	bytes_in;
     unsigned int	bytes_out;
+    unsigned int	pkts_in;
+    unsigned int	pkts_out;
 };
 
 /* Used for storing a sequence of words.  Usually malloced. */
@@ -187,6 +231,7 @@ extern int	baud_rate;	/* Current link speed in bits/sec */
 extern char	*progname;	/* Name of this program */
 extern int	redirect_stderr;/* Connector's stderr should go to file */
 extern char	peer_authname[];/* Authenticated name of peer */
+extern int	auth_done[NUM_PPP]; /* Methods actually used for auth */
 extern int	privileged;	/* We were run by real-uid root */
 extern int	need_holdoff;	/* Need holdoff period after link terminates */
 extern char	**script_env;	/* Environment variables for scripts */
@@ -198,23 +243,32 @@ extern int	link_stats_valid; /* set if link_stats is valid */
 extern int	link_connect_time; /* time the link was up for */
 extern int	using_pty;	/* using pty as device (notty or pty opt.) */
 extern int	log_to_fd;	/* logging to this fd as well as syslog */
-extern bool	log_to_file;	/* log_to_fd is a file */
-extern bool	log_to_specific_fd;	/* log_to_fd was specified by user */
+extern bool	log_default;	/* log_to_fd is default (stdout) */
 extern char	*no_ppp_msg;	/* message to print if ppp not in kernel */
 extern volatile int status;	/* exit status for pppd */
 #ifdef __APPLE__
+extern int 	optionsfd;	/* parameters are given via pipe */
 extern volatile int devstatus;	/* exit device status for pppd */
+extern char	username[MAXNAMELEN];/* Our name for authenticating ourselves */
 #endif
-extern int	devnam_fixed;	/* can no longer change devnam */
+extern bool	devnam_fixed;	/* can no longer change devnam */
 extern int	unsuccess;	/* # unsuccessful connection attempts */
 extern int	do_callback;	/* set if we want to do callback next */
 extern int	doing_callback;	/* set if this is a callback */
 extern char	ppp_devnam[MAXPATHLEN];
+extern char     remote_number[MAXNAMELEN]; /* Remote telephone number, if avail. */
+extern int      ppp_session_number; /* Session number (eg PPPoE session) */
+
+extern int	listen_time;	/* time to listen first (ms) */
 extern struct notifier *pidchange;   /* for notifications of pid changing */
 extern struct notifier *phasechange; /* for notifications of phase changes */
 extern struct notifier *exitnotify;  /* for notification that we're exiting */
 extern struct notifier *sigreceived; /* notification of received signal */
-extern int	listen_time;	/* time to listen first (ms) */
+extern struct notifier *ip_up_notifier; /* IPCP has come up */
+extern struct notifier *ip_down_notifier; /* IPCP has gone down */
+extern struct notifier *auth_up_notifier; /* peer has authenticated */
+extern struct notifier *link_down_notifier; /* link has gone down */
+
 #ifdef __APPLE__
 extern u_char inpacket_buf[PPP_MRU+PPP_HDRLEN]; /* buffer for incoming packet */
 extern char	*terminal_script;/* Script to etablish connection once modem is connected */
@@ -230,23 +284,24 @@ extern int  	redialingcount;  /* current redialing count */
 extern bool  	redialingalternate;  /* currently redialing main or alternate number */
 extern int 	busycode;	/* busy error code that triggers the redial */
 extern int 	cancelcode;	/* cancel error code for connectors*/
-void sys_reinit();					/* reinit after pid has changed */
 extern int (*start_link_hook) __P((void));
-extern void sys_install_options __P((void));		/* install system specific options, before sys_init */
-extern void (*dev_device_check_hook) __P((void));	/* hooks for connection plugins */
-extern void (*dev_check_options_hook) __P((void));
-extern int (*dev_connect_hook) __P((int *));
-extern void (*dev_disconnect_hook) __P((void));
-extern void (*dev_cleanup_hook) __P((void));
-extern void (*dev_close_fds_hook) __P((void));
-extern int (*dev_establish_ppp_hook) __P((int));
-extern void (*dev_disestablish_ppp_hook) __P((int));
-extern void (*dev_wait_input_hook) __P((void));
-extern int (*dev_terminal_window_hook) __P((char *, int, int));
+extern int (*link_up_hook) __P((void));
+extern bool link_up_done;
+extern void (*wait_input_hook) __P((void));
+
+extern int (*terminal_window_hook) __P((char *, int, int));
 
 extern struct notifier *auth_start_notify;
 extern struct notifier *auth_withpeer_fail_notify;
 extern struct notifier *auth_withpeer_success_notify;
+extern struct notifier *auth_peer_success_notify;
+/* struct send with auth_peer_success_notify */
+struct auth_peer_success_info {
+    int protocol;
+    int protocol_flavor;
+    char *name;
+    int namelen;
+};
 
 extern struct notifier *lcp_up_notify;
 extern struct notifier *lcp_down_notify;
@@ -318,6 +373,7 @@ extern bool	demand;		/* Do dial-on-demand */
 extern char	*ipparam;	/* Extra parameter for ip up/down scripts */
 extern bool	cryptpap;	/* Others' PAP passwords are encrypted */
 extern int	idle_time_limit;/* Shut down link if idle for this long */
+extern bool    	noidlerecv;     /* Disconnect if idle only for outgoing traffic */
 extern int	holdoff;	/* Dead time before restarting */
 extern bool	holdoff_specified; /* true if user gave a holdoff value */
 extern bool	notty;		/* Stdin/out is not a tty */
@@ -333,6 +389,24 @@ extern int	req_unit;	/* interface unit number to use */
 extern bool	multilink;	/* enable multilink operation */
 extern bool	noendpoint;	/* don't send or accept endpt. discrim. */
 extern char	*bundle_name;	/* bundle name for multilink */
+extern bool	dump_options;	/* print out option values */
+extern bool	dryrun;		/* check everything, print options, exit */
+
+#ifdef MAXOCTETS
+extern unsigned int maxoctets;	     /* Maximum octetes per session (in bytes) */
+extern int       maxoctets_dir;      /* Direction :
+				      0 - in+out (default)
+				      1 - in 
+				      2 - out
+				      3 - max(in,out) */
+extern int       maxoctets_timeout;  /* Timeout for check of octets limit */
+#define PPP_OCTETS_DIRECTION_SUM        0
+#define PPP_OCTETS_DIRECTION_IN         1
+#define PPP_OCTETS_DIRECTION_OUT        2
+#define PPP_OCTETS_DIRECTION_MAXOVERAL  3
+/* same as previos, but little different on RADIUS side */
+#define PPP_OCTETS_DIRECTION_MAXSESSION 4	
+#endif
 
 #ifdef PPP_FILTER
 extern struct	bpf_program pass_filter;   /* Filter for pkts to pass */
@@ -344,9 +418,30 @@ extern bool	ms_lanman;	/* Use LanMan password instead of NT */
 				/* Has meaning only with MS-CHAP challenges */
 #endif
 
+/* Values for auth_pending, auth_done */
+#define PAP_WITHPEER	0x1
+#define PAP_PEER	0x2
+#define CHAP_WITHPEER	0x4
+#define CHAP_PEER	0x8
+#ifdef EAP
+#define EAP_WITHPEER	0x10
+#define EAP_PEER	0x20
+#endif
+/* Values for auth_done only */
+#define CHAP_MD5_WITHPEER	0x10
+#define CHAP_MD5_PEER		0x20
+#ifdef CHAPMS
+#define CHAP_MS_SHIFT		6	/* LSB position for MS auths */
+#define CHAP_MS_WITHPEER	0x40
+#define CHAP_MS_PEER		0x80
+#define CHAP_MS2_WITHPEER	0x100
+#define CHAP_MS2_PEER		0x200
+#endif
+
 extern char *current_option;	/* the name of the option being parsed */
 extern int  privileged_option;	/* set iff the current option came from root */
 extern char *option_source;	/* string saying where the option came from */
+extern int  option_priority;	/* priority of current options */
 
 /*
  * Values for phase.
@@ -402,14 +497,70 @@ struct protent {
     int  (*demand_conf) __P((int unit));
     /* Say whether to bring up link for this pkt */
     int  (*active_pkt) __P((u_char *pkt, int len));
+#ifdef __APPLE__
     /* connection is on hold */
     void  (*hold) __P((int unit));
     /* connection resumes */
     void  (*cont) __P((int unit)); 
+    int (*state) __P((int unit)); 
+#endif
 };
 
 /* Table of pointers to supported protocols */
 extern struct protent *protocols[];
+
+/*
+ * This struct contains pointers to a set of procedures for
+ * doing operations on a "channel".  A channel provides a way
+ * to send and receive PPP packets - the canonical example is
+ * a serial port device in PPP line discipline (or equivalently
+ * with PPP STREAMS modules pushed onto it).
+ */
+struct channel {
+	/* set of options for this channel */
+	option_t *options;
+	/* find and process a per-channel options file */
+	void (*process_extra_options) __P((void));
+	/* check all the options that have been given */
+	void (*check_options) __P((void));
+	/* get the channel ready to do PPP, return a file descriptor */
+#ifdef __APPLE__
+	int  (*connect) __P((int *));
+#else
+	int  (*connect) __P((void));
+#endif
+	/* we're finished with the channel */
+	void (*disconnect) __P((void));
+	/* put the channel into PPP `mode' */
+	int  (*establish_ppp) __P((int));
+	/* take the channel out of PPP `mode', restore loopback if demand */
+	void (*disestablish_ppp) __P((int));
+	/* set the transmit-side PPP parameters of the channel */
+	void (*send_config) __P((int, u_int32_t, int, int));
+	/* set the receive-side PPP parameters of the channel */
+	void (*recv_config) __P((int, u_int32_t, int, int));
+	/* cleanup on error or normal exit */
+	void (*cleanup) __P((void));
+	/* close the device, called in children after fork */
+	void (*close) __P((void));
+#ifdef __APPLE__
+	void (*wait_input) __P((void));
+#endif
+};
+
+extern struct channel *the_channel;
+
+#define ppp_send_config(unit, mtu, accm, pc, acc)			 \
+do {									 \
+	if (the_channel->send_config)					 \
+		(*the_channel->send_config)((mtu), (accm), (pc), (acc)); \
+} while (0)
+
+#define ppp_recv_config(unit, mtu, accm, pc, acc)			 \
+do {									 \
+	if (the_channel->send_config)					 \
+		(*the_channel->recv_config)((mtu), (accm), (pc), (acc)); \
+} while (0)
 
 /*
  * Prototypes.
@@ -421,8 +572,8 @@ void detach __P((void));	/* Detach from controlling tty */
 void die __P((int));		/* Cleanup and exit */
 void quit __P((void));		/* like die(1) */
 void novm __P((char *));	/* Say we ran out of memory, and die */
-void timeout __P((void (*func)(void *), void *arg, int t));
-				/* Call func(arg) after t seconds */
+void timeout __P((void (*func)(void *), void *arg, int s, int us));
+                                /* Call func(arg) after s.us seconds */
 void untimeout __P((void (*func)(void *), void *arg));
 				/* Cancel call to func(arg) */
 void record_child __P((int, char *, void (*) (void *), void *));
@@ -442,17 +593,6 @@ void notify __P((struct notifier *, int));
 
 /* Procedures exported from tty.c. */
 void tty_init __P((void));
-void tty_device_check __P((void));
-void tty_check_options __P((void));
-#ifdef __APPLE__
-int  connect_tty __P((int *));
-#else
-int  connect_tty __P((void));
-#endif
-void disconnect_tty __P((void));
-void tty_close_fds __P((void));
-int sighup_tty __P((void));
-void cleanup_tty __P((void));
 
 /* Procedures exported from utils.c. */
 void log_packet __P((u_char *, int, char *, int));
@@ -469,23 +609,33 @@ void notice __P((char *, ...));	/* log a notice-level message */
 void warning __P((char *, ...));	/* log a warning message */
 void error __P((char *, ...));	/* log an error message */
 void fatal __P((char *, ...));	/* log an error message and die(1) */
+void init_pr_log __P((char *, int));	/* initialize for using pr_log */
+void pr_log __P((void *, char *, ...));	/* printer fn, output to syslog */
+void end_pr_log __P((void));	/* finish up after using pr_log */
+void dump_packet __P((const char *, u_char *, int));
+				/* dump packet to debug log if interesting */
 
 /* Procedures exported from auth.c */
 void link_required __P((int));	  /* we are starting to use the link */
 void link_terminated __P((int));  /* we are finished with the link */
 void link_down __P((int));	  /* the LCP layer has left the Opened state */
 void link_established __P((int)); /* the link is up; authenticate now */
-void start_networks __P((void));  /* start all the network control protos */
+void start_networks __P((int));   /* start all the network control protos */
+void continue_networks __P((int)); /* start network [ip, etc] control protos */
 void np_up __P((int, int));	  /* a network protocol has come up */
 void np_down __P((int, int));	  /* a network protocol has gone down */
 void np_finished __P((int, int)); /* a network protocol no longer needs link */
 void auth_peer_fail __P((int, int));
 				/* peer failed to authenticate itself */
-void auth_peer_success __P((int, int, char *, int));
+void auth_peer_success __P((int, int, int, char *, int));
 				/* peer successfully authenticated itself */
 void auth_withpeer_fail __P((int, int));
 				/* we failed to authenticate ourselves */
-void auth_withpeer_success __P((int, int));
+#ifdef __APPLE__
+void auth_withpeer_cancelled __P((int, int));
+				/* authentication cancelled by user */
+#endif
+void auth_withpeer_success __P((int, int, int));
 				/* we successfully authenticated ourselves */
 void auth_check_options __P((void));
 				/* check authentication options supplied */
@@ -498,8 +648,6 @@ int  auth_ip_addr __P((int, u_int32_t));
 				/* check if IP address is authorized */
 int  bad_ip_adrs __P((u_int32_t));
 				/* check if IP address is unreasonable */
-int  get_ip_addr_dynamic __P((int, u_int32_t *));
-				/* get dynamically-allocated IP address */
 #ifdef __APPLE__
 void check_idle __P((void *));
 #endif
@@ -527,18 +675,11 @@ void sys_close __P((void));	/* Clean up in a child before execing */
 int  ppp_available __P((void));	/* Test whether ppp kernel support exists */
 int  get_pty __P((int *, int *, char *, int));	/* Get pty master/slave */
 int  open_ppp_loopback __P((void)); /* Open loopback for demand-dialling */
-int  establish_ppp __P((int));	/* Turn serial port into a ppp interface */
-void restore_loop __P((void));	/* Transfer ppp unit back to loopback */
-void disestablish_ppp __P((int)); /* Restore port to normal operation */
+int  tty_establish_ppp __P((int));  /* Turn serial port into a ppp interface */
+void tty_disestablish_ppp __P((int)); /* Restore port to normal operation */
+void generic_disestablish_ppp __P((int dev_fd)); /* Restore device setting */
+int  generic_establish_ppp __P((int dev_fd)); /* Make a ppp interface */
 void make_new_bundle __P((int, int, int, int)); /* Create new bundle */
-#if __APPLE__
-int sys_getconsoleuser(uid_t *uid);	/* get the current console user */
-int  establish_ppp_tty __P((int));	/* Turn serial port into a ppp interface */
-void disestablish_ppp_tty __P((int)); 	/* Restore port to normal operation */
-void sys_new_event(u_long m);
-void sys_publish_status(u_long status, u_long devstatus);
-int getabsolutetime(struct timeval *timenow);
-#endif
 int  bundle_attach __P((int));	/* Attach link to existing bundle */
 void cfg_bundle __P((int, int, int, int)); /* Configure existing bundle */
 void clean_check __P((void));	/* Check if line was 8-bit clean */
@@ -551,18 +692,36 @@ void wait_input __P((struct timeval *));
 void add_fd __P((int));		/* Add fd to set to wait for */
 void remove_fd __P((int));	/* Remove fd from set to wait for */
 #ifdef __APPLE__
+void sys_reinit();			/* reinit after pid has changed */
+void sys_install_options(void);		/* install system specific options, before sys_init */
+int sys_loadplugin(char *arg);
+int sys_getconsoleuser(uid_t *uid);	/* get the current console user */
+void sys_new_event(u_long m);
+void sys_publish_status(u_long status, u_long devstatus);
+void sys_publish_remoteaddress(char *addr);
+int getabsolutetime(struct timeval *timenow);
 bool is_ready_fd(int fd);	/* check if fd is ready (out of select) */
 void set_up_tty_local __P((int, int)); /* Set up port's 'local' parameters only. */
+void ppp_hold __P((int unit));	/* stop ppp traffic on this link */
+void ppp_cont __P((int unit));	/* resume ppp traffic on this link */
+void auth_hold(int unit);
+void auth_cont(int unit);
+int wait_input_fd(int fd, int delay);
+#ifdef INET6
+int ether_to_eui64(eui64_t *p_eui64);
+#endif
+void generic_send_config __P((int, u_int32_t, int, int));
+				/* Configure i/f transmit parameters */
+void generic_recv_config __P((int, u_int32_t, int, int));
+				/* Configure i/f receive parameters */
 #endif
 int  read_packet __P((u_char *)); /* Read PPP packet */
 int  get_loop_output __P((void)); /* Read pkts from loopback */
-void ppp_hold __P((int unit));	/* stop ppp traffic on this link */
-void ppp_cont __P((int unit));	/* resume ppp traffic on this link */
-void ppp_send_config __P((int, int, u_int32_t, int, int));
+void tty_send_config __P((int, u_int32_t, int, int));
 				/* Configure i/f transmit parameters */
-void ppp_set_xaccm __P((int, ext_accm));
+void tty_set_xaccm __P((ext_accm));
 				/* Set extended transmit ACCM */
-void ppp_recv_config __P((int, int, u_int32_t, int, int));
+void tty_recv_config __P((int, u_int32_t, int, int));
 				/* Configure i/f receive parameters */
 int  ccp_test __P((int, u_char *, int, int));
 				/* Test support for compression scheme */
@@ -573,6 +732,8 @@ int  get_idle_time __P((int, struct ppp_idle *));
 				/* Find out how long link has been idle */
 int  get_ppp_stats __P((int, struct pppd_stats *));
 				/* Return link statistics */
+void netif_set_mtu __P((int, int)); /* Set PPP interface MTU */
+int  netif_get_mtu __P((int));      /* Get PPP interface MTU */
 int  sifvjcomp __P((int, int, int, int));
 				/* Configure VJ TCP header compression */
 int  sifup __P((int));		/* Configure i/f up for one protocol */
@@ -588,6 +749,11 @@ int  sif6addr __P((int, eui64_t, eui64_t));
 				/* Configure IPv6 addresses for i/f */
 int  cif6addr __P((int, eui64_t, eui64_t));
 				/* Remove an IPv6 address from i/f */
+#endif
+#ifdef __APPLE__
+int  sifnpafmode __P((int u, int proto, enum NPAFmode mode));
+				/* Set mode for filtering addresses for proto */
+int sifdns(u_int32_t dns1, u_int32_t dns2);
 #endif
 int  sifdefaultroute __P((int, u_int32_t, u_int32_t));
 				/* Create default route through i/f */
@@ -617,8 +783,12 @@ int  get_if_hwaddr __P((u_char *addr, char *name));
 char *get_first_ethernet __P((void));
 
 /* Procedures exported from options.c */
+int setipaddr __P((char *, char **, int)); /* Set local/remote ip addresses */
 int  parse_args __P((int argc, char **argv));
 				/* Parse options from arguments given */
+#ifdef __APPLE__
+int options_from_fd __P((int));
+#endif
 int  options_from_file __P((char *filename, int must_exist, int check_prot,
 			    int privileged));
 				/* Parse options from an options file */
@@ -633,29 +803,13 @@ void option_error __P((char *fmt, ...));
 int int_option __P((char *, int *));
 				/* Simplified number_option for decimal ints */
 void add_options __P((option_t *)); /* Add extra options */
+void check_options __P((void));	/* check values after all options parsed */
+int  override_value __P((const char *, int, const char *));
+				/* override value if permitted by priority */
+void print_options __P((void (*) __P((void *, char *, ...)), void *));
+				/* print out values of all options */
+
 int parse_dotted_ip __P((char *, u_int32_t *));
-
-/*
- * This structure is used to store information about certain
- * options, such as where the option value came from (/etc/ppp/options,
- * command line, etc.) and whether it came from a privileged source.
- */
-
-struct option_info {
-    int	    priv;		/* was value set by sysadmin? */
-    char    *source;		/* where option came from */
-};
-
-extern struct option_info devnam_info;
-extern struct option_info initializer_info;
-extern struct option_info connect_script_info;
-#ifdef __APPLE__
-extern struct option_info terminal_script_info;
-extern struct option_info altconnect_script_info;
-#endif
-extern struct option_info disconnect_script_info;
-extern struct option_info welcomer_info;
-extern struct option_info ptycommand_info;
 
 /*
  * Hooks to enable plugins to change various things.
@@ -669,9 +823,23 @@ extern int (*pap_auth_hook) __P((char *user, char *passwd, char **msgp,
 				 struct wordlist **popts));
 extern void (*pap_logout_hook) __P((void));
 extern int (*pap_passwd_hook) __P((char *user, char *passwd));
+extern int (*allowed_address_hook) __P((u_int32_t addr));
 extern void (*ip_up_hook) __P((void));
 extern void (*ip_down_hook) __P((void));
 extern void (*ip_choose_hook) __P((u_int32_t *));
+
+extern int (*chap_check_hook) __P((void));
+extern int (*chap_passwd_hook) __P((char *user, char *passwd));
+
+/* Let a plugin snoop sent and received packets.  Useful for L2TP */
+extern void (*snoop_recv_hook) __P((unsigned char *p, int len));
+extern void (*snoop_send_hook) __P((unsigned char *p, int len));
+
+#ifdef __APPLE__
+/* Hook for access control list to verify if user should have access */
+extern int (*acl_hook) __P((char *user, int len));
+#endif
+
 
 /*
  * Inline versions of get/put char/short/long.
@@ -716,7 +884,7 @@ extern void (*ip_choose_hook) __P((u_int32_t *));
  * System dependent definitions for user-level 4.3BSD UNIX implementation.
  */
 
-#define TIMEOUT(r, f, t)	timeout((r), (f), (t))
+#define TIMEOUT(r, f, t)	timeout((r), (f), (t), 0)
 #define UNTIMEOUT(r, f)		untimeout((r), (f))
 
 #define BCOPY(s, d, l)		memcpy(d, s, l)
@@ -759,6 +927,16 @@ extern void (*ip_choose_hook) __P((u_int32_t *));
 #define EXIT_TERMINAL_FAILED	20
 #define EXIT_DEVICE_ERROR	21
 #endif
+#ifdef MAXOCTETS
+#ifdef __APPLE__
+#define EXIT_TRAFFIC_LIMIT	22
+#else
+#define EXIT_TRAFFIC_LIMIT	20
+#endif
+#endif
+#ifdef __APPLE__
+#define EXIT_PEER_NOT_AUTHORIZED	23
+#endif
 
 /*
  * Debug macros.  Slightly useful for finding bugs in pppd, not particularly
@@ -769,8 +947,9 @@ extern void (*ip_choose_hook) __P((u_int32_t *));
 #define DEBUGFSM	1
 #define DEBUGLCP	1
 #define DEBUGIPCP	1
-#define DEBUGIPV6CP	1
+#define DEBUGACSCP	1
 #define DEBUGUPAP	1
+#define DEBUGIPV6CP	1
 #define DEBUGCHAP	1
 #define DEBUGEAP	1
 #endif
@@ -779,7 +958,7 @@ extern void (*ip_choose_hook) __P((u_int32_t *));
 #if defined(DEBUGMAIN) || defined(DEBUGFSM) || defined(DEBUGSYS) \
   || defined(DEBUGLCP) || defined(DEBUGIPCP) || defined(DEBUGUPAP) \
   || defined(DEBUGCHAP) || defined(DEBUG) || defined(DEBUGIPV6CP) \
-  || defined(DEBUGEAP)
+  || defined(DEBUGEAP) || defined(DEBUGACSCP)
 #define LOG_PPP LOG_LOCAL2
 #else
 #define LOG_PPP LOG_DAEMON
@@ -814,6 +993,12 @@ extern void (*ip_choose_hook) __P((u_int32_t *));
 #define IPCPDEBUG(x)	if (debug) dbglog x
 #else
 #define IPCPDEBUG(x)
+#endif
+
+#ifdef DEBUGACSCP
+#define ACSCPDEBUG(x)	if (debug) dbglog x
+#else
+#define ACSCPDEBUG(x)
 #endif
 
 #ifdef DEBUGIPV6CP
@@ -859,6 +1044,10 @@ extern void (*ip_choose_hook) __P((u_int32_t *));
 #endif
 #ifndef MAX
 #define MAX(a, b)	((a) > (b)? (a): (b))
+#endif
+
+#ifndef offsetof
+#define offsetof(type, member) ((size_t) &((type *)0)->member)
 #endif
 
 #endif /* __PPP_H__ */

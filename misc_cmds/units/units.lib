@@ -1,4 +1,4 @@
-/	$NetBSD: units.lib,v 1.4 1997/01/09 20:23:16 tls Exp $
+/ $FreeBSD: src/usr.bin/units/units.lib,v 1.13 2002/07/09 08:47:03 joerg Exp $
 
 / primitive units
 
@@ -33,7 +33,7 @@ nano-			1e-9
 pico-			1e-12
 femto-			1e-15
 atto-			1e-18
-zepto-			1e-21
+zopto-			1e-21
 yocto-			1e-24
 
 semi-			.5
@@ -52,11 +52,27 @@ da-			deka
 d-			deci
 c-			centi
 m-			milli
+n-			nano
 p-			pico
 f-			femto
 a-			atto
-z-			zepto
+z-			zopto
 y-			yocto
+
+/ binary prefixes introduced in 1999
+exbi-			1152921504606846976
+pebi-			1125899906842624
+tebi-			1099511627776
+gibi-			1073741824
+mebi-			1048576
+kibi-			1024
+
+Ei-			exbi
+Pi-			pebi
+Ti-			tebi
+Gi-			gibi
+Mi-			mebi
+Ki-			kibi
 
 / constants
 
@@ -64,6 +80,7 @@ fuzz			1
 pi			3.14159265358979323846
 c			2.99792458e+8 m/sec fuzz
 g			9.80665 m/sec2
+bigG			6.67390e-11 m3/kg/s2
 au			1.49597871e+11 m fuzz
 mole			6.022169e+23 fuzz
 e			1.6021917e-19 coul fuzz
@@ -104,14 +121,12 @@ week			7 day
 year			365.24219879 day fuzz
 yr			year
 month			1|12 year
-ms			millisec
 us			microsec
 
 / Mass
 
 gram			millikg
 gm			gram
-mg			milligram
 metricton		kilokg
 
 / Avoirdupois
@@ -140,10 +155,6 @@ troypound		appound
 / Length
 
 meter			m
-cm			centimeter
-mm			millimeter
-km			kilometer
-nm			nanometer
 micron			micrometer
 angstrom		decinanometer
 
@@ -180,6 +191,7 @@ pt			pint
 
 floz			1|16 pt
 fldr			1|8 floz
+shot			3|2 floz
 
 / US Dry
 
@@ -232,9 +244,7 @@ lux			cd sr/m2
 $			dollar
 argentinapeso		$
 australiadollar		.66 $
-austriaschilling	.83 $
 bahraindinar		2.6522 $
-belgiumfranc		.028 $
 brazilcruzeiro		.000019 $
 britainpound		1.49 $
 canadadollar		.77 $
@@ -244,18 +254,13 @@ chinarenminbi		.174856 $
 colombiapeso		.001495 $
 denmarkkrone		.15 $
 ecuadorsucre		.000539 $
-finlandmarkka		.17 $
-francefranc		.17 $
-germanymark		.58 $
 greatbritainpound	britainpound
 greecedrachma		.0043 $
 hongkongdollar		.13  $
 hungaryforint		.011 $
 indiarupee		.03211 $
 indonesiarupiah		.0004782 $
-irelandpunt		1.43 $
 israelshekel		.3642 $
-italylira		.00064 $
 japanyen		.0093 $
 jordandinar		1.4682 $
 kuwaitdinar		3.3173 $
@@ -263,20 +268,17 @@ lebanonpound		.000578 $
 malaysiaringgit		.338 $
 maltalira		2.6042 $
 mexicopeso		.3205128 $
-netherlandguilder	.52 $
 newzealanddollar	.539 $
 norwaykrone		.139 $
 pakistanrupee		.037 $
 perunewsol		.5065 $
 philippinespeso		.03738 $
 polandzloty		.000059 $
-portugalescudo		.00617 $
 saudiarabiariyal	.26702 $
 singaporedollar		.6157 $
 slovakkoruna		.034 $
-southamericarand	.21 $
+southafricarand		.21 $
 southkoreawon		.001 $
-spainpeseta		.007 $
 swedenkrona		.13 $
 switzerlandfranc	.66 $
 taiwandollar		.038285 $
@@ -285,6 +287,21 @@ turkeylira		.0000929 $
 unitedarabdirham	.2723 $
 uruguaynewpeso		.246852 $
 venezuelabolivar	.011 $
+
+/ EMU currencies have constant exchange rate against Euro since 1.1.1999
+austriaschilling	1|13.7603 euro
+belgiumfranc		1|40.3399 euro
+finlandmarkka		1|5.94573 euro
+francefranc		1|6.55957 euro
+germanymark		1|1.95583 euro
+irelandpunt		1|0.787564 euro
+italylira		1|1936.27 euro
+netherlandsguilder	1|2.20371 euro
+portugalescudo		1|200.482 euro
+spainpeseta		1|166.386 euro
+
+/ rate of euro against dollar from 2002-07-09
+euro			0.99 $
 
 mark			germanymark
 bolivar			venezuelabolivar
@@ -423,9 +440,6 @@ hz			/sec
 imaginarycubicfoot	1.4 ft3
 jeroboam		4|5 gal
 karat			1|24
-kcal			kilocal
-kcalorie		kilocal
-kev			1e+3 e-volt
 key			kg
 khz			1e+3 /sec
 kilderkin		18 gal
@@ -440,6 +454,9 @@ link			66|100 ft
 longhundredweight	112 lb
 longquarter		28 lb
 lusec			1e-6 mm-hg m3/s
+m_earth			5.97223e24 kg
+m_moon			7.34e22 kg
+m_sun			1.98843e30 kg
 mach			331.46 m/sec
 magnum			2 qt
 marineleague		3 nmile
@@ -449,7 +466,7 @@ mgd			megagal/day
 mh			millihenry
 mhz			1e+6 /sec
 mil			1e-3 in
-millenium		1000 year
+millennium		1000 year
 minersinch		1.5 ft3/min
 minim			1|60 fldr
 mo			month
@@ -460,7 +477,6 @@ nauticalmile		nmile
 nit			cd/m2
 noggin			1|8 qt
 nox			1e-3 lux
-ns			nanosec
 oersted			2.5e+2 pi-amp/m
 oe			oersted
 pace			36 in
@@ -526,6 +542,8 @@ surveyyard		3 surveyfoot
 surveyorschain		66 ft
 surveyorslink		66|100 ft
 tablespoon		4 fldr
+tbl			tablespoon
+tbsp			tablespoon
 teaspoon		4|3 fldr
 tesla			weber/m2
 therm			1e+5 btu
@@ -535,6 +553,7 @@ tnt			4.6e+6 m2/sec2
 tonne			1e+6 gm
 torr			mm hg
 township		36 mi2
+tsp			teaspoon
 tun			8 barrel
 water			gram g / cc
 wey			40 bu

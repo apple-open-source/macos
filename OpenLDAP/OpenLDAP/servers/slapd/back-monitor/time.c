@@ -1,6 +1,6 @@
 /* time.c - deal with time subsystem */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*
@@ -37,12 +37,16 @@
 #include <ac/string.h>
 #include <ac/time.h>
 
+
 #include "slap.h"
+#include <lutil.h>
 #include "proto-slap.h"
 #include "back-monitor.h"
 
+#ifdef HACK_LOCAL_TIME
 static int
 local_time( const struct tm *ztm, long delta, char *buf, size_t len );
+#endif /* HACK_LOCAL_TIME */
 
 int
 monitor_subsys_time_init(
@@ -53,8 +57,9 @@ monitor_subsys_time_init(
 	
 	Entry			*e, *e_tmp, *e_time;
 	struct monitorentrypriv	*mp;
-	char			buf[1024], ztmbuf[20], ltmbuf[20];
-	struct tm		*ztm, *ltm;
+	char			buf[1024];
+	struct tm		*tms;
+	char			tmbuf[ LDAP_LUTIL_GENTIME_BUFSIZE ];
 
 	/*
 	 * Note: ltmbuf, ltm are used only if HACK_LOCAL_TIME is defined
@@ -67,10 +72,10 @@ monitor_subsys_time_init(
 	if ( monitor_cache_get( mi,
 			&monitor_subsys[SLAPD_MONITOR_TIME].mss_ndn, &e_time ) ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_CRIT,
+		LDAP_LOG( OPERATION, CRIT,
 			"monitor_subsys_time_init: "
 			"unable to get entry '%s'\n",
-			monitor_subsys[SLAPD_MONITOR_TIME].mss_ndn.bv_val ));
+			monitor_subsys[SLAPD_MONITOR_TIME].mss_ndn.bv_val, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
 			"monitor_subsys_time_init: "
@@ -87,35 +92,29 @@ monitor_subsys_time_init(
 	 * Start
 	 */
 	ldap_pvt_thread_mutex_lock( &gmtime_mutex );
-	ztm = gmtime( &starttime );
-	strftime( ztmbuf, sizeof(ztmbuf), "%Y%m%d%H%M%SZ", ztm );
 #ifdef HACK_LOCAL_TIME
-	ltm = localtime( &starttime );
-	local_time( ltm, -timezone, ltmbuf, sizeof( ltmbuf ) );
-#endif /* HACK_LOCAL_TIME */
+	tms = localtime( &starttime );
+	local_time( tms, -timezone, tmbuf, sizeof( tmbuf ) );
+#else /* !HACK_LOCAL_TIME */
+	tms = gmtime( &starttime );
+	lutil_gentime( tmbuf, sizeof(tmbuf), tms );
+#endif /* !HACK_LOCAL_TIME */
 	ldap_pvt_thread_mutex_unlock( &gmtime_mutex );
 	snprintf( buf, sizeof( buf ),
 			"dn: cn=Start,%s\n"
 			SLAPD_MONITOR_OBJECTCLASSES
 			"cn: Start\n"
-			"description: %s\n"
-#ifdef HACK_LOCAL_TIME
-			"description;lang-x-local: %s"
-#endif /* HACK_LOCAL_TIME */
-			, monitor_subsys[SLAPD_MONITOR_TIME].mss_dn.bv_val,
-			ztmbuf
-#ifdef HACK_LOCAL_TIME
-			, ltmbuf 
-#endif /* HACK_LOCAL_TIME */
-			);
+			"createTimestamp: %s", 
+			monitor_subsys[SLAPD_MONITOR_TIME].mss_dn.bv_val,
+			tmbuf );
 
 	e = str2entry( buf );
 	if ( e == NULL ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_CRIT,
+		LDAP_LOG( OPERATION, CRIT,
 			"monitor_subsys_time_init: "
 			"unable to create entry 'cn=Start,%s'\n",
-			monitor_subsys[SLAPD_MONITOR_TIME].mss_ndn.bv_val ));
+			monitor_subsys[SLAPD_MONITOR_TIME].mss_ndn.bv_val, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
 			"monitor_subsys_time_init: "
@@ -136,10 +135,10 @@ monitor_subsys_time_init(
 
 	if ( monitor_cache_add( mi, e ) ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_CRIT,
+		LDAP_LOG( OPERATION, CRIT,
 			"monitor_subsys_time_init: "
 			"unable to add entry 'cn=Start,%s'\n",
-			monitor_subsys[SLAPD_MONITOR_TIME].mss_ndn.bv_val ));
+			monitor_subsys[SLAPD_MONITOR_TIME].mss_ndn.bv_val, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
 			"monitor_subsys_time_init: "
@@ -159,24 +158,18 @@ monitor_subsys_time_init(
 			"dn: cn=Current,%s\n"
 			SLAPD_MONITOR_OBJECTCLASSES
 			"cn: Current\n"
-			"description: %s\n"
-#ifdef HACK_LOCAL_TIME 
-			"description;lang-x-local: %s"
-#endif /* HACK_LOCAL_TIME */
-			, monitor_subsys[SLAPD_MONITOR_TIME].mss_dn.bv_val,
-			ztmbuf
-#ifdef HACK_LOCAL_TIME
-			, ltmbuf
-#endif /* HACK_LOCAL_TIME */
-			);
+			"createTimestamp: %s\n"
+			"modifyTimestamp: %s",
+			monitor_subsys[SLAPD_MONITOR_TIME].mss_dn.bv_val,
+			tmbuf, tmbuf );
 
 	e = str2entry( buf );
 	if ( e == NULL ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_CRIT,
+		LDAP_LOG( OPERATION, CRIT,
 			"monitor_subsys_time_init: "
 			"unable to create entry 'cn=Current,%s'\n",
-			monitor_subsys[SLAPD_MONITOR_TIME].mss_ndn.bv_val ));
+			monitor_subsys[SLAPD_MONITOR_TIME].mss_ndn.bv_val, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
 			"monitor_subsys_time_init: "
@@ -197,10 +190,10 @@ monitor_subsys_time_init(
 
 	if ( monitor_cache_add( mi, e ) ) {
 #ifdef NEW_LOGGING
-		LDAP_LOG(( "operation", LDAP_LEVEL_CRIT,
+		LDAP_LOG( OPERATION, CRIT,
 			"monitor_subsys_time_init: "
 			"unable to add entry 'cn=Current,%s'\n",
-			monitor_subsys[SLAPD_MONITOR_TIME].mss_ndn.bv_val ));
+			monitor_subsys[SLAPD_MONITOR_TIME].mss_ndn.bv_val, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_ANY,
 			"monitor_subsys_time_init: "
@@ -227,75 +220,89 @@ monitor_subsys_time_update(
 	Entry                   *e
 )
 {
-	char		ztmbuf[20], ltmbuf[20];
-	struct tm	*ztm, *ltm;
-	time_t		currenttime;
+	char		stmbuf[ LDAP_LUTIL_GENTIME_BUFSIZE ],
+			ctmbuf[ LDAP_LUTIL_GENTIME_BUFSIZE ];
+	struct tm	*stm, *ctm;
 	Attribute	*a;
-	static AttributeDescription	*ad_local = NULL;
-	const char	*text = NULL;
 	ber_len_t	len;
 
-	static int	init_start = 0;
-
-	/*
-	 * Note: ltmbuf, ltm, ad_local, text are used only if HACK_LOCAL_TIME
-	 * 	 is defined
-	 */
+	static int	init_start = 0, init_current = 0;
+#define ENTRY_TIME	0
+#define ENTRY_START	1
+#define ENTRY_CURRENT	2
+	int		entry = ENTRY_TIME;
 
 	assert( mi );
 	assert( e );
 	
-	if ( init_start == 0 && strncmp( e->e_nname.bv_val, "cn=START",
-				sizeof("cn=START")-1 ) == 0 ) {
-		currenttime = starttime;
-		init_start = 1;
+	if ( strncmp( e->e_nname.bv_val, "cn=start", 
+				sizeof("cn=start")-1 ) == 0 ) {
+		entry = ENTRY_START;
+		if ( init_start == 1 ) {
+			return( 0 );
+		}
 
-	} else if ( strncmp( e->e_nname.bv_val, "cn=CURRENT",
-				sizeof("cn=CURRENT")-1 ) == 0 ) {
-		currenttime = slap_get_time();
-
-	} else {
-		return( 0 );
+	} else if ( strncmp( e->e_nname.bv_val, "cn=current",
+				sizeof("cn=current")-1 ) == 0 ) {
+		entry = ENTRY_CURRENT;
+	}
+	
+	ldap_pvt_thread_mutex_lock( &gmtime_mutex );
+	if ( init_start == 0 ) {
+#ifdef HACK_LOCAL_TIME
+		stm = localtime( &starttime );
+		local_time( stm, -timezone, stmbuf, sizeof( stmbuf ) );
+#else /* !HACK_LOCAL_TIME */
+		stm = gmtime( &starttime );
+		lutil_gentime( stmbuf, sizeof( stmbuf ), stm );
+#endif /* !HACK_LOCAL_TIME */
 	}
 
-	ldap_pvt_thread_mutex_lock( &gmtime_mutex );
-	ztm = gmtime( &currenttime );
-	strftime( ztmbuf, sizeof( ztmbuf ), "%Y%m%d%H%M%SZ", ztm );
+	if ( entry == ENTRY_CURRENT ) {
+		time_t currentTime = slap_get_time();
 #ifdef HACK_LOCAL_TIME
-	ltm = localtime( &currenttime );
-	local_time( ltm, -timezone, ltmbuf, sizeof( ltmbuf ) );
-#endif /* HACK_LOCAL_TIME */
+		ctm = localtime( &currentTime );
+		local_time( ctm, -timezone, ctmbuf, sizeof( ctmbuf ) );
+#else /* !HACK_LOCAL_TIME */
+		ctm = gmtime( &currentTime );
+		lutil_gentime( ctmbuf, sizeof( ctmbuf ), ctm );
+#endif /* !HACK_LOCAL_TIME */
+	}
 	ldap_pvt_thread_mutex_unlock( &gmtime_mutex );
 
-	a = attr_find( e->e_attrs, monitor_ad_desc );
-	if ( a == NULL ) {
-		return( -1 );
-	}
-
-	len = strlen( ztmbuf );
-	assert( len == a->a_vals[0].bv_len );
-	AC_MEMCPY( a->a_vals[0].bv_val, ztmbuf, len );
-
-#ifdef HACK_LOCAL_TIME
-	if ( ad_local == NULL ) {
-		if ( slap_str2ad( "description;lang-x-local", 
-					&ad_local, &text ) != LDAP_SUCCESS ) {
+	if ( ( entry == ENTRY_START && init_start == 0 ) 
+			|| ( entry == ENTRY_CURRENT && init_current == 0 ) ) {
+		a = attr_find( e->e_attrs, slap_schema.si_ad_createTimestamp );
+		if ( a == NULL ) {
 			return( -1 );
 		}
-	}
-	a = attr_find( e->e_attrs, ad_local );
-	if ( a == NULL ) {
-		return( -1 );
+
+		len = strlen( stmbuf );
+		assert( len == a->a_vals[0].bv_len );
+		AC_MEMCPY( a->a_vals[0].bv_val, stmbuf, len );
+
+		if ( entry == ENTRY_START ) {
+			init_start = 1;
+		} else if ( entry == ENTRY_CURRENT ) {
+			init_current = 1;
+		}
 	}
 
-	len = strlen( ltmbuf );
-	assert( len == a->a_vals[0].bv_len );
-	AC_MEMCPY( a->a_vals[0].bv_val, ltmbuf, len );
-#endif /* HACK_LOCAL_TIME */
+	if ( entry == ENTRY_CURRENT ) {
+		a = attr_find( e->e_attrs, slap_schema.si_ad_modifyTimestamp );
+		if ( a == NULL ) {
+			return( -1 );
+		}
+
+		len = strlen( ctmbuf );
+		assert( len == a->a_vals[0].bv_len );
+		AC_MEMCPY( a->a_vals[0].bv_val, ctmbuf, len );
+	}
 
 	return( 0 );
 }
 
+#ifdef HACK_LOCAL_TIME
 /*
  * assumes gmtime_mutex is locked
  */
@@ -323,4 +330,5 @@ local_time( const struct tm *ltm, long delta, char *buf, size_t len )
 	
 	return 0;
 }
+#endif /* HACK_LOCAL_TIME */
 

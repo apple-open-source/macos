@@ -2,6 +2,7 @@
    
    Copyright (C) 1996-2000 by Andrew Tridgell
    Copyright (C) Paul Mackerras 1996
+   Copyright (C) 2002 by Martin Pool
    
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -20,9 +21,50 @@
 
 #include "rsync.h"
 
-/* handling the cleanup when a transfer is interrupted is tricky when
-   --partial is selected. We need to ensure that the partial file is
-   kept if any real data has been transferred */
+/**
+ * Close all open sockets and files, allowing a (somewhat) graceful
+ * shutdown() of socket connections.  This eliminates the abortive
+ * TCP RST sent by a Winsock-based system when the close() occurs.
+ **/
+void close_all()
+{
+#ifdef SHUTDOWN_ALL_SOCKETS
+	int max_fd;
+	int fd;
+	int ret;
+	struct stat st;
+
+	max_fd = sysconf(_SC_OPEN_MAX) - 1;
+	for (fd = max_fd; fd >= 0; fd--) {
+		ret = fstat(fd,&st);
+		if (fstat(fd,&st) == 0) {
+			if (is_a_socket(fd)) {
+				ret = shutdown(fd, 2);
+			}
+			ret = close(fd);
+		}
+	}
+#endif
+}
+
+/**
+ * @file cleanup.c
+ *
+ * Code for handling interrupted transfers.  Depending on the @c
+ * --partial option, we may either delete the temporary file, or go
+ * ahead and overwrite the destination.  This second behaviour only
+ * occurs if we've sent literal data and therefore hopefully made
+ * progress on the transfer.
+ **/
+
+/**
+ * Set to True once literal data has been sent across the link for the
+ * current file. (????)
+ *
+ * Handling the cleanup when a transfer is interrupted is tricky when
+ * --partial is selected.  We need to ensure that the partial file is
+ * kept if any real data has been transferred.
+ **/
 int cleanup_got_literal=0;
 
 static char *cleanup_fname;
@@ -35,16 +77,30 @@ extern int io_error;
 
 pid_t cleanup_child_pid = -1;
 
-/*
- * Code is one of the RERR_* codes from errcode.h.
- */
+/**
+ * Eventually calls exit(), passing @p code, therefore does not return.
+ *
+ * @param code one of the RERR_* codes from errcode.h.
+ **/
 void _exit_cleanup(int code, const char *file, int line)
 {
+	int ocode = code;
 	extern int keep_partial;
 	extern int log_got_error;
+	static int inside_cleanup = 0;
+
+	if (inside_cleanup > 10) {
+		/* prevent the occasional infinite recursion */
+		return;
+	}
+	inside_cleanup++;
 
 	signal(SIGUSR1, SIG_IGN);
 	signal(SIGUSR2, SIG_IGN);
+
+	if (verbose > 3)
+		rprintf(FINFO,"_exit_cleanup(code=%d, file=%s, line=%d): entered\n", 
+			code, file, line);
 
 	if (cleanup_child_pid != -1) {
 		int status;
@@ -81,6 +137,11 @@ void _exit_cleanup(int code, const char *file, int line)
 
 	if (code) log_exit(code, file, line);
 
+	if (verbose > 2)
+		rprintf(FINFO,"_exit_cleanup(code=%d, file=%s, line=%d): about to call exit(%d)\n", 
+			ocode, file, line, code);
+
+	close_all();
 	exit(code);
 }
 

@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/compare.c,v 1.16 2002/01/04 20:17:38 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/compare.c,v 1.16.2.4 2003/02/09 17:02:18 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*  Portions
@@ -29,6 +29,7 @@
 #include <ac/time.h>
 
 #include "ldap-int.h"
+#include "ldap_log.h"
 
 /*
  * ldap_compare_ext - perform an ldap extended compare operation.  The dn
@@ -54,7 +55,11 @@ ldap_compare_ext(
 	int rc;
 	BerElement	*ber;
 
+#ifdef NEW_LOGGING
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_compare\n", 0, 0, 0 );
+#else
 	Debug( LDAP_DEBUG_TRACE, "ldap_compare\n", 0, 0, 0 );
+#endif
 
 	assert( ld != NULL );
 	assert( LDAP_VALID( ld ) );
@@ -92,17 +97,6 @@ ldap_compare_ext(
 		return( ld->ld_errno );
 	}
 
-#ifndef LDAP_NOCACHE
-	if ( ld->ld_cache != NULL ) {
-		if ( ldap_check_cache( ld, LDAP_REQ_COMPARE, ber ) == 0 ) {
-			ber_free( ber, 1 );
-			ld->ld_errno = LDAP_SUCCESS;
-			*msgidp = ld->ld_msgid;
-			return( ld->ld_errno );
-		}
-		ldap_add_request_to_cache( ld, LDAP_REQ_COMPARE, ber );
-	}
-#endif /* LDAP_NOCACHE */
 
 	/* send the message */
 	*msgidp = ldap_send_initial_request( ld, LDAP_REQ_COMPARE, dn, ber );
@@ -126,6 +120,8 @@ ldap_compare(
 {
 	int msgid;
 	struct berval bvalue;
+
+	assert( value != NULL );
 
 	bvalue.bv_val = (char *) value;
 	bvalue.bv_len = (value == NULL) ? 0 : strlen( value );
@@ -166,6 +162,8 @@ ldap_compare_s(
 	LDAP_CONST char *value )
 {
 	struct berval bvalue;
+
+	assert( value != NULL );
 
 	bvalue.bv_val = (char *) value;
 	bvalue.bv_len = (value == NULL) ? 0 : strlen( value );

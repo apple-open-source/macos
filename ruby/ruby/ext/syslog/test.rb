@@ -1,21 +1,20 @@
 #!/usr/bin/env ruby
 # $RoughId: test.rb,v 1.9 2002/02/25 08:20:14 knu Exp $
-# $Id: test.rb,v 1.1.1.1 2002/05/27 17:59:47 jkh Exp $
+# $Id: test.rb,v 1.1.1.2 2003/05/14 13:58:47 melville Exp $
 
 # Please only run this test on machines reasonable for testing.
 # If in doubt, ask your admin.
 
-require 'runit/testcase'
-require 'runit/cui/testrunner'
+require 'test/unit'
 
 # Prepend current directory to load path for testing.
 $:.unshift('.')
 
 require 'syslog'
 
-class TestSyslog < RUNIT::TestCase
+class TestSyslog < Test::Unit::TestCase
   def test_new
-    assert_exception(NameError) {
+    assert_raises(NameError) {
       Syslog.new
     }
   end
@@ -29,7 +28,7 @@ class TestSyslog < RUNIT::TestCase
     assert_equal(Syslog, sl2)
     assert_equal(Syslog, sl3)
   ensure
-    Syslog.close
+    Syslog.close if Syslog.opened?
   end
 
   def test_open
@@ -41,7 +40,7 @@ class TestSyslog < RUNIT::TestCase
     assert_equal(Syslog::LOG_USER, Syslog.facility)
 
     # open without close
-    assert_exception(RuntimeError) {
+    assert_raises(RuntimeError) {
       Syslog.open
     }
 
@@ -60,16 +59,16 @@ class TestSyslog < RUNIT::TestCase
     Syslog.open
     Syslog.close
 
-    assert_equal($0, Syslog.ident)
-    assert_equal(Syslog::LOG_PID | Syslog::LOG_CONS, Syslog.options)
-    assert_equal(Syslog::LOG_USER, Syslog.facility)
+    assert_equal(nil, Syslog.ident)
+    assert_equal(nil, Syslog.options)
+    assert_equal(nil, Syslog.facility)
 
     # block
     param = nil
     Syslog.open { |param| }
     assert_equal(Syslog, param)
   ensure
-    Syslog.close
+    Syslog.close if Syslog.opened?
   end
 
   def test_opened?
@@ -88,7 +87,15 @@ class TestSyslog < RUNIT::TestCase
     assert_equal(false, Syslog.opened?)
   end
 
+  def test_close
+    assert_raises(RuntimeError) {
+      Syslog.close
+    }
+  end
+
   def test_mask
+    assert_equal(nil, Syslog.mask)
+
     Syslog.open
 
     orig = Syslog.mask
@@ -101,7 +108,7 @@ class TestSyslog < RUNIT::TestCase
 
     Syslog.mask = orig
   ensure
-    Syslog.close
+    Syslog.close if Syslog.opened?
   end
 
   def test_log
@@ -143,19 +150,15 @@ class TestSyslog < RUNIT::TestCase
 
   def test_inspect
     Syslog.open { |sl|
-      assert_equal(format('<#%s: opened=%s, ident="%s", ' +
-			  'options=%d, facility=%d, mask=%d>',
-			  Syslog, sl.opened?, sl.ident,
-			  sl.options, sl.facility, sl.mask),
+      assert_equal(format('<#%s: opened=true, ident="%s", options=%d, facility=%d, mask=%d>',
+			  Syslog,
+			  sl.ident,
+			  sl.options,
+			  sl.facility,
+			  sl.mask),
 		   sl.inspect)
     }
+
+    assert_equal(format('<#%s: opened=false>', Syslog), Syslog.inspect)
   end
-end
-
-if $0 == __FILE__
-  suite = RUNIT::TestSuite.new
-
-  suite.add_test(TestSyslog.suite)
-
-  RUNIT::CUI::TestRunner.run(suite)
 end

@@ -47,6 +47,8 @@ typedef struct ppc_function_properties {
 
   char frameptr_used;		/* true if frame uses a frame pointer */
   int frameptr_reg;		/* frame pointer register number */
+  CORE_ADDR frameptr_pc;        /* Where in the prologue is the frameptr
+				   set up (if used). */
   CORE_ADDR lr_saved;		/* 0 if the lr is not saved, otherwise 
 				   the pc at which it is saved. */
   int lr_offset;		/* offset of saved lr */
@@ -66,6 +68,8 @@ typedef struct ppc_function_properties {
 
   char minimal_toc_loaded;
   int pic_base_reg;             /* Did we see the magic pic base setup code */
+
+  CORE_ADDR pic_base_address;   /* What address was the pic base reg set to?  */
 
 } ppc_function_properties;
 

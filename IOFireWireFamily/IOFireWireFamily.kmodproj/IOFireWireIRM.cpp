@@ -210,9 +210,9 @@ void IOFireWireIRM::processBusReset( UInt16 ourNodeID, UInt16 irmNodeID, UInt32 
 			fLockCmd->cancel( kIOFireWireBusReset );
 		}
 		
-		// initialize fOldChannels and fLockRetries
+		// initialize fOldChannelsAvailable31_0 and fLockRetries
 		fLockRetries = 8;
-		fOldChannels = 0;
+		fOldChannelsAvailable31_0 = 0xffffffff;
 
 		allocateBroadcastChannel();
 	}
@@ -237,9 +237,9 @@ void IOFireWireIRM::allocateBroadcastChannel( void )
 	FWAddress address( kCSRRegisterSpaceBaseAddressHi, kCSRChannelsAvailable31_0 );
 	address.nodeID = fIRMNodeID;
 
-	fNewChannels = fOldChannels | kChannel31Mask;
+	fNewChannelsAvailable31_0 = fOldChannelsAvailable31_0 & ~kChannel31Mask;
 	
-	fLockCmd->reinit( fGeneration, address, &fOldChannels, &fNewChannels, 1, IOFireWireIRM::lockCompleteStatic, this );
+	fLockCmd->reinit( fGeneration, address, &fOldChannelsAvailable31_0, &fNewChannelsAvailable31_0, 1, IOFireWireIRM::lockCompleteStatic, this );
 	
 	// the standard async commands call complete with an error before
 	// returning an error from submit. 
@@ -266,8 +266,8 @@ void IOFireWireIRM::lockComplete( IOReturn status )
 	
 	if( status == kIOReturnSuccess )
 	{
-		// update fOldChannels and fLockRetries
-		bool tryAgain = !fLockCmd->locked( &fOldChannels );
+		// update fOldChannelsAvailable31_0 and fLockRetries
+		bool tryAgain = !fLockCmd->locked( &fOldChannelsAvailable31_0 );
 		if( tryAgain && fLockRetries-- )
 		{
 			FWLOCALKLOG(( "IOFireWireIRM::lockComplete() - allocation attempt failed, will retry\n" ));

@@ -1,9 +1,9 @@
 /*
- * "$Id: lpc.c,v 1.1.1.3 2002/06/06 22:12:31 jlovell Exp $"
+ * "$Id: lpc.c,v 1.1.1.8 2003/07/23 02:33:32 jlovell Exp $"
  *
  *   "lpc" command for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2002 by Easy Software Products.
+ *   Copyright 1997-2003 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -100,7 +100,7 @@ main(int  argc,		/* I - Number of command-line arguments */
       */
 
       while (isspace(line[0]))
-        strcpy(line, line + 1);
+        cups_strcpy(line, line + 1);
 
       for (params = line; *params != '\0'; params ++)
         if (isspace(*params))
@@ -478,5 +478,5 @@ show_status(http_t *http,	/* I - HTTP connection to server */
 
 
 /*
- * End of "$Id: lpc.c,v 1.1.1.3 2002/06/06 22:12:31 jlovell Exp $".
+ * End of "$Id: lpc.c,v 1.1.1.8 2003/07/23 02:33:32 jlovell Exp $".
  */

@@ -1,9 +1,9 @@
 /*
- * "$Id: job.h,v 1.2 2002/07/19 22:26:37 jlovell Exp $"
+ * "$Id: job.h,v 1.1.1.8 2003/04/11 21:07:49 jlovell Exp $"
  *
  *   Print job definitions for the Common UNIX Printing System (CUPS) scheduler.
  *
- *   Copyright 1997-2002 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -41,14 +41,14 @@ typedef struct job_str
   ipp_attribute_t *state;		/* Job state */
   ipp_attribute_t *sheets;		/* job-media-sheets-completed */
   time_t	hold_until;		/* Hold expiration date/time */
-  char		username[33];		/* Printing user */
-  char		dest[IPP_MAX_NAME];	/* Destination printer or class */
+  char		*username;		/* Printing user */
+  char		*dest;			/* Destination printer or class */
   cups_ptype_t	dtype;			/* Destination type (class/remote bits) */
-  char		title[IPP_MAX_NAME];	/* Job name/title */
   ipp_attribute_t *job_sheets;		/* Job sheets (NULL if none) */
   int		num_files;		/* Number of files in job */
   int		current_file;		/* Current file in job */
   mime_type_t	**filetypes;		/* File types */
+  int		*compressions;		/* Compression status of each file */
   ipp_t		*attrs;			/* Job attributes */
   int		pipe;			/* Status pipe for this job */
   int		cost;			/* Filtering cost */
@@ -57,6 +57,7 @@ typedef struct job_str
   printer_t	*printer;		/* Printer this job is assigned to */
   char		*buffer;		/* Status buffer */
   int		bufused;		/* Amount of buffer in use */
+  int		tries;			/* Number of tries for this job */
 } job_t;
 
 
@@ -73,6 +74,8 @@ VAR int		JobAutoPurge	VALUE(0);	/* Automatically purge jobs */
 VAR int		NumJobs		VALUE(0);	/* Number of jobs in queue */
 VAR job_t	*Jobs		VALUE(NULL);	/* List of current jobs */
 VAR int		NextJobId	VALUE(1);	/* Next job ID to use */
+VAR int		FaxRetryLimit	VALUE(5),	/* Max number of tries */
+		FaxRetryInterval VALUE(300);	/* Seconds between retries */
 
 
 /*
@@ -81,7 +84,7 @@ VAR int		NextJobId	VALUE(1);	/* Next job ID to use */
 
 extern job_t	*AddJob(int priority, const char *dest);
 extern void	CancelJob(int id, int purge);
-extern void	CancelJobs(const char *dest);
+extern void	CancelJobs(const char *dest, const char *username, int purge);
 extern void	CheckJobs(void);
 extern void	CleanJobs(void);
 extern void	DeleteJob(int id);
@@ -104,5 +107,5 @@ extern void	UpdateJob(job_t *job);
 
 
 /*
- * End of "$Id: job.h,v 1.2 2002/07/19 22:26:37 jlovell Exp $".
+ * End of "$Id: job.h,v 1.1.1.8 2003/04/11 21:07:49 jlovell Exp $".
  */

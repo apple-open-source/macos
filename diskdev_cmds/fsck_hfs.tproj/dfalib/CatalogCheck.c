@@ -79,7 +79,6 @@ static 	OSErr	UniqueDotName( 	SGlobPtr GPtr,
                                 Boolean isSingleDotName,
                                 Boolean isHFSPlus );
 static Boolean 	FixDecomps(	u_int16_t charCount, const u_int16_t *inFilename, HFSUniStr255 *outFilename );
-static void 	PrintName( int theCount, const UInt8 *theNamePtr, Boolean isUnicodeString );
 
 /*
  * CheckCatalogBTree - Verifies the catalog B-tree structure
@@ -342,7 +341,7 @@ CheckDirectory(const HFSPlusCatalogKey * key, const HFSPlusCatalogFolder * dir)
 	if (dirID >= gCIS.nextCNID )
 		gCIS.nextCNID = dirID + 1;
 
-	gCIS.encodings |= (1 << MapEncodingToIndex(dir->textEncoding & 0x7F));
+	gCIS.encodings |= (u_int64_t)(1ULL << MapEncodingToIndex(dir->textEncoding & 0x7F));
 
 	CheckBSDInfo(key, &dir->bsdInfo, true);
 	
@@ -393,7 +392,7 @@ CheckFile(const HFSPlusCatalogKey * key, const HFSPlusCatalogFile * file)
 	if (fileID >= gCIS.nextCNID )
 		gCIS.nextCNID = fileID + 1;
 
-	gCIS.encodings |= (1 << MapEncodingToIndex(file->textEncoding & 0x7F));
+	gCIS.encodings |= (u_int64_t)(1ULL << MapEncodingToIndex(file->textEncoding & 0x7F));
 
 	CheckBSDInfo(key, &file->bsdInfo, false);
 
@@ -810,22 +809,11 @@ CheckCatalogName(u_int16_t charCount, const u_int16_t *uniChars, u_int32_t paren
     // look for Unicode decomposition errors in file system object names created before Jaguar (10.2)
     if ( FixDecomps( charCount, uniChars, &newName.ustr ) )
     {
-        UInt16				recSize;
-        CatalogKey			catKey;
-        CatalogRecord		record;
-       
         PrintError( gScavGlobals, E_IllegalName, 0 );
         if ( gScavGlobals->logLevel >= kDebugLog ) {
             printf( "\tillegal name is 0x" );
             PrintName( charCount, (UInt8 *) uniChars, true );
         }
-
-        // make sure new name isn't already there
-        BuildCatalogKey( parentID, &newName, true, &catKey );
-        result = SearchBTreeRecord( gScavGlobals->calculatedCatalogFCB, &catKey, kNoHint, NULL, 
-                                    &record, &recSize, NULL );
-        if ( result == noErr )
-            return( noErr );
 
         // we will copy the old and new names to our RepairOrder.  The names will
         // look like this:
@@ -1415,15 +1403,4 @@ FixDecomps(	u_int16_t charCount, const u_int16_t *inFilename, HFSUniStr255 *outF
 } /* FixDecomps */
 
 
-static void PrintName( int theCount, const UInt8 *theNamePtr, Boolean isUnicodeString )
-{
-    int			myCount;
- 	int			i;
-    
-    myCount = (isUnicodeString) ? (theCount * 2) : theCount;
-    for ( i = 0; i < myCount; i++ ) 
-        printf( "%02X ", *(theNamePtr + i) );
-    printf( "\n" );
-
-} /* PrintName */
 

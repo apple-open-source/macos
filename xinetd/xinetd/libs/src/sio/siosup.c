@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <syslog.h>
 
 #ifdef _APPLE_
 #undef HAVE_MMAP
@@ -19,12 +20,10 @@
 #include "impl.h"
 #include "sio.h"
 
-static __sio_descriptor_t static_descriptor_array[ N_SIO_DESCRIPTORS ] ;
-int __sio_n_descriptors = N_SIO_DESCRIPTORS ;
-__sio_descriptor_t *__sio_descriptors = static_descriptor_array ;
+int __sio_n_descriptors = 0 ;
+__sio_descriptor_t *__sio_descriptors = NULL ;
 
-static void terminate(const char *s);
-static status_e setup_read_buffer( __sio_id_t *idp, unsigned buf_size );
+static sio_status_e setup_read_buffer( __sio_id_t *idp, unsigned buf_size );
 
 #ifndef MAP_FAILED
 #define MAP_FAILED ((void *)-1)
@@ -56,8 +55,7 @@ SIO_DEFINE_FIN( sio_cleanup )
 static size_t map_unit_size = 0 ;         /* bytes */
 static size_t page_size = 0 ;               /* bytes */
 
-static mapd_s static_mapd_array[ N_SIO_DESCRIPTORS ] ;
-static mapd_s *mmap_descriptors = static_mapd_array ;
+static mapd_s *mmap_descriptors = NULL ;
 
 #define MDP( fd )            ( mmap_descriptors + (fd) )
 
@@ -114,7 +112,7 @@ static mapd_s *mmap_descriptors = static_mapd_array ;
  *    file_offset, file_size, buffer_size
  *
  */
-static status_e try_memory_mapping( int fd, __sio_id_t *idp, const struct stat *stp )
+static sio_status_e try_memory_mapping( int fd, __sio_id_t *idp, const struct stat *stp )
 {
    int access_f ;
 
@@ -172,7 +170,7 @@ static status_e try_memory_mapping( int fd, __sio_id_t *idp, const struct stat *
  * Sets fields: start, end, nextb
  * Also sets the file pointer
  */
-static void buffer_setup( __sio_id_t *idp, int fd, const struct map_unit *mu_cur, struct map_unit *mu_next )
+static void buffer_setup( __sio_id_t *idp, int fd, const struct map_unit *mu_cur, const struct map_unit *mu_next )
 {
    off_t new_offset ;
 
@@ -190,7 +188,7 @@ static void buffer_setup( __sio_id_t *idp, int fd, const struct map_unit *mu_cur
 
 /*
  * Switch from memory mapping to buffered I/O
- * If any mapping has occured, then the current unit is
+ * If any mapping has occurred, then the current unit is
  * copied into the buffer that is allocated.
  * Any data in the next unit is ignored.
  * We rely on idp->buf to identify the current unit (so it
@@ -199,7 +197,7 @@ static void buffer_setup( __sio_id_t *idp, int fd, const struct map_unit *mu_cur
  * Sets fields:
  *         start, end, nextb
  */
-status_e __sio_switch( __sio_id_t *idp, int fd )
+sio_status_e __sio_switch( __sio_id_t *idp, int fd )
 {
    mapd_s *mdp = MDP( fd ) ;
    struct map_unit *mu_cur, *mu_next ;
@@ -312,7 +310,7 @@ static int initial_map( mapd_s *mdp, int fd )
  *      else
  *         unmap the unit
  */
-static status_e map_unit( mapd_s *mdp, int fd, struct map_unit *mup )
+static sio_status_e map_unit( mapd_s *mdp, int fd, struct map_unit *mup )
 {
    size_t bytes_left = mdp->file_size - mdp->file_offset ;
    size_t bytes_to_map = MIN( bytes_left, map_unit_size ) ;
@@ -343,7 +341,7 @@ static status_e map_unit( mapd_s *mdp, int fd, struct map_unit *mup )
 #endif /* HAVE_MMAP */
 
 
-static status_e setup_read_buffer( __sio_id_t *idp, unsigned buf_size )
+static sio_status_e setup_read_buffer( __sio_id_t *idp, unsigned buf_size )
 {
    char *buf ;
 
@@ -363,7 +361,7 @@ static status_e setup_read_buffer( __sio_id_t *idp, unsigned buf_size )
 }
 
 
-static status_e init_input_stream( __sio_id_t *idp, int fd, const struct stat *stp )
+static sio_status_e init_input_stream( __sio_id_t *idp, int fd, const struct stat *stp )
 {
    /*
     * First initialize the fields relevant to buffering: buf, buffer_size
@@ -391,7 +389,8 @@ static status_e init_input_stream( __sio_id_t *idp, int fd, const struct stat *s
 }
 
 
-static status_e init_output_stream( __sio_od_t *odp, int fd, struct stat *stp )
+static sio_status_e init_output_stream( __sio_od_t *odp, int fd, 
+	const struct stat *stp )
 {
    unsigned buf_size ;
    char *buf ;
@@ -484,7 +483,7 @@ int __sio_init( __sio_descriptor_t *dp, int fd, enum __sio_stream stream_type )
 
    if ( fstat( fd, &st ) == -1 )
       return( SIO_ERR ) ;
-
+   
    switch ( stream_type )
    {
       case __SIO_INPUT_STREAM:
@@ -760,13 +759,23 @@ int __sio_more( __sio_id_t *idp, int fd )
 
 
 /*
- * Finalize a buffer by unmapping the file or freeing the malloc'ed memory
+ * Finalize a buffer by unmapping the file or freeing the malloc'ed memory.
+ * This function is only called by Sclose. We always free memory even if
+ * SIO_ERR is returned as long as the descriptor was initialized.
  */
 int Sdone( int fd )
 {
-   __sio_descriptor_t *dp = &__sio_descriptors[ fd ] ;
+   __sio_descriptor_t *dp ;
+   int ret_val = 0;
 
-   if ( fd >= __sio_n_descriptors || fd < __sio_n_descriptors || ! DESCRIPTOR_INITIALIZED( dp ) )
+   if ( fd < 0 || fd >= __sio_n_descriptors )
+   {
+      errno = EBADF ;
+      return( SIO_ERR ) ;
+   }
+
+   dp = &__sio_descriptors[ fd ] ;
+   if ( ! DESCRIPTOR_INITIALIZED( dp ) )
    {
       errno = EBADF ;
       return( SIO_ERR ) ;
@@ -803,7 +812,7 @@ int Sdone( int fd )
             __sio_od_t *odp = ODP( dp ) ;
 
             if ( Sflush( fd ) == SIO_ERR )
-               return( SIO_ERR ) ;
+               ret_val = SIO_ERR;
             free( odp->buf ) ;
             odp->nextb = odp->buf_end = NULL ;
          }
@@ -815,7 +824,7 @@ int Sdone( int fd )
 
    memset( dp, 0, sizeof(__sio_descriptor_t) );
    dp->initialized = FALSE ;
-   return( 0 ) ;
+   return ret_val;
 }
 
 
@@ -858,7 +867,7 @@ int Smorefds(int fd)
    old_size = __sio_n_descriptors * sizeof( mapd_s ) ;
    new_size = n_fds * sizeof( mapd_s ) ;
    new_size += old_size;
-   is_static = ( mmap_descriptors == static_mapd_array ) ;
+   is_static = ( mmap_descriptors == NULL ) ;
    p = sioexpand( (char *)mmap_descriptors, old_size, new_size, is_static ) ;
    if ( p == NULL )
       return( SIO_ERR ) ;
@@ -869,7 +878,7 @@ int Smorefds(int fd)
    old_size = __sio_n_descriptors * sizeof( __sio_descriptor_t ) ;
    new_size = n_fds * sizeof( __sio_descriptor_t ) ;
    new_size += old_size;
-   is_static =  ( __sio_descriptors == static_descriptor_array ) ;
+   is_static =  ( __sio_descriptors == NULL ) ;
    p = sioexpand( (char *)__sio_descriptors, old_size, new_size, is_static ) ;
    if ( p == NULL )
       return( SIO_ERR ) ;
@@ -880,23 +889,10 @@ int Smorefds(int fd)
    return( 0 ) ;
 }
 
-
-/*
- * Simple function that prints the string s at stderr and then calls
- * exit
- */
-static void terminate( const char *s )
+void terminate(const char *msg)
 {
-   (void) write( 2, s, strlen( s ) ) ;
-   (void) abort() ;
-   exit( 1 ) ;            /* in case abort fails */
-}
-
-void sio_init( void )
-{
-   memset( __sio_descriptors, 0, sizeof(__sio_descriptor_t) * N_SIO_DESCRIPTORS );
-#ifdef HAVE_MMAP
-   memset( mmap_descriptors, 0, sizeof(mapd_s) * N_SIO_DESCRIPTORS );
-#endif
+      syslog(LOG_CRIT, "%s", msg);
+      (void) abort() ;
+      _exit( 1 ) ;      /* NOT REACHED */
 }
 

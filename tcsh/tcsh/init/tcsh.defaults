@@ -79,7 +79,7 @@ if ($?prompt) then		# For interactive shells only (ie. not scripts):
   #set watch = ( 1 any any )
   #set who = "%B%n%b %a %l from host %B%M%b at %t"
 
-  # Use bulitin version of ls (= ls -CF) because it's faster
+  # Use builtin version of ls (= ls -CF) because it's faster
   #alias ls 'ls-F'
 
 endif

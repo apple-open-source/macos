@@ -43,7 +43,7 @@ RSC=rc.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MD /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "MBSTRING_EXPORTS" /YX /FD /c
-# ADD CPP /nologo /MD /W3 /GX /O2 /I "..\.." /I "..\..\main" /I "..\..\Zend" /I "..\..\TSRM" /D "NDEBUG" /D ZEND_DEBUG=0 /D "ZTS" /D "COMPILE_DL_MBSTRING" /D "WIN32" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "ZEND_WIN32" /D "PHP_WIN32" /D HAVE_MBSTRING=1 /YX /FD /c
+# ADD CPP /nologo /MD /W3 /GX /O2 /I "..\.." /I "..\..\main" /I "..\..\Zend" /I "..\..\TSRM" /D ZEND_DEBUG=0 /D "_MBCS" /D "_USRDLL" /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "COMPILE_DL_MBSTRING" /D ZTS=1 /D "ZEND_WIN32" /D "PHP_WIN32" /D MBSTRING_EXPORTS=1 /D HAVE_MBSTRING=1 /D HAVE_MBREGEX=1 /D HAVE_MBSTR_CN=1 /D HAVE_MBSTR_JA=1 /D HAVE_MBSTR_KR=1 /D HAVE_MBSTR_RU=1 /D HAVE_MBSTR_TW=1 /FR /YX /FD /c
 # ADD BASE MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD BASE RSC /l 0x407 /d "NDEBUG"
@@ -69,7 +69,7 @@ LINK32=link.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "MBSTRING_EXPORTS" /YX /FD /GZ /c
-# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /I "..\.." /I "..\..\main" /I "..\..\Zend" /I "..\..\TSRM" /D ZEND_DEBUG=1 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "PHP_EXPORTS" /D "COMPILE_DL_MBSTRING" /D ZTS=1 /D "ZEND_WIN32" /D "PHP_WIN32" /D HAVE_MBSTRING=1 /YX /FD /GZ /c
+# ADD CPP /nologo /MDd /W3 /Gm /GX /ZI /Od /I "..\.." /I "..\..\main" /I "..\..\Zend" /I "..\..\TSRM" /D ZEND_DEBUG=1 /D "MBSTRING_EXPORTS" /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "COMPILE_DL_MBSTRING" /D ZTS=1 /D "ZEND_WIN32" /D "PHP_WIN32" /D MBSTRING_EXPORTS=1 /D HAVE_MBSTRING=1 /D HAVE_MBREGEX=1 /D HAVE_MBSTR_CN=1 /D HAVE_MBSTR_JA=1 /D HAVE_MBSTR_KR=1 /D HAVE_MBSTR_RU=1 /D HAVE_MBSTR_TW=1 /YX /FD /GZ /c
 # ADD BASE MTL /nologo /D "_DEBUG" /mktyplib203 /win32
 # ADD MTL /nologo /D "_DEBUG" /mktyplib203 /win32
 # ADD BASE RSC /l 0x407 /d "_DEBUG"
@@ -92,7 +92,15 @@ LINK32=link.exe
 # PROP Default_Filter "cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
 # Begin Source File
 
+SOURCE=.\html_entities.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\mbfilter.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\mbfilter_cn.c
 # End Source File
 # Begin Source File
 
@@ -100,7 +108,31 @@ SOURCE=.\mbfilter_ja.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\mbfilter_kr.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\mbfilter_ru.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\mbfilter_tw.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\mbregex.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\mbstring.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\php_mbregex.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\php_unicode.c
 # End Source File
 # End Group
 # Begin Group "Header Files"
@@ -108,7 +140,15 @@ SOURCE=.\mbstring.c
 # PROP Default_Filter "h;hpp;hxx;hm;inl"
 # Begin Source File
 
+SOURCE=.\cp932_table.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\mbfilter.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\mbfilter_cn.h
 # End Source File
 # Begin Source File
 
@@ -116,7 +156,47 @@ SOURCE=.\mbfilter_ja.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\mbfilter_kr.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\mbfilter_ru.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\mbfilter_tw.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\mbregex.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\mbstring.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\php_unicode.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\unicode_data.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\unicode_table.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\unicode_table_cn.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\unicode_table_kr.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\unicode_table_tw.h
 # End Source File
 # End Group
 # End Target

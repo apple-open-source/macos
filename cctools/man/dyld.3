@@ -1,4 +1,4 @@
-.TH DYLD 3 "November 22, 2000" "Apple Computer, Inc."
+.TH DYLD 3 "November 14, 2002" "Apple Computer, Inc."
 .SH NAME
 dyld \- low level programatic interface to the dynamic link editor
 .SH SYNOPSIS
@@ -40,7 +40,12 @@ enum bool _dyld_bind_fully_image_containing_address(
 enum bool _dyld_image_containing_address(
 	unsigned long address);
 .sp .5
+enum bool _dyld_get_image_header_containing_address(
+	unsigned long address);
+.sp .5
 enum bool _dyld_launched_prebound(void);
+.sp .5
+enum bool _dyld_all_twolevel_modules_prebound(void);
 .sp .5
 int _dyld_func_lookup(
 	char *dyld_func_name,
@@ -132,12 +137,21 @@ fully binds the image containing the specified address.  It returns TRUE if the
 address is contained in a loaded image and FALSE otherwise.
 .PP
 .I _dyld_image_containing_address
-It returns TRUE if the address is contained an image dyld loaded and FALSE
+It returns TRUE if the address is contained in an image dyld loaded and FALSE
 otherwise.
+.PP
+.I _dyld_get_image_header_containing_address
+It returns a pointer to the mach header of the image if the address is contained
+in an image dyld loaded and NULL otherwise.
 .PP
 .I _dyld_launched_prebound
 returns TRUE if the program was launched using the prebound state and FALSE
 otherwise.
+.PP
+.I_dyld_all_twolevel_modules_prebound(void);
+returns TRUE if all the libraries currently in use by the program are being used
+as two-level namespace libraries, are prebound and have all their modules bound.
+Otherwise it returns FALSE.
 .PP
 .I _dyld_func_lookup
 is passed a name,

@@ -1,15 +1,49 @@
-/* 
- * Copyright (c) 1995 NeXT Computer, Inc. All Rights Reserved
- *
+/*-
  * Copyright (c) 1989, 1991, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
- * The NEXTSTEP Software License Agreement specifies the terms
- * and conditions for redistribution.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. All advertising materials mentioning features or use of this software
+ *    must display the following acknowledgement:
+ *	This product includes software developed by the University of
+ *	California, Berkeley and its contributors.
+ * 4. Neither the name of the University nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
  *
- *	@(#)stty.c	8.3 (Berkeley) 4/2/94
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
  */
 
+#ifndef lint
+static char const copyright[] =
+"@(#) Copyright (c) 1989, 1991, 1993, 1994\n\
+	The Regents of the University of California.  All rights reserved.\n";
+#endif /* not lint */
+
+#ifndef lint
+#if 0
+static char sccsid[] = "@(#)stty.c	8.3 (Berkeley) 4/2/94";
+#endif
+#endif /* not lint */
+#include <sys/cdefs.h>
+__RCSID("$FreeBSD: src/bin/stty/stty.c,v 1.20 2002/06/30 05:15:04 obrien Exp $");
 
 #include <sys/types.h>
 
@@ -26,9 +60,7 @@
 #include "extern.h"
 
 int
-main(argc, argv) 
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	struct info i;
 	enum FMT fmt;
@@ -40,7 +72,7 @@ main(argc, argv)
 	opterr = 0;
 	while (optind < argc &&
 	    strspn(argv[optind], "-aefg") == strlen(argv[optind]) &&
-	    (ch = getopt(argc, argv, "aef:g")) != EOF)
+	    (ch = getopt(argc, argv, "aef:g")) != -1)
 		switch(ch) {
 		case 'a':		/* undocumented: POSIX compatibility */
 			fmt = POSIX;
@@ -63,12 +95,12 @@ main(argc, argv)
 args:	argc -= optind;
 	argv += optind;
 
+	if (tcgetattr(i.fd, &i.t) < 0)
+		errx(1, "stdin isn't a terminal");
 	if (ioctl(i.fd, TIOCGETD, &i.ldisc) < 0)
 		err(1, "TIOCGETD");
-	if (tcgetattr(i.fd, &i.t) < 0)
-		err(1, "tcgetattr");
 	if (ioctl(i.fd, TIOCGWINSZ, &i.win) < 0)
-		warn("TIOCGWINSZ: %s\n", strerror(errno));
+		warn("TIOCGWINSZ");
 
 	checkredirect();			/* conversion aid */
 
@@ -85,7 +117,7 @@ args:	argc -= optind;
 		gprint(&i.t, &i.win, i.ldisc);
 		break;
 	}
-	
+
 	for (i.set = i.wset = 0; *argv; ++argv) {
 		if (ksearch(&argv, &i))
 			continue;
@@ -97,7 +129,7 @@ args:	argc -= optind;
 			continue;
 
 		if (isdigit(**argv)) {
-			int speed;
+			speed_t speed;
 
 			speed = atoi(*argv);
 			cfsetospeed(&i.t, speed);
@@ -108,6 +140,7 @@ args:	argc -= optind;
 
 		if (!strncmp(*argv, "gfmt1", sizeof("gfmt1") - 1)) {
 			gread(&i.t, *argv + sizeof("gfmt1") - 1);
+			i.set = 1;
 			continue;
 		}
 
@@ -118,14 +151,18 @@ args:	argc -= optind;
 	if (i.set && tcsetattr(i.fd, 0, &i.t) < 0)
 		err(1, "tcsetattr");
 	if (i.wset && ioctl(i.fd, TIOCSWINSZ, &i.win) < 0)
+#ifdef __APPLE__
+		warn("TIOCGWINSZ: %s\n", strerror(errno));
+#else
 		warn("TIOCSWINSZ");
+#endif
 	exit(0);
 }
 
 void
-usage()
+usage(void)
 {
 
-	(void)fprintf(stderr, "usage: stty: [-a|-e|-g] [-f file] [options]\n");
+	(void)fprintf(stderr, "usage: stty [-a|-e|-g] [-f file] [options]\n");
 	exit (1);
 }

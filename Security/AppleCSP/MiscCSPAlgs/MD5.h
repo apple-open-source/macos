@@ -49,6 +49,7 @@ struct MD5Context {
 };
 
 #define MD5_DIGEST_SIZE		16	/* in bytes */
+#define MD5_BLOCK_SIZE		64	/* in bytes */
 
 void MD5Init(struct MD5Context *context);
 void MD5Update(struct MD5Context *context, unsigned char const *buf,

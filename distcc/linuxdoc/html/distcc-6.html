@@ -1,0 +1,78 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+ <META NAME="GENERATOR" CONTENT="LinuxDoc-Tools 0.9.21">
+ <TITLE>distcc User Manual: distcc Internals</TITLE>
+ <LINK HREF="distcc-5.html" REL=previous>
+ <LINK HREF="distcc.html#toc6" REL=contents>
+</HEAD>
+<BODY>
+Next
+<A HREF="distcc-5.html">Previous</A>
+<A HREF="distcc.html#toc6">Contents</A>
+<HR>
+<H2><A NAME="s6">6.</A> <A HREF="distcc.html#toc6">distcc Internals</A></H2>
+
+<H2><A NAME="ss6.1">6.1</A> <A HREF="distcc.html#toc6.1">          Protocol</A>
+        </H2>
+
+<P>distcc uses a simple, application-specific protocol running
+directly over a TCP socket.  A new request socket is opened
+for each job.</P>
+<P>The request and response begin with a magic number and
+version number, allowing incompatible versions or
+misconfigurations to be identified.  At the moment there is
+only one deployed protocol version, and no attempt to
+support backward or forward compatibility, though this could
+be added in the future.</P>
+<P>The request and response consist of tagged, length-preceded
+elements.  Each element of the request contains a
+four-character ASCII token, an eight-digit ASCII hexadecimal
+length or value, and, depending on the tag, a byte stream
+whose length is determined by the hexadecimal field.</P>
+<P>The complete request is sent to the server before the reply
+begins.  Opening the TCP socket is performed concurrently
+with execution of the preprocessor on the client.</P>
+<P>The request from the client contains</P>
+<P>
+<OL>
+<LI>Magic number and version</LI>
+<LI>Compiler command line</LI>
+<LI>Preprocessed source code</LI>
+</OL>
+</P>
+<P>The response from the server contains</P>
+<P>
+<OL>
+<LI>Magic number and version</LI>
+<LI>Compiler exit code &amp; status</LI>
+<LI>Compiler error messages</LI>
+<LI>Compiler stdout</LI>
+<LI>Object file (if any)</LI>
+</OL>
+</P>
+<P>Consult the source for more information.</P>
+<H2><A NAME="ss6.2">6.2</A> <A HREF="distcc.html#toc6.2">          Working files</A>
+        </H2>
+
+<P>distcc stores working files in a subdirectory of
+<CODE>/tmp</CODE>.  These include synchronization files, and
+compiler input/output temporary files.</P>
+<P>Temporary files should normally be cleaned up when the
+program exits.  If distcc misbehaves, these files may be
+useful in tracking down the cause.  Any that remain can be
+removed by the system's temporary file reaper, or by hand.</P>
+<H2><A NAME="ss6.3">6.3</A> <A HREF="distcc.html#toc6.3">          Lock files</A>
+        </H2>
+
+<P>distcc uses lock files to allow each client to balance its
+jobs across available volunteer machines.  For each
+volunteer host, a zero-length file is created.  Clients
+using that volunteer hold a <CODE>flock</CODE> lock on the file
+while running.</P>
+<HR>
+Next
+<A HREF="distcc-5.html">Previous</A>
+<A HREF="distcc.html#toc6">Contents</A>
+</BODY>
+</HTML>

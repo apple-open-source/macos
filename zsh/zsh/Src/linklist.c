@@ -284,3 +284,16 @@ listcontains(LinkList list, void *dat)
 
     return 0;
 }
+
+/**/
+mod_export LinkNode
+linknodebydatum(LinkList list, void *dat)
+{
+    LinkNode node;
+
+    for (node = firstnode(list); node; incnode(node))
+	if (getdata(node) == dat)
+	    return node;
+
+    return NULL;
+}

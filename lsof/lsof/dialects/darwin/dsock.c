@@ -35,11 +35,22 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: dsock.c,v 1.3 2001/11/01 20:28:14 abe Exp $";
+static char *rcsid = "$Id: dsock.c,v 1.6 2002/10/08 20:16:56 abe Exp $";
 #endif
 
 
 #include "lsof.h"
+
+
+#if	defined(HASIPv6)
+/*
+ * IPv6_2_IPv4()  -- macro to define the address of an IPv4 address contained
+ *                 in an IPv6 address
+ */
+
+#define	IPv6_2_IPv4(v6)	(((uint8_t *)((struct in6_addr *)v6)->s6_addr)+12)
+#endif	/* defined(HASIPv6) */
+
 
 /*
  * process_socket() - process socket
@@ -55,13 +66,17 @@ process_socket(sa)
 	int fp, lp;
 	struct inpcb inp;
 	unsigned char *la = (unsigned char *)NULL;
-	struct mbuf mb;
 	struct protosw p;
 	struct socket s;
 	struct tcpcb t;
 	struct unpcb uc, unp;
 	struct sockaddr_un *ua = NULL;
 	struct sockaddr_un un;
+	int unl;
+
+#if	defined(HASIPv6)
+	struct in6pcb in6p;
+#endif	/* defined(HASIPv6) */
 
 #if	defined(AF_SYSTEM)
 	struct kern_event_pcb kev_cb;
@@ -134,42 +149,119 @@ process_socket(sa)
  * Process an Internet domain socket.
  */
 	case AF_INET:
-	    if (Fnet)
-		Lf->sf |= SELNET;
+
+#if	defined(HASIPv6)
+	case AF_INET6:
+#endif	/* defined(HASIPv6) */
+
+	    if (Fnet) {
+		if (!FnetTy
+		||  ((FnetTy == 4) && (fam == AF_INET))
+
+#if	defined(HASIPv6)
+		||  ((FnetTy == 6) && (fam == AF_INET6))
+#endif	/* defined(HASIPv6) */
+
+		)
+		    Lf->sf |= SELNET;
+	    }
 	    printiproto(p.pr_protocol);
+
+#if	defined(HASIPv6)
+	    (void) snpf(Lf->type, sizeof(Lf->type),
+		(fam == AF_INET) ? "IPv4" : "IPv6");
+#else	/* !defined(HASIPv6) */
 	    (void) snpf(Lf->type, sizeof(Lf->type), "inet");
-	/*
-	 * Read protocol control block.
-	 */
-	    if (!s.so_pcb
-	    ||  kread((KA_T)s.so_pcb, (char *) &inp, sizeof(inp))) {
-		if (!s.so_pcb) {
-		    (void) snpf(Namech, Namechl, "no PCB%s%s",
-			(s.so_state & SS_CANTSENDMORE) ? ", CANTSENDMORE"
-						       : "",
-			(s.so_state & SS_CANTRCVMORE) ? ", CANTRCVMORE"
-						      : "");
-		} else {
-		    (void) snpf(Namech, Namechl, "can't read inpcb at %s",
+#endif	/* defined(HASIPv6) */
+
+#if	defined(HASIPv6)
+	    if (fam == AF_INET6) {
+
+	    /*
+	     * Read IPv6 protocol control block.
+	     */
+		if (!s.so_pcb
+		||  kread((KA_T)s.so_pcb, (char *)&in6p, sizeof(in6p)))
+		{
+		    (void) snpf(Namech, Namechl, "can't read in6pcb at %s",
 			print_kptr((KA_T)s.so_pcb, (char *)NULL, 0));
+		    enter_nm(Namech);
+		    return;
+	        }
+	    /*
+	     * Save IPv6 address information.
+	     */
+		enter_dev_ch(print_kptr((KA_T)(in6p.in6p_ppcb ? in6p.in6p_ppcb
+							      : s.so_pcb),
+					       (char *)NULL, 0));
+		la = (unsigned char *)&in6p.in6p_laddr;
+		lp = (int)ntohs(in6p.in6p_lport);
+		if (!IN6_IS_ADDR_UNSPECIFIED(&in6p.in6p_faddr)
+		||  in6p.in6p_fport)
+		{
+		    fa = (unsigned char *)&in6p.in6p_faddr;
+		    fp = (int)ntohs(in6p.in6p_fport);
 		}
-		enter_nm(Namech);
-		return;
+	    } else
+#endif	/* defined(HASIPv6) */
+
+	    {
+
+	    /*
+	     * Read IPv4 protocol control block.
+	     */
+		if (!s.so_pcb
+		||  kread((KA_T)s.so_pcb, (char *) &inp, sizeof(inp))) {
+		    if (!s.so_pcb) {
+			(void) snpf(Namech, Namechl, "no PCB%s%s",
+			    (s.so_state & SS_CANTSENDMORE) ? ", CANTSENDMORE"
+						           : "",
+			    (s.so_state & SS_CANTRCVMORE) ? ", CANTRCVMORE"
+						          : "");
+		    } else {
+			(void) snpf(Namech, Namechl, "can't read inpcb at %s",
+			    print_kptr((KA_T)s.so_pcb, (char *)NULL, 0));
+		    }
+		    enter_nm(Namech);
+		    return;
+		}
+	    /*
+	     * Print Internet socket information.
+	     */
+		enter_dev_ch(print_kptr((KA_T)(inp.inp_ppcb ? inp.inp_ppcb
+							    : s.so_pcb),
+					(char *)NULL, 0));
+		if (fam == AF_INET) {
+		    la = (unsigned char *)&inp.inp_laddr;
+		    lp = (int)ntohs(inp.inp_lport);
+		    if (inp.inp_faddr.s_addr != INADDR_ANY || inp.inp_fport) {
+			fa = (unsigned char *)&inp.inp_faddr;
+			fp = (int)ntohs(inp.inp_fport);
+		    }
+		}
 	    }
+
+#if	defined(HASIPv6)
+	    if ((fam == AF_INET6)
+	    &&  ((la && IN6_IS_ADDR_V4MAPPED((struct in6_addr *)la))
+	    ||  ((fa && IN6_IS_ADDR_V4MAPPED((struct in6_addr *)fa))))) {
+
+	    /*
+	     * Adjust for IPv4 addresses mapped in IPv6 addresses.
+	     */
+		if (la)
+		    la = (unsigned char *)IPv6_2_IPv4(la);
+		if (fa)
+		    fa = (unsigned char *)IPv6_2_IPv4(fa);
+		fam = AF_INET;
+	    }
+#endif	/* defined(HASIPv6) */
+
 	/*
-	 * Print Internet socket information.
+	 * Enter local and remote addresses by address family.
 	 */
-	    enter_dev_ch(print_kptr((KA_T)(inp.inp_ppcb ? inp.inp_ppcb
-							: s.so_pcb),
-				    (char *)NULL, 0));
-	    la = (unsigned char *)&inp.inp_laddr;
-	    lp = (int)ntohs(inp.inp_lport);
-	    if (inp.inp_faddr.s_addr != INADDR_ANY || inp.inp_fport) {
-		fa = (unsigned char *)&inp.inp_faddr;
-		fp = (int)ntohs(inp.inp_fport);
-	    }
 	    if (fa || la)
-		(void) ent_inaddr(la, lp, fa, fp, fam, -1);
+		(void) ent_inaddr(la, lp, fa, fp, fam);
 	    if (p.pr_protocol == IPPROTO_TCP && inp.inp_ppcb
 	    &&  !kread((KA_T)inp.inp_ppcb, (char *)&t, sizeof(t))) {
 		Lf->lts.type = 0;
@@ -294,14 +386,13 @@ process_socket(sa)
 		break;
 	    }
 	    if (unp.unp_addr) {
-		if (kread((KA_T) unp.unp_addr, (char *) &mb, sizeof(mb))) {
+		if (kread((KA_T)unp.unp_addr, (char *)&un, sizeof(un)))
+		{
 		    (void) snpf(Namech, Namechl, "can't read unp_addr at %s",
 			print_kptr((KA_T)unp.unp_addr, (char *)NULL, 0));
 		    break;
 		}
-		if (mb.m_hdr.mh_len == sizeof(struct sockaddr_un))
-		    ua = (struct sockaddr_un *) ((char *) &mb
-		       + (mb.m_hdr.mh_data - (caddr_t) unp.unp_addr));
+		ua = &un;
 	    }
 	    if (!ua) {
 		ua = &un;
@@ -331,12 +422,13 @@ process_socket(sa)
 		break;
 	    }
 	    if (ua->sun_path[0]) {
-		if (mb.m_len >= sizeof(struct sockaddr_un))
-		    mb.m_len = sizeof(struct sockaddr_un) - 1;
-		*((char *)ua + mb.m_len) = '\0';
-		if (Sfile && is_file_named(ua->sun_path, 0))
+		unl = ua->sun_len - offsetof(struct sockaddr_un, sun_path);
+		if ((unl < 0) || (unl >= sizeof(ua->sun_path)))
+		    unl = sizeof(ua->sun_path) - 1;
+		ua->sun_path[unl] = '\0';
+		if (ua->sun_path[0] && Sfile && is_file_named(ua->sun_path, 0))
 		    Lf->sf |= SELNM;
-		if (!Namech[0])
+		if (ua->sun_path[0] && !Namech[0])
 		    (void) snpf(Namech, Namechl, "%s", ua->sun_path);
 	    } else
 		(void) snpf(Namech, Namechl, "no address");

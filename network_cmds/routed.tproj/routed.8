@@ -120,10 +120,6 @@ is an effective way to steer traffic.
 Responses do not contain routes with a first hop on the requesting
 network to implement in part
 .Em split-horizon .
-Requests from query programs
-such as
-.Xr rtquery 8
-are answered with the complete table.
 .Pp
 The routing table maintained by the daemon
 includes space for several gateways for each destination
@@ -308,9 +304,7 @@ with the
 .Em SIGUSR1
 or
 .Em SIGUSR2
-signals or with the
-.Xr rtquery
-command.
+signals.
 .It Fl F Ar net[/mask][,metric]
 minimize routes in transmissions via interfaces with addresses that match
 .Em net/mask ,
@@ -516,7 +510,7 @@ acts purely as a router discovery daemon.
 .Cm No_rip
 is equivalent to
 .Cm no_ripv1_in no_ripv2_in no_ripv1_out no_ripv2_out .
-
+.Pp
 Note that turning off RIP without explicitly turning on router
 discovery advertisements with
 .Cm rdisc_adv
@@ -582,11 +576,8 @@ to infer the netmask used by the remote system when RIPv1 is used.
 for distant gateways
 .El
 .Sh SEE ALSO
-.Xr gated 8 ,
 .Xr udp 4 ,
-.Xr icmp 4 ,
-.Xr htable 8 ,
-.Xr rtquery 8 .
+.Xr icmp 4 .
 .Rs
 .%T Internet Transport Protocols
 .%R XSIS 028112

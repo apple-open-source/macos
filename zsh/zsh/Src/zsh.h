@@ -75,6 +75,7 @@ typedef struct {
 
 #define MN_INTEGER 1		/* mnumber is integer */
 #define MN_FLOAT   2		/* mnumber is floating point */
+#define MN_UNSET   4		/* mnumber not yet retrieved */
 
 typedef struct mathfunc *MathFunc;
 typedef mnumber (*NumMathFunc)(char *, int, mnumber *, int);
@@ -297,6 +298,7 @@ typedef struct cmdnam    *Cmdnam;
 typedef struct shfunc    *Shfunc;
 typedef struct funcstack *Funcstack;
 typedef struct funcwrap  *FuncWrap;
+typedef struct options	 *Options;
 typedef struct builtin   *Builtin;
 typedef struct nameddir  *Nameddir;
 typedef struct module    *Module;
@@ -475,7 +477,7 @@ struct value {
 #define MAX_ARRLEN    262144
 
 /********************************************/
-/* Defintions for word code                 */
+/* Definitions for word code                 */
 /********************************************/
 
 typedef unsigned int wordcode;
@@ -493,12 +495,31 @@ struct funcdump {
     Wordcode addr;		/* mapped region */
     int len;			/* length */
     int count;			/* reference count */
+    char *filename;
 };
 
+/*
+ * A note on the use of reference counts in Eprogs.
+ *
+ * When an Eprog is created, nref is set to -1 if the Eprog is on the
+ * heap; then no attempt is ever made to free it.  (This information is
+ * already present in EF_HEAP; we use the redundancy for debugging
+ * checks.)
+ *
+ * Otherwise, nref is initialised to 1.  Calling freeprog() decrements
+ * nref and frees the Eprog if the count is now zero.  When the Eprog
+ * is in use, we call useeprog() at the start and freeprog() at the
+ * end to increment and decrement the reference counts.  If an attempt
+ * is made to free the Eprog from within, this will then take place
+ * when execution is finished, typically in the call to freeeprog()
+ * in execode().  If the Eprog was on the heap, neither useeprog()
+ * nor freeeprog() has any effect.
+ */
 struct eprog {
     int flags;			/* EF_* below */
     int len;			/* total block length */
     int npats;			/* Patprog cache size */
+    int nref;			/* number of references: delete when zero */
     Patprog *pats;		/* the memory block, the patterns */
     Wordcode prog;		/* memory block ctd, the code */
     char *strs;			/* memory block ctd, the strings */
@@ -589,10 +610,13 @@ struct eccstr {
 #define WCB_REDIR(T)        wc_bld(WC_REDIR, (T))
 
 #define WC_ASSIGN_TYPE(C)   (wc_data(C) & ((wordcode) 1))
+#define WC_ASSIGN_TYPE2(C)  ((wc_data(C) & ((wordcode) 2)) >> 1)
 #define WC_ASSIGN_SCALAR    0
 #define WC_ASSIGN_ARRAY     1
-#define WC_ASSIGN_NUM(C)    (wc_data(C) >> 1)
-#define WCB_ASSIGN(T,N)     wc_bld(WC_ASSIGN, ((T) | ((N) << 1)))
+#define WC_ASSIGN_NEW       0
+#define WC_ASSIGN_INC       1
+#define WC_ASSIGN_NUM(C)    (wc_data(C) >> 2)
+#define WCB_ASSIGN(T,A,N)   wc_bld(WC_ASSIGN, ((T) | ((A) << 1) | ((N) << 2)))
 
 #define WC_SIMPLE_ARGC(C)   wc_data(C)
 #define WCB_SIMPLE(N)       wc_bld(WC_SIMPLE, (N))
@@ -657,7 +681,7 @@ struct eccstr {
 #define WCB_AUTOFN()        wc_bld(WC_AUTOFN, 0)
 
 /********************************************/
-/* Defintions for job table and job control */
+/* Definitions for job table and job control */
 /********************************************/
 
 #ifdef NEED_LINUX_TASKS_H
@@ -673,6 +697,7 @@ struct job {
     char *pwd;			/* current working dir of shell when *
 				 * this job was spawned              */
     struct process *procs;	/* list of processes                 */
+    struct process *auxprocs;	/* auxiliary processes e.g multios   */
     LinkList filelist;		/* list of files to delete when done */
     int stty_in_env;		/* if STTY=... is present            */
     struct ttyinfo *ty;		/* the modes specified by STTY       */
@@ -911,7 +936,50 @@ struct funcwrap {
 
 /* node in builtin command hash table (builtintab) */
 
-typedef int (*HandlerFunc) _((char *, char **, char *, int));
+/*
+ * Handling of options.
+ *
+ * Option strings are standard in that a trailing `:' indicates
+ * a mandatory argument.  In addition, `::' indicates an optional
+ * argument which must immediately follow the option letter if it is present.
+ * `:%' indicates an optional numeric argument which may follow
+ * the option letter or be in the next word; the only test is
+ * that the next character is a digit, and no actual conversion is done.
+ */
+
+#define MAX_OPS 128
+
+/* Macros taking struct option * and char argument */
+/* Option was set as -X */
+#define OPT_MINUS(ops,c)	((ops)->ind[c] & 1)
+/* Option was set as +X */
+#define OPT_PLUS(ops,c)		((ops)->ind[c] & 2)
+/*
+ * Option was set any old how, maybe including an argument
+ * (cheap test when we don't care).  Some bits of code
+ * expect this to be 1 or 0.
+ */
+#define OPT_ISSET(ops,c)	((ops)->ind[c] != 0)
+/* Option has an argument */
+#define OPT_HASARG(ops,c)	((ops)->ind[c] > 3)
+/* The argument for the option; not safe if it doesn't have one */
+#define OPT_ARG(ops,c)		((ops)->args[((ops)->ind[c] >> 2) - 1])
+/* Ditto, but safely returns NULL if there is no argument. */
+#define OPT_ARG_SAFE(ops,c)	(OPT_HASARG(ops,c) ? OPT_ARG(ops,c) : NULL)
+
+struct options {
+    unsigned char ind[MAX_OPS];
+    char **args;
+    int argscount, argsalloc;
+};
+
+/*
+ * Handler arguments are: builtin name, null-terminated argument
+ * list excluding command name, option structure, the funcid element from the
+ * builtin structure.
+ */
+
+typedef int (*HandlerFunc) _((char *, char **, Options, int));
 #define NULLBINCMD ((HandlerFunc) 0)
 
 struct builtin {
@@ -934,22 +1002,21 @@ struct builtin {
 /* builtin flags */
 /* DISABLE IS DEFINED AS (1<<0) */
 #define BINF_PLUSOPTS		(1<<1)	/* +xyz legal */
-#define BINF_R			(1<<2)	/* this is the builtin `r' (fc -e -) */
-#define BINF_PRINTOPTS		(1<<3)
-#define BINF_ADDED		(1<<4)	/* is in the builtins hash table */
-#define BINF_FCOPTS		(1<<5)
-#define BINF_TYPEOPT		(1<<6)
-#define BINF_ECHOPTS		(1<<7)
-#define BINF_MAGICEQUALS	(1<<8)  /* needs automatic MAGIC_EQUAL_SUBST substitution */
-#define BINF_PREFIX		(1<<9)
-#define BINF_DASH		(1<<10)
-#define BINF_BUILTIN		(1<<11)
-#define BINF_COMMAND		(1<<12)
-#define BINF_EXEC		(1<<13)
-#define BINF_NOGLOB		(1<<14)
-#define BINF_PSPECIAL		(1<<15)
-
-#define BINF_TYPEOPTS   (BINF_TYPEOPT|BINF_PLUSOPTS)
+#define BINF_PRINTOPTS		(1<<2)
+#define BINF_ADDED		(1<<3)	/* is in the builtins hash table */
+#define BINF_MAGICEQUALS	(1<<4)  /* needs automatic MAGIC_EQUAL_SUBST substitution */
+#define BINF_PREFIX		(1<<5)
+#define BINF_DASH		(1<<6)
+#define BINF_BUILTIN		(1<<7)
+#define BINF_COMMAND		(1<<8)
+#define BINF_EXEC		(1<<9)
+#define BINF_NOGLOB		(1<<10)
+#define BINF_PSPECIAL		(1<<11)
+/* Builtin option handling */
+#define BINF_SKIPINVALID	(1<<12)	/* Treat invalid option as argument */
+#define BINF_KEEPNUM		(1<<13) /* `[-+]NUM' can be an option */
+#define BINF_SKIPDASH		(1<<14) /* Treat `-' as argument (maybe `+') */
+#define BINF_DASHDASHVALID	(1<<15) /* Handle `--' even if SKIPINVALD */
 
 struct module {
     char *nam;
@@ -1132,6 +1199,7 @@ struct param {
 #define PM_AUTOLOAD	(1<<23) /* autoloaded from module                   */
 #define PM_NORESTORE	(1<<24)	/* do not restore value of local special    */
 #define PM_HASHELEM     (1<<25) /* is a hash-element */
+#define PM_NAMEDDIR     (1<<26) /* has a corresponding nameddirtab entry    */
 
 /* The option string corresponds to the first of the variables above */
 #define TYPESET_OPTSTR "aiEFALRZlurtxUhHT"
@@ -1157,7 +1225,7 @@ struct param {
  * could a lot of other things.
  */
 
-#define SUB_END		0x0001	/* match end instead of begining, % or %%  */
+#define SUB_END		0x0001	/* match end instead of beginning, % or %%  */
 #define SUB_LONG	0x0002	/* % or # doubled, get longest match */
 #define SUB_SUBSTR	0x0004	/* match a substring */
 #define SUB_MATCH	0x0008	/* include the matched portion */
@@ -1195,6 +1263,9 @@ struct paramdef {
     { name, PM_ARRAY, (void *) var, (void *) arrvarsetfn, \
       (void *) arrvargetfn, (void *) stdunsetfn }
 
+#define setsparam(S,V) assignsparam(S,V,0)
+#define setaparam(S,V) assignaparam(S,V,0)
+
 /* node for named directory hash table (nameddirtab) */
 
 struct nameddir {
@@ -1217,6 +1288,7 @@ struct nameddir {
 #define PRINT_LIST		(1<<2)
 #define PRINT_KV_PAIR		(1<<3)
 #define PRINT_INCLUDEVALUE	(1<<4)
+#define PRINT_TYPESET		(1<<5)
 
 /* flags for printing for the whence builtin */
 #define PRINT_WHENCE_CSH	(1<<5)
@@ -1290,6 +1362,8 @@ struct histent {
 #define IN_COND    3
 /* In a parameter assignment (e.g. `foo=bar'). */
 #define IN_ENV     4
+/* In a parameter name in an assignment. */
+#define IN_PAR     5
 
 
 /******************************/
@@ -1313,6 +1387,7 @@ enum {
     ALWAYSTOEND,
     APPENDHISTORY,
     AUTOCD,
+    AUTOCONTINUE,
     AUTOLIST,
     AUTOMENU,
     AUTONAMEDIRS,
@@ -1344,8 +1419,10 @@ enum {
     CSHJUNKIEQUOTES,
     CSHNULLCMD,
     CSHNULLGLOB,
+    EMACSMODE,
     EQUALS,
     ERREXIT,
+    ERRRETURN,
     EXECOPT,
     EXTENDEDGLOB,
     EXTENDEDHISTORY,
@@ -1436,8 +1513,11 @@ enum {
     SINGLECOMMAND,
     SINGLELINEZLE,
     SUNKEYBOARDHACK,
+    TRANSIENTRPROMPT,
+    TYPESETSILENT,
     UNSET,
     VERBOSE,
+    VIMODE,
     XTRACE,
     USEZLE,
     DVORAK,
@@ -1453,7 +1533,7 @@ enum {
 #define islogin  (isset(LOGINSHELL))
 
 /***********************************************/
-/* Defintions for terminal and display control */
+/* Definitions for terminal and display control */
 /***********************************************/
 
 /* tty state structure */
@@ -1671,6 +1751,7 @@ struct heap {
 
 #define ZLRF_HISTORY	0x01	/* OK to access the history list */
 #define ZLRF_NOSETTY	0x02	/* Don't set tty before return */
+#define ZLRF_IGNOREEOF  0x04	/* Ignore an EOF from the keyboard */
 
 /****************/
 /* Entry points */
@@ -1678,7 +1759,7 @@ struct heap {
 
 /* compctl entry point pointers */
 
-typedef int (*CompctlReadFn) _((char *, char **, char *, char *));
+typedef int (*CompctlReadFn) _((char *, char **, Options, char *));
 
 /* ZLE entry point pointers */
 

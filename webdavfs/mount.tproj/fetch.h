@@ -26,7 +26,7 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	$Id: fetch.h,v 1.5 2002/06/16 23:47:18 lutherj Exp $
+ *	$Id: fetch.h,v 1.7 2003/04/29 21:02:54 lutherj Exp $
  */
 
 #ifndef fetch_h
@@ -65,7 +65,7 @@
 struct fetch_state {
 	const char *fs_status;
 	char *fs_outputfile;	/* the name of the temp file; data is on the stack */
-	int fs_uid;
+	uid_t fs_uid;
 	int fs_fd;				/* open file descriptor to cache file */
 	time_t fs_st_mtime;		/* time of last cache */
 	int *fs_socketptr;
@@ -83,16 +83,15 @@ struct fetch_state {
 	int (*fs_close)(struct fetch_state *);
 };
 
-void catchsig(int signo);
-void setup_sigalrm(void);
-void unsetup_sigalrm(void);
+int get(struct fetch_state *volatile fs, int *download_status);
+int make_request(struct fetch_state *volatile fs,
+	int( *function)(struct fetch_state *fs, void *arg), void *arg, int do_close);
 char *percent_decode(const char *orig);
 void percent_decode_in_place(char *uri);
 char *utf8_encode(const unsigned char *orig);
 char *to_base64(const unsigned char *buf, size_t len);
-int from_base64(const char *orig, unsigned char *buf, size_t *lenp);
+int from_base64(const char *base64str, unsigned char *outBuffer, size_t *lengthptr);
 int reconstruct_url(const char *hostheader, const char *remotefile, char **url);
-int parse_uri(struct fetch_state *fs, const char *uri);
 ssize_t socket_read_bytes(int fd, char *buf, size_t n);
 ssize_t socket_read_line(int fd, char *buf, size_t n);
 void zero_trailing_spaces(char *line);

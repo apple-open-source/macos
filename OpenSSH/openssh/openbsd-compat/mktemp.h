@@ -1,13 +1,13 @@
-/* $Id: mktemp.h,v 1.1.1.1 2001/02/25 20:54:30 zarzycki Exp $ */
+/* $Id: mktemp.h,v 1.1.1.2 2003/04/01 04:02:24 zarzycki Exp $ */
 
 #ifndef _BSD_MKTEMP_H
 #define _BSD_MKTEMP_H
 
 #include "config.h"
-#ifndef HAVE_MKDTEMP
+#if !defined(HAVE_MKDTEMP) || defined(HAVE_STRICT_MKSTEMP)
 int mkstemps(char *path, int slen);
 int mkstemp(char *path);
 char *mkdtemp(char *path);
-#endif /* !HAVE_MKDTEMP */
+#endif /* !defined(HAVE_MKDTEMP) || defined(HAVE_STRICT_MKSTEMP) */
 
 #endif /* _BSD_MKTEMP_H */

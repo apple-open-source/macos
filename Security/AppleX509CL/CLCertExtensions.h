@@ -28,6 +28,7 @@
 #define _CL_CERT_EXTENSIONS_H_
 
 #include "DecodedCert.h"
+#include "CLFieldsCommon.h"
 
 #ifdef	__cplusplus
 extern "C" {
@@ -36,26 +37,21 @@ extern "C" {
 /*
  * Functions to map OID --> {get,set,free}field
  */
-typedef bool (getFieldFcn) (
-	const DecodedCert 	&cert,
-	unsigned			index,			// which occurrence (0 = first)
-	uint32				&numFields,		// RETURNED
-	CssmOwnedData		&fieldValue);	// RETURNED
-typedef void (setFieldFcn) (
-	DecodedCert			&cert,
-	const CssmData		&fieldValue);
-typedef void (freeFieldFcn) (
-	CssmOwnedData		&fieldValue);
-
-getFieldFcn getFieldKeyUsage, getFieldBasicConstraints, getFieldExtKeyUsage,
+getItemFieldFcn getFieldKeyUsage, getFieldBasicConstraints, 
+	getFieldExtKeyUsage,
 	getFieldSubjectKeyId, getFieldAuthorityKeyId, getFieldSubjAltName,
-	getFieldCertPolicies, getFieldNetscapeCertType, getFieldUnknownExt;
-setFieldFcn setFieldKeyUsage, setFieldBasicConstraints, setFieldExtKeyUsage,
-	setFieldSubjectKeyId, setFieldAuthorityKeyId, setFieldSubjAltName,
-	setFieldCertPolicies, setFieldNetscapeCertType, setFieldUnknownExt;
-freeFieldFcn freeFieldSimpleExtension, freeFieldExtKeyUsage, freeFieldSubjectKeyId,
-	freeFieldAuthorityKeyId, freeFieldSubjAltName, freeFieldCertPolicies, 
-	freeFieldUnknownExt;
+	getFieldIssuerAltName,
+	getFieldCertPolicies, getFieldNetscapeCertType, getFieldCrlDistPoints,
+	getFieldUnknownExt;
+setItemFieldFcn setFieldKeyUsage, setFieldBasicConstraints, 
+	setFieldExtKeyUsage,
+	setFieldSubjectKeyId, setFieldAuthorityKeyId, setFieldSubjIssuerAltName,
+	setFieldCertPolicies, setFieldNetscapeCertType, setFieldCrlDistPoints,
+	setFieldUnknownExt;
+freeFieldFcn freeFieldExtKeyUsage, freeFieldSubjectKeyId,
+	freeFieldAuthorityKeyId, freeFieldSubjIssuerAltName, 
+	freeFieldCertPolicies, 
+	freeFieldCrlDistPoints, freeFieldUnknownExt;
 	
 #ifdef	__cplusplus
 }

@@ -1,5 +1,6 @@
-
-/* mt_support.c - multi-thread resource locking support */
+/*
+ * mt_support.c - multi-thread resource locking support 
+ */
 /*
  * Author: Markku Laukkanen
  * Created: 6-Sep-1999
@@ -8,31 +9,39 @@
  *                        use array of resource locking structures.
  */
 
-#include <config.h>
+#include <net-snmp/net-snmp-config.h>
 #include <errno.h>
-#include "mt_support.h"
+#include <net-snmp/library/mt_support.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern          "C" {
 #endif
 
 #ifdef NS_REENTRANT
 
-static
-mutex_type s_res[MT_MAX_IDS][MT_LIB_MAXIMUM];  /* locking structures */
+static mutex_type s_res[MT_MAX_IDS][MT_LIB_MAXIMUM];  /* locking structures */
 
-static mutex_type * _mt_res(int groupID, int resourceID)
+static mutex_type *
+_mt_res(int groupID, int resourceID)
 {
-    if (groupID < 1) return 0;
-    if (groupID >= MT_MAX_IDS) return 0;
-    if (resourceID < 1) return 0;
-    if (resourceID >= MT_LIB_MAXIMUM) return 0;
+    if (groupID < 1) {
+	return 0;
+    }
+    if (groupID >= MT_MAX_IDS) {
+	return 0;
+    }
+    if (resourceID < 1) {
+	return 0;
+    }
+    if (resourceID >= MT_LIB_MAXIMUM) {
+	return 0;
+    }
     return (&s_res[groupID][resourceID]);
 }
 
-static
-int snmp_res_init_mutex(mutex_type * mutex)
-{    
+static int
+snmp_res_init_mutex(mutex_type *mutex)
+{
     int rc = 0;
 #if HAVE_PTHREAD_H
     rc = pthread_mutex_init(mutex, MT_MUTEX_INIT_DEFAULT);
@@ -43,28 +52,33 @@ int snmp_res_init_mutex(mutex_type * mutex)
     return rc;
 }
 
-int snmp_res_init(void)
-{    
-    int ii, jj;
-    int rc = 0;
+int
+snmp_res_init(void)
+{
+    int ii, jj, rc = 0;
     mutex_type *mutex;
 
-  for (jj = 0; (0 == rc) && (jj < MT_MAX_IDS); jj++)
-  for (ii = 0; (0 == rc) && (ii < MT_LIB_MAXIMUM); ii++)
-  {
-    mutex = _mt_res(jj, ii);
-    if (!mutex) continue;
-    rc = snmp_res_init_mutex( mutex );
-  }
+    for (jj = 0; (0 == rc) && (jj < MT_MAX_IDS); jj++) {
+	for (ii = 0; (0 == rc) && (ii < MT_LIB_MAXIMUM); ii++) {
+	    mutex = _mt_res(jj, ii);
+	    if (!mutex) {
+		continue;
+	    }
+	    rc = snmp_res_init_mutex(mutex);
+	}
+    }
 
     return rc;
 }
 
-int snmp_res_destroy_mutex(int groupID, int resourceID)
-{    
+int
+snmp_res_destroy_mutex(int groupID, int resourceID)
+{
     int rc = 0;
     mutex_type *mutex = _mt_res(groupID, resourceID);
-    if (!mutex) return EFAULT;
+    if (!mutex) {
+	return EFAULT;
+    }
 
 #if HAVE_PTHREAD_H
     rc = pthread_mutex_destroy(mutex);
@@ -74,12 +88,16 @@ int snmp_res_destroy_mutex(int groupID, int resourceID)
 
     return rc;
 }
-    
-int snmp_res_lock(int groupID, int resourceID)
+
+int
+snmp_res_lock(int groupID, int resourceID)
 {
     int rc = 0;
     mutex_type *mutex = _mt_res(groupID, resourceID);
-    if (!mutex) return EFAULT;
+    
+    if (!mutex) {
+	return EFAULT;
+    }
 
 #if HAVE_PTHREAD_H
     rc = pthread_mutex_lock(mutex);
@@ -90,11 +108,15 @@ int snmp_res_lock(int groupID, int resourceID)
     return rc;
 }
 
-int snmp_res_unlock(int groupID, int resourceID)
+int
+snmp_res_unlock(int groupID, int resourceID)
 {
     int rc = 0;
     mutex_type *mutex = _mt_res(groupID, resourceID);
-    if (!mutex) return EFAULT;
+
+    if (!mutex) {
+	return EFAULT;
+    }
 
 #if HAVE_PTHREAD_H
     rc = pthread_mutex_unlock(mutex);
@@ -105,27 +127,39 @@ int snmp_res_unlock(int groupID, int resourceID)
     return rc;
 }
 
-
-#else  /* !NS_REENTRANT */
-
+#else  /*  NS_REENTRANT  */
 #ifdef WIN32
 
-/* Provide "do nothing" targets for Release (.DLL) builds. */
-#undef snmp_res_init
-#undef snmp_res_lock
-#undef snmp_res_unlock
-#undef snmp_res_destroy_mutex
+/*
+ * Provide "do nothing" targets for Release (.DLL) builds. 
+ */
 
-int snmp_res_init(void) { return 0; }
-int snmp_res_lock(int groupID, int resourceID) { return 0; }
-int snmp_res_unlock(int groupID, int resourceID) { return 0; }
-int snmp_res_destroy_mutex(int groupID, int resourceID) { return 0; }
-#endif /* !WIN32 */
+int
+snmp_res_init(void)
+{
+    return 0;
+}
 
-#endif /* !NS_REENTRANT */
+int
+snmp_res_lock(int groupID, int resourceID)
+{
+    return 0;
+}
 
+int
+snmp_res_unlock(int groupID, int resourceID)
+{
+    return 0;
+}
+
+int
+snmp_res_destroy_mutex(int groupID, int resourceID)
+{
+    return 0;
+}
+#endif /*  WIN32  */
+#endif /*  NS_REENTRANT  */
 
 #ifdef __cplusplus
 };
 #endif
-

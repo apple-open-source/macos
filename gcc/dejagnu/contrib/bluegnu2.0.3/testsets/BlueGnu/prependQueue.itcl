@@ -1,0 +1,6 @@
+#
+# Test script for prependQueue command
+#
+
+prependQueue [list namespaceVariables.itcl namespaceVariables.itcl \
+	namespaceVariables.itcl] arg2 prepend

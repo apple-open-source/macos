@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -43,13 +43,9 @@ static int ph_globals_id;
 static int
 php_phttpd_startup(sapi_module_struct *sapi_module)
 {
-/*
-    if(php_module_startup(sapi_module) == FAILURE
-            || zend_startup_module(&php_aolserver_module) == FAILURE) {
-*/
 	fprintf(stderr,"***php_phttpd_startup\n");
 
-    if (php_module_startup(sapi_module)) {
+    if (php_module_startup(sapi_module, NULL, 0)) {
         return FAILURE;
     } else {
         return SUCCESS;
@@ -292,7 +288,6 @@ int pm_request(struct connectioninfo *cip)
 {
 	struct httpinfo *hip = cip->hip;
 	int status;
-	TSRMLS_FETCH();
 	TSRMLS_FETCH();
 
 	if (strcasecmp(hip->method, "GET") == 0 || 

@@ -33,6 +33,7 @@
 #include <mach/exception.h>
 #include <mach/mig_errors.h>
 #include <mach-o/dyld.h>
+#include <stdlib.h>
 
 __private_extern__ kern_return_t internal_catch_exception_raise_state (
         mach_port_t exception_port,

@@ -2,10 +2,12 @@
 <!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
 <plist version="0.9">
 <dict>
-	<key>Starting network time syncronization</key>
-	<string>Starting network time syncronization</string>
-	<key>Stopping network time syncronization</key>
-	<string>Stopping network time syncronization</string>
+	<key>network time synchronization</key>
+	<string>network time synchronization</string>
+	<key>Starting network time synchronization</key>
+	<string>Starting network time synchronization</string>
+	<key>Stopping network time synchronization</key>
+	<string>Stopping network time synchronization</string>
 </dict>
 </plist>
 

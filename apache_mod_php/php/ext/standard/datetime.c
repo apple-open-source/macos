@@ -1,8 +1,8 @@
 /* 
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -19,7 +19,7 @@
  */
 
 
-/* $Id: datetime.c,v 1.1.1.6 2002/03/20 03:24:25 zarzycki Exp $ */
+/* $Id: datetime.c,v 1.1.1.9 2003/07/18 18:07:42 zarzycki Exp $ */
 
 
 #include "php.h"
@@ -55,6 +55,9 @@ char *day_short_names[] =
 };
 
 #if !defined(HAVE_TM_ZONE) && !defined(_TIMEZONE) && !defined(HAVE_DECLARED_TIMEZONE)
+#if defined(NETWARE) && defined(NEW_LIBC)
+#define timezone    _timezone   /* timezone is called '_timezone' in new version of LibC */
+#endif
 extern time_t timezone;
 extern int daylight;
 #endif
@@ -66,6 +69,7 @@ static int phpday_tab[2][12] =
 };
 
 #define isleap(year) (((year%4) == 0 && (year%100)!=0) || (year%400)==0)
+#define YEAR_BASE 1900
 
 /* {{{ proto int time(void)
    Return current UNIX timestamp */
@@ -81,9 +85,9 @@ void php_mktime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 {
 	pval **arguments[7];
 	struct tm *ta, tmbuf;
-	time_t t;
-	int i, gmadjust, seconds, arg_count = ZEND_NUM_ARGS();
-	int is_dst = -1;
+	time_t t, seconds;
+	int i, gmadjust, arg_count = ZEND_NUM_ARGS();
+	int is_dst = -1, val, chgsecs = 0;
 
 	if (arg_count > 7 || zend_get_parameters_array_ex(arg_count, arguments) == FAILURE) {
 		WRONG_PARAM_COUNT;
@@ -118,10 +122,18 @@ void php_mktime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 	** Now change date values with supplied parameters.
 	*/
 	switch(arg_count) {
-	case 7:
+	case 7: /* daylight saving time flag */
+#ifdef PHP_WIN32
+		if (daylight > 0) {
+			ta->tm_isdst = is_dst = Z_LVAL_PP(arguments[6]);
+		} else {
+			ta->tm_isdst = is_dst = 0;
+		}
+#else
 		ta->tm_isdst = is_dst = Z_LVAL_PP(arguments[6]);
+#endif
 		/* fall-through */
-	case 6:
+	case 6: /* year */
 		/* special case: 
 		   a zero in year, month and day is considered illegal
 		   as it would be interpreted as 30.11.1999 otherwise
@@ -149,29 +161,70 @@ void php_mktime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 			ta->tm_year = Z_LVAL_PP(arguments[5])
 			  - ((Z_LVAL_PP(arguments[5]) > 1000) ? 1900 : 0);
 		/* fall-through */
-	case 5:
-		ta->tm_mday = Z_LVAL_PP(arguments[4]);
-		/* fall-through */
-	case 4:
-		ta->tm_mon = Z_LVAL_PP(arguments[3]) - 1;
-		/* fall-through */
-	case 3:
-		ta->tm_sec = Z_LVAL_PP(arguments[2]);
-		/* fall-through */
-	case 2:
-		ta->tm_min = Z_LVAL_PP(arguments[1]);
-		/* fall-through */
-	case 1:
-		ta->tm_hour = Z_LVAL_PP(arguments[0]);
-		/* fall-through */
-	case 0:
-		break;
+	case 5: /* day in month (1-baesd) */
+ 		val = (*arguments[4])->value.lval; 
+		if (val < 1) { 
+			chgsecs += (1-val) * 60*60*24; 
+			val = 1; 			
+		} 
+		ta->tm_mday = val; 
+		/* fall-through */ 
+	case 4: /* month (zero-based) */
+		val = (*arguments[3])->value.lval - 1; 
+		while (val < 0) { 
+			val += 12; ta->tm_year--; 
+		} 
+		ta->tm_mon = val; 
+		/* fall-through */ 
+	case 3: /* second */
+		val = (*arguments[2])->value.lval; 
+		if (val < 1) { 
+			chgsecs += (1-val); val = 1; 
+		} 
+		ta->tm_sec = val; 
+		/* fall-through */ 
+	case 2: /* minute */
+		val = (*arguments[1])->value.lval; 
+		if (val < 1) { 
+			chgsecs += (1-val) * 60; val = 1; 
+		} 
+		ta->tm_min = val; 
+		/* fall-through */ 
+	case 1: /* hour */
+		val = (*arguments[0])->value.lval; 
+		if (val < 1) { 
+			chgsecs += (1-val) * 60*60; val = 1; 
+		} 
+		ta->tm_hour = val; 
+		/* fall-through */ 
+	case 0: 
+		break; 
+	} 
+	
+	t = mktime(ta); 
+
+#ifdef PHP_WIN32
+	if (t - chgsecs < 0) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Windows does not support negative values for this function");
+		RETURN_LONG(-1);
 	}
+#endif
 
-	seconds = mktime(ta);
-	if (is_dst == -1)
-		is_dst = ta->tm_isdst;
+	seconds = t - chgsecs;
 
+	if (is_dst == -1) {
+		struct tm t1, t2;
+		t1 = *localtime(&t);
+		t2 = *localtime(&seconds);
+
+		if(t1.tm_isdst != t2.tm_isdst) {
+			seconds += (t1.tm_isdst == 1) ? 3600 : -3600;
+			ta = localtime(&seconds);
+		}
+
+		is_dst = ta->tm_isdst; 
+	}
+	
 	if (gm) {
 #if HAVE_TM_GMTOFF
 	    /*
@@ -182,10 +235,13 @@ void php_mktime(INTERNAL_FUNCTION_PARAMETERS, int gm)
 #else
 	    /*
 	    ** If correcting for daylight savings time, we set the adjustment to
-		** the value of timezone - 3600 seconds. Otherwise, we need to overcorrect and
-		** set the adjustment to the main timezone + 3600 seconds.
+		** the value of timezone - 3600 seconds.
 	    */
-	    gmadjust = -(is_dst ? timezone - 3600 : timezone + 3600);
+#ifdef __CYGWIN__
+	    gmadjust = -(is_dst ? _timezone - 3600 : _timezone);
+#else
+	    gmadjust = -(is_dst ? timezone - 3600 : timezone);
+#endif
 #endif
 		seconds += gmadjust;
 	}
@@ -238,6 +294,12 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 		}
 		convert_to_long_ex(timestamp);
 		the_time = Z_LVAL_PP(timestamp);
+#ifdef PHP_WIN32
+		if (the_time < 0) {
+			php_error_docref(NULL TSRMLS_CC, E_WARNING, "Windows does not support dates prior to midnight (00:00:00), January 1, 1970");
+			RETURN_FALSE;
+		}
+#endif
 		break;
 	default:
 		WRONG_PARAM_COUNT;
@@ -252,13 +314,21 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 	} else {
 		ta = php_localtime_r(&the_time, &tmbuf);
 #if !HAVE_TM_GMTOFF
+#ifdef __CYGWIN__
+		tzone = _timezone;
+#else
 		tzone = timezone;
-		tname[0] = tzname[0];
+#endif
+		if (tzname[0] != NULL) {
+			tname[0] = tzname[0];
+		} else {
+			tname[0] = "???";
+		}
 #endif
 	}
 
 	if (!ta) {			/* that really shouldn't happen... */
-		php_error(E_WARNING, "unexpected error in date()");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Unexpected error");
 		RETURN_FALSE;
 	}
 	for (i = 0; i < Z_STRLEN_PP(format); i++) {
@@ -277,7 +347,11 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 #if HAVE_TM_ZONE
 				size += strlen(ta->tm_zone);
 #elif HAVE_TZNAME
-				size += strlen(tname[0]);
+				if (ta->tm_isdst > 0 ) {
+					size += strlen(tname[1]);
+				} else {
+					size += strlen(tname[0]);
+				}
 #endif
 				break;
 			case 'Z':		/* timezone offset in seconds */
@@ -353,7 +427,7 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 				strcat(Z_STRVAL_P(return_value), day_full_names[ta->tm_wday]);
 				break;
 			case 'Y':		/* year, numeric, 4 digits */
-				sprintf(tmp_buff, "%d", ta->tm_year + 1900);  /* SAFE */
+				sprintf(tmp_buff, "%d", ta->tm_year + YEAR_BASE);  /* SAFE */
 				strcat(Z_STRVAL_P(return_value), tmp_buff);
 				break;
 			case 'M':		/* month, textual, 3 letters */
@@ -439,7 +513,7 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 				}
 				break;
 			case 't':		/* days in current month */
-				sprintf(tmp_buff, "%2d", phpday_tab[isleap((ta->tm_year+1900))][ta->tm_mon] );
+				sprintf(tmp_buff, "%2d", phpday_tab[isleap((ta->tm_year+YEAR_BASE))][ta->tm_mon] );
 				strcat(Z_STRVAL_P(return_value), tmp_buff);
 				break;
 			case 'w':		/* day of the week, numeric EXTENSION */
@@ -448,9 +522,9 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 				break;
 			case 'O':		/* GMT offset in [+-]HHMM format */
 #if HAVE_TM_GMTOFF				
-				sprintf(tmp_buff, "%c%02d%02d", (ta->tm_gmtoff < 0) ? '-' : '+', abs(ta->tm_gmtoff / 3600), abs( ta->tm_gmtoff % 3600));
+				sprintf(tmp_buff, "%c%02d%02d", (ta->tm_gmtoff < 0) ? '-' : '+', abs(ta->tm_gmtoff / 3600), abs( (ta->tm_gmtoff % 3600) / 60 ));
 #else
-				sprintf(tmp_buff, "%c%02d%02d", ((ta->tm_isdst ? tzone - 3600:tzone)>0)?'-':'+', abs((ta->tm_isdst ? tzone - 3600 : tzone) / 3600), abs((ta->tm_isdst ? tzone - 3600 : tzone) % 3600));
+				sprintf(tmp_buff, "%c%02d%02d", ((ta->tm_isdst ? tzone - 3600:tzone)>0)?'-':'+', abs((ta->tm_isdst ? tzone - 3600 : tzone) / 3600), abs(((ta->tm_isdst ? tzone - 3600 : tzone) % 3600) / 60));
 #endif
 				strcat(Z_STRVAL_P(return_value), tmp_buff);
 				break;
@@ -463,14 +537,14 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 				strcat(Z_STRVAL_P(return_value), tmp_buff);
 				break;
 			case 'L':		/* boolean for leapyear */
-				sprintf(tmp_buff, "%d", (isleap((ta->tm_year+1900)) ? 1 : 0 ) );
+				sprintf(tmp_buff, "%d", (isleap((ta->tm_year+YEAR_BASE)) ? 1 : 0 ) );
 				strcat(Z_STRVAL_P(return_value), tmp_buff);
 				break;
 			case 'T':		/* timezone name */
 #if HAVE_TM_ZONE
 				strcat(Z_STRVAL_P(return_value), ta->tm_zone);
 #elif HAVE_TZNAME
-				strcat(Z_STRVAL_P(return_value), tname[0]);
+				strcat(Z_STRVAL_P(return_value), ta->tm_isdst ? tname[1] : tname[0]);
 #endif
 				break;
 			case 'B':	/* Swatch Beat a.k.a. Internet Time */
@@ -493,38 +567,49 @@ php_date(INTERNAL_FUNCTION_PARAMETERS, int gm)
 					day_short_names[ta->tm_wday],
 					ta->tm_mday,
 					mon_short_names[ta->tm_mon],
-					ta->tm_year + 1900,
+					ta->tm_year + YEAR_BASE,
 					ta->tm_hour,
 					ta->tm_min,
 					ta->tm_sec,
 					(ta->tm_gmtoff < 0) ? '-' : '+',
 					abs(ta->tm_gmtoff / 3600),
-					abs( ta->tm_gmtoff % 3600)
+					abs( (ta->tm_gmtoff % 3600) / 60 )
 				);
 #else
 				sprintf(tmp_buff, "%3s, %2d %3s %04d %02d:%02d:%02d %c%02d%02d", 
 					day_short_names[ta->tm_wday],
 					ta->tm_mday,
 					mon_short_names[ta->tm_mon],
-					ta->tm_year + 1900,
+					ta->tm_year + YEAR_BASE,
 					ta->tm_hour,
 					ta->tm_min,
 					ta->tm_sec,
 					((ta->tm_isdst ? tzone - 3600 : tzone) > 0) ? '-' : '+',
 					abs((ta->tm_isdst ? tzone - 3600 : tzone) / 3600),
-					abs((ta->tm_isdst ? tzone - 3600 : tzone) % 3600)
+					abs( ((ta->tm_isdst ? tzone - 3600 : tzone) % 3600) / 60 )
 				);
 #endif
 				strcat(Z_STRVAL_P(return_value), tmp_buff);
 				break;
 			case 'W':		/* ISO-8601 week number of year, weeks starting on Monday */
-				wd = ta->tm_wday==0 ? 7 : ta->tm_wday;
-				yd = ta->tm_yday + 1;
-				fd = (7 + (wd - yd) % 7 ) % 7;
-				wk = ( (yd + fd - 1) / 7 ) + 1;
-				if (fd>3) {
-					wk--;
+				wd = ta->tm_wday==0 ? 6 : ta->tm_wday-1;/* weekday */
+				yd = ta->tm_yday + 1;					/* days since January 1st */
+
+				fd = (7 + wd - yd % 7+ 1) % 7;			/* weekday (1st January) */	
+
+				/* week is a last year week (52 or 53) */
+				if ((yd <= 7 - fd) && fd > 3){			
+					wk = (fd == 4 || (fd == 5 && isleap((ta->tm_year + YEAR_BASE - 1)))) ? 53 : 52;
 				}
+				/* week is a next year week (1) */
+				else if (isleap((ta->tm_year+YEAR_BASE)) + 365 - yd < 3 - wd){
+					wk = 1;
+				}
+				/* normal week */
+				else {
+					wk = (yd + 6 - wd + fd) / 7 - (fd > 3);
+				}
+
 				sprintf(tmp_buff, "%d", wk);  /* SAFE */
 				strcat(Z_STRVAL_P(return_value), tmp_buff);
 				break;
@@ -587,11 +672,19 @@ PHP_FUNCTION(localtime)
 			assoc_array = Z_LVAL_PP(assoc_array_arg);
 			break;
 	}
-	ta = php_localtime_r(&timestamp, &tmbuf);
-	if (array_init(return_value) == FAILURE) {
-		php_error(E_ERROR, "Cannot prepare return array from localtime");
+	
+#ifdef PHP_WIN32
+	if (timestamp < 0) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Windows does not support negative values for this function");
+		RETURN_FALSE
+	}
+#endif
+	
+	if (NULL == (ta = php_localtime_r(&timestamp, &tmbuf))) {
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Invalid local time");
 		RETURN_FALSE;
 	}
+	array_init(return_value);
 
 	if (assoc_array) {
 		add_assoc_long(return_value, "tm_sec",   ta->tm_sec);
@@ -636,13 +729,10 @@ PHP_FUNCTION(getdate)
 
 	ta = php_localtime_r(&timestamp, &tmbuf);
 	if (!ta) {
-		php_error(E_WARNING, "Cannot perform date calculation");
+		php_error_docref(NULL TSRMLS_CC, E_WARNING, "Cannot perform date calculation");
 		return;
 	}
-	if (array_init(return_value) == FAILURE) {
-		php_error(E_ERROR, "Unable to initialize array");
-		return;
-	}
+	array_init(return_value);
 	add_assoc_long(return_value, "seconds", ta->tm_sec);
 	add_assoc_long(return_value, "minutes", ta->tm_min);
 	add_assoc_long(return_value, "hours", ta->tm_hour);
@@ -821,7 +911,7 @@ PHP_FUNCTION(strtotime)
 
 	convert_to_string_ex(z_time);
 	if (Z_STRLEN_PP(z_time) == 0)
-		php_error (E_NOTICE, "strtotime() called with empty time parameter");
+		php_error_docref(NULL TSRMLS_CC, E_NOTICE, "Called with empty time parameter");
 	if (argc == 2) {
 		convert_to_long_ex(z_now);
 		now = Z_LVAL_PP(z_now);

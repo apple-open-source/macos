@@ -1,7 +1,7 @@
 /*
  * Compatibility shims with RELENG_4
  *
- * $Id: smb_compat4.c,v 1.9 2002/03/12 22:06:10 lindak Exp $
+ * $Id: smb_compat4.c,v 1.11 2003/05/06 21:54:43 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/systm.h>
@@ -43,7 +43,7 @@
  * up everything we have already allocated and return NULL.
  *
  */
-struct mbuf *
+PRIVSYM struct mbuf *
 m_getm(struct mbuf *m, int len, int how, int type)
 {
 	struct mbuf *top, *tail, *mp, *mtail = NULL;
@@ -53,7 +53,7 @@ m_getm(struct mbuf *m, int len, int how, int type)
 	MGET(mp, how, type);
 	if (mp == NULL)
 		return (NULL);
-	else if (len > MINCLSIZE) {
+	else if (len > (int)MINCLSIZE) {
 		MCLGET(mp, how);
 		if ((mp->m_flags & M_EXT) == 0) {
 			m_free(mp);
@@ -76,7 +76,7 @@ m_getm(struct mbuf *m, int len, int how, int type)
 
 		tail->m_next = mp;
 		tail = mp;
-		if (len > MINCLSIZE) {
+		if (len > (int)MINCLSIZE) {
 			MCLGET(mp, how);
 			if ((mp->m_flags & M_EXT) == 0)
 				goto failed;
@@ -99,11 +99,12 @@ failed:
  * Create a kernel process/thread/whatever.  It shares it's address space
  * with proc0 - ie: kernel only.
  */
-int
+PRIVSYM int
 kthread_create2(void (*func)(void *), void *arg,
     struct proc **newpp, int flags, const char *fmt, ...)
 {
 #ifdef APPLE
+	#pragma unused(flags, fmt)
 	struct proc *p2;
 #if APPLE_USE_CALLOUT_THREAD	/* XXX bad idea */
 	struct smbiod *iod = (struct smbiod *)arg;
@@ -153,7 +154,7 @@ kthread_create2(void (*func)(void *), void *arg,
 	return 0;
 }
 
-int
+PRIVSYM int
 msleep(void *chan, struct simplelock *mtx, int pri, const char *wmesg, int timo)
 {
 	int error;

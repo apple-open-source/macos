@@ -1,0 +1,43 @@
+<?xml version = "1.0" encoding = "UTF-8"?>
+<policy>
+<!-- A test application policy that creates a SimplePrincipal with
+a name of 'starksm' for testing the subject based policy permissions.
+-->
+  <application-policy name = "test-domain">
+    <authentication>
+      <login-module code = "org.jboss.security.plugins.samples.IdentityLoginModule" flag = "required">
+	<module-option name = "principal">starksm</module-option>
+      </login-module>
+    </authentication>
+    <authorization>
+      <grant>
+        <principal code = "org.jboss.security.SimplePrincipal" name = "scott"/>
+          <permission code = "org.jboss.test.security.test.NamespacePermission" name = "Project1" actions = "rwxd"/>
+          <permission code = "org.jboss.test.security.test.NamespacePermission" name = "Project1/Documents/Private" actions = "rw-d"/>
+      </grant>
+      <grant>
+          <principal code = "org.jboss.security.SimplePrincipal" name = "starksm"/>
+	  <permission code = "org.jboss.test.security.test.NamespacePermission" name = "Project1/Documents/Public" actions = "r---"/>
+      </grant>
+    </authorization>
+  </application-policy>
+
+<!-- A application policy that specifies the SRPLoginModule + JBoss
+  ClientLogin module for testing the secure authentication link.
+-->
+  <application-policy name = "srp-login">
+    <authentication>
+      <login-module code = "org.jboss.security.srp.jaas.SRPLoginModule" flag = "required">
+        <module-option name = "password-stacking">useFirstPass</module-option>
+	  <module-option name = "principalClassName">org.jboss.security.SimplePrincipal</module-option>
+	  <module-option name = "srpServerJndiName">SRPServerInterface</module-option>
+	  <module-option name = "debug">true</module-option>
+      </login-module>
+
+      <login-module code = "org.jboss.security.ClientLoginModule" flag = "required">
+        <module-option name = "password-stacking">useFirstPass</module-option>
+      </login-module>
+    </authentication>
+  </application-policy>
+
+</policy>

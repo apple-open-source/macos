@@ -103,17 +103,17 @@ OSStatus AuthorizationExecuteWithPrivileges(AuthorizationRef authorization,
 	// do the standard forking tango...
 	int delay = 1;
 	for (int n = 5;; n--, delay *= 2) {
-		switch (pid_t pid = fork()) {
+		switch (fork()) {
 		case -1:	// error
 			if (errno == EAGAIN) {
 				// potentially recoverable resource shortage
 				if (n > 0) {
-					debug("authexec", "resource shortage (EAGAIN), delaying %d seconds", delay);
+					secdebug("authexec", "resource shortage (EAGAIN), delaying %d seconds", delay);
 					sleep(delay);
 					continue;
 				}
 			}
-			debug("authexec", "fork failed (errno=%d)", errno);
+			secdebug("authexec", "fork failed (errno=%d)", errno);
 			close(notify[READ]); close(notify[WRITE]);
 			return errAuthorizationToolExecuteFailure;
 
@@ -128,14 +128,14 @@ OSStatus AuthorizationExecuteWithPrivileges(AuthorizationRef authorization,
 			
 			// get status notification from child
 			OSStatus status;
-			debug("authexec", "parent waiting for status");
-			switch (ssize_t rc = read(notify[READ], &status, sizeof(status))) {
+			secdebug("authexec", "parent waiting for status");
+			switch (IFDEBUG(ssize_t rc =) read(notify[READ], &status, sizeof(status))) {
 			default:				// weird result of read: post error
-				debug("authexec", "unexpected read return value %ld", long(rc));
+				secdebug("authexec", "unexpected read return value %ld", long(rc));
 				status = errAuthorizationToolEnvironmentError;
 				// fall through
 			case sizeof(status):	// read succeeded: child reported an error
-				debug("authexec", "parent received status=%ld", status);
+				secdebug("authexec", "parent received status=%ld", status);
 				close(notify[READ]);
 				if (communicationsPipe) { close(comm[READ]); close(comm[WRITE]); }
 				return status;
@@ -143,7 +143,7 @@ OSStatus AuthorizationExecuteWithPrivileges(AuthorizationRef authorization,
 				close(notify[READ]);
 				if (communicationsPipe)
 					*communicationsPipe = fdopen(comm[READ], "r+");
-				debug("authexec", "parent resumes (no error)");
+				secdebug("authexec", "parent resumes (no error)");
 				return noErr;
 			}
 
@@ -176,11 +176,11 @@ OSStatus AuthorizationExecuteWithPrivileges(AuthorizationRef authorization,
 #endif //NDEBUG
 
 			// okay, execute the trampoline
-			debug("authexec", "child exec(%s:%s)",
+			secdebug("authexec", "child exec(%s:%s)",
 				trampoline, pathToTool);
 			if (const char **argv = argVector(trampoline, pathToTool, mboxFdText, arguments))
 				execv(trampoline, (char *const*)argv);
-			debug("authexec", "trampoline exec failed (errno=%d)", errno);
+			secdebug("authexec", "trampoline exec failed (errno=%d)", errno);
 
 			// execute failed - tell the parent
 			{

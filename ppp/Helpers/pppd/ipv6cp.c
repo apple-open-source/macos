@@ -1,4 +1,28 @@
 /*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+/*
     ipv6cp.c - PPP IPV6 Control Protocol.
     Copyright (C) 1999  Tommi Komulainen <Tommi.Komulainen@iki.fi>
 
@@ -90,10 +114,9 @@
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * $Id: ipv6cp.c,v 1.2 2002/03/13 22:44:42 callie Exp $ 
  */
 
-#define RCSID	"$Id: ipv6cp.c,v 1.2 2002/03/13 22:44:42 callie Exp $"
+#define RCSID	"$Id: ipv6cp.c,v 1.7 2003/08/14 00:00:30 callie Exp $"
 
 /*
  * TODO: 
@@ -172,33 +195,40 @@ static fsm_callbacks ipv6cp_callbacks = { /* IPV6CP callback routines */
  * Command-line options.
  */
 static int setifaceid __P((char **arg));
+static void printifaceid __P((option_t *,
+			      void (*)(void *, char *, ...), void *));
 
 static option_t ipv6cp_option_list[] = {
     { "ipv6", o_special, (void *)setifaceid,
-      "Set interface identifiers for IPV6" },
-    { "noipv6", o_bool, &ipv6cp_protent.enabled_flag,
-      "Disable IPv6 and IPv6CP" },
-    { "-ipv6", o_bool, &ipv6cp_protent.enabled_flag,
-      "Disable IPv6 and IPv6CP" },
+      "Set interface identifiers for IPV6",
+      OPT_A2PRINTER, (void *)printifaceid },
+
     { "+ipv6", o_bool, &ipv6cp_protent.enabled_flag,
-      "Enable IPv6 and IPv6CP", 1 },
+      "Enable IPv6 and IPv6CP", OPT_PRIO | 1 },
+    { "noipv6", o_bool, &ipv6cp_protent.enabled_flag,
+      "Disable IPv6 and IPv6CP", OPT_PRIOSUB },
+    { "-ipv6", o_bool, &ipv6cp_protent.enabled_flag,
+      "Disable IPv6 and IPv6CP", OPT_PRIOSUB | OPT_ALIAS },
 
     { "ipv6cp-accept-local", o_bool, &ipv6cp_allowoptions[0].accept_local,
       "Accept peer's interface identifier for us", 1 },
-    { "ipv6cp-use-ipaddr", o_bool, &ipv6cp_allowoptions[0].use_ip,
-      "Use (default) IPv4 address as interface identifier", 0 },
-#if defined(SOL2)
+
+    { "ipv6cp-use-ipaddr", o_bool, &ipv6cp_wantoptions[0].use_ip,
+      "Use (default) IPv4 address as interface identifier", 1 },
+
+#if defined(SOL2) || defined(__linux__) || defined(__APPLE__)
     { "ipv6cp-use-persistent", o_bool, &ipv6cp_wantoptions[0].use_persistent,
       "Use uniquely-available persistent value for link local address", 1 },
 #endif /* defined(SOL2) */
+
     { "ipv6cp-restart", o_int, &ipv6cp_fsm[0].timeouttime,
-      "Set timeout for IPv6CP" },
+      "Set timeout for IPv6CP", OPT_PRIO },
     { "ipv6cp-max-terminate", o_int, &ipv6cp_fsm[0].maxtermtransmits,
-      "Set max #xmits for term-reqs" },
+      "Set max #xmits for term-reqs", OPT_PRIO },
     { "ipv6cp-max-configure", o_int, &ipv6cp_fsm[0].maxconfreqtransmits,
-      "Set max #xmits for conf-reqs" },
+      "Set max #xmits for conf-reqs", OPT_PRIO },
     { "ipv6cp-max-failure", o_int, &ipv6cp_fsm[0].maxnakloops,
-      "Set max #conf-naks for IPv6CP" },
+      "Set max #conf-naks for IPv6CP", OPT_PRIO },
 
    { NULL }
 };
@@ -217,8 +247,13 @@ static void ipv6cp_protrej __P((int));
 static int  ipv6cp_printpkt __P((u_char *, int,
 			       void (*) __P((void *, char *, ...)), void *));
 static void ipv6_check_options __P((void));
+#ifndef __APPLE__
 static int  ipv6_demand_conf __P((int));
+#endif
 static int  ipv6_active_pkt __P((u_char *, int));
+#ifdef __APPLE__
+static int ipv6cp_state __P((int));
+#endif
 
 struct protent ipv6cp_protent = {
     PPP_IPV6CP,
@@ -236,8 +271,17 @@ struct protent ipv6cp_protent = {
     "IPV6",
     ipv6cp_option_list,
     ipv6_check_options,
+#ifdef __APPLE__
+    NULL,
+#else
     ipv6_demand_conf,
-    ipv6_active_pkt
+#endif
+    ipv6_active_pkt,
+#ifdef __APPLE__
+    NULL,
+    NULL,
+    ipv6cp_state
+#endif
 };
 
 static void ipv6cp_clear_addrs __P((int, eui64_t, eui64_t));
@@ -271,10 +315,17 @@ static int
 setifaceid(argv)
     char **argv;
 {
-    char *comma, *arg;
+    char *comma, *arg, c;
     ipv6cp_options *wo = &ipv6cp_wantoptions[0];
     struct in6_addr addr;
-    
+    static int prio_local, prio_remote;
+
+#ifdef __APPLE__
+#ifndef s6_addr32
+#define s6_addr32 __u6_addr.__u6_addr32
+#endif
+#endif
+
 #define VALIDID(a) ( (((a).s6_addr32[0] == 0) && ((a).s6_addr32[1] == 0)) && \
 			(((a).s6_addr32[2] != 0) || ((a).s6_addr32[3] != 0)) )
     
@@ -286,16 +337,20 @@ setifaceid(argv)
      * If comma first character, then no local identifier
      */
     if (comma != arg) {
+	c = *comma;
 	*comma = '\0';
 
 	if (inet_pton(AF_INET6, arg, &addr) == 0 || !VALIDID(addr)) {
 	    option_error("Illegal interface identifier (local): %s", arg);
 	    return 0;
 	}
-	
-	eui64_copy(addr.s6_addr32[2], wo->ourid);
-	wo->opt_local = 1;
-	*comma = ',';
+
+	if (option_priority >= prio_local) {
+	    eui64_copy(addr.s6_addr32[2], wo->ourid);
+	    wo->opt_local = 1;
+	    prio_local = option_priority;
+	}
+	*comma = c;
     }
     
     /*
@@ -306,12 +361,33 @@ setifaceid(argv)
 	    option_error("Illegal interface identifier (remote): %s", comma);
 	    return 0;
 	}
-	eui64_copy(addr.s6_addr32[2], wo->hisid);
-	wo->opt_remote = 1;
+	if (option_priority >= prio_remote) {
+	    eui64_copy(addr.s6_addr32[2], wo->hisid);
+	    wo->opt_remote = 1;
+	    prio_remote = option_priority;
+	}
     }
 
-    ipv6cp_protent.enabled_flag = 1;
+    if (override_value("+ipv6", option_priority, option_source))
+	ipv6cp_protent.enabled_flag = 1;
     return 1;
+}
+
+char *llv6_ntoa(eui64_t ifaceid);
+
+static void
+printifaceid(opt, printer, arg)
+    option_t *opt;
+    void (*printer) __P((void *, char *, ...));
+    void *arg;
+{
+	ipv6cp_options *wo = &ipv6cp_wantoptions[0];
+
+	if (wo->opt_local)
+		printer(arg, "%s", llv6_ntoa(wo->ourid));
+	printer(arg, ",");
+	if (wo->opt_remote)
+		printer(arg, "%s", llv6_ntoa(wo->hisid));
 }
 
 /*
@@ -428,6 +504,17 @@ ipv6cp_protrej(unit)
     int unit;
 {
     fsm_lowerdown(&ipv6cp_fsm[unit]);
+}
+
+
+/*
+ * ipcp_state - return protocol state for the unit.
+ */
+static int
+ipv6cp_state(unit)
+    int unit;
+{
+   return ipv6cp_fsm[unit].state;
 }
 
 
@@ -993,7 +1080,10 @@ ipv6_check_options()
 {
     ipv6cp_options *wo = &ipv6cp_wantoptions[0];
 
-#if defined(SOL2)
+    if (!ipv6cp_protent.enabled_flag)
+	return;
+
+#if defined(SOL2) || defined(__linux__) || defined(__APPLE__)
     /*
      * Persistent link-local id is only used when user has not explicitly
      * configure/hard-code the id
@@ -1034,13 +1124,16 @@ ipv6_check_options()
 	}
     }
 
+#ifndef __APPLE__
     if (demand && (eui64_iszero(wo->ourid) || eui64_iszero(wo->hisid))) {
 	option_error("local/remote LL address required for demand-dialling\n");
 	exit(1);
     }
+#endif
 }
 
 
+#ifndef __APPLE__
 /*
  * ipv6_demand_conf - configure the interface as though
  * IPV6CP were up, for use with dial-on-demand.
@@ -1075,7 +1168,7 @@ ipv6_demand_conf(u)
 
     return 1;
 }
-
+#endif
 
 /*
  * ipv6cp_up - IPV6CP has come UP.
@@ -1128,21 +1221,22 @@ ipv6cp_up(f)
      * configured, so we put out any saved-up packets, then set the
      * interface to pass IPv6 packets.
      */
+#ifndef __APPLE__
     if (demand) {
 	if (! eui64_equals(go->ourid, wo->ourid) || 
 	    ! eui64_equals(ho->hisid, wo->hisid)) {
 	    if (! eui64_equals(go->ourid, wo->ourid))
-		warn("Local LL address changed to %s", 
+		warning("Local LL address changed to %s", 
 		     llv6_ntoa(go->ourid));
 	    if (! eui64_equals(ho->hisid, wo->hisid))
-		warn("Remote LL address changed to %s", 
+		warning("Remote LL address changed to %s", 
 		     llv6_ntoa(ho->hisid));
 	    ipv6cp_clear_addrs(f->unit, go->ourid, ho->hisid);
 
 	    /* Set the interface to the new addresses */
 	    if (!sif6addr(f->unit, go->ourid, ho->hisid)) {
 		if (debug)
-		    warn("sif6addr failed");
+		    warning("sif6addr failed");
 		ipv6cp_close(f->unit, "Interface configuration failed");
 		return;
 	    }
@@ -1152,13 +1246,14 @@ ipv6cp_up(f)
 	sifnpmode(f->unit, PPP_IPV6, NPMODE_PASS);
 
     } else {
+#endif
 	/*
 	 * Set LL addresses
 	 */
 #if !defined(__linux__) && !defined(SOL2) && !(defined(SVR4) && (defined(SNI) || defined(__USLC__)))
 	if (!sif6addr(f->unit, go->ourid, ho->hisid)) {
 	    if (debug)
-		warn("sif6addr failed");
+		warning("sif6addr failed");
 	    ipv6cp_close(f->unit, "Interface configuration failed");
 	    return;
 	}
@@ -1168,14 +1263,14 @@ ipv6cp_up(f)
 #if defined(SOL2)
 	if (!sif6up(f->unit)) {
 	    if (debug)
-		warn("sifup failed (IPV6)");
+		warning("sifup failed (IPV6)");
 	    ipv6cp_close(f->unit, "Interface configuration failed");
 	    return;
 	}
 #else
 	if (!sifup(f->unit)) {
 	    if (debug)
-		warn("sifup failed (IPV6)");
+		warning("sifup failed (IPV6)");
 	    ipv6cp_close(f->unit, "Interface configuration failed");
 	    return;
 	}
@@ -1184,7 +1279,7 @@ ipv6cp_up(f)
 #if defined(__linux__) || defined(SOL2) || (defined(SVR4) && (defined(SNI) || defined(__USLC__)))
 	if (!sif6addr(f->unit, go->ourid, ho->hisid)) {
 	    if (debug)
-		warn("sif6addr failed");
+		warning("sif6addr failed");
 	    ipv6cp_close(f->unit, "Interface configuration failed");
 	    return;
 	}
@@ -1193,7 +1288,9 @@ ipv6cp_up(f)
 
 	notice("local  LL address %s", llv6_ntoa(go->ourid));
 	notice("remote LL address %s", llv6_ntoa(ho->hisid));
+#ifndef __APPLE__
     }
+#endif
 
     np_up(f->unit, PPP_IPV6);
     ipv6cp_is_up = 1;
@@ -1233,9 +1330,11 @@ ipv6cp_down(f)
      * If we are doing dial-on-demand, set the interface
      * to queue up outgoing packets (for now).
      */
+#ifndef __APPLE__
     if (demand) {
 	sifnpmode(f->unit, PPP_IPV6, NPMODE_QUEUE);
     } else {
+#endif
 	sifnpmode(f->unit, PPP_IPV6, NPMODE_DROP);
 #if !defined(__linux__) && !(defined(SVR4) && (defined(SNI) || defined(__USLC)))
 #if defined(SOL2)
@@ -1250,7 +1349,9 @@ ipv6cp_down(f)
 #if defined(__linux__) || (defined(SVR4) && (defined(SNI) || defined(__USLC)))
 	sifdown(f->unit);
 #endif
+#ifndef __APPLE__
     }
+#endif
 
     /* Execute the ipv6-down script */
     if (ipv6cp_script_state == s_up && ipv6cp_script_pid == 0) {

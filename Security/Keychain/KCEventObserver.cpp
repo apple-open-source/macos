@@ -34,55 +34,25 @@
 
 using namespace Security;
 
-Observer::Observer()
+void Observer::EventReceived (Listener::Domain domain, Listener::Event event, const void* data, size_t dataLength)
 {
-}
-//
-// Upon creation of this object, add this observer for this instance of KeychainCore
-//
-Observer::Observer( CFStringRef name, const void *object, 
-                    CFNotificationSuspensionBehavior suspensionBehavior )
-{
-    add( name, object, suspensionBehavior );
+    secdebug("kcnotify", "Security::Observer::EventReceived got event %u", (unsigned int) event);
+
+	// make a NameValueDictionary from the data we received
+	CssmData dt ((void*) data, dataLength);
+	NameValueDictionary nvd (dt);
+	Event (domain, event, nvd);
 }
 
-//
-// Upon destruction of this object, remove 'this' observer for this instance of KeychainCore
-//
-Observer::~Observer()
+
+
+Observer::Observer (Listener::Domain whichDomain, Listener::EventMask whichEvents)
 {
-    ::CFNotificationCenterRemoveEveryObserver( CFNotificationCenterGetDistributedCenter(), this );
+	RequestEvents (whichDomain, whichEvents);
 }
 
-//
-// 'callback' is passed in to CFNotificationCenterAddObserver() when this object
-// is constructed when KeychainCore is created.  'callback' is called by CF whenever an event happens.
-//
-void Observer::callback(CFNotificationCenterRef 	center, 
-                        void*					 	observer, 
-                        CFStringRef 				name, 
-                        const void* 				object, 
-                        CFDictionaryRef 			userInfo)
-{
-    // 'Event' is where this KeychainCore notifies it's clients of the kc event that just happened.
-    //
-	try
-	{
-		reinterpret_cast<Observer *>(observer)->Event( center, name, object, userInfo );
-	}
-	catch(...)
-	{
-		// @@@ do a log to console();
-	}
-}
 
-//
-// Add 'this' observer to CF for this instance of KeychainCore
-//
-void Observer::add( CFStringRef 					 name, 
-                    const void* 					 object, 
-                    CFNotificationSuspensionBehavior suspensionBehavior )
+
+Observer::~Observer ()
 {
-    ::CFNotificationCenterAddObserver( CFNotificationCenterGetDistributedCenter(), 
-                                       this, callback, name, object, suspensionBehavior );
 }

@@ -3,25 +3,29 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
 #include <IOKit/assert.h>
 #include <IOKit/IOLib.h>
+#include <IOKit/hidsystem/IOHIDParameter.h>
 #include "ApplePS2Mouse.h"
 
 // =============================================================================
@@ -54,6 +58,7 @@ bool ApplePS2Mouse::init(OSDictionary * properties)
   _packetLength              = kPacketLengthStandard;
   _resolution                = (150) << 16; // (default is 150 dpi; 6 counts/mm)
   _type                      = kMouseTypeStandard;
+  _mouseInfoBytes            = (UInt32)-1;
 
   return true;
 }
@@ -109,11 +114,18 @@ ApplePS2Mouse * ApplePS2Mouse::probe(IOService * provider, SInt32 * score)
 bool ApplePS2Mouse::start(IOService * provider)
 { 
   //
-  // The driver has been instructed to start.   This is called after a
+  // The driver has been instructed to start. This is called after a
   // successful probe and match.
   //
 
-  if (!super::start(provider))  return false;
+  if (!super::start(provider)) return false;
+
+  //
+  // Create a callout thread entry for asynchronous mouse resets.
+  //
+
+  _mouseResetThreadCall = thread_call_allocate(handleMouseReset, this);
+  if (!_mouseResetThreadCall) return false;
 
   //
   // Maintain a pointer to and retain the provider object.
@@ -123,48 +135,10 @@ bool ApplePS2Mouse::start(IOService * provider)
   _device->retain();
 
   //
-  // Install our driver's interrupt handler, for asynchronous data delivery.
+  // Reset and enable the mouse.
   //
 
-  _device->installInterruptAction(this,
-    (PS2InterruptAction)&ApplePS2Mouse::interruptOccurred);
-  _interruptHandlerInstalled = true;
-
-  //
-  // Obtain our mouse's resolution and sampling rate.
-  //
-
-  switch (getMouseInformation() & 0x00FF00)
-  {
-    case 0x0000: _resolution = (25)  << 16; break; //  25 dpi
-    case 0x0100: _resolution = (50)  << 16; break; //  50 dpi
-    case 0x0200: _resolution = (100) << 16; break; // 100 dpi
-    case 0x0300: _resolution = (200) << 16; break; // 200 dpi
-    default:     _resolution = (150) << 16; break; // 150 dpi
-  }
-
-  //
-  // Enable the Intellimouse mode, should this be an Intellimouse.
-  //
-
-  if ( setIntellimouseMode() == true )
-  {
-    _packetLength = kPacketLengthIntellimouse;
-    _type         = kMouseTypeIntellimouse;
-  }
-
-  //
-  // Enable the mouse clock (should already be so) and the mouse IRQ line.
-  //
-
-  setCommandByte(kCB_EnableMouseIRQ, kCB_DisableMouseClock);
-
-  //
-  // Finally, we enable the mouse itself, so that it may start reporting
-  // mouse events.
-  //
-
-  setMouseEnable(true);
+  resetMouse();
 
   return true;
 }
@@ -212,6 +186,128 @@ void ApplePS2Mouse::stop(IOService * provider)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+void ApplePS2Mouse::free()
+{
+  if (_mouseResetThreadCall)
+  {
+    thread_call_free(_mouseResetThreadCall);
+    _mouseResetThreadCall = 0;
+  }
+
+  super::free();
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+void ApplePS2Mouse::handleMouseReset(thread_call_param_t param0,
+                                     thread_call_param_t param1)
+{
+    ApplePS2Mouse * self = (ApplePS2Mouse *) param0;
+    assert(self);
+
+    self->resetMouse();
+    self->release();
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+void ApplePS2Mouse::resetMouse()
+{
+  //
+  // Obtain our mouse's resolution and sampling rate.
+  //
+
+  if (_mouseInfoBytes == (UInt32)-1)
+  {
+    _mouseInfoBytes = getMouseInformation();
+    switch (_mouseInfoBytes & 0x00FF00)
+    {
+        case 0x0000: _resolution = (25)  << 16; break; //  25 dpi
+        case 0x0100: _resolution = (50)  << 16; break; //  50 dpi
+        case 0x0200: _resolution = (100) << 16; break; // 100 dpi
+        case 0x0300: _resolution = (200) << 16; break; // 200 dpi
+        default:     _resolution = (150) << 16; break; // 150 dpi
+    }
+  }
+  else
+  {
+    setMouseResolution(_mouseInfoBytes >> 8);
+  }
+
+  //
+  // Enable the Intellimouse mode, should this be an Intellimouse.
+  //
+
+  if ( setIntellimouseMode() == true )
+  {
+    _packetLength = kPacketLengthIntellimouse;
+    _type         = kMouseTypeIntellimouse;
+
+    //
+    // Report the resolution of the scroll wheel. This property must
+    // be present to enable acceleration for Z-axis movement.
+    //
+    setProperty(kIOHIDScrollResolutionKey, (10 << 16), 32);
+  }
+  else
+  {
+    _packetLength = kPacketLengthStandard;
+    _type         = kMouseTypeStandard;
+
+    removeProperty(kIOHIDScrollResolutionKey);
+  }
+
+  _packetByteCount = 0;
+
+  //
+  // Enable the mouse clock (should already be so) and the mouse IRQ line.
+  //
+
+  setCommandByte(kCB_EnableMouseIRQ, kCB_DisableMouseClock);
+
+  //
+  // Install our driver's interrupt handler, for asynchronous data delivery.
+  //
+
+  _device->installInterruptAction(this,
+    (PS2InterruptAction)&ApplePS2Mouse::interruptOccurred);
+  _interruptHandlerInstalled = true;
+
+  //
+  // Finally, we enable the mouse itself, so that it may start reporting
+  // mouse events.
+  //
+
+  setMouseEnable(true);
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+void ApplePS2Mouse::scheduleMouseReset()
+{
+  //
+  // Request the mouse to stop. An async 0xF5 command is issued.
+  //
+
+  setMouseEnable(false);
+
+  //
+  // Drop mouse data until reset is complete.
+  //
+
+  if ( _interruptHandlerInstalled ) _device->uninstallInterruptAction();
+  _interruptHandlerInstalled = false;
+
+  //
+  // Schedule reset thread and retain the mouse driver while the thread
+  // call is in flight. The callout handler must drop the release count.
+  //
+
+  if (thread_call_enter(_mouseResetThreadCall) == FALSE) retain();
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 void ApplePS2Mouse::interruptOccurred(UInt8 data)      // PS2InterruptAction
 {
   //
@@ -225,12 +321,23 @@ void ApplePS2Mouse::interruptOccurred(UInt8 data)      // PS2InterruptAction
   if (_packetByteCount == 0 && ((data == kSC_Acknowledge) || !(data & 0x08)))
   {
     IOLog("%s: Unexpected data from PS/2 controller.\n", getName());
+
+    //
+    // Reset the mouse when packet synchronization is lost. Limit the number
+    // of consecutive resets to guard against flaky hardware.
+    //
+
+    if (_mouseResetCount < 5)
+    {
+        _mouseResetCount++;
+        scheduleMouseReset();
+    }
     return;
   }
 
   //
   // Add this byte to the packet buffer.  If the packet is complete, that is,
-  // we have the three bytes, dispatch this packet for processing.
+  // we have the three (or four) bytes, dispatch this packet for processing.
   //
 
   _packetBuffer[_packetByteCount++] = data;
@@ -239,6 +346,18 @@ void ApplePS2Mouse::interruptOccurred(UInt8 data)      // PS2InterruptAction
   {
     dispatchRelativePointerEventWithPacket(_packetBuffer, _packetLength);
     _packetByteCount = 0;
+    _mouseResetCount = 0;
+  }
+  else if (_packetByteCount == 2 && _packetBuffer[0] == 0xAA)
+  {
+    //
+    // "0xAA 0x00" 2-byte packet is sent following a mouse hardware reset.
+    // This can happen if the user removed and then inserted the same or a
+    // different mouse to the mouse port. Reset the mouse and hope for the
+    // best. KVM switches should not trigger this when switching stations.
+    //
+
+    scheduleMouseReset();
   }
 }
 
@@ -289,10 +408,17 @@ void ApplePS2Mouse::dispatchRelativePointerEventWithPacket(UInt8 * packet,
     // setMouseSampleRate(200);
     // setMouseSampleRate(80);
     //
+    // Those devices will return 0x04 for the device ID.
+    //
     dz = (SInt16)((SInt8)packet[3]);
     if ( dz )
     {
-      dispatchScrollWheelEvent(dz, 0, 0, now);
+      //
+      // The Z counter is negative on an upwards scroll (away from the user),
+      // and positive when scrolling downwards. Invert this before passing to
+      // HID/CG.
+      //
+      dispatchScrollWheelEvent(-dz, 0, 0, now);
     }
   }
 
@@ -357,6 +483,41 @@ void ApplePS2Mouse::setMouseSampleRate(UInt8 sampleRate)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
+void ApplePS2Mouse::setMouseResolution(UInt8 resolution)
+{
+  //
+  // Instructs the mouse to change its resolution given the following
+  // resolution codes:
+  //
+  // 0 =  25 dpi
+  // 1 =  50 dpi
+  // 2 = 100 dpi
+  // 3 = 200 dpi
+  //
+  // It is safe to issue this request from the interrupt/completion context.
+  //
+
+  PS2Request * request = _device->allocateRequest();
+
+  // (set mouse resolution command)
+  request->commands[0].command = kPS2C_WriteCommandPort;
+  request->commands[0].inOrOut = kCP_TransmitToMouse;
+  request->commands[1].command = kPS2C_WriteDataPort;
+  request->commands[1].inOrOut = kDP_SetMouseResolution;
+  request->commands[2].command = kPS2C_ReadDataPortAndCompare;
+  request->commands[2].inOrOut = kSC_Acknowledge;
+  request->commands[3].command = kPS2C_WriteCommandPort;
+  request->commands[3].inOrOut = kCP_TransmitToMouse;
+  request->commands[4].command = kPS2C_WriteDataPort;
+  request->commands[4].inOrOut = resolution;
+  request->commands[5].command = kPS2C_ReadDataPortAndCompare;
+  request->commands[5].inOrOut = kSC_Acknowledge;
+  request->commandsCount = 6;
+  _device->submitRequest(request); // asynchronous, auto-free'd
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 bool ApplePS2Mouse::setIntellimouseMode()
 {
   //
@@ -367,17 +528,7 @@ bool ApplePS2Mouse::setIntellimouseMode()
   // Do NOT issue this request from the interrupt/completion context.
   //
 
-  UInt32 mouseInfo;
-  bool   isIntellimouse;
-
-  //
-  // Obtain the current sample rate, in order that we may restore it after
-  // the Intellimouse command sequence completes.
-  //
-
-  mouseInfo = getMouseInformation();
-
-  if (mouseInfo == (UInt32)(-1))  return false;
+  bool isIntellimouse;
 
   //
   // Generate the special command sequence to enable the 'Intellimouse' mode.
@@ -391,6 +542,12 @@ bool ApplePS2Mouse::setIntellimouseMode()
   setMouseSampleRate(80 );
 
   //
+  // Pause before sending the next command after switching mouse mode.
+  //
+
+  IOSleep(50);
+
+  //
   // Determine whether we have an Intellimouse by asking for the mouse's ID.
   //
 
@@ -400,7 +557,7 @@ bool ApplePS2Mouse::setIntellimouseMode()
   // Restore the original sampling rate, before we obliterated it.
   //
 
-  setMouseSampleRate(mouseInfo & 0x0000FF);
+  setMouseSampleRate(_mouseInfoBytes & 0x0000FF);
 
   return isIntellimouse;
 }

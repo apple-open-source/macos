@@ -1,0 +1,58 @@
+<html>
+
+	<head>
+		<meta http-equiv="content-type" content="text/html;charset=iso-8859-1">
+		<title>Mac OS X Kerberos Extras Installer Requirements &amp; Tips</title>
+	</head>
+
+	<body bgcolor="white">
+		<center>
+			
+  <h1>Mac OS X Kerberos Extras Installer Customization Requirements &amp; 
+    Tips </h1>
+</center>
+		
+<h2>Overview</h2>
+		
+<p>In general, you may modify the Mac OS X Kerberos Extras Installer source 
+  to suit the needs of your site. The binaries are provided in the layout the installer expects;
+  all you need to do is replace the edu.mit.Kerberos file (and possibly the Read Me file) and
+  rebuild the installer!  However, there are a few elements which all 
+  installers must contain, and we have a few tips on customizing.</p>
+		
+<h2>Requirements</h2>
+<ul>
+  <li>Your installer must display the &quot;Kerberos License&quot; file on startup 
+    (this file is included with the distribution).
+  <li>You should not change the install locations of Kerberos for Macintosh files, 
+    simply because Kerberos for Macintosh will probably stop working if the 
+    files are installed in different locations.
+  <li>The MIT KfM OS X Extras Read Me is provided as a guideline for creating your own 
+    read me. If you use a modified form of the Read Me, be sure to remove all 
+    references to MIT support addresses - MIT's HelpDesk does 
+    not provide support for Kerberos users outside of the MIT community.</li>
+</ul>
+<h2>Tips</h2>
+<ul>
+  <li>Don't forget to update the <CODE>edu.mit.Kerberos</CODE> 
+    file with appropriate realm configuration for your site before building the 
+    installer! For details about how to do this, see the <a href="../../Documentation/preferences-osx.html">Kerberos 
+    Preferences on Mac OS X Documentation</a>.</li>
+  <li>Place your edited <CODE>edu.mit.Kerberos</CODE> file in <CODE>BinariesForInstaller</CODE> , replacing
+    the MIT one that is provided as an example.
+</ul>
+<!-- #include "footer.html" -->
+<HR> 
+<P> 
+	<FONT SIZE="+1"> <B> 
+		Questions or comments? Send mail to <A HREF="mailto:macdev@mit.edu">macdev@mit.edu</A> 
+	</B> </FONT> <BR>
+	Last updated on $Date: 2003/08/22 18:18:33 $ <BR> 
+	Last modified by $Author: smcguire $<BR>
+
+</P>
+<!-- Begin MIT-use only web reporting counter -->
+	<IMG SRC="//counter.mit.edu/tally" WIDTH=1 HEIGHT=1 ALT="">
+<!-- End MIT-use only web reporting counter -->
+</BODY> </HTML>
+<!-- end include -->

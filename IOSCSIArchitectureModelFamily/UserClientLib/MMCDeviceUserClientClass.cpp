@@ -37,7 +37,10 @@
 #include <IOKit/IOKitLib.h>
 
 // IOSCSIArchitectureModelFamily includes
-#include <IOKit/scsi-commands/SCSICmds_INQUIRY_Definitions.h>
+#include <IOKit/scsi/SCSICmds_INQUIRY_Definitions.h>
+
+// Authorization includes
+#include <Security/Authorization.h>
 
 // Private includes
 #include "MMCDeviceUserClientClass.h"
@@ -75,6 +78,16 @@ extern "C" {
 
 #include "IOSCSIArchitectureModelFamilyDebugging.h"
 
+#define CHECK_AUTHORIZATION_RIGHTS 1
+
+#if CHECK_AUTHORIZATION_RIGHTS
+
+#define kSystemWideBurnAuthorizationRight		"system.burn"
+#define kBurningAuthorizationFlags				kAuthorizationFlagDefaults | \
+												kAuthorizationFlagInteractionAllowed | \
+												kAuthorizationFlagExtendRights | \
+												kAuthorizationFlagDestroyRights
+#endif /* CHECK_AUTHORIZATION_RIGHTS */
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Static variable initialization
@@ -115,7 +128,9 @@ MMCDeviceUserClientClass::sMMCDeviceInterface =
 	&MMCDeviceUserClientClass::sReadTrackInformation,
 	&MMCDeviceUserClientClass::sReadDVDStructure,
 	&MMCDeviceUserClientClass::sGetSCSITaskDeviceInterface,
-	&MMCDeviceUserClientClass::sGetPerformanceV2
+	&MMCDeviceUserClientClass::sGetPerformanceV2,
+	&MMCDeviceUserClientClass::sSetCDSpeed,
+	&MMCDeviceUserClientClass::sReadFormatCapacities
 };
 
 
@@ -365,27 +380,46 @@ MMCDeviceUserClientClass::Start (	CFDictionaryRef 	propertyTable,
 									io_service_t 		service )
 {
 	
-	IOReturn 	status = kIOReturnNoDevice;
+	IOReturn 				result	= kIOReturnNoDevice;
+	
+#if CHECK_AUTHORIZATION_RIGHTS
+	
+	OSStatus				status	= noErr;
+	AuthorizationItem		item	= { 0 };
+	AuthorizationItemSet	itemSet = { 0 };
 	
 	PRINT ( ( "SCSITaskDeviceClass : Start\n" ) );
 	
+	item.name		= kSystemWideBurnAuthorizationRight;
+	itemSet.count	= 1;
+	itemSet.items	= &item;
+	
+	status = AuthorizationCreate ( &itemSet,
+								   kAuthorizationEmptyEnvironment,
+								   kBurningAuthorizationFlags,
+								   NULL );
+	
+	require_noerr_action ( status, Error_Exit, result = kIOReturnNotPermitted );
+	
+#endif /* CHECK_AUTHORIZATION_RIGHTS */
+	
 	fService = service;
-	status = IOServiceOpen ( fService,
+	result = IOServiceOpen ( fService,
 							 mach_task_self ( ),
 							 kSCSITaskLibConnection,
 							 &fConnection );
 	
-	require_success ( status, Error_Exit );
-	require_nonzero_action ( fConnection, Error_Exit, status = kIOReturnNoDevice );
+	require_success ( result, Error_Exit );
+	require_nonzero_action ( fConnection, Error_Exit, result = kIOReturnNoDevice );
 	
 	
 Error_Exit:
 	
 	
-	PRINT ( ( "MMC : IOServiceOpen status = 0x%08lx, connection = %d\n",
-			( UInt32 ) status, fConnection ) );
-
-	return status;
+	PRINT ( ( "MMC : IOServiceOpen result = 0x%08lx, connection = %d\n",
+			( UInt32 ) result, fConnection ) );
+	
+	return result;
 	
 }
 
@@ -1007,6 +1041,89 @@ MMCDeviceUserClientClass::ReadDVDStructure (
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ SetCDSpeed - Called to set the new CD read/write speeds.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+MMCDeviceUserClientClass::SetCDSpeed ( SCSICmdField2Byte	LOGICAL_UNIT_READ_SPEED,
+									   SCSICmdField2Byte	LOGICAL_UNIT_WRITE_SPEED,
+									   SCSITaskStatus *		taskStatus,
+									   SCSI_Sense_Data *	senseDataBuffer )
+{
+	
+	IOReturn						status				= kIOReturnBadArgument;
+	AppleSetCDSpeedStruct		 	setCDSpeedData		= { 0 };
+	IOByteCount						byteCount			= 0;
+	
+	
+	PRINT ( ( "MMC::SetCDSpeed called\n" ) );
+	
+	check ( taskStatus );
+	check ( senseDataBuffer );
+	
+	setCDSpeedData.LOGICAL_UNIT_READ_SPEED	= LOGICAL_UNIT_READ_SPEED;
+	setCDSpeedData.LOGICAL_UNIT_WRITE_SPEED	= LOGICAL_UNIT_WRITE_SPEED;
+	setCDSpeedData.senseDataBuffer			= senseDataBuffer;
+	byteCount 								= sizeof ( SCSITaskStatus );
+	
+	status = IOConnectMethodStructureIStructureO ( 	fConnection, 	
+													kMMCDeviceSetCDSpeed, 
+													sizeof ( setCDSpeedData ),
+													&byteCount,
+													( void * ) &setCDSpeedData,
+													( void * ) taskStatus );
+
+	PRINT ( ( "MMC::SetCDSpeed status = 0x%x\n", status) );
+	
+	return status;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ ReadFormatCapacities - Called to issue a READ_FORMAT_CAPACITIES command
+//							 to the drive.
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+MMCDeviceUserClientClass::ReadFormatCapacities ( void *					buffer,
+												 SCSICmdField2Byte		bufferSize,
+												 SCSITaskStatus *		taskStatus,
+												 SCSI_Sense_Data *		senseDataBuffer )
+{
+	
+	IOReturn							status						= kIOReturnBadArgument;
+	AppleReadFormatCapacitiesStruct		readFormatCapacitiesData	= { 0 };
+	IOByteCount							byteCount					= 0;
+	
+	PRINT ( ( "MMC::ReadFormatCapacities called\n" ) );
+	
+	check ( buffer );
+	check ( taskStatus );
+	check ( senseDataBuffer );
+	
+	readFormatCapacitiesData.buffer				= buffer;
+	readFormatCapacitiesData.bufferSize			= bufferSize;
+	readFormatCapacitiesData.senseDataBuffer	= senseDataBuffer;
+	byteCount 									= sizeof ( SCSITaskStatus );
+	
+	status = IOConnectMethodStructureIStructureO ( 	fConnection, 	
+													kMMCDeviceReadFormatCapacities, 
+													sizeof ( readFormatCapacitiesData ),
+													&byteCount,
+													( void * ) &readFormatCapacitiesData,
+													( void * ) taskStatus );
+
+	PRINT ( ( "MMC::ReadFormatCapacities status = 0x%x\n", status) );
+	
+	return status;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	¥ GetSCSITaskDeviceInterface -	Called to obtain a handle to the
 //									SCSITaskDeviceInterface.
 //																	[PROTECTED]
@@ -1426,6 +1543,60 @@ MMCDeviceUserClientClass::sReadDVDStructure (
 												bufferSize,
 												taskStatus,
 												senseDataBuffer );
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ sSetCDSpeed - Static function for C->C++ glue
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+MMCDeviceUserClientClass::sSetCDSpeed ( void *				self,
+										SCSICmdField2Byte	LOGICAL_UNIT_READ_SPEED,
+										SCSICmdField2Byte	LOGICAL_UNIT_WRITE_SPEED,
+										SCSITaskStatus *	taskStatus,
+										SCSI_Sense_Data *	senseDataBuffer )
+{
+	
+	IOReturn	status;
+	
+	
+	check ( self );
+	status = getThis ( self )->SetCDSpeed ( LOGICAL_UNIT_READ_SPEED,
+											LOGICAL_UNIT_WRITE_SPEED,
+											taskStatus,
+											senseDataBuffer );
+	
+	return status;
+	
+}
+
+
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	¥ sReadFormatCapacities - Static function for C->C++ glue
+//																	[PROTECTED]
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+
+IOReturn
+MMCDeviceUserClientClass::sReadFormatCapacities ( void *					self,
+												  void *					buffer,
+												  SCSICmdField2Byte			bufferSize,
+												  SCSITaskStatus *			taskStatus,
+												  SCSI_Sense_Data *			senseDataBuffer )
+{
+	
+	IOReturn	status;
+	
+	
+	check ( self );
+	status = getThis ( self )->ReadFormatCapacities ( buffer,
+													  bufferSize,
+													  taskStatus,
+													  senseDataBuffer );
+	
+	return status;
 	
 }
 

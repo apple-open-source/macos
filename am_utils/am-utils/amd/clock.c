@@ -37,7 +37,7 @@
  * SUCH DAMAGE.
  *
  *
- * $Id: clock.c,v 1.1.1.1 2002/05/15 01:21:54 jkh Exp $
+ * $Id: clock.c,v 1.1.1.2 2002/07/15 19:42:37 zarzycki Exp $
  *
  */
 
@@ -58,7 +58,6 @@
 #include <am_defs.h>
 #include <amd.h>
 
-int timeout(u_int secs, void (*fn) (voidp), voidp closure);
 void reschedule_timeouts(time_t now, time_t then);
 
 typedef struct callout callout;

@@ -1,8 +1,8 @@
 /*
    +----------------------------------------------------------------------+
-   | PHP version 4.0                                                      |
+   | PHP Version 4                                                        |
    +----------------------------------------------------------------------+
-   | Copyright (c) 1997-2001 The PHP Group                                |
+   | Copyright (c) 1997-2003 The PHP Group                                |
    +----------------------------------------------------------------------+
    | This source file is subject to version 2.02 of the PHP license,      |
    | that is bundled with this package in the file LICENSE, and is        |
@@ -17,7 +17,7 @@
    +----------------------------------------------------------------------+
 */
 
-/* $Id: php_pfpro.h,v 1.1.1.3 2001/12/14 22:13:02 zarzycki Exp $ */
+/* $Id: php_pfpro.h,v 1.1.1.6 2003/07/18 18:07:40 zarzycki Exp $ */
 
 #ifndef PHP_PFPRO_H
 #define PHP_PFPRO_H
@@ -51,20 +51,19 @@ PHP_FUNCTION(pfpro_cleanup);            /* Shut down cleanly          */
 PHP_FUNCTION(pfpro_process_raw);        /* Raw transaction processing */
 PHP_FUNCTION(pfpro_process);            /* Transaction processing     */
 
-typedef struct {
-	int le_pfpro;
+ZEND_BEGIN_MODULE_GLOBALS(pfpro)
 	int initialized;
 	char *defaulthost;
-	int defaultport;
-	int defaulttimeout;
+	long defaultport;
+	long defaulttimeout;
 	char *proxyaddress;
-	int proxyport;
+	long proxyport;
 	char *proxylogon;
 	char *proxypassword;
-} php_pfpro_globals;
+ZEND_END_MODULE_GLOBALS(pfpro)
 
 #ifdef ZTS
-#define PFPROG(v) TSRMG(pfpro_globals_id, php_pfpro_globals *, v)
+#define PFPROG(v) TSRMG(pfpro_globals_id, zend_pfpro_globals *, v)
 #else
 #define PFPROG(v) (pfpro_globals.v)
 #endif

@@ -71,6 +71,22 @@ protected:
 		kFastStartKey				= 0x3E
     };
 
+    typedef struct
+    {
+		UInt32 cmdSpecID; 
+		UInt32 cmdSet;
+		UInt32 vendorID;
+		UInt32 softwareRev;
+		UInt32 firmwareRev; 
+		UInt32 lun;
+		UInt32 devType;
+		UInt32 unitCharacteristics;
+		UInt32 managementOffset;
+		UInt32 revision;
+		bool fastStartSupported;
+		UInt32 fastStart;
+    } LUNInfo;
+	
     // reserved for future use
     struct ExpansionData { };
     ExpansionData *reserved; 
@@ -96,17 +112,7 @@ protected:
 								void * argument = 0);
     
     virtual void scanForLUNs( void );
-    IOReturn IOFireWireSBP2Target::createLUN( 	UInt32 cmdSpecID, 
-												UInt32 cmdSet, 
-												UInt32 vendorID, 
-												UInt32 softwareRev,
-												UInt32 firmwareRev, 
-												UInt32 lun, 
-												UInt32 devType,
-												UInt32 unitCharacteristics,
-												UInt32 managementOffset,
-												bool fastStartSupported,
-												UInt32 fastStart );
+    IOReturn createLUN( LUNInfo * info );
 
 public:
 

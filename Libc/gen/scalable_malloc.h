@@ -23,7 +23,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#import <objc/malloc.h>
+#import <malloc/malloc.h>
 
 #define SCALABLE_MALLOC_ADD_GUARD_PAGES		(1 << 0)
     // add a guard page before and after each VM region to help debug
@@ -39,12 +39,9 @@ extern malloc_zone_t *create_scalable_zone(size_t initial_size, unsigned debug_f
 
 /*****	Private API for debug and performance tools	********/
 
-#define scalable_zone_info_count	9	// maximum number of numbers
-
-extern void scalable_zone_info(malloc_zone_t *zone, unsigned *info, unsigned count);
-    /* Fills info[] with some statistical information:
-    info[0]: number of objects in use
-    info[1]: number of bytes in use
-    ...
+extern boolean_t scalable_zone_statistics(malloc_zone_t *zone, malloc_statistics_t *stats, unsigned subzone);
+    /* Fills stats with some statistics;
+    1 is returned on success; else 0 is returned
+    Currently: subzone=0 => tiny; subzone=1 => small; subzone=2 => large; subzone=3 => huge; any other subzone => returns 0 
     */
 

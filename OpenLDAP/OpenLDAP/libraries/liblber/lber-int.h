@@ -1,6 +1,6 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblber/lber-int.h,v 1.58 2002/01/13 02:00:45 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblber/lber-int.h,v 1.58.2.2 2003/03/03 17:10:04 kurt Exp $ */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /* Portions
@@ -38,16 +38,20 @@ struct lber_options {
 };
 
 #ifdef NEW_LOGGING
+/*
 #    ifdef LDAP_DEBUG
 #        ifdef LDAP_LOG
 #            undef LDAP_LOG
 #        endif
 #        define LDAP_LOG(a) ber_pvt_log_output a
+ */
 #        define BER_DUMP(a) ber_output_dump a
+/*
 #    else
 #        define LDAP_LOG(a)
 #        define BER_DUMP(a)
 #    endif
+ */
 #endif
 
 LBER_F( int ) ber_pvt_log_output(

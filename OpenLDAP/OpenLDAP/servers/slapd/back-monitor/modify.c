@@ -1,6 +1,6 @@
 /* modify.c - monitor backend modify routine */
 /*
- * Copyright 1998-2002 The OpenLDAP Foundation, All Rights Reserved.
+ * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
  * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
  */
 /*
@@ -58,8 +58,8 @@ monitor_back_modify(
 	Entry		*e;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(( "backend", LDAP_LEVEL_ENTRY,
-		"monitor_back_modify: enter\n" ));
+	LDAP_LOG( BACK_MON, ENTRY,
+		"monitor_back_modify: enter\n", 0, 0, 0 );
 #else
 	Debug(LDAP_DEBUG_ARGS, "monitor_back_modify:\n", 0, 0, 0);
 #endif

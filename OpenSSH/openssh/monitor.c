@@ -25,7 +25,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: monitor.c,v 1.18 2002/06/26 13:20:57 deraadt Exp $");
+RCSID("$OpenBSD: monitor.c,v 1.36 2003/04/01 10:22:21 markus Exp $");
 
 #include <openssl/dh.h>
 
@@ -34,10 +34,10 @@ RCSID("$OpenBSD: monitor.c,v 1.18 2002/06/26 13:20:57 deraadt Exp $");
 #endif
 
 #include "ssh.h"
-#include "auth.h"
 #include "kex.h"
 #include "dh.h"
 #include "zlib.h"
+#include "auth.h"
 #include "packet.h"
 #include "auth-options.h"
 #include "sshpty.h"
@@ -58,6 +58,11 @@ RCSID("$OpenBSD: monitor.c,v 1.18 2002/06/26 13:20:57 deraadt Exp $");
 #include "compat.h"
 #include "ssh2.h"
 #include "mpaux.h"
+
+#ifdef GSSAPI
+#include "ssh-gss.h"
+static Gssctxt *gsscontext = NULL;
+#endif
 
 /* Imports */
 extern ServerOptions options;
@@ -120,6 +125,23 @@ int mm_answer_sessid(int, Buffer *);
 int mm_answer_pam_start(int, Buffer *);
 #endif
 
+#ifdef KRB4
+int mm_answer_krb4(int, Buffer *);
+#endif
+#ifdef KRB5
+int mm_answer_krb5(int, Buffer *);
+#endif
+
+#ifdef GSSAPI
+int mm_answer_gss_setup_ctx(int, Buffer *);
+int mm_answer_gss_accept_ctx(int, Buffer *);
+int mm_answer_gss_userok(int, Buffer *);
+int mm_answer_gss_sign(int, Buffer *);
+int mm_answer_gss_error(int, Buffer *);
+int mm_answer_gss_indicate_mechs(int, Buffer *);
+int mm_answer_gss_localname(int, Buffer *);
+#endif
+
 static Authctxt *authctxt;
 static BIGNUM *ssh1_challenge = NULL;	/* used for ssh1 rsa auth */
 
@@ -127,8 +149,8 @@ static BIGNUM *ssh1_challenge = NULL;	/* used for ssh1 rsa auth */
 static u_char *key_blob = NULL;
 static u_int key_bloblen = 0;
 static int key_blobtype = MM_NOKEY;
-static u_char *hostbased_cuser = NULL;
-static u_char *hostbased_chost = NULL;
+static char *hostbased_cuser = NULL;
+static char *hostbased_chost = NULL;
 static char *auth_method = "unknown";
 static int session_id2_len = 0;
 static u_char *session_id2 = NULL;
@@ -165,12 +187,31 @@ struct mon_table mon_dispatch_proto20[] = {
     {MONITOR_REQ_SKEYQUERY, MON_ISAUTH, mm_answer_skeyquery},
     {MONITOR_REQ_SKEYRESPOND, MON_AUTH, mm_answer_skeyrespond},
 #endif
+#ifdef GSSAPI
+    {MONITOR_REQ_GSSSETUP, MON_ISAUTH, mm_answer_gss_setup_ctx},
+    {MONITOR_REQ_GSSSTEP, MON_ISAUTH, mm_answer_gss_accept_ctx},
+    {MONITOR_REQ_GSSSIGN, MON_ONCE, mm_answer_gss_sign},
+    {MONITOR_REQ_GSSERR, MON_ISAUTH | MON_ONCE, mm_answer_gss_error},
+    {MONITOR_REQ_GSSMECHS, MON_ISAUTH, mm_answer_gss_indicate_mechs},
+    {MONITOR_REQ_GSSUSEROK, MON_AUTH, mm_answer_gss_userok},
+/* Turn this off until we use it */
+#if 0
+    {MONITOR_REQ_GSSLOCALNAME, MON_ISAUTH, mm_answer_gss_localname},
+#endif
+#endif
     {MONITOR_REQ_KEYALLOWED, MON_ISAUTH, mm_answer_keyallowed},
     {MONITOR_REQ_KEYVERIFY, MON_AUTH, mm_answer_keyverify},
     {0, 0, NULL}
 };
 
 struct mon_table mon_dispatch_postauth20[] = {
+#ifdef GSSAPI
+    {MONITOR_REQ_GSSSETUP, 0, mm_answer_gss_setup_ctx},
+    {MONITOR_REQ_GSSSTEP, 0, mm_answer_gss_accept_ctx},
+    {MONITOR_REQ_GSSSIGN, 0, mm_answer_gss_sign},
+    {MONITOR_REQ_GSSERR, 0, mm_answer_gss_error},
+    {MONITOR_REQ_GSSMECHS, 0, mm_answer_gss_indicate_mechs},
+#endif
     {MONITOR_REQ_MODULI, 0, mm_answer_moduli},
     {MONITOR_REQ_SIGN, 0, mm_answer_sign},
     {MONITOR_REQ_PTY, 0, mm_answer_pty},
@@ -198,6 +239,12 @@ struct mon_table mon_dispatch_proto15[] = {
 #endif
 #ifdef USE_PAM
     {MONITOR_REQ_PAM_START, MON_ONCE, mm_answer_pam_start},
+#endif
+#ifdef KRB4
+    {MONITOR_REQ_KRB4, MON_ONCE|MON_AUTH, mm_answer_krb4},
+#endif
+#ifdef KRB5
+    {MONITOR_REQ_KRB5, MON_ONCE|MON_AUTH, mm_answer_krb5},
 #endif
     {0, 0, NULL}
 };
@@ -254,6 +301,12 @@ monitor_child_preauth(struct monitor *pmonitor)
 		/* Permit requests for moduli and signatures */
 		monitor_permit(mon_dispatch, MONITOR_REQ_MODULI, 1);
 		monitor_permit(mon_dispatch, MONITOR_REQ_SIGN, 1);
+#ifdef GSSAPI		
+		/* and for the GSSAPI key exchange */
+		monitor_permit(mon_dispatch, MONITOR_REQ_GSSSETUP, 1);
+		monitor_permit(mon_dispatch, MONITOR_REQ_GSSERR, 1);
+		monitor_permit(mon_dispatch, MONITOR_REQ_GSSMECHS, 1);
+#endif
 	} else {
 		mon_dispatch = mon_dispatch_proto15;
 
@@ -307,6 +360,13 @@ monitor_child_postauth(struct monitor *pmonitor)
 		monitor_permit(mon_dispatch, MONITOR_REQ_MODULI, 1);
 		monitor_permit(mon_dispatch, MONITOR_REQ_SIGN, 1);
 		monitor_permit(mon_dispatch, MONITOR_REQ_TERM, 1);
+
+#ifdef GSSAPI
+		/* and for the GSSAPI key exchange */
+		monitor_permit(mon_dispatch, MONITOR_REQ_GSSMECHS,1);
+		monitor_permit(mon_dispatch, MONITOR_REQ_GSSSETUP,1);
+		monitor_permit(mon_dispatch, MONITOR_REQ_GSSERR,1);
+#endif
 
 	} else {
 		mon_dispatch = mon_dispatch_postauth15;
@@ -455,7 +515,7 @@ mm_answer_sign(int socket, Buffer *m)
 	p = buffer_get_string(m, &datlen);
 
 	if (datlen != 20)
-		fatal("%s: data length incorrect: %d", __func__, datlen);
+		fatal("%s: data length incorrect: %u", __func__, datlen);
 
 	/* save session id, it will be passed on the first call */
 	if (session_id2_len == 0) {
@@ -469,7 +529,7 @@ mm_answer_sign(int socket, Buffer *m)
 	if (key_sign(key, &signature, &siglen, p, datlen) < 0)
 		fatal("%s: key_sign failed", __func__);
 
-	debug3("%s: signature %p(%d)", __func__, signature, siglen);
+	debug3("%s: signature %p(%u)", __func__, signature, siglen);
 
 	buffer_clear(m);
 	buffer_put_string(m, signature, siglen);
@@ -559,7 +619,7 @@ int mm_answer_auth2_read_banner(int socket, Buffer *m)
 	mm_request_send(socket, MONITOR_ANS_AUTH2_READ_BANNER, m);
 
 	if (banner != NULL)
-		free(banner);
+		xfree(banner);
 
 	return (0);
 }
@@ -587,7 +647,8 @@ mm_answer_authpassword(int socket, Buffer *m)
 {
 	static int call_count;
 	char *passwd;
-	int authenticated, plen;
+	int authenticated;
+	u_int plen;
 
 	passwd = buffer_get_string(m, &plen);
 	/* Only authenticate if the context is valid */
@@ -620,20 +681,20 @@ mm_answer_bsdauthquery(int socket, Buffer *m)
 	u_int numprompts;
 	u_int *echo_on;
 	char **prompts;
-	int res;
+	u_int success;
 
-	res = bsdauth_query(authctxt, &name, &infotxt, &numprompts,
-	    &prompts, &echo_on);
+	success = bsdauth_query(authctxt, &name, &infotxt, &numprompts,
+	    &prompts, &echo_on) < 0 ? 0 : 1;
 
 	buffer_clear(m);
-	buffer_put_int(m, res);
-	if (res != -1)
+	buffer_put_int(m, success);
+	if (success)
 		buffer_put_cstring(m, prompts[0]);
 
-	debug3("%s: sending challenge res: %d", __func__, res);
+	debug3("%s: sending challenge success: %u", __func__, success);
 	mm_request_send(socket, MONITOR_ANS_BSDAUTHQUERY, m);
 
-	if (res != -1) {
+	if (success) {
 		xfree(name);
 		xfree(infotxt);
 		xfree(prompts);
@@ -677,16 +738,16 @@ mm_answer_skeyquery(int socket, Buffer *m)
 {
 	struct skey skey;
 	char challenge[1024];
-	int res;
+	u_int success;
 
-	res = skeychallenge(&skey, authctxt->user, challenge);
+	success = skeychallenge(&skey, authctxt->user, challenge) < 0 ? 0 : 1;
 
 	buffer_clear(m);
-	buffer_put_int(m, res);
-	if (res != -1)
+	buffer_put_int(m, success);
+	if (success)
 		buffer_put_cstring(m, challenge);
 
-	debug3("%s: sending challenge res: %d", __func__, res);
+	debug3("%s: sending challenge success: %u", __func__, success);
 	mm_request_send(socket, MONITOR_ANS_SKEYQUERY, m);
 
 	return (0);
@@ -750,7 +811,8 @@ int
 mm_answer_keyallowed(int socket, Buffer *m)
 {
 	Key *key;
-	u_char *cuser, *chost, *blob;
+	char *cuser, *chost;
+	u_char *blob;
 	u_int bloblen;
 	enum mm_keytype type = 0;
 	int allowed = 0;
@@ -791,8 +853,9 @@ mm_answer_keyallowed(int socket, Buffer *m)
 			fatal("%s: unknown key type %d", __func__, type);
 			break;
 		}
-		key_free(key);
 	}
+	if (key != NULL)
+		key_free(key);
 
 	/* clear temporarily storage (used by verify) */
 	monitor_reset_key_state();
@@ -811,6 +874,7 @@ mm_answer_keyallowed(int socket, Buffer *m)
 
 	buffer_clear(m);
 	buffer_put_int(m, allowed);
+	buffer_put_int(m, forced_command != NULL);
 
 	mm_append_debug(m);
 
@@ -826,7 +890,7 @@ static int
 monitor_valid_userblob(u_char *data, u_int datalen)
 {
 	Buffer b;
-	u_char *p;
+	char *p;
 	u_int len;
 	int fail = 0;
 
@@ -879,11 +943,11 @@ monitor_valid_userblob(u_char *data, u_int datalen)
 }
 
 static int
-monitor_valid_hostbasedblob(u_char *data, u_int datalen, u_char *cuser,
-    u_char *chost)
+monitor_valid_hostbasedblob(u_char *data, u_int datalen, char *cuser,
+    char *chost)
 {
 	Buffer b;
-	u_char *p;
+	char *p;
 	u_int len;
 	int fail = 0;
 
@@ -1001,8 +1065,8 @@ mm_record_login(Session *s, struct passwd *pw)
 	 * the address be 0.0.0.0.
 	 */
 	memset(&from, 0, sizeof(from));
+	fromlen = sizeof(from);
 	if (packet_connection_is_on_socket()) {
-		fromlen = sizeof(from);
 		if (getpeername(packet_get_connection_in(),
 			(struct sockaddr *) & from, &fromlen) < 0) {
 			debug("getpeername: %.100s", strerror(errno));
@@ -1012,7 +1076,7 @@ mm_record_login(Session *s, struct passwd *pw)
 	/* Record that there was a login on that tty from the remote host. */
 	record_login(s->pid, s->tty, pw->pw_name, pw->pw_uid,
 	    get_remote_name_or_ip(utmp_len, options.verify_reverse_mapping),
-	    (struct sockaddr *)&from);
+	    (struct sockaddr *)&from, fromlen);
 }
 
 static void
@@ -1173,6 +1237,7 @@ mm_answer_rsa_keyallowed(int socket, Buffer *m)
 	}
 	buffer_clear(m);
 	buffer_put_int(m, allowed);
+	buffer_put_int(m, forced_command != NULL);
 
 	/* clear temporarily storage (used by generate challenge) */
 	monitor_reset_key_state();
@@ -1187,8 +1252,9 @@ mm_answer_rsa_keyallowed(int socket, Buffer *m)
 		key_blob = blob;
 		key_bloblen = blen;
 		key_blobtype = MM_RSAUSERKEY;
-		key_free(key);
 	}
+	if (key != NULL)
+		key_free(key);
 
 	mm_append_debug(m);
 
@@ -1229,6 +1295,9 @@ mm_answer_rsa_challenge(int socket, Buffer *m)
 	mm_request_send(socket, MONITOR_ANS_RSACHALLENGE, m);
 
 	monitor_permit(mon_dispatch, MONITOR_REQ_RSARESPONSE, 1);
+
+	xfree(blob);
+	key_free(key);
 	return (0);
 }
 
@@ -1259,6 +1328,7 @@ mm_answer_rsa_response(int socket, Buffer *m)
 		fatal("%s: received bad response to challenge", __func__);
 	success = auth_rsa_verify_response(key, ssh1_challenge, response);
 
+	xfree(blob);
 	key_free(key);
 	xfree(response);
 
@@ -1275,6 +1345,89 @@ mm_answer_rsa_response(int socket, Buffer *m)
 
 	return (success);
 }
+
+#ifdef KRB4
+int
+mm_answer_krb4(int socket, Buffer *m)
+{
+	KTEXT_ST auth, reply;
+	char  *client, *p;
+	int success;
+	u_int alen;
+
+	reply.length = auth.length = 0;
+ 
+	p = buffer_get_string(m, &alen);
+	if (alen >=  MAX_KTXT_LEN)
+		 fatal("%s: auth too large", __func__);
+	memcpy(auth.dat, p, alen);
+	auth.length = alen;
+	memset(p, 0, alen);
+	xfree(p);
+
+	success = options.kerberos_authentication &&
+	    authctxt->valid &&
+	    auth_krb4(authctxt, &auth, &client, &reply);
+
+	memset(auth.dat, 0, alen);
+	buffer_clear(m);
+	buffer_put_int(m, success);
+
+	if (success) {
+		buffer_put_cstring(m, client);
+		buffer_put_string(m, reply.dat, reply.length);
+		if (client)
+			xfree(client);
+		if (reply.length)
+			memset(reply.dat, 0, reply.length);
+	}
+
+	debug3("%s: sending result %d", __func__, success);
+	mm_request_send(socket, MONITOR_ANS_KRB4, m);
+
+	auth_method = "kerberos";
+
+	/* Causes monitor loop to terminate if authenticated */
+	return (success);
+}
+#endif
+
+#ifdef KRB5
+int
+mm_answer_krb5(int socket, Buffer *m)
+{
+	krb5_data tkt, reply;
+	char *client_user;
+	u_int len;
+	int success;
+
+	/* use temporary var to avoid size issues on 64bit arch */
+	tkt.data = buffer_get_string(m, &len);
+	tkt.length = len;
+
+	success = options.kerberos_authentication &&
+	    authctxt->valid &&
+	    auth_krb5(authctxt, &tkt, &client_user, &reply);
+
+	if (tkt.length)
+		xfree(tkt.data);
+
+	buffer_clear(m);
+	buffer_put_int(m, success);
+
+	if (success) {
+		buffer_put_cstring(m, client_user);
+		buffer_put_string(m, reply.data, reply.length);
+		if (client_user)
+			xfree(client_user);
+		if (reply.length)
+			xfree(reply.data);
+	}
+	mm_request_send(socket, MONITOR_ANS_KRB5, m);
+
+	return success;
+}
+#endif
 
 int
 mm_answer_term(int socket, Buffer *req)
@@ -1360,6 +1513,11 @@ mm_get_kex(Buffer *m)
 	    (memcmp(kex->session_id, session_id2, session_id2_len) != 0))
 		fatal("mm_get_get: internal error: bad session id");
 	kex->we_need = buffer_get_int(m);
+	kex->kex[KEX_DH_GRP1_SHA1] = kexdh_server;
+	kex->kex[KEX_DH_GEX_SHA1] = kexgex_server;
+#ifdef GSSAPI
+	kex->kex[KEX_GSS_GRP1_SHA1] =kexgss_server;
+#endif
 	kex->server = 1;
 	kex->hostkey_type = buffer_get_int(m);
 	kex->kex_type = buffer_get_int(m);
@@ -1453,10 +1611,10 @@ mm_get_keystate(struct monitor *pmonitor)
 void *
 mm_zalloc(struct mm_master *mm, u_int ncount, u_int size)
 {
-	int len = size * ncount;
+	size_t len = (size_t) size * ncount;
 	void *address;
 
-	if (len <= 0)
+	if (len == 0 || ncount > SIZE_T_MAX / size)
 		fatal("%s: mm_zalloc(%u, %u)", __func__, ncount, size);
 
 	address = mm_malloc(mm, len);
@@ -1540,3 +1698,170 @@ monitor_reinit(struct monitor *mon)
 	mon->m_recvfd = pair[0];
 	mon->m_sendfd = pair[1];
 }
+
+#ifdef GSSAPI
+
+int
+mm_answer_gss_setup_ctx(int socket, Buffer *m) {
+        gss_OID_desc oid;
+        OM_uint32 major;
+	u_int len;
+
+        oid.elements=buffer_get_string(m,&len);
+	oid.length=len;
+                
+        major=ssh_gssapi_server_ctx(&gsscontext,&oid);
+
+        xfree(oid.elements);
+
+        buffer_clear(m);
+        buffer_put_int(m,major);
+
+        mm_request_send(socket,MONITOR_ANS_GSSSETUP,m);
+
+	/* Now we have a context, enable the step and sign */
+	monitor_permit(mon_dispatch, MONITOR_REQ_GSSSTEP,1);
+
+        return(0);
+}
+
+int
+mm_answer_gss_accept_ctx(int socket, Buffer *m) {
+        gss_buffer_desc in,out;
+        OM_uint32 major,minor;
+        OM_uint32 flags = 0; /* GSI needs this */
+
+        in.value = buffer_get_string(m,&in.length);
+        major=ssh_gssapi_accept_ctx(gsscontext,&in,&out,&flags);
+        xfree(in.value);
+
+        buffer_clear(m);
+        buffer_put_int(m, major);
+        buffer_put_string(m, out.value, out.length);
+        buffer_put_int(m, flags);
+        mm_request_send(socket,MONITOR_ANS_GSSSTEP,m);
+
+        gss_release_buffer(&minor, &out);
+
+	/* Complete - now we can do signing */
+	if (major==GSS_S_COMPLETE) {
+		monitor_permit(mon_dispatch, MONITOR_REQ_GSSSTEP,0);
+		monitor_permit(mon_dispatch, MONITOR_REQ_GSSSIGN,1);		
+	}
+        return(0);
+}
+
+int
+mm_answer_gss_userok(int socket, Buffer *m) {
+	int authenticated;
+
+        authenticated = authctxt->valid && ssh_gssapi_userok(authctxt->user);
+
+        buffer_clear(m);
+        buffer_put_int(m, authenticated);
+
+        debug3("%s: sending result %d", __func__, authenticated);
+        mm_request_send(socket, MONITOR_ANS_GSSUSEROK, m);
+
+	/* XXX - auth method could also be 'external' */
+	auth_method="gssapi";
+	
+        /* Monitor loop will terminate if authenticated */
+        return(authenticated);
+}
+
+int
+mm_answer_gss_sign(int socket, Buffer *m) {
+        gss_buffer_desc data,hash;
+        OM_uint32 major,minor;
+
+        data.value = buffer_get_string(m,&data.length);
+        if (data.length != 20)
+                fatal("%s: data length incorrect: %d", __func__, data.length);
+
+        /* Save the session ID - only first time round */
+        if (session_id2_len == 0) {
+                session_id2_len=data.length;
+                session_id2 = xmalloc(session_id2_len);
+                memcpy(session_id2, data.value, session_id2_len);
+        }
+        major=ssh_gssapi_sign(gsscontext, &data, &hash);
+
+        xfree(data.value);
+
+        buffer_clear(m);
+        buffer_put_int(m, major);
+        buffer_put_string(m, hash.value, hash.length);
+
+        mm_request_send(socket,MONITOR_ANS_GSSSIGN,m);
+
+        gss_release_buffer(&minor,&hash);
+
+	/* Turn on permissions for getpwnam */
+	monitor_permit(mon_dispatch, MONITOR_REQ_PWNAM, 1);
+	
+        return(0);
+}
+
+int
+mm_answer_gss_error(int socket, Buffer *m) {
+        OM_uint32 major,minor;
+        char *msg;
+
+	msg=ssh_gssapi_last_error(gsscontext,&major,&minor);
+	buffer_clear(m);
+	buffer_put_int(m,major);
+	buffer_put_int(m,minor);
+	buffer_put_cstring(m,msg);
+
+	mm_request_send(socket,MONITOR_ANS_GSSERR,m);
+
+	xfree(msg);
+	
+        return(0);
+}
+
+int
+mm_answer_gss_indicate_mechs(int socket, Buffer *m) {
+        OM_uint32 major,minor;
+	gss_OID_set mech_set;
+	int i;
+
+	major=gss_indicate_mechs(&minor, &mech_set);
+
+	buffer_clear(m);
+	buffer_put_int(m, major);
+	buffer_put_int(m, mech_set->count);
+	for (i=0; i < mech_set->count; i++) {
+	    buffer_put_string(m, mech_set->elements[i].elements,
+			      mech_set->elements[i].length);
+	}
+
+	gss_release_oid_set(&minor,&mech_set);
+	
+	mm_request_send(socket,MONITOR_ANS_GSSMECHS,m);
+
+	return(0);
+}
+
+int
+mm_answer_gss_localname(int socket, Buffer *m) {
+	char *name;
+
+	ssh_gssapi_localname(&name);
+
+        buffer_clear(m);
+	if (name) {
+	    buffer_put_cstring(m, name);
+	    debug3("%s: sending result %s", __func__, name);
+	    xfree(name);
+	} else {
+	    buffer_put_cstring(m, "");
+	    debug3("%s: sending result \"\"", __func__);
+	}
+
+        mm_request_send(socket, MONITOR_ANS_GSSLOCALNAME, m);
+
+        return(0);
+}
+#endif /* GSSAPI */

@@ -197,6 +197,26 @@ If the buffer is visiting a new file, the value is nil.")
 (defvar buffer-file-numbers-unique (not (memq system-type '(windows-nt)))
   "Non-nil means that buffer-file-number uniquely identifies files.")
 
+(defvar temporary-file-directory
+  (file-name-as-directory
+   (cond ((memq system-type '(ms-dos windows-nt))
+	  (or (getenv "TEMP") (getenv "TMPDIR") (getenv "TMP") "c:/temp"))
+	 ((memq system-type '(vax-vms axp-vms))
+	  (or (getenv "TMPDIR") (getenv "TMP") (getenv "TEMP") "SYS$SCRATCH:"))
+	 (t
+	  (or (getenv "TMPDIR") (getenv "TMP") (getenv "TEMP") "/tmp"))))
+  "The directory for writing temporary files.")
+
+(defvar small-temporary-file-directory
+  (if (eq system-type 'ms-dos) (getenv "TMPDIR"))
+  "The directory for writing small temporary files.
+If non-nil, this directory is used instead of `temporary-file-directory'
+by programs that create small temporary files.  This is for systems that
+have fast storage with limited space, such as a RAM disk.")
+
+;; The system null device. (Should reference NULL_DEVICE from C.)
+(defvar null-device "/dev/null" "The system null device.")
+
 (defvar file-name-invalid-regexp
   (cond ((and (eq system-type 'ms-dos) (not (msdos-long-file-names)))
 	 (concat "^\\([^A-Z[-`a-z]\\|..+\\)?:\\|" ; colon except after drive
@@ -282,7 +302,8 @@ Normally auto-save files are written under other names."
   :group 'auto-save)
 
 (defcustom auto-save-file-name-transforms
-  '(("\\`/[^/]*:\\(.+/\\)*\\(.*\\)" "/tmp/\\2"))
+  `(("\\`/[^/]*:\\(.+/\\)*\\(.*\\)"
+     ,(expand-file-name "\\2" temporary-file-directory)))
   "*Transforms to apply to buffer file name before making auto-save file name.
 Each transform is a list (REGEXP REPLACEMENT):
 REGEXP is a regular expression to match against the file name.
@@ -292,16 +313,18 @@ All the transforms in the list are tried, in the order they are listed.
 When one transform applies, its result is final;
 no further transforms are tried.
 
-The default value is set up to put the auto-save file into `/tmp'
-for editing a remote file."
+The default value is set up to put the auto-save file into the
+temporary directory (see the variable `temporary-file-directory') for
+editing a remote file."
   :group 'auto-save
   :type '(repeat (list (string :tag "Regexp") (string :tag "Replacement")))
   :version "21.1")
 
 (defcustom save-abbrevs nil
   "*Non-nil means save word abbrevs too when files are saved.
+If `silently', don't ask the user before saving.
 Loading an abbrev file sets this to t."
-  :type 'boolean
+  :type '(choice (const t) (const nil) (const silently))
   :group 'abbrev)
 
 (defcustom find-file-run-dired t
@@ -422,26 +445,6 @@ and ignores this variable."
 
 (defvar view-read-only nil
   "*Non-nil means buffers visiting files read-only, do it in view mode.")
-
-(defvar temporary-file-directory
-  (file-name-as-directory
-   (cond ((memq system-type '(ms-dos windows-nt))
-	  (or (getenv "TEMP") (getenv "TMPDIR") (getenv "TMP") "c:/temp"))
-	 ((memq system-type '(vax-vms axp-vms))
-	  (or (getenv "TMPDIR") (getenv "TMP") (getenv "TEMP") "SYS$SCRATCH:"))
-	 (t
-	  (or (getenv "TMPDIR") (getenv "TMP") (getenv "TEMP") "/tmp"))))
-  "The directory for writing temporary files.")
-
-(defvar small-temporary-file-directory
-  (if (eq system-type 'ms-dos) (getenv "TMPDIR"))
-  "The directory for writing small temporary files.
-If non-nil, this directory is used instead of `temporary-file-directory'
-by programs that create small temporary files.  This is for systems that
-have fast storage with limited space, such as a RAM disk.")
-
-;; The system null device. (Should reference NULL_DEVICE from C.)
-(defvar null-device "/dev/null" "The system null device.")
 
 (defun ange-ftp-completion-hook-function (op &rest args)
   "Provides support for ange-ftp host name completion.
@@ -1069,8 +1072,12 @@ that are visiting the various files."
 			 (with-current-buffer buf
 			   (revert-buffer t t)))))
 	      (with-current-buffer buf
-		(when (not (eq (not (null rawfile))
-			       (not (null find-file-literally))))
+		(when (and (not (eq (not (null rawfile))
+				    (not (null find-file-literally))))
+			   ;; It is confusing to ask whether to visit
+			   ;; non-literally if they have the file in
+			   ;; hexl-mode.
+			   (not (eq major-mode 'hexl-mode)))
 		  (if (buffer-modified-p)
 		      (if (y-or-n-p (if rawfile
 					"Save file and revisit literally? "
@@ -2422,7 +2429,7 @@ Uses `backup-directory-alist' in the same way as does
 					-1))
 	    (file-error (setq possibilities nil)))
 	  (if (not deserve-versions-p)
-	      (list (concat basic-name "~"))
+	      (list (make-backup-file-name fn))
 	    (cons (format "%s.~%d~" basic-name (1+ high-water-mark))
 		  (if (and (> number-to-delete 0)
 			   ;; Delete nothing if there is overflow
@@ -2702,7 +2709,9 @@ After saving the buffer, this function runs `after-save-hook'."
 	      ;; delete the temp file.
 	      (or succeed
 		  (progn
-		    (delete-file tempname)
+		    (condition-case nil
+			(delete-file tempname)
+		      (file-error nil))
 		    (set-visited-file-modtime old-modtime))))
 	    ;; Since we have created an entirely new file
 	    ;; and renamed it, make sure it gets the
@@ -2775,6 +2784,7 @@ to consider it or not when called with that buffer current."
 	    (and save-abbrevs abbrevs-changed
 		 (progn
 		   (if (or arg
+			   (eq save-abbrevs 'silently)
 			   (y-or-n-p (format "Save abbrevs in %s? "
 					     abbrev-file-name)))
 		       (write-abbrev-file nil))

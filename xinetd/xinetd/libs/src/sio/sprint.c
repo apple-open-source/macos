@@ -48,35 +48,35 @@ static char S_NULL[S_NULL_LEN+1] = "(null)";
  *
  * NOTE: Evaluation of the c argument should not have any side-effects
  */
-#define INS_CHAR( c, sp, bep, odp, cc, fd )				\
-	{								\
-		if ( sp < bep )						\
-		{							\
-			*sp++ = c ;					\
-			cc++ ;						\
-		}							\
-		else							\
-		{							\
-			if ( fd >= 0 )					\
-			{						\
-				odp->nextb = sp ;			\
-				if ( __sio_writef( odp, fd ) != bep - odp->start )	\
-					return( ( cc != 0 ) ? cc : SIO_ERR ) ;		\
-				sp = odp->nextb ;			\
-				*sp++ = c ;				\
-				cc++ ;					\
-			}						\
-		}							\
-		if ( __SIO_MUST_FLUSH( *odp, c ) && fd >= 0 )		\
-		{							\
-			int b_in_buffer = sp - odp->start ;		\
-									\
-			odp->nextb = sp ;				\
-			if ( __sio_writef( odp, fd ) != b_in_buffer )	\
-				return( cc ) ;				\
-			sp = odp->nextb ;				\
-		}							\
-	}
+#define INS_CHAR( c, sp, bep, odp, cc, fd )			\
+{								\
+	if ( sp < bep )						\
+	{							\
+		*sp++ = c ;					\
+		cc++ ;						\
+	}							\
+	else							\
+	{							\
+		if ( fd >= 0 )					\
+		{						\
+			odp->nextb = sp ;			\
+			if ( __sio_writef( odp, fd ) != bep - odp->start ) \
+				return( ( cc != 0 ) ? cc : SIO_ERR ) ;	\
+			sp = odp->nextb ;			\
+			*sp++ = c ;				\
+			cc++ ;					\
+		}						\
+	}							\
+	if ( __SIO_MUST_FLUSH( *odp, c ) && fd >= 0 )		\
+	{							\
+		int b_in_buffer = sp - odp->start ;		\
+								\
+		odp->nextb = sp ;				\
+		if ( __sio_writef( odp, fd ) != b_in_buffer )	\
+			return( cc ) ;				\
+		sp = odp->nextb ;				\
+	}							\
+}
 
 
 

@@ -1,6 +1,7 @@
 /* Handle HP SOM shared libraries for GDB, the GNU Debugger.
-   Copyright 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2001
-   Free Software Foundation, Inc.
+
+   Copyright 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2001, 2002,
+   2003 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -38,7 +39,6 @@
 #include "gdb-stabs.h"
 #include "gdb_stat.h"
 #include "gdbcmd.h"
-#include "assert.h"
 #include "language.h"
 #include "regcache.h"
 
@@ -191,7 +191,7 @@ addr_and_unwind_t;
 /* When adding fields, be sure to clear them in _initialize_som_solib. */
 static struct
   {
-    boolean is_valid;
+    int is_valid;
     addr_and_unwind_t hook;
     addr_and_unwind_t hook_stub;
     addr_and_unwind_t load;
@@ -319,7 +319,7 @@ som_solib_add_solib_objfile (struct so_list *so, char *name, int from_tty,
 		       sizeof (obj_private_data_t));
       obj_private->unwind_info = NULL;
       obj_private->so_info = NULL;
-      so->objfile->obj_private = (PTR) obj_private;
+      so->objfile->obj_private = obj_private;
     }
 
   obj_private = (obj_private_data_t *) so->objfile->obj_private;
@@ -418,7 +418,8 @@ som_solib_add (char *arg_string, int from_tty, struct target_ops *target, int re
   int threshold_warning_given = 0;
 
   /* First validate our arguments.  */
-  if ((re_err = re_comp (arg_string ? arg_string : ".")) != NULL)
+  re_err = re_comp (arg_string ? arg_string : ".");
+  if (re_err != NULL)
     {
       error ("Invalid regexp: %s", re_err);
     }
